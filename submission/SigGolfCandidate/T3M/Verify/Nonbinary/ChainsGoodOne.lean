@@ -220,13 +220,13 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open SigGolfCandidate.T3
 set_option linter.unusedSimpArgs false
 namespace NCtx
-theorem kAt_eval (c : NCtx) (hc : c.ok) {s : MachineState} (h19 : s.getReg .x19 = BitVec.ofNat 64 c.S3) (i : Nat)
-    (hi : i < 54) (k : Nat) (hk : k ≤ 80) : (kAt .x19 (off i) k).eval s = BitVec.ofNat 64 (c.blk i + k) := by
+theorem kAt_eval (c : NCtx) (hc : c.ok) {s : MachineState} (h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3) (i : Nat)
+    (hi : i < 54) (k : Nat) (hk : k ≤ 80) : (kAt .x8 (off i) k).eval s = BitVec.ofNat 64 (c.blk i + k) := by
   simp only [kAt, Addr.eval, E.eval, h19]
   exact c.base_off hc i hi k hk
-theorem lAt_eval (c : NCtx) (hc : c.ok) {s : MachineState} (h19 : s.getReg .x19 = BitVec.ofNat 64 c.S3) (i : Nat)
+theorem lAt_eval (c : NCtx) (hc : c.ok) {s : MachineState} (h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3) (i : Nat)
     (hi : i < 54) (k : Nat) (hk : k ≤ 80) :
-    (lAt .x19 (off i) k).eval s = s.getMem (BitVec.ofNat 64 (c.blk i + k)) := by
+    (lAt .x8 (off i) k).eval s = s.getMem (BitVec.ofNat 64 (c.blk i + k)) := by
   simp only [lAt, E.eval, addC_eval, h19]
   rw [c.base_off hc i hi k hk]
 theorem header_load (c : NCtx) {s : MachineState} (i d : Nat)
@@ -249,29 +249,29 @@ theorem padHeader_at {c : NCtx} {s0 s : MachineState} (hc : c.ok) (h0 : c.Orig0 
     c.w.extractLsb' (8 * (c.blk i + 24 - 0x800)) 64 at ho
   rw [ho, padHeader, wdig_hi]
   rw [show c.blk i + 24 - 0x800 = c.blk i - 0x800 + 16 + 8 by omega]
-theorem copy_mem (c : NCtx) (hc : c.ok) {s : MachineState} (h19 : s.getReg .x19 = BitVec.ofNat 64 c.S3) (i : Nat)
+theorem copy_mem (c : NCtx) (hc : c.ok) {s : MachineState} (h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3) (i : Nat)
     (hi : i < 54) (A : Nat) (hA : A < 2 ^ 64) :
-    memEval s (copyMem .x19 (off i) (slot i)) (BitVec.ofNat 64 A) =
+    memEval s (copyMem .x8 (off i) (slot i)) (BitVec.ofNat 64 A) =
       if A = slot i + 8 then s.getMem (BitVec.ofNat 64 (c.blk i + 56))
       else if A = slot i then s.getMem (BitVec.ofNat 64 (c.blk i + 48)) else s.getMem (BitVec.ofNat 64 A) := by
   have hs := slot_props i hi
   unfold copyMem
   rw [memEval_two s _ _ _ _ (slot i + 8) (slot i) A rfl rfl (by omega) (by omega) hA,
     c.lAt_eval hc h19 i hi 56 (by omega), c.lAt_eval hc h19 i hi 48 (by omega)]
-theorem copy_obl (c : NCtx) (hc : c.ok) {s : MachineState} (h19 : s.getReg .x19 = BitVec.ofNat 64 c.S3) (i : Nat)
-    (hi : i < 54) : ∀ o ∈ copyObl .x19 (off i), o.holds s := by
+theorem copy_obl (c : NCtx) (hc : c.ok) {s : MachineState} (h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3) (i : Nat)
+    (hi : i < 54) : ∀ o ∈ copyObl .x8 (off i), o.holds s := by
   have hb := c.blk_props hc i hi
   simp only [copyObl, List.mem_cons, List.not_mem_nil, or_false]
   rintro o (rfl | rfl)
-  · show accessValid ((kAt .x19 (off i) 56).eval s) 8 = true
+  · show accessValid ((kAt .x8 (off i) 56).eval s) 8 = true
     rw [c.kAt_eval hc h19 i hi 56 (by omega)]; exact valid_ofNat _ _ (by omega) (by omega)
-  · show accessValid ((kAt .x19 (off i) 48).eval s) 8 = true
+  · show accessValid ((kAt .x8 (off i) 48).eval s) 8 = true
     rw [c.kAt_eval hc h19 i hi 48 (by omega)]; exact valid_ofNat _ _ (by omega) (by omega)
 theorem copy_post (c : NCtx) (hc : c.ok) {s0 s t : MachineState} (h0 : c.Orig0 s0) (i : Nat)
     (hi : i < 54) (acc : List Digest) (hlen : acc.length = i) (hF : Frame s0 s (c.Wr i))
     (hS : ∀ j < acc.length, DigAt s (slot j) (acc.getD j 0))
-    (h19 : s.getReg .x19 = BitVec.ofNat 64 c.S3)
-    (htm : ∀ A, A < 2 ^ 64 → t.getMem (BitVec.ofNat 64 A) = memEval s (copyMem .x19 (off i) (slot i)) (BitVec.ofNat 64 A)) :
+    (h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3)
+    (htm : ∀ A, A < 2 ^ 64 → t.getMem (BitVec.ofNat 64 A) = memEval s (copyMem .x8 (off i) (slot i)) (BitVec.ofNat 64 A)) :
     Frame s0 t (c.Wr (i + 1)) ∧ ∀ j < (acc ++ [c.val i]).length,
       DigAt t (slot j) ((acc ++ [c.val i]).getD j 0) := by
   have hb := c.blk_props hc i hi
@@ -306,16 +306,16 @@ theorem copy_post (c : NCtx) (hc : c.ok) {s0 s t : MachineState} (h0 : c.Orig0 s
 theorem copyN_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (h0 : c.Orig0 s0) (i : Nat) (hi : i < 54)
     (hp0 : c.startPc i < 210432)
-    (hrun : vrun (c.startPc i) 7 = some (copyN .x19 (off i) (slot i) (c.endPc i)))
+    (hrun : vrun (c.startPc i) 7 = some (copyN .x8 (off i) (slot i) (c.endPc i)))
     (acc : List Digest) (s : MachineState) (hs : c.ChainIn s0 i acc s) :
     ∃ t, Steps vimage s 5 5 t ∧ c.EndInv s0 i (acc ++ [c.val i]) t := by
   obtain ⟨⟨hR, hF, hS⟩, hlen, hpc⟩ := hs
   have kr : ∀ r v, (r, v) ∈ c.known → r ∉ chainRegs → s.getReg r = v := fun r v hm hn =>
     (hR r hn).trans (hk _ hm)
-  have h19 : s.getReg .x19 = BitVec.ofNat 64 c.S3 := kr _ _ (by simp [known]) (by decide)
-  set r := copyN .x19 (off i) (slot i) (c.endPc i) with hr
+  have h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3 := kr _ _ (by simp [known]) (by decide)
+  set r := copyN .x8 (off i) (slot i) (c.endPc i) with hr
   have hst := piece_steps45 hrun hp0 s hpc (by simpa [hr, copyN] using c.copy_obl hc h19 i hi)
-  have hkeep := copyN_keeps .x19 (off i) (slot i) (c.endPc i)
+  have hkeep := copyN_keeps .x8 (off i) (slot i) (c.endPc i)
   obtain ⟨hF', hS'⟩ := c.copy_post (t := r.toState s) hc h0 i hi acc hlen hF hS h19
     (fun A _ => by rw [Result.toState_getMem]; rfl)
   refine ⟨r.toState s, hst, ⟨⟨fun x hx => (hkeep.reg s (LCtx.not_mem_sub hx (by decide))).trans (hR x hx), hF', hS'⟩,
@@ -324,16 +324,16 @@ theorem copyN_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
 theorem copyFH_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (h0 : c.Orig0 s0) (i : Nat) (hi : i < 54) (hp0 : c.startPc i < 210432)
     (hend : c.startPc i + 4 = c.endPc i)
-    (hrun : vrun (c.startPc i) 4 = some (copyFH .x19 (off i) (slot i) (c.startPc i)))
+    (hrun : vrun (c.startPc i) 4 = some (copyFH .x8 (off i) (slot i) (c.startPc i)))
     (acc : List Digest) (s : MachineState) (hs : c.ChainIn s0 i acc s) :
     ∃ t, Steps vimage s 4 4 t ∧ c.EndInv s0 i (acc ++ [c.val i]) t := by
   obtain ⟨⟨hR, hF, hS⟩, hlen, hpc⟩ := hs
   have kr : ∀ r v, (r, v) ∈ c.known → r ∉ chainRegs → s.getReg r = v := fun r v hm hn =>
     (hR r hn).trans (hk _ hm)
-  have h19 : s.getReg .x19 = BitVec.ofNat 64 c.S3 := kr _ _ (by simp [known]) (by decide)
-  set r := copyFH .x19 (off i) (slot i) (c.startPc i) with hr
+  have h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3 := kr _ _ (by simp [known]) (by decide)
+  set r := copyFH .x8 (off i) (slot i) (c.startPc i) with hr
   have hst := piece_steps45 hrun hp0 s hpc (by simpa [hr, copyFH] using c.copy_obl hc h19 i hi)
-  have hkeep := copyFH_keeps .x19 (off i) (slot i) (c.startPc i)
+  have hkeep := copyFH_keeps .x8 (off i) (slot i) (c.startPc i)
   obtain ⟨hF', hS'⟩ := c.copy_post (t := r.toState s) hc h0 i hi acc hlen hF hS h19
     (fun A _ => by rw [Result.toState_getMem]; rfl)
   refine ⟨r.toState s, hst, ⟨⟨fun x hx => (hkeep.reg s (LCtx.not_mem_sub hx (by decide))).trans (hR x hx), hF', hS'⟩,
@@ -364,7 +364,7 @@ namespace NCtx
 theorem headJ_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (h0 : c.Orig0 s0) (i : Nat) (hi : i < 54) (hd : c.dig i < last i)
     (hp0 : c.startPc i < 210432) (hp1 : c.rungPc i (c.dig i) + 1 < 210432)
-    (hrun1 : vrun (c.startPc i) 7 = some (headJD .x19 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i)))
+    (hrun1 : vrun (c.startPc i) 7 = some (headJD .x8 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i)))
     (hrun2 : vrun (c.rungPc i (c.dig i) + 1) 2 =
       some (tailR (if c.dig i = last i then some (slot i) else none) (c.rungPc i (c.dig i) + 1)))
     (acc : List Digest) (s : MachineState) (hs : c.ChainIn s0 i acc s) :
@@ -376,19 +376,19 @@ theorem headJ_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
   have hlastEq : last i + 1 = topMax i := by unfold last; omega
   have kr : ∀ r v, (r, v) ∈ c.known → r ∉ chainRegs → s.getReg r = v := fun r v hm hn =>
     (hR r hn).trans (hk _ hm)
-  have h19 : s.getReg .x19 = BitVec.ofNat 64 c.S3 := kr _ _ (by simp [known]) (by decide)
+  have h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3 := kr _ _ (by simp [known]) (by decide)
   have keyE := c.kAt_eval hc h19 i hi
   have htable := c.header_load i (c.dig i) (kr _ _ (by simp [known]) (by decide))
-  set r := headJD .x19 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i) with hr
+  set r := headJD .x8 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i) with hr
   have hobl : ∀ o ∈ r.st.obl, o.holds s := by
     simp only [hr, headJD, List.mem_cons, List.not_mem_nil, or_false]
     rintro o rfl
-    show accessValid ((kAt .x19 (off i) 16).eval s) 8 = true
+    show accessValid ((kAt .x8 (off i) 16).eval s) 8 = true
     rw [keyE 16 (by omega)]; exact valid_ofNat _ _ (by omega) (by omega)
   have hst1 := piece_steps45 hrun1 hp0 s hpc hobl
   set t1 := r.toState s with ht1
-  have hkeep := headJD_keeps .x19 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i)
-  have a0e : (addC (E.reg .x19) (off i)).eval s = BitVec.ofNat 64 (c.blk i) := by
+  have hkeep := headJD_keeps .x8 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i)
+  have a0e : (addC (E.reg .x8) (off i)).eval s = BitVec.ofNat 64 (c.blk i) := by
     rw [addC_eval]; simp only [E.eval, h19]; exact c.base_off0 hc i hi
   have t10 : t1.getReg .x10 = BitVec.ofNat 64 (c.blk i) := by
     rw [ht1, Result.toState_getReg]; simp only [hr, headJD]
@@ -442,7 +442,7 @@ theorem headJ_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
 theorem headJTerm_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (h0 : c.Orig0 s0) (i : Nat) (hi : i < 54) (hd : c.dig i = last i)
     (hp0 : c.startPc i < 210432) (hp1 : c.rungPc i (c.dig i) + 1 < 210432)
-    (hrun1 : vrun (c.startPc i) 7 = some (headJDTerm .x19 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i)))
+    (hrun1 : vrun (c.startPc i) 7 = some (headJDTerm .x8 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i)))
     (hrun2 : vrun (c.rungPc i (c.dig i) + 1) 2 =
       some (tailR (if c.dig i = last i then some (slot i) else none) (c.rungPc i (c.dig i) + 1)))
     (acc : List Digest) (s : MachineState) (hs : c.ChainIn s0 i acc s) :
@@ -454,19 +454,19 @@ theorem headJTerm_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p �
   have hlastEq : last i + 1 = topMax i := by unfold last; omega
   have kr : ∀ r v, (r, v) ∈ c.known → r ∉ chainRegs → s.getReg r = v := fun r v hm hn =>
     (hR r hn).trans (hk _ hm)
-  have h19 : s.getReg .x19 = BitVec.ofNat 64 c.S3 := kr _ _ (by simp [known]) (by decide)
+  have h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3 := kr _ _ (by simp [known]) (by decide)
   have keyE := c.kAt_eval hc h19 i hi
   have htable := c.header_load i (c.dig i) (kr _ _ (by simp [known]) (by decide))
-  set r := headJDTerm .x19 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i) with hr
+  set r := headJDTerm .x8 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i) with hr
   have hobl : ∀ o ∈ r.st.obl, o.holds s := by
     simp only [hr, headJDTerm, List.mem_cons, List.not_mem_nil, or_false]
     rintro o rfl
-    show accessValid ((kAt .x19 (off i) 16).eval s) 8 = true
+    show accessValid ((kAt .x8 (off i) 16).eval s) 8 = true
     rw [keyE 16 (by omega)]; exact valid_ofNat _ _ (by omega) (by omega)
   have hst1 := piece_steps45 hrun1 hp0 s hpc hobl
   set t1 := r.toState s with ht1
-  have hkeep := headJDTerm_keeps .x19 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i)
-  have a0e : (addC (E.reg .x19) (off i)).eval s = BitVec.ofNat 64 (c.blk i) := by
+  have hkeep := headJDTerm_keeps .x8 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i)
+  have a0e : (addC (E.reg .x8) (off i)).eval s = BitVec.ofNat 64 (c.blk i) := by
     rw [addC_eval]; simp only [E.eval, h19]; exact c.base_off0 hc i hi
   have t10 : t1.getReg .x10 = BitVec.ofNat 64 (c.blk i) := by
     rw [ht1, Result.toState_getReg]; simp only [hr, headJDTerm]
@@ -528,7 +528,7 @@ namespace NCtx
 theorem headR_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (h0 : c.Orig0 s0) (i : Nat) (hi : i < 54) (hd : c.dig i < last i)
     (hp0 : c.startPc i < 210432) (hrp : c.rungPc i (c.dig i) = c.startPc i + 3)
-    (hrun : vrun (c.startPc i) 8 = some (headRH .x19 (off i) (c.dig i) none (c.startPc i) i))
+    (hrun : vrun (c.startPc i) 8 = some (headRH .x8 (off i) (c.dig i) none (c.startPc i) i))
     (acc : List Digest) (s : MachineState) (hs : c.ChainIn s0 i acc s) :
     ∃ t, Steps vimage s 4 4 t ∧ c.PreHash s0 i acc (c.dig i) (c.val i) t := by
   obtain ⟨⟨hR, hF, hS⟩, hlen, hpc⟩ := hs
@@ -539,21 +539,21 @@ theorem headR_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
   have hs := slot_props i hi
   have kr : ∀ r v, (r, v) ∈ c.known → r ∉ chainRegs → s.getReg r = v := fun r v hm hn =>
     (hR r hn).trans (hk _ hm)
-  have h19 : s.getReg .x19 = BitVec.ofNat 64 c.S3 := kr _ _ (by simp [known]) (by decide)
+  have h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3 := kr _ _ (by simp [known]) (by decide)
   have keyE := c.kAt_eval hc h19 i hi
   have htable := c.header_load i (c.dig i) (kr _ _ (by simp [known]) (by decide))
-  set r := headRH .x19 (off i) (c.dig i) none (c.startPc i) i with hr
+  set r := headRH .x8 (off i) (c.dig i) none (c.startPc i) i with hr
   have hobl : ∀ o ∈ r.st.obl, o.holds s := by
     simp only [hr, headRH, List.mem_cons, List.not_mem_nil, or_false]
     rintro o rfl
-    show accessValid ((kAt .x19 (off i) 16).eval s) 8 = true
+    show accessValid ((kAt .x8 (off i) 16).eval s) 8 = true
     rw [keyE 16 (by omega)]; exact valid_ofNat _ _ (by omega) (by omega)
   have hst := piece_steps45 hrun hp0 s hpc hobl
   have hec := piece_ecall45 hrun hp0 s hobl (by simp [hr, headRH])
   have hn : r.steps = 4 ∧ r.cycles = 4 := ⟨rfl, rfl⟩
   rw [hn.1, hn.2] at hst
-  have hkeep := headRH_keeps .x19 (off i) (c.dig i) none (c.startPc i) i
-  have a0e : (addC (E.reg .x19) (off i)).eval s = BitVec.ofNat 64 (c.blk i) := by
+  have hkeep := headRH_keeps .x8 (off i) (c.dig i) none (c.startPc i) i
+  have a0e : (addC (E.reg .x8) (off i)).eval s = BitVec.ofNat 64 (c.blk i) := by
     rw [addC_eval]; simp only [E.eval, h19]; exact c.base_off0 hc i hi
   have tmem : ∀ A, A < 2 ^ 64 → (r.toState s).getMem (BitVec.ofNat 64 A) =
       if A = c.blk i + 16 then BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * c.dig i)
@@ -597,7 +597,7 @@ theorem headRTerm_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p �
     (h0 : c.Orig0 s0) (i : Nat) (hi : i < 54) (hd : c.dig i = last i)
     (hp0 : c.startPc i < 210432) (hrp : c.rungPc i (c.dig i) = c.startPc i + 2)
     (hrun : vrun (c.startPc i) 8 =
-      some (headRHT .x19 (off i) (c.dig i) (slot i) (c.startPc i) i))
+      some (headRHT .x8 (off i) (c.dig i) (slot i) (c.startPc i) i))
     (acc : List Digest) (s : MachineState) (hs : c.ChainIn s0 i acc s) :
     ∃ t, Steps vimage s 4 4 t ∧
       c.PreHash s0 i acc (c.dig i) (c.val i) t := by
@@ -609,21 +609,21 @@ theorem headRTerm_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p �
   have hs := slot_props i hi
   have kr : ∀ r v, (r, v) ∈ c.known → r ∉ chainRegs → s.getReg r = v := fun r v hm hn =>
     (hR r hn).trans (hk _ hm)
-  have h19 : s.getReg .x19 = BitVec.ofNat 64 c.S3 := kr _ _ (by simp [known]) (by decide)
+  have h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3 := kr _ _ (by simp [known]) (by decide)
   have keyE := c.kAt_eval hc h19 i hi
   have htable := c.header_load i (c.dig i) (kr _ _ (by simp [known]) (by decide))
-  set r := headRHT .x19 (off i) (c.dig i) (slot i) (c.startPc i) i with hr
+  set r := headRHT .x8 (off i) (c.dig i) (slot i) (c.startPc i) i with hr
   have hobl : ∀ o ∈ r.st.obl, o.holds s := by
     simp only [hr, headRHT, headRH, List.mem_cons, List.not_mem_nil, or_false]
     rintro o rfl
-    show accessValid ((kAt .x19 (off i) 16).eval s) 8 = true
+    show accessValid ((kAt .x8 (off i) 16).eval s) 8 = true
     rw [keyE 16 (by omega)]; exact valid_ofNat _ _ (by omega) (by omega)
   have hst := piece_steps45 hrun hp0 s hpc hobl
   have hec := piece_ecall45 hrun hp0 s hobl (by simp [hr, headRHT, headRH])
   have hn : r.steps = 4 ∧ r.cycles = 4 := ⟨rfl, rfl⟩
   rw [hn.1, hn.2] at hst
-  have hkeep := headRHT_keeps .x19 (off i) (c.dig i) (slot i) (c.startPc i) i
-  have a0e : (addC (E.reg .x19) (off i)).eval s = BitVec.ofNat 64 (c.blk i) := by
+  have hkeep := headRHT_keeps .x8 (off i) (c.dig i) (slot i) (c.startPc i) i
+  have a0e : (addC (E.reg .x8) (off i)).eval s = BitVec.ofNat 64 (c.blk i) := by
     rw [addC_eval]; simp only [E.eval, h19]; exact c.base_off0 hc i hi
   have tmem : ∀ A, A < 2 ^ 64 → (r.toState s).getMem (BitVec.ofNat 64 A) =
       if A = c.blk i + 16 then BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * c.dig i)
