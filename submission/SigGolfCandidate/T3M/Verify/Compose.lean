@@ -628,7 +628,7 @@ end FCtx
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
-def layerPc : Nat := 589
+def layerPc : Nat := 590
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
@@ -641,9 +641,8 @@ structure FtsOut (F : FCtx) (root : Digest) (u : MachineState) : Prop where
   wit : Orig F.w (fun o => o < 64 ∨ 9288 ≤ o) u
   a2 : u.getReg .x12 = BitVec.ofNat 64 0x100
   s10 : u.getReg .x26 = 6
-  topBase : u.getReg .x28 = BitVec.ofNat 64 TOPBASE
-  top : ∀ k, k < 4 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
-    BitVec.ofNat 64 (dataWords.getD (k + 1) 0)
+  heapOne : u.getReg .x7 = 1
+  heapTwo : u.getReg .x13 = 2
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
@@ -708,8 +707,8 @@ def lCyc : Nat → Nat
 def lFuel : Nat → Nat
   | 0 => 9
   | n + 1 => layerFuel n + mkFuel n + lFuel n
-theorem lCyc_4 : lCyc 4 = 5692 := by decide
-theorem lFuel_4 : lFuel 4 = 7991 := by decide
+theorem lCyc_4 : lCyc 4 = 5690 := by decide
+theorem lFuel_4 : lFuel 4 = 7989 := by decide
 theorem layers_good (w : WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^ 31) (Q : Prop) (hQ : Q) :
     ∀ n, n ≤ 4 → ∀ msg s, RestIn w pk index n msg s →
       GoodQ s (lFuel n) (lCyc n) Q (lCyc n) (ccM (BC.layerLoop w index n msg) (kFin pk)) := by
@@ -745,10 +744,9 @@ theorem layers_good (w : WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^
     exact hg.mono (by simp only [lFuel]; omega) (by simp only [lCyc]; omega) (fun q => ⟨q, by simp only [lCyc]; omega⟩)
 theorem after_good (pk : Digest) (w : WBytes) (Q : Prop) (hQ : Q) (a : HashOutput) (root : Digest) (u : MachineState)
     (h : FtsOut ⟨pk, w, a⟩ root u) :
-    GoodQ u 8050 8050 Q 5697 (ccM (afterFts pk w (a.toNat % 2 ^ 31) (some root)) Kb) := by
+    GoodQ u 8050 8050 Q 5696 (ccM (afterFts pk w (a.toNat % 2 ^ 31) (some root)) Kb) := by
   have hidx : a.toNat % 2 ^ 31 < 2 ^ 31 := Nat.mod_lt _ (by decide)
-  obtain ⟨t, hst, hL3⟩ := layerIn_of_fts w pk _ root u hidx h.glob h.idx h.pc h.root h.wit h.a2 h.s10
-    h.topBase h.top
+  obtain ⟨t, hst, hL3⟩ := layerIn_of_fts w pk _ root u hidx h.glob h.idx h.pc h.root h.wit h.a2 h.s10 h.heapOne h.heapTwo
   have hg := layers_good w pk _ hidx Q hQ 4 le_rfl (.forest root) t (by simpa [RestIn] using hL3)
   have e : ccM (afterFts pk w (a.toNat % 2 ^ 31) (some root)) Kb =
       ccM (BC.layerLoop w (a.toNat % 2 ^ 31) 4 (.forest root)) (kFin pk) := by

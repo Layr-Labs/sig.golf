@@ -20,9 +20,7 @@ def gateE : E := .bin .sltu
 def idxE : E := .bin .srl (.reg .x22) (.c (BitVec.ofNat 64 33))
 def gJump : Result := ⟨SymState.init, .c (pcOf 24), .jump, 1, 1⟩
 def gCheck : Result :=
-  ⟨⟨((RegFile.init.set .x3
-    (.bin .srl (.bin .sll (.ld (.c (BitVec.ofNat 64 120))) (.c 8)) (.c 50))).set .x7 gateE).set
-    .x22 (.bin .sll (.reg .x16) (.c (BitVec.ofNat 64 33))), [], []⟩,
+  ⟨⟨((RegFile.init.set .x3 (.bin .srl (.bin .sll (.ld (.c (BitVec.ofNat 64 120))) (.c 8)) (.c 50))).set .x7 gateE).set .x22 (.bin .sll (.reg .x16) (.c (BitVec.ofNat 64 33))), [], []⟩,
     .ite .ne gateE (.c 0) (.c (pcOf 31)) (.c (pcOf 22)), .branch, 6, 6⟩
 def gSetup : Result :=
   ⟨⟨(((((((((((((((RegFile.init).set .x2 (.c (BitVec.ofNat 64 0xfffc))).set .x6 (.c 65536)).set .x8 (.bin .add (.reg .x18) (.c (BitVec.ofNat 64 (2 ^ 64 - 1983))))).set .x13 (.c 2)).set .x15 (.bin .sll idxE (.c 27))).set .x17 (.bin .sll idxE (.c 32))).set .x19 (.c 3)).set .x20 (.c 4)).set .x21 (.c 5)).set .x22 (idxE)).set .x24 (.ld (addC (.reg .x2) 488))).set .x26 (.c 6)).set .x28 (.ld (addC (.reg .x2) 496))).set .x29 (.ld (addC (.reg .x2) 480))).set .x30 (.c 7), [],
@@ -220,7 +218,7 @@ theorem gate_good (pk : Digest) (w : WBytes) (a : HashOutput)
         pairs := fun i hi => absurd hi (Nat.not_lt_zero _), coords := ?_, layer := ?_ }
       · intro k hk; rw [e3]; exact hu.digest k hk
       · exact ⟨fun k => (e3 _).trans (hu.bank.node k),
-          fun k => (e3 _).trans (hu.bank.leaf k), fun k hk => (e3 _).trans (hu.bank.top k hk)⟩
+          fun k => (e3 _).trans (hu.bank.leaf k)⟩
       · rw [hs3, Result.toState_getReg]; exact hidx
       · intro h h2 h7
         interval_cases h <;> rfl

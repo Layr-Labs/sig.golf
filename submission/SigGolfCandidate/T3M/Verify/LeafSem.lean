@@ -240,9 +240,9 @@ open SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput Layer route height chainCount counterLimit decode encodingInput target
   dataDigits pad64)
 def keepLfAll (lay : Nat) : List Reg :=
-  if lay = 0 then [.x1, .x2, .x6, .x7, .x8, .x9, .x12, .x13, .x16, .x17, .x19, .x20, .x21, .x22, .x23,
+  if lay = 0 then [.x1, .x2, .x7, .x13, .x8, .x9, .x12, .x6, .x16, .x17, .x19, .x20, .x21, .x22, .x23,
     .x24, .x25, .x26, .x28, .x29, .x30, .x31]
-  else [.x1, .x2, .x7, .x8, .x9, .x12, .x13, .x16, .x17, .x19, .x20, .x21, .x22, .x23,
+  else [.x1, .x2, .x13, .x8, .x9, .x12, .x6, .x16, .x17, .x19, .x20, .x21, .x22, .x23,
     .x24, .x25, .x26, .x29, .x30, .x31] ++ (if lay = 1 then [] else [.x28])
 def leafCheck (lay p : Nat) : Bool :=
   specB [] [] baseK (runAt (leafK lay) [] (p + retOff lay) (lfDirs lay)) (specLf lay) [] (postLf lay) (keepLfAll lay)
@@ -271,7 +271,7 @@ def lfSlot (lay j : Nat) : Nat := if lay = 0 then slotT j else slotL j
 def stabBits (lay : Nat) : Nat := if lay = 1 then 7 else 6
 def lfSteps (lay : Nat) : Nat := if lay = 0 then 12 else if lay = 1 then 10 else 9
 def lfKeepK (lay : Nat) : List (Reg × Word) :=
-  [(.x2, 0x3fe00), (.x6, 1), (.x7, 2), (.x8, 3), (.x9, 4), (.x13, 5), (.x26, 6),
+  [(.x2, 0x3fe00), (.x7, 1), (.x13, 2), (.x8, 3), (.x9, 4), (.x6, 5), (.x26, 6),
    (.x31, 7), (.x22, BitVec.ofNat 64 (s6v lay))] ++
   (if lay = 1 then [(.x28, BitVec.ofNat 64 (lfT3 lay))] else []) ++
   (if lay = 0 then [] else [(.x20, BitVec.ofNat 64 M1c), (.x21, BitVec.ofNat 64 M2c), (.x24, 0x10000),
@@ -417,7 +417,7 @@ theorem leafL_step (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay 
     · rw [hR .x5 (by simp [chainRegs])]; exact hkL (_, _) (by simp [chainK, baseK])
     · rw [hR .x18 (by simp [chainRegs])]; exact hkL (_, _) (by simp [chainK, baseK])
     · rw [hR .x27 (by simp [chainRegs])]; exact hkL (_, _) (by simp [chainK])
-    · rw [hR .x6 (by simp [chainRegs])]; exact hkL (_, _) (by simp [chainK])
+    · rw [hR .x7 (by simp [chainRegs])]; exact hkL (_, _) (by simp [chainK])
     · rw [hR .x15 (by simp [chainRegs])]; exact hk (.x15, 0x6e000) (by simp [LCtx.known])
   obtain ⟨u, hu⟩ := spec_run (leafCheck_at lay.val c lay.isLt hc) t (by rw [hpc]; rfl) hknown
     (by intro b hb; simp [specLf, h0] at hb) (by simp)
@@ -462,7 +462,7 @@ theorem leafL_step (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay 
         hk (.x22, BitVec.ofNat 64 L.S6) (by simp [LCtx.known])
       have m28 : lay.val = 1 → ((.x28 : Reg), BitVec.ofNat 64 (lfT3 lay.val)) ∈ postLf lay.val := by
         intro h1; simp [postLf, lfT3, h1]
-      have m6 : ((.x6 : Reg), (1 : Word)) ∈ postLf lay.val := by
+      have m6 : ((.x7 : Reg), (1 : Word)) ∈ postLf lay.val := by
         simp [postLf, leafK, h0]
       simp only [lfKeepK, if_neg h0, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hp
       rcases hp with ((rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl) | hp) | (rfl | rfl | rfl | rfl)
