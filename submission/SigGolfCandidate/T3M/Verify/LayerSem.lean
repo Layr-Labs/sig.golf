@@ -672,11 +672,11 @@ theorem lctxOf_known (w : WBytes) (index : Nat) (lay : Layer) (a : BitVec 256) (
   refine knownOK_eighteen s ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · exact knownOK_at _ s 0 (.x5, 0) hk rfl
   · exact knownOK_at _ s 7 (.x11, 64) hk rfl
-  · exact knownOK_at _ s 8 (.x6, 1) hk rfl
-  · exact knownOK_at _ s 9 (.x7, 2) hk rfl
+  · exact knownOK_at _ s 8 (.x7, 1) hk rfl
+  · exact knownOK_at _ s 9 (.x13, 2) hk rfl
   · exact knownOK_at _ s 10 (.x8, 3) hk rfl
   · exact knownOK_at _ s 11 (.x9, 4) hk rfl
-  · exact knownOK_at _ s 12 (.x13, 5) hk rfl
+  · exact knownOK_at _ s 12 (.x21, 5) hk rfl
   · exact knownOK_at _ s 13 (.x26, 6) hk rfl
   · exact ofNat64_add_zero_bridge _ _ h28
   · exact knownOK_at _ s 4 (.x2, 0x3fe00) hk rfl
