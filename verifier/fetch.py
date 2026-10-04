@@ -114,7 +114,7 @@ def fetch_pr(repository: str, number: int, commit: str, destination: Path) -> st
                 raise FetchError(f"{path}: file exceeds 8 MiB")
             sizes.append(size)
         if sum(sizes) > MAX_TOTAL_BYTES:
-            raise FetchError("submission exceeds 16 MiB")
+            raise FetchError("submission exceeds 32 MiB")
         destination.mkdir(parents=True)
         for (path, oid), size in zip(selected, sizes):
             output = destination / path
