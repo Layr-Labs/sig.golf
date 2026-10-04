@@ -180,7 +180,7 @@ structure EncPre (w : WBytes) (pk : Digest) (index lay c : Nat)
   s7 : ∀ L : Layer, L.val = lay →
     t.getReg .x23 = BitVec.ofNat 64 (2 ^ hL lay + (route index L).1)
   t5 : ∀ L : Layer, L.val = lay → lay ≠ 0 →
-    t.getReg .x30 = BitVec.ofNat 64 (route index L).2
+    t.getReg .x31 = BitVec.ofNat 64 (route index L).2
   orig : Verify.Orig w (fun o => 9288 ≤ o ∧ o < layerEnd lay) t
   hdr3 : lay = 3 → t.getMem (BitVec.ofNat 64 (TOPLOAD + 32)) = BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + 3 * 2 ^ 48)
 def rejectSteps (lay : Nat) : Nat := stepsA lay + if lay = 3 then 1 else 2
@@ -263,7 +263,7 @@ theorem route_evals (index : Nat) (lay : Layer) (hidx : index < 2 ^ 31) (s : Mac
       have hl0 : lay = 0 := Fin.ext h0
       subst hl0
       simp only [E.eval]
-      rw [show rReg (0 : Layer).val = .x30 from rfl] at h
+      rw [show rReg (0 : Layer).val = .x31 from rfl] at h
       rw [h]; congr 1
       simp only [show below (0 : Layer).val = 19 from rfl, show hL (0 : Layer).val = 12 from rfl]
       rw [Nat.mod_eq_of_lt (by omega)]
@@ -581,7 +581,7 @@ theorem packedRouteE_eval (lay : Layer) (tree leaf : Nat) (s : MachineState)
     (ht : tree < 2 ^ 32) (hl : leaf < 2 ^ height lay)
     (hr : tree * 2 ^ height lay + leaf < 2 ^ 32)
     (h4 : s.getReg .x4 = BitVec.ofNat 64 (hdr1 tree leaf))
-    (h30 : s.getReg .x30 = BitVec.ofNat 64 tree)
+    (h30 : s.getReg .x31 = BitVec.ofNat 64 tree)
     (hP : s.getMem (BitVec.ofNat 64 (hdrA lay.val)) = BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + lay.val * 2 ^ 48)) :
     (packedRouteE lay.val).eval s = BitVec.ofNat 64 (packedPrefix lay tree leaf) := by
   have hh : height lay ≤ 12 := by rw [← hL_eq]; exact (hL_le lay).2
@@ -672,11 +672,11 @@ theorem lctxOf_known (w : WBytes) (index : Nat) (lay : Layer) (a : BitVec 256) (
   refine knownOK_eighteen s ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · exact knownOK_at _ s 0 (.x5, 0) hk rfl
   · exact knownOK_at _ s 7 (.x11, 64) hk rfl
-  · exact knownOK_at _ s 8 (.x6, 1) hk rfl
-  · exact knownOK_at _ s 9 (.x7, 2) hk rfl
-  · exact knownOK_at _ s 10 (.x8, 3) hk rfl
-  · exact knownOK_at _ s 11 (.x9, 4) hk rfl
-  · exact knownOK_at _ s 12 (.x13, 5) hk rfl
+  · exact knownOK_at _ s 8 (.x7, 1) hk rfl
+  · exact knownOK_at _ s 9 (.x13, 2) hk rfl
+  · exact knownOK_at _ s 10 (.x19, 3) hk rfl
+  · exact knownOK_at _ s 11 (.x20, 4) hk rfl
+  · exact knownOK_at _ s 12 (.x21, 5) hk rfl
   · exact knownOK_at _ s 13 (.x26, 6) hk rfl
   · exact ofNat64_add_zero_bridge _ _ h28
   · exact knownOK_at _ s 4 (.x2, 0x3fe00) hk rfl
@@ -699,7 +699,7 @@ theorem encB_step (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay :
         (lctxOf w index lay a (trPc lay.val c)).ChainIn s0 0 [] s0 ∧ Glob (chainK lay.val) w pk s0 ∧
         Verify.Orig w (fun o => 9288 ≤ o ∧ o < layerEnd lay.val) s0 ∧
         s0.getReg .x23 = BitVec.ofNat 64 (2 ^ hL lay.val + (route index lay).1) ∧
-        s0.getReg .x30 = BitVec.ofNat 64 (route index lay).2) := by
+        s0.getReg .x31 = BitVec.ofNat 64 (route index lay).2) := by
   set u := writeHash t a with hu
   have hcc := copy_parts lay.val (trPc lay.val c) (BC.copyCheck_at lay.val c lay.isLt hc)
   have hB := (hcc.2.2.2.1 (fun h => hlay (Fin.ext h)))
@@ -839,7 +839,7 @@ theorem encB_step (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay :
       unfold WIT
       fin_cases lay <;> simp [s6v, layerEnd] <;> omega
     · rw [hkeep .x23 (by simp [keepB]), hu, writeHash_getReg, ht.s7 lay rfl]
-    · rw [hkeep .x30 (by simp [keepB]), hu, writeHash_getReg, ht.t5 lay rfl (fun h => hlay (Fin.ext h))]
+    · rw [hkeep .x31 (by simp [keepB]), hu, writeHash_getReg, ht.t5 lay rfl (fun h => hlay (Fin.ext h))]
 end SigGolfCandidate.T3M
 namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp

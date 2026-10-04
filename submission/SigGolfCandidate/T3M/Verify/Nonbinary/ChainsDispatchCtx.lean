@@ -34,7 +34,7 @@ theorem dispatch_step {p q : Nat} (hq : q<17) (hp : p<210432)
     (hrun : vrun p 5=some (dispatchR q)) (s : MachineState) (v : Digest)
     (hpc : s.pc=pcOf p) (h16 : s.getReg .x16=v.extractLsb' 0 64)
     (h17 : s.getReg .x17=v.extractLsb' 63 64)
-    (h24 : s.getReg .x24=130048#64) (h15 : s.getReg .x15=712704#64) :
+    (h24 : s.getReg .x6=130048#64) (h15 : s.getReg .x15=712704#64) :
     ∃t, Steps Images.verifyImage s 4 4 t ∧ t.pc=pcOf (entW q (Search.topRank v q)) ∧
       RegsExcept s t [.x14] ∧ Frame s t (fun _ => False) := by
   have hW : s.getReg (if q<9 then .x16 else .x17)=sourceWord v q := by
@@ -42,7 +42,7 @@ theorem dispatch_step {p q : Nat} (hq : q<17) (hp : p<210432)
     split_ifs <;> assumption
   have hb : sourceBit q<64 := by unfold sourceBit;split_ifs <;> omega
   refine ⟨(dispatchR q).toState s,piece_steps45 hrun hp s hpc (by simp [dispatchR]),?_,?_,?_⟩
-  · change (((shift10 (if q<9 then .x16 else .x17) (sourceBit q)).eval s &&& s.getReg .x24)+
+  · change (((shift10 (if q<9 then .x16 else .x17) (sourceBit q)).eval s &&& s.getReg .x6)+
       s.getReg .x15+(BitVec.ofNat 64 (32*q)+18446744073709549984#64)) &&& ~~~1#64=pcOf (entW q (Search.topRank v q))
     rw [h24,h15,dispatch_window,shift10_eval s _ _ hW _ hb,dispatch_target _ _ q hb hq,source_field v q hq]
   · intro r hr
@@ -194,7 +194,7 @@ structure Encoded (v : Digest) (s : MachineState) : Prop where
   lo : s.getReg .x16=v.extractLsb' 0 64
   hi : s.getReg .x17=v.extractLsb' 63 64
   tail : s.getReg .x29=BitVec.ofNat 64 (v.toNat/2^119)
-  mask : s.getReg .x24=130048#64
+  mask : s.getReg .x6=130048#64
   table : s.getReg .x15=712704#64
 theorem dispatch_at (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<18) :
     vrun (c.endPc (3*q+2)) 5=some (if q<16 then dispatchR (q+1) else if q=16 then tailDispatchR else retR) := by
