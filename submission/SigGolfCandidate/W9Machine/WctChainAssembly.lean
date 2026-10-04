@@ -14,6 +14,9 @@ section
 namespace W9Machine
 set_option maxRecDepth 10000
 open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
+-- WCT-only lower-page addressing; generic Verify.hOff remains unchanged.
+def hOff (i d : Nat) : Word := BitVec.ofNat 64 (1536 + 64 * i + 8 * d)
+def hKey (i d : Nat) : Addr := ⟨some (.reg .x28), hOff i d⟩
 def hLoad (i d : Nat) : E := .ld (addC (.reg .x28) (hOff i d))
 theorem leafSetup_keeps : Keeps leafSetupRel [.x25, .x10, .x11] := by
   intro r hr
@@ -84,14 +87,16 @@ set_option maxRecDepth 10000
 open SigGolfCandidate.Legacy.Riscv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify SigGolfCandidate.Rv RiscvZkvm.Rv64
 theorem hKey_relative (s : MachineState) (H chain digit : Nat)
-    (h28 : s.getReg .x28 = BitVec.ofNat 64 (H + 2048))
-    (hH : H + 4096 < 2 ^ 64) (hc : chain < 8) (hd : digit < 3) :
+    (h28 : s.getReg .x28 = BitVec.ofNat 64 (H - 1536))
+    (hH : H + 4096 < 2 ^ 64) (hc : chain < 8) (hd : digit < 3) (hbase : 1536 ≤ H) :
     (hKey chain digit).eval s = BitVec.ofNat 64 (H + 64 * chain + 8 * digit) := by
   simp only [hKey, Addr.eval, E.eval, h28, hOff]
-  convert ofNat_add_off0 (H + 2048) (64 * chain + 8 * digit) 2048 (by omega) (by omega) using 1 <;> congr 1; omega
+  rw [ofNat_add_ofNat]
+  congr 1
+  omega
 theorem headRHRel_obligations (s : MachineState) (B H off dst pc chain digit : Nat)
     (h8 : s.getReg .x8 = BitVec.ofNat 64 B)
-    (h28 : s.getReg .x28 = BitVec.ofNat 64 (H + 2048))
+    (h28 : s.getReg .x28 = BitVec.ofNat 64 (H - 1536))
     (hB : B + 1024 ≤ 2 ^ 24) (hH : H + 1024 ≤ 2 ^ 24)
     (haB : B % 8 = 0) (haH : H % 8 = 0) (hao : off % 8 = 0)
     (ho : off + 64 ≤ 1024) (hc : chain < 8) (hd : digit < 3) :
@@ -156,6 +161,7 @@ theorem Inv.leafLoad {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
   have hr := (hs.keep .x28 (by decide)).trans hu.headerReg
   have he := hKey_relative s (table k) 7 1 hr
     (by unfold table headerTable; omega) (by decide) (by decide)
+    (by unfold table headerTable; omega)
   have hm := hs.frame (table k + 456) (by unfold table headerTable; omega)
     (by unfold writes base coordinateBase table headerTable; omega)
   have hl : (hLoad 7 1).eval s = s.getMem ((hKey 7 1).eval s) := by
@@ -417,7 +423,7 @@ theorem Inv.plainObligations {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9}
         rw [ofNat_add_ofNat]
         exact valid_ofNat _ _ (by omega) (by omega)
       · change accessValid ((hKey 7 1).eval s) 8 = true
-        rw [hKey_relative s (table k) 7 1 h28 (by omega) (by decide) (by decide)]
+        rw [hKey_relative s (table k) 7 1 h28 (by omega) (by decide) (by decide) (by unfold table headerTable; omega)]
         exact valid_ofNat _ _ (by omega) (by omega)
 end W9Machine.Chain
 end

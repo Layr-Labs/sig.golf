@@ -3,12 +3,12 @@ import SigGolfCandidate.W9Machine.WctPackedRuns
 namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
 def leafSetupRel : Result :=
-  ⟨⟨((RegFile.init.set .x25 (.ld (addC (.reg .x28) (-1592)))).set
+  ⟨⟨((RegFile.init.set .x25 (.ld (addC (.reg .x28) 1992))).set
       .x10 (addC (.reg .x8) 880)).set .x11 (.c 128),
     [(kAt .x8 880 24, .reg .x4),
-      (kAt .x8 880 16, .ld (addC (.reg .x28) (-1592)))],
+      (kAt .x8 880 16, .ld (addC (.reg .x28) 1992))],
     [.valid (kAt .x8 880 24) 8, .valid (kAt .x8 880 16) 8,
-      .valid ⟨some (.reg .x28), -1592⟩ 8]⟩,
+      .valid ⟨some (.reg .x28), 1992⟩ 8]⟩,
     .bin .and (.reg .x23) (.c (~~~1#64)), .jump, 6, 6⟩
 inductive ChainPieceKind where
   | head (off dst chain digit : Nat)

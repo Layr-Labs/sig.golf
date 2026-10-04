@@ -13,7 +13,7 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   indexBound : index < 2 ^ 31
   pc : u.pc = pcOf (L.chainWord rank)
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (base k)
-  headerReg : u.getReg .x28 = BitVec.ofNat 64 (table k + 2048)
+  headerReg : u.getReg .x28 = BitVec.ofNat 64 (table k - 1536)
   prefixReg : u.getReg .x31 = BitVec.ofNat 64 (V3.chainPrefix index k.val j.val)
   route : u.getReg .x4 = BitVec.ofNat 64 (index + 2 ^ 32 * j.val)
   hashMode : u.getReg .x5 = 0
