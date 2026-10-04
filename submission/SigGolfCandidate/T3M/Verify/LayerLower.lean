@@ -118,7 +118,7 @@ theorem setup_post : SetupPost := fun w pk index lay msg s hs c t ht => by
   case refine_5 =>
     intro L hL h0
     obtain rfl : L = lay := Fin.ext hL
-    exact (ht.regs (.x30, treeE L.val) (by fin_cases L <;> simp [specA, T3M.specA] at *)).trans htE
+    exact (ht.regs (.x31, treeE L.val) (by fin_cases L <;> simp [specA, T3M.specA] at *)).trans htE
 def PairSetupHash : Prop := ∀ (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer)
   (left right : Digest) (s : MachineState), LayerIn w pk index lay.val (.pair left right) s →
   ∀ c t, SpecRes (allowed lay.val) [] baseK (specA lay.val (trPc lay.val c))
@@ -323,9 +323,9 @@ def chainFuel (lay : Nat) : Nat := if lay = 0 then 2321 else 1720
 def layerCost (lay Z : Nat) : Nat := stepsA lay + 8 + cyB lay + lfSteps lay + chainCost0 lay - Z
 def layerFuel (lay : Nat) : Nat := stepsA lay + 1 + stB lay + chainFuel lay + lfSteps lay
 theorem layerCost_vals :
-    layerCost 3 0 = 1258 ∧ layerCost 2 0 = 1241 ∧ layerCost 1 0 = 1242 ∧ layerCost 0 0 = 1187 := by decide
+    layerCost 3 0 = 1255 ∧ layerCost 2 0 = 1241 ∧ layerCost 1 0 = 1242 ∧ layerCost 0 0 = 1187 := by decide
 theorem layerFuel_vals :
-    layerFuel 3 = 1782 ∧ layerFuel 2 = 1774 ∧ layerFuel 1 = 1775 ∧ layerFuel 0 = 2464 := by decide
+    layerFuel 3 = 1779 ∧ layerFuel 2 = 1774 ∧ layerFuel 1 = 1775 ∧ layerFuel 0 = 2464 := by decide
 theorem ckOf_lt (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (ds : List Nat)
     (hds : decode lay (a.extractLsb' 0 128) = some ds) : ckOf lay a < 8 := by
   rw [decode_lower lay hlay] at hds
@@ -420,9 +420,9 @@ theorem layer_good_low (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (h
     exact GoodQ.steps' hst this (by omega) (by omega) (fun hq => ⟨hq, by omega⟩)
 theorem layerIn_of_fts (w : WBytes) (pk : Digest) (idx : Nat) (root : Digest) (u : MachineState)
     (hidx : idx < 2 ^ 31) (hglob : Glob baseK w pk u) (hreg : u.getReg .x22 = BitVec.ofNat 64 idx)
-    (hpc : u.pc = pcOf 589) (hroot : DigAt u 0x100 root)
+    (hpc : u.pc = pcOf 592) (hroot : DigAt u 0x100 root)
     (hwit : Verify.Orig w (fun o => o < 64 ∨ 9288 ≤ o) u) (ha2 : u.getReg .x12 = BitVec.ofNat 64 0x100)
-    (hs10 : u.getReg .x26 = 6)
+    (hs10 : u.getReg .x26 = 6) (hOne : u.getReg .x7 = 1) (hTwo : u.getReg .x13 = 2) (hSeven : u.getReg .x30 = 7)
     (hbase : u.getReg .x28 = BitVec.ofNat 64 TOPBASE)
     (htop : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
       BitVec.ofNat 64 (topWords.getD k 0)) :
@@ -463,16 +463,19 @@ theorem layerIn_of_fts (w : WBytes) (pk : Digest) (idx : Nat) (root : Digest) (u
   have hG0 : Glob baseK w pk t := ht.glob _ _ _ hglob (RelOK.nil u)
   have hpk : preK 3 = baseK ++ [(.x19, BitVec.ofNat 64 0x400000), (.x21, BitVec.ofNat 64 M2c),
       (.x20, BitVec.ofNat 64 M1c), (.x27, BitVec.ofNat 64 (hw 4 3)), (.x2, BitVec.ofNat 64 0x3fe00),
-      (.x12, BitVec.ofNat 64 256), (.x26, 6), (.x28, BitVec.ofNat 64 TOPBASE)] := rfl
+      (.x12, BitVec.ofNat 64 256), (.x26, 6), (.x7, 1), (.x13, 2), (.x30, 7), (.x28, BitVec.ofNat 64 TOPBASE)] := rfl
+  have e28 : t.getReg .x28 = BitVec.ofNat 64 TOPBASE :=
+    ht.known (.x28, BitVec.ofNat 64 TOPBASE) (by rw [ld3In]; exact List.mem_append_right _ (List.mem_singleton_self _))
   have e12 : t.getReg .x12 = BitVec.ofNat 64 256 := (ht.keep .x12 (by simp)).trans ha2
   have e26 : t.getReg .x26 = 6 := (ht.keep .x26 (by simp)).trans hs10
-  have e28 : t.getReg .x28 = BitVec.ofNat 64 TOPBASE := 
-    ht.known (.x28, BitVec.ofNat 64 TOPBASE) (by rw [ld3In]; exact List.mem_append_right _ (List.mem_singleton_self _))
+  have eOne : t.getReg .x7 = 1 := (ht.keep .x7 (by simp)).trans hOne
+  have eTwo : t.getReg .x13 = 2 := (ht.keep .x13 (by simp)).trans hTwo
+  have eSeven : t.getReg .x30 = 7 := (ht.keep .x30 (by simp)).trans hSeven
   have hk : ∀ p ∈ preK 3, t.getReg p.1 = p.2 := by
     intro p hp
     rw [hpk] at hp
     simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hp
-    rcases hp with hp | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+    rcases hp with hp | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
     · exact ht.known p (by rw [ld3In]; exact List.mem_append_left _ hp)
     · exact e19
     · exact e21
@@ -481,6 +484,9 @@ theorem layerIn_of_fts (w : WBytes) (pk : Digest) (idx : Nat) (root : Digest) (u
     · exact e2
     · exact e12
     · exact e26
+    · exact eOne
+    · exact eTwo
+    · exact eSeven
     · exact e28
   refine ⟨t, ht.steps, ⟨by norm_num, hidx, ⟨0, by rw [BC.nCopy_eq.1]; norm_num, by rw [ht.pc rfl]; rfl⟩, ⟨hk, hG0.2⟩,
     ?_, ?_, ?_, ?_⟩⟩
