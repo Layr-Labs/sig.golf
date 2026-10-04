@@ -17,13 +17,8 @@ structure HeaderBank (u : MachineState) : Prop where
   leaf : ∀ k : Fin 9,
     u.getMem (BitVec.ofNat 64 (0xfee600 + 512 * k.val + 456)) =
       BitVec.ofNat 64 (1 + 6 * 256 + k.val * 65536)
-def setupMaskAddr : Nat := 0xfee7d0
-structure SetupMask (u : MachineState) : Prop where
-  child : u.getMem (BitVec.ofNat 64 (setupMaskAddr + 16)) = BitVec.ofNat 64 0xce800
-  jt : u.getMem (BitVec.ofNat 64 (setupMaskAddr + 24)) = BitVec.ofNat 64 0xd6800
-  head : u.getMem (BitVec.ofNat 64 (setupMaskAddr + 32)) = BitVec.ofNat 64 0xfeee00
 structure GatePre (pk : Digest) (w : WBytes) (a : HashOutput) (u : MachineState) : Prop where
-  pc : u.pc = pcOf 16
+  pc : u.pc = pcOf 18
   glob : Glob baseK w pk u
   cached0 : u.getReg .x16 = a.extractLsb' 0 64
   len64 : u.getReg .x11 = 64
@@ -31,8 +26,6 @@ structure GatePre (pk : Digest) (w : WBytes) (a : HashOutput) (u : MachineState)
   digest : DigestAt a u
   bank : HeaderBank u
   wit : WitAll w u
-  setupMask : SetupMask u
-  sp : u.getReg .x2 = BitVec.ofNat 64 0xfee600
 def dispatchPc (n : Nat) : Nat := [46,61,78,95,112,129,146,163,180,197].getD n 197
 def cachedWord (n : Nat) : Nat := [0,0,1,1,1,2,2,2,3,3].getD n 3
 structure CoordPre (pk : Digest) (w : WBytes) (a : HashOutput) (n : Nat)
@@ -63,5 +56,5 @@ structure CoordPre (pk : Digest) (w : WBytes) (a : HashOutput) (n : Nat)
     DigAt u (1056 + 32*i + 16) (pairs.getD i (0,0)).2
   coords : ∀ k : Fin 9, n ≤ k.val → ∀ off, off < 1024 → off % 8 = 0 →
     OrigW w u (coordinateBase k + off)
-  layer : Orig w (fun o => o < 64 ∨ 10568 ≤ o) u
+  layer : Orig w (fun o => o < 64 ∨ 9288 ≤ o) u
 end W9Drv
