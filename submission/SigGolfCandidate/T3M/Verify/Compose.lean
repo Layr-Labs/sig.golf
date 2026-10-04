@@ -294,7 +294,7 @@ open SigGolfCandidate.T3 (Digest route)
 set_option maxHeartbeats 800000
 set_option linter.unusedSimpArgs false
 def topChainRegs : List Reg := [.x10,.x12,.x25,.x3,.x14,.x15]
-def topChainWrites (A : Nat) : Prop := (512 ≤ A ∧ A < 1488) ∨ (13384 ≤ A ∧ A < 16856)
+def topChainWrites (A : Nat) : Prop := (512 ≤ A ∧ A < 1488) ∨ (12104 ≤ A ∧ A < 15576)
 theorem topLeafReady_of (w : WBytes) (pk : Digest) (index c : Nat) (t s0 s : MachineState)
     (a : BitVec 256) (ends : List Digest) (ht : EncPre w pk index 0 c t)
     (he : TopEntry (writeHash t a) (a.extractLsb' 0 128) (trPc 0 c) s0)
@@ -353,7 +353,7 @@ set_option maxHeartbeats 800000
 set_option linter.unusedSimpArgs false
 theorem nctx_block (w : WBytes) (index : Nat) (v : Digest) (p i : Nat) :
     (nctxOf w index v p).blk i - 0x800 = chainBlock 0 i := by
-  change 15048 - 1664 + 64 * (53 - i) - 2048 = 10568 + 64 * 12 + 64 * (54 - 1 - i)
+  change 13768 - 1664 + 64 * (53 - i) - 2048 = 9288 + 64 * 12 + 64 * (54 - 1 - i)
   omega
 theorem nctx_chain_eq (w : WBytes) (index : Nat) (v : Digest) (p i : Nat) (hi : i < 54) :
     let c := nctxOf w index v p
@@ -414,7 +414,7 @@ theorem nctx_encoded (u s : MachineState) (v : Digest) (p : Nat) (he : TopEntry 
   · rw [he.hi]
     exact Search.topWindow_cross v
   · rw [he.tail,Search.topWindow_tail v hv]
-theorem top_chain_frame (c : NCtx) (hc : c.S3 = 15048) {s t : MachineState}
+theorem top_chain_frame (c : NCtx) (hc : c.S3 = 13768) {s t : MachineState}
     (hf : Frame s t (c.Wr 54)) : Frame s t topChainWrites := by
   apply hf.mono
   intro A _ hA
@@ -628,7 +628,7 @@ end FCtx
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
-def layerPc : Nat := 588
+def layerPc : Nat := 589
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
@@ -638,9 +638,12 @@ structure FtsOut (F : FCtx) (root : Digest) (u : MachineState) : Prop where
   idx : u.getReg .x22 = BitVec.ofNat 64 F.idx
   pc : u.pc = pcOf layerPc
   root : DigAt u 0x100 root
-  wit : Orig F.w (fun o => o < 64 ∨ 10568 ≤ o) u
+  wit : Orig F.w (fun o => o < 64 ∨ 9288 ≤ o) u
   a2 : u.getReg .x12 = BitVec.ofNat 64 0x100
   s10 : u.getReg .x26 = 6
+  topBase : u.getReg .x28 = BitVec.ofNat 64 TOPBASE
+  top : ∀ k, k < 4 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
+    BitVec.ofNat 64 (dataWords.getD (k + 1) 0)
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
@@ -687,7 +690,7 @@ theorem mkEnd_top (w : WBytes) (pk : Digest) (index : Nat) (u : MachineState) (r
     · rw [ht.dstReg]
       congr 1
       exact (mkDst_chunk _).symm
-  · change DigAt t (12616 + 48 * (mkSh 0 1 (route index 0).1 / 32 % 2)) root
+  · change DigAt t (11336 + 48 * (mkSh 0 1 (route index 0).1 / 32 % 2)) root
     rw [mkDst_chunk]
     exact ht.root
 theorem mkStop_next (w : WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^ 31)
@@ -705,8 +708,8 @@ def lCyc : Nat → Nat
 def lFuel : Nat → Nat
   | 0 => 9
   | n + 1 => layerFuel n + mkFuel n + lFuel n
-theorem lCyc_4 : lCyc 4 = 5696 := by decide
-theorem lFuel_4 : lFuel 4 = 7995 := by decide
+theorem lCyc_4 : lCyc 4 = 5692 := by decide
+theorem lFuel_4 : lFuel 4 = 7991 := by decide
 theorem layers_good (w : WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^ 31) (Q : Prop) (hQ : Q) :
     ∀ n, n ≤ 4 → ∀ msg s, RestIn w pk index n msg s →
       GoodQ s (lFuel n) (lCyc n) Q (lCyc n) (ccM (BC.layerLoop w index n msg) (kFin pk)) := by
@@ -742,9 +745,10 @@ theorem layers_good (w : WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^
     exact hg.mono (by simp only [lFuel]; omega) (by simp only [lCyc]; omega) (fun q => ⟨q, by simp only [lCyc]; omega⟩)
 theorem after_good (pk : Digest) (w : WBytes) (Q : Prop) (hQ : Q) (a : HashOutput) (root : Digest) (u : MachineState)
     (h : FtsOut ⟨pk, w, a⟩ root u) :
-    GoodQ u 8050 8050 Q 5702 (ccM (afterFts pk w (a.toNat % 2 ^ 31) (some root)) Kb) := by
+    GoodQ u 8050 8050 Q 5697 (ccM (afterFts pk w (a.toNat % 2 ^ 31) (some root)) Kb) := by
   have hidx : a.toNat % 2 ^ 31 < 2 ^ 31 := Nat.mod_lt _ (by decide)
   obtain ⟨t, hst, hL3⟩ := layerIn_of_fts w pk _ root u hidx h.glob h.idx h.pc h.root h.wit h.a2 h.s10
+    h.topBase h.top
   have hg := layers_good w pk _ hidx Q hQ 4 le_rfl (.forest root) t (by simpa [RestIn] using hL3)
   have e : ccM (afterFts pk w (a.toNat % 2 ^ 31) (some root)) Kb =
       ccM (BC.layerLoop w (a.toNat % 2 ^ 31) 4 (.forest root)) (kFin pk) := by

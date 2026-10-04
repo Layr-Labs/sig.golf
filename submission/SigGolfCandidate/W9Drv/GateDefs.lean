@@ -17,6 +17,8 @@ structure HeaderBank (u : MachineState) : Prop where
   leaf : ∀ k : Fin 9,
     u.getMem (BitVec.ofNat 64 (0xfee600 + 512 * k.val + 456)) =
       BitVec.ofNat 64 (1 + 6 * 256 + k.val * 65536)
+  top : ∀ k, k < 4 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
+    BitVec.ofNat 64 (dataWords.getD (k + 1) 0)
 def setupMaskAddr : Nat := 0xfee7d0
 structure SetupMask (u : MachineState) : Prop where
   child : u.getMem (BitVec.ofNat 64 (setupMaskAddr + 16)) = BitVec.ofNat 64 0xce800
@@ -63,5 +65,5 @@ structure CoordPre (pk : Digest) (w : WBytes) (a : HashOutput) (n : Nat)
     DigAt u (1056 + 32*i + 16) (pairs.getD i (0,0)).2
   coords : ∀ k : Fin 9, n ≤ k.val → ∀ off, off < 1024 → off % 8 = 0 →
     OrigW w u (coordinateBase k + off)
-  layer : Orig w (fun o => o < 64 ∨ 10568 ≤ o) u
+  layer : Orig w (fun o => o < 64 ∨ 9288 ≤ o) u
 end W9Drv
