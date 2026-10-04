@@ -129,7 +129,7 @@ def check(root: Path) -> dict:
         if size > MAX_FILE_BYTES:
             errors.append(f"{rel}: file exceeds 8 MiB")
     if total > MAX_TOTAL_BYTES:
-        errors.append("submission exceeds 16 MiB")
+        errors.append("submission exceeds 32 MiB")
     if not (root / "Solution.lean").is_file():
         errors.append("Solution.lean is required")
     try:
