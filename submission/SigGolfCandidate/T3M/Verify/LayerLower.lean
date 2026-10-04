@@ -311,9 +311,9 @@ def chainFuel (lay : Nat) : Nat := if lay = 0 then 2321 else 1720
 def layerCost (lay Z : Nat) : Nat := stepsA lay + 8 + cyB lay + lfSteps lay + chainCost0 lay - Z
 def layerFuel (lay : Nat) : Nat := stepsA lay + 1 + stB lay + chainFuel lay + lfSteps lay
 theorem layerCost_vals :
-    layerCost 3 0 = 1261 ∧ layerCost 2 0 = 1243 ∧ layerCost 1 0 = 1244 ∧ layerCost 0 0 = 1188 := by decide
+    layerCost 3 0 = 1261 ∧ layerCost 2 0 = 1241 ∧ layerCost 1 0 = 1242 ∧ layerCost 0 0 = 1188 := by decide
 theorem layerFuel_vals :
-    layerFuel 3 = 1785 ∧ layerFuel 2 = 1776 ∧ layerFuel 1 = 1777 ∧ layerFuel 0 = 2464 := by decide
+    layerFuel 3 = 1785 ∧ layerFuel 2 = 1774 ∧ layerFuel 1 = 1775 ∧ layerFuel 0 = 2464 := by decide
 theorem ckOf_lt (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (ds : List Nat)
     (hds : decode lay (a.extractLsb' 0 128) = some ds) : ckOf lay a < 8 := by
   rw [decode_lower lay hlay] at hds
@@ -355,8 +355,8 @@ theorem layer_good_low (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (h
     simp [layerFuel, stB, chainFuel, h0]
   have hcost : layerCost lay.val 0 = stepsA lay.val + 8 + bCy lay.val + lfSteps lay.val + (2950 - 9 * tgtL lay.val) := by
     simp only [layerCost, cyB, chainCost0, if_neg h0]; omega
-  have hbS : 27 ≤ bSt lay.val := by unfold bSt; split <;> omega
-  have hbC : 30 ≤ bCy lay.val := by unfold bCy; split <;> omega
+  have hbS : 27 ≤ bSt lay.val := by unfold bSt; split_ifs <;> omega
+  have hbC : 30 ≤ bCy lay.val := by unfold bCy; split_ifs <;> omega
   have hrej : BC.rejectSteps lay.val ≤ stepsA lay.val + 2 := by
     unfold BC.rejectSteps; split <;> omega
   unfold layerHead
@@ -409,7 +409,7 @@ theorem layer_good_low (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (h
 theorem layerIn_of_fts (w : WBytes) (pk : Digest) (idx : Nat) (root : Digest) (u : MachineState)
     (hidx : idx < 2 ^ 31) (hglob : Glob baseK w pk u) (hreg : u.getReg .x22 = BitVec.ofNat 64 idx)
     (hpc : u.pc = pcOf 588) (hroot : DigAt u 0x100 root)
-    (hwit : Verify.Orig w (fun o => o < 64 ∨ 10568 ≤ o) u) (ha2 : u.getReg .x12 = BitVec.ofNat 64 0x100)
+    (hwit : Verify.Orig w (fun o => o < 64 ∨ 9288 ≤ o) u) (ha2 : u.getReg .x12 = BitVec.ofNat 64 0x100)
     (hs10 : u.getReg .x26 = 6) :
     ∃ t, Steps image u 6 6 t ∧ LayerIn w pk idx 3 (.forest root) t := by
   obtain ⟨t, ht⟩ := spec_run BC.ld3Check_ok u hpc hglob.1 (by simp [ld3Spec]) (by simp)
