@@ -26,7 +26,7 @@ structure GatePre (pk : Digest) (w : WBytes) (a : HashOutput) (u : MachineState)
   digest : DigestAt a u
   bank : HeaderBank u
   wit : WitAll w u
-def dispatchPc (n : Nat) : Nat := [46,61,78,95,112,129,146,163,180,197].getD n 197
+def dispatchPc (n : Nat) : Nat := [45,60,77,94,111,128,145,162,179,196].getD n 196
 def cachedWord (n : Nat) : Nat := [0,0,1,1,1,2,2,2,3,3].getD n 3
 structure CoordPre (pk : Digest) (w : WBytes) (a : HashOutput) (n : Nat)
     (pairs : List (Digest × Digest)) (u : MachineState) : Prop where

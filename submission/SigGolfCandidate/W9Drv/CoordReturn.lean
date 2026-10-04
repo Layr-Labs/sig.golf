@@ -43,8 +43,8 @@ open SigGolfCandidate.T3M SigGolfCandidate.Rv
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 def dispatchWords8 : List (BitVec 32) := [0x1585193,0x7f1f193,0x2019213,0x1626233,0x6787b3,0x1419f93,0xffefb3,0x819b93,0x1db8bb3,0x40040413,0x200e0e13,0x6d8db3,0x1a85713,0x277733,0x1870733,0x52000493,0x700e7]
-theorem dispatch8_checked : rOK (symRun {} dispatchWords8 (pcOf 180) 17) (coordDispatch 180 213 8 true false) = true := by decide +kernel
-theorem dispatch8_linked : sliceChecked 180 dispatchWords8 = true := by decide +kernel
+theorem dispatch8_checked : rOK (symRun {} dispatchWords8 (pcOf 179) 17) (coordDispatch 179 213 8 true false) = true := by decide +kernel
+theorem dispatch8_linked : sliceChecked 179 dispatchWords8 = true := by decide +kernel
 end W9Machine
 end
 
@@ -55,8 +55,8 @@ open SigGolfCandidate.T3M SigGolfCandidate.Rv
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 def dispatchWords6 : List (BitVec 32) := [0x2a85193,0x7f1f193,0x2019213,0x1626233,0x6787b3,0x1419f93,0xffefb3,0x819b93,0x1db8bb3,0x40040413,0x200e0e13,0x6d8db3,0x2f85713,0x277733,0x1870733,0x4e000493,0x700e7]
-theorem dispatch6_checked : rOK (symRun {} dispatchWords6 (pcOf 146) 17) (coordDispatch 146 170 6 true false) = true := by decide +kernel
-theorem dispatch6_linked : sliceChecked 146 dispatchWords6 = true := by decide +kernel
+theorem dispatch6_checked : rOK (symRun {} dispatchWords6 (pcOf 145) 17) (coordDispatch 145 170 6 true false) = true := by decide +kernel
+theorem dispatch6_linked : sliceChecked 145 dispatchWords6 = true := by decide +kernel
 end W9Machine
 end
 
@@ -67,8 +67,8 @@ open SigGolfCandidate.T3M SigGolfCandidate.Rv
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 def dispatchWords5 : List (BitVec 32) := [0x1585193,0x7f1f193,0x2019213,0x1626233,0x6787b3,0x1419f93,0xffefb3,0x819b93,0x1db8bb3,0x40040413,0x200e0e13,0x6d8db3,0x1a85713,0x277733,0x1870733,0x4c000493,0x700e7]
-theorem dispatch5_checked : rOK (symRun {} dispatchWords5 (pcOf 129) 17) (coordDispatch 129 149 5 true false) = true := by decide +kernel
-theorem dispatch5_linked : sliceChecked 129 dispatchWords5 = true := by decide +kernel
+theorem dispatch5_checked : rOK (symRun {} dispatchWords5 (pcOf 128) 17) (coordDispatch 128 149 5 true false) = true := by decide +kernel
+theorem dispatch5_linked : sliceChecked 128 dispatchWords5 = true := by decide +kernel
 end W9Machine
 end
 
@@ -79,8 +79,8 @@ open SigGolfCandidate.T3M SigGolfCandidate.Rv
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 def dispatchWords3 : List (BitVec 32) := [0x2a85193,0x7f1f193,0x2019213,0x1626233,0x6787b3,0x1419f93,0xffefb3,0x819b93,0x1db8bb3,0x40040413,0x200e0e13,0x6d8db3,0x2f85713,0x277733,0x1870733,0x48000493,0x700e7]
-theorem dispatch3_checked : rOK (symRun {} dispatchWords3 (pcOf 95) 17) (coordDispatch 95 106 3 true false) = true := by decide +kernel
-theorem dispatch3_linked : sliceChecked 95 dispatchWords3 = true := by decide +kernel
+theorem dispatch3_checked : rOK (symRun {} dispatchWords3 (pcOf 94) 17) (coordDispatch 94 106 3 true false) = true := by decide +kernel
+theorem dispatch3_linked : sliceChecked 94 dispatchWords3 = true := by decide +kernel
 end W9Machine
 end
 
@@ -91,8 +91,8 @@ open SigGolfCandidate.T3M SigGolfCandidate.Rv
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 def dispatchWords7 : List (BitVec 32) := [0x7803803,0x7f87193,0x2019213,0x1626233,0x6787b3,0x1419f93,0xffefb3,0x819b93,0x1db8bb3,0x40040413,0x200e0e13,0x6d8db3,0x585713,0x277733,0x1870733,0x50000493,0x700e7]
-theorem dispatch7_checked : rOK (symRun {} dispatchWords7 (pcOf 163) 17) (coordDispatch 163 192 7 true true) = true := by decide +kernel
-theorem dispatch7_linked : sliceChecked 163 dispatchWords7 = true := by decide +kernel
+theorem dispatch7_checked : rOK (symRun {} dispatchWords7 (pcOf 162) 17) (coordDispatch 162 192 7 true true) = true := by decide +kernel
+theorem dispatch7_linked : sliceChecked 162 dispatchWords7 = true := by decide +kernel
 end W9Machine
 end
 
@@ -103,8 +103,8 @@ open SigGolfCandidate.T3M SigGolfCandidate.Rv
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 def dispatchWords4 : List (BitVec 32) := [0x7003803,0x7f87193,0x2019213,0x1626233,0x6787b3,0x1419f93,0xffefb3,0x819b93,0x1db8bb3,0x40040413,0x200e0e13,0x6d8db3,0x585713,0x277733,0x1870733,0x4a000493,0x700e7]
-theorem dispatch4_checked : rOK (symRun {} dispatchWords4 (pcOf 112) 17) (coordDispatch 112 128 4 true true) = true := by decide +kernel
-theorem dispatch4_linked : sliceChecked 112 dispatchWords4 = true := by decide +kernel
+theorem dispatch4_checked : rOK (symRun {} dispatchWords4 (pcOf 111) 17) (coordDispatch 111 128 4 true true) = true := by decide +kernel
+theorem dispatch4_linked : sliceChecked 111 dispatchWords4 = true := by decide +kernel
 end W9Machine
 end
 
@@ -115,8 +115,8 @@ open SigGolfCandidate.T3M SigGolfCandidate.Rv
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 def dispatchWords2 : List (BitVec 32) := [0x1585193,0x7f1f193,0x2019213,0x1626233,0x6787b3,0x1419f93,0xffefb3,0x819b93,0x1db8bb3,0x40040413,0x200e0e13,0x6d8db3,0x1a85713,0x277733,0x1870733,0x46000493,0x700e7]
-theorem dispatch2_checked : rOK (symRun {} dispatchWords2 (pcOf 78) 17) (coordDispatch 78 85 2 true false) = true := by decide +kernel
-theorem dispatch2_linked : sliceChecked 78 dispatchWords2 = true := by decide +kernel
+theorem dispatch2_checked : rOK (symRun {} dispatchWords2 (pcOf 77) 17) (coordDispatch 77 85 2 true false) = true := by decide +kernel
+theorem dispatch2_linked : sliceChecked 77 dispatchWords2 = true := by decide +kernel
 end W9Machine
 end
 
@@ -127,8 +127,8 @@ open SigGolfCandidate.T3M SigGolfCandidate.Rv
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 def dispatchWords1 : List (BitVec 32) := [0x6803803,0x7f87193,0x2019213,0x1626233,0x6787b3,0x1419f93,0xffefb3,0x819b93,0x1db8bb3,0x40040413,0x200e0e13,0x6d8db3,0x585713,0x277733,0x1870733,0x44000493,0x700e7]
-theorem dispatch1_checked : rOK (symRun {} dispatchWords1 (pcOf 61) 17) (coordDispatch 61 64 1 true true) = true := by decide +kernel
-theorem dispatch1_linked : sliceChecked 61 dispatchWords1 = true := by decide +kernel
+theorem dispatch1_checked : rOK (symRun {} dispatchWords1 (pcOf 60) 17) (coordDispatch 60 64 1 true true) = true := by decide +kernel
+theorem dispatch1_linked : sliceChecked 60 dispatchWords1 = true := by decide +kernel
 end W9Machine
 end
 
@@ -139,8 +139,8 @@ open SigGolfCandidate.T3M SigGolfCandidate.Rv
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 def dispatchWords0 : List (BitVec 32) := [0x2b85193,0x7f1f193,0x2019213,0x1626233,0x1419f93,0xffefb3,0x819b93,0x1db8bb3,0x9c0e3d83,0x11dedb3,0x3085713,0x277733,0x1870733,0x42000493,0x700e7]
-theorem dispatch0_checked : rOK (symRun {} dispatchWords0 (pcOf 46) 15) (coordDispatch 46 43 0 false false) = true := by decide +kernel
-theorem dispatch0_linked : sliceChecked 46 dispatchWords0 = true := by decide +kernel
+theorem dispatch0_checked : rOK (symRun {} dispatchWords0 (pcOf 45) 15) (coordDispatch 45 43 0 false false) = true := by decide +kernel
+theorem dispatch0_linked : sliceChecked 45 dispatchWords0 = true := by decide +kernel
 end W9Machine
 end
 
