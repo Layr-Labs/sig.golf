@@ -48,7 +48,7 @@ structure CoordPre (pk : Digest) (w : WBytes) (a : HashOutput) (n : Nat)
   nodeReg : n ≠ 0 → u.getReg .x27 = BitVec.ofNat 64 (V3.nodeLow (n-1) (idxOf a))
   zero : u.getMem (BitVec.ofNat 64 1024) = 0 ∧ u.getMem (BitVec.ofNat 64 1032) = 0
   mask : u.getReg .x2 = BitVec.ofNat 64 0xfffc
-  jt : u.getReg .x24 = BitVec.ofNat 64 0xd6800
+  jt : u.getReg .x24 = BitVec.ofNat 64 0xd7000
   childBlock : u.getReg .x29 = BitVec.ofNat 64 0xce800
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (2112 + 1024 * (n-1))
   headerReg : u.getReg .x28 = BitVec.ofNat 64 (0xfee600 + 2048 + 512 * (n-1))
