@@ -350,9 +350,9 @@ def layerFuel (lay : Nat) : Nat := stepsA lay + 1 + stB lay + chainFuel lay + lf
 /-- Accept-cycle layer cost: the top layer's chains run 9 cycles cheaper on a credited top word. -/
 def layerCostA (lay : Nat) : Nat := layerCost lay 0 - (if lay = 0 then 9 else 0)
 theorem layerCost_vals :
-    layerCost 3 0 = 1247 ∧ layerCost 2 0 = 1238 ∧ layerCost 1 0 = 1238 ∧ layerCost 0 0 = 1182 := by decide
+    layerCost 3 0 = 1246 ∧ layerCost 2 0 = 1237 ∧ layerCost 1 0 = 1238 ∧ layerCost 0 0 = 1182 := by decide
 theorem layerFuel_vals :
-    layerFuel 3 = 1771 ∧ layerFuel 2 = 1771 ∧ layerFuel 1 = 1771 ∧ layerFuel 0 = 2464 := by decide
+    layerFuel 3 = 1770 ∧ layerFuel 2 = 1770 ∧ layerFuel 1 = 1771 ∧ layerFuel 0 = 2464 := by decide
 theorem ckOf_lt (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (ds : List Nat)
     (hds : decode lay (a.extractLsb' 0 128) = some ds) : ckOf lay a < 8 := by
   rw [decode_lower lay hlay] at hds
