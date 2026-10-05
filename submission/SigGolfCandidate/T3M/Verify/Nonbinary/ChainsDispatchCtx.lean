@@ -27,7 +27,7 @@ theorem source_field (v : Digest) (q : Nat) (hq : q<17) :
   split_ifs with h
   · simpa using extract_field v 0 (7*q) (by omega)
   · rw [extract_field v 63 (7*(q-9)) (by omega),show 63+7*(q-9)=7*q by omega]
-theorem dispatch_step {p q : Nat} (hq : q<17) (hp : p<210432)
+theorem dispatch_step {p q : Nat} (hq : q<17) (hp : p<251927)
     (hrun : vrun p 5=some (dispatchR q)) (s : MachineState) (v : Digest)
     (hpc : s.pc=pcOf p) (h16 : s.getReg .x16=v.extractLsb' 0 64)
     (h17 : s.getReg .x17=v.extractLsb' 63 64)
@@ -48,7 +48,7 @@ theorem dispatch_step {p q : Nat} (hq : q<17) (hp : p<210432)
     rw [RegFile.get_set_ne _ _ (show r≠.x14 by simpa using hr),RegFile.init_get_eval]
   · intro A _ _
     simp [dispatchR,rv_simp]
-theorem tail_dispatch_step {p : Nat} (hp : p<210432)
+theorem tail_dispatch_step {p : Nat} (hp : p<251927)
     (hrun : vrun p 5=some tailDispatchR) (s : MachineState) (k : Nat) (hk : k<64)
     (hpc : s.pc=pcOf p) (h29 : s.getReg .x29=BitVec.ofNat 64 k) :
     ∃t, Steps Images.verifyImage s 4 4 t ∧ t.pc=pcOf (entW 17 k) ∧
@@ -183,14 +183,16 @@ structure Encoded (v : Digest) (s : MachineState) : Prop where
   tail : s.getReg .x29=BitVec.ofNat 64 (v.toNat/2^119)
   mask : s.getReg .x6=130048#64
   table : s.getReg .x15=712704#64
-theorem dispatch_at (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<18) :
-    vrun (c.endPc (3*q+2)) 5=some (if q<16 then dispatchR (q+1) else if q=16 then tailDispatchR else retR) := by
+theorem dispatch_at (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<17) :
+    vrun (c.endPc (3*q+2)) 5=some (if q<16 then dispatchR (q+1) else tailDispatchR) := by
   have hh := c.blk_at hds (3*q+2) (by omega)
   unfold blockCheck at hh
   simp only [Bool.and_eq_true] at hh
-  have h := rOK_eq hh.2
   have eq : (3*q+2)/3=q := by omega
-  simpa only [dispatchOK,endPc,qX,eq,show (3*q+2)%3=2 by omega,if_false,Nat.reduceEqDiff] using h
+  have hhR := hh.2
+  simp only [dispatchOK, eq, if_pos hq] at hhR
+  have h := rOK_eq hhR
+  simpa only [endPc,qX,eq,show (3*q+2)%3=2 by omega,if_false,Nat.reduceEqDiff] using h
 theorem end_dispatch (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState} {v : Digest}
     (he : Encoded v s0) (hf : c.Fit v) (hv : topRanksValid v=true)
     (q : Nat) (hq : q<16) (acc : List Digest) (s : MachineState)
@@ -199,9 +201,9 @@ theorem end_dispatch (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineStat
   obtain ⟨⟨hR,hF,hS⟩,hlen,hpc⟩ := hs
   have hr := c.dispatch_at hds q (by omega)
   rw [if_pos hq] at hr
-  have hbound : c.endPc (3*q+2)<210432 := by
+  have hbound : c.endPc (3*q+2)<251927 := by
     have := c.qX_lt (3*q+2)
-    simpa only [endPc,show (3*q+2)%3=2 by omega,if_false,Nat.reduceEqDiff] using (show c.qX (3*q+2)<210432 by omega)
+    simpa only [endPc,show (3*q+2)%3=2 by omega,if_false,Nat.reduceEqDiff] using (show c.qX (3*q+2)<251927 by omega)
   obtain ⟨t,st,pt,rt,ft⟩ := dispatch_step (by omega) hbound hr s v hpc
     ((hR _ (by decide)).trans he.lo) ((hR _ (by decide)).trans he.hi)
     ((hR _ (by decide)).trans he.mask) ((hR _ (by decide)).trans he.table)
@@ -241,9 +243,9 @@ theorem end_tail (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState} {
   obtain ⟨⟨hR,hF,hS⟩,hlen,hpc⟩ := hs
   have hr := c.dispatch_at hds 16 (by decide)
   norm_num at hr
-  have hbound : c.endPc 50<210432 := by
+  have hbound : c.endPc 50<251927 := by
     have := c.qX_lt 50
-    simpa only [endPc,Nat.reduceMod,if_false,Nat.reduceEqDiff] using (show c.qX 50<210432 by omega)
+    simpa only [endPc,Nat.reduceMod,if_false,Nat.reduceEqDiff] using (show c.qX 50<251927 by omega)
   obtain ⟨t,st,pt,rt,ft,r15⟩ := tail_dispatch_step hbound hr s (v.toNat/2^119) (by omega) hpc
     ((hR _ (by decide)).trans he.tail)
   refine ⟨t,st,⟨⟨fun x hx => ?_,?_,fun j hj => ?_⟩,by omega,?_⟩,r15⟩
