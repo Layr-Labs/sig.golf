@@ -31,6 +31,29 @@ theorem referenceDigits_decode (answers : Answers) (L : LeafAddr) :
   | some s =>
       obtain ⟨c, digits⟩ := s
       exact ⟨_, referenceSearch_decode answers L hs⟩
+theorem referenceSearch_searchDecode (answers : Answers) (L : LeafAddr) {c : BitVec 32} {digits : List Nat}
+    (h : referenceSearch answers L = some (c, digits)) :
+    searchDecode L.lay (low (answers (.inl (.inr (encRow L (leafMsg answers L) c 0))))) = some digits := by
+  have hs := (WCT9.layerCounterSearch_some_search answers L.lay L.tree L.leaf (leafMsg answers L) counterLimit 0 c
+    digits (by norm_num [counterLimit]) h).2.2
+  unfold encRow
+  rw [BC.layerEncodingInputP_zero]
+  exact hs
+theorem referenceDigits_searchDecode (answers : Answers) (L : LeafAddr) :
+    ∃ value : Digest, searchDecode L.lay value = some (referenceDigits answers L) := by
+  unfold referenceDigits
+  cases hs : referenceSearch answers L with
+  | none => exact ⟨_, SigGolfCandidate.T3.Security.WotsExtract.dummyDigest_searchDecode L.lay⟩
+  | some s =>
+      obtain ⟨c, digits⟩ := s
+      exact ⟨_, referenceSearch_searchDecode answers L hs⟩
+theorem searchDecode_of_reference (answers : Answers) (L : LeafAddr) {v : Digest}
+    (h : decode L.lay v = some (referenceDigits answers L)) :
+    searchDecode L.lay v = some (referenceDigits answers L) := by
+  obtain ⟨u, hu⟩ := referenceDigits_searchDecode answers L
+  have he : u = v := decode_some_injective (SigGolfCandidate.T3.Nonbinary.searchDecode_some hu) h
+  rw [← he]
+  exact hu
 theorem depth_le (answers : Answers) (a : ChainAddr) (ha : a.chain < chainCount a.key.lay) :
     depth answers a ≤ maxDigit a.key.lay a.chain := by
   obtain ⟨value, hv⟩ := referenceDigits_decode answers a.key

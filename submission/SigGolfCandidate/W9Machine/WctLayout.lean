@@ -18,7 +18,7 @@ def GoodQFor (im : Image) (s : MachineState) (N C : Nat) (Q : Prop) (A : Nat)
   ∀ F, N ≤ F → obs <$> Riscv.execute F im s = X ∧
     ∀ hash : Hash, (evalWithAnswerFn hash (Riscv.execute F im s)).exit ≠ .unfinished ∧
       (evalWithAnswerFn hash (Riscv.execute F im s)).cycles ≤ C ∧
-      ((evalWithAnswerFn hash (Riscv.execute F im s)).exit = .success →
+      ((evalWithAnswerFn hash (Riscv.execute F im s)).exit = .success → HashOk hash →
         Q ∧ (evalWithAnswerFn hash (Riscv.execute F im s)).cycles ≤ A)
 structure Budget where
   fuel : Nat

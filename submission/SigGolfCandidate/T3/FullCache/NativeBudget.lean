@@ -781,6 +781,9 @@ theorem encodingSearchesSucceed_at_route (answers : Answers)
       (route index lay).1 message 0 counterLimit)=some found := by
   exact hgood (lay,⟨_,route_tree_bound index lay hindex⟩,
     ⟨_,route_leaf_4096 index lay⟩,message)
+theorem topSearchesSucceed_of (answers : Answers) (hgood : EncodingSearchesSucceed answers) :
+    TopSearchesSucceed answers :=
+  fun index hindex m => encodingSearchesSucceed_at_route answers hgood index hindex (Fin.ofNat 4 0) m
 theorem signLayers_succeeds (answers : Answers) (cache : Cache) (index : Nat)
     (hindex : index < 2^31) (hgood : EncodingSearchesSucceed answers) :
     ∀ n message, ∃ pieces,
@@ -828,7 +831,7 @@ theorem signing_complete_of_searches (answers : Answers) (keys : Digest × Cache
   have hs' : evalWithAnswerFn answers (sign keys.2 message)=some sig := by
     rw [sign_valid_cache answers keys message hkeys.2.2]
     exact hs
-  obtain ⟨w,he⟩ := signPayload_expands answers keys.2 message sig hkeys.2.1 hs
+  obtain ⟨w,he⟩ := signPayload_expands answers keys.2 message sig hkeys.2.1 (topSearchesSucceed_of answers hgood.2) hs
   rw [← hkeys.1] at he
   exact ⟨sig,w,hs',he,expand_implies_verify answers message keys.1 sig w he⟩
 theorem honest_signing_complete_of_searches (answers : Answers) (hgood : SearchesSucceed answers) :
@@ -1014,7 +1017,7 @@ theorem signing_complete_for_of_searches (answers : Answers) (keys : Digest × C
   have hs' : evalWithAnswerFn answers (sign keys.2 message)=some sig := by
     rw [sign_valid_cache answers keys message hkeys.2.2]
     exact hs
-  obtain ⟨w,he⟩ := signPayload_expands answers keys.2 message sig hkeys.2.1 hs
+  obtain ⟨w,he⟩ := signPayload_expands answers keys.2 message sig hkeys.2.1 (topSearchesSucceed_of answers hgood.2) hs
   rw [← hkeys.1] at he
   exact ⟨sig,w,hs',he,expand_implies_verify answers message keys.1 sig w he⟩
 end SigGolfCandidate.T3.Correctness
@@ -1378,7 +1381,7 @@ theorem signing_complete_of_selected_searches (answers : Answers) (keys : Digest
   have hs' : evalWithAnswerFn answers (sign keys.2 message)=some sig := by
     rw [sign_valid_cache answers keys message hkeys.2.2]
     exact hs
-  obtain ⟨w,he⟩ := signPayload_expands answers keys.2 message sig hkeys.2.1 hs
+  obtain ⟨w,he⟩ := signPayload_expands answers keys.2 message sig hkeys.2.1 (topSearchesSucceed_of answers hgood.2) hs
   rw [← hkeys.1] at he
   exact ⟨sig,w,hs',he,expand_implies_verify answers message keys.1 sig w he⟩
 end SigGolfCandidate.T3.Correctness
@@ -2393,9 +2396,41 @@ theorem signLayers_cost_step (answers : Answers) (cache : Cache) (index n : Nat)
             (route index (Fin.ofNat 4 n)).1 digits)).1.getD (height (Fin.ofNat 4 n)) []).getD 0 0)) := by
   simp only [signLayers, cost_bind, hs]
   split
-  · simp only [cost_bind, cost_pure, Nat.add_zero]
+  · simp only [cost_bind, cost_pure, Nat.add_zero, Option.map_some, Option.getD_some]
   · simp only [cost_bind]
     split <;> simp only [cost_pure, Nat.add_zero]
+theorem signLayers_length (answers : Answers) (cache : Cache) (index : Nat) :
+    ∀ n value pieces,evalWithAnswerFn answers (signLayers cache index n value)=some pieces → pieces.length=n := by
+  intro n
+  induction n with
+  | zero =>
+      intro value pieces he
+      simp only [signLayers,evalWithAnswerFn_pure,Option.some.injEq] at he
+      subst pieces
+      rfl
+  | succ n ih =>
+      intro value pieces he
+      simp only [signLayers,evalWithAnswerFn_bind] at he
+      by_cases hn0 : n=0
+      · subst n
+        simp only [ite_true,evalWithAnswerFn_bind,evalWithAnswerFn_pure,Option.some.injEq] at he
+        subst pieces
+        rfl
+      · simp only [hn0,ite_false] at he
+        cases hs : evalWithAnswerFn answers (counterSearch (Fin.ofNat 4 n)
+          (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 value 0 counterLimit) with
+        | none => simp only [hs,evalWithAnswerFn_pure,reduceCtorEq] at he
+        | some found =>
+            obtain ⟨counter,digits⟩ := found
+            simp only [hs,evalWithAnswerFn_bind] at he
+            cases hp : evalWithAnswerFn answers (signLayers cache index n
+              (((evalWithAnswerFn answers (buildTree (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
+                (route index (Fin.ofNat 4 n)).1 digits)).1.getD (height (Fin.ofNat 4 n)) []).getD 0 0)) with
+            | none => simp only [hp,evalWithAnswerFn_pure,reduceCtorEq] at he
+            | some previous =>
+                simp only [hp,evalWithAnswerFn_pure,Option.some.injEq] at he
+                subst pieces
+                simp [ih _ previous hp]
 theorem expandLayers_cost_le (answers : Answers) (cache : Cache) (index : Nat)
     (hcache : cache.region=cacheRegion (maskedTop answers)) (hindex : index < 2^31) :
     ∀ n,n ≤ 4 → ∀ value pieces,
@@ -2412,7 +2447,12 @@ theorem expandLayers_cost_le (answers : Answers) (cache : Cache) (index : Nat)
       simp only [signLayers,evalWithAnswerFn_bind] at he
       cases hs : evalWithAnswerFn answers (counterSearch (Fin.ofNat 4 n)
         (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 value 0 counterLimit) with
-      | none => simp only [hs,evalWithAnswerFn_pure,reduceCtorEq] at he
+      | none =>
+          by_cases hn0 : n=0
+          · subst n
+            simp only [expandLayers,signLayers,cost_bind,hs,cost_pure,ite_true]
+            omega
+          · simp only [hs,hn0,ite_false,evalWithAnswerFn_pure,reduceCtorEq] at he
       | some found =>
           obtain ⟨counter,digits⟩ := found
           have hd := (counterSearch_some answers (Fin.ofNat 4 n)
@@ -2438,8 +2478,7 @@ theorem expandLayers_cost_le (answers : Answers) (cache : Cache) (index : Nat)
             | some previous =>
                 simp only [hp,evalWithAnswerFn_pure,Option.some.injEq] at he
                 subst pieces
-                obtain ⟨hlen,_⟩ := signLayers_expandLayers answers cache index hcache hindex
-                  n (by omega) _ previous hp
+                have hlen := signLayers_length answers cache index n _ previous hp
                 change PiecesAgree sig (previous++[honestPieces answers (Fin.ofNat 4 n)
                   (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 digits]) (n+1) at hagree
                 have hlayer := PiecesAgree.last hlen (by omega) hagree

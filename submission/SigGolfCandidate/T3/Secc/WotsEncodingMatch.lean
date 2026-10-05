@@ -72,6 +72,12 @@ theorem eager_lazy {β : Type} (T : Answers) (C : OracleComp RefWorld β) :
   rw [← UniformTableObservation.run_marginal (aux T) (simulateQ (translate cellInput F) C) _
     (fun _ => Finset.univ_nonempty)]
   simp only [fixed_run]
+theorem eager_lazy_init {β : Type} (T : Answers) (C : OracleComp RefWorld β) (init : F → Finset HashOutput)
+    (hinit : ∀ e, (init e).Nonempty) :
+    (complete init >>= fun y => 𝒮[simulateQ (refImpl (overwrite cellInput F T y)) C]) =
+      Prod.fst <$> UniformTableObservation.lazyRun (aux T) (simulateQ (translate cellInput F) C) init := by
+  rw [← UniformTableObservation.run_marginal (aux T) (simulateQ (translate cellInput F) C) _ hinit]
+  simp only [fixed_run]
 noncomputable def lazyImpl (T : Answers) : QueryImpl RefWorld (StateT (F → Finset HashOutput) SPMF) :=
   (UniformTableObservation.lazyImpl (aux T)).compose (translate cellInput F)
 theorem lazyRun_eq_simulate {β : Type} (T : Answers) (C : OracleComp RefWorld β) (allowed : F → Finset HashOutput) :
@@ -114,24 +120,24 @@ theorem recorded_traced {α : Type} (T : Answers) (C : OracleComp RefWorld α) :
         simpa [obs, traceOf, bind_pure_comp] using h
 section Potential
 variable {ι : Type} (cellInput : ι → HashInput) (F : Set ι) [Fintype F] [DecidableEq F]
-def Consistent (h : FreeMonoid Entry) (allowed : F → Finset HashOutput) : Prop :=
+def Consistent (init : F → Finset HashOutput) (h : FreeMonoid Entry) (allowed : F → Finset HashOutput) : Prop :=
   (∀ e : F, ∀ ans, (cellInput e.val, ans) ∈ h.toList → allowed e = {ans}) ∧
-    ∀ e : F, (∀ ans, (cellInput e.val, ans) ∉ h.toList) → allowed e = Finset.univ
-theorem consistent_one : Consistent cellInput F 1 (fun _ => Finset.univ) := by
+    ∀ e : F, (∀ ans, (cellInput e.val, ans) ∉ h.toList) → allowed e = init e
+theorem consistent_one (init : F → Finset HashOutput) : Consistent cellInput F init 1 init := by
   constructor
   · intro e ans h
     simp at h
   · intro e _
     rfl
-theorem Consistent.nonempty {h : FreeMonoid Entry} {allowed : F → Finset HashOutput}
-    (hc : Consistent cellInput F h allowed) : ∀ e, (allowed e).Nonempty := by
+theorem Consistent.nonempty {init : F → Finset HashOutput} {h : FreeMonoid Entry} {allowed : F → Finset HashOutput}
+    (hc : Consistent cellInput F init h allowed) (hinit : ∀ e, (init e).Nonempty) : ∀ e, (allowed e).Nonempty := by
   intro e
   by_cases hq : ∃ ans, (cellInput e.val, ans) ∈ h.toList
   · obtain ⟨ans, hans⟩ := hq
     rw [hc.1 e ans hans]
     exact Finset.singleton_nonempty ans
   · rw [hc.2 e (fun ans hans => hq ⟨ans, hans⟩)]
-    exact Finset.univ_nonempty
+    exact hinit e
 noncomputable def marks {A : Type} [Fintype A] (M : A → Entry → Prop) (l : List Entry) : Nat :=
   (Finset.univ.filter fun a => ∃ entry ∈ l, M a entry).card
 noncomputable def cellCount (l : List Entry) : Nat :=
@@ -221,11 +227,12 @@ theorem cell_nonzero_mem {allowed : Finset HashOutput} {answer : HashOutput} (h 
   rw [cell_apply] at h
   by_contra hn
   exact h (if_neg hn)
-theorem consistent_step (hinj : Function.Injective cellInput) (T : Answers) (h : FreeMonoid Entry)
-    (allowed : F → Finset HashOutput) (hc : Consistent cellInput F h allowed) (input : RefWorld.Domain)
+theorem consistent_step (hinj : Function.Injective cellInput) (T : Answers) (init : F → Finset HashOutput)
+    (h : FreeMonoid Entry)
+    (allowed : F → Finset HashOutput) (hc : Consistent cellInput F init h allowed) (input : RefWorld.Domain)
     (result : RefWorld.Range input × (F → Finset HashOutput))
     (hr : (lazyImpl cellInput F T input).run allowed result ≠ 0) :
-    Consistent cellInput F (h * obs input result.1) result.2 := by
+    Consistent cellInput F init (h * obs input result.1) result.2 := by
   rcases input with (n | x) | u
   · rw [lazyImpl_coin] at hr
     obtain ⟨answer, _, rfl⟩ := map_nonzero _ _ _ hr
@@ -317,10 +324,10 @@ theorem tsum_filter_card {A : Type} [Fintype A] (μ : SPMF HashOutput) (M : A �
   refine tsum_congr fun ans => ?_
   split_ifs <;> simp
 theorem lazy_step {A : Type} [Fintype A] [DecidableEq A] (hinj : Function.Injective cellInput) (T : Answers)
-    (M : A → Entry → Prop) (rate : ENNReal)
-    (hcell : ∀ e : F, ∑ a, Pr[fun ans => M a (cellInput e.val, ans) | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ rate)
+    (M : A → Entry → Prop) (rate : ENNReal) (init : F → Finset HashOutput)
+    (hcell : ∀ e : F, ∑ a, Pr[fun ans => M a (cellInput e.val, ans) | cell (init e)] ≤ rate)
     (hother : ∀ x, ¬ IsCell cellInput F x → ∀ a, ¬ M a (x, T (.inl (.inr x))))
-    (h : FreeMonoid Entry) (allowed : F → Finset HashOutput) (hc : Consistent cellInput F h allowed)
+    (h : FreeMonoid Entry) (allowed : F → Finset HashOutput) (hc : Consistent cellInput F init h allowed)
     (input : RefWorld.Domain) :
     ∑' result, Pr[= result | (lazyImpl cellInput F T input).run allowed] *
         (marks M (h * obs input result.1).toList : ENNReal) ≤
@@ -347,19 +354,18 @@ theorem lazy_step {A : Type} [Fintype A] [DecidableEq A] (hinj : Function.Inject
               · rw [hsupp ans hne, zero_mul, zero_mul]
           _ ≤ _ := (tsum_probOutput_mul_le_self _ _).trans le_self_add
       · rw [hc.2 e₀ (fun ans hans => hq ⟨ans, hans⟩)]
-        calc _ ≤ ∑' ans, Pr[= ans | cell (Finset.univ : Finset HashOutput)] *
+        calc _ ≤ ∑' ans, Pr[= ans | cell (init e₀)] *
               ((marks M h.toList : ENNReal) + ((Finset.univ.filter fun a => M a (x, ans)).card : ENNReal)) := by
               refine ENNReal.tsum_le_tsum fun ans => mul_le_mul' le_rfl ?_
               exact_mod_cast marks_append_le M _ _
-          _ = ∑' ans, Pr[= ans | cell (Finset.univ : Finset HashOutput)] * (marks M h.toList : ENNReal) +
-              ∑' ans, Pr[= ans | cell (Finset.univ : Finset HashOutput)] *
+          _ = ∑' ans, Pr[= ans | cell (init e₀)] * (marks M h.toList : ENNReal) +
+              ∑' ans, Pr[= ans | cell (init e₀)] *
                 ((Finset.univ.filter fun a => M a (x, ans)).card : ENNReal) := by
               rw [← ENNReal.tsum_add]
               exact tsum_congr fun ans => mul_add _ _ _
           _ ≤ _ := by
               refine add_le_add (tsum_probOutput_mul_le_self _ _) ?_
-              rw [tsum_filter_card (cell (Finset.univ : Finset HashOutput)) (fun a ans => M a (x, ans))]
-              simp only [probEvent_cell_univ]
+              rw [tsum_filter_card (cell (init e₀)) (fun a ans => M a (x, ans))]
               rw [← hx₀]
               exact hcell e₀
     · rw [lazyImpl_other cellInput F T x hx, tsum_probOutput_pure_mul]
@@ -371,6 +377,32 @@ theorem lazy_step {A : Type} [Fintype A] [DecidableEq A] (hinj : Function.Inject
     exact (tsum_probOutput_mul_le_self _ _).trans le_self_add
 theorem aux_neverFail (T : Answers) (input : RefWorld.Domain) : NeverFail (aux T input) :=
   ⟨probFailure_eq_zero (mx := refImpl T input)⟩
+theorem lazy_marks_init_le {α A : Type} [Fintype A] [DecidableEq A] (hinj : Function.Injective cellInput)
+    (T : Answers) (M : A → Entry → Prop) (rate : ENNReal) (init : F → Finset HashOutput)
+    (hinit : ∀ e, (init e).Nonempty)
+    (hcell : ∀ e : F, ∑ a, Pr[fun ans => M a (cellInput e.val, ans) | cell (init e)] ≤ rate)
+    (hother : ∀ x, ¬ IsCell cellInput F x → ∀ a, ¬ M a (x, T (.inl (.inr x))))
+    (C : OracleComp RefWorld α) :
+    ∑' r, Pr[= r | (simulateQ (lazyImpl cellInput F T) (SphincsSecurity.QueryPause.traced obs C)).run init] *
+        (marks M r.1.2.toList : ENNReal) ≤
+      rate * ∑' r, Pr[= r | (simulateQ (lazyImpl cellInput F T) (SphincsSecurity.QueryPause.traced obs C)).run
+        init] * (cellCount cellInput F r.1.2.toList : ENNReal) := by
+  have key := SphincsSecurity.QueryPause.traced_spmf_potential_le obs (lazyImpl cellInput F T)
+    (fun h st => Consistent cellInput F init h st)
+    (fun h st hc input result hr => consistent_step cellInput F hinj T init h st hc input result hr)
+    (fun C' h st hc => by
+      rw [← lazyRun_eq_simulate]
+      exact probFailure_eq_zero' (UniformTableObservation.lazyRun_neverFail (aux T) (aux_neverFail T) _ st
+        (hc.nonempty cellInput F hinit)))
+    (fun h _ => (marks M h.toList : ENNReal)) rate (fun h => cellCount cellInput F h.toList) (charge cellInput F)
+    (by simp [cellCount]) (fun input answer tail => cellCount_step cellInput F input answer tail)
+    (fun h st hc input => lazy_step cellInput F hinj T M rate init hcell hother h st hc input)
+    C 1 init (consistent_one cellInput F init)
+  simp only [one_mul] at key
+  have h0 : marks M (1 : FreeMonoid Entry).toList = 0 := by
+    simp [marks]
+  rw [h0, Nat.cast_zero, zero_add] at key
+  exact key
 theorem lazy_marks_le {α A : Type} [Fintype A] [DecidableEq A] (hinj : Function.Injective cellInput)
     (T : Answers) (M : A → Entry → Prop) (rate : ENNReal)
     (hcell : ∀ e : F, ∑ a, Pr[fun ans => M a (cellInput e.val, ans) | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ rate)
@@ -379,23 +411,9 @@ theorem lazy_marks_le {α A : Type} [Fintype A] [DecidableEq A] (hinj : Function
     ∑' r, Pr[= r | (simulateQ (lazyImpl cellInput F T) (SphincsSecurity.QueryPause.traced obs C)).run
         (fun _ => Finset.univ)] * (marks M r.1.2.toList : ENNReal) ≤
       rate * ∑' r, Pr[= r | (simulateQ (lazyImpl cellInput F T) (SphincsSecurity.QueryPause.traced obs C)).run
-        (fun _ => Finset.univ)] * (cellCount cellInput F r.1.2.toList : ENNReal) := by
-  have key := SphincsSecurity.QueryPause.traced_spmf_potential_le obs (lazyImpl cellInput F T)
-    (fun h st => Consistent cellInput F h st)
-    (fun h st hc input result hr => consistent_step cellInput F hinj T h st hc input result hr)
-    (fun C' h st hc => by
-      rw [← lazyRun_eq_simulate]
-      exact probFailure_eq_zero' (UniformTableObservation.lazyRun_neverFail (aux T) (aux_neverFail T) _ st
-        (hc.nonempty cellInput F)))
-    (fun h _ => (marks M h.toList : ENNReal)) rate (fun h => cellCount cellInput F h.toList) (charge cellInput F)
-    (by simp [cellCount]) (fun input answer tail => cellCount_step cellInput F input answer tail)
-    (fun h st hc input => lazy_step cellInput F hinj T M rate hcell hother h st hc input)
-    C 1 (fun _ => Finset.univ) (consistent_one cellInput F)
-  simp only [one_mul] at key
-  have h0 : marks M (1 : FreeMonoid Entry).toList = 0 := by
-    simp [marks]
-  rw [h0, Nat.cast_zero, zero_add] at key
-  exact key
+        (fun _ => Finset.univ)] * (cellCount cellInput F r.1.2.toList : ENNReal) :=
+  lazy_marks_init_le cellInput F hinj T M rate (fun _ => Finset.univ) (fun _ => Finset.univ_nonempty)
+    (fun e => by simp only [probEvent_cell_univ]; exact hcell e) hother C
 end Potential
 end Enc.Lazy
 end SigGolfCandidate.T3.Security.Wots
@@ -425,9 +443,9 @@ noncomputable def encodingCount (s : RefSample) : Nat :=
 namespace Enc
 theorem counterSearch_first (T : Answers) (lay : Layer) (tree leaf : Nat) (message : Digest) :
     ∀ fuel start k digits, k < fuel →
-      (∀ i < k, decode lay ((T (.inl (.inr (pad64 (encodingInput lay tree leaf message
+      (∀ i < k, searchDecode lay ((T (.inl (.inr (pad64 (encodingInput lay tree leaf message
         (BitVec.ofNat 32 (start + i))))))).extractLsb' 0 128) = none) →
-      decode lay ((T (.inl (.inr (pad64 (encodingInput lay tree leaf message
+      searchDecode lay ((T (.inl (.inr (pad64 (encodingInput lay tree leaf message
         (BitVec.ofNat 32 (start + k))))))).extractLsb' 0 128) = some digits →
       evalWithAnswerFn T (counterSearch lay tree leaf message start fuel) =
         some (BitVec.ofNat 32 (start + k), digits) := by
@@ -450,7 +468,7 @@ theorem counterSearch_first (T : Answers) (lay : Layer) (tree leaf : Nat) (messa
         rw [show start + (k + 1) = start + 1 + k by omega]
         exact this
 theorem reached_valid_reference {T : Answers} {L : LeafAddr} {input : HashInput} (hr : Reached T L input)
-    {w : List Nat} (hw : decode L.lay (low (T (.inl (.inr input)))) = some w) :
+    {w : List Nat} (hw : searchDecode L.lay (low (T (.inl (.inr input)))) = some w) :
     referenceInput T L = some input := by
   obtain ⟨c, hc, rfl, hprev⟩ := hr
   have hs : referenceSearch T L = some (BitVec.ofNat 32 c, w) := by
@@ -502,7 +520,7 @@ theorem matchEntry_other (U : Finset HashInput) (privateTable : FullGame.FullTab
       change ¬ Reached _ _ (encInput (L, message, counter))
       rw [show encInput (L, message, counter) = x from he.symm]
       exact hfree, he.symm⟩
-  have href := reached_valid_reference hreached hdec
+  have href := reached_valid_reference hreached (WotsExtract.searchDecode_of_reference _ _ hdec)
   exact hne (he ▸ href)
 section Table
 variable (adversary : AdversaryP) (q : Nat)
@@ -567,7 +585,7 @@ theorem free_transfer [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, D
     intro y
     have hgame : referenceGame (eagerAnswers U privateTable (ov (freeSet (eagerAnswers U privateTable pub)) pub y))
         adversary q = referenceGame (eagerAnswers U privateTable pub) adversary q :=
-      referenceGame_congr_honest (honest_ov U privateTable pub y) adversary q
+      referenceGame_congr_honest (AgreeOn.of_eq (honest_ov U privateTable pub y)) adversary q
     simp only [PrefixGame.liftM_apply, hφ, probOutput_evalSPMF]
     unfold offlineRun
     rw [hgame, ← eager_ov_eq U hU privateTable pub y]
@@ -581,6 +599,74 @@ theorem free_transfer [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, D
     ← tsum_probOutput_map_mul _ Prod.fst (fun r : Option (Bool × Nat) × FreeMonoid Entry => φ r.2.toList),
     ← Lazy.eager_lazy, tsum_probOutput_bind_mul]
   simp only [probOutput_complete_univ (iX (freeSet (eagerAnswers U privateTable pub)))]
+theorem eager_ovk_eq (U : Finset HashInput) (hU : SeccLaw.publicUniverse ⊆ U) (privateTable : FullGame.FullTable)
+    (pub : U → HashOutput) (k : Set EncIndex) (y : k → HashOutput) :
+    eagerAnswers U privateTable (ov k pub y) = Lazy.overwrite encInput k (eagerAnswers U privateTable pub) y := by
+  funext query
+  rcases query with (n | x) | c
+  · simp only [eagerAnswers, Lazy.overwrite]
+  · by_cases hx : Lazy.IsCell encInput k x
+    · have hxU : x ∈ U := by
+        obtain ⟨e, -, rfl⟩ := hx
+        exact hU (encInput_short e)
+      rw [eagerAnswers_public_mem U privateTable _ ⟨x, hxU⟩]
+      simp only [Lazy.overwrite, dif_pos hx]
+      unfold ov
+      have hx' : ∃ e, e ∈ k ∧ encInput e = (⟨x, hxU⟩ : U).val := hx
+      rw [dif_pos hx']
+      rfl
+    · simp only [Lazy.overwrite, dif_neg hx]
+      by_cases hxU : x ∈ U
+      · rw [eagerAnswers_public_mem U privateTable _ ⟨x, hxU⟩, eagerAnswers_public_mem U privateTable _ ⟨x, hxU⟩]
+        exact ov_other _ _ _ _ (fun e he heq => hx ⟨e, he, heq⟩)
+      · rw [eagerAnswers_public_not_mem U _ _ x hxU, eagerAnswers_public_not_mem U _ _ x hxU]
+  · simp only [eagerAnswers, Lazy.overwrite]
+theorem probOutput_complete_init {ι : Type} [Fintype ι] [DecidableEq ι] (init : ι → Finset HashOutput)
+    (hinit : ∀ e, (init e).Nonempty) (y : ι → HashOutput) :
+    Pr[= y | complete init] =
+      PMF.uniformOfFinset (Fintype.piFinset init) (Fintype.piFinset_nonempty.mpr hinit) y := by
+  rw [complete_of_nonempty _ hinit, SPMF.probOutput_eq_apply, SPMF.liftM_apply]
+  rfl
+theorem cell_transfer [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, DecidableEq k]
+    (U : Finset HashInput) (hU : SeccLaw.publicUniverse ⊆ U) (privateTable : FullGame.FullTable)
+    (pub : U → HashOutput) (h : RefSample → ENNReal) (φ : List Entry → ENNReal)
+    (hφ : ∀ y, (∀ e, y e ∈ cellInit (cellKey (eagerAnswers U privateTable pub)) e) → ∀ r,
+      h (mkSample (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) r) = φ (traceOf (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) r.2)) :
+    ∑' y, PMF.uniformOfFinset (Fintype.piFinset (cellInit (cellKey (eagerAnswers U privateTable pub))))
+          (Fintype.piFinset_nonempty.mpr (cellInit_nonempty _)) y *
+        ∑' r, (liftM (offlineRun (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) adversary q) : PMF SeedResult) r *
+          h (mkSample (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) r) =
+      ∑' z, Pr[= z | (simulateQ (Lazy.lazyImpl encInput (cellKey (eagerAnswers U privateTable pub)).1 (eagerAnswers U privateTable pub))
+          (SphincsSecurity.QueryPause.traced Lazy.obs (referenceGame (eagerAnswers U privateTable pub) adversary q))).run
+          (cellInit (cellKey (eagerAnswers U privateTable pub)))] * φ z.1.2.toList := by
+  have hinner : ∀ y : (cellKey (eagerAnswers U privateTable pub)).1 → HashOutput, (∀ e, y e ∈ cellInit (cellKey (eagerAnswers U privateTable pub)) e) →
+      ∑' r, (liftM (offlineRun (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) adversary q) : PMF SeedResult) r *
+          h (mkSample (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) r) =
+        ∑' r, Pr[= r | 𝒮[simulateQ (refImpl (Lazy.overwrite encInput (cellKey (eagerAnswers U privateTable pub)).1 (eagerAnswers U privateTable pub) y))
+          (SphincsSecurity.QueryPause.traced Lazy.obs (referenceGame (eagerAnswers U privateTable pub) adversary q))]] *
+            φ r.2.toList := by
+    intro y hy
+    have hgame : referenceGame (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) adversary q = referenceGame (eagerAnswers U privateTable pub) adversary q :=
+      referenceGame_congr_honest (agree_ovc U hU privateTable pub y hy) adversary q
+    simp only [PrefixGame.liftM_apply, hφ y hy, probOutput_evalSPMF]
+    unfold offlineRun
+    rw [hgame, ← eager_ovk_eq U hU privateTable pub _ y]
+    have hmap := Lazy.recorded_traced (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) (referenceGame (eagerAnswers U privateTable pub) adversary q)
+    rw [← tsum_probOutput_map_mul _ (fun r : SeedResult => (r.1, traceOf (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) r.2))
+      (fun z : Option (Bool × Nat) × List Entry => φ z.2), hmap, tsum_probOutput_map_mul]
+  refine Eq.trans (tsum_congr (g := fun y : (cellKey (eagerAnswers U privateTable pub)).1 → HashOutput =>
+      PMF.uniformOfFinset (Fintype.piFinset (cellInit (cellKey (eagerAnswers U privateTable pub))))
+          (Fintype.piFinset_nonempty.mpr (cellInit_nonempty _)) y *
+        ∑' r, Pr[= r | 𝒮[simulateQ (refImpl (Lazy.overwrite encInput (cellKey (eagerAnswers U privateTable pub)).1 (eagerAnswers U privateTable pub) y))
+          (SphincsSecurity.QueryPause.traced Lazy.obs (referenceGame (eagerAnswers U privateTable pub) adversary q))]] *
+            φ r.2.toList) fun y => ?_) ?_
+  · by_cases hy : ∀ e, y e ∈ cellInit (cellKey (eagerAnswers U privateTable pub)) e
+    · rw [hinner y hy]
+    · rw [PMF.uniformOfFinset_apply, if_neg (fun hm => hy (Fintype.mem_piFinset.mp hm)), zero_mul, zero_mul]
+  · rw [← Lazy.lazyRun_eq_simulate,
+      ← tsum_probOutput_map_mul _ Prod.fst (fun r : Option (Bool × Nat) × FreeMonoid Entry => φ r.2.toList),
+      ← Lazy.eager_lazy_init (hinit := cellInit_nonempty _), tsum_probOutput_bind_mul]
+    simp only [probOutput_complete_init _ (cellInit_nonempty _)]
 noncomputable def matchInd (s : RefSample) : ENNReal :=
   if ∃ L : CanonGraph.LeafPos, EncodingMatchAt s.answers s.trace (leafOf L) then 1 else 0
 theorem marks_unit (P : Entry → Prop) (tr : List Entry) :
@@ -591,7 +677,7 @@ theorem marks_unit (P : Entry → Prop) (tr : List Entry) :
     simp
   · rw [if_neg h, Finset.filter_false_of_mem (fun _ _ => h)]
     simp
-theorem encodingMatchAt_congr {T T' : Answers} (h : ∀ q, HonestQ T q → T' q = T q) (trace : List Entry)
+theorem encodingMatchAt_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (trace : List Entry)
     (L : CanonGraph.LeafPos) : EncodingMatchAt T' trace (leafOf L) ↔ EncodingMatchAt T trace (leafOf L) := by
   unfold EncodingMatchAt
   rw [referenceInput_congr_honest h, referenceDigits_congr_honest h]
@@ -628,8 +714,8 @@ theorem free_match_le [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, D
         split_ifs with h1 h2 h2
         · rfl
         · exact absurd ((matchAt_iff _ _).mp
-            (by simpa only [encodingMatchAt_congr (honest_ov U privateTable pub y)] using h1)) h2
-        · exact absurd (by simpa only [encodingMatchAt_congr (honest_ov U privateTable pub y)] using
+            (by simpa only [encodingMatchAt_congr (AgreeOn.of_eq (honest_ov U privateTable pub y))] using h1)) h2
+        · exact absurd (by simpa only [encodingMatchAt_congr (AgreeOn.of_eq (honest_ov U privateTable pub y))] using
             (matchAt_iff _ _).mpr h2) h1
         · rfl),
     free_transfer adversary q iX U hU privateTable pub (fun s => (encodingCount s : ENNReal))

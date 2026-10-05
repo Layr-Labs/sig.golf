@@ -22,8 +22,7 @@ def headerWrites (lay : Nat) : List (Addr × E) :=
 def specA (lay p : Nat) : Spec :=
   if lay = 3 then T3M.specA lay p else
   ⟨if lay = 0 then [(.x4, tpE lay), (.x23, s7E lay), (.x3, ctrE lay)]
-   else [(.x4, tpE lay), (.x23, s7E lay), (.x31, treeE lay), (.x3, ctrE lay),
-     (.x28, .bin .sll (.reg (rReg lay)) (kw 16))],
+   else [(.x4, tpE lay), (.x23, s7E lay), (.x31, treeE lay), (.x3, ctrE lay)],
    headerWrites lay, p + stepsA lay, true, stepsA lay,
    [ctrBr lay false], none, stepsA lay⟩
 def rejA (lay p : Nat) : Spec :=

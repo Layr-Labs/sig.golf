@@ -58,7 +58,7 @@ def ExpQW : Option (HashOutput × WCT9.Witness) → MachineState → Prop
   | some (N, w), t => t.pc = pcOf 353 ∧ t.getReg .x5 = BitVec.ofNat 64 1 ∧ t.getReg .x10 = BitVec.ofNat 64 0 ∧
       t.readWords (BitVec.ofNat 64 0x800) 2873 = wordsOf (ClaudeWCT.W9.T3M.witList N w)
 def expCostW : Nat := 30 + newCost + (lcost 4 + 11)
-theorem lcost_four : lcost 4 ≤ 3000000000 := by decide
+theorem lcost_four : lcost 4 ≤ 3750000000 := by decide
 theorem expCostW_lt : expCostW + 1 < CYCLE_LIMIT := by
   have h := lcost_four
   unfold expCostW newCost CYCLE_LIMIT
@@ -144,7 +144,7 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hd : E
       hz0 _ (by omega) (by omega) (by omega) (by omega)]
   have hL : LInv sig index 4 (.forest root) t7 := by
     refine ⟨by rw [P.pc]; rfl, le_refl _, P.x5, hi, P.idx, P.enc, fun _ => ?_, fun h => absurd h (by decide),
-      ⟨0, by norm_num, ?_⟩, ?_, ?_, ?_⟩
+      ⟨0, by norm_num, ?_⟩, ?_, ?_, ?_, ?_⟩
     · simp only [SigGolfCandidate.T3M.Search.BC.right]
       refine ⟨?_, ?_⟩
       · rw [z7h _ (by simp only [ENC]; omega) (by simp only [ENC]; omega) (by simp only [ENC]; omega)
@@ -180,6 +180,11 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hd : E
           (by simp only [CHAIN, Search.NODE, LEAFPK, ENC, IDXV]; omega)]
     · apply (w9init_table hd m pk σ).frame F7
       intro i hi h
+      rcases h with h | h
+      · unfold FrontW at h; simp only [TOP_DATA, DIG] at h; omega
+      · unfold NewW at h; simp only [TOP_DATA, DIG, NBUF, IDXV, ENC] at h; omega
+    · apply (w9init_cf hd m pk σ).frame F7
+      intro i hi hi' h
       rcases h with h | h
       · unfold FrontW at h; simp only [TOP_DATA, DIG] at h; omega
       · unfold NewW at h; simp only [TOP_DATA, DIG, NBUF, IDXV, ENC] at h; omega

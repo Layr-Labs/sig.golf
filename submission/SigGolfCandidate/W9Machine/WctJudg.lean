@@ -10,8 +10,8 @@ theorem GoodQFor.mono {s : MachineState} {N C A N' C' A' : Nat} {Q Q' : Prop} {X
     GoodQFor im s N' C' Q' A' X := by
   intro F hF
   obtain ⟨h1, h2⟩ := h F (by omega)
-  refine ⟨h1, fun hash => ⟨(h2 hash).1, by have := (h2 hash).2.1; omega, fun hs => ?_⟩⟩
-  obtain ⟨hq, ha⟩ := (h2 hash).2.2 hs
+  refine ⟨h1, fun hash => ⟨(h2 hash).1, by have := (h2 hash).2.1; omega, fun hs hok => ?_⟩⟩
+  obtain ⟨hq, ha⟩ := (h2 hash).2.2 hs hok
   exact ⟨(hQ hq).1, by have := (hQ hq).2; omega⟩
 theorem GoodQFor.congr {s : MachineState} {N C A : Nat} {Q : Prop} {X Y : OracleComp HashSpec Obs}
     (h : GoodQFor im s N C Q A X) (hXY : X = Y) : GoodQFor im s N C Q A Y := hXY ▸ h
@@ -26,8 +26,8 @@ theorem GoodQFor.steps {s t : MachineState} {k c N C A : Nat} {Q : Prop} {X : Or
     exact h1
   · rw [hF', hst.evalWith hash (F - k)]
     simp only [Execution.charge_exit, Execution.charge_cycles]
-    refine ⟨(h2 hash).1, by have := (h2 hash).2.1; omega, fun hs => ?_⟩
-    obtain ⟨hq, ha⟩ := (h2 hash).2.2 hs
+    refine ⟨(h2 hash).1, by have := (h2 hash).2.1; omega, fun hs hok => ?_⟩
+    obtain ⟨hq, ha⟩ := (h2 hash).2.2 hs hok
     exact ⟨hq, by omega⟩
 theorem GoodQFor.steps' {s t : MachineState} {k c N C A N' C' A' : Nat} {Q Q' : Prop}
     {X : OracleComp HashSpec Obs} (hst : Steps im s k c t) (h : GoodQFor im t N C Q A X)
@@ -50,8 +50,8 @@ theorem GoodQFor.query {s : MachineState} {N C A : Nat} {Q : Prop} {q : Query}
   · rw [hF', evalWith_hash hash (F - 1) hf ht0 hv, hin]
     obtain ⟨h1, h2, h3⟩ := (h (hash q) (F - 1) (by omega)).2 hash
     simp only [Execution.charge_exit, Execution.charge_cycles]
-    refine ⟨h1, by omega, fun hs => ?_⟩
-    obtain ⟨hq, ha⟩ := h3 hs
+    refine ⟨h1, by omega, fun hs hok => ?_⟩
+    obtain ⟨hq, ha⟩ := h3 hs hok
     exact ⟨hq, by omega⟩
 theorem GoodQFor.publicHash_bind {β : Type} {s : MachineState} {N C A : Nat} {Q : Prop}
     {input : List UInt8} {f : HashOutput → M β} {K : β → OracleComp HashSpec Obs}
@@ -86,9 +86,9 @@ theorem GoodQFor.halt {s : MachineState} {Q : Prop} {A : Nat} (hf : fetch im s =
   · rw [hF', evalWith_halt hash (F - 1) hf h5]
     by_cases hx : s.getReg .x10 = 0
     · simp only [hx, if_true]
-      exact ⟨by decide, le_refl _, fun _ => hQ hx⟩
+      exact ⟨by decide, le_refl _, fun _ _ => hQ hx⟩
     · simp only [hx, if_false]
-      exact ⟨by decide, le_refl _, fun h => absurd h (by decide)⟩
+      exact ⟨by decide, le_refl _, fun h _ => absurd h (by decide)⟩
 theorem GoodQFor.reject {s : MachineState} {Q : Prop} {A : Nat} (hf : fetch im s = some (.base .ECALL))
     (h5 : s.getReg .x5 = 1) (h10 : s.getReg .x10 = 1) : GoodQFor im s 1 1 Q A (pure (false, 0)) := by
   have := GoodQFor.halt (Q := Q) (A := A) hf h5 (fun h => absurd (h10.symm.trans h) (by decide))

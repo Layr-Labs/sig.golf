@@ -1,5 +1,6 @@
 import SigGolfCandidate.T3M.Verify.Code
 import SigGolfCandidate.T3M.Sim
+import SigGolfCandidate.T3M.Verify.HashOk
 
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
@@ -142,17 +143,25 @@ theorem Good.halt {s : MachineState} (hf : fetch image s = some (.base .ECALL))
     by_cases hx : s.getReg .x10 = 0
     · simp only [hx, if_true]; decide
     · simp only [hx, if_false]; decide
+/-- `GoodQ` with the accept-cycle clause asked only of the hash functions satisfying `P`. -/
+def GoodQP (P : Hash → Prop) (s : MachineState) (N C : Nat) (Q : Prop) (A : Nat)
+    (X : OracleComp HashSpec Obs) : Prop :=
+  ∀ F, N ≤ F → obs <$> Riscv.execute F image s = X ∧
+    ∀ hash : Hash, (evalWithAnswerFn hash (Riscv.execute F image s)).exit ≠ .unfinished ∧
+      (evalWithAnswerFn hash (Riscv.execute F image s)).cycles ≤ C ∧
+      ((evalWithAnswerFn hash (Riscv.execute F image s)).exit = .success → P hash →
+        Q ∧ (evalWithAnswerFn hash (Riscv.execute F image s)).cycles ≤ A)
 def GoodQ (s : MachineState) (N C : Nat) (Q : Prop) (A : Nat) (X : OracleComp HashSpec Obs) : Prop :=
   ∀ F, N ≤ F → obs <$> Riscv.execute F image s = X ∧
     ∀ hash : Hash, (evalWithAnswerFn hash (Riscv.execute F image s)).exit ≠ .unfinished ∧
       (evalWithAnswerFn hash (Riscv.execute F image s)).cycles ≤ C ∧
-      ((evalWithAnswerFn hash (Riscv.execute F image s)).exit = .success →
+      ((evalWithAnswerFn hash (Riscv.execute F image s)).exit = .success → HashOk hash →
         Q ∧ (evalWithAnswerFn hash (Riscv.execute F image s)).cycles ≤ A)
 theorem Good.toQ {s : MachineState} {N C : Nat} {X : OracleComp HashSpec Obs} (h : Good s N C X) :
     GoodQ s N C True C X := by
   intro F hF
   obtain ⟨h1, h2⟩ := h F hF
-  exact ⟨h1, fun hash => ⟨(h2 hash).1, (h2 hash).2, fun _ => ⟨trivial, (h2 hash).2⟩⟩⟩
+  exact ⟨h1, fun hash => ⟨(h2 hash).1, (h2 hash).2, fun _ _ => ⟨trivial, (h2 hash).2⟩⟩⟩
 theorem GoodQ.toGood {s : MachineState} {N C : Nat} {Q : Prop} {A : Nat} {X : OracleComp HashSpec Obs}
     (h : GoodQ s N C Q A X) : Good s N C X := by
   intro F hF
@@ -163,8 +172,8 @@ theorem GoodQ.mono {s : MachineState} {N C A N' C' A' : Nat} {Q Q' : Prop} {X : 
     GoodQ s N' C' Q' A' X := by
   intro F hF
   obtain ⟨h1, h2⟩ := h F (by omega)
-  refine ⟨h1, fun hash => ⟨(h2 hash).1, by have := (h2 hash).2.1; omega, fun hs => ?_⟩⟩
-  obtain ⟨hq, ha⟩ := (h2 hash).2.2 hs
+  refine ⟨h1, fun hash => ⟨(h2 hash).1, by have := (h2 hash).2.1; omega, fun hs hok => ?_⟩⟩
+  obtain ⟨hq, ha⟩ := (h2 hash).2.2 hs hok
   exact ⟨(hQ hq).1, by have := (hQ hq).2; omega⟩
 theorem GoodQ.congr {s : MachineState} {N C A : Nat} {Q : Prop} {X Y : OracleComp HashSpec Obs}
     (h : GoodQ s N C Q A X) (hXY : X = Y) : GoodQ s N C Q A Y := hXY ▸ h
@@ -179,8 +188,8 @@ theorem GoodQ.steps {s t : MachineState} {k c N C A : Nat} {Q : Prop} {X : Oracl
     exact h1
   · rw [hF', hst.evalWith hash (F - k)]
     simp only [Execution.charge_exit, Execution.charge_cycles]
-    refine ⟨(h2 hash).1, by have := (h2 hash).2.1; omega, fun hs => ?_⟩
-    obtain ⟨hq, ha⟩ := (h2 hash).2.2 hs
+    refine ⟨(h2 hash).1, by have := (h2 hash).2.1; omega, fun hs hok => ?_⟩
+    obtain ⟨hq, ha⟩ := (h2 hash).2.2 hs hok
     exact ⟨hq, by omega⟩
 theorem GoodQ.steps' {s t : MachineState} {k c N C A N' C' A' : Nat} {Q Q' : Prop}
     {X : OracleComp HashSpec Obs} (hst : Steps image s k c t) (h : GoodQ t N C Q A X)
@@ -203,8 +212,8 @@ theorem GoodQ.query {s : MachineState} {N C A : Nat} {Q : Prop} {q : Query}
   · rw [hF', evalWith_hash hash (F - 1) hf ht0 hv, hin]
     obtain ⟨h1, h2, h3⟩ := (h (hash q) (F - 1) (by omega)).2 hash
     simp only [Execution.charge_exit, Execution.charge_cycles]
-    refine ⟨h1, by omega, fun hs => ?_⟩
-    obtain ⟨hq, ha⟩ := h3 hs
+    refine ⟨h1, by omega, fun hs hok => ?_⟩
+    obtain ⟨hq, ha⟩ := h3 hs hok
     exact ⟨hq, by omega⟩
 theorem GoodQ.publicHash_bind {β : Type} {s : MachineState} {N C A : Nat} {Q : Prop}
     {input : List UInt8} {f : HashOutput → M β} {K : β → OracleComp HashSpec Obs}
@@ -239,9 +248,9 @@ theorem GoodQ.halt {s : MachineState} {Q : Prop} {A : Nat} (hf : fetch image s =
   · rw [hF', evalWith_halt hash (F - 1) hf h5]
     by_cases hx : s.getReg .x10 = 0
     · simp only [hx, if_true]
-      exact ⟨by decide, le_refl _, fun _ => hQ hx⟩
+      exact ⟨by decide, le_refl _, fun _ _ => hQ hx⟩
     · simp only [hx, if_false]
-      exact ⟨by decide, le_refl _, fun h => absurd h (by decide)⟩
+      exact ⟨by decide, le_refl _, fun h _ => absurd h (by decide)⟩
 theorem GoodQ.reject {s : MachineState} {Q : Prop} {A : Nat} (hf : fetch image s = some (.base .ECALL))
     (h5 : s.getReg .x5 = 1) (h10 : s.getReg .x10 = 1) : GoodQ s 1 1 Q A (pure (false, 0)) := by
   have := GoodQ.halt (Q := Q) (A := A) hf h5 (fun h => absurd (h10.symm.trans h) (by decide))
@@ -251,4 +260,68 @@ theorem GoodQ.accept {s : MachineState} {Q : Prop} {A : Nat} (hf : fetch image s
     GoodQ s 1 1 Q A (pure (true, 0)) := by
   have := GoodQ.halt (Q := Q) (A := A) hf h5 (fun _ => ⟨hQ, hA⟩)
   rwa [h10] at this
+theorem GoodQ.toP {s : MachineState} {N C : Nat} {Q : Prop} {A : Nat} {X : OracleComp HashSpec Obs}
+    (h : GoodQ s N C Q A X) : GoodQP HashOk s N C Q A X := h
+theorem GoodQP.toGoodQ {s : MachineState} {N C : Nat} {Q : Prop} {A : Nat} {X : OracleComp HashSpec Obs}
+    (h : GoodQP HashOk s N C Q A X) : GoodQ s N C Q A X := h
+theorem GoodQP.pre_mono {P P' : Hash → Prop} {s : MachineState} {N C : Nat} {Q : Prop} {A : Nat}
+    {X : OracleComp HashSpec Obs} (h : GoodQP P s N C Q A X) (hP : ∀ hash, P' hash → P hash) :
+    GoodQP P' s N C Q A X := by
+  intro F hF
+  obtain ⟨h1, h2⟩ := h F hF
+  exact ⟨h1, fun hash => ⟨(h2 hash).1, (h2 hash).2.1, fun hs hp => (h2 hash).2.2 hs (hP hash hp)⟩⟩
+/-- A precondition no hash satisfies leaves only the all-cycle bound. -/
+theorem GoodQP.of_false {P : Hash → Prop} {s : MachineState} {N C : Nat} {Q : Prop} {A A' : Nat}
+    {X : OracleComp HashSpec Obs} (h : GoodQ s N C Q A' X) (hP : ∀ hash, ¬ P hash) :
+    GoodQP P s N C Q A X := by
+  intro F hF
+  obtain ⟨h1, h2⟩ := h F hF
+  exact ⟨h1, fun hash => ⟨(h2 hash).1, (h2 hash).2.1, fun _ hp => absurd hp (hP hash)⟩⟩
+theorem GoodQP.steps' {P : Hash → Prop} {s t : MachineState} {k c N C A N' C' A' : Nat} {Q : Prop}
+    {X : OracleComp HashSpec Obs} (hst : Steps image s k c t) (h : GoodQP P t N C Q A X)
+    (hN : N + k ≤ N') (hC : C + c ≤ C') (hA : A + c ≤ A') : GoodQP P s N' C' Q A' X := by
+  intro F hF
+  obtain ⟨h1, h2⟩ := h (F - k) (by omega)
+  have hF' : F = (F - k) + k := by omega
+  refine ⟨?_, fun hash => ?_⟩
+  · rw [hst.execute_le (by omega : k ≤ F), Functor.map_map]
+    simp only [obs_charge]
+    exact h1
+  · rw [hF', hst.evalWith hash (F - k)]
+    simp only [Execution.charge_exit, Execution.charge_cycles]
+    refine ⟨(h2 hash).1, by have := (h2 hash).2.1; omega, fun hs hp => ?_⟩
+    obtain ⟨hq, ha⟩ := (h2 hash).2.2 hs hp
+    exact ⟨hq, by omega⟩
+/-- A query whose continuation for answer `a` is good under the precondition `hash q = a ∧ P hash`. -/
+theorem GoodQP.query_pre {P : Hash → Prop} {s : MachineState} {N C A : Nat} {Q : Prop} {q : Query}
+    {K : BitVec 256 → OracleComp HashSpec Obs}
+    (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
+    (hv : hashArgumentsValid s = true) (hin : hashInput s = q)
+    (h : ∀ a, GoodQP (fun hash => hash q = a ∧ P hash) (writeHash s a) N C Q A (K a)) :
+    GoodQP P s (N + 1) (C + 8 * q.blocks) Q (A + 8 * q.blocks)
+      (cc (liftM (HashSpec.query q) : OracleComp HashSpec _) K) := by
+  intro F hF
+  have hF' : F = (F - 1) + 1 := by omega
+  refine ⟨?_, fun hash => ?_⟩
+  · rw [hF', execute_hash (F - 1) hf ht0 hv, cc_query, map_bind, hin]
+    congr 1; funext a
+    rw [Functor.map_map, ← (h a (F - 1) (by omega)).1, Functor.map_map]
+    congr 1
+  · rw [hF', evalWith_hash hash (F - 1) hf ht0 hv, hin]
+    obtain ⟨h1, h2, h3⟩ := (h (hash q) (F - 1) (by omega)).2 hash
+    simp only [Execution.charge_exit, Execution.charge_cycles]
+    refine ⟨h1, by omega, fun hs hp => ?_⟩
+    obtain ⟨hq, ha⟩ := h3 hs ⟨rfl, hp⟩
+    exact ⟨hq, by omega⟩
+theorem GoodQP.shortHash_bind_pre {P : Hash → Prop} {β : Type} {s : MachineState} {N C A : Nat} {Q : Prop}
+    {input : List UInt8} {f : Digest → M β} {K : β → OracleComp HashSpec Obs}
+    (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
+    (hv : hashArgumentsValid s = true) (hin : hashInput s = toQ (pad64 input))
+    (h : ∀ a : BitVec 256, GoodQP (fun hash => hash (toQ (pad64 input)) = a ∧ P hash) (writeHash s a) N C Q A
+      (ccM (f (a.extractLsb' 0 128)) K)) :
+    GoodQP P s (N + 1) (C + 8 * (toQ (pad64 input)).blocks) Q (A + 8 * (toQ (pad64 input)).blocks)
+      (ccM (shortHash input >>= f) K) := by
+  have := GoodQP.query_pre (K := fun a => ccM (f (a.extractLsb' 0 128)) K) hf ht0 hv hin h
+  rw [cc_query] at this
+  rwa [ccM_shortHash_bind]
 end SigGolfCandidate.T3M.Verify

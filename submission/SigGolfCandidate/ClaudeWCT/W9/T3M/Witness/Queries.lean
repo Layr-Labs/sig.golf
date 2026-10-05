@@ -116,7 +116,7 @@ theorem pubGood_layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : WCT9.L
       intro counter
       unfold WCT9.layerCounterSearch
       refine allQ_bind (pubGood_layerEncodingInput _ _ _ _ _) fun ans => ?_
-      rcases decode lay ans with _ | digits
+      rcases searchDecode lay ans with _ | digits
       · exact ih _
       · exact allQ_pure _
 theorem pubGood_recoverLayerPair (sig : WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat) :

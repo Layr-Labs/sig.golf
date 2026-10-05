@@ -585,11 +585,11 @@ theorem recoverFts_honest (answers : Answers) (sig : Signature) (index : Nat)
   rw [hpairs]
 theorem layerEncodingInput_forest (lay : Layer) (tree leaf : Nat) (root : Digest) (counter : BitVec 32) :
     layerEncodingInput lay tree leaf (.forest root) counter = encodingInput lay tree leaf root counter := rfl
-theorem layerCounterSearch_some (answers : Answers) (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) :
+theorem layerCounterSearch_some_search (answers : Answers) (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) :
     ∀ fuel counter found digits, counter + fuel ≤ 2 ^ 32 →
       evalWithAnswerFn answers (layerCounterSearch lay tree leaf msg counter fuel) = some (found, digits) →
       counter ≤ found.toNat ∧ found.toNat < counter + fuel ∧
-        decode lay (evalWithAnswerFn answers (shortHash (layerEncodingInput lay tree leaf msg found))) =
+        searchDecode lay (evalWithAnswerFn answers (shortHash (layerEncodingInput lay tree leaf msg found))) =
           some digits := by
   intro fuel
   induction fuel with
@@ -599,7 +599,7 @@ theorem layerCounterSearch_some (answers : Answers) (lay : Layer) (tree leaf : N
   | succ fuel ih =>
       intro counter found digits hlimit he
       simp only [layerCounterSearch, evalWithAnswerFn_bind] at he
-      cases hd : decode lay (evalWithAnswerFn answers
+      cases hd : searchDecode lay (evalWithAnswerFn answers
         (shortHash (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter)))) with
       | none =>
           simp only [hd] at he
@@ -611,6 +611,15 @@ theorem layerCounterSearch_some (answers : Answers) (lay : Layer) (tree leaf : N
           have hcount : (BitVec.ofNat 32 counter).toNat = counter := by
             rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
           exact ⟨by rw [hcount], by rw [hcount]; omega, hd⟩
+theorem layerCounterSearch_some (answers : Answers) (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) :
+    ∀ fuel counter found digits, counter + fuel ≤ 2 ^ 32 →
+      evalWithAnswerFn answers (layerCounterSearch lay tree leaf msg counter fuel) = some (found, digits) →
+      counter ≤ found.toNat ∧ found.toNat < counter + fuel ∧
+        decode lay (evalWithAnswerFn answers (shortHash (layerEncodingInput lay tree leaf msg found))) =
+          some digits := by
+  intro fuel counter found digits hlimit he
+  obtain ⟨h1, h2, h3⟩ := layerCounterSearch_some_search answers lay tree leaf msg fuel counter found digits hlimit he
+  exact ⟨h1, h2, SigGolfCandidate.T3.Nonbinary.searchDecode_some h3⟩
 theorem ofNat_layer_val (n : Nat) (hn : n < 4) : (Fin.ofNat 4 n : Layer).val = n := Nat.mod_eq_of_lt hn
 theorem expandLayersBC_verified (answers : Answers) (sig : Signature) (index : Nat) :
     ∀ n, n ≤ 4 → ∀ msg root counters,
@@ -708,8 +717,53 @@ theorem eval_recoverLayerPair_honest (answers : Answers) (sig : Signature) (inde
   rw [eval_chains_honest answers lay _ _ digits hvalid _ hvalues, hlr, hp, hother]
   unfold builtPair topPair
   rcases hq2 with h | h <;> rw [h] <;> rfl
+def TopSearchesSucceedBC (answers : Answers) : Prop :=
+  ∀ index, index < 2 ^ 31 → ∀ msg : LayerMsg, ∃ found,
+    evalWithAnswerFn answers (layerCounterSearch (Fin.ofNat 4 0) (route index (Fin.ofNat 4 0)).2
+      (route index (Fin.ofNat 4 0)).1 msg 0 counterLimit) = some found
+theorem signLayersBC_length (answers : Answers) (cache : Cache) (index : Nat) :
+    ∀ n msg pieces, evalWithAnswerFn answers (signLayersBC cache index n msg) = some pieces →
+      pieces.length = n := by
+  intro n
+  induction n with
+  | zero =>
+      intro msg pieces he
+      simp only [signLayersBC, evalWithAnswerFn_pure, Option.some.injEq] at he
+      subst pieces
+      rfl
+  | succ n ih =>
+      intro msg pieces he
+      by_cases hn0 : n = 0
+      · subst n
+        unfold signLayersBC at he
+        rw [evalWithAnswerFn_bind] at he
+        rw [if_pos rfl, evalWithAnswerFn_bind, evalWithAnswerFn_pure, Option.some.injEq] at he
+        subst pieces
+        rfl
+      · simp only [signLayersBC, evalWithAnswerFn_bind] at he
+        cases hs : evalWithAnswerFn answers (layerCounterSearch (Fin.ofNat 4 n)
+          (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg 0 counterLimit) with
+        | none => simp only [hs, hn0, if_false, evalWithAnswerFn_pure, reduceCtorEq] at he
+        | some found =>
+            obtain ⟨counter, digits⟩ := found
+            have hd := (layerCounterSearch_some answers (Fin.ofNat 4 n)
+              (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg
+              counterLimit 0 counter digits (by decide) hs).2.2
+            have hvalid := Cost.validDigits_decode hd
+            simp only [hs] at he
+            simp only [hn0, if_false, evalWithAnswerFn_bind,
+              eval_buildTree_result answers (Fin.ofNat 4 n) _ _ digits hvalid (route_leaf_bound index _)] at he
+            cases hp : evalWithAnswerFn answers (signLayersBC cache index n
+              (.pair (topPair (Fin.ofNat 4 n) (builtTree answers (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2)).1
+                (topPair (Fin.ofNat 4 n) (builtTree answers (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2)).2)) with
+            | none => simp only [hp, evalWithAnswerFn_pure, reduceCtorEq] at he
+            | some previous =>
+                simp only [hp, evalWithAnswerFn_pure, Option.some.injEq] at he
+                subst pieces
+                simp [ih _ previous hp]
 theorem signLayersBC_expandLayersBC (answers : Answers) (cache : Cache) (index : Nat)
-    (hcache : cache.region = cacheRegion (maskedTop answers)) (hindex : index < 2 ^ 31) :
+    (hcache : cache.region = cacheRegion (maskedTop answers)) (hindex : index < 2 ^ 31)
+    (htop : TopSearchesSucceedBC answers) :
     ∀ n, 1 ≤ n → n ≤ 4 → ∀ msg pieces,
       evalWithAnswerFn answers (signLayersBC cache index n msg) = some pieces →
       pieces.length = n ∧ ∀ sig : Signature, PiecesAgree (toT3Signature sig) pieces n →
@@ -724,7 +778,13 @@ theorem signLayersBC_expandLayersBC (answers : Answers) (cache : Cache) (index :
       simp only [signLayersBC, evalWithAnswerFn_bind] at he
       cases hs : evalWithAnswerFn answers (layerCounterSearch (Fin.ofNat 4 n)
         (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg 0 counterLimit) with
-      | none => simp only [hs, evalWithAnswerFn_pure, reduceCtorEq] at he
+      | none =>
+          by_cases hn0 : n = 0
+          · subst n
+            obtain ⟨found, hf⟩ := htop index hindex msg
+            rw [hf] at hs
+            cases hs
+          · simp only [hs, hn0, if_false, evalWithAnswerFn_pure, reduceCtorEq] at he
       | some found =>
           obtain ⟨counter, digits⟩ := found
           have hd := (layerCounterSearch_some answers (Fin.ofNat 4 n)
@@ -734,7 +794,8 @@ theorem signLayersBC_expandLayersBC (answers : Answers) (cache : Cache) (index :
           simp only [hs] at he
           by_cases hn0 : n = 0
           · subst n
-            simp only [if_true, evalWithAnswerFn_bind, evalWithAnswerFn_pure, Option.some.injEq] at he
+            simp only [if_true, evalWithAnswerFn_bind, evalWithAnswerFn_pure, Option.some.injEq,
+              Option.map_some, Option.getD_some] at he
             subst pieces
             refine ⟨rfl, ?_⟩
             intro sig hagree

@@ -40,7 +40,7 @@ variable {T : Answers} {S : Spec.Domain → Prop}
 end RespAt
 theorem respAt_layerCounterSearch (T : Answers) (S : Spec.Domain → Prop) (lay : Layer) (tree leaf : Nat)
     (msg : WCT9.LayerMsg) : ∀ fuel start,
-      (∀ c < fuel, (∀ c' < c, decode lay (low (T (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg
+      (∀ c < fuel, (∀ c' < c, searchDecode lay (low (T (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg
           (BitVec.ofNat 32 (start + c')))))))) = none) →
         S (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 (start + c))))))) →
       RespAt T S (WCT9.layerCounterSearch lay tree leaf msg start fuel) := by
@@ -48,29 +48,55 @@ theorem respAt_layerCounterSearch (T : Answers) (S : Spec.Domain → Prop) (lay 
   induction fuel with
   | zero => intro start _; exact RespAt.pure' _
   | succ fuel ih =>
-      intro start hS
-      simp only [WCT9.layerCounterSearch]
-      refine RespAt.bind (RespAt.of_respects (S' := S) (Respects.shortHash _ ?_) (fun _ h => h)) ?_
-      · simpa using hS 0 (Nat.zero_lt_succ _) (fun c' hc' => absurd hc' (Nat.not_lt_zero _))
-      · cases hd : decode lay (evalWithAnswerFn T (shortHash (WCT9.layerEncodingInput lay tree leaf msg
+      intro start hS T' hT'
+      have hS0 : S (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 start))))) := by
+        have := hS 0 (Nat.zero_lt_succ _) (fun c' hc' => absurd hc' (Nat.not_lt_zero _))
+        rwa [Nat.add_zero] at this
+      have hrest : searchDecode lay (low (T (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg
+          (BitVec.ofNat 32 start))))))) = none →
+          RespAt T S (WCT9.layerCounterSearch lay tree leaf msg (start + 1) fuel) := by
+        intro hnone
+        apply ih (start + 1)
+        intro c hc hprev
+        have h := hS (c + 1) (by omega) (fun c' hc' => by
+          rcases c' with _ | c''
+          · rw [Nat.add_zero]
+            exact hnone
+          · have := hprev c'' (by omega)
+            rwa [show start + (c'' + 1) = start + 1 + c'' by omega])
+        rwa [show start + (c + 1) = start + 1 + c by omega] at h
+      rw [WCT9.layerCounterSearch]
+      rw [evalWithAnswerFn_bind, evalWithAnswerFn_bind, SourceReplay.queried_bind, SourceReplay.queried_bind]
+      have hq0 : SourceReplay.queried T' (shortHash (WCT9.layerEncodingInput lay tree leaf msg
+          (BitVec.ofNat 32 start))) = SourceReplay.queried T (shortHash (WCT9.layerEncodingInput lay tree leaf msg
+          (BitVec.ofNat 32 start))) := rfl
+      rw [hq0]
+      rcases hT' _ hS0 with heq | hrej
+      · have hev : evalWithAnswerFn T' (shortHash (WCT9.layerEncodingInput lay tree leaf msg
+            (BitVec.ofNat 32 start))) = evalWithAnswerFn T (shortHash (WCT9.layerEncodingInput lay tree leaf msg
+            (BitVec.ofNat 32 start))) :=
+          congrArg (fun x : HashOutput => x.extractLsb' 0 128) heq
+        rw [hev]
+        cases hd : searchDecode lay (evalWithAnswerFn T (shortHash (WCT9.layerEncodingInput lay tree leaf msg
             (BitVec.ofNat 32 start)))) with
         | none =>
-            simp only [hd]
-            apply ih (start + 1)
-            intro c hc hprev
-            have h := hS (c + 1) (by omega) (fun c' hc' => by
-              rcases c' with _ | c''
-              · rw [Nat.add_zero]
-                exact hd
-              · have := hprev c'' (by omega)
-                rwa [show start + (c'' + 1) = start + 1 + c'' by omega])
-            rwa [show start + (c + 1) = start + 1 + c by omega] at h
-        | some digits =>
-            simp only [hd]
-            exact RespAt.pure' _
+            obtain ⟨h1, h2⟩ := hrest hd T' hT'
+            dsimp only
+            exact ⟨h1, by rw [h2]⟩
+        | some digits => exact ⟨rfl, rfl⟩
+      · obtain ⟨hTn, hTn'⟩ := hrej.layer
+          (ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 start))
+        have hl : searchDecode lay (evalWithAnswerFn T (shortHash (WCT9.layerEncodingInput lay tree leaf msg
+            (BitVec.ofNat 32 start)))) = none := hTn
+        have hl' : searchDecode lay (evalWithAnswerFn T' (shortHash (WCT9.layerEncodingInput lay tree leaf msg
+            (BitVec.ofNat 32 start)))) = none := hTn'
+        obtain ⟨h1, h2⟩ := hrest hTn T' hT'
+        rw [hl, hl']
+        dsimp only
+        exact ⟨h1, by rw [h2]⟩
 def Reached (T : Answers) (L : LeafAddr) (input : HashInput) : Prop :=
   ∃ c < counterLimit, input = encRow L (leafMsg T L) (BitVec.ofNat 32 c) 0 ∧
-    ∀ c' < c, decode L.lay (low (T (.inl (.inr (encRow L (leafMsg T L) (BitVec.ofNat 32 c') 0))))) = none
+    ∀ c' < c, searchDecode L.lay (low (T (.inl (.inr (encRow L (leafMsg T L) (BitVec.ofNat 32 c') 0))))) = none
 def leafOf (L : CanonGraph.LeafPos) : LeafAddr := ⟨L.lay, L.tree.val, L.leaf.val⟩
 def HonestQ (T : Answers) : Spec.Domain → Prop
   | .inl (.inr input) => ¬ EncHeader input ∨ ∃ L : CanonGraph.LeafPos, Reached T (leafOf L) input
@@ -118,7 +144,12 @@ theorem respAt_signLayers (T : Answers) (cache : T3.Cache) (index : Nat) (hindex
         exact respAt_routeSearch T index hindex _
       · cases hs : evalWithAnswerFn T (WCT9.layerCounterSearch (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
           (route index (Fin.ofNat 4 n)).1 msg 0 counterLimit) with
-        | none => exact RespAt.pure' _
+        | none =>
+            dsimp only
+            split_ifs with hn0
+            · exact RespAt.bind (RespAt.of_respects (respects_signTop _ _ _) fun _ h => honestQ_of_nonEnc h)
+                (RespAt.pure' _)
+            · exact RespAt.pure' _
         | some found =>
             obtain ⟨counter, digits⟩ := found
             have hd := (WCT9.layerCounterSearch_some T _ _ _ msg counterLimit 0 counter digits
@@ -166,28 +197,29 @@ theorem respAt_keygen (T : Answers) : RespAt T (HonestQ T) keygen :=
   RespAt.of_respects respects_keygen fun _ h => honestQ_of_nonEnc h
 end Enc
 open ClaudeWCT.W9.T3.Security.Wots.Enc
-theorem keygenCharge_congr {T T' : Answers} (h : ∀ q, HonestQ T q → T' q = T q) :
+open SigGolfCandidate.T3.Security.Wots.Enc (AgreeOn RejPair)
+theorem keygenCharge_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') :
     keygenCharge T' = keygenCharge T := by
   unfold keygenCharge
   rw [(respAt_keygen T).queried_eq h]
-theorem signCharge_congr {T T' : Answers} (h : ∀ q, HonestQ T q → T' q = T q) (published : T3.Cache)
+theorem signCharge_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (published : T3.Cache)
     (request : Request) : signCharge T' published request = signCharge T published request := by
   unfold signCharge
   rw [(respAt_sign T published request).queried_eq h]
-theorem offlineSign_congr {T T' : Answers} (h : ∀ q, HonestQ T q → T' q = T q) (published : T3.Cache)
+theorem offlineSign_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (published : T3.Cache)
     (request : Request) : offlineSign T' published request = offlineSign T published request := by
   unfold offlineSign
   rw [signCharge_congr h, (respAt_sign T published request).eval_eq h]
-theorem offlineImpl_congr {T T' : Answers} (h : ∀ q, HonestQ T q → T' q = T q) (published : T3.Cache) :
+theorem offlineImpl_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (published : T3.Cache) :
     offlineImpl T' published = offlineImpl T published := by
   unfold offlineImpl
   have hs : offlineSign T' published = offlineSign T published := funext (offlineSign_congr h published)
   rw [hs]
-theorem offlineGame_congr {T T' : Answers} (h : ∀ q, HonestQ T q → T' q = T q) (adversary : Final.AdversaryP) :
+theorem offlineGame_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (adversary : Final.AdversaryP) :
     offlineGame T' adversary = offlineGame T adversary := by
   unfold offlineGame offlineInteraction
   rw [keygenCharge_congr h, (respAt_keygen T).eval_eq h, offlineImpl_congr h]
-theorem referenceGame_congr_honest {T T' : Answers} (h : ∀ q, HonestQ T q → T' q = T q)
+theorem referenceGame_congr_honest {T T' : Answers} (h : AgreeOn (HonestQ T) T T')
     (adversary : Final.AdversaryP) (q : Nat) : referenceGame T' adversary q = referenceGame T adversary q := by
   unfold referenceGame
   rw [offlineGame_congr h]
@@ -202,18 +234,18 @@ theorem leafMsg_congr_nonEnc {T T' : Answers} (h : ∀ q, Enc.NonEnc q → T' q 
   · unfold Extract.honestPair
     rw [builtTree_congr_nonEnc h]
   · rw [honestForest_congr_nonEnc h _]
-theorem nonEnc_of_honest {T T' : Answers} (h : ∀ q, HonestQ T q → T' q = T q) : ∀ q, Enc.NonEnc q → T' q = T q :=
-  fun q hq => h q (honestQ_of_nonEnc hq)
-theorem referenceSearch_congr_honest {T T' : Answers} (h : ∀ q, HonestQ T q → T' q = T q)
+theorem nonEnc_of_honest {T T' : Answers} (h : AgreeOn (HonestQ T) T T') : ∀ q, Enc.NonEnc q → T' q = T q :=
+  h.nonEnc fun _ hq => honestQ_of_nonEnc hq
+theorem referenceSearch_congr_honest {T T' : Answers} (h : AgreeOn (HonestQ T) T T')
     (L : CanonGraph.LeafPos) : referenceSearch T' (leafOf L) = referenceSearch T (leafOf L) := by
   unfold referenceSearch
   rw [leafMsg_congr_nonEnc (nonEnc_of_honest h)]
   exact (respAt_referenceSearch T (HonestQ T) (leafOf L) (fun input hr => Or.inr ⟨L, hr⟩)).eval_eq h
-theorem referenceDigits_congr_honest {T T' : Answers} (h : ∀ q, HonestQ T q → T' q = T q)
+theorem referenceDigits_congr_honest {T T' : Answers} (h : AgreeOn (HonestQ T) T T')
     (L : CanonGraph.LeafPos) : referenceDigits T' (leafOf L) = referenceDigits T (leafOf L) := by
   unfold referenceDigits
   rw [referenceSearch_congr_honest h]
-theorem referenceInput_congr_honest {T T' : Answers} (h : ∀ q, HonestQ T q → T' q = T q)
+theorem referenceInput_congr_honest {T T' : Answers} (h : AgreeOn (HonestQ T) T T')
     (L : CanonGraph.LeafPos) : referenceInput T' (leafOf L) = referenceInput T (leafOf L) := by
   unfold referenceInput
   rw [referenceSearch_congr_honest h, leafMsg_congr_nonEnc (nonEnc_of_honest h)]

@@ -40,6 +40,9 @@ theorem encodingSearchesSucceedBC_at_route (answers : Answers) (hgood : Encoding
       (route index lay).1 msg 0 counterLimit) = some found :=
   encodingSearchesSucceedBC_msg answers hgood lay ⟨_, route_tree_bound index lay hindex⟩
     ⟨_, route_leaf_4096 index lay⟩ msg
+theorem topSearchesSucceedBC_of (answers : Answers) (hgood : EncodingSearchesSucceedBC answers) :
+    ClaudeWCT.WCT9.TopSearchesSucceedBC answers :=
+  fun index hindex msg => encodingSearchesSucceedBC_at_route answers hgood index hindex (Fin.ofNat 4 0) msg
 theorem signLayersBC_succeeds (answers : Answers) (cache : Cache) (index : Nat)
     (hindex : index < 2 ^ 31) (hgood : EncodingSearchesSucceedBC answers) :
     ∀ n msg, ∃ pieces,
@@ -84,7 +87,7 @@ def SigningComplete (answers : Answers) (keys : Digest × Cache) : Prop :=
     evalWithAnswerFn answers (expand message keys.1 sig) = some w ∧
     evalWithAnswerFn answers (verify message keys.1 w) = true
 theorem signing_complete_at (answers : Answers) (keys : Digest × Cache)
-    (hkeys : KeygenCorrect answers keys) (message : Message)
+    (hkeys : KeygenCorrect answers keys) (htop : ClaudeWCT.WCT9.TopSearchesSucceedBC answers) (message : Message)
     (hpayload : ∃ sig, evalWithAnswerFn answers (signPayload keys.2 message) = some sig) :
     ∃ sig : Signature, ∃ w : Witness,
       evalWithAnswerFn answers (sign keys.2 message) = some sig ∧
@@ -96,12 +99,12 @@ theorem signing_complete_at (answers : Answers) (keys : Digest × Cache)
       ClaudeWCT.WCT9.signWith_valid_cache digestAttemptLimit answers keys message hkeys.2.2]
     exact hs
   obtain ⟨w, he, hv⟩ := ClaudeWCT.WCT9.signingWith_success_valid digestAttemptLimit
-    ClaudeWCT.WCT9.digestAttemptLimit_le answers keys hkeys message sig hs'
+    ClaudeWCT.WCT9.digestAttemptLimit_le answers keys hkeys htop message sig hs'
   exact ⟨sig, w, hs', he, hv⟩
 theorem signing_complete_of_searches (answers : Answers) (keys : Digest × Cache)
     (hkeys : KeygenCorrect answers keys) (hgood : SearchesSucceed answers) :
     SigningComplete answers keys :=
-  fun message => signing_complete_at answers keys hkeys message
+  fun message => signing_complete_at answers keys hkeys (topSearchesSucceedBC_of answers hgood.2) message
     (signPayload_succeeds answers keys.2 message hgood)
 theorem honest_signing_complete_of_searches (answers : Answers) (hgood : SearchesSucceed answers) :
     SigningComplete answers (evalWithAnswerFn answers keygen) :=
@@ -140,7 +143,7 @@ theorem signing_complete_for_of_searches (answers : Answers) (keys : Digest × C
       evalWithAnswerFn answers (sign keys.2 message) = some sig ∧
       evalWithAnswerFn answers (expand message keys.1 sig) = some w ∧
       evalWithAnswerFn answers (verify message keys.1 w) = true :=
-  signing_complete_at answers keys hkeys message (signPayload_succeedsFor answers keys.2 message hgood)
+  signing_complete_at answers keys hkeys (topSearchesSucceedBC_of answers hgood.2) message (signPayload_succeedsFor answers keys.2 message hgood)
 def SearchesSucceedSelected (answers : Answers) : Prop :=
   (∀ message : Message, ∃ found,
     evalWithAnswerFn answers (ClaudeWCT.WCT9.digestSearch
@@ -159,7 +162,7 @@ theorem signPayload_succeedsSelected (answers : Answers) (cache : Cache) (messag
 theorem signing_complete_of_selected_searches (answers : Answers) (keys : Digest × Cache)
     (hkeys : KeygenCorrect answers keys) (hgood : SearchesSucceedSelected answers) :
     SigningComplete answers keys :=
-  fun message => signing_complete_at answers keys hkeys message
+  fun message => signing_complete_at answers keys hkeys (topSearchesSucceedBC_of answers hgood.2) message
     (signPayload_succeedsSelected answers keys.2 message hgood)
 end ClaudeWCT.W9.T3.Correctness
 end

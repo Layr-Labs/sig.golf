@@ -25,6 +25,8 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 namespace Enc
 open SigGolfCandidate.T3.Security.Wots.Enc
+open SigGolfCandidate.T3.Security.Wots.Enc (AgreeOn RejPair rejAnswers mem_rejAnswers rejAnswers_nonempty
+  tsum_uniform_coe)
 def EncOk (lay : Layer) (msg : WCT9.LayerMsg) (pad : BitVec 96) : Prop :=
   Extract.msgFits lay msg ∧ (lay.val = 3 → pad = 0)
 abbrev EncIndex := {e : CanonGraph.LeafPos × WCT9.LayerMsg × BitVec 32 × BitVec 96 // EncOk e.1.lay e.2.1 e.2.2.2}
@@ -82,44 +84,56 @@ theorem reached_encInput {T : Answers} {L : CanonGraph.LeafPos} {input : HashInp
   exact ⟨_, rfl⟩
 def Free (T : Answers) (e : EncIndex) : Prop := ¬ Reached T (leafOf e.1.1) (encInput e)
 def freeSet (T : Answers) : Set EncIndex := {e | Free T e}
-theorem reached_congr {T T' : Answers} (h : ∀ q, HonestQ T q → T' q = T q) (L : CanonGraph.LeafPos)
+theorem encRow_hdr (L : LeafAddr) (msg : WCT9.LayerMsg) (counter : BitVec 32) (pad : BitVec 96) :
+    Extract.hdrBlock (encRow L msg counter pad) = bytesLE 16 (header 4 L.lay.val L.tree 0 L.leaf) :=
+  ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP _ _ _ _ _ _
+theorem encInput_hdr (e : EncIndex) :
+    Extract.hdrBlock (encInput e) = bytesLE 16 (header 4 e.1.1.lay.val e.1.1.tree.val 0 e.1.1.leaf.val) :=
+  ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP _ _ _ _ _ _
+noncomputable def rowDec (T A : Answers) (L : CanonGraph.LeafPos) (c : Nat) : Option (List Nat) :=
+  searchDecode (leafOf L).lay (low (A (.inl (.inr (encRow (leafOf L) (leafMsg T (leafOf L))
+    (BitVec.ofNat 32 c) 0)))))
+theorem rowDec_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (L : CanonGraph.LeafPos) (c : Nat)
+    (hc : c < counterLimit) (hprev : ∀ c' < c, rowDec T T L c' = none) :
+    rowDec T T' L c = none ↔ rowDec T T L c = none := by
+  rcases h (.inl (.inr (encRow (leafOf L) (leafMsg T (leafOf L)) (BitVec.ofNat 32 c) 0)))
+      (Or.inr ⟨L, c, hc, rfl, hprev⟩) with he | hrej
+  · unfold rowDec
+    rw [he]
+  · obtain ⟨hT, hT'⟩ := hrej.layer (encRow_hdr (leafOf L) (leafMsg T (leafOf L)) (BitVec.ofNat 32 c) 0)
+    exact ⟨fun _ => hT, fun _ => hT'⟩
+theorem rowDec_prefix_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (L : CanonGraph.LeafPos) :
+    ∀ c, c ≤ counterLimit → ((∀ c' < c, rowDec T T' L c' = none) ↔ ∀ c' < c, rowDec T T L c' = none) := by
+  intro c
+  induction c with
+  | zero =>
+      intro _
+      exact ⟨fun _ c' hc' => absurd hc' (Nat.not_lt_zero _), fun _ c' hc' => absurd hc' (Nat.not_lt_zero _)⟩
+  | succ c ih =>
+      intro hc
+      have ih' := ih (by omega)
+      constructor
+      · intro hT' c' hc'
+        have hprev := ih'.mp (fun c'' hc'' => hT' c'' (by omega))
+        rcases Nat.lt_succ_iff_lt_or_eq.mp hc' with hlt | rfl
+        · exact hprev c' hlt
+        · exact (rowDec_congr h L c' (by omega) hprev).mp (hT' c' (by omega))
+      · intro hT c' hc'
+        have hprev : ∀ c'' < c, rowDec T T L c'' = none := fun c'' hc'' => hT c'' (by omega)
+        rcases Nat.lt_succ_iff_lt_or_eq.mp hc' with hlt | rfl
+        · exact ih'.mpr hprev c' hlt
+        · exact (rowDec_congr h L c' (by omega) hprev).mpr (hT c' (by omega))
+theorem reached_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (L : CanonGraph.LeafPos)
     (input : HashInput) : Reached T' (leafOf L) input ↔ Reached T (leafOf L) input := by
   have hm : leafMsg T' (leafOf L) = leafMsg T (leafOf L) := leafMsg_congr_nonEnc (nonEnc_of_honest h) _
-  have hrow : ∀ c, c < counterLimit → (∀ c' < c, decode (leafOf L).lay (low (T (.inl (.inr
-      (encRow (leafOf L) (leafMsg T (leafOf L)) (BitVec.ofNat 32 c') 0))))) = none) →
-      T' (.inl (.inr (encRow (leafOf L) (leafMsg T (leafOf L)) (BitVec.ofNat 32 c) 0))) =
-        T (.inl (.inr (encRow (leafOf L) (leafMsg T (leafOf L)) (BitVec.ofNat 32 c) 0))) := by
-    intro c hc hprev
-    exact h _ (Or.inr ⟨L, c, hc, rfl, hprev⟩)
   unfold Reached
   rw [hm]
   constructor
   · rintro ⟨c, hc, rfl, hprev⟩
-    refine ⟨c, hc, rfl, fun c' hc' => ?_⟩
-    by_contra hvalid
-    have hex : ∃ c'', c'' < c ∧ decode (leafOf L).lay (low (T (.inl (.inr
-        (encRow (leafOf L) (leafMsg T (leafOf L)) (BitVec.ofNat 32 c'') 0))))) ≠ none := ⟨c', hc', hvalid⟩
-    classical
-    let c₀ := Nat.find hex
-    have hc₀ : c₀ < c ∧ _ := Nat.find_spec hex
-    have hmin : ∀ c'' < c₀, decode (leafOf L).lay (low (T (.inl (.inr
-        (encRow (leafOf L) (leafMsg T (leafOf L)) (BitVec.ofNat 32 c'') 0))))) = none := by
-      intro c'' hc''
-      have := Nat.find_min hex hc''
-      push Not at this
-      exact this (lt_trans hc'' hc₀.1)
-    have hagree := hrow c₀ (lt_trans hc₀.1 hc) hmin
-    apply hc₀.2
-    rw [← hagree]
-    exact hprev c₀ hc₀.1
+    exact ⟨c, hc, rfl, (rowDec_prefix_congr h L c (le_of_lt hc)).mp hprev⟩
   · rintro ⟨c, hc, rfl, hprev⟩
-    refine ⟨c, hc, rfl, fun c' hc' => ?_⟩
-    have hprev' : ∀ c'' < c', decode (leafOf L).lay (low (T (.inl (.inr
-        (encRow (leafOf L) (leafMsg T (leafOf L)) (BitVec.ofNat 32 c'') 0))))) = none :=
-      fun c'' hc'' => hprev c'' (lt_trans hc'' hc')
-    rw [hrow c' (lt_trans hc' hc) hprev']
-    exact hprev c' hc'
-theorem free_congr {T T' : Answers} (h : ∀ q, HonestQ T q → T' q = T q) : freeSet T' = freeSet T := by
+    exact ⟨c, hc, rfl, (rowDec_prefix_congr h L c (le_of_lt hc)).mpr hprev⟩
+theorem free_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') : freeSet T' = freeSet T := by
   ext e
   simp only [freeSet, Set.mem_ofPred_eq, Free]
   rw [reached_congr h]
@@ -188,7 +202,7 @@ theorem free_ov (privateTable : FullGame.FullTable) (pub : U → HashOutput)
     (y : freeSet (eagerAnswers U privateTable pub) → HashOutput) :
     freeSet (eagerAnswers U privateTable (ov (freeSet (eagerAnswers U privateTable pub)) pub y)) =
       freeSet (eagerAnswers U privateTable pub) :=
-  free_congr (honest_ov U privateTable pub y)
+  free_congr (AgreeOn.of_eq (honest_ov U privateTable pub y))
 theorem public_resample (iX : ∀ k : Set EncIndex, Fintype (k → HashOutput))
     [Fintype (U → HashOutput)] (hU : SeccLaw.publicUniverse ⊆ U) (privateTable : FullGame.FullTable)
     (F : (U → HashOutput) → ENNReal) :
@@ -199,6 +213,143 @@ theorem public_resample (iX : ∀ k : Set EncIndex, Fintype (k → HashOutput))
   @uniform_resample_tsum (U → HashOutput) (Set EncIndex) _ _ (fun k : Set EncIndex => k → HashOutput) iX _
     (fun pub => freeSet (eagerAnswers U privateTable pub)) (fun k pub y => ov k pub y) (fun k pub => rd hU k pub)
     (fun pub y => rd_ov hU _ pub y) (fun pub y => ov_ov_rd hU _ pub y) (fun pub y => free_ov U privateTable pub y) F
+def Rej (T : Answers) (e : EncIndex) : Prop :=
+  Reached T (leafOf e.1.1) (encInput e) ∧ searchDecode e.1.1.lay (low (T (.inl (.inr (encInput e))))) = none
+def cellSet (T : Answers) : Set EncIndex := {e | Free T e ∨ Rej T e}
+abbrev CellKey := Set EncIndex × Set EncIndex
+def cellKey (T : Answers) : CellKey := (cellSet T, freeSet T)
+noncomputable def cellInit (k : CellKey) (e : k.1) : Finset HashOutput :=
+  if e.val ∈ k.2 then Finset.univ else rejAnswers e.val.1.1.lay
+theorem cellInit_nonempty (k : CellKey) (e : k.1) : (cellInit k e).Nonempty := by
+  unfold cellInit
+  split_ifs
+  · exact Finset.univ_nonempty
+  · exact rejAnswers_nonempty _
+theorem rej_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (e : EncIndex) : Rej T' e ↔ Rej T e := by
+  constructor
+  · rintro ⟨hr', hv'⟩
+    have hr := (reached_congr h e.1.1 _).mp hr'
+    refine ⟨hr, ?_⟩
+    obtain ⟨c, hc, hin, hprev⟩ := hr
+    rw [hin] at hv' ⊢
+    exact (rowDec_congr h e.1.1 c hc hprev).mp hv'
+  · rintro ⟨hr, hv⟩
+    refine ⟨(reached_congr h e.1.1 _).mpr hr, ?_⟩
+    obtain ⟨c, hc, hin, hprev⟩ := hr
+    rw [hin] at hv ⊢
+    exact (rowDec_congr h e.1.1 c hc hprev).mpr hv
+theorem cellKey_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') : cellKey T' = cellKey T := by
+  have hf := free_congr h
+  refine Prod.ext ?_ hf
+  ext e
+  have hfe : Free T' e ↔ Free T e := by
+    have := congrArg (fun s : Set EncIndex => e ∈ s) hf
+    simpa only [freeSet, Set.mem_setOf_eq, eq_iff_iff] using this
+  show (Free T' e ∨ Rej T' e) ↔ (Free T e ∨ Rej T e)
+  rw [hfe, rej_congr h]
+theorem rej_of_cell {T : Answers} {e : EncIndex} (he : e ∈ (cellKey T).1) (hf : e ∉ (cellKey T).2) : Rej T e := by
+  rcases he with h | h
+  · exact absurd h hf
+  · exact h
+theorem agree_ovc (hU : SeccLaw.publicUniverse ⊆ U) (privateTable : FullGame.FullTable) (pub : U → HashOutput)
+    (y : (cellKey (eagerAnswers U privateTable pub)).1 → HashOutput)
+    (hy : ∀ e, y e ∈ cellInit (cellKey (eagerAnswers U privateTable pub)) e) :
+    AgreeOn (HonestQ (eagerAnswers U privateTable pub)) (eagerAnswers U privateTable pub)
+      (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) := by
+  intro q hq
+  rcases q with (coin | input) | coordinate
+  · left; simp only [eagerAnswers]
+  · by_cases hin : input ∈ U
+    · by_cases hcell : ∃ e, e ∈ (cellKey (eagerAnswers U privateTable pub)).1 ∧ encInput e = input
+      · obtain ⟨e, he, rfl⟩ := hcell
+        right
+        rcases hq with hnon | ⟨L, hr⟩
+        · exact absurd (encInput_encHeader e) hnon
+        · obtain ⟨c, hc⟩ := reached_encInput hr
+          have hee := encInput_injective hc
+          have hr' : Reached (eagerAnswers U privateTable pub) (leafOf e.1.1) (encInput e) := by
+            rw [hee]
+            rw [hee] at hr
+            exact hr
+          have hnf : e ∉ (cellKey (eagerAnswers U privateTable pub)).2 := fun hfree => hfree hr'
+          have hrej := rej_of_cell he hnf
+          refine RejPair.mk (encInput_hdr e) hrej.2 ?_
+          rw [eagerAnswers_public_mem U privateTable _ ⟨encInput e, hin⟩]
+          have hat := ov_at hU (cellKey (eagerAnswers U privateTable pub)).1 pub y ⟨e, he⟩
+          rw [hat]
+          have hmem := hy ⟨e, he⟩
+          unfold cellInit at hmem
+          rw [if_neg hnf] at hmem
+          exact (mem_rejAnswers _ _).mp hmem
+      · left
+        rw [eagerAnswers_public_mem U privateTable _ ⟨input, hin⟩,
+          eagerAnswers_public_mem U privateTable _ ⟨input, hin⟩]
+        exact ov_other _ _ _ _ (fun e he heq => hcell ⟨e, he, heq⟩)
+    · left
+      rw [eagerAnswers_public_not_mem U _ _ input hin, eagerAnswers_public_not_mem U _ _ input hin]
+  · left; simp only [eagerAnswers]
+theorem cellKey_ovc (hU : SeccLaw.publicUniverse ⊆ U) (privateTable : FullGame.FullTable) (pub : U → HashOutput)
+    (y : (cellKey (eagerAnswers U privateTable pub)).1 → HashOutput)
+    (hy : ∀ e, y e ∈ cellInit (cellKey (eagerAnswers U privateTable pub)) e) :
+    cellKey (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) =
+      cellKey (eagerAnswers U privateTable pub) :=
+  cellKey_congr (agree_ovc U hU privateTable pub y hy)
+theorem rd_cellInit (hU : SeccLaw.publicUniverse ⊆ U) (privateTable : FullGame.FullTable) (pub : U → HashOutput)
+    (e : (cellKey (eagerAnswers U privateTable pub)).1) :
+    rd hU (cellKey (eagerAnswers U privateTable pub)).1 pub e ∈ cellInit (cellKey (eagerAnswers U privateTable pub)) e := by
+  unfold cellInit
+  split_ifs with hf
+  · exact Finset.mem_univ _
+  · have hrej := rej_of_cell e.property hf
+    rw [mem_rejAnswers]
+    have h2 := hrej.2
+    rw [eagerAnswers_public_mem U privateTable _ ⟨encInput e.val, hU (encInput_short e.val)⟩] at h2
+    exact h2
+set_option maxRecDepth 100000 in
+theorem public_resample_cells [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, DecidableEq k]
+    [Fintype (U → HashOutput)] (hU : SeccLaw.publicUniverse ⊆ U) (privateTable : FullGame.FullTable)
+    (F : (U → HashOutput) → ENNReal) :
+    ∑' pub, PMF.uniformOfFintype (U → HashOutput) pub * F pub =
+      ∑' pub, PMF.uniformOfFintype (U → HashOutput) pub *
+        ∑' y, PMF.uniformOfFinset (Fintype.piFinset (cellInit (cellKey (eagerAnswers U privateTable pub))))
+            (Fintype.piFinset_nonempty.mpr (cellInit_nonempty _)) y *
+          F (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y) := by
+  let A : ∀ k : CellKey, Finset (k.1 → HashOutput) := fun k => Fintype.piFinset (cellInit k)
+  have hA : ∀ k, (A k).Nonempty := fun k => Fintype.piFinset_nonempty.mpr (cellInit_nonempty k)
+  have iN : ∀ k, Nonempty ↥(A k) := fun k => (hA k).to_subtype
+  let rd' : ∀ k : CellKey, (U → HashOutput) → ↥(A k) := fun k pub =>
+    if h : rd hU k.1 pub ∈ A k then ⟨rd hU k.1 pub, h⟩ else Classical.choice (iN k)
+  have hmem : ∀ pub, rd hU (cellKey (eagerAnswers U privateTable pub)).1 pub ∈
+      A (cellKey (eagerAnswers U privateTable pub)) :=
+    fun pub => Fintype.mem_piFinset.mpr (rd_cellInit U hU privateTable pub)
+  have hrdv : ∀ (k : CellKey) (pub' : U → HashOutput) (h : rd hU k.1 pub' ∈ A k),
+      rd' k pub' = ⟨rd hU k.1 pub', h⟩ := by
+    intro k pub' h
+    show (if h : rd hU k.1 pub' ∈ A k then (⟨rd hU k.1 pub', h⟩ : ↥(A k)) else Classical.choice (iN k)) = _
+    rw [dif_pos h]
+  have key := @uniform_resample_tsum (U → HashOutput) CellKey _ _ (fun k => ↥(A k)) (fun k => inferInstance) iN
+    (fun pub => cellKey (eagerAnswers U privateTable pub)) (fun k pub x => ov k.1 pub x.val) rd'
+    (fun pub x => by
+      obtain ⟨xv, xp⟩ := x
+      have he : rd hU (cellKey (eagerAnswers U privateTable pub)).1
+          (ov (cellKey (eagerAnswers U privateTable pub)).1 pub xv) = xv := rd_ov hU _ pub xv
+      have hm : rd hU (cellKey (eagerAnswers U privateTable pub)).1
+          (ov (cellKey (eagerAnswers U privateTable pub)).1 pub xv) ∈
+          A (cellKey (eagerAnswers U privateTable pub)) := by rw [he]; exact xp
+      refine (hrdv _ _ hm).trans ?_
+      exact Subtype.mk_eq_mk.mpr he)
+    (fun pub x => by
+      have h2 := hrdv _ pub (hmem pub)
+      show ov (cellKey (eagerAnswers U privateTable pub)).1 (ov (cellKey (eagerAnswers U privateTable pub)).1 pub x.val)
+        (rd' (cellKey (eagerAnswers U privateTable pub)) pub).val = pub
+      rw [h2]
+      exact ov_ov_rd hU _ pub x.val)
+    (fun pub x => cellKey_ovc U hU privateTable pub x.val (Fintype.mem_piFinset.mp x.property)) F
+  rw [key]
+  refine tsum_congr fun pub => ?_
+  congr 1
+  exact tsum_uniform_coe (A (cellKey (eagerAnswers U privateTable pub))) (hA _) (iN _)
+    (fun y => F (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y))
 end Tables
 end Enc
 end ClaudeWCT.W9.T3.Security.Wots

@@ -60,9 +60,15 @@ theorem count_signLayers_maskAt (htree : a.key.tree < 2 ^ 40) (hleaf : a.key.lea
       simp only [WCT9.signLayersBC]
       refine count_bind_of (eval_maskAt_of_respects answers a (respects_layerCounterSearch a _ _ _ _ _ _))
         (count_maskAt_of_respects answers a (respects_layerCounterSearch a _ _ _ _ _ _)) ?_
+      by_cases hn0 : n = 0
+      · simp only [hn0, ite_true]
+        generalize ((evalWithAnswerFn answers (WCT9.layerCounterSearch (Fin.ofNat 4 0) (route index (Fin.ofNat 4 0)).2
+          (route index (Fin.ofNat 4 0)).1 msg 0 counterLimit)).map Prod.snd).getD dummyTop = dg
+        rw [queried_length_bind, queried_length_bind, queried_length_signTop, queried_length_signTop]
+        rfl
       cases hs : evalWithAnswerFn answers (WCT9.layerCounterSearch (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
         (route index (Fin.ofNat 4 n)).1 msg 0 counterLimit) with
-      | none => rfl
+      | none => simp only [hn0, ite_false]; rfl
       | some found =>
           obtain ⟨counter, digits⟩ := found
           have hd := (WCT9.layerCounterSearch_some answers _ _ _ msg counterLimit 0 counter digits
@@ -72,10 +78,7 @@ theorem count_signLayers_maskAt (htree : a.key.tree < 2 ^ 40) (hleaf : a.key.lea
             unfold referenceSearch
             rw [← hmsg n rfl]
             exact hs
-          dsimp only
-          split_ifs with hn0
-          · rw [queried_length_bind, queried_length_bind, queried_length_signTop, queried_length_signTop]
-            rfl
+          simp only [hn0, ite_false]
           · refine count_bind_of (eval_buildTree_maskAt answers a _ _ _ digits hvalid (route_leaf_bound index _)
                 (fun hal _ => routeLeaf_alias a hindex hsearch htree hleaf hal))
               (count_buildTree_maskAt answers a _ _ _ digits hvalid) ?_

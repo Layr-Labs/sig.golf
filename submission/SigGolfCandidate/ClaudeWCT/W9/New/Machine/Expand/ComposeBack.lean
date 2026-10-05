@@ -291,6 +291,22 @@ theorem w9init_table {im : Image} (hd : ExpandDataOK im) (m : Message) (pk : Pub
   have hidx : (TOP_DATA + i) / 8 * 8 - TOP_DATA + (TOP_DATA + i) % 8 = i := by unfold TOP_DATA; omega
   rw [hidx]
   exact Search.expandLegacyData_table i hi
+theorem w9init_cf {im : Image} (hd : ExpandDataOK im) (m : Message) (pk : PublicKey) (σ : Bytes 5456) :
+    SigGolfCandidate.T3M.Search.CfTableOK 0 (w9init im m pk σ) := by
+  intro i hi hi'
+  have hT : TOP_DATA = HB0 + 4608 := rfl
+  rw [getByte_eq_word _ _ (by unfold TOP_DATA; omega),
+    w9init_data hd _ _ _ _ (by unfold TOP_DATA HB0; omega) (by unfold TOP_DATA HB0; omega)
+      (by unfold TOP_DATA HB0; omega),
+    extractByte_bytesToWordLE_e _ _ (Nat.mod_lt _ (by decide))]
+  have e : (TOP_DATA + i) / 8 * 8 - HB0 = 4608 + ((TOP_DATA + i) / 8 * 8 - TOP_DATA) := by unfold TOP_DATA HB0; omega
+  rw [e, hd, ← List.drop_drop, List.drop_append_of_le_length (by rw [hdrBankBytes_length]),
+    show hdrBankBytes.drop 4608 = [] from List.drop_eq_nil_of_le (by rw [hdrBankBytes_length]), List.nil_append]
+  simp only [List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
+    if_pos (Nat.mod_lt (TOP_DATA + i) (show 0 < 8 by decide))]
+  have hidx : (TOP_DATA + i) / 8 * 8 - TOP_DATA + (TOP_DATA + i) % 8 = i := by unfold TOP_DATA; omega
+  rw [hidx]
+  exact Search.expandLegacyData_cf i hi hi'
 theorem front_spec {im : Image} (hF : CodeAt im (pcOf 0) SigGolfCandidate.T3M.Expand.seg_0) (s : MachineState)
     (hpc : s.pc = pcOf 0) :
     ∃ t, Steps im s 30 30 t ∧ t.pc = pcOf 30 ∧ t.getReg .x5 = 0 ∧ t.getReg .x19 = BitVec.ofNat 64 0 ∧

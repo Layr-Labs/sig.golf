@@ -11,10 +11,27 @@ def topRank (v : Digest) (j : Nat) : Nat := v.toNat / 2 ^ (7 * j) % 128
 def rankDigits (v : Digest) : List Nat := (List.range 17).map (topRank v)
 def tailWeight (v : Digest) : Nat := v.toNat / 2 ^ 119 % 4 + v.toNat / 2 ^ 121 % 4 + v.toNat / 2 ^ 123 % 4
 def topLookupSum (v : Digest) : Nat := ((rankDigits v).map rankLookup).sum + tailWeight v
+/-- Credit of a rank: the number of its three radix-5 digits equal to 3 (`T3.topCredit`). -/
+def rankCredit (r : Nat) : Nat :=
+  (if r % 5 = 3 then 1 else 0) + (if r / 5 % 5 = 3 then 1 else 0) + (if r / 25 % 5 = 3 then 1 else 0)
 def tableByte (i : Nat) : BitVec 8 := BitVec.ofNat 8 <|
   if i < 128 then rankLookup i
-  else if i < 628 then if (i - 128) % 4 < 3 then rankDigit ((i - 128) / 4) ((i - 128) % 4) else 0
+  else if i < 628 then if (i - 128) % 4 < 3 then rankDigit ((i - 128) / 4) ((i - 128) % 4)
+    else rankCredit ((i - 128) / 4)
   else 0
+/-- Producer credit filter data after the rank table: byte 631 = total-signer flag (sign 1, expand 0),
+bytes 632..647 = the dummy top digest (`T3.dummyTop`), little endian. -/
+def dummyDigestNat : Nat := 232069893348868768384238972637
+def cfByte (flag : Nat) (i : Nat) : BitVec 8 := BitVec.ofNat 8 <|
+  if i = 631 then flag
+  else if 632 ≤ i ∧ i < 648 then dummyDigestNat / 256 ^ (i - 632) % 256
+  else 0
+def CfTableOK (flag : Nat) (s : MachineState) : Prop :=
+  ∀ i, 628 ≤ i → i < 648 → s.getByte (BitVec.ofNat 64 (TOP_DATA + i)) = cfByte flag i
+theorem CfTableOK.frame {flag : Nat} {s t : MachineState} {W : Nat → Prop} (h : CfTableOK flag s)
+    (hf : Frame s t W) (hd : ∀ i, 628 ≤ i → i < 648 → ¬ W ((TOP_DATA + i) / 8 * 8)) : CfTableOK flag t := by
+  intro i hi hj
+  exact (hf.getByte (by unfold TOP_DATA; omega) (hd i hi hj)).trans (h i hi hj)
 def SumTableOK (s : MachineState) : Prop :=
   ∀ i, i < 128 → s.getByte (BitVec.ofNat 64 (TOP_DATA + i)) = BitVec.ofNat 8 (rankLookup i)
 def TableOK (s : MachineState) : Prop :=

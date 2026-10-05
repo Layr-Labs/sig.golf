@@ -77,7 +77,8 @@ def signItemsWith (digitsOf : Wots.LeafAddr → List Nat) (N : HashOutput) : Lis
   ftsItems (digestIndex N) N ++ layerItems digitsOf (digestIndex N)
 noncomputable def signItems (A : Answers) (N : HashOutput) : List Coord :=
   signItemsWith (Wots.referenceDigits A) N
-def RouteOk (A : Answers) (index : Nat) : Prop := ∀ lay : Layer, (Wots.referenceSearch A (routeAddr index lay)).isSome
+def RouteOk (A : Answers) (index : Nat) : Prop :=
+  ∀ lay : Layer, lay ≠ 0 → (Wots.referenceSearch A (routeAddr index lay)).isSome
 noncomputable def signDigest (A : Answers) (message : Message) : Option (BitVec 32 × HashOutput) :=
   evalWithAnswerFn A (WCT9.digestSearch (evalWithAnswerFn A (privateNonce message)) message 0
     WCT9.digestAttemptLimit)

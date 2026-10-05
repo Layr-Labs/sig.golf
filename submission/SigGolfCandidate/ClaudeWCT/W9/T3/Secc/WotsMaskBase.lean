@@ -1,7 +1,6 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEvents
 import SigGolfCandidate.ClaudeWCT.WCT9.QueriesWots
 import SigGolfCandidate.T3.Secc.WotsMaskBase
-
 namespace ClaudeWCT.W9.T3.Security.Wots
 open OracleComp OracleSpec ENNReal
 attribute [local instance] Classical.propDecidable
@@ -45,6 +44,11 @@ theorem referenceDigits_of_search {answers : Answers} {L : LeafAddr} {counter : 
     (h : referenceSearch answers L = some (counter, digits)) : referenceDigits answers L = digits := by
   unfold referenceDigits
   rw [h]
+  rfl
+theorem topSigned_reference (answers : Answers) (L : LeafAddr) (hl : L.lay = 0) :
+    ((referenceSearch answers L).map Prod.snd).getD dummyTop = referenceDigits answers L := by
+  unfold referenceDigits
+  rw [hl]
   rfl
 theorem depth_le_width (answers : Answers) (a : ChainAddr) (hc : a.chain < chainCount a.key.lay) :
     depth answers a ≤ maxDigit a.key.lay a.chain :=

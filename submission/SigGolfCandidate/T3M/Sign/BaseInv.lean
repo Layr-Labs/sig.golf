@@ -12,7 +12,7 @@ def NeverW (A : Nat) : Prop :=
 def BaseA (A : Nat) : Prop :=
   A = PRIV ∨ A = PRIV + 8 ∨ A = PRIV + 32 ∨ A = PRIV + 40 ∨ A = PRIV + 48 ∨ A = PRIV + 56 ∨
     (REGION ≤ A ∧ A < REGION + 131040) ∨ NeverW A ∨
-      (Search.TOP_DATA ≤ A ∧ A < Search.TOP_DATA + 632)
+      (Search.TOP_DATA ≤ A ∧ A < Search.TOP_DATA + 648)
 structure Base (sk : SecretKey) (cache : Bytes 131072) (t : MachineState) : Prop where
   x5 : t.getReg .x5 = 0
   p0 : t.getMem (BitVec.ofNat 64 PRIV) = sk.extractLsb' 0 64
@@ -24,12 +24,13 @@ structure Base (sk : SecretKey) (cache : Bytes 131072) (t : MachineState) : Prop
   region : ∀ k < 16380, t.getMem (BitVec.ofNat 64 (REGION + 8 * k)) = cache.extractLsb' (64 * (k + 4)) 64
   zero : ∀ A < 2 ^ 64, NeverW A → t.getMem (BitVec.ofNat 64 A) = 0
   table : Search.TableOK t
+  cf : Search.CfTableOK 1 t
 theorem Base.frame {sk : SecretKey} {cache : Bytes 131072} {t u : MachineState} {W : Nat → Prop}
     {l : List Reg} (h : Base sk cache t) (hf : Frame t u W) (hr : RegsExcept t u l) (h5 : .x5 ∉ l)
     (hW : ∀ A, A < 2 ^ 64 → BaseA A → ¬ W A) : Base sk cache u := by
   have g : ∀ A, A < 2 ^ 64 → BaseA A → u.getMem (BitVec.ofNat 64 A) = t.getMem (BitVec.ofNat 64 A) :=
     fun A hA hb => hf.get hA (hW A hA hb)
-  refine ⟨by rw [hr.get h5, h.x5], ?_, ?_, ?_, ?_, ?_, ?_, fun k hk => ?_, fun A hA hn => ?_, ?_⟩
+  refine ⟨by rw [hr.get h5, h.x5], ?_, ?_, ?_, ?_, ?_, ?_, fun k hk => ?_, fun A hA hn => ?_, ?_, ?_⟩
   · rw [g _ (by sg_omega) (by unfold BaseA; simp), h.p0]
   · rw [g _ (by sg_omega) (by unfold BaseA; simp), h.p8]
   · rw [g _ (by sg_omega) (by unfold BaseA; simp), h.p32]
@@ -40,6 +41,10 @@ theorem Base.frame {sk : SecretKey} {cache : Bytes 131072} {t u : MachineState} 
       h.region k hk]
   · rw [g _ hA (by unfold BaseA; right; right; right; right; right; right; right; left; exact hn), h.zero A hA hn]
   · exact h.table.frame hf (fun i hi => hW _ (by unfold Search.TOP_DATA; omega) (by
+      unfold BaseA
+      right; right; right; right; right; right; right; right
+      unfold Search.TOP_DATA; omega))
+  · exact h.cf.frame hf (fun i hi hi' => hW _ (by unfold Search.TOP_DATA; omega) (by
       unfold BaseA
       right; right; right; right; right; right; right; right
       unfold Search.TOP_DATA; omega))

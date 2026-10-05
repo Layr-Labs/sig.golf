@@ -33,7 +33,7 @@ def L0Post (t : MachineState) : Option (List Pieces) → MachineState → Prop
   | some ps, u => ∃ vals path : List Digest, ps = [(vals, path)] ∧ Halted0 u ∧
       (∀ i < 54, DigAt u (SIG + 2192 + 16 * i) (vals.getD i 0)) ∧
       (∀ j < 12, DigAt u (SIG + 3056 + 16 * j) (path.getD j 0)) ∧ Frame t u L0W
-def L0Cost : Nat := counterLimit * 205 + 200000
+def L0Cost : Nat := counterLimit * 412 + 200000
 def L0Spec (sk : SecretKey) (cache : Bytes 131072) : Prop :=
   ∀ (index : Nat) (root : Digest) (t : MachineState), L0Pre sk cache index root t →
     TBSim image sk t L0Cost (signLayers (cacheDec cache) index 1 root) (L0Post t)
@@ -265,11 +265,14 @@ theorem lower_layer (hK : CounterSearchSpec sk) {lay : Layer} {index : Nat} {msg
       z40 := h.base.zero _ (by simp only [Search.ENC]; sgo) (by unfold NeverW; simp)
       r48 := h.right.1
       r56 := h.right.2
-      table := h.base.table }
+      table := h.base.table
+      cf := h.base.cf }
   rw [signLayers_low _ _ hlay]
   refine TBSim.bind (hK t lay _ _ msg (jalBT lay) hcs) (fun r u hu => ?_)
   rcases r with _ | ⟨c, ds⟩
-  · exact TBSim.mono (TBSim.pure hu) (by omega) (fun _ _ h => h)
+  · change (if lay = 0 then DummyRet t (jalBT lay) u else Failed u) at hu
+    rw [if_neg hlay] at hu
+    exact TBSim.mono (TBSim.pure hu) (by omega) (fun _ _ h => h)
   obtain ⟨upc, -, ⟨v0, hdec⟩, udig, uc32, ur, uf, -⟩ := hu
   obtain ⟨-, hdb⟩ := decode_digits hdec
   obtain ⟨u1, st1, u1pc, u1x1, u1r, u1f⟩ := blkJal_spec hlay u upc
@@ -648,9 +651,11 @@ private theorem extractByte_zero_top (k : Nat) : extractByte (0 : Word) k = 0 :=
   simp [extractByte]
 theorem signLayers_one (cache : Cache) (index : Nat) (root : WCT9.LayerMsg) :
     WCT9.signLayersBC cache index 1 root = (do
-      let some (_, digits) ← WCT9.layerCounterSearch 0 (route index 0).2 (route index 0).1 root 0 counterLimit | pure none
-      let part ← signTop cache (route index 0).1 digits
-      pure (some [part])) := rfl
+      let found ← WCT9.layerCounterSearch 0 (route index 0).2 (route index 0).1 root 0 counterLimit
+      let part ← signTop cache (route index 0).1 ((found.map Prod.snd).getD T3.dummyTop)
+      pure (some [part])) := by
+  simp only [WCT9.signLayersBC, Fin.ofNat_zero, if_true]
+  try rfl
 theorem route_0 {index : Nat} (h : index < 2 ^ 31) : route index 0 = (index / 2 ^ 19 % 4096, 0) := by
   show (index / 2 ^ 19 % 2 ^ 12, index / 2 ^ (19 + 12)) = _
   rw [Nat.div_eq_of_lt (by omega : index < 2 ^ (19 + 12))]
@@ -839,18 +844,30 @@ theorem l0Spec_of (hK : CounterSearchSpec sk) : L0Spec sk cache := by
       z40 := by rw [t1f.get (by decide) (fun h => h)]; exact h.base.zero _ (by decide) (by unfold NeverW; simp)
       r48 := by rw [t1f.get (by decide) (fun h => h)]; exact h.right.1
       r56 := by rw [t1f.get (by decide) (fun h => h)]; exact h.right.2
-      table := h.base.table.frame t1f (fun _ _ h => h) }
-  have hc0 : csCost 0 = counterLimit * 205 + 2000 := by unfold csCost Search.BC.csCostS; rw [if_pos rfl]
+      table := h.base.table.frame t1f (fun _ _ h => h)
+      cf := h.base.cf.frame t1f (fun _ _ _ h => h) }
+  have hc0 : csCost 0 = counterLimit * 412 + 2000 := by unfold csCost Search.BC.csCostS; rw [if_pos rfl]
   refine TBSim.mono (TBSim.steps st1 (TBSim.bind (W₂ := 50000) (hK t1 0 0 _ root 441 hcs) (fun r u hu => ?_)))
     (by rw [hc0]; unfold L0Cost; omega) (fun _ _ h => h)
-  rcases r with _ | ⟨c, ds⟩
-  · exact TBSim.mono (TBSim.pure hu) (by omega) (fun _ _ h => h)
-  obtain ⟨upc, ux5, ⟨v0, hdec⟩, udig, -, ur, uf, ux25⟩ := hu
-  obtain ⟨-, hdb⟩ := decode_digits hdec
-  have hd7 : ∀ i < 54, ds.getD i 0 ≤ 7 := fun i hi => by
-    have := hdb i hi
-    have : maxDigit 0 i ≤ 7 := by unfold maxDigit; split_ifs <;> norm_num
-    omega
+  have hdum : (List.range 54).all (fun i => decide (T3.dummyTop.getD i 0 ≤ 7)) = true := by decide
+  obtain ⟨ds, hds, upc, ux5, hd7, udig, ur, uf, ux25⟩ : ∃ ds : List Nat, (r.map Prod.snd).getD T3.dummyTop = ds ∧
+      u.pc = pcOf 441 ∧ u.getReg .x5 = 0 ∧ (∀ i < 54, ds.getD i 0 ≤ 7) ∧
+      (∀ i < 54, u.getByte (BitVec.ofNat 64 (DIGITS + i)) = BitVec.ofNat 8 (ds.getD i 0)) ∧
+      RegsExcept t1 u csRegs ∧ Frame t1 u CsW ∧ (u.getReg .x25).toNat ≤ 126 := by
+    rcases r with _ | ⟨c, ds⟩
+    · change (if (0 : Layer) = 0 then DummyRet t1 441 u else Failed u) at hu
+      rw [if_pos rfl] at hu
+      obtain ⟨upc, ux5, udig, -, ur, uf, ux25⟩ := hu
+      exact ⟨T3.dummyTop, rfl, upc, ux5,
+        fun i hi => of_decide_eq_true ((List.all_eq_true.mp hdum) i (List.mem_range.mpr hi)), udig, ur, uf, ux25⟩
+    · obtain ⟨upc, ux5, ⟨v0, hdec⟩, udig, -, ur, uf, ux25⟩ := hu
+      obtain ⟨-, hdb⟩ := decode_digits hdec
+      refine ⟨ds, rfl, upc, ux5, fun i hi => ?_, fun i hi => udig i hi, ur, uf, ux25⟩
+      have := hdb i hi
+      have : maxDigit 0 i ≤ 7 := by unfold maxDigit; split_ifs <;> norm_num
+      omega
+  dsimp only
+  rw [hds]
   have hx25 : (u.getReg .x25).toNat ≤ 126 := ux25
   set leaf := index / 2 ^ 19 % 4096 with hleaf_def
   set dest0 := (u.getReg .x25).toNat with hdest0
@@ -889,7 +906,7 @@ theorem l0Spec_of (hK : CounterSearchSpec sk) : L0Spec sk cache := by
       (fun i hi => by have := hd7 i hi; change ds.getD i 0 ≤ 8; omega)
   obtain ⟨k0le, c0le⟩ := tl0_costs leaf dest0 hd7
   have hL0 := buildLeaf_tsimS subAt_sign sk hp0 u1pc
-  dsimp only
+  try dsimp only
   rw [signTop, bind_assoc]
   refine TBSim.mono (TBSim.steps su1 (TBSim.bind (W₂ := 30000) (TSim.toTBSim hL0 k0le) (fun r0 v0 hv0 => ?_)))
     (by omega) (fun _ _ h => h)
@@ -955,7 +972,14 @@ open SigGolfCandidate.T3 (Digest)
 open ClaudeWCT
 theorem counterSearchSpec (sk : BitVec 256) : CounterSearchSpec sk := fun s lay tree leaf msg ret h =>
   (Search.BC.counterSearch_spec Search.kernAt_sign s lay tree leaf msg ret
-    h).mono le_rfl (fun r t ht => by rcases r with _ | _; exacts [⟨ht.pc, ht.x5, ht.x10⟩, ht])
+    h).mono le_rfl (fun r t ht => by
+      rcases r with _ | _
+      · change (if lay = 0 ∧ (543 : Nat) = 543 then Search.BC.DummyOutS s ret t else Search.BC.FailedAt 543 t) at ht
+        show (if lay = 0 then DummyRet s ret t else Failed t)
+        by_cases hl : lay = 0
+        · rw [if_pos ⟨hl, rfl⟩] at ht; rw [if_pos hl]; exact ht
+        · rw [if_neg (fun h => hl h.1)] at ht; rw [if_neg hl]; exact ⟨ht.pc, ht.x5, ht.x10⟩
+      · exact ht)
 theorem layers_checked {sk : BitVec 256} {cache : Bytes 131072}
     {index : Nat} {root : WCT9.LayerMsg} {t : MachineState}
     (h : LayEntry sk cache 3 index root t) :
