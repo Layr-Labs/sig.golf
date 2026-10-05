@@ -1,10 +1,6 @@
-import SigGolfCandidate.SphincsSecurity.Scheme
-import Mathlib.Tactic.IrreducibleDef
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.Code
 
 section
-
-
 namespace SphincsSecurity.Concrete
 open ENNReal
 irreducible_def ftsOpenHashCost : Nat := 2 ^ (ftsTreeHeight + 1) - 1
@@ -22,10 +18,7 @@ noncomputable irreducible_def nearCertificatePrice : ENNReal := ((1241 : ENNReal
 noncomputable irreducible_def proposalPrefixExceptionBound : ENNReal := (2 ^ 700 : ENNReal)⁻¹
 end SphincsSecurity.Concrete
 end
-
 section
-
-
 namespace SphincsSecurity.Concrete
 irreducible_def oneTimeKeyHashCost : Nat := numChains * (chainLength - 1)
 irreducible_def treeNodeHashCost (level : Nat) : Nat := (oneTimeKeyHashCost + 2) * 2 ^ level - 1
@@ -41,10 +34,7 @@ theorem treeNodeHashCost_succ (level : Nat) :
   omega
 end SphincsSecurity.Concrete
 end
-
 section
-
-
 namespace SphincsSecurity.Concrete
 open ENNReal
 irreducible_def budgetSplit : Nat := 3 * 2 ^ 114
@@ -54,12 +44,7 @@ theorem budgetSplit_le : budgetSplit ≤ 2 ^ 127 := by
   norm_num
 end SphincsSecurity.Concrete
 end
-
 section
-
-
-
-
 namespace SphincsSecurity
 theorem layerHeight_le (lay : Layer) : layerHeight lay ≤ maxLayerHeight := by
   unfold layerHeight maxLayerHeight

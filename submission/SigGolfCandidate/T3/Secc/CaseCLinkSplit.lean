@@ -1,5 +1,4 @@
 import SigGolfCandidate.T3.Secc.CaseCLinkInv
-import SigGolfCandidate.T3.Secc.CaseCCover
 import SigGolfCandidate.T3.Secc.WotsTransportSplit
 
 namespace SigGolfCandidate.T3.Security.CaseC

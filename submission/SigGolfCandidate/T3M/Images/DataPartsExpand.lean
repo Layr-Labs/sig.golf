@@ -1,7 +1,7 @@
 import SigGolfCandidate.T3M.Images.Expand
 
 namespace SigGolfCandidate.T3M.Images
-theorem expandPrefixData_length : expandPrefixData.length = 4608 := by
+theorem expandPrefixData_length : expandPrefixData.length = 20992 := by
   rw [expandPrefixData, List.length_flatten]
   set_option maxRecDepth 100000 in decide +kernel
 theorem expandLegacyData_length : expandLegacyData.length = 4096 := by

@@ -4,7 +4,7 @@ import SigGolfCandidate.T3M.Submission
 namespace SigGolfCandidate.T3M.Sign
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 theorem dataBase_sign : dataBase (submission.image .sign) = SIGN_DATA := by
-  unfold dataBase; rw [show (submission.image .sign).data.length = 69632 from Images.signData_length]; rfl
+  unfold dataBase; rw [show (submission.image .sign).data.length = 86016 from Images.signData_length]; rfl
 set_option maxRecDepth 100000 in
 theorem initialState_sign (sk : SecretKey) (cache : Bytes 131072) (m : Message) :
     initialState submission .sign (sk, cache, m) = some (sinit sk cache m) := by

@@ -1,8 +1,6 @@
-import SigGolfCandidate.T3.Gate6.Coverage
 import SigGolfCandidate.T3.Gate6.BPORSPrefix
 
 section
-
 namespace SigGolfResearch.Gate6
 open OracleComp ENNReal Finset
 attribute [local instance] Classical.propDecidable
@@ -62,10 +60,7 @@ theorem digest_at_gated_event_probability (index : Address) (event : CoordinateD
   rw [raw_at_draw_event index (fun draw => draw.2=0 ∧ event draw.1),gated_event_probability]
 end SigGolfResearch.Gate6
 end
-
 section
-
-
 namespace SigGolfCandidate.T3.BPORS
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open scoped BigOperators

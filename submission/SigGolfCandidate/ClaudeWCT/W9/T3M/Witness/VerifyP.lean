@@ -1,10 +1,7 @@
-import SigGolfCandidate.T3M.Witness.Layout
 import SigGolfCandidate.ClaudeWCT.WCT9.Limits
 import SigGolfCandidate.T3M.Witness.Basic
 
 section
-
-
 namespace ClaudeWCT.W9.T3M
 open SigGolfCandidate.T3
 open SigGolfCandidate.T3M (wdig sibOff)
@@ -32,10 +29,7 @@ theorem wleaf_zero (w : WBytes) (k : Nat) : wleaf w k 0 = wopen w k 0 := by
   unfold wleaf wopen; rw [wctLeafSlot_zero]
 end ClaudeWCT.W9.T3M
 end
-
 section
-
-
 namespace ClaudeWCT.W9.T3M
 open OracleComp OracleSpec SigGolfCandidate.T3
 open SigGolfCandidate.T3M (wdig wrho wdc wle32 wvalue wpath wchainPads wmerklePad wchainHeaderPad chainP layerP
@@ -53,14 +47,14 @@ def wctNodeHashP (coord index heap : Nat) (left pad right : Digest) : M Digest :
   nodeHashP 3 (WCT9.nodeLayer coord) index heap left pad right
 def digestP (m : Message) (w : WBytes) : M (Option HashOutput) :=
   if (wdc w).toNat ≥ WCT9.digestAttemptLimit then pure none else some <$> digest (wrho w) m (wdc w)
-def gateOk (N : HashOutput) : Bool := decide (N.toNat / 2 ^ 234 % 2 ^ 14 < 5)
+def gateOk (N : HashOutput) : Bool := decide (N.toNat / 2 ^ 234 % 2 ^ 22 < 2047)
 def fieldOk (N : HashOutput) (coord : WCT9.Coord) : Bool := decide (WCT9.field N coord < WCT9.fieldLimit)
 def wctCoordP (w : WBytes) (index : Nat) (coord : WCT9.Coord) (child : WCT9.Child) (word : WCT9.Rank) :
     M (Digest × Digest) := do
   let ends ← (List.finRange 7).mapM fun t =>
-    wctChainP index coord.val child.val t.val (3 - WCT9.digit word t) (WCT9.digit word t)
+    wctChainP index coord.val child.val t.val (3 - WCT9.wordDigit word t) (WCT9.wordDigit word t)
       (wcpads w coord.val t.val).1 (wcHeaderPad w coord.val t.val) (wcpads w coord.val t.val).2
-      (wreveal w coord.val t.val (WCT9.digit word t))
+      (wreveal w coord.val t.val (WCT9.wordDigit word t))
   let leaf ← WCT9.leafHash index coord.val child.val ends
   let top ← (List.finRange 6).foldlM (fun value level => do
     let other := wsib w coord.val child.val level.val
@@ -133,7 +127,7 @@ def recoverCoordinateP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (outpu
   let selected := WCT9.child output coord
   let word := WCT9.rank output coord
   let ends ← (List.finRange 7).mapM fun i =>
-    wctChainP index coord.val selected.val i.val (3 - WCT9.digit word i) (WCT9.digit word i)
+    wctChainP index coord.val selected.val i.val (3 - WCT9.wordDigit word i) (WCT9.wordDigit word i)
       (pads.wctChain coord i).1 (pads.wctChainHigh coord i) (pads.wctChain coord i).2
       ((sig.openings coord).values i)
   let root ← WCT9.leafHash index coord.val selected.val ends

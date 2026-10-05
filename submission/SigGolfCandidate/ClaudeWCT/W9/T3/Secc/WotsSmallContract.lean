@@ -1,6 +1,4 @@
-import SigGolfCandidate.T3.Secc.WotsSmallContract
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CaseCSplit
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CaseCSmall
 
 namespace ClaudeWCT.W9.T3.Security.Wots
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal

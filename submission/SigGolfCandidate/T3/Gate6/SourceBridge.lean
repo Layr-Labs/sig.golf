@@ -2,7 +2,6 @@ import SigGolfCandidate.T3.Gate6.FreshProbability
 import SigGolfCandidate.T3.Core
 
 section
-
 namespace SigGolfResearch.Gate6
 set_option maxHeartbeats 500000
 theorem digestRecord_index (output : BitVec 256) :
@@ -33,10 +32,7 @@ theorem digest_acceptance_iff (output : BitVec 256) :
   rw [digestRecord_gate_zero]
 end SigGolfResearch.Gate6
 end
-
 section
-
-
 namespace SigGolfResearch.Gate6.Source
 open SigGolfCandidate.T3 SigGolfCandidate.Budget.Octopus
 open OracleComp ENNReal Finset

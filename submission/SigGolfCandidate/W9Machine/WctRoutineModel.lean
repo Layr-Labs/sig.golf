@@ -1,6 +1,27 @@
+import SigGolfCandidate.W9Machine.WctImage
 import SigGolfCandidate.W9Machine.WctChainPieces
-import SigGolfCandidate.W9Machine.WctJTData
-import SigGolfCandidate.ClaudeWCT.WCT9.Basic
+import SigGolfCandidate.ClaudeWCT.WCT9.Codebook
+
+section
+
+
+namespace W9Machine
+open SigGolfCandidate.T3M SigGolfCandidate.Rv
+def jtStart : Nat := 218624
+def jtReject : Nat := 24
+def chainEntries : List Nat := Frozen.chainEntries
+def jtTarget (field : Nat) : Nat :=
+  if field < 16016 then chainEntries.getD (field % 728) 0 else jtReject
+def jtCheck (start : Nat) (words : List (BitVec 32)) : Bool :=
+  words.zipIdx.all fun wi ↦
+    rOK (symRun {} [wi.1] (pcOf (jtStart + start + wi.2)) 1)
+      ⟨SymState.init, .c (pcOf (jtTarget (start + wi.2))), .jump, 1, 1⟩
+end W9Machine
+end
+
+section
+
+
 
 namespace W9Machine
 open SigGolfCandidate.T3M
@@ -43,3 +64,4 @@ def ChainRoutine.checked (r : ChainRoutine) : Bool :=
   ((r.pieces.filter ChainPiece.isHash).length == 6) &&
   decide (r.cycles ≤ 83) && decide (r.fuel ≤ 47)
 end W9Machine
+end

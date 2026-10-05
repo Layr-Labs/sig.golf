@@ -1,16 +1,9 @@
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.OtsContactTrace
-import SigGolfCandidate.SphincsSecurity.Proof.Base.QueryPauseInvariant
-import SigGolfCandidate.SphincsSecurity.Proof.Base.QueryPauseTrace
-import SigGolfCandidate.SphincsSecurity.Proof.Chains.PartialChainLastRow
 import SigGolfCandidate.SphincsSecurity.Proof.Base.QueryTraceInvariant
 import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainCapTwoEdge
 import SigGolfCandidate.T3.Secc.WotsPrefixGameSim
-import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainCapObservation
-import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainCapCost
 
 section
-
-
 namespace SphincsSecurity.Concrete.OtsContactTrace
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -43,10 +36,7 @@ theorem pause_new_contact {Result : Type} (computation : OracleComp OracleWorld 
     (pause_card_le_one parameter words frontier computation result hresult) htwo
 end SphincsSecurity.Concrete.OtsContactTrace
 end
-
 section
-
-
 namespace SphincsSecurity.Concrete.OtsContactTrace
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -109,10 +99,7 @@ theorem traced_game_cost (parameter : PublicParameter) (external : QueryImpl Has
   exact ⟨result, hresult, rfl⟩
 end SphincsSecurity.Concrete.OtsContactTrace
 end
-
 section
-
-
 namespace SphincsSecurity.Concrete.OtsPrefix
 open _root_.OracleComp OracleSpec PartialChainEndpoint
 set_option backward.isDefEq.respectTransparency false
@@ -232,10 +219,7 @@ theorem visible_pause_queryCount (segment : OtsPrefix) (high : segment.Query →
   exact segment.visible_step_queryCount high auxiliary history rows hrows input answer hanswer
 end SphincsSecurity.Concrete.OtsPrefix
 end
-
 section
-
-
 namespace SphincsSecurity.Concrete.OtsContactTrace
 open _root_.OracleComp OracleSpec PartialChainEndpoint
 set_option backward.isDefEq.respectTransparency false
@@ -332,10 +316,7 @@ theorem visible_traced_rows (segment : OtsPrefix) (high : segment.Query → High
     computation history observed hrows result hr
 end SphincsSecurity.Concrete.OtsPrefix
 end
-
 section
-
-
 namespace SphincsSecurity.Concrete.PartialChainEndpoint
 set_option backward.isDefEq.respectTransparency false
 theorem twoEdgeEvent_iff_rows {State : Type} {depth : Nat} (observed : Fin depth → State → Option State) (endpoint : State) :
@@ -381,13 +362,7 @@ theorem RowsObserved.twoEdge_iff {segment : OtsPrefix} {trace : Trace} {observed
   simp only [SeenTwoEdge, h, PartialChainEndpoint.twoEdgeEvent_iff_rows]
 end SphincsSecurity.Concrete.OtsContactTrace
 end
-
 section
-
-
-
-
-
 namespace SigGolfCandidate.T3.Security.Wots
 open OracleComp OracleSpec ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final

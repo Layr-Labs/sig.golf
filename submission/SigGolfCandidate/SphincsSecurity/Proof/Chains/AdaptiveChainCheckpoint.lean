@@ -1,8 +1,6 @@
-import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainContact
 import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainCountedRows
 
 section
-
 namespace SphincsSecurity.Concrete.PartialChainEndpoint
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -54,10 +52,7 @@ theorem run_contact_charge_transfer (auxiliary : QueryImpl auxSpec PMF)
     (fun result => ((queryCount observed + 2 * result.1.2 : Nat) : ENNReal)) budget hbudget
 end SphincsSecurity.Concrete.PartialChainEndpoint
 end
-
 section
-
-
 namespace SphincsSecurity.Concrete.PartialChainEndpoint
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false

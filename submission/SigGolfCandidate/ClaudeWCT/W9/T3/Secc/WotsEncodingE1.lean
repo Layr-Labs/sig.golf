@@ -1,22 +1,6 @@
 import SigGolfCandidate.T3.Secc.WotsEncodingE1
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEncodingMatch
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEncodingResample
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEncodingCongr
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskRef
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsReference
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.SeccLaw
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEvents
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskCharge
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMask
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskChain
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskBase
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CanonEncoding
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CanonGraphHonest
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CanonGraph
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsPrefixGame
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsPrefixGameSim
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsPrefixGameBase
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskRest
+
 namespace ClaudeWCT.W9.T3.Security.Wots
 open SigGolfCandidate SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction

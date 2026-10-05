@@ -1,7 +1,6 @@
 import SigGolfCandidate.T3M.Verify.LayerRuns
 
 section
-
 namespace SigGolfCandidate.T3M.BC
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M.Verify
@@ -21,7 +20,7 @@ def headerWrites (lay : Nat) : List (Addr × E) :=
    (⟨none, BitVec.ofNat 64 (x10In lay + 16)⟩, kw (hw 4 lay))]
 def specA (lay p : Nat) : Spec :=
   if lay = 3 then T3M.specA lay p else
-  ⟨if lay = 0 then [(.x4, tpE lay), (.x23, s7E lay), (.x3, ctrE lay), (.x12, .reg .x12)]
+  ⟨if lay = 0 then [(.x4, tpE lay), (.x23, s7E lay), (.x3, ctrE lay)]
    else [(.x4, tpE lay), (.x23, s7E lay), (.x31, treeE lay), (.x3, ctrE lay),
      (.x28, .bin .sll (.reg (rReg lay)) (kw 16)), (.x12, .reg .x12)],
    headerWrites lay, p + stepsA lay, true, stepsA lay,
@@ -29,7 +28,7 @@ def specA (lay p : Nat) : Spec :=
 def rejA (lay p : Nat) : Spec :=
   if lay = 3 then T3M.rejA lay p else
   ⟨[(.x5, kw 1), (.x10, kw 1)], headerWrites lay,
-   rejEcall, true, stepsA lay + 3, [ctrBr lay true], none, stepsA lay + 3⟩
+   rejEcall, true, stepsA lay + (if lay = 0 then 2 else 3), [ctrBr lay true], none, stepsA lay + (if lay = 0 then 2 else 3)⟩
 def bKB (lay : Nat) : List (Reg × Word) := (bK lay).filter (fun p => p.1 != .x12)
 def oblB : List Oblig := [.valid ⟨some (.reg .x12), 8⟩ 8, .valid ⟨some (.reg .x12), 0⟩ 8]
 def allowed (lay : Nat) : List Nat :=
@@ -56,9 +55,7 @@ def layerCheck (lay lo n : Nat) : Bool :=
   (List.range' lo n).all fun c => copyCheck lay (trPc lay c)
 end SigGolfCandidate.T3M.BC
 end
-
 section
-
 namespace SigGolfCandidate.T3M.BC
 set_option maxRecDepth 100000
 theorem layerCheck_3 : layerCheck 3 0 1 = true := by decide +kernel

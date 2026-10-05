@@ -58,22 +58,53 @@ theorem eval_w1E (s : MachineState) {j index : Nat} (h18 : s.getReg .x18 = BitVe
   show BinOp.eval .or (BinOp.eval .sll (s.getReg .x18) (BitVec.ofNat 64 32)) (s.getReg .x22) = _
   rw [binop_sll _ _ (by norm_num), h18, h22, ofNat_shl]
   exact ofNat_or_hi index j hidx
-theorem eval_x18x4 (s : MachineState) {j : Nat} (h18 : s.getReg .x18 = BitVec.ofNat 64 j) :
-    x18x4.eval s = BitVec.ofNat 64 (4 * j) := by
-  show s.getReg .x18 + s.getReg .x18 + s.getReg .x18 + s.getReg .x18 = _
-  rw [h18, ofNat_add_ofNat, ofNat_add_ofNat, ofNat_add_ofNat]; congr 1; ring
-theorem eval_privW1E (s : MachineState) {j index : Nat} (p : Nat) (h18 : s.getReg .x18 = BitVec.ofNat 64 j)
+theorem ofNat_and_one (x : Nat) (hx : x < 2 ^ 64) :
+    BitVec.ofNat 64 x &&& BitVec.ofNat 64 1 = BitVec.ofNat 64 (x % 2) := by
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_and, toNat_ofNat_lt hx, toNat_ofNat_lt (by norm_num), toNat_ofNat_lt (by omega),
+    Nat.and_one_is_mod]
+theorem eval_q0E (s : MachineState) {j : Nat} (h18 : s.getReg .x18 = BitVec.ofNat 64 j) (hj : j < 2 ^ 32)
+    (i : Nat) (hi : i < 7) : (q0E i).eval s = BitVec.ofNat 64 (7 * j + i) := by
+  have hsub : BinOp.eval .sub (BinOp.eval .sll (s.getReg .x18) (BitVec.ofNat 64 3)) (s.getReg .x18) =
+      BitVec.ofNat 64 (7 * j) := by
+    rw [binop_sll _ _ (by norm_num), h18, ofNat_shl]
+    simp only [BinOp.eval]
+    apply BitVec.eq_of_toNat_eq
+    simp only [BitVec.toNat_sub, BitVec.toNat_ofNat]
+    omega
+  unfold q0E
+  split_ifs with h0
+  · subst h0; exact hsub
+  · show BinOp.eval .add (BinOp.eval .sub (BinOp.eval .sll (s.getReg .x18) (BitVec.ofNat 64 3)) (s.getReg .x18))
+      (BitVec.ofNat 64 i) = _
+    rw [hsub]; exact ofNat_add_ofNat _ _
+theorem eval_qparE (s : MachineState) {j : Nat} (h18 : s.getReg .x18 = BitVec.ofNat 64 j) (hj : j < 2 ^ 32)
+    (i : Nat) (hi : i < 7) : (qparE i).eval s = BitVec.ofNat 64 ((7 * j + i) % 2) := by
+  show BinOp.eval .and ((q0E i).eval s) (BitVec.ofNat 64 1) = _
+  rw [eval_q0E s h18 hj i hi]
+  exact ofNat_and_one _ (by omega)
+theorem eval_privW1E (s : MachineState) {q index : Nat} (h6 : s.getReg .x6 = BitVec.ofNat 64 q) (hq : q < 2 ^ 33)
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (hidx : index < 2 ^ 32) :
-    (privW1E p).eval s = BitVec.ofNat 64 (index + 2 ^ 32 * (4 * j + p)) := by
-  have hx : (if p = 0 then x18x4 else .bin .add x18x4 (cE p)).eval s = BitVec.ofNat 64 (4 * j + p) := by
-    split_ifs with hp
-    · subst hp; exact eval_x18x4 s h18
-    · show BinOp.eval .add (x18x4.eval s) (BitVec.ofNat 64 p) = _
-      rw [eval_x18x4 s h18]; exact ofNat_add_ofNat _ _
-  show BinOp.eval .or (BinOp.eval .sll ((if p = 0 then x18x4 else .bin .add x18x4 (cE p)).eval s)
-    (BitVec.ofNat 64 32)) (s.getReg .x22) = _
-  rw [binop_sll _ _ (by norm_num), hx, h22, ofNat_shl]
+    privW1E.eval s = BitVec.ofNat 64 (index + 2 ^ 32 * (q / 2)) := by
+  show BinOp.eval .or (BinOp.eval .sll (BinOp.eval .srl (s.getReg .x6) (BitVec.ofNat 64 1)) (BitVec.ofNat 64 32))
+    (s.getReg .x22) = _
+  rw [binop_srl _ _ (by norm_num), binop_sll _ _ (by norm_num), h6, h22, ofNat_shr _ _ (by omega), ofNat_shl,
+    pow_one]
   exact ofNat_or_hi index _ hidx
+theorem eval_halfE (s : MachineState) {j : Nat} (h18 : s.getReg .x18 = BitVec.ofNat 64 j) (hj : j < 2 ^ 32)
+    (i : Nat) (hi : i < 7) : (halfE i).eval s = BitVec.ofNat 64 ((j + i) % 2) := by
+  have hx : (if i = 0 then E.reg .x18 else .bin .add (.reg .x18) (cE i)).eval s = BitVec.ofNat 64 (j + i) := by
+    split_ifs with h0
+    · subst h0; exact h18
+    · show s.getReg .x18 + BitVec.ofNat 64 i = _; rw [h18, ofNat_add_ofNat]
+  show BinOp.eval .and ((if i = 0 then E.reg .x18 else .bin .add (.reg .x18) (cE i)).eval s) (BitVec.ofNat 64 1) = _
+  rw [hx]
+  exact ofNat_and_one _ (by omega)
+theorem eval_hoffE (s : MachineState) {j : Nat} (h18 : s.getReg .x18 = BitVec.ofNat 64 j) (hj : j < 2 ^ 32)
+    (i : Nat) (hi : i < 7) : (hoffE i).eval s = BitVec.ofNat 64 (16 * ((j + i) % 2)) := by
+  show BinOp.eval .sll ((halfE i).eval s) (BitVec.ofNat 64 4) = _
+  rw [binop_sll _ _ (by norm_num), eval_halfE s h18 hj i hi, ofNat_shl]
+  congr 1; ring
 theorem eval_dE (s : MachineState) {w : Nat} (i : Nat) (h25 : s.getReg .x25 = BitVec.ofNat 64 w) (hw : w < 2 ^ 64)
     (hi : 2 * i < 64) : (dE i).eval s = BitVec.ofNat 64 (3 - w / 4 ^ i % 4) := by
   show BinOp.eval .sub (BitVec.ofNat 64 3) (BinOp.eval .and (BinOp.eval .srl (s.getReg .x25)

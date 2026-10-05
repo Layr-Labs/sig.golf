@@ -1,4 +1,3 @@
-import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Reference.BoundaryHashEvaluation
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.BuildEval
 

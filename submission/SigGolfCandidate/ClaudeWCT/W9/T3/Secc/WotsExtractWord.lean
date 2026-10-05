@@ -1,7 +1,4 @@
-import SigGolfCandidate.T3.Secc.WotsExtractWord
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEvents
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsExtractChain
-import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Layer
 import SigGolfCandidate.ClaudeWCT.W9.New.G3b.Shared
 
 namespace ClaudeWCT.W9.T3.Security.WotsExtract

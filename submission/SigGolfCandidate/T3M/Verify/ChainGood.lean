@@ -1,6 +1,5 @@
 import SigGolfCandidate.T3M.Verify.ChainSem
 import SigGolfCandidate.T3M.Verify.ChainCheckAll
-import SigGolfCandidate.T3M.Verify.Judg
 
 set_option linter.unusedSimpArgs false
 namespace SigGolfCandidate.T3M

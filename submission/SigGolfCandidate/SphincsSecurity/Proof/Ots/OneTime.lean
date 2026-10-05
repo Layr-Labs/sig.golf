@@ -1,10 +1,6 @@
-import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
-import SigGolfCandidate.SphincsSecurity.Proof.IdealStatement
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Eval
 
 section
-
-
 namespace SphincsSecurity.Concrete
 variable {m : Type → Type} [Monad m] [LawfulMonad m] [HasQuery HashSpec m]
 theorem chainWalk_add (parameter : PublicParameter) (lay : Layer) (tree : TreeIndex)
@@ -20,11 +16,7 @@ theorem chainWalk_add (parameter : PublicParameter) (lay : Layer) (tree : TreeIn
       simp only [chainWalk, ih, bind_assoc, Nat.add_assoc]
 end SphincsSecurity.Concrete
 end
-
 section
-
-
-
 namespace SphincsSecurity.Concrete
 open OracleComp
 variable {α : Type} (f : QueryImpl HashSpec Id) (parameter : PublicParameter) (lay : Layer)

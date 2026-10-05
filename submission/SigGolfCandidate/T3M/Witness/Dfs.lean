@@ -2,7 +2,6 @@ import SigGolfCandidate.T3M.Witness.Schedule
 import SigGolfCandidate.T3M.Witness.Basic
 
 section
-
 namespace SigGolfCandidate.T3M
 open SigGolfCandidate.T3
 theorem xor_one_div_two (x : Nat) : (x ^^^ 1) / 2 = x / 2 := by
@@ -184,10 +183,7 @@ theorem lca_bucket {b x y : Nat} (hx : x < 128) (hy : y < 128) (hxy : x ≠ y) :
   · rw [← div_eq_iff_lca hxy, ← key _ hl]; exact div_eq_of_lca_le (by omega) le_rfl
 end SigGolfCandidate.T3M
 end
-
 section
-
-
 namespace SigGolfCandidate.T3M
 open OracleComp OracleSpec SigGolfCandidate.T3
 set_option linter.unusedSimpArgs false

@@ -1,6 +1,4 @@
-import SigGolfCandidate.T3.Secc.WotsTransportShort
 import SigGolfCandidate.ClaudeWCT.W9.New.Positions.FtsBridge
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEvents
 import SigGolfCandidate.ClaudeWCT.W9.New.BC.Respects
 
 namespace ClaudeWCT.W9.T3.Security.Wots.Ref
@@ -27,6 +25,32 @@ include hAT
 theorem honestForest_short (index : Nat) : Extract.honestForest A index = Extract.honestForest T index := by
   rw [Extract.honestForest_eq_wct9, Extract.honestForest_eq_wct9]
   exact ClaudeWCT.WCT9.Wots.honestForest_congr (fun _ hq => hAT _ (ClaudeWCT.WCT9.Wots.ftsQuery_short hq))
+theorem wotsSeed_short (lay : Layer) (tree leaf i : Nat) :
+    WCT9.wotsSeed A lay tree leaf i = WCT9.wotsSeed T lay tree leaf i := by
+  unfold WCT9.wotsSeed
+  split_ifs
+  · exact leafSeed_short hAT lay tree leaf i
+  · unfold WCT9.lowerSeed WCT9.lowerSeedPair
+    rw [ShortRespects.privatePair 0 lay.val tree _ 0 A T hAT]
+theorem wotsEnd_short (lay : Layer) (tree leaf i : Nat) :
+    WCT9.wotsEnd A lay tree leaf i = WCT9.wotsEnd T lay tree leaf i := by
+  unfold WCT9.wotsEnd
+  rw [wotsSeed_short hAT]
+  exact chainValue_short hAT _ _ _ _ _ _ _
+theorem wotsRoot_short (lay : Layer) (tree leaf : Nat) :
+    WCT9.wotsRoot A lay tree leaf = WCT9.wotsRoot T lay tree leaf := by
+  unfold WCT9.wotsRoot
+  rw [List.map_congr_left (fun i _ => wotsEnd_short hAT lay tree leaf i)]
+  apply leafHash_respects
+  · simp only [List.length_map, List.length_range]
+    have := chainCount_le lay
+    omega
+  · exact hAT
+theorem wotsTree_short (lay : Layer) (tree : Nat) :
+    WCT9.wotsTree A lay tree = WCT9.wotsTree T lay tree := by
+  unfold WCT9.wotsTree
+  rw [List.map_congr_left (fun leaf _ => wotsRoot_short hAT lay tree leaf)]
+  exact buildLevels_respects _ _ _ _ _ A T hAT
 theorem ftsLevels_short (index coord : Nat) (hc : coord < 9) :
     Extract.ftsLevels A index coord = Extract.ftsLevels T index coord := by
   unfold Extract.ftsLevels
@@ -52,7 +76,7 @@ theorem leafMsg_short (L : LeafAddr) : leafMsg A L = leafMsg T L := by
   unfold leafMsg
   split_ifs
   · unfold Extract.honestPair
-    rw [builtTree_short hAT]
+    rw [wotsTree_short hAT]
   · rw [honestForest_short hAT]
 theorem referenceSearch_short (L : LeafAddr) : referenceSearch A L = referenceSearch T L := by
   unfold referenceSearch
@@ -66,7 +90,7 @@ theorem depth_short (a : ChainAddr) : depth A a = depth T a := by
   rw [referenceDigits_short hAT]
 theorem frontierValue_short (a : ChainAddr) : frontierValue A a = frontierValue T a := by
   unfold frontierValue
-  rw [depth_short hAT, leafSeed_short hAT]
+  rw [depth_short hAT, wotsSeed_short hAT]
   exact honestChainValue_short hAT _ _ _ _ _ _
 theorem referenceInput_short (L : LeafAddr) : referenceInput A L = referenceInput T L := by
   unfold referenceInput
@@ -76,13 +100,13 @@ theorem honestInput_short (position : Extract.Pos) (hb : position.Bounded) :
   cases position with
   | chain lay tree leaf i step =>
       simp only [Extract.honestInput]
-      rw [leafSeed_short hAT, honestChainValue_short hAT]
+      rw [wotsSeed_short hAT, honestChainValue_short hAT]
   | leaf lay tree leaf =>
       simp only [Extract.honestInput]
-      rw [List.map_congr_left (fun i _ => leafEnd_short hAT lay tree leaf i)]
+      rw [List.map_congr_left (fun i _ => wotsEnd_short hAT lay tree leaf i)]
   | node lay tree level node =>
       simp only [Extract.honestInput]
-      rw [builtTree_short hAT]
+      rw [wotsTree_short hAT]
   | forest index =>
       simp only [Extract.honestInput]
       rw [ftsPairsHonest_short hAT]

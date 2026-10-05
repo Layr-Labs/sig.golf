@@ -1,5 +1,4 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.SeccSufRoute
-import SigGolfCandidate.T3.Secc.SeccSufPayload
 
 namespace ClaudeWCT.W9.T3.Security.BSuf
 open OracleComp OracleSpec SigGolfCandidate.T3
@@ -37,15 +36,15 @@ theorem expandN_unfold (answers : Answers) (m : Message) (pk : Digest) (σ : WCT
             exact ⟨counter, cs, rfl, hl, rfl⟩
 theorem layer_of_shaped (answers : Answers) (N : HashOutput) (wit : WCT9.Witness) (lay : Layer) (digits : List Nat)
     (hs : ClaudeWCT.W9.T3M.Extract.LayerShaped answers (witEnc N wit) (N.toNat % 2 ^ 31) lay digits) :
-    wit.signature.layers lay = piecesSignature lay (Correctness.honestPieces answers lay
+    wit.signature.layers lay = piecesSignature lay (WCT9.wotsPieces answers lay
       (route (N.toNat % 2 ^ 31) lay).2 (route (N.toNat % 2 ^ 31) lay).1 digits) := by
   apply SigGolfCandidate.T3M.LayerSignature.ext'
   · funext i
     rw [← ClaudeWCT.W9.T3M.wvalue_witEnc N wit lay i, (hs.2 i.val i.isLt).1]
-    simp [piecesSignature, Correctness.honestPieces]
+    simp [piecesSignature, WCT9.wotsPieces]
   · funext j
     rw [← ClaudeWCT.W9.T3M.wpath_witEnc N wit lay j, (hs.1 j.val j.isLt).1]
-    simp [piecesSignature, Correctness.honestPieces]
+    simp [piecesSignature, WCT9.wotsPieces]
 theorem layers_payload (answers : Answers) (published : SigGolfCandidate.T3.Cache)
     (hcache : published.region = Correctness.cacheRegion (Correctness.maskedTop answers))
     (N : HashOutput) (wit : WCT9.Witness)
@@ -113,10 +112,10 @@ theorem layers_payload (answers : Answers) (published : SigGolfCandidate.T3.Cach
             have ht : (route (N.toNat % 2 ^ 31) 0).2 = 0 := route_top_tree (N.toNat % 2 ^ 31) hidx
             have htop := Correctness.eval_signTop_honest answers published (route (N.toNat % 2 ^ 31) 0).1
               digitsG hcache (route_leaf_bound (N.toNat % 2 ^ 31) 0) hvalid
-            refine ⟨[Correctness.honestPieces answers 0 0 (route (N.toNat % 2 ^ 31) 0).1 digitsG], ?_, rfl, ?_⟩
+            refine ⟨[WCT9.wotsPieces answers 0 0 (route (N.toNat % 2 ^ 31) 0).1 digitsG], ?_, rfl, ?_⟩
             · simp only [WCT9.signLayersBC, evalWithAnswerFn_bind, hs, ite_true, evalWithAnswerFn_pure,
                 Option.map_some, Option.getD_some]
-              rw [show (Fin.ofNat 4 0 : Layer) = 0 from rfl, htop]
+              rw [show (Fin.ofNat 4 0 : Layer) = 0 from rfl, htop, WCT9.wotsPieces_top]
             · intro lay hlay
               have hl0 : lay = 0 := Fin.ext (by simp at hlay ⊢; omega)
               subst hl0
@@ -129,10 +128,10 @@ theorem layers_payload (answers : Answers) (published : SigGolfCandidate.T3.Cach
               apply WCT9.eval_recoverLayerPair_honest answers wit.signature _ _ digitsG hvalid
               · intro i
                 rw [hlayer]
-                simp [piecesSignature, Correctness.honestPieces, List.getD_eq_getElem, i.isLt]
+                simp [piecesSignature, WCT9.wotsPieces, List.getD_eq_getElem, i.isLt]
               · intro j
                 rw [hlayer]
-                simp [piecesSignature, Correctness.honestPieces, List.getD_eq_getElem, j.isLt]
+                simp [piecesSignature, WCT9.wotsPieces, List.getD_eq_getElem, j.isLt]
             have hnext : WCT9.LayerMsg.pair (WCT9.builtPair answers (Fin.ofNat 4 (k + 1))
                 (route (N.toNat % 2 ^ 31) (Fin.ofNat 4 (k + 1))).2).1
                 (WCT9.builtPair answers (Fin.ofNat 4 (k + 1)) (route (N.toNat % 2 ^ 31) (Fin.ofNat 4 (k + 1))).2).2 =
@@ -153,17 +152,22 @@ theorem layers_payload (answers : Answers) (published : SigGolfCandidate.T3.Cach
               (fun k' hk' => by rw [hnext]; congr; omega) hres
               (fun lay hlay => by
                 rw [hctr lay (by omega), ← hcs, List.getD_append _ _ _ _ (by omega)])
-            have htree := Correctness.eval_buildTree_result answers (Fin.ofNat 4 (k + 1))
+            have hl0 : (Fin.ofNat 4 (k + 1) : Layer) ≠ 0 := by
+              intro h
+              have := congrArg Fin.val h
+              rw [hv] at this
+              simp at this
+            have htree := WCT9.eval_buildTreeP_result answers hl0
               (route (N.toNat % 2 ^ 31) (Fin.ofNat 4 (k + 1))).2
               (route (N.toNat % 2 ^ 31) (Fin.ofNat 4 (k + 1))).1 digitsG hvalid
               (route_leaf_bound (N.toNat % 2 ^ 31) _)
-            refine ⟨pieces ++ [Correctness.honestPieces answers (Fin.ofNat 4 (k + 1))
+            refine ⟨pieces ++ [WCT9.wotsPieces answers (Fin.ofNat 4 (k + 1))
               (route (N.toNat % 2 ^ 31) (Fin.ofNat 4 (k + 1))).2
               (route (N.toNat % 2 ^ 31) (Fin.ofNat 4 (k + 1))).1 digitsG], ?_,
               by simp [hplen], ?_⟩
             · rw [WCT9.signLayersBC]
               simp only [evalWithAnswerFn_bind, hs, htree, show k + 1 ≠ 0 by omega, ite_false]
-              have hpair : WCT9.topPair (Fin.ofNat 4 (k + 1)) (Correctness.builtTree answers (Fin.ofNat 4 (k + 1))
+              have hpair : WCT9.topPair (Fin.ofNat 4 (k + 1)) (WCT9.wotsTree answers (Fin.ofNat 4 (k + 1))
                   (route (N.toNat % 2 ^ 31) (Fin.ofNat 4 (k + 1))).2) =
                   WCT9.builtPair answers (Fin.ofNat 4 (k + 1)) (route (N.toNat % 2 ^ 31) (Fin.ofNat 4 (k + 1))).2 :=
                 rfl
@@ -188,7 +192,7 @@ theorem openings_of_honest (answers : Answers) (N : HashOutput) (wit : WCT9.Witn
   obtain ⟨hval, hsib⟩ := hH.2 k
   apply opening_ext
   · intro t
-    rw [← wreveal_witEnc N wit k t (WCT9.digit (WCT9.rank N k) t), (hval t).1]
+    rw [← wreveal_witEnc N wit k t (WCT9.wordDigit (WCT9.rank N k) t), (hval t).1]
     unfold WCT9.expectedOpening WCT9.honestOpening
     rw [WCT9.buildCoordinate_result]
     simp only [List.getD_eq_getElem?_getD, List.getElem?_ofFn]
@@ -290,7 +294,7 @@ theorem gameCaseC_signed_false (adversary : ClaudeWCT.W9.T3M.Final.AdversaryP) (
           simp only [Option.map_some, Option.some.injEq] at hexp
           subst hexp
           have F := expandN_facts answers m _ σ N wit hx
-          obtain ⟨N', -, hN', -, -, hgood, hfts⟩ := hC
+          obtain ⟨N', -, hN', -, -, hgood, hfts, -⟩ := hC
           have hNN : N' = N := by
             rw [← hN', wrho_witEnc, wdc_witEnc, F.sig, hm]
             exact F.digest

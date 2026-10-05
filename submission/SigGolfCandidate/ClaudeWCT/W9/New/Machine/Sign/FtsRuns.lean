@@ -12,8 +12,9 @@ def regsOf (l : List (Reg × E)) : RegFile := l.foldl (fun rf p => rf.set p.1 p.
 def pres (regs : List (Reg × E)) (mem : SymMem) (obl : List Oblig) (pc : Nat) (ecall : Bool) (k : Nat)
     (brs : List Br) : PRes :=
   ⟨⟨regsOf regs, mem, obl⟩, pcOf pc, ecall, k, k, brs, none⟩
-def pI (c p : Nat) : Nat := pIdx.getD (4 * c + p) 0
-def preI (c i : Nat) : Nat := preIdx.getD (7 * c + i) 0
+def qI (c i : Nat) : Nat := qIdx.getD (7 * c + i) 0
+def pI (c i : Nat) : Nat := pIdx.getD (7 * c + i) 0
+def sI (c i : Nat) : Nat := seedIdx.getD (7 * c + i) 0
 def chkI (c i s : Nat) : Nat := chkIdx.getD (28 * c + 4 * i + s) 0
 def skipI (c i s : Nat) : Nat := skipIdx.getD (28 * c + 4 * i + s) 0
 def leafI (c : Nat) : Nat := leafIdx.getD c 0
@@ -24,7 +25,7 @@ def ntI (c : Nat) : Nat := ntIdx.getD c 0
 def rI (c : Nat) : Nat := rIdx.getD c 0
 def lwuI (c : Nat) : Nat := lwuIdx.getD c 0
 def pcI (c l : Nat) : Nat := rI c + 12 + 13 * l
-def lcEnd (c i : Nat) : Nat := if i = 6 then lI c else if i % 2 = 0 then preI c (i + 1) else pI c ((i + 1) / 2)
+def lcEnd (c i : Nat) : Nat := if i = 6 then lI c else qI c (i + 1)
 def hdr8 (c : Nat) : Nat := 2049 + 65536 * c
 def hdr6 (c : Nat) : Nat := 1537 + 65536 * c
 def chainK (c i : Nat) : Nat := 0x80 + 4 * i + 65536 * c
@@ -33,8 +34,13 @@ def slotV (c i : Nat) : Nat := SIG + 16 + 224 * c + 16 * i
 def slotP (c l : Nat) : Nat := SIG + 128 + 224 * c + 16 * l
 def leafOff (i : Nat) : Nat := if i = 0 then 0 else 16 * (i + 1)
 def forOff (c : Nat) : Nat := 32 + 32 * c
-def x18x4 : E := .bin .add (.bin .add (.bin .add (.reg .x18) (.reg .x18)) (.reg .x18)) (.reg .x18)
-def privW1E (p : Nat) : E := .bin .or (.bin .sll (if p = 0 then x18x4 else .bin .add x18x4 (cE p)) (cE 32)) (.reg .x22)
+def q0E (i : Nat) : E :=
+  if i = 0 then .bin .sub (.bin .sll (.reg .x18) (cE 3)) (.reg .x18)
+  else .bin .add (.bin .sub (.bin .sll (.reg .x18) (cE 3)) (.reg .x18)) (cE i)
+def qparE (i : Nat) : E := .bin .and (q0E i) (cE 1)
+def privW1E : E := .bin .or (.bin .sll (.bin .srl (.reg .x6) (cE 1)) (cE 32)) (.reg .x22)
+def halfE (i : Nat) : E := .bin .and (if i = 0 then .reg .x18 else .bin .add (.reg .x18) (cE i)) (cE 1)
+def hoffE (i : Nat) : E := .bin .sll (halfE i) (cE 4)
 def w1E : E := .bin .or (.bin .sll (.reg .x18) (cE 32)) (.reg .x22)
 def qE (c i : Nat) : E := .bin .or (.bin .or (.bin .sll (.reg .x22) (cE 27)) (.bin .sll (.reg .x18) (cE 20))) (cE (chainK c i))
 def idx32E : E := .bin .sll (.reg .x22) (cE 32)
@@ -55,14 +61,19 @@ def expF (c : Nat) : PRes :=
     (.x28, .bin .add (.bin .sll (fieldE c) (cE 2)) (cE TBL))] [] [] (lwuI c) false
     (if WCT9.coordBase c % 64 = 0 then 12 else 13) []
 def expZ (c : Nat) : PRes := pres [(.x18, cE 0)] [] [] (leafI c) false 1 []
-def expP (c p : Nat) : PRes :=
-  pres [(.x6, privW1E p), (.x10, cE PRIVW), (.x11, cE 64), (.x12, cE PAIRW), (.x28, cE PRIVW)]
-    [mwc (PRIVW + 24) (privW1E p), mwc (PRIVW + 16) (cE (hdr8 c))] [] (pI c p + 19) true 19 []
-def expPre (c i : Nat) : PRes :=
-  pres [(.x6, cE 3), (.x7, cE (chainK c i)), (.x26, dE i), (.x28, cE PAIRW), (.x29, cE CHAINW)]
+def expQ (c i : Nat) (b : Bool) : PRes :=
+  pres [(.x6, q0E i), (.x7, qparE i)] [] [] (if b then sI c i else pI c i) false 5 [⟨.ne, qparE i, cE 0, b⟩]
+def expP (c i : Nat) : PRes :=
+  pres [(.x6, cE (hdr8 c)), (.x10, cE PRIVW), (.x11, cE 64), (.x12, cE PAIRW), (.x28, cE PRIVW)]
+    [mwc (PRIVW + 16) (cE (hdr8 c)), mwc (PRIVW + 24) privW1E] [] (pI c i + 14) true 14 []
+def pairAddr (i off : Nat) : Addr := ⟨some (hoffE i), BitVec.ofNat 64 (PAIRW + off)⟩
+def expS (c i : Nat) : PRes :=
+  pres [(.x6, cE 3), (.x7, cE (chainK c i)), (.x26, dE i), (.x28, .bin .add (hoffE i) (cE PAIRW)), (.x29, cE CHAINW)]
     [mwc (CHAINW + 24) (cE 0), mwc (CHAINW + 16) (qE c i),
-      mwc (CHAINW + 56) (ldc (PAIRW + 16 * (i % 2) + 8)), mwc (CHAINW + 48) (ldc (PAIRW + 16 * (i % 2)))] []
-    (chkI c i 0) false (if c = 0 then 19 else 20) []
+      mwc (CHAINW + 56) (.ld (.bin .add (hoffE i) (cE (PAIRW + 8)))),
+      mwc (CHAINW + 48) (.ld (.bin .add (hoffE i) (cE PAIRW)))]
+    [.valid (pairAddr i 8) 8, .valid (pairAddr i 0) 8]
+    (chkI c i 0) false (if c = 0 then 23 else 24) []
 def expChk (c i s v : Nat) : PRes :=
   if v = 0 then pres [] [] [] (skipI c i s) false 1 [⟨.ne, .reg .x18, .reg .x24, true⟩]
   else if v = 1 then
@@ -119,12 +130,13 @@ def expSK : PRes :=
     (fieldIdx.getD 0 0) false 11 []
 def expFor : PRes :=
   pres [(.x6, cE 3841), (.x10, cE FORW), (.x11, cE 320), (.x12, cE FOUT), (.x28, cE FORW)]
-    [mwc (FORW + 8) (cE 0), mwc FORW (cE 0), mwc (FORW + 24) (.reg .x22), mwc (FORW + 16) (cE 3841)] [] 10976 true 13 []
+    [mwc (FORW + 8) (cE 0), mwc FORW (cE 0), mwc (FORW + 24) (.reg .x22), mwc (FORW + 16) (cE 3841)] [] 20728 true 13 []
 def expJ : PRes := pres [] [] [] 370 false 1 []
 def runF (c : Nat) : Option PRes := run (coordLook c) [lwuI c] (cbase c) []
 def runZ (c : Nat) : Option PRes := run (coordLook c) [leafI c] (lwuI c + 1) []
-def runP (c p : Nat) : Option PRes := run (coordLook c) [] (pI c p) []
-def runPre (c i : Nat) : Option PRes := run (coordLook c) [chkI c i 0] (preI c i) []
+def runQ (c i : Nat) (b : Bool) : Option PRes := run (coordLook c) [pI c i, sI c i] (qI c i) [.br b]
+def runP (c i : Nat) : Option PRes := run (coordLook c) [] (pI c i) []
+def runS (c i : Nat) : Option PRes := run (coordLook c) [chkI c i 0] (sI c i) []
 def chkDirs (v : Nat) : List Dir := if v = 0 then [.br true] else if v = 1 then [.br false, .br true] else [.br false, .br false]
 def runChk (c i s v : Nat) : Option PRes := run (coordLook c) [skipI c i s] (chkI c i s) (chkDirs v)
 def runStp (c i s : Nat) : Option PRes := run (coordLook c) [] (skipI c i (s - 1)) []
@@ -135,12 +147,14 @@ def runN (c : Nat) : Option PRes := runA (coordLook c) [] (nodeI c) []
 def runNT (c : Nat) (back : Bool) : Option PRes := run (coordLook c) [nodeI c, rI c] (ntI c) [.br back]
 def runR0 (c : Nat) : Option PRes := run (coordLook c) [pcI c 0] (rI c) []
 def runPC (c l : Nat) : Option PRes := run (coordLook c) [pcI c (l + 1)] (pcI c l) []
-def runSK : Option PRes := run headLook [fieldIdx.getD 0 0] 2215 []
-def runFor : Option PRes := run tailLook [370] 10963 []
-def runJ : Option PRes := run tailLook [370] 10977 []
+def runSK : Option PRes := run headLook [fieldIdx.getD 0 0] 11175 []
+def runFor : Option PRes := run tailLook [370] 20715 []
+def runJ : Option PRes := run tailLook [370] 20729 []
 def okF (c : Nat) : Bool := optBeq (runF c) (expF c) && optBeq (runZ c) (expZ c)
-def okP (c : Nat) : Bool := (List.range 4).all fun p => optBeq (runP c p) (expP c p)
-def okPre (c : Nat) : Bool := (List.range 7).all fun i => optBeq (runPre c i) (expPre c i)
+def okQ (c : Nat) : Bool :=
+  (List.range 7).all fun i => optBeq (runQ c i true) (expQ c i true) && optBeq (runQ c i false) (expQ c i false)
+def okP (c : Nat) : Bool := (List.range 7).all fun i => optBeq (runP c i) (expP c i)
+def okS (c : Nat) : Bool := (List.range 7).all fun i => optBeq (runS c i) (expS c i)
 def okChk (c : Nat) : Bool :=
   (List.range 7).all fun i => (List.range 4).all fun s => (List.range 3).all fun v =>
     optBeq (runChk c i s v) (expChk c i s v)
@@ -151,6 +165,6 @@ def okTail (c : Nat) : Bool :=
   optBeq (runL c) (expL c) && optBeq (runT c true) (expT c true) && optBeq (runT c false) (expT c false) &&
     optBeq (runN c) (expN c) && optBeq (runNT c true) (expNT c true) && optBeq (runNT c false) (expNT c false) &&
     optBeq (runR0 c) (expR0 c) && (List.range 7).all fun l => optBeq (runPC c l) (expPC c l)
-def okCoord (c : Nat) : Bool := okF c && okP c && okPre c && okChk c && okStp c && okLc c && okTail c
+def okCoord (c : Nat) : Bool := okF c && okQ c && okP c && okS c && okChk c && okStp c && okLc c && okTail c
 def okGlobal : Bool := optBeq runSK expSK && optBeq runFor expFor && optBeq runJ expJ
 end ClaudeWCT.W9.Machine.Sign

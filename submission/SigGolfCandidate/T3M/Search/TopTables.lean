@@ -11,7 +11,6 @@ def topRank (v : Digest) (j : Nat) : Nat := v.toNat / 2 ^ (7 * j) % 128
 def rankDigits (v : Digest) : List Nat := (List.range 17).map (topRank v)
 def tailWeight (v : Digest) : Nat := v.toNat / 2 ^ 119 % 4 + v.toNat / 2 ^ 121 % 4 + v.toNat / 2 ^ 123 % 4
 def topLookupSum (v : Digest) : Nat := ((rankDigits v).map rankLookup).sum + tailWeight v
-/-- Credit of a rank: the number of its three radix-5 digits equal to 3 (`T3.topCredit`). -/
 def rankCredit (r : Nat) : Nat :=
   (if r % 5 = 3 then 1 else 0) + (if r / 5 % 5 = 3 then 1 else 0) + (if r / 25 % 5 = 3 then 1 else 0)
 def tableByte (i : Nat) : BitVec 8 := BitVec.ofNat 8 <|
@@ -19,9 +18,7 @@ def tableByte (i : Nat) : BitVec 8 := BitVec.ofNat 8 <|
   else if i < 628 then if (i - 128) % 4 < 3 then rankDigit ((i - 128) / 4) ((i - 128) % 4)
     else rankCredit ((i - 128) / 4)
   else 0
-/-- Producer credit filter data after the rank table: byte 631 = total-signer flag (sign 1, expand 0),
-bytes 632..647 = the dummy top digest (`T3.dummyTop`), little endian. -/
-def dummyDigestNat : Nat := 232069893348868768384238972637
+def dummyDigestNat : Nat := 232069893348868768384238972643
 def cfByte (flag : Nat) (i : Nat) : BitVec 8 := BitVec.ofNat 8 <|
   if i = 631 then flag
   else if 632 ≤ i ∧ i < 648 then dummyDigestNat / 256 ^ (i - 632) % 256
@@ -85,7 +82,7 @@ theorem topLookupSum_good (v : Digest) (h : T3.topRanksValid v = true) :
   intro r hr
   simp [rankLookup, (topRanksValid_iff v).mp h r hr]
 theorem topLookupSum_eq_iff (v : Digest) :
-    topLookupSum v = 126 ↔ T3.topRanksValid v = true ∧ (topDigits v).sum = 126 := by
+    topLookupSum v = 128 ↔ T3.topRanksValid v = true ∧ (topDigits v).sum = 128 := by
   constructor
   · intro h
     have hv : T3.topRanksValid v = true := by
@@ -100,7 +97,7 @@ theorem topLookupSum_eq_iff (v : Digest) :
   · rintro ⟨hv, hsum⟩
     exact (topLookupSum_good v hv).trans hsum
 theorem decode_top_lookup (v : Digest) :
-    T3.decode 0 v = if v.toNat < 2 ^ 125 ∧ topLookupSum v = 126
+    T3.decode 0 v = if v.toNat < 2 ^ 125 ∧ topLookupSum v = 128
       then some (topDigits v) else none := by
   rw [decode_top]
   simp only [topLookupSum_eq_iff]

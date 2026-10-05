@@ -1,13 +1,7 @@
-import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
-import SigGolfCandidate.SphincsSecurity.Proof.Hypertree.Extract
-import SigGolfCandidate.SphincsSecurity.Proof.Ots.OneTime
 import SigGolfCandidate.SphincsSecurity.Proof.Hypertree.FrontierSigningEvaluation
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.SignSupport
 
 section
-
-
-
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -122,12 +116,7 @@ theorem eval_frontierTreeNode_congr (parameter : PublicParameter) (f g : QueryIm
       exact hnode _ _ _
 end SphincsSecurity.Concrete
 end
-
 section
-
-
-
-
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false

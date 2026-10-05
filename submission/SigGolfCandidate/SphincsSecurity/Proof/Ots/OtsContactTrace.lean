@@ -1,13 +1,8 @@
-import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainEndpoint
-import SigGolfCandidate.SphincsSecurity.Proof.Base.QueryCap
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.OtsPrefixObservedRun
-import SigGolfCandidate.SphincsSecurity.Proof.Reference.CausalFrontierProgram
 import SigGolfCandidate.SphincsSecurity.Proof.Base.QueryPause
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.OtsPrefixAllocation
 
 section
-
-
 namespace SphincsSecurity.Concrete.PartialChainEndpoint
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -46,11 +41,7 @@ theorem realRun_eraseAux (auxiliary : State → QueryImpl auxSpec PMF) (extra : 
   simp only [realRun, observedRun_eraseAux]
 end SphincsSecurity.Concrete.PartialChainEndpoint
 end
-
 section
-
-
-
 namespace SphincsSecurity.Concrete.OtsPrefix
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -109,10 +100,7 @@ theorem visibleSeedGame_real :
       (segment.visibleSeedGame inputs hencoding hgraph auxiliary secrets ftsSecret words adversary) (fun _ _ => none)).symm
 end SphincsSecurity.Concrete.OtsPrefix
 end
-
 section
-
-
 namespace SphincsSecurity.QueryPause
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -223,10 +211,7 @@ theorem visible_pause_program (segment : OtsPrefix) (high : segment.Query → Hi
 end OtsPrefix
 end SphincsSecurity.Concrete
 end
-
 section
-
-
 namespace SphincsSecurity.Concrete.OtsContactTrace
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false

@@ -1,5 +1,3 @@
-import SigGolfCandidate.T3M.Mem
-import SigGolfCandidate.T3M.Images.Keygen
 import SigGolfCandidate.T3M.Keygen.PackedBlocks
 
 namespace SigGolfCandidate.T3M.Keygen

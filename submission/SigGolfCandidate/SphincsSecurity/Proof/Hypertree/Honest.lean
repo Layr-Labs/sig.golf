@@ -1,4 +1,3 @@
-import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.HonestFts
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.ExtractOts
 import SigGolfCandidate.SphincsSecurity.Proof.Hypertree.Position

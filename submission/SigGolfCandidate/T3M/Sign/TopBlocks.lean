@@ -28,7 +28,7 @@ theorem blk427_spec (s : MachineState) (hpc : s.pc = pcOf 427) (index : Nat) (hi
     ∃ t, Steps image s 14 14 t ∧ t.pc = pcOf 646 ∧ t.getReg .x1 = pcOf 441 ∧
       t.getReg .x8 = BitVec.ofNat 64 0 ∧ t.getReg .x9 = BitVec.ofNat 64 0 ∧
       t.getReg .x26 = BitVec.ofNat 64 54 ∧ t.getReg .x27 = BitVec.ofNat 64 51 ∧
-      t.getReg .x17 = BitVec.ofNat 64 126 ∧
+      t.getReg .x17 = BitVec.ofNat 64 128 ∧
       t.getReg .x18 = BitVec.ofNat 64 (index / 2 ^ 19 % 4096) ∧
       t.getReg .x14 = BitVec.ofNat 64 (index / 2 ^ 19 % 4096) ∧
       RegsExcept s t [.x1, .x6, .x7, .x8, .x9, .x14, .x17, .x18, .x26, .x27, .x28] ∧

@@ -1,8 +1,6 @@
 import SigGolfCandidate.SphincsSecurity.Proof.Seeded.DerivationTable
-import SigGolfCandidate.SphincsSecurity.Proof.Deterministic.Inputs
 
 section
-
 open OracleComp OracleSpec
 namespace SphincsSecurity.Seeded
 set_option backward.isDefEq.respectTransparency false
@@ -64,10 +62,7 @@ theorem evalDist_prepareRandomizers (seed : MasterSeed) (outputs : SecretOutputs
     (derivationCache_randomizer_fresh seed outputs)
 end SphincsSecurity.Seeded
 end
-
 section
-
-
 open OracleComp OracleSpec
 namespace SphincsSecurity
 set_option backward.isDefEq.respectTransparency false

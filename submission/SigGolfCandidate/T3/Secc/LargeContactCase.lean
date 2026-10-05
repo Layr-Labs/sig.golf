@@ -1,6 +1,5 @@
 import SigGolfCandidate.T3.Secc.LargeContactEvents
 import SigGolfCandidate.T3.Secc.LargeContactInputs
-import SigGolfCandidate.T3.Secc.SeccSufSigned
 import SigGolfCandidate.T3.Secc.WotsExtractSplit
 
 namespace SigGolfCandidate.T3.Security.LargeCoupling
