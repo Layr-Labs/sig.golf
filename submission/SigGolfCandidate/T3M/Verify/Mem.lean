@@ -171,7 +171,7 @@ theorem DataOK.congr {s t : MachineState} (h : DataOK s)
       hm _ (by unfold Search.TOP_DATA TAB; omega) (by unfold Search.TOP_DATA; omega),
       ← T3M.getByte_eq_word _ _ (by unfold Search.TOP_DATA; omega)]
     exact h.sum i hi
-  · exact h.packed.congr (fun A hA hB => hm A (by unfold Nonbinary.PAIR_DATA at hA; unfold TAB; omega) hB)
+  · exact h.packed.congr (fun A hA hB => hm A (by unfold Nonbinary.TAIL_DATA at hA; unfold TAB; omega) hB)
   · intro j hj
     rw [hm _ (by unfold TAB; omega) (by unfold TAB; omega)]
     exact h.tab j hj
