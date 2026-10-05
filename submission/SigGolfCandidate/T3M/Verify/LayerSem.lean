@@ -165,13 +165,12 @@ structure LayerIn (w : WBytes) (pk : Digest) (index lay : Nat) (msg : LayerMsg)
     (s : MachineState) : Prop where
   lay4 : lay < 4
   idx : index < 2 ^ 31
-  copy : ∃ c, c < nCopy lay ∧ s.pc = pcOf (T3M.setupPc lay (trPc lay c))
+  copy : ∃ c, c < nCopy lay ∧ s.pc = pcOf (trPc lay c)
   glob : Glob (preK lay) w pk s
   route : s.getReg (rReg lay) = BitVec.ofNat 64 (index / 2 ^ below lay)
   msg : MsgAt w lay msg s
   orig : Verify.Orig w (fun o => 9288 ≤ o ∧ o < layerEnd lay) s
-  hdr3 : lay = 3 → s.getMem (BitVec.ofNat 64 (TOPLOAD + 32)) = BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + 3 * 2 ^ 48) ∧
-    s.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 23304
+  hdr3 : lay = 3 → s.getMem (BitVec.ofNat 64 (TOPLOAD + 32)) = BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + 3 * 2 ^ 48)
 structure EncPre (w : WBytes) (pk : Digest) (index lay c : Nat)
     (t : MachineState) : Prop where
   pc : t.pc = pcOf (trPc lay c + stepsA lay)
@@ -183,8 +182,7 @@ structure EncPre (w : WBytes) (pk : Digest) (index lay c : Nat)
   t5 : ∀ L : Layer, L.val = lay → lay ≠ 0 →
     t.getReg .x31 = BitVec.ofNat 64 (route index L).2
   orig : Verify.Orig w (fun o => 9288 ≤ o ∧ o < layerEnd lay) t
-  hdr3 : lay = 3 → t.getMem (BitVec.ofNat 64 (TOPLOAD + 32)) = BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + 3 * 2 ^ 48) ∧
-    t.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 23304
+  hdr3 : lay = 3 → t.getMem (BitVec.ofNat 64 (TOPLOAD + 32)) = BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + 3 * 2 ^ 48)
   index3 : lay = 3 → t.getReg .x22 = BitVec.ofNat 64 index
   packed12 : lay = 1 ∨ lay = 2 →
     t.getReg .x28 = BitVec.ofNat 64 ((index / 2 ^ below lay) * 65536)
@@ -357,22 +355,26 @@ theorem ctrE_eval (w : WBytes) (lay : Layer) (s : MachineState) (hH : WitHdr w s
   rw [e2]
 theorem ctr_lt (w : WBytes) (lay : Layer) : (wctr w lay).toNat < 2 ^ 32 := (wctr w lay).isLt
 theorem ctrBr_iff (w : WBytes) (lay : Layer) (s : MachineState) (hH : WitHdr w s) (d : Bool) :
-    Br.holds s (ctrBr lay.val d) ↔ d = decide (if lay.val = 3 then (wctr w lay).toNat < counterLimit else (wctr w lay).toNat ≥ counterLimit) := by
-  have h64 : (wctr w lay).toNat < 2 ^ 64 := lt_of_lt_of_le (wctr w lay).isLt (by decide)
-  norm_num at h64
-  unfold ctrBr Br.holds
-  rw [ctrE_eval w lay s hH]
-  by_cases h3 : lay.val = 3 <;>
-    simp [h3, CmpOp.eval, E.eval, kw, BitVec.ult, Nat.mod_eq_of_lt h64,
-      counterLimit, ← decide_not, eq_comm]
+    Br.holds s (ctrBr lay.val d) ↔ d = decide ((wctr w lay).toNat ≥ counterLimit) := by
+  have hd := ctr_lt w lay
+  simp only [ctrBr, Br.holds, CmpOp.eval, E.eval, ctrE_eval w lay s hH, kw]
+  have key : (!BitVec.ult (BitVec.ofNat 64 (wctr w lay).toNat) (BitVec.ofNat 64 0x400000)) =
+      decide ((wctr w lay).toNat ≥ counterLimit) := by
+    have h1 : (wctr w lay).toNat < 2 ^ 64 := by omega
+    unfold counterLimit
+    simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h1]
+    by_cases h : (wctr w lay).toNat ≥ 2 ^ 22
+    · rw [decide_eq_true h, decide_eq_false (by norm_num; omega)]; rfl
+    · rw [decide_eq_false h, decide_eq_true (by norm_num; omega)]; rfl
+  rw [key]; exact eq_comm
 theorem copy_parts (lay p : Nat) (h : BC.copyCheck lay p = true) :
-    specB (BC.allowed lay) [] baseK (runAt (BC.preK lay) [] (T3M.setupPc lay p) [.br (T3M.setupAcceptDir lay)]) (BC.specA lay p) [] (BC.bK lay) keepA = true ∧
-    specB (BC.allowed lay) [] [] (runAt (BC.preK lay) [] (T3M.setupPc lay p) [.br (!T3M.setupAcceptDir lay)]) (BC.rejA lay p) [] [] [] = true ∧
+    specB (BC.allowed lay) [] baseK (runAt (BC.preK lay) [] p [.br false]) (BC.specA lay p) [] (BC.bK lay) keepA = true ∧
+    specB (BC.allowed lay) [] [] (runAt (BC.preK lay) [] p [.br true]) (BC.rejA lay p) [] [] [] = true ∧
     (lay = 0 →
       specB [] [] [] (runAt [] [96160] (p + stepsA lay + 1) []) (specTopCall p) [] [] keepTopCall = true) ∧
     (lay ≠ 0 →
       specB [] [] baseK (runAt (BC.bK lay) [] (p + stepsA lay + 1) [.br false, .br false, .jmp]) (specBl lay p) []
-        (postBlC lay p) keepB = true ∧
+        (postBl lay p) keepB = true ∧
       specB [] [] [] (runAt (BC.bK lay) [] (p + stepsA lay + 1) [.br false, .br true]) (rejCk lay) [] [] [] = true ∧
       specB [] [] [] (runAt (BC.bK lay) [] (p + stepsA lay + 1) [.br true]) (rejRng 62) [] [] [] = true) ∧
     specB [] [] baseK (runAt (leafK lay) [] (p + retOff lay) (lfDirs lay)) (specLf lay) [] (postLf lay) keepLf = true := by
@@ -812,25 +814,7 @@ theorem encB_step (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay :
       · exact (rngBr_iff hans 62 (by norm_num) false).mpr (by rw [decide_eq_false (fun h => h hr0)])) (by simp)
     set L := lctxOf w index lay a (trPc lay.val c) with hL
     have htp := trPc_lt lay.val c
-    have hko : KnownOK (postBl lay.val (trPc lay.val c)) s0 := by
-      have hk0 := hs0.known
-      by_cases h3 : lay.val = 3
-      · rw [postBlC, if_pos h3] at hk0
-        have e22 : s0.getReg .x22 = BitVec.ofNat 64 (s6v lay.val) := by
-          rw [hs0.regs (.x22, .ld (kw (TOPLOAD - 8))) (by simp [specBl, h3]), h3]
-          change u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = _
-          rw [hu, writeHash_frame t a 256 (TOPLOAD - 8) h12 (by unfold TOPLOAD; omega)
-            (by norm_num) (Or.inr (by unfold TOPLOAD; omega))]
-          exact (ht.hdr3 h3).2
-        intro q hq
-        simp only [postBl, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hq
-        rcases hq with hq | rfl | rfl | rfl
-        · exact hk0 q (List.mem_append_left _ hq)
-        · exact e22
-        · exact hk0 _ (by simp)
-        · exact hk0 _ (by simp)
-      · rw [postBlC, if_neg h3] at hk0
-        exact hk0
+    have hko : KnownOK (postBl lay.val (trPc lay.val c)) s0 := hs0.known
     have hkeep := hs0.keep
     have e17 : (a7lE.eval u) = a7lW a := by
       simp only [a7lE, b1E, E.eval, BinOp.eval, a7E_eval hans, a6E_eval hans, kw, a7lW]
@@ -925,7 +909,7 @@ theorem encB_step (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay :
             by_cases h3 : lay.val = 3
             · rw [hdrA, if_pos h3, hu, writeHash_frame t a 256 (TOPLOAD + 32) h12 (by unfold TOPLOAD; omega)
                 (by norm_num) (Or.inr (by unfold TOPLOAD; omega)), h3]
-              exact (ht.hdr3 h3).1
+              exact ht.hdr3 h3
             · rw [hdrA, if_neg h3]
               exact hGu.2.2.2.2.2.prefix lay.val lay.isLt)
       · rw [hkeep .x4 (by simp [keepB]), hu, writeHash_getReg, ht.tp lay rfl]

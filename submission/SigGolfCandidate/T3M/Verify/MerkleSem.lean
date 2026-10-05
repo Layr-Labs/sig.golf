@@ -981,7 +981,6 @@ theorem mkStop_next_lower (w : WBytes) (pk : Digest) (index : Nat) (hidx : index
     ⟨mkStop_known_next _ lay.isLt h0 u t hu.glob.1 ha.known ha.keep, ha.glob.2⟩, ?_,
     mkStop_msg w pk index lay h0 u v t ht, ?_, fun h => absurd h (by have := lay.isLt; omega)⟩
   · rw [ha.pc, mkStop_pc _ _ lay.isLt h0 hleaf]
-    simp only [setupPc, if_neg (show lay.val - 1 ≠ 3 by have := lay.isLt; omega)]
   · have he : BC.below (lay.val - 1) = below (lay.val - 1) := by
       fin_cases lay <;> rfl
     rw [show rReg (lay.val - 1) = .x31 by simp [rReg]; omega,

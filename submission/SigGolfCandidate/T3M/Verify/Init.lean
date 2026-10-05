@@ -166,7 +166,7 @@ theorem verifyData_word (k : Nat) (hk : k < 12) :
       BitVec.ofNat 64 (dataWords.getD k 0) := by
   interval_cases k <;> decide +kernel
 theorem verifyData_mask :
-    bytesToWordLE ((((submission.image .verify).data).drop 39416).take 8) = 130048#64 := by
+    bytesToWordLE ((((submission.image .verify).data).drop 55872).take 8) = 130048#64 := by
   decide +kernel
 def headerWord (k : Nat) : Nat :=
   if k < 4 then 128 + 193 * 2 ^ 56 + k * 2 ^ 48
@@ -361,7 +361,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 22984) (s : Mac
       exact Search.verifyData_pair i hi
     · intro i hi
       rw [gb _ (by unfold TAIL_DATA VERIFY_DATA; omega) (by unfold TAIL_DATA; omega)]
-      have hidx : TAIL_DATA + i - VERIFY_DATA = 39352 + i := by
+      have hidx : TAIL_DATA + i - VERIFY_DATA = 55808 + i := by
         unfold TAIL_DATA VERIFY_DATA; omega
       rw [hidx]
       exact Search.verifyData_tail i hi
@@ -369,7 +369,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 22984) (s : Mac
         g2 _ (by unfold TAIL_DATA; omega), if_neg (by unfold TAIL_DATA; omega),
         g1 _ (by unfold TAIL_DATA; omega), if_neg (by unfold TAIL_DATA; omega),
         g0 _ (by unfold TAIL_DATA; omega), if_pos (by unfold TAIL_DATA VERIFY_DATA; omega),
-        show TAIL_DATA + 64 - VERIFY_DATA = 39416 by unfold TAIL_DATA VERIFY_DATA; omega,
+        show TAIL_DATA + 64 - VERIFY_DATA = 55872 by unfold TAIL_DATA VERIFY_DATA; omega,
         verifyData_mask]
     · intro j hj
       rw [gm, g3 _ (by simp only [TAB, VERIFY_DATA]; omega), if_neg (by simp only [TAB, VERIFY_DATA]; omega), g2 _ (by simp only [TAB, VERIFY_DATA]; omega),

@@ -8,7 +8,7 @@ open SigGolfCandidate.T3 (Digest)
 set_option maxHeartbeats 600000
 set_option linter.unusedSimpArgs false
 abbrev PAIR_DATA : Nat := 0xFF8000
-abbrev TAIL_DATA : Nat := 0xFF7FB8
+abbrev TAIL_DATA : Nat := 0xFFC000
 def tailSum (r : Nat) : Nat := r % 4 + (r / 4) % 4 + r / 16
 theorem tailSum_le (r : Nat) (hr : r < 64) : tailSum r ≤ 9 := by unfold tailSum; omega
 theorem tailSum_eq (v : Digest) (hv : v.toNat < 2 ^ 125) :
@@ -34,20 +34,20 @@ theorem PackedTables.frame {s t : MachineState} (ht : PackedTables s)
     exact (hf.getByte (by unfold TAIL_DATA; omega) (by simp)).trans (ht.tail r hr)
   · exact (hf.get (by unfold TAIL_DATA; omega) (by simp)).trans ht.mask
 theorem PackedTables.congr {s t : MachineState} (ht : PackedTables s)
-    (hm : ∀ A, TAIL_DATA ≤ A → A + 8 ≤ 2 ^ 24 →
+    (hm : ∀ A, PAIR_DATA ≤ A → A + 8 ≤ 2 ^ 24 →
       t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)) : PackedTables t := by
   constructor
   · intro r hr
     rw [getByte_eq_word _ _ (by unfold PAIR_DATA; omega),
-      hm _ (by unfold PAIR_DATA TAIL_DATA; omega) (by unfold PAIR_DATA; omega),
+      hm _ (by unfold PAIR_DATA; omega) (by unfold PAIR_DATA; omega),
       ← getByte_eq_word _ _ (by unfold PAIR_DATA; omega)]
     exact ht.pair r hr
   · intro r hr
     rw [getByte_eq_word _ _ (by unfold TAIL_DATA; omega),
-      hm _ (by unfold TAIL_DATA; omega) (by unfold TAIL_DATA; omega),
+      hm _ (by unfold PAIR_DATA TAIL_DATA; omega) (by unfold TAIL_DATA; omega),
       ← getByte_eq_word _ _ (by unfold TAIL_DATA; omega)]
     exact ht.tail r hr
-  · exact (hm _ (by unfold TAIL_DATA; omega) (by unfold TAIL_DATA; omega)).trans ht.mask
+  · exact (hm _ (by unfold PAIR_DATA TAIL_DATA; omega) (by unfold TAIL_DATA; omega)).trans ht.mask
 theorem PairTableOK.rank (s : MachineState) (ht : PairTableOK s) (r : Nat) (hr : r < 16384) :
     (s.getByte (BitVec.ofNat 64 (PAIR_DATA + r))).zeroExtend 64 = BitVec.ofNat 64 (pairLookup r) := by
   rw [ht r hr]

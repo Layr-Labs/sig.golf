@@ -138,7 +138,7 @@ def WitHdr (w : WBytes) (s : MachineState) : Prop :=
 def dataWords : List Nat :=
   [2 ^ 40, 17311559823019733055, 8198552921648689607, 0x30401, 0x3fe00, 2256, 11736, 0xa01, 0x901, 7072, 15264, 0]
 def TOPLOAD : Nat := 0xfef7d8
-def TOPBASE : Nat := 0xfefe00
+def TOPBASE : Nat := 0xfef000
 def topWords : List Nat :=
   [17311559823019733055, 8198552921648689607, 0x30401, 0x3fe00, 128 + 193 * 2 ^ 56 + 3 * 2 ^ 48]
 def DATA : Nat := 16777120
@@ -171,7 +171,7 @@ theorem DataOK.congr {s t : MachineState} (h : DataOK s)
       hm _ (by unfold Search.TOP_DATA TAB; omega) (by unfold Search.TOP_DATA; omega),
       ← T3M.getByte_eq_word _ _ (by unfold Search.TOP_DATA; omega)]
     exact h.sum i hi
-  · exact h.packed.congr (fun A hA hB => hm A (by unfold Nonbinary.TAIL_DATA at hA; unfold TAB; omega) hB)
+  · exact h.packed.congr (fun A hA hB => hm A (by unfold Nonbinary.PAIR_DATA at hA; unfold TAB; omega) hB)
   · intro j hj
     rw [hm _ (by unfold TAB; omega) (by unfold TAB; omega)]
     exact h.tab j hj
