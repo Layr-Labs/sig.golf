@@ -349,6 +349,31 @@ theorem tgtLfOld_eval (lay : Nat) (t : MachineState) (h leaf : Nat) (hn : stabBi
   rw [hm, ofNat_add_ofNat, even_andNot1' _ (by omega)]
   congr 1
   omega
+theorem tgtLf_top_eval (t : MachineState) (leaf : Nat) (hl : leaf < 4096)
+    (h23 : t.getReg .x23 = BitVec.ofNat 64 (4096 + leaf)) :
+    (tgtLf 0).eval t = pcOf (stabW 0 (leaf % 64)) := by
+  have hm : t.getReg .x23 &&& 63#64 = BitVec.ofNat 64 (leaf % 64) := by
+    apply BitVec.eq_of_toNat_eq
+    rw [h23, BitVec.toNat_and, show (63#64).toNat = 2^6-1 by rfl,
+      BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show 4096+leaf < 2^64 by omega),
+      Nat.and_two_pow_sub_one_eq_mod, BitVec.toNat_ofNat]
+    norm_num
+    omega
+  have hs : (t.getReg .x23 &&& 63#64) <<< ((10#64).toNat % 64) =
+      BitVec.ofNat 64 (1024 * (leaf % 64)) := by
+    rw [hm]
+    apply BitVec.eq_of_toNat_eq
+    rw [toNat_sll _ 10 (by norm_num)]
+    simp only [BitVec.toNat_ofNat]
+    norm_num
+    omega
+  change (((t.getReg .x23 &&& 63#64) <<< ((10#64).toNat % 64)) +
+    BitVec.ofNat 64 (0x1000 + 4 * 176976)) &&& (~~~1#64) = _
+  rw [hs, ofNat_add_ofNat, even_andNot1' _ (by omega)]
+  change BitVec.ofNat 64 (1024 * (leaf % 64) + (0x1000 + 4 * 176976)) =
+    BitVec.ofNat 64 (0x1000 + 4 * (176976 + 256 * (leaf % 64)))
+  congr 1
+  omega
 theorem stabBits_le (lay : Layer) : stabBits lay.val ≤ hL lay.val := by fin_cases lay <;> decide
 theorem stabIdx_lt (lay : Nat) : stabIdx lay < 2 ^ 32 := by
   unfold stabIdx
@@ -527,8 +552,7 @@ theorem leafT_step (w : WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0)
   have hlf := leaf_lt index 0
   refine ⟨?_, ?_, ?_, ?_, ht.len, ?_, ?_, ?_, fun _ => ⟨?_, ?_⟩, ?_⟩
   · rw [hu.spc (tgtLf 0) (by simp [specLf])]
-    change (tgtLfOld 0).eval t = _
-    exact tgtLfOld_eval 0 t (hL 0) _ (stabBits_le 0) (by decide) hlf (stabIdx_lt _) ht.s7
+    exact tgtLf_top_eval t _ hlf ht.s7
   · have hGu := hu.glob _ w pk ht.glob (RelOK.nil t)
     refine ⟨fun p hp => ?_, hGu.2.1, hGu.2.2.1, hGu.2.2.2.1, hGu.2.2.2.2⟩
     rcases List.mem_append.mp hp with hp | hp

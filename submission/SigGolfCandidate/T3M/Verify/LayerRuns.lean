@@ -18,7 +18,7 @@ def rejEcall : Nat := 743
 def stabIdx (lay : Nat) : Nat := [209768,209640,209576,209512].getD lay 0
 def stabMask (lay : Nat) : Nat := if lay = 1 then 508 else 252
 def stabW (lay sh : Nat) : Nat :=
-  if lay = 0 then stabIdx lay + sh else 111110 + 128 * (2 ^ hL lay + sh) + (if lay = 2 then 1 else 0)
+  if lay = 0 then 176976 + 256 * sh else 111110 + 128 * (2 ^ hL lay + sh) + (if lay = 2 then 1 else 0)
 def M1c : Nat := 8198552921648689607
 def M2c : Nat := 17311559823019733055
 def M4c : Nat := 3689348814741910323
@@ -140,15 +140,16 @@ def postBt (p : Nat) : List (Reg × Word) :=
 def rejTot : Spec :=
   ⟨[(.x5, kw 1), (.x10, kw 1)], [], rejEcall, true, 42, [totBr true, rngBr 61 false], none, 48⟩
 def leafK (lay : Nat) : List (Reg × Word) :=
-  baseK ++ [(.x27, BitVec.ofNat 64 (hw 4 lay))] ++ (if lay = 0 then [(.x15, 0xce000)] else [(.x7, 1), (.x15, 0x6e000)])
+  baseK ++ [(.x27, BitVec.ofNat 64 (hw 4 lay))] ++ (if lay = 0 then [(.x15, 0xae000)] else [(.x7, 1), (.x15, 0x6e000)])
 def x14lf (lay : Nat) : E :=
-  if lay = 0 then .bin .add (.bin .and (.bin .sll (.reg .x23) (kw 2)) (kw (stabMask lay))) (kw 0xce000)
+  if lay = 0 then .bin .add (.bin .sll (.bin .and (.reg .x23) (kw 63)) (kw 10)) (kw 0xae000)
   else .bin .add (.bin .sll (.reg .x23) (kw 9)) (kw 0x6e000)
 def tgtLfOld (lay : Nat) : E :=
   .bin .and (.bin .add (.bin .and (.bin .sll (.reg .x23) (kw 2)) (kw (stabMask lay)))
     (kw (0x1000 + 4 * stabIdx lay))) (.c (~~~1#64))
 def tgtLf (lay : Nat) : E :=
-  if lay = 0 then tgtLfOld lay
+  if lay = 0 then .bin .and (.bin .add (.bin .sll (.bin .and (.reg .x23) (kw 63)) (kw 10))
+    (kw (0x1000 + 4 * 176976))) (.c (~~~1#64))
   else .bin .and (.bin .add (.bin .sll (.reg .x23) (kw 9))
     (kw (0x6e000 - 2024 + (if lay = 2 then 4 else 0)))) (.c (~~~1#64))
 def lfDirs (_lay : Nat) : List Dir := [.jmp]
@@ -165,7 +166,7 @@ def postLf (lay : Nat) : List (Reg × Word) :=
   leafK lay ++ (if lay = 1 then [(.x28, BitVec.ofNat 64 (headerBank 0 0))] else []) ++
    [(.x3, BitVec.ofNat 64 (hw 2 lay)), (.x4, BitVec.ofNat 64 (hw 3 lay)),
     (.x10, BitVec.ofNat 64 (if lay = 0 then 512 else 768)), (.x11, BitVec.ofNat 64 (if lay = 0 then 896 else 704)),
-    (.x15, BitVec.ofNat 64 (if lay = 0 then 0xce000 else 0x6e000))]
+    (.x15, BitVec.ofNat 64 (if lay = 0 then 0xae000 else 0x6e000))]
 def keepA : List Reg := []
 def keepB : List Reg := [.x4, .x23, .x31]
 def keepLf : List Reg := [.x23, .x31, .x22]

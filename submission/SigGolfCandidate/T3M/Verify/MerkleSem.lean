@@ -459,9 +459,9 @@ theorem lvl_after (w : WBytes) (pk : Digest) (lay leaf : Nat) (u : MachineState)
     · rw [writeHash_getReg, h10, show k = hL lay - 1 by omega]
 theorem dispTgt_eval (leaf : Nat) (hleaf : leaf < 4096) (s : MachineState)
     (h23 : s.getReg .x23 = BitVec.ofNat 64 (2 ^ hL 0 + leaf)) :
-    mkDispTgt.eval s = pcOf (mkTab 0 1 + mkSh 0 1 leaf) := by
+    mkDispTgt.eval s = pcOf (mkTabW 0 1 (mkSh 0 1 leaf)) := by
   have hsh : mkSh 0 1 leaf = leaf / 64 := by simp only [mkSh, mkLo, mkBits]; norm_num; omega
-  rw [hsh, show mkTab 0 1 = 209832 from rfl]
+  rw [hsh, show mkTabW 0 1 (leaf / 64) = 193368 + 256 * (leaf / 64) from rfl]
   simp only [mkDispTgt, E.eval, BinOp.eval, kw, h23, show hL 0 = 12 from rfl]
   have hq : (BitVec.ofNat 64 (2 ^ 12 + leaf) >>> ((BitVec.ofNat 64 6).toNat % 64)) =
       BitVec.ofNat 64 (64 + leaf / 64) := by
@@ -471,8 +471,8 @@ theorem dispTgt_eval (leaf : Nat) (hleaf : leaf < 4096) (s : MachineState)
     norm_num
     omega
   rw [hq]
-  have hm : (BitVec.ofNat 64 (64 + leaf / 64) <<< ((BitVec.ofNat 64 2).toNat % 64)) =
-      BitVec.ofNat 64 (256 + 4 * (leaf / 64)) := by
+  have hm : (BitVec.ofNat 64 (64 + leaf / 64) <<< ((BitVec.ofNat 64 10).toNat % 64)) =
+      BitVec.ofNat 64 (65536 + 1024 * (leaf / 64)) := by
     apply BitVec.eq_of_toNat_eq
     rw [toNat_sll _ _ (by norm_num)]
     simp only [BitVec.toNat_ofNat]
@@ -540,7 +540,7 @@ theorem lvl_step (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (u : Mac
       simp only [BC.mkLvlCheck, hdt, if_true] at hlvl; exact hlvl
     obtain ⟨t1, ht1⟩ := mkSpec_run hD s (by simpa [BC.mkShp, hl0] using hpc0) hknAddr (by simp [mkLvlSpecD]) (by simp)
     have hleaf0 : (route index lay).1 < 4096 := by rw [hl0] at hleaf; simpa [hL] using hleaf
-    have hpc1 : t1.pc = pcOf (mkTab 0 1 + mkSh 0 1 (route index lay).1) := by
+    have hpc1 : t1.pc = pcOf (mkTabW 0 1 (mkSh 0 1 (route index lay).1)) := by
       rw [ht1.spc mkDispTgt rfl, dispTgt_eval _ hleaf0 s (by rw [h23, hl0])]
     have hkn1 : KnownOK (mkEntK 0 1) t1 := by
       intro p hp
