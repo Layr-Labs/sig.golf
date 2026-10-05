@@ -17,7 +17,7 @@ theorem expandCode_length : expandCode.length = 41066 := by
   set_option maxRecDepth 100000 in decide +kernel
 theorem expandData_length : expandData.length = 25088 := by
   rw [expandData, List.length_append, expandPrefixData_length, expandLegacyData_length]
-theorem verifyCode_length : verifyCode.length = 251343 := by
+theorem verifyCode_length : verifyCode.length = 251927 := by
   rw [verifyCode, foldl_append_length]
   set_option maxRecDepth 100000 in decide +kernel
 theorem verifyData_length : verifyData.length = 16576 := by
