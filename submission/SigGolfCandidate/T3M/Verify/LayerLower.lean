@@ -89,7 +89,17 @@ theorem encoding_run : EncodingRun := fun w pk index lay msg s hs hlt => by
   exact ⟨c, hc, t, ht⟩
 theorem setup_post : SetupPost := fun w pk index lay msg s hs c t ht => by
   obtain ⟨hlE, htE, htpE, hs7E⟩ := T3M.route_evals index lay hs.idx s hs.route
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  case refine_9 =>
+    intro h12
+    have h3 : lay.val ≠ 3 := by rcases h12 with h | h <;> omega
+    have h0 : lay.val ≠ 0 := by rcases h12 with h | h <;> omega
+    have e := ht.regs (.x28, .bin .sll (.reg (rReg lay.val)) (kw 16))
+      (by simp [BC.specA, T3M.specA, h3, h0])
+    rw [e]
+    simp only [E.eval, BinOp.eval, kw, hs.route]
+    rw [ofNat_shl']
+    rfl
   case refine_8 =>
     intro h3
     obtain rfl : lay = 3 := Fin.ext h3
@@ -322,15 +332,15 @@ def layerHead {β : Type} (w : WBytes) (index : Nat) (lay : Layer) (M : ClaudeWC
     | none => pure none
     | some digits => chainsP w lay (route index lay).2 (route index lay).1 digits >>= R
 def stB (lay : Nat) : Nat := if lay = 0 then 120 else bSt lay
-def cyB (lay : Nat) : Nat := if lay = 0 then 71 else bCy lay
+def cyB (lay : Nat) : Nat := if lay = 0 then 68 else bCy lay
 def chainCost0 (lay : Nat) : Nat := if lay = 0 then 1086 else 2950 - 9 * tgtL lay
 def chainFuel (lay : Nat) : Nat := if lay = 0 then 2321 else 1720
 def layerCost (lay Z : Nat) : Nat := stepsA lay + 8 + cyB lay + lfSteps lay + chainCost0 lay - Z
 def layerFuel (lay : Nat) : Nat := stepsA lay + 1 + stB lay + chainFuel lay + lfSteps lay
 theorem layerCost_vals :
-    layerCost 3 0 = 1248 ∧ layerCost 2 0 = 1241 ∧ layerCost 1 0 = 1241 ∧ layerCost 0 0 = 1187 := by decide
+    layerCost 3 0 = 1248 ∧ layerCost 2 0 = 1238 ∧ layerCost 1 0 = 1239 ∧ layerCost 0 0 = 1184 := by decide
 theorem layerFuel_vals :
-    layerFuel 3 = 1772 ∧ layerFuel 2 = 1774 ∧ layerFuel 1 = 1774 ∧ layerFuel 0 = 2464 := by decide
+    layerFuel 3 = 1772 ∧ layerFuel 2 = 1771 ∧ layerFuel 1 = 1772 ∧ layerFuel 0 = 2464 := by decide
 theorem ckOf_lt (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (ds : List Nat)
     (hds : decode lay (a.extractLsb' 0 128) = some ds) : ckOf lay a < 8 := by
   rw [decode_lower lay hlay] at hds
