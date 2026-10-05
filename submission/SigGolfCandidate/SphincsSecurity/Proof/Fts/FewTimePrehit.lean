@@ -1,22 +1,34 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.CacheSize
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.FewTimeLoop
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Secrets
 import SigGolfCandidate.SphincsSecurity.Proof.Reference.SigningTrace
+/-!
+# Cached signer views
+
+The cached-input branch retains the predicate on the cached answer's few-time view. Its randomizer
+reuse cost is charged only against cache entries that satisfy that predicate.
+-/
 
 namespace SphincsSecurity
+
 open OracleComp OracleSpec ENNReal
+
 noncomputable local instance instSampleableTypeRandomness_1 : SampleableType Randomness :=
   Concrete.randomnessSampleableType
+
 def cachedMessageInputSetWhere (cache : QueryCache HashSpec) (parameter : PublicParameter)
     (root : Digest) (message : Message) (P : Concrete.FewTimeView → Prop) :
     Set ((t : HashSpec.Domain) × HashSpec.Range t) :=
   {entry ∈ cachedMessageInputSet cache parameter root message |
     Concrete.signAttemptResultOfOutput entry.2 ≠ none
       ∧ P (Concrete.hashOutputFewTimeView entry.2)}
+
 noncomputable def cachedMessageEntryCountWhere (cache : QueryCache HashSpec)
     (parameter : PublicParameter) (root : Digest) (message : Message)
     (P : Concrete.FewTimeView → Prop) : ℝ≥0∞ :=
   (((cachedMessageInputSetWhere cache parameter root message P).encard : ENat) : ℝ≥0∞)
+
 theorem cachedMessageEntryCountWhere_le_enncard
     (cache : QueryCache HashSpec) (parameter : PublicParameter)
     (root : Digest) (message : Message) (P : Concrete.FewTimeView → Prop) :
@@ -27,6 +39,7 @@ theorem cachedMessageEntryCountWhere_le_enncard
     exact hentry.1.1
   simpa only [cachedMessageEntryCountWhere, QueryCache.enncard] using
     ENat.toENNReal_mono (Set.encard_le_encard hsubset)
+
 def Concrete.PrehitSelectedView (referenceCache : QueryCache HashSpec)
     (secretKey : SecretKey) (message : Message) (P : Concrete.FewTimeView → Prop)
     (result : Option (Randomness × Index × (IndexGroup → FtsLeaf)) ×
@@ -38,6 +51,7 @@ def Concrete.PrehitSelectedView (referenceCache : QueryCache HashSpec)
           (Concrete.messageDigestPayload secretKey.root message randomness)) = some output
         ∧ Concrete.signAttemptResultOfOutput output = some (index, leaves)
         ∧ P (Concrete.hashOutputFewTimeView output)
+
 set_option maxRecDepth 100000 in
 set_option linter.constructorNameAsVariable false in
 theorem Concrete.signDigestLoop_initial_cached_result
@@ -108,4 +122,5 @@ theorem Concrete.signDigestLoop_initial_cached_result
               attemptCache (some (selectedIndex, selectedLeaves)) output hcached'
               hattemptSelected).symm
           exact hselectedResult.trans (congrArg some (congrArg Prod.snd htuple).symm)
+
 end SphincsSecurity

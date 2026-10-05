@@ -1,14 +1,17 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.DigestAttemptExpectation
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.FewTimeTargetCompletion
-
 namespace SphincsSecurity.Concrete
+
 open _root_.OracleComp OracleSpec ENNReal
 attribute [local instance] Classical.propDecidable
 attribute [local irreducible] signAttempt signDigestAttemptPrefix signDigestLoop
+
 def FreshDigestAttempt (reference : QueryCache HashSpec) (key : SecretKey) (message : Message)
     (result : DigestAttemptResult) : Prop :=
   reference (tweakableHashInput key.parameter .message (messageDigestPayload key.root message result.1)) = none ∧
     result.2.1 ≠ none
+
 private theorem probEvent_digestContinuation_fresh_eq
     (attempts : Nat) (key : SecretKey) (message : Message)
     (reference : QueryCache HashSpec) (result : DigestAttemptResult) :
@@ -27,6 +30,7 @@ private theorem probEvent_digestContinuation_fresh_eq
           (messageDigestPayload key.root message result.1)) = none
       · simp [signDigestLoopContinuation, FreshDigestAttempt, freshSelectedLoopView?, hr, hc]
       · simp [signDigestLoopContinuation, FreshDigestAttempt, freshSelectedLoopView?, hr, hc]
+
 theorem probEvent_signDigestLoop_fresh_recurrence
     (attempts : Nat) (key : SecretKey) (message : Message) (reference cache : QueryCache HashSpec) :
     Pr[fun result => freshSelectedLoopView? reference key message result ≠ none |
@@ -42,4 +46,5 @@ theorem probEvent_signDigestLoop_fresh_recurrence
   intro result
   rw [probEvent_digestContinuation_fresh_eq]
   split_ifs <;> ring
+
 end SphincsSecurity.Concrete

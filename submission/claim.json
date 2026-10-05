@@ -1,14 +1,1 @@
-{
-  "S": 5456,
-  "W": 22984,
-  "K": 131072,
-  "C": 7554,
-  "layout": {
-    "message": 64,
-    "secret_key": 128,
-    "public_key": 160,
-    "cache": 524288,
-    "signature": 28672,
-    "witness": 2048
-  }
-}
+{"S":5456,"W":6348,"K":131072,"C":7470,"layout":{"message":64,"secret_key":128,"public_key":160,"cache":19200,"signature":13056,"witness":2048}}

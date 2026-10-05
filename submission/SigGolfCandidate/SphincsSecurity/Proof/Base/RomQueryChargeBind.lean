@@ -1,8 +1,10 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Base.RomQueryCharge
-
 set_option autoImplicit true
 namespace SphincsSecurity
+
 open OracleComp OracleSpec ENNReal
+
 theorem expectedQueryCharge_bind
     (charge : QueryCache HashSpec → HashInput → ℝ≥0∞)
     (computation : OracleComp OracleWorld α) (next : α → OracleComp OracleWorld β)
@@ -21,4 +23,5 @@ theorem expectedQueryCharge_bind
       simp_rw [ih, mul_add, ENNReal.tsum_add, ← ENNReal.tsum_mul_left]
       rw [add_assoc]
       rfl
+
 end SphincsSecurity

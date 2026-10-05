@@ -1,15 +1,18 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.CachedSigningViews
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.FewTimeConditionalCoverage
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.JointProbeMessageReserve
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.FewTimePrehit
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.FewTimeWeightedOriginRace
 import SigGolfCandidate.SphincsSecurity.Proof.Base.RomQueryCharge
-
 namespace SphincsSecurity.Concrete
+
 open _root_.OracleComp OracleSpec ENNReal
 attribute [local instance] Classical.propDecidable
 set_option backward.isDefEq.respectTransparency false
+
 abbrev CoverLogState := QueryCache HashSpec × QueryLog SigningSpec
+
 theorem logTracedMappedAdversaryImpl_run_map (key : SecretKey)
     (input : (OracleWorld + SigningSpec).Domain) (state : CoverLogState) :
     (logTracedMappedAdversaryImpl key input).run state =
@@ -17,6 +20,7 @@ theorem logTracedMappedAdversaryImpl_run_map (key : SecretKey)
         (unloggedMappedAdversaryImpl key input).run state.1 := by
   rw [logTracedMappedAdversaryImpl, QueryImpl.extendState_apply]
   simp only [signingLogUpdate, bind_pure_comp]
+
 theorem logTracedMappedAdversaryImpl_cache_le (key : SecretKey)
     (input : (OracleWorld + SigningSpec).Domain) (state : CoverLogState)
     (result : (OracleWorld + SigningSpec).Range input × CoverLogState)
@@ -24,6 +28,7 @@ theorem logTracedMappedAdversaryImpl_cache_le (key : SecretKey)
   rw [logTracedMappedAdversaryImpl_run_map, support_map] at hresult
   obtain ⟨base, hbase, rfl⟩ := hresult
   exact unloggedMappedAdversaryImpl_cache_le key input state.1 base hbase
+
 theorem logTracedMappedAdversaryImpl_signingDigestsCached (key : SecretKey)
     (input : (OracleWorld + SigningSpec).Domain) (state : CoverLogState)
     (hsigned : SigningDigestsCached key.parameter state.1 key.root state.2)
@@ -41,4 +46,5 @@ theorem logTracedMappedAdversaryImpl_signingDigestsCached (key : SecretKey)
       rw [← simulateQ_signWithView_fst_run, support_map] at hbase
       obtain ⟨viewed, hviewed, rfl⟩ := hbase
       exact SigningDigestsCached.after_signing key message state.1 viewed.2 state.2 hsigned viewed.1.1 viewed.1.2 hviewed
+
 end SphincsSecurity.Concrete

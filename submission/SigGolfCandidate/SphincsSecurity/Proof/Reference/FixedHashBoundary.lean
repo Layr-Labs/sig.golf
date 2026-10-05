@@ -1,34 +1,42 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.FewTimeSignerView
 import SigGolfCandidate.SphincsSecurity.Proof.Hypertree.CanonicalSigningFrontier
-
 namespace SphincsSecurity.Concrete
+
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
 attribute [local irreducible] boundaryEval sequenceFin chainWalk referenceEncodingSearch signDigestLoop
+
 noncomputable def fixedHashWorld (f : QueryImpl HashSpec Id) : QueryImpl OracleWorld ProbComp
   | .inl input => liftM (unifSpec.query input)
   | .inr input => pure (f input)
+
 noncomputable def fixedBoundaryRun {α : Type} (parameter : PublicParameter) (f : QueryImpl HashSpec Id)
     (computation : OracleComp OracleWorld α) : ProbComp (α × SigningBoundaryTrace) :=
   (simulateQ ((fixedHashWorld f).withTrace (signingBoundaryTrace parameter)) computation).run
+
 theorem fixedBoundaryRun_pure {α : Type} (parameter : PublicParameter) (f : QueryImpl HashSpec Id) (value : α) :
     fixedBoundaryRun parameter f (pure value) = pure (value, 1) := rfl
+
 theorem fixedBoundaryRun_bind {α β : Type} (parameter : PublicParameter) (f : QueryImpl HashSpec Id)
     (first : OracleComp OracleWorld α) (next : α → OracleComp OracleWorld β) :
     fixedBoundaryRun parameter f (first >>= next) =
       fixedBoundaryRun parameter f first >>= fun result =>
         (fun final => (final.1, result.2 * final.2)) <$> fixedBoundaryRun parameter f (next result.1) := by
   simp only [fixedBoundaryRun, simulateQ_bind, WriterT.run_bind]
+
 theorem fixedBoundaryRun_map {α β : Type} (parameter : PublicParameter) (f : QueryImpl HashSpec Id)
     (computation : OracleComp OracleWorld α) (g : α → β) :
     fixedBoundaryRun parameter f (g <$> computation) =
       (Prod.map g id) <$> fixedBoundaryRun parameter f computation := by
   simp only [fixedBoundaryRun, simulateQ_map, WriterT.run_map]
   rfl
+
 theorem fixedBoundaryRun_forget {α : Type} (parameter : PublicParameter) (f : QueryImpl HashSpec Id)
     (computation : OracleComp OracleWorld α) :
     Prod.fst <$> fixedBoundaryRun parameter f computation = simulateQ (fixedHashWorld f) computation :=
   QueryImpl.fst_map_run_withTrace (fixedHashWorld f) (signingBoundaryTrace parameter) computation
+
 theorem fixedBoundaryRun_lift_hash {α : Type} (parameter : PublicParameter) (f : QueryImpl HashSpec Id)
     (computation : OracleComp HashSpec α) :
     fixedBoundaryRun parameter f (liftM computation) = pure (boundaryEval parameter f computation) := by
@@ -45,10 +53,12 @@ theorem fixedBoundaryRun_lift_hash {α : Type} (parameter : PublicParameter) (f 
         rfl
       rw [hquery, pure_bind, ih, map_pure]
       rfl
+
 def publicSignAttempt (parameter : PublicParameter) (root : Digest) (message : Message) (randomness : Randomness) :
     OracleComp HashSpec (Option (Index × (IndexGroup → FtsLeaf))) := do
   let digest ← messageDigest parameter root message randomness
   if Admissible digest then pure (some (digestIndex digest, digestLeaves digest)) else pure none
+
 noncomputable def publicDigestLoop (parameter : PublicParameter) (root : Digest) (message : Message) :
     Nat → OracleComp OracleWorld (Option (Randomness × Index × (IndexGroup → FtsLeaf)))
   | 0 => pure none
@@ -58,6 +68,7 @@ noncomputable def publicDigestLoop (parameter : PublicParameter) (root : Digest)
       match attempt with
       | none => publicDigestLoop parameter root message attempts
       | some (index, leaves) => pure (some (randomness, index, leaves))
+
 theorem publicDigestLoop_eq (key : SecretKey) (message : Message) (attempts : Nat) :
     publicDigestLoop key.parameter key.root message attempts = signDigestLoop attempts key message := by
   induction attempts with
@@ -74,6 +85,7 @@ theorem publicDigestLoop_eq (key : SecretKey) (message : Message) (attempts : Na
       cases attempt with
       | none => exact ih
       | some selected => rfl
+
 noncomputable def frontierSigningRecord (parameter : PublicParameter) (root : Digest) (f : QueryImpl HashSpec Id)
     (ftsSecret : Index → FtsTree → FtsLeaf → Digest) (words : OtsReferenceWords)
     (frontier : OtsFrontierValues) (message : Message) :
@@ -84,6 +96,7 @@ noncomputable def frontierSigningRecord (parameter : PublicParameter) (root : Di
   | some (randomness, index, leaves) =>
       let result := frontierSignAfterDigest parameter f ftsSecret words frontier randomness index leaves
       pure ((result.1, some (selectedFewTimeView index leaves)), selected.2 * (FreeMonoid.of none) ^ result.2)
+
 theorem fixedBoundaryRun_signWithView_frontier (key : SecretKey) (f : QueryImpl HashSpec Id)
     (words : OtsReferenceWords) (frontier : OtsFrontierValues)
     (hfrontier : IsSigningFrontier key f words frontier) (htop : KeyTopHonest f key)
@@ -101,6 +114,7 @@ theorem fixedBoundaryRun_signWithView_frontier (key : SecretKey) (f : QueryImpl 
       rw [fixedBoundaryRun_bind, fixedBoundaryRun_lift_hash,
         boundaryEval_signAfterDigest_frontier key f words frontier hfrontier htop randomness index leaves (hwords index)]
       simp only [pure_bind, fixedBoundaryRun_pure, map_pure, mul_one]
+
 theorem fixedBoundaryRun_signWithView_canonical (key : SecretKey) (f : QueryImpl HashSpec Id)
     (htop : KeyTopHonest f key) (dummy : OtsReferenceWords) (message : Message) :
     fixedBoundaryRun key.parameter f (signWithView key message) =
@@ -108,10 +122,12 @@ theorem fixedBoundaryRun_signWithView_canonical (key : SecretKey) (f : QueryImpl
         (canonicalFrontierValues key f (canonicalReferenceWords key f dummy)) message :=
   fixedBoundaryRun_signWithView_frontier key f _ _ (isSigningFrontier_canonical key f _) htop
     (frontierReferenceWord_canonical key f dummy) message
+
 noncomputable def frontierSigningRun (parameter : PublicParameter) (root : Digest) (f : QueryImpl HashSpec Id)
     (ftsSecret : Index → FtsTree → FtsLeaf → Digest) (words : OtsReferenceWords)
     (frontier : OtsFrontierValues) (message : Message) : ProbComp (Option Signature × SigningBoundaryTrace) :=
   (Prod.map Prod.fst id) <$> frontierSigningRecord parameter root f ftsSecret words frontier message
+
 theorem fixedBoundaryRun_sign_frontier (key : SecretKey) (f : QueryImpl HashSpec Id)
     (words : OtsReferenceWords) (frontier : OtsFrontierValues)
     (hfrontier : IsSigningFrontier key f words frontier) (htop : KeyTopHonest f key)
@@ -121,4 +137,5 @@ theorem fixedBoundaryRun_sign_frontier (key : SecretKey) (f : QueryImpl HashSpec
       frontierSigningRun key.parameter key.root f key.ftsSecret words frontier message := by
   rw [← signWithView_fst, fixedBoundaryRun_map, fixedBoundaryRun_signWithView_frontier key f words frontier hfrontier htop hwords]
   rfl
+
 end SphincsSecurity.Concrete

@@ -1,11 +1,14 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.CacheSize
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Charge
-
 namespace SphincsSecurity
+
 open OracleComp OracleSpec ENNReal
+
 def hashQueryCharge (charge : QueryCache HashSpec → HashInput → ℝ≥0∞)
     (cache : QueryCache HashSpec) : OracleWorld.Domain → ℝ≥0∞ :=
   Sum.elim (fun _ => 0) (charge cache)
+
 noncomputable def expectedQueryCharge {α : Type}
     (charge : QueryCache HashSpec → HashInput → ℝ≥0∞)
     (computation : OracleComp OracleWorld α) : QueryCache HashSpec → ℝ≥0∞ :=
@@ -14,10 +17,12 @@ noncomputable def expectedQueryCharge {α : Type}
       hashQueryCharge charge cache query +
         ∑' result, Pr[= result | (romImpl query).run cache] * next result.1 result.2)
     computation
+
 @[simp] theorem expectedQueryCharge_pure {α : Type}
     (charge : QueryCache HashSpec → HashInput → ℝ≥0∞)
     (value : α) (cache : QueryCache HashSpec) :
     expectedQueryCharge charge (pure value) cache = 0 := rfl
+
 theorem expectedQueryCharge_query_bind {α : Type}
     (charge : QueryCache HashSpec → HashInput → ℝ≥0∞)
     (query : OracleWorld.Domain)
@@ -28,6 +33,7 @@ theorem expectedQueryCharge_query_bind {α : Type}
         ∑' result, Pr[= result | (romImpl query).run cache] *
           expectedQueryCharge charge (next result.1) result.2 := by
   cases query <;> rfl
+
 theorem romImpl_query_mass (query : OracleWorld.Domain) (cache : QueryCache HashSpec) :
     (∑' result, Pr[= result | (romImpl query).run cache]) = 1 := by
   cases query with
@@ -46,6 +52,7 @@ theorem romImpl_query_mass (query : OracleWorld.Domain) (cache : QueryCache Hash
       · obtain ⟨answer, hanswer⟩ := Option.ne_none_iff_exists'.mp hfresh
         rw [randomOracle, QueryImpl.withCaching_run_some _ hanswer]
         simp
+
 theorem finite_of_mem_support_romImpl {query : OracleWorld.Domain}
     {cache : QueryCache HashSpec} (hfinite : Finite cache)
     {result : OracleWorld.Range query × QueryCache HashSpec}
@@ -60,6 +67,7 @@ theorem finite_of_mem_support_romImpl {query : OracleWorld.Domain}
       push_cast
       rw [hfinite.cachedInputs_ncard_toENNReal_eq_enncard]
       exact romImpl_hash_query_enncard_le input cache result hresult
+
 theorem expected_potential_simulateQ_le_queryCharge {α : Type}
     (potential : QueryCache HashSpec → ℝ≥0∞)
     (charge : QueryCache HashSpec → HashInput → ℝ≥0∞)
@@ -94,6 +102,7 @@ theorem expected_potential_simulateQ_le_queryCharge {α : Type}
               expectedQueryCharge charge (next result.1) result.2 :=
           add_le_add (hstep query cache hfinite) le_rfl
         _ = _ := by rw [add_assoc]
+
 theorem expectedQueryCharge_mul {α : Type}
     (charge : QueryCache HashSpec → HashInput → ℝ≥0∞) (factor : ℝ≥0∞)
     (computation : OracleComp OracleWorld α) (cache : QueryCache HashSpec) :
@@ -105,6 +114,7 @@ theorem expectedQueryCharge_mul {α : Type}
       simp only [expectedQueryCharge_query_bind, ih]
       simp_rw [← mul_assoc, ENNReal.tsum_mul_right]
       cases query <;> simp only [hashQueryCharge, Sum.elim_inl, Sum.elim_inr] <;> ring
+
 theorem expected_potential_romImpl_le_charge
     (potential : QueryCache HashSpec → ℝ≥0∞)
     (charge : QueryCache HashSpec → HashInput → ℝ≥0∞)
@@ -136,4 +146,5 @@ theorem expected_potential_romImpl_le_charge
       · obtain ⟨answer, hanswer⟩ := Option.ne_none_iff_exists'.mp huncached
         rw [randomOracle, QueryImpl.withCaching_run_some _ hanswer]
         simp
+
 end SphincsSecurity

@@ -1,7 +1,9 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.UniformProposalMixedMoments
-
 namespace SphincsSecurity.Concrete
+
 open _root_.OracleComp ENNReal
+
 theorem uniformWordAverage_sum_square_le {α β : Type} [SampleableType α] [Fintype β] [DecidableEq β]
     (steps : Nat) (payoff : β → List α → ENNReal)
     (hcross : ∀ first second, first ≠ second →
@@ -32,9 +34,11 @@ theorem uniformWordAverage_sum_square_le {α β : Type} [SampleableType α] [Fin
         pow_two, Finset.sum_mul, Finset.mul_sum]
       congr 1
       exact Finset.sum_comm
+
 noncomputable def proposalPowerSum {α : Type} [Fintype α] [DecidableEq α]
     (degree : Nat) (word : List α) : ENNReal :=
   ∑ index : α, (word.count index : ENNReal) ^ degree
+
 theorem uniformWordAverage_powerSum_le {α : Type} [SampleableType α] [Fintype α] [DecidableEq α]
     (steps degree : Nat) (rate : ENNReal)
     (hrate : (steps : ENNReal) * (Fintype.card α : ENNReal)⁻¹ ≤ rate) :
@@ -46,6 +50,7 @@ theorem uniformWordAverage_powerSum_le {α : Type} [SampleableType α] [Fintype 
     _ ≤ ∑ _index : α, stirlingPowerMoment rate degree :=
       Finset.sum_le_sum fun index _ => uniformWordAverage_power_le_stirling index steps degree rate hrate
     _ = _ := by simp only [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
+
 theorem uniformWordAverage_powerSum_square_le {α : Type} [SampleableType α] [Fintype α] [DecidableEq α]
     (steps degree : Nat) (rate : ENNReal)
     (hrate : (steps : ENNReal) * (Fintype.card α : ENNReal)⁻¹ ≤ rate) :
@@ -63,4 +68,5 @@ theorem uniformWordAverage_powerSum_square_le {α : Type} [SampleableType α] [F
     _ ≤ ∑ _index : α, stirlingPowerMoment rate (degree * 2) :=
       Finset.sum_le_sum fun index _ => uniformWordAverage_power_le_stirling index steps (degree * 2) rate hrate
     _ = _ := by simp only [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
+
 end SphincsSecurity.Concrete

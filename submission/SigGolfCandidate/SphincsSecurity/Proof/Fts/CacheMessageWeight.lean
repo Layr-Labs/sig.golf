@@ -1,21 +1,25 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.FewTimeUniform
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.JointProbeMessageAnswers
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.JointProbeMessageReserve
-
 namespace SphincsSecurity.Concrete
+
 open _root_.OracleComp OracleSpec ENNReal
 open FtsProbeSimulation (MessageHashInput messageAnswers)
 attribute [local instance] Classical.propDecidable
 set_option backward.isDefEq.respectTransparency false
+
 noncomputable def cacheMessageEntryWeight (parameter : PublicParameter)
     (weight : HashInput → FewTimeView → ENNReal) (cache : QueryCache HashSpec) (input : HashInput) : ENNReal :=
   match cache input with
   | none => 0
   | some output => if MessageHashInput parameter input ∧ Admissible (truncateMessageDigest output) then
       weight input (hashOutputFewTimeView output) else 0
+
 noncomputable def cacheMessageWeight (parameter : PublicParameter)
     (weight : HashInput → FewTimeView → ENNReal) (cache : QueryCache HashSpec) : ENNReal :=
   ∑' input, cacheMessageEntryWeight parameter weight cache input
+
 theorem cacheMessageWeight_messageAnswers_congr (parameter : PublicParameter)
     (before after : QueryCache HashSpec) (hanswers : messageAnswers parameter before = messageAnswers parameter after)
     (weight : HashInput → FewTimeView → ENNReal) :
@@ -29,6 +33,7 @@ theorem cacheMessageWeight_messageAnswers_congr (parameter : PublicParameter)
     simp only [cacheMessageEntryWeight, heq]
   · unfold cacheMessageEntryWeight
     cases before input <;> cases after input <;> simp [hm]
+
 theorem cacheMessageWeight_mono (parameter : PublicParameter)
     (first second : HashInput → FewTimeView → ENNReal) (cache : QueryCache HashSpec)
     (h : ∀ input target, first input target ≤ second input target) :
@@ -39,6 +44,7 @@ theorem cacheMessageWeight_mono (parameter : PublicParameter)
   cases cache input with
   | none => exact le_rfl
   | some output => simp only; split_ifs; exact h input _; exact le_rfl
+
 theorem cacheMessageWeight_add (parameter : PublicParameter)
     (first second : HashInput → FewTimeView → ENNReal) (cache : QueryCache HashSpec) :
     cacheMessageWeight parameter (fun input target => first input target + second input target) cache =
@@ -50,6 +56,7 @@ theorem cacheMessageWeight_add (parameter : PublicParameter)
   cases cache input <;> simp only
   · exact (add_zero _).symm
   · split_ifs <;> simp only [add_zero]
+
 theorem cacheMessageWeight_mul_right (parameter : PublicParameter)
     (weight : HashInput → FewTimeView → ENNReal) (cache : QueryCache HashSpec) (factor : ENNReal) :
     cacheMessageWeight parameter (fun input view => weight input view * factor) cache =
@@ -62,6 +69,7 @@ theorem cacheMessageWeight_mul_right (parameter : PublicParameter)
   cases cache input with
   | none => exact (zero_mul _).symm
   | some output => simp only; split_ifs <;> simp only [zero_mul]
+
 theorem cacheMessageWeight_sum {α : Type} [DecidableEq α] (parameter : PublicParameter) (indices : Finset α)
     (weight : α → HashInput → FewTimeView → ENNReal) (cache : QueryCache HashSpec) :
     cacheMessageWeight parameter (fun input source => ∑ index ∈ indices, weight index input source) cache =
@@ -74,6 +82,7 @@ theorem cacheMessageWeight_sum {α : Type} [DecidableEq α] (parameter : PublicP
       cases cache input <;> simp
   | @insert index indices hnot ih =>
       simp only [Finset.sum_insert hnot, cacheMessageWeight_add, ih]
+
 theorem cacheMessageWeight_of_no_message (parameter : PublicParameter)
     (weight : HashInput → FewTimeView → ENNReal) (cache : QueryCache HashSpec)
     (hnone : ∀ input, MessageHashInput parameter input → cache input = none) :
@@ -90,6 +99,7 @@ theorem cacheMessageWeight_of_no_message (parameter : PublicParameter)
       · rw [hnone input hgood.1] at hcache
         contradiction
       · rfl
+
 theorem cacheMessageWeight_cacheQuery (parameter : PublicParameter)
     (weight : HashInput → FewTimeView → ENNReal) (cache : QueryCache HashSpec)
     (input : HashInput) (output : HashOutput) (hfresh : cache input = none) :
@@ -108,6 +118,7 @@ theorem cacheMessageWeight_cacheQuery (parameter : PublicParameter)
   by_cases heq : other = input
   · simp only [heq, if_true]
   · simp only [heq, if_false, QueryCache.cacheQuery_of_ne cache output heq]
+
 theorem expected_cacheMessageWeight {α : Type} (parameter : PublicParameter)
     (weight : α → HashInput → FewTimeView → ENNReal) (computation : ProbComp α)
     (cache : QueryCache HashSpec) :
@@ -121,6 +132,7 @@ theorem expected_cacheMessageWeight {α : Type} (parameter : PublicParameter)
   cases cache input with
   | none => simp only [mul_zero, tsum_zero]
   | some output => simp only; split_ifs <;> simp only [mul_zero, tsum_zero]
+
 theorem cacheMessageWeight_fresh_restriction (parameter : PublicParameter)
     (weight : HashInput → FewTimeView → ENNReal) (cache : QueryCache HashSpec) :
     cacheMessageWeight parameter (fun input target => if cache input = none then weight input target else 0) cache = 0 := by
@@ -128,6 +140,7 @@ theorem cacheMessageWeight_fresh_restriction (parameter : PublicParameter)
   intro input
   unfold cacheMessageEntryWeight
   cases hcache : cache input <;> simp [hcache]
+
 theorem cacheMessageWeight_of_le (parameter : PublicParameter)
     (weight : HashInput → FewTimeView → ENNReal) (before after : QueryCache HashSpec)
     (hcache : before ≤ after) :
@@ -141,4 +154,5 @@ theorem cacheMessageWeight_of_le (parameter : PublicParameter)
   | some output =>
       simp only [cacheMessageEntryWeight, hbefore, hcache hbefore, reduceCtorEq, if_false]
       split_ifs <;> simp only [add_zero]
+
 end SphincsSecurity.Concrete

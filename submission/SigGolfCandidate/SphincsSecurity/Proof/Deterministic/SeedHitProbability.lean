@@ -2,9 +2,12 @@ import SigGolfCandidate.SphincsSecurity.Proof.Scheme.HashOutputSplit
 import SigGolfCandidate.SphincsSecurity.Proof.Seeded.KeyDerivation
 
 open OracleComp OracleSpec ENNReal
+
 namespace SphincsSecurity
+
 set_option maxRecDepth 4096
 set_option maxHeartbeats 500000
+
 theorem prefix_bound (input : HashInput) :
     Pr[fun seed : MasterSeed => input.take 28 = [1, 7] ++ bytesLE 26 (seed.extractLsb' 0 208) |
       sampleMasterSeed] ≤ 1 / ((2 ^ 208 : Nat) : ℝ≥0∞) := by
@@ -43,6 +46,7 @@ theorem prefix_bound (input : HashInput) :
       exact propext ⟨fun h => hexists ⟨seed.extractLsb' 0 208, h⟩, False.elim⟩
     rw [hempty]
     simp
+
 theorem full_bound (input : HashInput) :
     Pr[fun seed : MasterSeed => (input.drop 32).take 32 = bytesLE 32 seed |
       sampleMasterSeed] ≤ 1 / ((2 ^ 256 : Nat) : ℝ≥0∞) := by
@@ -61,9 +65,11 @@ theorem full_bound (input : HashInput) :
       exact propext ⟨fun h => hexists ⟨seed, h⟩, False.elim⟩
     rw [hempty]
     simp
+
 theorem numeric_bound :
     1 / ((2 ^ 256 : Nat) : ℝ≥0∞) + 1 / ((2 ^ 208 : Nat) : ℝ≥0∞) ≤
       1 / ((2 ^ 207 : Nat) : ℝ≥0∞) := by
   apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
   norm_num [ENNReal.toReal_add, ENNReal.toReal_div]
+
 end SphincsSecurity
