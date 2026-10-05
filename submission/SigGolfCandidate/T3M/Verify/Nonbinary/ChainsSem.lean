@@ -28,8 +28,8 @@ def ok (c : NCtx) : Prop :=
   c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ 0x800 + 9288 + 1664 ≤ c.S3 ∧ c.S3 + 2064 ≤ 0x7000 ∧
     c.ret < 209920
 def known (c : NCtx) : List (Reg × Word) :=
-  [(.x5, 0), (.x11, 64), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
-   (.x28, BitVec.ofNat 64 c.prefix), (.x8, BitVec.ofNat 64 c.S3),
+  [(.x5, 0), (.x11, 64), (.x7, 1), (.x13, 2), (.x8, 3), (.x9, 4), (.x21, 5), (.x26, 6),
+   (.x28, BitVec.ofNat 64 c.prefix), (.x19, BitVec.ofNat 64 c.S3),
    (.x4, BitVec.ofNat 64 c.w1), (.x27, BitVec.ofNat 64 0x401), (.x1, pcOf c.ret)]
 def kOf (c : NCtx) (q : Nat) : Nat :=
   c.dig (3*q) + (mx q+1)*c.dig (3*q+1) + (mx q+1)^2*c.dig (3*q+2)
@@ -195,7 +195,7 @@ theorem posE_eval (c : NCtx) {s0 s : MachineState} (hk : ∀ p ∈ c.known, s0.g
   · rfl
   · exact kr .x7 1 (by simp [known]) (by decide)
   · exact kr .x13 2 (by simp [known]) (by decide)
-  · exact kr .x19 3 (by simp [known]) (by decide)
+  · exact kr .x8 3 (by simp [known]) (by decide)
 theorem w0_low (c : NCtx) (i m : Nat) (hi : i < 54) (hm : m < 256) :
     (BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * m)).toNat % 2 ^ 8 = 128 + i ∧
       (BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * m)).toNat / 2 ^ 16 = c.prefix / 2 ^ 16 := by

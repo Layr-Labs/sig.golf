@@ -121,28 +121,52 @@ open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGol
 set_option maxRecDepth 8192
 set_option maxHeartbeats 800000
 set_option linter.unusedSimpArgs false
-def initCode : List (BitVec 32) := [2579,133815,0x420a8a93,0x80f0f13]
+def jumpCode : List (BitVec 32) := [125829231]
+def initCode : List (BitVec 32) := [133815,0x420a8a93,0x80f0f13]
 def ptrCode : List (BitVec 32) := [0x7f37e13,3022355,32378419]
-def initLayout : Rv.Layout := [(0,initCode),(4,ptrCode)]
+def initLayout : Rv.Layout := [(0,jumpCode),(1,initCode),(4,ptrCode)]
 theorem initLayout_ok : layoutOk 0 initLayout=true := by decide +kernel
 theorem initLayout_code : topSeg362=layoutCode initLayout := by decide +kernel
-theorem code_init {image : Image} {b : Nat} (hK : KernAt image b) :
-    CodeAt image (pcOf (b+362)) initCode := by
+theorem code_jump {image : Image} {b : Nat} (hK : KernAt image b) :
+    CodeAt image (pcOf (b+362)) jumpCode := by
   have hc := codeAt_top362 hK
   rw [initLayout_code] at hc
-  have h := codeAt_sublayout hc initLayout_ok (i:=0) (o:=0) (seg:=initCode) (by kernel_rfl)
+  have h := codeAt_sublayout hc initLayout_ok (i:=0) (o:=0) (seg:=jumpCode) (by kernel_rfl)
   simpa only [Nat.add_zero] using h
+theorem code_init {image : Image} {b : Nat} (hK : KernAt image b) :
+    CodeAt image (pcOf (b+363)) initCode := by
+  have hc := codeAt_top362 hK
+  rw [initLayout_code] at hc
+  have h := codeAt_sublayout hc initLayout_ok (i:=1) (o:=1) (seg:=initCode) (by kernel_rfl)
+  simpa only [Nat.add_assoc,Nat.reduceAdd] using h
 theorem code_ptr {image : Image} {b : Nat} (hK : KernAt image b) :
     CodeAt image (pcOf (b+366)) ptrCode := by
   have hc := codeAt_top362 hK
   rw [initLayout_code] at hc
-  have h := codeAt_sublayout hc initLayout_ok (i:=1) (o:=4) (seg:=ptrCode) (by kernel_rfl)
+  have h := codeAt_sublayout hc initLayout_ok (i:=2) (o:=4) (seg:=ptrCode) (by kernel_rfl)
   simpa only [Nat.add_assoc,Nat.reduceAdd] using h
-sym_block ui354 := symRun {noAlias:=true} initCode (pcOf (354+362)) 200
-sym_block ui543 := symRun {noAlias:=true} initCode (pcOf (543+362)) 200
+sym_block uj354 := symRun {noAlias:=true} jumpCode (pcOf (354+362)) 200
+sym_block uj543 := symRun {noAlias:=true} jumpCode (pcOf (543+362)) 200
+def jumpState : SymState := uj354.res.st
+theorem run_jump {b : Nat} (hb : b=354 ∨ b=543) :
+    symRun {noAlias:=true} jumpCode (pcOf (b+362)) 200=
+      some ⟨jumpState,.c (pcOf (b+392)),uj354.res.stop,uj354.res.steps,uj354.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact uj354.trans (congrArg some (by kernel_rfl))
+  · exact uj543.trans (congrArg some (by kernel_rfl))
+theorem jump_spec {image : Image} {b : Nat} (hK : KernAt image b)
+    (s : MachineState) (hpc : s.pc=pcOf (b+362)) :
+    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf (b+392) ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_,symRun_sound (run_jump hK.2) (code_jump hK) s hpc
+    (by simp [jumpState,uj354.res,rv_simp]),?_,?_,?_⟩
+  · rfl
+  · intro r hr; cases r <;> simp_all [jumpState,uj354.res,rv_simp] <;> rfl
+  · intro A _ _; simp [jumpState,uj354.res,rv_simp]
+sym_block ui354 := symRun {noAlias:=true} initCode (pcOf (354+363)) 200
+sym_block ui543 := symRun {noAlias:=true} initCode (pcOf (543+363)) 200
 def initState : SymState := ui354.res.st
 theorem run_init {b : Nat} (hb : b=354 ∨ b=543) :
-    symRun {noAlias:=true} initCode (pcOf (b+362)) 200=
+    symRun {noAlias:=true} initCode (pcOf (b+363)) 200=
       some ⟨initState,.c (pcOf (b+366)),ui354.res.stop,ui354.res.steps,ui354.res.cycles⟩ := by
   rcases hb with rfl | rfl
   · exact ui354.trans (congrArg some (by kernel_rfl))
@@ -157,11 +181,11 @@ theorem run_ptr {b : Nat} (hb : b=354 ∨ b=543) :
   · exact up354.trans (congrArg some (by kernel_rfl))
   · exact up543.trans (congrArg some (by kernel_rfl))
 theorem init_spec {image : Image} {b : Nat} (hK : KernAt image b)
-    (s : MachineState) (hpc : s.pc=pcOf (b+362)) :
-    ∃ t, Steps image s 4 4 t ∧ t.pc=pcOf (b+366) ∧
-      t.getReg .x20=0 ∧ t.getReg .x21=BitVec.ofNat 64 DIGITS ∧
+    (s : MachineState) (hpc : s.pc=pcOf (b+363)) :
+    ∃ t, Steps image s 3 3 t ∧ t.pc=pcOf (b+366) ∧
+      t.getReg .x20=s.getReg .x20 ∧ t.getReg .x21=BitVec.ofNat 64 DIGITS ∧
       t.getReg .x30=s.getReg .x30+128#64 ∧
-      RegsExcept s t [.x20,.x21,.x30] ∧ Frame s t (fun _ => False) := by
+      RegsExcept s t [.x21,.x30] ∧ Frame s t (fun _ => False) := by
   refine ⟨_,symRun_sound (run_init hK.2) (code_init hK) s hpc
     (by simp [initState,ui354.res,rv_simp]),?_,?_,?_,?_,?_,?_⟩
   · rfl
@@ -502,17 +526,17 @@ set_option maxRecDepth 8192
 set_option maxHeartbeats 1000000
 set_option linter.unusedSimpArgs false
 theorem init_inv {image : Image} {b : Nat} (hK : KernAt image b)
-    (s : MachineState) (v : Digest) (hpc : s.pc=pcOf (b+362))
+    (s : MachineState) (v : Digest) (hpc : s.pc=pcOf (b+363))
     (h6 : s.getReg .x6=BitVec.ofNat 64 v.toNat)
     (h7 : s.getReg .x7=BitVec.ofNat 64 (v.toNat/2^64))
-    (h30 : s.getReg .x30=BitVec.ofNat 64 TOP_DATA) :
-    ∃ t, Steps image s 4 4 t ∧ Inv b s v 0 t := by
+    (h30 : s.getReg .x30=BitVec.ofNat 64 TOP_DATA) (h20z : s.getReg .x20=0) :
+    ∃ t, Steps image s 3 3 t ∧ Inv b s v 0 t := by
   obtain ⟨t,hs,hp,h20,h21,h30',hr,hf⟩ := init_spec hK s hpc
   refine ⟨t,hs,⟨by omega,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩⟩
   · simpa using hp
   · simpa using (hr.get (r:=.x6) (by decide)).trans h6
   · simpa using (hr.get (r:=.x7) (by decide)).trans h7
-  · exact h20
+  · rw [h20,h20z]; rfl
   · simpa using h21
   · rw [h30',h30,ofNat_add_ofNat]
   · intro j hj; omega
@@ -546,11 +570,11 @@ private theorem tail_digit (v : Digest) (k : Nat) (hk : k<3) :
 theorem topUnpack_spec {image : Image} {b : Nat} (hK : KernAt image b)
     (s : MachineState) (v : Digest) (hv : v.toNat<2^125)
     (hvalid : T3.topRanksValid v=true) (ht : TableOK s)
-    (hpc : s.pc=pcOf (b+362))
+    (hpc : s.pc=pcOf (b+363))
     (h6 : s.getReg .x6=v.extractLsb' 0 64)
     (h7 : s.getReg .x7=v.extractLsb' 64 64)
-    (h30 : s.getReg .x30=BitVec.ofNat 64 TOP_DATA) :
-    ∃ t, Steps image s 302 302 t ∧ t.pc=s.getReg .x1 &&& ~~~1#64 ∧
+    (h30 : s.getReg .x30=BitVec.ofNat 64 TOP_DATA) (h20 : s.getReg .x20=0) :
+    ∃ t, Steps image s 301 301 t ∧ t.pc=s.getReg .x1 &&& ~~~1#64 ∧
       (∀ j, j<54 → t.getByte (BitVec.ofNat 64 (DIGITS+j))=BitVec.ofNat 8 (T3.coreDigit 0 v j)) ∧
       RegsExcept s t TopUnpack.Changed ∧ Frame s t TopUnpack.Writes := by
   have h6' : s.getReg .x6=BitVec.ofNat 64 v.toNat := by
@@ -561,7 +585,7 @@ theorem topUnpack_spec {image : Image} {b : Nat} (hK : KernAt image b)
     rw [h7]
     apply BitVec.eq_of_toNat_eq
     simp [Nat.shiftRight_eq_div_pow]
-  obtain ⟨a,sa,ha⟩ := TopUnpack.init_inv hK s v hpc h6' h7' h30
+  obtain ⟨a,sa,ha⟩ := TopUnpack.init_inv hK s v hpc h6' h7' h30 h20
   obtain ⟨m,sm,hm⟩ := TopUnpack.iter hK ht v hvalid ha 17 (by decide)
   have hx : v.toNat/2^119<64 := by omega
   obtain ⟨t,st,pt,gt,rt,ft⟩ := TopUnpack.tail_spec hK m (by simpa using hm.pc)

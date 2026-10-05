@@ -134,7 +134,7 @@ theorem counterSearch_respects (lay : Layer) (tree leaf : Nat) (message : Digest
       unfold counterSearch
       refine ShortRespects.bind (ShortRespects.shortHash _ (short_of_le _ ?_)) fun answer => ?_
       · simp [encodingInput, bytesLE_length]
-      · cases decode lay answer with
+      · cases searchDecode lay answer with
         | none => exact ih _
         | some digits => exact ShortRespects.pure' _
 section objects

@@ -221,7 +221,8 @@ theorem sel_valid (a : AuxData) (L : EncLeaf) (r : Fin (2 ^ 22) × Digest) (hr :
     ∃ w, decode L.1.lay r.2 = some w := by
   have h := (SphincsSecurity.Concrete.FirstSuccessTable.select_some_iff _ _ r.1 r.2).mp hr
   obtain ⟨-, hs⟩ := (decodeAt_eq_some L _ r.2).mp h.1
-  exact Option.isSome_iff_exists.mp hs
+  obtain ⟨w, hw⟩ := Option.isSome_iff_exists.mp hs
+  exact ⟨w, Nonbinary.searchDecode_some hw⟩
 theorem dummyDigest_decode' (lay : Layer) : decode lay (dummyDigest lay) = some (Wots.dummyDigits lay) :=
   Classical.choose_spec (Wots.dummyDigits_valid lay)
 section Reference
@@ -276,20 +277,22 @@ theorem Coherent.prefix_ref (h : Coherent U T vals nv τ a) (L : EncLeaf) (ctr :
   obtain ⟨hlt, hle⟩ := hp
   have hpv : prefixValue a L ctr = a.rows L ⟨ctr.toNat, hlt⟩ := by unfold prefixValue; rw [dif_pos hlt]
   rw [hpv] at hd
+  have hd' : searchDecode L.1.lay ((a.rows L ⟨ctr.toNat, hlt⟩).extractLsb' 0 128) =
+      some (Wots.referenceDigits T L.toWots) := WotsExtract.searchDecode_of_reference T L.toWots hd
   cases hs : a.sel L with
   | none =>
       have hn := (SphincsSecurity.Concrete.FirstSuccessTable.select_none_iff _ _).mp hs ⟨ctr.toNat, hlt⟩
       rw [decodeAt_eq_none] at hn
-      rw [hn] at hd
-      cases hd
+      rw [hn] at hd'
+      cases hd'
   | some r =>
       have hsel := (SphincsSecurity.Concrete.FirstSuccessTable.select_some_iff _ _ r.1 r.2).mp hs
       have hle' := hle r hs
       rcases Nat.lt_or_ge ctr.toNat r.1.val with hlt' | hge
       · have hn := hsel.2 ⟨ctr.toNat, hlt⟩ hlt'
         rw [decodeAt_eq_none] at hn
-        rw [hn] at hd
-        cases hd
+        rw [hn] at hd'
+        cases hd'
       · have heq : ctr.toNat = r.1.val := by omega
         unfold Wots.referenceInput
         rw [h.search, h.leafMsg, hs]

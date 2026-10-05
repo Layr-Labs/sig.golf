@@ -222,10 +222,15 @@ theorem referenceDigits_some (T : Answers) (L : Wots.LeafAddr) (c : BitVec 32) (
   unfold Wots.referenceDigits
   rw [h]
   rfl
+theorem topSigned_reference (T : Answers) (L : Wots.LeafAddr) (hl : L.lay = 0) :
+    ((Wots.referenceSearch T L).map Prod.snd).getD dummyTop = Wots.referenceDigits T L := by
+  unfold Wots.referenceDigits
+  rw [hl]
+  rfl
 theorem signLayers_eq (T : Answers) (cache : T3.Cache) (hcache : cache.region = Correctness.cacheRegion (Correctness.maskedTop T))
     (index : Nat) (hindex : index < 2 ^ 31) :
     ∀ n, n ≤ 4 → evalWithAnswerFn T (signLayers cache index n (Extract.walkTarget T index n)) =
-      if ∀ l, l < n → (Wots.referenceSearch T (routeAddr index (Fin.ofNat 4 l))).isSome then
+      if ∀ l, l < n → l ≠ 0 → (Wots.referenceSearch T (routeAddr index (Fin.ofNat 4 l))).isSome then
         some ((List.range n).map fun l => layerPieces T index (Fin.ofNat 4 l))
       else none := by
   intro n
@@ -242,33 +247,33 @@ theorem signLayers_eq (T : Answers) (cache : T3.Cache) (hcache : cache.region = 
       rw [hmsg]
       simp only [signLayers, evalWithAnswerFn_bind]
       rw [← referenceSearch_route]
-      cases hs : Wots.referenceSearch T (routeAddr index (Fin.ofNat 4 n)) with
-      | none =>
-          simp only [evalWithAnswerFn_pure]
-          rw [if_neg (fun hall => by have := hall n (by omega); rw [hs] at this; cases this)]
-      | some found =>
-          obtain ⟨counter, digits⟩ := found
-          have hdig := referenceDigits_some T _ counter digits hs
-          have hdec : decode (Fin.ofNat 4 n) _ = some digits := WotsExtract.referenceSearch_decode T _ hs
-          have hvalid := Cost.validDigits_decode hdec
-          simp only
-          by_cases hn0 : n = 0
-          · subst hn0
-            simp only [if_true, evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-            have hl0 : (Fin.ofNat 4 0 : Layer) = 0 := rfl
-            rw [hl0] at hvalid hdig hs ⊢
-            have htop := route_top_tree index hindex
-            rw [Correctness.eval_signTop_honest T cache _ digits hcache (by
-              have := route_leaf_bound index 0
-              calc (route index 0).1 < 2 ^ height 0 := this
-                _ = 4096 := by decide) hvalid]
-            rw [if_pos (fun l hl => by
-              have : l = 0 := by omega
-              subst this; rw [hl0, hs]; rfl)]
-            rw [Nat.zero_add, List.range_one, List.map_singleton]
-            unfold layerPieces
-            rw [hl0, hdig, htop]
-          · simp only [hn0, if_false, evalWithAnswerFn_bind]
+      by_cases hn0 : n = 0
+      · subst hn0
+        simp only [if_true, evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+        have hl0 : (Fin.ofNat 4 0 : Layer) = 0 := rfl
+        rw [hl0]
+        rw [topSigned_reference T (routeAddr index 0) rfl]
+        obtain ⟨v, hv⟩ := WotsExtract.referenceDigits_decode T (routeAddr index 0)
+        have hvalid := Cost.validDigits_decode hv
+        have htop := route_top_tree index hindex
+        rw [Correctness.eval_signTop_honest T cache _ _ hcache (by
+          have := route_leaf_bound index 0
+          calc (route index 0).1 < 2 ^ height 0 := this
+            _ = 4096 := by decide) hvalid]
+        rw [if_pos (fun l hl hl0 => absurd (by omega) hl0)]
+        rw [Nat.zero_add, List.range_one, List.map_singleton]
+        unfold layerPieces
+        rw [hl0, htop]
+      · cases hs : Wots.referenceSearch T (routeAddr index (Fin.ofNat 4 n)) with
+        | none =>
+            simp only [hn0, if_false, evalWithAnswerFn_pure]
+            rw [if_neg (fun hall => by have := hall n (by omega) hn0; rw [hs] at this; cases this)]
+        | some found =>
+            obtain ⟨counter, digits⟩ := found
+            have hdig := referenceDigits_some T _ counter digits hs
+            have hdec : decode (Fin.ofNat 4 n) _ = some digits := WotsExtract.referenceSearch_decode T _ hs
+            have hvalid := Cost.validDigits_decode hdec
+            simp only [hn0, if_false, evalWithAnswerFn_bind]
             rw [Correctness.eval_buildTree_result T _ _ _ digits hvalid (route_leaf_bound index _)]
             simp only
             have hroot : ((builtTree T (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2).getD
@@ -276,10 +281,10 @@ theorem signLayers_eq (T : Answers) (cache : T3.Cache) (hcache : cache.region = 
               rw [Extract.walkTarget_root T index n (by omega)]
               rfl
             rw [hroot, ih (by omega)]
-            by_cases hall : ∀ l, l < n → (Wots.referenceSearch T (routeAddr index (Fin.ofNat 4 l))).isSome
-            · rw [if_pos hall, if_pos (fun l hl => by
+            by_cases hall : ∀ l, l < n → l ≠ 0 → (Wots.referenceSearch T (routeAddr index (Fin.ofNat 4 l))).isSome
+            · rw [if_pos hall, if_pos (fun l hl hl0 => by
                 rcases Nat.lt_succ_iff_lt_or_eq.mp hl with hl | rfl
-                · exact hall l hl
+                · exact hall l hl hl0
                 · rw [hs]; rfl)]
               simp only [evalWithAnswerFn_pure, Option.some.injEq, List.range_succ, List.map_append,
                 List.map_cons, List.map_nil]
@@ -287,7 +292,7 @@ theorem signLayers_eq (T : Answers) (cache : T3.Cache) (hcache : cache.region = 
               unfold layerPieces honestPieces
               rw [hdig]
               rfl
-            · rw [if_neg hall, if_neg (fun h' => hall fun l hl => h' l (by omega))]
+            · rw [if_neg hall, if_neg (fun h' => hall fun l hl hl0 => h' l (by omega) hl0)]
               simp only [evalWithAnswerFn_pure]
 end Layers
 section Payload
@@ -334,13 +339,17 @@ theorem walkTarget_four (T : Answers) (index : Nat) :
   rw [h4, WotsExtract.honestForest_eq_built]
   rfl
 theorem routeOk_iff (T : Answers) (index : Nat) :
-    (∀ l, l < 4 → (Wots.referenceSearch T (routeAddr index (Fin.ofNat 4 l))).isSome) ↔ RouteOk T index := by
+    (∀ l, l < 4 → l ≠ 0 → (Wots.referenceSearch T (routeAddr index (Fin.ofNat 4 l))).isSome) ↔ RouteOk T index := by
   constructor
-  · intro hall lay
-    have := hall lay.val lay.isLt
+  · intro hall lay hlay0
+    have := hall lay.val lay.isLt (fun h => hlay0 (Fin.ext h))
     rwa [show (Fin.ofNat 4 lay.val : Layer) = lay from Fin.ext (by simp)] at this
-  · intro hok l _
-    exact hok _
+  · intro hok l hl hl0
+    refine hok _ (fun h => hl0 ?_)
+    have hv := congrArg Fin.val h
+    have hmod : (Fin.ofNat 4 l : Layer).val = l := by simp; omega
+    rw [hmod] at hv
+    exact hv
 theorem signPayload_disclosed {T : Answers} {labels : Labels} (h : Agrees T labels) (cache : T3.Cache)
     (hcache : cache.region = Correctness.cacheRegion (Correctness.maskedTop T)) (m : Message) :
     evalWithAnswerFn T (signPayload cache m) =

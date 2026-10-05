@@ -22,7 +22,7 @@ def headerWrites (lay : Nat) : List (Addr × E) :=
 def specA (lay p : Nat) : Spec :=
   if lay = 3 then T3M.specA lay p else
   ⟨if lay = 0 then [(.x4, tpE lay), (.x23, s7E lay), (.x3, ctrE lay)]
-   else [(.x4, tpE lay), (.x23, s7E lay), (.x31, treeE lay), (.x3, ctrE lay)],
+   else [(.x4, tpE lay), (.x23, s7E lay), (.x30, treeE lay), (.x3, ctrE lay)],
    headerWrites lay, p + stepsA lay, true, stepsA lay,
    [ctrBr lay false], none, stepsA lay⟩
 def rejA (lay p : Nat) : Spec :=
@@ -38,7 +38,7 @@ def setupCheck (lay p : Nat) : Bool :=
 def copyCheck (lay p : Nat) : Bool :=
   setupCheck lay p &&
   (if lay = 0 then
-    specB [] [] [] (runAt [] [724] (p + stepsA lay + 1) [])
+    specB [] [] [] (runAt [] [96160] (p + stepsA lay + 1) [])
       (specTopCall p) [] [] keepTopCall
   else
     specB [] [] baseK (runAt (bK lay) [] (p + stepsA lay + 1)

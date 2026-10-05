@@ -124,8 +124,8 @@ theorem routeAddr_enc (index : Nat) (hindex : index < 2 ^ 31) (lay : Layer) :
 theorem Coherent.routeOk_iff (hcoh : Coherent U T vals nv τ a) (index : Nat) (hindex : index < 2 ^ 31) :
     RouteOkR a index ↔ RouteOk T index := by
   constructor
-  · intro h lay
-    obtain ⟨L, r, hL, hs, hd⟩ := h lay
+  · intro h lay hlay0
+    obtain ⟨L, r, hL, hs, hd⟩ := h lay hlay0
     rw [← hL, hcoh.search L, hs]
     have hlay : L.1.lay = lay := congrArg Wots.LeafAddr.lay hL
     simp only [Option.bind_some]
@@ -133,9 +133,9 @@ theorem Coherent.routeOk_iff (hcoh : Coherent U T vals nv τ a) (index : Nat) (h
     cases hdec : decode lay r.2 with
     | none => rw [hdec] at hd; cases hd
     | some w => rfl
-  · intro h lay
+  · intro h lay hlay0
     obtain ⟨L, hL⟩ := routeAddr_enc index hindex lay
-    have h1 := h lay
+    have h1 := h lay hlay0
     rw [← hL, hcoh.search L] at h1
     have hlay : L.1.lay = lay := congrArg Wots.LeafAddr.lay hL
     cases hs : a.sel L with

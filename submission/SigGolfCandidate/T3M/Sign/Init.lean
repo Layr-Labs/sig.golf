@@ -106,6 +106,19 @@ theorem sinit_region (sk : SecretKey) (cache : Bytes 131072) (m : Message) :
       (cacheDec cache).tag.extractLsb' 128 64, (cacheDec cache).tag.extractLsb' 192 64].length ≤ 4 + j by
       rw [List.length_cons, List.length_cons, List.length_cons, List.length_singleton]; omega)]
   rw [List.length_cons, List.length_cons, List.length_cons, List.length_singleton, Nat.add_sub_cancel_left]
+theorem sinit_cf (sk : SecretKey) (cache : Bytes 131072) (m : Message) :
+    Search.CfTableOK 1 (sinit sk cache m) := by
+  intro i hi hj
+  rw [getByte_eq_word _ _ (by simp only [TOP_DATA]; omega),
+    sinit_getMem _ _ _ _ (by simp only [TOP_DATA]; omega),
+    if_neg (by simp only [TOP_DATA]; omega), if_neg (by simp only [TOP_DATA]; omega), if_neg (by simp only [TOP_DATA]; omega),
+    sdata_getMem _ (by simp only [TOP_DATA]; omega), if_pos (by simp only [TOP_DATA, SIGN_DATA]; omega),
+    Keygen.extractByte_bytesToWordLE _ _ (Nat.mod_lt _ (by decide))]
+  simp only [List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
+    if_pos (Nat.mod_lt (TOP_DATA + i) (show 0 < 8 by decide))]
+  have hidx : (TOP_DATA + i) / 8 * 8 - SIGN_DATA + (TOP_DATA + i) % 8 = 65536 + i := by simp only [TOP_DATA, SIGN_DATA]; omega
+  rw [hidx]
+  exact Search.signData_cf i hi hj
 theorem sinit_table (sk : SecretKey) (cache : Bytes 131072) (m : Message) : TableOK (sinit sk cache m) := by
   intro i hi
   rw [getByte_eq_word _ _ (by simp only [TOP_DATA]; omega),

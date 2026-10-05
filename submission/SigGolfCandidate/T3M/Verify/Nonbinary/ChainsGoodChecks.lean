@@ -248,7 +248,7 @@ theorem blk_at (c : NCtx) (hd : c.DigitsOk) (i : Nat) (hi : i<54) :
     (c.dig_group_le hd _ 2 (by omega) (by decide))
 theorem chk_headJ (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54)
     (h0 : i%3=0) (hd : c.dig i< last i) :
-    vrun (c.startPc i) 7=some (headJD .x8 (off i) (c.rungPc i (c.dig i)+1) i (c.dig i)) := by
+    vrun (c.startPc i) 7=some (headJD .x19 (off i) (c.rungPc i (c.dig i)+1) i (c.dig i)) := by
   obtain ⟨q,rfl⟩ : ∃q,i=3*q := ⟨i/3,by omega⟩
   have eq : 3*q/3=q := by omega
   have he := entCheck_at q (c.kOf q) (by omega) (c.kOf_lt hds q (by omega))
@@ -263,7 +263,7 @@ theorem chk_headJ (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54)
   exact rOK_eq he
 theorem chk_headJTerm (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54)
     (h0 : i%3=0) (hd : c.dig i=last i) :
-    vrun (c.startPc i) 7=some (headJDTerm .x8 (off i) (c.rungPc i (c.dig i)+1) i (c.dig i)) := by
+    vrun (c.startPc i) 7=some (headJDTerm .x19 (off i) (c.rungPc i (c.dig i)+1) i (c.dig i)) := by
   obtain ⟨q,rfl⟩ : ∃q,i=3*q := ⟨i/3,by omega⟩
   have eq : 3*q/3=q := by omega
   have he := entCheck_at q (c.kOf q) (by omega) (c.kOf_lt hds q (by omega))
@@ -280,7 +280,7 @@ theorem chk_headJTerm (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54)
   exact rOK_eq he
 theorem chk_copyJ (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54)
     (h0 : i%3=0) (hd : c.dig i=topMax i) :
-    vrun (c.startPc i) 7=some (copyN .x8 (off i) (slot i) (c.endPc i)) := by
+    vrun (c.startPc i) 7=some (copyN .x19 (off i) (slot i) (c.endPc i)) := by
   obtain ⟨q,rfl⟩ : ∃q,i=3*q := ⟨i/3,by omega⟩
   have eq : 3*q/3=q := by omega
   have he := entCheck_at q (c.kOf q) (by omega) (c.kOf_lt hds q (by omega))
@@ -308,7 +308,7 @@ theorem part_at (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54) (h0 : i%3≠
   · rw [if_neg (by omega)];exact hC
 theorem chk_headR (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54)
     (h0 : i%3≠0) (hd : c.dig i< last i) :
-    vrun (c.startPc i) 8=some (headRH .x8 (off i) (c.dig i) none (c.startPc i) i) := by
+    vrun (c.startPc i) 8=some (headRH .x19 (off i) (c.dig i) none (c.startPc i) i) := by
   have hp := c.part_at hds i hi h0
   unfold partOK at hp
   have hd' : c.dig i< mx (i/3)-1 := hd
@@ -317,7 +317,7 @@ theorem chk_headR (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54)
   exact rOK_eq hp.1
 theorem chk_headRTerm (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54)
     (h0 : i%3≠0) (hd : c.dig i=last i) :
-    vrun (c.startPc i) 8=some (headRHT .x8 (off i) (c.dig i) (slot i) (c.startPc i) i) := by
+    vrun (c.startPc i) 8=some (headRHT .x19 (off i) (c.dig i) (slot i) (c.startPc i) i) := by
   have hp := c.part_at hds i hi h0
   unfold partOK at hp
   have hd' : c.dig i=mx (i/3)-1 := hd
@@ -327,7 +327,7 @@ theorem chk_headRTerm (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54)
   exact rOK_eq hp.1
 theorem chk_copyF (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54)
     (h0 : i%3≠0) (hd : c.dig i=topMax i) :
-    vrun (c.startPc i) 4=some (copyFH .x8 (off i) (slot i) (c.startPc i)) := by
+    vrun (c.startPc i) 4=some (copyFH .x19 (off i) (slot i) (c.startPc i)) := by
   have hp := c.part_at hds i hi h0
   unfold partOK at hp
   change c.dig i=mx (i/3) at hd

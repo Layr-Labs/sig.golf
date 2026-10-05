@@ -84,7 +84,7 @@ noncomputable def routerDigits (a : AuxData) (L : Wots.LeafAddr) : List Nat :=
     ((a.sel (Classical.choose h)).bind fun r => decode L.lay r.2).getD (Wots.dummyDigits L.lay)
   else Wots.dummyDigits L.lay
 def RouteOkR (a : AuxData) (index : Nat) : Prop :=
-  ∀ lay : Layer, ∃ (L : EncLeaf) (r : Fin (2 ^ 22) × Digest),
+  ∀ lay : Layer, lay ≠ 0 → ∃ (L : EncLeaf) (r : Fin (2 ^ 22) × Digest),
     L.toWots = routeAddr index lay ∧ a.sel L = some r ∧ (decode lay r.2).isSome
 def maskOf (a : AuxData) (level node : Nat) : Digest :=
   let answer := a.priv (.inl (header 13 0 0 level (node/2)))

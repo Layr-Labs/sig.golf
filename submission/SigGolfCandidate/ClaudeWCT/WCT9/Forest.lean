@@ -87,6 +87,7 @@ theorem signerRows_roots (answers : Answers) (index : Nat) (output : HashOutput)
   rw [← List.getD_eq_getElem _ ((0, 0) : Digest × Digest) hi, hrows.2.2.2 ⟨i, hi9⟩ hi9, List.getElem_ofFn]
 theorem signPayload_expands (answers : Answers) (cache : Cache) (message : Message)
     (sig : Signature) (hcache : cache.region = cacheRegion (maskedTop answers))
+    (htop : TopSearchesSucceedBC answers)
     (he : evalWithAnswerFn answers (signPayload cache message) = some sig) :
     ∃ w : Witness, evalWithAnswerFn answers
       (expand message (treeValue (builtTree answers 0 0) 12 0) sig) = some w := by
@@ -118,7 +119,7 @@ theorem signPayload_expands (answers : Answers) (cache : Cache) (message : Messa
             (fun coord => hrows.2.2.1 coord coord.isLt)
           have hparts : PiecesAgree (toT3Signature sig) pieces 4 := fun _ _ => rfl
           obtain ⟨counters, _, hreplay⟩ := (signLayersBC_expandLayersBC answers cache
-            (output.toNat % 2 ^ 31) hcache (Nat.mod_lt _ (by positivity)) 4 (by decide) (by decide) _ pieces
+            (output.toNat % 2 ^ 31) hcache (Nat.mod_lt _ (by positivity)) htop 4 (by decide) (by decide) _ pieces
             hl).2 sig hparts
           refine ⟨⟨sig, counter, fun lay => counters.getD lay.val 0⟩, ?_⟩
           unfold expand
@@ -132,12 +133,12 @@ theorem sign_valid_cache (answers : Answers) (result : Digest × Cache) (message
   simp only [CacheTagCorrect] at hvalid
   simp only [sign, evalWithAnswerFn_bind, ← hvalid, ne_eq, not_true_eq_false, ite_false]
 theorem signing_success_valid (answers : Answers) (keys : Digest × Cache)
-    (hkeys : KeygenCorrect answers keys) (message : Message) (sig : Signature)
+    (hkeys : KeygenCorrect answers keys) (htop : TopSearchesSucceedBC answers) (message : Message) (sig : Signature)
     (hsign : evalWithAnswerFn answers (sign keys.2 message) = some sig) :
     ∃ w : Witness, evalWithAnswerFn answers (expand message keys.1 sig) = some w ∧
       evalWithAnswerFn answers (verify message keys.1 w) = true := by
   rw [sign_valid_cache answers keys message hkeys.2.2] at hsign
-  obtain ⟨w, hw⟩ := signPayload_expands answers keys.2 message sig hkeys.2.1 hsign
+  obtain ⟨w, hw⟩ := signPayload_expands answers keys.2 message sig hkeys.2.1 htop hsign
   have he : evalWithAnswerFn answers (expand message keys.1 sig) = some w := by rwa [hkeys.1]
   exact ⟨w, he, expand_implies_verify answers message keys.1 sig w he⟩
 def SigningCorrect (answers : Answers) (keys : Digest × Cache) : Prop :=
@@ -148,9 +149,9 @@ def SigningCorrect (answers : Answers) (keys : Digest × Cache) : Prop :=
 theorem keygen_correct (answers : Answers) :
     KeygenCorrect answers (evalWithAnswerFn answers keygen) :=
   SigGolfCandidate.T3.Correctness.keygen_correct answers
-theorem honest_signing_success_valid (answers : Answers) :
+theorem honest_signing_success_valid (answers : Answers) (htop : TopSearchesSucceedBC answers) :
     SigningCorrect answers (evalWithAnswerFn answers keygen) :=
-  signing_success_valid answers _ (keygen_correct answers)
+  signing_success_valid answers _ (keygen_correct answers) htop
 def RealizedSigningCorrect (answers : QueryImpl SphincsSecurity.OracleWorld Id)
     (secret : BitVec 256) (keys : Digest × Cache) : Prop :=
   ∀ (message : Message) (sig : Signature),
@@ -158,11 +159,11 @@ def RealizedSigningCorrect (answers : QueryImpl SphincsSecurity.OracleWorld Id)
     ∃ w : Witness, evalWithAnswerFn answers (realize secret (expand message keys.1 sig)) = some w ∧
       evalWithAnswerFn answers (realize secret (verify message keys.1 w)) = true
 theorem realized_honest_signing_success_valid (answers : QueryImpl SphincsSecurity.OracleWorld Id)
-    (secret : BitVec 256) :
+    (secret : BitVec 256) (htop : TopSearchesSucceedBC (answers.compose (realHandler secret))) :
     RealizedSigningCorrect answers secret (evalWithAnswerFn answers (realize secret keygen)) := by
   unfold RealizedSigningCorrect
   simp only [realize_eval]
-  exact honest_signing_success_valid (answers.compose (realHandler secret))
+  exact honest_signing_success_valid (answers.compose (realHandler secret)) htop
 end ClaudeWCT.WCT9
 end
 
@@ -293,6 +294,7 @@ theorem expandWith_implies_verifyWith (limit : Nat) (hlimit : limit ≤ 2 ^ 32) 
               beq_self_eq_true]
 theorem signPayloadWith_expands (limit : Nat) (answers : Answers) (cache : Cache) (message : Message)
     (sig : Signature) (hcache : cache.region = cacheRegion (maskedTop answers))
+    (htop : TopSearchesSucceedBC answers)
     (he : evalWithAnswerFn answers (signPayloadWith limit cache message) = some sig) :
     ∃ w : Witness, evalWithAnswerFn answers
       (expandWith limit message (treeValue (builtTree answers 0 0) 12 0) sig) = some w := by
@@ -318,7 +320,7 @@ theorem signPayloadWith_expands (limit : Nat) (answers : Answers) (cache : Cache
               (evalWithAnswerFn answers (signForest (output.toNat % 2 ^ 31) output)).1 pieces)) pieces 4 :=
             fun _ _ => rfl
           obtain ⟨counters, _, hreplay⟩ := (signLayersBC_expandLayersBC answers cache
-            (output.toNat % 2 ^ 31) hcache (Nat.mod_lt _ (by positivity)) 4 (by decide) (by decide) _ pieces
+            (output.toNat % 2 ^ 31) hcache (Nat.mod_lt _ (by positivity)) htop 4 (by decide) (by decide) _ pieces
             hl).2 _ hparts
           refine ⟨⟨assembledSignature (evalWithAnswerFn answers (privateNonce message))
             (evalWithAnswerFn answers (signForest (output.toNat % 2 ^ 31) output)).1 pieces,
@@ -333,12 +335,13 @@ theorem signWith_valid_cache (limit : Nat) (answers : Answers) (result : Digest 
   simp only [CacheTagCorrect] at hvalid
   simp only [signWith, evalWithAnswerFn_bind, ← hvalid, ne_eq, not_true_eq_false, ite_false]
 theorem signingWith_success_valid (limit : Nat) (hlimit : limit ≤ 2 ^ 32) (answers : Answers)
-    (keys : Digest × Cache) (hkeys : KeygenCorrect answers keys) (message : Message) (sig : Signature)
+    (keys : Digest × Cache) (hkeys : KeygenCorrect answers keys) (htop : TopSearchesSucceedBC answers)
+    (message : Message) (sig : Signature)
     (hsign : evalWithAnswerFn answers (signWith limit keys.2 message) = some sig) :
     ∃ w : Witness, evalWithAnswerFn answers (expandWith limit message keys.1 sig) = some w ∧
       evalWithAnswerFn answers (verifyWith limit message keys.1 w) = true := by
   rw [signWith_valid_cache limit answers keys message hkeys.2.2] at hsign
-  obtain ⟨w, hw⟩ := signPayloadWith_expands limit answers keys.2 message sig hkeys.2.1 hsign
+  obtain ⟨w, hw⟩ := signPayloadWith_expands limit answers keys.2 message sig hkeys.2.1 htop hsign
   have he : evalWithAnswerFn answers (expandWith limit message keys.1 sig) = some w := by rwa [hkeys.1]
   exact ⟨w, he, expandWith_implies_verifyWith limit hlimit answers message keys.1 sig w he⟩
 theorem digestSearch_none_iff (answers : Answers) (rho : Digest) (message : Message) :
@@ -391,12 +394,12 @@ def SigningCorrect (answers : Answers) (keys : Digest × Cache) : Prop :=
     ∃ w : Witness, evalWithAnswerFn answers (expand message keys.1 sig) = some w ∧
       evalWithAnswerFn answers (verify message keys.1 w) = true
 theorem signing_success_valid (answers : Answers) (keys : Digest × Cache)
-    (hkeys : KeygenCorrect answers keys) : SigningCorrect answers keys :=
+    (hkeys : KeygenCorrect answers keys) (htop : TopSearchesSucceedBC answers) : SigningCorrect answers keys :=
   fun message sig hsign =>
-    signingWith_success_valid digestAttemptLimit digestAttemptLimit_le answers keys hkeys message sig hsign
-theorem honest_signing_success_valid (answers : Answers) :
+    signingWith_success_valid digestAttemptLimit digestAttemptLimit_le answers keys hkeys htop message sig hsign
+theorem honest_signing_success_valid (answers : Answers) (htop : TopSearchesSucceedBC answers) :
     SigningCorrect answers (evalWithAnswerFn answers keygen) :=
-  signing_success_valid answers _ (ClaudeWCT.WCT9.keygen_correct answers)
+  signing_success_valid answers _ (ClaudeWCT.WCT9.keygen_correct answers) htop
 def RealizedSigningCorrect (answers : QueryImpl SphincsSecurity.OracleWorld Id)
     (secret : BitVec 256) (keys : Digest × Cache) : Prop :=
   ∀ (message : Message) (sig : Signature),
@@ -404,11 +407,11 @@ def RealizedSigningCorrect (answers : QueryImpl SphincsSecurity.OracleWorld Id)
     ∃ w : Witness, evalWithAnswerFn answers (realize secret (expand message keys.1 sig)) = some w ∧
       evalWithAnswerFn answers (realize secret (verify message keys.1 w)) = true
 theorem realized_honest_signing_success_valid (answers : QueryImpl SphincsSecurity.OracleWorld Id)
-    (secret : BitVec 256) :
+    (secret : BitVec 256) (htop : TopSearchesSucceedBC (answers.compose (realHandler secret))) :
     RealizedSigningCorrect answers secret (evalWithAnswerFn answers (realize secret keygen)) := by
   unfold RealizedSigningCorrect
   simp only [realize_eval]
-  exact honest_signing_success_valid (answers.compose (realHandler secret))
+  exact honest_signing_success_valid (answers.compose (realHandler secret)) htop
 end Rev3
 end ClaudeWCT.WCT9
 end

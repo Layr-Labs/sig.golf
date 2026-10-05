@@ -58,7 +58,7 @@ def topSeg348 : List (BitVec 32) := [0x7fe7e93,32411315]
 def topSeg350 : List (BitVec 32) := [970371]
 def topSeg351 : List (BitVec 32) := [31231155,8281619]
 def topSeg353 : List (BitVec 32) := [4095635,31231155,3038867,4128403,31231155,5136019,31231155,0x411c8eb3,437163619]
-def topSeg362 : List (BitVec 32) := [2579,133815,0x420a8a93,0x80f0f13,0x7f37e13,3022355,32378419]
+def topSeg362 : List (BitVec 32) := [125829231,133815,0x420a8a93,0x80f0f13,0x7f37e13,3022355,32378419]
 def topSeg369 : List (BitVec 32) := [945795]
 def topSeg370 : List (BitVec 32) := [31096867]
 def topSeg371 : List (BitVec 32) := [9363091]
@@ -73,7 +73,7 @@ def topSeg387 : List (BitVec 32) := [30048419]
 def topSeg388 : List (BitVec 32) := [2315027,3374611]
 def topSeg390 : List (BitVec 32) := [30048547]
 def topSeg391 : List (BitVec 32) := [32871]
-def topSeg392 : List (BitVec 32) := [19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19,19]
+def topSeg392 : List (BitVec 32) := [197907,230803,1555,17828371,133529107,3022355,32378419,138300931,29754931,7689491,60136979,29713715,7722387,4294576659,4228521187,3505683,4293791251,1981971,29754931,2446611,3505683,4293791251,1981971,29754931,2446611,4293201427,1981971,29754931,9846291,168697443,2579,4045402223,2516848867,16777015,662654467,2483948259,663696131,672084867,132123795,2579,4007653487,19,19,19,19,19]
 def topSegLayout : Rv.Layout := [(0, topSeg265), (2, topSeg267), (4, topSeg269), (5, topSeg270), (6, topSeg271), (8, topSeg273), (9, topSeg274), (11, topSeg276), (13, topSeg278), (14, topSeg279), (16, topSeg281), (18, topSeg283), (19, topSeg284), (21, topSeg286), (23, topSeg288), (24, topSeg289), (26, topSeg291), (28, topSeg293), (29, topSeg294), (31, topSeg296), (33, topSeg298), (34, topSeg299), (36, topSeg301), (38, topSeg303), (39, topSeg304), (41, topSeg306), (43, topSeg308), (44, topSeg309), (46, topSeg311), (48, topSeg313), (50, topSeg315), (51, topSeg316), (53, topSeg318), (55, topSeg320), (56, topSeg321), (58, topSeg323), (60, topSeg325), (61, topSeg326), (63, topSeg328), (65, topSeg330), (66, topSeg331), (68, topSeg333), (70, topSeg335), (71, topSeg336), (73, topSeg338), (75, topSeg340), (76, topSeg341), (78, topSeg343), (80, topSeg345), (81, topSeg346), (83, topSeg348), (85, topSeg350), (86, topSeg351), (88, topSeg353), (97, topSeg362), (104, topSeg369), (105, topSeg370), (106, topSeg371), (107, topSeg372), (108, topSeg373), (109, topSeg374), (110, topSeg375), (118, topSeg383), (119, topSeg384), (120, topSeg385), (122, topSeg387), (123, topSeg388), (125, topSeg390), (126, topSeg391), (127, topSeg392)]
 theorem topSegLayout_ok : layoutOk 0 topSegLayout = true := by decide +kernel
 theorem topSegLayout_code : k_265 = layoutCode topSegLayout := by decide +kernel
@@ -777,16 +777,6 @@ theorem codeAt_top362 {image : Image} {b : Nat} (h : KernAt image b) :
   rw [topSegLayout_code] at hc
   have hp := codeAt_sublayout hc topSegLayout_ok (i := 54) (o := 97) (seg := topSeg362) (by kernel_rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-sym_block tb354_362 := symRun { noAlias := true } topSeg362 (pcOf (354 + 362)) 200
-sym_block tb543_362 := symRun { noAlias := true } topSeg362 (pcOf (543 + 362)) 200
-def topState362 : SymState := tb354_362.res.st
-def topEnd362 (b : Nat) : E := .c (pcOf (b + 369))
-theorem run_top362 {b : Nat} (hb : b = 354 ∨ b = 543) :
-    symRun { noAlias := true } topSeg362 (pcOf (b + 362)) 200 =
-      some ⟨topState362, topEnd362 b, tb354_362.res.stop, tb354_362.res.steps, tb354_362.res.cycles⟩ := by
-  rcases hb with rfl | rfl
-  · exact tb354_362.trans (congrArg some (by kernel_rfl))
-  · exact tb543_362.trans (congrArg some (by kernel_rfl))
 theorem codeAt_top369 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 369)) topSeg369 := by
   have hc := codeAt_k_265 h
@@ -947,14 +937,4 @@ theorem codeAt_top392 {image : Image} {b : Nat} (h : KernAt image b) :
   rw [topSegLayout_code] at hc
   have hp := codeAt_sublayout hc topSegLayout_ok (i := 69) (o := 127) (seg := topSeg392) (by kernel_rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-sym_block tb354_392 := symRun { noAlias := true } topSeg392 (pcOf (354 + 392)) 200
-sym_block tb543_392 := symRun { noAlias := true } topSeg392 (pcOf (543 + 392)) 200
-def topState392 : SymState := tb354_392.res.st
-def topEnd392 (b : Nat) : E := .c (pcOf (b + 438))
-theorem run_top392 {b : Nat} (hb : b = 354 ∨ b = 543) :
-    symRun { noAlias := true } topSeg392 (pcOf (b + 392)) 200 =
-      some ⟨topState392, topEnd392 b, tb354_392.res.stop, tb354_392.res.steps, tb354_392.res.cycles⟩ := by
-  rcases hb with rfl | rfl
-  · exact tb354_392.trans (congrArg some (by kernel_rfl))
-  · exact tb543_392.trans (congrArg some (by kernel_rfl))
 end SigGolfCandidate.T3M.Search

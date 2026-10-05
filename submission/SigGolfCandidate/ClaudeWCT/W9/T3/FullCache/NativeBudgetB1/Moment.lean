@@ -89,34 +89,40 @@ theorem V_signLayers_of_freshness (secret : BitVec 256) (hf : SourceFreshness se
         (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 message counterLimit 0)
         secret rcache result hr
       have hnext := hf.counter (Fin.ofNat 4 n) _ _ message rcache heFresh result hr
-      cases hx : result.1 with
-      | none =>
-          simp only [hx, V_pure]
-          split
-          · exact one_le_pow₀ (SigGolfCandidate.Budget.one_le_zOf _)
-          · exact one_le_mul (one_le_pow₀ (SigGolfCandidate.Budget.one_le_zOf _)) (E.layerMomentBound_ge_one n)
-      | some pair =>
+      by_cases hn0 : n = 0
+      · subst n
+        simp only [ite_true]
+        have hdig : ((result.1.map Prod.snd).getD dummyTop).length = 54 ∧
+            ((result.1.map Prod.snd).getD dummyTop).sum = 126 := by
+          cases hx : result.1 with
+          | none => exact ⟨by decide, by decide⟩
+          | some pair =>
+              obtain ⟨counter, digits⟩ := pair
+              have hd := hpost counter digits hx
+              exact ⟨hd.1, hd.2.1⟩
+        refine V_bind_bounded secret signingZ _ _ result.2 _ 1
+          (V_of_bound (bound_signTop cache _ _ hdig.1 hdig.2) secret signingZ
+            (SigGolfCandidate.Budget.one_le_zOf _) result.2) ?_ |>.trans_eq (mul_one _)
+        intro out _; rw [V_pure]
+      · simp only [hn0, ite_false]
+        cases hx : result.1 with
+        | none =>
+            simp only [hx, V_pure]
+            exact one_le_mul (one_le_pow₀ (SigGolfCandidate.Budget.one_le_zOf _)) (E.layerMomentBound_ge_one n)
+        | some pair =>
           obtain ⟨counter, digits⟩ := pair
           have hd := hpost counter digits hx
           simp only [hx]
-          by_cases hn0 : n = 0
-          · subst n
-            simp only [ite_true]
-            refine V_bind_bounded secret signingZ _ _ result.2 _ 1
-              (V_of_bound (bound_signTop cache _ digits hd.1 hd.2.1) secret signingZ
-                (SigGolfCandidate.Budget.one_le_zOf _) result.2) ?_ |>.trans_eq (mul_one _)
-            intro out _; rw [V_pure]
-          · simp only [hn0, ite_false]
-            refine V_bind_bounded secret signingZ _ _ result.2 _ _
-              (V_of_bound (bound_buildTree (Fin.ofNat 4 n) _ _ digits hd.2.2) secret signingZ
-                (SigGolfCandidate.Budget.one_le_zOf _) result.2) ?_
-            intro treeResult htree
-            have ht := hf.tree (Fin.ofNat 4 n) _ _ digits result.2 hnext treeResult htree
-            rw [hnv] at ht
-            refine V_bind_bounded secret signingZ _ _ treeResult.2 _ 1
-              (ih (by omega) _ _ ht) ?_ |>.trans_eq (mul_one _)
-            intro previous _
-            cases previous.1 <;> rw [V_pure]
+          refine V_bind_bounded secret signingZ _ _ result.2 _ _
+            (V_of_bound (bound_buildTree (Fin.ofNat 4 n) _ _ digits hd.2.2) secret signingZ
+              (SigGolfCandidate.Budget.one_le_zOf _) result.2) ?_
+          intro treeResult htree
+          have ht := hf.tree (Fin.ofNat 4 n) _ _ digits result.2 hnext treeResult htree
+          rw [hnv] at ht
+          refine V_bind_bounded secret signingZ _ _ treeResult.2 _ 1
+            (ih (by omega) _ _ ht) ?_ |>.trans_eq (mul_one _)
+          intro previous _
+          cases previous.1 <;> rw [V_pure]
 theorem V_layerCounterSearch_fresh (secret : BitVec 256) (lay : Layer)
     (tree leaf : Nat) (msg : ClaudeWCT.WCT9.LayerMsg) (fuel counter : Nat)
     (hlimit : counter + fuel ≤ 2 ^ 32) (cache : Sampling.RCache)
@@ -153,36 +159,42 @@ theorem V_signLayersBC (secret : BitVec 256) (cache : Cache) (index : Nat) :
           (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg 0 counterLimit
           tree' leaf' left' right' c) rcache result hr]
         exact hc other (by omega) tree' leaf' left' right' c hlt
-      cases hx : result.1 with
-      | none =>
-          simp only [hx, V_pure]
-          split
-          · exact one_le_pow₀ (SigGolfCandidate.Budget.one_le_zOf _)
-          · exact one_le_mul (one_le_pow₀ (SigGolfCandidate.Budget.one_le_zOf _)) (E.layerMomentBound_ge_one n)
-      | some pair =>
+      by_cases hn0 : n = 0
+      · subst n
+        simp only [ite_true]
+        have hdig : ((result.1.map Prod.snd).getD dummyTop).length = 54 ∧
+            ((result.1.map Prod.snd).getD dummyTop).sum = 126 := by
+          cases hx : result.1 with
+          | none => exact ⟨by decide, by decide⟩
+          | some pair =>
+              obtain ⟨counter, digits⟩ := pair
+              have hd := hpost counter digits hx
+              exact ⟨hd.1, hd.2.1⟩
+        refine V_bind_bounded secret signingZ _ _ result.2 _ 1
+          (V_of_bound (bound_signTop cache _ _ hdig.1 hdig.2) secret signingZ
+            (SigGolfCandidate.Budget.one_le_zOf _) result.2) ?_ |>.trans_eq (mul_one _)
+        intro out _; rw [V_pure]
+      · simp only [hn0, ite_false]
+        cases hx : result.1 with
+        | none =>
+            simp only [hx, V_pure]
+            exact one_le_mul (one_le_pow₀ (SigGolfCandidate.Budget.one_le_zOf _)) (E.layerMomentBound_ge_one n)
+        | some pair =>
           obtain ⟨counter, digits⟩ := pair
           have hd := hpost counter digits hx
           simp only [hx]
-          by_cases hn0 : n = 0
-          · subst n
-            simp only [ite_true]
-            refine V_bind_bounded secret signingZ _ _ result.2 _ 1
-              (V_of_bound (bound_signTop cache _ digits hd.1 hd.2.1) secret signingZ
-                (SigGolfCandidate.Budget.one_le_zOf _) result.2) ?_ |>.trans_eq (mul_one _)
-            intro out _; rw [V_pure]
-          · simp only [hn0, ite_false]
-            refine V_bind_bounded secret signingZ _ _ result.2 _ _
-              (V_of_bound (bound_buildTree (Fin.ofNat 4 n) _ _ digits hd.2.2) secret signingZ
-                (SigGolfCandidate.Budget.one_le_zOf _) result.2) ?_
-            intro treeResult htree
-            have ht : PairFreshBelow n treeResult.2 :=
-              preserves_pairBelow secret _ (fun target htag =>
-                SigGolfCandidate.T3.Freshness.avoids_buildTree secret target (Or.inl htag) _ _ _ digits)
-                n result.2 hnext treeResult htree
-            refine V_bind_bounded secret signingZ _ _ treeResult.2 _ 1
-              (ih (by omega) _ _ ht) ?_ |>.trans_eq (mul_one _)
-            intro previous _
-            cases previous.1 <;> rw [V_pure]
+          refine V_bind_bounded secret signingZ _ _ result.2 _ _
+            (V_of_bound (bound_buildTree (Fin.ofNat 4 n) _ _ digits hd.2.2) secret signingZ
+              (SigGolfCandidate.Budget.one_le_zOf _) result.2) ?_
+          intro treeResult htree
+          have ht : PairFreshBelow n treeResult.2 :=
+            preserves_pairBelow secret _ (fun target htag =>
+              SigGolfCandidate.T3.Freshness.avoids_buildTree secret target (Or.inl htag) _ _ _ digits)
+              n result.2 hnext treeResult htree
+          refine V_bind_bounded secret signingZ _ _ treeResult.2 _ 1
+            (ih (by omega) _ _ ht) ?_ |>.trans_eq (mul_one _)
+          intro previous _
+          cases previous.1 <;> rw [V_pure]
 theorem layerMomentBound_four :
     E.layerMomentBound 4 = signingZ ^ 85922 * E.envelope 0 * E.envelope 1 * E.envelope 2 * E.envelope 3 := by
   change E.envelope 3 * (signingZ ^ 21439 * (E.envelope 2 *

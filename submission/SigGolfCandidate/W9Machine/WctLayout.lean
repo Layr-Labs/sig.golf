@@ -18,13 +18,13 @@ def GoodQFor (im : Image) (s : MachineState) (N C : Nat) (Q : Prop) (A : Nat)
   ∀ F, N ≤ F → obs <$> Riscv.execute F im s = X ∧
     ∀ hash : Hash, (evalWithAnswerFn hash (Riscv.execute F im s)).exit ≠ .unfinished ∧
       (evalWithAnswerFn hash (Riscv.execute F im s)).cycles ≤ C ∧
-      ((evalWithAnswerFn hash (Riscv.execute F im s)).exit = .success →
+      ((evalWithAnswerFn hash (Riscv.execute F im s)).exit = .success → HashOk hash →
         Q ∧ (evalWithAnswerFn hash (Riscv.execute F im s)).cycles ≤ A)
 structure Budget where
   fuel : Nat
   allCycles : Nat
   acceptCycles : Nat
-def layerEntryWord : Nat := 592
+def layerEntryWord : Nat := 589
 def layerWitnessOffset : Nat := 9288
 def forestRootAddress : Nat := 0x100
 def coordinateBase (k : Fin 9) : Nat := 2112 + 1024 * k.val

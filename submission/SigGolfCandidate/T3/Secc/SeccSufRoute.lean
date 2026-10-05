@@ -88,7 +88,7 @@ theorem rejected_trial_inadmissible (answers : Correctness.Answers) (rho : Diges
   exact digestSearch_accepts answers rho m attemptLimit 0 c' (Nat.zero_le _) hc' hrej hadm
 theorem ofNat_toNat32 (x : BitVec 32) : BitVec.ofNat 32 x.toNat = x :=
   BitVec.eq_of_toNat_eq (by rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt x.isLt])
-theorem counterSearch_good (answers : Correctness.Answers) (w : WBytes) (index : Nat) (lay : Layer)
+theorem counterSearch_good (answers : Correctness.Answers) (w : WBytes) (index : Nat) (lay : Layer) (hl : lay ≠ 0)
     (hgood : Extract.Good answers w index lay) :
     ∃ found, evalWithAnswerFn answers (counterSearch lay (route index lay).2 (route index lay).1
       (Extract.honestMsg answers index lay) 0 counterLimit) = some found := by
@@ -98,7 +98,7 @@ theorem counterSearch_good (answers : Correctness.Answers) (w : WBytes) (index :
   | some found => exact ⟨found, rfl⟩
   | none =>
       have := (Correctness.counterSearch_none_iff answers lay _ _ _ counterLimit 0).mp h (wctr w lay).toNat hlt
-      rw [Nat.zero_add, ofNat_toNat32, hdec] at this
+      rw [Nat.zero_add, ofNat_toNat32, Nonbinary.searchDecode_lower hl, hdec] at this
       exact absurd this (by simp)
 theorem honestMsg_three (answers : Correctness.Answers) (index : Nat) :
     Extract.honestMsg answers index (Fin.ofNat 4 3) =
@@ -116,16 +116,21 @@ theorem signLayers_good (answers : Correctness.Answers) (cache : T3.Cache) (inde
   | succ n ih =>
       intro hn value hval
       have hmsg := hval n rfl
-      obtain ⟨⟨counter, digits⟩, hs⟩ := counterSearch_good answers w index (Fin.ofNat 4 n) (hgood _)
-      rw [← hmsg] at hs
-      have hvalid := Cost.validDigits_decode (Correctness.counterSearch_some answers _ _ _ _ counterLimit 0 counter
-        digits (by decide) hs).2.2
       by_cases hn0 : n = 0
       · subst hn0
         rw [signLayers]
-        simp only [evalWithAnswerFn_bind, hs, ite_true, evalWithAnswerFn_pure]
+        simp only [evalWithAnswerFn_bind, ite_true, evalWithAnswerFn_pure]
         exact ⟨_, rfl⟩
-      · obtain ⟨k, rfl⟩ : ∃ k, n = k + 1 := ⟨n - 1, by omega⟩
+      · have hl : (Fin.ofNat 4 n : Layer) ≠ 0 := by
+          intro h
+          have hv : (Fin.ofNat 4 n : Layer).val = n := Nat.mod_eq_of_lt (by omega)
+          rw [h] at hv
+          exact hn0 hv.symm
+        obtain ⟨⟨counter, digits⟩, hs⟩ := counterSearch_good answers w index (Fin.ofNat 4 n) hl (hgood _)
+        rw [← hmsg] at hs
+        have hvalid := Cost.validDigits_decode (Correctness.counterSearch_some answers _ _ _ _ counterLimit 0 counter
+          digits (by decide) hs).2.2
+        obtain ⟨k, rfl⟩ : ∃ k, n = k + 1 := ⟨n - 1, by omega⟩
         have htree := Correctness.eval_buildTree_result answers (Fin.ofNat 4 (k + 1))
           (route index (Fin.ofNat 4 (k + 1))).2 (route index (Fin.ofNat 4 (k + 1))).1 digits hvalid
           (route_leaf_bound index _)

@@ -197,8 +197,8 @@ theorem signLayers_free (cache : T3.Cache) (index n : Nat) (message : Digest) :
       apply bind_allowed FtsFree (counterSearch_free _ _ _ _ _ _)
       intro found
       split
+      · exact bind_allowed FtsFree (signTop_free _ _ _) fun _ => pure_allowed _ _
       · split
-        · exact bind_allowed FtsFree (signTop_free _ _ _) fun _ => pure_allowed _ _
         · apply bind_allowed FtsFree (buildTree_free _ _ _ _)
           intro built
           obtain ⟨levels, values⟩ := built
@@ -208,7 +208,7 @@ theorem signLayers_free (cache : T3.Cache) (index n : Nat) (message : Digest) :
           split
           · exact pure_allowed _ _
           · exact pure_allowed _ _
-      · exact pure_allowed _ _
+        · exact pure_allowed _ _
 end Free
 section Table
 variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : Omega U)

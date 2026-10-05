@@ -472,6 +472,7 @@ structure LInv (sig : WCT9.Signature) (index n : Nat) (value : WCT9.LayerMsg) (s
   sigl : SigLayersAt s sig
   z : LZero s
   table : Search.TableOK s
+  cf : Search.CfTableOK 0 s
 def HalfAt (t : MachineState) (D k : Nat) (v : BitVec 32) : Prop :=
   (t.getMem (BitVec.ofNat 64 D)).extractLsb' (32 * k) 32 = v
 def HalfFrame (s t : MachineState) (n : Nat) : Prop :=
@@ -617,13 +618,16 @@ theorem layer_step {sig : WCT9.Signature} {index n : Nat} {value : WCT9.LayerMsg
     ⟨p1, x1, by rw [r1.get (by decide)]; exact hI.x5, x8, x9, x18, x17, x26, x27, htree, hleaf32,
       by rw [g1 _ (by decide)]; exact hI.enc.1, by rw [g1 _ (by decide)]; exact hI.enc.2,
       ⟨x, hx, by rw [g1 _ (by decide)]; exact hx32⟩, by rw [g1 _ (by decide)]; exact hI.z.e40,
-      by rw [g1 _ (by decide)]; exact (hI.right (by omega)).1, by rw [g1 _ (by decide)]; exact (hI.right (by omega)).2, htable1⟩
+      by rw [g1 _ (by decide)]; exact (hI.right (by omega)).1, by rw [g1 _ (by decide)]; exact (hI.right (by omega)).2, htable1,
+      hI.cf.frame f1 (by intro i hi hi' h; exact h)⟩
   rw [layerRun_succ _ _ _ hn]
   refine (TBSim.steps s1 (TBSim.bind (W₂ := 10 + rlCost lay + lcost n)
     (counterSearch_tbsim (sk := sk) kernAt_expand hcs) (fun r t2 h2 => ?_))).mono
     (by simp only [lcost, layCost, ← hlay, Search.BC.csT, Search.BC.csOk, csT, csOk]; omega) (fun _ _ h => h)
   rcases r with _ | ⟨c, ds⟩
-  · obtain ⟨p2, h5, h10, _⟩ := h2
+  · change (if lay = 0 ∧ (354 : Nat) = 543 then _ else _) at h2
+    rw [if_neg (by omega)] at h2
+    obtain ⟨p2, h5, h10, _⟩ := h2
     exact (TBSim.pure (Q := LPost s sig index (n + 1)) (a := none) ⟨p2, h5, h10⟩).mono (by omega) (fun _ _ h => h)
   · obtain ⟨p2, hc, x19, e32, ⟨v, hdec⟩, hlen, hdig, r2, f2, _⟩ := h2
     dsimp only at p2 hc x19 e32 hdec hlen hdig
@@ -687,7 +691,7 @@ theorem layer_step {sig : WCT9.Signature} {index n : Nat} {value : WCT9.LayerMsg
     have hI4 : LInv sig index n root t4 := by
       have hx5 : t4.getReg .x5 = 0 := by
         rw [r4.get (by decide), g3 _ (by decide) (by decide) (by decide)]; exact hI.x5
-      refine ⟨by rw [p4, hlay, lR2_eq n hn], by omega, hx5, hI.hidx, ?_, e4, ?_, ?_, ?_, ?_, ?_, ?_⟩
+      refine ⟨by rw [p4, hlay, lR2_eq n hn], by omega, hx5, hI.hidx, ?_, e4, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
       · rw [hfar4 IDXV (by decide) (ncs _ (by decide)) (by simp only [IDXV, CHAIN, NODE, LEAFPK, ENC]; omega) (by decide) (nrl _ (by decide))]
         exact hI.idx
       · intro hn0
@@ -740,6 +744,24 @@ theorem layer_step {sig : WCT9.Signature} {index n : Nat} {value : WCT9.LayerMsg
           exact hI.z.e40
       · apply hI.table.frame (((f1.trans f2).trans f3).trans f4)
         intro i hi h
+        rcases h with ((h | h) | h) | h
+        · exact h
+        · unfold CsW Search.DigW at h
+          simp only [Search.TOP_DATA, ENC, EOUT, DIGITS] at h
+          omega
+        · have := htab.2.2.2.2.2.2.2.2.1
+          simp only [Search.TOP_DATA] at h
+          omega
+        · rcases h with h | h
+          · unfold RlScratch Expand.RlScratch at h
+            simp only [Search.TOP_DATA, CHAIN, NODE, NOUT, LEAFPK, ENC] at h
+            omega
+          · have hh := rlWit_range h
+            have hb := htab.2.2.2.2.2.2.2.1
+            simp only [Search.TOP_DATA] at hh
+            omega
+      · apply hI.cf.frame (((f1.trans f2).trans f3).trans f4)
+        intro i hi hi' h
         rcases h with ((h | h) | h) | h
         · exact h
         · unfold CsW Search.DigW at h

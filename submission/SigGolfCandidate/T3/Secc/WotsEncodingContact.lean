@@ -1,7 +1,6 @@
 import SigGolfCandidate.T3.Secc.WotsEncodingMarker
 import SigGolfCandidate.T3.Secc.WotsContacts
 import SigGolfCandidate.T3.Secc.WotsTransportCount
-
 namespace SigGolfCandidate.T3.Security.Wots
 open OracleComp OracleSpec ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final
@@ -19,7 +18,7 @@ def ContactFirstAt (T : Answers) (trace : List Entry) (a : ChainAddr) : Prop :=
   ∃ k, ContactAt T (trace.take k) a ∧ ¬MarkerAt T (trace.take k) a ∧ MarkerAt T trace a
 def CFK (T : Answers) (trace : List Entry) : Prop :=
   ∃ p : CanonGraph.LeafPos × Fin 58, WotsExtract.SourceChain (chainAt p) ∧ ContactFirstAt T trace (chainAt p)
-theorem frontierValue_congr_honest {T T' : Answers} (h : ∀ q, HonestQ T q → T' q = T q)
+theorem frontierValue_congr_honest {T T' : Answers} (h : AgreeOn (HonestQ T) T T')
     (p : CanonGraph.LeafPos × Fin 58) : frontierValue T' (chainAt p) = frontierValue T (chainAt p) := by
   have hd : depth T' (chainAt p) = depth T (chainAt p) := by
     unfold depth chainAt
@@ -27,14 +26,14 @@ theorem frontierValue_congr_honest {T T' : Answers} (h : ∀ q, HonestQ T q → 
   unfold frontierValue honestChainValue
   rw [hd, leafSeed_congr_nonEnc (nonEnc_of_honest h)]
   exact (Enc.respects_chain _ _ _ _ _ _ _).eval_eq (nonEnc_of_honest h)
-theorem contactAt_congr {T T' : Answers} (h : ∀ q, HonestQ T q → T' q = T q) (trace : List Entry)
+theorem contactAt_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (trace : List Entry)
     (p : CanonGraph.LeafPos × Fin 58) : ContactAt T' trace (chainAt p) ↔ ContactAt T trace (chainAt p) := by
   have hd : depth T' (chainAt p) = depth T (chainAt p) := by
     unfold depth chainAt
     rw [referenceDigits_congr_honest h]
   unfold ContactAt
   rw [hd, frontierValue_congr_honest h p]
-theorem cfk_congr {T T' : Answers} (h : ∀ q, HonestQ T q → T' q = T q) (trace : List Entry) :
+theorem cfk_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (trace : List Entry) :
     CFK T' trace ↔ CFK T trace := by
   unfold CFK ContactFirstAt
   simp only [contactAt_congr h, markerAt_congr h]
@@ -48,7 +47,7 @@ theorem contacts_mono (T : Answers) {trace trace' : List Entry} (hsub : ∀ e �
   intro p hp
   simp only [Finset.mem_filter, Finset.mem_univ, true_and] at hp ⊢
   exact ⟨hp.1, WotsExtract.contactAt_mono hp.2 hsub⟩
-theorem contacts_congr {T T' : Answers} (h : ∀ q, HonestQ T q → T' q = T q) (trace : List Entry) :
+theorem contacts_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (trace : List Entry) :
     contacts T' trace = contacts T trace := by
   unfold contacts
   rw [Finset.card_filter, Finset.card_filter]
@@ -113,10 +112,12 @@ theorem indicator_le_one (P : Prop) [Decidable P] : (if P then (1 : ENNReal) els
   split_ifs <;> simp
 section Step
 variable [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, DecidableEq k]
-theorem cf_step (T : Answers) (F : Set EncIndex)
+theorem cf_step (T : Answers) (F : Set EncIndex) (init : F → Finset HashOutput)
+    (hcell : ∀ (e : F) (p : CanonGraph.LeafPos × Fin 58),
+      Pr[fun ans => MarkEntry T (chainAt p) (encInput e.val, ans) | cell (init e)] ≤ 57 / (2 : ENNReal) ^ 128)
     (hother : ∀ x, ¬ Lazy.IsCell encInput F x → ∀ p,
       ¬ (WotsExtract.SourceChain (chainAt p) ∧ MarkEntry T (chainAt p) (x, T (.inl (.inr x)))))
-    (h : FreeMonoid Entry) (allowed : F → Finset HashOutput) (hc : Lazy.Consistent encInput F h allowed)
+    (h : FreeMonoid Entry) (allowed : F → Finset HashOutput) (hc : Lazy.Consistent encInput F init h allowed)
     (input : RefWorld.Domain) :
     ∑' result, Pr[= result | (Lazy.lazyImpl encInput F T input).run allowed] *
         (if CFK T (h * Lazy.obs input result.1).toList then (1 : ENNReal) else 0) ≤
@@ -154,23 +155,23 @@ theorem cf_step (T : Answers) (F : Set EncIndex)
       · rw [hc.2 e₀ (fun ans hans => hq ⟨ans, hans⟩)]
         let S := Finset.univ.filter fun p : CanonGraph.LeafPos × Fin 58 =>
           WotsExtract.SourceChain (chainAt p) ∧ ContactAt T h.toList (chainAt p)
-        calc _ = Pr[fun ans => CFK T (h.toList ++ [(x, ans)]) | cell (Finset.univ : Finset HashOutput)] := by
+        calc _ = Pr[fun ans => CFK T (h.toList ++ [(x, ans)]) | cell (init e₀)] := by
               rw [probEvent_eq_tsum_ite]
               refine tsum_congr fun ans => ?_
               split_ifs <;> simp
-          _ ≤ Pr[fun ans => ∃ p ∈ S, MarkEntry T (chainAt p) (x, ans) | cell (Finset.univ : Finset HashOutput)] := by
+          _ ≤ Pr[fun ans => ∃ p ∈ S, MarkEntry T (chainAt p) (x, ans) | cell (init e₀)] := by
               apply probEvent_mono
               intro ans _ hnew
               obtain ⟨p, hs, hcon, hme, -⟩ := cfk_new hold hnew
               refine ⟨p, ?_, hme⟩
               simp only [S, Finset.mem_filter, Finset.mem_univ, true_and]
               exact ⟨hs, hcon⟩
-          _ ≤ ∑ p ∈ S, Pr[fun ans => MarkEntry T (chainAt p) (x, ans) | cell (Finset.univ : Finset HashOutput)] :=
+          _ ≤ ∑ p ∈ S, Pr[fun ans => MarkEntry T (chainAt p) (x, ans) | cell (init e₀)] :=
               probEvent_exists_finset_le_sum S _ _
           _ ≤ ∑ p ∈ S, 57 / (2 : ENNReal) ^ 128 := by
               refine Finset.sum_le_sum fun p _ => ?_
-              rw [Lazy.probEvent_cell_univ]
-              exact markEntry_cell_le T x (chainAt p)
+              rw [← hx₀]
+              exact hcell e₀ p
           _ = (2 ^ 128 : ENNReal)⁻¹ * ((57 * contacts T h.toList : Nat) : ENNReal) := by
               rw [Finset.sum_const, nsmul_eq_mul]
               unfold contacts
@@ -187,59 +188,63 @@ theorem cf_step (T : Answers) (F : Set EncIndex)
   · rw [Lazy.lazyImpl_tick, tsum_probOutput_map_mul]
     simp only [Lazy.obs, mul_one, if_neg hold, mul_zero, tsum_zero]
     exact zero_le
-theorem lazy_cf_le {α : Type} (T : Answers) (F : Set EncIndex)
+theorem lazy_cf_le {α : Type} (T : Answers) (F : Set EncIndex) (init : F → Finset HashOutput)
+    (hinit : ∀ e, (init e).Nonempty)
+    (hcell : ∀ (e : F) (p : CanonGraph.LeafPos × Fin 58),
+      Pr[fun ans => MarkEntry T (chainAt p) (encInput e.val, ans) | cell (init e)] ≤ 57 / (2 : ENNReal) ^ 128)
     (hother : ∀ x, ¬ Lazy.IsCell encInput F x → ∀ p,
       ¬ (WotsExtract.SourceChain (chainAt p) ∧ MarkEntry T (chainAt p) (x, T (.inl (.inr x)))))
     (C : OracleComp RefWorld α) :
     ∑' z, Pr[= z | (simulateQ (Lazy.lazyImpl encInput F T) (SphincsSecurity.QueryPause.traced Lazy.obs C)).run
-        (fun _ => Finset.univ)] * (if CFK T z.1.2.toList then (1 : ENNReal) else 0) ≤
+        init] * (if CFK T z.1.2.toList then (1 : ENNReal) else 0) ≤
       (2 ^ 128 : ENNReal)⁻¹ * ∑' z, Pr[= z | (simulateQ (Lazy.lazyImpl encInput F T)
-        (SphincsSecurity.QueryPause.traced Lazy.obs C)).run (fun _ => Finset.univ)] *
+        (SphincsSecurity.QueryPause.traced Lazy.obs C)).run init] *
           (costL T F [] z.1.2.toList : ENNReal) := by
   have key := SphincsSecurity.QueryPause.traced_spmf_history_potential_le Lazy.obs (Lazy.lazyImpl encInput F T)
-    (fun h st => Lazy.Consistent encInput F h st)
-    (fun h st hc input result hr => Lazy.consistent_step encInput F encInput_injective T h st hc input result hr)
+    (fun h st => Lazy.Consistent encInput F init h st)
+    (fun h st hc input result hr =>
+      Lazy.consistent_step encInput F encInput_injective T init h st hc input result hr)
     (fun C' h st hc => by
       rw [← Lazy.lazyRun_eq_simulate]
       exact probFailure_eq_zero' (SphincsSecurity.Concrete.UniformTableObservation.lazyRun_neverFail (Lazy.aux T)
-        (Lazy.aux_neverFail T) _ st (hc.nonempty encInput F)))
+        (Lazy.aux_neverFail T) _ st (hc.nonempty encInput F hinit)))
     (fun h _ => if CFK T h.toList then (1 : ENNReal) else 0) (2 ^ 128 : ENNReal)⁻¹
     (fun h tail => costL T F h.toList tail.toList) (cfCharge T F)
     (fun h => by simp [costL]) (fun h input answer tail => costL_step T F h input answer tail)
-    (fun h st hc input => cf_step T F hother h st hc input)
-    C 1 (fun _ => Finset.univ) (Lazy.consistent_one encInput F)
+    (fun h st hc input => cf_step T F init hcell hother h st hc input)
+    C 1 init (Lazy.consistent_one encInput F init)
   simp only [one_mul] at key
   rw [if_neg (by simpa using cfk_nil T), zero_add] at key
   simpa using key
 end Step
 noncomputable def cfInd (s : RefSample) : ENNReal := if CFK s.answers s.trace then 1 else 0
 noncomputable def cfCost (s : RefSample) : ENNReal := ((57 * s.trace.length * contacts s.answers s.trace : Nat) : ENNReal)
-theorem free_cf_le [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, DecidableEq k]
-    (adversary : AdversaryP) (q : Nat) (iX : ∀ k : Set EncIndex, Fintype (k → HashOutput)) (U : Finset HashInput)
+theorem cells_cf_le [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, DecidableEq k]
+    (adversary : AdversaryP) (q : Nat) (U : Finset HashInput)
     (hU : SeccLaw.publicUniverse ⊆ U) (privateTable : FullGame.FullTable) (pub : U → HashOutput) :
-    ∑' y, @PMF.uniformOfFintype (freeSet (eagerAnswers U privateTable pub) → HashOutput) (iX _) _ y *
-        ∑' r, (liftM (offlineRun (eagerAnswers U privateTable (ov (freeSet (eagerAnswers U privateTable pub)) pub y))
-          adversary q) : PMF SeedResult) r *
-          cfInd (mkSample (eagerAnswers U privateTable (ov (freeSet (eagerAnswers U privateTable pub)) pub y)) r) ≤
-      (2 ^ 128 : ENNReal)⁻¹ * ∑' y, @PMF.uniformOfFintype (freeSet (eagerAnswers U privateTable pub) → HashOutput)
-          (iX _) _ y *
-        ∑' r, (liftM (offlineRun (eagerAnswers U privateTable (ov (freeSet (eagerAnswers U privateTable pub)) pub y))
-          adversary q) : PMF SeedResult) r *
-          cfCost (mkSample (eagerAnswers U privateTable (ov (freeSet (eagerAnswers U privateTable pub)) pub y)) r) := by
-  rw [free_transfer adversary q iX U hU privateTable pub cfInd
+    ∑' y, PMF.uniformOfFinset (Fintype.piFinset (cellInit (cellKey (eagerAnswers U privateTable pub))))
+          (Fintype.piFinset_nonempty.mpr (cellInit_nonempty _)) y *
+        ∑' r, (liftM (offlineRun (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) adversary q) : PMF SeedResult) r *
+          cfInd (mkSample (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) r) ≤
+      (2 ^ 128 : ENNReal)⁻¹ * ∑' y, PMF.uniformOfFinset (Fintype.piFinset (cellInit (cellKey (eagerAnswers U privateTable pub))))
+          (Fintype.piFinset_nonempty.mpr (cellInit_nonempty _)) y *
+        ∑' r, (liftM (offlineRun (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) adversary q) : PMF SeedResult) r *
+          cfCost (mkSample (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) r) := by
+  rw [cell_transfer adversary q U hU privateTable pub cfInd
       (fun tr => if CFK (eagerAnswers U privateTable pub) tr then (1 : ENNReal) else 0)
-      (fun y r => by
+      (fun y hy r => by
         unfold cfInd mkSample
-        simp only [cfk_congr (honest_ov U privateTable pub y)]),
-    free_transfer adversary q iX U hU privateTable pub cfCost
+        simp only [cfk_congr (agree_ovc U hU privateTable pub y hy)]),
+    cell_transfer adversary q U hU privateTable pub cfCost
       (fun tr => ((57 * tr.length * contacts (eagerAnswers U privateTable pub) tr : Nat) : ENNReal))
-      (fun y r => by
+      (fun y hy r => by
         unfold cfCost mkSample
-        simp only [contacts_congr (honest_ov U privateTable pub y)])]
-  refine (lazy_cf_le (eagerAnswers U privateTable pub) (freeSet (eagerAnswers U privateTable pub))
-    (fun x hx p => markEntry_other U privateTable pub x hx p) _).trans ?_
+        simp only [contacts_congr (agree_ovc U hU privateTable pub y hy)])]
+  refine (lazy_cf_le (eagerAnswers U privateTable pub) (cellKey (eagerAnswers U privateTable pub)).1 (cellInit (cellKey (eagerAnswers U privateTable pub))) (cellInit_nonempty _)
+    (fun e p => markEntry_init_le (eagerAnswers U privateTable pub) (cellKey (eagerAnswers U privateTable pub)) e p)
+    (fun x hx p => markEntry_noncell U privateTable pub x hx p) _).trans ?_
   refine mul_le_mul' le_rfl (ENNReal.tsum_le_tsum fun z => mul_le_mul' le_rfl ?_)
-  have := costL_le (eagerAnswers U privateTable pub) (freeSet (eagerAnswers U privateTable pub)) z.1.2.toList []
+  have := costL_le (eagerAnswers U privateTable pub) (cellKey (eagerAnswers U privateTable pub)).1 z.1.2.toList []
   rw [List.nil_append] at this
   exact_mod_cast this
 theorem reference_cfInd_le (adversary : AdversaryP) (q : Nat) :
@@ -247,8 +252,8 @@ theorem reference_cfInd_le (adversary : AdversaryP) (q : Nat) :
       (2 ^ 128 : ENNReal)⁻¹ * ∑' s, referenceExperiment adversary q s * cfCost s := by
   let _ : ∀ k : Set EncIndex, Fintype k := fun k => Fintype.ofFinite k
   let _ : ∀ k : Set EncIndex, DecidableEq k := fun k => Classical.decEq k
-  exact reference_free_le adversary q (fun k => Pi.instFintype) cfInd cfCost _
-    (fun privateTable pub => free_cf_le adversary q (fun k => Pi.instFintype) (referenceInputs adversary)
+  exact reference_cells_le adversary q cfInd cfCost _
+    (fun privateTable pub => cells_cf_le adversary q (referenceInputs adversary)
       (publicUniverse_sub adversary) privateTable pub)
 theorem chainAt_injective : Function.Injective chainAt := by
   rintro ⟨⟨lay, tree, leaf⟩, i⟩ ⟨⟨lay', tree', leaf'⟩, i'⟩ h

@@ -211,6 +211,13 @@ def decode (lay : Layer) (value : Digest) : Option (List Nat) :=
   else if total ≤ target lay ∧ target lay - total < 8 then
     some (digits ++ [target lay - total])
   else none
+def creditFloor (lay : Layer) : Nat := ![9, 0, 0, 0] lay
+def topCredit (value : Digest) : Nat :=
+  ((List.range 54).map fun i => if coreDigit 0 value i = (if i < 51 then 3 else 2) then 1 else 0).sum
+def encCredit (lay : Layer) (value : Digest) : Nat := if lay = 0 then topCredit value else 0
+def searchDecode (lay : Layer) (value : Digest) : Option (List Nat) :=
+  if encCredit lay value < creditFloor lay then none else decode lay value
+def dummyTop : List Nat := List.replicate 42 3 ++ List.replicate 12 0
 def encodingInput (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : BitVec 32) : HashInput :=
   bytesLE 16 message ++ bytesLE 16 (header 4 lay.val tree 0 leaf) ++ bytesLE 4 counter
 def counterSearch (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : Nat) :
@@ -218,7 +225,7 @@ def counterSearch (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : 
   | 0 => pure none
   | fuel+1 => do
       let answer ← shortHash (encodingInput lay tree leaf message (BitVec.ofNat 32 counter))
-      match decode lay answer with
+      match searchDecode lay answer with
       | none => counterSearch lay tree leaf message (counter+1) fuel
       | some digits => pure (some (BitVec.ofNat 32 counter, digits))
 structure Selection where
@@ -293,11 +300,12 @@ def signLayers (cache : Cache) (index : Nat) : Nat → Digest → M (Option (Lis
   | n+1, message => do
       let lay : Layer := Fin.ofNat 4 n
       let (leaf,tree) := route index lay
-      let some (_,digits) ← counterSearch lay tree leaf message 0 counterLimit | pure none
+      let found ← counterSearch lay tree leaf message 0 counterLimit
       if n=0 then
-        let part ← signTop cache leaf digits
+        let part ← signTop cache leaf ((found.map Prod.snd).getD dummyTop)
         pure (some [part])
       else
+        let some (_,digits) := found | pure none
         let (levels,values) ← buildTree lay tree leaf digits
         let path := (List.range (height lay)).map fun j => (levels.getD j []).getD (leaf/2^j ^^^ 1) 0
         let some previous ← signLayers cache index n ((levels.getD (height lay) []).getD 0 0) | pure none

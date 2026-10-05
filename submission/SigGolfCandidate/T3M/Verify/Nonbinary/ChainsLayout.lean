@@ -35,7 +35,7 @@ def shift10 (w : Reg) (b : Nat) : E :=
   else .bin .srl (.reg w) (.c (BitVec.ofNat 64 (b-10)))
 def dispatchR (q : Nat) : Result :=
   let sh := shift10 (if q<9 then .x16 else .x17) (if q<9 then 7*q else 7*(q-9))
-  let a := .bin .add (.bin .and sh (.reg .x6)) (.reg .x15)
+  let a := .bin .add (.bin .and sh (.reg .x24)) (.reg .x15)
   ⟨⟨RegFile.init.set .x14 a,[],[]⟩,
     .bin .and (.bin .add a (.c (BitVec.ofNat 64 (32*q) + 18446744073709549984#64))) (.c (~~~1#64)),.jump,4,4⟩
 def tailDispatchR : Result :=
@@ -50,20 +50,20 @@ def tailsOK (q sl p : Nat) : Bool :=
   (List.range (mx q)).all fun m =>
     rOK (vrun (p+2*m+1) 2) (tailR (if m+1=mx q then some sl else none) (p+2*m+1))
 def partOK (q i d p : Nat) : Bool :=
-  if d=mx q then rOK (vrun p 4) (copyFH .x8 (off i) (slot i) p)
+  if d=mx q then rOK (vrun p 4) (copyFH .x19 (off i) (slot i) p)
   else rOK (vrun p 8)
-      (if d+1=mx q then headRHT .x8 (off i) d (slot i) p i
-       else headRH .x8 (off i) d none p i) &&
+      (if d+1=mx q then headRHT .x19 (off i) d (slot i) p i
+       else headRH .x19 (off i) d none p i) &&
     rungsOK q (d+1) (slot i) (p+5)
 def entCheck (q k : Nat) : Bool :=
   let dA := k%(mx q+1)
   let dB := k/(mx q+1)%(mx q+1)
   let dC := k/(mx q+1)^2
   if dA=mx q then rOK (vrun (entW q k) 7)
-    (copyN .x8 (off (3*q)) (slot (3*q)) (pcB q dB dC))
+    (copyN .x19 (off (3*q)) (slot (3*q)) (pcB q dB dC))
   else rOK (vrun (entW q k) 7)
-    (if dA+1=mx q then headJDTerm .x8 (off (3*q)) (base q dB dC+2*dA+1) (3*q) dA
-     else headJD .x8 (off (3*q)) (base q dB dC+2*dA+1) (3*q) dA)
+    (if dA+1=mx q then headJDTerm .x19 (off (3*q)) (base q dB dC+2*dA+1) (3*q) dA
+     else headJD .x19 (off (3*q)) (base q dB dC+2*dA+1) (3*q) dA)
 def dispatchOK (q dB dC : Nat) : Bool :=
   rOK (vrun (pcX q dB dC) 5)
     (if q<16 then dispatchR (q+1) else if q=16 then tailDispatchR else retR)

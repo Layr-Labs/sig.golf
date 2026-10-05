@@ -24,6 +24,7 @@ def TailTableOK (s : MachineState) : Prop :=
 structure PackedTables (s : MachineState) : Prop where
   pair : PairTableOK s
   tail : TailTableOK s
+  mask : s.getMem (BitVec.ofNat 64 (TAIL_DATA + 64)) = 130048#64
 theorem PackedTables.frame {s t : MachineState} (ht : PackedTables s)
     (hf : Frame s t (fun _ => False)) : PackedTables t := by
   constructor
@@ -31,6 +32,7 @@ theorem PackedTables.frame {s t : MachineState} (ht : PackedTables s)
     exact (hf.getByte (by unfold PAIR_DATA; omega) (by simp)).trans (ht.pair r hr)
   · intro r hr
     exact (hf.getByte (by unfold TAIL_DATA; omega) (by simp)).trans (ht.tail r hr)
+  · exact (hf.get (by unfold TAIL_DATA; omega) (by simp)).trans ht.mask
 theorem PackedTables.congr {s t : MachineState} (ht : PackedTables s)
     (hm : ∀ A, PAIR_DATA ≤ A → A + 8 ≤ 2 ^ 24 →
       t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)) : PackedTables t := by
@@ -45,6 +47,7 @@ theorem PackedTables.congr {s t : MachineState} (ht : PackedTables s)
       hm _ (by unfold PAIR_DATA TAIL_DATA; omega) (by unfold TAIL_DATA; omega),
       ← getByte_eq_word _ _ (by unfold TAIL_DATA; omega)]
     exact ht.tail r hr
+  · exact (hm _ (by unfold PAIR_DATA TAIL_DATA; omega) (by unfold TAIL_DATA; omega)).trans ht.mask
 theorem PairTableOK.rank (s : MachineState) (ht : PairTableOK s) (r : Nat) (hr : r < 16384) :
     (s.getByte (BitVec.ofNat 64 (PAIR_DATA + r))).zeroExtend 64 = BitVec.ofNat 64 (pairLookup r) := by
   rw [ht r hr]
