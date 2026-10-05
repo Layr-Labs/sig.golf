@@ -1,11 +1,7 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.SeccLaw
-import SigGolfCandidate.T3.Secc.CreationSharedLaw
-import SigGolfCandidate.ClaudeWCT.Bank.GameBank
 import SigGolfCandidate.ClaudeWCT.Bank.WCTRev3
 
 section
-
-
 namespace ClaudeWCT.W9.T3.Security.CreationGame
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -47,10 +43,7 @@ theorem expectedBirths_le_shared (cls : HashInput → Prop)
   exact expectedBirths_le_classCount cls adversary budget hbudget
 end ClaudeWCT.W9.T3.Security.CreationGame
 end
-
 section
-
-
 namespace ClaudeWCT.W9.T3.Security.BankLink
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -126,10 +119,7 @@ theorem expectedBirths_le_shared (hrecord : RecordMatches S pay) (adversary : Ad
   exact CreationGame.expectedBirths_le_shared CaseC.IsDigestInput adversary budget hbudget
 end ClaudeWCT.W9.T3.Security.BankLink
 end
-
 section
-
-
 namespace ClaudeWCT.W9.T3.Security.BankLinkL
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -212,9 +202,7 @@ theorem wct_expectedBirths_le_shared (adversary : AdversaryP) (budget : Nat) (hb
   expectedBirths_le_shared _ _ (wct_recordMatches horizon rate hexc) adversary budget hbudget
 end ClaudeWCT.W9.T3.Security.BankLinkL
 end
-
 section
-
 namespace ClaudeWCT.W9.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security

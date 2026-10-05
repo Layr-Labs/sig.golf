@@ -1,5 +1,4 @@
 import SigGolfCandidate.T3M.Verify.Code
-import SigGolfCandidate.T3M.Sim
 import SigGolfCandidate.T3M.Verify.HashOk
 
 namespace SigGolfCandidate.T3M.Verify
@@ -143,7 +142,6 @@ theorem Good.halt {s : MachineState} (hf : fetch image s = some (.base .ECALL))
     by_cases hx : s.getReg .x10 = 0
     · simp only [hx, if_true]; decide
     · simp only [hx, if_false]; decide
-/-- `GoodQ` with the accept-cycle clause asked only of the hash functions satisfying `P`. -/
 def GoodQP (P : Hash → Prop) (s : MachineState) (N C : Nat) (Q : Prop) (A : Nat)
     (X : OracleComp HashSpec Obs) : Prop :=
   ∀ F, N ≤ F → obs <$> Riscv.execute F image s = X ∧
@@ -270,7 +268,6 @@ theorem GoodQP.pre_mono {P P' : Hash → Prop} {s : MachineState} {N C : Nat} {Q
   intro F hF
   obtain ⟨h1, h2⟩ := h F hF
   exact ⟨h1, fun hash => ⟨(h2 hash).1, (h2 hash).2.1, fun hs hp => (h2 hash).2.2 hs (hP hash hp)⟩⟩
-/-- A precondition no hash satisfies leaves only the all-cycle bound. -/
 theorem GoodQP.of_false {P : Hash → Prop} {s : MachineState} {N C : Nat} {Q : Prop} {A A' : Nat}
     {X : OracleComp HashSpec Obs} (h : GoodQ s N C Q A' X) (hP : ∀ hash, ¬ P hash) :
     GoodQP P s N C Q A X := by
@@ -292,7 +289,6 @@ theorem GoodQP.steps' {P : Hash → Prop} {s t : MachineState} {k c N C A N' C' 
     refine ⟨(h2 hash).1, by have := (h2 hash).2.1; omega, fun hs hp => ?_⟩
     obtain ⟨hq, ha⟩ := (h2 hash).2.2 hs hp
     exact ⟨hq, by omega⟩
-/-- A query whose continuation for answer `a` is good under the precondition `hash q = a ∧ P hash`. -/
 theorem GoodQP.query_pre {P : Hash → Prop} {s : MachineState} {N C A : Nat} {Q : Prop} {q : Query}
     {K : BitVec 256 → OracleComp HashSpec Obs}
     (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)

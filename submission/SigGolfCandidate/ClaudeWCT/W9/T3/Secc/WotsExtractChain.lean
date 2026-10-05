@@ -1,7 +1,4 @@
-import SigGolfCandidate.T3.Secc.WotsExtractChain
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEvents
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Layer
-import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Header
 import SigGolfCandidate.ClaudeWCT.W9.New.G3a.ExtractSrc
 
 namespace ClaudeWCT.W9.T3.Security.WotsExtract
@@ -76,11 +73,11 @@ theorem chain_cases (answers : Answers) (a : ChainAddr) (start count : Nat)
     (hdepth : depth answers a ≤ start + count)
     (reaches : evalWithAnswerFn answers (chainP a.key.lay a.key.tree a.key.leaf a.chain start count pad0 pad1 headerPad value) =
       honestChainValue answers a.key.lay a.key.tree a.key.leaf a.chain
-        (leafSeed answers a.key.lay a.key.tree a.key.leaf a.chain) (start + count)) :
+        (WCT9.wotsSeed answers a.key.lay a.key.tree a.key.leaf a.chain) (start + count)) :
     StructuralHitSrc answers (entriesOf answers qs) ∨
       ((depth answers a ≤ start →
           value = honestChainValue answers a.key.lay a.key.tree a.key.leaf a.chain
-            (leafSeed answers a.key.lay a.key.tree a.key.leaf a.chain) start ∧
+            (WCT9.wotsSeed answers a.key.lay a.key.tree a.key.leaf a.chain) start ∧
           (0 < count → pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0)) ∧
         (start < depth answers a →
           ContactAt answers (entriesOf answers qs) a ∧
@@ -104,7 +101,7 @@ theorem chain_cases (answers : Answers) (a : ChainAddr) (start count : Nat)
       HashHit answers
         (pad64 (chainInput a.key.lay a.key.tree a.key.leaf a.chain (start + step)
           (honestChainValue answers a.key.lay a.key.tree a.key.leaf a.chain
-            (leafSeed answers a.key.lay a.key.tree a.key.leaf a.chain) (start + step))))
+            (WCT9.wotsSeed answers a.key.lay a.key.tree a.key.leaf a.chain) (start + step))))
         (pad64 (pathInput answers
           (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start pad0 pad1 headerPad) value step)) →
       (¬(pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0) ∨ depth answers a ≤ start + step) → False := by
@@ -115,13 +112,13 @@ theorem chain_cases (answers : Answers) (a : ChainAddr) (start count : Nat)
   constructor
   · intro hle
     rcases chainP_extract answers a.key.lay a.key.tree a.key.leaf a.chain start count pad0 pad1 headerPad value
-        (leafSeed answers a.key.lay a.key.tree a.key.leaf a.chain) ht hl hi (Or.inr hc8) reaches with
+        (WCT9.wotsSeed answers a.key.lay a.key.tree a.key.leaf a.chain) ht hl hi (Or.inr hc8) reaches with
       ⟨hval, hpads⟩ | ⟨step, hstep, hq, hhit⟩
     · exact ⟨hval, hpads⟩
     · exact (hit step hstep hq hhit (Or.inr (by omega))).elim
   · intro hlt
     rcases chainP_frontier answers a.key.lay a.key.tree a.key.leaf a.chain start count pad0 pad1 headerPad value
-        (leafSeed answers a.key.lay a.key.tree a.key.leaf a.chain) ht hl hi (Or.inr hc8) reaches (depth answers a)
+        (WCT9.wotsSeed answers a.key.lay a.key.tree a.key.leaf a.chain) ht hl hi (Or.inr hc8) reaches (depth answers a)
         hlt hdepth with
       ⟨step, hstep, hq, hhit, hclass⟩ | ⟨h0, h1, hh, hval⟩
     · exact (hit step hstep hq hhit hclass).elim

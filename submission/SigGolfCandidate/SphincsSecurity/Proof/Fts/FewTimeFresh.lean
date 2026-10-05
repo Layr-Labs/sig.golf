@@ -1,12 +1,8 @@
-import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
-import SigGolfCandidate.SphincsSecurity.Proof.Fts.FewTimeProbability
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.FewTimeLoop
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.FewTimeSignerView
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.AdmissibleCount
 
 section
-
-
 set_option autoImplicit true
 namespace SphincsSecurity.Concrete
 open OracleComp OracleSpec ENNReal
@@ -43,13 +39,7 @@ theorem listToFunction_ofFn (values : Fin count → FewTimeView) :
   simp [listToFunction, List.getD]
 end SphincsSecurity.Concrete
 end
-
 section
-
-
-
-
-
 namespace SphincsSecurity.Concrete
 open OracleComp OracleSpec ENNReal
 abbrev HashOutputRest :=

@@ -1,8 +1,5 @@
 import SigGolfCandidate.T3M.Expand.LayerBlocks
 import SigGolfCandidate.T3M.Expand.Basic
-import SigGolfCandidate.T3M.Expand.PackedHeader
-import SigGolfCandidate.T3M.Keygen.PackedShared
-import SigGolfCandidate.T3M.Keygen.PackedInput
 
 namespace SigGolfCandidate.T3M.Expand
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp

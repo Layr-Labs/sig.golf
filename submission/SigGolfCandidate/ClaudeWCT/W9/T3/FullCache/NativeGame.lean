@@ -1,24 +1,13 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Proofs
-import SigGolfCandidate.T3.FullCache.RequestRun
-import SigGolfCandidate.ClaudeWCT.W9.New.Game.Signer
-import SigGolfCandidate.T3.FullCache.CountedSigner
-import SigGolfCandidate.T3.FullCache.CoreBridge
-import SigGolfCandidate.T3.FullCache.RequestBridge
-import SigGolfCandidate.T3.FullCache.NativeMac
-import SigGolfCandidate.T3.FullCache.NativeBudget
 import SigGolfCandidate.T3.FullCache.NativeGame
 
 section
-
 namespace ClaudeWCT.W9.T3.Security.LazyPrivate
 open OracleComp OracleSpec
 abbrev Interaction := SphincsSecurity.OracleWorld + Requests
 end ClaudeWCT.W9.T3.Security.LazyPrivate
 end
-
 section
-
-
 namespace ClaudeWCT.W9.T3.Security.RequestHop
 open OracleComp OracleSpec ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.RequestHop
@@ -72,10 +61,7 @@ theorem erasure {α : Type} (world : Public State) (signer : Signer State)
           simpa only [Functor.map_map,Function.comp_def] using ih result.1 result.2
 end ClaudeWCT.W9.T3.Security.RequestHop
 end
-
 section
-
-
 namespace ClaudeWCT.W9.SiggolfT3Mac4.Source
 open OracleComp OracleSpec ENNReal SphincsSecurity
 open _root_.SiggolfT3Mac4 _root_.SiggolfT3Mac4.Source
@@ -89,10 +75,7 @@ noncomputable def sign (payload : Request T3Message → T3M (Option WSignature))
   if tag = request.cache.tag then payload request else pure none
 end ClaudeWCT.W9.SiggolfT3Mac4.Source
 end
-
 section
-
-
 namespace ClaudeWCT.W9.SiggolfT3Mac4.Source
 open OracleComp OracleSpec
 open _root_.SiggolfT3Mac4 _root_.SiggolfT3Mac4.Source
@@ -120,11 +103,7 @@ theorem core_sign_eq (cache : _root_.SiggolfT3Mac4.Cache) (message : T3Message) 
     rw [if_pos he, if_neg h]
 end ClaudeWCT.W9.SiggolfT3Mac4.Source
 end
-
 section
-
-
-
 namespace ClaudeWCT.W9.SiggolfT3Mac4.Source
 open OracleComp OracleSpec ENNReal
 open _root_.SiggolfT3Mac4 _root_.SiggolfT3Mac4.Source
@@ -185,10 +164,7 @@ theorem run_transport_bind {α β State : Type} (world : SigGolfCandidate.T3.Sec
   rw [run_transport,bind_map_left]
 end ClaudeWCT.W9.SiggolfT3Mac4.Source
 end
-
 section
-
-
 namespace ClaudeWCT.W9.T3.Security.MacGame
 open OracleComp OracleSpec ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.CacheAuthentication
@@ -255,10 +231,7 @@ theorem authentication_hop {α β : Type} (world : SigGolfCandidate.T3.Security.
       ClaudeWCT.W9.SiggolfT3Mac4.Source.toCoreLog_length] using hlong'))
 end ClaudeWCT.W9.T3.Security.MacGame
 end
-
 section
-
-
 namespace ClaudeWCT.W9.T3.Security.ProposalOverflow
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -287,11 +260,7 @@ theorem logged_query_bind {Result : Type} (input : LazyPrivate.Interaction.Domai
   simp [logged, logging, QueryImpl.withTraceAppend_apply]
 end ClaudeWCT.W9.T3.Security.ProposalOverflow
 end
-
 section
-
-
-
 namespace ClaudeWCT.W9.T3.Security.FullGame
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.FullGame

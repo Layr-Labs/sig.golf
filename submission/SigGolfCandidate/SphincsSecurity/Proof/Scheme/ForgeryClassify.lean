@@ -1,9 +1,6 @@
-import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.SignSupport
 
 section
-
-
 namespace SphincsSecurity.Concrete
 open OracleComp OracleSpec
 theorem decode_of_eval_encode_eq_some (f : QueryImpl HashSpec Id) (parameter : PublicParameter)
@@ -24,10 +21,7 @@ theorem valid_of_eval_encode_eq_some (f : QueryImpl HashSpec Id) (parameter : Pu
     (decode_of_eval_encode_eq_some f parameter lay tree leafIdx message counter codeword hencode)
 end SphincsSecurity.Concrete
 end
-
 section
-
-
 namespace SphincsSecurity.Concrete
 open OracleComp OracleSpec
 def FullyHonestOpening (f : QueryImpl HashSpec Id) (cache : QueryCache HashSpec)

@@ -1,5 +1,4 @@
 import SigGolfCandidate.T3.Secc.LargeResidualT3
-import SigGolfCandidate.T3.Secc.SeccLaw
 import SigGolfCandidate.T3.Secc.WotsReference
 
 namespace SigGolfCandidate.T3.Security.LargeCoupling

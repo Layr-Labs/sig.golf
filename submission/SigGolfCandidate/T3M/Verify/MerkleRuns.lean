@@ -3,7 +3,6 @@ import SigGolfCandidate.T3M.Verify.LayerRuns
 namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M.Verify
--- A known input can be preserved as a checked constant rather than a raw register expression.
 def mkKnownKeep (known : List (Reg × Word)) (keep : List Reg) : List (Reg × Word) :=
   known.filter fun p => keep.contains p.1
 def mkUnknownKeep (known : List (Reg × Word)) (keep : List Reg) : List Reg :=

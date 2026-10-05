@@ -1,7 +1,6 @@
 import SigGolfCandidate.Legacy.Security
 
 section
-
 namespace SigGolfCandidate.Legacy
 open OracleComp
 def Submission.Admissible (submission : Submission) : Prop :=
@@ -31,7 +30,5 @@ structure Certificate (submission : Submission) (C : Nat) : Prop where
   verificationBound : submission.VerificationBound C
 end SigGolfCandidate.Legacy
 end
-
 section
-
 end

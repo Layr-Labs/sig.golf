@@ -1,12 +1,7 @@
-import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsLayout
-import SigGolfCandidate.T3M.Verify.ChainGood
-import SigGolfCandidate.T3M.Verify.Decode
-import SigGolfCandidate.T3M.Verify.Words
+import SigGolfCandidate.T3M.Verify.Nonbinary.FusedLeafChecks
 import SigGolfCandidate.T3M.Verify.LayerSem
 
 section
-
-
 namespace SigGolfCandidate.T3M
 open SigGolfCandidate.T3 OracleComp
 theorem mapM_congr' {α β : Type} {f g : α → M β} : ∀ (l : List α), (∀ x ∈ l, f x = g x) → l.mapM f = l.mapM g
@@ -40,9 +35,7 @@ theorem sum_range'_eq (f g : Nat → Nat) (a n : Nat) (h : ∀ i, a ≤ i → i 
 end QCtx
 end SigGolfCandidate.T3M
 end
-
 section
-
 set_option linter.unusedSimpArgs false
 namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
@@ -130,10 +123,7 @@ theorem lowCost_accept (c : LCtx) (hck : c.ck < 8) (D : List Nat) (hD : ∀ i < 
 end LCtx
 end SigGolfCandidate.T3M
 end
-
 section
-
-
 set_option linter.unusedSimpArgs false
 namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
@@ -230,21 +220,13 @@ theorem topLeaf_hashInput (t : MachineState) (tree leaf : Nat) (ends : List Dige
   simp [List.append_assoc, dw]
 end SigGolfCandidate.T3M
 end
-
 section
-
-
 set_option linter.unusedSimpArgs false
 namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput Layer route height chainCount counterLimit decode encodingInput target
   dataDigits pad64)
-def keepLfAll (lay : Nat) : List Reg :=
-  if lay = 0 then [.x1, .x2, .x7, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23,
-    .x6, .x25, .x26, .x28, .x29, .x31, .x30]
-  else [.x1, .x2, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23,
-    .x6, .x25, .x26, .x29, .x31, .x30] ++ (if lay = 1 then [] else [.x28])
 def leafCheck (lay p : Nat) : Bool :=
   specB [] [] baseK (runAt (leafK lay) [] (p + retOff lay) (lfDirs lay)) (specLf lay) [] (postLf lay) (keepLfAll lay)
 def leafChecks (lay lo n : Nat) : Bool := (List.range' lo n).all fun c => leafCheck lay (trPc lay c)
@@ -274,7 +256,8 @@ def lfSteps (lay : Nat) : Nat := if lay = 0 then 12 else 8
 def lfKeepK (lay : Nat) : List (Reg × Word) :=
   [(.x2, 0x3fe00), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
    (.x30, 7), (if lay = 0 then (.x8, BitVec.ofNat 64 s3v) else (.x22, BitVec.ofNat 64 (s6v lay)))] ++
-  (if lay = 0 then [] else [(.x9, BitVec.ofNat 64 (if lay = 1 then 0xff8000 else M1c)), (.x24, BitVec.ofNat 64 M2c), (.x6, 0x10000),
+  (if lay = 1 then [(.x28, BitVec.ofNat 64 (lfT3 lay))] else []) ++
+  (if lay = 0 then [] else [(.x9, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x6, 0x10000),
     (.x8, BitVec.ofNat 64 0x400000)])
 def lfK (lay : Nat) : List (Reg × Word) := postLf lay ++ lfKeepK lay
 structure LeafOut (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (ends : List Digest) (u : MachineState) :
@@ -477,11 +460,16 @@ theorem leafL_step (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay 
     · exact hku p hp
     · have h22 : s0.getReg .x22 = BitVec.ofNat 64 (s6v lay.val) :=
         hk (.x22, BitVec.ofNat 64 L.S6) (by simp [LCtx.known])
+      have m28 : lay.val = 1 → ((.x28 : Reg), BitVec.ofNat 64 (lfT3 lay.val)) ∈ postLf lay.val := by
+        intro h1; simp [postLf, lfT3, h1]
       have m6 : ((.x7 : Reg), (1 : Word)) ∈ postLf lay.val := by
         simp [postLf, leafK, h0]
       simp only [lfKeepK, if_neg h0, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hp
-      rcases hp with (rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl) | (rfl | rfl | rfl | rfl)
+      rcases hp with ((rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl) | hp) | (rfl | rfl | rfl | rfl)
       all_goals first
+        | (split_ifs at hp with h1
+           · simp only [List.mem_singleton] at hp; subst p; exact hku _ (m28 h1)
+           · simp at hp)
         | exact hku _ m6
         | rw [hkeep _ (by simp [keepLfAll, h0]), hR _ (by simp [chainRegs])]; exact h22
         | rw [hkeep _ (by simp [keepLfAll, h0]), hR _ (by simp [chainRegs])]; exact hkL (_, _) (by simp [chainK])
@@ -527,17 +515,6 @@ structure TopLeafReady (w : WBytes) (pk : Digest) (index c : Nat) (ends : List D
   len : ends.length = 54
   ends : ∀ j < 54, DigAt t (slotT j) (ends.getD j 0)
   orig : Verify.Orig w (fun o => 9288 ≤ o ∧ o < layerBase 0 + 64 * height 0) t
-def fusedLeafCheck (dB dC : Nat) : Bool :=
-  specB [] [] baseK (runAt (leafK 0) [] (Nonbinary.pcX 17 dB dC) (lfDirs 0))
-    (specLf 0) [] (postLf 0) (keepLfAll 0)
-theorem fusedLeafChecks : ((List.range 16).all fun k => fusedLeafCheck (k / 4) (k % 4)) = true := by
-  decide +kernel
-theorem fusedLeafCheck_at (dB dC : Nat) (hB : dB < 4) (hC : dC < 4) :
-    fusedLeafCheck dB dC = true := by
-  have h := List.all_eq_true.mp fusedLeafChecks (4*dB+dC) (List.mem_range.mpr (by omega))
-  have hd : (4*dB+dC)/4=dB := by omega
-  have hm : (4*dB+dC)%4=dC := by omega
-  simpa [hd, hm] using h
 theorem leafT_step (w : WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0) (hidx : index < 2 ^ 31)
     (ends : List Digest) (t : MachineState) (ht : TopLeafReady w pk index c ends t) :
     ∃ u, Steps image t 12 12 u ∧ LeafOut w pk index 0 ends u := by

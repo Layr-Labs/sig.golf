@@ -1,16 +1,7 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Final.Budgets
 import SigGolfCandidate.T3M.Verify.HashAgree
 
-/-! The honest-hash bridge for the producer credit filter.
-
-The verifier's accept-cycle bound holds under `HashOk` (every decodable top-encoding answer carries credit >= 9).
-For the honest pipeline, the verify run under any `hash` equals the run under `okHash hash`, which satisfies `HashOk`:
-(F1) no verify query other than the top-layer encoding query has the top-encoding format, so `okHash hash` answers
-them as `hash` does; (F2) the honest witness's top-layer encoding query is the one the expander's filtered counter
-search accepted, so its answer has credit >= 9 and `okHash hash` keeps it. -/
-
 section
-
 open OracleComp OracleSpec
 namespace ClaudeWCT.W9.T3M.Final.Credit
 open SigGolfCandidate.Legacy
@@ -25,10 +16,6 @@ open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option linter.unusedSimpArgs false
-
-/-! ### F1: query formats -/
-
-/-- A public query whose machine query is not a top-encoding query; private and coin queries are excluded. -/
 def NotTopS : Spec.Domain → Prop
   | .inl (.inr input) => ¬ TopEncQ (toQ input)
   | _ => False
@@ -122,7 +109,6 @@ theorem encInput_pos (lay : Layer) (tree leaf : Nat) (msg : ClaudeWCT.WCT9.Layer
     0 < (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c).length := by
   cases msg <;> simp [ClaudeWCT.WCT9.layerEncodingInput, SigGolfCandidate.T3.encodingInput,
     ClaudeWCT.WCT9.pairEncodingInputP, bytesLE_length]
-/-- A lower layer's encoding query is not a top-encoding query (its header names the layer). -/
 theorem not_top_enc_low (lay : Layer) (hl : lay ≠ 0) (tree leaf : Nat) (msg : ClaudeWCT.WCT9.LayerMsg)
     (c : BitVec 32) : ¬ TopEncQ (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c))) := by
   rintro ⟨i, hi, hq, tr, p, ix, hb⟩
@@ -133,9 +119,6 @@ theorem not_top_enc_low (lay : Layer) (hl : lay ≠ 0) (tree leaf : Nat) (msg : 
   simp only [ClaudeWCT.WCT9.header_byte2] at hh
   have := lay.isLt
   exact hl (Fin.ext (by simp at hh; omega))
-
-/-! ### Machine agreement through `mrealize` -/
-
 variable {f g : Hash}
 theorem agree_mrealize {α : Type} {p : M α} (hp : AllQueriesSatisfy p NotTopS)
     (hfg : ∀ q, ¬ TopEncQ q → f q = g q) : Agree f g (mrealize 0 p) := by
@@ -161,12 +144,8 @@ theorem eval_shortHash (hash : Hash) (y : HashInput) :
     evalWithAnswerFn (machineAnswers hash 0) (shortHash y) =
       (hash (toQ (pad64 y))).extractLsb' 0 128 := by
   rw [← eval_mrealize, mrealize_shortHash, evalWithAnswerFn_map, eval_liftQ]
-
-/-! ### F2: the honest layers -/
-
 theorem hfg_ok (hash : Hash) : ∀ q, ¬ TopEncQ q → hash q = okHash hash q :=
   fun _ h => (okHash_eq_of_not_top hash h).symm
-/-- The verifier's layer loop on the expander's witness: every query agrees between `hash` and `okHash hash`. -/
 theorem agree_layers (hash : Hash) (sig : ClaudeWCT.WCT9.Signature) (index : Nat) :
     ∀ n, n ≤ 4 → ∀ msg root counters,
       evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.WCT9.expandLayersBC sig index n msg) =
@@ -250,10 +229,6 @@ theorem agree_layers (hash : Hash) (sig : ClaudeWCT.WCT9.Signature) (index : Nat
                   rw [hw]
                   refine ih (by omega) _ _ _ hr w hw (fun lay hsmall => ?_)
                   rw [hc lay (by omega), List.getD_append previousCounters [counter] 0 lay.val (by omega)]
-
-/-! ### The honest verify program -/
-
-/-- What the expander's output fixes: the layer search results and the witness counters. -/
 theorem expandN_layers (A : SigGolfCandidate.T3.Correctness.Answers) (m : SigGolfCandidate.T3.Message) (pk : Digest)
     (σ : ClaudeWCT.WCT9.Signature) (N : HashOutput) (wt : ClaudeWCT.WCT9.Witness)
     (he : evalWithAnswerFn A (ClaudeWCT.W9.T3M.expandN m pk σ) = some (N, wt)) :
@@ -302,9 +277,22 @@ theorem agree_verifyP (hash : Hash) (m : SigGolfCandidate.T3.Message) (pk : Dige
   · rw [F.sig]
     exact agree_layers hash σ _ 4 le_rfl _ root counters hl wt F.sig (fun lay _ => hcs lay)
   · split <;> trivial
-
-/-! ### The machine runs -/
-
+theorem digestCap_okHash (hash : Hash) (m : SigGolfCandidate.T3.Message) (pk : Digest)
+    (σ : ClaudeWCT.WCT9.Signature) (N : HashOutput) (wt : ClaudeWCT.WCT9.Witness)
+    (hx : evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.W9.T3M.expandN m pk σ) = some (N, wt)) :
+    DigestCapOk (okHash hash) m (ClaudeWCT.W9.T3M.witEnc N wt) := by
+  have F := ClaudeWCT.W9.T3M.expandN_facts _ m pk σ N wt hx
+  have hd : ClaudeWCT.W9.T3M.digestP m (ClaudeWCT.W9.T3M.witEnc N wt) =
+      some <$> SigGolfCandidate.T3.digest wt.signature.rho m wt.digestCounter := by
+    unfold ClaudeWCT.W9.T3M.digestP
+    rw [ClaudeWCT.W9.T3M.wdc_witEnc, ClaudeWCT.W9.T3M.wrho_witEnc, if_neg (by have := F.dc; omega)]
+  have hag : Agree hash (okHash hash) (mrealize 0 (ClaudeWCT.W9.T3M.digestP m (ClaudeWCT.W9.T3M.witEnc N wt))) := by
+    rw [hd, mrealize_map, agree_map_iff]
+    exact agree_mrealize (notTop_digest _ _ _) (hfg_ok hash)
+  intro N' hN'
+  rw [← agree_eval hag, eval_mrealize, hd, evalWithAnswerFn_map, F.sig, F.digest] at hN'
+  cases hN'
+  exact F.cap
 variable {I : ClaudeWCT.W9.T3M.Images}
 set_option allowUnsafeReducibility true in
 attribute [local reducible] SphincsSecurity.hashOutputBits ClaudeWCT.W9.T3M.submission
@@ -334,7 +322,6 @@ theorem verify_run_ok (P : Pending I) (hash : Hash) (m : Message) (pk : PublicKe
     rw [← agree_map_iff (fun r => r.value.isSome), verify_value P m pk w]
     exact hagree
   exact agree_eval ha
-/-- The honest pipeline's verify run, with the expand output it verifies. -/
 theorem honest_success_verify_cf (sub : Submission) (hash : Hash) (sk : SecretKey) (m : Message)
     (h : (evalWithAnswerFn hash (sub.honest sk m)).success = true) :
     ∃ pk σ w, (sub.runWith hash .expand (m, pk, σ)).value = some w ∧

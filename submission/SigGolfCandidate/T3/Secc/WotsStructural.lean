@@ -1,16 +1,8 @@
 import SigGolfCandidate.T3.Secc.WotsStructuralVariant
-import SigGolfCandidate.SphincsSecurity.Proof.Base.UniformTableObservationErasure
-import SigGolfCandidate.SphincsSecurity.Proof.Base.UniformTableProducts
-import SigGolfCandidate.SphincsSecurity.Proof.Base.QueryTracePotential
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.EncodingMarkerAccumulation
 import SigGolfCandidate.T3.Secc.WotsExtractChain
 
 section
-
-
-
-
-
 namespace SigGolfCandidate.T3.Security.Wots.Structural
 open OracleComp OracleSpec ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M
@@ -370,10 +362,7 @@ theorem lazy_seen_le {α : Type} (C : OracleComp RefWorld α) :
 end Main
 end SigGolfCandidate.T3.Security.Wots.Structural
 end
-
 section
-
-
 namespace SigGolfCandidate.T3.Security.Wots
 open OracleComp OracleSpec ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final SigGolfCandidate.T3M.SecurityInputs

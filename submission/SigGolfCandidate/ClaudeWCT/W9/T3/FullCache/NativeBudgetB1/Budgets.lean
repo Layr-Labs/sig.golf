@@ -1,19 +1,84 @@
-import SigGolfCandidate.ClaudeWCT.WCT9.Forest
-import SigGolfCandidate.ClaudeWCT.W9.T3.FullCache.NativeBudgetB1.QuerySpace
+import SigGolfCandidate.ClaudeWCT.Bank.WCTAccept
+import SigGolfCandidate.ClaudeWCT.Numerics.N600CapCount
+import SigGolfCandidate.ClaudeWCT.W9.T3.FullCache.NativeBudgetB1.EnvelopesV4
 import SigGolfCandidate.ClaudeWCT.W9.T3.FullCache.NativeBudgetB1.Presampling
 import SigGolfCandidate.ClaudeWCT.W9.T3.Gate6.SourceBudget
-import SigGolfCandidate.ClaudeWCT.Bank.WCTAccept
 
 section
 
 
+
+namespace ClaudeWCT.W9.T3.Budgets
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal Finset
+open SigGolfCandidate.T3 (HashOutput)
+open ClaudeWCT.Bank.WCT (WProposal proposal)
+open ClaudeWCT.WCT9 (Coord Child Rank)
+def capP (p : WProposal) : Prop :=
+  ClaudeWCT.Numerics.N600Cap.rankCost (fun k => (p.2 k).2) ≤ ClaudeWCT.WCT9.jointCap
+instance : DecidablePred capP := fun _ => Nat.decLe _ _
+theorem producerAdmissible_iff_capP (x : HashOutput) :
+    ClaudeWCT.WCT9.producerAdmissible x = true ↔ ClaudeWCT.WCT9.admissible x = true ∧ capP (proposal x) := by
+  rw [ClaudeWCT.WCT9.producerAdmissible_iff, ClaudeWCT.WCT9.jointCost_eq_sum]
+  rfl
+theorem card_capP : #{p : WProposal | capP p} = 2 ^ 31 * (128 ^ 9 * ClaudeWCT.Numerics.N600Cap.J) := by
+  have h : (univ.filter capP : Finset WProposal) =
+      (univ ×ˢ ClaudeWCT.Numerics.N600Cap.capSet : Finset (Fin (2 ^ 31) × (Coord → Child × Rank))) :=
+    Finset.ext fun p => by
+      rw [mem_filter, mem_product, ClaudeWCT.Numerics.N600Cap.mem_capSet]
+      simp only [mem_univ, true_and]
+      exact Iff.rfl
+  rw [h, card_product, ClaudeWCT.Numerics.N600Cap.card_capSet, card_univ, Fintype.card_fin]
+theorem acceptanceV4 :
+    Pr[fun x : HashOutput => ClaudeWCT.WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
+      (2047 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 148 := by
+  rw [← expectedValue_ite_one, SigGolfCandidate.T3.BPORS.expected_uniform_eq_finiteAverage]
+  unfold SigGolfResearch.Gate6.Moments.finiteAverage
+  have hsum : (∑ x : HashOutput, if ClaudeWCT.WCT9.producerAdmissible x = true then (1 : ENNReal) else 0) =
+      ∑ x : HashOutput, if ClaudeWCT.WCT9.admissible x = true then
+        (if capP (proposal x) then (1 : ENNReal) else 0) else 0 := by
+    refine sum_congr rfl fun x _ => ?_
+    by_cases ha : ClaudeWCT.WCT9.admissible x = true
+    · simp only [ha, if_true]
+      exact if_congr ((producerAdmissible_iff_capP x).trans (and_iff_right ha)) rfl rfl
+    · rw [if_neg ha, if_neg (fun h => ha ((producerAdmissible_iff_capP x).mp h).1)]
+  rw [hsum, ClaudeWCT.Bank.WCT.sum_admissible (fun p : WProposal => if capP p then (1 : ENNReal) else 0),
+    sum_boole, card_capP, Fintype.card_bitVec]
+  generalize hJ : ClaudeWCT.Numerics.N600Cap.J = J
+  apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
+  simp only [ENNReal.toReal_div, ENNReal.toReal_mul, ENNReal.toReal_natCast, ENNReal.toReal_pow,
+    ENNReal.toReal_ofNat, Nat.cast_mul, Nat.cast_pow, Nat.cast_ofNat]
+  push_cast
+  field_simp
+  ring
+theorem acceptanceV4_eq_p0 :
+    Pr[fun x : HashOutput => ClaudeWCT.WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
+      ENNReal.ofReal (BaseAudit.V4.p0 : ℝ) := by
+  rw [acceptanceV4]
+  have hq : ((BaseAudit.V4.p0 : ℚ) : ℝ) = (2047 : ℝ) * 27 ^ 9 * (ClaudeWCT.Numerics.N600Cap.J : ℝ) / 2 ^ 148 := by
+    simp only [BaseAudit.V4.p0, BaseAudit.V4.J, ClaudeWCT.Numerics.N600Cap.J]
+    push_cast
+    ring
+  rw [hq, ENNReal.ofReal_div_of_pos (by positivity), ENNReal.ofReal_mul (by positivity),
+    ENNReal.ofReal_mul (by norm_num), ENNReal.ofReal_pow (by norm_num), ENNReal.ofReal_pow (by norm_num)]
+  simp
+end ClaudeWCT.W9.T3.Budgets
+end
+
+section
+
+
+
+
+
+
+section
 namespace ClaudeWCT.W9.T3.Correctness
 open OracleComp OracleSpec
 open ClaudeWCT.WCT9 (Signature Witness digestAttemptLimit honestForest eval_signForest)
 open ClaudeWCT.WCT9.Rev3 (sign expand verify signPayload)
 open SigGolfCandidate.T3 hiding Signature Witness sign expand verify signPayload digestSearch admissible
 open SigGolfCandidate.T3.Correctness (Answers DigestFamily KeygenCorrect route_tree_bound route_leaf_4096
-  eval_buildTree_result builtTree)
+)
 open ClaudeWCT.W9.T3.QuerySpace (EncodingFamilyBC)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
@@ -62,11 +127,12 @@ theorem signLayersBC_succeeds (answers : Answers) (cache : Cache) (index : Nat)
       by_cases hn : n = 0
       · simp only [hn, if_true, evalWithAnswerFn_bind, evalWithAnswerFn_pure]
         exact ⟨_, rfl⟩
-      · simp only [hn, if_false, evalWithAnswerFn_bind,
-          eval_buildTree_result answers (Fin.ofNat 4 n) _ _ digits hvalid (route_leaf_bound index _)]
+      · simp only [hn, if_false, evalWithAnswerFn_bind]
         obtain ⟨previous, hp⟩ := ih (.pair
-          (ClaudeWCT.WCT9.topPair (Fin.ofNat 4 n) (builtTree answers (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2)).1
-          (ClaudeWCT.WCT9.topPair (Fin.ofNat 4 n) (builtTree answers (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2)).2)
+          (ClaudeWCT.WCT9.topPair (Fin.ofNat 4 n) (evalWithAnswerFn answers (ClaudeWCT.WCT9.buildTreeP
+            (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 digits)).1).1
+          (ClaudeWCT.WCT9.topPair (Fin.ofNat 4 n) (evalWithAnswerFn answers (ClaudeWCT.WCT9.buildTreeP
+            (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 digits)).1).2)
         simp only [hp, evalWithAnswerFn_pure]
         exact ⟨_, rfl⟩
 def SearchesSucceed (answers : Answers) : Prop :=
@@ -166,12 +232,7 @@ theorem signing_complete_of_selected_searches (answers : Answers) (keys : Digest
     (signPayload_succeedsSelected answers keys.2 message hgood)
 end ClaudeWCT.W9.T3.Correctness
 end
-
 section
-
-
-
-
 namespace ClaudeWCT.W9.T3.Budgets
 open OracleComp OracleSpec ENNReal
 open SphincsSecurity.Completeness (failMass failMass_eq_probEvent)
@@ -191,28 +252,15 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 set_option linter.unusedSimpArgs false
-def AcceptanceV2b : Prop :=
-  Pr[fun x : HashOutput => ClaudeWCT.WCT9.admissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
-    (5 * 16016 ^ 9 : ENNReal) / 2 ^ 140
-theorem acceptanceV2b : AcceptanceV2b := ClaudeWCT.Bank.WCT.acceptance_eq
-theorem digest_probability_eq_p0_of (hacc : AcceptanceV2b) :
+theorem digest_probability_eq_p0 :
     Pr[fun answer => (digestDecode answer).isSome |
-      ($ᵗ HashOutput : ProbComp HashOutput)] = ENNReal.ofReal (BaseAudit.V2b.p0 : ℝ) := by
+      ($ᵗ HashOutput : ProbComp HashOutput)] = ENNReal.ofReal (BaseAudit.V4.p0 : ℝ) := by
   have h : (fun answer : HashOutput => (digestDecode answer).isSome = true) =
-      fun x => ClaudeWCT.WCT9.admissible x = true := by
+      fun x => ClaudeWCT.WCT9.producerAdmissible x = true := by
     funext x
     simp only [digestDecode]
     split <;> simp_all
-  rw [h, hacc]
-  have hq : ((BaseAudit.V2b.p0 : ℚ) : ℝ) = (5 : ℝ) * (16016 : ℝ) ^ 9 / 2 ^ 140 := by
-    norm_num [BaseAudit.V2b.p0]
-  rw [hq, ENNReal.ofReal_div_of_pos (by positivity), ENNReal.ofReal_mul (by norm_num),
-    ENNReal.ofReal_pow (by norm_num), ENNReal.ofReal_pow (by norm_num)]
-  simp
-theorem digest_probability_eq_p0 :
-    Pr[fun answer => (digestDecode answer).isSome |
-      ($ᵗ HashOutput : ProbComp HashOutput)] = ENNReal.ofReal (BaseAudit.V2b.p0 : ℝ) :=
-  digest_probability_eq_p0_of acceptanceV2b
+  rw [h, acceptanceV4_eq_p0]
 theorem digest_failure_power_of_acceptance (p : ℝ) (hp : 1 / 5026 ≤ p) (hp1 : p ≤ 1)
     (haccept : Pr[fun answer => (digestDecode answer).isSome |
       ($ᵗ HashOutput : ProbComp HashOutput)] = ENNReal.ofReal p) :
@@ -229,33 +277,42 @@ theorem digest_failure_power_of_acceptance (p : ℝ) (hp : 1 / 5026 ≤ p) (hp1 
   simpa only [ofReal_inv_two_pow] using hcast
 theorem digest_failure_power :
     failMass digestDecode ^ digestAttemptLimit ≤ 1 / (2 : ENNReal) ^ 450 :=
-  digest_failure_power_of_acceptance (BaseAudit.V2b.p0 : ℝ)
-    (by norm_num [BaseAudit.V2b.p0]) (by norm_num [BaseAudit.V2b.p0]) digest_probability_eq_p0
-theorem digest_failMass_eq : failMass digestDecode = 1 - (5 * 16016 ^ 9 : ENNReal) / 2 ^ 140 := by
+  digest_failure_power_of_acceptance (BaseAudit.V4.p0 : ℝ)
+    (by norm_num [BaseAudit.V4.p0, BaseAudit.V4.J]) (by norm_num [BaseAudit.V4.p0, BaseAudit.V4.J]) digest_probability_eq_p0
+theorem digest_failMass_eq :
+    failMass digestDecode = 1 - (2047 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 148 := by
   have h : (fun answer : HashOutput => (digestDecode answer).isSome = true) =
-      fun x => ClaudeWCT.WCT9.admissible x = true := by
+      fun x => ClaudeWCT.WCT9.producerAdmissible x = true := by
     funext x
     simp only [digestDecode]
     split <;> simp_all
-  rw [failMass_eq_one_sub_accept, h, acceptanceV2b]
+  rw [failMass_eq_one_sub_accept, h, acceptanceV4]
 theorem digest_failure_explicit :
-    (1 - (5 * 16016 ^ 9 : ENNReal) / 2 ^ 140) ^ (2 ^ 21) ≤ 1 / (2 : ENNReal) ^ 450 := by
+    (1 - (2047 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 148) ^ (2 ^ 21) ≤
+      1 / (2 : ENNReal) ^ 450 := by
   rw [← digest_failMass_eq]
   exact digest_failure_power
-theorem digest_failure_power_752 :
-    failMass digestDecode ^ digestAttemptLimit ≤ 1 / (2 : ENNReal) ^ 752 := by
-  have hp : (25 : ℝ) / 100504 ≤ (BaseAudit.V2b.p0 : ℝ) := by norm_num [BaseAudit.V2b.p0]
-  have hm : failMass digestDecode = ENNReal.ofReal (1 - (BaseAudit.V2b.p0 : ℝ)) := by
+theorem digest_failure_power_1300 :
+    failMass digestDecode ^ digestAttemptLimit ≤ 1 / (2 : ENNReal) ^ 1300 := by
+  have hm : failMass digestDecode = ENNReal.ofReal (1 - (BaseAudit.V4.p0 : ℝ)) := by
     rw [failMass_eq_one_sub_accept, digest_probability_eq_p0,
-      ENNReal.ofReal_sub 1 (by norm_num [BaseAudit.V2b.p0])]
+      ENNReal.ofReal_sub 1 (by norm_num [BaseAudit.V4.p0, BaseAudit.V4.J])]
     simp
-  rw [hm, ← ENNReal.ofReal_pow (by norm_num [BaseAudit.V2b.p0])]
-  have hreal := rejection_power_le (BaseAudit.V2b.p0 : ℝ) (by norm_num [BaseAudit.V2b.p0]) digestAttemptLimit 752
+  rw [hm, ← ENNReal.ofReal_pow (by norm_num [BaseAudit.V4.p0, BaseAudit.V4.J])]
+  have hreal := rejection_power_le (BaseAudit.V4.p0 : ℝ) (by norm_num [BaseAudit.V4.p0, BaseAudit.V4.J])
+    digestAttemptLimit 1300
     (by have hl := Real.log_two_lt_d9
-        change (752 : ℝ) * Real.log 2 ≤ 2097152 * (BaseAudit.V2b.p0 : ℝ)
+        change (1300 : ℝ) * Real.log 2 ≤ 2097152 * (BaseAudit.V4.p0 : ℝ)
+        have hp : (1 : ℝ) / 2272 ≤ (BaseAudit.V4.p0 : ℝ) := by norm_num [BaseAudit.V4.p0, BaseAudit.V4.J]
         nlinarith)
   have hcast := ENNReal.ofReal_le_ofReal hreal
   simpa only [ofReal_inv_two_pow] using hcast
+theorem digest_failure_power_752 :
+    failMass digestDecode ^ digestAttemptLimit ≤ 1 / (2 : ENNReal) ^ 752 := by
+  refine digest_failure_power_1300.trans ?_
+  gcongr
+  · norm_num
+  · norm_num
 theorem digest_failure_power_602 :
     failMass digestDecode ^ digestAttemptLimit ≤ 1 / (2 : ENNReal) ^ 602 := by
   refine digest_failure_power_752.trans ?_
@@ -462,13 +519,13 @@ theorem tableGoodFor_failure_small_of_acceptance (message : Message) (p : ℝ) (
 theorem tableGood_failure_small :
     Pr[fun outputs => ¬tableGood outputs |
       ($ᵗ (SearchKey → HashOutput) : ProbComp _)] ≤ 1 / (2 : ENNReal) ^ 65 :=
-  tableGood_failure_small_of_acceptance (BaseAudit.V2b.p0 : ℝ) (by norm_num [BaseAudit.V2b.p0])
-    (by norm_num [BaseAudit.V2b.p0]) digest_probability_eq_p0
+  tableGood_failure_small_of_acceptance (BaseAudit.V4.p0 : ℝ) (by norm_num [BaseAudit.V4.p0, BaseAudit.V4.J])
+    (by norm_num [BaseAudit.V4.p0, BaseAudit.V4.J]) digest_probability_eq_p0
 theorem tableGoodFor_failure_small (message : Message) :
     Pr[fun outputs => ¬tableGoodFor message outputs |
       ($ᵗ (SearchKey → HashOutput) : ProbComp _)] ≤ 1 / (2 : ENNReal) ^ 321 :=
-  tableGoodFor_failure_small_of_acceptance message (BaseAudit.V2b.p0 : ℝ) (by norm_num [BaseAudit.V2b.p0])
-    (by norm_num [BaseAudit.V2b.p0]) digest_probability_eq_p0
+  tableGoodFor_failure_small_of_acceptance message (BaseAudit.V4.p0 : ℝ) (by norm_num [BaseAudit.V4.p0, BaseAudit.V4.J])
+    (by norm_num [BaseAudit.V4.p0, BaseAudit.V4.J]) digest_probability_eq_p0
 theorem tableGoodFor_failure_128 (message : Message) :
     Pr[fun outputs => ¬tableGoodFor message outputs |
       ($ᵗ (SearchKey → HashOutput) : ProbComp _)] ≤ 1 / (2 : ENNReal) ^ 128 := by
@@ -559,4 +616,5 @@ theorem union_failure_small_bc {α ι κ : Type} [Fintype ι] [Fintype κ] (law 
   refine (add_le_add (mul_le_mul' hι' le_rfl) (mul_le_mul' hκ' le_rfl)).trans ?_
   exact union_ennreal 256 193 BaseAudit.V3.completeness_union
 end ClaudeWCT.W9.T3.Budgets
+end
 end

@@ -1,10 +1,6 @@
-import SigGolfCandidate.T3M.Witness.Shaped
-import SigGolfCandidate.T3M.Witness.Normal
 import SigGolfCandidate.T3M.Extract.Layer
 
 section
-
-
 namespace SigGolfCandidate.T3M
 open OracleComp OracleSpec SigGolfCandidate.T3
 set_option linter.unusedSimpArgs false
@@ -597,9 +593,7 @@ theorem verifyP_normal (m : Message) (pk : Digest) (w : WBytes) :
 theorem verifyPNormal_holds : VerifyPNormal := verifyP_normal
 end SigGolfCandidate.T3M
 end
-
 section
-
 namespace SigGolfCandidate.T3M.Extract
 open OracleComp OracleSpec SigGolfCandidate.T3 SecurityInputs SecurityExtraction
 open Correctness (Answers treeValue builtTree leafSeed leafEnd leafValue leafRoot)
@@ -715,10 +709,7 @@ theorem layersP_walk (answers : Answers) (w : WBytes) (index : Nat) (hidx : inde
               fun l hl => hgood l (by omega)⟩
 end SigGolfCandidate.T3M.Extract
 end
-
 section
-
-
 namespace SigGolfCandidate.T3M.Extract
 open OracleComp OracleSpec SigGolfCandidate.T3 SecurityInputs SecurityExtraction
 open Correctness (Answers treeValue builtTree)

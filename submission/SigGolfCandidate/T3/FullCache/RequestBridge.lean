@@ -1,9 +1,7 @@
-import SigGolfCandidate.T3.FullCache.CountedSigner
 import SigGolfCandidate.T3.FullCache.RequestRun
 import SigGolfCandidate.T3.FullCache.CoreBridge
 
 section
-
 namespace SiggolfT3Mac4.Source
 open OracleComp OracleSpec ENNReal SphincsSecurity
 set_option autoImplicit false
@@ -71,11 +69,7 @@ theorem averaged_source_authentication_hop
     (hpayload other) (program other) (state other) (cont other) event (hlong other)
 end SiggolfT3Mac4.Source
 end
-
 section
-
-
-
 namespace SiggolfT3Mac4.Source
 open OracleComp OracleSpec ENNReal
 open SigGolfCandidate.T3.Security

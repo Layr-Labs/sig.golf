@@ -9,8 +9,8 @@ open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
-def dummyDigest0 : Digest := BitVec.ofNat 128 232069893348868768384238972637
-def dummyDigestLow : Digest := BitVec.ofNat 128 48611766702991209076737369103800916845
+def dummyDigest0 : Digest := BitVec.ofNat 128 232069893348868768384238972643
+def dummyDigestLow : Digest := BitVec.ofNat 128 48611766702991209150524345398639123309
 def dummyDigest (lay : Layer) : Digest := if lay.val = 0 then dummyDigest0 else dummyDigestLow
 theorem dummyDigest_decode (lay : Layer) : decode lay (dummyDigest lay) = some (dummyDigits lay) := by
   fin_cases lay

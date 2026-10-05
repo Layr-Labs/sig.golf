@@ -1,10 +1,6 @@
-import SigGolfCandidate.T3.Secc.LargeCouplingSplit
-import SigGolfCandidate.T3.Secc.WotsTransportTable
 import SigGolfCandidate.T3.Secc.LargeCouplingVerdict
 
 section
-
-
 namespace SigGolfCandidate.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final
@@ -123,10 +119,7 @@ theorem taggedFixed_untag (program : OracleComp LazyPrivate.Interaction α) (sta
 end Fixed
 end SigGolfCandidate.T3.Security.LargeCoupling
 end
-
 section
-
-
 namespace SigGolfCandidate.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final SigGolfCandidate.T3M.SecurityInputs

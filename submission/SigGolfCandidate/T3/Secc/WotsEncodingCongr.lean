@@ -217,8 +217,6 @@ theorem encInput_hdr (e : EncIndex) :
   unfold encInput encodingRow encodingInput leafOf
   rw [Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega)]
   simp [Extract.hdrBlock, List.append_assoc, bytesLE_length]
-/-- Two answer tables differ at `q` only on an encoding row (of any layout) that the producers' search decoder
-rejects in both tables: the row's header names its layer. -/
 def RejPair (T T' : Answers) (q : Spec.Domain) : Prop :=
   ∃ (input : HashInput) (lay : Layer) (tr p ix : Nat), q = .inl (.inr input) ∧
     Extract.hdrBlock input = bytesLE 16 (header 4 lay.val tr p ix) ∧

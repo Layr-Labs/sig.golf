@@ -1,6 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskBase
 import SigGolfCandidate.ClaudeWCT.W9.New.BC.Rows
-import SigGolfCandidate.T3.Secc.WotsTransportShort
 
 namespace ClaudeWCT.W9.T3.Security.Wots.Mask
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
@@ -34,6 +33,10 @@ theorem respects_layerCounterSearch (a : ChainAddr) (lay : Layer) (tree leaf : N
       split
       · exact ih _
       · exact Respects.pure' _
+theorem respectsP_layerCounterSearch (a : ChainAddr) (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg)
+    (fuel counter : Nat) :
+    Respects (UntouchedP a) (WCT9.layerCounterSearch lay tree leaf msg counter fuel) :=
+  Respects.untouchedP (fun c => respects_layerCounterSearch c lay tree leaf msg fuel counter) a
 end ClaudeWCT.W9.T3.Security.Wots.Mask
 namespace ClaudeWCT.W9.T3.Security.Wots.Ref
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots

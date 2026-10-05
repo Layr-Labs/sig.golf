@@ -54,9 +54,39 @@ theorem layerEncoding_dn (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (
     exact SigGolfCandidate.T3.Security.BPair.not_digest_of_hdr
       (ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInput lay tree leaf msg counter) (by decide)
   · intro _; exact SourceQueries.pure_allowed _ _
+theorem packedSecret_dn (lay : Layer) (tree q : Nat) (carry : Digest) :
+    AllQueriesSatisfy (WCT9.packedSecret (WCT9.lowerSeedPair lay tree) q carry) NotDN := by
+  unfold WCT9.packedSecret WCT9.lowerSeedPair
+  split
+  · exact SourceQueries.bind_allowed NotDN (SigGolfCandidate.T3.Security.BPair.privatePair_dn _ _ _ _ _)
+      fun _ => SourceQueries.pure_allowed _ _
+  · exact SourceQueries.pure_allowed _ _
+theorem buildLeafP_dn (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
+    AllQueriesSatisfy (WCT9.buildLeafP lay tree leaf digits carry) NotDN := by
+  unfold WCT9.buildLeafP
+  apply SourceQueries.bind_allowed NotDN
+  · apply SourceQueries.foldlM_allowed NotDN
+    intro state i
+    apply SourceQueries.bind_allowed NotDN (packedSecret_dn _ _ _ _)
+    intro sc
+    exact SourceQueries.bind_allowed NotDN (SigGolfCandidate.T3.Security.BPair.chain_dn _ _ _ _ _ _ _) fun _ =>
+      SourceQueries.bind_allowed NotDN (SigGolfCandidate.T3.Security.BPair.chain_dn _ _ _ _ _ _ _) fun _ =>
+        SourceQueries.pure_allowed _ _
+  · intro state
+    exact SourceQueries.bind_allowed NotDN (SigGolfCandidate.T3.Security.BPair.leafHash_dn _ _ _ _) fun _ =>
+      SourceQueries.pure_allowed _ _
+theorem buildTreeP_dn (lay : Layer) (tree selected : Nat) (digits : List Nat) :
+    AllQueriesSatisfy (WCT9.buildTreeP lay tree selected digits) NotDN := by
+  unfold WCT9.buildTreeP
+  apply SourceQueries.bind_allowed NotDN
+  · exact SourceQueries.foldlM_allowed NotDN _ _ (fun state leaf =>
+      SourceQueries.bind_allowed NotDN (buildLeafP_dn _ _ _ _ _) fun _ => SourceQueries.pure_allowed _ _) _
+  · intro state
+    exact SourceQueries.bind_allowed NotDN (SigGolfCandidate.T3.Security.BPair.buildLevels_dn _ _ _ _ (by decide))
+      fun _ => SourceQueries.pure_allowed _ _
 theorem signLayersBC_dn (cache : SigGolfCandidate.T3.Cache) (index n : Nat) (msg : WCT9.LayerMsg) :
     AllQueriesSatisfy (WCT9.signLayersBC cache index n msg) NotDN :=
-  Signer.signLayersBC_allowed' NotDN cache layerEncoding_dn SigGolfCandidate.T3.Security.BPair.buildTree_dn
+  Signer.signLayersBC_allowed' NotDN cache layerEncoding_dn buildTreeP_dn
     (SigGolfCandidate.T3.Security.BPair.signTop_dn cache) index n msg
 theorem cell_not_digest (s : CanonGraph.Secrets) (node : CanonGraph.Node) (labels : CanonGraph.Labels) :
     CanonGraph.cell s node labels ∉ digestInputs := by
@@ -84,7 +114,9 @@ theorem nonceHalf_not_secret (m : Message) : nonceHalf m ∉ Set.range CanonGrap
   rintro ⟨i, hi⟩
   have h1 := congrArg Prod.fst hi
   cases i with
-  | inl a => cases h1
+  | inl a =>
+      simp only [CanonGraph.secretCoordinate, Sum.elim_inl, CanonGraph.seedCoordinateP] at h1
+      split_ifs at h1 <;> cases h1
   | inr f => cases h1
 def nonceOther (m : Message) : CanonGraph.OtherHalf := ⟨nonceHalf m, nonceHalf_not_secret m⟩
 theorem nonceOther_injective : Function.Injective nonceOther := by

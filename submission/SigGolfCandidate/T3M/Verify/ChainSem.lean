@@ -1,6 +1,5 @@
 import SigGolfCandidate.T3M.Verify.ChainRuns
 import SigGolfCandidate.T3M.Verify.PackedHeader
-import SigGolfCandidate.T3M.Witness.VerifyP
 import SigGolfCandidate.T3M.Verify.Mem
 
 set_option linter.unusedSimpArgs false

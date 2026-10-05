@@ -2,7 +2,6 @@ import SigGolfCandidate.T3.FullCache.Retag
 import SigGolfCandidate.SphincsSecurity.Proof.Deterministic.CacheDerivation
 
 section
-
 namespace SiggolfT3Mac4
 set_option autoImplicit false
 open OracleComp OracleSpec ENNReal SphincsSecurity
@@ -73,10 +72,7 @@ theorem probEvent_retag_bad_le [SampleableType MacKey] (xs ys : List Nat) (hlen 
     ← mul_assoc, ENNReal.inv_mul_cancel (by positivity) (by finiteness), one_mul]
 end SiggolfT3Mac4
 end
-
 section
-
-
 namespace SiggolfT3Mac4
 set_option autoImplicit false
 open OracleComp OracleSpec ENNReal SphincsSecurity

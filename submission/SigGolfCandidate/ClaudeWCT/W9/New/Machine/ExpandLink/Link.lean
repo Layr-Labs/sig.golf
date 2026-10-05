@@ -1,19 +1,119 @@
-import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.Defs
-import SigGolfCandidate.T3M.Expand.Layers
+import SigGolfCandidate.T3M.Sign.PackedSourceBridge
+import SigGolfCandidate.T3M.Sign.BoundaryInvariant
+import SigGolfCandidate.T3M.Sign.InitState
+import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Sign.Main
+import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Sign.PackedLeaf
+import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Sign.TopLeafP
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.ComposeBack
-import SigGolfCandidate.T3M.Expand.Blocks
-import SigGolfCandidate.T3M.ImageSlice
-import SigGolfCandidate.T3M.Images.DataPartsExpand
-import SigGolfCandidate.T3M.Verify.Code
-import SigGolfCandidate.ClaudeWCT.W9.T3M.Final.Pending
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Submission
-import SigGolfCandidate.T3M.Sign.WctCertified
-import SigGolfCandidate.T3M.Submission
-import SigGolfCandidate.T3M.Sign.WctFinal
 
 section
 
 
+
+
+
+
+namespace ClaudeWCT.W9.Machine.SignLink
+open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
+open SigGolfCandidate.T3M SigGolfCandidate.T3M.Sign SigGolfCandidate.T3M.Sign.Boundary
+open ClaudeWCT.W9.Machine.Sign (TableAt CostAt TBL COST tblBytes costBytes HookPre SignCodeAt SignRefinesW
+  SignTerminatesW signNew)
+set_option maxRecDepth 100000
+theorem signPrefixData_split : Images.signPrefixData = costBytes ++ tblBytes := by
+  unfold Images.signPrefixData ClaudeWCT.W9.Machine.Sign.costBytes ClaudeWCT.W9.Machine.Sign.tblBytes
+  rw [← List.flatten_append]
+  rfl
+theorem signData_split : Images.signData = costBytes ++ (tblBytes ++ Images.signLegacyData) := by
+  rw [Images.signData, signPrefixData_split, List.append_assoc]
+theorem slice_mid {α : Type} (l1 l2 l3 : List α) (n : Nat) (h : n + 8 ≤ l2.length) :
+    ((l1 ++ (l2 ++ l3)).drop (l1.length + n)).take 8 = (l2.drop n).take 8 := by
+  rw [List.drop_append, List.drop_eq_nil_of_le (show l1.length ≤ l1.length + n by omega), List.nil_append,
+    Nat.add_sub_cancel_left, List.drop_append_of_le_length (show n ≤ l2.length by omega),
+    List.take_append_of_le_length (show 8 ≤ (l2.drop n).length by rw [List.length_drop]; omega)]
+theorem slice_head {α : Type} (l1 l2 : List α) (n : Nat) (h : n + 8 ≤ l1.length) :
+    ((l1 ++ l2).drop n).take 8 = (l1.drop n).take 8 := by
+  rw [List.drop_append_of_le_length (show n ≤ l1.length by omega),
+    List.take_append_of_le_length (show 8 ≤ (l1.drop n).length by rw [List.length_drop]; omega)]
+theorem sinit_wct_cost (sk : SecretKey) (cache : Bytes 131072) (m : Message) : CostAt (sinit sk cache m) := by
+  intro k hk
+  have hc := ClaudeWCT.W9.Machine.Sign.SearchM.costBytes_length
+  rw [sinit_getMem _ _ _ _ (by unfold COST; omega), if_neg (by unfold COST; omega), if_neg (by unfold COST; omega),
+    if_neg (by unfold COST; omega), sdata_getMem _ (by unfold COST; omega),
+    if_pos (by unfold COST SIGN_DATA; omega), show COST + 8 * k - SIGN_DATA = 8 * k by unfold COST SIGN_DATA; omega,
+    signData_split, slice_head _ _ _ (by omega)]
+theorem sinit_wct_table (sk : SecretKey) (cache : Bytes 131072) (m : Message) : TableAt (sinit sk cache m) := by
+  intro k hk
+  have hc := ClaudeWCT.W9.Machine.Sign.SearchM.costBytes_length
+  have ht := ClaudeWCT.W9.Machine.Sign.tblBytes_length
+  rw [sinit_getMem _ _ _ _ (by unfold TBL; omega), if_neg (by unfold TBL; omega), if_neg (by unfold TBL; omega),
+    if_neg (by unfold TBL; omega), sdata_getMem _ (by unfold TBL; omega),
+    if_pos (by unfold TBL SIGN_DATA; omega), show TBL + 8 * k - SIGN_DATA = costBytes.length + 8 * k by
+      rw [hc]; unfold TBL SIGN_DATA; omega,
+    signData_split, slice_mid _ _ _ _ (by omega)]
+theorem hook_v4 {sk : SecretKey} {cache : Bytes 131072} {m : Message} {rho : SigGolfCandidate.T3.Digest}
+    {t : MachineState} (h : NoncePost sk cache m rho t) : HookPre sk m rho t := by
+  refine ⟨⟨h.search.pc, h.search.x5, h.search.x19, h.search.rho, h.search.msg, ?_⟩, h.rho, ?_, ?_, ?_⟩
+  · intro k hk
+    rw [h.frame.get (by unfold COST; omega) (by unfold FrontW COST; sg_omega)]
+    exact sinit_wct_cost sk cache m k hk
+  · intro k hk
+    change t.getMem (BitVec.ofNat 64 (0x80 + 8 * k)) = _
+    rw [h.frame.get (by omega) (by unfold FrontW; sg_omega)]
+    exact sinit_sk sk cache m k hk
+  · intro A hA
+    simp only [ClaudeWCT.W9.Machine.Sign.ScrZero, ClaudeWCT.W9.Machine.Sign.PRIVW, ClaudeWCT.W9.Machine.Sign.CHAINW,
+      ClaudeWCT.W9.Machine.Sign.NODEW] at hA
+    rw [h.frame.get (by omega) (by unfold FrontW; sg_omega)]
+    exact sinit_zero sk cache m A (by unfold SIGN_DATA; omega) (by sg_omega)
+  · intro k hk
+    rw [h.frame.get (by unfold TBL; omega) (by unfold FrontW TBL; sg_omega)]
+    exact sinit_wct_table sk cache m k hk
+theorem wct_unchanged_v4 (hPacked : Sign.Packed.PackedLeafSpec ClaudeWCT.WCT9.buildLeafP) :
+    ClaudeWCT.W9.Machine.Sign.Unchanged submission.image (fun sk cache _m => Inv sk cache) := by
+  refine ⟨?_, ?_, ?_⟩
+  · intro sk cache m
+    refine ⟨sinit sk cache m, initialState_sign sk cache m, ?_⟩
+    intro α W Q K hfail hrest
+    exact nonce_front K (fun t ht => hfail t ⟨ht.pc, ht.x5, ht.x10⟩)
+      (fun rho t ht => hrest rho t (hook_v4 ht) ht.inv)
+  · intro sk cache m t u h hf hr
+    exact Inv.stable h hf hr (by decide)
+  · intro sk cache m index root s hp hi
+    have hs := Sign.Packed.layers_from370_canonical hPacked ClaudeWCT.W9.Machine.Sign.TopLeafP.topLeafSpec
+      hp.pc hi.1 hp.hidx hp.idx hp.root (by rw [hi.2.1]; decide) (by exact ⟨hi.2.2.1, hi.2.2.2⟩)
+    refine TBSim.mono hs (by rw [Sign.Packed.layers_entry_cost]; decide) (fun r u hu => ?_)
+    cases r with
+    | none => exact ⟨hu.pc, hu.x5, hu.x10⟩
+    | some ps =>
+      obtain ⟨hpc, hlen, hpieces, hf⟩ := hu
+      exact ⟨hpc, hlen, fun lay => hpieces lay lay.isLt, hf.mono (fun A _ h => h.1)⟩
+set_option maxHeartbeats 0 in
+theorem wct_signCodeAt_v4 : SignCodeAt Images.signImage := by
+  refine ⟨?_, ?_⟩
+  · apply ClaudeWCT.W9.Machine.Sign.newCodeAt_of_drop
+    decide +kernel
+  · exact ⟨by decide +kernel, by decide +kernel, by decide +kernel⟩
+theorem wct_sign_certified_v4 (hPacked : Sign.Packed.PackedLeafSpec ClaudeWCT.WCT9.buildLeafP) :
+    SignRefinesW submission.image ∧ SignTerminatesW submission.image :=
+  ClaudeWCT.W9.Machine.Sign.signMain submission.image (fun sk cache _m => Inv sk cache) wct_signCodeAt_v4
+    (wct_unchanged_v4 hPacked)
+end ClaudeWCT.W9.Machine.SignLink
+end
+
+section
+
+
+
+
+
+
+
+
+
+
+
+section
 namespace ClaudeWCT.W9.Machine.Expand
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M
@@ -31,10 +131,7 @@ def ExpandComposeSpec : Prop :=
     ExpandRefinesW imgs ∧ ExpandTerminatesW imgs
 end ClaudeWCT.W9.Machine.Expand
 end
-
 section
-
-
 namespace ClaudeWCT.W9.Machine.Expand
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M
@@ -54,7 +151,7 @@ theorem dword_of_halves (w : BitVec 64) :
   rw [h1]
   omega
 def ExpQW : Option (HashOutput × WCT9.Witness) → MachineState → Prop
-  | none, t => FailedAt 354 t ∨ FailedAt 1418 t
+  | none, t => FailedAt 354 t ∨ FailedAt 41062 t
   | some (N, w), t => t.pc = pcOf 353 ∧ t.getReg .x5 = BitVec.ofNat 64 1 ∧ t.getReg .x10 = BitVec.ofNat 64 0 ∧
       t.readWords (BitVec.ofNat 64 0x800) 2873 = wordsOf (ClaudeWCT.W9.T3M.witList N w)
 def expCostW : Nat := 30 + newCost + (lcost 4 + 11)
@@ -103,9 +200,9 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hd : E
   set sig := sigDec σ with hsig
   set s0 := w9init im m pk σ with hs0
   obtain ⟨t1, st1, hpre, w800, w808, f1⟩ := front_pre30 hF hd m pk σ
-  have hz0 : ∀ A, A < HB0 → (A < 0x7000 ∨ 0x7000 + 5456 ≤ A) → (A < 0xA0 ∨ 0xB0 ≤ A) → (A < 0x40 ∨ 0x60 ≤ A) →
+  have hz0 : ∀ A, A < ECOST → (A < 0x7000 ∨ 0x7000 + 5456 ≤ A) → (A < 0xA0 ∨ 0xB0 ≤ A) → (A < 0x40 ∨ 0x60 ≤ A) →
       s0.getMem (BitVec.ofNat 64 A) = 0 := fun A hA h1 h2 h3 => w9init_zero hd m pk σ A hA ⟨h1, h2, h3⟩
-  unfold HB0 at hz0
+  unfold ECOST at hz0
   rw [expandN_split]
   refine (TBSim.steps st1 (TBSim.bind (W₂ := lcost 4 + 11)
     (newCode_tb hc (hookAt_of_front hF) sk m sig t1 hpre) (fun r t7 h7 => ?_))).mono
@@ -385,7 +482,7 @@ theorem expqW_halt (imgs : Phase → Image) (hc : NewCodeAt (imgs .expand)) (hB 
   · rcases h with ⟨p, x5, x10⟩ | ⟨p, x5, x10⟩
     · refine ⟨((Search.codeAt_k_2 hB.2.2).fetch t p).trans rfl, x5, ?_⟩
       rw [x10]; rfl
-    · refine ⟨((codeAt_1420 hc).fetch t p).trans rfl, x5, ?_⟩
+    · refine ⟨((codeAt_41064 hc).fetch t p).trans rfl, x5, ?_⟩
       rw [x10]; rfl
   · obtain ⟨p, x5, x10, hw⟩ := h
     refine ⟨((codeAt_353W hB.2.1).fetch t p).trans rfl, x5, ?_⟩
@@ -405,13 +502,7 @@ theorem expandComposeSpec_holds : ExpandComposeSpec := by
     exact ⟨h1, lt_of_le_of_lt h2 expCostW_lt⟩
 end ClaudeWCT.W9.Machine.Expand
 end
-
 section
-
-
-
-
-
 namespace SigGolfCandidate.T3M.Expand
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open ClaudeWCT.W9.Machine.Expand (BackSpec compareCode)
@@ -421,37 +512,37 @@ theorem wct_compareCode : CodeAt image (pcOf 342) compareCode := by
   · decide +kernel
 theorem wct_backSpec : BackSpec Images.expandImage := by
   exact ⟨fun sk sig index value s h => layers_tbsim 4 (.forest value) s h, wct_compareCode, Search.kernAt_expand⟩
-theorem wct_headerBank : Images.expandPrefixData =
-    ClaudeWCT.W9.Machine.Expand.hdrBankBytes := by
-  set_option maxRecDepth 100000 in decide +kernel
+set_option maxRecDepth 100000 in
+theorem wct_prefixData : Images.expandPrefixData =
+    ClaudeWCT.W9.Machine.Expand.expCostBytes ++ ClaudeWCT.W9.Machine.Expand.hdrBankBytes := by
+  unfold Images.expandPrefixData ClaudeWCT.W9.Machine.Expand.expCostBytes ClaudeWCT.W9.Machine.Expand.hdrBankBytes
+  rw [← List.flatten_append]
+  rfl
 theorem wct_expandData : Images.expandImage.data =
-    ClaudeWCT.W9.Machine.Expand.hdrBankBytes ++ Images.expandLegacyData := by
+    ClaudeWCT.W9.Machine.Expand.expCostBytes ++ ClaudeWCT.W9.Machine.Expand.hdrBankBytes ++
+      Images.expandLegacyData := by
   change Images.expandPrefixData ++ Images.expandLegacyData = _
-  rw [wct_headerBank]
+  rw [wct_prefixData]
 theorem wct_frontAt : ClaudeWCT.W9.Machine.Expand.FrontAt Images.expandImage := by
   apply codeAt_slice
   · decide +kernel
   · decide +kernel
 end SigGolfCandidate.T3M.Expand
 end
-
 section
-
-
 namespace SigGolfCandidate.T3M.Expand
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open ClaudeWCT.W9.Machine.Expand (NewCodeAt expChunks expChunks_len_le)
 set_option maxRecDepth 100000
 private def chunks : List (List (BitVec 32)) :=
-  [Images.expandCode_0, Images.expandCode_1, Images.expandCode_2, Images.expandCode_3, Images.expandCode_4, Images.expandCode_5, Images.expandCode_6, Images.expandCode_7, Images.expandCode_8, Images.expandCode_9, Images.expandCode_10, Images.expandCode_11, Images.expandCode_12, Images.expandCode_13, Images.expandCode_14, Images.expandCode_15, Images.expandCode_16, Images.expandCode_17, Images.expandCode_18, Images.expandCode_19, Images.expandCode_20, Images.expandCode_21, Images.expandCode_22, Images.expandCode_23, Images.expandCode_24, Images.expandCode_25, Images.expandCode_26, Images.expandCode_27, Images.expandCode_28, Images.expandCode_29, Images.expandCode_30, Images.expandCode_31, Images.expandCode_32, Images.expandCode_33, Images.expandCode_34, Images.expandCode_35, Images.expandCode_36, Images.expandCode_37, Images.expandCode_38, Images.expandCode_39, Images.expandCode_40, Images.expandCode_41, Images.expandCode_42, Images.expandCode_43, Images.expandCode_44, Images.expandCode_45, Images.expandCode_46, Images.expandCode_47, Images.expandCode_48, Images.expandCode_49, Images.expandCode_50, Images.expandCode_51, Images.expandCode_52, Images.expandCode_53, Images.expandCode_54, Images.expandCode_55, Images.expandCode_56, Images.expandCode_57, Images.expandCode_58, Images.expandCode_59, Images.expandCode_60, Images.expandCode_61, Images.expandCode_62, Images.expandCode_63, Images.expandCode_64, Images.expandCode_65, Images.expandCode_66, Images.expandCode_67, Images.expandCode_68, Images.expandCode_69, Images.expandCode_70, Images.expandCode_71, Images.expandCode_72, Images.expandCode_73, Images.expandCode_74, Images.expandCode_75, Images.expandCode_76, Images.expandCode_77, Images.expandCode_78, Images.expandCode_79, Images.expandCode_80, Images.expandCode_81, Images.expandCode_82, Images.expandCode_83, Images.expandCode_84, Images.expandCode_85, Images.expandCode_86, Images.expandCode_87, Images.expandCode_88, Images.expandCode_89, Images.expandCode_90, Images.expandCode_91, Images.expandCode_92, Images.expandCode_93, Images.expandCode_94, Images.expandCode_95, Images.expandCode_96, Images.expandCode_97, Images.expandCode_98, Images.expandCode_99, Images.expandCode_100, Images.expandCode_101, Images.expandCode_102, Images.expandCode_103, Images.expandCode_104, Images.expandCode_105, Images.expandCode_106, Images.expandCode_107, Images.expandCode_108, Images.expandCode_109, Images.expandCode_110, Images.expandCode_111, Images.expandCode_112, Images.expandCode_113, Images.expandCode_114, Images.expandCode_115, Images.expandCode_116, Images.expandCode_117, Images.expandCode_118, Images.expandCode_119, Images.expandCode_120, Images.expandCode_121, Images.expandCode_122, Images.expandCode_123, Images.expandCode_124, Images.expandCode_125, Images.expandCode_126, Images.expandCode_127, Images.expandCode_128, Images.expandCode_129, Images.expandCode_130, Images.expandCode_131, Images.expandCode_132, Images.expandCode_133, Images.expandCode_134, Images.expandCode_135, Images.expandCode_136, Images.expandCode_137, Images.expandCode_138, Images.expandCode_139, Images.expandCode_140, Images.expandCode_141, Images.expandCode_142, Images.expandCode_143, Images.expandCode_144, Images.expandCode_145, Images.expandCode_146, Images.expandCode_147, Images.expandCode_148, Images.expandCode_149, Images.expandCode_150, Images.expandCode_151, Images.expandCode_152, Images.expandCode_153, Images.expandCode_154, Images.expandCode_155, Images.expandCode_156, Images.expandCode_157, Images.expandCode_158, Images.expandCode_159]
+  [Images.expandCode_0, Images.expandCode_1, Images.expandCode_2, Images.expandCode_3, Images.expandCode_4, Images.expandCode_5, Images.expandCode_6, Images.expandCode_7, Images.expandCode_8, Images.expandCode_9, Images.expandCode_10, Images.expandCode_11, Images.expandCode_12, Images.expandCode_13, Images.expandCode_14, Images.expandCode_15, Images.expandCode_16, Images.expandCode_17, Images.expandCode_18, Images.expandCode_19, Images.expandCode_20, Images.expandCode_21, Images.expandCode_22, Images.expandCode_23, Images.expandCode_24, Images.expandCode_25, Images.expandCode_26, Images.expandCode_27, Images.expandCode_28, Images.expandCode_29, Images.expandCode_30, Images.expandCode_31, Images.expandCode_32, Images.expandCode_33, Images.expandCode_34, Images.expandCode_35, Images.expandCode_36, Images.expandCode_37, Images.expandCode_38, Images.expandCode_39, Images.expandCode_40, Images.expandCode_41, Images.expandCode_42, Images.expandCode_43, Images.expandCode_44, Images.expandCode_45, Images.expandCode_46, Images.expandCode_47, Images.expandCode_48, Images.expandCode_49, Images.expandCode_50, Images.expandCode_51, Images.expandCode_52, Images.expandCode_53, Images.expandCode_54, Images.expandCode_55, Images.expandCode_56, Images.expandCode_57, Images.expandCode_58, Images.expandCode_59, Images.expandCode_60, Images.expandCode_61, Images.expandCode_62, Images.expandCode_63, Images.expandCode_64, Images.expandCode_65, Images.expandCode_66, Images.expandCode_67, Images.expandCode_68, Images.expandCode_69, Images.expandCode_70, Images.expandCode_71, Images.expandCode_72, Images.expandCode_73, Images.expandCode_74, Images.expandCode_75, Images.expandCode_76, Images.expandCode_77, Images.expandCode_78, Images.expandCode_79, Images.expandCode_80, Images.expandCode_81, Images.expandCode_82, Images.expandCode_83, Images.expandCode_84, Images.expandCode_85, Images.expandCode_86, Images.expandCode_87, Images.expandCode_88, Images.expandCode_89, Images.expandCode_90, Images.expandCode_91, Images.expandCode_92, Images.expandCode_93, Images.expandCode_94, Images.expandCode_95, Images.expandCode_96, Images.expandCode_97, Images.expandCode_98, Images.expandCode_99, Images.expandCode_100, Images.expandCode_101, Images.expandCode_102, Images.expandCode_103, Images.expandCode_104, Images.expandCode_105, Images.expandCode_106, Images.expandCode_107, Images.expandCode_108, Images.expandCode_109, Images.expandCode_110, Images.expandCode_111, Images.expandCode_112, Images.expandCode_113, Images.expandCode_114, Images.expandCode_115, Images.expandCode_116, Images.expandCode_117, Images.expandCode_118, Images.expandCode_119, Images.expandCode_120, Images.expandCode_121, Images.expandCode_122, Images.expandCode_123, Images.expandCode_124, Images.expandCode_125, Images.expandCode_126, Images.expandCode_127, Images.expandCode_128, Images.expandCode_129, Images.expandCode_130, Images.expandCode_131, Images.expandCode_132, Images.expandCode_133, Images.expandCode_134, Images.expandCode_135, Images.expandCode_136, Images.expandCode_137, Images.expandCode_138, Images.expandCode_139, Images.expandCode_140, Images.expandCode_141, Images.expandCode_142, Images.expandCode_143, Images.expandCode_144, Images.expandCode_145, Images.expandCode_146, Images.expandCode_147, Images.expandCode_148, Images.expandCode_149, Images.expandCode_150, Images.expandCode_151, Images.expandCode_152, Images.expandCode_153, Images.expandCode_154, Images.expandCode_155, Images.expandCode_156, Images.expandCode_157, Images.expandCode_158, Images.expandCode_159, Images.expandCode_160]
 private theorem chunks_ok : (chunks.dropLast.all fun c => c.length == 256) = true := by
   decide +kernel
-private theorem chunks_length : chunks.length = 160 := by rfl
-private theorem chunks_new : expChunks = chunks.drop 4 := by
-  decide +kernel
+private theorem chunks_length : chunks.length = 161 := by rfl
+private theorem chunks_new : expChunks = chunks.drop 4 := rfl
 private theorem code_chunks : Images.expandCode = chunks.flatten := by
   change chunks.foldl (· ++ ·) [] = chunks.flatten
-  rw [Verify.foldl_append_flatten, List.nil_append]
+  rw [ClaudeWCT.W9.Machine.VLib.foldl_append_flatten, List.nil_append]
 theorem wct_chunk_prefix {α : Type} (cs : List (List α)) (k : Nat) :
     cs.getD k [] <+: (cs.drop k).flatten := by
   induction cs generalizing k with
@@ -464,7 +555,7 @@ theorem wct_newCodeAt : NewCodeAt Images.expandImage := by
   intro c hc
   have hlen := expChunks_len_le c hc
   have hp : expChunks.getD c [] <+: Images.expandCode.drop (256 * (c + 4)) := by
-    rw [code_chunks, Verify.drop_chunks 256 chunks (c + 4) chunks_ok (by rw [chunks_length]; omega)]
+    rw [code_chunks, ClaudeWCT.W9.Machine.VLib.drop_chunks 256 chunks (c + 4) chunks_ok (by rw [chunks_length]; omega)]
     have hh := wct_chunk_prefix (chunks.drop 4) c
     rw [List.drop_drop] at hh
     rw [chunks_new]
@@ -475,17 +566,13 @@ theorem wct_newCodeAt : NewCodeAt Images.expandImage := by
   rw [← hrest, List.take_append_of_le_length (Nat.le_refl _), List.take_length]
 end SigGolfCandidate.T3M.Expand
 end
-
 section
-
-
-
 namespace ClaudeWCT.W9.Machine.Expand
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
 set_option maxRecDepth 100000 in
-theorem expChunks_full : ∀ c, c < 155 → (expChunks.getD c []).length = 256 := by decide +kernel
+theorem expChunks_full : ∀ c, c < 156 → (expChunks.getD c []).length = 256 := by decide +kernel
 set_option maxRecDepth 100000 in
-theorem expChunks_flatten_length : expChunks.flatten.length = 39869 := by decide +kernel
+theorem expChunks_flatten_length : expChunks.flatten.length = 40042 := by decide +kernel
 theorem drop_flatten_chunks : ∀ (L : List (List (BitVec 32))) (c : Nat), (∀ i, i < c → (L.getD i []).length = 256) →
     c ≤ L.length → L.flatten.drop (256 * c) = (L.drop c).flatten
   | L, 0, _, _ => by simp
@@ -507,55 +594,28 @@ theorem newCodeAt_of_drop {im : Image} (h : im.code.drop 1024 = expChunks.flatte
   rw [List.drop_eq_getElem_cons (by rw [expChunks_length]; omega), List.flatten_cons,
     ← List.getD_eq_getElem _ [] (by rw [expChunks_length]; omega)]
   exact List.prefix_append _ _
-theorem expand_pending (I : ClaudeWCT.W9.T3M.Images)
-    (hv : I.expand.Valid (ClaudeWCT.W9.T3M.submission I).sizes (ClaudeWCT.W9.T3M.submission I).layout)
-    (hc : NewCodeAt I.expand) (hF : FrontAt I.expand) (hd : ExpandDataOK I.expand) (hB : BackSpec I.expand) :
-    ClaudeWCT.W9.T3M.Final.ExpandRefines I ∧ ClaudeWCT.W9.T3M.Final.ExpandTerminates I :=
-  expandComposeSpec_holds (ClaudeWCT.W9.T3M.submission I).image hv hc hF hd hB
 end ClaudeWCT.W9.Machine.Expand
 end
-
 section
-
-
-
-
-
-
 namespace ClaudeWCT.W9.Machine.ExpandLink
 open SigGolfCandidate.T3M
 def I0 : ClaudeWCT.W9.T3M.Images := ⟨Images.signImage, Images.expandImage, Images.verifyImage⟩
-theorem v3_valid : I0.expand.Valid (ClaudeWCT.W9.T3M.submission I0).sizes (ClaudeWCT.W9.T3M.submission I0).layout :=
+theorem v4_valid : I0.expand.Valid (ClaudeWCT.W9.T3M.submission I0).sizes (ClaudeWCT.W9.T3M.submission I0).layout :=
   submission_expand_valid
-theorem v3_dataOK : ClaudeWCT.W9.Machine.Expand.ExpandDataOK I0.expand := Expand.wct_expandData
-theorem expand_W_v3 :
+theorem v4_dataOK : ClaudeWCT.W9.Machine.Expand.ExpandDataOK I0.expand := Expand.wct_expandData
+theorem expand_W_v4 :
     ClaudeWCT.W9.Machine.Expand.ExpandRefinesW (ClaudeWCT.W9.T3M.submission I0).image ∧
       ClaudeWCT.W9.Machine.Expand.ExpandTerminatesW (ClaudeWCT.W9.T3M.submission I0).image :=
-  ClaudeWCT.W9.Machine.Expand.expandComposeSpec_holds _ v3_valid Expand.wct_newCodeAt Expand.wct_frontAt
-    v3_dataOK Expand.wct_backSpec
-theorem sign_W_v3 :
+  ClaudeWCT.W9.Machine.Expand.expandComposeSpec_holds _ v4_valid Expand.wct_newCodeAt Expand.wct_frontAt
+    v4_dataOK Expand.wct_backSpec
+theorem sign_W_v4 (hPacked : Sign.Packed.PackedLeafSpec ClaudeWCT.WCT9.buildLeafP) :
     ClaudeWCT.W9.Machine.Sign.SignRefinesW (ClaudeWCT.W9.T3M.submission I0).image ∧
       ClaudeWCT.W9.Machine.Sign.SignTerminatesW (ClaudeWCT.W9.T3M.submission I0).image :=
-  Sign.Boundary.wct_sign_certified
-#print axioms expand_W_v3
-#print axioms sign_W_v3
+  ClaudeWCT.W9.Machine.SignLink.wct_sign_certified_v4 hPacked
+theorem sign_W_v4_closed :
+    ClaudeWCT.W9.Machine.Sign.SignRefinesW (ClaudeWCT.W9.T3M.submission I0).image ∧
+      ClaudeWCT.W9.Machine.Sign.SignTerminatesW (ClaudeWCT.W9.T3M.submission I0).image :=
+  sign_W_v4 ClaudeWCT.W9.Machine.Sign.PackedLeaf.packedLeafSpecV
 end ClaudeWCT.W9.Machine.ExpandLink
 end
-
-section
-
-
-
-namespace ClaudeWCT.W9.Machine.ExpandLink
-open SigGolfCandidate.T3M
-theorem I0_eq_finalImages : I0 = Sign.Boundary.finalImages := rfl
-theorem expand_pending_v3 :
-    ClaudeWCT.W9.T3M.Final.ExpandRefines I0 ∧ ClaudeWCT.W9.T3M.Final.ExpandTerminates I0 :=
-  expand_W_v3
-theorem sign_pending_v3 :
-    ClaudeWCT.W9.T3M.Final.SignRefines I0 ∧ ClaudeWCT.W9.T3M.Final.SignTerminates I0 :=
-  sign_W_v3
-#print axioms expand_pending_v3
-#print axioms sign_pending_v3
-end ClaudeWCT.W9.Machine.ExpandLink
 end

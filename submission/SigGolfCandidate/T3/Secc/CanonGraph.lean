@@ -1,4 +1,3 @@
-import SigGolfCandidate.T3.BPORS
 import SigGolfCandidate.T3.Secc.SeccLaw
 import SigGolfCandidate.T3.Secc.WotsEvents
 
