@@ -49,8 +49,8 @@ def ld3In : List (Reg × Word) := baseK ++ [(.x28, BitVec.ofNat 64 TOPBASE)]
 def ld3Spec : Spec :=
   ⟨[(.x8, kw 0x400000), (.x24, .ld (kw TOPLOAD)), (.x9, .ld (kw (TOPLOAD + 8))),
       (.x27, .ld (kw (TOPLOAD + 16))), (.x2, .ld (kw (TOPLOAD + 24)))],
-    [], 604, false, 5, [], none, 5⟩
-def ld3Check : Bool := specB [] [] baseK (runAt ld3In [604] 599 []) ld3Spec [] ld3In [.x22, .x12, .x26, .x7, .x13, .x30, .x19, .x20, .x21, .x6]
+    [], 210, false, 5, [], none, 5⟩
+def ld3Check : Bool := specB [] [] baseK (runAt ld3In [210] 205 []) ld3Spec [] ld3In [.x22, .x12, .x26, .x7, .x13, .x30, .x19, .x20, .x21, .x6]
 def bK (lay : Nat) : List (Reg × Word) := layK lay ++ [(.x10, 256), (.x12, 256)] ++
   (if lay = 1 ∨ lay = 2 then [(.x22, BitVec.ofNat 64 (s6v lay))] else []) ++
   (if lay = 3 then [(.x28, BitVec.ofNat 64 TOPBASE)] else [])
@@ -60,7 +60,9 @@ def treeE (lay : Nat) : E := .bin .srl (.reg (rReg lay)) (kw (hL lay))
 def tpE (lay : Nat) : E := if lay = 0 then .bin .sll (leafE lay) (kw 32) else .bin .or (.bin .sll (leafE lay) (kw 32)) (treeE lay)
 def s7E (lay : Nat) : E := .bin .or (leafE lay) (kw (2 ^ hL lay))
 def ctrE (lay : Nat) : E := .un (.ld .wu (4 * ((lay + 1) % 2))) (.ld (kw (0x810 + 8 * ((lay + 1) / 2))))
-def ctrBr (lay : Nat) (d : Bool) : Br := ⟨.geu, ctrE lay, kw 0x400000, d⟩
+def ctrBr (lay : Nat) (d : Bool) : Br := ⟨if lay = 3 then .ltu else .geu, ctrE lay, kw 0x400000, d⟩
+def setupPc (lay p : Nat) : Nat := if lay = 3 then 210 else p
+def setupAcceptDir (lay : Nat) : Bool := decide (lay = 3)
 def specA (lay p : Nat) : Spec :=
   ⟨if lay = 0 then [(.x4, tpE lay), (.x23, s7E lay), (.x3, ctrE lay)]
    else [(.x4, tpE lay), (.x23, s7E lay), (.x31, treeE lay), (.x3, ctrE lay)] ++
@@ -68,11 +70,11 @@ def specA (lay p : Nat) : Spec :=
        [(.x28, .bin .sll (.reg (rReg lay)) (kw 16))]),
    [(⟨none, BitVec.ofNat 64 288⟩, .bin (.st .w 0) (.ld (kw 288)) (ctrE lay)), (⟨none, BitVec.ofNat 64 280⟩, tpE lay),
     (⟨none, BitVec.ofNat 64 272⟩, kw (hw 4 lay))],
-   p + stepsA lay, true, stepsA lay, [ctrBr lay false], none, stepsA lay⟩
+   p + stepsA lay, true, stepsA lay, [ctrBr lay (setupAcceptDir lay)], none, stepsA lay⟩
 def rejA (lay p : Nat) : Spec :=
   ⟨[(.x5, kw 1), (.x10, kw 1)],
    [(⟨none, BitVec.ofNat 64 280⟩, tpE lay), (⟨none, BitVec.ofNat 64 272⟩, kw (hw 4 lay))],
-   rejEcall, true, stepsA lay + 1, [ctrBr lay true], none, stepsA lay + 1⟩
+   (if lay = 3 then 223 else rejEcall), true, stepsA lay + 1, [ctrBr lay (!setupAcceptDir lay)], none, stepsA lay + 1⟩
 def a6E : E := .ld (kw 256)
 def a7E : E := .ld (kw 264)
 def b1E : E := .bin .sll a7E (kw 1)
