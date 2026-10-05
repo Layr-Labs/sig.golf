@@ -43,7 +43,7 @@ def copyCheck (lay p : Nat) : Bool :=
       (specTopCall p) [] [] keepTopCall
   else
     specB [] [] baseK (runAt (bK lay) [] (p + stepsA lay + 1)
-      [.br false, .br false, .jmp]) (specBl lay p) [] (postBl lay p) keepB &&
+      [.br false, .br false, .jmp]) (specBl lay p) [] (postBlC lay p) keepB &&
     specB [] [] [] (runAt (bK lay) [] (p + stepsA lay + 1)
       [.br false, .br true]) (rejCk lay) [] [] [] &&
     specB [] [] [] (runAt (bK lay) [] (p + stepsA lay + 1)

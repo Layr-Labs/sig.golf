@@ -63,11 +63,11 @@ def pairInitCode : List (BitVec 32) := [0xff8437,0x33750313]
 sym_block pairInitBase := symRun { noAlias := true } pairInitCode 0#64 200
 theorem pairInit_run (pc : Word) : symRun { noAlias := true } pairInitCode pc 200 =
     some ⟨pairInitBase.res.st, .c (pc + 4 + 4), .endOfCode, 2, 2⟩ := by rfl
-def pairPtr0Code : List (BitVec 32) := [0x687733,0x870733]
+def pairPtr0Code : List (BitVec 32) := [6846259,8849203]
 sym_block pairPtr0Base := symRun { noAlias := true } pairPtr0Code 0#64 200
 theorem pairPtr0_run (pc : Word) : symRun { noAlias := true } pairPtr0Code pc 200 =
     some ⟨pairPtr0Base.res.st, .c (pc + 4 + 4), .endOfCode, 2, 2⟩ := by rfl
-def pairPtrCode : List (BitVec 32) := [0x6ef733,0x870733]
+def pairPtrCode : List (BitVec 32) := [7272243,8849203]
 sym_block pairPtrBase := symRun { noAlias := true } pairPtrCode 0#64 200
 theorem pairPtr_run (pc : Word) : symRun { noAlias := true } pairPtrCode pc 200 =
     some ⟨pairPtrBase.res.st, .c (pc + 4 + 4), .endOfCode, 2, 2⟩ := by rfl
@@ -79,19 +79,19 @@ def pairTailCode : List (BitVec 32) := [0xec8cb3,0xeede93]
 sym_block pairTailBase := symRun { noAlias := true } pairTailCode 0#64 200
 theorem pairTail_run (pc : Word) : symRun { noAlias := true } pairTailCode pc 200 =
     some ⟨pairTailBase.res.st, .c (pc + 4 + 4), .endOfCode, 2, 2⟩ := by rfl
-def singlePtrCode : List (BitVec 32) := [0x7fef713,0x870733]
+def singlePtrCode : List (BitVec 32) := [0x7fef713,8849203]
 sym_block singlePtrBase := symRun { noAlias := true } singlePtrCode 0#64 200
 theorem singlePtr_run (pc : Word) : symRun { noAlias := true } singlePtrCode pc 200 =
     some ⟨singlePtrBase.res.st, .c (pc + 4 + 4), .endOfCode, 2, 2⟩ := by rfl
-def singleTailCode : List (BitVec 32) := [0xec8cb3,0x7ede93]
+def singleTailCode : List (BitVec 32) := [0xec8cb3,8314515]
 sym_block singleTailBase := symRun { noAlias := true } singleTailCode 0#64 200
 theorem singleTail_run (pc : Word) : symRun { noAlias := true } singleTailCode pc 200 =
     some ⟨singleTailBase.res.st, .c (pc + 4 + 4), .endOfCode, 2, 2⟩ := by rfl
-def pairCrossCode : List (BitVec 32) := [0x189893,0x1d8e8b3]
+def pairCrossCode : List (BitVec 32) := [1611923,30992563]
 sym_block pairCrossBase := symRun { noAlias := true } pairCrossCode 0#64 200
 theorem pairCross_run (pc : Word) : symRun { noAlias := true } pairCrossCode pc 200 =
     some ⟨pairCrossBase.res.st, .c (pc + 4 + 4), .endOfCode, 2, 2⟩ := by rfl
-def pairPtrXCode : List (BitVec 32) := [0x68f733,0x870733]
+def pairPtrXCode : List (BitVec 32) := [0x68f733,8849203]
 sym_block pairPtrXBase := symRun { noAlias := true } pairPtrXCode 0#64 200
 theorem pairPtrX_run (pc : Word) : symRun { noAlias := true } pairPtrXCode pc 200 =
     some ⟨pairPtrXBase.res.st, .c (pc + 4 + 4), .endOfCode, 2, 2⟩ := by rfl
@@ -546,7 +546,7 @@ open SigGolfCandidate.T3 (Digest)
 set_option maxRecDepth 8192
 set_option maxHeartbeats 600000
 set_option linter.unusedSimpArgs false
-def ptrCode : List (BitVec 32) := [0x8e8733]
+def ptrCode : List (BitVec 32) := [9340723]
 sym_block ptrBase := symRun { noAlias := true } ptrCode (pcOf 96212) 200
 theorem ptr_spec {image : Image} (s : MachineState)
     (hc : CodeAt image (pcOf 96212) ptrCode) (hpc : s.pc = pcOf 96212)
@@ -689,7 +689,7 @@ open SigGolfCandidate.T3 (Digest)
 set_option maxRecDepth 8192
 set_option maxHeartbeats 600000
 set_option linter.unusedSimpArgs false
-def headCode : List (BitVec 32) := [0x10003803,0x10803883,0x3d8d713,0x10071663]
+def headCode : List (BitVec 32) := [268449795,276838531,64542483,268899939]
 sym_block headBase := symRun { noAlias := true } headCode (pcOf 96160) 200
 theorem head_at : CodeAt Verify.image (pcOf 96160) headCode := by
   have h := codeAt_from 96160 (by decide)
@@ -796,7 +796,7 @@ theorem rejectJump_at : CodeAt Verify.image (pcOf 96230) rejectJumpCode := by
   have h := codeAt_from 96230 (by decide)
   have hp : rejectJumpCode <+: codeFrom 96230 := by decide +kernel
   exact ⟨by decide, by decide, by decide +kernel, hp.trans h.2.2.2⟩
-def rejectExitCode : List (BitVec 32) := [0x100293,0x100513]
+def rejectExitCode : List (BitVec 32) := [1049235,1049875]
 sym_block rejectExitBase := symRun { noAlias := true } rejectExitCode (pcOf 741) 20
 theorem rejectExit_at : CodeAt Verify.image (pcOf 741) rejectExitCode := by
   have h := codeAt_from 741 (by decide)
