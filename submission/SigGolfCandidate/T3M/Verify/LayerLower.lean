@@ -115,8 +115,13 @@ theorem setup_post : SetupPost := fun w pk index lay msg s hs c t ht => by
       intro p hp
       simp only [T3M.specA, List.mem_cons, List.not_mem_nil, or_false] at hp
       rcases hp with rfl | rfl | rfl <;> simp [TOPLOAD]
-    rw [hm, hf]
-    exact hs.hdr3 h3
+    have hf8 : memEval s (T3M.specA 3 (trPc 3 c)).mem (BitVec.ofNat 64 (TOPLOAD - 8)) =
+        s.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) := by
+      apply memEval_frame_ofNat s _ (TOPLOAD - 8) (by unfold TOPLOAD; omega)
+      intro p hp
+      simp only [T3M.specA, List.mem_cons, List.not_mem_nil, or_false] at hp
+      rcases hp with rfl | rfl | rfl <;> simp [TOPLOAD]
+    exact ⟨by rw [hm, hf]; exact (hs.hdr3 h3).1, by rw [hm, hf8]; exact (hs.hdr3 h3).2⟩
   case refine_6 =>
     exact (ht.orig_const hs.orig).mono (fun o ho => ⟨ho, by
       fin_cases lay <;> simp [allowed, x10In, layerEnd, WIT] at * <;> omega⟩)
@@ -332,7 +337,7 @@ def layerHead {β : Type} (w : WBytes) (index : Nat) (lay : Layer) (M : ClaudeWC
     | none => pure none
     | some digits => chainsP w lay (route index lay).2 (route index lay).1 digits >>= R
 def stB (lay : Nat) : Nat := if lay = 0 then 120 else bSt lay
-def cyB (lay : Nat) : Nat := if lay = 0 then 68 else bCy lay
+def cyB (lay : Nat) : Nat := if lay = 0 then 67 else bCy lay
 def chainCost0 (lay : Nat) : Nat := if lay = 0 then 1086 else 2950 - 9 * tgtL lay
 def chainFuel (lay : Nat) : Nat := if lay = 0 then 2321 else 1720
 def layerCost (lay Z : Nat) : Nat := stepsA lay + 8 + cyB lay + lfSteps lay + chainCost0 lay - Z
@@ -340,9 +345,9 @@ def layerFuel (lay : Nat) : Nat := stepsA lay + 1 + stB lay + chainFuel lay + lf
 /-- Accept-cycle layer cost: the top layer's chains run 9 cycles cheaper on a credited top word. -/
 def layerCostA (lay : Nat) : Nat := layerCost lay 0 - (if lay = 0 then 9 else 0)
 theorem layerCost_vals :
-    layerCost 3 0 = 1248 ∧ layerCost 2 0 = 1238 ∧ layerCost 1 0 = 1239 ∧ layerCost 0 0 = 1184 := by decide
+    layerCost 3 0 = 1247 ∧ layerCost 2 0 = 1238 ∧ layerCost 1 0 = 1239 ∧ layerCost 0 0 = 1183 := by decide
 theorem layerFuel_vals :
-    layerFuel 3 = 1772 ∧ layerFuel 2 = 1771 ∧ layerFuel 1 = 1772 ∧ layerFuel 0 = 2464 := by decide
+    layerFuel 3 = 1771 ∧ layerFuel 2 = 1771 ∧ layerFuel 1 = 1772 ∧ layerFuel 0 = 2464 := by decide
 theorem ckOf_lt (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (ds : List Nat)
     (hds : decode lay (a.extractLsb' 0 128) = some ds) : ckOf lay a < 8 := by
   rw [decode_lower lay hlay] at hds
@@ -444,7 +449,8 @@ theorem layerIn_of_fts (w : WBytes) (pk : Digest) (idx : Nat) (root : Digest) (u
     (hCoord : u.getReg .x6 = 0x10000)
     (hbase : u.getReg .x28 = BitVec.ofNat 64 TOPBASE)
     (htop : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
-      BitVec.ofNat 64 (topWords.getD k 0)) :
+      BitVec.ofNat 64 (topWords.getD k 0))
+    (htop8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 23304) :
     ∃ t, Steps image u 5 5 t ∧ LayerIn w pk idx 3 (.forest root) t := by
   have hk0 : KnownOK ld3In u := by
     intro p hp
@@ -522,8 +528,7 @@ theorem layerIn_of_fts (w : WBytes) (pk : Digest) (idx : Nat) (root : Digest) (u
   · exact ⟨rfl, (hm _).trans hroot.1, (hm _).trans hroot.2⟩
   · exact (hwit.mono (fun o ho => Or.inr ho.1)).frame (fun j _ _ => hm _)
   · intro _
-    rw [hm]
-    exact (htop 4 (by decide)).trans (by decide +kernel)
+    exact ⟨(hm _).trans ((htop 4 (by decide)).trans (by decide +kernel)), (hm _).trans htop8⟩
 theorem tree_next (index : Nat) (L : Layer) (h : L ≠ 0) : (route index L).2 = index / 2 ^ below (L.val - 1) := by
   rw [route_snd]
   fin_cases L
