@@ -1011,7 +1011,7 @@ theorem mkStop_next_lower (w : WBytes) (pk : Digest) (index : Nat) (hidx : index
   have hL0 : lay ≠ 0 := by intro h; apply h0; rw [h]; rfl
   refine ⟨by omega, hidx, ⟨(route index lay).1, by omega, ?_⟩,
     ⟨mkStop_known_next _ lay.isLt h0 u t hu.glob.1 ha.known ha.keep, ha.glob.2⟩, ?_,
-    mkStop_msg w pk index lay h0 u v t ht, ?_, fun h => absurd h (by have := lay.isLt; omega)⟩
+    mkStop_msg w pk index lay h0 u v t ht, ?_, fun h => absurd h (by have := lay.isLt; omega), ?_, ?_⟩
   · rw [ha.pc, mkStop_pc _ _ lay.isLt h0 hleaf]
     simp only [setupPc, if_neg (show lay.val - 1 ≠ 3 by have := lay.isLt; omega)]
   · have he : BC.below (lay.val - 1) = below (lay.val - 1) := by
@@ -1026,5 +1026,22 @@ theorem mkStop_next_lower (w : WBytes) (pk : Digest) (index : Nat) (hidx : index
     have h8 : mkBo lay.val (mkStop lay.val) % 8 = 0 := by
       fin_cases lay <;> decide
     exact ha.orig j hj ⟨ho.1, by omega, Or.inl (by unfold mkCur mkBlk; omega)⟩
+  · intro hz
+    refine ⟨_, ha.dstReg, ?_⟩
+    have hb := mkBit_lt (route index lay).1 (mkStop lay.val)
+    have hrow : mkBlk lay.val (mkStop lay.val) = x10In (lay.val - 1) := by
+      fin_cases lay <;> first | contradiction | rfl
+    have hx : x10In (lay.val - 1) = 15560 := by rw [hz]; rfl
+    unfold mkCur
+    rw [hrow, hx]
+    omega
+  · intro _
+    refine ⟨_, ha.dstReg, ?_⟩
+    have hb := mkBit_lt (route index lay).1 (mkStop lay.val)
+    have hrow : mkBlk lay.val (mkStop lay.val) = x10In (lay.val - 1) := by
+      fin_cases lay <;> first | contradiction | rfl
+    unfold mkCur
+    rw [hrow]
+    omega
 end SigGolfCandidate.T3M
 end
