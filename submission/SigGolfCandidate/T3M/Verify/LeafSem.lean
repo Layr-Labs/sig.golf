@@ -271,18 +271,18 @@ def lfSlot (lay j : Nat) : Nat := if lay = 0 then slotT j else slotL j
 def stabBits (lay : Nat) : Nat := if lay = 1 then 7 else 6
 def lfSteps (lay : Nat) : Nat := if lay = 0 then 12 else if lay = 1 then 10 else 9
 def lfKeepK (lay : Nat) : List (Reg × Word) :=
-  [(.x2, 0x3fe00), (.x7, 1), (.x13, 2), (.x8, 3), (.x9, 4), (.x21, 5), (.x26, 6),
-   (.x31, 7), (.x22, BitVec.ofNat 64 (s6v lay))] ++
+  [(.x2, 0x3fe00), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
+   (.x30, 7), (.x22, BitVec.ofNat 64 (s6v lay))] ++
   (if lay = 1 then [(.x28, BitVec.ofNat 64 (lfT3 lay))] else []) ++
-  (if lay = 0 then [] else [(.x20, BitVec.ofNat 64 M1c), (.x6, BitVec.ofNat 64 M2c), (.x24, 0x10000),
-    (.x19, BitVec.ofNat 64 0x400000)])
+  (if lay = 0 then [] else [(.x9, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x6, 0x10000),
+    (.x8, BitVec.ofNat 64 0x400000)])
 def lfK (lay : Nat) : List (Reg × Word) := postLf lay ++ lfKeepK lay
 structure LeafOut (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (ends : List Digest) (u : MachineState) :
     Prop where
   pc : u.pc = pcOf (stabW lay.val ((route index lay).1 % 2 ^ stabBits lay.val))
   glob : Glob (lfK lay.val) w pk u
   s7 : u.getReg .x23 = BitVec.ofNat 64 (2 ^ hL lay.val + (route index lay).1)
-  t5 : lay.val ≠ 0 → u.getReg .x30 = BitVec.ofNat 64 (route index lay).2
+  t5 : lay.val ≠ 0 → u.getReg .x31 = BitVec.ofNat 64 (route index lay).2
   len : ends.length = chainCount lay
   ends : ∀ j < chainCount lay, DigAt u (lfSlot lay.val j) (ends.getD j 0)
   T0 : u.getMem (BitVec.ofNat 64 (lfBase lay.val + 16)) = BitVec.ofNat 64 (hdr0 2 lay.val (route index lay).2 0)
@@ -402,7 +402,7 @@ theorem leafL_step (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay 
     (hk : ∀ p ∈ (lctxOf w index lay a (trPc lay.val c)).known, s0.getReg p.1 = p.2)
     (hG : Glob (chainK lay.val) w pk s0) (hO : Verify.Orig w (fun o => 9288 ≤ o ∧ o < layerEnd lay.val) s0)
     (h23 : s0.getReg .x23 = BitVec.ofNat 64 (2 ^ hL lay.val + (route index lay).1))
-    (h30 : s0.getReg .x30 = BitVec.ofNat 64 (route index lay).2)
+    (h30 : s0.getReg .x31 = BitVec.ofNat 64 (route index lay).2)
     (ends : List Digest) (t : MachineState)
     (ht : (lctxOf w index lay a (trPc lay.val c)).ChainOut s0 43 ends t) :
     ∃ u, Steps image t (lfSteps lay.val) (lfSteps lay.val) u ∧ LeafOut w pk index lay ends u := by
@@ -474,7 +474,7 @@ theorem leafL_step (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay 
         | rw [hkeep _ (by simp [keepLfAll, h0]), hR _ (by simp [chainRegs])]; exact h22
         | rw [hkeep _ (by simp [keepLfAll, h0]), hR _ (by simp [chainRegs])]; exact hkL (_, _) (by simp [chainK])
   · rw [hkeep .x23 (by simp [keepLfAll, h0]), hR .x23 (by simp [chainRegs]), h23]
-  · intro _; rw [hkeep .x30 (by simp [keepLfAll, h0]), hR .x30 (by simp [chainRegs]), h30]
+  · intro _; rw [hkeep .x31 (by simp [keepLfAll, h0]), hR .x31 (by simp [chainRegs]), h30]
   · rw [hlen, LCtx.chainCount_lower lay hlay]; rfl
   · intro j hj
     rw [LCtx.chainCount_lower lay hlay] at hj
