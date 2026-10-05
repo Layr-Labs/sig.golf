@@ -45,7 +45,7 @@ private theorem verify_sum_check : ((verifyLegacyData.drop 63488).take 128).zipI
     decide (p.1 = BitVec.ofNat 8 (rankLookup p.2))) = true := by decide +kernel
 private theorem verify_pair_check : ((verifyLegacyData.drop 34816).take 16384).zipIdx.all (fun p =>
     decide (p.1 = BitVec.ofNat 8 (Verify.Nonbinary.pairLookup p.2))) = true := by decide +kernel
-private theorem verify_tail_check : ((verifyLegacyData.drop 51200).take 64).zipIdx.all (fun p =>
+private theorem verify_tail_check : ((verifyLegacyData.drop 34744).take 64).zipIdx.all (fun p =>
     decide (p.1 = BitVec.ofNat 8 (126 - Verify.Nonbinary.tailSum p.2))) = true := by decide +kernel
 theorem verifyLegacyData_sum (i : Nat) (hi : i < 128) :
     verifyLegacyData.getD (63488+i) 0 = BitVec.ofNat 8 (rankLookup i) := by
@@ -56,8 +56,8 @@ theorem verifyLegacyData_pair (i : Nat) (hi : i < 16384) :
   exact checked_slice_get verifyLegacyData 34816 16384 i (fun r => BitVec.ofNat 8 (Verify.Nonbinary.pairLookup r)) hi
     (by simp only [List.length_take,List.length_drop,verifyLegacyData_length]; decide) verify_pair_check
 theorem verifyLegacyData_tail (i : Nat) (hi : i < 64) :
-    verifyLegacyData.getD (51200+i) 0 = BitVec.ofNat 8 (126 - Verify.Nonbinary.tailSum i) := by
-  exact checked_slice_get verifyLegacyData 51200 64 i (fun r => BitVec.ofNat 8 (126 - Verify.Nonbinary.tailSum r)) hi
+    verifyLegacyData.getD (34744+i) 0 = BitVec.ofNat 8 (126 - Verify.Nonbinary.tailSum i) := by
+  exact checked_slice_get verifyLegacyData 34744 64 i (fun r => BitVec.ofNat 8 (126 - Verify.Nonbinary.tailSum r)) hi
     (by simp only [List.length_take,List.length_drop,verifyLegacyData_length]; decide) verify_tail_check
 end SigGolfCandidate.T3M.Search
 end
@@ -87,7 +87,7 @@ theorem verifyData_pair (i : Nat) (hi : i < 16384) :
     verifyData.getD (39424 + i) 0 = BitVec.ofNat 8 (Verify.Nonbinary.pairLookup i) := by
   rw [show 39424 + i = 4608 + (34816 + i) by omega, verifyData, getD_prefixed _ _ _ _ verifyPrefixData_length]; exact verifyLegacyData_pair i hi
 theorem verifyData_tail (i : Nat) (hi : i < 64) :
-    verifyData.getD (55808 + i) 0 = BitVec.ofNat 8 (126 - Verify.Nonbinary.tailSum i) := by
-  rw [show 55808 + i = 4608 + (51200 + i) by omega, verifyData, getD_prefixed _ _ _ _ verifyPrefixData_length]; exact verifyLegacyData_tail i hi
+    verifyData.getD (39352 + i) 0 = BitVec.ofNat 8 (126 - Verify.Nonbinary.tailSum i) := by
+  rw [show 39352 + i = 4608 + (34744 + i) by omega, verifyData, getD_prefixed _ _ _ _ verifyPrefixData_length]; exact verifyLegacyData_tail i hi
 end SigGolfCandidate.T3M.Search
 end
