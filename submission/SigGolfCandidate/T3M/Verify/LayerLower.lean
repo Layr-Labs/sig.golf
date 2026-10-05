@@ -27,14 +27,19 @@ theorem counter_eval : CounterEval := fun w pk index lay msg s hs => by
     obtain rfl : lay = 3 := Fin.ext h3
     exact T3M.ctrE_eval w 3 s hs.glob.2.1
 def CounterBranch : Prop := ∀ (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer)
-  (msg : LayerMsg) (s : MachineState), LayerIn w pk index lay.val msg s →
+    (msg : LayerMsg) (s : MachineState), LayerIn w pk index lay.val msg s →
   ∀ d, Br.holds s (ctrBr lay.val d) ↔
-    d = decide ((ClaudeWCT.W9.T3M.wbcCtr w lay).toNat ≥ counterLimit)
+    d = decide (if lay.val = 3 then (ClaudeWCT.W9.T3M.wbcCtr w lay).toNat < counterLimit
+      else (ClaudeWCT.W9.T3M.wbcCtr w lay).toNat ≥ counterLimit)
 theorem counter_branch : CounterBranch := fun w pk index lay msg s hs d => by
-  simp only [ctrBr, Br.holds, CmpOp.eval, E.eval, counter_eval w pk index lay msg s hs, kw]
-  have h64 : (ClaudeWCT.W9.T3M.wbcCtr w lay).toNat < 18446744073709551616 :=
+  have h64 : (ClaudeWCT.W9.T3M.wbcCtr w lay).toNat < 2 ^ 64 :=
     lt_of_lt_of_le (ClaudeWCT.W9.T3M.wbcCtr w lay).isLt (by decide)
-  simp [BitVec.ult, Nat.mod_eq_of_lt h64, counterLimit, ← decide_not, eq_comm]
+  norm_num at h64
+  unfold ctrBr Br.holds
+  rw [counter_eval w pk index lay msg s hs]
+  by_cases h3 : lay.val = 3 <;>
+    simp [h3, CmpOp.eval, E.eval, kw, BitVec.ult, Nat.mod_eq_of_lt h64,
+      counterLimit, ← decide_not, eq_comm]
 theorem encoding_reject (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer)
     (msg : LayerMsg) (s : MachineState) (hs : LayerIn w pk index lay.val msg s)
     (hge : (ClaudeWCT.W9.T3M.wbcCtr w lay).toNat ≥ counterLimit) :
@@ -43,13 +48,13 @@ theorem encoding_reject (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer)
   obtain ⟨c, hc, hpc⟩ := hs.copy
   have hcc := (T3M.copy_parts lay.val (trPc lay.val c)
     (copyCheck_at lay.val c lay.isLt hc)).2.1
-  have hbrs : (rejA lay.val (trPc lay.val c)).brs = [ctrBr lay.val true] := by
+  have hbrs : (rejA lay.val (trPc lay.val c)).brs = [ctrBr lay.val (!setupAcceptDir lay.val)] := by
     fin_cases lay <;> rfl
   obtain ⟨u, hu⟩ := spec_run hcc s hpc hs.glob.1 (by
     intro b hb
     rw [hbrs, List.mem_singleton] at hb
     subst b
-    exact (counter_branch w pk index lay msg s hs true).mpr (by simp [hge]))
+    exact (counter_branch w pk index lay msg s hs (!setupAcceptDir lay.val)).mpr (by by_cases h3 : lay.val = 3 <;> simp [setupAcceptDir, h3, hge, Nat.not_lt.mpr hge]))
     (by simp)
   exact ⟨u, (by fin_cases lay <;> exact hu.steps),
     hu.ecall (by fin_cases lay <;> rfl),
@@ -79,17 +84,27 @@ theorem encoding_run : EncodingRun := fun w pk index lay msg s hs hlt => by
   obtain ⟨c, hc, hpc⟩ := hs.copy
   have hcc := (T3M.copy_parts lay.val (trPc lay.val c)
     (copyCheck_at lay.val c lay.isLt hc)).1
-  have hbrs : (specA lay.val (trPc lay.val c)).brs = [ctrBr lay.val false] := by
+  have hbrs : (specA lay.val (trPc lay.val c)).brs = [ctrBr lay.val (setupAcceptDir lay.val)] := by
     fin_cases lay <;> rfl
   obtain ⟨t, ht⟩ := spec_run hcc s hpc hs.glob.1 (by
     intro b hb
     rw [hbrs, List.mem_singleton] at hb
     subst b
-    exact (counter_branch w pk index lay msg s hs false).mpr (by simp; omega)) (by simp)
+    exact (counter_branch w pk index lay msg s hs (setupAcceptDir lay.val)).mpr (by by_cases h3 : lay.val = 3 <;> simp [setupAcceptDir, h3, hlt, Nat.not_le.mpr hlt])) (by simp)
   exact ⟨c, hc, t, ht⟩
 theorem setup_post : SetupPost := fun w pk index lay msg s hs c t ht => by
   obtain ⟨hlE, htE, htpE, hs7E⟩ := T3M.route_evals index lay hs.idx s hs.route
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  case refine_9 =>
+    intro h12
+    have h3 : lay.val ≠ 3 := by rcases h12 with h | h <;> omega
+    have h0 : lay.val ≠ 0 := by rcases h12 with h | h <;> omega
+    have e := ht.regs (.x28, .bin .sll (.reg (rReg lay.val)) (kw 16))
+      (by simp [BC.specA, T3M.specA, h3, h0])
+    rw [e]
+    simp only [E.eval, BinOp.eval, kw, hs.route]
+    rw [ofNat_shl']
+    rfl
   case refine_8 =>
     intro h3
     obtain rfl : lay = 3 := Fin.ext h3
@@ -123,14 +138,7 @@ theorem setup_post : SetupPost := fun w pk index lay msg s hs c t ht => by
   case refine_5 =>
     intro L hL h0
     obtain rfl : L = lay := Fin.ext hL
-    by_cases h12 : L.val = 1 ∨ L.val = 2
-    · have h3 : L.val ≠ 3 := by omega
-      have e := ht.regs (.x31, .reg .x31) (by simp [specA, h3, h12, h0])
-      have hraw : s.getReg .x31 = BitVec.ofNat 64 (index / 2 ^ below L.val) := by
-        simpa only [rReg, if_neg h3] using hs.route
-      simpa only [if_pos h12, E.eval] using e.trans hraw
-    · have e := ht.regs (.x31, treeE L.val) (by fin_cases L <;> simp [specA, T3M.specA] at *)
-      simpa only [if_neg h12] using e.trans htE
+    exact (ht.regs (.x31, treeE L.val) (by fin_cases L <;> simp [specA, T3M.specA] at *)).trans htE
 def PairSetupHash : Prop := ∀ (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer)
   (left right : Digest) (s : MachineState), LayerIn w pk index lay.val (.pair left right) s →
   ∀ c t, SpecRes (allowed lay.val) [] baseK (specA lay.val (trPc lay.val c))
@@ -335,9 +343,9 @@ def chainFuel (lay : Nat) : Nat := if lay = 0 then 2321 else 1720
 def layerCost (lay Z : Nat) : Nat := stepsA lay + 8 + cyB lay + lfSteps lay + chainCost0 lay - Z
 def layerFuel (lay : Nat) : Nat := stepsA lay + 1 + stB lay + chainFuel lay + lfSteps lay
 theorem layerCost_vals :
-    layerCost 3 0 = 1248 ∧ layerCost 2 0 = 1239 ∧ layerCost 1 0 = 1240 ∧ layerCost 0 0 = 1184 := by decide
+    layerCost 3 0 = 1248 ∧ layerCost 2 0 = 1238 ∧ layerCost 1 0 = 1239 ∧ layerCost 0 0 = 1184 := by decide
 theorem layerFuel_vals :
-    layerFuel 3 = 1772 ∧ layerFuel 2 = 1772 ∧ layerFuel 1 = 1773 ∧ layerFuel 0 = 2464 := by decide
+    layerFuel 3 = 1772 ∧ layerFuel 2 = 1771 ∧ layerFuel 1 = 1772 ∧ layerFuel 0 = 2464 := by decide
 theorem ckOf_lt (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (ds : List Nat)
     (hds : decode lay (a.extractLsb' 0 128) = some ds) : ckOf lay a < 8 := by
   rw [decode_lower lay hlay] at hds
@@ -432,7 +440,7 @@ theorem layer_good_low (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (h
     exact GoodQ.steps' hst this (by omega) (by omega) (fun hq => ⟨hq, by omega⟩)
 theorem layerIn_of_fts (w : WBytes) (pk : Digest) (idx : Nat) (root : Digest) (u : MachineState)
     (hidx : idx < 2 ^ 31) (hglob : Glob baseK w pk u) (hreg : u.getReg .x22 = BitVec.ofNat 64 idx)
-    (hpc : u.pc = pcOf 599) (hroot : DigAt u 0x100 root)
+    (hpc : u.pc = pcOf 204) (hroot : DigAt u 0x100 root)
     (hwit : Verify.Orig w (fun o => o < 64 ∨ 9288 ≤ o) u) (ha2 : u.getReg .x12 = BitVec.ofNat 64 0x100)
     (hs10 : u.getReg .x26 = 6) (hOne : u.getReg .x7 = 1) (hTwo : u.getReg .x13 = 2) (hSeven : u.getReg .x30 = 7)
     (hThree : u.getReg .x19 = 3) (hFour : u.getReg .x20 = 4) (hFive : u.getReg .x21 = 5)
