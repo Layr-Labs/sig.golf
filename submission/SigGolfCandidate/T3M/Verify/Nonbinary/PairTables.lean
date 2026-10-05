@@ -25,6 +25,8 @@ structure PackedTables (s : MachineState) : Prop where
   pair : PairTableOK s
   tail : TailTableOK s
   mask : s.getMem (BitVec.ofNat 64 (TAIL_DATA + 64)) = 130048#64
+  pre0 : s.getMem (BitVec.ofNat 64 (TAIL_DATA - 16)) = BitVec.ofNat 64 (128 + 193 * 2 ^ 56)
+  pre1 : s.getMem (BitVec.ofNat 64 (TAIL_DATA - 8)) = BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + 1 * 2 ^ 48)
 theorem PackedTables.frame {s t : MachineState} (ht : PackedTables s)
     (hf : Frame s t (fun _ => False)) : PackedTables t := by
   constructor
@@ -33,8 +35,10 @@ theorem PackedTables.frame {s t : MachineState} (ht : PackedTables s)
   · intro r hr
     exact (hf.getByte (by unfold TAIL_DATA; omega) (by simp)).trans (ht.tail r hr)
   · exact (hf.get (by unfold TAIL_DATA; omega) (by simp)).trans ht.mask
+  · exact (hf.get (by unfold TAIL_DATA; omega) (by simp)).trans ht.pre0
+  · exact (hf.get (by unfold TAIL_DATA; omega) (by simp)).trans ht.pre1
 theorem PackedTables.congr {s t : MachineState} (ht : PackedTables s)
-    (hm : ∀ A, TAIL_DATA ≤ A → A + 8 ≤ 2 ^ 24 →
+    (hm : ∀ A, TAIL_DATA - 16 ≤ A → A + 8 ≤ 2 ^ 24 →
       t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)) : PackedTables t := by
   constructor
   · intro r hr
@@ -48,6 +52,8 @@ theorem PackedTables.congr {s t : MachineState} (ht : PackedTables s)
       ← getByte_eq_word _ _ (by unfold TAIL_DATA; omega)]
     exact ht.tail r hr
   · exact (hm _ (by unfold TAIL_DATA; omega) (by unfold TAIL_DATA; omega)).trans ht.mask
+  · exact (hm _ (by unfold TAIL_DATA; omega) (by unfold TAIL_DATA; omega)).trans ht.pre0
+  · exact (hm _ (by unfold TAIL_DATA; omega) (by unfold TAIL_DATA; omega)).trans ht.pre1
 theorem PairTableOK.rank (s : MachineState) (ht : PairTableOK s) (r : Nat) (hr : r < 16384) :
     (s.getByte (BitVec.ofNat 64 (PAIR_DATA + r))).zeroExtend 64 = BitVec.ofNat 64 (pairLookup r) := by
   rw [ht r hr]

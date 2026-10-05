@@ -926,8 +926,11 @@ theorem encB_step (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay :
             · rw [hdrA, if_pos h3, hu, writeHash_frame t a 256 (TOPLOAD + 32) h12 (by unfold TOPLOAD; omega)
                 (by norm_num) (Or.inr (by unfold TOPLOAD; omega)), h3]
               exact (ht.hdr3 h3).1
-            · rw [hdrA, if_neg h3]
-              exact hGu.2.2.2.2.2.prefix lay.val lay.isLt)
+            · by_cases h1 : lay.val = 1
+              · rw [hdrA, if_neg h3, if_pos h1, h1]
+                exact hGu.2.2.2.2.2.packed.pre1
+              · rw [hdrA, if_neg h3, if_neg h1]
+                exact hGu.2.2.2.2.2.prefix lay.val lay.isLt)
       · rw [hkeep .x4 (by simp [keepB]), hu, writeHash_getReg, ht.tp lay rfl]
       · rw [hs0.regs (.x16, a6E) (by simp [specBl]), a6E_eval hans]
       · rw [hs0.regs (.x17, a7lE) (by simp [specBl]), e17]
