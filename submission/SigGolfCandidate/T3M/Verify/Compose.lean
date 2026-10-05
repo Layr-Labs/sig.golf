@@ -381,7 +381,7 @@ theorem topLeafReady_of (w : WBytes) (pk : Digest) (index c : Nat) (t s0 s : Mac
     all_goals rw [he.regs.get (by simp [topEntryRegs]),writeHash_getReg]
     all_goals exact ht.glob.1 _ (by simp [BC.bK, bK,layK,baseK,lfT3,t3In])
   · rw [hr.get (by simp [topChainRegs]),he.regs.get (by simp [topEntryRegs]),writeHash_getReg]
-    exact (ht.s7 0 rfl).trans (congrArg (BitVec.ofNat 64) (s7v_zero _))
+    simpa [dispatchHeap, s7Bias, hL] using ht.s7 0 rfl
   · trivial
   · rw [hr.get (by simp [topChainRegs]),he.regs.get (by simp [topEntryRegs]),writeHash_getReg]
     exact ht.tp 0 rfl
@@ -782,7 +782,7 @@ def RestIn (w : WBytes) (pk : Digest) (index n : Nat) (msg : LayerMsg) (s : Mach
   else LayerIn w pk index (n - 1) msg s
 theorem mkEnd_top (w : WBytes) (pk : Digest) (index : Nat) (u : MachineState) (root : Digest)
     (t : MachineState) (ht : MkEnd w pk 0 (route index 0).1 u root t) : CmpIn pk root t := by
-  have hpc : t.pc = pcOf (38675 + 53 * mkSh 0 1 (route index 0).1) := by
+  have hpc : t.pc = pcOf (7202 + 128 * mkSh 0 1 (route index 0).1) := by
     rw [ht.pc]
     congr 1
     simp [mkFin, show mkNch 0 - 1 = 1 from rfl, show mkBits 0 1 = 6 from rfl,
@@ -819,13 +819,13 @@ def lCycA : Nat → Nat
 def lFuel : Nat → Nat
   | 0 => 9
   | n + 1 => layerFuel n + mkFuel n + lFuel n
-theorem lCyc_4 : lCyc 4 = 5655 := by decide
-theorem lCycA_4 : lCycA 4 = 5646 := by decide
+theorem lCyc_4 : lCyc 4 = 5649 := by decide
+theorem lCycA_4 : lCycA 4 = 5640 := by decide
 theorem lCycA_le (n : Nat) : lCycA n ≤ lCyc n := by
   induction n with
   | zero => exact le_rfl
   | succ n ih => simp only [lCycA, lCyc, layerCostA]; split_ifs <;> omega
-theorem lFuel_4 : lFuel 4 = 7963 := by decide
+theorem lFuel_4 : lFuel 4 = 7957 := by decide
 theorem layers_good (w : WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^ 31) (Q : Prop) (hQ : Q) :
     ∀ n, n ≤ 4 → ∀ msg s, RestIn w pk index n msg s →
       GoodQ s (lFuel n) (lCyc n) Q (lCycA n) (ccM (BC.layerLoop w index n msg) (kFin pk)) := by
@@ -861,7 +861,7 @@ theorem layers_good (w : WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^
     exact hg.mono (by simp only [lFuel]; omega) (by simp only [lCyc]; omega) (fun q => ⟨q, by simp only [lCycA]; omega⟩)
 theorem after_good (pk : Digest) (w : WBytes) (Q : Prop) (hQ : Q) (a : HashOutput) (root : Digest) (u : MachineState)
     (h : FtsOut ⟨pk, w, a⟩ root u) :
-    GoodQ u 8050 8050 Q 5651 (ccM (afterFts pk w (a.toNat % 2 ^ 31) (some root)) Kb) := by
+    GoodQ u 8050 8050 Q 5645 (ccM (afterFts pk w (a.toNat % 2 ^ 31) (some root)) Kb) := by
   have hidx : a.toNat % 2 ^ 31 < 2 ^ 31 := Nat.mod_lt _ (by decide)
   obtain ⟨t, hst, hL3⟩ := layerIn_of_fts w pk _ root u hidx h.glob h.idx h.pc h.root h.wit h.a2 h.s10 h.heapOne h.heapTwo h.heapSeven h.heapThree h.heapFour h.heapFive h.coordStep h.topBase h.top h.top8
   have hg := layers_good w pk _ hidx Q hQ 4 le_rfl (.forest root) t (by simpa [RestIn] using hL3)

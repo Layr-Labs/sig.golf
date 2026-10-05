@@ -740,7 +740,7 @@ open SigGolfCandidate.T3 (Digest)
 set_option maxRecDepth 8192
 set_option maxHeartbeats 600000
 set_option linter.unusedSimpArgs false
-def headCode : List (BitVec 32) := [0x00063803,0x00863183]
+def headCode : List (BitVec 32) := [0x63803,0x863183]
 sym_block headBase := symRun { noAlias := true } headCode (pcOf 96160) 200
 theorem head_at : CodeAt Verify.image (pcOf 96160) headCode := by
   have h := codeAt_from 96160 (by decide)
@@ -755,15 +755,11 @@ theorem head_spec (s : MachineState) (v : Digest) (d : Nat)
       RegsExcept s t [.x16,.x3] ∧ Frame s t (fun _ => False) := by
   rcases hd with rfl | rfl
   all_goals
-    have hv1 := hv.1
-    norm_num at hv1
     refine ⟨_,symRun_sound headBase head_at s hpc
       (by simp [headBase.res,rv_simp,h12] <;> decide),?_,?_,?_,?_,?_⟩
     · rfl
-    · simp only [Result.toState_getReg,headBase.res,rv_simp,h12]
-      norm_num [hv1]
-    · simp only [Result.toState_getReg,headBase.res,rv_simp,h12]
-      rw [ofNat_add_ofNat]
+    · simpa only [Result.toState_getReg,headBase.res,rv_simp,h12] using hv.1
+    · simp only [Result.toState_getReg,headBase.res,rv_simp,h12,ofNat_add_ofNat]
       exact hv.2
     · intro r hr; cases r <;> simp at hr <;> simp [headBase.res,rv_simp] <;> rfl
     · intro A _ _; simp [headBase.res,rv_simp]
@@ -780,8 +776,7 @@ theorem compressedSum_le (v : Digest) : compressedSum (topRank v) ≤ 4335 := by
   have h8 := pairWeight_le (topRank v 15) (topRank v 16)
   unfold compressedSum; omega
 theorem decode_ok (s : MachineState) (v : Digest)
-    (hpc : s.pc = pcOf 96160) (d : Nat)
-    (h12 : s.getReg .x12 = BitVec.ofNat 64 d) (hd : d = 15560 ∨ d = 15608)
+    (hpc : s.pc = pcOf 96160) (d : Nat) (h12 : s.getReg .x12 = BitVec.ofNat 64 d) (hd : d = 15560 ∨ d = 15608)
     (hv : DigAt s d v) (ht : PackedTables s)
     (h10 : s.getReg .x10 = 15560#64) (h9 : s.getReg .x9 = BitVec.ofNat 64 PAIR_DATA)
     (hvalid : T3.decode 0 v = some (topDigits v)) :
@@ -818,8 +813,7 @@ open SigGolfCandidate.T3 (Digest)
 set_option maxHeartbeats 600000
 set_option linter.unusedSimpArgs false
 theorem decode_reject (s : MachineState) (v : Digest)
-    (hpc : s.pc = pcOf 96160) (d : Nat)
-    (h12 : s.getReg .x12 = BitVec.ofNat 64 d) (hd : d = 15560 ∨ d = 15608)
+    (hpc : s.pc = pcOf 96160) (d : Nat) (h12 : s.getReg .x12 = BitVec.ofNat 64 d) (hd : d = 15560 ∨ d = 15608)
     (hv : DigAt s d v) (ht : PackedTables s)
     (h10 : s.getReg .x10 = 15560#64) (h9 : s.getReg .x9 = BitVec.ofNat 64 PAIR_DATA)
     (hbad : T3.decode 0 v = none) :
