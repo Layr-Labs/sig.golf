@@ -180,10 +180,12 @@ structure EncPre (w : WBytes) (pk : Digest) (index lay c : Nat)
   s7 : ∀ L : Layer, L.val = lay →
     t.getReg .x23 = BitVec.ofNat 64 (2 ^ hL lay + (route index L).1)
   t5 : ∀ L : Layer, L.val = lay → lay ≠ 0 →
-    t.getReg .x31 = BitVec.ofNat 64 (if lay = 1 ∨ lay = 2 then index / 2 ^ below lay else (route index L).2)
+    t.getReg .x31 = BitVec.ofNat 64 (route index L).2
   orig : Verify.Orig w (fun o => 9288 ≤ o ∧ o < layerEnd lay) t
   hdr3 : lay = 3 → t.getMem (BitVec.ofNat 64 (TOPLOAD + 32)) = BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + 3 * 2 ^ 48)
   index3 : lay = 3 → t.getReg .x22 = BitVec.ofNat 64 index
+  packed12 : lay = 1 ∨ lay = 2 →
+    t.getReg .x28 = BitVec.ofNat 64 ((index / 2 ^ below lay) * 65536)
 def rejectSteps (lay : Nat) : Nat := stepsA lay + if lay = 3 then 1 else 2
 def EncodingSetup : Prop :=
   ∀ (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer)
@@ -369,7 +371,7 @@ theorem copy_parts (lay p : Nat) (h : BC.copyCheck lay p = true) :
     specB (BC.allowed lay) [] baseK (runAt (BC.preK lay) [] p [.br false]) (BC.specA lay p) [] (BC.bK lay) keepA = true ∧
     specB (BC.allowed lay) [] [] (runAt (BC.preK lay) [] p [.br true]) (BC.rejA lay p) [] [] [] = true ∧
     (lay = 0 →
-      specB [] [] [] (runAt [] [724] (p + stepsA lay + 1) []) (specTopCall p) [] [] keepTopCall = true) ∧
+      specB [] [] [] (runAt [] [96160] (p + stepsA lay + 1) []) (specTopCall p) [] [] keepTopCall = true) ∧
     (lay ≠ 0 →
       specB [] [] baseK (runAt (BC.bK lay) [] (p + stepsA lay + 1) [.br false, .br false, .jmp]) (specBl lay p) []
         (postBl lay p) keepB = true ∧
@@ -579,35 +581,116 @@ theorem getD_getD_lt : ∀ (L : List (List Nat)) (i j B : Nat), 0 < B →
 theorem trPc_lt (lay c : Nat) : trPc lay c < 40000 :=
   getD_getD_lt xtrTab lay c 40000 (by norm_num) xtrTab_bound
 theorem packedRouteE_eval (lay : Layer) (tree leaf : Nat) (s : MachineState)
+    (ht : tree < 2 ^ 32) (hl : leaf < 2 ^ height lay)
     (hr : tree * 2 ^ height lay + leaf < 2 ^ 32)
-    (h31 : lay.val ≠ 3 → s.getReg .x31 = BitVec.ofNat 64 (tree * 2 ^ height lay + leaf))
+    (h4 : s.getReg .x4 = BitVec.ofNat 64 (hdr1 tree leaf))
+    (htree1 : lay.val = 1 → tree < 65536)
+    (h30 : s.getReg .x31 = BitVec.ofNat 64 tree)
     (h22 : lay.val = 3 → s.getReg .x22 = BitVec.ofNat 64 (tree * 2 ^ height lay + leaf))
+    (h28 : lay.val = 1 ∨ lay.val = 2 →
+      s.getReg .x28 = BitVec.ofNat 64 ((tree * 2 ^ height lay + leaf) * 65536))
     (hP : s.getMem (BitVec.ofNat 64 (hdrA lay.val)) = BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + lay.val * 2 ^ 48)) :
     (packedRouteE lay.val).eval s = BitVec.ofNat 64 (packedPrefix lay tree leaf) := by
-  have hsmall : (tree * 2 ^ height lay + leaf) * 65536 + 128 < 2 ^ 48 := by omega
-  have he : (packedRouteE lay.val).eval s =
-      BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + lay.val * 2 ^ 48) |||
-        BitVec.ofNat 64 ((tree * 2 ^ height lay + leaf) * 65536) := by
-    by_cases h3 : lay.val = 3
-    · simp only [packedRouteE, if_pos h3, E.eval, BinOp.eval, kw, h22 h3, hP]
-      rw [ofNat_shl']; rfl
-    · simp only [packedRouteE, if_neg h3, E.eval, BinOp.eval, kw, h31 h3, hP]
-      rw [ofNat_shl']; rfl
-  rw [he]
+  by_cases h3 : lay.val = 3
+  · have hsmall : (tree * 2 ^ height lay + leaf) * 65536 + 128 < 2 ^ 48 := by omega
+    simp only [packedRouteE, if_pos h3, E.eval, BinOp.eval, kw, h22 h3, hP]
+    rw [ofNat_shl']
+    change BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + lay.val * 2 ^ 48) |||
+      BitVec.ofNat 64 ((tree * 2 ^ height lay + leaf) * 65536) = _
+    have hb : BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + lay.val * 2 ^ 48) =
+        BitVec.ofNat 64 ((193 * 256 + lay.val) * 2 ^ 48) ||| BitVec.ofNat 64 128 := by
+      rw [ofNat_or_add _ _ 48 (by decide)]
+      apply congrArg (BitVec.ofNat 64); ring
+    have hp : BitVec.ofNat 64 ((tree * 2 ^ height lay + leaf) * 65536) ||| 128#64 =
+        BitVec.ofNat 64 ((tree * 2 ^ height lay + leaf) * 65536 + 128) := by
+      simpa only [show (2 : Nat) ^ 16 = 65536 from rfl] using
+        ofNat_or_add 128 (tree * 2 ^ height lay + leaf) 16 (by decide)
+    rw [hb, BitVec.or_assoc, BitVec.or_comm (BitVec.ofNat 64 128), hp,
+      ofNat_or_add _ _ 48 (by omega)]
+    apply congrArg (BitVec.ofNat 64)
+    unfold packedPrefix packedHi
+    rw [Nat.mod_eq_of_lt hr]
+    ring
+  by_cases h12 : lay.val = 1 ∨ lay.val = 2
+  · have hsmall : (tree * 2 ^ height lay + leaf) * 65536 + 128 < 2 ^ 48 := by omega
+    simp only [packedRouteE, if_neg h3, if_pos h12, E.eval, BinOp.eval, kw, h28 h12, hP]
+    rw [BitVec.or_comm]
+    change BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + lay.val * 2 ^ 48) |||
+      BitVec.ofNat 64 ((tree * 2 ^ height lay + leaf) * 65536) = _
+    have hb : BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + lay.val * 2 ^ 48) =
+        BitVec.ofNat 64 ((193 * 256 + lay.val) * 2 ^ 48) ||| BitVec.ofNat 64 128 := by
+      rw [ofNat_or_add _ _ 48 (by decide)]
+      apply congrArg (BitVec.ofNat 64); ring
+    have hp : BitVec.ofNat 64 ((tree * 2 ^ height lay + leaf) * 65536) ||| 128#64 =
+        BitVec.ofNat 64 ((tree * 2 ^ height lay + leaf) * 65536 + 128) := by
+      simpa only [show (2 : Nat) ^ 16 = 65536 from rfl] using
+        ofNat_or_add 128 (tree * 2 ^ height lay + leaf) 16 (by decide)
+    rw [hb, BitVec.or_assoc, BitVec.or_comm (BitVec.ofNat 64 128), hp,
+      ofNat_or_add _ _ 48 (by omega)]
+    apply congrArg (BitVec.ofNat 64)
+    unfold packedPrefix packedHi
+    rw [Nat.mod_eq_of_lt hr]
+    ring
+  have hh : height lay ≤ 12 := by rw [← hL_eq]; exact (hL_le lay).2
+  have hl32 : leaf < 2 ^ 32 := lt_of_lt_of_le hl
+    (Nat.pow_le_pow_right (by decide) (by omega))
+  have hs : (hL lay.val + 16) % 2 ^ 64 % 64 = height lay + 16 := by rw [hL_eq]; omega
+  have hleaf : (if lay.val = 1 then E.bin .srl (.reg .x4) (kw 16)
+      else E.bin .sll (.bin .srl (.reg .x4) (kw 32)) (kw 16)).eval s =
+      BitVec.ofNat 64 (leaf * 65536) := by
+    by_cases h1 : lay.val = 1
+    · simp only [if_pos h1, E.eval, BinOp.eval, kw, h4, hdr1_eq tree leaf ht hl32]
+      rw [ofNat_shr']
+      change BitVec.ofNat 64 ((tree + 2 ^ 32 * leaf) % 2 ^ 64 / 65536) = _
+      rw [Nat.mod_eq_of_lt (show tree + 2 ^ 32 * leaf < 2 ^ 64 by omega)]
+      apply congrArg (BitVec.ofNat 64)
+      have := htree1 h1
+      omega
+    · simp only [if_neg h1, E.eval, BinOp.eval, kw, h4, hdr1_eq tree leaf ht hl32]
+      rw [ofNat_shr', ofNat_shl']
+      change BitVec.ofNat 64 ((tree + 2 ^ 32 * leaf) % 2 ^ 64 / 2 ^ 32 * 65536) = _
+      rw [Nat.mod_eq_of_lt (show tree + 2 ^ 32 * leaf < 2 ^ 64 by omega),
+        show (tree + 2 ^ 32 * leaf) / 2 ^ 32 = leaf by omega]
+  simp only [packedRouteE, if_neg h3, if_neg h12]
+  change s.getMem (BitVec.ofNat 64 (hdrA lay.val)) |||
+    (if lay.val = 1 then E.bin .srl (.reg .x4) (kw 16)
+      else E.bin .sll (.bin .srl (.reg .x4) (kw 32)) (kw 16)).eval s |||
+    (s.getReg .x31 <<< ((BitVec.ofNat 64 (hL lay.val + 16)).toNat % 64)) = _
+  rw [hleaf, h30, hP, ofNat_shl']
+  change BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + lay.val * 2 ^ 48) |||
+    BitVec.ofNat 64 (leaf * 65536) |||
+    BitVec.ofNat 64 (tree * 2 ^ ((hL lay.val + 16) % 2 ^ 64 % 64)) = _
+  rw [hs]
   have hb : BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + lay.val * 2 ^ 48) =
       BitVec.ofNat 64 ((193 * 256 + lay.val) * 2 ^ 48) ||| BitVec.ofNat 64 128 := by
     rw [ofNat_or_add _ _ 48 (by decide)]
     apply congrArg (BitVec.ofNat 64); ring
-  have hp : BitVec.ofNat 64 ((tree * 2 ^ height lay + leaf) * 65536) ||| 128#64 =
-      BitVec.ofNat 64 ((tree * 2 ^ height lay + leaf) * 65536 + 128) := by
-    simpa only [show (2 : Nat) ^ 16 = 65536 from rfl] using
-      ofNat_or_add 128 (tree * 2 ^ height lay + leaf) 16 (by decide)
-  rw [hb, BitVec.or_assoc, BitVec.or_comm (BitVec.ofNat 64 128), hp,
-    ofNat_or_add _ _ 48 (by omega)]
-  apply congrArg (BitVec.ofNat 64)
-  unfold packedPrefix packedHi
-  rw [Nat.mod_eq_of_lt hr]
-  ring
+  rw [hb]
+  have hj : BitVec.ofNat 64 (leaf * 65536) ||| BitVec.ofNat 64 (tree * 2 ^ (height lay + 16)) =
+      BitVec.ofNat 64 ((tree * 2 ^ height lay + leaf) * 65536) := by
+    rw [BitVec.or_comm, ofNat_or_add _ tree (height lay + 16) (by
+      rw [Nat.pow_add]
+      exact Nat.mul_lt_mul_of_pos_right hl (by decide : 0 < 65536))]
+    apply congrArg (BitVec.ofNat 64)
+    rw [Nat.pow_add]; ring
+  have hor (a b c d : Word) : ((a ||| b) ||| c) ||| d = a ||| ((c ||| d) ||| b) := by
+    ac_rfl
+  calc
+    _ = BitVec.ofNat 64 ((193 * 256 + lay.val) * 2 ^ 48) |||
+        ((BitVec.ofNat 64 (leaf * 65536) ||| BitVec.ofNat 64 (tree * 2 ^ (height lay + 16))) |||
+          BitVec.ofNat 64 128) := hor _ _ _ _
+    _ = BitVec.ofNat 64 ((193 * 256 + lay.val) * 2 ^ 48) |||
+        BitVec.ofNat 64 ((tree * 2 ^ height lay + leaf) * 65536 + 128) := by
+      rw [hj]
+      apply congrArg (fun x : Word => BitVec.ofNat 64 ((193 * 256 + lay.val) * 2 ^ 48) ||| x)
+      simpa only [show (2 : Nat) ^ 16 = 65536 by norm_num] using
+        ofNat_or_add 128 (tree * 2 ^ height lay + leaf) 16 (by decide)
+    _ = _ := by
+      rw [ofNat_or_add _ _ 48 (by omega)]
+      apply congrArg (BitVec.ofNat 64)
+      unfold packedPrefix packedHi
+      rw [Nat.mod_eq_of_lt hr]
+      ring
 theorem origW_of {w : WBytes} {s : MachineState} {P : Nat → Prop} (hO : Verify.Orig w P s) (A : Nat)
     (hA : WIT ≤ A) (h8 : (A - WIT) % 8 = 0) (hx : A - WIT < WX) (hP : P (A - WIT)) : OrigW w s A := by
   have := hO.word (A - WIT) h8 hx hP
@@ -795,19 +878,16 @@ theorem encB_step (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay :
       apply lctxOf_known w index lay a (trPc lay.val c) s0 hko
       · rw [hs0.regs (.x28, packedRouteE lay.val) (by simp [specBl])]
         simpa only [Nat.add_zero] using packedRouteE_eval lay _ _ u
-          (routed_lt index lay hidx) (by
-            intro h3
-            have h12 : lay.val = 1 ∨ lay.val = 2 := by
-              have := lay.isLt
-              have h0 : lay.val ≠ 0 := fun h => hlay (Fin.ext h)
-              omega
-            rw [hu, writeHash_getReg, ht.t5 lay rfl (fun h => hlay (Fin.ext h)), if_pos h12]
-            congr 1
-            rw [route_fst, route_snd, ← hL_eq]
-            change index / 2 ^ below lay.val = _
-            rw [Nat.pow_add, ← Nat.div_div_eq_div_mul]
-            simpa only [Nat.add_comm, Nat.mul_comm] using
-              (Nat.mod_add_div (index / 2 ^ below lay.val) (2 ^ T3M.hL lay.val)).symm) (by
+          (tree_lt index lay hidx) (by simpa only [hL_eq] using leaf_lt index lay)
+          (routed_lt index lay hidx)
+          (by rw [hu, writeHash_getReg, ht.tp lay rfl]) (by
+            intro h1
+            obtain rfl : lay = 1 := Fin.ext h1
+            rw [route_snd, show below (1 : Layer).val = 12 from rfl,
+              show T3M.hL (1 : Layer).val = 7 from rfl]
+            norm_num
+            omega)
+          (by rw [hu, writeHash_getReg, ht.t5 lay rfl (fun h => hlay (Fin.ext h))]) (by
             intro h3
             rw [hu, writeHash_getReg, ht.index3 h3]
             congr 1
@@ -817,6 +897,15 @@ theorem encB_step (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay :
             simp only [Nat.zero_add, pow_zero, Nat.div_one]
             simpa only [Nat.add_comm, Nat.mul_comm] using
               (Nat.mod_add_div index (2 ^ T3M.hL (3 : Layer).val)).symm) (by
+            intro h12'
+            rw [hu, writeHash_getReg, ht.packed12 h12']
+            have he : (route index lay).2 * 2 ^ height lay + (route index lay).1 =
+                index / 2 ^ T3M.below lay.val := by
+              rw [route_fst, route_snd, ← hL_eq, Nat.pow_add, ← Nat.div_div_eq_div_mul]
+              simpa only [Nat.add_comm, Nat.mul_comm] using
+                (Nat.mod_add_div (index / 2 ^ T3M.below lay.val) (2 ^ T3M.hL lay.val))
+            simpa only [BC.below, T3M.below] using
+              congrArg (fun q : Nat => BitVec.ofNat 64 (q * 65536)) he.symm) (by
             by_cases h3 : lay.val = 3
             · rw [hdrA, if_pos h3, hu, writeHash_frame t a 256 (TOPLOAD + 32) h12 (by unfold TOPLOAD; omega)
                 (by norm_num) (Or.inr (by unfold TOPLOAD; omega)), h3]
@@ -839,15 +928,7 @@ theorem encB_step (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay :
       unfold WIT
       fin_cases lay <;> simp [s6v, layerEnd] <;> omega
     · rw [hkeep .x23 (by simp [keepB]), hu, writeHash_getReg, ht.s7 lay rfl]
-    · by_cases h12 : lay.val = 1 ∨ lay.val = 2
-      · have h3 : lay.val ≠ 3 := by omega
-        have hraw : u.getReg (rReg lay.val) = BitVec.ofNat 64 (index / 2 ^ below lay.val) := by
-          rw [rReg, if_neg h3, hu, writeHash_getReg, ht.t5 lay rfl (fun h => hlay (Fin.ext h)), if_pos h12]
-          rfl
-        rw [hs0.regs (.x31, treeE lay.val) (by simp [specBl, h12])]
-        exact (route_evals index lay hidx u hraw).2.1
-      · rw [hs0.regs (.x31, .reg .x31) (by simp [specBl, h12])]
-        simpa only [E.eval, hu, writeHash_getReg, if_neg h12] using ht.t5 lay rfl (fun h => hlay (Fin.ext h))
+    · rw [hkeep .x31 (by simp [keepB]), hu, writeHash_getReg, ht.t5 lay rfl (fun h => hlay (Fin.ext h))]
 end SigGolfCandidate.T3M
 namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp

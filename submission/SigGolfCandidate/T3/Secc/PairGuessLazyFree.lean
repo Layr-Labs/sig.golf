@@ -166,8 +166,8 @@ theorem signLayers_dn (cache : T3.Cache) (index n : Nat) (message : Digest) :
       apply bind_allowed NotDN (counterSearch_dn _ _ _ _ _ _)
       intro found
       split
+      · exact bind_allowed NotDN (signTop_dn _ _ _) fun _ => pure_allowed _ _
       · split
-        · exact bind_allowed NotDN (signTop_dn _ _ _) fun _ => pure_allowed _ _
         · apply bind_allowed NotDN (buildTree_dn _ _ _ _)
           intro built
           obtain ⟨levels, values⟩ := built
@@ -177,7 +177,7 @@ theorem signLayers_dn (cache : T3.Cache) (index n : Nat) (message : Digest) :
           split
           · exact pure_allowed _ _
           · exact pure_allowed _ _
-      · exact pure_allowed _ _
+        · exact pure_allowed _ _
 theorem ftsLeaf_dn (index coord leaf : Nat) (secret : Digest) : AllQueriesSatisfy (ftsLeaf index coord leaf secret) NotDN := by
   unfold ftsLeaf
   rw [zero16_eq]

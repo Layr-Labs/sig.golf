@@ -76,7 +76,7 @@ theorem rejected_trial_inadmissible (answers : Correctness.Answers) (rho : Diges
 theorem layerCounterSearch_none (answers : Correctness.Answers) (lay : Layer) (tree leaf : Nat)
     (msg : WCT9.LayerMsg) :
     ∀ fuel counter, evalWithAnswerFn answers (WCT9.layerCounterSearch lay tree leaf msg counter fuel) = none →
-      ∀ offset, offset < fuel → decode lay (evalWithAnswerFn answers
+      ∀ offset, offset < fuel → searchDecode lay (evalWithAnswerFn answers
         (shortHash (WCT9.layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 (counter + offset))))) = none := by
   intro fuel
   induction fuel with
@@ -84,7 +84,7 @@ theorem layerCounterSearch_none (answers : Correctness.Answers) (lay : Layer) (t
   | succ fuel ih =>
       intro counter h offset hoff
       simp only [WCT9.layerCounterSearch, evalWithAnswerFn_bind] at h
-      cases hd : decode lay (evalWithAnswerFn answers
+      cases hd : searchDecode lay (evalWithAnswerFn answers
           (shortHash (WCT9.layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter)))) with
       | some digits => simp [hd, evalWithAnswerFn_pure] at h
       | none =>
@@ -109,7 +109,7 @@ theorem goodZ_row (answers : Correctness.Answers) (w : WBytes) (index : Nat) (la
     cases ClaudeWCT.W9.T3M.Extract.honestMsg answers index lay with
     | forest root => intro hdec _; exact hdec
     | pair l r => intro _ hfit; exact absurd hfit (by change ¬(lay.val < 3); exact h3)
-theorem counterSearch_good (answers : Correctness.Answers) (w : WBytes) (index : Nat) (lay : Layer)
+theorem counterSearch_good (answers : Correctness.Answers) (w : WBytes) (index : Nat) (lay : Layer) (hl : lay ≠ 0)
     (hgood : ClaudeWCT.W9.T3M.BC.GoodZ answers w index lay) :
     ∃ found, evalWithAnswerFn answers (WCT9.layerCounterSearch lay (route index lay).2 (route index lay).1
       (ClaudeWCT.W9.T3M.Extract.honestMsg answers index lay) 0 counterLimit) = some found := by
@@ -119,7 +119,8 @@ theorem counterSearch_good (answers : Correctness.Answers) (w : WBytes) (index :
   | some found => exact ⟨found, rfl⟩
   | none =>
       have := layerCounterSearch_none answers lay _ _ _ counterLimit 0 h (ClaudeWCT.W9.T3M.wbcCtr w lay).toNat hlt
-      rw [Nat.zero_add, SigGolfCandidate.T3.Security.BPB.ofNat_toNat32, hdec] at this
+      rw [Nat.zero_add, SigGolfCandidate.T3.Security.BPB.ofNat_toNat32,
+        SigGolfCandidate.T3.Nonbinary.searchDecode_lower hl, hdec] at this
       exact absurd this (by simp)
 theorem honestMsg_lower (answers : Correctness.Answers) (index n : Nat) (hn : n + 1 < 4) :
     ClaudeWCT.W9.T3M.Extract.honestMsg answers index (Fin.ofNat 4 n) =
@@ -145,16 +146,21 @@ theorem signLayers_good (answers : Correctness.Answers) (cache : SigGolfCandidat
   | succ n ih =>
       intro hn msg hval
       have hmsg := hval n rfl
-      obtain ⟨⟨counter, digits⟩, hs⟩ := counterSearch_good answers w index (Fin.ofNat 4 n) (hgood _)
-      rw [← hmsg] at hs
-      have hvalid := Cost.validDigits_decode (WCT9.layerCounterSearch_some answers _ _ _ _ counterLimit 0 counter
-        digits (by decide) hs).2.2
       by_cases hn0 : n = 0
       · subst hn0
         rw [WCT9.signLayersBC]
-        simp only [evalWithAnswerFn_bind, hs, ite_true, evalWithAnswerFn_pure]
+        simp only [evalWithAnswerFn_bind, ite_true, evalWithAnswerFn_pure]
         exact ⟨_, rfl⟩
-      · obtain ⟨k, rfl⟩ : ∃ k, n = k + 1 := ⟨n - 1, by omega⟩
+      · have hl : (Fin.ofNat 4 n : Layer) ≠ 0 := by
+          intro h
+          have hv : (Fin.ofNat 4 n : Layer).val = n := Nat.mod_eq_of_lt (by omega)
+          rw [h] at hv
+          exact hn0 hv.symm
+        obtain ⟨⟨counter, digits⟩, hs⟩ := counterSearch_good answers w index (Fin.ofNat 4 n) hl (hgood _)
+        rw [← hmsg] at hs
+        have hvalid := Cost.validDigits_decode (WCT9.layerCounterSearch_some answers _ _ _ _ counterLimit 0 counter
+          digits (by decide) hs).2.2
+        obtain ⟨k, rfl⟩ : ∃ k, n = k + 1 := ⟨n - 1, by omega⟩
         have htree := Correctness.eval_buildTree_result answers (Fin.ofNat 4 (k + 1))
           (route index (Fin.ofNat 4 (k + 1))).2 (route index (Fin.ofNat 4 (k + 1))).1 digits hvalid
           (route_leaf_bound index _)

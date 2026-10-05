@@ -67,9 +67,10 @@ theorem bound_layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : LayerMsg
       unfold layerCounterSearch
       refine (bound_layerEncoding lay tree leaf msg (BitVec.ofNat 32 counter)).bind' (l := fuel)
         (fun answer _ => ?_) (by omega)
-      cases hd : decode lay answer with
+      cases hs : searchDecode lay answer with
       | none => exact ih (counter + 1)
       | some digits =>
+          have hd := SigGolfCandidate.T3.Nonbinary.searchDecode_some hs
           refine .pure (some (BitVec.ofNat 32 counter, digits)) fuel ?_
           intro other values hv
           obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hv)
@@ -89,18 +90,26 @@ theorem bound_signLayersBC (cache : Cache) (index : Nat) :
         (route index (Fin.ofNat 4 n)).1 msg counterLimit 0).bind'
         (l := n * counterLimit + layerFixedCost (n + 1)) (fun out hout => ?_)
         (by simp only [Nat.add_mul, Nat.one_mul]; omega)
-      cases out with
-      | none => exact .pure _ _ trivial
-      | some pair =>
-          obtain ⟨counter, digits⟩ := pair
-          have hd := hout counter digits rfl
-          dsimp only
-          by_cases hn : n = 0
-          · subst n
-            simp only [ite_true]
-            refine (bound_signTop cache _ digits hd.1 hd.2.1).bind'
-              (l := 0) (fun _ _ => .pure _ 0 trivial) (by simp [layerFixedCost])
-          · simp only [hn, ite_false]
+      by_cases hn : n = 0
+      · subst n
+        simp only [ite_true]
+        have hdig : ((out.map Prod.snd).getD dummyTop).length = 54 ∧
+            ((out.map Prod.snd).getD dummyTop).sum = 126 := by
+          cases out with
+          | none => exact ⟨by decide, by decide⟩
+          | some pair =>
+              obtain ⟨counter, digits⟩ := pair
+              have hd := hout counter digits rfl
+              exact ⟨hd.1, hd.2.1⟩
+        refine (bound_signTop cache _ _ hdig.1 hdig.2).bind'
+          (l := 0) (fun _ _ => .pure _ 0 trivial) (by simp [layerFixedCost])
+      · simp only [hn, ite_false]
+        cases out with
+        | none => exact .pure _ _ trivial
+        | some pair =>
+            obtain ⟨counter, digits⟩ := pair
+            have hd := hout counter digits rfl
+            dsimp only
             refine (bound_buildTree (Fin.ofNat 4 n) _ _ digits hd.2.2).bind'
               (l := n * counterLimit + layerFixedCost n) (fun result _ => ?_)
               (by simp only [layerFixedCost, hn, ite_false]; omega)

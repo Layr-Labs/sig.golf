@@ -107,7 +107,7 @@ def layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) (counter
   | 0 => pure none
   | fuel + 1 => do
       let answer ← shortHash (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter))
-      match decode lay answer with
+      match searchDecode lay answer with
       | none => layerCounterSearch lay tree leaf msg (counter + 1) fuel
       | some digits => pure (some (BitVec.ofNat 32 counter, digits))
 def topLevel (lay : Layer) : Fin (height lay) :=
@@ -119,11 +119,12 @@ def signLayersBC (cache : Cache) (index : Nat) : Nat → LayerMsg → M (Option 
   | n + 1, msg => do
       let lay : Layer := Fin.ofNat 4 n
       let (leaf, tree) := route index lay
-      let some (_, digits) ← layerCounterSearch lay tree leaf msg 0 counterLimit | pure none
+      let found ← layerCounterSearch lay tree leaf msg 0 counterLimit
       if n = 0 then
-        let part ← signTop cache leaf digits
+        let part ← signTop cache leaf ((found.map Prod.snd).getD dummyTop)
         pure (some [part])
       else
+        let some (_, digits) := found | pure none
         let (levels, values) ← buildTree lay tree leaf digits
         let path := (List.range (height lay)).map fun j =>
           (levels.getD j []).getD (leaf / 2 ^ j ^^^ 1) 0

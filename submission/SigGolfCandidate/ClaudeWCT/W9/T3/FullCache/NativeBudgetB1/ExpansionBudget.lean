@@ -141,7 +141,13 @@ theorem expandLayersBC_cost_le (answers : Answers) (cache : Cache) (index : Nat)
       simp only [ClaudeWCT.WCT9.signLayersBC, evalWithAnswerFn_bind] at he
       cases hs : evalWithAnswerFn answers (ClaudeWCT.WCT9.layerCounterSearch (Fin.ofNat 4 n)
         (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg 0 counterLimit) with
-      | none => simp only [hs, evalWithAnswerFn_pure, reduceCtorEq] at he
+      | none =>
+          by_cases hn0 : n = 0
+          · subst n
+            simp only [ClaudeWCT.WCT9.expandLayersBC, ClaudeWCT.WCT9.signLayersBC, cost_bind, hs, cost_pure,
+              if_true]
+            omega
+          · simp only [hs, hn0, if_false, evalWithAnswerFn_pure, reduceCtorEq] at he
       | some found =>
           obtain ⟨counter, digits⟩ := found
           have hd := (ClaudeWCT.WCT9.layerCounterSearch_some answers (Fin.ofNat 4 n)
@@ -155,7 +161,7 @@ theorem expandLayersBC_cost_le (answers : Answers) (cache : Cache) (index : Nat)
             have hrec := cost_bound answers (bound_recoverLayer (toT3Signature sig) index (Fin.ofNat 4 0)
               digits hvalid hls.1 hls.2)
             simp only [ClaudeWCT.WCT9.expandLayersBC, ClaudeWCT.WCT9.signLayersBC, cost_bind, hs, if_true,
-              cost_pure, recoveryLayersCost, cost_bind, Nat.add_zero]
+              cost_pure, recoveryLayersCost, cost_bind, Nat.add_zero, Option.map_some, Option.getD_some]
             omega
           · have hrec := cost_bound answers (bound_recoverLayerPair sig index (Fin.ofNat 4 n)
               digits hvalid hls.1 hls.2)
@@ -170,8 +176,7 @@ theorem expandLayersBC_cost_le (answers : Answers) (cache : Cache) (index : Nat)
             | some previous =>
                 simp only [hp, evalWithAnswerFn_pure, Option.some.injEq] at he
                 subst pieces
-                obtain ⟨hlen, _⟩ := ClaudeWCT.WCT9.signLayersBC_expandLayersBC answers cache index hcache hindex
-                  n (by omega) (by omega) _ previous hp
+                have hlen := ClaudeWCT.WCT9.signLayersBC_length answers cache index n _ previous hp
                 change PiecesAgree (toT3Signature sig) (previous ++ [honestPieces answers (Fin.ofNat 4 n)
                   (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 digits]) (n + 1) at hagree
                 have hlayer := PiecesAgree.last hlen (by omega) hagree

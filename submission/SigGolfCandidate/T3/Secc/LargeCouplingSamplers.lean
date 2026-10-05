@@ -217,6 +217,16 @@ theorem coherent_psi (vals : Coord → Digest) (nv : Message → Digest) (τ : U
       rw [hsec]
       exact hpubX x.val x.property
     rw [referenceSearch_eq U hU hE _ labels res hpub L, sel_psi]
+    cases hsel : a.sel L with
+    | none => rfl
+    | some r =>
+        have h := (SphincsSecurity.Concrete.FirstSuccessTable.select_some_iff _ _ r.1 r.2).mp hsel
+        obtain ⟨-, hsome⟩ := (decodeAt_eq_some L _ r.2).mp h.1
+        simp only [Option.bind_some]
+        rcases Nonbinary.searchDecode_eq_none_or L.1.lay r.2 with hn | he
+        · rw [hn] at hsome
+          cases hsome
+        · rw [he]
   ·
     intro c hc hn
     change privPsi s nv a.priv c = a.priv c

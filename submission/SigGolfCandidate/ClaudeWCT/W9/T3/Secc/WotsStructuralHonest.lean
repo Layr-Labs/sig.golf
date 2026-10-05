@@ -342,7 +342,14 @@ theorem sat_signLayers (T : Answers) (cache : Cache) (index : Nat) (hindex : ind
       refine QueriesSat.bind (sat_layerCounterSearch T _ _ _ _ _ _) ?_
       cases hs : evalWithAnswerFn T (WCT9.layerCounterSearch (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
         (route index (Fin.ofNat 4 n)).1 msg 0 counterLimit) with
-      | none => exact QueriesSat.pure' _
+      | none =>
+          dsimp only
+          split_ifs with hn0
+          · subst hn0
+            refine QueriesSat.bind (sat_signTop T cache _ _ (Mask.dummyDigits_spec 0).2 ?_) (QueriesSat.pure' _)
+            have := route_leaf_bound index (Fin.ofNat 4 0)
+            exact this
+          · exact QueriesSat.pure' _
       | some found =>
           obtain ⟨counter, digits⟩ := found
           have hd := (WCT9.layerCounterSearch_some T _ _ _ msg counterLimit 0 counter digits

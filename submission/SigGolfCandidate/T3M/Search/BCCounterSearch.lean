@@ -1,4 +1,6 @@
 import SigGolfCandidate.T3M.Search.CounterSearch
+import SigGolfCandidate.T3M.Search.CreditBlock
+import SigGolfCandidate.T3.Nonbinary.CreditFilter
 import SigGolfCandidate.ClaudeWCT.WCT9.Core
 
 section
@@ -69,8 +71,10 @@ structure CsArgs where
   leaf : Nat
   msg : WCT9.LayerMsg
   ret : Nat
-def csT (lay : Layer) : Nat := if lay = 0 then 201 else 158
-def csOk (lay : Layer) : Nat := if lay = 0 then 1308 else 967
+def csT (lay : Layer) : Nat := if lay = 0 then 408 else 158
+def csOk (lay : Layer) : Nat := if lay = 0 then 1516 else 967
+/-- The total-signer flag byte of the image whose kernel sits at `b` (sign 543: 1, expand 354: 0). -/
+def cfFlag (b : Nat) : Nat := if b = 543 then 1 else 0
 abbrev csRegs : List Reg := [.x6, .x7, .x10, .x11, .x12, .x19, .x20, .x21, .x25, .x28, .x29, .x30]
 def CsW (A : Nat) : Prop :=
   A = ENC + 16 ∨ A = ENC + 24 ∨ A = ENC + 32 ∨ (EOUT ≤ A ∧ A < EOUT + 32) ∨ DigW A
@@ -93,6 +97,7 @@ structure CsPre (b : Nat) (A : CsArgs) (s : MachineState) : Prop where
   r48 : s.getMem (BitVec.ofNat 64 (ENC + 48)) = (right A.msg).extractLsb' 0 64
   r56 : s.getMem (BitVec.ofNat 64 (ENC + 56)) = (right A.msg).extractLsb' 64 64
   table : TableOK s
+  cf : CfTableOK (cfFlag b) s
 structure CsInv (b : Nat) (A : CsArgs) (s0 : MachineState) (i : Nat) (t : MachineState) : Prop where
   pc : t.pc = pcOf (b + 113)
   hi : i ≤ 2 ^ 22
@@ -102,8 +107,15 @@ structure CsInv (b : Nat) (A : CsArgs) (s0 : MachineState) (i : Nat) (t : Machin
   c32 : ∃ x < 2 ^ 32, t.getMem (BitVec.ofNat 64 (ENC + 32)) = BitVec.ofNat 64 x
   regs : RegsExcept s0 t csRegs
   frame : Frame s0 t CsW
+/-- The signer's top layer on counter exhaustion: the dummy word's digits, returned to the caller. -/
+def DummyOut (A : CsArgs) (s0 t : MachineState) : Prop :=
+  t.pc = pcOf A.ret ∧
+    (∀ j < 54, t.getByte (BitVec.ofNat 64 (DIGITS + j)) = BitVec.ofNat 8 (T3.dummyTop.getD j 0)) ∧
+    (t.getMem (BitVec.ofNat 64 (ENC + 32))).toNat < 2 ^ 32 ∧ RegsExcept s0 t csRegs ∧ Frame s0 t CsW ∧
+    (t.getReg .x25).toNat ≤ 126
 def CsPost (image : Image) (b : Nat) (A : CsArgs) (s0 : MachineState) : Option (BitVec 32 × List Nat) → MachineState → Prop
-  | none, t => t.pc = pcOf (b + 2) ∧ t.getReg .x5 = BitVec.ofNat 64 1 ∧ t.getReg .x10 = BitVec.ofNat 64 1 ∧
+  | none, t => if A.lay = 0 ∧ b = 543 then DummyOut A s0 t else
+      t.pc = pcOf (b + 2) ∧ t.getReg .x5 = BitVec.ofNat 64 1 ∧ t.getReg .x10 = BitVec.ofNat 64 1 ∧
       fetch image t = some (.base .ECALL)
   | some (c, ds), t => t.pc = pcOf A.ret ∧ c.toNat < 2 ^ 22 ∧ t.getReg .x19 = BitVec.ofNat 64 c.toNat ∧
       t.getMem (BitVec.ofNat 64 (ENC + 32)) = BitVec.ofNat 64 c.toNat ∧
@@ -194,14 +206,17 @@ theorem cs_success {A : CsArgs} {s0 u : MachineState} {i : Nat} (hK : KernAt ima
 theorem TrialSt.table {A : CsArgs} {s0 u : MachineState} {i : Nat}
     (hu : TrialSt b A s0 i u) (ht : TableOK s0) : TableOK u :=
   ht.frame hu.frame (by intro j hj; unfold CsW DigW TOP_DATA ENC EOUT DIGITS; omega)
+theorem TrialSt.cf {A : CsArgs} {s0 u : MachineState} {i : Nat} {flag : Nat}
+    (hu : TrialSt b A s0 i u) (ht : CfTableOK flag s0) : CfTableOK flag u :=
+  ht.frame hu.frame (by intro j hj hj'; unfold CsW DigW TOP_DATA ENC EOUT DIGITS; omega)
 theorem cs_top_success {A : CsArgs} {s0 u : MachineState} {i : Nat} (hK : KernAt image b)
-    (hpre : CsPre b A s0) (hu : TrialSt b A s0 i u) (hpc : u.pc = pcOf (b + 362))
+    (hpre : CsPre b A s0) (hu : TrialSt b A s0 i u) (hpc : u.pc = pcOf (b + 363))
     (hi : i < 2 ^ 22) (hlz : A.lay = 0) (v : Digest) (hv : v.toNat < 2 ^ 125)
     (hvalid : T3.topRanksValid v = true) (hdec : T3.decode A.lay v = some (topDigits v))
     (h6 : u.getReg .x6 = v.extractLsb' 0 64) (h7 : u.getReg .x7 = v.extractLsb' 64 64)
-    (h30 : u.getReg .x30 = BitVec.ofNat 64 TOP_DATA) (h25 : u.getReg .x25 = 126#64) :
-    TBSim image sk u 302 (pure (some (BitVec.ofNat 32 i, topDigits v))) (CsPost image b A s0) := by
-  obtain ⟨t, st, tpc, tdig, tr, tf⟩ := topUnpack_spec hK u v hv hvalid (hu.table hpre.table) hpc h6 h7 h30
+    (h30 : u.getReg .x30 = BitVec.ofNat 64 TOP_DATA) (h25 : u.getReg .x25 = 126#64) (h20 : u.getReg .x20 = 0) :
+    TBSim image sk u 301 (pure (some (BitVec.ofNat 32 i, topDigits v))) (CsPost image b A s0) := by
+  obtain ⟨t, st, tpc, tdig, tr, tf⟩ := topUnpack_spec hK u v hv hvalid (hu.table hpre.table) hpc h6 h7 h30 h20
   have hc : (BitVec.ofNat 32 i).toNat = i := by rw [BitVec.toNat_ofNat]; omega
   refine TBSim.steps st (TBSim.pure ?_)
   refine ⟨?_, by rw [hc]; exact hi, ?_, ?_, ⟨v, hdec⟩, ?_, ?_, ?_, ?_, ?_⟩
@@ -268,6 +283,66 @@ theorem TrialSt.hash {A : CsArgs} {s0 t2 : MachineState} {i : Nat} (hT : TrialSt
       rcases h with h | h
       · exact h
       · exact Or.inr (Or.inr (Or.inr (Or.inl h))))
+theorem cfFlag_lt (b : Nat) : cfFlag b < 256 := by unfold cfFlag; split <;> omega
+theorem searchDecode_top (v : Digest) :
+    T3.searchDecode 0 v = if T3.topCredit v < 9 then none else T3.decode 0 v := by
+  unfold T3.searchDecode T3.encCredit T3.creditFloor
+  simp
+/-- Counter limit reached: lower layer or expander -> the failure exit; the signer's top layer -> the dummy word. -/
+theorem cs_exhaust {A : CsArgs} {s0 t : MachineState} {i : Nat} (hK : KernAt image b) (hpre : CsPre b A s0)
+    (hI : CsInv b A s0 i t) (hi : i = 2 ^ 22) :
+    TBSim image sk t (0 * csT A.lay + csOk A.lay) (WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg i 0)
+      (CsPost image b A s0) := by
+  obtain ⟨t1, s1, p1, r1, f1⟩ := cs113_spec hK t hI.pc i hI.hi hI.x19
+  rw [if_pos hi] at p1
+  have h8 : t1.getReg .x8 = BitVec.ofNat 64 A.lay.val := by
+    rw [r1.get (by decide), hI.regs.get (by decide), hpre.x8]
+  have fr1 : Frame s0 t1 CsW := (hI.frame.trans f1).mono (fun A _ h => by simp only [or_false] at h; exact h)
+  have hcf1 : CfTableOK (cfFlag b) t1 :=
+    hpre.cf.frame fr1 (by intro j hj hj'; unfold CsW DigW TOP_DATA ENC EOUT DIGITS; omega)
+  have prog : WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg i 0 = pure none := rfl
+  rw [prog]
+  by_cases hd : A.lay = 0 ∧ b = 543
+  · have hfl : cfFlag b ≠ 0 := by unfold cfFlag; rw [if_pos hd.2]; omega
+    obtain ⟨t2, s2, p2, g6, g7, g20, g25, g30, r2, f2⟩ := Credit.exhaust_dummy hK t1 p1
+      (by rw [h8, hd.1]; rfl) (cfFlag b) (cfFlag_lt b) hcf1 hfl
+    have ht2 : TableOK t2 := hpre.table.frame (fr1.trans f2 |>.mono (fun A _ h => by
+      simp only [or_false] at h; exact h)) (by intro j hj; unfold CsW DigW TOP_DATA ENC EOUT DIGITS; omega)
+    obtain ⟨t3, s3, p3, dig3, r3, f3⟩ := topUnpack_spec hK t2 Credit.dummyDigest Credit.dummy_lt
+      Credit.dummy_valid ht2 p2 g6 g7 g30 g20
+    refine (TBSim.steps (s1.trans (s2.trans s3)) (TBSim.pure ?_)).mono ?_ (fun _ _ h => h)
+    · change (if A.lay = 0 ∧ b = 543 then DummyOut A s0 t3 else _)
+      rw [if_pos hd]
+      refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
+      · rw [p3, r2.get (by decide), r1.get (by decide), hI.regs.get (by decide), hpre.x1, pcOf_and_not1]
+      · intro j hj
+        rw [dig3 j hj, ← Credit.dummy_digits]
+        simp only [topDigits, getD_map_range hj]
+      · obtain ⟨x, hx, hx32⟩ := hI.c32
+        rw [f3.get (by unfold ENC; omega) (by unfold TopUnpack.Writes DIGITS ENC; omega),
+          f2.get (by unfold ENC; omega) (by simp), f1.get (by unfold ENC; omega) (by simp), hx32,
+          BitVec.toNat_ofNat]
+        omega
+      · exact (((hI.regs.trans r1).trans r2).trans r3).mono (by decide)
+      · exact ((fr1.trans f2).trans f3).mono (fun A _ h => by
+          rcases h with (h | h) | h
+          · exact h
+          · exact absurd h id
+          · exact Or.inr (Or.inr (Or.inr (Or.inr h))))
+      · rw [r3.get (by decide), g25]; decide
+    · unfold csOk; rw [if_pos hd.1]; omega
+  · have hfl : A.lay.val ≠ 0 ∨ cfFlag b = 0 := by
+      by_cases hz : A.lay = 0
+      · right; unfold cfFlag; rw [if_neg (fun h => hd ⟨hz, h⟩)]
+      · left; exact fun h => hz (Fin.ext h)
+    obtain ⟨n, t2, hn, s2, p2, r2, f2⟩ := Credit.exhaust_fail hK t1 p1 A.lay.val A.lay.isLt h8 (cfFlag b)
+      (cfFlag_lt b) hcf1 hfl
+    obtain ⟨t3, s3, p3, h5, h10, hf⟩ := cs0_spec hK t2 p2
+    refine (TBSim.steps (s1.trans (s2.trans s3)) (TBSim.pure ?_)).mono ?_ (fun _ _ h => h)
+    · change (if A.lay = 0 ∧ b = 543 then DummyOut A s0 t3 else _)
+      rw [if_neg hd]
+      exact ⟨p3, h5, h10, hf⟩
+    · unfold csOk; split_ifs <;> omega
 theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : CsPre b A s0) :
     ∀ F i t, i + F = 2 ^ 22 → CsInv b A s0 i t →
       TBSim image sk t (F * csT A.lay + csOk A.lay) (WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg i F)
@@ -280,19 +355,14 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
   induction F with
   | zero =>
     intro i t h hI
-    obtain ⟨t1, s1, p1, _, _⟩ := cs113_spec hK t hI.pc i hI.hi hI.x19
-    rw [if_pos (by omega)] at p1
-    obtain ⟨t2, s2, p2, h5, h10, hf⟩ := cs0_spec hK t1 p1
-    have := TBSim.steps (sk := sk) (s1.trans s2)
-      (TBSim.pure (Q := CsPost image b A s0) (a := none) ⟨p2, h5, h10, hf⟩)
-    exact this.mono (by unfold csOk; split_ifs <;> omega) (fun _ _ h => h)
+    exact cs_exhaust hK hpre hI (by omega)
   | succ F ih =>
     intro i t h hI
     have hi : i < 2 ^ 22 := by omega
     obtain ⟨t2, s2, p2, hf, h5, hv, hq, h12, hT⟩ := cs_answer hK hpre hI hi
     have prog : WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg i (F + 1) =
         (T3.shortHash (WCT9.layerEncodingInput A.lay A.tree A.leaf A.msg (BitVec.ofNat 32 i)) >>= fun answer =>
-          match T3.decode A.lay answer with
+          match T3.searchDecode A.lay answer with
           | none => WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg (i + 1) F
           | some digits => pure (some (BitVec.ofNat 32 i, digits))) := rfl
     have ih' : ∀ t, CsInv b A s0 (i + 1) t → TBSim image sk t (F * csT A.lay + csOk A.lay)
@@ -316,6 +386,9 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
     · rw [if_pos (hl0.2 hlz)] at p4
       have hdec := decode_top_lookup v
       rw [← hlz] at hdec
+      have hsd : T3.searchDecode A.lay v = if T3.topCredit v < 9 then none else T3.decode A.lay v := by
+        rw [hlz]; exact searchDecode_top v
+      rw [hsd]
       obtain ⟨t5, s5, p5, r5, f5⟩ := cs263_spec hK t4 p4 v h7
       have hT5 := hT4.step r5 (by decide) f5
       by_cases hr : v.toNat < 2 ^ 125
@@ -327,23 +400,42 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
         by_cases hs : topLookupSum v = 126
         · rw [if_pos hs] at p6
           have hd' : T3.decode A.lay v = some (topDigits v) := by rw [hdec, if_pos ⟨hr, hs⟩]
-          rw [hd']
-          refine (TBSim.steps ((s4.trans s5).trans s6) (cs_top_success hK hpre hT6 p6 hi hlz v hr
-            ((topLookupSum_eq_iff v).mp hs).1 hd'
-            (by rw [r6.get (by decide), r5.get (by decide), h6])
-            (by rw [r6.get (by decide), r5.get (by decide), h7]) h30' (by simpa only [hs] using h25'))).mono ?_ (fun _ _ h => h)
-          unfold csT csOk; rw [if_pos hlz, if_pos hlz]; omega
+          have hvalid := ((topLookupSum_eq_iff v).mp hs).1
+          obtain ⟨t7, s7, p7, r7, f7⟩ := TopUnpack.jump_spec hK t6 p6
+          have hT7 := hT6.step r7 (by decide) f7
+          obtain ⟨t8, s8, p8, g20, r8, f8⟩ := Credit.credit_spec hK t7 p7 v hr hvalid (hT7.table hpre.table)
+            (by rw [r7.get (by decide), r6.get (by decide), r5.get (by decide), h6])
+            (by rw [r7.get (by decide), r6.get (by decide), r5.get (by decide), h7])
+            (by rw [r7.get (by decide), h30'])
+          have hT8 := hT7.step r8 (by decide) f8
+          by_cases hc : T3.topCredit v < 9
+          · rw [if_pos hc] at p8 s8
+            rw [if_pos hc]
+            refine (TBSim.steps ((((s4.trans s5).trans s6).trans s7).trans s8) (cs_next hK hT8 p8 hi ih')).mono ?_
+              (fun _ _ h => h)
+            unfold csT; rw [if_pos hlz]; omega
+          · rw [if_neg hc] at p8 s8
+            rw [if_neg hc, hd']
+            refine (TBSim.steps ((((s4.trans s5).trans s6).trans s7).trans s8) (cs_top_success hK hpre hT8 p8 hi hlz v hr
+              hvalid hd'
+              (by rw [r8.get (by decide), r7.get (by decide), r6.get (by decide), r5.get (by decide), h6])
+              (by rw [r8.get (by decide), r7.get (by decide), r6.get (by decide), r5.get (by decide), h7])
+              (by rw [r8.get (by decide), r7.get (by decide), h30'])
+              (by rw [r8.get (by decide), r7.get (by decide)]; simpa only [hs] using h25') (g20 hc))).mono ?_
+              (fun _ _ h => h)
+            unfold csT csOk; rw [if_pos hlz, if_pos hlz]; omega
         · rw [if_neg hs] at p6
           have hd' : T3.decode A.lay v = none := by rw [hdec, if_neg (fun h => hs h.2)]
-          rw [hd']
+          rw [hd', ite_self]
           refine (TBSim.steps ((s4.trans s5).trans s6) (cs_next hK hT6 p6 hi ih')).mono ?_ (fun _ _ h => h)
           unfold csT; rw [if_pos hlz]; omega
       · rw [if_neg hr] at p5
         have hd' : T3.decode A.lay v = none := by rw [hdec, if_neg (fun h => hr h.1)]
-        rw [hd']
+        rw [hd', ite_self]
         refine (TBSim.steps (s4.trans s5) (cs_next hK hT5 p5 hi ih')).mono ?_ (fun _ _ h => h)
         unfold csT; rw [if_pos hlz]; omega
     · rw [if_neg (fun h => hlz (hl0.1 h))] at p4
+      rw [SigGolfCandidate.T3.Nonbinary.searchDecode_lower hlz v]
       have hdec := decode_low A.lay hlz v
       obtain ⟨t5, s5, p5, r5, f5⟩ := cs130_spec hK t4 p4 v h7
       have hT5 := hT4.step r5 (by decide) f5
@@ -413,28 +505,40 @@ structure CsPreS (b : Nat) (s : MachineState) (lay : Layer) (tree leaf : Nat) (m
   r48 : s.getMem (BitVec.ofNat 64 (ENC + 48)) = (right message).extractLsb' 0 64
   r56 : s.getMem (BitVec.ofNat 64 (ENC + 56)) = (right message).extractLsb' 64 64
   table : TableOK s
+  cf : CfTableOK (cfFlag b) s
+/-- The dummy-word return of the signer's top layer, in the caller's terms. -/
+def DummyOutS (s : MachineState) (ret : Nat) (t : MachineState) : Prop :=
+  t.pc = pcOf ret ∧ t.getReg .x5 = 0 ∧
+    (∀ j < 54, t.getByte (BitVec.ofNat 64 (DIGITS + j)) = BitVec.ofNat 8 (T3.dummyTop.getD j 0)) ∧
+    (t.getMem (BitVec.ofNat 64 (ENC + 32))).toNat < 2 ^ 32 ∧ RegsExcept s t csRegs ∧ Frame s t CsW ∧
+    (t.getReg .x25).toNat ≤ 126
 def CsPostS (b : Nat) (s : MachineState) (lay : Layer) (ret : Nat) :
     Option (BitVec 32 × List Nat) → MachineState → Prop
-  | none, t => FailedAt b t
+  | none, t => if lay = 0 ∧ b = 543 then DummyOutS s ret t else FailedAt b t
   | some (_, ds), t => t.pc = pcOf ret ∧ t.getReg .x5 = 0 ∧ (∃ v, T3.decode lay v = some ds) ∧
       (∀ i < T3.chainCount lay, t.getByte (BitVec.ofNat 64 (DIGITS + i)) = BitVec.ofNat 8 (ds.getD i 0)) ∧
       (t.getMem (BitVec.ofNat 64 (ENC + 32))).toNat < 2 ^ 32 ∧ RegsExcept s t csRegs ∧ Frame s t CsW ∧
       (t.getReg .x25).toNat ≤ T3.target lay
-def csCostS (lay : Layer) : Nat := T3.counterLimit * (if lay = 0 then 205 else 160) + 2000
+def csCostS (lay : Layer) : Nat := T3.counterLimit * (if lay = 0 then 412 else 160) + 2000
 theorem CsPreS.toCsPre {b : Nat} {s : MachineState} {lay : Layer} {tree leaf : Nat} {msg : WCT9.LayerMsg} {ret : Nat}
     (h : CsPreS b s lay tree leaf msg ret) : CsPre b ⟨lay, tree, leaf, msg, ret⟩ s :=
   ⟨h.pc, h.x1, h.x5, h.x8, h.x9, h.x18, h.x17, h.x26, h.x27, h.htree, h.hleaf, h.msg.1, h.msg.2,
-    ⟨_, h.c32, (BitVec.ofNat_toNat _ _).trans (BitVec.setWidth_eq _)|>.symm⟩, h.z40, h.r48, h.r56, h.table⟩
+    ⟨_, h.c32, (BitVec.ofNat_toNat _ _).trans (BitVec.setWidth_eq _)|>.symm⟩, h.z40, h.r48, h.r56, h.table, h.cf⟩
 theorem counterSearch_spec {image : Image} {b : Nat} {sk : BitVec 256} (hK : KernAt image b)
     (s : MachineState) (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (ret : Nat)
     (h : CsPreS b s lay tree leaf msg ret) :
     TBSim image sk s (csCostS lay) (WCT9.layerCounterSearch lay tree leaf msg 0 T3.counterLimit) (CsPostS b s lay ret) := by
   refine (counterSearch_tbsim (sk := sk) hK h.toCsPre).mono ?_ (fun r t ht => ?_)
-  · show 10 + 2 ^ 22 * csT lay + csOk lay ≤ 2 ^ 22 * (if lay = 0 then 205 else 160) + 2000
+  · show 10 + 2 ^ 22 * csT lay + csOk lay ≤ 2 ^ 22 * (if lay = 0 then 412 else 160) + 2000
     unfold csT csOk
     split_ifs <;> omega
   · rcases r with _ | ⟨c, ds⟩
-    · exact ⟨ht.1, ht.2.1, ht.2.2.1⟩
+    · change (if lay = 0 ∧ b = 543 then DummyOut _ s t else _) at ht
+      show (if lay = 0 ∧ b = 543 then DummyOutS s ret t else FailedAt b t)
+      split_ifs at ht ⊢ with hd
+      · obtain ⟨tpc, dig, c32, hr, hf, h25⟩ := ht
+        exact ⟨tpc, by rw [hr.get (by decide), h.x5], dig, c32, hr, hf, h25⟩
+      · exact ⟨ht.1, ht.2.1, ht.2.2.1⟩
     · obtain ⟨tpc, hc, _, h32, hdec, _, hdig, hr, hf, h25⟩ := ht
       refine ⟨tpc, ?_, hdec, hdig, ?_, hr, hf, h25⟩
       · rw [hr.get (by decide), h.x5]

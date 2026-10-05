@@ -9,7 +9,7 @@ open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
-def dummyDigest0 : Digest := BitVec.ofNat 128 17680986319720600780412
+def dummyDigest0 : Digest := BitVec.ofNat 128 232069893348868768384238972637
 def dummyDigestLow : Digest := BitVec.ofNat 128 48611766702991209076737369103800916845
 def dummyDigest (lay : Layer) : Digest := if lay.val = 0 then dummyDigest0 else dummyDigestLow
 theorem dummyDigest_decode (lay : Layer) : decode lay (dummyDigest lay) = some (dummyDigits lay) := by
@@ -70,6 +70,28 @@ theorem referenceDigits_decode (answers : Answers) (L : LeafAddr) :
   | some s =>
       obtain ⟨c, digits⟩ := s
       exact ⟨_, referenceSearch_decode answers L hs⟩
+theorem dummyDigest_searchDecode (lay : Layer) : searchDecode lay (dummyDigest lay) = some (dummyDigits lay) :=
+  Nonbinary.searchDecode_of (dummyDigest_decode lay) (by fin_cases lay <;> decide +kernel)
+theorem referenceSearch_searchDecode (answers : Answers) (L : LeafAddr) {c : BitVec 32} {digits : List Nat}
+    (h : referenceSearch answers L = some (c, digits)) :
+    searchDecode L.lay (low (answers (.inl (.inr (encodingRow L (leafMsg answers L) c))))) = some digits :=
+  (Correctness.counterSearch_some_search answers L.lay L.tree L.leaf (leafMsg answers L) counterLimit 0 c digits
+    (by norm_num [counterLimit]) h).2.2
+theorem referenceDigits_searchDecode (answers : Answers) (L : LeafAddr) :
+    ∃ value : Digest, searchDecode L.lay value = some (referenceDigits answers L) := by
+  unfold referenceDigits
+  cases hs : referenceSearch answers L with
+  | none => exact ⟨_, dummyDigest_searchDecode L.lay⟩
+  | some s =>
+      obtain ⟨c, digits⟩ := s
+      exact ⟨_, referenceSearch_searchDecode answers L hs⟩
+theorem searchDecode_of_reference (answers : Answers) (L : LeafAddr) {v : Digest}
+    (h : decode L.lay v = some (referenceDigits answers L)) :
+    searchDecode L.lay v = some (referenceDigits answers L) := by
+  obtain ⟨u, hu⟩ := referenceDigits_searchDecode answers L
+  have he : u = v := decode_some_injective (Nonbinary.searchDecode_some hu) h
+  rw [← he]
+  exact hu
 theorem depth_le (answers : Answers) (a : ChainAddr) (ha : a.chain < chainCount a.key.lay) :
     depth answers a ≤ maxDigit a.key.lay a.chain := by
   obtain ⟨value, hv⟩ := referenceDigits_decode answers a.key
