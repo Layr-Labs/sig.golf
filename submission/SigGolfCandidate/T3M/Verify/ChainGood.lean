@@ -18,7 +18,8 @@ theorem dig_lt8 (c : LCtx) (i : Nat) (hi : i < 42) : c.dig i < 8 := by unfold di
 theorem blk_at (c : LCtx) (i : Nat) (hi : i < 42) :
     blkCheck (i / 3) (c.dig (3 * (i / 3) + 1)) (c.dig (3 * (i / 3) + 2)) = true :=
   blkCheck_at _ _ _ (by omega) (c.dig_lt8 _ (by omega)) (c.dig_lt8 _ (by omega))
-theorem chk_headJ (c : LCtx) (i : Nat) (hi : i < 42) (h0 : i % 3 = 0) (hd : c.dig i < 7) :
+theorem chk_headJ (c : LCtx) (i : Nat) (hi : i < 42) (h0 : i % 3 = 0) (hd : c.dig i < 7)
+    (hn : ¬ (i = 0 ∧ c.kOf 0 = 0)) :
     vrun (c.startPc i) 7 = some (headJH .x22 (offL i) (c.rungPc i (c.dig i) + landOff (c.dig i)) i (c.dig i)
       (hSlot i (c.dig i))) ∧
     vrun (c.rungPc i (c.dig i) + landOff (c.dig i)) 1 = some (ecallR (c.rungPc i (c.dig i) + landOff (c.dig i))) := by
@@ -26,7 +27,11 @@ theorem chk_headJ (c : LCtx) (i : Nat) (hi : i < 42) (h0 : i % 3 = 0) (hd : c.di
   have et : 3 * t / 3 = t := by omega
   have he := entCheck_at t (c.kOf t) (by omega) (c.kOf_lt t (by omega))
   obtain ⟨k1, k2, k3⟩ := c.kOf_digits t (by omega)
+  have hn' : ¬ (t = 0 ∧ c.kOf t = 0) := by
+    rintro ⟨rfl, hk⟩
+    exact hn ⟨rfl, hk⟩
   unfold entCheck at he
+  rw [if_neg hn'] at he
   rw [k1, k2, k3, if_neg (by omega), Bool.and_eq_true] at he
   have hs : c.startPc (3 * t) = entW t (c.kOf t) := by
     unfold startPc; rw [if_neg (by omega), if_pos h0, et]
@@ -40,7 +45,12 @@ theorem chk_copyJ (c : LCtx) (i : Nat) (hi : i < 42) (h0 : i % 3 = 0) (hd : c.di
   have et : 3 * t / 3 = t := by omega
   have he := entCheck_at t (c.kOf t) (by omega) (c.kOf_lt t (by omega))
   obtain ⟨k1, k2, k3⟩ := c.kOf_digits t (by omega)
+  have hn' : ¬ (t = 0 ∧ c.kOf t = 0) := by
+    rintro ⟨_, hk⟩
+    rw [hk] at k1
+    omega
   unfold entCheck at he
+  rw [if_neg hn'] at he
   rw [k1, k2, k3, if_pos hd] at he
   have hs : c.startPc (3 * t) = entW t (c.kOf t) := by
     unfold startPc; rw [if_neg (by omega), if_pos h0, et]
@@ -48,6 +58,20 @@ theorem chk_copyJ (c : LCtx) (i : Nat) (hi : i < 42) (h0 : i % 3 = 0) (hd : c.di
     unfold endPc tB; rw [if_neg (by omega), if_pos h0, et]
   rw [hs, hq]
   exact rOK_eq he
+theorem chk_headJDirect (c : LCtx) (hk : c.kOf 0 = 0) :
+    vrun (c.startPc 0) 7 = some (headJDirect .x22 (offL 0)
+      (c.rungPc 0 (c.dig 0) + landOff (c.dig 0)) 0 (c.dig 0) (hSlot 0 (c.dig 0))) ∧
+    vrun (c.rungPc 0 (c.dig 0) + landOff (c.dig 0)) 1 =
+      some (ecallR (c.rungPc 0 (c.dig 0) + landOff (c.dig 0))) := by
+  obtain ⟨k1, k2, k3⟩ := c.kOf_digits 0 (by decide)
+  have hd : c.dig 0 = 0 := by simpa [hk] using k1.symm
+  have hd1 : c.dig 1 = 0 := by simpa [hk] using k2.symm
+  have hd2 : c.dig 2 = 0 := by simpa [hk] using k3.symm
+  have he := entCheck_at 0 0 (by decide) (by decide)
+  unfold entCheck at he
+  rw [if_pos (by decide), Bool.and_eq_true] at he
+  have hh := And.intro (rOK_eq he.1) (rOK_eq he.2)
+  simpa [startPc, rungPc, tb, hk, hd, hd1, hd2, hSlot, landOff] using hh
 theorem part_at (c : LCtx) (i : Nat) (hi : i < 42) (h0 : i % 3 ≠ 0) :
     partOK i (c.dig i) (c.startPc i) = true := by
   obtain ⟨t, r, rfl, hr⟩ : ∃ t r, i = 3 * t + r ∧ r < 3 := ⟨i / 3, i % 3, by omega, by omega⟩
@@ -356,24 +380,34 @@ theorem chain_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     have hsteps := c.steps_good hc hk h0 i hi hck acc K N C A Q hK (6 - c.dig i) (c.dig i) (by omega) (le_refl _)
     have hrp := c.rungPc_lt i (c.dig i) (by omega)
     by_cases h0' : i % 3 = 0
-    · have hruns : vrun (c.startPc i) 7 = some (headJH .x22 (offL i) (c.rungPc i (c.dig i) + landOff (c.dig i)) i
-            (c.dig i) (hSlot i (c.dig i))) ∧
-          vrun (c.rungPc i (c.dig i) + landOff (c.dig i)) 1 =
-            some (ecallR (c.rungPc i (c.dig i) + landOff (c.dig i))) := by
-        by_cases h42 : i = 42
-        · subst h42
-          have := ck_parts.1 c.ck (by rw [dig42] at hd; exact hd)
-          have hst42 : c.startPc 42 = ctabIdx + 8 * c.ck := by unfold startPc; simp
-          have hrp42 : c.rungPc 42 (c.dig 42) = ckR0 + 2 * c.ck := by unfold rungPc; simp [dig42]
-          rw [hst42, hrp42, dig42]; exact this
-        · exact c.chk_headJ i (by omega) h0' hd
-      obtain ⟨t, hst, hP⟩ := c.headJ_step hc hk h0 i hi hd hsp (c.rungPc_land_lt i (c.dig i) (by omega))
-        hruns.1 hruns.2 acc s hs
-      refine Verify.GoodQ.steps' hst (hsteps _ _ hP) (by omega) ?_ (fun hq => ⟨hq, ?_⟩)
-      · unfold chainCost preCost; rw [if_pos h0', if_neg h7]
-        split_ifs <;> omega
-      · unfold chainCost preCost; rw [if_pos h0', if_neg h7]
-        split_ifs <;> omega
+    · by_cases hspecial : i = 0 ∧ c.kOf 0 = 0
+      · rcases hspecial with ⟨rfl, hk0⟩
+        have hruns := c.chk_headJDirect hk0
+        obtain ⟨t, hst, hP⟩ := c.headJDirect_step hc hk h0 0 hi hd hsp
+          (c.rungPc_land_lt 0 (c.dig 0) (by omega)) hruns.1 hruns.2 acc s hs
+        refine Verify.GoodQ.steps' hst (hsteps _ _ hP) (by omega) ?_ (fun hq => ⟨hq, ?_⟩)
+        · unfold chainCost preCost; rw [if_pos h0', if_neg h7]
+          split_ifs <;> omega
+        · unfold chainCost preCost; rw [if_pos h0', if_neg h7]
+          split_ifs <;> omega
+      · have hruns : vrun (c.startPc i) 7 = some (headJH .x22 (offL i) (c.rungPc i (c.dig i) + landOff (c.dig i)) i
+              (c.dig i) (hSlot i (c.dig i))) ∧
+            vrun (c.rungPc i (c.dig i) + landOff (c.dig i)) 1 =
+              some (ecallR (c.rungPc i (c.dig i) + landOff (c.dig i))) := by
+          by_cases h42 : i = 42
+          · subst h42
+            have := ck_parts.1 c.ck (by rw [dig42] at hd; exact hd)
+            have hst42 : c.startPc 42 = ctabIdx + 8 * c.ck := by unfold startPc; simp
+            have hrp42 : c.rungPc 42 (c.dig 42) = ckR0 + 2 * c.ck := by unfold rungPc; simp [dig42]
+            rw [hst42, hrp42, dig42]; exact this
+          · exact c.chk_headJ i (by omega) h0' hd hspecial
+        obtain ⟨t, hst, hP⟩ := c.headJ_step hc hk h0 i hi hd hsp (c.rungPc_land_lt i (c.dig i) (by omega))
+          hruns.1 hruns.2 acc s hs
+        refine Verify.GoodQ.steps' hst (hsteps _ _ hP) (by omega) ?_ (fun hq => ⟨hq, ?_⟩)
+        · unfold chainCost preCost; rw [if_pos h0', if_neg h7]
+          split_ifs <;> omega
+        · unfold chainCost preCost; rw [if_pos h0', if_neg h7]
+          split_ifs <;> omega
     · have hrun := c.chk_headR i (by omega) h0' hd
       obtain ⟨t, hst, hP⟩ := c.headR_step hc hk h0 i ⟨hi.1, by omega⟩ (by omega) hd hsp
         (c.rungPc_inline i (by omega) h0') hrun acc s hs

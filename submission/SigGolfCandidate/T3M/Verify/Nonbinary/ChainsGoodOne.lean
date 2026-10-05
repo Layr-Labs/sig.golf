@@ -92,7 +92,7 @@ theorem prehash_step (c : NCtx) (hc : c.ok) (s0 : MachineState) (hk : ∀ p ∈ 
           ofNat_add_ofNat]
         congr 1
 theorem rung_piece (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
-    (i m p : Nat) (hi : i < 54) (hm : m ≤ last i) (hp : p < 242786)
+    (i m p : Nat) (hi : i < 54) (hm : m ≤ last i) (hp : p < 210432)
     (hrun : vrun p 3 = some (rungR m (if m = last i then some (slot i) else none) p)) (s : MachineState)
     (hpc : s.pc = pcOf p) (hR : ∀ x ∉ chainRegs, s.getReg x = s0.getReg x)
     (h10 : s.getReg .x10 = BitVec.ofNat 64 (c.blk i)) (hH : c.HdrOk i s) :
@@ -157,7 +157,7 @@ theorem rung_piece (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
   · rw [tmem _ hA, if_neg hn]
   · rw [Result.toState_pc]; simp only [hr, rungR]
     by_cases h2 : m = last i <;> simp [h2, E.eval]
-theorem tail_piece (i m p : Nat) (hp : p < 242786)
+theorem tail_piece (i m p : Nat) (hp : p < 210432)
     (hrun : vrun p 2 = some (tailR (if m = last i then some (slot i) else none) p)) (s : MachineState)
     (hpc : s.pc = pcOf p) :
     ∃ t, Steps vimage s (if m = last i then 1 else 0) (if m = last i then 1 else 0) t ∧
@@ -184,7 +184,7 @@ theorem tail_piece (i m p : Nat) (hp : p < 242786)
   · rw [Result.toState_pc]; simp only [hr, tailR]
     by_cases h2 : m = last i <;> simp [h2, E.eval]
 theorem rung_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
-    (i m : Nat) (hi : i < 54) (hm : m ≤ last i) (hp : c.rungPc i m < 242786)
+    (i m : Nat) (hi : i < 54) (hm : m ≤ last i) (hp : c.rungPc i m < 210432)
     (hrun : vrun (c.rungPc i m) 3 = some (rungR m (if m = last i then some (slot i) else none) (c.rungPc i m)))
     (acc : List Digest) (v : Digest) (s : MachineState) (hs : c.StepInv s0 i acc m v s) :
     ∃ t, Steps vimage s (if m = last i then 2 else 1) (if m = last i then 2 else 1) t ∧ c.PreHash s0 i acc m v t := by
@@ -305,7 +305,7 @@ theorem copy_post (c : NCtx) (hc : c.ok) {s0 s t : MachineState} (h0 : c.Orig0 s
       · rw [tm _ (by omega), if_pos rfl]; exact hv.2
 theorem copyN_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (h0 : c.Orig0 s0) (i : Nat) (hi : i < 54)
-    (hp0 : c.startPc i < 242786)
+    (hp0 : c.startPc i < 210432)
     (hrun : vrun (c.startPc i) 7 = some (copyN .x8 (off i) (slot i) (c.endPc i)))
     (acc : List Digest) (s : MachineState) (hs : c.ChainIn s0 i acc s) :
     ∃ t, Steps vimage s 5 5 t ∧ c.EndInv s0 i (acc ++ [c.val i]) t := by
@@ -322,7 +322,7 @@ theorem copyN_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     by simp [hlen], ?_⟩⟩
   rw [Result.toState_pc]; rfl
 theorem copyFH_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
-    (h0 : c.Orig0 s0) (i : Nat) (hi : i < 54) (hp0 : c.startPc i < 242786)
+    (h0 : c.Orig0 s0) (i : Nat) (hi : i < 54) (hp0 : c.startPc i < 210432)
     (hend : c.startPc i + 4 = c.endPc i)
     (hrun : vrun (c.startPc i) 4 = some (copyFH .x8 (off i) (slot i) (c.startPc i)))
     (acc : List Digest) (s : MachineState) (hs : c.ChainIn s0 i acc s) :
@@ -363,7 +363,7 @@ theorem headJDTerm_keeps (rb : Reg) (o : Word) (tgt i d : Nat) :
 namespace NCtx
 theorem headJ_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (h0 : c.Orig0 s0) (i : Nat) (hi : i < 54) (hd : c.dig i < last i)
-    (hp0 : c.startPc i < 242786) (hp1 : c.rungPc i (c.dig i) + 1 < 242786)
+    (hp0 : c.startPc i < 210432) (hp1 : c.rungPc i (c.dig i) + 1 < 210432)
     (hrun1 : vrun (c.startPc i) 7 = some (headJD .x8 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i)))
     (hrun2 : vrun (c.rungPc i (c.dig i) + 1) 2 =
       some (tailR (if c.dig i = last i then some (slot i) else none) (c.rungPc i (c.dig i) + 1)))
@@ -441,7 +441,7 @@ theorem headJ_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
   · rw [hpc2]; all_goals (congr 1 <;> split_ifs <;> omega)
 theorem headJTerm_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (h0 : c.Orig0 s0) (i : Nat) (hi : i < 54) (hd : c.dig i = last i)
-    (hp0 : c.startPc i < 242786) (hp1 : c.rungPc i (c.dig i) + 1 < 242786)
+    (hp0 : c.startPc i < 210432) (hp1 : c.rungPc i (c.dig i) + 1 < 210432)
     (hrun1 : vrun (c.startPc i) 7 = some (headJDTerm .x8 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i)))
     (hrun2 : vrun (c.rungPc i (c.dig i) + 1) 2 =
       some (tailR (if c.dig i = last i then some (slot i) else none) (c.rungPc i (c.dig i) + 1)))
@@ -527,7 +527,7 @@ theorem headRHT_keeps (rb : Reg) (o : Word) (d sl p i : Nat) :
 namespace NCtx
 theorem headR_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (h0 : c.Orig0 s0) (i : Nat) (hi : i < 54) (hd : c.dig i < last i)
-    (hp0 : c.startPc i < 242786) (hrp : c.rungPc i (c.dig i) = c.startPc i + 3)
+    (hp0 : c.startPc i < 210432) (hrp : c.rungPc i (c.dig i) = c.startPc i + 3)
     (hrun : vrun (c.startPc i) 8 = some (headRH .x8 (off i) (c.dig i) none (c.startPc i) i))
     (acc : List Digest) (s : MachineState) (hs : c.ChainIn s0 i acc s) :
     ∃ t, Steps vimage s 4 4 t ∧ c.PreHash s0 i acc (c.dig i) (c.val i) t := by
@@ -595,7 +595,7 @@ theorem headR_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     simp [h2, E.eval]
 theorem headRTerm_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (h0 : c.Orig0 s0) (i : Nat) (hi : i < 54) (hd : c.dig i = last i)
-    (hp0 : c.startPc i < 242786) (hrp : c.rungPc i (c.dig i) = c.startPc i + 2)
+    (hp0 : c.startPc i < 210432) (hrp : c.rungPc i (c.dig i) = c.startPc i + 2)
     (hrun : vrun (c.startPc i) 8 =
       some (headRHT .x8 (off i) (c.dig i) (slot i) (c.startPc i) i))
     (acc : List Digest) (s : MachineState) (hs : c.ChainIn s0 i acc s) :
@@ -669,8 +669,8 @@ section
 namespace SigGolfCandidate.T3M.Nonbinary
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 set_option maxHeartbeats 800000
-theorem baseTab_all : (baseTab.all fun x => decide (x<242722))=true := by decide +kernel
-theorem base_lt (q dB dC : Nat) : base q dB dC<242722 := by
+theorem baseTab_all : (baseTab.all fun x => decide (x<96160))=true := by decide +kernel
+theorem base_lt (q dB dC : Nat) : base q dB dC<96160 := by
   unfold base
   rw [List.getD_eq_getElem?_getD]
   split
@@ -686,21 +686,21 @@ theorem partLen_le (q d : Nat) : partLen q d≤14 := by
   unfold partLen
   split_ifs <;> omega
 namespace NCtx
-theorem qX_lt (c : NCtx) (i : Nat) : c.qX i<242786 := by
+theorem qX_lt (c : NCtx) (i : Nat) : c.qX i<97000 := by
   have hb := base_lt (i/3) (c.dig (3*(i/3)+1)) (c.dig (3*(i/3)+2))
   have h1 := partLen_le (i/3) (c.dig (3*(i/3)+1))
   have h2 := partLen_le (i/3) (c.dig (3*(i/3)+2))
   have hm := mx_bounds (i/3)
   unfold qX pcX pcC pcB
   omega
-theorem startPc_lt (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54) : c.startPc i<242786 := by
+theorem startPc_lt (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54) : c.startPc i<210432 := by
   have hb := base_lt (i/3) (c.dig (3*(i/3)+1)) (c.dig (3*(i/3)+2))
   have h1 := partLen_le (i/3) (c.dig (3*(i/3)+1))
   have hm := mx_bounds (i/3)
   have hk := c.kOf_lt hds (i/3) (by omega)
   unfold startPc entW qB qC pcC pcB mx at *
   split_ifs at * <;> omega
-theorem rungPc_lt (c : NCtx) (i m : Nat) (hm : m≤ last i) : c.rungPc i m<242786 := by
+theorem rungPc_lt (c : NCtx) (i m : Nat) (hm : m≤ last i) : c.rungPc i m<210432 := by
   have hb := base_lt (i/3) (c.dig (3*(i/3)+1)) (c.dig (3*(i/3)+2))
   have h1 := partLen_le (i/3) (c.dig (3*(i/3)+1))
   have hmx := mx_bounds (i/3)
@@ -834,7 +834,7 @@ theorem positive_head (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineSta
   have hsp := c.startPc_lt hds i hi
   by_cases htab : i%3=0
   · have hrun2 := c.chk_tail hds i (c.dig i) hi htab (by omega)
-    have hrp : c.rungPc i (c.dig i)+1<242786 := by
+    have hrp : c.rungPc i (c.dig i)+1<210432 := by
       have hb := base_lt (i/3) (c.dig (3*(i/3)+1)) (c.dig (3*(i/3)+2))
       have hl2 := last_bounds i
       unfold rungPc qb
