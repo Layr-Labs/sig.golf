@@ -8,7 +8,7 @@ set_option maxHeartbeats 1600000
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)
-open SigGolfCandidate.T3M.Verify.Nonbinary (PAIR_DATA TAIL_DATA)
+open SigGolfCandidate.T3M.Verify.Nonbinary (PAIR_DATA TAIL_DATA MASK_DATA)
 def leNat8 : List (BitVec 8) → Nat
   | [] => 0
   | b :: l => b.toNat + 256 * leNat8 l
@@ -167,6 +167,13 @@ theorem verifyData_word (k : Nat) (hk : k < 12) :
   interval_cases k <;> decide +kernel
 theorem verifyData_mask :
     bytesToWordLE ((((submission.image .verify).data).drop 39416).take 8) = 130048#64 := by
+  decide +kernel
+theorem verifyData_pre0 :
+    bytesToWordLE ((((submission.image .verify).data).drop 38888).take 8) = BitVec.ofNat 64 (128 + 193 * 2 ^ 56) := by
+  decide +kernel
+theorem verifyData_pre1 :
+    bytesToWordLE ((((submission.image .verify).data).drop 38896).take 8) =
+      BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + 1 * 2 ^ 48) := by
   decide +kernel
 def headerWord (k : Nat) : Nat :=
   if k < 4 then 128 + 193 * 2 ^ 56 + k * 2 ^ 48
@@ -340,7 +347,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 22984) (s : Mac
     unfold WIT at hA
     rw [gm, g3 _ (by omega), if_neg (by omega), g2 _ (by omega), if_neg (by omega), g1 _ (by omega),
       if_neg (by omega), g0z A (by unfold VERIFY_DATA; omega)]
-  · refine ⟨?_, ?_, ⟨?_, ?_, ?_⟩, ?_, ?_⟩
+  · refine ⟨?_, ?_, ⟨?_, ?_, ?_, ?_, ?_⟩, ?_, ?_⟩
     · intro k hk
       obtain ⟨hk1, hk2⟩ := DATA_ge k hk
       rw [gm, g3 _ (by omega), if_neg (by omega), g2 _ (by omega), if_neg (by omega), g1 _ (by omega),
@@ -361,16 +368,28 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 22984) (s : Mac
       exact Search.verifyData_pair i hi
     · intro i hi
       rw [gb _ (by unfold TAIL_DATA VERIFY_DATA; omega) (by unfold TAIL_DATA; omega)]
-      have hidx : TAIL_DATA + i - VERIFY_DATA = 39352 + i := by
+      have hidx : TAIL_DATA + i - VERIFY_DATA = 38904 + i := by
         unfold TAIL_DATA VERIFY_DATA; omega
       rw [hidx]
       exact Search.verifyData_tail i hi
+    · rw [gm, g3 _ (by unfold MASK_DATA; omega), if_neg (by unfold MASK_DATA; omega),
+        g2 _ (by unfold MASK_DATA; omega), if_neg (by unfold MASK_DATA; omega),
+        g1 _ (by unfold MASK_DATA; omega), if_neg (by unfold MASK_DATA; omega),
+        g0 _ (by unfold MASK_DATA; omega), if_pos (by unfold MASK_DATA VERIFY_DATA; omega),
+        show MASK_DATA - VERIFY_DATA = 39416 by unfold MASK_DATA VERIFY_DATA; omega,
+        verifyData_mask]
     · rw [gm, g3 _ (by unfold TAIL_DATA; omega), if_neg (by unfold TAIL_DATA; omega),
         g2 _ (by unfold TAIL_DATA; omega), if_neg (by unfold TAIL_DATA; omega),
         g1 _ (by unfold TAIL_DATA; omega), if_neg (by unfold TAIL_DATA; omega),
         g0 _ (by unfold TAIL_DATA; omega), if_pos (by unfold TAIL_DATA VERIFY_DATA; omega),
-        show TAIL_DATA + 64 - VERIFY_DATA = 39416 by unfold TAIL_DATA VERIFY_DATA; omega,
-        verifyData_mask]
+        show TAIL_DATA - 16 - VERIFY_DATA = 38888 by unfold TAIL_DATA VERIFY_DATA; omega,
+        verifyData_pre0]
+    · rw [gm, g3 _ (by unfold TAIL_DATA; omega), if_neg (by unfold TAIL_DATA; omega),
+        g2 _ (by unfold TAIL_DATA; omega), if_neg (by unfold TAIL_DATA; omega),
+        g1 _ (by unfold TAIL_DATA; omega), if_neg (by unfold TAIL_DATA; omega),
+        g0 _ (by unfold TAIL_DATA; omega), if_pos (by unfold TAIL_DATA VERIFY_DATA; omega),
+        show TAIL_DATA - 8 - VERIFY_DATA = 38896 by unfold TAIL_DATA VERIFY_DATA; omega,
+        verifyData_pre1]
     · intro j hj
       rw [gm, g3 _ (by simp only [TAB, VERIFY_DATA]; omega), if_neg (by simp only [TAB, VERIFY_DATA]; omega), g2 _ (by simp only [TAB, VERIFY_DATA]; omega),
         if_neg (by simp only [TAB, VERIFY_DATA]; omega), g1 _ (by simp only [TAB, VERIFY_DATA]; omega), if_neg (by simp only [TAB, VERIFY_DATA]; omega),
