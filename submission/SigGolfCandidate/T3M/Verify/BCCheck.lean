@@ -22,7 +22,8 @@ def headerWrites (lay : Nat) : List (Addr × E) :=
 def specA (lay p : Nat) : Spec :=
   if lay = 3 then T3M.specA lay p else
   ⟨if lay = 0 then [(.x4, tpE lay), (.x23, s7E lay), (.x3, ctrE lay)]
-   else [(.x4, tpE lay), (.x23, s7E lay), (.x31, if lay = 1 ∨ lay = 2 then .reg .x31 else treeE lay), (.x3, ctrE lay)],
+   else [(.x4, tpE lay), (.x23, s7E lay), (.x31, treeE lay), (.x3, ctrE lay),
+     (.x28, .bin .sll (.reg (rReg lay)) (kw 16))],
    headerWrites lay, p + stepsA lay, true, stepsA lay,
    [ctrBr lay false], none, stepsA lay⟩
 def rejA (lay p : Nat) : Spec :=
@@ -42,7 +43,7 @@ def copyCheck (lay p : Nat) : Bool :=
       (specTopCall p) [] [] keepTopCall
   else
     specB [] [] baseK (runAt (bK lay) [] (p + stepsA lay + 1)
-      [.br false, .br false, .jmp]) (specBl lay p) [] (postBl lay p) keepB &&
+      [.br false, .br false, .jmp]) (specBl lay p) [] (postBlC lay p) keepB &&
     specB [] [] [] (runAt (bK lay) [] (p + stepsA lay + 1)
       [.br false, .br true]) (rejCk lay) [] [] [] &&
     specB [] [] [] (runAt (bK lay) [] (p + stepsA lay + 1)
