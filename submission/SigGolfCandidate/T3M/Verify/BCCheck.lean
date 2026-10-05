@@ -20,15 +20,17 @@ def headerWrites (lay : Nat) : List (Addr × E) :=
    (⟨none, BitVec.ofNat 64 (x10In lay + 16)⟩, kw (hw 4 lay))]
 def specA (lay p : Nat) : Spec :=
   if lay = 3 then T3M.specA lay p else
-  ⟨if lay = 0 then [(.x4, tpE lay), (.x23, s7E lay), (.x3, ctrE lay)]
+  ⟨if lay = 0 then [(.x4, tpE lay), (.x23, s7E lay), (.x3, ctrE lay), (.x12, .reg .x12)]
    else [(.x4, tpE lay), (.x23, s7E lay), (.x31, treeE lay), (.x3, ctrE lay),
-     (.x28, .bin .sll (.reg (rReg lay)) (kw 16))],
+     (.x28, .bin .sll (.reg (rReg lay)) (kw 16)), (.x12, .reg .x12)],
    headerWrites lay, p + stepsA lay, true, stepsA lay,
    [ctrBr lay false], none, stepsA lay⟩
 def rejA (lay p : Nat) : Spec :=
   if lay = 3 then T3M.rejA lay p else
   ⟨[(.x5, kw 1), (.x10, kw 1)], headerWrites lay,
-   rejEcall, true, stepsA lay + 2, [ctrBr lay true], none, stepsA lay + 2⟩
+   rejEcall, true, stepsA lay + 3, [ctrBr lay true], none, stepsA lay + 3⟩
+def bKB (lay : Nat) : List (Reg × Word) := (bK lay).filter (fun p => p.1 != .x12)
+def oblB : List Oblig := [.valid ⟨some (.reg .x12), 8⟩ 8, .valid ⟨some (.reg .x12), 0⟩ 8]
 def allowed (lay : Nat) : List Nat :=
   if lay = 3 then [] else [x10In lay + 16, x10In lay + 24]
 def setupCheck (lay p : Nat) : Bool :=
@@ -41,12 +43,12 @@ def copyCheck (lay p : Nat) : Bool :=
     specB [] [] [] (runAt [] [96160] (p + stepsA lay + 1) [])
       (specTopCall p) [] [] keepTopCall
   else
-    specB [] [] baseK (runAt (bK lay) [] (p + stepsA lay + 1)
-      [.br false, .br false, .jmp]) (specBl lay p) [] (postBlC lay p) keepB &&
-    specB [] [] [] (runAt (bK lay) [] (p + stepsA lay + 1)
-      [.br false, .br true]) (rejCk lay) [] [] [] &&
-    specB [] [] [] (runAt (bK lay) [] (p + stepsA lay + 1)
-      [.br true]) (rejRng 62) [] [] []) &&
+    specB [] [] baseK (runAt (bKB lay) [] (p + stepsA lay + 1)
+      [.br false, .br false, .jmp]) (specBl lay p) oblB (postBlC lay p) keepB &&
+    specB [] [] [] (runAt (bKB lay) [] (p + stepsA lay + 1)
+      [.br false, .br true]) (rejCk lay) oblB [] [] &&
+    specB [] [] [] (runAt (bKB lay) [] (p + stepsA lay + 1)
+      [.br true]) (rejRng 62) oblB [] []) &&
   specB [] [] baseK (runAt (leafK lay) [] (p + retOff lay) (lfDirs lay))
     (specLf lay) [] (postLf lay) keepLf
 def layerCheck (lay lo n : Nat) : Bool :=
