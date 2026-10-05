@@ -40,8 +40,7 @@ inductive FtsInput (index : Nat) : HashInput → Prop
   | forest {pairs : List (Digest × Digest)} (hlen : pairs.length = 9) :
       FtsInput index (pad64 (forestInput index pairs))
 def FtsSeed (index : Nat) (tweak : BitVec 128) : Prop :=
-  ∃ coord selected pair, coord < 9 ∧ selected < 128 ∧ pair < 4 ∧
-    tweak = header 8 coord index 0 (4 * selected + pair)
+  ∃ coord pair, coord < 9 ∧ pair < 448 ∧ tweak = ftsSeedHeader coord index pair
 def FtsQuery (index : Nat) : Query → Prop
   | .inl (.inr input) => FtsInput index input
   | .inr (.inl tweak) => FtsSeed index tweak
@@ -151,69 +150,78 @@ theorem ftsBound_forestPk (pairs : List (Digest × Digest)) (hlen : pairs.length
   rw [forestPk_eq]
   exact bound_shortHashP _ 5 (FtsInput.forest hlen)
     (by rw [pad64_of_mod (by rw [forestInput_length _ _ hlen]), forestInput_length _ _ hlen])
-theorem ftsBound_privatePair (coord selected pair : Nat) (hcoord : coord < 9) (hsel : selected < 128)
-    (hpair : pair < 4) :
-    Bound (FtsQuery index) (fun _ => True) 1 (privatePair 8 coord index 0 (4 * selected + pair)) :=
-  bound_privatePairP _ _ _ _ _ ⟨coord, selected, pair, hcoord, hsel, hpair, rfl⟩
-theorem ftsBound_childHalf (coord selected : Nat) (word : Rank) (pair : Fin 4) (seeds : Digest × Digest)
-    (state : List Digest × List Digest) (half : Fin 2) (hcoord : coord < 9) (hsel : selected < 128)
-    (hstate : state.1.length = min (2 * pair.val + half.val) 7 ∧ state.2.length = min (2 * pair.val + half.val) 7) :
+theorem ftsBound_seedPair (coord pair : Nat) (hcoord : coord < 9) (hpair : pair < 448) :
+    Bound (FtsQuery index) (fun _ => True) 1 (ftsSeedPair index coord pair) :=
+  bound_privatePairP _ _ _ _ _ ⟨coord, pair, hcoord, hpair, rfl⟩
+def seedCost (q : Nat) : Nat := if q % 2 = 0 then 1 else 0
+theorem ftsBound_packedSecret (coord selected i : Nat) (carry : Digest) (hcoord : coord < 9)
+    (hsel : selected < 128) (hi : i < 7) :
+    Bound (FtsQuery index) (fun _ => True) (seedCost (ftsOrdinal selected i))
+      (packedSecret (ftsSeedPair index coord) (ftsOrdinal selected i) carry) := by
+  unfold packedSecret seedCost
+  by_cases h : ftsOrdinal selected i % 2 = 0
+  · rw [if_pos h, if_pos h]
+    exact (ftsBound_seedPair index coord _ hcoord (ftsOrdinal_pair_lt hsel hi)).bind' (l := 0)
+      (fun _ _ => .pure _ 0 trivial) (by omega)
+  · rw [if_neg h, if_neg h]
+    exact .pure _ 0 trivial
+theorem ftsBound_childStep (coord selected : Nat) (word : Rank) (state : List Digest × List Digest × Digest)
+    (i : Fin 7) (hcoord : coord < 9) (hsel : selected < 128)
+    (hstate : state.1.length = i.val ∧ state.2.1.length = i.val) :
     Bound (FtsQuery index)
-      (fun rows : List Digest × List Digest =>
-        rows.1.length = min (2 * pair.val + half.val + 1) 7 ∧ rows.2.length = min (2 * pair.val + half.val + 1) 7)
-      (if 2 * pair.val + half.val < 7 then 3 else 0) (childHalf index coord selected word pair seeds state half) := by
-  unfold childHalf
-  by_cases h : 2 * pair.val + half.val < 7
-  · rw [dif_pos h, if_pos h]
-    have hd := digit_le_three word ⟨2 * pair.val + half.val, h⟩
-    refine (ftsBound_chain index coord selected _ 0 _ _ hcoord hsel h (by omega)).bind'
-      (l := digit word ⟨2 * pair.val + half.val, h⟩) (fun value _ => ?_) (by omega)
-    refine (ftsBound_chain index coord selected _ _ _ value hcoord hsel h (by omega)).bind'
-      (l := 0) (fun last _ => ?_) (by omega)
-    exact .pure _ 0 ⟨by simp only [List.length_append, List.length_singleton]; omega,
-      by simp only [List.length_append, List.length_singleton]; omega⟩
-  · rw [dif_neg h, if_neg h]
-    exact .pure _ 0 ⟨by omega, by omega⟩
-def pairCost (pair : Nat) : Nat := 1 + 3 * (min (2 * pair + 2) 7 - min (2 * pair) 7)
-theorem ftsBound_childRows (coord selected : Nat) (word : Rank) (hcoord : coord < 9) (hsel : selected < 128) :
-    Bound (FtsQuery index) (fun rows : List Digest × List Digest => rows.1.length = 7 ∧ rows.2.length = 7) 25
-      (childRows index coord selected word) := by
+      (fun rows : List Digest × List Digest × Digest => rows.1.length = i.val + 1 ∧ rows.2.1.length = i.val + 1)
+      (seedCost (ftsOrdinal selected i.val) + 3) (childStep index coord selected word state i) := by
+  unfold childStep
+  have hd := wordDigit_le_three word i
+  refine (ftsBound_packedSecret index coord selected i.val state.2.2 hcoord hsel i.isLt).bind'
+    (l := 3) (fun sc _ => ?_) (by omega)
+  refine (ftsBound_chain index coord selected _ 0 _ _ hcoord hsel i.isLt (by omega)).bind'
+    (l := wordDigit word i) (fun value _ => ?_) (by omega)
+  refine (ftsBound_chain index coord selected _ _ _ value hcoord hsel i.isLt (by omega)).bind'
+    (l := 0) (fun last _ => ?_) (by omega)
+  exact .pure _ 0 ⟨by simp only [List.length_append, List.length_singleton]; omega,
+    by simp only [List.length_append, List.length_singleton]; omega⟩
+def childSeeds (selected : Nat) : Nat := if selected % 2 = 0 then 4 else 3
+theorem childSeeds_eq (selected : Nat) :
+    (∑ i ∈ Finset.range 7, seedCost (ftsOrdinal selected i)) = childSeeds selected := by
+  have e : ∀ i, (7 * selected + i) % 2 = (selected % 2 + i % 2) % 2 := fun i => by omega
+  simp only [Finset.sum_range_succ, Finset.sum_range_zero, seedCost, ftsOrdinal, childSeeds, e]
+  rcases Nat.mod_two_eq_zero_or_one selected with h | h <;> simp [h]
+theorem ftsBound_childRows (coord selected : Nat) (word : Rank) (carry : Digest) (hcoord : coord < 9)
+    (hsel : selected < 128) :
+    Bound (FtsQuery index) (fun rows : List Digest × List Digest × Digest => rows.1.length = 7 ∧ rows.2.1.length = 7)
+      (childSeeds selected + 21) (childRows index coord selected word carry) := by
   unfold childRows
-  refine ((Bound.foldlM_list (P := FtsQuery index) (List.finRange 4) _
-    (fun i (rows : List Digest × List Digest) => rows.1.length = min (2 * i) 7 ∧ rows.2.length = min (2 * i) 7)
-    pairCost ([], []) ⟨rfl, rfl⟩ (fun i hi rows hrows => ?_)).mono (fun _ h => h)
-    (fun rows h => by simpa using h)).mono_k (by simp [pairCost, Finset.sum_range_succ])
-  have hi4 : i < 4 := by simpa using hi
-  simp only [List.getElem_finRange, Fin.cast_mk]
-  refine (ftsBound_privatePair index coord selected i hcoord hsel hi4).bind (fun seeds _ => ?_)
-  have hinner := Bound.foldlM_list (P := FtsQuery index) (List.finRange 2)
-    (childHalf index coord selected word ⟨i, hi4⟩ seeds)
-    (fun h (rows : List Digest × List Digest) =>
-      rows.1.length = min (2 * i + h) 7 ∧ rows.2.length = min (2 * i + h) 7)
-    (fun h => if 2 * i + h < 7 then 3 else 0) rows (by simpa using hrows) (fun h hh rows' hrows' => by
-      have hh2 : h < 2 := by simpa using hh
-      simp only [List.getElem_finRange, Fin.cast_mk]
-      exact ftsBound_childHalf index coord selected word ⟨i, hi4⟩ seeds rows' ⟨h, hh2⟩ hcoord hsel hrows')
-  refine (hinner.mono (fun _ h => h) (fun rows' h => ?_)).mono_k ?_
-  · simp only [List.length_finRange] at h
-    constructor <;> omega
-  · simp only [List.length_finRange, Finset.sum_range_succ, Finset.sum_range_zero]
-    interval_cases i <;> simp
-theorem ftsBound_buildChild (coord selected : Nat) (word : Rank) (hcoord : coord < 9) (hsel : selected < 128) :
-    Bound (FtsQuery index) (fun result : Digest × List Digest => result.2.length = 7) 27
-      (buildChild index coord selected word) := by
+  refine ((Bound.foldlM_list (P := FtsQuery index) (List.finRange 7) _
+    (fun i (rows : List Digest × List Digest × Digest) => rows.1.length = i ∧ rows.2.1.length = i)
+    (fun i => seedCost (ftsOrdinal selected i) + 3) ([], [], carry) ⟨rfl, rfl⟩
+    (fun i hi rows hrows => ?_)).mono (fun _ h => h) (fun rows h => by simpa using h)).mono_k ?_
+  · have hi7 : i < 7 := by simpa using hi
+    simp only [List.getElem_finRange, Fin.cast_mk]
+    exact ftsBound_childStep index coord selected word rows ⟨i, hi7⟩ hcoord hsel hrows
+  · simp only [List.length_finRange, Finset.sum_add_distrib, childSeeds_eq, Finset.sum_const,
+      Finset.card_range, smul_eq_mul]
+    omega
+def childCost (selected : Nat) : Nat := childSeeds selected + 23
+theorem ftsBound_buildChild (coord selected : Nat) (word : Rank) (carry : Digest) (hcoord : coord < 9)
+    (hsel : selected < 128) :
+    Bound (FtsQuery index) (fun result : (Digest × List Digest) × Digest => result.1.2.length = 7)
+      (childCost selected) (buildChild index coord selected word carry) := by
   rw [buildChild_factor]
-  refine (ftsBound_childRows index coord selected word hcoord hsel).bind' (l := 2) (fun rows hrows => ?_)
-    (by decide)
+  refine (ftsBound_childRows index coord selected word carry hcoord hsel).bind' (l := 2)
+    (fun rows hrows => ?_) (by unfold childCost; omega)
   exact (ftsBound_leafHash index coord selected rows.1 hcoord hsel hrows.1).bind' (l := 0)
     (fun root _ => .pure _ 0 hrows.2) (by decide)
+theorem childCost_sum : (∑ j ∈ Finset.range 128, childCost j) = 3392 := by
+  simp only [childCost, childSeeds]
+  decide
 theorem ftsBound_coordRows (coord : Coord) (selected : Child) (word : Rank) :
-    Bound (FtsQuery index) (fun _ => True) 3456 (coordRows index coord selected word) := by
+    Bound (FtsQuery index) (fun _ => True) 3392 (coordRows index coord selected word) := by
   unfold coordRows
-  refine (Bound.foldlM_range (P := FtsQuery index) 128 _ (fun _ _ => True) (fun _ => 27) ([], []) trivial
-    (fun j hj state _ => ?_)).mono_k (by simp)
-  exact (ftsBound_buildChild index coord.val j word coord.isLt hj).bind' (l := 0)
-    (fun result _ => .pure _ 0 trivial) (by decide)
+  refine (Bound.foldlM_range (P := FtsQuery index) 128 _ (fun _ _ => True) childCost ([], [], 0) trivial
+    (fun j hj state _ => ?_)).mono_k (by rw [childCost_sum])
+  exact (ftsBound_buildChild index coord.val j word state.2.2 coord.isLt hj).bind' (l := 0)
+    (fun result _ => .pure _ 0 trivial) (by omega)
 theorem ftsBound_heapBuild (coord : Nat) (hcoord : coord < 9) (leaves : List Digest) :
     Bound (FtsQuery index) (fun _ => True) 126 (heapBuild index coord leaves) := by
   unfold heapBuild
@@ -225,7 +233,7 @@ theorem ftsBound_heapBuild (coord : Nat) (hcoord : coord < 9) (leaves : List Dig
   exact (ftsBound_nodeHash index coord (127 - i) _ _ hcoord (by omega) (by omega)).bind' (l := 0)
     (fun _ _ => .pure _ 0 trivial) (by omega)
 theorem ftsBound_buildCoordinate (coord : Coord) (selected : Child) (word : Rank) :
-    Bound (FtsQuery index) (fun _ => True) 3582 (buildCoordinate index coord selected word) := by
+    Bound (FtsQuery index) (fun _ => True) 3518 (buildCoordinate index coord selected word) := by
   rw [buildCoordinate_factor]
   refine (ftsBound_coordRows index coord selected word).bind' (l := 126) (fun rows _ => ?_) (by decide)
   exact (ftsBound_heapBuild index coord.val coord.isLt rows.1).bind' (l := 0)
@@ -233,17 +241,17 @@ theorem ftsBound_buildCoordinate (coord : Coord) (selected : Child) (word : Rank
 theorem ftsBound_forestRows (output : HashOutput) :
     Bound (FtsQuery index)
       (fun state : List Opening × List (Digest × Digest) => state.1.length = 9 ∧ state.2.length = 9)
-      32238 (forestRows index output) := by
+      31662 (forestRows index output) := by
   unfold forestRows
   refine ((Bound.foldlM_list (P := FtsQuery index) (List.finRange 9) _
     (fun i (state : List Opening × List (Digest × Digest)) => state.1.length = i ∧ state.2.length = i)
-    (fun _ => 3582) ([], []) ⟨rfl, rfl⟩ (fun i hi state hstate => ?_)).mono (fun _ h => h)
+    (fun _ => 3518) ([], []) ⟨rfl, rfl⟩ (fun i hi state hstate => ?_)).mono (fun _ h => h)
     (fun state h => by simpa using h)).mono_k (by simp)
   unfold openingStep
   exact (ftsBound_buildCoordinate index _ _ _).bind' (l := 0)
     (fun result _ => .pure _ 0 ⟨by simp [hstate.1], by simp [hstate.2]⟩) (by decide)
 theorem ftsBound_signForest (output : HashOutput) :
-    Bound (FtsQuery index) (fun result : List Opening × Digest => result.1.length = 9) 32243
+    Bound (FtsQuery index) (fun result : List Opening × Digest => result.1.length = 9) 31667
       (signForest index output) := by
   unfold signForest
   refine (ftsBound_forestRows index output).bind' (l := 5) (fun state hstate => ?_) (by decide)
@@ -256,9 +264,9 @@ theorem ftsBound_recoverCoordinate (sig : Signature) (output : HashOutput) (coor
     Bound (FtsQuery index) (fun _ => True) 14 (recoverCoordinate sig index output coord) := by
   unfold recoverCoordinate
   dsimp only
-  refine (Bound.mapM_list (P := FtsQuery index) (List.finRange 7) _ (fun i => digit (rank output coord) i)
+  refine (Bound.mapM_list (P := FtsQuery index) (List.finRange 7) _ (fun i => wordDigit (rank output coord) i)
     (fun i _ => ftsBound_chain index coord.val (child output coord).val i.val _ _ _ coord.isLt
-      (child output coord).isLt i.isLt (by have := digit_le_three (rank output coord) i; omega))).bind'
+      (child output coord).isLt i.isLt (by have := wordDigit_le_three (rank output coord) i; omega))).bind'
     (l := 8) (fun ends hends => ?_) ?_
   · refine (ftsBound_leafHash index coord.val (child output coord).val ends coord.isLt (child output coord).isLt
       (by simpa using hends)).bind' (l := 6) (fun root _ => ?_) (by decide)
@@ -269,7 +277,7 @@ theorem ftsBound_recoverCoordinate (sig : Signature) (output : HashOutput) (coor
     simp only [List.getElem_finRange, Fin.cast_mk]
     have hb := recover_heap_bounds i (child output coord).val hi6 (child output coord).isLt
     exact ftsBound_nodeHash index coord.val _ _ _ coord.isLt hb.1 hb.2
-  · rw [← Fin.sum_univ_def, step_count]
+  · rw [← Fin.sum_univ_def, wordStep_count]
 theorem ftsBound_recoverFts (sig : Signature) (output : HashOutput) :
     Bound (FtsQuery index) (fun _ => True) 131 (recoverFts sig index output) := by
   unfold recoverFts
@@ -288,9 +296,10 @@ theorem leafHash_queries (coord selected : Nat) (ends : List Digest)
 theorem forestPk_queries (pairs : List (Digest × Digest)) (hlen : pairs.length = 9) :
     AllQueriesSatisfy (forestPk index pairs) (FtsQuery index) :=
   allQueriesSatisfy_of_bound (ftsBound_forestPk index pairs hlen)
-theorem buildChild_queries (coord selected : Nat) (word : Rank) (hcoord : coord < 9) (hsel : selected < 128) :
-    AllQueriesSatisfy (buildChild index coord selected word) (FtsQuery index) :=
-  allQueriesSatisfy_of_bound (ftsBound_buildChild index coord selected word hcoord hsel)
+theorem buildChild_queries (coord selected : Nat) (word : Rank) (carry : Digest) (hcoord : coord < 9)
+    (hsel : selected < 128) :
+    AllQueriesSatisfy (buildChild index coord selected word carry) (FtsQuery index) :=
+  allQueriesSatisfy_of_bound (ftsBound_buildChild index coord selected word carry hcoord hsel)
 theorem buildCoordinate_queries (coord : Coord) (selected : Child) (word : Rank) :
     AllQueriesSatisfy (buildCoordinate index coord selected word) (FtsQuery index) :=
   allQueriesSatisfy_of_bound (ftsBound_buildCoordinate index coord selected word)

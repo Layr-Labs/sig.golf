@@ -1,6 +1,77 @@
-import SigGolfCandidate.ClaudeWCT.WCT9.Limits
+import SigGolfCandidate.ClaudeWCT.WCT9.Queries
 import SigGolfCandidate.T3.FullCache.PayloadSeparation
 import SigGolfCandidate.T3.FullCache.SourcePrelude
+
+section
+
+
+namespace ClaudeWCT.WCT9
+open OracleComp OracleSpec SigGolfCandidate.T3
+open SigGolfCandidate.T3M (PubGood allQ_pure allQ_bind allQ_foldlM allQ_mapM allQ_mono pubGood_shortHash
+  pubGood_nodeHash)
+open SphincsSecurity (bytesLE_length)
+def LowerSeedQ (lay : Layer) (tree : Nat) : SigGolfCandidate.T3.Spec.Domain → Prop
+  | .inr (.inl tweak) => ∃ pair, tweak = lowerSeedHeader lay tree pair
+  | _ => False
+def LowerQuery (lay : Layer) (tree : Nat) (q : SigGolfCandidate.T3.Spec.Domain) : Prop :=
+  PubGood q ∨ LowerSeedQ lay tree q
+section
+variable (lay : Layer) (tree : Nat)
+theorem lowerQuery_chain (leaf i start count : Nat) (value : Digest) :
+    AllQueriesSatisfy (SigGolfCandidate.T3.chain lay tree leaf i start count value) (LowerQuery lay tree) :=
+  allQ_mono (allQ_foldlM _ _ (fun _ _ => pubGood_shortHash _ (by simp [SigGolfCandidate.T3.chainInput, bytesLE_length, zero16])) _)
+    (fun _ h => Or.inl h)
+theorem lowerQuery_leafHash (leaf : Nat) (ends : List Digest) :
+    AllQueriesSatisfy (SigGolfCandidate.T3.leafHash lay tree leaf ends) (LowerQuery lay tree) :=
+  allQ_mono (pubGood_shortHash _ (by simp [bytesLE_length])) (fun _ h => Or.inl h)
+theorem lowerQuery_buildLevels (h : Nat) (leaves : List Digest) :
+    AllQueriesSatisfy (buildLevels 3 lay.val tree h leaves) (LowerQuery lay tree) := by
+  unfold buildLevels
+  refine allQ_foldlM _ _ (fun levels level => allQ_bind ?_ fun _ => allQ_pure _) _
+  unfold buildLevel
+  exact allQ_mono (allQ_mapM _ _ fun _ => pubGood_nodeHash _ _ _ _ _ _) (fun _ h => Or.inl h)
+theorem lowerQuery_seedPair (pair : Nat) :
+    AllQueriesSatisfy (lowerSeedPair lay tree pair) (LowerQuery lay tree) := by
+  unfold lowerSeedPair privatePair privateHash
+  refine allQ_bind ?_ fun _ => allQ_pure _
+  exact (allQueriesSatisfy_query_bind_iff _ _ _).mpr ⟨Or.inr ⟨pair, rfl⟩, fun _ => allQueriesSatisfy_pure _ _⟩
+theorem lowerQuery_packedSecret (q : Nat) (carry : Digest) :
+    AllQueriesSatisfy (packedSecret (lowerSeedPair lay tree) q carry) (LowerQuery lay tree) := by
+  unfold packedSecret
+  split
+  · exact allQ_bind (lowerQuery_seedPair lay tree _) fun _ => allQ_pure _
+  · exact allQ_pure _
+theorem lowerQuery_buildLeafP (leaf : Nat) (digits : List Nat) (carry : Digest) :
+    AllQueriesSatisfy (buildLeafP lay tree leaf digits carry) (LowerQuery lay tree) := by
+  unfold buildLeafP
+  refine allQ_bind (allQ_foldlM _ _ (fun state i => ?_) _) fun _ =>
+    allQ_bind (lowerQuery_leafHash lay tree leaf _) fun _ => allQ_pure _
+  refine allQ_bind (lowerQuery_packedSecret lay tree _ _) fun sc => ?_
+  exact allQ_bind (lowerQuery_chain lay tree _ _ _ _ _) fun _ =>
+    allQ_bind (lowerQuery_chain lay tree _ _ _ _ _) fun _ => allQ_pure _
+theorem lowerQuery_buildTreeP (selected : Nat) (digits : List Nat) :
+    AllQueriesSatisfy (buildTreeP lay tree selected digits) (LowerQuery lay tree) := by
+  unfold buildTreeP
+  refine allQ_bind (allQ_foldlM _ _ (fun state leaf => ?_) _) fun _ =>
+    allQ_bind (lowerQuery_buildLevels lay tree _ _) fun _ => allQ_pure _
+  exact allQ_bind (lowerQuery_buildLeafP lay tree _ _ _) fun _ => allQ_pure _
+end
+theorem lowerSeedQ_separated {lay : Layer} (hlay : lay ≠ 0) (tree : Nat) {tweak : BitVec 128}
+    (h : LowerSeedQ lay tree (.inr (.inl tweak))) :
+    (∀ coord index pair, tweak ≠ ftsSeedHeader coord index pair) ∧
+      (∀ tree' position idx, tweak ≠ header 0 0 tree' position idx) ∧
+      (∀ tag lay' tree' position idx, tag % 256 ≠ 0 → tweak ≠ header tag lay' tree' position idx) := by
+  obtain ⟨pair, rfl⟩ := h
+  exact ⟨fun coord index pair' he => ftsSeedHeader_ne_lowerSeedHeader coord index pair' lay tree pair he.symm,
+    fun tree' position idx => lowerSeedHeader_ne_top lay hlay tree pair tree' position idx,
+    fun tag lay' tree' position idx ht => lowerSeedHeader_ne_tag lay tree pair tag lay' tree' position idx ht⟩
+end ClaudeWCT.WCT9
+end
+
+section
+
+
+
 
 namespace ClaudeWCT.W9.T3.Security
 open OracleComp OracleSpec SigGolfCandidate.T3
@@ -43,24 +114,28 @@ theorem leafHash_allowed (index coord selected : Nat) (ends : List Digest) :
     AllQueriesSatisfy (WCT9.leafHash index coord selected ends) P := by
   unfold WCT9.leafHash
   exact shortHash_allowed P hpublic _
+include hseed in
+theorem packedSecret_allowed (index coord q : Nat) (carry : Digest) :
+    AllQueriesSatisfy (WCT9.packedSecret (WCT9.ftsSeedPair index coord) q carry) P := by
+  unfold WCT9.packedSecret
+  split
+  · exact SourceQueries.bind_allowed P (by unfold WCT9.ftsSeedPair; exact seed_allowed P hseed _ _ _ _)
+      fun _ => SourceQueries.pure_allowed P _
+  · exact SourceQueries.pure_allowed P _
 include hpublic hseed in
-theorem buildChild_allowed (index coord selected : Nat) (word : Rank) :
-    AllQueriesSatisfy (buildChild index coord selected word) P := by
+theorem buildChild_allowed (index coord selected : Nat) (word : Rank) (carry : Digest) :
+    AllQueriesSatisfy (buildChild index coord selected word carry) P := by
   unfold buildChild
   apply SourceQueries.bind_allowed P
   · apply SourceQueries.foldlM_allowed P
-    intro state pair
-    apply SourceQueries.bind_allowed P (seed_allowed P hseed _ _ _ _)
-    intro seeds
-    apply SourceQueries.foldlM_allowed P
-    intro state half
-    split
-    · apply SourceQueries.bind_allowed P (chain_allowed P hpublic _ _ _ _ _ _ _)
-      intro value
-      apply SourceQueries.bind_allowed P (chain_allowed P hpublic _ _ _ _ _ _ _)
-      intro _
-      exact SourceQueries.pure_allowed P _
-    · exact SourceQueries.pure_allowed P _
+    intro state i
+    apply SourceQueries.bind_allowed P (packedSecret_allowed P hseed _ _ _ _)
+    rintro ⟨secret, carry'⟩
+    apply SourceQueries.bind_allowed P (chain_allowed P hpublic _ _ _ _ _ _ _)
+    intro value
+    apply SourceQueries.bind_allowed P (chain_allowed P hpublic _ _ _ _ _ _ _)
+    intro _
+    exact SourceQueries.pure_allowed P _
   · intro state
     exact SourceQueries.bind_allowed P (leafHash_allowed P hpublic _ _ _ _)
       fun _ => SourceQueries.pure_allowed P _
@@ -84,8 +159,9 @@ theorem buildCoordinate_allowed (index : Nat) (coord : Coord) (selected : Child)
   apply SourceQueries.bind_allowed P
   · apply SourceQueries.foldlM_allowed P
     intro state j
-    exact SourceQueries.bind_allowed P (buildChild_allowed P hpublic hseed _ _ _ _)
-      fun _ => SourceQueries.pure_allowed P _
+    apply SourceQueries.bind_allowed P (buildChild_allowed P hpublic hseed _ _ _ _ _)
+    rintro ⟨⟨root, values⟩, carry⟩
+    exact SourceQueries.pure_allowed P _
   · intro state
     exact SourceQueries.bind_allowed P (heapBuild_allowed P hpublic _ _ _)
       fun _ => SourceQueries.pure_allowed P _
@@ -115,7 +191,7 @@ theorem layerCounterSearch_allowed (lay : Layer) (tree leaf : Nat) (msg : WCT9.L
 omit hseed in
 theorem signLayersBC_allowed' (cache : SigGolfCandidate.T3.Cache)
     (henc : ∀ lay tree leaf msg counter, AllQueriesSatisfy (shortHash (WCT9.layerEncodingInput lay tree leaf msg counter)) P)
-    (hbuild : ∀ lay tree leaf digits, AllQueriesSatisfy (buildTree lay tree leaf digits) P)
+    (hbuild : ∀ lay tree selected digits, AllQueriesSatisfy (WCT9.buildTreeP lay tree selected digits) P)
     (htop : ∀ leaf digits, AllQueriesSatisfy (signTop cache leaf digits) P) (index n : Nat) (msg : WCT9.LayerMsg) :
     AllQueriesSatisfy (WCT9.signLayersBC cache index n msg) P := by
   induction n generalizing msg with
@@ -128,7 +204,7 @@ theorem signLayersBC_allowed' (cache : SigGolfCandidate.T3.Cache)
       · exact SourceQueries.bind_allowed P (htop _ _) fun _ => SourceQueries.pure_allowed P _
       · split
         · apply SourceQueries.bind_allowed P (hbuild _ _ _ _)
-          intro built
+          rintro ⟨levels, values⟩
           apply SourceQueries.bind_allowed P (ih _)
           intro previous
           split
@@ -137,7 +213,7 @@ theorem signLayersBC_allowed' (cache : SigGolfCandidate.T3.Cache)
         · exact SourceQueries.pure_allowed P _
 include hpublic in
 theorem signLayersBC_allowed (cache : SigGolfCandidate.T3.Cache)
-    (hbuild : ∀ lay tree leaf digits, AllQueriesSatisfy (buildTree lay tree leaf digits) P)
+    (hbuild : ∀ lay tree selected digits, AllQueriesSatisfy (WCT9.buildTreeP lay tree selected digits) P)
     (htop : ∀ leaf digits, AllQueriesSatisfy (signTop cache leaf digits) P) (index n : Nat) (msg : WCT9.LayerMsg) :
     AllQueriesSatisfy (WCT9.signLayersBC cache index n msg) P :=
   signLayersBC_allowed' P cache (fun _ _ _ _ _ => shortHash_allowed P hpublic _) hbuild htop index n msg
@@ -181,6 +257,44 @@ theorem signPayloadWith_allowed (limit : Nat) (cache : SigGolfCandidate.T3.Cache
       · exact SourceQueries.pure_allowed P _
   · exact SourceQueries.pure_allowed P _
 end allowed
+theorem buildTreeP_allowed' (P : SigGolfCandidate.T3.Spec.Domain → Prop)
+    (hchain : ∀ (lay : Layer) tree leaf i start count value,
+      AllQueriesSatisfy (SigGolfCandidate.T3.chain lay tree leaf i start count value) P)
+    (hleaf : ∀ (lay : Layer) tree leaf ends, AllQueriesSatisfy (SigGolfCandidate.T3.leafHash lay tree leaf ends) P)
+    (hlevels : ∀ (lay : Layer) tree h leaves, AllQueriesSatisfy (buildLevels 3 lay.val tree h leaves) P)
+    (hseed : ∀ (lay : Layer) tree pair, AllQueriesSatisfy (WCT9.lowerSeedPair lay tree pair) P)
+    (lay : Layer) (tree selected : Nat) (digits : List Nat) :
+    AllQueriesSatisfy (WCT9.buildTreeP lay tree selected digits) P := by
+  unfold WCT9.buildTreeP
+  refine SourceQueries.bind_allowed P (SourceQueries.foldlM_allowed P _ _ (fun state leaf => ?_) _) fun _ =>
+    SourceQueries.bind_allowed P (hlevels _ _ _ _) fun _ => SourceQueries.pure_allowed P _
+  refine SourceQueries.bind_allowed P ?_ fun _ => SourceQueries.pure_allowed P _
+  unfold WCT9.buildLeafP
+  refine SourceQueries.bind_allowed P (SourceQueries.foldlM_allowed P _ _ (fun state i => ?_) _) fun _ =>
+    SourceQueries.bind_allowed P (hleaf _ _ _ _) fun _ => SourceQueries.pure_allowed P _
+  refine SourceQueries.bind_allowed P ?_ fun sc => ?_
+  · unfold WCT9.packedSecret
+    split
+    · exact SourceQueries.bind_allowed P (hseed _ _ _) fun _ => SourceQueries.pure_allowed P _
+    · exact SourceQueries.pure_allowed P _
+  · exact SourceQueries.bind_allowed P (hchain _ _ _ _ _ _ _) fun _ =>
+      SourceQueries.bind_allowed P (hchain _ _ _ _ _ _ _) fun _ => SourceQueries.pure_allowed P _
+theorem buildTreeP_allowed (P : SigGolfCandidate.T3.Spec.Domain → Prop) (hpublic : ∀ input, P (.inl (.inr input)))
+    (hlower : ∀ (lay : Layer) tree pair, P (.inr (.inl (WCT9.lowerSeedHeader lay tree pair))))
+    (lay : Layer) (tree selected : Nat) (digits : List Nat) :
+    AllQueriesSatisfy (WCT9.buildTreeP lay tree selected digits) P := by
+  refine SigGolfCandidate.T3M.allQ_mono (WCT9.lowerQuery_buildTreeP lay tree selected digits) fun q hq => ?_
+  rcases hq with ⟨hp, -⟩ | hs
+  · rcases q with (n | input) | c
+    · exact hp.elim
+    · exact hpublic input
+    · exact hp.elim
+  · rcases q with (n | input) | (tweak | rest)
+    · exact hs.elim
+    · exact hs.elim
+    · obtain ⟨pair, rfl⟩ := hs
+      exact hlower lay tree pair
+    · exact hs.elim
 theorem signPayloadWith_nonMac (limit : Nat) (cache : SigGolfCandidate.T3.Cache) (message : Message) :
     AllQueriesSatisfy (WCT9.signPayloadWith limit cache message) SiggolfT3Mac4.Source.NonMac :=
   signPayloadWith_allowed _ (fun _ => trivial)
@@ -188,7 +302,10 @@ theorem signPayloadWith_nonMac (limit : Nat) (cache : SigGolfCandidate.T3.Cache)
       SiggolfT3Mac4.Source.non_mac_tweak 8 lay tree position index (by decide) 1⟩)
     limit cache message (SiggolfT3Mac4.Source.nonce_coordinate_other message)
     (fun index n msg => signLayersBC_allowed _ (fun _ => trivial) cache
-      SiggolfT3Mac4.Source.Payload.buildTree_allowed (SiggolfT3Mac4.Source.Payload.signTop_allowed cache) index n msg)
+      (buildTreeP_allowed _ (fun _ => trivial) (fun lay tree pair =>
+        ⟨SiggolfT3Mac4.Source.non_mac_tweak 0 lay.val tree pair 0 (by decide) 0,
+          SiggolfT3Mac4.Source.non_mac_tweak 0 lay.val tree pair 0 (by decide) 1⟩))
+      (SiggolfT3Mac4.Source.Payload.signTop_allowed cache) index n msg)
 theorem signPayload_nonMac (cache : SigGolfCandidate.T3.Cache) (message : Message) :
     AllQueriesSatisfy (signPayload cache message) SiggolfT3Mac4.Source.NonMac :=
   signPayloadWith_nonMac _ cache message
@@ -196,7 +313,7 @@ theorem signPayloadWith_hashOnly (limit : Nat) (cache : SigGolfCandidate.T3.Cach
     SourceReplay.HashOnly (WCT9.signPayloadWith limit cache message) :=
   signPayloadWith_allowed _ (fun _ => trivial) (fun _ _ _ _ => trivial) limit cache message trivial
     (fun index n msg => signLayersBC_allowed _ (fun _ => trivial) cache
-      (SourceQueries.buildTree_allowed SourceReplay.IsHash (fun _ => trivial) (fun _ => trivial) (fun _ => trivial))
+      (buildTreeP_allowed _ (fun _ => trivial) (fun _ _ _ => trivial))
       (SourceQueries.signTop_allowed SourceReplay.IsHash (fun _ => trivial) (fun _ => trivial) (fun _ => trivial) cache)
       index n msg)
 theorem signPayload_hashOnly (cache : SigGolfCandidate.T3.Cache) (message : Message) :
@@ -209,7 +326,9 @@ theorem signPayloadWith_avoids (protectedMessage : Message) (limit : Nat) (cache
     (fun _ _ _ _ => by simp [NonceFreshness.nonceQuery]) limit cache message
     (by simpa [NonceFreshness.nonceQuery] using hne)
     (fun index n msg => signLayersBC_allowed _ (fun _ => by simp [NonceFreshness.nonceQuery]) cache
-      (NonceFreshness.avoids_buildTree protectedMessage) (NonceFreshness.avoids_signTop protectedMessage cache)
+      (buildTreeP_allowed _ (fun _ => by simp [NonceFreshness.nonceQuery])
+        (fun _ _ _ => by simp [NonceFreshness.nonceQuery]))
+      (NonceFreshness.avoids_signTop protectedMessage cache)
       index n msg)
 theorem signPayload_avoids (protectedMessage : Message) (cache : SigGolfCandidate.T3.Cache) (message : Message)
     (hne : message ≠ protectedMessage) : NonceFreshness.Avoids protectedMessage (signPayload cache message) :=
@@ -233,3 +352,4 @@ theorem sign_avoids (protectedMessage : Message) (cache : SigGolfCandidate.T3.Ca
   · exact signPayload_avoids protectedMessage cache message hne
 end Signer
 end ClaudeWCT.W9.T3.Security
+end

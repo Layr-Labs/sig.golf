@@ -2,8 +2,6 @@ import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Sign.FtsTable
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Sign.Search
 
 section
-
-
 set_option linter.unusedSimpArgs false
 namespace ClaudeWCT.W9.Machine.Sign
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
@@ -70,7 +68,7 @@ macro "aoh" : tactic => `(tactic| ((try simp only [SK, SIG, DIG, NBUF, FOUT, IDX
   and_true, true_and] at *) <;> omega))
 section pieces
 variable {im : Image}
-theorem step_SK (hcode : NewCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 2215) :
+theorem step_SK (hcode : NewCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 11175) :
     ∃ t, Steps im s 11 11 t ∧ t.pc = pcOf (cbase 0) ∧
       (∀ k < 2, t.getMem (BitVec.ofNat 64 (PRIVW + 8 * k)) = s.getMem (BitVec.ofNat 64 (SK + 8 * k))) ∧
       (∀ k < 2, t.getMem (BitVec.ofNat 64 (PRIVW + 32 + 8 * k)) = s.getMem (BitVec.ofNat 64 (SK + 16 + 8 * k))) ∧
@@ -115,19 +113,36 @@ theorem step_Z (hcode : NewCodeAt im) {c : Nat} (hc : c < 9) (s : MachineState) 
       RegsExcept s t [.x18] ∧ Frame s t (fun _ => False) := by
   obtain ⟨hst, -⟩ := run_pres (coordLook_ok hcode hc) (runZ_eq hc) s hpc (no_obl s) (no_br s)
   exact ⟨_, hst, rfl, rfl, pres_regsExcept _ _ _ _ _ _ _ s, fun A _ _ => rfl⟩
-theorem step_P (hcode : NewCodeAt im) {c p j index : Nat} (hc : c < 9) (hp : p < 4) (s : MachineState)
-    (hpc : s.pc = pcOf (pI c p)) (h18 : s.getReg .x18 = BitVec.ofNat 64 j)
+theorem step_Q (hcode : NewCodeAt im) {c i j : Nat} (hc : c < 9) (hi : i < 7) (s : MachineState)
+    (hpc : s.pc = pcOf (qI c i)) (h18 : s.getReg .x18 = BitVec.ofNat 64 j) (hj : j < 128) :
+    ∃ t, Steps im s 5 5 t ∧ t.pc = pcOf (if (7 * j + i) % 2 = 1 then sI c i else pI c i) ∧
+      t.getReg .x6 = BitVec.ofNat 64 (7 * j + i) ∧ RegsExcept s t [.x6, .x7] ∧ Frame s t (fun _ => False) := by
+  have hq := eval_q0E s h18 (by omega) i hi
+  have hp := eval_qparE s h18 (by omega) i hi
+  have hb : ∀ b ∈ (expQ c i (decide ((7 * j + i) % 2 = 1))).brs, b.holds s := by
+    intro b hb
+    simp only [expQ, pres, List.mem_singleton] at hb
+    subst hb
+    rw [br_ne_holds, hp, eval_cE, ofNat_bne (by omega) (by norm_num)]
+    by_cases h : (7 * j + i) % 2 = 1 <;> simp [h] <;> omega
+  obtain ⟨hst, -⟩ := run_pres (coordLook_ok hcode hc) (runQ_eq hc hi _) s hpc (no_obl s) hb
+  refine ⟨_, hst, ?_, ?_, pres_regsExcept _ _ _ _ _ _ _ s, fun A _ _ => rfl⟩
+  · rw [pres_pc]; by_cases h : (7 * j + i) % 2 = 1 <;> simp [h]
+  · rw [pres_getReg]; exact hq
+theorem step_P (hcode : NewCodeAt im) {c i q index : Nat} (hc : c < 9) (hi : i < 7) (s : MachineState)
+    (hpc : s.pc = pcOf (pI c i)) (h6 : s.getReg .x6 = BitVec.ofNat 64 q) (hq : q < 2 ^ 33)
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (hidx : index < 2 ^ 32) :
-    ∃ t, Steps im s 19 19 t ∧ fetch im t = some (.base .ECALL) ∧ t.pc = pcOf (pI c p + 19) ∧
+    ∃ t, Steps im s 14 14 t ∧ fetch im t = some (.base .ECALL) ∧ t.pc = pcOf (pI c i + 14) ∧
       t.getReg .x10 = BitVec.ofNat 64 PRIVW ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 PAIRW ∧
       t.getMem (BitVec.ofNat 64 (PRIVW + 16)) = BitVec.ofNat 64 (hdr8 c) ∧
-      t.getMem (BitVec.ofNat 64 (PRIVW + 24)) = BitVec.ofNat 64 (index + 2 ^ 32 * (4 * j + p)) ∧
-      RegsExcept s t [.x6, .x10, .x11, .x12, .x28] ∧ Frame s t (fun A => A = PRIVW + 24 ∨ A = PRIVW + 16) := by
-  obtain ⟨hst, hec⟩ := run_pres (coordLook_ok hcode hc) (runP_eq hc hp) s hpc (no_obl s) (no_br s)
+      t.getMem (BitVec.ofNat 64 (PRIVW + 24)) = BitVec.ofNat 64 (index + 2 ^ 32 * (q / 2)) ∧
+      RegsExcept s t [.x6, .x10, .x11, .x12, .x28] ∧ Frame s t (fun A => A = PRIVW + 16 ∨ A = PRIVW + 24) := by
+  obtain ⟨hst, hec⟩ := run_pres (coordLook_ok hcode hc) (runP_eq hc hi) s hpc (no_obl s) (no_br s)
   refine ⟨_, hst, hec rfl, rfl, rfl, rfl, rfl, ?_, ?_, pres_regsExcept _ _ _ _ _ _ _ s, ?_⟩
-  · rw [pres_getMem, memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_self _ _ _ _ (by ao)]; rfl
-  · rw [pres_getMem, memEval_mwc_self _ _ _ _ (by ao)]; exact eval_privW1E s p h18 h22 hidx
+  · rw [pres_getMem, memEval_mwc_self _ _ _ _ (by ao)]; rfl
+  · rw [pres_getMem, memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_self _ _ _ _ (by ao)]
+    exact eval_privW1E s h6 hq h22 hidx
   · refine frame_of_memEval (fun a => rfl) _ (fun q hq => ?_)
     simp only [expP, pres, List.mem_cons, List.not_mem_nil, or_false] at hq
     rcases hq with rfl | rfl <;> refine ⟨rfl, ?_⟩ <;> rw [off_mwc _ _ (by ao)] <;> ao
@@ -140,34 +155,49 @@ theorem chainW0_merge (c i j index p q : Nat) (hc : c < 9) (hi : i < 7) (hp : p 
   rw [replaceByte_toNat8 _ _ (by omega)]
   simp only [chainW0, chainK, BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth, BitVec.toNat_ofNat]
   omega
-theorem step_Pre (hcode : NewCodeAt im) {c i j index w : Nat} (hc : c < 9) (hi : i < 7) (s : MachineState)
-    (hpc : s.pc = pcOf (preI c i)) (h18 : s.getReg .x18 = BitVec.ofNat 64 j)
+theorem eval_pairLd (s : MachineState) {j : Nat} (h18 : s.getReg .x18 = BitVec.ofNat 64 j) (hj : j < 2 ^ 32)
+    (i off : Nat) (hi : i < 7) : (E.ld (.bin .add (hoffE i) (cE (PAIRW + off)))).eval s =
+      s.getMem (BitVec.ofNat 64 (PAIRW + 16 * ((j + i) % 2) + off)) := by
+  show s.getMem ((hoffE i).eval s + BitVec.ofNat 64 (PAIRW + off)) = _
+  rw [eval_hoffE s h18 hj i hi, ofNat_add_ofNat]; congr 2; ring
+theorem eval_pairLd0 (s : MachineState) {j : Nat} (h18 : s.getReg .x18 = BitVec.ofNat 64 j) (hj : j < 2 ^ 32)
+    (i : Nat) (hi : i < 7) : (E.ld (.bin .add (hoffE i) (cE PAIRW))).eval s =
+      s.getMem (BitVec.ofNat 64 (PAIRW + 16 * ((j + i) % 2))) := by
+  have := eval_pairLd s h18 hj i 0 hi
+  rwa [Nat.add_zero, Nat.add_zero] at this
+theorem step_S (hcode : NewCodeAt im) {c i j index w : Nat} (hc : c < 9) (hi : i < 7) (s : MachineState)
+    (hpc : s.pc = pcOf (sI c i)) (h18 : s.getReg .x18 = BitVec.ofNat 64 j)
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (hj : j < 128)
     (h25 : s.getReg .x25 = BitVec.ofNat 64 w) (hw : w < 2 ^ 64) {seed : Digest}
-    (hseed : DigAt s (PAIRW + 16 * (i % 2)) seed) :
-    ∃ t, Steps im s (if c = 0 then 19 else 20) (if c = 0 then 19 else 20) t ∧ t.pc = pcOf (chkI c i 0) ∧
+    (hseed : DigAt s (PAIRW + 16 * ((j + i) % 2)) seed) :
+    ∃ t, Steps im s (if c = 0 then 23 else 24) (if c = 0 then 23 else 24) t ∧ t.pc = pcOf (chkI c i 0) ∧
       t.getReg .x26 = BitVec.ofNat 64 (3 - w / 4 ^ i % 4) ∧ DigAt t (CHAINW + 48) seed ∧
       t.getMem (BitVec.ofNat 64 (CHAINW + 16)) = BitVec.ofNat 64 (chainW0 c i j index 0) ∧
       t.getMem (BitVec.ofNat 64 (CHAINW + 24)) = 0 ∧
       RegsExcept s t [.x6, .x7, .x26, .x28, .x29] ∧
       Frame s t (fun A => A = CHAINW + 24 ∨ A = CHAINW + 16 ∨ A = CHAINW + 56 ∨ A = CHAINW + 48) := by
-  obtain ⟨hst, -⟩ := run_pres (coordLook_ok hcode hc) (runPre_eq hc hi) s hpc (no_obl s) (no_br s)
-  have hi2 : i % 2 < 2 := Nat.mod_lt _ (by norm_num)
+  have hh := eval_hoffE s h18 (by omega) i hi
+  have hh2 : (j + i) % 2 < 2 := Nat.mod_lt _ (by norm_num)
+  obtain ⟨hst, -⟩ := run_pres (coordLook_ok hcode hc) (runS_eq hc hi) s hpc (by
+    intro o ho
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at ho
+    rcases ho with rfl | rfl
+    · exact valid_ofNat hh (by ao) (by unfold MEMORY_BYTES; ao)
+    · exact valid_ofNat hh (by ao) (by unfold MEMORY_BYTES; ao)) (no_br s)
   refine ⟨_, hst, rfl, ?_, ⟨?_, ?_⟩, ?_, ?_, pres_regsExcept _ _ _ _ _ _ _ s, ?_⟩
   · rw [pres_getReg]; exact eval_dE s i h25 hw (by omega)
   · rw [pres_getMem, memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao),
-      memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_self _ _ _ _ (by ao)]
+      memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_self _ _ _ _ (by ao), eval_pairLd0 s h18 (by omega) _ hi]
     exact hseed.1
   · rw [pres_getMem, memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao),
-      memEval_mwc_self _ _ _ _ (by ao)]
-    rw [show CHAINW + 48 + 8 = CHAINW + 56 from rfl] at *
+      show CHAINW + 48 + 8 = CHAINW + 56 from rfl, memEval_mwc_self _ _ _ _ (by ao), eval_pairLd s h18 (by omega) _ _ hi]
     exact hseed.2
   · rw [pres_getMem, memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_self _ _ _ _ (by ao),
       eval_qE s h18 h22 hj (chainK_lt c i hc hi)]
     simp only [chainW0, Nat.mul_zero, Nat.add_zero]
   · rw [pres_getMem, memEval_mwc_self _ _ _ _ (by ao)]; rfl
   · refine frame_of_memEval (fun a => rfl) _ (fun q hq => ?_)
-    simp only [expPre, pres, List.mem_cons, List.not_mem_nil, or_false] at hq
+    simp only [expS, pres, List.mem_cons, List.not_mem_nil, or_false] at hq
     rcases hq with rfl | rfl | rfl | rfl <;> refine ⟨rfl, ?_⟩ <;> rw [off_mwc _ _ (by ao)] <;> ao
 theorem step_Chk (hcode : NewCodeAt im) {c i st j sel e : Nat} (hc : c < 9) (hi : i < 7) (hst : st < 4)
     (s : MachineState) (hpc : s.pc = pcOf (chkI c i st)) (h18 : s.getReg .x18 = BitVec.ofNat 64 j)
@@ -440,9 +470,9 @@ theorem step_PC (hcode : NewCodeAt im) {c l sel : Nat} (hc : c < 9) (hl : l < 7)
   · refine frame_of_memEval (fun a => rfl) _ (fun q hq => ?_)
     simp only [expPC, pres, List.mem_cons, List.not_mem_nil, or_false] at hq
     rcases hq with rfl | rfl <;> refine ⟨rfl, ?_⟩ <;> rw [off_mwc _ _ (by ao)] <;> ao
-theorem step_For (hcode : NewCodeAt im) {index : Nat} (s : MachineState) (hpc : s.pc = pcOf 10963)
+theorem step_For (hcode : NewCodeAt im) {index : Nat} (s : MachineState) (hpc : s.pc = pcOf 20715)
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) :
-    ∃ t, Steps im s 13 13 t ∧ fetch im t = some (.base .ECALL) ∧ t.pc = pcOf 10976 ∧
+    ∃ t, Steps im s 13 13 t ∧ fetch im t = some (.base .ECALL) ∧ t.pc = pcOf 20728 ∧
       t.getReg .x10 = BitVec.ofNat 64 FORW ∧ t.getReg .x11 = BitVec.ofNat 64 320 ∧
       t.getReg .x12 = BitVec.ofNat 64 FOUT ∧
       t.getMem (BitVec.ofNat 64 FORW) = 0 ∧ t.getMem (BitVec.ofNat 64 (FORW + 8)) = 0 ∧
@@ -461,16 +491,14 @@ theorem step_For (hcode : NewCodeAt im) {index : Nat} (s : MachineState) (hpc : 
   · refine frame_of_memEval (fun a => rfl) _ (fun q hq => ?_)
     simp only [expFor, pres, List.mem_cons, List.not_mem_nil, or_false] at hq
     rcases hq with rfl | rfl | rfl | rfl <;> refine ⟨rfl, ?_⟩ <;> rw [off_mwc _ _ (by ao)] <;> ao
-theorem step_J (hcode : NewCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 10977) :
+theorem step_J (hcode : NewCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 20729) :
     ∃ t, Steps im s 1 1 t ∧ t.pc = pcOf 370 ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
   obtain ⟨hst', -⟩ := run_pres (tailLook_ok hcode) runJ_eq s hpc (no_obl s) (no_br s)
   exact ⟨_, hst', rfl, pres_regsExcept _ _ _ _ _ _ _ s, fun A _ _ => rfl⟩
 end pieces
 end ClaudeWCT.W9.Machine.Sign
 end
-
 section
-
 set_option linter.unusedSimpArgs false
 namespace ClaudeWCT.W9.Machine.Sign
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
@@ -600,9 +628,7 @@ theorem wordsOf_forest (index : Nat) (pairs : List (Digest × Digest)) (h : pair
   rfl
 end ClaudeWCT.W9.Machine.Sign
 end
-
 section
-
 set_option linter.unusedSimpArgs false
 namespace ClaudeWCT.W9.Machine.Sign
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
@@ -781,24 +807,24 @@ theorem chain_from (hcode : NewCodeAt im) {c i j index sel w d : Nat} (hc : c < 
       rw [fw.get hA (by intro h'; unfold slotV at h1 h2; aoh), f2.get hA (by intro h'; unfold slotV at h1 h2; aoh),
         n1 (fun h' => hjs h'.1) A hA (fun h => h), h.nosel hjs A hA h1 h2]
 structure ChainPre (c i j index sel w : Nat) (seed : Digest) (t : MachineState) : Prop where
-  pc : t.pc = pcOf (preI c i)
+  pc : t.pc = pcOf (sI c i)
   x5 : t.getReg .x5 = 0
   x18 : t.getReg .x18 = BitVec.ofNat 64 j
   x22 : t.getReg .x22 = BitVec.ofNat 64 index
   x24 : t.getReg .x24 = BitVec.ofNat 64 sel
   x25 : t.getReg .x25 = BitVec.ofNat 64 w
-  seed : DigAt t (PAIRW + 16 * (i % 2)) seed
+  seed : DigAt t (PAIRW + 16 * ((j + i) % 2)) seed
   z0 : t.getMem (BitVec.ofNat 64 CHAINW) = 0
   z8 : t.getMem (BitVec.ofNat 64 (CHAINW + 8)) = 0
   z32 : t.getMem (BitVec.ofNat 64 (CHAINW + 32)) = 0
   z40 : t.getMem (BitVec.ofNat 64 (CHAINW + 40)) = 0
-def chainC : Nat := 20 + (11 + 28 * 3 + 8)
+def chainC : Nat := 24 + (11 + 28 * 3 + 8)
 theorem chain_unit (hcode : NewCodeAt im) {c i j index sel w : Nat} (hc : c < 9) (hi : i < 7) (hj : j < 128)
     (hsel : sel < 128) (hidx : index < 2 ^ 31) (hw : w < 2 ^ 64) {seed : Digest} {s : MachineState}
     (h : ChainPre c i j index sel w seed s) :
     TBSim im sk s chainC (chainRest index c j i (w / 4 ^ i % 4) 3 [seed]) (ChainPost c i j sel s) := by
   obtain ⟨t1, s1, p1, x26, v1, m16, m24, r1, f1⟩ :=
-    step_Pre hcode hc hi s h.pc h.x18 h.x22 hj h.x25 hw h.seed
+    step_S hcode hc hi s h.pc h.x18 h.x22 hj h.x25 hw h.seed
   have hd : w / 4 ^ i % 4 ≤ 3 := by have := Nat.mod_lt (w / 4 ^ i) (show 0 < 4 by norm_num); omega
   have g : ∀ A, A ≠ CHAINW + 16 → A ≠ CHAINW + 24 → A ≠ CHAINW + 56 → A ≠ CHAINW + 48 → A < 2 ^ 64 →
       t1.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A) := fun A h1 h2 h3 h4 hA =>

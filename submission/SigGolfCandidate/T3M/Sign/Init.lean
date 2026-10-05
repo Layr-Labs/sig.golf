@@ -1,5 +1,5 @@
 import SigGolfCandidate.T3M.Sign.Basic
-import SigGolfCandidate.T3M.Search.TopData
+import SigGolfCandidate.T3M.Search.ProducerData
 
 namespace SigGolfCandidate.T3M.Sign
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
@@ -29,13 +29,13 @@ theorem extractLsb'_ofNat_readLE (m : Nat) (l : List UInt8) (hl : l.length = 8 *
   rw [hl, ← two_pow_eight_mul] at hlt
   rw [BitVec.extractLsb'_toNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hlt, BitVec.toNat_ofNat,
     Nat.shiftRight_eq_div_pow]
-def SIGN_DATA : Nat := 16707584
+def SIGN_DATA : Nat := 16691200
 def sdata : MachineState :=
   ({ regs := fun _ => 0, mem := fun _ => 0, pc := 0x1000 } : MachineState).writeBytesAsWords
     (BitVec.ofNat 64 SIGN_DATA) Images.signData
 theorem sdata_getMem (A : Nat) (hA : A < 2 ^ 64) :
     sdata.getMem (BitVec.ofNat 64 A) =
-      if SIGN_DATA ≤ A ∧ A < SIGN_DATA + 69632 ∧ (A - SIGN_DATA) % 8 = 0 then
+      if SIGN_DATA ≤ A ∧ A < SIGN_DATA + 86016 ∧ (A - SIGN_DATA) % 8 = 0 then
         bytesToWordLE ((Images.signData.drop (A - SIGN_DATA)).take 8) else 0 := by
   unfold sdata
   rw [getMem_writeBytesAsWords _ _ SIGN_DATA A (by rw [signData_length]; decide) hA, signData_length]
@@ -116,7 +116,7 @@ theorem sinit_cf (sk : SecretKey) (cache : Bytes 131072) (m : Message) :
     Keygen.extractByte_bytesToWordLE _ _ (Nat.mod_lt _ (by decide))]
   simp only [List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
     if_pos (Nat.mod_lt (TOP_DATA + i) (show 0 < 8 by decide))]
-  have hidx : (TOP_DATA + i) / 8 * 8 - SIGN_DATA + (TOP_DATA + i) % 8 = 65536 + i := by simp only [TOP_DATA, SIGN_DATA]; omega
+  have hidx : (TOP_DATA + i) / 8 * 8 - SIGN_DATA + (TOP_DATA + i) % 8 = 81920 + i := by simp only [TOP_DATA, SIGN_DATA]; omega
   rw [hidx]
   exact Search.signData_cf i hi hj
 theorem sinit_table (sk : SecretKey) (cache : Bytes 131072) (m : Message) : TableOK (sinit sk cache m) := by
@@ -128,7 +128,7 @@ theorem sinit_table (sk : SecretKey) (cache : Bytes 131072) (m : Message) : Tabl
     Keygen.extractByte_bytesToWordLE _ _ (Nat.mod_lt _ (by decide))]
   simp only [List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
     if_pos (Nat.mod_lt (TOP_DATA + i) (show 0 < 8 by decide))]
-  have hidx : (TOP_DATA + i) / 8 * 8 - SIGN_DATA + (TOP_DATA + i) % 8 = 65536 + i := by simp only [TOP_DATA, SIGN_DATA]; omega
+  have hidx : (TOP_DATA + i) / 8 * 8 - SIGN_DATA + (TOP_DATA + i) % 8 = 81920 + i := by simp only [TOP_DATA, SIGN_DATA]; omega
   rw [hidx]
   exact signData_table i hi
 end SigGolfCandidate.T3M.Sign

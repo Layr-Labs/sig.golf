@@ -1,5 +1,4 @@
 import SigGolfCandidate.T3.Gate6.SourceBudget
-import SigGolfCandidate.Budget.Numeric
 
 namespace ClaudeWCT.W9.T3.BaseAudit
 open SigGolfCandidate.T3.BaseAudit (zU b1 b2 b3 b4 step_1 step_2 step_3 step_4)
@@ -30,7 +29,6 @@ def lowerCount195 : ℕ := 217433284086354415880083123326127992
 def lowerCount196 : ℕ := 177063161351702039889196043868193572
 def lowerCount197 : ℕ := 143468572474466315422327516384120300
 def topCount126 : ℕ := 183707182173445436457863622839156476
-/-- Weight-126 top words with credit at least the producer floor 9 (`CreditCounting.count`). -/
 def topCountCredit : ℕ := 169880087395417918897451495310468748
 namespace V2b
 def p0 : ℚ := 5 * 16016 ^ 9 / 2 ^ 140

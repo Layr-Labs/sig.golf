@@ -1,4 +1,3 @@
-import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.CacheIndexMultiplicity
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.CachedTargetIncrement
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.ConcreteTargetShapeSigning

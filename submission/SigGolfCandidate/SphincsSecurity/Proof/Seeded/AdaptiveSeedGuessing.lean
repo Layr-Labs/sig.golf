@@ -3,8 +3,6 @@ import SigGolfCandidate.SphincsSecurity.Proof.Seeded.QueryBoundExtras
 import SigGolfCandidate.SphincsSecurity.Proof.Seeded.SeedGuessing
 
 section
-
-
 open OracleComp OracleSpec
 namespace SphincsSecurity.Seeded
 set_option backward.isDefEq.respectTransparency false
@@ -84,10 +82,7 @@ theorem probOutput_stopBefore_none {α : Type} (bad : HashInput → Prop) [Decid
           Functor.map_map, probEvent_map, Function.comp_def, traceHits_prepend, hbad, false_or]
 end SphincsSecurity.Seeded
 end
-
 section
-
-
 open OracleComp OracleSpec ENNReal
 namespace SphincsSecurity.Seeded
 set_option backward.isDefEq.respectTransparency false

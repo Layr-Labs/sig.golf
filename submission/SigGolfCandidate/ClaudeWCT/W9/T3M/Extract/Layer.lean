@@ -5,7 +5,8 @@ import SigGolfCandidate.T3M.Extract.HeaderBytes
 namespace ClaudeWCT.W9.T3M.Extract
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3M
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
-open Correctness (Answers treeValue builtTree leafSeed leafEnd leafValue leafRoot)
+open Correctness (Answers treeValue)
+open ClaudeWCT.WCT9 (wotsTree wotsSeed wotsEnd wotsValue wotsRoot)
 open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
 open SigGolfCandidate.T3M.Extract (canonicalHeader_high_irrelevant)
 set_option maxHeartbeats 1000000
@@ -22,11 +23,11 @@ theorem chainCount_pos (lay : Layer) : 0 < chainCount lay := by fin_cases lay <;
 theorem merkle_honestInput (answers : Answers) (lay : Layer) (tree leaf step : Nat) :
     honestInput answers (.node lay tree step (leaf / 2 ^ (step + 1))) =
       pad64 (merkleInput 3 lay.val tree (height lay) leaf
-        (fun j => treeValue (builtTree answers lay tree) j (leaf / 2 ^ j ^^^ 1)) (fun _ => 0) step
-        (treeValue (builtTree answers lay tree) step (leaf / 2 ^ step))) := by
+        (fun j => treeValue (wotsTree answers lay tree) j (leaf / 2 ^ j ^^^ 1)) (fun _ => 0) step
+        (treeValue (wotsTree answers lay tree) step (leaf / 2 ^ step))) := by
   unfold merkleInput honestInput
   dsimp only
-  rw [Correctness.sibling_pair (fun n => treeValue (builtTree answers lay tree) step n) (leaf / 2 ^ step),
+  rw [Correctness.sibling_pair (fun n => treeValue (wotsTree answers lay tree) step n) (leaf / 2 ^ step),
     Correctness.div_pow_succ]
 theorem hdrBlock_merkleInput (tag lay tree h leaf : Nat) (path pads : Nat → Digest) (step : Nat) (value : Digest) :
     hdrBlock (pad64 (merkleInput tag lay tree h leaf path pads step value)) =
@@ -80,10 +81,10 @@ theorem width_le (lay : Layer) (i : Nat) : width lay i ≤ 3 := by unfold width;
 theorem layerLeaf_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat)
     (hidx : index < 2 ^ 31) (hvalid : Cost.ValidDigits lay digits)
     (hv0 : evalWithAnswerFn answers (layerLeafP w index lay digits) =
-      leafRoot answers lay (route index lay).2 (route index lay).1) :
+      wotsRoot answers lay (route index lay).2 (route index lay).1) :
     HitIn answers (queried answers (layerLeafP w index lay digits)) ∨
       ∀ i, i < chainCount lay →
-        wvalue w lay i = leafValue answers lay (route index lay).2 (route index lay).1 digits i ∧
+        wvalue w lay i = wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
           (digits.getD i 0 < maxDigit lay i →
             wchainPads w lay i = (0, 0) ∧ wchainHeaderPad w lay i = 0) := by
   classical
@@ -118,7 +119,7 @@ theorem layerLeaf_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : 
           (wchainPads w lay i).1 (wchainPads w lay i).2
           (wchainHeaderPad w lay i) (wvalue w lay i)))
   rcases leafHash_extract answers lay tree leaf (evalWithAnswerFn answers (layerChains w index lay digits))
-      ((List.range (chainCount lay)).map (leafEnd answers lay tree leaf))
+      ((List.range (chainCount lay)).map (wotsEnd answers lay tree leaf))
       (by rw [hends]; simp) (by simpa using chainCount_pos lay) hv0 with hE | ⟨hhit, hsame, hq⟩
   swap
   · exfalso
@@ -135,7 +136,7 @@ theorem layerLeaf_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : 
       (chainP lay tree leaf i (digits.getD i 0) (maxDigit lay i - digits.getD i 0)
         (wchainPads w lay i).1 (wchainPads w lay i).2
         (wchainHeaderPad w lay i) (wvalue w lay i)) =
-      honestChainValue answers lay tree leaf i (leafSeed answers lay tree leaf i)
+      honestChainValue answers lay tree leaf i (wotsSeed answers lay tree leaf i)
         (digits.getD i 0 + (maxDigit lay i - digits.getD i 0)) := by
     rw [hci, Nat.add_sub_cancel' hd]; rfl
   have hw : maxDigit lay i ≤ 7 := by unfold maxDigit; split_ifs <;> omega
@@ -174,11 +175,11 @@ theorem layerP_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : Lay
   have htreeB := route_tree_bound index lay hidx
   have hM := merklePath_extract answers 3 lay.val (route index lay).2 (height lay) (route index lay).1 (height lay)
     (wpath w lay (route index lay).1) (wmerklePad w lay)
-    (fun j => treeValue (builtTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1))
-    (fun step => treeValue (builtTree answers lay (route index lay).2) step ((route index lay).1 / 2 ^ step))
+    (fun j => treeValue (wotsTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1))
+    (fun step => treeValue (wotsTree answers lay (route index lay).2) step ((route index lay).1 / 2 ^ step))
     (evalWithAnswerFn answers (layerLeafP w index lay digits))
     (merkleInput_tree_reference answers 3 lay.val (route index lay).2 (height lay) (route index lay).1 _ _
-      (Correctness.builtTree_correct answers lay (route index lay).2) hleafB)
+      (WCT9.wotsTree_correct answers lay (route index lay).2) hleafB)
     (by
       have h := reaches
       rw [layerP_eq_hashPath, evalWithAnswerFn_bind] at h
@@ -199,7 +200,7 @@ theorem layerP_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : Lay
     · rw [merkle_honestInput]; exact hhit
     · unfold SameHeader
       rw [merkle_honestInput, pathInput, hdrBlock_merkleInput, hdrBlock_merkleInput]
-  rw [pow_zero, Nat.div_one, Correctness.builtTree_leaf answers lay _ _ hleafB] at hv0
+  rw [pow_zero, Nat.div_one, WCT9.wotsTree_leaf answers lay _ _ hleafB] at hv0
   rcases layerLeaf_extract answers w index lay digits hidx hvalid hv0 with hhit | hchains
   · exact absurd (hhit.mono hqL) hH
   exact ⟨fun j hj => ⟨(hpath j hj).1, fun _ => (hpath j hj).2⟩, hchains⟩
@@ -257,10 +258,10 @@ theorem layerPairP_extract (answers : Answers) (w : WBytes) (index : Nat) (lay :
   generalize htop : evalWithAnswerFn answers (hashPath (merkleInput 3 lay.val (route index lay).2 (height lay)
       (route index lay).1 (wpath w lay (route index lay).1) (wmerklePad w lay)) (height lay - 1)
       (evalWithAnswerFn answers (layerLeafP w index lay digits))) = top at reaches
-  have hpair : top = treeValue (builtTree answers lay (route index lay).2) (height lay - 1)
+  have hpair : top = treeValue (wotsTree answers lay (route index lay).2) (height lay - 1)
         ((route index lay).1 / 2 ^ (height lay - 1)) ∧
       wpath w lay (route index lay).1 (height lay - 1) =
-        treeValue (builtTree answers lay (route index lay).2) (height lay - 1)
+        treeValue (wotsTree answers lay (route index lay).2) (height lay - 1)
           ((route index lay).1 / 2 ^ (height lay - 1) ^^^ 1) := by
     unfold honestPair at reaches
     rcases hq2 with h | h <;> simp only [h] at reaches ⊢ <;>
@@ -268,11 +269,11 @@ theorem layerPairP_extract (answers : Answers) (w : WBytes) (index : Nat) (lay :
       exact ⟨by first | exact reaches.1 | exact reaches.2, by first | exact reaches.2 | exact reaches.1⟩
   have hM := merklePath_extract answers 3 lay.val (route index lay).2 (height lay) (route index lay).1
     (height lay - 1) (wpath w lay (route index lay).1) (wmerklePad w lay)
-    (fun j => treeValue (builtTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1))
-    (fun step => treeValue (builtTree answers lay (route index lay).2) step ((route index lay).1 / 2 ^ step))
+    (fun j => treeValue (wotsTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1))
+    (fun step => treeValue (wotsTree answers lay (route index lay).2) step ((route index lay).1 / 2 ^ step))
     (evalWithAnswerFn answers (layerLeafP w index lay digits))
     (fun step hstep => merkleInput_tree_reference answers 3 lay.val (route index lay).2 (height lay)
-      (route index lay).1 _ _ (Correctness.builtTree_correct answers lay (route index lay).2) hleafB step
+      (route index lay).1 _ _ (WCT9.wotsTree_correct answers lay (route index lay).2) hleafB step
       (by omega))
     (by unfold pathValue; rw [htop]; exact hpair.1)
   rcases hM with ⟨hv0, hpath⟩ | ⟨step, hstep, hq, hhit⟩
@@ -288,7 +289,7 @@ theorem layerPairP_extract (answers : Answers) (w : WBytes) (index : Nat) (lay :
     · rw [merkle_honestInput]; exact hhit
     · unfold SameHeader
       rw [merkle_honestInput, pathInput, hdrBlock_merkleInput, hdrBlock_merkleInput]
-  rw [pow_zero, Nat.div_one, Correctness.builtTree_leaf answers lay _ _ hleafB] at hv0
+  rw [pow_zero, Nat.div_one, WCT9.wotsTree_leaf answers lay _ _ hleafB] at hv0
   rcases layerLeaf_extract answers w index lay digits hidx hvalid hv0 with hhit | hchains
   · exact absurd (hhit.mono hqL) hH
   refine ⟨fun j hj => ?_, hchains⟩
@@ -301,7 +302,8 @@ end ClaudeWCT.W9.T3M.Extract
 namespace ClaudeWCT.W9.T3M.Extract
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3M
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
-open Correctness (Answers treeValue builtTree leafSeed leafEnd leafValue leafRoot)
+open Correctness (Answers treeValue)
+open ClaudeWCT.WCT9 (wotsTree wotsSeed wotsEnd wotsValue wotsRoot)
 set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
 theorem layerP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes) (lay : Layer) (digits : List Nat)

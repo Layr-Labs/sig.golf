@@ -1,9 +1,7 @@
-import SigGolfCandidate.T3M.Extract.Layer
 import SigGolfCandidate.T3M.Extract.FtsPart3
 import SigGolfCandidate.T3M.Extract.VerifyP
 
 section
-
 namespace SigGolfCandidate.T3M.Extract
 open OracleComp OracleSpec SigGolfCandidate.T3 SecurityInputs SecurityExtraction
 open Correctness (Answers)
@@ -171,14 +169,9 @@ theorem hitIn_posOf {answers : Answers} {qs : List Spec.Domain} (h : HitIn answe
   rw [hs, hdrBlock_honestInput, Pos.canonicalHeader_eq hb]
 end SigGolfCandidate.T3M.Extract
 end
-
 section
-
 end
-
 section
-
-
 namespace SigGolfCandidate.T3M.Extract
 open OracleComp OracleSpec SigGolfCandidate.T3 SecurityExtraction
 open Correctness (Answers)
@@ -198,7 +191,5 @@ theorem verifyP_extract_full (answers : Answers) (m : Message) (pk : Digest) (w 
   verifyP_extract_normal ftsExtractSpecN_FtsShaped answers m pk w hpk hv
 end SigGolfCandidate.T3M.Extract
 end
-
 section
-
 end

@@ -1,5 +1,6 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Layers
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Wct
+import SigGolfCandidate.ClaudeWCT.WCT9.Forest
 
 namespace ClaudeWCT.W9.T3M.Extract
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3M
@@ -17,6 +18,8 @@ theorem keygen_pk (answers : Answers) : (evalWithAnswerFn answers WCT9.Rev3.keyg
   unfold WCT9.Rev3.keygen WCT9.keygen keygen keygenPayload
   simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
   rw [Correctness.eval_buildTree_levels answers 0 0 0 [] (Cost.validDigits_nil 0)]
+  unfold honestRoot
+  rw [WCT9.wotsTree_top]
   rfl
 theorem layersWalkSpec_holds : WctExtract.LayersWalkSpec
     (fun answers w index qs => HitIn answers qs ∨
@@ -69,4 +72,31 @@ theorem verifyP_extract_normal (answers : Answers) (m : Message) (pk : Digest) (
     · exact Or.inl hhit
     · exact Or.inr (Or.inl hdiv)
   · exact Or.inr (Or.inr hgood)
+theorem wctEnds_eq (answers : Answers) (index coord child : Nat) :
+    wctEnds answers index coord child = List.ofFn (WCT9.chainEnd answers index coord child) := rfl
+theorem ftsNodes_eq (answers : Answers) (index : Nat) (c : WCT9.Coord) :
+    ftsNodes answers index c.val = WCT9.coordNodes answers index c := rfl
+theorem ftsPair_eq (answers : Answers) (index : Nat) (c : WCT9.Coord) :
+    ftsPair answers index c.val = WCT9.coordinatePair answers index c := by
+  unfold ftsPair ftsLevels WCT9.coordinatePair
+  rw [WCT9.heapLevels_value _ 6 0 (by decide) (by decide), WCT9.heapLevels_value _ 6 1 (by decide) (by decide),
+    ftsNodes_eq]
+  rfl
+theorem ftsPairsHonest_eq (answers : Answers) (index : Nat) :
+    ftsPairsHonest answers index = List.ofFn (WCT9.coordinatePair answers index) := by
+  apply List.ext_getElem (by simp [ftsPairsHonest])
+  intro i hi _
+  simp only [ftsPairsHonest, List.getElem_map, List.getElem_range, List.getElem_ofFn]
+  exact ftsPair_eq answers index ⟨i, by simpa [ftsPairsHonest] using hi⟩
+theorem honestForest_eq (answers : Answers) (index : Nat) :
+    honestForest answers index = WCT9.honestForest answers index := by
+  unfold honestForest WCT9.honestForest
+  rw [ftsPairsHonest_eq]
+theorem honestPair_eq (answers : Answers) (lay : Layer) (tree : Nat) :
+    honestPair answers lay tree = WCT9.builtPair answers lay tree := rfl
+theorem honestRoot_top (answers : Answers) :
+    honestRoot answers 0 0 = treeValue (builtTree answers 0 0) 12 0 := by
+  unfold honestRoot
+  rw [WCT9.wotsTree_top]
+  rfl
 end ClaudeWCT.W9.T3M.Extract

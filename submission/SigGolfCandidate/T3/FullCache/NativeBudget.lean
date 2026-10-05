@@ -1,37 +1,7 @@
 import SigGolfCandidate.T3.Nonbinary.EncodingCounts
 import SigGolfCandidate.T3.PackedChain
 import SigGolfCandidate.T3.FullCache.NativeMac
-import SigGolfCandidate.T3.FullCache.RequestRun
-import SigGolfCandidate.T3.SearchCost
 import SigGolfCandidate.T3.FullCache.ExpansionCost
-import SigGolfCandidate.T3.FullCache.SourcePrelude
-import SigGolfCandidate.T3.Gate6.SourceBudget
-import SigGolfCandidate.T3.Gate6.NearCoverage
-import SigGolfCandidate.T3.Gate6.Sampling
-import SigGolfCandidate.T3.Gate6.DigestCounting
-import SigGolfCandidate.SphincsSecurity.Proof.Hypertree.FiniteGraphReplay
-import SigGolfCandidate.SphincsSecurity.Proof.Fts.AdaptiveHiddenHazard
-import SigGolfCandidate.SphincsSecurity.Proof.Reference.FiniteHashWorld
-import SigGolfCandidate.SphincsSecurity.Proof.Residual.ResidualProbeCompletion
-import SigGolfCandidate.SphincsSecurity.Completeness.Octopus.Tuples
-import SigGolfCandidate.SphincsSecurity.Proof.Event.TruncatedCharge
-import SigGolfCandidate.SphincsSecurity.Proof.Fts.CachedIndexHashMoments
-import SigGolfCandidate.SphincsSecurity.Proof.Fts.ProposalQueryProjection
-import SigGolfCandidate.SphincsSecurity.Proof.Fts.TerminalProposalWord
-import SigGolfCandidate.T3.Proofs
-import Mathlib.RingTheory.Polynomial.Pochhammer
-import SigGolfCandidate.SphincsSecurity.Proof.Scheme.HashOutputSplit
-import SigGolfCandidate.SphincsSecurity.Proof.Base.BinomialMoments
-import SigGolfCandidate.SphincsSecurity.Proof.Fts.UniformProposalMixedMoments
-import SigGolfCandidate.SphincsSecurity.Proof.Fts.UniformProposalVariance
-import SigGolfCandidate.Budget.Numeric
-import Mathlib.Tactic
-import SigGolfCandidate.Budget.Octopus.Tuples
-import SigGolfCandidate.SphincsSecurity.Completeness.Uniform
-import VCVio.OracleComp.QueryTracking.QueryBound.Basic
-import VCVio.EvalDist.Bool
-import SigGolfCandidate.SphincsSecurity.Proof.Deterministic.Replay
-import SigGolfCandidate.SphincsSecurity.Proof.Fts.ProposalPrefixExponential
 
 section
 end

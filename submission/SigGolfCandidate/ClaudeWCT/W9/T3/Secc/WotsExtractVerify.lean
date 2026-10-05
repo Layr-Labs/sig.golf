@@ -1,10 +1,6 @@
-import SigGolfCandidate.T3.Secc.WotsExtractVerify
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEvents
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEventsGood
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsExtractChain
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsExtractLayer
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.VerifyP
-import SigGolfCandidate.ClaudeWCT.W9.New.G3b.Shared
 
 namespace ClaudeWCT.W9.T3.Security.WotsExtract
 open OracleComp OracleSpec
@@ -167,7 +163,7 @@ theorem coord_queries_pos (answers : Answers) (N : HashOutput) (w : WBytes) (c :
   · rw [queried_mapM] at hq
     obtain ⟨t, -, hq⟩ := List.mem_flatMap.mp hq
     exact chain_queries_pos answers (N.toNat % 2 ^ 31) c.val (WCT9.child N c).val t.val
-      (WCT9.digit (WCT9.rank N c) t) (WCT9.digit_le_three _ t) _ _ _ _ ⟨hidx, c.isLt, hj, t.isLt⟩ q hq
+      (WCT9.wordDigit (WCT9.rank N c) t) (WCT9.wordDigit_le_three _ t) _ _ _ _ ⟨hidx, c.isLt, hj, t.isLt⟩ q hq
   rcases List.mem_append.mp hq with hq | hq
   · exact leaf_queries_pos answers (N.toNat % 2 ^ 31) c.val (WCT9.child N c).val _ ⟨hidx, c.isLt, hj⟩ q hq
   rcases List.mem_append.mp hq with hq | hq

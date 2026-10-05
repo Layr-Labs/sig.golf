@@ -3,7 +3,6 @@ import SigGolfCandidate.T3.PackedChain
 import SigGolfCandidate.T3M.Keygen.Blocks
 
 section
-
 namespace SigGolfCandidate.T3M.Keygen.PackedBlocks
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 theorem sign_header_0 (s : MachineState) (hpc : s.pc = pcOf 1022)
@@ -120,9 +119,7 @@ theorem sign_header_3 (s : MachineState) (hpc : s.pc = pcOf 1022)
       rw [if_neg (by omega), if_neg (by omega)]
 end SigGolfCandidate.T3M.Keygen.PackedBlocks
 end
-
 section
-
 namespace SigGolfCandidate.T3M.Keygen.PackedBlocks
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 theorem keygen_header_1 (s : MachineState) (hpc : s.pc = pcOf 126)
@@ -214,10 +211,7 @@ theorem keygen_header_3 (s : MachineState) (hpc : s.pc = pcOf 126)
       rw [if_neg (by omega), if_neg (by omega)]
 end SigGolfCandidate.T3M.Keygen.PackedBlocks
 end
-
 section
-
-
 namespace SigGolfCandidate.T3M.Keygen.PackedBlocks
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3
@@ -293,12 +287,7 @@ theorem source_high_actual (lay : Layer) (tree leaf i step : Nat)
     (chainHeader_actual lay tree leaf i step hr hf hi hs)).trans (high_ofNat _ (by omega))
 end SigGolfCandidate.T3M.Keygen.PackedBlocks
 end
-
 section
-
-
-
-
 namespace SigGolfCandidate.T3M.Keygen
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3

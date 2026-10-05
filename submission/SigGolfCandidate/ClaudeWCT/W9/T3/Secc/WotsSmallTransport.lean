@@ -1,16 +1,6 @@
 import SigGolfCandidate.T3.Secc.WotsSmallTransport
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEvents
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEventsGood
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsReference
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsTransport
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsTransportTable
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsTransportSplit
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsExtractLayer
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsExtractVerify
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.SeccSufSigned
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CaseCSplit
-import SigGolfCandidate.ClaudeWCT.W9.New.G5.PaddedExtraction
-import SigGolfCandidate.ClaudeWCT.W9.New.G3b.Shared
 
 namespace ClaudeWCT.W9.T3.Security.Wots
 open OracleComp OracleSpec OracleComp.EvalDist OracleComp.DeferredSampling ENNReal
@@ -269,7 +259,7 @@ theorem caseABSrc_le_reference (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 
   SmallT.caseABEv_le_reference SmallT.srcEvent adversary q hq
 theorem completed_split_src (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
     (z : PaddedGame.TraceResult × Answers) (hz : z ∈ (SeccLaw.completedExperiment adversary q hq).support)
-    (hclean : QueryRecorded.CleanWin q z.1) :
+    (hclean : QueryRecorded.CleanWin q z.1) (hcomp : BPB.SignerComplete z.2) :
     CaseABSrc adversary z ∨ CaseC.CaseCFreshPinned adversary z ∨ CaseC.CaseCSignedPinned adversary z := by
   by_cases hab : CaseABSrc adversary z
   · exact Or.inl hab
@@ -318,7 +308,7 @@ theorem completed_split_src (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 1
   have hNN : N' = N := hN'.symm.trans hN
   subst hNN
   have hCat : BPB.CaseCAt z.2 message' witness' result.events := by
-    refine ⟨N', hdc, hN, ?_, hS, hgood, hfts⟩
+    refine ⟨N', hdc, hN, ?_, hS, hgood, hfts, hcomp⟩
     obtain ⟨prior, hp⟩ := hevent
     refine ⟨prior, ?_⟩
     rw [heq]

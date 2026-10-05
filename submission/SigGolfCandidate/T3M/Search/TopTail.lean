@@ -32,9 +32,9 @@ theorem topTail_spec {image : Image} {b : Nat} (hK : KernAt image b)
     (s : MachineState) (v : Digest) (sum : Nat) (hsum : sum ≤ 4335)
     (hv : v.toNat < 2 ^ 125) (hpc : s.pc = pcOf (b + 353))
     (h28 : s.getReg .x28 = topWindow v 17)
-    (h25 : s.getReg .x25 = BitVec.ofNat 64 sum) (h17 : s.getReg .x17 = 126#64) :
+    (h25 : s.getReg .x25 = BitVec.ofNat 64 sum) (h17 : s.getReg .x17 = 128#64) :
     ∃ t, Steps image s 9 9 t ∧
-      t.pc = (if sum + tailWeight v = 126 then pcOf (b + 362) else pcOf (b + 468)) ∧
+      t.pc = (if sum + tailWeight v = 128 then pcOf (b + 362) else pcOf (b + 468)) ∧
       t.getReg .x25 = BitVec.ofNat 64 (sum + tailWeight v) ∧
       RegsExcept s t [.x25,.x29] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_top353 hK.2) (codeAt_top353 hK) s hpc
@@ -43,7 +43,7 @@ theorem topTail_spec {image : Image} {b : Nat} (hK : KernAt image b)
       E.eval, CmpOp.eval, BinOp.eval, h28, h25, h17,
       BitVec.toNat_ofNat, Nat.reduceMod, topTail_sum v hv sum]
     have hh : sum + tailWeight v < 2 ^ 64 := by have := tailWeight_le v; omega
-    simp only [bne_iff_ne, ne_eq, BitVec.sub_eq_iff_eq_add, BitVec.zero_add, ofNat_inj hh (by decide : 126 < 2 ^ 64)]
+    simp only [bne_iff_ne, ne_eq, BitVec.sub_eq_iff_eq_add, BitVec.zero_add, ofNat_inj hh (by decide : 128 < 2 ^ 64)]
     split_ifs <;> first | rfl | omega
   · simpa only [Result.toState_getReg, topState353, tb354_353.res, rv_simp,
       h28, h25, BitVec.toNat_ofNat, Nat.reduceMod] using topTail_sum v hv sum

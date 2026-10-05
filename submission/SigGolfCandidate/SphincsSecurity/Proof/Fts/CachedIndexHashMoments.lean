@@ -1,12 +1,6 @@
-import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
-import SigGolfCandidate.SphincsSecurity.Proof.Fts.CacheIndexMultiplicity
-import SigGolfCandidate.SphincsSecurity.Proof.Fts.AdmissibleCount
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.DigestSelectionIndex
 
 section
-
-
-
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec ENNReal
 attribute [local instance] Classical.propDecidable
@@ -112,9 +106,7 @@ theorem cachedIndex_bound_of_no_excess (parameter : PublicParameter) (cache : Qu
     (lt_of_not_ge hbad))
 end SphincsSecurity.Concrete
 end
-
 section
-
 namespace SphincsSecurity
 theorem positivePart_shift_even_le (score shift : ℝ) (power : Nat) (heven : Even power) :
     max (score + shift) 0 ^ power ≤ (max score 0 + shift) ^ power := by
@@ -143,12 +135,7 @@ theorem bernoulliExcess_secondMoment_le (score probability : ℝ)
     _ ≤ _ := by dsimp only [d]; nlinarith [sq_nonneg probability]
 end SphincsSecurity
 end
-
 section
-
-
-
-
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec ENNReal
 attribute [local instance] Classical.propDecidable

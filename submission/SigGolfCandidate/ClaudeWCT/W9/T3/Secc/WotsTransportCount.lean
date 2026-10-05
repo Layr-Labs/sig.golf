@@ -1,11 +1,5 @@
 import SigGolfCandidate.T3.Secc.WotsTransportCount
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsTransport
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsTransportTable
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsTransportR3
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsReference
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.SeccLaw
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEvents
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsTransportShort
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsReferenceInputs
 
 namespace ClaudeWCT.W9.T3.Security.Wots

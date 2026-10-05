@@ -1,8 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.SeccSufSigned
-import SigGolfCandidate.ClaudeWCT.WCT9.QueriesWots
-import SigGolfCandidate.ClaudeWCT.W9.New.BC.Rows
 import SigGolfCandidate.ClaudeWCT.W9.New.Positions.FtsBridge
-import SigGolfCandidate.T3.Secc.SeccSufRoute
 
 namespace ClaudeWCT.W9.T3.Security.BPB
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
@@ -19,13 +16,13 @@ noncomputable local instance instDecidableEqCache_w9seccSufRoute : DecidableEq S
   Classical.decEq _
 theorem digestSearch_succ (rho : Digest) (m : Message) (counter fuel : Nat) :
     WCT9.digestSearch rho m counter (fuel + 1) = (digest rho m (BitVec.ofNat 32 counter) >>= fun output =>
-      if WCT9.admissible output = true then pure (some (BitVec.ofNat 32 counter, output))
+      if WCT9.producerAdmissible output = true then pure (some (BitVec.ofNat 32 counter, output))
       else WCT9.digestSearch rho m (counter + 1) fuel) := rfl
 theorem digestSearch_queried (answers : Correctness.Answers) (rho : Digest) (m : Message) :
     ∀ fuel start (q : Spec.Domain), q ∈ queried answers (WCT9.digestSearch rho m start fuel) →
       ∃ c, start ≤ c ∧ c < start + fuel ∧ q = .inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 c)))) ∧
         ∀ c', start ≤ c' → c' < c →
-          WCT9.admissible (evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c'))) = false := by
+          WCT9.producerAdmissible (evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c'))) = false := by
   intro fuel
   induction fuel with
   | zero => intro start q hq; simp [WCT9.digestSearch] at hq
@@ -35,7 +32,7 @@ theorem digestSearch_queried (answers : Correctness.Answers) (rho : Digest) (m :
       rcases List.mem_append.mp hq with hq | hq
       · rw [List.mem_singleton] at hq
         exact ⟨start, le_rfl, by omega, hq, fun c' h1 h2 => by omega⟩
-      · by_cases hadm : WCT9.admissible (evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 start))) = true
+      · by_cases hadm : WCT9.producerAdmissible (evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 start))) = true
         · rw [if_pos hadm] at hq; simp at hq
         · rw [if_neg hadm] at hq
           obtain ⟨c, h1, h2, h3, h4⟩ := ih (start + 1) q hq
@@ -46,8 +43,8 @@ theorem digestSearch_queried (answers : Correctness.Answers) (rho : Digest) (m :
 theorem digestSearch_accepts (answers : Correctness.Answers) (rho : Digest) (m : Message) :
     ∀ fuel start c, start ≤ c → c < start + fuel →
       (∀ c', start ≤ c' → c' < c →
-        WCT9.admissible (evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c'))) = false) →
-      WCT9.admissible (evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c))) = true →
+        WCT9.producerAdmissible (evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c'))) = false) →
+      WCT9.producerAdmissible (evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c))) = true →
       evalWithAnswerFn answers (WCT9.digestSearch rho m start fuel) =
         some (BitVec.ofNat 32 c, evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c))) := by
   intro fuel
@@ -64,7 +61,7 @@ theorem digestSearch_accepts (answers : Correctness.Answers) (rho : Digest) (m :
 theorem rejected_trial_inadmissible (answers : Correctness.Answers) (rho : Digest) (m : Message) (c : Nat)
     (hq : (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 c)))) : Spec.Domain) ∈
       queried answers (WCT9.digestSearch rho m 0 WCT9.digestAttemptLimit))
-    (hadm : WCT9.admissible (evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c))) = true) :
+    (hadm : WCT9.producerAdmissible (evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c))) = true) :
     evalWithAnswerFn answers (WCT9.digestSearch rho m 0 WCT9.digestAttemptLimit) =
       some (BitVec.ofNat 32 c, evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c))) := by
   obtain ⟨c', _, hc', heq, hrej⟩ := digestSearch_queried answers rho m WCT9.digestAttemptLimit 0 _ hq
@@ -135,17 +132,18 @@ theorem honestMsg_three (answers : Correctness.Answers) (index : Nat) :
   simp only [ClaudeWCT.W9.T3M.Extract.honestMsg, show ¬((3 : Layer).val < 3) by decide, dite_false,
     ClaudeWCT.W9.T3M.Extract.honestForest_eq_recover]
   rfl
-theorem signLayers_good (answers : Correctness.Answers) (cache : SigGolfCandidate.T3.Cache) (index : Nat) (w : WBytes)
-    (hgood : ∀ lay : Layer, ClaudeWCT.W9.T3M.BC.GoodZ answers w index lay) :
+theorem route_tree_lower (index : Nat) (hindex : index < 2 ^ 31) (lay : Layer) :
+    (route index lay).2 < 2 ^ 25 := by
+  fin_cases lay <;> simp [route, height] <;> omega
+theorem signLayers_complete (answers : Correctness.Answers) (hcomp : SignerComplete answers)
+    (cache : SigGolfCandidate.T3.Cache) (index : Nat) (hindex : index < 2 ^ 31) :
     ∀ n, n ≤ 4 → ∀ msg : WCT9.LayerMsg,
-      (∀ k, n = k + 1 → msg = ClaudeWCT.W9.T3M.Extract.honestMsg answers index (Fin.ofNat 4 k)) →
       ∃ pieces, evalWithAnswerFn answers (WCT9.signLayersBC cache index n msg) = some pieces := by
   intro n
   induction n with
-  | zero => intro _ msg _; exact ⟨[], by simp [WCT9.signLayersBC]⟩
+  | zero => intro _ msg; exact ⟨[], by simp [WCT9.signLayersBC]⟩
   | succ n ih =>
-      intro hn msg hval
-      have hmsg := hval n rfl
+      intro hn msg
       by_cases hn0 : n = 0
       · subst hn0
         rw [WCT9.signLayersBC]
@@ -156,35 +154,24 @@ theorem signLayers_good (answers : Correctness.Answers) (cache : SigGolfCandidat
           have hv : (Fin.ofNat 4 n : Layer).val = n := Nat.mod_eq_of_lt (by omega)
           rw [h] at hv
           exact hn0 hv.symm
-        obtain ⟨⟨counter, digits⟩, hs⟩ := counterSearch_good answers w index (Fin.ofNat 4 n) hl (hgood _)
-        rw [← hmsg] at hs
-        have hvalid := Cost.validDigits_decode (WCT9.layerCounterSearch_some answers _ _ _ _ counterLimit 0 counter
-          digits (by decide) hs).2.2
-        obtain ⟨k, rfl⟩ : ∃ k, n = k + 1 := ⟨n - 1, by omega⟩
-        have htree := Correctness.eval_buildTree_result answers (Fin.ofNat 4 (k + 1))
-          (route index (Fin.ofNat 4 (k + 1))).2 (route index (Fin.ofNat 4 (k + 1))).1 digits hvalid
-          (route_leaf_bound index _)
-        obtain ⟨pieces, hp⟩ := ih (by omega) (.pair (WCT9.topPair (Fin.ofNat 4 (k + 1))
-            (Correctness.builtTree answers (Fin.ofNat 4 (k + 1)) (route index (Fin.ofNat 4 (k + 1))).2)).1
-            (WCT9.topPair (Fin.ofNat 4 (k + 1))
-            (Correctness.builtTree answers (Fin.ofNat 4 (k + 1)) (route index (Fin.ofNat 4 (k + 1))).2)).2)
-          (fun k' hk' => by
-            have hkk : k' = k := by omega
-            rw [hkk, honestMsg_lower answers index k (by omega)]
-            rfl)
+        obtain ⟨⟨counter, digits⟩, hs⟩ := Option.isSome_iff_exists.mp
+          (hcomp.2 (Fin.ofNat 4 n) hl (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg
+            (route_tree_lower index hindex _) (route_leaf_bound index _))
         rw [WCT9.signLayersBC]
-        simp only [evalWithAnswerFn_bind, hs, htree, show k + 1 ≠ 0 by omega, ite_false, hp, evalWithAnswerFn_pure]
+        simp only [evalWithAnswerFn_bind, hs, hn0, ite_false]
+        generalize evalWithAnswerFn answers (WCT9.buildTreeP (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
+          (route index (Fin.ofNat 4 n)).1 digits) = bt
+        rcases bt with ⟨levels, values⟩
+        obtain ⟨pieces, hp⟩ := ih (by omega) (.pair (WCT9.topPair (Fin.ofNat 4 n) levels).1
+          (WCT9.topPair (Fin.ofNat 4 n) levels).2)
+        simp only [hp, evalWithAnswerFn_pure]
         exact ⟨_, rfl⟩
-theorem selected_payload_succeeds (answers : Correctness.Answers) (cache : SigGolfCandidate.T3.Cache) (rho : Digest)
-    (m : Message) (N : HashOutput) (counter : BitVec 32) (w : WBytes)
-    (hds : evalWithAnswerFn answers (WCT9.digestSearch rho m 0 WCT9.digestAttemptLimit) = some (counter, N))
-    (hgood : ∀ lay : Layer, ClaudeWCT.W9.T3M.BC.GoodZ answers w (N.toNat % 2 ^ 31) lay) :
+theorem payload_succeeds_of_complete (answers : Correctness.Answers) (hcomp : SignerComplete answers)
+    (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (m : Message) :
     ∃ sig, evalWithAnswerFn answers (payloadForNonce cache rho m) = some sig ∧ sig.rho = rho := by
-  obtain ⟨pieces, hp⟩ := signLayers_good answers cache (N.toNat % 2 ^ 31) w hgood 4 le_rfl
-    (.forest (WCT9.honestForest answers (N.toNat % 2 ^ 31)))
-    (fun k hk => by
-      obtain rfl : k = 3 := by omega
-      exact (honestMsg_three answers _).symm)
+  obtain ⟨⟨counter, N⟩, hds⟩ := Option.isSome_iff_exists.mp (hcomp.1 rho m)
+  obtain ⟨pieces, hp⟩ := signLayers_complete answers hcomp cache (N.toNat % 2 ^ 31) (Nat.mod_lt _ (by positivity))
+    4 le_rfl (.forest (WCT9.honestForest answers (N.toNat % 2 ^ 31)))
   unfold payloadForNonce
   simp only [evalWithAnswerFn_bind, hds, WCT9.eval_signForest, hp, evalWithAnswerFn_pure]
   exact ⟨_, rfl, rfl⟩
@@ -215,7 +202,11 @@ theorem afterDigest_ok (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (outpu
   apply SourceQueries.bind_allowed _ (ClaudeWCT.WCT9.Wots.BPB.signForest_ok _ output)
   intro forest
   apply SourceQueries.bind_allowed _ (ClaudeWCT.W9.T3.Security.Signer.signLayersBC_allowed' _ _ layerEncoding_ok
-    SigGolfCandidate.T3.Security.BPB.buildTree_ok (SigGolfCandidate.T3.Security.BPB.signTop_ok _) _ _ _)
+    (ClaudeWCT.W9.T3.Security.Signer.buildTreeP_allowed' _ SigGolfCandidate.T3.Security.BPB.chain_ok
+      SigGolfCandidate.T3.Security.BPB.leafHash_ok
+      (fun _ _ _ _ => SigGolfCandidate.T3.Security.BPB.buildLevels_ok _ _ _ _ _ (by decide))
+      (fun _ _ _ => SigGolfCandidate.T3.Security.BPB.privatePair_ok _ _ _ _ _))
+    (SigGolfCandidate.T3.Security.BPB.signTop_ok _) _ _ _)
   intro layers
   rcases layers with _ | pieces
   · exact SourceQueries.pure_allowed _ _
@@ -262,19 +253,12 @@ theorem caseC_fresh_not_signer (answers : Correctness.Answers) (published : SigG
     (log : QueryLog Requests) (state : LazyPrivate.State)
     (hres : ∀ entry ∈ log, SourceReplay.Resolves state (FullGame.authenticatedSign published entry.1) entry.2)
     (hagree : ∀ input answer, SourceReplay.known state input = some answer → answers input = answer)
-    (m : Message) (w : WBytes) (N : HashOutput)
-    (hN : evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N) (hS : Shaped N w)
-    (hgood : ∀ lay : Layer, ClaudeWCT.W9.T3M.BC.GoodZ answers w (N.toNat % 2 ^ 31) lay)
-    (hfresh : ¬SignedDigest log m w) :
+    (m : Message) (w : WBytes) (hcomp : SignerComplete answers) (hfresh : ¬SignedDigest log m w) :
     ∀ entry ∈ log, (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∉
       queried answers (FullGame.authenticatedSign published entry.1) := by
   intro entry he hq
-  obtain ⟨hc, hm, hrho, hq'⟩ := signer_digest_query answers published entry.1 _ _ _ hq
-  rw [← SigGolfCandidate.T3.Security.BPB.ofNat_toNat32 (wdc w)] at hq'
-  have hacc := rejected_trial_inadmissible answers (wrho w) m (wdc w).toNat hq'
-    (by rw [SigGolfCandidate.T3.Security.BPB.ofNat_toNat32, hN]; exact hS)
-  rw [SigGolfCandidate.T3.Security.BPB.ofNat_toNat32, hN] at hacc
-  obtain ⟨sig, hsig, hsrho⟩ := selected_payload_succeeds answers published (wrho w) m N (wdc w) w hacc hgood
+  obtain ⟨hc, hm, hrho, -⟩ := signer_digest_query answers published entry.1 _ _ _ hq
+  obtain ⟨sig, hsig, hsrho⟩ := payload_succeeds_of_complete answers hcomp published (wrho w) m
   apply hfresh
   refine ⟨entry, he, hm, sig, ?_, hsrho⟩
   rw [← (hres entry he).eval answers hagree, eval_authenticatedSign, if_pos hc, ← hrho, hm]
@@ -287,8 +271,8 @@ theorem caseCAt_fresh_not_signer (answers : Correctness.Answers) (published : Si
     (hC : CaseCAt answers message witness events) (hfresh : ¬SignedDigest log message witness) :
     ∀ entry ∈ log, (.inl (.inr (pad64 (digestInput (wrho witness) message (wdc witness)))) : Spec.Domain) ∉
       queried answers (FullGame.authenticatedSign published entry.1) := by
-  obtain ⟨N, -, hN, -, hS, hgood, -⟩ := hC
-  exact caseC_fresh_not_signer answers published log state hres hagree message witness N hN hS hgood hfresh
+  obtain ⟨N, -, hN, -, hS, hgood, -, hcomp⟩ := hC
+  exact caseC_fresh_not_signer answers published log state hres hagree message witness hcomp hfresh
 theorem caseC_fresh_first_occurrence (adversary : ClaudeWCT.W9.T3M.Final.AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
     (z : PaddedGame.TraceResult × Correctness.Answers) (hz : z ∈ (SeccLaw.completedExperiment adversary q hq).support)
     (hC : CaseCFresh adversary z) :
@@ -308,13 +292,13 @@ theorem caseC_fresh_first_occurrence (adversary : ClaudeWCT.W9.T3M.Final.Adversa
             first.2 (pad64 (digestInput (wrho witness) message (wdc witness))) = none := by
   obtain ⟨hz1, hagree⟩ := SeccLaw.completed_agrees adversary q hq z hz
   obtain ⟨generated, hg, interaction, hi, hext, -, -, forgery, -, -, message, witness, -, hsigned, hC⟩ := hC
-  obtain ⟨N, -, hN, ⟨prior, hev⟩, hS, hgood, -⟩ := hC
+  obtain ⟨N, -, hN, ⟨prior, hev⟩, hS, hgood, -, hcomp⟩ := hC
   have hai : ∀ input answer, SourceReplay.known interaction.state input = some answer → z.2 input = answer :=
     fun input answer hk => hagree input answer (SourceReplay.known_mono _ _ hext hk)
   have hres := logged_resolves generated.value.2 _ generated.state _ (FirstHit.recorded_support _ _ _ hi)
   refine ⟨generated, hg, interaction, hi, hext, message, witness, N, hN,
-    caseC_fresh_not_signer z.2 generated.value.2 interaction.value.2 interaction.state hres hai message witness N
-      hN hS hgood hsigned, ?_⟩
+    caseC_fresh_not_signer z.2 generated.value.2 interaction.value.2 interaction.state hres hai message witness
+      hcomp hsigned, ?_⟩
   exact FirstHit.first_public_occurrence _ _ (PaddedExtraction.traced_record_support adversary q hq z.1 hz1)
     prior _ _ hev
 end ClaudeWCT.W9.T3.Security.BPB

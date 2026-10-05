@@ -2,7 +2,6 @@ import SigGolfCandidate.ClaudeWCT.WCT9.Correctness
 import SigGolfCandidate.ClaudeWCT.WCT9.Limits
 
 section
-
 namespace ClaudeWCT.WCT9
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Correctness
 set_option maxHeartbeats 1000000
@@ -166,10 +165,7 @@ theorem realized_honest_signing_success_valid (answers : QueryImpl SphincsSecuri
   exact honest_signing_success_valid (answers.compose (realHandler secret)) htop
 end ClaudeWCT.WCT9
 end
-
 section
-
-
 namespace ClaudeWCT.WCT9
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Correctness
 set_option maxHeartbeats 1000000
@@ -283,8 +279,9 @@ theorem expandWith_implies_verifyWith (limit : Nat) (hlimit : limit ≤ 2 ^ 32) 
             have hroot : root = pk := by simpa using hroot
             simp only [evalWithAnswerFn_pure, Option.some.injEq] at he
             subst w
-            obtain ⟨_, hcounter, houtput, hadm⟩ := digestSearch_some_good answers sig.rho message
+            obtain ⟨_, hcounter, houtput, hprod⟩ := digestSearch_some_good answers sig.rho message
               limit 0 counter output (by omega) hd
+            have hadm := admissible_of_producer hprod
             have hnot : ¬counter.toNat ≥ limit := by omega
             have hverified := (expandLayersBC_verified answers sig
               (output.toNat % 2 ^ 31) 4 (by decide) _ root counters hl).2
@@ -347,7 +344,7 @@ theorem signingWith_success_valid (limit : Nat) (hlimit : limit ≤ 2 ^ 32) (ans
 theorem digestSearch_none_iff (answers : Answers) (rho : Digest) (message : Message) :
     ∀ fuel counter,
       evalWithAnswerFn answers (digestSearch rho message counter fuel) = none ↔
-      ∀ offset, offset < fuel → admissible (evalWithAnswerFn answers
+      ∀ offset, offset < fuel → producerAdmissible (evalWithAnswerFn answers
         (digest rho message (BitVec.ofNat 32 (counter + offset)))) = false := by
   intro fuel
   induction fuel with
@@ -362,7 +359,7 @@ theorem digestSearch_none_iff (answers : Answers) (rho : Digest) (message : Mess
         have := hall 0 (by omega)
         simp only [Nat.add_zero, hgood, Bool.true_eq_false] at this
       · rename_i hbad
-        have hbad : admissible (evalWithAnswerFn answers
+        have hbad : producerAdmissible (evalWithAnswerFn answers
           (digest rho message (BitVec.ofNat 32 counter))) = false := by simpa using hbad
         rw [ih]
         constructor

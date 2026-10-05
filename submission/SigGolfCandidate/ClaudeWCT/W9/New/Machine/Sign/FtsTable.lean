@@ -15,31 +15,24 @@ theorem pk_digit (r : Fin 728) (i : Fin 7) : pk.getD r.val 0 / 4 ^ i.val % 4 = W
   rw [List.getD_eq_getElem _ _ hr2, h2]
   unfold WCT9.digit WCT9.codeword
   rfl
-theorem rowsOK_get : ∀ (rows : List (List (BitVec 8))) (k0 : Nat), rowsOK k0 rows = true →
-    ∀ k (hk : k < rows.length), rowOK (k0 + k) rows[k] = true
-  | [], _, _, k, hk => absurd hk (by simp)
-  | r :: rs, k0, h, k, hk => by
-    simp only [rowsOK, Bool.and_eq_true] at h
-    rcases k with _ | k
-    · simpa using h.1
-    · have := rowsOK_get rs (k0 + 1) h.2 k (by simpa using hk)
-      simpa [show k0 + (k + 1) = k0 + 1 + k by omega] using this
-theorem flatten_drop_take : ∀ (rows : List (List (BitVec 8))), (∀ r ∈ rows, r.length = 8) →
-    ∀ k (hk : k < rows.length), (rows.flatten.drop (8 * k)).take 8 = rows[k]
-  | [], _, k, hk => absurd hk (by simp)
-  | r :: rs, h, k, hk => by
-    have hr : r.length = 8 := h r (by simp)
-    rcases k with _ | k
-    · simp only [List.flatten_cons, Nat.mul_zero, List.drop_zero, List.getElem_cons_zero]
-      rw [List.take_append_of_le_length (by omega), List.take_of_length_le (by omega)]
-    · simp only [List.flatten_cons, List.getElem_cons_succ]
-      rw [show 8 * (k + 1) = r.length + 8 * k by omega, List.drop_length_add_append]
-      exact flatten_drop_take rs (fun r' hr' => h r' (by simp [hr'])) k (by simpa using hk)
-theorem table_dw {t : MachineState} (h : TableAt t) {k : Nat} (hk : k < 8192) :
-    t.getMem (BitVec.ofNat 64 (TBL + 8 * k)) = bytesToWordLE (tblRows[k]'(by rw [tblRows_length]; exact hk)) := by
-  rw [h k hk]
-  congr 1
-  exact flatten_drop_take tblRows (fun r hr => by simpa using List.all_eq_true.mp tblRows_len8 r hr) k _
+theorem tblChk_get : ∀ (m k : Nat) (l : List (BitVec 8)), tblChk k l = true → 8 * m + 8 ≤ l.length →
+    extractWord32 (bytesToWordLE ((l.drop (8 * m)).take 8)) 0 = BitVec.ofNat 32 (pkAt (2 * (k + m))) ∧
+    extractWord32 (bytesToWordLE ((l.drop (8 * m)).take 8)) 1 = BitVec.ofNat 32 (pkAt (2 * (k + m) + 1))
+  | m, k, b0 :: b1 :: b2 :: b3 :: b4 :: b5 :: b6 :: b7 :: rest, h, hl => by
+    simp only [tblChk, Bool.and_eq_true, beq_iff_eq] at h
+    rcases m with _ | m
+    · simpa using ⟨h.1.1, h.1.2⟩
+    · have := tblChk_get m (k + 1) rest h.2 (by simp at hl; omega)
+      rw [show 8 * (m + 1) = 8 + 8 * m by omega, ← List.drop_drop]
+      simpa [show k + 1 + m = k + (m + 1) by omega] using this
+  | m, k, [], _, hl => by simp at hl
+  | m, k, [_], _, hl => by simp at hl <;> omega
+  | m, k, [_, _], _, hl => by simp at hl <;> omega
+  | m, k, [_, _, _], _, hl => by simp at hl <;> omega
+  | m, k, [_, _, _, _], _, hl => by simp at hl <;> omega
+  | m, k, [_, _, _, _, _], _, hl => by simp at hl <;> omega
+  | m, k, [_, _, _, _, _, _], _, hl => by simp at hl <;> omega
+  | m, k, [_, _, _, _, _, _, _], _, hl => by simp at hl <;> omega
 theorem table_word {t : MachineState} (h : TableAt t) {f : Nat} (hf : f < 16384) :
     t.getWord32 (BitVec.ofNat 64 (TBL + 4 * f)) = BitVec.ofNat 32 (pkAt f) := by
   have hk : f / 2 < 8192 := by omega
@@ -51,20 +44,23 @@ theorem table_word {t : MachineState} (h : TableAt t) {f : Nat} (hf : f < 16384)
     unfold TBL; omega
   have hb : byteOffset (BitVec.ofNat 64 (TBL + 4 * f)) / 4 = f % 2 := by
     rw [byteOffset_eq, toNat_ofNat_lt hlt]; unfold TBL; omega
-  rw [ha, hb, table_dw h hk]
-  have hr := rowsOK_get tblRows 0 tbl_rows_ok (f / 2) (by rw [tblRows_length]; exact hk)
-  simp only [rowOK, Bool.and_eq_true, beq_iff_eq, Nat.zero_add] at hr
+  rw [ha, hb, h (f / 2) hk]
+  have hr := tblChk_get (f / 2) 0 tblBytes tbl_chk (by rw [tblBytes_length]; omega)
+  rw [Nat.zero_add] at hr
   rcases Nat.mod_two_eq_zero_or_one f with h0 | h1
-  · rw [h0, hr.1.2, show 2 * (f / 2) = f by omega]
+  · rw [h0, hr.1, show 2 * (f / 2) = f by omega]
   · rw [h1, hr.2, show 2 * (f / 2) + 1 = f by omega]
+theorem codeRanks_getD (f : Nat) : WCT9.codeRanks.getD (f % 600) 0 = (WCT9.embed ⟨f % 600, Nat.mod_lt _ (by norm_num)⟩).val := by
+  unfold WCT9.embed
+  rw [List.getD_eq_getElem _ _ (by rw [WCT9.codeRanks_length]; exact Nat.mod_lt _ (by norm_num))]
 theorem pkAt_lt (f : Nat) : pkAt f < 2 ^ 32 := by
   unfold pkAt
   split_ifs
-  · exact pk_lt_all _ (Nat.mod_lt _ (by norm_num))
+  · rw [codeRanks_getD]; exact pk_lt_all _ (WCT9.embed _).isLt
   · norm_num
-theorem pkAt_digit (f : Nat) (hf : f < 16016) (i : Fin 7) :
-    pkAt f / 4 ^ i.val % 4 = WCT9.digit ⟨f % 728, Nat.mod_lt _ (by norm_num)⟩ i := by
-  unfold pkAt; rw [if_pos hf]; exact pk_digit ⟨f % 728, _⟩ i
+theorem pkAt_digit (f : Nat) (hf : f < 16200) (i : Fin 7) :
+    pkAt f / 4 ^ i.val % 4 = WCT9.wordDigit ⟨f % 600, Nat.mod_lt _ (by norm_num)⟩ i := by
+  unfold pkAt; rw [if_pos hf, codeRanks_getD]; exact pk_digit _ i
 theorem decode_lwu : decodeInstruction 0x000e6c83 = some (.base (.LWU .x25 .x28 0)) := by rfl
 theorem step_lwu {im : Image} (hcode : NewCodeAt im) {c : Nat} (hc : c < 9) (s : MachineState)
     (hpc : s.pc = pcOf (lwuI c)) {f : Nat} (hf : f < 16384) (h28 : s.getReg .x28 = BitVec.ofNat 64 (TBL + 4 * f))

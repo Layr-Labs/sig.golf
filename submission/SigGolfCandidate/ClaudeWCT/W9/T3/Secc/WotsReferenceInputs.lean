@@ -1,5 +1,4 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsTransportR3
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsReference
 import SigGolfCandidate.T3.Secc.WotsReferenceInputs
 
 namespace ClaudeWCT.W9.T3.Security.Wots.Ref

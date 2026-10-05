@@ -1,6 +1,3 @@
-import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
-import SigGolfCandidate.SphincsSecurity.Proof.Fts.TargetShapeOperators
-import SigGolfCandidate.SphincsSecurity.Proof.Fts.TargetShapeReindex
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.NormalizedTargetCacheQuery
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.TargetSigningMatchFactors
 

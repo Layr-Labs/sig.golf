@@ -1,0 +1,40 @@
+import SigGolfCandidate.W9Machine.WctN600Evidence
+
+namespace W9Machine.N600.Checks
+set_option maxRecDepth 100000
+set_option maxHeartbeats 0
+def routine24 : ChainRoutine := ⟨24, [0, 0, 0, 2, 0, 3, 1], [⟨1456, [0x28040513, 0x2b040613, 0x18cf8c93, 0x1953823, 0x73], .head 640 688 3 1⟩, ⟨1461, [0xd508a3, 0x73], .rung 2 none⟩, ⟨1463, [0x2b043183, 0x2b843703, 0x3a343823, 0x3ae43c23], .copy 640 944⟩, ⟨1467, [0x20040513, 0x23040613, 0x94f8c93, 0x1953823, 0x73], .head 512 560 5 0⟩, ⟨1472, [0x7508a3, 0x73], .rung 1 none⟩, ⟨1474, [0xd508a3, 0x3d040613, 0x73], .rung 2 (some 976)⟩, ⟨1477, [0x1c040513, 0x3e040613, 0x298f8c93, 0x1953823, 0x73], .head 448 992 6 2⟩, ⟨1482, [0x39c43023, 0x38443423, 0x37040513, 0x8000593, 0xb8067], .leaf⟩]⟩
+def routine25 : ChainRoutine := ⟨25, [0, 0, 0, 2, 1, 0, 3], [⟨1487, [0x28040513, 0x2b040613, 0x18cf8c93, 0x1953823, 0x73], .head 640 688 3 1⟩, ⟨1492, [0xd508a3, 0x3b040613, 0x73], .rung 2 (some 944)⟩, ⟨1495, [0x24040513, 0x27040613, 0x290f8c93, 0x1953823, 0x73], .head 576 624 4 2⟩, ⟨1500, [0x27043183, 0x27843703, 0x3c343023, 0x3ce43423], .copy 576 960⟩, ⟨1504, [0x1c040513, 0x1f040613, 0x98f8c93, 0x1953823, 0x73], .head 448 496 6 0⟩, ⟨1509, [0x7508a3, 0x73], .rung 1 none⟩, ⟨1511, [0xd508a3, 0x3e040613, 0x73], .rung 2 (some 992)⟩, ⟨1514, [0x39c43023, 0x38443423, 0x37040513, 0x8000593, 0xb8067], .leaf⟩]⟩
+def routine26 : ChainRoutine := ⟨26, [0, 0, 0, 2, 1, 1, 2], [⟨1519, [0x28040513, 0x2b040613, 0x18cf8c93, 0x1953823, 0x73], .head 640 688 3 1⟩, ⟨1524, [0xd508a3, 0x3b040613, 0x73], .rung 2 (some 944)⟩, ⟨1527, [0x24040513, 0x3c040613, 0x290f8c93, 0x1953823, 0x73], .head 576 960 4 2⟩, ⟨1532, [0x20040513, 0x3d040613, 0x294f8c93, 0x1953823, 0x73], .head 512 976 5 2⟩, ⟨1537, [0x1c040513, 0x1f040613, 0x198f8c93, 0x1953823, 0x73], .head 448 496 6 1⟩, ⟨1542, [0xd508a3, 0x3e040613, 0x73], .rung 2 (some 992)⟩, ⟨1545, [0x39c43023, 0x38443423, 0x37040513, 0x8000593, 0xb8067], .leaf⟩]⟩
+def routine27 : ChainRoutine := ⟨27, [0, 0, 0, 2, 1, 2, 1], [⟨1550, [0x28040513, 0x2b040613, 0x18cf8c93, 0x1953823, 0x73], .head 640 688 3 1⟩, ⟨1555, [0xd508a3, 0x3b040613, 0x73], .rung 2 (some 944)⟩, ⟨1558, [0x24040513, 0x3c040613, 0x290f8c93, 0x1953823, 0x73], .head 576 960 4 2⟩, ⟨1563, [0x20040513, 0x23040613, 0x194f8c93, 0x1953823, 0x73], .head 512 560 5 1⟩, ⟨1568, [0xd508a3, 0x3d040613, 0x73], .rung 2 (some 976)⟩, ⟨1571, [0x1c040513, 0x3e040613, 0x298f8c93, 0x1953823, 0x73], .head 448 992 6 2⟩, ⟨1576, [0x39c43023, 0x38443423, 0x37040513, 0x8000593, 0xb8067], .leaf⟩]⟩
+def routine28 : ChainRoutine := ⟨28, [0, 0, 0, 2, 1, 3, 0], [⟨1581, [0x28040513, 0x2b040613, 0x18cf8c93, 0x1953823, 0x73], .head 640 688 3 1⟩, ⟨1586, [0xd508a3, 0x3b040613, 0x73], .rung 2 (some 944)⟩, ⟨1589, [0x24040513, 0x3c040613, 0x290f8c93, 0x1953823, 0x73], .head 576 960 4 2⟩, ⟨1594, [0x20040513, 0x23040613, 0x94f8c93, 0x1953823, 0x73], .head 512 560 5 0⟩, ⟨1599, [0x7508a3, 0x73], .rung 1 none⟩, ⟨1601, [0xd508a3, 0x73], .rung 2 none⟩, ⟨1603, [0x23043183, 0x23843703, 0x3c343823, 0x3ce43c23], .copy 512 976⟩, ⟨1607, [0x39c43023, 0x38443423, 0x37040513, 0x8000593, 0xb8067], .leaf⟩]⟩
+def routine29 : ChainRoutine := ⟨29, [0, 0, 0, 2, 2, 0, 2], [⟨1612, [0x28040513, 0x2b040613, 0x18cf8c93, 0x1953823, 0x73], .head 640 688 3 1⟩, ⟨1617, [0xd508a3, 0x3b040613, 0x73], .rung 2 (some 944)⟩, ⟨1620, [0x24040513, 0x27040613, 0x190f8c93, 0x1953823, 0x73], .head 576 624 4 1⟩, ⟨1625, [0xd508a3, 0x73], .rung 2 none⟩, ⟨1627, [0x27043183, 0x27843703, 0x3c343023, 0x3ce43423], .copy 576 960⟩, ⟨1631, [0x1c040513, 0x1f040613, 0x198f8c93, 0x1953823, 0x73], .head 448 496 6 1⟩, ⟨1636, [0xd508a3, 0x3e040613, 0x73], .rung 2 (some 992)⟩, ⟨1639, [0x39c43023, 0x38443423, 0x37040513, 0x8000593, 0xb8067], .leaf⟩]⟩
+def routine30 : ChainRoutine := ⟨30, [0, 0, 0, 2, 2, 1, 1], [⟨1644, [0x28040513, 0x2b040613, 0x18cf8c93, 0x1953823, 0x73], .head 640 688 3 1⟩, ⟨1649, [0xd508a3, 0x3b040613, 0x73], .rung 2 (some 944)⟩, ⟨1652, [0x24040513, 0x27040613, 0x190f8c93, 0x1953823, 0x73], .head 576 624 4 1⟩, ⟨1657, [0xd508a3, 0x3c040613, 0x73], .rung 2 (some 960)⟩, ⟨1660, [0x20040513, 0x3d040613, 0x294f8c93, 0x1953823, 0x73], .head 512 976 5 2⟩, ⟨1665, [0x1c040513, 0x3e040613, 0x298f8c93, 0x1953823, 0x73], .head 448 992 6 2⟩, ⟨1670, [0x39c43023, 0x38443423, 0x37040513, 0x8000593, 0xb8067], .leaf⟩]⟩
+def routine31 : ChainRoutine := ⟨31, [0, 0, 0, 2, 2, 2, 0], [⟨1675, [0x28040513, 0x2b040613, 0x18cf8c93, 0x1953823, 0x73], .head 640 688 3 1⟩, ⟨1680, [0xd508a3, 0x3b040613, 0x73], .rung 2 (some 944)⟩, ⟨1683, [0x24040513, 0x27040613, 0x190f8c93, 0x1953823, 0x73], .head 576 624 4 1⟩, ⟨1688, [0xd508a3, 0x3c040613, 0x73], .rung 2 (some 960)⟩, ⟨1691, [0x20040513, 0x23040613, 0x194f8c93, 0x1953823, 0x73], .head 512 560 5 1⟩, ⟨1696, [0xd508a3, 0x73], .rung 2 none⟩, ⟨1698, [0x23043183, 0x23843703, 0x3c343823, 0x3ce43c23], .copy 512 976⟩, ⟨1702, [0x39c43023, 0x38443423, 0x37040513, 0x8000593, 0xb8067], .leaf⟩]⟩
+def batch3 : List (ChainRoutine × Nat) := [(routine24, 73), (routine25, 74), (routine26, 73), (routine27, 73), (routine28, 73), (routine29, 74), (routine30, 73), (routine31, 74)]
+theorem batch3_checked : (batch3.all fun rc => exactChecked rc.1 rc.2) = true := by decide +kernel
+theorem ready24 : Chain.RoutineReady (embed ⟨24, by decide⟩) routine24 ∧ planCycles routine24.pieces ≤ rankCost ⟨24, by decide⟩ := by
+  apply ready_exact _ _ rfl
+  exact List.all_eq_true.mp batch3_checked (routine24, 73) (by unfold batch3; exact List.mem_cons_self)
+theorem ready25 : Chain.RoutineReady (embed ⟨25, by decide⟩) routine25 ∧ planCycles routine25.pieces ≤ rankCost ⟨25, by decide⟩ := by
+  apply ready_exact _ _ rfl
+  exact List.all_eq_true.mp batch3_checked (routine25, 74) (by unfold batch3; exact List.mem_cons_of_mem _ (List.mem_cons_self))
+theorem ready26 : Chain.RoutineReady (embed ⟨26, by decide⟩) routine26 ∧ planCycles routine26.pieces ≤ rankCost ⟨26, by decide⟩ := by
+  apply ready_exact _ _ rfl
+  exact List.all_eq_true.mp batch3_checked (routine26, 73) (by unfold batch3; exact List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_self)))
+theorem ready27 : Chain.RoutineReady (embed ⟨27, by decide⟩) routine27 ∧ planCycles routine27.pieces ≤ rankCost ⟨27, by decide⟩ := by
+  apply ready_exact _ _ rfl
+  exact List.all_eq_true.mp batch3_checked (routine27, 73) (by unfold batch3; exact List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_self))))
+theorem ready28 : Chain.RoutineReady (embed ⟨28, by decide⟩) routine28 ∧ planCycles routine28.pieces ≤ rankCost ⟨28, by decide⟩ := by
+  apply ready_exact _ _ rfl
+  exact List.all_eq_true.mp batch3_checked (routine28, 73) (by unfold batch3; exact List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_self)))))
+theorem ready29 : Chain.RoutineReady (embed ⟨29, by decide⟩) routine29 ∧ planCycles routine29.pieces ≤ rankCost ⟨29, by decide⟩ := by
+  apply ready_exact _ _ rfl
+  exact List.all_eq_true.mp batch3_checked (routine29, 74) (by unfold batch3; exact List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_self))))))
+theorem ready30 : Chain.RoutineReady (embed ⟨30, by decide⟩) routine30 ∧ planCycles routine30.pieces ≤ rankCost ⟨30, by decide⟩ := by
+  apply ready_exact _ _ rfl
+  exact List.all_eq_true.mp batch3_checked (routine30, 73) (by unfold batch3; exact List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_self)))))))
+theorem ready31 : Chain.RoutineReady (embed ⟨31, by decide⟩) routine31 ∧ planCycles routine31.pieces ≤ rankCost ⟨31, by decide⟩ := by
+  apply ready_exact _ _ rfl
+  exact List.all_eq_true.mp batch3_checked (routine31, 74) (by unfold batch3; exact List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_self))))))))
+end W9Machine.N600.Checks

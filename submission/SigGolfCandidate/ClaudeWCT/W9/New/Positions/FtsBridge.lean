@@ -1,4 +1,4 @@
-import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Header
+import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.VerifyP
 import SigGolfCandidate.ClaudeWCT.WCT9.Honest
 
 namespace ClaudeWCT.W9.T3M.Extract
@@ -13,26 +13,10 @@ theorem wctValue_three (answers : Answers) (index coord child : Nat) (t : Fin 7)
     wctValue answers index coord child t.val 3 = WCT9.chainEnd answers index coord child t := rfl
 theorem wctSeed_eq (answers : Answers) (index coord child : Nat) (t : Fin 7) :
     wctSeed answers index coord child t.val = WCT9.seed answers index coord child t := rfl
-theorem wctEnds_eq (answers : Answers) (index coord child : Nat) :
-    wctEnds answers index coord child = List.ofFn fun t : Fin 7 => WCT9.chainEnd answers index coord child t := rfl
 theorem ftsLeaves_eq (answers : Answers) (index : Nat) (coord : WCT9.Coord) :
     ftsLeaves answers index coord.val = WCT9.coordLeaves answers index coord := rfl
-theorem ftsNodes_eq (answers : Answers) (index : Nat) (coord : WCT9.Coord) :
-    ftsNodes answers index coord.val = WCT9.coordNodes answers index coord := rfl
 theorem ftsPair_eq_coordinatePair (answers : Answers) (index : Nat) (coord : WCT9.Coord) :
-    ftsPair answers index coord.val = WCT9.coordinatePair answers index coord := by
-  unfold ftsPair ftsLevels
-  rw [WCT9.heapLevels_value _ 6 0 (by decide) (by decide), WCT9.heapLevels_value _ 6 1 (by decide) (by decide),
-    ftsNodes_eq]
-  rfl
-theorem ftsPairsHonest_eq (answers : Answers) (index : Nat) :
-    ftsPairsHonest answers index = List.ofFn (WCT9.coordinatePair answers index) := by
-  unfold ftsPairsHonest
-  apply List.ext_getElem (by simp)
-  intro n h1 h2
-  have hn : n < 9 := by simpa using h1
-  simp only [List.getElem_map, List.getElem_range, List.getElem_ofFn]
-  exact ftsPair_eq_coordinatePair answers index ⟨n, hn⟩
+    ftsPair answers index coord.val = WCT9.coordinatePair answers index coord := ftsPair_eq answers index coord
 theorem honestForest_eq_recover (answers : Answers) (index : Nat) :
     honestForest answers index =
       evalWithAnswerFn answers (WCT9.forestPk index (List.ofFn (WCT9.coordinatePair answers index))) := by

@@ -1,5 +1,4 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeCouplingInteraction
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CaseCLinkInv
 import SigGolfCandidate.T3.Secc.LargeCouplingCertDefs
 
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling

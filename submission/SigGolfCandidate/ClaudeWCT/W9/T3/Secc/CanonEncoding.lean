@@ -1,5 +1,4 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CanonGraphHonest
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEvents
 import SigGolfCandidate.ClaudeWCT.W9.New.BC.Rows
 import SigGolfCandidate.SphincsSecurity.Proof.Base.FirstSuccessFamily
 import SigGolfCandidate.SphincsSecurity.Proof.Base.UniformTableOverwrite

@@ -1,15 +1,8 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeCouplingQuery
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeContactMonitor
-import SigGolfCandidate.T3.Secc.LargeCouplingSigning
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeCouplingSplit
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsTransportTable
-import SigGolfCandidate.T3.Secc.LargeCouplingVerdict
 import SigGolfCandidate.T3.Secc.LargeCouplingInteraction
 
 section
-
-
-
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -61,7 +54,7 @@ theorem observed_search (T : Answers) (rho : Digest) (m : Message)
   | succ fuel ih =>
       intro c ws
       rw [show WCT9.digestSearch rho m c (fuel + 1) = (digest rho m (BitVec.ofNat 32 c) >>= fun output =>
-          if WCT9.admissible output = true then pure (some (BitVec.ofNat 32 c, output))
+          if WCT9.producerAdmissible output = true then pure (some (BitVec.ofNat 32 c, output))
           else WCT9.digestSearch rho m (c + 1) fuel) from rfl]
       simp only [digest, publicHash, simulateQ_bind, evalWithAnswerFn_bind]
       have hq : simulateQ (readImpl U a) (SigGolfCandidate.T3.Spec.query
@@ -84,7 +77,7 @@ theorem observed_search (T : Answers) (rho : Digest) (m : Message)
         · simp only [readState, Function.update_of_ne hr] at hv
           exact Or.inl hv
       rw [hTX]
-      by_cases hadm : WCT9.admissible (τ X) = true
+      by_cases hadm : WCT9.producerAdmissible (τ X) = true
       · simp only [hadm, if_true, simulateQ_pure, evalWithAnswerFn_pure]
         exact ⟨_, observed_pure aux q labels τ _ _, hrd⟩
       · simp only [hadm, Bool.false_eq_true, if_false]
@@ -169,7 +162,7 @@ theorem Coherent.signItems_eq (hcoh : Coherent U T vals nv τ a) (N : HashOutput
   rw [hcoh.layerItems_eq]
 theorem assembleSig_def (rho : Digest) (N : HashOutput) (v : Coord → Digest) (d : Wots.LeafAddr → List Nat) :
     assembleSig rho N v d = ⟨rho,
-      fun k => ⟨fun t => v (wctItem (digestIndex N, k, WCT9.child N k, t) (3 - WCT9.digit (WCT9.rank N k) t)),
+      fun k => ⟨fun t => v (wctItem (digestIndex N, k, WCT9.child N k, t) (3 - WCT9.wordDigit (WCT9.rank N k) t)),
         fun l => ((wctPath (digestIndex N) k N).map v).getD l.val 0⟩,
       fun lay => piecesSignature lay ((layerChains d (digestIndex N) lay).map v, (layerPath (digestIndex N) lay).map v)⟩ :=
   rfl
@@ -180,11 +173,11 @@ theorem assembleSig_congr (rho : Digest) (N : HashOutput) (v v' : Coord → Dige
     h c (List.mem_append_left _ hc)
   have hlay : ∀ c ∈ layerItems d (digestIndex N), v c = v' c := fun c hc => h c (List.mem_append_right _ hc)
   have hopen : ∀ (k : Fin 9) (t : Fin 7),
-      v (wctItem (digestIndex N, k, WCT9.child N k, t) (3 - WCT9.digit (WCT9.rank N k) t)) =
-        v' (wctItem (digestIndex N, k, WCT9.child N k, t) (3 - WCT9.digit (WCT9.rank N k) t)) := by
+      v (wctItem (digestIndex N, k, WCT9.child N k, t) (3 - WCT9.wordDigit (WCT9.rank N k) t)) =
+        v' (wctItem (digestIndex N, k, WCT9.child N k, t) (3 - WCT9.wordDigit (WCT9.rank N k) t)) := by
     intro k t
     apply hfts
-    have ho : wctItem (digestIndex N, k, WCT9.child N k, t) (3 - WCT9.digit (WCT9.rank N k) t) ∈
+    have ho : wctItem (digestIndex N, k, WCT9.child N k, t) (3 - WCT9.wordDigit (WCT9.rank N k) t) ∈
         wctOpened (digestIndex N) k N := by
       unfold wctOpened
       exact List.mem_ofFn.mpr ⟨t, rfl⟩
@@ -538,10 +531,7 @@ theorem routeSign_observed (hcoh : Coherent U T vals nv τ a) (hUpub : SeccLaw.p
 end SignMain
 end ClaudeWCT.W9.T3.Security.LargeCoupling
 end
-
 section
-
-
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -661,10 +651,7 @@ theorem taggedFixed_untag (program : OracleComp LazyPrivate.Interaction α) (sta
 end Fixed
 end ClaudeWCT.W9.T3.Security.LargeCoupling
 end
-
 section
-
-
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -780,11 +767,7 @@ theorem routeVerdict_observed (hcoh : Coherent U T vals nv τ a) (hq : q ≤ 2 ^
 end Verdict
 end ClaudeWCT.W9.T3.Security.LargeCoupling
 end
-
 section
-
-
-
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security

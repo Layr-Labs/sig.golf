@@ -1,18 +1,12 @@
-import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Replay
 
 section
-
-
 namespace SphincsSecurity.Concrete
 open OracleComp OracleSpec
 abbrev SigningEntry := (request : Message) × SigningSpec.Range request
 end SphincsSecurity.Concrete
 end
-
 section
-
-
 namespace SphincsSecurity.Concrete
 open OracleComp OracleSpec ENNReal
 abbrev FewTimeView := Index × (IndexGroup → FtsLeaf)

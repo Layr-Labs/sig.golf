@@ -1,8 +1,6 @@
 import SigGolfCandidate.T3.BPORS
-import SigGolfCandidate.T3.Gate6.BPORSPrefix
 
 section
-
 namespace SigGolfCandidate.T3.Sampling.WeightedSelection
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SphincsSecurity.Completeness (searchLoop failMass failMass_eq_probEvent)
@@ -154,9 +152,7 @@ theorem uniform_nonce_digest_weight_le (secret : BitVec 256) (message : Message)
     _ ≤ _ := add_le_add le_rfl (nonce_trialWeight_le message fuel hlimit cache weight)
 end SigGolfCandidate.T3.Sampling.WeightedSelection
 end
-
 section
-
 namespace SigGolfCandidate.T3.Security.LazyPrivate
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open Sampling.WeightedSelection
@@ -220,9 +216,7 @@ theorem signing_weight_le (cache : T3.Cache) (message : Message) (state : State)
     exact h
 end SigGolfCandidate.T3.Security.LazyPrivate
 end
-
 section
-
 namespace SigGolfCandidate.T3.BPORS.InjectiveCover
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 set_option maxHeartbeats 1000000
@@ -339,9 +333,7 @@ theorem two_opening_average (records : Nat) (values : Fin records × Fin 3 → F
     (average_score (Target := Fin 2) values)
 end SigGolfCandidate.T3.BPORS.InjectiveCover
 end
-
 section
-
 namespace SigGolfCandidate.T3.BPORS.InjectiveCover
 open ENNReal
 set_option maxHeartbeats 1000000
@@ -477,9 +469,7 @@ theorem score_sum_all (oldValues : Source → Value) (newValues : New → Value)
   split_ifs <;> simp_all
 end SigGolfCandidate.T3.BPORS.InjectiveCover
 end
-
 section
-
 namespace SigGolfCandidate.T3.BPORS.InjectiveCover
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open Sampling.WeightedSelection
@@ -593,9 +583,7 @@ theorem signing_update_le (cache : T3.Cache) (message : Message)
       (selectionGain oldValues newValues target eligible)
 end SigGolfCandidate.T3.BPORS.InjectiveCover
 end
-
 section
-
 namespace SigGolfCandidate.T3.DigestSampling
 open OracleComp ENNReal
 open SigGolfResearch.Gate6
@@ -649,10 +637,7 @@ theorem average_gate_weight (payoff : RawView → ENNReal) :
   ring
 end SigGolfCandidate.T3.DigestSampling
 end
-
 section
-
-
 namespace SigGolfCandidate.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3.DigestSampling

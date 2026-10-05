@@ -1,14 +1,9 @@
-import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
-import SigGolfCandidate.SphincsSecurity.Proof.Fts.ProposalWordDistribution
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.UniformProposalMoments
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.DigestSelectionIndex
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.ProposalBridgeKernel
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.BoundaryTrace
 
 section
-
-
-
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp ENNReal
 theorem evalDist_sampleUniformProposalWord {α : Type} [SampleableType α] [Fintype α] [Nonempty α] (steps : Nat) :
@@ -44,13 +39,7 @@ theorem targetProposalAcceptance_cap {Ω : Type*} (record : PMF Ω) (label : Ω 
           (by unfold targetProposalOverhead; finiteness), one_mul]
 end SphincsSecurity.Concrete
 end
-
 section
-
-
-
-
-
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec ENNReal
 attribute [local instance] Classical.propDecidable
@@ -181,10 +170,7 @@ theorem completedSigningRecord_acceptance_cap {ω : Type} [Monoid ω]
       hbound.no_deficit hbound.index_le) index
 end SphincsSecurity.Concrete
 end
-
 section
-
-
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec ENNReal
 theorem independentProposalWord_length {α : Type*} (law : PMF α) (steps : Nat) :
@@ -261,10 +247,7 @@ theorem recordLengthBridge_length {Ω : Type*} (record : PMF Ω)
   rw [PMF.map_id, PMF.bind_const]
 end SphincsSecurity.Concrete
 end
-
 section
-
-
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec ENNReal
 noncomputable def pmfSumImpl {ι κ σ : Type} {leftSpec : OracleSpec ι} {rightSpec : OracleSpec κ}

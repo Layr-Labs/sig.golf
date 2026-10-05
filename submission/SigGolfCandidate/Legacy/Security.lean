@@ -6,10 +6,6 @@ import RiscvZkvm.Rv64.Execution
 import RiscvZkvm.Interpreter.Decode
 
 section
-
-
-
-
 namespace SigGolfCandidate.Legacy
 def BUDGET_KEYGEN : Nat := 2 ^ 20
 def BUDGET_SIGN : Nat := 2 ^ 17
@@ -56,9 +52,7 @@ def Sizes.Valid (sizes : Sizes) : Prop :=
 def witnessCycles (bytes : Nat) : Nat := (bytes + 255) / 256
 end SigGolfCandidate.Legacy
 end
-
 section
-
 namespace SigGolfCandidate.Legacy
 open OracleSpec OracleComp
 abbrev Query := (n : Nat) × Bytes (64 * (n + 1))
@@ -74,11 +68,7 @@ noncomputable def withRandomness {α : Type} (program : OracleComp World α) : P
 noncomputable def sampleSecretKey : ProbComp SecretKey := $ᵗ SecretKey
 end SigGolfCandidate.Legacy
 end
-
 section
-
-
-
 namespace SigGolfCandidate.Legacy.Riscv
 open RiscvZkvm.Rv64 RiscvZkvm.Interpreter OracleComp OracleSpec
 structure Image where
@@ -248,9 +238,7 @@ def execute : Nat → Image → MachineState → OracleComp HashSpec Execution
           execute fuel image next
 end SigGolfCandidate.Legacy.Riscv
 end
-
 section
-
 namespace SigGolfCandidate.Legacy
 open OracleComp OracleSpec RiscvZkvm.Rv64
 structure Submission where
@@ -358,9 +346,7 @@ noncomputable def Submission.allMessages (submission : Submission) (secretKey : 
       fun phase => max (summary.maxCosts phase) (result.costs phase)⟩) {}
 end SigGolfCandidate.Legacy
 end
-
 section
-
 namespace SigGolfCandidate.Legacy
 open OracleComp OracleSpec
 structure SigningRequest (sizes : Sizes) where

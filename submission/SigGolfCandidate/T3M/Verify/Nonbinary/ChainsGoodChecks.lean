@@ -1,187 +1,132 @@
-import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsLayout
 import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsSem
 
 section
-
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
 theorem tripleCheck_17 : tripleCheck 17=true := by decide +kernel
 end SigGolfCandidate.T3M.Nonbinary
 end
-
 section
-
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
 theorem tripleCheck_16 : tripleCheck 16=true := by decide +kernel
 end SigGolfCandidate.T3M.Nonbinary
 end
-
 section
-
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
 theorem tripleCheck_15 : tripleCheck 15=true := by decide +kernel
 end SigGolfCandidate.T3M.Nonbinary
 end
-
 section
-
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
 theorem tripleCheck_14 : tripleCheck 14=true := by decide +kernel
 end SigGolfCandidate.T3M.Nonbinary
 end
-
 section
-
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
 theorem tripleCheck_13 : tripleCheck 13=true := by decide +kernel
 end SigGolfCandidate.T3M.Nonbinary
 end
-
 section
-
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
 theorem tripleCheck_12 : tripleCheck 12=true := by decide +kernel
 end SigGolfCandidate.T3M.Nonbinary
 end
-
 section
-
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
 theorem tripleCheck_11 : tripleCheck 11=true := by decide +kernel
 end SigGolfCandidate.T3M.Nonbinary
 end
-
 section
-
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
 theorem tripleCheck_10 : tripleCheck 10=true := by decide +kernel
 end SigGolfCandidate.T3M.Nonbinary
 end
-
 section
-
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
 theorem tripleCheck_9 : tripleCheck 9=true := by decide +kernel
 end SigGolfCandidate.T3M.Nonbinary
 end
-
 section
-
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
 theorem tripleCheck_8 : tripleCheck 8=true := by decide +kernel
 end SigGolfCandidate.T3M.Nonbinary
 end
-
 section
-
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
 theorem tripleCheck_7 : tripleCheck 7=true := by decide +kernel
 end SigGolfCandidate.T3M.Nonbinary
 end
-
 section
-
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
 theorem tripleCheck_6 : tripleCheck 6=true := by decide +kernel
 end SigGolfCandidate.T3M.Nonbinary
 end
-
 section
-
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
 theorem tripleCheck_5 : tripleCheck 5=true := by decide +kernel
 end SigGolfCandidate.T3M.Nonbinary
 end
-
 section
-
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
 theorem tripleCheck_4 : tripleCheck 4=true := by decide +kernel
 end SigGolfCandidate.T3M.Nonbinary
 end
-
 section
-
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
 theorem tripleCheck_3 : tripleCheck 3=true := by decide +kernel
 end SigGolfCandidate.T3M.Nonbinary
 end
-
 section
-
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
 theorem tripleCheck_2 : tripleCheck 2=true := by decide +kernel
 end SigGolfCandidate.T3M.Nonbinary
 end
-
 section
-
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
 theorem tripleCheck_1 : tripleCheck 1=true := by decide +kernel
 end SigGolfCandidate.T3M.Nonbinary
 end
-
 section
-
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
 theorem tripleCheck_0 : tripleCheck 0=true := by decide +kernel
 end SigGolfCandidate.T3M.Nonbinary
 end
-
 section
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 1000000
@@ -210,10 +155,7 @@ theorem blockCheck_at (q dB dC : Nat) (hq : q<18) (hB : dB â‰¤ mx q) (hC : dC â‰
 #print axioms tripleCheck_at
 end SigGolfCandidate.T3M.Nonbinary
 end
-
 section
-
-
 namespace SigGolfCandidate.T3M.Nonbinary.NCtx
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Nonbinary

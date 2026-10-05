@@ -1,5 +1,4 @@
 import SigGolfCandidate.T3.Secc.CaseCBankReuse
-import SigGolfCandidate.T3.Secc.CaseCExcess
 
 namespace SigGolfCandidate.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal

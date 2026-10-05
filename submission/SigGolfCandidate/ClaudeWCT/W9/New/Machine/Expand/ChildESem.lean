@@ -1,16 +1,11 @@
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.DrvBits
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Merkle.ChildDefs
-import SigGolfCandidate.T3M.Verify.Post
-import SigGolfCandidate.T3M.Verify.Common
-import SigGolfCandidate.T3M.Expand.Basic
 
 section
-
-
-
 namespace ClaudeWCT.W9.Machine.Expand
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
+open ClaudeWCT.W9.Machine.VLib
 open ClaudeWCT.W9.Machine.Merkle (bitAt blkO curO sibO heapOf heapReg)
 def cbE (j : Nat) : Nat := cb0 + 64 * j
 def ecIdx (l : Nat) : Nat := [1,8,14,20,26,31,36].getD l 0
@@ -49,9 +44,7 @@ def childOKE (j : Nat) : Bool :=
     optBeq (childRunE j (ecIdx 6 + 1) [.jmp]) (p7E j)
 end ClaudeWCT.W9.Machine.Expand
 end
-
 section
-
 namespace ClaudeWCT.W9.Machine.Expand
 set_option maxRecDepth 100000
 theorem childOKE_0 : (List.range' 0 16).all childOKE = true := by decide +kernel
@@ -75,14 +68,11 @@ theorem childOKE_all (j : Nat) (hj : j < 128) : childOKE j = true := by
   exact key 112 16 childOKE_112 (by omega) (by omega)
 end ClaudeWCT.W9.Machine.Expand
 end
-
 section
-
-
-
 namespace ClaudeWCT.W9.Machine.Expand
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
+open ClaudeWCT.W9.Machine.VLib
 open SigGolfCandidate.T3 (Digest HashOutput M header shortHash pad64)
 open SphincsSecurity (bytesLE bytesLE_length)
 open ClaudeWCT.W9.Machine.Merkle

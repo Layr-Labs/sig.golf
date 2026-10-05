@@ -1,12 +1,8 @@
 import SigGolfCandidate.T3M.Keygen.Leaf
 import SigGolfCandidate.T3M.Keygen.Tree
 import SigGolfCandidate.T3M.Keygen.Init
-import SigGolfCandidate.T3M.Keygen.MainBlocks
 
 section
-
-
-
 namespace SigGolfCandidate.T3M.Keygen
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3 (Layer Digest buildLeaf buildLevels buildTree height chainCount width)
@@ -217,9 +213,7 @@ theorem buildTree_tsim :
 end loop
 end SigGolfCandidate.T3M.Keygen
 end
-
 section
-
 namespace SigGolfCandidate.T3M.Keygen
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 theorem blk277_spec (s : MachineState) (hpc : s.pc = pcOf 277) :
@@ -365,10 +359,7 @@ theorem blk310_spec (s : MachineState) (hpc : s.pc = pcOf 310)
     rw [if_neg (by omega),if_neg (by omega),if_neg (by omega),if_neg (by omega)]
 end SigGolfCandidate.T3M.Keygen
 end
-
 section
-
-
 namespace SigGolfCandidate.T3M.Keygen
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3 (Digest pairedMask maskedLevel header privateInput)

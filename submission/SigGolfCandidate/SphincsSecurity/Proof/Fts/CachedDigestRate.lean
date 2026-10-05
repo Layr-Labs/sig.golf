@@ -1,10 +1,7 @@
-import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.FewTimeTargetCompletion
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.DigestAttemptExpectation
 
 section
-
-
 namespace SphincsSecurity.Concrete
 open OracleComp OracleSpec ENNReal
 attribute [local instance] Classical.propDecidable
@@ -119,10 +116,7 @@ theorem freshDigestSelectionProbability_le_one
     freshDigestSelectionProbability key message cache ≤ 1 := probEvent_le_one
 end SphincsSecurity.Concrete
 end
-
 section
-
-
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec ENNReal
 attribute [local instance] Classical.propDecidable
@@ -204,11 +198,7 @@ theorem probEvent_signDigestLoop_prehit_eq_rate_mul_attempts
       · rw [probOutput_eq_zero_of_not_mem_support hr, zero_mul, zero_mul, mul_zero]
 end SphincsSecurity.Concrete
 end
-
 section
-
-
-
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec ENNReal
 attribute [local instance] Classical.propDecidable
@@ -261,10 +251,7 @@ theorem freshSelection_add_cachedAttempts_add_exhaustion (key : SecretKey) (mess
   exact h
 end SphincsSecurity.Concrete
 end
-
 section
-
-
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec ENNReal
 attribute [local instance] Classical.propDecidable

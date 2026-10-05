@@ -1,5 +1,4 @@
 import SigGolfCandidate.T3.Secc.WotsEvents
-import SigGolfCandidate.T3.PackedChain
 
 namespace SigGolfCandidate.T3.Security.Wots
 open OracleComp OracleSpec ENNReal

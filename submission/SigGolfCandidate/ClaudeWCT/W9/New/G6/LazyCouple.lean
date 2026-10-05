@@ -2,7 +2,6 @@ import SigGolfCandidate.T3.Secc.PairGuessLazyEager
 import SigGolfCandidate.ClaudeWCT.W9.New.G6.LazyFree
 
 section
-
 namespace SigGolfCandidate.T3.Security.BPair
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final SigGolfCandidate.T3M.SecurityInputs
@@ -224,9 +223,7 @@ theorem forced_searchL_core (rho : Digest) (m : Message) (counter fuel : Nat) (s
 end Laws
 end SigGolfCandidate.T3.Security.BPair
 end
-
 section
-
 namespace SigGolfCandidate.T3.Security.BPair
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final SigGolfCandidate.T3M.SecurityInputs
@@ -633,10 +630,7 @@ theorem worldGameL_bank (adversary : AdversaryP) (ω : Omega (Wots.referenceInpu
 end Bank
 end SigGolfCandidate.T3.Security.BPair
 end
-
 section
-
-
 namespace ClaudeWCT.W9.T3.Security.WPair
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -716,13 +710,13 @@ theorem inline_hashL (ω : CanonTable.Omega U) (x : HashInput) :
         rfl
 theorem eval_wctDigestSearch_succ (A : Answers) (rho : Digest) (m : Message) (counter fuel : Nat) :
     evalWithAnswerFn A (WCT9.digestSearch rho m counter (fuel + 1)) =
-      if WCT9.admissible (A (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 counter)))))) = true then
+      if WCT9.producerAdmissible (A (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 counter)))))) = true then
         some (BitVec.ofNat 32 counter, A (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 counter))))))
       else evalWithAnswerFn A (WCT9.digestSearch rho m (counter + 1) fuel) := by
   rw [WCT9.digestSearch, evalWithAnswerFn_bind]
   rw [show evalWithAnswerFn A (digest rho m (BitVec.ofNat 32 counter)) =
     A (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 counter))))) from eval_query' A _]
-  by_cases h : WCT9.admissible (A (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 counter)))))) = true
+  by_cases h : WCT9.producerAdmissible (A (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 counter)))))) = true
   · simp only [h, ↓reduceIte]
     rfl
   · simp only [h, ↓reduceIte, Bool.false_eq_true]
@@ -734,7 +728,7 @@ theorem inline_searchL (ω : CanonTable.Omega U) (rho : Digest) (m : Message) (c
   | succ fuel ih =>
       rw [eval_wctDigestSearch_succ, answers_digest hU ω _ _ (SigGolfCandidate.T3.Security.BPair.digestInput_mem _ _ _)]
       simp only [searchL, trialReq, simulateQ_bind, simulateQ_spec_query, inlineAux, inlineWith, pure_bind]
-      by_cases h : WCT9.admissible (rowVal (digestOf ω) (pad64 (digestInput rho m (BitVec.ofNat 32 counter)))) = true
+      by_cases h : WCT9.producerAdmissible (rowVal (digestOf ω) (pad64 (digestInput rho m (BitVec.ofNat 32 counter)))) = true
       · simp only [h, ↓reduceIte, simulateQ_pure]
       · simp only [h, ↓reduceIte, Bool.false_eq_true]
         exact ih _

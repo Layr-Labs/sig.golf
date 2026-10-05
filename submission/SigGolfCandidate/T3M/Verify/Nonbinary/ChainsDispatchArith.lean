@@ -1,6 +1,5 @@
 import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsLayout
 import SigGolfCandidate.T3M.Verify.ChainSem
-import SigGolfCandidate.T3M.Search.TopWindow
 
 namespace SigGolfCandidate.T3M.Nonbinary
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
