@@ -1,3 +1,4 @@
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsLayout
 import SigGolfCandidate.T3M.Verify.ChainGood
 import SigGolfCandidate.T3M.Verify.Decode
 import SigGolfCandidate.T3M.Verify.Words
@@ -281,7 +282,7 @@ structure LeafOut (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (ends :
     Prop where
   pc : u.pc = pcOf (stabW lay.val ((route index lay).1 % 2 ^ stabBits lay.val))
   glob : Glob (lfK lay.val) w pk u
-  s7 : u.getReg .x23 = BitVec.ofNat 64 (s7v lay.val (route index lay).1)
+  s7 : u.getReg .x23 = BitVec.ofNat 64 (dispatchHeap lay.val (route index lay).1)
   t5 : lay.val ≠ 0 → u.getReg .x31 = BitVec.ofNat 64 (route index lay).2
   len : ends.length = chainCount lay
   ends : ∀ j < chainCount lay, DigAt u (lfSlot lay.val j) (ends.getD j 0)
@@ -368,30 +369,30 @@ theorem stabIdx_lt (lay : Nat) : stabIdx lay < 2 ^ 32 := by
   rcases lay with _ | _ | _ | _ | n <;> simp
 theorem tgtLf_lower_eval (lay : Layer) (hlay : lay ≠ 0) (t : MachineState) (leaf : Nat)
     (hl : leaf < 2 ^ hL lay.val)
-    (h23 : t.getReg .x23 = BitVec.ofNat 64 (2 ^ hL lay.val + leaf + 880)) :
+    (h23 : t.getReg .x23 = BitVec.ofNat 64 (dispatchHeap lay.val leaf)) :
     (tgtLf lay.val).eval t = pcOf (stabW lay.val (leaf % 2 ^ stabBits lay.val)) := by
   have h0 : lay.val ≠ 0 := fun h => hlay (Fin.ext h)
   have he : stabBits lay.val = hL lay.val := by fin_cases lay <;> simp_all [stabBits, hL]
   have hb : 2 ^ hL lay.val ≤ 128 := by fin_cases lay <;> simp_all [hL]
+  have hd : dispatchHeap lay.val leaf = 2 ^ hL lay.val + 880 + leaf := by
+    simp [dispatchHeap, h0]
   have hshift : t.getReg .x23 <<< ((BitVec.ofNat 64 9).toNat % 64) =
-      BitVec.ofNat 64 (512 * (2 ^ hL lay.val + leaf + 880)) := by
+      BitVec.ofNat 64 (512 * (dispatchHeap lay.val leaf)) := by
     apply BitVec.eq_of_toNat_eq
     rw [toNat_sll _ 9 (by norm_num), h23]
-    simp only [BitVec.toNat_ofNat]
+    simp only [BitVec.toNat_ofNat, hd]
     omega
   simp only [tgtLf, if_neg h0, E.eval, BinOp.eval, kw]
-  rw [hshift, ofNat_add_ofNat, he, Nat.mod_eq_of_lt hl]
+  rw [hshift, he, Nat.mod_eq_of_lt hl]
   simp only [stabW, if_neg h0]
-  -- x23 carries the +880 table bias; the jalr offset -2024 (-2020 on layer 2) wraps mod 2^64.
-  have hn : ∀ K : Nat, K = 2 ^ 64 - 2024 + (if lay.val = 2 then 4 else 0) →
-      BitVec.ofNat 64 (512 * (2 ^ hL lay.val + leaf + 880) + K) =
-      BitVec.ofNat 64 (0x1000 + 4 * (111110 + 128 * (2 ^ hL lay.val + leaf) + (if lay.val = 2 then 1 else 0))) := by
-    intro K hK
-    subst hK
+  have ha : BitVec.ofNat 64 (512 * dispatchHeap lay.val leaf) +
+      BitVec.ofInt 64 (-2024 + (if lay.val = 2 then 4 else 0)) =
+      BitVec.ofNat 64 (0x1000 + 4 * (111110 + 128 * (2 ^ hL lay.val + leaf) +
+        (if lay.val = 2 then 1 else 0))) := by
     apply BitVec.eq_of_toNat_eq
-    simp only [BitVec.toNat_ofNat]
-    split_ifs <;> omega
-  rw [hn _ (by split_ifs <;> norm_num), even_andNot1' _ (by omega)]
+    simp only [BitVec.toNat_add, BitVec.toNat_ofNat, hd]
+    split_ifs <;> norm_num [BitVec.toNat_ofInt] <;> omega
+  rw [ha, even_andNot1' _ (by omega)]
 theorem hw2_hdr0 (lay : Layer) (tree : Nat) (ht : tree < 2 ^ 32) : hw 2 lay.val = hdr0 2 lay.val tree 0 := by
   rw [hdr0_eq _ _ _ _ (by norm_num) (by have := lay.isLt; omega) ht (by norm_num)]
   unfold hw; ring
@@ -407,7 +408,7 @@ theorem leafL_step (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay 
     (hc : c < nCopy lay.val) (hidx : index < 2 ^ 31) (a : BitVec 256) (s0 : MachineState)
     (hk : ∀ p ∈ (lctxOf w index lay a (trPc lay.val c)).known, s0.getReg p.1 = p.2)
     (hG : Glob (chainK lay.val) w pk s0) (hO : Verify.Orig w (fun o => 9288 ≤ o ∧ o < layerEnd lay.val) s0)
-    (h23 : s0.getReg .x23 = BitVec.ofNat 64 (s7v lay.val (route index lay).1))
+    (h23 : s0.getReg .x23 = BitVec.ofNat 64 (dispatchHeap lay.val (route index lay).1))
     (h30 : s0.getReg .x31 = BitVec.ofNat 64 (route index lay).2)
     (ends : List Digest) (t : MachineState)
     (ht : (lctxOf w index lay a (trPc lay.val c)).ChainOut s0 43 ends t) :
@@ -452,7 +453,7 @@ theorem leafL_step (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay 
     rw [hu.spc (tgtLf lay.val) (by simp [specLf, h0])]
     have := hL_le lay
     exact tgtLf_lower_eval lay hlay t _ hlf
-      (by rw [hR .x23 (by simp [chainRegs]), h23, s7v_ne h0])
+      (by rw [hR .x23 (by simp [chainRegs]), h23])
   ·
     have hGt : Glob baseK w pk t := glob_frame hG hF (fun A hA => by
         unfold LCtx.Wr LCtx.blk at hA; rw [hS6] at hA
@@ -512,7 +513,7 @@ theorem leafL_step (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay 
     exact (hu.orig_const hOt).mono (fun o ho => ⟨ho, by simp⟩)
 structure TopLeafReady (w : WBytes) (pk : Digest) (index c : Nat) (ends : List Digest)
     (t : MachineState) : Prop where
-  pc : t.pc = pcOf (trPc 0 c + 12)
+  pc : ∃ dB dC, dB < 4 ∧ dC < 4 ∧ t.pc = pcOf (Nonbinary.pcX 17 dB dC)
   glob : Glob (leafK 0) w pk t
   keep : KnownOK (lfKeepK 0) t
   s7 : t.getReg .x23 = BitVec.ofNat 64 (2 ^ hL 0 + (route index 0).1)
@@ -521,10 +522,22 @@ structure TopLeafReady (w : WBytes) (pk : Digest) (index c : Nat) (ends : List D
   len : ends.length = 54
   ends : ∀ j < 54, DigAt t (slotT j) (ends.getD j 0)
   orig : Verify.Orig w (fun o => 9288 ≤ o ∧ o < layerBase 0 + 64 * height 0) t
+def fusedLeafCheck (dB dC : Nat) : Bool :=
+  specB [] [] baseK (runAt (leafK 0) [] (Nonbinary.pcX 17 dB dC) (lfDirs 0))
+    (specLf 0) [] (postLf 0) (keepLfAll 0)
+theorem fusedLeafChecks : ((List.range 16).all fun k => fusedLeafCheck (k / 4) (k % 4)) = true := by
+  decide +kernel
+theorem fusedLeafCheck_at (dB dC : Nat) (hB : dB < 4) (hC : dC < 4) :
+    fusedLeafCheck dB dC = true := by
+  have h := List.all_eq_true.mp fusedLeafChecks (4*dB+dC) (List.mem_range.mpr (by omega))
+  have hd : (4*dB+dC)/4=dB := by omega
+  have hm : (4*dB+dC)%4=dC := by omega
+  simpa [hd, hm] using h
 theorem leafT_step (w : WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0) (hidx : index < 2 ^ 31)
     (ends : List Digest) (t : MachineState) (ht : TopLeafReady w pk index c ends t) :
     ∃ u, Steps image t 12 12 u ∧ LeafOut w pk index 0 ends u := by
-  obtain ⟨u, hu⟩ := spec_run (leafCheck_at 0 c (by norm_num) hc) t ht.pc ht.glob.1
+  obtain ⟨dB, dC, hB, hC, hp⟩ := ht.pc
+  obtain ⟨u, hu⟩ := spec_run (fusedLeafCheck_at dB dC hB hC) t hp ht.glob.1
     (by intro b hb; simp [specLf] at hb) (by simp)
   have hst := hu.steps
   rw [show (specLf 0).steps = 12 by simp [specLf], show (specLf 0).cycles = 12 by simp [specLf]] at hst
@@ -559,7 +572,7 @@ theorem leafT_step (w : WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0)
       rw [hkeep _ hkp]
       exact ht.keep p hp
   · rw [hkeep .x23 (by simp [keepLfAll]), ht.s7]
-    exact congrArg (BitVec.ofNat 64) (s7v_zero _).symm
+    rfl
   · intro h; exact absurd rfl h
   · intro j hj
     have hj' : j < 54 := hj

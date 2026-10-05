@@ -58,13 +58,8 @@ def rReg (lay : Nat) : Reg := if lay = 3 then .x22 else .x31
 def leafE (lay : Nat) : E := if lay = 0 then .reg .x31 else .bin .and (.reg (rReg lay)) (kw (2 ^ hL lay - 1))
 def treeE (lay : Nat) : E := .bin .srl (.reg (rReg lay)) (kw (hL lay))
 def tpE (lay : Nat) : E := if lay = 0 then .bin .sll (leafE lay) (kw 32) else .bin .or (.bin .sll (leafE lay) (kw 32)) (treeE lay)
--- BIG41: lower layers bias the leaf index register by the Merkle-shard table base / 512 (880),
--- so the leaf dispatch jumps through `x23 << 9` without adding x15. The top layer keeps the plain OR.
-def s7E (lay : Nat) : E :=
-  if lay = 0 then .bin .or (leafE lay) (kw (2 ^ hL lay)) else .bin .add (leafE lay) (kw (2 ^ hL lay + 880))
-def s7v (lay leaf : Nat) : Nat := if lay = 0 then 2 ^ hL lay + leaf else 2 ^ hL lay + leaf + 880
-theorem s7v_zero (leaf : Nat) : s7v 0 leaf = 2 ^ hL 0 + leaf := if_pos rfl
-theorem s7v_ne {lay : Nat} (h : lay ≠ 0) (leaf : Nat) : s7v lay leaf = 2 ^ hL lay + leaf + 880 := if_neg h
+def dispatchHeap (lay leaf : Nat) : Nat := 2 ^ hL lay + (if lay = 0 then 0 else 880) + leaf
+def s7E (lay : Nat) : E := if lay = 0 then .bin .or (leafE lay) (kw (2 ^ hL lay)) else .bin .add (leafE lay) (kw (2 ^ hL lay + 880))
 def ctrE (lay : Nat) : E := .un (.ld .wu (4 * ((lay + 1) % 2))) (.ld (kw (0x810 + 8 * ((lay + 1) / 2))))
 def ctrBr (lay : Nat) (d : Bool) : Br := ⟨if lay = 3 then .ltu else .geu, ctrE lay, kw 0x400000, d⟩
 def setupPc (lay p : Nat) : Nat := if lay = 3 then 210 else p
@@ -156,7 +151,7 @@ def tgtLfOld (lay : Nat) : E :=
 def tgtLf (lay : Nat) : E :=
   if lay = 0 then tgtLfOld lay
   else .bin .and (.bin .add (.bin .sll (.reg .x23) (kw 9))
-    (kw (2 ^ 64 - 2024 + (if lay = 2 then 4 else 0)))) (.c (~~~1#64))
+    (.c (BitVec.ofInt 64 (-2024 + (if lay = 2 then 4 else 0))))) (.c (~~~1#64))
 def lfDirs (_lay : Nat) : List Dir := [.jmp]
 def specLf (lay : Nat) : Spec :=
   if lay = 0 then
