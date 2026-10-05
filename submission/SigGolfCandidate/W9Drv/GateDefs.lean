@@ -36,8 +36,8 @@ structure GatePre (pk : Digest) (w : WBytes) (a : HashOutput) (u : MachineState)
   wit : WitAll w u
   setupMask : SetupMask u
   sp : u.getReg .x2 = BitVec.ofNat 64 0xfee600
-def dispatchPc (n : Nat) : Nat := [46,61,78,95,112,129,146,163,180,197].getD n 197
-def cachedWord (n : Nat) : Nat := [0,0,1,1,1,2,2,2,3,3].getD n 3
+def dispatchPc (n : Nat) : Nat := [47,62,79,96,113,130,147,164,180,197].getD n 197
+def cachedWord (n : Nat) : Nat := [0,0,1,1,1,2,2,2,2,2].getD n 2
 structure CoordPre (pk : Digest) (w : WBytes) (a : HashOutput) (n : Nat)
     (pairs : List (Digest × Digest)) (u : MachineState) : Prop where
   le : n ≤ 9
@@ -53,7 +53,7 @@ structure CoordPre (pk : Digest) (w : WBytes) (a : HashOutput) (n : Nat)
   hashLen : u.getReg .x11 = 64
   coordStep : u.getReg .x6 = 65536
   prefixReg : u.getReg .x15 = BitVec.ofNat 64 (idxOf a * 2^27 + 65536 * (n-1))
-  nodeIndex : u.getReg .x17 = BitVec.ofNat 64 (idxOf a * 2^32)
+  cached3 : u.getReg .x17 = a.extractLsb' 192 64
   cached : u.getReg .x16 = a.extractLsb' (64 * cachedWord n) 64
   nodeReg : n ≠ 0 → u.getReg .x27 = BitVec.ofNat 64 (V3.nodeLow (n-1) (idxOf a))
   nodeZero : n = 0 → u.getReg .x27 = BitVec.ofNat 64 (1 + 3 * 256 + 4 * 65536)
@@ -62,6 +62,7 @@ structure CoordPre (pk : Digest) (w : WBytes) (a : HashOutput) (n : Nat)
   jt : u.getReg .x24 = BitVec.ofNat 64 0xd6800
   childBlock : u.getReg .x29 = BitVec.ofNat 64 0xce800
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (2112 + 1024 * (n-1))
+  headerZero : n = 0 → u.getReg .x28 = BitVec.ofNat 64 (idxOf a * 2^32)
   headerReg : n ≠ 0 → u.getReg .x28 = BitVec.ofNat 64 (1537 + 65536 * (n-1))
   pairs : ∀ i, i < n → DigAt u (1056 + 32*i) (pairs.getD i (0,0)).1 ∧
     DigAt u (1056 + 32*i + 16) (pairs.getD i (0,0)).2

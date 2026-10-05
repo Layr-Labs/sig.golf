@@ -11,7 +11,7 @@ set_option autoImplicit false
 namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
 def coordDispatch (p bit coord : Nat) (advance reload : Bool) : Result :=
-  let dig : E := if reload then .ld (.c (BitVec.ofNat 64 (96 + 8 * (bit / 64)))) else .reg .x16
+  let dig : E := if coord ≥ 7 then .reg .x17 else if reload then .ld (.c (BitVec.ofNat 64 (96 + 8 * (bit / 64)))) else .reg .x16
   let child := mkBin .and (if bit % 64 = 0 then dig else
     mkBin .srl dig (.c (BitVec.ofNat 64 (bit % 64)))) (.c 127)
   let route := mkBin .or (mkBin .sll child (.c 32)) (.reg .x22)
@@ -21,13 +21,13 @@ def coordDispatch (p bit coord : Nat) (advance reload : Bool) : Result :=
   let hb := if advance then mkAdd (.reg .x28) (.reg .x6) else .c (BitVec.ofNat 64 1537)
   let field := mkAdd (mkBin .and
     (mkBin .srl dig (.c (BitVec.ofNat 64 (bit % 64 + 5)))) (.reg .x2)) (.reg .x24)
-  let n := if advance then 17 else 15
+  let n := if !advance then 15 else if coord = 7 then 16 else 17
   let regs := if reload then RegFile.init.set .x16 dig else RegFile.init
   let regs := (regs.set .x3 child).set .x4 route
   let regs := if advance then regs.set .x15 pre else regs
   let regs := (regs.set .x31 packed).set .x23 childPc
   let regs := if advance then (regs.set .x8 (addC (.reg .x8) 1024)).set .x28 hb else regs.set .x28 hb
-  let node := if advance then mkAdd (.reg .x27) (.reg .x6) else mkBin .or (.reg .x27) (.reg .x17)
+  let node := if advance then mkAdd (.reg .x27) (.reg .x6) else mkBin .or (.reg .x27) (.reg .x28)
   let regs := (((regs.set .x27 node).set
     .x14 field).set .x9 (.c (BitVec.ofNat 64 (0x420 + 32 * coord)))).set
     .x1 (.c (pcOf (p + n)))
@@ -41,7 +41,7 @@ namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.Rv
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
-def dispatchWords8 : List (BitVec 32) := [0x1585193,0x7f1f193,0x2019213,0x1626233,0x6787b3,0x1419f93,0xffefb3,0x819b93,0x1db8bb3,0x40040413,0x6e0e33,0x6d8db3,0x1a85713,0x277733,0x1870733,0x52000493,0x700e7]
+def dispatchWords8 : List (BitVec 32) := [0x158d193,0x7f1f193,0x2019213,0x1626233,0x6787b3,0x1419f93,0xffefb3,0x819b93,0x1db8bb3,0x40040413,0x6e0e33,0x6d8db3,0x1a8d713,0x277733,0x1870733,0x52000493,0x700e7]
 theorem dispatch8_checked : rOK (symRun {} dispatchWords8 (pcOf 180) 17) (coordDispatch 180 213 8 true false) = true := by decide +kernel
 theorem dispatch8_linked : sliceChecked 180 dispatchWords8 = true := by decide +kernel
 end W9Machine
@@ -54,8 +54,8 @@ open SigGolfCandidate.T3M SigGolfCandidate.Rv
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 def dispatchWords6 : List (BitVec 32) := [0x2a85193,0x7f1f193,0x2019213,0x1626233,0x6787b3,0x1419f93,0xffefb3,0x819b93,0x1db8bb3,0x40040413,0x6e0e33,0x6d8db3,0x2f85713,0x277733,0x1870733,0x4e000493,0x700e7]
-theorem dispatch6_checked : rOK (symRun {} dispatchWords6 (pcOf 146) 17) (coordDispatch 146 170 6 true false) = true := by decide +kernel
-theorem dispatch6_linked : sliceChecked 146 dispatchWords6 = true := by decide +kernel
+theorem dispatch6_checked : rOK (symRun {} dispatchWords6 (pcOf 147) 17) (coordDispatch 147 170 6 true false) = true := by decide +kernel
+theorem dispatch6_linked : sliceChecked 147 dispatchWords6 = true := by decide +kernel
 end W9Machine
 end
 
@@ -66,8 +66,8 @@ open SigGolfCandidate.T3M SigGolfCandidate.Rv
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 def dispatchWords5 : List (BitVec 32) := [0x1585193,0x7f1f193,0x2019213,0x1626233,0x6787b3,0x1419f93,0xffefb3,0x819b93,0x1db8bb3,0x40040413,0x6e0e33,0x6d8db3,0x1a85713,0x277733,0x1870733,0x4c000493,0x700e7]
-theorem dispatch5_checked : rOK (symRun {} dispatchWords5 (pcOf 129) 17) (coordDispatch 129 149 5 true false) = true := by decide +kernel
-theorem dispatch5_linked : sliceChecked 129 dispatchWords5 = true := by decide +kernel
+theorem dispatch5_checked : rOK (symRun {} dispatchWords5 (pcOf 130) 17) (coordDispatch 130 149 5 true false) = true := by decide +kernel
+theorem dispatch5_linked : sliceChecked 130 dispatchWords5 = true := by decide +kernel
 end W9Machine
 end
 
@@ -78,8 +78,8 @@ open SigGolfCandidate.T3M SigGolfCandidate.Rv
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 def dispatchWords3 : List (BitVec 32) := [0x2a85193,0x7f1f193,0x2019213,0x1626233,0x6787b3,0x1419f93,0xffefb3,0x819b93,0x1db8bb3,0x40040413,0x6e0e33,0x6d8db3,0x2f85713,0x277733,0x1870733,0x48000493,0x700e7]
-theorem dispatch3_checked : rOK (symRun {} dispatchWords3 (pcOf 95) 17) (coordDispatch 95 106 3 true false) = true := by decide +kernel
-theorem dispatch3_linked : sliceChecked 95 dispatchWords3 = true := by decide +kernel
+theorem dispatch3_checked : rOK (symRun {} dispatchWords3 (pcOf 96) 17) (coordDispatch 96 106 3 true false) = true := by decide +kernel
+theorem dispatch3_linked : sliceChecked 96 dispatchWords3 = true := by decide +kernel
 end W9Machine
 end
 
@@ -89,9 +89,9 @@ namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.Rv
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
-def dispatchWords7 : List (BitVec 32) := [0x7803803,0x7f87193,0x2019213,0x1626233,0x6787b3,0x1419f93,0xffefb3,0x819b93,0x1db8bb3,0x40040413,0x6e0e33,0x6d8db3,0x585713,0x277733,0x1870733,0x50000493,0x700e7]
-theorem dispatch7_checked : rOK (symRun {} dispatchWords7 (pcOf 163) 17) (coordDispatch 163 192 7 true true) = true := by decide +kernel
-theorem dispatch7_linked : sliceChecked 163 dispatchWords7 = true := by decide +kernel
+def dispatchWords7 : List (BitVec 32) := [0x7f8f193,0x2019213,0x1626233,0x6787b3,0x1419f93,0xffefb3,0x819b93,0x1db8bb3,0x40040413,0x6e0e33,0x6d8db3,0x58d713,0x277733,0x1870733,0x50000493,0x700e7]
+theorem dispatch7_checked : rOK (symRun {} dispatchWords7 (pcOf 164) 16) (coordDispatch 164 192 7 true false) = true := by decide +kernel
+theorem dispatch7_linked : sliceChecked 164 dispatchWords7 = true := by decide +kernel
 end W9Machine
 end
 
@@ -102,8 +102,8 @@ open SigGolfCandidate.T3M SigGolfCandidate.Rv
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 def dispatchWords4 : List (BitVec 32) := [0x7003803,0x7f87193,0x2019213,0x1626233,0x6787b3,0x1419f93,0xffefb3,0x819b93,0x1db8bb3,0x40040413,0x6e0e33,0x6d8db3,0x585713,0x277733,0x1870733,0x4a000493,0x700e7]
-theorem dispatch4_checked : rOK (symRun {} dispatchWords4 (pcOf 112) 17) (coordDispatch 112 128 4 true true) = true := by decide +kernel
-theorem dispatch4_linked : sliceChecked 112 dispatchWords4 = true := by decide +kernel
+theorem dispatch4_checked : rOK (symRun {} dispatchWords4 (pcOf 113) 17) (coordDispatch 113 128 4 true true) = true := by decide +kernel
+theorem dispatch4_linked : sliceChecked 113 dispatchWords4 = true := by decide +kernel
 end W9Machine
 end
 
@@ -114,8 +114,8 @@ open SigGolfCandidate.T3M SigGolfCandidate.Rv
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 def dispatchWords2 : List (BitVec 32) := [0x1585193,0x7f1f193,0x2019213,0x1626233,0x6787b3,0x1419f93,0xffefb3,0x819b93,0x1db8bb3,0x40040413,0x6e0e33,0x6d8db3,0x1a85713,0x277733,0x1870733,0x46000493,0x700e7]
-theorem dispatch2_checked : rOK (symRun {} dispatchWords2 (pcOf 78) 17) (coordDispatch 78 85 2 true false) = true := by decide +kernel
-theorem dispatch2_linked : sliceChecked 78 dispatchWords2 = true := by decide +kernel
+theorem dispatch2_checked : rOK (symRun {} dispatchWords2 (pcOf 79) 17) (coordDispatch 79 85 2 true false) = true := by decide +kernel
+theorem dispatch2_linked : sliceChecked 79 dispatchWords2 = true := by decide +kernel
 end W9Machine
 end
 
@@ -126,8 +126,8 @@ open SigGolfCandidate.T3M SigGolfCandidate.Rv
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 def dispatchWords1 : List (BitVec 32) := [0x6803803,0x7f87193,0x2019213,0x1626233,0x6787b3,0x1419f93,0xffefb3,0x819b93,0x1db8bb3,0x40040413,0x6e0e33,0x6d8db3,0x585713,0x277733,0x1870733,0x44000493,0x700e7]
-theorem dispatch1_checked : rOK (symRun {} dispatchWords1 (pcOf 61) 17) (coordDispatch 61 64 1 true true) = true := by decide +kernel
-theorem dispatch1_linked : sliceChecked 61 dispatchWords1 = true := by decide +kernel
+theorem dispatch1_checked : rOK (symRun {} dispatchWords1 (pcOf 62) 17) (coordDispatch 62 64 1 true true) = true := by decide +kernel
+theorem dispatch1_linked : sliceChecked 62 dispatchWords1 = true := by decide +kernel
 end W9Machine
 end
 
@@ -137,9 +137,9 @@ namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.Rv
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
-def dispatchWords0 : List (BitVec 32) := [0x2b85193,0x7f1f193,0x2019213,0x1626233,0x1419f93,0xffefb3,0x819b93,0x1db8bb3,0x60100e13,0x11dedb3,0x3085713,0x277733,0x1870733,0x42000493,0x700e7]
-theorem dispatch0_checked : rOK (symRun {} dispatchWords0 (pcOf 46) 15) (coordDispatch 46 43 0 false false) = true := by decide +kernel
-theorem dispatch0_linked : sliceChecked 46 dispatchWords0 = true := by decide +kernel
+def dispatchWords0 : List (BitVec 32) := [0x2b85193,0x7f1f193,0x2019213,0x1626233,0x1419f93,0xffefb3,0x819b93,0x1db8bb3,0x1cdedb3,0x60100e13,0x3085713,0x277733,0x1870733,0x42000493,0x700e7]
+theorem dispatch0_checked : rOK (symRun {} dispatchWords0 (pcOf 47) 15) (coordDispatch 47 43 0 false false) = true := by decide +kernel
+theorem dispatch0_linked : sliceChecked 47 dispatchWords0 = true := by decide +kernel
 end W9Machine
 end
 
@@ -159,10 +159,10 @@ def dispatchCode (k : Fin 9) : List (BitVec 32) :=
   [dispatchWords0, dispatchWords1, dispatchWords2, dispatchWords3, dispatchWords4,
     dispatchWords5, dispatchWords6, dispatchWords7, dispatchWords8].getD k.val []
 def dispatchBit (k : Fin 9) : Nat := [43,64,85,106,128,149,170,192,213].getD k.val 0
-def dispatchLen (k : Fin 9) : Nat := if k.val = 0 then 15 else 17
+def dispatchLen (k : Fin 9) : Nat := if k.val = 0 then 15 else if k.val = 7 then 16 else 17
 def dispatchResult (k : Fin 9) : Result :=
   coordDispatch (dispatchPc k.val) (dispatchBit k) k.val (decide (k.val ≠ 0))
-    (decide (k.val = 1 ∨ k.val = 4 ∨ k.val = 7))
+    (decide (k.val = 1 ∨ k.val = 4))
 theorem dispatch_checked (k : Fin 9) :
     rOK (symRun {} (dispatchCode k) (pcOf (dispatchPc k.val)) (dispatchLen k))
       (dispatchResult k) = true := by
@@ -235,13 +235,14 @@ theorem dispatch_child (a : HashOutput) (k : Fin 9) :
   fin_cases k <;> simp [dispatchBit, ClaudeWCT.WCT9.child, ClaudeWCT.WCT9.coordBase,
     BitVec.toNat_ofNat] <;> omega
 def dispatchDig (k : Fin 9) : E :=
-  if decide (k.val = 1 ∨ k.val = 4 ∨ k.val = 7) then
+  if k.val ≥ 7 then .reg .x17 else
+  if decide (k.val = 1 ∨ k.val = 4) then
     .ld (.c (BitVec.ofNat 64 (96 + 8*(dispatchBit k/64)))) else .reg .x16
 theorem dispatchDig_eval (pk : Digest) (w : WBytes) (a : HashOutput) (k : Fin 9)
     (pairs : List (Digest × Digest)) (u : MachineState) (hu : CoordPre pk w a k.val pairs u) :
     (dispatchDig k).eval u = a.extractLsb' (64*(dispatchBit k/64)) 64 := by
   have hd := hu.digest (dispatchBit k/64) (by fin_cases k <;> decide)
-  fin_cases k <;> first | exact hd | exact hu.cached
+  fin_cases k <;> first | exact hd | exact hu.cached | exact hu.cached3
 def dispatchChild (k : Fin 9) : E := mkBin .and
   (if dispatchBit k % 64 = 0 then dispatchDig k else
     mkBin .srl (dispatchDig k) (.c (BitVec.ofNat 64 (dispatchBit k % 64)))) (.c 127)
@@ -385,8 +386,8 @@ theorem dispatch_chain_pre (pk : Digest) (w : WBytes) (a : HashOutput) (k : Fin 
       subst hkz
       have he : ((dispatchResult 0).toState u).getReg .x27 =
           BitVec.ofNat 64 (1+3*256+(4+(0 : Fin 9).val)*65536) ||| BitVec.ofNat 64 (idxOf a*2^32) := by
-        have h27 : ((dispatchResult 0).toState u).getReg .x27 = u.getReg .x27 ||| u.getReg .x17 := rfl
-        rw [h27, hu.nodeZero rfl, hu.nodeIndex]
+        have h27 : ((dispatchResult 0).toState u).getReg .x27 = u.getReg .x27 ||| u.getReg .x28 := rfl
+        rw [h27, hu.nodeZero rfl, hu.headerZero rfl]
         all_goals rfl
       rw [he, nodeLow_add]
       rw [BitVec.or_comm, ofNat_or_disjoint _ _ 32 (by simp) (by simp)]
@@ -757,12 +758,13 @@ theorem coord_next (pk : Digest) (w : WBytes) (a : HashOutput) (k : Fin 9)
     hashLen := ht.hashLen
     coordStep := (hr .x6 (by decide)).trans ((hd .x6 (by decide)).trans hu.coordStep)
     prefixReg := ?_
-    nodeIndex := (hr .x17 (by decide)).trans ((hd .x17 (by decide)).trans hu.nodeIndex)
+    cached3 := (hr .x17 (by decide)).trans ((hd .x17 (by decide)).trans hu.cached3)
     cached := ?_
     nodeReg := fun _ => by
       rw [show k.val + 1 - 1 = k.val by omega]
       exact (hr .x27 (by decide)).trans hc.nodeHeader
     nodeZero := fun h => absurd h (by omega)
+    headerZero := fun h => absurd h (by omega)
     zero := ⟨(hm 1024 (by decide) (Or.inl (by omega))).trans hu.zero.1,
       (hm 1032 (by decide) (Or.inl (by omega))).trans hu.zero.2⟩
     mask := (hr .x2 (by decide)).trans ((hd .x2 (by decide)).trans hu.mask)
@@ -794,10 +796,10 @@ theorem coord_next (pk : Digest) (w : WBytes) (a : HashOutput) (k : Fin 9)
       RegFile.get, RegFile.set, RegFile.init, mkAdd_eval, E.eval, hu.prefixReg, hu.coordStep,
       ← BitVec.ofNat_add, Nat.add_assoc]
   · rw [hr .x16 (by decide)]
-    have he : (chainEntryState a k u).getReg .x16 = (dispatchDig k).eval u := by
-      fin_cases k <;> rfl
-    rw [he, dispatchDig_eval pk w a k pairs u hu]
-    fin_cases k <;> rfl
+    have hd1 := hu.digest 1 (by decide)
+    have hd2 := hu.digest 2 (by decide)
+    have hcache := hu.cached
+    fin_cases k <;> first | exact hcache | exact hd1 | exact hd2
   · intro i hi
     by_cases he : i = k.val
     · subst i
@@ -822,8 +824,9 @@ theorem coord_good (chains : Chain.AllGood Frozen.layout) (pk : Digest) (w : WBy
     (hu : CoordPre pk w a k.val roots u) (hnone : K none = pure (false, 0))
     (hnext : ∀ root t, CoordPre pk w a (k.val + 1) (roots ++ [root]) t →
       GoodQFor Frozen.image t N C Q A (K (some (roots ++ [root])))) :
-    GoodQFor Frozen.image u (N + (if k.val = 0 then 204 else 206))
-      (C + (if k.val = 0 then 204 else 206)) Q (A + (if k.val = 0 then 198 else 200))
+    GoodQFor Frozen.image u (N + (if k.val = 0 then 204 else if k.val = 7 then 205 else 206))
+      (C + (if k.val = 0 then 204 else if k.val = 7 then 205 else 206)) Q
+      (A + (if k.val = 0 then 198 else if k.val = 7 then 199 else 200))
       (ccM (ClaudeWCT.W9.T3M.wctStep w a (some roots) k) K) := by
   have ds := dispatch_steps pk w a k roots u hu
   let f : Fin 16384 := ⟨ClaudeWCT.WCT9.field a k, Nat.mod_lt _ (by decide)⟩

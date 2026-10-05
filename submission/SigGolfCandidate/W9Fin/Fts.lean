@@ -25,7 +25,7 @@ def FtsGood : Prop :=
     K none = pure (false, 0) →
     (∀ root t, FtsOut ⟨pk, w, a⟩ root t →
       GoodQFor Frozen.image t N C Q A (K (some root))) →
-    GoodQFor Frozen.image u (N + 2023) (C + 2023) Q (A + 1866)
+    GoodQFor Frozen.image u (N + 2022) (C + 2022) Q (A + 1865)
       (ccM (if ClaudeWCT.W9.T3M.gateOk a then ClaudeWCT.W9.T3M.wctP w a
         else pure none) K)
 end W9Drv
@@ -796,7 +796,7 @@ theorem verifyP_eq (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WBytes) 
 theorem afterDigest_good (hbridge : W9Machine.Frozen.image = Images.verifyImage) (fts : W9Drv.FtsGood)
     (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WBytes) (a : HashOutput) (u : MachineState)
     (hu : DgOut m pk w a u) :
-    GoodQ u (8050 + 2023 + 1) (8050 + 2023 + 1) True (5645 + 1866 + 1) (ccM (afterDigest pk w a) Kb) := by
+    GoodQ u (8050 + 2022 + 1) (8050 + 2022 + 1) True (5645 + 1865 + 1) (ccM (afterDigest pk w a) Kb) := by
   obtain ⟨hst, hpre⟩ := gatePre_of_hook m pk w a u hu
   have h := fts pk w a _ 8050 8050 5645 True (fun r => ccM (afterFts pk w (a.toNat % 2 ^ 31) r) Kb) hpre
     (by simp only [afterFts, ccM_pure, Kb])
@@ -805,12 +805,12 @@ theorem afterDigest_good (hbridge : W9Machine.Frozen.image = Images.verifyImage)
   unfold afterDigest
   rw [ccM_bind]
   exact h2
-def fuelBound : Nat := 15 + (8050 + 2023 + 1)
-def cycleBoundAll : Nat := 22 + (8050 + 2023 + 1)
-def cycleBound : Nat := 22 + (5645 + 1866 + 1)
-theorem fuelBound_eq : fuelBound = 10089 := rfl
-theorem cycleBoundAll_eq : cycleBoundAll = 10096 := rfl
-theorem cycleBound_eq' : cycleBound = 7534 := rfl
+def fuelBound : Nat := 15 + (8050 + 2022 + 1)
+def cycleBoundAll : Nat := 22 + (8050 + 2022 + 1)
+def cycleBound : Nat := 22 + (5645 + 1865 + 1)
+theorem fuelBound_eq : fuelBound = 10088 := rfl
+theorem cycleBoundAll_eq : cycleBoundAll = 10095 := rfl
+theorem cycleBound_eq' : cycleBound = 7533 := rfl
 theorem cycleBound_eq : cycleBound = ClaudeWCT.W9.T3M.Final.verifyCycleBound := rfl
 theorem verify_good (hbridge : W9Machine.Frozen.image = Images.verifyImage) (fts : W9Drv.FtsGood)
     (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : Bytes 22984) (s : MachineState)
@@ -924,9 +924,9 @@ def finishFts (a : HashOutput) (state : Option (List (Digest × Digest))) : M (O
   | none => pure none
   | some roots => some <$> ClaudeWCT.WCT9.forestPk (idxOf a) roots
 def coordsCost (ks : List (Fin 9)) : Nat :=
-  (ks.map (fun k => if k.val = 0 then 204 else 206)).sum
+  (ks.map (fun k => if k.val = 0 then 204 else if k.val = 7 then 205 else 206)).sum
 def coordsAccept (ks : List (Fin 9)) : Nat :=
-  (ks.map (fun k => if k.val = 0 then 198 else 200)).sum
+  (ks.map (fun k => if k.val = 0 then 198 else if k.val = 7 then 199 else 200)).sum
 theorem fold_none (w : WBytes) (a : HashOutput) (ks : List (Fin 9)) :
     ks.foldlM (ClaudeWCT.W9.T3M.wctStep w a) none = pure none := by
   induction ks with
@@ -969,14 +969,14 @@ theorem fts_good (chains : Chain.AllGood Frozen.layout) : FtsGood := by
   intro pk w a u N C A Q K hu hnone hnext
   let KG : Bool → OracleComp HashSpec Obs := fun b =>
     if b then ccM (ClaudeWCT.W9.T3M.wctP w a) K else K none
-  have hg := gate_good pk w a u (N + 1899) (C + 1899) (A + 1845) Q KG hu
+  have hg := gate_good pk w a u (N + 1898) (C + 1898) (A + 1844) Q KG hu
     (by simpa only [KG, Bool.false_eq_true, ↓reduceIte] using hnone)
     (fun t ht => by
       have hc := coordinates_good chains pk w a (List.finRange 9) 0 [] t N C A Q K
         (by decide)
         (by simp) ht hnone hnext
-      rw [show coordsCost (List.finRange 9) + 47 = 1899 by decide,
-        show coordsAccept (List.finRange 9) + 47 = 1845 by decide] at hc
+      rw [show coordsCost (List.finRange 9) + 47 = 1898 by decide,
+        show coordsAccept (List.finRange 9) + 47 = 1844 by decide] at hc
       apply hc.congr
       change ccM (_ >>= finishFts a) K = ccM (ClaudeWCT.W9.T3M.wctP w a) K
       apply congrArg (fun p : M (Option Digest) => ccM p K)
@@ -985,7 +985,7 @@ theorem fts_good (chains : Chain.AllGood Frozen.layout) : FtsGood := by
         (List.finRange 9).foldlM (ClaudeWCT.W9.T3M.wctStep w a) (some []) >>= f)
       funext state
       cases state <;> rfl)
-  change GoodQFor Frozen.image u (N + 1920) (C + 1920) Q (A + 1866)
+  change GoodQFor Frozen.image u (N + 1919) (C + 1919) Q (A + 1865)
     (KG (ClaudeWCT.W9.T3M.gateOk a)) at hg
   apply (hg.mono (by omega) (by omega) (fun hq => ⟨hq, by omega⟩)).congr
   cases ClaudeWCT.W9.T3M.gateOk a <;> simp [KG, ccM_pure]
