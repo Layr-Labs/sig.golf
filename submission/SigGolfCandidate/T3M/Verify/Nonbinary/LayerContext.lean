@@ -1,3 +1,4 @@
+import SigGolfCandidate.T3M.Verify.Nonbinary.V4IndirectHead
 import SigGolfCandidate.T3M.Search.CsBlocks
 import SigGolfCandidate.T3M.Verify.LayerSem
 import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsDispatchArith
@@ -668,36 +669,6 @@ open SigGolfCandidate.T3 (Digest)
 set_option maxRecDepth 8192
 set_option maxHeartbeats 600000
 set_option linter.unusedSimpArgs false
-def headCode : List (BitVec 32) := [0x63803,0x863883,0x3d8d713,0x10071663]
-sym_block headBase := symRun { noAlias := true } headCode (pcOf 96160) 200
-theorem head_at : CodeAt Verify.image (pcOf 96160) headCode := by
-  have h := codeAt_from 96160 (by decide)
-  have hp : headCode <+: codeFrom 96160 := by decide +kernel
-  exact ⟨by decide, by decide, by decide +kernel, hp.trans h.2.2.2⟩
-theorem head_spec (s : MachineState) (v : Digest) (d : Nat)
-    (hpc : s.pc = pcOf 96160) (h12 : s.getReg .x12 = BitVec.ofNat 64 d) (hd : d = 15560 ∨ d = 15608)
-    (hv : DigAt s d v) :
-    ∃ t, Steps Verify.image s 4 4 t ∧
-      t.pc = (if v.toNat < 2 ^ 125 then pcOf 96164 else pcOf 96230) ∧
-      t.getReg .x16 = v.extractLsb' 0 64 ∧ t.getReg .x17 = v.extractLsb' 64 64 ∧
-      RegsExcept s t [.x16,.x17,.x14] ∧ Frame s t (fun _ => False) := by
-  rcases hd with rfl | rfl
-  all_goals
-    have hv1 := hv.1
-    have hv2 := hv.2
-    norm_num at hv1 hv2
-    refine ⟨_, symRun_sound headBase head_at s hpc (by simp [headBase.res, rv_simp, h12] <;> decide), ?_, ?_, ?_, ?_, ?_⟩
-    · simp only [Result.toState_pc, headBase.res, E.eval, CmpOp.eval, BinOp.eval, h12, ofNat_add_ofNat, hv.2, hv2,
-        BitVec.toNat_ofNat, Nat.reduceMod, bne_iff_ne, ne_eq,
-        ext64_shr_eq_zero v 61 (by decide), show (64 + 61 : Nat) = 125 from rfl]
-      split_ifs <;> first | rfl | omega
-    · simp only [Result.toState_getReg, headBase.res, rv_simp, h12]
-      norm_num [hv1]
-    · simp only [Result.toState_getReg, headBase.res, rv_simp, h12]
-      rw [ofNat_add_ofNat]
-      exact hv.2
-    · intro r hr; cases r <;> simp at hr <;> simp [headBase.res, rv_simp] <;> rfl
-    · intro A _ _; simp [headBase.res, rv_simp]
 theorem compressedSum_le (v : Digest) : compressedSum (topRank v) ≤ 4335 := by
   have h0 := pairWeight_le (topRank v 0) (topRank v 1)
   have h1 := pairWeight_le (topRank v 2) (topRank v 3)
@@ -710,8 +681,8 @@ theorem compressedSum_le (v : Digest) : compressedSum (topRank v) ≤ 4335 := by
   have h8 := pairWeight_le (topRank v 15) (topRank v 16)
   unfold compressedSum; omega
 theorem decode_ok (s : MachineState) (v : Digest)
-    (hpc : s.pc = pcOf 96160) (d : Nat) (h12 : s.getReg .x12 = BitVec.ofNat 64 d) (hd : d = 15560 ∨ d = 15608)
-    (hv : DigAt s d v) (ht : PackedTables s)
+    (hpc : s.pc = pcOf 96160) (d : Nat) (h12 : s.getReg .x12=BitVec.ofNat 64 d)
+    (hd : d=15560 ∨ d=15608) (hv : DigAt s d v) (ht : PackedTables s)
     (h10 : s.getReg .x10 = 15560#64)
     (hvalid : T3.decode 0 v = some (topDigits v)) :
     ∃ t, Steps Verify.image s 55 55 t ∧ t.pc = pcOf 96218 ∧
@@ -746,8 +717,8 @@ open SigGolfCandidate.T3 (Digest)
 set_option maxHeartbeats 600000
 set_option linter.unusedSimpArgs false
 theorem decode_reject (s : MachineState) (v : Digest)
-    (hpc : s.pc = pcOf 96160) (d : Nat) (h12 : s.getReg .x12 = BitVec.ofNat 64 d) (hd : d = 15560 ∨ d = 15608)
-    (hv : DigAt s d v) (ht : PackedTables s)
+    (hpc : s.pc = pcOf 96160) (d : Nat) (h12 : s.getReg .x12=BitVec.ofNat 64 d)
+    (hd : d=15560 ∨ d=15608) (hv : DigAt s d v) (ht : PackedTables s)
     (h10 : s.getReg .x10 = 15560#64)
     (hbad : T3.decode 0 v = none) :
     ∃ k t, Steps Verify.image s k k t ∧ k ≤ 60 ∧ t.pc = pcOf 96230 ∧
@@ -815,7 +786,7 @@ set_option linter.unusedSimpArgs false
 def topPrefixWord (tp : Word) : Word :=
   BitVec.ofNat 64 (128 + 193 * 2 ^ 56) ||| (tp >>> (16 : Word))
 def prologueCode : List (BitVec 32) :=
-  [0xf90e3e03,16929171,4091443,0xff843303,0x90050413,714679,0xa81713,6780723,0xf70733,0x9a070067]
+  [0xf9043e03,16929171,4091443,0xff843303,0x90050413,714679,0xa81713,6780723,0xf70733,0x9a070067]
 sym_block prologueBase := symRun { noAlias := true } prologueCode (pcOf 96218) 200
 theorem prologue_at : CodeAt Verify.image (pcOf 96218) prologueCode := by
   have h := codeAt_from 96218 (by decide)
@@ -828,7 +799,6 @@ theorem prologue_spec (s : MachineState) (v : Digest)
     (h16 : s.getReg .x16 = v.extractLsb' 0 64) (h17 : s.getReg .x17 = v.extractLsb' 63 64)
     (h19 : s.getReg .x8 = BitVec.ofNat 64 PAIR_DATA)
     (hmask : s.getMem (BitVec.ofNat 64 (TAIL_DATA + 64)) = 130048#64) (h10 : s.getReg .x10 = 15560#64)
-    (h28 : s.getReg .x28 = 0xffc000#64)
     (hmem : s.getMem (BitVec.ofNat 64 0xffbf90) = BitVec.ofNat 64 (128 + 193 * 2 ^ 56)) :
     ∃ t, Steps Verify.image s 10 10 t ∧ t.pc = prologueTarget v ∧
       t.getReg .x16 = v.extractLsb' 0 64 ∧
@@ -840,7 +810,7 @@ theorem prologue_spec (s : MachineState) (v : Digest)
   have h19' : s.getReg .x8 = 0xffc000#64 := h19
   have hm : s.getMem 0xffbff8#64 = 130048#64 := hmask
   refine ⟨_, symRun_sound prologueBase prologue_at s hpc
-    (by simp [prologueBase.res, rv_simp, accessValid_iff, MEMORY_BYTES, h19', h28]),
+    (by simp [prologueBase.res, rv_simp, accessValid_iff, MEMORY_BYTES, h19']),
     ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   ·
     have hx24 : (prologueBase.res.toState s).getReg .x6 = 130048#64 := by
@@ -853,7 +823,7 @@ theorem prologue_spec (s : MachineState) (v : Digest)
   · simp [prologueBase.res, rv_simp, h10]
   · simp [prologueBase.res, rv_simp, h19', hm]
   · simp [prologueBase.res, rv_simp, pcOf]
-  · simp [prologueBase.res, rv_simp, topPrefixWord, h28, hmem]
+  · simp [prologueBase.res, rv_simp, topPrefixWord, h19', hmem]
   · intro r hr; cases r <;> simp at hr <;> simp [prologueBase.res, rv_simp] <;> rfl
   · intro A _ _; simp [prologueBase.res, rv_simp]
 end SigGolfCandidate.T3M.Verify.Nonbinary
@@ -964,11 +934,8 @@ theorem topTransition_ok (w : WBytes) (pk : Digest) (index c : Nat) (hc : c < nC
     hglob.2.2.2.2.2.prefix 0 (by decide)
   have hmem : r.getMem (BitVec.ofNat 64 0xffbf90) = BitVec.ofNat 64 (128 + 193 * 2 ^ 56) := by
     rw [fr.get (by decide) (by simp), fs.get (by decide) (by simp), hmem0]
-  have h28 : r.getReg .x28 = 0xffc000#64 := by
-    rw [rr.get (by decide), rs.get (by decide), hk (.x28, BitVec.ofNat 64 (t3In 0)) (by simp [BC.bK, bK, layK])]
-    decide
   obtain ⟨z, ez, pz, lo, hi, s3, mask, tab, px, rz, fz⟩ := Verify.Nonbinary.prologue_spec r _ pr h16 h17 h19
-    (hdT.frame fr).mask (by rw [rr.get (by decide)]; exact h10) h28 hmem
+    (hdT.frame fr).mask (by rw [rr.get (by decide)]; exact h10) hmem
   refine ⟨z, (e.trans er).trans ez, ⟨?_, ?_, lo, ?_, ?_, s3, mask, tab, ?_, ?_, ?_⟩⟩
   · rw [pz]
     exact Nonbinary.prologue_target _

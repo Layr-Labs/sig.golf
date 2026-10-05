@@ -309,7 +309,8 @@ theorem route_evals (index : Nat) (lay : Layer) (hidx : index < 2 ^ 31) (s : Mac
     rw [Nat.mul_comm, ← Nat.two_pow_add_eq_or_of_lt ht]
     ring
   · by_cases h0 : lay.val = 0
-    · simp only [s7E, if_pos h0, E.eval, BinOp.eval, hlE, kw, dispatchHeap, if_pos h0, Nat.add_zero]
+    · have hb0 : s7Bias lay.val = 2 ^ hL lay.val := by rw [h0]; rfl
+      simp only [s7E, if_pos h0, E.eval, BinOp.eval, hlE, kw, dispatchHeap, hb0]
       apply BitVec.eq_of_toNat_eq
       have hp : 2 ^ hL lay.val < 2 ^ 64 := by
         have := Nat.pow_le_pow_right (show 0 < 2 by decide) (hL_le lay).2; omega
@@ -321,10 +322,10 @@ theorem route_evals (index : Nat) (lay : Layer) (hidx : index < 2 ^ 31) (s : Mac
           omega)]
       rw [Nat.lor_comm, show 2 ^ hL lay.val = 2 ^ hL lay.val * 1 by ring, ← Nat.two_pow_add_eq_or_of_lt hl]
     · simp only [s7E, if_neg h0, E.eval, BinOp.eval, hlE, kw]
-      change BitVec.ofNat 64 (route index lay).1 + BitVec.ofNat 64 (2 ^ hL lay.val + 880) =
+      change BitVec.ofNat 64 (route index lay).1 + BitVec.ofNat 64 (s7Bias lay.val) =
         BitVec.ofNat 64 (dispatchHeap lay.val (route index lay).1)
       rw [ofNat_add_ofNat]
-      simp [dispatchHeap, h0, Nat.add_comm]
+      simp [dispatchHeap, Nat.add_comm]
 end SigGolfCandidate.T3M
 namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
