@@ -165,7 +165,7 @@ structure LayerIn (w : WBytes) (pk : Digest) (index lay : Nat) (msg : LayerMsg)
     (s : MachineState) : Prop where
   lay4 : lay < 4
   idx : index < 2 ^ 31
-  copy : ∃ c, c < nCopy lay ∧ s.pc = pcOf (trPc lay c)
+  copy : ∃ c, c < nCopy lay ∧ s.pc = pcOf (T3M.setupPc lay (trPc lay c))
   glob : Glob (preK lay) w pk s
   route : s.getReg (rReg lay) = BitVec.ofNat 64 (index / 2 ^ below lay)
   msg : MsgAt w lay msg s
@@ -355,21 +355,17 @@ theorem ctrE_eval (w : WBytes) (lay : Layer) (s : MachineState) (hH : WitHdr w s
   rw [e2]
 theorem ctr_lt (w : WBytes) (lay : Layer) : (wctr w lay).toNat < 2 ^ 32 := (wctr w lay).isLt
 theorem ctrBr_iff (w : WBytes) (lay : Layer) (s : MachineState) (hH : WitHdr w s) (d : Bool) :
-    Br.holds s (ctrBr lay.val d) ↔ d = decide ((wctr w lay).toNat ≥ counterLimit) := by
-  have hd := ctr_lt w lay
-  simp only [ctrBr, Br.holds, CmpOp.eval, E.eval, ctrE_eval w lay s hH, kw]
-  have key : (!BitVec.ult (BitVec.ofNat 64 (wctr w lay).toNat) (BitVec.ofNat 64 0x400000)) =
-      decide ((wctr w lay).toNat ≥ counterLimit) := by
-    have h1 : (wctr w lay).toNat < 2 ^ 64 := by omega
-    unfold counterLimit
-    simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h1]
-    by_cases h : (wctr w lay).toNat ≥ 2 ^ 22
-    · rw [decide_eq_true h, decide_eq_false (by norm_num; omega)]; rfl
-    · rw [decide_eq_false h, decide_eq_true (by norm_num; omega)]; rfl
-  rw [key]; exact eq_comm
+    Br.holds s (ctrBr lay.val d) ↔ d = decide (if lay.val = 3 then (wctr w lay).toNat < counterLimit else (wctr w lay).toNat ≥ counterLimit) := by
+  have h64 : (wctr w lay).toNat < 2 ^ 64 := lt_of_lt_of_le (wctr w lay).isLt (by decide)
+  norm_num at h64
+  unfold ctrBr Br.holds
+  rw [ctrE_eval w lay s hH]
+  by_cases h3 : lay.val = 3 <;>
+    simp [h3, CmpOp.eval, E.eval, kw, BitVec.ult, Nat.mod_eq_of_lt h64,
+      counterLimit, ← decide_not, eq_comm]
 theorem copy_parts (lay p : Nat) (h : BC.copyCheck lay p = true) :
-    specB (BC.allowed lay) [] baseK (runAt (BC.preK lay) [] p [.br false]) (BC.specA lay p) [] (BC.bK lay) keepA = true ∧
-    specB (BC.allowed lay) [] [] (runAt (BC.preK lay) [] p [.br true]) (BC.rejA lay p) [] [] [] = true ∧
+    specB (BC.allowed lay) [] baseK (runAt (BC.preK lay) [] (T3M.setupPc lay p) [.br (T3M.setupAcceptDir lay)]) (BC.specA lay p) [] (BC.bK lay) keepA = true ∧
+    specB (BC.allowed lay) [] [] (runAt (BC.preK lay) [] (T3M.setupPc lay p) [.br (!T3M.setupAcceptDir lay)]) (BC.rejA lay p) [] [] [] = true ∧
     (lay = 0 →
       specB [] [] [] (runAt [] [96160] (p + stepsA lay + 1) []) (specTopCall p) [] [] keepTopCall = true) ∧
     (lay ≠ 0 →

@@ -15,7 +15,7 @@ def bK (lay : Nat) : List (Reg × Word) :=
     [(.x10, BitVec.ofNat 64 (x10In lay))]
 def ctrE (lay : Nat) : E :=
   if lay = 3 then T3M.ctrE lay else .un (.ld .wu 0) (.ld (kw (x10In lay + 32)))
-def ctrBr (lay : Nat) (d : Bool) : Br := ⟨.geu, ctrE lay, kw 0x400000, d⟩
+def ctrBr (lay : Nat) (d : Bool) : Br := ⟨if lay = 3 then .ltu else .geu, ctrE lay, kw 0x400000, d⟩
 def headerWrites (lay : Nat) : List (Addr × E) :=
   [(⟨none, BitVec.ofNat 64 (x10In lay + 24)⟩, tpE lay),
    (⟨none, BitVec.ofNat 64 (x10In lay + 16)⟩, kw (hw 4 lay))]
@@ -33,9 +33,9 @@ def rejA (lay p : Nat) : Spec :=
 def allowed (lay : Nat) : List Nat :=
   if lay = 3 then [] else [x10In lay + 16, x10In lay + 24]
 def setupCheck (lay p : Nat) : Bool :=
-  specB (allowed lay) [] baseK (runAt (preK lay) [] p [.br false])
+  specB (allowed lay) [] baseK (runAt (preK lay) [] (setupPc lay p) [.br (setupAcceptDir lay)])
     (specA lay p) [] (bK lay) keepA &&
-  specB (allowed lay) [] [] (runAt (preK lay) [] p [.br true]) (rejA lay p) [] [] []
+  specB (allowed lay) [] [] (runAt (preK lay) [] (setupPc lay p) [.br (!setupAcceptDir lay)]) (rejA lay p) [] [] []
 def copyCheck (lay p : Nat) : Bool :=
   setupCheck lay p &&
   (if lay = 0 then
