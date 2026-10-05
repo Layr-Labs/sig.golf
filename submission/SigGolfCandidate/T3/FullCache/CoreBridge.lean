@@ -1,10 +1,6 @@
-import SigGolfCandidate.T3.FullCache.Fields
-import SigGolfCandidate.T3.FullCache.Region
 import SigGolfCandidate.T3.FullCache.PayloadSeparation
 
 section
-
-
 namespace SiggolfT3Mac4
 open SphincsSecurity
 set_option autoImplicit false
@@ -25,10 +21,7 @@ def tagEquiv : MacTag ≃ HashOutput where
 theorem encodeTag_injective : Function.Injective encodeTag := tagEquiv.injective
 end SiggolfT3Mac4
 end
-
 section
-
-
 namespace SiggolfT3Mac4.Source
 open OracleComp OracleSpec
 set_option autoImplicit false

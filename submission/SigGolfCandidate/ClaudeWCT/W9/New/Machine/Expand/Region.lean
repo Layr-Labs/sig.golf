@@ -105,7 +105,7 @@ theorem win_mpad (l : Fin 7) : window (regionBytes c op) (64 * (6 - l.val) + 32)
   · rw [window_append_right _ _ _ _ (by simp [bytesLE_length]), window_zeros _ _ _ (by simp [bytesLE_length])]
   · rw [window_append_left _ _ _ _ (by simp [zeros, bytesLE_length]), window_zeros _ _ _ (by omega)]
 end windows
-theorem zeros16 : zeros 16 = bytesLE 16 (0 : Digest) := (Verify.bytesLE16_zero).symm
+theorem zeros16 : zeros 16 = bytesLE 16 (0 : Digest) := (VLib.bytesLE16_zero).symm
 theorem placed_digAt {N : HashOutput} {sig : WCT9.Signature} {s : MachineState} (hp : Placed N sig s) (k : Nat)
     (hk : k < 9) (o : Nat) (ho : o % 8 = 0) (ho' : o + 16 ≤ 1024) (d : Digest)
     (hd : window (regionBytes (WCT9.child N ⟨k, hk⟩).val (sig.openings ⟨k, hk⟩)) o 16 = bytesLE 16 d) :

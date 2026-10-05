@@ -51,7 +51,6 @@ structure CsPre (s : MachineState) (lay : Layer) (tree leaf : Nat) (msg : Digest
   z48 : s.getMem (BitVec.ofNat 64 (ENC + 48)) = 0
   z56 : s.getMem (BitVec.ofNat 64 (ENC + 56)) = 0
   table : Search.TableOK s
-/-- Counter exhaustion at the signer's top layer: the dummy word's digits, returned to the caller. -/
 def DummyRet (s : MachineState) (ret : Nat) (t : MachineState) : Prop :=
   t.pc = pcOf ret ∧ t.getReg .x5 = 0 ∧
     (∀ i < 54, t.getByte (BitVec.ofNat 64 (DIGITS + i)) = BitVec.ofNat 8 (T3.dummyTop.getD i 0)) ∧

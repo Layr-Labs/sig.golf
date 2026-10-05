@@ -1,4 +1,3 @@
-import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Hypertree.Position
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Support
 

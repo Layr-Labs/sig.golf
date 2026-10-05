@@ -1,9 +1,7 @@
-import SigGolfCandidate.T3.FullCache.NativeMac
 import SigGolfCandidate.T3.FullCache.NativeBudget
 import SigGolfCandidate.T3.FullCache.NativeTables
 
 section
-
 namespace SigGolfCandidate.T3.Security.FullGame
 open OracleComp OracleSpec
 set_option autoImplicit false
@@ -47,11 +45,7 @@ theorem digestSearch_nonMac (rho : Digest) (message : Message) (counter fuel : N
   | succ fuel ih => unfold digestSearch; public_queries
 end SigGolfCandidate.T3.Security.FullGame
 end
-
 section
-
-
-
 set_option allowUnsafeReducibility true in
 attribute [local reducible] SphincsSecurity.hashOutputBits
 section

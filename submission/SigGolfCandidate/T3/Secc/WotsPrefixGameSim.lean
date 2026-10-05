@@ -1,5 +1,4 @@
 import SigGolfCandidate.T3.Secc.WotsPrefixGameBase
-import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainErasure
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.OtsPrefixObservedRun
 import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainCheckpoint
 

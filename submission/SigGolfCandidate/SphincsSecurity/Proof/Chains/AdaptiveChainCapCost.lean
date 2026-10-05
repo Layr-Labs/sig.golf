@@ -1,9 +1,7 @@
-import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainEndpoint
 import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainErasure
 import SigGolfCandidate.SphincsSecurity.Proof.Base.QueryCapErasure
 
 section
-
 namespace SphincsSecurity.Concrete.PartialChainEndpoint
 open _root_.OracleComp OracleSpec ENNReal
 set_option backward.isDefEq.respectTransparency false
@@ -34,11 +32,7 @@ theorem idealRun_empty_support_subset (auxiliary : State → QueryImpl auxSpec P
     (realRun_empty_apply_lower auxiliary computation budget hbound result))
 end SphincsSecurity.Concrete.PartialChainEndpoint
 end
-
 section
-
-
-
 namespace SphincsSecurity.Concrete.PartialChainEndpoint
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -120,9 +114,7 @@ theorem idealRun_cap_valid (hsmall : budget < Fintype.card State)
     (fun endpoint => QueryCap.run_queryBound IsPrefixQuery (computation endpoint) budget) hsmall hresult
 end SphincsSecurity.Concrete.PartialChainEndpoint
 end
-
 section
-
 namespace SphincsSecurity.QueryCap
 open _root_.OracleComp OracleSpec ENNReal
 def spent {Result : Type} (budget : Nat) (result : Option (Result × Nat)) : Nat :=

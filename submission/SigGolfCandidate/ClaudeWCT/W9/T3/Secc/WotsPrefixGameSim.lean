@@ -1,14 +1,5 @@
 import SigGolfCandidate.T3.Secc.WotsPrefixGameSim
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsPrefixGameBase
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskRef
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsReference
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.SeccLaw
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEvents
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskCharge
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMask
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskChain
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskBase
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskRest
 
 namespace ClaudeWCT.W9.T3.Security.Wots
 open SigGolfCandidate SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
@@ -69,13 +60,15 @@ theorem maskAt_ov_fill (a : ChainAddr) (R : RefTables adversary) (x : Hidden (re
     unfold fillTable
     rw [restTable_ov_private a R x coordinate hc, restTable_ov_private a R _ coordinate hc]
   · unfold fillTable
-    rw [restTable_ov_seed, restTable_ov_seed, siblingHalf_setSeed, siblingHalf_setSeed]
+    rw [restTable_ov_seed, restTable_ov_seed]
+    unfold siblingHalfP
+    rw [siblingHalf_setSeed, siblingHalf_setSeed]
   · rw [hdx, hdf]
   · rw [frontierValue_ov]
     unfold fillTable
     rw [frontierValue_ov]
     exact (evaluate_const _ e).symm
-theorem referenceGame_fill (a : ChainAddr) (htree : a.key.tree < 2 ^ 40) (hleaf : a.key.leaf < 2 ^ 32)
+theorem referenceGame_fill (a : ChainAddr) (htree : a.key.tree < 2 ^ 40) (hleaf : a.key.leaf < 2 ^ 24)
     (R : RefTables adversary) (x : Hidden (restDepth a R)) (q : Nat) :
     referenceGame (restTable (ov a (restDepth a R) R x)) adversary q =
       referenceGame (fillTable a R (evaluate x.1 x.2)) adversary q := by
@@ -107,7 +100,7 @@ theorem fixed_route (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables ad
         simp only [fixedImpl, QueryImpl.add_apply_inr]
         rw [hin, restTable_ov_prefix a hd R x p.1 p.2, ← PMF.monad_pure_eq_pure, map_pure]
   · simp only [QueryImpl.apply_compose, routeImpl, refImpl, simulateQ_pure]
-theorem fixed_seedGame (q : Nat) (a : ChainAddr) (htree : a.key.tree < 2 ^ 40) (hleaf : a.key.leaf < 2 ^ 32)
+theorem fixed_seedGame (q : Nat) (a : ChainAddr) (htree : a.key.tree < 2 ^ 40) (hleaf : a.key.leaf < 2 ^ 24)
     (R : RefTables adversary) (x : Hidden (restDepth a R)) :
     simulateQ (fixedImpl SphincsSecurity.Concrete.OtsPrefix.uniformImpl x.1) (seedGame adversary q a R (evaluate x.1 x.2)) =
       (liftM (offlineRun (restTable (ov a (restDepth a R) R x)) adversary q) : PMF SeedResult) := by

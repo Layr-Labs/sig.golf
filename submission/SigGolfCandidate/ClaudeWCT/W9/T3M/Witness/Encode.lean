@@ -45,7 +45,7 @@ def witDecP (N : HashOutput) (w : WBytes) : WCT9.Witness where
   signature :=
     { rho := wrho w
       openings := fun k =>
-        ⟨fun t => wreveal w k.val t.val (WCT9.digit (WCT9.rank N k) t),
+        ⟨fun t => wreveal w k.val t.val (WCT9.wordDigit (WCT9.rank N k) t),
           fun l => wsib w k.val (WCT9.child N k).val l.val⟩
       layers := fun lay =>
         ⟨fun i => wvalue w lay i.val, fun j => wpath w lay (route (N.toNat % 2 ^ 31) lay).1 j.val⟩ }

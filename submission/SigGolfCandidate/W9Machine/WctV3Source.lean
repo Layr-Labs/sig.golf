@@ -1,5 +1,5 @@
 import SigGolfCandidate.W9Machine.WctLayout
-import SigGolfCandidate.ClaudeWCT.WCT9.Basic
+import SigGolfCandidate.ClaudeWCT.WCT9.Codebook
 
 set_option autoImplicit false
 namespace W9Machine.V3

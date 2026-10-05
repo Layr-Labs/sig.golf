@@ -1,8 +1,6 @@
 import SigGolfCandidate.T3M.Verify.Words
 import Mathlib.Data.Nat.Bitwise
-import SigGolfCandidate.T3M.Search.TopTables
 import SigGolfCandidate.T3M.Verify.Nonbinary.PairTables
-import SigGolfCandidate.T3.Rev
 
 set_option linter.unusedSimpArgs false
 namespace SigGolfCandidate.T3M.Verify
@@ -137,47 +135,30 @@ def WitHdr (w : WBytes) (s : MachineState) : Prop :=
   ∀ j, j < 8 → s.getMem (BitVec.ofNat 64 (WIT + 8 * j)) = wword w j
 def dataWords : List Nat :=
   [2 ^ 40, 17311559823019733055, 8198552921648689607, 0x30401, 0x3fe00, 2256, 11736, 0xa01, 0x901, 7072, 15264, 0]
-def TOPLOAD : Nat := 0xfef7d8
-def TOPBASE : Nat := 0xfef000
+def TOPLOAD : Nat := 0xffbf68
+def TOPBASE : Nat := 0xffc000
 def topWords : List Nat :=
   [17311559823019733055, 8198552921648689607, 0x30401, 0x3fe00, 128 + 193 * 2 ^ 56 + 3 * 2 ^ 48]
 def DATA : Nat := 16777120
 def TAB : Nat := 16709632
-def HDATA : Nat := 16726016
-def headerBank (lay koff : Nat) : Nat := HDATA + 4096 * lay + 2048 + 64 * koff
+def HDATA : Nat := 0xffbf90
+def headerBank (lay koff : Nat) : Nat := TOPBASE + 4096 * lay + 64 * koff
 structure DataOK (s : MachineState) : Prop where
-  constants : ∀ k, k < 12 → s.getMem (BitVec.ofNat 64 (DATA + 8 * k)) = BitVec.ofNat 64 (dataWords.getD k 0)
-  sum : Search.SumTableOK s
   packed : Nonbinary.PackedTables s
-  tab : ∀ j, j < 2048 → s.getMem (BitVec.ofNat 64 (TAB + 8 * j)) = BitVec.ofNat 64 (T3.Rev.revBits 64 (2048 + j))
-  header : ∀ lay i d, lay < 4 → i < 64 → d < 8 →
-    s.getMem (BitVec.ofNat 64 (HDATA + 4096 * lay + 64 * i + 8 * d)) =
-      BitVec.ofNat 64 (if lay = 0 ∧ i = 0 ∧ d < 4 then 128 + 193 * 2 ^ 56 + d * 2 ^ 48
-        else 0x101 + 65536 * lay + 2 ^ 40 * i + 2 ^ 32 * d)
+  header : ∀ lay, lay < 4 →
+    s.getMem (BitVec.ofNat 64 (HDATA + 8 * lay)) =
+      BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + lay * 2 ^ 48)
 theorem DataOK.prefix {s : MachineState} (h : DataOK s) (lay : Nat) (hl : lay < 4) :
-    s.getMem (BitVec.ofNat 64 (HDATA + 8 * lay)) = BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + lay * 2 ^ 48) := by
-  simpa [hl] using h.header 0 0 lay (by decide) (by decide) (by omega)
-instance {s : MachineState} : CoeFun (DataOK s) (fun _ => ∀ k, k < 12 →
-    s.getMem (BitVec.ofNat 64 (DATA + 8 * k)) = BitVec.ofNat 64 (dataWords.getD k 0)) := ⟨DataOK.constants⟩
+    s.getMem (BitVec.ofNat 64 (HDATA + 8 * lay)) = BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + lay * 2 ^ 48) :=
+  h.header lay hl
 theorem DataOK.congr {s t : MachineState} (h : DataOK s)
     (hm : ∀ A, TAB ≤ A → A + 8 ≤ 2 ^ 24 →
       t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)) : DataOK t := by
   constructor
-  · intro k hk
-    rw [hm _ (by unfold DATA TAB; omega) (by unfold DATA; omega)]
-    exact h.constants k hk
-  · intro i hi
-    rw [T3M.getByte_eq_word _ _ (by unfold Search.TOP_DATA; omega),
-      hm _ (by unfold Search.TOP_DATA TAB; omega) (by unfold Search.TOP_DATA; omega),
-      ← T3M.getByte_eq_word _ _ (by unfold Search.TOP_DATA; omega)]
-    exact h.sum i hi
   · exact h.packed.congr (fun A hA hB => hm A (by unfold Nonbinary.TAIL_DATA at hA; unfold TAB; omega) hB)
-  · intro j hj
-    rw [hm _ (by unfold TAB; omega) (by unfold TAB; omega)]
-    exact h.tab j hj
-  · intro lay i d hl hi hd
+  · intro lay hl
     rw [hm _ (by unfold HDATA TAB; omega) (by unfold HDATA; omega)]
-    exact h.header lay i d hl hi hd
+    exact h.header lay hl
 def Glob (gk : List (Reg × Word)) (w : WBytes) (pk : Digest) (s : MachineState) : Prop :=
   (∀ p ∈ gk, s.getReg p.1 = p.2) ∧ WitHdr w s ∧ PkOK pk s ∧ PZero s ∧ PHalf s ∧ DataOK s
 def WitAll (w : WBytes) (s : MachineState) : Prop :=
@@ -373,10 +354,6 @@ theorem memOKA_data {allow : List Nat} {rel : List Reg} {ws : SymMem} (h : memOK
     · omega
 theorem DATA_ge (k : Nat) (hk : k < 12) : 2 ^ 23 + 4096 ≤ DATA + 8 * k ∧ DATA + 8 * k + 8 ≤ 2 ^ 24 := by
   unfold DATA; omega
-theorem DataOK.word {s : MachineState} (h : DataOK s) (k : Nat) (hk : k < 12) (v : Nat)
-    (hv : dataWords.getD k 0 = v) (a : Nat) (ha : a = DATA + 8 * k) :
-    s.getMem (BitVec.ofNat 64 a) = BitVec.ofNat 64 v := by
-  subst hv ha; exact h k hk
 theorem Glob_toState_allow {gk0 gk : List (Reg × Word)} {w : WBytes} {pk : Digest} {s : MachineState}
     {allow : List Nat} {rel : List Reg}
     (hG : Glob gk0 w pk s) (σ : SymState) (pc : Word) (hm : memOKA allow rel σ.mem = true)

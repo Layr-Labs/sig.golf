@@ -2,7 +2,6 @@ import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.DrvBits
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Merkle.ChildDefs
 
 section
-
 namespace ClaudeWCT.W9.Machine.Expand
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Search
@@ -506,10 +505,7 @@ theorem disp_8 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
   · intro A _ _; simp [blk_176.res, rv_simp]
 end ClaudeWCT.W9.Machine.Expand
 end
-
 section
-
-
 namespace ClaudeWCT.W9.Machine.Expand
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Search
@@ -532,7 +528,7 @@ theorem shl_index (index n : Nat) : BitVec.ofNat 64 index <<< n = BitVec.ofNat 6
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_shiftLeft, BitVec.toNat_ofNat, Nat.shiftLeft_eq, Nat.mod_mul_mod]
 theorem drv_entry {im : Image} (hc : NewCodeAt im) (N : HashOutput) (s : MachineState) (hpc : s.pc = pcOf base)
-    (h5 : s.getReg .x5 = 0) (hN : OutAt s 0x60 N) (hg : N.toNat / 2 ^ 234 % 2 ^ 14 < 5) :
+    (h5 : s.getReg .x5 = 0) (hN : OutAt s 0x60 N) (hg : N.toNat / 2 ^ 234 % 2 ^ 22 < 2047) :
     ∃ t, Steps im s 31 31 t ∧ t.pc = pcOf (base + 34) ∧ DRegs (N.toNat % 2 ^ 31) t ∧
       t.getReg .x8 = BitVec.ofNat 64 (regBase (0 - 1)) ∧
       t.getReg .x28 = BitVec.ofNat 64 (HB0 + 2048 + 512 * (0 - 1)) ∧
@@ -552,8 +548,8 @@ theorem drv_entry {im : Image} (hc : NewCodeAt im) (N : HashOutput) (s : Machine
   have x3_2 : u2.getReg .x3 = 1#64 := by
     simp only [hu2, Result.toState_getReg, blk_4.res, rv_simp, m1, hw, hw3, BitVec.toNat_ofNat, Nat.reduceMod,
       Nat.reducePow]
-    have hlt : BitVec.ult ((N.extractLsb' 192 64 <<< 8) >>> 50) 5#64 = true := by
-      simp only [BitVec.ult, gate_toNat N, show (5#64 : Word).toNat = 5 from rfl, decide_eq_true_eq]; exact hg
+    have hlt : BitVec.ult (N.extractLsb' 192 64 >>> 42) 2047#64 = true := by
+      simp only [BitVec.ult, gate22_toNat N, show (2047#64 : Word).toNat = 2047 from rfl, decide_eq_true_eq]; exact hg
     simp [hlt]
   have s3 := symRun_sound blk_9 (codeAt_9 hc) u2 p2 (by simp [blk_9.res, rv_simp])
   set u3 := blk_9.res.toState u2 with hu3

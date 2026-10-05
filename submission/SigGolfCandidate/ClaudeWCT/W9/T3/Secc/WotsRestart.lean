@@ -1,19 +1,5 @@
 import SigGolfCandidate.T3.Secc.WotsRestart
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsRestartBase
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsContacts
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsTwoEdge
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsPrefixGame
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsPrefixGameSim
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsPrefixGameBase
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskRef
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsReference
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.SeccLaw
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEvents
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskCharge
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMask
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskChain
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskBase
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskRest
 
 namespace ClaudeWCT.W9.T3.Security.Wots
 open SigGolfCandidate SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
@@ -46,9 +32,9 @@ theorem reference_map_eq_mixture_of (q : Nat) (a : ChainAddr) (ha : WotsExtract.
       (restLaw adversary).bind (fun R =>
         (realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (game R) (fun _ _ => none)).map (g R)) := by
   have htree : a.key.tree < 2 ^ 40 := by have := ha.1.1; omega
-  have hleaf : a.key.leaf < 2 ^ 32 := by
+  have hleaf : a.key.leaf < 2 ^ 24 := by
     have h1 := ha.1.2
-    have h2 : 2 ^ height a.key.lay ≤ 2 ^ 32 := Nat.pow_le_pow_right (by norm_num) (by
+    have h2 : 2 ^ height a.key.lay ≤ 2 ^ 24 := Nat.pow_le_pow_right (by norm_num) (by
       have := height_le a.key.lay; omega)
     omega
   rw [reference_eq_bind, PMF.map_bind, restLaw_resample adversary a]
@@ -105,7 +91,7 @@ theorem reference_expectation_eq_of (q : Nat) (a : ChainAddr) (ha : WotsExtract.
   simp only [SphincsSecurity.Concrete.PartialChainEndpoint.expectation_map,
     SphincsSecurity.Concrete.PartialChainEndpoint.expectation_bind] at h
   exact h
-theorem fixed_pausedSeed (q : Nat) (a : ChainAddr) (htree : a.key.tree < 2 ^ 40) (hleaf : a.key.leaf < 2 ^ 32)
+theorem fixed_pausedSeed (q : Nat) (a : ChainAddr) (htree : a.key.tree < 2 ^ 40) (hleaf : a.key.leaf < 2 ^ 24)
     (R : RefTables adversary) (x : Hidden (restDepth a R)) (stop : List Entry → Prop) :
     simulateQ (fixedImpl SphincsSecurity.Concrete.OtsPrefix.uniformImpl x.1)
         (pausedSeed adversary q a R stop (evaluate x.1 x.2)) =
@@ -126,9 +112,9 @@ theorem coupled_paused (q : Nat) (a : ChainAddr) (ha : WotsExtract.SourceChain a
       (∀ j, j < res.1.1.length → ¬stop ((traceOf (restTable (ov a (restDepth a R) R x)) res.1.2.2).take j)) ∧
       (stop res.1.1 ∨ res.1.1 = traceOf (restTable (ov a (restDepth a R) R x)) res.1.2.2) := by
   have htree : a.key.tree < 2 ^ 40 := by have := ha.1.1; omega
-  have hleaf : a.key.leaf < 2 ^ 32 := by
+  have hleaf : a.key.leaf < 2 ^ 24 := by
     have h1 := ha.1.2
-    have h2 : 2 ^ height a.key.lay ≤ 2 ^ 32 := Nat.pow_le_pow_right (by norm_num) (by
+    have h2 : 2 ^ height a.key.lay ≤ 2 ^ 24 := Nat.pow_le_pow_right (by norm_num) (by
       have := height_le a.key.lay; omega)
     omega
   have hfst : res.1 ∈ (simulateQ (fixedImpl SphincsSecurity.Concrete.OtsPrefix.uniformImpl x.1)
@@ -312,10 +298,10 @@ theorem reference_contactAfterStop_le (adversary : AdversaryP) (q : Nat) (hq : q
         mul_le_mul' le_rfl (hR R)
     _ = ((2 * q : ℕ) : ENNReal) * (restLaw adversary R * Pr[genStop R |
         realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (game R) (fun _ _ => none)]) := by ring
-theorem markerAt_maskAt (T : Answers) (trace : List Entry) (a : ChainAddr) :
+theorem markerAt_maskAt (T : Answers) (trace : List Entry) (a : ChainAddr) (hal : Mask.MaskOK a) :
     MarkerAt (maskAt T a) trace a ↔ MarkerAt T trace a := by
   unfold MarkerAt
-  rw [referenceInput_maskAt, referenceDigits_maskAt]
+  rw [referenceInput_maskAt _ _ hal, referenceDigits_maskAt _ _ hal]
 theorem markerAt_take_exists (T : Answers) (trace : List Entry) (a : ChainAddr) :
     (∃ k, MarkerAt T (trace.take k) a) ↔ MarkerAt T trace a := by
   constructor
@@ -330,7 +316,11 @@ theorem reference_markerFirst_at_le (adversary : AdversaryP) (q : Nat) (hq : q <
           referenceExperiment adversary q]) ≤
       ((2 * q : ℕ) : ENNReal) * Pr[fun s => MarkerAt s.answers s.trace a | referenceExperiment adversary q] := by
   have h := reference_contactAfterStop_le adversary q hq a ha (fun T trace => MarkerAt T trace a)
-    (fun T trace => markerAt_maskAt T trace a)
+    (fun T trace => markerAt_maskAt T trace a (Mask.maskOK_of_lt (by
+      have h1 := ha.1.2
+      have h2 : 2 ^ height a.key.lay ≤ 2 ^ 24 := Nat.pow_le_pow_right (by norm_num) (by
+        have := height_le a.key.lay; omega)
+      omega)))
   simpa only [markerAt_take_exists] using h
 open PrefixGame in
 theorem reference_contactAfterStop_charge (adversary : AdversaryP) (q : Nat) (hq : q < 2 ^ 128) (a : ChainAddr)

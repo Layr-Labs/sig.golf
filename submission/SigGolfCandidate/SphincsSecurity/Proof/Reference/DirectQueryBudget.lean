@@ -1,4 +1,3 @@
-import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Hypertree.RootCache
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Secrets
 import SigGolfCandidate.SphincsSecurity.Proof.Reference.SigningTrace

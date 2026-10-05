@@ -1,5 +1,4 @@
 import SigGolfCandidate.T3M.Verify.Judg
-import SigGolfCandidate.T3M.Sim
 import SigGolfCandidate.T3M.Mem
 import SigGolfCandidate.T3M.Witness.Layout
 

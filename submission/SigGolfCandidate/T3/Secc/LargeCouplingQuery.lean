@@ -1,7 +1,6 @@
 import SigGolfCandidate.T3.Secc.LargeCouplingObserved
 import SigGolfCandidate.T3.Secc.LargeCouplingSign
 import SigGolfCandidate.T3.Secc.LargeCouplingTrace
-import SigGolfCandidate.T3.Secc.WotsStructuralHonest
 import SigGolfCandidate.T3.Secc.WotsClasses
 
 namespace SigGolfCandidate.T3.Security.LargeCoupling

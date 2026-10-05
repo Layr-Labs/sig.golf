@@ -1,12 +1,9 @@
-import SigGolfCandidate.T3.Secc.LargeContactWalk
 import SigGolfCandidate.T3.Secc.PairGuessFinal
 import SigGolfCandidate.T3.Secc.LargeCouplingCertDefs
 import SigGolfCandidate.T3.Secc.LargeContactCase
 import SigGolfCandidate.T3.Secc.SeccSufRoute
 
 section
-
-
 namespace SigGolfCandidate.T3.Security.LargeCoupling.CertLeaf
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Final
@@ -238,11 +235,7 @@ theorem verifyP_leaf_queried (answers : Correctness.Answers) (m : Message) (pk :
   exact hq'
 end SigGolfCandidate.T3.Security.LargeCoupling.CertLeaf
 end
-
 section
-
-
-
 namespace SigGolfCandidate.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final SigGolfCandidate.T3M.SecurityExtraction
@@ -688,10 +681,7 @@ theorem birthInv_steps (X : HashInput) (N : HashOutput) (hXU : X ∈ U) (hXd : I
 end Fold
 end SigGolfCandidate.T3.Security.LargeCoupling
 end
-
 section
-
-
 namespace SigGolfCandidate.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final SigGolfCandidate.T3M.SecurityExtraction

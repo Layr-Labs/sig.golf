@@ -1,12 +1,7 @@
-import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.EncodingProbability
-import SigGolfCandidate.SphincsSecurity.Proof.Base.UniformTableRestriction
 import SigGolfCandidate.SphincsSecurity.Proof.Residual.RetainedObservation
 
 section
-
-
-
 namespace SphincsSecurity.Concrete.HiddenLabelProbe
 open _root_.OracleComp OracleSpec ENNReal
 attribute [local instance] Classical.propDecidable
@@ -90,11 +85,7 @@ theorem prob_match_le_rounds (allowed : Coordinate → Finset Digest)
   prob_match_le allowed ha child parent candidate _ hmin
 end SphincsSecurity.Concrete.HiddenLabelProbe
 end
-
 section
-
-
-
 namespace SphincsSecurity.Concrete.HiddenLabelObservation
 open _root_.OracleComp OracleSpec ENNReal UniformTableCompletion RetainedObservation
 attribute [local instance] Classical.propDecidable

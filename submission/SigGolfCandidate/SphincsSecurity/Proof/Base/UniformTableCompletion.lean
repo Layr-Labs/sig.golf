@@ -1,8 +1,6 @@
-import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Base.UniformTableRestriction
 
 section
-
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp ENNReal
 attribute [local instance] Classical.propDecidable
@@ -57,10 +55,7 @@ theorem pairedMissAllowed_card_lower (allowed : ι → Finset α) (child parent 
     Nat.sub_le (allowed coordinate).card 1
 end SphincsSecurity.Concrete
 end
-
 section
-
-
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp ENNReal
 attribute [local instance] Classical.propDecidable
@@ -96,11 +91,7 @@ theorem uniformTable_disclose_mass (allowed : ι → Finset α)
     · rw [if_neg hlabels]
 end SphincsSecurity.Concrete
 end
-
 section
-
-
-
 namespace SphincsSecurity.Concrete.UniformTableCompletion
 open _root_.OracleComp ENNReal
 attribute [local instance] Classical.propDecidable

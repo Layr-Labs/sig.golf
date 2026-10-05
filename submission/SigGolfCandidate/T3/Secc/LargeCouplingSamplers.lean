@@ -1,7 +1,6 @@
 import SigGolfCandidate.T3.Secc.LargeCouplingSwap
 
 section
-
 namespace SigGolfCandidate.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final SigGolfCandidate.T3M.SecurityInputs
@@ -243,9 +242,7 @@ theorem coherent_psi (vals : Coord → Digest) (nv : Message → Digest) (τ : U
 end Coherence
 end SigGolfCandidate.T3.Security.LargeCoupling
 end
-
 section
-
 namespace SigGolfCandidate.T3.Security.LargeCoupling.Samplers
 open OracleComp
 open SigGolfCandidate.T3 SigGolfCandidate.T3M

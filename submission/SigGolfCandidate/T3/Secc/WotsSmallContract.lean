@@ -1,12 +1,7 @@
-import SigGolfCandidate.T3.Gate6.MomentNumeric
-import SigGolfCandidate.T3.Gate6.SourceBudget
-import SigGolfCandidate.T3.BPORS
 import SigGolfCandidate.T3.Secc.WotsTransportSplit
 import SigGolfCandidate.T3.Secc.PairGuessWorld
 
 section
-
-
 namespace SigGolfResearch.Gate3Closing115
 open ENNReal SigGolfResearch.Gate6.Moments.Numeric
 set_option maxHeartbeats 1000000
@@ -99,10 +94,7 @@ end SigGolfResearch.Gate3Closing115
 #print axioms SigGolfResearch.Gate3Closing115.small_closing_real
 #print axioms SigGolfResearch.Gate3Closing115.large_closing_real
 end
-
 section
-
-
 namespace SigGolfCandidate.T3.Security.SeccClosing
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3M.Final
@@ -306,11 +298,7 @@ theorem securityP_of_routes
   simpa only [secTerms, add_assoc] using key
 end SigGolfCandidate.T3.Security.SeccClosing
 end
-
 section
-
-
-
 namespace SigGolfCandidate.T3.Security.Wots
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final

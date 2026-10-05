@@ -5,7 +5,7 @@ namespace ClaudeWCT.Bank.WCT
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open SphincsSecurity.Concrete (uniformWordAverage)
-open ClaudeWCT.WCT9 (Coord Child Rank child rank digit)
+open ClaudeWCT.WCT9 (Coord Child Rank child rank wordDigit)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
@@ -14,10 +14,10 @@ abbrev WProposal := Fin (2 ^ 31) × (Coord → Child × Rank)
 def outIdx (x : HashOutput) : Fin (2 ^ 31) := ⟨x.toNat % 2 ^ 31, Nat.mod_lt _ (by positivity)⟩
 def proposal (x : HashOutput) : WProposal := (outIdx x, fun k => (child x k, rank x k))
 def SlotCovered (X : List HashOutput) (N : HashOutput) (k : Coord) (t : Fin 7) : Prop :=
-  ∃ x ∈ X, outIdx x = outIdx N ∧ child x k = child N k ∧ digit (rank N k) t ≤ digit (rank x k) t
+  ∃ x ∈ X, outIdx x = outIdx N ∧ child x k = child N k ∧ wordDigit (rank N k) t ≤ wordDigit (rank x k) t
 def Covered (X : List HashOutput) (N : HashOutput) : Prop := ∀ k t, SlotCovered X N k t
 def SlotCoveredP (W : List WProposal) (N : HashOutput) (k : Coord) (t : Fin 7) : Prop :=
-  ∃ p ∈ W, p.1 = outIdx N ∧ (p.2 k).1 = child N k ∧ digit (rank N k) t ≤ digit (p.2 k).2 t
+  ∃ p ∈ W, p.1 = outIdx N ∧ (p.2 k).1 = child N k ∧ wordDigit (rank N k) t ≤ wordDigit (p.2 k).2 t
 def CoveredP (W : List WProposal) (N : HashOutput) : Prop := ∀ k t, SlotCoveredP W N k t
 theorem slotCovered_iff (X : List HashOutput) (N : HashOutput) (k : Coord) (t : Fin 7) :
     SlotCovered X N k t ↔ SlotCoveredP (X.map proposal) N k t := by
@@ -65,14 +65,34 @@ def AcceptedProposalUniform : Prop :=
         Pr[fun x : HashOutput => WCT9.admissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)]
 def AcceptanceBound : Prop :=
   Pr[fun x : HashOutput => WCT9.admissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 1 / 64
+abbrev Coords := Coord → Child × Rank
+def capOkC (c : Coords) : Bool := decide ((∑ k, WCT9.routineCost (c k).2) ≤ WCT9.jointCap)
+noncomputable def capSet : Finset Coords := Finset.univ.filter fun c => capOkC c = true
+noncomputable def honestCoordLaw (c : Coords) : ENNReal :=
+  if capOkC c = true then (capSet.card : ENNReal)⁻¹ else 0
+noncomputable def honestLaw : WProposal → ENNReal :=
+  ClaudeWCT.Numerics.Law.marked (α := Fin (2 ^ 31)) honestCoordLaw
+def HonestLawSum : Prop := ∑ p, honestLaw p = 1
+def AcceptedProposalHonest : Prop :=
+  ∀ g : WProposal → ENNReal,
+    expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+        (fun x => if WCT9.producerAdmissible x = true then g (proposal x) else 0) =
+      (∑ p, honestLaw p * g p) *
+        Pr[fun x : HashOutput => WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)]
+def ProducerAcceptanceBound : Prop :=
+  Pr[fun x : HashOutput => WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 1 / 64
 def ExcessBound (horizon : Nat) (rate : ENNReal) : Prop :=
-  uniformWordAverage horizon (fun W : List WProposal => price W - CaseC.theta) ≤ rate
-noncomputable def wctSpec (hacc : AcceptedProposalUniform) (hle : AcceptanceBound) (horizon : Nat) (rate : ENNReal)
+  ClaudeWCT.Numerics.Law.lawAvg honestLaw horizon (fun W : List WProposal => price W - CaseC.theta) ≤ rate
+noncomputable def wctSpec (hsum : HonestLawSum) (hacc : AcceptedProposalHonest) (hle : ProducerAcceptanceBound)
+    (hprod : ∃ x, WCT9.producerAdmissible x = true) (horizon : Nat) (rate : ENNReal)
     (hexc : ExcessBound horizon rate) : FtsBankSpec WProposal where
   admissible := WCT9.admissible
-  exists_admissible := ⟨0, admissible_zero⟩
+  producer := WCT9.producerAdmissible
+  exists_producer := hprod
   acceptance_le := hle
   proposal := proposal
+  law := honestLaw
+  law_sum := hsum
   accepted_proposal := hacc
   score := score
   covered := Covered

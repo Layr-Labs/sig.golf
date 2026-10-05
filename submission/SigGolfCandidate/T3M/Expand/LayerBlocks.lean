@@ -1,11 +1,8 @@
 import SigGolfCandidate.T3M.Expand.Blocks
 import SigGolfCandidate.T3M.Sign.Basic
 import SigGolfCandidate.T3M.Expand.PackedHeader
-import SigGolfCandidate.T3M.Keygen.PackedShared
 
 section
-
-
 namespace SigGolfCandidate.T3M.Expand.BCBlocks
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 abbrev ENC : Nat := 0x20260
@@ -156,12 +153,7 @@ theorem finish_spec (s : MachineState) (hpc : s.pc = pcOf 1117) (ret : Nat)
   · exact (fsw.trans tf).mono (by intro A hA h; simpa using h)
 end SigGolfCandidate.T3M.Expand.BCBlocks
 end
-
 section
-
-
-
-
 namespace SigGolfCandidate.T3M.Expand
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3M.Search (DIGITS NODE NOUT ENC)

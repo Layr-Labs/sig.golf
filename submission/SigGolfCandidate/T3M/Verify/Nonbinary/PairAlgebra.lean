@@ -1,4 +1,3 @@
-import SigGolfCandidate.T3M.Search.TopTables
 import SigGolfCandidate.T3M.Search.TopTail
 
 namespace SigGolfCandidate.T3M.Verify.Nonbinary
@@ -70,12 +69,12 @@ theorem compressedSum_target (f : Nat → Nat) (tail target : Nat) (ht : target 
     have h2 := fullSum_bad f i hi hb
     omega
 def pairedLookupSum (v : Digest) : Nat := compressedSum (topRank v) + tailWeight v
-theorem pairedLookupSum_eq_iff (v : Digest) : pairedLookupSum v = 126 ↔ topLookupSum v = 126 := by
-  change compressedSum (topRank v) + tailWeight v = 126 ↔ _
+theorem pairedLookupSum_eq_iff (v : Digest) : pairedLookupSum v = 128 ↔ topLookupSum v = 128 := by
+  change compressedSum (topRank v) + tailWeight v = 128 ↔ _
   rw [compressedSum_target _ _ _ (by decide)]
   rfl
 theorem decode_top_paired (v : Digest) :
     SigGolfCandidate.T3.decode 0 v =
-      if v.toNat < 2 ^ 125 ∧ pairedLookupSum v = 126 then some (topDigits v) else none := by
+      if v.toNat < 2 ^ 125 ∧ pairedLookupSum v = 128 then some (topDigits v) else none := by
   simp only [decode_top_lookup,pairedLookupSum_eq_iff]
 end SigGolfCandidate.T3M.Verify.Nonbinary

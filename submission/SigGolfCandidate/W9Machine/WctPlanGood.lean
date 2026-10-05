@@ -3,8 +3,6 @@ import SigGolfCandidate.W9Machine.WctJudg
 import SigGolfCandidate.W9Machine.WctRoutineModel
 
 section
-
-
 namespace W9Machine
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.Rv OracleComp SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
@@ -28,10 +26,7 @@ theorem chainPiece_shortHash {β : Type} (p : ChainPiece)
     (GoodQFor.shortHash_bind (chainPiece_ecall p hlink hcheck s hob hstop) h5 hv hin h)
 end W9Machine
 end
-
 section
-
-
 namespace W9Machine
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify RiscvZkvm.Rv64

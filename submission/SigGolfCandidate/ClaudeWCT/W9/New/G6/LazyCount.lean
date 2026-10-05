@@ -1,7 +1,6 @@
 import SigGolfCandidate.ClaudeWCT.W9.New.G6.LazyCouple
 
 section
-
 namespace ClaudeWCT.W9.T3.Security.WPair
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -292,9 +291,7 @@ theorem worldGameL_ghosts (g : Guess.GCoord → Digest) (adversary : AdversaryP)
 end WorldGhost
 end ClaudeWCT.W9.T3.Security.WPair
 end
-
 section
-
 namespace ClaudeWCT.W9.T3.Security.WPair
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -463,7 +460,7 @@ theorem queried_wctDigestSearch_succ (A : Answers) (rho : Digest) (m : Message) 
     SigGolfCandidate.T3M.SecurityExtraction.queried A (WCT9.digestSearch rho m counter (fuel + 1)) =
       (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 counter)))) : SigGolfCandidate.T3.Spec.Domain) ::
         SigGolfCandidate.T3M.SecurityExtraction.queried A
-          (if WCT9.admissible (A (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 counter)))))) = true
+          (if WCT9.producerAdmissible (A (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 counter)))))) = true
             then pure (some (BitVec.ofNat 32 counter,
               A (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 counter)))))))
             else WCT9.digestSearch rho m (counter + 1) fuel) := by
@@ -493,7 +490,7 @@ theorem searchL_counts (g : Guess.GCoord → Digest) (rho : Digest) (m : Message
         rw [congrArg Prod.fst (fixedRun_pure_nonzero g _ _ _ h),
           answers_digest hU ω g _ (SigGolfCandidate.T3.Security.BPair.digestInput_mem _ _ _)]
       rw [queried_wctDigestSearch_succ, ← hv1]
-      by_cases hadm : WCT9.admissible m1.1 = true
+      by_cases hadm : WCT9.producerAdmissible m1.1 = true
       · simp only [hadm, ↓reduceIte] at hr ⊢
         rw [runL_pure_nonzero _ g _ _ r hr]
         refine ⟨hb1, he1, fun x hx => ?_⟩

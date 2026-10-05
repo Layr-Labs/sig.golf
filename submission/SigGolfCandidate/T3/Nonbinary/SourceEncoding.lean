@@ -3,8 +3,6 @@ import SigGolfCandidate.SphincsSecurity.Completeness.Uniform
 import SigGolfCandidate.T3.Nonbinary.SourceDigits
 
 section
-
-
 namespace SigGolfResearch.NonbinaryTop.Decoder
 open scoped BigOperators
 open Codec Counting
@@ -67,11 +65,11 @@ theorem encodeN_parse {n x : Nat} {d : (Fin n → Triple5) × Triple4}
         exact Nat.mod_add_div x 128
     · contradiction
 def decode (d : Fin (2^128)) : Option Word :=
-  (parse 17 d.val).filter fun w => decide (weight w=126)
+  (parse 17 d.val).filter fun w => decide (weight w=128)
 theorem encodeN_word (w : Word) : encodeN w=encode w := rfl
 attribute [local irreducible] encodeN Codec.encode Codec.pack Codec.ranks
 theorem decode_some_iff (d : Fin (2^128)) (w : Word) :
-    decode d=some w ↔ digest w=d ∧ weight w=126 := by
+    decode d=some w ↔ digest w=d ∧ weight w=128 := by
   constructor
   · intro h
     obtain ⟨hparse,hw⟩ := Option.filter_eq_some_iff.mp h
@@ -156,9 +154,7 @@ end SigGolfResearch.NonbinaryTop.Decoder
 #print axioms SigGolfResearch.NonbinaryTop.Decoder.decoder_bv_count
 #print axioms SigGolfResearch.NonbinaryTop.Decoder.encoding_uniform_probability
 end
-
 section
-
 namespace SigGolfResearch.NonbinaryTop.Decoder
 open Codec Counting
 set_option maxHeartbeats 1000000
@@ -222,10 +218,7 @@ theorem parse_fields {n x : Nat} {d : (Fin n → Triple5) × Triple4}
     · contradiction
 end SigGolfResearch.NonbinaryTop.Decoder
 end
-
 section
-
-
 namespace SigGolfCandidate.T3.Nonbinary
 open SigGolfResearch.NonbinaryTop
 open scoped BigOperators
@@ -292,7 +285,7 @@ theorem parse_top_isSome_iff (v : Digest) :
   simp only [show (128:Nat)=2^7 by decide,←pow_mul]
 theorem decode_top_eq_map (v : Digest) :
     T3.decode 0 v=(Decoder.decodeBV v).map wordDigits := by
-  change T3.decode 0 v=((Decoder.parse 17 v.toNat).filter fun w => decide (Counting.weight w=126)).map wordDigits
+  change T3.decode 0 v=((Decoder.parse 17 v.toNat).filter fun w => decide (Counting.weight w=128)).map wordDigits
   cases hp : Decoder.parse 17 v.toNat with
   | none =>
     have hn : ¬(v.toNat<2^125 ∧ topRanksValid v=true) := by
@@ -309,12 +302,12 @@ theorem decode_top_eq_map (v : Digest) :
     have hh := (parse_top_isSome_iff v).mp (by simp [hp])
     have hdata := dataDigits_parse hp
     have hbits : ¬ v.toNat ≥ 2^125 := by omega
-    by_cases hsum : Counting.weight w=126
+    by_cases hsum : Counting.weight w=128
     · simp only [T3.decode,encodedBits,ite_true,if_neg hbits,hh.2,Bool.true_and,
-        hdata,wordDigits_sum,show target 0=126 by rfl,hsum,decide_true,
+        hdata,wordDigits_sum,show target 0=128 by rfl,hsum,decide_true,
         if_true,decide_false,Bool.false_eq_true,if_false,Option.filter_some,Option.map_some,Option.map_none]
     · simp only [T3.decode,encodedBits,ite_true,if_neg hbits,hh.2,Bool.true_and,
-        hdata,wordDigits_sum,show target 0=126 by rfl,hsum,decide_true,
+        hdata,wordDigits_sum,show target 0=128 by rfl,hsum,decide_true,
         if_true,decide_false,Bool.false_eq_true,if_false,Option.filter_some,Option.map_some,Option.map_none]
 theorem decode_top_isSome (v : Digest) :
     (T3.decode 0 v).isSome=(Decoder.decodeBV v).isSome := by

@@ -1,9 +1,7 @@
-import SigGolfCandidate.T3.FullCache.Retag
 import SigGolfCandidate.T3.FullCache.Region
 import SigGolfCandidate.T3.Core
 
 section
-
 namespace SiggolfT3Mac4
 set_option autoImplicit false
 open OracleComp OracleSpec ENNReal SphincsSecurity
@@ -91,10 +89,7 @@ theorem uniform_key_pads [SampleableType MacKey] [SampleableType (LowKeys × Mac
   exact hm'.trans evalSPMF_map_fst_uniformSample_prod
 end SiggolfT3Mac4
 end
-
 section
-
-
 namespace SiggolfT3Mac4
 open OracleComp OracleSpec ENNReal
 set_option autoImplicit false
@@ -236,9 +231,7 @@ theorem identical_until_bad {α β : Type} (world : Public State) (bad : Request
                 exact ⟨entry,by simp [he],hbadEntry⟩
 end SiggolfT3Mac4.Adaptive
 end
-
 section
-
 namespace SiggolfT3Mac4.Adaptive
 open OracleComp OracleSpec ENNReal SphincsSecurity
 set_option autoImplicit false
@@ -315,9 +308,7 @@ theorem lifetime_mac_charge [SampleableType MacKey] {X : Type}
   norm_num [ENNReal.toReal_mul,ENNReal.toReal_inv,ENNReal.toReal_pow]
 end SiggolfT3Mac4.Adaptive
 end
-
 section
-
 namespace SiggolfT3Mac4.Adaptive
 open OracleComp OracleSpec ENNReal SphincsSecurity
 set_option autoImplicit false
@@ -400,9 +391,7 @@ theorem lifetime_authentication_hop [SampleableType MacKey] {α β : Type}
   norm_num [ENNReal.toReal_mul,ENNReal.toReal_inv,ENNReal.toReal_pow]
 end SiggolfT3Mac4.Adaptive
 end
-
 section
-
 namespace SiggolfT3Mac4.Adaptive
 open OracleComp OracleSpec ENNReal SphincsSecurity
 set_option autoImplicit false
@@ -497,10 +486,7 @@ theorem published_lifetime_authentication_hop
   norm_num [ENNReal.toReal_mul,ENNReal.toReal_inv,ENNReal.toReal_pow]
 end SiggolfT3Mac4.Adaptive
 end
-
 section
-
-
 namespace SiggolfT3Mac4.Source
 open OracleComp OracleSpec ENNReal SphincsSecurity
 set_option autoImplicit false

@@ -1,5 +1,4 @@
 import SigGolfCandidate.ClaudeWCT.GuessV2.WCTCoords
-import SigGolfCandidate.T3.Gate6.BPORSPrefix
 
 namespace ClaudeWCT.Guess
 open SigGolfCandidate.T3 ClaudeWCT.WCT9

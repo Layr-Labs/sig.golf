@@ -1,4 +1,3 @@
-import SigGolfCandidate.T3.Nonbinary.EncodingCounts
 import SigGolfCandidate.T3.Secc.WotsEncodingE1
 
 namespace SigGolfCandidate.T3.Security.Wots

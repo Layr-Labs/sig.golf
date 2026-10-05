@@ -7,12 +7,14 @@ open SphincsSecurity (bytesLE)
 def coordinates : Nat := 9
 def children : Nat := 128
 def chains : Nat := 7
-def gateBits : Nat := 14
+def gateBits : Nat := 22
+def gateLimit : Nat := 2047
 def fieldBits : Nat := 14
-def fieldLimit : Nat := 16016
+def fieldLimit : Nat := 16200
+def jointCap : Nat := 706
 abbrev Coord := Fin 9
 abbrev Child := Fin 128
-abbrev Rank := Fin 728
+abbrev Rank := Fin 600
 def wctHeader (tag lay tree position index : Nat) : BitVec 128 :=
   BitVec.ofNat 128 (1 + tag % 256 * 2 ^ 8 + lay % 256 * 2 ^ 16 +
     (tree / 2 ^ 32 % 256) * 2 ^ 24 + position % 2 ^ 32 * 2 ^ 32 +
@@ -23,17 +25,21 @@ def child (output : HashOutput) (coord : Coord) : Child :=
 def field (output : HashOutput) (coord : Coord) : Nat :=
   output.toNat / 2 ^ (coordBase coord.val + 7) % 2 ^ 14
 def rank (output : HashOutput) (coord : Coord) : Rank :=
-  ⟨field output coord % 728, Nat.mod_lt _ (by decide)⟩
+  ⟨field output coord % 600, Nat.mod_lt _ (by decide)⟩
 def admissible (output : HashOutput) : Bool :=
-  decide (output.toNat / 2 ^ 234 % 2 ^ 14 < 5) &&
+  decide (output.toNat / 2 ^ 234 % 2 ^ 22 < 2047) &&
     (List.range 9).all (fun coord =>
-      decide (output.toNat / 2 ^ (coordBase coord + 7) % 2 ^ 14 < 16016))
+      decide (output.toNat / 2 ^ (coordBase coord + 7) % 2 ^ 14 < 16200))
+def jointCost (output : HashOutput) : Nat :=
+  ((List.finRange 9).map fun coord => routineCost (rank output coord)).sum
+def capOk (output : HashOutput) : Bool := decide (jointCost output ≤ jointCap)
+def producerAdmissible (output : HashOutput) : Bool := admissible output && capOk output
 def digestSearch (rho : Digest) (message : Message) (counter : Nat) :
     Nat → M (Option (BitVec 32 × HashOutput))
   | 0 => pure none
   | fuel + 1 => do
       let output ← digest rho message (BitVec.ofNat 32 counter)
-      if admissible output then return some (BitVec.ofNat 32 counter, output)
+      if producerAdmissible output then return some (BitVec.ofNat 32 counter, output)
       digestSearch rho message (counter + 1) fuel
 def ftsChainLow (index coord selected chain step : Nat) : Nat :=
   0x80 + chain % 8 * 2 ^ 2 + step % 4 * 2 ^ 8 + coord % 16 * 2 ^ 16 + selected % 128 * 2 ^ 20 +
@@ -51,22 +57,26 @@ def chain (index coord selected i start count : Nat) (value : Digest) : M Digest
 def leafHash (index coord selected : Nat) (ends : List Digest) : M Digest :=
   shortHash (bytesLE 16 (ends.getD 0 0) ++
     bytesLE 16 (wctHeader 6 coord index 0 selected) ++ (ends.drop 1).flatMap (bytesLE 16))
-def buildChild (index coord selected : Nat) (word : Rank) : M (Digest × List Digest) := do
-  let state ← (List.finRange 4).foldlM
-    (fun (state : List Digest × List Digest) pair => do
-      let seeds ← privatePair 8 coord index 0 (4 * selected + pair.val)
-      (List.finRange 2).foldlM
-        (fun (state : List Digest × List Digest) half => do
-          if h : 2 * pair.val + half.val < 7 then
-            let i : Fin 7 := ⟨2 * pair.val + half.val, h⟩
-            let secret := if half.val = 0 then seeds.1 else seeds.2
-            let deficit := digit word i
-            let value ← chain index coord selected i.val 0 (3 - deficit) secret
-            let last ← chain index coord selected i.val (3 - deficit) deficit value
-            pure (state.1 ++ [last], state.2 ++ [value])
-          else pure state) state) ([], [])
+def seedHalf (seeds : Digest × Digest) (q : Nat) : Digest := if q % 2 = 0 then seeds.1 else seeds.2
+def packedSecret (pairQuery : Nat → M (Digest × Digest)) (q : Nat) (carry : Digest) : M (Digest × Digest) :=
+  if q % 2 = 0 then do
+    let seeds ← pairQuery (q / 2)
+    pure (seeds.1, seeds.2)
+  else pure (carry, carry)
+def ftsOrdinal (child chain : Nat) : Nat := 7 * child + chain
+def ftsSeedHeader (coord index pair : Nat) : BitVec 128 := header 8 coord index 0 pair
+def ftsSeedPair (index coord pair : Nat) : M (Digest × Digest) := privatePair 8 coord index 0 pair
+def buildChild (index coord selected : Nat) (word : Rank) (carry : Digest) :
+    M ((Digest × List Digest) × Digest) := do
+  let state ← (List.finRange 7).foldlM
+    (fun (state : List Digest × List Digest × Digest) i => do
+      let (secret, carry) ← packedSecret (ftsSeedPair index coord) (ftsOrdinal selected i.val) state.2.2
+      let deficit := wordDigit word i
+      let value ← chain index coord selected i.val 0 (3 - deficit) secret
+      let last ← chain index coord selected i.val (3 - deficit) deficit value
+      pure (state.1 ++ [last], state.2.1 ++ [value], carry)) ([], [], carry)
   let root ← leafHash index coord selected state.1
-  pure (root, state.2)
+  pure ((root, state.2.1), state.2.2)
 def nodeLayer (coord : Nat) : Nat := 4 + coord
 def wctNodeHeader (coord index heap : Nat) : BitVec 128 := header 3 (nodeLayer coord) index 0 heap
 def wctNodeHash (coord index heap : Nat) (left right : Digest) : M Digest :=
@@ -81,11 +91,11 @@ def heapLevels (heap : Array Digest) : List (List Digest) :=
 def buildCoordinate (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
     M (List (List Digest) × List Digest) := do
   let state ← (List.range 128).foldlM
-    (fun (state : List Digest × List Digest) j => do
-      let (root, values) ← buildChild index coord.val j word
-      pure (state.1 ++ [root], if j = selected.val then values else state.2)) ([], [])
+    (fun (state : List Digest × List Digest × Digest) j => do
+      let ((root, values), carry) ← buildChild index coord.val j word state.2.2
+      pure (state.1 ++ [root], (if j = selected.val then values else state.2.1), carry)) ([], [], 0)
   let nodes ← heapBuild index coord.val state.1
-  pure (heapLevels nodes, state.2)
+  pure (heapLevels nodes, state.2.1)
 def forestInput (index : Nat) (pairs : List (Digest × Digest)) : HashInput :=
   zero16 ++ bytesLE 16 (header 15 0 index 0 0) ++
     pairs.flatMap (fun p => bytesLE 16 p.1 ++ bytesLE 16 p.2)
@@ -110,6 +120,28 @@ def layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) (counter
       match searchDecode lay answer with
       | none => layerCounterSearch lay tree leaf msg (counter + 1) fuel
       | some digits => pure (some (BitVec.ofNat 32 counter, digits))
+def lowerOrdinal (lay : Layer) (leaf chain : Nat) : Nat := chainCount lay * leaf + chain
+def lowerSeedHeader (lay : Layer) (tree pair : Nat) : BitVec 128 := header 0 lay.val tree pair 0
+def lowerSeedPair (lay : Layer) (tree pair : Nat) : M (Digest × Digest) := privatePair 0 lay.val tree pair 0
+def buildLeafP (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
+    M ((Digest × List Digest) × Digest) := do
+  let state ← (List.range (chainCount lay)).foldlM
+    (fun (state : List Digest × List Digest × Digest) i => do
+      let (seed, carry) ← packedSecret (lowerSeedPair lay tree) (lowerOrdinal lay leaf i) state.2.2
+      let digit := digits.getD i 0
+      let value ← SigGolfCandidate.T3.chain lay tree leaf i 0 digit seed
+      let last ← SigGolfCandidate.T3.chain lay tree leaf i digit (maxDigit lay i - digit) value
+      pure (state.1 ++ [last], state.2.1 ++ [value], carry)) ([], [], carry)
+  let root ← SigGolfCandidate.T3.leafHash lay tree leaf state.1
+  pure ((root, state.2.1), state.2.2)
+def buildTreeP (lay : Layer) (tree selected : Nat) (digits : List Nat) :
+    M (List (List Digest) × List Digest) := do
+  let state ← (List.range (2 ^ height lay)).foldlM
+    (fun (state : List Digest × List Digest × Digest) leaf => do
+      let ((root, values), carry) ← buildLeafP lay tree leaf (if leaf = selected then digits else []) state.2.2
+      pure (state.1 ++ [root], (if leaf = selected then values else state.2.1), carry)) ([], [], 0)
+  let levels ← buildLevels 3 lay.val tree (height lay) state.1
+  pure (levels, state.2.1)
 def topLevel (lay : Layer) : Fin (height lay) :=
   ⟨height lay - 1, by fin_cases lay <;> decide⟩
 def topPair (lay : Layer) (levels : List (List Digest)) : Digest × Digest :=
@@ -125,7 +157,7 @@ def signLayersBC (cache : Cache) (index : Nat) : Nat → LayerMsg → M (Option 
         pure (some [part])
       else
         let some (_, digits) := found | pure none
-        let (levels, values) ← buildTree lay tree leaf digits
+        let (levels, values) ← buildTreeP lay tree leaf digits
         let path := (List.range (height lay)).map fun j =>
           (levels.getD j []).getD (leaf / 2 ^ j ^^^ 1) 0
         let top := topPair lay levels
@@ -218,7 +250,7 @@ def recoverCoordinate (sig : Signature) (index : Nat) (output : HashOutput) (coo
   let selected := child output coord
   let word := rank output coord
   let ends ← (List.finRange 7).mapM fun i =>
-    let deficit := digit word i
+    let deficit := wordDigit word i
     chain index coord.val selected.val i.val (3 - deficit) deficit ((sig.openings coord).values i)
   let root ← leafHash index coord.val selected.val ends
   let top ← (List.finRange 6).foldlM

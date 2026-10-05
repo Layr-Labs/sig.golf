@@ -1,10 +1,6 @@
-import Lean
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.Fetch
-import SigGolfCandidate.T3M.Sim
-import SigGolfCandidate.T3M.Mem
 
 section
-
 namespace ClaudeWCT.W9.Machine.Expand
 open Lean Meta Elab Tactic
 elab "krfl" : tactic => do
@@ -24,15 +20,11 @@ elab "krfl" : tactic => do
       replaceMainGoal []
 end ClaudeWCT.W9.Machine.Expand
 end
-
 section
-
-
-
-
 namespace ClaudeWCT.W9.Machine.Expand
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
+open ClaudeWCT.W9.Machine.VLib
 def windowOK (n : Nat) (ws : List (BitVec 32)) : Bool :=
   (List.range ws.length).all fun i => expLook (n + i) == ws[i]?
 theorem codeAt_of_look {im : Image} {look : Nat → Option (BitVec 32)} (hl : LookOK im look) (n : Nat)
