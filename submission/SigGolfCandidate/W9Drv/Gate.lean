@@ -12,7 +12,7 @@ def gJumpWords : List (BitVec 32) := [0x80006f]
 def gCheckWords : List (BitVec 32) :=
   [0x2181b13,0x7803183,0x819193,0x321d193,0x51b393,0x2039463]
 def gSetupWords : List (BitVec 32) :=
-  [0x21b5b13,0x1bb1793,0x10337,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x20b1893,0x84190413,0x1f013e03,0x1e013e83,0x1e813c03,0xffc30113]
+  [0x21b5b13,0x1bb1793,0x10337,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x20b1893,0x84190413,0x1c013d83,0x1e013e83,0x1e813c03,0xffc30113]
 def gRejectWords : List (BitVec 32) := [1049235,1049875,115]
 def gateE : E := .bin .sltu
   (.bin .srl (.bin .sll (.ld (.c (BitVec.ofNat 64 120))) (.c (BitVec.ofNat 64 8)))
@@ -25,8 +25,8 @@ def gCheck : Result :=
     .x22 (.bin .sll (.reg .x16) (.c (BitVec.ofNat 64 33))), [], []⟩,
     .ite .ne gateE (.c 0) (.c (pcOf 31)) (.c (pcOf 22)), .branch, 6, 6⟩
 def gSetup : Result :=
-  ⟨⟨(((((((((((((((RegFile.init).set .x2 (.c (BitVec.ofNat 64 0xfffc))).set .x6 (.c 65536)).set .x8 (.bin .add (.reg .x18) (.c (BitVec.ofNat 64 (2 ^ 64 - 1983))))).set .x13 (.c 2)).set .x15 (.bin .sll idxE (.c 27))).set .x17 (.bin .sll idxE (.c 32))).set .x19 (.c 3)).set .x20 (.c 4)).set .x21 (.c 5)).set .x22 (idxE)).set .x24 (.ld (addC (.reg .x2) 488))).set .x26 (.c 6)).set .x28 (.ld (addC (.reg .x2) 496))).set .x29 (.ld (addC (.reg .x2) 480))).set .x30 (.c 7), [],
-    [.valid ⟨some (.reg .x2), 488⟩ 8, .valid ⟨some (.reg .x2), 480⟩ 8, .valid ⟨some (.reg .x2), 496⟩ 8]⟩,
+  ⟨⟨(((((((((((((((RegFile.init).set .x2 (.c (BitVec.ofNat 64 0xfffc))).set .x6 (.c 65536)).set .x8 (.bin .add (.reg .x18) (.c (BitVec.ofNat 64 (2 ^ 64 - 1983))))).set .x13 (.c 2)).set .x15 (.bin .sll idxE (.c 27))).set .x17 (.bin .sll idxE (.c 32))).set .x19 (.c 3)).set .x20 (.c 4)).set .x21 (.c 5)).set .x22 (idxE)).set .x24 (.ld (addC (.reg .x2) 488))).set .x26 (.c 6)).set .x27 (.ld (addC (.reg .x2) 448))).set .x29 (.ld (addC (.reg .x2) 480))).set .x30 (.c 7), [],
+    [.valid ⟨some (.reg .x2), 488⟩ 8, .valid ⟨some (.reg .x2), 480⟩ 8, .valid ⟨some (.reg .x2), 448⟩ 8]⟩,
     .c (pcOf 46), .fuel, 15, 15⟩
 def gReject : Result :=
   ⟨⟨(RegFile.init.set .x5 (.c 1)).set .x10 (.c 1), [], []⟩, .c (pcOf 26), .ecall, 2, 2⟩
@@ -174,15 +174,16 @@ theorem gate_good (pk : Digest) (w : WBytes) (a : HashOutput)
       change s2.getMem (BitVec.ofNat 64 (setupMaskAddr + 24)) = _
       rw [m2']
       exact hu.setupMask.jt
-    have hhead : s3.getReg .x28 = BitVec.ofNat 64 (0xfee600 + 2048 + 512 * (0 - 1)) := by
+    have hnode0 : s3.getReg .x27 = BitVec.ofNat 64 (1 + 3 * 256 + 4 * 65536) := by
       rw [hs3, Result.toState_getReg]
-      change s2.getMem ((addC (.reg .x2) 496).eval s2) = _
+      change s2.getMem ((addC (.reg .x2) 448).eval s2) = _
       rw [addC_eval]
-      change s2.getMem (s2.getReg .x2 + 496) = _
+      change s2.getMem (s2.getReg .x2 + 448) = _
       rw [hsp2]
-      change s2.getMem (BitVec.ofNat 64 (setupMaskAddr + 32)) = BitVec.ofNat 64 0xfeee00
+      change s2.getMem (BitVec.ofNat 64 (0xfee600 + 512 * (0 : Fin 9).val + 448)) =
+        BitVec.ofNat 64 (1 + 3 * 256 + (4 + (0 : Fin 9).val) * 65536)
       rw [m2']
-      exact hu.setupMask.head
+      exact hu.bank.node 0
     have m3 : s3.mem = u.mem := (toState_mem_nil _ _ rfl).trans m2
     have e3 : ∀ A, s3.getMem A = u.getMem A := fun A => congrFun m3 A
     have r22 : s2.getReg .x22 = a.extractLsb' 0 64 <<< 33 := by
@@ -215,8 +216,9 @@ theorem gate_good (pk : Digest) (w : WBytes) (a : HashOutput)
         digest := ?_, bank := ?_, index := ?_, heaps := ?_,
         stepOne := ?_, stepTwo := rfl, hashLen := ?_, coordStep := rfl,
         prefixReg := ?_, nodeIndex := ?_, cached := ?_, nodeReg := fun h => absurd rfl h,
+        nodeZero := fun _ => hnode0,
         zero := ⟨(e3 _).trans hu.zero.1, (e3 _).trans hu.zero.2⟩,
-        mask := rfl, jt := hjt, childBlock := hchild, baseReg := ?_, headerReg := hhead,
+        mask := rfl, jt := hjt, childBlock := hchild, baseReg := ?_, headerReg := fun h => absurd rfl h,
         pairs := fun i hi => absurd hi (Nat.not_lt_zero _), coords := ?_, layer := ?_ }
       · intro k hk; rw [e3]; exact hu.digest k hk
       · exact ⟨fun k => (e3 _).trans (hu.bank.node k),

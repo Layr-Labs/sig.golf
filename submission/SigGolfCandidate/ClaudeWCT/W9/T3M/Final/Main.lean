@@ -45,7 +45,7 @@ theorem claimedC_eq : claimedC = verifyCycleBound + witnessCycles (submission I)
   rw [witnessCycles_eq]
   decide
 /-- The honest verify run under `hash` is the run under `okHash hash` (`Credit`), which satisfies `HashOk`. -/
-theorem submission_verificationBound (P : Pending I) : (submission I).VerificationBound 7651 := by
+theorem submission_verificationBound (P : Pending I) : (submission I).VerificationBound 7643 := by
   intro hash sk m
   dsimp only
   intro h
@@ -58,7 +58,7 @@ theorem submission_verificationBound (P : Pending I) : (submission I).Verificati
     (SigGolfCandidate.T3M.Verify.hashOk_okHash hash) hacc
   unfold verifyCycleBound at this
   omega
-theorem certificate_of (P : Pending I) (S : SourceFacts) : Certificate (submission I) 7651 where
+theorem certificate_of (P : Pending I) (S : SourceFacts) : Certificate (submission I) 7643 where
   admissible := P.admissible
   termination := submission_terminates P
   completeness := submission_complete P S
