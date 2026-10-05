@@ -157,7 +157,7 @@ def ok (c : LCtx) : Prop :=
     c.S6 + 2688 + 80 ≤ 0x7000 ∧ c.ck ≤ 8 ∧ c.ret < 209920 ∧ c.i0 ≤ 42 ∧
     c.tree < 2 ^ (31 - height c.lay) ∧ c.leaf < 2 ^ height c.lay
 def known (c : LCtx) : List (Reg × Word) :=
-  [(.x5, 0), (.x11, 64), (.x7, 1), (.x13, 2), (.x8, 3), (.x9, 4), (.x21, 5), (.x26, 6),
+  [(.x5, 0), (.x11, 64), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
    (.x28, BitVec.ofNat 64 (packedPrefix c.lay c.tree c.leaf + c.koff)), (.x2, 0x3fe00), (.x15, 0x6e000),
    (.x22, BitVec.ofNat 64 c.S6),
    (.x4, BitVec.ofNat 64 c.w1), (.x27, BitVec.ofNat 64 (0x401 + 65536 * c.lay.val)),
@@ -490,8 +490,8 @@ theorem posE_eval (c : LCtx) {s0 s : MachineState} (hk : ∀ p ∈ c.known, s0.g
   · rfl
   · exact kr .x7 1 (by simp [known]) (by decide)
   · exact kr .x13 2 (by simp [known]) (by decide)
-  · exact kr .x8 3 (by simp [known]) (by decide)
-  · exact kr .x9 4 (by simp [known]) (by decide)
+  · exact kr .x19 3 (by simp [known]) (by decide)
+  · exact kr .x20 4 (by simp [known]) (by decide)
   · exact kr .x21 5 (by simp [known]) (by decide)
   · exact kr .x26 6 (by simp [known]) (by decide)
 theorem w0_low (c : LCtx) (hc : c.ok) (i m : Nat) (hi : i ≤ 42) (hm : m < 256) :
