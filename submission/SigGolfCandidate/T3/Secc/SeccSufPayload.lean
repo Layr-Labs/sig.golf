@@ -495,7 +495,8 @@ theorem layers_payload (answers : Answers) (published : T3.Cache)
                 have htop := Correctness.eval_signTop_honest answers published (route (N.toNat % 2 ^ 31) 0).1 digitsG hcache
                   (route_leaf_bound (N.toNat % 2 ^ 31) 0) hvalid
                 refine ⟨[Correctness.honestPieces answers 0 0 (route (N.toNat % 2 ^ 31) 0).1 digitsG], ?_, rfl, ?_⟩
-                · simp only [signLayers, evalWithAnswerFn_bind, hs, ite_true, evalWithAnswerFn_pure]
+                · simp only [signLayers, evalWithAnswerFn_bind, hs, ite_true, evalWithAnswerFn_pure,
+                    Option.map_some, Option.getD_some]
                   rw [show (Fin.ofNat 4 0 : Layer) = 0 from rfl, htop]
                 · intro lay hlay
                   have hl0 : lay = 0 := Fin.ext (by simp at hlay ⊢; omega)

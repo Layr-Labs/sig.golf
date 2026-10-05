@@ -30,6 +30,8 @@ def lowerCount195 : ℕ := 217433284086354415880083123326127992
 def lowerCount196 : ℕ := 177063161351702039889196043868193572
 def lowerCount197 : ℕ := 143468572474466315422327516384120300
 def topCount126 : ℕ := 183707182173445436457863622839156476
+/-- Weight-126 top words with credit at least the producer floor 9 (`CreditCounting.count`). -/
+def topCountCredit : ℕ := 169880087395417918897451495310468748
 namespace V2b
 def p0 : ℚ := 5 * 16016 ^ 9 / 2 ^ 140
 def b0 : ℚ := 1021721556316 / 1000000000000
@@ -38,9 +40,9 @@ theorem probability_floor : 1 / 4021 ≤ p0 ∧ p0 ≤ 1 / 4020 := by norm_num [
 theorem p0_ge_5026 : 1 / 5026 ≤ p0 := by norm_num [p0]
 theorem p0_nonneg : 0 ≤ p0 := by norm_num [p0]
 theorem p0_le_one : p0 ≤ 1 := by norm_num [p0]
-def p1 : ℚ := topCount126 / 2 ^ 128
-def b1 : ℚ := 1009892452433 / 1000000000000
-theorem step_1 : zU * ((1 - p1) * b1 + p1) ≤ b1 := by norm_num [zU, p1, b1, topCount126]
+def p1 : ℚ := topCountCredit / 2 ^ 128
+def b1 : ℚ := 1010706251873 / 1000000000000
+theorem step_1 : zU * ((1 - p1) * b1 + p1) ≤ b1 := by norm_num [zU, p1, b1, topCountCredit]
 def p2 : ℚ := lowerCount197 / 2 ^ 128
 def b2 : ℚ := 1012702229908 / 1000000000000
 theorem step_2 : zU * ((1 - p2) * b2 + p2) ≤ b2 := by norm_num [zU, p2, b2, lowerCount197]
@@ -96,13 +98,13 @@ theorem fixedSign_eq : fixedSign = 2 + 2 + ftsSign + 85922 := by norm_num [fixed
 theorem fixedSign_add_seven : fixedSign + 7 = 118176 := by norm_num [fixedSign]
 theorem signing_envelope_le :
     (2 : ℝ) ^ ((118169 : ℝ) / 131072) *
-      ((V2b.b0 : ℝ) * (V2b.b1 : ℝ) * (V2b.b2 : ℝ) * (V2b.b3 : ℝ) * (V2b.b4 : ℝ)) ≤ 19973 / 10000 := by
+      ((V2b.b0 : ℝ) * (V2b.b1 : ℝ) * (V2b.b2 : ℝ) * (V2b.b3 : ℝ) * (V2b.b4 : ℝ)) ≤ 19990 / 10000 := by
   have hsplit : (2 : ℝ) ^ ((118169 : ℝ) / 131072) = 2 / (2 : ℝ) ^ ((12903 : ℝ) / 131072) := by
     rw [_root_.eq_div_iff (by positivity), ← Real.rpow_add (by norm_num)]
     norm_num
   have hlo := SigGolfCandidate.Budget.rpow_two_ge (12903 / 131072) (by norm_num)
   have hn : 2 * ((V2b.b0 : ℝ) * (V2b.b1 : ℝ) * (V2b.b2 : ℝ) * (V2b.b3 : ℝ) * (V2b.b4 : ℝ)) ≤
-      19973 / 10000 *
+      19990 / 10000 *
         (1 + 0.6931471803 * (12903 / 131072) + (0.6931471803 * (12903 / 131072)) ^ 2 / 2) := by
     norm_num [V2b.b0, V2b.b1, V2b.b2, V2b.b3, V2b.b4]
   rw [hsplit, div_mul_eq_mul_div, div_le_iff₀ (by positivity)]

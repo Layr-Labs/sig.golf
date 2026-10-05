@@ -994,7 +994,8 @@ def signItemsWith (digitsOf : Wots.LeafAddr → List Nat) (N : HashOutput) : Lis
   ftsItems (digestIndex N) (selections N) ++ layerItems digitsOf (digestIndex N)
 noncomputable def signItems (A : Answers) (N : HashOutput) : List Coord :=
   signItemsWith (Wots.referenceDigits A) N
-def RouteOk (A : Answers) (index : Nat) : Prop := ∀ lay : Layer, (Wots.referenceSearch A (routeAddr index lay)).isSome
+def RouteOk (A : Answers) (index : Nat) : Prop :=
+  ∀ lay : Layer, lay ≠ 0 → (Wots.referenceSearch A (routeAddr index lay)).isSome
 noncomputable def signDigest (A : Answers) (message : Message) : Option (BitVec 32 × HashOutput) :=
   evalWithAnswerFn A (digestSearch (evalWithAnswerFn A (privateNonce message)) message 0 attemptLimit)
 noncomputable def signDisclosed (A : Answers) (published : T3.Cache) (request : SigGolfCandidate.T3.Security.Request) :

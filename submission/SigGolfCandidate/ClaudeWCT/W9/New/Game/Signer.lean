@@ -125,8 +125,8 @@ theorem signLayersBC_allowed' (cache : SigGolfCandidate.T3.Cache)
       apply SourceQueries.bind_allowed P (layerCounterSearch_allowed' P henc _ _ _ _ _ _)
       intro found
       split
+      · exact SourceQueries.bind_allowed P (htop _ _) fun _ => SourceQueries.pure_allowed P _
       · split
-        · exact SourceQueries.bind_allowed P (htop _ _) fun _ => SourceQueries.pure_allowed P _
         · apply SourceQueries.bind_allowed P (hbuild _ _ _ _)
           intro built
           apply SourceQueries.bind_allowed P (ih _)
@@ -134,7 +134,7 @@ theorem signLayersBC_allowed' (cache : SigGolfCandidate.T3.Cache)
           split
           · exact SourceQueries.pure_allowed P _
           · exact SourceQueries.pure_allowed P _
-      · exact SourceQueries.pure_allowed P _
+        · exact SourceQueries.pure_allowed P _
 include hpublic in
 theorem signLayersBC_allowed (cache : SigGolfCandidate.T3.Cache)
     (hbuild : ∀ lay tree leaf digits, AllQueriesSatisfy (buildTree lay tree leaf digits) P)

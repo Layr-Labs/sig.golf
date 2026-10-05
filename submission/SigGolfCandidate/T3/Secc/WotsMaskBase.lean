@@ -195,6 +195,11 @@ theorem referenceDigits_of_search {answers : Answers} {L : LeafAddr} {counter : 
   unfold referenceDigits
   rw [h]
   rfl
+theorem topSigned_reference (answers : Answers) (L : LeafAddr) (hl : L.lay = 0) :
+    ((referenceSearch answers L).map Prod.snd).getD dummyTop = referenceDigits answers L := by
+  unfold referenceDigits
+  rw [hl]
+  rfl
 theorem depth_le_width (answers : Answers) (a : ChainAddr) (hc : a.chain < chainCount a.key.lay) :
     depth answers a ≤ maxDigit a.key.lay a.chain :=
   (referenceDigits_spec answers a.key).2 a.chain hc

@@ -79,7 +79,7 @@ theorem cs103_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (
     rw [if_neg (by omega), if_neg (by omega)]
 theorem cs113_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 113)) (i : Nat)
     (hi : i ≤ 2 ^ 22) (h19 : s.getReg .x19 = BitVec.ofNat 64 i) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = (if i = 2 ^ 22 then pcOf (b + 0) else pcOf (b + 115)) ∧
+    ∃ t, Steps image s 2 2 t ∧ t.pc = (if i = 2 ^ 22 then pcOf (b + 424) else pcOf (b + 115)) ∧
       RegsExcept s t [.x6] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_113 hK.2) (codeAt_k_113 hK) s hpc (by simp [st_113, blk354_113.res, rv_simp]),
     ?_, ?_, ?_⟩

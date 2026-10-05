@@ -127,6 +127,14 @@ theorem routeLeaf_alias {index : Nat} (hindex : index < 2 ^ 31) {lay : Layer} {T
     hal.eq_of_lt (route_tree_lt index hindex lay) (route_leaf_lt index lay) htree hleaf
   unfold depth
   rw [← hk, referenceDigits_of_search hsearch]
+theorem routeLeaf_alias_ref {index : Nat} (hindex : index < 2 ^ 31) {lay : Layer} {T : Answers}
+    (htree : a.key.tree < 2 ^ 40) (hleaf : a.key.leaf < 2 ^ 32)
+    (hal : LeafAlias lay (route index lay).2 (route index lay).1 a.key) :
+    depth T a ≤ (referenceDigits T (routeLeaf index lay)).getD a.chain 0 := by
+  have hk : routeLeaf index lay = a.key :=
+    hal.eq_of_lt (route_tree_lt index hindex lay) (route_leaf_lt index lay) htree hleaf
+  unfold depth
+  rw [← hk]
 theorem eval_signLayers_maskAt (htree : a.key.tree < 2 ^ 40) (hleaf : a.key.leaf < 2 ^ 32) (cache : Cache)
     (index : Nat) (hindex : index < 2 ^ 31) :
     ∀ n, n ≤ 4 → ∀ msg, (∀ m, n = m + 1 → msg = leafMsg answers (routeLeaf index (Fin.ofNat 4 m))) →
@@ -139,9 +147,23 @@ theorem eval_signLayers_maskAt (htree : a.key.tree < 2 ^ 40) (hleaf : a.key.leaf
       intro hn msg hmsg
       simp only [signLayers, evalWithAnswerFn_bind]
       rw [eval_maskAt_of_respects answers a (respects_counterSearch a _ _ _ _ _ _)]
+      by_cases hn0 : n = 0
+      · subst hn0
+        have hD : ((evalWithAnswerFn answers (counterSearch (Fin.ofNat 4 0) (route index (Fin.ofNat 4 0)).2
+            (route index (Fin.ofNat 4 0)).1 msg 0 counterLimit)).map Prod.snd).getD dummyTop =
+            referenceDigits answers (routeLeaf index (Fin.ofNat 4 0)) := by
+          rw [hmsg 0 rfl]
+          exact topSigned_reference answers (routeLeaf index (Fin.ofNat 4 0)) rfl
+        simp only [ite_true, evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+        rw [hD, eval_signTop_maskAt answers a cache _ _ (referenceDigits_spec answers (routeLeaf index (Fin.ofNat 4 0))).2]
+        intro hal _
+        apply routeLeaf_alias_ref a hindex htree hleaf
+        have ht : (route index (Fin.ofNat 4 0)).2 = 0 := route_top_tree index hindex
+        rw [ht]
+        exact hal
       cases hs : evalWithAnswerFn answers (counterSearch (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
         (route index (Fin.ofNat 4 n)).1 msg 0 counterLimit) with
-      | none => rfl
+      | none => simp only [hn0, ite_false]; rfl
       | some found =>
           obtain ⟨counter, digits⟩ := found
           have hd := (Correctness.counterSearch_some answers _ _ _ msg counterLimit 0 counter digits
@@ -152,15 +174,7 @@ theorem eval_signLayers_maskAt (htree : a.key.tree < 2 ^ 40) (hleaf : a.key.leaf
             rw [← hmsg n rfl]
             exact hs
           dsimp only
-          split_ifs with hn0
-          · subst hn0
-            simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-            rw [eval_signTop_maskAt answers a cache _ digits hvalid]
-            intro hal _
-            apply routeLeaf_alias a hindex hsearch htree hleaf
-            have ht : (route index (Fin.ofNat 4 0)).2 = 0 := route_top_tree index hindex
-            rw [ht]
-            exact hal
+          simp only [hn0, ite_false]
           · simp only [evalWithAnswerFn_bind]
             rw [eval_buildTree_maskAt answers a _ _ _ digits hvalid (route_leaf_bound index _)
                 (fun hal _ => routeLeaf_alias a hindex hsearch htree hleaf hal),

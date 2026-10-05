@@ -2,6 +2,7 @@ import SigGolfCandidate.SphincsSecurity.Completeness.Search
 import SigGolfCandidate.SphincsSecurity.Completeness.Octopus.Split
 import SigGolfCandidate.T3.Core
 import SigGolfCandidate.T3.Nonbinary.SourceDigits
+import SigGolfCandidate.T3.Nonbinary.CreditFilter
 import SigGolfCandidate.SphincsSecurity.Proof.Deterministic.CacheDerivation
 import SigGolfCandidate.SphincsSecurity.Proof.Deterministic.SeedHitProbability
 import VCVio.OracleComp.Constructions.SampleableType
@@ -724,6 +725,7 @@ def code (lay : Layer) : MixedCode.Code where
 abbrev Encoding (lay : Layer) := MixedCode.Encoding (code lay)
 abbrev ChainIndex (lay : Layer) := Fin (chainCount lay)
 theorem chainCount_bound (lay : Layer) : chainCount lay ≤ 58 := by fin_cases lay <;> decide
+theorem chainCount_le_54 (lay : Layer) : chainCount lay ≤ 54 := by fin_cases lay <;> decide
 theorem unit_neighbors_bound (lay : Layer) (word : Encoding lay) (i : ChainIndex lay) :
     (MixedCode.unitNeighbors word i).card ≤ 57 :=
   (MixedCode.unitNeighbors_card_le word i).trans (Nat.sub_le_sub_right (chainCount_bound lay) 1)
@@ -1625,9 +1627,10 @@ theorem bound_counterSearch (lay : Layer) (tree leaf : Nat) (message : Digest) :
         (by simp [encodingInput,SphincsSecurity.bytesLE_length])
         (by simp [encodingInput,pad64_length,SphincsSecurity.bytesLE_length])).bind'
         (l := fuel) (fun answer _ => ?_) (by omega)
-      cases hd : decode lay answer with
+      cases hs : searchDecode lay answer with
       | none => exact ih (counter+1)
       | some digits =>
+          have hd := Nonbinary.searchDecode_some hs
           refine .pure (some (BitVec.ofNat 32 counter,digits)) fuel ?_
           intro other values hv
           obtain ⟨rfl,rfl⟩ := Prod.mk.inj (Option.some.inj hv)
@@ -1681,18 +1684,25 @@ theorem bound_signLayers (cache : Cache) (index : Nat) :
         (route index (Fin.ofNat 4 n)).1 message counterLimit 0).bind'
         (l := n*counterLimit+layerFixedCost (n+1)) (fun out hout => ?_)
         (by simp only [Nat.add_mul,Nat.one_mul];omega)
-      cases out with
-      | none => exact .pure _ _ trivial
-      | some pair =>
-          obtain ⟨counter,digits⟩ := pair
-          have hd := hout counter digits rfl
-          dsimp only
-          by_cases hn : n=0
-          · subst n
-            simp only [ite_true]
-            refine (bound_signTop cache _ digits hd.1 hd.2.1).bind'
-              (l := 0) (fun _ _ => .pure _ 0 trivial) (by simp [layerFixedCost])
-          · simp only [hn,ite_false]
+      by_cases hn : n=0
+      · subst n
+        simp only [ite_true]
+        have hdig : ((out.map Prod.snd).getD dummyTop).length=54 ∧ ((out.map Prod.snd).getD dummyTop).sum=126 := by
+          cases out with
+          | none => exact ⟨by decide,by decide⟩
+          | some pair =>
+              obtain ⟨counter,digits⟩ := pair
+              have hd := hout counter digits rfl
+              exact ⟨hd.1,hd.2.1⟩
+        refine (bound_signTop cache _ _ hdig.1 hdig.2).bind'
+          (l := 0) (fun _ _ => .pure _ 0 trivial) (by simp [layerFixedCost])
+      · simp only [hn,ite_false]
+        cases out with
+        | none => exact .pure _ _ trivial
+        | some pair =>
+            obtain ⟨counter,digits⟩ := pair
+            have hd := hout counter digits rfl
+            dsimp only
             refine (bound_buildTree (Fin.ofNat 4 n) _ _ digits hd.2.2).bind'
               (l := n*counterLimit+layerFixedCost n) (fun result _ => ?_)
               (by simp only [layerFixedCost,hn,ite_false];omega)
@@ -1750,11 +1760,11 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 set_option linter.unusedSimpArgs false
 abbrev Answers := QueryImpl T3.Spec Id
-theorem counterSearch_some (answers : Answers) (lay : Layer) (tree leaf : Nat) (message : Digest) :
+theorem counterSearch_some_search (answers : Answers) (lay : Layer) (tree leaf : Nat) (message : Digest) :
     ∀ fuel counter found digits,counter+fuel ≤ 2^32 →
       evalWithAnswerFn answers (counterSearch lay tree leaf message counter fuel)=some (found,digits) →
       counter ≤ found.toNat ∧ found.toNat < counter+fuel ∧
-        decode lay (evalWithAnswerFn answers (shortHash (encodingInput lay tree leaf message found)))=some digits := by
+        searchDecode lay (evalWithAnswerFn answers (shortHash (encodingInput lay tree leaf message found)))=some digits := by
   intro fuel
   induction fuel with
   | zero =>
@@ -1763,7 +1773,7 @@ theorem counterSearch_some (answers : Answers) (lay : Layer) (tree leaf : Nat) (
   | succ fuel ih =>
       intro counter found digits hlimit he
       simp only [counterSearch,evalWithAnswerFn_bind] at he
-      cases hd : decode lay (evalWithAnswerFn answers
+      cases hd : searchDecode lay (evalWithAnswerFn answers
         (shortHash (encodingInput lay tree leaf message (BitVec.ofNat 32 counter)))) with
       | none =>
           simp only [hd] at he
@@ -1775,6 +1785,14 @@ theorem counterSearch_some (answers : Answers) (lay : Layer) (tree leaf : Nat) (
           have hcount : (BitVec.ofNat 32 counter).toNat=counter := by
             rw [BitVec.toNat_ofNat,Nat.mod_eq_of_lt (by omega)]
           exact ⟨by rw [hcount],by rw [hcount];omega,hd⟩
+theorem counterSearch_some (answers : Answers) (lay : Layer) (tree leaf : Nat) (message : Digest) :
+    ∀ fuel counter found digits,counter+fuel ≤ 2^32 →
+      evalWithAnswerFn answers (counterSearch lay tree leaf message counter fuel)=some (found,digits) →
+      counter ≤ found.toNat ∧ found.toNat < counter+fuel ∧
+        decode lay (evalWithAnswerFn answers (shortHash (encodingInput lay tree leaf message found)))=some digits := by
+  intro fuel counter found digits hlimit he
+  obtain ⟨h1,h2,h3⟩ := counterSearch_some_search answers lay tree leaf message fuel counter found digits hlimit he
+  exact ⟨h1,h2,Nonbinary.searchDecode_some h3⟩
 theorem digestSearch_some_good (answers : Answers) (rho : Digest) (message : Message) :
     ∀ fuel counter found output,counter+fuel ≤ 2^32 →
       evalWithAnswerFn answers (digestSearch rho message counter fuel)=some (found,output) →
@@ -1899,7 +1917,7 @@ theorem realized_expand_implies_verify (answers : QueryImpl SphincsSecurity.Orac
 theorem counterSearch_none_iff (answers : Answers) (lay : Layer) (tree leaf : Nat) (message : Digest) :
     ∀ fuel counter,
       evalWithAnswerFn answers (counterSearch lay tree leaf message counter fuel)=none ↔
-      ∀ offset,offset < fuel → decode lay (evalWithAnswerFn answers
+      ∀ offset,offset < fuel → searchDecode lay (evalWithAnswerFn answers
         (shortHash (encodingInput lay tree leaf message (BitVec.ofNat 32 (counter+offset)))))=none := by
   intro fuel
   induction fuel with
@@ -1907,7 +1925,7 @@ theorem counterSearch_none_iff (answers : Answers) (lay : Layer) (tree leaf : Na
   | succ fuel ih =>
       intro counter
       simp only [counterSearch,evalWithAnswerFn_bind]
-      cases hd : decode lay (evalWithAnswerFn answers
+      cases hd : searchDecode lay (evalWithAnswerFn answers
         (shortHash (encodingInput lay tree leaf message (BitVec.ofNat 32 counter)))) with
       | none =>
           simp only [hd,ih]
@@ -2749,7 +2767,7 @@ def encodingTrial (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : 
 def digestTrial (rho : Digest) (message : Message) (counter : Nat) : HashInput :=
   pad64 (digestInput rho message (BitVec.ofNat 32 counter))
 def encodingDecode (lay : Layer) (answer : HashOutput) : Option (List Nat) :=
-  decode lay (answer.extractLsb' 0 128)
+  searchDecode lay (answer.extractLsb' 0 128)
 def digestDecode (answer : HashOutput) : Option HashOutput :=
   if digestAdmissible answer then some answer else none
 theorem counterSearch_public (lay : Layer) (tree leaf : Nat) (message : Digest) :
@@ -2768,7 +2786,7 @@ theorem counterSearch_public (lay : Layer) (tree leaf : Nat) (message : Digest) 
         shortHash,publicHash,bind_assoc,pure_bind,encodingTrial,encodingDecode]
       apply bind_congr
       intro answer
-      cases hd : decode lay (answer.extractLsb' 0 128) <;>
+      cases hd : searchDecode lay (answer.extractLsb' 0 128) <;>
         simp only [simulateQ_map,simulateQ_pure,map_pure,ih,publicProgram]
 theorem digestSearch_public (rho : Digest) (message : Message) :
     ∀ fuel counter,digestSearch rho message counter fuel=
@@ -3734,8 +3752,13 @@ theorem PiecesAgree.last {sig : Signature} {previous : List Pieces} {part : Piec
   simp
 def layerResultRoot (answers : Answers) (n : Nat) (value : Digest) : Digest :=
   if n=0 then value else treeValue (builtTree answers 0 0) 12 0
+def TopSearchesSucceed (answers : Answers) : Prop :=
+  ∀ index,index < 2^31 → ∀ m : Digest,∃ found,
+    evalWithAnswerFn answers (counterSearch (Fin.ofNat 4 0) (route index (Fin.ofNat 4 0)).2
+      (route index (Fin.ofNat 4 0)).1 m 0 counterLimit)=some found
 theorem signLayers_expandLayers (answers : Answers) (cache : Cache) (index : Nat)
-    (hcache : cache.region=cacheRegion (maskedTop answers)) (hindex : index < 2^31) :
+    (hcache : cache.region=cacheRegion (maskedTop answers)) (hindex : index < 2^31)
+    (htop : TopSearchesSucceed answers) :
     ∀ n,n ≤ 4 → ∀ value pieces,
       evalWithAnswerFn answers (signLayers cache index n value)=some pieces →
       pieces.length=n ∧ ∀ sig : Signature,PiecesAgree sig pieces n →
@@ -3753,7 +3776,13 @@ theorem signLayers_expandLayers (answers : Answers) (cache : Cache) (index : Nat
       simp only [signLayers,evalWithAnswerFn_bind] at he
       cases hs : evalWithAnswerFn answers (counterSearch (Fin.ofNat 4 n)
         (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 value 0 counterLimit) with
-      | none => simp only [hs,evalWithAnswerFn_pure,reduceCtorEq] at he
+      | none =>
+          by_cases hn0 : n=0
+          · subst n
+            obtain ⟨found,hf⟩ := htop index hindex value
+            rw [hf] at hs
+            cases hs
+          · simp only [hs,hn0,ite_false,evalWithAnswerFn_pure,reduceCtorEq] at he
       | some found =>
           obtain ⟨counter,digits⟩ := found
           have hd := (counterSearch_some answers (Fin.ofNat 4 n)
@@ -3763,7 +3792,8 @@ theorem signLayers_expandLayers (answers : Answers) (cache : Cache) (index : Nat
           simp only [hs,evalWithAnswerFn_bind] at he
           by_cases hn0 : n=0
           · subst n
-            simp only [ite_true,evalWithAnswerFn_bind,evalWithAnswerFn_pure,Option.some.injEq] at he
+            simp only [ite_true,evalWithAnswerFn_bind,evalWithAnswerFn_pure,Option.some.injEq,
+              Option.map_some,Option.getD_some] at he
             subst pieces
             refine ⟨rfl,?_⟩
             intro sig hagree
@@ -4124,7 +4154,7 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 set_option linter.unusedSimpArgs false
 theorem signPayload_expands (answers : Answers) (cache : Cache) (message : Message) (sig : Signature)
-    (hcache : cache.region=cacheRegion (maskedTop answers))
+    (hcache : cache.region=cacheRegion (maskedTop answers)) (htop : TopSearchesSucceed answers)
     (he : evalWithAnswerFn answers (signPayload cache message)=some sig) :
     ∃ w : Witness,evalWithAnswerFn answers
       (expand message (treeValue (builtTree answers 0 0) 12 0) sig)=some w := by
@@ -4155,19 +4185,19 @@ theorem signPayload_expands (answers : Answers) (cache : Cache) (message : Messa
             (fun _ => rfl) (fun _ => rfl)
           have hparts : PiecesAgree sig pieces 4 := fun _ _ => rfl
           obtain ⟨counters,hc,hreplay⟩ := (signLayers_expandLayers answers cache (output.toNat%2^31)
-            hcache (Nat.mod_lt _ (by positivity)) 4 (by decide) _ pieces hl).2 sig hparts
+            hcache (Nat.mod_lt _ (by positivity)) htop 4 (by decide) _ pieces hl).2 sig hparts
           refine ⟨⟨sig,counter,fun lay => counters.getD lay.val 0⟩,?_⟩
           unfold expand
           rw [show sig.rho=evalWithAnswerFn answers (privateNonce message) by rfl]
           simp only [evalWithAnswerFn_bind,hd,hf,hreplay,layerResultRoot,show ¬(4 : Nat)=0 by decide,
             ite_false,ne_eq,not_true_eq_false,evalWithAnswerFn_pure]
 theorem signing_success_valid (answers : Answers) (keys : Digest × Cache)
-    (hkeys : KeygenCorrect answers keys) (message : Message) (sig : Signature)
+    (hkeys : KeygenCorrect answers keys) (htop : TopSearchesSucceed answers) (message : Message) (sig : Signature)
     (hsign : evalWithAnswerFn answers (sign keys.2 message)=some sig) :
     ∃ w : Witness,evalWithAnswerFn answers (expand message keys.1 sig)=some w ∧
       evalWithAnswerFn answers (verify message keys.1 w)=true := by
   rw [sign_valid_cache answers keys message hkeys.2.2] at hsign
-  obtain ⟨w,hw⟩ := signPayload_expands answers keys.2 message sig hkeys.2.1 hsign
+  obtain ⟨w,hw⟩ := signPayload_expands answers keys.2 message sig hkeys.2.1 htop hsign
   have he : evalWithAnswerFn answers (expand message keys.1 sig)=some w := by rwa [hkeys.1]
   exact ⟨w,he,expand_implies_verify answers message keys.1 sig w he⟩
 def SigningCorrect (answers : Answers) (keys : Digest × Cache) : Prop :=
@@ -4175,9 +4205,9 @@ def SigningCorrect (answers : Answers) (keys : Digest × Cache) : Prop :=
     evalWithAnswerFn answers (sign keys.2 message)=some sig →
     ∃ w : Witness,evalWithAnswerFn answers (expand message keys.1 sig)=some w ∧
       evalWithAnswerFn answers (verify message keys.1 w)=true
-theorem honest_signing_success_valid (answers : Answers) :
+theorem honest_signing_success_valid (answers : Answers) (htop : TopSearchesSucceed answers) :
     SigningCorrect answers (evalWithAnswerFn answers keygen) := by
-  exact signing_success_valid answers _ (keygen_correct answers)
+  exact signing_success_valid answers _ (keygen_correct answers) htop
 def RealizedSigningCorrect (answers : QueryImpl SphincsSecurity.OracleWorld Id)
     (secret : BitVec 256) (keys : Digest × Cache) : Prop :=
   ∀ (message : Message) (sig : Signature),
@@ -4185,9 +4215,9 @@ def RealizedSigningCorrect (answers : QueryImpl SphincsSecurity.OracleWorld Id)
     ∃ w : Witness,evalWithAnswerFn answers (realize secret (expand message keys.1 sig))=some w ∧
       evalWithAnswerFn answers (realize secret (verify message keys.1 w))=true
 theorem realized_honest_signing_success_valid (answers : QueryImpl SphincsSecurity.OracleWorld Id)
-    (secret : BitVec 256) :
+    (secret : BitVec 256) (htop : TopSearchesSucceed (answers.compose (realHandler secret))) :
     RealizedSigningCorrect answers secret (evalWithAnswerFn answers (realize secret keygen)) := by
   unfold RealizedSigningCorrect
   simp only [realize_eval]
-  exact honest_signing_success_valid (answers.compose (realHandler secret))
+  exact honest_signing_success_valid (answers.compose (realHandler secret)) htop
 end SigGolfCandidate.T3.Correctness

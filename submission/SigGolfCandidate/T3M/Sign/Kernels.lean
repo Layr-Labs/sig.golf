@@ -51,13 +51,19 @@ structure CsPre (s : MachineState) (lay : Layer) (tree leaf : Nat) (msg : Digest
   z48 : s.getMem (BitVec.ofNat 64 (ENC + 48)) = 0
   z56 : s.getMem (BitVec.ofNat 64 (ENC + 56)) = 0
   table : Search.TableOK s
+/-- Counter exhaustion at the signer's top layer: the dummy word's digits, returned to the caller. -/
+def DummyRet (s : MachineState) (ret : Nat) (t : MachineState) : Prop :=
+  t.pc = pcOf ret ∧ t.getReg .x5 = 0 ∧
+    (∀ i < 54, t.getByte (BitVec.ofNat 64 (DIGITS + i)) = BitVec.ofNat 8 (T3.dummyTop.getD i 0)) ∧
+    (t.getMem (BitVec.ofNat 64 (ENC + 32))).toNat < 2 ^ 32 ∧ RegsExcept s t csRegs ∧ Frame s t CsW ∧
+    (t.getReg .x25).toNat ≤ 126
 def CsPost (s : MachineState) (lay : Layer) (ret : Nat) : Option (BitVec 32 × List Nat) → MachineState → Prop
-  | none, t => Failed t
+  | none, t => if lay = 0 then DummyRet s ret t else Failed t
   | some (_, ds), t => t.pc = pcOf ret ∧ t.getReg .x5 = 0 ∧ (∃ v, decode lay v = some ds) ∧
       (∀ i < chainCount lay, t.getByte (BitVec.ofNat 64 (DIGITS + i)) = BitVec.ofNat 8 (ds.getD i 0)) ∧
       (t.getMem (BitVec.ofNat 64 (ENC + 32))).toNat < 2 ^ 32 ∧ RegsExcept s t csRegs ∧ Frame s t CsW ∧
       (t.getReg .x25).toNat ≤ target lay
-def csCost (lay : Layer) : Nat := counterLimit * (if lay = 0 then 205 else 160) + 2000
+def csCost (lay : Layer) : Nat := counterLimit * (if lay = 0 then 412 else 160) + 2000
 def CounterSearchSpec (sk : BitVec 256) : Prop :=
   ∀ (s : MachineState) (lay : Layer) (tree leaf : Nat) (msg : Digest) (ret : Nat),
     CsPre s lay tree leaf msg ret →

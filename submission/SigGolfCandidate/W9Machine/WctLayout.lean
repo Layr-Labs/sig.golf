@@ -2,6 +2,7 @@ import SigGolfCandidate.T3M.Verify.Judg
 import SigGolfCandidate.T3M.Sim
 import SigGolfCandidate.T3M.Mem
 import SigGolfCandidate.T3M.Witness.Layout
+import SigGolfCandidate.T3M.Verify.HashOk
 
 set_option autoImplicit false
 namespace W9Machine
@@ -18,7 +19,7 @@ def GoodQFor (im : Image) (s : MachineState) (N C : Nat) (Q : Prop) (A : Nat)
   ∀ F, N ≤ F → obs <$> Riscv.execute F im s = X ∧
     ∀ hash : Hash, (evalWithAnswerFn hash (Riscv.execute F im s)).exit ≠ .unfinished ∧
       (evalWithAnswerFn hash (Riscv.execute F im s)).cycles ≤ C ∧
-      ((evalWithAnswerFn hash (Riscv.execute F im s)).exit = .success →
+      ((evalWithAnswerFn hash (Riscv.execute F im s)).exit = .success → HashOk hash →
         Q ∧ (evalWithAnswerFn hash (Riscv.execute F im s)).cycles ≤ A)
 structure Budget where
   fuel : Nat

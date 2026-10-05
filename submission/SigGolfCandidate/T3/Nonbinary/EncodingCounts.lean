@@ -3,7 +3,6 @@ import SigGolfCandidate.T3.Nonbinary.SourceEncoding
 import SigGolfCandidate.T3.Gate6.DigestCounting
 import Mathlib.RingTheory.Polynomial.Pochhammer
 import SigGolfCandidate.SphincsSecurity.Completeness.Uniform
-
 noncomputable section
 namespace SigGolfCandidate.T3.EncodingCounting
 open scoped BigOperators
@@ -209,22 +208,23 @@ def acceptedDigestEquiv (lay : Layer) (hl : lay≠0) :
     apply Fin.ext
     exact packWord_toNat lay _
 def acceptedCount (lay : Layer) : Nat :=
-  ![183707182173445436457863622839156476,
+  ![169880087395417918897451495310468748,
     143468572474466315422327516384120300,
     143468572474466315422327516384120300,
     177063161351702039889196043868193572] lay
 theorem decoder_acceptance_count (lay : Layer) :
-    Fintype.card {value : Digest // (decode lay value).isSome} = acceptedCount lay := by
+    Fintype.card {value : Digest // (searchDecode lay value).isSome} = acceptedCount lay := by
   classical
   by_cases hl : lay=0
   · subst lay
-    simpa [acceptedCount,SigGolfResearch.NonbinaryTop.Counting.count] using
-      Nonbinary.actual_decoder_count
-  · rw [Fintype.card_congr (acceptedDigestEquiv lay hl),accepted_words_count]
+    simpa [acceptedCount,SigGolfResearch.NonbinaryTop.CreditCounting.count] using
+      Nonbinary.searchDecode_top_count
+  · simp_rw [Nonbinary.searchDecode_lower hl]
+    rw [Fintype.card_congr (acceptedDigestEquiv lay hl),accepted_words_count]
     fin_cases lay <;> simp_all [acceptedCount,rawAcceptedCount]
 open OracleComp OracleSpec ENNReal
 theorem decoder_uniform_probability (lay : Layer) :
-    Pr[fun value => (decode lay value).isSome | ($ᵗ Digest : ProbComp Digest)] =
+    Pr[fun value => (searchDecode lay value).isSome | ($ᵗ Digest : ProbComp Digest)] =
       (acceptedCount lay : ENNReal)/(2 : ENNReal)^128 := by
   classical
   rw [probEvent_uniformSample,← Fintype.card_subtype,decoder_acceptance_count]
@@ -236,12 +236,12 @@ theorem encoding_uniform_probability (lay : Layer) :
   classical
   rw [probEvent_uniformSample]
   have hc := SphincsSecurity.Completeness.card_filter_low (n := 256) (w := 128)
-    (by decide) (fun value => (decode lay value).isSome)
+    (by decide) (fun value => (searchDecode lay value).isSome)
   change (Finset.univ.filter fun answer : HashOutput =>
-    (decode lay (answer.extractLsb' 0 128)).isSome).card = _ at hc
+    (searchDecode lay (answer.extractLsb' 0 128)).isSome).card = _ at hc
   rw [show (Finset.univ.filter fun answer : HashOutput =>
       (Sampling.encodingDecode lay answer).isSome).card =
-      (Finset.univ.filter fun value : Digest => (decode lay value).isSome).card*2^128 from hc]
+      (Finset.univ.filter fun value : Digest => (searchDecode lay value).isSome).card*2^128 from hc]
   rw [← Fintype.card_subtype,decoder_acceptance_count]
   simp only [Fintype.card_bitVec,Nat.cast_mul,Nat.cast_pow,Nat.cast_ofNat]
   rw [show (2 : ENNReal)^256 = 2^128*2^128 by rw [← pow_add]]

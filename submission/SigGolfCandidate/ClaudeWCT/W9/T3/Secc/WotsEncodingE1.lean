@@ -17,7 +17,6 @@ import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsPrefixGame
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsPrefixGameSim
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsPrefixGameBase
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskRest
-
 namespace ClaudeWCT.W9.T3.Security.Wots
 open SigGolfCandidate SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
@@ -68,6 +67,35 @@ theorem reference_free_le (iX : ∀ k : Set EncIndex, Fintype (k → HashOutput)
       (fun pub => ∑' r, (liftM (offlineRun (eagerAnswers (referenceInputs adversary) privateTable pub) adversary q) :
         PMF SeedResult) r * f (mkSample (eagerAnswers (referenceInputs adversary) privateTable pub) r)),
     @public_resample (referenceInputs adversary) iX iU hU privateTable
+      (fun pub => ∑' r, (liftM (offlineRun (eagerAnswers (referenceInputs adversary) privateTable pub) adversary q) :
+        PMF SeedResult) r * g (mkSample (eagerAnswers (referenceInputs adversary) privateTable pub) r))]
+  refine weighted_le _ _ _ _ fun pub => ?_
+  exact hfg privateTable pub
+theorem reference_cells_le [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, DecidableEq k]
+    (f g : RefSample → ENNReal) (rate : ENNReal)
+    (hfg : ∀ (privateTable : FullGame.FullTable) (pub : referenceInputs adversary → HashOutput),
+      ∑' y, PMF.uniformOfFinset (Fintype.piFinset (cellInit (cellKey (eagerAnswers (referenceInputs adversary) privateTable pub))))
+          (Fintype.piFinset_nonempty.mpr (cellInit_nonempty _)) y *
+        ∑' r, (liftM (offlineRun (eagerAnswers (referenceInputs adversary) privateTable (ov (cellKey (eagerAnswers (referenceInputs adversary) privateTable pub)).1 pub y)) adversary q) : PMF SeedResult) r *
+          f (mkSample (eagerAnswers (referenceInputs adversary) privateTable (ov (cellKey (eagerAnswers (referenceInputs adversary) privateTable pub)).1 pub y)) r) ≤
+      rate * ∑' y, PMF.uniformOfFinset (Fintype.piFinset (cellInit (cellKey (eagerAnswers (referenceInputs adversary) privateTable pub))))
+          (Fintype.piFinset_nonempty.mpr (cellInit_nonempty _)) y *
+        ∑' r, (liftM (offlineRun (eagerAnswers (referenceInputs adversary) privateTable (ov (cellKey (eagerAnswers (referenceInputs adversary) privateTable pub)).1 pub y)) adversary q) : PMF SeedResult) r *
+          g (mkSample (eagerAnswers (referenceInputs adversary) privateTable (ov (cellKey (eagerAnswers (referenceInputs adversary) privateTable pub)).1 pub y)) r)) :
+    ∑' s, referenceExperiment adversary q s * f s ≤ rate * ∑' s, referenceExperiment adversary q s * g s := by
+  rw [reference_eq_bind, tsum_bind_mul, tsum_bind_mul]
+  simp only [tsum_map_mul]
+  unfold restLaw
+  have iF : Fintype FullGame.FullTable := by unfold FullGame.FullTable; exact Pi.instFintype
+  have iU : Fintype (referenceInputs adversary → HashOutput) := Pi.instFintype
+  rw [tsum_uniform_prod iF iU, tsum_uniform_prod iF iU]
+  simp only [restTable_pair]
+  refine weighted_le _ _ _ _ fun privateTable => ?_
+  have hU := publicUniverse_sub adversary
+  rw [@public_resample_cells (referenceInputs adversary) _ _ iU hU privateTable
+      (fun pub => ∑' r, (liftM (offlineRun (eagerAnswers (referenceInputs adversary) privateTable pub) adversary q) :
+        PMF SeedResult) r * f (mkSample (eagerAnswers (referenceInputs adversary) privateTable pub) r)),
+    @public_resample_cells (referenceInputs adversary) _ _ iU hU privateTable
       (fun pub => ∑' r, (liftM (offlineRun (eagerAnswers (referenceInputs adversary) privateTable pub) adversary q) :
         PMF SeedResult) r * g (mkSample (eagerAnswers (referenceInputs adversary) privateTable pub) r))]
   refine weighted_le _ _ _ _ fun pub => ?_
