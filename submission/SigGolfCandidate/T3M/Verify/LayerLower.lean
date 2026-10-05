@@ -342,7 +342,7 @@ def layerHead {β : Type} (w : WBytes) (index : Nat) (lay : Layer) (M : ClaudeWC
     | none => pure none
     | some digits => chainsP w lay (route index lay).2 (route index lay).1 digits >>= R
 def stB (lay : Nat) : Nat := if lay = 0 then 120 else bSt lay
-def cyB (lay : Nat) : Nat := if lay = 0 then 67 else bCy lay
+def cyB (lay : Nat) : Nat := if lay = 0 then 66 else bCy lay
 def chainCost0 (lay : Nat) : Nat := if lay = 0 then 1086 else 2950 - 9 * tgtL lay
 def chainFuel (lay : Nat) : Nat := if lay = 0 then 2321 else 1720
 def layerCost (lay Z : Nat) : Nat := stepsA lay + 8 + cyB lay + lfSteps lay + chainCost0 lay - Z
@@ -350,7 +350,7 @@ def layerFuel (lay : Nat) : Nat := stepsA lay + 1 + stB lay + chainFuel lay + lf
 /-- Accept-cycle layer cost: the top layer's chains run 9 cycles cheaper on a credited top word. -/
 def layerCostA (lay : Nat) : Nat := layerCost lay 0 - (if lay = 0 then 9 else 0)
 theorem layerCost_vals :
-    layerCost 3 0 = 1247 ∧ layerCost 2 0 = 1238 ∧ layerCost 1 0 = 1239 ∧ layerCost 0 0 = 1183 := by decide
+    layerCost 3 0 = 1247 ∧ layerCost 2 0 = 1238 ∧ layerCost 1 0 = 1239 ∧ layerCost 0 0 = 1182 := by decide
 theorem layerFuel_vals :
     layerFuel 3 = 1771 ∧ layerFuel 2 = 1771 ∧ layerFuel 1 = 1772 ∧ layerFuel 0 = 2464 := by decide
 theorem ckOf_lt (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (ds : List Nat)

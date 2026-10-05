@@ -832,7 +832,7 @@ set_option linter.unusedSimpArgs false
 def topPrefixWord (tp : Word) : Word :=
   BitVec.ofNat 64 (128 + 193 * 2 ^ 56) ||| (tp >>> (16 : Word))
 def prologueCode : List (BitVec 32) :=
-  [0x800e3e03,16929171,4091443,0xff843303,0x90050413,0xd4040b13,714679,0xa81713,6780723,0xf70733,0x9a070067]
+  [0x800e3e03,16929171,4091443,0xff843303,0x90050413,714679,0xa81713,6780723,0xf70733,0x9a070067]
 sym_block prologueBase := symRun { noAlias := true } prologueCode (pcOf 96218) 200
 theorem prologue_at : CodeAt Verify.image (pcOf 96218) prologueCode := by
   have h := codeAt_from 96218 (by decide)
@@ -847,18 +847,18 @@ theorem prologue_spec (s : MachineState) (v : Digest)
     (hmask : s.getMem (BitVec.ofNat 64 (TAIL_DATA + 64)) = 130048#64) (h10 : s.getReg .x10 = 15560#64)
     (h28 : s.getReg .x28 = 0xff4000#64)
     (hmem : s.getMem (BitVec.ofNat 64 0xff3800) = BitVec.ofNat 64 (128 + 193 * 2 ^ 56)) :
-    ∃ t, Steps Verify.image s 11 11 t ∧ t.pc = prologueTarget v ∧
+    ∃ t, Steps Verify.image s 10 10 t ∧ t.pc = prologueTarget v ∧
       t.getReg .x16 = v.extractLsb' 0 64 ∧
       t.getReg .x17 = v.extractLsb' 63 64 ∧
-      t.getReg .x22 = 13064#64 ∧ t.getReg .x8 = 13768#64 ∧ t.getReg .x6 = 130048#64 ∧
+      t.getReg .x8 = 13768#64 ∧ t.getReg .x6 = 130048#64 ∧
       t.getReg .x15 = 712704#64 ∧
       t.getReg .x28 = topPrefixWord (s.getReg .x4) ∧
-      RegsExcept s t [.x3,.x17,.x22,.x8,.x6,.x15,.x14,.x28] ∧ Frame s t (fun _ => False) := by
+      RegsExcept s t [.x3,.x17,.x8,.x6,.x15,.x14,.x28] ∧ Frame s t (fun _ => False) := by
   have h19' : s.getReg .x8 = 0xff8000#64 := h19
   have hm : s.getMem 0xff7ff8#64 = 130048#64 := hmask
   refine ⟨_, symRun_sound prologueBase prologue_at s hpc
     (by simp [prologueBase.res, rv_simp, accessValid_iff, MEMORY_BYTES, h19', h28]),
-    ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · -- the mask word is a memory read now: rewrite it in the exact form `simp only` leaves it in
     have hx24 : (prologueBase.res.toState s).getReg .x6 = 130048#64 := by
       simp [prologueBase.res, rv_simp, h19', hm]
@@ -867,7 +867,6 @@ theorem prologue_spec (s : MachineState) (v : Digest)
     rfl
   · simpa [prologueBase.res, rv_simp] using h16
   · simp [prologueBase.res, rv_simp, h16, h17]
-  · simp [prologueBase.res, rv_simp, h10]
   · simp [prologueBase.res, rv_simp, h10]
   · simp [prologueBase.res, rv_simp, h19', hm]
   · simp [prologueBase.res, rv_simp, pcOf]
@@ -920,7 +919,6 @@ structure TopEntry (u : MachineState) (v : Digest) (p : Nat) (s : MachineState) 
   lo : s.getReg .x16 = v.extractLsb' 0 64
   hi : s.getReg .x17 = (v.extractLsb' 64 64 <<< (1 : Word)) ||| (v.extractLsb' 0 64 >>> (63 : Word))
   tail : s.getReg .x29 = Search.topWindow v 17
-  s6 : s.getReg .x22 = 13064#64
   s3 : s.getReg .x8 = 13768#64
   mask : s.getReg .x6 = 130048#64
   table : s.getReg .x15 = 712704#64
@@ -967,7 +965,7 @@ theorem topTransition_reject (w : WBytes) (pk : Digest) (index c : Nat) (hc : c 
 theorem topTransition_ok (w : WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0)
     (t : MachineState) (ht : EncPre w pk index 0 c t) (a : BitVec 256)
     (hgood : T3.decode 0 (a.extractLsb' 0 128) = some (Search.topDigits (a.extractLsb' 0 128))) :
-    ∃ s, Steps image (writeHash t a) 67 67 s ∧
+    ∃ s, Steps image (writeHash t a) 66 66 s ∧
       TopEntry (writeHash t a) (a.extractLsb' 0 128) (trPc 0 c) s := by
   have h12 : t.getReg .x12 = 256#64 := ht.glob.1 (_, _) (by simp [BC.bK, bK])
   have hk : KnownOK (BC.bK 0) (writeHash t a) := fun p hp => by rw [writeHash_getReg]; exact ht.glob.1 p hp
@@ -990,9 +988,9 @@ theorem topTransition_ok (w : WBytes) (pk : Digest) (index c : Nat) (hc : c < nC
   have h28 : r.getReg .x28 = 0xff4000#64 := by
     rw [rr.get (by decide), rs.get (by decide), hk (.x28, BitVec.ofNat 64 (t3In 0)) (by simp [BC.bK, bK, layK])]
     decide
-  obtain ⟨z, ez, pz, lo, hi, s6, s3, mask, tab, px, rz, fz⟩ := Verify.Nonbinary.prologue_spec r _ pr h16 h17 h19
+  obtain ⟨z, ez, pz, lo, hi, s3, mask, tab, px, rz, fz⟩ := Verify.Nonbinary.prologue_spec r _ pr h16 h17 h19
     (hd.frame fr).mask (by rw [rr.get (by decide)]; exact h10) h28 hmem
-  refine ⟨z, (e.trans er).trans ez, ⟨?_, ?_, lo, ?_, ?_, s6, s3, mask, tab, ?_, ?_, ?_⟩⟩
+  refine ⟨z, (e.trans er).trans ez, ⟨?_, ?_, lo, ?_, ?_, s3, mask, tab, ?_, ?_, ?_⟩⟩
   · rw [pz]
     exact Nonbinary.prologue_target _
   · rw [rz.get (by decide), rr.get (by decide), ra]

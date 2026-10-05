@@ -272,7 +272,7 @@ def stabBits (lay : Nat) : Nat := if lay = 1 then 7 else 6
 def lfSteps (lay : Nat) : Nat := if lay = 0 then 12 else if lay = 1 then 10 else 9
 def lfKeepK (lay : Nat) : List (Reg × Word) :=
   [(.x2, 0x3fe00), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
-   (.x30, 7), (.x22, BitVec.ofNat 64 (s6v lay))] ++
+   (.x30, 7), (if lay = 0 then (.x8, BitVec.ofNat 64 s3v) else (.x22, BitVec.ofNat 64 (s6v lay)))] ++
   (if lay = 1 then [(.x28, BitVec.ofNat 64 (lfT3 lay))] else []) ++
   (if lay = 0 then [] else [(.x9, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x6, 0x10000),
     (.x8, BitVec.ofNat 64 0x400000)])
