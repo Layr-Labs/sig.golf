@@ -8,8 +8,8 @@ def nCopy (lay : Nat) : Nat := (xtrTab.getD lay []).length
 def trPc (lay c : Nat) : Nat := (xtrTab.getD lay []).getD c 0
 def kw (k : Nat) : E := .c (BitVec.ofNat 64 k)
 def hL (lay : Nat) : Nat := [12,7,6,6].getD lay 0
-def stepsA (lay : Nat) : Nat := if lay = 3 then 12 else if lay = 0 then 10 else 13
-def retOff (lay : Nat) : Nat := if lay = 0 then 12 else if lay = 3 then 43 else 43
+def stepsA (lay : Nat) : Nat := if lay = 3 then 12 else if lay = 0 then 10 else 14
+def retOff (lay : Nat) : Nat := if lay = 0 then 12 else if lay = 3 then 43 else 42
 def s6v (lay : Nat) : Nat := [13064,17032,20168,23304].getD lay 0
 def s3v : Nat := 13768
 def tgtL (lay : Nat) : Nat := [126,197,197,196].getD lay 0
@@ -64,7 +64,8 @@ def ctrBr (lay : Nat) (d : Bool) : Br := ⟨.geu, ctrE lay, kw 0x400000, d⟩
 def specA (lay p : Nat) : Spec :=
   ⟨if lay = 0 then [(.x4, tpE lay), (.x23, s7E lay), (.x3, ctrE lay)]
    else [(.x4, tpE lay), (.x23, s7E lay), (.x31, treeE lay), (.x3, ctrE lay)] ++
-     (if lay = 3 then [(.x22, .reg .x22)] else []),
+     (if lay = 3 then [(.x22, .reg .x22)] else
+       [(.x28, .bin .sll (.reg (rReg lay)) (kw 16))]),
    [(⟨none, BitVec.ofNat 64 288⟩, .bin (.st .w 0) (.ld (kw 288)) (ctrE lay)), (⟨none, BitVec.ofNat 64 280⟩, tpE lay),
     (⟨none, BitVec.ofNat 64 272⟩, kw (hw 4 lay))],
    p + stepsA lay, true, stepsA lay, [ctrBr lay false], none, stepsA lay⟩
@@ -87,18 +88,22 @@ def ckBr (lay : Nat) (d : Bool) : Br := ⟨.ltu, kw 7, t4E lay, d⟩
 def a7lE : E := .bin .or b1E (.bin .srl a6E (kw 63))
 def x14l : E := .bin .add (.bin .and (.bin .sll a6E (kw 9)) (kw 0x3fe00)) (kw 0x6e000)
 def tgtl : E := .bin .and (.bin .add (.bin .and (.bin .sll a6E (kw 9)) (kw 0x3fe00)) (kw 448800)) (.c (~~~1#64))
-def bSt (lay : Nat) : Nat := if lay = 3 then 30 else if lay = 1 ∨ lay = 2 then 29 else 33
-def bCy (lay : Nat) : Nat := if lay = 3 then 33 else if lay = 1 ∨ lay = 2 then 32 else 36
+def bSt (lay : Nat) : Nat := if lay = 3 then 30 else if lay = 1 ∨ lay = 2 then 27 else 33
+def bCy (lay : Nat) : Nat := if lay = 3 then 33 else if lay = 1 ∨ lay = 2 then 30 else 36
 def hdrA (lay : Nat) : Nat := if lay = 3 then TOPLOAD + 32 else HDATA + 8 * lay
 def packedRouteE (lay : Nat) : E :=
   if lay = 3 then .bin .or (.ld (kw (hdrA lay))) (.bin .sll (.reg .x22) (kw 16))
-  else .bin .or (.ld (kw (hdrA lay))) (.bin .sll (.reg .x31) (kw 16))
+  else if lay = 1 ∨ lay = 2 then .bin .or (.reg .x28) (.ld (kw (hdrA lay)))
+  else .bin .or (.bin .or (.ld (kw (hdrA lay)))
+    (if lay = 1 then .bin .srl (.reg .x4) (kw 16)
+      else .bin .sll (.bin .srl (.reg .x4) (kw 32)) (kw 16)))
+    (.bin .sll (.reg .x31) (kw (hL lay + 16)))
 def prefixReturn (lay p : Nat) : Nat := p + (if lay = 3 then 37 else 38)
 def specBl (lay p : Nat) : Spec :=
   ⟨[(.x16, a6E), (.x17, a7lE),
     (.x25, if lay ≠ 0 then sumE else kw (0x1000 + 4 * prefixReturn lay p)), (.x29, t4E lay),
-    (.x3, if lay = 3 then .bin .sll (.reg .x22) (kw 16) else .bin .sll (.reg .x31) (kw 16)), (.x14, x14l), (.x28, packedRouteE lay)] ++
-      [(.x31, if lay = 1 ∨ lay = 2 then treeE lay else .reg .x31)],
+    (.x3, if lay = 3 then .bin .sll (.reg .x22) (kw 16) else if lay = 1 ∨ lay = 2 then .ld (kw (hdrA lay))
+      else .bin .sll (.reg .x31) (kw (hL lay + 16))), (.x14, x14l), (.x28, packedRouteE lay)],
    [], 0, false, bSt lay, [ckBr lay false, rngBr 62 false], some tgtl, bCy lay⟩
 def postBl (lay p : Nat) : List (Reg × Word) :=
   chainK lay ++ [(.x22, BitVec.ofNat 64 (s6v lay)), (.x15, 0x6e000), (.x1, pcOf (p + retOff lay))]
@@ -157,7 +162,7 @@ def postLf (lay : Nat) : List (Reg × Word) :=
     (.x10, BitVec.ofNat 64 (if lay = 0 then 512 else 768)), (.x11, BitVec.ofNat 64 (if lay = 0 then 896 else 704)),
     (.x15, BitVec.ofNat 64 (if lay = 0 then 0xce000 else 0x6e000))]
 def keepA : List Reg := []
-def keepB : List Reg := [.x4, .x23]
+def keepB : List Reg := [.x4, .x23, .x31]
 def keepLf : List Reg := [.x23, .x31, .x22]
 def keepTopCall : List Reg := [.x2, .x3, .x4, .x5, .x7, .x13, .x19, .x20, .x10, .x11, .x12, .x21, .x14, .x15, .x16, .x17, .x18, .x8, .x9, .x24, .x22, .x23, .x6, .x25, .x26, .x27, .x28, .x29, .x31, .x30]
 def specTopCall (p : Nat) : Spec :=
