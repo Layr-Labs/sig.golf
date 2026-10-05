@@ -373,9 +373,9 @@ def layerCost (lay Z : Nat) : Nat := stepsA lay + 8 + cyB lay + lfSteps lay + ch
 def layerFuel (lay : Nat) : Nat := stepsA lay + 1 + stB lay + chainFuel lay + lfSteps lay
 def layerCostA (lay : Nat) : Nat := layerCost lay 0 - (if lay = 0 then 9 else 0)
 theorem layerCost_vals :
-    layerCost 3 0 = 1237 ∧ layerCost 2 0 = 1227 ∧ layerCost 1 0 = 1228 ∧ layerCost 0 0 = 1162 := by decide
+    layerCost 3 0 = 1237 ∧ layerCost 2 0 = 1227 ∧ layerCost 1 0 = 1227 ∧ layerCost 0 0 = 1162 := by decide
 theorem layerFuel_vals :
-    layerFuel 3 = 1770 ∧ layerFuel 2 = 1769 ∧ layerFuel 1 = 1770 ∧ layerFuel 0 = 2462 := by decide
+    layerFuel 3 = 1770 ∧ layerFuel 2 = 1769 ∧ layerFuel 1 = 1769 ∧ layerFuel 0 = 2462 := by decide
 theorem ckOf_lt (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (ds : List Nat)
     (hds : decode lay (a.extractLsb' 0 128) = some ds) : ckOf lay a < 8 := by
   rw [decode_lower lay hlay] at hds
