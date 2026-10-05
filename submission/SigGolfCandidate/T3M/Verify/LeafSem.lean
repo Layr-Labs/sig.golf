@@ -240,10 +240,10 @@ open SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput Layer route height chainCount counterLimit decode encodingInput target
   dataDigits pad64)
 def keepLfAll (lay : Nat) : List Reg :=
-  if lay = 0 then [.x1, .x2, .x7, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23,
-    .x6, .x25, .x26, .x28, .x29, .x31, .x30]
-  else [.x1, .x2, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23,
-    .x6, .x25, .x26, .x29, .x31, .x30] ++ (if lay = 1 then [] else [.x28])
+  if lay = 0 then [.x1, .x2, .x7, .x13, .x8, .x9, .x12, .x6, .x16, .x17, .x19, .x20, .x21, .x22, .x23,
+    .x24, .x25, .x26, .x28, .x29, .x30, .x31]
+  else [.x1, .x2, .x13, .x8, .x9, .x12, .x6, .x16, .x17, .x19, .x20, .x21, .x22, .x23,
+    .x24, .x25, .x26, .x29, .x30, .x31] ++ (if lay = 1 then [] else [.x28])
 def leafCheck (lay p : Nat) : Bool :=
   specB [] [] baseK (runAt (leafK lay) [] (p + retOff lay) (lfDirs lay)) (specLf lay) [] (postLf lay) (keepLfAll lay)
 def leafChecks (lay lo n : Nat) : Bool := (List.range' lo n).all fun c => leafCheck lay (trPc lay c)

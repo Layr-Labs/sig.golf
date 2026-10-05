@@ -508,12 +508,12 @@ open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64 W9Machine
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 def fPrepWords : List (BitVec 32) := [0xf0290193,0x40303823,0x41603c23,0x40000513,0x14000593,0x10000613,0x73]
-def fTailWords : List (BitVec 32) := [0x62c0006f]
+def fTailWords : List (BitVec 32) := [0x6200006f]
 def gpE : E := .bin .add (.reg .x18) (.c (BitVec.ofNat 64 (2 ^ 64 - 254)))
 def fPrep : Result :=
   ⟨⟨(((RegFile.init.set .x3 gpE).set .x10 (.c 1024)).set .x11 (.c 320)).set .x12 (.c 256),
     [(⟨none, 1048⟩, .reg .x22), (⟨none, 1040⟩, gpE)], []⟩, .c (pcOf 203), .ecall, 6, 6⟩
-def fTail : Result := ⟨SymState.init, .c (pcOf 599), .jump, 1, 1⟩
+def fTail : Result := ⟨SymState.init, .c (pcOf 596), .jump, 1, 1⟩
 theorem fPrep_checked : rOK (symRun {} fPrepWords (pcOf 197) 7) fPrep = true := by decide +kernel
 theorem fPrep_linked : sliceChecked 197 fPrepWords = true := by decide +kernel
 theorem fTail_checked : rOK (symRun {} fTailWords (pcOf 204) 1) fTail = true := by decide +kernel
@@ -709,34 +709,6 @@ theorem forest_good (pk : Digest) (w : WBytes) (a : HashOutput)
         rw [writeHash_getReg, r1 .x26 (by decide) (by decide) (by decide) (by decide)]
         exact hu.heaps 6 (by decide) (by decide)
       · rw [ht, Result.toState_getReg]
-        show (writeHash s1 ans).getReg .x7 = _
-        rw [writeHash_getReg, r1 .x7 (by decide) (by decide) (by decide) (by decide)]
-        exact hu.stepOne
-      · rw [ht, Result.toState_getReg]
-        show (writeHash s1 ans).getReg .x13 = _
-        rw [writeHash_getReg, r1 .x13 (by decide) (by decide) (by decide) (by decide)]
-        exact hu.stepTwo
-      · rw [ht, Result.toState_getReg]
-        show (writeHash s1 ans).getReg .x30 = _
-        rw [writeHash_getReg, r1 .x30 (by decide) (by decide) (by decide) (by decide)]
-        exact hu.heaps 7 (by decide) (by decide)
-      · rw [ht, Result.toState_getReg]
-        show (writeHash s1 ans).getReg .x19 = _
-        rw [writeHash_getReg, r1 .x19 (by decide) (by decide) (by decide) (by decide)]
-        exact hu.heaps 3 (by decide) (by decide)
-      · rw [ht, Result.toState_getReg]
-        show (writeHash s1 ans).getReg .x20 = _
-        rw [writeHash_getReg, r1 .x20 (by decide) (by decide) (by decide) (by decide)]
-        exact hu.heaps 4 (by decide) (by decide)
-      · rw [ht, Result.toState_getReg]
-        show (writeHash s1 ans).getReg .x21 = _
-        rw [writeHash_getReg, r1 .x21 (by decide) (by decide) (by decide) (by decide)]
-        exact hu.heaps 5 (by decide) (by decide)
-      · rw [ht, Result.toState_getReg]
-        show (writeHash s1 ans).getReg .x6 = _
-        rw [writeHash_getReg, r1 .x6 (by decide) (by decide) (by decide) (by decide)]
-        exact hu.coordStep
-      · rw [ht, Result.toState_getReg]
         show (writeHash s1 ans).getReg .x28 = _
         rw [writeHash_getReg, r1 .x28 (by decide) (by decide) (by decide) (by decide)]
         exact hu.headerReg.trans (by unfold TOPBASE; rfl)
@@ -745,6 +717,34 @@ theorem forest_good (pk : Digest) (w : WBytes) (a : HashOutput)
           (by unfold TOPLOAD; omega) (by norm_num) (Or.inr (by unfold TOPLOAD; omega))]
         exact (fPrep_frame u _ (by unfold TOPLOAD; omega) (by unfold TOPLOAD; omega)).trans
           (hu.bank.top k hk)
+      · rw [ht, Result.toState_getReg]
+        show (writeHash s1 ans).getReg .x7 = _
+        rw [writeHash_getReg, r1 .x7 (by decide) (by decide) (by decide) (by decide)]
+        exact hu.stepOne
+      · rw [ht, Result.toState_getReg]
+        show (writeHash s1 ans).getReg .x13 = _
+        rw [writeHash_getReg, r1 .x13 (by decide) (by decide) (by decide) (by decide)]
+        exact hu.stepTwo
+      · rw [ht, Result.toState_getReg]
+        show (writeHash s1 ans).getReg .x21 = _
+        rw [writeHash_getReg, r1 .x21 (by decide) (by decide) (by decide) (by decide)]
+        exact hu.heaps 5 (by decide) (by decide)
+      · rw [ht, Result.toState_getReg]
+        show (writeHash s1 ans).getReg .x30 = _
+        rw [writeHash_getReg, r1 .x30 (by decide) (by decide) (by decide) (by decide)]
+        exact hu.heaps 7 (by decide) (by decide)
+      · rw [ht, Result.toState_getReg]
+        show (writeHash s1 ans).getReg .x20 = _
+        rw [writeHash_getReg, r1 .x20 (by decide) (by decide) (by decide) (by decide)]
+        exact hu.heaps 4 (by decide) (by decide)
+      · rw [ht, Result.toState_getReg]
+        show (writeHash s1 ans).getReg .x6 = _
+        rw [writeHash_getReg, r1 .x6 (by decide) (by decide) (by decide) (by decide)]
+        exact hu.coordStep
+      · rw [ht, Result.toState_getReg]
+        show (writeHash s1 ans).getReg .x19 = _
+        rw [writeHash_getReg, r1 .x19 (by decide) (by decide) (by decide) (by decide)]
+        exact hu.heaps 3 (by decide) (by decide)
     exact (hnext _ t hout).steps st2'
   have hq := GoodQFor.shortHash_bind (f := fun d : Digest => (pure d : M Digest)) (K := K)
     hf h5 hv hin hpost
@@ -786,9 +786,9 @@ theorem verifyP_eq (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WBytes) 
 theorem afterDigest_good (hbridge : W9Machine.Frozen.image = Images.verifyImage) (fts : W9Drv.FtsGood)
     (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WBytes) (a : HashOutput) (u : MachineState)
     (hu : DgOut m pk w a u) :
-    GoodQ u (8050 + 2023 + 1) (8050 + 2023 + 1) True (5682 + 1875 + 1) (ccM (afterDigest pk w a) Kb) := by
+    GoodQ u (8050 + 2023 + 1) (8050 + 2023 + 1) True (5679 + 1875 + 1) (ccM (afterDigest pk w a) Kb) := by
   obtain ⟨hst, hpre⟩ := gatePre_of_hook m pk w a u hu
-  have h := fts pk w a _ 8050 8050 5682 True (fun r => ccM (afterFts pk w (a.toNat % 2 ^ 31) r) Kb) hpre
+  have h := fts pk w a _ 8050 8050 5679 True (fun r => ccM (afterFts pk w (a.toNat % 2 ^ 31) r) Kb) hpre
     (by simp only [afterFts, ccM_pure, Kb])
     (fun root t ht => (goodQ_frozen hbridge).mpr (after_good pk w True trivial a root t ht))
   have h2 := (goodQ_frozen hbridge).mp (h.steps hst)
@@ -797,10 +797,10 @@ theorem afterDigest_good (hbridge : W9Machine.Frozen.image = Images.verifyImage)
   exact h2
 def fuelBound : Nat := 15 + (8050 + 2023 + 1)
 def cycleBoundAll : Nat := 22 + (8050 + 2023 + 1)
-def cycleBound : Nat := 22 + (5682 + 1875 + 1)
+def cycleBound : Nat := 22 + (5679 + 1875 + 1)
 theorem fuelBound_eq : fuelBound = 10089 := rfl
 theorem cycleBoundAll_eq : cycleBoundAll = 10096 := rfl
-theorem cycleBound_eq' : cycleBound = 7580 := rfl
+theorem cycleBound_eq' : cycleBound = 7577 := rfl
 theorem cycleBound_eq : cycleBound = ClaudeWCT.W9.T3M.Final.verifyCycleBound := rfl
 theorem verify_good (hbridge : W9Machine.Frozen.image = Images.verifyImage) (fts : W9Drv.FtsGood)
     (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : Bytes 22984) (s : MachineState)

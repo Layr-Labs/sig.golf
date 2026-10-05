@@ -38,7 +38,7 @@ def setupCheck (lay p : Nat) : Bool :=
 def copyCheck (lay p : Nat) : Bool :=
   setupCheck lay p &&
   (if lay = 0 then
-    specB [] [] [] (runAt [] [724] (p + stepsA lay + 1) [])
+    specB [] [] [] (runAt [] [96160] (p + stepsA lay + 1) [])
       (specTopCall p) [] [] keepTopCall
   else
     specB [] [] baseK (runAt (bK lay) [] (p + stepsA lay + 1)
