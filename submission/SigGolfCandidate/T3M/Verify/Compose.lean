@@ -364,8 +364,8 @@ theorem topLeafReady_of (w : WBytes) (pk : Digest) (index c : Nat) (t s0 s : Mac
     all_goals try exact h15
     all_goals rw [hr.get (by simp [topChainRegs]), he.regs.get (by simp [topEntryRegs]),writeHash_getReg]
     all_goals exact ht.glob.1 _ (by simp [BC.bK, bK,layK,baseK,hw])
-  have h12 : t.getReg .x12 = 256#64 := ht.glob.1 (_,_) (by simp [BC.bK, bK])
-  have hg := Glob_writeHash ht.glob a 256 h12 (by decide)
+  obtain ⟨d, h12, hd⟩ := ht.dst0 rfl
+  have hg := Glob_writeHash ht.glob a d h12 (by rcases hd with rfl | rfl <;> decide)
   have hfr : Frame (writeHash t a) s topChainWrites :=
     (he.frame.trans hf).mono (by intro A h; simpa using h)
   have hglob : Glob (leafK 0) w pk s := glob_frame hg hfr (by
@@ -504,9 +504,9 @@ theorem layer_good_top (w : WBytes) (pk : Digest) (index : Nat) (M : ClaudeWCT.W
     GoodQ s (N + layerFuel 0) (C + layerCost 0 0) Q (A + (layerCost 0 0 - 9)) (ccM (layerHead w index 0 M R) K) := by
   have hidx := hs.idx
   have hA := BC.encoding_setup w pk index 0 M s hs
-  have hfuel : layerFuel 0 = 10 + 1 + 120 + 2320 + 12 := by decide
-  have hcost : layerCost 0 0 = 10 + 8 + 66 + 12 + 1085 := by decide
-  have hsA : stepsA (0 : Layer).val = 10 := rfl
+  have hfuel : layerFuel 0 = 9 + 1 + 120 + 2320 + 12 := by decide
+  have hcost : layerCost 0 0 = 9 + 8 + 63 + 12 + 1085 := by decide
+  have hsA : stepsA (0 : Layer).val = 9 := rfl
   unfold layerHead
   by_cases hctr : (ClaudeWCT.W9.T3M.wbcCtr w 0).toNat ≥ counterLimit
   · rw [if_pos hctr, ccM_pure, hK0]
@@ -521,7 +521,7 @@ theorem layer_good_top (w : WBytes) (pk : Digest) (index : Nat) (M : ClaudeWCT.W
       (ClaudeWCT.W9.T3M.wbcPad w 0)
     have H : ∀ a : BitVec 256, GoodQP (fun hash => hash (toQ (pad64 (ClaudeWCT.W9.T3M.layerEncodingInputP 0
         (route index 0).2 (route index 0).1 M (ClaudeWCT.W9.T3M.wbcCtr w 0) (ClaudeWCT.W9.T3M.wbcPad w 0)))) = a ∧
-          HashOk hash) (writeHash t a) (N + 12 + 2320 + 120) (C + 12 + 1085 + 66) Q (A + 12 + 1076 + 66)
+          HashOk hash) (writeHash t a) (N + 12 + 2320 + 120) (C + 12 + 1085 + 63) Q (A + 12 + 1076 + 63)
         (ccM (match decode 0 (a.extractLsb' 0 128) with
           | none => pure none
           | some digits => chainsP w 0 (route index 0).2 (route index 0).1 digits >>= R) K) := by
@@ -536,7 +536,7 @@ theorem layer_good_top (w : WBytes) (pk : Digest) (index : Nat) (M : ClaudeWCT.W
       | some ds =>
         dsimp only
         have body : ∀ k, k ≤ T3.topCredit (a.extractLsb' 0 128) →
-            GoodQ (writeHash t a) (N + 12 + 2320 + 120) (C + 12 + 1085 + 66) Q (A + 12 + (1085 - k) + 66)
+            GoodQ (writeHash t a) (N + 12 + 2320 + 120) (C + 12 + 1085 + 63) Q (A + 12 + (1085 - k) + 63)
               (ccM (chainsP w 0 (route index 0).2 (route index 0).1 ds >>= R) K) := by
           intro k hkc
           have hcan : decode 0 (a.extractLsb' 0 128) = some (Search.topDigits (a.extractLsb' 0 128)) := by
@@ -546,8 +546,8 @@ theorem layer_good_top (w : WBytes) (pk : Digest) (index : Nat) (M : ClaudeWCT.W
           let L := nctxOf w index (a.extractLsb' 0 128) (trPc 0 c)
           have hLok : L.ok := nctx_ok w index _ c hidx
           have hkn : KnownOK L.known s0 := nctx_known w pk index c t s0 a hidx hpre he
-          have h12 : t.getReg .x12 = 256#64 := hpre.glob.1 (_, _) (by simp [BC.bK, bK])
-          have hDs0 : DataOK s0 := (Glob_writeHash hpre.glob a 256 h12 (by decide)).2.2.2.2.2.congr
+          obtain ⟨d, h12, hd⟩ := hpre.dst0 rfl
+          have hDs0 : DataOK s0 := (Glob_writeHash hpre.glob a d h12 (by rcases hd with rfl | rfl <;> decide)).2.2.2.2.2.congr
             (fun A _ hA => he.frame.get (by omega) (by simp))
           have hO := nctx_orig w index (a.extractLsb' 0 128) (trPc 0 c) s0
             (topEntry_orig w pk index c t s0 a hpre he) hDs0
@@ -819,13 +819,13 @@ def lCycA : Nat → Nat
 def lFuel : Nat → Nat
   | 0 => 9
   | n + 1 => layerFuel n + mkFuel n + lFuel n
-theorem lCyc_4 : lCyc 4 = 5662 := by decide
-theorem lCycA_4 : lCycA 4 = 5653 := by decide
+theorem lCyc_4 : lCyc 4 = 5655 := by decide
+theorem lCycA_4 : lCycA 4 = 5646 := by decide
 theorem lCycA_le (n : Nat) : lCycA n ≤ lCyc n := by
   induction n with
   | zero => exact le_rfl
   | succ n ih => simp only [lCycA, lCyc, layerCostA]; split_ifs <;> omega
-theorem lFuel_4 : lFuel 4 = 7967 := by decide
+theorem lFuel_4 : lFuel 4 = 7963 := by decide
 theorem layers_good (w : WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^ 31) (Q : Prop) (hQ : Q) :
     ∀ n, n ≤ 4 → ∀ msg s, RestIn w pk index n msg s →
       GoodQ s (lFuel n) (lCyc n) Q (lCycA n) (ccM (BC.layerLoop w index n msg) (kFin pk)) := by
@@ -861,7 +861,7 @@ theorem layers_good (w : WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^
     exact hg.mono (by simp only [lFuel]; omega) (by simp only [lCyc]; omega) (fun q => ⟨q, by simp only [lCycA]; omega⟩)
 theorem after_good (pk : Digest) (w : WBytes) (Q : Prop) (hQ : Q) (a : HashOutput) (root : Digest) (u : MachineState)
     (h : FtsOut ⟨pk, w, a⟩ root u) :
-    GoodQ u 8050 8050 Q 5658 (ccM (afterFts pk w (a.toNat % 2 ^ 31) (some root)) Kb) := by
+    GoodQ u 8050 8050 Q 5651 (ccM (afterFts pk w (a.toNat % 2 ^ 31) (some root)) Kb) := by
   have hidx : a.toNat % 2 ^ 31 < 2 ^ 31 := Nat.mod_lt _ (by decide)
   obtain ⟨t, hst, hL3⟩ := layerIn_of_fts w pk _ root u hidx h.glob h.idx h.pc h.root h.wit h.a2 h.s10 h.heapOne h.heapTwo h.heapSeven h.heapThree h.heapFour h.heapFive h.coordStep h.topBase h.top h.top8
   have hg := layers_good w pk _ hidx Q hQ 4 le_rfl (.forest root) t (by simpa [RestIn] using hL3)

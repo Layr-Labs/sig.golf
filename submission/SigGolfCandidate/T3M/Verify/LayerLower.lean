@@ -94,7 +94,22 @@ theorem encoding_run : EncodingRun := fun w pk index lay msg s hs hlt => by
   exact ⟨c, hc, t, ht⟩
 theorem setup_post : SetupPost := fun w pk index lay msg s hs c t ht => by
   obtain ⟨hlE, htE, htpE, hs7E⟩ := T3M.route_evals index lay hs.idx s hs.route
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  case refine_11 =>
+    intro h12
+    obtain ⟨d, hd, hdd⟩ := hs.dstL h12
+    refine ⟨d, ?_, hdd⟩
+    have h3 : lay.val ≠ 3 := by rcases h12 with h | h <;> omega
+    have h0 : lay.val ≠ 0 := by rcases h12 with h | h <;> omega
+    rw [ht.regs (.x12, .reg .x12) (by simp [specA, T3M.specA, h3, h0])]
+    simpa [E.eval] using hd
+  case refine_10 =>
+    intro h0
+    obtain ⟨d, hd, hdd⟩ := hs.dst0 h0
+    obtain rfl : lay = 0 := Fin.ext h0
+    refine ⟨d, ?_, hdd⟩
+    rw [ht.regs (.x12, .reg .x12) (by simp [specA, T3M.specA])]
+    simpa [E.eval] using hd
   case refine_9 =>
     intro h12
     have h3 : lay.val ≠ 3 := by rcases h12 with h | h <;> omega
@@ -158,12 +173,28 @@ theorem pair_setup_hash : PairSetupHash := fun w pk index lay left right s hs c 
     ht.known (.x10, _) (by rw [bK, if_neg h3]; exact List.mem_append_right _ (List.mem_singleton_self _))
   have h11 : t.getReg .x11 = BitVec.ofNat 64 64 :=
     ht.known (.x11, _) (by fin_cases lay <;> simp [bK, T3M.bK, layK])
-  have h12 : t.getReg .x12 = BitVec.ofNat 64 256 :=
-    ht.known (.x12, _) (by fin_cases lay <;> simp [bK, T3M.bK])
+  obtain ⟨d, h12, hd⟩ : ∃ d, t.getReg .x12 = BitVec.ofNat 64 d ∧
+      (d = 15560 ∨ d = 15608 ∨ d = 18760 ∨ d = 18808 ∨ d = 21896 ∨ d = 21944) := by
+    by_cases h0 : lay.val = 0
+    · obtain ⟨d, hd, hdd⟩ := hs.dst0 h0
+      obtain rfl : lay = 0 := Fin.ext h0
+      refine ⟨d, ?_, by omega⟩
+      rw [ht.regs (.x12, .reg .x12) (by simp [specA, T3M.specA])]
+      simpa [E.eval] using hd
+    · have h12' : lay.val = 1 ∨ lay.val = 2 := by have := lay.isLt; omega
+      obtain ⟨d, hd, hdd⟩ := hs.dstL h12'
+      refine ⟨d, ?_, ?_⟩
+      · rw [ht.regs (.x12, .reg .x12) (by simp [specA, T3M.specA, h3, h0])]
+        simpa [E.eval] using hd
+      · rcases h12' with h | h
+        · obtain rfl : lay = 1 := Fin.ext h
+          simp [x10In] at hdd; omega
+        · obtain rfl : lay = 2 := Fin.ext h
+          simp [x10In] at hdd; omega
   refine ⟨ht.known (.x5, 0) (by fin_cases lay <;> simp [bK, T3M.bK, layK, baseK]),
-    hashArgs_of t (x10In lay.val) 64 256 h10 h11 h12
+    hashArgs_of t (x10In lay.val) 64 d h10 h11 h12
       (by fin_cases lay <;> decide) (by decide) (by fin_cases lay <;> decide)
-      (by decide) (by decide), ?_⟩
+      (by omega) (by omega), ?_⟩
   change hashInput t = toQ (T3.pad64 (ClaudeWCT.WCT9.pairEncodingInputP lay
     (route index lay).2 (route index lay).1 left right
     (ClaudeWCT.W9.T3M.wbcCtr w lay) (ClaudeWCT.W9.T3M.wbcPad w lay)))
@@ -342,7 +373,7 @@ def layerHead {β : Type} (w : WBytes) (index : Nat) (lay : Layer) (M : ClaudeWC
     | none => pure none
     | some digits => chainsP w lay (route index lay).2 (route index lay).1 digits >>= R
 def stB (lay : Nat) : Nat := if lay = 0 then 120 else bSt lay
-def cyB (lay : Nat) : Nat := if lay = 0 then 66 else bCy lay
+def cyB (lay : Nat) : Nat := if lay = 0 then 63 else bCy lay
 def chainCost0 (lay : Nat) : Nat := if lay = 0 then 1085 else 2950 - 9 * tgtL lay
 def chainFuel (lay : Nat) : Nat := if lay = 0 then 2320 else 1720
 def layerCost (lay Z : Nat) : Nat := stepsA lay + 8 + cyB lay + lfSteps lay + chainCost0 lay - Z
@@ -350,9 +381,9 @@ def layerFuel (lay : Nat) : Nat := stepsA lay + 1 + stB lay + chainFuel lay + lf
 /-- Accept-cycle layer cost: the top layer's chains run 9 cycles cheaper on a credited top word. -/
 def layerCostA (lay : Nat) : Nat := layerCost lay 0 - (if lay = 0 then 9 else 0)
 theorem layerCost_vals :
-    layerCost 3 0 = 1246 ∧ layerCost 2 0 = 1237 ∧ layerCost 1 0 = 1238 ∧ layerCost 0 0 = 1181 := by decide
+    layerCost 3 0 = 1246 ∧ layerCost 2 0 = 1236 ∧ layerCost 1 0 = 1236 ∧ layerCost 0 0 = 1177 := by decide
 theorem layerFuel_vals :
-    layerFuel 3 = 1770 ∧ layerFuel 2 = 1770 ∧ layerFuel 1 = 1771 ∧ layerFuel 0 = 2463 := by decide
+    layerFuel 3 = 1770 ∧ layerFuel 2 = 1769 ∧ layerFuel 1 = 1769 ∧ layerFuel 0 = 2462 := by decide
 theorem ckOf_lt (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (ds : List Nat)
     (hds : decode lay (a.extractLsb' 0 128) = some ds) : ckOf lay a < 8 := by
   rw [decode_lower lay hlay] at hds
@@ -396,8 +427,8 @@ theorem layer_good_low (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (h
     simp only [layerCost, cyB, chainCost0, if_neg h0]; omega
   have hbS : 27 ≤ bSt lay.val := by unfold bSt; split_ifs <;> omega
   have hbC : 30 ≤ bCy lay.val := by unfold bCy; split_ifs <;> omega
-  have hrej : BC.rejectSteps lay.val ≤ stepsA lay.val + 2 := by
-    unfold BC.rejectSteps; split <;> omega
+  have hrej : BC.rejectSteps lay.val ≤ stepsA lay.val + 3 := by
+    unfold BC.rejectSteps; split_ifs <;> omega
   unfold layerHead
   by_cases hctr : (ClaudeWCT.W9.T3M.wbcCtr w lay).toNat ≥ counterLimit
   · rw [if_pos hctr, ccM_pure, hK0]
@@ -527,13 +558,17 @@ theorem layerIn_of_fts (w : WBytes) (pk : Digest) (idx : Nat) (root : Digest) (u
     · exact eFive
     · exact eCoord
   refine ⟨t, ht.steps, ⟨by norm_num, hidx, ⟨0, by rw [BC.nCopy_eq.1]; norm_num, by rw [ht.pc rfl]; rfl⟩, ⟨hk, hG0.2⟩,
-    ?_, ?_, ?_, ?_⟩⟩
+    ?_, ?_, ?_, ?_, ?_, ?_⟩⟩
   · rw [show rReg 3 = .x22 from rfl, show BC.below 3 = 0 from rfl, pow_zero, Nat.div_one,
       ht.keep .x22 (by simp), hreg]
   · exact ⟨rfl, (hm _).trans hroot.1, (hm _).trans hroot.2⟩
   · exact (hwit.mono (fun o ho => Or.inr ho.1)).frame (fun j _ _ => hm _)
   · intro _
     exact ⟨(hm _).trans ((htop 4 (by decide)).trans (by decide +kernel)), (hm _).trans htop8⟩
+  · intro h
+    exact absurd h (by decide)
+  · intro h
+    exact absurd h (by decide)
 theorem tree_next (index : Nat) (L : Layer) (h : L ≠ 0) : (route index L).2 = index / 2 ^ below (L.val - 1) := by
   rw [route_snd]
   fin_cases L
