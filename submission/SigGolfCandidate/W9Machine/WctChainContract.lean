@@ -13,7 +13,7 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   indexBound : index < 2 ^ 31
   pc : u.pc = pcOf (L.chainWord rank)
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (base k)
-  headerReg : u.getReg .x28 = BitVec.ofNat 64 (table k + 2048)
+  headerReg : u.getReg .x28 = (SigGolfCandidate.T3.header 6 k.val index 0 j.val).extractLsb' 0 64
   prefixReg : u.getReg .x31 = BitVec.ofNat 64 (V3.chainPrefix index k.val j.val)
   route : u.getReg .x4 = BitVec.ofNat 64 (index + 2 ^ 32 * j.val)
   hashMode : u.getReg .x5 = 0
@@ -26,8 +26,6 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   nodeHeader : u.getReg .x27 = BitVec.ofNat 64 (V3.nodeLow k.val index)
   forestPointer : u.getReg .x9 = BitVec.ofNat 64 (pairAddress k)
   heaps : ∀ h, 2 ≤ h → h ≤ 7 → u.getReg (Child.heapReg h) = BitVec.ofNat 64 h
-  leafHeader : u.getMem (BitVec.ofNat 64 (table k + 456)) =
-    (SigGolfCandidate.T3.header 6 k.val index 0 j.val).extractLsb' 0 64
   witness : ∀ off, off < 1024 → off % 8 = 0 →
     u.getMem (BitVec.ofNat 64 (base k + off)) =
       w.extractLsb' (8 * (V3.regionOffset k.val + off)) 64
@@ -44,7 +42,7 @@ def Good (L : Layout) (rank : Fin 728) : Prop :=
     (N C A : Nat) (Q : Prop) (K : List Digest → OracleComp HashSpec Obs),
     Pre L w index k j rank u →
     (∀ ends t, Post L w index k j u ends t → GoodQFor L.image t N C Q A (K ends)) →
-    GoodQFor L.image u (N + 89) (C + 89) Q (A + 84)
+    GoodQFor L.image u (N + 89) (C + 89) Q (A + 83)
       (ccM (program w index k j rank) K)
 def AllGood (L : Layout) : Prop := ∀ rank : Fin 728, Good L rank
 end W9Machine.Chain

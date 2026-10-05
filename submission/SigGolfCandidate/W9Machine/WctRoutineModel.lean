@@ -41,5 +41,5 @@ def ChainRoutine.checked (r : ChainRoutine) : Bool :=
     == expectedKinds r.digits) &&
   ((r.pieces.zip r.pieces.tail).all fun pq ↦ pq.2.pc == pq.1.nextPc) &&
   ((r.pieces.filter ChainPiece.isHash).length == 6) &&
-  decide (r.cycles ≤ 84) && decide (r.fuel ≤ 47)
+  decide (r.cycles ≤ 83) && decide (r.fuel ≤ 47)
 end W9Machine

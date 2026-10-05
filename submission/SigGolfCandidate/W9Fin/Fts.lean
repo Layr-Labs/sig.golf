@@ -25,7 +25,7 @@ def FtsGood : Prop :=
     K none = pure (false, 0) →
     (∀ root t, FtsOut ⟨pk, w, a⟩ root t →
       GoodQFor Frozen.image t N C Q A (K (some root))) →
-    GoodQFor Frozen.image u (N + 2023) (C + 2023) Q (A + 1874)
+    GoodQFor Frozen.image u (N + 2023) (C + 2023) Q (A + 1866)
       (ccM (if ClaudeWCT.W9.T3M.gateOk a then ClaudeWCT.W9.T3M.wctP w a
         else pure none) K)
 end W9Drv
@@ -512,17 +512,18 @@ namespace W9Drv
 open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64 W9Machine
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
-def fPrepWords : List (BitVec 32) := [0xf0290193,0x40303823,0x41603c23,0x40000513,0x14000593,0x10000613,0x73]
+def fPrepWords : List (BitVec 32) := [0xfefe37,0xf0290193,0x40303823,0x41603c23,0x40000513,0x14000593,0x10000613,0x73]
 def fTailWords : List (BitVec 32) := []
 def gpE : E := .bin .add (.reg .x18) (.c (BitVec.ofNat 64 (2 ^ 64 - 254)))
 def fPrep : Result :=
-  ⟨⟨(((RegFile.init.set .x3 gpE).set .x10 (.c 1024)).set .x11 (.c 320)).set .x12 (.c 256),
-    [(⟨none, 1048⟩, .reg .x22), (⟨none, 1040⟩, gpE)], []⟩, .c (pcOf 203), .ecall, 6, 6⟩
-def fTail : Result := ⟨SymState.init, .c (pcOf 204), .fuel, 0, 0⟩
-theorem fPrep_checked : rOK (symRun {} fPrepWords (pcOf 197) 7) fPrep = true := by decide +kernel
+  ⟨⟨((((RegFile.init.set .x28 (.c (BitVec.ofNat 64 0xfef000))).set .x3 gpE).set .x10 (.c 1024)).set
+      .x11 (.c 320)).set .x12 (.c 256),
+    [(⟨none, 1048⟩, .reg .x22), (⟨none, 1040⟩, gpE)], []⟩, .c (pcOf 204), .ecall, 7, 7⟩
+def fTail : Result := ⟨SymState.init, .c (pcOf 205), .fuel, 0, 0⟩
+theorem fPrep_checked : rOK (symRun {} fPrepWords (pcOf 197) 8) fPrep = true := by decide +kernel
 theorem fPrep_linked : sliceChecked 197 fPrepWords = true := by decide +kernel
-theorem fTail_checked : rOK (symRun {} fTailWords (pcOf 204) 0) fTail = true := by decide +kernel
-theorem fTail_linked : sliceChecked 204 fTailWords = true := by decide +kernel
+theorem fTail_checked : rOK (symRun {} fTailWords (pcOf 205) 0) fTail = true := by decide +kernel
+theorem fTail_linked : sliceChecked 205 fTailWords = true := by decide +kernel
 end W9Drv
 end
 
@@ -635,24 +636,24 @@ theorem forest_good (pk : Digest) (w : WBytes) (a : HashOutput)
     (hu : CoordPre pk w a 9 roots u)
     (hnext : ∀ root t, FtsOut ⟨pk, w, a⟩ root t →
       GoodQFor Frozen.image t N C Q A (K root)) :
-    GoodQFor Frozen.image u (N + 7) (C + 46) Q (A + 46)
+    GoodQFor Frozen.image u (N + 8) (C + 47) Q (A + 47)
       (ccM (ClaudeWCT.WCT9.forestPk (a.toNat % 2 ^ 31) roots) K) := by
   have hi : idxOf a < 2 ^ 31 := Nat.mod_lt _ (by decide)
   have st1 := block_steps fPrep_checked fPrep_linked rfl u hu.pc
-  have st1' : Steps Frozen.image u 6 6 (fPrep.toState u) := st1
+  have st1' : Steps Frozen.image u 7 7 (fPrep.toState u) := st1
   set s1 := fPrep.toState u with hs1
   have hf := block_ecall fPrep_checked fPrep_linked rfl u rfl
-  have r1 : ∀ x, x ≠ .x3 → x ≠ .x10 → x ≠ .x11 → x ≠ .x12 → s1.getReg x = u.getReg x := by
-    intro x h3 h10 h11 h12
+  have r1 : ∀ x, x ≠ .x3 → x ≠ .x10 → x ≠ .x11 → x ≠ .x12 → x ≠ .x28 → s1.getReg x = u.getReg x := by
+    intro x h3 h10 h11 h12 h28
     rw [hs1, Result.toState_getReg]
     cases x <;> first | exact absurd rfl ‹_› | rfl
   have h5 : s1.getReg .x5 = 0 :=
-    (r1 .x5 (by decide) (by decide) (by decide) (by decide)).trans (hu.glob.1 (.x5, 0) (by simp [baseK]))
+    (r1 .x5 (by decide) (by decide) (by decide) (by decide) (by decide)).trans (hu.glob.1 (.x5, 0) (by simp [baseK]))
   have h10 : s1.getReg .x10 = BitVec.ofNat 64 0x400 := by rw [hs1, Result.toState_getReg]; rfl
   have h11 : s1.getReg .x11 = BitVec.ofNat 64 (64 * (4 + 1)) := by rw [hs1, Result.toState_getReg]; rfl
   have h12 : s1.getReg .x12 = BitVec.ofNat 64 0x100 := by rw [hs1, Result.toState_getReg]; rfl
   have h22 : s1.getReg .x22 = BitVec.ofNat 64 (idxOf a) :=
-    (r1 .x22 (by decide) (by decide) (by decide) (by decide)).trans hu.index
+    (r1 .x22 (by decide) (by decide) (by decide) (by decide) (by decide)).trans hu.index
   have hv : hashArgumentsValid s1 = true :=
     hashArgs_of s1 0x400 320 0x100 h10 h11 h12 (by decide) (by decide) (by norm_num) (by decide)
       (by norm_num)
@@ -669,10 +670,10 @@ theorem forest_good (pk : Digest) (w : WBytes) (a : HashOutput)
       (ccM (pure (ans.extractLsb' 0 128) : M Digest) K) := by
     intro ans
     rw [ccM_pure]
-    have hpc : (writeHash s1 ans).pc = pcOf 204 := by
+    have hpc : (writeHash s1 ans).pc = pcOf 205 := by
       rw [writeHash_pc]
-      show pcOf 203 + 4 = pcOf 204
-      exact SigGolfCandidate.T3M.pcOf_add4 203
+      show pcOf 204 + 4 = pcOf 205
+      exact SigGolfCandidate.T3M.pcOf_add4 204
     have st2 := block_steps fTail_checked fTail_linked rfl (writeHash s1 ans) hpc
     have st2' : Steps Frozen.image (writeHash s1 ans) 0 0 (fTail.toState (writeHash s1 ans)) := st2
     set t := fTail.toState (writeHash s1 ans) with ht
@@ -688,7 +689,7 @@ theorem forest_good (pk : Digest) (w : WBytes) (a : HashOutput)
           · change (writeHash s1 ans).getReg .x5 = 0
             rw [writeHash_getReg]; exact h5
           · change (writeHash s1 ans).getReg .x18 = 4095
-            rw [writeHash_getReg, r1 .x18 (by decide) (by decide) (by decide) (by decide)]
+            rw [writeHash_getReg, r1 .x18 (by decide) (by decide) (by decide) (by decide) (by decide)]
             exact hu.glob.1 (.x18,4095) (by simp [baseK])
         · exact fun j hj => (et _).trans (gg.2.1 j hj)
         · exact ⟨(et _).trans gg.2.2.1.1, (et _).trans gg.2.2.1.2⟩
@@ -711,40 +712,40 @@ theorem forest_good (pk : Digest) (w : WBytes) (a : HashOutput)
         exact h12
       · rw [ht, Result.toState_getReg]
         show (writeHash s1 ans).getReg .x26 = _
-        rw [writeHash_getReg, r1 .x26 (by decide) (by decide) (by decide) (by decide)]
+        rw [writeHash_getReg, r1 .x26 (by decide) (by decide) (by decide) (by decide) (by decide)]
         exact hu.heaps 6 (by decide) (by decide)
       · rw [ht, Result.toState_getReg]
         show (writeHash s1 ans).getReg .x7 = _
-        rw [writeHash_getReg, r1 .x7 (by decide) (by decide) (by decide) (by decide)]
+        rw [writeHash_getReg, r1 .x7 (by decide) (by decide) (by decide) (by decide) (by decide)]
         exact hu.stepOne
       · rw [ht, Result.toState_getReg]
         show (writeHash s1 ans).getReg .x13 = _
-        rw [writeHash_getReg, r1 .x13 (by decide) (by decide) (by decide) (by decide)]
+        rw [writeHash_getReg, r1 .x13 (by decide) (by decide) (by decide) (by decide) (by decide)]
         exact hu.stepTwo
       · rw [ht, Result.toState_getReg]
         show (writeHash s1 ans).getReg .x30 = _
-        rw [writeHash_getReg, r1 .x30 (by decide) (by decide) (by decide) (by decide)]
+        rw [writeHash_getReg, r1 .x30 (by decide) (by decide) (by decide) (by decide) (by decide)]
         exact hu.heaps 7 (by decide) (by decide)
       · rw [ht, Result.toState_getReg]
         show (writeHash s1 ans).getReg .x19 = _
-        rw [writeHash_getReg, r1 .x19 (by decide) (by decide) (by decide) (by decide)]
+        rw [writeHash_getReg, r1 .x19 (by decide) (by decide) (by decide) (by decide) (by decide)]
         exact hu.heaps 3 (by decide) (by decide)
       · rw [ht, Result.toState_getReg]
         show (writeHash s1 ans).getReg .x20 = _
-        rw [writeHash_getReg, r1 .x20 (by decide) (by decide) (by decide) (by decide)]
+        rw [writeHash_getReg, r1 .x20 (by decide) (by decide) (by decide) (by decide) (by decide)]
         exact hu.heaps 4 (by decide) (by decide)
       · rw [ht, Result.toState_getReg]
         show (writeHash s1 ans).getReg .x21 = _
-        rw [writeHash_getReg, r1 .x21 (by decide) (by decide) (by decide) (by decide)]
+        rw [writeHash_getReg, r1 .x21 (by decide) (by decide) (by decide) (by decide) (by decide)]
         exact hu.heaps 5 (by decide) (by decide)
       · rw [ht, Result.toState_getReg]
         show (writeHash s1 ans).getReg .x6 = _
-        rw [writeHash_getReg, r1 .x6 (by decide) (by decide) (by decide) (by decide)]
+        rw [writeHash_getReg, r1 .x6 (by decide) (by decide) (by decide) (by decide) (by decide)]
         exact hu.coordStep
       · rw [ht, Result.toState_getReg]
         show (writeHash s1 ans).getReg .x28 = _
-        rw [writeHash_getReg, r1 .x28 (by decide) (by decide) (by decide) (by decide)]
-        exact hu.headerReg.trans (by unfold TOPBASE; rfl)
+        rw [writeHash_getReg, hs1, Result.toState_getReg]
+        rfl
       · intro k hk
         rw [et, writeHash_frame s1 ans 0x100 (TOPLOAD + 8 * k) h12
           (by unfold TOPLOAD; omega) (by norm_num) (Or.inr (by unfold TOPLOAD; omega))]
@@ -759,7 +760,7 @@ theorem forest_good (pk : Digest) (w : WBytes) (a : HashOutput)
     hf h5 hv hin hpost
   rw [blocks_forestIn _ _ hu.length, bind_pure] at hq
   have := hq.steps st1'
-  change GoodQFor Frozen.image u (N+7) (C+46) Q (A+46) (ccM (shortHash (forestIn (idxOf a) roots)) K)
+  change GoodQFor Frozen.image u (N+8) (C+47) Q (A+47) (ccM (shortHash (forestIn (idxOf a) roots)) K)
   exact this.mono (by omega) (by omega) (fun hq => ⟨hq, by omega⟩)
 #print axioms forest_good
 end W9Drv
@@ -795,7 +796,7 @@ theorem verifyP_eq (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WBytes) 
 theorem afterDigest_good (hbridge : W9Machine.Frozen.image = Images.verifyImage) (fts : W9Drv.FtsGood)
     (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WBytes) (a : HashOutput) (u : MachineState)
     (hu : DgOut m pk w a u) :
-    GoodQ u (8050 + 2023 + 1) (8050 + 2023 + 1) True (5663 + 1874 + 1) (ccM (afterDigest pk w a) Kb) := by
+    GoodQ u (8050 + 2023 + 1) (8050 + 2023 + 1) True (5663 + 1866 + 1) (ccM (afterDigest pk w a) Kb) := by
   obtain ⟨hst, hpre⟩ := gatePre_of_hook m pk w a u hu
   have h := fts pk w a _ 8050 8050 5663 True (fun r => ccM (afterFts pk w (a.toNat % 2 ^ 31) r) Kb) hpre
     (by simp only [afterFts, ccM_pure, Kb])
@@ -806,10 +807,10 @@ theorem afterDigest_good (hbridge : W9Machine.Frozen.image = Images.verifyImage)
   exact h2
 def fuelBound : Nat := 15 + (8050 + 2023 + 1)
 def cycleBoundAll : Nat := 22 + (8050 + 2023 + 1)
-def cycleBound : Nat := 22 + (5663 + 1874 + 1)
+def cycleBound : Nat := 22 + (5663 + 1866 + 1)
 theorem fuelBound_eq : fuelBound = 10089 := rfl
 theorem cycleBoundAll_eq : cycleBoundAll = 10096 := rfl
-theorem cycleBound_eq' : cycleBound = 7560 := rfl
+theorem cycleBound_eq' : cycleBound = 7552 := rfl
 theorem cycleBound_eq : cycleBound = ClaudeWCT.W9.T3M.Final.verifyCycleBound := rfl
 theorem verify_good (hbridge : W9Machine.Frozen.image = Images.verifyImage) (fts : W9Drv.FtsGood)
     (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : Bytes 22984) (s : MachineState)
@@ -925,7 +926,7 @@ def finishFts (a : HashOutput) (state : Option (List (Digest × Digest))) : M (O
 def coordsCost (ks : List (Fin 9)) : Nat :=
   (ks.map (fun k => if k.val = 0 then 204 else 206)).sum
 def coordsAccept (ks : List (Fin 9)) : Nat :=
-  (ks.map (fun k => if k.val = 0 then 199 else 201)).sum
+  (ks.map (fun k => if k.val = 0 then 198 else 200)).sum
 theorem fold_none (w : WBytes) (a : HashOutput) (ks : List (Fin 9)) :
     ks.foldlM (ClaudeWCT.W9.T3M.wctStep w a) none = pure none := by
   induction ks with
@@ -938,8 +939,8 @@ theorem coordinates_good (chains : Chain.AllGood Frozen.layout) (pk : Digest) (w
     (hu : CoordPre pk w a n roots u) (hnone : K none = pure (false, 0))
     (hnext : ∀ root t, FtsOut ⟨pk,w,a⟩ root t →
       GoodQFor Frozen.image t N C Q A (K (some root))) :
-    GoodQFor Frozen.image u (N + (coordsCost ks + 46)) (C + (coordsCost ks + 46)) Q
-      (A + (coordsAccept ks + 46))
+    GoodQFor Frozen.image u (N + (coordsCost ks + 47)) (C + (coordsCost ks + 47)) Q
+      (A + (coordsAccept ks + 47))
       (ccM (ks.foldlM (ClaudeWCT.W9.T3M.wctStep w a) (some roots) >>= finishFts a) K) := by
   induction ks generalizing n roots u with
   | nil =>
@@ -949,7 +950,7 @@ theorem coordinates_good (chains : Chain.AllGood Frozen.layout) (pk : Digest) (w
     have hf := forest_good pk w a roots u N C A Q (fun root => K (some root)) hu hnext
     rw [map_eq_bind_pure_comp, ccM_bind]
     simp only [Function.comp_apply, ccM_pure]
-    exact hf.mono (by change N + 7 ≤ N + 46; omega) (by rfl) (fun hq => ⟨hq, by rfl⟩)
+    exact hf.mono (by change N + 8 ≤ N + 47; omega) (by rfl) (fun hq => ⟨hq, by rfl⟩)
   | cons k ks ih =>
     simp only [List.map_cons, List.length_cons, List.range'_succ, List.cons.injEq] at horder
     obtain ⟨hn, ht⟩ := horder
@@ -958,8 +959,8 @@ theorem coordinates_good (chains : Chain.AllGood Frozen.layout) (pk : Digest) (w
       ccM (ks.foldlM (ClaudeWCT.W9.T3M.wctStep w a) state >>= finishFts a) K
     have hkNone : K' none = pure (false, 0) := by
       simp only [K', fold_none, pure_bind, finishFts, ccM_pure, hnone]
-    have hstep := coord_good chains pk w a k roots u (N + (coordsCost ks + 46))
-      (C + (coordsCost ks + 46)) (A + (coordsAccept ks + 46)) Q K' hu hkNone
+    have hstep := coord_good chains pk w a k roots u (N + (coordsCost ks + 47))
+      (C + (coordsCost ks + 47)) (A + (coordsAccept ks + 47)) Q K' hu hkNone
       (fun root t hh => ih (k.val + 1) (roots ++ [root]) t ht (by simpa [Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using hend) hh)
     simp only [List.foldlM_cons, bind_assoc, ccM_bind]
     convert hstep using 1 <;> simp [coordsCost, coordsAccept, Nat.add_left_comm, Nat.add_comm,
@@ -968,14 +969,14 @@ theorem fts_good (chains : Chain.AllGood Frozen.layout) : FtsGood := by
   intro pk w a u N C A Q K hu hnone hnext
   let KG : Bool → OracleComp HashSpec Obs := fun b =>
     if b then ccM (ClaudeWCT.W9.T3M.wctP w a) K else K none
-  have hg := gate_good pk w a u (N + 1898) (C + 1898) (A + 1853) Q KG hu
+  have hg := gate_good pk w a u (N + 1899) (C + 1899) (A + 1845) Q KG hu
     (by simpa only [KG, Bool.false_eq_true, ↓reduceIte] using hnone)
     (fun t ht => by
       have hc := coordinates_good chains pk w a (List.finRange 9) 0 [] t N C A Q K
         (by decide)
         (by simp) ht hnone hnext
-      rw [show coordsCost (List.finRange 9) + 46 = 1898 by decide,
-        show coordsAccept (List.finRange 9) + 46 = 1853 by decide] at hc
+      rw [show coordsCost (List.finRange 9) + 47 = 1899 by decide,
+        show coordsAccept (List.finRange 9) + 47 = 1845 by decide] at hc
       apply hc.congr
       change ccM (_ >>= finishFts a) K = ccM (ClaudeWCT.W9.T3M.wctP w a) K
       apply congrArg (fun p : M (Option Digest) => ccM p K)
@@ -984,7 +985,7 @@ theorem fts_good (chains : Chain.AllGood Frozen.layout) : FtsGood := by
         (List.finRange 9).foldlM (ClaudeWCT.W9.T3M.wctStep w a) (some []) >>= f)
       funext state
       cases state <;> rfl)
-  change GoodQFor Frozen.image u (N + 1919) (C + 1919) Q (A + 1874)
+  change GoodQFor Frozen.image u (N + 1920) (C + 1920) Q (A + 1866)
     (KG (ClaudeWCT.W9.T3M.gateOk a)) at hg
   apply (hg.mono (by omega) (by omega) (fun hq => ⟨hq, by omega⟩)).congr
   cases ClaudeWCT.W9.T3M.gateOk a <;> simp [KG, ccM_pure]
