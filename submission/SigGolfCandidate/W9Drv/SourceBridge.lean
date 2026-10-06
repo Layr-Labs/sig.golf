@@ -1,6 +1,7 @@
 import SigGolfCandidate.W9Machine.WctN600Contract
 import SigGolfCandidate.W9Machine.WctN600C1Bridge
 import SigGolfCandidate.W9Drv.ChildPrefix
+import SigGolfCandidate.W9Drv.ChildRouteStore
 import SigGolfCandidate.W9Machine.WctSourceWords
 import SigGolfCandidate.W9Machine.WctPackedHeader
 import SigGolfCandidate.W9Machine.WctTraceProgram
@@ -29,7 +30,7 @@ theorem last_setup {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im
     (v : Digest) (s : MachineState) (hs : Mid j B k index u 5 v s) :
     ∃ t, Steps im s 4 4 t ∧ fetch im t = some (.base .ECALL) ∧ t.getReg .x5 = 0 ∧
       hashArgumentsValid t = true ∧ hashInput t = toQ (pad64 (nodeIn k index j pads sibs v 5)) ∧
-      t.pc = pcOf (childBase j + 36) ∧ t.getReg .x11 = 64 ∧
+      t.pc = pcOf (childBase j + 37) ∧ t.getReg .x11 = 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 (P + 16 * bitAt j 6) ∧
       (∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → t.getReg r = u.getReg r) ∧
       Frame u t (prefixWrites B) := by
@@ -156,7 +157,7 @@ theorem copy_pair {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im 
     (hB : s.getReg .x8 = BitVec.ofNat 64 B) (hP : s.getReg .x9 = BitVec.ofNat 64 P)
     (hB8 : B % 8 = 0) (hBhi : B + 1024 ≤ MEMORY_BYTES)
     (hP8 : P % 8 = 0) (hPhi : P + 48 ≤ MEMORY_BYTES)
-    (hpc : s.pc = pcOf (childBase j + 37))
+    (hpc : s.pc = pcOf (childBase j + 38))
     (hv : DigAt s (P + 16 * bitAt j 6) v) (ho : DigAt s (B + sibO 6 j) other) :
     ∃ t, Steps im s 5 5 t ∧ t.pc = s.getReg .x1 &&& ~~~1#64 ∧
       DigAt t P (V3.orderPair j v other).left ∧ DigAt t (P + 16) (V3.orderPair j v other).right ∧
@@ -339,59 +340,123 @@ theorem child_code (j : Nat) (hj : j < 128) : ChildCodeAt Frozen.image j := by
   obtain ⟨hbound, hval⟩ := List.getElem?_eq_some_iff.mp hi
   have h := List.prefix_iff_getElem?.mp hc i hbound
   simpa only [List.getElem?_drop, hval] using h
+-- The route split stores index in x4 and child in x22.  The leaf setup
+-- writes the low half at +904; this actual SW fills its high half before HASH.
+theorem childPrefixSW {im : Image} (w : WBytes) (index : Nat) (k : Fin 9)
+    (j : Fin 128) (ends : List Digest) (u : MachineState)
+    (hu : Child.Pre Frozen.layout w index k j ends u) (hcode : ChildCodeAt im j.val) :
+    ∃ v, Steps im u 1 1 v ∧ v.pc = pcOf (childBase j.val + 1) ∧
+      (∀ r, v.getReg r = u.getReg r) ∧
+      Frame u v (fun A => A = coordinateBase k + 904) ∧
+      DigAt v (coordinateBase k + 896) (V3.leafFields k.val index j.val ends 1) := by
+  have hk := k.isLt
+  have hB8 : coordinateBase k % 8 = 0 := by unfold coordinateBase; omega
+  have hBhi : coordinateBase k + 1024 ≤ MEMORY_BYTES := by
+    unfold coordinateBase MEMORY_BYTES; omega
+  have hp : (pcOf (childBase j.val)).toNat = 4096 + 4 * childBase j.val := by
+    simp only [pcOf, BitVec.toNat_ofNat]
+    exact Nat.mod_eq_of_lt (by unfold childBase; have := j.isLt; omega)
+  have hc : CodeAt im (pcOf (childBase j.val)) [0x38442623] := by
+    refine ⟨?_, ?_, ?_, ?_⟩
+    · rw [hp]; omega
+    · rw [hp]; omega
+    · rw [hp]; simp only [List.length_cons, List.length_nil]; unfold childBase; have := j.isLt; omega
+    · rw [hp, show (4096 + 4 * childBase j.val - 4096) / 4 = childBase j.val by omega]
+      apply List.prefix_iff_getElem?.mpr
+      intro i hi
+      have hi0 : i = 0 := by
+        simp only [List.length_cons, List.length_nil] at hi
+        omega
+      subst i
+      simpa only [List.getElem?_drop, List.getElem_cons_zero, Nat.add_zero] using
+        (hcode 0 0x38442623 rfl)
+  obtain ⟨v, hs, hpc, hr, hm⟩ := ChildRouteStore.execute (pcOf (childBase j.val)) hc
+    (coordinateBase k) u hu.pc hu.baseReg hB8 (by omega)
+  refine ⟨v, hs, ?_, hr, ?_, ?_⟩
+  · exact hpc.trans (SigGolfCandidate.T3M.Verify.pcOf_add4 _)
+  · intro A hA hn
+    rw [hm A (by omega), if_neg hn]
+  · constructor
+    · rw [hm _ (by unfold MEMORY_BYTES at hBhi; omega), if_neg (by omega)]
+      exact hu.leaf1Lo
+    · rw [hm _ (by unfold MEMORY_BYTES at hBhi; omega), if_pos (by omega),
+        hu.leaf1Hi, hu.childReg, merge_hi]
+      simp only [V3.leafFields, Nat.one_ne_zero, if_false, if_true, header_hi,
+        if_neg (by decide : ¬ SigGolfCandidate.T3.packedNodeTag 6)]
+
 theorem child_pre (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128) (ends : List Digest)
-    (u : MachineState) (hu : Child.Pre Frozen.layout w index k j ends u) :
+    (u v : MachineState) (hu : Child.Pre Frozen.layout w index k j ends u)
+    (hp : v.pc = pcOf (childBase j.val + 1)) (hr : ∀ r, v.getReg r = u.getReg r)
+    (hf : Frame u v (fun A => A = coordinateBase k + 904))
+    (hheader : DigAt v (coordinateBase k + 896) (V3.leafFields k.val index j.val ends 1)) :
     ChildPre j.val (coordinateBase k) k.val index (V3.leafFields k.val index j.val ends)
-      (V3.nodePad w k.val) (V3.sibling w k.val j.val) u := by
-  refine ⟨hu.pc, ?_, ?_, hu.hashMode, hu.baseReg, hu.hashInput, hu.hashLen, hu.nodeHeader,
-    hu.indexReg, ?_, hu.leafAt, hu.padAt, ?_⟩
-  · unfold coordinateBase
-    omega
-  · have hk := k.isLt
-    unfold coordinateBase MEMORY_BYTES
-    omega
+      (V3.nodePad w k.val) (V3.sibling w k.val j.val) v := by
+  have hk := k.isLt
+  have hBhi : coordinateBase k + 1024 ≤ MEMORY_BYTES := by
+    unfold coordinateBase MEMORY_BYTES; omega
+  refine ⟨hp, ?_, hBhi, (hr _).trans hu.hashMode, (hr _).trans hu.baseReg,
+    (hr _).trans hu.hashInput, (hr _).trans hu.hashLen, (hr _).trans hu.nodeHeader,
+    (hr _).trans hu.childReg, ?_, ?_, ?_, ?_⟩
+  · unfold coordinateBase; omega
   · intro h h2 h7
     have he : heapReg h = Child.heapReg h := by interval_cases h <;> rfl
-    rw [he]
+    rw [hr, he]
     exact hu.heaps h h2 h7
+  · intro i hi
+    by_cases h1 : i = 1
+    · subst i; simpa [leafO] using hheader
+    · apply (hu.leafAt i hi h1).frame hf
+      all_goals simp only [coordinateBase, leafO, MEMORY_BYTES] at *; omega
+  · intro l hl
+    apply (hu.padAt l hl).frame hf
+    all_goals simp only [coordinateBase, padO, blkO, V3.blockOffset, MEMORY_BYTES] at *; omega
   · intro l hl
     have he : sibO l j.val = V3.siblingOffset j.val l := by
       have hb := bitAt_lt j.val l
       unfold sibO V3.siblingOffset V3.blockOffset blkO bitAt at *
       split_ifs <;> omega
     rw [he]
-    exact hu.sibAt l (by omega)
+    apply (hu.sibAt l (by omega)).frame hf
+    all_goals unfold coordinateBase V3.siblingOffset V3.blockOffset MEMORY_BYTES at *; split_ifs <;> omega
 theorem child_good : ChildGood := by
   intro j w index k ends u N C A Q K hu hK
-  have hp := child_pre w index k j ends u hu
   have hcode := child_code j.val j.isLt
+  obtain ⟨v0, hsw, hpc0, hreg0, hframe0, hheader0⟩ := childPrefixSW w index k j ends u hu hcode
+  have hp := child_pre w index k j ends u v0 hu hpc0 hreg0 hframe0 hheader0
   have hP8 : pairAddress k % 8 = 0 := by unfold pairAddress; omega
   have hPB : pairAddress k + 48 ≤ coordinateBase k := by unfold pairAddress coordinateBase; omega
-  have hsib : DigAt u (coordinateBase k + sibO 6 j.val) (V3.sibling w k.val j.val 6) := by
+  have hsib : DigAt v0 (coordinateBase k + sibO 6 j.val) (V3.sibling w k.val j.val 6) := by
     have he : sibO 6 j.val = V3.siblingOffset j.val 6 := by
       have hb := bitAt_lt j.val 6
       unfold sibO V3.siblingOffset V3.blockOffset blkO bitAt at *
       split_ifs <;> omega
     rw [he]
-    exact hu.sibAt 6 (by decide)
+    apply (hu.sibAt 6 (by decide)).frame hframe0
+    all_goals unfold coordinateBase V3.siblingOffset V3.blockOffset; split_ifs <;> omega
   have hg := child_prefix_good Frozen.image j.val j.isLt hcode (coordinateBase k) k.val index
-    (V3.leafFields k.val index j.val ends) (V3.nodePad w k.val) (V3.sibling w k.val j.val) u
+    (V3.leafFields k.val index j.val ends) (V3.nodePad w k.val) (V3.sibling w k.val j.val) v0
     (N + 10) (C + 17) (A + 17) Q
     (fun v => ccM (childLevelP k.val index j.val (V3.nodePad w k.val) (V3.sibling w k.val j.val) v 5 >>=
       fun computed => pure (V3.orderPair j.val computed (V3.sibling w k.val j.val 6))) K)
     (by have := hu.indexBound; omega) hp (fun v s hs => by
-      apply tail_good j.isLt hcode hp hu.forestPointer hP8 hPB _ hsib v s hs N C A Q K
+      apply tail_good j.isLt hcode hp ((hreg0 _).trans hu.forestPointer) hP8 hPB _ hsib v s hs N C A Q K
       intro computed t ht
       apply hK _ t
-      refine ⟨?_, ht.a1, ht.left, ht.right, ?_, ht.frame⟩
-      · rw [ht.pc, hu.returnPC]
+      refine ⟨?_, ht.a1, ht.left, ht.right, ?_, ?_⟩
+      · rw [ht.pc, hreg0, hu.returnPC]
         fin_cases k <;> decide
       · intro r hr
         simp only [Child.clobbers, List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-        exact ht.keep r hr.1 hr.2.1 hr.2.2.1 hr.2.2.2.1 hr.2.2.2.2)
+        exact (ht.keep r hr.1 hr.2.1 hr.2.2.1 hr.2.2.2.1 hr.2.2.2.2).trans (hreg0 r)
+      · apply (hframe0.trans ht.frame).mono
+        intro A hA hw
+        rcases hw with hsw | hrest
+        · exact Or.inl hsw
+        · exact Or.inr hrest)
   rw [childProgram_split]
-  simp only [ccM_bind, Nat.add_assoc] at hg ⊢
-  exact hg
+  have hwhole := GoodQFor.steps hsw hg
+  simp only [ccM_bind, Nat.add_assoc] at hwhole ⊢
+  exact hwhole
 #print axioms child_good
 end W9Drv.ChildProof
 end

@@ -9,7 +9,7 @@ def rankCost (r : Fin 9 → Fin 600) : ℕ := ∑ k, routineCost (r k)
 def capRanks : Finset (Fin 9 → Fin 600) := univ.filter fun r => rankCost r ≤ jointCap
 theorem mem_capRanks (r : Fin 9 → Fin 600) : r ∈ capRanks ↔ rankCost r ≤ jointCap := by
   simp only [capRanks, mem_filter, mem_univ, true_and]
-def J : ℕ := 9919426655269015159460024
+def J : ℕ := 9776740226758159252015394
 noncomputable def costPoly : ℕ[X] := ∑ r : Fin 600, X ^ routineCost r
 theorem sum_routineCost {M : Type*} [AddCommMonoid M] (f : ℕ → M) :
     ∑ r : Fin 600, f (routineCost r) = (routineCosts.map f).sum := by
@@ -36,7 +36,7 @@ theorem costEval_one : costEval 1 = 600 := by decide +kernel
 theorem eval_one_costPoly : costPoly.eval 1 = 600 := by
   rw [eval_costPoly, costEval_one]
 def capCheck : Bool :=
-  Nat.beq ((List.range 701).foldr (fun t s => costEval (2 ^ 100) ^ 9 / (2 ^ 100) ^ t % 2 ^ 100 + s) 0) J
+  Nat.beq ((List.range 699).foldr (fun t s => costEval (2 ^ 100) ^ 9 / (2 ^ 100) ^ t % 2 ^ 100 + s) 0) J
 theorem capCheck_ok : capCheck = true := by decide +kernel
 theorem range_foldr_eq_sum' (h : ℕ → ℕ) (n : ℕ) :
     (List.range n).foldr (fun r s => h r + s) 0 = ∑ r ∈ Finset.range n, h r := by
@@ -61,14 +61,14 @@ theorem card_capRanks : capRanks.card = J := by
   have hext : ∀ t, (costPoly ^ 9).coeff t = costEval (2 ^ 100) ^ 9 / (2 ^ 100) ^ t % 2 ^ 100 := by
     intro t
     rw [← ClaudeWCT.Numerics.eval_div_pow_mod hB t _ hcoeff, eval_pow, eval_costPoly]
-  have hsplit : capRanks.card = ∑ t ∈ range 701, #{r : Fin 9 → Fin 600 | rankCost r = t} := by
-    rw [card_eq_sum_card_fiberwise (f := rankCost) (t := range 701)
+  have hsplit : capRanks.card = ∑ t ∈ range 699, #{r : Fin 9 → Fin 600 | rankCost r = t} := by
+    rw [card_eq_sum_card_fiberwise (f := rankCost) (t := range 699)
       (fun r hr => mem_range.mpr (Nat.lt_succ_of_le ((mem_capRanks r).mp hr)))]
     unfold capRanks
     refine sum_congr rfl fun t ht => ?_
     rw [filter_filter]
     exact congrArg Finset.card (filter_congr fun r _ => ⟨fun h => h.2,
-      fun h => ⟨by rw [h]; exact (Nat.le_of_lt_succ (mem_range.mp ht) : t ≤ 700), h⟩⟩)
+      fun h => ⟨by rw [h]; exact (Nat.le_of_lt_succ (mem_range.mp ht) : t ≤ 698), h⟩⟩)
   have hc := capCheck_ok
   unfold capCheck at hc
   rw [hsplit]
