@@ -615,6 +615,8 @@ theorem tail_lbu {image : Image} (s : MachineState)
     exact MachineState.getReg_setReg_ne _ _ _ _ (Ne.symm hq)
   · intro A _ _; simp [MachineState.setReg, MachineState.setPC, MachineState.getMem]
 def sumCode : List (BitVec 32) := [0xec8a63]
+-- Exact checksum instruction is BEQ x25,x14,+20: valid sums already skip the reject jump.
+theorem sumCode_is_accept_branch : sumCode = [0x00ec8a63] := by rfl
 sym_block sumBase := symRun { noAlias := true } sumCode (pcOf 96213) 200
 def tailRejectJumpCode : List (BitVec 32) := [67108975]
 sym_block tailRejectJumpBase := symRun { noAlias := true } tailRejectJumpCode (pcOf 96214) 200
