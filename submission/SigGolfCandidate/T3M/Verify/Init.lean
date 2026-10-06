@@ -119,9 +119,9 @@ theorem dataBase_verify : dataBase (submission.image .verify) = VERIFY_DATA := b
 theorem verifyData_mask :
     bytesToWordLE ((((submission.image .verify).data).drop 184).take 8) = 130048#64 := by
   decide +kernel
-theorem verifyData_header (k : Nat) (hk : k < 4) :
+theorem verifyData_header (k : Nat) (hk : k < 5) :
     bytesToWordLE ((((submission.image .verify).data).drop (80 + 8 * k)).take 8) =
-      BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + k * 2 ^ 48) := by
+      BitVec.ofNat 64 (if k = 4 then 0x0001040100020401 else 128 + 193 * 2 ^ 56 + k * 2 ^ 48) := by
   interval_cases k <;> decide +kernel
 theorem verifyData_initialMask :
     bytesToWordLE ((((submission.image .verify).data).take 8)) = 0xfff#64 := by

@@ -804,13 +804,9 @@ theorem bank_cert_le (hUpub : SeccLaw.publicUniverse ⊆ U) (initLaw : PMF AuxDa
   calc
     _ ≤ expectedValue L (psiOut q) := hcert
     _ ≤ psi q RouterState.initial + Mass / 2 ^ 128 := hpsi
-    _ ≤ (q : ENNReal) * (11324 / 100000000) / 2 ^ 128 + Mass / 2 ^ 128 := add_le_add (psi_initial q) le_rfl
     _ ≤ _ := by
-      gcongr
-      all_goals first
-        | norm_num
-        | exact ENNReal.div_le_div_right (by norm_num) _
-        | exact_mod_cast (by norm_num : (11324 : Nat) ≤ 14774)
+      apply add_le_add _ le_rfl
+      exact (psi_initial q).trans (by gcongr <;> norm_num)
 end Bank
 theorem large_cert_bound (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) : LargeCertBound adversary q hq := by
   unfold LargeCertBound
@@ -1107,7 +1103,7 @@ theorem large_cert_bound (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
     by_cases hcomp : BPB.SignerComplete z.2
     · exact Or.inl ⟨h.1, h.2, hcomp⟩
     · exact Or.inr hcomp
-  have habs : 1 / (2 : ENNReal) ^ 722 ≤ largeReserveAbsolute := by
+  have habs : 1 / (2 : ENNReal) ^ 698 ≤ largeReserveAbsolute := by
     rw [SeccClosing.largeReserveAbsolute_def, one_div]
     exact ENNReal.inv_le_inv.mpr (pow_le_pow_right₀ one_le_two (by norm_num))
   refine hsplit.trans ((add_le_add ((cert_le_lazy adversary q hq).trans

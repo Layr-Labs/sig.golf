@@ -71,11 +71,41 @@ def EncodingRun : Prop := ∀ (w : WBytes) (pk : Digest) (index : Nat) (lay : La
   (ClaudeWCT.W9.T3M.wbcCtr w lay).toNat < counterLimit →
   ∃ c, c < nCopy lay.val ∧ ∃ t,
     SpecRes (allowed lay.val) [] baseK (specA lay.val (trPc lay.val c))
-      (bK lay.val) keepA s t
+      (bKC lay.val) keepA s t
 def SetupPost : Prop := ∀ (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer)
   (msg : LayerMsg) (s : MachineState), LayerIn w pk index lay.val msg s →
   ∀ c t, SpecRes (allowed lay.val) [] baseK (specA lay.val (trPc lay.val c))
-    (bK lay.val) keepA s t → EncPre w pk index lay.val c t
+    (bKC lay.val) keepA s t → EncPre w pk index lay.val c t
+theorem hwE_eval (lay : Nat) (s : MachineState) (hD : DataOK s) :
+    (hwE lay).eval s = BitVec.ofNat 64 (hw 4 lay) := by
+  by_cases h12 : lay = 1 ∨ lay = 2
+  · rcases h12 with rfl | rfl
+    · change (UnOp.ld .wu 4).eval (s.getMem (BitVec.ofNat 64 (HDATA + 32))) = BitVec.ofNat 64 (hw 4 1)
+      rw [hD.hw12]; decide
+    · change (UnOp.ld .wu 0).eval (s.getMem (BitVec.ofNat 64 (HDATA + 32))) = BitVec.ofNat 64 (hw 4 2)
+      rw [hD.hw12]; decide
+  · have h1 : lay ≠ 1 := by omega
+    have h2 : lay ≠ 2 := by omega
+    simp [hwE, h1, h2, E.eval, kw]
+theorem bK_x27 (lay : Layer) : ∀ p ∈ bK lay.val, p.1 = .x27 → p = (.x27, BitVec.ofNat 64 (hw 4 lay.val)) := by
+  fin_cases lay <;> decide
+theorem known_bK_of_bKC (lay : Layer) (c : Nat) (s t : MachineState) (hD : DataOK s)
+    (ht : SpecRes (allowed lay.val) [] baseK (specA lay.val (trPc lay.val c)) (bKC lay.val) keepA s t) :
+    KnownOK (bK lay.val) t := by
+  have hk : KnownOK (if lay.val = 1 ∨ lay.val = 2 then (bK lay.val).filter (fun p => p.1 != .x27) else bK lay.val) t := ht.known
+  by_cases h12 : lay.val = 1 ∨ lay.val = 2
+  · rw [if_pos h12] at hk
+    have h27 : t.getReg .x27 = BitVec.ofNat 64 (hw 4 lay.val) := by
+      have h3 : lay.val ≠ 3 := by rcases h12 with h | h <;> omega
+      have h0 : lay.val ≠ 0 := by rcases h12 with h | h <;> omega
+      rw [ht.regs (.x27, hwE lay.val) (by simp [specA, h3, h0])]
+      exact hwE_eval lay.val s hD
+    intro p hp
+    by_cases hp27 : p.1 = .x27
+    · rw [bK_x27 lay p hp hp27]; exact h27
+    · exact hk p (List.mem_filter.mpr ⟨hp, bne_iff_ne.mpr hp27⟩)
+  · rw [if_neg h12] at hk
+    exact hk
 theorem encoding_run : EncodingRun := fun w pk index lay msg s hs hlt => by
   obtain ⟨c, hc, hpc⟩ := hs.copy
   have hcc := (T3M.copy_parts lay.val (trPc lay.val c)
@@ -88,6 +118,14 @@ theorem encoding_run : EncodingRun := fun w pk index lay msg s hs hlt => by
     subst b
     exact (counter_branch w pk index lay msg s hs (setupAcceptDir lay.val)).mpr (by by_cases h3 : lay.val = 3 <;> simp [setupAcceptDir, h3, hlt, Nat.not_le.mpr hlt])) (by simp)
   exact ⟨c, hc, t, ht⟩
+theorem tp0E_eval (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (msg : LayerMsg) (s : MachineState)
+    (hs : LayerIn w pk index lay.val msg s) :
+    (tp0E lay.val).eval s = BitVec.ofNat 64 (hdr1 (route index lay).2 (route index lay).1) := by
+  unfold tp0E
+  by_cases h0 : lay.val = 0
+  · obtain rfl : lay = 0 := Fin.ext h0
+    simp [E.eval, hs.tp0 rfl]
+  · simp [h0, (T3M.route_evals index lay hs.idx s hs.route).2.2.1]
 theorem setup_post : SetupPost := fun w pk index lay msg s hs c t ht => by
   obtain ⟨hlE, htE, htpE, hs7E⟩ := T3M.route_evals index lay hs.idx s hs.route
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
@@ -142,11 +180,11 @@ theorem setup_post : SetupPost := fun w pk index lay msg s hs c t ht => by
     exact (ht.orig_const hs.orig).mono (fun o ho => ⟨ho, by
       fin_cases lay <;> simp [allowed, x10In, layerEnd, WIT] at * <;> omega⟩)
   case refine_1 => fin_cases lay <;> exact ht.pc rfl
-  case refine_2 => exact ⟨ht.known, (ht.glob _ w pk hs.glob (RelOK.nil s)).2⟩
+  case refine_2 => exact ⟨known_bK_of_bKC lay c s t hs.glob.2.2.2.2.2 ht, (ht.glob _ w pk hs.glob (RelOK.nil s)).2⟩
   case refine_3 =>
     intro L hL
     obtain rfl : L = lay := Fin.ext hL
-    exact (ht.regs (.x4, tpE L.val) (by fin_cases L <;> simp [specA, T3M.specA])).trans htpE
+    exact (ht.regs (.x4, tp0E L.val) (by fin_cases L <;> simp [specA, T3M.specA])).trans (tp0E_eval w pk index L msg s hs)
   case refine_4 =>
     intro L hL
     obtain rfl : L = lay := Fin.ext hL
@@ -158,17 +196,18 @@ theorem setup_post : SetupPost := fun w pk index lay msg s hs c t ht => by
 def PairSetupHash : Prop := ∀ (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer)
   (left right : Digest) (s : MachineState), LayerIn w pk index lay.val (.pair left right) s →
   ∀ c t, SpecRes (allowed lay.val) [] baseK (specA lay.val (trPc lay.val c))
-    (bK lay.val) keepA s t →
+    (bKC lay.val) keepA s t →
   t.getReg .x5 = 0 ∧ hashArgumentsValid t = true ∧
   hashInput t = toQ (T3.pad64 (ClaudeWCT.W9.T3M.layerEncodingInputP lay
     (route index lay).2 (route index lay).1 (.pair left right)
     (ClaudeWCT.W9.T3M.wbcCtr w lay) (ClaudeWCT.W9.T3M.wbcPad w lay)))
 theorem pair_setup_hash : PairSetupHash := fun w pk index lay left right s hs c t ht => by
+  have hbk : KnownOK (bK lay.val) t := known_bK_of_bKC lay c s t hs.glob.2.2.2.2.2 ht
   have h3 : lay.val ≠ 3 := Nat.ne_of_lt hs.msg.1
   have h10 : t.getReg .x10 = BitVec.ofNat 64 (x10In lay.val) :=
-    ht.known (.x10, _) (by rw [bK, if_neg h3]; exact List.mem_append_right _ (List.mem_singleton_self _))
+    hbk (.x10, _) (by rw [bK, if_neg h3]; exact List.mem_append_right _ (List.mem_singleton_self _))
   have h11 : t.getReg .x11 = BitVec.ofNat 64 64 :=
-    ht.known (.x11, _) (by fin_cases lay <;> simp [bK, T3M.bK, layK])
+    hbk (.x11, _) (by fin_cases lay <;> simp [bK, T3M.bK, layK])
   obtain ⟨d, h12, hd⟩ : ∃ d, t.getReg .x12 = BitVec.ofNat 64 d ∧
       (d = 15560 ∨ d = 15608 ∨ d = 18760 ∨ d = 18808 ∨ d = 21896 ∨ d = 21944) := by
     by_cases h0 : lay.val = 0
@@ -187,7 +226,7 @@ theorem pair_setup_hash : PairSetupHash := fun w pk index lay left right s hs c 
           simp [x10In] at hdd; omega
         · obtain rfl : lay = 2 := Fin.ext h
           simp [x10In] at hdd; omega
-  refine ⟨ht.known (.x5, 0) (by fin_cases lay <;> simp [bK, T3M.bK, layK, baseK]),
+  refine ⟨hbk (.x5, 0) (by fin_cases lay <;> simp [bK, T3M.bK, layK, baseK]),
     hashArgs_of t (x10In lay.val) 64 d h10 h11 h12
       (by fin_cases lay <;> decide) (by decide) (by fin_cases lay <;> decide)
       (by omega) (by omega), ?_⟩
@@ -226,19 +265,20 @@ theorem pair_setup_hash : PairSetupHash := fun w pk index lay left right s hs c 
     unfold headerWrites
     rw [memEval_cons_ofNat _ _ _ _ _ (by fin_cases lay <;> decide) (by fin_cases lay <;> decide),
       if_neg (by omega),
-      memEval_cons_ofNat _ _ _ _ _ (by fin_cases lay <;> decide) (by fin_cases lay <;> decide), if_pos rfl]
-    simpa [dlo, header_lo, T3.packedNodeTag, E.eval, kw] using
+      memEval_cons_ofNat _ _ _ _ _ (by fin_cases lay <;> decide) (by fin_cases lay <;> decide), if_pos rfl,
+      hwE_eval lay.val s hs.glob.2.2.2.2.2]
+    simpa [dlo, header_lo, T3.packedNodeTag] using
       congrArg (BitVec.ofNat 64) (T3M.hw4_hdr0 lay _ (T3M.tree_lt index lay hs.idx))
   case refine_2 =>
     rw [hm]
     unfold headerWrites
     rw [memEval_cons_ofNat _ _ _ _ _ (by fin_cases lay <;> decide) (by fin_cases lay <;> decide), if_pos rfl]
     simpa [dhi, header_hi, T3.packedNodeTag] using
-      (T3M.route_evals index lay hs.idx s hs.route).2.2.1
+      tp0E_eval w pk index lay (.pair left right) s hs
 def ForestSetupHash : Prop := ∀ (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer)
   (root : Digest) (s : MachineState), LayerIn w pk index lay.val (.forest root) s →
   ∀ c t, SpecRes (allowed lay.val) [] baseK (specA lay.val (trPc lay.val c))
-    (bK lay.val) keepA s t →
+    (bKC lay.val) keepA s t →
   t.getReg .x5 = 0 ∧ hashArgumentsValid t = true ∧
   hashInput t = toQ (T3.pad64 (ClaudeWCT.W9.T3M.layerEncodingInputP lay
     (route index lay).2 (route index lay).1 (.forest root)
@@ -246,10 +286,10 @@ def ForestSetupHash : Prop := ∀ (w : WBytes) (pk : Digest) (index : Nat) (lay 
 theorem forest_setup_hash : ForestSetupHash := fun w pk index lay root s hs c t ht => by
   obtain rfl : lay = 3 := Fin.ext hs.msg.1
   have hH : WitHdr w s := hs.glob.2.1
-  have h10 : t.getReg .x10 = BitVec.ofNat 64 256 := ht.known (.x10, _) (by simp [bK, T3M.bK])
-  have h11 : t.getReg .x11 = BitVec.ofNat 64 64 := ht.known (.x11, _) (by simp [bK, T3M.bK, layK])
-  have h12 : t.getReg .x12 = BitVec.ofNat 64 256 := ht.known (.x12, _) (by simp [bK, T3M.bK])
-  refine ⟨ht.known (.x5, 0) (by simp [bK, T3M.bK, layK, baseK]),
+  have h10 : t.getReg .x10 = BitVec.ofNat 64 256 := ht.known (.x10, _) (by simp [bKC, bK, T3M.bK])
+  have h11 : t.getReg .x11 = BitVec.ofNat 64 64 := ht.known (.x11, _) (by simp [bKC, bK, T3M.bK, layK])
+  have h12 : t.getReg .x12 = BitVec.ofNat 64 256 := ht.known (.x12, _) (by simp [bKC, bK, T3M.bK])
+  refine ⟨ht.known (.x5, 0) (by simp [bKC, bK, T3M.bK, layK, baseK]),
     hashArgs_of t 256 64 256 h10 h11 h12 (by decide) (by decide) (by decide)
       (by decide) (by decide), ?_⟩
   change hashInput t = toQ (pad64 (encodingInput 3 (route index 3).2 (route index 3).1 root (wctr w 3)))
@@ -283,12 +323,12 @@ theorem forest_setup_hash : ForestSetupHash := fun w pk index lay root s hs c t 
     rw [memEval_cons_ofNat _ _ _ _ _ (by norm_num) (by norm_num), if_neg (by norm_num),
       memEval_cons_ofNat _ _ _ _ _ (by norm_num) (by norm_num), if_neg (by norm_num),
       memEval_cons_ofNat _ _ _ _ _ (by norm_num) (by norm_num), if_pos rfl]
-    simp only [E.eval, kw]
+    simp only [hwE, E.eval, kw]
     exact congrArg (BitVec.ofNat 64) (T3M.hw4_hdr0 (3 : Layer) _ tree_lt')
   · rw [show (256 : Nat) + 24 = 280 by rfl, hm]
-    simp only [T3M.specA]
+    simp only [T3M.specA, tp0E]
     rw [memEval_cons_ofNat _ _ _ _ _ (by norm_num) (by norm_num), if_neg (by norm_num),
-      memEval_cons_ofNat _ _ _ _ _ (by norm_num) (by norm_num), if_pos rfl, htpE]
+      memEval_cons_ofNat _ _ _ _ _ (by norm_num) (by norm_num), if_pos rfl, if_neg (by decide : (3 : Nat) ≠ 0), htpE]
   · rw [show (256 : Nat) + 32 = 288 by rfl, hm]
     simp only [T3M.specA]
     rw [memEval_cons_ofNat _ _ _ _ _ (by norm_num) (by norm_num), if_pos rfl]
@@ -371,17 +411,17 @@ def chainCost0 (lay : Nat) : Nat := if lay = 0 then 1066 else 2949 - 9 * tgtL la
 def chainFuel (lay : Nat) : Nat := if lay = 0 then 2320 else 1720
 def layerCost (lay Z : Nat) : Nat := stepsA lay + 8 + cyB lay + lfSteps lay + chainCost0 lay - Z
 def layerFuel (lay : Nat) : Nat := stepsA lay + 1 + stB lay + chainFuel lay + lfSteps lay
-def layerCostA (lay : Nat) : Nat := layerCost lay 0 - (if lay = 0 then 9 else [7, 4, 4, 2].getD lay 0)
+def layerCostA (lay : Nat) : Nat := layerCost lay 0 - (if lay = 0 then 9 else [8, 4, 4, 4].getD lay 0)
 theorem layerCostA_low (lay : Layer) (h : lay ≠ 0) :
     layerCostA lay.val = layerCost lay.val 0 - ClaudeWCT.WCT9.producerFloor lay := by
   fin_cases lay
   · exact absurd rfl h
   all_goals rfl
 theorem layerCost_vals :
-    layerCost 3 0 = 1227 ∧ layerCost 2 0 = 1235 ∧ layerCost 1 0 = 1235 ∧ layerCost 0 0 = 1161 := by decide
-theorem layerCostA_vals : layerCostA 3 = 1225 ∧ layerCostA 2 = 1231 ∧ layerCostA 1 = 1231 := by decide
+    layerCost 3 0 = 1227 ∧ layerCost 2 0 = 1234 ∧ layerCost 1 0 = 1234 ∧ layerCost 0 0 = 1160 := by decide
+theorem layerCostA_vals : layerCostA 3 = 1223 ∧ layerCostA 2 = 1230 ∧ layerCostA 1 = 1230 := by decide
 theorem layerFuel_vals :
-    layerFuel 3 = 1770 ∧ layerFuel 2 = 1769 ∧ layerFuel 1 = 1769 ∧ layerFuel 0 = 2462 := by decide
+    layerFuel 3 = 1770 ∧ layerFuel 2 = 1768 ∧ layerFuel 1 = 1768 ∧ layerFuel 0 = 2461 := by decide
 theorem ckOf_lt (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (ds : List Nat)
     (hds : decode lay (a.extractLsb' 0 128) = some ds) : ckOf lay a < 8 := by
   rw [decode_lower lay hlay] at hds
@@ -467,8 +507,8 @@ theorem layer_good_low (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (h
   have hcostA : layerCostA lay.val = stepsA lay.val + 8 + bCy lay.val + lfSteps lay.val +
       (2949 - 9 * tgtL lay.val - ClaudeWCT.WCT9.producerFloor lay) := by
     rw [layerCostA_low lay hlay, hcost]; omega
-  have hbS : 27 ≤ bSt lay.val := by unfold bSt; split_ifs <;> omega
-  have hbC : 30 ≤ bCy lay.val := by unfold bCy; split_ifs <;> omega
+  have hbS : 26 ≤ bSt lay.val := by unfold bSt; split_ifs <;> omega
+  have hbC : 29 ≤ bCy lay.val := by unfold bCy; split_ifs <;> omega
   have hrej : BC.rejectSteps lay.val ≤ stepsA lay.val + 3 := by
     unfold BC.rejectSteps; split_ifs <;> omega
   unfold layerHead
@@ -540,8 +580,7 @@ theorem layerIn_of_fts (w : WBytes) (pk : Digest) (idx : Nat) (root : Digest) (u
     (hwit : Verify.Orig w (fun o => o < 64 ∨ 9288 ≤ o) u) (ha2 : u.getReg .x12 = BitVec.ofNat 64 0x100)
     (hs10 : u.getReg .x26 = 6) (hOne : u.getReg .x7 = 1) (hTwo : u.getReg .x13 = 2) (hSeven : u.getReg .x30 = 7)
     (hThree : u.getReg .x19 = 3) (hFour : u.getReg .x20 = 4) (hFive : u.getReg .x21 = 5)
-    (hCoord : u.getReg .x6 = 0x10000)
-    (hbase : u.getReg .x28 = BitVec.ofNat 64 TOPBASE)
+    (hbase : u.getReg .x6 = BitVec.ofNat 64 TOPBASE)
     (htop : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
       BitVec.ofNat 64 (topWords.getD k 0))
     (htop8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 23304) :
@@ -582,9 +621,9 @@ theorem layerIn_of_fts (w : WBytes) (pk : Digest) (idx : Nat) (root : Digest) (u
   have hG0 : Glob baseK w pk t := ht.glob _ _ _ hglob (RelOK.nil u)
   have hpk : preK 3 = baseK ++ [(.x8, BitVec.ofNat 64 0x400000), (.x24, BitVec.ofNat 64 M2c),
       (.x9, BitVec.ofNat 64 M1c), (.x27, BitVec.ofNat 64 (hw 4 3)), (.x2, BitVec.ofNat 64 0x3fe00),
-      (.x12, BitVec.ofNat 64 256), (.x26, 6), (.x7, 1), (.x13, 2), (.x30, 7), (.x28, BitVec.ofNat 64 TOPBASE), (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0x10000)] := rfl
-  have e28 : t.getReg .x28 = BitVec.ofNat 64 TOPBASE :=
-    ht.known (.x28, BitVec.ofNat 64 TOPBASE) (by rw [ld3In]; exact List.mem_append_right _ (List.mem_singleton_self _))
+      (.x12, BitVec.ofNat 64 256), (.x26, 6), (.x7, 1), (.x13, 2), (.x30, 7), (.x6, BitVec.ofNat 64 TOPBASE), (.x19, 3), (.x20, 4), (.x21, 5)] := rfl
+  have e6 : t.getReg .x6 = BitVec.ofNat 64 TOPBASE :=
+    ht.known (.x6, BitVec.ofNat 64 TOPBASE) (by rw [ld3In]; exact List.mem_append_right _ (List.mem_singleton_self _))
   have e12 : t.getReg .x12 = BitVec.ofNat 64 256 := (ht.keep .x12 (by simp)).trans ha2
   have e26 : t.getReg .x26 = 6 := (ht.keep .x26 (by simp)).trans hs10
   have eOne : t.getReg .x7 = 1 := (ht.keep .x7 (by simp)).trans hOne
@@ -593,12 +632,11 @@ theorem layerIn_of_fts (w : WBytes) (pk : Digest) (idx : Nat) (root : Digest) (u
   have eThree : t.getReg .x19 = 3 := (ht.keep .x19 (by simp)).trans hThree
   have eFour : t.getReg .x20 = 4 := (ht.keep .x20 (by simp)).trans hFour
   have eFive : t.getReg .x21 = 5 := (ht.keep .x21 (by simp)).trans hFive
-  have eCoord : t.getReg .x6 = 0x10000 := (ht.keep .x6 (by simp)).trans hCoord
   have hk : ∀ p ∈ preK 3, t.getReg p.1 = p.2 := by
     intro p hp
     rw [hpk] at hp
     simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hp
-    rcases hp with hp | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+    rcases hp with hp | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
     · exact ht.known p (by rw [ld3In]; exact List.mem_append_left _ hp)
     · exact e19
     · exact e21
@@ -610,19 +648,20 @@ theorem layerIn_of_fts (w : WBytes) (pk : Digest) (idx : Nat) (root : Digest) (u
     · exact eOne
     · exact eTwo
     · exact eSeven
-    · exact e28
+    · exact e6
     · exact eThree
     · exact eFour
     · exact eFive
-    · exact eCoord
   refine ⟨t, ht.steps, ⟨by norm_num, hidx, ⟨0, by rw [BC.nCopy_eq.1]; norm_num, by rw [ht.pc rfl]; rfl⟩, ⟨hk, hG0.2⟩,
-    ?_, ?_, ?_, ?_, ?_, ?_⟩⟩
+    ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩⟩
   · rw [show rReg 3 = .x22 from rfl, show BC.below 3 = 0 from rfl, pow_zero, Nat.div_one,
       ht.keep .x22 (by simp), hreg]
   · exact ⟨rfl, (hm _).trans hroot.1, (hm _).trans hroot.2⟩
   · exact (hwit.mono (fun o ho => Or.inr ho.1)).frame (fun j _ _ => hm _)
   · intro _
     exact ⟨(hm _).trans ((htop 4 (by decide)).trans (by decide +kernel)), (hm _).trans htop8⟩
+  · intro h
+    exact absurd h (by decide)
   · intro h
     exact absurd h (by decide)
   · intro h
