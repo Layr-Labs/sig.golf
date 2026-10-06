@@ -303,7 +303,7 @@ theorem digest_failure_power_1300 :
     digestAttemptLimit 1300
     (by have hl := Real.log_two_lt_d9
         change (1300 : ℝ) * Real.log 2 ≤ 2097152 * (BaseAudit.V4.p0 : ℝ)
-        have hp : (1 : ℝ) / 2272 ≤ (BaseAudit.V4.p0 : ℝ) := by norm_num [BaseAudit.V4.p0, BaseAudit.V4.J]
+        have hp : (1 : ℝ) / 2305 ≤ (BaseAudit.V4.p0 : ℝ) := by norm_num [BaseAudit.V4.p0, BaseAudit.V4.J]
         nlinarith)
   have hcast := ENNReal.ofReal_le_ofReal hreal
   simpa only [ofReal_inv_two_pow] using hcast
