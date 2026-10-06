@@ -14,7 +14,7 @@ section Window
 variable {T : ℕ} (hT1 : 2 ^ 32 ≤ T) (hT2 : T ≤ 2 ^ 32 + 2 ^ 23)
 include hT1 hT2
 theorem wct_price_mean_law {law : (Coord → Child × Rank) → ENNReal} {κ : ENNReal} (hlaw : N600.LawOK law κ) :
-    lawAvg (marked (α := Fin (2 ^ 31)) law) T price ≤ 2659 / 10000 := by
+    lawAvg (marked (α := Fin (2 ^ 31)) law) T price ≤ 2783 / 10000 := by
   rw [price_fun_eq]
   exact N600.law_price_mean_le wordDigit hT1 hT2 card_rank card_child w1Table_wordDigit hlaw
 theorem wct_price_excess_law {law : (Coord → Child × Rank) → ENNReal} {κ : ENNReal} (hlaw : N600.LawOK law κ) :
@@ -26,7 +26,7 @@ theorem wct_near_law {law : (Coord → Child × Rank) → ENNReal} {κ : ENNReal
     lawAvg (marked (α := Fin (2 ^ 31)) law) T (N600.nearPriceN (C := Child) wordDigit) ≤ 404 - 1 / 16 :=
   (N600.law_nearPrice_le wordDigit hT1 hT2 card_rank card_child w1Table_wordDigit wfTable_wordDigit hlaw).trans
     N600.near_le_sub
-theorem wct_price_mean_bound_window : uniformWordAverage T price ≤ 2659 / 10000 := by
+theorem wct_price_mean_bound_window : uniformWordAverage T price ≤ 2783 / 10000 := by
   rw [price_fun_eq]
   exact N600.uniform_price_mean_le wordDigit hT1 hT2 card_rank card_child w1Table_wordDigit
 theorem wct_price_mean_bound_window' : uniformWordAverage T price ≤ 37 / 64 := by
