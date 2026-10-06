@@ -72,7 +72,7 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput Layer route height chainCount counterLimit decode encodingInput target
   dataDigits pad64)
-def keepLfL : List Reg := [.x1, .x2, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23, .x6, .x25,
+def keepLfL : List Reg := [.x1, .x2, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23, .x6,
   .x26, .x29, .x31, .x30, .x28, .x14]
 def lfSlotCheck (lay c : Nat) : Bool :=
   specB [] [] baseK (runAt (leafK lay) [] (ckSlot c + partLen c) (lfDirs lay)) (specLf lay) [] (postLf lay) keepLfL
@@ -294,6 +294,14 @@ theorem encoding_run : EncodingRun := fun w pk index lay msg s hs hlt => by
     subst b
     exact (counter_branch w pk index lay msg s hs (setupAcceptDir lay.val)).mpr (by by_cases h3 : lay.val = 3 <;> simp [setupAcceptDir, h3, hlt, Nat.not_le.mpr hlt])) (by simp)
   exact ⟨c, hc, t, ht⟩
+theorem tp0E_eval (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer) (msg : LayerMsg) (s : MachineState)
+    (hs : LayerIn w pk index lay.val msg s) :
+    (tp0E lay.val).eval s = BitVec.ofNat 64 (hdr1 (route index lay).2 (route index lay).1) := by
+  unfold tp0E
+  by_cases h0 : lay.val = 0
+  · obtain rfl : lay = 0 := Fin.ext h0
+    simp [E.eval, hs.tp0 rfl]
+  · simp [h0, (T3M.route_evals index lay hs.idx s hs.route).2.2.1]
 theorem setup_post : SetupPost := fun w pk index lay msg s hs c t ht => by
   obtain ⟨hlE, htE, htpE, hs7E⟩ := T3M.route_evals index lay hs.idx s hs.route
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
@@ -352,7 +360,7 @@ theorem setup_post : SetupPost := fun w pk index lay msg s hs c t ht => by
   case refine_3 =>
     intro L hL
     obtain rfl : L = lay := Fin.ext hL
-    exact (ht.regs (.x4, tpE L.val) (by fin_cases L <;> simp [specA, T3M.specA])).trans htpE
+    exact (ht.regs (.x4, tp0E L.val) (by fin_cases L <;> simp [specA, T3M.specA])).trans (tp0E_eval w pk index L msg s hs)
   case refine_4 =>
     intro L hL
     obtain rfl : L = lay := Fin.ext hL
@@ -440,7 +448,7 @@ theorem pair_setup_hash : PairSetupHash := fun w pk index lay left right s hs c 
     unfold headerWrites
     rw [memEval_cons_ofNat _ _ _ _ _ (by fin_cases lay <;> decide) (by fin_cases lay <;> decide), if_pos rfl]
     simpa [dhi, header_hi, T3.packedNodeTag] using
-      (T3M.route_evals index lay hs.idx s hs.route).2.2.1
+      tp0E_eval w pk index lay (.pair left right) s hs
 def ForestSetupHash : Prop := ∀ (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer)
   (root : Digest) (s : MachineState), LayerIn w pk index lay.val (.forest root) s →
   ∀ c t, SpecRes (allowed lay.val) [] baseK (specA lay.val (trPc lay.val c))
@@ -492,9 +500,9 @@ theorem forest_setup_hash : ForestSetupHash := fun w pk index lay root s hs c t 
     simp only [E.eval, kw]
     exact congrArg (BitVec.ofNat 64) (T3M.hw4_hdr0 (3 : Layer) _ tree_lt')
   · rw [show (256 : Nat) + 24 = 280 by rfl, hm]
-    simp only [T3M.specA]
+    simp only [T3M.specA, tp0E]
     rw [memEval_cons_ofNat _ _ _ _ _ (by norm_num) (by norm_num), if_neg (by norm_num),
-      memEval_cons_ofNat _ _ _ _ _ (by norm_num) (by norm_num), if_pos rfl, htpE]
+      memEval_cons_ofNat _ _ _ _ _ (by norm_num) (by norm_num), if_pos rfl, if_neg (by decide : (3 : Nat) ≠ 0), htpE]
   · rw [show (256 : Nat) + 32 = 288 by rfl, hm]
     simp only [T3M.specA]
     rw [memEval_cons_ofNat _ _ _ _ _ (by norm_num) (by norm_num), if_pos rfl]
@@ -823,13 +831,15 @@ theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (
     · exact eFive
     · exact eCoord
   refine ⟨t, ht.steps, ⟨by norm_num, hidx, ⟨0, by rw [BC.nCopy_eq.1]; norm_num, by rw [ht.pc rfl]; rfl⟩, ⟨hk, hG0.2⟩,
-    ?_, ?_, ?_, ?_, ?_, ?_⟩⟩
+    ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩⟩
   · rw [show rReg 3 = .x22 from rfl, show BC.below 3 = 0 from rfl, pow_zero, Nat.div_one,
       ht.keep .x22 (by simp), hreg]
   · exact ⟨rfl, (hm _).trans hroot.1, (hm _).trans hroot.2⟩
   · exact (hwit.mono (fun o ho => Or.inr ho.1)).frame (fun j _ _ => hm _)
   · intro _
     exact ⟨(hm _).trans ((htop 4 (by decide)).trans (by decide +kernel)), (hm _).trans htop8⟩
+  · intro h
+    exact absurd h (by decide)
   · intro h
     exact absurd h (by decide)
   · intro h

@@ -8,7 +8,7 @@ def nCopy (lay : Nat) : Nat := (xtrTab.getD lay []).length
 def trPc (lay c : Nat) : Nat := (xtrTab.getD lay []).getD c 0
 def kw (k : Nat) : E := .c (BitVec.ofNat 64 k)
 def hL (lay : Nat) : Nat := [12,7,6,6].getD lay 0
-def stepsA (lay : Nat) : Nat := if lay = 3 then 12 else if lay = 0 then 9 else 13
+def stepsA (lay : Nat) : Nat := if lay = 3 then 12 else if lay = 0 then 8 else 13
 def retOff (lay : Nat) : Nat := if lay = 0 then 11 else if lay = 3 then 42 else 41
 def s6v (lay : Nat) : Nat := [11912,15880,19016,22152].getD lay 0
 def s3v : Nat := 12616
@@ -59,6 +59,7 @@ def rReg (lay : Nat) : Reg := if lay = 3 then .x22 else .x31
 def leafE (lay : Nat) : E := if lay = 0 then .reg .x31 else .bin .and (.reg (rReg lay)) (kw (2 ^ hL lay - 1))
 def treeE (lay : Nat) : E := .bin .srl (.reg (rReg lay)) (kw (hL lay))
 def tpE (lay : Nat) : E := if lay = 0 then .bin .sll (leafE lay) (kw 32) else .bin .or (.bin .sll (leafE lay) (kw 32)) (treeE lay)
+def tp0E (lay : Nat) : E := if lay = 0 then .reg .x4 else tpE lay
 def dispatchHeap (lay leaf : Nat) : Nat := s7Bias lay + leaf
 def s7E (lay : Nat) : E := if lay = 0 then .bin .or (leafE lay) (kw (2 ^ hL lay)) else .bin .add (leafE lay) (kw (s7Bias lay))
 def ctrE (lay : Nat) : E := .un (.ld .wu (4 * ((lay + 1) % 2))) (.ld (kw (0x810 + 8 * ((lay + 1) / 2))))
@@ -66,16 +67,16 @@ def ctrBr (lay : Nat) (d : Bool) : Br := ⟨if lay = 3 then .ltu else .geu, ctrE
 def setupPc (lay p : Nat) : Nat := if lay = 3 then 32976 else p
 def setupAcceptDir (lay : Nat) : Bool := decide (lay = 3)
 def specA (lay p : Nat) : Spec :=
-  ⟨if lay = 0 then [(.x4, tpE lay), (.x23, s7E lay), (.x3, ctrE lay)]
-   else [(.x4, tpE lay), (.x23, s7E lay), (.x31, treeE lay), (.x3, ctrE lay)] ++
+  ⟨if lay = 0 then [(.x4, tp0E lay), (.x23, s7E lay), (.x3, ctrE lay)]
+   else [(.x4, tp0E lay), (.x23, s7E lay), (.x31, treeE lay), (.x3, ctrE lay)] ++
      (if lay = 3 then [(.x22, .reg .x22)] else
        [(.x28, .bin .sll (.reg (rReg lay)) (kw 16))]),
-   [(⟨none, BitVec.ofNat 64 288⟩, .bin (.st .w 0) (.ld (kw 288)) (ctrE lay)), (⟨none, BitVec.ofNat 64 280⟩, tpE lay),
+   [(⟨none, BitVec.ofNat 64 288⟩, .bin (.st .w 0) (.ld (kw 288)) (ctrE lay)), (⟨none, BitVec.ofNat 64 280⟩, tp0E lay),
     (⟨none, BitVec.ofNat 64 272⟩, kw (hw 4 lay))],
    p + stepsA lay, true, stepsA lay, [ctrBr lay (setupAcceptDir lay)], none, stepsA lay⟩
 def rejA (lay p : Nat) : Spec :=
   ⟨[(.x5, kw 1), (.x10, kw 1)],
-   [(⟨none, BitVec.ofNat 64 280⟩, tpE lay), (⟨none, BitVec.ofNat 64 272⟩, kw (hw 4 lay))],
+   [(⟨none, BitVec.ofNat 64 280⟩, tp0E lay), (⟨none, BitVec.ofNat 64 272⟩, kw (hw 4 lay))],
    (if lay = 3 then 32989 else rejEcall), true, stepsA lay + 1, [ctrBr lay (!setupAcceptDir lay)], none, stepsA lay + 1⟩
 def a6E : E := .ld (.reg .x12)
 def a7E : E := .ld (.bin .add (.reg .x12) (kw 8))
@@ -163,7 +164,7 @@ def specLf (lay : Nat) : Spec :=
      7, [], some (tgtLf lay), 7⟩
 def postLf (lay : Nat) : List (Reg × Word) :=
   leafK lay ++
-   [(.x3, BitVec.ofNat 64 (hw 2 lay)), (.x4, BitVec.ofNat 64 (hw 3 lay)),
+   [(.x3, BitVec.ofNat 64 (hw 2 lay)), (if lay = 0 then .x4 else .x25, BitVec.ofNat 64 (hw 3 lay)),
     (.x10, BitVec.ofNat 64 (if lay = 0 then 512 else 768)), (.x11, BitVec.ofNat 64 (if lay = 0 then 896 else 704)),
     (.x15, BitVec.ofNat 64 (if lay = 0 then 4096 else 0x40000))]
 def keepA : List Reg := []
@@ -171,5 +172,5 @@ def keepB : List Reg := [.x4, .x31]
 def keepLf : List Reg := [.x23, .x31, .x22]
 def keepTopCall : List Reg := [.x2, .x3, .x4, .x5, .x7, .x13, .x19, .x20, .x10, .x11, .x12, .x21, .x14, .x15, .x16, .x17, .x18, .x8, .x9, .x24, .x22, .x23, .x6, .x25, .x26, .x27, .x28, .x29, .x31, .x30]
 def specTopCall (p : Nat) : Spec :=
-  ⟨[(.x1, kw (0x1000 + 4 * (p + 11)))], [], 96160, false, 1, [], none, 1⟩
+  ⟨[(.x1, kw (0x1000 + 4 * (p + 10)))], [], 96160, false, 1, [], none, 1⟩
 end SigGolfCandidate.T3M

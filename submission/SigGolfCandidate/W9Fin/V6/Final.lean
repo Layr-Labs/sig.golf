@@ -373,12 +373,12 @@ def proSpec : Spec :=
   ⟨[(.x4, cw 3073)],
     [(⟨none, BitVec.ofNat 64 0x28⟩, .ld (cw 0x808)), (⟨none, BitVec.ofNat 64 0x20⟩, .ld (cw 0x800)),
       (⟨none, BitVec.ofNat 64 0x30⟩, cw 0xc01), (⟨none, BitVec.ofNat 64 0x38⟩, .bin (.st .w 4) (.ld (cw 0x38)) lwuDc)],
-    32781, true, 12, [proBr false], none, 12⟩
+    32782, true, 12, [proBr false], none, 12⟩
 def kMask0 : List (Reg × Word) := k0.map fun p => if p.1 = .x18 then (.x18, 0xfff) else p
 def proPost : List (Reg × Word) := baseK ++ [(.x10, 32), (.x11, 64), (.x12, 0)]
-theorem proCheck : specB [] [] baseK (runAt kMask0 [] 32769 [.br false]) proSpec [] proPost [.x2] = true := by
+theorem proCheck : specB [] [] baseK (runAt kMask0 [] 32770 [.br false]) proSpec [] proPost [.x2] = true := by
   decide +kernel
-theorem proRejCheck : specB [] [] [] (runAt kMask0 [] 32769 [.br true]) (rejSpec 6 [proBr true]) [] [] [] = true := by
+theorem proRejCheck : specB [] [] [] (runAt kMask0 [] 32770 [.br true]) (rejSpec 6 [proBr true]) [] [] [] = true := by
   decide +kernel
 theorem lwuDc_eval (w : WB) (s : MachineState) (hW : WitAll w s) :
     lwuDc.eval s = BitVec.ofNat 64 (ClaudeWCT.W9.T3M.wdc w).toNat := by
@@ -420,7 +420,7 @@ theorem proBr_iff (w : WB) (s : MachineState) (hW : WitAll w s) (d : Bool) :
     rw [h0, decide_eq_false h, show (BitVec.ofNat 64 0 != (0 : Word)) = false by decide]
     exact eq_comm
 structure DgPre (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB) (t : MachineState) : Prop where
-  pc : t.pc = pcOf 32781
+  pc : t.pc = pcOf 32782
   known : KnownOK proPost t
   wit : WitAll w t
   pk : PkOK pk t
@@ -430,7 +430,7 @@ structure DgPre (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB) (t : Ma
   bank : Bank t
 structure DgOut (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB) (a : HashOutput) (u : MachineState) :
     Prop where
-  pc : u.pc = pcOf 32782
+  pc : u.pc = pcOf 32783
   known : KnownOK proPost u
   wit : WitAll w u
   pk : PkOK pk u
@@ -441,7 +441,7 @@ structure DgOut (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB) (a : Ha
   bank : Bank u
 structure ProInit (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB) (s : MachineState) : Prop where
   known : KnownOK kMask0 s
-  pc : s.pc = pcOf 32769
+  pc : s.pc = pcOf 32770
   msg : ∀ k, k < 4 → s.getMem (BitVec.ofNat 64 (0x40 + 8 * k)) = m.extractLsb' (64 * k) 64
   pk : PkOK pk s
   wit : WitAll w s
@@ -541,12 +541,12 @@ theorem digest_tail (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB) (s 
       · exact hb.congr (fun A hA _ => frame A (by unfold VERIFY_DATA at *; omega)
           (by unfold VERIFY_DATA at hA; omega) (by unfold VERIFY_DATA at hA; omega)
           (by unfold VERIFY_DATA at hA; omega) (by unfold VERIFY_DATA at hA; omega))
-def entrySpec : Spec := ⟨[], [], 32768, false, 1, [], none, 1⟩
-theorem entryCheck : specB [] [] [] (runAt k0 [32768] 0 []) entrySpec [] k0 [.x2] = true := by
+def entrySpec : Spec := ⟨[], [], 32769, false, 1, [], none, 1⟩
+theorem entryCheck : specB [] [] [] (runAt k0 [32769] 0 []) entrySpec [] k0 [.x2] = true := by
   decide +kernel
 structure EntOK (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB) (s : MachineState) : Prop where
   known : KnownOK k0 s
-  pc : s.pc = pcOf 32768
+  pc : s.pc = pcOf 32769
   msg : ∀ k, k < 4 → s.getMem (BitVec.ofNat 64 (0x40 + 8 * k)) = m.extractLsb' (64 * k) 64
   pk : PkOK pk s
   wit : WitAll w s
@@ -563,9 +563,9 @@ theorem entry_step (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB) (s :
     fun A hA hz => (hm _).trans (hs.zero A hA hz), hs.data.congr (fun A _ _ => hm _),
     (h1.keep .x2 (by simp)).trans hs.sp⟩, hb.congr (fun A _ _ => hm _)⟩
 def maskObl : Oblig := .valid ⟨some (.reg .x2), 0⟩ 8
-def maskSpec : Spec := ⟨[(.x18, .ld (.reg .x2))], [], 32769, false, 1, [], none, 1⟩
+def maskSpec : Spec := ⟨[(.x18, .ld (.reg .x2))], [], 32770, false, 1, [], none, 1⟩
 def k0m : List (Reg × Word) := k0.filter fun p => p.1 ≠ .x18
-theorem maskCheck : specB [] [] [] (runAt k0 [32769] 32768 []) maskSpec [maskObl] k0m [.x2] = true := by
+theorem maskCheck : specB [] [] [] (runAt k0 [32770] 32769 []) maskSpec [maskObl] k0m [.x2] = true := by
   decide +kernel
 theorem mask_step (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB) (s : MachineState)
     (hs : EntOK m pk w s) (hb : Bank s) :
@@ -661,8 +661,8 @@ theorem digestP_good (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB) (s
       rw [ccM_pure]; exact hcont a _ (by omega) (digest_out m pk w t hpre a))
     rw [bind_pure, blocks_digestInput] at this
     exact GoodQP.steps' hst this (by omega) (by omega) (by omega)
-def hookSpec : Spec := ⟨[(.x16, .ld (cw 0))], [], 32783, false, 1, [], none, 1⟩
-theorem hookCheck : specB [] [] baseK (runAt proPost [32783] 32782 []) hookSpec [] proPost [.x2] = true := by
+def hookSpec : Spec := ⟨[(.x16, .ld (cw 0))], [], 32784, false, 1, [], none, 1⟩
+theorem hookCheck : specB [] [] baseK (runAt proPost [32784] 32783 []) hookSpec [] proPost [.x2] = true := by
   decide +kernel
 theorem gatePre_of_hook (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB) (a : HashOutput)
     (u : MachineState) (hu : DgOut m pk w a u) :
