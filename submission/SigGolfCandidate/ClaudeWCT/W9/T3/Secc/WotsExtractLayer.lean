@@ -7,7 +7,8 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open SigGolfCandidate.T3.Security.Wots (LeafAddr ChainAddr Entry low entriesOf word_cases)
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3.Security.Wots
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
-open SigGolfCandidate.T3M (chainP layerP wchainPads wchainHeaderPad wmerklePad wpath wvalue)
+open SigGolfCandidate.T3M (chainP)
+open ClaudeWCT.W9.T3M (layerP wchainPads wchainHeaderPad wmerklePad wpath wvalue)
 open SigGolfCandidate.T3.Security.WotsExtract (SourceLeaf SourceChain seenRow_mono entriesOf_mono mem_entriesOf routeLeaf
   routeLeaf_source)
 open SigGolfCandidate.T3.Correctness (Answers treeValue builtTree leafSeed leafEnd leafValue)
@@ -151,7 +152,7 @@ theorem layerP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer)
   have hqL : ∀ q ∈ queried answers (layerLeafP w index lay digits),
       q ∈ queried answers (layerP w index lay digits) := by
     intro q hq
-    rw [layerP_eq_hashPath, queried_bind]
+    rw [ClaudeWCT.W9.T3M.layerP_eq_hashPath, queried_bind]
     exact List.mem_append_left _ hq
   have hM := merklePath_extract answers 3 lay.val (route index lay).2 (height lay) (route index lay).1 (height lay)
     (wpath w lay (route index lay).1) (wmerklePad w lay)
@@ -162,7 +163,7 @@ theorem layerP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer)
       (WCT9.wotsTree_correct answers lay (route index lay).2) hleafB)
     (by
       have h := reaches
-      rw [layerP_eq_hashPath, evalWithAnswerFn_bind] at h
+      rw [ClaudeWCT.W9.T3M.layerP_eq_hashPath, evalWithAnswerFn_bind] at h
       rw [Nat.div_eq_of_lt hleafB]
       exact h)
   rcases hM with ⟨hv0, hpath⟩ | ⟨step, hstep, hq, hhit⟩
@@ -178,7 +179,7 @@ theorem layerP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer)
         (node := (route index lay).1) (height := height lay) (by omega) (by simpa using hleafB)
     · simpa only [Nat.sub_sub, Nat.zero_add] using Correctness.div_pow_bound (start := 0) (level := step + 1)
         (node := (route index lay).1) (height := height lay) (by omega) (by simpa using hleafB)
-    · rw [layerP_eq_hashPath, queried_bind]
+    · rw [ClaudeWCT.W9.T3M.layerP_eq_hashPath, queried_bind]
       exact List.mem_append_right _ hq
     · rw [Extract.merkle_honestInput]; exact hhit
     · unfold Extract.SameHeader

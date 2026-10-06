@@ -45,7 +45,7 @@ theorem cross_low (v : BitVec 128) :
   · simp
   · simp only [show ¬ (i + 1 + 1 + 1 < 3) from by omega, decide_false, Bool.and_false, Bool.false_and,
       show ¬ (63 + (i + 1 + 1 + 1) < 64) from by omega, Bool.or_false]
-def lowDigits (v : Digest) : List Nat := (List.range 42).map fun i => v.toNat / 2 ^ (3 * i) % 8
+def lowDigits (v : Digest) : List Nat := (List.range 42).map fun i => v.toNat / 2 ^ T3.lowerShift i % 8
 def topDigits (v : Digest) : List Nat := (List.range 54).map (T3.coreDigit 0 v)
 theorem dataDigits_low (lay : Layer) (h : lay ≠ 0) (v : Digest) : T3.dataDigits lay v = lowDigits v := by
   simp only [T3.dataDigits, T3.dataCount, h, if_false, lowDigits]
@@ -77,30 +77,30 @@ theorem lowDigits_sum (v : Digest) : (lowDigits v).sum =
       v.toNat / 18014398509481984 % 8 +
       v.toNat / 144115188075855872 % 8 +
       v.toNat / 1152921504606846976 % 8 +
-      v.toNat / 9223372036854775808 % 8 +
-      v.toNat / 73786976294838206464 % 8 +
-      v.toNat / 590295810358705651712 % 8 +
-      v.toNat / 4722366482869645213696 % 8 +
-      v.toNat / 37778931862957161709568 % 8 +
-      v.toNat / 302231454903657293676544 % 8 +
-      v.toNat / 2417851639229258349412352 % 8 +
-      v.toNat / 19342813113834066795298816 % 8 +
-      v.toNat / 154742504910672534362390528 % 8 +
-      v.toNat / 1237940039285380274899124224 % 8 +
-      v.toNat / 9903520314283042199192993792 % 8 +
-      v.toNat / 79228162514264337593543950336 % 8 +
-      v.toNat / 633825300114114700748351602688 % 8 +
-      v.toNat / 5070602400912917605986812821504 % 8 +
-      v.toNat / 40564819207303340847894502572032 % 8 +
-      v.toNat / 324518553658426726783156020576256 % 8 +
-      v.toNat / 2596148429267413814265248164610048 % 8 +
-      v.toNat / 20769187434139310514121985316880384 % 8 +
-      v.toNat / 166153499473114484112975882535043072 % 8 +
-      v.toNat / 1329227995784915872903807060280344576 % 8 +
-      v.toNat / 10633823966279326983230456482242756608 % 8 := by
+      v.toNat / 18446744073709551616 % 8 +
+      v.toNat / 147573952589676412928 % 8 +
+      v.toNat / 1180591620717411303424 % 8 +
+      v.toNat / 9444732965739290427392 % 8 +
+      v.toNat / 75557863725914323419136 % 8 +
+      v.toNat / 604462909807314587353088 % 8 +
+      v.toNat / 4835703278458516698824704 % 8 +
+      v.toNat / 38685626227668133590597632 % 8 +
+      v.toNat / 309485009821345068724781056 % 8 +
+      v.toNat / 2475880078570760549798248448 % 8 +
+      v.toNat / 19807040628566084398385987584 % 8 +
+      v.toNat / 158456325028528675187087900672 % 8 +
+      v.toNat / 1267650600228229401496703205376 % 8 +
+      v.toNat / 10141204801825835211973625643008 % 8 +
+      v.toNat / 81129638414606681695789005144064 % 8 +
+      v.toNat / 649037107316853453566312041152512 % 8 +
+      v.toNat / 5192296858534827628530496329220096 % 8 +
+      v.toNat / 41538374868278621028243970633760768 % 8 +
+      v.toNat / 332306998946228968225951765070086144 % 8 +
+      v.toNat / 2658455991569831745807614120560689152 % 8 +
+      v.toNat / 21267647932558653966460912964485513216 % 8 := by
   simp only [lowDigits, List.range_succ, List.range_zero, List.nil_append, List.map_append, List.map_cons,
     List.map_nil, List.sum_append, List.sum_cons, List.sum_nil]
-  norm_num
+  norm_num [T3.lowerShift]
 theorem topDigits_sum (v : Digest) : (topDigits v).sum =
       (v.toNat / 1 % 128) / 1 % 5 +
       (v.toNat / 1 % 128) / 5 % 5 +
@@ -161,13 +161,13 @@ theorem topDigits_sum (v : Digest) : (topDigits v).sum =
   norm_num [T3.coreDigit]
 theorem decode_low (lay : Layer) (h : lay ≠ 0) (v : Digest) :
     T3.decode lay v =
-      if v.toNat < 2 ^ 126 ∧ (lowDigits v).sum ≤ T3.target lay ∧ T3.target lay - (lowDigits v).sum < 8
+      if T3.lowerSpare v ∧ (lowDigits v).sum ≤ T3.target lay ∧ T3.target lay - (lowDigits v).sum < 8
       then some (lowDigits v ++ [T3.target lay - (lowDigits v).sum]) else none := by
+  have hb : ¬ v.toNat ≥ 2 ^ T3.encodedBits lay := by
+    simp only [T3.encodedBits, h, if_false]; have := v.isLt; omega
   unfold T3.decode
-  simp only [T3.encodedBits, h, if_false, dataDigits_low lay h]
-  by_cases h1 : v.toNat < 2 ^ 126
-  · simp only [show ¬ (v.toNat ≥ 2 ^ 126) from by omega, if_false, h1, true_and]
-  · simp only [show v.toNat ≥ 2 ^ 126 from by omega, if_true, h1, false_and, if_false]
+  rw [if_neg hb, dataDigits_low lay h]
+  simp only [h, if_false]
 theorem decode_top (v : Digest) :
     T3.decode 0 v = if v.toNat < 2 ^ 125 ∧ T3.topRanksValid v = true ∧ (topDigits v).sum = 129
       then some (topDigits v) else none := by

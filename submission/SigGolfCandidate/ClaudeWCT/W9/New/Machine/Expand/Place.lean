@@ -72,12 +72,22 @@ theorem plStep {j L i : Nat} (hj : j < 128) (hL : L < 7) (hi : i < 128) :
 theorem plSt_seven (j i : Nat) : plSt j 7 i = wSrc j i := by
   unfold plSt; rw [if_pos (Or.inr (by omega))]
 theorem regBase_lt (k : Nat) (hk : k < 9) : regBase k + 1024 ≤ 0x2c40 := by unfold regBase; omega
-theorem coordBase_split (c : Nat) : 64 * fW c + fSh c = WCT9.coordBase c := by
-  unfold fW fSh; omega
-theorem fSh_le (c : Nat) (hc : c < 9) : fSh c + 7 ≤ 64 := by
-  unfold fSh WCT9.coordBase; interval_cases c <;> decide
+theorem childBase_split (c : Nat) (hc : c < 9) :
+    64 * fW c + fSh c + (if c = 3 ∨ c = 6 then 21 else 0) = WCT9.childBase c := by
+  interval_cases c <;> decide
+theorem fSh_le (c : Nat) (hc : c < 9) : fSh c + 7 ≤ 64 ∨ ((c = 3 ∨ c = 6) ∧ fSh c = 36) := by
+  interval_cases c <;> decide
 theorem fW_lt (c : Nat) (hc : c < 9) : fW c < 4 := by
-  unfold fW WCT9.coordBase; interval_cases c <;> decide
+  interval_cases c <;> decide
+theorem fSh_zero (c : Nat) (hc : c < 9) (h : fHas c = false) : fSh c = 0 := by
+  interval_cases c <;> simp_all [fHas, fSh]
+theorem child_bits57 (a : BitVec 256) (w : Nat) :
+    ((a.extractLsb' (64 * w) 64 >>> 36) >>> 21).toNat = a.toNat / 2 ^ (64 * w + 57) % 128 := by
+  rw [BitVec.toNat_ushiftRight, BitVec.toNat_ushiftRight, extractLsb'_256_toNat, Nat.shiftRight_eq_div_pow,
+    Nat.shiftRight_eq_div_pow, Nat.div_div_eq_div_mul, ← Nat.pow_add,
+    show (2 : Nat) ^ 64 = 2 ^ (36 + 21) * 2 ^ 7 by norm_num, Nat.mod_mul_right_div_self,
+    Nat.div_div_eq_div_mul, ← Nat.pow_add]
+  rfl
 theorem childE_eval {c : Nat} (hc : c < 9) {N : HashOutput} {s : MachineState} (hN : OutAt s NBUF N) :
     (childE c).eval s = BitVec.ofNat 64 (WCT9.child N ⟨c, hc⟩).val := by
   have hw := hN (fW c) (fW_lt c hc)
@@ -85,23 +95,37 @@ theorem childE_eval {c : Nat} (hc : c < 9) {N : HashOutput} {s : MachineState} (
   apply BitVec.eq_of_toNat_eq
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by have := (WCT9.child N ⟨c, hc⟩).isLt; omega)]
   have e127 : (127 : Word) = 127#64 := rfl
+  have hcb := childBase_split c hc
   unfold childE
   split
-  · rename_i h0
+  · rename_i hh
+    split
+    · rename_i h36
+      have hs : fSh c = 36 := by rcases h36 with rfl | rfl <;> rfl
+      simp only [E.eval, BinOp.eval, hw, BitVec.toNat_ofNat, hs]
+      rw [show (36 : Nat) % 2 ^ 64 % 64 = 36 from rfl, show (21 : Nat) % 2 ^ 64 % 64 = 21 from rfl, child_bits57]
+      unfold WCT9.child
+      simp only
+      rw [← hcb, if_pos h36, hs]
+    · rename_i h36
+      simp only [E.eval, BinOp.eval, hw, BitVec.toNat_ofNat]
+      have hs : fSh c + 7 ≤ 64 := (fSh_le c hc).resolve_right (fun h => h36 h.1)
+      rw [Nat.mod_eq_of_lt (show fSh c < 2 ^ 64 by omega), Nat.mod_eq_of_lt (show fSh c < 64 by omega), e127,
+        child_bits N (fW c) (fSh c) hs]
+      unfold WCT9.child
+      simp only
+      rw [← hcb, if_neg h36, Nat.add_zero]
+  · rename_i hh
+    have h0 := fSh_zero c hc (by simpa using hh)
     simp only [E.eval, BinOp.eval, hw]
     have := child_bits N (fW c) 0 (by omega)
     simp only [BitVec.ushiftRight_zero, Nat.add_zero] at this
     rw [e127, this]
     unfold WCT9.child
     simp only
-    rw [← coordBase_split c, h0, Nat.add_zero]
-  · simp only [E.eval, BinOp.eval, hw, BitVec.toNat_ofNat]
-    have hs := fSh_le c hc
-    rw [Nat.mod_eq_of_lt (show fSh c < 2 ^ 64 by omega), Nat.mod_eq_of_lt (show fSh c < 64 by omega), e127,
-      child_bits N (fW c) (fSh c) hs]
-    unfold WCT9.child
-    simp only
-    rw [← coordBase_split c]
+    have h36 : ¬ (c = 3 ∨ c = 6) := by rintro (rfl | rfl) <;> simp [fHas] at hh
+    rw [← hcb, h0, if_neg h36]
+    rfl
 theorem bit_holds (j L : Nat) (hj : j < 128) (hL : L < 7) (s : MachineState) (h24 : s.getReg .x24 = BitVec.ofNat 64 j) :
     Br.holds s ⟨.ne, bitE L, .c 0, decide (j / 2 ^ L % 2 = 1)⟩ := by
   rw [br_ne_zero]

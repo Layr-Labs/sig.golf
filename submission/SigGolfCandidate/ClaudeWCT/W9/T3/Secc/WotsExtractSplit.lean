@@ -5,7 +5,7 @@ namespace ClaudeWCT.W9.T3.Security.WotsExtract
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security SigGolfCandidate.T3M.SecurityExtraction
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final
-open SigGolfCandidate.T3M (wrho wdc)
+open ClaudeWCT.W9.T3M (wrho wdc)
 open ClaudeWCT.W9.T3.Security.Wots
 open SigGolfCandidate.T3.Security.Wots (Entry entriesOf)
 open SigGolfCandidate.T3.Security.WotsExtract (recordedEntries entries_recorded)
@@ -233,7 +233,7 @@ namespace ClaudeWCT.W9.T3.Security.Wots
 open OracleComp OracleSpec
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security SigGolfCandidate.T3M.SecurityExtraction
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final
-open SigGolfCandidate.T3M (wrho wdc)
+open ClaudeWCT.W9.T3M (wrho wdc)
 open ClaudeWCT.W9.T3.Security.WotsExtract
 open SigGolfCandidate.T3.Correctness (Answers)
 set_option maxHeartbeats 1000000

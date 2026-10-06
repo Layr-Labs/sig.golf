@@ -59,8 +59,8 @@ def SearchW (A : Nat) : Prop := A = DIG + 16 ∨ A = DIG + 24 ∨ (NBUF ≤ A �
 def SearchPost (s : MachineState) : Option (BitVec 32 × HashOutput) → MachineState → Prop
   | none, t => FailedS t
   | some (c, N), t => t.pc = pcOf 11175 ∧ t.getReg .x5 = 0 ∧ WCT9.producerAdmissible N = true ∧ OutAt t NBUF N ∧
-      t.getReg .x22 = BitVec.ofNat 64 (N.toNat % 2 ^ 31) ∧
-      t.getMem (BitVec.ofNat 64 IDXV) = BitVec.ofNat 64 (N.toNat % 2 ^ 31) ∧
+      t.getReg .x22 = BitVec.ofNat 64 (WCT9.digestIndex N) ∧
+      t.getMem (BitVec.ofNat 64 IDXV) = BitVec.ofNat 64 (WCT9.digestIndex N) ∧
       c.toNat < WCT9.digestAttemptLimit ∧ RegsExcept s t searchRegs ∧ Frame s t SearchW
 def trialC : Nat := 200
 def searchC : Nat := WCT9.digestAttemptLimit * trialC + 200
@@ -74,7 +74,7 @@ def ScrZero (A : Nat) : Prop :=
 structure FtsPre (sk : BitVec 256) (N : HashOutput) (s : MachineState) : Prop where
   pc : s.pc = pcOf 11175
   x5 : s.getReg .x5 = 0
-  x22 : s.getReg .x22 = BitVec.ofNat 64 (N.toNat % 2 ^ 31)
+  x22 : s.getReg .x22 = BitVec.ofNat 64 (WCT9.digestIndex N)
   adm : WCT9.admissible N = true
   nbuf : OutAt s NBUF N
   sk : ∀ k < 4, s.getMem (BitVec.ofNat 64 (SK + 8 * k)) = sk.extractLsb' (64 * k) 64
@@ -91,7 +91,7 @@ def FtsPost (s : MachineState) : List WCT9.Opening × Digest → MachineState �
 def ftsC : Nat := 2000000
 def FtsGood (im : Image) : Prop :=
   NewCodeAt im → ∀ (sk : BitVec 256) (N : HashOutput) (s : MachineState), FtsPre sk N s →
-    TBSim im sk s ftsC (WCT9.signForest (N.toNat % 2 ^ 31) N) (FtsPost s)
+    TBSim im sk s ftsC (WCT9.signForest (WCT9.digestIndex N) N) (FtsPost s)
 def CompactPost (s t : MachineState) : Prop :=
   t.pc = pcOf 20745 ∧ t.getReg .x5 = 1 ∧ t.getReg .x10 = 0 ∧
     (∀ k < 428, t.getMem (BitVec.ofNat 64 (SIG + 2032 + 8 * k)) = s.getMem (BitVec.ofNat 64 (SIG + 2192 + 8 * k))) ∧
@@ -142,7 +142,7 @@ def NewW (A : Nat) : Prop := SearchW A ∨ FtsW A
 def InvStable (Inv : MachineState → Prop) : Prop :=
   ∀ t u, Inv t → Frame t u NewW → RegsExcept t u newRegs → Inv u
 def wsub (imgs : Phase → Image) : Submission :=
-  ⟨⟨5456, 22984, 131072⟩, ⟨0x40, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩, imgs⟩
+  ⟨⟨5456, 21832, 131072⟩, ⟨0x40, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩, imgs⟩
 structure Unchanged (imgs : Phase → Image) (Inv : BitVec 256 → Bytes 131072 → Message → MachineState → Prop) :
     Prop where
   front : ∀ sk cache m, ∃ s0, initialState (wsub imgs) .sign (sk, cache, m) = some s0 ∧

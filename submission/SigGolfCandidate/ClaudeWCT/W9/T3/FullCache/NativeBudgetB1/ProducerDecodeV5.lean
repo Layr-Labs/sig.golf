@@ -30,8 +30,9 @@ theorem filter_range_getD (l : List ℕ) :
     · rw [if_neg (by simp; omega), List.length_map, ih]
       simp [ha]
 theorem dataDigits_lower (lay : Layer) (hl : lay ≠ 0) (v : Digest) :
-    dataDigits lay v = ClaudeWCT.Numerics.LowerCredit.lowerDigits v.toNat := by
-  simp [dataDigits, dataCount, hl, coreDigit, ClaudeWCT.Numerics.LowerCredit.lowerDigits]
+    dataDigits lay v = ClaudeWCT.Numerics.LowerCredit.lowerDigitsS1 v.toNat := by
+  simp [dataDigits, dataCount, hl, coreDigit, lowerShift, ClaudeWCT.Numerics.LowerCredit.lowerDigitsS1,
+    ClaudeWCT.Numerics.LowerCredit.shiftS1]
 theorem wordCredit_lower (lay : Layer) (hl : lay ≠ 0) (ds : List ℕ) (hlen : ds.length = 43) :
     wordCredit lay ds = ds.count 6 := by
   have hc : chainCount lay = 43 := by fin_cases lay <;> simp_all [chainCount]
@@ -42,39 +43,49 @@ theorem wordCredit_lower (lay : Layer) (hl : lay ≠ 0) (ds : List ℕ) (hlen : 
   exact filter_range_getD ds
 theorem producerDecode_lower_isSome_iff (lay : Layer) (hl : lay ≠ 0) (v : Digest) :
     (producerDecode lay v).isSome ↔
-      ClaudeWCT.Numerics.LowerCredit.LowerAccept (target lay) (producerFloor lay) v.toNat := by
-  set L := ClaudeWCT.Numerics.LowerCredit.lowerDigits v.toNat with hL
-  have hlen : (L ++ [target lay - L.sum]).length = 43 := by simp [hL, ClaudeWCT.Numerics.LowerCredit.lowerDigits]
-  have hdec : decode lay v = if 2 ^ 126 ≤ v.toNat then none else
-      if L.sum ≤ target lay ∧ target lay - L.sum < 8 then some (L ++ [target lay - L.sum]) else none := by
-    simp only [decode, hl, encodedBits, if_false, dataDigits_lower lay hl, hL]
-  unfold producerDecode ClaudeWCT.Numerics.LowerCredit.LowerAccept
+      ClaudeWCT.Numerics.LowerCredit.LowerAcceptS1 (target lay) (producerFloor lay) v.toNat := by
+  set L := ClaudeWCT.Numerics.LowerCredit.lowerDigitsS1 v.toNat with hL
+  have hlen : (L ++ [target lay - L.sum]).length = 43 := by
+    simp [hL, ClaudeWCT.Numerics.LowerCredit.lowerDigitsS1]
+  have hdec : decode lay v = if ClaudeWCT.Numerics.LowerCredit.SpareS1 v.toNat ∧ L.sum ≤ target lay ∧
+      target lay - L.sum < 8 then some (L ++ [target lay - L.sum]) else none := by
+    have hb : ¬ 2 ^ encodedBits lay ≤ v.toNat := by
+      simp only [encodedBits, hl, if_false, not_le]; exact v.isLt
+    simp only [decode, hb, if_false, hl, dataDigits_lower lay hl, hL]
+    rfl
+  unfold producerDecode ClaudeWCT.Numerics.LowerCredit.LowerAcceptS1
   rw [hdec, ← hL]
-  by_cases h1 : 2 ^ 126 ≤ v.toNat
-  · rw [if_pos h1]
+  by_cases h2 : ClaudeWCT.Numerics.LowerCredit.SpareS1 v.toNat ∧ L.sum ≤ target lay ∧ target lay - L.sum < 8
+  · rw [if_pos h2]
+    simp only
+    rw [wordCredit_lower lay hl _ hlen]
+    constructor
+    · intro h
+      split_ifs at h with h3
+      · exact ⟨v.isLt, h2.1, h2.2.1, h2.2.2, h3⟩
+      · simp at h
+    · intro h
+      rw [if_pos h.2.2.2.2]
+      rfl
+  · rw [if_neg h2]
     simp only [Option.isSome_none, Bool.false_eq_true, false_iff]
-    intro h
-    exact absurd h.1 (by omega)
-  · rw [if_neg h1]
-    by_cases h2 : L.sum ≤ target lay ∧ target lay - L.sum < 8
-    · rw [if_pos h2]
-      simp only
-      rw [wordCredit_lower lay hl _ hlen]
-      constructor
-      · intro h
-        split_ifs at h with h3
-        · exact ⟨by omega, h2.1, h2.2, h3⟩
-        · simp at h
-      · intro h
-        rw [if_pos h.2.2.2]
-        rfl
-    · rw [if_neg h2]
-      simp only [Option.isSome_none, Bool.false_eq_true, false_iff]
-      rintro ⟨-, h3, h4, -⟩
-      exact h2 ⟨h3, h4⟩
+    rintro ⟨-, h1, h3, h4, -⟩
+    exact h2 ⟨h1, h3, h4⟩
+theorem lowerWord_eq_ofS1 (v : Digest) : lowerWord v = ClaudeWCT.Numerics.LowerCredit.ofS1 v.toNat := by
+  unfold lowerWord ClaudeWCT.Numerics.LowerCredit.ofS1
+  ring
+theorem producerDecode_lower_isSome_iff_word (lay : Layer) (hl : lay ≠ 0) (v : Digest) :
+    (producerDecode lay v).isSome ↔
+      lowerSpare v ∧ ClaudeWCT.Numerics.LowerCredit.LowerAccept (target lay) (producerFloor lay) (lowerWord v) := by
+  rw [producerDecode_lower_isSome_iff lay hl, lowerWord_eq_ofS1]
+  constructor
+  · intro h
+    exact ⟨h.2.1, (ClaudeWCT.Numerics.LowerCredit.lowerAcceptS1_iff v.isLt h.2.1 _ _).mp h⟩
+  · intro h
+    exact (ClaudeWCT.Numerics.LowerCredit.lowerAcceptS1_iff v.isLt h.1 _ _).mpr h.2
 theorem card_producer_lower (lay : Layer) (hl : lay ≠ 0) (T f n : ℕ) (hT : target lay = T)
     (hf : producerFloor lay = f)
-    (hn : (univ.filter fun v : BitVec 128 => ClaudeWCT.Numerics.LowerCredit.LowerAccept T f v.toNat).card = n) :
+    (hn : (univ.filter fun v : BitVec 128 => ClaudeWCT.Numerics.LowerCredit.LowerAcceptS1 T f v.toNat).card = n) :
     (univ.filter fun v : Digest => (producerDecode lay v).isSome).card = n := by
   rw [← hn]
   exact congrArg Finset.card (filter_congr fun v _ => by rw [producerDecode_lower_isSome_iff lay hl, hT, hf])
@@ -155,10 +166,10 @@ def producerCount (lay : Layer) : ℕ := ![V5.topCount129, V5.lowerCount197, V5.
 theorem card_producerDecode (lay : Layer) :
     (univ.filter fun v : Digest => (producerDecode lay v).isSome).card = producerCount lay := by
   fin_cases lay
-  · exact card_producer_top 129 7 _ rfl rfl ClaudeWCT.Numerics.TopCredit.credited_card_129_7
-  · exact card_producer_lower 1 (by decide) 197 4 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAccept_197_4
-  · exact card_producer_lower 2 (by decide) 197 4 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAccept_197_4
-  · exact card_producer_lower 3 (by decide) 198 2 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAccept_198_2
+  · exact card_producer_top 129 8 _ rfl rfl ClaudeWCT.Numerics.TopCredit.credited_card_129_8
+  · exact card_producer_lower 1 (by decide) 197 4 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_197_4
+  · exact card_producer_lower 2 (by decide) 197 4 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_197_4
+  · exact card_producer_lower 3 (by decide) 198 4 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_198_4
 theorem producer_uniform_probability (lay : Layer) :
     Pr[fun answer => (producerEncodingDecode lay answer).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] =
       (producerCount lay : ENNReal) / 2 ^ 128 := by

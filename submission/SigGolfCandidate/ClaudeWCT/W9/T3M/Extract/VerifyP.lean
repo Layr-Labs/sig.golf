@@ -38,17 +38,17 @@ theorem verifyP_walk_extract (answers : Answers) (m : Message) (pk : Digest) (w 
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
       (HitIn answers (queried answers (verifyP m pk w)) ∨
-       (∃ lay : Layer, Diverge answers w (N.toNat % 2 ^ 31) lay (queried answers (verifyP m pk w)) ∧
-          ∀ l : Layer, l.val < lay.val → Good answers w (N.toNat % 2 ^ 31) l) ∨
-       ((∀ l : Layer, Good answers w (N.toNat % 2 ^ 31) l) ∧
+       (∃ lay : Layer, Diverge answers w (WCT9.digestIndex N) lay (queried answers (verifyP m pk w)) ∧
+          ∀ l : Layer, l.val < lay.val → Good answers w (WCT9.digestIndex N) l) ∨
+       ((∀ l : Layer, Good answers w (WCT9.digestIndex N) l) ∧
           evalWithAnswerFn answers
-              (recoverFtsP (witDecP N w).signature (padDecP N w) (N.toNat % 2 ^ 31) N) =
-            honestForest answers (N.toNat % 2 ^ 31) ∧
-          ∀ q ∈ queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (N.toNat % 2 ^ 31) N),
+              (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N) =
+            honestForest answers (WCT9.digestIndex N) ∧
+          ∀ q ∈ queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N),
             q ∈ queried answers (verifyP m pk w))) := by
   obtain ⟨N, hdc, hN, hdq, hS, hlay, hqF, hqL⟩ := WctExtract.verifyP_walk_wct answers m pk w hv
   refine ⟨N, hdc, hN, hdq, hS, ?_⟩
-  rcases layersWalkSpec_holds answers w (N.toNat % 2 ^ 31) _ _ (Nat.mod_lt _ (by norm_num)) hqL (hpk ▸ hlay) with
+  rcases layersWalkSpec_holds answers w (WCT9.digestIndex N) _ _ (WCT9.digestIndex_lt N) hqL (hpk ▸ hlay) with
     (hhit | hdiv) | ⟨hgood, hroot⟩
   · exact Or.inl hhit
   · exact Or.inr (Or.inl hdiv)
@@ -61,9 +61,9 @@ theorem verifyP_extract_normal (answers : Answers) (m : Message) (pk : Digest) (
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
       (HitIn answers (queried answers (verifyP m pk w)) ∨
-       (∃ lay : Layer, Diverge answers w (N.toNat % 2 ^ 31) lay (queried answers (verifyP m pk w)) ∧
-          ∀ l : Layer, l.val < lay.val → Good answers w (N.toNat % 2 ^ 31) l) ∨
-       ((∀ l : Layer, Good answers w (N.toNat % 2 ^ 31) l) ∧ WctExtract.WctHonest answers N w)) := by
+       (∃ lay : Layer, Diverge answers w (WCT9.digestIndex N) lay (queried answers (verifyP m pk w)) ∧
+          ∀ l : Layer, l.val < lay.val → Good answers w (WCT9.digestIndex N) l) ∨
+       ((∀ l : Layer, Good answers w (WCT9.digestIndex N) l) ∧ WctExtract.WctHonest answers N w)) := by
   obtain ⟨N, hdc, hN, hdq, hS, hcase⟩ := WctExtract.verifyP_extract layersWalkSpec_holds answers m pk w hpk hv
   refine ⟨N, hdc, hN, hdq, hS, ?_⟩
   rcases hcase with hhit | hev | hgood

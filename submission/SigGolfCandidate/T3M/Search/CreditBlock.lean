@@ -1,4 +1,5 @@
 import SigGolfCandidate.T3M.Search.TopUnpack
+import SigGolfCandidate.T3.Nonbinary.LowerLayout
 
 section
 namespace SigGolfCandidate.T3M.Search.Credit
@@ -11,7 +12,7 @@ def setupCode : List (BitVec 32) := [197907,230803,1555,17828371]
 def preCode : List (BitVec 32) := [0x7f57e13,3022355,32378419]
 def loadCode : List (BitVec 32) := [0x83e4e03]
 def postCode : List (BitVec 32) := [29754931,7689491,60136979,29713715,7722387,0xfffa0a13,0xfc0a1ce3]
-def tailCode : List (BitVec 32) := [3505683,0xffee0e13,1981971,29754931,2446611,3505683,0xffee0e13,1981971,29754931,2446611,0xffe50e13,1981971,29754931,7749139,0xa0e1e63]
+def tailCode : List (BitVec 32) := [3505683,0xffee0e13,1981971,29754931,2446611,3505683,0xffee0e13,1981971,29754931,2446611,0xffe50e13,1981971,29754931,8797715,0xa0e1e63]
 def okCode : List (BitVec 32) := [2579,0xf11ff06f]
 def h0Code : List (BitVec 32) := [0x960410e3]
 def luiCode : List (BitVec 32) := [0xffff37]
@@ -20,9 +21,9 @@ def beqCode : List (BitVec 32) := [0x940e0ae3]
 def ld1Code : List (BitVec 32) := [663696131]
 def ld2Code : List (BitVec 32) := [672084867]
 def dumCode : List (BitVec 32) := [0x8100c93,2579,0xeedff06f]
-def nopCode : List (BitVec 32) := [19,19,19,19,19]
+def alignCode : List (BitVec 32) := [1281555,66985491,29573939,1282963,2347923]
 def cfLayout : Rv.Layout := [(0,setupCode),(4,preCode),(7,loadCode),(8,postCode),(15,tailCode),(30,okCode),(32,h0Code),
-  (33,luiCode),(34,flagCode),(35,beqCode),(36,ld1Code),(37,ld2Code),(38,dumCode),(41,nopCode)]
+  (33,luiCode),(34,flagCode),(35,beqCode),(36,ld1Code),(37,ld2Code),(38,dumCode),(41,alignCode)]
 theorem cfLayout_ok : layoutOk 0 cfLayout = true := by decide +kernel
 theorem cfLayout_code : topSeg392 = layoutCode cfLayout := by decide +kernel
 theorem code_cf {image : Image} {b : Nat} (hK : KernAt image b) (i o : Nat) (seg : List (BitVec 32))
@@ -56,6 +57,8 @@ theorem code_ld2 {image : Image} {b : Nat} (hK : KernAt image b) : CodeAt image 
   simpa [Nat.add_assoc] using code_cf hK 11 37 ld2Code (by kernel_rfl)
 theorem code_dum {image : Image} {b : Nat} (hK : KernAt image b) : CodeAt image (pcOf (b + 430)) dumCode := by
   simpa [Nat.add_assoc] using code_cf hK 12 38 dumCode (by kernel_rfl)
+theorem code_align {image : Image} {b : Nat} (hK : KernAt image b) : CodeAt image (pcOf (b + 433)) alignCode := by
+  simpa [Nat.add_assoc] using code_cf hK 13 41 alignCode (by kernel_rfl)
 sym_block cs354 := symRun {noAlias:=true} setupCode (pcOf (354+392)) 200
 sym_block cs543 := symRun {noAlias:=true} setupCode (pcOf (543+392)) 200
 theorem run_setup {b : Nat} (hb : b=354 ∨ b=543) :
@@ -390,7 +393,7 @@ theorem tail_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b
     (hX : X < 64) (hC : C < 64) (h10 : s.getReg .x10 = BitVec.ofNat 64 X)
     (h12 : s.getReg .x12 = BitVec.ofNat 64 C) :
     ∃ t, Steps image s 15 15 t ∧
-      t.pc = (if C + tailCredit X < 7 then pcOf (b + 468) else pcOf (b + 422)) ∧
+      t.pc = (if C + tailCredit X < 8 then pcOf (b + 468) else pcOf (b + 422)) ∧
       t.getReg .x12 = BitVec.ofNat 64 (C + tailCredit X) ∧
       RegsExcept s t [.x10, .x12, .x28] ∧ Frame s t (fun _ => False) := by
   have e0 : (BitVec.ofNat 64 X &&& 3#64) = BitVec.ofNat 64 (X % 4) := ofNat_and_mask X 2 (by decide)
@@ -404,12 +407,12 @@ theorem tail_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b
     have ht : C + (if X % 4 = 2 then 1 else 0) + (if X / 4 % 4 = 2 then 1 else 0) + (if X / 16 = 2 then 1 else 0) =
         C + tailCredit X := by unfold tailCredit; omega
     rw [ht]
-    have hlt : (BitVec.ofNat 64 (C + tailCredit X)).ult 7#64 = decide (C + tailCredit X < 7) := by
+    have hlt : (BitVec.ofNat 64 (C + tailCredit X)).ult 8#64 = decide (C + tailCredit X < 8) := by
       have : tailCredit X ≤ 3 := by unfold tailCredit; split_ifs <;> omega
       simp only [BitVec.ult, BitVec.toNat_ofNat]
       rw [Nat.mod_eq_of_lt (by omega)]
     rw [hlt]
-    by_cases h : C + tailCredit X < 7 <;> simp [h]
+    by_cases h : C + tailCredit X < 8 <;> simp [h]
   · simp [ct354.res, rv_simp, h10, h12]
     rw [e1, e2, eq2_ofNat _ (by omega), eq2_ofNat _ (by omega), eq2_ofNat _ (by omega), ofNat_add_ofNat,
       ofNat_add_ofNat, ofNat_add_ofNat]
@@ -567,9 +570,9 @@ theorem credit_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf 
     (hv : v.toNat < 2 ^ 125) (hvalid : T3.topRanksValid v = true) (ht : TableOK s)
     (h6 : s.getReg .x6 = v.extractLsb' 0 64) (h7 : s.getReg .x7 = v.extractLsb' 64 64)
     (h30 : s.getReg .x30 = BitVec.ofNat 64 TOP_DATA) :
-    ∃ t, Steps image s (if T3.topCredit v < 7 then 206 else 208) (if T3.topCredit v < 7 then 206 else 208) t ∧
-      t.pc = (if T3.topCredit v < 7 then pcOf (b + 468) else pcOf (b + 363)) ∧
-      (¬ T3.topCredit v < 7 → t.getReg .x20 = 0) ∧
+    ∃ t, Steps image s (if T3.topCredit v < 8 then 206 else 208) (if T3.topCredit v < 8 then 206 else 208) t ∧
+      t.pc = (if T3.topCredit v < 8 then pcOf (b + 468) else pcOf (b + 363)) ∧
+      (¬ T3.topCredit v < 8 → t.getReg .x20 = 0) ∧
       RegsExcept s t Changed ∧ Frame s t (fun _ => False) := by
   have h6' : s.getReg .x6 = BitVec.ofNat 64 v.toNat := by
     rw [h6]; apply BitVec.eq_of_toNat_eq; simp
@@ -589,7 +592,7 @@ theorem credit_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf 
   obtain ⟨t1, s1, p1, g12', r1, f1⟩ := tail_spec hK m pm (v.toNat / 2 ^ 119) (creditSum v 17) hX
     (by have := creditSum_le v 17; omega) (by simpa using hm.lo) hm.acc
   rw [← topCredit_split v hv] at p1
-  by_cases hc : T3.topCredit v < 7
+  by_cases hc : T3.topCredit v < 8
   · rw [if_pos hc] at p1
     refine ⟨t1, ?_, by rw [if_pos hc, p1], fun h => absurd hc h, ?_, ?_⟩
     · rw [if_pos hc]; exact (s0'.trans (sm.trans s1)).of_eq (by norm_num) (by norm_num)
@@ -713,5 +716,81 @@ theorem exhaust_dummy (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcO
 theorem dummy_lt : dummyDigest.toNat < 2 ^ 125 := by decide
 theorem dummy_valid : T3.topRanksValid dummyDigest = true := by decide
 theorem dummy_digits : topDigits dummyDigest = T3.dummyTop := by decide
+end SigGolfCandidate.T3M.Search.Credit
+end
+section
+namespace SigGolfCandidate.T3M.Search.Credit
+open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
+open SigGolfCandidate.T3 (Digest)
+set_option linter.unusedSimpArgs false
+variable {image : Image} {b : Nat}
+sym_block ca354 := symRun {noAlias:=true} alignCode (pcOf (354+433)) 200
+sym_block ca543 := symRun {noAlias:=true} alignCode (pcOf (543+433)) 200
+theorem run_align {b : Nat} (hb : b=354 ∨ b=543) :
+    symRun {noAlias:=true} alignCode (pcOf (b+433)) 200 =
+      some ⟨ca354.res.st,.c (pcOf (b+438)),ca354.res.stop,ca354.res.steps,ca354.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact ca354.trans (congrArg some (by kernel_rfl))
+  · exact ca543.trans (congrArg some (by kernel_rfl))
+theorem getLsbD_add_one_zero (x : BitVec 64) : (x + 1#64).getLsbD 0 = !x.getLsbD 0 := by
+  simp only [BitVec.getLsbD, BitVec.toNat_add, BitVec.toNat_ofNat]
+  rw [Nat.testBit_zero, Nat.testBit_zero]
+  have h : (x.toNat + 1 % 2 ^ 64) % 2 ^ 64 % 2 = (x.toNat + 1) % 2 := by
+    rw [show 1 % 2 ^ 64 = 1 from rfl, Nat.mod_mod_of_dvd _ (by norm_num)]
+  rw [h]
+  rcases Nat.mod_two_eq_zero_or_one x.toNat with h0 | h0 <;> simp [Nat.add_mod, h0]
+theorem align_lo (v : Digest) (hv : T3.lowerSpare v) :
+    v.extractLsb' 0 64 ^^^ (v.extractLsb' 64 64 + 1#64) <<< 63 =
+      (BitVec.ofNat 128 (T3.lowerWord v)).extractLsb' 0 64 := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro j hj
+  rw [BitVec.getLsbD_xor, BitVec.getLsbD_shiftLeft, BitVec.getLsbD_extractLsb', BitVec.getLsbD_extractLsb',
+    BitVec.getLsbD_ofNat, T3.testBit_lowerWord]
+  simp only [hj, decide_true, Bool.true_and, show j < 128 from by omega]
+  by_cases h63 : j = 63
+  · subst h63
+    have hb := getLsbD_add_one_zero (v.extractLsb' 64 64)
+    simp only [Nat.sub_self] at hb ⊢
+    rw [hb, BitVec.getLsbD_extractLsb']
+    have h63 : v.toNat.testBit 63 = true := by
+      unfold T3.lowerSpare at hv
+      simp only [Nat.testBit, Nat.shiftRight_eq_div_pow, Nat.one_and_eq_mod_two, hv.1]
+      rfl
+    simp [BitVec.getElem_eq_testBit_toNat, h63]
+  · have hlt : j < 63 := by omega
+    simp [hlt, BitVec.getLsbD]
+    intro _; omega
+theorem align_hi (v : Digest) :
+    v.extractLsb' 64 64 <<< 1 >>> 2 =
+      (BitVec.ofNat 128 (T3.lowerWord v)).extractLsb' 64 64 := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro j hj
+  rw [BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft, BitVec.getLsbD_extractLsb', BitVec.getLsbD_extractLsb',
+    BitVec.getLsbD_ofNat, T3.testBit_lowerWord]
+  simp only [hj, decide_true, Bool.true_and, show 64 + j < 128 from by omega, show ¬ 64 + j < 63 from by omega,
+    if_false]
+  by_cases h62 : j < 62
+  · simp [show 2 + j < 64 from by omega, show ¬ 2 + j < 1 from by omega, show 64 + j < 126 from by omega,
+      BitVec.getLsbD, show 1 + j < 64 from by omega, show 64 + (1 + j) = 64 + j + 1 from by omega]
+  · simp [show ¬ 2 + j < 64 from by omega, show ¬ 64 + j < 126 from by omega]
+theorem align_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 433)) (v : Digest)
+    (hv : T3.lowerSpare v) (h6 : s.getReg .x6 = v.extractLsb' 0 64) (h7 : s.getReg .x7 = v.extractLsb' 64 64) :
+    ∃ t, Steps image s 5 5 t ∧ t.pc = pcOf (b + 438) ∧
+      t.getReg .x6 = (BitVec.ofNat 128 (T3.lowerWord v)).extractLsb' 0 64 ∧
+      t.getReg .x7 = (BitVec.ofNat 128 (T3.lowerWord v)).extractLsb' 64 64 ∧
+      RegsExcept s t [.x6, .x7, .x28] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_, symRun_sound (run_align hK.2) (code_align hK) s hpc (by simp [ca354.res, rv_simp]),
+    ?_, ?_, ?_, ?_, ?_⟩
+  · rfl
+  · simp only [Result.toState_getReg, ca354.res]
+    simp only [rv_simp, h6, h7]
+    rw [← align_lo v hv]
+    rfl
+  · simp only [Result.toState_getReg, ca354.res]
+    simp only [rv_simp, h7]
+    rw [← align_hi v]
+    rfl
+  · intro r hr; simp at hr; cases r <;> simp_all [ca354.res, rv_simp] <;> rfl
+  · intro A _ _; simp [ca354.res, rv_simp]
 end SigGolfCandidate.T3M.Search.Credit
 end

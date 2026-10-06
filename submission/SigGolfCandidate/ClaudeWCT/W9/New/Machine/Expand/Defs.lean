@@ -1,7 +1,8 @@
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.Fetch
-import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Honest
+import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.WitV5
 import SigGolfCandidate.ClaudeWCT.W9.T3M.SigCodec
 import SigGolfCandidate.T3M.Expand.LayersBlocks
+import SigGolfCandidate.T3M.Search.DigestSearch
 
 namespace ClaudeWCT.W9.Machine.Expand
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
@@ -12,6 +13,9 @@ open SigGolfCandidate.T3M.Expand (IDXV)
 def hookWord : BitVec 32 := 0x67d2706f
 def HB0 : Nat := 0xffde00
 def ECOST : Nat := 0xff9e00
+def PLAN : Nat := 0xff9a00
+def PlanAt (t : MachineState) : Prop :=
+  ∀ k < 128, t.getMem (BitVec.ofNat 64 (PLAN + 8 * k)) = bytesToWordLE ((planBytes.drop (8 * k)).take 8)
 def ExpCostAt (t : MachineState) : Prop :=
   ∀ k < 2048, t.getMem (BitVec.ofNat 64 (ECOST + 8 * k)) = bytesToWordLE ((expCostBytes.drop (8 * k)).take 8)
 def regBase (k : Nat) : Nat := 0x840 + 1024 * k
@@ -20,13 +24,13 @@ def HdrBankOK (s : MachineState) : Prop :=
     s.getMem (BitVec.ofNat 64 (HB0 + 512 * k + 448)) = BitVec.ofNat 64 (hdr0 3 (4 + k) 0 0) ∧
     s.getMem (BitVec.ofNat 64 (HB0 + 512 * k + 456)) = BitVec.ofNat 64 (hdr0 6 k 0 0)
 def regionWord (N : HashOutput) (sig : WCT9.Signature) (k i : Nat) : Word :=
-  (wordsOf (ClaudeWCT.W9.T3M.regionBytes (WCT9.child N ⟨k % 9, Nat.mod_lt _ (by decide)⟩).val
+  (wordsOf (regionBytesV5 (WCT9.child N ⟨k % 9, Nat.mod_lt _ (by decide)⟩).val
     (sig.openings ⟨k % 9, Nat.mod_lt _ (by decide)⟩))).getD i 0
 def Placed (N : HashOutput) (sig : WCT9.Signature) (s : MachineState) : Prop :=
   ∀ k i, k < 9 → i < 128 → s.getMem (BitVec.ofNat 64 (regBase k + 8 * i)) = regionWord N sig k i
 def newProg (m : Message) (sig : WCT9.Signature) : M (Option (BitVec 32 × HashOutput × Digest)) := do
   let some (counter, N) ← WCT9.digestSearch sig.rho m 0 WCT9.digestAttemptLimit | pure none
-  let root ← WCT9.recoverFts sig (N.toNat % 2 ^ 31) N
+  let root ← WCT9.recoverFts sig (WCT9.digestIndex N) N
   pure (some (counter, N, root))
 structure Pre30 (m : Message) (sig : WCT9.Signature) (s : MachineState) : Prop where
   pc : s.pc = pcOf 30
@@ -38,6 +42,7 @@ structure Pre30 (m : Message) (sig : WCT9.Signature) (s : MachineState) : Prop w
   zeroW : ∀ A, 0x840 ≤ A → A < 0x2c48 → s.getMem (BitVec.ofNat 64 A) = 0
   bank : HdrBankOK s
   cost : ExpCostAt s
+  plan : PlanAt s
 def NewW (A : Nat) : Prop :=
   A = DIG + 16 ∨ A = DIG + 24 ∨ (NBUF ≤ A ∧ A < NBUF + 32) ∨ A = IDXV ∨ A = 0x810 ∨ (0x60 ≤ A ∧ A < 0x80) ∨
     (0x100 ≤ A ∧ A < 0x120) ∨ (0x400 ≤ A ∧ A < 0x550) ∨ (0x840 ≤ A ∧ A < 0x2c48) ∨ A = ENC ∨ A = ENC + 8 ∨
@@ -47,12 +52,13 @@ structure Post249 (sig : WCT9.Signature) (s0 : MachineState) (counter : BitVec 3
   pc : t.pc = pcOf 249
   x5 : t.getReg .x5 = 0
   sp : t.getReg .x2 = BitVec.ofNat 64 0x22000
-  idx : t.getMem (BitVec.ofNat 64 IDXV) = BitVec.ofNat 64 (N.toNat % 2 ^ 31)
+  idx : t.getMem (BitVec.ofNat 64 IDXV) = BitVec.ofNat 64 (WCT9.digestIndex N)
   enc : DigAt t ENC root
   dc : (t.getMem (BitVec.ofNat 64 0x810)).extractLsb' 0 32 = counter
   placed : Placed N sig t
   gap : ∀ A, 0x2c40 ≤ A → A < 0x2c48 → t.getMem (BitVec.ofNat 64 A) = 0
   layers : ∀ i, i < 214 → DigAt t (0x7000 + 2192 + 16 * i) ((ClaudeWCT.W9.T3M.sigDigests sig).getD (127 + i) 0)
+  dig : SigGolfCandidate.T3M.Search.OutAt t 0x60 N
   frame : Frame s0 t NewW
 def NewPost (sig : WCT9.Signature) (s0 : MachineState) :
     Option (BitVec 32 × HashOutput × Digest) → MachineState → Prop
@@ -64,15 +70,15 @@ def NewCodeSpec (im : Image) : Prop :=
   ∀ (sk : BitVec 256) (m : Message) (sig : WCT9.Signature) (s : MachineState), Pre30 m sig s →
     TBSim im sk s newCost (newProg m sig) (NewPost sig s)
 def w9Sub (imgs : Phase → Image) : Submission where
-  sizes := ⟨5456, 22984, 131072⟩
+  sizes := ⟨5456, 21832, 131072⟩
   layout := ⟨0x40, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩
   image := imgs
 def FrontAt (im : Image) : Prop := CodeAt im (pcOf 0) (SigGolfCandidate.T3M.Expand.seg_0 ++ [hookWord])
+def compactJal : BitVec 32 := 0x4d52706f
 def compareCode : List (BitVec 32) :=
-  SigGolfCandidate.T3M.Expand.seg_342 ++ SigGolfCandidate.T3M.Expand.seg_348 ++
-    SigGolfCandidate.T3M.Expand.seg_351 ++ SigGolfCandidate.T3M.Expand.seg_353
+  SigGolfCandidate.T3M.Expand.seg_342 ++ SigGolfCandidate.T3M.Expand.seg_348 ++ [compactJal]
 def ExpandDataOK (im : Image) : Prop :=
-  im.data = expCostBytes ++ hdrBankBytes ++ SigGolfCandidate.T3M.Images.expandLegacyData
+  im.data = planBytes ++ expCostBytes ++ hdrBankBytes ++ SigGolfCandidate.T3M.Images.expandLegacyData
 def ExpandRefinesW (imgs : Phase → Image) : Prop :=
   ∀ (m : Message) (pk : PublicKey) (s : Bytes 5456),
     (fun r => (r.value, r.hashCalls, r.hashCompressions)) <$> (w9Sub imgs).run .expand (m, pk, s) =

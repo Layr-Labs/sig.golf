@@ -10,7 +10,7 @@ open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (M Digest header pad64 shortHash)
 structure GlobSt (sk : BitVec 256) (N : BitVec 256) (t : MachineState) : Prop where
   x5 : t.getReg .x5 = 0
-  x22 : t.getReg .x22 = BitVec.ofNat 64 (N.toNat % 2 ^ 31)
+  x22 : t.getReg .x22 = BitVec.ofNat 64 (WCT9.digestIndex N)
   nbuf : OutAt t NBUF N
   table : TableAt t
   p0 : t.getMem (BitVec.ofNat 64 PRIVW) = sk.extractLsb' 0 64
@@ -52,7 +52,7 @@ def coordC (c : Nat) : Nat := fk c + (1 + (1 + (128 * loopStepC + (126 * treeC +
 theorem coordC_le (c : Nat) : coordC c ≤ 13 + (1 + (1 + (128 * loopStepC + (126 * treeC + (12 + 7 * 13))))) := by
   unfold coordC fk; split_ifs <;> omega
 theorem field_lt16200 {N : BitVec 256} (hadm : WCT9.admissible N = true) {c : Nat} (hc : c < 9) :
-    N.toNat / 2 ^ (WCT9.coordBase c + 7) % 2 ^ 14 < 16200 :=
+    N.toNat / 2 ^ WCT9.fieldBase c % 2 ^ 14 < 16200 :=
   ((WCT9.admissible_iff N).1 hadm).2 ⟨c, hc⟩
 theorem pcI_seven (c : Nat) (hc : c < 9) : pcI c 7 = if c < 8 then cbase (c + 1) else 20715 := by
   interval_cases c <;> decide
@@ -104,14 +104,14 @@ theorem toArray_getD_high (leaves : List Digest) (m : Nat) (hm : 128 ≤ m) :
 theorem coord_unit (hcode : NewCodeAt im) {c : Nat} (hc : c < 9) {N : BitVec 256}
     (hadm : WCT9.admissible N = true) {s : MachineState} (hpc : s.pc = pcOf (cbase c)) (hg : GlobSt sk N s)
     (state : List WCT9.Opening × List (Digest × Digest)) :
-    TBSim im sk s (coordC c) (WCT9.openingStep (N.toNat % 2 ^ 31) N state ⟨c, hc⟩) (fun st t =>
+    TBSim im sk s (coordC c) (WCT9.openingStep (WCT9.digestIndex N) N state ⟨c, hc⟩) (fun st t =>
       t.pc = pcOf (pcI c 7) ∧ GlobSt sk N t ∧
         (∃ op pr, st = (state.1 ++ [op], state.2 ++ [pr]) ∧ OpeningAt t c op ∧ DigAt t (FORW + forOff c) pr.1 ∧
           DigAt t (FORW + forOff c + 16) pr.2) ∧
         RegsExcept s t ftsRegs ∧ Frame s t (coordW c)) := by
-  have hidx : N.toNat % 2 ^ 31 < 2 ^ 31 := Nat.mod_lt _ (by norm_num)
+  have hidx : WCT9.digestIndex N < 2 ^ 31 := WCT9.digestIndex_lt N
   have hf16 := field_lt16200 hadm hc
-  have hsel128 : N.toNat / 2 ^ WCT9.coordBase c % 128 < 128 := Nat.mod_lt _ (by norm_num)
+  have hsel128 : N.toNat / 2 ^ WCT9.childBase c % 128 < 128 := Nat.mod_lt _ (by norm_num)
   obtain ⟨t1, s1, p1, x24, x28, r1, f1⟩ := step_F hcode hc s hpc hg.nbuf
   have ht1 : TableAt t1 := fun k hk => by rw [f1.get (by ao) id]; exact hg.table k hk
   obtain ⟨t2, s2, p2, x25, r2, f2⟩ := step_lwu hcode hc t1 p1 (by omega) x28 ht1
@@ -121,27 +121,27 @@ theorem coord_unit (hcode : NewCodeAt im) {c : Nat} (hc : c < 9) {N : BitVec 256
   have hz : ∀ A, ScrZero A → t3.getMem (BitVec.ofNat 64 A) = 0 := fun A hA => by
     rw [g3 A (by unfold ScrZero at hA; aoh)]; exact hg.zero A hA
   have r13 : RegsExcept s t3 [.x6, .x18, .x24, .x25, .x28] := ((r1.trans r2).trans r3).mono (by simp)
-  have hb3 : BodySt sk 0 (N.toNat % 2 ^ 31) (N.toNat / 2 ^ WCT9.coordBase c % 128)
-      (pkAt (N.toNat / 2 ^ (WCT9.coordBase c + 7) % 2 ^ 14)) t3 :=
+  have hb3 : BodySt sk 0 (WCT9.digestIndex N) (N.toNat / 2 ^ WCT9.childBase c % 128)
+      (pkAt (N.toNat / 2 ^ WCT9.fieldBase c % 2 ^ 14)) t3 :=
     ⟨by rw [r13.get (by simp)]; exact hg.x5, x18, by rw [r13.get (by simp)]; exact hg.x22,
       by rw [r3.get (by simp), r2.get (by simp)]; exact x24, by rw [r3.get (by simp)]; exact x25,
       by rw [g3 _ (by ao)]; exact hg.p0, by rw [g3 _ (by ao)]; exact hg.p8, by rw [g3 _ (by ao)]; exact hg.p32,
       by rw [g3 _ (by ao)]; exact hg.p40, hz _ (by simp [ScrZero]), hz _ (by simp [ScrZero]),
       hz _ (by simp [ScrZero]), hz _ (by simp [ScrZero]), hz _ (by simp [ScrZero]), hz _ (by simp [ScrZero])⟩
-  have hword : ∀ i : Fin 7, pkAt (N.toNat / 2 ^ (WCT9.coordBase c + 7) % 2 ^ 14) / 4 ^ i.val % 4 =
+  have hword : ∀ i : Fin 7, pkAt (N.toNat / 2 ^ WCT9.fieldBase c % 2 ^ 14) / 4 ^ i.val % 4 =
       WCT9.wordDigit (WCT9.rank N ⟨c, hc⟩) i := fun i => pkAt_digit _ hf16 i
   unfold WCT9.openingStep
   dsimp only
   simp only [WCT9.buildCoordinate_factor, bind_assoc, pure_bind]
   refine (TBSim.steps ((s1.trans s2).trans s3) (TBSim.bind (W₂ := 126 * treeC + (12 + 7 * 13))
-    (child_loop (word := WCT9.rank N ⟨c, hc⟩) hcode hc hsel128 hidx (by have := pkAt_lt (N.toNat / 2 ^ (WCT9.coordBase c + 7) % 2 ^ 14); omega)
+    (child_loop (word := WCT9.rank N ⟨c, hc⟩) hcode hc hsel128 hidx (by have := pkAt_lt (N.toNat / 2 ^ WCT9.fieldBase c % 2 ^ 14); omega)
       hword (LoopInv.init p3 hb3)) (fun rows t4 h4 => ?_))).mono (by unfold coordC; omega) (fun _ _ h => h)
   have h4pc : t4.pc = pcOf (nodeI c) := by have := h4.pc; rwa [if_neg (by norm_num)] at this
   have h4b := h4.body
   rw [if_neg (by norm_num)] at h4b
   have g4 : ∀ A, A < 2 ^ 64 → ¬ loopW c A → t4.getMem (BitVec.ofNat 64 A) = t3.getMem (BitVec.ofNat 64 A) :=
     fun A hA hn => h4.frame.get hA hn
-  have h0 : TreeInv c (N.toNat % 2 ^ 31) t4 0 ((List.replicate 128 (0 : Digest) ++ rows.1).toArray) t4 :=
+  have h0 : TreeInv c (WCT9.digestIndex N) t4 0 ((List.replicate 128 (0 : Digest) ++ rows.1).toArray) t4 :=
     ⟨by rw [if_pos (by norm_num)]; exact h4pc, h4b.x5, h4b.x18, h4b.x22, by simp [h4.len],
       fun m hm1 hm2 => by
         rw [toArray_getD_high _ _ (by omega)]
@@ -153,7 +153,7 @@ theorem coord_unit (hcode : NewCodeAt im) {c : Nat} (hc : c < 9) {N : BitVec 256
   refine TBSim.bind (W₂ := 12 + 7 * 13) (tree_loop hcode hc hidx h0) (fun heap t5 h5 => ?_)
   have h5pc : t5.pc = pcOf (rI c) := by have := h5.pc; rwa [if_neg (by norm_num)] at this
   obtain ⟨t6, s6, p6, q0, q8, q16, q24, r6, f6⟩ := step_R0 hcode hc t5 h5pc
-  have h24 : t6.getReg .x24 = BitVec.ofNat 64 (N.toNat / 2 ^ WCT9.coordBase c % 128) := by
+  have h24 : t6.getReg .x24 = BitVec.ofNat 64 (N.toNat / 2 ^ WCT9.childBase c % 128) := by
     rw [r6.get (by simp), h5.regs.get (by simp [treeRegs])]; exact h4b.x24
   have hfo : forOff c ≤ 288 := by unfold forOff; omega
   have hheap6 : ∀ m, 2 ≤ m → m < 256 → DigAt t6 (HEAPW + 16 * m) (heap.getD m 0) := fun m h1 h2 =>
@@ -181,10 +181,10 @@ theorem coord_unit (hcode : NewCodeAt im) {c : Nat} (hc : c < 9) {N : BitVec 256
       (intro h; (try simp only [treeW, slotP] at h); have := i.isLt; aoh)
   refine TBSim.pure_steps' (s6.trans s7) ⟨p7, GlobSt.frame hc hg hregs (by simp [ftsRegs]) hframe,
     ⟨_, _, rfl, ⟨fun i => hval i, fun l => ?_⟩, ?_, ?_⟩, hregs, hframe⟩
-  · have hx : N.toNat / 2 ^ WCT9.coordBase c % 128 / 2 ^ l.val ^^^ 1 < 2 ^ (7 - l.val) := by
+  · have hx : N.toNat / 2 ^ WCT9.childBase c % 128 / 2 ^ l.val ^^^ 1 < 2 ^ (7 - l.val) := by
       have := pathHeap_lt _ l.val hsel128 l.isLt
       have h2 := pathIdx_eq _ hsel128 l.val l.isLt
-      have : (N.toNat / 2 ^ WCT9.coordBase c % 128 + 128) / 2 ^ l.val ^^^ 1 < 2 ^ (7 - l.val + 1) := by
+      have : (N.toNat / 2 ^ WCT9.childBase c % 128 + 128) / 2 ^ l.val ^^^ 1 < 2 ^ (7 - l.val + 1) := by
         apply Nat.xor_lt_two_pow
         · rw [Nat.div_lt_iff_lt_mul (by positivity), ← pow_add, show 7 - l.val + 1 + l.val = 8 by omega]; omega
         · exact Nat.one_lt_two_pow (by omega)
@@ -193,7 +193,7 @@ theorem coord_unit (hcode : NewCodeAt im) {c : Nat} (hc : c < 9) {N : BitVec 256
     unfold slotP at this
     show DigAt t7 (SIG + 128 + 224 * c + 16 * l.val) (((List.range 7).map fun level =>
       ((WCT9.heapLevels heap).getD level []).getD ((WCT9.child N ⟨c, hc⟩).val / 2 ^ level ^^^ 1) 0).getD l.val 0)
-    have hcv : (WCT9.child N ⟨c, hc⟩).val = N.toNat / 2 ^ WCT9.coordBase c % 128 := rfl
+    have hcv : (WCT9.child N ⟨c, hc⟩).val = N.toNat / 2 ^ WCT9.childBase c % 128 := rfl
     rw [getD_map_range7 _ l.isLt, hcv, show ((WCT9.heapLevels heap).getD l.val []).getD _ 0 =
       SigGolfCandidate.T3.Correctness.treeValue (WCT9.heapLevels heap) l.val _ from rfl,
       WCT9.heapLevels_value heap l.val _ l.isLt hx]
@@ -261,7 +261,7 @@ theorem fts_step (hcode : NewCodeAt im) {N : BitVec 256} (hadm : WCT9.admissible
     (k : Nat) (hk : k < 9) (st : List WCT9.Opening × List (Digest × Digest)) (t : MachineState)
     (h : FtsInv sk N s0 k st t) :
     TBSim im sk t coordCmax
-      ((fun st k => if h : k < 9 then WCT9.openingStep (N.toNat % 2 ^ 31) N st ⟨k, h⟩ else pure st) st (0 + k))
+      ((fun st k => if h : k < 9 then WCT9.openingStep (WCT9.digestIndex N) N st ⟨k, h⟩ else pure st) st (0 + k))
       (FtsInv sk N s0 (k + 1)) := by
   simp only [Nat.zero_add, dif_pos hk]
   have hpc : t.pc = pcOf (cbase k) := by rw [h.pc, if_pos hk]
@@ -351,7 +351,7 @@ section fts2
 variable {im : Image}
 theorem ftsGood (im : Image) : FtsGood im := by
   intro hcode sk N s hpre
-  have hidx : N.toNat % 2 ^ 31 < 2 ^ 31 := Nat.mod_lt _ (by norm_num)
+  have hidx : WCT9.digestIndex N < 2 ^ 31 := WCT9.digestIndex_lt N
   obtain ⟨t0, s0', p0, k1, k2, r0, f0⟩ := step_SK hcode s hpre.pc
   have g0 : ∀ A, A < 2 ^ 64 → A ≠ PRIVW + 40 → A ≠ PRIVW + 32 → A ≠ PRIVW + 8 → A ≠ PRIVW →
       t0.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A) := fun A hA h1 h2 h3 h4 =>
@@ -382,7 +382,7 @@ theorem ftsGood (im : Image) : FtsGood im := by
       hinv0) (fun st t9 h9 => ?_))).mono ftsC_bound (fun _ _ h => h)
   have h9pc : t9.pc = pcOf 20715 := by have := h9.pc; rwa [if_neg (by norm_num)] at this
   obtain ⟨t1, s1, e1, p1, x10, x11, x12, m0, m8, m16, m24, r1, f1⟩ := step_For hcode t9 h9pc h9.glob.x22
-  have hq : hashInput t1 = toQ (pad64 (WCT9.forestInput (N.toNat % 2 ^ 31) st.2)) := by
+  have hq : hashInput t1 = toQ (pad64 (WCT9.forestInput (WCT9.digestIndex N) st.2)) := by
     refine hashInput_forest t1 st.2 h9.len2 (by omega) x10 x11 (fun c hc => ?_) m0 m8 m16 m24
     have hfo : forOff c ≤ 288 := by unfold forOff; omega
     have hfo' : 32 ≤ forOff c := by unfold forOff; omega
@@ -392,7 +392,7 @@ theorem ftsGood (im : Image) : FtsGood im := by
       o3.frame f1 (by ao) (by intro h; rcases h with h | h | h | h <;> omega)
         (by intro h; rcases h with h | h | h | h <;> omega)⟩
   have hx5 : t1.getReg .x5 = 0 := by rw [r1.get (by simp)]; exact h9.glob.x5
-  have hbl : (toQ (pad64 (WCT9.forestInput (N.toNat % 2 ^ 31) st.2))).blocks = 5 := by
+  have hbl : (toQ (pad64 (WCT9.forestInput (WCT9.digestIndex N) st.2))).blocks = 5 := by
     rw [pad64_of_aligned _ (by rw [forestIn_len _ _ h9.len2]), blocks_toQ ⟨by rw [forestIn_len _ _ h9.len2]; norm_num,
       by rw [forestIn_len _ _ h9.len2]⟩, forestIn_len _ _ h9.len2]
   rw [forestPk_eq]
@@ -544,8 +544,8 @@ local macro "so" : tactic =>
     SearchW, FtsW, ScrZero, NewW] at *) <;> omega))
 def Kw (cache : Bytes 131072) (m : Message) (rho : Digest) : M (Option WCT9.Signature) := do
   let some (_, output) ← WCT9.digestSearch rho m 0 WCT9.digestAttemptLimit | pure none
-  let forest ← WCT9.signForest (output.toNat % 2 ^ 31) output
-  let some pieces ← WCT9.signLayersBC (cacheDec cache) (output.toNat % 2 ^ 31) 4 (.forest forest.2) | pure none
+  let forest ← WCT9.signForest (WCT9.digestIndex output) output
+  let some pieces ← WCT9.signLayersBC (cacheDec cache) (WCT9.digestIndex output) 4 (.forest forest.2) | pure none
   pure (some (WCT9.assembledSignature rho forest.1 pieces))
 theorem rev3_sign_eq (cache : Bytes 131072) (m : Message) :
     WCT9.Rev3.sign (cacheDec cache) m = (do
@@ -590,7 +590,7 @@ theorem rest_tbsim (hcode : SignCodeAt im) (hS : SearchGood im) (hF : FtsGood im
   refine TBSim.bind (hF hnew sk N u hpre) (fun fr v hv => ?_)
   obtain ⟨ops, root⟩ := fr
   obtain ⟨vpc, v5, vroot, -, vops, vr, vf⟩ := hv
-  have hlp : LayPre (N.toNat % 2 ^ 31) root v :=
+  have hlp : LayPre (WCT9.digestIndex N) root v :=
     ⟨vpc, v5, Nat.mod_lt _ (by norm_num), by rw [vf.get (by so) (by so)]; exact uidx, vroot⟩
   have hinv' : Inv v := hstab t v hinv ((uf.trans vf).mono (fun A _ h => h))
     ((ur.trans vr).mono (by decide))

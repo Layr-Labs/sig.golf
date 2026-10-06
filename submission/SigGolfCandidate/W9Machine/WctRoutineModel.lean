@@ -27,8 +27,8 @@ open SigGolfCandidate.T3M
 def expectedChainKinds (digits : List Nat) (t : Nat) : List ChainPieceKind :=
   let d := digits.getD t 0
   if d = 0 then [] else
-    let off := 832 - 64 * t
-    let slot := if t = 0 then 880 else 896 + 16 * t
+    let off := 704 - 64 * t
+    let slot := if t = 0 then 752 else 768 + 16 * t
     let own := 0 < t ∧ t < 6 ∧ digits.getD (t + 1) 0 = 0
     let dst := if own then off + 48 else slot
     [.head off (if d = 1 then dst else off + 48) t (3 - d)] ++

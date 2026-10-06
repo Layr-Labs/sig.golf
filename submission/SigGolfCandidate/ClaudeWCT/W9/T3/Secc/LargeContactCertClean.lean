@@ -627,9 +627,9 @@ open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers)
-open SigGolfCandidate.T3M (wrho wdc)
+open ClaudeWCT.W9.T3M (wrho wdc)
 open ClaudeWCT.W9.T3.Security.LargeResidual
-open SigGolfCandidate.T3.Security.LargeResidual (digestIndex IsDigestRow)
+open SigGolfCandidate.T3.Security.LargeResidual (IsDigestRow)
 open SigGolfCandidate.T3.Security.LargeCoupling (record_events_known chargeOf EventsAgree honestNonce)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
@@ -718,7 +718,7 @@ theorem cert_of_clean (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
     exact (hclearV X prior hev).mono fun d hd =>
       monitorRun_known U z.2 q g.value.2 t.steps c.events d hd
   rcases hcase with hprim | ⟨hgood, hfts, hqF⟩
-  · exact (wotsPrimitiveRoute_false z.2 g.value.2 _ _ (Nat.mod_lt _ (by decide)) hprim hclear).elim
+  · exact (wotsPrimitiveRoute_false z.2 g.value.2 _ _ (WCT9.digestIndex_lt _) hprim hclear).elim
   have hNz : z.2 (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w))))) = N := hN
   have hdigest : ∃ prior, (⟨prior, .inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))), N⟩ :
       FirstHit.QueryEvent) ∈ (QueryRecorded.recordedTrace z.1).events := by
@@ -792,9 +792,9 @@ theorem cert_of_clean (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
     have hq0 := CaseC.recoverFtsP_chain_queried z.2 N w k tt hu1
     obtain ⟨hval, hpad⟩ := (hfts.2 k).1 tt
     rw [hval, (hpad hu1).1, (hpad hu1).2] at hq0
-    have hX : (.inl (.inr (pad64 (wctChainInputP (N.toNat % 2 ^ 31) k.val (WCT9.child N k).val tt.val
+    have hX : (.inl (.inr (pad64 (wctChainInputP (WCT9.digestIndex N) k.val (WCT9.child N k).val tt.val
         (3 - WCT9.wordDigit (WCT9.rank N k) tt) ((0, 0) : Digest × Digest).1 0 ((0, 0) : Digest × Digest).2
-        (Extract.wctValue z.2 (N.toNat % 2 ^ 31) k.val (WCT9.child N k).val tt.val
+        (Extract.wctValue z.2 (WCT9.digestIndex N) k.val (WCT9.child N k).val tt.val
           (3 - WCT9.wordDigit (WCT9.rank N k) tt))))) : Spec.Domain) =
         .inl (.inr (Extract.honestInput z.2 (CanonGraph.Node.wctChain (a, s)).toPos)) := by
       rw [wctChainInputP_zero]

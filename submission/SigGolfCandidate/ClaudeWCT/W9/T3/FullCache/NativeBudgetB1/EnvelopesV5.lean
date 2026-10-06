@@ -4,19 +4,19 @@ namespace ClaudeWCT.W9.T3.BaseAudit.V5
 open SigGolfCandidate.T3.BaseAudit (zU)
 set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
-def J : ℕ := 9776740226758159252015394
-def p0 : ℚ := 1040 * 27 ^ 9 * J / 2 ^ 147
-def b0 : ℚ := 1012318010458 / 1000000000000
+def J : ℕ := 9856899190038931412086514
+def p0 : ℚ := 1091 * 27 ^ 9 * J / 2 ^ 147
+def b0 : ℚ := 15806857617 / 15625000000
 theorem step_0 : zU * ((1 - p0) * b0 + p0) ≤ b0 := by norm_num [zU, p0, b0, J]
-theorem probability_floor : 1 / 2301 ≤ p0 ∧ p0 ≤ 1 / 2300 := by norm_num [p0, J]
+theorem probability_floor : 1 / 2176 ≤ p0 ∧ p0 ≤ 1 / 2175 := by norm_num [p0, J]
 theorem p0_ge_5026 : 1 / 5026 ≤ p0 := by norm_num [p0, J]
 theorem p0_nonneg : 0 ≤ p0 := by norm_num [p0, J]
 theorem p0_le_one : p0 ≤ 1 := by norm_num [p0, J]
-def topCount129 : ℕ := 99688341888453976199567696916972594
+def topCount129 : ℕ := 97816978632729252580178283386927154
 def lowerCount197 : ℕ := 140610462347261096978771217394878840
-def lowerCount198 : ℕ := 115572437016808486361789308152458664
+def lowerCount198 : ℕ := 113470737483767875195512089978341656
 def p1 : ℚ := topCount129 / 2 ^ 128
-def b1 : ℚ := 203676646221 / 200000000000
+def b1 : ℚ := 254685379249 / 250000000000
 theorem step_1 : zU * ((1 - p1) * b1 + p1) ≤ b1 := by norm_num [zU, p1, b1, topCount129]
 def p2 : ℚ := lowerCount197 / 2 ^ 128
 def b2 : ℚ := 126620471019 / 125000000000
@@ -25,7 +25,7 @@ def p3 : ℚ := lowerCount197 / 2 ^ 128
 def b3 : ℚ := 126620471019 / 125000000000
 theorem step_3 : zU * ((1 - p3) * b3 + p3) ≤ b3 := by norm_num [zU, p3, b3, lowerCount197]
 def p4 : ℚ := lowerCount198 / 2 ^ 128
-def b4 : ℚ := 1015816706653 / 1000000000000
+def b4 : ℚ := 1016114383741 / 1000000000000
 theorem step_4 : zU * ((1 - p4) * b4 + p4) ≤ b4 := by norm_num [zU, p4, b4, lowerCount198]
 theorem zU_nonneg : (0 : ℚ) ≤ zU := by norm_num [zU]
 theorem step_mono {p q b : ℚ} (hb : 1 ≤ b) (hpq : p ≤ q) (h : zU * ((1 - p) * b + p) ≤ b) :
@@ -59,13 +59,13 @@ theorem rpow_two_ge_cubic (y : ℝ) (hy : 0 ≤ y) :
   linarith
 theorem signing_envelope_le :
     (2 : ℝ) ^ ((117468 : ℝ) / 131072) * ((b0 : ℝ) * (b1 : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤
-      199995 / 100000 := by
+      19999 / 10000 := by
   have hsplit : (2 : ℝ) ^ ((117468 : ℝ) / 131072) = 2 / (2 : ℝ) ^ ((13604 : ℝ) / 131072) := by
     rw [_root_.eq_div_iff (by positivity), ← Real.rpow_add (by norm_num)]
     norm_num
   have hlo := rpow_two_ge_cubic (13604 / 131072) (by norm_num)
   have hn : 2 * ((b0 : ℝ) * (b1 : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤
-      199995 / 100000 * (1 + 0.6931471803 * (13604 / 131072) + (0.6931471803 * (13604 / 131072)) ^ 2 / 2 +
+      19999 / 10000 * (1 + 0.6931471803 * (13604 / 131072) + (0.6931471803 * (13604 / 131072)) ^ 2 / 2 +
         (0.6931471803 * (13604 / 131072)) ^ 3 / 6) := by
     norm_num [b0, b1, b2, b3, b4]
   rw [hsplit, div_mul_eq_mul_div, div_le_iff₀ (by positivity)]
@@ -73,14 +73,14 @@ theorem signing_envelope_le :
 theorem signing_envelope :
     (2 : ℝ) ^ ((117468 : ℝ) / 131072) * ((b0 : ℝ) * (b1 : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤ 2 :=
   signing_envelope_le.trans (by norm_num)
-theorem rate_top_1024 : (1024 : ℚ) * 0.6931471808 ≤ 2 ^ 22 * p1 := by norm_num [p1, topCount129]
-theorem rate_lower197_1024 : (1024 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p2 := by norm_num [p2, lowerCount197]
-theorem rate_lower198_1024 : (1024 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p4 := by norm_num [p4, lowerCount198]
+theorem rate_top_1000 : (1000 : ℚ) * 0.6931471808 ≤ 2 ^ 22 * p1 := by norm_num [p1, topCount129]
+theorem rate_lower197_1000 : (1000 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p2 := by norm_num [p2, lowerCount197]
+theorem rate_lower198_1000 : (1000 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p4 := by norm_num [p4, lowerCount198]
 theorem rate_digest_1300 : (1300 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p0 := by norm_num [p0, J]
 theorem rates_ge_4096 : 1 / 4096 ≤ p1 ∧ 1 / 4096 ≤ p2 ∧ 1 / 4096 ≤ p4 := by
   norm_num [p1, p2, p4, topCount129, lowerCount197, lowerCount198]
 theorem completeness_union :
-    (2 : ℝ) ^ 256 * (1 / 2 ^ 450) + 2 ^ 301 * (1 / 2 ^ 1024) ≤ 1 / 2 ^ 193 := by
+    (2 : ℝ) ^ 256 * (1 / 2 ^ 450) + 2 ^ 301 * (1 / 2 ^ 1000) ≤ 1 / 2 ^ 193 := by
   set_option exponentiation.threshold 2048 in norm_num
 theorem expandFixed_le : 131 + 473 ≤ 622 := by norm_num
 end ClaudeWCT.W9.T3.BaseAudit.V5

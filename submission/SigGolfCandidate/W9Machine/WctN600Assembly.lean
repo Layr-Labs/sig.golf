@@ -24,30 +24,30 @@ theorem leafSetup_keeps : Keeps leafSetupRel [.x25, .x10, .x11] := by
   rw [RegFile.get_set_ne _ _ (ne_of_not_mem hr (by simp)),
     RegFile.get_set_ne _ _ (ne_of_not_mem hr (by simp))]
 theorem leafSetup_mem (s : MachineState) (B A : Nat)
-    (hbase : s.getReg .x8 = BitVec.ofNat 64 B) (hhi : B + 1024 < 2 ^ 64) (hA : A < 2 ^ 64) :
+    (hbase : s.getReg .x8 = BitVec.ofNat 64 B) (hhi : B + 896 < 2 ^ 64) (hA : A < 2 ^ 64) :
     (leafSetupRel.toState s).getMem (BitVec.ofNat 64 A) =
-      if A = B + 904 then s.getReg .x4 else
-      if A = B + 896 then s.getReg .x28 else s.getMem (BitVec.ofNat 64 A) := by
-  exact memEval_two s _ _ _ _ (B + 904) (B + 896) A
-    (by change s.getReg .x8 + 904 = _; rw [hbase]; exact ofNat_add_ofNat B 904)
-    (by change s.getReg .x8 + 896 = _; rw [hbase]; exact ofNat_add_ofNat B 896)
+      if A = B + 776 then s.getReg .x22 else
+      if A = B + 768 then s.getReg .x28 else s.getMem (BitVec.ofNat 64 A) := by
+  exact memEval_two s _ _ _ _ (B + 776) (B + 768) A
+    (by change s.getReg .x8 + 776 = _; rw [hbase]; exact ofNat_add_ofNat B 776)
+    (by change s.getReg .x8 + 768 = _; rw [hbase]; exact ofNat_add_ofNat B 768)
     (by omega) (by omega) hA
 theorem leaf_trace_mem (value : ChainWord → Word) (tr : ChainTrace) (s : MachineState) (B : Nat)
     (ht : TraceMem value B tr s) (hbase : s.getReg .x8 = BitVec.ofNat 64 B)
-    (hB : B + 1024 < 2 ^ 64) (hh : s.getReg .x28 = value .leafHeader)
-    (hr : s.getReg .x4 = value .route) :
+    (hB : B + 896 < 2 ^ 64) (hh : s.getReg .x28 = value .leafHeader)
+    (hr : s.getReg .x22 = value .index) :
     TraceMem value B (tr.step .leaf) (leafSetupRel.toState s) := by
   intro x hx
   rw [leafSetup_mem s B (B + x) hbase hB (by omega)]
   simp only [ChainTrace.step, ChainTrace.read_put]
   split_ifs <;> first | omega | exact ht x hx
 theorem leafSetup_regs (s : MachineState) (B : Nat) (hbase : s.getReg .x8 = BitVec.ofNat 64 B) :
-    (leafSetupRel.toState s).getReg .x10 = BitVec.ofNat 64 (B + 880) ∧
+    (leafSetupRel.toState s).getReg .x10 = BitVec.ofNat 64 (B + 752) ∧
     (leafSetupRel.toState s).getReg .x11 = 128 ∧
     (leafSetupRel.toState s).pc = s.getReg .x23 &&& ~~~1#64 := by
   simp only [leafSetupRel, Result.toState_getReg, Result.toState_pc,
     RegFile.get, RegFile.set, addC_eval, E.eval, BinOp.eval, hbase]
-  exact ⟨ofNat_add_ofNat B 880, trivial, trivial⟩
+  exact ⟨ofNat_add_ofNat B 752, trivial, trivial⟩
 end W9Machine
 end
 section
@@ -87,9 +87,9 @@ theorem hKey_relative (s : MachineState) (H chain digit : Nat)
   convert ofNat_add_off0 (H + 2048) (64 * chain + 8 * digit) 2048 (by omega) (by omega) using 1 <;> congr 1; omega
 theorem headRHRel_obligations (s : MachineState) (B off dst pc chain digit : Nat)
     (h8 : s.getReg .x8 = BitVec.ofNat 64 B)
-    (hB : B + 1024 ≤ 2 ^ 24)
+    (hB : B + 896 ≤ 2 ^ 24)
     (haB : B % 8 = 0) (hao : off % 8 = 0)
-    (ho : off + 64 ≤ 1024) :
+    (ho : off + 64 ≤ 896) :
     ∀ o ∈ (headRHRel .x8 (BitVec.ofNat 64 off) (BitVec.ofNat 64 dst) pc chain digit).st.obl,
       o.holds s := by
   intro o hm
@@ -100,8 +100,8 @@ theorem headRHRel_obligations (s : MachineState) (B off dst pc chain digit : Nat
   exact valid_ofNat _ _ (by omega) (by omega)
 theorem rungRRel_obligations (s : MachineState) (B off digit pc : Nat) (dst : Option Word)
     (h10 : s.getReg .x10 = BitVec.ofNat 64 (B + off))
-    (hB : B + 1024 ≤ 2 ^ 24) (haB : B % 8 = 0) (hao : off % 8 = 0)
-    (ho : off + 64 ≤ 1024) :
+    (hB : B + 896 ≤ 2 ^ 24) (haB : B % 8 = 0) (hao : off % 8 = 0)
+    (ho : off + 64 ≤ 896) :
     ∀ o ∈ (rungRRel .x8 digit dst pc).st.obl, o.holds s := by
   intro o hm
   simp only [rungRRel, List.mem_cons, List.not_mem_nil, or_false] at hm
@@ -116,9 +116,9 @@ theorem rungRRel_obligations (s : MachineState) (B off digit pc : Nat) (dst : Op
     rw [he]
     exact valid_ofNat _ _ (by omega) (by omega)
 theorem copyFHRel_obligations (s : MachineState) (B off dst pc : Nat)
-    (h8 : s.getReg .x8 = BitVec.ofNat 64 B) (hB : B + 1024 ≤ 2 ^ 24)
+    (h8 : s.getReg .x8 = BitVec.ofNat 64 B) (hB : B + 896 ≤ 2 ^ 24)
     (haB : B % 8 = 0) (hao : off % 8 = 0) (had : dst % 8 = 0)
-    (ho : off + 64 ≤ 1024) (hd : dst + 16 ≤ 1024) :
+    (ho : off + 64 ≤ 896) (hd : dst + 16 ≤ 896) :
     ∀ o ∈ (copyFHRel .x8 (BitVec.ofNat 64 off) (BitVec.ofNat 64 dst) pc).st.obl, o.holds s := by
   intro o hm
   simp only [copyFHRel, List.mem_cons, List.not_mem_nil, or_false] at hm
@@ -155,14 +155,14 @@ theorem Inv.rung {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 12
     {u s : MachineState} {tr : ChainTrace} {answers : List (BitVec 256)}
     (hu : Pre L w index k j rank u) (hs : Inv u index k j tr answers s)
     (digit pc old : Nat) (dst : Option Nat) (ans : BitVec 256)
-    (hn : 0 < answers.length) (hi : 448 ≤ tr.input ∧ tr.input + 64 ≤ 1024)
-    (hdst : 448 ≤ dst.getD tr.output ∧ dst.getD tr.output + 32 ≤ 1024)
+    (hn : 0 < answers.length) (hi : 320 ≤ tr.input ∧ tr.input + 64 ≤ 896)
+    (hdst : 320 ≤ dst.getD tr.output ∧ dst.getD tr.output + 32 ≤ 896)
     (hc : tr.chain < 7) (ho : old < 3) (hd : digit < 3)
     (hh : tr.read (tr.input + 16) = .header tr.chain old) :
     Inv u index k j (tr.step (.rung digit dst)) (answers ++ [ans])
       (writeHash ((rungRRel .x8 digit (dst.map (BitVec.ofNat 64)) pc).toState s) ans) := by
   have hk := k.isLt
-  have hB : base k + 1024 < 2 ^ 64 := by unfold base coordinateBase; omega
+  have hB : base k + 896 < 2 ^ 64 := by unfold base coordinateBase; omega
   have hb := (hs.keep .x8 (by decide)).trans hu.baseReg
   have hp := hs.pointers hn
   have hstep := packedPos_eval s digit hd
@@ -219,13 +219,13 @@ theorem Inv.head {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 12
     {u s : MachineState} {tr : ChainTrace} {answers : List (BitVec 256)}
     (hu : Pre L w index k j rank u) (hs : Inv u index k j tr answers s)
     (off dst pc chain digit : Nat) (ans : BitVec 256)
-    (hoff : 448 ≤ off ∧ off + 64 ≤ 1024) (hdst : 448 ≤ dst ∧ dst + 32 ≤ 1024)
+    (hoff : 320 ≤ off ∧ off + 64 ≤ 896) (hdst : 320 ≤ dst ∧ dst + 32 ≤ 896)
     (hc : chain < 7) (hd : digit < 3) :
     Inv u index k j (tr.step (.head off dst chain digit)) (answers ++ [ans])
       (writeHash ((headRHRel .x8 (BitVec.ofNat 64 off) (BitVec.ofNat 64 dst)
         pc chain digit).toState s) ans) := by
   have hk := k.isLt
-  have hB : base k + 1024 < 2 ^ 64 := by unfold base coordinateBase; omega
+  have hB : base k + 896 < 2 ^ 64 := by unfold base coordinateBase; omega
   have hb := (hs.keep .x8 (by decide)).trans hu.baseReg
   have hp := headRHRel_addresses .x8 (BitVec.ofNat 64 off) (BitVec.ofNat 64 dst)
     pc chain digit s
@@ -268,12 +268,12 @@ open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 theorem Inv.copy {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 728}
     {u s : MachineState} {tr : ChainTrace} {answers : List (BitVec 256)}
     (hu : Pre L w index k j rank u) (hs : Inv u index k j tr answers s)
-    (off dst pc : Nat) (hoff : off + 64 ≤ 1024)
-    (hdst : 448 ≤ dst ∧ dst + 16 ≤ 1024) :
+    (off dst pc : Nat) (hoff : off + 64 ≤ 896)
+    (hdst : 320 ≤ dst ∧ dst + 16 ≤ 896) :
     Inv u index k j (tr.step (.copy off dst)) answers
       ((copyFHRel .x8 (BitVec.ofNat 64 off) (BitVec.ofNat 64 dst) pc).toState s) := by
   have hk := k.isLt
-  have hB : base k + 1024 < 2 ^ 64 := by unfold base coordinateBase; omega
+  have hB : base k + 896 < 2 ^ 64 := by unfold base coordinateBase; omega
   have hb := (hs.keep .x8 (by decide)).trans hu.baseReg
   have hf := (copyFHRel_frame s .x8 (base k) off dst pc hb (by omega)).mono
     (show ∀ A, A < 2 ^ 64 → A = base k + dst ∨ A = base k + dst + 8 → writes k A from
@@ -330,7 +330,7 @@ theorem Inv.hashEffect {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : 
         exact hs.rung hu digit pc old dst ans (by rw [← hs.count]; exact hn)
           ⟨hilo, hihi⟩ ⟨hdlo, hdhi⟩ hc ho hd he
       | original off => simp [he] at hheader
-      | route => simp [he] at hheader
+      | index => simp [he] at hheader
       | answer q i => simp [he] at hheader
       | leafHeader => simp [he] at hheader
     | copy off dst => contradiction
@@ -359,7 +359,7 @@ theorem Inv.plainObligations {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9}
     ∀ o ∈ p.result.st.obl, o.holds s := by
   have hk := k.isLt
   have hb := (hs.keep .x8 (by decide)).trans hu.baseReg
-  have hB : base k + 1024 ≤ 2 ^ 24 := by unfold base coordinateBase; omega
+  have hB : base k + 896 ≤ 2 ^ 24 := by unfold base coordinateBase; omega
   have haB : base k % 8 = 0 := by unfold base coordinateBase; omega
   cases p with
   | mk pc words kind =>
@@ -375,14 +375,14 @@ theorem Inv.plainObligations {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9}
       intro o ho
       simp only [ChainPiece.result, leafSetupRel, List.mem_cons, List.not_mem_nil, or_false] at ho
       rcases ho with rfl | rfl
-      · change accessValid (s.getReg .x8 + 904) 8 = true
+      · change accessValid (s.getReg .x8 + 776) 8 = true
         rw [hb]
-        change accessValid (BitVec.ofNat 64 (base k) + BitVec.ofNat 64 904) 8 = true
+        change accessValid (BitVec.ofNat 64 (base k) + BitVec.ofNat 64 776) 8 = true
         rw [ofNat_add_ofNat]
         exact valid_ofNat _ _ (by omega) (by omega)
-      · change accessValid (s.getReg .x8 + 896) 8 = true
+      · change accessValid (s.getReg .x8 + 768) 8 = true
         rw [hb]
-        change accessValid (BitVec.ofNat 64 (base k) + BitVec.ofNat 64 896) 8 = true
+        change accessValid (BitVec.ofNat 64 (base k) + BitVec.ofNat 64 768) 8 = true
         rw [ofNat_add_ofNat]
         exact valid_ofNat _ _ (by omega) (by omega)
 end W9Machine.Chain
@@ -419,8 +419,8 @@ theorem preparedQuery (value : ChainWord → Word) (B : Nat) (tr : ChainTrace)
     (p : ChainPiece) (s : MachineState) (hh : p.isHash = true)
     (hm : TraceMem value B (prepareTrace tr p.kind) s)
     (h10 : s.getReg .x10 = BitVec.ofNat 64 (B + (prepareTrace tr p.kind).input))
-    (h11 : s.getReg .x11 = 64) (hB : B + 1024 < 2 ^ 64)
-    (hi : (prepareTrace tr p.kind).input + 64 ≤ 1024)
+    (h11 : s.getReg .x11 = 64) (hB : B + 896 < 2 ^ 64)
+    (hi : (prepareTrace tr p.kind).input + 64 ≤ 896)
     (ha : (B + (prepareTrace tr p.kind).input) % 8 = 0) :
     hashInput s = toQ (pad64 (wordBytes ((pieceQuery tr p).map value))) ∧
     (toQ (pad64 (wordBytes ((pieceQuery tr p).map value)))).blocks = 1 := by
@@ -455,8 +455,8 @@ theorem Inv.hashReady {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : F
   have hk := k.isLt
   have hb := (hs.keep .x8 (by decide)).trans hu.baseReg
   have h5 := (hs.keep .x5 (by decide)).trans hu.hashMode
-  have hB : base k + 1024 ≤ 2 ^ 24 := by unfold base coordinateBase; omega
-  have hBig : base k + 1024 < 2 ^ 64 := by omega
+  have hB : base k + 896 ≤ 2 ^ 24 := by unfold base coordinateBase; omega
+  have hBig : base k + 896 < 2 ^ 64 := by omega
   have haB : base k % 8 = 0 := by unfold base coordinateBase; omega
   cases p with
   | mk pc words kind =>
@@ -507,7 +507,7 @@ theorem Inv.hashReady {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : F
             hs.memory (tr.input + 16) (by omega), he]
           exact wct_header_step k.val index j.val tr.chain old digit hk hu.indexBound j.isLt hc ho hd
         | original off => simp [he] at hheader
-        | route => simp [he] at hheader
+        | index => simp [he] at hheader
         | answer q i => simp [he] at hheader
         | leafHeader => simp [he] at hheader
       have hq := preparedQuery _ (base k) tr ⟨pc, words, .rung digit dst⟩ prepared hh hm
@@ -532,7 +532,7 @@ open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest)
 theorem merkleField_of_frame {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9}
     {j : Fin 128} {rank : Fin 728} {u s : MachineState} (hu : Pre L w index k j rank u)
-    (hf : Frame u s (writes k)) (off : Nat) (ha : off % 8 = 0) (ho : off + 16 ≤ 448) :
+    (hf : Frame u s (writes k)) (off : Nat) (ha : off % 8 = 0) (ho : off + 16 ≤ 320) :
     DigAt s (base k + off) (wdig w (V3.regionOffset k.val + off)) := by
   have hk := k.isLt
   have h0 := hu.origW off (by omega) ha
@@ -545,20 +545,26 @@ theorem merkleField_of_frame {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9}
   rw [he] at hdig
   exact hdig.frame hf (by unfold base coordinateBase; omega)
     (by unfold writes; omega) (by unfold writes; omega)
+theorem auth_bounds : ∀ j : Fin 128, ∀ l : Fin 7,
+    ClaudeWCT.W9.T3M.authSibOff j.val l.val % 8 = 0 ∧ ClaudeWCT.W9.T3M.authSibOff j.val l.val + 16 ≤ 320 ∧
+    ClaudeWCT.W9.T3M.authPadOff j.val l.val % 8 = 0 ∧ ClaudeWCT.W9.T3M.authPadOff j.val l.val + 16 ≤ 320 := by
+  decide +kernel
 theorem merklePad_of_frame {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9}
     {j : Fin 128} {rank : Fin 728} {u s : MachineState} (hu : Pre L w index k j rank u)
     (hf : Frame u s (writes k)) (l : Nat) (hl : l < 7) :
-    DigAt s (base k + V3.blockOffset l + 32) (V3.nodePad w k.val l) := by
-  have h := merkleField_of_frame hu hf (V3.blockOffset l + 32)
-    (by unfold V3.blockOffset; omega) (by unfold V3.blockOffset; omega)
-  simpa only [V3.nodePad, Nat.add_assoc] using h
+    DigAt s (base k + ClaudeWCT.W9.T3M.authPadOff j.val l) (V3.nodePad w k.val j.val l) := by
+  have hb := auth_bounds j ⟨l, hl⟩
+  have h := merkleField_of_frame hu hf (ClaudeWCT.W9.T3M.authPadOff j.val l) hb.2.2.1 hb.2.2.2
+  simpa only [V3.nodePad, ClaudeWCT.W9.T3M.wmpad, ClaudeWCT.W9.T3M.regionBase, V3.regionOffset, wdig]
+    using h
 theorem merkleSibling_of_frame {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9}
     {j : Fin 128} {rank : Fin 728} {u s : MachineState} (hu : Pre L w index k j rank u)
     (hf : Frame u s (writes k)) (l : Nat) (hl : l < 7) :
-    DigAt s (base k + V3.siblingOffset j.val l) (V3.sibling w k.val j.val l) := by
-  apply merkleField_of_frame hu hf
-  · unfold V3.siblingOffset V3.blockOffset; split_ifs <;> omega
-  · unfold V3.siblingOffset V3.blockOffset; split_ifs <;> omega
+    DigAt s (base k + ClaudeWCT.W9.T3M.authSibOff j.val l) (V3.sibling w k.val j.val l) := by
+  have hb := auth_bounds j ⟨l, hl⟩
+  have h := merkleField_of_frame hu hf (ClaudeWCT.W9.T3M.authSibOff j.val l) hb.1 hb.2.1
+  simpa only [V3.sibling, ClaudeWCT.W9.T3M.wsib, ClaudeWCT.W9.T3M.regionBase, V3.regionOffset, wdig]
+    using h
 theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128}
     {rank : Fin 728} {u s : MachineState} {tr : ChainTrace} {answers : List (BitVec 256)}
     (hu : Pre L w index k j rank u) (hs : Inv u index k j tr answers s)
@@ -566,14 +572,14 @@ theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
     (hends : ∀ t, t < 7 → DigAt s (base k + traceLeafSlot t) (ends.getD t 0)) :
     Post L w index k j u ends (leafSetupRel.toState s) := by
   have hk := k.isLt
-  have hB : base k + 1024 < 2 ^ 64 := by unfold base coordinateBase; omega
+  have hB : base k + 896 < 2 ^ 64 := by unfold base coordinateBase; omega
   have hb := (hs.keep .x8 (by decide)).trans hu.baseReg
   let prepared := leafSetupRel.toState s
   have hp := leafSetup_regs s (base k) hb
   have hkeep : ∀ r, r ∉ clobbers → prepared.getReg r = u.getReg r := by
     intro r hr
     exact ((chainPiece_keeps ⟨0, [], .leaf⟩).reg s hr).trans (hs.keep r hr)
-  have hfLeaf : Frame s prepared (fun A => A = base k + 896 ∨ A = base k + 904) := by
+  have hfLeaf : Frame s prepared (fun A => A = base k + 768 ∨ A = base k + 776) := by
     intro A hA hn
     rw [leafSetup_mem s (base k) A hb hB hA,
       if_neg (fun h => hn (Or.inr h)), if_neg (fun h => hn (Or.inl h))]
@@ -585,15 +591,13 @@ theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
     · unfold traceLeafSlot base coordinateBase; split_ifs <;> omega
     · unfold traceLeafSlot; split_ifs <;> omega
     · unfold traceLeafSlot; split_ifs <;> omega
-  have hheaderLo : prepared.getMem (BitVec.ofNat 64 (base k + 896)) =
+  have hLo : prepared.getMem (BitVec.ofNat 64 (base k + 768)) =
       (SigGolfCandidate.T3.header 6 k.val index 0 j.val).extractLsb' 0 64 := by
-    rw [leafSetup_mem s (base k) (base k + 896) hb hB (by omega),
-      if_neg (by omega), if_pos rfl]
+    rw [leafSetup_mem s (base k) (base k + 768) hb hB (by omega), if_neg (by omega), if_pos rfl]
     exact hs.leafLoad hu
-  have hheaderHi : prepared.getMem (BitVec.ofNat 64 (base k + 904)) =
-      BitVec.ofNat 64 index := by
-    rw [leafSetup_mem s (base k) (base k + 904) hb hB (by omega), if_pos rfl]
-    exact (hs.keep .x4 (by decide)).trans hu.route
+  have hIdx : prepared.getMem (BitVec.ofNat 64 (base k + 776)) = BitVec.ofNat 64 index := by
+    rw [leafSetup_mem s (base k) (base k + 776) hb hB (by omega), if_pos rfl]
+    exact (hs.keep .x22 (by decide)).trans hu.indexReg
   refine { length := hlen, keep := hkeep, frame := hf, child := ?_ }
   refine {
     indexBound := hu.indexBound, length := hlen, pc := ?_,
@@ -601,16 +605,12 @@ theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
     baseReg := (hkeep .x8 (by decide)).trans hu.baseReg,
     hashInput := hp.1, hashLen := hp.2.1,
     nodeHeader := (hkeep .x27 (by decide)).trans hu.nodeHeader,
-    childReg := (hkeep .x22 (by decide)).trans hu.indexReg,
+    indexReg := (hkeep .x22 (by decide)).trans hu.indexReg,
     forestPointer := (hkeep .x9 (by decide)).trans hu.forestPointer,
     returnPC := (hkeep .x1 (by decide)).trans hu.returnPC,
-    heaps := ?_,
-    leaf1Lo := by
-      change prepared.getMem (BitVec.ofNat 64 (base k + 896)) =
-        (V3.leafFields k.val index j.val ends 1).extractLsb' 0 64
-      rw [V3.leafFields, if_neg (by decide : ¬ (1 : Nat) = 0), if_pos rfl]
-      exact hheaderLo,
-    leaf1Hi := hheaderHi, leafAt := ?_,
+    childReg := (hkeep .x4 (by decide)).trans hu.childReg,
+    headerLo := hLo, headerIndex := hIdx,
+    heaps := ?_, leafAt := ?_,
     padAt := fun l hl => merklePad_of_frame hu hf l (by omega),
     sibAt := fun l hl => merkleSibling_of_frame hu hf l hl }
   · rw [hp.2.2, hs.keep .x23 (by decide), hu.childPC, pcOf_and_not1]
@@ -620,7 +620,7 @@ theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
   · intro i hi h1
     by_cases h0 : i = 0
     · subst i; simpa [V3.leafFields, traceLeafSlot] using hend 0 (by decide)
-    · have he : base k + 880 + 16 * i = base k + traceLeafSlot (i - 1) := by
+    · have he : base k + 752 + 16 * i = base k + traceLeafSlot (i - 1) := by
         unfold traceLeafSlot
         rw [if_neg (by omega)]
         omega

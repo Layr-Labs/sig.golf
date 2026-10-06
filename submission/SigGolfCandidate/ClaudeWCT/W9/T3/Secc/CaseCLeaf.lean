@@ -5,7 +5,7 @@ import SigGolfCandidate.T3.Secc.CaseCLeaf
 namespace ClaudeWCT.W9.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open SigGolfCandidate.T3M (wrho wdc)
+open ClaudeWCT.W9.T3M (wrho wdc)
 open SigGolfCandidate.T3M.SecurityExtraction (queried queried_bind queried_shortHash)
 open ClaudeWCT.W9.T3M (WBytes Shaped verifyP wctChainP wctChainInputP recoverFtsP witDecP padDecP wreveal wcpads
   wcHeaderPad)
@@ -24,10 +24,10 @@ theorem wctChainP_first_queried (answers : Correctness.Answers) (index coord chi
   exact List.mem_append_left _ (List.mem_singleton_self _)
 theorem recoverFtsP_chain_queried (answers : Correctness.Answers) (N : HashOutput) (w : WBytes) (k : WCT9.Coord)
     (t : Fin 7) (hu : 1 ≤ WCT9.wordDigit (WCT9.rank N k) t) :
-    (.inl (.inr (pad64 (wctChainInputP (N.toNat % 2 ^ 31) k.val (WCT9.child N k).val t.val
+    (.inl (.inr (pad64 (wctChainInputP (WCT9.digestIndex N) k.val (WCT9.child N k).val t.val
         (3 - WCT9.wordDigit (WCT9.rank N k) t) (wcpads w k.val t.val).1 (wcHeaderPad w k.val t.val)
         (wcpads w k.val t.val).2 (wreveal w k.val t.val (WCT9.wordDigit (WCT9.rank N k) t))))) : Spec.Domain) ∈
-      queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (N.toNat % 2 ^ 31) N) := by
+      queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N) := by
   unfold recoverFtsP
   rw [queried_bind]
   apply List.mem_append_left
@@ -83,8 +83,8 @@ theorem chainValue_eq_wctValue (answers : Correctness.Answers) (a : Guess.ChainA
 theorem honestProbe_slot (answers : Correctness.Answers) (N : HashOutput) (k : WCT9.Coord) (t : Fin 7)
     (p : Fin 3) :
     Guess.honestProbe answers (Guess.chainOf N k t, p) =
-      pad64 (wctChainInputP (N.toNat % 2 ^ 31) k.val (WCT9.child N k).val t.val p.val 0 0 0
-        (ClaudeWCT.W9.T3M.Extract.wctValue answers (N.toNat % 2 ^ 31) k.val (WCT9.child N k).val t.val p.val)) := by
+      pad64 (wctChainInputP (WCT9.digestIndex N) k.val (WCT9.child N k).val t.val p.val 0 0 0
+        (ClaudeWCT.W9.T3M.Extract.wctValue answers (WCT9.digestIndex N) k.val (WCT9.child N k).val t.val p.val)) := by
   rw [ClaudeWCT.W9.T3M.wctChainInputP_zero, ClaudeWCT.W9.T3M.Extract.pad64_wctChainInput]
   rfl
 theorem verdict_chain_entries (pk : Digest) (interaction : Option ForgeryP × QueryLog Requests)

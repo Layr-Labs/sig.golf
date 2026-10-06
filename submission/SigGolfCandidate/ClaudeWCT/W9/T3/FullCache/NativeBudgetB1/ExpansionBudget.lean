@@ -78,7 +78,7 @@ theorem signPayload_cost_ge (answers : SigGolfCandidate.T3.Correctness.Answers) 
   | some found =>
       obtain ⟨counter, output⟩ := found
       simp only [cost_bind, hd]
-      have h := signForest_cost_ge answers (output.toNat % 2 ^ 31) output
+      have h := signForest_cost_ge answers (ClaudeWCT.WCT9.digestIndex output) output
       omega
 end ClaudeWCT.W9.T3.FullCacheExpansionCost
 end
@@ -207,9 +207,9 @@ theorem expand_cost_step (answers : Answers) (message : Message) (pk : Digest) (
       (ClaudeWCT.WCT9.digestSearch sig.rho message 0 digestAttemptLimit) = some (counter, output)) :
     cost answers (expand message pk sig) =
       cost answers (ClaudeWCT.WCT9.digestSearch sig.rho message 0 digestAttemptLimit) +
-      cost answers (ClaudeWCT.WCT9.recoverFts sig (output.toNat % 2 ^ 31) output) +
-      cost answers (ClaudeWCT.WCT9.expandLayersBC sig (output.toNat % 2 ^ 31) 4
-        (.forest (evalWithAnswerFn answers (ClaudeWCT.WCT9.recoverFts sig (output.toNat % 2 ^ 31) output)))) := by
+      cost answers (ClaudeWCT.WCT9.recoverFts sig (ClaudeWCT.WCT9.digestIndex output) output) +
+      cost answers (ClaudeWCT.WCT9.expandLayersBC sig (ClaudeWCT.WCT9.digestIndex output) 4
+        (.forest (evalWithAnswerFn answers (ClaudeWCT.WCT9.recoverFts sig (ClaudeWCT.WCT9.digestIndex output) output)))) := by
   simp only [ClaudeWCT.WCT9.Rev3.expand, ClaudeWCT.WCT9.expandWith, cost_bind, hd]
   split
   · split <;> simp only [cost_pure, Nat.add_zero, Nat.add_assoc]
@@ -223,9 +223,9 @@ theorem signPayload_cost_step (answers : Answers) (cache : Cache) (message : Mes
       cost answers (privateNonce message) +
       cost answers (ClaudeWCT.WCT9.digestSearch (evalWithAnswerFn answers (privateNonce message)) message 0
         digestAttemptLimit) +
-      cost answers (ClaudeWCT.WCT9.signForest (output.toNat % 2 ^ 31) output) +
-      cost answers (ClaudeWCT.WCT9.signLayersBC cache (output.toNat % 2 ^ 31) 4
-        (.forest (evalWithAnswerFn answers (ClaudeWCT.WCT9.signForest (output.toNat % 2 ^ 31) output)).2)) := by
+      cost answers (ClaudeWCT.WCT9.signForest (ClaudeWCT.WCT9.digestIndex output) output) +
+      cost answers (ClaudeWCT.WCT9.signLayersBC cache (ClaudeWCT.WCT9.digestIndex output) 4
+        (.forest (evalWithAnswerFn answers (ClaudeWCT.WCT9.signForest (ClaudeWCT.WCT9.digestIndex output) output)).2)) := by
   rw [ClaudeWCT.WCT9.Rev3.signPayload_eq]
   simp only [cost_bind, hd]
   split <;> simp only [cost_pure, Nat.add_zero, Nat.add_assoc]
@@ -247,29 +247,29 @@ theorem expand_cost_le_payload_add_of (ftsRec : Nat)
       obtain ⟨counter, output⟩ := found
       simp only [hd, evalWithAnswerFn_bind] at he
       cases hl : evalWithAnswerFn answers
-        (ClaudeWCT.WCT9.signLayersBC cache (output.toNat % 2 ^ 31) 4
-          (.forest (evalWithAnswerFn answers (ClaudeWCT.WCT9.signForest (output.toNat % 2 ^ 31) output)).2)) with
+        (ClaudeWCT.WCT9.signLayersBC cache (ClaudeWCT.WCT9.digestIndex output) 4
+          (.forest (evalWithAnswerFn answers (ClaudeWCT.WCT9.signForest (ClaudeWCT.WCT9.digestIndex output) output)).2)) with
       | none => simp only [hl, evalWithAnswerFn_pure, reduceCtorEq] at he
       | some pieces =>
           simp only [hl, evalWithAnswerFn_pure, Option.some.injEq] at he
           subst sig
           have hforest := assembled_forest_recovery answers
-            (evalWithAnswerFn answers (privateNonce message)) (output.toNat % 2 ^ 31) output pieces
-          have hindex : output.toNat % 2 ^ 31 < 2 ^ 31 := Nat.mod_lt _ (by decide)
-          have hlayer := expandLayersBC_cost_le answers cache (output.toNat % 2 ^ 31)
+            (evalWithAnswerFn answers (privateNonce message)) (ClaudeWCT.WCT9.digestIndex output) output pieces
+          have hindex : ClaudeWCT.WCT9.digestIndex output < 2 ^ 31 := ClaudeWCT.WCT9.digestIndex_lt output
+          have hlayer := expandLayersBC_cost_le answers cache (ClaudeWCT.WCT9.digestIndex output)
             hcache hindex 4 (by decide) _ pieces hl
             (assembledSignature (evalWithAnswerFn answers (privateNonce message))
-              (evalWithAnswerFn answers (ClaudeWCT.WCT9.signForest (output.toNat % 2 ^ 31) output)).1 pieces)
+              (evalWithAnswerFn answers (ClaudeWCT.WCT9.signForest (ClaudeWCT.WCT9.digestIndex output) output)).1 pieces)
             (fun _ _ => rfl)
           obtain ⟨post, hrecBound⟩ := hrecFts
             (assembledSignature (evalWithAnswerFn answers (privateNonce message))
-              (evalWithAnswerFn answers (ClaudeWCT.WCT9.signForest (output.toNat % 2 ^ 31) output)).1
+              (evalWithAnswerFn answers (ClaudeWCT.WCT9.signForest (ClaudeWCT.WCT9.digestIndex output) output)).1
               pieces)
-            (output.toNat % 2 ^ 31) output
+            (ClaudeWCT.WCT9.digestIndex output) output
           have hrec := cost_bound answers hrecBound
           have hexpand := expand_cost_step answers message pk
             (assembledSignature (evalWithAnswerFn answers (privateNonce message))
-              (evalWithAnswerFn answers (ClaudeWCT.WCT9.signForest (output.toNat % 2 ^ 31) output)).1
+              (evalWithAnswerFn answers (ClaudeWCT.WCT9.signForest (ClaudeWCT.WCT9.digestIndex output) output)).1
               pieces)
             counter output (by simpa only [ClaudeWCT.WCT9.assembledSignature_rho] using hd)
           rw [hexpand, signPayload_cost_step answers cache message counter output hd]

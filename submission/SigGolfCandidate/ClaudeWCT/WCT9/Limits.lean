@@ -14,7 +14,7 @@ theorem attemptLimit_le_digestAttemptLimit : SigGolfCandidate.T3.attemptLimit �
 def signPayloadWith (limit : Nat) (cache : Cache) (message : Message) : M (Option Signature) := do
   let rho ← privateNonce message
   let some (_, output) ← digestSearch rho message 0 limit | pure none
-  let index := output.toNat % 2 ^ 31
+  let index := digestIndex output
   let state ← (List.finRange 9).foldlM
     (fun (state : List Opening × List (Digest × Digest)) coord => do
       let selected := child output coord
@@ -35,7 +35,7 @@ def signWith (limit : Nat) (cache : Cache) (message : Message) : M (Option Signa
 def expandWith (limit : Nat) (message : Message) (pk : Digest) (sig : Signature) :
     M (Option Witness) := do
   let some (counter, output) ← digestSearch sig.rho message 0 limit | pure none
-  let index := output.toNat % 2 ^ 31
+  let index := digestIndex output
   let root ← recoverFts sig index output
   let some (root, counters) ← expandLayersBC sig index 4 (.forest root) | pure none
   if root ≠ pk then return none
@@ -44,7 +44,7 @@ def verifyWith (limit : Nat) (message : Message) (pk : Digest) (w : Witness) : M
   if w.digestCounter.toNat ≥ limit then return false
   let output ← digest w.signature.rho message w.digestCounter
   if !admissible output then return false
-  let index := output.toNat % 2 ^ 31
+  let index := digestIndex output
   let root ← recoverFts w.signature index output
   let some root ← verifyLayersBC w index 4 (.forest root) | pure false
   pure (root == pk)

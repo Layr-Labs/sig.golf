@@ -70,7 +70,7 @@ theorem spec_run {allow : List Nat} {rel : List Reg} {gk known post : List (Reg 
 section specres
 variable {allow : List Nat} {rel : List Reg} {gk post : List (Reg × Word)} {sp : Spec} {keep : List Reg}
   {s t : MachineState}
-theorem SpecRes.orig (hr : SpecRes allow rel gk sp post keep s t) {w : WBytes} {P P' : Nat → Prop}
+theorem SpecRes.orig (hr : SpecRes allow rel gk sp post keep s t) {w : ClaudeWCT.W9.T3M.WBytes} {P P' : Nat → Prop}
     (hO : Orig w P s)
     (hfr : ∀ o, o < WX → P' o → P o ∧ ∀ p ∈ sp.mem, BitVec.ofNat 64 (WIT + o) ≠ p.1.eval s) :
     Orig w P' t := by
@@ -78,14 +78,14 @@ theorem SpecRes.orig (hr : SpecRes allow rel gk sp post keep s t) {w : WBytes} {
   obtain ⟨hp, hne⟩ := hfr (8 * j) h1 h2
   rw [hr.mem, memEval_frame s _ _ hne]
   exact hO j h1 hp
-theorem SpecRes.orig_const (hr : SpecRes allow [] gk sp post keep s t) {w : WBytes} {P : Nat → Prop}
+theorem SpecRes.orig_const (hr : SpecRes allow [] gk sp post keep s t) {w : ClaudeWCT.W9.T3M.WBytes} {P : Nat → Prop}
     (hO : Orig w P s) : Orig w (fun o => P o ∧ WIT + o ∉ allow) t := by
   have h := Orig_toState_const (σ := ⟨RegFile.init, sp.mem, []⟩) (pc := 0) hO hr.memc
   intro j h1 h2
   have := h j h1 h2
   rw [hr.mem]
   exact this
-theorem SpecRes.witAll (hr : SpecRes [] [] gk sp post keep s t) {w : WBytes} (hW : WitAll w s) :
+theorem SpecRes.witAll (hr : SpecRes [] [] gk sp post keep s t) {w : ClaudeWCT.W9.T3M.WBytes} (hW : WitAll w s) :
     WitAll w t := by
   intro j hj
   have := hr.orig_const (hW.orig (fun _ => True)) j hj ⟨trivial, by simp⟩

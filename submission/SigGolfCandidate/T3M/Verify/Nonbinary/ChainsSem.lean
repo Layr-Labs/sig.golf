@@ -6,7 +6,7 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open SigGolfCandidate.T3
 set_option linter.unusedSimpArgs false
 structure NCtx where
-  w : WBytes
+  w : ClaudeWCT.W9.T3M.WBytes
   tree : Nat
   leaf : Nat
   S3 : Nat
@@ -20,17 +20,17 @@ def last (i : Nat) : Nat := topMax i - 1
 def «prefix» (c : NCtx) : Nat := 128 + 193 * 2 ^ 56 + ((c.tree * 2 ^ 12 + c.leaf) % 2 ^ 32) * 2 ^ 16
 def w0 (c : NCtx) (i : Nat) : Nat := c.prefix + i
 def w1 (c : NCtx) : Nat := hdr1 c.tree c.leaf
-def pad0 (c : NCtx) (i : Nat) : Digest := wdig c.w (c.blk i - 0x800)
-def pad1 (c : NCtx) (i : Nat) : Digest := wdig c.w (c.blk i - 0x800 + 32)
-def padHeader (c : NCtx) (i : Nat) : Word := (wdig c.w (c.blk i - 0x800 + 16)).extractLsb' 64 64
-def val (c : NCtx) (i : Nat) : Digest := wdig c.w (c.blk i - 0x800 + 48)
+def pad0 (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x800)
+def pad1 (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x800 + 32)
+def padHeader (c : NCtx) (i : Nat) : Word := (ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x800 + 16)).extractLsb' 64 64
+def val (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x800 + 48)
 def ok (c : NCtx) : Prop :=
-  c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ 0x800 + 9288 + 1664 ≤ c.S3 ∧ c.S3 + 2064 ≤ 0x7000 ∧
+  c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ 0x800 + 8136 + 1664 ≤ c.S3 ∧ c.S3 + 2064 ≤ 0x7000 ∧
     c.ret < 209920
 def known (c : NCtx) : List (Reg × Word) :=
   [(.x5, 0), (.x11, 64), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
    (.x28, BitVec.ofNat 64 c.prefix), (.x8, BitVec.ofNat 64 c.S3),
-   (.x4, BitVec.ofNat 64 c.w1), (.x27, BitVec.ofNat 64 0x401), (.x1, pcOf c.ret)]
+   (.x4, BitVec.ofNat 64 c.w1), (.x27, BitVec.ofNat 64 0x401), (.x1, BitVec.ofNat 64 0xffc000)]
 def kOf (c : NCtx) (q : Nat) : Nat :=
   c.dig (3*q) + (mx q+1)*c.dig (3*q+1) + (mx q+1)^2*c.dig (3*q+2)
 def qb (c : NCtx) (i : Nat) : Nat := gbase (i/3) (c.kOf (i/3))
@@ -76,7 +76,7 @@ def PreHash (c : NCtx) (s0 : MachineState) (i : Nat) (acc : List Digest) (m : Na
 def EndInv (c : NCtx) (s0 : MachineState) (i : Nat) (acc : List Digest) (s : MachineState) : Prop :=
   c.Base s0 (c.Wr (i + 1)) acc s ∧ acc.length = i + 1 ∧ s.pc = pcOf (c.endPc i)
 theorem blk_props (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 54) :
-    c.blk i % 8 = 0 ∧ 0x800 + 9288 ≤ c.blk i ∧ c.blk i + 80 ≤ 0x7000 := by
+    c.blk i % 8 = 0 ∧ 0x800 + 8136 ≤ c.blk i ∧ c.blk i + 80 ≤ 0x7000 := by
   obtain ⟨-, -, h64, hlo, hhi, -⟩ := hc
   unfold blk; refine ⟨?_, ?_, ?_⟩ <;> omega
 theorem blk_le (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 54) : c.blk i + 64 * i = c.blk 0 := by
