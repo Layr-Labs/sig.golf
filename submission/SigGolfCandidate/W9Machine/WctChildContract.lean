@@ -18,17 +18,21 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   hashInput : u.getReg .x10 = BitVec.ofNat 64 (coordinateBase k + 880)
   hashLen : u.getReg .x11 = 128
   nodeHeader : u.getReg .x27 = BitVec.ofNat 64 (V3.nodeLow k.val index)
-  indexReg : u.getReg .x22 = BitVec.ofNat 64 index
+  childReg : u.getReg .x4 = BitVec.ofNat 64 j.val
   forestPointer : u.getReg .x9 = BitVec.ofNat 64 (pairAddress k)
   returnPC : u.getReg .x1 = pcOf (L.returnWord k)
   heaps : ∀ h, 2 ≤ h → h ≤ 7 → u.getReg (heapReg h) = BitVec.ofNat 64 h
-  leafAt : ∀ i, i < 8 → DigAt u (coordinateBase k + 880 + 16 * i)
+  leaf1Lo : u.getMem (BitVec.ofNat 64 (coordinateBase k + 896)) =
+    (V3.leafFields k.val index j.val ends 1).extractLsb' 0 64
+  leaf1Hi : u.getMem (BitVec.ofNat 64 (coordinateBase k + 904)) = BitVec.ofNat 64 index
+  leafAt : ∀ i, i < 8 → i ≠ 1 → DigAt u (coordinateBase k + 880 + 16 * i)
     (V3.leafFields k.val index j.val ends i)
   padAt : ∀ l, l < 6 → DigAt u (coordinateBase k + V3.blockOffset l + 32)
     (V3.nodePad w k.val l)
   sibAt : ∀ l, l < 7 → DigAt u (coordinateBase k + V3.siblingOffset j.val l)
     (V3.sibling w k.val j.val l)
 def writes (k : Fin 9) (A : Nat) : Prop :=
+  A = coordinateBase k + 904 ∨
   (coordinateBase k + 64 ≤ A ∧ A < coordinateBase k + 464) ∨
     (pairAddress k ≤ A ∧ A < pairAddress k + 48)
 def clobbers : List Reg := [.x3, .x10, .x11, .x12, .x14]
