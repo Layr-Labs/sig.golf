@@ -157,6 +157,10 @@ theorem card_lowerAccept_197_0 :
 theorem card_lowerAccept_198_0 :
     (univ.filter fun v : BitVec 128 => LowerAccept 198 0 v.toNat).card = 115663871454869880991236461657470944 :=
   card_lowerAccept_of_check _ _ _ (by norm_num) check_198_0
+theorem check_198_4 : countCheck 198 4 113470737483767875195512089978341656 = true := by decide +kernel
+theorem card_lowerAccept_198_4 :
+    (univ.filter fun v : BitVec 128 => LowerAccept 198 4 v.toNat).card = 113470737483767875195512089978341656 :=
+  card_lowerAccept_of_check _ _ _ (by norm_num) check_198_4
 def shiftS1 (i : ℕ) : ℕ := if i < 21 then 3 * i else 64 + 3 * (i - 21)
 def SpareS1 (n : ℕ) : Prop := n / 2 ^ 63 % 2 = 1 ∧ n / 2 ^ 127 % 2 = 1
 instance (n : ℕ) : Decidable (SpareS1 n) := by unfold SpareS1; infer_instance
@@ -242,17 +246,22 @@ theorem card_lowerAcceptS1_197_4 :
 theorem card_lowerAcceptS1_198_2 :
     (univ.filter fun v : BitVec 128 => LowerAcceptS1 198 2 v.toNat).card = 115572437016808486361789308152458664 := by
   rw [card_lowerAcceptS1, card_lowerAccept_198_2]
+theorem card_lowerAcceptS1_198_4 :
+    (univ.filter fun v : BitVec 128 => LowerAcceptS1 198 4 v.toNat).card = 113470737483767875195512089978341656 := by
+  rw [card_lowerAcceptS1, card_lowerAccept_198_4]
 theorem card_lowerAcceptS1_197_0 :
     (univ.filter fun v : BitVec 128 => LowerAcceptS1 197 0 v.toNat).card = 143468572474466315422327516384120300 := by
   rw [card_lowerAcceptS1, card_lowerAccept_197_0]
 theorem card_lowerAcceptS1_198_0 :
     (univ.filter fun v : BitVec 128 => LowerAcceptS1 198 0 v.toNat).card = 115663871454869880991236461657470944 := by
   rw [card_lowerAcceptS1, card_lowerAccept_198_0]
-theorem check_198_4 : countCheck 198 4 113470737483767875195512089978341656 = true := by decide +kernel
-theorem card_lowerAccept_198_4 :
-    (univ.filter fun v : BitVec 128 => LowerAccept 198 4 v.toNat).card = 113470737483767875195512089978341656 :=
-  card_lowerAccept_of_check _ _ _ (by norm_num) check_198_4
-theorem card_lowerAcceptS1_198_4 :
-    (univ.filter fun v : BitVec 128 => LowerAcceptS1 198 4 v.toNat).card = 113470737483767875195512089978341656 := by
-  rw [card_lowerAcceptS1, card_lowerAccept_198_4]
+theorem check_197_5 : countCheck 197 5 135188784189175955033659734918883230 = true := by decide +kernel
+theorem card_lowerAccept_197_5 :
+    (univ.filter fun v : BitVec 128 => LowerAccept 197 5 v.toNat).card = 135188784189175955033659734918883230 :=
+  card_lowerAccept_of_check _ _ _ (by norm_num) check_197_5
+theorem card_lowerAcceptS1_197_5 :
+    (univ.filter fun v : BitVec 128 => LowerAcceptS1 197 5 v.toNat).card = 135188784189175955033659734918883230 := by
+  rw [card_lowerAcceptS1, card_lowerAccept_197_5]
+theorem check_197_5_wrong_count_negative :
+    countCheck 197 5 135188784189175955033659734918883229 = false := by decide +kernel
 end ClaudeWCT.Numerics.LowerCredit

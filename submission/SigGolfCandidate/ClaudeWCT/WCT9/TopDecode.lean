@@ -44,7 +44,7 @@ theorem producerDecode_eq_none_or (lay : Layer) (answer : Digest) :
       · exact Or.inr rfl
       · exact Or.inl rfl
 theorem producerFloor_values :
-    producerFloor 0 = 8 ∧ producerFloor 1 = 4 ∧ producerFloor 2 = 4 ∧ producerFloor 3 = 4 :=
+    producerFloor 0 = 8 ∧ producerFloor 1 = 5 ∧ producerFloor 2 = 4 ∧ producerFloor 3 = 4 :=
   ⟨rfl, rfl, rfl, rfl⟩
 theorem searchLimit_top : searchLimit 0 = counterLimit := rfl
 theorem searchLimit_lower {lay : Layer} (h : lay ≠ 0) : searchLimit lay = lowerSearchLimit := by

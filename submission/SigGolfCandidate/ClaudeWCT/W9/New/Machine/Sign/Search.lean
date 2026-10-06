@@ -23,7 +23,7 @@ def ctrE : E := .bin .sll (.reg .x19) (cst 32)
 def resTrial : PRes :=
   ⟨⟨rfs [(.x6, ctrE), (.x10, cst DIG), (.x11, cst 64), (.x12, cst NBUF), (.x28, cst DIG)],
     [mw (DIG + 24) ctrE, mw (DIG + 16) (cst 3073)], []⟩, pcOf 11019, true, 12, 12, [], none⟩
-def gateE : E := .bin .sltu (.bin .srl (.ld (cst (NBUF + 24))) (cst 43)) (cst 1091)
+def gateE : E := .bin .sltu (.bin .srl (.ld (cst (NBUF + 24))) (cst 43)) (cst 1137)
 def resGate (d : Bool) : PRes :=
   ⟨⟨rfs [(.x6, gateE), (.x22, .ld (cst NBUF)), (.x28, cst NBUF)], [], []⟩,
     if d then pcOf 11170 else pcOf 11027, false, 7, 7, [⟨.eq, gateE, .c 0, d⟩], none⟩
@@ -229,15 +229,15 @@ theorem gate21_word3 (a : BitVec 256) :
     show (2 : Nat) ^ 64 = 2 ^ 43 * 2 ^ 21 by norm_num, Nat.mod_mul_right_div_self, Nat.div_div_eq_div_mul,
     ← pow_add]
 theorem gateE_eval (s : MachineState) (a : BitVec 256) (ha : OutAt s NBUF a) :
-    gateE.eval s = BitVec.ofNat 64 (if a.toNat / 2 ^ 235 % 2 ^ 21 < 1091 then 1 else 0) := by
+    gateE.eval s = BitVec.ofNat 64 (if a.toNat / 2 ^ 235 % 2 ^ 21 < 1137 then 1 else 0) := by
   have h3 : s.getMem (BitVec.ofNat 64 (NBUF + 24)) = a.extractLsb' 192 64 := ha 3 (by decide)
   simp only [gateE, cst, E.eval, h3]
   rw [srl_eval _ 43 (by decide)]
   have hv := gate21_word3 a
-  by_cases h : a.toNat / 2 ^ 235 % 2 ^ 21 < 1091
-  · simp only [BinOp.eval, BitVec.ult, hv, toNat_ofNat_lt (show 1091 < 2 ^ 64 by decide), h, decide_true, if_true]
+  by_cases h : a.toNat / 2 ^ 235 % 2 ^ 21 < 1137
+  · simp only [BinOp.eval, BitVec.ult, hv, toNat_ofNat_lt (show 1137 < 2 ^ 64 by decide), h, decide_true, if_true]
     rfl
-  · simp only [BinOp.eval, BitVec.ult, hv, toNat_ofNat_lt (show 1091 < 2 ^ 64 by decide), h, decide_false,
+  · simp only [BinOp.eval, BitVec.ult, hv, toNat_ofNat_lt (show 1137 < 2 ^ 64 by decide), h, decide_false,
       Bool.false_eq_true, if_false]
     rfl
 theorem grpE_toNat (s : MachineState) (a : BitVec 256) (ha : OutAt s NBUF a) (k : Nat) (hk : k < 9) :
@@ -332,22 +332,22 @@ theorem trial_spec (hl : LookOK im headLook) (s : MachineState) (hpc : s.pc = pc
       if_neg hn.2]; rfl
 theorem gate_spec (hl : LookOK im headLook) (s : MachineState) (hpc : s.pc = pcOf 11020) (a : BitVec 256)
     (ha : OutAt s NBUF a) :
-    ∃ t, Steps im s 7 7 t ∧ t.pc = (if a.toNat / 2 ^ 235 % 2 ^ 21 < 1091 then pcOf 11027 else pcOf 11170) ∧
+    ∃ t, Steps im s 7 7 t ∧ t.pc = (if a.toNat / 2 ^ 235 % 2 ^ 21 < 1137 then pcOf 11027 else pcOf 11170) ∧
       t.getReg .x22 = a.extractLsb' 0 64 ∧ RegsExcept s t [.x6, .x22, .x28] ∧
       Frame s t (fun _ => False) := by
   have hg := gateE_eval s a ha
-  have hbr : ∀ b ∈ (resGate (decide ¬ (a.toNat / 2 ^ 235 % 2 ^ 21 < 1091))).brs, b.holds s := by
+  have hbr : ∀ b ∈ (resGate (decide ¬ (a.toNat / 2 ^ 235 % 2 ^ 21 < 1137))).brs, b.holds s := by
     intro b hb
     simp only [resGate, List.mem_singleton] at hb
     subst hb
     simp only [Br.holds, CmpOp.eval, E.eval, hg]
-    by_cases h0 : a.toNat / 2 ^ 235 % 2 ^ 21 < 1091
+    by_cases h0 : a.toNat / 2 ^ 235 % 2 ^ 21 < 1137
     · simp only [h0, if_true, not_true_eq_false, decide_false]; decide
     · simp only [h0, if_false, not_false_eq_true, decide_true]; decide
   obtain ⟨hs, hp, -, hr, hm⟩ := piece hl (run_gate _) s hpc rfl hbr rfl
   refine ⟨_, hs, ?_, ?_, regs_rfs hr, fun A _ _ => by rw [hm]; rfl⟩
   · rw [hp]; simp only [resGate]
-    by_cases h0 : a.toNat / 2 ^ 235 % 2 ^ 21 < 1091
+    by_cases h0 : a.toNat / 2 ^ 235 % 2 ^ 21 < 1137
     · simp only [h0, not_true_eq_false, decide_false, Bool.false_eq_true, if_false, if_true]
     · simp only [h0, not_false_eq_true, decide_true, if_false, if_true]
   · rw [hr]
@@ -538,7 +538,7 @@ theorem checks_spec (hl : LookOK im headLook) (u : MachineState) (hpc : u.pc = p
   obtain ⟨t1, s1, p1, x22, r1, f1⟩ := gate_spec hl u hpc a ha
   have hadm := WCT9.admissible_iff a
   have hprod := WCT9.producerAdmissible_iff a
-  by_cases hg : a.toNat / 2 ^ 235 % 2 ^ 21 < 1091
+  by_cases hg : a.toNat / 2 ^ 235 % 2 ^ 21 < 1137
   · rw [if_pos hg] at p1
     obtain ⟨t2, s2, p2, x20, x21, r2, f2⟩ := cost0_spec hl t1 p1
     have ha2 : OutAt t2 NBUF a := fun j hj => by

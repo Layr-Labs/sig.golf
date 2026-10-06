@@ -428,7 +428,7 @@ theorem fts_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.Si
     TBSim im sk sF ftsCost (WCT9.recoverFts sig (WCT9.digestIndex N) N)
       (fun root t => t.pc = pcOf 39142 ∧ t.getReg .x5 = 0 ∧ DigAt t 0x100 root ∧ Frame sF t FtsW) := by
   have hidx : WCT9.digestIndex N < 2 ^ 31 := WCT9.digestIndex_lt N
-  have hg : N.toNat / 2 ^ 235 % 2 ^ 21 < 1091 := ((admissible_iff N).mp hin.adm).1
+  have hg : N.toNat / 2 ^ 235 % 2 ^ 21 < 1137 := ((admissible_iff N).mp hin.adm).1
   obtain ⟨t0, s0, p0, r0, x8_0, x28_0, x15_0, f0⟩ := drv_entry hc N sF hpc h5 hin.out hg
   have hI0 : DrvInv sig N sF 0 [] t0 := drvInv_zero (by rw [p0]) r0 x8_0 x28_0 x15_0 f0
   unfold WCT9.recoverFts

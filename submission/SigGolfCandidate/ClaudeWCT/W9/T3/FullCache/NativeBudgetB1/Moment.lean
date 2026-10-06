@@ -219,7 +219,7 @@ noncomputable def Envelopes.v5 : Envelopes where
   step := by
     intro lay
     fin_cases lay <;> norm_num [producerRate, ClaudeWCT.W9.T3.ProducerV5.producerCount, V5.topCount129,
-      V5.lowerCount197, V5.lowerCount198, SigGolfCandidate.T3.BaseAudit.zU, V5.b1, V5.b2, V5.b3, V5.b4]
+      V5.lowerCount197, V5.lowerCount197Mid5, V5.lowerCount198, SigGolfCandidate.T3.BaseAudit.zU, V5.b1, V5.b2, V5.b3, V5.b4]
 end ClaudeWCT.W9.T3.LayerBudget
 end
 section

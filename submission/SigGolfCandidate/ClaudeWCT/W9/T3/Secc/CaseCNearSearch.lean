@@ -75,15 +75,15 @@ theorem nearPrice_eq_nearPriceP (X : List HashOutput) :
     ClaudeWCT.Numerics.N600.nearPriceN, ← ClaudeWCT.Numerics.WCTEnvelope.price_scale]
   simp only [div_eq_mul_inv]
   ring
-theorem near_bound_add_charge : (6463 / 16 : ENNReal) + 1 / 16 = 404 := by
+theorem near_bound_add_charge : (2095 / 16 : ENNReal) + 1 / 16 = 131 := by
   apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
   rw [ENNReal.toReal_add (by finiteness) (by finiteness)]
   norm_num [ENNReal.toReal_div]
-theorem near_bound_eq_sub : (6463 / 16 : ENNReal) = 404 - 1 / 16 := by
+theorem near_bound_eq_sub : (2095 / 16 : ENNReal) = 131 - 1 / 16 := by
   rw [← near_bound_add_charge]
   exact (ENNReal.add_sub_cancel_right (by finiteness)).symm
 theorem wct_near_bound_2_32 :
-    ClaudeWCT.Numerics.Law.lawAvg ClaudeWCT.Bank.WCT.honestLaw (2 ^ 32) nearPriceP ≤ 6463 / 16 := by
+    ClaudeWCT.Numerics.Law.lawAvg ClaudeWCT.Bank.WCT.honestLaw (2 ^ 32) nearPriceP ≤ 2095 / 16 := by
   rw [near_bound_eq_sub, ClaudeWCT.Bank.WCT.honestLaw_eq_n4]
   exact ClaudeWCT.Numerics.WCTPrice.wct_near_honest_2_32
 end ClaudeWCT.W9.T3.Security.CaseC
@@ -219,7 +219,7 @@ theorem nearLedger_win (R : Nat) (targets X : List HashOutput) (slack : Nat) (N 
     _ ≤ (targets.map fun N => nearForecast R X N).sum := List.le_sum_of_mem (List.mem_map_of_mem hN)
     _ ≤ _ := le_self_add
 theorem nearLedger_initial (budget : Nat) :
-    nearLedger horizon [] [] budget ≤ (budget : ENNReal) * (6463 / 16) / 2 ^ 128 := by
+    nearLedger horizon [] [] budget ≤ (budget : ENNReal) * (2095 / 16) / 2 ^ 128 := by
   unfold nearLedger nearPriceForecast
   simp only [List.map_nil, List.sum_nil, zero_add]
   apply ENNReal.div_le_div_right
@@ -388,7 +388,7 @@ theorem near_win (b : BankCore) (halive : ¬horizon < b.exposures.length)
     obtain ⟨N, hN, hadm, hcov⟩ := h.resolve_left hr
     exact (nearLedger_win _ _ _ _ N hN hadm hcov).trans le_self_add
 theorem near_initial (budget : Nat) :
-    nearPotential ⟨[], [], false, 0, budget⟩ ≤ (budget : ENNReal) * (6463 / 16) / 2 ^ 128 := by
+    nearPotential ⟨[], [], false, 0, budget⟩ ≤ (budget : ENNReal) * (2095 / 16) / 2 ^ 128 := by
   unfold nearPotential
   simp only [List.length_nil, Nat.not_lt_zero, if_false, Bool.false_eq_true, Nat.sub_zero, add_zero]
   exact nearLedger_initial budget
@@ -666,7 +666,7 @@ theorem mem_sign_repeat (q : Nat) (births exposures : List HashOutput) (reused :
   unfold nearMemPotential
   rw [reuseC_signed_eq rows rows' nonces m hm hrows]
 theorem mem_initial (q : Nat) :
-    nearMemPotential q [] [] false ∅ (fun _ => none) ≤ (q : ENNReal) * 404 / 2 ^ 128 := by
+    nearMemPotential q [] [] false ∅ (fun _ => none) ≤ (q : ENNReal) * 131 / 2 ^ 128 := by
   unfold nearMemPotential
   simp only [List.length_nil, Nat.not_lt_zero, if_false, Nat.sub_zero]
   have hC : reuseC ∅ (fun _ => none) = 0 := by
@@ -675,8 +675,8 @@ theorem mem_initial (q : Nat) :
   have hn := near_initial q
   rw [show (⟨[], [], false, reuseC ∅ (fun _ => none), q⟩ : BankCore) = ⟨[], [], false, 0, q⟩ by rw [hC]]
   calc
-    _ ≤ (q : ENNReal) * (6463 / 16) / 2 ^ 128 + (q : ENNReal) * ((1 / 16) / 2 ^ 128) := add_le_add hn le_rfl
-    _ = (q : ENNReal) * ((6463 / 16) + 1 / 16) / 2 ^ 128 := by
+    _ ≤ (q : ENNReal) * (2095 / 16) / 2 ^ 128 + (q : ENNReal) * ((1 / 16) / 2 ^ 128) := add_le_add hn le_rfl
+    _ = (q : ENNReal) * ((2095 / 16) + 1 / 16) / 2 ^ 128 := by
       simp only [div_eq_mul_inv]
       ring
     _ = _ := by rw [ClaudeWCT.W9.T3.Security.CaseC.near_bound_add_charge]
