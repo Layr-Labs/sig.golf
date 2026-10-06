@@ -1,4 +1,5 @@
 import SigGolfCandidate.T3M.Verify.ChainRuns
+import SigGolfCandidate.T3M.Verify.Nonbinary.TailDispatchPacket
 
 namespace SigGolfCandidate.T3M.Nonbinary
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
@@ -14,7 +15,7 @@ def partLen (q d : Nat) : Nat :=
 def pcB (q dB dC : Nat) : Nat := base q dB dC+2*mx q+1
 def pcC (q dB dC : Nat) : Nat := pcB q dB dC+partLen q dB
 def pcX (q dB dC : Nat) : Nat := pcC q dB dC+partLen q dC
-def entW (q k : Nat) : Nat := if q<17 then 176744+256*k+8*q else 209920+8*k
+def entW (q k : Nat) : Nat := if q<17 then 176744+256*k+8*q else 176936+256*k
 def headJD (rb : Reg) (o : Word) (tgt i d : Nat) : Result :=
   ⟨⟨((RegFile.init.set .x10 (addC (.reg rb) o)).set .x12 (addC (addC (.reg rb) o) 48)).set .x25 (hLoad i d),
     [(kAt rb o 16,hLoad i d)],
@@ -38,10 +39,7 @@ def dispatchR (q : Nat) : Result :=
   let a := .bin .add (.bin .and sh (.reg .x6)) (.reg .x15)
   ⟨⟨RegFile.init.set .x14 a,[],[]⟩,
     .bin .and (.bin .add a (.c (BitVec.ofNat 64 (32*q) + 18446744073709549984#64))) (.c (~~~1#64)),.jump,4,4⟩
-def tailDispatchR : Result :=
-  let a := .bin .add (.bin .sll (.reg .x29) (.c 5)) (.c 843776)
-  ⟨⟨(RegFile.init.set .x14 a).set .x15 (.c 843776),[],[]⟩,
-    .bin .and a (.c (~~~1#64)),.jump,4,4⟩
+def tailDispatchR : Result := TailDispatch.dispatchR
 def rungsOK (q d0 sl p : Nat) : Bool :=
   (List.range' d0 (mx q-d0)).all fun m =>
     rOK (vrun (p+2*(m-d0)) 3)
