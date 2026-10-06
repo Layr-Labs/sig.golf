@@ -2,7 +2,7 @@ import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.VerifyP
 
 namespace ClaudeWCT.W9.T3M
 open OracleComp OracleSpec SigGolfCandidate.T3
-open SigGolfCandidate.T3M (wvalue wpath wchainPads wmerklePad wchainHeaderPad chainP layerP nodeHashP recoverLayerP)
+open SigGolfCandidate.T3M (chainP nodeHashP recoverLayerP)
 theorem topLayerP_of_decode (w : WBytes) (index : Nat) {answer : Digest} {digits : List Nat}
     (h : decode 0 answer = some digits) : topLayerP w index answer = some <$> layerP w index 0 digits := by
   unfold topLayerP

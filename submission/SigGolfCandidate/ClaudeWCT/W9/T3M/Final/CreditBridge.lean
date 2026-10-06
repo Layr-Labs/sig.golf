@@ -237,8 +237,8 @@ theorem agree_layers (hash : Hash) (sig : ClaudeWCT.WCT9.Signature) (index : Nat
 theorem expandN_layers (A : SigGolfCandidate.T3.Correctness.Answers) (m : SigGolfCandidate.T3.Message) (pk : Digest)
     (σ : ClaudeWCT.WCT9.Signature) (N : HashOutput) (wt : ClaudeWCT.WCT9.Witness)
     (he : evalWithAnswerFn A (ClaudeWCT.W9.T3M.expandN m pk σ) = some (N, wt)) :
-    ∃ root counters, evalWithAnswerFn A (ClaudeWCT.WCT9.expandLayersBC σ (N.toNat % 2 ^ 31) 4
-        (.forest (evalWithAnswerFn A (ClaudeWCT.WCT9.recoverFts σ (N.toNat % 2 ^ 31) N)))) = some (root, counters) ∧
+    ∃ root counters, evalWithAnswerFn A (ClaudeWCT.WCT9.expandLayersBC σ (ClaudeWCT.WCT9.digestIndex N) 4
+        (.forest (evalWithAnswerFn A (ClaudeWCT.WCT9.recoverFts σ (ClaudeWCT.WCT9.digestIndex N) N)))) = some (root, counters) ∧
       ∀ lay : Layer, wt.counters lay = counters.getD lay.val 0 := by
   simp only [ClaudeWCT.W9.T3M.expandN, evalWithAnswerFn_bind] at he
   cases hd : evalWithAnswerFn A (ClaudeWCT.WCT9.digestSearch σ.rho m 0 ClaudeWCT.WCT9.digestAttemptLimit) with
@@ -246,8 +246,8 @@ theorem expandN_layers (A : SigGolfCandidate.T3.Correctness.Answers) (m : SigGol
   | some found =>
       obtain ⟨counter, output⟩ := found
       simp only [hd, evalWithAnswerFn_bind] at he
-      cases hl : evalWithAnswerFn A (ClaudeWCT.WCT9.expandLayersBC σ (output.toNat % 2 ^ 31) 4
-          (.forest (evalWithAnswerFn A (ClaudeWCT.WCT9.recoverFts σ (output.toNat % 2 ^ 31) output)))) with
+      cases hl : evalWithAnswerFn A (ClaudeWCT.WCT9.expandLayersBC σ (ClaudeWCT.WCT9.digestIndex output) 4
+          (.forest (evalWithAnswerFn A (ClaudeWCT.WCT9.recoverFts σ (ClaudeWCT.WCT9.digestIndex output) output)))) with
       | none => simp only [hl, evalWithAnswerFn_pure, reduceCtorEq] at he
       | some layers =>
           obtain ⟨root, counters⟩ := layers
@@ -273,7 +273,7 @@ theorem agree_verifyP (hash : Hash) (m : SigGolfCandidate.T3.Message) (pk : Dige
   refine ⟨agree_mrealize (notEnc_digest _ _ _) (hfg_ok hash), ?_⟩
   rw [F.sig, F.digest, ClaudeWCT.W9.T3M.verifyTailP_shaped pk N _ F.adm, ClaudeWCT.W9.T3M.witDecP_witEnc,
     ClaudeWCT.W9.T3M.padDecP_witEnc]
-  have hidx : N.toNat % 2 ^ 31 < 2 ^ 31 := Nat.mod_lt _ (by decide)
+  have hidx : ClaudeWCT.WCT9.digestIndex N < 2 ^ 31 := ClaudeWCT.WCT9.digestIndex_lt N
   unfold ClaudeWCT.W9.T3M.verifyPadsTail
   simp only [F.adm, Bool.not_true, Bool.false_eq_true, if_false, ClaudeWCT.W9.T3M.recoverFtsP_zero,
     ClaudeWCT.W9.T3M.verifyLayersBCP_zero _ _ hidx]
@@ -304,7 +304,7 @@ attribute [local reducible] SphincsSecurity.hashOutputBits ClaudeWCT.W9.T3M.subm
   SigGolfCandidate.Legacy.Output SigGolfCandidate.Legacy.Input
 set_option maxRecDepth 100000 in
 theorem expand_witness (P : Pending I) (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5456)
-    (w : Bytes 22984) (he : ((ClaudeWCT.W9.T3M.submission I).runWith hash .expand (m, pk, s)).value = some w) :
+    (w : Bytes 21832) (he : ((ClaudeWCT.W9.T3M.submission I).runWith hash .expand (m, pk, s)).value = some w) :
     ∃ N wt, evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.W9.T3M.expandN m pk (sigDec s)) = some (N, wt) ∧
       w = ClaudeWCT.W9.T3M.witEnc N wt := by
   have h := congrArg (evalWithAnswerFn hash) (expand_value P m pk s)
@@ -319,7 +319,7 @@ theorem expand_witness (P : Pending I) (hash : Hash) (m : Message) (pk : PublicK
       obtain ⟨N, wt⟩ := x
       exact ⟨N, wt, rfl, (Option.some.inj he).symm⟩
 set_option maxRecDepth 100000 in
-theorem verify_run_ok (P : Pending I) (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 22984)
+theorem verify_run_ok (P : Pending I) (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 21832)
     (hagree : Agree hash (okHash hash) (mrealize 0 (ClaudeWCT.W9.T3M.verifyP m pk w))) :
     (ClaudeWCT.W9.T3M.submission I).runWith hash .verify (m, pk, w) =
       (ClaudeWCT.W9.T3M.submission I).runWith (okHash hash) .verify (m, pk, w) := by

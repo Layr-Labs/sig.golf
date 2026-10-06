@@ -10,7 +10,7 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open SigGolfCandidate.T3.Security.Wots (LeafAddr ChainAddr Entry low entriesOf word_cases)
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3.Security.Wots
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
-open SigGolfCandidate.T3M (wrho wdc layerP wchainPads wchainHeaderPad wmerklePad wpath wvalue)
+open ClaudeWCT.W9.T3M (wrho wdc layerP wchainPads wchainHeaderPad wmerklePad wpath wvalue)
 open SigGolfCandidate.T3.Security.WotsExtract (SourceLeaf SourceChain entriesOf_mono mem_entriesOf routeLeaf
   routeLeaf_source)
 open SigGolfCandidate.T3.Correctness (Answers treeValue builtTree leafSeed leafEnd leafValue)
@@ -203,18 +203,18 @@ theorem verifyP_walk_wots_route (answers : Answers) (m : Message) (pk : Digest) 
       evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N ∧
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
-      (WotsPrimitiveRoute (N.toNat % 2 ^ 31) answers (entriesOf answers (queried answers (verifyP m pk w))) ∨
-       ((∀ l : Layer, BC.GoodZ answers w (N.toNat % 2 ^ 31) l) ∧
+      (WotsPrimitiveRoute (WCT9.digestIndex N) answers (entriesOf answers (queried answers (verifyP m pk w))) ∨
+       ((∀ l : Layer, BC.GoodZ answers w (WCT9.digestIndex N) l) ∧
           evalWithAnswerFn answers
-              (recoverFtsP (witDecP N w).signature (padDecP N w) (N.toNat % 2 ^ 31) N) =
-            Extract.honestForest answers (N.toNat % 2 ^ 31) ∧
-          ∀ q ∈ queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (N.toNat % 2 ^ 31) N),
+              (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N) =
+            Extract.honestForest answers (WCT9.digestIndex N) ∧
+          ∀ q ∈ queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N),
             q ∈ queried answers (verifyP m pk w))) := by
   classical
   obtain ⟨N, hdc, hN, hdq, hS, hlay, hqF, hqL⟩ := WctExtract.verifyP_walk_wct answers m pk w hv
   refine ⟨N, hdc, hN, hdq, hS, ?_⟩
-  have hidx : N.toNat % 2 ^ 31 < 2 ^ 31 := Nat.mod_lt _ (by norm_num)
-  rcases layersBC_wots_walk_route answers w (N.toNat % 2 ^ 31) hidx 4 (by decide) le_rfl (.forest _)
+  have hidx : WCT9.digestIndex N < 2 ^ 31 := Nat.mod_lt _ (by norm_num)
+  rcases layersBC_wots_walk_route answers w (WCT9.digestIndex N) hidx 4 (by decide) le_rfl (.forest _)
       (show (Fin.ofNat 4 (4 - 1) : Layer).val = 3 from rfl) (by rw [hlay, hpk]) with
     hprim | ⟨hgood, hroot⟩
   · exact Or.inl (hprim.mono (entriesOf_mono hqL))
@@ -229,9 +229,9 @@ theorem verifyP_wots_cases_route (answers : Answers) (m : Message) (pk : Digest)
       evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N ∧
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
-      (WotsPrimitiveRoute (N.toNat % 2 ^ 31) answers (entriesOf answers (queried answers (verifyP m pk w))) ∨
-       ((∀ l : Layer, BC.GoodZ answers w (N.toNat % 2 ^ 31) l) ∧ WctExtract.WctHonest answers N w ∧
-         ∀ q ∈ queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (N.toNat % 2 ^ 31) N),
+      (WotsPrimitiveRoute (WCT9.digestIndex N) answers (entriesOf answers (queried answers (verifyP m pk w))) ∨
+       ((∀ l : Layer, BC.GoodZ answers w (WCT9.digestIndex N) l) ∧ WctExtract.WctHonest answers N w ∧
+         ∀ q ∈ queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N),
             q ∈ queried answers (verifyP m pk w))) := by
   classical
   obtain ⟨N, hdc, hN, hdq, hS, hcase⟩ := verifyP_walk_wots_route answers m pk w hpk hv
@@ -251,7 +251,7 @@ open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final SigGolfCandidate.T3M.SecurityExtrac
 open SigGolfCandidate.T3.Correctness (Answers leafSeed)
 open SphincsSecurity (bytesLE bytesLE_length)
 open ClaudeWCT.W9.T3.Security.LargeResidual
-open SigGolfCandidate.T3.Security.LargeResidual (listBlock slotValue digestIndex routeAddr IsDigestRow)
+open SigGolfCandidate.T3.Security.LargeResidual (listBlock slotValue routeAddr IsDigestRow)
 open SigGolfCandidate.T3.Security.LargeCoupling (wotsAddr)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
@@ -589,7 +589,7 @@ open SigGolfCandidate.T3M.SecurityInputs
 open SigGolfCandidate.T3.Correctness (Answers leafSeed)
 open SphincsSecurity (bytesLE bytesLE_length)
 open ClaudeWCT.W9.T3.Security.LargeResidual
-open SigGolfCandidate.T3.Security.LargeResidual (listBlock slotValue digestIndex routeAddr IsDigestRow)
+open SigGolfCandidate.T3.Security.LargeResidual (listBlock slotValue routeAddr IsDigestRow)
 open SigGolfCandidate.T3.Security.LargeCoupling (wotsAddr gAddr wotsAddr_gAddr chainCount_le58 chainRow_block4
   slotValue_chainRow slotValue_block4_three honestChainValue_zero')
 set_option maxHeartbeats 1000000
@@ -760,7 +760,7 @@ open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers)
-open SigGolfCandidate.T3M (wrho wdc)
+open ClaudeWCT.W9.T3M (wrho wdc)
 open ClaudeWCT.W9.T3.Security.LargeResidual
 open SigGolfCandidate.T3.Security.LargeCoupling (record_events_known chargeOf EventsAgree)
 set_option maxHeartbeats 1000000
@@ -833,7 +833,7 @@ theorem noContact_caseC (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
       hmon' hcalls X hseen hXU
     exact hcl.mono fun d hd => monitorRun_known (Wots.referenceInputs adversary) z.2 q g.value.2 t.steps c.events d hd
   rcases hcase with hprim | ⟨hgood, hfts, -⟩
-  · exact (wotsPrimitiveRoute_false z.2 g.value.2 _ _ (Nat.mod_lt _ (by decide)) hprim hclear).elim
+  · exact (wotsPrimitiveRoute_false z.2 g.value.2 _ _ (WCT9.digestIndex_lt _) hprim hclear).elim
   have hdigest : ∃ prior, (⟨prior, .inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))), N⟩ :
       FirstHit.QueryEvent) ∈ (QueryRecorded.recordedTrace z.1).events := by
     obtain ⟨prior, hev⟩ := hsub _ hdq

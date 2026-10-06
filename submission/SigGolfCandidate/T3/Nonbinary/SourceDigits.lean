@@ -1,5 +1,5 @@
-import SigGolfCandidate.T3.Core
 import SigGolfCandidate.T3.Nonbinary.Codec
+import SigGolfCandidate.T3.Nonbinary.LowerLayout
 
 namespace SigGolfCandidate.T3.Nonbinary
 set_option maxHeartbeats 1000000

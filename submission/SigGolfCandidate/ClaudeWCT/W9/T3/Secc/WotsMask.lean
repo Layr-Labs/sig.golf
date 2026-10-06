@@ -186,12 +186,12 @@ theorem eval_maskAt_signPayload (answers : Answers) (a : ChainAddr) (htree : a.k
     refine Mask.eval_bind_of (Mask.eval_maskAt_of_respects answers a (Mask.respectsP_signForest a _ _)) ?_
     rw [ClaudeWCT.WCT9.eval_signForest]
     dsimp only
-    refine Mask.eval_bind_of (Mask.eval_signLayers_maskAt answers a htree hleaf cache _ (Nat.mod_lt _ (by decide)) 4
+    refine Mask.eval_bind_of (Mask.eval_signLayers_maskAt answers a htree hleaf cache _ (WCT9.digestIndex_lt _) 4
       le_rfl _ (fun m hm => ?_)) ?_
     · obtain rfl : m = 3 := by omega
       rw [← Extract.honestForest_eq_wct9]
-      exact Mask.signedMsg_top answers _ (Nat.mod_lt _ (by decide))
-    · generalize evalWithAnswerFn answers (WCT9.signLayersBC cache (output.toNat % 2 ^ 31) 4 _) = pieces
+      exact Mask.signedMsg_top answers _ (WCT9.digestIndex_lt _)
+    · generalize evalWithAnswerFn answers (WCT9.signLayersBC cache (WCT9.digestIndex output) 4 _) = pieces
       rcases pieces with _ | pieces <;> rfl
 theorem eval_maskAt_coreSign (answers : Answers) (a : ChainAddr) (htree : a.key.tree < 2 ^ 40)
     (hleaf : a.key.leaf < 2 ^ 24) (cache : Cache) (message : Message) :

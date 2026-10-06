@@ -6,7 +6,7 @@ namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)
 def WIT : Nat := 0x800
-def WSZ : Nat := 22984
+def WSZ : Nat := 21832
 def WX : Nat := 2 ^ 17
 def WLO : Nat := WIT + 64
 theorem ofNat_eq_iff {a b : Nat} (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) :
@@ -130,7 +130,7 @@ def PkOK (pk : Digest) (s : MachineState) : Prop :=
   s.getMem 0xA0 = dlo pk ∧ s.getMem 0xA8 = dhi pk
 def PZero (s : MachineState) : Prop := ∀ a ∈ pSlots, s.getMem (BitVec.ofNat 64 a) = 0
 def PHalf (s : MachineState) : Prop := (s.getMem (BitVec.ofNat 64 CTRW)).toNat / 2 ^ 32 = 0
-def WitHdr (w : WBytes) (s : MachineState) : Prop :=
+def WitHdr (w : ClaudeWCT.W9.T3M.WBytes) (s : MachineState) : Prop :=
   ∀ j, j < 8 → s.getMem (BitVec.ofNat 64 (WIT + 8 * j)) = wword w j
 def dataWords : List Nat :=
   [2 ^ 40, 17311559823019733055, 8198552921648689607, 0x30401, 0x3fe00, 2256, 11736, 0xa01, 0x901, 7072, 15264, 0]
@@ -144,15 +144,12 @@ def HDATA : Nat := 0xffbf90
 def headerBank (lay koff : Nat) : Nat := TOPBASE + 4096 * lay + 64 * koff
 structure DataOK (s : MachineState) : Prop where
   mask : s.getMem (BitVec.ofNat 64 (TOPBASE - 8)) = 130048#64
-  header : ∀ lay, lay < 5 →
+  header : ∀ lay, lay < 4 →
     s.getMem (BitVec.ofNat 64 (HDATA + 8 * lay)) =
-      BitVec.ofNat 64 (if lay = 4 then 0x0001040100020401 else 128 + 193 * 2 ^ 56 + lay * 2 ^ 48)
+      BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + lay * 2 ^ 48)
 theorem DataOK.prefix {s : MachineState} (h : DataOK s) (lay : Nat) (hl : lay < 4) :
-    s.getMem (BitVec.ofNat 64 (HDATA + 8 * lay)) = BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + lay * 2 ^ 48) := by
-  simpa [show lay ≠ 4 by omega] using h.header lay (by omega)
-theorem DataOK.hw12 {s : MachineState} (h : DataOK s) :
-    s.getMem (BitVec.ofNat 64 (HDATA + 32)) = BitVec.ofNat 64 0x0001040100020401 :=
-  h.header 4 (by decide)
+    s.getMem (BitVec.ofNat 64 (HDATA + 8 * lay)) = BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + lay * 2 ^ 48) :=
+  h.header lay hl
 theorem DataOK.congr {s t : MachineState} (h : DataOK s)
     (hm : ∀ A, TAB ≤ A → A + 8 ≤ 2 ^ 24 →
       t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)) : DataOK t := by
@@ -162,33 +159,33 @@ theorem DataOK.congr {s t : MachineState} (h : DataOK s)
   · intro lay hl
     rw [hm _ (by unfold HDATA TAB; omega) (by unfold HDATA; omega)]
     exact h.header lay hl
-def Glob (gk : List (Reg × Word)) (w : WBytes) (pk : Digest) (s : MachineState) : Prop :=
+def Glob (gk : List (Reg × Word)) (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (s : MachineState) : Prop :=
   (∀ p ∈ gk, s.getReg p.1 = p.2) ∧ WitHdr w s ∧ PkOK pk s ∧ PZero s ∧ PHalf s ∧ DataOK s
-def WitAll (w : WBytes) (s : MachineState) : Prop :=
+def WitAll (w : ClaudeWCT.W9.T3M.WBytes) (s : MachineState) : Prop :=
   ∀ j, 8 * j < WX → s.getMem (BitVec.ofNat 64 (WIT + 8 * j)) = wword w j
-def Orig (w : WBytes) (P : Nat → Prop) (s : MachineState) : Prop :=
+def Orig (w : ClaudeWCT.W9.T3M.WBytes) (P : Nat → Prop) (s : MachineState) : Prop :=
   ∀ j, 8 * j < WX → P (8 * j) → s.getMem (BitVec.ofNat 64 (WIT + 8 * j)) = wword w j
-theorem WitAll.orig {w : WBytes} {s : MachineState} (h : WitAll w s) (P : Nat → Prop) : Orig w P s :=
+theorem WitAll.orig {w : ClaudeWCT.W9.T3M.WBytes} {s : MachineState} (h : WitAll w s) (P : Nat → Prop) : Orig w P s :=
   fun j hj _ => h j hj
-theorem WitAll.hdr {w : WBytes} {s : MachineState} (h : WitAll w s) : WitHdr w s :=
+theorem WitAll.hdr {w : ClaudeWCT.W9.T3M.WBytes} {s : MachineState} (h : WitAll w s) : WitHdr w s :=
   fun j hj => h j (by unfold WX; omega)
-theorem Orig.mono {w : WBytes} {s : MachineState} {P P' : Nat → Prop} (h : Orig w P s)
+theorem Orig.mono {w : ClaudeWCT.W9.T3M.WBytes} {s : MachineState} {P P' : Nat → Prop} (h : Orig w P s)
     (hP : ∀ o, P' o → P o) : Orig w P' s :=
   fun j h1 h2 => h j h1 (hP _ h2)
-theorem Orig.frame {w : WBytes} {s t : MachineState} {P : Nat → Prop} (h : Orig w P s)
+theorem Orig.frame {w : ClaudeWCT.W9.T3M.WBytes} {s t : MachineState} {P : Nat → Prop} (h : Orig w P s)
     (hf : ∀ j, 8 * j < WX → P (8 * j) →
       t.getMem (BitVec.ofNat 64 (WIT + 8 * j)) = s.getMem (BitVec.ofNat 64 (WIT + 8 * j))) :
     Orig w P t :=
   fun j h1 h2 => (hf j h1 h2).trans (h j h1 h2)
-theorem Orig.word {w : WBytes} {s : MachineState} {P : Nat → Prop} (hO : Orig w P s) (off : Nat)
+theorem Orig.word {w : ClaudeWCT.W9.T3M.WBytes} {s : MachineState} {P : Nat → Prop} (hO : Orig w P s) (off : Nat)
     (h8 : off % 8 = 0) (hoff : off < WX) (hp : P off) :
     s.getMem (BitVec.ofNat 64 (WIT + off)) = wword w (off / 8) := by
   have := hO (off / 8) (by omega) (by rwa [show 8 * (off / 8) = off by omega])
   rwa [show 8 * (off / 8) = off by omega] at this
-theorem Orig.dig {w : WBytes} {s : MachineState} {P : Nat → Prop} (hO : Orig w P s) (off : Nat)
+theorem Orig.dig {w : ClaudeWCT.W9.T3M.WBytes} {s : MachineState} {P : Nat → Prop} (hO : Orig w P s) (off : Nat)
     (h8 : off % 8 = 0) (hoff : off + 8 < WX) (hp0 : P off) (hp1 : P (off + 8)) :
-    s.getMem (BitVec.ofNat 64 (WIT + off)) = dlo (wdig w off) ∧
-      s.getMem (BitVec.ofNat 64 (WIT + off + 8)) = dhi (wdig w off) := by
+    s.getMem (BitVec.ofNat 64 (WIT + off)) = dlo (ClaudeWCT.W9.T3M.wdig w off) ∧
+      s.getMem (BitVec.ofNat 64 (WIT + off + 8)) = dhi (ClaudeWCT.W9.T3M.wdig w off) := by
   obtain ⟨j, rfl⟩ : ∃ j, off = 8 * j := ⟨off / 8, by omega⟩
   refine ⟨?_, ?_⟩
   · rw [hO.word (8 * j) h8 (by omega) hp0, wdig_lo]; congr 1; omega
@@ -357,7 +354,7 @@ theorem memOKA_data {allow : List Nat} {rel : List Reg} {ws : SymMem} (h : memOK
     · omega
 theorem DATA_ge (k : Nat) (hk : k < 12) : 2 ^ 23 + 4096 ≤ DATA + 8 * k ∧ DATA + 8 * k + 8 ≤ 2 ^ 24 := by
   unfold DATA; omega
-theorem Glob_toState_allow {gk0 gk : List (Reg × Word)} {w : WBytes} {pk : Digest} {s : MachineState}
+theorem Glob_toState_allow {gk0 gk : List (Reg × Word)} {w : ClaudeWCT.W9.T3M.WBytes} {pk : Digest} {s : MachineState}
     {allow : List Nat} {rel : List Reg}
     (hG : Glob gk0 w pk s) (σ : SymState) (pc : Word) (hm : memOKA allow rel σ.mem = true)
     (hrel : RelOK rel s) (hr : regsOK gk σ.regs = true) : Glob gk w pk (σ.toState s pc) := by
@@ -384,11 +381,11 @@ theorem Glob_toState_allow {gk0 gk : List (Reg × Word)} {w : WBytes} {pk : Dige
     intro A hA hAend
     rw [SymState.toState_getMem, memEval_frame s _ _
       (memOKA_data hm s hrel _ (by unfold TAB at hA; omega) (by omega))]
-theorem Glob_toState {gk0 gk : List (Reg × Word)} {w : WBytes} {pk : Digest} {s : MachineState}
+theorem Glob_toState {gk0 gk : List (Reg × Word)} {w : ClaudeWCT.W9.T3M.WBytes} {pk : Digest} {s : MachineState}
     (hG : Glob gk0 w pk s) (σ : SymState) (pc : Word) (hm : memOK σ.mem = true)
     (hr : regsOK gk σ.regs = true) : Glob gk w pk (σ.toState s pc) :=
   Glob_toState_allow hG σ pc hm (RelOK.nil s) hr
-theorem Orig_toState {w : WBytes} {s : MachineState} {P P' : Nat → Prop} (hO : Orig w P s)
+theorem Orig_toState {w : ClaudeWCT.W9.T3M.WBytes} {s : MachineState} {P P' : Nat → Prop} (hO : Orig w P s)
     (σ : SymState) (pc : Word)
     (hfr : ∀ o, o < WX → P' o → P o ∧ ∀ p ∈ σ.mem, BitVec.ofNat 64 (WIT + o) ≠ p.1.eval s) :
     Orig w P' (σ.toState s pc) := by
@@ -396,7 +393,7 @@ theorem Orig_toState {w : WBytes} {s : MachineState} {P P' : Nat → Prop} (hO :
   obtain ⟨hp, hne⟩ := hfr (8 * j) h1 h2
   rw [SymState.toState_getMem, memEval_frame s _ _ hne]
   exact hO j h1 hp
-theorem Orig_toState_const {w : WBytes} {s : MachineState} {P : Nat → Prop} {allow : List Nat}
+theorem Orig_toState_const {w : ClaudeWCT.W9.T3M.WBytes} {s : MachineState} {P : Nat → Prop} {allow : List Nat}
     (hO : Orig w P s) (σ : SymState) (pc : Word) (hm : memOKA allow [] σ.mem = true) :
     Orig w (fun o => P o ∧ WIT + o ∉ allow) (σ.toState s pc) := by
   refine Orig_toState hO σ pc (fun o ho ⟨hp, hna⟩ => ⟨hp, fun p hp' heq => ?_⟩)
@@ -412,18 +409,18 @@ theorem Orig_toState_const {w : WBytes} {s : MachineState} {P : Nat → Prop} {a
     · have := (safeAddr_spec h1).1; omega
     · unfold CTRW WIT at h2; omega
     · exact hna h3
-theorem WitAll_toState {w : WBytes} {s : MachineState} (hW : WitAll w s) (σ : SymState)
+theorem WitAll_toState {w : ClaudeWCT.W9.T3M.WBytes} {s : MachineState} (hW : WitAll w s) (σ : SymState)
     (pc : Word) (hm : memOK σ.mem = true) : WitAll w (σ.toState s pc) := by
   have := Orig_toState_const (hW.orig (fun _ => True)) σ pc hm
   intro j hj
   exact this j hj ⟨trivial, by simp⟩
-theorem Orig_writeHash {w : WBytes} {s : MachineState} {P : Nat → Prop} (hO : Orig w P s)
+theorem Orig_writeHash {w : ClaudeWCT.W9.T3M.WBytes} {s : MachineState} {P : Nat → Prop} (hO : Orig w P s)
     (ans : BitVec 256) (d : Nat) (hd : s.getReg .x12 = BitVec.ofNat 64 d) (hd' : d + 32 < 2 ^ 64) :
     Orig w (fun o => P o ∧ (WIT + o + 8 ≤ d ∨ d + 32 ≤ WIT + o)) (writeHash s ans) := by
   intro j h1 ⟨h2, h3⟩
   rw [writeHash_frame s ans d _ hd (by unfold WIT WX at *; omega) (by omega) h3]
   exact hO j h1 h2
-theorem WitAll_writeHash {w : WBytes} {s : MachineState} (hW : WitAll w s)
+theorem WitAll_writeHash {w : ClaudeWCT.W9.T3M.WBytes} {s : MachineState} (hW : WitAll w s)
     (ans : BitVec 256) (d : Nat) (hd : s.getReg .x12 = BitVec.ofNat 64 d)
     (hlow : d + 32 ≤ WIT) : WitAll w (writeHash s ans) := by
   intro j hj
@@ -442,7 +439,7 @@ theorem safeDest_hi (d : Nat) (h : WLO ≤ d) (h8 : d % 8 = 0) (hm : d + 32 ≤ 
     or_false] at hq
   unfold WLO WIT CTRW at *
   rcases hq with ((h1 | h1 | h1) | h1 | h1 | h1) | ⟨j, hj, rfl⟩ <;> omega
-theorem Glob_writeHash {gk : List (Reg × Word)} {w : WBytes} {pk : Digest} {s : MachineState}
+theorem Glob_writeHash {gk : List (Reg × Word)} {w : ClaudeWCT.W9.T3M.WBytes} {pk : Digest} {s : MachineState}
     (hG : Glob gk w pk s) (ans : BitVec 256) (d : Nat) (hd : s.getReg .x12 = BitVec.ofNat 64 d)
     (hsafe : safeDest d = true) : Glob gk w pk (writeHash s ans) := by
   obtain ⟨h1, h0, h2, h3, h4, h5⟩ := hG

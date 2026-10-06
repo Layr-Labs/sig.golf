@@ -673,7 +673,7 @@ def DsPostS (b d : Nat) (s : MachineState) : Option (BitVec 32 × HashOutput) �
   | none, t => FailedAt b t
   | some (_, N), t => t.pc = pcOf (d + 19) ∧ t.getReg .x5 = 0 ∧ T3.admissible (T3.selections N) = true ∧
       OutAt t NBUF N ∧ SelRows t N ∧ RegsExcept s t dsRegs ∧ Frame s t DsW
-def dsCostS : Nat := T3.attemptLimit * 700 + 100
+def dsCostS : Nat := T3.attemptLimit * 699 + 100
 theorem selEntry_eq (N : HashOutput) (c j : Nat) (hc : c < 7) :
     selEntry N c j = selBucket N c * 128 + (selRow N c).getD j 0 := by
   simp [selEntry, selections_eq, List.getD_eq_getElem?_getD, hc]

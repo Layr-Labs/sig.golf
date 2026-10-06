@@ -32,14 +32,14 @@ theorem extract_hi (x : BitVec 256) :
   rw [show (2 : Nat) ^ 128 = 2 ^ 64 * 2 ^ 64 by norm_num, Nat.mod_mul_right_div_self, Nat.mod_mod]
 theorem orig_word {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 728}
     {u : MachineState} (hu : Pre L w index k j rank u) (as : List (BitVec 256)) (off : Nat)
-    (ho : off < 1024) (ha : off % 8 = 0) :
+    (ho : off < 896) (ha : off % 8 = 0) :
     chainValue (originalValue u index k j) as (.original off) =
       w.extractLsb' (8 * (V3.regionOffset k.val + off)) 64 := by
   exact hu.witness off ho ha
 theorem orig_block {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 728}
     {u : MachineState} (hu : Pre L w index k j rank u) (as : List (BitVec 256)) (t c : Nat)
     (ht : t < 7) (hc : c < 192) (ha : c % 8 = 0) :
-    chainValue (originalValue u index k j) as (.original (832 - 64 * t + c)) =
+    chainValue (originalValue u index k j) as (.original (704 - 64 * t + c)) =
       w.extractLsb' (8 * (V3.chainOffset k.val t + c)) 64 := by
   rw [orig_word hu as _ (by omega) (by omega)]
   unfold V3.chainOffset
@@ -56,7 +56,7 @@ theorem query_bytes {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin
     (chainInput_length _ _ _ _ _ _ _ _ _), wordsOf_chainInput]
   congr 1
   simp only [chainQueryWords, List.map_cons, List.map_nil, V3.chainPadA, V3.chainPadB,
-    V3.chainPadC, SigGolfCandidate.T3M.wdig_lo, SigGolfCandidate.T3M.wdig_hi,
+    V3.chainPadC, W9Machine.wdig_lo, W9Machine.wdig_hi,
     List.cons.injEq, and_true]
   have hd : digits.getD t 0 ≠ 0 := by omega
   refine ⟨by simpa using orig_block hu as t 0 ht (by decide) (by decide),
@@ -65,12 +65,12 @@ theorem query_bytes {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin
     orig_block hu as t 32 ht (by decide) (by decide),
     by simpa only [Nat.add_assoc] using orig_block hu as t 40 ht (by decide) (by decide), ?_, ?_⟩
   · by_cases h0 : s = 0
-    · rw [if_pos h0, hv, if_pos h0, V3.reveal, if_neg hd, SigGolfCandidate.T3M.wdig_lo]
+    · rw [if_pos h0, hv, if_pos h0, V3.reveal, if_neg hd, W9Machine.wdig_lo]
       exact orig_block hu as t 48 ht (by decide) (by decide)
     · rw [if_neg h0, hv, if_neg h0, extract_lo]
       rfl
   · by_cases h0 : s = 0
-    · rw [if_pos h0, hv, if_pos h0, V3.reveal, if_neg hd, SigGolfCandidate.T3M.wdig_hi]
+    · rw [if_pos h0, hv, if_pos h0, V3.reveal, if_neg hd, W9Machine.wdig_hi]
       simpa only [Nat.add_assoc] using orig_block hu as t 56 ht (by decide) (by decide)
     · rw [if_neg h0, hv, if_neg h0, extract_hi]
       rfl

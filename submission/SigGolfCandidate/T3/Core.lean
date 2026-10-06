@@ -23,7 +23,7 @@ def width (lay : Layer) (i : Nat) : Nat := if lay = 0 ∧ 51 ≤ i then 2 else 3
 def maxDigit (lay : Layer) (i : Nat) : Nat :=
   if lay = 0 then (if i < 51 then 4 else 3) else 7
 def target (lay : Layer) : Nat := ![129, 197, 197, 198] lay
-def encodedBits (lay : Layer) : Nat := if lay = 0 then 125 else 126
+def encodedBits (lay : Layer) : Nat := if lay = 0 then 125 else 128
 def capacity (lay : Layer) : Nat := if lay = 0 then 213 else 301
 def attemptLimit : Nat := 2 ^ 20
 def counterLimit : Nat := 2 ^ 22
@@ -191,22 +191,29 @@ def keygen : M (Digest × Cache) := do
   let (publicKey, region) ← keygenPayload
   let tag ← privateMac region
   pure (publicKey, ⟨tag, region⟩)
+def lowerShift (i : Nat) : Nat := if i < 21 then 3 * i else 64 + 3 * (i - 21)
 def coreDigit (lay : Layer) (value : Digest) (i : Nat) : Nat :=
   if lay = 0 then
     if i < 51 then (value.toNat / 2^(7*(i/3)) % 128) / 5^(i%3) % 5
     else value.toNat / 2^(119+2*(i-51)) % 4
-  else value.toNat / 2^(3*i) % 8
+  else value.toNat / 2 ^ lowerShift i % 8
 def topRanksValid (value : Digest) : Bool :=
   (List.range 17).all fun j => decide (value.toNat / 2^(7*j) % 128 < 125)
 def dataDigits (lay : Layer) (value : Digest) : List Nat :=
   (List.range (dataCount lay)).map (coreDigit lay value)
+def lowerSpare (value : Digest) : Prop := value.toNat / 2 ^ 63 % 2 = 1 ∧ value.toNat / 2 ^ 127 % 2 = 1
+instance (value : Digest) : Decidable (lowerSpare value) :=
+  inferInstanceAs (Decidable (value.toNat / 2 ^ 63 % 2 = 1 ∧ value.toNat / 2 ^ 127 % 2 = 1))
+def lowerWord (value : Digest) : Nat := value.toNat % 2 ^ 63 + value.toNat / 2 ^ 64 % 2 ^ 63 * 2 ^ 63
+def lowerPack (n : Nat) : Digest :=
+  BitVec.ofNat 128 (n % 2 ^ 63 + 2 ^ 63 + n / 2 ^ 63 % 2 ^ 63 * 2 ^ 64 + 2 ^ 127)
 def decode (lay : Layer) (value : Digest) : Option (List Nat) :=
   if value.toNat ≥ 2 ^ encodedBits lay then none else
   let digits := dataDigits lay value
   let total := digits.sum
   if lay = 0 then
     if topRanksValid value && decide (total = target lay) then some digits else none
-  else if total ≤ target lay ∧ target lay - total < 8 then
+  else if lowerSpare value ∧ total ≤ target lay ∧ target lay - total < 8 then
     some (digits ++ [target lay - total])
   else none
 def creditFloor (lay : Layer) : Nat := ![7, 0, 0, 0] lay

@@ -145,8 +145,8 @@ theorem signPayload_succeeds (answers : Answers) (cache : Cache) (message : Mess
   obtain ⟨⟨counter, output⟩, hd⟩ := hgood.1 (evalWithAnswerFn answers (privateNonce message), message)
   rw [ClaudeWCT.WCT9.Rev3.signPayload_eq]
   simp only [evalWithAnswerFn_bind, hd, eval_signForest]
-  obtain ⟨pieces, hp⟩ := signLayersBC_succeeds answers cache (output.toNat % 2 ^ 31)
-    (Nat.mod_lt _ (by positivity)) hgood.2 4 (.forest (honestForest answers (output.toNat % 2 ^ 31)))
+  obtain ⟨pieces, hp⟩ := signLayersBC_succeeds answers cache (ClaudeWCT.WCT9.digestIndex output)
+    (ClaudeWCT.WCT9.digestIndex_lt output) hgood.2 4 (.forest (honestForest answers (ClaudeWCT.WCT9.digestIndex output)))
   simp only [hp, evalWithAnswerFn_pure]
   exact ⟨_, rfl⟩
 def SigningComplete (answers : Answers) (keys : Digest × Cache) : Prop :=
@@ -200,8 +200,8 @@ theorem signPayload_succeedsFor (answers : Answers) (cache : Cache) (message : M
   obtain ⟨⟨counter, output⟩, hd⟩ := hgood.1 (evalWithAnswerFn answers (privateNonce message))
   rw [ClaudeWCT.WCT9.Rev3.signPayload_eq]
   simp only [evalWithAnswerFn_bind, hd, eval_signForest]
-  obtain ⟨pieces, hp⟩ := signLayersBC_succeeds answers cache (output.toNat % 2 ^ 31)
-    (Nat.mod_lt _ (by positivity)) hgood.2 4 (.forest (honestForest answers (output.toNat % 2 ^ 31)))
+  obtain ⟨pieces, hp⟩ := signLayersBC_succeeds answers cache (ClaudeWCT.WCT9.digestIndex output)
+    (ClaudeWCT.WCT9.digestIndex_lt output) hgood.2 4 (.forest (honestForest answers (ClaudeWCT.WCT9.digestIndex output)))
   simp only [hp, evalWithAnswerFn_pure]
   exact ⟨_, rfl⟩
 theorem signing_complete_for_of_searches (answers : Answers) (keys : Digest × Cache)
@@ -223,8 +223,8 @@ theorem signPayload_succeedsSelected (answers : Answers) (cache : Cache) (messag
   obtain ⟨⟨counter, output⟩, hd⟩ := hgood.1 message
   rw [ClaudeWCT.WCT9.Rev3.signPayload_eq]
   simp only [evalWithAnswerFn_bind, hd, eval_signForest]
-  obtain ⟨pieces, hp⟩ := signLayersBC_succeeds answers cache (output.toNat % 2 ^ 31)
-    (Nat.mod_lt _ (by positivity)) hgood.2 4 (.forest (honestForest answers (output.toNat % 2 ^ 31)))
+  obtain ⟨pieces, hp⟩ := signLayersBC_succeeds answers cache (ClaudeWCT.WCT9.digestIndex output)
+    (ClaudeWCT.WCT9.digestIndex_lt output) hgood.2 4 (.forest (honestForest answers (ClaudeWCT.WCT9.digestIndex output)))
   simp only [hp, evalWithAnswerFn_pure]
   exact ⟨_, rfl⟩
 theorem signing_complete_of_selected_searches (answers : Answers) (keys : Digest × Cache)

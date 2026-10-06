@@ -270,7 +270,7 @@ theorem eval_verifyTop_none (answers : QueryImpl Spec Id) (sig : WCT9.Signature)
   exact eval_topDecodeRun_none answers h
 def dummyLowData : List Nat := List.replicate 4 6 ++ List.replicate 15 5 ++ List.replicate 23 4
 def dummyLowDigits (lay : Layer) : List Nat := dummyLowData ++ [target lay - 191]
-def dummyLowDigest : Digest := 48611766702991209066216960374263438774
+def dummyLowDigest : Digest := 267364716866451649868053510310480764342
 theorem producerDecode_dummyLow (lay : Layer) (h : lay ≠ 0) :
     producerDecode lay dummyLowDigest = some (dummyLowDigits lay) := by
   fin_cases lay

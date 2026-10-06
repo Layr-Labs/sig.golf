@@ -1,5 +1,4 @@
 import SigGolfCandidate.W9Drv.GateDefs
-import SigGolfCandidate.T3M.Verify.ChainSem
 import SigGolfCandidate.W9Machine.WctJudg
 import SigGolfCandidate.W9Machine.WctChildContract
 
@@ -8,12 +7,9 @@ open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput)
 open W9Machine
-/- The forest route index stays in x22 throughout the FTS stage.
-   x4 carries the child number; the chain leaf stores the index and the
-   child prefix supplies its upper word. No index restore is needed. -/
-def dispatchPc (n : Nat) : Nat := [65,78,93,108,123,138,153,168,182,197].getD n 197
+def dispatchPc (n : Nat) : Nat := [32836,32848,32863,32878,32892,32907,32922,32936,32950,32965].getD n 32965
 def cachedWord (n : Nat) : Nat := [0,0,1,1,1,2,2,2,2,2].getD n 2
-structure CoordPre (pk : Digest) (w : WBytes) (a : HashOutput) (n : Nat)
+structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (n : Nat)
     (pairs : List (Digest × Digest)) (u : MachineState) : Prop where
   le : n ≤ 9
   length : pairs.length = n
@@ -36,12 +32,12 @@ structure CoordPre (pk : Digest) (w : WBytes) (a : HashOutput) (n : Nat)
   mask : u.getReg .x2 = BitVec.ofNat 64 0xfffc
   jt : u.getReg .x24 = BitVec.ofNat 64 0xd6800
   childBlock : u.getReg .x29 = BitVec.ofNat 64 0xce800
-  baseReg : u.getReg .x8 = BitVec.ofNat 64 (2112 + 1024 * (n-1))
+  baseReg : u.getReg .x8 = BitVec.ofNat 64 (2112 + 896 * (n-1))
   headerZero : n = 0 → u.getReg .x28 = BitVec.ofNat 64 (idxOf a * 2^32)
   headerReg : n ≠ 0 → u.getReg .x28 = BitVec.ofNat 64 (1537 + 65536 * (n-1))
   pairs : ∀ i, i < n → DigAt u (1056 + 32*i) (pairs.getD i (0,0)).1 ∧
     DigAt u (1056 + 32*i + 16) (pairs.getD i (0,0)).2
-  coords : ∀ k : Fin 9, n ≤ k.val → ∀ off, off < 1024 → off % 8 = 0 →
-    OrigW w u (coordinateBase k + off)
-  layer : Orig w (fun o => o < 64 ∨ 9288 ≤ o) u
+  coords : ∀ k : Fin 9, n ≤ k.val → ∀ off, off < 896 → off % 8 = 0 →
+    W9Machine.OrigW w u (coordinateBase k + off)
+  layer : Orig w (fun o => o < 64 ∨ 8136 ≤ o) u
 end W9Drv

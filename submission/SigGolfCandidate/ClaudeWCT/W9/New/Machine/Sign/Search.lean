@@ -12,8 +12,9 @@ def rfs (l : List (Reg × E)) : RegFile := l.foldl (fun rf p => rf.set p.1 p.2) 
 def mw (a : Nat) (e : E) : Addr × E := (⟨none, BitVec.ofNat 64 a⟩, e)
 def fsi (k : Nat) : Nat := sfIdx.getD k 0
 def sci (k : Nat) : Nat := scIdx.getD k 0
-def dw (k : Nat) : Nat := WCT9.coordBase k / 64
-def sh (k : Nat) : Nat := WCT9.coordBase k % 64
+def dw (k : Nat) : Nat := WCT9.childBase k / 64
+def sh (k : Nat) : Nat := [0,0,21,36,0,21,36,0,21].getD k 0
+def hasSh (k : Nat) : Bool := k % 3 != 1
 def resH153 : PRes := ⟨⟨RegFile.init, [], []⟩, pcOf 11003, false, 1, 1, [], none⟩
 def resHead (d : Bool) : PRes :=
   ⟨⟨rfs [(.x6, cst (2 ^ 21))], [], []⟩, if d then pcOf 11007 else pcOf 11172, false,
@@ -28,11 +29,12 @@ def resGate (d : Bool) : PRes :=
     if d then pcOf 11170 else pcOf 11027, false, 7, 7, [⟨.eq, gateE, .c 0, d⟩], none⟩
 def resCost0 : PRes := ⟨⟨rfs [(.x20, cst 0), (.x21, cst COST)], [], []⟩, pcOf (fsi 0), false, 3, 3, [], none⟩
 def grpE (k : Nat) : E :=
-  if sh k = 0 then .ld (cst (NBUF + 8 * dw k)) else .bin .srl (.ld (cst (NBUF + 8 * dw k))) (cst (sh k))
+  if hasSh k then .bin .srl (.ld (cst (NBUF + 8 * dw k))) (cst (sh k)) else .ld (cst (NBUF + 8 * dw k))
+def childE (k : Nat) : E := if k = 3 ∨ k = 6 then .bin .srl (grpE k) (cst 21) else .bin .and (grpE k) (cst 127)
 def fieldE (k : Nat) : E := .bin .and (.bin .srl (grpE k) (cst 7)) (cst 16383)
-def fieldLen (k : Nat) : Nat := if sh k = 0 then 11 else 12
+def fieldLen (k : Nat) : Nat := if hasSh k then 12 else 11
 def resField (k : Nat) (d : Bool) : PRes :=
-  ⟨⟨rfs [(.x6, cst 16200), (.x24, .bin .and (grpE k) (cst 127)), (.x25, fieldE k), (.x28, cst NBUF)], [], []⟩,
+  ⟨⟨rfs [(.x6, cst 16200), (.x24, childE k), (.x25, fieldE k), (.x28, cst NBUF)], [], []⟩,
     if d then pcOf 11170 else pcOf (sci k), false, fieldLen k, fieldLen k,
     [⟨.geu, fieldE k, cst 16200, d⟩], none⟩
 def resSc1 (k : Nat) : PRes :=
@@ -42,7 +44,7 @@ def resSc3 (k : Nat) : PRes :=
 def capE : E := .bin .sltu (.reg .x20) (cst 700)
 def resCap (d : Bool) : PRes :=
   ⟨⟨rfs [(.x6, capE)], [], []⟩, if d then pcOf 11170 else pcOf 11164, false, 2, 2, [⟨.eq, capE, .c 0, d⟩], none⟩
-def idxE : E := .bin .srl (.bin .sll (.reg .x22) (cst 33)) (cst 33)
+def idxE : E := .bin .srl (.bin .sll (.reg .x22) (cst 0)) (cst 33)
 def resFinal : PRes :=
   ⟨⟨rfs [(.x22, idxE), (.x28, cst IDXV)], [mw IDXV idxE], []⟩, pcOf 11175, false, 6, 6, [], none⟩
 def resNext : PRes :=
@@ -211,13 +213,13 @@ theorem ofNat_and_mask (x : Word) (q : Nat) (hq : q ≤ 64) :
 theorem and_eval (x y : Word) : BinOp.eval .and x y = x &&& y := rfl
 theorem srl_eval (x : Word) (k : Nat) (hk : k < 64) : BinOp.eval .srl x (BitVec.ofNat 64 k) = x >>> k := by
   simp only [BinOp.eval, toNat_ofNat_lt (by omega : k < 2 ^ 64), Nat.mod_eq_of_lt hk]
-theorem shl33_shr33' (w : Word) : (w <<< 33) >>> 33 = BitVec.ofNat 64 (w.toNat % 2 ^ 31) := by
+theorem shl0_shr33 (a : BitVec 256) : ((a.extractLsb' 0 64) <<< 0) >>> 33 = BitVec.ofNat 64 (WCT9.digestIndex a) := by
   apply BitVec.eq_of_toNat_eq
+  rw [WCT9.digestIndex_val]
   simp only [BitVec.toNat_ushiftRight, BitVec.toNat_shiftLeft, BitVec.toNat_ofNat, Nat.shiftLeft_eq,
-    Nat.shiftRight_eq_div_pow]
-  have := w.isLt
+    Nat.shiftRight_eq_div_pow, BitVec.extractLsb'_toNat, pow_zero, Nat.mul_one, Nat.shiftRight_zero]
   omega
-theorem sh_bound (k : Nat) (hk : k < 9) : sh k + 21 ≤ 64 ∧ 64 * dw k + sh k = WCT9.coordBase k ∧ dw k < 4 := by
+theorem sh_bound (k : Nat) (hk : k < 9) : sh k + 21 ≤ 64 ∧ 64 * dw k + sh k + 7 = WCT9.fieldBase k ∧ dw k < 4 := by
   interval_cases k <;> decide
 theorem sll_eval (x : Word) (k : Nat) (hk : k < 64) : BinOp.eval .sll x (BitVec.ofNat 64 k) = x <<< k := by
   simp only [BinOp.eval, toNat_ofNat_lt (by omega : k < 2 ^ 64), Nat.mod_eq_of_lt hk]
@@ -244,12 +246,13 @@ theorem grpE_toNat (s : MachineState) (a : BitVec 256) (ha : OutAt s NBUF a) (k 
   have hm := ha (dw k) hd
   unfold grpE
   split_ifs with h0
-  · simp only [cst, E.eval, hm, h0, pow_zero, Nat.div_one, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
   · simp only [cst, E.eval, hm]
     rw [srl_eval _ _ (by omega), BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow, BitVec.extractLsb'_toNat,
       Nat.shiftRight_eq_div_pow]
+  · have hs0 : sh k = 0 := by interval_cases k <;> simp_all [hasSh, sh]
+    simp only [cst, E.eval, hm, hs0, pow_zero, Nat.div_one, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
 theorem fieldE_eval (s : MachineState) (a : BitVec 256) (ha : OutAt s NBUF a) (k : Nat) (hk : k < 9) :
-    (fieldE k).eval s = BitVec.ofNat 64 (a.toNat / 2 ^ (WCT9.coordBase k + 7) % 2 ^ 14) := by
+    (fieldE k).eval s = BitVec.ofNat 64 (a.toNat / 2 ^ WCT9.fieldBase k % 2 ^ 14) := by
   obtain ⟨h21, hcb, -⟩ := sh_bound k hk
   have hg := grpE_toNat s a ha k hk
   simp only [fieldE, cst, E.eval]
@@ -258,7 +261,32 @@ theorem fieldE_eval (s : MachineState) (a : BitVec 256) (ha : OutAt s NBUF a) (k
   rw [BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow, hg, Nat.div_div_eq_div_mul, ← Nat.pow_add,
     mod64_div_mod _ (sh k + 7) 14 (by omega), Nat.div_div_eq_div_mul, ← Nat.pow_add]
   congr 3
-  omega
+  all_goals omega
+theorem childE_eval (s : MachineState) (a : BitVec 256) (ha : OutAt s NBUF a) (k : Nat) (hk : k < 9) :
+    (childE k).eval s = BitVec.ofNat 64 (a.toNat / 2 ^ WCT9.childBase k % 128) := by
+  obtain ⟨h21, -, -⟩ := sh_bound k hk
+  have hg := grpE_toNat s a ha k hk
+  have hcb : 64 * dw k + sh k + (if k = 3 ∨ k = 6 then 21 else 0) = WCT9.childBase k := by
+    interval_cases k <;> decide
+  unfold childE
+  split_ifs with h36
+  · simp only [cst, E.eval]
+    rw [srl_eval _ 21 (by decide)]
+    apply BitVec.eq_of_toNat_eq
+    rw [BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow, hg, BitVec.toNat_ofNat]
+    have hs : sh k = 36 := by rcases h36 with rfl | rfl <;> rfl
+    rw [if_pos h36, hs, show 64 * dw k + 36 + 21 = 64 * dw k + (36 + 21) by omega] at hcb
+    have hlt : a.toNat / 2 ^ WCT9.childBase k % 128 < 2 ^ 64 := lt_trans (Nat.mod_lt _ (by norm_num)) (by norm_num)
+    rw [Nat.mod_eq_of_lt hlt, hs, Nat.div_div_eq_div_mul, ← Nat.pow_add, ← hcb]
+    conv_lhs => rw [show (2 : Nat) ^ 64 = 2 ^ (36 + 21) * 2 ^ 7 by norm_num, Nat.mod_mul_right_div_self]
+    rw [Nat.div_div_eq_div_mul, ← Nat.pow_add]
+    rfl
+  · simp only [cst, E.eval]
+    rw [and_eval, show (127 : Nat) = 2 ^ 7 - 1 from rfl, ofNat_and_mask _ 7 (by decide)]
+    congr 1
+    rw [if_neg h36, Nat.add_zero] at hcb
+    rw [hg, mod64_div_mod _ (sh k) 7 (by omega), Nat.div_div_eq_div_mul, ← Nat.pow_add, hcb]
+    rfl
 section pieces
 variable {im : Image}
 theorem h153_spec (hl : LookOK im hookLook) (s : MachineState) (hpc : s.pc = pcOf 153) :
@@ -339,8 +367,8 @@ theorem field_spec (hl : LookOK im headLook) (k : Nat) (hk : k < 9) (s : Machine
       t.getReg .x25 = BitVec.ofNat 64 (WCT9.field a ⟨k, hk⟩) ∧
       RegsExcept s t [.x6, .x24, .x25, .x28] ∧ Frame s t (fun _ => False) := by
   have hf := fieldE_eval s a ha k hk
-  have hfd : WCT9.field a ⟨k, hk⟩ = a.toNat / 2 ^ (WCT9.coordBase k + 7) % 2 ^ 14 := rfl
-  have hlt : a.toNat / 2 ^ (WCT9.coordBase k + 7) % 2 ^ 14 < 2 ^ 64 :=
+  have hfd : WCT9.field a ⟨k, hk⟩ = a.toNat / 2 ^ WCT9.fieldBase k % 2 ^ 14 := rfl
+  have hlt : a.toNat / 2 ^ WCT9.fieldBase k % 2 ^ 14 < 2 ^ 64 :=
     lt_trans (Nat.mod_lt _ (by decide)) (by decide)
   have hbr : ∀ b ∈ (resField k (decide ¬ (WCT9.field a ⟨k, hk⟩ < 16200))).brs, b.holds s := by
     intro b hb
@@ -411,7 +439,7 @@ theorem sc_spec (hl : LookOK im headLook) (k : Nat) (hk : k < 9) (s : MachineSta
     rw [hm3]
     show v.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)
     rw [hf2.get hA hn, hm1]; rfl
-def fieldN (a : BitVec 256) (c : Nat) : Nat := a.toNat / 2 ^ (WCT9.coordBase c + 7) % 2 ^ 14
+def fieldN (a : BitVec 256) (c : Nat) : Nat := a.toNat / 2 ^ WCT9.fieldBase c % 2 ^ 14
 def psum (a : BitVec 256) (k : Nat) : Nat := ((List.range k).map fun c => costByte (fieldN a c)).sum
 theorem psum_succ (a : BitVec 256) (k : Nat) : psum a (k + 1) = psum a k + costByte (fieldN a k) := by
   simp [psum, List.range_succ, List.sum_append]
@@ -552,14 +580,14 @@ theorem checks_spec (hl : LookOK im headLook) (u : MachineState) (hpc : u.pc = p
     rw [if_neg hA]; exact p1
 theorem final_spec (hl : LookOK im headLook) (s : MachineState) (hpc : s.pc = pcOf 11164) (a : BitVec 256)
     (h22 : s.getReg .x22 = a.extractLsb' 0 64) :
-    ∃ t, Steps im s 6 6 t ∧ t.pc = pcOf 11175 ∧ t.getReg .x22 = BitVec.ofNat 64 (a.toNat % 2 ^ 31) ∧
-      t.getMem (BitVec.ofNat 64 IDXV) = BitVec.ofNat 64 (a.toNat % 2 ^ 31) ∧
+    ∃ t, Steps im s 6 6 t ∧ t.pc = pcOf 11175 ∧ t.getReg .x22 = BitVec.ofNat 64 (WCT9.digestIndex a) ∧
+      t.getMem (BitVec.ofNat 64 IDXV) = BitVec.ofNat 64 (WCT9.digestIndex a) ∧
       RegsExcept s t [.x22, .x28] ∧ Frame s t (fun A => A = IDXV) := by
   obtain ⟨hs, hp, -, hr, hm⟩ := piece hl run_final s hpc rfl (by intro b hb; cases hb) rfl
-  have hidx : idxE.eval s = BitVec.ofNat 64 (a.toNat % 2 ^ 31) := by
-    simp only [idxE, cst, E.eval, BinOp.eval, h22, toNat_ofNat_lt (by decide : (33 : Nat) < 2 ^ 64)]
-    rw [shl33_shr33', BitVec.extractLsb'_toNat, Nat.shiftRight_zero,
-      Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by decide : 31 ≤ 64))]
+  have hidx : idxE.eval s = BitVec.ofNat 64 (WCT9.digestIndex a) := by
+    simp only [idxE, cst, E.eval, h22]
+    rw [srl_eval _ 33 (by decide), sll_eval _ 0 (by decide)]
+    exact shl0_shr33 a
   refine ⟨_, hs, hp, by rw [hr]; exact hidx, ?_, regs_rfs hr, ?_⟩
   · rw [hm]; simp only [resFinal, mw]
     rw [memEval_cons_ofNat _ _ _ _ _ (by decide) (by decide), if_pos rfl, hidx]

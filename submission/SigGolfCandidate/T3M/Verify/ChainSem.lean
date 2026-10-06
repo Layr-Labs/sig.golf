@@ -36,23 +36,24 @@ theorem valid_ofNat (A w : Nat) (hA : A + w ≤ 2 ^ 24) (ha : A % w = 0) :
     accessValid (BitVec.ofNat 64 A) w = true := by
   rw [accessValid_iff, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
   exact ⟨by simp only [MEMORY_BYTES]; omega, ha⟩
-def OrigW (w : WBytes) (s : MachineState) (A : Nat) : Prop :=
+def OrigW (w : ClaudeWCT.W9.T3M.WBytes) (s : MachineState) (A : Nat) : Prop :=
   s.getMem (BitVec.ofNat 64 A) = w.extractLsb' (8 * (A - 0x800)) 64
-theorem wdig_lo (w : WBytes) (off : Nat) : (wdig w off).extractLsb' 0 64 = w.extractLsb' (8 * off) 64 := by
-  unfold wdig
+theorem wdig_lo (w : ClaudeWCT.W9.T3M.WBytes) (off : Nat) :
+    (ClaudeWCT.W9.T3M.wdig w off).extractLsb' 0 64 = w.extractLsb' (8 * off) 64 := by
+  unfold ClaudeWCT.W9.T3M.wdig
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
   rw [Nat.pow_zero, Nat.div_one, Nat.mod_mod_of_dvd _ (by norm_num)]
-theorem wdig_hi (w : WBytes) (off : Nat) :
-    (wdig w off).extractLsb' 64 64 = w.extractLsb' (8 * (off + 8)) 64 := by
-  unfold wdig
+theorem wdig_hi (w : ClaudeWCT.W9.T3M.WBytes) (off : Nat) :
+    (ClaudeWCT.W9.T3M.wdig w off).extractLsb' 64 64 = w.extractLsb' (8 * (off + 8)) 64 := by
+  unfold ClaudeWCT.W9.T3M.wdig
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
   rw [show 8 * (off + 8) = 8 * off + 64 by ring, Nat.pow_add, ← Nat.div_div_eq_div_mul]
   generalize w.toNat / 2 ^ (8 * off) = X
   rw [show (2 : Nat) ^ 128 = 2 ^ 64 * 2 ^ 64 by norm_num, Nat.mod_mul_right_div_self, Nat.mod_mod]
-theorem DigAt_origW {w : WBytes} {s : MachineState} {A : Nat} (h0 : OrigW w s A) (h1 : OrigW w s (A + 8))
-    (hA : 0x800 ≤ A) : DigAt s A (wdig w (A - 0x800)) := by
+theorem DigAt_origW {w : ClaudeWCT.W9.T3M.WBytes} {s : MachineState} {A : Nat} (h0 : OrigW w s A) (h1 : OrigW w s (A + 8))
+    (hA : 0x800 ≤ A) : DigAt s A (ClaudeWCT.W9.T3M.wdig w (A - 0x800)) := by
   refine ⟨?_, ?_⟩
   · rw [h0, wdig_lo]
   · rw [h1, wdig_hi, show A + 8 - 0x800 = A - 0x800 + 8 by omega]
@@ -136,7 +137,7 @@ namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3
 structure LCtx where
-  w : WBytes
+  w : ClaudeWCT.W9.T3M.WBytes
   lay : Layer
   i0 : Nat
   koff : Nat
@@ -153,20 +154,21 @@ def dig (c : LCtx) (i : Nat) : Nat :=
   if i < 21 then c.d0.toNat / 8 ^ i % 8 else if i < 42 then c.d1.toNat / 8 ^ (i - 21) % 8 else c.ck
 def w0 (c : LCtx) (i : Nat) : Nat := i + c.koff + packedPrefix c.lay c.tree c.leaf
 def w1 (c : LCtx) : Nat := hdr1 c.tree c.leaf
-def pad0 (c : LCtx) (i : Nat) : Digest := wdig c.w (c.blk i - 0x800)
-def pad1 (c : LCtx) (i : Nat) : Digest := wdig c.w (c.blk i - 0x800 + 32)
+def pad0 (c : LCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x800)
+def pad1 (c : LCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x800 + 32)
 def padHeader (c : LCtx) (i : Nat) : Word := c.w.extractLsb' (8 * (c.blk i - 0x800 + 24)) 64
-def val (c : LCtx) (i : Nat) : Digest := wdig c.w (c.blk i - 0x800 + 48)
+def val (c : LCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x800 + 48)
 def ok (c : LCtx) : Prop :=
-  c.tree < 2 ^ 32 ∧ c.leaf < 2 ^ 32 ∧ c.koff ≤ 16 ∧ c.S6 % 8 = 0 ∧ 0x800 + 9288 + 1024 ≤ c.S6 ∧
-    c.S6 + 2688 + 80 ≤ 0x7000 ∧ c.ck ≤ 8 ∧ c.ret < 209920 ∧ c.i0 ≤ 42 ∧
-    c.tree < 2 ^ (31 - height c.lay) ∧ c.leaf < 2 ^ height c.lay
+  c.tree < 2 ^ 32 ∧ c.leaf < 2 ^ 32 ∧ c.koff ≤ 16 ∧ c.S6 % 8 = 0 ∧ 0x800 + 8136 + 1024 ≤ c.S6 ∧
+    c.S6 + 2688 + 80 ≤ 0x7000 ∧ c.ck ≤ 8 ∧ c.ret = ckSlot c.ck + partLen c.ck ∧ c.i0 ≤ 42 ∧
+    c.tree < 2 ^ (31 - height c.lay) ∧ c.leaf < 2 ^ height c.lay ∧
+    2 ^ 63 ≤ c.d0.toNat ∧ 2 ^ 63 ≤ c.d1.toNat
 def known (c : LCtx) : List (Reg × Word) :=
   [(.x5, 0), (.x11, 64), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
-   (.x28, BitVec.ofNat 64 (packedPrefix c.lay c.tree c.leaf + c.koff)), (.x2, 0x3fe00), (.x15, 0x6e000),
+   (.x28, BitVec.ofNat 64 (packedPrefix c.lay c.tree c.leaf + c.koff)), (.x2, 0x3fe00), (.x15, 0x40000),
    (.x22, BitVec.ofNat 64 c.S6),
    (.x4, BitVec.ofNat 64 c.w1), (.x27, BitVec.ofNat 64 (0x401 + 65536 * c.lay.val)),
-   (.x16, c.d0), (.x17, c.d1), (.x29, 7#64 - BitVec.ofNat 64 c.ck), (.x1, pcOf c.ret)]
+   (.x16, c.d0), (.x17, c.d1), (.x29, 7#64 - BitVec.ofNat 64 c.ck)]
 def kOf (c : LCtx) (t : Nat) : Nat := c.dig (3 * t) + 8 * c.dig (3 * t + 1) + 64 * c.dig (3 * t + 2)
 def tb (c : LCtx) (i : Nat) : Nat := triBase (i / 3) (c.dig (3 * (i / 3) + 1)) (c.dig (3 * (i / 3) + 2))
 def tB (c : LCtx) (i : Nat) : Nat := pcB (i / 3) (c.dig (3 * (i / 3) + 1)) (c.dig (3 * (i / 3) + 2))
@@ -302,7 +304,7 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open SigGolfCandidate.T3
 namespace LCtx
 theorem blk_props (c : LCtx) (hc : c.ok) (i : Nat) (hi : i ≤ 42) :
-    c.blk i % 8 = 0 ∧ 0x800 + 9288 ≤ c.blk i ∧ c.blk i + 80 ≤ 0x7000 := by
+    c.blk i % 8 = 0 ∧ 0x800 + 8136 ≤ c.blk i ∧ c.blk i + 80 ≤ 0x7000 := by
   obtain ⟨-, -, -, h64, hlo, hhi, -⟩ := hc
   unfold blk; refine ⟨?_, ?_, ?_⟩ <;> omega
 theorem blk_succ (c : LCtx) (hc : c.ok) (i : Nat) (hi : i < 42) : c.blk (i + 1) + 64 = c.blk i := by
@@ -331,7 +333,7 @@ theorem known_get (c : LCtx) {s : MachineState} (h : ∀ p ∈ c.known, s.getReg
 theorem w0_hdr0 (c : LCtx) (hc : c.ok) (i m : Nat) (hi : i ≤ 42) (hm : m < 8) :
     BitVec.ofNat 64 (c.w0 i + 256 * m) = (chainHeader c.lay c.tree c.leaf (i + c.koff) m).extractLsb' 0 64 := by
   rw [chainHeader_low_bounded _ _ _ _ _ (by have := hc.2.2.1; omega) hm
-    hc.2.2.2.2.2.2.2.2.2.1 hc.2.2.2.2.2.2.2.2.2.2]
+    hc.2.2.2.2.2.2.2.2.2.1 hc.2.2.2.2.2.2.2.2.2.2.1]
   congr 1; unfold w0; omega
 theorem w0_lt (c : LCtx) (hc : c.ok) (i m : Nat) (hi : i ≤ 42) (hm : m < 256) : c.w0 i + 256 * m < 2 ^ 64 := by
   obtain ⟨-, -, hk, -⟩ := hc
@@ -1009,7 +1011,7 @@ theorem x_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.know
     · exact kr .x16 c.d0 (by simp [known]) (by decide)
     · exact kr .x17 c.d1 (by simp [known]) (by decide)
   have h2 : s.getReg .x2 = BitVec.ofNat 64 (512 * (2 ^ 9 - 1)) := kr .x2 0x3fe00 (by simp [known]) (by decide)
-  have h15 : s.getReg .x15 = BitVec.ofNat 64 0x6e000 := kr .x15 0x6e000 (by simp [known]) (by decide)
+  have h15 : s.getReg .x15 = BitVec.ofNat 64 0x40000 := kr .x15 0x40000 (by simp [known]) (by decide)
   have hm := shE_mask s _ _ hW (9 * ((t + 1) % 7)) 9 (by omega) (le_refl _)
   have hk1 := c.kOf_lt (t + 1) (by omega)
   have hrow : ((if t + 1 < 7 then c.d0 else c.d1).toNat / 2 ^ (9 * ((t + 1) % 7)) % 2 ^ 9) = c.kOf (t + 1) := by
@@ -1027,7 +1029,7 @@ theorem x_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.know
         BitVec.ofNat 64 (512 * (2 ^ 9 - 1))) = BitVec.ofNat 64 (512 * c.kOf (t + 1)) := by
       apply BitVec.eq_of_toNat_eq; rw [hm, hrow, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
     rw [e]
-    have e2 : BitVec.ofNat 64 (512 * c.kOf (t + 1)) + BitVec.ofNat 64 0x6e000 +
+    have e2 : BitVec.ofNat 64 (512 * c.kOf (t + 1)) + BitVec.ofNat 64 0x40000 +
         (BitVec.ofNat 64 (32 * (t + 1)) - BitVec.ofNat 64 1760) =
         BitVec.ofNat 64 (0x1000 + 4 * entW (t + 1) (c.kOf (t + 1))) := by
       rw [tab_target _ _ _ _ (by omega) (by omega)]
@@ -1036,6 +1038,68 @@ theorem x_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.know
     rw [e2, even_andNot1' _ (by omega)]
     unfold startPc
     rw [if_neg (by omega), if_pos (by omega), show (3 * t + 3) / 3 = t + 1 by omega]
+theorem xbfJ_keeps (w : Reg) (imm : Word) : Keeps (xbfJ w imm) [.x14] := by
+  intro x hx
+  simp only [xbfJ]
+  rw [RegFile.get_set_ne _ _ (ne_of_not_mem hx (by simp))]
+theorem srl54_spare (W : Word) (hW : 2 ^ 63 ≤ W.toNat) : W.toNat / 2 ^ 54 = 512 + W.toNat / 2 ^ 54 % 512 := by
+  have := W.isLt
+  omega
+theorem xbf_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
+    (t : Nat) (ht : t = 5 ∨ t = 12) (hi : c.i0 ≤ 3 * t + 2) (hp : c.tX (3 * t + 2) < 209920)
+    (hrun : vrun (c.tX (3 * t + 2)) 4 = some (xbfJ (if t + 1 < 7 then .x16 else .x17)
+      (BitVec.ofNat 64 (32 * (t + 1)) - BitVec.ofNat 64 1760)))
+    (acc : List Digest) (s : MachineState) (hs : c.EndInv s0 (3 * t + 2) acc s) :
+    ∃ u, Steps vimage s 3 3 u ∧ c.ChainIn s0 (3 * t + 3) acc u := by
+  obtain ⟨⟨hR, hF, hS⟩, hlen, h25, hpc⟩ := hs
+  have kr : ∀ r v, (r, v) ∈ c.known → r ∉ chainRegs → s.getReg r = v := fun r v hm hn =>
+    (hR r hn).trans (hk _ hm)
+  have hpc' : s.pc = pcOf (c.tX (3 * t + 2)) := by
+    rw [hpc]; unfold endPc; rw [if_neg (by omega), if_neg (by omega), if_neg (by omega)]
+  set r := xbfJ (if t + 1 < 7 then .x16 else .x17) (BitVec.ofNat 64 (32 * (t + 1)) - BitVec.ofNat 64 1760) with hr
+  have hst := piece_steps hrun hp s hpc' (by simp [hr, xbfJ])
+  have hkeep := xbfJ_keeps (if t + 1 < 7 then .x16 else .x17) (BitVec.ofNat 64 (32 * (t + 1)) - BitVec.ofNat 64 1760)
+  have hW : s.getReg (if t + 1 < 7 then .x16 else .x17) = (if t + 1 < 7 then c.d0 else c.d1) := by
+    split
+    · exact kr .x16 c.d0 (by simp [known]) (by decide)
+    · exact kr .x17 c.d1 (by simp [known]) (by decide)
+  have hsp : 2 ^ 63 ≤ (if t + 1 < 7 then c.d0 else c.d1).toNat := by
+    split
+    · exact hc.2.2.2.2.2.2.2.2.2.2.2.1
+    · exact hc.2.2.2.2.2.2.2.2.2.2.2.2
+  have hk1 := c.kOf_lt (t + 1) (by omega)
+  have hrow : (if t + 1 < 7 then c.d0 else c.d1).toNat / 2 ^ 54 % 512 = c.kOf (t + 1) := by
+    rw [c.kOf_eq (t + 1) (by omega)]
+    rcases ht with rfl | rfl <;> rfl
+  have hq := srl54_spare _ hsp
+  refine ⟨r.toState s, hst, ⟨⟨fun x hx => (hkeep.reg s (not_mem_sub hx (by decide))).trans (hR x hx),
+    hF.mono (fun A _ h => by
+      have hlo := hc.2.2.2.2.1
+      unfold Wr at h ⊢; rcases h with h | h
+      · exact Or.inl h
+      · right; refine ⟨?_, h.2⟩; omega), hS⟩, by omega, h25, ?_⟩⟩
+  rw [Result.toState_pc]
+  simp only [hr, xbfJ, E.eval, BinOp.eval, hW]
+  have e : ((if t + 1 < 7 then c.d0 else c.d1) >>> ((BitVec.ofNat 64 54).toNat % 64)) <<<
+      ((BitVec.ofNat 64 9).toNat % 64) = BitVec.ofNat 64 (512 * (512 + c.kOf (t + 1))) := by
+    apply BitVec.eq_of_toNat_eq
+    rw [BitVec.toNat_shiftLeft, BitVec.toNat_ushiftRight]
+    simp only [BitVec.toNat_ofNat, Nat.shiftLeft_eq, Nat.shiftRight_eq_div_pow]
+    have hq' : (if t + 1 < 7 then c.d0 else c.d1).toNat / 2 ^ 54 = 512 + c.kOf (t + 1) := by rw [hq, hrow]
+    norm_num at hq' ⊢
+    rw [hq']
+    omega
+  rw [show (54 : Word) = BitVec.ofNat 64 54 from rfl, show (9 : Word) = BitVec.ofNat 64 9 from rfl, e]
+  have e2 : BitVec.ofNat 64 (512 * (512 + c.kOf (t + 1))) +
+      (BitVec.ofNat 64 (32 * (t + 1)) - BitVec.ofNat 64 1760) =
+      BitVec.ofNat 64 (0x1000 + 4 * entW (t + 1) (c.kOf (t + 1))) := by
+    apply BitVec.eq_of_toNat_eq
+    simp only [BitVec.toNat_add, BitVec.toNat_sub, BitVec.toNat_ofNat]
+    unfold entW ttabIdx
+    rcases ht with rfl | rfl <;> omega
+  rw [e2, even_andNot1' _ (by omega)]
+  unfold startPc
+  rw [if_neg (by omega), if_pos (by omega), show (3 * t + 3) / 3 = t + 1 by omega]
 end LCtx
 end SigGolfCandidate.T3M
 namespace SigGolfCandidate.T3M
@@ -1065,7 +1129,7 @@ theorem x13_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.kn
     (hR r hn).trans (hk _ hm)
   have hpc' : s.pc = pcOf (c.tX 41) := by rw [hpc]; unfold endPc; simp
   have hst := piece_steps hrun hp s hpc' (by simp [ctabX])
-  have h15 : s.getReg .x15 = BitVec.ofNat 64 0x6e000 := kr .x15 0x6e000 (by simp [known]) (by decide)
+  have h15 : s.getReg .x15 = BitVec.ofNat 64 0x40000 := kr .x15 0x40000 (by simp [known]) (by decide)
   have h29 : s.getReg .x29 = 7#64 - BitVec.ofNat 64 c.ck := kr .x29 _ (by simp [known]) (by decide)
   have hck := hc.2.2.2.2.2.2.1
   refine ⟨ctabX.toState s, hst, ⟨⟨fun x hx => (ctabX_keeps.reg s (not_mem_sub hx (by decide))).trans (hR x hx),
@@ -1076,7 +1140,7 @@ theorem x13_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.kn
       · right; refine ⟨?_, h.2⟩; omega), hS⟩, by omega, h25, ?_⟩⟩
   · rw [Result.toState_pc]
     simp only [ctabX, E.eval, BinOp.eval, h15, h29]
-    have e2 : BitVec.ofNat 64 0x6e000 - (7#64 - BitVec.ofNat 64 c.ck) <<< ((7 : Word).toNat % 64) + (-1824 : Word) =
+    have e2 : BitVec.ofNat 64 0x40000 - (7#64 - BitVec.ofNat 64 c.ck) <<< ((7 : Word).toNat % 64) + (-1824 : Word) =
         BitVec.ofNat 64 (0x1000 + 4 * ckSlot c.ck) := by
       have hk : c.ck ≤ 8 := hck
       generalize c.ck = k at hk ⊢
@@ -1084,27 +1148,14 @@ theorem x13_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.kn
       interval_cases k <;> decide
     rw [e2, even_andNot1' _ (by omega)]
     unfold startPc; simp
-theorem ret_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2) (p : Nat)
-    (hp : p < 209920) (hrun : vrun p 2 = some retR) (s : MachineState) (hpc : s.pc = pcOf p)
-    (hR : ∀ x ∉ chainRegs, s.getReg x = s0.getReg x) :
-    ∃ u, Steps vimage s 1 1 u ∧ (∀ x, u.getReg x = s.getReg x) ∧ (∀ A, u.getMem A = s.getMem A) ∧
-      u.pc = pcOf c.ret := by
-  have hst := piece_steps hrun hp s hpc (by simp [retR])
-  have h1 : s.getReg .x1 = pcOf c.ret := (hR .x1 (by decide)).trans (hk (.x1, pcOf c.ret) (by simp [known]))
-  refine ⟨retR.toState s, hst, fun x => retR_keeps.reg s (by simp), fun A => rfl, ?_⟩
-  rw [Result.toState_pc]
-  simp only [retR, E.eval, BinOp.eval, h1]
-  exact even_andNot1' _ (by have := hc.2.2.2.2.2.2.2.1; omega)
 theorem endPc_42_lt (c : LCtx) (hc : c.ok) : c.endPc 42 < 209920 := by
   have := hc.2.2.2.2.2.2.1
   unfold endPc ckSlot partLen; simp only [if_true]; split_ifs <;> omega
-theorem ckdone_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
-    (hrun : vrun (c.endPc 42) 2 = some retR) (acc : List Digest) (s : MachineState) (hs : c.EndInv s0 42 acc s) :
-    ∃ u, Steps vimage s 1 1 u ∧ c.ChainOut s0 43 acc u := by
-  obtain ⟨⟨hR, hF, hS⟩, hlen, -, hpc⟩ := hs
-  obtain ⟨u, hst, hreg, hmem, hpcu⟩ := c.ret_step hc hk (c.endPc 42) (c.endPc_42_lt hc) hrun s hpc hR
-  refine ⟨u, hst, ⟨⟨fun x hx => (hreg x).trans (hR x hx), fun A hA hn => (hmem _).trans (hF A hA hn),
-    fun j hj => ?_⟩, hlen, hpcu⟩⟩
-  exact ⟨(hmem _).trans (hS j hj).1, (hmem _).trans (hS j hj).2⟩
+theorem ckend_out (c : LCtx) (hc : c.ok) {s0 : MachineState} (acc : List Digest) (s : MachineState)
+    (hs : c.EndInv s0 42 acc s) : c.ChainOut s0 43 acc s := by
+  obtain ⟨hB, hlen, -, hpc⟩ := hs
+  refine ⟨hB, hlen, ?_⟩
+  rw [hpc, hc.2.2.2.2.2.2.2.1]
+  unfold endPc; simp
 end LCtx
 end SigGolfCandidate.T3M

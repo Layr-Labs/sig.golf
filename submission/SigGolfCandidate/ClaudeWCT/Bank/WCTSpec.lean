@@ -11,7 +11,7 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 abbrev WProposal := Fin (2 ^ 31) × (Coord → Child × Rank)
-def outIdx (x : HashOutput) : Fin (2 ^ 31) := ⟨x.toNat % 2 ^ 31, Nat.mod_lt _ (by positivity)⟩
+def outIdx (x : HashOutput) : Fin (2 ^ 31) := ⟨WCT9.digestIndex x, WCT9.digestIndex_lt x⟩
 def proposal (x : HashOutput) : WProposal := (outIdx x, fun k => (child x k, rank x k))
 def SlotCovered (X : List HashOutput) (N : HashOutput) (k : Coord) (t : Fin 7) : Prop :=
   ∃ x ∈ X, outIdx x = outIdx N ∧ child x k = child N k ∧ wordDigit (rank N k) t ≤ wordDigit (rank x k) t

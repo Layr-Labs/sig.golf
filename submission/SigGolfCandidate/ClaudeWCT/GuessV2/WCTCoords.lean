@@ -82,7 +82,7 @@ set_option backward.isDefEq.respectTransparency false
 abbrev ChainAddr := Fin (2 ^ 31) × Fin 9 × Fin 128 × Fin 7
 abbrev GCoord := ChainAddr × Fin 3
 def chainOf (N : HashOutput) (k : Fin 9) (t : Fin 7) : ChainAddr :=
-  (⟨N.toNat % 2 ^ 31, Nat.mod_lt _ (by positivity)⟩, k, child N k, t)
+  (⟨WCT9.digestIndex N, WCT9.digestIndex_lt _⟩, k, child N k, t)
 theorem chainOf_injective (N : HashOutput) {k k' : Fin 9} {t t' : Fin 7}
     (h : chainOf N k t = chainOf N k' t') : k = k' ∧ t = t' := by
   simp only [chainOf, Prod.mk.injEq] at h
@@ -221,9 +221,9 @@ def chainValue (A : Correctness.Answers) (a : ChainAddr) (p : Nat) : Digest :=
   evalWithAnswerFn A (WCT9.chain a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val 0 p (seedOf A a))
 def honestProbe (A : Correctness.Answers) (c : GCoord) : HashInput := probeInput c.1 c.2 (chainValue A c.1 c.2.val)
 def ChainCovered (X : List HashOutput) (a : ChainAddr) (p : Nat) : Prop :=
-  ∃ out ∈ X, out.toNat % 2 ^ 31 = a.1.val ∧ child out a.2.1 = a.2.2.1 ∧ 3 - wordDigit (rank out a.2.1) a.2.2.2 ≤ p
+  ∃ out ∈ X, WCT9.digestIndex out = a.1.val ∧ child out a.2.1 = a.2.2.1 ∧ 3 - wordDigit (rank out a.2.1) a.2.2.2 ≤ p
 def SlotCovered (X : List HashOutput) (N : HashOutput) (k : Fin 9) (t : Fin 7) : Prop :=
-  ∃ out ∈ X, out.toNat % 2 ^ 31 = N.toNat % 2 ^ 31 ∧ child out k = child N k ∧
+  ∃ out ∈ X, WCT9.digestIndex out = WCT9.digestIndex N ∧ child out k = child N k ∧
     deficit N k t ≤ wordDigit (rank out k) t
 theorem ChainCovered.mono_pos {X : List HashOutput} {a : ChainAddr} {p p' : Nat} (h : p ≤ p')
     (hc : ChainCovered X a p) : ChainCovered X a p' := by
@@ -244,7 +244,7 @@ theorem slotCovered_iff_chainCovered (X : List HashOutput) (N : HashOutput) (k :
     exact ⟨out, hout, h1, h2, by simp only [chainOf] at h3; omega⟩
 theorem slotCovered_iff_covered (X : List HashOutput) (N : HashOutput) (k : Fin 9) (t : Fin 7) :
     SlotCovered X N k t ↔
-      Covered (fun k d => ∃ out ∈ X, out.toNat % 2 ^ 31 = N.toNat % 2 ^ 31 ∧ child out k = child N k ∧
+      Covered (fun k d => ∃ out ∈ X, WCT9.digestIndex out = WCT9.digestIndex N ∧ child out k = child N k ∧
         d = fun t => wordDigit (rank out k) t) (deficit N) k t := by
   constructor
   · rintro ⟨out, hout, h1, h2, h3⟩
@@ -258,7 +258,7 @@ theorem caseC_slots (X : List HashOutput) (N : HashOutput) :
       (∃ k t k' t', (k, t) ≠ (k', t') ∧
         1 ≤ deficit N k t ∧ ¬ChainCovered X (chainOf N k t) (3 - deficit N k t) ∧
         1 ≤ deficit N k' t' ∧ ¬ChainCovered X (chainOf N k' t') (3 - deficit N k' t')) := by
-  have h := three_way (fun k d => ∃ out ∈ X, out.toNat % 2 ^ 31 = N.toNat % 2 ^ 31 ∧
+  have h := three_way (fun k d => ∃ out ∈ X, WCT9.digestIndex out = WCT9.digestIndex N ∧
       child out k = child N k ∧ d = fun t => wordDigit (rank out k) t) (deficit N) (s := 6) (w := 3)
     (deficit_sum N) (deficit_le N) (by decide)
   simp only [← slotCovered_iff_covered, slotCovered_iff_chainCovered] at h

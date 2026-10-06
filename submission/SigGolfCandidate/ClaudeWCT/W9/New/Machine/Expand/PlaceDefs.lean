@@ -95,9 +95,10 @@ theorem check_some {o : Option PRes} {f : PRes → Bool}
   cases o with
   | none => simp at h
   | some r => exact ⟨r, rfl, h⟩
-def fW (c : Nat) : Nat := WCT9.coordBase c / 64
-def fSh (c : Nat) : Nat := WCT9.coordBase c % 64
-def fLen (c : Nat) : Nat := if fSh c = 0 then 8 else 9
+def fW (c : Nat) : Nat := WCT9.childBase c / 64
+def fSh (c : Nat) : Nat := [0,0,21,36,0,21,36,0,21].getD c 0
+def fHas (c : Nat) : Bool := c % 3 != 1
+def fLen (c : Nat) : Nat := if fHas c then 9 else 8
 def cOff : Nat → Nat
   | 0 => 0
   | c + 1 => cOff c + fLen c + 182
@@ -115,8 +116,11 @@ def sibOff (l : Nat) (d : Bool) : Nat := 64 * (6 - l) + (if d then 0 else 48)
 def levList (c l : Nat) (d : Bool) : List (Nat × Option Nat) :=
   [(regBase c + sibOff l d + 8, some (sigBlk c + 112 + 16 * l + 8)), (regBase c + sibOff l d, some (sigBlk c + 112 + 16 * l))]
 def childE (c : Nat) : E :=
-  if fSh c = 0 then .bin .and (.ld (.c (BitVec.ofNat 64 (0x20160 + 8 * fW c)))) (.c 127)
-  else .bin .and (.bin .srl (.ld (.c (BitVec.ofNat 64 (0x20160 + 8 * fW c)))) (.c (BitVec.ofNat 64 (fSh c)))) (.c 127)
+  if fHas c then
+    (if c = 3 ∨ c = 6 then
+      .bin .srl (.bin .srl (.ld (.c (BitVec.ofNat 64 (0x20160 + 8 * fW c)))) (.c (BitVec.ofNat 64 (fSh c)))) (.c (BitVec.ofNat 64 21))
+    else .bin .and (.bin .srl (.ld (.c (BitVec.ofNat 64 (0x20160 + 8 * fW c)))) (.c (BitVec.ofNat 64 (fSh c)))) (.c 127))
+  else .bin .and (.ld (.c (BitVec.ofNat 64 (0x20160 + 8 * fW c)))) (.c 127)
 def bitE (l : Nat) : E := .bin .and (.bin .srl (.reg .x24) (.c (BitVec.ofNat 64 l))) (.c 1)
 def fcCheck (P c : Nat) : Bool :=
   match pathAux pcfg expLook [pcOf (P + lOff c 0)] 300 (pcOf (P + cOff c)) [] (σK []) [] with

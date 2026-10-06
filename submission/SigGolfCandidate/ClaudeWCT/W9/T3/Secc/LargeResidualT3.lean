@@ -7,7 +7,7 @@ open OracleComp OracleSpec ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers)
-open SigGolfCandidate.T3.Security.LargeResidual (listBlock slotValue digestIndex routeAddr IsDigestRow)
+open SigGolfCandidate.T3.Security.LargeResidual (listBlock slotValue routeAddr IsDigestRow)
 open ClaudeWCT.W9.T3.Security.CanonGraph
 open ClaudeWCT.W9.T3.Security.CanonEncoding
 set_option maxHeartbeats 1000000
@@ -15,6 +15,7 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 noncomputable local instance instDecidableEqCache_w9largeResidualT3 : DecidableEq SigGolfCandidate.T3.Cache := Classical.decEq _
+def digestIndex (N : HashOutput) : Fin (2^31) := ⟨WCT9.digestIndex N, WCT9.digestIndex_lt N⟩
 abbrev Coord := CanonGraph.Node ⊕ CanonGraph.SecretIndex
 def chainChild (p : ChainGraph.Point) : Coord :=
   if p.2.val = 0 then .inr (.inl (CanonGraph.seedIdx p.1)) else .inl (.chain (ChainGraph.predecessor p))
@@ -85,7 +86,7 @@ noncomputable def signDisclosed (A : Answers) (published : SigGolfCandidate.T3.C
     List Coord :=
   if request.cache = published then
     match signDigest A request.message with
-    | some (_, N) => if RouteOk A (N.toNat % 2 ^ 31) then signItems A N else []
+    | some (_, N) => if RouteOk A (WCT9.digestIndex N) then signItems A N else []
     | none => []
   else []
 def msgSlots (L : EncLeaf) : List (Coord × Nat) :=
