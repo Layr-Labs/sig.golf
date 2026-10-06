@@ -92,7 +92,7 @@ theorem ledger_win_opened (R : Nat) (targets X : List HashOutput) (slack : Nat) 
   ledger_win R targets X slack N hN hadm hgate fun c =>
     coordCovered_of_opened X N c fun j => hopen _ (opened_mem N c j)
 theorem ledger_initial (budget : Nat) :
-    ledger BPORS.Numeric.proposalLength [] [] budget ≤ (budget : ENNReal) * (11324 / 100000000) / 2 ^ 128 := by
+    ledger BPORS.Numeric.proposalLength [] [] budget ≤ (budget : ENNReal) * (12400 / 100000000) / 2 ^ 128 := by
   unfold ledger
   simp only [List.map_nil, List.sum_nil, zero_add]
   apply ENNReal.div_le_div_right
@@ -297,7 +297,7 @@ theorem core_win (b : BankCore) (halive : ¬BPORS.Numeric.proposalLength < b.exp
     obtain ⟨N, hN, hadm, hgate, hcov⟩ := h.resolve_left hr
     exact (ledger_win_opened _ _ _ _ N hN hadm hgate hcov).trans le_self_add
 theorem core_initial (budget : Nat) :
-    corePotential ⟨[], [], false, 0, budget⟩ ≤ (budget : ENNReal) * (11324 / 100000000) / 2 ^ 128 := by
+    corePotential ⟨[], [], false, 0, budget⟩ ≤ (budget : ENNReal) * (12400 / 100000000) / 2 ^ 128 := by
   unfold corePotential
   simp only [List.length_nil, Nat.not_lt_zero, if_false, Bool.false_eq_true, Nat.sub_zero, add_zero]
   exact ledger_initial budget

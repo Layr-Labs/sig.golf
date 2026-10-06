@@ -227,10 +227,9 @@ theorem field_toNat0 (a : BitVec 256) (w : Nat) :
   have := field_toNat a w 0 (by omega)
   simpa using this
 theorem gate22_toNat (a : BitVec 256) :
-    ((a.extractLsb' 192 64) >>> 42).toNat = a.toNat / 2 ^ 234 % 2 ^ 22 := by
-  rw [BitVec.toNat_ushiftRight, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, Nat.shiftRight_eq_div_pow,
-    show (2 : Nat) ^ 64 = 2 ^ 42 * 2 ^ 22 by norm_num, Nat.mod_mul_right_div_self, Nat.div_div_eq_div_mul,
-    ← pow_add]
+    ((a.extractLsb' 192 64) >>> 47).toNat = (a.toNat / 2 ^ 234 % 2 ^ 22) / 32 := by
+  rw [BitVec.toNat_ushiftRight, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
+  omega
 theorem index_eq (a : BitVec 256) :
     a.extractLsb' 0 64 <<< 33 >>> 33 = BitVec.ofNat 64 (a.toNat % 2 ^ 31) := by
   rw [SigGolfCandidate.T3M.Expand.shl_shr_33]
@@ -239,7 +238,7 @@ theorem index_eq (a : BitVec 256) :
   rw [show 64 * 0 = 0 from rfl, pow_zero, Nat.div_one, Nat.mod_mod_of_dvd _ (by norm_num)]
 def fieldN (a : BitVec 256) (c : Nat) : Nat := a.toNat / 2 ^ (WCT9.coordBase c + 7) % 2 ^ 14
 theorem admissible_iff (a : BitVec 256) :
-    WCT9.admissible a = true ↔ a.toNat / 2 ^ 234 % 2 ^ 22 < 2047 ∧ ∀ c', 0 ≤ c' → c' < 9 → fieldN a c' < 16200 := by
+    WCT9.admissible a = true ↔ a.toNat / 2 ^ 234 % 2 ^ 22 < 2080 ∧ ∀ c', 0 ≤ c' → c' < 9 → fieldN a c' < 16200 := by
   rw [WCT9.admissible_iff]
   constructor
   · rintro ⟨h1, h2⟩; exact ⟨h1, fun c _ hc => h2 ⟨c, hc⟩⟩
@@ -254,7 +253,7 @@ set_option maxRecDepth 16384
 def base : Nat := 3164
 def seg_0 : List (BitVec 32) := [16777327]
 def seg_1 : List (BitVec 32) := [1049235,1049875,115]
-def seg_4 : List (BitVec 32) := [0x6003b03,0x7803183,44159379,19,0x7ff1b193]
+def seg_4 : List (BitVec 32) := [0x6003b03,0x7803183,0x2f1d193,19,0x411b193]
 def seg_9 : List (BitVec 32) := [0xfe0180e3]
 def seg_10 : List (BitVec 32) := [35330835,35347219,1049491,29038483,66359,197395,2098835,3148179,4196883,5245587,6294803,7343891,34281619,5175,0x84040413,0xffee37,0x600e0e13,65847,0xffc10113,20151,0x4a4e8e93,52279,0x4a4c0c13,67110291]
 def seg_34 : List (BitVec 32) := [0x6003803,45633939,0x7f1f193,33657363,23224883,21077907,0xffefb3,8493971,31165363,0x9c0e3d83,18738611,50878227,2586419,25626419,0x42000493,458983]

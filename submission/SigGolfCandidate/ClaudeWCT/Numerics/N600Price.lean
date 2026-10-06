@@ -618,14 +618,14 @@ def poissonCheckQ (Qv un ud ln ld : Nat) (f : Nat → Nat) (dbase sn sd Mn Md R 
     un * ln ^ r * ld ^ (R - r) * (fact R / fact r) * f r * Qv ^ (9 * (R - r)) + s) 0
   Md * sn * (S * ld * (R + 1) + ln ^ (R + 1) * ud * dbase * Qv ^ (9 * R)) ≤
     Mn * sd * ud * dbase * ld ^ (R + 1) * fact (R + 1) * Qv ^ (9 * R)
-def A : Nat := 2047 * 2 ^ 7 * 2025 ^ 9
-def LN : Nat := 2035880
+def A : Nat := 2080 * 2 ^ 7 * 2025 ^ 9
+def LN : Nat := 2065593
 def LD : Nat := 1000000
-def meanCheck : Bool := poissonCheckQ Q 271 2000 LN LD (fun r => xNum r ^ 9) (Nn ^ 9) A 1 2773 10000 80
+def meanCheck : Bool := poissonCheckQ Q 271 2000 LN LD (fun r => xNum r ^ 9) (Nn ^ 9) A 1 3230 10000 80
 def diagCheck : Bool :=
-  poissonCheckQ Q 271 2000 LN LD (fun r => yNum r ^ 9) ((Kc * Nn ^ 2) ^ 9) (A ^ 2) (2 ^ 31) 31025 100000000 80
+  poissonCheckQ Q 271 2000 LN LD (fun r => yNum r ^ 9) ((Kc * Nn ^ 2) ^ 9) (A ^ 2) (2 ^ 31) 38910 100000000 80
 def nearCheck : Bool :=
-  poissonCheckQ Q 271 2000 LN LD (fun r => xNum r ^ 8 * xfSum r) (7 * Nn ^ 9) (63 * A) 1 10920 100 80
+  poissonCheckQ Q 271 2000 LN LD (fun r => xNum r ^ 8 * xfSum r) (7 * Nn ^ 9) (63 * A) 1 12700 100 80
 def convCheck : Bool :=
   Nat.beq (packPos w1Data ^ 2 + packNeg w1Data ^ 2 + packNeg wwData) (packPos wwData + 2 * packPos w1Data * packNeg w1Data)
 end ClaudeWCT.Numerics.N600
@@ -1028,7 +1028,7 @@ open ClaudeWCT.Numerics.Law
 open SphincsSecurity.Concrete (uniformWordAverage binomialAverage binomialAverage_mono binomialAverage_mul_left)
 open SigGolfCandidate.T3.BPORS.History (atIndex)
 open ClaudeWCT.Numerics.PoissonReflect (rejection_window rate_le_one)
-noncomputable def priceScale : ENNReal := ((2047 * 2025 ^ 9 : ℕ) : ENNReal) / 2 ^ 24
+noncomputable def priceScale : ENNReal := ((2080 * 2025 ^ 9 : ℕ) : ENNReal) / 2 ^ 24
 theorem priceScale_mul : priceScale * ((2 ^ 31 : ℕ) : ENNReal) = (A : ENNReal) := by
   apply (ENNReal.toReal_eq_toReal_iff' (by unfold priceScale; finiteness) (by finiteness)).mp
   unfold priceScale
@@ -1081,10 +1081,10 @@ variable {T : ℕ} (hT1 : 2 ^ 32 ≤ T) (hT2 : T ≤ 2 ^ 32 + 2 ^ 23)
 include hT1 hT2
 theorem law_price_mean_le [SampleableType (Fin 9 → C × β)] (hβ : Fintype.card β = 600) (hC : Fintype.card C = 128) (h₁ : W1Table val)
     (hlaw : LawOK vc κ) :
-    lawAvg (marked (α := Fin (2 ^ 31)) vc) T (priceN val) ≤ 2773 / 10000 := by
+    lawAvg (marked (α := Fin (2 ^ 31)) vc) T (priceN val) ≤ 3230 / 10000 := by
   rw [law_price_mean_eq val hlaw]
   have h := poissonCheckQ_sound_tilt (Qv := Q) (f := fun r => xNum r ^ 9) (dbase := Nn ^ 9) (sn := A) (sd := 1)
-    (Mn := 2773) (Md := 10000) mean_ok (by decide) (by decide) (by decide) (by decide) (by decide)
+    (Mn := 3230) (Md := 10000) mean_ok (by decide) (by decide) (by decide) (by decide) (by decide)
     (by decide) rate_le_one κ hlaw.one_le (rate_window hlaw hT2) (rejection_window T hT1) _
     (fun r _ => law_env_le val hβ hC h₁ hlaw r) (fun r _ => law_env_le_one val hlaw r)
   simpa only [Nat.cast_one, div_one, Nat.cast_ofNat] using h
@@ -1100,10 +1100,10 @@ theorem law_diag_eq (hlaw : LawOK vc κ) (T : ℕ) :
         (fun r => lawAvg vc r (fun L => env (n := 9) (C := C) val L ^ 2)) := by
   simp_rw [law_marked_atIndex vc hlaw.sum_one _ T (fun L => env (n := 9) (C := C) val L ^ 2), card_index]
   rw [sum_const, card_univ, Fintype.card_fin, nsmul_eq_mul, ← mul_assoc, ← priceScale_sq_mul]
-theorem theta_excess_le_square_v4 (value mean : ENNReal) (hvalue : value ≠ ⊤) (hmean : mean ≤ 2773 / 10000) :
-    (28283 / 10000) * (value - 63 / 64) + 2 * mean * value ≤ value ^ 2 + mean ^ 2 := by
+theorem theta_excess_le_square_v4 (value mean : ENNReal) (hvalue : value ≠ ⊤) (hmean : mean ≤ 3230 / 10000) :
+    (26455 / 10000) * (value - 63 / 64) + 2 * mean * value ≤ value ^ 2 + mean ^ 2 := by
   have hmf : mean ≠ ⊤ := ne_top_of_le_ne_top (by finiteness) hmean
-  have hmr : mean.toReal ≤ 2773 / 10000 := by
+  have hmr : mean.toReal ≤ 3230 / 10000 := by
     have h := (ENNReal.toReal_le_toReal hmf (by finiteness)).mpr hmean
     simpa only [ENNReal.toReal_div, ENNReal.toReal_ofNat] using h
   have hm0 : 0 ≤ mean.toReal := ENNReal.toReal_nonneg
@@ -1117,7 +1117,7 @@ theorem theta_excess_le_square_v4 (value mean : ENNReal) (hvalue : value ≠ ⊤
     apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
     simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_pow,
       ENNReal.toReal_sub_of_le hlarge hvalue, ENNReal.toReal_div, ENNReal.toReal_ofNat]
-    nlinarith [sq_nonneg (value.toReal - mean.toReal - 28283 / 20000)]
+    nlinarith [sq_nonneg (value.toReal - mean.toReal - 26455 / 20000)]
 theorem priceN_ne_top (W : List (Fin (2 ^ 31) × (Fin 9 → C × β))) : priceN val W ≠ ⊤ := by
   unfold priceN
   exact ENNReal.mul_ne_top priceScale_ne_top
@@ -1128,7 +1128,7 @@ include hT1 hT2
 theorem law_price_second_le [SampleableType (Fin 9 → C × β)] (hβ : Fintype.card β = 600)
     (hC : Fintype.card C = 128) (h₁ : W1Table val) (h₂ : W2Table val) (hlaw : LawOK vc κ) :
     lawAvg (marked (α := Fin (2 ^ 31)) vc) T (fun W => priceN val W ^ 2) ≤
-      lawAvg (marked (α := Fin (2 ^ 31)) vc) T (priceN val) ^ 2 + 31025 / 100000000 := by
+      lawAvg (marked (α := Fin (2 ^ 31)) vc) T (priceN val) ^ 2 + 38910 / 100000000 := by
   set M := marked (α := Fin (2 ^ 31)) vc
   have hsq := lawAvg_sum_square_le M T (fun index W => env (n := 9) (C := C) val (atIndex index W))
     (fun first second hne => law_marked_negative_correlation vc hlaw.sum_one first second hne T _ _
@@ -1137,7 +1137,7 @@ theorem law_price_second_le [SampleableType (Fin 9 → C × β)] (hβ : Fintype.
       priceScale * ∑ index : Fin (2 ^ 31), lawAvg M T (fun W => env (n := 9) (C := C) val (atIndex index W)) := by
     unfold priceN; rw [lawAvg_mul_left, lawAvg_sum]
   have hcheck := poissonCheckQ_sound_tilt (Qv := Q) (f := fun r => yNum r ^ 9) (dbase := (Kc * Nn ^ 2) ^ 9)
-    (sn := A ^ 2) (sd := 2 ^ 31) (Mn := 31025) (Md := 100000000) diag_ok (by decide) (by decide) (by decide)
+    (sn := A ^ 2) (sd := 2 ^ 31) (Mn := 38910) (Md := 100000000) diag_ok (by decide) (by decide) (by decide)
     (by decide) (by decide) (by decide) rate_le_one κ hlaw.one_le (rate_window hlaw hT2) (rejection_window T hT1) _
     (fun r _ => law_env_sq_le val hβ hC h₁ h₂ hlaw r) (fun r _ => law_env_sq_le_one val hlaw r)
   simp only [Nat.cast_pow, Nat.cast_ofNat] at hcheck
@@ -1155,7 +1155,7 @@ theorem law_price_second_le [SampleableType (Fin 9 → C × β)] (hβ : Fintype.
         exact add_le_add le_rfl hcheck
 theorem law_price_excess_le [SampleableType (Fin 9 → C × β)] (hβ : Fintype.card β = 600)
     (hC : Fintype.card C = 128) (h₁ : W1Table val) (h₂ : W2Table val) (hlaw : LawOK vc κ) :
-    lawAvg (marked (α := Fin (2 ^ 31)) vc) T (fun W => priceN val W - 63 / 64) ≤ 11324 / 100000000 := by
+    lawAvg (marked (α := Fin (2 ^ 31)) vc) T (fun W => priceN val W - 63 / 64) ≤ 14710 / 100000000 := by
   set M := marked (α := Fin (2 ^ 31)) vc
   have hmean := law_price_mean_le val hT1 hT2 hβ hC h₁ hlaw
   have hsecond := law_price_second_le val hT1 hT2 hβ hC h₁ h₂ hlaw
@@ -1165,20 +1165,20 @@ theorem law_price_excess_le [SampleableType (Fin 9 → C × β)] (hβ : Fintype.
     theta_excess_le_square_v4 (priceN val W) mean (priceN_ne_top val W) hmean)
   rw [lawAvg_add, lawAvg_add, lawAvg_mul_left, lawAvg_mul_left,
     lawAvg_const M (marked_sum_one vc hlaw.sum_one) T] at h
-  have hcancel : (28283 / 10000 : ENNReal) * lawAvg M T (fun W => priceN val W - 63 / 64) ≤ 31025 / 100000000 := by
+  have hcancel : (26455 / 10000 : ENNReal) * lawAvg M T (fun W => priceN val W - 63 / 64) ≤ 38910 / 100000000 := by
     apply ENNReal.le_of_add_le_add_right (a := 2 * mean ^ 2) (by finiteness)
     calc
-      _ = (28283 / 10000 : ENNReal) * lawAvg M T (fun W => priceN val W - 63 / 64) + 2 * mean * mean := by ring
+      _ = (26455 / 10000 : ENNReal) * lawAvg M T (fun W => priceN val W - 63 / 64) + 2 * mean * mean := by ring
       _ ≤ lawAvg M T (fun W => priceN val W ^ 2) + mean ^ 2 := h
-      _ ≤ (mean ^ 2 + 31025 / 100000000) + mean ^ 2 := add_le_add hsecond le_rfl
+      _ ≤ (mean ^ 2 + 38910 / 100000000) + mean ^ 2 := add_le_add hsecond le_rfl
       _ = _ := by ring
-  have hi : (10000 / 28283 : ENNReal) * (28283 / 10000) = 1 := by
+  have hi : (10000 / 26455 : ENNReal) * (26455 / 10000) = 1 := by
     apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
     norm_num [ENNReal.toReal_mul, ENNReal.toReal_div]
   calc
-    _ = (10000 / 28283 : ENNReal) * ((28283 / 10000) * lawAvg M T (fun W => priceN val W - 63 / 64)) := by
+    _ = (10000 / 26455 : ENNReal) * ((26455 / 10000) * lawAvg M T (fun W => priceN val W - 63 / 64)) := by
         rw [← mul_assoc, hi, one_mul]
-    _ ≤ (10000 / 28283 : ENNReal) * (31025 / 100000000) := mul_le_mul' le_rfl hcancel
+    _ ≤ (10000 / 26455 : ENNReal) * (38910 / 100000000) := mul_le_mul' le_rfl hcancel
     _ ≤ _ := by
         apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
         norm_num [ENNReal.toReal_mul, ENNReal.toReal_div]
@@ -1241,15 +1241,15 @@ theorem law_nearPrice_mean_eq (hlaw : LawOK vc κ) (T : ℕ) :
 theorem law_nearPrice_le [SampleableType (Fin 9 → C × β)] {T : ℕ} (hT1 : 2 ^ 32 ≤ T) (hT2 : T ≤ 2 ^ 32 + 2 ^ 23)
     (hβ : Fintype.card β = 600) (hC : Fintype.card C = 128) (h₁ : W1Table val) (hf : ∀ i, WFTable val i)
     (hlaw : LawOK vc κ) :
-    lawAvg (marked (α := Fin (2 ^ 31)) vc) T (nearPriceN val) ≤ 10920 / 100 := by
+    lawAvg (marked (α := Fin (2 ^ 31)) vc) T (nearPriceN val) ≤ 12700 / 100 := by
   rw [law_nearPrice_mean_eq val hlaw]
   have h := poissonCheckQ_sound_tilt (Qv := Q) (f := fun r => xNum r ^ 8 * xfSum r) (dbase := 7 * Nn ^ 9)
-    (sn := 63 * A) (sd := 1) (Mn := 10920) (Md := 100) near_ok (by decide) (by decide) (by decide) (by decide)
+    (sn := 63 * A) (sd := 1) (Mn := 12700) (Md := 100) near_ok (by decide) (by decide) (by decide) (by decide)
     (by decide) (by decide) rate_le_one κ hlaw.one_le (rate_window hlaw hT2) (rejection_window T hT1) _
     (fun r _ => (nearLoad_le val hβ hC h₁ hf hlaw r).trans_eq (by push_cast; ring_nf))
     (fun r _ => nearLoad_le_one val hlaw r)
   simpa only [Nat.cast_one, div_one, Nat.cast_ofNat, Nat.cast_mul] using h
-theorem near_le_sub : (10920 / 100 : ENNReal) ≤ 404 - 1 / 16 := by
+theorem near_le_sub : (12700 / 100 : ENNReal) ≤ 404 - 1 / 16 := by
   apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
   rw [ENNReal.toReal_sub_of_le (by
     apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp; norm_num [ENNReal.toReal_div])
@@ -1269,7 +1269,7 @@ theorem lawOK_uniform (hne : Fintype.card (Fin 9 → C × β) ≠ 0) :
 noncomputable def uniformOn (S : Finset (Fin 9 → C × β)) (x : Fin 9 → C × β) : ENNReal :=
   open Classical in if x ∈ S then (S.card : ENNReal)⁻¹ else 0
 theorem lawOK_uniformOn (S : Finset (Fin 9 → C × β)) (hS : S.Nonempty)
-    (hrate : 10 ^ 6 * (2 ^ 32 + 2 ^ 23) * Fintype.card (Fin 9 → C × β) ≤ 2035880 * 2 ^ 31 * S.card) :
+    (hrate : 10 ^ 6 * (2 ^ 32 + 2 ^ 23) * Fintype.card (Fin 9 → C × β) ≤ 2065593 * 2 ^ 31 * S.card) :
     LawOK (uniformOn S) ((Fintype.card (Fin 9 → C × β) : ENNReal) / S.card) where
   sum_one := by
     classical
@@ -1296,18 +1296,18 @@ theorem lawOK_uniformOn (S : Finset (Fin 9 → C × β)) (hS : S.Nonempty)
     simp only [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_inv, ENNReal.toReal_natCast, LN, LD,
       ENNReal.toReal_pow, ENNReal.toReal_ofNat]
     have h : ((10 ^ 6 * (2 ^ 32 + 2 ^ 23) * Fintype.card (Fin 9 → C × β) : ℕ) : ℝ) ≤
-        ((2035880 * 2 ^ 31 * S.card : ℕ) : ℝ) := by exact_mod_cast hrate
+        ((2065593 * 2 ^ 31 * S.card : ℕ) : ℝ) := by exact_mod_cast hrate
     push_cast at h ⊢
     set c : ℝ := (Fintype.card (Fin 9 → C × β) : ℝ)
     set t : ℝ := (S.card : ℝ)
     rw [show (4303355904 : ℝ) * (2 ^ 31)⁻¹ * (c / t) = (4303355904000000 * c) / (2147483648000000 * t) by
       field_simp; ring]
     rw [div_le_iff₀ (by positivity)]
-    calc 4303355904000000 * c ≤ 4372019009290240 * t := h
-      _ = 2035880 / 1000000 * (2147483648000000 * t) := by ring
+    calc 4303355904000000 * c ≤ 4435827190923264 * t := h
+      _ = 2065593 / 1000000 * (2147483648000000 * t) := by ring
 theorem lawOK_uniformOn' (S : Finset (Fin 9 → C × β)) (hS : S.Nonempty) (Ncoords Ns : ℕ)
     (hcard : Fintype.card (Fin 9 → C × β) = Ncoords) (hNs : S.card = Ns)
-    (hrate : 10 ^ 6 * (2 ^ 32 + 2 ^ 23) * Ncoords ≤ 2035880 * 2 ^ 31 * Ns) :
+    (hrate : 10 ^ 6 * (2 ^ 32 + 2 ^ 23) * Ncoords ≤ 2065593 * 2 ^ 31 * Ns) :
     LawOK (uniformOn S) ((Ncoords : ENNReal) / Ns) := by
   have h := lawOK_uniformOn S hS (by rw [hcard, hNs]; exact hrate)
   rwa [hcard, hNs] at h
@@ -1324,17 +1324,17 @@ theorem lawAvg_marked_uniform (T : ℕ) (f : List (Fin (2 ^ 31) × (Fin 9 → C 
 theorem uniform_price_excess_le {T : ℕ} (hT1 : 2 ^ 32 ≤ T) (hT2 : T ≤ 2 ^ 32 + 2 ^ 23)
     (hβ : Fintype.card β = 600) (hC : Fintype.card C = 128) (h₁ : W1Table val) (h₂ : W2Table val) :
     uniformWordAverage T (fun W : List (Fin (2 ^ 31) × (Fin 9 → C × β)) => priceN val W - 63 / 64) ≤
-      11324 / 100000000 := by
+      14710 / 100000000 := by
   rw [← lawAvg_marked_uniform]
   exact law_price_excess_le val hT1 hT2 hβ hC h₁ h₂ (lawOK_uniform (by simp [hβ, hC]))
 theorem uniform_price_mean_le {T : ℕ} (hT1 : 2 ^ 32 ≤ T) (hT2 : T ≤ 2 ^ 32 + 2 ^ 23)
     (hβ : Fintype.card β = 600) (hC : Fintype.card C = 128) (h₁ : W1Table val) :
-    uniformWordAverage T (priceN (C := C) val) ≤ 2773 / 10000 := by
+    uniformWordAverage T (priceN (C := C) val) ≤ 3230 / 10000 := by
   rw [← lawAvg_marked_uniform]
   exact law_price_mean_le val hT1 hT2 hβ hC h₁ (lawOK_uniform (by simp [hβ, hC]))
 theorem uniform_nearPrice_le {T : ℕ} (hT1 : 2 ^ 32 ≤ T) (hT2 : T ≤ 2 ^ 32 + 2 ^ 23)
     (hβ : Fintype.card β = 600) (hC : Fintype.card C = 128) (h₁ : W1Table val) (hf : ∀ i, WFTable val i) :
-    uniformWordAverage T (nearPriceN (C := C) val) ≤ 10920 / 100 := by
+    uniformWordAverage T (nearPriceN (C := C) val) ≤ 12700 / 100 := by
   rw [← lawAvg_marked_uniform]
   exact law_nearPrice_le val hT1 hT2 hβ hC h₁ hf (lawOK_uniform (by simp [hβ, hC]))
 end Uniform
