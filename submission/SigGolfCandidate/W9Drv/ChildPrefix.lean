@@ -9,7 +9,7 @@ open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify W9Machine
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
-def ChildGood : Prop := ∀ j : Fin 128, Child.Good Frozen.layout ⟨42, 99, 99⟩ j
+def ChildGood : Prop := ∀ j : Fin 128, Child.Good Frozen.layout ⟨43, 100, 100⟩ j
 def childBase (j : Nat) : Nat := 210432 + 64 * j
 def bitAt (j l : Nat) : Nat := j / 2 ^ l % 2
 def blkO (l : Nat) : Nat := 64 * (6 - l)
@@ -34,22 +34,22 @@ def lvlTmpl (j l : Nat) : List (BitVec 32) :=
 def encLoad (rd rs imm : Nat) : BitVec 32 :=
   BitVec.ofNat 32 (imm * 2 ^ 20 + rs * 2 ^ 15 + 3 * 2 ^ 12 + rd * 2 ^ 7 + 3)
 def childTmpl (j : Nat) : List (BitVec 32) :=
-  [encI 12 8 (curO 0 j), 0x00000073, encI 11 0 64] ++ (List.range 6).flatMap (lvlTmpl j) ++
+  [0x38442623, encI 12 8 (curO 0 j), 0x00000073, encI 11 0 64] ++ (List.range 6).flatMap (lvlTmpl j) ++
     [encLoad 3 8 (if bitAt j 6 = 0 then 48 else 0),
      encLoad 14 8 (if bitAt j 6 = 0 then 56 else 8),
      encS 3 3 (16 * (1 - bitAt j 6)) 9, encS 3 14 (16 * (1 - bitAt j 6) + 8) 9,
-     0x00008067] ++ List.replicate 22 0x00000013
+     0x00008067] ++ List.replicate 21 0x00000013
 def childWords (j : Nat) : List (BitVec 32) := childTmpl j
 def childLook (j n : Nat) : Option (BitVec 32) :=
   if childBase j ≤ n then (childWords j)[n - childBase j]? else none
-def ecIdx (l : Nat) : Nat := [1,8,14,20,26,31,36].getD l 0
+def ecIdx (l : Nat) : Nat := [2,9,15,21,27,32,37].getD l 0
 def lvlSt (l : Nat) : Nat := ecIdx (l + 1) - ecIdx l - 1
 def childRun (j i : Nat) (dirs : List Dir) : Option PRes :=
   pathAux cfg0 (childLook j) [] 64 (pcOf (childBase j + i)) dirs (σK []) []
 def eX8 (off : Nat) : E := addC (.reg .x8) (BitVec.ofNat 64 off)
 def aX8 (off : Nat) : Addr := ⟨some (.reg .x8), BitVec.ofNat 64 off⟩
 def p0Res (j : Nat) : PRes :=
-  ⟨⟨RegFile.init.set .x12 (eX8 (curO 0 j)), [], []⟩, pcOf (childBase j + 1), true, 1, 1, [], none⟩
+  ⟨⟨RegFile.init.set .x12 (eX8 (curO 0 j)), [], []⟩, pcOf (childBase j + 2), true, 1, 1, [], none⟩
 def lvlRegs (j l : Nat) : RegFile :=
   let rf := if l = 0 then RegFile.init.set .x11 (.c 64) else RegFile.init
   let rf := rf.set .x10 (eX8 (blkO l))
@@ -74,7 +74,7 @@ def p7Res (j : Nat) : PRes :=
      .valid (aX8 (sibO 6 j + 8)) 8, .valid (aX8 (sibO 6 j)) 8]⟩,
     0, false, 5, 5, [], some retE⟩
 def childPiecesOK (j : Nat) : Bool :=
-  optBeq (childRun j 0 []) (p0Res j) &&
+  optBeq (childRun j 1 []) (p0Res j) &&
     (List.range 6).all (fun l => optBeq (childRun j (ecIdx l + 1) []) (lvlRes j l)) &&
     optBeq (childRun j (ecIdx 6 + 1) [.jmp]) (p7Res j)
 def childPiecesRange (lo n : Nat) : Bool := (List.range' lo n).all childPiecesOK
@@ -114,7 +114,7 @@ theorem childPiecesOK_at (j : Nat) (hj : j < 128) : childPiecesOK j = true := by
   by_cases h5 : j < 96; · exact hall 80 16 childPieces_5 (by omega) (by omega)
   by_cases h6 : j < 112; · exact hall 96 16 childPieces_6 (by omega) (by omega)
   exact hall 112 16 childPieces_7 (by omega) (by omega)
-theorem childRun_p0 (j : Nat) (hj : j < 128) : childRun j 0 [] = some (p0Res j) := by
+theorem childRun_p0 (j : Nat) (hj : j < 128) : childRun j 1 [] = some (p0Res j) := by
   have h := childPiecesOK_at j hj
   simp only [childPiecesOK, Bool.and_eq_true] at h
   exact optBeq_eq h.1.1
@@ -152,7 +152,7 @@ def stageW (j l : Nat) : List Nat :=
   [curO l j, curO l j + 8, curO l j + 16, curO l j + 24, blkO l + 16, blkO l + 24]
 def childWrites (j : Nat) : List Nat := (List.range 7).flatMap (stageW j)
 structure ChildPre (j B k index : Nat) (leaf pads sibs : Nat → Digest) (u : MachineState) : Prop where
-  pc : u.pc = pcOf (childBase j)
+  pc : u.pc = pcOf (childBase j + 1)
   base8 : B % 8 = 0
   baseHi : B + 1024 ≤ MEMORY_BYTES
   t0 : u.getReg .x5 = 0
@@ -160,7 +160,7 @@ structure ChildPre (j B k index : Nat) (leaf pads sibs : Nat → Digest) (u : Ma
   a0 : u.getReg .x10 = BitVec.ofNat 64 (B + leafO)
   a1 : u.getReg .x11 = BitVec.ofNat 64 128
   w0 : u.getReg .x27 = BitVec.ofNat 64 (w0n k index)
-  s6 : u.getReg .x22 = BitVec.ofNat 64 index
+  s6 : u.getReg .x4 = BitVec.ofNat 64 j
   heaps : ∀ h, 2 ≤ h → h ≤ 7 → u.getReg (heapReg h) = BitVec.ofNat 64 h
   leafAt : ∀ i, i < 8 → DigAt u (B + leafO + 16 * i) (leaf i)
   padAt : ∀ l, l < 6 → DigAt u (B + padO l) (pads l)
@@ -518,12 +518,12 @@ theorem child_prefix_good (im : Image) (j : Nat) (hj : j < 128) (hcode : ChildCo
   have h8 := hu.base8
   have hhi := hu.baseHi
   unfold MEMORY_BYTES at hhi
-  obtain ⟨hst, hec⟩ := childRun_sound hcode (childRun_p0 j hj) u (by rw [hu.pc, Nat.add_zero]) (by intro o ho; cases ho) rfl
+  obtain ⟨hst, hec⟩ := childRun_sound hcode (childRun_p0 j hj) u hu.pc (by intro o ho; cases ho) rfl
   have hreg : ∀ x, ((p0Res j).toState u).getReg x =
       ((RegFile.init.set .x12 (eX8 (curO 0 j))).get x).eval u := fun x => PRes.toState_getReg _ _ _
   have hmem : ∀ A, ((p0Res j).toState u).getMem A = u.getMem A :=
     fun A => (PRes.toState_getMem _ _ _).trans (memEval_nil _ _)
-  have hpcT : ((p0Res j).toState u).pc = pcOf (childBase j + 1) := PRes.toState_pc (p0Res j) u rfl
+  have hpcT : ((p0Res j).toState u).pc = pcOf (childBase j + 2) := PRes.toState_pc (p0Res j) u rfl
   generalize ht : (p0Res j).toState u = t at hst hec hreg hmem hpcT
   have hother : ∀ r : Reg, r ≠ .x12 → t.getReg r = u.getReg r := by
     intro r h12; rw [hreg, RegFile.get_set_ne _ _ h12, RegFile.init_get_eval]

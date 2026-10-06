@@ -17,7 +17,7 @@ def digestCoordinates (output : HashOutput) : DigestCoordinates :=
     (output.extractLsb' 127 1, output.extractLsb' 191 1, output.extractLsb' 234 1,
       (output.extractLsb' 235 21).toFin))
 def admissibleView (view : DigestCoordinates) : Bool :=
-  decide (view.2.2.2.2.2.val < 1030) &&
+  decide (view.2.2.2.2.2.val < 1042) &&
     (List.finRange 9).all (fun coord => decide ((view.2.1 coord).2.val < 16200))
 theorem bit_cover : ∀ position, position < 256 →
     position < 31 ∨ (31 ≤ position ∧ position < 43) ∨ position = 127 ∨ position = 191 ∨ position = 234 ∨
@@ -134,10 +134,10 @@ theorem viewProposal_decode (x : HashOutput) : viewProposal (digestCoordinates x
   · exact WCT9.index_decode x
   · exact (WCT9.rank_decode x k).symm
 theorem admissibleView_iff (v : DigestCoordinates) :
-    admissibleView v = true ↔ v.2.2.2.2.2.val < 1030 ∧ ∀ k : Coord, (v.2.1 k).2.val < 16200 := by
+    admissibleView v = true ↔ v.2.2.2.2.2.val < 1042 ∧ ∀ k : Coord, (v.2.1 k).2.val < 16200 := by
   unfold admissibleView
   simp only [Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, List.mem_finRange, forall_true_left]
-abbrev FibreData := (Coord → Fin 27) × Fin 1030 × (BitVec 12 × BitVec 1 × BitVec 1 × BitVec 1)
+abbrev FibreData := (Coord → Fin 27) × Fin 1042 × (BitVec 12 × BitVec 1 × BitVec 1 × BitVec 1)
 def fibreEquiv (p : WProposal) :
     {v : DigestCoordinates // admissibleView v = true ∧ viewProposal v = p} ≃ FibreData where
   toFun v := (fun k => ⟨(v.1.2.1 k).2.val / 600, by
@@ -170,12 +170,12 @@ def fibreEquiv (p : WProposal) :
     have h1 := (p.2 k).2.isLt
     show ((p.2 k).2.val + 600 * (q k).val) / 600 = (q k).val
     omega
-theorem card_fibreData : Fintype.card FibreData = 27 ^ 9 * 1030 * 2 ^ 15 := by
+theorem card_fibreData : Fintype.card FibreData = 27 ^ 9 * 1042 * 2 ^ 15 := by
   simp only [FibreData, Fintype.card_prod, Fintype.card_fun, Fintype.card_fin, Fintype.card_bitVec]
   norm_num
 theorem card_fibre (p : WProposal) :
     (Finset.univ.filter (fun x : HashOutput => WCT9.admissible x = true ∧ proposal x = p)).card =
-      27 ^ 9 * 1030 * 2 ^ 15 := by
+      27 ^ 9 * 1042 * 2 ^ 15 := by
   have e : {x : HashOutput // WCT9.admissible x = true ∧ proposal x = p} ≃
       {v : DigestCoordinates // admissibleView v = true ∧ viewProposal v = p} :=
     (Equiv.ofBijective digestCoordinates WCT9.digestCoordinates_bijective).subtypeEquiv
@@ -188,7 +188,7 @@ theorem card_fibre (p : WProposal) :
   exact hc
 theorem sum_admissible (g : WProposal → ENNReal) :
     (∑ x : HashOutput, if WCT9.admissible x = true then g (proposal x) else 0) =
-      ((27 ^ 9 * 1030 * 2 ^ 15 : Nat) : ENNReal) * ∑ p, g p := by
+      ((27 ^ 9 * 1042 * 2 ^ 15 : Nat) : ENNReal) * ∑ p, g p := by
   rw [← Finset.sum_filter, ← Finset.sum_fiberwise _ proposal, Finset.mul_sum]
   apply Finset.sum_congr rfl
   intro p _
@@ -196,11 +196,11 @@ theorem sum_admissible (g : WProposal → ENNReal) :
     Finset.filter_filter, card_fibre, nsmul_eq_mul]
 theorem sum_admissible_one :
     (∑ x : HashOutput, if WCT9.admissible x = true then (1 : ENNReal) else 0) =
-      ((27 ^ 9 * 1030 * 2 ^ 15 : Nat) : ENNReal) * (Fintype.card WProposal : ENNReal) := by
+      ((27 ^ 9 * 1042 * 2 ^ 15 : Nat) : ENNReal) * (Fintype.card WProposal : ENNReal) := by
   rw [sum_admissible (fun _ => 1), Finset.sum_const, Finset.card_univ, nsmul_eq_mul, mul_one]
 theorem acceptance_eq_ratio :
     Pr[fun x : HashOutput => WCT9.admissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      ((27 ^ 9 * 1030 * 2 ^ 15 : Nat) : ENNReal) * (Fintype.card WProposal : ENNReal) /
+      ((27 ^ 9 * 1042 * 2 ^ 15 : Nat) : ENNReal) * (Fintype.card WProposal : ENNReal) /
         (Fintype.card HashOutput : ENNReal) := by
   rw [← expectedValue_ite_one, BPORS.expected_uniform_eq_finiteAverage]
   unfold SigGolfResearch.Gate6.Moments.finiteAverage
@@ -213,14 +213,14 @@ theorem acceptedProposalUniform : AcceptedProposalUniform := by
   have hP : (Fintype.card WProposal : ENNReal) ≠ 0 := by exact_mod_cast Fintype.card_ne_zero
   have hP' : (Fintype.card WProposal : ENNReal) ≠ ⊤ := ENNReal.natCast_ne_top _
   simp only [div_eq_mul_inv]
-  calc ((27 ^ 9 * 1030 * 2 ^ 15 : Nat) : ENNReal) * (∑ p, g p) * (Fintype.card HashOutput : ENNReal)⁻¹
-      = ((27 ^ 9 * 1030 * 2 ^ 15 : Nat) : ENNReal) * (∑ p, g p) * (Fintype.card HashOutput : ENNReal)⁻¹ *
+  calc ((27 ^ 9 * 1042 * 2 ^ 15 : Nat) : ENNReal) * (∑ p, g p) * (Fintype.card HashOutput : ENNReal)⁻¹
+      = ((27 ^ 9 * 1042 * 2 ^ 15 : Nat) : ENNReal) * (∑ p, g p) * (Fintype.card HashOutput : ENNReal)⁻¹ *
           ((Fintype.card WProposal : ENNReal)⁻¹ * (Fintype.card WProposal : ENNReal)) := by
         rw [ENNReal.inv_mul_cancel hP hP', mul_one]
     _ = _ := by ring
 theorem acceptance_eq :
     Pr[fun x : HashOutput => WCT9.admissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      (1030 * 16200 ^ 9 : ENNReal) / 2 ^ 147 := by
+      (1042 * 16200 ^ 9 : ENNReal) / 2 ^ 147 := by
   rw [acceptance_eq_ratio]
   simp only [WProposal, Fintype.card_prod, Fintype.card_fun, Fintype.card_fin, Fintype.card_bitVec]
   rw [ENNReal.div_eq_div_iff (by positivity) (by finiteness) (by positivity) (by finiteness)]
@@ -228,9 +228,9 @@ theorem acceptance_eq :
 theorem acceptanceBound : AcceptanceBound := by
   unfold AcceptanceBound
   rw [acceptance_eq]
-  have h0 : (1030 * 16200 ^ 9 : ENNReal) ≤ 2 ^ 141 := by
-    exact_mod_cast (show (1030 * 16200 ^ 9 : Nat) ≤ 2 ^ 141 by norm_num)
-  have h : (1030 * 16200 ^ 9 : ENNReal) / 2 ^ 147 ≤ 2 ^ 141 / 2 ^ 147 := ENNReal.div_le_div_right h0 _
+  have h0 : (1042 * 16200 ^ 9 : ENNReal) ≤ 2 ^ 141 := by
+    exact_mod_cast (show (1042 * 16200 ^ 9 : Nat) ≤ 2 ^ 141 by norm_num)
+  have h : (1042 * 16200 ^ 9 : ENNReal) / 2 ^ 147 ≤ 2 ^ 141 / 2 ^ 147 := ENNReal.div_le_div_right h0 _
   refine h.trans (le_of_eq ?_)
   rw [ENNReal.div_eq_div_iff (by positivity) (by finiteness) (by positivity) (by finiteness)]
   norm_num

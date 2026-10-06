@@ -168,6 +168,7 @@ structure LayerIn (w : WBytes) (pk : Digest) (index lay : Nat) (msg : LayerMsg)
     s.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 23304
   dst0 : lay = 0 → ∃ d, s.getReg .x12 = BitVec.ofNat 64 d ∧ (d = 15560 ∨ d = 15608)
   dstL : lay = 1 ∨ lay = 2 → ∃ d, s.getReg .x12 = BitVec.ofNat 64 d ∧ (d = x10In lay ∨ d = x10In lay + 48)
+  tp0 : lay = 0 → s.getReg .x4 = BitVec.ofNat 64 (hdr1 (T3.route index 0).2 (T3.route index 0).1)
 structure EncPre (w : WBytes) (pk : Digest) (index lay c : Nat)
     (t : MachineState) : Prop where
   pc : t.pc = pcOf (trPc lay c + stepsA lay)
