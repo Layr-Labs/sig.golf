@@ -356,7 +356,7 @@ theorem childPrefixSW {im : Image} (w : WBytes) (index : Nat) (k : Fin 9)
   have hp : (pcOf (childBase j.val)).toNat = 4096 + 4 * childBase j.val := by
     simp only [pcOf, BitVec.toNat_ofNat]
     exact Nat.mod_eq_of_lt (by unfold childBase; have := j.isLt; omega)
-  have hc : CodeAt im (pcOf (childBase j.val)) [0x39642623] := by
+  have hc : CodeAt im (pcOf (childBase j.val)) [0x38442623] := by
     refine ⟨?_, ?_, ?_, ?_⟩
     · rw [hp]; omega
     · rw [hp]; omega
@@ -369,7 +369,7 @@ theorem childPrefixSW {im : Image} (w : WBytes) (index : Nat) (k : Fin 9)
         omega
       subst i
       simpa only [List.getElem?_drop, List.getElem_cons_zero, Nat.add_zero] using
-        (hcode 0 0x39642623 rfl)
+        (hcode 0 0x38442623 rfl)
   obtain ⟨v, hs, hpc, hr, hm⟩ := ChildRouteStore.execute (pcOf (childBase j.val)) hc
     (coordinateBase k) u hu.pc hu.baseReg hB8 (by omega)
   refine ⟨v, hs, ?_, hr, ?_, ?_⟩
@@ -383,7 +383,6 @@ theorem childPrefixSW {im : Image} (w : WBytes) (index : Nat) (k : Fin 9)
         hu.leaf1Hi, hu.childReg, merge_hi]
       simp only [V3.leafFields, Nat.one_ne_zero, if_false, if_true, header_hi,
         if_neg (by decide : ¬ SigGolfCandidate.T3.packedNodeTag 6)]
-      all_goals rfl
 
 theorem child_pre (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128) (ends : List Digest)
     (u v : MachineState) (hu : Child.Pre Frozen.layout w index k j ends u)

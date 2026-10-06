@@ -9,10 +9,10 @@ def baseAddr (off : Nat) : Addr := ⟨some (.reg .x8), BitVec.ofNat 64 off⟩
 def baseExpr (off : Nat) : E := addC (.reg .x8) (BitVec.ofNat 64 off)
 def result (pc : Word) : Result :=
   ⟨⟨RegFile.init,
-    [(baseAddr 904, .bin (.st .w 4) (.ld (baseExpr 904)) (.reg .x22))],
+    [(baseAddr 904, .bin (.st .w 4) (.ld (baseExpr 904)) (.reg .x4))],
     [.align8 (.reg .x8), .valid (baseAddr 908) 4]⟩,
     .c (pc + 4), .fuel, 1, 1⟩
-theorem run (pc : Word) : symRun {} [0x39642623] pc 1 = some (result pc) := by rfl
+theorem run (pc : Word) : symRun {} [0x38442623] pc 1 = some (result pc) := by rfl
 
 theorem addr_eval {s : MachineState} {B : Nat}
     (hB : s.getReg .x8 = BitVec.ofNat 64 B) (off : Nat) :
@@ -24,14 +24,14 @@ theorem expr_eval {s : MachineState} {B : Nat}
   rw [baseExpr, addC_eval]
   simp only [E.eval, hB, BitVec.ofNat_add_ofNat]
 
-theorem execute {im : Image} (pc : Word) (hc : CodeAt im pc [0x39642623])
+theorem execute {im : Image} (pc : Word) (hc : CodeAt im pc [0x38442623])
     (B : Nat) (s : MachineState) (hp : s.pc = pc)
     (hB : s.getReg .x8 = BitVec.ofNat 64 B) (h8 : B % 8 = 0)
     (hhi : B + 912 ≤ MEMORY_BYTES) :
     ∃ t, Steps im s 1 1 t ∧ t.pc = pc + 4 ∧
       (∀ r, t.getReg r = s.getReg r) ∧
       (∀ A, A < 2 ^ 64 → t.getMem (BitVec.ofNat 64 A) =
-        if A = B + 904 then StoreKind.merge .w (s.getMem (BitVec.ofNat 64 (B + 904))) 4 (s.getReg .x22)
+        if A = B + 904 then StoreKind.merge .w (s.getMem (BitVec.ofNat 64 (B + 904))) 4 (s.getReg .x4)
         else s.getMem (BitVec.ofNat 64 A)) := by
   have hB64 : B + 912 < 2 ^ 64 := by unfold MEMORY_BYTES at hhi; omega
   have hob : (result pc).obligs s := by
@@ -51,7 +51,7 @@ theorem execute {im : Image} (pc : Word) (hc : CodeAt im pc [0x39642623])
   · intro r
     exact (Result.toState_getReg _ _ _).trans (RegFile.init_get_eval _ _)
   · intro A hA
-    change memEval s [(baseAddr 904, .bin (.st .w 4) (.ld (baseExpr 904)) (.reg .x22))] _ = _
+    change memEval s [(baseAddr 904, .bin (.st .w 4) (.ld (baseExpr 904)) (.reg .x4))] _ = _
     rw [memEval_cons, memEval_nil, addr_eval hB]
     have he : BitVec.ofNat 64 A = BitVec.ofNat 64 (B + 904) ↔ A = B + 904 := by
       constructor
@@ -88,12 +88,12 @@ theorem merge_index_child (index child : Nat) (hi : index < 2 ^ 31) (hj : child 
     Nat.mod_eq_of_lt (by omega : index < 2 ^ 32),
     Nat.mod_eq_of_lt (by omega : index + 2 ^ 32 * child < 2 ^ 64)]
 
-theorem execute_header {im : Image} (pc : Word) (hc : CodeAt im pc [0x39642623])
+theorem execute_header {im : Image} (pc : Word) (hc : CodeAt im pc [0x38442623])
     (B index child : Nat) (s : MachineState) (hp : s.pc = pc)
     (hB : s.getReg .x8 = BitVec.ofNat 64 B) (h8 : B % 8 = 0)
     (hhi : B + 912 ≤ MEMORY_BYTES) (hi : index < 2 ^ 31) (hj : child < 128)
     (hold : s.getMem (BitVec.ofNat 64 (B + 904)) = BitVec.ofNat 64 index)
-    (hchild : s.getReg .x22 = BitVec.ofNat 64 child) :
+    (hchild : s.getReg .x4 = BitVec.ofNat 64 child) :
     ∃ t, Steps im s 1 1 t ∧ t.pc = pc + 4 ∧
       (∀ r, t.getReg r = s.getReg r) ∧
       t.getMem (BitVec.ofNat 64 (B + 904)) = BitVec.ofNat 64 (index + 2 ^ 32 * child) ∧
