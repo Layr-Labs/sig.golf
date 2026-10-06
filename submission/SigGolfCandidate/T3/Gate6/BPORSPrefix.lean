@@ -653,7 +653,7 @@ theorem uniformWordAverage_constant {α : Type} [Fintype α] [SampleableType α]
 theorem fullPrice_excess_of_pointwise (threshold : ENNReal)
     (hpointwise : ∀ value mean : ENNReal,value≠⊤ → mean≤37/64 →
       (13/8)*(value-threshold)+2*mean*value≤value^2+mean^2) :
-    uniformWordAverage Numeric.proposalLength (fun word => fullPrice word-threshold) ≤ 11324/100000000 := by
+    uniformWordAverage Numeric.proposalLength (fun word => fullPrice word-threshold) ≤ 12400/100000000 := by
   let mean := uniformWordAverage Numeric.proposalLength fullPrice
   have hm : mean≠⊤ := ne_top_of_le_ne_top (by finiteness) fullPrice_mean_bound
   have h := uniformWordAverage_mono Numeric.proposalLength (fun word =>
@@ -682,7 +682,7 @@ theorem fullPrice_excess_of_pointwise (threshold : ENNReal)
       apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
       norm_num [ENNReal.toReal_mul,ENNReal.toReal_div]
 theorem fullPrice_excess_bound :
-    uniformWordAverage Numeric.proposalLength (fun word => fullPrice word-1) ≤ 11324/100000000 :=
+    uniformWordAverage Numeric.proposalLength (fun word => fullPrice word-1) ≤ 12400/100000000 :=
   fullPrice_excess_of_pointwise 1 unit_excess_le_square
 noncomputable def fullNearPrice (word : List Proposal) : ENNReal :=
   3*2^97*∑ index : Fin (2^31), ∑ missing : Fin 7, nearWordEnvelope missing (atIndex index word)

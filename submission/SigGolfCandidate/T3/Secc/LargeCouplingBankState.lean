@@ -178,7 +178,7 @@ theorem psi_cert (q : Nat) (st : RouterState) (h : CertGhost st) : 1 ≤ psi q s
       change p.2 ∈ (st.births.map Prod.snd).reverse
       rw [List.mem_reverse]
       exact List.mem_map_of_mem hp
-theorem psi_initial (q : Nat) : psi q RouterState.initial ≤ (q : ENNReal) * (11324 / 100000000) / 2 ^ 128 := by
+theorem psi_initial (q : Nat) : psi q RouterState.initial ≤ (q : ENNReal) * (12400 / 100000000) / 2 ^ 128 := by
   have h0 : reuseC RouterState.initial = 0 := by
     unfold reuseC
     apply ENNReal.tsum_eq_zero.mpr

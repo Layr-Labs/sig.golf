@@ -1377,12 +1377,12 @@ set_option exponentiation.threshold 1024
 attribute [local instance low] Classical.propDecidable
 attribute [local irreducible] referenceGame offlineGame
 namespace SmallR
-noncomputable def classRate : ENNReal := 181 / 100
+noncomputable def classRate : ENNReal := 1858 / 1000
 theorem inv_one_sub_le (q : Nat) (hs : q ≤ SeccClosing.budgetSplit) :
-    (1 - (q : ENNReal) / 2 ^ 128)⁻¹ ≤ 8192 / 8191 := by
-  calc (1 - (q : ENNReal) / 2 ^ 128)⁻¹ ≤ (8191 / 8192 : ENNReal)⁻¹ :=
+    (1 - (q : ENNReal) / 2 ^ 128)⁻¹ ≤ 131072 / 131055 := by
+  calc (1 - (q : ENNReal) / 2 ^ 128)⁻¹ ≤ (131055 / 131072 : ENNReal)⁻¹ :=
         ENNReal.inv_le_inv.mpr (SeccClosing.one_sub_x_ge_of_small q hs)
-    _ = 8192 / 8191 := ENNReal.inv_div (Or.inl (by simp)) (Or.inl (by simp))
+    _ = 131072 / 131055 := ENNReal.inv_div (Or.inl (by simp)) (Or.inl (by simp))
 theorem prefixCoeff_le (q : Nat) (hs : q ≤ SeccClosing.budgetSplit) : prefixCoeff q ≤ classRate := by
   have hx := SeccClosing.x_le_of_small q hs
   have hu := inv_one_sub_le q hs
@@ -1391,10 +1391,10 @@ theorem prefixCoeff_le (q : Nat) (hs : q ≤ SeccClosing.budgetSplit) : prefixCo
   rw [div_eq_mul_inv _ (1 - x), div_eq_mul_inv _ ((1 - x) ^ 2), div_eq_mul_inv _ (1 - x), ENNReal.inv_pow]
   generalize (1 - x)⁻¹ = u at hu ⊢
   calc ((3 / 2 : ENNReal) + 4 * x + 2 * x ^ 2) * u + 4 * x * u ^ 2 + 2 * 57 * x * u
-      ≤ ((3 / 2 : ENNReal) + 4 * ((2:ENNReal)^13)⁻¹ + 2 * (((2:ENNReal)^13)⁻¹)^2) * (8192/8191) +
-          4 * ((2:ENNReal)^13)⁻¹ * (8192/8191)^2 + 2 * 57 * ((2:ENNReal)^13)⁻¹ * (8192/8191) := by
+      ≤ ((3 / 2 : ENNReal) + 4 * (17 / 131072 : ENNReal) + 2 * ((17 / 131072 : ENNReal))^2) * (131072/131055) +
+          4 * (17 / 131072 : ENNReal) * (131072/131055)^2 + 2 * 57 * (17 / 131072 : ENNReal) * (131072/131055) := by
         gcongr
-    _ ≤ 181 / 100 := by
+    _ ≤ 1858 / 1000 := by
         apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
         simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_div,
           ENNReal.toReal_inv, ENNReal.toReal_pow, ENNReal.toReal_ofNat]
@@ -1406,8 +1406,8 @@ theorem encodingCoeff_le (q : Nat) (hs : q ≤ SeccClosing.budgetSplit) : encodi
   generalize (q : ENNReal) / 2 ^ 128 = x at hx hu ⊢
   rw [div_eq_mul_inv _ (1 - x)]
   generalize (1 - x)⁻¹ = u at hu ⊢
-  calc (1 : ENNReal) + 2 * 3306 * x * u ≤ 1 + 2 * 3306 * ((2:ENNReal)^13)⁻¹ * (8192/8191) := by gcongr
-    _ ≤ 181 / 100 := by
+  calc (1 : ENNReal) + 2 * 3306 * x * u ≤ 1 + 2 * 3306 * (17 / 131072 : ENNReal) * (131072/131055) := by gcongr
+    _ ≤ 1858 / 1000 := by
         apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
         simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_div,
           ENNReal.toReal_inv, ENNReal.toReal_pow, ENNReal.toReal_ofNat, ENNReal.toReal_one]
@@ -1430,8 +1430,8 @@ theorem excess_le (q : Nat) :
   unfold signRatio
   push_cast
   simp only [div_eq_mul_inv]
-  calc (201 : ENNReal) * q * (11324 * 100000000⁻¹) * (2 ^ 128)⁻¹
-      = (201 * (11324 * 100000000⁻¹)) * (q * (2 ^ 128)⁻¹) := by ring
+  calc (201 : ENNReal) * q * (12400 * 100000000⁻¹) * (2 ^ 128)⁻¹
+      = (201 * (12400 * 100000000⁻¹)) * (q * (2 ^ 128)⁻¹) := by ring
     _ ≤ (1 * 40⁻¹) * (q * (2 ^ 128)⁻¹) := by
         gcongr ?_ * _
         apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
@@ -1453,10 +1453,10 @@ theorem nearTerm_le (q : Nat) (hs : q ≤ SeccClosing.budgetSplit) :
   generalize (q : ENNReal) / 2 ^ 128 = x at hg ⊢
   generalize (q : ENNReal) / ((2 ^ 128 - q : ℕ) : ENNReal) = g at hg ⊢
   calc g * ((404 + 21 * 201 * ((2 : ENNReal) ^ 25)⁻¹) * x + 21 * (2 : ENNReal)⁻¹ ^ 700)
-      ≤ (8192 / 8191 * x) * ((404 + 21 * 201 * ((2 : ENNReal) ^ 25)⁻¹) * x + 21 * (2 : ENNReal)⁻¹ ^ 700) := by
+      ≤ (131072 / 131055 * x) * ((404 + 21 * 201 * ((2 : ENNReal) ^ 25)⁻¹) * x + 21 * (2 : ENNReal)⁻¹ ^ 700) := by
         gcongr
-    _ = (8192 / 8191 * (404 + 21 * 201 * ((2 : ENNReal) ^ 25)⁻¹)) * x ^ 2 +
-          (8192 / 8191 * (21 * (2 : ENNReal)⁻¹ ^ 700)) * x := by ring
+    _ = (131072 / 131055 * (404 + 21 * 201 * ((2 : ENNReal) ^ 25)⁻¹)) * x ^ 2 +
+          (131072 / 131055 * (21 * (2 : ENNReal)⁻¹ ^ 700)) * x := by ring
     _ ≤ 405 * x ^ 2 + (1 / 1000) * x := by
         gcongr
         · apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
@@ -1479,8 +1479,8 @@ theorem pairTerm_le (q : Nat) (hs : q ≤ SeccClosing.budgetSplit) :
   calc (q.choose 2 : ENNReal) * ((2 ^ 128 - q : ℕ) : ENNReal)⁻¹ ^ 2
       ≤ ((q : ENNReal) * q) * ((2 ^ 128 - q : ℕ) : ENNReal)⁻¹ ^ 2 := by gcongr
     _ = ((q : ENNReal) / ((2 ^ 128 - q : ℕ) : ENNReal)) ^ 2 := by rw [div_eq_mul_inv]; ring
-    _ ≤ (8192 / 8191 * ((q : ENNReal) / 2 ^ 128)) ^ 2 := by gcongr
-    _ = (8192 / 8191 : ENNReal) ^ 2 * ((q : ENNReal) / 2 ^ 128) ^ 2 := mul_pow _ _ _
+    _ ≤ (131072 / 131055 * ((q : ENNReal) / 2 ^ 128)) ^ 2 := by gcongr
+    _ = (131072 / 131055 : ENNReal) ^ 2 * ((q : ENNReal) / 2 ^ 128) ^ 2 := mul_pow _ _ _
     _ ≤ 2 * ((q : ENNReal) / 2 ^ 128) ^ 2 := by
         gcongr
         apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
@@ -1763,8 +1763,8 @@ set_option linter.unusedSimpArgs false
 attribute [local instance low] Classical.propDecidable
 attribute [local irreducible] referenceGame offlineGame
 namespace SmallR
-theorem near_rate : (8192/8191 : ℚ) * (404 + 63 * 201 / 2 ^ 25) ≤ 405 := by norm_num
-theorem near_slack : 405 - (8192/8191 : ℚ) * (404 + 63 * 201 / 2 ^ 25) = 31882889 / 33550336 := by norm_num
+theorem near_rate : (131072/131055 : ℚ) * (404 + 63 * 201 / 2 ^ 25) ≤ 405 := by norm_num
+theorem near_slack : 405 - (131072/131055 : ℚ) * (404 + 63 * 201 / 2 ^ 25) = 31779209 / 33550080 := by norm_num
 theorem nearTerm_le (q : Nat) (hs : q ≤ SeccClosing.budgetSplit) :
     nearTerm q ≤ 405 * ((q : ENNReal) / 2 ^ 128) ^ 2 + (1 / 1000) * ((q : ENNReal) / 2 ^ 128) := by
   have hg := SeccClosing.div_sub_le_of_small q hs
@@ -1780,10 +1780,10 @@ theorem nearTerm_le (q : Nat) (hs : q ≤ SeccClosing.budgetSplit) :
   generalize (q : ENNReal) / 2 ^ 128 = x at hg ⊢
   generalize (q : ENNReal) / ((2 ^ 128 - q : ℕ) : ENNReal) = g at hg ⊢
   calc g * ((404 + 63 * 201 * ((2 : ENNReal) ^ 25)⁻¹) * x + 63 * (2 : ENNReal)⁻¹ ^ 700)
-      ≤ (8192 / 8191 * x) * ((404 + 63 * 201 * ((2 : ENNReal) ^ 25)⁻¹) * x + 63 * (2 : ENNReal)⁻¹ ^ 700) := by
+      ≤ (131072 / 131055 * x) * ((404 + 63 * 201 * ((2 : ENNReal) ^ 25)⁻¹) * x + 63 * (2 : ENNReal)⁻¹ ^ 700) := by
         gcongr
-    _ = (8192 / 8191 * (404 + 63 * 201 * ((2 : ENNReal) ^ 25)⁻¹)) * x ^ 2 +
-          (8192 / 8191 * (63 * (2 : ENNReal)⁻¹ ^ 700)) * x := by ring
+    _ = (131072 / 131055 * (404 + 63 * 201 * ((2 : ENNReal) ^ 25)⁻¹)) * x ^ 2 +
+          (131072 / 131055 * (63 * (2 : ENNReal)⁻¹ ^ 700)) * x := by ring
     _ ≤ 405 * x ^ 2 + (1 / 1000) * x := by
         gcongr
         · apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp

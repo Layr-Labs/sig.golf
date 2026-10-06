@@ -30,7 +30,7 @@ theorem card_capP : #{p : WProposal | capP p} = 2 ^ 31 * (128 ^ 9 * ClaudeWCT.Nu
   rw [h, card_product, ClaudeWCT.Numerics.N600Cap.card_capSet, card_univ, Fintype.card_fin]
 theorem acceptanceV4 :
     Pr[fun x : HashOutput => ClaudeWCT.WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      (2047 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 148 := by
+      (2056 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 148 := by
   rw [← expectedValue_ite_one, SigGolfCandidate.T3.BPORS.expected_uniform_eq_finiteAverage]
   unfold SigGolfResearch.Gate6.Moments.finiteAverage
   have hsum : (∑ x : HashOutput, if ClaudeWCT.WCT9.producerAdmissible x = true then (1 : ENNReal) else 0) =
@@ -54,7 +54,7 @@ theorem acceptanceV4_eq_p0 :
     Pr[fun x : HashOutput => ClaudeWCT.WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
       ENNReal.ofReal (BaseAudit.V4.p0 : ℝ) := by
   rw [acceptanceV4]
-  have hq : ((BaseAudit.V4.p0 : ℚ) : ℝ) = (2047 : ℝ) * 27 ^ 9 * (ClaudeWCT.Numerics.N600Cap.J : ℝ) / 2 ^ 148 := by
+  have hq : ((BaseAudit.V4.p0 : ℚ) : ℝ) = (2056 : ℝ) * 27 ^ 9 * (ClaudeWCT.Numerics.N600Cap.J : ℝ) / 2 ^ 148 := by
     simp only [BaseAudit.V4.p0, BaseAudit.V4.J, ClaudeWCT.Numerics.N600Cap.J]
     push_cast
     ring
@@ -280,7 +280,7 @@ theorem digest_failure_power :
   digest_failure_power_of_acceptance (BaseAudit.V4.p0 : ℝ)
     (by norm_num [BaseAudit.V4.p0, BaseAudit.V4.J]) (by norm_num [BaseAudit.V4.p0, BaseAudit.V4.J]) digest_probability_eq_p0
 theorem digest_failMass_eq :
-    failMass digestDecode = 1 - (2047 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 148 := by
+    failMass digestDecode = 1 - (2056 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 148 := by
   have h : (fun answer : HashOutput => (digestDecode answer).isSome = true) =
       fun x => ClaudeWCT.WCT9.producerAdmissible x = true := by
     funext x
@@ -288,7 +288,7 @@ theorem digest_failMass_eq :
     split <;> simp_all
   rw [failMass_eq_one_sub_accept, h, acceptanceV4]
 theorem digest_failure_explicit :
-    (1 - (2047 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 148) ^ (2 ^ 21) ≤
+    (1 - (2056 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 148) ^ (2 ^ 21) ≤
       1 / (2 : ENNReal) ^ 450 := by
   rw [← digest_failMass_eq]
   exact digest_failure_power
@@ -303,7 +303,7 @@ theorem digest_failure_power_1300 :
     digestAttemptLimit 1300
     (by have hl := Real.log_two_lt_d9
         change (1300 : ℝ) * Real.log 2 ≤ 2097152 * (BaseAudit.V4.p0 : ℝ)
-        have hp : (1 : ℝ) / 2305 ≤ (BaseAudit.V4.p0 : ℝ) := by norm_num [BaseAudit.V4.p0, BaseAudit.V4.J]
+        have hp : (1 : ℝ) / 2310 ≤ (BaseAudit.V4.p0 : ℝ) := by norm_num [BaseAudit.V4.p0, BaseAudit.V4.J]
         nlinarith)
   have hcast := ENNReal.ofReal_le_ofReal hreal
   simpa only [ofReal_inv_two_pow] using hcast
