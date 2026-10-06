@@ -34,7 +34,7 @@ def lvlTmpl (j l : Nat) : List (BitVec 32) :=
 def encLoad (rd rs imm : Nat) : BitVec 32 :=
   BitVec.ofNat 32 (imm * 2 ^ 20 + rs * 2 ^ 15 + 3 * 2 ^ 12 + rd * 2 ^ 7 + 3)
 def childTmpl (j : Nat) : List (BitVec 32) :=
-  [0x39642623, encI 12 8 (curO 0 j), 0x00000073, encI 11 0 64] ++ (List.range 6).flatMap (lvlTmpl j) ++
+  [0x38442623, encI 12 8 (curO 0 j), 0x00000073, encI 11 0 64] ++ (List.range 6).flatMap (lvlTmpl j) ++
     [encLoad 3 8 (if bitAt j 6 = 0 then 48 else 0),
      encLoad 14 8 (if bitAt j 6 = 0 then 56 else 8),
      encS 3 3 (16 * (1 - bitAt j 6)) 9, encS 3 14 (16 * (1 - bitAt j 6) + 8) 9,
@@ -160,7 +160,7 @@ structure ChildPre (j B k index : Nat) (leaf pads sibs : Nat → Digest) (u : Ma
   a0 : u.getReg .x10 = BitVec.ofNat 64 (B + leafO)
   a1 : u.getReg .x11 = BitVec.ofNat 64 128
   w0 : u.getReg .x27 = BitVec.ofNat 64 (w0n k index)
-  s6 : u.getReg .x22 = BitVec.ofNat 64 j
+  s6 : u.getReg .x4 = BitVec.ofNat 64 j
   heaps : ∀ h, 2 ≤ h → h ≤ 7 → u.getReg (heapReg h) = BitVec.ofNat 64 h
   leafAt : ∀ i, i < 8 → DigAt u (B + leafO + 16 * i) (leaf i)
   padAt : ∀ l, l < 6 → DigAt u (B + padO l) (pads l)
