@@ -1,3 +1,4 @@
+import SigGolfCandidate.T3M.Verify.Nonbinary.InlineChunkLengths
 import SigGolfCandidate.T3M.Images.Verify
 import SigGolfCandidate.T3M.Mem
 
@@ -18,9 +19,13 @@ theorem lChunks_foldl : Images.verifyCode = lChunks.foldl (· ++ ·) [] := by
 theorem lChunks_flatten : Images.verifyCode = lChunks.flatten := by
   rw [lChunks_foldl, foldl_append_flatten', List.nil_append]
 set_option maxRecDepth 200000 in
-theorem lChunks_ok : (lChunks.dropLast.all fun c => c.length == 256) = true := by decide +kernel
+theorem lChunks_ok : (lChunks.dropLast.all fun c => c.length == 256) = true := by
+  change (Images.InlineBlueprint.originalChunks.dropLast.all fun c => c.length == 256) = true
+  exact Nonbinary.InlineChunkLengths.originalChunks_ok
 set_option maxRecDepth 200000 in
-theorem lChunks_le : (lChunks.all fun c => decide (c.length ≤ 256)) = true := by decide +kernel
+theorem lChunks_le : (lChunks.all fun c => decide (c.length ≤ 256)) = true := by
+  change (Images.InlineBlueprint.originalChunks.all fun c => decide (c.length ≤ 256)) = true
+  exact Nonbinary.InlineChunkLengths.originalChunks_le
 set_option maxRecDepth 200000 in
 theorem lChunks_length : lChunks.length = 985 := by decide +kernel
 theorem drop_chunks' : ∀ (cs : List (List (BitVec 32))) (k : Nat),

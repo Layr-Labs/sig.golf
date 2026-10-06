@@ -913,18 +913,18 @@ set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 def gJumpWords : List (BitVec 32) := [0xc0006f]
 def gCheckWords : List (BitVec 32) :=
-  [0x2181b13,0x7803883,0x2a8d193,0x7ff1b393,0x2039863]
+  [0x2181b13,0x7803883,0x2d8d193,0x1011b393,0x2039863]
 def gSetupWords : List (BitVec 32) :=
   [0x21b5b13,0x1bb1793,0x10337,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x20b1e13,0x84190413,0x10813d83,0x11013e83,0x11813c03,0xffc30113]
 def gRejectWords : List (BitVec 32) := [1049235,1049875,115]
 def gateE : E := .bin .sltu
   (.bin .srl (.ld (.c (BitVec.ofNat 64 120)))
-    (.c (BitVec.ofNat 64 42))) (.c (BitVec.ofNat 64 2047))
+    (.c (BitVec.ofNat 64 45))) (.c (BitVec.ofNat 64 257))
 def idxE : E := .bin .srl (.reg .x22) (.c (BitVec.ofNat 64 33))
 def gJump : Result := ⟨SymState.init, .c (pcOf 24), .jump, 1, 1⟩
 def gCheck : Result :=
   ⟨⟨(((RegFile.init.set .x3
-    (.bin .srl (.ld (.c (BitVec.ofNat 64 120))) (.c 42))).set .x7 gateE).set
+    (.bin .srl (.ld (.c (BitVec.ofNat 64 120))) (.c 45))).set .x7 gateE).set
     .x17 (.ld (.c (BitVec.ofNat 64 120)))).set
     .x22 (.bin .sll (.reg .x16) (.c (BitVec.ofNat 64 33))), [], []⟩,
     .ite .ne gateE (.c 0) (.c (pcOf 32)) (.c (pcOf 21)), .branch, 5, 5⟩
@@ -981,7 +981,7 @@ theorem glob_congr {w : WBytes} {pk : Digest} {s t : MachineState} (h : Glob bas
   · show (t.getMem _).toNat / 2 ^ 32 = 0
     rw [e]; exact h4
 theorem digest_gate_val (a : BitVec 256) :
-    (a.extractLsb' 192 64 >>> 42).toNat = a.toNat / 2 ^ 234 % 2 ^ 22 := by
+    (a.extractLsb' 192 64 >>> 45).toNat = (a.toNat / 2 ^ 234 % 2 ^ 22) / 8 := by
   rw [BitVec.toNat_ushiftRight, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
   omega
 theorem idx_val (x : Word) :
@@ -998,11 +998,14 @@ theorem idxE_eval (s : MachineState) :
     idxE.eval s = s.getReg .x22 >>> 33 := rfl
 theorem gateE_eval (s : MachineState) (a : BitVec 256)
     (hw : s.getMem (BitVec.ofNat 64 120) = a.extractLsb' 192 64) :
-    gateE.eval s = if decide (a.toNat / 2 ^ 234 % 2 ^ 22 < 2047) then 1 else 0 := by
-  change (if BitVec.ult (s.getMem (BitVec.ofNat 64 120) >>> 42)
-    (BitVec.ofNat 64 2047) then (1 : BitVec 64) else 0) = _
+    gateE.eval s = if decide (a.toNat / 2 ^ 234 % 2 ^ 22 < 2056) then 1 else 0 := by
+  change (if BitVec.ult (s.getMem (BitVec.ofNat 64 120) >>> 45)
+    (BitVec.ofNat 64 257) then (1 : BitVec 64) else 0) = _
   rw [hw]
   simp only [BitVec.ult, digest_gate_val, BitVec.toNat_ofNat]
+  have he : (a.toNat / 2 ^ 234 % 2 ^ 22) / 8 < 257 ↔
+      a.toNat / 2 ^ 234 % 2 ^ 22 < 2056 := by omega
+  simp only [he]
 theorem word0_toNat (a : HashOutput) : (a.extractLsb' 0 64).toNat = a.toNat % 2 ^ 64 := by
   rw [BitVec.extractLsb'_toNat, Nat.shiftRight_zero]
 theorem index_eq (a : HashOutput) : (a.extractLsb' 0 64).toNat % 2 ^ 31 = idxOf a := by

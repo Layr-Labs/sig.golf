@@ -1,3 +1,4 @@
+import SigGolfCandidate.T3M.Verify.Nonbinary.InlineChunkLengths
 import SigGolfCandidate.T3M.Verify.Exec
 import SigGolfCandidate.T3M.Images.Verify
 
@@ -87,7 +88,9 @@ theorem lookup_chunks {α : Type} (B : Nat) (hB : 0 < B) : ∀ (cs : List (List 
         rw [List.getElem?_append_right (by omega), hlen]
         simpa using this
 set_option maxRecDepth 100000 in
-theorem vChunks_ok : (vChunks.dropLast.all fun c => c.length == 256) = true := by decide +kernel
+theorem vChunks_ok : (vChunks.dropLast.all fun c => c.length == 256) = true := by
+  change (Images.InlineBlueprint.originalChunks.dropLast.all fun c => c.length == 256) = true
+  exact SigGolfCandidate.T3M.Nonbinary.InlineChunkLengths.originalChunks_ok
 set_option maxRecDepth 100000 in
 theorem vSup_ok : (vSup.dropLast.all fun c => c.length == 32) = true := by decide +kernel
 set_option maxRecDepth 100000 in
@@ -168,7 +171,9 @@ theorem codeFrom_eq (i : Nat) (hi : i / 256 < 985) : codeFrom i = Images.verifyC
   congr 1
   omega
 set_option maxRecDepth 100000 in
-theorem vChunks_le : (vChunks.all fun c => decide (c.length ≤ 256)) = true := by decide +kernel
+theorem vChunks_le : (vChunks.all fun c => decide (c.length ≤ 256)) = true := by
+  change (Images.InlineBlueprint.originalChunks.all fun c => decide (c.length ≤ 256)) = true
+  exact SigGolfCandidate.T3M.Nonbinary.InlineChunkLengths.originalChunks_le
 theorem flatten_len_le : ∀ (cs : List (List (BitVec 32))),
     (cs.all fun c => decide (c.length ≤ 256)) = true → cs.flatten.length ≤ 256 * cs.length
   | [], _ => by simp

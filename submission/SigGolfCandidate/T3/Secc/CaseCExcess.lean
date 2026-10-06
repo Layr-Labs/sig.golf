@@ -11,7 +11,7 @@ theorem theta_excess_le_square (value mean : ENNReal) (hvalue : value ≠ ⊤) (
   SigGolfResearch.Gate6.Excess.theta_excess_le_square value mean hvalue hmean
 theorem excess_three_quarters :
     uniformWordAverage BPORS.Numeric.proposalLength (fun W => BPORS.History.fullPrice W-63/64) ≤
-      11324/100000000 :=
+      12500/100000000 :=
   fullPrice_excess_of_pointwise (63/64) theta_excess_le_square
 end SigGolfCandidate.T3.BPORS.History
 #print axioms SigGolfCandidate.T3.BPORS.History.theta_excess_le_square
@@ -26,7 +26,7 @@ theorem theta_excess_le_square (value mean : ENNReal) (hvalue : value ≠ ⊤) (
   BPORS.History.theta_excess_le_square value mean hvalue hmean
 theorem excess_three_quarters :
     uniformWordAverage BPORS.Numeric.proposalLength (fun W => BPORS.History.fullPrice W - theta) ≤
-      11324 / 100000000 := by
+      12500 / 100000000 := by
   simpa only [theta] using BPORS.History.excess_three_quarters
 end SigGolfCandidate.T3.Security.CaseC
 end

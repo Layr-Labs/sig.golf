@@ -1181,7 +1181,7 @@ noncomputable def bporsSpec : FtsBankSpec BPORS.History.Proposal where
   price := BPORS.History.fullPrice
   average_score := CaseC.average_score
   horizon := BPORS.Numeric.proposalLength
-  excessRate := 11324 / 100000000
+  excessRate := 12500 / 100000000
   excess_le := (ClaudeWCT.Numerics.Law.lawAvg_uniform _ _).le.trans CaseC.excess_three_quarters
 theorem bpors_decode : bporsSpec.decode = Sampling.digestDecode := rfl
 theorem bpors_acceptance : bporsSpec.acceptance = acceptanceProbability := Sampling.digest_acceptanceProbability
@@ -1267,7 +1267,7 @@ theorem t3_core_birth (b : CaseC.BankCore) (s : Nat) (hs : b.slack = s + 1) (C' 
   simp only [bpors_corePotential] at h
   exact h
 theorem t3_core_initial (budget : Nat) :
-    CaseC.corePotential ⟨[], [], false, 0, budget⟩ ≤ (budget : ENNReal) * (11324 / 100000000) / 2 ^ 128 := by
+    CaseC.corePotential ⟨[], [], false, 0, budget⟩ ≤ (budget : ENNReal) * (12500 / 100000000) / 2 ^ 128 := by
   have h := bporsSpec.core_initial budget
   rw [bpors_corePotential] at h
   exact h
@@ -1371,7 +1371,7 @@ theorem t3_bank_potential_le (adversary : SigGolfCandidate.T3M.Final.AdversaryP)
     expectedValue (bporsSpec.bankExperiment payloadAfterDigest (CreationGame.rest adversary) budget)
         (fun r => bporsSpec.potential budget r.2) ≤
       (CaseC.theta + 1 / 64) / 2 ^ 128 * CreationGame.expectedBirths CaseC.IsDigestInput adversary budget hbudget +
-        (budget : ENNReal) * (11324 / 100000000) / 2 ^ 128 := by
+        (budget : ENNReal) * (12500 / 100000000) / 2 ^ 128 := by
   rw [← bpors_expectedBirths adversary budget hbudget]
   exact bporsSpec.bank_potential_le payloadAfterDigest bpors_payNotDigest bpors_payAvoids
     (CreationGame.rest adversary) budget
