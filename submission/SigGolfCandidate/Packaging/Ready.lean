@@ -24,7 +24,7 @@ theorem goodQ_frozen {s : MachineState} {N C A : Nat} {Q : Prop} {X : OracleComp
     W9Machine.GoodQFor W9Machine.Frozen.image s N C Q A X ↔ GoodQ s N C Q A X := by
   rw [W9Machine.Frozen.image_eq]; rfl
 theorem fts_x5 : FtsGoodByCost W9Drv.GatePre FtsOutV
-    (ftsAcceptCost 1117 ClaudeWCT.WCT9.field ClaudeWCT.WCT9.routineCost) := by
+    (ftsAcceptCost 1109 ClaudeWCT.WCT9.field ClaudeWCT.WCT9.routineCost) := by
   intro pk w a u N C A Q K hu hK hnext
   have h := W9Drv.fts_good W9Machine.Chain.allGood pk w a u N C A Q K hu hK
     (fun root t ht => goodQ_frozen.mpr (hnext root t ht))
@@ -73,7 +73,7 @@ section
 namespace SigGolfCandidate.Packaging
 open ClaudeWCT.W9.Machine.ExpandLink (I0)
 theorem certificate_ready :
-    SigGolf.Certificate (SigGolfCandidate.Transfer.currentOf SigGolfCandidate.T3M.submission) 7490 :=
+    SigGolf.Certificate (SigGolfCandidate.Transfer.currentOf SigGolfCandidate.T3M.submission) 7481 :=
   ClaudeWCT.W9.Final.certificate_of_pending (I := I0)
     { large_route := ClaudeWCT.W9.T3.Security.LargeCoupling.large_route_hlarge
       pair_bound := ClaudeWCT.W9.T3.Security.WPair.pair_guess_bound
