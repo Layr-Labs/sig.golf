@@ -40,7 +40,7 @@ def layK (lay : Nat) : List (Reg × Word) :=
     (.x9, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x11, 64),
     (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x30, 7), (.x8, BitVec.ofNat 64 0x400000),
     (.x1, BitVec.ofNat 64 TOPBASE)] ++
-    (if lay = 3 then [] else [(.x15, BitVec.ofNat 64 0x40000)])
+    (if lay = 3 then [] else if lay = 0 then [(.x15, BitVec.ofNat 64 4096)] else [(.x15, BitVec.ofNat 64 0x40000)])
 def chainK (lay : Nat) : List (Reg × Word) :=
   baseK ++ [(.x27, BitVec.ofNat 64 (hw 4 lay)), (.x6, 0x10000), (.x2, 0x3fe00),
     (.x9, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x11, 64),
