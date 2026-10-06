@@ -148,12 +148,12 @@ structure TopEntry (u : MachineState) (v : Digest) (p : Nat) (s : MachineState) 
   «prefix» : s.getReg .x28 = Nonbinary.topPrefixWord (u.getReg .x4)
   regs : RegsExcept u s topEntryRegs
   frame : Frame u s (fun _ => False)
-theorem prefix_slots : (List.range 128).all (fun c => Nonbinary.prefixCode.isPrefixOf (codeFrom (trPc 0 c + 10))) = true := by
+theorem prefix_slots : (List.range 128).all (fun c => Nonbinary.prefixCode.isPrefixOf (codeFrom (trPc 0 c + 9))) = true := by
   decide +kernel
-theorem prefix_at (c : Nat) (hc : c < 128) : CodeAt image (pcOf (trPc 0 c + 10)) Nonbinary.prefixCode := by
+theorem prefix_at (c : Nat) (hc : c < 128) : CodeAt image (pcOf (trPc 0 c + 9)) Nonbinary.prefixCode := by
   have hp := trPc_lt 0 c
-  have h := codeAt_from (trPc 0 c + 10) (by omega)
-  have hpre : Nonbinary.prefixCode <+: codeFrom (trPc 0 c + 10) :=
+  have h := codeAt_from (trPc 0 c + 9) (by omega)
+  have hpre : Nonbinary.prefixCode <+: codeFrom (trPc 0 c + 9) :=
     List.isPrefixOf_iff_prefix.mp (List.all_eq_true.mp prefix_slots c (List.mem_range.mpr hc))
   refine ⟨?_, ?_, ?_, hpre.trans h.2.2.2⟩
   · unfold pcOf; simp only [BitVec.toNat_ofNat]; omega
@@ -165,10 +165,10 @@ theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
       TopEntry (writeHash t a) (a.extractLsb' 0 128) (trPc 0 c) s := by
   obtain ⟨d, h12, hd⟩ := ht.dst0 rfl
   have hk : KnownOK (BC.bK 0) (writeHash t a) := fun p hp => by rw [writeHash_getReg]; exact ht.glob.1 p hp
-  have hpc : (writeHash t a).pc = pcOf (trPc 0 c + 10) := by
+  have hpc : (writeHash t a).pc = pcOf (trPc 0 c + 9) := by
     rw [writeHash_pc, ht.pc]
-    change pcOf (trPc 0 c + 9) + 4 = pcOf (trPc 0 c + 10)
-    simpa only [Nat.add_assoc] using pcOf_add4 (trPc 0 c + 9)
+    change pcOf (trPc 0 c + 8) + 4 = pcOf (trPc 0 c + 9)
+    simpa only [Nat.add_assoc] using pcOf_add4 (trPc 0 c + 8)
   have hglob := Glob_writeHash ht.glob a d h12 (by rcases hd with rfl | rfl <;> decide)
   have hv := DigAt.writeHash_lo t a d h12 (by omega)
   have h12s : (writeHash t a).getReg .x12 = BitVec.ofNat 64 d := by rw [writeHash_getReg]; exact h12
@@ -179,7 +179,7 @@ theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
   have hmem := hD.prefix 0 (by decide)
   have hmask : (writeHash t a).getMem 0xffbff8#64 = 130048#64 := hD.mask
   obtain ⟨z, ez, pz, lo, hi, tl, s3, mask, tab, px, rz, fz⟩ :=
-    Verify.Nonbinary.prefix_spec _ _ d (trPc 0 c + 10) hpc (prefix_at c (by have := BC.nCopy_eq; omega)) h12s
+    Verify.Nonbinary.prefix_spec _ _ d (trPc 0 c + 9) hpc (prefix_at c (by have := BC.nCopy_eq; omega)) h12s
       (by rcases hd with rfl | rfl <;> decide) hv hra hmask h10 (by simpa [HDATA] using hmem)
   refine ⟨z, ez, ⟨pz, ?_, lo, hi, tl, s3, mask, tab, px, ?_, fz⟩⟩
   · rw [rz.get (by decide), hra]
