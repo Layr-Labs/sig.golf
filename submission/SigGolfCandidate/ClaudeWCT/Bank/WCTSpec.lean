@@ -66,7 +66,8 @@ def AcceptedProposalUniform : Prop :=
 def AcceptanceBound : Prop :=
   Pr[fun x : HashOutput => WCT9.admissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 1 / 64
 abbrev Coords := Coord → Child × Rank
-def capOkC (c : Coords) : Bool := decide ((∑ k, WCT9.routineCost (c k).2) ≤ WCT9.jointCap)
+def capOkC (c : Coords) : Bool :=
+  decide ((∑ k, (WCT9.routineCost (c k).2 + WCT9.childExtra (c k).1)) ≤ WCT9.jointCap)
 noncomputable def capSet : Finset Coords := Finset.univ.filter fun c => capOkC c = true
 noncomputable def honestCoordLaw (c : Coords) : ENNReal :=
   if capOkC c = true then (capSet.card : ENNReal)⁻¹ else 0

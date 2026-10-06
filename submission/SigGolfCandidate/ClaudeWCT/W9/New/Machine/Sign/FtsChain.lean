@@ -84,7 +84,7 @@ theorem step_SK (hcode : NewCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 111
     rcases hp with rfl | rfl | rfl | rfl <;> simp only [mwc, PRIVW, BitVec.toNat_ofNat] <;> decide
 def fk (c : Nat) : Nat := if fhas c then 13 else 12
 theorem fsrcE_eq (c : Nat) : fsrcE c = SearchM.grpE c := rfl
-theorem fieldE_eq (c : Nat) : fieldE c = SearchM.fieldE c := rfl
+theorem fieldE_eq (c : Nat) : fieldE c = SearchM.fieldEOld c := rfl
 theorem fchildE_eq (c : Nat) : fchildE c = SearchM.childE c := rfl
 theorem childE_eval (s : MachineState) (N : BitVec 256) (hN : OutAt s NBUF N) (c : Nat) (hc : c < 9) :
     (fchildE c).eval s = BitVec.ofNat 64 (N.toNat / 2 ^ WCT9.childBase c % 128) := by
@@ -100,7 +100,7 @@ theorem step_F (hcode : NewCodeAt im) {c : Nat} (hc : c < 9) (s : MachineState) 
   · rw [pres_getReg]; exact childE_eval s N hN c hc
   · rw [pres_getReg]
     show BinOp.eval .add (BinOp.eval .sll ((fieldE c).eval s) (BitVec.ofNat 64 2)) (BitVec.ofNat 64 TBL) = _
-    rw [fieldE_eq, SearchM.fieldE_eval s N hN c hc, binop_sll _ _ (by norm_num), ofNat_shl]
+    rw [fieldE_eq, SearchM.fieldEOld_eval s N hN c hc, binop_sll _ _ (by norm_num), ofNat_shl]
     simp only [BinOp.eval, ofNat_add_ofNat]
     congr 1; ring
 theorem step_Z (hcode : NewCodeAt im) {c : Nat} (hc : c < 9) (s : MachineState) (hpc : s.pc = pcOf (lwuI c + 1)) :
