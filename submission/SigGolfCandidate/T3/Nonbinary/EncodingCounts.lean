@@ -32,11 +32,9 @@ theorem decodeFields_replicate (k w n : Nat) :
       intro i _
       simp [Nat.div_div_eq_div_mul,Nat.mul_succ,Nat.pow_add,Nat.mul_comm]
 theorem decodeFields_fields (lay : Layer) (value : Digest) (hl : lay≠0) :
-    decodeFields (fields lay) value.toNat = dataDigits lay value := by
-  simp only [fields,hl,ite_false,decodeFields_replicate,dataDigits,dataCount]
-  apply List.map_congr_left
-  intro i _
-  simp [coreDigit,hl]
+    decodeFields (fields lay) (lowerWord value) = dataDigits lay value := by
+  simp only [fields,hl,ite_false,decodeFields_replicate,dataDigits_lowerWord hl]
+  rfl
 def wordSum (widths : List Nat) (n : Nat) : Nat := (decodeFields widths n).sum
 def wordPoly (widths : List Nat) : Polynomial Nat :=
   ∑ n : Fin (2^usedBits widths), X^(wordSum widths n.val)
@@ -83,16 +81,17 @@ def AcceptSum (lay : Layer) (total : Nat) : Prop :=
   if lay=0 then total=129 else if lay=3 then 191≤total ∧ total<199 else 190≤total ∧ total<198
 instance (lay : Layer) (total : Nat) : Decidable (AcceptSum lay total) :=
   inferInstanceAs (Decidable (if lay=0 then total=129 else if lay=3 then 191≤total ∧ total<199 else 190≤total ∧ total<198))
-theorem usedBits_fields (lay : Layer) : usedBits (fields lay)=encodedBits lay := by
+def wordBits (lay : Layer) : Nat := if lay=0 then 125 else 126
+theorem usedBits_fields (lay : Layer) : usedBits (fields lay)=wordBits lay := by
   fin_cases lay <;> decide
 def packWord (lay : Layer) (n : Fin (2^usedBits (fields lay))) : Digest :=
-  BitVec.ofNat 128 n.val
-theorem word_lt128 (lay : Layer) (n : Fin (2^usedBits (fields lay))) : n.val<2^128 := by
-  have h : n.val<2^encodedBits lay := by simpa only [usedBits_fields] using n.isLt
-  exact h.trans_le (Nat.pow_le_pow_right (by decide : 1≤2) (Nat.le_of_lt (encodedBits_lt lay)))
-@[simp] theorem packWord_toNat (lay : Layer) (n : Fin (2^usedBits (fields lay))) :
-    (packWord lay n).toNat=n.val := by
-  simp only [packWord,BitVec.toNat_ofNat,Nat.mod_eq_of_lt (word_lt128 lay n)]
+  lowerPack n.val
+theorem word_lt126 (lay : Layer) (hl : lay≠0) (n : Fin (2^usedBits (fields lay))) : n.val<2^126 :=
+  calc n.val<2^usedBits (fields lay) := n.isLt
+    _ = 2^126 := by rw [usedBits_fields,wordBits,if_neg hl]
+@[simp] theorem packWord_word (lay : Layer) (hl : lay≠0) (n : Fin (2^usedBits (fields lay))) :
+    lowerWord (packWord lay n)=n.val :=
+  lowerWord_lowerPack (word_lt126 lay hl n)
 def q4 (y : Nat) : Nat := 1+y+y^2+y^3
 def q8 (y : Nat) : Nat := 1+y+y^2+y^3+y^4+y^5+y^6+y^7
 def radix : Nat := 2^136
@@ -122,7 +121,7 @@ theorem lower_weighted (lay : Layer) (hl : lay≠0) :
 theorem word_card_small (lay : Layer) :
     Fintype.card (Fin (2^usedBits (fields lay)))<radix-1 := by
   rw [Fintype.card_fin,usedBits_fields]
-  fin_cases lay <;> norm_num [encodedBits,radix]
+  fin_cases lay <;> norm_num [wordBits,radix]
 theorem interval_card {α : Type} [Fintype α] [DecidableEq α] (f : α → Nat)
     (lo hi : Nat) (h : lo≤hi) :
     (Finset.univ.filter (fun a => lo≤f a ∧ f a<hi)).card =
@@ -177,33 +176,42 @@ theorem accepted_words_count (lay : Layer) :
     rw [lower_weighted 3 (by decide),lower_last_exact] at h
     simpa [AcceptSum] using h
 theorem decode_isSome_iff (lay : Layer) (value : Digest) (hl : lay≠0) :
-    (decode lay value).isSome ↔ value.toNat<2^encodedBits lay ∧
-      AcceptSum lay (wordSum (fields lay) value.toNat) := by
+    (decode lay value).isSome ↔ lowerSpare value ∧
+      AcceptSum lay (wordSum (fields lay) (lowerWord value)) := by
   rw [wordSum,decodeFields_fields lay value hl]
-  fin_cases lay <;> dsimp only at * <;> try contradiction
-  all_goals
-    simp only [decode] <;> split_ifs <;>
-    simp_all [AcceptSum,target] <;> omega
+  have hb : ¬ value.toNat ≥ 2^encodedBits lay := by
+    simp only [encodedBits,hl,if_false]; have := value.isLt; omega
+  have hs : (decode lay value).isSome ↔ lowerSpare value ∧
+      (dataDigits lay value).sum ≤ target lay ∧ target lay - (dataDigits lay value).sum < 8 := by
+    unfold decode
+    rw [if_neg hb]
+    simp only [hl,if_false]
+    split_ifs with h <;> simp [h]
+  rw [hs]
+  apply and_congr_right
+  intro _
+  generalize (dataDigits lay value).sum = t
+  fin_cases lay
+  · exact absurd rfl hl
+  all_goals simp only [AcceptSum,target] <;> constructor <;> intro h <;> simp_all <;> omega
 theorem packWord_acceptance (lay : Layer) (n : Fin (2^usedBits (fields lay))) (hl : lay≠0) :
     (decode lay (packWord lay n)).isSome ↔ AcceptSum lay (wordSum (fields lay) n.val) := by
-  rw [decode_isSome_iff lay _ hl,packWord_toNat]
-  have h : n.val<2^encodedBits lay := by simpa only [usedBits_fields] using n.isLt
-  simp only [h,true_and]
+  rw [decode_isSome_iff lay _ hl,packWord_word lay hl]
+  simp only [packWord,lowerSpare_lowerPack,true_and]
 def acceptedDigestEquiv (lay : Layer) (hl : lay≠0) :
     {value : Digest // (decode lay value).isSome} ≃
       {n : Fin (2^usedBits (fields lay)) // AcceptSum lay (wordSum (fields lay) n.val)} where
   toFun value :=
-    ⟨⟨value.val.toNat,by rw [usedBits_fields];exact ((decode_isSome_iff lay value.val hl).mp value.property).1⟩,
+    ⟨⟨lowerWord value.val,by rw [usedBits_fields,wordBits,if_neg hl];exact lowerWord_lt value.val⟩,
       ((decode_isSome_iff lay value.val hl).mp value.property).2⟩
   invFun n := ⟨packWord lay n.val,(packWord_acceptance lay n.val hl).mpr n.property⟩
   left_inv value := by
     apply Subtype.ext
-    apply BitVec.eq_of_toNat_eq
-    exact packWord_toNat lay _
+    exact lowerPack_lowerWord ((decode_isSome_iff lay value.val hl).mp value.property).1
   right_inv n := by
     apply Subtype.ext
     apply Fin.ext
-    exact packWord_toNat lay _
+    exact packWord_word lay hl _
 def acceptedCount (lay : Layer) : Nat :=
   ![99688341888453976199567696916972594,
     143468572474466315422327516384120300,

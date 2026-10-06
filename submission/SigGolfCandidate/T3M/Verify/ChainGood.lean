@@ -47,19 +47,16 @@ theorem chk_copyJ (c : LCtx) (i : Nat) (hi : i < 42) (h0 : i % 3 = 0) (hd : c.di
     unfold endPc tB; rw [if_neg (by omega), if_pos h0, et]
   rw [hs, hq]
   exact rOK_eq he
-theorem ck_parts (k : Nat) (hk : k < 8) :
-    partOK 42 k (ckSlot k) = true ∧ vrun (ckSlot k + partLen k) 2 = some retR := by
+theorem ck_parts (k : Nat) (hk : k < 8) : partOK 42 k (ckSlot k) = true := by
   have h := ckCheck_ok
   unfold ckCheck at h
-  have hk' := List.all_eq_true.mp h k (List.mem_range.mpr hk)
-  rw [Bool.and_eq_true] at hk'
-  exact ⟨hk'.1, rOK_eq hk'.2⟩
+  exact List.all_eq_true.mp h k (List.mem_range.mpr hk)
 theorem part_at (c : LCtx) (i : Nat) (hi : i ≤ 42) (hnl : i % 3 ≠ 0 ∨ i = 42) (hck : i = 42 → c.ck < 8) :
     partOK i (c.dig i) (c.startPc i) = true := by
   by_cases h42 : i = 42
   · subst h42
     have hs : c.startPc 42 = ckSlot c.ck := by unfold startPc; simp
-    rw [hs, c.dig42]; exact (ck_parts c.ck (hck rfl)).1
+    rw [hs, c.dig42]; exact ck_parts c.ck (hck rfl)
   have h0 : i % 3 ≠ 0 := by omega
   obtain ⟨t, r, rfl, hr⟩ : ∃ t r, i = 3 * t + r ∧ r < 3 := ⟨i / 3, i % 3, by omega, by omega⟩
   have et : (3 * t + r) / 3 = t := by omega
@@ -148,15 +145,15 @@ theorem chainInputP_pad (lay : Layer) (tree leaf i step : Nat) (p0 p1 : Digest) 
 theorem chainInputP_blocks (lay : Layer) (tree leaf i step : Nat) (p0 p1 : Digest) (headerPad : Word) (v : Digest) :
     (toQ (chainInputP lay tree leaf i step p0 p1 headerPad v)).blocks = 1 := by
   rw [blocks_toQ ⟨by rw [chainInputP_length]; omega, by rw [chainInputP_length]⟩, chainInputP_length]
-theorem triBaseTab_all : (triBaseTab.all fun x => decide (x < 82100)) = true := by decide +kernel
-theorem triBase_lt (t dB dC : Nat) : triBase t dB dC < 82100 := by
+theorem triBaseTab_all : (triBaseTab.all fun x => decide (x < 200000)) = true := by decide +kernel
+theorem triBase_lt (t dB dC : Nat) : triBase t dB dC < 200000 := by
   unfold triBase
   rw [List.getD_eq_getElem?_getD]
   cases hn : triBaseTab[64 * t + 8 * dB + dC]? with
   | none => simp
   | some x => simpa using List.all_eq_true.mp triBaseTab_all x (List.mem_of_getElem? hn)
 theorem partLen_le (d : Nat) : partLen d ≤ 20 := by unfold partLen; split_ifs <;> omega
-theorem tX_lt (c : LCtx) (i : Nat) : c.tX i < 82200 := by
+theorem tX_lt (c : LCtx) (i : Nat) : c.tX i < 200100 := by
   have := triBase_lt (i / 3) (c.dig (3 * (i / 3) + 1)) (c.dig (3 * (i / 3) + 2))
   have := partLen_le (c.dig (3 * (i / 3) + 1)); have := partLen_le (c.dig (3 * (i / 3) + 2))
   unfold tX pcX pcC pcB; omega
@@ -181,7 +178,8 @@ theorem rungPc_lt (c : LCtx) (i m : Nat) (hm : m ≤ 6) (hck : c.ck ≤ 8) : c.r
   omega
 def ChainNext (c : LCtx) (s0 : MachineState) (j : Nat) (acc : List Digest) (s : MachineState) : Prop :=
   if j ≤ 42 then c.ChainIn s0 j acc s else c.ChainOut s0 43 acc s
-def xCost (i : Nat) : Nat := if i = 42 then 1 else if i % 3 = 2 then (if i = 41 ∨ i = 2 ∨ i = 23 then 3 else 4) else 0
+def xCost (i : Nat) : Nat :=
+  if i = 42 then 0 else if i % 3 = 2 then (if i = 41 ∨ i = 2 ∨ i = 23 ∨ i = 17 ∨ i = 38 then 3 else 4) else 0
 theorem xCost_le (i : Nat) : xCost i ≤ 4 := by unfold xCost; split_ifs <;> omega
 theorem end_next (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2) (i : Nat)
     (hi : c.i0 ≤ i ∧ i ≤ 42) (hck : i = 42 → c.ck < 8) (acc : List Digest) (s : MachineState)
@@ -189,12 +187,9 @@ theorem end_next (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.kn
     ∃ u, Steps vimage s (xCost i) (xCost i) u ∧ c.ChainNext s0 (i + 1) acc u := by
   by_cases h42 : i = 42
   · subst h42
-    have hret : vrun (c.endPc 42) 2 = some retR := by
-      have hq : c.endPc 42 = ckSlot c.ck + partLen c.ck := by unfold endPc; simp
-      rw [hq]; exact (ck_parts c.ck (hck rfl)).2
-    obtain ⟨u, hst, hu⟩ := c.ckdone_step hc hk hret acc s hs
-    refine ⟨u, by simpa [xCost] using hst, ?_⟩
-    unfold ChainNext; rw [if_neg (by omega)]; exact hu
+    refine ⟨s, by simpa [xCost] using Steps.refl s, ?_⟩
+    unfold ChainNext; rw [if_neg (by omega)]
+    exact c.ckend_out hc acc s hs
   · by_cases h2 : i % 3 = 2
     · by_cases h41 : i = 41
       · subst h41
@@ -212,12 +207,24 @@ theorem end_next (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.kn
         unfold blkCheck xOK at hx
         simp only [Bool.and_eq_true] at hx
         rw [if_neg (by omega)] at hx
+        by_cases hbf : t = 5 ∨ t = 12
+        · rw [if_pos hbf] at hx
+          have hrun := rOK_eq hx.2
+          have htx : c.tX (3 * t + 2) = pcX t (c.dig (3 * t + 1)) (c.dig (3 * t + 2)) := by
+            unfold tX; rw [show (3 * t + 2) / 3 = t by omega]
+          rw [← htx] at hrun
+          obtain ⟨u, hst, hu⟩ := c.xbf_step hc hk t hbf hi.1 (by have := c.tX_lt (3 * t + 2); omega) hrun acc s hs
+          have hx3 : xCost (3 * t + 2) = 3 := by unfold xCost; split_ifs <;> omega
+          refine ⟨u, by rw [hx3]; exact hst, ?_⟩
+          unfold ChainNext; rw [if_pos (by omega), show 3 * t + 2 + 1 = 3 * t + 3 by ring]; exact hu
+        rw [if_neg hbf] at hx
         have hrun := rOK_eq hx.2
         have htx : c.tX (3 * t + 2) = pcX t (c.dig (3 * t + 1)) (c.dig (3 * t + 2)) := by
           unfold tX; rw [show (3 * t + 2) / 3 = t by omega]
         rw [← htx] at hrun
         obtain ⟨u, hst, hu⟩ := c.x_step hc hk t (by omega) hi.1 (by have := c.tX_lt (3 * t + 2); omega) hrun acc s hs
-        have he : (9 * ((t + 1) % 7) = 9) ↔ (3 * t + 2 = 2 ∨ 3 * t + 2 = 23) := by omega
+        have he : (9 * ((t + 1) % 7) = 9) ↔ (3 * t + 2 = 2 ∨ 3 * t + 2 = 23 ∨ 3 * t + 2 = 17 ∨ 3 * t + 2 = 38) := by
+          omega
         refine ⟨u, by simpa [xCost, h42, h41, he] using hst, ?_⟩
         unfold ChainNext; rw [if_pos (by omega), show 3 * t + 2 + 1 = 3 * t + 3 by ring]; exact hu
     · refine ⟨s, by simpa [xCost, h42, h2] using Steps.refl s, ?_⟩
@@ -444,11 +451,11 @@ theorem chainsCost_add (c : LCtx) (hck : c.ck < 8) : ∀ k i, i + k ≤ 43 →
     have := chainCost_add i (c.dig i) hd
     simp only [chainsCost, List.range'_succ, List.map_cons, List.sum_cons] at h ⊢
     omega
-theorem cbase_sum43 : ((List.range' 0 43).map cbase).sum = 2949 := by decide
-theorem cbase_sum_top : ((List.range' 33 9).map cbase).sum = 617 := by decide
+theorem cbase_sum43 : ((List.range' 0 43).map cbase).sum = 2946 := by decide
+theorem cbase_sum_top : ((List.range' 33 9).map cbase).sum = 616 := by decide
 def zSum (c : LCtx) (i k : Nat) : Nat := ((List.range' i k).map fun j => zc j (c.dig j)).sum
 theorem chainsCost_lower (c : LCtx) (hck : c.ck < 8) (T : Nat) (hT : ((List.range' 0 43).map c.dig).sum = T) :
-    c.chainsCost 0 42 + chainCost 42 c.ck + 9 * T + c.zSum 0 43 = 2949 := by
+    c.chainsCost 0 42 + chainCost 42 c.ck + 9 * T + c.zSum 0 43 = 2946 := by
   have h := c.chainsCost_add hck 43 0 (le_refl _)
   rw [hT, cbase_sum43] at h
   have e : c.chainsCost 0 43 = c.chainsCost 0 42 + chainCost 42 c.ck := by
@@ -458,7 +465,7 @@ theorem chainsCost_lower (c : LCtx) (hck : c.ck < 8) (T : Nat) (hT : ((List.rang
   unfold zSum
   omega
 theorem chainsCost_top (c : LCtx) (hck : c.ck < 8) (S : Nat) (hS : ((List.range' 33 9).map c.dig).sum = S) :
-    c.chainsCost 33 9 + 9 * S + c.zSum 33 9 = 617 := by
+    c.chainsCost 33 9 + 9 * S + c.zSum 33 9 = 616 := by
   have h := c.chainsCost_add hck 9 33 (by omega)
   rw [hS, cbase_sum_top] at h
   unfold zSum

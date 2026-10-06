@@ -256,11 +256,11 @@ theorem respAt_signPayload (T : Answers) (cache : T3.Cache) (message : Message) 
   · exact RespAt.pure' _
   · dsimp only
     refine RespAt.bind (RespAt.of_respects (respects_signForest _ _) fun _ h => honestQ_of_nonEnc h) ?_
-    refine RespAt.bind (respAt_signLayers T cache _ (Nat.mod_lt _ (by decide)) 4 le_rfl _ (fun m hm => ?_)) ?_
+    refine RespAt.bind (respAt_signLayers T cache _ (WCT9.digestIndex_lt _) 4 le_rfl _ (fun m hm => ?_)) ?_
     · obtain rfl : m = 3 := by omega
       rw [ClaudeWCT.WCT9.signForest_root, ← Extract.honestForest_eq_wct9]
-      exact Mask.signedMsg_top T _ (Nat.mod_lt _ (by decide))
-    · generalize evalWithAnswerFn T (WCT9.signLayersBC cache (output.toNat % 2 ^ 31) 4 _) = pieces
+      exact Mask.signedMsg_top T _ (WCT9.digestIndex_lt _)
+    · generalize evalWithAnswerFn T (WCT9.signLayersBC cache (WCT9.digestIndex output) 4 _) = pieces
       rcases pieces with _ | pieces <;> exact RespAt.pure' _
 theorem respAt_sign (T : Answers) (published : T3.Cache) (request : Request) :
     RespAt T (HonestQ T) (FullGame.authenticatedSign published request) := by

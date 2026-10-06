@@ -4,7 +4,7 @@ import SigGolfCandidate.T3.Secc.SeccSufSigned
 namespace ClaudeWCT.W9.T3.Security.BPB
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open SigGolfCandidate.T3M (wrho wdc)
+open ClaudeWCT.W9.T3M (wrho wdc)
 open ClaudeWCT.W9.T3M (WBytes Shaped)
 open ClaudeWCT.W9.T3M.Final (AdversaryP ForgeryP)
 set_option maxHeartbeats 1000000
@@ -24,7 +24,7 @@ def CaseCAt (answers : Correctness.Answers) (message : Message) (witness : WByte
     evalWithAnswerFn answers (digest (wrho witness) message (wdc witness)) = digestAnswer ∧
     (∃ prior, (⟨prior, .inl (.inr (pad64 (digestInput (wrho witness) message (wdc witness)))), digestAnswer⟩ :
       FirstHit.QueryEvent) ∈ events) ∧ Shaped digestAnswer witness ∧
-    (∀ lay : Layer, ClaudeWCT.W9.T3M.BC.GoodZ answers witness (digestAnswer.toNat % 2 ^ 31) lay) ∧
+    (∀ lay : Layer, ClaudeWCT.W9.T3M.BC.GoodZ answers witness (WCT9.digestIndex digestAnswer) lay) ∧
     ClaudeWCT.W9.T3M.WctExtract.WctHonest answers digestAnswer witness ∧ SignerComplete answers
 theorem CaseCAt.mono {answers : Correctness.Answers} {message : Message} {witness : WBytes}
     {events events' : List FirstHit.QueryEvent} (h : CaseCAt answers message witness events)
@@ -116,11 +116,11 @@ def ConclusionAB (answers : Correctness.Answers) (message : Message) (witness : 
       (∃ prior, (⟨prior, .inl (.inr (pad64 (digestInput (wrho witness) message (wdc witness)))), digestAnswer⟩ :
         FirstHit.QueryEvent) ∈ events) ∧ Shaped digestAnswer witness ∧
       (PaddedExtraction.ActualHit answers events ∨
-        (∃ lay : Layer, ClaudeWCT.W9.T3M.Extract.Diverge answers witness (digestAnswer.toNat % 2 ^ 31) lay
+        (∃ lay : Layer, ClaudeWCT.W9.T3M.Extract.Diverge answers witness (WCT9.digestIndex digestAnswer) lay
           (events.map FirstHit.QueryEvent.input) ∧
           ∀ above : Layer, above.val < lay.val →
-            ClaudeWCT.W9.T3M.Extract.Good answers witness (digestAnswer.toNat % 2 ^ 31) above) ∨
-        PaddedExtraction.PadAt answers witness (digestAnswer.toNat % 2 ^ 31))
+            ClaudeWCT.W9.T3M.Extract.Good answers witness (WCT9.digestIndex digestAnswer) above) ∨
+        PaddedExtraction.PadAt answers witness (WCT9.digestIndex digestAnswer))
 def GameCaseAB (adversary : AdversaryP) (answers : Correctness.Answers) (result : FirstHit.Recorded Bool) : Prop :=
   ∃ generated ∈ support (FirstHit.record keygen (∅, ∅)),
     ∃ interaction ∈ support (FirstHit.record
@@ -181,8 +181,8 @@ theorem logged_resolves {α : Type} (published : SigGolfCandidate.T3.Cache)
 def payloadForNonce (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (message : Message) :
     M (Option Signature) := do
   let some (_, output) ← WCT9.digestSearch rho message 0 WCT9.digestAttemptLimit | pure none
-  let forest ← WCT9.signForest (output.toNat % 2 ^ 31) output
-  let some pieces ← WCT9.signLayersBC cache (output.toNat % 2 ^ 31) 4 (.forest forest.2) | pure none
+  let forest ← WCT9.signForest (WCT9.digestIndex output) output
+  let some pieces ← WCT9.signLayersBC cache (WCT9.digestIndex output) 4 (.forest forest.2) | pure none
   pure (some (WCT9.assembledSignature rho forest.1 pieces))
 theorem signPayload_nonce (cache : SigGolfCandidate.T3.Cache) (message : Message) :
     WCT9.Rev3.signPayload cache message =
@@ -219,8 +219,8 @@ theorem authenticatedSign_payload (answers : Correctness.Answers) (published : S
       rcases found with _ | ⟨_, output⟩
       · simp at h
       · simp only [evalWithAnswerFn_bind] at h
-        generalize evalWithAnswerFn answers (WCT9.signLayersBC published (output.toNat % 2 ^ 31) 4
-          (.forest (evalWithAnswerFn answers (WCT9.signForest (output.toNat % 2 ^ 31) output)).2)) = layers at h
+        generalize evalWithAnswerFn answers (WCT9.signLayersBC published (WCT9.digestIndex output) 4
+          (.forest (evalWithAnswerFn answers (WCT9.signForest (WCT9.digestIndex output) output)).2)) = layers at h
         rcases layers with _ | pieces
         · simp at h
         · simp only [evalWithAnswerFn_pure, Option.some.injEq] at h

@@ -310,7 +310,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-def outIndex (output : HashOutput) : Nat := output.toNat % 2 ^ 31
+def outIndex (output : HashOutput) : Nat := WCT9.digestIndex output
 def revealedCoords (output : HashOutput) : List Guess.GCoord :=
   (List.finRange 9).flatMap fun k => (List.finRange 7).filterMap fun t =>
     if h : 1 ≤ Guess.deficit output k t then
@@ -416,8 +416,8 @@ noncomputable def signerCore (published : SigGolfCandidate.T3.Cache) (request : 
         (privateNonce request.message)) request.message 0 WCT9.digestAttemptLimit) with
     | none => none
     | some (_, output) =>
-        match evalWithAnswerFn (wA hU ω 0) (WCT9.signLayersBC request.cache (output.toNat % 2 ^ 31) 4
-            (.forest (WCT9.honestForest (wA hU ω 0) (output.toNat % 2 ^ 31)))) with
+        match evalWithAnswerFn (wA hU ω 0) (WCT9.signLayersBC request.cache (WCT9.digestIndex output) 4
+            (.forest (WCT9.honestForest (wA hU ω 0) (WCT9.digestIndex output)))) with
         | none => none
         | some pieces => some (evalWithAnswerFn (wA hU ω 0) (privateNonce request.message), output, pieces)
   else none
@@ -444,10 +444,10 @@ theorem sign_answers (g : WctPoint → Digest) (published : SigGolfCandidate.T3.
         simp only
         rw [evalWithAnswerFn_bind, WCT9.eval_signForest, evalWithAnswerFn_bind]
         simp only
-        rw [honestForest_world hU ω g 0 (output.toNat % 2 ^ 31) (outIndex_lt output),
+        rw [honestForest_world hU ω g 0 (WCT9.digestIndex output) (outIndex_lt output),
           eval_free hU ω g 0 (signLayersBC_free _ _ _ _)]
-        cases evalWithAnswerFn (wA hU ω 0) (WCT9.signLayersBC request.cache (output.toNat % 2 ^ 31) 4
-          (.forest (WCT9.honestForest (wA hU ω 0) (output.toNat % 2 ^ 31)))) with
+        cases evalWithAnswerFn (wA hU ω 0) (WCT9.signLayersBC request.cache (WCT9.digestIndex output) 4
+          (.forest (WCT9.honestForest (wA hU ω 0) (WCT9.digestIndex output)))) with
         | none => rfl
         | some pieces => rfl
   · rw [if_neg hc, if_neg hc]

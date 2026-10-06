@@ -4,7 +4,7 @@ namespace W9Machine
 inductive ChainWord where
   | original (offset : Nat)
   | header (chain step : Nat)
-  | route
+  | index
   | answer (query word : Nat)
   | leafHeader
   deriving BEq, DecidableEq, Repr
@@ -40,12 +40,12 @@ def ChainTrace.step (s : ChainTrace) : ChainPieceKind → ChainTrace
       let hi := s.read (off + 56)
       (s.put dst lo).put (dst + 8) hi
   | .jump _ => s
-  | .leaf => ((s.put 896 .leafHeader).put 904 .route)
+  | .leaf => ((s.put 768 .leafHeader).put 776 .index)
 def chainTrace (r : ChainRoutine) : ChainTrace :=
   r.pieces.foldl (fun s p => s.step p.kind) {}
-def traceLeafSlot (t : Nat) : Nat := if t = 0 then 880 else 896 + 16 * t
+def traceLeafSlot (t : Nat) : Nat := if t = 0 then 752 else 768 + 16 * t
 def chainQueryWords (digits : List Nat) (t j : Nat) : List ChainWord :=
-  let off := 832 - 64 * t
+  let off := 704 - 64 * t
   let q := (digits.take t).sum + j
   [.original off, .original (off + 8), .header t (3 - digits.getD t 0 + j), .original (off + 24),
     .original (off + 32), .original (off + 40),
@@ -61,6 +61,6 @@ def ChainRoutine.traceChecked (r : ChainRoutine) : Bool :=
   s.valid && (s.queries == expectedQueries r.digits) &&
     ((List.range 7).all fun t => (List.range 2).all fun word =>
       s.read (traceLeafSlot t + 8 * word) == expectedEndpoint r.digits t word) &&
-    (s.read 896 == .leafHeader) && (s.read 904 == .route) &&
-    (s.mem.all fun p => decide (p.1 % 8 = 0 ∧ p.1 + 8 ≤ 1024))
+    (s.read 768 == .leafHeader) && (s.read 776 == .index) &&
+    (s.mem.all fun p => decide (p.1 % 8 = 0 ∧ p.1 + 8 ≤ 896))
 end W9Machine

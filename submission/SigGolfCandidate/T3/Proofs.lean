@@ -807,39 +807,51 @@ theorem decode_antichain {lay : Layer} {left right : Digest} {xs ys : List Nat}
   have he := MixedCode.eq_of_le_of_valid (decodedWord_valid hx) (decodedWord_valid hy)
     (fun i => hle i.val i.isLt)
   rw [← decodedWord_list hx,← decodedWord_list hy,he]
-theorem encodedBits_lt (lay : Layer) : encodedBits lay<128 := by fin_cases lay <;> decide
+theorem encodedBits_le (lay : Layer) : encodedBits lay≤128 := by fin_cases lay <;> decide
+theorem decode_lowerSpare {lay : Layer} {value : Digest} {digits : List Nat} (hl : lay≠0)
+    (h : decode lay value=some digits) : lowerSpare value := by
+  unfold decode at h
+  split at h
+  · simp at h
+  · simp only [hl,if_false] at h
+    split at h
+    · rename_i hs
+      exact hs.1
+    · simp at h
 theorem digest_eq_of_dataDigits_eq {lay : Layer} {left right : Digest}
     (h : dataDigits lay left=dataDigits lay right)
     (hl : left.toNat<2^encodedBits lay) (hr : right.toNat<2^encodedBits lay)
-    (hgl : lay=0 → topRanksValid left=true) (hgr : lay=0 → topRanksValid right=true) : left=right := by
+    (hgl : lay=0 → topRanksValid left=true) (hgr : lay=0 → topRanksValid right=true)
+    (hsl : lay≠0 → lowerSpare left) (hsr : lay≠0 → lowerSpare right) : left=right := by
   by_cases ht : lay=0
   · subst lay
     exact Nonbinary.top_digest_injective h (hgl rfl) (hgr rfl) hl hr
-  · have hextract (i : Nat) (hi : i<dataCount lay) :
-        left.extractLsb' (3*i) 3=right.extractLsb' (3*i) 3 := by
-      apply BitVec.eq_of_toNat_eq
+  · have hdig (i : Nat) (hi : i<42) : lowerWord left/2^(3*i)%8=lowerWord right/2^(3*i)%8 := by
       have he := congrArg (fun xs : List Nat => xs.getD i 0) h
-      rw [dataDigits_getD lay left i hi,dataDigits_getD lay right i hi] at he
-      simpa [coreDigit,ht,BitVec.extractLsb'_toNat,Nat.shiftRight_eq_div_pow] using he
-    apply BitVec.eq_of_getLsbD_eq
-    intro bit _
-    by_cases hb : bit<encodedBits lay
-    · have hi : bit/3<dataCount lay := by simp [encodedBits,ht] at hb;simp [dataCount,ht];omega
-      have hd := hextract (bit/3) hi
-      have he := congrArg (fun d : BitVec 3 => d.getLsbD (bit%3)) hd
-      simpa only [BitVec.getLsbD_extractLsb',show bit%3<3 by omega,decide_true,
-        Bool.true_and,show 3*(bit/3)+bit%3=bit by omega] using he
-    · have hleft := (BitVec.toNat_lt_iff_getLsbD_eq_false (encodedBits lay) (encodedBits_lt lay)).mp hl
-      have hright := (BitVec.toNat_lt_iff_getLsbD_eq_false (encodedBits lay) (encodedBits_lt lay)).mp hr
-      have hbit : encodedBits lay+(bit-encodedBits lay)=bit := by omega
-      simpa only [hbit] using (hleft (bit-encodedBits lay)).trans (hright (bit-encodedBits lay)).symm
+      have hi' : i<dataCount lay := by simp only [dataCount,ht,if_false]; exact hi
+      rwa [dataDigits_getD lay left i hi',dataDigits_getD lay right i hi',coreDigit_lower ht left hi,
+        coreDigit_lower ht right hi] at he
+    have hw : lowerWord left=lowerWord right := by
+      apply Nat.eq_of_testBit_eq
+      intro bit
+      by_cases hb : bit<126
+      · have hd := congrArg (fun n : Nat => n.testBit (bit%3)) (hdig (bit/3) (by omega))
+        simp only [show (8 : Nat)=2^3 from rfl,Nat.testBit_mod_two_pow,Nat.testBit_div_two_pow,
+          show bit%3<3 by omega,decide_true,Bool.true_and,show bit%3+3*(bit/3)=bit by omega] at hd
+        exact hd
+      · have hp : 2^126≤2^bit := Nat.pow_le_pow_right (by decide) (by omega)
+        rw [Nat.testBit_lt_two_pow ((lowerWord_lt left).trans_le hp),
+          Nat.testBit_lt_two_pow ((lowerWord_lt right).trans_le hp)]
+    rw [← lowerPack_lowerWord (hsl ht),← lowerPack_lowerWord (hsr ht),hw]
 theorem decode_some_injective {lay : Layer} {left right : Digest} {word : List Nat}
     (hl : decode lay left=some word) (hr : decode lay right=some word) : left=right := by
   have hdleft := decode_data hl
   have hdright := decode_data hr
-  refine digest_eq_of_dataDigits_eq (hdleft.2.symm.trans hdright.2) hdleft.1 hdright.1 ?_ ?_
+  refine digest_eq_of_dataDigits_eq (hdleft.2.symm.trans hdright.2) hdleft.1 hdright.1 ?_ ?_ ?_ ?_
   · intro he; subst lay; exact decode_top_ranks hl
   · intro he; subst lay; exact decode_top_ranks hr
+  · intro he; exact decode_lowerSpare he hl
+  · intro he; exact decode_lowerSpare he hr
 theorem decode_probability_le (lay : Layer) (word : List Nat) :
     Pr[fun digest => decode lay digest=some word | ($ᵗ Digest : ProbComp Digest)] ≤
       1/(2 : ENNReal)^128 := by

@@ -6,19 +6,19 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open ClaudeWCT.W9.Machine.VLib
 def NewCodeAt (im : Image) : Prop :=
-  ∀ c, c < 157 → CodeAt im (pcOf (256 * (c + 4))) (expChunks.getD c [])
+  ∀ c, c < 161 → CodeAt im (pcOf (256 * (c + 4))) (expChunks.getD c [])
 def expLook (n : Nat) : Option (BitVec 32) :=
   if 1024 ≤ n then (expChunks.getD (n / 256 - 4) [])[n % 256]? else none
 set_option maxRecDepth 100000 in
-theorem expChunks_length : expChunks.length = 157 := by decide +kernel
+theorem expChunks_length : expChunks.length = 161 := by decide +kernel
 set_option maxRecDepth 100000 in
-theorem expChunks_len_le : ∀ c, c < 157 → (expChunks.getD c []).length ≤ 256 := by decide +kernel
+theorem expChunks_len_le : ∀ c, c < 161 → (expChunks.getD c []).length ≤ 256 := by decide +kernel
 theorem expLook_ok {im : Image} (h : NewCodeAt im) : LookOK im expLook := by
   intro n w hw
   unfold expLook at hw
   split at hw
   · rename_i hn
-    have hc : n / 256 - 4 < 157 := by
+    have hc : n / 256 - 4 < 161 := by
       by_contra hc
       rw [List.getD_eq_default _ _ (by rw [expChunks_length]; omega)] at hw
       simp at hw

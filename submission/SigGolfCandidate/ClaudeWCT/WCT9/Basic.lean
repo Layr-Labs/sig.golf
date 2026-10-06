@@ -215,14 +215,17 @@ theorem serialize_injective : Function.Injective serialize := by
   subst rr ro rl
   rfl
 theorem child_val (output : HashOutput) (coord : Coord) :
-    (child output coord).val = output.toNat / 2 ^ coordBase coord.val % 128 := rfl
+    (child output coord).val = output.toNat / 2 ^ childBase coord.val % 128 := rfl
+theorem field_val (output : HashOutput) (coord : Coord) :
+    field output coord = output.toNat / 2 ^ fieldBase coord.val % 2 ^ 14 := rfl
+theorem digestIndex_val (output : HashOutput) : digestIndex output = output.toNat / 2 ^ 33 % 2 ^ 31 := rfl
 theorem field_lt (output : HashOutput) (coord : Coord) : field output coord < 2 ^ 14 :=
   Nat.mod_lt _ (by decide)
 theorem rank_val (output : HashOutput) (coord : Coord) :
     (rank output coord).val = field output coord % 600 := rfl
 theorem admissible_iff (output : HashOutput) :
     admissible output = true ↔
-      output.toNat / 2 ^ 235 % 2 ^ 21 < 1091 ∧ ∀ coord : Coord, field output coord < 16200 := by
+      output.toNat / 2 ^ 235 % 2 ^ 21 < 1030 ∧ ∀ coord : Coord, field output coord < 16200 := by
   unfold admissible field
   simp only [Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, List.mem_range]
   constructor
@@ -261,32 +264,47 @@ def acceptedFieldEquiv : Fin 16200 ≃ Rank × Fin 27 where
 theorem acceptedFieldEquiv_rank (f : Fin 16200) :
     (acceptedFieldEquiv f).1.val = f.val % 600 := rfl
 def digestLayout : List (Nat × Nat) :=
-  [(0, 31), (31, 12),
-   (43, 7), (50, 14), (64, 7), (71, 14), (85, 7), (92, 14), (106, 7), (113, 14), (127, 1),
-   (128, 7), (135, 14), (149, 7), (156, 14), (170, 7), (177, 14), (191, 1),
+  [(0, 7), (7, 14), (21, 12), (33, 31),
+   (64, 7), (71, 14), (85, 7), (92, 14), (106, 1), (107, 14), (121, 7),
+   (128, 7), (135, 14), (149, 7), (156, 14), (170, 1), (171, 14), (185, 7),
    (192, 7), (199, 14), (213, 7), (220, 14), (234, 1), (235, 21)]
-theorem coordBase_values :
-    List.ofFn (fun k : Coord => coordBase k.val) = [43, 64, 85, 106, 128, 149, 170, 192, 213] := by
+theorem childBase_values :
+    List.ofFn (fun k : Coord => childBase k.val) = [0, 64, 85, 121, 128, 149, 185, 192, 213] := by
+  decide
+theorem fieldBase_values :
+    List.ofFn (fun k : Coord => fieldBase k.val) = [7, 71, 92, 107, 135, 156, 171, 199, 220] := by
   decide
 theorem digestLayout_tiles :
     digestLayout.map Prod.fst = ((digestLayout.map Prod.snd).scanl (· + ·) 0).dropLast ∧
       (digestLayout.map Prod.snd).sum = 256 ∧ ∀ p ∈ digestLayout, 0 < p.2 := by
   decide
-theorem digestLayout_child (k : Coord) : (coordBase k.val, 7) ∈ digestLayout := by
+theorem digestLayout_index : (indexShift, 31) ∈ digestLayout := by decide
+theorem digestLayout_child (k : Coord) : (childBase k.val, 7) ∈ digestLayout := by
   revert k; decide
-theorem digestLayout_field (k : Coord) : (coordBase k.val + 7, 14) ∈ digestLayout := by
+theorem digestLayout_field (k : Coord) : (fieldBase k.val, 14) ∈ digestLayout := by
   revert k; decide
 theorem digestLayout_disjoint :
     digestLayout.Pairwise (fun p q => p.1 + p.2 ≤ q.1) ∧
       ∀ p ∈ digestLayout, p.1 + p.2 ≤ 256 := by
   decide
-theorem coordBase_word_aligned (k : Coord) :
-    coordBase k.val / 64 = (coordBase k.val + 20) / 64 ∧ 43 ≤ coordBase k.val ∧
-      coordBase k.val + 21 ≤ 234 := by
+theorem childBase_word_aligned (k : Coord) :
+    childBase k.val / 64 = (childBase k.val + 6) / 64 ∧ childBase k.val + 7 ≤ 234 := by
   revert k; decide
-theorem coordBase_disjoint (k l : Coord) (h : k.val < l.val) :
-    coordBase k.val + 21 ≤ coordBase l.val := by
+theorem fieldBase_word_aligned (k : Coord) :
+    fieldBase k.val / 64 = (fieldBase k.val + 13) / 64 ∧ fieldBase k.val + 14 ≤ 234 := by
+  revert k; decide
+theorem childBase_disjoint (k l : Coord) (h : k ≠ l) :
+    childBase k.val + 7 ≤ childBase l.val ∨ childBase l.val + 7 ≤ childBase k.val := by
   revert k l; decide
+theorem fieldBase_disjoint (k l : Coord) (h : k ≠ l) :
+    fieldBase k.val + 14 ≤ fieldBase l.val ∨ fieldBase l.val + 14 ≤ fieldBase k.val := by
+  revert k l; decide
+theorem childBase_fieldBase_disjoint (k l : Coord) :
+    childBase k.val + 7 ≤ fieldBase l.val ∨ fieldBase l.val + 14 ≤ childBase k.val := by
+  revert k l; decide
+theorem index_disjoint (k : Coord) :
+    (childBase k.val + 7 ≤ 33 ∨ 64 ≤ childBase k.val) ∧ (fieldBase k.val + 14 ≤ 33 ∨ 64 ≤ fieldBase k.val) := by
+  revert k; decide
 theorem coordinate_verify_steps (output : HashOutput) (coord : Coord) :
     (∑ t : Fin 7, (List.range' (3 - wordDigit (rank output coord) t)
       (wordDigit (rank output coord) t)).length) = 6 := by

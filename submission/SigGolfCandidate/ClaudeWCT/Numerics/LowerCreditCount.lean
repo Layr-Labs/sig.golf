@@ -157,8 +157,95 @@ theorem card_lowerAccept_197_0 :
 theorem card_lowerAccept_198_0 :
     (univ.filter fun v : BitVec 128 => LowerAccept 198 0 v.toNat).card = 115663871454869880991236461657470944 :=
   card_lowerAccept_of_check _ _ _ (by norm_num) check_198_0
-theorem check_198_4 : countCheck 198 4 113470737483767875195512089978341656 = true := by decide +kernel
-theorem card_lowerAccept_198_4 :
-    (univ.filter fun v : BitVec 128 => LowerAccept 198 4 v.toNat).card = 113470737483767875195512089978341656 :=
-  card_lowerAccept_of_check _ _ _ (by norm_num) check_198_4
+def shiftS1 (i : ℕ) : ℕ := if i < 21 then 3 * i else 64 + 3 * (i - 21)
+def SpareS1 (n : ℕ) : Prop := n / 2 ^ 63 % 2 = 1 ∧ n / 2 ^ 127 % 2 = 1
+instance (n : ℕ) : Decidable (SpareS1 n) := by unfold SpareS1; infer_instance
+def lowerDigitsS1 (n : ℕ) : List ℕ := (List.range 42).map fun i => n / 2 ^ shiftS1 i % 8
+def LowerAcceptS1 (T f n : ℕ) : Prop :=
+  n < 2 ^ 128 ∧ SpareS1 n ∧ (lowerDigitsS1 n).sum ≤ T ∧ T - (lowerDigitsS1 n).sum < 8 ∧
+    f ≤ (lowerDigitsS1 n ++ [T - (lowerDigitsS1 n).sum]).count 6
+instance (T f n : ℕ) : Decidable (LowerAcceptS1 T f n) := by unfold LowerAcceptS1; infer_instance
+def toS1 (n : ℕ) : ℕ := n % 2 ^ 63 + 2 ^ 63 + 2 ^ 64 * (n / 2 ^ 63) + 2 ^ 127
+def ofS1 (m : ℕ) : ℕ := m % 2 ^ 63 + 2 ^ 63 * (m / 2 ^ 64 % 2 ^ 63)
+theorem digit_add_mul (a c k p : ℕ) (h : p + 3 ≤ k) : (a + 2 ^ k * c) / 2 ^ p % 8 = a / 2 ^ p % 8 := by
+  have hk : 2 ^ k = 2 ^ p * (8 * 2 ^ (k - p - 3)) := by
+    rw [show (8 : ℕ) = 2 ^ 3 by norm_num, ← pow_add, ← pow_add]
+    congr 1
+    omega
+  rw [hk, mul_assoc, Nat.add_mul_div_left _ _ (by positivity), mul_assoc, Nat.add_mul_mod_self_left]
+theorem digit_mod (a k p : ℕ) (h : p + 3 ≤ k) : a % 2 ^ k / 2 ^ p % 8 = a / 2 ^ p % 8 := by
+  conv_rhs => rw [← Nat.mod_add_div a (2 ^ k)]
+  rw [digit_add_mul _ _ _ _ h]
+theorem toS1_div_64 (n : ℕ) : toS1 n / 2 ^ 64 = n / 2 ^ 63 + 2 ^ 63 := by
+  unfold toS1; norm_num; omega
+theorem toS1_digit (n i : ℕ) (hi : i < 42) : toS1 n / 2 ^ shiftS1 i % 8 = n / 2 ^ (3 * i) % 8 := by
+  unfold shiftS1
+  split_ifs with h
+  · have e : toS1 n = n % 2 ^ 63 + 2 ^ 63 * (1 + 2 * (n / 2 ^ 63) + 2 ^ 64) := by unfold toS1; ring
+    rw [e, digit_add_mul _ _ 63 _ (by omega), digit_mod _ 63 _ (by omega)]
+  · obtain ⟨j, rfl⟩ : ∃ j, i = 21 + j := ⟨i - 21, by omega⟩
+    rw [show 21 + j - 21 = j by omega, show 3 * (21 + j) = 63 + 3 * j by ring, pow_add, pow_add,
+      ← Nat.div_div_eq_div_mul, ← Nat.div_div_eq_div_mul, toS1_div_64,
+      show n / 2 ^ 63 + 2 ^ 63 = n / 2 ^ 63 + 2 ^ 63 * 1 by ring, digit_add_mul _ _ _ _ (by omega)]
+theorem lowerDigitsS1_toS1 (n : ℕ) : lowerDigitsS1 (toS1 n) = lowerDigits n := by
+  unfold lowerDigitsS1 lowerDigits
+  exact List.map_congr_left fun i hi => toS1_digit n i (List.mem_range.mp hi)
+theorem toS1_lt {n : ℕ} (h : n < 2 ^ 126) : toS1 n < 2 ^ 128 := by
+  unfold toS1; norm_num at h ⊢; omega
+theorem spareS1_toS1 {n : ℕ} (h : n < 2 ^ 126) : SpareS1 (toS1 n) := by
+  unfold SpareS1 toS1; norm_num at h ⊢; omega
+theorem ofS1_lt (m : ℕ) : ofS1 m < 2 ^ 126 := by
+  unfold ofS1; norm_num; omega
+theorem ofS1_toS1 {n : ℕ} (h : n < 2 ^ 126) : ofS1 (toS1 n) = n := by
+  unfold ofS1 toS1; norm_num at h ⊢; omega
+theorem toS1_ofS1 {m : ℕ} (hm : m < 2 ^ 128) (hs : SpareS1 m) : toS1 (ofS1 m) = m := by
+  unfold SpareS1 at hs; unfold toS1 ofS1; norm_num at hm hs ⊢; omega
+theorem lowerDigitsS1_eq {m : ℕ} (hm : m < 2 ^ 128) (hs : SpareS1 m) : lowerDigitsS1 m = lowerDigits (ofS1 m) := by
+  conv_lhs => rw [← toS1_ofS1 hm hs]
+  exact lowerDigitsS1_toS1 _
+theorem lowerAcceptS1_iff {m : ℕ} (hm : m < 2 ^ 128) (hs : SpareS1 m) (T f : ℕ) :
+    LowerAcceptS1 T f m ↔ LowerAccept T f (ofS1 m) := by
+  unfold LowerAcceptS1 LowerAccept
+  rw [lowerDigitsS1_eq hm hs]
+  exact ⟨fun h => ⟨ofS1_lt m, h.2.2⟩, fun h => ⟨hm, hs, h.2⟩⟩
+theorem lowerAcceptS1_toS1 {n : ℕ} (T f : ℕ) (h : LowerAccept T f n) : LowerAcceptS1 T f (toS1 n) := by
+  unfold LowerAccept at h
+  unfold LowerAcceptS1
+  rw [lowerDigitsS1_toS1]
+  exact ⟨toS1_lt h.1, spareS1_toS1 h.1, h.2⟩
+theorem card_lowerAcceptS1 (T f : ℕ) :
+    (univ.filter fun v : BitVec 128 => LowerAcceptS1 T f v.toNat).card =
+      (univ.filter fun v : BitVec 128 => LowerAccept T f v.toNat).card := by
+  refine Finset.card_nbij' (fun v => BitVec.ofNat 128 (ofS1 v.toNat)) (fun v => BitVec.ofNat 128 (toS1 v.toNat))
+    ?_ ?_ ?_ ?_
+  · intro v hv
+    simp only [coe_filter, mem_univ, true_and, Set.mem_ofPred_eq] at hv ⊢
+    rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt ((ofS1_lt _).trans (by norm_num))]
+    exact (lowerAcceptS1_iff v.isLt hv.2.1 T f).mp hv
+  · intro v hv
+    simp only [coe_filter, mem_univ, true_and, Set.mem_ofPred_eq] at hv ⊢
+    rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (toS1_lt hv.1)]
+    exact lowerAcceptS1_toS1 T f hv
+  · intro v hv
+    simp only [coe_filter, mem_univ, true_and, Set.mem_ofPred_eq] at hv
+    apply BitVec.eq_of_toNat_eq
+    rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt ((ofS1_lt _).trans (by norm_num)),
+      Nat.mod_eq_of_lt (toS1_lt (ofS1_lt _)), toS1_ofS1 v.isLt hv.2.1]
+  · intro v hv
+    simp only [coe_filter, mem_univ, true_and, Set.mem_ofPred_eq] at hv
+    apply BitVec.eq_of_toNat_eq
+    rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (toS1_lt hv.1),
+      Nat.mod_eq_of_lt ((ofS1_lt _).trans (by norm_num)), ofS1_toS1 hv.1]
+theorem card_lowerAcceptS1_197_4 :
+    (univ.filter fun v : BitVec 128 => LowerAcceptS1 197 4 v.toNat).card = 140610462347261096978771217394878840 := by
+  rw [card_lowerAcceptS1, card_lowerAccept_197_4]
+theorem card_lowerAcceptS1_198_2 :
+    (univ.filter fun v : BitVec 128 => LowerAcceptS1 198 2 v.toNat).card = 115572437016808486361789308152458664 := by
+  rw [card_lowerAcceptS1, card_lowerAccept_198_2]
+theorem card_lowerAcceptS1_197_0 :
+    (univ.filter fun v : BitVec 128 => LowerAcceptS1 197 0 v.toNat).card = 143468572474466315422327516384120300 := by
+  rw [card_lowerAcceptS1, card_lowerAccept_197_0]
+theorem card_lowerAcceptS1_198_0 :
+    (univ.filter fun v : BitVec 128 => LowerAcceptS1 198 0 v.toNat).card = 115663871454869880991236461657470944 := by
+  rw [card_lowerAcceptS1, card_lowerAccept_198_0]
 end ClaudeWCT.Numerics.LowerCredit

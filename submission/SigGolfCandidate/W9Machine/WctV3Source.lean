@@ -1,4 +1,5 @@
 import SigGolfCandidate.W9Machine.WctLayout
+import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.VerifyP
 
 set_option autoImplicit false
 namespace W9Machine.V3
@@ -17,9 +18,9 @@ def chainP (index coord child chain start count : Nat) (a : Digest) (b : HeaderP
     (c value : Digest) : M Digest :=
   (List.range' start count).foldlM
     (fun v step => shortHash (chainInput index coord child chain step a b c v)) value
-def regionOffset (coord : Nat) : Nat := 64 + 1024 * coord
-def chainOffset (coord chain : Nat) : Nat := regionOffset coord + (832 - 64 * chain)
-def leafSlot (chain : Nat) : Nat := if chain = 0 then 880 else 896 + 16 * chain
+def regionOffset (coord : Nat) : Nat := 64 + 896 * coord
+def chainOffset (coord chain : Nat) : Nat := regionOffset coord + (704 - 64 * chain)
+def leafSlot (chain : Nat) : Nat := if chain = 0 then 752 else 768 + 16 * chain
 def chainPadA (w : WBytes) (coord chain : Nat) : Digest := wdig w (chainOffset coord chain)
 def chainPadB (w : WBytes) (coord chain : Nat) : HeaderPad :=
   w.extractLsb' (8 * (chainOffset coord chain + 24)) 64
@@ -40,13 +41,8 @@ def nodeLow (coord index : Nat) : Nat :=
 def nodeInput (coord index heap : Nat) (left pad right : Digest) : HashInput :=
   bytesLE 16 left ++ bytesLE 8 (nodeLow coord index) ++ bytesLE 8 heap ++
     bytesLE 16 pad ++ bytesLE 16 right
-def blockOffset (level : Nat) : Nat := 64 * (6 - level)
-def siblingOffset (child level : Nat) : Nat :=
-  blockOffset level + if child / 2 ^ level % 2 = 0 then 48 else 0
-def nodePad (w : WBytes) (coord level : Nat) : Digest :=
-  wdig w (regionOffset coord + blockOffset level + 32)
-def sibling (w : WBytes) (coord child level : Nat) : Digest :=
-  wdig w (regionOffset coord + siblingOffset child level)
+def nodePad (w : WBytes) (coord child level : Nat) : Digest := ClaudeWCT.W9.T3M.wmpad w coord child level
+def sibling (w : WBytes) (coord child level : Nat) : Digest := ClaudeWCT.W9.T3M.wsib w coord child level
 def leafFields (coord index child : Nat) (ends : List Digest) (slot : Nat) : Digest :=
   if slot = 0 then ends.getD 0 0
   else if slot = 1 then header 6 coord index 0 child else ends.getD (slot - 1) 0
@@ -65,6 +61,6 @@ def childProgram (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
     let left := if j.val / 2 ^ level % 2 = 0 then value else other
     let right := if j.val / 2 ^ level % 2 = 0 then other else value
     shortHash (nodeInput k.val index ((128 + j.val) / 2 ^ (level + 1))
-      left (nodePad w k.val level) right)) leaf
+      left (nodePad w k.val j.val level) right)) leaf
   pure (orderPair j.val computed (sibling w k.val j.val 6))
 end W9Machine.V3

@@ -12,7 +12,7 @@ set_option linter.unnecessarySeqFocus false
 def dOff (k : Nat) : Nat := [34,50,68,86,104,122,140,158,176,194].getD k 0
 def dLen (k : Nat) : Nat := if k = 0 then 16 else 18
 def pslot (k : Nat) : Nat := 0x420 + 32 * k
-def dWord (k : Nat) : Nat := WCT9.coordBase k / 64
+def dWord (k : Nat) : Nat := WCT9.childBase k / 64
 theorem disp_0 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (hidx : index < 2 ^ 31)
     (s : MachineState) (hpc : s.pc = pcOf (base + 34))
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (h29 : s.getReg .x29 = BitVec.ofNat 64 17572)
@@ -35,10 +35,10 @@ theorem disp_0 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
         r ≠ .x27 → r ≠ .x28 → r ≠ .x31 → t.getReg r = s.getReg r) ∧ Frame s t (fun _ => False) := by
   have hw := hN 0 (by decide)
   simp only [Nat.reduceMul, Nat.reduceAdd] at hw
-  have hch := child_bits N 0 43 (by omega)
-  have hf4 := field4_bits N 0 43 (by omega)
+  have hch := child_bits N 0 0 (by omega)
+  have hf4 := field4_bits N 0 0 (by omega)
   simp only [Nat.reduceMul, Nat.reduceAdd, BitVec.ushiftRight_zero] at hch hf4
-  have hcl : N.toNat / 2 ^ 43 % 128 < 128 := Nat.mod_lt _ (by decide)
+  have hcl : N.toNat / 2 ^ 0 % 128 < 128 := Nat.mod_lt _ (by decide)
   refine ⟨_, symRun_sound blk_34 (codeAt_34 hc) s hpc (by
     simp [blk_34.res, rv_simp, accessValid_iff, MEMORY_BYTES, h28, HB0]),
     ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
@@ -198,10 +198,10 @@ theorem disp_3 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
         r ≠ .x27 → r ≠ .x28 → r ≠ .x31 → t.getReg r = s.getReg r) ∧ Frame s t (fun _ => False) := by
   have hw := h16
   simp only [Nat.reduceMul, Nat.reduceAdd] at hw
-  have hch := child_bits N 1 42 (by omega)
-  have hf4 := field4_bits N 1 42 (by omega)
+  have hch := child_bits N 1 57 (by omega)
+  have hf4 := field4_bits N 1 36 (by omega)
   simp only [Nat.reduceMul, Nat.reduceAdd, BitVec.ushiftRight_zero] at hch hf4
-  have hcl : N.toNat / 2 ^ 106 % 128 < 128 := Nat.mod_lt _ (by decide)
+  have hcl : N.toNat / 2 ^ 121 % 128 < 128 := Nat.mod_lt _ (by decide)
   refine ⟨_, symRun_sound blk_86 (codeAt_86 hc) s hpc (by
     simp [blk_86.res, rv_simp, accessValid_iff, MEMORY_BYTES, h28, HB0]),
     ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
@@ -362,10 +362,10 @@ theorem disp_6 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
         r ≠ .x27 → r ≠ .x28 → r ≠ .x31 → t.getReg r = s.getReg r) ∧ Frame s t (fun _ => False) := by
   have hw := h16
   simp only [Nat.reduceMul, Nat.reduceAdd] at hw
-  have hch := child_bits N 2 42 (by omega)
-  have hf4 := field4_bits N 2 42 (by omega)
+  have hch := child_bits N 2 57 (by omega)
+  have hf4 := field4_bits N 2 36 (by omega)
   simp only [Nat.reduceMul, Nat.reduceAdd, BitVec.ushiftRight_zero] at hch hf4
-  have hcl : N.toNat / 2 ^ 170 % 128 < 128 := Nat.mod_lt _ (by decide)
+  have hcl : N.toNat / 2 ^ 185 % 128 < 128 := Nat.mod_lt _ (by decide)
   refine ⟨_, symRun_sound blk_140 (codeAt_140 hc) s hpc (by
     simp [blk_140.res, rv_simp, accessValid_iff, MEMORY_BYTES, h28, HB0]),
     ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
@@ -528,11 +528,11 @@ theorem shl_index (index n : Nat) : BitVec.ofNat 64 index <<< n = BitVec.ofNat 6
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_shiftLeft, BitVec.toNat_ofNat, Nat.shiftLeft_eq, Nat.mod_mul_mod]
 theorem drv_entry {im : Image} (hc : NewCodeAt im) (N : HashOutput) (s : MachineState) (hpc : s.pc = pcOf base)
-    (h5 : s.getReg .x5 = 0) (hN : OutAt s 0x60 N) (hg : N.toNat / 2 ^ 235 % 2 ^ 21 < 1091) :
-    ∃ t, Steps im s 31 31 t ∧ t.pc = pcOf (base + 34) ∧ DRegs (N.toNat % 2 ^ 31) t ∧
+    (h5 : s.getReg .x5 = 0) (hN : OutAt s 0x60 N) (hg : N.toNat / 2 ^ 235 % 2 ^ 21 < 1030) :
+    ∃ t, Steps im s 31 31 t ∧ t.pc = pcOf (base + 34) ∧ DRegs (WCT9.digestIndex N) t ∧
       t.getReg .x8 = BitVec.ofNat 64 (regBase (0 - 1)) ∧
       t.getReg .x28 = BitVec.ofNat 64 (HB0 + 2048 + 512 * (0 - 1)) ∧
-      t.getReg .x15 = BitVec.ofNat 64 (N.toNat % 2 ^ 31 * 2 ^ 27 + 65536 * (0 - 1)) ∧
+      t.getReg .x15 = BitVec.ofNat 64 (WCT9.digestIndex N * 2 ^ 27 + 65536 * (0 - 1)) ∧
       Frame s t (fun _ => False) := by
   have hw := hN 0 (by decide)
   have hw3 := hN 3 (by decide)
@@ -548,8 +548,8 @@ theorem drv_entry {im : Image} (hc : NewCodeAt im) (N : HashOutput) (s : Machine
   have x3_2 : u2.getReg .x3 = 1#64 := by
     simp only [hu2, Result.toState_getReg, blk_4.res, rv_simp, m1, hw, hw3, BitVec.toNat_ofNat, Nat.reduceMod,
       Nat.reducePow]
-    have hlt : BitVec.ult (N.extractLsb' 192 64 >>> 43) 1091#64 = true := by
-      simp only [BitVec.ult, gate21_toNat N, show (1091#64 : Word).toNat = 1091 from rfl, decide_eq_true_eq]; exact hg
+    have hlt : BitVec.ult (N.extractLsb' 192 64 >>> 43) 1030#64 = true := by
+      simp only [BitVec.ult, gate21_toNat N, show (1030#64 : Word).toNat = 1030 from rfl, decide_eq_true_eq]; exact hg
     simp [hlt]
   have s3 := symRun_sound blk_9 (codeAt_9 hc) u2 p2 (by simp [blk_9.res, rv_simp])
   set u3 := blk_9.res.toState u2 with hu3
@@ -561,7 +561,7 @@ theorem drv_entry {im : Image} (hc : NewCodeAt im) (N : HashOutput) (s : Machine
     rw [r3]; simp only [hu2, Result.toState_getReg, blk_4.res, rv_simp, m1, hw]
   have s4 := symRun_sound blk_10 (codeAt_10 hc) u3 p3 (by simp [blk_10.res, rv_simp])
   set u4 := blk_10.res.toState u3 with hu4
-  have hx : (N.extractLsb' 0 64 <<< 33 >>> 33) = BitVec.ofNat 64 (N.toNat % 2 ^ 31) := index_eq N
+  have hx : (N.extractLsb' 0 64 <<< 0 >>> 33) = BitVec.ofNat 64 (WCT9.digestIndex N) := index_eq N
   refine ⟨u4, (s1.trans (s2.trans (s3.trans s4))), ?_, ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_, ?_, ?_⟩
   · simp [hu4, Result.toState_pc, blk_10.res, E.eval, base]
   · simp only [hu4, Result.toState_getReg, blk_10.res, rv_simp, r3, hu2, blk_4.res, r1, h5]

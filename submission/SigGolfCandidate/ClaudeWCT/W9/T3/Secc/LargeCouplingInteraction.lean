@@ -9,7 +9,7 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers)
 open ClaudeWCT.W9.T3.Security.LargeResidual
-open SigGolfCandidate.T3.Security.LargeResidual (slotValue digestIndex routeAddr IsDigestRow State Cell observedRun
+open SigGolfCandidate.T3.Security.LargeResidual (slotValue routeAddr IsDigestRow State Cell observedRun
   readState disclosedState runWith_bind observed_pure)
 open SigGolfCandidate.T3.Security.LargeCoupling (digestRow_isDigest digestRow_mem)
 open ClaudeWCT.W9.T3.Security.CanonGraph
@@ -217,14 +217,14 @@ noncomputable def signedState (T : Answers) (nv : Message → Digest) (published
     let st1 := if (st.memo.lookup request.message).isSome then st
       else st.signed (nv request.message) request.message (LargeResidual.signDigest T request.message)
     match LargeResidual.signDigest T request.message with
-    | some (_, N) => if RouteOk T (N.toNat % 2 ^ 31) then
+    | some (_, N) => if RouteOk T (WCT9.digestIndex N) then
         { st1 with disclosed := st1.disclosed ++ LargeResidual.signItems T N } else st1
     | none => st1
   else st
 noncomputable def finishState (T : Answers) (st1 : RouterState) (found : Option (BitVec 32 × HashOutput)) :
     RouterState :=
   match found with
-  | some (_, N) => if RouteOk T (N.toNat % 2 ^ 31) then
+  | some (_, N) => if RouteOk T (WCT9.digestIndex N) then
       { st1 with disclosed := st1.disclosed ++ LargeResidual.signItems T N } else st1
   | none => st1
 noncomputable def startState (T : Answers) (nv : Message → Digest) (st : RouterState) (m : Message) : RouterState :=
@@ -243,7 +243,7 @@ theorem startState_fields (T : Answers) (nv : Message → Digest) (st : RouterSt
     exact ⟨h1, h2, h3, h4⟩
 theorem finishState_fields (T : Answers) (st1 : RouterState) (found : Option (BitVec 32 × HashOutput)) :
     (finishState T st1 found).disclosed = st1.disclosed ++ (match found with
-      | some (_, N) => if RouteOk T (N.toNat % 2 ^ 31) then LargeResidual.signItems T N else []
+      | some (_, N) => if RouteOk T (WCT9.digestIndex N) then LargeResidual.signItems T N else []
       | none => []) ∧
     (finishState T st1 found).seen = st1.seen ∧ (finishState T st1 found).calls = st1.calls ∧
     (finishState T st1 found).births = st1.births ∧ (finishState T st1 found).memo = st1.memo := by
@@ -307,14 +307,14 @@ variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Me
 noncomputable def finishOut (T : Answers) (vals : Coord → Digest) (rho : Digest) (found : Option (BitVec 32 × HashOutput)) :
     Option Signature :=
   match found with
-  | some (_, N) => if RouteOk T (N.toNat % 2 ^ 31) then
+  | some (_, N) => if RouteOk T (WCT9.digestIndex N) then
       some (assembleSig rho N vals (Wots.referenceDigits T)) else none
   | none => none
 noncomputable def finishWorld (T : Answers) (U : Finset HashInput) (q : Nat) (labels : WCoord → Digest)
     (ws : LargeResidual.State WCoord (Cell U)) (found : Option (BitVec 32 × HashOutput)) :
     LargeResidual.State WCoord (Cell U) :=
   match found with
-  | some (_, N) => if RouteOk T (N.toNat % 2 ^ 31) then discloseStates U q labels ws (LargeResidual.signItems T N)
+  | some (_, N) => if RouteOk T (WCT9.digestIndex N) then discloseStates U q labels ws (LargeResidual.signItems T N)
       else ws
   | none => ws
 theorem observed_signFinish (hcoh : Coherent U T vals nv τ a) (st1 : RouterState) (rho : Digest)
@@ -326,10 +326,10 @@ theorem observed_signFinish (hcoh : Coherent U T vals nv τ a) (st1 : RouterStat
   | none => exact observed_pure aux q _ τ _ ws1
   | some f =>
       obtain ⟨c, N⟩ := f
-      have hidx : N.toNat % 2 ^ 31 < 2 ^ 31 := Nat.mod_lt _ (by positivity)
+      have hidx : WCT9.digestIndex N < 2 ^ 31 := Nat.mod_lt _ (by positivity)
       unfold signFinish finishOut finishState finishWorld
       dsimp only
-      by_cases hok : RouteOk T (N.toNat % 2 ^ 31)
+      by_cases hok : RouteOk T (WCT9.digestIndex N)
       · rw [if_pos ((hcoh.routeOk_iff _ hidx).mpr hok), if_pos hok, if_pos hok, if_pos hok]
         rw [observed_discloseAll, observed_pure, hcoh.signItems_eq]
         congr 4
@@ -411,7 +411,7 @@ theorem finishWorld_props (s : LargeResidual.State WCoord (Cell U)) (found : Opt
     (∀ c, (finishWorld T U q (Sum.elim vals nv) s found).candidates c = s.candidates c ∨
       (finishWorld T U q (Sum.elim vals nv) s found).candidates c = {Sum.elim vals nv c}) ∧
     (∀ c : Coord, c ∉ (match found with
-        | some (_, N) => if RouteOk T (N.toNat % 2 ^ 31) then LargeResidual.signItems T N else []
+        | some (_, N) => if RouteOk T (WCT9.digestIndex N) then LargeResidual.signItems T N else []
         | none => []) →
       (finishWorld T U q (Sum.elim vals nv) s found).candidates (.inl c) = s.candidates (.inl c)) := by
   unfold finishWorld
@@ -460,7 +460,7 @@ theorem routeSign_observed (hcoh : Coherent U T vals nv τ a) (hUpub : SeccLaw.p
     simp only [Sum.elim_inr]
     have hreal := finishOut_real hcoh published hpub request hc
     have hsd : signDisclosed T published request = match LargeResidual.signDigest T request.message with
-        | some (_, N) => if RouteOk T (N.toNat % 2 ^ 31) then LargeResidual.signItems T N else []
+        | some (_, N) => if RouteOk T (WCT9.digestIndex N) then LargeResidual.signItems T N else []
         | none => [] := by
       unfold signDisclosed
       rw [if_pos hc]

@@ -598,7 +598,7 @@ section
 namespace ClaudeWCT.W9.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open SigGolfCandidate.T3M (wrho wdc)
+open ClaudeWCT.W9.T3M (wrho wdc)
 open ClaudeWCT.W9.T3M (WBytes Shaped)
 open ClaudeWCT.W9.T3M.Final (AdversaryP ForgeryP)
 open SigGolfCandidate.T3M.SecurityExtraction (queried)
@@ -645,7 +645,7 @@ def NearIn (A : Correctness.Answers) (log : QueryLog Requests) (entries : List W
   ∃ (m : Message) (w : WBytes) (N : HashOutput) (k : WCT9.Coord) (t : Fin 7) (c : Guess.GCoord),
     (pad64 (digestInput (wrho w) m (wdc w)), N) ∈ entries ∧
     evalWithAnswerFn A (digest (wrho w) m (wdc w)) = N ∧ Shaped N w ∧
-    (∀ lay : Layer, ClaudeWCT.W9.T3M.BC.GoodZ A w (N.toNat % 2 ^ 31) lay) ∧ ¬SignedDigest log m w ∧
+    (∀ lay : Layer, ClaudeWCT.W9.T3M.BC.GoodZ A w (WCT9.digestIndex N) lay) ∧ ¬SignedDigest log m w ∧
     log.length ≤ 2 ^ 32 ∧
     c.1 = Guess.chainOf N k t ∧ c.2.val = 3 - Guess.deficit N k t ∧ WPair.GuessedIn A log entries c ∧
     (∀ k' t', (k', t') ≠ (k, t) → SlotDisclosed A log N k' t') ∧ BPB.SignerComplete A
@@ -799,7 +799,7 @@ section
 namespace ClaudeWCT.W9.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open SigGolfCandidate.T3M (wrho wdc)
+open ClaudeWCT.W9.T3M (wrho wdc)
 open ClaudeWCT.W9.T3M (WBytes Shaped)
 open ClaudeWCT.W9.T3M.Final (AdversaryP ForgeryP)
 open SigGolfCandidate.T3M.SecurityExtraction (queried)
@@ -1005,7 +1005,7 @@ theorem nearTermTight_le (q : Nat) : nearTermTight q ≤ Wots.nearTerm q := by
   rfl
 theorem nearBound : NearBound caseCExtraction NearQ Wots.nearTerm :=
   fun adversary q hq h1 h2 => (nearBoundTight adversary q hq h1 h2).trans (nearTermTight_le q)
-theorem excessBound_horizon : ClaudeWCT.Bank.WCT.ExcessBound horizon (14774 / 100000000) :=
+theorem excessBound_horizon : ClaudeWCT.Bank.WCT.ExcessBound horizon (11324 / 100000000) :=
   ClaudeWCT.Numerics.WCTPrice.wct_excessBound_2_32
 theorem caseC_small_bound_wct :
     CaseCSmallBound CaseCFreshPinned Wots.nearTerm WPair.pairTerm :=

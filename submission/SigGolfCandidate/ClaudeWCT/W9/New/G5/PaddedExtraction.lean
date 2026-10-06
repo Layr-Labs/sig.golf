@@ -5,7 +5,7 @@ import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.SeccLaw
 namespace ClaudeWCT.W9.T3.Security.PaddedExtraction
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open SigGolfCandidate.T3M (wrho wdc)
+open ClaudeWCT.W9.T3M (wrho wdc)
 open ClaudeWCT.W9.T3M (WBytes Shaped verifyP)
 open ClaudeWCT.W9.T3M.Final (AdversaryP ForgeryP checkForgeryP)
 open Correctness (Answers)
@@ -47,12 +47,12 @@ def Conclusion (answers : Answers) (message : Message) (witness : WBytes)
       (∃ prior, (⟨prior, .inl (.inr (pad64 (digestInput (wrho witness) message (wdc witness)))), digestAnswer⟩ :
         FirstHit.QueryEvent) ∈ events) ∧ Shaped digestAnswer witness ∧
       (ActualHit answers events ∨
-        (∃ lay : Layer, ClaudeWCT.W9.T3M.Extract.Diverge answers witness (digestAnswer.toNat % 2 ^ 31) lay
+        (∃ lay : Layer, ClaudeWCT.W9.T3M.Extract.Diverge answers witness (WCT9.digestIndex digestAnswer) lay
           (events.map FirstHit.QueryEvent.input) ∧
           ∀ above : Layer, above.val < lay.val →
-            ClaudeWCT.W9.T3M.Extract.Good answers witness (digestAnswer.toNat % 2 ^ 31) above) ∨
-        PadAt answers witness (digestAnswer.toNat % 2 ^ 31) ∨
-        ((∀ lay : Layer, ClaudeWCT.W9.T3M.BC.GoodZ answers witness (digestAnswer.toNat % 2 ^ 31) lay) ∧
+            ClaudeWCT.W9.T3M.Extract.Good answers witness (WCT9.digestIndex digestAnswer) above) ∨
+        PadAt answers witness (WCT9.digestIndex digestAnswer) ∨
+        ((∀ lay : Layer, ClaudeWCT.W9.T3M.BC.GoodZ answers witness (WCT9.digestIndex digestAnswer) lay) ∧
           ClaudeWCT.W9.T3M.WctExtract.WctHonest answers digestAnswer witness))
 theorem verifyP_extracted_in {α : Type} (program : M α) (hp : Security.SourceReplay.HashOnly program)
     (before : LazyPrivate.State) (result : FirstHit.Recorded α)

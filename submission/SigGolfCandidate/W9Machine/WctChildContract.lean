@@ -15,26 +15,25 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   pc : u.pc = pcOf (L.childWord j)
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (coordinateBase k)
   hashMode : u.getReg .x5 = 0
-  hashInput : u.getReg .x10 = BitVec.ofNat 64 (coordinateBase k + 880)
+  hashInput : u.getReg .x10 = BitVec.ofNat 64 (coordinateBase k + 752)
   hashLen : u.getReg .x11 = 128
   nodeHeader : u.getReg .x27 = BitVec.ofNat 64 (V3.nodeLow k.val index)
-  childReg : u.getReg .x4 = BitVec.ofNat 64 j.val
+  indexReg : u.getReg .x22 = BitVec.ofNat 64 index
   forestPointer : u.getReg .x9 = BitVec.ofNat 64 (pairAddress k)
   returnPC : u.getReg .x1 = pcOf (L.returnWord k)
   heaps : ∀ h, 2 ≤ h → h ≤ 7 → u.getReg (heapReg h) = BitVec.ofNat 64 h
-  leaf1Lo : u.getMem (BitVec.ofNat 64 (coordinateBase k + 896)) =
-    (V3.leafFields k.val index j.val ends 1).extractLsb' 0 64
-  leaf1Hi : u.getMem (BitVec.ofNat 64 (coordinateBase k + 904)) = BitVec.ofNat 64 index
-  leafAt : ∀ i, i < 8 → i ≠ 1 → DigAt u (coordinateBase k + 880 + 16 * i)
+  childReg : u.getReg .x4 = BitVec.ofNat 64 j.val
+  leafAt : ∀ i, i < 8 → i ≠ 1 → DigAt u (coordinateBase k + 752 + 16 * i)
     (V3.leafFields k.val index j.val ends i)
-  padAt : ∀ l, l < 6 → DigAt u (coordinateBase k + V3.blockOffset l + 32)
-    (V3.nodePad w k.val l)
-  sibAt : ∀ l, l < 7 → DigAt u (coordinateBase k + V3.siblingOffset j.val l)
+  headerLo : u.getMem (BitVec.ofNat 64 (coordinateBase k + 768)) =
+    (SigGolfCandidate.T3.header 6 k.val index 0 j.val).extractLsb' 0 64
+  headerIndex : u.getMem (BitVec.ofNat 64 (coordinateBase k + 776)) = BitVec.ofNat 64 index
+  padAt : ∀ l, l < 6 → DigAt u (coordinateBase k + ClaudeWCT.W9.T3M.authPadOff j.val l)
+    (V3.nodePad w k.val j.val l)
+  sibAt : ∀ l, l < 7 → DigAt u (coordinateBase k + ClaudeWCT.W9.T3M.authSibOff j.val l)
     (V3.sibling w k.val j.val l)
 def writes (k : Fin 9) (A : Nat) : Prop :=
-  A = coordinateBase k + 904 ∨
-  (coordinateBase k + 64 ≤ A ∧ A < coordinateBase k + 464) ∨
-    (pairAddress k ≤ A ∧ A < pairAddress k + 48)
+  (coordinateBase k ≤ A ∧ A < coordinateBase k + 896) ∨ (pairAddress k ≤ A ∧ A < pairAddress k + 48)
 def clobbers : List Reg := [.x3, .x10, .x11, .x12, .x14]
 structure Post (L : Layout) (k : Fin 9) (u : MachineState)
     (pair : V3.RootPair) (t : MachineState) : Prop where

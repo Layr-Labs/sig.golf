@@ -10,7 +10,7 @@ open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3.Security.Wots
 open ClaudeWCT.W9.T3M.WctExtract (wctChainP_eq_hashPath wctChainInputP_block4 queried_hashPath queried_mapM
   hdrBlock_block4W leafHash_eq_shortHash hdrBlock_merkleInput recoverCoordinateP_dec forestPk_eq_shortHash)
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
-open SigGolfCandidate.T3M (wrho wdc layerP)
+open ClaudeWCT.W9.T3M (wrho wdc layerP)
 open SigGolfCandidate.T3.Security.WotsExtract (SourceLeaf SourceChain mem_entriesOf entriesOf_mono)
 open SigGolfCandidate.T3.Correctness (Answers)
 open SphincsSecurity (bytesLE bytesLE_injective)
@@ -77,17 +77,17 @@ theorem verifyP_walk_wots (answers : Answers) (m : Message) (pk : Digest) (w : W
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
       (WotsPrimitiveSrc answers (entriesOf answers (queried answers (verifyP m pk w))) ∨
-       ((∀ l : Layer, BC.GoodZ answers w (N.toNat % 2 ^ 31) l) ∧
+       ((∀ l : Layer, BC.GoodZ answers w (WCT9.digestIndex N) l) ∧
           evalWithAnswerFn answers
-              (recoverFtsP (witDecP N w).signature (padDecP N w) (N.toNat % 2 ^ 31) N) =
-            Extract.honestForest answers (N.toNat % 2 ^ 31) ∧
-          ∀ q ∈ queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (N.toNat % 2 ^ 31) N),
+              (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N) =
+            Extract.honestForest answers (WCT9.digestIndex N) ∧
+          ∀ q ∈ queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N),
             q ∈ queried answers (verifyP m pk w))) := by
   classical
   obtain ⟨N, hdc, hN, hdq, hS, hlay, hqF, hqL⟩ := WctExtract.verifyP_walk_wct answers m pk w hv
   refine ⟨N, hdc, hN, hdq, hS, ?_⟩
-  have hidx : N.toNat % 2 ^ 31 < 2 ^ 31 := Nat.mod_lt _ (by norm_num)
-  rcases layersBC_wots_walk answers w (N.toNat % 2 ^ 31) hidx 4 (by decide) le_rfl (.forest _)
+  have hidx : WCT9.digestIndex N < 2 ^ 31 := Nat.mod_lt _ (by norm_num)
+  rcases layersBC_wots_walk answers w (WCT9.digestIndex N) hidx 4 (by decide) le_rfl (.forest _)
       (show (Fin.ofNat 4 (4 - 1) : Layer).val = 3 from rfl) (by rw [hlay, hpk]) with
     hprim | ⟨hgood, hroot⟩
   · exact Or.inl (hprim.mono (entriesOf_mono hqL))
@@ -152,28 +152,28 @@ theorem merkle_queries_pos (answers : Answers) (index : Nat) (c : WCT9.Coord) (j
   rw [pathInput, WctExtract.hdrBlock_merkleInput]
   rfl
 theorem coord_queries_pos (answers : Answers) (N : HashOutput) (w : WBytes) (c : WCT9.Coord) :
-    ∀ q ∈ queried answers (recoverCoordinateP (witDecP N w).signature (padDecP N w) (N.toNat % 2 ^ 31) N c),
+    ∀ q ∈ queried answers (recoverCoordinateP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N c),
       ∃ actual, q = .inl (.inr actual) ∧ FtsQueryPos actual := by
   intro q hq
-  have hidx : N.toNat % 2 ^ 31 < 2 ^ 31 := Nat.mod_lt _ (by norm_num)
+  have hidx : WCT9.digestIndex N < 2 ^ 31 := Nat.mod_lt _ (by norm_num)
   have hj := (WCT9.child N c).isLt
   rw [recoverCoordinateP_dec] at hq
   rw [queried_bind, queried_bind, queried_bind] at hq
   rcases List.mem_append.mp hq with hq | hq
   · rw [queried_mapM] at hq
     obtain ⟨t, -, hq⟩ := List.mem_flatMap.mp hq
-    exact chain_queries_pos answers (N.toNat % 2 ^ 31) c.val (WCT9.child N c).val t.val
+    exact chain_queries_pos answers (WCT9.digestIndex N) c.val (WCT9.child N c).val t.val
       (WCT9.wordDigit (WCT9.rank N c) t) (WCT9.wordDigit_le_three _ t) _ _ _ _ ⟨hidx, c.isLt, hj, t.isLt⟩ q hq
   rcases List.mem_append.mp hq with hq | hq
-  · exact leaf_queries_pos answers (N.toNat % 2 ^ 31) c.val (WCT9.child N c).val _ ⟨hidx, c.isLt, hj⟩ q hq
+  · exact leaf_queries_pos answers (WCT9.digestIndex N) c.val (WCT9.child N c).val _ ⟨hidx, c.isLt, hj⟩ q hq
   rcases List.mem_append.mp hq with hq | hq
-  · exact merkle_queries_pos answers (N.toNat % 2 ^ 31) c (WCT9.child N c).val hj hidx _ _ _ q hq
+  · exact merkle_queries_pos answers (WCT9.digestIndex N) c (WCT9.child N c).val hj hidx _ _ _ q hq
   · simp [queried_pure] at hq
 theorem fts_queries_pos (answers : Answers) (N : HashOutput) (w : WBytes) :
-    ∀ q ∈ queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (N.toNat % 2 ^ 31) N),
+    ∀ q ∈ queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N),
       ∃ actual, q = .inl (.inr actual) ∧ FtsQueryPos actual := by
   intro q hq
-  have hidx : N.toNat % 2 ^ 31 < 2 ^ 31 := Nat.mod_lt _ (by norm_num)
+  have hidx : WCT9.digestIndex N < 2 ^ 31 := Nat.mod_lt _ (by norm_num)
   unfold recoverFtsP at hq
   rw [queried_bind, forestPk_eq_shortHash, queried_shortHash] at hq
   rcases List.mem_append.mp hq with hq | hq
@@ -182,15 +182,15 @@ theorem fts_queries_pos (answers : Answers) (N : HashOutput) (w : WBytes) :
     exact coord_queries_pos answers N w c q hq
   · rw [List.mem_singleton] at hq
     subst hq
-    refine ⟨_, rfl, ftsQueryPos_of_hdr (pos := .forest (N.toNat % 2 ^ 31))
+    refine ⟨_, rfl, ftsQueryPos_of_hdr (pos := .forest (WCT9.digestIndex N))
       (by exact lt_trans hidx (by norm_num)) hidx trivial ?_⟩
     rw [Extract.hdrBlock_forestInput]
     rfl
 theorem structuralHitSrc_of_fts_hitIn (answers : Answers) (N : HashOutput) (w : WBytes)
     (h : Extract.HitIn answers
-      (queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (N.toNat % 2 ^ 31) N))) :
+      (queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N))) :
     StructuralHitSrc answers (entriesOf answers
-      (queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (N.toNat % 2 ^ 31) N))) := by
+      (queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N))) := by
   obtain ⟨pos, actual, hb, hq, hh, hs⟩ := h
   obtain ⟨actual', hqe, pos', hb', hsrc', hfts', hdr'⟩ := fts_queries_pos answers N w _ hq
   have hae : actual = actual' := by simpa using hqe
@@ -206,10 +206,10 @@ theorem structuralHitSrc_of_fts_hitIn (answers : Answers) (N : HashOutput) (w : 
   cases pos <;> trivial
 theorem fts_structural (answers : Answers) (N : HashOutput) (w : WBytes) (hS : Shaped N w)
     (hrun : evalWithAnswerFn answers
-        (recoverFtsP (witDecP N w).signature (padDecP N w) (N.toNat % 2 ^ 31) N) =
-      Extract.honestForest answers (N.toNat % 2 ^ 31)) :
+        (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N) =
+      Extract.honestForest answers (WCT9.digestIndex N)) :
     StructuralHitSrc answers (entriesOf answers (queried answers
-        (recoverFtsP (witDecP N w).signature (padDecP N w) (N.toNat % 2 ^ 31) N))) ∨
+        (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N))) ∨
       WctExtract.WctHonest answers N w :=
   (WctExtract.wct_extract answers N w hS hrun).imp_left (structuralHitSrc_of_fts_hitIn answers N w)
 theorem verifyP_wots_cases_src (answers : Answers) (m : Message) (pk : Digest) (w : WBytes)
@@ -220,7 +220,7 @@ theorem verifyP_wots_cases_src (answers : Answers) (m : Message) (pk : Digest) (
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
       (WotsPrimitiveSrc answers (entriesOf answers (queried answers (verifyP m pk w))) ∨
-       ((∀ l : Layer, BC.GoodZ answers w (N.toNat % 2 ^ 31) l) ∧ WctExtract.WctHonest answers N w)) := by
+       ((∀ l : Layer, BC.GoodZ answers w (WCT9.digestIndex N) l) ∧ WctExtract.WctHonest answers N w)) := by
   classical
   obtain ⟨N, hdc, hN, hdq, hS, hcase⟩ := verifyP_walk_wots answers m pk w hpk hv
   refine ⟨N, hdc, hN, hdq, hS, ?_⟩
@@ -235,7 +235,7 @@ open OracleComp OracleSpec
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
-open SigGolfCandidate.T3M (wrho wdc)
+open ClaudeWCT.W9.T3M (wrho wdc)
 open ClaudeWCT.W9.T3.Security.WotsExtract
 open SigGolfCandidate.T3.Security.Wots (entriesOf)
 open SigGolfCandidate.T3.Correctness (Answers)
@@ -247,7 +247,7 @@ theorem verifyP_wots_cases (answers : Answers) (m : Message) (pk : Digest) (w : 
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
       (WotsPrimitive answers (entriesOf answers (queried answers (verifyP m pk w))) ∨
-       ((∀ l : Layer, BC.GoodZ answers w (N.toNat % 2 ^ 31) l) ∧ WctExtract.WctHonest answers N w)) := by
+       ((∀ l : Layer, BC.GoodZ answers w (WCT9.digestIndex N) l) ∧ WctExtract.WctHonest answers N w)) := by
   obtain ⟨N, hdc, hN, hdq, hS, hcase⟩ := verifyP_wots_cases_src answers m pk w hpk hv
   exact ⟨N, hdc, hN, hdq, hS, hcase.imp_left WotsPrimitiveSrc.toPrimitive⟩
 end ClaudeWCT.W9.T3.Security.Wots

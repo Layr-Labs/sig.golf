@@ -693,7 +693,7 @@ theorem kdig_le (q k j : Nat) : kdig q k j ≤ mx q := by
 theorem inl_q (q : Nat) (h : inl q=true) : 14 ≤ q ∧ q ≤ 16 := by simp [inl] at h; omega
 theorem leadPc_le (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) (hk' : q<17 → k<125) :
     leadPc q k ≤ 210425 := by
-  unfold leadPc leadOff entW entOff mx at *
+  unfold leadPc leadOff entW cellW entOff mx at *
   split_ifs at * <;> omega
 theorem group_bounds (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) (hk' : q<17 → k<125) :
     gbase q k+2*mx q+2<251927 ∧ gX q k+4<251927 ∧ leadPc q k<251927 ∧
@@ -709,9 +709,9 @@ theorem group_bounds (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) (hk' : q<17 →
     simp only [gbase,hn,Bool.false_eq_true,if_false]
     refine ⟨by omega,by omega,by omega,fun h => absurd h (by simp)⟩
   · have hq' := inl_q q hn
-    have hl2 : leadPc q k ≤ 176744+256*124+194+1 := by
+    have hl2 : leadPc q k ≤ 256*124+202+1 ∧ 121 ≤ leadPc q k := by
       have := hk' (by omega)
-      unfold leadPc leadOff entW entOff at *
+      unfold leadPc leadOff entW cellW entOff at *
       split_ifs at * <;> omega
     simp only [gbase,hn,if_true]
     refine ⟨?_,?_,by omega,fun _ => ?_⟩ <;> split_ifs <;> omega
@@ -786,7 +786,9 @@ theorem lead_copy_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54) (h0 : 
   have hdm : kdig (i/3) (c.kOf (i/3)) 0=mx (i/3) := by rw [k1,e0]; exact hd
   have hg : gbase (i/3) (c.kOf (i/3))=leadPc (i/3) (c.kOf (i/3))+3-2*mx (i/3) := by
     simp [gbase,hn,hdm]
-  have hlo : 176744 ≤ leadPc (i/3) (c.kOf (i/3)) := by unfold leadPc entW; omega
+  have hlo : 121 ≤ leadPc (i/3) (c.kOf (i/3)) := by
+    have := inl_q _ hn
+    unfold leadPc leadOff entW cellW entOff; split_ifs <;> omega
   rw [hs,he]
   unfold gB
   rw [hg]

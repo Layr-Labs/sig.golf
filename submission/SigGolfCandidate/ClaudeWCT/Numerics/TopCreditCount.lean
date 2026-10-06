@@ -10,9 +10,9 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
 set_option exponentiation.threshold 20000
 set_option linter.constructorNameAsVariable false
-def topCount129 : ℕ := 97816978632729252580178283386927154
-theorem exact_packed_129_8 :
-    (packed % radix ^ 8320) % (radix - 1) - (packed % radix ^ (8256 + 8)) % (radix - 1) = topCount129 := by
+def topCount129 : ℕ := 99688341888453976199567696916972594
+theorem exact_packed_129_7 :
+    (packed % radix ^ 8320) % (radix - 1) - (packed % radix ^ (8256 + 7)) % (radix - 1) = topCount129 := by
   decide +kernel
 theorem exact_packed_128_9 :
     (packed % radix ^ 8256) % (radix - 1) - (packed % radix ^ (8192 + 9)) % (radix - 1) =
@@ -45,9 +45,9 @@ theorem credited_card_of (T f n : ℕ) (hf : f ≤ 64) (hT : 0 < T)
   · intro w hw
     simp only [mem_filter, mem_univ, true_and] at hw ⊢
     omega
-theorem credited_card_129_8 :
-    (univ.filter fun w : Word => weight w = 129 ∧ 8 ≤ credit w).card = topCount129 :=
-  credited_card_of 129 8 _ (by norm_num) (by norm_num) exact_packed_129_8
+theorem credited_card_129_7 :
+    (univ.filter fun w : Word => weight w = 129 ∧ 7 ≤ credit w).card = topCount129 :=
+  credited_card_of 129 7 _ (by norm_num) (by norm_num) exact_packed_129_7
 theorem credited_card_128_9 :
     (univ.filter fun w : Word => weight w = 128 ∧ 9 ≤ credit w).card = 115848238762295281832019488595518415 :=
   credited_card_of 128 9 _ (by norm_num) (by norm_num) exact_packed_128_9

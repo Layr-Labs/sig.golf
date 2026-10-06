@@ -1,28 +1,96 @@
+import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Layout
 import SigGolfCandidate.ClaudeWCT.WCT9.Limits
 import SigGolfCandidate.ClaudeWCT.WCT9.TopDecode
-import SigGolfCandidate.T3M.Witness.Basic
 
 section
 namespace ClaudeWCT.W9.T3M
 open SigGolfCandidate.T3
-open SigGolfCandidate.T3M (wdig sibOff)
-abbrev WBytes := SigGolfCandidate.T3M.WBytes
-def regionBase (k : Nat) : Nat := 64 + 1024 * k
-def wctEnd : Nat := 9280
-def wctChainBlock (k t : Nat) : Nat := regionBase k + (832 - 64 * t)
-def wctLeafBlock (k : Nat) : Nat := regionBase k + 880
-def wctLeafSlot (k t : Nat) : Nat := regionBase k + (if t = 0 then 880 else 896 + 16 * t)
-def wctMerkleBlock (k l : Nat) : Nat := regionBase k + 64 * (6 - l)
+open SigGolfCandidate.T3M (sibOff)
+def regionBase (k : Nat) : Nat := 64 + 896 * k
+def wctEnd : Nat := 8128
+def wctChainBlock (k t : Nat) : Nat := regionBase k + (704 - 64 * t)
+def wctLeafBlock (k : Nat) : Nat := regionBase k + 752
+def wctLeafSlot (k t : Nat) : Nat := regionBase k + (if t = 0 then 752 else 768 + 16 * t)
+def authPlans : List (List Nat × Nat) :=
+  [([0,32,64,96,128,160], 224),
+   ([0,48,80,112,144,176], 240),
+   ([48,0,80,112,144,176], 240),
+   ([48,0,96,128,160,192], 256),
+   ([48,80,0,112,144,176], 240),
+   ([48,96,0,128,160,192], 256),
+   ([96,48,0,128,160,192], 256),
+   ([96,48,0,144,176,208], 272),
+   ([48,80,112,0,144,176], 240),
+   ([48,96,128,0,160,192], 256),
+   ([96,48,128,0,160,192], 256),
+   ([96,48,144,0,176,208], 272),
+   ([96,128,48,0,160,192], 256),
+   ([96,144,48,0,176,208], 272),
+   ([144,96,48,0,176,208], 272),
+   ([144,96,48,0,192,224], 288),
+   ([48,80,112,144,0,176], 240),
+   ([48,96,128,160,0,192], 256),
+   ([96,48,128,160,0,192], 256),
+   ([96,48,144,176,0,208], 272),
+   ([96,128,48,160,0,192], 256),
+   ([96,144,48,176,0,208], 272),
+   ([144,96,48,176,0,208], 272),
+   ([144,96,48,192,0,224], 288),
+   ([96,128,160,48,0,192], 256),
+   ([96,144,176,48,0,208], 272),
+   ([144,96,176,48,0,208], 272),
+   ([144,96,192,48,0,224], 288),
+   ([144,176,96,48,0,208], 272),
+   ([144,192,96,48,0,224], 288),
+   ([192,144,96,48,0,224], 288),
+   ([192,144,96,48,0,240], 304),
+   ([48,80,112,144,176,0], 240),
+   ([48,96,128,160,192,0], 256),
+   ([96,48,128,160,192,0], 256),
+   ([96,48,144,176,208,0], 272),
+   ([96,128,48,160,192,0], 256),
+   ([96,144,48,176,208,0], 272),
+   ([144,96,48,176,208,0], 272),
+   ([144,96,48,192,224,0], 288),
+   ([96,128,160,48,192,0], 256),
+   ([96,144,176,48,208,0], 272),
+   ([144,96,176,48,208,0], 272),
+   ([144,96,192,48,224,0], 288),
+   ([144,176,96,48,208,0], 272),
+   ([144,192,96,48,224,0], 288),
+   ([192,144,96,48,224,0], 288),
+   ([192,144,96,48,240,0], 304),
+   ([96,128,160,192,48,0], 256),
+   ([96,144,176,208,48,0], 272),
+   ([144,96,176,208,48,0], 272),
+   ([144,96,192,224,48,0], 288),
+   ([144,176,96,208,48,0], 272),
+   ([144,192,96,224,48,0], 288),
+   ([192,144,96,224,48,0], 288),
+   ([192,144,96,240,48,0], 304),
+   ([144,176,208,96,48,0], 272),
+   ([144,192,224,96,48,0], 288),
+   ([192,144,224,96,48,0], 288),
+   ([192,144,240,96,48,0], 304),
+   ([192,224,144,96,48,0], 288),
+   ([192,240,144,96,48,0], 304),
+   ([240,192,144,96,48,0], 304),
+   ([256,208,160,112,64,16], 0)]
+def authBase (child l : Nat) : Nat := ((authPlans.getD (child % 64) ([], 0)).1).getD l 0
+def authRoot (child : Nat) : Nat := (authPlans.getD (child % 64) ([], 0)).2
+def authSibOff (child l : Nat) : Nat :=
+  if l < 6 then authBase child l + sibOff (child / 2 ^ l % 2) else authRoot child
+def authPadOff (child l : Nat) : Nat := authBase child l + 32
 def wopen (w : WBytes) (k t : Nat) : Digest := wdig w (wctChainBlock k t + 48)
 def wleaf (w : WBytes) (k t : Nat) : Digest := wdig w (wctLeafSlot k t)
 def wreveal (w : WBytes) (k t d : Nat) : Digest := if d = 0 then wleaf w k t else wopen w k t
 def wcpads (w : WBytes) (k t : Nat) : Digest × Digest :=
   (wdig w (wctChainBlock k t), wdig w (wctChainBlock k t + 32))
-def wsib (w : WBytes) (k child l : Nat) : Digest := wdig w (wctMerkleBlock k l + sibOff (child / 2 ^ l % 2))
-def wmpad (w : WBytes) (k l : Nat) : Digest := wdig w (wctMerkleBlock k l + 32)
+def wsib (w : WBytes) (k child l : Nat) : Digest := wdig w (regionBase k + authSibOff child l)
+def wmpad (w : WBytes) (k child l : Nat) : Digest := wdig w (regionBase k + authPadOff child l)
 def wcHeaderPad (w : WBytes) (k t : Nat) : BitVec 64 := (wdig w (wctChainBlock k t + 16)).extractLsb' 64 64
-def bcCounterOff (lay : Layer) : Nat := (![13544, 16744, 19880, 32] : Layer → Nat) lay
-def wbcCtr (w : WBytes) (lay : Layer) : BitVec 32 := SigGolfCandidate.T3M.wle32 w (bcCounterOff lay)
+def bcCounterOff (lay : Layer) : Nat := (![12392, 15592, 18728, 32] : Layer → Nat) lay
+def wbcCtr (w : WBytes) (lay : Layer) : BitVec 32 := wle32 w (bcCounterOff lay)
 def wbcPad (w : WBytes) (lay : Layer) : BitVec 96 := w.extractLsb' (8 * (bcCounterOff lay + 4)) 96
 theorem wctLeafSlot_zero (k : Nat) : wctLeafSlot k 0 = wctChainBlock k 0 + 48 := by
   simp [wctLeafSlot, wctChainBlock]
@@ -33,8 +101,7 @@ end
 section
 namespace ClaudeWCT.W9.T3M
 open OracleComp OracleSpec SigGolfCandidate.T3
-open SigGolfCandidate.T3M (wdig wrho wdc wle32 wvalue wpath wchainPads wmerklePad wchainHeaderPad chainP layerP
-  nodeHashP recoverLayerP)
+open SigGolfCandidate.T3M (chainP nodeHashP recoverLayerP)
 open SphincsSecurity (bytesLE)
 def wctChainInputP (index coord child t step : Nat) (padA : Digest) (padB : BitVec 64) (padC value : Digest) :
     HashInput :=
@@ -48,7 +115,7 @@ def wctNodeHashP (coord index heap : Nat) (left pad right : Digest) : M Digest :
   nodeHashP 3 (WCT9.nodeLayer coord) index heap left pad right
 def digestP (m : Message) (w : WBytes) : M (Option HashOutput) :=
   if (wdc w).toNat ≥ WCT9.digestAttemptLimit then pure none else some <$> digest (wrho w) m (wdc w)
-def gateOk (N : HashOutput) : Bool := decide (N.toNat / 2 ^ 235 % 2 ^ 21 < 1091)
+def gateOk (N : HashOutput) : Bool := decide (N.toNat / 2 ^ 235 % 2 ^ 21 < 1030)
 def fieldOk (N : HashOutput) (coord : WCT9.Coord) : Bool := decide (WCT9.field N coord < WCT9.fieldLimit)
 def wctCoordP (w : WBytes) (index : Nat) (coord : WCT9.Coord) (child : WCT9.Child) (word : WCT9.Rank) :
     M (Digest × Digest) := do
@@ -61,18 +128,18 @@ def wctCoordP (w : WBytes) (index : Nat) (coord : WCT9.Coord) (child : WCT9.Chil
     let other := wsib w coord.val child.val level.val
     let pair := if child.val / 2 ^ level.val % 2 = 0 then (value, other) else (other, value)
     wctNodeHashP coord.val index (2 ^ (6 - level.val) + child.val / 2 ^ (level.val + 1)) pair.1
-      (wmpad w coord.val level.val) pair.2) leaf
+      (wmpad w coord.val child.val level.val) pair.2) leaf
   let other := wsib w coord.val child.val 6
   pure (if child.val / 2 ^ 6 % 2 = 0 then (top, other) else (other, top))
 def wctStep (w : WBytes) (N : HashOutput) (state : Option (List (Digest × Digest))) (coord : WCT9.Coord) :
     M (Option (List (Digest × Digest))) := do
   let some pairs := state | pure none
   if !fieldOk N coord then return none
-  let pair ← wctCoordP w (N.toNat % 2 ^ 31) coord (WCT9.child N coord) (WCT9.rank N coord)
+  let pair ← wctCoordP w (WCT9.digestIndex N) coord (WCT9.child N coord) (WCT9.rank N coord)
   pure (some (pairs ++ [pair]))
 def wctP (w : WBytes) (N : HashOutput) : M (Option Digest) := do
   let some pairs ← (List.finRange 9).foldlM (wctStep w N) (some []) | pure none
-  some <$> WCT9.forestPk (N.toNat % 2 ^ 31) pairs
+  some <$> WCT9.forestPk (WCT9.digestIndex N) pairs
 def layerEncodingInputP (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (counter : BitVec 32)
     (pad : BitVec 96) : HashInput :=
   match msg with
@@ -120,7 +187,7 @@ def layersBC (w : WBytes) (index : Nat) : Nat → WCT9.LayerMsg → M (Option Di
 def verifyP (m : Message) (pk : Digest) (w : WBytes) : M Bool := do
   let some N ← digestP m w | pure false
   if !gateOk N then return false
-  let index := N.toNat % 2 ^ 31
+  let index := WCT9.digestIndex N
   let some root ← wctP w N | pure false
   let some root ← layersBC w index 4 (.forest root) | pure false
   pure (root == pk)
@@ -140,7 +207,7 @@ def layersBCPrepass (w : WBytes) (index : Nat) : Nat → WCT9.LayerMsg → M (Op
 def verifyPPrepass (m : Message) (pk : Digest) (w : WBytes) : M Bool := do
   let some N ← digestP m w | pure false
   if !gateOk N then return false
-  let index := N.toNat % 2 ^ 31
+  let index := WCT9.digestIndex N
   let some root ← wctP w N | pure false
   let some root ← layersBCPrepass w index 4 (.forest root) | pure false
   pure (root == pk)
@@ -218,7 +285,7 @@ def verifyLayersBCP (w : WCT9.Witness) (pads : Pads) (index : Nat) : Nat → WCT
         verifyLayersBCP w pads index n (.pair pair.1 pair.2)
 def verifyPadsTail (pk : Digest) (output : HashOutput) (w : WCT9.Witness) (pads : Pads) : M Bool := do
   if !WCT9.admissible output then return false
-  let index := output.toNat % 2 ^ 31
+  let index := WCT9.digestIndex output
   let root ← recoverFtsP w.signature pads index output
   let some root ← verifyLayersBCP w pads index 4 (.forest root) | pure false
   pure (root == pk)

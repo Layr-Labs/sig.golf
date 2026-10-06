@@ -307,19 +307,19 @@ open ClaudeWCT.WCT9 (wotsTree wotsSeed wotsEnd wotsValue wotsRoot)
 set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
 theorem layerP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes) (lay : Layer) (digits : List Nat)
-    (hlay : lay.val = 0) (hs : LayerShaped answers w (N.toNat % 2 ^ 31) lay digits) :
-    layerP w (N.toNat % 2 ^ 31) lay digits =
-      recoverLayer (WCT9.toT3Signature (witDecP N w).signature) (N.toNat % 2 ^ 31) lay digits := by
+    (hlay : lay.val = 0) (hs : LayerShaped answers w (WCT9.digestIndex N) lay digits) :
+    layerP w (WCT9.digestIndex N) lay digits =
+      recoverLayer (WCT9.toT3Signature (witDecP N w).signature) (WCT9.digestIndex N) lay digits := by
   have hpath : ∀ j : Fin (height lay), ((WCT9.toT3Signature (witDecP N w).signature).layers lay).path j =
-      wpath w lay (route (N.toNat % 2 ^ 31) lay).1 j.val := fun _ => rfl
+      wpath w lay (route (WCT9.digestIndex N) lay).1 j.val := fun _ => rfl
   have hvals : ∀ i : Fin (chainCount lay),
       ((WCT9.toT3Signature (witDecP N w).signature).layers lay).values i = wvalue w lay i.val :=
     fun _ => rfl
-  have hzero := chainP_zero_route (N.toNat % 2 ^ 31) lay
-  have hindex : N.toNat % 2 ^ 31 < 2 ^ 31 := Nat.mod_lt _ (by decide)
+  have hzero := chainP_zero_route (WCT9.digestIndex N) lay
+  have hindex : WCT9.digestIndex N < 2 ^ 31 := WCT9.digestIndex_lt N
   unfold layerP recoverLayer
   simp only [hpath, hvals]
-  generalize hr : route (N.toNat % 2 ^ 31) lay = r at hs hzero ⊢
+  generalize hr : route (WCT9.digestIndex N) lay = r at hs hzero ⊢
   obtain ⟨leaf, tree⟩ := r
   dsimp only at hs hzero ⊢
   have hchains : ((List.finRange (chainCount lay)).mapM fun i =>
@@ -346,18 +346,18 @@ theorem layerP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes) (la
   funext v j
   rw [(hs.1 j.val j.isLt).2 (Or.inr hlay), nodeHashP_zero]
 theorem layerPairP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes) (lay : Layer) (digits : List Nat)
-    (hs : LayerShaped answers w (N.toNat % 2 ^ 31) lay digits) :
-    layerPairP w (N.toNat % 2 ^ 31) lay digits =
-      WCT9.recoverLayerPair (witDecP N w).signature (N.toNat % 2 ^ 31) lay digits := by
-  have hzero := chainP_zero_route (N.toNat % 2 ^ 31) lay
-  have hindex : N.toNat % 2 ^ 31 < 2 ^ 31 := Nat.mod_lt _ (by decide)
+    (hs : LayerShaped answers w (WCT9.digestIndex N) lay digits) :
+    layerPairP w (WCT9.digestIndex N) lay digits =
+      WCT9.recoverLayerPair (witDecP N w).signature (WCT9.digestIndex N) lay digits := by
+  have hzero := chainP_zero_route (WCT9.digestIndex N) lay
+  have hindex : WCT9.digestIndex N < 2 ^ 31 := WCT9.digestIndex_lt N
   have hpath : ∀ j : Fin (height lay), ((witDecP N w).signature.layers lay).path j =
-      wpath w lay (route (N.toNat % 2 ^ 31) lay).1 j.val := fun _ => rfl
+      wpath w lay (route (WCT9.digestIndex N) lay).1 j.val := fun _ => rfl
   have hvals : ∀ i : Fin (chainCount lay), ((witDecP N w).signature.layers lay).values i = wvalue w lay i.val :=
     fun _ => rfl
   unfold layerPairP WCT9.recoverLayerPair
   simp only [hpath, hvals, Fin.val_castLE, WCT9.topLevel]
-  generalize hr : route (N.toNat % 2 ^ 31) lay = r at hs hzero ⊢
+  generalize hr : route (WCT9.digestIndex N) lay = r at hs hzero ⊢
   obtain ⟨leaf, tree⟩ := r
   dsimp only at hs hzero ⊢
   have hchains : ((List.finRange (chainCount lay)).mapM fun i =>

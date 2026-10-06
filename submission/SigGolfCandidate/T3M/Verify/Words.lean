@@ -1,6 +1,6 @@
 import SigGolfCandidate.T3M.Verify.Judg
 import SigGolfCandidate.T3M.Mem
-import SigGolfCandidate.T3M.Witness.VerifyP
+import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Layout
 
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
@@ -8,26 +8,26 @@ open SigGolfCandidate.T3 (header pad64 zero16 Digest HashOutput HashInput Layer)
 open SphincsSecurity (bytesLE bytesLE_length)
 abbrev dlo (d : BitVec 128) : Word := d.extractLsb' 0 64
 abbrev dhi (d : BitVec 128) : Word := d.extractLsb' 64 64
-def wword (w : WBytes) (j : Nat) : Word := w.extractLsb' (64 * j) 64
-theorem wword_toNat (w : WBytes) (j : Nat) : (wword w j).toNat = w.toNat / 2 ^ (64 * j) % 2 ^ 64 := by
+def wword (w : ClaudeWCT.W9.T3M.WBytes) (j : Nat) : Word := w.extractLsb' (64 * j) 64
+theorem wword_toNat (w : ClaudeWCT.W9.T3M.WBytes) (j : Nat) : (wword w j).toNat = w.toNat / 2 ^ (64 * j) % 2 ^ 64 := by
   simp only [wword, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
-theorem wword_zero (w : WBytes) (j : Nat) (h : 2873 ≤ j) : wword w j = 0 := by
+theorem wword_zero (w : ClaudeWCT.W9.T3M.WBytes) (j : Nat) (h : 2729 ≤ j) : wword w j = 0 := by
   apply BitVec.eq_of_toNat_eq
   rw [wword_toNat]
   have hw : w.toNat < 2 ^ (64 * j) :=
     lt_of_lt_of_le w.isLt (Nat.pow_le_pow_right (by decide) (by omega))
   rw [Nat.div_eq_of_lt hw]; rfl
-theorem wdig_lo (w : WBytes) (j : Nat) : dlo (wdig w (8 * j)) = wword w j := by
+theorem wdig_lo (w : ClaudeWCT.W9.T3M.WBytes) (j : Nat) : dlo (ClaudeWCT.W9.T3M.wdig w (8 * j)) = wword w j := by
   apply BitVec.eq_of_toNat_eq
-  simp only [wdig, wword, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, Nat.pow_zero, Nat.div_one]
+  simp only [ClaudeWCT.W9.T3M.wdig, wword, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, Nat.pow_zero, Nat.div_one]
   rw [show 8 * (8 * j) = 64 * j by ring, Nat.mod_mod_of_dvd _ (by norm_num)]
-theorem wdig_hi (w : WBytes) (j : Nat) : dhi (wdig w (8 * j)) = wword w (j + 1) := by
+theorem wdig_hi (w : ClaudeWCT.W9.T3M.WBytes) (j : Nat) : dhi (ClaudeWCT.W9.T3M.wdig w (8 * j)) = wword w (j + 1) := by
   apply BitVec.eq_of_toNat_eq
-  simp only [wdig, wword, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
+  simp only [ClaudeWCT.W9.T3M.wdig, wword, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
   rw [show (2 : Nat) ^ 128 = 2 ^ 64 * 2 ^ 64 by norm_num, Nat.mod_mul_right_div_self,
     Nat.div_div_eq_div_mul, ← Nat.pow_add, show 8 * (8 * j) + 64 = 64 * (j + 1) by ring, Nat.mod_mod]
-theorem wdig_words (w : WBytes) (j : Nat) :
-    wordsOf (bytesLE 16 (wdig w (8 * j))) = [wword w j, wword w (j + 1)] := by
+theorem wdig_words (w : ClaudeWCT.W9.T3M.WBytes) (j : Nat) :
+    wordsOf (bytesLE 16 (ClaudeWCT.W9.T3M.wdig w (8 * j))) = [wword w j, wword w (j + 1)] := by
   rw [wordsOf_bytesLE16, ← wdig_lo, ← wdig_hi]
 def blk4 (a b c d : BitVec 128) : List UInt8 := bytesLE 16 a ++ bytesLE 16 b ++ bytesLE 16 c ++ bytesLE 16 d
 theorem blk4_length (a b c d : BitVec 128) : (blk4 a b c d).length = 64 := by

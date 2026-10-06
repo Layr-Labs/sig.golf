@@ -29,7 +29,7 @@ theorem wct_digestSearch_public {P : Type} [Fintype P] [SampleableType P] (S : F
       intro answer
       split <;> simp only [simulateQ_pure, map_pure, ih, FtsBankSpec.search, Sampling.publicProgram]
 def payAfterDigest (cache : T3.Cache) (rho : Digest) (output : HashOutput) : M (Option WCT9.Signature) := do
-  let index := output.toNat % 2 ^ 31
+  let index := WCT9.digestIndex output
   let state ← (List.finRange 9).foldlM
     (fun (state : List Opening × List (Digest × Digest)) coord => do
       let selected := child output coord

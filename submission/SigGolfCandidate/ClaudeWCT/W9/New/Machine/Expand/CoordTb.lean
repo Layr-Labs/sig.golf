@@ -74,10 +74,10 @@ structure FtsIn (sig : WCT9.Signature) (N : HashOutput) (sF : MachineState) : Pr
 structure DrvInv (sig : WCT9.Signature) (N : HashOutput) (sF : MachineState) (k : Nat)
     (pairs : List (Digest × Digest)) (t : MachineState) : Prop where
   pc : t.pc = pcOf (base + dOff k)
-  regs : DRegs (N.toNat % 2 ^ 31) t
+  regs : DRegs (WCT9.digestIndex N) t
   x8 : t.getReg .x8 = BitVec.ofNat 64 (regBase (k - 1))
   x28 : t.getReg .x28 = BitVec.ofNat 64 (HB0 + 2048 + 512 * (k - 1))
-  x15 : t.getReg .x15 = BitVec.ofNat 64 (N.toNat % 2 ^ 31 * 2 ^ 27 + 65536 * (k - 1))
+  x15 : t.getReg .x15 = BitVec.ofNat 64 (WCT9.digestIndex N * 2 ^ 27 + 65536 * (k - 1))
   x16 : 0 < k → t.getReg .x16 = N.extractLsb' (64 * dWord (k - 1)) 64
   len : pairs.length = k
   pairs : ∀ k', k' < k → DigAt t (pslot k') (pairs.getD k' (0, 0)).1 ∧
@@ -183,9 +183,9 @@ def coordRegs : List Reg :=
 theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.Signature} {N : HashOutput}
     {sF : MachineState} (hin : FtsIn sig N sF) (k : Nat) (hk : k < 9) (pairs : List (Digest × Digest))
     (t : MachineState) (hI : DrvInv sig N sF k pairs t) :
-    TBSim im sk t coordCost (WCT9.recoverCoordinate sig (N.toNat % 2 ^ 31) N ⟨k, hk⟩)
+    TBSim im sk t coordCost (WCT9.recoverCoordinate sig (WCT9.digestIndex N) N ⟨k, hk⟩)
       (fun pr u => DrvInv sig N sF (k + 1) (pairs ++ [pr]) u) := by
-  have hidx : N.toNat % 2 ^ 31 < 2 ^ 31 := Nat.mod_lt _ (by positivity)
+  have hidx : WCT9.digestIndex N < 2 ^ 31 := WCT9.digestIndex_lt N
   have hj : (WCT9.child N ⟨k, hk⟩).val < 128 := (WCT9.child N ⟨k, hk⟩).isLt
   have hf : WCT9.field N ⟨k, hk⟩ < 16200 := field_lt_of_adm N k hk hin.adm
   have hr : (WCT9.embed (WCT9.rank N ⟨k, hk⟩)).val < 728 := (WCT9.embed (WCT9.rank N ⟨k, hk⟩)).isLt
@@ -193,7 +193,7 @@ theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.
     jtTarget_field N ⟨k, hk⟩
   have hrb := regBase_bounds k hk
   have hps := pslot_bounds k hk
-  set index := N.toNat % 2 ^ 31 with hindex
+  set index := WCT9.digestIndex N with hindex
   set j := (WCT9.child N ⟨k, hk⟩).val with hjdef
   have hlow : ∀ A, A < 0x420 → t.getMem (BitVec.ofNat 64 A) = sF.getMem (BitVec.ofNat 64 A) :=
     fun A hA => hI.frame A (by omega) (by omega)

@@ -9,10 +9,10 @@ def children : Nat := 128
 def chains : Nat := 7
 def gateShift : Nat := 235
 def gateBits : Nat := 21
-def gateLimit : Nat := 1091
+def gateLimit : Nat := 1030
 def fieldBits : Nat := 14
 def fieldLimit : Nat := 16200
-def jointCap : Nat := 699
+def jointCap : Nat := 700
 abbrev Coord := Fin 9
 abbrev Child := Fin 128
 abbrev Rank := Fin 600
@@ -20,17 +20,21 @@ def wctHeader (tag lay tree position index : Nat) : BitVec 128 :=
   BitVec.ofNat 128 (1 + tag % 256 * 2 ^ 8 + lay % 256 * 2 ^ 16 +
     (tree / 2 ^ 32 % 256) * 2 ^ 24 + position % 2 ^ 32 * 2 ^ 32 +
     tree % 2 ^ 32 * 2 ^ 64 + index % 2 ^ 32 * 2 ^ 96)
-def coordBase (k : Nat) : Nat := [43,64,85,106,128,149,170,192,213].getD k 0
+def indexShift : Nat := 33
+def digestIndex (output : HashOutput) : Nat := output.toNat / 2 ^ 33 % 2 ^ 31
+theorem digestIndex_lt (output : HashOutput) : digestIndex output < 2 ^ 31 := Nat.mod_lt _ (by decide)
+def childBase (k : Nat) : Nat := [0,64,85,121,128,149,185,192,213].getD k 0
+def fieldBase (k : Nat) : Nat := [7,71,92,107,135,156,171,199,220].getD k 0
 def child (output : HashOutput) (coord : Coord) : Child :=
-  ⟨output.toNat / 2 ^ coordBase coord.val % 128, Nat.mod_lt _ (by decide)⟩
+  ⟨output.toNat / 2 ^ childBase coord.val % 128, Nat.mod_lt _ (by decide)⟩
 def field (output : HashOutput) (coord : Coord) : Nat :=
-  output.toNat / 2 ^ (coordBase coord.val + 7) % 2 ^ 14
+  output.toNat / 2 ^ fieldBase coord.val % 2 ^ 14
 def rank (output : HashOutput) (coord : Coord) : Rank :=
   ⟨field output coord % 600, Nat.mod_lt _ (by decide)⟩
 def admissible (output : HashOutput) : Bool :=
-  decide (output.toNat / 2 ^ 235 % 2 ^ 21 < 1091) &&
+  decide (output.toNat / 2 ^ 235 % 2 ^ 21 < 1030) &&
     (List.range 9).all (fun coord =>
-      decide (output.toNat / 2 ^ (coordBase coord + 7) % 2 ^ 14 < 16200))
+      decide (output.toNat / 2 ^ fieldBase coord % 2 ^ 14 < 16200))
 def jointCost (output : HashOutput) : Nat :=
   ((List.finRange 9).map fun coord => routineCost (rank output coord)).sum
 def capOk (output : HashOutput) : Bool := decide (jointCost output ≤ jointCap)
@@ -113,7 +117,7 @@ def pairEncodingInputP (up : Layer) (tree leaf : Nat) (left right : Digest) (cou
 def layerEncodingInput (lay : Layer) (tree leaf : Nat) : LayerMsg → BitVec 32 → HashInput
   | .forest root, counter => encodingInput lay tree leaf root counter
   | .pair left right, counter => pairEncodingInputP lay tree leaf left right counter 0
-def producerFloor (lay : Layer) : Nat := ![8, 4, 4, 4] lay
+def producerFloor (lay : Layer) : Nat := ![7, 4, 4, 2] lay
 def wordCredit (lay : Layer) (digits : List Nat) : Nat :=
   ((List.range (chainCount lay)).filter fun i => digits.getD i 0 + 1 = maxDigit lay i).length
 def producerDecode (lay : Layer) (answer : Digest) : Option (List Nat) :=
@@ -259,7 +263,7 @@ def verifyLayersBC (w : Witness) (index : Nat) : Nat → LayerMsg → M (Option 
 def signPayload (cache : Cache) (message : Message) : M (Option Signature) := do
   let rho ← privateNonce message
   let some (_, output) ← digestSearch rho message 0 attemptLimit | pure none
-  let index := output.toNat % 2 ^ 31
+  let index := digestIndex output
   let state ← (List.finRange 9).foldlM
     (fun (state : List Opening × List (Digest × Digest)) coord => do
       let selected := child output coord
@@ -304,7 +308,7 @@ def recoverFts (sig : Signature) (index : Nat) (output : HashOutput) : M Digest 
   forestPk index pairs
 def expand (message : Message) (pk : Digest) (sig : Signature) : M (Option Witness) := do
   let some (counter, output) ← digestSearch sig.rho message 0 attemptLimit | pure none
-  let index := output.toNat % 2 ^ 31
+  let index := digestIndex output
   let root ← recoverFts sig index output
   let some (root, counters) ← expandLayersBC sig index 4 (.forest root) | pure none
   if root ≠ pk then return none
@@ -313,7 +317,7 @@ def verify (message : Message) (pk : Digest) (w : Witness) : M Bool := do
   if w.digestCounter.toNat ≥ attemptLimit then return false
   let output ← digest w.signature.rho message w.digestCounter
   if !admissible output then return false
-  let index := output.toNat % 2 ^ 31
+  let index := digestIndex output
   let root ← recoverFts w.signature index output
   let some root ← verifyLayersBC w index 4 (.forest root) | pure false
   pure (root == pk)

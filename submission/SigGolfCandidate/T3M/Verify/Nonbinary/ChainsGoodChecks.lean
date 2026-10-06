@@ -286,15 +286,21 @@ theorem blockCheck_at (q dB dC : Nat) (hq : q<18) (hn : inl q=false) (hB : dB �
     split_ifs at * <;> omega
   have hb := List.all_eq_true.mp h.2 ((mx q+1)*dB+dC) (List.mem_range.mpr hh)
   rwa [e1,e2] at hb
-theorem rej_at (q k : Nat) (hq : q<17) (hk : 125 ≤ k) (hk' : k<128) : vrun (entW q k) 1=some rejJ := by
+theorem stub_at (k : Nat) (hk : k<125) : vrun (guardW k) 1=some rejJ := by
   have h := rejCheck_ok
-  simp only [rejCheck,Bool.and_eq_true] at h
-  have h1 := List.all_eq_true.mp h.1 q (List.mem_range.mpr hq)
-  exact rOK_eq (List.all_eq_true.mp h1 k (List.mem_range'_1.mpr ⟨hk,by omega⟩))
-theorem stub_at (k : Nat) (hk : k<125) : vrun (176744+256*k+250) 1=some rejJ := by
-  have h := rejCheck_ok
-  simp only [rejCheck,Bool.and_eq_true] at h
-  exact rOK_eq (List.all_eq_true.mp h.2 k (List.mem_range.mpr hk))
+  simp only [rejCheck] at h
+  exact rOK_eq (List.all_eq_true.mp h k (List.mem_range.mpr hk))
+theorem s8Run_at (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) :
+    (if q=0 then rOK (vrun (entW 0 k) 3) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k)))=true := by
+  have h := s8Check_at q k hq hk
+  simp only [s8Check,Bool.and_eq_true] at h
+  exact h.1
+theorem bge9_at (k : Nat) (hk : k<125) (he : k%2=0) : vrun (cellW 9 k) 1=some (bge9R (cellW 9 k)) := by
+  have h := s8Check_at 9 k (by decide) (by unfold mx; norm_num; omega)
+  simp only [s8Check,Bool.and_eq_true] at h
+  have h2 := h.2
+  rw [if_pos (by simp [he])] at h2
+  exact rOK_eq h2
 end SigGolfCandidate.T3M.Nonbinary
 end
 end
@@ -344,7 +350,7 @@ structure GroupFacts (c : NCtx) (q : Nat) : Prop where
   rungs : rungsOK q (c.dig (3*q)+1) (slot (3*q)) (gbase q (c.kOf q)+2*(c.dig (3*q)+1))=true
   partB : partOK q (3*q+1) (c.dig (3*q+1)) (gB q (c.kOf q))=true
   partC : partOK q (3*q+2) (c.dig (3*q+2)) (gC q (c.kOf q))=true
-  disp : q<17 → vrun (gX q (c.kOf q)) 5=some (if q<16 then dispatchR (q+1) else tailDispatchR)
+  disp : q<17 → vrun (gX q (c.kOf q)) 5=some (if q=8 then dispatch9R else if q<16 then dispatchR (q+1) else tailDispatchR)
   s8 : s8Check q (c.kOf q)=true
 theorem mx_bounds' (q : Nat) : 3≤ mx q ∧ mx q≤4 := by unfold mx;split <;> omega
 theorem rungsOK_mono (q d0 d1 sl b : Nat) (h : d0 ≤ d1) (hk : rungsOK q d0 sl (b+2*d0)=true) :
@@ -397,14 +403,14 @@ theorem groupFacts (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<18) : c.Group
       obtain ⟨⟨⟨⟨hs8,hcopy⟩,hpB⟩,hpC⟩,hdisp⟩ := he
       refine ⟨fun h => by simp [hn] at h,fun h => by simp [hn] at h,fun h => by simp [hn] at h,
         fun _ _ => rOK_eq hcopy,fun _ h => absurd h (by omega),fun _ h => absurd h (by omega),
-        fun h => absurd h (by omega),?_,hpB,hpC,fun _ => rOK_eq hdisp,hs8⟩
+        fun h => absurd h (by omega),?_,hpB,hpC,fun _ => by rw [if_neg (show q≠8 by omega)]; exact rOK_eq hdisp,hs8⟩
       unfold rungsOK; rw [List.all_eq_true]; intro m hm'; rw [List.mem_range'_1] at hm'; omega
     · rw [if_neg hd] at he
       simp only [Bool.and_eq_true] at he
       obtain ⟨⟨⟨⟨hs8,⟨⟨hhead,htail⟩,hrungs⟩⟩,hpB⟩,hpC⟩,hdisp⟩ := he
       refine ⟨fun h => by simp [hn] at h,fun h => by simp [hn] at h,fun h => by simp [hn] at h,
         fun _ h => absurd h hd,fun _ h => ?_,fun _ h => ?_,fun _ => rOK_eq htail,hrungs,hpB,hpC,
-        fun _ => rOK_eq hdisp,hs8⟩
+        fun _ => by rw [if_neg (show q≠8 by omega)]; exact rOK_eq hdisp,hs8⟩
       · rw [if_neg (by omega)] at hhead; simpa only [if_neg (show ¬ c.dig (3*q)+1=mx q by omega)] using rOK_eq hhead
       · rw [if_pos h] at hhead; simpa only [if_pos h] using rOK_eq hhead
 theorem kOf_eq_lead (c : NCtx) (i : Nat) (h0 : i%3=0) : 3*(i/3)=i := by omega
