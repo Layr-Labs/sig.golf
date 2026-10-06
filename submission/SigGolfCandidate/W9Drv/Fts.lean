@@ -733,12 +733,12 @@ namespace W9Drv
 open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64 W9Machine
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
-def fPrepWords : List (BitVec 32) := [0x00020b13,0xffce37,0xf0290193,0x40303823,0x41603c23,0x40000513,335545747,268437011,115]
+def fPrepWords : List (BitVec 32) := [0x00020b13,0xffc337,0xf0290193,0x40303823,0x41603c23,0x40000513,335545747,268437011,115]
 def fTailWords : List (BitVec 32) := []
 def gpE : E := .bin .add (.reg .x18) (.c (BitVec.ofNat 64 (2 ^ 64 - 254)))
 def fPrep : Result :=
   let regs := RegFile.init.set .x22 (.reg .x4)
-  let regs := regs.set .x28 (.c (BitVec.ofNat 64 0xffc000))
+  let regs := regs.set .x6 (.c (BitVec.ofNat 64 0xffc000))
   let regs := regs.set .x3 gpE
   let regs := regs.set .x10 (.c 1024)
   let regs := regs.set .x11 (.c 320)
@@ -866,8 +866,8 @@ theorem forest_good (pk : Digest) (w : WBytes) (a : HashOutput)
   have st1' : Steps Frozen.image u 8 8 (fPrep.toState u) := st1
   set s1 := fPrep.toState u with hs1
   have hf := block_ecall fPrep_checked fPrep_linked rfl u rfl
-  have r1 : ∀ x, x ≠ .x3 → x ≠ .x10 → x ≠ .x11 → x ≠ .x12 → x ≠ .x28 → x ≠ .x22 → s1.getReg x = u.getReg x := by
-    intro x h3 h10 h11 h12 h28 h22
+  have r1 : ∀ x, x ≠ .x3 → x ≠ .x10 → x ≠ .x11 → x ≠ .x12 → x ≠ .x6 → x ≠ .x22 → s1.getReg x = u.getReg x := by
+    intro x h3 h10 h11 h12 h6 h22
     rw [hs1, Result.toState_getReg]
     cases x <;> first | exact absurd rfl ‹_› | rfl
   have h5 : s1.getReg .x5 = 0 :=
@@ -905,7 +905,7 @@ theorem forest_good (pk : Digest) (w : WBytes) (a : HashOutput)
     have mt : t.mem = (writeHash s1 ans).mem := toState_mem_nil _ _ rfl
     have et : ∀ A, t.getMem A = (writeHash s1 ans).getMem A := fun A => congrFun mt A
     have hout : FtsOut ⟨pk, w, a⟩ (ans.extractLsb' 0 128) t := by
-      refine ⟨?_, ?_, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+      refine ⟨?_, ?_, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
       · have gg := Glob_writeHash g1 ans 0x100 h12 (by decide)
         refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
         · intro p hp
@@ -965,10 +965,6 @@ theorem forest_good (pk : Digest) (w : WBytes) (a : HashOutput)
         exact hu.heaps 5 (by decide) (by decide)
       · rw [ht, Result.toState_getReg]
         show (writeHash s1 ans).getReg .x6 = _
-        rw [writeHash_getReg, r1 .x6 (by decide) (by decide) (by decide) (by decide) (by decide) (by decide)]
-        exact hu.coordStep
-      · rw [ht, Result.toState_getReg]
-        show (writeHash s1 ans).getReg .x28 = _
         rw [writeHash_getReg, hs1, Result.toState_getReg]
         rfl
       · intro k hk
