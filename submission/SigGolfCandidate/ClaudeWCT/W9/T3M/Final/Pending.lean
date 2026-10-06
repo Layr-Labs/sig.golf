@@ -505,13 +505,20 @@ theorem avoidsQuery_of_fts (secret : BitVec 256) (target : HashInput)
       ⟨coord, selected, t, step, hblock⟩ | ⟨tag, lay, position, idx, htag, hblock⟩
     · intro he
       subst he
-      rcases ht with ⟨l, tr, p, ix, hh⟩ | ⟨l, tr, p, ix, hh⟩
+      rcases ht with (⟨l, tr, p, ix, hh⟩ | ⟨htag, -⟩) |
+        (⟨l, tr, p, ix, hh⟩ | ⟨-, counter, hh⟩)
       · exact ClaudeWCT.WCT9.ftsChainHeaderP_ne_header index coord selected t step 0 4 l tr p ix
           (bytesLE_injective (hblock.symm.trans hh))
+      · norm_num at htag
       · exact ClaudeWCT.WCT9.ftsChainHeaderP_ne_header index coord selected t step 0 12 l tr p ix
           (bytesLE_injective (hblock.symm.trans hh))
+      · have he := bytesLE_injective (hblock.symm.trans hh)
+        have hn := congrArg (fun h : Digest => h.toNat % 256) he
+        simp only [ClaudeWCT.WCT9.ftsChainHeader,
+          ClaudeWCT.WCT9.ftsChainHeaderP_firstByte, digestHeader_firstByte] at hn
+        omega
     · have hmod := ClaudeWCT.WCT9.Wots.tag_mod' htag
-      exact tagged_ne_search (tag := tag) ⟨lay, index, position, idx, hblock⟩ ht hmod.2.2.1 hmod.2.2.2
+      exact tagged_ne_search (tag := tag) (Or.inl ⟨lay, index, position, idx, hblock⟩) ht hmod.2.2.1 hmod.2.2.2
   · obtain ⟨coord, pair, -, -, rfl⟩ := (show FtsSeed index tweak from hq)
     exact tagged_ne_search (tag := 8) (hasTag_privatePair secret 8 coord index 0 pair)
       ht (by decide) (by decide)
@@ -689,8 +696,8 @@ open ClaudeWCT.WCT9 (Signature Witness)
 open ClaudeWCT.WCT9.Rev3 (sign expand verify)
 open SigGolfCandidate.T3M (mrealize countBoth countCalls cacheB cacheDec isHash)
 open ClaudeWCT.W9.T3M (Images submission)
-def verifyCycleBound : Nat := 7342
-def claimedC : Nat := 7428
+def verifyCycleBound : Nat := 7339
+def claimedC : Nat := 7425
 def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 21832) : Prop :=
   ∀ N, evalWithAnswerFn hash (mrealize 0 (digestP m w)) = some N → WCT9.capOk N = true
 variable (I : Images)

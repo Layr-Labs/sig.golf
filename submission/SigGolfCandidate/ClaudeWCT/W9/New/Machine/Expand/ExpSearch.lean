@@ -17,7 +17,7 @@ def resHead (d : Bool) : PRes :=
     if d then 3 else 4, if d then 3 else 4, [⟨.ltu, .reg .x19, cst (2 ^ 21), d⟩], none⟩
 def resTrial : PRes :=
   ⟨⟨rfs [(.x6, ctrE), (.x10, cst DIG), (.x11, cst 64), (.x12, cst NBUF), (.x28, cst DIG)],
-    [mw (DIG + 24) ctrE, mw (DIG + 16) (cst 3073)], []⟩, pcOf 40909, true, 12, 12, [], none⟩
+    [mw (DIG + 24) ctrE, mw (DIG + 16) (cst 0)], []⟩, pcOf 40909, true, 12, 12, [], none⟩
 def resGate (d : Bool) : PRes :=
   ⟨⟨rfs [(.x6, gateE), (.x22, .ld (cst NBUF)), (.x28, cst NBUF)], [], []⟩,
     if d then pcOf 41060 else pcOf 40917, false, 7, 7, [⟨.eq, gateE, .c 0, d⟩], none⟩
@@ -188,7 +188,7 @@ theorem trial_spec (hl : LookOK im expLook) (s : MachineState) (hpc : s.pc = pcO
     ∃ t, Steps im s 12 12 t ∧ fetch im t = some (.base .ECALL) ∧ t.pc = pcOf 40909 ∧
       t.getReg .x10 = BitVec.ofNat 64 DIG ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 NBUF ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 16)) = BitVec.ofNat 64 3073 ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 16)) = BitVec.ofNat 64 0 ∧
       t.getMem (BitVec.ofNat 64 (DIG + 24)) = BitVec.ofNat 64 (i * 2 ^ 32) ∧
       RegsExcept s t [.x6, .x10, .x11, .x12, .x28] ∧ Frame s t (fun A => A = DIG + 24 ∨ A = DIG + 16) := by
   obtain ⟨hs, hp, he, hr, hm⟩ := piece hl run_trial s hpc rfl (by intro b hb; cases hb) rfl
