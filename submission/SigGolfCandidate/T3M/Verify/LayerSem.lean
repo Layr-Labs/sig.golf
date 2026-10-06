@@ -21,12 +21,12 @@ def ctrE (lay : Nat) : E :=
   if lay = 3 then T3M.ctrE lay else .un (.ld .wu 0) (.ld (kw (x10In lay + 32)))
 def ctrBr (lay : Nat) (d : Bool) : Br := ⟨if lay = 3 then .ltu else .geu, ctrE lay, kw 0x400000, d⟩
 def headerWrites (lay : Nat) : List (Addr × E) :=
-  [(⟨none, BitVec.ofNat 64 (x10In lay + 24)⟩, tpE lay),
+  [(⟨none, BitVec.ofNat 64 (x10In lay + 24)⟩, tp0E lay),
    (⟨none, BitVec.ofNat 64 (x10In lay + 16)⟩, kw (hw 4 lay))]
 def specA (lay p : Nat) : Spec :=
   if lay = 3 then T3M.specA lay p else
-  ⟨if lay = 0 then [(.x4, tpE lay), (.x23, s7E lay), (.x3, ctrE lay), (.x12, .reg .x12)]
-   else [(.x4, tpE lay), (.x23, s7E lay), (.x31, treeE lay), (.x3, ctrE lay),
+  ⟨if lay = 0 then [(.x4, tp0E lay), (.x23, s7E lay), (.x3, ctrE lay), (.x12, .reg .x12)]
+   else [(.x4, tp0E lay), (.x23, s7E lay), (.x31, treeE lay), (.x3, ctrE lay),
      (.x28, .bin .sll (.reg (rReg lay)) (kw 16)), (.x12, .reg .x12)],
    headerWrites lay, p + stepsA lay, true, stepsA lay,
    [ctrBr lay false], none, stepsA lay⟩
@@ -277,6 +277,7 @@ structure LayerIn (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index lay : Nat) 
     s.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 22152
   dst0 : lay = 0 → ∃ d, s.getReg .x12 = BitVec.ofNat 64 d ∧ (d = 14408 ∨ d = 14456)
   dstL : lay = 1 ∨ lay = 2 → ∃ d, s.getReg .x12 = BitVec.ofNat 64 d ∧ (d = x10In lay ∨ d = x10In lay + 48)
+  tp0 : lay = 0 → s.getReg .x4 = BitVec.ofNat 64 (hdr1 (T3.route index 0).2 (T3.route index 0).1)
 structure EncPre (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index lay c : Nat)
     (t : MachineState) : Prop where
   pc : t.pc = pcOf (trPc lay c + stepsA lay)

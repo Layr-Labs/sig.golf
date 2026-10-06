@@ -59,7 +59,7 @@ theorem not_field (X : Word) (b : Nat) (hb : b+7 ≤ 64) :
   by_cases hj : j<7
   · simp [hj, show j+b<64 by omega]
   · simp [hj]
-theorem entOff_le (q : Nat) (hq : q<17) : entOff q ≤ 202 := by unfold entOff; split_ifs <;> omega
+theorem entOff_le (q : Nat) (hq : q<17) : entOff q ≤ 211 := by unfold entOff; split_ifs <;> omega
 theorem dispatch_value (W : Word) (b q : Nat) (hb : b<64) (hq : q<17) :
     ((shiftWord10 W b &&& 130048#64)+BitVec.ofNat 64 (1024+4*entOff q)) &&& ~~~1#64 =
       BitVec.ofNat 64 (1024*(W.toNat/2^b%128)+1024+4*entOff q) := by
@@ -74,8 +74,8 @@ theorem fault_value (q k : Nat) (hq : q<17) (hk : 125 ≤ k) (hk' : k<128) :
   have he := entOff_le q hq
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]; omega
 theorem g9_value (W : Word) :
-    ((((W <<< (BitVec.ofNat 64 11).toNat) &&& 130048#64)+4096#64)+BitVec.ofNat 64 (2^64-1728)) &&& ~~~1#64 =
-      BitVec.ofNat 64 (2048*(W.toNat%64)+2368) := by
+    (((W <<< (BitVec.ofNat 64 11).toNat) &&& 130048#64)+2300#64) &&& ~~~1#64 =
+      BitVec.ofNat 64 (2048*(W.toNat%64)+2300) := by
   have hm : ((W <<< (BitVec.ofNat 64 11).toNat) &&& 130048#64) = BitVec.ofNat 64 (2048*(W.toNat%64)) := by
     apply BitVec.eq_of_toNat_eq
     rw [BitVec.toNat_and,show (130048#64).toNat=1024*(2^7-1) by rfl,land_mask10 _ _ (by decide)]
@@ -88,14 +88,10 @@ theorem g9_value (W : Word) :
         show (2:Nat)^11*(W.toNat%2^53) = 1024*(2*(W.toNat%2^53)) by ring, Nat.mul_div_cancel_left _ (by norm_num)]
       omega
     rw [this]; ring
-  rw [hm, ofNat_add_ofNat, ofNat_add_ofNat, even_andNot1' _ (by omega)]
-  have hw := W.isLt
-  apply BitVec.eq_of_toNat_eq
-  simp only [BitVec.toNat_ofNat]
-  omega
-theorem g9_cell (u : Nat) (hu : u ≤ 62) : BitVec.ofNat 64 (2048*(63-u)+2368)=pcOf (cellW 9 (2*u)) := by
+  rw [hm, ofNat_add_ofNat, even_andNot1' _ (by omega)]
+theorem g9_cell (u : Nat) (hu : u ≤ 62) : BitVec.ofNat 64 (2048*(63-u)+2300)=pcOf (cellW 9 (2*u)) := by
   unfold pcOf cellW entOff; norm_num; congr 1; omega
-theorem g9_fault : (BitVec.ofNat 64 (2048*(63-63)+2368)).toNat<0x1000 := by decide
+theorem g9_fault : (BitVec.ofNat 64 (2048*(63-63)+2300)).toNat<0x1000 := by decide
 theorem prologue_value (W : Word) :
     (((W <<< (BitVec.ofNat 64 10).toNat) &&& 130048#64)+BitVec.ofNat 64 1056) &&& ~~~1#64 =
       BitVec.ofNat 64 (1024*(W.toNat%128)+1056) := by
