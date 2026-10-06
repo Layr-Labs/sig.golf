@@ -103,7 +103,7 @@ def k0 : List (Reg × Word) :=
    (.x12, 0), (.x13, 0), (.x14, 0), (.x15, 0), (.x16, 0), (.x17, 0), (.x18, 0), (.x19, 0), (.x20, 0),
    (.x21, 0), (.x22, 0), (.x23, 0), (.x24, 0), (.x25, 0), (.x26, 0), (.x27, 0), (.x28, 0), (.x29, 0),
    (.x30, 0), (.x31, 0)]
-def VERIFY_DATA : Nat := 0xffbf40
+def VERIFY_DATA : Nat := 0xffbde0
 structure InitOK (m : T3.Message) (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (s : MachineState) : Prop where
   known : KnownOK k0 s
   pc : s.pc = pcOf 0
@@ -113,14 +113,14 @@ structure InitOK (m : T3.Message) (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (s
   zero : ∀ A, A < WIT → (A < 0x40 ∨ (0x60 ≤ A ∧ A < 0xA0) ∨ 0xB0 ≤ A) → s.getMem (BitVec.ofNat 64 A) = 0
   data : DataOK s
   sp : s.getReg .x2 = BitVec.ofNat 64 VERIFY_DATA
-theorem verifyData_length : (submission.image .verify).data.length = 16576 := Images.verifyData_length
+theorem verifyData_length : (submission.image .verify).data.length = 16928 := Images.verifyData_length
 theorem dataBase_verify : dataBase (submission.image .verify) = VERIFY_DATA := by
   unfold dataBase; rw [verifyData_length]; decide
 theorem verifyData_mask :
-    bytesToWordLE ((((submission.image .verify).data).drop 184).take 8) = 130048#64 := by
+    bytesToWordLE ((((submission.image .verify).data).drop 536).take 8) = 130048#64 := by
   decide +kernel
 theorem verifyData_header (k : Nat) (hk : k < 4) :
-    bytesToWordLE ((((submission.image .verify).data).drop (80 + 8 * k)).take 8) =
+    bytesToWordLE ((((submission.image .verify).data).drop (432 + 8 * k)).take 8) =
       BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + k * 2 ^ 48) := by
   interval_cases k <;> decide +kernel
 theorem verifyData_initialMask :
@@ -150,7 +150,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 21832) (s : Mac
   have gm : ∀ A, (s3.setReg .x2 (BitVec.ofNat 64 (dataBase (submission.image .verify)))).getMem A =
       s3.getMem A := fun A => by simp [MachineState.setReg, MachineState.getMem]
   have g0 : ∀ A, A < 2 ^ 64 → s0.getMem (BitVec.ofNat 64 A) =
-      if VERIFY_DATA ≤ A ∧ A < VERIFY_DATA + 8 * ((16576 + 7) / 8) ∧ (A - VERIFY_DATA) % 8 = 0 then
+      if VERIFY_DATA ≤ A ∧ A < VERIFY_DATA + 8 * ((16928 + 7) / 8) ∧ (A - VERIFY_DATA) % 8 = 0 then
         bytesToWordLE ((((submission.image .verify).data).drop (A - VERIFY_DATA)).take 8) else 0 := by
     intro A hA
     rw [getMem_writeBytesAsWords (submission.image .verify).data blank (dataBase (submission.image .verify)) A
@@ -253,14 +253,14 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 21832) (s : Mac
         g2 _ (by unfold TOPBASE; omega), if_neg (by unfold TOPBASE; omega),
         g1 _ (by unfold TOPBASE; omega), if_neg (by unfold TOPBASE; omega),
         g0 _ (by unfold TOPBASE; omega), if_pos (by unfold TOPBASE VERIFY_DATA; omega),
-        show TOPBASE - 8 - VERIFY_DATA = 184 by unfold TOPBASE VERIFY_DATA; omega,
+        show TOPBASE - 8 - VERIFY_DATA = 536 by unfold TOPBASE VERIFY_DATA; omega,
         verifyData_mask]
     · intro lay hl
       rw [gm, g3 _ (by unfold HDATA; omega), if_neg (by unfold HDATA; omega),
         g2 _ (by unfold HDATA; omega), if_neg (by unfold HDATA; omega),
         g1 _ (by unfold HDATA; omega), if_neg (by unfold HDATA; omega),
         g0 _ (by unfold HDATA; omega), if_pos (by unfold HDATA VERIFY_DATA; omega),
-        show HDATA + 8 * lay - VERIFY_DATA = 80 + 8 * lay by unfold HDATA VERIFY_DATA; omega,
+        show HDATA + 8 * lay - VERIFY_DATA = 432 + 8 * lay by unfold HDATA VERIFY_DATA; omega,
         verifyData_header lay hl]
   · simp [MachineState.setReg, MachineState.getReg]
     exact congrArg (BitVec.ofNat 64) eD
