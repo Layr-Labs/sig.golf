@@ -162,17 +162,8 @@ theorem counterSearch_free (lay : Layer) (tree leaf : Nat) (message : Digest) (c
         · exact pure_allowed _ _
 theorem digest_free (rho : Digest) (message : Message) (counter : BitVec 32) :
     AllQueriesSatisfy (digest rho message counter) FtsFree := by
-  unfold digest publicHash
-  apply (allQueriesSatisfy_query_iff _ _).mpr
-  change decodeProbe (pad64 (digestInput rho message counter)) = none
-  rw [decodeProbe_eq_none]
-  intro f c he
-  have hh := congrArg Extract.hdrBlock he
-  rw [hdrBlock_probeInput] at hh
-  unfold digestInput at hh
-  rw [Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
-    Extract.hdrBlock_prefix] at hh
-  exact digestHeader_ne_header _ _ _ _ _ _ (bytesLE_injective hh)
+  unfold digest publicHash digestInput
+  exact (allQueriesSatisfy_query_iff _ _).mpr (decodeProbe_prefix _ _ _ _ _ _ (by decide))
 theorem digestSearch_free (rho : Digest) (message : Message) (counter fuel : Nat) :
     AllQueriesSatisfy (digestSearch rho message counter fuel) FtsFree := by
   induction fuel generalizing counter with

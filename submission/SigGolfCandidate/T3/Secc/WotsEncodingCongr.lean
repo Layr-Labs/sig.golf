@@ -105,18 +105,12 @@ theorem respects_signForest (index : Nat) (chosen : List Selection) :
   refine Respects.bind (respects_buildFts index coord) ?_
   rintro ⟨levels, secrets⟩
   exact Respects.pure' _
-theorem nonEnc_digestInput (rho : Digest) (message : Message) (counter : BitVec 32) :
-    NonEnc (.inl (.inr (pad64 (digestInput rho message counter)))) := by
-  apply nonEnc_of_hdr _ (digestHeader counter) _
-    (fun _ _ _ _ => digestHeader_ne_header counter 4 _ _ _ _)
-  unfold digestInput
-  rw [Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
-    Extract.hdrBlock_prefix]
 theorem respects_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
     Respects NonEnc (digest rho message counter) := by
   unfold digest
   apply Respects.publicHash
-  exact nonEnc_digestInput rho message counter
+  unfold digestInput
+  exact nonEnc_prefixed _ _ (by decide) _ _ _ _
 theorem respects_digestSearch (rho : Digest) (message : Message) :
     ∀ fuel counter, Respects NonEnc (digestSearch rho message counter fuel) := by
   intro fuel

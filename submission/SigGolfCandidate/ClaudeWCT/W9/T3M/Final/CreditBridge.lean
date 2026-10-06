@@ -52,7 +52,8 @@ theorem notEnc_digest (rho : Digest) (m : SigGolfCandidate.T3.Message) (c : BitV
     AllQueriesSatisfy (SigGolfCandidate.T3.digest rho m c) NotEncS := by
   unfold SigGolfCandidate.T3.digest
   apply notEnc_publicHash _ (by simp [SigGolfCandidate.T3.digestInput, bytesLE_length])
-  exact SigGolfCandidate.T3.Security.Wots.Enc.nonEnc_digestInput rho m c
+  unfold SigGolfCandidate.T3.digestInput
+  exact nonEnc_prefixed _ _ (by decide) _ _ _ _
 theorem notEnc_recoverFts (sig : ClaudeWCT.WCT9.Signature) (index : Nat) (output : HashOutput) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.recoverFts sig index output) NotEncS := by
   have h1 : AllQueriesSatisfy (ClaudeWCT.WCT9.recoverFts sig index output) (ClaudeWCT.WCT9.FtsQuery index) :=

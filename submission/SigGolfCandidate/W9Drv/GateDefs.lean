@@ -20,7 +20,7 @@ structure SetupMask (u : MachineState) : Prop where
   child : u.getMem (BitVec.ofNat 64 (setupMaskAddr + 16)) = BitVec.ofNat 64 0xce800
   jt : u.getMem (BitVec.ofNat 64 (setupMaskAddr + 24)) = BitVec.ofNat 64 0xd6800
 structure GatePre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (u : MachineState) : Prop where
-  pc : u.pc = pcOf 32781
+  pc : u.pc = pcOf 32784
   glob : Glob baseK w pk u
   cached0 : u.getReg .x16 = a.extractLsb' 0 64
   len64 : u.getReg .x11 = 64

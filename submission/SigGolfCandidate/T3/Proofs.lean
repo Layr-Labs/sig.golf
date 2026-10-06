@@ -927,31 +927,6 @@ theorem header_injective {tag lay tree position index tag' lay' tree' position' 
       (Nat.mod_lt tree' (by positivity)) hpacked
     exact ⟨rfl,hlay,by omega,hposition,hindex⟩
 open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
-theorem digestHeader_toNat (counter : BitVec 32) :
-    (digestHeader counter).toNat = counter.toNat * 2 ^ 96 := by
-  simp only [digestHeader, BitVec.toNat_append, BitVec.toNat_zero, Nat.or_zero, Nat.shiftLeft_eq]
-  rw [Nat.mul_assoc, ← Nat.pow_add]
-theorem digestHeader_firstByte (counter : BitVec 32) :
-    (digestHeader counter).toNat % 256 = 0 := by
-  rw [digestHeader_toNat, Nat.mul_mod]
-  norm_num
-theorem digestHeader_low (counter : BitVec 32) :
-    (digestHeader counter).extractLsb' 0 64 = 0 := by
-  exact BitVec.extractLsb'_append_eq_right
-theorem digestHeader_high (counter : BitVec 32) :
-    (digestHeader counter).extractLsb' 64 64 = BitVec.ofNat 64 (counter.toNat * 2 ^ 32) := by
-  rw [digestHeader, BitVec.extractLsb'_append_eq_left]
-  apply BitVec.eq_of_toNat_eq
-  simp only [BitVec.toNat_append, BitVec.toNat_zero, Nat.or_zero, Nat.shiftLeft_eq, BitVec.toNat_ofNat,
-    Nat.zero_mod]
-  have hc := counter.isLt
-  rw [Nat.mod_eq_of_lt (show counter.toNat * 2 ^ 32 < 2 ^ (32 + 32) by omega)]
-theorem digestHeader_injective : Function.Injective digestHeader := by
-  intro counter counter' h
-  have hh := congrArg (fun x : BitVec 128 => x.extractLsb' 64 64) h
-  simp only [digestHeader, BitVec.extractLsb'_append_eq_left] at hh
-  have hc := congrArg (fun x : BitVec 64 => x.extractLsb' 32 32) hh
-  simpa only [BitVec.extractLsb'_append_eq_left] using hc
 theorem digestInput_injective {rho rho' : Digest} {message message' : Message}
     {counter counter' : BitVec 32}
     (h : digestInput rho message counter=digestInput rho' message' counter') :
@@ -959,7 +934,11 @@ theorem digestInput_injective {rho rho' : Digest} {message message' : Message}
   unfold digestInput at h
   obtain ⟨hhead,hm⟩ := List.append_inj h (by simp only [List.length_append,bytesLE_length])
   obtain ⟨hr,hh⟩ := List.append_inj hhead (by simp only [bytesLE_length])
-  exact ⟨bytesLE_injective hr, bytesLE_injective hm, digestHeader_injective (bytesLE_injective hh)⟩
+  have ht := header_injective (by decide : 12<256) (by decide : 0<256)
+    (by decide : 0<2^40) (by decide : 0<2^32) counter.isLt
+    (by decide : 12<256) (by decide : 0<256)
+    (by decide : 0<2^40) (by decide : 0<2^32) counter'.isLt (bytesLE_injective hh)
+  exact ⟨bytesLE_injective hr,bytesLE_injective hm,BitVec.eq_of_toNat_eq ht.2.2.2.2⟩
 theorem admissible_bucket_map (chosen : List Selection) (f : Selection → Nat) :
     admissible (chosen.map fun s => {s with bucket := f s})=admissible chosen := by
   simp only [admissible,List.all_map,List.map_map,Function.comp_def]

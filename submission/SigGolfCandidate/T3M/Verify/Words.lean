@@ -1,4 +1,3 @@
-import SigGolfCandidate.T3.Proofs
 import SigGolfCandidate.T3M.Verify.Judg
 import SigGolfCandidate.T3M.Mem
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Layout
@@ -72,16 +71,13 @@ theorem digestInput_length (rho : Digest) (m : T3.Message) (c : BitVec 32) :
   simp only [T3.digestInput, List.length_append, bytesLE_length]
 theorem wordsOf_digestInput (rho : Digest) (m : T3.Message) (c : BitVec 32) :
     wordsOf (T3.digestInput rho m c) =
-      [dlo rho, dhi rho, (0 : BitVec 64), BitVec.ofNat 64 (hdr1 0 c.toNat),
+      [dlo rho, dhi rho, BitVec.ofNat 64 (hdr0 12 0 0 0), BitVec.ofNat 64 (hdr1 0 c.toNat),
         m.extractLsb' 0 64, m.extractLsb' 64 64, m.extractLsb' 128 64, m.extractLsb' 192 64] := by
   unfold T3.digestInput
   rw [wordsOf_append _ _ (by simp only [List.length_append, bytesLE_length]),
-    wordsOf_append _ _ (by simp only [bytesLE_length]), wordsOf_bytesLE16, wordsOf_bytesLE16,
+    wordsOf_append _ _ (by simp only [bytesLE_length]), wordsOf_bytesLE16, wordsOf_header,
     wordsOf_bytesLE32]
-  rw [SigGolfCandidate.T3.digestHeader_low, SigGolfCandidate.T3.digestHeader_high]
-  have hc := c.isLt
-  have e1 : hdr1 0 c.toNat = c.toNat * 2 ^ 32 := by unfold hdr1; omega
-  simp only [List.append_assoc, e1] <;> rfl
+  rfl
 theorem pad64_digestInput (rho : Digest) (m : T3.Message) (c : BitVec 32) :
     pad64 (T3.digestInput rho m c) = T3.digestInput rho m c :=
   pad64_of_aligned _ (by rw [digestInput_length])

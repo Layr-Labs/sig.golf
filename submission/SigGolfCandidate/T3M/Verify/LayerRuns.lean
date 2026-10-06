@@ -146,7 +146,7 @@ def rejTot : Spec :=
   ⟨[(.x5, kw 1), (.x10, kw 1)], [], rejEcall, true, 42, [totBr true, rngBr 61 false], none, 48⟩
 def leafK (lay : Nat) : List (Reg × Word) :=
   baseK ++ [(.x27, BitVec.ofNat 64 (hw 4 lay))] ++
-    (if lay = 0 then [(.x15, 262144), (.x6, 130048)] else [(.x7, 1), (.x15, 0x40000)])
+    (if lay = 0 then [(.x15, 4096), (.x6, 130048)] else [(.x7, 1), (.x15, 0x40000)])
 def x14lf (lay : Nat) : E :=
   if lay = 0 then .bin .sll (.bin .add (.bin .and (.reg .x23) (kw 63)) (kw 2042)) (kw 8)
   else if lay = 1 then .bin .sll (.reg .x23) (kw 8)
@@ -166,7 +166,7 @@ def postLf (lay : Nat) : List (Reg × Word) :=
   leafK lay ++
    [(.x3, BitVec.ofNat 64 (hw 2 lay)), (if lay = 0 then .x4 else .x25, BitVec.ofNat 64 (hw 3 lay)),
     (.x10, BitVec.ofNat 64 (if lay = 0 then 512 else 768)), (.x11, BitVec.ofNat 64 (if lay = 0 then 896 else 704)),
-    (.x15, BitVec.ofNat 64 0x40000)]
+    (.x15, BitVec.ofNat 64 (if lay = 0 then 4096 else 0x40000))]
 def keepA : List Reg := []
 def keepB : List Reg := [.x4, .x31]
 def keepLf : List Reg := [.x23, .x31, .x22]

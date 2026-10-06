@@ -240,18 +240,6 @@ theorem chainHeader_ne_header (lay : Layer) (tree leaf i step tag roleLay roleTr
   have hc := chainHeader_firstByte lay tree leaf i step
   rw [h, header_firstByte] at hc
   omega
-theorem digestHeader_ne_header (counter : BitVec 32) (tag lay tree position index : Nat) :
-    digestHeader counter ≠ header tag lay tree position index := by
-  intro h
-  have hc := digestHeader_firstByte counter
-  rw [h, header_firstByte] at hc
-  contradiction
-theorem chainHeader_ne_digestHeader (lay : Layer) (tree leaf i step : Nat) (counter : BitVec 32) :
-    chainHeader lay tree leaf i step ≠ digestHeader counter := by
-  intro h
-  have hc := chainHeader_firstByte lay tree leaf i step
-  rw [h, digestHeader_firstByte] at hc
-  omega
 theorem header_marker_lt_nonpacked (tag lay tree position index : Nat)
     (hn : packedNodeTag tag = false) (hp : position < 2^31) :
     (header tag lay tree position index).toNat / 2^56 % 256 < 128 := by

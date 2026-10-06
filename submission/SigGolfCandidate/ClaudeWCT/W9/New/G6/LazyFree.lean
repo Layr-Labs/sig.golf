@@ -16,23 +16,21 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 theorem not_digest_of_packed {x : HashInput} {h : BitVec 128}
     (hx : SigGolfCandidate.T3M.Extract.hdrBlock x = bytesLE 16 h)
-    (hmark : 128 ≤ h.toNat % 256) : x ∉ digestInputs := by
+    (hne : ∀ t l tr p ix, h ≠ header t l tr p ix) : x ∉ digestInputs := by
   intro hm
   obtain ⟨rho, m, ctr, rfl⟩ := SigGolfCandidate.T3.Security.BPair.mem_digestInputs.mp hm
   rw [SigGolfCandidate.T3M.Extract.hdrBlock_pad64 _
     (by rw [SigGolfCandidate.T3.Security.BPair.digestInput_length]; omega)] at hx
   unfold digestInput at hx
-  have h2 : bytesLE 16 (digestHeader ctr) = bytesLE 16 h :=
-    (SigGolfCandidate.T3M.Extract.hdrBlock_prefix rho (digestHeader ctr) (bytesLE 32 m)).symm.trans hx
-  have hh := bytesLE_injective h2
-  rw [← hh, digestHeader_firstByte] at hmark
-  omega
+  have h2 : bytesLE 16 (header 12 0 0 0 ctr.toNat) = bytesLE 16 h :=
+    (SigGolfCandidate.T3M.Extract.hdrBlock_prefix rho (header 12 0 0 0 ctr.toNat) (bytesLE 32 m)).symm.trans hx
+  exact hne _ _ _ _ _ (bytesLE_injective h2).symm
 theorem ftsQuery_dn {index : Nat} {q : SigGolfCandidate.T3.Spec.Domain} (h : WCT9.FtsQuery index q) : NotDN q := by
   rcases q with (n | x) | (tweak | other)
   · exact h.elim
   · rcases (show WCT9.FtsInput index x from h).hdrBlock with
       ⟨coord, selected, t, step, hx⟩ | ⟨tag, lay, position, idx, htag, hx⟩
-    · exact not_digest_of_packed hx (by rw [WCT9.ftsChainHeader, WCT9.ftsChainHeaderP_firstByte]; omega)
+    · exact not_digest_of_packed hx (fun _ _ _ _ _ => WCT9.ftsChainHeaderP_ne_header _ _ _ _ _ _ _ _ _ _ _)
     · exact SigGolfCandidate.T3.Security.BPair.not_digest_of_hdr hx (by rcases htag with ⟨rfl, -⟩ | rfl | rfl <;> decide)
   · trivial
   · exact h.elim
@@ -101,10 +99,10 @@ theorem cell_not_digest (s : CanonGraph.Secrets) (node : CanonGraph.Node) (label
         (by rw [SigGolfCandidate.T3.Security.BPair.digestInput_length]; omega)] at h
       unfold digestInput at h
       rw [ClaudeWCT.W9.T3M.Extract.hdrBlock_prefix] at h
-      exact chainHeader_ne_digestHeader _ _ _ _ _ _ (bytesLE_injective h).symm
+      exact chainHeader_ne_header _ _ _ _ _ _ _ _ _ _ (bytesLE_injective h).symm
   | wctChain point =>
       simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr] at h
-      exact not_digest_of_packed h (by rw [WCT9.ftsChainHeader, WCT9.ftsChainHeaderP_firstByte]; omega)
+      exact not_digest_of_packed h (fun _ _ _ _ _ => WCT9.ftsChainHeaderP_ne_header _ _ _ _ _ _ _ _ _ _ _)
   | wctNode n =>
       simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr, WCT9.wctNodeHeader] at h
       exact SigGolfCandidate.T3.Security.BPair.not_digest_of_hdr h (by decide)
@@ -223,7 +221,7 @@ theorem probeInput_not_digest (a : Guess.ChainAddr) (p : Fin 3) (c : Digest) :
     Guess.probeInput a p c ∉ digestInputs := by
   have hx := CanonTable.probeInput_hdr a p c
   simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr] at hx
-  exact not_digest_of_packed hx (by rw [WCT9.ftsChainHeader, WCT9.ftsChainHeaderP_firstByte]; omega)
+  exact not_digest_of_packed hx (fun _ _ _ _ _ => WCT9.ftsChainHeaderP_ne_header _ _ _ _ _ _ _ _ _ _ _)
 theorem hashL_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) : hashL hU ω₁ = hashL hU ω₂ := by
   funext x
   unfold hashL

@@ -144,15 +144,7 @@ theorem posOf_encoding (lay : Layer) (tree leaf : Nat) (message : Digest) (count
 theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
     Extract.posOf (pad64 (digestInput rho message counter)) = none := by
   unfold digestInput
-  apply posOf_eq_none
-  intro p _ he
-  rw [Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
-    Extract.hdrBlock_prefix,
-    Extract.canonicalHeader_marker_ne _ (by rw [digestHeader_firstByte]; decide)] at he
-  have hh := bytesLE_injective he
-  cases p with
-  | chain lay tree leaf i step => exact (chainHeader_ne_digestHeader lay tree leaf i step counter).symm hh
-  | _ => simp only [Extract.Pos.hdr] at hh; exact digestHeader_ne_header _ _ _ _ _ _ hh
+  exact posOf_prefixed_none (by decide) _ _ _ _ _ _
 theorem sat_counterSearch (T : Answers) (lay : Layer) (tree leaf : Nat) (message : Digest) :
     ∀ fuel counter, QueriesSat T (HonestQuery T) (counterSearch lay tree leaf message counter fuel) := by
   intro fuel

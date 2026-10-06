@@ -175,12 +175,12 @@ theorem hdrBlock_pad64_prefix (a h rest : HashInput) (ha : a.length = 16) (hh : 
   unfold T3M.Extract.hdrBlock
   rw [List.append_assoc, List.drop_left' ha, List.take_left' hh]
 theorem shortHash_wct_ok (a rest : HashInput) (tag lay tree position index : Nat) (ha : a.length = 16)
-    (ht : tag % 256 ≠ 0) :
+    (ht : tag % 256 ≠ 12) :
     AllQueriesSatisfy (shortHash (a ++ bytesLE 16 (wctHeader tag lay tree position index) ++ rest)) BPB.NotDigestQ := by
   unfold shortHash publicHash
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
-    show BPB.hdrTag (pad64 (a ++ bytesLE 16 (wctHeader tag lay tree position index) ++ rest)) ≠ 0
+    show BPB.hdrTag (pad64 (a ++ bytesLE 16 (wctHeader tag lay tree position index) ++ rest)) ≠ 12
     unfold BPB.hdrTag
     rw [hdrBlock_pad64_prefix _ _ _ ha (bytesLE_length _ _), wctHeader_byte0, if_neg (by decide),
       wctHeader_byte1]
@@ -191,7 +191,7 @@ theorem chainInput_ok (index coord selected i step : Nat) (value : Digest) :
   unfold shortHash publicHash
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
-    show BPB.hdrTag (pad64 (WCT9.chainInput index coord selected i step value)) ≠ 0
+    show BPB.hdrTag (pad64 (WCT9.chainInput index coord selected i step value)) ≠ 12
     unfold BPB.hdrTag WCT9.chainInput
     rw [List.append_assoc (zero16 ++ _), hdrBlock_pad64_prefix _ _ _ (by simp [zero16]) (bytesLE_length _ _),
       bytesLE16_first_toNat, WCT9.ftsChainHeader_toNat, WCT9.ftsChainLow_byte0, if_pos (by omega)]

@@ -79,7 +79,7 @@ theorem layerTrial_injective (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) {c
     bytesLE_length]
 theorem hasTag_pairTrial (lay : Layer) (tree leaf : Nat) (left right : Digest) (counter : Nat) :
     HasTag 4 (pairTrial lay tree leaf left right counter) :=
-  Or.inl ⟨lay.val, tree, 0, leaf, queryHeader_pairTrial ..⟩
+  ⟨lay.val, tree, 0, leaf, queryHeader_pairTrial ..⟩
 theorem pairTrial_ne_of_layer {lay other : Layer} (hne : lay ≠ other) (tree leaf : Nat) (left right : Digest)
     (counter : Nat) (tree' leaf' : Nat) (left' right' : Digest) (counter' : Nat) :
     pairTrial lay tree leaf left right counter ≠ pairTrial other tree' leaf' left' right' counter' := by

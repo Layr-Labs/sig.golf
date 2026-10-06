@@ -461,7 +461,7 @@ theorem padded_headers_ne (leftPrefix rightPrefix leftSuffix rightSuffix : HashI
   simp [queryHeader,encodingTrial,encodingInput,pad64,List.append_assoc,bytesLE_length]
 @[simp] theorem queryHeader_digest (rho : Digest) (message : Message) (counter : Nat) :
     queryHeader (digestTrial rho message counter) =
-      bytesLE 16 (digestHeader (BitVec.ofNat 32 counter)) := by
+      bytesLE 16 (header 12 0 0 0 (BitVec.ofNat 32 counter).toNat) := by
   simp [queryHeader,digestTrial,digestInput,pad64,List.append_assoc,bytesLE_length]
 theorem encodingTrial_ne_digestTrial (lay : Layer) (tree leaf : Nat) (message : Digest)
     (counter : Nat) (rho : Digest) (msg : Message) (ctr : Nat)
@@ -470,7 +470,11 @@ theorem encodingTrial_ne_digestTrial (lay : Layer) (tree leaf : Nat) (message : 
   intro he
   have he := congrArg queryHeader he
   simp only [queryHeader_encoding,queryHeader_digest] at he
-  exact (digestHeader_ne_header _ _ _ _ _ _).symm (bytesLE_injective he)
+  have hh := header_injective (by decide : 4<256) (by have := lay.isLt; omega)
+    ht (by decide : 0<2^32) hl (by decide : 12<256) (by decide : 0<256)
+    (by decide : 0<2^40) (by decide : 0<2^32) (BitVec.ofNat 32 ctr).isLt
+    (bytesLE_injective he)
+  omega
 abbrev EncodingFamily := Layer × Fin (2^31) × Fin 4096 × Digest
 abbrev DigestFamily := Digest × Message
 abbrev EncodingKey := EncodingFamily × Fin (2^22)
@@ -1536,28 +1540,22 @@ theorem preserves {α : Type} (secret : BitVec 256) (target : HashInput) (progra
    obtain ⟨step,hs,hr⟩ := hr
    exact (ih step.1 (hp.2 step.1) step.2 hr).trans (query_preserves secret target q hp.1 cache step hs)
 def HasTag (tag : Nat) (input : HashInput) : Prop :=
- (∃ lay tree position index, queryHeader input = bytesLE 16 (header tag lay tree position index)) ∨
- (tag % 256 = 12 ∧ ∃ counter : BitVec 32, queryHeader input = bytesLE 16 (digestHeader counter))
+ ∃ lay tree position index, queryHeader input = bytesLE 16 (header tag lay tree position index)
 theorem tagged_ne {tag tag' : Nat} {input input' : HashInput}
  (h : HasTag tag input) (h' : HasTag tag' input') (hne : tag%256 ≠ tag'%256) : input ≠ input' := by
+ rcases h with ⟨l,t,p,i,h⟩
+ rcases h' with ⟨l',t',p',i',h'⟩
  intro he
- have hh := congrArg queryHeader he
- rcases h with ⟨l,t,p,i,h⟩ | ⟨ht,c,h⟩
- · rcases h' with ⟨l',t',p',i',h'⟩ | ⟨ht',c',h'⟩
-   · exact header_ne_of_tag hne (bytesLE_injective (h.symm.trans (hh.trans h')))
-   · exact (digestHeader_ne_header _ _ _ _ _ _).symm (bytesLE_injective (h.symm.trans (hh.trans h')))
- · rcases h' with ⟨l',t',p',i',h'⟩ | ⟨ht',c',h'⟩
-   · exact digestHeader_ne_header _ _ _ _ _ _ (bytesLE_injective (h.symm.trans (hh.trans h')))
-   · exact hne (ht.trans ht'.symm)
+ exact header_ne_of_tag hne (bytesLE_injective (h.symm.trans ((congrArg queryHeader he).trans h')))
 theorem hasTag_padded (front back : HashInput) (hfront : front.length=16)
  (tag lay tree position index : Nat) :
  HasTag tag (pad64 (front ++ bytesLE 16 (header tag lay tree position index) ++ back)) :=
- Or.inl ⟨lay,tree,position,index,queryHeader_padded _ _ hfront _⟩
+ ⟨lay,tree,position,index,queryHeader_padded _ _ hfront _⟩
 @[simp] theorem hasTag_encoding (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : Nat) :
- HasTag 4 (encodingTrial lay tree leaf message counter) := Or.inl ⟨lay.val,tree,0,leaf,queryHeader_encoding ..⟩
+ HasTag 4 (encodingTrial lay tree leaf message counter) := ⟨lay.val,tree,0,leaf,queryHeader_encoding ..⟩
 @[simp] theorem hasTag_digest (rho : Digest) (message : Message) (counter : Nat) :
  HasTag 12 (digestTrial rho message counter) :=
- Or.inr ⟨rfl, BitVec.ofNat 32 counter, queryHeader_digest ..⟩
+ ⟨0,0,0,(BitVec.ofNat 32 counter).toNat,queryHeader_digest ..⟩
 theorem tagged_ne_search {tag : Nat} {input target : HashInput}
  (hi : HasTag tag input) (ht : HasTag 4 target ∨ HasTag 12 target)
  (h4 : tag%256 ≠ 4) (h12 : tag%256 ≠ 12) : input ≠ target := by
@@ -1623,11 +1621,11 @@ include ht
      queryHeader_padded zero16 (zero16 ++ bytesLE 16 value) (by simp [zero16])
        (chainHeader lay tree leaf i step)
  rw [he] at hh
- rcases ht with ht | ht
- all_goals
-   rcases ht with ⟨l,tr,p,ix,ht⟩ | ⟨hclass,c,ht⟩
-   · exact chainHeader_ne_header _ _ _ _ _ _ _ _ _ _ (bytesLE_injective (hh.symm.trans ht))
-   · exact chainHeader_ne_digestHeader _ _ _ _ _ _ (bytesLE_injective (hh.symm.trans ht))
+ rcases ht with ⟨l,tr,p,ix,ht⟩ | ⟨l,tr,p,ix,ht⟩
+ · exact chainHeader_ne_header lay tree leaf i step 4 l tr p ix
+     (bytesLE_injective (hh.symm.trans ht))
+ · exact chainHeader_ne_header lay tree leaf i step 12 l tr p ix
+     (bytesLE_injective (hh.symm.trans ht))
 @[aesop safe apply] theorem avoids_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
  Avoids secret target (leafHash lay tree leaf ends) := by
  unfold leafHash
@@ -1709,8 +1707,7 @@ theorem avoids_counterSearch (secret : BitVec 256) (lay other : Layer) (hne : la
  unfold digest publicHash
  apply (allQueriesSatisfy_query_iff _ _).mpr
  change pad64 (digestInput rho message counter) ≠ target
- apply tagged_ne (tag := 12) _ ht (by decide)
- exact Or.inr ⟨rfl, counter, by simp [queryHeader, digestInput, pad64, List.append_assoc, bytesLE_length]⟩
+ exact tagged_ne (hasTag_padded _ _ (bytesLE_length ..) 12 0 0 0 counter.toNat) ht (by decide)
 theorem avoids_digestSearch_encoding (secret : BitVec 256) (target : HashInput) (ht : HasTag 4 target)
  (rho : Digest) (message : Message) (counter fuel : Nat) :
  Avoids secret target (digestSearch rho message counter fuel) := by

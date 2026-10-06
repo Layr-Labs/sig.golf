@@ -35,10 +35,10 @@ def mkHeap (lay ci sh l : Nat) : Nat := (2 ^ hL lay + sh * 2 ^ mkLo lay ci) / 2 
 def mkHdrReg (lay : Nat) : Reg := if lay = 1 then .x25 else .x4
 def mkK (lay : Nat) : List (Reg × Word) :=
   baseK ++ [(if lay = 0 then (.x8, BitVec.ofNat 64 s3v) else (.x22, BitVec.ofNat 64 (s6v lay))), (if lay = 0 then .x4 else .x25, BitVec.ofNat 64 (hw 3 lay)), (.x7, 1), (.x13, 2), (.x19, 3),
-    (.x20, 4), (.x21, 5), (.x26, 6), (.x30, 7), (.x15, BitVec.ofNat 64 0x40000)]
+    (.x20, 4), (.x21, 5), (.x26, 6), (.x30, 7), (.x15, BitVec.ofNat 64 (if lay = 0 then 4096 else 0x40000))]
 def mkKc (lay : Nat) : List (Reg × Word) :=
   baseK ++ [(if lay = 0 then (.x8, BitVec.ofNat 64 s3v) else (.x22, BitVec.ofNat 64 (s6v lay))), (.x7, 1), (.x13, 2), (.x19, 3),
-    (.x20, 4), (.x21, 5), (.x26, 6), (.x30, 7), (.x15, BitVec.ofNat 64 0x40000)]
+    (.x20, 4), (.x21, 5), (.x26, 6), (.x30, 7), (.x15, BitVec.ofNat 64 (if lay = 0 then 4096 else 0x40000))]
 def mkX4 (lay : Nat) : E :=
   if lay = 1 then .bin .or (.bin .sll (.reg .x31) (kw 32)) (kw (hw 3 1))
   else .bin (.st .w 4) (kw (hw 3 lay)) (.reg .x31)
@@ -81,7 +81,7 @@ def mkLvlPostN (lay ci sh kk : Nat) : List (Reg × Word) :=
   mkKc lay ++ [(.x11, 64), (.x10, BitVec.ofNat 64 (mkBlk lay (mkLo lay ci + kk))),
     (.x12, BitVec.ofNat 64 (mkNextA2 lay ci sh kk))]
 def mkLvlPostD (lay ci kk : Nat) : List (Reg × Word) :=
-  mkKc lay ++ [(.x11, 64), (.x10, BitVec.ofNat 64 (mkBlk lay (mkLo lay ci + kk))), (.x15, 262144)]
+  mkKc lay ++ [(.x11, 64), (.x10, BitVec.ofNat 64 (mkBlk lay (mkLo lay ci + kk))), (.x15, 4096)]
 def mkLvlKN (lay ci sh kk : Nat) : List (Reg × Word) :=
   mkLvlK lay (mkLo lay ci + kk) ++
     (if lay = 0 then

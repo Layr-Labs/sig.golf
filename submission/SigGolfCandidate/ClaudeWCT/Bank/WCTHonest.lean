@@ -26,13 +26,12 @@ theorem sum_producer (g : WProposal → ENNReal) :
 theorem capSet_mem (c : Coords) : c ∈ capSet ↔ capOkC c = true := by
   simp [capSet]
 theorem routineCost_zero : WCT9.routineCost 0 = 67 := rfl
-theorem capOkC_of_rank_zero (c : Coords) (hc : ∀ k, (c k).2 = 0) : capOkC c = true := by
+theorem childExtra_zero : WCT9.childExtra 0 = 1 := rfl
+theorem capOkC_zero : capOkC (fun _ => ((0 : Child), (0 : Rank))) = true := by
   unfold capOkC
   rw [decide_eq_true_iff]
-  simp only [hc, routineCost_zero, Finset.sum_const, Finset.card_univ, Fintype.card_fin, smul_eq_mul]
+  simp only [routineCost_zero, childExtra_zero, Finset.sum_const, Finset.card_univ, Fintype.card_fin, smul_eq_mul]
   decide
-theorem capOkC_zero : capOkC (fun _ => ((0 : Child), (0 : Rank))) = true :=
-  capOkC_of_rank_zero _ fun _ => rfl
 theorem capSet_nonempty : capSet.Nonempty := by
   refine ⟨fun _ => ((0 : Child), (0 : Rank)), ?_⟩
   rw [capSet_mem]
@@ -107,7 +106,10 @@ theorem producerAcceptanceBound : ProducerAcceptanceBound :=
   producer_le_admissible.trans acceptanceBound
 theorem producerAdmissible_zero : WCT9.producerAdmissible 0 = true := by
   rw [producerAdmissible_eq, admissible_zero, Bool.true_and]
-  exact capOkC_of_rank_zero _ fun k => by fin_cases k <;> rfl
+  have hz : (proposal 0).2 = fun _ => ((0 : Child), (0 : Rank)) := by
+    funext k; fin_cases k <;> rfl
+  rw [hz]
+  exact capOkC_zero
 theorem exists_producer : ∃ x, WCT9.producerAdmissible x = true := ⟨0, producerAdmissible_zero⟩
 noncomputable def wctSpec' (horizon : Nat) (rate : ENNReal) (hexc : ExcessBound horizon rate) :
     FtsBankSpec WProposal :=
@@ -118,7 +120,7 @@ theorem wctSpec'_eq (horizon : Nat) (rate : ENNReal) (hexc : ExcessBound horizon
 theorem capSet_eq_n4 : capSet = ClaudeWCT.Numerics.N600Cap.capSet := by
   ext c
   rw [capSet_mem, ClaudeWCT.Numerics.N600Cap.mem_capSet]
-  unfold capOkC ClaudeWCT.Numerics.N600Cap.rankCost
+  unfold capOkC ClaudeWCT.Numerics.N600Cap.pairCost
   simp only [decide_eq_true_eq]
 set_option linter.constructorNameAsVariable false in
 theorem honestCoordLaw_eq_n4 : honestCoordLaw = ClaudeWCT.Numerics.N600Cap.honestLaw := by
