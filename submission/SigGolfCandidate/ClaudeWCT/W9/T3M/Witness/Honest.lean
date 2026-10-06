@@ -552,12 +552,12 @@ theorem wdig_region (N : HashOutput) (w : WCT9.Witness) (k : WCT9.Coord) (o : Na
       readDigest (window (regionBytes (WCT9.child N k).val (w.signature.openings k)) o 16) := by
   rw [wdig_witEnc, win_region N w k o 16 h]
 theorem auth_sib_bound : ∀ c < 128, ∀ l < 7, authSibOff c l + 16 ≤ 320 := by decide
-theorem auth_pad_bound : ∀ c < 128, ∀ l < 6, authPadOff c l + 16 ≤ 320 := by decide
+theorem auth_pad_bound : ∀ c < 128, ∀ l < 6, authPadOff c l + 16 ≤ 320 ∨ authPadOff c l = 320 := by decide
 theorem auth_sib_disjoint : ∀ c < 128, ∀ l < 7, ∀ l' < 7, l ≠ l' →
     authSibOff c l + 16 ≤ authSibOff c l' ∨ authSibOff c l' + 16 ≤ authSibOff c l := by decide
 theorem auth_pad_disjoint : ∀ c < 128, ∀ l < 6, ∀ l' < 7,
     authPadOff c l + 16 ≤ authSibOff c l' ∨ authSibOff c l' + 16 ≤ authPadOff c l := by decide
-theorem authSlots_ok : (∀ c < 128, ∀ l < 7, authSibOff c l + 16 ≤ 320) ∧ (∀ c < 128, ∀ l < 6, authPadOff c l + 16 ≤ 320) ∧
+theorem authSlots_ok : (∀ c < 128, ∀ l < 7, authSibOff c l + 16 ≤ 320) ∧ (∀ c < 128, ∀ l < 6, authPadOff c l + 16 ≤ 320 ∨ authPadOff c l = 320) ∧
     (∀ c < 128, ∀ l < 7, ∀ l' < 7, l ≠ l' →
       authSibOff c l + 16 ≤ authSibOff c l' ∨ authSibOff c l' + 16 ≤ authSibOff c l) ∧
     (∀ c < 128, ∀ l < 6, ∀ l' < 7,
@@ -604,10 +604,10 @@ theorem merkleBytes_sib {c : Nat} (hc : c < 128) (op : WCT9.Opening) (l : Fin 7)
   rw [window_map_range _ _ _ _ (auth_sib_bound c hc l.val l.isLt),
     List.map_congr_left (fun i hi => authByte_sib hc op l (List.mem_range.mp hi))]
   exact map_range_getD _ _ (bytesLE_length _ _)
-theorem merkleBytes_pad {c : Nat} (hc : c < 128) (op : WCT9.Opening) {l : Nat} (hl : l < 6) :
+theorem merkleBytes_pad {c : Nat} (hc : c < 128) (op : WCT9.Opening) {l : Nat} (hl : l < 6) (hb : authPadOff c l + 16 ≤ 320) :
     window (merkleBytes c op) (authPadOff c l) 16 = zeros 16 := by
   unfold merkleBytes
-  rw [window_map_range _ _ _ _ (auth_pad_bound c hc l hl),
+  rw [window_map_range _ _ _ _ hb,
     List.map_congr_left (fun i hi => authByte_none op (fun l' => by
       have := auth_pad_disjoint c hc l hl l'.val l'.isLt
       have := List.mem_range.mp hi
@@ -748,9 +748,16 @@ theorem wsib_witEnc (k : WCT9.Coord) (l : Fin 7) :
     Correctness.readDigest_bytesLE]
 theorem wmpad_witEnc (k : WCT9.Coord) (l : Nat) (hl : l < 6) : wmpad (witEnc N w) k.val (WCT9.child N k).val l = 0 := by
   have hc := (WCT9.child N k).isLt
-  unfold wmpad
-  rw [wdig_region N w k _ (by have := auth_pad_bound _ hc l hl; omega),
-    region_merkle _ _ _ _ (auth_pad_bound _ hc l hl), merkleBytes_pad hc _ hl, readDigest_zeros]
+  by_cases hp : authPadOff (WCT9.child N k).val l = 320
+  · unfold wmpad
+    rw [hp]
+    have hz := congrArg Prod.fst (wcpads_witEnc N w k (6 : Fin 7))
+    simpa [wcpads, wctChainBlock] using hz
+  · have hb : authPadOff (WCT9.child N k).val l + 16 ≤ 320 :=
+      (auth_pad_bound _ hc l hl).resolve_right hp
+    unfold wmpad
+    rw [wdig_region N w k _ (by omega),
+      region_merkle _ _ _ _ hb, merkleBytes_pad hc _ hl hb, readDigest_zeros]
 end fields
 theorem witDecP_witEnc (N : HashOutput) (w : WCT9.Witness) : witDecP N (witEnc N w) = w := by
   obtain ⟨⟨rho, openings, layers⟩, dc, ctr⟩ := w

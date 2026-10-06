@@ -12,7 +12,7 @@ def gateBits : Nat := 21
 def gateLimit : Nat := 1091
 def fieldBits : Nat := 14
 def fieldLimit : Nat := 16200
-def jointCap : Nat := 699
+def jointCap : Nat := 704
 abbrev Coord := Fin 9
 abbrev Child := Fin 128
 abbrev Rank := Fin 600
@@ -35,8 +35,20 @@ def admissible (output : HashOutput) : Bool :=
   decide (output.toNat / 2 ^ 235 % 2 ^ 21 < 1091) &&
     (List.range 9).all (fun coord =>
       decide (output.toNat / 2 ^ fieldBase coord % 2 ^ 14 < 16200))
+def childSaveTable : List Nat := [0,1,1,1,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,1,1,1,1,0]
+def maxChildSave : Nat := 2
+def childSave (c : Nat) : Nat := childSaveTable.getD (c % 64) 0
+def childExtra (c : Child) : Nat := maxChildSave - childSave c.val
+theorem childSaveTable_le : ∀ i, i < 64 → childSaveTable.getD i 0 ≤ maxChildSave := by decide
+theorem childSave_le (c : Nat) : childSave c ≤ maxChildSave :=
+  childSaveTable_le (c % 64) (Nat.mod_lt _ (by decide))
+theorem childExtra_add (c : Child) : childExtra c + childSave c.val = maxChildSave := by
+  have := childSave_le c.val
+  unfold childExtra; omega
+def coordCost (output : HashOutput) (coord : Coord) : Nat :=
+  routineCost (rank output coord) + childExtra (child output coord)
 def jointCost (output : HashOutput) : Nat :=
-  ((List.finRange 9).map fun coord => routineCost (rank output coord)).sum
+  ((List.finRange 9).map fun coord => coordCost output coord).sum
 def capOk (output : HashOutput) : Bool := decide (jointCost output ≤ jointCap)
 def producerAdmissible (output : HashOutput) : Bool := admissible output && capOk output
 def digestSearch (rho : Digest) (message : Message) (counter : Nat) :
