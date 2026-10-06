@@ -280,14 +280,12 @@ set_option maxRecDepth 100000 in
 theorem leafChecks_2 : leafChecks 2 0 64 = true := by decide +kernel
 set_option maxRecDepth 100000 in
 theorem leafChecks_1 : leafChecks 1 0 64 = true := by decide +kernel
-set_option maxRecDepth 100000 in
-theorem leafChecks_0 : leafChecks 0 0 128 = true := by decide +kernel
-theorem leafCheck_at (lay c : Nat) (hlay : lay < 4) (hc : c < nCopy lay) : leafCheck lay (trPc lay c) = true := by
+theorem leafCheck_at (lay c : Nat) (hlay : lay < 4) (hc : c < nCopy lay) (h0 : lay ≠ 0) : leafCheck lay (trPc lay c) = true := by
   obtain ⟨n3, n2, n1, n0⟩ := BC.nCopy_eq
   have hall : ∀ n, leafChecks lay 0 n = true → c < n → leafCheck lay (trPc lay c) = true :=
     fun n h h2 => List.all_eq_true.mp h c (List.mem_range'_1.mpr ⟨Nat.zero_le _, by omega⟩)
   interval_cases lay
-  · exact hall 128 leafChecks_0 (by omega)
+  · exact absurd rfl h0
   · exact hall 64 leafChecks_1 (by omega)
   · exact hall 64 leafChecks_2 (by omega)
   · exact hall 1 leafChecks_3 (by omega)
@@ -300,7 +298,7 @@ def lfSteps (lay : Nat) : Nat := if lay = 0 then 12 else 8
 def lfKeepK (lay : Nat) : List (Reg × Word) :=
   [(.x2, 0x3fe00), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
    (.x30, 7), (if lay = 0 then (.x8, BitVec.ofNat 64 s3v) else (.x22, BitVec.ofNat 64 (s6v lay)))] ++
-  (if lay = 0 then [] else [(.x9, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x6, 0x10000),
+  (if lay = 0 then [] else [(.x9, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x6, BitVec.ofNat 64 TOPBASE),
     (.x8, BitVec.ofNat 64 0x400000)])
 def lfK (lay : Nat) : List (Reg × Word) := postLf lay ++ lfKeepK lay
 structure LeafOut (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (ends : List Digest) (u : MachineState) :
@@ -462,7 +460,7 @@ theorem leafL_step (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay 
     · rw [hR .x27 (by simp [chainRegs])]; exact hkL (_, _) (by simp [chainK])
     · rw [hR .x7 (by simp [chainRegs])]; exact hkL (_, _) (by simp [chainK])
     · rw [hR .x15 (by simp [chainRegs])]; exact hk (.x15, 0x6e000) (by simp [LCtx.known])
-  obtain ⟨u, hu⟩ := spec_run (leafCheck_at lay.val c lay.isLt hc) t (by rw [hpc]; rfl) hknown
+  obtain ⟨u, hu⟩ := spec_run (leafCheck_at lay.val c lay.isLt hc h0) t (by rw [hpc]; rfl) hknown
     (by intro b hb; simp [specLf, h0] at hb) (by simp)
   have hst := hu.steps
   rw [show (specLf lay.val).steps = lfSteps lay.val by simp [specLf, lfSteps, h0],

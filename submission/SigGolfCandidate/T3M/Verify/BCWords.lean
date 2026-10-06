@@ -19,40 +19,48 @@ def ctrE (lay : Nat) : E :=
 def ctrBr (lay : Nat) (d : Bool) : Br := ⟨if lay = 3 then .ltu else .geu, ctrE lay, kw 0x400000, d⟩
 def headerWrites (lay : Nat) : List (Addr × E) :=
   [(⟨none, BitVec.ofNat 64 (x10In lay + 24)⟩, tp0E lay),
-   (⟨none, BitVec.ofNat 64 (x10In lay + 16)⟩, kw (hw 4 lay))]
+   (⟨none, BitVec.ofNat 64 (x10In lay + 16)⟩, hwE lay)]
 def specA (lay p : Nat) : Spec :=
   if lay = 3 then T3M.specA lay p else
   ⟨if lay = 0 then [(.x4, tp0E lay), (.x23, s7E lay), (.x3, ctrE lay), (.x12, .reg .x12)]
    else [(.x4, tp0E lay), (.x23, s7E lay), (.x31, treeE lay), (.x3, ctrE lay),
-     (.x28, .bin .sll (.reg (rReg lay)) (kw 16)), (.x12, .reg .x12)],
+     (.x27, hwE lay), (.x28, .bin .sll (.reg (rReg lay)) (kw 16)), (.x12, .reg .x12)],
    headerWrites lay, p + stepsA lay, true, stepsA lay,
    [ctrBr lay false], none, stepsA lay⟩
+def hops0 (p : Nat) : Nat := (p - 31783) / 1024
+def rejSteps (lay p : Nat) : Nat :=
+  if lay = 3 then stepsA 3 + 1 else if lay = 0 then stepsA 0 + 3 + hops0 p else stepsA lay + 3
+def rejDirs (lay p : Nat) : List Dir :=
+  if lay = 0 then List.replicate (hops0 p + 1) (.br true) else [.br (!setupAcceptDir lay)]
 def rejA (lay p : Nat) : Spec :=
   if lay = 3 then T3M.rejA lay p else
   ⟨[(.x5, kw 1), (.x10, kw 1)], headerWrites lay,
-   rejEcall, true, stepsA lay + 3, [ctrBr lay true], none, stepsA lay + 3⟩
+   rejEcall, true, rejSteps lay p,
+   if lay = 0 then List.replicate (hops0 p + 1) (ctrBr 0 true) else [ctrBr lay true],
+   none, rejSteps lay p⟩
+def bKC (lay : Nat) : List (Reg × Word) :=
+  if lay = 1 ∨ lay = 2 then (bK lay).filter (fun p => p.1 != .x27) else bK lay
 def bKB (lay : Nat) : List (Reg × Word) := (bK lay).filter (fun p => p.1 != .x12)
 def oblB : List Oblig := [.valid ⟨some (.reg .x12), 8⟩ 8, .valid ⟨some (.reg .x12), 0⟩ 8]
 def allowed (lay : Nat) : List Nat :=
   if lay = 3 then [] else [x10In lay + 16, x10In lay + 24]
 def setupCheck (lay p : Nat) : Bool :=
   specB (allowed lay) [] baseK (runAt (preK lay) [] (setupPc lay p) [.br (setupAcceptDir lay)])
-    (specA lay p) [] (bK lay) keepA &&
-  specB (allowed lay) [] [] (runAt (preK lay) [] (setupPc lay p) [.br (!setupAcceptDir lay)]) (rejA lay p) [] [] []
+    (specA lay p) [] (bKC lay) keepA &&
+  specB (allowed lay) [] [] (runAt (preK lay) [] (setupPc lay p) (rejDirs lay p)) (rejA lay p) [] [] []
 def copyCheck (lay p : Nat) : Bool :=
   setupCheck lay p &&
   (if lay = 0 then
-    specB [] [] [] (runAt [] [96160] (p + stepsA lay + 1) [])
-      (specTopCall p) [] [] keepTopCall
+    true
   else
     specB [] [] baseK (runAt (bKB lay) [] (p + stepsA lay + 1)
       [.br false, .br false, .jmp]) (specBl lay p) oblB (postBlC lay p) keepB &&
     specB [] [] [] (runAt (bKB lay) [] (p + stepsA lay + 1)
       [.br false, .br true]) (rejCk lay) oblB [] [] &&
     specB [] [] [] (runAt (bKB lay) [] (p + stepsA lay + 1)
-      [.br true]) (rejRng 62) oblB [] []) &&
-  specB [] [] baseK (runAt (leafK lay) [] (p + retOff lay) (lfDirs lay))
-    (specLf lay) [] (postLf lay) keepLf
+      [.br true]) (rejRng 62) oblB [] [] &&
+    specB [] [] baseK (runAt (leafK lay) [] (p + retOff lay) (lfDirs lay))
+      (specLf lay) [] (postLf lay) keepLf)
 def layerCheck (lay lo n : Nat) : Bool :=
   (List.range' lo n).all fun c => copyCheck lay (trPc lay c)
 end SigGolfCandidate.T3M.BC

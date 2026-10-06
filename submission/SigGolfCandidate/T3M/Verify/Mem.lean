@@ -144,12 +144,15 @@ def HDATA : Nat := 0xffbf90
 def headerBank (lay koff : Nat) : Nat := TOPBASE + 4096 * lay + 64 * koff
 structure DataOK (s : MachineState) : Prop where
   mask : s.getMem (BitVec.ofNat 64 (TOPBASE - 8)) = 130048#64
-  header : ∀ lay, lay < 4 →
+  header : ∀ lay, lay < 5 →
     s.getMem (BitVec.ofNat 64 (HDATA + 8 * lay)) =
-      BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + lay * 2 ^ 48)
+      BitVec.ofNat 64 (if lay = 4 then 0x0001040100020401 else 128 + 193 * 2 ^ 56 + lay * 2 ^ 48)
 theorem DataOK.prefix {s : MachineState} (h : DataOK s) (lay : Nat) (hl : lay < 4) :
-    s.getMem (BitVec.ofNat 64 (HDATA + 8 * lay)) = BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + lay * 2 ^ 48) :=
-  h.header lay hl
+    s.getMem (BitVec.ofNat 64 (HDATA + 8 * lay)) = BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + lay * 2 ^ 48) := by
+  simpa [show lay ≠ 4 by omega] using h.header lay (by omega)
+theorem DataOK.hw12 {s : MachineState} (h : DataOK s) :
+    s.getMem (BitVec.ofNat 64 (HDATA + 32)) = BitVec.ofNat 64 0x0001040100020401 :=
+  h.header 4 (by decide)
 theorem DataOK.congr {s t : MachineState} (h : DataOK s)
     (hm : ∀ A, TAB ≤ A → A + 8 ≤ 2 ^ 24 →
       t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)) : DataOK t := by
