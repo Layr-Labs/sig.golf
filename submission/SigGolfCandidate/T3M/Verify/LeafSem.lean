@@ -231,7 +231,7 @@ def keepLfAll (lay : Nat) : List Reg :=
   if lay = 0 then [.x1, .x2, .x7, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23,
     .x6, .x25, .x26, .x28, .x29, .x31, .x30]
   else [.x1, .x2, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23,
-    .x6, .x25, .x26, .x29, .x31, .x30] ++ (if lay = 1 then [] else [.x28])
+    .x6, .x25, .x26, .x29, .x31, .x30, .x28]
 def leafCheck (lay p : Nat) : Bool :=
   specB [] [] baseK (runAt (leafK lay) [] (p + retOff lay) (lfDirs lay)) (specLf lay) [] (postLf lay) (keepLfAll lay)
 def leafChecks (lay lo n : Nat) : Bool := (List.range' lo n).all fun c => leafCheck lay (trPc lay c)
@@ -257,11 +257,10 @@ def lfBytes (lay : Nat) : Nat := if lay = 0 then 896 else 704
 def lfBlocks (lay : Nat) : Nat := if lay = 0 then 14 else 11
 def lfSlot (lay j : Nat) : Nat := if lay = 0 then slotT j else slotL j
 def stabBits (lay : Nat) : Nat := if lay = 1 then 7 else 6
-def lfSteps (lay : Nat) : Nat := if lay = 0 then 12 else if lay = 1 then 9 else 8
+def lfSteps (lay : Nat) : Nat := if lay = 0 then 12 else 8
 def lfKeepK (lay : Nat) : List (Reg × Word) :=
   [(.x2, 0x3fe00), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
    (.x30, 7), (if lay = 0 then (.x8, BitVec.ofNat 64 s3v) else (.x22, BitVec.ofNat 64 (s6v lay)))] ++
-  (if lay = 1 then [(.x28, BitVec.ofNat 64 (lfT3 lay))] else []) ++
   (if lay = 0 then [] else [(.x9, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x6, 0x10000),
     (.x8, BitVec.ofNat 64 0x400000)])
 def lfK (lay : Nat) : List (Reg × Word) := postLf lay ++ lfKeepK lay
@@ -465,16 +464,11 @@ theorem leafL_step (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay 
     · exact hku p hp
     · have h22 : s0.getReg .x22 = BitVec.ofNat 64 (s6v lay.val) :=
         hk (.x22, BitVec.ofNat 64 L.S6) (by simp [LCtx.known])
-      have m28 : lay.val = 1 → ((.x28 : Reg), BitVec.ofNat 64 (lfT3 lay.val)) ∈ postLf lay.val := by
-        intro h1; simp [postLf, lfT3, h1]
       have m6 : ((.x7 : Reg), (1 : Word)) ∈ postLf lay.val := by
         simp [postLf, leafK, h0]
       simp only [lfKeepK, if_neg h0, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hp
-      rcases hp with ((rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl) | hp) | (rfl | rfl | rfl | rfl)
+      rcases hp with (rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl) | (rfl | rfl | rfl | rfl)
       all_goals first
-        | (split_ifs at hp with h1
-           · simp only [List.mem_singleton] at hp; subst p; exact hku _ (m28 h1)
-           · simp at hp)
         | exact hku _ m6
         | rw [hkeep _ (by simp [keepLfAll, h0]), hR _ (by simp [chainRegs])]; exact h22
         | rw [hkeep _ (by simp [keepLfAll, h0]), hR _ (by simp [chainRegs])]; exact hkL (_, _) (by simp [chainK])

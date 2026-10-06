@@ -50,27 +50,32 @@ theorem dispatch_step {p q : Nat} (hq : q<17) (hp : p<251927)
     simp [dispatchR,rv_simp]
 theorem tail_dispatch_step {p : Nat} (hp : p<251927)
     (hrun : vrun p 5=some tailDispatchR) (s : MachineState) (k : Nat) (hk : k<64)
-    (hpc : s.pc=pcOf p) (h29 : s.getReg .x29=BitVec.ofNat 64 k) :
-    ∃t, Steps Images.verifyImage s 4 4 t ∧ t.pc=pcOf (entW 17 k) ∧
-      RegsExcept s t [.x14,.x15] ∧ Frame s t (fun _ => False) ∧ t.getReg .x15 = 843776#64 := by
+    (hpc : s.pc=pcOf p) (h29 : s.getReg .x29=BitVec.ofNat 64 k) (h15 : s.getReg .x15=712704#64) :
+    ∃t, Steps Images.verifyImage s 3 3 t ∧ t.pc=pcOf (entW 17 k) ∧
+      RegsExcept s t [.x14,.x15] ∧ Frame s t (fun _ => False) ∧ t.getReg .x15 = 712704#64 := by
   refine ⟨tailDispatchR.toState s,piece_steps45 hrun hp s hpc (by simp [tailDispatchR]),?_,?_,?_,?_⟩
-  · simp only [Result.toState_pc,tailDispatchR,E.eval,BinOp.eval,h29]
-    change ((BitVec.ofNat 64 k <<< 5)+BitVec.ofNat 64 843776) &&& ~~~1#64=pcOf (entW 17 k)
-    rw [ofNat_shl,ofNat_add_ofNat,even_andNot1' _ (by omega)]
+  · simp only [Result.toState_pc,tailDispatchR,E.eval,BinOp.eval,h29,h15]
+    change (((BitVec.ofNat 64 k <<< 10)+BitVec.ofNat 64 712704)+BitVec.ofNat 64 18446744073709550880) &&& ~~~1#64=pcOf (entW 17 k)
+    rw [ofNat_shl,ofNat_add_ofNat,ofNat_add_ofNat]
+    have he : BitVec.ofNat 64 (k*2^10+712704+18446744073709550880) = BitVec.ofNat 64 (k*1024+711968) := by
+      apply BitVec.eq_of_toNat_eq
+      simp only [BitVec.toNat_ofNat]
+      norm_num
+      omega
+    rw [he,even_andNot1' _ (by omega)]
     unfold entW pcOf
     norm_num
     congr 1 <;> omega
   · intro r hr
     rw [Result.toState_getReg]
     simp only [tailDispatchR]
-    rw [RegFile.get_set_ne _ _ (ne_of_not_mem hr (by simp)),
-      RegFile.get_set_ne _ _ (ne_of_not_mem hr (by simp)),RegFile.init_get_eval]
+    rw [RegFile.get_set_ne _ _ (ne_of_not_mem hr (by simp)),RegFile.init_get_eval]
   · intro A _ _
     simp [tailDispatchR,rv_simp]
   · rw [Result.toState_getReg]
     simp only [tailDispatchR]
-    rw [RegFile.get_set_self _ _ (by decide)]
-    rfl
+    rw [RegFile.get_set_ne _ _ (by decide),RegFile.init_get_eval]
+    exact h15
 #print axioms dispatch_step
 #print axioms tail_dispatch_step
 end SigGolfCandidate.T3M.Nonbinary
@@ -239,7 +244,7 @@ theorem tailInitial_orig (c : NCtx) {s0 t : MachineState} (h0 : c.Orig0 s0) :
 theorem end_tail (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState} {v : Digest}
     (he : Encoded v s0) (hf : c.Fit v) (hv : v.toNat<2^125)
     (acc : List Digest) (s : MachineState) (hs : c.EndInv s0 50 acc s) :
-    ∃t,Steps vimage s 4 4 t ∧ c.ChainIn (tailInitial s0 t) 51 acc t ∧ t.getReg .x15 = 843776#64 := by
+    ∃t,Steps vimage s 3 3 t ∧ c.ChainIn (tailInitial s0 t) 51 acc t ∧ t.getReg .x15 = 712704#64 := by
   obtain ⟨⟨hR,hF,hS⟩,hlen,hpc⟩ := hs
   have hr := c.dispatch_at hds 16 (by decide)
   norm_num at hr
@@ -247,7 +252,7 @@ theorem end_tail (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState} {
     have := c.qX_lt 50
     simpa only [endPc,Nat.reduceMod,if_false,Nat.reduceEqDiff] using (show c.qX 50<251927 by omega)
   obtain ⟨t,st,pt,rt,ft,r15⟩ := tail_dispatch_step hbound hr s (v.toNat/2^119) (by omega) hpc
-    ((hR _ (by decide)).trans he.tail)
+    ((hR _ (by decide)).trans he.tail) ((hR _ (by decide)).trans he.table)
   refine ⟨t,st,⟨⟨fun x hx => ?_,?_,fun j hj => ?_⟩,by omega,?_⟩,r15⟩
   · by_cases hx15 : x=.x15
     · subst x;rw [tailInitial_15]
