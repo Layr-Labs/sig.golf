@@ -415,10 +415,9 @@ theorem lfK_mkK (lay : Nat) : ∀ p ∈ mkK lay, p ∈ lfK lay := by
   intro p hp
   by_cases h0 : lay = 0
   all_goals
-    simp only [mkK, lfK, postLf, leafK, lfKeepK, h0, if_pos, if_neg, baseK,
-      List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at *
-    tauto
-
+    simp only [mkK, h0, if_pos, if_neg, baseK, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hp
+    rcases hp with (rfl | rfl) | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+      simp [lfK, postLf, leafK, lfKeepK, h0, baseK]
 theorem lvl_step (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (u : MachineState) (hidx : index < 2 ^ 31)
     (hs7 : u.getReg .x23 = BitVec.ofNat 64 (dispatchHeap lay.val (route index lay).1))
     (ht5 : lay.val ≠ 0 → u.getReg .x31 = BitVec.ofNat 64 (route index lay).2)
