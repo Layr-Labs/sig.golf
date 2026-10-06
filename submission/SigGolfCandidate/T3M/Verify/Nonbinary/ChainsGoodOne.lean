@@ -690,7 +690,7 @@ theorem partLen_le (q d : Nat) : partLen q d≤14 := by
 theorem kdig_le (q k j : Nat) : kdig q k j ≤ mx q := by
   have := mx_bounds q
   unfold kdig; have := Nat.mod_lt (k/(mx q+1)^j) (show 0< mx q+1 by omega); omega
-theorem inl_q (q : Nat) (h : inl q=true) : 14 ≤ q ∧ q ≤ 16 := by simp [inl] at h; omega
+theorem inl_q (q : Nat) (h : inl q=true) : 13 ≤ q ∧ q ≤ 16 := by simp [inl] at h; omega
 theorem leadPc_le (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) (hk' : q<17 → k<125) :
     leadPc q k ≤ 210425 := by
   unfold leadPc leadOff entW entOff mx at *
@@ -709,7 +709,7 @@ theorem group_bounds (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) (hk' : q<17 →
     simp only [gbase,hn,Bool.false_eq_true,if_false]
     refine ⟨by omega,by omega,by omega,fun h => absurd h (by simp)⟩
   · have hq' := inl_q q hn
-    have hl2 : leadPc q k ≤ 176744+256*124+194+1 := by
+    have hl2 : leadPc q k ≤ 176744+256*124+202+1 := by
       have := hk' (by omega)
       unfold leadPc leadOff entW entOff at *
       split_ifs at * <;> omega

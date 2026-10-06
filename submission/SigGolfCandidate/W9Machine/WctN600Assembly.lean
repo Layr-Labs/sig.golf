@@ -26,7 +26,7 @@ theorem leafSetup_keeps : Keeps leafSetupRel [.x25, .x10, .x11] := by
 theorem leafSetup_mem (s : MachineState) (B A : Nat)
     (hbase : s.getReg .x8 = BitVec.ofNat 64 B) (hhi : B + 1024 < 2 ^ 64) (hA : A < 2 ^ 64) :
     (leafSetupRel.toState s).getMem (BitVec.ofNat 64 A) =
-      if A = B + 904 then s.getReg .x4 else
+      if A = B + 904 then s.getReg .x22 else
       if A = B + 896 then s.getReg .x28 else s.getMem (BitVec.ofNat 64 A) := by
   exact memEval_two s _ _ _ _ (B + 904) (B + 896) A
     (by change s.getReg .x8 + 904 = _; rw [hbase]; exact ofNat_add_ofNat B 904)
@@ -35,7 +35,7 @@ theorem leafSetup_mem (s : MachineState) (B A : Nat)
 theorem leaf_trace_mem (value : ChainWord → Word) (tr : ChainTrace) (s : MachineState) (B : Nat)
     (ht : TraceMem value B tr s) (hbase : s.getReg .x8 = BitVec.ofNat 64 B)
     (hB : B + 1024 < 2 ^ 64) (hh : s.getReg .x28 = value .leafHeader)
-    (hr : s.getReg .x4 = value .route) :
+    (hr : s.getReg .x22 = value .route) :
     TraceMem value B (tr.step .leaf) (leafSetupRel.toState s) := by
   intro x hx
   rw [leafSetup_mem s B (B + x) hbase hB (by omega)]
@@ -593,7 +593,7 @@ theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
   have hheaderHi : prepared.getMem (BitVec.ofNat 64 (base k + 904)) =
       BitVec.ofNat 64 index := by
     rw [leafSetup_mem s (base k) (base k + 904) hb hB (by omega), if_pos rfl]
-    exact (hs.keep .x4 (by decide)).trans hu.route
+    exact (hs.keep .x22 (by decide)).trans hu.route
   refine { length := hlen, keep := hkeep, frame := hf, child := ?_ }
   refine {
     indexBound := hu.indexBound, length := hlen, pc := ?_,
@@ -601,7 +601,7 @@ theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
     baseReg := (hkeep .x8 (by decide)).trans hu.baseReg,
     hashInput := hp.1, hashLen := hp.2.1,
     nodeHeader := (hkeep .x27 (by decide)).trans hu.nodeHeader,
-    childReg := (hkeep .x22 (by decide)).trans hu.indexReg,
+    childReg := (hkeep .x4 (by decide)).trans hu.indexReg,
     forestPointer := (hkeep .x9 (by decide)).trans hu.forestPointer,
     returnPC := (hkeep .x1 (by decide)).trans hu.returnPC,
     heaps := ?_,

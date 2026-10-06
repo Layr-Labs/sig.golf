@@ -924,7 +924,7 @@ theorem small_route (hC : CaseCSmallBound) :
   have hpair := SmallR.pairTerm_le q hs
   have hinc := BPB.signerIncomplete_le adversary q hq
   apply SeccClosing.smallBound_of_le q _ (SmallR.classRate + 3 / 100 + 1 / 1000) 407
-    ((2 : ENNReal)⁻¹ ^ 700 + 1 / (2 : ENNReal) ^ 722)
+    ((2 : ENNReal)⁻¹ ^ 700 + 1 / (2 : ENNReal) ^ 698)
   · rw [SeccClosing.smallCoefficient_def]
     unfold SmallR.classRate
     apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
@@ -949,17 +949,17 @@ theorem small_route (hC : CaseCSmallBound) :
     _ ≤ (prefixCoeff q / 2 ^ 128 * EP + encodingCoeff q / 2 ^ 128 * EE + (2 ^ 128 : ENNReal)⁻¹ * EO) +
           ((1 + SeccClosing.cacheRate) / 2 ^ 128 * EM +
             ((signRatio * q : Nat) : ENNReal) * SeccClosing.excessRate / 2 ^ 128 + nearTerm q + BPair.pairTerm q +
-            (2 : ENNReal)⁻¹ ^ 700) + 1 / (2 : ENNReal) ^ 722 := add_le_add (add_le_add hab hc) hinc
+            (2 : ENNReal)⁻¹ ^ 700) + 1 / (2 : ENNReal) ^ 698 := add_le_add (add_le_add hab hc) hinc
     _ ≤ (SmallR.classRate / 2 ^ 128 * EP + SmallR.classRate / 2 ^ 128 * EE + SmallR.classRate / 2 ^ 128 * EO) +
           (SmallR.classRate / 2 ^ 128 * EM + 3 / 100 * x + (405 * x ^ 2 + 1 / 1000 * x) + 2 * x ^ 2 +
-            (2 : ENNReal)⁻¹ ^ 700) + 1 / (2 : ENNReal) ^ 722 := by gcongr
+            (2 : ENNReal)⁻¹ ^ 700) + 1 / (2 : ENNReal) ^ 698 := by gcongr
     _ = SmallR.classRate / 2 ^ 128 * (EP + EE + EO + EM) +
-          (3 / 100 * x + (405 * x ^ 2 + 1 / 1000 * x) + 2 * x ^ 2 + ((2 : ENNReal)⁻¹ ^ 700 + 1 / (2 : ENNReal) ^ 722)) := by
+          (3 / 100 * x + (405 * x ^ 2 + 1 / 1000 * x) + 2 * x ^ 2 + ((2 : ENNReal)⁻¹ ^ 700 + 1 / (2 : ENNReal) ^ 698)) := by
         ring
     _ ≤ SmallR.classRate * x + (3 / 100 * x + (405 * x ^ 2 + 1 / 1000 * x) + 2 * x ^ 2 +
-          ((2 : ENNReal)⁻¹ ^ 700 + 1 / (2 : ENNReal) ^ 722)) := by
+          ((2 : ENNReal)⁻¹ ^ 700 + 1 / (2 : ENNReal) ^ 698)) := by
         gcongr
-    _ = (SmallR.classRate + 3 / 100 + 1 / 1000) * x + 407 * x ^ 2 + ((2 : ENNReal)⁻¹ ^ 700 + 1 / (2 : ENNReal) ^ 722) := by
+    _ = (SmallR.classRate + 3 / 100 + 1 / 1000) * x + 407 * x ^ 2 + ((2 : ENNReal)⁻¹ ^ 700 + 1 / (2 : ENNReal) ^ 698) := by
         ring
 theorem securityP_of_small (hC : CaseCSmallBound)
     (hlarge : ∀ (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127), SeccClosing.budgetSplit ≤ q →

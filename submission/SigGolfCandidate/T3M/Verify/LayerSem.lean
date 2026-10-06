@@ -168,6 +168,7 @@ structure LayerIn (w : WBytes) (pk : Digest) (index lay : Nat) (msg : LayerMsg)
     s.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 23304
   dst0 : lay = 0 → ∃ d, s.getReg .x12 = BitVec.ofNat 64 d ∧ (d = 15560 ∨ d = 15608)
   dstL : lay = 1 ∨ lay = 2 → ∃ d, s.getReg .x12 = BitVec.ofNat 64 d ∧ (d = x10In lay ∨ d = x10In lay + 48)
+  tp0 : lay = 0 → s.getReg .x4 = BitVec.ofNat 64 (hdr1 (T3.route index 0).2 (T3.route index 0).1)
 structure EncPre (w : WBytes) (pk : Digest) (index lay c : Nat)
     (t : MachineState) : Prop where
   pc : t.pc = pcOf (trPc lay c + stepsA lay)
@@ -365,7 +366,7 @@ theorem ctrBr_iff (w : WBytes) (lay : Layer) (s : MachineState) (hH : WitHdr w s
     simp [h3, CmpOp.eval, E.eval, kw, BitVec.ult, Nat.mod_eq_of_lt h64,
       counterLimit, ← decide_not, eq_comm]
 theorem copy_parts (lay p : Nat) (h : BC.copyCheck lay p = true) :
-    specB (BC.allowed lay) [] baseK (runAt (BC.preK lay) [] (T3M.setupPc lay p) [.br (T3M.setupAcceptDir lay)]) (BC.specA lay p) [] (BC.bK lay) keepA = true ∧
+    specB (BC.allowed lay) [] baseK (runAt (BC.preK lay) [] (T3M.setupPc lay p) [.br (T3M.setupAcceptDir lay)]) (BC.specA lay p) [] (BC.bKC lay) keepA = true ∧
     specB (BC.allowed lay) [] [] (runAt (BC.preK lay) [] (T3M.setupPc lay p) [.br (!T3M.setupAcceptDir lay)]) (BC.rejA lay p) [] [] [] = true ∧
     (lay = 0 →
       specB [] [] [] (runAt [] [96160] (p + stepsA lay + 1) []) (specTopCall p) [] [] keepTopCall = true) ∧
