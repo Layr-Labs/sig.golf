@@ -1005,7 +1005,7 @@ theorem nearTermTight_le (q : Nat) : nearTermTight q ≤ Wots.nearTerm q := by
   rfl
 theorem nearBound : NearBound caseCExtraction NearQ Wots.nearTerm :=
   fun adversary q hq h1 h2 => (nearBoundTight adversary q hq h1 h2).trans (nearTermTight_le q)
-theorem excessBound_horizon : ClaudeWCT.Bank.WCT.ExcessBound horizon (14710 / 100000000) :=
+theorem excessBound_horizon : ClaudeWCT.Bank.WCT.ExcessBound horizon (14774 / 100000000) :=
   ClaudeWCT.Numerics.WCTPrice.wct_excessBound_2_32
 theorem caseC_small_bound_wct :
     CaseCSmallBound CaseCFreshPinned Wots.nearTerm WPair.pairTerm :=

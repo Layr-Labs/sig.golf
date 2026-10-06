@@ -28,5 +28,6 @@ def layerWitnessOffset : Nat := 9288
 def forestRootAddress : Nat := 0x100
 def coordinateBase (k : Fin 9) : Nat := 2112 + 1024 * k.val
 def headerTable (k : Fin 9) : Nat := 0xfee600 + 512 * k.val
-def pairAddress (k : Fin 9) : Nat := 0x420 + 32 * k.val
+def forestInputAddress : Nat := 0xffc040
+def pairAddress (k : Fin 9) : Nat := forestInputAddress + 32 + 32 * k.val
 end W9Machine

@@ -29,7 +29,7 @@ theorem card_capP : #{p : WProposal | capP p} = 2 ^ 31 * (128 ^ 9 * ClaudeWCT.Nu
   rw [h, card_product, ClaudeWCT.Numerics.N600Cap.card_capSet, card_univ, Fintype.card_fin]
 theorem acceptanceV5 :
     Pr[fun x : HashOutput => ClaudeWCT.WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      (1040 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 147 := by
+      (1091 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 147 := by
   rw [← expectedValue_ite_one, SigGolfCandidate.T3.BPORS.expected_uniform_eq_finiteAverage]
   unfold SigGolfResearch.Gate6.Moments.finiteAverage
   have hsum : (∑ x : HashOutput, if ClaudeWCT.WCT9.producerAdmissible x = true then (1 : ENNReal) else 0) =
@@ -53,7 +53,7 @@ theorem acceptanceV5_eq_p0 :
     Pr[fun x : HashOutput => ClaudeWCT.WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
       ENNReal.ofReal (BaseAudit.V5.p0 : ℝ) := by
   rw [acceptanceV5]
-  have hq : ((BaseAudit.V5.p0 : ℚ) : ℝ) = (1040 : ℝ) * 27 ^ 9 * (ClaudeWCT.Numerics.N600Cap.J : ℝ) / 2 ^ 147 := by
+  have hq : ((BaseAudit.V5.p0 : ℚ) : ℝ) = (1091 : ℝ) * 27 ^ 9 * (ClaudeWCT.Numerics.N600Cap.J : ℝ) / 2 ^ 147 := by
     simp only [BaseAudit.V5.p0, BaseAudit.V5.J, ClaudeWCT.Numerics.N600Cap.J]
     push_cast
     ring
@@ -282,7 +282,7 @@ theorem digest_failure_power :
   digest_failure_power_of_acceptance (BaseAudit.V5.p0 : ℝ)
     (by norm_num [BaseAudit.V5.p0, BaseAudit.V5.J]) (by norm_num [BaseAudit.V5.p0, BaseAudit.V5.J]) digest_probability_eq_p0
 theorem digest_failMass_eq :
-    failMass digestDecode = 1 - (1040 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 147 := by
+    failMass digestDecode = 1 - (1091 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 147 := by
   have h : (fun answer : HashOutput => (digestDecode answer).isSome = true) =
       fun x => ClaudeWCT.WCT9.producerAdmissible x = true := by
     funext x
@@ -290,7 +290,7 @@ theorem digest_failMass_eq :
     split <;> simp_all
   rw [failMass_eq_one_sub_accept, h, acceptanceV5]
 theorem digest_failure_explicit :
-    (1 - (1040 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 147) ^ (2 ^ 21) ≤
+    (1 - (1091 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 147) ^ (2 ^ 21) ≤
       1 / (2 : ENNReal) ^ 450 := by
   rw [← digest_failMass_eq]
   exact digest_failure_power
@@ -335,23 +335,23 @@ theorem signing_incomplete_probability_le (law : ProbComp Answers) (digestFail e
   rw [digestFamily_card, Nat.cast_pow, Nat.cast_ofNat] at hd'
   rw [encodingFamilyBC_card, Nat.cast_pow, Nat.cast_ofNat] at he'
   exact hm.trans ((probEvent_or_le law _ _).trans (add_le_add hd' he'))
-theorem union_real_65 : (2 : ℝ) ^ 384 * (1 / 2 ^ 450) + 2 ^ 301 * (1 / 2 ^ 1024) ≤ 1 / 2 ^ 65 := by
+theorem union_real_65 : (2 : ℝ) ^ 384 * (1 / 2 ^ 450) + 2 ^ 301 * (1 / 2 ^ 1000) ≤ 1 / 2 ^ 65 := by
   set_option exponentiation.threshold 2048 in norm_num
-theorem union_real_321 : (2 : ℝ) ^ 128 * (1 / 2 ^ 450) + 2 ^ 301 * (1 / 2 ^ 1024) ≤ 1 / 2 ^ 321 := by
+theorem union_real_321 : (2 : ℝ) ^ 128 * (1 / 2 ^ 450) + 2 ^ 301 * (1 / 2 ^ 1000) ≤ 1 / 2 ^ 321 := by
   set_option exponentiation.threshold 2048 in norm_num
 theorem union_ennreal (a c : ℕ)
-    (hreal : (2 : ℝ) ^ a * (1 / 2 ^ 450) + 2 ^ 301 * (1 / 2 ^ 1024) ≤ 1 / 2 ^ c) :
-    (2 : ENNReal) ^ a * (1 / 2 ^ 450) + (2 : ENNReal) ^ 301 * (1 / 2 ^ 1024) ≤ 1 / 2 ^ c := by
+    (hreal : (2 : ℝ) ^ a * (1 / 2 ^ 450) + 2 ^ 301 * (1 / 2 ^ 1000) ≤ 1 / 2 ^ c) :
+    (2 : ENNReal) ^ a * (1 / 2 ^ 450) + (2 : ENNReal) ^ 301 * (1 / 2 ^ 1000) ≤ 1 / 2 ^ c := by
   have hcast := ENNReal.ofReal_le_ofReal hreal
   rw [ENNReal.ofReal_add (show 0 ≤ (2 : ℝ) ^ a * (1 / 2 ^ 450) by positivity)
-    (show 0 ≤ (2 : ℝ) ^ 301 * (1 / 2 ^ 1024) by positivity),
+    (show 0 ≤ (2 : ℝ) ^ 301 * (1 / 2 ^ 1000) by positivity),
     ENNReal.ofReal_mul (show 0 ≤ (2 : ℝ) ^ a by positivity),
     ENNReal.ofReal_mul (show 0 ≤ (2 : ℝ) ^ 301 by positivity)] at hcast
   simpa only [ENNReal.ofReal_pow (show 0 ≤ (2 : ℝ) by norm_num),
     ENNReal.ofReal_ofNat, ofReal_inv_two_pow] using hcast
 theorem signing_incomplete_probability_small (law : ProbComp Answers)
     (hd : ∀ family, Pr[DigestFailed family | law] ≤ 1 / (2 : ENNReal) ^ 450)
-    (he : ∀ family, Pr[EncodingFailedBC family | law] ≤ 1 / (2 : ENNReal) ^ 1024) :
+    (he : ∀ family, Pr[EncodingFailedBC family | law] ≤ 1 / (2 : ENNReal) ^ 1000) :
     Pr[fun answers => ¬SigningComplete answers (evalWithAnswerFn answers keygen) | law] ≤
       1 / (2 : ENNReal) ^ 65 :=
   (signing_incomplete_probability_le law _ _ hd he).trans (union_ennreal 384 65 union_real_65)
@@ -579,7 +579,7 @@ theorem not_tableGoodForNonces_iff (nonces : Message → HashOutput)
 theorem tableGoodForNonces_failure_le (nonces : Message → HashOutput) :
     Pr[fun outputs => ¬tableGoodForNonces nonces outputs |
       ($ᵗ (SearchKey → HashOutput) : ProbComp _)] ≤
-      (2 : ENNReal) ^ 256 * (1 / 2 ^ 450) + (2 : ENNReal) ^ 301 * (1 / 2 ^ 1024) := by
+      (2 : ENNReal) ^ 256 * (1 / 2 ^ 450) + (2 : ENNReal) ^ 301 * (1 / 2 ^ 1000) := by
   let law := ($ᵗ (SearchKey → HashOutput) : ProbComp _)
   have hd' := finite_family_failure_le law
     (fun (message : Message) outputs => DigestFailed ((nonces message).extractLsb' 0 128, message)
@@ -588,7 +588,7 @@ theorem tableGoodForNonces_failure_le (nonces : Message → HashOutput) :
       ((nonces message).extractLsb' 0 128, message)).le.trans digest_failure_power)
   have he' := finite_family_failure_le law
     (fun family outputs => EncodingFailedBC family (Presampling.tableAnswers outputs zeroAnswers))
-      (1 / (2 : ENNReal) ^ 1024)
+      (1 / (2 : ENNReal) ^ 1000)
     (encodingFamily_table_failure _ ClaudeWCT.W9.T3.ProducerV5.producer_failure_power)
   rw [Fintype.card_bitVec, Nat.cast_pow, Nat.cast_ofNat] at hd'
   rw [encodingFamilyBC_card, Nat.cast_pow, Nat.cast_ofNat] at he'
@@ -597,12 +597,12 @@ theorem tableGoodForNonces_failure_le (nonces : Message → HashOutput) :
 theorem tableGoodForNonces_failure_small (nonces : Message → HashOutput) :
     Pr[fun outputs => ¬tableGoodForNonces nonces outputs |
       ($ᵗ (SearchKey → HashOutput) : ProbComp _)] ≤ 1 / (2 : ENNReal) ^ 193 :=
-  (tableGoodForNonces_failure_le nonces).trans (union_ennreal 256 193 BaseAudit.V3.completeness_union)
+  (tableGoodForNonces_failure_le nonces).trans (union_ennreal 256 193 BaseAudit.V5.completeness_union)
 theorem union_failure_small_bc {α ι κ : Type} [Fintype ι] [Fintype κ] (law : ProbComp α)
     (digestFailed : ι → α → Prop) (encodingFailed : κ → α → Prop)
     (hι : Fintype.card ι ≤ 2 ^ 256) (hκ : Fintype.card κ ≤ 2 ^ 301)
     (hd : ∀ i, Pr[digestFailed i | law] ≤ 1 / (2 : ENNReal) ^ 450)
-    (he : ∀ k, Pr[encodingFailed k | law] ≤ 1 / (2 : ENNReal) ^ 1024) :
+    (he : ∀ k, Pr[encodingFailed k | law] ≤ 1 / (2 : ENNReal) ^ 1000) :
     Pr[fun value => (∃ i, digestFailed i value) ∨ (∃ k, encodingFailed k value) | law] ≤
       1 / (2 : ENNReal) ^ 193 := by
   have hd' := finite_family_failure_le law digestFailed _ hd
@@ -611,7 +611,7 @@ theorem union_failure_small_bc {α ι κ : Type} [Fintype ι] [Fintype κ] (law 
   have hκ' : (Fintype.card κ : ENNReal) ≤ 2 ^ 301 := by exact_mod_cast hκ
   refine ((probEvent_or_le law _ _).trans (add_le_add hd' he')).trans ?_
   refine (add_le_add (mul_le_mul' hι' le_rfl) (mul_le_mul' hκ' le_rfl)).trans ?_
-  exact union_ennreal 256 193 BaseAudit.V3.completeness_union
+  exact union_ennreal 256 193 BaseAudit.V5.completeness_union
 end ClaudeWCT.W9.T3.Budgets
 end
 end

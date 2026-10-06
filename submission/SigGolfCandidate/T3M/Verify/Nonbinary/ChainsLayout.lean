@@ -60,17 +60,17 @@ theorem rOK_eq {o : Option Result} {r : Result} (h : rOK o r = true) : o = some 
   cases o with
   | none => simp [rOK] at h
   | some r' => simp only [rOK] at h; rw [resBeq_eq h]
-def dispatchWords : List (BitVec 32) := [0xae9713,0xf70733,0xd4c70067]
-def armPC (rank : Nat) : Nat := 176979 + 256 * rank
+def dispatchWords : List (BitVec 32) := [0xae9713,0xf70733,0xd6870067]
+def armPC (rank : Nat) : Nat := 176986 + 256 * rank
 def dispatchR : Result :=
   let ptr := .bin .add (.bin .sll (.reg .x29) (.c 10)) (.reg .x15)
   ⟨⟨RegFile.init.set .x14 ptr, [], []⟩,
-    .bin .and (.bin .add ptr (.c 18446744073709550924)) (.c (~~~1#64)), .jump, 3, 3⟩
+    .bin .and (.bin .add ptr (.c 18446744073709550952)) (.c (~~~1#64)), .jump, 3, 3⟩
 theorem dispatch_run (pc : Word) : symRun {} dispatchWords pc 3 = some dispatchR := by
   rfl
 def pcOf (p : Nat) : Word := BitVec.ofNat 64 (0x1000 + 4 * p)
 theorem dispatch_target (k : Nat) (hk : k < 64) :
-    ((((BitVec.ofNat 64 k <<< 10) + 712704#64) + 18446744073709550924#64) &&& ~~~1#64) =
+    ((((BitVec.ofNat 64 k <<< 10) + 712704#64) + 18446744073709550952#64) &&& ~~~1#64) =
       pcOf (armPC k) := by
   interval_cases k <;> decide +kernel
 theorem dispatch_steps {image : Image} (pc : Word) (hc : CodeAt image pc dispatchWords)
@@ -82,7 +82,7 @@ theorem dispatch_steps {image : Image} (pc : Word) (hc : CodeAt image pc dispatc
   let t := dispatchR.toState s
   have st : Steps image s 3 3 t := symRun_sound (dispatch_run pc) hc s hp (by simp [dispatchR, Result.obligs, Oblig.all])
   refine ⟨t, st, ?_, ?_, ?_, ?_⟩
-  · change (((s.getReg .x29 <<< 10) + s.getReg .x15 + 18446744073709550924#64) &&& ~~~1#64) = _
+  · change (((s.getReg .x29 <<< 10) + s.getReg .x15 + 18446744073709550952#64) &&& ~~~1#64) = _
     rw [hr, hb]
     exact dispatch_target k hk
   · intro r hn
@@ -114,9 +114,9 @@ def partLen (q d : Nat) : Nat :=
 def pcB (q dB dC : Nat) : Nat := base q dB dC+2*mx q+1
 def pcC (q dB dC : Nat) : Nat := pcB q dB dC+partLen q dB
 def pcX (q dB dC : Nat) : Nat := pcC q dB dC+partLen q dC
-def entOff (q : Nat) : Nat := if q=15 then 153 else if q=16 then 194 else if q=17 then 235 else 8*q
+def entOff (q : Nat) : Nat := if q=0 then 0 else if q≤13 then 6*q+1 else if q=14 then 120 else if q=15 then 161 else if q=16 then 202 else 242
 def entW (q k : Nat) : Nat := 176744+256*k+entOff q
-def inl (q : Nat) : Bool := decide (14 ≤ q ∧ q ≤ 16)
+def inl (q : Nat) : Bool := decide (13 ≤ q ∧ q ≤ 16)
 def leadOff (q : Nat) : Nat := if q=0 then 2 else 1
 def leadPc (q k : Nat) : Nat := entW q k+leadOff q
 def kdig (q k j : Nat) : Nat := k/(mx q+1)^j%(mx q+1)
