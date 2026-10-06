@@ -21,7 +21,7 @@ theorem cell_not_digest (s : CanonGraph.Secrets) (node : CanonGraph.Node) (label
       rw [he, Extract.hdrBlock_pad64 _ (by rw [digestInput_length]; omega)] at h
       unfold digestInput at h
       rw [Extract.hdrBlock_prefix] at h
-      exact chainHeader_ne_header _ _ _ _ _ _ _ _ _ _ (bytesLE_injective h).symm
+      exact chainHeader_ne_digestHeader _ _ _ _ _ _ (bytesLE_injective h).symm
   | _ =>
       simp only [CanonGraph.Node.toPos, Extract.Pos.hdr] at h
       exact not_digest_of_hdr h (by decide)

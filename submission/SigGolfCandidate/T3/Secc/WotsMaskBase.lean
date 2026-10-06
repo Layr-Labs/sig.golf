@@ -407,8 +407,11 @@ theorem respects_digest (rho : Digest) (message : Message) (counter : BitVec 32)
     Respects (Untouched a) (digest rho message counter) := by
   unfold digest
   apply Respects.publicHash
+  apply untouched_of_hdr a _ (digestHeader counter) _
+    (fun _ _ _ _ _ => (chainHeader_ne_digestHeader _ _ _ _ _ counter).symm)
   unfold digestInput
-  exact untouched_prefixed a _ _ (by decide) _ _ _ _
+  rw [Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
+    Extract.hdrBlock_prefix]
 theorem respects_digestSearch (rho : Digest) (message : Message) :
     ∀ fuel counter, Respects (Untouched a) (digestSearch rho message counter fuel) := by
   intro fuel

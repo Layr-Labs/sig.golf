@@ -97,12 +97,12 @@ theorem ftsQuery_short {index : Nat} {q : Query} (h : FtsQuery index q) : Ref.Sh
 theorem ftsQuery_notDigest {index : Nat} {q : Query} (h : FtsQuery index q) : BPB.NotDigestQ q := by
   rcases q with (coin | input) | (tweak | other)
   · trivial
-  · show BPB.hdrTag input ≠ 12
+  · show BPB.hdrTag input ≠ 0
     rcases FtsInput.hdrBlock (show FtsInput index input from h) with
       ⟨coord, selected, t, step, hblock⟩ | ⟨tag, lay, position, idx, htag, hblock⟩
     · rw [hdrTag_ftsChain hblock]; decide
     · rw [BPB.hdrTag_eq hblock]
-      exact (tag_mod' htag).2.2.2
+      exact (tag_mod' htag).1
   · trivial
   · trivial
 namespace Mask

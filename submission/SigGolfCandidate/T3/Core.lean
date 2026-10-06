@@ -249,8 +249,12 @@ def admissible (chosen : List Selection) : Bool :=
 def digestGate (output : HashOutput) : Bool := decide (output.toNat / 2^206 % 8 = 0)
 def digestAdmissible (output : HashOutput) : Bool :=
   admissible (selections output) && digestGate output
+-- The zero marker separates this domain from ordinary headers (marker 1)
+-- and both families of packed chain headers (markers at least 128).
+def digestHeader (counter : BitVec 32) : Digest :=
+  (counter ++ 0#32) ++ 0#64
 def digestInput (rho : Digest) (message : Message) (counter : BitVec 32) : HashInput :=
-  bytesLE 16 rho ++ bytesLE 16 (header 12 0 0 0 counter.toNat) ++ bytesLE 32 message
+  bytesLE 16 rho ++ bytesLE 16 (digestHeader counter) ++ bytesLE 32 message
 def digest (rho : Digest) (message : Message) (counter : BitVec 32) : M HashOutput :=
   publicHash (digestInput rho message counter)
 def digestSearch (rho : Digest) (message : Message) (counter : Nat) :

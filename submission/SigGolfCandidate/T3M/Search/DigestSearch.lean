@@ -1,3 +1,4 @@
+import SigGolfCandidate.T3.Proofs
 import SigGolfCandidate.T3M.Search.Blocks
 import SigGolfCandidate.T3M.Search.CounterSearch
 
@@ -550,15 +551,18 @@ theorem pad64_digestInput (rho : Digest) (m : T3.Message) (c : BitVec 32) :
   simp
 theorem wordsOf_digestInput (rho : Digest) (m : T3.Message) (c : BitVec 32) :
     wordsOf (T3.pad64 (T3.digestInput rho m c)) =
-      [rho.extractLsb' 0 64, rho.extractLsb' 64 64, BitVec.ofNat 64 (hdr0 12 0 0 0),
+      [rho.extractLsb' 0 64, rho.extractLsb' 64 64, (0 : BitVec 64),
         BitVec.ofNat 64 (hdr1 0 c.toNat), m.extractLsb' 0 64, m.extractLsb' 64 64, m.extractLsb' 128 64,
         m.extractLsb' 192 64] := by
   rw [pad64_digestInput]
   unfold T3.digestInput
   rw [wordsOf_append _ _ (by simp only [List.length_append, SphincsSecurity.bytesLE_length]),
-    wordsOf_append _ _ (by simp only [SphincsSecurity.bytesLE_length]), wordsOf_bytesLE16, wordsOf_header,
+    wordsOf_append _ _ (by simp only [SphincsSecurity.bytesLE_length]), wordsOf_bytesLE16, wordsOf_bytesLE16,
     wordsOf_bytesLE32]
-  rfl
+  rw [SigGolfCandidate.T3.digestHeader_low, SigGolfCandidate.T3.digestHeader_high]
+  have hc := c.isLt
+  have e1 : hdr1 0 c.toNat = c.toNat * 2 ^ 32 := by unfold hdr1; omega
+  simp only [List.append_assoc, e1] <;> rfl
 theorem blocks_digestInput (rho : Digest) (m : T3.Message) (c : BitVec 32) :
     (toQ (T3.pad64 (T3.digestInput rho m c))).blocks = 1 := by
   rw [pad64_digestInput, blocks_toQ (by rw [Aligned, digestInput_length]; omega), digestInput_length]
@@ -589,7 +593,7 @@ theorem ds0_spec (hD : DsAt image d b) (s : MachineState) (hpc : s.pc = pcOf (d 
 theorem ds2_spec (hD : DsAt image d b) (s : MachineState) (hpc : s.pc = pcOf (d + 2)) (i : Nat)
     (hi : i < 2 ^ 20) (h19 : s.getReg .x19 = BitVec.ofNat 64 i) :
     ∃ t, Steps image s 12 12 t ∧ t.pc = pcOf (d + 14) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 16)) = BitVec.ofNat 64 (hdr0 12 0 0 0) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 16)) = (0 : BitVec 64) ∧
       t.getMem (BitVec.ofNat 64 (DIG + 24)) = BitVec.ofNat 64 (hdr1 0 i) ∧
       t.getReg .x10 = BitVec.ofNat 64 DIG ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 NBUF ∧
@@ -599,7 +603,6 @@ theorem ds2_spec (hD : DsAt image d b) (s : MachineState) (hpc : s.pc = pcOf (d 
   · simp [pcEds_2, E.eval]
   · simp only [Result.toState_getMem, stds_2, blkds30_2.res]
     t3n [DIG]
-    rfl
   · simp only [Result.toState_getMem, stds_2, blkds30_2.res]
     t3n [h19, DIG]
     rw [hdr1_eq 0 i (by decide) (by omega)]
