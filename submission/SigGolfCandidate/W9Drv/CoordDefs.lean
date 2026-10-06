@@ -8,7 +8,7 @@ open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput)
 open W9Machine
-def dispatchPc (n : Nat) : Nat := [47,62,79,96,113,130,147,164,180,197].getD n 197
+def dispatchPc (n : Nat) : Nat := [64,77,92,107,122,137,152,167,181,196].getD n 196
 def cachedWord (n : Nat) : Nat := [0,0,1,1,1,2,2,2,2,2].getD n 2
 structure CoordPre (pk : Digest) (w : WBytes) (a : HashOutput) (n : Nat)
     (pairs : List (Digest × Digest)) (u : MachineState) : Prop where
@@ -18,7 +18,7 @@ structure CoordPre (pk : Digest) (w : WBytes) (a : HashOutput) (n : Nat)
   glob : Glob baseK w pk u
   digest : DigestAt a u
   bank : HeaderBank u
-  index : u.getReg .x22 = BitVec.ofNat 64 (idxOf a)
+  index : u.getReg .x4 = BitVec.ofNat 64 (idxOf a)
   heaps : ∀ h, 2 ≤ h → h ≤ 7 → u.getReg (Child.heapReg h) = BitVec.ofNat 64 h
   stepOne : u.getReg .x7 = 1
   stepTwo : u.getReg .x13 = 2
