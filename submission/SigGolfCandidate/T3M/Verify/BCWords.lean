@@ -18,12 +18,12 @@ def ctrE (lay : Nat) : E :=
   if lay = 3 then T3M.ctrE lay else .un (.ld .wu 0) (.ld (kw (x10In lay + 32)))
 def ctrBr (lay : Nat) (d : Bool) : Br := ⟨if lay = 3 then .ltu else .geu, ctrE lay, kw 0x400000, d⟩
 def headerWrites (lay : Nat) : List (Addr × E) :=
-  [(⟨none, BitVec.ofNat 64 (x10In lay + 24)⟩, tpE lay),
+  [(⟨none, BitVec.ofNat 64 (x10In lay + 24)⟩, tp0E lay),
    (⟨none, BitVec.ofNat 64 (x10In lay + 16)⟩, kw (hw 4 lay))]
 def specA (lay p : Nat) : Spec :=
   if lay = 3 then T3M.specA lay p else
-  ⟨if lay = 0 then [(.x4, tpE lay), (.x23, s7E lay), (.x3, ctrE lay), (.x12, .reg .x12)]
-   else [(.x4, tpE lay), (.x23, s7E lay), (.x31, treeE lay), (.x3, ctrE lay),
+  ⟨if lay = 0 then [(.x4, tp0E lay), (.x23, s7E lay), (.x3, ctrE lay), (.x12, .reg .x12)]
+   else [(.x4, tp0E lay), (.x23, s7E lay), (.x31, treeE lay), (.x3, ctrE lay),
      (.x28, .bin .sll (.reg (rReg lay)) (kw 16)), (.x12, .reg .x12)],
    headerWrites lay, p + stepsA lay, true, stepsA lay,
    [ctrBr lay false], none, stepsA lay⟩

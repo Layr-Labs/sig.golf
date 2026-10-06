@@ -8,7 +8,10 @@ open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput)
 open W9Machine
-def dispatchPc (n : Nat) : Nat := [47,62,79,96,113,130,147,164,180,197].getD n 197
+/- The forest route index stays in x22 throughout the FTS stage.
+   x4 carries the child number; the chain leaf stores the index and the
+   child prefix supplies its upper word. No index restore is needed. -/
+def dispatchPc (n : Nat) : Nat := [65,78,93,108,123,138,153,168,182,197].getD n 197
 def cachedWord (n : Nat) : Nat := [0,0,1,1,1,2,2,2,2,2].getD n 2
 structure CoordPre (pk : Digest) (w : WBytes) (a : HashOutput) (n : Nat)
     (pairs : List (Digest × Digest)) (u : MachineState) : Prop where
