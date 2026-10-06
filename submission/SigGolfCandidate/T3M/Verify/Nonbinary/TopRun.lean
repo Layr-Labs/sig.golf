@@ -61,11 +61,11 @@ theorem dispatch9_step {p : Nat} (hp : p<251927)
     (hpc : s.pc=pcOf p) (h17 : s.getReg .x17= ~~~(v.extractLsb' 64 64)) (h6 : s.getReg .x6=130048#64)
     (h15 : s.getReg .x15=4096#64) :
     ∃t, Steps Images.verifyImage s 4 4 t ∧
-      t.pc=BitVec.ofNat 64 (2048*(63-v.toNat/2^64%64)+2368) ∧
+      t.pc=BitVec.ofNat 64 (2048*(63-v.toNat/2^64%64)+2300) ∧
       RegsExcept s t [.x14] ∧ Frame s t (fun _ => False) := by
   refine ⟨dispatch9R.toState s,piece_steps45 hrun hp s hpc (by simp [dispatch9R]),?_,?_,?_⟩
   · change ((((s.getReg .x17 <<< (BitVec.ofNat 64 11).toNat) &&& s.getReg .x6)+s.getReg .x15)+
-      BitVec.ofNat 64 (2^64-1728)) &&& ~~~1#64=_
+      BitVec.ofNat 64 (2^64-1796)) &&& ~~~1#64=_
     rw [h6,h15,h17,g9_value]
     congr 2
     have := not_field (v.extractLsb' 64 64) 0 (by decide)

@@ -97,7 +97,11 @@ section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem tripleCheck_13 : tripleCheck 13=true := by decide +kernel
+theorem inlineGroupCheck_13_0 : inlineGroupCheck 13 0 25=true := by decide +kernel
+theorem inlineGroupCheck_13_25 : inlineGroupCheck 13 25 25=true := by decide +kernel
+theorem inlineGroupCheck_13_50 : inlineGroupCheck 13 50 25=true := by decide +kernel
+theorem inlineGroupCheck_13_75 : inlineGroupCheck 13 75 25=true := by decide +kernel
+theorem inlineGroupCheck_13_100 : inlineGroupCheck 13 100 25=true := by decide +kernel
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
@@ -229,12 +233,13 @@ theorem tripleCheck_at (q : Nat) (hq : q<18) (hn : inl q=false) : tripleCheck q=
   all_goals first | (simp [inl] at hn) | skip
   exacts [tripleCheck_0, tripleCheck_1, tripleCheck_2, tripleCheck_3, tripleCheck_4, tripleCheck_5,
     tripleCheck_6, tripleCheck_7, tripleCheck_8, tripleCheck_9, tripleCheck_10, tripleCheck_11, tripleCheck_12,
-    tripleCheck_13, tripleCheck_17]
+    tripleCheck_17]
 theorem inlineGroupCheck_at (q : Nat) (hq : inl q=true) :
     inlineGroupCheck q 0 25=true ∧ inlineGroupCheck q 25 25=true ∧ inlineGroupCheck q 50 25=true ∧
       inlineGroupCheck q 75 25=true ∧ inlineGroupCheck q 100 25=true := by
-  have h : q=14 ∨ q=15 ∨ q=16 := by simp [inl] at hq; omega
-  rcases h with rfl|rfl|rfl
+  have h : q=13 ∨ q=14 ∨ q=15 ∨ q=16 := by simp [inl] at hq; omega
+  rcases h with rfl|rfl|rfl|rfl
+  · exact ⟨inlineGroupCheck_13_0,inlineGroupCheck_13_25,inlineGroupCheck_13_50,inlineGroupCheck_13_75,inlineGroupCheck_13_100⟩
   · exact ⟨inlineGroupCheck_14_0,inlineGroupCheck_14_25,inlineGroupCheck_14_50,inlineGroupCheck_14_75,
       inlineGroupCheck_14_100⟩
   · exact ⟨inlineGroupCheck_15_0,inlineGroupCheck_15_25,inlineGroupCheck_15_50,inlineGroupCheck_15_75,
@@ -395,7 +400,7 @@ theorem groupFacts (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<18) : c.Group
   · have hm4 := mx_inl q hn
     rw [hm4] at hk
     have he := inlineCheck_at q (c.kOf q) hn (by norm_num at hk; omega)
-    have hq16 : 14 ≤ q ∧ q ≤ 16 := by simp [inl] at hn; omega
+    have hq16 : 13 ≤ q ∧ q ≤ 16 := by simp [inl] at hn; omega
     simp only [inlineCheck,k1,k2,k3] at he
     by_cases hd : c.dig (3*q)=mx q
     · rw [if_pos hd] at he
