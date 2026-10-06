@@ -41,19 +41,25 @@ theorem verifyLegacyData_tail (i : Nat) (hi : i < 64) :
     verifyLegacyData.getD (34744+i) 0 = BitVec.ofNat 8 (126 - Verify.Nonbinary.tailSum i) := by
   exact checked_slice_get verifyLegacyData 34744 64 i (fun r => BitVec.ofNat 8 (126 - Verify.Nonbinary.tailSum r)) hi
     (by simp only [List.length_take,List.length_drop,verifyLegacyData_length]; decide) verify_tail_check
-theorem verifyData_length : verifyData.length = 16576 := Images.verifyData_length
-private theorem compact_pair_check : ((verifyData.drop 192).take 16384).zipIdx.all (fun p =>
+theorem verifyData_length : verifyData.length = 16832 := Images.verifyData_length
+private theorem compact_pair_check : ((verifyData.drop 448).take 16384).zipIdx.all (fun p =>
     decide (p.1 = BitVec.ofNat 8 (Verify.Nonbinary.pairLookup p.2))) = true := by decide +kernel
-private theorem compact_tail_check : ((verifyData.drop 120).take 64).zipIdx.all (fun p =>
+private theorem compact_tail_check : ((verifyData.drop 376).take 64).zipIdx.all (fun p =>
     decide (p.1 = BitVec.ofNat 8 (128 - Verify.Nonbinary.tailSum p.2))) = true := by decide +kernel
 theorem verifyData_pair (i : Nat) (hi : i < 16384) :
-    verifyData.getD (192 + i) 0 = BitVec.ofNat 8 (Verify.Nonbinary.pairLookup i) := by
-  exact checked_slice_get verifyData 192 16384 i (fun r => BitVec.ofNat 8 (Verify.Nonbinary.pairLookup r)) hi
+    verifyData.getD (448 + i) 0 = BitVec.ofNat 8 (Verify.Nonbinary.pairLookup i) := by
+  exact checked_slice_get verifyData 448 16384 i (fun r => BitVec.ofNat 8 (Verify.Nonbinary.pairLookup r)) hi
     (by simp only [List.length_take, List.length_drop, verifyData_length]; decide) compact_pair_check
 theorem verifyData_tail (i : Nat) (hi : i < 64) :
-    verifyData.getD (120 + i) 0 = BitVec.ofNat 8 (128 - Verify.Nonbinary.tailSum i) := by
-  exact checked_slice_get verifyData 120 64 i (fun r => BitVec.ofNat 8 (128 - Verify.Nonbinary.tailSum r)) hi
+    verifyData.getD (376 + i) 0 = BitVec.ofNat 8 (128 - Verify.Nonbinary.tailSum i) := by
+  exact checked_slice_get verifyData 376 64 i (fun r => BitVec.ofNat 8 (128 - Verify.Nonbinary.tailSum r)) hi
     (by simp only [List.length_take, List.length_drop, verifyData_length]; decide) compact_tail_check
+private theorem compact_raw_check : ((verifyData.take 256).zipIdx.all fun p =>
+    decide (p.1 = BitVec.ofNat 8 (rankLookup (p.2 % 128)))) = true := by decide +kernel
+theorem verifyData_raw (i : Nat) (hi : i < 256) :
+    verifyData.getD i 0 = BitVec.ofNat 8 (rankLookup (i % 128)) := by
+  simpa using checked_slice_get verifyData 0 256 i (fun r => BitVec.ofNat 8 (rankLookup (r % 128))) hi
+    (by simp only [List.length_take, List.length_drop, verifyData_length]; decide) compact_raw_check
 end SigGolfCandidate.T3M.Search
 end
 
@@ -67,7 +73,7 @@ set_option maxHeartbeats 1600000
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)
-open SigGolfCandidate.T3M.Verify.Nonbinary (PAIR_DATA TAIL_DATA)
+open SigGolfCandidate.T3M.Verify.Nonbinary (PAIR_DATA TAIL_DATA RAW_DATA)
 def leNat8 : List (BitVec 8) → Nat
   | [] => 0
   | b :: l => b.toNat + 256 * leNat8 l
@@ -164,7 +170,7 @@ def k0 : List (Reg × Word) :=
    (.x12, 0), (.x13, 0), (.x14, 0), (.x15, 0), (.x16, 0), (.x17, 0), (.x18, 0), (.x19, 0), (.x20, 0),
    (.x21, 0), (.x22, 0), (.x23, 0), (.x24, 0), (.x25, 0), (.x26, 0), (.x27, 0), (.x28, 0), (.x29, 0),
    (.x30, 0), (.x31, 0)]
-def VERIFY_DATA : Nat := 0xffbf40
+def VERIFY_DATA : Nat := 0xffbe40
 structure InitOK (m : T3.Message) (pk : Digest) (w : WBytes) (s : MachineState) : Prop where
   known : KnownOK k0 s
   pc : s.pc = pcOf 0
@@ -174,18 +180,18 @@ structure InitOK (m : T3.Message) (pk : Digest) (w : WBytes) (s : MachineState) 
   zero : ∀ A, A < WIT → (A < 0x40 ∨ (0x60 ≤ A ∧ A < 0xA0) ∨ 0xB0 ≤ A) → s.getMem (BitVec.ofNat 64 A) = 0
   data : DataOK s
   sp : s.getReg .x2 = BitVec.ofNat 64 VERIFY_DATA
-theorem verifyData_length : (submission.image .verify).data.length = 16576 := Search.verifyData_length
+theorem verifyData_length : (submission.image .verify).data.length = 16832 := Search.verifyData_length
 theorem dataBase_verify : dataBase (submission.image .verify) = VERIFY_DATA := by
   unfold dataBase; rw [verifyData_length]; decide
 theorem verifyData_mask :
-    bytesToWordLE ((((submission.image .verify).data).drop 184).take 8) = 130048#64 := by
+    bytesToWordLE ((((submission.image .verify).data).drop 440).take 8) = 130048#64 := by
   decide +kernel
 theorem verifyData_header (k : Nat) (hk : k < 4) :
-    bytesToWordLE ((((submission.image .verify).data).drop (80 + 8 * k)).take 8) =
+    bytesToWordLE ((((submission.image .verify).data).drop (336 + 8 * k)).take 8) =
       BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + k * 2 ^ 48) := by
   interval_cases k <;> decide +kernel
 theorem verifyData_initialMask :
-    bytesToWordLE ((((submission.image .verify).data).take 8)) = 0xfff#64 := by
+    bytesToWordLE ((((submission.image .verify).data).drop 256).take 8) = 0xfff#64 := by
   decide +kernel
 set_option maxRecDepth 200000 in
 theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 22984) (s : MachineState)
@@ -211,7 +217,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 22984) (s : Mac
   have gm : ∀ A, (s3.setReg .x2 (BitVec.ofNat 64 (dataBase (submission.image .verify)))).getMem A =
       s3.getMem A := fun A => by simp [MachineState.setReg, MachineState.getMem]
   have g0 : ∀ A, A < 2 ^ 64 → s0.getMem (BitVec.ofNat 64 A) =
-      if VERIFY_DATA ≤ A ∧ A < VERIFY_DATA + 8 * ((16576 + 7) / 8) ∧ (A - VERIFY_DATA) % 8 = 0 then
+      if VERIFY_DATA ≤ A ∧ A < VERIFY_DATA + 8 * ((16832 + 7) / 8) ∧ (A - VERIFY_DATA) % 8 = 0 then
         bytesToWordLE ((((submission.image .verify).data).drop (A - VERIFY_DATA)).take 8) else 0 := by
     intro A hA
     rw [getMem_writeBytesAsWords (submission.image .verify).data blank (dataBase (submission.image .verify)) A
@@ -309,16 +315,16 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 22984) (s : Mac
     unfold WIT at hA
     rw [gm, g3 _ (by omega), if_neg (by omega), g2 _ (by omega), if_neg (by omega), g1 _ (by omega),
       if_neg (by omega), g0z A (by unfold VERIFY_DATA; omega)]
-  · refine ⟨⟨?_, ?_, ?_⟩, ?_⟩
+  · refine ⟨⟨?_, ?_, ?_, ?_⟩, ?_⟩
     · intro i hi
       rw [gb _ (by unfold PAIR_DATA VERIFY_DATA; omega) (by unfold PAIR_DATA; omega)]
-      have hidx : PAIR_DATA + i - VERIFY_DATA = 192 + i := by
+      have hidx : PAIR_DATA + i - VERIFY_DATA = 448 + i := by
         unfold PAIR_DATA VERIFY_DATA; omega
       rw [hidx]
       exact Search.verifyData_pair i hi
     · intro i hi
       rw [gb _ (by unfold TAIL_DATA VERIFY_DATA; omega) (by unfold TAIL_DATA; omega)]
-      have hidx : TAIL_DATA + i - VERIFY_DATA = 120 + i := by
+      have hidx : TAIL_DATA + i - VERIFY_DATA = 376 + i := by
         unfold TAIL_DATA VERIFY_DATA; omega
       rw [hidx]
       exact Search.verifyData_tail i hi
@@ -326,14 +332,19 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 22984) (s : Mac
         g2 _ (by unfold TAIL_DATA; omega), if_neg (by unfold TAIL_DATA; omega),
         g1 _ (by unfold TAIL_DATA; omega), if_neg (by unfold TAIL_DATA; omega),
         g0 _ (by unfold TAIL_DATA; omega), if_pos (by unfold TAIL_DATA VERIFY_DATA; omega),
-        show TAIL_DATA + 64 - VERIFY_DATA = 184 by unfold TAIL_DATA VERIFY_DATA; omega,
+        show TAIL_DATA + 64 - VERIFY_DATA = 440 by unfold TAIL_DATA VERIFY_DATA; omega,
         verifyData_mask]
+    · intro i hi
+      rw [gb _ (by unfold RAW_DATA VERIFY_DATA; omega) (by unfold RAW_DATA; omega)]
+      have hidx : RAW_DATA + i - VERIFY_DATA = i := by unfold RAW_DATA VERIFY_DATA; omega
+      rw [hidx]
+      exact Search.verifyData_raw i hi
     · intro lay hl
       rw [gm, g3 _ (by unfold HDATA; omega), if_neg (by unfold HDATA; omega),
         g2 _ (by unfold HDATA; omega), if_neg (by unfold HDATA; omega),
         g1 _ (by unfold HDATA; omega), if_neg (by unfold HDATA; omega),
         g0 _ (by unfold HDATA; omega), if_pos (by unfold HDATA VERIFY_DATA; omega),
-        show HDATA + 8 * lay - VERIFY_DATA = 80 + 8 * lay by unfold HDATA VERIFY_DATA; omega,
+        show HDATA + 8 * lay - VERIFY_DATA = 336 + 8 * lay by unfold HDATA VERIFY_DATA; omega,
         verifyData_header lay hl]
   · simp [MachineState.setReg, MachineState.getReg]
     exact congrArg (BitVec.ofNat 64) eD
