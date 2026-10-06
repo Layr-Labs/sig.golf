@@ -268,15 +268,18 @@ theorem GoodQP.publicHash_bind_pre {P : Hash → Prop} {β : Type} {s : MachineS
 def Bank (u : MachineState) : Prop :=
   W9Drv.HeaderBank u ∧ W9Drv.SetupMask u ∧ u.getMem (BitVec.ofNat 64 VERIFY_DATA) = BitVec.ofNat 64 0xfff
 theorem Bank.congr {s t : MachineState} (h : Bank s)
-    (hm : ∀ A, VERIFY_DATA ≤ A → A < VERIFY_DATA + 80 →
+    (hm : ∀ A, VERIFY_DATA ≤ A → A < VERIFY_DATA + 280 →
       t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)) : Bank t := by
-  refine ⟨⟨?_, fun k hk => ?_, ?_⟩, ⟨?_, ?_⟩, ?_⟩
+  refine ⟨⟨?_, fun k hk => ?_, ?_, ?_⟩, ⟨?_, ?_⟩, ?_⟩
   · rw [hm _ (by unfold VERIFY_DATA; omega) (by unfold VERIFY_DATA; omega)]
     exact h.1.node
   · rw [hm _ (by unfold TOPLOAD VERIFY_DATA; omega) (by unfold TOPLOAD VERIFY_DATA; omega)]
     exact h.1.top k hk
   · rw [hm _ (by unfold TOPLOAD VERIFY_DATA; omega) (by unfold TOPLOAD VERIFY_DATA; omega)]
     exact h.1.top8
+  · intro j hj
+    rw [hm _ (by unfold VERIFY_DATA; omega) (by unfold VERIFY_DATA; omega)]
+    exact h.1.forest j hj
   · rw [hm _ (by unfold W9Drv.setupMaskAddr VERIFY_DATA; omega)
       (by unfold W9Drv.setupMaskAddr VERIFY_DATA; omega)]
     exact h.2.1.child
@@ -338,7 +341,7 @@ theorem init_word (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : By
 set_option maxRecDepth 200000 in
 theorem init_bank (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : Bytes 22984) (s : MachineState)
     (h : initialState submission .verify (m, pk, w) = some s) : Bank s := by
-  refine ⟨⟨?_, fun k hk => ?_, ?_⟩, ⟨?_, ?_⟩, ?_⟩
+  refine ⟨⟨?_, fun k hk => ?_, ?_, ?_⟩, ⟨?_, ?_⟩, ?_⟩
   · rw [show 0xffbf40 + 8 = VERIFY_DATA + 8 * 1 by unfold VERIFY_DATA; omega, init_word m pk w s h 1 (by omega)]
     decide +kernel
   · rw [show TOPLOAD + 8 * k = VERIFY_DATA + 8 * (5 + k) by unfold TOPLOAD VERIFY_DATA; omega,
@@ -347,6 +350,10 @@ theorem init_bank (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : By
   · rw [show TOPLOAD - 8 = VERIFY_DATA + 8 * 4 by unfold TOPLOAD VERIFY_DATA; omega,
       init_word m pk w s h 4 (by omega)]
     decide +kernel
+  · intro j hj
+    rw [show 0xffc040 + 8 * j = VERIFY_DATA + 8 * (32 + j) by unfold VERIFY_DATA; omega,
+      init_word m pk w s h (32 + j) (by omega)]
+    interval_cases j <;> decide +kernel
   · rw [show W9Drv.setupMaskAddr + 16 = VERIFY_DATA + 8 * 2 by unfold W9Drv.setupMaskAddr VERIFY_DATA; omega,
       init_word m pk w s h 2 (by omega)]
     decide +kernel
@@ -662,7 +669,7 @@ theorem gatePre_of_hook (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WBy
     ⟨(e _).trans (hu.zero 1024 (by unfold WIT; omega) (by omega)),
       (e _).trans (hu.zero 1032 (by unfold WIT; omega) (by omega))⟩,
     fun k hk => (e _).trans (hu.nwords k hk),
-    ⟨(e _).trans hu.bank.1.node, fun k hk => (e _).trans (hu.bank.1.top k hk), (e _).trans hu.bank.1.top8⟩,
+    ⟨(e _).trans hu.bank.1.node, fun k hk => (e _).trans (hu.bank.1.top k hk), (e _).trans hu.bank.1.top8, fun j hj => (e _).trans (hu.bank.1.forest j hj)⟩,
     fun j hj => (e _).trans (hu.wit j hj),
     ⟨(e _).trans hu.bank.2.1.child, (e _).trans hu.bank.2.1.jt⟩,
     by rw [ht.keep .x2 (by simp), hu.sp]; rfl⟩⟩

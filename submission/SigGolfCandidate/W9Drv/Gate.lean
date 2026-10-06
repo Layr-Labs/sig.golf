@@ -12,7 +12,7 @@ def gJumpWords : List (BitVec 32) := [0x100006f]
 def gCheckWords : List (BitVec 32) :=
   [0x2181213,0x1803883,45666707,0x4431b393,0x6039e63]
 def gSetupWords : List (BitVec 32) :=
-  [0x2125b13,0x1bb1793,66359,2098835,3148179,4196883,5245587,6294803,7343891,0x20b1e13,0x84190413,8469891,16858755,25246723,0xffc30113]
+  [0x2125b13,0x1bb1793,66359,2098835,3148179,4196883,5245587,6294803,7343891,0x20b1e13,0x84190413,8469891,16858755,25246723,0x12010493]
 def gRejectWords : List (BitVec 32) := [1049235,1049875,115]
 def gateE : E := .bin .sltu
   (.bin .srl (.ld (.c (BitVec.ofNat 64 24)))
@@ -26,7 +26,7 @@ def gCheck : Result :=
     .x4 (.bin .sll (.reg .x16) (.c (BitVec.ofNat 64 33))), [], []⟩,
     .ite .ne gateE (.c 0) (.c (pcOf 50)) (.c (pcOf 20)), .branch, 5, 5⟩
 def gSetup : Result :=
-  ⟨⟨(((((((((((((((RegFile.init).set .x2 (.c (BitVec.ofNat 64 0xfffc))).set .x6 (.c 65536)).set .x8 (.bin .add (.reg .x18) (.c (BitVec.ofNat 64 (2 ^ 64 - 1983))))).set .x13 (.c 2)).set .x15 (.bin .sll idxE (.c 27))).set .x19 (.c 3)).set .x20 (.c 4)).set .x21 (.c 5)).set .x22 (idxE)).set .x24 (.ld (addC (.reg .x2) 24))).set .x26 (.c 6)).set .x27 (.ld (addC (.reg .x2) 8))).set .x28 (.bin .sll idxE (.c 32))).set .x29 (.ld (addC (.reg .x2) 16))).set .x30 (.c 7), [],
+  ⟨⟨(((((((((((((((RegFile.init).set .x9 (addC (.reg .x2) 288)).set .x6 (.c 65536)).set .x8 (.bin .add (.reg .x18) (.c (BitVec.ofNat 64 (2 ^ 64 - 1983))))).set .x13 (.c 2)).set .x15 (.bin .sll idxE (.c 27))).set .x19 (.c 3)).set .x20 (.c 4)).set .x21 (.c 5)).set .x22 (idxE)).set .x24 (.ld (addC (.reg .x2) 24))).set .x26 (.c 6)).set .x27 (.ld (addC (.reg .x2) 8))).set .x28 (.bin .sll idxE (.c 32))).set .x29 (.ld (addC (.reg .x2) 16))).set .x30 (.c 7), [],
     [.valid ⟨some (.reg .x2), 24⟩ 8, .valid ⟨some (.reg .x2), 16⟩ 8, .valid ⟨some (.reg .x2), 8⟩ 8]⟩,
     .c (pcOf 65), .fuel, 15, 15⟩
 def gReject : Result :=
@@ -211,11 +211,12 @@ theorem gate_good (pk : Digest) (w : WBytes) (a : HashOutput)
         prefixReg := ?_, cached3 := ?_, cached := ?_, nodeReg := fun h => absurd rfl h,
         nodeZero := fun _ => hnode0,
         zero := ⟨(e3 _).trans hu.zero.1, (e3 _).trans hu.zero.2⟩,
-        mask := rfl, jt := hjt, childBlock := hchild, baseReg := ?_, headerZero := ?_, headerReg := fun h => absurd rfl h,
+        mask := (by rw [hs3, Result.toState_getReg]; exact hsp2),
+        forestPointer := (by rw [hs3, Result.toState_getReg]; change s2.getReg .x2 + 288 = _; rw [hsp2]; rfl), jt := hjt, childBlock := hchild, baseReg := ?_, headerZero := ?_, headerReg := fun h => absurd rfl h,
         pairs := fun i hi => absurd hi (Nat.not_lt_zero _), coords := ?_, layer := ?_ }
       · intro k hk; rw [e3]; exact hu.digest k hk
       · exact ⟨(e3 _).trans hu.bank.node, fun k hk => (e3 _).trans (hu.bank.top k hk),
-          (e3 _).trans hu.bank.top8⟩
+          (e3 _).trans hu.bank.top8, fun j hj => (e3 _).trans (hu.bank.forest j hj)⟩
       · rw [hs3, Result.toState_getReg]; exact hidx
       · intro h h2 h7
         interval_cases h <;> rfl

@@ -220,7 +220,7 @@ structure PairPost (B P : Nat) (u : MachineState) (pair : V3.RootPair) (t : Mach
 theorem tail_good {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j)
     {B k index P : Nat} {leaf pads sibs : Nat → Digest} {u : MachineState}
     (hu : ChildPre j B k index leaf pads sibs u)
-    (h9 : u.getReg .x9 = BitVec.ofNat 64 P) (hP8 : P % 8 = 0) (hPB : P + 48 ≤ B)
+    (h9 : u.getReg .x9 = BitVec.ofNat 64 P) (hP8 : P % 8 = 0) (hPB : P + 48 ≤ B ∨ B + 1024 ≤ P) (hPhi : P + 48 ≤ 2 ^ 24)
     (other : Digest) (hsib : DigAt u (B + sibO 6 j) other)
     (v : Digest) (s : MachineState) (hs : Mid j B k index u 5 v s)
     (N C A : Nat) (Q : Prop) (K : V3.RootPair → OracleComp HashSpec Obs)
@@ -229,7 +229,6 @@ theorem tail_good {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im 
     GoodQFor im s (N + 10) (C + 17) Q (A + 17)
       (ccM (childLevelP k index j pads sibs v 5 >>= fun computed => pure (V3.orderPair j computed other)) K) := by
   have hBhi := hu.baseHi
-  have hPhi : P + 48 ≤ 2 ^ 24 := by unfold MEMORY_BYTES at hBhi; omega
   have hb := bitAt_lt j 6
   have hsb : sibO 6 j ≤ 48 := by unfold sibO blkO; omega
   obtain ⟨t, hst, hf, h5, hv, hin, hpc, h11, h12, hkeep, hframe⟩ :=
@@ -423,8 +422,11 @@ theorem child_good : ChildGood := by
   have hcode := child_code j.val j.isLt
   obtain ⟨v0, hsw, hpc0, hreg0, hframe0, hheader0⟩ := childPrefixSW w index k j ends u hu hcode
   have hp := child_pre w index k j ends u v0 hu hpc0 hreg0 hframe0 hheader0
-  have hP8 : pairAddress k % 8 = 0 := by unfold pairAddress; omega
-  have hPB : pairAddress k + 48 ≤ coordinateBase k := by unfold pairAddress coordinateBase; omega
+  have hP8 : pairAddress k % 8 = 0 := by unfold pairAddress forestInputAddress; omega
+  have hPB : pairAddress k + 48 ≤ coordinateBase k ∨ coordinateBase k + 1024 ≤ pairAddress k := by
+    right; unfold pairAddress forestInputAddress coordinateBase; have := k.isLt; omega
+  have hPhi : pairAddress k + 48 ≤ 2 ^ 24 := by
+    unfold pairAddress forestInputAddress; have := k.isLt; omega
   have hsib : DigAt v0 (coordinateBase k + sibO 6 j.val) (V3.sibling w k.val j.val 6) := by
     have he : sibO 6 j.val = V3.siblingOffset j.val 6 := by
       have hb := bitAt_lt j.val 6
@@ -439,7 +441,7 @@ theorem child_good : ChildGood := by
     (fun v => ccM (childLevelP k.val index j.val (V3.nodePad w k.val) (V3.sibling w k.val j.val) v 5 >>=
       fun computed => pure (V3.orderPair j.val computed (V3.sibling w k.val j.val 6))) K)
     (by have := hu.indexBound; omega) hp (fun v s hs => by
-      apply tail_good j.isLt hcode hp ((hreg0 _).trans hu.forestPointer) hP8 hPB _ hsib v s hs N C A Q K
+      apply tail_good j.isLt hcode hp ((hreg0 _).trans hu.forestPointer) hP8 hPB hPhi _ hsib v s hs N C A Q K
       intro computed t ht
       apply hK _ t
       refine ⟨?_, ht.a1, ht.left, ht.right, ?_, ?_⟩

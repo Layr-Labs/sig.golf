@@ -13,6 +13,8 @@ structure HeaderBank (u : MachineState) : Prop where
   top : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
     BitVec.ofNat 64 (topWords.getD k 0)
   top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 23304
+  forest : ∀ j, j < 3 → u.getMem (BitVec.ofNat 64 (0xffc040 + 8 * j)) =
+    BitVec.ofNat 64 (if j = 2 then 3841 else 0)
 def setupMaskAddr : Nat := 0xffbf40
 structure SetupMask (u : MachineState) : Prop where
   child : u.getMem (BitVec.ofNat 64 (setupMaskAddr + 16)) = BitVec.ofNat 64 0xce800

@@ -33,14 +33,15 @@ structure CoordPre (pk : Digest) (w : WBytes) (a : HashOutput) (n : Nat)
   nodeReg : n ≠ 0 → u.getReg .x27 = BitVec.ofNat 64 (V3.nodeLow (n-1) (idxOf a))
   nodeZero : n = 0 → u.getReg .x27 = BitVec.ofNat 64 (1 + 3 * 256 + 4 * 65536)
   zero : u.getMem (BitVec.ofNat 64 1024) = 0 ∧ u.getMem (BitVec.ofNat 64 1032) = 0
-  mask : u.getReg .x2 = BitVec.ofNat 64 0xfffc
+  mask : u.getReg .x2 = BitVec.ofNat 64 (if n = 0 then 0xffbf40 else 0xfffc)
+  forestPointer : u.getReg .x9 = BitVec.ofNat 64 (0xffc040 + 32 + 32 * (n-1))
   jt : u.getReg .x24 = BitVec.ofNat 64 0xd6800
   childBlock : u.getReg .x29 = BitVec.ofNat 64 0xce800
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (2112 + 1024 * (n-1))
   headerZero : n = 0 → u.getReg .x28 = BitVec.ofNat 64 (idxOf a * 2^32)
   headerReg : n ≠ 0 → u.getReg .x28 = BitVec.ofNat 64 (1537 + 65536 * (n-1))
-  pairs : ∀ i, i < n → DigAt u (1056 + 32*i) (pairs.getD i (0,0)).1 ∧
-    DigAt u (1056 + 32*i + 16) (pairs.getD i (0,0)).2
+  pairs : ∀ i, i < n → DigAt u (0xffc060 + 32*i) (pairs.getD i (0,0)).1 ∧
+    DigAt u (0xffc060 + 32*i + 16) (pairs.getD i (0,0)).2
   coords : ∀ k : Fin 9, n ≤ k.val → ∀ off, off < 1024 → off % 8 = 0 →
     OrigW w u (coordinateBase k + off)
   layer : Orig w (fun o => o < 64 ∨ 9288 ≤ o) u
