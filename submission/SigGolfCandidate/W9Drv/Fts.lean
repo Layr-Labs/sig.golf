@@ -49,7 +49,7 @@ set_option autoImplicit false
 namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
 def coordDispatch (p bit coord : Nat) (advance reload : Bool) : Result :=
-  let dig : E := if coord ≥ 7 then .reg .x17 else if reload then .ld (.c (BitVec.ofNat 64 (96 + 8 * (bit / 64)))) else .reg .x16
+  let dig : E := if coord ≥ 7 then .reg .x17 else if reload then .ld (.c (BitVec.ofNat 64 (8 * (bit / 64)))) else .reg .x16
   let child := mkBin .and (if bit % 64 = 0 then dig else
     mkBin .srl dig (.c (BitVec.ofNat 64 (bit % 64)))) (.c 127)
   let route := mkBin .or (mkBin .sll child (.c 32)) (.reg .x22)
@@ -127,7 +127,7 @@ namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.Rv
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
-def dispatchWords4 : List (BitVec 32) := [0x7003803,0x7f87193,33657363,23224883,6784947,21077907,0xffefb3,8493971,31165363,0x40040413,7212595,7179699,5789459,2586419,25626419,0x4a000493,458983]
+def dispatchWords4 : List (BitVec 32) := [0x1003803,0x7f87193,33657363,23224883,6784947,21077907,0xffefb3,8493971,31165363,0x40040413,7212595,7179699,5789459,2586419,25626419,0x4a000493,458983]
 theorem dispatch4_checked : rOK (symRun {} dispatchWords4 (pcOf 113) 17) (coordDispatch 113 128 4 true true) = true := by decide +kernel
 theorem dispatch4_linked : sliceChecked 113 dispatchWords4 = true := by decide +kernel
 end W9Machine
@@ -147,7 +147,7 @@ namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.Rv
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
-def dispatchWords1 : List (BitVec 32) := [0x6803803,0x7f87193,33657363,23224883,6784947,21077907,0xffefb3,8493971,31165363,0x40040413,7212595,7179699,5789459,2586419,25626419,0x44000493,458983]
+def dispatchWords1 : List (BitVec 32) := [0x803803,0x7f87193,33657363,23224883,6784947,21077907,0xffefb3,8493971,31165363,0x40040413,7212595,7179699,5789459,2586419,25626419,0x44000493,458983]
 theorem dispatch1_checked : rOK (symRun {} dispatchWords1 (pcOf 62) 17) (coordDispatch 62 64 1 true true) = true := by decide +kernel
 theorem dispatch1_linked : sliceChecked 62 dispatchWords1 = true := by decide +kernel
 end W9Machine
@@ -248,7 +248,7 @@ theorem dispatch_child (a : HashOutput) (k : Fin 9) :
 def dispatchDig (k : Fin 9) : E :=
   if k.val ≥ 7 then .reg .x17 else
   if decide (k.val = 1 ∨ k.val = 4) then
-    .ld (.c (BitVec.ofNat 64 (96 + 8*(dispatchBit k/64)))) else .reg .x16
+    .ld (.c (BitVec.ofNat 64 (8*(dispatchBit k/64)))) else .reg .x16
 theorem dispatchDig_eval (pk : Digest) (w : WBytes) (a : HashOutput) (k : Fin 9)
     (pairs : List (Digest × Digest)) (u : MachineState) (hu : CoordPre pk w a k.val pairs u) :
     (dispatchDig k).eval u = a.extractLsb' (64*(dispatchBit k/64)) 64 := by
