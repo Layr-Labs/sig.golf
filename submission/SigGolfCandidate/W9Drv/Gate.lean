@@ -10,13 +10,13 @@ set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 def gJumpWords : List (BitVec 32) := [0xc0006f]
 def gCheckWords : List (BitVec 32) :=
-  [35134227,0x7803883,45666707,0x4011b393,33790051]
+  [35134227,0x7803883,45666707,0x4061b393,33790051]
 def gSetupWords : List (BitVec 32) :=
   [35347219,29038483,66359,2098835,3148179,4196883,5245587,6294803,7343891,34283027,0x84190413,8469891,16858755,25246723,0xffc30113]
 def gRejectWords : List (BitVec 32) := [1049235,1049875,115]
 def gateE : E := .bin .sltu
   (.bin .srl (.ld (.c (BitVec.ofNat 64 120)))
-    (.c (BitVec.ofNat 64 43))) (.c (BitVec.ofNat 64 1025))
+    (.c (BitVec.ofNat 64 43))) (.c (BitVec.ofNat 64 1030))
 def idxE : E := .bin .srl (.reg .x22) (.c (BitVec.ofNat 64 33))
 def gJump : Result := ⟨SymState.init, .c (pcOf 24), .jump, 1, 1⟩
 def gCheck : Result :=
@@ -95,9 +95,9 @@ theorem idxE_eval (s : MachineState) :
     idxE.eval s = s.getReg .x22 >>> 33 := rfl
 theorem gateE_eval (s : MachineState) (a : BitVec 256)
     (hw : s.getMem (BitVec.ofNat 64 120) = a.extractLsb' 192 64) :
-    gateE.eval s = if decide (a.toNat / 2 ^ 235 % 2 ^ 21 < 1025) then 1 else 0 := by
+    gateE.eval s = if decide (a.toNat / 2 ^ 235 % 2 ^ 21 < 1030) then 1 else 0 := by
   change (if BitVec.ult (s.getMem (BitVec.ofNat 64 120) >>> 43)
-    (BitVec.ofNat 64 1025) then (1 : BitVec 64) else 0) = _
+    (BitVec.ofNat 64 1030) then (1 : BitVec 64) else 0) = _
   rw [hw]
   simp only [BitVec.ult, digest_gate_val, BitVec.toNat_ofNat]
 theorem word0_toNat (a : HashOutput) : (a.extractLsb' 0 64).toNat = a.toNat % 2 ^ 64 := by
