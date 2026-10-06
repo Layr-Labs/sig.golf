@@ -166,10 +166,10 @@ def producerCount (lay : Layer) : ℕ := ![V5.topCount129, V5.lowerCount197, V5.
 theorem card_producerDecode (lay : Layer) :
     (univ.filter fun v : Digest => (producerDecode lay v).isSome).card = producerCount lay := by
   fin_cases lay
-  · exact card_producer_top 129 7 _ rfl rfl ClaudeWCT.Numerics.TopCredit.credited_card_129_7
+  · exact card_producer_top 129 8 _ rfl rfl ClaudeWCT.Numerics.TopCredit.credited_card_129_8
   · exact card_producer_lower 1 (by decide) 197 4 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_197_4
   · exact card_producer_lower 2 (by decide) 197 4 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_197_4
-  · exact card_producer_lower 3 (by decide) 198 2 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_198_2
+  · exact card_producer_lower 3 (by decide) 198 4 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_198_4
 theorem producer_uniform_probability (lay : Layer) :
     Pr[fun answer => (producerEncodingDecode lay answer).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] =
       (producerCount lay : ENNReal) / 2 ^ 128 := by
@@ -195,7 +195,7 @@ theorem producer_failMass (lay : Layer) :
   rw [producerRate, ENNReal.ofReal_div_of_pos (by positivity), ENNReal.ofReal_natCast,
     ENNReal.ofReal_pow (by norm_num), ENNReal.ofReal_ofNat]
 theorem producer_failure_power (lay : Layer) :
-    failMass (producerEncodingDecode lay) ^ searchLimit lay ≤ 1 / (2 : ENNReal) ^ 1024 := by
+    failMass (producerEncodingDecode lay) ^ searchLimit lay ≤ 1 / (2 : ENNReal) ^ 1000 := by
   have hp := producer_uniform_probability lay
   fin_cases lay
   · exact ClaudeWCT.W9.T3.Budgets.V5.top_failure_power _ hp

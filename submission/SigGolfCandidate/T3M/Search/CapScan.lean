@@ -271,7 +271,7 @@ theorem pop_scanX (v : Digest) (c : Nat) (hc : c < 8) :
   intro a ha
   have ha' := Finset.mem_range.mp ha
   rw [e0 a ha', e1 a ha', e2 a ha', g0 a (by omega), g0 (21 + a) (by omega), Nat.add_zero]
-def scanFloor (lay : Nat) : Nat := if lay = 3 then 2 else 4
+def scanFloor (_lay : Nat) : Nat := 4
 section blocks
 variable {image : Image} {b : Nat}
 theorem capA0_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (capBase b + 0)) (i : Nat)
@@ -377,17 +377,15 @@ theorem scanA7_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf 
     (hl : lay < 4) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (c lo hi : BitVec 64)
     (h28 : s.getReg .x28 = c) (h6 : s.getReg .x6 = lo) (h7 : s.getReg .x7 = hi) :
     ∃ t, Steps image s 26 29 t ∧
-      t.pc = (if lay = 3 then pcOf (capBase b + 33) else pcOf (capBase b + 35)) ∧
+      t.pc = pcOf (capBase b + 35) ∧
       t.getReg .x28 = clr (scanX c lo hi) ∧
       RegsExcept s t [.x20, .x21, .x28, .x29, .x30] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (runa_7 hK.2) (codeAt_a_7 hK) s hpc (by simp [sta_7, blkA354_7.res, rv_simp]),
     ?_, ?_, ?_, ?_⟩
   · simp only [Result.toState_pc, pcEa_7, rebase, blkA354_7.res, E.eval, CmpOp.eval, h8]
-    by_cases h : lay = 3
-    · subst h; simp
-    · have : (BitVec.ofNat 64 lay != 3#64) = true := by
-        rw [bne_iff_ne, ne_eq, show (3#64) = BitVec.ofNat 64 3 from rfl, ofNat_eq_iff]; omega
-      simp [this, h]
+    have : (BitVec.ofNat 64 lay != 4#64) = true := by
+      rw [bne_iff_ne, ne_eq, show (4#64) = BitVec.ofNat 64 4 from rfl, ofNat_eq_iff]; omega
+    simp [this]
   · simp only [Result.toState_getReg, sta_7, blkA354_7.res]
     simp only [rv_simp, h6, h7, h28, BitVec.toNat_ofNat, Nat.reduceMod, Nat.reducePow]
     rfl
@@ -452,41 +450,22 @@ theorem scan_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (c
   obtain ⟨t0, s0, p0, x0, r0, f0⟩ := scanA7_spec hK s hpc lay hl h8 _ _ _ h28 h6 h7
   have hpop := pop_scanX v c hc
   set X := scanX (BitVec.ofNat 64 c) (v.extractLsb' 0 64) (v.extractLsb' 64 64)
-  by_cases h3 : lay = 3
-  · rw [if_pos h3] at p0
-    obtain ⟨t1, s1, p1, r1, f1⟩ := scanA33_spec hK t0 p0 _ x0
-    have hz : clr X = 0#64 ↔ ¬ scanFloor lay ≤ scanCredit v c := by
-      have := clr_iter_eq_zero_iff 1 X
-      simp only [Function.iterate_one] at this
-      rw [this, hpop, scanFloor, if_pos h3]; omega
-    by_cases h0 : clr X = 0#64
-    · rw [if_pos h0] at p1
-      obtain ⟨t2, s2, p2, r2, f2⟩ := scanJump_spec hK t1 (o := 41) (by omega) p1
-      refine ⟨_, _, _, s0.trans (s1.trans s2), by omega, ?_, (r0.trans (r1.trans r2)).mono (by decide),
-        (f0.trans (f1.trans f2)).mono (fun _ _ h => by simp at h)⟩
-      rw [p2, if_pos rfl, if_neg (hz.mp h0)]
-    · rw [if_neg h0] at p1
-      obtain ⟨t2, s2, p2, r2, f2⟩ := scanJump_spec hK t1 (o := 34) (by omega) p1
-      refine ⟨_, _, _, s0.trans (s1.trans s2), by omega, ?_, (r0.trans (r1.trans r2)).mono (by decide),
-        (f0.trans (f1.trans f2)).mono (fun _ _ h => by simp at h)⟩
-      rw [p2, if_neg (by decide), if_pos (by by_contra hn; exact h0 (hz.mpr hn))]
-  · rw [if_neg h3] at p0
-    obtain ⟨t1, s1, p1, r1, f1⟩ := scanA35_spec hK t0 p0 _ x0
-    have hz : clr (clr (clr X)) = 0#64 ↔ ¬ scanFloor lay ≤ scanCredit v c := by
-      have := clr_iter_eq_zero_iff 3 X
-      simp only [Function.iterate_succ, Function.comp_apply, Function.iterate_zero, id_eq] at this
-      rw [this, hpop, scanFloor, if_neg h3]; omega
-    by_cases h0 : clr (clr (clr X)) = 0#64
-    · rw [if_pos h0] at p1
-      obtain ⟨t2, s2, p2, r2, f2⟩ := scanJump_spec hK t1 (o := 41) (by omega) p1
-      refine ⟨_, _, _, s0.trans (s1.trans s2), by omega, ?_, (r0.trans (r1.trans r2)).mono (by decide),
-        (f0.trans (f1.trans f2)).mono (fun _ _ h => by simp at h)⟩
-      rw [p2, if_pos rfl, if_neg (hz.mp h0)]
-    · rw [if_neg h0] at p1
-      obtain ⟨t2, s2, p2, r2, f2⟩ := scanJump_spec hK t1 (o := 40) (by omega) p1
-      refine ⟨_, _, _, s0.trans (s1.trans s2), by omega, ?_, (r0.trans (r1.trans r2)).mono (by decide),
-        (f0.trans (f1.trans f2)).mono (fun _ _ h => by simp at h)⟩
-      rw [p2, if_neg (by decide), if_pos (by by_contra hn; exact h0 (hz.mpr hn))]
+  obtain ⟨t1, s1, p1, r1, f1⟩ := scanA35_spec hK t0 p0 _ x0
+  have hz : clr (clr (clr X)) = 0#64 ↔ ¬ scanFloor lay ≤ scanCredit v c := by
+    have := clr_iter_eq_zero_iff 3 X
+    simp only [Function.iterate_succ, Function.comp_apply, Function.iterate_zero, id_eq] at this
+    rw [this, hpop, scanFloor]; omega
+  by_cases h0 : clr (clr (clr X)) = 0#64
+  · rw [if_pos h0] at p1
+    obtain ⟨t2, s2, p2, r2, f2⟩ := scanJump_spec hK t1 (o := 41) (by omega) p1
+    refine ⟨_, _, _, s0.trans (s1.trans s2), by omega, ?_, (r0.trans (r1.trans r2)).mono (by decide),
+      (f0.trans (f1.trans f2)).mono (fun _ _ h => by simp at h)⟩
+    rw [p2, if_pos rfl, if_neg (hz.mp h0)]
+  · rw [if_neg h0] at p1
+    obtain ⟨t2, s2, p2, r2, f2⟩ := scanJump_spec hK t1 (o := 40) (by omega) p1
+    refine ⟨_, _, _, s0.trans (s1.trans s2), by omega, ?_, (r0.trans (r1.trans r2)).mono (by decide),
+      (f0.trans (f1.trans f2)).mono (fun _ _ h => by simp at h)⟩
+    rw [p2, if_neg (by decide), if_pos (by by_contra hn; exact h0 (hz.mpr hn))]
 end blocks
 end SigGolfCandidate.T3M.Search
 end
