@@ -383,6 +383,7 @@ theorem childPrefixSW {im : Image} (w : WBytes) (index : Nat) (k : Fin 9)
         hu.leaf1Hi, hu.childReg, merge_hi]
       simp only [V3.leafFields, Nat.one_ne_zero, if_false, if_true, header_hi,
         if_neg (by decide : ¬ SigGolfCandidate.T3.packedNodeTag 6)]
+      all_goals rfl
 
 theorem child_pre (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128) (ends : List Digest)
     (u v : MachineState) (hu : Child.Pre Frozen.layout w index k j ends u)
