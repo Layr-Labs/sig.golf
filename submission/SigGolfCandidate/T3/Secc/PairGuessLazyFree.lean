@@ -22,9 +22,9 @@ theorem not_digest_of_hdr {x : HashInput} {t l tr p ix : Nat} (hx : Extract.hdrB
   obtain ⟨rho, m, ctr, rfl⟩ := mem_digestInputs.mp hm
   rw [Extract.hdrBlock_pad64 _ (by rw [digestInput_length]; omega)] at hx
   unfold digestInput at hx
-  have h2 : bytesLE 16 (header 12 0 0 0 ctr.toNat) = bytesLE 16 (header t l tr p ix) :=
-    (Extract.hdrBlock_prefix rho (header 12 0 0 0 ctr.toNat) (bytesLE 32 m)).symm.trans hx
-  exact QuerySpace.header_ne_of_tag (by omega) (bytesLE_injective h2).symm
+  have h2 : bytesLE 16 (digestHeader ctr) = bytesLE 16 (header t l tr p ix) :=
+    (Extract.hdrBlock_prefix rho (digestHeader ctr) (bytesLE 32 m)).symm.trans hx
+  exact digestHeader_ne_header _ _ _ _ _ _ (bytesLE_injective h2)
 theorem not_digest_prefix (a : Digest) {t : Nat} (l tr p ix : Nat) (rest : HashInput) (ht : t % 256 ≠ 12) :
     pad64 (bytesLE 16 a ++ bytesLE 16 (header t l tr p ix) ++ rest) ∉ digestInputs := by
   refine not_digest_of_hdr (t := t) (l := l) (tr := tr) (p := p) (ix := ix) ?_ ht
@@ -57,7 +57,7 @@ theorem chainStep_dn (lay : Layer) (tree leaf i step : Nat) (value : Digest) :
     rw [chainInput_header] at hh
     unfold digestInput at hh
     rw [Extract.hdrBlock_prefix] at hh
-    exact chainHeader_ne_header _ _ _ _ _ _ _ _ _ _ (bytesLE_injective hh)
+    exact chainHeader_ne_digestHeader _ _ _ _ _ _ (bytesLE_injective hh)
   · intro _; exact pure_allowed _ _
 theorem chain_dn (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
     AllQueriesSatisfy (chain lay tree leaf i start count value) NotDN := by

@@ -19,13 +19,8 @@ theorem pad64_digestInput (rho : Digest) (m : Message) (c : BitVec 32) :
 theorem digestInput_injective {rho rho' : Digest} {m m' : Message} {c c' : BitVec 32}
     (h : pad64 (digestInput rho m c) = pad64 (digestInput rho' m' c')) : rho = rho' ∧ c = c' ∧ m = m' := by
   rw [pad64_digestInput, pad64_digestInput] at h
-  unfold digestInput at h
-  obtain ⟨h12, h3⟩ := List.append_inj h (by simp [SphincsSecurity.bytesLE_length])
-  obtain ⟨h1, h2⟩ := List.append_inj h12 (by simp [SphincsSecurity.bytesLE_length])
-  have hh := SphincsSecurity.bytesLE_injective h2
-  obtain ⟨-, -, -, -, hidx⟩ := header_injective (by decide) (by decide) (by decide) (by decide) c.isLt
-    (by decide) (by decide) (by decide) (by decide) c'.isLt hh
-  exact ⟨SphincsSecurity.bytesLE_injective h1, BitVec.eq_of_toNat_eq hidx, SphincsSecurity.bytesLE_injective h3⟩
+  obtain ⟨hr, hm, hc⟩ := SigGolfCandidate.T3.digestInput_injective h
+  exact ⟨hr, hc, hm⟩
 theorem digestSearch_succ (rho : Digest) (m : Message) (counter fuel : Nat) :
     digestSearch rho m counter (fuel + 1) = (digest rho m (BitVec.ofNat 32 counter) >>= fun output =>
       if digestAdmissible output = true then pure (some (BitVec.ofNat 32 counter, output))
@@ -200,20 +195,25 @@ theorem hdrTag_chainInput (lay : Layer) (tree leaf i step : Nat) (value : Digest
   unfold hdrTag Extract.hdrBlock
   rw [chainInput_header, bytesLE16_first_toNat, if_pos (chainHeader_firstByte _ _ _ _ _)]
 theorem hdrBlock_digestInput (rho : Digest) (m : Message) (c : BitVec 32) :
-    Extract.hdrBlock (pad64 (digestInput rho m c)) = SphincsSecurity.bytesLE 16 (header 12 0 0 0 c.toNat) := by
+    Extract.hdrBlock (pad64 (digestInput rho m c)) = SphincsSecurity.bytesLE 16 (digestHeader c) := by
   rw [pad64_digestInput]
   exact Extract.hdrBlock_prefix _ _ _
 theorem hdrTag_digestInput (rho : Digest) (m : Message) (c : BitVec 32) :
-    hdrTag (pad64 (digestInput rho m c)) = 12 := hdrTag_eq (hdrBlock_digestInput rho m c)
+    hdrTag (pad64 (digestInput rho m c)) = 0 := by
+  unfold hdrTag
+  rw [hdrBlock_digestInput, bytesLE16_first_toNat, digestHeader_firstByte, if_neg (by decide)]
+  change ((digestHeader c).extractLsb' 8 8).toNat = 0
+  rw [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, digestHeader_toNat]
+  omega
 def NotDigestQ : T3.Spec.Domain → Prop
-  | .inl (.inr input) => hdrTag input ≠ 12
+  | .inl (.inr input) => hdrTag input ≠ 0
   | _ => True
 theorem shortHash_ok {input : HashInput} {tag lay tree position index : Nat}
     (h : Extract.hdrBlock (pad64 input) = SphincsSecurity.bytesLE 16 (header tag lay tree position index))
-    (ht : tag % 256 ≠ 12) : AllQueriesSatisfy (shortHash input) NotDigestQ := by
+    (ht : tag % 256 ≠ 0) : AllQueriesSatisfy (shortHash input) NotDigestQ := by
   unfold shortHash publicHash
   apply SourceQueries.bind_allowed
-  · exact (allQueriesSatisfy_query_iff _ _).mpr (show hdrTag (pad64 input) ≠ 12 by rw [hdrTag_eq h]; exact ht)
+  · exact (allQueriesSatisfy_query_iff _ _).mpr (show hdrTag (pad64 input) ≠ 0 by rw [hdrTag_eq h]; exact ht)
   · intro _; exact SourceQueries.pure_allowed _ _
 theorem privatePair_ok (tag lay tree position index : Nat) :
     AllQueriesSatisfy (privatePair tag lay tree position index) NotDigestQ :=
@@ -228,7 +228,7 @@ theorem chain_ok (lay : Layer) (tree leaf i start count : Nat) (value : Digest) 
   unfold shortHash publicHash
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
-    change hdrTag (pad64 (chainInput lay tree leaf i step v)) ≠ 12
+    change hdrTag (pad64 (chainInput lay tree leaf i step v)) ≠ 0
     rw [hdrTag_chainInput]
     decide
   · intro _; exact SourceQueries.pure_allowed _ _
@@ -236,7 +236,7 @@ theorem leafHash_ok (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     AllQueriesSatisfy (leafHash lay tree leaf ends) NotDigestQ := by
   rw [Extract.leafHash_eq_shortHash]
   exact shortHash_ok (tag := 2) (Extract.hdrBlock_listInput _ _ _) (by decide)
-theorem nodeHash_ok (tag lay tree heap : Nat) (left right : Digest) (ht : tag % 256 ≠ 12) :
+theorem nodeHash_ok (tag lay tree heap : Nat) (left right : Digest) (ht : tag % 256 ≠ 0) :
     AllQueriesSatisfy (nodeHash tag lay tree heap left right) NotDigestQ := by
   rw [nodeHash_eq_shortHash]
   exact shortHash_ok (by rw [pad64_nodeInputP]; exact BSuf.hdrBlock_nodeInputP _ _ _ _ _ _ _) ht
@@ -269,11 +269,11 @@ theorem counterSearch_ok (lay : Layer) (tree leaf : Nat) (message : Digest) :
       split
       · exact ih _
       · exact SourceQueries.pure_allowed _ _
-theorem buildLevel_ok (tag lay tree h level : Nat) (nodes : List Digest) (ht : tag % 256 ≠ 12) :
+theorem buildLevel_ok (tag lay tree h level : Nat) (nodes : List Digest) (ht : tag % 256 ≠ 0) :
     AllQueriesSatisfy (buildLevel tag lay tree h level nodes) NotDigestQ := by
   unfold buildLevel
   exact SourceQueries.mapM_allowed NotDigestQ _ _ fun _ => nodeHash_ok _ _ _ _ _ _ ht
-theorem buildLevels_ok (tag lay tree h : Nat) (leaves : List Digest) (ht : tag % 256 ≠ 12) :
+theorem buildLevels_ok (tag lay tree h : Nat) (leaves : List Digest) (ht : tag % 256 ≠ 0) :
     AllQueriesSatisfy (buildLevels tag lay tree h leaves) NotDigestQ := by
   unfold buildLevels
   exact SourceQueries.foldlM_allowed NotDigestQ _ _ (fun _ _ =>

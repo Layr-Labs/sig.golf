@@ -200,7 +200,8 @@ theorem counterSearch_free (lay : Layer) (tree leaf : Nat) (message : Digest) (c
 theorem digest_free (rho : Digest) (message : Message) (counter : BitVec 32) :
     AllQueriesSatisfy (digest rho message counter) WFree := by
   unfold digest publicHash digestInput
-  exact (allQueriesSatisfy_query_iff _ _).mpr (decodeProbe_prefix _ _ (firstByte_header _ _ _ _ _))
+  exact (allQueriesSatisfy_query_iff _ _).mpr
+    (decodeProbe_prefix _ _ (by rw [digestHeader_firstByte]; decide))
 theorem wctDigestSearch_free (rho : Digest) (message : Message) (counter fuel : Nat) :
     AllQueriesSatisfy (WCT9.digestSearch rho message counter fuel) WFree := by
   induction fuel generalizing counter with

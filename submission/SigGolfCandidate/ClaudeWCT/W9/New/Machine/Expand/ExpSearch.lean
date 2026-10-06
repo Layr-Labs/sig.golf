@@ -18,7 +18,7 @@ def resHead (d : Bool) : PRes :=
     if d then 3 else 4, if d then 3 else 4, [⟨.ltu, .reg .x19, cst (2 ^ 21), d⟩], none⟩
 def resTrial : PRes :=
   ⟨⟨rfs [(.x6, ctrE), (.x10, cst DIG), (.x11, cst 64), (.x12, cst NBUF), (.x28, cst DIG)],
-    [mw (DIG + 24) ctrE, mw (DIG + 16) (cst 3073)], []⟩, pcOf 40909, true, 12, 12, [], none⟩
+    [mw (DIG + 24) ctrE, mw (DIG + 16) (cst 0)], []⟩, pcOf 40909, true, 12, 12, [], none⟩
 def resGate (d : Bool) : PRes :=
   ⟨⟨rfs [(.x6, gateE), (.x22, .ld (cst NBUF)), (.x28, cst NBUF)], [], []⟩,
     if d then pcOf 41060 else pcOf 40917, false, 7, 7, [⟨.eq, gateE, .c 0, d⟩], none⟩
@@ -215,7 +215,7 @@ theorem trial_spec (hl : LookOK im expLook) (s : MachineState) (hpc : s.pc = pcO
     ∃ t, Steps im s 12 12 t ∧ fetch im t = some (.base .ECALL) ∧ t.pc = pcOf 40909 ∧
       t.getReg .x10 = BitVec.ofNat 64 DIG ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 NBUF ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 16)) = BitVec.ofNat 64 3073 ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 16)) = BitVec.ofNat 64 0 ∧
       t.getMem (BitVec.ofNat 64 (DIG + 24)) = BitVec.ofNat 64 (i * 2 ^ 32) ∧
       RegsExcept s t [.x6, .x10, .x11, .x12, .x28] ∧ Frame s t (fun A => A = DIG + 24 ∨ A = DIG + 16) := by
   obtain ⟨hs, hp, he, hr, hm⟩ := piece hl run_trial s hpc rfl (by intro b hb; cases hb) rfl
@@ -467,24 +467,24 @@ theorem fields_from (hl : LookOK im expLook) (a : BitVec 256) :
       rw [if_neg (fun h => hf (h k hk9 le_rfl))]; exact p1
 theorem cap_spec (hl : LookOK im expLook) (s : MachineState) (hpc : s.pc = pcOf 41052) (S : Nat)
     (hS : S < 2 ^ 64) (h20 : s.getReg .x20 = BitVec.ofNat 64 S) :
-    ∃ t, Steps im s 2 2 t ∧ t.pc = (if S ≤ 704 then pcOf 41054 else pcOf 41060) ∧
+    ∃ t, Steps im s 2 2 t ∧ t.pc = (if S ≤ 707 then pcOf 41054 else pcOf 41060) ∧
       RegsExcept s t [.x6] ∧ Frame s t (fun _ => False) := by
-  have hce : capE.eval s = BitVec.ofNat 64 (if S < 705 then 1 else 0) := by
+  have hce : capE.eval s = BitVec.ofNat 64 (if S < 708 then 1 else 0) := by
     simp only [capE, cst, E.eval, h20, BinOp.eval, BitVec.ult, toNat_ofNat_lt hS,
-      toNat_ofNat_lt (show 705 < 2 ^ 64 by decide)]
-    by_cases h : S < 705 <;> simp [h]
-  have hbr : ∀ b ∈ (resCap (decide ¬ (S ≤ 704))).brs, b.holds s := by
+      toNat_ofNat_lt (show 708 < 2 ^ 64 by decide)]
+    by_cases h : S < 708 <;> simp [h]
+  have hbr : ∀ b ∈ (resCap (decide ¬ (S ≤ 707))).brs, b.holds s := by
     intro b hb
     simp only [resCap, List.mem_singleton] at hb
     subst hb
     simp only [Br.holds, CmpOp.eval, E.eval, hce]
-    by_cases h0 : S ≤ 704
-    · simp only [show S < 705 by omega, if_true, h0, not_true_eq_false, decide_false]; decide
-    · simp only [show ¬ S < 705 by omega, if_false, h0, not_false_eq_true, decide_true]; decide
+    by_cases h0 : S ≤ 707
+    · simp only [show S < 708 by omega, if_true, h0, not_true_eq_false, decide_false]; decide
+    · simp only [show ¬ S < 708 by omega, if_false, h0, not_false_eq_true, decide_true]; decide
   obtain ⟨hs, hp, -, hr, hm⟩ := piece hl (run_cap _) s hpc rfl hbr rfl
   refine ⟨_, hs, ?_, regs_rfs hr, fun A _ _ => by rw [hm]; rfl⟩
   rw [hp]; simp only [resCap]
-  by_cases h0 : S ≤ 704
+  by_cases h0 : S ≤ 707
   · simp only [h0, not_true_eq_false, decide_false, Bool.false_eq_true, if_false, if_true]
   · simp only [h0, not_false_eq_true, decide_true, if_false, if_true]
 theorem checks_spec (hl : LookOK im expLook) (u : MachineState) (hpc : u.pc = pcOf 40910) (a : BitVec 256)
@@ -526,7 +526,7 @@ theorem checks_spec (hl : LookOK im expLook) (u : MachineState) (hpc : u.pc = pc
         rw [if_pos (by rw [hjc]; exact hcap)] at p4
         exact ⟨p4, by rw [r4.get (by decide)]; exact h22 r3⟩
       · rw [if_neg hA]
-        have hcap : ¬ psum a 9 ≤ 704 := fun h => hA (hprod.2 ⟨hadm.2 ⟨hg, hf⟩, by rw [← hjc]; exact h⟩)
+        have hcap : ¬ psum a 9 ≤ 707 := fun h => hA (hprod.2 ⟨hadm.2 ⟨hg, hf⟩, by rw [← hjc]; exact h⟩)
         rw [if_neg hcap] at p4; exact p4
     · rw [if_neg (fun h => hf (hall.1 h))] at p3
       refine ⟨t3, 7 + 3 + c3, (s1.trans s2).trans s3, by omega, ((r1.trans r2).trans r3).mono (by decide),

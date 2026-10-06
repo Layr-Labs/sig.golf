@@ -26,7 +26,7 @@ theorem sum_producer (g : WProposal → ENNReal) :
 theorem capSet_mem (c : Coords) : c ∈ capSet ↔ capOkC c = true := by
   simp [capSet]
 theorem routineCost_zero : WCT9.routineCost 0 = 67 := rfl
-theorem childExtra_zero : WCT9.childExtra 0 = 1 := rfl
+theorem childExtra_zero : WCT9.childExtra 0 = 2 := rfl
 theorem capOkC_zero : capOkC (fun _ => ((0 : Child), (0 : Rank))) = true := by
   unfold capOkC
   rw [decide_eq_true_iff]
