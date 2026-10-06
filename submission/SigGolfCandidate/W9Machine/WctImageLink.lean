@@ -1,16 +1,16 @@
 import SigGolfCandidate.W9Machine.WctImage
-import SigGolfCandidate.T3M.Verify.ChainRuns
+import SigGolfCandidate.T3M.Verify.Nonbinary.InlineNativeBinding
 
 namespace W9Machine.Frozen
 open SigGolfCandidate.T3M SigGolfCandidate.Rv
 set_option maxRecDepth 200000
 set_option maxHeartbeats 0
-theorem codeChunks_length : codeChunks.length = 985 := by
-  decide +kernel
-theorem codeChunks_ok : (codeChunks.dropLast.all fun c ↦ c.length == 256) = true := by
-  decide +kernel
-theorem codeChunks_le : (codeChunks.all fun c ↦ decide (c.length ≤ 256)) = true := by
-  decide +kernel
+theorem codeChunks_length : codeChunks.length = 985 :=
+  SigGolfCandidate.T3M.Nonbinary.InlineNativeBinding.native_chunk_count
+theorem codeChunks_ok : (codeChunks.dropLast.all fun c ↦ c.length == 256) = true :=
+  SigGolfCandidate.T3M.Nonbinary.InlineNativeBinding.native_chunks_ok
+theorem codeChunks_le : (codeChunks.all fun c ↦ decide (c.length ≤ 256)) = true :=
+  SigGolfCandidate.T3M.Nonbinary.InlineNativeBinding.native_chunks_le
 def codeFrom (p : Nat) : List (BitVec 32) :=
   (codeChunks.drop (p / 256)).flatten.drop (p % 256)
 theorem codeFrom_eq (p : Nat) (hp : p < 251927) : codeFrom p = image.code.drop p := by

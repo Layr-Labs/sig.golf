@@ -3,7 +3,7 @@ import SigGolfCandidate.Packaging.Ready
 
 namespace SigGolf.Challenge
 
-def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGolfCandidate.T3M.submission
+def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGolfCandidate.T3M.Native.submission
 
 theorem signature_bytes : submission.sizes.signature = 5456 := rfl
 
@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 64, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 2048 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7532 := by
+theorem certificate : SigGolf.Certificate submission 7529 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
