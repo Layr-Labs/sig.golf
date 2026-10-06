@@ -1,8 +1,11 @@
+import SigGolfCandidate.T3.Secc.CaseCFull
 import SigGolfCandidate.T3.Secc.CaseCSplit
+import SigGolfCandidate.T3.Secc.CaseCCore
 import SigGolfCandidate.T3.Secc.WotsSmallContract
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CaseCFull
 
 section
+
 namespace SigGolfCandidate.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Final
@@ -87,7 +90,12 @@ theorem full_bound_births (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127
     _ ≤ _ := bank_potential_le adversary q hq
 end SigGolfCandidate.T3.Security.CaseC
 end
+
 section
+
+
+
+
 namespace SigGolfCandidate.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Final
@@ -173,7 +181,10 @@ theorem caseC_small_bound (hnear : NearBound) : Wots.CaseCSmallBound := by
       exact le_self_add
 end SigGolfCandidate.T3.Security.CaseC
 end
+
 section
+
+
 namespace ClaudeWCT.W9.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -246,7 +257,10 @@ theorem full_bound_births (X : CaseCExtraction) (rate : ENNReal) (hexc : ExcessB
     _ ≤ _ := bank_potential_le rate hexc adversary q hq
 end ClaudeWCT.W9.T3.Security.CaseC
 end
+
 section
+
+
 namespace ClaudeWCT.W9.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security

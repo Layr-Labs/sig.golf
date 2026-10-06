@@ -5,8 +5,7 @@ import SigGolfCandidate.ClaudeWCT.WCT9.Domains
 namespace ClaudeWCT.W9.T3M.Extract
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3M
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
-open Correctness (Answers treeValue)
-open ClaudeWCT.WCT9 (wotsTree wotsSeed wotsEnd wotsValue wotsRoot)
+open Correctness (Answers treeValue builtTree leafSeed leafEnd leafValue leafRoot)
 open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000

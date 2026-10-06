@@ -1,5 +1,4 @@
 import SigGolfCandidate.T3.Secc.WotsEncodingMatch
-
 namespace SigGolfCandidate.T3.Security.Wots
 open OracleComp OracleSpec ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final

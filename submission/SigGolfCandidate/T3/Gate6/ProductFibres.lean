@@ -3,6 +3,9 @@ import SigGolfCandidate.Budget.Octopus.Tuples
 import VCVio.OracleComp.Constructions.SampleableType
 
 section
+
+
+
 namespace SigGolfResearch.Gate6
 open SigGolfCandidate.Budget.Octopus Finset
 set_option maxHeartbeats 3000000
@@ -53,7 +56,9 @@ end SigGolfResearch.Gate6
 #print axioms SigGolfResearch.Gate6.rawRecord_card
 #print axioms SigGolfResearch.Gate6.accepted_witness
 end
+
 section
+
 namespace SigGolfResearch.Gate6
 open OracleComp ENNReal Finset
 attribute [local instance] Classical.propDecidable

@@ -1,4 +1,5 @@
 import SigGolfCandidate.T3M.Verify.BCCheck
+import SigGolfCandidate.T3M.Verify.Words
 
 namespace SigGolfCandidate.T3M.BC
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv

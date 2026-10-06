@@ -1,6 +1,9 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Residual.RetainedObservation
 
 section
+
+
 namespace SphincsSecurity.Concrete.ResidualTableCompletion
 open _root_.OracleComp ENNReal UniformTableCompletion
 set_option backward.isDefEq.respectTransparency false
@@ -63,7 +66,10 @@ theorem completeRows_bind_const {Result : Type} (cache : Cache Cell) (next : SPM
   exact RetainedObservation.lift_bind_const _ _
 end SphincsSecurity.Concrete.ResidualTableCompletion
 end
+
 section
+
+
 namespace SphincsSecurity.Concrete.ResidualProbeCompletion
 open _root_.OracleComp OracleSpec HiddenLabelObservation UniformTableCompletion RetainedObservation ResidualTableCompletion
 attribute [local instance] Classical.propDecidable

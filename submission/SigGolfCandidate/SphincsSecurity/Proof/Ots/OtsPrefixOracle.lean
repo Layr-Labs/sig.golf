@@ -1,9 +1,16 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainEndpoint
+import SigGolfCandidate.SphincsSecurity.Proof.Hypertree.Extract
+import SigGolfCandidate.SphincsSecurity.Proof.Ots.OneTime
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.HashOutputSplit
 import SigGolfCandidate.SphincsSecurity.Proof.Hypertree.FrontierOracleMask
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.SecretProbe
 
 section
+
+
+
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec ENNReal
 set_option backward.isDefEq.respectTransparency false
@@ -42,7 +49,13 @@ theorem otsChainFunctions_evaluate (parameter : PublicParameter) (lay : Layer) (
         (eval_chainWalk_add f parameter lay tree leaf chainIdx start 1 steps value).symm
 end SphincsSecurity.Concrete
 end
+
 section
+
+
+
+
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec
 attribute [local instance] Classical.propDecidable

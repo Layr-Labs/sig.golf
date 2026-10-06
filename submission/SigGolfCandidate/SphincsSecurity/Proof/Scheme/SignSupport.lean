@@ -1,8 +1,12 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
+import SigGolfCandidate.SphincsSecurity.Proof.Scheme.StatementLemmas
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Cached
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Charge
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Execution
 
 section
+
+
 namespace SphincsSecurity.Concrete
 open OracleComp
 variable {m : Type → Type} [Monad m] [HasQuery HashSpec m]
@@ -19,7 +23,12 @@ theorem layerMessage_of_lt (secretKey : SecretKey) (index : Index) (lay : Layer)
   rw [layerMessage, dif_pos hbelow]
 end SphincsSecurity.Concrete
 end
+
 section
+
+
+
+
 namespace SphincsSecurity.Concrete
 open OracleComp OracleSpec
 variable {f : QueryImpl HashSpec Id} {parameter : PublicParameter}
@@ -235,7 +244,11 @@ def HonestLayerOpening (f : QueryImpl HashSpec Id) (parameter : PublicParameter)
           (Nat.xor (leafIdx.val / 2 ^ level) 1)
 end SphincsSecurity.Concrete
 end
+
 section
+
+
+
 namespace SphincsSecurity
 open OracleComp OracleSpec
 noncomputable def replayRomImpl (f : QueryImpl HashSpec Id) :
@@ -339,7 +352,11 @@ theorem simulateQ_replayRom_liftM {alpha : Type} (f : QueryImpl HashSpec Id)
   QueryImpl.simulateQ_add_liftM_right _ _ oa
 end SphincsSecurity
 end
+
 section
+
+
+
 namespace SphincsSecurity.Concrete
 open OracleComp OracleSpec
 abbrev LayerPart :=

@@ -8,9 +8,8 @@ def routineOK (r : Nat) : Bool :=
   match walk (codewordL r) 64 0 (routineEntry.getD r 0) with
   | some c => decide (c ≤ routineCost)
   | none => false
-def jtTarget (f : Nat) : Nat := routineEntry.getD (WCT9.codeRanks.getD (f % 600) 0) 0
 def jtOK (f : Nat) : Bool :=
   match expLook (jt0 + f) with
-  | some w => jalTo w (jt0 + f) == some (jtTarget f)
+  | some w => jalTo w (jt0 + f) == some (routineEntry.getD (f % 728) 0)
   | none => false
 end ClaudeWCT.W9.Machine.Expand

@@ -219,10 +219,10 @@ theorem child_val (output : HashOutput) (coord : Coord) :
 theorem field_lt (output : HashOutput) (coord : Coord) : field output coord < 2 ^ 14 :=
   Nat.mod_lt _ (by decide)
 theorem rank_val (output : HashOutput) (coord : Coord) :
-    (rank output coord).val = field output coord % 600 := rfl
+    (rank output coord).val = field output coord % 728 := rfl
 theorem admissible_iff (output : HashOutput) :
     admissible output = true ↔
-      output.toNat / 2 ^ 234 % 2 ^ 22 < 2047 ∧ ∀ coord : Coord, field output coord < 16200 := by
+      output.toNat / 2 ^ 234 % 2 ^ 14 < 5 ∧ ∀ coord : Coord, field output coord < 16016 := by
   unfold admissible field
   simp only [Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, List.mem_range]
   constructor
@@ -232,39 +232,39 @@ theorem admissible_iff (output : HashOutput) :
     exact ⟨hg, fun coord hc => hf ⟨coord, hc⟩⟩
 theorem admissible_field_split (output : HashOutput) (h : admissible output = true)
     (coord : Coord) :
-    field output coord = (rank output coord).val + 600 * (field output coord / 600) ∧
-      field output coord / 600 < 27 := by
+    field output coord = (rank output coord).val + 728 * (field output coord / 728) ∧
+      field output coord / 728 < 22 := by
   have hf := ((admissible_iff output).1 h).2 coord
   rw [rank_val]
   omega
-theorem rank_fiber_card (r : Rank) :
-    ((Finset.range 16200).filter (fun f => f % 600 = r.val)).card = 27 := by
-  have he : (Finset.range 16200).filter (fun f => f % 600 = r.val) =
-      (Finset.range 27).image (fun q => r.val + 600 * q) := by
+theorem rank_fiber_card (r : Fin 728) :
+    ((Finset.range 16016).filter (fun f => f % 728 = r.val)).card = 22 := by
+  have he : (Finset.range 16016).filter (fun f => f % 728 = r.val) =
+      (Finset.range 22).image (fun q => r.val + 728 * q) := by
     ext f
     simp only [Finset.mem_filter, Finset.mem_range, Finset.mem_image]
     have hr := r.isLt
     constructor
     · rintro ⟨hf, hm⟩
-      exact ⟨f / 600, by omega, by omega⟩
+      exact ⟨f / 728, by omega, by omega⟩
     · rintro ⟨q, hq, rfl⟩
       constructor <;> omega
   rw [he, Finset.card_image_of_injective _
     (fun a b hab => Nat.eq_of_mul_eq_mul_left (by decide) (Nat.add_left_cancel hab))]
   simp
-def acceptedFieldEquiv : Fin 16200 ≃ Rank × Fin 27 where
-  toFun f := (⟨f.val % 600, Nat.mod_lt _ (by decide)⟩, ⟨f.val / 600, by omega⟩)
-  invFun p := ⟨p.1.val + 600 * p.2.val, by omega⟩
+def acceptedFieldEquiv : Fin 16016 ≃ Fin 728 × Fin 22 where
+  toFun f := (⟨f.val % 728, Nat.mod_lt _ (by decide)⟩, ⟨f.val / 728, by omega⟩)
+  invFun p := ⟨p.1.val + 728 * p.2.val, by omega⟩
   left_inv f := by apply Fin.ext; simp only; omega
   right_inv p := by
     apply Prod.ext <;> apply Fin.ext <;> simp only <;> omega
-theorem acceptedFieldEquiv_rank (f : Fin 16200) :
-    (acceptedFieldEquiv f).1.val = f.val % 600 := rfl
+theorem acceptedFieldEquiv_rank (f : Fin 16016) :
+    (acceptedFieldEquiv f).1.val = f.val % 728 := rfl
 def digestLayout : List (Nat × Nat) :=
   [(0, 31), (31, 12),
    (43, 7), (50, 14), (64, 7), (71, 14), (85, 7), (92, 14), (106, 7), (113, 14), (127, 1),
    (128, 7), (135, 14), (149, 7), (156, 14), (170, 7), (177, 14), (191, 1),
-   (192, 7), (199, 14), (213, 7), (220, 14), (234, 22)]
+   (192, 7), (199, 14), (213, 7), (220, 14), (234, 14), (248, 8)]
 theorem coordBase_values :
     List.ofFn (fun k : Coord => coordBase k.val) = [43, 64, 85, 106, 128, 149, 170, 192, 213] := by
   decide
@@ -288,48 +288,18 @@ theorem coordBase_disjoint (k l : Coord) (h : k.val < l.val) :
     coordBase k.val + 21 ≤ coordBase l.val := by
   revert k l; decide
 theorem coordinate_verify_steps (output : HashOutput) (coord : Coord) :
-    (∑ t : Fin 7, (List.range' (3 - wordDigit (rank output coord) t)
-      (wordDigit (rank output coord) t)).length) = 6 := by
+    (∑ t : Fin 7, (List.range' (3 - digit (rank output coord) t)
+      (digit (rank output coord) t)).length) = 6 := by
   simp only [List.length_range']
-  exact wordStep_count _
+  exact step_count _
 theorem verify_walk_positions (word : Rank) (t : Fin 7) :
-    (∀ s ∈ List.range' (3 - wordDigit word t) (wordDigit word t), s < 3) ∧
-      3 - wordDigit word t + wordDigit word t = 3 := by
-  have hd := wordDigit_le_three word t
+    (∀ s ∈ List.range' (3 - digit word t) (digit word t), s < 3) ∧
+      3 - digit word t + digit word t = 3 := by
+  have hd := digit_le_three word t
   refine ⟨fun s hs => ?_, by omega⟩
   rw [List.mem_range'] at hs
   omega
 theorem verify_steps_total (output : HashOutput) :
-    (∑ coord : Coord, ∑ t : Fin 7, wordDigit (rank output coord) t) = 54 := by
-  simp only [wordStep_count, Finset.sum_const, Finset.card_univ, Fintype.card_fin, smul_eq_mul]
-theorem gate_value (output : HashOutput) : output.toNat / 2 ^ 234 % 2 ^ 22 = output.toNat / 2 ^ 234 := by
-  have h := output.isLt
-  apply Nat.mod_eq_of_lt
-  rw [Nat.div_lt_iff_lt_mul (by positivity)]
-  norm_num at h ⊢
-  omega
-theorem admissible_iff' (output : HashOutput) :
-    admissible output = true ↔
-      output.toNat / 2 ^ 234 < gateLimit ∧ ∀ coord : Coord, field output coord < fieldLimit := by
-  rw [admissible_iff, gate_value]; rfl
-theorem jointCost_eq_sum (output : HashOutput) :
-    jointCost output = ∑ coord : Coord, routineCost (rank output coord) := by
-  unfold jointCost
-  rw [← List.sum_ofFn]
-  congr 1
-theorem jointCost_bounds (output : HashOutput) : 594 ≤ jointCost output ∧ jointCost output ≤ 720 := by
-  rw [jointCost_eq_sum]
-  have hb := fun coord => routineCost_bounds (rank output coord)
-  constructor
-  · calc 594 = ∑ _coord : Coord, 66 := by simp
-      _ ≤ _ := Finset.sum_le_sum fun coord _ => (hb coord).1
-  · calc _ ≤ ∑ _coord : Coord, 80 := Finset.sum_le_sum fun coord _ => (hb coord).2
-      _ = 720 := by simp
-theorem capOk_iff (output : HashOutput) : capOk output = true ↔ jointCost output ≤ jointCap := by
-  simp [capOk]
-theorem producerAdmissible_iff (output : HashOutput) :
-    producerAdmissible output = true ↔ admissible output = true ∧ jointCost output ≤ jointCap := by
-  simp [producerAdmissible, capOk_iff]
-theorem admissible_of_producer {output : HashOutput} (h : producerAdmissible output = true) :
-    admissible output = true := ((producerAdmissible_iff output).1 h).1
+    (∑ coord : Coord, ∑ t : Fin 7, digit (rank output coord) t) = 54 := by
+  simp only [step_count, Finset.sum_const, Finset.card_univ, Fintype.card_fin, smul_eq_mul]
 end ClaudeWCT.WCT9

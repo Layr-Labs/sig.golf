@@ -1,6 +1,7 @@
 import SigGolfCandidate.T3.Secc.LargeCouplingBankState
 
 section
+
 namespace SigGolfCandidate.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final
@@ -173,7 +174,9 @@ theorem BankInv.born {ws : LargeResidual.State WCoord (Cell U)} {st : RouterStat
 end Invariant
 end SigGolfCandidate.T3.Security.LargeCoupling
 end
+
 section
+
 namespace SigGolfCandidate.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final

@@ -44,7 +44,7 @@ noncomputable def searchL (rho : Digest) (m : Message) (counter : Nat) :
   | 0 => pure none
   | fuel + 1 => do
       let output ← trialReq (pad64 (digestInput rho m (BitVec.ofNat 32 counter)))
-      if WCT9.producerAdmissible output = true then pure (some (BitVec.ofNat 32 counter, output))
+      if WCT9.admissible output = true then pure (some (BitVec.ofNat 32 counter, output))
       else searchL rho m (counter + 1) fuel
 section World
 variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U)

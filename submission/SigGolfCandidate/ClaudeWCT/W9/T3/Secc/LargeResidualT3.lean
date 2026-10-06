@@ -1,4 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CanonEncoding
+import SigGolfCandidate.ClaudeWCT.WCT9.Limits
 import SigGolfCandidate.T3.Secc.LargeResidualT3
 import SigGolfCandidate.T3.Secc.WotsExtractWord
 
@@ -17,7 +18,7 @@ attribute [local instance] Classical.propDecidable
 noncomputable local instance instDecidableEqCache_w9largeResidualT3 : DecidableEq SigGolfCandidate.T3.Cache := Classical.decEq _
 abbrev Coord := CanonGraph.Node ⊕ CanonGraph.SecretIndex
 def chainChild (p : ChainGraph.Point) : Coord :=
-  if p.2.val = 0 then .inr (.inl (CanonGraph.seedIdx p.1)) else .inl (.chain (ChainGraph.predecessor p))
+  if p.2.val = 0 then .inr (.inl p.1) else .inl (.chain (ChainGraph.predecessor p))
 def treeChild (lay : Layer) (tree : Fin (2^31)) (level c : Nat) : Option Coord :=
   if level = 0 then (if h : c < 4096 then some (.inl (.leaf ⟨lay, tree, ⟨c, h⟩⟩)) else none)
   else (treeNodeAt lay tree (level - 1) c).map fun n => .inl (.node n)
@@ -51,10 +52,10 @@ def keygenDisclosed : List Coord :=
   (List.range' 0 13).flatMap fun level =>
     (List.range (2 ^ (12 - level))).filterMap fun node => treeChild 0 0 level node
 def chainItem (L : LeafPos) (i d : Nat) : Coord :=
-  if d = 0 then .inr (.inl (CanonGraph.seedIdx ⟨L.lay, L.tree, L.leaf, fin58 i⟩))
+  if d = 0 then .inr (.inl ⟨L.lay, L.tree, L.leaf, fin58 i⟩)
   else .inl (.chain (⟨L.lay, L.tree, L.leaf, fin58 i⟩, ⟨(d - 1) % 7, Nat.mod_lt _ (by decide)⟩))
 def wctOpened (index : Fin (2^31)) (k : Fin 9) (N : HashOutput) : List Coord :=
-  List.ofFn fun t : Fin 7 => wctItem (index, k, WCT9.child N k, t) (3 - WCT9.wordDigit (WCT9.rank N k) t)
+  List.ofFn fun t : Fin 7 => wctItem (index, k, WCT9.child N k, t) (3 - WCT9.digit (WCT9.rank N k) t)
 def wctPath (index : Fin (2^31)) (k : Fin 9) (N : HashOutput) : List Coord :=
   (List.range 7).filterMap fun l => ftsChild index k l ((WCT9.child N k).val / 2 ^ l ^^^ 1)
 def ftsItems (index : Fin (2^31)) (N : HashOutput) : List Coord :=

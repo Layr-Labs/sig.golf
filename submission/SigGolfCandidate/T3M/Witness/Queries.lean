@@ -1,4 +1,5 @@
 import SigGolfCandidate.T3M.Witness.Honest
+import SigGolfCandidate.T3.PackedChain
 
 namespace SigGolfCandidate.T3M
 open OracleComp OracleSpec SigGolfCandidate.T3

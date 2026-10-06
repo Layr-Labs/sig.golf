@@ -1,7 +1,10 @@
 import SigGolfCandidate.T3M.Search.Blocks
+import SigGolfCandidate.T3M.Search.Arith
 import SigGolfCandidate.T3M.Search.CounterSearch
 
 section
+
+
 namespace SigGolfCandidate.T3M.Search
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 set_option linter.unusedSimpArgs false
@@ -456,7 +459,9 @@ theorem selectOk_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcO
 end loop
 end SigGolfCandidate.T3M.Search
 end
+
 section
+
 namespace SigGolfCandidate.T3M.Search
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 set_option linter.unusedSimpArgs false
@@ -531,7 +536,10 @@ theorem gatedSelect_spec {image : Image} {b : Nat} (hK : KernAt image b) (hG : G
     · exact (hf.trans ft).mono (by intro A _ h; simpa using h)
 end SigGolfCandidate.T3M.Search
 end
+
 section
+
+
 namespace SigGolfCandidate.T3M.Search
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest Layer HashOutput)

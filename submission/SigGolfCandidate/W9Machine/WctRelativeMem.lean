@@ -2,6 +2,8 @@ import SigGolfCandidate.W9Machine.WctPackedRuns
 import SigGolfCandidate.T3M.Verify.ChainSem
 
 section
+
+
 set_option autoImplicit false
 namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
@@ -28,7 +30,9 @@ theorem headRHRel_addresses (rb : Reg) (off dst : Word) (p chain digit : Nat)
   simp [headRHRel, Result.toState_getReg, RegFile.get, RegFile.set, addC_eval, E.eval]
 end W9Machine
 end
+
 section
+
 namespace W9Machine
 open SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
@@ -43,7 +47,10 @@ theorem hashInput_blk4 (t : MachineState) (A : Nat) (a b c d : Digest)
     show A + 40 = A + 32 + 8 by omega, hc.2, show A + 56 = A + 48 + 8 by omega, hd.2]
 end W9Machine
 end
+
 section
+
+
 namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify SigGolfCandidate.Rv RiscvZkvm.Rv64
 open SigGolfCandidate.T3 (Digest pad64)

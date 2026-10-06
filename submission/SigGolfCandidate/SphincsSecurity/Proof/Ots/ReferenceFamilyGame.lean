@@ -1,7 +1,16 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
+import SigGolfCandidate.SphincsSecurity.Proof.Reference.FiniteHashWorld
+import SigGolfCandidate.SphincsSecurity.Proof.Hypertree.FrontierGameProjection
+import SigGolfCandidate.SphincsSecurity.Proof.Hypertree.CanonicalGraphHonest
+import SigGolfCandidate.SphincsSecurity.Proof.Hypertree.CanonicalGraphSampling
+import SigGolfCandidate.SphincsSecurity.Proof.Ots.EncodingInputs
 import SigGolfCandidate.SphincsSecurity.Proof.Reference.CausalFrontierGame
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.ReferenceFamilyConditioning
 
 section
+
+
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec OracleComp.DeferredSampling
 set_option backward.isDefEq.respectTransparency false
@@ -90,7 +99,13 @@ theorem boundaryGameCore_hashCalls_le (adversary : Adversary) (q : Nat)
     (hashQueryBound_gameAfterSecrets adversary q hbound hparameter hots hfts) record hrecord
 end SphincsSecurity.Concrete
 end
+
 section
+
+
+
+
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec OracleComp.DeferredSampling
 set_option backward.isDefEq.respectTransparency false
@@ -215,7 +230,12 @@ theorem hashInputs_gameRest_subset_canonicalGraphGameInputs (adversary : Adversa
   exact hinput
 end SphincsSecurity.Concrete
 end
+
 section
+
+
+
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec OracleComp.DeferredSampling
 attribute [local irreducible] canonicalGraphInputs canonicalEncodingInputs canonicalGraphGameInputs

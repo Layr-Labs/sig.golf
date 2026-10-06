@@ -1,7 +1,10 @@
 import VCVio.OracleComp.Constructions.SampleableType
 import SigGolfCandidate.SphincsSecurity.Completeness.Octopus.Tuples
+import SigGolfCandidate.SphincsSecurity.Scheme
 
 section
+
+
 namespace SphincsSecurity.Completeness.Octopus
 open OracleComp Finset ENNReal
 theorem card_bitVec_filter' (n : ℕ) (P : ℕ → Prop) [DecidablePred P] :
@@ -71,7 +74,10 @@ theorem probEvent_admissibleDigest_ge :
   rw [probEvent_admissibleDigest]; exact admissibleProb_ge_two_pow
 end SphincsSecurity.Completeness.Octopus
 end
+
 section
+
+
 open OracleComp ENNReal Finset
 namespace SphincsSecurity.Completeness
 def splitBits (n w : Nat) (x : BitVec n) : BitVec w × BitVec (n - w) :=

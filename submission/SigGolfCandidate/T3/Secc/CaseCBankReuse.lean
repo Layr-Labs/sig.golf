@@ -1,8 +1,11 @@
+import SigGolfCandidate.T3.Secc.CaseCSearch
 import SigGolfCandidate.T3.Secc.CreationSharedLaw
 import SigGolfCandidate.T3.Secc.CaseCCore
 import SigGolfCandidate.T3.Secc.SeccSufRoute
 
 section
+
+
 namespace SigGolfCandidate.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3M.Final
@@ -108,7 +111,11 @@ theorem bank_traced (adversary : AdversaryP) (budget : Nat) (hbudget : budget â‰
   rw [hb, ht]
 end SigGolfCandidate.T3.Security.CaseC
 end
+
 section
+
+
+
 namespace SigGolfCandidate.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3M.Final

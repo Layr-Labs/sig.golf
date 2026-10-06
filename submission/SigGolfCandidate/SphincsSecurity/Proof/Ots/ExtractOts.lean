@@ -1,3 +1,5 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
+import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Bytes
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.ExtractChain
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.OneTime
 

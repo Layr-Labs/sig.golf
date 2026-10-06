@@ -1,7 +1,11 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Reference.BoundaryMessageCost
 import SigGolfCandidate.SphincsSecurity.Proof.Reference.QueryBound
 
 section
+
+
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -89,7 +93,10 @@ theorem boundaryRun_bind_query_bound {α β : Type} (parameter : PublicParameter
   exact ⟨result, hr, rfl⟩
 end SphincsSecurity.Concrete
 end
+
 section
+
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec ENNReal
 set_option backward.isDefEq.respectTransparency false

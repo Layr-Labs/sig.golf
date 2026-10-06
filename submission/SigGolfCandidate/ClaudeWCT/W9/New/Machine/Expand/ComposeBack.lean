@@ -1,9 +1,18 @@
-import SigGolfCandidate.T3M.Search.ProducerData
+import SigGolfCandidate.T3M.Expand.Blocks
+import SigGolfCandidate.T3M.Mem
+import SigGolfCandidate.T3M.SigCodec
+import SigGolfCandidate.T3M.Search.TopData
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.NewCode
 import SigGolfCandidate.T3M.Expand.Layers
+import SigGolfCandidate.T3M.Witness.Roundtrip
 
 section
+
+
+
+
 namespace SigGolfCandidate.T3M.Expand
+open SigGolfCandidate.T3M.Search (TOP_DATA TableOK expandData_length expandData_table)
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 set_option autoImplicit false
 theorem extractByte_toNat_e (w : Word) (b : Nat) :
@@ -50,9 +59,90 @@ theorem bytesToWordLE_bytes_e {n : Nat} (x : Bytes n) (j : Nat) (hj : 8 * j + 8 
   generalize x.toNat / 2 ^ (64 * j) = y
   interval_cases i <;> simp only [Nat.reducePow, Nat.reduceMul, Nat.mul_zero, pow_zero, Nat.div_one] <;> omega
 theorem bytes_length_e {n : Nat} (x : Bytes n) : (bytes x).length = n := by simp [bytes]
+def EXPAND_DATA : Nat := 16768512
+def edata : MachineState :=
+  ({ regs := fun _ => 0, mem := fun _ => 0, pc := 0x1000 } : MachineState).writeBytesAsWords
+    (BitVec.ofNat 64 EXPAND_DATA) Images.expandData
+theorem edata_getMem (A : Nat) (hA : A < 2 ^ 64) :
+    edata.getMem (BitVec.ofNat 64 A) =
+      if EXPAND_DATA ≤ A ∧ A < EXPAND_DATA + 8704 ∧ (A - EXPAND_DATA) % 8 = 0 then
+        bytesToWordLE ((Images.expandData.drop (A - EXPAND_DATA)).take 8) else 0 := by
+  unfold edata
+  rw [getMem_writeBytesAsWords _ _ EXPAND_DATA A (by rw [expandData_length]; decide) hA, expandData_length]
+  rfl
+theorem edata_zero (A : Nat) (hA : A < EXPAND_DATA) : edata.getMem (BitVec.ofNat 64 A) = 0 := by
+  rw [edata_getMem A (by unfold EXPAND_DATA at hA; omega), if_neg (by omega)]
+def einit (m : Message) (pk : PublicKey) (σ : Bytes 5456) : MachineState :=
+  (((edata.writeBytesAsWords
+    (BitVec.ofNat 64 0x40) (bytes m)).writeBytesAsWords (BitVec.ofNat 64 0xA0) (bytes pk)).writeBytesAsWords
+    (BitVec.ofNat 64 0x7000) (bytes σ)).setReg .x2 (BitVec.ofNat 64 EXPAND_DATA)
+theorem einit_pc (m : Message) (pk : PublicKey) (σ : Bytes 5456) : (einit m pk σ).pc = pcOf 0 := by
+  unfold einit
+  rw [MachineState.pc_setReg, MachineState.pc_writeBytesAsWords, MachineState.pc_writeBytesAsWords,
+    MachineState.pc_writeBytesAsWords]
+  simp [edata, MachineState.pc_writeBytesAsWords]
+theorem einit_getMem (m : Message) (pk : PublicKey) (σ : Bytes 5456) (A : Nat) (hA : A < 2 ^ 64) :
+    (einit m pk σ).getMem (BitVec.ofNat 64 A) =
+      if 0x7000 ≤ A ∧ A < 0x7000 + 5456 ∧ (A - 0x7000) % 8 = 0 then
+        bytesToWordLE (((bytes σ).drop (A - 0x7000)).take 8)
+      else if 0xA0 ≤ A ∧ A < 0xB0 ∧ (A - 0xA0) % 8 = 0 then bytesToWordLE (((bytes pk).drop (A - 0xA0)).take 8)
+      else if 0x40 ≤ A ∧ A < 0x60 ∧ (A - 0x40) % 8 = 0 then bytesToWordLE (((bytes m).drop (A - 0x40)).take 8)
+      else edata.getMem (BitVec.ofNat 64 A) := by
+  unfold einit
+  rw [MachineState.getMem_setReg, getMem_writeBytesAsWords _ _ 0x7000 A (by rw [bytes_length_e]; decide) hA,
+    getMem_writeBytesAsWords _ _ 0xA0 A (by rw [bytes_length_e]; decide) hA,
+    getMem_writeBytesAsWords _ _ 0x40 A (by rw [bytes_length_e]; decide) hA, bytes_length_e, bytes_length_e,
+    bytes_length_e]
+theorem einit_msg (m : Message) (pk : PublicKey) (σ : Bytes 5456) (j : Nat) (hj : j < 4) :
+    (einit m pk σ).getMem (BitVec.ofNat 64 (0x40 + 8 * j)) = m.extractLsb' (64 * j) 64 := by
+  rw [einit_getMem _ _ _ _ (by omega), if_neg (by omega), if_neg (by omega), if_pos (by omega),
+    show 0x40 + 8 * j - 0x40 = 8 * j by omega, bytesToWordLE_bytes_e m j (by omega)]
+theorem einit_pk (m : Message) (pk : PublicKey) (σ : Bytes 5456) (j : Nat) (hj : j < 2) :
+    (einit m pk σ).getMem (BitVec.ofNat 64 (0xA0 + 8 * j)) = pk.extractLsb' (64 * j) 64 := by
+  rw [einit_getMem _ _ _ _ (by omega), if_neg (by omega), if_pos (by omega),
+    show 0xA0 + 8 * j - 0xA0 = 8 * j by omega, bytesToWordLE_bytes_e pk j (by omega)]
+theorem einit_sigw (m : Message) (pk : PublicKey) (σ : Bytes 5456) (j : Nat) (hj : j < 682) :
+    (einit m pk σ).getMem (BitVec.ofNat 64 (0x7000 + 8 * j)) = σ.extractLsb' (64 * j) 64 := by
+  rw [einit_getMem _ _ _ _ (by omega), if_pos (by omega), show 0x7000 + 8 * j - 0x7000 = 8 * j by omega,
+    bytesToWordLE_bytes_e σ j (by omega)]
+theorem einit_sig (m : Message) (pk : PublicKey) (σ : Bytes 5456) (k : Nat) (hk : k < 341) :
+    DigAt (einit m pk σ) (0x7000 + 16 * k) (σ.extractLsb' (128 * k) 128) := by
+  constructor
+  · rw [show 0x7000 + 16 * k = 0x7000 + 8 * (2 * k) by ring, einit_sigw _ _ _ _ (by omega)]
+    apply BitVec.eq_of_getLsbD_eq; intro i hi
+    simp [hi, show i < 128 by omega]; ring_nf
+  · rw [show 0x7000 + 16 * k + 8 = 0x7000 + 8 * (2 * k + 1) by ring, einit_sigw _ _ _ _ (by omega)]
+    apply BitVec.eq_of_getLsbD_eq; intro i hi
+    simp [hi, show 64 + i < 128 by omega]; ring_nf
+theorem einit_zero (m : Message) (pk : PublicKey) (σ : Bytes 5456) (A : Nat) (hA : A < EXPAND_DATA)
+    (h : (A < 0x7000 ∨ 0x7000 + 5456 ≤ A) ∧ (A < 0xA0 ∨ 0xB0 ≤ A) ∧ (A < 0x40 ∨ 0x60 ≤ A)) :
+    (einit m pk σ).getMem (BitVec.ofNat 64 A) = 0 := by
+  rw [einit_getMem _ _ _ _ (by unfold EXPAND_DATA at hA; omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), edata_zero A hA]
+theorem einit_x5 (m : Message) (pk : PublicKey) (σ : Bytes 5456) : (einit m pk σ).getReg .x5 = 0 := by
+  unfold einit
+  rw [MachineState.getReg_setReg_ne _ _ _ _ (by decide)]
+  simp only [MachineState.getReg_writeBytesAsWords]
+  unfold edata
+  rw [MachineState.getReg_writeBytesAsWords]
+  rfl
+theorem einit_table (m : Message) (pk : PublicKey) (σ : Bytes 5456) : TableOK (einit m pk σ) := by
+  intro i hi
+  rw [getByte_eq_word _ _ (by simp only [TOP_DATA]; omega),
+    einit_getMem _ _ _ _ (by simp only [TOP_DATA]; omega),
+    if_neg (by simp only [TOP_DATA]; omega), if_neg (by simp only [TOP_DATA]; omega), if_neg (by simp only [TOP_DATA]; omega),
+    edata_getMem _ (by simp only [TOP_DATA]; omega), if_pos (by simp only [TOP_DATA, EXPAND_DATA]; omega),
+    extractByte_bytesToWordLE_e _ _ (Nat.mod_lt _ (by decide))]
+  simp only [List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
+    if_pos (Nat.mod_lt (TOP_DATA + i) (show 0 < 8 by decide))]
+  have hidx : (TOP_DATA + i) / 8 * 8 - EXPAND_DATA + (TOP_DATA + i) % 8 = 4608 + i := by simp only [TOP_DATA, EXPAND_DATA]; omega
+  rw [hidx]
+  exact expandData_table i hi
 end SigGolfCandidate.T3M.Expand
 end
+
 section
+
+
 namespace ClaudeWCT.W9.Machine.Expand
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M
@@ -93,24 +183,13 @@ theorem initialState_w9 (imgs : Phase → Image) (hv : (imgs .expand).Valid (w9S
   rw [if_pos hv]
   simp only [inputBuffers, List.foldl_cons, List.foldl_nil]
   rfl
-set_option maxRecDepth 100000 in
 theorem hdrBankBytes_length : hdrBankBytes.length = 4608 := by decide +kernel
-theorem data_length {im : Image} (hd : ExpandDataOK im) : im.data.length = 25088 := by
-  rw [hd, List.length_append, List.length_append, ESearch.expCostBytes_length, hdrBankBytes_length,
-    Search.expandLegacyData_length]
-theorem dataBase_eq {im : Image} (hd : ExpandDataOK im) : dataBase im = ECOST := by
+theorem data_length {im : Image} (hd : ExpandDataOK im) : im.data.length = 8704 := by
+  rw [hd, List.length_append, hdrBankBytes_length, Search.expandLegacyData_length]
+theorem dataBase_eq {im : Image} (hd : ExpandDataOK im) : dataBase im = HB0 := by
   unfold dataBase
   rw [data_length hd]
   rfl
-theorem data_drop_bank {im : Image} (hd : ExpandDataOK im) :
-    im.data.drop 16384 = hdrBankBytes ++ SigGolfCandidate.T3M.Images.expandLegacyData := by
-  rw [hd, List.append_assoc, List.drop_append_of_le_length (by rw [ESearch.expCostBytes_length]),
-    List.drop_eq_nil_of_le (by rw [ESearch.expCostBytes_length]), List.nil_append]
-theorem data_drop_legacy {im : Image} (hd : ExpandDataOK im) :
-    im.data.drop 20992 = SigGolfCandidate.T3M.Images.expandLegacyData := by
-  rw [show 20992 = 16384 + 4608 from rfl, ← List.drop_drop, data_drop_bank hd,
-    List.drop_append_of_le_length (by rw [hdrBankBytes_length]),
-    List.drop_eq_nil_of_le (by rw [hdrBankBytes_length]), List.nil_append]
 section init
 variable {im : Image} (hd : ExpandDataOK im) (m : Message) (pk : PublicKey) (σ : Bytes 5456)
 include hd
@@ -120,14 +199,13 @@ theorem w9init_getMem (A : Nat) (hA : A < 2 ^ 64) :
         bytesToWordLE (((bytes σ).drop (A - 0x7000)).take 8)
       else if 0xA0 ≤ A ∧ A < 0xB0 ∧ (A - 0xA0) % 8 = 0 then bytesToWordLE (((bytes pk).drop (A - 0xA0)).take 8)
       else if 0x40 ≤ A ∧ A < 0x60 ∧ (A - 0x40) % 8 = 0 then bytesToWordLE (((bytes m).drop (A - 0x40)).take 8)
-      else if ECOST ≤ A ∧ A < ECOST + 25088 ∧ (A - ECOST) % 8 = 0 then
-        bytesToWordLE ((im.data.drop (A - ECOST)).take 8)
+      else if HB0 ≤ A ∧ A < HB0 + 8704 ∧ (A - HB0) % 8 = 0 then bytesToWordLE ((im.data.drop (A - HB0)).take 8)
       else 0 := by
   unfold w9init
   rw [MachineState.getMem_setReg, getMem_writeBytesAsWords _ _ 0x7000 A (by rw [bytes_length_e]; decide) hA,
     getMem_writeBytesAsWords _ _ 0xA0 A (by rw [bytes_length_e]; decide) hA,
     getMem_writeBytesAsWords _ _ 0x40 A (by rw [bytes_length_e]; decide) hA, dataBase_eq hd,
-    getMem_writeBytesAsWords _ _ ECOST A (by rw [data_length hd]; decide) hA, bytes_length_e, bytes_length_e,
+    getMem_writeBytesAsWords _ _ HB0 A (by rw [data_length hd]; decide) hA, bytes_length_e, bytes_length_e,
     bytes_length_e, data_length hd]
   rfl
 theorem w9init_msg (j : Nat) (hj : j < 4) :
@@ -150,17 +228,17 @@ theorem w9init_sig (k : Nat) (hk : k < 341) : DigAt (w9init im m pk σ) (0x7000 
   · rw [show 0x7000 + 16 * k + 8 = 0x7000 + 8 * (2 * k + 1) by ring, w9init_sigw hd _ _ _ _ (by omega)]
     apply BitVec.eq_of_getLsbD_eq; intro i hi
     simp [ClaudeWCT.W9.T3M.sigDig, BitVec.getLsbD_extractLsb', hi, show 64 + i < 128 by omega]; ring_nf
-theorem w9init_zero (A : Nat) (hA : A < ECOST)
+theorem w9init_zero (A : Nat) (hA : A < HB0)
     (h : (A < 0x7000 ∨ 0x7000 + 5456 ≤ A) ∧ (A < 0xA0 ∨ 0xB0 ≤ A) ∧ (A < 0x40 ∨ 0x60 ≤ A)) :
     (w9init im m pk σ).getMem (BitVec.ofNat 64 A) = 0 := by
-  unfold ECOST at hA
+  unfold HB0 at hA
   rw [w9init_getMem hd _ _ _ _ (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
-    if_neg (by unfold ECOST; omega)]
-theorem w9init_data (A : Nat) (h1 : ECOST ≤ A) (h2 : A < ECOST + 25088) (h3 : (A - ECOST) % 8 = 0) :
-    (w9init im m pk σ).getMem (BitVec.ofNat 64 A) = bytesToWordLE ((im.data.drop (A - ECOST)).take 8) := by
-  unfold ECOST at h1 h2 h3
+    if_neg (by unfold HB0; omega)]
+theorem w9init_data (A : Nat) (h1 : HB0 ≤ A) (h2 : A < HB0 + 8704) (h3 : (A - HB0) % 8 = 0) :
+    (w9init im m pk σ).getMem (BitVec.ofNat 64 A) = bytesToWordLE ((im.data.drop (A - HB0)).take 8) := by
+  unfold HB0 at h1 h2 h3
   rw [w9init_getMem hd _ _ _ _ (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
-    if_pos (by unfold ECOST; omega)]
+    if_pos (by unfold HB0; omega)]
 omit hd in
 theorem w9init_x5 : (w9init im m pk σ).getReg .x5 = 0 := by
   unfold w9init
@@ -181,18 +259,9 @@ def bankB : Bool :=
 set_option maxRecDepth 100000 in
 theorem bankB_ok : bankB = true := by decide +kernel
 theorem data_word {im : Image} (hd : ExpandDataOK im) (o : Nat) (ho : o + 8 ≤ 4608) :
-    (im.data.drop (16384 + o)).take 8 = (hdrBankBytes.drop o).take 8 := by
-  rw [← List.drop_drop, data_drop_bank hd, List.drop_append_of_le_length (by rw [hdrBankBytes_length]; omega),
+    (im.data.drop o).take 8 = (hdrBankBytes.drop o).take 8 := by
+  rw [hd, List.drop_append_of_le_length (by rw [hdrBankBytes_length]; omega),
     List.take_append_of_le_length (by simp [hdrBankBytes_length]; omega)]
-theorem data_cost {im : Image} (hd : ExpandDataOK im) (o : Nat) (ho : o + 8 ≤ 16384) :
-    (im.data.drop o).take 8 = (expCostBytes.drop o).take 8 := by
-  rw [hd, List.append_assoc, List.drop_append_of_le_length (by rw [ESearch.expCostBytes_length]; omega),
-    List.take_append_of_le_length (by simp [ESearch.expCostBytes_length]; omega)]
-theorem w9init_cost {im : Image} (hd : ExpandDataOK im) (m : Message) (pk : PublicKey) (σ : Bytes 5456) :
-    ExpCostAt (w9init im m pk σ) := by
-  intro k hk
-  rw [w9init_data hd _ _ _ _ (by omega) (by unfold ECOST; omega) (by omega),
-    show ECOST + 8 * k - ECOST = 8 * k by omega, data_cost hd _ (by omega)]
 theorem w9init_bank {im : Image} (hd : ExpandDataOK im) (m : Message) (pk : PublicKey) (σ : Bytes 5456) :
     HdrBankOK (w9init im m pk σ) := by
   intro k hk
@@ -200,27 +269,23 @@ theorem w9init_bank {im : Image} (hd : ExpandDataOK im) (m : Message) (pk : Publ
   simp only [Bool.and_eq_true, beq_iff_eq] at hb
   obtain ⟨h2, h3⟩ := hb
   refine ⟨?_, ?_⟩
-  · rw [w9init_data hd _ _ _ _ (by unfold HB0 ECOST; omega) (by unfold HB0 ECOST; omega)
-      (by unfold HB0 ECOST; omega),
-      show HB0 + 512 * k + 448 - ECOST = 16384 + (512 * k + 448) by unfold HB0 ECOST; omega,
-      data_word hd _ (by omega)]
+  · rw [w9init_data hd _ _ _ _ (by omega) (by unfold HB0; omega) (by omega),
+      show HB0 + 512 * k + 448 - HB0 = 512 * k + 448 by omega, data_word hd _ (by omega)]
     exact h2
-  · rw [w9init_data hd _ _ _ _ (by unfold HB0 ECOST; omega) (by unfold HB0 ECOST; omega)
-      (by unfold HB0 ECOST; omega),
-      show HB0 + 512 * k + 456 - ECOST = 16384 + (512 * k + 456) by unfold HB0 ECOST; omega,
-      data_word hd _ (by omega)]
+  · rw [w9init_data hd _ _ _ _ (by omega) (by unfold HB0; omega) (by omega),
+      show HB0 + 512 * k + 456 - HB0 = 512 * k + 456 by omega, data_word hd _ (by omega)]
     exact h3
 theorem w9init_table {im : Image} (hd : ExpandDataOK im) (m : Message) (pk : PublicKey) (σ : Bytes 5456) :
     TableOK (w9init im m pk σ) := by
   intro i hi
   have hT : TOP_DATA = HB0 + 4608 := rfl
   rw [getByte_eq_word _ _ (by unfold TOP_DATA; omega),
-    w9init_data hd _ _ _ _ (by unfold TOP_DATA ECOST; omega) (by unfold TOP_DATA ECOST; omega)
-      (by unfold TOP_DATA ECOST; omega),
+    w9init_data hd _ _ _ _ (by unfold TOP_DATA HB0; omega) (by unfold TOP_DATA HB0; omega)
+      (by unfold TOP_DATA HB0; omega),
     extractByte_bytesToWordLE_e _ _ (Nat.mod_lt _ (by decide))]
-  have e : (TOP_DATA + i) / 8 * 8 - ECOST = 20992 + ((TOP_DATA + i) / 8 * 8 - TOP_DATA) := by
-    unfold TOP_DATA ECOST; omega
-  rw [e, ← List.drop_drop, data_drop_legacy hd]
+  have e : (TOP_DATA + i) / 8 * 8 - HB0 = 4608 + ((TOP_DATA + i) / 8 * 8 - TOP_DATA) := by unfold TOP_DATA HB0; omega
+  rw [e, hd, ← List.drop_drop, List.drop_append_of_le_length (by rw [hdrBankBytes_length]),
+    show hdrBankBytes.drop 4608 = [] from List.drop_eq_nil_of_le (by rw [hdrBankBytes_length]), List.nil_append]
   simp only [List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
     if_pos (Nat.mod_lt (TOP_DATA + i) (show 0 < 8 by decide))]
   have hidx : (TOP_DATA + i) / 8 * 8 - TOP_DATA + (TOP_DATA + i) % 8 = i := by unfold TOP_DATA; omega
@@ -231,12 +296,12 @@ theorem w9init_cf {im : Image} (hd : ExpandDataOK im) (m : Message) (pk : Public
   intro i hi hi'
   have hT : TOP_DATA = HB0 + 4608 := rfl
   rw [getByte_eq_word _ _ (by unfold TOP_DATA; omega),
-    w9init_data hd _ _ _ _ (by unfold TOP_DATA ECOST; omega) (by unfold TOP_DATA ECOST; omega)
-      (by unfold TOP_DATA ECOST; omega),
+    w9init_data hd _ _ _ _ (by unfold TOP_DATA HB0; omega) (by unfold TOP_DATA HB0; omega)
+      (by unfold TOP_DATA HB0; omega),
     extractByte_bytesToWordLE_e _ _ (Nat.mod_lt _ (by decide))]
-  have e : (TOP_DATA + i) / 8 * 8 - ECOST = 20992 + ((TOP_DATA + i) / 8 * 8 - TOP_DATA) := by
-    unfold TOP_DATA ECOST; omega
-  rw [e, ← List.drop_drop, data_drop_legacy hd]
+  have e : (TOP_DATA + i) / 8 * 8 - HB0 = 4608 + ((TOP_DATA + i) / 8 * 8 - TOP_DATA) := by unfold TOP_DATA HB0; omega
+  rw [e, hd, ← List.drop_drop, List.drop_append_of_le_length (by rw [hdrBankBytes_length]),
+    show hdrBankBytes.drop 4608 = [] from List.drop_eq_nil_of_le (by rw [hdrBankBytes_length]), List.nil_append]
   simp only [List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
     if_pos (Nat.mod_lt (TOP_DATA + i) (show 0 < 8 by decide))]
   have hidx : (TOP_DATA + i) / 8 * 8 - TOP_DATA + (TOP_DATA + i) % 8 = i := by unfold TOP_DATA; omega
@@ -290,9 +355,7 @@ theorem front_pre30 {im : Image} (hF : FrontAt im) (hd : ExpandDataOK im) (m : M
     exact ⟨(f _ (by omega) (by simp only [DIG]; omega)).trans this.1,
       (f _ (by omega) (by simp only [DIG]; omega)).trans this.2⟩
   refine ⟨t, st, ⟨p, x5, x19, ⟨d0.trans hrho.1, d8.trans hrho.2⟩, fun k hk => ?_, hsd, fun A h1 h2 => ?_,
-    hdrBank_frame (w9init_bank hd m pk σ) f (fun A h1 h2 h => by simp only [DIG] at h; unfold HB0 at h1; omega),
-    fun k hk => (f _ (by unfold ECOST; omega) (by simp only [DIG]; unfold ECOST; omega)).trans
-      (w9init_cost hd m pk σ k hk)⟩,
+    hdrBank_frame (w9init_bank hd m pk σ) f (fun A h1 h2 h => by simp only [DIG] at h; unfold HB0 at h1; omega)⟩,
     w800.trans hrho.1, w808.trans hrho.2, f⟩
   · interval_cases k
     · rw [show DIG + 32 + 8 * 0 = DIG + 32 by rfl, d32]; simpa using w9init_msg hd m pk σ 0 (by decide)
@@ -300,10 +363,14 @@ theorem front_pre30 {im : Image} (hF : FrontAt im) (hd : ExpandDataOK im) (m : M
     · rw [show DIG + 32 + 8 * 2 = DIG + 48 by rfl, d48]; simpa using w9init_msg hd m pk σ 2 (by decide)
     · rw [show DIG + 32 + 8 * 3 = DIG + 56 by rfl, d56]; simpa using w9init_msg hd m pk σ 3 (by decide)
   · rw [f A (by omega) (by simp only [DIG]; omega)]
-    exact w9init_zero hd m pk σ A (by unfold ECOST; omega) ⟨by omega, by omega, by omega⟩
+    exact w9init_zero hd m pk σ A (by unfold HB0; omega) ⟨by omega, by omega, by omega⟩
 end ClaudeWCT.W9.Machine.Expand
 end
+
 section
+
+
+
 namespace ClaudeWCT.W9.Machine.Expand
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M
@@ -632,7 +699,9 @@ theorem layerBC_words (t : MachineState) (lay : Layer) (leaf : Nat) (ls : LayerS
       show lBase lay + 56 = lBase lay + 48 + 8 by ring, hp1.2]
 end ClaudeWCT.W9.Machine.Expand
 end
+
 section
+
 namespace ClaudeWCT.W9.Machine.Expand
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M
@@ -697,7 +766,7 @@ theorem c351W (hpc : s.pc = pcOf 351) :
   · ex_regs SigGolfCandidate.T3M.Expand.eblk_351.res
   · intro A _ _; simp [SigGolfCandidate.T3M.Expand.eblk_351.res, rv_simp]
 end compare
-theorem codeAt_41064 {im : Image} (hc : NewCodeAt im) : CodeAt im (pcOf 41064) [0x00000073] :=
+theorem codeAt_1420 {im : Image} (hc : NewCodeAt im) : CodeAt im (pcOf 1420) [0x00000073] :=
   codeAt_of_window hc (by decide) (by decide +kernel)
 theorem readWords_ext (t : MachineState) : ∀ (L : List Word) (A : Nat),
     (∀ i, i < L.length → t.getMem (BitVec.ofNat 64 (A + 8 * i)) = L.getD i 0) →

@@ -1,5 +1,4 @@
 import SigGolfCandidate.T3.Secc.CaseCForecast
-import SigGolfCandidate.ClaudeWCT.Numerics.LawAverage
 
 namespace ClaudeWCT.Bank
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
@@ -12,16 +11,13 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 structure FtsBankSpec (P : Type) [Fintype P] [SampleableType P] where
   admissible : HashOutput → Bool
-  producer : HashOutput → Bool
-  exists_producer : ∃ x, producer x = true
-  acceptance_le : Pr[fun x : HashOutput => producer x = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 1 / 64
+  exists_admissible : ∃ x, admissible x = true
+  acceptance_le : Pr[fun x : HashOutput => admissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 1 / 64
   proposal : HashOutput → P
-  law : P → ENNReal
-  law_sum : ∑ p, law p = 1
   accepted_proposal : ∀ g : P → ENNReal,
     expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
-        (fun x => if producer x = true then g (proposal x) else 0) =
-      (∑ p, law p * g p) * Pr[fun x : HashOutput => producer x = true | ($ᵗ HashOutput : ProbComp HashOutput)]
+        (fun x => if admissible x = true then g (proposal x) else 0) =
+      BPORS.finiteAverage g * Pr[fun x : HashOutput => admissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)]
   score : List HashOutput → HashOutput → ENNReal
   covered : List HashOutput → HashOutput → Prop
   one_le_score : ∀ X N, admissible N = true → covered X N → 1 ≤ score X N
@@ -30,18 +26,18 @@ structure FtsBankSpec (P : Type) [Fintype P] [SampleableType P] where
   average_score : ∀ X, BPORS.finiteAverage (fun N : HashOutput => score X N) = price (X.map proposal) / 2 ^ 128
   horizon : Nat
   excessRate : ENNReal
-  excess_le : ClaudeWCT.Numerics.Law.lawAvg law horizon (fun W : List P => price W - CaseC.theta) ≤ excessRate
+  excess_le : uniformWordAverage horizon (fun W : List P => price W - CaseC.theta) ≤ excessRate
 namespace FtsBankSpec
 variable {P : Type} [Fintype P] [SampleableType P] (S : FtsBankSpec P)
-def decode (x : HashOutput) : Option HashOutput := if S.producer x then some x else none
+def decode (x : HashOutput) : Option HashOutput := if S.admissible x then some x else none
 noncomputable def acceptance : ENNReal :=
-  Pr[fun x : HashOutput => S.producer x = true | ($ᵗ HashOutput : ProbComp HashOutput)]
+  Pr[fun x : HashOutput => S.admissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)]
 def proposals (X : List HashOutput) : List P := X.map S.proposal
 theorem proposals_append (X Y : List HashOutput) : S.proposals (X ++ Y) = S.proposals X ++ S.proposals Y :=
   List.map_append
-noncomputable def admissibleSet : Finset HashOutput := Finset.univ.filter fun x => S.producer x = true
+noncomputable def admissibleSet : Finset HashOutput := Finset.univ.filter fun x => S.admissible x = true
 theorem decode_elim (w : HashOutput → ENNReal) (x : HashOutput) :
-    (S.decode x).elim 0 w = if S.producer x = true then w x else 0 := by
+    (S.decode x).elim 0 w = if S.admissible x = true then w x else 0 := by
   unfold decode
   split <;> simp_all
 theorem acceptedWeight_eq_sum (w : HashOutput → ENNReal) :
@@ -58,7 +54,7 @@ theorem acceptedWeight_eq_sum (w : HashOutput → ENNReal) :
   rw [h, BPORS.finiteAverage, hsum]
 theorem acceptedWeight_eq_expected (w : HashOutput → ENNReal) :
     Sampling.acceptedWeight S.decode w =
-      expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun x => if S.producer x = true then w x else 0) := by
+      expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun x => if S.admissible x = true then w x else 0) := by
   unfold Sampling.acceptedWeight
   simp_rw [S.decode_elim]
 theorem acceptedWeight_one : Sampling.acceptedWeight S.decode (fun _ => 1) = S.acceptance := by
@@ -68,7 +64,7 @@ theorem acceptance_eq_card :
     S.acceptance = (S.admissibleSet.card : ENNReal) / (Fintype.card HashOutput : ENNReal) := by
   rw [← S.acceptedWeight_one, acceptedWeight_eq_sum, Finset.sum_const, nsmul_eq_mul, mul_one]
 theorem admissibleSet_nonempty : S.admissibleSet.Nonempty := by
-  obtain ⟨x, hx⟩ := S.exists_producer
+  obtain ⟨x, hx⟩ := S.exists_admissible
   exact ⟨x, by simp [admissibleSet, hx]⟩
 theorem acceptance_ne_zero : S.acceptance ≠ 0 := by
   rw [acceptance_eq_card]
@@ -82,8 +78,8 @@ theorem failMass_decode : failMass S.decode = 1 - S.acceptance := by
   have hf : failMass S.decode = Pr[fun answer : HashOutput => S.decode answer = none |
       ($ᵗ HashOutput : ProbComp HashOutput)] := failMass_eq_probEvent S.decode
   rw [hf]
-  have he (answer : HashOutput) : S.decode answer = none ↔ ¬S.producer answer = true := by
-    by_cases h : S.producer answer = true
+  have he (answer : HashOutput) : S.decode answer = none ↔ ¬S.admissible answer = true := by
+    by_cases h : S.admissible answer = true
     · simp only [decode, h, ite_true, reduceCtorEq, not_true_eq_false]
     · simp only [decode, h, Bool.false_eq_true, ite_false, not_false_eq_true]
   simp_rw [he]
@@ -124,11 +120,11 @@ theorem expected_accepted (w : HashOutput → ENNReal) : expectedValue S.accepte
     rw [Finset.mem_filter] at hx
     rw [if_neg hx.2, zero_mul]
 theorem expected_accepted_proposal (g : P → ENNReal) :
-    expectedValue S.accepted (fun x => g (S.proposal x)) = ∑ p, S.law p * g p := by
+    expectedValue S.accepted (fun x => g (S.proposal x)) = BPORS.finiteAverage g := by
   rw [expected_accepted]
   unfold freshPrice
   rw [acceptedWeight_eq_expected, S.accepted_proposal g]
-  change (∑ p, S.law p * g p) * S.acceptance / S.acceptance = _
+  change BPORS.finiteAverage g * S.acceptance / S.acceptance = _
   rw [mul_div_assoc, ENNReal.div_self S.acceptance_ne_zero S.acceptance_ne_top, mul_one]
 end FtsBankSpec
 end ClaudeWCT.Bank

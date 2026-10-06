@@ -1,10 +1,11 @@
-import SigGolfCandidate.ClaudeWCT.W9.New.Machine.VLib
+import SigGolfCandidate.T3M.Verify.Judg
+import SigGolfCandidate.T3M.Verify.Exec
+import SigGolfCandidate.T3M.Verify.Words
 import SigGolfCandidate.ClaudeWCT.WCT9.Core
 
 namespace ClaudeWCT.W9.Machine.Merkle
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
-open ClaudeWCT.W9.Machine.VLib
 open SigGolfCandidate.T3 (Digest HashOutput M header shortHash pad64)
 open SphincsSecurity (bytesLE)
 def bitAt (j l : Nat) : Nat := j / 2 ^ l % 2

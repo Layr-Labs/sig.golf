@@ -20,8 +20,8 @@ noncomputable def leafMsg (answers : Answers) (L : LeafAddr) : Digest :=
 noncomputable def referenceSearch (answers : Answers) (L : LeafAddr) : Option (BitVec 32 × List Nat) :=
   evalWithAnswerFn answers (counterSearch L.lay L.tree L.leaf (leafMsg answers L) 0 counterLimit)
 def dummyDigits (lay : Layer) : List Nat :=
-  if lay.val = 0 then dummyTop
-  else List.replicate 23 5 ++ List.replicate 19 4 ++ [target lay - 191]
+  if lay.val = 0 then List.replicate 42 3 ++ List.replicate 12 0
+  else List.replicate 22 5 ++ List.replicate 20 4 ++ [target lay - 190]
 noncomputable def referenceDigits (answers : Answers) (L : LeafAddr) : List Nat :=
   ((referenceSearch answers L).map Prod.snd).getD (dummyDigits L.lay)
 noncomputable def depth (answers : Answers) (a : ChainAddr) : Nat :=

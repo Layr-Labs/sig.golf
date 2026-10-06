@@ -1,7 +1,10 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.FewTimeUniform
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.JointProbeMessageAnswers
 
 section
+
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec
 attribute [local instance] Classical.propDecidable
@@ -25,7 +28,11 @@ noncomputable def eligibleSigningViews (answers : HashInput → Option HashOutpu
   fun slot => eligibleSigningView? answers root targetPayload (log.get slot)
 end SphincsSecurity.Concrete
 end
+
 section
+
+
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec ENNReal
 open FtsProbeSimulation (messageAnswers)

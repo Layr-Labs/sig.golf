@@ -1,6 +1,7 @@
 import SigGolfCandidate.T3M.Verify.LayerRuns
 
 section
+
 namespace SigGolfCandidate.T3M.BC
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M.Verify
@@ -40,7 +41,7 @@ def setupCheck (lay p : Nat) : Bool :=
 def copyCheck (lay p : Nat) : Bool :=
   setupCheck lay p &&
   (if lay = 0 then
-    specB [] [] [] (runAt [] [96162] (p + stepsA lay + 1) [])
+    specB [] [] [] (runAt [] [96160] (p + stepsA lay + 1) [])
       (specTopCall p) [] [] keepTopCall
   else
     specB [] [] baseK (runAt (bKB lay) [] (p + stepsA lay + 1)
@@ -55,7 +56,9 @@ def layerCheck (lay lo n : Nat) : Bool :=
   (List.range' lo n).all fun c => copyCheck lay (trPc lay c)
 end SigGolfCandidate.T3M.BC
 end
+
 section
+
 namespace SigGolfCandidate.T3M.BC
 set_option maxRecDepth 100000
 theorem layerCheck_3 : layerCheck 3 0 1 = true := by decide +kernel

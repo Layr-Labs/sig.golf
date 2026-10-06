@@ -1,7 +1,9 @@
+import SigGolfCandidate.W9Machine.WctPlanGood
 import SigGolfCandidate.W9Machine.WctChainControl
 import SigGolfCandidate.W9Machine.WctChainSplit
 
 section
+
 namespace W9Machine
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
@@ -35,7 +37,11 @@ theorem chainRoutine_good (r : ChainRoutine) (hr : r.checked = true)
     (by omega) (by omega) (fun h => ⟨h, by omega⟩)
 end W9Machine
 end
+
 section
+
+
+
 namespace W9Machine.Chain
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 structure RoutineReady (rank : Fin 728) (r : ChainRoutine) : Prop where

@@ -1,3 +1,4 @@
+import SigGolfCandidate.ClaudeWCT.W9.T3.BPORS
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Header
 import SigGolfCandidate.ClaudeWCT.W9.New.G3a.PaddedWitness
 import SigGolfCandidate.T3.Secc.WotsEvents
@@ -36,7 +37,7 @@ noncomputable def depth (answers : Answers) (a : ChainAddr) : Nat :=
   (referenceDigits answers a.key).getD a.chain 0
 noncomputable def frontierValue (answers : Answers) (a : ChainAddr) : Digest :=
   honestChainValue answers a.key.lay a.key.tree a.key.leaf a.chain
-    (WCT9.wotsSeed answers a.key.lay a.key.tree a.key.leaf a.chain) (depth answers a)
+    (leafSeed answers a.key.lay a.key.tree a.key.leaf a.chain) (depth answers a)
 def ContactAt (answers : Answers) (trace : List Entry) (a : ChainAddr) : Prop :=
   1 ≤ depth answers a ∧ ∃ value, SeenRow trace a (depth answers a - 1) value (frontierValue answers a)
 def TwoEdgeAt (answers : Answers) (trace : List Entry) (a : ChainAddr) : Prop :=

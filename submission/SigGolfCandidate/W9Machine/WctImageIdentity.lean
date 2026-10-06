@@ -8,8 +8,10 @@ theorem image_eq : image = SigGolfCandidate.T3M.Images.verifyImage := by
     change codeChunks.foldl (fun xs ys => xs ++ id ys) [] = codeChunks.flatten
     rw [List.foldl_append_eq_append, List.map_id, List.nil_append]
   have hd : dataChunks.flatten = SigGolfCandidate.T3M.Images.verifyData := by
-    change [SigGolfCandidate.T3M.Images.verifyData].flatten = _
+    change [SigGolfCandidate.T3M.Images.verifyPrefixData ++
+      SigGolfCandidate.T3M.Images.verifyLegacyData].flatten = _
     simp only [List.flatten_cons, List.flatten_nil, List.append_nil]
+    rfl
   unfold image SigGolfCandidate.T3M.Images.verifyImage
   rw [hc, hd]
 end W9Machine.Frozen

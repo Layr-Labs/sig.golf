@@ -1,4 +1,5 @@
 import SigGolfCandidate.SphincsSecurity.Proof.Seeded.FiniteTable
+import SigGolfCandidate.SphincsSecurity.Proof.Seeded.KeyDerivation
 import SigGolfCandidate.SphincsSecurity.Proof.Seeded.SeedGuessing
 import SigGolfCandidate.SphincsSecurity.Proof.Seeded.CacheCoupling
 

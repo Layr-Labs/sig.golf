@@ -1,9 +1,12 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Ots.ReferenceFamilyConditioning
+import SigGolfCandidate.SphincsSecurity.Proof.Ots.OtsPrefixOracle
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.OtsPrefixFrontier
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.OtsPrefixSimulation
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.ReferenceFamilyGame
 import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainErasure
 
 section
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec
 attribute [local irreducible] canonicalEncodingInputs canonicalGraphInputs
@@ -60,7 +63,10 @@ theorem referenceFamilyOracleSample_eq_seed (key : SecretKey) (inputs : Finset H
   simp only [PMF.map_comp, Function.comp_def, referenceFamilySeedTable]
 end SphincsSecurity.Concrete
 end
+
 section
+
+
 namespace SphincsSecurity.Concrete.OtsPrefix
 open _root_.OracleComp OracleSpec
 attribute [local irreducible] canonicalEncodingInputs canonicalGraphInputs canonicalPayloadInputs instFintypePosition
@@ -143,7 +149,9 @@ theorem uniform_nonencoding (segment : OtsPrefix) (inputs : Finset HashInput)
   rfl
 end SphincsSecurity.Concrete.OtsPrefix
 end
+
 section
+
 namespace SphincsSecurity.Concrete.OtsPrefix
 open _root_.OracleComp OracleSpec
 attribute [local instance] Classical.propDecidable
@@ -231,7 +239,9 @@ theorem rawAnswer_eq (segment : OtsPrefix) (inputs : Finset HashInput)
       rw [(segment.parse_some_iff bytes query).mp hparse, rawAnswer_prefix, answer_input]
 end SphincsSecurity.Concrete.OtsPrefix
 end
+
 section
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec
 attribute [local irreducible] canonicalEncodingInputs canonicalGraphInputs instFintypePosition
@@ -290,7 +300,11 @@ theorem referenceFamilyOracleSample_eq_prefixSeed (key : SecretKey) (inputs : Fi
   simp only [PMF.map_bind, PMF.map_comp, Function.comp_def, OtsPrefix.referenceSeed]
 end SphincsSecurity.Concrete
 end
+
 section
+
+
+
 namespace SphincsSecurity.Concrete.OtsPrefix
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -407,7 +421,11 @@ theorem referenceSeedFrontier_eq (auxiliary : segment.ReferenceAuxSeed inputs he
   rfl
 end SphincsSecurity.Concrete.OtsPrefix
 end
+
 section
+
+
+
 namespace SphincsSecurity.Concrete.OtsPrefix
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -447,7 +465,10 @@ theorem referenceSeedGame_eq (auxiliary : segment.ReferenceAuxSeed inputs hencod
     segment.referenceSeedOracle_eq inputs hencoding hgraph auxiliary root top secrets ftsSecret selections _ hword tables]
 end SphincsSecurity.Concrete.OtsPrefix
 end
+
 section
+
+
 namespace SphincsSecurity.Concrete.OtsPrefix
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false

@@ -1,7 +1,10 @@
+import SigGolfCandidate.SphincsSecurity.Scheme
 import VCVio.OracleComp.QueryTracking.WriterCost
 import SigGolfCandidate.SphincsSecurity.Proof.SignatureLayout
 
 section
+
+
 open OracleComp OracleSpec ENNReal
 namespace SphincsSecurity
 structure Forgery where
@@ -64,7 +67,10 @@ end Security
 abbrev SphincsSecurityStatement : Prop := Security.HasClassicalSecurityBits 127
 end SphincsSecurity
 end
+
 section
+
+
 open OracleComp OracleSpec ENNReal
 namespace SphincsSecurity
 namespace Concrete

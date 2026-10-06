@@ -1,3 +1,4 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Hypertree.CanonicalGraphHonest
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.EncodingInputs
 import SigGolfCandidate.SphincsSecurity.Proof.Reference.FiniteHashWorld

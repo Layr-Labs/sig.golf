@@ -1,6 +1,8 @@
+import SigGolfCandidate.T3.Gate6.BPORSPrefix
 import SigGolfCandidate.T3.Secc.CaseCForecast
 
 section
+
 namespace SigGolfCandidate.T3.BPORS.History
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SphincsSecurity.Concrete
@@ -17,7 +19,10 @@ end SigGolfCandidate.T3.BPORS.History
 #print axioms SigGolfCandidate.T3.BPORS.History.theta_excess_le_square
 #print axioms SigGolfCandidate.T3.BPORS.History.excess_three_quarters
 end
+
 section
+
+
 namespace SigGolfCandidate.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SphincsSecurity.Concrete (uniformWordAverage)

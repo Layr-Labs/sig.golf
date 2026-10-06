@@ -1,7 +1,9 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.QueryCapAccounting
 import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainContact
 import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainCapCost
 
 section
+
 namespace SphincsSecurity.QueryCap
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -53,7 +55,11 @@ theorem counted_next_bound (impl : QueryImpl spec PMF) (input : spec.Domain)
   exact ⟨answer, hanswer, tail, htail, rfl⟩
 end SphincsSecurity.QueryCap
 end
+
 section
+
+
+
 namespace SphincsSecurity.Concrete.PartialChainEndpoint
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false

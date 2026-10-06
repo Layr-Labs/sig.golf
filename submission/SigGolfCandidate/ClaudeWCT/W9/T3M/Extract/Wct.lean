@@ -1,6 +1,7 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Queries
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Header
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Defs
+import SigGolfCandidate.ClaudeWCT.WCT9.Correctness
 
 namespace ClaudeWCT.W9.T3M.WctExtract
 open OracleComp OracleSpec SigGolfCandidate.T3
@@ -315,9 +316,9 @@ end merkle
 theorem recoverCoordinateP_dec (N : HashOutput) (w : WBytes) (index : Nat) (c : WCT9.Coord) :
     recoverCoordinateP (witDecP N w).signature (padDecP N w) index N c =
       ((List.finRange 7).mapM (fun t => wctChainP index c.val (WCT9.child N c).val t.val
-          (3 - WCT9.wordDigit (WCT9.rank N c) t) (WCT9.wordDigit (WCT9.rank N c) t)
+          (3 - WCT9.digit (WCT9.rank N c) t) (WCT9.digit (WCT9.rank N c) t)
           (wcpads w c.val t.val).1 (wcHeaderPad w c.val t.val) (wcpads w c.val t.val).2
-          (wreveal w c.val t.val (WCT9.wordDigit (WCT9.rank N c) t))) >>= fun ends =>
+          (wreveal w c.val t.val (WCT9.digit (WCT9.rank N c) t))) >>= fun ends =>
         WCT9.leafHash index c.val (WCT9.child N c).val ends >>= fun leaf =>
           hashPath (merkleInput 3 (WCT9.nodeLayer c.val) index 7 (WCT9.child N c).val
             (wsib w c.val (WCT9.child N c).val) (wmpad w c.val)) 6 leaf >>= fun top =>
@@ -350,9 +351,9 @@ theorem coord_extract (answers : Answers) (N : HashOutput) (w : WBytes) (c : WCT
   rw [evalWithAnswerFn_bind, evalWithAnswerFn_bind, evalWithAnswerFn_bind, evalWithAnswerFn_pure] at reaches
   simp only [queried_pure, List.append_nil]
   generalize hE : evalWithAnswerFn answers ((List.finRange 7).mapM (fun t => wctChainP (N.toNat % 2 ^ 31) c.val
-      (WCT9.child N c).val t.val (3 - WCT9.wordDigit (WCT9.rank N c) t) (WCT9.wordDigit (WCT9.rank N c) t)
+      (WCT9.child N c).val t.val (3 - WCT9.digit (WCT9.rank N c) t) (WCT9.digit (WCT9.rank N c) t)
       (wcpads w c.val t.val).1 (wcHeaderPad w c.val t.val) (wcpads w c.val t.val).2
-      (wreveal w c.val t.val (WCT9.wordDigit (WCT9.rank N c) t)))) = ends at reaches ⊢
+      (wreveal w c.val t.val (WCT9.digit (WCT9.rank N c) t)))) = ends at reaches ⊢
   generalize hL : evalWithAnswerFn answers (WCT9.leafHash (N.toNat % 2 ^ 31) c.val (WCT9.child N c).val ends) =
     leaf at reaches ⊢
   generalize hT : evalWithAnswerFn answers (hashPath (merkleInput 3 (WCT9.nodeLayer c.val) (N.toNat % 2 ^ 31) 7
@@ -369,9 +370,9 @@ theorem coord_extract (answers : Answers) (N : HashOutput) (w : WBytes) (c : WCT
   swap
   · exact Or.inr (hhit.mono fun q hq => List.mem_append_right _ (List.mem_append_left _ hq))
   have hend : ∀ t : Fin 7, evalWithAnswerFn answers (wctChainP (N.toNat % 2 ^ 31) c.val (WCT9.child N c).val t.val
-      (3 - WCT9.wordDigit (WCT9.rank N c) t) (WCT9.wordDigit (WCT9.rank N c) t)
+      (3 - WCT9.digit (WCT9.rank N c) t) (WCT9.digit (WCT9.rank N c) t)
       (wcpads w c.val t.val).1 (wcHeaderPad w c.val t.val) (wcpads w c.val t.val).2
-      (wreveal w c.val t.val (WCT9.wordDigit (WCT9.rank N c) t))) =
+      (wreveal w c.val t.val (WCT9.digit (WCT9.rank N c) t))) =
       Extract.wctValue answers (N.toNat % 2 ^ 31) c.val (WCT9.child N c).val t.val 3 := by
     intro t
     subst hE
@@ -380,11 +381,11 @@ theorem coord_extract (answers : Answers) (N : HashOutput) (w : WBytes) (c : WCT
     simpa only [List.getElem_map, List.getElem_finRange, Extract.wctEnds, List.getElem_ofFn, Fin.cast_mk,
       Fin.eta, Fin.cast_eq_self] using h
   have hch := fun t : Fin 7 => chain_extract answers (N.toNat % 2 ^ 31) c.val (WCT9.child N c).val t.val
-    (WCT9.wordDigit (WCT9.rank N c) t) (WCT9.wordDigit_le_three _ t) _ _ _ _ ⟨hidx, c.isLt, hj, t.isLt⟩ (hend t)
+    (WCT9.digit (WCT9.rank N c) t) (WCT9.digit_le_three _ t) _ _ _ _ ⟨hidx, c.isLt, hj, t.isLt⟩ (hend t)
   by_cases hhit : ∃ t : Fin 7, Extract.HitIn answers (queried answers (wctChainP (N.toNat % 2 ^ 31) c.val
-      (WCT9.child N c).val t.val (3 - WCT9.wordDigit (WCT9.rank N c) t) (WCT9.wordDigit (WCT9.rank N c) t)
+      (WCT9.child N c).val t.val (3 - WCT9.digit (WCT9.rank N c) t) (WCT9.digit (WCT9.rank N c) t)
       (wcpads w c.val t.val).1 (wcHeaderPad w c.val t.val) (wcpads w c.val t.val).2
-      (wreveal w c.val t.val (WCT9.wordDigit (WCT9.rank N c) t))))
+      (wreveal w c.val t.val (WCT9.digit (WCT9.rank N c) t))))
   · obtain ⟨t, ht⟩ := hhit
     exact Or.inr (ht.mono fun q hq => List.mem_append_left _
       (by rw [queried_mapM]; exact List.mem_flatMap.mpr ⟨t, List.mem_finRange t, hq⟩))

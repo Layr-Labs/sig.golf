@@ -3,6 +3,7 @@ import SigGolfCandidate.SphincsSecurity.Proof.Forced.SecretGuessErasure
 import SigGolfCandidate.ClaudeWCT.GuessV2.WCTCoords
 
 section
+
 namespace ClaudeWCT.Guess
 open SphincsSecurity.Concrete.SecretGuessObservation
 section Prefix
@@ -158,7 +159,10 @@ theorem mem_retired_afterTrial_hit (environment : Environment auxSpec (Chain × 
 end Tracks
 end ClaudeWCT.Guess
 end
+
 section
+
+
 namespace ClaudeWCT.Guess
 open OracleComp OracleSpec ENNReal
 open SphincsSecurity.Concrete
@@ -339,7 +343,9 @@ theorem fixedRun_discloseAll (environment : Environment auxSpec (Chain × Fin w)
 end ChainWorld
 end ClaudeWCT.Guess
 end
+
 section
+
 namespace ClaudeWCT.Guess
 open OracleComp OracleSpec
 open SigGolfCandidate.T3 ClaudeWCT.WCT9
@@ -401,7 +407,10 @@ theorem chainValue_succ (A : Correctness.Answers) (a : ChainAddr) (p : Nat) :
   exact h
 end ClaudeWCT.Guess
 end
+
 section
+
+
 namespace ClaudeWCT.Guess
 open OracleComp OracleSpec ENNReal
 open SigGolfCandidate.T3 ClaudeWCT.WCT9

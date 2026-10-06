@@ -1,6 +1,8 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Base.FirstSuccessFamily
 
 section
+
 namespace SphincsSecurity.Concrete.EndpointPreimageDensity
 open _root_.OracleComp ENNReal
 attribute [local instance] Classical.propDecidable
@@ -82,7 +84,10 @@ theorem mean_preimages (prior : PMF Table) (evaluate : Table → State → State
     _ = _ := by ring
 end SphincsSecurity.Concrete.EndpointPreimageDensity
 end
+
 section
+
+
 namespace SphincsSecurity.Concrete.FinitePmfProduct
 open _root_.OracleComp ENNReal
 attribute [local instance] Classical.propDecidable
@@ -167,7 +172,11 @@ theorem observe_mass [DecidableEq Value] (family : Index → PMF Value) (index :
   · simp only [PMF.pure_apply, if_false, zero_mul, mul_zero, hvalue]
 end SphincsSecurity.Concrete.FinitePmfProduct
 end
+
 section
+
+
+
 namespace SphincsSecurity.Concrete.PartialChainEndpoint
 open _root_.OracleComp ENNReal
 attribute [local instance] Classical.propDecidable

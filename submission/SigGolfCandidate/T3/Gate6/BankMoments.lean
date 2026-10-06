@@ -1,4 +1,7 @@
 import SigGolfCandidate.T3.Gate6.FreshProbability
+import Mathlib.RingTheory.Polynomial.Pochhammer
+import SigGolfCandidate.SphincsSecurity.Proof.Base.BinomialMoments
+import SigGolfCandidate.SphincsSecurity.Proof.Fts.UniformProposalMixedMoments
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.UniformProposalVariance
 
 namespace SigGolfResearch.Gate6.Moments

@@ -1,21 +1,20 @@
 import SigGolfCandidate.T3M.Witness.Queries
 import SigGolfCandidate.T3M.Extract.Normalize
-import SigGolfCandidate.ClaudeWCT.WCT9.Correctness
+import SigGolfCandidate.ClaudeWCT.WCT9.Limits
 
 namespace ClaudeWCT.W9.T3M.Extract
 open OracleComp OracleSpec SigGolfCandidate.T3
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
-open Correctness (Answers treeValue)
-open ClaudeWCT.WCT9 (wotsTree wotsSeed wotsEnd)
+open Correctness (Answers treeValue builtTree leafSeed leafEnd)
 open SphincsSecurity (bytesLE)
 export SigGolfCandidate.T3M.Extract (canonicalHeader)
 noncomputable def honestRoot (answers : Answers) (lay : Layer) (tree : Nat) : Digest :=
-  treeValue (wotsTree answers lay tree) (height lay) 0
+  treeValue (builtTree answers lay tree) (height lay) 0
 noncomputable def honestPair (answers : Answers) (lay : Layer) (tree : Nat) : Digest × Digest :=
-  (treeValue (wotsTree answers lay tree) (height lay - 1) 0, treeValue (wotsTree answers lay tree) (height lay - 1) 1)
+  (treeValue (builtTree answers lay tree) (height lay - 1) 0, treeValue (builtTree answers lay tree) (height lay - 1) 1)
 def wctSeed (answers : Answers) (index coord child chain : Nat) : Digest :=
-  WCT9.seedHalf (evalWithAnswerFn answers (WCT9.ftsSeedPair index coord (WCT9.ftsOrdinal child chain / 2)))
-    (WCT9.ftsOrdinal child chain)
+  let pair := evalWithAnswerFn answers (privatePair 8 coord index 0 (4 * child + chain / 2))
+  if chain % 2 = 0 then pair.1 else pair.2
 def wctValue (answers : Answers) (index coord child chain step : Nat) : Digest :=
   evalWithAnswerFn answers (WCT9.chain index coord child chain 0 step (wctSeed answers index coord child chain))
 def wctEnds (answers : Answers) (index coord child : Nat) : List Digest :=
@@ -54,12 +53,12 @@ inductive Pos where
   | wctNode (index coord level node : Nat)
 noncomputable def honestInput (answers : Answers) : Pos → HashInput
   | .chain lay tree leaf i step => pad64 (chainInput lay tree leaf i step
-      (honestChainValue answers lay tree leaf i (wotsSeed answers lay tree leaf i) step))
+      (honestChainValue answers lay tree leaf i (leafSeed answers lay tree leaf i) step))
   | .leaf lay tree leaf => pad64 (leafInput lay tree leaf
-      ((List.range (chainCount lay)).map (wotsEnd answers lay tree leaf)))
+      ((List.range (chainCount lay)).map (leafEnd answers lay tree leaf)))
   | .node lay tree level node => pad64 (nodeInputP 3 lay.val tree (2 ^ (height lay - level - 1) + node)
-      (treeValue (wotsTree answers lay tree) level (2 * node)) 0
-      (treeValue (wotsTree answers lay tree) level (2 * node + 1)))
+      (treeValue (builtTree answers lay tree) level (2 * node)) 0
+      (treeValue (builtTree answers lay tree) level (2 * node + 1)))
   | .forest index => pad64 (forestInput index (ftsPairsHonest answers index))
   | .wctChain index coord child chain step => pad64 (WCT9.chainInput index coord child chain step
       (wctValue answers index coord child chain step))

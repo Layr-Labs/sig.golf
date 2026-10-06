@@ -49,17 +49,17 @@ theorem truncated_card (cut : Nat) (hc : 0<cut) :
       (by simpa only [Finset.card_univ] using Nat.lt_of_lt_of_le word_card_small (Nat.sub_le _ _)),
     SigGolfResearch.Gate6.sum_pow_mod_pred_generic (by norm_num [radix]),
     Nat.mod_eq_of_lt ((Finset.card_filter_le _ _).trans_lt (by simpa using word_card_small))]
-def count : Nat := 124473276352644171552295064396886705
+def count : Nat := 183707182173445436457863622839156476
 theorem exact_packed_count :
-    (packed%radix^129)%(radix-1)-(packed%radix^128)%(radix-1)=count := by decide +kernel
-theorem accepted_card : (Finset.univ.filter fun w : Word => weight w=128).card=count := by
+    (packed%radix^127)%(radix-1)-(packed%radix^126)%(radix-1)=count := by decide +kernel
+theorem accepted_card : (Finset.univ.filter fun w : Word => weight w=126).card=count := by
   classical
-  have hs : (Finset.univ.filter fun w : Word => weight w=128)=
-      (Finset.univ.filter fun w : Word => weight w<129)\
-        (Finset.univ.filter fun w : Word => weight w<128) := by
+  have hs : (Finset.univ.filter fun w : Word => weight w=126)=
+      (Finset.univ.filter fun w : Word => weight w<127)\
+        (Finset.univ.filter fun w : Word => weight w<126) := by
     ext w; simp only [Finset.mem_filter,Finset.mem_univ,true_and,Finset.mem_sdiff]; omega
   rw [hs,Finset.card_sdiff_of_subset]
-  · rw [truncated_card 129 (by decide),truncated_card 128 (by decide),exact_packed_count]
+  · rw [truncated_card 127 (by decide),truncated_card 126 (by decide),exact_packed_count]
   · intro w hw
     simp only [Finset.mem_filter,Finset.mem_univ,true_and] at hw ⊢
     omega
@@ -72,13 +72,13 @@ theorem digest_injective : Function.Injective digest := by
   exact congrArg (fun x : Fin (2^128) => x.val) h
 noncomputable def acceptedDigests : Finset (Fin (2^128)) := by
   classical
-  exact (Finset.univ.filter fun w : Word => weight w=128).image digest
+  exact (Finset.univ.filter fun w : Word => weight w=126).image digest
 theorem accepted_digest_card : acceptedDigests.card=count := by
   classical
   unfold acceptedDigests
   rw [Finset.card_image_of_injective _ digest_injective,accepted_card]
 theorem probability_fraction : (count : ℚ)/2^128=
-    124473276352644171552295064396886705/340282366920938463463374607431768211456 := by
+    45926795543361359114465905709789119/85070591730234615865843651857942052864 := by
   norm_num [count]
 end SigGolfResearch.NonbinaryTop.Counting
 #print axioms SigGolfResearch.NonbinaryTop.Counting.weighted_words

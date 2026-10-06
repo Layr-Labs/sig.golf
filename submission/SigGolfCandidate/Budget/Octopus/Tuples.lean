@@ -9,6 +9,7 @@ import Mathlib.Algebra.BigOperators.Fin
 import Mathlib.Data.Fintype.Perm
 
 section
+
 namespace SigGolfCandidate.Budget.Octopus
 def bitLen (x : Nat) : Nat := if x = 0 then 0 else Nat.log2 x + 1
 def xorSum (vs : List Nat) : Nat := (List.zipWith (fun a b => bitLen (a ^^^ b)) vs vs.tail).sum
@@ -33,7 +34,13 @@ def packedCount : Nat := ((piter 15 (2 ^ pB) (2 ^ (pB * 119)) 14 [0, 1]).getD 15
 theorem packedCount_eq : packedCount = Nadm := by decide +kernel
 end SigGolfCandidate.Budget.Octopus
 end
+
 section
+
+
+
+
+
 namespace SigGolfCandidate.Budget.Octopus
 open Finset Polynomial
 theorem testBit_add_two_pow {z H : ℕ} (hz : z < 2 ^ H) (i : ℕ) :
@@ -339,7 +346,11 @@ theorem coeff_Q (y H j : ℕ) (hj : j ≠ 0) :
   · simp [h, coeff_monomial]
 end SigGolfCandidate.Budget.Octopus
 end
+
 section
+
+
+
 namespace SigGolfCandidate.Budget.Octopus
 open Finset Polynomial
 theorem list_sum_map_range' (f : ℕ → ℕ) (n : ℕ) :
@@ -421,7 +432,11 @@ theorem card_admissibleSets :
   exact congrArg card (filter_congr fun S _ => by simp only [oc]; omega)
 end SigGolfCandidate.Budget.Octopus
 end
+
 section
+
+
+
 namespace SigGolfCandidate.Budget.Octopus
 open Finset
 def valList {k n : ℕ} (v : Fin k → Fin n) : List ℕ := List.ofFn fun i => (v i : ℕ)

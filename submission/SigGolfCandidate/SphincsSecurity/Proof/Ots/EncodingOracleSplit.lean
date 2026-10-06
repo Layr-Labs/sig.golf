@@ -1,3 +1,4 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.CanonicalEncodingSampling
 import SigGolfCandidate.SphincsSecurity.Proof.Hypertree.CanonicalGraphSampling
 import SigGolfCandidate.SphincsSecurity.Proof.Base.UniformTableSplit

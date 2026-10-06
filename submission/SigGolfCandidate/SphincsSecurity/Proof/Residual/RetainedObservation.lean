@@ -1,7 +1,11 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Base.UniformTableCompletion
 import SigGolfCandidate.SphincsSecurity.Proof.IdealStatement
 
 section
+
+
+
 namespace SphincsSecurity.Concrete.HiddenLabelObservation
 open _root_.OracleComp ENNReal UniformTableCompletion
 attribute [local instance] Classical.propDecidable
@@ -91,7 +95,10 @@ theorem lazyResponse_nonempty (allowed : Coordinate → Finset Digest) (probe : 
   exact h rfl
 end SphincsSecurity.Concrete.HiddenLabelObservation
 end
+
 section
+
+
 namespace SphincsSecurity.Concrete.RetainedObservation
 open _root_.OracleComp ENNReal
 set_option backward.isDefEq.respectTransparency false

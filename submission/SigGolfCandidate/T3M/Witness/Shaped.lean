@@ -1,7 +1,9 @@
 import SigGolfCandidate.T3M.Witness.Dfs
+import SigGolfCandidate.T3.Proofs
 import SigGolfCandidate.T3M.Witness.Encode
 
 section
+
 namespace SigGolfCandidate.T3M
 open OracleComp OracleSpec SigGolfCandidate.T3
 set_option linter.unusedSimpArgs false
@@ -249,7 +251,10 @@ theorem ftsCoordP_canon (w : WBytes) (index coord : Nat) (sel : Selection) (ptr 
     simp only [hroot, and_self, if_true, map_eq_bind_pure_comp, Function.comp_def]
 end SigGolfCandidate.T3M
 end
+
 section
+
+
 namespace SigGolfCandidate.T3M
 open OracleComp OracleSpec SigGolfCandidate.T3
 set_option linter.unusedSimpArgs false
@@ -599,7 +604,10 @@ theorem streamPlan_foldSlot (chosen : List Selection) (hc : ChosenOk chosen) {n 
     exact Prod.ext h1 h2
 end SigGolfCandidate.T3M
 end
+
 section
+
+
 set_option maxRecDepth 10000
 namespace SigGolfCandidate.T3M
 open OracleComp OracleSpec SigGolfCandidate.T3

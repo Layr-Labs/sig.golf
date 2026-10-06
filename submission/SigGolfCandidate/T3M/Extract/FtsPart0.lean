@@ -1,3 +1,5 @@
+import SigGolfCandidate.T3M.Witness.Queries
+import SigGolfCandidate.T3M.Witness.Shaped
 import SigGolfCandidate.T3M.Extract.Basic
 
 namespace SigGolfCandidate.T3M.FtsExtract

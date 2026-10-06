@@ -1,7 +1,11 @@
+import SigGolfCandidate.T3M.Search.KernelBlocks
+import SigGolfCandidate.T3M.Search.TopTables
 import SigGolfCandidate.T3M.Search.TopWindow
 import SigGolfCandidate.T3M.Search.TopSegments
 
 section
+
+
 namespace SigGolfCandidate.T3M.Search
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)
@@ -52,7 +56,11 @@ theorem top_lbu_spec (s : MachineState) (pc : Word) (inst : BitVec 32) (rd : Reg
   · intro A _ _; simp [MachineState.setReg, MachineState.setPC, MachineState.getMem]
 end SigGolfCandidate.T3M.Search
 end
+
 section
+
+
+
 namespace SigGolfCandidate.T3M.Search
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)

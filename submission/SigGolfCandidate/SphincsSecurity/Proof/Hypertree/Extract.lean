@@ -1,3 +1,4 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Arith
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Bytes
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.StatementLemmas

@@ -1,6 +1,7 @@
 import SigGolfCandidate.T3.Secc.PairGuessFinal
 
 section
+
 namespace SigGolfCandidate.T3.Security.BPair
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final SigGolfCandidate.T3M.SecurityInputs
@@ -52,7 +53,9 @@ theorem pairExperiment_event_le_avg (adversary : AdversaryP) (E : Answers × Que
 end Avg
 end SigGolfCandidate.T3.Security.BPair
 end
+
 section
+
 namespace SigGolfCandidate.T3.Security.BPair
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final SigGolfCandidate.T3M.SecurityInputs

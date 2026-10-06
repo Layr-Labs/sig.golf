@@ -1,10 +1,14 @@
+import SigGolfCandidate.SphincsSecurity.Proof.IdealStatement
 import SigGolfCandidate.SphincsSecurity.Proof.Seeded.Erasure
+import SigGolfCandidate.SphincsSecurity.Proof.Seeded.DerivationTable
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.StatementLemmas
 import SigGolfCandidate.SphincsSecurity.Proof.Deterministic.CacheDerivation
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Secrets
+import SigGolfCandidate.SphincsSecurity.Proof.Seeded.AdaptiveSeedGuessing
 import SigGolfCandidate.SphincsSecurity.Proof.Base.QueryCapAccounting
 
 section
+
 namespace SphincsSecurity.Concrete
 open OracleComp
 variable {m : Type → Type} [Monad m] [LawfulMonad m]
@@ -179,7 +183,12 @@ theorem signFromPaired_pure (parameter : PublicParameter) (index : Index)
   rw [signLayersPaired_pure]
 end SphincsSecurity.Concrete
 end
+
 section
+
+
+
+
 open OracleComp OracleSpec
 namespace SphincsSecurity.Seeded
 set_option backward.isDefEq.respectTransparency false
@@ -606,7 +615,10 @@ theorem erases_signFrom_table (top : Nat → Nat → Digest) (index : Index) (ra
 end Algorithms
 end SphincsSecurity.Seeded
 end
+
 section
+
+
 open OracleComp OracleSpec
 namespace SphincsSecurity.Seeded
 set_option backward.isDefEq.respectTransparency false
@@ -757,7 +769,10 @@ theorem erases_cachedSign
 end Cached
 end SphincsSecurity.Seeded
 end
+
 section
+
+
 open OracleComp OracleSpec
 namespace SphincsSecurity.Seeded
 set_option backward.isDefEq.respectTransparency false
@@ -858,7 +873,11 @@ theorem erases_keygen_first :
 end Keygen
 end SphincsSecurity.Seeded
 end
+
 section
+
+
+
 open OracleComp OracleSpec ENNReal
 namespace SphincsSecurity.Seeded
 set_option backward.isDefEq.respectTransparency false

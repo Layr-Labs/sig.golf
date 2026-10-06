@@ -2,6 +2,7 @@ import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.Fetch
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Honest
 import SigGolfCandidate.ClaudeWCT.W9.T3M.SigCodec
 import SigGolfCandidate.T3M.Expand.LayersBlocks
+import SigGolfCandidate.T3M.Expand.Blocks
 
 namespace ClaudeWCT.W9.Machine.Expand
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
@@ -9,11 +10,8 @@ open SigGolfCandidate.T3M
 open SigGolfCandidate.T3 (Digest HashOutput M)
 open SigGolfCandidate.T3M.Search (DIG NBUF ENC FailedAt KernAt)
 open SigGolfCandidate.T3M.Expand (IDXV)
-def hookWord : BitVec 32 := 0x67d2706f
+def hookWord : BitVec 32 := 0x3880106f
 def HB0 : Nat := 0xffde00
-def ECOST : Nat := 0xff9e00
-def ExpCostAt (t : MachineState) : Prop :=
-  ∀ k < 2048, t.getMem (BitVec.ofNat 64 (ECOST + 8 * k)) = bytesToWordLE ((expCostBytes.drop (8 * k)).take 8)
 def regBase (k : Nat) : Nat := 0x840 + 1024 * k
 def HdrBankOK (s : MachineState) : Prop :=
   ∀ k, k < 9 →
@@ -37,7 +35,6 @@ structure Pre30 (m : Message) (sig : WCT9.Signature) (s : MachineState) : Prop w
   sigAt : ∀ k, k < 341 → DigAt s (0x7000 + 16 * k) ((ClaudeWCT.W9.T3M.sigDigests sig).getD k 0)
   zeroW : ∀ A, 0x840 ≤ A → A < 0x2c48 → s.getMem (BitVec.ofNat 64 A) = 0
   bank : HdrBankOK s
-  cost : ExpCostAt s
 def NewW (A : Nat) : Prop :=
   A = DIG + 16 ∨ A = DIG + 24 ∨ (NBUF ≤ A ∧ A < NBUF + 32) ∨ A = IDXV ∨ A = 0x810 ∨ (0x60 ≤ A ∧ A < 0x80) ∨
     (0x100 ≤ A ∧ A < 0x120) ∨ (0x400 ≤ A ∧ A < 0x550) ∨ (0x840 ≤ A ∧ A < 0x2c48) ∨ A = ENC ∨ A = ENC + 8 ∨
@@ -56,7 +53,7 @@ structure Post249 (sig : WCT9.Signature) (s0 : MachineState) (counter : BitVec 3
   frame : Frame s0 t NewW
 def NewPost (sig : WCT9.Signature) (s0 : MachineState) :
     Option (BitVec 32 × HashOutput × Digest) → MachineState → Prop
-  | none, t => FailedAt 41062 t
+  | none, t => FailedAt 1418 t
   | some (counter, N, root), t => Post249 sig s0 counter N root t
 def newCost : Nat := 2 ^ 21 * 200 + 100000
 def HookAt (im : Image) : Prop := CodeAt im (pcOf 30) [hookWord]
@@ -71,8 +68,7 @@ def FrontAt (im : Image) : Prop := CodeAt im (pcOf 0) (SigGolfCandidate.T3M.Expa
 def compareCode : List (BitVec 32) :=
   SigGolfCandidate.T3M.Expand.seg_342 ++ SigGolfCandidate.T3M.Expand.seg_348 ++
     SigGolfCandidate.T3M.Expand.seg_351 ++ SigGolfCandidate.T3M.Expand.seg_353
-def ExpandDataOK (im : Image) : Prop :=
-  im.data = expCostBytes ++ hdrBankBytes ++ SigGolfCandidate.T3M.Images.expandLegacyData
+def ExpandDataOK (im : Image) : Prop := im.data = hdrBankBytes ++ SigGolfCandidate.T3M.Images.expandLegacyData
 def ExpandRefinesW (imgs : Phase → Image) : Prop :=
   ∀ (m : Message) (pk : PublicKey) (s : Bytes 5456),
     (fun r => (r.value, r.hashCalls, r.hashCompressions)) <$> (w9Sub imgs).run .expand (m, pk, s) =

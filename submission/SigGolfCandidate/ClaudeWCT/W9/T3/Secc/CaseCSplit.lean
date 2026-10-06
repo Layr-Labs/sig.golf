@@ -162,7 +162,7 @@ theorem wct_caseC_three_way (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 1
   have hstate : c.state = z.1.2.2.base.source.2 := (congrArg FirstHit.Recorded.state hres).symm
   have hvalue : c.value = true := (congrArg FirstHit.Recorded.value hres).symm.trans hclean.1
   have hCat' := hCat
-  obtain ⟨N, -, hN, -, -, -, hH, -⟩ := hCat
+  obtain ⟨N, -, hN, -, -, -, hH⟩ := hCat
   have hprobe := verdict_chain_entries g.value.1 i.value i.state c hs.2.2.1 z.2
     (fun input answer hk => hagree input answer (by rw [← hstate]; exact hk)) hvalue f hf m w hof
     (by rw [hN]; exact hH)

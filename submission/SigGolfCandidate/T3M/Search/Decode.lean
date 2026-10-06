@@ -169,7 +169,7 @@ theorem decode_low (lay : Layer) (h : lay ≠ 0) (v : Digest) :
   · simp only [show ¬ (v.toNat ≥ 2 ^ 126) from by omega, if_false, h1, true_and]
   · simp only [show v.toNat ≥ 2 ^ 126 from by omega, if_true, h1, false_and, if_false]
 theorem decode_top (v : Digest) :
-    T3.decode 0 v = if v.toNat < 2 ^ 125 ∧ T3.topRanksValid v = true ∧ (topDigits v).sum = 128
+    T3.decode 0 v = if v.toNat < 2 ^ 125 ∧ T3.topRanksValid v = true ∧ (topDigits v).sum = 126
       then some (topDigits v) else none := by
   unfold T3.decode
   simp only [T3.encodedBits, if_true, dataDigits_top, T3.target, Bool.and_eq_true, decide_eq_true_eq]

@@ -1,3 +1,4 @@
+import SigGolfCandidate.T3M.Keygen.Blocks
 import SigGolfCandidate.T3M.Keygen.PackedInput
 import SigGolfCandidate.T3M.Keygen.PackedShared
 

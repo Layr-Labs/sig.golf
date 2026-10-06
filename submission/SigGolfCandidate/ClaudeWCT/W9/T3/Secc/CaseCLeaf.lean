@@ -1,4 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.SeccSufRoute
+import SigGolfCandidate.ClaudeWCT.W9.New.G3b.Shared
 import SigGolfCandidate.ClaudeWCT.GuessV2.WCTCoords
 import SigGolfCandidate.T3.Secc.CaseCLeaf
 
@@ -23,10 +24,10 @@ theorem wctChainP_first_queried (answers : Correctness.Answers) (index coord chi
   rw [List.range'_succ, List.foldlM_cons, queried_bind, queried_shortHash]
   exact List.mem_append_left _ (List.mem_singleton_self _)
 theorem recoverFtsP_chain_queried (answers : Correctness.Answers) (N : HashOutput) (w : WBytes) (k : WCT9.Coord)
-    (t : Fin 7) (hu : 1 ≤ WCT9.wordDigit (WCT9.rank N k) t) :
+    (t : Fin 7) (hu : 1 ≤ WCT9.digit (WCT9.rank N k) t) :
     (.inl (.inr (pad64 (wctChainInputP (N.toNat % 2 ^ 31) k.val (WCT9.child N k).val t.val
-        (3 - WCT9.wordDigit (WCT9.rank N k) t) (wcpads w k.val t.val).1 (wcHeaderPad w k.val t.val)
-        (wcpads w k.val t.val).2 (wreveal w k.val t.val (WCT9.wordDigit (WCT9.rank N k) t))))) : Spec.Domain) ∈
+        (3 - WCT9.digit (WCT9.rank N k) t) (wcpads w k.val t.val).1 (wcHeaderPad w k.val t.val)
+        (wcpads w k.val t.val).2 (wreveal w k.val t.val (WCT9.digit (WCT9.rank N k) t))))) : Spec.Domain) ∈
       queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (N.toNat % 2 ^ 31) N) := by
   unfold recoverFtsP
   rw [queried_bind]
@@ -110,14 +111,14 @@ theorem verdict_chain_entries (pk : Digest) (interaction : Option ForgeryP × Qu
   obtain ⟨a, p⟩ := c
   simp only at hc1 hc2
   subst hc1
-  have hu : 1 ≤ WCT9.wordDigit (WCT9.rank N k) t := by
+  have hu : 1 ≤ WCT9.digit (WCT9.rank N k) t := by
     have := p.isLt
     unfold Guess.deficit at hc2
     omega
   have hq := recoverFtsP_chain_queried answers N w k t hu
   obtain ⟨hval, hpad⟩ := (hH.2 k).1 t
   rw [hval, (hpad hu).1, (hpad hu).2] at hq
-  have hp : 3 - WCT9.wordDigit (WCT9.rank N k) t = p.val := by
+  have hp : 3 - WCT9.digit (WCT9.rank N k) t = p.val := by
     unfold Guess.deficit at hc2
     omega
   rw [hp] at hq

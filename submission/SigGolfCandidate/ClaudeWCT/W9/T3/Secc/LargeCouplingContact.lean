@@ -1,7 +1,13 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeCouplingTable
+import SigGolfCandidate.T3.Secc.LargeCouplingSwap
+import SigGolfCandidate.T3.Secc.LargeCouplingSamplers
+import SigGolfCandidate.T3.Secc.LargeCouplingLaw
+import SigGolfCandidate.T3.Secc.LargeCouplingChain
 import SigGolfCandidate.T3.Secc.LargeCouplingContact
 
 section
+
+
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -20,11 +26,7 @@ theorem nonce_not_secret (m : Message) :
     (((.inr (.inl m) : Coordinate), (0 : Fin 2)) : ChainGraph.HalfCoordinate) ∉ Set.range secretCoordinate := by
   rintro ⟨s, hs⟩
   have hp := congrArg Prod.fst hs
-  cases s with
-  | inl a =>
-      simp only [secretCoordinate, Sum.elim_inl, seedCoordinateP] at hp
-      split_ifs at hp <;> cases hp
-  | inr f => cases hp
+  cases s <;> cases hp
 def nonceHalf (m : Message) : OtherHalf := ⟨((.inr (.inl m) : Coordinate), 0), nonce_not_secret m⟩
 theorem nonceHalf_injective : Function.Injective nonceHalf := by
   intro m m' h
@@ -255,7 +257,10 @@ theorem coherent_psi (vals : Coord → Digest) (nv : Message → Digest) (τ : U
 end Coherence
 end ClaudeWCT.W9.T3.Security.LargeCoupling
 end
+
 section
+
+
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling.Samplers
 open OracleComp
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -296,7 +301,10 @@ noncomputable scoped instance (priority := high) samplerEncOutside (U : Finset H
   SampleableType.ofFintype _
 end ClaudeWCT.W9.T3.Security.LargeCoupling.Samplers
 end
+
 section
+
+
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -399,7 +407,10 @@ theorem law_target (U : Finset HashInput) (hU : canonInputs ⊆ U) (hE : encInpu
 end Law
 end ClaudeWCT.W9.T3.Security.LargeCoupling
 end
+
 section
+
+
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -513,7 +524,10 @@ end Lazy
 end Chain
 end ClaudeWCT.W9.T3.Security.LargeCoupling
 end
+
 section
+
+
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security

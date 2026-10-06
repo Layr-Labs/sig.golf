@@ -1,3 +1,4 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.FewTimeSignerView
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.MessagePrehit
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.SignerDigestSource
@@ -5,6 +6,11 @@ import SigGolfCandidate.SphincsSecurity.Proof.Fts.TerminalCache
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.ObservedAdaptiveCoverBound
 
 section
+
+
+
+
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -88,7 +94,11 @@ theorem signDigestLoop_new_admissible_selected (attempts : Nat) (key : SecretKey
             exact False.elim (by simp only [reduceCtorEq] at hafter)
 end SphincsSecurity.Concrete
 end
+
 section
+
+
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec
 open FtsProbeSimulation (messageAnswers)

@@ -1,5 +1,9 @@
+import SigGolfCandidate.T3.Secc.WotsExtractLayer
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEvents
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsExtractChain
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsExtractWord
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Layers
+import SigGolfCandidate.ClaudeWCT.W9.New.G3b.Shared
 
 namespace ClaudeWCT.W9.T3.Security.WotsExtract
 open OracleComp OracleSpec
@@ -42,11 +46,11 @@ theorem leaf_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (
     (hidx : index < 2 ^ 31) (hvalid : Cost.ValidDigits lay digits) (qs : List Spec.Domain)
     (hsubL : ∀ q ∈ queried answers (layerLeafP w index lay digits), q ∈ qs)
     (hv0 : evalWithAnswerFn answers (layerLeafP w index lay digits) =
-      treeValue (WCT9.wotsTree answers lay (route index lay).2) 0 (route index lay).1) :
+      treeValue (builtTree answers lay (route index lay).2) 0 (route index lay).1) :
     StructuralHitSrc answers (entriesOf answers qs) ∨
     ∀ i, i < chainCount lay →
       (depth answers ⟨routeLeaf index lay, i⟩ ≤ digits.getD i 0 →
-        wvalue w lay i = WCT9.wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
+        wvalue w lay i = leafValue answers lay (route index lay).2 (route index lay).1 digits i ∧
           (digits.getD i 0 < maxDigit lay i →
             wchainPads w lay i = (0, 0) ∧ wchainHeaderPad w lay i = 0)) ∧
       (digits.getD i 0 < depth answers ⟨routeLeaf index lay, i⟩ →
@@ -67,7 +71,7 @@ theorem leaf_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (
     apply hsubL
     rw [Extract.layerLeafP_eq, queried_bind]
     exact List.mem_append_left _ hq
-  rw [WCT9.wotsTree_leaf answers lay _ _ hleafB, Extract.layerLeafP_eq, evalWithAnswerFn_bind] at hv0
+  rw [Correctness.builtTree_leaf answers lay _ _ hleafB, Extract.layerLeafP_eq, evalWithAnswerFn_bind] at hv0
   have hends : evalWithAnswerFn answers (Extract.layerChains w index lay digits) =
       (List.range (chainCount lay)).map (fun i => evalWithAnswerFn answers
         (chainP lay (route index lay).2 (route index lay).1 i (digits.getD i 0)
@@ -80,7 +84,7 @@ theorem leaf_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (
           (wchainHeaderPad w lay i) (wvalue w lay i)))
   rcases Extract.leafHash_extract answers lay (route index lay).2 (route index lay).1
       (evalWithAnswerFn answers (Extract.layerChains w index lay digits))
-      ((List.range (chainCount lay)).map (WCT9.wotsEnd answers lay (route index lay).2 (route index lay).1))
+      ((List.range (chainCount lay)).map (leafEnd answers lay (route index lay).2 (route index lay).1))
       (by rw [hends]; simp) (by simpa using Extract.chainCount_pos lay) hv0 with hE | ⟨hhit, hsame, hq⟩
   swap
   · exfalso
@@ -101,7 +105,7 @@ theorem leaf_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (
       (chainP lay (route index lay).2 (route index lay).1 i (digits.getD i 0) (maxDigit lay i - digits.getD i 0)
         (wchainPads w lay i).1 (wchainPads w lay i).2 (wchainHeaderPad w lay i) (wvalue w lay i)) =
       honestChainValue answers lay (route index lay).2 (route index lay).1 i
-        (WCT9.wotsSeed answers lay (route index lay).2 (route index lay).1 i)
+        (leafSeed answers lay (route index lay).2 (route index lay).1 i)
         (digits.getD i 0 + (maxDigit lay i - digits.getD i 0)) := by
     rw [hci, Nat.add_sub_cancel' hd]; rfl
   have hdepth : depth answers ⟨routeLeaf index lay, i⟩ ≤ maxDigit lay i := depth_le answers ⟨routeLeaf index lay, i⟩ hi
@@ -128,11 +132,11 @@ theorem layerP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer)
     StructuralHitSrc answers (entriesOf answers (queried answers (layerP w index lay digits))) ∨
     ((∀ j, j < height lay →
         wpath w lay (route index lay).1 j =
-          treeValue (WCT9.wotsTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1) ∧
+          treeValue (builtTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1) ∧
         wmerklePad w lay j = 0) ∧
       ∀ i, i < chainCount lay →
         (depth answers ⟨routeLeaf index lay, i⟩ ≤ digits.getD i 0 →
-          wvalue w lay i = WCT9.wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
+          wvalue w lay i = leafValue answers lay (route index lay).2 (route index lay).1 digits i ∧
             (digits.getD i 0 < maxDigit lay i →
               wchainPads w lay i = (0, 0) ∧ wchainHeaderPad w lay i = 0)) ∧
         (digits.getD i 0 < depth answers ⟨routeLeaf index lay, i⟩ →
@@ -155,11 +159,11 @@ theorem layerP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer)
     exact List.mem_append_left _ hq
   have hM := merklePath_extract answers 3 lay.val (route index lay).2 (height lay) (route index lay).1 (height lay)
     (wpath w lay (route index lay).1) (wmerklePad w lay)
-    (fun j => treeValue (WCT9.wotsTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1))
-    (fun step => treeValue (WCT9.wotsTree answers lay (route index lay).2) step ((route index lay).1 / 2 ^ step))
+    (fun j => treeValue (builtTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1))
+    (fun step => treeValue (builtTree answers lay (route index lay).2) step ((route index lay).1 / 2 ^ step))
     (evalWithAnswerFn answers (layerLeafP w index lay digits))
     (merkleInput_tree_reference answers 3 lay.val (route index lay).2 (height lay) (route index lay).1 _ _
-      (WCT9.wotsTree_correct answers lay (route index lay).2) hleafB)
+      (Correctness.builtTree_correct answers lay (route index lay).2) hleafB)
     (by
       have h := reaches
       rw [layerP_eq_hashPath, evalWithAnswerFn_bind] at h
@@ -195,11 +199,11 @@ theorem layerPairP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : La
     StructuralHitSrc answers (entriesOf answers (queried answers (layerPairP w index lay digits))) ∨
     ((∀ j, j < height lay →
         wpath w lay (route index lay).1 j =
-          treeValue (WCT9.wotsTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1) ∧
+          treeValue (builtTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1) ∧
         (j + 1 < height lay → wmerklePad w lay j = 0)) ∧
       ∀ i, i < chainCount lay →
         (depth answers ⟨routeLeaf index lay, i⟩ ≤ digits.getD i 0 →
-          wvalue w lay i = WCT9.wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
+          wvalue w lay i = leafValue answers lay (route index lay).2 (route index lay).1 digits i ∧
             (digits.getD i 0 < maxDigit lay i →
               wchainPads w lay i = (0, 0) ∧ wchainHeaderPad w lay i = 0)) ∧
         (digits.getD i 0 < depth answers ⟨routeLeaf index lay, i⟩ →
@@ -241,10 +245,10 @@ theorem layerPairP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : La
   generalize htop : evalWithAnswerFn answers (hashPath (merkleInput 3 lay.val (route index lay).2 (height lay)
       (route index lay).1 (wpath w lay (route index lay).1) (wmerklePad w lay)) (height lay - 1)
       (evalWithAnswerFn answers (layerLeafP w index lay digits))) = top at reaches'
-  have hpair : top = treeValue (WCT9.wotsTree answers lay (route index lay).2) (height lay - 1)
+  have hpair : top = treeValue (builtTree answers lay (route index lay).2) (height lay - 1)
         ((route index lay).1 / 2 ^ (height lay - 1)) ∧
       wpath w lay (route index lay).1 (height lay - 1) =
-        treeValue (WCT9.wotsTree answers lay (route index lay).2) (height lay - 1)
+        treeValue (builtTree answers lay (route index lay).2) (height lay - 1)
           ((route index lay).1 / 2 ^ (height lay - 1) ^^^ 1) := by
     unfold Extract.honestPair at reaches'
     rcases hq2 with h | h <;> simp only [h] at reaches' ⊢ <;>
@@ -252,11 +256,11 @@ theorem layerPairP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : La
       exact ⟨by first | exact reaches'.1 | exact reaches'.2, by first | exact reaches'.2 | exact reaches'.1⟩
   have hM := merklePath_extract answers 3 lay.val (route index lay).2 (height lay) (route index lay).1
     (height lay - 1) (wpath w lay (route index lay).1) (wmerklePad w lay)
-    (fun j => treeValue (WCT9.wotsTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1))
-    (fun step => treeValue (WCT9.wotsTree answers lay (route index lay).2) step ((route index lay).1 / 2 ^ step))
+    (fun j => treeValue (builtTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1))
+    (fun step => treeValue (builtTree answers lay (route index lay).2) step ((route index lay).1 / 2 ^ step))
     (evalWithAnswerFn answers (layerLeafP w index lay digits))
     (fun step hstep => merkleInput_tree_reference answers 3 lay.val (route index lay).2 (height lay)
-      (route index lay).1 _ _ (WCT9.wotsTree_correct answers lay (route index lay).2) hleafB step
+      (route index lay).1 _ _ (Correctness.builtTree_correct answers lay (route index lay).2) hleafB step
       (by omega))
     (by unfold pathValue; rw [htop]; exact hpair.1)
   rcases hM with ⟨hv0, hpath⟩ | ⟨step, hstep, hq, hhit⟩
@@ -291,11 +295,11 @@ theorem frame_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) 
     (qs : List Spec.Domain) (henc : Extract.encodingQuery w index lay msg ∈ qs)
     (hmerkle : ∀ j, j < height lay →
       wpath w lay (route index lay).1 j =
-          treeValue (WCT9.wotsTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1) ∧
+          treeValue (builtTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1) ∧
         (j + 1 < height lay ∨ lay.val = 0 → wmerklePad w lay j = 0))
     (hchains : ∀ i, i < chainCount lay →
       (depth answers ⟨routeLeaf index lay, i⟩ ≤ digits.getD i 0 →
-        wvalue w lay i = WCT9.wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
+        wvalue w lay i = leafValue answers lay (route index lay).2 (route index lay).1 digits i ∧
           (digits.getD i 0 < maxDigit lay i →
             wchainPads w lay i = (0, 0) ∧ wchainHeaderPad w lay i = 0)) ∧
       (digits.getD i 0 < depth answers ⟨routeLeaf index lay, i⟩ →

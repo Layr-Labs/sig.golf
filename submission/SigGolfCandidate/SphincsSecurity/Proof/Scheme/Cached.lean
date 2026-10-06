@@ -1,7 +1,16 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
+import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Eval
+import SigGolfCandidate.SphincsSecurity.Proof.Ots.ExtractChain
+import SigGolfCandidate.SphincsSecurity.Proof.Fts.HonestFts
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Support
 import SigGolfCandidate.SphincsSecurity.Proof.Hypertree.Settled
 
 section
+
+
+
+
+
 namespace SphincsSecurity.Concrete
 open OracleComp OracleSpec
 variable (f : QueryImpl HashSpec Id) (parameter : PublicParameter)
@@ -104,7 +113,11 @@ theorem treeFold_query_mem (lay : Layer) (tree : TreeIndex) (leafIdx : LeafIndex
         cases leafIdx.val.testBit levels <;> simp
 end SphincsSecurity.Concrete
 end
+
 section
+
+
+
 namespace SphincsSecurity
 open OracleComp OracleSpec
 def CachedRun {alpha : Type} (cache : QueryCache HashSpec) (f : QueryImpl HashSpec Id)

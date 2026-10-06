@@ -87,7 +87,7 @@ theorem cell_outer (secrets secrets' : Secrets) (labels labels' : Labels)
     (hs : ∀ a, secrets (.inl a) = secrets' (.inl a)) (hl : ∀ node, ¬Hidden node → labels node = labels' node)
     (node : Node) (hnode : ∀ q, node ≠ .wctChain q) :
     cell secrets node labels = cell secrets' node labels' := by
-  have hseeds : seedsOf secrets = seedsOf secrets' := funext fun a => hs (seedIdx a)
+  have hseeds : seedsOf secrets = seedsOf secrets' := funext hs
   have hchain : chainLabels labels = chainLabels labels' :=
     funext fun point => hl _ (fun ⟨a, q, _, he⟩ => Node.noConfusion he)
   cases node with
@@ -268,8 +268,9 @@ noncomputable def chainTable (ω : Omega U) : Guess.ChainTable where
     intro g a
     have h1 : Guess.seedOf (worldAnswers hU ω g) a = wctSeedOf (worldAnswers hU ω g) a := by
       unfold Guess.seedOf wctSeedOf
-      rw [secretsOf_wct]
-      rfl
+      by_cases h : a.2.2.2.val % 2 = 0
+      · rw [if_pos h]
+      · rw [if_neg h]
     rw [h1]
     change secretsOf (worldAnswers hU ω g) (.inr a) = _
     unfold worldAnswers

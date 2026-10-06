@@ -1,8 +1,12 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.EncodingCached
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.ForgeryClassify
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.EncodingProbability
 
 section
+
+
+
 namespace SphincsSecurity.Concrete
 open OracleComp OracleSpec
 theorem layerHeight_pos (lay : Layer) : 0 < layerHeight lay := by
@@ -48,7 +52,10 @@ theorem eval_layerMessage_eq_honestValue (f : QueryImpl HashSpec Id)
     rfl
 end SphincsSecurity.Concrete
 end
+
 section
+
+
 namespace SphincsSecurity.Concrete
 open OracleComp OracleSpec
 structure EncodingPosition where
@@ -83,7 +90,11 @@ theorem AtEncodingPosition.not_atPosition {parameter : PublicParameter} {input :
   cases position <;> simp [EncodingPosition.domain, Position.domain] at hdomain
 end SphincsSecurity.Concrete
 end
+
 section
+
+
+
 namespace SphincsSecurity.Concrete
 open OracleComp OracleSpec ENNReal
 set_option maxRecDepth 100000

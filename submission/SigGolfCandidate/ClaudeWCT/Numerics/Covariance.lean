@@ -1,7 +1,10 @@
 import SigGolfCandidate.ClaudeWCT.Numerics.CoverWF
+import SigGolfCandidate.T3.Gate6.BankMoments
 import SigGolfCandidate.T3.Gate6.BPORSPrefix
 
 section
+
+
 namespace ClaudeWCT.Numerics.Thinning
 open Finset ClaudeWCT.Numerics
 def tmom (d : List (ℕ × ℤ)) (X : ℤ) (r : ℕ) : ℤ := (d.map fun e => e.2 * (X + e.1) ^ r).sum
@@ -763,7 +766,10 @@ theorem nearEnv_moment [SampleableType (Fin 9 → C × β)] (val : β → Fin 7 
 end Near
 end ClaudeWCT.Numerics.Thinning
 end
+
 section
+
+
 namespace ClaudeWCT.Numerics.Covariance
 open ENNReal Finset
 open SphincsSecurity.Concrete (uniformWordAverage binomialAverage binomialAverage_succ binomialAverage_mono

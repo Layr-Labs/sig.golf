@@ -2,6 +2,8 @@ import SigGolfCandidate.T3M.Search.TopSegments
 import SigGolfCandidate.T3M.Search.TopWindow
 
 section
+
+
 namespace SigGolfCandidate.T3M.Search.TopUnpack
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)
@@ -111,13 +113,15 @@ theorem pair_shift (X : Nat) :
     omega
 end SigGolfCandidate.T3M.Search.TopUnpack
 end
+
 section
+
 namespace SigGolfCandidate.T3M.Search.TopUnpack
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 set_option maxRecDepth 8192
 set_option maxHeartbeats 800000
 set_option linter.unusedSimpArgs false
-def jumpCode : List (BitVec 32) := [0x780006f]
+def jumpCode : List (BitVec 32) := [125829231]
 def initCode : List (BitVec 32) := [133815,0x420a8a93,0x80f0f13]
 def ptrCode : List (BitVec 32) := [0x7f37e13,3022355,32378419]
 def initLayout : Rv.Layout := [(0,jumpCode),(1,initCode),(4,ptrCode)]
@@ -245,7 +249,9 @@ theorem update_spec {image : Image} {b : Nat} (hK : KernAt image b)
   · intro A _ _; simp [topState375,tb354_375.res,rv_simp]
 end SigGolfCandidate.T3M.Search.TopUnpack
 end
+
 section
+
 namespace SigGolfCandidate.T3M.Search.TopUnpack
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 set_option maxRecDepth 8192
@@ -301,7 +307,9 @@ theorem triple_spec {image : Image} {b : Nat} (hK : KernAt image b)
   · exact (((((f1.trans f2).trans f3).trans f4).trans f5).trans f6).mono (by simp)
 end SigGolfCandidate.T3M.Search.TopUnpack
 end
+
 section
+
 namespace SigGolfCandidate.T3M.Search.TopUnpack
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)
@@ -395,7 +403,9 @@ theorem body {image : Image} {b : Nat} (hK : KernAt image b) {s0 t : MachineStat
   · exact (hI.frame.trans ((f1.trans f2).trans f3)).mono (by simp)
 end SigGolfCandidate.T3M.Search.TopUnpack
 end
+
 section
+
 namespace SigGolfCandidate.T3M.Search.TopUnpack
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 set_option maxRecDepth 8192
@@ -444,7 +454,9 @@ theorem tail391_spec {image : Image} {b : Nat} (hK : KernAt image b)
   · intro A _ _; simp [topState391,tb354_391.res,rv_simp]
 end SigGolfCandidate.T3M.Search.TopUnpack
 end
+
 section
+
 namespace SigGolfCandidate.T3M.Search.TopUnpack
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 set_option maxRecDepth 8192
@@ -504,7 +516,9 @@ theorem tail_spec {image : Image} {b : Nat} (hK : KernAt image b)
   · exact ((((((f1.trans f2).trans f3).trans f4).trans f5).trans f6).trans f7).mono (by simp)
 end SigGolfCandidate.T3M.Search.TopUnpack
 end
+
 section
+
 namespace SigGolfCandidate.T3M.Search.TopUnpack
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)
@@ -540,7 +554,10 @@ theorem iter {image : Image} {b : Nat} (hK : KernAt image b) {s t : MachineState
       exact ⟨w,(hs.trans hw).of_eq (by omega) (by omega),hwI⟩
 end SigGolfCandidate.T3M.Search.TopUnpack
 end
+
 section
+
+
 namespace SigGolfCandidate.T3M.Search
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)

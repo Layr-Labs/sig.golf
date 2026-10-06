@@ -1,6 +1,8 @@
+import SigGolfCandidate.W9Machine.WctRelativeMem
 import SigGolfCandidate.W9Machine.WctTraceMem
 
 section
+
 namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify SigGolfCandidate.Rv RiscvZkvm.Rv64
 open SigGolfCandidate.T3 (Digest pad64)
@@ -51,7 +53,9 @@ theorem rungRRel_hashInput (s : MachineState) (rb : Reg) (digit p A : Nat) (dst 
     simpa only [Nat.add_assoc] using hhigh
 end W9Machine
 end
+
 section
+
 namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
 open SigGolfCandidate.T3 (Digest)
@@ -90,7 +94,9 @@ theorem copyFHRel_digest (s : MachineState) (rb : Reg) (B off dst p : Nat) (valu
     simpa only [Nat.add_assoc] using hv.2
 end W9Machine
 end
+
 section
+
 namespace W9Machine
 theorem ChainTrace.read_hash (tr : ChainTrace) (x : Nat) :
     tr.hash.read x =
@@ -104,7 +110,11 @@ theorem ChainTrace.read_hash (tr : ChainTrace) (x : Nat) :
   simp only [ChainTrace.read_put]
 end W9Machine
 end
+
 section
+
+
+
 namespace W9Machine
 set_option maxRecDepth 10000
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify SigGolfCandidate.Rv RiscvZkvm.Rv64
@@ -153,7 +163,9 @@ theorem hash_trace_mem (value : ChainWord → Word) (tr : ChainTrace) (s : Machi
   | omega
 end W9Machine
 end
+
 section
+
 namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify SigGolfCandidate.Rv RiscvZkvm.Rv64
 open SigGolfCandidate.Legacy.Riscv
@@ -217,7 +229,9 @@ theorem hash_trace_append (base : ChainWord → Word) (answers : List (BitVec 25
   simp [chainValue, hn, List.getD_eq_getElem?_getD]
 end W9Machine
 end
+
 section
+
 namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify SigGolfCandidate.Rv RiscvZkvm.Rv64
 open SigGolfCandidate.Legacy.Riscv

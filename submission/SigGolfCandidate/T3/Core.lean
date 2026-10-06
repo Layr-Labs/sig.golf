@@ -1,6 +1,8 @@
+import SigGolfCandidate.SphincsSecurity.Scheme
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Bytes
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.HashOutputSplit
 import SigGolfCandidate.T3.Rev
+import Mathlib
 import SigGolfCandidate.T3.FullCache.MacDefs
 
 namespace SigGolfCandidate.T3
@@ -22,7 +24,7 @@ def dataCount (lay : Layer) : Nat := if lay = 0 then 54 else 42
 def width (lay : Layer) (i : Nat) : Nat := if lay = 0 ∧ 51 ≤ i then 2 else 3
 def maxDigit (lay : Layer) (i : Nat) : Nat :=
   if lay = 0 then (if i < 51 then 4 else 3) else 7
-def target (lay : Layer) : Nat := ![128, 198, 198, 197] lay
+def target (lay : Layer) : Nat := ![126, 197, 197, 196] lay
 def encodedBits (lay : Layer) : Nat := if lay = 0 then 125 else 126
 def capacity (lay : Layer) : Nat := if lay = 0 then 213 else 301
 def attemptLimit : Nat := 2 ^ 20
@@ -215,7 +217,7 @@ def topCredit (value : Digest) : Nat :=
 def encCredit (lay : Layer) (value : Digest) : Nat := if lay = 0 then topCredit value else 0
 def searchDecode (lay : Layer) (value : Digest) : Option (List Nat) :=
   if encCredit lay value < creditFloor lay then none else decode lay value
-def dummyTop : List Nat := [4,4] ++ List.replicate 40 3 ++ List.replicate 12 0
+def dummyTop : List Nat := List.replicate 42 3 ++ List.replicate 12 0
 def encodingInput (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : BitVec 32) : HashInput :=
   bytesLE 16 message ++ bytesLE 16 (header 4 lay.val tree 0 leaf) ++ bytesLE 4 counter
 def counterSearch (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : Nat) :

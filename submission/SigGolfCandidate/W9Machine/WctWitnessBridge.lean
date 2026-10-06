@@ -1,4 +1,5 @@
 import SigGolfCandidate.W9Machine.WctChainInvDefs
+import SigGolfCandidate.T3M.Verify.ChainSem
 
 set_option autoImplicit false
 namespace W9Machine.Chain

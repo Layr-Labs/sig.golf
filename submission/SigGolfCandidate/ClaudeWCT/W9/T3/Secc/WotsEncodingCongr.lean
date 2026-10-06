@@ -1,6 +1,15 @@
+import SigGolfCandidate.T3.Secc.WotsEncodingCongr
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskRef
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsReference
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.SeccLaw
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEvents
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskCharge
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMask
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskChain
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskBase
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CanonEncoding
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CanonGraphHonest
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CanonGraph
 
 namespace ClaudeWCT.W9.T3.Security.Wots
 open SigGolfCandidate SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
@@ -25,26 +34,6 @@ theorem respects_signForest (index : Nat) (output : HashOutput) :
 theorem respects_digestSearch (rho : Digest) (message : Message) :
     ∀ fuel counter, Respects Enc.NonEnc (ClaudeWCT.WCT9.digestSearch rho message counter fuel) :=
   ClaudeWCT.WCT9.Wots.Enc.respects_digestSearch rho message
-theorem respects_packedSecret (lay : Layer) (tree q : Nat) (carry : Digest) :
-    Respects Enc.NonEnc (WCT9.packedSecret (WCT9.lowerSeedPair lay tree) q carry) := by
-  unfold WCT9.packedSecret WCT9.lowerSeedPair
-  split
-  · exact Respects.bind (respects_privatePair _ _ _ _ _) fun _ => Respects.pure' _
-  · exact Respects.pure' _
-theorem respects_buildLeafP (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
-    Respects Enc.NonEnc (WCT9.buildLeafP lay tree leaf digits carry) := by
-  unfold WCT9.buildLeafP
-  refine Respects.bind (Respects.foldlM _ _ (fun i _ state => ?_) _) fun state =>
-    Respects.bind (respects_leafHash _ _ _ _) fun _ => Respects.pure' _
-  exact Respects.bind (respects_packedSecret _ _ _ _) fun sc =>
-    Respects.bind (respects_chain _ _ _ _ _ _ _) fun _ =>
-      Respects.bind (respects_chain _ _ _ _ _ _ _) fun _ => Respects.pure' _
-theorem respects_buildTreeP (lay : Layer) (tree selected : Nat) (digits : List Nat) :
-    Respects Enc.NonEnc (WCT9.buildTreeP lay tree selected digits) := by
-  unfold WCT9.buildTreeP
-  exact Respects.bind (Respects.foldlM _ _ (fun leaf _ state =>
-    Respects.bind (respects_buildLeafP _ _ _ _ _) fun _ => Respects.pure' _) _) fun state =>
-      Respects.bind (respects_buildLevels _ _ _ _ _ (by decide)) fun _ => Respects.pure' _
 end Programs
 section RespAt
 variable {T : Answers} {S : Spec.Domain → Prop}
@@ -170,14 +159,9 @@ theorem respAt_signLayers (T : Answers) (cache : T3.Cache) (index : Nat) (hindex
             split_ifs with hn0
             · exact RespAt.bind (RespAt.of_respects (respects_signTop _ _ _) fun _ h => honestQ_of_nonEnc h)
                 (RespAt.pure' _)
-            · have hl0 : (Fin.ofNat 4 n : Layer) ≠ 0 := by
-                intro h
-                have hv : (Fin.ofNat 4 n : Layer).val = n := Nat.mod_eq_of_lt (by omega)
-                rw [h] at hv
-                exact hn0 hv.symm
-              refine RespAt.bind (RespAt.of_respects (respects_buildTreeP _ _ _ _)
+            · refine RespAt.bind (RespAt.of_respects (respects_buildTree _ _ _ _)
                 fun _ h => honestQ_of_nonEnc h) ?_
-              rw [WCT9.eval_buildTreeP_result T hl0 _ _ digits hvalid (route_leaf_bound index _)]
+              rw [Correctness.eval_buildTree_result T _ _ _ digits hvalid (route_leaf_bound index _)]
               dsimp only
               obtain ⟨m, rfl⟩ : ∃ m, n = m + 1 := ⟨n - 1, by omega⟩
               refine RespAt.bind (ih (by omega) _ (fun m' hm' => ?_)) ?_
@@ -243,23 +227,12 @@ theorem honestForest_congr_nonEnc {T T' : Answers} (h : ∀ q, Enc.NonEnc q → 
     Extract.honestForest T' index = Extract.honestForest T index := by
   rw [Extract.honestForest_eq_wct9, Extract.honestForest_eq_wct9]
   exact ClaudeWCT.WCT9.Wots.Enc.honestForest_congr h index
-theorem wotsTree_congr_nonEnc {T T' : Answers} (h : ∀ q, Enc.NonEnc q → T' q = T q) (lay : Layer) (tree : Nat) :
-    WCT9.wotsTree T' lay tree = WCT9.wotsTree T lay tree := by
-  by_cases hl : lay = 0
-  · subst hl
-    rw [WCT9.wotsTree_top, WCT9.wotsTree_top]
-    exact SigGolfCandidate.T3.Security.Wots.builtTree_congr_nonEnc h 0 tree
-  · have h0 : 0 < 2 ^ height lay := by positivity
-    have he := (Enc.respects_buildTreeP lay tree 0 []).eval_eq h
-    rw [WCT9.eval_buildTreeP_result T' hl tree 0 [] (Cost.validDigits_nil lay) h0,
-      WCT9.eval_buildTreeP_result T hl tree 0 [] (Cost.validDigits_nil lay) h0] at he
-    exact congrArg Prod.fst he
 theorem leafMsg_congr_nonEnc {T T' : Answers} (h : ∀ q, Enc.NonEnc q → T' q = T q) (L : LeafAddr) :
     leafMsg T' L = leafMsg T L := by
   unfold leafMsg
   split
   · unfold Extract.honestPair
-    rw [wotsTree_congr_nonEnc h]
+    rw [builtTree_congr_nonEnc h]
   · rw [honestForest_congr_nonEnc h _]
 theorem nonEnc_of_honest {T T' : Answers} (h : AgreeOn (HonestQ T) T T') : ∀ q, Enc.NonEnc q → T' q = T q :=
   h.nonEnc fun _ hq => honestQ_of_nonEnc hq

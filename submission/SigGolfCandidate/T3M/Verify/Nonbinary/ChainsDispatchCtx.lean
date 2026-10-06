@@ -1,7 +1,10 @@
 import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsDispatchArith
 import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodOne
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecks
+import SigGolfCandidate.T3.Nonbinary.SourceDigits
 
 section
+
 namespace SigGolfCandidate.T3M.Nonbinary
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)
@@ -27,7 +30,7 @@ theorem source_field (v : Digest) (q : Nat) (hq : q<17) :
   split_ifs with h
   · simpa using extract_field v 0 (7*q) (by omega)
   · rw [extract_field v 63 (7*(q-9)) (by omega),show 63+7*(q-9)=7*q by omega]
-theorem dispatch_step {p q : Nat} (hq : q<17) (hp : p<251927)
+theorem dispatch_step {p q : Nat} (hq : q<17) (hp : p<210432)
     (hrun : vrun p 5=some (dispatchR q)) (s : MachineState) (v : Digest)
     (hpc : s.pc=pcOf p) (h16 : s.getReg .x16=v.extractLsb' 0 64)
     (h17 : s.getReg .x17=v.extractLsb' 63 64)
@@ -48,39 +51,37 @@ theorem dispatch_step {p q : Nat} (hq : q<17) (hp : p<251927)
     rw [RegFile.get_set_ne _ _ (show r≠.x14 by simpa using hr),RegFile.init_get_eval]
   · intro A _ _
     simp [dispatchR,rv_simp]
-theorem tail_dispatch_step {p : Nat} (hp : p<251927)
+theorem tail_dispatch_step {p : Nat} (hp : p<210432)
     (hrun : vrun p 5=some tailDispatchR) (s : MachineState) (k : Nat) (hk : k<64)
-    (hpc : s.pc=pcOf p) (h29 : s.getReg .x29=BitVec.ofNat 64 k) (h15 : s.getReg .x15=712704#64) :
-    ∃t, Steps Images.verifyImage s 3 3 t ∧ t.pc=pcOf (entW 17 k) ∧
-      RegsExcept s t [.x14,.x15] ∧ Frame s t (fun _ => False) ∧ t.getReg .x15 = 712704#64 := by
+    (hpc : s.pc=pcOf p) (h29 : s.getReg .x29=BitVec.ofNat 64 k) :
+    ∃t, Steps Images.verifyImage s 4 4 t ∧ t.pc=pcOf (entW 17 k) ∧
+      RegsExcept s t [.x14,.x15] ∧ Frame s t (fun _ => False) ∧ t.getReg .x15 = 843776#64 := by
   refine ⟨tailDispatchR.toState s,piece_steps45 hrun hp s hpc (by simp [tailDispatchR]),?_,?_,?_,?_⟩
-  · simp only [Result.toState_pc,tailDispatchR,E.eval,BinOp.eval,h29,h15]
-    change (((BitVec.ofNat 64 k <<< 10)+BitVec.ofNat 64 712704)+BitVec.ofNat 64 18446744073709550880) &&& ~~~1#64=pcOf (entW 17 k)
-    rw [ofNat_shl,ofNat_add_ofNat,ofNat_add_ofNat]
-    have he : BitVec.ofNat 64 (k*2^10+712704+18446744073709550880) = BitVec.ofNat 64 (k*1024+711968) := by
-      apply BitVec.eq_of_toNat_eq
-      simp only [BitVec.toNat_ofNat]
-      norm_num
-      omega
-    rw [he,even_andNot1' _ (by omega)]
+  · simp only [Result.toState_pc,tailDispatchR,E.eval,BinOp.eval,h29]
+    change ((BitVec.ofNat 64 k <<< 5)+BitVec.ofNat 64 843776) &&& ~~~1#64=pcOf (entW 17 k)
+    rw [ofNat_shl,ofNat_add_ofNat,even_andNot1' _ (by omega)]
     unfold entW pcOf
     norm_num
     congr 1 <;> omega
   · intro r hr
     rw [Result.toState_getReg]
     simp only [tailDispatchR]
-    rw [RegFile.get_set_ne _ _ (ne_of_not_mem hr (by simp)),RegFile.init_get_eval]
+    rw [RegFile.get_set_ne _ _ (ne_of_not_mem hr (by simp)),
+      RegFile.get_set_ne _ _ (ne_of_not_mem hr (by simp)),RegFile.init_get_eval]
   · intro A _ _
     simp [tailDispatchR,rv_simp]
   · rw [Result.toState_getReg]
     simp only [tailDispatchR]
-    rw [RegFile.get_set_ne _ _ (by decide),RegFile.init_get_eval]
-    exact h15
+    rw [RegFile.get_set_self _ _ (by decide)]
+    rfl
 #print axioms dispatch_step
 #print axioms tail_dispatch_step
 end SigGolfCandidate.T3M.Nonbinary
 end
+
 section
+
+
 namespace SigGolfCandidate.T3M.Nonbinary.NCtx
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Nonbinary SigGolfCandidate.T3
@@ -136,7 +137,11 @@ theorem group_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     · simp only [chainsCost,List.range'_succ,List.map_cons,List.sum_cons];omega
 end SigGolfCandidate.T3M.Nonbinary.NCtx
 end
+
 section
+
+
+
 namespace SigGolfCandidate.T3M.Nonbinary.NCtx
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Nonbinary SigGolfCandidate.T3
@@ -169,13 +174,16 @@ theorem fit_tail (c : NCtx) {v : Digest} (hf : c.Fit v) (hv : v.toNat<2^125) :
   norm_num [mx,coreDigit]
   omega
 theorem decode_facts {v : Digest} {ds : List Nat} (h : decode 0 v=some ds) :
-    v.toNat<2^125 ∧ topRanksValid v=true ∧ (Search.topDigits v).sum=128 := by
+    v.toNat<2^125 ∧ topRanksValid v=true ∧ (Search.topDigits v).sum=126 := by
   rw [Search.decode_top] at h
   split_ifs at h with hgood
   · exact hgood
 end SigGolfCandidate.T3M.Nonbinary.NCtx
 end
+
 section
+
+
 namespace SigGolfCandidate.T3M.Nonbinary.NCtx
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Nonbinary SigGolfCandidate.T3
@@ -188,16 +196,14 @@ structure Encoded (v : Digest) (s : MachineState) : Prop where
   tail : s.getReg .x29=BitVec.ofNat 64 (v.toNat/2^119)
   mask : s.getReg .x6=130048#64
   table : s.getReg .x15=712704#64
-theorem dispatch_at (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<17) :
-    vrun (c.endPc (3*q+2)) 5=some (if q<16 then dispatchR (q+1) else tailDispatchR) := by
+theorem dispatch_at (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<18) :
+    vrun (c.endPc (3*q+2)) 5=some (if q<16 then dispatchR (q+1) else if q=16 then tailDispatchR else retR) := by
   have hh := c.blk_at hds (3*q+2) (by omega)
   unfold blockCheck at hh
   simp only [Bool.and_eq_true] at hh
+  have h := rOK_eq hh.2
   have eq : (3*q+2)/3=q := by omega
-  have hhR := hh.2
-  simp only [dispatchOK, eq, if_pos hq] at hhR
-  have h := rOK_eq hhR
-  simpa only [endPc,qX,eq,show (3*q+2)%3=2 by omega,if_false,Nat.reduceEqDiff] using h
+  simpa only [dispatchOK,endPc,qX,eq,show (3*q+2)%3=2 by omega,if_false,Nat.reduceEqDiff] using h
 theorem end_dispatch (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState} {v : Digest}
     (he : Encoded v s0) (hf : c.Fit v) (hv : topRanksValid v=true)
     (q : Nat) (hq : q<16) (acc : List Digest) (s : MachineState)
@@ -206,9 +212,9 @@ theorem end_dispatch (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineStat
   obtain ⟨⟨hR,hF,hS⟩,hlen,hpc⟩ := hs
   have hr := c.dispatch_at hds q (by omega)
   rw [if_pos hq] at hr
-  have hbound : c.endPc (3*q+2)<251927 := by
+  have hbound : c.endPc (3*q+2)<210432 := by
     have := c.qX_lt (3*q+2)
-    simpa only [endPc,show (3*q+2)%3=2 by omega,if_false,Nat.reduceEqDiff] using (show c.qX (3*q+2)<251927 by omega)
+    simpa only [endPc,show (3*q+2)%3=2 by omega,if_false,Nat.reduceEqDiff] using (show c.qX (3*q+2)<210432 by omega)
   obtain ⟨t,st,pt,rt,ft⟩ := dispatch_step (by omega) hbound hr s v hpc
     ((hR _ (by decide)).trans he.lo) ((hR _ (by decide)).trans he.hi)
     ((hR _ (by decide)).trans he.mask) ((hR _ (by decide)).trans he.table)
@@ -244,15 +250,15 @@ theorem tailInitial_orig (c : NCtx) {s0 t : MachineState} (h0 : c.Orig0 s0) :
 theorem end_tail (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState} {v : Digest}
     (he : Encoded v s0) (hf : c.Fit v) (hv : v.toNat<2^125)
     (acc : List Digest) (s : MachineState) (hs : c.EndInv s0 50 acc s) :
-    ∃t,Steps vimage s 3 3 t ∧ c.ChainIn (tailInitial s0 t) 51 acc t ∧ t.getReg .x15 = 712704#64 := by
+    ∃t,Steps vimage s 4 4 t ∧ c.ChainIn (tailInitial s0 t) 51 acc t ∧ t.getReg .x15 = 843776#64 := by
   obtain ⟨⟨hR,hF,hS⟩,hlen,hpc⟩ := hs
   have hr := c.dispatch_at hds 16 (by decide)
   norm_num at hr
-  have hbound : c.endPc 50<251927 := by
+  have hbound : c.endPc 50<210432 := by
     have := c.qX_lt 50
-    simpa only [endPc,Nat.reduceMod,if_false,Nat.reduceEqDiff] using (show c.qX 50<251927 by omega)
+    simpa only [endPc,Nat.reduceMod,if_false,Nat.reduceEqDiff] using (show c.qX 50<210432 by omega)
   obtain ⟨t,st,pt,rt,ft,r15⟩ := tail_dispatch_step hbound hr s (v.toNat/2^119) (by omega) hpc
-    ((hR _ (by decide)).trans he.tail) ((hR _ (by decide)).trans he.table)
+    ((hR _ (by decide)).trans he.tail)
   refine ⟨t,st,⟨⟨fun x hx => ?_,?_,fun j hj => ?_⟩,by omega,?_⟩,r15⟩
   · by_cases hx15 : x=.x15
     · subst x;rw [tailInitial_15]

@@ -1,3 +1,4 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.CachedSigningViews
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.NormalizedTargetMatches
 

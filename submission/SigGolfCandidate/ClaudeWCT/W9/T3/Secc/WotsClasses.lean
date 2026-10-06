@@ -2,6 +2,8 @@ import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsStructuralFinal
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsTwoEdge
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEncodingMatch
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsTransportCount
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsTransportShort
+import SigGolfCandidate.T3.Secc.WotsSmallContract
 import SigGolfCandidate.T3.Secc.WotsClasses
 
 namespace ClaudeWCT.W9.T3.Security.Wots

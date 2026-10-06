@@ -1,7 +1,12 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.CacheMessageWeight
+import SigGolfCandidate.SphincsSecurity.Proof.Fts.SubsetTargetAssignment
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.NormalizedTargetMatches
 
 section
+
+
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec ENNReal
 attribute [local instance] Classical.propDecidable
@@ -27,7 +32,11 @@ theorem cachedTargetSubsetMatch_cacheQuery_self (parameter : PublicParameter) (b
   simp only [if_true, ite_self, add_zero]
 end SphincsSecurity.Concrete
 end
+
 section
+
+
+
 set_option autoImplicit true
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec ENNReal

@@ -1,7 +1,14 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
+import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Arith
+import SigGolfCandidate.SphincsSecurity.Scheme
+import SigGolfCandidate.SphincsSecurity.Proof.SignatureLayout
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.ExtractOts
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.HonestFts
 
 section
+
+
+
 namespace SphincsSecurity.Concrete
 def ScheduleRead (r : Nat × Nat) : Prop := r.1 < ftsTreeHeight ∧ r.2 < 2 ^ (ftsTreeHeight - r.1)
 def ScheduleGood (state : ScheduleState) : Prop :=
@@ -161,7 +168,9 @@ theorem honestFts_congr_tree (leaves : IndexGroup → FtsLeaf) (secret : FtsLeaf
     hnode r.1 r.2 hread.1 hread.2
 end SphincsSecurity.Concrete
 end
+
 section
+
 open OracleComp OracleSpec
 namespace SphincsSecurity
 set_option backward.isDefEq.respectTransparency false
@@ -171,7 +180,13 @@ def restrictPath (lay : Layer) (path : Fin maxLayerHeight → α) : Fin (layerHe
   fun level => path (level.castLE (layerHeight_le lay))
 end SphincsSecurity
 end
+
 section
+
+
+
+
+
 namespace SphincsSecurity.Concrete
 open OracleComp
 variable (f : QueryImpl HashSpec Id)

@@ -1,7 +1,10 @@
+import Mathlib
+import SigGolfCandidate.ClaudeWCT.WCT9.Core
 import SigGolfCandidate.ClaudeWCT.WCT9.Basic
 import SigGolfCandidate.T3.BPORS
 
 section
+
 namespace ClaudeWCT.Guess
 section Slots
 variable {κ τ : Type}
@@ -72,7 +75,12 @@ theorem near_exposed {Exp : κ → (τ → ℕ) → Prop} {u : κ → τ → ℕ
 end Slots
 end ClaudeWCT.Guess
 end
+
 section
+
+
+
+
 namespace ClaudeWCT.Guess
 open OracleComp OracleSpec
 open SigGolfCandidate.T3 ClaudeWCT.WCT9
@@ -87,9 +95,9 @@ theorem chainOf_injective (N : HashOutput) {k k' : Fin 9} {t t' : Fin 7}
     (h : chainOf N k t = chainOf N k' t') : k = k' ∧ t = t' := by
   simp only [chainOf, Prod.mk.injEq] at h
   exact ⟨h.2.1, h.2.2.2⟩
-def deficit (N : HashOutput) (k : Fin 9) (t : Fin 7) : Nat := wordDigit (rank N k) t
-theorem deficit_le (N : HashOutput) (k : Fin 9) (t : Fin 7) : deficit N k t ≤ 3 := wordDigit_le_three _ _
-theorem deficit_sum (N : HashOutput) (k : Fin 9) : ∑ t, deficit N k t = 6 := wordStep_count _
+def deficit (N : HashOutput) (k : Fin 9) (t : Fin 7) : Nat := digit (rank N k) t
+theorem deficit_le (N : HashOutput) (k : Fin 9) (t : Fin 7) : deficit N k t ≤ 3 := digit_le_three _ _
+theorem deficit_sum (N : HashOutput) (k : Fin 9) : ∑ t, deficit N k t = 6 := step_count _
 def probeInput (a : ChainAddr) (p : Fin 3) (c : Digest) : HashInput :=
   WCT9.chainInput a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p.val c
 theorem probeInput_length (a : ChainAddr) (p : Fin 3) (c : Digest) : (probeInput a p c).length = 64 := by
@@ -215,16 +223,16 @@ theorem decodeProbe_of_hdrBlock {x : HashInput} {h : BitVec 128} (hx : hdrBlock 
   rw [this] at hb
   omega
 def seedOf (A : Correctness.Answers) (a : ChainAddr) : Digest :=
-  WCT9.seedHalf (evalWithAnswerFn A (WCT9.ftsSeedPair a.1.val a.2.1.val (WCT9.ftsOrdinal a.2.2.1.val a.2.2.2.val / 2)))
-    (WCT9.ftsOrdinal a.2.2.1.val a.2.2.2.val)
+  let pair := evalWithAnswerFn A (privatePair 8 a.2.1.val a.1.val 0 (4 * a.2.2.1.val + a.2.2.2.val / 2))
+  if a.2.2.2.val % 2 = 0 then pair.1 else pair.2
 def chainValue (A : Correctness.Answers) (a : ChainAddr) (p : Nat) : Digest :=
   evalWithAnswerFn A (WCT9.chain a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val 0 p (seedOf A a))
 def honestProbe (A : Correctness.Answers) (c : GCoord) : HashInput := probeInput c.1 c.2 (chainValue A c.1 c.2.val)
 def ChainCovered (X : List HashOutput) (a : ChainAddr) (p : Nat) : Prop :=
-  ∃ out ∈ X, out.toNat % 2 ^ 31 = a.1.val ∧ child out a.2.1 = a.2.2.1 ∧ 3 - wordDigit (rank out a.2.1) a.2.2.2 ≤ p
+  ∃ out ∈ X, out.toNat % 2 ^ 31 = a.1.val ∧ child out a.2.1 = a.2.2.1 ∧ 3 - digit (rank out a.2.1) a.2.2.2 ≤ p
 def SlotCovered (X : List HashOutput) (N : HashOutput) (k : Fin 9) (t : Fin 7) : Prop :=
   ∃ out ∈ X, out.toNat % 2 ^ 31 = N.toNat % 2 ^ 31 ∧ child out k = child N k ∧
-    deficit N k t ≤ wordDigit (rank out k) t
+    deficit N k t ≤ digit (rank out k) t
 theorem ChainCovered.mono_pos {X : List HashOutput} {a : ChainAddr} {p p' : Nat} (h : p ≤ p')
     (hc : ChainCovered X a p) : ChainCovered X a p' := by
   obtain ⟨out, hout, h1, h2, h3⟩ := hc
@@ -240,12 +248,12 @@ theorem slotCovered_iff_chainCovered (X : List HashOutput) (N : HashOutput) (k :
   · rintro ⟨out, hout, h1, h2, h3⟩
     exact ⟨out, hout, h1, h2, by simp only [chainOf]; omega⟩
   · rintro ⟨out, hout, h1, h2, h3⟩
-    have hd := wordDigit_le_three (rank out k) t
+    have hd := digit_le_three (rank out k) t
     exact ⟨out, hout, h1, h2, by simp only [chainOf] at h3; omega⟩
 theorem slotCovered_iff_covered (X : List HashOutput) (N : HashOutput) (k : Fin 9) (t : Fin 7) :
     SlotCovered X N k t ↔
       Covered (fun k d => ∃ out ∈ X, out.toNat % 2 ^ 31 = N.toNat % 2 ^ 31 ∧ child out k = child N k ∧
-        d = fun t => wordDigit (rank out k) t) (deficit N) k t := by
+        d = fun t => digit (rank out k) t) (deficit N) k t := by
   constructor
   · rintro ⟨out, hout, h1, h2, h3⟩
     exact ⟨_, ⟨out, hout, h1, h2, rfl⟩, h3⟩
@@ -259,7 +267,7 @@ theorem caseC_slots (X : List HashOutput) (N : HashOutput) :
         1 ≤ deficit N k t ∧ ¬ChainCovered X (chainOf N k t) (3 - deficit N k t) ∧
         1 ≤ deficit N k' t' ∧ ¬ChainCovered X (chainOf N k' t') (3 - deficit N k' t')) := by
   have h := three_way (fun k d => ∃ out ∈ X, out.toNat % 2 ^ 31 = N.toNat % 2 ^ 31 ∧
-      child out k = child N k ∧ d = fun t => wordDigit (rank out k) t) (deficit N) (s := 6) (w := 3)
+      child out k = child N k ∧ d = fun t => digit (rank out k) t) (deficit N) (s := 6) (w := 3)
     (deficit_sum N) (deficit_le N) (by decide)
   simp only [← slotCovered_iff_covered, slotCovered_iff_chainCovered] at h
   rcases h with h | ⟨k, t, h1, h2, h3⟩ | ⟨k, t, k', t', hne, h1, h2, h3, h4⟩
@@ -303,8 +311,8 @@ theorem queried_mapM_mem {α β : Type} (A : Correctness.Answers) (f : α → M 
         rw [Security.SourceReplay.queried_bind]
         exact List.mem_append_left _ (ih hx)
 theorem recoverCoordinate_probe (A : Correctness.Answers) (sig : WCT9.Signature) (index : Nat) (output : HashOutput)
-    (coord : WCT9.Coord) (t : Fin 7) (hu : 1 ≤ wordDigit (rank output coord) t) :
-    (.inl (.inr (WCT9.chainInput index coord.val (child output coord).val t.val (3 - wordDigit (rank output coord) t)
+    (coord : WCT9.Coord) (t : Fin 7) (hu : 1 ≤ digit (rank output coord) t) :
+    (.inl (.inr (WCT9.chainInput index coord.val (child output coord).val t.val (3 - digit (rank output coord) t)
         ((sig.openings coord).values t))) : Spec.Domain) ∈
       Security.SourceReplay.queried A (WCT9.recoverCoordinate sig index output coord) := by
   unfold WCT9.recoverCoordinate

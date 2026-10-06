@@ -1,7 +1,11 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Final.Pending
+import SigGolfCandidate.ClaudeWCT.WCT9.Cost
 import SigGolfCandidate.ClaudeWCT.W9.New.F1a.Clean
 
 section
+
+
+
 open OracleComp OracleSpec SigGolfCandidate.Legacy SigGolfCandidate.Bridge
 namespace ClaudeWCT.W9.T3M.Final
 open SigGolfCandidate.T3 (M Spec keygen Cache Digest realize)
@@ -129,7 +133,9 @@ theorem submission_complete (P : Pending I) (S : SourceFacts) : (submission I).C
   exact S.source_completeness sk
 end ClaudeWCT.W9.T3M.Final
 end
+
 section
+
 set_option Elab.async false
 open OracleComp OracleSpec SigGolfCandidate.Legacy SigGolfCandidate.Bridge ENNReal OracleComp.EvalDist
 namespace ClaudeWCT.W9.T3M.Final

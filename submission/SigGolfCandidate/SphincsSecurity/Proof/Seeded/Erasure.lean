@@ -2,6 +2,7 @@ import SigGolfCandidate.SphincsSecurity.Proof.Seeded.AdaptiveSeedGuessing
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Execution
 
 section
+
 open OracleComp OracleSpec ENNReal
 namespace SphincsSecurity.Seeded
 set_option backward.isDefEq.respectTransparency false
@@ -147,7 +148,10 @@ theorem hashQueryBound_of_seed_caches {α : Type} (computation : OracleComp Orac
           (hbound seed (havoid seed hseed).2) _ (htransfer seed hseed).1).2
 end SphincsSecurity.Seeded
 end
+
 section
+
+
 open OracleComp OracleSpec
 namespace SphincsSecurity.Seeded
 set_option backward.isDefEq.respectTransparency false

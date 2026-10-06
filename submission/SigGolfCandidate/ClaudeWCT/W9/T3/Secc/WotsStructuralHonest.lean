@@ -1,6 +1,11 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsReference
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMask
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CanonGraphHonest
+import SigGolfCandidate.ClaudeWCT.W9.New.Positions.FtsBridge
+import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Layer
+import SigGolfCandidate.ClaudeWCT.WCT9.Honest
+import SigGolfCandidate.ClaudeWCT.W9.New.BC.Rows
+import SigGolfCandidate.T3.Secc.WotsStructuralHonest
 
 namespace ClaudeWCT.W9.T3.Security.Wots.Structural
 open OracleComp OracleSpec ENNReal
@@ -167,7 +172,7 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
 theorem sat_chain (T : Answers) (lay : Layer) (tree leaf i start count : Nat)
     (htree : tree < 2 ^ 40) (hleaf : leaf < 2 ^ 32) (hi : i < 2 ^ 24) (hcount : start + count ≤ 256) :
     QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.chain lay tree leaf i start count
-      (honestChainValue T lay tree leaf i (WCT9.wotsSeed T lay tree leaf i) start)) := by
+      (honestChainValue T lay tree leaf i (leafSeed T lay tree leaf i) start)) := by
   induction count with
   | zero => rw [chain_zero]; exact QueriesSat.pure' _
   | succ count ih =>
@@ -183,60 +188,58 @@ theorem sat_chain (T : Answers) (lay : Layer) (tree leaf i start count : Nat)
           omega
         exact honestQuery_honest T (.chain lay tree leaf i (start + count)) hg
       · exact Or.inl (posOf_chain_offgraph lay tree leaf i (start + count) _ hoff)
-theorem sat_leafHalf (T : Answers) (lay : Layer) (hl : lay = 0) (tree leaf : Nat) (digits : List Nat)
+theorem sat_leafHalf (T : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat)
     (hvalid : Cost.ValidDigits lay digits) (signatureOnly : Bool) (pair : Nat) (rows : List Digest × List Digest)
     (half : Nat) (hh : half < 2) (htree : tree < 2 ^ 40) (hleaf : leaf < 2 ^ 32) :
     QueriesSat T (HonestQuery T) (Correctness.leafHalf lay tree leaf digits signatureOnly pair
       (evalWithAnswerFn T (privatePair 0 lay.val tree pair leaf)) rows half) := by
-  subst hl
   unfold Correctness.leafHalf
-  by_cases hi : chainCount (0 : Layer) ≤ 2 * pair + half
+  by_cases hi : chainCount lay ≤ 2 * pair + half
   · simp only [hi, ite_true]
     exact QueriesSat.pure' _
   · simp only [hi, ite_false]
-    rw [← Correctness.leafSeed_pair T 0 tree leaf pair half hh, ← WCT9.wotsSeed_top]
+    rw [← Correctness.leafSeed_pair T lay tree leaf pair half hh]
     have hd := hvalid (2 * pair + half) (by omega)
-    have hw := Mask.width_le (0 : Layer) (2 * pair + half)
-    have hc := Mask.chainCount_le (0 : Layer)
+    have hw := Mask.width_le lay (2 * pair + half)
+    have hc := Mask.chainCount_le lay
     refine QueriesSat.bind ?_ ?_
-    · rw [← honestChainValue_zero T (0 : Layer) tree leaf (2 * pair + half) (WCT9.wotsSeed T (0 : Layer) tree leaf (2 * pair + half))]
-      exact sat_chain T (0 : Layer) tree leaf _ 0 _ htree hleaf (by omega) (by omega)
+    · rw [← honestChainValue_zero T lay tree leaf (2 * pair + half) (leafSeed T lay tree leaf (2 * pair + half))]
+      exact sat_chain T lay tree leaf _ 0 _ htree hleaf (by omega) (by omega)
     · change QueriesSat T (HonestQuery T) (if signatureOnly = true then _ else
-        (SigGolfCandidate.T3.chain (0 : Layer) tree leaf (2 * pair + half) (digits.getD (2 * pair + half) 0)
-          (maxDigit (0 : Layer) (2 * pair + half) - digits.getD (2 * pair + half) 0)
-          (honestChainValue T (0 : Layer) tree leaf (2 * pair + half) (WCT9.wotsSeed T (0 : Layer) tree leaf (2 * pair + half))
+        (SigGolfCandidate.T3.chain lay tree leaf (2 * pair + half) (digits.getD (2 * pair + half) 0)
+          (maxDigit lay (2 * pair + half) - digits.getD (2 * pair + half) 0)
+          (honestChainValue T lay tree leaf (2 * pair + half) (leafSeed T lay tree leaf (2 * pair + half))
             (digits.getD (2 * pair + half) 0)) >>= _))
       split
       · exact QueriesSat.pure' _
-      · exact QueriesSat.bind (sat_chain T (0 : Layer) tree leaf _ _ _ htree hleaf (by omega) (by omega))
+      · exact QueriesSat.bind (sat_chain T lay tree leaf _ _ _ htree hleaf (by omega) (by omega))
           (QueriesSat.pure' _)
-theorem sat_leafRows (T : Answers) (lay : Layer) (hl : lay = 0) (tree leaf : Nat) (digits : List Nat)
+theorem sat_leafRows (T : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat)
     (hvalid : Cost.ValidDigits lay digits) (signatureOnly : Bool) (htree : tree < 2 ^ 40) (hleaf : leaf < 2 ^ 32) :
     QueriesSat T (HonestQuery T) (Correctness.leafRows lay tree leaf digits signatureOnly) := by
   unfold Correctness.leafRows
   refine QueriesSat.foldlM_range _ _ (fun _ _ => True) _ trivial (fun pair _ rows _ => ⟨?_, trivial⟩)
   refine QueriesSat.bind (sat_privatePair T _ _ _ _ _) ?_
   exact QueriesSat.foldlM_range 2 _ (fun _ _ => True) rows trivial (fun half hh rows' _ =>
-    ⟨sat_leafHalf T lay hl tree leaf digits hvalid signatureOnly pair rows' half hh htree hleaf, trivial⟩)
-theorem sat_buildLeaf (T : Answers) (lay : Layer) (hl : lay = 0) (tree leaf : Nat) (digits : List Nat)
+    ⟨sat_leafHalf T lay tree leaf digits hvalid signatureOnly pair rows' half hh htree hleaf, trivial⟩)
+theorem sat_buildLeaf (T : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat)
     (hvalid : Cost.ValidDigits lay digits) (signatureOnly : Bool) (htree : tree < 2 ^ 40) (hleaf : leaf < 2 ^ 32) :
     QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.buildLeaf lay tree leaf digits signatureOnly) := by
   rw [Correctness.buildLeaf_eq]
-  refine QueriesSat.bind (sat_leafRows T lay hl tree leaf digits hvalid signatureOnly htree hleaf) ?_
-  subst hl
+  refine QueriesSat.bind (sat_leafRows T lay tree leaf digits hvalid signatureOnly htree hleaf) ?_
   cases signatureOnly
-  · have hr := Correctness.eval_leafRows_correct T (0 : Layer) tree leaf digits hvalid false
-    have hn : chainCount (0 : Layer) ≤ 2 * ((chainCount (0 : Layer) + 1) / 2) := by omega
+  · have hr := Correctness.eval_leafRows_correct T lay tree leaf digits hvalid false
+    have hn : chainCount lay ≤ 2 * ((chainCount lay + 1) / 2) := by omega
     simp only [Correctness.LeafRows, Bool.false_eq_true, ite_false, min_eq_right hn] at hr
-    have he := Correctness.list_eq_range_map _ (leafEnd T 0 tree leaf) _ hr.1
+    have he := Correctness.list_eq_range_map _ (leafEnd T lay tree leaf) _ hr.1
       (fun i hi => hr.2.2.1 i (by rw [hr.1]; exact hi))
     simp only [Bool.false_eq_true, ite_false]
     refine QueriesSat.bind ?_ (QueriesSat.pure' _)
-    rw [he, ← WCT9.wotsEnd_top, Extract.leafHash_eq_shortHash]
-    exact sat_shortHash _ (honestQuery_honest T (.leaf (0 : Layer) tree leaf) ⟨htree, hleaf⟩)
+    rw [he, Extract.leafHash_eq_shortHash]
+    exact sat_shortHash _ (honestQuery_honest T (.leaf lay tree leaf) ⟨htree, hleaf⟩)
   · simp only [ite_true]
     exact QueriesSat.pure' _
-theorem sat_treeRows (T : Answers) (lay : Layer) (hl : lay = 0) (tree selected : Nat) (digits : List Nat)
+theorem sat_treeRows (T : Answers) (lay : Layer) (tree selected : Nat) (digits : List Nat)
     (hvalid : Cost.ValidDigits lay digits) (htree : tree < 2 ^ 40) :
     QueriesSat T (HonestQuery T) (Correctness.treeRows lay tree selected digits) := by
   unfold Correctness.treeRows
@@ -245,19 +248,19 @@ theorem sat_treeRows (T : Answers) (lay : Layer) (hl : lay = 0) (tree selected :
     split
     · exact hvalid
     · exact Cost.validDigits_nil lay
-  have hl' : leaf < 2 ^ 32 := by
+  have hl : leaf < 2 ^ 32 := by
     have : 2 ^ height lay ≤ 2 ^ 12 := Nat.pow_le_pow_right (by decide) (Extract.height_le lay)
     omega
-  refine QueriesSat.bind (sat_buildLeaf T lay hl tree leaf _ hd false htree hl') ?_
+  refine QueriesSat.bind (sat_buildLeaf T lay tree leaf _ hd false htree hl) ?_
   generalize evalWithAnswerFn T (SigGolfCandidate.T3.buildLeaf lay tree leaf (if leaf = selected then digits else []) false) = x
   obtain ⟨root, values⟩ := x
   exact QueriesSat.pure' _
 theorem honestQuery_treeNode (T : Answers) (lay : Layer) (tree : Nat) (htree : tree < 2 ^ 40) (level node : Nat)
     (hlevel : level < height lay)
-    (hnode : node < ((WCT9.wotsTree T lay tree).getD level []).length / 2) :
+    (hnode : node < ((builtTree T lay tree).getD level []).length / 2) :
     HonestQuery T (nodeQuery 3 lay.val tree (2 ^ (height lay - (level + 1)) + node)
-      (treeValue (WCT9.wotsTree T lay tree) level (2 * node)) (treeValue (WCT9.wotsTree T lay tree) level (2 * node + 1))) := by
-  have hshape := (WCT9.wotsTree_correct T lay tree).1
+      (treeValue (builtTree T lay tree) level (2 * node)) (treeValue (builtTree T lay tree) level (2 * node + 1))) := by
+  have hshape := (Correctness.builtTree_correct T lay tree).1
   have hw := hshape.2 level (by omega)
   have hpow : 2 ^ (height lay - level) = 2 * 2 ^ (height lay - level - 1) := by
     rw [← pow_succ']; congr 1; omega
@@ -265,108 +268,13 @@ theorem honestQuery_treeNode (T : Answers) (lay : Layer) (tree : Nat) (htree : t
   show pad64 (nodeInputP 3 lay.val tree (2 ^ (height lay - (level + 1)) + node) _ 0 _) =
     pad64 (nodeInputP 3 lay.val tree (2 ^ (height lay - level - 1) + node) _ 0 _)
   rw [Nat.sub_sub]
-theorem sat_buildTree (T : Answers) (lay : Layer) (hl : lay = 0) (tree selected : Nat) (digits : List Nat)
+theorem sat_buildTree (T : Answers) (lay : Layer) (tree selected : Nat) (digits : List Nat)
     (hvalid : Cost.ValidDigits lay digits) (htree : tree < 2 ^ 40) :
     QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.buildTree lay tree selected digits) := by
   rw [Correctness.buildTree_eq]
-  refine QueriesSat.bind (sat_treeRows T lay hl tree selected digits hvalid htree) ?_
+  refine QueriesSat.bind (sat_treeRows T lay tree selected digits hvalid htree) ?_
   rw [Correctness.eval_treeRows T lay tree selected digits hvalid]
   refine QueriesSat.bind ?_ (QueriesSat.pure' _)
-  apply sat_buildLevels
-  intro level hlevel node hnode
-  subst hl
-  have h := honestQuery_treeNode T 0 tree htree level node hlevel
-  rw [WCT9.wotsTree_top] at h
-  exact h hnode
-theorem sat_packedSecret (T : Answers) (lay : Layer) (tree q : Nat) (carry : Digest) :
-    QueriesSat T (HonestQuery T) (WCT9.packedSecret (WCT9.lowerSeedPair lay tree) q carry) := by
-  unfold WCT9.packedSecret
-  split
-  · refine QueriesSat.bind ?_ (QueriesSat.pure' _)
-    unfold WCT9.lowerSeedPair
-    exact sat_privatePair T _ _ _ _ _
-  · exact QueriesSat.pure' _
-theorem carryOk_leafCarry (T : Answers) (lay : Layer) (tree leaf : Nat) (carry : Digest)
-    (hcarry : WCT9.CarryOk T (WCT9.lowerSeedPair lay tree) (WCT9.lowerOrdinal lay leaf 0) carry) (i : Nat) :
-    WCT9.CarryOk T (WCT9.lowerSeedPair lay tree) (WCT9.lowerOrdinal lay leaf i)
-      (WCT9.leafCarry T lay tree leaf carry i) := by
-  unfold WCT9.leafCarry
-  by_cases h0 : i = 0
-  · rw [if_pos h0, h0]; exact hcarry
-  · rw [if_neg h0]
-    have := WCT9.carryOk_next T (WCT9.lowerSeedPair lay tree) (WCT9.lowerOrdinal lay leaf (i - 1))
-    have hq : WCT9.lowerOrdinal lay leaf (i - 1) + 1 = WCT9.lowerOrdinal lay leaf i := by
-      unfold WCT9.lowerOrdinal; omega
-    rwa [hq] at this
-theorem sat_leafRowsP (T : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree leaf : Nat) (digits : List Nat)
-    (hvalid : Cost.ValidDigits lay digits) (carry : Digest)
-    (hcarry : WCT9.CarryOk T (WCT9.lowerSeedPair lay tree) (WCT9.lowerOrdinal lay leaf 0) carry)
-    (htree : tree < 2 ^ 40) (hleaf : leaf < 2 ^ 32) :
-    QueriesSat T (HonestQuery T) (WCT9.leafRowsP lay tree leaf digits carry) := by
-  unfold WCT9.leafRowsP
-  refine QueriesSat.foldlM_range _ _ (WCT9.LeafRowsP T lay tree leaf digits carry) _
-    (by simp [WCT9.LeafRowsP, WCT9.leafCarry])
-    (fun i hi rows hrows => ⟨?_, WCT9.leafRowsP_step T hlay tree leaf digits hvalid carry hcarry i hi rows hrows⟩)
-  have hok : WCT9.CarryOk T (WCT9.lowerSeedPair lay tree) (WCT9.lowerOrdinal lay leaf i) rows.2.2 := by
-    rw [hrows.2.2.2.2]
-    exact carryOk_leafCarry T lay tree leaf carry hcarry i
-  unfold WCT9.leafStepP
-  refine QueriesSat.bind (sat_packedSecret T lay tree _ _) ?_
-  rw [WCT9.eval_packedSecret T _ _ _ hok]
-  dsimp only
-  rw [show WCT9.seedHalf (evalWithAnswerFn T (WCT9.lowerSeedPair lay tree (WCT9.lowerOrdinal lay leaf i / 2)))
-      (WCT9.lowerOrdinal lay leaf i) = WCT9.wotsSeed T lay tree leaf i from (WCT9.wotsSeed_lower T hlay _ _ _).symm]
-  have hd := hvalid i hi
-  have hw := Mask.width_le lay i
-  have hc := Mask.chainCount_le lay
-  rw [← honestChainValue_zero T lay tree leaf i (WCT9.wotsSeed T lay tree leaf i)]
-  refine QueriesSat.bind (sat_chain T lay tree leaf _ 0 _ htree hleaf (by omega) (by omega)) ?_
-  rw [eval_honestChain, Nat.zero_add]
-  exact QueriesSat.bind (sat_chain T lay tree leaf _ _ _ htree hleaf (by omega) (by omega)) (QueriesSat.pure' _)
-theorem sat_buildLeafP (T : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree leaf : Nat) (digits : List Nat)
-    (hvalid : Cost.ValidDigits lay digits) (carry : Digest)
-    (hcarry : WCT9.CarryOk T (WCT9.lowerSeedPair lay tree) (WCT9.lowerOrdinal lay leaf 0) carry)
-    (htree : tree < 2 ^ 40) (hleaf : leaf < 2 ^ 32) :
-    QueriesSat T (HonestQuery T) (WCT9.buildLeafP lay tree leaf digits carry) := by
-  rw [WCT9.buildLeafP_factor]
-  refine QueriesSat.bind (sat_leafRowsP T hlay tree leaf digits hvalid carry hcarry htree hleaf) ?_
-  obtain ⟨he, -, hend, -, -⟩ := WCT9.eval_leafRowsP T hlay tree leaf digits hvalid carry hcarry
-  have hends := Correctness.list_eq_range_map _ (WCT9.wotsEnd T lay tree leaf) _ he hend
-  refine QueriesSat.bind ?_ (QueriesSat.pure' _)
-  rw [hends, Extract.leafHash_eq_shortHash]
-  exact sat_shortHash _ (honestQuery_honest T (.leaf lay tree leaf) ⟨htree, hleaf⟩)
-theorem sat_treeRowsP (T : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree selected : Nat) (digits : List Nat)
-    (hvalid : Cost.ValidDigits lay digits) (htree : tree < 2 ^ 40) :
-    QueriesSat T (HonestQuery T) (WCT9.treeRowsP lay tree selected digits) := by
-  unfold WCT9.treeRowsP
-  refine QueriesSat.foldlM_range _ _ (fun done rows => rows.2.2 = WCT9.treeCarry T lay tree done) _
-    (by simp [WCT9.treeCarry]) (fun leaf hleaf rows hrows => ?_)
-  have hd : Cost.ValidDigits lay (if leaf = selected then digits else []) := by
-    split
-    · exact hvalid
-    · exact Cost.validDigits_nil lay
-  have hl' : leaf < 2 ^ 32 := by
-    have : 2 ^ height lay ≤ 2 ^ 12 := Nat.pow_le_pow_right (by decide) (Extract.height_le lay)
-    omega
-  have hcarry := WCT9.carryOk_treeCarry T lay tree leaf
-  rw [← hrows] at hcarry
-  refine ⟨QueriesSat.bind (sat_buildLeafP T hlay tree leaf _ hd _ hcarry htree hl') ?_, ?_⟩
-  · generalize evalWithAnswerFn T (WCT9.buildLeafP lay tree leaf (if leaf = selected then digits else []) rows.2.2) = x
-    obtain ⟨⟨root, values⟩, c⟩ := x
-    exact QueriesSat.pure' _
-  · simp only [evalWithAnswerFn_bind, WCT9.buildLeafP_result T hlay tree leaf _ hd _ hcarry, evalWithAnswerFn_pure]
-    show WCT9.leafCarryOut T lay tree leaf = WCT9.treeCarry T lay tree (leaf + 1)
-    unfold WCT9.treeCarry
-    rw [if_neg (show leaf + 1 ≠ 0 by omega), Nat.add_sub_cancel]
-theorem sat_buildTreeP (T : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree selected : Nat) (digits : List Nat)
-    (hvalid : Cost.ValidDigits lay digits) (htree : tree < 2 ^ 40) :
-    QueriesSat T (HonestQuery T) (WCT9.buildTreeP lay tree selected digits) := by
-  rw [WCT9.buildTreeP_factor]
-  refine QueriesSat.bind (sat_treeRowsP T hlay tree selected digits hvalid htree) ?_
-  obtain ⟨hlen, hroot, -, -⟩ := WCT9.eval_treeRowsP T hlay tree selected digits hvalid
-  have hroots := Correctness.list_eq_range_map _ _ _ hlen hroot
-  refine QueriesSat.bind ?_ (QueriesSat.pure' _)
-  rw [hroots]
   apply sat_buildLevels
   intro level hlevel node hnode
   exact honestQuery_treeNode T lay tree htree level node hlevel hnode
@@ -379,10 +287,9 @@ theorem honestQuery_of_fts (T : Answers) {index : Nat} (hindex : index < 2 ^ 31)
   · trivial
   · trivial
 theorem sat_buildChild (T : Answers) (index : Nat) (hindex : index < 2 ^ 31) (coord : ClaudeWCT.WCT9.Coord)
-    (child : ClaudeWCT.WCT9.Child) (word : ClaudeWCT.WCT9.Rank) (carry : Digest)
-    (hcarry : WCT9.CarryOk T (WCT9.ftsSeedPair index coord.val) (WCT9.ftsOrdinal child.val 0) carry) :
-    QueriesSat T (HonestQuery T) (ClaudeWCT.WCT9.buildChild index coord.val child.val word carry) :=
-  (ClaudeWCT.WCT9.Wots.Structural.sat_buildChild T index coord child word carry hcarry).mono fun _ hq =>
+    (child : ClaudeWCT.WCT9.Child) (word : ClaudeWCT.WCT9.Rank) :
+    QueriesSat T (HonestQuery T) (ClaudeWCT.WCT9.buildChild index coord.val child.val word) :=
+  (ClaudeWCT.WCT9.Wots.Structural.sat_buildChild T index coord child word).mono fun _ hq =>
     honestQuery_of_fts T hindex hq
 theorem sat_buildCoordinate (T : Answers) (index : Nat) (hindex : index < 2 ^ 31) (coord : ClaudeWCT.WCT9.Coord)
     (selected : ClaudeWCT.WCT9.Child) (word : ClaudeWCT.WCT9.Rank) :
@@ -402,7 +309,7 @@ theorem sat_signForest (T : Answers) (index : Nat) (hindex : index < 2 ^ 31) (ou
 theorem sat_keygenPayload (T : Answers) : QueriesSat T (HonestQuery T) keygenPayload := by
   rw [Correctness.keygenPayload_eq]
   unfold Correctness.cachePayloadProgram
-  refine QueriesSat.bind (sat_buildTree T 0 rfl 0 0 [] (Cost.validDigits_nil 0) (by decide)) ?_
+  refine QueriesSat.bind (sat_buildTree T 0 0 0 [] (Cost.validDigits_nil 0) (by decide)) ?_
   generalize evalWithAnswerFn T (SigGolfCandidate.T3.buildTree 0 0 0 []) = x
   obtain ⟨levels, values⟩ := x
   exact QueriesSat.bind (QueriesSat.mapM _ _ fun level _ => sat_maskedLevel T _ _) (QueriesSat.pure' _)
@@ -420,17 +327,17 @@ theorem sat_signTop (T : Answers) (cache : Cache) (leaf : Nat) (digits : List Na
     (hvalid : Cost.ValidDigits 0 digits) (hleaf : leaf < 4096) :
     QueriesSat T (HonestQuery T) (signTop cache leaf digits) := by
   unfold signTop
-  refine QueriesSat.bind (sat_buildLeaf T 0 rfl 0 leaf digits hvalid true (by decide) (by omega)) ?_
+  refine QueriesSat.bind (sat_buildLeaf T 0 0 leaf digits hvalid true (by decide) (by omega)) ?_
   generalize evalWithAnswerFn T (SigGolfCandidate.T3.buildLeaf 0 0 leaf digits true) = x
   obtain ⟨root, values⟩ := x
   exact QueriesSat.bind (sat_topPath T cache leaf hleaf) (QueriesSat.pure' _)
 theorem sat_signLayers (T : Answers) (cache : Cache) (index : Nat) (hindex : index < 2 ^ 31) :
-    ∀ n, n ≤ 4 → ∀ msg, QueriesSat T (HonestQuery T) (WCT9.signLayersBC cache index n msg) := by
+    ∀ n msg, QueriesSat T (HonestQuery T) (WCT9.signLayersBC cache index n msg) := by
   intro n
   induction n with
-  | zero => intro _ _; exact QueriesSat.pure' _
+  | zero => intro _; exact QueriesSat.pure' _
   | succ n ih =>
-      intro hn msg
+      intro msg
       simp only [WCT9.signLayersBC]
       refine QueriesSat.bind (sat_layerCounterSearch T _ _ _ _ _ _) ?_
       cases hs : evalWithAnswerFn T (WCT9.layerCounterSearch (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
@@ -454,13 +361,8 @@ theorem sat_signLayers (T : Answers) (cache : Cache) (index : Nat) (hindex : ind
             refine QueriesSat.bind (sat_signTop T cache _ digits hvalid ?_) (QueriesSat.pure' _)
             have := route_leaf_bound index (Fin.ofNat 4 0)
             exact this
-          · have hl0 : (Fin.ofNat 4 n : Layer) ≠ 0 := by
-              intro h
-              have hv : (Fin.ofNat 4 n : Layer).val = n := Nat.mod_eq_of_lt (by omega)
-              rw [h] at hv
-              exact hn0 hv.symm
-            refine QueriesSat.bind (sat_buildTreeP T hl0 _ _ digits hvalid (Mask.route_tree_lt index hindex _)) ?_
-            refine QueriesSat.bind (ih (by omega) _) ?_
+          · refine QueriesSat.bind (sat_buildTree T _ _ _ digits hvalid (Mask.route_tree_lt index hindex _)) ?_
+            refine QueriesSat.bind (ih _) ?_
             generalize evalWithAnswerFn T (WCT9.signLayersBC cache index n _) = r
             rcases r with _ | r <;> exact QueriesSat.pure' _
 theorem sat_signPayload (T : Answers) (cache : Cache) (message : Message) :
@@ -476,7 +378,7 @@ theorem sat_signPayload (T : Answers) (cache : Cache) (message : Message) :
   · dsimp only
     have hindex : output.toNat % 2 ^ 31 < 2 ^ 31 := Nat.mod_lt _ (by decide)
     refine QueriesSat.bind (sat_signForest T _ hindex _) ?_
-    refine QueriesSat.bind (sat_signLayers T cache _ hindex 4 le_rfl _) ?_
+    refine QueriesSat.bind (sat_signLayers T cache _ hindex 4 _) ?_
     generalize evalWithAnswerFn T (WCT9.signLayersBC cache (output.toNat % 2 ^ 31) 4 _) = pieces
     rcases pieces with _ | pieces <;> exact QueriesSat.pure' _
 theorem sat_authenticatedSign (T : Answers) (published : SigGolfCandidate.T3.Cache) (request : Request) :

@@ -1,6 +1,7 @@
 import SigGolfCandidate.SphincsSecurity.Proof.RandomizedStatement
 
 section
+
 open OracleComp OracleSpec
 namespace DeterministicSigning
 set_option backward.isDefEq.respectTransparency false
@@ -197,7 +198,9 @@ theorem FreshRequests.evalDist_tableRun {α : Type} {used : Set Request}
       exact ih result.1 result.2
 end DeterministicSigning
 end
+
 section
+
 open OracleComp OracleSpec
 namespace DeterministicSigning
 set_option backward.isDefEq.respectTransparency false

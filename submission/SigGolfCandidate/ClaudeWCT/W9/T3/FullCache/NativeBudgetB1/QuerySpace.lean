@@ -1,6 +1,9 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.FullCache.NativeBudgetB1.PairRows
+import SigGolfCandidate.T3.FullCache.NativeBudget
 
 section
+
+
 namespace ClaudeWCT.W9.T3.Sampling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 hiding digestSearch admissible
@@ -11,9 +14,9 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 set_option linter.unusedSimpArgs false
 def digestDecode (answer : HashOutput) : Option HashOutput :=
-  if ClaudeWCT.WCT9.producerAdmissible answer then some answer else none
+  if ClaudeWCT.WCT9.admissible answer then some answer else none
 theorem digestDecode_eq_none_iff (value : HashOutput) :
-    digestDecode value = none ↔ ClaudeWCT.WCT9.producerAdmissible value = false := by
+    digestDecode value = none ↔ ClaudeWCT.WCT9.admissible value = false := by
   simp [digestDecode]
 theorem digestSearch_public (rho : Digest) (message : Message) :
     ∀ fuel counter, ClaudeWCT.WCT9.digestSearch rho message counter fuel =
@@ -58,7 +61,9 @@ theorem V_digestSearch (secret : BitVec 256) (z b : ENNReal) (hb : 1 ≤ b)
     hstep fuel counter hlimit cache hfresh
 end ClaudeWCT.W9.T3.Sampling
 end
+
 section
+
 namespace ClaudeWCT.W9.T3.QuerySpace
 open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
 open SigGolfCandidate.T3

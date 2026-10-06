@@ -1,6 +1,9 @@
 import SigGolfCandidate.SphincsSecurity.Proof.RandomizedStatement
+import VCVio.OracleComp.QueryTracking.RandomOracle.DeferredSampling
 
 section
+
+
 open OracleComp OracleSpec
 namespace SphincsSecurity.Seeded
 def finHeadTailEquiv (α : Type) (count : Nat) :
@@ -151,7 +154,9 @@ theorem evalDist_sequenceFin_uniform [Fintype R] (n : Nat) :
           (finHeadTailEquiv R n) (finHeadTailEquiv R n).bijective
 end SphincsSecurity.Seeded
 end
+
 section
+
 open OracleComp OracleSpec
 namespace SphincsSecurity.Seeded
 set_option backward.isDefEq.respectTransparency false

@@ -1,5 +1,8 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEvents
+import SigGolfCandidate.ClaudeWCT.W9.New.G3a.PaddedWitness
 import SigGolfCandidate.ClaudeWCT.W9.New.BC.Rows
+import SigGolfCandidate.T3.Secc.WotsExtractWord
+import SigGolfCandidate.T3.Secc.WotsExtractLayer
 import SigGolfCandidate.T3.Secc.WotsExtractVerify
 
 namespace ClaudeWCT.W9.T3.Security.WotsExtract

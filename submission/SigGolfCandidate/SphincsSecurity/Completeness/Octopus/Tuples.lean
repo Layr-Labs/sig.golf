@@ -5,6 +5,9 @@ import Mathlib.Algebra.BigOperators.Fin
 import Mathlib.Data.Fintype.Perm
 
 section
+
+
+
 namespace SphincsSecurity.Completeness.Octopus
 open Finset Polynomial
 theorem list_sum_map_range' (f : ℕ → ℕ) (n : ℕ) :
@@ -86,7 +89,11 @@ theorem card_admissibleSets :
   exact congrArg card (filter_congr fun S _ => by simp only [oc]; omega)
 end SphincsSecurity.Completeness.Octopus
 end
+
 section
+
+
+
 namespace SphincsSecurity.Completeness.Octopus
 open Finset
 def valList {k n : ℕ} (v : Fin k → Fin n) : List ℕ := List.ofFn fun i => (v i : ℕ)

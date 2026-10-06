@@ -1,6 +1,9 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.IdealStatement
 
 section
+
+
 namespace SphincsSecurity.Concrete
 attribute [local instance] Classical.propDecidable
 structure TargetShapeValid (groups : Finset (Finset IndexGroup)) (remaining : Finset IndexGroup) : Prop where
@@ -40,7 +43,10 @@ theorem TargetShapeValid.reuse {groups : Finset (Finset IndexGroup)} {remaining 
     · exact (hvalid.remaining group hgroup).mono_right Finset.sdiff_subset
 end SphincsSecurity.Concrete
 end
+
 section
+
+
 namespace SphincsSecurity.Concrete
 open ENNReal
 attribute [local instance] Classical.propDecidable

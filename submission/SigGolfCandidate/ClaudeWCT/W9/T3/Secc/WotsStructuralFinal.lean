@@ -1,9 +1,14 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsStructuralHonest
+import SigGolfCandidate.T3.Secc.WotsStructuralVariant
 import SigGolfCandidate.ClaudeWCT.W9.New.G3a.ExtractSrc
+import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Layer
+import SigGolfCandidate.T3.Secc.WotsStructural
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsReferenceInputs
 import SigGolfCandidate.T3.Secc.WotsStructuralFinal
 
 section
+
+
 namespace ClaudeWCT.W9.T3.Security.Wots.Structural
 open OracleComp OracleSpec ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
@@ -81,52 +86,20 @@ theorem publicKey_variant (hv : Variant labels T T') :
 end Game
 section Depth
 variable {labels : CanonGraph.Labels} {T T' : Answers}
-theorem wotsEnd_alias (T : Answers) (lay : Layer) {tree tree' : Nat} (h : tree % 2 ^ 40 = tree' % 2 ^ 40)
-    (leaf i : Nat) (hleaf : leaf < 2 ^ 24) :
-    WCT9.wotsEnd T lay tree leaf i = WCT9.wotsEnd T lay tree' leaf i := by
-  have hal : Mask.LeafAlias lay tree leaf ⟨lay, tree', leaf⟩ := ⟨rfl, h, rfl⟩
-  unfold WCT9.wotsEnd
-  rw [Mask.chain_alias hal, Mask.wotsSeed_alias T hal (Or.inr ⟨hleaf, hleaf⟩)]
-theorem wotsRoot_alias (T : Answers) (lay : Layer) {tree tree' : Nat} (h : tree % 2 ^ 40 = tree' % 2 ^ 40)
-    (leaf : Nat) (hleaf : leaf < 2 ^ 24) :
-    WCT9.wotsRoot T lay tree leaf = WCT9.wotsRoot T lay tree' leaf := by
-  unfold WCT9.wotsRoot
-  have hends : (List.range (chainCount lay)).map (WCT9.wotsEnd T lay tree leaf) =
-      (List.range (chainCount lay)).map (WCT9.wotsEnd T lay tree' leaf) :=
-    List.map_congr_left fun i _ => wotsEnd_alias T lay h leaf i hleaf
-  rw [hends]
-  unfold leafHash
-  rw [Mask.header_congr (t := 2) (p := 0) rfl h rfl]
-theorem wotsTree_alias (T : Answers) (lay : Layer) {tree tree' : Nat} (h : tree % 2 ^ 40 = tree' % 2 ^ 40) :
-    WCT9.wotsTree T lay tree = WCT9.wotsTree T lay tree' := by
-  unfold WCT9.wotsTree
-  have hr : (List.range (2 ^ height lay)).map (WCT9.wotsRoot T lay tree) =
-      (List.range (2 ^ height lay)).map (WCT9.wotsRoot T lay tree') :=
-    List.map_congr_left fun leaf hleaf => wotsRoot_alias T lay h leaf
-      (by have := List.mem_range.mp hleaf; have := Mask.height_pow_le lay; omega)
-  rw [hr, buildLevels_alias 3 lay.val h]
-theorem wotsTree_variant_bounded (hv : Variant labels T T') (lay : Layer) (tree : Nat) (htree : tree < 2 ^ 40) :
-    WCT9.wotsTree T lay tree = WCT9.wotsTree T' lay tree := by
-  by_cases hl : lay = 0
-  · subst hl
-    rw [WCT9.wotsTree_top, WCT9.wotsTree_top,
-      ← Correctness.eval_buildTree_levels T 0 tree 0 [] (Cost.validDigits_nil 0),
-      ← Correctness.eval_buildTree_levels T' 0 tree 0 [] (Cost.validDigits_nil 0),
-      (hv.congr (sat_buildTree T 0 rfl tree 0 [] (Cost.validDigits_nil 0) htree)).1]
-  · have h0 : 0 < 2 ^ height lay := by positivity
-    have hc := (hv.congr (sat_buildTreeP T hl tree 0 [] (Cost.validDigits_nil lay) htree)).1
-    rw [WCT9.eval_buildTreeP_result T hl tree 0 [] (Cost.validDigits_nil lay) h0,
-      WCT9.eval_buildTreeP_result T' hl tree 0 [] (Cost.validDigits_nil lay) h0] at hc
-    exact congrArg Prod.fst hc
-theorem wotsTree_variant (hv : Variant labels T T') (lay : Layer) (tree : Nat) :
-    WCT9.wotsTree T lay tree = WCT9.wotsTree T' lay tree := by
+theorem builtTree_variant_bounded (hv : Variant labels T T') (lay : Layer) (tree : Nat) (htree : tree < 2 ^ 40) :
+    builtTree T lay tree = builtTree T' lay tree := by
+  rw [← Correctness.eval_buildTree_levels T lay tree 0 [] (Cost.validDigits_nil lay),
+    ← Correctness.eval_buildTree_levels T' lay tree 0 [] (Cost.validDigits_nil lay),
+    (hv.congr (sat_buildTree T lay tree 0 [] (Cost.validDigits_nil lay) htree)).1]
+theorem builtTree_variant (hv : Variant labels T T') (lay : Layer) (tree : Nat) :
+    builtTree T lay tree = builtTree T' lay tree := by
   have hmod : tree % 2 ^ 40 = tree % 2 ^ 40 % 2 ^ 40 := (Nat.mod_mod _ _).symm
-  rw [wotsTree_alias T lay hmod, wotsTree_alias T' lay hmod]
-  exact wotsTree_variant_bounded hv lay _ (Nat.mod_lt _ (by decide))
+  rw [builtTree_alias T lay hmod, builtTree_alias T' lay hmod]
+  exact builtTree_variant_bounded hv lay _ (Nat.mod_lt _ (by decide))
 theorem honestRoot_variant (hv : Variant labels T T') (lay : Layer) (tree : Nat) :
     Extract.honestRoot T lay tree = Extract.honestRoot T' lay tree := by
   unfold Extract.honestRoot
-  rw [wotsTree_variant hv]
+  rw [builtTree_variant hv]
 theorem honestForest_variant (hv : Variant labels T T') (index : Nat) (hindex : index < 2 ^ 31) :
     Extract.honestForest T index = Extract.honestForest T' index := by
   rw [Extract.honestForest_eq_wct9, Extract.honestForest_eq_wct9,
@@ -136,7 +109,7 @@ theorem leafMsg_variant (hv : Variant labels T T') (L : LeafAddr) : leafMsg T L 
   unfold leafMsg
   split
   · unfold Extract.honestPair
-    rw [wotsTree_variant hv]
+    rw [builtTree_variant hv]
   · rw [honestForest_variant hv _ (Nat.mod_lt _ (by decide))]
 theorem referenceSearch_variant (hv : Variant labels T T') (L : LeafAddr) (htree : L.tree < 2 ^ 31)
     (hleaf : L.leaf < 2 ^ height L.lay) : referenceSearch T L = referenceSearch T' L := by
@@ -154,7 +127,12 @@ theorem depth_variant (hv : Variant labels T T') (a : ChainAddr) (htree : a.key.
 end Depth
 end ClaudeWCT.W9.T3.Security.Wots.Structural
 end
+
 section
+
+
+
+
 namespace ClaudeWCT.W9.T3.Security.Wots
 open OracleComp OracleSpec ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
@@ -521,7 +499,11 @@ theorem reference_structural_le (adversary : AdversaryP) (q : Nat) (hV : TraceIn
   exact ⟨position, input, answer, hmem, hV sample hsupp (input, answer) hmem, hpos, hb, hsrc, hc, hhit⟩
 end ClaudeWCT.W9.T3.Security.Wots
 end
+
 section
+
+
+
 namespace ClaudeWCT.W9.T3.Security.Wots
 open OracleComp OracleSpec ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots

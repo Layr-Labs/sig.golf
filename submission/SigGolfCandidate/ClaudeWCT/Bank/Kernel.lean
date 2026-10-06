@@ -1,7 +1,10 @@
 import SigGolfCandidate.ClaudeWCT.Bank.Spec
+import SigGolfCandidate.T3.Secc.CaseCSearch
+import SigGolfCandidate.T3.Secc.CaseCBankReuse
 import SigGolfCandidate.T3.Secc.CaseCBankStep
 
 section
+
 namespace ClaudeWCT.Bank
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -36,24 +39,23 @@ theorem score_le_forecast (R : Nat) (X : List HashOutput) (N : HashOutput) :
       (expectedValue_const (by simp) _).symm
     _ ≤ _ := expectedValue_mono _ fun F => S.score_append_mono X F N
 theorem expected_word_proposals (R : Nat) (g : List P → ENNReal) :
-    expectedValue (independentProposalWord S.accepted R) (fun F => g (S.proposals F)) =
-      ClaudeWCT.Numerics.Law.lawAvg S.law R g := by
+    expectedValue (independentProposalWord S.accepted R) (fun F => g (S.proposals F)) = uniformWordAverage R g := by
   induction R generalizing g with
   | zero =>
       change expectedValue (pure [] : PMF (List HashOutput)) _ = _
       rw [expectedValue_pure]
-      rfl
+      simp [uniformWordAverage, SphincsSecurity.Concrete.sampleUniformProposalWord, proposals]
   | succ R ih =>
-      rw [independentProposalWord, ← PMF.monad_bind_eq_bind, expectedValue_bind, ClaudeWCT.Numerics.Law.lawAvg_succ]
+      rw [independentProposalWord, ← PMF.monad_bind_eq_bind, expectedValue_bind, BPORS.uniformWordAverage_succ]
       have hstep (A : HashOutput) : expectedValue ((independentProposalWord S.accepted R).map (A :: ·))
-          (fun F => g (S.proposals F)) = ClaudeWCT.Numerics.Law.lawAvg S.law R (fun W => g (S.proposal A :: W)) := by
+          (fun F => g (S.proposals F)) = uniformWordAverage R (fun W => g (S.proposal A :: W)) := by
         rw [← PMF.monad_map_eq_map, expectedValue_map]
         exact ih (fun W => g (S.proposal A :: W))
       simp_rw [hstep]
-      exact S.expected_accepted_proposal (fun p => ClaudeWCT.Numerics.Law.lawAvg S.law R (fun W => g (p :: W)))
+      exact S.expected_accepted_proposal (fun p => uniformWordAverage R (fun W => g (p :: W)))
 theorem average_forecast (R : Nat) (X : List HashOutput) :
     BPORS.finiteAverage (fun N : HashOutput => S.forecast R X N) =
-      ClaudeWCT.Numerics.Law.lawAvg S.law R (fun W => S.price (S.proposals X ++ W)) / 2 ^ 128 := by
+      uniformWordAverage R (fun W => S.price (S.proposals X ++ W)) / 2 ^ 128 := by
   unfold forecast
   rw [CaseC.finiteAverage_expectedValue]
   have hav : ∀ F : List HashOutput, BPORS.finiteAverage (fun N : HashOutput => S.score (X ++ F) N) =
@@ -66,20 +68,20 @@ theorem average_forecast (R : Nat) (X : List HashOutput) :
   simp only [div_eq_mul_inv]
   rw [show (fun W => S.price (S.proposals X ++ W) * (2 ^ 128 : ENNReal)⁻¹) =
       fun W => (2 ^ 128 : ENNReal)⁻¹ * S.price (S.proposals X ++ W) by
-    funext W; exact mul_comm _ _, ClaudeWCT.Numerics.Law.lawAvg_mul_left, mul_comm]
+    funext W; exact mul_comm _ _, SphincsSecurity.Concrete.uniformWordAverage_mul_left, mul_comm]
 noncomputable def excessForecast (R : Nat) (X : List HashOutput) : ENNReal :=
-  ClaudeWCT.Numerics.Law.lawAvg S.law R (fun W => S.price (S.proposals X ++ W) - CaseC.theta)
+  uniformWordAverage R (fun W => S.price (S.proposals X ++ W) - CaseC.theta)
 theorem excessForecast_step (R : Nat) (X : List HashOutput) :
     expectedValue S.accepted (fun A => S.excessForecast R (X ++ [A])) = S.excessForecast (R + 1) X := by
   unfold excessForecast
-  rw [ClaudeWCT.Numerics.Law.lawAvg_succ]
-  have hA (A : HashOutput) : ClaudeWCT.Numerics.Law.lawAvg S.law R
+  rw [BPORS.uniformWordAverage_succ]
+  have hA (A : HashOutput) : uniformWordAverage R
       (fun W => S.price (S.proposals (X ++ [A]) ++ W) - CaseC.theta) =
-      (fun p : P => ClaudeWCT.Numerics.Law.lawAvg S.law R
+      (fun p : P => uniformWordAverage R
         (fun W => S.price (S.proposals X ++ p :: W) - CaseC.theta)) (S.proposal A) := by
     simp [proposals, List.map_append, List.append_assoc]
   simp_rw [hA]
-  exact S.expected_accepted_proposal (fun p => ClaudeWCT.Numerics.Law.lawAvg S.law R
+  exact S.expected_accepted_proposal (fun p => uniformWordAverage R
     (fun W => S.price (S.proposals X ++ p :: W) - CaseC.theta))
 theorem average_forecast_le (R : Nat) (X : List HashOutput) :
     BPORS.finiteAverage (fun N : HashOutput => S.forecast R X N) ≤
@@ -88,18 +90,21 @@ theorem average_forecast_le (R : Nat) (X : List HashOutput) :
   apply ENNReal.div_le_div_right
   unfold excessForecast
   calc
-    _ ≤ ClaudeWCT.Numerics.Law.lawAvg S.law R
-          (fun W => CaseC.theta + (S.price (S.proposals X ++ W) - CaseC.theta)) :=
-      ClaudeWCT.Numerics.Law.lawAvg_mono S.law R fun W => le_add_tsub
+    _ ≤ uniformWordAverage R (fun W => CaseC.theta + (S.price (S.proposals X ++ W) - CaseC.theta)) :=
+      SphincsSecurity.Concrete.uniformWordAverage_mono R fun W => le_add_tsub
     _ = _ := by
-      rw [ClaudeWCT.Numerics.Law.lawAvg_add, ClaudeWCT.Numerics.Law.lawAvg_const S.law S.law_sum]
+      rw [SphincsSecurity.Concrete.uniformWordAverage_add, BPORS.History.uniformWordAverage_constant]
 theorem excessForecast_initial : S.excessForecast S.horizon [] ≤ S.excessRate := by
   unfold excessForecast
   simpa [proposals] using S.excess_le
 end FtsBankSpec
 end ClaudeWCT.Bank
 end
+
 section
+
+
+
 namespace ClaudeWCT.Bank
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -137,7 +142,7 @@ theorem search_le_price (secret : BitVec 256) (rho : Digest) (message : Message)
 def Reuse (cache : Sampling.RCache) (rho : Digest) (m : Message) : Prop :=
   ¬Sampling.CachedTrialsReject (Sampling.digestTrial rho m) S.decode 0 (2 ^ 32) cache
 noncomputable def admissibleEntry (cache : Sampling.RCache) (input : HashInput) : ENNReal :=
-  (cache input).elim 0 (fun answer => if S.producer answer = true then 1 else 0)
+  (cache input).elim 0 (fun answer => if S.admissible answer = true then 1 else 0)
 noncomputable def reuseMass (cache : Sampling.RCache) (m : Message) : ENNReal :=
   (∑' p : Digest × Fin (2 ^ 32), S.admissibleEntry cache (Sampling.digestTrial p.1 m p.2.val)) / 2 ^ 128
 theorem reuse_indicator_le (cache : Sampling.RCache) (rho : Digest) (m : Message) :
@@ -147,7 +152,7 @@ theorem reuse_indicator_le (cache : Sampling.RCache) (rho : Digest) (m : Message
   · unfold Reuse Sampling.CachedTrialsReject at h
     push Not at h
     obtain ⟨c, -, hc, answer, ha, hd⟩ := h
-    have hadm : S.producer answer = true := by
+    have hadm : S.admissible answer = true := by
       unfold decode at hd
       by_contra hn
       exact hd (by simp [hn])
@@ -169,7 +174,7 @@ theorem reuse_probability_le (cache : Sampling.RCache) (m : Message) :
       Finset.sum_le_sum fun rho _ => S.reuse_indicator_le cache rho m
     _ = ∑' p : Digest × Fin (2 ^ 32), S.admissibleEntry cache (Sampling.digestTrial p.1 m p.2.val) := by
       rw [tsum_fintype, Fintype.sum_prod_type]
-noncomputable def admInd (a : HashOutput) : ENNReal := if S.producer a = true then 1 else 0
+noncomputable def admInd (a : HashOutput) : ENNReal := if S.admissible a = true then 1 else 0
 theorem expected_admInd : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) S.admInd = S.acceptance := by
   unfold admInd
   rw [expectedValue_ite_one]
@@ -209,7 +214,9 @@ theorem reuseMass_cacheQuery_le (cache : Sampling.RCache) (x : HashInput) (a : H
 end FtsBankSpec
 end ClaudeWCT.Bank
 end
+
 section
+
 namespace ClaudeWCT.Bank
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -459,7 +466,10 @@ theorem core_initial (budget : Nat) :
 end FtsBankSpec
 end ClaudeWCT.Bank
 end
+
 section
+
+
 namespace ClaudeWCT.Bank
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security

@@ -1,5 +1,8 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
+import SigGolfCandidate.SphincsSecurity.Proof.Fts.TargetShapeEnvelope
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.FreshTargetShapeAverage
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.InterleavedCoverStep
+import SigGolfCandidate.SphincsSecurity.Proof.Fts.TargetShapeCardinality
 
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec ENNReal

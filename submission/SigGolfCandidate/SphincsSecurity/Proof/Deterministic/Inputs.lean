@@ -1,3 +1,5 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Seeded.KeyDerivation
+import SigGolfCandidate.SphincsSecurity.Proof.Scheme.HashOutputSplit
 import SigGolfCandidate.SphincsSecurity.Proof.Deterministic.SeedHitProbability
 
 open OracleComp OracleSpec ENNReal

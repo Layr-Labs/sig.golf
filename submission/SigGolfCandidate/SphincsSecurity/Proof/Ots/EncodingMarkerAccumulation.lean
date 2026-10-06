@@ -1,830 +1,15 @@
-import SigGolfCandidate.SphincsSecurity.Proof.Base.UniformTableProducts
-import SigGolfCandidate.SphincsSecurity.Proof.Base.UniformTableObservationErasure
+import SigGolfCandidate.SphincsSecurity.Proof.Reference.CausalFrontierAllocation
+import SigGolfCandidate.SphincsSecurity.Proof.Ots.OtsPrefixAllocation
+import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Bytes
+import SigGolfCandidate.SphincsSecurity.Proof.Ots.EncodingFreshRow
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.OtsContactTrace
+import SigGolfCandidate.SphincsSecurity.Proof.Ots.EncodingOracleObservation
+import SigGolfCandidate.SphincsSecurity.Proof.Base.QueryTraceInvariant
+import SigGolfCandidate.SphincsSecurity.Proof.Ots.EncodingTablePrior
 import SigGolfCandidate.SphincsSecurity.Proof.Base.QueryTracePotential
 
 section
 
-
-
-section
-namespace SphincsSecurity.OtsCode
-open _root_.OracleComp OracleSpec ENNReal
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance] Classical.propDecidable
-attribute [local irreducible] Finset.univ
-noncomputable def decodingDigests (words : Finset Encoding) : Finset Digest :=
-  Finset.univ.filter fun digest => ∃ word ∈ words, decode digest = some word
-theorem mem_decodingDigests {words : Finset Encoding} {digest : Digest} :
-    digest ∈ decodingDigests words ↔ ∃ word ∈ words, decode digest = some word := by
-  simp only [decodingDigests, Finset.mem_filter, Finset.mem_univ, true_and]
-theorem decodingDigests_card_le (words : Finset Encoding) : (decodingDigests words).card ≤ words.card := by
-  apply Finset.card_le_card_of_injOn (fun digest => (decode digest).getD defaultWord)
-  · intro digest hd
-    obtain ⟨word, hw, hdecode⟩ := mem_decodingDigests.mp hd
-    simpa only [hdecode, Option.getD_some, Finset.mem_coe] using hw
-  · intro left hl right hr he
-    obtain ⟨leftWord, _, hleft⟩ := mem_decodingDigests.mp hl
-    obtain ⟨rightWord, _, hright⟩ := mem_decodingDigests.mp hr
-    simp only [hleft, hright, Option.getD_some] at he
-    exact decode_some_injective hleft (by rw [he]; exact hright)
-theorem decodingDigests_uniform_le (words : Finset Encoding) :
-    Pr[fun output : HashOutput => truncateHash output ∈ decodingDigests words | ($ᵗ HashOutput : ProbComp HashOutput)] ≤
-      (words.card : ENNReal) / Fintype.card Digest := by
-  rw [probEvent_uniform_truncateHash_mem]
-  exact ENNReal.div_le_div_right (Nat.cast_le.mpr (decodingDigests_card_le words)) _
-end SphincsSecurity.OtsCode
-end
-section
-namespace SphincsSecurity.Concrete
-open _root_.OracleComp OracleSpec ENNReal
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance] Classical.propDecidable
-attribute [local irreducible] Finset.univ
-def FreshEncodingSupport (reference : Encoding) (allowed : Finset HashOutput) : Prop :=
-  allowed = Finset.univ ∨ ∀ output ∈ allowed, decodeEncodingOutput output = none ∨ decodeEncodingOutput output = some reference
-theorem firstSuccess_allowed_fresh {n : Nat} (index : Fin n) (reference : Encoding) (coordinate : Fin n) :
-    FreshEncodingSupport reference (FirstSuccessTable.allowed decodeEncodingOutput index reference coordinate) := by
-  unfold FirstSuccessTable.allowed
-  split_ifs with hlt heq
-  · exact Or.inr fun output ho => Or.inl ((FirstSuccessTable.mem_invalid _ _).mp ho)
-  · exact Or.inr fun output ho => Or.inr ((FirstSuccessTable.mem_fiber _ _ _).mp ho)
-  · exact Or.inl rfl
-theorem freshEncodingSupport_probability_le (reference : Encoding) (targets : Finset Encoding) (href : reference ∉ targets)
-    (allowed : Finset HashOutput) (ha : allowed.Nonempty) (hallowed : FreshEncodingSupport reference allowed) :
-    Pr[fun output : HashOutput => truncateHash output ∈ OtsCode.decodingDigests targets | PMF.uniformOfFinset allowed ha] ≤
-      (targets.card : ENNReal) / Fintype.card Digest := by
-  rcases hallowed with rfl | hrestricted
-  · have h := OtsCode.decodingDigests_uniform_le targets
-    simpa only [probEvent_eq_tsum_ite, probOutput_uniformSample, PMF.probOutput_eq_apply, PMF.uniformOfFinset_apply,
-      Finset.mem_univ, if_true, Finset.card_univ] using h
-  · have hzero : Pr[fun output : HashOutput => truncateHash output ∈ OtsCode.decodingDigests targets |
-        PMF.uniformOfFinset allowed ha] = 0 := by
-      simp only [probEvent_eq_tsum_ite, PMF.probOutput_eq_apply]
-      apply ENNReal.tsum_eq_zero.mpr
-      intro output
-      by_cases hm : output ∈ allowed
-      · have hn : truncateHash output ∉ OtsCode.decodingDigests targets := by
-          intro hd
-          obtain ⟨word, hw, hdecode⟩ := OtsCode.mem_decodingDigests.mp hd
-          change decodeEncodingOutput output = some word at hdecode
-          rcases hrestricted output hm with hi | hr
-          · rw [hi] at hdecode
-            contradiction
-          · have he : reference = word := Option.some.inj (hr.symm.trans hdecode)
-            exact href (he ▸ hw)
-        exact if_neg hn
-      · simp only [PMF.uniformOfFinset_apply, if_neg hm, ite_self]
-    rw [hzero]
-    exact zero_le
-theorem freshEncodingSupport_neighbor_le (reference : Encoding) (lowered : ChainIndex)
-    (allowed : Finset HashOutput) (ha : allowed.Nonempty) (hallowed : FreshEncodingSupport reference allowed) :
-    Pr[fun output : HashOutput => truncateHash output ∈ OtsCode.decodingDigests (OtsCode.unitNeighbors reference lowered) |
-      PMF.uniformOfFinset allowed ha] ≤ (OtsCode.unitNeighborBound : ENNReal) / (Fintype.card Digest : ENNReal) := by
-  have href : reference ∉ OtsCode.unitNeighbors reference lowered := by
-    intro h
-    exact (OtsCode.mem_unitNeighbors.mp h).ne rfl
-  exact (freshEncodingSupport_probability_le reference _ href allowed ha hallowed).trans
-    (ENNReal.div_le_div_right (Nat.cast_le.mpr (OtsCode.unitNeighbors_card_le reference lowered)) _)
-theorem freshEncodingSupport_all_neighbors_le (reference : Encoding)
-    (allowed : Finset HashOutput) (ha : allowed.Nonempty) (hallowed : FreshEncodingSupport reference allowed) :
-    Pr[fun output : HashOutput => truncateHash output ∈ OtsCode.decodingDigests (OtsCode.allUnitNeighbors reference) |
-      PMF.uniformOfFinset allowed ha] ≤ (OtsCode.neighborBound : ENNReal) / (Fintype.card Digest : ENNReal) := by
-  have href : reference ∉ OtsCode.allUnitNeighbors reference := by
-    intro h
-    obtain ⟨lowered, ht⟩ := OtsCode.mem_allUnitNeighbors.mp h
-    exact ht.ne rfl
-  exact (freshEncodingSupport_probability_le reference _ href allowed ha hallowed).trans
-    (ENNReal.div_le_div_right (Nat.cast_le.mpr (OtsCode.allUnitNeighbors_card_le reference)) _)
-end SphincsSecurity.Concrete
-end
-end
-
-section
-
-
-
-
-
-section
-namespace SphincsSecurity.Concrete
-open _root_.OracleComp OracleSpec UniformTableCompletion
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance] Classical.propDecidable
-attribute [local irreducible] Finset.univ
-noncomputable def encodingSelectionRows (selection : ReferenceSelection) : Fin encodingAttemptLimit → Finset HashOutput :=
-  match selection with
-  | none => fun _ => FirstSuccessTable.invalid decodeEncodingOutput
-  | some (index, word) => FirstSuccessTable.allowed decodeEncodingOutput index word
-noncomputable def encodingSelectionAllowed (selection : ReferenceSelection) : Fin encodingAttemptLimit → Finset HashOutput :=
-  if ∀ coordinate, (encodingSelectionRows selection coordinate).Nonempty then encodingSelectionRows selection
-  else fun _ => Finset.univ
-theorem encodingSelectionAllowed_nonempty (selection : ReferenceSelection) :
-    ∀ coordinate, (encodingSelectionAllowed selection coordinate).Nonempty := by
-  unfold encodingSelectionAllowed
-  split_ifs with hrows
-  · exact hrows
-  · exact fun _ => Finset.univ_nonempty
-theorem encodingSelectionAllowed_fresh (selection : ReferenceSelection) (dummy : Encoding) (coordinate : Fin encodingAttemptLimit) :
-    FreshEncodingSupport ((selection.map Prod.snd).getD dummy) (encodingSelectionAllowed selection coordinate) := by
-  unfold encodingSelectionAllowed
-  split_ifs
-  · cases selection with
-    | none => exact Or.inr fun output ho => Or.inl ((FirstSuccessTable.mem_invalid _ _).mp ho)
-    | some selected =>
-        obtain ⟨index, word⟩ := selected
-        exact firstSuccess_allowed_fresh index word coordinate
-  · exact Or.inl rfl
-private theorem uniformTable_rows_eq {rows rows' : Fin encodingAttemptLimit → Finset HashOutput} (h : rows = rows')
-    (hrows : ∀ coordinate, (rows coordinate).Nonempty) (hrows' : ∀ coordinate, (rows' coordinate).Nonempty) :
-    uniformTable rows hrows = uniformTable rows' hrows' := by
-  subst h
-  rfl
-theorem encoding_afterSelect_complete (selection : ReferenceSelection) :
-    𝒮[FirstSuccessTable.afterSelect decodeEncodingOutput encodingAttemptLimit selection] =
-      complete (encodingSelectionAllowed selection) := by
-  rw [complete_of_nonempty _ (encodingSelectionAllowed_nonempty selection)]
-  have hafter : FirstSuccessTable.afterSelect decodeEncodingOutput encodingAttemptLimit selection =
-      FirstSuccessTable.constrained (encodingSelectionRows selection) := by
-    cases selection with
-    | none => rfl
-    | some selected =>
-        obtain ⟨index, word⟩ := selected
-        rfl
-  rw [hafter, FirstSuccessTable.constrained]
-  split_ifs with hrows
-  · rw [uniformTable_rows_eq (show encodingSelectionRows selection = encodingSelectionAllowed selection from
-      (if_pos hrows).symm) hrows (encodingSelectionAllowed_nonempty selection)]
-  · rw [FirstSuccessTable.full, uniformTable_rows_eq (show (fun _ => Finset.univ) = encodingSelectionAllowed selection from
-      (if_neg hrows).symm) _ (encodingSelectionAllowed_nonempty selection)]
-end SphincsSecurity.Concrete
-end
-section
-namespace SphincsSecurity.Concrete
-open _root_.OracleComp OracleSpec UniformTableCompletion
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance] Classical.propDecidable
-attribute [local irreducible] Finset.univ
-noncomputable def encodingFamilyAllowed (selections : ReferenceFamily) (row : EncodingRow) : Finset HashOutput :=
-  encodingSelectionAllowed (selections row.1) row.2
-theorem encodingFamilyAllowed_nonempty (selections : ReferenceFamily) :
-    ∀ row, (encodingFamilyAllowed selections row).Nonempty :=
-  fun row => encodingSelectionAllowed_nonempty (selections row.1) row.2
-theorem encoding_afterSelect_uniform (selection : ReferenceSelection) :
-    FirstSuccessTable.afterSelect decodeEncodingOutput encodingAttemptLimit selection =
-      uniformTable (encodingSelectionAllowed selection) (encodingSelectionAllowed_nonempty selection) := by
-  apply PMF.ext
-  intro table
-  have h := congrArg (fun law : SPMF (Fin encodingAttemptLimit → HashOutput) => law table)
-    (encoding_afterSelect_complete selection)
-  simpa only [complete_of_nonempty _ (encodingSelectionAllowed_nonempty selection), PMF.evalSPMF_eq, SPMF.liftM_apply] using h
-theorem encoding_family_uniform (selections : ReferenceFamily) :
-    (FirstSuccessFamily.afterSelect decodeEncodingOutput encodingAttemptLimit selections).map Function.uncurry =
-        uniformTable (encodingFamilyAllowed selections) (encodingFamilyAllowed_nonempty selections) := by
-  simp only [FirstSuccessFamily.afterSelect, encoding_afterSelect_uniform, uniformTable_eq_product]
-  exact FinitePmfProduct.uncurry (fun position coordinate =>
-    PMF.uniformOfFinset (encodingSelectionAllowed (selections position) coordinate)
-      (encodingSelectionAllowed_nonempty (selections position) coordinate))
-end SphincsSecurity.Concrete
-end
-section
-namespace SphincsSecurity.Concrete.UniformTableSplit
-open _root_.OracleComp ENNReal
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance] Classical.propDecidable
-variable {Index Cell Answer : Type} (embed : Index → Cell) (hinj : Function.Injective embed)
-theorem join_eq_iff (table : Cell → Answer) (rows : Index → Answer) (outside : Outside embed → Answer) :
-    table = join embed hinj rows outside ↔ rows = table ∘ embed ∧ outside = fun cell : Outside embed => table cell.val := by
-  constructor
-  · intro heq
-    subst table
-    constructor
-    · funext index
-      exact (join_embed embed hinj rows outside index).symm
-    · funext cell
-      exact (join_outside embed hinj rows outside cell).symm
-  · rintro ⟨rfl, rfl⟩
-    exact (join_split embed hinj table).symm
-attribute [local irreducible] join
-section Mass
-attribute [local instance 10000] Classical.propDecidable
-theorem bind_map_join_apply (left : PMF (Index → Answer)) (right : PMF (Outside embed → Answer)) (table : Cell → Answer) :
-    (left.bind fun rows => right.map (join embed hinj rows)) table =
-      left (table ∘ embed) * right (fun cell => table cell.val) := by
-  simp only [PMF.bind_apply, PMF.map_apply]
-  rw [tsum_eq_single (table ∘ embed)]
-  · rw [tsum_eq_single (fun cell : Outside embed => table cell.val)]
-    · rw [if_pos (join_split embed hinj table).symm]
-    · intro outside hne
-      exact if_neg (fun h => hne ((join_eq_iff embed hinj table _ outside).mp h).2)
-  · intro rows hne
-    have hz : (∑' outside : Outside embed → Answer,
-        if table = join embed hinj rows outside then right outside else 0) = 0 := by
-      apply ENNReal.tsum_eq_zero.mpr
-      intro outside
-      exact if_neg (fun h => hne ((join_eq_iff embed hinj table rows outside).mp h).1)
-    rw [hz, mul_zero]
-end Mass
-variable [Fintype Index] [Fintype Cell] [DecidableEq Cell]
-include hinj in
-theorem prod_embed_mul_outside {M : Type} [CommMonoid M] (f : Cell → M) :
-    (∏ index, f (embed index)) * (∏ cell : Outside embed, f cell.val) = ∏ cell, f cell := by
-  letI : Fintype (Set.range embed) := Subtype.fintype (Set.range embed)
-  have he : (∏ index, f (embed index)) = ∏ cell : Set.range embed, f cell.val :=
-    Fintype.prod_equiv (Equiv.ofInjective embed hinj) _ _ (fun _ => rfl)
-  rw [he]
-  convert Fintype.prod_subtype_mul_prod_subtype (Set.range embed) f using 1
-  congr 1
-  exact Finset.prod_congr (by ext; simp) (fun _ _ => rfl)
-variable [DecidableEq Index] [Fintype Answer]
-theorem product_join (left : Index → PMF Answer) (right : Outside embed → PMF Answer) :
-    (FinitePmfProduct.law left).bind (fun rows => (FinitePmfProduct.law right).map (join embed hinj rows)) =
-      FinitePmfProduct.law (join embed hinj left right) := by
-  apply PMF.ext
-  intro table
-  rw [bind_map_join_apply]
-  simp only [FinitePmfProduct.apply]
-  have hp := prod_embed_mul_outside embed hinj (fun cell => join embed hinj left right cell (table cell))
-  simpa only [join_embed, join_outside, Function.comp_def] using hp
-variable [DecidableEq Answer]
-omit [Fintype Cell] [DecidableEq Index] [Fintype Answer] [DecidableEq Answer] in
-theorem join_nonempty (left : Index → Finset Answer) (right : Outside embed → Finset Answer)
-    (hl : ∀ index, (left index).Nonempty) (hr : ∀ cell, (right cell).Nonempty) :
-    ∀ cell, (join embed hinj left right cell).Nonempty := by
-  intro cell
-  by_cases hc : cell ∈ Set.range embed
-  · obtain ⟨index, rfl⟩ := hc
-    rw [join_embed]
-    exact hl index
-  · change (join embed hinj left right (⟨cell, hc⟩ : Outside embed).val).Nonempty
-    rw [join_outside]
-    exact hr ⟨cell, hc⟩
-theorem uniformTable_join (left : Index → Finset Answer) (right : Outside embed → Finset Answer)
-    (hl : ∀ index, (left index).Nonempty) (hr : ∀ cell, (right cell).Nonempty) :
-    (uniformTable left hl).bind (fun rows => (uniformTable right hr).map (join embed hinj rows)) =
-      uniformTable (join embed hinj left right) (join_nonempty embed hinj left right hl hr) := by
-  simp only [uniformTable_eq_product, product_join]
-  apply congrArg FinitePmfProduct.law
-  funext cell
-  by_cases hc : cell ∈ Set.range embed
-  · obtain ⟨index, rfl⟩ := hc
-    simp only [join_embed]
-  · change join embed hinj _ _ (⟨cell, hc⟩ : Outside embed).val = _
-    rw [join_outside]
-    have hrow := join_outside embed hinj left right (⟨cell, hc⟩ : Outside embed)
-    simp only [hrow]
-end SphincsSecurity.Concrete.UniformTableSplit
-end
-section
-namespace SphincsSecurity.Concrete
-open _root_.OracleComp OracleSpec UniformTableCompletion
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance] Classical.propDecidable
-attribute [local irreducible] Finset.univ canonicalEncodingInputs UniformTableSplit.join
-noncomputable def referenceEncodingAllowed (parameter : PublicParameter) (messages : EncodingPosition → Digest)
-    (selections : ReferenceFamily) : canonicalEncodingInputs parameter → Finset HashOutput :=
-  UniformTableSplit.join (referenceFamilyCell parameter messages) (referenceFamilyCell_injective parameter messages)
-    (encodingFamilyAllowed selections) (fun _ => Finset.univ)
-theorem referenceEncodingAllowed_nonempty (parameter : PublicParameter) (messages : EncodingPosition → Digest)
-    (selections : ReferenceFamily) : ∀ cell, (referenceEncodingAllowed parameter messages selections cell).Nonempty :=
-  UniformTableSplit.join_nonempty _ _ _ _ (encodingFamilyAllowed_nonempty selections) (fun _ => Finset.univ_nonempty)
-noncomputable def referenceEncodingPrior (parameter : PublicParameter) (messages : EncodingPosition → Digest)
-    (selections : ReferenceFamily) : PMF (canonicalEncodingInputs parameter → HashOutput) :=
-  (FirstSuccessFamily.afterSelect decodeEncodingOutput encodingAttemptLimit selections).bind
-    (fun rows => (PMF.uniformOfFintype (UniformTableSplit.Outside (referenceFamilyCell parameter messages) → HashOutput)).map
-      (UniformTableSplit.join (referenceFamilyCell parameter messages) (referenceFamilyCell_injective parameter messages)
-        (Function.uncurry rows)))
-theorem referenceEncodingPrior_uniform (parameter : PublicParameter) (messages : EncodingPosition → Digest)
-    (selections : ReferenceFamily) :
-    referenceEncodingPrior parameter messages selections =
-      uniformTable (referenceEncodingAllowed parameter messages selections)
-        (referenceEncodingAllowed_nonempty parameter messages selections) := by
-  have h := UniformTableSplit.uniformTable_join (referenceFamilyCell parameter messages)
-    (referenceFamilyCell_injective parameter messages) (encodingFamilyAllowed selections) (fun _ => Finset.univ)
-    (encodingFamilyAllowed_nonempty selections) (fun _ => Finset.univ_nonempty)
-  rw [uniformTable_univ, ← encoding_family_uniform selections, PMF.bind_map] at h
-  exact h
-theorem referenceEncodingPrior_complete (parameter : PublicParameter) (messages : EncodingPosition → Digest)
-    (selections : ReferenceFamily) :
-    𝒮[referenceEncodingPrior parameter messages selections] = complete (referenceEncodingAllowed parameter messages selections) := by
-  rw [referenceEncodingPrior_uniform, complete_of_nonempty _ (referenceEncodingAllowed_nonempty parameter messages selections)]
-theorem referenceEncodingAllowed_fresh (parameter : PublicParameter) (messages : EncodingPosition → Digest)
-    (selections : ReferenceFamily) (dummy : OtsReferenceWords) (cell : canonicalEncodingInputs parameter)
-    (position : EncodingPosition) (hposition : AtEncodingPosition parameter cell.val position) :
-    FreshEncodingSupport (referenceFamilyWords selections dummy position.lay position.tree position.leafIdx)
-      (referenceEncodingAllowed parameter messages selections cell) := by
-  by_cases hc : cell ∈ Set.range (referenceFamilyCell parameter messages)
-  · obtain ⟨row, rfl⟩ := hc
-    have hp := atEncodingPosition_unique hposition
-      (show AtEncodingPosition parameter (referenceFamilyCell parameter messages row).val row.1 from ⟨_, rfl⟩)
-    subst position
-    rw [referenceEncodingAllowed, UniformTableSplit.join_embed]
-    exact encodingSelectionAllowed_fresh (selections row.1) (dummy row.1.lay row.1.tree row.1.leafIdx) row.2
-  · have hrow := UniformTableSplit.join_outside (referenceFamilyCell parameter messages)
-      (referenceFamilyCell_injective parameter messages) (encodingFamilyAllowed selections) (fun _ => (Finset.univ : Finset HashOutput))
-      (⟨cell, hc⟩ : UniformTableSplit.Outside (referenceFamilyCell parameter messages))
-    exact Or.inl hrow
-end SphincsSecurity.Concrete
-end
-end
-
-section
-
-
-
-
-
-
-
-section
-namespace SphincsSecurity.Concrete
-open _root_.OracleComp OracleSpec
-set_option backward.isDefEq.respectTransparency false
-attribute [local irreducible] canonicalEncodingInputs frontierTreeNode referenceEncodingSearch boundaryEval publicDigestLoop
-def AgreeOutsideEncoding (parameter : PublicParameter) (f g : QueryImpl HashSpec Id) : Prop :=
-  ∀ input, input ∉ canonicalEncodingInputs parameter → f input = g input
-theorem AgreeOutsideEncoding.domain {parameter : PublicParameter} {f g : QueryImpl HashSpec Id}
-    (h : AgreeOutsideEncoding parameter f g) (domain : HashDomain)
-    (htag : (hashDomainFields domain).tag ≠ 4#8) (payload : HashInput) :
-    f (tweakableHashInput parameter domain payload) = g (tweakableHashInput parameter domain payload) := by
-  apply h
-  intro hinput
-  rw [canonicalEncodingInputs] at hinput
-  simp only [Finset.mem_biUnion, Finset.mem_univ, true_and, Finset.mem_image] at hinput
-  obtain ⟨position, pair, heq⟩ := hinput
-  exact htag (FtsProbeSimulation.tweakableHashInput_tag_eq parameter domain
-    (.encoding position.lay position.tree position.leafIdx) payload _ heq.symm)
-namespace AgreeOutsideEncoding
-variable {parameter : PublicParameter} {f g : QueryImpl HashSpec Id}
-  (h : AgreeOutsideEncoding parameter f g)
-include h
-theorem frontierTreeNode (lay : Layer) (tree : TreeIndex) (words : LeafIndex → Encoding)
-    (frontier : LeafIndex → ChainIndex → Digest) (level nodeIdx : Nat) :
-    evalWithAnswerFn f (Concrete.frontierTreeNode parameter lay tree words frontier level nodeIdx) =
-      evalWithAnswerFn g (Concrete.frontierTreeNode parameter lay tree words frontier level nodeIdx) := by
-  apply eval_frontierTreeNode_congr
-  · intro leaf chainIdx step _ input
-    exact congrArg truncateHash (h.domain (.chain lay tree leaf chainIdx step) (by simp only [hashDomainFields, tweakFields]; decide) (digestBytes input))
-  · intro leaf payload
-    exact congrArg truncateHash (h.domain (.leaf lay tree leaf) (by simp only [hashDomainFields, tweakFields]; decide) payload)
-  · intro level nodeIdx payload
-    exact congrArg truncateHash (h.domain (.node lay tree level nodeIdx) (by simp only [hashDomainFields, tweakFields]; decide) payload)
-theorem frontierTreePath (lay : Layer) (tree : TreeIndex) (words : LeafIndex → Encoding)
-    (frontier : LeafIndex → ChainIndex → Digest) (leaf : LeafIndex) :
-    evalWithAnswerFn f (Concrete.frontierTreePath parameter lay tree words frontier leaf) =
-      evalWithAnswerFn g (Concrete.frontierTreePath parameter lay tree words frontier leaf) := by
-  simp only [Concrete.frontierTreePath, evalWithAnswerFn_sequenceFin]
-  funext level
-  split_ifs
-  · exact h.frontierTreeNode _ _ _ _ _ _
-  · rfl
-theorem ftsNode (index : Index) (tree : FtsTree) (secret : FtsLeaf → Digest) (level nodeIdx : Nat) :
-    evalWithAnswerFn f (Concrete.ftsNode parameter index tree secret level nodeIdx) =
-      evalWithAnswerFn g (Concrete.ftsNode parameter index tree secret level nodeIdx) := by
-  induction level generalizing nodeIdx with
-  | zero =>
-      simp only [ftsNode_zero_eq, ftsLeafHash, eval_tweakableHash]
-      exact congrArg truncateHash (h.domain (.ftsLeaf index tree _) (by simp only [hashDomainFields, tweakFields]; decide) _)
-  | succ level ih =>
-      simp only [ftsNode_succ_eq, evalWithAnswerFn_bind, ih, eval_tweakableHash]
-      exact congrArg truncateHash (h.domain (.ftsNode index tree (ftsHeapIndex (level + 1) nodeIdx)) (by simp only [hashDomainFields, tweakFields]; decide) _)
-theorem ftsOpen (index : Index) (leaves : IndexGroup → FtsLeaf) (secret : FtsTree → FtsLeaf → Digest) :
-    evalWithAnswerFn f (Concrete.ftsOpen parameter index leaves secret) =
-      evalWithAnswerFn g (Concrete.ftsOpen parameter index leaves secret) := by
-  rw [eval_ftsOpen, eval_ftsOpen]
-  exact congrArg (honestFts leaves (secret porsTree)) (funext fun level => funext fun nodeIdx =>
-    h.ftsNode _ _ _ _ _)
-theorem publicDigestLoop (root : Digest) (message : Message) (attempts : Nat) :
-    fixedBoundaryRun parameter f (Concrete.publicDigestLoop parameter root message attempts) =
-      fixedBoundaryRun parameter g (Concrete.publicDigestLoop parameter root message attempts) := by
-  have hattempt (randomness : Randomness) :
-      boundaryEval parameter f (publicSignAttempt parameter root message randomness) =
-        boundaryEval parameter g (publicSignAttempt parameter root message randomness) := by
-    have hinput := h.domain .message (by simp only [hashDomainFields, tweakFields]; decide) (messageDigestPayload root message randomness)
-    simp [publicSignAttempt, messageDigest, oracleHash, boundaryEval, QueryImpl.withTrace_apply, hinput]
-  induction attempts with
-  | zero => simp only [Concrete.publicDigestLoop, fixedBoundaryRun_pure]
-  | succ attempts ih =>
-      rw [Concrete.publicDigestLoop]
-      apply fixedBoundaryRun_bind_congr
-      · exact fixedBoundaryRun_lift_prob_eq parameter f g sampleRandomness
-      · intro randomness
-        apply fixedBoundaryRun_bind_congr
-        · rw [fixedBoundaryRun_lift_hash, fixedBoundaryRun_lift_hash, hattempt]
-        · intro attempt
-          cases attempt with
-          | none => exact ih
-          | some selected => rfl
-theorem frontierSignLayer (ftsSecret : Index → FtsTree → FtsLeaf → Digest)
-    (words : OtsReferenceWords) (frontier : OtsFrontierValues) (index : Index) (lay : Layer)
-    (hsearch : frontierLayerSearch parameter f ftsSecret words frontier index lay =
-      frontierLayerSearch parameter g ftsSecret words frontier index lay) :
-    Concrete.frontierSignLayer parameter f ftsSecret words frontier index lay =
-      Concrete.frontierSignLayer parameter g ftsSecret words frontier index lay := by
-  simp only [Concrete.frontierSignLayer, hsearch, h.frontierTreePath]
-theorem frontierSignAfterDigest (ftsSecret : Index → FtsTree → FtsLeaf → Digest)
-    (words : OtsReferenceWords) (frontier : OtsFrontierValues)
-    (hsearch : ∀ index lay, frontierLayerSearch parameter f ftsSecret words frontier index lay =
-      frontierLayerSearch parameter g ftsSecret words frontier index lay)
-    (randomness : Randomness) (index : Index) (leaves : IndexGroup → FtsLeaf) :
-    Concrete.frontierSignAfterDigest parameter f ftsSecret words frontier randomness index leaves =
-      Concrete.frontierSignAfterDigest parameter g ftsSecret words frontier randomness index leaves := by
-  simp only [Concrete.frontierSignAfterDigest, h.frontierSignLayer ftsSecret words frontier _ _ (hsearch _ _),
-    h.ftsOpen]
-theorem frontierSigningRun (root : Digest) (ftsSecret : Index → FtsTree → FtsLeaf → Digest)
-    (words : OtsReferenceWords) (frontier : OtsFrontierValues)
-    (hsearch : ∀ index lay, frontierLayerSearch parameter f ftsSecret words frontier index lay =
-      frontierLayerSearch parameter g ftsSecret words frontier index lay) (message : Message) :
-    Concrete.frontierSigningRun parameter root f ftsSecret words frontier message =
-      Concrete.frontierSigningRun parameter root g ftsSecret words frontier message := by
-  simp only [Concrete.frontierSigningRun, frontierSigningRecord, h.publicDigestLoop,
-    h.frontierSignAfterDigest ftsSecret words frontier hsearch]
-theorem frontierRoot (words : OtsReferenceWords) (frontier : OtsFrontierValues) :
-    Concrete.frontierRoot parameter f words frontier = Concrete.frontierRoot parameter g words frontier :=
-  h.frontierTreeNode _ _ _ _ _ _
-end AgreeOutsideEncoding
-end SphincsSecurity.Concrete
-end
-section
-namespace SphincsSecurity.Concrete
-open _root_.OracleComp OracleSpec
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance] Classical.propDecidable
-attribute [local irreducible] canonicalEncodingInputs canonicalGraphInputs frontierSigningRun frontierRoot
-theorem joinEncodingTable_agrees_outside (parameter : PublicParameter) (inputs : Finset HashInput)
-    (hencoding : canonicalEncodingInputs parameter ⊆ inputs)
-    (left right : canonicalEncodingInputs parameter → HashOutput)
-    (outside : NonencodingRows parameter inputs hencoding) :
-    AgreeOutsideEncoding parameter
-      (finiteHashAnswer ∅ inputs (joinEncodingTable parameter inputs hencoding left outside))
-      (finiteHashAnswer ∅ inputs (joinEncodingTable parameter inputs hencoding right outside)) := by
-  intro input hnot
-  by_cases hin : input ∈ inputs
-  · rw [finiteHashAnswer_none ∅ inputs _ _ hin (by simp), finiteHashAnswer_none ∅ inputs _ _ hin (by simp)]
-    let cell : UniformTableSplit.Outside (encodingInputCell parameter inputs hencoding) :=
-      ⟨⟨input, hin⟩, UniformTableSplit.inclusion_not_range hencoding ⟨input, hin⟩ hnot⟩
-    exact (UniformTableSplit.join_outside _ _ left outside cell).trans
-      (UniformTableSplit.join_outside _ _ right outside cell).symm
-  · simp only [finiteHashAnswer, QueryCache.empty_apply, Option.getD_none, dif_neg hin]
-theorem frontierLayerSearch_eq_referenceSelection (key : SecretKey) (f : QueryImpl HashSpec Id)
-    (words : OtsReferenceWords) (frontier : OtsFrontierValues)
-    (hfrontier : IsSigningFrontier key f words frontier) (selections : ReferenceFamily)
-    (hselected : referenceTableSelection key f = selections) (index : Index) (lay : Layer) :
-    frontierLayerSearch key.parameter f key.ftsSecret words frontier index lay =
-      referenceSelectionResult (selections ⟨lay, treeIndexAt index lay, leafIndexAt index lay⟩) := by
-  rw [frontierLayerSearch, eval_frontierLayerMessage key f words frontier hfrontier,
-    ← canonicalEncodingSearch_at,
-    ← referenceSelectionResult_eq_search key f ⟨lay, treeIndexAt index lay, leafIndexAt index lay⟩, hselected]
-namespace CausalFrontierProgram
-theorem game_eq_of_encoding (parameter : PublicParameter) (f g : QueryImpl HashSpec Id)
-    (ftsSecret : Index → FtsTree → FtsLeaf → Digest) (words : OtsReferenceWords)
-    (frontier : OtsFrontierValues) (adversary : Adversary) (h : AgreeOutsideEncoding parameter f g)
-    (hsearch : ∀ index lay, frontierLayerSearch parameter f ftsSecret words frontier index lay =
-      frontierLayerSearch parameter g ftsSecret words frontier index lay) :
-    game parameter f ftsSecret words frontier adversary = game parameter g ftsSecret words frontier adversary := by
-  have hsign (root : Digest) (message : Message) :
-      frontierSigningRun parameter root (maskOtsPrefixes parameter words f) ftsSecret words frontier message =
-        frontierSigningRun parameter root (maskOtsPrefixes parameter words g) ftsSecret words frontier message := by
-    rw [← frontierSigningRun_eq_of_agree parameter words f _ (maskOtsPrefixes_agrees parameter words f),
-      ← frontierSigningRun_eq_of_agree parameter words g _ (maskOtsPrefixes_agrees parameter words g)]
-    exact h.frontierSigningRun root ftsSecret words frontier hsearch message
-  have himpl (root : Digest) : adversaryImpl parameter root f ftsSecret words frontier =
-      adversaryImpl parameter root g ftsSecret words frontier := by
-    funext input
-    cases input with
-    | inl input => rfl
-    | inr message => simp only [adversaryImpl_signing, hsign]
-  rw [game, game,
-    ← frontierRoot_eq_of_agree parameter words f _ (maskOtsPrefixes_agrees parameter words f),
-    ← frontierRoot_eq_of_agree parameter words g _ (maskOtsPrefixes_agrees parameter words g),
-    h.frontierRoot words frontier]
-  simp only [gameRest, adversaryRun, himpl]
-end CausalFrontierProgram
-theorem joinedEncoding_isSigningFrontier (key : SecretKey) (inputs : Finset HashInput)
-    (hencoding : canonicalEncodingInputs key.parameter ⊆ inputs) (hgraph : canonicalGraphInputs key.parameter ⊆ inputs)
-    (encoding : canonicalEncodingInputs key.parameter → HashOutput)
-    (outside : NonencodingRows key.parameter inputs hencoding) (words : OtsReferenceWords) :
-    IsSigningFrontier key (finiteHashAnswer ∅ inputs (joinEncodingTable key.parameter inputs hencoding encoding outside))
-      words (canonicalGraphFrontier key.otsSecret (canonicalGraphLabels key.parameter key.otsSecret key.ftsSecret
-        (nonencodingAnswer key.parameter inputs hencoding outside)) words) := by
-  have hfrontier := canonicalGraphLabels_frontier key.parameter key.otsSecret key.ftsSecret
-    (finiteHashAnswer ∅ inputs (joinEncodingTable key.parameter inputs hencoding encoding outside)) words key.root key.top
-  rw [canonicalGraphLabels_joinEncodingTable _ _ _ _ hencoding hgraph] at hfrontier
-  rw [hfrontier]
-  exact isSigningFrontier_canonical key _ words
-theorem joinedEncoding_program_eq (key : SecretKey) (inputs : Finset HashInput)
-    (hencoding : canonicalEncodingInputs key.parameter ⊆ inputs) (hgraph : canonicalGraphInputs key.parameter ⊆ inputs)
-    (left right : canonicalEncodingInputs key.parameter → HashOutput)
-    (outside : NonencodingRows key.parameter inputs hencoding) (selections : ReferenceFamily)
-    (hleft : referenceTableSelection key
-      (finiteHashAnswer ∅ inputs (joinEncodingTable key.parameter inputs hencoding left outside)) = selections)
-    (hright : referenceTableSelection key
-      (finiteHashAnswer ∅ inputs (joinEncodingTable key.parameter inputs hencoding right outside)) = selections)
-    (dummy : OtsReferenceWords) (adversary : Adversary) :
-    let words := referenceFamilyWords selections dummy
-    let frontier := canonicalGraphFrontier key.otsSecret (canonicalGraphLabels key.parameter key.otsSecret key.ftsSecret
-      (nonencodingAnswer key.parameter inputs hencoding outside)) words
-    CausalFrontierProgram.game key.parameter
-        (finiteHashAnswer ∅ inputs (joinEncodingTable key.parameter inputs hencoding left outside))
-        key.ftsSecret words frontier adversary =
-      CausalFrontierProgram.game key.parameter
-        (finiteHashAnswer ∅ inputs (joinEncodingTable key.parameter inputs hencoding right outside))
-        key.ftsSecret words frontier adversary := by
-  dsimp only
-  apply CausalFrontierProgram.game_eq_of_encoding
-  · exact joinEncodingTable_agrees_outside _ _ _ _ _ _
-  · intro index lay
-    rw [frontierLayerSearch_eq_referenceSelection key _ _ _
-      (joinedEncoding_isSigningFrontier key inputs hencoding hgraph left outside _) selections hleft,
-      frontierLayerSearch_eq_referenceSelection key _ _ _
-      (joinedEncoding_isSigningFrontier key inputs hencoding hgraph right outside _) selections hright]
-end SphincsSecurity.Concrete
-end
-section
-namespace SphincsSecurity.Concrete
-open _root_.OracleComp OracleSpec
-set_option backward.isDefEq.respectTransparency false
-attribute [local irreducible] canonicalGraphInputs canonicalEncodingInputs canonicalGraphGameInputs
-noncomputable def referenceRecordedRest (key : SecretKey) (f : QueryImpl HashSpec Id)
-    (labels : CanonicalGraphLabels) (selections : ReferenceFamily) (dummy : OtsReferenceWords) (adversary : Adversary) :
-    ProbComp ((Bool × SigningBoundaryTrace) × List OracleWorld.Domain) :=
-  let words := referenceFamilyWords selections dummy
-  simulateQ (fixedHashWorld f) (QueryCap.recorded (CausalFrontierProgram.game key.parameter f key.ftsSecret words
-    (canonicalGraphFrontier key.otsSecret labels words) adversary))
-theorem referenceRecordedRest_erased (key : SecretKey) (f : QueryImpl HashSpec Id)
-    (labels : CanonicalGraphLabels) (selections : ReferenceFamily) (dummy : OtsReferenceWords) (adversary : Adversary) :
-    Prod.fst <$> referenceRecordedRest key f labels selections dummy adversary =
-      referenceFamilyFrontierRest key f labels selections dummy adversary := by
-  rw [referenceRecordedRest, ← simulateQ_map, QueryCap.recorded_forget, CausalFrontierProgram.fixed_game,
-    referenceFamilyFrontierRest, causalFrontierGame_eq]
-abbrev ReferenceRecordedResult := PublicParameter × ReferenceFamily × ((Bool × SigningBoundaryTrace) × List OracleWorld.Domain)
-def ReferenceRecordedResult.erase (result : ReferenceRecordedResult) : ReferenceFamily × (Bool × SigningBoundaryTrace) :=
-  (result.2.1, result.2.2.1)
-noncomputable def referenceRecordedGame (inputs : Finset HashInput)
-    (hencoding : ∀ parameter, canonicalEncodingInputs parameter ⊆ inputs)
-    (dummy : OtsReferenceWords) (adversary : Adversary) : SPMF ReferenceRecordedResult := do
-  let parameter ← 𝒮[sampleParameter]
-  let otsSecret ← 𝒮[sampleOtsSecrets]
-  let ftsSecret ← 𝒮[sampleFtsSecrets]
-  let key : SecretKey := ⟨parameter, 0, otsSecret, ftsSecret, fun _ _ => 0⟩
-  let reference ← 𝒮[referenceFamilyOracleSample key inputs (hencoding parameter)]
-  let f := finiteHashAnswer ∅ inputs reference.2
-  let result ← 𝒮[referenceRecordedRest key f
-    (canonicalGraphLabels parameter otsSecret ftsSecret f) reference.1 dummy adversary]
-  pure (parameter, reference.1, result)
-theorem referenceRecordedGame_erased (inputs : Finset HashInput)
-    (hencoding : ∀ parameter, canonicalEncodingInputs parameter ⊆ inputs) (dummy : OtsReferenceWords) (adversary : Adversary) :
-    ReferenceRecordedResult.erase <$> referenceRecordedGame inputs hencoding dummy adversary =
-      referenceFamilyGame inputs hencoding dummy adversary := by
-  unfold referenceRecordedGame referenceFamilyGame
-  simp only [map_bind, map_pure, ReferenceRecordedResult.erase]
-  apply congrArg (𝒮[sampleParameter] >>= ·)
-  funext parameter
-  apply congrArg (𝒮[sampleOtsSecrets] >>= ·)
-  funext otsSecret
-  apply congrArg (𝒮[sampleFtsSecrets] >>= ·)
-  funext ftsSecret
-  apply congrArg (𝒮[referenceFamilyOracleSample _ inputs (hencoding parameter)] >>= ·)
-  funext reference
-  rw [← referenceRecordedRest_erased, evalSPMF_map, bind_map_left]
-theorem referenceRecordedGame_hashCalls_le (dummy : OtsReferenceWords) (adversary : Adversary) (q : Nat)
-    (hbound : HasHashQueryBound scheme adversary q) (result : ReferenceRecordedResult)
-    (hresult : result ∈ support (referenceRecordedGame (canonicalGraphGameInputs adversary)
-      (canonicalEncodingInputs_subset_gameInputs adversary) dummy adversary)) : result.2.2.1.2.hashCalls ≤ q := by
-  apply referenceFamilyGame_hashCalls_le dummy adversary q hbound result.erase
-  rw [← referenceRecordedGame_erased, support_map]
-  exact ⟨result, hresult, rfl⟩
-end SphincsSecurity.Concrete
-end
-section
-namespace SphincsSecurity.Concrete
-open _root_.OracleComp OracleSpec
-set_option backward.isDefEq.respectTransparency false
-attribute [local irreducible] canonicalGraphInputs canonicalEncodingInputs canonicalGraphGameInputs
-abbrev FrontierObserver (Result : Type) := PublicParameter → OtsReferenceWords → OtsFrontierValues →
-  OracleComp OracleWorld (Bool × SigningBoundaryTrace) → OracleComp OracleWorld Result
-noncomputable def referenceInstrumentedRest {Result : Type} (observer : FrontierObserver Result)
-    (key : SecretKey) (oracle : QueryImpl HashSpec Id) (labels : CanonicalGraphLabels)
-    (selections : ReferenceFamily) (dummy : OtsReferenceWords) (adversary : Adversary) : ProbComp Result :=
-  let words := referenceFamilyWords selections dummy
-  let frontier := canonicalGraphFrontier key.otsSecret labels words
-  simulateQ (fixedHashWorld oracle) (observer key.parameter words frontier
-    (CausalFrontierProgram.game key.parameter oracle key.ftsSecret words frontier adversary))
-abbrev InstrumentedResult (Result : Type) := PublicParameter × ReferenceFamily × Result
-noncomputable def referenceInstrumentedGame {Result : Type} (observer : FrontierObserver Result)
-    (inputs : Finset HashInput) (hencoding : ∀ parameter, canonicalEncodingInputs parameter ⊆ inputs)
-    (dummy : OtsReferenceWords) (adversary : Adversary) : SPMF (InstrumentedResult Result) := do
-  let parameter ← 𝒮[sampleParameter]
-  let otsSecret ← 𝒮[sampleOtsSecrets]
-  let ftsSecret ← 𝒮[sampleFtsSecrets]
-  let key : SecretKey := ⟨parameter, 0, otsSecret, ftsSecret, fun _ _ => 0⟩
-  let reference ← 𝒮[referenceFamilyOracleSample key inputs (hencoding parameter)]
-  let oracle := finiteHashAnswer ∅ inputs reference.2
-  let result ← 𝒮[referenceInstrumentedRest observer key oracle
-    (canonicalGraphLabels parameter otsSecret ftsSecret oracle) reference.1 dummy adversary]
-  pure (parameter, reference.1, result)
-theorem referenceInstrumentedRest_erased {Result : Type} (observer : FrontierObserver Result)
-    (erase : Result → Bool × SigningBoundaryTrace)
-    (herase : ∀ parameter words frontier computation, erase <$> observer parameter words frontier computation = computation)
-    (key : SecretKey) (oracle : QueryImpl HashSpec Id) (labels : CanonicalGraphLabels)
-    (selections : ReferenceFamily) (dummy : OtsReferenceWords) (adversary : Adversary) :
-    erase <$> referenceInstrumentedRest observer key oracle labels selections dummy adversary =
-      referenceFamilyFrontierRest key oracle labels selections dummy adversary := by
-  rw [referenceInstrumentedRest, ← simulateQ_map, herase, CausalFrontierProgram.fixed_game,
-    referenceFamilyFrontierRest, causalFrontierGame_eq]
-theorem referenceInstrumentedGame_erased {Result : Type} (observer : FrontierObserver Result)
-    (erase : Result → Bool × SigningBoundaryTrace)
-    (herase : ∀ parameter words frontier computation, erase <$> observer parameter words frontier computation = computation)
-    (inputs : Finset HashInput) (hencoding : ∀ parameter, canonicalEncodingInputs parameter ⊆ inputs)
-    (dummy : OtsReferenceWords) (adversary : Adversary) :
-    (fun result => (result.2.1, erase result.2.2)) <$> referenceInstrumentedGame observer inputs hencoding dummy adversary =
-      referenceFamilyGame inputs hencoding dummy adversary := by
-  unfold referenceInstrumentedGame referenceFamilyGame
-  simp only [map_bind, map_pure]
-  apply congrArg (𝒮[sampleParameter] >>= ·)
-  funext parameter
-  apply congrArg (𝒮[sampleOtsSecrets] >>= ·)
-  funext otsSecret
-  apply congrArg (𝒮[sampleFtsSecrets] >>= ·)
-  funext ftsSecret
-  apply congrArg (𝒮[referenceFamilyOracleSample _ inputs (hencoding parameter)] >>= ·)
-  funext reference
-  rw [← referenceInstrumentedRest_erased observer erase herase, evalSPMF_map, bind_map_left]
-end SphincsSecurity.Concrete
-end
-section
-namespace SphincsSecurity.Concrete
-open _root_.OracleComp OracleSpec
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance] Classical.propDecidable
-attribute [local irreducible] canonicalEncodingInputs canonicalGraphInputs
-noncomputable def referenceEncodingRepresentative (key : SecretKey) (inputs : Finset HashInput)
-    (hencoding : canonicalEncodingInputs key.parameter ⊆ inputs)
-    (outside : NonencodingRows key.parameter inputs hencoding) (selections : ReferenceFamily) :
-    canonicalEncodingInputs key.parameter → HashOutput :=
-  if h : ∃ encoding, referenceTableSelection key
-      (finiteHashAnswer ∅ inputs (joinEncodingTable key.parameter inputs hencoding encoding outside)) = selections
-  then Classical.choose h else fun _ => 0
-theorem referenceEncodingRepresentative_selected (key : SecretKey) (inputs : Finset HashInput)
-    (hencoding : canonicalEncodingInputs key.parameter ⊆ inputs)
-    (outside : NonencodingRows key.parameter inputs hencoding) (selections : ReferenceFamily)
-    (encoding : canonicalEncodingInputs key.parameter → HashOutput)
-    (hselected : referenceTableSelection key
-      (finiteHashAnswer ∅ inputs (joinEncodingTable key.parameter inputs hencoding encoding outside)) = selections) :
-    referenceTableSelection key (finiteHashAnswer ∅ inputs (joinEncodingTable key.parameter inputs hencoding
-      (referenceEncodingRepresentative key inputs hencoding outside selections) outside)) = selections := by
-  have hex : ∃ encoding, referenceTableSelection key
-      (finiteHashAnswer ∅ inputs (joinEncodingTable key.parameter inputs hencoding encoding outside)) = selections :=
-    ⟨encoding, hselected⟩
-  rw [referenceEncodingRepresentative, dif_pos hex]
-  exact Classical.choose_spec hex
-noncomputable def referenceEncodingProgram (key : SecretKey) (inputs : Finset HashInput)
-    (hencoding : canonicalEncodingInputs key.parameter ⊆ inputs)
-    (outside : NonencodingRows key.parameter inputs hencoding) (selections : ReferenceFamily)
-    (dummy : OtsReferenceWords) (adversary : Adversary) : OracleComp OracleWorld (Bool × SigningBoundaryTrace) :=
-  let words := referenceFamilyWords selections dummy
-  let frontier := canonicalGraphFrontier key.otsSecret (canonicalGraphLabels key.parameter key.otsSecret key.ftsSecret
-    (nonencodingAnswer key.parameter inputs hencoding outside)) words
-  CausalFrontierProgram.game key.parameter
-    (finiteHashAnswer ∅ inputs (joinEncodingTable key.parameter inputs hencoding
-      (referenceEncodingRepresentative key inputs hencoding outside selections) outside)) key.ftsSecret words frontier adversary
-theorem referenceEncodingProgram_selected (key : SecretKey) (inputs : Finset HashInput)
-    (hencoding : canonicalEncodingInputs key.parameter ⊆ inputs) (hgraph : canonicalGraphInputs key.parameter ⊆ inputs)
-    (outside : NonencodingRows key.parameter inputs hencoding) (selections : ReferenceFamily)
-    (encoding : canonicalEncodingInputs key.parameter → HashOutput)
-    (hselected : referenceTableSelection key
-      (finiteHashAnswer ∅ inputs (joinEncodingTable key.parameter inputs hencoding encoding outside)) = selections)
-    (dummy : OtsReferenceWords) (adversary : Adversary) :
-    let words := referenceFamilyWords selections dummy
-    let frontier := canonicalGraphFrontier key.otsSecret (canonicalGraphLabels key.parameter key.otsSecret key.ftsSecret
-      (nonencodingAnswer key.parameter inputs hencoding outside)) words
-    CausalFrontierProgram.game key.parameter
-        (finiteHashAnswer ∅ inputs (joinEncodingTable key.parameter inputs hencoding encoding outside))
-        key.ftsSecret words frontier adversary =
-      referenceEncodingProgram key inputs hencoding outside selections dummy adversary :=
-  joinedEncoding_program_eq key inputs hencoding hgraph encoding _ outside selections hselected
-    (referenceEncodingRepresentative_selected key inputs hencoding outside selections encoding hselected) dummy adversary
-noncomputable def referenceEncodingRest {Result : Type} (observer : FrontierObserver Result)
-    (key : SecretKey) (inputs : Finset HashInput) (hencoding : canonicalEncodingInputs key.parameter ⊆ inputs)
-    (outside : NonencodingRows key.parameter inputs hencoding) (selections : ReferenceFamily)
-    (encoding : canonicalEncodingInputs key.parameter → HashOutput)
-    (dummy : OtsReferenceWords) (adversary : Adversary) : ProbComp Result :=
-  let words := referenceFamilyWords selections dummy
-  let frontier := canonicalGraphFrontier key.otsSecret (canonicalGraphLabels key.parameter key.otsSecret key.ftsSecret
-    (nonencodingAnswer key.parameter inputs hencoding outside)) words
-  simulateQ (fixedHashWorld (finiteHashAnswer ∅ inputs (joinEncodingTable key.parameter inputs hencoding encoding outside)))
-    (observer key.parameter words frontier (referenceEncodingProgram key inputs hencoding outside selections dummy adversary))
-theorem referenceEncodingRest_selected {Result : Type} (observer : FrontierObserver Result)
-    (key : SecretKey) (inputs : Finset HashInput) (hencoding : canonicalEncodingInputs key.parameter ⊆ inputs)
-    (hgraph : canonicalGraphInputs key.parameter ⊆ inputs)
-    (outside : NonencodingRows key.parameter inputs hencoding) (selections : ReferenceFamily)
-    (encoding : canonicalEncodingInputs key.parameter → HashOutput)
-    (hselected : referenceTableSelection key
-      (finiteHashAnswer ∅ inputs (joinEncodingTable key.parameter inputs hencoding encoding outside)) = selections)
-    (dummy : OtsReferenceWords) (adversary : Adversary) :
-    let oracle := finiteHashAnswer ∅ inputs (joinEncodingTable key.parameter inputs hencoding encoding outside)
-    referenceInstrumentedRest observer key oracle (canonicalGraphLabels key.parameter key.otsSecret key.ftsSecret oracle)
-        selections dummy adversary =
-      referenceEncodingRest observer key inputs hencoding outside selections encoding dummy adversary := by
-  dsimp only
-  rw [referenceInstrumentedRest, canonicalGraphLabels_joinEncodingTable _ _ _ _ hencoding hgraph]
-  rw [referenceEncodingProgram_selected key inputs hencoding hgraph outside selections encoding hselected]
-  rfl
-theorem referenceEncodingRest_table {Result : Type} (observer : FrontierObserver Result)
-    (key : SecretKey) (inputs : Finset HashInput) (hencoding : canonicalEncodingInputs key.parameter ⊆ inputs)
-    (hgraph : canonicalGraphInputs key.parameter ⊆ inputs) (selections : ReferenceFamily)
-    (table : inputs → HashOutput) (hselected : referenceTableSelection key (finiteHashAnswer ∅ inputs table) = selections)
-    (dummy : OtsReferenceWords) (adversary : Adversary) :
-    referenceInstrumentedRest observer key (finiteHashAnswer ∅ inputs table)
-        (canonicalGraphLabels key.parameter key.otsSecret key.ftsSecret (finiteHashAnswer ∅ inputs table)) selections dummy adversary =
-      referenceEncodingRest observer key inputs hencoding (fun cell => table cell.val) selections
-        (table ∘ encodingInputCell key.parameter inputs hencoding) dummy adversary := by
-  have hjoin : joinEncodingTable key.parameter inputs hencoding (table ∘ encodingInputCell key.parameter inputs hencoding)
-      (fun cell => table cell.val) = table := UniformTableSplit.join_split _ _ table
-  have hs : referenceTableSelection key (finiteHashAnswer ∅ inputs (joinEncodingTable key.parameter inputs hencoding
-      (table ∘ encodingInputCell key.parameter inputs hencoding) (fun cell => table cell.val))) = selections := by
-    rw [hjoin]
-    exact hselected
-  have h := referenceEncodingRest_selected observer key inputs hencoding hgraph (fun cell => table cell.val) selections
-    (table ∘ encodingInputCell key.parameter inputs hencoding) hs dummy adversary
-  simpa only [hjoin] using h
-end SphincsSecurity.Concrete
-end
-section
-namespace SphincsSecurity.Concrete.EncodingObservation
-open _root_.OracleComp OracleSpec UniformTableCompletion
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance] Classical.propDecidable
-attribute [local irreducible] canonicalEncodingInputs Finset.univ
-abbrev World (parameter : PublicParameter) :=
-  OracleWorld + UniformTableObservation.TableSpec (canonicalEncodingInputs parameter) HashOutput
-noncomputable def translate (parameter : PublicParameter) : QueryImpl OracleWorld (OracleComp (World parameter))
-  | .inl input => liftM ((World parameter).query (.inl (.inl input)))
-  | .inr input =>
-      if h : input ∈ canonicalEncodingInputs parameter then liftM ((World parameter).query (.inr ⟨input, h⟩))
-      else liftM ((World parameter).query (.inl (.inr input)))
-noncomputable def auxiliary (parameter : PublicParameter) (inputs : Finset HashInput)
-    (hencoding : canonicalEncodingInputs parameter ⊆ inputs) (outside : NonencodingRows parameter inputs hencoding) :
-    QueryImpl OracleWorld SPMF := fun input => 𝒮[fixedHashWorld (nonencodingAnswer parameter inputs hencoding outside) input]
-theorem fixed_translate (parameter : PublicParameter) (inputs : Finset HashInput)
-    (hencoding : canonicalEncodingInputs parameter ⊆ inputs) (outside : NonencodingRows parameter inputs hencoding)
-    (encoding : canonicalEncodingInputs parameter → HashOutput) (input : OracleWorld.Domain) :
-    simulateQ (UniformTableObservation.fixedImpl (auxiliary parameter inputs hencoding outside) encoding) (translate parameter input) =
-      𝒮[fixedHashWorld (finiteHashAnswer ∅ inputs (joinEncodingTable parameter inputs hencoding encoding outside)) input] := by
-  cases input with
-  | inl input =>
-      simp only [translate, simulateQ_spec_query, UniformTableObservation.fixedImpl, auxiliary, fixedHashWorld]
-  | inr input =>
-      by_cases hc : input ∈ canonicalEncodingInputs parameter
-      · have hrow : finiteHashAnswer ∅ inputs (joinEncodingTable parameter inputs hencoding encoding outside) input = encoding ⟨input, hc⟩ := by
-          rw [finiteHashAnswer_none ∅ inputs _ _ (hencoding hc) (by simp)]
-          exact UniformTableSplit.join_embed (encodingInputCell parameter inputs hencoding)
-            (encodingInputCell_injective parameter inputs hencoding) encoding outside ⟨input, hc⟩
-        simp only [translate, dif_pos hc, simulateQ_spec_query, UniformTableObservation.fixedImpl, fixedHashWorld,
-          evalSPMF_pure, hrow]
-      · have hrow := joinEncodingTable_agrees_outside parameter inputs hencoding encoding (fun _ => 0) outside input hc
-        simp only [translate, dif_neg hc, simulateQ_spec_query, UniformTableObservation.fixedImpl, auxiliary, fixedHashWorld,
-          evalSPMF_pure, hrow, nonencodingAnswer]
-theorem fixed_run {Result : Type} (parameter : PublicParameter) (inputs : Finset HashInput)
-    (hencoding : canonicalEncodingInputs parameter ⊆ inputs) (outside : NonencodingRows parameter inputs hencoding)
-    (encoding : canonicalEncodingInputs parameter → HashOutput) (computation : OracleComp OracleWorld Result) :
-    simulateQ (UniformTableObservation.fixedImpl (auxiliary parameter inputs hencoding outside) encoding)
-        (simulateQ (translate parameter) computation) =
-      𝒮[simulateQ (fixedHashWorld (finiteHashAnswer ∅ inputs (joinEncodingTable parameter inputs hencoding encoding outside))) computation] := by
-  induction computation using OracleComp.inductionOn with
-  | pure result => simp only [simulateQ_pure, evalSPMF_pure]
-  | query_bind input next ih =>
-      simp only [simulateQ_bind, simulateQ_spec_query, evalSPMF_bind, ih, fixed_translate]
-noncomputable def lazyRun {Result : Type} (parameter : PublicParameter) (inputs : Finset HashInput)
-    (hencoding : canonicalEncodingInputs parameter ⊆ inputs) (outside : NonencodingRows parameter inputs hencoding)
-    (computation : OracleComp OracleWorld Result) (allowed : canonicalEncodingInputs parameter → Finset HashOutput) :
-    SPMF (Result × (canonicalEncodingInputs parameter → Finset HashOutput)) :=
-  UniformTableObservation.lazyRun (auxiliary parameter inputs hencoding outside) (simulateQ (translate parameter) computation) allowed
-theorem lazyRun_original {Result : Type} (parameter : PublicParameter) (inputs : Finset HashInput)
-    (hencoding : canonicalEncodingInputs parameter ⊆ inputs) (outside : NonencodingRows parameter inputs hencoding)
-    (computation : OracleComp OracleWorld Result) (allowed : canonicalEncodingInputs parameter → Finset HashOutput)
-    (ha : ∀ cell, (allowed cell).Nonempty) :
-    (complete allowed >>= fun encoding =>
-      𝒮[simulateQ (fixedHashWorld (finiteHashAnswer ∅ inputs (joinEncodingTable parameter inputs hencoding encoding outside))) computation]) =
-        Prod.fst <$> lazyRun parameter inputs hencoding outside computation allowed := by
-  have h := UniformTableObservation.run_marginal (auxiliary parameter inputs hencoding outside)
-    (simulateQ (translate parameter) computation) allowed ha
-  simpa only [fixed_run, lazyRun] using h
-end SphincsSecurity.Concrete.EncodingObservation
-end
-end
-
-section
-
-
-
-
-
-
-
-
-
-section
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -870,7 +55,10 @@ theorem game_nonmessage_recorded_le (parameter : PublicParameter) (external : Qu
 end CausalFrontierProgram
 end SphincsSecurity.Concrete
 end
+
 section
+
+
 namespace SphincsSecurity.Concrete.QueryClass
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -951,7 +139,9 @@ theorem allocation_calls (parameter : PublicParameter) (words : OtsReferenceWord
       omega
 end SphincsSecurity.Concrete.QueryClass
 end
+
 section
+
 namespace SphincsSecurity.OtsCode
 open scoped BigOperators
 set_option backward.isDefEq.respectTransparency false
@@ -1035,7 +225,12 @@ theorem valid_encoding_classification {reference candidate : Encoding} (hreferen
   exact Or.inr (Or.inr (backwardWeight_two_witness (by omega)))
 end SphincsSecurity.OtsCode
 end
+
 section
+
+
+
+
 namespace SphincsSecurity.Concrete.OtsEncodingMarker
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -1104,7 +299,11 @@ theorem markers_mul (parameter : PublicParameter) (words : OtsReferenceWords) (b
 attribute [local irreducible] markers
 end SphincsSecurity.Concrete.OtsEncodingMarker
 end
+
 section
+
+
+
 namespace SphincsSecurity.Concrete.EncodingObservation
 open _root_.OracleComp OracleSpec UniformTableCompletion RetainedObservation
 set_option backward.isDefEq.respectTransparency false
@@ -1245,7 +444,10 @@ theorem TraceConsistent.new_reply_probability_le {parameter : PublicParameter}
     exact bot_le
 end SphincsSecurity.Concrete.EncodingObservation
 end
+
 section
+
+
 namespace SphincsSecurity.Concrete.OtsEncodingMarker
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -1295,7 +497,10 @@ theorem entryMarker_any_allowed_le (parameter : PublicParameter) (messages : Enc
   exact OtsCode.mem_decodingDigests.mpr ⟨candidate, OtsCode.mem_allUnitNeighbors.mpr ⟨chain, hn⟩, hd⟩
 end SphincsSecurity.Concrete.OtsEncodingMarker
 end
+
 section
+
+
 namespace SphincsSecurity.Concrete.OtsEncodingMarker
 open _root_.OracleComp OracleSpec UniformTableCompletion EncodingObservation
 set_option backward.isDefEq.respectTransparency false
@@ -1370,7 +575,9 @@ theorem markers_step_card (parameter : PublicParameter) (words : OtsReferenceWor
 end Cardinality
 end SphincsSecurity.Concrete.OtsEncodingMarker
 end
+
 section
+
 namespace SphincsSecurity.Concrete.OtsEncodingMarker
 open _root_.OracleComp OracleSpec UniformTableCompletion EncodingObservation RetainedObservation
 set_option backward.isDefEq.respectTransparency false
@@ -1443,7 +650,10 @@ theorem markers_query_potential_le (parameter : PublicParameter) (inputs : Finse
 end Potential
 end SphincsSecurity.Concrete.OtsEncodingMarker
 end
+
 section
+
+
 namespace SphincsSecurity.Concrete.UniformTableObservation
 open _root_.OracleComp OracleSpec UniformTableCompletion
 set_option backward.isDefEq.respectTransparency false
@@ -1534,5 +744,4 @@ theorem markers_initial_lazyRun_le {Result : Type} (parameter : PublicParameter)
     markers_lazyRun_le parameter inputs hencoding outside messages selections dummy computation 1 _
       (traceConsistent_one parameter _) (referenceEncodingAllowed_nonempty parameter messages selections)
 end SphincsSecurity.Concrete.EncodingObservation
-end
 end

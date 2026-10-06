@@ -1,8 +1,16 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Encode
+import SigGolfCandidate.T3M.Witness.Normal
+import SigGolfCandidate.T3M.Witness.Shaped
+import SigGolfCandidate.ClaudeWCT.WCT9.Basic
+import SigGolfCandidate.T3M.Witness.Roundtrip
 import SigGolfCandidate.T3M.Witness.Honest
 import SigGolfCandidate.ClaudeWCT.WCT9.Correctness
 
 section
+
+
+
+
 namespace ClaudeWCT.W9.T3M
 open OracleComp OracleSpec SigGolfCandidate.T3
 open SigGolfCandidate.T3M (wdig wrho wdc wle32 wvalue wpath wchainPads wmerklePad wchainHeaderPad chainP layerP
@@ -233,7 +241,10 @@ theorem verifyP_normal (m : Message) (pk : Digest) (w : WBytes) :
       · simp [hg]
 end ClaudeWCT.W9.T3M
 end
+
 section
+
+
 namespace ClaudeWCT.W9.T3M
 open OracleComp OracleSpec SigGolfCandidate.T3
 open SigGolfCandidate.T3M (wdig wle32 wrho wdc wvalue wpath wchainPads wmerklePad wchainHeaderPad sibOff zeros
@@ -716,7 +727,7 @@ theorem witDecP_witEnc (N : HashOutput) (w : WCT9.Witness) : witDecP N (witEnc N
   refine ⟨⟨wrho_witEnc N _, funext fun k => ?_, funext fun lay => ?_⟩, wdc_witEnc N _,
     funext fun lay => wbcCtr_witEnc N _ lay⟩
   · have hv := fun t => wreveal_witEnc N ⟨⟨rho, openings, layers⟩, dc, ctr⟩ k t
-      (WCT9.wordDigit (WCT9.rank N k) t)
+      (WCT9.digit (WCT9.rank N k) t)
     have hp := fun l => wsib_witEnc N ⟨⟨rho, openings, layers⟩, dc, ctr⟩ k l
     simp only at hv hp
     rcases ho : openings k with ⟨vals, path⟩
@@ -742,7 +753,11 @@ theorem padDecP_witEnc (N : HashOutput) (w : WCT9.Witness) : padDecP N (witEnc N
   · funext lay; exact wbcPad_witEnc N w lay
 end ClaudeWCT.W9.T3M
 end
+
 section
+
+
+
 namespace ClaudeWCT.W9.T3M
 open OracleComp OracleSpec SigGolfCandidate.T3
 open SigGolfCandidate.T3M (wdig wrho wdc eval_countCalls_bind_congr eval_countCalls_fst eval_map)
@@ -796,7 +811,6 @@ structure ExpandFacts (answers : Correctness.Answers) (m : Message) (pk : Digest
   dc : w.digestCounter.toNat < WCT9.digestAttemptLimit
   digest : evalWithAnswerFn answers (digest σ.rho m w.digestCounter) = N
   adm : WCT9.admissible N = true
-  cap : WCT9.capOk N = true
 theorem expandN_facts (answers : Correctness.Answers) (m : Message) (pk : Digest) (σ : WCT9.Signature)
     (N : HashOutput) (w : WCT9.Witness) (he : evalWithAnswerFn answers (expandN m pk σ) = some (N, w)) :
     ExpandFacts answers m pk σ N w := by
@@ -818,8 +832,7 @@ theorem expandN_facts (answers : Correctness.Answers) (m : Message) (pk : Digest
             obtain ⟨rfl, rfl⟩ := he
             obtain ⟨_, hcounter, houtput, hadm⟩ := WCT9.digestSearch_some_good answers σ.rho m
               WCT9.digestAttemptLimit 0 counter output (by unfold WCT9.digestAttemptLimit; norm_num) hd
-            exact ⟨rfl, by simpa using hcounter, houtput, WCT9.admissible_of_producer hadm,
-              (WCT9.capOk_iff output).2 ((WCT9.producerAdmissible_iff output).1 hadm).2⟩
+            exact ⟨rfl, by simpa using hcounter, houtput, hadm⟩
 theorem verifyP_witEnc_eval (answers : Correctness.Answers) (m : Message) (pk : Digest) (σ : WCT9.Signature)
     (N : HashOutput) (w : WCT9.Witness) (he : evalWithAnswerFn answers (expandN m pk σ) = some (N, w)) :
     evalWithAnswerFn answers (Cost.countCalls (verifyP m pk (witEnc N w))) =

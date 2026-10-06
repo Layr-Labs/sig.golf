@@ -17,6 +17,11 @@ import Mathlib.Algebra.BigOperators.Pi
 import Mathlib.Data.Fintype.Pi
 
 section
+
+
+
+
+
 namespace ClaudeWCT.Numerics.Kernel
 open Finset
 theorem fact_eq : ∀ n, fact n = n.factorial
@@ -109,7 +114,11 @@ theorem enumK_eq (hb total qIdx : ℕ) : ∀ (opts : List Opt) (n rem q p fden :
     · simp only [if_neg h, sum_const_zero]
 end ClaudeWCT.Numerics.Kernel
 end
+
 section
+
+
+
 namespace ClaudeWCT.Numerics
 open Polynomial
 theorem eval_eq_coeff_zero_add (f : ℕ[X]) (B : ℕ) : f.eval B = f.coeff 0 + B * f.divX.eval B := by
@@ -137,7 +146,13 @@ theorem coeff_le_eval_one (f : ℕ[X]) (i : ℕ) : f.coeff i ≤ f.eval 1 := by
   · rw [Polynomial.notMem_support_iff.mp hi]; exact Nat.zero_le _
 end ClaudeWCT.Numerics
 end
+
 section
+
+
+
+
+
 namespace ClaudeWCT.Numerics.Kernel
 open Finset Polynomial
 variable {ι : Type*}
@@ -243,7 +258,12 @@ theorem decode (T : Finset ι) (cond : ι → Prop) [DecidablePred cond] (sgn : 
   linarith
 end ClaudeWCT.Numerics.Kernel
 end
+
 section
+
+
+
+
 namespace ClaudeWCT.Numerics
 open Finset
 variable {α : Type*} [Fintype α] [DecidableEq α]
@@ -314,7 +334,12 @@ theorem sum_eq_sum_mul_occ {n : ℕ} (f : α → ℕ) (o : Fin n → α) :
   rfl
 end ClaudeWCT.Numerics
 end
+
 section
+
+
+
+
 namespace ClaudeWCT.Numerics
 open Finset
 section IE
@@ -406,7 +431,9 @@ theorem card_pi_sum_eq_coeff {n : ℕ} {β : Type*} [DecidableEq β] (C : Fin n 
 end DP
 end ClaudeWCT.Numerics
 end
+
 section
+
 namespace ClaudeWCT.Numerics.Kernel
 open Finset
 def parity (opts : List Opt) (k : Fin opts.length → ℕ) : Bool :=
@@ -462,7 +489,9 @@ theorem term_eq (hb total qIdx : ℕ) : ∀ (opts : List Opt) (k : Fin opts.leng
     · rw [if_neg h1, if_neg (by omega)]
 end ClaudeWCT.Numerics.Kernel
 end
+
 section
+
 namespace ClaudeWCT.Numerics.Kernel
 theorem w1_ok : histEq (w1Hist HB) w1Data = true := by decide +kernel
 theorem wf_ok : histEq (wfHist HB) wfData = true := by decide +kernel
@@ -472,7 +501,13 @@ theorem wf_mass : massOk (wfHist 1) wfData = true := by decide +kernel
 theorem w2_mass : massOk (w2Hist 1) w2Data = true := by decide +kernel
 end ClaudeWCT.Numerics.Kernel
 end
+
 section
+
+
+
+
+
 namespace ClaudeWCT.Numerics.WCT9
 open Finset Polynomial ClaudeWCT.Numerics ClaudeWCT.Numerics.Kernel
 abbrev Word := {d : Fin 7 → Fin 4 // ∑ i, (d i : ℕ) = 6}

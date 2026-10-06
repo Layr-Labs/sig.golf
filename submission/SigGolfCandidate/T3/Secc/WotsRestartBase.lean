@@ -1,6 +1,13 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.QueryCapErasure
+import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainCountedRows
+import SigGolfCandidate.SphincsSecurity.Proof.Base.QueryPause
+import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainCheckpoint
+import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainCapObservation
 import SigGolfCandidate.T3.Secc.WotsContacts
+import SigGolfCandidate.SphincsSecurity.Proof.Base.QueryPauseInvariant
 
 section
+
 namespace SphincsSecurity.QueryCap
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -52,7 +59,11 @@ theorem counted_state_le_of_cap_valid (impl : QueryImpl spec (StateT Memory PMF)
   exact hvalid capped hcapped (heq.trans (if_neg hlarge))
 end SphincsSecurity.QueryCap
 end
+
 section
+
+
+
 namespace SphincsSecurity.Concrete.PartialChainEndpoint
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -105,7 +116,9 @@ theorem lazyRun_pause_budget_of_real (endpoint : State) (stop : Memory → Prop)
   exact ⟨(Nat.add_le_add_right hpast _).trans htotal, hrows.trans ((Nat.add_le_add_right hpast _).trans htotal)⟩
 end SphincsSecurity.Concrete.PartialChainEndpoint
 end
+
 section
+
 namespace SphincsSecurity.Concrete.PartialChainEndpoint
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -189,7 +202,10 @@ theorem realCheckpointRun_contact_le_mark (budget : Nat)
       simp only [probEvent_eq_tsum_ite, PMF.probOutput_eq_apply, mul_ite, mul_one, mul_zero]
 end SphincsSecurity.Concrete.PartialChainEndpoint
 end
+
 section
+
+
 namespace SphincsSecurity.Concrete.PartialChainEndpoint
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -235,7 +251,13 @@ theorem realCheckpointRun_project (auxiliary : State → QueryImpl auxSpec PMF)
   simpa only [PMF.map_comp, Function.comp_def] using h
 end SphincsSecurity.Concrete.PartialChainEndpoint
 end
+
 section
+
+
+
+
+
 namespace SigGolfCandidate.T3.Security.Wots
 open OracleComp OracleSpec ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final

@@ -1,9 +1,13 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.TargetShapeContinuation
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.TargetShapeExpectation
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.FewTimeFresh
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.SubsetTargetAssignment
 
 section
+
+
+
 namespace SphincsSecurity.Concrete
 open ENNReal
 attribute [local instance] Classical.propDecidable
@@ -365,7 +369,10 @@ theorem leafAverage_targetShapeEnvelope_le {F : (IndexGroup → L) → TargetSha
   exact hs.2.trans (targetShapeSigning_iterate_mono _ reuse signings hq.2)
 end SphincsSecurity.Concrete
 end
+
 section
+
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec ENNReal
 attribute [local instance] Classical.propDecidable
@@ -425,7 +432,11 @@ theorem expected_uniformHashOutput_admissible_weight_le_uniform (weight : FewTim
   split_ifs <;> simp
 end SphincsSecurity.Concrete
 end
+
 section
+
+
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec ENNReal
 attribute [local instance] Classical.propDecidable
@@ -464,7 +475,11 @@ theorem sourceSubsetMatch_local (index : Index) (source : FewTimeView) (required
   simp only [hagree i hi]
 end SphincsSecurity.Concrete
 end
+
 section
+
+
+
 set_option autoImplicit true
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec ENNReal

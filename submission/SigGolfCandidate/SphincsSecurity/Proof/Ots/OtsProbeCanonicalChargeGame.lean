@@ -1,11 +1,17 @@
 import SigGolfCandidate.SphincsSecurity.Proof.Reference.FiniteHashWorld
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
+import SigGolfCandidate.SphincsSecurity.Proof.Fts.FewTimeSignerView
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.SecretProbe
 import SigGolfCandidate.SphincsSecurity.Proof.Reference.DirectQueryBudget
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.FewTimeLoop
+import SigGolfCandidate.SphincsSecurity.Proof.Reference.SigningTrace
+import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Secrets
+import SigGolfCandidate.SphincsSecurity.Proof.Scheme.ForgeryClassify
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.EncodingSelectionCache
 import SigGolfCandidate.SphincsSecurity.Proof.Base.RomQueryChargeBind
 
 section
+
 namespace SphincsSecurity.Concrete
 open OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -115,7 +121,11 @@ theorem fixedBoundaryRun_bind_query_bound {α β : Type} (parameter : PublicPara
   exact ⟨result, (mem_support_iff _ _).mpr hresult, rfl⟩
 end SphincsSecurity.Concrete
 end
+
 section
+
+
+
 namespace SphincsSecurity.Concrete.FtsProbeSimulation
 open OracleComp OracleSpec ENNReal
 abbrev Coordinate := Index × FtsTree × FtsLeaf
@@ -165,7 +175,10 @@ theorem decodeProbe?_eq_none_iff (parameter : PublicParameter) (input : HashInpu
         exact (hnone probe ((decodeProbe?_eq_some_iff parameter input probe).1 hdecode)).elim
 end SphincsSecurity.Concrete.FtsProbeSimulation
 end
+
 section
+
+
 namespace SphincsSecurity.Concrete.FtsProbeSimulation
 open OracleComp OracleSpec
 theorem sibling_node_bound (height leaf level : Nat)
@@ -196,7 +209,11 @@ theorem sibling_node_bound (height leaf level : Nat)
       omega
 end SphincsSecurity.Concrete.FtsProbeSimulation
 end
+
 section
+
+
+
 set_option autoImplicit true
 namespace SphincsSecurity.Concrete.FtsProbeSimulation
 open OracleComp OracleSpec
@@ -250,7 +267,10 @@ noncomputable def tracedGameRestComputation (adversary : Adversary)
     ¬SigningTranscript.Contains log forgery) && verified)
 end SphincsSecurity.Concrete.FtsProbeSimulation
 end
+
 section
+
+
 set_option autoImplicit true
 namespace SphincsSecurity.AdaptiveRevealProbe
 open OracleComp OracleSpec
@@ -271,7 +291,10 @@ theorem signingTraceComputation_query_bind
   simp [signingTraceComputation]
 end SphincsSecurity.Concrete.FtsProbeSimulation
 end
+
 section
+
+
 set_option autoImplicit true
 namespace SphincsSecurity.Concrete.FtsProbeSimulation
 open OracleComp OracleSpec
@@ -304,7 +327,12 @@ theorem simulateQ_expanded_tracedGameRestComputation
   simp [simulateQ_pure]
 end SphincsSecurity.Concrete.FtsProbeSimulation
 end
+
 section
+
+
+
+
 namespace SphincsSecurity.Concrete
 open OracleComp OracleSpec
 theorem sequenceFin_some {alpha : Type} {count : Nat}
@@ -324,7 +352,13 @@ theorem sequenceFin_some {alpha : Type} {count : Nat}
       cases position using Fin.cases <;> rfl
 end SphincsSecurity.Concrete
 end
+
 section
+
+
+
+
+
 namespace SphincsSecurity
 open OracleComp OracleSpec ENNReal
 open OracleComp.ProgramLogic.Relational
@@ -375,7 +409,12 @@ theorem simulateQ_expanded_retainedGameRestComputation_fixedHashQueryBound
 end Concrete.FtsProbeSimulation
 end SphincsSecurity
 end
+
 section
+
+
+
+
 set_option autoImplicit true
 namespace SphincsSecurity.Concrete.OtsProbeSimulation
 open OracleComp OracleSpec
@@ -423,7 +462,11 @@ noncomputable def retainedGameRestComputation (adversary : Adversary)
   pure ((forgery, log), verified)
 end SphincsSecurity.Concrete.OtsProbeSimulation
 end
+
 section
+
+
+
 set_option autoImplicit true
 namespace SphincsSecurity.Concrete.OtsProbeSimulation
 open OracleComp OracleSpec
@@ -440,7 +483,13 @@ theorem signingTraceComputation_query_bind
   simp [signingTraceComputation]
 end SphincsSecurity.Concrete.OtsProbeSimulation
 end
+
 section
+
+
+
+
+
 set_option autoImplicit true
 namespace SphincsSecurity
 open OracleComp OracleSpec ENNReal

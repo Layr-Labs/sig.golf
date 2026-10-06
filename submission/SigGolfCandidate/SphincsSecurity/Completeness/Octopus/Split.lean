@@ -6,6 +6,8 @@ import Mathlib.Data.Finset.Sort
 import Mathlib.Data.Finset.Powerset
 
 section
+
+
 namespace SphincsSecurity.Completeness.Octopus
 open SphincsSecurity.Concrete (bitLength)
 def xorSum (vs : List Nat) : Nat := (List.zipWith (fun a b => bitLength (a ^^^ b)) vs vs.tail).sum
@@ -28,7 +30,13 @@ def packedCount : Nat := ((piter 15 (2 ^ pB) (2 ^ (pB * 119)) 14 [0, 1]).getD 15
 theorem packedCount_eq : packedCount = Nadm := by decide +kernel
 end SphincsSecurity.Completeness.Octopus
 end
+
 section
+
+
+
+
+
 namespace SphincsSecurity.Completeness.Octopus
 open Finset Polynomial
 theorem testBit_add_two_pow {z H : ℕ} (hz : z < 2 ^ H) (i : ℕ) :

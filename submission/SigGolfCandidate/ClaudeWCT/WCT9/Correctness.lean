@@ -44,44 +44,25 @@ theorem eval_chain_walk (answers : Answers) (index coord selected i start count 
         (chain index coord selected i start count initial)))) = _
     rw [eval_short _ _ (chainInput_length _ _ _ _ _ _), ih]
     rfl
-def CarryOk (answers : Answers) (pairQuery : Nat → M (Digest × Digest)) (q : Nat) (carry : Digest) : Prop :=
-  q % 2 = 1 → carry = (evalWithAnswerFn answers (pairQuery (q / 2))).2
-theorem eval_packedSecret (answers : Answers) (pairQuery : Nat → M (Digest × Digest)) (q : Nat) (carry : Digest)
-    (hcarry : CarryOk answers pairQuery q carry) :
-    evalWithAnswerFn answers (packedSecret pairQuery q carry) =
-      (seedHalf (evalWithAnswerFn answers (pairQuery (q / 2))) q,
-        (evalWithAnswerFn answers (pairQuery (q / 2))).2) := by
-  unfold packedSecret seedHalf
-  by_cases h : q % 2 = 0
-  · rw [if_pos h, if_pos h, evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-  · rw [if_neg h, if_neg h, evalWithAnswerFn_pure, hcarry (by omega)]
-theorem carryOk_next (answers : Answers) (pairQuery : Nat → M (Digest × Digest)) (q : Nat) :
-    CarryOk answers pairQuery (q + 1) (evalWithAnswerFn answers (pairQuery (q / 2))).2 := by
-  intro h
-  have : (q + 1) / 2 = q / 2 := by omega
-  rw [this]
-theorem carryOk_even (answers : Answers) (pairQuery : Nat → M (Digest × Digest)) (q : Nat) (carry : Digest)
-    (h : q % 2 = 0) : CarryOk answers pairQuery q carry := by
-  intro h1; omega
 def seed (answers : Answers) (index coord selected : Nat) (i : Fin 7) : Digest :=
-  seedHalf (evalWithAnswerFn answers (ftsSeedPair index coord (ftsOrdinal selected i.val / 2)))
-    (ftsOrdinal selected i.val)
+  let pair := evalWithAnswerFn answers (privatePair 8 coord index 0 (4 * selected + i.val / 2))
+  if i.val % 2 = 0 then pair.1 else pair.2
 def chainValue (answers : Answers) (index coord selected : Nat) (word : Rank)
     (i : Fin 7) : Digest :=
   evalWithAnswerFn answers (chain index coord selected i.val 0
-    (3 - wordDigit word i) (seed answers index coord selected i))
+    (3 - digit word i) (seed answers index coord selected i))
 def chainEnd (answers : Answers) (index coord selected : Nat) (i : Fin 7) : Digest :=
   evalWithAnswerFn answers (chain index coord selected i.val 0 3
     (seed answers index coord selected i))
 theorem value_completes (answers : Answers) (index coord selected : Nat) (word : Rank)
     (i : Fin 7) :
     evalWithAnswerFn answers (chain index coord selected i.val
-      (3 - wordDigit word i) (wordDigit word i) (chainValue answers index coord selected word i)) =
+      (3 - digit word i) (digit word i) (chainValue answers index coord selected word i)) =
       chainEnd answers index coord selected i := by
   unfold chainValue chainEnd
-  have hd := wordDigit_le_three word i
+  have hd := digit_le_three word i
   have hc := eval_chain_add answers index coord selected i.val 0
-    (3 - wordDigit word i) (wordDigit word i) (seed answers index coord selected i)
+    (3 - digit word i) (digit word i) (seed answers index coord selected i)
   rw [Nat.zero_add, Nat.sub_add_cancel hd] at hc
   exact hc.symm
 def stepFn (answers : Answers) (index coord selected : Nat) (t : Fin 7) :
@@ -90,7 +71,7 @@ def stepFn (answers : Answers) (index coord selected : Nat) (t : Fin 7) :
 theorem chainValue_eq_opening (answers : Answers) (index coord selected : Nat) (word : Rank)
     (i : Fin 7) :
     chainValue answers index coord selected word i =
-      opening (stepFn answers index coord selected) (seed answers index coord selected) (embed word) i := by
+      opening (stepFn answers index coord selected) (seed answers index coord selected) word i := by
   unfold chainValue opening stepFn
   exact eval_chain_walk _ _ _ _ _ _ _ _
 theorem chainEnd_eq_walk (answers : Answers) (index coord selected : Nat) (i : Fin 7) :
@@ -100,9 +81,9 @@ theorem chainEnd_eq_walk (answers : Answers) (index coord selected : Nat) (i : F
   exact eval_chain_walk _ _ _ _ _ _ _ _
 theorem recover_eq (answers : Answers) (index coord selected : Nat) (word : Rank)
     (values : Fin 7 → Digest) (i : Fin 7) :
-    evalWithAnswerFn answers (chain index coord selected i.val (3 - wordDigit word i)
-      (wordDigit word i) (values i)) =
-      recover (stepFn answers index coord selected) (embed word) values i := by
+    evalWithAnswerFn answers (chain index coord selected i.val (3 - digit word i)
+      (digit word i) (values i)) =
+      recover (stepFn answers index coord selected) word values i := by
   unfold recover stepFn
   exact eval_chain_walk _ _ _ _ _ _ _ _
 theorem getD_append_singleton {α : Type} (xs : List α) (x d : α) (n : Nat) :
@@ -114,61 +95,51 @@ theorem getD_append_singleton {α : Type} (xs : List α) (x d : α) (n : Nat) :
     · subst he; simp
     · rw [if_neg he]
       rw [List.getD_eq_default _ _ (by simp only [List.length_singleton]; omega)]
-def childCarry (answers : Answers) (index coord selected : Nat) (carry : Digest) (done : Nat) : Digest :=
-  if done = 0 then carry
-  else (evalWithAnswerFn answers (ftsSeedPair index coord (ftsOrdinal selected (done - 1) / 2))).2
-def Rows (answers : Answers) (index coord selected : Nat) (word : Rank) (carry : Digest)
-    (done : Nat) (rows : List Digest × List Digest × Digest) : Prop :=
-  rows.1.length = done ∧ rows.2.1.length = done ∧
+def Rows (answers : Answers) (index coord selected : Nat) (word : Rank)
+    (done : Nat) (rows : List Digest × List Digest) : Prop :=
+  rows.1.length = done ∧ rows.2.length = done ∧
     (∀ i : Fin 7, i.val < done → rows.1.getD i.val 0 = chainEnd answers index coord selected i) ∧
     (∀ i : Fin 7, i.val < done →
-      rows.2.1.getD i.val 0 = chainValue answers index coord selected word i) ∧
-    rows.2.2 = childCarry answers index coord selected carry done
-def childStep (index coord selected : Nat) (word : Rank) (state : List Digest × List Digest × Digest)
-    (i : Fin 7) : M (List Digest × List Digest × Digest) := do
-  let (secret, carry) ← packedSecret (ftsSeedPair index coord) (ftsOrdinal selected i.val) state.2.2
-  let deficit := wordDigit word i
-  let value ← chain index coord selected i.val 0 (3 - deficit) secret
-  let last ← chain index coord selected i.val (3 - deficit) deficit value
-  pure (state.1 ++ [last], state.2.1 ++ [value], carry)
-def childRows (index coord selected : Nat) (word : Rank) (carry : Digest) :
-    M (List Digest × List Digest × Digest) :=
-  (List.finRange 7).foldlM (childStep index coord selected word) ([], [], carry)
-theorem buildChild_factor (index coord selected : Nat) (word : Rank) (carry : Digest) :
-    buildChild index coord selected word carry = (do
-      let rows ← childRows index coord selected word carry
+      rows.2.getD i.val 0 = chainValue answers index coord selected word i)
+def childHalf (index coord selected : Nat) (word : Rank) (pair : Fin 4)
+    (seeds : Digest × Digest) (state : List Digest × List Digest) (half : Fin 2) :
+    M (List Digest × List Digest) := do
+  if h : 2 * pair.val + half.val < 7 then
+    let i : Fin 7 := ⟨2 * pair.val + half.val, h⟩
+    let secret := if half.val = 0 then seeds.1 else seeds.2
+    let deficit := digit word i
+    let value ← chain index coord selected i.val 0 (3 - deficit) secret
+    let last ← chain index coord selected i.val (3 - deficit) deficit value
+    pure (state.1 ++ [last], state.2 ++ [value])
+  else pure state
+def childRows (index coord selected : Nat) (word : Rank) : M (List Digest × List Digest) :=
+  (List.finRange 4).foldlM (fun state pair => do
+    let seeds ← privatePair 8 coord index 0 (4 * selected + pair.val)
+    (List.finRange 2).foldlM (childHalf index coord selected word pair seeds) state) ([], [])
+theorem buildChild_factor (index coord selected : Nat) (word : Rank) :
+    buildChild index coord selected word = (do
+      let rows ← childRows index coord selected word
       let root ← leafHash index coord selected rows.1
-      pure ((root, rows.2.1), rows.2.2)) := by
+      pure (root, rows.2)) := by
   rfl
-theorem rows_step (answers : Answers) (index coord selected : Nat) (word : Rank) (carry : Digest)
-    (hcarry : CarryOk answers (ftsSeedPair index coord) (ftsOrdinal selected 0) carry)
-    (i : Fin 7) (rows : List Digest × List Digest × Digest)
-    (hrows : Rows answers index coord selected word carry i.val rows) :
-    Rows answers index coord selected word carry (i.val + 1)
-      (evalWithAnswerFn answers (childStep index coord selected word rows i)) := by
-  rcases hrows with ⟨he, hv, hend, hval, hc⟩
-  have hok : CarryOk answers (ftsSeedPair index coord) (ftsOrdinal selected i.val) rows.2.2 := by
-    rw [hc]
-    unfold childCarry
-    by_cases h0 : i.val = 0
-    · rw [if_pos h0, h0]; exact hcarry
-    · rw [if_neg h0]
-      have := carryOk_next answers (ftsSeedPair index coord) (ftsOrdinal selected (i.val - 1))
-      have hq : ftsOrdinal selected (i.val - 1) + 1 = ftsOrdinal selected i.val := by
-        unfold ftsOrdinal; omega
-      rwa [hq] at this
-  unfold childStep
-  rw [evalWithAnswerFn_bind, eval_packedSecret answers _ _ _ hok]
-  simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-  rw [show seedHalf (evalWithAnswerFn answers (ftsSeedPair index coord (ftsOrdinal selected i.val / 2)))
-      (ftsOrdinal selected i.val) = seed answers index coord selected i from rfl]
-  change Rows answers index coord selected word carry (i.val + 1)
-    (rows.1 ++ [evalWithAnswerFn answers (chain index coord selected i.val
-      (3 - wordDigit word i) (wordDigit word i) (chainValue answers index coord selected word i))],
-     rows.2.1 ++ [chainValue answers index coord selected word i],
-     (evalWithAnswerFn answers (ftsSeedPair index coord (ftsOrdinal selected i.val / 2))).2)
-  rw [value_completes]
-  refine ⟨by simp [he], by simp [hv], ?_, ?_, ?_⟩
+theorem seed_half (answers : Answers) (index coord selected : Nat) (pair : Fin 4) (half : Fin 2)
+    (h : 2 * pair.val + half.val < 7) :
+    seed answers index coord selected ⟨2 * pair.val + half.val, h⟩ =
+      if half.val = 0 then
+        (evalWithAnswerFn answers (privatePair 8 coord index 0 (4 * selected + pair.val))).1
+      else (evalWithAnswerFn answers (privatePair 8 coord index 0 (4 * selected + pair.val))).2 := by
+  unfold seed
+  have hd : (2 * pair.val + half.val) / 2 = pair.val := by omega
+  have hm : (2 * pair.val + half.val) % 2 = half.val := by omega
+  simp only [hd, hm]
+theorem rows_append (answers : Answers) (index coord selected : Nat) (word : Rank)
+    (i : Fin 7) (rows : List Digest × List Digest)
+    (hrows : Rows answers index coord selected word i.val rows) :
+    Rows answers index coord selected word (i.val + 1)
+      (rows.1 ++ [chainEnd answers index coord selected i],
+        rows.2 ++ [chainValue answers index coord selected word i]) := by
+  rcases hrows with ⟨he, hv, hend, hval⟩
+  refine ⟨by simp [he], by simp [hv], ?_, ?_⟩
   · intro j hj
     rw [getD_append_singleton, he]
     by_cases hji : j.val < i.val
@@ -183,81 +154,91 @@ theorem rows_step (answers : Answers) (index coord selected : Nat) (word : Rank)
     · have hji' : j = i := Fin.ext (by omega)
       subst j
       simp
-  · unfold childCarry
-    rw [if_neg (by omega), Nat.add_sub_cancel]
-theorem eval_childRows (answers : Answers) (index coord selected : Nat) (word : Rank) (carry : Digest)
-    (hcarry : CarryOk answers (ftsSeedPair index coord) (ftsOrdinal selected 0) carry) :
-    Rows answers index coord selected word carry 7
-      (evalWithAnswerFn answers (childRows index coord selected word carry)) := by
-  unfold childRows
-  have key := eval_foldlM_list_inv answers (List.finRange 7) (childStep index coord selected word)
-    (fun i rows => Rows answers index coord selected word carry i rows) ([], [], carry)
-    (by simp [Rows, childCarry]) (by
-      intro i hi rows hrows
-      have hi7 : i < 7 := by simpa using hi
-      simp only [List.getElem_finRange, Fin.cast_mk]
-      exact rows_step answers index coord selected word carry hcarry ⟨i, hi7⟩ rows hrows)
-  simp only [List.length_finRange] at key
+theorem rows_half (answers : Answers) (index coord selected : Nat) (word : Rank)
+    (pair : Fin 4) (half : Fin 2) (rows : List Digest × List Digest)
+    (hrows : Rows answers index coord selected word (min (2 * pair.val + half.val) 7) rows) :
+    Rows answers index coord selected word (min (2 * pair.val + half.val + 1) 7)
+      (evalWithAnswerFn answers (childHalf index coord selected word pair
+        (evalWithAnswerFn answers (privatePair 8 coord index 0 (4 * selected + pair.val)))
+        rows half)) := by
+  unfold childHalf
+  by_cases h : 2 * pair.val + half.val < 7
+  · rw [dif_pos h]
+    simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+    rw [← seed_half answers index coord selected pair half h]
+    rw [Nat.min_eq_left (by omega)] at hrows
+    rw [Nat.min_eq_left (by omega)]
+    let i : Fin 7 := ⟨2 * pair.val + half.val, h⟩
+    change Rows answers index coord selected word (i.val + 1)
+      (rows.1 ++ [evalWithAnswerFn answers (chain index coord selected i.val
+        (3 - digit word i) (digit word i) (chainValue answers index coord selected word i))],
+       rows.2 ++ [chainValue answers index coord selected word i])
+    rw [value_completes]
+    exact rows_append answers index coord selected word i rows hrows
+  · rw [dif_neg h]
+    simp only [evalWithAnswerFn_pure]
+    have h1 : min (2 * pair.val + half.val) 7 = 7 := by omega
+    have h2 : min (2 * pair.val + half.val + 1) 7 = 7 := by omega
+    rw [h1] at hrows
+    rw [h2]
+    exact hrows
+theorem eval_childRows (answers : Answers) (index coord selected : Nat) (word : Rank) :
+    Rows answers index coord selected word 7
+      (evalWithAnswerFn answers (childRows index coord selected word)) := by
+  have key : Rows answers index coord selected word (min (2 * (List.finRange 4).length) 7)
+      (evalWithAnswerFn answers (childRows index coord selected word)) := by
+    unfold childRows
+    refine eval_foldlM_list_inv answers (List.finRange 4) _
+      (fun pair rows => Rows answers index coord selected word (min (2 * pair) 7) rows) ([], [])
+      (by simp [Rows]) ?_
+    intro pair hp rows hrows
+    have hp4 : pair < 4 := by simpa using hp
+    simp only [List.getElem_finRange, Fin.cast_mk]
+    rw [evalWithAnswerFn_bind]
+    have inner := eval_foldlM_list_inv answers (List.finRange 2)
+      (childHalf index coord selected word ⟨pair, hp4⟩
+        (evalWithAnswerFn answers (privatePair 8 coord index 0 (4 * selected + pair))))
+      (fun h rows => Rows answers index coord selected word (min (2 * pair + h) 7) rows) rows
+      (by simpa only [Nat.add_zero] using hrows)
+      (by
+        intro h hh current hcurrent
+        simp only [List.getElem_finRange, Fin.cast_mk]
+        exact rows_half answers index coord selected word ⟨pair, hp4⟩
+          ⟨h, by simpa using hh⟩ current hcurrent)
+    simpa only [List.length_finRange, Nat.mul_add, Nat.mul_one] using inner
+  have h8 : min (2 * (List.finRange 4).length) 7 = 7 := by simp
+  rw [h8] at key
   exact key
 def childRoot (answers : Answers) (index coord selected : Nat) : Digest :=
   evalWithAnswerFn answers (leafHash index coord selected
     (List.ofFn (fun i : Fin 7 => chainEnd answers index coord selected i)))
-def childCarryOut (answers : Answers) (index coord selected : Nat) : Digest :=
-  (evalWithAnswerFn answers (ftsSeedPair index coord (ftsOrdinal selected 6 / 2))).2
-theorem buildChild_result (answers : Answers) (index coord selected : Nat) (word : Rank) (carry : Digest)
-    (hcarry : CarryOk answers (ftsSeedPair index coord) (ftsOrdinal selected 0) carry) :
-    evalWithAnswerFn answers (buildChild index coord selected word carry) =
-      ((childRoot answers index coord selected,
-        List.ofFn (fun i : Fin 7 => chainValue answers index coord selected word i)),
-       childCarryOut answers index coord selected) := by
-  let rows := evalWithAnswerFn answers (childRows index coord selected word carry)
-  have hr : Rows answers index coord selected word carry 7 rows :=
-    eval_childRows answers index coord selected word carry hcarry
-  rcases hr with ⟨he, hv, hend, hval, hc⟩
+theorem buildChild_result (answers : Answers) (index coord selected : Nat) (word : Rank) :
+    evalWithAnswerFn answers (buildChild index coord selected word) =
+      (childRoot answers index coord selected,
+        List.ofFn (fun i : Fin 7 => chainValue answers index coord selected word i)) := by
+  let rows := evalWithAnswerFn answers (childRows index coord selected word)
+  have hr : Rows answers index coord selected word 7 rows :=
+    eval_childRows answers index coord selected word
+  rcases hr with ⟨he, hv, hend, hval⟩
   have hends : rows.1 = List.ofFn (fun i : Fin 7 => chainEnd answers index coord selected i) := by
     apply List.ext_getElem (by simpa only [List.length_ofFn] using he)
     intro i hi hj
     simpa only [List.getD_eq_getElem _ _ hi, List.getElem_ofFn] using
       hend ⟨i, by omega⟩ (by omega)
-  have hvals : rows.2.1 = List.ofFn (fun i : Fin 7 => chainValue answers index coord selected word i) := by
+  have hvals : rows.2 = List.ofFn (fun i : Fin 7 => chainValue answers index coord selected word i) := by
     apply List.ext_getElem (by simpa only [List.length_ofFn] using hv)
     intro i hi hj
     simpa only [List.getD_eq_getElem _ _ hi, List.getElem_ofFn] using
       hval ⟨i, by omega⟩ (by omega)
   rw [buildChild_factor, evalWithAnswerFn_bind]
-  change ((evalWithAnswerFn answers (leafHash index coord selected rows.1), rows.2.1), rows.2.2) = _
-  rw [hends, hvals, hc]
+  change (evalWithAnswerFn answers (leafHash index coord selected rows.1), rows.2) = _
+  rw [hends, hvals]
   rfl
-theorem carryOk_childCarryOut (answers : Answers) (index coord selected : Nat) :
-    CarryOk answers (ftsSeedPair index coord) (ftsOrdinal (selected + 1) 0)
-      (childCarryOut answers index coord selected) := by
-  have := carryOk_next answers (ftsSeedPair index coord) (ftsOrdinal selected 6)
-  have hq : ftsOrdinal selected 6 + 1 = ftsOrdinal (selected + 1) 0 := by unfold ftsOrdinal; omega
-  rwa [hq] at this
-def coordCarry (answers : Answers) (index coord j : Nat) : Digest :=
-  if j = 0 then 0 else childCarryOut answers index coord (j - 1)
-theorem carryOk_coordCarry (answers : Answers) (index coord j : Nat) :
-    CarryOk answers (ftsSeedPair index coord) (ftsOrdinal j 0) (coordCarry answers index coord j) := by
-  unfold coordCarry
-  by_cases h : j = 0
-  · rw [if_pos h]; exact carryOk_even _ _ _ _ (by subst h; rfl)
-  · rw [if_neg h]
-    have := carryOk_childCarryOut answers index coord (j - 1)
-    rwa [Nat.sub_add_cancel (by omega)] at this
-theorem buildChild_result' (answers : Answers) (index coord j : Nat) (word : Rank) :
-    evalWithAnswerFn answers (buildChild index coord j word (coordCarry answers index coord j)) =
-      ((childRoot answers index coord j,
-        List.ofFn (fun i : Fin 7 => chainValue answers index coord j word i)),
-       coordCarry answers index coord (j + 1)) := by
-  rw [buildChild_result answers index coord j word _ (carryOk_coordCarry answers index coord j)]
-  unfold coordCarry
-  rw [if_neg (by omega), Nat.add_sub_cancel]
 theorem childRoot_word_independent (answers : Answers) (index coord selected : Nat)
-    (left right : Rank) (carry : Digest)
-    (hcarry : CarryOk answers (ftsSeedPair index coord) (ftsOrdinal selected 0) carry) :
-    (evalWithAnswerFn answers (buildChild index coord selected left carry)).1.1 =
-      (evalWithAnswerFn answers (buildChild index coord selected right carry)).1.1 := by
-  rw [buildChild_result _ _ _ _ _ _ hcarry, buildChild_result _ _ _ _ _ _ hcarry]
+    (left right : Rank) :
+    (evalWithAnswerFn answers (buildChild index coord selected left)).1 =
+      (evalWithAnswerFn answers (buildChild index coord selected right)).1 := by
+  rw [buildChild_result, buildChild_result]
 def HeapInv (answers : Answers) (index coord : Nat) (leaves : List Digest)
     (done : Nat) (nodes : Array Digest) : Prop :=
   nodes.size = 256 ∧
@@ -329,18 +310,17 @@ theorem heap_complete (answers : Answers) (index coord : Nat) (leaves : List Dig
   simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
   exact heap_step answers index coord leaves done hd nodes hinv
 def coordRows (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
-    M (List Digest × List Digest × Digest) :=
-  (List.range 128).foldlM (fun (state : List Digest × List Digest × Digest) j => do
-    let ((root, values), carry) ← buildChild index coord.val j word state.2.2
-    pure (state.1 ++ [root], (if j = selected.val then values else state.2.1), carry)) ([], [], 0)
+    M (List Digest × List Digest) :=
+  (List.range 128).foldlM (fun state j => do
+    let (root, values) ← buildChild index coord.val j word
+    pure (state.1 ++ [root], if j = selected.val then values else state.2)) ([], [])
 def CoordRows (answers : Answers) (index : Nat) (coord : Coord) (selected : Child)
-    (word : Rank) (done : Nat) (rows : List Digest × List Digest × Digest) : Prop :=
+    (word : Rank) (done : Nat) (rows : List Digest × List Digest) : Prop :=
   rows.1.length = done ∧
     (∀ j, j < done → rows.1.getD j 0 = childRoot answers index coord.val j) ∧
-    rows.2.1 = (if selected.val < done then
+    rows.2 = if selected.val < done then
       List.ofFn (fun i : Fin 7 => chainValue answers index coord.val selected.val word i)
-      else []) ∧
-    rows.2.2 = coordCarry answers index coord.val done
+      else []
 def coordLeaves (answers : Answers) (index : Nat) (coord : Coord) : List Digest :=
   List.ofFn (fun j : Fin 128 => childRoot answers index coord.val j.val)
 def coordNodes (answers : Answers) (index : Nat) (coord : Coord) : Array Digest :=
@@ -348,15 +328,15 @@ def coordNodes (answers : Answers) (index : Nat) (coord : Coord) : Array Digest 
 def coordinatePair (answers : Answers) (index : Nat) (coord : Coord) : Digest × Digest :=
   ((coordNodes answers index coord).getD 2 0, (coordNodes answers index coord).getD 3 0)
 theorem coordRows_step (answers : Answers) (index : Nat) (coord : Coord)
-    (selected : Child) (word : Rank) (done : Nat) (rows : List Digest × List Digest × Digest)
+    (selected : Child) (word : Rank) (done : Nat) (rows : List Digest × List Digest)
     (hrows : CoordRows answers index coord selected word done rows) :
     CoordRows answers index coord selected word (done + 1)
       (rows.1 ++ [childRoot answers index coord.val done],
-       (if done = selected.val then
+       if done = selected.val then
          List.ofFn (fun i : Fin 7 => chainValue answers index coord.val done word i)
-       else rows.2.1), coordCarry answers index coord.val (done + 1)) := by
-  rcases hrows with ⟨hlen, hroot, hvalues, -⟩
-  refine ⟨by simp [hlen], ?_, ?_, rfl⟩
+       else rows.2) := by
+  rcases hrows with ⟨hlen, hroot, hvalues⟩
+  refine ⟨by simp [hlen], ?_, ?_⟩
   · intro j hj
     rw [getD_append_singleton, hlen]
     by_cases hjd : j < done
@@ -365,26 +345,26 @@ theorem coordRows_step (answers : Answers) (index : Nat) (coord : Coord)
       subst j
       simp
   · by_cases hs : done = selected.val
-    · subst hs; simp
+    · rw [if_pos hs, hs, if_pos (Nat.lt_succ_self selected.val)]
     · have hs' : selected.val < done + 1 ↔ selected.val < done := by omega
-      simp only [if_neg hs, hvalues, hs']
+      rw [if_neg hs, hvalues]
+      simp only [hs']
 theorem eval_coordRows (answers : Answers) (index : Nat) (coord : Coord)
     (selected : Child) (word : Rank) :
     CoordRows answers index coord selected word 128
       (evalWithAnswerFn answers (coordRows index coord selected word)) := by
   unfold coordRows
   refine eval_foldlM_range_inv answers 128 _ (CoordRows answers index coord selected word)
-    ([], [], 0) ?_ ?_
-  · simp [CoordRows, coordCarry]
+    ([], []) ?_ ?_
+  · simp [CoordRows]
   · intro done _ rows hrows
-    have hc := hrows.2.2.2
-    simp only [evalWithAnswerFn_bind, hc, buildChild_result', evalWithAnswerFn_pure]
+    simp only [evalWithAnswerFn_bind, buildChild_result, evalWithAnswerFn_pure]
     exact coordRows_step answers index coord selected word done rows hrows
 theorem buildCoordinate_factor (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
     buildCoordinate index coord selected word = (do
       let rows ← coordRows index coord selected word
       let heap ← heapBuild index coord.val rows.1
-      pure (heapLevels heap, rows.2.1)) := by
+      pure (heapLevels heap, rows.2)) := by
   rfl
 theorem buildCoordinate_result (answers : Answers) (index : Nat) (coord : Coord)
     (selected : Child) (word : Rank) :
@@ -394,7 +374,7 @@ theorem buildCoordinate_result (answers : Answers) (index : Nat) (coord : Coord)
   let rows := evalWithAnswerFn answers (coordRows index coord selected word)
   have hr : CoordRows answers index coord selected word 128 rows :=
     eval_coordRows answers index coord selected word
-  rcases hr with ⟨hlen, hroot, hvalues, -⟩
+  rcases hr with ⟨hlen, hroot, hvalues⟩
   have hroots : rows.1 = coordLeaves answers index coord := by
     apply List.ext_getElem (by simpa only [coordLeaves, List.length_ofFn] using hlen)
     intro j hj hk
@@ -403,7 +383,7 @@ theorem buildCoordinate_result (answers : Answers) (index : Nat) (coord : Coord)
   rw [if_pos selected.isLt] at hvalues
   rw [buildCoordinate_factor, evalWithAnswerFn_bind]
   simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-  change (heapLevels (evalWithAnswerFn answers (heapBuild index coord.val rows.1)), rows.2.1) = _
+  change (heapLevels (evalWithAnswerFn answers (heapBuild index coord.val rows.1)), rows.2) = _
   rw [hroots, hvalues]
   rfl
 theorem coordNodes_graph (answers : Answers) (index : Nat) (coord : Coord) :
@@ -547,7 +527,7 @@ theorem recoverCoordinate_honest (answers : Answers) (sig : Signature) (index : 
     rw [hpath7, Nat.zero_add]
     rfl
   have hends : (List.finRange 7).map (fun i => evalWithAnswerFn answers
-      (chain index coord.val selected.val i.val (3 - wordDigit word i) (wordDigit word i)
+      (chain index coord.val selected.val i.val (3 - digit word i) (digit word i)
         ((sig.openings coord).values i))) =
       List.ofFn (fun i : Fin 7 => chainEnd answers index coord.val selected.val i) := by
     simp_rw [hvalues, value_completes]
@@ -695,285 +675,29 @@ theorem expandLayersBC_verified (answers : Answers) (sig : Signature) (index : N
                 apply hverify w hw
                 intro lay hsmall
                 rw [hc lay (by omega), List.getD_append previousCounters [counter] 0 lay.val (by omega)]
-def lowerSeed (answers : Answers) (lay : Layer) (tree leaf i : Nat) : Digest :=
-  seedHalf (evalWithAnswerFn answers (lowerSeedPair lay tree (lowerOrdinal lay leaf i / 2))) (lowerOrdinal lay leaf i)
-def wotsSeed (answers : Answers) (lay : Layer) (tree leaf i : Nat) : Digest :=
-  if lay = 0 then leafSeed answers lay tree leaf i else lowerSeed answers lay tree leaf i
-def wotsValue (answers : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat) (i : Nat) : Digest :=
-  evalWithAnswerFn answers (SigGolfCandidate.T3.chain lay tree leaf i 0 (digits.getD i 0)
-    (wotsSeed answers lay tree leaf i))
-def wotsEnd (answers : Answers) (lay : Layer) (tree leaf i : Nat) : Digest :=
-  evalWithAnswerFn answers (SigGolfCandidate.T3.chain lay tree leaf i 0 (maxDigit lay i)
-    (wotsSeed answers lay tree leaf i))
-def wotsRoot (answers : Answers) (lay : Layer) (tree leaf : Nat) : Digest :=
-  evalWithAnswerFn answers (SigGolfCandidate.T3.leafHash lay tree leaf
-    ((List.range (chainCount lay)).map (wotsEnd answers lay tree leaf)))
-def wotsTree (answers : Answers) (lay : Layer) (tree : Nat) : List (List Digest) :=
-  evalWithAnswerFn answers (buildLevels 3 lay.val tree (height lay)
-    ((List.range (2 ^ height lay)).map (wotsRoot answers lay tree)))
-def wotsPieces (answers : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat) : Pieces :=
-  ((List.range (chainCount lay)).map (wotsValue answers lay tree leaf digits),
-   (List.range (height lay)).map fun j => treeValue (wotsTree answers lay tree) j (leaf / 2 ^ j ^^^ 1))
-theorem wotsSeed_top (answers : Answers) (tree leaf i : Nat) :
-    wotsSeed answers 0 tree leaf i = leafSeed answers 0 tree leaf i := by
-  unfold wotsSeed; rw [if_pos rfl]
-theorem wotsSeed_lower (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree leaf i : Nat) :
-    wotsSeed answers lay tree leaf i = lowerSeed answers lay tree leaf i := by
-  unfold wotsSeed; rw [if_neg hlay]
-theorem wotsValue_top (answers : Answers) (tree leaf : Nat) (digits : List Nat) :
-    wotsValue answers 0 tree leaf digits = leafValue answers 0 tree leaf digits := by
-  funext i; unfold wotsValue leafValue; rw [wotsSeed_top]
-theorem wotsEnd_top (answers : Answers) (tree leaf : Nat) :
-    wotsEnd answers 0 tree leaf = leafEnd answers 0 tree leaf := by
-  funext i; unfold wotsEnd leafEnd; rw [wotsSeed_top]
-theorem wotsRoot_top (answers : Answers) (tree : Nat) :
-    wotsRoot answers 0 tree = leafRoot answers 0 tree := by
-  funext leaf; unfold wotsRoot leafRoot; rw [wotsEnd_top]
-theorem wotsTree_top (answers : Answers) (tree : Nat) :
-    wotsTree answers 0 tree = builtTree answers 0 tree := by
-  unfold wotsTree builtTree; rw [wotsRoot_top]
-theorem wotsPieces_top (answers : Answers) (tree leaf : Nat) (digits : List Nat) :
-    wotsPieces answers 0 tree leaf digits = honestPieces answers 0 tree leaf digits := by
-  unfold wotsPieces honestPieces; rw [wotsValue_top, wotsTree_top]
-theorem wotsValue_completes (answers : Answers) (lay : Layer) (tree leaf : Nat)
-    (digits : List Nat) (hvalid : Cost.ValidDigits lay digits) (i : Nat) (hi : i < chainCount lay) :
-    evalWithAnswerFn answers (SigGolfCandidate.T3.chain lay tree leaf i (digits.getD i 0)
-      (maxDigit lay i - digits.getD i 0) (wotsValue answers lay tree leaf digits i)) =
-      wotsEnd answers lay tree leaf i := by
-  unfold wotsValue wotsEnd
-  have hd := hvalid i hi
-  have hc := SigGolfCandidate.T3.Correctness.eval_chain_add answers lay tree leaf i 0 (digits.getD i 0)
-    (maxDigit lay i - digits.getD i 0) (wotsSeed answers lay tree leaf i)
-  rw [Nat.zero_add, Nat.add_sub_of_le hd] at hc
-  exact hc.symm
-def leafCarry (answers : Answers) (lay : Layer) (tree leaf : Nat) (carry : Digest) (done : Nat) : Digest :=
-  if done = 0 then carry
-  else (evalWithAnswerFn answers (lowerSeedPair lay tree (lowerOrdinal lay leaf (done - 1) / 2))).2
-def LeafRowsP (answers : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest)
-    (done : Nat) (rows : List Digest × List Digest × Digest) : Prop :=
-  rows.1.length = done ∧ rows.2.1.length = done ∧
-    (∀ i, i < done → rows.1.getD i 0 = wotsEnd answers lay tree leaf i) ∧
-    (∀ i, i < done → rows.2.1.getD i 0 = wotsValue answers lay tree leaf digits i) ∧
-    rows.2.2 = leafCarry answers lay tree leaf carry done
-def leafStepP (lay : Layer) (tree leaf : Nat) (digits : List Nat) (state : List Digest × List Digest × Digest)
-    (i : Nat) : M (List Digest × List Digest × Digest) := do
-  let (seed, carry) ← packedSecret (lowerSeedPair lay tree) (lowerOrdinal lay leaf i) state.2.2
-  let digit := digits.getD i 0
-  let value ← SigGolfCandidate.T3.chain lay tree leaf i 0 digit seed
-  let last ← SigGolfCandidate.T3.chain lay tree leaf i digit (maxDigit lay i - digit) value
-  pure (state.1 ++ [last], state.2.1 ++ [value], carry)
-def leafRowsP (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
-    M (List Digest × List Digest × Digest) :=
-  (List.range (chainCount lay)).foldlM (leafStepP lay tree leaf digits) ([], [], carry)
-theorem buildLeafP_factor (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
-    buildLeafP lay tree leaf digits carry = (do
-      let rows ← leafRowsP lay tree leaf digits carry
-      let root ← SigGolfCandidate.T3.leafHash lay tree leaf rows.1
-      pure ((root, rows.2.1), rows.2.2)) := by
-  rfl
-theorem leafRowsP_step (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree leaf : Nat) (digits : List Nat)
-    (hvalid : Cost.ValidDigits lay digits) (carry : Digest)
-    (hcarry : CarryOk answers (lowerSeedPair lay tree) (lowerOrdinal lay leaf 0) carry)
-    (i : Nat) (hi : i < chainCount lay) (rows : List Digest × List Digest × Digest)
-    (hrows : LeafRowsP answers lay tree leaf digits carry i rows) :
-    LeafRowsP answers lay tree leaf digits carry (i + 1)
-      (evalWithAnswerFn answers (leafStepP lay tree leaf digits rows i)) := by
-  rcases hrows with ⟨he, hv, hend, hval, hc⟩
-  have hok : CarryOk answers (lowerSeedPair lay tree) (lowerOrdinal lay leaf i) rows.2.2 := by
-    rw [hc]
-    unfold leafCarry
-    by_cases h0 : i = 0
-    · rw [if_pos h0, h0]; exact hcarry
-    · rw [if_neg h0]
-      have := carryOk_next answers (lowerSeedPair lay tree) (lowerOrdinal lay leaf (i - 1))
-      have hq : lowerOrdinal lay leaf (i - 1) + 1 = lowerOrdinal lay leaf i := by
-        unfold lowerOrdinal; omega
-      rwa [hq] at this
-  unfold leafStepP
-  rw [evalWithAnswerFn_bind, eval_packedSecret answers _ _ _ hok]
-  simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-  rw [show seedHalf (evalWithAnswerFn answers (lowerSeedPair lay tree (lowerOrdinal lay leaf i / 2)))
-      (lowerOrdinal lay leaf i) = wotsSeed answers lay tree leaf i from (wotsSeed_lower answers hlay _ _ _).symm]
-  change LeafRowsP answers lay tree leaf digits carry (i + 1)
-    (rows.1 ++ [evalWithAnswerFn answers (SigGolfCandidate.T3.chain lay tree leaf i (digits.getD i 0)
-      (maxDigit lay i - digits.getD i 0) (wotsValue answers lay tree leaf digits i))],
-     rows.2.1 ++ [wotsValue answers lay tree leaf digits i],
-     (evalWithAnswerFn answers (lowerSeedPair lay tree (lowerOrdinal lay leaf i / 2))).2)
-  rw [wotsValue_completes answers lay tree leaf digits hvalid i hi]
-  refine ⟨by simp [he], by simp [hv], ?_, ?_, ?_⟩
-  · intro j hj
-    rw [getD_append_singleton, he]
-    by_cases hji : j < i
-    · rw [if_pos hji]; exact hend j hji
-    · have hji' : j = i := by omega
-      subst j
-      simp
-  · intro j hj
-    rw [getD_append_singleton, hv]
-    by_cases hji : j < i
-    · rw [if_pos hji]; exact hval j hji
-    · have hji' : j = i := by omega
-      subst j
-      simp
-  · unfold leafCarry
-    rw [if_neg (by omega), Nat.add_sub_cancel]
-theorem eval_leafRowsP (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree leaf : Nat) (digits : List Nat)
-    (hvalid : Cost.ValidDigits lay digits) (carry : Digest)
-    (hcarry : CarryOk answers (lowerSeedPair lay tree) (lowerOrdinal lay leaf 0) carry) :
-    LeafRowsP answers lay tree leaf digits carry (chainCount lay)
-      (evalWithAnswerFn answers (leafRowsP lay tree leaf digits carry)) := by
-  unfold leafRowsP
-  exact eval_foldlM_range_inv answers (chainCount lay) _ (LeafRowsP answers lay tree leaf digits carry)
-    ([], [], carry) (by simp [LeafRowsP, leafCarry])
-    (fun i hi rows hrows => leafRowsP_step answers hlay tree leaf digits hvalid carry hcarry i hi rows hrows)
-def leafCarryOut (answers : Answers) (lay : Layer) (tree leaf : Nat) : Digest :=
-  (evalWithAnswerFn answers (lowerSeedPair lay tree (lowerOrdinal lay leaf (chainCount lay - 1) / 2))).2
-theorem chainCount_pos (lay : Layer) : 0 < chainCount lay := by fin_cases lay <;> decide
-theorem buildLeafP_result (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree leaf : Nat) (digits : List Nat)
-    (hvalid : Cost.ValidDigits lay digits) (carry : Digest)
-    (hcarry : CarryOk answers (lowerSeedPair lay tree) (lowerOrdinal lay leaf 0) carry) :
-    evalWithAnswerFn answers (buildLeafP lay tree leaf digits carry) =
-      ((wotsRoot answers lay tree leaf, (List.range (chainCount lay)).map (wotsValue answers lay tree leaf digits)),
-       leafCarryOut answers lay tree leaf) := by
-  let rows := evalWithAnswerFn answers (leafRowsP lay tree leaf digits carry)
-  have hr : LeafRowsP answers lay tree leaf digits carry (chainCount lay) rows :=
-    eval_leafRowsP answers hlay tree leaf digits hvalid carry hcarry
-  rcases hr with ⟨he, hv, hend, hval, hc⟩
-  have hends : rows.1 = (List.range (chainCount lay)).map (wotsEnd answers lay tree leaf) :=
-    list_eq_range_map _ _ _ he hend
-  have hvals : rows.2.1 = (List.range (chainCount lay)).map (wotsValue answers lay tree leaf digits) :=
-    list_eq_range_map _ _ _ hv hval
-  rw [buildLeafP_factor, evalWithAnswerFn_bind]
-  change ((evalWithAnswerFn answers (SigGolfCandidate.T3.leafHash lay tree leaf rows.1), rows.2.1), rows.2.2) = _
-  rw [hends, hvals, hc]
-  unfold leafCarry
-  rw [if_neg (by have := chainCount_pos lay; omega)]
-  rfl
-def treeCarry (answers : Answers) (lay : Layer) (tree leaf : Nat) : Digest :=
-  if leaf = 0 then 0 else leafCarryOut answers lay tree (leaf - 1)
-theorem carryOk_treeCarry (answers : Answers) (lay : Layer) (tree leaf : Nat) :
-    CarryOk answers (lowerSeedPair lay tree) (lowerOrdinal lay leaf 0) (treeCarry answers lay tree leaf) := by
-  unfold treeCarry
-  by_cases h : leaf = 0
-  · rw [if_pos h]; exact carryOk_even _ _ _ _ (by subst h; simp [lowerOrdinal])
-  · rw [if_neg h]
-    have := carryOk_next answers (lowerSeedPair lay tree) (lowerOrdinal lay (leaf - 1) (chainCount lay - 1))
-    have hq : lowerOrdinal lay (leaf - 1) (chainCount lay - 1) + 1 = lowerOrdinal lay leaf 0 := by
-      unfold lowerOrdinal
-      have hpos := chainCount_pos lay
-      have : chainCount lay * leaf = chainCount lay * (leaf - 1) + chainCount lay := by
-        rw [← Nat.mul_succ]; congr 1; omega
-      omega
-    rwa [hq] at this
-def treeRowsP (lay : Layer) (tree selected : Nat) (digits : List Nat) : M (List Digest × List Digest × Digest) :=
-  (List.range (2 ^ height lay)).foldlM
-    (fun (state : List Digest × List Digest × Digest) leaf => do
-      let ((root, values), carry) ← buildLeafP lay tree leaf (if leaf = selected then digits else []) state.2.2
-      pure (state.1 ++ [root], (if leaf = selected then values else state.2.1), carry)) ([], [], 0)
-theorem buildTreeP_factor (lay : Layer) (tree selected : Nat) (digits : List Nat) :
-    buildTreeP lay tree selected digits = (do
-      let rows ← treeRowsP lay tree selected digits
-      let levels ← buildLevels 3 lay.val tree (height lay) rows.1
-      pure (levels, rows.2.1)) := by
-  rfl
-def TreeRowsP (answers : Answers) (lay : Layer) (tree selected : Nat) (digits : List Nat) (done : Nat)
-    (rows : List Digest × List Digest × Digest) : Prop :=
-  rows.1.length = done ∧ (∀ j, j < done → rows.1.getD j 0 = wotsRoot answers lay tree j) ∧
-    rows.2.1 = (if selected < done then (List.range (chainCount lay)).map (wotsValue answers lay tree selected digits)
-      else []) ∧
-    rows.2.2 = treeCarry answers lay tree done
-theorem eval_treeRowsP (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree selected : Nat) (digits : List Nat)
-    (hvalid : Cost.ValidDigits lay digits) :
-    TreeRowsP answers lay tree selected digits (2 ^ height lay)
-      (evalWithAnswerFn answers (treeRowsP lay tree selected digits)) := by
-  unfold treeRowsP
-  refine eval_foldlM_range_inv answers (2 ^ height lay) _ (TreeRowsP answers lay tree selected digits)
-    ([], [], 0) (by simp [TreeRowsP, treeCarry]) ?_
-  intro done _ rows hrows
-  rcases hrows with ⟨hlen, hroot, hvalues, hc⟩
-  have hv : Cost.ValidDigits lay (if done = selected then digits else []) := by
-    split
-    · exact hvalid
-    · exact Cost.validDigits_nil lay
-  simp only [evalWithAnswerFn_bind, hc,
-    buildLeafP_result answers hlay tree done _ hv _ (carryOk_treeCarry answers lay tree done),
-    evalWithAnswerFn_pure]
-  refine ⟨by simp [hlen], ?_, ?_, ?_⟩
-  · intro j hj
-    rw [getD_append_singleton, hlen]
-    by_cases hjd : j < done
-    · rw [if_pos hjd]; exact hroot j hjd
-    · have he : j = done := by omega
-      subst j
-      simp
-  · by_cases hs : done = selected
-    · subst hs; simp
-    · have hs' : selected < done + 1 ↔ selected < done := by omega
-      simp only [if_neg hs, hvalues, hs']
-  · show leafCarryOut answers lay tree done = treeCarry answers lay tree (done + 1)
-    unfold treeCarry
-    rw [if_neg (show done + 1 ≠ 0 by omega), Nat.add_sub_cancel]
-theorem eval_buildTreeP_result (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree selected : Nat)
-    (digits : List Nat) (hvalid : Cost.ValidDigits lay digits) (hsel : selected < 2 ^ height lay) :
-    evalWithAnswerFn answers (buildTreeP lay tree selected digits) =
-      (wotsTree answers lay tree, (List.range (chainCount lay)).map (wotsValue answers lay tree selected digits)) := by
-  let rows := evalWithAnswerFn answers (treeRowsP lay tree selected digits)
-  have hr : TreeRowsP answers lay tree selected digits (2 ^ height lay) rows :=
-    eval_treeRowsP answers hlay tree selected digits hvalid
-  rcases hr with ⟨hlen, hroot, hvalues, -⟩
-  have hroots : rows.1 = (List.range (2 ^ height lay)).map (wotsRoot answers lay tree) :=
-    list_eq_range_map _ _ _ hlen hroot
-  rw [if_pos hsel] at hvalues
-  rw [buildTreeP_factor, evalWithAnswerFn_bind]
-  simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-  change (evalWithAnswerFn answers (buildLevels 3 lay.val tree (height lay) rows.1), rows.2.1) = _
-  rw [hroots, hvalues]
-  rfl
-theorem wotsTree_correct (answers : Answers) (lay : Layer) (tree : Nat) :
-    TreeLevels answers 3 lay.val tree (height lay)
-      ((List.range (2 ^ height lay)).map (wotsRoot answers lay tree)) (height lay) (wotsTree answers lay tree) :=
-  eval_buildLevels_correct answers 3 lay.val tree (height lay) _ (by simp)
-theorem wotsTree_leaf (answers : Answers) (lay : Layer) (tree leaf : Nat) (hleaf : leaf < 2 ^ height lay) :
-    treeValue (wotsTree answers lay tree) 0 leaf = wotsRoot answers lay tree leaf := by
-  unfold treeValue
-  rw [(wotsTree_correct answers lay tree).2.1]
-  simp [List.getD_eq_getElem, hleaf]
-theorem eval_wots_chains_honest (answers : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat)
-    (hvalid : Cost.ValidDigits lay digits) (values : Fin (chainCount lay) → Digest)
-    (hvalues : ∀ i, values i = wotsValue answers lay tree leaf digits i.val) :
-    evalWithAnswerFn answers ((List.finRange (chainCount lay)).mapM fun i =>
-      SigGolfCandidate.T3.chain lay tree leaf i.val (digits.getD i.val 0)
-        (maxDigit lay i.val - digits.getD i.val 0) (values i)) =
-      (List.range (chainCount lay)).map (wotsEnd answers lay tree leaf) := by
-  rw [eval_mapM]
-  apply List.ext_getElem (by simp)
-  intro i hi hj
-  simp only [List.length_map, List.length_finRange] at hi
-  simp only [List.getElem_map, List.getElem_finRange, List.getElem_range, hvalues, Fin.val_cast, Fin.val_mk]
-  exact wotsValue_completes answers lay tree leaf digits hvalid i hi
 def builtPair (answers : Answers) (lay : Layer) (tree : Nat) : Digest × Digest :=
-  topPair lay (wotsTree answers lay tree)
+  topPair lay (builtTree answers lay tree)
 theorem height_pos (lay : Layer) : 1 ≤ height lay := by fin_cases lay <;> decide
 theorem eval_recoverLayerPair_honest (answers : Answers) (sig : Signature) (index : Nat)
     (lay : Layer) (digits : List Nat) (hvalid : Cost.ValidDigits lay digits)
     (hvalues : ∀ i, (sig.layers lay).values i =
-      wotsValue answers lay (route index lay).2 (route index lay).1 digits i.val)
-    (hpath : ∀ j, (sig.layers lay).path j = treeValue (wotsTree answers lay (route index lay).2)
+      leafValue answers lay (route index lay).2 (route index lay).1 digits i.val)
+    (hpath : ∀ j, (sig.layers lay).path j = treeValue (builtTree answers lay (route index lay).2)
       j.val ((route index lay).1 / 2 ^ j.val ^^^ 1)) :
     evalWithAnswerFn answers (recoverLayerPair sig index lay digits) =
       builtPair answers lay (route index lay).2 := by
   have hh := height_pos lay
   have hleafB := route_leaf_bound index lay
   have hp := eval_merklePath answers 3 lay.val (route index lay).2 (height lay) 0 (height lay - 1)
-    (route index lay).1 (wotsTree answers lay (route index lay).2)
-    ((List.range (2 ^ height lay)).map (wotsRoot answers lay (route index lay).2))
-    (wotsTree_correct answers lay (route index lay).2) (by omega)
+    (route index lay).1 (builtTree answers lay (route index lay).2)
+    ((List.range (2 ^ height lay)).map (leafRoot answers lay (route index lay).2))
+    (builtTree_correct answers lay (route index lay).2) (by omega)
     (by simpa using hleafB) (fun j => (sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) j))
     (fun j => by rw [hpath, Nat.zero_add]; rfl)
-  rw [wotsTree_leaf answers lay _ _ hleafB] at hp
+  rw [builtTree_leaf answers lay _ _ hleafB] at hp
   simp only [Nat.zero_add] at hp
   have hother : (sig.layers lay).path (topLevel lay) =
-      treeValue (wotsTree answers lay (route index lay).2) (height lay - 1)
+      treeValue (builtTree answers lay (route index lay).2) (height lay - 1)
         ((route index lay).1 / 2 ^ (height lay - 1) ^^^ 1) := hpath (topLevel lay)
   have hq : (route index lay).1 / 2 ^ (height lay - 1) < 2 := by
     apply (Nat.div_lt_iff_lt_mul (by positivity)).mpr
@@ -986,11 +710,11 @@ theorem eval_recoverLayerPair_honest (answers : Answers) (sig : Signature) (inde
     generalize (route index lay).1 / 2 ^ (height lay - 1) = q at hq ⊢
     omega
   have hlr : evalWithAnswerFn answers (SigGolfCandidate.T3.leafHash lay (route index lay).2 (route index lay).1
-      ((List.range (chainCount lay)).map (wotsEnd answers lay (route index lay).2 (route index lay).1))) =
-      wotsRoot answers lay (route index lay).2 (route index lay).1 := rfl
+      ((List.range (chainCount lay)).map (leafEnd answers lay (route index lay).2 (route index lay).1))) =
+      leafRoot answers lay (route index lay).2 (route index lay).1 := rfl
   unfold recoverLayerPair
   simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure, Nat.sub_sub]
-  rw [eval_wots_chains_honest answers lay _ _ digits hvalid _ hvalues, hlr, hp, hother]
+  rw [eval_chains_honest answers lay _ _ digits hvalid _ hvalues, hlr, hp, hother]
   unfold builtPair topPair
   rcases hq2 with h | h <;> rw [h] <;> rfl
 def TopSearchesSucceedBC (answers : Answers) : Prop :=
@@ -1027,13 +751,11 @@ theorem signLayersBC_length (answers : Answers) (cache : Cache) (index : Nat) :
               counterLimit 0 counter digits (by decide) hs).2.2
             have hvalid := Cost.validDigits_decode hd
             simp only [hs] at he
-            simp only [hn0, if_false, evalWithAnswerFn_bind] at he
-            generalize evalWithAnswerFn answers (buildTreeP (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
-              (route index (Fin.ofNat 4 n)).1 digits) = built at he
-            obtain ⟨levels, values⟩ := built
-            simp only [evalWithAnswerFn_bind] at he
+            simp only [hn0, if_false, evalWithAnswerFn_bind,
+              eval_buildTree_result answers (Fin.ofNat 4 n) _ _ digits hvalid (route_leaf_bound index _)] at he
             cases hp : evalWithAnswerFn answers (signLayersBC cache index n
-              (.pair (topPair (Fin.ofNat 4 n) levels).1 (topPair (Fin.ofNat 4 n) levels).2)) with
+              (.pair (topPair (Fin.ofNat 4 n) (builtTree answers (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2)).1
+                (topPair (Fin.ofNat 4 n) (builtTree answers (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2)).2)) with
             | none => simp only [hp, evalWithAnswerFn_pure, reduceCtorEq] at he
             | some previous =>
                 simp only [hp, evalWithAnswerFn_pure, Option.some.injEq] at he
@@ -1090,14 +812,11 @@ theorem signLayersBC_expandLayersBC (answers : Answers) (cache : Cache) (index :
               some (treeValue (builtTree answers 0 0) 12 0, [counter])
             rw [hr, ht]
             rfl
-          · have hlay0 : (Fin.ofNat 4 n : Layer) ≠ 0 := fun h0 => hn0 (by
-              have h1 := congrArg Fin.val h0
-              rwa [ofNat_layer_val n (by omega)] at h1)
-            simp only [hn0, if_false, evalWithAnswerFn_bind,
-              eval_buildTreeP_result answers hlay0 _ _ digits hvalid (route_leaf_bound index _)] at he
+          · simp only [hn0, if_false, evalWithAnswerFn_bind,
+              eval_buildTree_result answers (Fin.ofNat 4 n) _ _ digits hvalid (route_leaf_bound index _)] at he
             cases hp : evalWithAnswerFn answers (signLayersBC cache index n
-              (.pair (topPair (Fin.ofNat 4 n) (wotsTree answers (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2)).1
-                (topPair (Fin.ofNat 4 n) (wotsTree answers (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2)).2)) with
+              (.pair (topPair (Fin.ofNat 4 n) (builtTree answers (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2)).1
+                (topPair (Fin.ofNat 4 n) (builtTree answers (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2)).2)) with
             | none => simp only [hp, evalWithAnswerFn_pure, reduceCtorEq] at he
             | some previous =>
                 simp only [hp, evalWithAnswerFn_pure, Option.some.injEq] at he
@@ -1105,7 +824,7 @@ theorem signLayersBC_expandLayersBC (answers : Answers) (cache : Cache) (index :
                 obtain ⟨hlen, hprevious⟩ := ih (by omega) (by omega) _ previous hp
                 refine ⟨by simp [hlen], ?_⟩
                 intro sig hagree
-                change PiecesAgree (toT3Signature sig) (previous ++ [wotsPieces answers (Fin.ofNat 4 n)
+                change PiecesAgree (toT3Signature sig) (previous ++ [honestPieces answers (Fin.ofNat 4 n)
                   (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 digits]) (n + 1) at hagree
                 have hlayer := PiecesAgree.last hlen (by omega) hagree
                 have hrecover : evalWithAnswerFn answers (recoverLayerPair sig index (Fin.ofNat 4 n) digits) =
@@ -1114,11 +833,11 @@ theorem signLayersBC_expandLayersBC (answers : Answers) (cache : Cache) (index :
                   · intro i
                     change ((toT3Signature sig).layers (Fin.ofNat 4 n)).values i = _
                     rw [hlayer]
-                    simp [piecesSignature, wotsPieces, List.getD_eq_getElem, i.isLt]
+                    simp [piecesSignature, honestPieces, List.getD_eq_getElem, i.isLt]
                   · intro j
                     change ((toT3Signature sig).layers (Fin.ofNat 4 n)).path j = _
                     rw [hlayer]
-                    simp [piecesSignature, wotsPieces, List.getD_eq_getElem, j.isLt]
+                    simp [piecesSignature, honestPieces, List.getD_eq_getElem, j.isLt]
                 obtain ⟨counters, hc, hreplay⟩ := hprevious sig (PiecesAgree.prefix hlen hagree)
                 refine ⟨counters ++ [counter], by simp [hc], ?_⟩
                 simp only [expandLayersBC, evalWithAnswerFn_bind, hs, hn0, if_false, hrecover]
@@ -1129,7 +848,7 @@ theorem digestSearch_some_good (answers : Answers) (rho : Digest) (message : Mes
       evalWithAnswerFn answers (digestSearch rho message counter fuel) = some (found, output) →
       counter ≤ found.toNat ∧ found.toNat < counter + fuel ∧
         evalWithAnswerFn answers (digest rho message found) = output ∧
-        producerAdmissible output = true := by
+        admissible output = true := by
   intro fuel
   induction fuel with
   | zero =>
@@ -1169,9 +888,8 @@ theorem expand_implies_verify (answers : Answers) (message : Message) (pk : Dige
             have hroot : root = pk := by simpa using hroot
             simp only [evalWithAnswerFn_pure, Option.some.injEq] at he
             subst w
-            obtain ⟨_, hcounter, houtput, hprod⟩ := digestSearch_some_good answers sig.rho message
+            obtain ⟨_, hcounter, houtput, hadm⟩ := digestSearch_some_good answers sig.rho message
               attemptLimit 0 counter output (by decide) hd
-            have hadm := admissible_of_producer hprod
             have hnot : ¬counter.toNat ≥ attemptLimit := by omega
             have hverified := (expandLayersBC_verified answers sig
               (output.toNat % 2 ^ 31) 4 (by decide) _ root counters hl).2

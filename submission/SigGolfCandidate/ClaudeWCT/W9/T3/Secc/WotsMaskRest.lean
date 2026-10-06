@@ -1,4 +1,6 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskChain
+import SigGolfCandidate.ClaudeWCT.W9.New.Positions.FtsBridge
+import SigGolfCandidate.ClaudeWCT.W9.New.BC.Respects
 import SigGolfCandidate.T3.Secc.WotsMaskRest
 
 namespace ClaudeWCT.W9.T3.Security.Wots
@@ -15,50 +17,17 @@ set_option linter.unusedSimpArgs false
 namespace Mask
 open SigGolfCandidate.T3.Security.Wots.Mask
 variable (a : ChainAddr)
-theorem slotAddr_lay : (slotAddr a).key.lay = a.key.lay := by
-  unfold slotAddr; split_ifs <;> rfl
-theorem respectsP_chain_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i start count : Nat) (v : Digest) :
-    Respects (UntouchedP a) (chain lay tree leaf i start count v) :=
-  Respects.mono' (Respects.inter (respects_chain_of_lay a hl tree leaf i start count v)
-    (respects_chain_of_lay (slotAddr a) (by rw [slotAddr_lay]; exact hl) tree leaf i start count v))
-    fun _ hq => untouchedP_of_untouched a hq
-theorem wotsTweak_ne_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i : Nat) :
-    wotsTweak lay tree leaf i ≠ seedTweakP a := by
-  intro h
-  apply hl
-  unfold wotsTweak seedTweakP seedTweak WCT9.lowerSeedHeader at h
-  split_ifs at h <;> exact lay_eq_of_header a h
-variable {T T' : Answers} (hT : ∀ q, UntouchedP a q → T q = T' q)
+variable {T T' : Answers} (hT : ∀ q, Untouched a q → T q = T' q)
 include hT
-theorem wotsSeed_congr_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i : Nat) :
-    WCT9.wotsSeed T lay tree leaf i = WCT9.wotsSeed T' lay tree leaf i := by
-  rw [wotsSeed_eq, wotsSeed_eq, hT (.inr (.inl _)) (wotsTweak_ne_of_lay a hl tree leaf i)]
-theorem wotsEnd_congr_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i : Nat) :
-    WCT9.wotsEnd T lay tree leaf i = WCT9.wotsEnd T' lay tree leaf i := by
-  unfold WCT9.wotsEnd
-  rw [wotsSeed_congr_of_lay a hT hl]
-  exact (respectsP_chain_of_lay a hl _ _ _ _ _ _).eval_eq hT
-theorem wotsRoot_congr_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf : Nat) :
-    WCT9.wotsRoot T lay tree leaf = WCT9.wotsRoot T' lay tree leaf := by
-  unfold WCT9.wotsRoot
-  rw [List.map_congr_left (fun i _ => wotsEnd_congr_of_lay a hT hl tree leaf i)]
-  exact (respectsP_leafHash a _ _ _ _).eval_eq hT
-theorem wotsTree_congr_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree : Nat) :
-    WCT9.wotsTree T lay tree = WCT9.wotsTree T' lay tree := by
-  unfold WCT9.wotsTree
-  have hr : WCT9.wotsRoot T lay tree = WCT9.wotsRoot T' lay tree :=
-    funext (wotsRoot_congr_of_lay a hT hl tree)
-  rw [hr]
-  exact (respectsP_buildLevels a 3 _ _ _ _ (by decide)).eval_eq hT
 theorem honestForest_congr (index : Nat) : Extract.honestForest T index = Extract.honestForest T' index := by
   rw [Extract.honestForest_eq_wct9, Extract.honestForest_eq_wct9]
-  exact ClaudeWCT.WCT9.Wots.honestForest_congr (fun _ hq => hT _ (ftsQuery_untouchedP a hq))
+  exact ClaudeWCT.WCT9.Wots.honestForest_congr (fun _ hq => hT _ (ClaudeWCT.WCT9.Wots.ftsQuery_untouched a hq))
 theorem leafMsg_congr : leafMsg T a.key = leafMsg T' a.key := by
   unfold leafMsg
   split
   · rename_i h
     unfold Extract.honestPair
-    rw [wotsTree_congr_of_lay a hT (fun he => by
+    rw [builtTree_congr_of_lay a hT (fun he => by
       have := congrArg Fin.val he
       simp only at this
       omega)]
@@ -66,13 +35,13 @@ theorem leafMsg_congr : leafMsg T a.key = leafMsg T' a.key := by
 theorem referenceSearch_congr : referenceSearch T a.key = referenceSearch T' a.key := by
   unfold referenceSearch
   rw [leafMsg_congr a hT]
-  exact (respectsP_layerCounterSearch a _ _ _ _ _ _).eval_eq hT
+  exact (respects_layerCounterSearch a _ _ _ _ _ _).eval_eq hT
 end Mask
-theorem depth_congr (a : ChainAddr) (T T' : Answers) (hT : ∀ q, UntouchedP a q → T q = T' q) :
+theorem depth_congr (a : ChainAddr) (T T' : Answers) (hT : ∀ q, Mask.Untouched a q → T q = T' q) :
     depth T a = depth T' a := by
   unfold depth referenceDigits
   rw [Mask.referenceSearch_congr a hT]
-theorem referenceDigits_congr (a : ChainAddr) (T T' : Answers) (hT : ∀ q, UntouchedP a q → T q = T' q) :
+theorem referenceDigits_congr (a : ChainAddr) (T T' : Answers) (hT : ∀ q, Mask.Untouched a q → T q = T' q) :
     referenceDigits T a.key = referenceDigits T' a.key := by
   unfold referenceDigits
   rw [Mask.referenceSearch_congr a hT]

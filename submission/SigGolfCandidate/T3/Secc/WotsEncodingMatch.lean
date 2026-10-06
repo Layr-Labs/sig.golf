@@ -1,8 +1,16 @@
 import SigGolfCandidate.T3.Secc.WotsEncodingResample
+import SigGolfCandidate.SphincsSecurity.Proof.Base.UniformTableObservationErasure
+import SigGolfCandidate.SphincsSecurity.Proof.Base.UniformTableProducts
+import SigGolfCandidate.SphincsSecurity.Proof.Base.QueryTracePotential
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.EncodingMarkerAccumulation
 import SigGolfCandidate.T3.Secc.WotsPrefixGame
 
 section
+
+
+
+
+
 namespace SigGolfCandidate.T3.Security.Wots
 open OracleComp OracleSpec ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M
@@ -410,7 +418,10 @@ end Potential
 end Enc.Lazy
 end SigGolfCandidate.T3.Security.Wots
 end
+
 section
+
+
 namespace SigGolfCandidate.T3.Security.Wots
 open OracleComp OracleSpec ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final

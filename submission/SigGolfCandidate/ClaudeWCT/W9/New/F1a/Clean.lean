@@ -3,6 +3,8 @@ import SigGolfCandidate.T3M.Final.RO
 import SigGolfCandidate.T3M.Final.Pipeline
 import SigGolfCandidate.T3M.Final.Source
 import SigGolfCandidate.T3M.Witness.Queries
+import SigGolfCandidate.T3.Proofs
+import SigGolfCandidate.Legacy.Security
 
 set_option Elab.async false
 open OracleComp OracleSpec SigGolfCandidate.Legacy SigGolfCandidate.Bridge ENNReal OracleComp.EvalDist

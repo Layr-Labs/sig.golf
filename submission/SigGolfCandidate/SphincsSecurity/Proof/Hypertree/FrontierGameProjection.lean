@@ -1,7 +1,10 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Reference.FixedHashBoundary
 import SigGolfCandidate.SphincsSecurity.Proof.Reference.DirectQueryBudget
 
 section
+
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -56,7 +59,11 @@ theorem fixedBoundaryRun_eq_boundaryComputation {α : Type} (parameter : PublicP
   (simulateQ_boundaryComputation parameter (fixedHashWorld f) computation).symm
 end SphincsSecurity.Concrete
 end
+
 section
+
+
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false

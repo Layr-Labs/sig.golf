@@ -2,6 +2,8 @@ import SigGolfCandidate.ClaudeWCT.W9.T3M.Final.Pending
 import SigGolfCandidate.ClaudeWCT.W9.New.F1a.Clean
 
 section
+
+
 namespace ClaudeWCT.W9.T3M.Final
 open SigGolfCandidate.Legacy OracleComp OracleSpec SigGolfCandidate.Bridge
 open SigGolfCandidate.T3 (M Spec keygen Cache Digest privateInput realize)
@@ -70,7 +72,9 @@ theorem verify_eq (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 2298
 end eqs
 end ClaudeWCT.W9.T3M.Final
 end
+
 section
+
 open OracleSpec OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Bridge
 namespace ClaudeWCT.W9.T3M.Final
 open SigGolfCandidate.T3 (keygen Cache Digest)
@@ -231,7 +235,9 @@ theorem securityExperiment_eq (F : QFacts) (P : Pending I) (rounds : ℕ) :
 end
 end ClaudeWCT.W9.T3M.Final
 end
+
 section
+
 open OracleSpec OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Bridge
 namespace ClaudeWCT.W9.T3M.Final
 open SigGolfCandidate.T3 (M Spec keygen Cache Digest realize)

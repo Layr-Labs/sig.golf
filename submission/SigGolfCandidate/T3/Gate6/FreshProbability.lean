@@ -1,6 +1,8 @@
+import SigGolfCandidate.T3.Gate6.ProductFibres
 import SigGolfCandidate.T3.Gate6.ChildCounting
 
 section
+
 namespace SigGolfResearch.Gate6
 open OracleComp ENNReal
 attribute [local irreducible] Finset.univ
@@ -72,7 +74,9 @@ theorem digest_mark_conditional (mark : MarkedLabel) :
   rw [digest_event (fun r => Accepted r ∧ r.1=mark),digest_event Accepted,fresh_mark_conditional]
 end SigGolfResearch.Gate6
 end
+
 section
+
 namespace SigGolfResearch.Gate6
 open SigGolfCandidate.Budget.Octopus Finset
 attribute [local irreducible] Finset.univ Q
@@ -95,7 +99,9 @@ end SigGolfResearch.Gate6
 #print axioms SigGolfResearch.Gate6.family_card_packed_generic
 #print axioms SigGolfResearch.Gate6.coefficient_power_mod
 end
+
 section
+
 namespace SigGolfResearch.Gate6
 open SigGolfCandidate.Budget.Octopus Finset
 attribute [local irreducible] Finset.univ Q
@@ -116,7 +122,9 @@ theorem capped_family_card :
 end SigGolfResearch.Gate6
 #print axioms SigGolfResearch.Gate6.capped_family_card
 end
+
 section
+
 namespace SigGolfResearch.Gate6
 open SigGolfCandidate.Budget.Octopus Finset
 attribute [local instance] Classical.propDecidable
@@ -177,7 +185,10 @@ theorem ordered_accepted_card : Fintype.card {s : Slots // SlotsAccepted s} =
 end SigGolfResearch.Gate6
 #print axioms SigGolfResearch.Gate6.ordered_accepted_card
 end
+
 section
+
+
 namespace SigGolfResearch.Gate6
 open OracleComp ENNReal
 set_option maxHeartbeats 100000

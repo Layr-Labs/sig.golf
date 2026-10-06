@@ -1,7 +1,15 @@
 import SigGolfCandidate.T3M.Verify.HashOk
+import SigGolfCandidate.T3M.Sim
+
+/-! Path agreement of two hash functions, and the credit-filtered hash `okHash`.
+
+`Agree f g oa`: on the path `f` drives through `oa`, every query gets the same answer from `g`; then `oa` evaluates
+identically under both. `okHash hash` answers a top-encoding query whose `hash` answer decodes with credit below the
+floor by a non-decoding word, and agrees with `hash` everywhere else; it satisfies `HashOk`. -/
 
 namespace SigGolfCandidate.T3M.Verify
 open OracleComp OracleSpec SigGolfCandidate.Legacy
+/-- `f` and `g` agree on every query of `f`'s path through `oa`. -/
 def Agree (f g : Hash) {α : Type} (oa : OracleComp HashSpec α) : Prop :=
   OracleComp.recOn oa (fun _ => True) (fun t _ ih => f t = g t ∧ ih (f t))
 variable {f g : Hash}
@@ -45,9 +53,11 @@ theorem agree_of_allQ {α : Type} {oa : OracleComp HashSpec α} (h : AllQueriesS
   | query_bind q k ih =>
     rw [allQueriesSatisfy_query_bind_iff] at h
     exact ⟨h.1, ih _ (h.2 _)⟩
+/-- A top-encoding answer that decodes but carries credit below the producer floor 9. -/
 def BadAns (a : BitVec 256) : Prop :=
   (∃ ds, T3.decode 0 (a.extractLsb' 0 128) = some ds) ∧ T3.topCredit (a.extractLsb' 0 128) < 9
 open Classical in
+/-- `hash` with every low-credit decodable top-encoding answer replaced by a word that does not decode. -/
 noncomputable def okHash (hash : Hash) : Hash :=
   fun q => if TopEncQ q ∧ BadAns (hash q) then BitVec.allOnes 256 else hash q
 theorem okHash_eq (hash : Hash) {q : Query} (h : ¬ (TopEncQ q ∧ BadAns (hash q))) : okHash hash q = hash q := by

@@ -1,7 +1,10 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.EncodingOracleSplit
 import SigGolfCandidate.SphincsSecurity.Proof.Base.FirstSuccessFamily
 
 section
+
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec
 attribute [local instance] Classical.propDecidable
@@ -42,7 +45,11 @@ noncomputable local instance instSampleableTypeForallSubtypeHashInputMemFinsetHa
   SampleableType.ofFintype (inputs → HashOutput)
 end SphincsSecurity.Concrete
 end
+
 section
+
+
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec
 attribute [local instance] Classical.propDecidable
@@ -95,7 +102,10 @@ noncomputable def referenceFamilyOracleTable (key : SecretKey) (inputs : Finset 
       (Function.uncurry rows) remaining) outside
 end SphincsSecurity.Concrete
 end
+
 section
+
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec
 attribute [local instance] Classical.propDecidable

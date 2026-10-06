@@ -1,9 +1,16 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeCouplingCertDefs
+import SigGolfCandidate.T3.Secc.LargeCouplingBankLazy
+import SigGolfCandidate.ClaudeWCT.Bank.WCTRev3
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.SeccSufRoute
 import SigGolfCandidate.ClaudeWCT.Numerics.WCTPrice
+import SigGolfCandidate.T3.Secc.LargeCouplingBankState
+import SigGolfCandidate.T3.Secc.LargeCouplingBankStep
+import SigGolfCandidate.T3.Secc.LargeCouplingBankSearch
 import SigGolfCandidate.T3.Secc.LargeCouplingBankSign
 
 section
+
+
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -81,7 +88,9 @@ theorem ev_discloseAll_le {β : Type} (cs : List Coord) (k : List (Coord × Dige
 end Router
 end ClaudeWCT.W9.T3.Security.LargeCoupling
 end
+
 section
+
 namespace ClaudeWCT.Bank.WCT
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -121,7 +130,13 @@ theorem wct_core_initial (budget : Nat) :
   (wctSpecL horizon rate hexc).core_initial budget
 end ClaudeWCT.Bank.WCT
 end
+
 section
+
+
+
+
+
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -278,7 +293,9 @@ theorem psi_initial (q : Nat) : psi q RouterState.initial ≤ (q : ENNReal) * (1
   exact hinit
 end ClaudeWCT.W9.T3.Security.LargeCoupling
 end
+
 section
+
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -458,7 +475,10 @@ theorem BankInv.born {ws : LargeResidual.State WCoord (Cell U)} {st : RouterStat
 end Invariant
 end ClaudeWCT.W9.T3.Security.LargeCoupling
 end
+
 section
+
+
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -656,7 +676,10 @@ theorem bank_routeQuery (a : AuxData) (st : RouterState) (ws : LargeResidual.Sta
 end Step
 end ClaudeWCT.W9.T3.Security.LargeCoupling
 end
+
 section
+
+
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -726,10 +749,10 @@ theorem bank_search (hU : ∀ c : BitVec 32, pad64 (digestInput rho m c) ∈ U) 
             cache' (pad64 (digestInput rho m (BitVec.ofNat 32 k))) =
               cache (pad64 (digestInput rho m (BitVec.ofNat 32 k)))) →
           expectedValue (lazyRun aux q (simulateQ (readImpl U a)
-              (if WCT9.producerAdmissible y = true then pure (some (BitVec.ofNat 32 c, y))
+              (if WCT9.admissible y = true then pure (some (BitVec.ofNat 32 c, y))
                 else WCT9.digestSearch rho m (c + 1) fuel)) (readState q s X y .none)) G ≤
             expectedValue (Sampling.roRun secret
-              (if WCT9.producerAdmissible y = true then pure (some (BitVec.ofNat 32 c, y))
+              (if WCT9.admissible y = true then pure (some (BitVec.ofNat 32 c, y))
                 else WCT9.digestSearch rho m (c + 1) fuel) cache') (fun r => H r.1) := by
         intro y cache' hcache'
         have hrowsX : ∀ row : Cell U, (readState q s X y .none).rows row ≠ s.rows row → row = X := by
@@ -738,7 +761,7 @@ theorem bank_search (hU : ∀ c : BitVec 32, pad64 (digestInput rho m c) ∈ U) 
           apply hr
           simp only [readState]
           rw [Function.update_of_ne hne]
-        by_cases hadm : WCT9.producerAdmissible y = true
+        by_cases hadm : WCT9.admissible y = true
         · simp only [hadm, if_true, simulateQ_pure, Sampling.roRun_pure, expectedValue_pure]
           rw [lazy_pure, expectedValue_pure]
           apply hG
@@ -793,7 +816,10 @@ theorem bank_search (hU : ∀ c : BitVec 32, pad64 (digestInput rho m c) ∈ U) 
 end Search
 end ClaudeWCT.W9.T3.Security.LargeCoupling
 end
+
 section
+
+
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security

@@ -1,4 +1,5 @@
 import SigGolfCandidate.T3.Secc.SeccSufSigned
+import SigGolfCandidate.T3.PackedChain
 
 namespace SigGolfCandidate.T3.Security.BPB
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal

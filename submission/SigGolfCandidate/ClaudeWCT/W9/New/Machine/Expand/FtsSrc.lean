@@ -1,10 +1,12 @@
+import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Merkle.ChildDefs
+import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.Routine
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.RoutineData
 
 section
+
 namespace ClaudeWCT.W9.Machine.Merkle
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
-open ClaudeWCT.W9.Machine.VLib
 open SigGolfCandidate.T3 (Digest HashOutput M header shortHash pad64)
 open SphincsSecurity (bytesLE bytesLE_length)
 theorem leafBytes_canon (k index j : Nat) (ends : List Digest) (h : ends.length = 7) :
@@ -50,7 +52,11 @@ theorem sixFolds (k index j : Nat) (path : Fin 7 → Digest) (root : Digest) :
   rfl
 end ClaudeWCT.W9.Machine.Merkle
 end
+
 section
+
+
+
 set_option maxRecDepth 4000
 namespace ClaudeWCT.W9.Machine.Expand
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
@@ -65,7 +71,7 @@ theorem mapM_finRange_eq {β : Type} (f : Fin 7 → M β) (g : Nat → M β) (h 
   rw [this, ← List.mapM_map, Merkle.finRange_map_val, List.range_eq_range']
 theorem recoverCoordinate_split (sig : WCT9.Signature) (index : Nat) (N : HashOutput) (k : WCT9.Coord) :
     WCT9.recoverCoordinate sig index N k =
-      (chainsFrom index k.val (WCT9.child N k).val (codewordL (WCT9.embed (WCT9.rank N k)).val)
+      (chainsFrom index k.val (WCT9.child N k).val (codewordL (WCT9.rank N k).val)
           (fun t => if h : t < 7 then (sig.openings k).values ⟨t, h⟩ else 0) 0 >>= fun ends =>
         (WCT9.leafHash index k.val (WCT9.child N k).val ends >>=
           Merkle.sixLevels k.val index (WCT9.child N k).val (Merkle.finPath (sig.openings k).path)) >>= fun top =>
@@ -73,12 +79,10 @@ theorem recoverCoordinate_split (sig : WCT9.Signature) (index : Nat) (N : HashOu
   unfold WCT9.recoverCoordinate
   simp only
   have hm := mapM_finRange_eq (fun i => WCT9.chain index k.val (WCT9.child N k).val i.val
-      (3 - WCT9.wordDigit (WCT9.rank N k) i) (WCT9.wordDigit (WCT9.rank N k) i) ((sig.openings k).values i))
-    (fun i => WCT9.chain index k.val (WCT9.child N k).val i
-      (3 - (codewordL (WCT9.embed (WCT9.rank N k)).val).getD i 0)
-      ((codewordL (WCT9.embed (WCT9.rank N k)).val).getD i 0)
-      (if h : i < 7 then (sig.openings k).values ⟨i, h⟩ else 0))
-    (fun i => by simp only [WCT9.wordDigit, codewordL_eq, dif_pos i.isLt])
+      (3 - WCT9.digit (WCT9.rank N k) i) (WCT9.digit (WCT9.rank N k) i) ((sig.openings k).values i))
+    (fun i => WCT9.chain index k.val (WCT9.child N k).val i (3 - (codewordL (WCT9.rank N k).val).getD i 0)
+      ((codewordL (WCT9.rank N k).val).getD i 0) (if h : i < 7 then (sig.openings k).values ⟨i, h⟩ else 0))
+    (fun i => by simp only [codewordL_eq, dif_pos i.isLt])
   unfold chainsFrom
   rw [show 7 - 0 = 7 from rfl, ← hm]
   refine bind_congr fun ends => ?_

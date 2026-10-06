@@ -1,5 +1,15 @@
 import SigGolfCandidate.T3.Secc.WotsPrefixGame
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsPrefixGameSim
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsPrefixGameBase
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskRef
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsReference
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.SeccLaw
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEvents
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskCharge
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMask
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskChain
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskBase
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskRest
 
 namespace ClaudeWCT.W9.T3.Security.Wots
 open SigGolfCandidate SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
@@ -69,9 +79,9 @@ theorem reference_map_eq_mixture (adversary : AdversaryP) (q : Nat) (a : ChainAd
         (realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (seedGame adversary q a R)
           (fun _ _ => none)).map (g R)) := by
   have htree : a.key.tree < 2 ^ 40 := by have := ha.1.1; omega
-  have hleaf : a.key.leaf < 2 ^ 24 := by
+  have hleaf : a.key.leaf < 2 ^ 32 := by
     have h1 := ha.1.2
-    have h2 : 2 ^ height a.key.lay ≤ 2 ^ 24 := Nat.pow_le_pow_right (by norm_num) (by
+    have h2 : 2 ^ height a.key.lay ≤ 2 ^ 32 := Nat.pow_le_pow_right (by norm_num) (by
       generalize a.key.lay = l; unfold height; fin_cases l <;> decide)
     omega
   rw [reference_eq_bind, PMF.map_bind, restLaw_resample adversary a]

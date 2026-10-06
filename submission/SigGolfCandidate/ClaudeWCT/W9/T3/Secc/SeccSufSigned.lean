@@ -1,4 +1,9 @@
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.SeccLaw
 import SigGolfCandidate.ClaudeWCT.W9.New.G5.PaddedExtraction
+import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.VerifyP
+import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Honest
+import SigGolfCandidate.ClaudeWCT.W9.New.G3a.PaddedWitness
+import SigGolfCandidate.ClaudeWCT.WCT9.Forest
 import SigGolfCandidate.T3.Secc.SeccSufSigned
 
 namespace ClaudeWCT.W9.T3.Security.BPB
@@ -13,11 +18,6 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 noncomputable local instance instDecidableEqCache_w9seccSufSigned : DecidableEq SigGolfCandidate.T3.Cache :=
   Classical.decEq _
-def SignerComplete (answers : Correctness.Answers) : Prop :=
-  (∀ (rho : Digest) (m : Message),
-      (evalWithAnswerFn answers (WCT9.digestSearch rho m 0 WCT9.digestAttemptLimit)).isSome) ∧
-    ∀ (lay : Layer), lay ≠ 0 → ∀ (tree leaf : Nat) (msg : WCT9.LayerMsg), tree < 2 ^ 25 → leaf < 2 ^ height lay →
-      (evalWithAnswerFn answers (WCT9.layerCounterSearch lay tree leaf msg 0 counterLimit)).isSome
 def CaseCAt (answers : Correctness.Answers) (message : Message) (witness : WBytes)
     (events : List FirstHit.QueryEvent) : Prop :=
   ∃ digestAnswer : HashOutput, (wdc witness).toNat < WCT9.digestAttemptLimit ∧
@@ -25,7 +25,7 @@ def CaseCAt (answers : Correctness.Answers) (message : Message) (witness : WByte
     (∃ prior, (⟨prior, .inl (.inr (pad64 (digestInput (wrho witness) message (wdc witness)))), digestAnswer⟩ :
       FirstHit.QueryEvent) ∈ events) ∧ Shaped digestAnswer witness ∧
     (∀ lay : Layer, ClaudeWCT.W9.T3M.BC.GoodZ answers witness (digestAnswer.toNat % 2 ^ 31) lay) ∧
-    ClaudeWCT.W9.T3M.WctExtract.WctHonest answers digestAnswer witness ∧ SignerComplete answers
+    ClaudeWCT.W9.T3M.WctExtract.WctHonest answers digestAnswer witness
 theorem CaseCAt.mono {answers : Correctness.Answers} {message : Message} {witness : WBytes}
     {events events' : List FirstHit.QueryEvent} (h : CaseCAt answers message witness events)
     (hsub : ∀ e ∈ events, e ∈ events') : CaseCAt answers message witness events' := by
@@ -133,7 +133,7 @@ def GameCaseAB (adversary : AdversaryP) (answers : Correctness.Answers) (result 
       ∃ message witness, PaddedExtraction.WitnessOf answers generated.value.1 forgery message witness ∧
         ConclusionAB answers message witness result.events
 theorem linked_split (adversary : AdversaryP) (answers : Correctness.Answers) (result : FirstHit.Recorded Bool)
-    (h : GameConclusionLinked adversary answers result) (hcomp : SignerComplete answers) :
+    (h : GameConclusionLinked adversary answers result) :
     GameCaseAB adversary answers result ∨ GameCaseC adversary answers Not result ∨
       GameCaseC adversary answers id result := by
   obtain ⟨generated, hg, interaction, hi, hext, hpk, hlen, forgery, hf, hfresh, message, witness, hof, hc⟩ := h
@@ -147,9 +147,9 @@ theorem linked_split (adversary : AdversaryP) (answers : Correctness.Answers) (r
       N, hdc, hN, hq, hS, Or.inr (Or.inr hP)⟩
   · by_cases hsd : SignedDigest interaction.value.2 message witness
     · exact Or.inr (Or.inr ⟨generated, hg, interaction, hi, hext, hpk, hlen, forgery, hf, hfresh, message, witness,
-        hof, hsd, N, hdc, hN, hq, hS, hgood, hfts, hcomp⟩)
+        hof, hsd, N, hdc, hN, hq, hS, hgood, hfts⟩)
     · exact Or.inr (Or.inl ⟨generated, hg, interaction, hi, hext, hpk, hlen, forgery, hf, hfresh, message, witness,
-        hof, hsd, N, hdc, hN, hq, hS, hgood, hfts, hcomp⟩)
+        hof, hsd, N, hdc, hN, hq, hS, hgood, hfts⟩)
 theorem logged_resolves {α : Type} (published : SigGolfCandidate.T3.Cache)
     (program : OracleComp LazyPrivate.Interaction α)
     (before : LazyPrivate.State) (result : (α × QueryLog Requests) × LazyPrivate.State)

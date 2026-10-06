@@ -1,3 +1,4 @@
+import SigGolfCandidate.T3.BPORS
 import SigGolfCandidate.T3.Secc.SeccLaw
 import SigGolfCandidate.T3.Secc.WotsEvents
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Header
@@ -66,14 +67,7 @@ def Node.depth : Node → Nat
 abbrev SecretIndex := Address ⊕ WctAddr
 abbrev Secrets := SecretIndex → Digest
 abbrev Labels := Node → HashOutput
-theorem chainCount_lower {lay : Layer} (h : lay ≠ 0) : chainCount lay = 43 := by
-  revert h; fin_cases lay <;> decide
-def seedIdx (a : Address) : Address :=
-  if h : a.layer ≠ 0 ∧ chainCount a.layer ≤ a.chain.val ∧ a.leaf.val < 4095 then
-    ⟨a.layer, a.tree, ⟨a.leaf.val + 1, by omega⟩, ⟨a.chain.val - chainCount a.layer, by
-      have := a.chain.isLt; omega⟩⟩
-  else a
-def seedsOf (secrets : Secrets) : Seeds := fun address => secrets (.inl (seedIdx address))
+def seedsOf (secrets : Secrets) : Seeds := fun address => secrets (.inl address)
 def wctSeedsOf (secrets : Secrets) : WctAddr → Digest := fun a => secrets (.inr a)
 def chainLabels (labels : Labels) : ChainGraph.Labels := fun point => labels (.chain point)
 def fin58 (i : Nat) : Fin 58 := ⟨i % 58, Nat.mod_lt _ (by decide)⟩
@@ -718,130 +712,47 @@ theorem uniform_bind_programmed {Result : Type} (secrets : Secrets) (next : (U �
         next (programmed U hU secrets labels residual)] :=
   graph_bind_eq_uniform_programmed U hU secrets (fun _ table => next table)
 end Laws
-def fullHalf (n : Nat) : Fin 2 := ⟨n % 2, Nat.mod_lt _ (by decide)⟩
 def wctSeedCoordinate (a : WctAddr) : ChainGraph.HalfCoordinate :=
-  (.inl (WCT9.ftsSeedHeader a.2.1.val a.1.val (WCT9.ftsOrdinal a.2.2.1.val a.2.2.2.val / 2)),
-    fullHalf (WCT9.ftsOrdinal a.2.2.1.val a.2.2.2.val))
-def seedCoordinateP (a : Address) : ChainGraph.HalfCoordinate :=
-  if a.layer = 0 then ChainGraph.seedCoordinate a
-  else if a.chain.val < chainCount a.layer ∨ a.leaf.val = 4095 then
-    (.inl (WCT9.lowerSeedHeader a.layer a.tree.val (WCT9.lowerOrdinal a.layer a.leaf.val a.chain.val / 2)),
-      fullHalf (WCT9.lowerOrdinal a.layer a.leaf.val a.chain.val))
-  else (.inl (header 0 a.layer.val a.tree.val (a.chain.val / 2) (a.leaf.val + 1)), fullHalf a.chain.val)
-def secretCoordinate : SecretIndex → ChainGraph.HalfCoordinate := Sum.elim seedCoordinateP wctSeedCoordinate
-theorem fullHalf_val (n : Nat) : (fullHalf n).val = n % 2 := rfl
-theorem chainCount_le (lay : Layer) : chainCount lay ≤ 54 := by fin_cases lay <;> decide
-theorem lowerOrdinal_pair_lt' (a : Address) : WCT9.lowerOrdinal a.layer a.leaf.val a.chain.val / 2 < 2 ^ 32 := by
-  have h1 := a.leaf.isLt; have h2 := a.chain.isLt
-  have hc := chainCount_le a.layer
-  unfold WCT9.lowerOrdinal
-  have : chainCount a.layer * a.leaf.val ≤ 54 * 4095 := Nat.mul_le_mul hc (by omega)
-  omega
+  (.inl (header 8 a.2.1.val a.1.val 0 (4 * a.2.2.1.val + a.2.2.2.val / 2)),
+    ⟨a.2.2.2.val % 2, Nat.mod_lt _ (by decide)⟩)
+def secretCoordinate : SecretIndex → ChainGraph.HalfCoordinate := Sum.elim ChainGraph.seedCoordinate wctSeedCoordinate
 theorem wctSeedCoordinate_injective : Function.Injective wctSeedCoordinate := by
   intro left right heq
   have hp := congrArg Prod.fst heq
   have hh := congrArg (fun coordinate : ChainGraph.HalfCoordinate => coordinate.2.val) heq
-  simp only [wctSeedCoordinate, fullHalf_val, Sum.inl.injEq] at hp hh
+  change Sum.inl (header 8 left.2.1.val left.1.val 0 (4 * left.2.2.1.val + left.2.2.2.val / 2)) =
+    (Sum.inl (header 8 right.2.1.val right.1.val 0 (4 * right.2.2.1.val + right.2.2.2.val / 2)) : Coordinate) at hp
+  change left.2.2.2.val % 2 = right.2.2.2.val % 2 at hh
   obtain ⟨⟨i, hi⟩, ⟨k, hk⟩, ⟨j, hj⟩, ⟨t, ht⟩⟩ := left
   obtain ⟨⟨i', hi'⟩, ⟨k', hk'⟩, ⟨j', hj'⟩, ⟨t', ht'⟩⟩ := right
   simp only at hp hh
-  have hq := WCT9.ftsOrdinal_pair_lt (by omega : j < 128) (by omega : t < 7)
-  have hq' := WCT9.ftsOrdinal_pair_lt (by omega : j' < 128) (by omega : t' < 7)
-  obtain ⟨e1, e2, e3⟩ := WCT9.ftsSeedHeader_injective (by omega) (by omega) (by omega) (by omega) (by omega)
-    (by omega) hp
-  obtain ⟨rfl, rfl⟩ := WCT9.ftsSlot_injective ht ht' e3 hh
-  subst e1 e2
+  have fields := header_injective (by decide : 8 < 256) (by omega) (by omega) (by omega) (by omega)
+    (by decide : 8 < 256) (by omega) (by omega) (by omega) (by omega) (Sum.inl.inj hp)
+  obtain ⟨-, e2, e3, -, e5⟩ := fields
+  have e4 : j = j' ∧ t = t' := by omega
+  obtain ⟨rfl, rfl⟩ := e4
+  subst e2 e3
   rfl
-theorem seedCoordinateP_injective : Function.Injective seedCoordinateP := by
-  intro left right heq
-  have hl := left.layer.isLt; have hr := right.layer.isLt
-  have hlt := left.tree.isLt; have hrt := right.tree.isLt
-  have hli := left.leaf.isLt; have hri := right.leaf.isLt
-  have hlc := left.chain.isLt; have hrc := right.chain.isLt
-  have pl := lowerOrdinal_pair_lt' left; have pr := lowerOrdinal_pair_lt' right
-  by_cases h0 : left.layer = 0 <;> by_cases h0' : right.layer = 0
-  · unfold seedCoordinateP at heq
-    rw [if_pos h0, if_pos h0'] at heq
-    exact ChainGraph.seedCoordinate_injective heq
-  · exfalso
-    have hp := congrArg Prod.fst heq
-    have hl0 : left.layer.val = 0 := by rw [h0]; rfl
-    have hr0 : right.layer.val ≠ 0 := fun h => h0' (Fin.ext h)
-    unfold seedCoordinateP ChainGraph.seedCoordinate at hp
-    rw [if_pos h0, if_neg h0'] at hp
-    split_ifs at hp
-    · dsimp only at hp
-      rw [hl0] at hp
-      exact WCT9.lowerSeedHeader_ne_top right.layer h0' _ _ _ _ _ (Sum.inl.inj hp).symm
-    · dsimp only at hp
-      have := (header_injective (by decide) (by omega) (by omega) (by omega) (by omega)
-        (by decide) (by omega) (by omega) (by omega) (by omega) (Sum.inl.inj hp)).2.1
-      omega
-  · exfalso
-    have hp := congrArg Prod.fst heq
-    have hr0 : right.layer.val = 0 := by rw [h0']; rfl
-    have hl0 : left.layer.val ≠ 0 := fun h => h0 (Fin.ext h)
-    unfold seedCoordinateP ChainGraph.seedCoordinate at hp
-    rw [if_neg h0, if_pos h0'] at hp
-    split_ifs at hp
-    · dsimp only at hp
-      rw [hr0] at hp
-      exact WCT9.lowerSeedHeader_ne_top left.layer h0 _ _ _ _ _ (Sum.inl.inj hp)
-    · dsimp only at hp
-      have := (header_injective (by decide) (by omega) (by omega) (by omega) (by omega)
-        (by decide) (by omega) (by omega) (by omega) (by omega) (Sum.inl.inj hp)).2.1
-      omega
-  · have hp := congrArg Prod.fst heq
-    have hh := congrArg (fun coordinate : ChainGraph.HalfCoordinate => coordinate.2.val) heq
-    have cl := chainCount_lower h0; have cr := chainCount_lower h0'
-    unfold seedCoordinateP at hp hh
-    rw [if_neg h0, if_neg h0'] at hp hh
-    by_cases hc : left.chain.val < chainCount left.layer ∨ left.leaf.val = 4095 <;>
-      by_cases hc' : right.chain.val < chainCount right.layer ∨ right.leaf.val = 4095
-    · rw [if_pos hc, if_pos hc'] at hp hh
-      simp only [fullHalf_val, Sum.inl.injEq] at hp hh
-      obtain ⟨e1, e2, e3⟩ := WCT9.lowerSeedHeader_injective (by omega) pl (by omega) pr hp
-      unfold WCT9.lowerOrdinal at e3 hh
-      rw [cl, cr] at e3 hh
-      rw [cl] at hc; rw [cr] at hc'
-      have e4 : left.leaf.val = right.leaf.val ∧ left.chain.val = right.chain.val := by omega
-      exact ChainGraph.Address.ext e1 (Fin.ext e2) (Fin.ext e4.1) (Fin.ext e4.2)
-    · exfalso
-      rw [if_pos hc, if_neg hc'] at hp
-      simp only [Sum.inl.injEq, WCT9.lowerSeedHeader] at hp
-      have := (header_injective (by decide) (by omega) (by omega) pl (by omega)
-        (by decide) (by omega) (by omega) (by omega) (by omega) hp).2.2.2.2
-      omega
-    · exfalso
-      rw [if_neg hc, if_pos hc'] at hp
-      simp only [Sum.inl.injEq, WCT9.lowerSeedHeader] at hp
-      have := (header_injective (by decide) (by omega) (by omega) (by omega) (by omega)
-        (by decide) (by omega) (by omega) pr (by omega) hp).2.2.2.2
-      omega
-    · rw [if_neg hc, if_neg hc'] at hp hh
-      simp only [fullHalf_val, Sum.inl.injEq] at hp hh
-      obtain ⟨-, e1, e2, e3, e4⟩ := header_injective (by decide) (by omega) (by omega) (by omega) (by omega)
-        (by decide) (by omega) (by omega) (by omega) (by omega) hp
-      exact ChainGraph.Address.ext (Fin.ext e1) (Fin.ext e2) (Fin.ext (by omega)) (Fin.ext (by omega))
-theorem seedCoordinateP_ne_wct (a : Address) (g : WctAddr) : seedCoordinateP a ≠ wctSeedCoordinate g := by
-  intro heq
-  have hp := congrArg Prod.fst heq
-  unfold seedCoordinateP wctSeedCoordinate at hp
-  split_ifs at hp
-  · unfold ChainGraph.seedCoordinate at hp
-    exact WCT9.ftsSeedHeader_ne_tag _ _ _ 0 _ _ _ _ (by decide) (Sum.inl.inj hp).symm
-  · exact WCT9.ftsSeedHeader_ne_lowerSeedHeader _ _ _ _ _ _ (Sum.inl.inj hp).symm
-  · exact WCT9.ftsSeedHeader_ne_tag _ _ _ 0 _ _ _ _ (by decide) (Sum.inl.inj hp).symm
 theorem secretCoordinate_injective : Function.Injective secretCoordinate := by
   intro left right heq
   cases left with
   | inl a =>
       cases right with
-      | inl b => exact congrArg Sum.inl (seedCoordinateP_injective heq)
-      | inr g => exact (seedCoordinateP_ne_wct a g heq).elim
+      | inl b => exact congrArg Sum.inl (ChainGraph.seedCoordinate_injective heq)
+      | inr g =>
+          exfalso
+          have hp := congrArg Prod.fst heq
+          change Sum.inl (header 0 a.layer.val a.tree.val (a.chain.val / 2) a.leaf.val) =
+            (Sum.inl (header 8 g.2.1.val g.1.val 0 (4 * g.2.2.1.val + g.2.2.2.val / 2)) : Coordinate) at hp
+          exact QuerySpace.header_ne_of_tag (by decide) (Sum.inl.inj hp)
   | inr f =>
       cases right with
-      | inl b => exact (seedCoordinateP_ne_wct b f heq.symm).elim
+      | inl b =>
+          exfalso
+          have hp := congrArg Prod.fst heq
+          change Sum.inl (header 8 f.2.1.val f.1.val 0 (4 * f.2.2.1.val + f.2.2.2.val / 2)) =
+            (Sum.inl (header 0 b.layer.val b.tree.val (b.chain.val / 2) b.leaf.val) : Coordinate) at hp
+          exact QuerySpace.header_ne_of_tag (by decide) (Sum.inl.inj hp)
       | inr g => exact congrArg Sum.inr (wctSeedCoordinate_injective heq)
 def privateSecrets (table : FullGame.FullTable) : Secrets := ChainGraph.halves table ∘ secretCoordinate
 abbrev OtherHalf := {coordinate : ChainGraph.HalfCoordinate // coordinate ∉ Set.range secretCoordinate}
@@ -1005,14 +916,20 @@ noncomputable def eagerAnswers (privateTable : FullGame.FullTable) (U : Finset H
   | .inl (.inl n) => (⟨0, Nat.zero_lt_succ n⟩ : Fin (n + 1))
   | .inl (.inr input) => finiteHashAnswer ∅ U publicTable input
   | .inr coordinate => privateTable coordinate
-def halfAnswer (answers : Answers) (c : ChainGraph.HalfCoordinate) : Digest :=
-  if c.2.val = 0 then (answers (.inr c.1)).extractLsb' 0 128 else (answers (.inr c.1)).extractLsb' 128 128
-def secretsOf (answers : Answers) : Secrets := fun idx => halfAnswer answers (secretCoordinate idx)
-def wctSeedOf (answers : Answers) (a : WctAddr) : Digest := secretsOf answers (.inr a)
+def wctSeedOf (answers : Answers) (a : WctAddr) : Digest :=
+  let pair := evalWithAnswerFn answers (privatePair 8 a.2.1.val a.1.val 0 (4 * a.2.2.1.val + a.2.2.2.val / 2))
+  if a.2.2.2.val % 2 = 0 then pair.1 else pair.2
+def secretsOf (answers : Answers) : Secrets
+  | .inl a => leafSeed answers a.layer a.tree.val a.leaf.val a.chain.val
+  | .inr a => wctSeedOf answers a
 def Agrees (answers : Answers) (labels : Labels) : Prop :=
   ∀ node, answers (.inl (.inr (cell (secretsOf answers) node labels))) = labels node
 theorem secretsOf_eager (privateTable : FullGame.FullTable) (U : Finset HashInput) (publicTable : U → HashOutput) :
-    secretsOf (eagerAnswers privateTable U publicTable) = privateSecrets privateTable := rfl
+    secretsOf (eagerAnswers privateTable U publicTable) = privateSecrets privateTable := by
+  funext index
+  cases index with
+  | inl a => rfl
+  | inr f => rfl
 theorem eagerAnswers_mem (privateTable : FullGame.FullTable) (U : Finset HashInput) (publicTable : U → HashOutput)
     (x : U) : eagerAnswers privateTable U publicTable (.inl (.inr x.val)) = publicTable x :=
   finiteHashAnswer_none ∅ U publicTable x.val x.property rfl
@@ -1050,51 +967,6 @@ theorem completeWith_empty (tables : SeccLaw.CompletionTables) :
   · rfl
   · rfl
 theorem agrees_chain {answers : Answers} {labels : Labels} (h : Agrees answers labels) :
-    ChainGraph.Agrees answers (seedsOf (secretsOf answers)) (chainLabels labels) :=
+    ChainGraph.Agrees answers (ChainGraph.sourceSeeds answers) (chainLabels labels) :=
   fun point => h (.chain point)
-theorem halfAnswer_pair (answers : Answers) (tag lay tree position index : Nat) (i : Fin 2) :
-    halfAnswer answers (.inl (header tag lay tree position index), i) =
-      if i.val = 0 then (evalWithAnswerFn answers (privatePair tag lay tree position index)).1
-      else (evalWithAnswerFn answers (privatePair tag lay tree position index)).2 := rfl
-theorem secretsOf_wct (answers : Answers) (a : WctAddr) :
-    secretsOf answers (.inr a) = WCT9.seed answers a.1.val a.2.1.val a.2.2.1.val a.2.2.2 := by
-  change halfAnswer answers (wctSeedCoordinate a) = _
-  unfold wctSeedCoordinate WCT9.seed WCT9.seedHalf WCT9.ftsSeedHeader WCT9.ftsSeedPair
-  rw [halfAnswer_pair, fullHalf_val]
-theorem secretsOf_top (answers : Answers) (a : Address) (h : a.layer = 0) :
-    secretsOf answers (.inl a) = leafSeed answers a.layer a.tree.val a.leaf.val a.chain.val := by
-  change halfAnswer answers (seedCoordinateP a) = _
-  unfold seedCoordinateP ChainGraph.seedCoordinate leafSeed
-  rw [if_pos h, halfAnswer_pair]
-theorem secretsOf_lower (answers : Answers) (a : Address) (h : a.layer ≠ 0)
-    (hc : a.chain.val < chainCount a.layer ∨ a.leaf.val = 4095) :
-    secretsOf answers (.inl a) = WCT9.lowerSeed answers a.layer a.tree.val a.leaf.val a.chain.val := by
-  change halfAnswer answers (seedCoordinateP a) = _
-  unfold seedCoordinateP WCT9.lowerSeed WCT9.seedHalf WCT9.lowerSeedHeader WCT9.lowerSeedPair
-  rw [if_neg h, if_pos hc, halfAnswer_pair, fullHalf_val]
-theorem secretsOf_wots (answers : Answers) (a : Address) (hc : a.chain.val < chainCount a.layer) :
-    secretsOf answers (.inl a) = WCT9.wotsSeed answers a.layer a.tree.val a.leaf.val a.chain.val := by
-  unfold WCT9.wotsSeed
-  split_ifs with h
-  · exact secretsOf_top answers a h
-  · exact secretsOf_lower answers a h (Or.inl hc)
-theorem seedsOf_secretsOf (answers : Answers) (a : Address) :
-    seedsOf (secretsOf answers) a = WCT9.wotsSeed answers a.layer a.tree.val a.leaf.val a.chain.val := by
-  unfold seedsOf seedIdx
-  split_ifs with hi
-  · obtain ⟨h0, hc, hl⟩ := hi
-    have cl := chainCount_lower h0
-    have key := secretsOf_lower answers ⟨a.layer, a.tree, ⟨a.leaf.val + 1, by omega⟩,
-      ⟨a.chain.val - chainCount a.layer, by have := a.chain.isLt; omega⟩⟩ h0
-      (Or.inl (by show a.chain.val - chainCount a.layer < chainCount a.layer; rw [cl]; have := a.chain.isLt; omega))
-    rw [key, WCT9.wotsSeed_lower answers h0]
-    dsimp only
-    unfold WCT9.lowerSeed WCT9.lowerOrdinal
-    rw [cl] at hc ⊢
-    rw [show 43 * (a.leaf.val + 1) + (a.chain.val - 43) = 43 * a.leaf.val + a.chain.val by omega]
-  · by_cases h0 : a.layer = 0
-    · rw [secretsOf_top answers a h0, h0, WCT9.wotsSeed_top]
-    · rw [secretsOf_lower answers a h0 (by
-        by_contra hn; push Not at hn; exact hi ⟨h0, hn.1, by have := a.leaf.isLt; omega⟩),
-        WCT9.wotsSeed_lower answers h0]
 end ClaudeWCT.W9.T3.Security.CanonGraph

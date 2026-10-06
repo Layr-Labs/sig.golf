@@ -1,3 +1,4 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainLikelihood
 import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainQueryBound
 

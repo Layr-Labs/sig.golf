@@ -16,12 +16,12 @@ theorem okCoord_all {c : Nat} (hc : c < 9) : okCoord c = true := by
   | 7, _ => exact okCoord_7
   | 8, _ => exact okCoord_8
 theorem okCoord_parts {c : Nat} (hc : c < 9) :
-    okF c = true ∧ okQ c = true ∧ okP c = true ∧ okS c = true ∧ okChk c = true ∧ okStp c = true ∧
-      okLc c = true ∧ okTail c = true := by
+    okF c = true ∧ okP c = true ∧ okPre c = true ∧ okChk c = true ∧ okStp c = true ∧ okLc c = true ∧
+      okTail c = true := by
   have h := okCoord_all hc
   simp only [okCoord, Bool.and_eq_true] at h
-  obtain ⟨⟨⟨⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩, h7⟩, h8⟩ := h
-  exact ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩
+  obtain ⟨⟨⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩, h7⟩ := h
+  exact ⟨h1, h2, h3, h4, h5, h6, h7⟩
 theorem runF_eq {c : Nat} (hc : c < 9) : runF c = some (expF c) := by
   have h := (okCoord_parts hc).1
   simp only [okF, Bool.and_eq_true] at h
@@ -30,32 +30,26 @@ theorem runZ_eq {c : Nat} (hc : c < 9) : runZ c = some (expZ c) := by
   have h := (okCoord_parts hc).1
   simp only [okF, Bool.and_eq_true] at h
   exact optBeq_eq h.2
-theorem runQ_eq {c i : Nat} (hc : c < 9) (hi : i < 7) (b : Bool) : runQ c i b = some (expQ c i b) := by
-  have h := List.all_eq_true.mp (okCoord_parts hc).2.1 i (List.mem_range.mpr hi)
-  simp only [Bool.and_eq_true] at h
-  cases b
-  · exact optBeq_eq h.2
-  · exact optBeq_eq h.1
-theorem runP_eq {c i : Nat} (hc : c < 9) (hi : i < 7) : runP c i = some (expP c i) :=
+theorem runP_eq {c p : Nat} (hc : c < 9) (hp : p < 4) : runP c p = some (expP c p) :=
+  optBeq_eq (List.all_eq_true.mp (okCoord_parts hc).2.1 p (List.mem_range.mpr hp))
+theorem runPre_eq {c i : Nat} (hc : c < 9) (hi : i < 7) : runPre c i = some (expPre c i) :=
   optBeq_eq (List.all_eq_true.mp (okCoord_parts hc).2.2.1 i (List.mem_range.mpr hi))
-theorem runS_eq {c i : Nat} (hc : c < 9) (hi : i < 7) : runS c i = some (expS c i) :=
-  optBeq_eq (List.all_eq_true.mp (okCoord_parts hc).2.2.2.1 i (List.mem_range.mpr hi))
 theorem runChk_eq {c i s v : Nat} (hc : c < 9) (hi : i < 7) (hs : s < 4) (hv : v < 3) :
     runChk c i s v = some (expChk c i s v) :=
-  optBeq_eq (List.all_eq_true.mp (List.all_eq_true.mp (List.all_eq_true.mp (okCoord_parts hc).2.2.2.2.1 i
+  optBeq_eq (List.all_eq_true.mp (List.all_eq_true.mp (List.all_eq_true.mp (okCoord_parts hc).2.2.2.1 i
     (List.mem_range.mpr hi)) s (List.mem_range.mpr hs)) v (List.mem_range.mpr hv))
 theorem runStp_eq {c i s : Nat} (hc : c < 9) (hi : i < 7) (hs1 : 1 ≤ s) (hs : s < 4) :
     runStp c i s = some (expStp c i s) :=
-  optBeq_eq (List.all_eq_true.mp (List.all_eq_true.mp (okCoord_parts hc).2.2.2.2.2.1 i (List.mem_range.mpr hi)) s
+  optBeq_eq (List.all_eq_true.mp (List.all_eq_true.mp (okCoord_parts hc).2.2.2.2.1 i (List.mem_range.mpr hi)) s
     (List.mem_range'_1.mpr ⟨hs1, by omega⟩))
 theorem runLc_eq {c i : Nat} (hc : c < 9) (hi : i < 7) : runLc c i = some (expLc c i) :=
-  optBeq_eq (List.all_eq_true.mp (okCoord_parts hc).2.2.2.2.2.2.1 i (List.mem_range.mpr hi))
+  optBeq_eq (List.all_eq_true.mp (okCoord_parts hc).2.2.2.2.2.1 i (List.mem_range.mpr hi))
 theorem okTail_parts {c : Nat} (hc : c < 9) :
     optBeq (runL c) (expL c) = true ∧ optBeq (runT c true) (expT c true) = true ∧
       optBeq (runT c false) (expT c false) = true ∧ optBeq (runN c) (expN c) = true ∧
       optBeq (runNT c true) (expNT c true) = true ∧ optBeq (runNT c false) (expNT c false) = true ∧
       optBeq (runR0 c) (expR0 c) = true ∧ ((List.range 7).all fun l => optBeq (runPC c l) (expPC c l)) = true := by
-  have h := (okCoord_parts hc).2.2.2.2.2.2.2
+  have h := (okCoord_parts hc).2.2.2.2.2.2
   simp only [okTail, Bool.and_eq_true] at h
   obtain ⟨⟨⟨⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩, h7⟩, h8⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩

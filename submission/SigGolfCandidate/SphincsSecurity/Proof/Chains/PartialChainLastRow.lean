@@ -2,6 +2,7 @@ import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainLikelihood
 import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainQueryBound
 
 section
+
 namespace SphincsSecurity.Concrete.PartialChainEndpoint
 open _root_.OracleComp OracleSpec ENNReal
 set_option backward.isDefEq.respectTransparency false
@@ -111,7 +112,10 @@ theorem suffixCount_le_one_of_no_contact {n : Nat} (observed : Fin n â†’ State â
       exact ih (Fin.tail observed) (fun htail => h (contact_tail observed endpoint htail))
 end SphincsSecurity.Concrete.PartialChainEndpoint
 end
+
 section
+
+
 namespace SphincsSecurity.Concrete.PartialChainEndpoint
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -246,7 +250,9 @@ theorem first_contact_density_charge [Nonempty State] {n : Nat} (observed : Fin 
   exact (_root_.add_le_add hdensity le_rfl).trans (by exact_mod_cast hcount)
 end SphincsSecurity.Concrete.PartialChainEndpoint
 end
+
 section
+
 namespace SphincsSecurity.Concrete.PartialChainEndpoint
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false

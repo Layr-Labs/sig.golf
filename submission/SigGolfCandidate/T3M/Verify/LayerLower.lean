@@ -1,6 +1,10 @@
+import SigGolfCandidate.T3M.Verify.BCWords
+import SigGolfCandidate.T3M.Verify.LayerSem
 import SigGolfCandidate.T3M.Verify.LeafSem
 
 section
+
+
 namespace SigGolfCandidate.T3M.BC
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M.Verify
@@ -333,7 +337,10 @@ set_option maxRecDepth 100000 in
 theorem ld3Check_ok : ld3Check = true := by decide +kernel
 end SigGolfCandidate.T3M.BC
 end
+
 section
+
+
 set_option linter.unusedSimpArgs false
 namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
@@ -366,23 +373,24 @@ def layerHead {β : Type} (w : WBytes) (index : Nat) (lay : Layer) (M : ClaudeWC
     | none => pure none
     | some digits => chainsP w lay (route index lay).2 (route index lay).1 digits >>= R
 def stB (lay : Nat) : Nat := if lay = 0 then 120 else bSt lay
-def cyB (lay : Nat) : Nat := if lay = 0 then 64 else bCy lay
-def chainCost0 (lay : Nat) : Nat := if lay = 0 then 1066 else 2950 - 9 * tgtL lay
-def chainFuel (lay : Nat) : Nat := if lay = 0 then 2320 else 1720
+def cyB (lay : Nat) : Nat := if lay = 0 then 66 else bCy lay
+def chainCost0 (lay : Nat) : Nat := if lay = 0 then 1086 else 2950 - 9 * tgtL lay
+def chainFuel (lay : Nat) : Nat := if lay = 0 then 2321 else 1720
 def layerCost (lay Z : Nat) : Nat := stepsA lay + 8 + cyB lay + lfSteps lay + chainCost0 lay - Z
 def layerFuel (lay : Nat) : Nat := stepsA lay + 1 + stB lay + chainFuel lay + lfSteps lay
+/-- Accept-cycle layer cost: the top layer's chains run 9 cycles cheaper on a credited top word. -/
 def layerCostA (lay : Nat) : Nat := layerCost lay 0 - (if lay = 0 then 9 else 0)
 theorem layerCost_vals :
-    layerCost 3 0 = 1237 ∧ layerCost 2 0 = 1227 ∧ layerCost 1 0 = 1227 ∧ layerCost 0 0 = 1159 := by decide
+    layerCost 3 0 = 1247 ∧ layerCost 2 0 = 1237 ∧ layerCost 1 0 = 1237 ∧ layerCost 0 0 = 1181 := by decide
 theorem layerFuel_vals :
-    layerFuel 3 = 1770 ∧ layerFuel 2 = 1769 ∧ layerFuel 1 = 1769 ∧ layerFuel 0 = 2462 := by decide
+    layerFuel 3 = 1771 ∧ layerFuel 2 = 1770 ∧ layerFuel 1 = 1770 ∧ layerFuel 0 = 2463 := by decide
 theorem ckOf_lt (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (ds : List Nat)
     (hds : decode lay (a.extractLsb' 0 128) = some ds) : ckOf lay a < 8 := by
   rw [decode_lower lay hlay] at hds
   split_ifs at hds with h1 h2
   unfold ckOf; rw [tgtL_eq]; exact h2
 theorem decode_top_sum (value : Digest) (ds : List Nat) (h : decode 0 value = some ds) :
-    ds = dataDigits 0 value ∧ (dataDigits 0 value).sum = 128 := by
+    ds = dataDigits 0 value ∧ (dataDigits 0 value).sum = 126 := by
   rw [Search.decode_top] at h
   split_ifs at h with hp
   · exact ⟨(Option.some.inj h).symm, hp.2.2⟩

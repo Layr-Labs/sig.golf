@@ -1,6 +1,7 @@
 import SigGolfCandidate.T3M.Keygen.PackedBlocks
 
 section
+
 namespace SigGolfCandidate.T3M.Keygen.PackedBlocks
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 def routed (s : MachineState) : Word :=
@@ -40,7 +41,9 @@ theorem expand_body_spec (s : MachineState) (hpc : s.pc = pcOf 1253) :
   exact ⟨_, steps_expand_body s hpc, by simp [run_expand_body.res, rv_simp], expand_body_post s⟩
 end SigGolfCandidate.T3M.Keygen.PackedBlocks
 end
+
 section
+
 namespace SigGolfCandidate.T3M.Keygen.PackedBlocks
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 def routedAt (s : MachineState) (height : Nat) : Word :=

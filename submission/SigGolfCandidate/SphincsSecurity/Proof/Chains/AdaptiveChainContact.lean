@@ -2,6 +2,7 @@ import SigGolfCandidate.SphincsSecurity.Proof.Chains.PartialChainLastRow
 import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainPotential
 
 section
+
 namespace SphincsSecurity.Concrete.PartialChainEndpoint
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false
@@ -82,7 +83,10 @@ theorem contactPotential_observe_le {n : Nat} (observed : Fin n → State → Op
             simp only [ENNReal.tsum_mul_right, PMF.tsum_coe, one_mul, contactPotential, if_neg hc, Nat.cast_add, Nat.cast_ofNat, ENNReal.add_div]
 end SphincsSecurity.Concrete.PartialChainEndpoint
 end
+
 section
+
+
 namespace SphincsSecurity.Concrete.PartialChainEndpoint
 open _root_.OracleComp OracleSpec
 set_option backward.isDefEq.respectTransparency false

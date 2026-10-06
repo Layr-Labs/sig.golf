@@ -1,6 +1,9 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Chains.PartialChainEndpoint
 
 section
+
+
 namespace SphincsSecurity.Concrete.PartialChainEndpoint
 open _root_.OracleComp OracleSpec ENNReal
 attribute [local instance] Classical.propDecidable
@@ -65,7 +68,10 @@ theorem completeTables_bind_observe {n : Nat} {Result : Type} (observed : Fin n 
   simp
 end SphincsSecurity.Concrete.PartialChainEndpoint
 end
+
 section
+
+
 namespace SphincsSecurity.Concrete.PartialChainEndpoint
 open _root_.OracleComp OracleSpec ENNReal
 set_option backward.isDefEq.respectTransparency false

@@ -1,37 +1,12 @@
 import SigGolfCandidate.T3.Gate6.SourceBridge
+import SigGolfCandidate.T3.Gate6.BankMoments
 import SigGolfCandidate.T3.Proofs
+import SigGolfCandidate.T3.Gate6.ExcessSquare
 import SigGolfCandidate.T3.Gate6.Coverage
 
 section
 
-namespace SigGolfResearch.Gate6.Excess
-open ENNReal
-theorem theta_excess_le_square (v m : ENNReal) (hv : v ≠ ⊤) (hm : m ≤ 37/64) :
-    (13/8)*(v-63/64)+2*m*v ≤ v^2+m^2 := by
-  have hmf : m ≠ ⊤ := ne_top_of_le_ne_top (by finiteness) hm
-  have hmr : m.toReal ≤ 37/64 := by
-    have h := (ENNReal.toReal_le_toReal hmf (by finiteness)).mpr hm
-    simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using h
-  by_cases hsmall : v ≤ 63/64
-  · rw [tsub_eq_zero_of_le hsmall,mul_zero,zero_add]
-    apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
-    simp (disch := finiteness) only [ENNReal.toReal_mul,ENNReal.toReal_pow,ENNReal.toReal_add,ENNReal.toReal_ofNat]
-    nlinarith [sq_nonneg (v.toReal-m.toReal)]
-  · have hlarge : 63/64 ≤ v := le_of_not_ge hsmall
-    apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
-    simp (disch := finiteness) only [ENNReal.toReal_add,ENNReal.toReal_mul,ENNReal.toReal_pow,
-      ENNReal.toReal_sub_of_le hlarge hv,ENNReal.toReal_div,ENNReal.toReal_ofNat]
-    nlinarith [sq_nonneg (v.toReal-m.toReal-13/16)]
-end SigGolfResearch.Gate6.Excess
-end
 
-section
-
-
-
-
-
-section
 namespace SigGolfResearch.Gate6.Source
 open SigGolfCandidate.T3 OracleComp ENNReal OracleComp.EvalDist Finset
 attribute [local instance] Classical.propDecidable
@@ -59,7 +34,10 @@ theorem actual_accepted_mark_weight (payoff : MarkedLabel → ENNReal) :
   ring
 end SigGolfResearch.Gate6.Source
 end
+
 section
+
+
 namespace SigGolfCandidate.T3.DigestSampling
 open OracleComp OracleSpec ENNReal
 set_option maxRecDepth 10000
@@ -254,7 +232,11 @@ theorem digest_trial_inputs_injective (rho : Digest) (message : Message) (start 
   exact Fin.ext (by omega)
 end SigGolfCandidate.T3.DigestSampling
 end
+
 section
+
+
+
 namespace SigGolfCandidate.T3.BPORS
 export SigGolfResearch.Gate6.Moments (Covered coveredEquiv covered_count covered_probability covered_probability_le covered_product_count three_openings_polynomial two_openings_polynomial bucket_thinning near_bucket_thinning bucketCoveredEquiv bucket_covered_count bucket_covered_probability bucket_product_count bpors_covered_probability envelope distinct_bucket_cross_moment natEnvelope factorialPolynomial envelope_cast factorialPolynomial_eval fullCoefficients squareCoefficients full_envelope square_polynomial full_square_envelope envelope_thinning same_bucket_second_moment different_bucket_second_moment diagonalMoment crossMoment bucketMass coordinateEnvelope bucket_pair_moment coordinate_second_moment finiteAverage expected_uniform_eq_finiteAverage finiteAverage_product uniform_coordinate_product finiteAverage_equiv finiteAverage_pair uniformWordAverage_succ word_array_average seven_coordinate_second_moment firstMoment bucket_first_moment coordinate_first_moment seven_coordinate_first_moment)
 namespace Numeric
@@ -707,5 +689,4 @@ theorem fullNearPrice_bound : uniformWordAverage Numeric.proposalLength fullNear
   rw [he]
   exact h
 end SigGolfCandidate.T3.BPORS.History
-end
 end

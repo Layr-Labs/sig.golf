@@ -1,4 +1,5 @@
 import SigGolfCandidate.T3.Secc.WotsTransportTable
+import SigGolfCandidate.T3.Secc.WotsExtractVerify
 import SigGolfCandidate.T3.Secc.SeccSufSigned
 
 namespace SigGolfCandidate.T3.Security.Wots

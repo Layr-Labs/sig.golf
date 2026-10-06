@@ -1,3 +1,4 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Ots.EncodingSelectionCache
 import SigGolfCandidate.SphincsSecurity.Proof.Base.FirstSuccessTable
 import SigGolfCandidate.SphincsSecurity.Proof.Hypertree.FrontierSigningEvaluation

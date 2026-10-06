@@ -1,6 +1,7 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.VerifyP
 import SigGolfCandidate.ClaudeWCT.W9.New.G3b.Shared
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.SeccLaw
+import SigGolfCandidate.ClaudeWCT.W9.New.BC.Rows
 
 namespace ClaudeWCT.W9.T3.Security.PaddedExtraction
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal

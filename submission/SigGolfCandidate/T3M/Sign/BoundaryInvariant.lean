@@ -1,9 +1,11 @@
+import SigGolfCandidate.T3M.Sign.Basic
 import SigGolfCandidate.T3M.FullCache.MacRun
 import SigGolfCandidate.T3M.Sign.Kernels
 import SigGolfCandidate.T3M.Sign.Init
 import SigGolfCandidate.T3M.Sign.BaseInv
 
 section
+
 namespace SigGolfCandidate.T3M.Sign
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3M.Keygen (PRIV SEEDS CHAIN NODE NOUT LOUT LEAFPK MOUT ZDIG DUMMY TOP MACBLK REGION)
@@ -165,7 +167,13 @@ theorem blk123_spec (s : MachineState) (hpc : s.pc = pcOf 123) :
     repeat rw [if_neg (by omega)]
 end SigGolfCandidate.T3M.Sign
 end
+
 section
+
+
+
+
+
 namespace SigGolfCandidate.T3M.Sign
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3 (M Digest HashOutput Cache Region Signature Selection sign signPayload signLayers
@@ -490,7 +498,9 @@ theorem sign_front (hK : DigestSearchSpec sk) {W : Nat} {Q : Option Signature â†
 end front
 end SigGolfCandidate.T3M.Sign
 end
+
 section
+
 namespace SigGolfCandidate.T3M.Sign.Boundary
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3 (M Digest HashOutput Cache Region Signature Selection sign signPayload signLayers
@@ -656,7 +666,9 @@ theorem NoncePost.base {sk : SecretKey} {cache : Bytes 131072} {m : Message} {rh
       intro i hi hi'; unfold FrontW Search.TOP_DATA; sg_omega)
 end SigGolfCandidate.T3M.Sign.Boundary
 end
+
 section
+
 namespace SigGolfCandidate.T3M.Sign.Boundary
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 def Inv (sk : SecretKey) (cache : Bytes 131072) (t : MachineState) : Prop :=

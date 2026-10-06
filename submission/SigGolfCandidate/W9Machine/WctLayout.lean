@@ -1,6 +1,8 @@
 import SigGolfCandidate.T3M.Verify.Judg
+import SigGolfCandidate.T3M.Sim
 import SigGolfCandidate.T3M.Mem
 import SigGolfCandidate.T3M.Witness.Layout
+import SigGolfCandidate.T3M.Verify.HashOk
 
 set_option autoImplicit false
 namespace W9Machine

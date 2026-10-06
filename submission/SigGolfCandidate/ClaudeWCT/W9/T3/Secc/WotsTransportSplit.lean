@@ -1,6 +1,9 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsTransportTable
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsExtractVerify
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.SeccSufSigned
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CaseCSplit
+import SigGolfCandidate.ClaudeWCT.W9.New.G5.PaddedExtraction
+import SigGolfCandidate.ClaudeWCT.W9.New.G3b.Shared
 
 namespace ClaudeWCT.W9.T3.Security.Wots
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
@@ -36,7 +39,7 @@ theorem caseCSignedPinned_impossible (adversary : AdversaryP) (q : Nat) (hq : q 
   CaseC.caseCSignedPinned_impossible adversary q hq z hz hclean
 theorem completed_split (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
     (z : PaddedGame.TraceResult × Answers) (hz : z ∈ (SeccLaw.completedExperiment adversary q hq).support)
-    (hclean : QueryRecorded.CleanWin q z.1) (hcomp : BPB.SignerComplete z.2) :
+    (hclean : QueryRecorded.CleanWin q z.1) :
     CaseAB adversary z ∨ CaseCFreshPinned adversary z ∨ CaseCSignedPinned adversary z := by
   by_cases hab : CaseAB adversary z
   · exact Or.inl hab
@@ -85,7 +88,7 @@ theorem completed_split (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
   have hNN : N' = N := hN'.symm.trans hN
   subst hNN
   have hCat : BPB.CaseCAt z.2 message' witness' result.events := by
-    refine ⟨N', hdc, hN, ?_, hS, hgood, hfts, hcomp⟩
+    refine ⟨N', hdc, hN, ?_, hS, hgood, hfts⟩
     obtain ⟨prior, hp⟩ := hevent
     refine ⟨prior, ?_⟩
     rw [heq]

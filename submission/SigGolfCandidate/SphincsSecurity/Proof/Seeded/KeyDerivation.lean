@@ -1,3 +1,4 @@
+import SigGolfCandidate.SphincsSecurity.Proof.IdealStatement
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Bytes
 
 namespace SphincsSecurity

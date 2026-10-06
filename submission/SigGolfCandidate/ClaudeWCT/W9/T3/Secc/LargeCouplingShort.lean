@@ -1,8 +1,13 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeCouplingInteraction
+import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.VerifyP
+import SigGolfCandidate.T3.Secc.LargeCouplingKeygen
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.SeccSufRoute
 import SigGolfCandidate.T3.Secc.LargeCouplingShort
 
 section
+
+
+
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -53,7 +58,7 @@ theorem Coherent.topValue_eq (hcoh : Coherent U T vals nv τ a) (level node : Na
   have hb := builtTree_eq hcoh.agrees 0 ⟨0, by decide⟩ level node (by simp [height]; omega)
     (by simpa [height] using hn)
   change _ = treeValue (builtTree T 0 (⟨0, by decide⟩ : Fin (2 ^ 31)).val) level node
-  rw [← WCT9.wotsTree_top, hb, treeLabel_eq (secretsOf T), ← honestValue_eq hcoh.agrees, hcoh.honestValue]
+  rw [hb, treeLabel_eq (secretsOf T), ← honestValue_eq hcoh.agrees, hcoh.honestValue]
   have hc' : treeChild 0 ⟨0, by decide⟩ level node = some c := hc
   unfold LargeResidual.topValue
   rw [hc, hc']
@@ -68,14 +73,8 @@ theorem Coherent.private_header (hcoh : Coherent U T vals nv τ a)
     have hp := congrArg Prod.fst hs
     cases s with
     | inl x =>
-        simp only [CanonGraph.secretCoordinate, Sum.elim_inl, CanonGraph.seedCoordinateP] at hp
-        split_ifs at hp
-        · change Sum.inl (header 0 _ _ _ _) = (Sum.inl (header tag 0 0 level node) : Coordinate) at hp
-          exact QuerySpace.header_ne_of_tag (Ne.symm h0) (Sum.inl.inj hp)
-        · change Sum.inl (header 0 _ _ _ _) = (Sum.inl (header tag 0 0 level node) : Coordinate) at hp
-          exact QuerySpace.header_ne_of_tag (Ne.symm h0) (Sum.inl.inj hp)
-        · change Sum.inl (header 0 _ _ _ _) = (Sum.inl (header tag 0 0 level node) : Coordinate) at hp
-          exact QuerySpace.header_ne_of_tag (Ne.symm h0) (Sum.inl.inj hp)
+        change Sum.inl (header 0 _ _ _ _) = (Sum.inl (header tag 0 0 level node) : Coordinate) at hp
+        exact QuerySpace.header_ne_of_tag (Ne.symm h0) (Sum.inl.inj hp)
     | inr f =>
         change Sum.inl (header 8 _ _ _ _) = (Sum.inl (header tag 0 0 level node) : Coordinate) at hp
         exact QuerySpace.header_ne_of_tag (Ne.symm h8) (Sum.inl.inj hp)
@@ -136,7 +135,11 @@ theorem Coherent.published (hcoh : Coherent U T vals nv τ a) :
 end Keygen
 end ClaudeWCT.W9.T3.Security.LargeCoupling
 end
+
 section
+
+
+
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -158,9 +161,13 @@ variable {A T : Answers} (hAT : Wots.Ref.ShortAgree A T)
 include hAT
 theorem secretsOf_short : secretsOf A = secretsOf T := by
   funext s
-  change CanonGraph.halfAnswer A (CanonGraph.secretCoordinate s) = CanonGraph.halfAnswer T (CanonGraph.secretCoordinate s)
-  unfold CanonGraph.halfAnswer
-  rw [hAT.priv]
+  cases s with
+  | inl x => exact Wots.Ref.leafSeed_short hAT _ _ _ _
+  | inr f =>
+      change wctSeedOf A f = wctSeedOf T f
+      unfold wctSeedOf
+      dsimp only
+      rw [Wots.Ref.ShortRespects.privatePair 8 f.2.1.val f.1.val 0 (4 * f.2.2.1.val + f.2.2.2.val / 2) A T hAT]
 theorem honestValue_short : LargeResidual.honestValue A = LargeResidual.honestValue T := by
   funext c
   cases c with

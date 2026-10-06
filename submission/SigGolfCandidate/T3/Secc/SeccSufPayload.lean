@@ -1,6 +1,7 @@
 import SigGolfCandidate.T3.BPORS
 
 section
+
 namespace SigGolfCandidate.T3.Security.BSuf
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3M
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
@@ -354,7 +355,9 @@ theorem fts_secrets_honest (answers : Answers) (σ : Signature) (N : HashOutput)
   rfl
 end SigGolfCandidate.T3.Security.BSuf
 end
+
 section
+
 namespace SigGolfCandidate.T3.Security.BSuf
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3M
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction

@@ -1,4 +1,6 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.FewTimeProbability
+import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Guess
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.HashOutputSplit
 
 namespace SphincsSecurity

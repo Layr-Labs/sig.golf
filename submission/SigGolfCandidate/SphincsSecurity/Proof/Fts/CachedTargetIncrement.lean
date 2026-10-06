@@ -1,7 +1,11 @@
+import SigGolfCandidate.SphincsSecurity.Proof.Base.Prelude
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.FewTimeConditionalCoverage
 import SigGolfCandidate.SphincsSecurity.Proof.Fts.ObservedAdaptiveCoverBound
 
 section
+
+
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec ENNReal
 open FtsProbeSimulation (messageAnswers)
@@ -42,7 +46,10 @@ theorem signingSlotsAtIndex_log_append_card {α : Type} (log : List α) (entry :
   simp only [signingSlotsAtIndex_log_card, List.map_append, List.map_cons, List.map_nil, List.sum_append, List.sum_cons, List.sum_nil, add_zero]
 end SphincsSecurity.Concrete
 end
+
 section
+
+
 namespace SphincsSecurity.Concrete
 open _root_.OracleComp OracleSpec ENNReal
 open FtsProbeSimulation (messageAnswers)

@@ -1,9 +1,12 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CaseCLinkInv
 import SigGolfCandidate.ClaudeWCT.W9.New.G3a.PaddedWitness
+import SigGolfCandidate.T3.Secc.CaseCLinkSplit
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Basic
 import SigGolfCandidate.T3.Secc.CaseCFull
 
 section
+
+
 namespace ClaudeWCT.W9.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -76,7 +79,10 @@ theorem logged_resolves {α : Type} (published : SigGolfCandidate.T3.Cache)
           · exact ih middle.1 middle.2 last hl entry he
 end ClaudeWCT.W9.T3.Security.CaseC
 end
+
 section
+
+
 namespace ClaudeWCT.W9.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -238,7 +244,11 @@ theorem bank_actual (adversary : AdversaryP) (budget : Nat) (b : Bool × BankSta
     simp [Ghost.empty]
 end ClaudeWCT.W9.T3.Security.CaseC
 end
+
 section
+
+
+
 namespace ClaudeWCT.W9.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -262,7 +272,7 @@ def SlotDisclosed (answers : Correctness.Answers) (log : QueryLog Requests) (N :
   ∃ entry ∈ log, ∃ signature output, entry.2 = some signature ∧
     signedOutput answers entry.1.message signature = some output ∧
     outIdx output = outIdx N ∧ WCT9.child output k = WCT9.child N k ∧
-    WCT9.wordDigit (WCT9.rank N k) t ≤ WCT9.wordDigit (WCT9.rank output k) t
+    WCT9.digit (WCT9.rank N k) t ≤ WCT9.digit (WCT9.rank output k) t
 def FullQ (answers : Correctness.Answers) (log : QueryLog Requests) (message : Message) (witness : WBytes)
     (_events : List FirstHit.QueryEvent) : Prop :=
   ∀ k t, SlotDisclosed answers log (evalWithAnswerFn answers (digest (wrho witness) message (wdc witness))) k t
