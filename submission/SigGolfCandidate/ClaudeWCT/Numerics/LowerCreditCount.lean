@@ -142,23 +142,19 @@ theorem card_lowerAccept_of_check (T f count : ℕ) (hT : 7 ≤ T) (hcheck : cou
       lowerEval / (2 ^ 128) ^ (64 * (T - 7) + j) % 2 ^ 128 else 0)]
   exact Nat.eq_of_beq_eq_true hcheck
 theorem check_197_4 : countCheck 197 4 140610462347261096978771217394878840 = true := by decide +kernel
-theorem check_198_2 : countCheck 198 2 115572437016808486361789308152458664 = true := by decide +kernel
+theorem check_198_4 : countCheck 198 4 113470737483767875195512089978341656 = true := by decide +kernel
 theorem check_197_0 : countCheck 197 0 143468572474466315422327516384120300 = true := by decide +kernel
 theorem check_198_0 : countCheck 198 0 115663871454869880991236461657470944 = true := by decide +kernel
 theorem card_lowerAccept_197_4 :
     (univ.filter fun v : BitVec 128 => LowerAccept 197 4 v.toNat).card = 140610462347261096978771217394878840 :=
   card_lowerAccept_of_check _ _ _ (by norm_num) check_197_4
-theorem card_lowerAccept_198_2 :
-    (univ.filter fun v : BitVec 128 => LowerAccept 198 2 v.toNat).card = 115572437016808486361789308152458664 :=
-  card_lowerAccept_of_check _ _ _ (by norm_num) check_198_2
+theorem card_lowerAccept_198_4 :
+    (univ.filter fun v : BitVec 128 => LowerAccept 198 4 v.toNat).card = 113470737483767875195512089978341656 :=
+  card_lowerAccept_of_check _ _ _ (by norm_num) check_198_4
 theorem card_lowerAccept_197_0 :
     (univ.filter fun v : BitVec 128 => LowerAccept 197 0 v.toNat).card = 143468572474466315422327516384120300 :=
   card_lowerAccept_of_check _ _ _ (by norm_num) check_197_0
 theorem card_lowerAccept_198_0 :
     (univ.filter fun v : BitVec 128 => LowerAccept 198 0 v.toNat).card = 115663871454869880991236461657470944 :=
   card_lowerAccept_of_check _ _ _ (by norm_num) check_198_0
-theorem check_198_4 : countCheck 198 4 113470737483767875195512089978341656 = true := by decide +kernel
-theorem card_lowerAccept_198_4 :
-    (univ.filter fun v : BitVec 128 => LowerAccept 198 4 v.toNat).card = 113470737483767875195512089978341656 :=
-  card_lowerAccept_of_check _ _ _ (by norm_num) check_198_4
 end ClaudeWCT.Numerics.LowerCredit

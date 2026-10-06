@@ -81,14 +81,14 @@ theorem length_filter_range (n : Nat) (p : Nat → Prop) [DecidablePred p] :
     rw [List.range_succ, List.filter_append, List.length_append, ih, Finset.sum_range_succ]
     by_cases h : p n <;> simp [h]
 theorem producerDecode_top (v : Digest) :
-    WCT9.producerDecode 0 v = if T3.topCredit v < 8 then none else T3.decode 0 v := by
+    WCT9.producerDecode 0 v = if T3.topCredit v < 7 then none else T3.decode 0 v := by
   unfold WCT9.producerDecode
   cases hd : T3.decode 0 v with
   | none => simp
   | some ds =>
     simp only
-    rw [WCT9.wordCredit_top hd, show WCT9.producerFloor 0 = 8 from rfl]
-    by_cases h : T3.topCredit v < 8
+    rw [WCT9.wordCredit_top hd, show WCT9.producerFloor 0 = 7 from rfl]
+    by_cases h : T3.topCredit v < 7
     · rw [if_neg (by omega), if_pos h]
     · rw [if_pos (by omega), if_neg h]
 theorem producerDecode_lower {lay : Layer} (hlz : lay ≠ 0) (v : Digest) (c : Nat) {ds : List Nat}
@@ -435,7 +435,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
     · rw [if_pos (hl0.2 hlz)] at p4
       have hdec := decode_top_lookup v
       rw [← hlz] at hdec
-      have hsd : WCT9.producerDecode A.lay v = if T3.topCredit v < 8 then none else T3.decode A.lay v := by
+      have hsd : WCT9.producerDecode A.lay v = if T3.topCredit v < 7 then none else T3.decode A.lay v := by
         rw [hlz]; exact producerDecode_top v
       rw [hsd]
       obtain ⟨t5, s5, p5, r5, f5⟩ := cs263_spec hK t4 p4 v h7
@@ -457,7 +457,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
             (by rw [r7.get (by decide), r6.get (by decide), r5.get (by decide), h7])
             (by rw [r7.get (by decide), h30'])
           have hT8 := hT7.step r8 (by decide) f8
-          by_cases hc : T3.topCredit v < 8
+          by_cases hc : T3.topCredit v < 7
           · rw [if_pos hc] at p8 s8
             rw [if_pos hc]
             refine (TBSim.steps ((((s4.trans s5).trans s6).trans s7).trans s8) (cs_next hK hT8 p8 hi ih')).mono ?_

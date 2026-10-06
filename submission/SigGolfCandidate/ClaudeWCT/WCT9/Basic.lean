@@ -222,7 +222,7 @@ theorem rank_val (output : HashOutput) (coord : Coord) :
     (rank output coord).val = field output coord % 600 := rfl
 theorem admissible_iff (output : HashOutput) :
     admissible output = true ↔
-      output.toNat / 2 ^ 235 % 2 ^ 21 < 1091 ∧ ∀ coord : Coord, field output coord < 16200 := by
+      output.toNat / 2 ^ 235 % 2 ^ 21 < 1060 ∧ ∀ coord : Coord, field output coord < 16200 := by
   unfold admissible field
   simp only [Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, List.mem_range]
   constructor

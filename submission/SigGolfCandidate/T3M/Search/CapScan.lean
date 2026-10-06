@@ -393,9 +393,9 @@ theorem scanA7_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf 
   refine ⟨_, symRun_sound (runa_7 hK.2) (codeAt_a_7 hK) s hpc (by simp [sta_7, blkA354_7.res, rv_simp]),
     ?_, ?_, ?_, ?_⟩
   · simp only [Result.toState_pc, pcEa_7, rebase, blkA354_7.res, E.eval, CmpOp.eval, h8]
-    have : (BitVec.ofNat 64 lay != 4#64) = true := by
+    have hne : (BitVec.ofNat 64 lay != 4#64) = true := by
       rw [bne_iff_ne, ne_eq, show (4#64) = BitVec.ofNat 64 4 from rfl, ofNat_eq_iff]; omega
-    simp [this]
+    simp [hne]
   · simp only [Result.toState_getReg, sta_7, blkA354_7.res]
     simp only [rv_simp, h6, h7, h28, BitVec.toNat_ofNat, Nat.reduceMod, Nat.reducePow]
     rfl
@@ -476,6 +476,7 @@ theorem scan_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (c
     refine ⟨_, _, _, s0.trans (s1.trans s2), by omega, ?_, (r0.trans (r1.trans r2)).mono (by decide),
       (f0.trans (f1.trans f2)).mono (fun _ _ h => by simp at h)⟩
     rw [p2, if_neg (by decide), if_pos (by by_contra hn; exact h0 (hz.mpr hn))]
+
 end blocks
 end SigGolfCandidate.T3M.Search
 end
