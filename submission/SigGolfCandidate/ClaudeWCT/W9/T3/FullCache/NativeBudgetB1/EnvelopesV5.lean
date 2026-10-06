@@ -4,11 +4,11 @@ namespace ClaudeWCT.W9.T3.BaseAudit.V5
 open SigGolfCandidate.T3.BaseAudit (zU)
 set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
-def J : ℕ := 9856899190038931412086514
-def p0 : ℚ := 1091 * 27 ^ 9 * J / 2 ^ 147
+def J : ℕ := 91431995875341628431270729167799207358323712
+def p0 : ℚ := 1091 * 27 ^ 9 * J / 2 ^ 210
 def b0 : ℚ := 15806857617 / 15625000000
 theorem step_0 : zU * ((1 - p0) * b0 + p0) ≤ b0 := by norm_num [zU, p0, b0, J]
-theorem probability_floor : 1 / 2176 ≤ p0 ∧ p0 ≤ 1 / 2175 := by norm_num [p0, J]
+theorem probability_floor : 1 / 2173 ≤ p0 ∧ p0 ≤ 1 / 2172 := by norm_num [p0, J]
 theorem p0_ge_5026 : 1 / 5026 ≤ p0 := by norm_num [p0, J]
 theorem p0_nonneg : 0 ≤ p0 := by norm_num [p0, J]
 theorem p0_le_one : p0 ≤ 1 := by norm_num [p0, J]
