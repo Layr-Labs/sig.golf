@@ -157,4 +157,8 @@ theorem card_lowerAccept_197_0 :
 theorem card_lowerAccept_198_0 :
     (univ.filter fun v : BitVec 128 => LowerAccept 198 0 v.toNat).card = 115663871454869880991236461657470944 :=
   card_lowerAccept_of_check _ _ _ (by norm_num) check_198_0
+theorem check_198_4 : countCheck 198 4 113470737483767875195512089978341656 = true := by decide +kernel
+theorem card_lowerAccept_198_4 :
+    (univ.filter fun v : BitVec 128 => LowerAccept 198 4 v.toNat).card = 113470737483767875195512089978341656 :=
+  card_lowerAccept_of_check _ _ _ (by norm_num) check_198_4
 end ClaudeWCT.Numerics.LowerCredit

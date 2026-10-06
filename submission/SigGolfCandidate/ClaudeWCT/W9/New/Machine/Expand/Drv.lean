@@ -528,7 +528,7 @@ theorem shl_index (index n : Nat) : BitVec.ofNat 64 index <<< n = BitVec.ofNat 6
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_shiftLeft, BitVec.toNat_ofNat, Nat.shiftLeft_eq, Nat.mod_mul_mod]
 theorem drv_entry {im : Image} (hc : NewCodeAt im) (N : HashOutput) (s : MachineState) (hpc : s.pc = pcOf base)
-    (h5 : s.getReg .x5 = 0) (hN : OutAt s 0x60 N) (hg : N.toNat / 2 ^ 235 % 2 ^ 21 < 1040) :
+    (h5 : s.getReg .x5 = 0) (hN : OutAt s 0x60 N) (hg : N.toNat / 2 ^ 235 % 2 ^ 21 < 1091) :
     ∃ t, Steps im s 31 31 t ∧ t.pc = pcOf (base + 34) ∧ DRegs (N.toNat % 2 ^ 31) t ∧
       t.getReg .x8 = BitVec.ofNat 64 (regBase (0 - 1)) ∧
       t.getReg .x28 = BitVec.ofNat 64 (HB0 + 2048 + 512 * (0 - 1)) ∧
@@ -548,8 +548,8 @@ theorem drv_entry {im : Image} (hc : NewCodeAt im) (N : HashOutput) (s : Machine
   have x3_2 : u2.getReg .x3 = 1#64 := by
     simp only [hu2, Result.toState_getReg, blk_4.res, rv_simp, m1, hw, hw3, BitVec.toNat_ofNat, Nat.reduceMod,
       Nat.reducePow]
-    have hlt : BitVec.ult (N.extractLsb' 192 64 >>> 43) 1040#64 = true := by
-      simp only [BitVec.ult, gate21_toNat N, show (1040#64 : Word).toNat = 1040 from rfl, decide_eq_true_eq]; exact hg
+    have hlt : BitVec.ult (N.extractLsb' 192 64 >>> 43) 1091#64 = true := by
+      simp only [BitVec.ult, gate21_toNat N, show (1091#64 : Word).toNat = 1091 from rfl, decide_eq_true_eq]; exact hg
     simp [hlt]
   have s3 := symRun_sound blk_9 (codeAt_9 hc) u2 p2 (by simp [blk_9.res, rv_simp])
   set u3 := blk_9.res.toState u2 with hu3
