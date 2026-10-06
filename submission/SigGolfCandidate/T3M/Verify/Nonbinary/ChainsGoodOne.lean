@@ -658,8 +658,8 @@ section
 namespace SigGolfCandidate.T3M.Nonbinary
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 set_option maxHeartbeats 800000
-theorem baseTab_all : (baseTab.all fun x => decide (x<251850))=true := by decide +kernel
-theorem base_lt (q dB dC : Nat) : base q dB dC<251850 := by
+theorem baseTab_all : (baseTab.all fun x => decide (x<251863))=true := by decide +kernel
+theorem base_lt (q dB dC : Nat) : base q dB dC<251863 := by
   unfold base
   rw [List.getD_eq_getElem?_getD]
   split
@@ -675,7 +675,7 @@ theorem partLen_le (q d : Nat) : partLen q d≤14 := by
   unfold partLen
   split_ifs <;> omega
 namespace NCtx
-theorem qX_lt (c : NCtx) (i : Nat) : c.qX i<251900 := by
+theorem qX_lt (c : NCtx) (i : Nat) : c.qX i<251927 := by
   have hb := base_lt (i/3) (c.dig (3*(i/3)+1)) (c.dig (3*(i/3)+2))
   have h1 := partLen_le (i/3) (c.dig (3*(i/3)+1))
   have h2 := partLen_le (i/3) (c.dig (3*(i/3)+2))

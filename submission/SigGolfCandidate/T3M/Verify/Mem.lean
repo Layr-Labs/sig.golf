@@ -155,7 +155,7 @@ theorem DataOK.congr {s t : MachineState} (h : DataOK s)
     (hm : ∀ A, TAB ≤ A → A + 8 ≤ 2 ^ 24 →
       t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)) : DataOK t := by
   constructor
-  · exact h.packed.congr (fun A hA hB => hm A (by unfold Nonbinary.RAW_DATA at hA; unfold TAB; omega) hB)
+  · exact h.packed.congr (fun A hA hB => hm A (by unfold Nonbinary.TAIL_DATA at hA; unfold TAB; omega) hB)
   · intro lay hl
     rw [hm _ (by unfold HDATA TAB; omega) (by unfold HDATA; omega)]
     exact h.header lay hl

@@ -360,7 +360,7 @@ theorem topLeafReady_of (w : WBytes) (pk : Digest) (index c : Nat) (t s0 s : Mac
     all_goals try exact h15
     all_goals rw [hr.get (by simp [topChainRegs]), he.regs.get (by simp [topEntryRegs]),writeHash_getReg]
     all_goals exact ht.glob.1 _ (by simp [BC.bK, bK,layK,baseK,hw])
-  obtain ⟨d,h12,hd⟩ := ht.dst0 rfl
+  obtain ⟨d, h12, hd⟩ := ht.dst0 rfl
   have hg := Glob_writeHash ht.glob a d h12 (by rcases hd with rfl | rfl <;> decide)
   have hfr : Frame (writeHash t a) s topChainWrites :=
     (he.frame.trans hf).mono (by intro A h; simpa using h)
@@ -377,7 +377,7 @@ theorem topLeafReady_of (w : WBytes) (pk : Digest) (index c : Nat) (t s0 s : Mac
     all_goals rw [he.regs.get (by simp [topEntryRegs]),writeHash_getReg]
     all_goals exact ht.glob.1 _ (by simp [BC.bK, bK,layK,baseK,lfT3,t3In])
   · rw [hr.get (by simp [topChainRegs]),he.regs.get (by simp [topEntryRegs]),writeHash_getReg]
-    exact by simpa [dispatchHeap,s7Bias,hL] using ht.s7 0 rfl
+    simpa [dispatchHeap, s7Bias, hL] using ht.s7 0 rfl
   · trivial
   · rw [hr.get (by simp [topChainRegs]),he.regs.get (by simp [topEntryRegs]),writeHash_getReg]
     exact ht.tp 0 rfl
@@ -493,7 +493,7 @@ theorem layer_good_top (w : WBytes) (pk : Digest) (index : Nat) (M : ClaudeWCT.W
   have hidx := hs.idx
   have hA := BC.encoding_setup w pk index 0 M s hs
   have hfuel : layerFuel 0 = 9 + 1 + 120 + 2320 + 12 := by decide
-  have hcost : layerCost 0 0 = 9 + 8 + 65 + 12 + 1066 := by decide
+  have hcost : layerCost 0 0 = 9 + 8 + 64 + 12 + 1066 := by decide
   have hsA : stepsA (0 : Layer).val = 9 := rfl
   unfold layerHead
   by_cases hctr : (ClaudeWCT.W9.T3M.wbcCtr w 0).toNat ≥ counterLimit
@@ -509,7 +509,7 @@ theorem layer_good_top (w : WBytes) (pk : Digest) (index : Nat) (M : ClaudeWCT.W
       (ClaudeWCT.W9.T3M.wbcPad w 0)
     have H : ∀ a : BitVec 256, GoodQP (fun hash => hash (toQ (pad64 (ClaudeWCT.W9.T3M.layerEncodingInputP 0
         (route index 0).2 (route index 0).1 M (ClaudeWCT.W9.T3M.wbcCtr w 0) (ClaudeWCT.W9.T3M.wbcPad w 0)))) = a ∧
-          HashOk hash) (writeHash t a) (N + 12 + 2320 + 120) (C + 12 + 1066 + 65) Q (A + 12 + 1057 + 65)
+          HashOk hash) (writeHash t a) (N + 12 + 2320 + 120) (C + 12 + 1066 + 64) Q (A + 12 + 1057 + 64)
         (ccM (match decode 0 (a.extractLsb' 0 128) with
           | none => pure none
           | some digits => chainsP w 0 (route index 0).2 (route index 0).1 digits >>= R) K) := by
@@ -524,7 +524,7 @@ theorem layer_good_top (w : WBytes) (pk : Digest) (index : Nat) (M : ClaudeWCT.W
       | some ds =>
         dsimp only
         have body : ∀ k, k ≤ T3.topCredit (a.extractLsb' 0 128) →
-            GoodQ (writeHash t a) (N + 12 + 2320 + 120) (C + 12 + 1066 + 65) Q (A + 12 + (1066 - k) + 65)
+            GoodQ (writeHash t a) (N + 12 + 2320 + 120) (C + 12 + 1066 + 64) Q (A + 12 + (1066 - k) + 64)
               (ccM (chainsP w 0 (route index 0).2 (route index 0).1 ds >>= R) K) := by
           intro k hkc
           have hcan : decode 0 (a.extractLsb' 0 128) = some (Search.topDigits (a.extractLsb' 0 128)) := by
@@ -534,9 +534,8 @@ theorem layer_good_top (w : WBytes) (pk : Digest) (index : Nat) (M : ClaudeWCT.W
           let L := nctxOf w index (a.extractLsb' 0 128) (trPc 0 c)
           have hLok : L.ok := nctx_ok w index _ c hidx
           have hkn : KnownOK L.known s0 := nctx_known w pk index c t s0 a hidx hpre he
-          obtain ⟨d,h12,hd⟩ := hpre.dst0 rfl
-          have hDs0 : DataOK s0 := (Glob_writeHash hpre.glob a d h12
-            (by rcases hd with rfl | rfl <;> decide)).2.2.2.2.2.congr
+          obtain ⟨d, h12, hd⟩ := hpre.dst0 rfl
+          have hDs0 : DataOK s0 := (Glob_writeHash hpre.glob a d h12 (by rcases hd with rfl | rfl <;> decide)).2.2.2.2.2.congr
             (fun A _ hA => he.frame.get (by omega) (by simp))
           have hO := nctx_orig w index (a.extractLsb' 0 128) (trPc 0 c) s0
             (topEntry_orig w pk index c t s0 a hpre he) hDs0
@@ -797,8 +796,8 @@ def lCycA : Nat → Nat
 def lFuel : Nat → Nat
   | 0 => 9
   | n + 1 => layerFuel n + mkFuel n + lFuel n
-theorem lCyc_4 : lCyc 4 = 5605 := by decide
-theorem lCycA_4 : lCycA 4 = 5596 := by decide
+theorem lCyc_4 : lCyc 4 = 5604 := by decide
+theorem lCycA_4 : lCycA 4 = 5595 := by decide
 theorem lCycA_le (n : Nat) : lCycA n ≤ lCyc n := by
   induction n with
   | zero => exact le_rfl
@@ -839,7 +838,7 @@ theorem layers_good (w : WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^
     exact hg.mono (by simp only [lFuel]; omega) (by simp only [lCyc]; omega) (fun q => ⟨q, by simp only [lCycA]; omega⟩)
 theorem after_good (pk : Digest) (w : WBytes) (Q : Prop) (hQ : Q) (a : HashOutput) (root : Digest) (u : MachineState)
     (h : FtsOut ⟨pk, w, a⟩ root u) :
-    GoodQ u 8050 8050 Q 5601 (ccM (afterFts pk w (a.toNat % 2 ^ 31) (some root)) Kb) := by
+    GoodQ u 8050 8050 Q 5600 (ccM (afterFts pk w (a.toNat % 2 ^ 31) (some root)) Kb) := by
   have hidx : a.toNat % 2 ^ 31 < 2 ^ 31 := Nat.mod_lt _ (by decide)
   obtain ⟨t, hst, hL3⟩ := layerIn_of_fts w pk _ root u hidx h.glob h.idx h.pc h.root h.wit h.a2 h.s10 h.heapOne h.heapTwo h.heapSeven h.heapThree h.heapFour h.heapFive h.coordStep h.topBase h.top h.top8
   have hg := layers_good w pk _ hidx Q hQ 4 le_rfl (.forest root) t (by simpa [RestIn] using hL3)
@@ -915,7 +914,7 @@ def gJumpWords : List (BitVec 32) := [0xc0006f]
 def gCheckWords : List (BitVec 32) :=
   [0x2181b13,0x7803883,0x2a8d193,0x7ff1b393,0x2039863]
 def gSetupWords : List (BitVec 32) :=
-  [0x21b5b13,0x1bb1793,0x10337,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x20b1e13,0x84190413,0x10813d83,0x11013e83,0x11813c03,0xffc30113]
+  [0x21b5b13,0x1bb1793,0x10337,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x20b1e13,0x84190413,0x21813d83,0x22013e83,0x22813c03,0xffc30113]
 def gRejectWords : List (BitVec 32) := [1049235,1049875,115]
 def gateE : E := .bin .sltu
   (.bin .srl (.ld (.c (BitVec.ofNat 64 120)))
@@ -929,8 +928,8 @@ def gCheck : Result :=
     .x22 (.bin .sll (.reg .x16) (.c (BitVec.ofNat 64 33))), [], []⟩,
     .ite .ne gateE (.c 0) (.c (pcOf 32)) (.c (pcOf 21)), .branch, 5, 5⟩
 def gSetup : Result :=
-  ⟨⟨(((((((((((((((RegFile.init).set .x2 (.c (BitVec.ofNat 64 0xfffc))).set .x6 (.c 65536)).set .x8 (.bin .add (.reg .x18) (.c (BitVec.ofNat 64 (2 ^ 64 - 1983))))).set .x13 (.c 2)).set .x15 (.bin .sll idxE (.c 27))).set .x19 (.c 3)).set .x20 (.c 4)).set .x21 (.c 5)).set .x22 (idxE)).set .x24 (.ld (addC (.reg .x2) 280))).set .x26 (.c 6)).set .x27 (.ld (addC (.reg .x2) 264))).set .x28 (.bin .sll idxE (.c 32))).set .x29 (.ld (addC (.reg .x2) 272))).set .x30 (.c 7), [],
-    [.valid ⟨some (.reg .x2), 280⟩ 8, .valid ⟨some (.reg .x2), 272⟩ 8, .valid ⟨some (.reg .x2), 264⟩ 8]⟩,
+  ⟨⟨(((((((((((((((RegFile.init).set .x2 (.c (BitVec.ofNat 64 0xfffc))).set .x6 (.c 65536)).set .x8 (.bin .add (.reg .x18) (.c (BitVec.ofNat 64 (2 ^ 64 - 1983))))).set .x13 (.c 2)).set .x15 (.bin .sll idxE (.c 27))).set .x19 (.c 3)).set .x20 (.c 4)).set .x21 (.c 5)).set .x22 (idxE)).set .x24 (.ld (addC (.reg .x2) 552))).set .x26 (.c 6)).set .x27 (.ld (addC (.reg .x2) 536))).set .x28 (.bin .sll idxE (.c 32))).set .x29 (.ld (addC (.reg .x2) 544))).set .x30 (.c 7), [],
+    [.valid ⟨some (.reg .x2), 552⟩ 8, .valid ⟨some (.reg .x2), 544⟩ 8, .valid ⟨some (.reg .x2), 536⟩ 8]⟩,
     .c (pcOf 47), .fuel, 15, 15⟩
 def gReject : Result :=
   ⟨⟨(RegFile.init.set .x5 (.c 1)).set .x10 (.c 1), [], []⟩, .c (pcOf 26), .ecall, 2, 2⟩
@@ -1035,7 +1034,7 @@ theorem gate_good (pk : Digest) (w : WBytes) (a : HashOutput)
     rw [hok]
     have hz : gateE.eval s1 = 1 := by simpa [hok] using hg
     have pc2' : s2.pc = pcOf 32 := by rw [pc2, hz]; rfl
-    have hsp2 : s2.getReg .x2 = BitVec.ofNat 64 0xffbe40 := by
+    have hsp2 : s2.getReg .x2 = BitVec.ofNat 64 0xffbd30 := by
       rw [hs2, Result.toState_getReg]
       show s1.getReg .x2 = _
       rw [r1]; exact hu.sp
@@ -1054,27 +1053,27 @@ theorem gate_good (pk : Digest) (w : WBytes) (a : HashOutput)
     have m2' : ∀ A, s2.getMem A = u.getMem A := fun A => congrFun m2 A
     have hchild : s3.getReg .x29 = BitVec.ofNat 64 0xce800 := by
       rw [hs3, Result.toState_getReg]
-      change s2.getMem ((addC (.reg .x2) 272).eval s2) = _
+      change s2.getMem ((addC (.reg .x2) 544).eval s2) = _
       rw [addC_eval]
-      change s2.getMem (s2.getReg .x2 + 272) = _
+      change s2.getMem (s2.getReg .x2 + 544) = _
       rw [hsp2]
       change s2.getMem (BitVec.ofNat 64 (setupMaskAddr + 16)) = _
       rw [m2']
       exact hu.setupMask.child
     have hjt : s3.getReg .x24 = BitVec.ofNat 64 0xd6800 := by
       rw [hs3, Result.toState_getReg]
-      change s2.getMem ((addC (.reg .x2) 280).eval s2) = _
+      change s2.getMem ((addC (.reg .x2) 552).eval s2) = _
       rw [addC_eval]
-      change s2.getMem (s2.getReg .x2 + 280) = _
+      change s2.getMem (s2.getReg .x2 + 552) = _
       rw [hsp2]
       change s2.getMem (BitVec.ofNat 64 (setupMaskAddr + 24)) = _
       rw [m2']
       exact hu.setupMask.jt
     have hnode0 : s3.getReg .x27 = BitVec.ofNat 64 (1 + 3 * 256 + 4 * 65536) := by
       rw [hs3, Result.toState_getReg]
-      change s2.getMem ((addC (.reg .x2) 264).eval s2) = _
+      change s2.getMem ((addC (.reg .x2) 536).eval s2) = _
       rw [addC_eval]
-      change s2.getMem (s2.getReg .x2 + 264) = _
+      change s2.getMem (s2.getReg .x2 + 536) = _
       rw [hsp2]
       change s2.getMem (BitVec.ofNat 64 (0xffbf40 + 512 * (0 : Fin 9).val + 8)) =
         BitVec.ofNat 64 (1 + 3 * 256 + (4 + (0 : Fin 9).val) * 65536)

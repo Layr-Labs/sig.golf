@@ -66,8 +66,8 @@ theorem submission_verify_valid :
   rw [Riscv.Image.Valid]
   rw [Riscv.Image.byteSize,
     show Images.verifyImage.code.length = 251927 from Images.verifyCode_length,
-    show Images.verifyImage.data.length = 16832 from Images.verifyData_length]
-  rw [layoutValid_of_data_length _ _ _ 16832 Images.verifyData_length]
+    show Images.verifyImage.data.length = 17104 from Images.verifyData_length]
+  rw [layoutValid_of_data_length _ _ _ 17104 Images.verifyData_length]
   decide +kernel
 theorem submission_admissible : submission.Admissible := by
   refine ⟨by unfold Sizes.Valid; decide, ?_⟩

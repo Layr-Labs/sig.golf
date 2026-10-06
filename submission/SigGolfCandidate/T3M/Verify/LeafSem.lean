@@ -1,4 +1,4 @@
-import SigGolfCandidate.T3M.Verify.Nonbinary.FusedLeafChecks
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsLayout
 import SigGolfCandidate.T3M.Verify.LayerSem
 
 section
@@ -227,6 +227,11 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput Layer route height chainCount counterLimit decode encodingInput target
   dataDigits pad64)
+def keepLfAll (lay : Nat) : List Reg :=
+  if lay = 0 then [.x1, .x2, .x7, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23,
+    .x6, .x25, .x26, .x28, .x29, .x31, .x30]
+  else [.x1, .x2, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23,
+    .x6, .x25, .x26, .x29, .x31, .x30, .x28]
 def leafCheck (lay p : Nat) : Bool :=
   specB [] [] baseK (runAt (leafK lay) [] (p + retOff lay) (lfDirs lay)) (specLf lay) [] (postLf lay) (keepLfAll lay)
 def leafChecks (lay lo n : Nat) : Bool := (List.range' lo n).all fun c => leafCheck lay (trPc lay c)
@@ -509,6 +514,17 @@ structure TopLeafReady (w : WBytes) (pk : Digest) (index c : Nat) (ends : List D
   len : ends.length = 54
   ends : ∀ j < 54, DigAt t (slotT j) (ends.getD j 0)
   orig : Verify.Orig w (fun o => 9288 ≤ o ∧ o < layerBase 0 + 64 * height 0) t
+def fusedLeafCheck (dB dC : Nat) : Bool :=
+  specB [] [] baseK (runAt (leafK 0) [] (Nonbinary.pcX 17 dB dC) (lfDirs 0))
+    (specLf 0) [] (postLf 0) (keepLfAll 0)
+theorem fusedLeafChecks : ((List.range 16).all fun k => fusedLeafCheck (k / 4) (k % 4)) = true := by
+  decide +kernel
+theorem fusedLeafCheck_at (dB dC : Nat) (hB : dB < 4) (hC : dC < 4) :
+    fusedLeafCheck dB dC = true := by
+  have h := List.all_eq_true.mp fusedLeafChecks (4*dB+dC) (List.mem_range.mpr (by omega))
+  have hd : (4*dB+dC)/4=dB := by omega
+  have hm : (4*dB+dC)%4=dC := by omega
+  simpa [hd, hm] using h
 theorem leafT_step (w : WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0) (hidx : index < 2 ^ 31)
     (ends : List Digest) (t : MachineState) (ht : TopLeafReady w pk index c ends t) :
     ∃ u, Steps image t 12 12 u ∧ LeafOut w pk index 0 ends u := by

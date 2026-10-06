@@ -266,9 +266,9 @@ theorem GoodQP.publicHash_bind_pre {P : Hash → Prop} {β : Type} {s : MachineS
   rw [cc_query] at this
   rwa [ccM_publicHash_bind]
 def Bank (u : MachineState) : Prop :=
-  W9Drv.HeaderBank u ∧ W9Drv.SetupMask u ∧ u.getMem (BitVec.ofNat 64 W9Drv.setupMaskAddr) = BitVec.ofNat 64 0xfff
+  W9Drv.HeaderBank u ∧ W9Drv.SetupMask u ∧ u.getMem (BitVec.ofNat 64 VERIFY_DATA) = BitVec.ofNat 64 0xfff
 theorem Bank.congr {s t : MachineState} (h : Bank s)
-    (hm : ∀ A, VERIFY_DATA ≤ A → A < VERIFY_DATA + 336 →
+    (hm : ∀ A, VERIFY_DATA ≤ A → A < VERIFY_DATA + 608 →
       t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)) : Bank t := by
   refine ⟨⟨?_, fun k hk => ?_, ?_⟩, ⟨?_, ?_⟩, ?_⟩
   · rw [hm _ (by unfold VERIFY_DATA; omega) (by unfold VERIFY_DATA; omega)]
@@ -283,10 +283,10 @@ theorem Bank.congr {s t : MachineState} (h : Bank s)
   · rw [hm _ (by unfold W9Drv.setupMaskAddr VERIFY_DATA; omega)
       (by unfold W9Drv.setupMaskAddr VERIFY_DATA; omega)]
     exact h.2.1.jt
-  · rw [hm _ (by unfold W9Drv.setupMaskAddr VERIFY_DATA; omega) (by unfold W9Drv.setupMaskAddr VERIFY_DATA; omega)]
+  · rw [hm _ (by omega) (by unfold VERIFY_DATA; omega)]
     exact h.2.2
 theorem init_word (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : Bytes 22984) (s : MachineState)
-    (h : initialState submission .verify (m, pk, w) = some s) (j : Nat) (hj : j < 2104) :
+    (h : initialState submission .verify (m, pk, w) = some s) (j : Nat) (hj : j < 2072) :
     s.getMem (BitVec.ofNat 64 (VERIFY_DATA + 8 * j)) =
       bytesToWordLE (((submission.image .verify).data.drop (8 * j)).take 8) := by
   unfold initialState at h
@@ -310,7 +310,7 @@ theorem init_word (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : By
   have gm : ∀ A, (s3.setReg .x2 (BitVec.ofNat 64 (dataBase (submission.image .verify)))).getMem A =
       s3.getMem A := fun A => by simp [MachineState.setReg, MachineState.getMem]
   have g0 : ∀ A, A < 2 ^ 64 → s0.getMem (BitVec.ofNat 64 A) =
-      if VERIFY_DATA ≤ A ∧ A < VERIFY_DATA + 8 * ((16832 + 7) / 8) ∧ (A - VERIFY_DATA) % 8 = 0 then
+      if VERIFY_DATA ≤ A ∧ A < VERIFY_DATA + 8 * ((17104 + 7) / 8) ∧ (A - VERIFY_DATA) % 8 = 0 then
         bytesToWordLE ((((submission.image .verify).data).drop (A - VERIFY_DATA)).take 8) else 0 := by
     intro A hA
     rw [getMem_writeBytesAsWords (submission.image .verify).data blank (dataBase (submission.image .verify)) A
@@ -339,21 +339,21 @@ set_option maxRecDepth 200000 in
 theorem init_bank (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : Bytes 22984) (s : MachineState)
     (h : initialState submission .verify (m, pk, w) = some s) : Bank s := by
   refine ⟨⟨?_, fun k hk => ?_, ?_⟩, ⟨?_, ?_⟩, ?_⟩
-  · rw [show 0xffbf40 + 8 = VERIFY_DATA + 8 * 33 by unfold VERIFY_DATA; omega, init_word m pk w s h 33 (by omega)]
+  · rw [show 0xffbf40 + 8 = VERIFY_DATA + 8 * 67 by unfold VERIFY_DATA; omega, init_word m pk w s h 67 (by omega)]
     decide +kernel
-  · rw [show TOPLOAD + 8 * k = VERIFY_DATA + 8 * (37 + k) by unfold TOPLOAD VERIFY_DATA; omega,
-      init_word m pk w s h (37 + k) (by omega)]
+  · rw [show TOPLOAD + 8 * k = VERIFY_DATA + 8 * (71 + k) by unfold TOPLOAD VERIFY_DATA; omega,
+      init_word m pk w s h (71 + k) (by omega)]
     interval_cases k <;> decide +kernel
-  · rw [show TOPLOAD - 8 = VERIFY_DATA + 8 * 36 by unfold TOPLOAD VERIFY_DATA; omega,
-      init_word m pk w s h 36 (by omega)]
+  · rw [show TOPLOAD - 8 = VERIFY_DATA + 8 * 70 by unfold TOPLOAD VERIFY_DATA; omega,
+      init_word m pk w s h 70 (by omega)]
     decide +kernel
-  · rw [show W9Drv.setupMaskAddr + 16 = VERIFY_DATA + 8 * 34 by unfold W9Drv.setupMaskAddr VERIFY_DATA; omega,
-      init_word m pk w s h 34 (by omega)]
+  · rw [show W9Drv.setupMaskAddr + 16 = VERIFY_DATA + 8 * 68 by unfold W9Drv.setupMaskAddr VERIFY_DATA; omega,
+      init_word m pk w s h 68 (by omega)]
     decide +kernel
-  · rw [show W9Drv.setupMaskAddr + 24 = VERIFY_DATA + 8 * 35 by unfold W9Drv.setupMaskAddr VERIFY_DATA; omega,
-      init_word m pk w s h 35 (by omega)]
+  · rw [show W9Drv.setupMaskAddr + 24 = VERIFY_DATA + 8 * 69 by unfold W9Drv.setupMaskAddr VERIFY_DATA; omega,
+      init_word m pk w s h 69 (by omega)]
     decide +kernel
-  · rw [show W9Drv.setupMaskAddr = VERIFY_DATA + 8 * 32 by unfold W9Drv.setupMaskAddr VERIFY_DATA; omega, init_word m pk w s h 32 (by omega)]
+  · rw [show VERIFY_DATA = VERIFY_DATA + 8 * 0 by rfl, init_word m pk w s h 0 (by omega)]
     decide +kernel
 abbrev cw (k : Nat) : E := .c (BitVec.ofNat 64 k)
 def rejectPc : Nat := 743
@@ -532,8 +532,8 @@ theorem digest_tail (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WBytes)
       · exact hb.congr (fun A hA _ => frame A (by unfold VERIFY_DATA at *; omega)
           (by unfold VERIFY_DATA at hA; omega) (by unfold VERIFY_DATA at hA; omega)
           (by unfold VERIFY_DATA at hA; omega) (by unfold VERIFY_DATA at hA; omega))
-def maskObl : Oblig := .valid ⟨some (.reg .x2), 256⟩ 8
-def maskSpec : Spec := ⟨[(.x18, .ld (addC (.reg .x2) 256))], [], 1, false, 1, [], none, 1⟩
+def maskObl : Oblig := .valid ⟨some (.reg .x2), 0⟩ 8
+def maskSpec : Spec := ⟨[(.x18, .ld (.reg .x2))], [], 1, false, 1, [], none, 1⟩
 def k0m : List (Reg × Word) := k0.filter fun p => p.1 ≠ .x18
 theorem maskCheck : specB [] [] [] (runAt k0 [1] 0 []) maskSpec [maskObl] k0m [.x2] = true := by
   decide +kernel
@@ -544,13 +544,13 @@ theorem mask_step (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WBytes) (
     intro o ho
     simp only [List.mem_singleton] at ho
     subst ho
-    show accessValid (s.getReg .x2 + 256) 8 = true
+    show accessValid (s.getReg .x2 + 0) 8 = true
     rw [hs.sp]
     decide +kernel)
   have hm : ∀ A, s1.getMem A = s.getMem A := fun A => h1.mem A
   have h18 : s1.getReg .x18 = 0xfff := by
-    rw [h1.regs (.x18, .ld (addC (.reg .x2) 256)) (by simp [maskSpec])]
-    show s.getMem (s.getReg .x2 + 256) = _
+    rw [h1.regs (.x18, .ld (.reg .x2)) (by simp [maskSpec])]
+    show s.getMem (s.getReg .x2) = _
     rw [hs.sp]
     exact hb.2.2
   have hknown : KnownOK kMask0 s1 := by

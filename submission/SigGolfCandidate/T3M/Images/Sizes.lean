@@ -20,7 +20,9 @@ theorem expandData_length : expandData.length = 25088 := by
 theorem verifyCode_length : verifyCode.length = 251927 := by
   rw [verifyCode, foldl_append_length]
   set_option maxRecDepth 100000 in decide +kernel
-theorem verifyData_length : verifyData.length = 16832 := by
-  rw [verifyData, List.length_append, verifyRawRankData, verifyPackedData, List.length_flatten]
-  set_option maxRecDepth 100000 in decide +kernel
+set_option maxRecDepth 100000 in
+theorem verifyData_length : verifyData.length = 17104 := by
+  have hp : verifyWidePrefix.length = 528 := by decide +kernel
+  rw [verifyData, List.length_append, hp, verifyPackedData, List.length_flatten]
+  decide +kernel
 end SigGolfCandidate.T3M.Images
