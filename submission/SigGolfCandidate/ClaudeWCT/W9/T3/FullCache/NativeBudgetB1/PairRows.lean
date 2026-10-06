@@ -1,12 +1,12 @@
 import SigGolfCandidate.ClaudeWCT.WCT9.Forest
-import SigGolfCandidate.T3.FullCache.NativeBudget
+import SigGolfCandidate.ClaudeWCT.W9.T3.FullCache.NativeBudgetB1.ProducerDecodeV5
 
 namespace ClaudeWCT.W9.T3.PairRows
 open OracleComp OracleSpec ENNReal
 open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
 open SigGolfCandidate.T3 hiding digestSearch admissible
-open SigGolfCandidate.T3.Sampling (RCache roRun V publicProgram digestTrial V_publicSearch public_randomOracle
-  encodingDecode)
+open SigGolfCandidate.T3.Sampling (RCache roRun V publicProgram digestTrial V_publicSearch public_randomOracle)
+open ClaudeWCT.W9.T3.ProducerV5 (producerEncodingDecode)
 open SigGolfCandidate.T3.Freshness (Avoids HasTag avoids_pure avoids_bind preserves avoids_shortHash_of_ne)
 open ClaudeWCT.WCT9 (LayerMsg layerEncodingInput pairEncodingInputP layerCounterSearch)
 set_option maxRecDepth 10000
@@ -99,7 +99,7 @@ theorem pairTrial_ne_digestTrial (lay : Layer) (tree leaf : Nat) (left right : D
 theorem layerCounterSearch_public (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) :
     ∀ fuel counter, layerCounterSearch lay tree leaf msg counter fuel =
       publicProgram (SphincsSecurity.Completeness.searchLoop
-        (layerTrial lay tree leaf msg) (encodingDecode lay)
+        (layerTrial lay tree leaf msg) (producerEncodingDecode lay)
         (fun c digits => pure (BitVec.ofNat 32 c, digits)) fuel counter) := by
   intro fuel
   induction fuel with
@@ -109,15 +109,15 @@ theorem layerCounterSearch_public (lay : Layer) (tree leaf : Nat) (msg : LayerMs
       rw [ClaudeWCT.WCT9.layerCounterSearch, SphincsSecurity.Completeness.searchLoop]
       simp only [publicProgram, simulateQ_bind, simulateQ_spec_query,
         SphincsSecurity.Concrete.oracleHash, HasQuery.query, SigGolfCandidate.T3.Sampling.publicHandler,
-        shortHash, publicHash, bind_assoc, pure_bind, layerTrial, encodingDecode]
+        shortHash, publicHash, bind_assoc, pure_bind, layerTrial, producerEncodingDecode]
       apply bind_congr
       intro answer
-      cases hd : searchDecode lay (answer.extractLsb' 0 128) <;>
+      cases hd : ClaudeWCT.WCT9.producerDecode lay (answer.extractLsb' 0 128) <;>
         simp only [simulateQ_map, simulateQ_pure, map_pure, ih, publicProgram]
 theorem V_layerCounterSearch (secret : BitVec 256) (z b : ENNReal) (hb : 1 ≤ b)
     (lay : Layer) (tree leaf : Nat) (msg : LayerMsg)
-    (hstep : z * (SphincsSecurity.Completeness.failMass (encodingDecode lay) * b +
-      (1 - SphincsSecurity.Completeness.failMass (encodingDecode lay))) ≤ b)
+    (hstep : z * (SphincsSecurity.Completeness.failMass (producerEncodingDecode lay) * b +
+      (1 - SphincsSecurity.Completeness.failMass (producerEncodingDecode lay))) ≤ b)
     (fuel counter : Nat) (hlimit : counter + fuel ≤ 2 ^ 32) (cache : RCache)
     (hfresh : ∀ c, counter ≤ c → c < 2 ^ 32 → cache (layerTrial lay tree leaf msg c) = none) :
     V secret z (layerCounterSearch lay tree leaf msg counter fuel) cache ≤ b := by
@@ -133,7 +133,7 @@ theorem layerCounterSearch_failure (secret : BitVec 256) (lay : Layer) (tree lea
     Pr[fun result => result.1 = none |
       (simulateQ SphincsSecurity.romImpl
         (realize secret (layerCounterSearch lay tree leaf msg counter fuel))).run cache] ≤
-      SphincsSecurity.Completeness.failMass (encodingDecode lay) ^ fuel := by
+      SphincsSecurity.Completeness.failMass (producerEncodingDecode lay) ^ fuel := by
   rw [layerCounterSearch_public, public_randomOracle]
   exact SphincsSecurity.Completeness.probEvent_searchLoop _ _ _ (2 ^ 32)
     (fun _ _ hl hr he => layerTrial_injective lay tree leaf msg hl hr he)
@@ -153,10 +153,10 @@ theorem bound_layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : LayerMsg
         (by rw [show pad64 (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter)) =
               layerTrial lay tree leaf msg counter from rfl, layerTrial_length])).bind'
         (l := fuel) (fun answer _ => ?_) (by omega)
-      cases hs : searchDecode lay answer with
+      cases hs : ClaudeWCT.WCT9.producerDecode lay answer with
       | none => exact ih (counter + 1)
       | some digits =>
-          have hd := SigGolfCandidate.T3.Nonbinary.searchDecode_some hs
+          have hd := ClaudeWCT.WCT9.producerDecode_decode hs
           refine .pure (some (BitVec.ofNat 32 counter, digits)) fuel ?_
           intro other values hv
           obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hv)
@@ -165,7 +165,7 @@ theorem layerCounterSearch_none_iff (answers : Correctness.Answers) (lay : Layer
     (msg : LayerMsg) :
     ∀ fuel counter,
       evalWithAnswerFn answers (layerCounterSearch lay tree leaf msg counter fuel) = none ↔
-      ∀ offset, offset < fuel → searchDecode lay (evalWithAnswerFn answers
+      ∀ offset, offset < fuel → ClaudeWCT.WCT9.producerDecode lay (evalWithAnswerFn answers
         (shortHash (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 (counter + offset))))) = none := by
   intro fuel
   induction fuel with
@@ -173,7 +173,7 @@ theorem layerCounterSearch_none_iff (answers : Correctness.Answers) (lay : Layer
   | succ fuel ih =>
       intro counter
       simp only [ClaudeWCT.WCT9.layerCounterSearch, evalWithAnswerFn_bind]
-      cases hd : searchDecode lay (evalWithAnswerFn answers
+      cases hd : ClaudeWCT.WCT9.producerDecode lay (evalWithAnswerFn answers
         (shortHash (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter)))) with
       | none =>
           simp only [hd, ih]
@@ -212,7 +212,7 @@ theorem layerCounterSearch_forest_eval (answers : Correctness.Answers) (lay : La
         rw [eval_shortHash_layer, eval_shortHash_layer]
         rfl
       simp only [ClaudeWCT.WCT9.layerCounterSearch, evalWithAnswerFn_bind, hs]
-      cases hd : searchDecode lay (evalWithAnswerFn answers (shortHash (layerEncodingInput lay tree leaf
+      cases hd : ClaudeWCT.WCT9.producerDecode lay (evalWithAnswerFn answers (shortHash (layerEncodingInput lay tree leaf
         (.pair root 0) (BitVec.ofNat 32 counter)))) <;> simp only [hd, ih]
 def PairFreshBelow (n : Nat) (cache : RCache) : Prop :=
   ∀ lay : Layer, lay.val < n → ∀ tree leaf left right c, c < 2 ^ 32 →

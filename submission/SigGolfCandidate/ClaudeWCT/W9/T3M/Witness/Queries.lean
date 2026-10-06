@@ -39,6 +39,40 @@ theorem pubGood_layerPairP (w : WBytes) (index : Nat) (lay : Layer) (digits : Li
   exact allQ_bind (allQ_mapM _ _ fun _ => pubGood_chainP _ _ _ _ _ _ _ _ _ _) fun _ =>
     allQ_bind (pubGood_shortHash _ (by simp [bytesLE_length])) fun _ =>
       allQ_bind (allQ_foldlM _ _ (fun _ _ => pubGood_nodeHashP _ _ _ _ _ _ _) _) fun _ => allQ_pure _
+theorem allQ_topDecodeRun {P : Spec.Domain → Prop} (run : Fin (chainCount 0) → Nat → M Digest)
+    (finish : List Digest → M Digest) (answer : Digest) (hrun : ∀ i digit, AllQueriesSatisfy (run i digit) P)
+    (hfinish : ∀ ends, AllQueriesSatisfy (finish ends) P) :
+    AllQueriesSatisfy (WCT9.topDecodeRun run finish answer) P := by
+  cases hd : decode 0 answer with
+  | some digits =>
+      rw [WCT9.topDecodeRun_of_decode hd]
+      exact allQ_map _ (allQ_bind (allQ_mapM _ _ fun _ => hrun _ _) fun _ => hfinish _)
+  | none =>
+      rw [WCT9.topDecodeRun_of_decode_none hd]
+      unfold WCT9.topRejectChains
+      exact allQ_map _ (allQ_mapM _ _ fun _ => hrun _ _)
+theorem pubGood_verifyTop (sig : WCT9.Signature) (index : Nat) (answer : Digest) :
+    AllQueriesSatisfy (WCT9.verifyTop sig index answer) PubGood := by
+  unfold WCT9.verifyTop
+  exact allQ_topDecodeRun _ _ _ (fun _ _ => SigGolfCandidate.T3M.pubGood_chain _ _ _ _ _ _ _) fun _ =>
+    allQ_bind (pubGood_shortHash _ (by simp [bytesLE_length])) fun _ =>
+      allQ_foldlM _ _ (fun _ _ => pubGood_nodeHash _ _ _ _ _ _) _
+theorem pubGood_verifyTopP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (answer : Digest) :
+    AllQueriesSatisfy (verifyTopP sig pads index answer) PubGood := by
+  unfold verifyTopP
+  exact allQ_topDecodeRun _ _ _ (fun _ _ => pubGood_chainP _ _ _ _ _ _ _ _ _ _) fun _ =>
+    allQ_bind (pubGood_shortHash _ (by simp [bytesLE_length])) fun _ =>
+      allQ_foldlM _ _ (fun _ _ => pubGood_nodeHashP _ _ _ _ _ _ _) _
+theorem pubGood_topLayerP (w : WBytes) (index : Nat) (answer : Digest) :
+    AllQueriesSatisfy (topLayerP w index answer) PubGood := by
+  cases hd : decode 0 answer with
+  | some digits =>
+      rw [topLayerP_of_decode w index hd]
+      exact allQ_map _ (pubGood_layerP _ _ _ _)
+  | none =>
+      rw [topLayerP_of_decode_none w index hd]
+      unfold WCT9.topRejectChains topChainP
+      exact allQ_map _ (allQ_mapM _ _ fun _ => pubGood_chainP _ _ _ _ _ _ _ _ _ _)
 theorem pubGood_layersBC (w : WBytes) (index : Nat) : ∀ n msg,
     AllQueriesSatisfy (layersBC w index n msg) PubGood := by
   intro n
@@ -47,6 +81,19 @@ theorem pubGood_layersBC (w : WBytes) (index : Nat) : ∀ n msg,
   | succ n ih =>
       intro msg
       unfold layersBC
+      refine allQ_ite _ (allQ_pure _) (allQ_bind (pubGood_layerEncodingInputP _ _ _ _ _ _) fun ans => ?_)
+      refine allQ_ite _ (pubGood_topLayerP _ _ _) ?_
+      rcases decode (Fin.ofNat 4 n) ans with _ | digits
+      · exact allQ_pure _
+      · exact allQ_bind (pubGood_layerPairP _ _ _ _) fun _ => ih _
+theorem pubGood_layersBCPrepass (w : WBytes) (index : Nat) : ∀ n msg,
+    AllQueriesSatisfy (layersBCPrepass w index n msg) PubGood := by
+  intro n
+  induction n with
+  | zero => intro msg; exact allQ_pure _
+  | succ n ih =>
+      intro msg
+      unfold layersBCPrepass
       refine allQ_ite _ (allQ_pure _) (allQ_bind (pubGood_layerEncodingInputP _ _ _ _ _ _) fun ans => ?_)
       rcases decode (Fin.ofNat 4 n) ans with _ | digits
       · exact allQ_pure _
@@ -82,6 +129,18 @@ theorem pubGood_verifyP (m : Message) (pk : Digest) (w : WBytes) : AllQueriesSat
     · exact allQ_pure _
     refine allQ_bind (pubGood_layersBC _ _ _ _) fun r => ?_
     rcases r with _ | root <;> exact allQ_pure _
+theorem pubGood_verifyPPrepass (m : Message) (pk : Digest) (w : WBytes) :
+    AllQueriesSatisfy (verifyPPrepass m pk w) PubGood := by
+  unfold verifyPPrepass
+  refine allQ_bind ?_ fun r => ?_
+  · unfold digestP; exact allQ_ite _ (allQ_pure _) (allQ_map _ (pubGood_digest _ _ _))
+  · rcases r with _ | N
+    · exact allQ_pure _
+    refine allQ_ite _ (allQ_pure _) (allQ_bind (pubGood_wctP _ _) fun r => ?_)
+    rcases r with _ | root
+    · exact allQ_pure _
+    refine allQ_bind (pubGood_layersBCPrepass _ _ _ _) fun r => ?_
+    rcases r with _ | root <;> exact allQ_pure _
 theorem pubGood_digestSearch (rho : Digest) (m : Message) : ∀ fuel counter,
     AllQueriesSatisfy (WCT9.digestSearch rho m counter fuel) PubGood := by
   intro fuel
@@ -116,7 +175,7 @@ theorem pubGood_layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : WCT9.L
       intro counter
       unfold WCT9.layerCounterSearch
       refine allQ_bind (pubGood_layerEncodingInput _ _ _ _ _) fun ans => ?_
-      rcases searchDecode lay ans with _ | digits
+      rcases WCT9.producerDecode lay ans with _ | digits
       · exact ih _
       · exact allQ_pure _
 theorem pubGood_recoverLayerPair (sig : WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat) :
@@ -125,6 +184,19 @@ theorem pubGood_recoverLayerPair (sig : WCT9.Signature) (index : Nat) (lay : Lay
   exact allQ_bind (allQ_mapM _ _ fun _ => SigGolfCandidate.T3M.pubGood_chain _ _ _ _ _ _ _) fun _ =>
     allQ_bind (pubGood_shortHash _ (by simp [bytesLE_length])) fun _ =>
       allQ_bind (allQ_foldlM _ _ (fun _ _ => pubGood_nodeHash _ _ _ _ _ _) _) fun _ => allQ_pure _
+theorem pubGood_verifyLayersBC (w : WCT9.Witness) (index : Nat) : ∀ n msg,
+    AllQueriesSatisfy (WCT9.verifyLayersBC w index n msg) PubGood := by
+  intro n
+  induction n with
+  | zero => intro msg; exact allQ_pure _
+  | succ n ih =>
+      intro msg
+      unfold WCT9.verifyLayersBC
+      refine allQ_ite _ (allQ_pure _) (allQ_bind (pubGood_layerEncodingInput _ _ _ _ _) fun ans => ?_)
+      refine allQ_ite _ (pubGood_verifyTop _ _ _) ?_
+      rcases decode (Fin.ofNat 4 n) ans with _ | digits
+      · exact allQ_pure _
+      · exact allQ_bind (pubGood_recoverLayerPair _ _ _ _) fun _ => ih _
 theorem pubGood_expandLayersBC (sig : WCT9.Signature) (index : Nat) : ∀ n msg,
     AllQueriesSatisfy (WCT9.expandLayersBC sig index n msg) PubGood := by
   intro n

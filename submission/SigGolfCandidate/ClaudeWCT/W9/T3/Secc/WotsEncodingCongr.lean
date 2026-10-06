@@ -46,12 +46,72 @@ theorem respects_buildTreeP (lay : Layer) (tree selected : Nat) (digits : List N
     Respects.bind (respects_buildLeafP _ _ _ _ _) fun _ => Respects.pure' _) _) fun state =>
       Respects.bind (respects_buildLevels _ _ _ _ _ (by decide)) fun _ => Respects.pure' _
 end Programs
+def RejPair (T T' : Answers) (q : Spec.Domain) : Prop :=
+  ∃ (input : HashInput) (lay : Layer) (tr p ix : Nat), q = .inl (.inr input) ∧
+    SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (header 4 lay.val tr p ix) ∧
+    WCT9.producerDecode lay (low (T (.inl (.inr input)))) = none ∧
+      WCT9.producerDecode lay (low (T' (.inl (.inr input)))) = none
+theorem RejPair.layer {T T' : Answers} {input : HashInput} {lay : Layer} {tr p ix : Nat}
+    (h : RejPair T T' (.inl (.inr input)))
+    (hh : SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (header 4 lay.val tr p ix)) :
+    WCT9.producerDecode lay (low (T (.inl (.inr input)))) = none ∧
+      WCT9.producerDecode lay (low (T' (.inl (.inr input)))) = none := by
+  obtain ⟨input', lay', tr', p', ix', hq, hh', h1, h2⟩ := h
+  have hi : input' = input := (Sum.inr.inj (Sum.inl.inj hq)).symm
+  subst hi
+  rw [hh] at hh'
+  have hf := (Mask.header_fields (bytesLE_injective hh')).2.1
+  have hl : lay' = lay := Fin.ext (by have := lay.isLt; have := lay'.isLt; omega)
+  subst hl
+  exact ⟨h1, h2⟩
+theorem RejPair.mk {T T' : Answers} {input : HashInput} {lay : Layer} {tr p ix : Nat}
+    (hh : SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (header 4 lay.val tr p ix))
+    (h1 : WCT9.producerDecode lay (low (T (.inl (.inr input)))) = none)
+    (h2 : WCT9.producerDecode lay (low (T' (.inl (.inr input)))) = none) : RejPair T T' (.inl (.inr input)) :=
+  ⟨input, lay, tr, p, ix, rfl, hh, h1, h2⟩
+theorem RejPair.encHeader {T T' : Answers} {q : Spec.Domain} (h : RejPair T T' q) :
+    ∃ input, q = .inl (.inr input) ∧ Enc.EncHeader input := by
+  obtain ⟨input, lay, tr, p, ix, hq, hh, -, -⟩ := h
+  exact ⟨input, hq, lay.val, tr, p, ix, hh⟩
+def AgreeOn (S : Spec.Domain → Prop) (T T' : Answers) : Prop :=
+  ∀ q, S q → T' q = T q ∨ RejPair T T' q
+theorem AgreeOn.of_eq {S : Spec.Domain → Prop} {T T' : Answers} (h : ∀ q, S q → T' q = T q) : AgreeOn S T T' :=
+  fun q hq => Or.inl (h q hq)
+theorem AgreeOn.nonEnc {S : Spec.Domain → Prop} {T T' : Answers} (h : AgreeOn S T T')
+    (hS : ∀ q, Enc.NonEnc q → S q) : ∀ q, Enc.NonEnc q → T' q = T q := by
+  intro q hq
+  rcases h q (hS q hq) with he | hr
+  · exact he
+  · obtain ⟨input, rfl, henc⟩ := hr.encHeader
+    exact absurd henc hq
+def RespAt (T : Answers) (S : Spec.Domain → Prop) {α : Type} (p : M α) : Prop :=
+  ∀ T' : Answers, AgreeOn S T T' →
+    evalWithAnswerFn T' p = evalWithAnswerFn T p ∧ SourceReplay.queried T' p = SourceReplay.queried T p
 section RespAt
 variable {T : Answers} {S : Spec.Domain → Prop}
+theorem RespAt.of_respects {α : Type} {p : M α} (h : Respects Enc.NonEnc p)
+    (hS : ∀ q, Enc.NonEnc q → S q) : RespAt T S p := by
+  intro T' hT'
+  obtain ⟨he, hq⟩ := h T' T (hT'.nonEnc hS)
+  exact ⟨he, hq⟩
+theorem RespAt.pure' {α : Type} (x : α) : RespAt T S (pure x : M α) := fun _ _ => ⟨rfl, rfl⟩
+theorem RespAt.bind {α β : Type} {p : M α} {f : α → M β} (hp : RespAt T S p)
+    (hf : RespAt T S (f (evalWithAnswerFn T p))) : RespAt T S (p >>= f) := by
+  intro T' hT'
+  obtain ⟨he, hq⟩ := hp T' hT'
+  obtain ⟨he', hq'⟩ := hf T' hT'
+  refine ⟨?_, ?_⟩
+  · rw [evalWithAnswerFn_bind, evalWithAnswerFn_bind, he]
+    exact he'
+  · rw [SourceReplay.queried_bind, SourceReplay.queried_bind, hq, he, hq']
+theorem RespAt.eval_eq {α : Type} {p : M α} (h : RespAt T S p) {T' : Answers} (hT' : AgreeOn S T T') :
+    evalWithAnswerFn T' p = evalWithAnswerFn T p := (h T' hT').1
+theorem RespAt.queried_eq {α : Type} {p : M α} (h : RespAt T S p) {T' : Answers} (hT' : AgreeOn S T T') :
+    SourceReplay.queried T' p = SourceReplay.queried T p := (h T' hT').2
 end RespAt
 theorem respAt_layerCounterSearch (T : Answers) (S : Spec.Domain → Prop) (lay : Layer) (tree leaf : Nat)
     (msg : WCT9.LayerMsg) : ∀ fuel start,
-      (∀ c < fuel, (∀ c' < c, searchDecode lay (low (T (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg
+      (∀ c < fuel, (∀ c' < c, WCT9.producerDecode lay (low (T (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg
           (BitVec.ofNat 32 (start + c')))))))) = none) →
         S (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 (start + c))))))) →
       RespAt T S (WCT9.layerCounterSearch lay tree leaf msg start fuel) := by
@@ -63,7 +123,7 @@ theorem respAt_layerCounterSearch (T : Answers) (S : Spec.Domain → Prop) (lay 
       have hS0 : S (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 start))))) := by
         have := hS 0 (Nat.zero_lt_succ _) (fun c' hc' => absurd hc' (Nat.not_lt_zero _))
         rwa [Nat.add_zero] at this
-      have hrest : searchDecode lay (low (T (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg
+      have hrest : WCT9.producerDecode lay (low (T (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg
           (BitVec.ofNat 32 start))))))) = none →
           RespAt T S (WCT9.layerCounterSearch lay tree leaf msg (start + 1) fuel) := by
         intro hnone
@@ -88,7 +148,7 @@ theorem respAt_layerCounterSearch (T : Answers) (S : Spec.Domain → Prop) (lay 
             (BitVec.ofNat 32 start))) :=
           congrArg (fun x : HashOutput => x.extractLsb' 0 128) heq
         rw [hev]
-        cases hd : searchDecode lay (evalWithAnswerFn T (shortHash (WCT9.layerEncodingInput lay tree leaf msg
+        cases hd : WCT9.producerDecode lay (evalWithAnswerFn T (shortHash (WCT9.layerEncodingInput lay tree leaf msg
             (BitVec.ofNat 32 start)))) with
         | none =>
             obtain ⟨h1, h2⟩ := hrest hd T' hT'
@@ -97,17 +157,17 @@ theorem respAt_layerCounterSearch (T : Answers) (S : Spec.Domain → Prop) (lay 
         | some digits => exact ⟨rfl, rfl⟩
       · obtain ⟨hTn, hTn'⟩ := hrej.layer
           (ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 start))
-        have hl : searchDecode lay (evalWithAnswerFn T (shortHash (WCT9.layerEncodingInput lay tree leaf msg
+        have hl : WCT9.producerDecode lay (evalWithAnswerFn T (shortHash (WCT9.layerEncodingInput lay tree leaf msg
             (BitVec.ofNat 32 start)))) = none := hTn
-        have hl' : searchDecode lay (evalWithAnswerFn T' (shortHash (WCT9.layerEncodingInput lay tree leaf msg
+        have hl' : WCT9.producerDecode lay (evalWithAnswerFn T' (shortHash (WCT9.layerEncodingInput lay tree leaf msg
             (BitVec.ofNat 32 start)))) = none := hTn'
         obtain ⟨h1, h2⟩ := hrest hTn T' hT'
         rw [hl, hl']
         dsimp only
         exact ⟨h1, by rw [h2]⟩
 def Reached (T : Answers) (L : LeafAddr) (input : HashInput) : Prop :=
-  ∃ c < counterLimit, input = encRow L (leafMsg T L) (BitVec.ofNat 32 c) 0 ∧
-    ∀ c' < c, searchDecode L.lay (low (T (.inl (.inr (encRow L (leafMsg T L) (BitVec.ofNat 32 c') 0))))) = none
+  ∃ c < WCT9.searchLimit L.lay, input = encRow L (leafMsg T L) (BitVec.ofNat 32 c) 0 ∧
+    ∀ c' < c, WCT9.producerDecode L.lay (low (T (.inl (.inr (encRow L (leafMsg T L) (BitVec.ofNat 32 c') 0))))) = none
 def leafOf (L : CanonGraph.LeafPos) : LeafAddr := ⟨L.lay, L.tree.val, L.leaf.val⟩
 def HonestQ (T : Answers) : Spec.Domain → Prop
   | .inl (.inr input) => ¬ EncHeader input ∨ ∃ L : CanonGraph.LeafPos, Reached T (leafOf L) input
@@ -119,7 +179,7 @@ theorem honestQ_of_nonEnc {T : Answers} {q : Spec.Domain} (h : Enc.NonEnc q) : H
   · trivial
 theorem respAt_referenceSearch (T : Answers) (S : Spec.Domain → Prop) (L : LeafAddr)
     (hS : ∀ input, Reached T L input → S (.inl (.inr input))) :
-    RespAt T S (WCT9.layerCounterSearch L.lay L.tree L.leaf (leafMsg T L) 0 counterLimit) := by
+    RespAt T S (WCT9.layerCounterSearch L.lay L.tree L.leaf (leafMsg T L) 0 (WCT9.searchLimit L.lay)) := by
   apply respAt_layerCounterSearch
   intro c hc hprev
   apply hS
@@ -138,7 +198,7 @@ theorem leafOf_routePos (index : Nat) (hindex : index < 2 ^ 31) (lay : Layer) :
     leafOf (routePos index hindex lay) = routeLeaf index lay := rfl
 theorem respAt_routeSearch (T : Answers) (index : Nat) (hindex : index < 2 ^ 31) (lay : Layer) :
     RespAt T (HonestQ T) (WCT9.layerCounterSearch lay (route index lay).2 (route index lay).1
-      (leafMsg T (routeLeaf index lay)) 0 counterLimit) :=
+      (leafMsg T (routeLeaf index lay)) 0 (WCT9.searchLimit lay)) :=
   respAt_referenceSearch T (HonestQ T) (routeLeaf index lay)
     (fun input h => Or.inr ⟨routePos index hindex lay, h⟩)
 theorem respAt_signLayers (T : Answers) (cache : T3.Cache) (index : Nat) (hindex : index < 2 ^ 31) :
@@ -154,7 +214,7 @@ theorem respAt_signLayers (T : Answers) (cache : T3.Cache) (index : Nat) (hindex
       · rw [hmsg n rfl]
         exact respAt_routeSearch T index hindex _
       · cases hs : evalWithAnswerFn T (WCT9.layerCounterSearch (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
-          (route index (Fin.ofNat 4 n)).1 msg 0 counterLimit) with
+          (route index (Fin.ofNat 4 n)).1 msg 0 (WCT9.searchLimit (Fin.ofNat 4 n))) with
         | none =>
             dsimp only
             split_ifs with hn0
@@ -163,8 +223,8 @@ theorem respAt_signLayers (T : Answers) (cache : T3.Cache) (index : Nat) (hindex
             · exact RespAt.pure' _
         | some found =>
             obtain ⟨counter, digits⟩ := found
-            have hd := (WCT9.layerCounterSearch_some T _ _ _ msg counterLimit 0 counter digits
-              (by decide) hs).2.2
+            have hd := (WCT9.layerCounterSearch_some T _ _ _ msg (WCT9.searchLimit (Fin.ofNat 4 n)) 0 counter digits
+              (by have := WCT9.searchLimit_le (Fin.ofNat 4 n); unfold counterLimit at this; omega) hs).2.2
             have hvalid := Cost.validDigits_decode hd
             dsimp only
             split_ifs with hn0
@@ -213,7 +273,6 @@ theorem respAt_keygen (T : Answers) : RespAt T (HonestQ T) keygen :=
   RespAt.of_respects respects_keygen fun _ h => honestQ_of_nonEnc h
 end Enc
 open ClaudeWCT.W9.T3.Security.Wots.Enc
-open SigGolfCandidate.T3.Security.Wots.Enc (AgreeOn RejPair)
 theorem keygenCharge_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') :
     keygenCharge T' = keygenCharge T := by
   unfold keygenCharge

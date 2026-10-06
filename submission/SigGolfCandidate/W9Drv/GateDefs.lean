@@ -27,5 +27,5 @@ structure GatePre (pk : Digest) (w : WBytes) (a : HashOutput) (u : MachineState)
   bank : HeaderBank u
   wit : WitAll w u
   setupMask : SetupMask u
-  sp : u.getReg .x2 = BitVec.ofNat 64 0xffbd30
+  sp : u.getReg .x2 = BitVec.ofNat 64 0xffbf40
 end W9Drv

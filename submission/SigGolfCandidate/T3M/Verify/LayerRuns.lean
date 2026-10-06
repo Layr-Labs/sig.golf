@@ -12,12 +12,12 @@ def stepsA (lay : Nat) : Nat := if lay = 3 then 12 else if lay = 0 then 9 else 1
 def retOff (lay : Nat) : Nat := if lay = 0 then 11 else if lay = 3 then 42 else 41
 def s6v (lay : Nat) : Nat := [13064,17032,20168,23304].getD lay 0
 def s3v : Nat := 13768
-def tgtL (lay : Nat) : Nat := [128,198,198,197].getD lay 0
+def tgtL (lay : Nat) : Nat := [129,197,197,198].getD lay 0
 def hw (t lay : Nat) : Nat := 1 + 256 * t + 65536 * lay
 def rejEcall : Nat := 743
 def stabIdx (lay : Nat) : Nat := [209768,209640,209576,209512].getD lay 0
 def stabMask (lay : Nat) : Nat := if lay = 1 then 508 else 252
-def s7Bias (lay : Nat) : Nat := [4096, 512, 192, 128].getD lay 0
+def s7Bias (lay : Nat) : Nat := [4096,512,192,128].getD lay 0
 def stabW (lay sh : Nat) : Nat :=
   if lay = 0 then 96256 + 64 * sh else if lay = 1 then 31744 + 64 * sh else if lay = 2 then 23552 + 128 * sh else 15360 + 128 * sh
 def M1c : Nat := 8198552921648689607
@@ -166,12 +166,12 @@ def keepB : List Reg := [.x4, .x23, .x31]
 def keepLf : List Reg := [.x23, .x31, .x22]
 def keepTopCall : List Reg := [.x2, .x3, .x4, .x5, .x7, .x13, .x19, .x20, .x10, .x11, .x12, .x21, .x14, .x15, .x16, .x17, .x18, .x8, .x9, .x24, .x22, .x23, .x6, .x25, .x26, .x27, .x28, .x29, .x31, .x30]
 def specTopCall (p : Nat) : Spec :=
-  ⟨[(.x1, kw (0x1000 + 4 * (p + 11)))], [], 96162, false, 1, [], none, 1⟩
+  ⟨[(.x1, kw (0x1000 + 4 * (p + 11)))], [], 96160, false, 1, [], none, 1⟩
 def copyCheck (lay p : Nat) : Bool :=
   specB [] [] baseK (runAt (preK lay) [] p [.br false]) (specA lay p) [] (bK lay) keepA &&
   specB [] [] [] (runAt (preK lay) [] p [.br true]) (rejA lay p) [] [] [] &&
   (if lay = 0 then
-    specB [] [] [] (runAt [] [96162] (p + stepsA lay + 1) []) (specTopCall p) [] [] keepTopCall
+    specB [] [] [] (runAt [] [96160] (p + stepsA lay + 1) []) (specTopCall p) [] [] keepTopCall
   else
     specB [] [] baseK (runAt (bK lay) [] (p + stepsA lay + 1) [.br false, .br false, .jmp]) (specBl lay p) []
       (postBlC lay p) keepB &&

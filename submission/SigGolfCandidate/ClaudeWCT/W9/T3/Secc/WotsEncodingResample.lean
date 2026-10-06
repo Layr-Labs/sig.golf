@@ -14,8 +14,7 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 namespace Enc
 open SigGolfCandidate.T3.Security.Wots.Enc
-open SigGolfCandidate.T3.Security.Wots.Enc (AgreeOn RejPair rejAnswers mem_rejAnswers rejAnswers_nonempty
-  tsum_uniform_coe)
+open SigGolfCandidate.T3.Security.Wots.Enc (tsum_uniform_coe)
 def EncOk (lay : Layer) (msg : WCT9.LayerMsg) (pad : BitVec 96) : Prop :=
   Extract.msgFits lay msg ∧ (lay.val = 3 → pad = 0)
 abbrev EncIndex := {e : CanonGraph.LeafPos × WCT9.LayerMsg × BitVec 32 × BitVec 96 // EncOk e.1.lay e.2.1 e.2.2.2}
@@ -80,10 +79,10 @@ theorem encInput_hdr (e : EncIndex) :
     Extract.hdrBlock (encInput e) = bytesLE 16 (header 4 e.1.1.lay.val e.1.1.tree.val 0 e.1.1.leaf.val) :=
   ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP _ _ _ _ _ _
 noncomputable def rowDec (T A : Answers) (L : CanonGraph.LeafPos) (c : Nat) : Option (List Nat) :=
-  searchDecode (leafOf L).lay (low (A (.inl (.inr (encRow (leafOf L) (leafMsg T (leafOf L))
+  WCT9.producerDecode (leafOf L).lay (low (A (.inl (.inr (encRow (leafOf L) (leafMsg T (leafOf L))
     (BitVec.ofNat 32 c) 0)))))
 theorem rowDec_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (L : CanonGraph.LeafPos) (c : Nat)
-    (hc : c < counterLimit) (hprev : ∀ c' < c, rowDec T T L c' = none) :
+    (hc : c < WCT9.searchLimit (leafOf L).lay) (hprev : ∀ c' < c, rowDec T T L c' = none) :
     rowDec T T' L c = none ↔ rowDec T T L c = none := by
   rcases h (.inl (.inr (encRow (leafOf L) (leafMsg T (leafOf L)) (BitVec.ofNat 32 c) 0)))
       (Or.inr ⟨L, c, hc, rfl, hprev⟩) with he | hrej
@@ -92,7 +91,8 @@ theorem rowDec_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (L : CanonG
   · obtain ⟨hT, hT'⟩ := hrej.layer (encRow_hdr (leafOf L) (leafMsg T (leafOf L)) (BitVec.ofNat 32 c) 0)
     exact ⟨fun _ => hT, fun _ => hT'⟩
 theorem rowDec_prefix_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (L : CanonGraph.LeafPos) :
-    ∀ c, c ≤ counterLimit → ((∀ c' < c, rowDec T T' L c' = none) ↔ ∀ c' < c, rowDec T T L c' = none) := by
+    ∀ c, c ≤ WCT9.searchLimit (leafOf L).lay →
+      ((∀ c' < c, rowDec T T' L c' = none) ↔ ∀ c' < c, rowDec T T L c' = none) := by
   intro c
   induction c with
   | zero =>
@@ -203,8 +203,17 @@ theorem public_resample (iX : ∀ k : Set EncIndex, Fintype (k → HashOutput))
     (fun pub => freeSet (eagerAnswers U privateTable pub)) (fun k pub y => ov k pub y) (fun k pub => rd hU k pub)
     (fun pub y => rd_ov hU _ pub y) (fun pub y => ov_ov_rd hU _ pub y) (fun pub y => free_ov U privateTable pub y) F
 def Rej (T : Answers) (e : EncIndex) : Prop :=
-  Reached T (leafOf e.1.1) (encInput e) ∧ searchDecode e.1.1.lay (low (T (.inl (.inr (encInput e))))) = none
+  Reached T (leafOf e.1.1) (encInput e) ∧ WCT9.producerDecode e.1.1.lay (low (T (.inl (.inr (encInput e))))) = none
 def cellSet (T : Answers) : Set EncIndex := {e | Free T e ∨ Rej T e}
+noncomputable def rejAnswers (lay : Layer) : Finset HashOutput :=
+  Finset.univ.filter fun a => WCT9.producerDecode lay (low a) = none
+theorem mem_rejAnswers (lay : Layer) (a : HashOutput) :
+    a ∈ rejAnswers lay ↔ WCT9.producerDecode lay (low a) = none := by
+  simp only [rejAnswers, Finset.mem_filter, Finset.mem_univ, true_and]
+theorem producerDecode_allOnes (lay : Layer) : WCT9.producerDecode lay (low (BitVec.allOnes 256)) = none := by
+  fin_cases lay <;> decide +kernel
+theorem rejAnswers_nonempty (lay : Layer) : (rejAnswers lay).Nonempty :=
+  ⟨BitVec.allOnes 256, (mem_rejAnswers lay _).mpr (producerDecode_allOnes lay)⟩
 abbrev CellKey := Set EncIndex × Set EncIndex
 def cellKey (T : Answers) : CellKey := (cellSet T, freeSet T)
 noncomputable def cellInit (k : CellKey) (e : k.1) : Finset HashOutput :=

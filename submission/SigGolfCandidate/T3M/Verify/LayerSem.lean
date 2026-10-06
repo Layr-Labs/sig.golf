@@ -368,7 +368,7 @@ theorem copy_parts (lay p : Nat) (h : BC.copyCheck lay p = true) :
     specB (BC.allowed lay) [] baseK (runAt (BC.preK lay) [] (T3M.setupPc lay p) [.br (T3M.setupAcceptDir lay)]) (BC.specA lay p) [] (BC.bK lay) keepA = true ∧
     specB (BC.allowed lay) [] [] (runAt (BC.preK lay) [] (T3M.setupPc lay p) [.br (!T3M.setupAcceptDir lay)]) (BC.rejA lay p) [] [] [] = true ∧
     (lay = 0 →
-      specB [] [] [] (runAt [] [96162] (p + stepsA lay + 1) []) (specTopCall p) [] [] keepTopCall = true) ∧
+      specB [] [] [] (runAt [] [96160] (p + stepsA lay + 1) []) (specTopCall p) [] [] keepTopCall = true) ∧
     (lay ≠ 0 →
       specB [] [] baseK (runAt (BC.bKB lay) [] (p + stepsA lay + 1) [.br false, .br false, .jmp]) (specBl lay p) BC.oblB
         (postBlC lay p) keepB = true ∧

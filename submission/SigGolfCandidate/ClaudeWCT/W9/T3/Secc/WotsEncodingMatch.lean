@@ -29,12 +29,11 @@ theorem encodingCount_mkSample (T : Answers) (r : SeedResult) :
       (((traceOf T r.2).filter fun e => decide (EncodingInput e.1)).length : ENNReal) := rfl
 namespace Enc
 open SigGolfCandidate.T3.Security.Wots.Enc
-open SigGolfCandidate.T3.Security.Wots.Enc (AgreeOn)
 theorem layerCounterSearch_first (T : Answers) (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) :
     ∀ fuel start k digits, k < fuel →
-      (∀ i < k, searchDecode lay ((T (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg
+      (∀ i < k, WCT9.producerDecode lay ((T (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg
         (BitVec.ofNat 32 (start + i))))))).extractLsb' 0 128) = none) →
-      searchDecode lay ((T (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg
+      WCT9.producerDecode lay ((T (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg
         (BitVec.ofNat 32 (start + k))))))).extractLsb' 0 128) = some digits →
       evalWithAnswerFn T (WCT9.layerCounterSearch lay tree leaf msg start fuel) =
         some (BitVec.ofNat 32 (start + k), digits) := by
@@ -57,12 +56,12 @@ theorem layerCounterSearch_first (T : Answers) (lay : Layer) (tree leaf : Nat) (
         rw [show start + (k + 1) = start + 1 + k by omega]
         exact this
 theorem reached_valid_reference {T : Answers} {L : LeafAddr} {input : HashInput} (hr : Reached T L input)
-    {w : List Nat} (hw : searchDecode L.lay (low (T (.inl (.inr input)))) = some w) :
+    {w : List Nat} (hw : WCT9.producerDecode L.lay (low (T (.inl (.inr input)))) = some w) :
     referenceInput T L = some input := by
   obtain ⟨c, hc, rfl, hprev⟩ := hr
   have hs : referenceSearch T L = some (BitVec.ofNat 32 c, w) := by
     unfold referenceSearch
-    have := layerCounterSearch_first T L.lay L.tree L.leaf (leafMsg T L) counterLimit 0 c w hc
+    have := layerCounterSearch_first T L.lay L.tree L.leaf (leafMsg T L) (WCT9.searchLimit L.lay) 0 c w hc
       (fun i hi => by rw [Nat.zero_add, ← encRow_zero]; exact hprev i hi)
       (by rw [Nat.zero_add, ← encRow_zero]; exact hw)
     rw [Nat.zero_add] at this
@@ -124,7 +123,7 @@ theorem matchEntry_other (U : Finset HashInput) (privateTable : FullGame.FullTab
       change ¬ Reached _ _ (encInput (encIdx L message counter pad hfit))
       rw [hx']
       exact hfree, hx'⟩
-  have href := reached_valid_reference hreached (ClaudeWCT.W9.T3.Security.WotsExtract.searchDecode_of_reference _ _ hdec)
+  have href := reached_valid_reference hreached (ClaudeWCT.W9.T3.Security.WotsExtract.producerDecode_of_reference _ _ hdec)
   exact hne (he ▸ href)
 section Table
 variable (adversary : AdversaryP) (q : Nat)

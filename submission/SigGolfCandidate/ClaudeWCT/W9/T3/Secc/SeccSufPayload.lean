@@ -71,13 +71,14 @@ theorem layers_payload (answers : Answers) (published : SigGolfCandidate.T3.Cach
       simp only [WCT9.expandLayersBC, evalWithAnswerFn_bind] at hexp
       cases hs : evalWithAnswerFn answers (WCT9.layerCounterSearch (Fin.ofNat 4 n)
           (route (N.toNat % 2 ^ 31) (Fin.ofNat 4 n)).2 (route (N.toNat % 2 ^ 31) (Fin.ofNat 4 n)).1 msg 0
-          counterLimit) with
+          (WCT9.searchLimit (Fin.ofNat 4 n))) with
       | none => simp only [hs, evalWithAnswerFn_pure, reduceCtorEq] at hexp
       | some found =>
           obtain ⟨counter, digits⟩ := found
           have hsome := WCT9.layerCounterSearch_some answers (Fin.ofNat 4 n)
             (route (N.toNat % 2 ^ 31) (Fin.ofNat 4 n)).2
-            (route (N.toNat % 2 ^ 31) (Fin.ofNat 4 n)).1 msg counterLimit 0 counter digits (by decide) hs
+            (route (N.toNat % 2 ^ 31) (Fin.ofNat 4 n)).1 msg (WCT9.searchLimit (Fin.ofNat 4 n)) 0 counter digits
+            (ClaudeWCT.W9.T3.Security.Wots.searchLimit_fits _) hs
           have hvalid := Cost.validDigits_decode hsome.2.2
           simp only [hs] at hexp
           have hcounter : wit.counters (Fin.ofNat 4 n) = counter := by

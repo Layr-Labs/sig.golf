@@ -434,7 +434,7 @@ theorem sat_signLayers (T : Answers) (cache : Cache) (index : Nat) (hindex : ind
       simp only [WCT9.signLayersBC]
       refine QueriesSat.bind (sat_layerCounterSearch T _ _ _ _ _ _) ?_
       cases hs : evalWithAnswerFn T (WCT9.layerCounterSearch (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
-        (route index (Fin.ofNat 4 n)).1 msg 0 counterLimit) with
+        (route index (Fin.ofNat 4 n)).1 msg 0 (WCT9.searchLimit (Fin.ofNat 4 n))) with
       | none =>
           dsimp only
           split_ifs with hn0
@@ -445,8 +445,8 @@ theorem sat_signLayers (T : Answers) (cache : Cache) (index : Nat) (hindex : ind
           · exact QueriesSat.pure' _
       | some found =>
           obtain ⟨counter, digits⟩ := found
-          have hd := (WCT9.layerCounterSearch_some T _ _ _ msg counterLimit 0 counter digits
-            (by decide) hs).2.2
+          have hd := (WCT9.layerCounterSearch_some T _ _ _ msg (WCT9.searchLimit (Fin.ofNat 4 n)) 0 counter digits
+            (ClaudeWCT.W9.T3.Security.Wots.searchLimit_fits _) hs).2.2
           have hvalid := Cost.validDigits_decode hd
           dsimp only
           split_ifs with hn0

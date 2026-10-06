@@ -1,4 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.WCT9.Limits
+import SigGolfCandidate.ClaudeWCT.WCT9.TopDecode
 import SigGolfCandidate.T3M.Witness.Basic
 
 section
@@ -47,7 +48,7 @@ def wctNodeHashP (coord index heap : Nat) (left pad right : Digest) : M Digest :
   nodeHashP 3 (WCT9.nodeLayer coord) index heap left pad right
 def digestP (m : Message) (w : WBytes) : M (Option HashOutput) :=
   if (wdc w).toNat ≥ WCT9.digestAttemptLimit then pure none else some <$> digest (wrho w) m (wdc w)
-def gateOk (N : HashOutput) : Bool := decide (N.toNat / 2 ^ 234 % 2 ^ 22 < 2047)
+def gateOk (N : HashOutput) : Bool := decide (N.toNat / 2 ^ 235 % 2 ^ 21 < 1025)
 def fieldOk (N : HashOutput) (coord : WCT9.Coord) : Bool := decide (WCT9.field N coord < WCT9.fieldLimit)
 def wctCoordP (w : WBytes) (index : Nat) (coord : WCT9.Coord) (child : WCT9.Child) (word : WCT9.Rank) :
     M (Digest × Digest) := do
@@ -90,7 +91,40 @@ def layerPairP (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) : M 
       (wmerklePad w lay j.val) pair.2) value
   let other := wpath w lay leaf (height lay - 1)
   pure (if leaf / 2 ^ (height lay - 1) % 2 = 0 then (top, other) else (other, top))
+def topChainP (w : WBytes) (tree leaf : Nat) (i : Fin (chainCount 0)) (digit : Nat) : M Digest :=
+  chainP 0 tree leaf i.val digit (maxDigit 0 i.val - digit) (wchainPads w 0 i.val).1 (wchainPads w 0 i.val).2
+    (wchainHeaderPad w 0 i.val) (wvalue w 0 i.val)
+def topFinishP (w : WBytes) (tree leaf : Nat) (ends : List Digest) : M Digest := do
+  let value ← leafHash 0 tree leaf ends
+  (List.finRange (height 0)).foldlM (fun value j => do
+    let other := wpath w 0 leaf j.val
+    let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
+    nodeHashP 3 (0 : Layer).val tree (2 ^ (height 0 - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1
+      (wmerklePad w 0 j.val) pair.2) value
+def topLayerP (w : WBytes) (index : Nat) (answer : Digest) : M (Option Digest) :=
+  WCT9.topDecodeRun (topChainP w (route index 0).2 (route index 0).1) (topFinishP w (route index 0).2 (route index 0).1)
+    answer
 def layersBC (w : WBytes) (index : Nat) : Nat → WCT9.LayerMsg → M (Option Digest)
+  | 0, _ => pure none
+  | n + 1, msg => do
+      let lay : Layer := Fin.ofNat 4 n
+      let counter := wbcCtr w lay
+      if counter.toNat ≥ counterLimit then return none
+      let (leaf, tree) := route index lay
+      let answer ← shortHash (layerEncodingInputP lay tree leaf msg counter (wbcPad w lay))
+      if n = 0 then topLayerP w index answer
+      else do
+        let some digits := decode lay answer | pure none
+        let pair ← layerPairP w index lay digits
+        layersBC w index n (.pair pair.1 pair.2)
+def verifyP (m : Message) (pk : Digest) (w : WBytes) : M Bool := do
+  let some N ← digestP m w | pure false
+  if !gateOk N then return false
+  let index := N.toNat % 2 ^ 31
+  let some root ← wctP w N | pure false
+  let some root ← layersBC w index 4 (.forest root) | pure false
+  pure (root == pk)
+def layersBCPrepass (w : WBytes) (index : Nat) : Nat → WCT9.LayerMsg → M (Option Digest)
   | 0, _ => pure none
   | n + 1, msg => do
       let lay : Layer := Fin.ofNat 4 n
@@ -102,13 +136,13 @@ def layersBC (w : WBytes) (index : Nat) : Nat → WCT9.LayerMsg → M (Option Di
       if n = 0 then some <$> layerP w index lay digits
       else do
         let pair ← layerPairP w index lay digits
-        layersBC w index n (.pair pair.1 pair.2)
-def verifyP (m : Message) (pk : Digest) (w : WBytes) : M Bool := do
+        layersBCPrepass w index n (.pair pair.1 pair.2)
+def verifyPPrepass (m : Message) (pk : Digest) (w : WBytes) : M Bool := do
   let some N ← digestP m w | pure false
   if !gateOk N then return false
   let index := N.toNat % 2 ^ 31
   let some root ← wctP w N | pure false
-  let some root ← layersBC w index 4 (.forest root) | pure false
+  let some root ← layersBCPrepass w index 4 (.forest root) | pure false
   pure (root == pk)
 structure Pads where
   wctChain : WCT9.Coord → Fin 7 → Digest × Digest
@@ -155,6 +189,20 @@ def recoverLayerPairP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (lay : 
       (pads.merkle lay (Fin.castLE (Nat.sub_le _ _) j)) pair.2) value
   let other := (sig.layers lay).path (WCT9.topLevel lay)
   pure (if leaf / 2 ^ (height lay - 1) % 2 = 0 then (top, other) else (other, top))
+def verifyTopP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (answer : Digest) : M (Option Digest) :=
+  let leaf := (route index 0).1
+  let tree := (route index 0).2
+  WCT9.topDecodeRun
+    (fun i digit => chainP 0 tree leaf i.val digit (maxDigit 0 i.val - digit) (pads.chain 0 i).1
+      (pads.chain 0 i).2 (pads.chainHeader 0 i) ((sig.layers 0).values i))
+    (fun ends => do
+      let value ← leafHash 0 tree leaf ends
+      (List.finRange (height 0)).foldlM (fun value j => do
+        let other := (sig.layers 0).path j
+        let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
+        nodeHashP 3 (0 : Layer).val tree (2 ^ (height 0 - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1
+          (pads.merkle 0 j) pair.2) value)
+    answer
 def verifyLayersBCP (w : WCT9.Witness) (pads : Pads) (index : Nat) : Nat → WCT9.LayerMsg → M (Option Digest)
   | 0, _ => pure none
   | n + 1, msg => do
@@ -163,9 +211,9 @@ def verifyLayersBCP (w : WCT9.Witness) (pads : Pads) (index : Nat) : Nat → WCT
       if counter.toNat ≥ counterLimit then return none
       let (leaf, tree) := route index lay
       let answer ← shortHash (layerEncodingInputP lay tree leaf msg counter (pads.bc lay))
-      let some digits := decode lay answer | pure none
-      if n = 0 then some <$> recoverLayerP (WCT9.toT3Signature w.signature) pads.toT3 index lay digits
+      if n = 0 then verifyTopP w.signature pads index answer
       else do
+        let some digits := decode lay answer | pure none
         let pair ← recoverLayerPairP w.signature pads index lay digits
         verifyLayersBCP w pads index n (.pair pair.1 pair.2)
 def verifyPadsTail (pk : Digest) (output : HashOutput) (w : WCT9.Witness) (pads : Pads) : M Bool := do

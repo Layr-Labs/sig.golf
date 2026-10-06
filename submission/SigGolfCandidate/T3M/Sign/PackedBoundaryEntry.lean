@@ -1,43 +1,7 @@
-import SigGolfCandidate.T3M.Sign.PackedLowTree
 import SigGolfCandidate.T3M.SigCodec
 import SigGolfCandidate.T3M.Search.BCCounterSearch
 import SigGolfCandidate.T3M.Sign.Kernels
-
-section
-
-
-namespace SigGolfCandidate.T3M.Sign.Packed
-open SigGolfCandidate.T3
-open ClaudeWCT
-def signLayersP (leafFn : LeafFn) (cache : Cache) (index : Nat) : Nat → WCT9.LayerMsg → M (Option (List Pieces))
-  | 0, _ => pure (some [])
-  | n + 1, msg => do
-      let lay : Layer := Fin.ofNat 4 n
-      let (leaf, tree) := route index lay
-      let found ← WCT9.layerCounterSearch lay tree leaf msg 0 counterLimit
-      if n = 0 then
-        let part ← signTop cache leaf ((found.map Prod.snd).getD dummyTop)
-        pure (some [part])
-      else
-        let some (_, digits) := found | pure none
-        let (levels, values) ← buildTreeP leafFn lay tree leaf digits
-        let path := (List.range (height lay)).map fun j =>
-          (levels.getD j []).getD (leaf / 2 ^ j ^^^ 1) 0
-        let top := WCT9.topPair lay levels
-        let some previous ← signLayersP leafFn cache index n (.pair top.1 top.2) | pure none
-        pure (some (previous ++ [(values, path)]))
-end SigGolfCandidate.T3M.Sign.Packed
-end
-
-section
-
-
-
-
-
-
-
-
+import SigGolfCandidate.T3M.Sign.PackedLayerSource
 
 namespace SigGolfCandidate.T3M.Sign.Packed
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
@@ -51,7 +15,7 @@ theorem blk370_spec (s : MachineState) (hpc : s.pc = pcOf 370) (idx : Nat) (hidx
       t.getReg .x2 = BitVec.ofNat 64 LOW ∧ t.getReg .x31 = BitVec.ofNat 64 0 ∧
       t.getReg .x26 = BitVec.ofNat 64 43 ∧ t.getReg .x27 = BitVec.ofNat 64 0 ∧
       t.getReg .x8 = BitVec.ofNat 64 3 ∧ t.getReg .x15 = BitVec.ofNat 64 6 ∧
-      t.getReg .x16 = BitVec.ofNat 64 (SIG + 4832) ∧ t.getReg .x17 = BitVec.ofNat 64 197 ∧
+      t.getReg .x16 = BitVec.ofNat 64 (SIG + 4832) ∧ t.getReg .x17 = BitVec.ofNat 64 198 ∧
       t.getReg .x18 = BitVec.ofNat 64 (idx % 64) ∧ t.getReg .x14 = BitVec.ofNat 64 (idx % 64) ∧
       t.getReg .x9 = BitVec.ofNat 64 (idx / 64) ∧
       RegsExcept s t [.x1, .x2, .x6, .x7, .x8, .x9, .x14, .x15, .x16, .x17, .x18, .x26, .x27, .x28, .x29, .x30,
@@ -115,7 +79,7 @@ theorem blk397_spec (s : MachineState) (hpc : s.pc = pcOf 397) (idx : Nat) (hidx
     (hm : s.getMem (BitVec.ofNat 64 IDXV) = BitVec.ofNat 64 idx) :
     ∃ t, Steps image s 14 14 t ∧ t.pc = pcOf 646 ∧ t.getReg .x1 = pcOf 411 ∧
       t.getReg .x8 = BitVec.ofNat 64 2 ∧ t.getReg .x15 = BitVec.ofNat 64 6 ∧
-      t.getReg .x16 = BitVec.ofNat 64 (SIG + 4048) ∧ t.getReg .x17 = BitVec.ofNat 64 198 ∧
+      t.getReg .x16 = BitVec.ofNat 64 (SIG + 4048) ∧ t.getReg .x17 = BitVec.ofNat 64 197 ∧
       t.getReg .x18 = BitVec.ofNat 64 (idx / 64 % 64) ∧ t.getReg .x14 = BitVec.ofNat 64 (idx / 64 % 64) ∧
       t.getReg .x9 = BitVec.ofNat 64 (idx / 4096) ∧
       RegsExcept s t [.x1, .x6, .x7, .x8, .x9, .x14, .x15, .x16, .x17, .x18, .x28] ∧
@@ -144,7 +108,7 @@ theorem blk412_spec (s : MachineState) (hpc : s.pc = pcOf 412) (idx : Nat) (hidx
     (hm : s.getMem (BitVec.ofNat 64 IDXV) = BitVec.ofNat 64 idx) :
     ∃ t, Steps image s 14 14 t ∧ t.pc = pcOf 646 ∧ t.getReg .x1 = pcOf 426 ∧
       t.getReg .x8 = BitVec.ofNat 64 1 ∧ t.getReg .x15 = BitVec.ofNat 64 7 ∧
-      t.getReg .x16 = BitVec.ofNat 64 (SIG + 3248) ∧ t.getReg .x17 = BitVec.ofNat 64 198 ∧
+      t.getReg .x16 = BitVec.ofNat 64 (SIG + 3248) ∧ t.getReg .x17 = BitVec.ofNat 64 197 ∧
       t.getReg .x18 = BitVec.ofNat 64 (idx / 4096 % 128) ∧ t.getReg .x14 = BitVec.ofNat 64 (idx / 4096 % 128) ∧
       t.getReg .x9 = BitVec.ofNat 64 (idx / 2 ^ 19) ∧
       RegsExcept s t [.x1, .x6, .x7, .x8, .x9, .x14, .x15, .x16, .x17, .x18, .x28] ∧
@@ -171,7 +135,7 @@ theorem blk412_spec (s : MachineState) (hpc : s.pc = pcOf 412) (idx : Nat) (hidx
   · intro A _ _; simp [blk_412.res, rv_simp]
 def L0W (A : Nat) : Prop :=
   ¬ (SIG ≤ A ∧ A < SIG + 2192) ∧ ¬ (SIG + 3248 ≤ A ∧ A < SIG + 5616)
-def L0Cost : Nat := counterLimit * 412 + 200000
+def L0Cost : Nat := counterLimit * 416 + 200000
 def TopLeafSpec : Prop :=
   ∀ (sk : SecretKey) (A : LeafArgs) (s : MachineState),
     A.lay = 0 → A.so = true → (∀ i < A.n, A.d i ≤ 7) →
@@ -204,7 +168,8 @@ abbrev csCost := Search.BC.csCostS
 def CounterSearchSpec (sk : BitVec 256) : Prop :=
   ∀ (s : MachineState) (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (ret : Nat),
     CsPre s lay tree leaf msg ret →
-      TBSim image sk s (csCost lay) (WCT9.layerCounterSearch lay tree leaf msg 0 counterLimit) (CsPost s lay ret)
+      TBSim image sk s (csCost lay) (WCT9.layerCounterSearch lay tree leaf msg 0 (WCT9.searchLimit lay))
+        (CsPost s lay ret)
 end SigGolfCandidate.T3M.Sign.Packed.Boundary
 end
 section
@@ -366,7 +331,8 @@ structure LayNext (sk : SecretKey) (cache : Bytes 131072) (ret index : Nat) (roo
   c32 : (t.getMem (BitVec.ofNat 64 (ENC + 32))).toNat < 2 ^ 32
 theorem signLayers_low (cache : Cache) (index : Nat) {lay : Layer} (hlay : lay ≠ 0) (msg : WCT9.LayerMsg) :
     signLayersP leafFn cache index (lay.val + 1) msg = (do
-      let some (_, digits) ← WCT9.layerCounterSearch lay (route index lay).2 (route index lay).1 msg 0 counterLimit
+      let some (_, digits) ← WCT9.layerCounterSearch lay (route index lay).2 (route index lay).1 msg 0
+        (WCT9.searchLimit lay)
         | pure none
       let (levels, values) ← Packed.buildTreeP leafFn lay (route index lay).2 (route index lay).1 digits
       let some previous ← signLayersP leafFn cache index lay.val (.pair (WCT9.topPair lay levels).1 (WCT9.topPair lay levels).2) | pure none
@@ -782,7 +748,7 @@ private theorem extractByte_zero_top (k : Nat) : extractByte (0 : Word) k = 0 :=
   simp [extractByte]
 theorem signLayers_one (cache : Cache) (index : Nat) (root : WCT9.LayerMsg) :
     signLayersP leafFn cache index 1 root = (do
-      let found ← WCT9.layerCounterSearch 0 (route index 0).2 (route index 0).1 root 0 counterLimit
+      let found ← WCT9.layerCounterSearch 0 (route index 0).2 (route index 0).1 root 0 (WCT9.searchLimit 0)
       let part ← signTop cache (route index 0).1 ((found.map Prod.snd).getD T3.dummyTop)
       pure (some [part])) := by
   simp only [signLayersP, Fin.ofNat_zero, if_true]
@@ -932,14 +898,14 @@ theorem l0Spec_of (hTop : TopLeafSpec) (hK : CounterSearchSpec sk) : L0Spec leaf
       r56 := by rw [t1f.get (by decide) (fun h => h)]; exact h.right.2
       table := h.base.table.frame t1f (fun _ _ h => h)
       cf := h.base.cf.frame t1f (fun _ _ _ h => h) }
-  have hc0 : csCost 0 = counterLimit * 412 + 2000 := by unfold csCost Search.BC.csCostS; rw [if_pos rfl]
+  have hc0 : csCost 0 = counterLimit * 416 + 2000 := by unfold csCost Search.BC.csCostS; rw [if_pos rfl]
   refine TBSim.mono (TBSim.steps st1 (TBSim.bind (W₂ := 50000) (hK t1 0 0 _ root 441 hcs) (fun r u hu => ?_)))
     (by rw [hc0]; unfold L0Cost; omega) (fun _ _ h => h)
   have hdum : (List.range 54).all (fun i => decide (T3.dummyTop.getD i 0 ≤ 7)) = true := by decide
   obtain ⟨ds, hds, upc, ux5, hd7, udig, ur, uf, ux25⟩ : ∃ ds : List Nat, (r.map Prod.snd).getD T3.dummyTop = ds ∧
       u.pc = pcOf 441 ∧ u.getReg .x5 = 0 ∧ (∀ i < 54, ds.getD i 0 ≤ 7) ∧
       (∀ i < 54, u.getByte (BitVec.ofNat 64 (DIGITS + i)) = BitVec.ofNat 8 (ds.getD i 0)) ∧
-      RegsExcept t1 u csRegs ∧ Frame t1 u CsW ∧ (u.getReg .x25).toNat ≤ 128 := by
+      RegsExcept t1 u csRegs ∧ Frame t1 u CsW ∧ (u.getReg .x25).toNat ≤ 129 := by
     rcases r with _ | ⟨c, ds⟩
     · change (if (0 : Layer) = 0 then DummyRet t1 441 u else Failed u) at hu
       rw [if_pos rfl] at hu
@@ -954,7 +920,7 @@ theorem l0Spec_of (hTop : TopLeafSpec) (hK : CounterSearchSpec sk) : L0Spec leaf
       omega
   dsimp only
   rw [hds]
-  have hx25 : (u.getReg .x25).toNat ≤ 128 := ux25
+  have hx25 : (u.getReg .x25).toNat ≤ 129 := ux25
   set leaf := index / 2 ^ 19 % 4096 with hleaf_def
   set dest0 := (u.getReg .x25).toNat with hdest0
   have gu : ∀ r, r ∉ [.x1, .x6, .x7, .x8, .x9, .x14, .x17, .x18, .x26, .x27, .x28] ++ csRegs →
@@ -1127,5 +1093,4 @@ theorem layers_from370 (hPacked : PackedLeafSpec leafFn) (hTop : TopLeafSpec) {s
     intro A hA hw; rcases hw with hw | hw; · unfold LayW lstart; constructor <;> sg_omega
     · exact hw
 end SigGolfCandidate.T3M.Sign.Packed.Boundary
-end
 end

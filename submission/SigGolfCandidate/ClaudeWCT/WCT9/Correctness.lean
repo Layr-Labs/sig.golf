@@ -1,4 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.WCT9.Basic
+import SigGolfCandidate.ClaudeWCT.WCT9.TopDecode
 
 namespace ClaudeWCT.WCT9
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Correctness
@@ -609,7 +610,7 @@ theorem layerCounterSearch_some_search (answers : Answers) (lay : Layer) (tree l
     ∀ fuel counter found digits, counter + fuel ≤ 2 ^ 32 →
       evalWithAnswerFn answers (layerCounterSearch lay tree leaf msg counter fuel) = some (found, digits) →
       counter ≤ found.toNat ∧ found.toNat < counter + fuel ∧
-        searchDecode lay (evalWithAnswerFn answers (shortHash (layerEncodingInput lay tree leaf msg found))) =
+        producerDecode lay (evalWithAnswerFn answers (shortHash (layerEncodingInput lay tree leaf msg found))) =
           some digits := by
   intro fuel
   induction fuel with
@@ -619,7 +620,7 @@ theorem layerCounterSearch_some_search (answers : Answers) (lay : Layer) (tree l
   | succ fuel ih =>
       intro counter found digits hlimit he
       simp only [layerCounterSearch, evalWithAnswerFn_bind] at he
-      cases hd : searchDecode lay (evalWithAnswerFn answers
+      cases hd : producerDecode lay (evalWithAnswerFn answers
         (shortHash (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter)))) with
       | none =>
           simp only [hd] at he
@@ -639,7 +640,7 @@ theorem layerCounterSearch_some (answers : Answers) (lay : Layer) (tree leaf : N
           some digits := by
   intro fuel counter found digits hlimit he
   obtain ⟨h1, h2, h3⟩ := layerCounterSearch_some_search answers lay tree leaf msg fuel counter found digits hlimit he
-  exact ⟨h1, h2, SigGolfCandidate.T3.Nonbinary.searchDecode_some h3⟩
+  exact ⟨h1, h2, producerDecode_decode h3⟩
 theorem ofNat_layer_val (n : Nat) (hn : n < 4) : (Fin.ofNat 4 n : Layer).val = n := Nat.mod_eq_of_lt hn
 theorem expandLayersBC_verified (answers : Answers) (sig : Signature) (index : Nat) :
     ∀ n, n ≤ 4 → ∀ msg root counters,
@@ -656,13 +657,14 @@ theorem expandLayersBC_verified (answers : Answers) (sig : Signature) (index : N
       intro hn msg root counters he
       simp only [expandLayersBC, evalWithAnswerFn_bind] at he
       cases hs : evalWithAnswerFn answers (layerCounterSearch (Fin.ofNat 4 n)
-        (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg 0 counterLimit) with
+        (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg 0 (searchLimit (Fin.ofNat 4 n))) with
       | none => simp only [hs, evalWithAnswerFn_pure, reduceCtorEq] at he
       | some found =>
           obtain ⟨counter, digits⟩ := found
+          have hlim := searchLimit_le (Fin.ofNat 4 n)
           obtain ⟨_, hbound, hdecode⟩ := layerCounterSearch_some answers (Fin.ofNat 4 n)
             (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg
-            counterLimit 0 counter digits (by decide) hs
+            (searchLimit (Fin.ofNat 4 n)) 0 counter digits (by unfold counterLimit at hlim; omega) hs
           have hnot : ¬counter.toNat ≥ counterLimit := by omega
           have hlay := ofNat_layer_val n (by omega)
           simp only [hs] at he
@@ -674,8 +676,9 @@ theorem expandLayersBC_verified (answers : Answers) (sig : Signature) (index : N
             refine ⟨rfl, fun w hw hc => ?_⟩
             have hcounter : w.counters (Fin.ofNat 4 0) = counter := by
               rw [hc _ (by rw [hlay]; omega), hlay]; rfl
-            simp only [verifyLayersBC, hcounter, hnot, ite_false, evalWithAnswerFn_bind, hdecode, if_true,
-              evalWithAnswerFn_map, hw]
+            simp only [verifyLayersBC, hcounter, hnot, ite_false, evalWithAnswerFn_bind, if_true]
+            rw [verifyTop_of_decode _ _ hdecode, evalWithAnswerFn_map, hw]
+            rfl
           · simp only [hn0, if_false, evalWithAnswerFn_bind] at he
             cases hr : evalWithAnswerFn answers (expandLayersBC sig index n
               (.pair (evalWithAnswerFn answers (recoverLayerPair sig index (Fin.ofNat 4 n) digits)).1
@@ -1018,13 +1021,14 @@ theorem signLayersBC_length (answers : Answers) (cache : Cache) (index : Nat) :
         rfl
       · simp only [signLayersBC, evalWithAnswerFn_bind] at he
         cases hs : evalWithAnswerFn answers (layerCounterSearch (Fin.ofNat 4 n)
-          (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg 0 counterLimit) with
+          (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg 0 (searchLimit (Fin.ofNat 4 n))) with
         | none => simp only [hs, hn0, if_false, evalWithAnswerFn_pure, reduceCtorEq] at he
         | some found =>
             obtain ⟨counter, digits⟩ := found
+            have hlim := searchLimit_le (Fin.ofNat 4 n)
             have hd := (layerCounterSearch_some answers (Fin.ofNat 4 n)
               (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg
-              counterLimit 0 counter digits (by decide) hs).2.2
+              (searchLimit (Fin.ofNat 4 n)) 0 counter digits (by unfold counterLimit at hlim; omega) hs).2.2
             have hvalid := Cost.validDigits_decode hd
             simp only [hs] at he
             simp only [hn0, if_false, evalWithAnswerFn_bind] at he
@@ -1055,19 +1059,20 @@ theorem signLayersBC_expandLayersBC (answers : Answers) (cache : Cache) (index :
       intro _ hn msg pieces he
       simp only [signLayersBC, evalWithAnswerFn_bind] at he
       cases hs : evalWithAnswerFn answers (layerCounterSearch (Fin.ofNat 4 n)
-        (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg 0 counterLimit) with
+        (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg 0 (searchLimit (Fin.ofNat 4 n))) with
       | none =>
           by_cases hn0 : n = 0
           · subst n
             obtain ⟨found, hf⟩ := htop index hindex msg
-            rw [hf] at hs
+            rw [show searchLimit (Fin.ofNat 4 0) = counterLimit from rfl, hf] at hs
             cases hs
           · simp only [hs, hn0, if_false, evalWithAnswerFn_pure, reduceCtorEq] at he
       | some found =>
           obtain ⟨counter, digits⟩ := found
+          have hlim := searchLimit_le (Fin.ofNat 4 n)
           have hd := (layerCounterSearch_some answers (Fin.ofNat 4 n)
             (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg
-            counterLimit 0 counter digits (by decide) hs).2.2
+            (searchLimit (Fin.ofNat 4 n)) 0 counter digits (by unfold counterLimit at hlim; omega) hs).2.2
           have hvalid := Cost.validDigits_decode hd
           simp only [hs] at he
           by_cases hn0 : n = 0

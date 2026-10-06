@@ -126,12 +126,10 @@ theorem rOK_eq {o : Option Result} {r : Result} (h : rOK o r = true) : o = some 
   | none => simp [rOK] at h
   | some r' => simp only [rOK] at h; rw [resBeq_eq h]
 def vrun (p f : Nat) : Option Result := symRun {} (lcode p) (pcOf p) f
-def ctabIdx : Nat := 111104
 def ttabIdx : Nat := 111176
 def q48tabIdx : Nat := 176712
 def qtabIdx : Nat := 176744
-def ckR0 : Nat := 82059
-def ckDone : Nat := 82074
+def ckSlot (c : Nat) : Nat := 110936 + 32 * c
 def q48R0 : Nat := 110683
 def q48Done : Nat := 110690
 def triBaseTab : List Nat :=
@@ -197,6 +195,13 @@ def headRH (rb : Reg) (off : Word) (d : Nat) (slot : Option Nat) (p i : Nat) : R
        | none => addC (addC (.reg rb) off) 48)).set .x25 (hLoad i d),
     [(kAt rb off 16, hLoad i d)], [.valid (kAt rb off 16) 8]⟩,
     .c (pcOf (p + n)), .ecall, n, n⟩
+def headRV (rb : Reg) (off : Word) (d : Nat) (slot : Option Nat) (p i : Nat) : Result :=
+  ⟨⟨((RegFile.init.set .x10 (addC (.reg rb) off)).set .x12
+      (match slot with
+       | some a => .c (BitVec.ofNat 64 a)
+       | none => addC (addC (.reg rb) off) 48)).set .x25 (hLoad i d),
+    [(kAt rb off 16, hLoad i d)], [.valid (kAt rb off 16) 8]⟩,
+    .c (pcOf (p + 4)), .ecall, 4, 4⟩
 def copyFH (rb : Reg) (off : Word) (slot : Nat) (p : Nat) : Result :=
   ⟨⟨copyRegs rb off, copyMem rb off slot, copyObl rb off⟩, .c (pcOf (p + 4)), .fuel, 4, 4⟩
 def shE (w : Reg) (b : Nat) : E :=
@@ -208,8 +213,8 @@ def xJ (w : Reg) (b : Nat) (mreg : Reg) (imm : Word) : Result :=
     .bin .and (.bin .add (.bin .add (.bin .and (shE w b) (.reg mreg)) (.reg .x15)) (.c imm)) (.c (~~~1#64)),
     .jump, (if b = 9 then 3 else 4), (if b = 9 then 3 else 4)⟩
 def ctabX : Result :=
-  ⟨⟨RegFile.init.set .x14 (.bin .sub (.reg .x15) (.bin .sll (.reg .x29) (.c 5))), [], []⟩,
-    .bin .and (.bin .add (.bin .sub (.reg .x15) (.bin .sll (.reg .x29) (.c 5))) (.c (-1824))) (.c (~~~1#64)),
+  ⟨⟨RegFile.init.set .x14 (.bin .sub (.reg .x15) (.bin .sll (.reg .x29) (.c 7))), [], []⟩,
+    .bin .and (.bin .add (.bin .sub (.reg .x15) (.bin .sll (.reg .x29) (.c 7))) (.c (-1824))) (.c (~~~1#64)),
     .jump, 3, 3⟩
 def q48X : Result :=
   ⟨⟨RegFile.init.set .x14 (.bin .add (.bin .and (.bin .srl (.reg .x17) (.c 29)) (.c 0x60)) (.reg .x15)), [], []⟩,
@@ -225,7 +230,7 @@ def offL (i : Nat) : Word := BitVec.ofNat 64 (64 * (42 - i)) - BitVec.ofNat 64 1
 def slotL (i : Nat) : Nat := if i = 0 then 768 else 784 + 16 * i
 def hSlot (i d : Nat) : Option Nat := if d = 6 then some (slotL i) else none
 def triBase (t dB dC : Nat) : Nat := triBaseTab.getD (64 * t + 8 * dB + dC) 0
-def partLen (d : Nat) : Nat := if d = 7 then 4 else 18 - 2 * d
+def partLen (d : Nat) : Nat := if d = 7 then 4 else if d = 6 then 5 else 18 - 2 * d
 def pcB (t dB dC : Nat) : Nat := triBase t dB dC + 15
 def pcC (t dB dC : Nat) : Nat := pcB t dB dC + partLen dB
 def pcX (t dB dC : Nat) : Nat := pcC t dB dC + partLen dC
@@ -235,7 +240,7 @@ def rungsOK (d0 slot p : Nat) : Bool :=
     rOK (vrun (p + 2 * (m - d0)) 3) (rungR m (if m = 6 then some slot else none) (p + 2 * (m - d0)))
 def partOK (i d p : Nat) : Bool :=
   if d = 7 then rOK (vrun p 4) (copyFH .x22 (offL i) (slotL i) p)
-  else rOK (vrun p 8) (headRH .x22 (offL i) d (if d = 6 then some (slotL i) else none) p i) &&
+  else rOK (vrun p 8) (headRV .x22 (offL i) d (if d = 6 then some (slotL i) else none) p i) &&
     rungsOK (d + 1) (slotL i) (p + 5)
 def entCheck (t k : Nat) : Bool :=
   if k % 8 = 7 then
@@ -256,11 +261,7 @@ def triCheck (t lo n : Nat) : Bool :=
   ((List.range' lo n).all fun k => entCheck t k) &&
     ((List.range' (lo / 8) (n / 8)).all fun q => blkCheck t (q / 8) (q % 8))
 def ckCheck : Bool :=
-  ((List.range 7).all fun c => rOK (vrun (ctabIdx + 8 * c) 7)
-      (headJH .x22 (offL 42) (ckR0 + 2 * c + landOff c) 42 c (hSlot 42 c)) &&
-    rOK (vrun (ckR0 + 2 * c + landOff c) 1) (ecallR (ckR0 + 2 * c + landOff c))) &&
-    rOK (vrun (ctabIdx + 56) 6) (copyN .x22 (offL 42) (slotL 42) ckDone) &&
-    rOK (vrun (ctabIdx + 64) 2) retR && rungsOK 0 (slotL 42) ckR0 && rOK (vrun ckDone 2) retR
+  (List.range 8).all fun c => partOK 42 c (ckSlot c) && rOK (vrun (ckSlot c + partLen c) 2) retR
 def offT (i : Nat) : Word := BitVec.ofNat 64 (64 * (57 - i)) - BitVec.ofNat 64 1664
 def slotT (i : Nat) : Nat := if i = 0 then 512 else 528 + 16 * i
 def quadBase (q dB dC dD : Nat) : Nat := quadBaseTab.getD (64 * q + 16 * dB + 4 * dC + dD) 0

@@ -1,5 +1,6 @@
 import SigGolfCandidate.T3M.Search.Basic
 import SigGolfCandidate.T3M.Images.Sizes
+import SigGolfCandidate.T3M.ImageSlice
 
 namespace SigGolfCandidate.T3M.Search
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
@@ -24,15 +25,19 @@ def k_97 : List (BitVec 32) := [0x7400313,7001699]
 def k_99 : List (BitVec 32) := [1050259,32871]
 def k_101 : List (BitVec 32) := [1683,32871]
 def k_103 : List (BitVec 32) := [17044243,0x40136313,295827,34152211,31712179,134711,638455315,7223331,8272931,2451]
-def k_113 : List (BitVec 32) := [4195127,0x4c698c63]
+def k_113s : List (BitVec 32) := [617689199,0x4c698c63]
+def k_113e : List (BitVec 32) := [634548335,0x4c698c63]
+def k_113 (b : Nat) : List (BitVec 32) := if b = 354 then k_113e else k_113s
 def k_115 : List (BitVec 32) := [134711,638455315,54403107,132407,637863187,67110291,132663,705037843]
 def k_123 : List (BitVec 32) := [115]
 def k_124 : List (BitVec 32) := [134711,705564179,930563,9319299,3219,537136227]
 def k_130 : List (BitVec 32) := [65265171,0x540e1263]
 def k_132 : List (BitVec 32) := [7568915,30182579,3366419,8289811,30182579,6512147,8289811,30182579,9657875,8289811,30182579,0xc35e13,8289811,30182579,0xf35e13,8289811,30182579,19095059,8289811,30182579,22240787,8289811,30182579,25386515,8289811,30182579,28532243,8289811,30182579,31677971,8289811,30182579,34823699,8289811,30182579,37969427,8289811,30182579,41115155,8289811,30182579,44260883,8289811,30182579,47406611,8289811,30182579,50552339,8289811,30182579,53698067,8289811,30182579,56843795,8289811,30182579,59989523,8289811,30182579,63135251,8289811,30182579,66280979,1285779,8322707,31354419,30182579,2350611,8289811,30182579,5496339,8289811,30182579,8642067,8289811,30182579,0xb3de13,8289811,30182579,0xe3de13,8289811,30182579,18079251,8289811,30182579,21224979,8289811,30182579,24370707,8289811,30182579,27516435,8289811,30182579,30662163,8289811,30182579,33807891,8289811,30182579,36953619,8289811,30182579,40099347,8289811,30182579,43245075,8289811,30182579,46390803,8289811,30182579,49536531,8289811,30182579,52682259,8289811,30182579,55827987,8289811,30182579,58973715,8289811,30182579,62119443,8289811,30182579,0x41988e33,8392339,870219363]
-def k_262 : List (BitVec 32) := [738197615]
+def k_262s : List (BitVec 32) := [22098031]
+def k_262e : List (BitVec 32) := [38957167]
+def k_262 (b : Nat) : List (BitVec 32) := if b = 354 then k_262e else k_262s
 def k_263 : List (BitVec 32) := [64216595,839784547]
-def k_265 : List (BitVec 32) := [0xffff37,200211,0x7fe7e93,32411315,969859,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,1285779,30338611,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,4095635,31231155,3038867,4128403,31231155,5136019,31231155,0x411c8eb3,437163619,0x780006f,133815,0x420a8a93,0x80f0f13,0x7f37e13,3022355,32378419,945795,31096867,9363091,31096995,9363091,31097123,7557907,60005907,29582131,7590803,3836563,1706515,18497043,0xfc0e10e3,3374611,30048291,2315027,3374611,30048419,2315027,3374611,30048547,32871,197907,230803,1555,17828371,0x7f57e13,3022355,32378419,0x83e4e03,29754931,7689491,60136979,29713715,7722387,0xfffa0a13,0xfc0a1ce3,3505683,0xffee0e13,1981971,29754931,2446611,3505683,0xffee0e13,1981971,29754931,2446611,0xffe50e13,1981971,29754931,9846291,0xa0e1e63,2579,0xf11ff06f,0x960410e3,0xffff37,662654467,0x940e0ae3,663696131,672084867,0x8000c93,2579,0xeedff06f,19,19,19,19,19]
+def k_265 : List (BitVec 32) := [0xffff37,200211,0x7fe7e93,32411315,969859,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,1285779,30338611,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,0x7fe7e93,32411315,970371,31231155,8281619,4095635,31231155,3038867,4128403,31231155,5136019,31231155,0x411c8eb3,437163619,0x780006f,133815,0x420a8a93,0x80f0f13,0x7f37e13,3022355,32378419,945795,31096867,9363091,31096995,9363091,31097123,7557907,60005907,29582131,7590803,3836563,1706515,18497043,0xfc0e10e3,3374611,30048291,2315027,3374611,30048419,2315027,3374611,30048547,32871,197907,230803,1555,17828371,0x7f57e13,3022355,32378419,0x83e4e03,29754931,7689491,60136979,29713715,7722387,0xfffa0a13,0xfc0a1ce3,3505683,0xffee0e13,1981971,29754931,2446611,3505683,0xffee0e13,1981971,29754931,2446611,0xffe50e13,1981971,29754931,7749139,0xa0e1e63,2579,0xf11ff06f,0x960410e3,0xffff37,662654467,0x940e0ae3,663696131,672084867,0x8100c93,2579,0xeedff06f,19,19,19,19,19]
 def k_438 : List (BitVec 32) := [854675,263267]
 def k_440 : List (BitVec 32) := [0xfffd0a93]
 def k_441 : List (BitVec 32) := [2579]
@@ -46,154 +51,218 @@ def k_461 : List (BitVec 32) := [265315]
 def k_462 : List (BitVec 32) := [0x41988e33,134839,0x420e8e93,22974131]
 def k_466 : List (BitVec 32) := [30310435]
 def k_467 : List (BitVec 32) := [32871]
-def k_468 : List (BitVec 32) := [1673619,0xa71ff06f]
-def kernL : Rv.Layout := [(0, k_0), (2, k_2), (3, k_3), (7, k_7), (9, k_9), (31, k_31), (40, k_40), (43, k_43), (44, k_44), (47, k_47), (48, k_48), (51, k_51), (52, k_52), (53, k_53), (97, k_97), (99, k_99), (101, k_101), (103, k_103), (113, k_113), (115, k_115), (123, k_123), (124, k_124), (130, k_130), (132, k_132), (262, k_262), (263, k_263), (265, k_265), (438, k_438), (440, k_440), (441, k_441), (442, k_442), (443, k_443), (446, k_446), (448, k_448), (452, k_452), (453, k_453), (461, k_461), (462, k_462), (466, k_466), (467, k_467), (468, k_468)]
-def kernCode : List (BitVec 32) := layoutCode kernL
-theorem kernL_ok : layoutOk 0 kernL = true := by decide +kernel
-def KernAt (image : Image) (b : Nat) : Prop := CodeAt image (pcOf b) kernCode ∧ (b = 354 ∨ b = 543)
+def k_468s : List (BitVec 32) := [1673619,0x4bc1306f]
+def k_468e : List (BitVec 32) := [1673619,0x4cc2706f]
+def k_468 (b : Nat) : List (BitVec 32) := if b = 354 then k_468e else k_468s
+def kernL (b : Nat) : Rv.Layout := [(0, k_0), (2, k_2), (3, k_3), (7, k_7), (9, k_9), (31, k_31), (40, k_40), (43, k_43), (44, k_44), (47, k_47), (48, k_48), (51, k_51), (52, k_52), (53, k_53), (97, k_97), (99, k_99), (101, k_101), (103, k_103), (113, k_113 b), (115, k_115), (123, k_123), (124, k_124), (130, k_130), (132, k_132), (262, k_262 b), (263, k_263), (265, k_265), (438, k_438), (440, k_440), (441, k_441), (442, k_442), (443, k_443), (446, k_446), (448, k_448), (452, k_452), (453, k_453), (461, k_461), (462, k_462), (466, k_466), (467, k_467), (468, k_468 b)]
+def kernCode (b : Nat) : List (BitVec 32) := layoutCode (kernL b)
+theorem kernL_ok {b : Nat} (hb : b = 354 ∨ b = 543) : layoutOk 0 (kernL b) = true := by
+  rcases hb with rfl | rfl <;> decide +kernel
+def capBase (b : Nat) : Nat := if b = 354 then 41066 else 20771
+def a_0 : List (BitVec 32) := [2097975,6940771]
+def a_2 : List (BitVec 32) := [268387]
+def a_3 : List (BitVec 32) := [4195127,6915171]
+def a_5s : List (BitVec 32) := [0xda8ec06f]
+def a_5e : List (BitVec 32) := [0xd98d806f]
+def a_5 (b : Nat) : List (BitVec 32) := if b = 354 then a_5e else a_5s
+def a_6s : List (BitVec 32) := [0xa79ec06f]
+def a_6e : List (BitVec 32) := [0xa69d806f]
+def a_6 (b : Nat) : List (BitVec 32) := if b = 354 then a_6e else a_6s
+def a_7 : List (BitVec 32) := [0xffae0e13,1981971,66985491,0xfff00a13,1726995,7342739,56252979,1269395,2318099,32439987,0xfff34f13,32439987,21954227,31354419,66280083,1285779,31124147,1760915,2809619,32439987,0xfffacf13,32439987,21954227,2006675,31354419,0xfffe0e93,31358515,3149587,31725155]
+def a_36 : List (BitVec 32) := [34472035]
+def a_37s : List (BitVec 32) := [0xa35ec06f]
+def a_37e : List (BitVec 32) := [0xa25d806f]
+def a_37 (b : Nat) : List (BitVec 32) := if b = 354 then a_37e else a_37s
+def a_38 : List (BitVec 32) := [0xfffe0e93,31358515,0xfffe0e93,31358515,918627]
+def a_43s : List (BitVec 32) := [0xa1dec06f]
+def a_43e : List (BitVec 32) := [0xa0dd806f]
+def a_43 (b : Nat) : List (BitVec 32) := if b = 354 then a_43e else a_43s
+def a_44s : List (BitVec 32) := [0xa91ec06f]
+def a_44e : List (BitVec 32) := [0xa81d806f]
+def a_44 (b : Nat) : List (BitVec 32) := if b = 354 then a_44e else a_44s
+def appL (b : Nat) : Rv.Layout := [(0, a_0), (2, a_2), (3, a_3), (5, a_5 b), (6, a_6 b), (7, a_7), (36, a_36), (37, a_37 b), (38, a_38), (43, a_43 b), (44, a_44 b)]
+def appCode (b : Nat) : List (BitVec 32) := layoutCode (appL b)
+theorem appL_ok {b : Nat} (hb : b = 354 ∨ b = 543) : layoutOk 0 (appL b) = true := by
+  rcases hb with rfl | rfl <;> decide +kernel
+def KernAt (image : Image) (b : Nat) : Prop :=
+  (CodeAt image (pcOf b) (kernCode b) ∧ CodeAt image (pcOf (capBase b)) (appCode b)) ∧ (b = 354 ∨ b = 543)
 theorem codeAt_k_0 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 0)) k_0 :=
-  codeAt_sublayout h.1 kernL_ok (i := 0) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 0) rfl
 theorem codeAt_k_2 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 2)) k_2 :=
-  codeAt_sublayout h.1 kernL_ok (i := 1) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 1) rfl
 theorem codeAt_k_3 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 3)) k_3 :=
-  codeAt_sublayout h.1 kernL_ok (i := 2) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 2) rfl
 theorem codeAt_k_7 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 7)) k_7 :=
-  codeAt_sublayout h.1 kernL_ok (i := 3) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 3) rfl
 theorem codeAt_k_9 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 9)) k_9 :=
-  codeAt_sublayout h.1 kernL_ok (i := 4) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 4) rfl
 theorem codeAt_k_31 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 31)) k_31 :=
-  codeAt_sublayout h.1 kernL_ok (i := 5) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 5) rfl
 theorem codeAt_k_40 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 40)) k_40 :=
-  codeAt_sublayout h.1 kernL_ok (i := 6) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 6) rfl
 theorem codeAt_k_43 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 43)) k_43 :=
-  codeAt_sublayout h.1 kernL_ok (i := 7) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 7) rfl
 theorem codeAt_k_44 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 44)) k_44 :=
-  codeAt_sublayout h.1 kernL_ok (i := 8) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 8) rfl
 theorem codeAt_k_47 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 47)) k_47 :=
-  codeAt_sublayout h.1 kernL_ok (i := 9) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 9) rfl
 theorem codeAt_k_48 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 48)) k_48 :=
-  codeAt_sublayout h.1 kernL_ok (i := 10) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 10) rfl
 theorem codeAt_k_51 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 51)) k_51 :=
-  codeAt_sublayout h.1 kernL_ok (i := 11) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 11) rfl
 theorem codeAt_k_52 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 52)) k_52 :=
-  codeAt_sublayout h.1 kernL_ok (i := 12) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 12) rfl
 theorem codeAt_k_53 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 53)) k_53 :=
-  codeAt_sublayout h.1 kernL_ok (i := 13) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 13) rfl
 theorem codeAt_k_97 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 97)) k_97 :=
-  codeAt_sublayout h.1 kernL_ok (i := 14) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 14) rfl
 theorem codeAt_k_99 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 99)) k_99 :=
-  codeAt_sublayout h.1 kernL_ok (i := 15) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 15) rfl
 theorem codeAt_k_101 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 101)) k_101 :=
-  codeAt_sublayout h.1 kernL_ok (i := 16) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 16) rfl
 theorem codeAt_k_103 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 103)) k_103 :=
-  codeAt_sublayout h.1 kernL_ok (i := 17) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 17) rfl
 theorem codeAt_k_113 {image : Image} {b : Nat} (h : KernAt image b) :
-    CodeAt image (pcOf (b + 113)) k_113 :=
-  codeAt_sublayout h.1 kernL_ok (i := 18) (by kernel_rfl)
+    CodeAt image (pcOf (b + 113)) (k_113 b) :=
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 18) rfl
 theorem codeAt_k_115 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 115)) k_115 :=
-  codeAt_sublayout h.1 kernL_ok (i := 19) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 19) rfl
 theorem codeAt_k_123 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 123)) k_123 :=
-  codeAt_sublayout h.1 kernL_ok (i := 20) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 20) rfl
 theorem codeAt_k_124 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 124)) k_124 :=
-  codeAt_sublayout h.1 kernL_ok (i := 21) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 21) rfl
 theorem codeAt_k_130 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 130)) k_130 :=
-  codeAt_sublayout h.1 kernL_ok (i := 22) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 22) rfl
 theorem codeAt_k_132 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 132)) k_132 :=
-  codeAt_sublayout h.1 kernL_ok (i := 23) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 23) rfl
 theorem codeAt_k_262 {image : Image} {b : Nat} (h : KernAt image b) :
-    CodeAt image (pcOf (b + 262)) k_262 :=
-  codeAt_sublayout h.1 kernL_ok (i := 24) (by kernel_rfl)
+    CodeAt image (pcOf (b + 262)) (k_262 b) :=
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 24) rfl
 theorem codeAt_k_263 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 263)) k_263 :=
-  codeAt_sublayout h.1 kernL_ok (i := 25) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 25) rfl
 theorem codeAt_k_265 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 265)) k_265 :=
-  codeAt_sublayout h.1 kernL_ok (i := 26) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 26) rfl
 theorem codeAt_k_438 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 438)) k_438 :=
-  codeAt_sublayout h.1 kernL_ok (i := 27) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 27) rfl
 theorem codeAt_k_440 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 440)) k_440 :=
-  codeAt_sublayout h.1 kernL_ok (i := 28) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 28) rfl
 theorem codeAt_k_441 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 441)) k_441 :=
-  codeAt_sublayout h.1 kernL_ok (i := 29) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 29) rfl
 theorem codeAt_k_442 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 442)) k_442 :=
-  codeAt_sublayout h.1 kernL_ok (i := 30) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 30) rfl
 theorem codeAt_k_443 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 443)) k_443 :=
-  codeAt_sublayout h.1 kernL_ok (i := 31) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 31) rfl
 theorem codeAt_k_446 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 446)) k_446 :=
-  codeAt_sublayout h.1 kernL_ok (i := 32) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 32) rfl
 theorem codeAt_k_448 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 448)) k_448 :=
-  codeAt_sublayout h.1 kernL_ok (i := 33) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 33) rfl
 theorem codeAt_k_452 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 452)) k_452 :=
-  codeAt_sublayout h.1 kernL_ok (i := 34) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 34) rfl
 theorem codeAt_k_453 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 453)) k_453 :=
-  codeAt_sublayout h.1 kernL_ok (i := 35) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 35) rfl
 theorem codeAt_k_461 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 461)) k_461 :=
-  codeAt_sublayout h.1 kernL_ok (i := 36) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 36) rfl
 theorem codeAt_k_462 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 462)) k_462 :=
-  codeAt_sublayout h.1 kernL_ok (i := 37) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 37) rfl
 theorem codeAt_k_466 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 466)) k_466 :=
-  codeAt_sublayout h.1 kernL_ok (i := 38) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 38) rfl
 theorem codeAt_k_467 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 467)) k_467 :=
-  codeAt_sublayout h.1 kernL_ok (i := 39) (by kernel_rfl)
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 39) rfl
 theorem codeAt_k_468 {image : Image} {b : Nat} (h : KernAt image b) :
-    CodeAt image (pcOf (b + 468)) k_468 :=
-  codeAt_sublayout h.1 kernL_ok (i := 40) (by kernel_rfl)
-theorem kernCode_expand : (Images.expandImage.code.drop 354).take 470 = kernCode := by decide +kernel
-theorem kernCode_sign : (Images.signImage.code.drop 543).take 470 = kernCode := by decide +kernel
-theorem kernAt_of {image : Image} {b : Nat} (hb : b = 354 ∨ b = 543) (hlen : b + 470 ≤ image.code.length)
-    (h : (image.code.drop b).take 470 = kernCode) : KernAt image b := by
-  refine ⟨⟨?_, ?_, ?_, ?_⟩, hb⟩
-  · rcases hb with rfl | rfl <;> decide
-  · rcases hb with rfl | rfl <;> decide
-  · rcases hb with rfl | rfl <;> decide
-  · rw [← h]
-    have e : (pcOf b).toNat = 0x1000 + 4 * b := by rcases hb with rfl | rfl <;> rfl
-    rw [e, show (0x1000 + 4 * b - 0x1000) / 4 = b by omega]
-    exact List.take_prefix _ _
-theorem kernAt_expand : KernAt Images.expandImage 354 := by
-  apply kernAt_of (Or.inl rfl) _ kernCode_expand
-  rw [show Images.expandImage.code.length = 41066 from Images.expandCode_length]
-  decide
-theorem kernAt_sign : KernAt Images.signImage 543 := by
-  apply kernAt_of (Or.inr rfl) _ kernCode_sign
-  rw [show Images.signImage.code.length = 20771 from Images.signCode_length]
-  decide
+    CodeAt image (pcOf (b + 468)) (k_468 b) :=
+  codeAt_sublayout h.1.1 (kernL_ok h.2) (i := 40) rfl
+theorem codeAt_a_0 {image : Image} {b : Nat} (h : KernAt image b) :
+    CodeAt image (pcOf (capBase b + 0)) (a_0) :=
+  codeAt_sublayout h.1.2 (appL_ok h.2) (i := 0) rfl
+theorem codeAt_a_2 {image : Image} {b : Nat} (h : KernAt image b) :
+    CodeAt image (pcOf (capBase b + 2)) (a_2) :=
+  codeAt_sublayout h.1.2 (appL_ok h.2) (i := 1) rfl
+theorem codeAt_a_3 {image : Image} {b : Nat} (h : KernAt image b) :
+    CodeAt image (pcOf (capBase b + 3)) (a_3) :=
+  codeAt_sublayout h.1.2 (appL_ok h.2) (i := 2) rfl
+theorem codeAt_a_5 {image : Image} {b : Nat} (h : KernAt image b) :
+    CodeAt image (pcOf (capBase b + 5)) (a_5 b) :=
+  codeAt_sublayout h.1.2 (appL_ok h.2) (i := 3) rfl
+theorem codeAt_a_6 {image : Image} {b : Nat} (h : KernAt image b) :
+    CodeAt image (pcOf (capBase b + 6)) (a_6 b) :=
+  codeAt_sublayout h.1.2 (appL_ok h.2) (i := 4) rfl
+theorem codeAt_a_7 {image : Image} {b : Nat} (h : KernAt image b) :
+    CodeAt image (pcOf (capBase b + 7)) (a_7) :=
+  codeAt_sublayout h.1.2 (appL_ok h.2) (i := 5) rfl
+theorem codeAt_a_36 {image : Image} {b : Nat} (h : KernAt image b) :
+    CodeAt image (pcOf (capBase b + 36)) (a_36) :=
+  codeAt_sublayout h.1.2 (appL_ok h.2) (i := 6) rfl
+theorem codeAt_a_37 {image : Image} {b : Nat} (h : KernAt image b) :
+    CodeAt image (pcOf (capBase b + 37)) (a_37 b) :=
+  codeAt_sublayout h.1.2 (appL_ok h.2) (i := 7) rfl
+theorem codeAt_a_38 {image : Image} {b : Nat} (h : KernAt image b) :
+    CodeAt image (pcOf (capBase b + 38)) (a_38) :=
+  codeAt_sublayout h.1.2 (appL_ok h.2) (i := 8) rfl
+theorem codeAt_a_43 {image : Image} {b : Nat} (h : KernAt image b) :
+    CodeAt image (pcOf (capBase b + 43)) (a_43 b) :=
+  codeAt_sublayout h.1.2 (appL_ok h.2) (i := 9) rfl
+theorem codeAt_a_44 {image : Image} {b : Nat} (h : KernAt image b) :
+    CodeAt image (pcOf (capBase b + 44)) (a_44 b) :=
+  codeAt_sublayout h.1.2 (appL_ok h.2) (i := 10) rfl
+private theorem foldl_chunks (cs : List (List (BitVec 32))) (acc : List (BitVec 32)) :
+    cs.foldl (· ++ ·) acc = acc ++ cs.flatten := by
+  induction cs generalizing acc with
+  | nil => simp only [List.foldl_nil, List.flatten_nil, List.append_nil]
+  | cons c cs ih => simp only [List.foldl_cons, ih, List.flatten_cons, List.append_assoc]
+theorem kernCode_expand : (Images.expandImage.code.drop 354).take (kernCode 354).length = kernCode 354 := by
+  change (Images.expandCode.drop 354).take _ = _
+  rw [Images.expandCode, foldl_chunks, List.nil_append]; decide +kernel
+theorem kernCode_sign : (Images.signImage.code.drop 543).take (kernCode 543).length = kernCode 543 := by
+  change (Images.signCode.drop 543).take _ = _
+  rw [Images.signCode, foldl_chunks, List.nil_append]; decide +kernel
+theorem appCode_expand : (Images.expandImage.code.drop 41066).take (appCode 354).length = appCode 354 := by
+  change (Images.expandCode.drop 41066).take _ = _
+  rw [Images.expandCode, foldl_chunks, List.nil_append]; decide +kernel
+theorem appCode_sign : (Images.signImage.code.drop 20771).take (appCode 543).length = appCode 543 := by
+  change (Images.signCode.drop 20771).take _ = _
+  rw [Images.signCode, foldl_chunks, List.nil_append]; decide +kernel
+theorem kernAt_expand : KernAt Images.expandImage 354 :=
+  ⟨⟨codeAt_slice (by decide +kernel) kernCode_expand, codeAt_slice (by decide +kernel) appCode_expand⟩, Or.inl rfl⟩
+theorem kernAt_sign : KernAt Images.signImage 543 :=
+  ⟨⟨codeAt_slice (by decide +kernel) kernCode_sign, codeAt_slice (by decide +kernel) appCode_sign⟩, Or.inr rfl⟩
 sym_block blk354_0 := symRun { noAlias := true } k_0 (pcOf (354 + 0)) 200
 sym_block blk543_0 := symRun { noAlias := true } k_0 (pcOf (543 + 0)) 200
 sym_block blk354_3 := symRun { noAlias := true } k_3 (pcOf (354 + 3)) 200
@@ -228,8 +297,8 @@ sym_block blk354_101 := symRun { noAlias := true } k_101 (pcOf (354 + 101)) 200
 sym_block blk543_101 := symRun { noAlias := true } k_101 (pcOf (543 + 101)) 200
 sym_block blk354_103 := symRun { noAlias := true } k_103 (pcOf (354 + 103)) 200
 sym_block blk543_103 := symRun { noAlias := true } k_103 (pcOf (543 + 103)) 200
-sym_block blk354_113 := symRun { noAlias := true } k_113 (pcOf (354 + 113)) 200
-sym_block blk543_113 := symRun { noAlias := true } k_113 (pcOf (543 + 113)) 200
+sym_block blk354_113 := symRun { noAlias := true } k_113e (pcOf (354 + 113)) 200
+sym_block blk543_113 := symRun { noAlias := true } k_113s (pcOf (543 + 113)) 200
 sym_block blk354_115 := symRun { noAlias := true } k_115 (pcOf (354 + 115)) 200
 sym_block blk543_115 := symRun { noAlias := true } k_115 (pcOf (543 + 115)) 200
 sym_block blk354_124 := symRun { noAlias := true } k_124 (pcOf (354 + 124)) 200
@@ -238,8 +307,8 @@ sym_block blk354_130 := symRun { noAlias := true } k_130 (pcOf (354 + 130)) 200
 sym_block blk543_130 := symRun { noAlias := true } k_130 (pcOf (543 + 130)) 200
 sym_block blk354_132 := symRun { noAlias := true } k_132 (pcOf (354 + 132)) 200
 sym_block blk543_132 := symRun { noAlias := true } k_132 (pcOf (543 + 132)) 200
-sym_block blk354_262 := symRun { noAlias := true } k_262 (pcOf (354 + 262)) 200
-sym_block blk543_262 := symRun { noAlias := true } k_262 (pcOf (543 + 262)) 200
+sym_block blk354_262 := symRun { noAlias := true } k_262e (pcOf (354 + 262)) 200
+sym_block blk543_262 := symRun { noAlias := true } k_262s (pcOf (543 + 262)) 200
 sym_block blk354_263 := symRun { noAlias := true } k_263 (pcOf (354 + 263)) 200
 sym_block blk543_263 := symRun { noAlias := true } k_263 (pcOf (543 + 263)) 200
 sym_block blk354_265 := symRun { noAlias := true } k_265 (pcOf (354 + 265)) 200
@@ -266,8 +335,8 @@ sym_block blk354_462 := symRun { noAlias := true } k_462 (pcOf (354 + 462)) 200
 sym_block blk543_462 := symRun { noAlias := true } k_462 (pcOf (543 + 462)) 200
 sym_block blk354_467 := symRun { noAlias := true } k_467 (pcOf (354 + 467)) 200
 sym_block blk543_467 := symRun { noAlias := true } k_467 (pcOf (543 + 467)) 200
-sym_block blk354_468 := symRun { noAlias := true } k_468 (pcOf (354 + 468)) 200
-sym_block blk543_468 := symRun { noAlias := true } k_468 (pcOf (543 + 468)) 200
+sym_block blk354_468 := symRun { noAlias := true } k_468e (pcOf (354 + 468)) 200
+sym_block blk543_468 := symRun { noAlias := true } k_468s (pcOf (543 + 468)) 200
 def st_0 : SymState := blk354_0.res.st
 def pcE_0 (b : Nat) : E := .c (pcOf (b + 2))
 theorem run_0 {b : Nat} (hb : b = 354 ∨ b = 543) :
@@ -405,9 +474,9 @@ theorem run_103 {b : Nat} (hb : b = 354 ∨ b = 543) :
   · exact blk354_103.trans (congrArg some (by kernel_rfl))
   · exact blk543_103.trans (congrArg some (by kernel_rfl))
 def st_113 : SymState := blk354_113.res.st
-def pcE_113 (b : Nat) : E := rebase blk354_113.res.pc (pcOf (b + 424)) (pcOf (b + 115))
+def pcE_113 (b : Nat) : E := .c (pcOf (capBase b))
 theorem run_113 {b : Nat} (hb : b = 354 ∨ b = 543) :
-    symRun { noAlias := true } k_113 (pcOf (b + 113)) 200 =
+    symRun { noAlias := true } (k_113 b) (pcOf (b + 113)) 200 =
       some ⟨st_113, pcE_113 b, blk354_113.res.stop, blk354_113.res.steps, blk354_113.res.cycles⟩ := by
   rcases hb with rfl | rfl
   · exact blk354_113.trans (congrArg some (by kernel_rfl))
@@ -445,9 +514,9 @@ theorem run_132 {b : Nat} (hb : b = 354 ∨ b = 543) :
   · exact blk354_132.trans (congrArg some (by kernel_rfl))
   · exact blk543_132.trans (congrArg some (by kernel_rfl))
 def st_262 : SymState := blk354_262.res.st
-def pcE_262 (b : Nat) : E := .c (pcOf (b + 438))
+def pcE_262 (b : Nat) : E := .c (pcOf (capBase b + 7))
 theorem run_262 {b : Nat} (hb : b = 354 ∨ b = 543) :
-    symRun { noAlias := true } k_262 (pcOf (b + 262)) 200 =
+    symRun { noAlias := true } (k_262 b) (pcOf (b + 262)) 200 =
       some ⟨st_262, pcE_262 b, blk354_262.res.stop, blk354_262.res.steps, blk354_262.res.cycles⟩ := by
   rcases hb with rfl | rfl
   · exact blk354_262.trans (congrArg some (by kernel_rfl))
@@ -557,9 +626,9 @@ theorem run_467 {b : Nat} (hb : b = 354 ∨ b = 543) :
   · exact blk354_467.trans (congrArg some (by kernel_rfl))
   · exact blk543_467.trans (congrArg some (by kernel_rfl))
 def st_468 : SymState := blk354_468.res.st
-def pcE_468 (b : Nat) : E := .c (pcOf (b + 113))
+def pcE_468 (b : Nat) : E := .c (pcOf (capBase b))
 theorem run_468 {b : Nat} (hb : b = 354 ∨ b = 543) :
-    symRun { noAlias := true } k_468 (pcOf (b + 468)) 200 =
+    symRun { noAlias := true } (k_468 b) (pcOf (b + 468)) 200 =
       some ⟨st_468, pcE_468 b, blk354_468.res.stop, blk354_468.res.steps, blk354_468.res.cycles⟩ := by
   rcases hb with rfl | rfl
   · exact blk354_468.trans (congrArg some (by kernel_rfl))
@@ -607,4 +676,114 @@ theorem run_gateJump {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact blkGateJE.trans (congrArg some (by kernel_rfl))
   · exact blkGateJS.trans (congrArg some (by kernel_rfl))
+sym_block blkA354_0 := symRun { noAlias := true } a_0 (pcOf (41066 + 0)) 200
+sym_block blkA543_0 := symRun { noAlias := true } a_0 (pcOf (20771 + 0)) 200
+def sta_0 : SymState := blkA354_0.res.st
+def pcEa_0 (b : Nat) : E := rebase blkA354_0.res.pc (pcOf (capBase b + 5)) (pcOf (capBase b + 2))
+theorem runa_0 {b : Nat} (hb : b = 354 ∨ b = 543) :
+    symRun { noAlias := true } a_0 (pcOf (capBase b + 0)) 200 =
+      some ⟨sta_0, pcEa_0 b, blkA354_0.res.stop, blkA354_0.res.steps, blkA354_0.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact blkA354_0.trans (congrArg some (by kernel_rfl))
+  · exact blkA543_0.trans (congrArg some (by kernel_rfl))
+sym_block blkA354_2 := symRun { noAlias := true } a_2 (pcOf (41066 + 2)) 200
+sym_block blkA543_2 := symRun { noAlias := true } a_2 (pcOf (20771 + 2)) 200
+def sta_2 : SymState := blkA354_2.res.st
+def pcEa_2 (b : Nat) : E := rebase blkA354_2.res.pc (pcOf (capBase b + 6)) (pcOf (capBase b + 3))
+theorem runa_2 {b : Nat} (hb : b = 354 ∨ b = 543) :
+    symRun { noAlias := true } a_2 (pcOf (capBase b + 2)) 200 =
+      some ⟨sta_2, pcEa_2 b, blkA354_2.res.stop, blkA354_2.res.steps, blkA354_2.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact blkA354_2.trans (congrArg some (by kernel_rfl))
+  · exact blkA543_2.trans (congrArg some (by kernel_rfl))
+sym_block blkA354_3 := symRun { noAlias := true } a_3 (pcOf (41066 + 3)) 200
+sym_block blkA543_3 := symRun { noAlias := true } a_3 (pcOf (20771 + 3)) 200
+def sta_3 : SymState := blkA354_3.res.st
+def pcEa_3 (b : Nat) : E := rebase blkA354_3.res.pc (pcOf (capBase b + 6)) (pcOf (capBase b + 5))
+theorem runa_3 {b : Nat} (hb : b = 354 ∨ b = 543) :
+    symRun { noAlias := true } a_3 (pcOf (capBase b + 3)) 200 =
+      some ⟨sta_3, pcEa_3 b, blkA354_3.res.stop, blkA354_3.res.steps, blkA354_3.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact blkA354_3.trans (congrArg some (by kernel_rfl))
+  · exact blkA543_3.trans (congrArg some (by kernel_rfl))
+sym_block blkA354_5 := symRun { noAlias := true } a_5e (pcOf (41066 + 5)) 200
+sym_block blkA543_5 := symRun { noAlias := true } a_5s (pcOf (20771 + 5)) 200
+def sta_5 : SymState := blkA354_5.res.st
+def pcEa_5 (b : Nat) : E := .c (pcOf (b + 115))
+theorem runa_5 {b : Nat} (hb : b = 354 ∨ b = 543) :
+    symRun { noAlias := true } (a_5 b) (pcOf (capBase b + 5)) 200 =
+      some ⟨sta_5, pcEa_5 b, blkA354_5.res.stop, blkA354_5.res.steps, blkA354_5.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact blkA354_5.trans (congrArg some (by kernel_rfl))
+  · exact blkA543_5.trans (congrArg some (by kernel_rfl))
+sym_block blkA354_6 := symRun { noAlias := true } a_6e (pcOf (41066 + 6)) 200
+sym_block blkA543_6 := symRun { noAlias := true } a_6s (pcOf (20771 + 6)) 200
+def sta_6 : SymState := blkA354_6.res.st
+def pcEa_6 (b : Nat) : E := .c (pcOf (b + 424))
+theorem runa_6 {b : Nat} (hb : b = 354 ∨ b = 543) :
+    symRun { noAlias := true } (a_6 b) (pcOf (capBase b + 6)) 200 =
+      some ⟨sta_6, pcEa_6 b, blkA354_6.res.stop, blkA354_6.res.steps, blkA354_6.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact blkA354_6.trans (congrArg some (by kernel_rfl))
+  · exact blkA543_6.trans (congrArg some (by kernel_rfl))
+sym_block blkA354_7 := symRun { noAlias := true } a_7 (pcOf (41066 + 7)) 200
+sym_block blkA543_7 := symRun { noAlias := true } a_7 (pcOf (20771 + 7)) 200
+def sta_7 : SymState := blkA354_7.res.st
+def pcEa_7 (b : Nat) : E := rebase blkA354_7.res.pc (pcOf (capBase b + 38)) (pcOf (capBase b + 36))
+theorem runa_7 {b : Nat} (hb : b = 354 ∨ b = 543) :
+    symRun { noAlias := true } a_7 (pcOf (capBase b + 7)) 200 =
+      some ⟨sta_7, pcEa_7 b, blkA354_7.res.stop, blkA354_7.res.steps, blkA354_7.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact blkA354_7.trans (congrArg some (by kernel_rfl))
+  · exact blkA543_7.trans (congrArg some (by kernel_rfl))
+sym_block blkA354_36 := symRun { noAlias := true } a_36 (pcOf (41066 + 36)) 200
+sym_block blkA543_36 := symRun { noAlias := true } a_36 (pcOf (20771 + 36)) 200
+def sta_36 : SymState := blkA354_36.res.st
+def pcEa_36 (b : Nat) : E := rebase blkA354_36.res.pc (pcOf (capBase b + 44)) (pcOf (capBase b + 37))
+theorem runa_36 {b : Nat} (hb : b = 354 ∨ b = 543) :
+    symRun { noAlias := true } a_36 (pcOf (capBase b + 36)) 200 =
+      some ⟨sta_36, pcEa_36 b, blkA354_36.res.stop, blkA354_36.res.steps, blkA354_36.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact blkA354_36.trans (congrArg some (by kernel_rfl))
+  · exact blkA543_36.trans (congrArg some (by kernel_rfl))
+sym_block blkA354_37 := symRun { noAlias := true } a_37e (pcOf (41066 + 37)) 200
+sym_block blkA543_37 := symRun { noAlias := true } a_37s (pcOf (20771 + 37)) 200
+def sta_37 : SymState := blkA354_37.res.st
+def pcEa_37 (b : Nat) : E := .c (pcOf (b + 438))
+theorem runa_37 {b : Nat} (hb : b = 354 ∨ b = 543) :
+    symRun { noAlias := true } (a_37 b) (pcOf (capBase b + 37)) 200 =
+      some ⟨sta_37, pcEa_37 b, blkA354_37.res.stop, blkA354_37.res.steps, blkA354_37.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact blkA354_37.trans (congrArg some (by kernel_rfl))
+  · exact blkA543_37.trans (congrArg some (by kernel_rfl))
+sym_block blkA354_38 := symRun { noAlias := true } a_38 (pcOf (41066 + 38)) 200
+sym_block blkA543_38 := symRun { noAlias := true } a_38 (pcOf (20771 + 38)) 200
+def sta_38 : SymState := blkA354_38.res.st
+def pcEa_38 (b : Nat) : E := rebase blkA354_38.res.pc (pcOf (capBase b + 44)) (pcOf (capBase b + 43))
+theorem runa_38 {b : Nat} (hb : b = 354 ∨ b = 543) :
+    symRun { noAlias := true } a_38 (pcOf (capBase b + 38)) 200 =
+      some ⟨sta_38, pcEa_38 b, blkA354_38.res.stop, blkA354_38.res.steps, blkA354_38.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact blkA354_38.trans (congrArg some (by kernel_rfl))
+  · exact blkA543_38.trans (congrArg some (by kernel_rfl))
+sym_block blkA354_43 := symRun { noAlias := true } a_43e (pcOf (41066 + 43)) 200
+sym_block blkA543_43 := symRun { noAlias := true } a_43s (pcOf (20771 + 43)) 200
+def sta_43 : SymState := blkA354_43.res.st
+def pcEa_43 (b : Nat) : E := .c (pcOf (b + 438))
+theorem runa_43 {b : Nat} (hb : b = 354 ∨ b = 543) :
+    symRun { noAlias := true } (a_43 b) (pcOf (capBase b + 43)) 200 =
+      some ⟨sta_43, pcEa_43 b, blkA354_43.res.stop, blkA354_43.res.steps, blkA354_43.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact blkA354_43.trans (congrArg some (by kernel_rfl))
+  · exact blkA543_43.trans (congrArg some (by kernel_rfl))
+sym_block blkA354_44 := symRun { noAlias := true } a_44e (pcOf (41066 + 44)) 200
+sym_block blkA543_44 := symRun { noAlias := true } a_44s (pcOf (20771 + 44)) 200
+def sta_44 : SymState := blkA354_44.res.st
+def pcEa_44 (b : Nat) : E := .c (pcOf (b + 468))
+theorem runa_44 {b : Nat} (hb : b = 354 ∨ b = 543) :
+    symRun { noAlias := true } (a_44 b) (pcOf (capBase b + 44)) 200 =
+      some ⟨sta_44, pcEa_44 b, blkA354_44.res.stop, blkA354_44.res.steps, blkA354_44.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact blkA354_44.trans (congrArg some (by kernel_rfl))
+  · exact blkA543_44.trans (congrArg some (by kernel_rfl))
 end SigGolfCandidate.T3M.Search

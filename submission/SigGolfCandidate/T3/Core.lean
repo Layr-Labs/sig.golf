@@ -22,7 +22,7 @@ def dataCount (lay : Layer) : Nat := if lay = 0 then 54 else 42
 def width (lay : Layer) (i : Nat) : Nat := if lay = 0 ∧ 51 ≤ i then 2 else 3
 def maxDigit (lay : Layer) (i : Nat) : Nat :=
   if lay = 0 then (if i < 51 then 4 else 3) else 7
-def target (lay : Layer) : Nat := ![128, 198, 198, 197] lay
+def target (lay : Layer) : Nat := ![129, 197, 197, 198] lay
 def encodedBits (lay : Layer) : Nat := if lay = 0 then 125 else 126
 def capacity (lay : Layer) : Nat := if lay = 0 then 213 else 301
 def attemptLimit : Nat := 2 ^ 20
@@ -209,13 +209,13 @@ def decode (lay : Layer) (value : Digest) : Option (List Nat) :=
   else if total ≤ target lay ∧ target lay - total < 8 then
     some (digits ++ [target lay - total])
   else none
-def creditFloor (lay : Layer) : Nat := ![9, 0, 0, 0] lay
+def creditFloor (lay : Layer) : Nat := ![7, 0, 0, 0] lay
 def topCredit (value : Digest) : Nat :=
   ((List.range 54).map fun i => if coreDigit 0 value i = (if i < 51 then 3 else 2) then 1 else 0).sum
 def encCredit (lay : Layer) (value : Digest) : Nat := if lay = 0 then topCredit value else 0
 def searchDecode (lay : Layer) (value : Digest) : Option (List Nat) :=
   if encCredit lay value < creditFloor lay then none else decode lay value
-def dummyTop : List Nat := [4,4] ++ List.replicate 40 3 ++ List.replicate 12 0
+def dummyTop : List Nat := [4,4,4] ++ List.replicate 39 3 ++ List.replicate 12 0
 def encodingInput (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : BitVec 32) : HashInput :=
   bytesLE 16 message ++ bytesLE 16 (header 4 lay.val tree 0 leaf) ++ bytesLE 4 counter
 def counterSearch (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : Nat) :

@@ -25,5 +25,5 @@ def Good (L : Layout) (rank : Fin 600) : Prop :=
 def AllGood (L : Layout) : Prop := ∀ rank : Fin 600, Good L rank
 def NineCost (ranks : Fin 9 → Fin 600) : Nat :=
   ((List.finRange 9).map fun k => rankCost (ranks k)).sum
-def ProducerCostOK (ranks : Fin 9 → Fin 600) : Prop := NineCost ranks ≤ 700
+def ProducerCostOK (ranks : Fin 9 → Fin 600) : Prop := NineCost ranks ≤ 701
 end W9Machine.N600

@@ -46,7 +46,7 @@ theorem submission_sign_valid :
   rw [submission_sign, submission_sizes, submission_layout]
   rw [Riscv.Image.Valid]
   rw [Riscv.Image.byteSize,
-    show Images.signImage.code.length = 20771 from Images.signCode_length,
+    show Images.signImage.code.length = 20816 from Images.signCode_length,
     show Images.signImage.data.length = 86016 from Images.signData_length]
   rw [layoutValid_of_data_length _ _ _ 86016 Images.signData_length]
   decide +kernel
@@ -55,7 +55,7 @@ theorem submission_expand_valid :
   rw [submission_expand, submission_sizes, submission_layout]
   rw [Riscv.Image.Valid]
   rw [Riscv.Image.byteSize,
-    show Images.expandImage.code.length = 41066 from Images.expandCode_length,
+    show Images.expandImage.code.length = 41111 from Images.expandCode_length,
     show Images.expandImage.data.length = 25088 from Images.expandData_length]
   rw [layoutValid_of_data_length _ _ _ 25088 Images.expandData_length]
   decide +kernel
@@ -66,8 +66,8 @@ theorem submission_verify_valid :
   rw [Riscv.Image.Valid]
   rw [Riscv.Image.byteSize,
     show Images.verifyImage.code.length = 251927 from Images.verifyCode_length,
-    show Images.verifyImage.data.length = 17104 from Images.verifyData_length]
-  rw [layoutValid_of_data_length _ _ _ 17104 Images.verifyData_length]
+    show Images.verifyImage.data.length = 16576 from Images.verifyData_length]
+  rw [layoutValid_of_data_length _ _ _ 16576 Images.verifyData_length]
   decide +kernel
 theorem submission_admissible : submission.Admissible := by
   refine ⟨by unfold Sizes.Valid; decide, ?_⟩

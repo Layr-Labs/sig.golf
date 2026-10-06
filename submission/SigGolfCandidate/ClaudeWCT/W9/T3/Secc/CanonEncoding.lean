@@ -107,9 +107,9 @@ theorem encCell_injective (U : Finset HashInput) (hE : encInputs ⊆ U) (labels 
   subst e4'
   rfl
 def decodeAt (L : EncLeaf) (answer : HashOutput) : Option Digest :=
-  if (searchDecode L.1.lay (answer.extractLsb' 0 128)).isSome then some (answer.extractLsb' 0 128) else none
+  if (WCT9.producerDecode L.1.lay (answer.extractLsb' 0 128)).isSome then some (answer.extractLsb' 0 128) else none
 theorem decodeAt_eq_some (L : EncLeaf) (answer : HashOutput) (d : Digest) :
-    decodeAt L answer = some d ↔ answer.extractLsb' 0 128 = d ∧ (searchDecode L.1.lay d).isSome := by
+    decodeAt L answer = some d ↔ answer.extractLsb' 0 128 = d ∧ (WCT9.producerDecode L.1.lay d).isSome := by
   unfold decodeAt
   split_ifs with hs
   · constructor
@@ -119,20 +119,43 @@ theorem decodeAt_eq_some (L : EncLeaf) (answer : HashOutput) (d : Digest) :
     · intro he; cases he
     · rintro ⟨rfl, h⟩; exact absurd h hs
 theorem decodeAt_eq_none (L : EncLeaf) (answer : HashOutput) :
-    decodeAt L answer = none ↔ searchDecode L.1.lay (answer.extractLsb' 0 128) = none := by
+    decodeAt L answer = none ↔ WCT9.producerDecode L.1.lay (answer.extractLsb' 0 128) = none := by
   unfold decodeAt
   split_ifs with hs
   · simp only [false_iff]
     intro hn; rw [hn] at hs; exact absurd hs (by decide)
   · simp only [true_iff]
-    cases hd : searchDecode L.1.lay (answer.extractLsb' 0 128) with
+    cases hd : WCT9.producerDecode L.1.lay (answer.extractLsb' 0 128) with
     | none => rfl
     | some w => rw [hd] at hs; exact absurd rfl hs
 abbrev Selection := Option (Fin (2^22) × Digest)
 abbrev Selections := EncLeaf → Selection
-noncomputable def selectionsOf (U : Finset HashInput) (hE : encInputs ⊆ U) (labels : Labels)
+noncomputable def rawSelectionsOf (U : Finset HashInput) (hE : encInputs ⊆ U) (labels : Labels)
     (table : U → HashOutput) : Selections :=
   fun L => FirstSuccessTable.select (decodeAt L) (fun c => table (encCell U hE labels (L, c)))
+def capSel (L : EncLeaf) (s : Selection) : Selection :=
+  s.filter fun r => decide (r.1.val < WCT9.searchLimit L.1.lay)
+theorem capSel_eq_some {L : EncLeaf} {s : Selection} {r : Fin (2^22) × Digest} :
+    capSel L s = some r ↔ s = some r ∧ r.1.val < WCT9.searchLimit L.1.lay := by
+  cases s with
+  | none => simp [capSel]
+  | some r' =>
+      by_cases h : r'.1.val < WCT9.searchLimit L.1.lay
+      · simp only [capSel, Option.filter, h, decide_true, if_true, Option.some.injEq]
+        constructor
+        · rintro rfl
+          exact ⟨rfl, h⟩
+        · rintro ⟨rfl, -⟩
+          rfl
+      · simp only [capSel, Option.filter, h, decide_false, Bool.false_eq_true, if_false, Option.some.injEq]
+        constructor
+        · intro hc
+          cases hc
+        · rintro ⟨rfl, h'⟩
+          exact absurd h' h
+noncomputable def selectionsOf (U : Finset HashInput) (hE : encInputs ⊆ U) (labels : Labels)
+    (table : U → HashOutput) : Selections :=
+  fun L => capSel L (rawSelectionsOf U hE labels table L)
 noncomputable def selectionLaw : PMF Selections :=
   FinitePmfProduct.law (fun L => FirstSuccessTable.selected (decodeAt L) (2^22))
 noncomputable def rowsLaw (selections : Selections) : PMF (EncLeaf → Fin (2^22) → HashOutput) :=
@@ -149,8 +172,8 @@ theorem afterSelect_none (L : EncLeaf) :
       FirstSuccessTable.constrained (fun _ => FirstSuccessTable.invalid (decodeAt L)) := rfl
 theorem mem_allowed (L : EncLeaf) (i : Fin (2^22)) (d : Digest) (c : Fin (2^22)) (answer : HashOutput) :
     answer ∈ FirstSuccessTable.allowed (decodeAt L) i d c ↔
-      (c < i → searchDecode L.1.lay (answer.extractLsb' 0 128) = none) ∧
-        (c = i → answer.extractLsb' 0 128 = d ∧ (searchDecode L.1.lay d).isSome) := by
+      (c < i → WCT9.producerDecode L.1.lay (answer.extractLsb' 0 128) = none) ∧
+        (c = i → answer.extractLsb' 0 128 = d ∧ (WCT9.producerDecode L.1.lay d).isSome) := by
   unfold FirstSuccessTable.allowed
   split_ifs with hlt heq
   · rw [FirstSuccessTable.mem_invalid, decodeAt_eq_none]
@@ -192,24 +215,24 @@ theorem uniform_bind_eq_selected {Result : Type}
   · rw [if_pos rfl]
   · intro results hne
     rw [if_neg (Ne.symm hne)]
-theorem selectionsOf_join (U : Finset HashInput) (hE : encInputs ⊆ U) (labels : Labels)
+theorem rawSelectionsOf_join (U : Finset HashInput) (hE : encInputs ⊆ U) (labels : Labels)
     (rows : EncLeaf × Fin (2^22) → HashOutput) (outside : UniformTableSplit.Outside (encCell U hE labels) → HashOutput) :
-    selectionsOf U hE labels (UniformTableSplit.join (encCell U hE labels) (encCell_injective U hE labels) rows outside) =
+    rawSelectionsOf U hE labels (UniformTableSplit.join (encCell U hE labels) (encCell_injective U hE labels) rows outside) =
       fun L => FirstSuccessTable.select (decodeAt L) (fun c => rows (L, c)) := by
   funext L
-  unfold selectionsOf
+  unfold rawSelectionsOf
   apply congrArg (FirstSuccessTable.select (decodeAt L))
   funext c
   exact UniformTableSplit.join_embed _ _ rows outside (L, c)
 theorem residual_selection_bind {Result : Type} (U : Finset HashInput) (hE : encInputs ⊆ U) (labels : Labels)
     (next : Selections → (U → HashOutput) → PMF Result) :
-    (PMF.uniformOfFintype (U → HashOutput)).bind (fun residual => next (selectionsOf U hE labels residual) residual) =
+    (PMF.uniformOfFintype (U → HashOutput)).bind (fun residual => next (rawSelectionsOf U hE labels residual) residual) =
       selectionLaw.bind (fun selections => (rowsLaw selections).bind (fun rows =>
         (PMF.uniformOfFintype (UniformTableSplit.Outside (encCell U hE labels) → HashOutput)).bind (fun outside =>
           next selections (UniformTableSplit.join (encCell U hE labels) (encCell_injective U hE labels)
             (Function.uncurry rows) outside)))) := by
   rw [UniformTableSplit.uniform_bind_split (encCell U hE labels) (encCell_injective U hE labels)]
-  simp_rw [selectionsOf_join]
+  simp_rw [rawSelectionsOf_join]
   have huncurry := PMF.uniformOfFintype_map_of_bijective (Equiv.curry EncLeaf (Fin (2^22)) HashOutput).symm
     (Equiv.curry EncLeaf (Fin (2^22)) HashOutput).symm.bijective
   rw [← huncurry, PMF.bind_map]
@@ -225,13 +248,13 @@ noncomputable def selectionResidual (U : Finset HashInput) (hE : encInputs ⊆ U
         (Function.uncurry rows) outside))))
 theorem selectionResidual_eq (U : Finset HashInput) (hE : encInputs ⊆ U) (labels : Labels) :
     selectionResidual U hE labels =
-      (PMF.uniformOfFintype (U → HashOutput)).map (fun residual => (selectionsOf U hE labels residual, residual)) := by
+      (PMF.uniformOfFintype (U → HashOutput)).map (fun residual => (rawSelectionsOf U hE labels residual, residual)) := by
   have h := residual_selection_bind U hE labels (fun selections residual => PMF.pure (selections, residual))
   simp only [PMF.map, selectionResidual, Function.comp_def] at h ⊢
   exact h.symm
 theorem selectionResidual_support (U : Finset HashInput) (hE : encInputs ⊆ U) (labels : Labels)
     (r : Selections × (U → HashOutput)) (hr : r ∈ (selectionResidual U hE labels).support) :
-    r.1 = selectionsOf U hE labels r.2 := by
+    r.1 = rawSelectionsOf U hE labels r.2 := by
   rw [selectionResidual_eq, PMF.support_map] at hr
   obtain ⟨residual, -, rfl⟩ := hr
   rfl
@@ -242,7 +265,7 @@ theorem residual_bind_selection {Result : Type} (U : Finset HashInput) (hE : enc
     (next : Selections → (U → HashOutput) → ProbComp Result) :
     𝒮[do
       let residual ← ($ᵗ (U → HashOutput) : ProbComp _)
-      next (selectionsOf U hE labels residual) residual] =
+      next (rawSelectionsOf U hE labels residual) residual] =
       (𝒮[selectionResidual U hE labels] >>= fun r => 𝒮[next r.1 r.2]) := by
   rw [selectionResidual_eq]
   simp only [← PMF.monad_map_eq_map, map_eq_bind_pure_comp, bind_assoc, pure_bind, evalSPMF_bind, evalSPMF_pure,
@@ -268,31 +291,37 @@ theorem tables_selection_bind {Result : Type} (U : Finset HashInput) (hU : canon
   exact residual_bind_selection U hE labels
     (fun _ residual => next (privateEquiv.symm (secrets, other)) (programmed U hU secrets labels residual))
 end SelectionBind
-theorem selectionsOf_programmed (U : Finset HashInput) (hU : canonInputs ⊆ U) (hE : encInputs ⊆ U)
+theorem rawSelectionsOf_programmed (U : Finset HashInput) (hU : canonInputs ⊆ U) (hE : encInputs ⊆ U)
     (secrets : Secrets) (labels : Labels) (residual : U → HashOutput) :
-    selectionsOf U hE labels (programmed U hU secrets labels residual) = selectionsOf U hE labels residual := by
+    rawSelectionsOf U hE labels (programmed U hU secrets labels residual) = rawSelectionsOf U hE labels residual := by
   funext L
-  unfold selectionsOf
+  unfold rawSelectionsOf
   congr 1
   funext c
   apply programmed_other
   intro node heq
   exact encodingQuery_ne_cell _ secrets node labels heq
+theorem selectionsOf_programmed (U : Finset HashInput) (hU : canonInputs ⊆ U) (hE : encInputs ⊆ U)
+    (secrets : Secrets) (labels : Labels) (residual : U → HashOutput) :
+    selectionsOf U hE labels (programmed U hU secrets labels residual) = selectionsOf U hE labels residual := by
+  funext L
+  unfold selectionsOf
+  rw [rawSelectionsOf_programmed]
 theorem selection_valid (U : Finset HashInput) (hE : encInputs ⊆ U) (labels : Labels) (table : U → HashOutput)
     (L : EncLeaf) (r : Fin (2^22) × Digest) (hr : selectionsOf U hE labels table L = some r) :
-    ∃ w, searchDecode L.1.lay r.2 = some w := by
-  have h := (FirstSuccessTable.select_some_iff _ _ r.1 r.2).mp hr
+    ∃ w, WCT9.producerDecode L.1.lay r.2 = some w := by
+  have h := (FirstSuccessTable.select_some_iff _ _ r.1 r.2).mp (capSel_eq_some.mp hr).1
   obtain ⟨-, hs⟩ := (decodeAt_eq_some L _ r.2).mp h.1
   exact Option.isSome_iff_exists.mp hs
 theorem counterSearch_select (answers : Answers) (lay : Layer) (tree leaf : Nat) (message : WCT9.LayerMsg)
     (decodeLay : HashOutput → Option Digest)
     (hdecode : ∀ answer, decodeLay answer =
-      if (searchDecode lay (answer.extractLsb' 0 128)).isSome then some (answer.extractLsb' 0 128) else none) :
+      if (WCT9.producerDecode lay (answer.extractLsb' 0 128)).isSome then some (answer.extractLsb' 0 128) else none) :
     ∀ fuel start, evalWithAnswerFn answers (WCT9.layerCounterSearch lay tree leaf message start fuel) =
       (FirstSuccessTable.select decodeLay (fun i : Fin fuel =>
           answers (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf message
             (BitVec.ofNat 32 (start + i.val)))))))).bind
-        fun r => (searchDecode lay r.2).map fun digits => (BitVec.ofNat 32 (start + r.1.val), digits) := by
+        fun r => (WCT9.producerDecode lay r.2).map fun digits => (BitVec.ofNat 32 (start + r.1.val), digits) := by
   intro fuel
   induction fuel with
   | zero => intro start; rfl
@@ -307,7 +336,7 @@ theorem counterSearch_select (answers : Answers) (lay : Layer) (tree leaf : Nat)
       rw [h0, hdecode]
       generalize answers (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf message
         (BitVec.ofNat 32 start))))) = A
-      cases hd : searchDecode lay (A.extractLsb' 0 128) with
+      cases hd : WCT9.producerDecode lay (A.extractLsb' 0 128) with
       | some digits =>
           simp only [hd, Option.isSome_some, if_true, evalWithAnswerFn_pure, Option.bind_some, Option.map_some,
             Fin.val_zero, Nat.add_zero]
@@ -336,36 +365,74 @@ theorem answers_encCell (U : Finset HashInput) (hU : canonInputs ⊆ U) (hE : en
   apply programmed_other
   intro node heq
   exact encodingQuery_ne_cell _ _ node labels heq
+theorem select_castLE_bind {Answer Value β : Type} (decode : Answer → Option Value) {n m : Nat} (h : n ≤ m)
+    (table : Fin m → Answer) (g : Nat → Value → Option β) :
+    (FirstSuccessTable.select decode (fun i : Fin n => table (Fin.castLE h i))).bind (fun r => g r.1.val r.2) =
+      ((FirstSuccessTable.select decode table).filter fun r => decide (r.1.val < n)).bind
+        (fun r => g r.1.val r.2) := by
+  cases hs : FirstSuccessTable.select decode table with
+  | none =>
+      have hall := (FirstSuccessTable.select_none_iff decode table).mp hs
+      have hp : FirstSuccessTable.select decode (fun i : Fin n => table (Fin.castLE h i)) = none :=
+        (FirstSuccessTable.select_none_iff _ _).mpr fun i => hall _
+      rw [hp]
+      rfl
+  | some r =>
+      obtain ⟨i, v⟩ := r
+      obtain ⟨hv, hbefore⟩ := (FirstSuccessTable.select_some_iff decode table i v).mp hs
+      by_cases hlt : i.val < n
+      · have hp : FirstSuccessTable.select decode (fun j : Fin n => table (Fin.castLE h j)) =
+            some (⟨i.val, hlt⟩, v) := by
+          apply (FirstSuccessTable.select_some_iff _ _ _ _).mpr
+          refine ⟨?_, fun j hj => hbefore _ ?_⟩
+          · have he : Fin.castLE h ⟨i.val, hlt⟩ = i := Fin.ext rfl
+            rw [he]
+            exact hv
+          · rw [Fin.lt_def] at hj ⊢
+            simpa using hj
+        rw [hp]
+        simp [Option.filter, hlt]
+      · have hp : FirstSuccessTable.select decode (fun j : Fin n => table (Fin.castLE h j)) = none := by
+          apply (FirstSuccessTable.select_none_iff _ _).mpr
+          intro j
+          apply hbefore
+          rw [Fin.lt_def]
+          simp only [Fin.coe_castLE]
+          omega
+        rw [hp]
+        simp [Option.filter, hlt]
 theorem referenceSearch_eq (U : Finset HashInput) (hU : canonInputs ⊆ U) (hE : encInputs ⊆ U)
     (answers : Answers) (labels : Labels) (residual : U → HashOutput)
     (hpub : ∀ x : U, answers (.inl (.inr x.val)) = programmed U hU (secretsOf answers) labels residual x)
     (L : EncLeaf) :
     Wots.referenceSearch answers L.toWots =
       (selectionsOf U hE labels residual L).bind fun r =>
-        (searchDecode L.1.lay r.2).map fun digits => (BitVec.ofNat 32 r.1.val, digits) := by
+        (WCT9.producerDecode L.1.lay r.2).map fun digits => (BitVec.ofNat 32 r.1.val, digits) := by
   have hagrees := agrees_of_programmed U hU answers labels residual hpub
   unfold Wots.referenceSearch
   rw [leafMsg_eq hagrees L]
   change evalWithAnswerFn answers (WCT9.layerCounterSearch L.1.lay L.1.tree.val L.1.leaf.val (msgLabel labels L) 0
-    counterLimit) = _
+    (WCT9.searchLimit L.1.lay)) = _
   rw [counterSearch_select answers L.1.lay L.1.tree.val L.1.leaf.val (msgLabel labels L) (decodeAt L)
-    (fun _ => rfl) counterLimit 0]
-  unfold selectionsOf
-  have hrows : (fun i : Fin counterLimit => answers (.inl (.inr (pad64 (WCT9.layerEncodingInput L.1.lay L.1.tree.val
-      L.1.leaf.val (msgLabel labels L) (BitVec.ofNat 32 (0 + i.val))))))) =
-      fun c => residual (encCell U hE labels (L, c)) := by
+    (fun _ => rfl) (WCT9.searchLimit L.1.lay) 0]
+  have hle : WCT9.searchLimit L.1.lay ≤ 2 ^ 22 := WCT9.searchLimit_le L.1.lay
+  have hrows : (fun i : Fin (WCT9.searchLimit L.1.lay) => answers (.inl (.inr (pad64 (WCT9.layerEncodingInput
+      L.1.lay L.1.tree.val L.1.leaf.val (msgLabel labels L) (BitVec.ofNat 32 (0 + i.val))))))) =
+      fun i => residual (encCell U hE labels (L, Fin.castLE hle i)) := by
     funext c
     rw [Nat.zero_add]
-    exact answers_encCell U hU hE answers labels residual hpub (L, c)
+    exact answers_encCell U hU hE answers labels residual hpub (L, Fin.castLE hle c)
   rw [hrows]
   simp only [Nat.zero_add]
-  rfl
+  unfold selectionsOf rawSelectionsOf capSel
+  exact select_castLE_bind (decodeAt L) hle (fun c => residual (encCell U hE labels (L, c)))
+    (fun k v => (WCT9.producerDecode L.1.lay v).map fun digits => (BitVec.ofNat 32 k, digits))
 theorem referenceDigits_eq (U : Finset HashInput) (hU : canonInputs ⊆ U) (hE : encInputs ⊆ U)
     (answers : Answers) (labels : Labels) (residual : U → HashOutput)
     (hpub : ∀ x : U, answers (.inl (.inr x.val)) = programmed U hU (secretsOf answers) labels residual x)
     (L : EncLeaf) :
     Wots.referenceDigits answers L.toWots =
-      ((selectionsOf U hE labels residual L).bind fun r => searchDecode L.1.lay r.2).getD (Wots.dummyDigits L.1.lay) := by
+      ((selectionsOf U hE labels residual L).bind fun r => WCT9.producerDecode L.1.lay r.2).getD (Wots.dummyDigits L.1.lay) := by
   unfold Wots.referenceDigits
   rw [referenceSearch_eq U hU hE answers labels residual hpub L]
   congr 1
@@ -373,7 +440,7 @@ theorem referenceDigits_eq (U : Finset HashInput) (hU : canonInputs ⊆ U) (hE :
   | none => rfl
   | some r =>
       simp only [Option.bind_some]
-      cases searchDecode L.1.lay r.2 <;> rfl
+      cases WCT9.producerDecode L.1.lay r.2 <;> rfl
 theorem referenceInput_eq (U : Finset HashInput) (hU : canonInputs ⊆ U) (hE : encInputs ⊆ U)
     (answers : Answers) (labels : Labels) (residual : U → HashOutput)
     (hpub : ∀ x : U, answers (.inl (.inr x.val)) = programmed U hU (secretsOf answers) labels residual x)

@@ -12,7 +12,7 @@ theorem tailR_keeps (slot : Option Nat) (p : Nat) : Keeps (tailR slot p) [.x12] 
   · rw [RegFile.get_set_ne _ _ (ne_of_not_mem hx (by simp))]
   · rfl
 namespace NCtx
-theorem prehash_step (c : NCtx) (hc : c.ok) (s0 : MachineState) (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
+theorem prehash_step (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) (s0 : MachineState) (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (h0 : c.Orig0 s0) (i m : Nat) (hi : i < 54) (hm : m ≤ last i) (hd : c.dig i ≤ m)
     (acc : List Digest) (v : Digest) (t : MachineState) (ht : c.PreHash s0 i acc m v t) :
     t.getReg .x5 = 0 ∧ hashArgumentsValid t = true ∧
@@ -85,7 +85,7 @@ theorem prehash_step (c : NCtx) (hc : c.ok) (s0 : MachineState) (hk : ∀ p ∈ 
           rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (le_refl _), Nat.sub_self, hlen]
           exact DigAt.writeHash_lo t a _ d12 (by omega)
       · have hd3 : c.dig i < topMax i := by omega
-        rw [pc_writeHash, hpc, if_pos rfl, ← c.rungPc_end i hi hd3, show (4 : Word) = BitVec.ofNat 64 4 from rfl,
+        rw [pc_writeHash, hpc, if_pos rfl, ← c.rungPc_end hds i hi hd3, show (4 : Word) = BitVec.ofNat 64 4 from rfl,
           ofNat_add_ofNat]
         congr 1
 theorem rung_piece (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
@@ -357,11 +357,13 @@ namespace NCtx
 theorem headJ_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (h0 : c.Orig0 s0) (i : Nat) (hi : i < 54) (hd : c.dig i < last i)
     (hp0 : c.startPc i < 251927) (hp1 : c.rungPc i (c.dig i) + 1 < 251927)
-    (hrun1 : vrun (c.startPc i) 7 = some (headJD .x8 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i)))
+    {f n : Nat} {st : Stop}
+    (hrun1 : vrun (c.startPc i) f =
+      some {headJD .x8 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i) with stop := st, steps := n, cycles := n})
     (hrun2 : vrun (c.rungPc i (c.dig i) + 1) 2 =
       some (tailR (if c.dig i = last i then some (slot i) else none) (c.rungPc i (c.dig i) + 1)))
     (acc : List Digest) (s : MachineState) (hs : c.ChainIn s0 i acc s) :
-    ∃ t, Steps vimage s 5 5 t ∧ c.PreHash s0 i acc (c.dig i) (c.val i) t := by
+    ∃ t, Steps vimage s n n t ∧ c.PreHash s0 i acc (c.dig i) (c.val i) t := by
   obtain ⟨⟨hR, hF, hS⟩, hlen, hpc⟩ := hs
   have hb := c.blk_props hc i hi
   have hlast := last_bounds i
@@ -372,7 +374,8 @@ theorem headJ_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
   have h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3 := kr _ _ (by simp [known]) (by decide)
   have keyE := c.kAt_eval hc h19 i hi
   have htable := c.header_load i (c.dig i) (kr _ _ (by simp [known]) (by decide))
-  set r := headJD .x8 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i) with hr
+  set r := {headJD .x8 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i) with stop := st, steps := n, cycles := n}
+    with hr
   have hobl : ∀ o ∈ r.st.obl, o.holds s := by
     simp only [hr, headJD, List.mem_cons, List.not_mem_nil, or_false]
     rintro o rfl
@@ -409,7 +412,7 @@ theorem headJ_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
   have hpc1 : t1.pc = pcOf (c.rungPc i (c.dig i) + 1) := by rw [ht1, Result.toState_pc]; rfl
   obtain ⟨t, hst2, hec, hreg, -, h12b, hfr2, hpc2⟩ :=
     tail_piece i (c.dig i) (c.rungPc i (c.dig i) + 1) hp1 hrun2 t1 hpc1
-  have hsteps : r.steps = 5 ∧ r.cycles = 5 := ⟨rfl, rfl⟩
+  have hsteps : r.steps = n ∧ r.cycles = n := ⟨rfl, rfl⟩
   rw [hsteps.1, hsteps.2] at hst1
   have hn : c.dig i ≠ last i := by omega
   rw [if_neg hn] at hst2
@@ -435,11 +438,13 @@ theorem headJ_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
 theorem headJTerm_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (h0 : c.Orig0 s0) (i : Nat) (hi : i < 54) (hd : c.dig i = last i)
     (hp0 : c.startPc i < 251927) (hp1 : c.rungPc i (c.dig i) + 1 < 251927)
-    (hrun1 : vrun (c.startPc i) 7 = some (headJDTerm .x8 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i)))
+    {f n : Nat} {st : Stop}
+    (hrun1 : vrun (c.startPc i) f =
+      some {headJDTerm .x8 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i) with stop := st, steps := n, cycles := n})
     (hrun2 : vrun (c.rungPc i (c.dig i) + 1) 2 =
       some (tailR (if c.dig i = last i then some (slot i) else none) (c.rungPc i (c.dig i) + 1)))
     (acc : List Digest) (s : MachineState) (hs : c.ChainIn s0 i acc s) :
-    ∃ t, Steps vimage s 5 5 t ∧ c.PreHash s0 i acc (c.dig i) (c.val i) t := by
+    ∃ t, Steps vimage s (n + 1) (n + 1) t ∧ c.PreHash s0 i acc (c.dig i) (c.val i) t := by
   obtain ⟨⟨hR, hF, hS⟩, hlen, hpc⟩ := hs
   have hb := c.blk_props hc i hi
   have hlast := last_bounds i
@@ -450,7 +455,8 @@ theorem headJTerm_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p �
   have h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3 := kr _ _ (by simp [known]) (by decide)
   have keyE := c.kAt_eval hc h19 i hi
   have htable := c.header_load i (c.dig i) (kr _ _ (by simp [known]) (by decide))
-  set r := headJDTerm .x8 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i) with hr
+  set r := {headJDTerm .x8 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i) with stop := st, steps := n, cycles := n}
+    with hr
   have hobl : ∀ o ∈ r.st.obl, o.holds s := by
     simp only [hr, headJDTerm, List.mem_cons, List.not_mem_nil, or_false]
     rintro o rfl
@@ -482,7 +488,7 @@ theorem headJTerm_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p �
   have hpc1 : t1.pc = pcOf (c.rungPc i (c.dig i) + 1) := by rw [ht1, Result.toState_pc]; rfl
   obtain ⟨t, hst2, hec, hreg, h12a, -, hfr2, hpc2⟩ :=
     tail_piece i (c.dig i) (c.rungPc i (c.dig i) + 1) hp1 hrun2 t1 hpc1
-  have hsteps : r.steps = 4 ∧ r.cycles = 4 := ⟨rfl, rfl⟩
+  have hsteps : r.steps = n ∧ r.cycles = n := ⟨rfl, rfl⟩
   rw [hsteps.1, hsteps.2] at hst1
   rw [if_pos hd] at hst2
   have hv0 : DigAt s (c.blk i + 48) (c.val i) := val_at hc h0 hi hF
@@ -658,8 +664,8 @@ section
 namespace SigGolfCandidate.T3M.Nonbinary
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 set_option maxHeartbeats 800000
-theorem baseTab_all : (baseTab.all fun x => decide (x<251863))=true := by decide +kernel
-theorem base_lt (q dB dC : Nat) : base q dB dC<251863 := by
+theorem baseTab_all : (baseTab.all fun x => decide (x<251852))=true := by decide +kernel
+theorem base_lt (q dB dC : Nat) : base q dB dC<251852 := by
   unfold base
   rw [List.getD_eq_getElem?_getD]
   split
@@ -670,42 +676,121 @@ theorem base_lt (q dB dC : Nat) : base q dB dC<251863 := by
     | none => simp
     | some x => simpa using List.all_eq_true.mp baseTab_all x (List.mem_of_getElem? hn)
 theorem mx_bounds (q : Nat) : 3≤ mx q ∧ mx q≤4 := by unfold mx;split <;> omega
+theorem partLen_ge (q d : Nat) : 4 ≤ partLen q d := by
+  have hm := mx_bounds q
+  unfold partLen
+  split_ifs <;> omega
+theorem partLen_rung (q d : Nat) (hd : d < mx q) : 2*(mx q-d)+3 ≤ partLen q d := by
+  unfold partLen
+  split_ifs <;> omega
 theorem partLen_le (q d : Nat) : partLen q d≤14 := by
   have hm := mx_bounds q
   unfold partLen
   split_ifs <;> omega
-namespace NCtx
-theorem qX_lt (c : NCtx) (i : Nat) : c.qX i<251927 := by
-  have hb := base_lt (i/3) (c.dig (3*(i/3)+1)) (c.dig (3*(i/3)+2))
-  have h1 := partLen_le (i/3) (c.dig (3*(i/3)+1))
-  have h2 := partLen_le (i/3) (c.dig (3*(i/3)+2))
-  have hm := mx_bounds (i/3)
-  unfold qX pcX pcC pcB
-  omega
-theorem startPc_lt (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54) : c.startPc i<251927 := by
-  have hb := base_lt (i/3) (c.dig (3*(i/3)+1)) (c.dig (3*(i/3)+2))
-  have h1 := partLen_le (i/3) (c.dig (3*(i/3)+1))
-  have hm := mx_bounds (i/3)
-  have hk := c.kOf_lt hds (i/3) (by omega)
-  unfold startPc entW qB qC pcC pcB mx at *
+theorem kdig_le (q k j : Nat) : kdig q k j ≤ mx q := by
+  have := mx_bounds q
+  unfold kdig; have := Nat.mod_lt (k/(mx q+1)^j) (show 0< mx q+1 by omega); omega
+theorem inl_q (q : Nat) (h : inl q=true) : 14 ≤ q ∧ q ≤ 16 := by simp [inl] at h; omega
+theorem leadPc_le (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) (hk' : q<17 → k<125) :
+    leadPc q k ≤ 210425 := by
+  unfold leadPc leadOff entW entOff mx at *
   split_ifs at * <;> omega
-theorem rungPc_lt (c : NCtx) (i m : Nat) (hm : m≤ last i) : c.rungPc i m<251927 := by
-  have hb := base_lt (i/3) (c.dig (3*(i/3)+1)) (c.dig (3*(i/3)+2))
-  have h1 := partLen_le (i/3) (c.dig (3*(i/3)+1))
+theorem group_bounds (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) (hk' : q<17 → k<125) :
+    gbase q k+2*mx q+2<251927 ∧ gX q k+4<251927 ∧ leadPc q k<251927 ∧
+      (inl q=true → gbase q k+5 ≤ leadPc q k+8) := by
+  have hm := mx_bounds q
+  have h1 := partLen_le q (kdig q k 1)
+  have h2 := partLen_le q (kdig q k 2)
+  have hk0 := kdig_le q k 0
+  have hl := leadPc_le q k hq hk hk'
+  unfold gX gC gB
+  cases hn : inl q
+  · have hb := base_lt q (kdig q k 1) (kdig q k 2)
+    simp only [gbase,hn,Bool.false_eq_true,if_false]
+    refine ⟨by omega,by omega,by omega,fun h => absurd h (by simp)⟩
+  · have hq' := inl_q q hn
+    have hl2 : leadPc q k ≤ 176744+256*124+194+1 := by
+      have := hk' (by omega)
+      unfold leadPc leadOff entW entOff at *
+      split_ifs at * <;> omega
+    simp only [gbase,hn,if_true]
+    refine ⟨?_,?_,by omega,fun _ => ?_⟩ <;> split_ifs <;> omega
+namespace NCtx
+theorem kOf_bounds (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<18) :
+    c.kOf q<(mx q+1)^3 ∧ (q<17 → c.kOf q<125) := by
+  refine ⟨c.kOf_lt hds q hq,fun h => ?_⟩
+  have := c.kOf_lt hds q hq
+  unfold mx at this; rw [if_pos h] at this; norm_num at this; omega
+theorem qX_lt (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54) : c.qX i+4<251927 := by
+  obtain ⟨h1,h2⟩ := c.kOf_bounds hds (i/3) (by omega)
+  exact (group_bounds _ _ (by omega) h1 h2).2.1
+theorem startPc_lt (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54) : c.startPc i<251927 := by
+  obtain ⟨h1,h2⟩ := c.kOf_bounds hds (i/3) (by omega)
+  obtain ⟨b1,b2,b3,-⟩ := group_bounds _ _ (by omega) h1 h2
+  unfold gX gC at b2
+  unfold startPc qB qC gC
+  split_ifs <;> omega
+theorem rungPc_lt (c : NCtx) (hds : c.DigitsOk) (i m : Nat) (hi : i<54) (hm : m≤ last i) :
+    c.rungPc i m+2<251927 := by
+  obtain ⟨h1,h2⟩ := c.kOf_bounds hds (i/3) (by omega)
+  obtain ⟨b1,b2,b3,-⟩ := group_bounds _ _ (by omega) h1 h2
+  obtain ⟨-,k2,k3⟩ := c.kdig_kOf hds (i/3) (by omega)
   have hmx := mx_bounds (i/3)
   have hl := last_bounds i
-  unfold rungPc qb startPc qB qC pcC pcB
-  split_ifs <;> omega
+  have hlm : last i+1=mx (i/3) := by unfold last topMax; omega
+  have hd := hds i hi
+  change c.dig i ≤ mx (i/3) at hd
+  by_cases h0 : i%3=0
+  · have hr : c.rungPc i m=gbase (i/3) (c.kOf (i/3))+2*m := by simp [rungPc,qb,h0]
+    rw [hr]; omega
+  · have hr : c.rungPc i m=c.startPc i+(if c.dig i=last i then 2 else 3)+2*(m-c.dig i) := by
+      simp [rungPc,h0]
+    have hend : c.startPc i+partLen (i/3) (c.dig i) ≤ gX (i/3) (c.kOf (i/3)) := by
+      have eC := c.gC_eq hds (i/3) (by omega)
+      have eX := c.gX_eq hds (i/3) (by omega)
+      by_cases h1 : i%3=1
+      · have e1 : c.dig (3*(i/3)+1)=c.dig i := by rw [show 3*(i/3)+1=i by omega]
+        have hs : c.startPc i=gB (i/3) (c.kOf (i/3)) := by simp [startPc,qB,h0,h1]
+        rw [hs,eX,eC,e1]; omega
+      · have e2 : c.dig (3*(i/3)+2)=c.dig i := by rw [show 3*(i/3)+2=i by omega]
+        have hs : c.startPc i=gC (i/3) (c.kOf (i/3)) := by simp [startPc,qC,h0,h1]
+        rw [hs,eX,e2]
+    rw [hr]
+    by_cases hdm : c.dig i< mx (i/3)
+    · have := partLen_rung (i/3) (c.dig i) hdm
+      split_ifs <;> omega
+    · have hm0 : m-c.dig i=0 := by omega
+      have := partLen_ge (i/3) (c.dig i)
+      rw [hm0]; split_ifs <;> omega
 theorem inline_rungPc (c : NCtx) (i : Nat) (h0 : i%3≠0) :
     c.rungPc i (c.dig i)=c.startPc i+(if c.dig i=last i then 2 else 3) := by
   simp [rungPc,h0]
-theorem inline_copy_end (c : NCtx) (i : Nat) (h0 : i%3≠0) (hd : c.dig i=topMax i) :
+theorem inline_copy_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54) (h0 : i%3≠0) (hd : c.dig i=topMax i) :
     c.startPc i+4=c.endPc i := by
+  obtain ⟨-,k2,k3⟩ := c.kdig_kOf hds (i/3) (by omega)
   have e1 : i%3=1 → c.dig (3*(i/3)+1)=c.dig i := fun h => by rw [show 3*(i/3)+1=i by omega]
   have e2 : i%3=2 → c.dig (3*(i/3)+2)=c.dig i := fun h => by rw [show 3*(i/3)+2=i by omega]
-  unfold startPc endPc qB qC qX pcX pcC partLen
+  unfold startPc endPc qB qC qX gX gC partLen
+  rw [k2,k3]
   unfold topMax at hd
   split_ifs <;> omega
+theorem lead_copy_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54) (h0 : i%3=0) (hn : inl (i/3)=true)
+    (hd : c.dig i=topMax i) : c.startPc i+4=c.endPc i := by
+  obtain ⟨k1,-,-⟩ := c.kdig_kOf hds (i/3) (by omega)
+  have e0 : c.dig (3*(i/3))=c.dig i := by rw [show 3*(i/3)=i by omega]
+  have hm := mx_bounds (i/3)
+  have hl := leadPc_le (i/3) (c.kOf (i/3)) (by omega) (c.kOf_lt hds _ (by omega))
+    (fun h => (c.kOf_bounds hds _ (by omega)).2 h)
+  have hs : c.startPc i=leadPc (i/3) (c.kOf (i/3)) := by simp [startPc,h0]
+  have he : c.endPc i=gB (i/3) (c.kOf (i/3)) := by simp [endPc,qB,h0]
+  have hdm : kdig (i/3) (c.kOf (i/3)) 0=mx (i/3) := by rw [k1,e0]; exact hd
+  have hg : gbase (i/3) (c.kOf (i/3))=leadPc (i/3) (c.kOf (i/3))+3-2*mx (i/3) := by
+    simp [gbase,hn,hdm]
+  have hlo : 176744 ≤ leadPc (i/3) (c.kOf (i/3)) := by unfold leadPc entW; omega
+  rw [hs,he]
+  unfold gB
+  rw [hg]
+  omega
 end NCtx
 end SigGolfCandidate.T3M.Nonbinary
 end
@@ -751,7 +836,7 @@ theorem steps_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
   | zero =>
       intro m hm hd v s hs
       obtain rfl : m=last i := by omega
-      obtain ⟨h5,hv,hin,hpost⟩ := c.prehash_step hc s0 hk h0 i (last i) hi (le_refl _) hd acc v s hs
+      obtain ⟨h5,hv,hin,hpost⟩ := c.prehash_step hc hds s0 hk h0 i (last i) hi (le_refl _) hd acc v s hs
       rw [rest_succ c i (last i) (le_refl _)]
       have hf := hs.2.2.2.2.2.2.2.2
       have H : ∀a : BitVec 256,Verify.GoodQ (writeHash s a) N C Q A
@@ -765,7 +850,7 @@ theorem steps_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
       exact h3.mono (by omega) (by simp [preCost]) (fun hq => ⟨hq,by simp [preCost]⟩)
   | succ k ih =>
       intro m hm hd v s hs
-      obtain ⟨h5,hv,hin,hpost⟩ := c.prehash_step hc s0 hk h0 i m hi (by omega) hd acc v s hs
+      obtain ⟨h5,hv,hin,hpost⟩ := c.prehash_step hc hds s0 hk h0 i m hi (by omega) hd acc v s hs
       rw [rest_succ c i m (by omega)]
       have hf := hs.2.2.2.2.2.2.2.2
       have H : ∀a : BitVec 256,Verify.GoodQ (writeHash s a) (N+3*(topMax i-(m+1))+5+2)
@@ -773,8 +858,9 @@ theorem steps_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
           (A+preCost i (m+1)+(if m+1=last i then 2 else 1))
           (Verify.ccM (c.rest i (m+1) (a.extractLsb' 0 128)) (fun v => K (acc++[v]))) := by
         intro a
-        have hrun := c.chk_rung hds i (m+1) hi (by omega) (by omega) (fun _ => by omega)
-        obtain ⟨u,hu,hp⟩ := c.rung_step hc hk i (m+1) hi (by omega) (c.rungPc_lt i _ (by omega)) hrun acc _ _
+        have hrun := c.chk_rung hds i (m+1) hi (by omega) (by omega)
+        obtain ⟨u,hu,hp⟩ := c.rung_step hc hk i (m+1) hi (by omega)
+          (by have := c.rungPc_lt hds i (m+1) hi (by omega); omega) hrun acc _ _
           ((hpost a).1 (by omega))
         have ht := ih (m+1) (by omega) (by omega) _ _ hp
         exact Verify.GoodQ.steps' hu ht (by split <;> omega) (by omega) (fun hq => ⟨hq,by omega⟩)
@@ -798,7 +884,7 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Nonbinary SigGolfCandidate.T3
 set_option maxHeartbeats 1000000
 set_option linter.unusedSimpArgs false
-def tableJump (i : Nat) : Nat := if i%3=0 then 1 else 0
+def tableJump (i : Nat) : Nat := if i%3=0 ∧ inl (i/3)=false then 1 else 0
 def chainCost (i d : Nat) : Nat :=
   if d=topMax i then 4+tableJump i
   else 4+tableJump i+9*(topMax i-d)-(if d+1=topMax i then 1 else 0)
@@ -816,29 +902,35 @@ theorem positive_head (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineSta
   have hl : last i+1=topMax i := by have := topMax_bounds i;unfold last;omega
   have hsp := c.startPc_lt hds i hi
   by_cases htab : i%3=0
-  · have hrun2 := c.chk_tail hds i (c.dig i) hi htab (by omega)
-    have hrp : c.rungPc i (c.dig i)+1<251927 := by
-      have hb := base_lt (i/3) (c.dig (3*(i/3)+1)) (c.dig (3*(i/3)+2))
-      have hl2 := last_bounds i
-      unfold rungPc qb
-      rw [if_pos htab]
-      omega
+  · have hrun2 := c.chk_tail hds i hi htab hd
+    have hrp : c.rungPc i (c.dig i)+1<251927 := by have := c.rungPc_lt hds i (c.dig i) hi (by omega); omega
+    cases hn : inl (i/3)
+    · have hj : tableJump i=1 := by simp [tableJump,htab,hn]
+      by_cases ht : c.dig i=last i
+      · have hrun1 := c.chk_headJTerm hds i hi htab hn ht
+        obtain ⟨t,hst,htp⟩ := c.headJTerm_step hc hk h0 i hi ht hsp hrp (st := .jump) (n := 4) hrun1 hrun2 acc s hs
+        exact ⟨t,hst.of_eq (by rw [hj]) (by rw [hj]),htp⟩
+      · have hrun1 := c.chk_headJ hds i hi htab hn (by omega)
+        obtain ⟨t,hst,htp⟩ := c.headJ_step hc hk h0 i hi (by omega) hsp hrp (st := .jump) (n := 5) hrun1 hrun2 acc s hs
+        exact ⟨t,hst.of_eq (by rw [hj]) (by rw [hj]),htp⟩
+    · have hj : tableJump i=0 := by simp [tableJump,htab,hn]
+      by_cases ht : c.dig i=last i
+      · have hrun1 := c.chk_headJTermF hds i hi htab hn ht
+        obtain ⟨t,hst,htp⟩ := c.headJTerm_step hc hk h0 i hi ht hsp hrp (st := .fuel) (n := 3) hrun1 hrun2 acc s hs
+        exact ⟨t,hst.of_eq (by rw [hj]) (by rw [hj]),htp⟩
+      · have hrun1 := c.chk_headJF hds i hi htab hn (by omega)
+        obtain ⟨t,hst,htp⟩ := c.headJ_step hc hk h0 i hi (by omega) hsp hrp (st := .fuel) (n := 4) hrun1 hrun2 acc s hs
+        exact ⟨t,hst.of_eq (by rw [hj]) (by rw [hj]),htp⟩
+  · have hj : tableJump i=0 := by simp [tableJump,htab]
     by_cases ht : c.dig i=last i
-    · have hrun1 := c.chk_headJTerm hds i hi htab ht
-      obtain ⟨t,hst,htp⟩ := c.headJTerm_step hc hk h0 i hi ht hsp hrp hrun1 hrun2 acc s hs
-      exact ⟨t,hst.of_eq (by simp [tableJump,htab]) (by simp [tableJump,htab]),htp⟩
-    · have hrun1 := c.chk_headJ hds i hi htab (by omega)
-      obtain ⟨t,hst,htp⟩ := c.headJ_step hc hk h0 i hi (by omega) hsp hrp hrun1 hrun2 acc s hs
-      exact ⟨t,hst.of_eq (by simp [tableJump,htab]) (by simp [tableJump,htab]),htp⟩
-  · by_cases ht : c.dig i=last i
     · have hrun := c.chk_headRTerm hds i hi htab ht
       have hr : c.rungPc i (c.dig i)=c.startPc i+2 := by rw [inline_rungPc c i htab,if_pos ht]
       obtain ⟨t,hst,htp⟩ := c.headRTerm_step hc hk h0 i hi ht hsp hr hrun acc s hs
-      exact ⟨t,hst.of_eq (by simp [tableJump,htab]) (by simp [tableJump,htab]),htp⟩
+      exact ⟨t,hst.of_eq (by rw [hj]) (by rw [hj]),htp⟩
     · have hrun := c.chk_headR hds i hi htab (by omega)
       have hr : c.rungPc i (c.dig i)=c.startPc i+3 := by rw [inline_rungPc c i htab,if_neg ht]
       obtain ⟨t,hst,htp⟩ := c.headR_step hc hk h0 i hi (by omega) hsp hr hrun acc s hs
-      exact ⟨t,hst.of_eq (by simp [tableJump,htab]) (by simp [tableJump,htab]),htp⟩
+      exact ⟨t,hst.of_eq (by rw [hj]) (by rw [hj]),htp⟩
 theorem chain_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     (hk : ∀p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0) (i : Nat) (hi : i<54)
     (acc : List Digest) (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs)
@@ -857,12 +949,17 @@ theorem chain_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     have hp : chainP 0 c.tree c.leaf i (topMax i) 0 (c.pad0 i) (c.pad1 i) (c.padHeader i) (c.val i)=pure (c.val i) := rfl
     rw [hp,Verify.ccM_pure]
     by_cases htab : i%3=0
-    · obtain ⟨t,hst,ht⟩ := c.copyN_step hc hk h0 i hi hsp
-        (c.chk_copyJ hds i hi htab hmax) acc s hs
-      exact Verify.GoodQ.steps' hst (hK _ _ ht) (by omega) (by simp [chainCost,tableJump,htab])
-        (fun hq => ⟨hq,by simp [chainCost,tableJump,htab]⟩)
+    · cases hn : inl (i/3)
+      · obtain ⟨t,hst,ht⟩ := c.copyN_step hc hk h0 i hi hsp
+          (c.chk_copyJ hds i hi htab hn hmax) acc s hs
+        exact Verify.GoodQ.steps' hst (hK _ _ ht) (by omega) (by simp [chainCost,tableJump,htab,hn])
+          (fun hq => ⟨hq,by simp [chainCost,tableJump,htab,hn]⟩)
+      · obtain ⟨t,hst,ht⟩ := c.copyFH_step hc hk h0 i hi hsp
+          (c.lead_copy_end hds i hi htab hn hmax) (c.chk_copyFL hds i hi htab hn hmax) acc s hs
+        exact Verify.GoodQ.steps' hst (hK _ _ ht) (by omega) (by simp [chainCost,tableJump,htab,hn])
+          (fun hq => ⟨hq,by simp [chainCost,tableJump,htab,hn]⟩)
     · obtain ⟨t,hst,ht⟩ := c.copyFH_step hc hk h0 i hi hsp
-        (c.inline_copy_end i htab hmax) (c.chk_copyF hds i hi htab hmax) acc s hs
+        (c.inline_copy_end hds i hi htab hmax) (c.chk_copyF hds i hi htab hmax) acc s hs
       exact Verify.GoodQ.steps' hst (hK _ _ ht) (by omega) (by simp [chainCost,tableJump,htab])
         (fun hq => ⟨hq,by simp [chainCost,tableJump,htab]⟩)
   · have hd' : c.dig i< topMax i := by omega

@@ -2,6 +2,50 @@ import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsLayout
 import SigGolfCandidate.T3M.Verify.LayerSem
 
 section
+
+
+set_option maxRecDepth 100000
+set_option maxHeartbeats 2000000
+namespace SigGolfCandidate.T3M
+open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
+open SigGolfCandidate.T3M.Verify
+def keepLfAll (lay : Nat) : List Reg :=
+  if lay = 0 then [.x1, .x2, .x7, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23,
+    .x6, .x25, .x26, .x28, .x29, .x31, .x30]
+  else [.x1, .x2, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23,
+    .x6, .x25, .x26, .x29, .x31, .x30] ++ (if lay = 1 then [] else [.x28])
+def tailRejBr (d : Bool) : Br := ⟨.ne, .reg .x24, kw 0, d⟩
+def lfDirsT : List Dir := [.br false, .jmp]
+def specLfT : Spec := { specLf 0 with steps := 13, brs := [tailRejBr false], cycles := 13 }
+def specRejT : Spec :=
+  ⟨[(.x5, kw 1), (.x10, kw 1)], (specLf 0).mem, 743, true, 13, [tailRejBr true], none, 13⟩
+def fusedLeafCheck (dB dC : Nat) : Bool :=
+  specB [] [] baseK (runAt (leafK 0) [] (Nonbinary.pcX 17 dB dC) lfDirsT) specLfT [] (postLf 0) (keepLfAll 0)
+def tailRejCheck (dB dC : Nat) : Bool :=
+  specB [] [] [] (runAt (leafK 0) [] (Nonbinary.pcX 17 dB dC) [.br true]) specRejT [] [] []
+theorem fusedLeafChecks : ((List.range 16).all fun k => fusedLeafCheck (k / 4) (k % 4)) = true := by
+  decide +kernel
+theorem tailRejChecks : ((List.range 16).all fun k => tailRejCheck (k / 4) (k % 4)) = true := by
+  decide +kernel
+theorem fusedLeafCheck_at (dB dC : Nat) (hB : dB < 4) (hC : dC < 4) :
+    fusedLeafCheck dB dC = true := by
+  have h := List.all_eq_true.mp fusedLeafChecks (4*dB+dC) (List.mem_range.mpr (by omega))
+  have hd : (4*dB+dC)/4=dB := by omega
+  have hm : (4*dB+dC)%4=dC := by omega
+  simpa [hd, hm] using h
+theorem tailRejCheck_at (dB dC : Nat) (hB : dB < 4) (hC : dC < 4) :
+    tailRejCheck dB dC = true := by
+  have h := List.all_eq_true.mp tailRejChecks (4*dB+dC) (List.mem_range.mpr (by omega))
+  have hd : (4*dB+dC)/4=dB := by omega
+  have hm : (4*dB+dC)%4=dC := by omega
+  simpa [hd, hm] using h
+end SigGolfCandidate.T3M
+end
+
+section
+
+
+section
 namespace SigGolfCandidate.T3M
 open SigGolfCandidate.T3 OracleComp
 theorem mapM_congr' {α β : Type} {f g : α → M β} : ∀ (l : List α), (∀ x ∈ l, f x = g x) → l.mapM f = l.mapM g
@@ -116,7 +160,7 @@ theorem sum_dig (c : LCtx) (D : List Nat) (hD : ∀ i < 43, c.dig i = D.getD i 0
   conv_rhs => rw [hE]
   exact QCtx.sum_range'_eq _ _ 0 43 (fun i _ hi => hD i (by omega))
 theorem lowCost_accept (c : LCtx) (hck : c.ck < 8) (D : List Nat) (hD : ∀ i < 43, c.dig i = D.getD i 0)
-    (hl : D.length = 43) (T : Nat) (hT : D.sum = T) : c.lowCost + c.zSum 0 43 + 9 * T = 2950 := by
+    (hl : D.length = 43) (T : Nat) (hT : D.sum = T) : c.lowCost + c.zSum 0 43 + 9 * T = 2949 := by
   have := c.chainsCost_lower hck T (by rw [c.sum_dig D hD hl, hT])
   unfold lowCost
   omega
@@ -227,11 +271,6 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput Layer route height chainCount counterLimit decode encodingInput target
   dataDigits pad64)
-def keepLfAll (lay : Nat) : List Reg :=
-  if lay = 0 then [.x1, .x2, .x7, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23,
-    .x6, .x25, .x26, .x28, .x29, .x31, .x30]
-  else [.x1, .x2, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23,
-    .x6, .x25, .x26, .x29, .x31, .x30, .x28]
 def leafCheck (lay p : Nat) : Bool :=
   specB [] [] baseK (runAt (leafK lay) [] (p + retOff lay) (lfDirs lay)) (specLf lay) [] (postLf lay) (keepLfAll lay)
 def leafChecks (lay lo n : Nat) : Bool := (List.range' lo n).all fun c => leafCheck lay (trPc lay c)
@@ -514,31 +553,25 @@ structure TopLeafReady (w : WBytes) (pk : Digest) (index c : Nat) (ends : List D
   len : ends.length = 54
   ends : ∀ j < 54, DigAt t (slotT j) (ends.getD j 0)
   orig : Verify.Orig w (fun o => 9288 ≤ o ∧ o < layerBase 0 + 64 * height 0) t
-def fusedLeafCheck (dB dC : Nat) : Bool :=
-  specB [] [] baseK (runAt (leafK 0) [] (Nonbinary.pcX 17 dB dC) (lfDirs 0))
-    (specLf 0) [] (postLf 0) (keepLfAll 0)
-theorem fusedLeafChecks : ((List.range 16).all fun k => fusedLeafCheck (k / 4) (k % 4)) = true := by
-  decide +kernel
-theorem fusedLeafCheck_at (dB dC : Nat) (hB : dB < 4) (hC : dC < 4) :
-    fusedLeafCheck dB dC = true := by
-  have h := List.all_eq_true.mp fusedLeafChecks (4*dB+dC) (List.mem_range.mpr (by omega))
-  have hd : (4*dB+dC)/4=dB := by omega
-  have hm : (4*dB+dC)%4=dC := by omega
-  simpa [hd, hm] using h
+  s8 : t.getReg .x24 = 0
 theorem leafT_step (w : WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0) (hidx : index < 2 ^ 31)
     (ends : List Digest) (t : MachineState) (ht : TopLeafReady w pk index c ends t) :
-    ∃ u, Steps image t 12 12 u ∧ LeafOut w pk index 0 ends u := by
+    ∃ u, Steps image t 13 13 u ∧ LeafOut w pk index 0 ends u := by
   obtain ⟨dB, dC, hB, hC, hp⟩ := ht.pc
   obtain ⟨u, hu⟩ := spec_run (fusedLeafCheck_at dB dC hB hC) t hp ht.glob.1
-    (by intro b hb; simp [specLf] at hb) (by simp)
+    (by
+      intro b hb
+      simp only [specLfT, List.mem_singleton] at hb
+      subst hb
+      simp [Br.holds, tailRejBr, CmpOp.eval, E.eval, kw, ht.s8]) (by simp)
   have hst := hu.steps
-  rw [show (specLf 0).steps = 12 by simp [specLf], show (specLf 0).cycles = 12 by simp [specLf]] at hst
+  rw [show specLfT.steps = 13 from rfl, show specLfT.cycles = 13 from rfl] at hst
   refine ⟨u, hst, ?_⟩
   have hku : KnownOK (postLf 0) u := hu.known
   have hkeep := hu.keep
   have hmem : ∀ A, u.getMem A = memEval t [(⟨none, BitVec.ofNat 64 1400⟩, kw 0), (⟨none, BitVec.ofNat 64 1392⟩, kw 0),
       (⟨none, BitVec.ofNat 64 536⟩, .reg .x4), (⟨none, BitVec.ofNat 64 528⟩, kw (hw 2 0))] A := by
-    intro A; rw [hu.mem]; simp [specLf]
+    intro A; rw [hu.mem]; simp [specLfT, specLf]
   have hfr : ∀ A, A < 2 ^ 64 → A ≠ 1400 → A ≠ 1392 → A ≠ 536 → A ≠ 528 →
       u.getMem (BitVec.ofNat 64 A) = t.getMem (BitVec.ofNat 64 A) := by
     intro A hA h1 h2 h3 h4
@@ -550,7 +583,7 @@ theorem leafT_step (w : WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0)
   have htr := tree_lt index 0 hidx
   have hlf := leaf_lt index 0
   refine ⟨?_, ?_, ?_, ?_, ht.len, ?_, ?_, ?_, fun _ => ⟨?_, ?_⟩, ?_⟩
-  · rw [hu.spc (tgtLf 0) (by simp [specLf])]
+  · rw [hu.spc (tgtLf 0) (by simp [specLfT, specLf])]
     exact tgtLf0_eval t _ hlf ht.s7
   · have hGu := hu.glob _ w pk ht.glob (RelOK.nil t)
     refine ⟨fun p hp => ?_, hGu.2.1, hGu.2.2.1, hGu.2.2.2.1, hGu.2.2.2.2⟩
@@ -592,5 +625,22 @@ theorem leafT_step (w : WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0)
       memEval_cons_ofNat _ _ _ _ _ (by norm_num) (by norm_num), if_pos rfl]
     rfl
   · exact (hu.orig_const ht.orig).mono (fun o ho => ⟨ho, by simp⟩)
+theorem leafT_reject (t : MachineState)
+    (hp : ∃ dB dC, dB < 4 ∧ dC < 4 ∧ t.pc = pcOf (Nonbinary.pcX 17 dB dC))
+    (hk : KnownOK (leafK 0) t) (h24 : t.getReg .x24 ≠ 0) :
+    ∃ u, Steps image t 13 13 u ∧ fetch image u = some (.base .ECALL) ∧
+      u.getReg .x5 = 1 ∧ u.getReg .x10 = 1 := by
+  obtain ⟨dB, dC, hB, hC, hpc⟩ := hp
+  obtain ⟨u, hu⟩ := spec_run (tailRejCheck_at dB dC hB hC) t hpc hk
+    (by
+      intro b hb
+      simp only [specRejT, List.mem_singleton] at hb
+      subst hb
+      simp [Br.holds, tailRejBr, CmpOp.eval, E.eval, kw]
+      exact h24) (by simp)
+  refine ⟨u, hu.steps, hu.ecall rfl, ?_, ?_⟩
+  · exact hu.regs (.x5, kw 1) (by simp [specRejT])
+  · exact hu.regs (.x10, kw 1) (by simp [specRejT])
 end SigGolfCandidate.T3M
+end
 end

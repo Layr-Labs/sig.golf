@@ -18,7 +18,7 @@ def tableByte (i : Nat) : BitVec 8 := BitVec.ofNat 8 <|
   else if i < 628 then if (i - 128) % 4 < 3 then rankDigit ((i - 128) / 4) ((i - 128) % 4)
     else rankCredit ((i - 128) / 4)
   else 0
-def dummyDigestNat : Nat := 232069893348868768384238972643
+def dummyDigestNat : Nat := 232069893348868768384238972668
 def cfByte (flag : Nat) (i : Nat) : BitVec 8 := BitVec.ofNat 8 <|
   if i = 631 then flag
   else if 632 ≤ i ∧ i < 648 then dummyDigestNat / 256 ^ (i - 632) % 256
@@ -82,7 +82,7 @@ theorem topLookupSum_good (v : Digest) (h : T3.topRanksValid v = true) :
   intro r hr
   simp [rankLookup, (topRanksValid_iff v).mp h r hr]
 theorem topLookupSum_eq_iff (v : Digest) :
-    topLookupSum v = 128 ↔ T3.topRanksValid v = true ∧ (topDigits v).sum = 128 := by
+    topLookupSum v = 129 ↔ T3.topRanksValid v = true ∧ (topDigits v).sum = 129 := by
   constructor
   · intro h
     have hv : T3.topRanksValid v = true := by
@@ -97,7 +97,7 @@ theorem topLookupSum_eq_iff (v : Digest) :
   · rintro ⟨hv, hsum⟩
     exact (topLookupSum_good v hv).trans hsum
 theorem decode_top_lookup (v : Digest) :
-    T3.decode 0 v = if v.toNat < 2 ^ 125 ∧ topLookupSum v = 128
+    T3.decode 0 v = if v.toNat < 2 ^ 125 ∧ topLookupSum v = 129
       then some (topDigits v) else none := by
   rw [decode_top]
   simp only [topLookupSum_eq_iff]

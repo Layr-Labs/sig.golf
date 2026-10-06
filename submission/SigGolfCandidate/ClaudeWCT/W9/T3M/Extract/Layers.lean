@@ -47,11 +47,11 @@ theorem layersBC_succ_eq (w : WBytes) (index n : Nat) (msg : WCT9.LayerMsg) :
       if (wbcCtr w (Fin.ofNat 4 n)).toNat ≥ counterLimit then pure none else
       (shortHash (layerEncodingInputP (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
           (route index (Fin.ofNat 4 n)).1 msg (wbcCtr w (Fin.ofNat 4 n)) (wbcPad w (Fin.ofNat 4 n))) >>= fun answer =>
-        match decode (Fin.ofNat 4 n) answer with
-        | some digits => if n = 0 then some <$> layerP w index (Fin.ofNat 4 n) digits
-            else (layerPairP w index (Fin.ofNat 4 n) digits >>= fun pair =>
-              layersBC w index n (.pair pair.1 pair.2))
-        | _ => pure none) := by
+        if n = 0 then topLayerP w index answer
+        else match decode (Fin.ofNat 4 n) answer with
+          | some digits => layerPairP w index (Fin.ofNat 4 n) digits >>= fun pair =>
+              layersBC w index n (.pair pair.1 pair.2)
+          | _ => pure none) := by
   conv_lhs => unfold layersBC
   rfl
 theorem layersBC_succ_split (answers : Answers) (w : WBytes) (index n : Nat) (msg : WCT9.LayerMsg) (out : Digest)
@@ -80,28 +80,34 @@ theorem layersBC_succ_split (answers : Answers) (w : WBytes) (index n : Nat) (ms
   generalize hans : evalWithAnswerFn answers (shortHash (layerEncodingInputP (Fin.ofNat 4 n)
     (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg (wbcCtr w (Fin.ofNat 4 n))
     (wbcPad w (Fin.ofNat 4 n)))) = answer at h ⊢
-  cases hd : decode (Fin.ofNat 4 n) answer with
-  | none => rw [hd] at h; simp at h
-  | some digits =>
-      rw [hd] at h
-      simp only at h ⊢
-      refine ⟨digits, ⟨by omega, by rw [hans]; exact hd⟩, ?_, ?_, ?_⟩
-      · apply List.mem_append_left
-        rw [queried_shortHash]; exact List.mem_singleton_self _
-      · intro hn0
-        subst hn0
-        simp only [if_true] at h ⊢
-        rw [evalWithAnswerFn_map] at h
-        refine ⟨Option.some.inj h, fun q hq => List.mem_append_right _ ?_⟩
-        rw [queried_map_l]; exact hq
-      · intro hn0
-        simp only [hn0, if_false] at h ⊢
-        rw [evalWithAnswerFn_bind] at h
-        refine ⟨h, fun q hq => ?_, fun q hq => ?_⟩
-        · apply List.mem_append_right
-          rw [queried_bind]; exact List.mem_append_left _ hq
-        · apply List.mem_append_right
-          rw [queried_bind]; exact List.mem_append_right _ hq
+  have hdig : ∃ digits, decode (Fin.ofNat 4 n) answer = some digits := by
+    by_cases hn0 : n = 0
+    · subst hn0
+      simp only [if_true] at h
+      exact decode_of_eval_topLayerP answers w index h
+    · simp only [hn0, if_false] at h
+      cases hd : decode (Fin.ofNat 4 n) answer with
+      | none => rw [hd] at h; simp at h
+      | some digits => exact ⟨digits, rfl⟩
+  obtain ⟨digits, hd⟩ := hdig
+  refine ⟨digits, ⟨by omega, by rw [hans]; exact hd⟩, ?_, ?_, ?_⟩
+  · apply List.mem_append_left
+    rw [queried_shortHash]; exact List.mem_singleton_self _
+  · intro hn0
+    subst hn0
+    simp only [if_true] at h ⊢
+    rw [topLayerP_of_decode w index hd] at h ⊢
+    rw [evalWithAnswerFn_map] at h
+    refine ⟨Option.some.inj h, fun q hq => List.mem_append_right _ ?_⟩
+    rw [queried_map_l]; exact hq
+  · intro hn0
+    simp only [hn0, if_false, hd] at h ⊢
+    rw [evalWithAnswerFn_bind] at h
+    refine ⟨h, fun q hq => ?_, fun q hq => ?_⟩
+    · apply List.mem_append_right
+      rw [queried_bind]; exact List.mem_append_left _ hq
+    · apply List.mem_append_right
+      rw [queried_bind]; exact List.mem_append_right _ hq
 theorem layersBC_walk_n (answers : Answers) (w : WBytes) (index : Nat) (hidx : index < 2 ^ 31) :
     ∀ n, 1 ≤ n → n ≤ 4 → ∀ msg : WCT9.LayerMsg, msgFits (Fin.ofNat 4 (n - 1)) msg →
     evalWithAnswerFn answers (layersBC w index n msg) = some (honestRoot answers 0 0) →

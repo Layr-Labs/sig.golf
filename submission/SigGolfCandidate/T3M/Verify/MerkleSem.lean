@@ -1,76 +1,7 @@
-import SigGolfCandidate.T3M.Verify.MerkleRuns
+import SigGolfCandidate.T3M.Verify.DirectMerkleChecks
 import SigGolfCandidate.T3M.Verify.LayerLower
 import SigGolfCandidate.T3M.Verify.Arith
 
-section
-namespace SigGolfCandidate.T3M.BC
-open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
-open SigGolfCandidate.T3M.Verify
-def mkShp (lay ci sh : Nat) : Nat :=
-  T3M.mkShp lay ci sh
-def mkEntSpec (lay ci sh : Nat) : Spec :=
-  ⟨[], [], mkShp lay ci sh + 1, true, 1, [], none, 1⟩
-def mkEntCheck (lay ci sh : Nat) : Bool :=
-  mkSpecB [] [] baseK (mkEntK lay ci) [] (mkTabW lay ci sh) []
-    (mkEntSpec lay ci sh) [] (mkEntPost lay ci sh) mkEntKeep
-def mkLvlSpecN (lay ci sh kk : Nat) : Spec :=
-  { T3M.mkLvlSpecN lay ci sh kk with
-    pc := mkShp lay ci sh + mkOff lay ci (kk + 1) + mkMove lay (mkLo lay ci + kk) }
-def mkLvlCheckN (lay ci sh kk : Nat) : Bool :=
-  mkSpecB (mkLvlAllow lay (mkLo lay ci + kk)) [] baseK
-    (mkLvlKN lay ci sh kk) [] (mkShp lay ci sh + mkOff lay ci kk + 2) []
-    (mkLvlSpecN lay ci sh kk) [] (mkLvlPostN lay ci sh kk)
-    (mkKeep ++ (.x14 :: mkLvlKeep lay (mkLo lay ci + kk)))
-def mkLvlCheck (lay ci sh kk : Nat) : Bool :=
-  if mkIsDisp lay ci kk then T3M.mkLvlCheckD lay ci sh kk
-  else mkLvlCheckN lay ci sh kk
-def childReturn (lay sh : Nat) : Nat :=
-  mkShp lay 0 sh + mkOff lay 0 (hL lay - 1) + 2
-def mkBlockCheck (lay ci sh : Nat) : Bool :=
-  mkEntCheck lay ci sh &&
-  (List.range (mkBits lay ci - if lay = 0 then 0 else 1)).all (mkLvlCheck lay ci sh) &&
-  (lay == 0 || childReturn lay sh == trPc (lay - 1) sh)
-def mkChunkCheck (lay ci lo n : Nat) : Bool :=
-  (List.range' lo n).all (mkBlockCheck lay ci)
-end SigGolfCandidate.T3M.BC
-end
-section
-namespace SigGolfCandidate.T3M.BC
-set_option maxRecDepth 100000
-theorem mkCheck_3 : mkChunkCheck 3 0 0 64 = true := by decide +kernel
-theorem mkCheck_2 : mkChunkCheck 2 0 0 64 = true := by decide +kernel
-theorem mkCheck_1a : mkChunkCheck 1 0 0 64 = true := by decide +kernel
-theorem mkCheck_1b : mkChunkCheck 1 0 64 64 = true := by decide +kernel
-theorem mkCheck_00 : mkChunkCheck 0 0 0 64 = true := by decide +kernel
-theorem mkCheck_01 : mkChunkCheck 0 1 0 64 = true := by decide +kernel
-end SigGolfCandidate.T3M.BC
-end
-section
-namespace SigGolfCandidate.T3M.BC
-theorem mkBlockCheck_at (lay ci sh : Nat) (hlay : lay < 4) (hci : ci < mkNch lay) (hsh : sh < 2 ^ mkBits lay ci) :
-    mkBlockCheck lay ci sh = true := by
-  have hall : ∀ lo n, mkChunkCheck lay ci lo n = true → lo ≤ sh → sh < lo + n → mkBlockCheck lay ci sh = true :=
-    fun lo n h h1 h2 => List.all_eq_true.mp h sh (List.mem_range'_1.mpr ⟨h1, h2⟩)
-  interval_cases lay
-  · have hci' : ci < 2 := by simpa [mkNch] using hci
-    interval_cases ci
-    · exact hall 0 64 mkCheck_00 (by omega) (by simpa [mkBits] using hsh)
-    · exact hall 0 64 mkCheck_01 (by omega) (by simpa [mkBits] using hsh)
-  all_goals (have hci0 : ci = 0 := by simp [mkNch] at hci; omega); subst hci0
-  · have : sh < 128 := by simpa [mkBits, hL] using hsh
-    by_cases h64 : sh < 64
-    · exact hall 0 64 mkCheck_1a (by omega) (by omega)
-    · exact hall 64 64 mkCheck_1b (by omega) (by omega)
-  · exact hall 0 64 mkCheck_2 (by omega) (by simpa [mkBits, hL] using hsh)
-  · exact hall 0 64 mkCheck_3 (by omega) (by simpa [mkBits, hL] using hsh)
-theorem mkEnt_of {lay ci sh : Nat} (h : mkBlockCheck lay ci sh = true) : mkEntCheck lay ci sh = true := by
-  simp only [mkBlockCheck, Bool.and_eq_true] at h; exact h.1.1
-theorem mkLvl_of {lay ci sh : Nat} (h : mkBlockCheck lay ci sh = true) (kk : Nat) (hkk : kk < mkBits lay ci - (if lay = 0 then 0 else 1)) :
-    mkLvlCheck lay ci sh kk = true := by
-  simp only [mkBlockCheck, Bool.and_eq_true] at h
-  exact List.all_eq_true.mp h.1.2 kk (List.mem_range.mpr hkk)
-end SigGolfCandidate.T3M.BC
-end
 section
 set_option linter.unusedSimpArgs false
 namespace SigGolfCandidate.T3M
@@ -869,7 +800,7 @@ theorem merkleMsg_top (w : WBytes) (index : Nat) (v : Digest) :
     merkleMsg w index 0 v = merkleP w index 0 v >>= fun root => pure (LayerMsg.forest root) := by
   rw [merkleP_eq]
   rfl
-theorem layerLoop_succ (w : WBytes) (index n : Nat) (hn : n < 4) (msg : LayerMsg) :
+theorem layerLoop_succ (w : WBytes) (index n : Nat) (hn : n < 4) (hn0 : n ≠ 0) (msg : LayerMsg) :
     BC.layerLoop w index (n + 1) msg =
       layerHead w index (Fin.ofNat 4 n) msg (fun ends =>
         leafHash (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 ends >>=
@@ -877,16 +808,9 @@ theorem layerLoop_succ (w : WBytes) (index n : Nat) (hn : n < 4) (msg : LayerMsg
   change ClaudeWCT.W9.T3M.layersBC w index (n + 1) msg = _
   rw [ClaudeWCT.W9.T3M.layersBC, layerHead]
   dsimp only
-  split_ifs with hc hn0
+  simp only [hn0, ↓reduceIte]
+  split_ifs with hc
   · rfl
-  · subst n
-    congr 1
-    funext answer
-    cases T3.decode (Fin.ofNat 4 0) answer with
-    | none => rfl
-    | some digits =>
-      change (some <$> layerP w index 0 digits) = _
-      simp only [show (Fin.ofNat 4 0 : Layer) = 0 from rfl, layerP_eq, map_eq_pure_bind, bind_assoc, merkleMsg_top, pure_bind, BC.layerLoop]
   · congr 1
     funext answer
     cases T3.decode (Fin.ofNat 4 n) answer with
@@ -897,6 +821,14 @@ theorem layerLoop_succ (w : WBytes) (index n : Nat) (hn : n < 4) (msg : LayerMsg
       cases n with
       | zero => contradiction
       | succ m => simpa only [bind_assoc, pure_bind, BC.layerLoop] using h
+theorem layerLoop_one (w : WBytes) (index : Nat) (msg : LayerMsg) :
+    BC.layerLoop w index 1 msg =
+      if (ClaudeWCT.W9.T3M.wbcCtr w 0).toNat ≥ SigGolfCandidate.T3.counterLimit then pure none else
+      shortHash (ClaudeWCT.W9.T3M.layerEncodingInputP 0 (route index 0).2 (route index 0).1 msg
+        (ClaudeWCT.W9.T3M.wbcCtr w 0) (ClaudeWCT.W9.T3M.wbcPad w 0)) >>= ClaudeWCT.W9.T3M.topLayerP w index := by
+  change ClaudeWCT.W9.T3M.layersBC w index 1 msg = _
+  rw [ClaudeWCT.W9.T3M.layersBC]
+  rfl
 set_option maxRecDepth 10000
 theorem mAfter_pair (w : WBytes) (pk : Digest) (index : Nat) (lay : Layer) (u : MachineState)
     (k : Nat) (hk : k < hL lay.val) (v : Digest) (s : MachineState)

@@ -45,25 +45,29 @@ theorem agree_of_allQ {α : Type} {oa : OracleComp HashSpec α} (h : AllQueriesS
   | query_bind q k ih =>
     rw [allQueriesSatisfy_query_bind_iff] at h
     exact ⟨h.1, ih _ (h.2 _)⟩
-def BadAns (a : BitVec 256) : Prop :=
-  (∃ ds, T3.decode 0 (a.extractLsb' 0 128) = some ds) ∧ T3.topCredit (a.extractLsb' 0 128) < 9
+def BadAns (lay : T3.Layer) (a : BitVec 256) : Prop :=
+  (∃ ds, T3.decode lay (a.extractLsb' 0 128) = some ds ∧
+    ClaudeWCT.WCT9.wordCredit lay ds < ClaudeWCT.WCT9.producerFloor lay)
 open Classical in
 noncomputable def okHash (hash : Hash) : Hash :=
-  fun q => if TopEncQ q ∧ BadAns (hash q) then BitVec.allOnes 256 else hash q
-theorem okHash_eq (hash : Hash) {q : Query} (h : ¬ (TopEncQ q ∧ BadAns (hash q))) : okHash hash q = hash q := by
+  fun q => if ∃ lay : T3.Layer, EncQ lay.val q ∧ BadAns lay (hash q) then BitVec.allOnes 256 else hash q
+theorem okHash_eq (hash : Hash) {q : Query} (h : ¬ ∃ lay : T3.Layer, EncQ lay.val q ∧ BadAns lay (hash q)) :
+    okHash hash q = hash q := by
   unfold okHash
   rw [if_neg h]
-theorem okHash_eq_of_not_top (hash : Hash) {q : Query} (h : ¬ TopEncQ q) : okHash hash q = hash q :=
-  okHash_eq hash (fun h' => h h'.1)
-theorem decode_allOnes : T3.decode 0 ((BitVec.allOnes 256).extractLsb' 0 128) = none := by
+theorem okHash_eq_of_not_enc (hash : Hash) {q : Query} (h : ∀ lay : T3.Layer, ¬ EncQ lay.val q) :
+    okHash hash q = hash q :=
+  okHash_eq hash (fun ⟨lay, h', _⟩ => h lay h')
+theorem decode_allOnes (lay : T3.Layer) : T3.decode lay ((BitVec.allOnes 256).extractLsb' 0 128) = none := by
+  revert lay
   decide +kernel
 theorem hashOk_okHash (hash : Hash) : HashOk (okHash hash) := by
-  intro q hq ds hds
-  by_cases hb : TopEncQ q ∧ BadAns (hash q)
+  intro lay q hq ds hds
+  by_cases hb : ∃ lay' : T3.Layer, EncQ lay'.val q ∧ BadAns lay' (hash q)
   · unfold okHash at hds
     rw [if_pos hb, decode_allOnes] at hds
     cases hds
-  · rw [okHash_eq hash hb] at hds ⊢
+  · rw [okHash_eq hash hb] at hds
     by_contra hc
-    exact hb ⟨hq, ⟨ds, hds⟩, by omega⟩
+    exact hb ⟨lay, hq, ds, hds, by omega⟩
 end SigGolfCandidate.T3M.Verify

@@ -73,7 +73,7 @@ theorem rejected_trial_inadmissible (answers : Correctness.Answers) (rho : Diges
 theorem layerCounterSearch_none (answers : Correctness.Answers) (lay : Layer) (tree leaf : Nat)
     (msg : WCT9.LayerMsg) :
     ∀ fuel counter, evalWithAnswerFn answers (WCT9.layerCounterSearch lay tree leaf msg counter fuel) = none →
-      ∀ offset, offset < fuel → searchDecode lay (evalWithAnswerFn answers
+      ∀ offset, offset < fuel → WCT9.producerDecode lay (evalWithAnswerFn answers
         (shortHash (WCT9.layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 (counter + offset))))) = none := by
   intro fuel
   induction fuel with
@@ -81,7 +81,7 @@ theorem layerCounterSearch_none (answers : Correctness.Answers) (lay : Layer) (t
   | succ fuel ih =>
       intro counter h offset hoff
       simp only [WCT9.layerCounterSearch, evalWithAnswerFn_bind] at h
-      cases hd : searchDecode lay (evalWithAnswerFn answers
+      cases hd : WCT9.producerDecode lay (evalWithAnswerFn answers
           (shortHash (WCT9.layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter)))) with
       | some digits => simp [hd, evalWithAnswerFn_pure] at h
       | none =>
@@ -106,19 +106,6 @@ theorem goodZ_row (answers : Correctness.Answers) (w : WBytes) (index : Nat) (la
     cases ClaudeWCT.W9.T3M.Extract.honestMsg answers index lay with
     | forest root => intro hdec _; exact hdec
     | pair l r => intro _ hfit; exact absurd hfit (by change ¬(lay.val < 3); exact h3)
-theorem counterSearch_good (answers : Correctness.Answers) (w : WBytes) (index : Nat) (lay : Layer) (hl : lay ≠ 0)
-    (hgood : ClaudeWCT.W9.T3M.BC.GoodZ answers w index lay) :
-    ∃ found, evalWithAnswerFn answers (WCT9.layerCounterSearch lay (route index lay).2 (route index lay).1
-      (ClaudeWCT.W9.T3M.Extract.honestMsg answers index lay) 0 counterLimit) = some found := by
-  obtain ⟨digits, hlt, hdec⟩ := goodZ_row answers w index lay hgood
-  cases h : evalWithAnswerFn answers (WCT9.layerCounterSearch lay (route index lay).2 (route index lay).1
-      (ClaudeWCT.W9.T3M.Extract.honestMsg answers index lay) 0 counterLimit) with
-  | some found => exact ⟨found, rfl⟩
-  | none =>
-      have := layerCounterSearch_none answers lay _ _ _ counterLimit 0 h (ClaudeWCT.W9.T3M.wbcCtr w lay).toNat hlt
-      rw [Nat.zero_add, SigGolfCandidate.T3.Security.BPB.ofNat_toNat32,
-        SigGolfCandidate.T3.Nonbinary.searchDecode_lower hl, hdec] at this
-      exact absurd this (by simp)
 theorem honestMsg_lower (answers : Correctness.Answers) (index n : Nat) (hn : n + 1 < 4) :
     ClaudeWCT.W9.T3M.Extract.honestMsg answers index (Fin.ofNat 4 n) =
       .pair (ClaudeWCT.W9.T3M.Extract.honestPair answers (Fin.ofNat 4 (n + 1)) (route index (Fin.ofNat 4 (n + 1))).2).1

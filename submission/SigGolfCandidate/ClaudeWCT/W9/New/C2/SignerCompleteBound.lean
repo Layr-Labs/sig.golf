@@ -29,7 +29,7 @@ theorem signerComplete_of_searches (A : Correctness.Answers)
       omega
     obtain ⟨found, hf⟩ := ClaudeWCT.W9.T3.Correctness.encodingSearchesSucceedBC_msg A h.2 lay
       ⟨tree, by omega⟩ ⟨leaf, hl⟩ msg
-    change (evalWithAnswerFn A (WCT9.layerCounterSearch lay tree leaf msg 0 counterLimit)).isSome
+    change (evalWithAnswerFn A (WCT9.layerCounterSearch lay tree leaf msg 0 (WCT9.searchLimit lay))).isSome
     rw [hf]
     rfl
 theorem digestSearch_respects (rho : Digest) (m : Message) :
@@ -56,7 +56,7 @@ theorem signerComplete_short {A T : Correctness.Answers} (h : Wots.Ref.ShortAgre
   refine ⟨fun rho m => ?_, fun lay hl tree leaf msg ht hle => ?_⟩
   · rw [← digestSearch_respects rho m WCT9.digestAttemptLimit 0 A T h]
     exact hc.1 rho m
-  · rw [← Wots.Ref.layerCounterSearch_respects lay tree leaf msg 0 counterLimit A T h]
+  · rw [← Wots.Ref.layerCounterSearch_respects lay tree leaf msg 0 (WCT9.searchLimit lay) A T h]
     exact hc.2 lay hl tree leaf msg ht hle
 def searchTable (A : Correctness.Answers) : SearchKey → HashOutput := fun key => A (.inl (.inr (searchQuery key)))
 theorem not_tableGood_of_incomplete (A : Correctness.Answers) (h : ¬SignerComplete A) :
@@ -130,7 +130,7 @@ theorem signerIncomplete_le (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 1
     Pr[fun z => ¬SignerComplete z.2 | SeccLaw.completedExperiment adversary q hq] ≤ 1 / (2 : ENNReal) ^ 722 := by
   refine (signerIncomplete_le_table adversary q hq).trans ?_
   refine (ClaudeWCT.W9.T3.Budgets.tableGood_failure_le _ _ ClaudeWCT.W9.T3.Budgets.digest_failure_power_1300
-    SigGolfCandidate.T3.Budgets.encoding_failure_power).trans ?_
+    ClaudeWCT.W9.T3.ProducerV5.producer_failure_power).trans ?_
   have hreal : (2 : ℝ) ^ 384 * (1 / 2 ^ 1300) + 2 ^ 301 * (1 / 2 ^ 1024) ≤ 1 / 2 ^ 722 := by
     set_option exponentiation.threshold 2048 in norm_num
   have hcast := ENNReal.ofReal_le_ofReal hreal

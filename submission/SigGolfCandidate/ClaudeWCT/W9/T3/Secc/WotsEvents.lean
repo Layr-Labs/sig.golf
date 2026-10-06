@@ -28,8 +28,12 @@ theorem encRow_zero (L : LeafAddr) (msg : WCT9.LayerMsg) (counter : BitVec 32) :
     encRow L msg counter 0 = pad64 (WCT9.layerEncodingInput L.lay L.tree L.leaf msg counter) := by
   unfold encRow
   cases msg <;> rfl
+theorem searchLimit_fits (lay : Layer) : 0 + WCT9.searchLimit lay ≤ 2 ^ 32 := by
+  have := WCT9.searchLimit_le lay
+  unfold counterLimit at this
+  omega
 noncomputable def referenceSearch (answers : Answers) (L : LeafAddr) : Option (BitVec 32 × List Nat) :=
-  evalWithAnswerFn answers (WCT9.layerCounterSearch L.lay L.tree L.leaf (leafMsg answers L) 0 counterLimit)
+  evalWithAnswerFn answers (WCT9.layerCounterSearch L.lay L.tree L.leaf (leafMsg answers L) 0 (WCT9.searchLimit L.lay))
 noncomputable def referenceDigits (answers : Answers) (L : LeafAddr) : List Nat :=
   ((referenceSearch answers L).map Prod.snd).getD (dummyDigits L.lay)
 noncomputable def depth (answers : Answers) (a : ChainAddr) : Nat :=

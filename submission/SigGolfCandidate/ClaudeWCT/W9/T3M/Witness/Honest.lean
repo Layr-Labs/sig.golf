@@ -1,4 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Encode
+import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.TopLayer
 import SigGolfCandidate.T3M.Witness.Honest
 import SigGolfCandidate.ClaudeWCT.WCT9.Correctness
 
@@ -44,6 +45,10 @@ theorem recoverLayerPairP_zero (sig : WCT9.Signature) (index : Nat) (lay : Layer
     recoverLayerPairP sig 0 index lay digits = WCT9.recoverLayerPair sig index lay digits := by
   simp only [recoverLayerPairP, WCT9.recoverLayerPair, Pads.zero_chain', Pads.zero_chainHeader,
     chainP_zero_route _ _ _ _ _ hindex, Pads.zero_merkle', nodeHashP_zero]
+theorem verifyTopP_zero (sig : WCT9.Signature) (index : Nat) (answer : Digest) (hindex : index < 2 ^ 31) :
+    verifyTopP sig 0 index answer = WCT9.verifyTop sig index answer := by
+  simp only [verifyTopP, WCT9.verifyTop, Pads.zero_chain', Pads.zero_chainHeader,
+    chainP_zero_route _ _ _ _ _ hindex, Pads.zero_merkle', nodeHashP_zero]
 theorem verifyLayersBCP_zero (w : WCT9.Witness) (index : Nat) (hindex : index < 2 ^ 31) : ∀ n msg,
     verifyLayersBCP w 0 index n msg = WCT9.verifyLayersBC w index n msg := by
   intro n
@@ -51,8 +56,8 @@ theorem verifyLayersBCP_zero (w : WCT9.Witness) (index : Nat) (hindex : index < 
   | zero => intro msg; rfl
   | succ n ih =>
       intro msg
-      simp only [verifyLayersBCP, WCT9.verifyLayersBC, Pads.zero_bc, layerEncodingInputP_zero, Pads.zero_toT3,
-        SigGolfCandidate.T3M.recoverLayerP_zero _ _ _ _ hindex, recoverLayerPairP_zero _ _ _ _ hindex, ih]
+      simp only [verifyLayersBCP, WCT9.verifyLayersBC, Pads.zero_bc, layerEncodingInputP_zero,
+        verifyTopP_zero _ _ _ hindex, recoverLayerPairP_zero _ _ _ _ hindex, ih]
       rfl
 theorem verifyPads_zero (m : Message) (pk : Digest) (w : WCT9.Witness) :
     verifyPads m pk w 0 = WCT9.Rev3.verify m pk w := by
@@ -77,6 +82,11 @@ theorem layerPairP_dec (N : HashOutput) (w : WBytes) (lay : Layer) (digits : Lis
     rw [if_pos (Or.inl (by omega))]
   simp only [hm]
   rfl
+theorem topLayerP_dec (N : HashOutput) (w : WBytes) (answer : Digest) :
+    topLayerP w (N.toNat % 2 ^ 31) answer =
+      verifyTopP (witDecP N w).signature (padDecP N w) (N.toNat % 2 ^ 31) answer := by
+  unfold topLayerP verifyTopP topChainP topFinishP
+  simp only [padDecP, witDecP, Fin.val_zero, or_true, ↓reduceIte]
 theorem layersBC_dec (N : HashOutput) (w : WBytes) : ∀ n msg,
     layersBC w (N.toNat % 2 ^ 31) n msg =
       verifyLayersBCP (witDecP N w) (padDecP N w) (N.toNat % 2 ^ 31) n msg := by
@@ -88,7 +98,7 @@ theorem layersBC_dec (N : HashOutput) (w : WBytes) : ∀ n msg,
       unfold layersBC verifyLayersBCP
       by_cases hn : n = 0
       · subst n
-        simp only [if_true, layerP_dec N w (Fin.ofNat 4 0) _ rfl]
+        simp only [if_true, topLayerP_dec N w]
         rfl
       · simp only [hn, if_false, layerPairP_dec N w, ih]
         rfl
