@@ -8,7 +8,7 @@ section
 
 
 
-namespace W9Fin.V4
+namespace W9Fin.V5
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput pad64 digestInput)
@@ -220,9 +220,9 @@ theorem verify_inputs {GatePre : Digest → WBytes → HashOutput → MachineSta
     ClaudeWCT.W9.T3M.Final.VerifyRefines I0 ∧ ClaudeWCT.W9.T3M.Final.VerifyTerminates I0 ∧
       ClaudeWCT.W9.T3M.Final.VerifyAcceptCycles I0 :=
   verify_inputs_of I0 I0_verify H
-end W9Fin.V4
-#print axioms W9Fin.V4.verify_inputs_of
-#print axioms W9Fin.V4.verify_inputs
+end W9Fin.V5
+#print axioms W9Fin.V5.verify_inputs_of
+#print axioms W9Fin.V5.verify_inputs
 end
 
 section
@@ -231,7 +231,7 @@ section
 
 
 set_option linter.unusedSimpArgs false
-namespace W9Fin.V4
+namespace W9Fin.V5
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput pad64 digestInput)
@@ -268,7 +268,7 @@ theorem GoodQP.publicHash_bind_pre {P : Hash → Prop} {β : Type} {s : MachineS
 def Bank (u : MachineState) : Prop :=
   W9Drv.HeaderBank u ∧ W9Drv.SetupMask u ∧ u.getMem (BitVec.ofNat 64 VERIFY_DATA) = BitVec.ofNat 64 0xfff
 theorem Bank.congr {s t : MachineState} (h : Bank s)
-    (hm : ∀ A, VERIFY_DATA ≤ A → A < VERIFY_DATA + 608 →
+    (hm : ∀ A, VERIFY_DATA ≤ A → A < VERIFY_DATA + 80 →
       t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)) : Bank t := by
   refine ⟨⟨?_, fun k hk => ?_, ?_⟩, ⟨?_, ?_⟩, ?_⟩
   · rw [hm _ (by unfold VERIFY_DATA; omega) (by unfold VERIFY_DATA; omega)]
@@ -310,7 +310,7 @@ theorem init_word (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : By
   have gm : ∀ A, (s3.setReg .x2 (BitVec.ofNat 64 (dataBase (submission.image .verify)))).getMem A =
       s3.getMem A := fun A => by simp [MachineState.setReg, MachineState.getMem]
   have g0 : ∀ A, A < 2 ^ 64 → s0.getMem (BitVec.ofNat 64 A) =
-      if VERIFY_DATA ≤ A ∧ A < VERIFY_DATA + 8 * ((17104 + 7) / 8) ∧ (A - VERIFY_DATA) % 8 = 0 then
+      if VERIFY_DATA ≤ A ∧ A < VERIFY_DATA + 8 * ((16576 + 7) / 8) ∧ (A - VERIFY_DATA) % 8 = 0 then
         bytesToWordLE ((((submission.image .verify).data).drop (A - VERIFY_DATA)).take 8) else 0 := by
     intro A hA
     rw [getMem_writeBytesAsWords (submission.image .verify).data blank (dataBase (submission.image .verify)) A
@@ -339,19 +339,19 @@ set_option maxRecDepth 200000 in
 theorem init_bank (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : Bytes 22984) (s : MachineState)
     (h : initialState submission .verify (m, pk, w) = some s) : Bank s := by
   refine ⟨⟨?_, fun k hk => ?_, ?_⟩, ⟨?_, ?_⟩, ?_⟩
-  · rw [show 0xffbf40 + 8 = VERIFY_DATA + 8 * 67 by unfold VERIFY_DATA; omega, init_word m pk w s h 67 (by omega)]
+  · rw [show 0xffbf40 + 8 = VERIFY_DATA + 8 * 1 by unfold VERIFY_DATA; omega, init_word m pk w s h 1 (by omega)]
     decide +kernel
-  · rw [show TOPLOAD + 8 * k = VERIFY_DATA + 8 * (71 + k) by unfold TOPLOAD VERIFY_DATA; omega,
-      init_word m pk w s h (71 + k) (by omega)]
+  · rw [show TOPLOAD + 8 * k = VERIFY_DATA + 8 * (5 + k) by unfold TOPLOAD VERIFY_DATA; omega,
+      init_word m pk w s h (5 + k) (by omega)]
     interval_cases k <;> decide +kernel
-  · rw [show TOPLOAD - 8 = VERIFY_DATA + 8 * 70 by unfold TOPLOAD VERIFY_DATA; omega,
-      init_word m pk w s h 70 (by omega)]
+  · rw [show TOPLOAD - 8 = VERIFY_DATA + 8 * 4 by unfold TOPLOAD VERIFY_DATA; omega,
+      init_word m pk w s h 4 (by omega)]
     decide +kernel
-  · rw [show W9Drv.setupMaskAddr + 16 = VERIFY_DATA + 8 * 68 by unfold W9Drv.setupMaskAddr VERIFY_DATA; omega,
-      init_word m pk w s h 68 (by omega)]
+  · rw [show W9Drv.setupMaskAddr + 16 = VERIFY_DATA + 8 * 2 by unfold W9Drv.setupMaskAddr VERIFY_DATA; omega,
+      init_word m pk w s h 2 (by omega)]
     decide +kernel
-  · rw [show W9Drv.setupMaskAddr + 24 = VERIFY_DATA + 8 * 69 by unfold W9Drv.setupMaskAddr VERIFY_DATA; omega,
-      init_word m pk w s h 69 (by omega)]
+  · rw [show W9Drv.setupMaskAddr + 24 = VERIFY_DATA + 8 * 3 by unfold W9Drv.setupMaskAddr VERIFY_DATA; omega,
+      init_word m pk w s h 3 (by omega)]
     decide +kernel
   · rw [show VERIFY_DATA = VERIFY_DATA + 8 * 0 by rfl, init_word m pk w s h 0 (by omega)]
     decide +kernel
@@ -673,13 +673,13 @@ theorem prefixGood : PrefixGood W9Drv.GatePre := by
       obtain ⟨t, hst, hpre⟩ := gatePre_of_hook m pk w a u hu
       exact GoodQP.steps' hst (hcont a t hdc hpre) le_rfl le_rfl le_rfl)
   exact GoodQP.mono' h (by omega) (by omega) (by omega)
-end W9Fin.V4
-#print axioms W9Fin.V4.prefixGood
+end W9Fin.V5
+#print axioms W9Fin.V5.prefixGood
 end
 
 section
 
-namespace W9Fin.V4
+namespace W9Fin.V5
 theorem verify_inputs_x {FtsOut : SigGolfCandidate.T3.Digest → SigGolfCandidate.T3M.WBytes →
       SigGolfCandidate.T3.HashOutput → SigGolfCandidate.T3.Digest → RiscvZkvm.Rv64.MachineState → Prop}
     {ovh aG : Nat}
@@ -690,6 +690,6 @@ theorem verify_inputs_x {FtsOut : SigGolfCandidate.T3.Digest → SigGolfCandidat
     ClaudeWCT.W9.T3M.Final.VerifyRefines I0 ∧ ClaudeWCT.W9.T3M.Final.VerifyTerminates I0 ∧
       ClaudeWCT.W9.T3M.Final.VerifyAcceptCycles I0 :=
   verify_inputs ⟨prefixGood, fts, after, hnum⟩
-end W9Fin.V4
-#print axioms W9Fin.V4.verify_inputs_x
+end W9Fin.V5
+#print axioms W9Fin.V5.verify_inputs_x
 end

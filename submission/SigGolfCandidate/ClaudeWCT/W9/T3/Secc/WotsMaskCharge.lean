@@ -118,16 +118,16 @@ theorem count_signLayers_maskAt (htree : a.key.tree < 2 ^ 40) (hleaf : a.key.lea
       by_cases hn0 : n = 0
       · simp only [hn0, ite_true]
         generalize ((evalWithAnswerFn answers (WCT9.layerCounterSearch (Fin.ofNat 4 0) (route index (Fin.ofNat 4 0)).2
-          (route index (Fin.ofNat 4 0)).1 msg 0 counterLimit)).map Prod.snd).getD dummyTop = dg
+          (route index (Fin.ofNat 4 0)).1 msg 0 (WCT9.searchLimit (Fin.ofNat 4 0)))).map Prod.snd).getD dummyTop = dg
         rw [queried_length_bind, queried_length_bind, queried_length_signTop, queried_length_signTop]
         rfl
       cases hs : evalWithAnswerFn answers (WCT9.layerCounterSearch (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
-        (route index (Fin.ofNat 4 n)).1 msg 0 counterLimit) with
+        (route index (Fin.ofNat 4 n)).1 msg 0 (WCT9.searchLimit (Fin.ofNat 4 n))) with
       | none => simp only [hn0, ite_false]; rfl
       | some found =>
           obtain ⟨counter, digits⟩ := found
-          have hd := (WCT9.layerCounterSearch_some answers _ _ _ msg counterLimit 0 counter digits
-            (by decide) hs).2.2
+          have hd := (WCT9.layerCounterSearch_some answers _ _ _ msg (WCT9.searchLimit (Fin.ofNat 4 n)) 0 counter digits
+            (ClaudeWCT.W9.T3.Security.Wots.searchLimit_fits _) hs).2.2
           have hvalid := Cost.validDigits_decode hd
           have hsearch : referenceSearch answers (routeLeaf index (Fin.ofNat 4 n)) = some (counter, digits) := by
             unfold referenceSearch

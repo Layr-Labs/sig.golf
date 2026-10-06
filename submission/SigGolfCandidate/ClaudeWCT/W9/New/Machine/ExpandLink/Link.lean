@@ -51,7 +51,7 @@ theorem sinit_wct_table (sk : SecretKey) (cache : Bytes 131072) (m : Message) : 
     if_pos (by unfold TBL SIGN_DATA; omega), show TBL + 8 * k - SIGN_DATA = costBytes.length + 8 * k by
       rw [hc]; unfold TBL SIGN_DATA; omega,
     signData_split, slice_mid _ _ _ _ (by omega)]
-theorem hook_v4 {sk : SecretKey} {cache : Bytes 131072} {m : Message} {rho : SigGolfCandidate.T3.Digest}
+theorem hook_v5 {sk : SecretKey} {cache : Bytes 131072} {m : Message} {rho : SigGolfCandidate.T3.Digest}
     {t : MachineState} (h : NoncePost sk cache m rho t) : HookPre sk m rho t := by
   refine ⟨⟨h.search.pc, h.search.x5, h.search.x19, h.search.rho, h.search.msg, ?_⟩, h.rho, ?_, ?_, ?_⟩
   · intro k hk
@@ -69,18 +69,19 @@ theorem hook_v4 {sk : SecretKey} {cache : Bytes 131072} {m : Message} {rho : Sig
   · intro k hk
     rw [h.frame.get (by unfold TBL; omega) (by unfold FrontW TBL; sg_omega)]
     exact sinit_wct_table sk cache m k hk
-theorem wct_unchanged_v4 (hPacked : Sign.Packed.PackedLeafSpec ClaudeWCT.WCT9.buildLeafP) :
+theorem wct_unchanged_v5 :
     ClaudeWCT.W9.Machine.Sign.Unchanged submission.image (fun sk cache _m => Inv sk cache) := by
   refine ⟨?_, ?_, ?_⟩
   · intro sk cache m
     refine ⟨sinit sk cache m, initialState_sign sk cache m, ?_⟩
     intro α W Q K hfail hrest
     exact nonce_front K (fun t ht => hfail t ⟨ht.pc, ht.x5, ht.x10⟩)
-      (fun rho t ht => hrest rho t (hook_v4 ht) ht.inv)
+      (fun rho t ht => hrest rho t (hook_v5 ht) ht.inv)
   · intro sk cache m t u h hf hr
     exact Inv.stable h hf hr (by decide)
   · intro sk cache m index root s hp hi
-    have hs := Sign.Packed.layers_from370_canonical hPacked ClaudeWCT.W9.Machine.Sign.TopLeafP.topLeafSpec
+    have hs := Sign.Packed.layers_from370_canonical ClaudeWCT.W9.Machine.Sign.PackedLeaf.packedLeafSpecV
+      ClaudeWCT.W9.Machine.Sign.TopLeafP.topLeafSpec
       hp.pc hi.1 hp.hidx hp.idx hp.root (by rw [hi.2.1]; decide) (by exact ⟨hi.2.2.1, hi.2.2.2⟩)
     refine TBSim.mono hs (by rw [Sign.Packed.layers_entry_cost]; decide) (fun r u hu => ?_)
     cases r with
@@ -89,15 +90,17 @@ theorem wct_unchanged_v4 (hPacked : Sign.Packed.PackedLeafSpec ClaudeWCT.WCT9.bu
       obtain ⟨hpc, hlen, hpieces, hf⟩ := hu
       exact ⟨hpc, hlen, fun lay => hpieces lay lay.isLt, hf.mono (fun A _ h => h.1)⟩
 set_option maxHeartbeats 0 in
-theorem wct_signCodeAt_v4 : SignCodeAt Images.signImage := by
+theorem signCode_drop_v5 : Images.signImage.code.drop 11003 = signNew ++ Images.signImage.code.drop 20771 := by
+  decide +kernel
+set_option maxHeartbeats 0 in
+theorem wct_signCodeAt_v5 : SignCodeAt Images.signImage := by
   refine ⟨?_, ?_⟩
-  · apply ClaudeWCT.W9.Machine.Sign.newCodeAt_of_drop
-    decide +kernel
+  · exact ⟨_, signCode_drop_v5.symm⟩
   · exact ⟨by decide +kernel, by decide +kernel, by decide +kernel⟩
-theorem wct_sign_certified_v4 (hPacked : Sign.Packed.PackedLeafSpec ClaudeWCT.WCT9.buildLeafP) :
+theorem wct_sign_certified_v5 :
     SignRefinesW submission.image ∧ SignTerminatesW submission.image :=
-  ClaudeWCT.W9.Machine.Sign.signMain submission.image (fun sk cache _m => Inv sk cache) wct_signCodeAt_v4
-    (wct_unchanged_v4 hPacked)
+  ClaudeWCT.W9.Machine.Sign.signMain submission.image (fun sk cache _m => Inv sk cache) wct_signCodeAt_v5
+    wct_unchanged_v5
 end ClaudeWCT.W9.Machine.SignLink
 end
 
@@ -155,7 +158,11 @@ def ExpQW : Option (HashOutput × WCT9.Witness) → MachineState → Prop
   | some (N, w), t => t.pc = pcOf 353 ∧ t.getReg .x5 = BitVec.ofNat 64 1 ∧ t.getReg .x10 = BitVec.ofNat 64 0 ∧
       t.readWords (BitVec.ofNat 64 0x800) 2873 = wordsOf (ClaudeWCT.W9.T3M.witList N w)
 def expCostW : Nat := 30 + newCost + (lcost 4 + 11)
-theorem lcost_four : lcost 4 ≤ 3750000000 := by decide
+theorem lcost_four : lcost 4 ≤ 3011803496 := by decide
+theorem expCostW_le : expCostW ≤ 3431333937 := by
+  have h := lcost_four
+  unfold expCostW newCost
+  omega
 theorem expCostW_lt : expCostW + 1 < CYCLE_LIMIT := by
   have h := lcost_four
   unfold expCostW newCost CYCLE_LIMIT
@@ -572,7 +579,7 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 set_option maxRecDepth 100000 in
 theorem expChunks_full : ∀ c, c < 156 → (expChunks.getD c []).length = 256 := by decide +kernel
 set_option maxRecDepth 100000 in
-theorem expChunks_flatten_length : expChunks.flatten.length = 40042 := by decide +kernel
+theorem expChunks_flatten_length : expChunks.flatten.length = 40087 := by decide +kernel
 theorem drop_flatten_chunks : ∀ (L : List (List (BitVec 32))) (c : Nat), (∀ i, i < c → (L.getD i []).length = 256) →
     c ≤ L.length → L.flatten.drop (256 * c) = (L.drop c).flatten
   | L, 0, _, _ => by simp
@@ -600,22 +607,18 @@ section
 namespace ClaudeWCT.W9.Machine.ExpandLink
 open SigGolfCandidate.T3M
 def I0 : ClaudeWCT.W9.T3M.Images := ⟨Images.signImage, Images.expandImage, Images.verifyImage⟩
-theorem v4_valid : I0.expand.Valid (ClaudeWCT.W9.T3M.submission I0).sizes (ClaudeWCT.W9.T3M.submission I0).layout :=
+theorem v5_valid : I0.expand.Valid (ClaudeWCT.W9.T3M.submission I0).sizes (ClaudeWCT.W9.T3M.submission I0).layout :=
   submission_expand_valid
-theorem v4_dataOK : ClaudeWCT.W9.Machine.Expand.ExpandDataOK I0.expand := Expand.wct_expandData
-theorem expand_W_v4 :
+theorem v5_dataOK : ClaudeWCT.W9.Machine.Expand.ExpandDataOK I0.expand := Expand.wct_expandData
+theorem expand_W_v5 :
     ClaudeWCT.W9.Machine.Expand.ExpandRefinesW (ClaudeWCT.W9.T3M.submission I0).image ∧
       ClaudeWCT.W9.Machine.Expand.ExpandTerminatesW (ClaudeWCT.W9.T3M.submission I0).image :=
-  ClaudeWCT.W9.Machine.Expand.expandComposeSpec_holds _ v4_valid Expand.wct_newCodeAt Expand.wct_frontAt
-    v4_dataOK Expand.wct_backSpec
-theorem sign_W_v4 (hPacked : Sign.Packed.PackedLeafSpec ClaudeWCT.WCT9.buildLeafP) :
+  ClaudeWCT.W9.Machine.Expand.expandComposeSpec_holds _ v5_valid Expand.wct_newCodeAt Expand.wct_frontAt
+    v5_dataOK Expand.wct_backSpec
+theorem sign_W_v5 :
     ClaudeWCT.W9.Machine.Sign.SignRefinesW (ClaudeWCT.W9.T3M.submission I0).image ∧
       ClaudeWCT.W9.Machine.Sign.SignTerminatesW (ClaudeWCT.W9.T3M.submission I0).image :=
-  ClaudeWCT.W9.Machine.SignLink.wct_sign_certified_v4 hPacked
-theorem sign_W_v4_closed :
-    ClaudeWCT.W9.Machine.Sign.SignRefinesW (ClaudeWCT.W9.T3M.submission I0).image ∧
-      ClaudeWCT.W9.Machine.Sign.SignTerminatesW (ClaudeWCT.W9.T3M.submission I0).image :=
-  sign_W_v4 ClaudeWCT.W9.Machine.Sign.PackedLeaf.packedLeafSpecV
+  ClaudeWCT.W9.Machine.SignLink.wct_sign_certified_v5
 end ClaudeWCT.W9.Machine.ExpandLink
 end
 end

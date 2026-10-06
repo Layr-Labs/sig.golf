@@ -7,8 +7,9 @@ open SphincsSecurity (bytesLE)
 def coordinates : Nat := 9
 def children : Nat := 128
 def chains : Nat := 7
-def gateBits : Nat := 22
-def gateLimit : Nat := 2047
+def gateShift : Nat := 235
+def gateBits : Nat := 21
+def gateLimit : Nat := 1030
 def fieldBits : Nat := 14
 def fieldLimit : Nat := 16200
 def jointCap : Nat := 700
@@ -27,7 +28,7 @@ def field (output : HashOutput) (coord : Coord) : Nat :=
 def rank (output : HashOutput) (coord : Coord) : Rank :=
   ⟨field output coord % 600, Nat.mod_lt _ (by decide)⟩
 def admissible (output : HashOutput) : Bool :=
-  decide (output.toNat / 2 ^ 234 % 2 ^ 22 < 2047) &&
+  decide (output.toNat / 2 ^ 235 % 2 ^ 21 < 1030) &&
     (List.range 9).all (fun coord =>
       decide (output.toNat / 2 ^ (coordBase coord + 7) % 2 ^ 14 < 16200))
 def jointCost (output : HashOutput) : Nat :=
@@ -112,12 +113,21 @@ def pairEncodingInputP (up : Layer) (tree leaf : Nat) (left right : Digest) (cou
 def layerEncodingInput (lay : Layer) (tree leaf : Nat) : LayerMsg → BitVec 32 → HashInput
   | .forest root, counter => encodingInput lay tree leaf root counter
   | .pair left right, counter => pairEncodingInputP lay tree leaf left right counter 0
+def producerFloor (lay : Layer) : Nat := ![7, 4, 4, 2] lay
+def wordCredit (lay : Layer) (digits : List Nat) : Nat :=
+  ((List.range (chainCount lay)).filter fun i => digits.getD i 0 + 1 = maxDigit lay i).length
+def producerDecode (lay : Layer) (answer : Digest) : Option (List Nat) :=
+  match decode lay answer with
+  | some digits => if producerFloor lay ≤ wordCredit lay digits then some digits else none
+  | none => none
+def lowerSearchLimit : Nat := 2 ^ 21
+def searchLimit (lay : Layer) : Nat := if lay = 0 then counterLimit else lowerSearchLimit
 def layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) (counter : Nat) :
     Nat → M (Option (BitVec 32 × List Nat))
   | 0 => pure none
   | fuel + 1 => do
       let answer ← shortHash (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter))
-      match searchDecode lay answer with
+      match producerDecode lay answer with
       | none => layerCounterSearch lay tree leaf msg (counter + 1) fuel
       | some digits => pure (some (BitVec.ofNat 32 counter, digits))
 def lowerOrdinal (lay : Layer) (leaf chain : Nat) : Nat := chainCount lay * leaf + chain
@@ -151,7 +161,7 @@ def signLayersBC (cache : Cache) (index : Nat) : Nat → LayerMsg → M (Option 
   | n + 1, msg => do
       let lay : Layer := Fin.ofNat 4 n
       let (leaf, tree) := route index lay
-      let found ← layerCounterSearch lay tree leaf msg 0 counterLimit
+      let found ← layerCounterSearch lay tree leaf msg 0 (searchLimit lay)
       if n = 0 then
         let part ← signTop cache leaf ((found.map Prod.snd).getD dummyTop)
         pure (some [part])
@@ -191,13 +201,41 @@ def recoverLayerPair (sig : Signature) (index : Nat) (lay : Layer) (digits : Lis
     nodeHash 3 lay.val tree (2 ^ (height lay - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1 pair.2) value
   let other := (sig.layers lay).path (topLevel lay)
   pure (if leaf / 2 ^ (height lay - 1) % 2 = 0 then (top, other) else (other, top))
+def topGroupBad (answer : Digest) (i : Nat) : Bool :=
+  decide (i % 3 = 0 ∧ i < 51 ∧ 125 ≤ answer.toNat / 2 ^ (7 * (i / 3)) % 128)
+def topDecodeStep (run : Fin (chainCount 0) → Nat → M Digest) (answer : Digest)
+    (state : Option (List Digest)) (i : Fin (chainCount 0)) : M (Option (List Digest)) := do
+  let some ends := state | pure none
+  if topGroupBad answer i.val then return none
+  let value ← run i ((dataDigits 0 answer).getD i.val 0)
+  pure (some (ends ++ [value]))
+def topDecodeRun (run : Fin (chainCount 0) → Nat → M Digest) (finish : List Digest → M Digest)
+    (answer : Digest) : M (Option Digest) := do
+  if answer.toNat ≥ 2 ^ encodedBits 0 then return none
+  let some ends ← (List.finRange (chainCount 0)).foldlM (topDecodeStep run answer) (some []) | pure none
+  if (dataDigits 0 answer).sum ≠ target 0 then return none
+  some <$> finish ends
+def verifyTop (sig : Signature) (index : Nat) (answer : Digest) : M (Option Digest) :=
+  let leaf := (route index 0).1
+  let tree := (route index 0).2
+  topDecodeRun
+    (fun i digit => SigGolfCandidate.T3.chain 0 tree leaf i.val digit (maxDigit 0 i.val - digit)
+      ((sig.layers 0).values i))
+    (fun ends => do
+      let value ← SigGolfCandidate.T3.leafHash 0 tree leaf ends
+      (List.finRange (height 0)).foldlM (fun value j => do
+        let other := (sig.layers 0).path j
+        let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
+        nodeHash 3 (0 : Layer).val tree (2 ^ (height 0 - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1 pair.2)
+        value)
+    answer
 def expandLayersBC (sig : Signature) (index : Nat) :
     Nat → LayerMsg → M (Option (Digest × List (BitVec 32)))
   | 0, _ => pure none
   | n + 1, msg => do
       let lay : Layer := Fin.ofNat 4 n
       let (leaf, tree) := route index lay
-      let some (counter, digits) ← layerCounterSearch lay tree leaf msg 0 counterLimit | pure none
+      let some (counter, digits) ← layerCounterSearch lay tree leaf msg 0 (searchLimit lay) | pure none
       if n = 0 then
         let root ← recoverLayer (toT3Signature sig) index lay digits
         pure (some (root, [counter]))
@@ -213,9 +251,9 @@ def verifyLayersBC (w : Witness) (index : Nat) : Nat → LayerMsg → M (Option 
       if counter.toNat ≥ counterLimit then return none
       let (leaf, tree) := route index lay
       let answer ← shortHash (layerEncodingInput lay tree leaf msg counter)
-      let some digits := decode lay answer | pure none
-      if n = 0 then some <$> recoverLayer (toT3Signature w.signature) index lay digits
+      if n = 0 then verifyTop w.signature index answer
       else do
+        let some digits := decode lay answer | pure none
         let pair ← recoverLayerPair w.signature index lay digits
         verifyLayersBC w index n (.pair pair.1 pair.2)
 def signPayload (cache : Cache) (message : Message) : M (Option Signature) := do

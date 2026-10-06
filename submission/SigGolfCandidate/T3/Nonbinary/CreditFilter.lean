@@ -10,7 +10,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
 set_option exponentiation.threshold 20000
 set_option linter.constructorNameAsVariable false
-def creditFloor : Nat := 9
+def creditFloor : Nat := 7
 def credit5 (d : Triple5) : Nat := ∑ i,if (d i).val=3 then 1 else 0
 def credit4 (d : Triple4) : Nat := ∑ i,if (d i).val=2 then 1 else 0
 def credit (w : Word) : Nat := (∑ i,credit5 (w.1 i))+credit4 w.2
@@ -72,28 +72,28 @@ theorem truncated_card (cut : Nat) (hc : 0<cut) :
       (by simpa only [Finset.card_univ] using Nat.lt_of_lt_of_le word_card_small (Nat.sub_le _ _)),
     SigGolfResearch.Gate6.sum_pow_mod_pred_generic (by norm_num [radix]),
     Nat.mod_eq_of_lt ((Finset.card_filter_le _ _).trans_lt (by simpa using word_card_small))]
-def count : Nat := 115848238762295281832019488595518415
+def count : Nat := 99688341888453976199567696916972594
 theorem exact_packed_count :
-    (packed%radix^8256)%(radix-1)-(packed%radix^(8192+creditFloor))%(radix-1)=count := by decide +kernel
+    (packed%radix^8320)%(radix-1)-(packed%radix^(8256+creditFloor))%(radix-1)=count := by decide +kernel
 theorem credited_card :
-    (Finset.univ.filter fun w : Word => weight w=128 ∧ creditFloor≤credit w).card=count := by
+    (Finset.univ.filter fun w : Word => weight w=129 ∧ creditFloor≤credit w).card=count := by
   classical
-  have hs : (Finset.univ.filter fun w : Word => weight w=128 ∧ creditFloor≤credit w)=
-      (Finset.univ.filter fun w : Word => stat w<8256)\
-        (Finset.univ.filter fun w : Word => stat w<8192+creditFloor) := by
+  have hs : (Finset.univ.filter fun w : Word => weight w=129 ∧ creditFloor≤credit w)=
+      (Finset.univ.filter fun w : Word => stat w<8320)\
+        (Finset.univ.filter fun w : Word => stat w<8256+creditFloor) := by
     ext w
     have hc := credit_le w
     have he := stat_eq w
     simp only [Finset.mem_filter,Finset.mem_univ,true_and,Finset.mem_sdiff]
     omega
   rw [hs,Finset.card_sdiff_of_subset]
-  · rw [truncated_card 8256 (by decide),truncated_card (8192+creditFloor) (by decide),exact_packed_count]
+  · rw [truncated_card 8320 (by decide),truncated_card (8256+creditFloor) (by decide),exact_packed_count]
   · intro w hw
     have hf : creditFloor≤64 := by decide
     simp only [Finset.mem_filter,Finset.mem_univ,true_and] at hw ⊢
     omega
 theorem credited_digest_card :
-    ((Finset.univ.filter fun w : Word => weight w=128 ∧ creditFloor≤credit w).image digest).card=count := by
+    ((Finset.univ.filter fun w : Word => weight w=129 ∧ creditFloor≤credit w).image digest).card=count := by
   classical
   rw [Finset.card_image_of_injective _ digest_injective,credited_card]
 theorem credited_decoder_count :
@@ -101,7 +101,7 @@ theorem credited_decoder_count :
   classical
   rw [Fintype.card_subtype]
   have he : (Finset.univ.filter fun d : Fin (2^128) => ∃ w,Decoder.decode d=some w ∧ creditFloor≤credit w)=
-      (Finset.univ.filter fun w : Word => weight w=128 ∧ creditFloor≤credit w).image digest := by
+      (Finset.univ.filter fun w : Word => weight w=129 ∧ creditFloor≤credit w).image digest := by
     ext d
     simp only [Finset.mem_filter,Finset.mem_univ,true_and,Finset.mem_image]
     constructor
@@ -112,7 +112,7 @@ theorem credited_decoder_count :
       exact ⟨w,(Decoder.decode_some_iff d w).mpr ⟨hd,hweight⟩,hc⟩
   rw [he,credited_digest_card]
 theorem probability_fraction : (count : ℚ)/2^128=
-    115848238762295281832019488595518415/2^128 := by
+    99688341888453976199567696916972594/2^128 := by
   simp only [count,Nat.cast_ofNat]
 end SigGolfResearch.NonbinaryTop.CreditCounting
 #print axioms SigGolfResearch.NonbinaryTop.CreditCounting.exact_packed_count
@@ -206,7 +206,7 @@ theorem topCredit_parse {v : Digest} {w : Codec.Word}
     rw [if_neg hn,he]
 theorem decodeBV_parse {v : Digest} {w : Codec.Word} (hw : Decoder.decodeBV v=some w) :
     Decoder.parse 17 v.toNat=some w := by
-  change ((Decoder.parse 17 v.toNat).filter fun w => decide (Counting.weight w=128))=some w at hw
+  change ((Decoder.parse 17 v.toNat).filter fun w => decide (Counting.weight w=129))=some w at hw
   exact (Option.filter_eq_some_iff.mp hw).1
 theorem searchDecode_top_isSome (v : Digest) :
     (searchDecode 0 v).isSome=true ↔ ∃ w,Decoder.decodeBV v=some w ∧ creditFloor 0≤CreditCounting.credit w := by

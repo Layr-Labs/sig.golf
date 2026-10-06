@@ -1,6 +1,5 @@
 import SigGolfCandidate.T3M.Verify.Words
 import Mathlib.Data.Nat.Bitwise
-import SigGolfCandidate.T3M.Verify.Nonbinary.PairTables
 
 set_option linter.unusedSimpArgs false
 namespace SigGolfCandidate.T3M.Verify
@@ -144,7 +143,7 @@ def TAB : Nat := 16709632
 def HDATA : Nat := 0xffbf90
 def headerBank (lay koff : Nat) : Nat := TOPBASE + 4096 * lay + 64 * koff
 structure DataOK (s : MachineState) : Prop where
-  packed : Nonbinary.PackedTables s
+  mask : s.getMem (BitVec.ofNat 64 (TOPBASE - 8)) = 130048#64
   header : ∀ lay, lay < 4 →
     s.getMem (BitVec.ofNat 64 (HDATA + 8 * lay)) =
       BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + lay * 2 ^ 48)
@@ -155,7 +154,8 @@ theorem DataOK.congr {s t : MachineState} (h : DataOK s)
     (hm : ∀ A, TAB ≤ A → A + 8 ≤ 2 ^ 24 →
       t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)) : DataOK t := by
   constructor
-  · exact h.packed.congr (fun A hA hB => hm A (by unfold Nonbinary.TAIL_DATA at hA; unfold TAB; omega) hB)
+  · rw [hm _ (by unfold TOPBASE TAB; omega) (by unfold TOPBASE; omega)]
+    exact h.mask
   · intro lay hl
     rw [hm _ (by unfold HDATA TAB; omega) (by unfold HDATA; omega)]
     exact h.header lay hl

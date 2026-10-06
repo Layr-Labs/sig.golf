@@ -585,19 +585,15 @@ theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
     · unfold traceLeafSlot base coordinateBase; split_ifs <;> omega
     · unfold traceLeafSlot; split_ifs <;> omega
     · unfold traceLeafSlot; split_ifs <;> omega
-  have hheader : DigAt prepared (base k + 896) (SigGolfCandidate.T3.header 6 k.val index 0 j.val) := by
-    constructor
-    · rw [leafSetup_mem s (base k) (base k + 896) hb hB (by omega),
-        if_neg (by omega), if_pos rfl]
-      exact hs.leafLoad hu
-    · rw [leafSetup_mem s (base k) (base k + 896 + 8) hb hB (by omega),
-        if_pos (by omega), header_hi,
-        if_neg (by decide : ¬ SigGolfCandidate.T3.packedNodeTag 6)]
-      have hi := hu.indexBound
-      have hj := j.isLt
-      simpa only [hdr1, Nat.mod_eq_of_lt (by omega : index < 2 ^ 32),
-        Nat.mod_eq_of_lt (by omega : j.val < 2 ^ 32), Nat.mul_comm] using
-          (hs.keep .x4 (by decide)).trans hu.route
+  have hheaderLo : prepared.getMem (BitVec.ofNat 64 (base k + 896)) =
+      (SigGolfCandidate.T3.header 6 k.val index 0 j.val).extractLsb' 0 64 := by
+    rw [leafSetup_mem s (base k) (base k + 896) hb hB (by omega),
+      if_neg (by omega), if_pos rfl]
+    exact hs.leafLoad hu
+  have hheaderHi : prepared.getMem (BitVec.ofNat 64 (base k + 904)) =
+      BitVec.ofNat 64 index := by
+    rw [leafSetup_mem s (base k) (base k + 904) hb hB (by omega), if_pos rfl]
+    exact (hs.keep .x4 (by decide)).trans hu.route
   refine { length := hlen, keep := hkeep, frame := hf, child := ?_ }
   refine {
     indexBound := hu.indexBound, length := hlen, pc := ?_,
@@ -605,26 +601,26 @@ theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
     baseReg := (hkeep .x8 (by decide)).trans hu.baseReg,
     hashInput := hp.1, hashLen := hp.2.1,
     nodeHeader := (hkeep .x27 (by decide)).trans hu.nodeHeader,
-    indexReg := (hkeep .x22 (by decide)).trans hu.indexReg,
+    childReg := (hkeep .x22 (by decide)).trans hu.indexReg,
     forestPointer := (hkeep .x9 (by decide)).trans hu.forestPointer,
     returnPC := (hkeep .x1 (by decide)).trans hu.returnPC,
-    heaps := ?_, leafAt := ?_,
+    heaps := ?_,
+    leaf1Lo := by simpa [V3.leafFields] using hheaderLo,
+    leaf1Hi := hheaderHi, leafAt := ?_,
     padAt := fun l hl => merklePad_of_frame hu hf l (by omega),
     sibAt := fun l hl => merkleSibling_of_frame hu hf l hl }
   · rw [hp.2.2, hs.keep .x23 (by decide), hu.childPC, pcOf_and_not1]
   · intro h hlo hhi
     have hn : Child.heapReg h ∉ clobbers := by interval_cases h <;> decide
     exact (hkeep _ hn).trans (hu.heaps h hlo hhi)
-  · intro i hi
+  · intro i hi h1
     by_cases h0 : i = 0
     · subst i; simpa [V3.leafFields, traceLeafSlot] using hend 0 (by decide)
-    · by_cases h1 : i = 1
-      · subst i; simpa [V3.leafFields, Nat.add_assoc] using hheader
-      · have he : base k + 880 + 16 * i = base k + traceLeafSlot (i - 1) := by
-          unfold traceLeafSlot
-          rw [if_neg (by omega)]
-          omega
-        simpa only [V3.leafFields, if_neg h0, if_neg h1, he] using hend (i - 1) (by omega)
+    · have he : base k + 880 + 16 * i = base k + traceLeafSlot (i - 1) := by
+        unfold traceLeafSlot
+        rw [if_neg (by omega)]
+        omega
+      simpa only [V3.leafFields, if_neg h0, if_neg h1, he] using hend (i - 1) (by omega)
 end W9Machine.Chain
 end
 section

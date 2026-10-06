@@ -68,10 +68,10 @@ theorem bound_layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : LayerMsg
       unfold layerCounterSearch
       refine (bound_layerEncoding lay tree leaf msg (BitVec.ofNat 32 counter)).bind' (l := fuel)
         (fun answer _ => ?_) (by omega)
-      cases hs : searchDecode lay answer with
+      cases hs : producerDecode lay answer with
       | none => exact ih (counter + 1)
       | some digits =>
-          have hd := SigGolfCandidate.T3.Nonbinary.searchDecode_some hs
+          have hd := producerDecode_decode hs
           refine .pure (some (BitVec.ofNat 32 counter, digits)) fuel ?_
           intro other values hv
           obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hv)
@@ -202,9 +202,9 @@ theorem bound_signLayersBC (cache : Cache) (index : Nat) :
       unfold signLayersBC
       dsimp only
       refine (bound_layerCounterSearch (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
-        (route index (Fin.ofNat 4 n)).1 msg counterLimit 0).bind'
+        (route index (Fin.ofNat 4 n)).1 msg (searchLimit (Fin.ofNat 4 n)) 0).bind'
         (l := n * counterLimit + layerFixedCostP (n + 1)) (fun out hout => ?_)
-        (by simp only [Nat.add_mul, Nat.one_mul]; omega)
+        (by have := searchLimit_le (Fin.ofNat 4 n); simp only [Nat.add_mul, Nat.one_mul]; omega)
       by_cases hn : n = 0
       · subst n
         simp only [ite_true]
@@ -278,8 +278,48 @@ theorem recoveryLayersCostBC_four_le : recoveryLayersCostBC 4 ≤ 481 := by
   have h := recoveryLayersCostBC_add
   have h4 := recoveryLayersCost_four
   omega
+theorem bound_topDecodeRun (run : Fin (chainCount 0) → Nat → M Digest) (finish : List Digest → M Digest)
+    (answer : Digest) (F : Nat) (hrun : ∀ i digit, CBound (fun _ => True) (maxDigit 0 i.val - digit) (run i digit))
+    (hfinish : ∀ ends : List Digest, ends.length = chainCount 0 → CBound (fun _ => True) F (finish ends))
+    (hF : capacity 0 - target 0 + F ≤ capacity 0) :
+    CBound (fun _ => True) (capacity 0) (topDecodeRun run finish answer) := by
+  cases hd : decode 0 answer with
+  | some digits =>
+      rw [topDecodeRun_of_decode hd]
+      refine Bound.map some ((Bound.mapM_list (P := GoodQuery) (List.finRange (chainCount 0)) _
+        (fun i => maxDigit 0 i.val - digits.getD i.val 0) (fun i _ => hrun i _)).bind' (l := F)
+        (fun ends hends => hfinish ends (by simpa using hends)) ?_) (fun _ _ => trivial)
+      rw [sum_finRange (chainCount 0) (fun i => maxDigit 0 i - digits.getD i 0),
+        remaining_steps 0 digits (validDigits_decode hd) (decode_length_sum hd).1 (decode_length_sum hd).2]
+      exact hF
+  | none =>
+      rw [topDecodeRun_of_decode_none hd]
+      unfold topRejectChains
+      refine Bound.map _ ((Bound.mapM_list (P := GoodQuery) _ _ (fun i => maxDigit 0 i.val)
+        (fun i _ => (hrun i _).mono_k (Nat.sub_le _ _))).mono_k ?_) (fun _ _ => trivial)
+      have hsplit := congrArg (fun l : List (Fin (chainCount 0)) => (l.map fun i => maxDigit 0 i.val).sum)
+        (List.take_append_drop (topRejectLength answer) (List.finRange (chainCount 0)))
+      simp only [List.map_append, List.sum_append] at hsplit
+      have htot : ((List.finRange (chainCount 0)).map fun i => maxDigit 0 i.val).sum = capacity 0 := by
+        rw [sum_finRange (chainCount 0) (fun i => maxDigit 0 i), capacity_sum]
+      omega
+theorem bound_verifyTop (sig : Signature) (index : Nat) (answer : Digest) :
+    CBound (fun _ => True) (capacity 0) (verifyTop sig index answer) := by
+  unfold verifyTop
+  generalize route index 0 = p
+  obtain ⟨leaf, tree⟩ := p
+  dsimp only
+  refine bound_topDecodeRun _ _ answer (leafHashCost 0 + height 0) (fun i digit => bound_chain _ _ _ _ _ _ _)
+    (fun ends hends => ?_) (by decide)
+  refine (bound_leafHash 0 _ _ ends hends).bind (fun root _ => ?_)
+  exact (Bound.foldlM_list (P := GoodQuery) (List.finRange (height 0)) _ (fun _ _ => True) (fun _ => 1) root
+    trivial (fun i hi value _ => bound_nodeHash _ _ _ _ _ _)).mono_k (by simp)
+def verifyLayersCostBC : Nat → Nat
+  | 0 => 0
+  | n + 1 => (if n = 0 then capacity 0 else recoverLayerPairCost (Fin.ofNat 4 n)) + verifyLayersCostBC n
+theorem verifyLayersCostBC_four_le : verifyLayersCostBC 4 ≤ 573 := by decide
 theorem bound_verifyLayersBC (w : Witness) (index : Nat) :
-    ∀ n msg, CBound (fun _ => True) (n + recoveryLayersCostBC n) (verifyLayersBC w index n msg) := by
+    ∀ n msg, CBound (fun _ => True) (n + verifyLayersCostBC n) (verifyLayersBC w index n msg) := by
   intro n
   induction n with
   | zero => intro msg; exact .pure _ _ trivial
@@ -290,23 +330,20 @@ theorem bound_verifyLayersBC (w : Witness) (index : Nat) :
       split
       · exact .pure _ _ trivial
       · refine (bound_layerEncoding _ _ _ msg _).bind'
-          (l := recoveryLayersCostBC (n + 1) + n) (fun answer _ => ?_) (by simp only [recoveryLayersCostBC]; omega)
-        cases hd : decode (Fin.ofNat 4 n) answer with
-        | none => exact .pure _ _ trivial
-        | some digits =>
-            dsimp only
-            by_cases hn : n = 0
-            · subst n
-              simp only [ite_true]
-              rw [map_eq_bind_pure_comp]
-              refine (bound_recoverLayer _ index (Fin.ofNat 4 0) digits
-                (validDigits_decode hd) (decode_length_sum hd).1 (decode_length_sum hd).2).bind'
-                (l := 0) (fun value _ => .pure _ 0 trivial) (by simp [recoveryLayersCostBC])
-            · simp only [hn, ite_false]
+          (l := verifyLayersCostBC (n + 1) + n) (fun answer _ => ?_) (by simp only [verifyLayersCostBC]; omega)
+        by_cases hn : n = 0
+        · subst n
+          rw [if_pos rfl]
+          exact (bound_verifyTop w.signature index answer).mono_k (by simp [verifyLayersCostBC])
+        · rw [if_neg hn]
+          cases hd : decode (Fin.ofNat 4 n) answer with
+          | none => exact .pure _ _ trivial
+          | some digits =>
+              dsimp only
               exact (bound_recoverLayerPair w.signature index (Fin.ofNat 4 n) digits
                 (validDigits_decode hd) (decode_length_sum hd).1 (decode_length_sum hd).2).bind'
-                (l := n + recoveryLayersCostBC n) (fun pair _ => ih _)
-                (by simp only [recoveryLayersCostBC, hn, ite_false]; omega)
+                (l := n + verifyLayersCostBC n) (fun pair _ => ih _)
+                (by simp only [verifyLayersCostBC, hn, ite_false]; omega)
 theorem bound_expandLayersBC (sig : Signature) (index : Nat) :
     ∀ n msg, CBound (fun _ => True) (n * counterLimit + recoveryLayersCostBC n) (expandLayersBC sig index n msg) := by
   intro n
@@ -316,9 +353,10 @@ theorem bound_expandLayersBC (sig : Signature) (index : Nat) :
       intro msg
       unfold expandLayersBC
       dsimp only
-      refine (bound_layerCounterSearch (Fin.ofNat 4 n) _ _ msg counterLimit 0).bind'
+      refine (bound_layerCounterSearch (Fin.ofNat 4 n) _ _ msg (searchLimit (Fin.ofNat 4 n)) 0).bind'
         (l := recoveryLayersCostBC (n + 1) + n * counterLimit)
-        (fun found hf => ?_) (by simp only [recoveryLayersCostBC, Nat.add_mul, Nat.one_mul]; omega)
+        (fun found hf => ?_)
+        (by have := searchLimit_le (Fin.ofNat 4 n); simp only [recoveryLayersCostBC, Nat.add_mul, Nat.one_mul]; omega)
       cases found with
       | none => exact .pure _ _ trivial
       | some pair =>
@@ -367,18 +405,18 @@ theorem bound_signWith (limit : Nat) (cache : Cache) (message : Message) :
   · exact .pure _ _ trivial
   · exact bound_signPayloadWith limit cache message
 theorem bound_verifyWith (limit : Nat) (message : Message) (pk : Digest) (w : Witness) :
-    CBound (fun _ => True) 617 (verifyWith limit message pk w) := by
+    CBound (fun _ => True) 709 (verifyWith limit message pk w) := by
   unfold verifyWith
   split
   · exact .pure _ _ trivial
-  · refine (bound_digest w.signature.rho message w.digestCounter).bind' (l := 616)
+  · refine (bound_digest w.signature.rho message w.digestCounter).bind' (l := 708)
       (fun output _ => ?_) (by decide)
     dsimp only
     split
     · exact .pure _ _ trivial
-    · refine (bound_recoverFts w.signature _ output).bind' (l := 485) (fun root _ => ?_) (by decide)
+    · refine (bound_recoverFts w.signature _ output).bind' (l := 577) (fun root _ => ?_) (by decide)
       refine (bound_verifyLayersBC w _ 4 (.forest root)).bind' (l := 0) (fun r _ => ?_)
-        (by have := recoveryLayersCostBC_four_le; omega)
+        (by have := verifyLayersCostBC_four_le; omega)
       cases r <;> exact .pure _ 0 trivial
 theorem bound_expandWith (limit : Nat) (message : Message) (pk : Digest) (sig : Signature) :
     CBound (fun _ => True) (limit + 4 * counterLimit + 612) (expandWith limit message pk sig) := by
@@ -410,7 +448,7 @@ theorem bound_expand (message : Message) (pk : Digest) (sig : Signature) :
     CBound (fun _ => True) (digestAttemptLimit + 4 * counterLimit + 612) (Rev3.expand message pk sig) :=
   bound_expandWith digestAttemptLimit message pk sig
 theorem bound_verify (message : Message) (pk : Digest) (w : Witness) :
-    CBound (fun _ => True) 617 (Rev3.verify message pk w) :=
+    CBound (fun _ => True) 709 (Rev3.verify message pk w) :=
   bound_verifyWith digestAttemptLimit message pk w
 theorem sign_compression_ceiling (secret : BitVec 256) (cache : Cache) (message : Message) :
     ∀ result ∈ support (World.countBlocks (realize secret (Rev3.sign cache message))),
@@ -431,7 +469,7 @@ theorem expand_compression_ceiling (secret : BitVec 256) (message : Message) (pk
     (realize_support_subset secret _ hr) |>.2
   exact hc.trans (by norm_num [digestAttemptLimit, counterLimit])
 theorem verify_compression_bound (secret : BitVec 256) (message : Message) (pk : Digest) (w : Witness) :
-    ∀ result ∈ support (World.countBlocks (realize secret (Rev3.verify message pk w))), result.2 ≤ 617 := by
+    ∀ result ∈ support (World.countBlocks (realize secret (Rev3.verify message pk w))), result.2 ≤ 709 := by
   intro result hr
   rw [World.countBlocks, ← realize_count] at hr
   exact (bound_verify message pk w).count_support result (realize_support_subset secret _ hr) |>.2

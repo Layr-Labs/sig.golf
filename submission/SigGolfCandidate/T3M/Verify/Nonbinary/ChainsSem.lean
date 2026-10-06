@@ -33,12 +33,13 @@ def known (c : NCtx) : List (Reg × Word) :=
    (.x4, BitVec.ofNat 64 c.w1), (.x27, BitVec.ofNat 64 0x401), (.x1, pcOf c.ret)]
 def kOf (c : NCtx) (q : Nat) : Nat :=
   c.dig (3*q) + (mx q+1)*c.dig (3*q+1) + (mx q+1)^2*c.dig (3*q+2)
-def qb (c : NCtx) (i : Nat) : Nat := base (i/3) (c.dig (3*(i/3)+1)) (c.dig (3*(i/3)+2))
-def qB (c : NCtx) (i : Nat) : Nat := pcB (i/3) (c.dig (3*(i/3)+1)) (c.dig (3*(i/3)+2))
-def qC (c : NCtx) (i : Nat) : Nat := pcC (i/3) (c.dig (3*(i/3)+1)) (c.dig (3*(i/3)+2))
-def qX (c : NCtx) (i : Nat) : Nat := pcX (i/3) (c.dig (3*(i/3)+1)) (c.dig (3*(i/3)+2))
+def qb (c : NCtx) (i : Nat) : Nat := gbase (i/3) (c.kOf (i/3))
+def qB (c : NCtx) (i : Nat) : Nat := gB (i/3) (c.kOf (i/3))
+def qC (c : NCtx) (i : Nat) : Nat := gC (i/3) (c.kOf (i/3))
+def qX (c : NCtx) (i : Nat) : Nat := gX (i/3) (c.kOf (i/3))
+def entPc (c : NCtx) (q : Nat) : Nat := entW q (c.kOf q)
 def startPc (c : NCtx) (i : Nat) : Nat :=
-  if i%3=0 then entW (i/3) (c.kOf (i/3)) else if i%3=1 then c.qB i else c.qC i
+  if i%3=0 then leadPc (i/3) (c.kOf (i/3)) else if i%3=1 then c.qB i else c.qC i
 def rungPc (c : NCtx) (i m : Nat) : Nat :=
   if i%3=0 then c.qb i+2*m
   else c.startPc i + (if c.dig i = last i then 2 else 3) + 2*(m-c.dig i)
@@ -177,12 +178,45 @@ theorem last_bounds (i : Nat) : 2 ≤ last i ∧ last i ≤ 3 := by
 theorem rungPc_succ (c : NCtx) (i m : Nat) (hd : c.dig i ≤ m) :
     c.rungPc i (m+1) = c.rungPc i m+2 := by
   unfold rungPc; split_ifs <;> omega
-theorem rungPc_end (c : NCtx) (i : Nat) (hi : i < 54) (hd : c.dig i < topMax i) :
+def DigitsOk (c : NCtx) : Prop := ∀i,i<54 → c.dig i ≤ topMax i
+theorem dig_group_le (c : NCtx) (hd : c.DigitsOk) (q k : Nat) (hq : q<18) (hk : k<3) :
+    c.dig (3*q+k) ≤ mx q := by
+  have h := hd (3*q+k) (by omega)
+  simpa only [topMax,show (3*q+k)/3=q by omega] using h
+theorem kOf_lt (c : NCtx) (hd : c.DigitsOk) (q : Nat) (hq : q<18) :
+    c.kOf q < (mx q+1)^3 := by
+  have h0 := c.dig_group_le hd q 0 hq (by decide)
+  have h1 := c.dig_group_le hd q 1 hq (by decide)
+  have h2 := c.dig_group_le hd q 2 hq (by decide)
+  simp only [Nat.add_zero] at h0
+  unfold kOf mx at *
+  split_ifs at * <;> omega
+theorem kOf_digits (c : NCtx) (hd : c.DigitsOk) (q : Nat) (hq : q<18) :
+    c.kOf q%(mx q+1)=c.dig (3*q) ∧
+    c.kOf q/(mx q+1)%(mx q+1)=c.dig (3*q+1) ∧
+    c.kOf q/(mx q+1)^2=c.dig (3*q+2) := by
+  have h0 := c.dig_group_le hd q 0 hq (by decide)
+  have h1 := c.dig_group_le hd q 1 hq (by decide)
+  have h2 := c.dig_group_le hd q 2 hq (by decide)
+  simp only [Nat.add_zero] at h0
+  unfold kOf mx at *
+  split_ifs at * <;> exact ⟨by omega,by omega,by omega⟩
+theorem kdig_kOf (c : NCtx) (hd : c.DigitsOk) (q : Nat) (hq : q<18) :
+    kdig q (c.kOf q) 0=c.dig (3*q) ∧ kdig q (c.kOf q) 1=c.dig (3*q+1) ∧ kdig q (c.kOf q) 2=c.dig (3*q+2) := by
+  obtain ⟨k1,k2,k3⟩ := c.kOf_digits hd q hq
+  have h2 := c.dig_group_le hd q 2 hq (by decide)
+  unfold kdig
+  simp only [pow_zero,Nat.div_one,pow_one]
+  refine ⟨k1,k2,?_⟩
+  rw [k3]; exact Nat.mod_eq_of_lt (by omega)
+theorem rungPc_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i < 54) (hd : c.dig i < topMax i) :
     c.rungPc i (last i) + 3 = c.endPc i := by
   have hm := topMax_bounds i
+  obtain ⟨-,k2,k3⟩ := c.kdig_kOf hds (i/3) (by omega)
   have e1 : i%3=1 → c.dig (3*(i/3)+1)=c.dig i := fun h => by rw [show 3*(i/3)+1=i by omega]
   have e2 : i%3=2 → c.dig (3*(i/3)+2)=c.dig i := fun h => by rw [show 3*(i/3)+2=i by omega]
-  unfold rungPc endPc startPc qb qB qC qX pcX pcC pcB partLen
+  unfold rungPc endPc startPc qb qB qC qX gX gC gB partLen
+  rw [k2,k3]
   unfold last topMax at *
   split_ifs <;> omega
 theorem posE_eval (c : NCtx) {s0 s : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)

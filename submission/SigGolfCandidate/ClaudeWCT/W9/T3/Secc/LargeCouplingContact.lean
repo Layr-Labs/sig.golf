@@ -86,30 +86,63 @@ theorem privPsi_nonce (s : Secrets) (nvv : Message → Digest) (priv : FullGame.
 theorem privateSecrets_privPsi (s : Secrets) (nvv : Message → Digest) (priv : FullGame.FullTable) :
     privateSecrets (privPsi s nvv priv) = s := privateSecrets_symm _ _
 def rowPrefix (f : EncLeaf × Fin (2 ^ 22) → HashOutput) (x : EncLeaf × Fin (2 ^ 22)) : Prop :=
-  ∀ r, SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt x.1) (fun c => f (x.1, c)) = some r → x.2 ≤ r.1
+  x.2.val < WCT9.searchLimit x.1.1.lay ∧
+    ∀ r, capSel x.1 (SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt x.1) (fun c => f (x.1, c))) = some r →
+      x.2 ≤ r.1
 theorem select_congr_prefix (L : EncLeaf) (f g : Fin (2 ^ 22) → HashOutput)
-    (h : ∀ c, (∀ r, SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt L) f = some r → c ≤ r.1) → f c = g c) :
-    SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt L) g =
-      SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt L) f := by
-  cases hs : SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt L) f with
+    (h : ∀ c, c.val < WCT9.searchLimit L.1.lay →
+      (∀ r, capSel L (SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt L) f) = some r → c ≤ r.1) →
+        f c = g c) :
+    capSel L (SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt L) g) =
+      capSel L (SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt L) f) := by
+  cases hs : capSel L (SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt L) f) with
   | none =>
-      have hfg : f = g := funext fun c => h c (fun r hr => by rw [hs] at hr; cases hr)
-      rw [← hfg, hs]
+      have hrej : ∀ c : Fin (2 ^ 22), c.val < WCT9.searchLimit L.1.lay → decodeAt L (f c) = none := by
+        intro c hc
+        cases hf : SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt L) f with
+        | none => exact (SphincsSecurity.Concrete.FirstSuccessTable.select_none_iff _ _).mp hf c
+        | some r =>
+            have hge : WCT9.searchLimit L.1.lay ≤ r.1.val := by
+              by_contra hlt
+              have := (capSel_eq_some (L := L)).mpr ⟨hf, by omega⟩
+              rw [hs] at this
+              cases this
+            exact ((SphincsSecurity.Concrete.FirstSuccessTable.select_some_iff _ f r.1 r.2).mp hf).2 c
+              (by rw [Fin.lt_def]; omega)
+      have hfg : ∀ c : Fin (2 ^ 22), c.val < WCT9.searchLimit L.1.lay → f c = g c :=
+        fun c hc => h c hc (fun r hr => by rw [hs] at hr; cases hr)
+      cases hg : SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt L) g with
+      | none => rfl
+      | some r =>
+          obtain ⟨hv, -⟩ := (SphincsSecurity.Concrete.FirstSuccessTable.select_some_iff _ g r.1 r.2).mp hg
+          by_cases hlt : r.1.val < WCT9.searchLimit L.1.lay
+          · rw [← hfg r.1 hlt, hrej r.1 hlt] at hv
+            cases hv
+          · cases hc : capSel L (some r) with
+            | none => rfl
+            | some r' =>
+                obtain ⟨hr', hlt'⟩ := capSel_eq_some.mp hc
+                cases hr'
+                exact absurd hlt' hlt
   | some r =>
+      obtain ⟨hraw, hlt⟩ := capSel_eq_some.mp hs
       obtain ⟨i, v⟩ := r
-      have hsome := (SphincsSecurity.Concrete.FirstSuccessTable.select_some_iff _ f i v).mp hs
-      apply (SphincsSecurity.Concrete.FirstSuccessTable.select_some_iff _ g i v).mpr
-      have hle : ∀ c, c ≤ i → f c = g c := fun c hc => h c (fun r hr => by
-        rw [hs] at hr; cases hr; exact hc)
-      refine ⟨by rw [← hle i le_rfl]; exact hsome.1, fun j hj => ?_⟩
-      rw [← hle j (le_of_lt hj)]
-      exact hsome.2 j hj
+      have hsome := (SphincsSecurity.Concrete.FirstSuccessTable.select_some_iff _ f i v).mp hraw
+      have hle : ∀ c, c ≤ i → f c = g c := fun c hc =>
+        h c (lt_of_le_of_lt (Fin.le_def.mp hc) hlt) (fun r hr => by rw [hs] at hr; cases hr; exact hc)
+      have hg : SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt L) g = some (i, v) := by
+        apply (SphincsSecurity.Concrete.FirstSuccessTable.select_some_iff _ g i v).mpr
+        refine ⟨by rw [← hle i le_rfl]; exact hsome.1, fun j hj => ?_⟩
+        rw [← hle j (le_of_lt hj)]
+        exact hsome.2 j hj
+      rw [hg]
+      exact capSel_eq_some.mpr ⟨rfl, hlt⟩
 theorem rowPrefix_determined : PrefixDetermined rowPrefix := by
   intro f g hfg x
   unfold rowPrefix
-  have hsel : SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt x.1) (fun c => g (x.1, c)) =
-      SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt x.1) (fun c => f (x.1, c)) :=
-    select_congr_prefix x.1 _ _ (fun c hc => hfg (x.1, c) hc)
+  have hsel : capSel x.1 (SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt x.1) (fun c => g (x.1, c))) =
+      capSel x.1 (SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt x.1) (fun c => f (x.1, c))) :=
+    select_congr_prefix x.1 _ _ (fun c hc hc' => hfg (x.1, c) ⟨hc, hc'⟩)
   rw [hsel]
 section Public
 variable (U : Finset HashInput) (hU : canonInputs ⊆ U) (hE : encInputs ⊆ U)
@@ -141,13 +174,13 @@ theorem msgLabel_router (vals : Coord → Digest) (a : AuxData) (L : EncLeaf) :
     exact congrArg WCT9.LayerMsg.forest (joinLabels_low _ _ _)
 theorem sel_psi (a : AuxData) (labels : Labels) (τ : U → HashOutput) (L : EncLeaf) :
     selectionsOf U hE labels (residualPsi U hE labels a.rows τ) L = a.sel L := by
-  unfold selectionsOf AuxData.sel
+  unfold selectionsOf rawSelectionsOf AuxData.sel
   apply select_congr_prefix
-  intro c hc
+  intro c hc hc'
   unfold residualPsi
   rw [SphincsSecurity.Concrete.UniformTableSplit.overwrite_embed]
   unfold mix
-  rw [if_pos (show rowPrefix (Function.uncurry a.rows) (L, c) from hc)]
+  rw [if_pos (show rowPrefix (Function.uncurry a.rows) (L, c) from ⟨hc, hc'⟩)]
   rfl
 theorem rowPrefix_iff (a : AuxData) (L : EncLeaf) (c : Fin (2 ^ 22)) :
     rowPrefix (Function.uncurry a.rows) (L, c) ↔ PrefixRow a L (BitVec.ofNat 32 c.val) := by
@@ -155,11 +188,7 @@ theorem rowPrefix_iff (a : AuxData) (L : EncLeaf) (c : Fin (2 ^ 22)) :
     rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by have := c.isLt; omega)
   unfold rowPrefix PrefixRow
   rw [hc]
-  constructor
-  · intro h
-    exact ⟨c.isLt, fun r hr => h r hr⟩
-  · intro h r hr
-    exact h.2 r hr
+  rfl
 end Public
 section Coherence
 variable (U : Finset HashInput) (hU : canonInputs ⊆ U) (hE : encInputs ⊆ U)
@@ -205,21 +234,22 @@ theorem coherent_psi (vals : Coord → Digest) (nv : Message → Digest) (τ : U
     · rw [hres, residualPsi, SphincsSecurity.Concrete.UniformTableSplit.overwrite_outside _ _ _ _ _ hr]
   ·
     intro L ctr hp
-    have hc : BitVec.ofNat 32 (⟨ctr.toNat, hp.1⟩ : Fin (2 ^ 22)).val = ctr := by
+    have hp1 : ctr.toNat < 2 ^ 22 := lt_of_lt_of_le hp.1 (WCT9.searchLimit_le L.1.lay)
+    have hc : BitVec.ofNat 32 (⟨ctr.toNat, hp1⟩ : Fin (2 ^ 22)).val = ctr := by
       apply BitVec.eq_of_toNat_eq
       rw [BitVec.toNat_ofNat]
-      exact Nat.mod_eq_of_lt (by have := hp.1; omega)
-    have hX : Wots.encRow L.toWots (msgVals vals L) ctr 0 = (encCell U hE labels (L, ⟨ctr.toNat, hp.1⟩)).val := by
+      exact Nat.mod_eq_of_lt (by have := hp1; omega)
+    have hX : Wots.encRow L.toWots (msgVals vals L) ctr 0 = (encCell U hE labels (L, ⟨ctr.toNat, hp1⟩)).val := by
       rw [encCell_val, msgLabel_router, hc]
-    rw [hX, hpubX _ (encCell U hE labels (L, ⟨ctr.toNat, hp.1⟩)).property]
+    rw [hX, hpubX _ (encCell U hE labels (L, ⟨ctr.toNat, hp1⟩)).property]
     rw [programmed_other U hU s labels res _ (fun N => encodingQuery_ne_cell _ s N labels)]
-    rw [hres, residualPsi, show (⟨(encCell U hE labels (L, ⟨ctr.toNat, hp.1⟩)).val,
-      (encCell U hE labels (L, ⟨ctr.toNat, hp.1⟩)).property⟩ : U) = encCell U hE labels (L, ⟨ctr.toNat, hp.1⟩) from rfl,
+    rw [hres, residualPsi, show (⟨(encCell U hE labels (L, ⟨ctr.toNat, hp1⟩)).val,
+      (encCell U hE labels (L, ⟨ctr.toNat, hp1⟩)).property⟩ : U) = encCell U hE labels (L, ⟨ctr.toNat, hp1⟩) from rfl,
       SphincsSecurity.Concrete.UniformTableSplit.overwrite_embed]
     unfold mix
     rw [if_pos ((rowPrefix_iff a L _).mpr (by rw [hc]; exact hp))]
     unfold prefixValue
-    rw [dif_pos hp.1]
+    rw [dif_pos hp1]
     rfl
   ·
     intro L
@@ -232,10 +262,11 @@ theorem coherent_psi (vals : Coord → Digest) (nv : Message → Digest) (τ : U
     cases hsel : a.sel L with
     | none => rfl
     | some r =>
-        have h := (SphincsSecurity.Concrete.FirstSuccessTable.select_some_iff _ _ r.1 r.2).mp hsel
+        have h := (SphincsSecurity.Concrete.FirstSuccessTable.select_some_iff _ _ r.1 r.2).mp
+          (capSel_eq_some.mp hsel).1
         obtain ⟨-, hsome⟩ := (decodeAt_eq_some L _ r.2).mp h.1
         simp only [Option.bind_some]
-        rcases Nonbinary.searchDecode_eq_none_or L.1.lay r.2 with hn | he
+        rcases WCT9.producerDecode_eq_none_or L.1.lay r.2 with hn | he
         · rw [hn] at hsome
           cases hsome
         · rw [he]

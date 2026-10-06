@@ -5,35 +5,35 @@ section
 open OracleComp OracleSpec
 namespace ClaudeWCT.W9.T3M.Final.Credit
 open SigGolfCandidate.Legacy
-open SigGolfCandidate.T3 (M Spec Layer Digest HashOutput HashInput route counterLimit decode searchDecode shortHash
+open SigGolfCandidate.T3 (M Spec Layer Digest HashOutput HashInput route counterLimit decode shortHash
   publicHash pad64 header chainCount height maxDigit)
 open SigGolfCandidate.T3M (mrealize mrealize_bind mrealize_map mrealize_shortHash toQ toQ_injOn Aligned PubGood
   isPublic allQ_pure allQ_bind allQ_map allQ_ite allQ_foldlM allQ_mapM)
-open SigGolfCandidate.T3M.Verify (TopEncQ HashOk Agree agree_bind agree_bind_iff agree_map_iff agree_eval okHash
-  okHash_eq okHash_eq_of_not_top hashOk_okHash BadAns eval_liftQ)
+open SigGolfCandidate.T3M.Verify (EncQ HashOk Agree agree_bind agree_bind_iff agree_map_iff agree_eval okHash
+  okHash_eq okHash_eq_of_not_enc hashOk_okHash BadAns eval_liftQ)
 open SigGolfCandidate.T3.Security.Wots.Enc (NonEnc nonEnc_prefixed nonEnc_chainInput)
 open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option linter.unusedSimpArgs false
-def NotTopS : Spec.Domain → Prop
-  | .inl (.inr input) => ¬ TopEncQ (toQ input)
+def NotEncS : Spec.Domain → Prop
+  | .inl (.inr input) => ∀ lay : Layer, ¬ EncQ lay.val (toQ input)
   | _ => False
-theorem notTopS_of {input : HashInput} (hal : Aligned input) (hn : NonEnc (.inl (.inr input))) :
-    NotTopS (.inl (.inr input)) := by
-  rintro ⟨i, hi, hq, tr, p, ix, hb⟩
+theorem notEncS_of {input : HashInput} (hal : Aligned input) (hn : NonEnc (.inl (.inr input))) :
+    NotEncS (.inl (.inr input)) := by
+  rintro lay ⟨i, hi, hq, tr, p, ix, hb⟩
   have hi' : Aligned i := ⟨by omega, by omega⟩
   have e : input = i := toQ_injOn hal hi' hq
-  exact hn ⟨0, tr, p, ix, by rw [e]; exact hb⟩
+  exact hn ⟨lay.val, tr, p, ix, by rw [e]; exact hb⟩
 theorem pad64_aligned' (y : HashInput) (hy : 0 < y.length) : Aligned (pad64 y) :=
   ⟨SigGolfCandidate.T3.Cost.pad64_positive y hy, SigGolfCandidate.T3.Cost.pad64_aligned y⟩
-theorem notTop_publicHash (y : HashInput) (hy : 0 < y.length) (hn : NonEnc (.inl (.inr (pad64 y)))) :
-    AllQueriesSatisfy (publicHash y) NotTopS :=
-  (allQueriesSatisfy_query_iff _ _).mpr (notTopS_of (pad64_aligned' y hy) hn)
-theorem notTop_shortHash (y : HashInput) (hy : 0 < y.length) (hn : NonEnc (.inl (.inr (pad64 y)))) :
-    AllQueriesSatisfy (shortHash y) NotTopS := by
+theorem notEnc_publicHash (y : HashInput) (hy : 0 < y.length) (hn : NonEnc (.inl (.inr (pad64 y)))) :
+    AllQueriesSatisfy (publicHash y) NotEncS :=
+  (allQueriesSatisfy_query_iff _ _).mpr (notEncS_of (pad64_aligned' y hy) hn)
+theorem notEnc_shortHash (y : HashInput) (hy : 0 < y.length) (hn : NonEnc (.inl (.inr (pad64 y)))) :
+    AllQueriesSatisfy (shortHash y) NotEncS := by
   unfold shortHash
-  exact allQ_bind (notTop_publicHash y hy hn) fun _ => allQ_pure _
+  exact allQ_bind (notEnc_publicHash y hy hn) fun _ => allQ_pure _
 theorem allQ_and {α : Type} {P P' : Spec.Domain → Prop} {p : M α} (h : AllQueriesSatisfy p P)
     (h' : AllQueriesSatisfy p P') : AllQueriesSatisfy p (fun q => P q ∧ P' q) := by
   induction p using OracleComp.inductionOn with
@@ -48,47 +48,47 @@ theorem allQ_mono' {α : Type} {P P' : Spec.Domain → Prop} {p : M α} (h : All
   | query_bind q k ih =>
     rw [allQueriesSatisfy_query_bind_iff] at h ⊢
     exact ⟨hP _ h.1, fun u => ih u (h.2 u)⟩
-theorem notTop_digest (rho : Digest) (m : SigGolfCandidate.T3.Message) (c : BitVec 32) :
-    AllQueriesSatisfy (SigGolfCandidate.T3.digest rho m c) NotTopS := by
+theorem notEnc_digest (rho : Digest) (m : SigGolfCandidate.T3.Message) (c : BitVec 32) :
+    AllQueriesSatisfy (SigGolfCandidate.T3.digest rho m c) NotEncS := by
   unfold SigGolfCandidate.T3.digest
-  apply notTop_publicHash _ (by simp [SigGolfCandidate.T3.digestInput, bytesLE_length])
+  apply notEnc_publicHash _ (by simp [SigGolfCandidate.T3.digestInput, bytesLE_length])
   unfold SigGolfCandidate.T3.digestInput
   exact nonEnc_prefixed _ _ (by decide) _ _ _ _
-theorem notTop_recoverFts (sig : ClaudeWCT.WCT9.Signature) (index : Nat) (output : HashOutput) :
-    AllQueriesSatisfy (ClaudeWCT.WCT9.recoverFts sig index output) NotTopS := by
+theorem notEnc_recoverFts (sig : ClaudeWCT.WCT9.Signature) (index : Nat) (output : HashOutput) :
+    AllQueriesSatisfy (ClaudeWCT.WCT9.recoverFts sig index output) NotEncS := by
   have h1 : AllQueriesSatisfy (ClaudeWCT.WCT9.recoverFts sig index output) (ClaudeWCT.WCT9.FtsQuery index) :=
     ClaudeWCT.WCT9.allQueriesSatisfy_of_bound (ClaudeWCT.WCT9.ftsBound_recoverFts index sig output)
   have h2 := ClaudeWCT.W9.T3M.pubGood_recoverFts sig index output
   refine allQ_mono' (allQ_and h1 h2) ?_
   rintro ((n | input) | c) ⟨hf, hg⟩
   · exact hg.1.elim
-  · exact notTopS_of ⟨hg.2.1, hg.2.2⟩ (ClaudeWCT.WCT9.Wots.ftsQuery_nonEnc hf)
+  · exact notEncS_of ⟨hg.2.1, hg.2.2⟩ (ClaudeWCT.WCT9.Wots.ftsQuery_nonEnc hf)
   · exact hg.1.elim
-theorem notTop_chain (lay : Layer) (tree leaf i start count : Nat) (v : Digest) :
-    AllQueriesSatisfy (SigGolfCandidate.T3.chain lay tree leaf i start count v) NotTopS :=
-  allQ_foldlM _ _ (fun _ _ => notTop_shortHash _
+theorem notEnc_chain (lay : Layer) (tree leaf i start count : Nat) (v : Digest) :
+    AllQueriesSatisfy (SigGolfCandidate.T3.chain lay tree leaf i start count v) NotEncS :=
+  allQ_foldlM _ _ (fun _ _ => notEnc_shortHash _
     (by simp [SigGolfCandidate.T3.chainInput, bytesLE_length, SigGolfCandidate.T3.zero16])
     (nonEnc_chainInput _ _ _ _ _ _)) _
-theorem notTop_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
-    AllQueriesSatisfy (SigGolfCandidate.T3.leafHash lay tree leaf ends) NotTopS := by
+theorem notEnc_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
+    AllQueriesSatisfy (SigGolfCandidate.T3.leafHash lay tree leaf ends) NotEncS := by
   unfold SigGolfCandidate.T3.leafHash
-  exact notTop_shortHash _ (by simp [bytesLE_length]) (nonEnc_prefixed _ _ (by decide) _ _ _ _)
-theorem notTop_nodeHash (lay tree heap : Nat) (left right : Digest) :
-    AllQueriesSatisfy (SigGolfCandidate.T3.nodeHash 3 lay tree heap left right) NotTopS := by
+  exact notEnc_shortHash _ (by simp [bytesLE_length]) (nonEnc_prefixed _ _ (by decide) _ _ _ _)
+theorem notEnc_nodeHash (lay tree heap : Nat) (left right : Digest) :
+    AllQueriesSatisfy (SigGolfCandidate.T3.nodeHash 3 lay tree heap left right) NotEncS := by
   unfold SigGolfCandidate.T3.nodeHash
   rw [List.append_assoc (bytesLE 16 left ++ bytesLE 16 (header 3 lay tree 0 heap))]
-  exact notTop_shortHash _ (by simp [bytesLE_length]) (nonEnc_prefixed _ _ (by decide) _ _ _ _)
-theorem notTop_recoverLayer (sig : SigGolfCandidate.T3.Signature) (index : Nat) (lay : Layer) (digits : List Nat) :
-    AllQueriesSatisfy (SigGolfCandidate.T3.recoverLayer sig index lay digits) NotTopS := by
+  exact notEnc_shortHash _ (by simp [bytesLE_length]) (nonEnc_prefixed _ _ (by decide) _ _ _ _)
+theorem notEnc_recoverLayer (sig : SigGolfCandidate.T3.Signature) (index : Nat) (lay : Layer) (digits : List Nat) :
+    AllQueriesSatisfy (SigGolfCandidate.T3.recoverLayer sig index lay digits) NotEncS := by
   unfold SigGolfCandidate.T3.recoverLayer
-  exact allQ_bind (allQ_mapM _ _ fun _ => notTop_chain _ _ _ _ _ _ _) fun _ =>
-    allQ_bind (notTop_leafHash _ _ _ _) fun _ => allQ_foldlM _ _ (fun _ _ => notTop_nodeHash _ _ _ _ _) _
-theorem notTop_recoverLayerPair (sig : ClaudeWCT.WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat) :
-    AllQueriesSatisfy (ClaudeWCT.WCT9.recoverLayerPair sig index lay digits) NotTopS := by
+  exact allQ_bind (allQ_mapM _ _ fun _ => notEnc_chain _ _ _ _ _ _ _) fun _ =>
+    allQ_bind (notEnc_leafHash _ _ _ _) fun _ => allQ_foldlM _ _ (fun _ _ => notEnc_nodeHash _ _ _ _ _) _
+theorem notEnc_recoverLayerPair (sig : ClaudeWCT.WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat) :
+    AllQueriesSatisfy (ClaudeWCT.WCT9.recoverLayerPair sig index lay digits) NotEncS := by
   unfold ClaudeWCT.WCT9.recoverLayerPair
-  exact allQ_bind (allQ_mapM _ _ fun _ => notTop_chain _ _ _ _ _ _ _) fun _ =>
-    allQ_bind (notTop_leafHash _ _ _ _) fun _ =>
-      allQ_bind (allQ_foldlM _ _ (fun _ _ => notTop_nodeHash _ _ _ _ _) _) fun _ => allQ_pure _
+  exact allQ_bind (allQ_mapM _ _ fun _ => notEnc_chain _ _ _ _ _ _ _) fun _ =>
+    allQ_bind (notEnc_leafHash _ _ _ _) fun _ =>
+      allQ_bind (allQ_foldlM _ _ (fun _ _ => notEnc_nodeHash _ _ _ _ _) _) fun _ => allQ_pure _
 theorem encInput_hdr (lay : Layer) (tree leaf : Nat) (msg : ClaudeWCT.WCT9.LayerMsg) (c : BitVec 32) :
     ((pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c)).drop 16).take 16 =
       bytesLE 16 (header 4 lay.val tree 0 leaf) := by
@@ -109,19 +109,20 @@ theorem encInput_pos (lay : Layer) (tree leaf : Nat) (msg : ClaudeWCT.WCT9.Layer
     0 < (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c).length := by
   cases msg <;> simp [ClaudeWCT.WCT9.layerEncodingInput, SigGolfCandidate.T3.encodingInput,
     ClaudeWCT.WCT9.pairEncodingInputP, bytesLE_length]
-theorem not_top_enc_low (lay : Layer) (hl : lay ≠ 0) (tree leaf : Nat) (msg : ClaudeWCT.WCT9.LayerMsg)
-    (c : BitVec 32) : ¬ TopEncQ (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c))) := by
-  rintro ⟨i, hi, hq, tr, p, ix, hb⟩
+theorem encQ_layer (lay lay' : Layer) (tree leaf : Nat) (msg : ClaudeWCT.WCT9.LayerMsg) (c : BitVec 32)
+    (h : EncQ lay'.val (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c)))) : lay' = lay := by
+  obtain ⟨i, hi, hq, tr, p, ix, hb⟩ := h
   have hi' : Aligned i := ⟨by omega, by omega⟩
   have e := toQ_injOn (pad64_aligned' _ (encInput_pos lay tree leaf msg c)) hi' hq
   rw [← e, encInput_hdr] at hb
   have hh := congrArg (fun h : BitVec 128 => h.toNat / 2 ^ 16 % 256) (bytesLE_injective hb)
   simp only [ClaudeWCT.WCT9.header_byte2] at hh
   have := lay.isLt
-  exact hl (Fin.ext (by simp at hh; omega))
+  have := lay'.isLt
+  exact Fin.ext (by omega)
 variable {f g : Hash}
-theorem agree_mrealize {α : Type} {p : M α} (hp : AllQueriesSatisfy p NotTopS)
-    (hfg : ∀ q, ¬ TopEncQ q → f q = g q) : Agree f g (mrealize 0 p) := by
+theorem agree_mrealize {α : Type} {p : M α} (hp : AllQueriesSatisfy p NotEncS)
+    (hfg : ∀ q, (∀ lay : Layer, ¬ EncQ lay.val q) → f q = g q) : Agree f g (mrealize 0 p) := by
   induction p using OracleComp.inductionOn with
   | pure a => trivial
   | query_bind q k ih =>
@@ -144,8 +145,22 @@ theorem eval_shortHash (hash : Hash) (y : HashInput) :
     evalWithAnswerFn (machineAnswers hash 0) (shortHash y) =
       (hash (toQ (pad64 y))).extractLsb' 0 128 := by
   rw [← eval_mrealize, mrealize_shortHash, evalWithAnswerFn_map, eval_liftQ]
-theorem hfg_ok (hash : Hash) : ∀ q, ¬ TopEncQ q → hash q = okHash hash q :=
-  fun _ h => (okHash_eq_of_not_top hash h).symm
+theorem hfg_ok (hash : Hash) : ∀ q, (∀ lay : Layer, ¬ EncQ lay.val q) → hash q = okHash hash q :=
+  fun _ h => (okHash_eq_of_not_enc hash h).symm
+theorem okHash_producer (hash : Hash) (lay : Layer) (tree leaf : Nat) (msg : ClaudeWCT.WCT9.LayerMsg)
+    (c : BitVec 32) {digits : List Nat}
+    (hp : ClaudeWCT.WCT9.producerDecode lay
+      ((hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c)))).extractLsb' 0 128) =
+        some digits) :
+    hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c))) =
+      okHash hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c))) := by
+  refine (okHash_eq hash ?_).symm
+  rintro ⟨lay', hq, ds, hds, hlow⟩
+  obtain rfl := encQ_layer lay lay' tree leaf msg c hq
+  rw [ClaudeWCT.WCT9.producerDecode_decode hp] at hds
+  cases hds
+  have := ClaudeWCT.WCT9.producerDecode_credit hp
+  omega
 theorem agree_layers (hash : Hash) (sig : ClaudeWCT.WCT9.Signature) (index : Nat) :
     ∀ n, n ≤ 4 → ∀ msg root counters,
       evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.WCT9.expandLayersBC sig index n msg) =
@@ -160,33 +175,24 @@ theorem agree_layers (hash : Hash) (sig : ClaudeWCT.WCT9.Signature) (index : Nat
       simp [ClaudeWCT.WCT9.expandLayersBC] at he
   | succ n ih =>
       intro hn msg root counters he w hw hc
-      have hver := (ClaudeWCT.WCT9.expandLayersBC_verified _ sig index (n + 1) hn msg root counters he).1
       simp only [ClaudeWCT.WCT9.expandLayersBC, evalWithAnswerFn_bind] at he
       cases hs : evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.WCT9.layerCounterSearch (Fin.ofNat 4 n)
-        (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg 0 counterLimit) with
+        (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg 0
+        (ClaudeWCT.WCT9.searchLimit (Fin.ofNat 4 n))) with
       | none => simp only [hs, evalWithAnswerFn_pure, reduceCtorEq] at he
       | some found =>
           obtain ⟨counter, digits⟩ := found
+          have hlim := ClaudeWCT.WCT9.searchLimit_le (Fin.ofNat 4 n)
           obtain ⟨_, hbound, hsd⟩ := ClaudeWCT.WCT9.layerCounterSearch_some_search (machineAnswers hash 0)
             (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg
-            counterLimit 0 counter digits (by decide) hs
-          have hdecode := SigGolfCandidate.T3.Nonbinary.searchDecode_some hsd
+            (ClaudeWCT.WCT9.searchLimit (Fin.ofNat 4 n)) 0 counter digits
+            (by unfold counterLimit at hlim; omega) hs
+          have hdecode := ClaudeWCT.WCT9.producerDecode_decode hsd
           have hnot : ¬counter.toNat ≥ counterLimit := by omega
           have hlay := ClaudeWCT.WCT9.ofNat_layer_val n (by omega)
           simp only [hs] at he
-          have hq : hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput (Fin.ofNat 4 n)
-              (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg counter))) =
-              okHash hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput (Fin.ofNat 4 n)
-                (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg counter))) := by
-            by_cases hn0 : n = 0
-            · subst hn0
-              refine (okHash_eq hash ?_).symm
-              rintro ⟨-, -, hlow⟩
-              rw [eval_shortHash] at hsd
-              have := SigGolfCandidate.T3.Nonbinary.searchDecode_top_credit hsd
-              have hf : SigGolfCandidate.T3.creditFloor 0 = 9 := rfl
-              omega
-            · exact hfg_ok hash _ (not_top_enc_low _ (fun h => hn0 (by rw [← hlay, h]; rfl)) _ _ _ _)
+          rw [eval_shortHash] at hsd
+          have hq := okHash_producer hash _ _ _ msg counter hsd
           by_cases hn0 : n = 0
           · subst hn0
             simp only [if_true, evalWithAnswerFn_bind, evalWithAnswerFn_pure, Option.some.injEq,
@@ -198,10 +204,9 @@ theorem agree_layers (hash : Hash) (sig : ClaudeWCT.WCT9.Signature) (index : Nat
             refine (agree_mrealize_bind _ _).mpr ⟨?_, ?_⟩
             · rw [mrealize_shortHash, agree_map_iff]
               exact ⟨hq, trivial⟩
-            · rw [hdecode]
-              simp only [if_true, mrealize_map]
-              rw [agree_map_iff]
-              exact agree_mrealize (notTop_recoverLayer _ _ _ _) (hfg_ok hash)
+            · simp only [if_true, ↓reduceIte]
+              rw [ClaudeWCT.WCT9.verifyTop_of_decode _ _ hdecode, mrealize_map, agree_map_iff]
+              exact agree_mrealize (notEnc_recoverLayer _ _ _ _) (hfg_ok hash)
           · simp only [hn0, if_false, evalWithAnswerFn_bind] at he
             cases hr : evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.WCT9.expandLayersBC sig index n
               (.pair (evalWithAnswerFn (machineAnswers hash 0)
@@ -225,7 +230,7 @@ theorem agree_layers (hash : Hash) (sig : ClaudeWCT.WCT9.Signature) (index : Nat
                 · rw [hdecode]
                   simp only [hn0, if_false]
                   refine (agree_mrealize_bind _ _).mpr
-                    ⟨agree_mrealize (notTop_recoverLayerPair _ _ _ _) (hfg_ok hash), ?_⟩
+                    ⟨agree_mrealize (notEnc_recoverLayerPair _ _ _ _) (hfg_ok hash), ?_⟩
                   rw [hw]
                   refine ih (by omega) _ _ _ hr w hw (fun lay hsmall => ?_)
                   rw [hc lay (by omega), List.getD_append previousCounters [counter] 0 lay.val (by omega)]
@@ -265,14 +270,14 @@ theorem agree_verifyP (hash : Hash) (m : SigGolfCandidate.T3.Message) (pk : Dige
     unfold ClaudeWCT.W9.T3M.digestP
     rw [ClaudeWCT.W9.T3M.wdc_witEnc, ClaudeWCT.W9.T3M.wrho_witEnc, if_neg (by have := F.dc; omega), bind_map_left]
   rw [hv, agree_mrealize_bind]
-  refine ⟨agree_mrealize (notTop_digest _ _ _) (hfg_ok hash), ?_⟩
+  refine ⟨agree_mrealize (notEnc_digest _ _ _) (hfg_ok hash), ?_⟩
   rw [F.sig, F.digest, ClaudeWCT.W9.T3M.verifyTailP_shaped pk N _ F.adm, ClaudeWCT.W9.T3M.witDecP_witEnc,
     ClaudeWCT.W9.T3M.padDecP_witEnc]
   have hidx : N.toNat % 2 ^ 31 < 2 ^ 31 := Nat.mod_lt _ (by decide)
   unfold ClaudeWCT.W9.T3M.verifyPadsTail
   simp only [F.adm, Bool.not_true, Bool.false_eq_true, if_false, ClaudeWCT.W9.T3M.recoverFtsP_zero,
     ClaudeWCT.W9.T3M.verifyLayersBCP_zero _ _ hidx]
-  refine (agree_mrealize_bind _ _).mpr ⟨agree_mrealize (notTop_recoverFts _ _ _) (hfg_ok hash), ?_⟩
+  refine (agree_mrealize_bind _ _).mpr ⟨agree_mrealize (notEnc_recoverFts _ _ _) (hfg_ok hash), ?_⟩
   refine (agree_mrealize_bind _ _).mpr ⟨?_, ?_⟩
   · rw [F.sig]
     exact agree_layers hash σ _ 4 le_rfl _ root counters hl wt F.sig (fun lay _ => hcs lay)
@@ -288,7 +293,7 @@ theorem digestCap_okHash (hash : Hash) (m : SigGolfCandidate.T3.Message) (pk : D
     rw [ClaudeWCT.W9.T3M.wdc_witEnc, ClaudeWCT.W9.T3M.wrho_witEnc, if_neg (by have := F.dc; omega)]
   have hag : Agree hash (okHash hash) (mrealize 0 (ClaudeWCT.W9.T3M.digestP m (ClaudeWCT.W9.T3M.witEnc N wt))) := by
     rw [hd, mrealize_map, agree_map_iff]
-    exact agree_mrealize (notTop_digest _ _ _) (hfg_ok hash)
+    exact agree_mrealize (notEnc_digest _ _ _) (hfg_ok hash)
   intro N' hN'
   rw [← agree_eval hag, eval_mrealize, hd, evalWithAnswerFn_map, F.sig, F.digest] at hN'
   cases hN'

@@ -112,6 +112,12 @@ theorem headRH_keeps (rb : Reg) (off : Word) (d : Nat) (slot : Option Nat) (p i 
   simp only [headRH]
   rw [RegFile.get_set_ne _ _ (ne_of_not_mem hx (by simp)), RegFile.get_set_ne _ _ (ne_of_not_mem hx (by simp)),
     RegFile.get_set_ne _ _ (ne_of_not_mem hx (by simp))]
+theorem headRV_keeps (rb : Reg) (off : Word) (d : Nat) (slot : Option Nat) (p i : Nat) :
+    Keeps (headRV rb off d slot p i) [.x10, .x12, .x25] := by
+  intro x hx
+  simp only [headRV]
+  rw [RegFile.get_set_ne _ _ (ne_of_not_mem hx (by simp)), RegFile.get_set_ne _ _ (ne_of_not_mem hx (by simp)),
+    RegFile.get_set_ne _ _ (ne_of_not_mem hx (by simp))]
 theorem copyFH_keeps (rb : Reg) (off : Word) (slot p : Nat) : Keeps (copyFH rb off slot p) [.x3, .x14] := by
   intro x hx
   simp only [copyFH, copyRegs]
@@ -167,14 +173,13 @@ def tB (c : LCtx) (i : Nat) : Nat := pcB (i / 3) (c.dig (3 * (i / 3) + 1)) (c.di
 def tC (c : LCtx) (i : Nat) : Nat := pcC (i / 3) (c.dig (3 * (i / 3) + 1)) (c.dig (3 * (i / 3) + 2))
 def tX (c : LCtx) (i : Nat) : Nat := pcX (i / 3) (c.dig (3 * (i / 3) + 1)) (c.dig (3 * (i / 3) + 2))
 def startPc (c : LCtx) (i : Nat) : Nat :=
-  if i = 42 then ctabIdx + 8 * c.ck
+  if i = 42 then ckSlot c.ck
   else if i % 3 = 0 then entW (i / 3) (c.kOf (i / 3)) else if i % 3 = 1 then c.tB i else c.tC i
 def rungPc (c : LCtx) (i m : Nat) : Nat :=
-  if i = 42 then ckR0 + 2 * m
-  else if i % 3 = 0 then c.tb i + 2 * m
-  else (if i % 3 = 1 then c.tB i else c.tC i) + 3 + 2 * (m - c.dig i)
+  if i % 3 = 0 ∧ i ≠ 42 then c.tb i + 2 * m
+  else c.startPc i + 3 + 2 * (m - c.dig i) - (if c.dig i = 6 then 1 else 0)
 def endPc (c : LCtx) (i : Nat) : Nat :=
-  if i = 42 then ckDone else if i % 3 = 0 then c.tB i else if i % 3 = 1 then c.tC i else c.tX i
+  if i = 42 then ckSlot c.ck + partLen c.ck else if i % 3 = 0 then c.tB i else if i % 3 = 1 then c.tC i else c.tX i
 def Wr (c : LCtx) (i : Nat) (A : Nat) : Prop :=
   (slotL c.i0 ≤ A ∧ A < 0x5D0) ∨ (c.S6 - 1024 + 64 * (43 - i) ≤ A ∧ A < c.blk c.i0 + 80)
 def WrIn (c : LCtx) (i : Nat) (A : Nat) : Prop :=
@@ -388,12 +393,17 @@ theorem rungPc_succ (c : LCtx) (i m : Nat) (hd : c.dig i ≤ m) : c.rungPc i (m 
   unfold rungPc; split_ifs <;> omega
 theorem dig_lt (c : LCtx) (hc : c.ok) (i : Nat) (hi : i < 42) : c.dig i < 8 := by
   unfold dig; split_ifs <;> omega
+theorem dig42 (c : LCtx) : c.dig 42 = c.ck := by unfold dig; simp
 theorem rungPc_end (c : LCtx) (i : Nat) (hi : i ≤ 42) (hd : c.dig i < 7) : c.rungPc i 6 + 3 = c.endPc i := by
   by_cases h42 : i = 42
-  · subst h42; unfold rungPc endPc; simp [ckR0, ckDone]
+  · subst h42
+    have e := c.dig42
+    unfold rungPc endPc startPc partLen
+    simp only [show ¬ (42 % 3 = 0 ∧ (42 : Nat) ≠ 42) by decide, if_false, if_true, e] at hd ⊢
+    split_ifs <;> omega
   · have e1 : i % 3 = 1 → c.dig (3 * (i / 3) + 1) = c.dig i := fun h => by rw [show 3 * (i / 3) + 1 = i by omega]
     have e2 : i % 3 = 2 → c.dig (3 * (i / 3) + 2) = c.dig i := fun h => by rw [show 3 * (i / 3) + 2 = i by omega]
-    unfold rungPc endPc tb tB tC tX pcX pcC pcB partLen
+    unfold rungPc endPc startPc tb tB tC tX pcX pcC pcB partLen
     simp only [if_neg h42]
     split_ifs <;> omega
 theorem prehash_step (c : LCtx) (hc : c.ok) (s0 : MachineState) (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
@@ -798,7 +808,7 @@ theorem copyJ_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     by simp [hlen]; omega, h25, ?_⟩⟩
   rw [Result.toState_pc]; rfl
 theorem copyF_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
-    (h0 : c.Orig0 s0) (i : Nat) (hi : c.i0 ≤ i ∧ i < 42) (hi0 : i ≠ 0) (hp0 : c.startPc i < 209920)
+    (h0 : c.Orig0 s0) (i : Nat) (hi : c.i0 ≤ i ∧ i ≤ 42) (hi0 : i ≠ 0) (hp0 : c.startPc i < 209920)
     (hend : c.startPc i + 4 = c.endPc i)
     (hrun : vrun (c.startPc i) 4 = some (copyFH .x22 (offL i) (slotL i) (c.startPc i)))
     (acc : List Digest) (s : MachineState) (hs : c.ChainIn s0 i acc s) :
@@ -815,23 +825,6 @@ theorem copyF_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
   refine ⟨r.toState s, hst, ⟨⟨fun x hx => (hkeep.reg s (not_mem_sub hx (by decide))).trans (hR x hx), hF', hS'⟩,
     by simp [hlen]; omega, h25, ?_⟩⟩
   rw [Result.toState_pc]; simp only [hr, copyFH, E.eval]; rw [hend]
-theorem copyN_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
-    (h0 : c.Orig0 s0) (hi : c.i0 ≤ 42) (hp0 : c.startPc 42 < 209920)
-    (hrun : vrun (c.startPc 42) 6 = some (copyN .x22 (offL 42) (slotL 42) (c.endPc 42)))
-    (acc : List Digest) (s : MachineState) (hs : c.ChainIn s0 42 acc s) :
-    ∃ t, Steps vimage s 5 5 t ∧ c.EndInv s0 42 (acc ++ [c.val 42]) t := by
-  obtain ⟨⟨hR, hF, hS⟩, hlen, h25, hpc⟩ := hs
-  have kr : ∀ r v, (r, v) ∈ c.known → r ∉ chainRegs → s.getReg r = v := fun r v hm hn =>
-    (hR r hn).trans (hk _ hm)
-  have h22 : s.getReg .x22 = BitVec.ofNat 64 c.S6 := kr _ _ (by simp [known]) (by decide)
-  set r := copyN .x22 (offL 42) (slotL 42) (c.endPc 42) with hr
-  have hst := piece_steps hrun hp0 s hpc (by simpa [hr, copyN] using c.copy_obl hc h22 42 (by omega))
-  have hkeep := copyN_keeps .x22 (offL 42) (slotL 42) (c.endPc 42)
-  obtain ⟨hF', hS'⟩ := c.copy_post (t := r.toState s) hc h0 42 ⟨hi, le_refl _⟩ acc hlen hF hS h22
-    (fun A _ => by rw [Result.toState_getMem]; rfl)
-  refine ⟨r.toState s, hst, ⟨⟨fun x hx => (hkeep.reg s (not_mem_sub hx (by decide))).trans (hR x hx), hF', hS'⟩,
-    by simp [hlen]; omega, h25, ?_⟩⟩
-  rw [Result.toState_pc]; rfl
 end LCtx
 end SigGolfCandidate.T3M
 namespace SigGolfCandidate.T3M
@@ -839,13 +832,13 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open SigGolfCandidate.T3
 namespace LCtx
 theorem headR_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
-    (h0 : c.Orig0 s0) (i : Nat) (hi : c.i0 ≤ i ∧ i < 42) (hi0 : i ≠ 0) (hd : c.dig i < 7)
-    (hp0 : c.startPc i < 209920) (hrp : c.rungPc i (c.dig i) = c.startPc i + 3)
+    (h0 : c.Orig0 s0) (i : Nat) (hi : c.i0 ≤ i ∧ i ≤ 42) (hi0 : i ≠ 0) (hd : c.dig i < 7)
+    (hp0 : c.startPc i < 209920)
+    (hrp : c.rungPc i (c.dig i) + (if c.dig i = 6 then 2 else 1) = c.startPc i + 4)
     (hrun : vrun (c.startPc i) 8 =
-      some (headRH .x22 (offL i) (c.dig i) (if c.dig i = 6 then some (slotL i) else none) (c.startPc i) i))
+      some (headRV .x22 (offL i) (c.dig i) (if c.dig i = 6 then some (slotL i) else none) (c.startPc i) i))
     (acc : List Digest) (s : MachineState) (hs : c.ChainIn s0 i acc s) :
-    ∃ t, Steps vimage s (if c.dig i = 6 then 5 else 4) (if c.dig i = 6 then 5 else 4) t ∧
-      c.PreHash s0 i acc (c.dig i) (c.val i) t := by
+    ∃ t, Steps vimage s 4 4 t ∧ c.PreHash s0 i acc (c.dig i) (c.val i) t := by
   obtain ⟨⟨hR, hF, hS⟩, hlen, h25, hpc⟩ := hs
   have hb := c.blk_props hc i (by omega)
   have hs := slotL_props i (by omega)
@@ -853,20 +846,19 @@ theorem headR_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     (hR r hn).trans (hk _ hm)
   have h22 : s.getReg .x22 = BitVec.ofNat 64 c.S6 := kr _ _ (by simp [known]) (by decide)
   have keyE := c.kAt_eval hc h22 i (by omega)
-  set r := headRH .x22 (offL i) (c.dig i) (if c.dig i = 6 then some (slotL i) else none) (c.startPc i) i with hr
+  set r := headRV .x22 (offL i) (c.dig i) (if c.dig i = 6 then some (slotL i) else none) (c.startPc i) i with hr
   have htable := c.header_load i (c.dig i)
     (kr _ _ (by simp [known]) (by decide))
   have hobl : ∀ o ∈ r.st.obl, o.holds s := by
-    simp only [hr, headRH, List.mem_cons, List.not_mem_nil, or_false]
+    simp only [hr, headRV, List.mem_cons, List.not_mem_nil, or_false]
     rintro o rfl
     show accessValid ((kAt .x22 (offL i) 16).eval s) 8 = true
     rw [keyE 16 (by omega)]; exact valid_ofNat _ _ (by omega) (by omega)
   have hst := piece_steps hrun hp0 s hpc hobl
-  have hec := piece_ecall hrun hp0 s hobl (by simp [hr, headRH])
-  have hn : r.steps = (if c.dig i = 6 then 5 else 4) ∧ r.cycles = (if c.dig i = 6 then 5 else 4) := by
-    simp only [hr, headRH]; split <;> simp_all
+  have hec := piece_ecall hrun hp0 s hobl (by simp [hr, headRV])
+  have hn : r.steps = 4 ∧ r.cycles = 4 := ⟨rfl, rfl⟩
   rw [hn.1, hn.2] at hst
-  have hkeep := headRH_keeps .x22 (offL i) (c.dig i) (if c.dig i = 6 then some (slotL i) else none) (c.startPc i) i
+  have hkeep := headRV_keeps .x22 (offL i) (c.dig i) (if c.dig i = 6 then some (slotL i) else none) (c.startPc i) i
   have a0e : (addC (E.reg .x22) (offL i)).eval s = BitVec.ofNat 64 (c.blk i) := by
     rw [addC_eval]; simp only [E.eval, h22]; exact c.base_off0 hc i (by omega)
   have tmem : ∀ A, A < 2 ^ 64 → (r.toState s).getMem (BitVec.ofNat 64 A) =
@@ -874,7 +866,7 @@ theorem headR_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
       else s.getMem (BitVec.ofNat 64 A) := by
     intro A hA
     rw [Result.toState_getMem]
-    simp only [hr, headRH]
+    simp only [hr, headRV]
     rw [memEval_one s _ _ (c.blk i + 16) A (keyE 16 (by omega)) (by omega) hA, htable]
   have hfr : Frame s (r.toState s) (fun A => A = c.blk i + 16) := by
     intro A hA hn
@@ -893,17 +885,16 @@ theorem headR_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
   · exact h25
   · rw [tmem _ (by omega), if_pos rfl]
   · rw [tmem _ (by omega), if_neg (by omega)]; exact hp24
-  · rw [Result.toState_getReg]; simp only [hr, headRH]
+  · rw [Result.toState_getReg]; simp only [hr, headRV]
     rw [RegFile.get_set_ne _ _ (by decide), RegFile.get_set_ne _ _ (by decide), RegFile.get_set_self _ _ (by decide),
       a0e]
-  · rw [Result.toState_getReg]; simp only [hr, headRH]
+  · rw [Result.toState_getReg]; simp only [hr, headRV]
     rw [RegFile.get_set_ne _ _ (by decide), RegFile.get_set_self _ _ (by decide)]
     by_cases h6 : c.dig i = 6
     · simp only [h6, if_true, E.eval]
     · simp only [h6, if_false]
       rw [addC_eval, a0e, show (48 : Word) = BitVec.ofNat 64 48 from rfl, ofNat_add_ofNat]
-  · rw [Result.toState_pc]; simp only [hr, headRH, hrp]
-    by_cases h6 : c.dig i = 6 <;> simp [h6, E.eval]
+  · rw [Result.toState_pc, hrp]; simp only [hr, headRV, E.eval]
 end LCtx
 end SigGolfCandidate.T3M
 namespace SigGolfCandidate.T3M
@@ -1085,11 +1076,11 @@ theorem x13_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.kn
       · right; refine ⟨?_, h.2⟩; omega), hS⟩, by omega, h25, ?_⟩⟩
   · rw [Result.toState_pc]
     simp only [ctabX, E.eval, BinOp.eval, h15, h29]
-    have e2 : BitVec.ofNat 64 0x6e000 - (7#64 - BitVec.ofNat 64 c.ck) <<< ((5 : Word).toNat % 64) + (-1824 : Word) =
-        BitVec.ofNat 64 (0x1000 + 4 * (ctabIdx + 8 * c.ck)) := by
+    have e2 : BitVec.ofNat 64 0x6e000 - (7#64 - BitVec.ofNat 64 c.ck) <<< ((7 : Word).toNat % 64) + (-1824 : Word) =
+        BitVec.ofNat 64 (0x1000 + 4 * ckSlot c.ck) := by
       have hk : c.ck ≤ 8 := hck
       generalize c.ck = k at hk ⊢
-      unfold ctabIdx
+      unfold ckSlot
       interval_cases k <;> decide
     rw [e2, even_andNot1' _ (by omega)]
     unfold startPc; simp
@@ -1104,20 +1095,14 @@ theorem ret_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.kn
   rw [Result.toState_pc]
   simp only [retR, E.eval, BinOp.eval, h1]
   exact even_andNot1' _ (by have := hc.2.2.2.2.2.2.2.1; omega)
+theorem endPc_42_lt (c : LCtx) (hc : c.ok) : c.endPc 42 < 209920 := by
+  have := hc.2.2.2.2.2.2.1
+  unfold endPc ckSlot partLen; simp only [if_true]; split_ifs <;> omega
 theorem ckdone_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
-    (hrun : vrun ckDone 2 = some retR) (acc : List Digest) (s : MachineState) (hs : c.EndInv s0 42 acc s) :
+    (hrun : vrun (c.endPc 42) 2 = some retR) (acc : List Digest) (s : MachineState) (hs : c.EndInv s0 42 acc s) :
     ∃ u, Steps vimage s 1 1 u ∧ c.ChainOut s0 43 acc u := by
   obtain ⟨⟨hR, hF, hS⟩, hlen, -, hpc⟩ := hs
-  obtain ⟨u, hst, hreg, hmem, hpcu⟩ := c.ret_step hc hk ckDone (by decide) hrun s (by rw [hpc]; rfl) hR
-  refine ⟨u, hst, ⟨⟨fun x hx => (hreg x).trans (hR x hx), fun A hA hn => (hmem _).trans (hF A hA hn),
-    fun j hj => ?_⟩, hlen, hpcu⟩⟩
-  exact ⟨(hmem _).trans (hS j hj).1, (hmem _).trans (hS j hj).2⟩
-theorem ck8_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
-    (h8 : c.ck = 8) (hrun : vrun (ctabIdx + 64) 2 = some retR) (acc : List Digest) (s : MachineState)
-    (hs : c.ChainIn s0 42 acc s) : ∃ u, Steps vimage s 1 1 u ∧ c.ChainOut s0 42 acc u := by
-  obtain ⟨⟨hR, hF, hS⟩, hlen, -, hpc⟩ := hs
-  obtain ⟨u, hst, hreg, hmem, hpcu⟩ := c.ret_step hc hk (ctabIdx + 64) (by decide) hrun s
-    (by rw [hpc]; unfold startPc; simp [h8]) hR
+  obtain ⟨u, hst, hreg, hmem, hpcu⟩ := c.ret_step hc hk (c.endPc 42) (c.endPc_42_lt hc) hrun s hpc hR
   refine ⟨u, hst, ⟨⟨fun x hx => (hreg x).trans (hR x hx), fun A hA hn => (hmem _).trans (hF A hA hn),
     fun j hj => ?_⟩, hlen, hpcu⟩⟩
   exact ⟨(hmem _).trans (hS j hj).1, (hmem _).trans (hS j hj).2⟩

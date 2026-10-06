@@ -1,6 +1,5 @@
 import SigGolfCandidate.W9Machine.WctImage
 import SigGolfCandidate.W9Machine.WctChainPieces
-import SigGolfCandidate.ClaudeWCT.WCT9.Codebook
 
 section
 

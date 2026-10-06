@@ -17,7 +17,7 @@ def SignerComplete (answers : Correctness.Answers) : Prop :=
   (∀ (rho : Digest) (m : Message),
       (evalWithAnswerFn answers (WCT9.digestSearch rho m 0 WCT9.digestAttemptLimit)).isSome) ∧
     ∀ (lay : Layer), lay ≠ 0 → ∀ (tree leaf : Nat) (msg : WCT9.LayerMsg), tree < 2 ^ 25 → leaf < 2 ^ height lay →
-      (evalWithAnswerFn answers (WCT9.layerCounterSearch lay tree leaf msg 0 counterLimit)).isSome
+      (evalWithAnswerFn answers (WCT9.layerCounterSearch lay tree leaf msg 0 (WCT9.searchLimit lay))).isSome
 def CaseCAt (answers : Correctness.Answers) (message : Message) (witness : WBytes)
     (events : List FirstHit.QueryEvent) : Prop :=
   ∃ digestAnswer : HashOutput, (wdc witness).toNat < WCT9.digestAttemptLimit ∧

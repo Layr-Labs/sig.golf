@@ -209,22 +209,22 @@ theorem trial_spec (hl : LookOK im expLook) (s : MachineState) (hpc : s.pc = pcO
       if_neg hn.2]; rfl
 theorem gate_spec (hl : LookOK im expLook) (s : MachineState) (hpc : s.pc = pcOf 40910) (a : BitVec 256)
     (ha : OutAt s NBUF a) :
-    ∃ t, Steps im s 7 7 t ∧ t.pc = (if a.toNat / 2 ^ 234 % 2 ^ 22 < 2047 then pcOf 40917 else pcOf 41060) ∧
+    ∃ t, Steps im s 7 7 t ∧ t.pc = (if a.toNat / 2 ^ 235 % 2 ^ 21 < 1030 then pcOf 40917 else pcOf 41060) ∧
       t.getReg .x22 = a.extractLsb' 0 64 ∧ RegsExcept s t [.x6, .x22, .x28] ∧
       Frame s t (fun _ => False) := by
   have hg := gateE_eval s a (outS ha)
-  have hbr : ∀ b ∈ (resGate (decide ¬ (a.toNat / 2 ^ 234 % 2 ^ 22 < 2047))).brs, b.holds s := by
+  have hbr : ∀ b ∈ (resGate (decide ¬ (a.toNat / 2 ^ 235 % 2 ^ 21 < 1030))).brs, b.holds s := by
     intro b hb
     simp only [resGate, List.mem_singleton] at hb
     subst hb
     simp only [Br.holds, CmpOp.eval, E.eval, hg]
-    by_cases h0 : a.toNat / 2 ^ 234 % 2 ^ 22 < 2047
+    by_cases h0 : a.toNat / 2 ^ 235 % 2 ^ 21 < 1030
     · simp only [h0, if_true, not_true_eq_false, decide_false]; decide
     · simp only [h0, if_false, not_false_eq_true, decide_true]; decide
   obtain ⟨hs, hp, -, hr, hm⟩ := piece hl (run_gate _) s hpc rfl hbr rfl
   refine ⟨_, hs, ?_, ?_, regs_rfs hr, fun A _ _ => by rw [hm]; rfl⟩
   · rw [hp]; simp only [resGate]
-    by_cases h0 : a.toNat / 2 ^ 234 % 2 ^ 22 < 2047
+    by_cases h0 : a.toNat / 2 ^ 235 % 2 ^ 21 < 1030
     · simp only [h0, not_true_eq_false, decide_false, Bool.false_eq_true, if_false, if_true]
     · simp only [h0, not_false_eq_true, decide_true, if_false, if_true]
   · rw [hr]
@@ -396,7 +396,7 @@ theorem checks_spec (hl : LookOK im expLook) (u : MachineState) (hpc : u.pc = pc
   obtain ⟨t1, s1, p1, x22, r1, f1⟩ := gate_spec hl u hpc a ha
   have hadm := WCT9.admissible_iff a
   have hprod := WCT9.producerAdmissible_iff a
-  by_cases hg : a.toNat / 2 ^ 234 % 2 ^ 22 < 2047
+  by_cases hg : a.toNat / 2 ^ 235 % 2 ^ 21 < 1030
   · rw [if_pos hg] at p1
     obtain ⟨t2, s2, p2, x20, x21, r2, f2⟩ := cost0_spec hl t1 p1
     have ha2 : OutAt t2 NBUF a := fun j hj => by

@@ -222,7 +222,7 @@ theorem rank_val (output : HashOutput) (coord : Coord) :
     (rank output coord).val = field output coord % 600 := rfl
 theorem admissible_iff (output : HashOutput) :
     admissible output = true ↔
-      output.toNat / 2 ^ 234 % 2 ^ 22 < 2047 ∧ ∀ coord : Coord, field output coord < 16200 := by
+      output.toNat / 2 ^ 235 % 2 ^ 21 < 1030 ∧ ∀ coord : Coord, field output coord < 16200 := by
   unfold admissible field
   simp only [Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, List.mem_range]
   constructor
@@ -264,7 +264,7 @@ def digestLayout : List (Nat × Nat) :=
   [(0, 31), (31, 12),
    (43, 7), (50, 14), (64, 7), (71, 14), (85, 7), (92, 14), (106, 7), (113, 14), (127, 1),
    (128, 7), (135, 14), (149, 7), (156, 14), (170, 7), (177, 14), (191, 1),
-   (192, 7), (199, 14), (213, 7), (220, 14), (234, 22)]
+   (192, 7), (199, 14), (213, 7), (220, 14), (234, 1), (235, 21)]
 theorem coordBase_values :
     List.ofFn (fun k : Coord => coordBase k.val) = [43, 64, 85, 106, 128, 149, 170, 192, 213] := by
   decide
@@ -302,7 +302,7 @@ theorem verify_walk_positions (word : Rank) (t : Fin 7) :
 theorem verify_steps_total (output : HashOutput) :
     (∑ coord : Coord, ∑ t : Fin 7, wordDigit (rank output coord) t) = 54 := by
   simp only [wordStep_count, Finset.sum_const, Finset.card_univ, Fintype.card_fin, smul_eq_mul]
-theorem gate_value (output : HashOutput) : output.toNat / 2 ^ 234 % 2 ^ 22 = output.toNat / 2 ^ 234 := by
+theorem gate_value (output : HashOutput) : output.toNat / 2 ^ 235 % 2 ^ 21 = output.toNat / 2 ^ 235 := by
   have h := output.isLt
   apply Nat.mod_eq_of_lt
   rw [Nat.div_lt_iff_lt_mul (by positivity)]
@@ -310,7 +310,7 @@ theorem gate_value (output : HashOutput) : output.toNat / 2 ^ 234 % 2 ^ 22 = out
   omega
 theorem admissible_iff' (output : HashOutput) :
     admissible output = true ↔
-      output.toNat / 2 ^ 234 < gateLimit ∧ ∀ coord : Coord, field output coord < fieldLimit := by
+      output.toNat / 2 ^ 235 < gateLimit ∧ ∀ coord : Coord, field output coord < fieldLimit := by
   rw [admissible_iff, gate_value]; rfl
 theorem jointCost_eq_sum (output : HashOutput) :
     jointCost output = ∑ coord : Coord, routineCost (rank output coord) := by

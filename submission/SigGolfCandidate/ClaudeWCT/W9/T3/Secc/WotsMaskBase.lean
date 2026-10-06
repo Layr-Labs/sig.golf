@@ -91,7 +91,7 @@ theorem referenceDigits_spec (answers : Answers) (L : LeafAddr) :
   | some found =>
       obtain ⟨counter, digits⟩ := found
       have hd := (WCT9.layerCounterSearch_some answers L.lay L.tree L.leaf (leafMsg answers L)
-        counterLimit 0 counter digits (by decide) h).2.2
+        (WCT9.searchLimit L.lay) 0 counter digits (ClaudeWCT.W9.T3.Security.Wots.searchLimit_fits L.lay) h).2.2
       exact ⟨(decode_length_sum hd).1, Cost.validDigits_decode hd⟩
 theorem referenceDigits_of_search {answers : Answers} {L : LeafAddr} {counter : BitVec 32} {digits : List Nat}
     (h : referenceSearch answers L = some (counter, digits)) : referenceDigits answers L = digits := by
