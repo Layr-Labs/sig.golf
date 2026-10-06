@@ -14,14 +14,14 @@ theorem mean_bound :
   simp (disch := finiteness) only [ENNReal.toReal_add,ENNReal.toReal_mul,ENNReal.toReal_div,
     ENNReal.toReal_pow,ENNReal.toReal_sum,ENNReal.toReal_natCast,ENNReal.toReal_ofNat,ENNReal.toReal_one]
   norm_num [meanCoeffs,proposalLength,Finset.sum_range_succ]
-theorem variance_excess : (18400/100000000:ℚ)*(8/13)≤11324/100000000 := by norm_num
+theorem variance_excess : (18400/100000000:ℚ)*(8/13)≤12500/100000000 := by norm_num
 theorem reuse_bound : SigGolfResearch.Gate6.Budget.p0≤(1/64:ℚ) := by
   norm_num [SigGolfResearch.Gate6.Budget.p0]
 theorem prefix_rate :
     ((3/2:ℚ)+4/8192+2/(8192^2))*(8192/8191)+4/8192*(8192/8191)^2+
       2*57/8192*(8192/8191)≤181/100 := by norm_num
 theorem encoding_rate : (1:ℚ)+2*3306/8192*(8192/8191)≤181/100 := by norm_num
-theorem small_excess_rate : (201:ℚ)*(11324/100000000)≤1/40 := by norm_num
+theorem small_excess_rate : (201:ℚ)*(12500/100000000)≤1/40 := by norm_num
 theorem near_rate : (8192/8191:ℚ)*(404+21*201/2^25)≤405 := by norm_num
 theorem small_first_rate : (181/100:ℚ)+1/40+1/1000≤37/20 := by norm_num
 theorem pointwise_excess (v m : ℝ) (hm : m≤37/64) :
@@ -57,7 +57,7 @@ theorem small_closing_real (y : ℝ) (hlow : 1 / 2 ^ 128 ≤ y) (hhigh : y ≤ 1
   have hy128 : y / 2 ^ 128 ≤ y / 1024 := div_le_div_of_nonneg_left hn (by norm_num) (by norm_num)
   linarith
 theorem large_closing_real (y : ℝ) (hlow : 1 / 2 ^ 13 ≤ y) :
-    (2 * y - y ^ 2) + y * (11324 / 100000000) + y * (1 / 2 ^ 25) + y * (1 / 2 ^ 20) + 1 / 2 ^ 132 +
+    (2 * y - y ^ 2) + y * (12500 / 100000000) + y * (1 / 2 ^ 25) + y * (1 / 2 ^ 20) + 1 / 2 ^ 132 +
       (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
   have hn : 0 ≤ y := le_trans (by positivity) hlow
   have hsq : y * (1 / 2 ^ 13) ≤ y ^ 2 := by
@@ -103,7 +103,7 @@ irreducible_def budgetSplit : Nat := 2 ^ 115
 noncomputable irreducible_def smallCoefficient : ENNReal := 37 / 20
 noncomputable irreducible_def smallQuadratic : ENNReal := 2 ^ 9
 noncomputable irreducible_def smallAbsolute : ENNReal := ((2 : ENNReal) ^ 132)⁻¹
-noncomputable irreducible_def excessRate : ENNReal := 11324 / 100000000
+noncomputable irreducible_def excessRate : ENNReal := 12500 / 100000000
 noncomputable irreducible_def cacheRate : ENNReal := ((2 : ENNReal) ^ 25)⁻¹
 noncomputable irreducible_def largeReserveRate : ENNReal := ((2 : ENNReal) ^ 20)⁻¹
 noncomputable irreducible_def largeReserveAbsolute : ENNReal := ((2 : ENNReal) ^ 132)⁻¹
@@ -125,7 +125,7 @@ private theorem small_real (y : ℝ) (hlow : 1/2^128≤y) (hhigh : y≤1/2^13) :
   simpa only [show (2:ℝ)^9=512 by norm_num] using
     SigGolfResearch.Gate3Closing115.small_closing_real y hlow hhigh
 private theorem large_real (y : ℝ) (hlow : 1/2^13≤y) :
-    (2*y-y^2)+y*(11324/100000000)+y*(1/2^25)+y*(1/2^20)+1/2^132+
+    (2*y-y^2)+y*(12500/100000000)+y*(1/2^25)+y*(1/2^20)+1/2^132+
       (y/2^18+1/2^700+1/2^152+y/2^128)≤2*y :=
   SigGolfResearch.Gate3Closing115.large_closing_real y hlow
 theorem small_closing (q : Nat) (hq : 1 ≤ q) (hsplit : q ≤ budgetSplit) :
