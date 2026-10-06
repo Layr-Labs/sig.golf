@@ -15,14 +15,14 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (base k)
   headerReg : u.getReg .x28 = (SigGolfCandidate.T3.header 6 k.val index 0 j.val).extractLsb' 0 64
   prefixReg : u.getReg .x31 = BitVec.ofNat 64 (V3.chainPrefix index k.val j.val)
-  route : u.getReg .x4 = BitVec.ofNat 64 (index + 2 ^ 32 * j.val)
+  route : u.getReg .x4 = BitVec.ofNat 64 index
   hashMode : u.getReg .x5 = 0
   stepOne : u.getReg .x7 = 1
   stepTwo : u.getReg .x13 = 2
   hashLen : u.getReg .x11 = 64
   childPC : u.getReg .x23 = pcOf (L.childWord j)
   returnPC : u.getReg .x1 = pcOf (L.returnWord k)
-  indexReg : u.getReg .x22 = BitVec.ofNat 64 index
+  indexReg : u.getReg .x22 = BitVec.ofNat 64 j.val
   nodeHeader : u.getReg .x27 = BitVec.ofNat 64 (V3.nodeLow k.val index)
   forestPointer : u.getReg .x9 = BitVec.ofNat 64 (pairAddress k)
   heaps : ∀ h, 2 ≤ h → h ≤ 7 → u.getReg (Child.heapReg h) = BitVec.ofNat 64 h
