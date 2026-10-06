@@ -74,7 +74,7 @@ end ClaudeWCT.W9.T3.Security.WPair
 namespace ClaudeWCT.W9.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open SigGolfCandidate.T3M (wrho wdc)
+open ClaudeWCT.W9.T3M (wrho wdc)
 open ClaudeWCT.W9.T3M (WBytes)
 open ClaudeWCT.W9.T3M.Final (AdversaryP ForgeryP)
 set_option maxHeartbeats 1000000

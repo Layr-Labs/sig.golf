@@ -88,7 +88,7 @@ theorem rejAnswers_card (lay : Layer) :
   rw [hr, e0, e2]
   omega
 theorem producerCount_le (lay : Layer) :
-    ClaudeWCT.W9.T3.ProducerV5.producerCount lay ≤ 217433284086354415880083123326127992 := by
+    ClaudeWCT.W9.T3.ProducerV5.producerCount lay ≤ 217432284086354415880083123326127992 := by
   fin_cases lay <;> decide +kernel
 theorem rejAnswers_card_ge (lay : Layer) : 53 * 2 ^ 256 ≤ 57 * (rejAnswers lay).card := by
   have h := rejAnswers_card lay

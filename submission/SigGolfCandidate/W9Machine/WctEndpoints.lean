@@ -17,7 +17,7 @@ theorem extract_hi (X : BitVec 256) :
   simp only [BitVec.getElem_extractLsb', BitVec.getLsbD_extractLsb', h, decide_true,
     Bool.true_and, Nat.zero_add]
 theorem traceLeafSlot_bound (t : Nat) (ht : t < 7) :
-    traceLeafSlot t + 16 ≤ 1008 ∧ traceLeafSlot t % 8 = 0 := by
+    traceLeafSlot t + 16 ≤ 880 ∧ traceLeafSlot t % 8 = 0 := by
   unfold traceLeafSlot; split <;> omega
 theorem sourceEnds_getD (w : WBytes) (k : Fin 9) (rank : Fin 728)
     (answers : List (BitVec 256)) (t : Nat) (ht : t < 7) :

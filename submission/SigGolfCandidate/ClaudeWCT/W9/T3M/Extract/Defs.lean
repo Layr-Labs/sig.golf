@@ -8,22 +8,22 @@ open Correctness (Answers treeValue)
 def HonestQ (answers : Answers) (N : HashOutput) (c : WCT9.Coord) (q : Spec.Domain) : Prop :=
   (∃ t : Fin 7, ∃ s, 3 - WCT9.wordDigit (WCT9.rank N c) t ≤ s ∧ s < 3 ∧
       q = .inl (.inr (Extract.honestInput answers
-        (.wctChain (N.toNat % 2 ^ 31) c.val (WCT9.child N c).val t.val s)))) ∨
-    q = .inl (.inr (Extract.honestInput answers (.wctLeaf (N.toNat % 2 ^ 31) c.val (WCT9.child N c).val))) ∨
+        (.wctChain (WCT9.digestIndex N) c.val (WCT9.child N c).val t.val s)))) ∨
+    q = .inl (.inr (Extract.honestInput answers (.wctLeaf (WCT9.digestIndex N) c.val (WCT9.child N c).val))) ∨
     ∃ l, l < 6 ∧ q = .inl (.inr (Extract.honestInput answers
-      (.wctNode (N.toNat % 2 ^ 31) c.val l ((WCT9.child N c).val / 2 ^ (l + 1)))))
+      (.wctNode (WCT9.digestIndex N) c.val l ((WCT9.child N c).val / 2 ^ (l + 1)))))
 def CoordHonest (answers : Answers) (N : HashOutput) (w : WBytes) (c : WCT9.Coord) : Prop :=
   (∀ t : Fin 7, wreveal w c.val t.val (WCT9.wordDigit (WCT9.rank N c) t) =
-      Extract.wctValue answers (N.toNat % 2 ^ 31) c.val (WCT9.child N c).val t.val
+      Extract.wctValue answers (WCT9.digestIndex N) c.val (WCT9.child N c).val t.val
         (3 - WCT9.wordDigit (WCT9.rank N c) t) ∧
     (0 < WCT9.wordDigit (WCT9.rank N c) t →
       wcpads w c.val t.val = (0, 0) ∧ wcHeaderPad w c.val t.val = 0)) ∧
   (∀ l, l < 7 → wsib w c.val (WCT9.child N c).val l =
-      treeValue (Extract.ftsLevels answers (N.toNat % 2 ^ 31) c.val) l ((WCT9.child N c).val / 2 ^ l ^^^ 1) ∧
-    (l < 6 → wmpad w c.val l = 0))
+      treeValue (Extract.ftsLevels answers (WCT9.digestIndex N) c.val) l ((WCT9.child N c).val / 2 ^ l ^^^ 1) ∧
+    (l < 6 → wmpad w c.val (WCT9.child N c).val l = 0))
 def WctHonest (answers : Answers) (N : HashOutput) (w : WBytes) : Prop :=
-  (∀ q ∈ queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (N.toNat % 2 ^ 31) N),
-      q = .inl (.inr (Extract.honestInput answers (.forest (N.toNat % 2 ^ 31)))) ∨
+  (∀ q ∈ queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N),
+      q = .inl (.inr (Extract.honestInput answers (.forest (WCT9.digestIndex N)))) ∨
       ∃ c : WCT9.Coord, HonestQ answers N c q) ∧
     ∀ c : WCT9.Coord, CoordHonest answers N w c
 end ClaudeWCT.W9.T3M.WctExtract

@@ -2,9 +2,9 @@ import SigGolfCandidate.T3M.Images.Sign
 
 set_option maxRecDepth 100000
 namespace ClaudeWCT.W9.Machine.Sign
-def signCodeSha256 : String := "308df2eb51a039a11b82eb5ce137b4f97ffb88f1e9938f38cfd0bd0deca4c345"
+def signCodeSha256 : String := "ad613e05cd20ce3b9706599c19408fc5891f7c8efb19cb5895067086c8926013"
 def signDataSha256 : String := "a1dd5920b48459b912d6cbb76617318d3b78fc078b10b7368ef54f61af92d84a"
-def signNewSha256 : String := "525b990a2f6b3f64c80669439abf91c7e0b2a5be8bcfed006ed428aae70f506c"
+def signNewSha256 : String := "b41cb6c564bacbbc8df274be1a78318f5f275dfb9ba19fc464c162b6e62e33e4"
 def costSha256 : String := "89971046f1a857fef402791cc106172a994e1ef152327fc68a3f7cfcf9ec7dea"
 def tblSha256 : String := "4b248a62872e725c07c5da0f8f76d5d42729da8d2fc5af21087436561d730cab"
 def headCode_0 : List (BitVec 32) := [(SigGolfCandidate.T3M.Images.signCode_42).drop 251,(SigGolfCandidate.T3M.Images.signCode_43).take 178].flatten
@@ -78,7 +78,7 @@ def lIdx : List Nat := [12076,13134,14194,15254,16313,17373,18433,19492,20552]
 def tIdx : List Nat := [12092,13151,14211,15271,16330,17390,18450,19509,20569]
 def nodeIdx : List Nat := [12096,13155,14215,15275,16334,17394,18454,19513,20573]
 def ntIdx : List Nat := [12122,13181,14241,15301,16360,17420,18480,19539,20599]
-def rIdx : List Nat := [12135,13194,14254,15314,16373,17433,18493,19552,20612]
+def rIdx : List Nat := [12135,13194,14254,15314,16373,17432,18493,19552,20612]
 def lwuIdx : List Nat := [11199,12250,13310,14370,15429,16489,17549,18608,19668]
 def sfIdx : List Nat := [11030,11045,11059,11074,11089,11103,11118,11133,11147,11162]
 def scIdx : List Nat := [11042,11056,11071,11086,11100,11115,11130,11144,11159]

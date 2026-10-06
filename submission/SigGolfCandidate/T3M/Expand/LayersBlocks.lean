@@ -271,14 +271,9 @@ theorem c348_spec (hpc : s.pc = pcOf 348) (h28 : s.getReg .x28 = BitVec.ofNat 64
   · ex_regs eblk_348.res
   · intro A _ _; simp [eblk_348.res, rv_simp]
 theorem c351_spec (hpc : s.pc = pcOf 351) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf 353 ∧ t.getReg .x5 = BitVec.ofNat 64 1 ∧
-      t.getReg .x10 = BitVec.ofNat 64 0 ∧ fetch image t = some (.base .ECALL) ∧
-      RegsExcept s t [.x5, .x10] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound eblk_351 codeAt_351 s hpc (by simp [eblk_351.res, rv_simp]), ?_, ?_, ?_, ?_, ?_, ?_⟩
+    ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf 41108 ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_, symRun_sound eblk_351 codeAt_351 s hpc (by simp [eblk_351.res, rv_simp]), ?_, ?_, ?_⟩
   · simp [Result.toState_pc, eblk_351.res, E.eval]
-  · simp [eblk_351.res, rv_simp]
-  · simp [eblk_351.res, rv_simp]
-  · rw [codeAt_353.fetch _ (by simp [Result.toState_pc, eblk_351.res, E.eval])]; rfl
   · ex_regs eblk_351.res
   · intro A _ _; simp [eblk_351.res, rv_simp]
 end blocks

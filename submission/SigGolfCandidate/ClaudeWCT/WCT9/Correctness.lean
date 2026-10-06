@@ -1162,8 +1162,8 @@ theorem expand_implies_verify (answers : Answers) (message : Message) (pk : Dige
   | some found =>
       obtain ⟨counter, output⟩ := found
       simp only [hd, evalWithAnswerFn_bind] at he
-      cases hl : evalWithAnswerFn answers (expandLayersBC sig (output.toNat % 2 ^ 31) 4
-          (.forest (evalWithAnswerFn answers (recoverFts sig (output.toNat % 2 ^ 31) output)))) with
+      cases hl : evalWithAnswerFn answers (expandLayersBC sig (digestIndex output) 4
+          (.forest (evalWithAnswerFn answers (recoverFts sig (digestIndex output) output)))) with
       | none => simp only [hl, evalWithAnswerFn_pure, reduceCtorEq] at he
       | some layers =>
           obtain ⟨root, counters⟩ := layers
@@ -1179,7 +1179,7 @@ theorem expand_implies_verify (answers : Answers) (message : Message) (pk : Dige
             have hadm := admissible_of_producer hprod
             have hnot : ¬counter.toNat ≥ attemptLimit := by omega
             have hverified := (expandLayersBC_verified answers sig
-              (output.toNat % 2 ^ 31) 4 (by decide) _ root counters hl).2
+              (digestIndex output) 4 (by decide) _ root counters hl).2
               ⟨sig, counter, fun lay => counters.getD lay.val 0⟩ rfl (fun _ _ => rfl)
             simp only [verify, hnot, ite_false, evalWithAnswerFn_bind, houtput, hadm,
               Bool.not_true, Bool.false_eq_true, hverified, evalWithAnswerFn_pure, hroot,

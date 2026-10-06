@@ -474,10 +474,10 @@ theorem sat_signPayload (T : Answers) (cache : Cache) (message : Message) :
   rcases found with _ | ⟨counter, output⟩
   · exact QueriesSat.pure' _
   · dsimp only
-    have hindex : output.toNat % 2 ^ 31 < 2 ^ 31 := Nat.mod_lt _ (by decide)
+    have hindex : WCT9.digestIndex output < 2 ^ 31 := Nat.mod_lt _ (by decide)
     refine QueriesSat.bind (sat_signForest T _ hindex _) ?_
     refine QueriesSat.bind (sat_signLayers T cache _ hindex 4 le_rfl _) ?_
-    generalize evalWithAnswerFn T (WCT9.signLayersBC cache (output.toNat % 2 ^ 31) 4 _) = pieces
+    generalize evalWithAnswerFn T (WCT9.signLayersBC cache (WCT9.digestIndex output) 4 _) = pieces
     rcases pieces with _ | pieces <;> exact QueriesSat.pure' _
 theorem sat_authenticatedSign (T : Answers) (published : SigGolfCandidate.T3.Cache) (request : Request) :
     QueriesSat T (HonestQuery T) (FullGame.authenticatedSign published request) := by

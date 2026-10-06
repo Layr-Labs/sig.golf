@@ -340,13 +340,13 @@ theorem V_signPayload_of_freshness_for (secret : BitVec 256) (hf : SourceFreshne
   | none => simp only [V_pure]; exact postDigestMomentFor_ge_one fts
   | some pair =>
       obtain ⟨counter, output⟩ := pair
-      obtain ⟨post, hbound⟩ := hforest (output.toNat % 2 ^ 31) output
+      obtain ⟨post, hbound⟩ := hforest (ClaudeWCT.WCT9.digestIndex output) output
       refine V_bind_bounded secret signingZ _ _ found.2 _ _
         (V_of_bound hbound secret signingZ (SigGolfCandidate.Budget.one_le_zOf _) found.2) ?_
       intro forest hforestRun
       have hforestFresh := hf.forest _ _ found.2 hdFresh forest hforestRun
       refine V_bind_bounded secret signingZ _ _ forest.2 _ 1
-        (layerEnvelopes.V_signLayersBC secret cache (output.toNat % 2 ^ 31) 4 (by decide)
+        (layerEnvelopes.V_signLayersBC secret cache (ClaudeWCT.WCT9.digestIndex output) 4 (by decide)
           (.forest forest.1.2) forest.2 hforestFresh) ?_ |>.trans_eq (mul_one _)
       intro pieces _
       cases pieces.1 <;> rw [V_pure]

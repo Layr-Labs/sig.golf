@@ -37,11 +37,11 @@ theorem signData_table (i : Nat) (hi : i < 628) :
 theorem signData_cf (i : Nat) (hi : 628 ≤ i) (hj : i < 648) :
     signData.getD (81920 + i) 0 = cfByte 1 i := by
   rw [signData, getD_prefixed _ _ _ _ signPrefixData_length]; exact signLegacyData_cf i hi hj
-theorem expandData_length : expandData.length = 25088 := Images.expandData_length
+theorem expandData_length : expandData.length = 26112 := Images.expandData_length
 theorem expandData_cf (i : Nat) (hi : 628 ≤ i) (hj : i < 648) :
-    expandData.getD (20992 + i) 0 = cfByte 0 i := by
+    expandData.getD (22016 + i) 0 = cfByte 0 i := by
   rw [expandData, getD_prefixed _ _ _ _ expandPrefixData_length]; exact expandLegacyData_cf i hi hj
 theorem expandData_table (i : Nat) (hi : i < 628) :
-    expandData.getD (20992 + i) 0 = tableByte i := by
+    expandData.getD (22016 + i) 0 = tableByte i := by
   rw [expandData, getD_prefixed _ _ _ _ expandPrefixData_length]; exact expandLegacyData_table i hi
 end SigGolfCandidate.T3M.Search

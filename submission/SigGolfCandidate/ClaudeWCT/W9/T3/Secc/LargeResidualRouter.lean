@@ -7,7 +7,7 @@ open OracleComp OracleSpec ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers)
-open SigGolfCandidate.T3.Security.LargeResidual (listBlock slotValue digestIndex routeAddr IsDigestRow AuxQuery
+open SigGolfCandidate.T3.Security.LargeResidual (listBlock slotValue routeAddr IsDigestRow AuxQuery
   Cell dummyDigest World Probe Hit Charge)
 open ClaudeWCT.W9.T3.Security.CanonGraph
 open ClaudeWCT.W9.T3.Security.CanonEncoding
@@ -176,7 +176,7 @@ noncomputable def signFinish (a : AuxData) (st : RouterState) (rho : Digest)
   match found with
   | none => pure (none, st)
   | some (_, N) =>
-      if RouteOkR a (N.toNat % 2 ^ 31) then do
+      if RouteOkR a (WCT9.digestIndex N) then do
         let items := signItemsWith (routerDigits a) N
         let pairs ← discloseAll U items
         pure (some (assembleSig rho N (lookupVal pairs) (routerDigits a)),

@@ -1,5 +1,4 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Honest
-import SigGolfCandidate.T3M.Witness.Queries
 
 namespace ClaudeWCT.W9.T3M
 open OracleComp OracleSpec SigGolfCandidate.T3

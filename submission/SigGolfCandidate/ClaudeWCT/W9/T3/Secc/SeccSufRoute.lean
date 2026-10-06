@@ -4,7 +4,7 @@ import SigGolfCandidate.ClaudeWCT.W9.New.Positions.FtsBridge
 namespace ClaudeWCT.W9.T3.Security.BPB
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open SigGolfCandidate.T3M (wrho wdc wctr)
+open ClaudeWCT.W9.T3M (wrho wdc)
 open SigGolfCandidate.T3M.SecurityExtraction (queried queried_bind queried_shortHash)
 open ClaudeWCT.W9.T3M (WBytes Shaped)
 open Correctness (treeValue)
@@ -157,8 +157,8 @@ theorem payload_succeeds_of_complete (answers : Correctness.Answers) (hcomp : Si
     (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (m : Message) :
     ∃ sig, evalWithAnswerFn answers (payloadForNonce cache rho m) = some sig ∧ sig.rho = rho := by
   obtain ⟨⟨counter, N⟩, hds⟩ := Option.isSome_iff_exists.mp (hcomp.1 rho m)
-  obtain ⟨pieces, hp⟩ := signLayers_complete answers hcomp cache (N.toNat % 2 ^ 31) (Nat.mod_lt _ (by positivity))
-    4 le_rfl (.forest (WCT9.honestForest answers (N.toNat % 2 ^ 31)))
+  obtain ⟨pieces, hp⟩ := signLayers_complete answers hcomp cache (WCT9.digestIndex N) (WCT9.digestIndex_lt _)
+    4 le_rfl (.forest (WCT9.honestForest answers (WCT9.digestIndex N)))
   unfold payloadForNonce
   simp only [evalWithAnswerFn_bind, hds, WCT9.eval_signForest, hp, evalWithAnswerFn_pure]
   exact ⟨_, rfl, rfl⟩
@@ -182,8 +182,8 @@ theorem layerEncoding_ok (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (
         (hdrBlock_pairEncodingInputP lay tree leaf left right counter 0) (by decide)
 theorem afterDigest_ok (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (output : HashOutput) :
     AllQueriesSatisfy (do
-      let forest ← WCT9.signForest (output.toNat % 2 ^ 31) output
-      let some pieces ← WCT9.signLayersBC cache (output.toNat % 2 ^ 31) 4 (.forest forest.2) | pure none
+      let forest ← WCT9.signForest (WCT9.digestIndex output) output
+      let some pieces ← WCT9.signLayersBC cache (WCT9.digestIndex output) 4 (.forest forest.2) | pure none
       pure (some (WCT9.assembledSignature rho forest.1 pieces)) : M (Option Signature))
       SigGolfCandidate.T3.Security.BPB.NotDigestQ := by
   apply SourceQueries.bind_allowed _ (ClaudeWCT.WCT9.Wots.BPB.signForest_ok _ output)

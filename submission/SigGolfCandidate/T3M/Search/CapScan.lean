@@ -10,9 +10,8 @@ set_option maxRecDepth 8192
 def capLimit (lay : Nat) : Nat := if lay = 0 then 2 ^ 22 else 2 ^ 21
 def scanM : BitVec 64 := 1317624576693539401#64
 def lanes6 (x : BitVec 64) : BitVec 64 := x >>> 1 &&& x >>> 2 &&& (x ^^^ 18446744073709551615#64) &&& scanM
-def scanHi (lo hi : BitVec 64) : BitVec 64 := lo >>> 63 ||| hi <<< 1
 def scanX (c lo hi : BitVec 64) : BitVec 64 :=
-  (if (c - 6#64).ult 1#64 = true then 1#64 else 0#64) <<< 63 ||| lanes6 lo ||| lanes6 (scanHi lo hi) <<< 1
+  (if (c - 6#64).ult 1#64 = true then 1#64 else 0#64) <<< 63 ||| lanes6 lo ||| lanes6 hi <<< 1
 theorem scanM_getLsbD (j : Nat) (hj : j < 64) : scanM.getLsbD j = decide (j % 3 = 0 ∧ j ≤ 60) := by
   revert j; decide
 theorem lanes6_getLsbD (x : BitVec 64) (j : Nat) (hj : j < 64) :
@@ -25,17 +24,6 @@ theorem lanes6_getLsbD (x : BitVec 64) (j : Nat) (hj : j < 64) :
   rw [hall, Nat.add_comm 1 j, Nat.add_comm 2 j]
   cases x.getLsbD (j + 1) <;> cases x.getLsbD (j + 2) <;> cases x.getLsbD j <;>
     cases decide (j % 3 = 0 ∧ j ≤ 60) <;> rfl
-theorem scanHi_getLsbD (v : BitVec 128) (j : Nat) (hj : j < 64) :
-    (scanHi (v.extractLsb' 0 64) (v.extractLsb' 64 64)).getLsbD j = v.getLsbD (63 + j) := by
-  unfold scanHi
-  simp only [BitVec.getLsbD_or, BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft, BitVec.getLsbD_extractLsb',
-    hj, decide_true, Bool.true_and]
-  by_cases h0 : j = 0
-  · subst h0; simp
-  · have h1 : ¬ 63 + j < 64 := by omega
-    have h2 : ¬ j < 1 := by omega
-    have h3 : 64 + (j - 1) = 63 + j := by omega
-    simp [h1, h2, h3, show j - 1 < 64 by omega]
 theorem digit_eq_six_iff (n j : Nat) :
     n / 2 ^ j % 8 = 6 ↔ (n.testBit (j + 1) = true ∧ n.testBit (j + 2) = true ∧ n.testBit j = false) := by
   have hr : n / 2 ^ j % 8 < 8 := Nat.mod_lt _ (by decide)
@@ -75,16 +63,18 @@ theorem flag_getLsbD (c : Nat) (hc : c < 8) (j : Nat) (hj : j < 64) :
       · exact (this hlt).elim
   · rw [if_neg (fun h => h6 ((flag_six c hc).mp h))]
     simp [h6]
-theorem scanX_getLsbD (v : Digest) (hv : v.toNat < 2 ^ 126) (c : Nat) (hc : c < 8) (j : Nat) (hj : j < 64) :
+theorem scanX_getLsbD (v : Digest) (c : Nat) (hc : c < 8) (j : Nat) (hj : j < 64) :
     (scanX (BitVec.ofNat 64 c) (v.extractLsb' 0 64) (v.extractLsb' 64 64)).getLsbD j =
       (if j = 63 then decide (c = 6)
        else if j % 3 = 0 then decide (v.toNat / 2 ^ (3 * (j / 3)) % 8 = 6)
-       else if j % 3 = 1 then decide (v.toNat / 2 ^ (3 * (21 + j / 3)) % 8 = 6)
+       else if j % 3 = 1 then decide (v.toNat / 2 ^ (64 + 3 * (j / 3)) % 8 = 6)
        else false) := by
   unfold scanX
   rw [BitVec.getLsbD_or, BitVec.getLsbD_or, flag_getLsbD c hc j hj, lanes6_getLsbD _ j hj,
     BitVec.getLsbD_shiftLeft]
   have hlo : ∀ k, k < 64 → (v.extractLsb' 0 64).getLsbD k = v.getLsbD k := by
+    intro k hk; simp [hk]
+  have hhi : ∀ k, k < 64 → (v.extractLsb' 64 64).getLsbD k = v.getLsbD (64 + k) := by
     intro k hk; simp [hk]
   by_cases h63 : j = 63
   · subst h63
@@ -95,8 +85,7 @@ theorem scanX_getLsbD (v : Digest) (hv : v.toNat < 2 ^ 126) (c : Nat) (hc : c < 
     rcases hm with hm | hm | hm
     ·
       have hj60 : j ≤ 60 := by omega
-      have hshift : (!decide (j < 1) && (lanes6 (scanHi (v.extractLsb' 0 64) (v.extractLsb' 64 64))).getLsbD (j - 1))
-          = false := by
+      have hshift : (!decide (j < 1) && (lanes6 (v.extractLsb' 64 64)).getLsbD (j - 1)) = false := by
         by_cases h0 : j = 0
         · subst h0; simp
         · rw [lanes6_getLsbD _ (j - 1) (by omega)]
@@ -105,14 +94,13 @@ theorem scanX_getLsbD (v : Digest) (hv : v.toNat < 2 ^ 126) (c : Nat) (hc : c < 
         hlo (j + 1) (by omega), hlo (j + 2) (by omega), hlo j (by omega), lane_bits]
       simp [hm, hj60]
     ·
-      have hj61 : j ≤ 61 := by omega
       have hlo0 : (decide (j % 3 = 0 ∧ j ≤ 60) && ((v.extractLsb' 0 64).getLsbD (j + 1) &&
           (v.extractLsb' 0 64).getLsbD (j + 2) && !(v.extractLsb' 0 64).getLsbD j)) = false := by
         simp [hm]
       rw [hlo0, Bool.false_or, if_neg (by omega), if_pos hm, lanes6_getLsbD _ (j - 1) (by omega),
-        scanHi_getLsbD v _ (by omega), scanHi_getLsbD v _ (by omega), scanHi_getLsbD v _ (by omega),
-        show 63 + (j - 1 + 1) = 63 + (j - 1) + 1 by omega, show 63 + (j - 1 + 2) = 63 + (j - 1) + 2 by omega,
-        lane_bits, show 63 + (j - 1) = 3 * (21 + j / 3) by omega]
+        hhi _ (by omega), hhi _ (by omega), hhi _ (by omega),
+        show 64 + (j - 1 + 1) = 64 + (j - 1) + 1 by omega, show 64 + (j - 1 + 2) = 64 + (j - 1) + 2 by omega,
+        lane_bits, show 64 + (j - 1) = 64 + 3 * (j / 3) by omega]
       simp [show (j - 1) % 3 = 0 by omega, show j - 1 ≤ 60 by omega, show ¬ j < 1 by omega]
     ·
       have hlo0 : (decide (j % 3 = 0 ∧ j ≤ 60) && ((v.extractLsb' 0 64).getLsbD (j + 1) &&
@@ -226,7 +214,7 @@ theorem sum_range_three (n : Nat) (f : Nat → Nat) :
     ring
 theorem getD_lowDigits_append (v : Digest) (c i : Nat) :
     (lowDigits v ++ [c]).getD i 0 =
-      if i < 42 then v.toNat / 2 ^ (3 * i) % 8 else if i = 42 then c else 0 := by
+      if i < 42 then v.toNat / 2 ^ T3.lowerShift i % 8 else if i = 42 then c else 0 := by
   by_cases hi : i < 42
   · rw [List.getD_append _ _ _ _ (by rw [lowDigits_length]; exact hi), if_pos hi]
     simp [lowDigits, List.getD_eq_getElem?_getD, hi]
@@ -234,19 +222,20 @@ theorem getD_lowDigits_append (v : Digest) (c i : Nat) :
     by_cases h42 : i = 42
     · subst h42; simp
     · rw [if_neg h42, List.getD_eq_default _ _ (by simp; omega)]
-theorem pop_scanX (v : Digest) (hv : v.toNat < 2 ^ 126) (c : Nat) (hc : c < 8) :
+theorem pop_scanX (v : Digest) (c : Nat) (hc : c < 8) :
     pop (scanX (BitVec.ofNat 64 c) (v.extractLsb' 0 64) (v.extractLsb' 64 64)) = scanCredit v c := by
-  have hX := scanX_getLsbD v hv c hc
+  have hX := scanX_getLsbD v c hc
   generalize scanX (BitVec.ofNat 64 c) (v.extractLsb' 0 64) (v.extractLsb' 64 64) = X at hX ⊢
   let f : Nat → Nat := fun j => if X.getLsbD j then 1 else 0
   let g : Nat → Nat := fun i => if (lowDigits v ++ [c]).getD i 0 = 6 then 1 else 0
-  let d : Nat → Nat := fun i => if v.toNat / 2 ^ (3 * i) % 8 = 6 then 1 else 0
+  let d : Nat → Nat := fun i => if v.toNat / 2 ^ T3.lowerShift i % 8 = 6 then 1 else 0
   have e0 : ∀ a < 21, f (3 * a) = d a := by
     intro a ha
     have h1 : ¬ (3 * a = 63) := by omega
     have h2 : (3 * a) % 3 = 0 := by omega
     have h3 : 3 * a / 3 = a := by omega
-    simp only [f, d, hX _ (show 3 * a < 64 by omega), if_neg h1, if_pos h2, h3]
+    have hs : T3.lowerShift a = 3 * a := by simp [T3.lowerShift, ha]
+    simp only [f, d, hX _ (show 3 * a < 64 by omega), if_neg h1, if_pos h2, h3, hs]
     by_cases h : v.toNat / 2 ^ (3 * a) % 8 = 6 <;> simp [h]
   have e1 : ∀ a < 21, f (3 * a + 1) = d (21 + a) := by
     intro a ha
@@ -254,8 +243,9 @@ theorem pop_scanX (v : Digest) (hv : v.toNat < 2 ^ 126) (c : Nat) (hc : c < 8) :
     have h2 : ¬ ((3 * a + 1) % 3 = 0) := by omega
     have h2' : (3 * a + 1) % 3 = 1 := by omega
     have h3 : (3 * a + 1) / 3 = a := by omega
-    simp only [f, d, hX _ (show 3 * a + 1 < 64 by omega), if_neg h1, if_neg h2, if_pos h2', h3]
-    by_cases h : v.toNat / 2 ^ (3 * (21 + a)) % 8 = 6 <;> simp [h]
+    have hs : T3.lowerShift (21 + a) = 64 + 3 * a := by simp [T3.lowerShift]
+    simp only [f, d, hX _ (show 3 * a + 1 < 64 by omega), if_neg h1, if_neg h2, if_pos h2', h3, hs]
+    by_cases h : v.toNat / 2 ^ (64 + 3 * a) % 8 = 6 <;> simp [h]
   have e2 : ∀ a < 21, f (3 * a + 2) = 0 := by
     intro a ha
     have h1 : ¬ (3 * a + 2 = 63) := by omega
@@ -386,8 +376,8 @@ theorem cap_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (ca
 theorem scanA7_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (capBase b + 7)) (lay : Nat)
     (hl : lay < 4) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (c lo hi : BitVec 64)
     (h28 : s.getReg .x28 = c) (h6 : s.getReg .x6 = lo) (h7 : s.getReg .x7 = hi) :
-    ∃ t, Steps image s 29 32 t ∧
-      t.pc = pcOf (capBase b + 38) ∧
+    ∃ t, Steps image s 26 29 t ∧
+      t.pc = pcOf (capBase b + 35) ∧
       t.getReg .x28 = clr (scanX c lo hi) ∧
       RegsExcept s t [.x20, .x21, .x28, .x29, .x30] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (runa_7 hK.2) (codeAt_a_7 hK) s hpc (by simp [sta_7, blkA354_7.res, rv_simp]),
@@ -401,78 +391,78 @@ theorem scanA7_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf 
     rfl
   · intro r hr; simp at hr; cases r <;> simp_all [sta_7, blkA354_7.res, rv_simp] <;> rfl
   · intro A _ _; simp [sta_7, blkA354_7.res, rv_simp]
-theorem scanA36_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (capBase b + 36)) (x : BitVec 64)
+theorem scanA33_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (capBase b + 33)) (x : BitVec 64)
     (h28 : s.getReg .x28 = x) :
     ∃ t, Steps image s 1 1 t ∧
-      t.pc = (if x = 0#64 then pcOf (capBase b + 44) else pcOf (capBase b + 37)) ∧
+      t.pc = (if x = 0#64 then pcOf (capBase b + 41) else pcOf (capBase b + 34)) ∧
       RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound (runa_36 hK.2) (codeAt_a_36 hK) s hpc (by simp [sta_36, blkA354_36.res, rv_simp]),
+  refine ⟨_, symRun_sound (runa_33 hK.2) (codeAt_a_33 hK) s hpc (by simp [sta_33, blkA354_33.res, rv_simp]),
     ?_, ?_, ?_⟩
-  · simp only [Result.toState_pc, pcEa_36, rebase, blkA354_36.res, E.eval, CmpOp.eval, h28]
+  · simp only [Result.toState_pc, pcEa_33, rebase, blkA354_33.res, E.eval, CmpOp.eval, h28]
     by_cases h : x = 0#64
     · subst h; simp
     · simp [h]
-  · intro r hr; simp at hr; cases r <;> simp_all [sta_36, blkA354_36.res, rv_simp] <;> rfl
-  · intro A _ _; simp [sta_36, blkA354_36.res, rv_simp]
-theorem scanA38_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (capBase b + 38)) (x : BitVec 64)
+  · intro r hr; simp at hr; cases r <;> simp_all [sta_33, blkA354_33.res, rv_simp] <;> rfl
+  · intro A _ _; simp [sta_33, blkA354_33.res, rv_simp]
+theorem scanA35_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (capBase b + 35)) (x : BitVec 64)
     (h28 : s.getReg .x28 = x) :
     ∃ t, Steps image s 5 5 t ∧
-      t.pc = (if clr (clr x) = 0#64 then pcOf (capBase b + 44) else pcOf (capBase b + 43)) ∧
+      t.pc = (if clr (clr x) = 0#64 then pcOf (capBase b + 41) else pcOf (capBase b + 40)) ∧
       RegsExcept s t [.x28, .x29] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound (runa_38 hK.2) (codeAt_a_38 hK) s hpc (by simp [sta_38, blkA354_38.res, rv_simp]),
+  refine ⟨_, symRun_sound (runa_35 hK.2) (codeAt_a_35 hK) s hpc (by simp [sta_35, blkA354_35.res, rv_simp]),
     ?_, ?_, ?_⟩
-  · simp only [Result.toState_pc, pcEa_38, rebase, blkA354_38.res, E.eval, CmpOp.eval, BinOp.eval, h28]
+  · simp only [Result.toState_pc, pcEa_35, rebase, blkA354_35.res, E.eval, CmpOp.eval, BinOp.eval, h28]
     have hm : ∀ y : BitVec 64, y + 18446744073709551615#64 = y - 1#64 := fun y => by
       rw [BitVec.sub_eq_add_neg]; rfl
     have e : (x &&& x + 18446744073709551615#64 &&& (x &&& x + 18446744073709551615#64) + 18446744073709551615#64) =
         clr (clr x) := by simp only [clr, hm]
     rw [e]
     by_cases h : clr (clr x) = 0#64 <;> simp [h]
-  · intro r hr; simp at hr; cases r <;> simp_all [sta_38, blkA354_38.res, rv_simp] <;> rfl
-  · intro A _ _; simp [sta_38, blkA354_38.res, rv_simp]
-theorem scanJump_spec (hK : KernAt image b) (s : MachineState) {o : Nat} (ho : o = 37 ∨ o = 43 ∨ o = 44)
+  · intro r hr; simp at hr; cases r <;> simp_all [sta_35, blkA354_35.res, rv_simp] <;> rfl
+  · intro A _ _; simp [sta_35, blkA354_35.res, rv_simp]
+theorem scanJump_spec (hK : KernAt image b) (s : MachineState) {o : Nat} (ho : o = 34 ∨ o = 40 ∨ o = 41)
     (hpc : s.pc = pcOf (capBase b + o)) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc = (if o = 44 then pcOf (b + 468) else pcOf (b + 438)) ∧
+    ∃ t, Steps image s 1 1 t ∧ t.pc = (if o = 41 then pcOf (b + 468) else pcOf (b + 433)) ∧
       RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
   rcases ho with rfl | rfl | rfl
-  · refine ⟨_, symRun_sound (runa_37 hK.2) (codeAt_a_37 hK) s hpc (by simp [sta_37, blkA354_37.res, rv_simp]),
+  · refine ⟨_, symRun_sound (runa_34 hK.2) (codeAt_a_34 hK) s hpc (by simp [sta_34, blkA354_34.res, rv_simp]),
       ?_, ?_, ?_⟩
-    · simp [pcEa_37, blkA354_37.res, E.eval]
-    · intro r hr; simp at hr; cases r <;> simp_all [sta_37, blkA354_37.res, rv_simp] <;> rfl
-    · intro A _ _; simp [sta_37, blkA354_37.res, rv_simp]
-  · refine ⟨_, symRun_sound (runa_43 hK.2) (codeAt_a_43 hK) s hpc (by simp [sta_43, blkA354_43.res, rv_simp]),
+    · simp [pcEa_34, blkA354_34.res, E.eval]
+    · intro r hr; simp at hr; cases r <;> simp_all [sta_34, blkA354_34.res, rv_simp] <;> rfl
+    · intro A _ _; simp [sta_34, blkA354_34.res, rv_simp]
+  · refine ⟨_, symRun_sound (runa_40 hK.2) (codeAt_a_40 hK) s hpc (by simp [sta_40, blkA354_40.res, rv_simp]),
       ?_, ?_, ?_⟩
-    · simp [pcEa_43, blkA354_43.res, E.eval]
-    · intro r hr; simp at hr; cases r <;> simp_all [sta_43, blkA354_43.res, rv_simp] <;> rfl
-    · intro A _ _; simp [sta_43, blkA354_43.res, rv_simp]
-  · refine ⟨_, symRun_sound (runa_44 hK.2) (codeAt_a_44 hK) s hpc (by simp [sta_44, blkA354_44.res, rv_simp]),
+    · simp [pcEa_40, blkA354_40.res, E.eval]
+    · intro r hr; simp at hr; cases r <;> simp_all [sta_40, blkA354_40.res, rv_simp] <;> rfl
+    · intro A _ _; simp [sta_40, blkA354_40.res, rv_simp]
+  · refine ⟨_, symRun_sound (runa_41 hK.2) (codeAt_a_41 hK) s hpc (by simp [sta_41, blkA354_41.res, rv_simp]),
       ?_, ?_, ?_⟩
-    · simp [pcEa_44, blkA354_44.res, E.eval]
-    · intro r hr; simp at hr; cases r <;> simp_all [sta_44, blkA354_44.res, rv_simp] <;> rfl
-    · intro A _ _; simp [sta_44, blkA354_44.res, rv_simp]
+    · simp [pcEa_41, blkA354_41.res, E.eval]
+    · intro r hr; simp at hr; cases r <;> simp_all [sta_41, blkA354_41.res, rv_simp] <;> rfl
+    · intro A _ _; simp [sta_41, blkA354_41.res, rv_simp]
 theorem scan_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (capBase b + 7)) (lay : Nat)
-    (hl : lay < 4) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (v : Digest) (hv : v.toNat < 2 ^ 126) (c : Nat)
+    (hl : lay < 4) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (v : Digest) (c : Nat)
     (hc : c < 8) (h28 : s.getReg .x28 = BitVec.ofNat 64 c) (h6 : s.getReg .x6 = v.extractLsb' 0 64)
     (h7 : s.getReg .x7 = v.extractLsb' 64 64) :
     ∃ k n t, Steps image s k n t ∧ n ≤ 38 ∧
-      t.pc = (if scanFloor lay ≤ scanCredit v c then pcOf (b + 438) else pcOf (b + 468)) ∧
+      t.pc = (if scanFloor lay ≤ scanCredit v c then pcOf (b + 433) else pcOf (b + 468)) ∧
       RegsExcept s t [.x20, .x21, .x28, .x29, .x30] ∧ Frame s t (fun _ => False) := by
   obtain ⟨t0, s0, p0, x0, r0, f0⟩ := scanA7_spec hK s hpc lay hl h8 _ _ _ h28 h6 h7
-  have hpop := pop_scanX v hv c hc
+  have hpop := pop_scanX v c hc
   set X := scanX (BitVec.ofNat 64 c) (v.extractLsb' 0 64) (v.extractLsb' 64 64)
-  obtain ⟨t1, s1, p1, r1, f1⟩ := scanA38_spec hK t0 p0 _ x0
+  obtain ⟨t1, s1, p1, r1, f1⟩ := scanA35_spec hK t0 p0 _ x0
   have hz : clr (clr (clr X)) = 0#64 ↔ ¬ scanFloor lay ≤ scanCredit v c := by
     have := clr_iter_eq_zero_iff 3 X
     simp only [Function.iterate_succ, Function.comp_apply, Function.iterate_zero, id_eq] at this
     rw [this, hpop, scanFloor]; omega
   by_cases h0 : clr (clr (clr X)) = 0#64
   · rw [if_pos h0] at p1
-    obtain ⟨t2, s2, p2, r2, f2⟩ := scanJump_spec hK t1 (o := 44) (by omega) p1
+    obtain ⟨t2, s2, p2, r2, f2⟩ := scanJump_spec hK t1 (o := 41) (by omega) p1
     refine ⟨_, _, _, s0.trans (s1.trans s2), by omega, ?_, (r0.trans (r1.trans r2)).mono (by decide),
       (f0.trans (f1.trans f2)).mono (fun _ _ h => by simp at h)⟩
     rw [p2, if_pos rfl, if_neg (hz.mp h0)]
   · rw [if_neg h0] at p1
-    obtain ⟨t2, s2, p2, r2, f2⟩ := scanJump_spec hK t1 (o := 43) (by omega) p1
+    obtain ⟨t2, s2, p2, r2, f2⟩ := scanJump_spec hK t1 (o := 40) (by omega) p1
     refine ⟨_, _, _, s0.trans (s1.trans s2), by omega, ?_, (r0.trans (r1.trans r2)).mono (by decide),
       (f0.trans (f1.trans f2)).mono (fun _ _ h => by simp at h)⟩
     rw [p2, if_neg (by decide), if_pos (by by_contra hn; exact h0 (hz.mpr hn))]

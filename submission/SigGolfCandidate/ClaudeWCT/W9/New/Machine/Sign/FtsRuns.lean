@@ -52,14 +52,17 @@ def heapLeafE : E := .bin .sll (.bin .add (.reg .x18) (cE 128)) (cE 4)
 def sh5 : E := .bin .sll (.reg .x18) (cE 5)
 def sh4 : E := .bin .sll (.reg .x18) (cE 4)
 def pathE (l : Nat) : E := .bin .sll (.bin .xor (.bin .srl (.bin .add (.reg .x24) (cE 128)) (cE l)) (cE 1)) (cE 4)
+def fdw (c : Nat) : Nat := WCT9.childBase c / 64
+def fsh (c : Nat) : Nat := [0,0,21,36,0,21,36,0,21].getD c 0
+def fhas (c : Nat) : Bool := c % 3 != 1
 def fsrcE (c : Nat) : E :=
-  if WCT9.coordBase c % 64 = 0 then ldc (NBUF + 8 * (WCT9.coordBase c / 64))
-  else .bin .srl (ldc (NBUF + 8 * (WCT9.coordBase c / 64))) (cE (WCT9.coordBase c % 64))
+  if fhas c then .bin .srl (ldc (NBUF + 8 * fdw c)) (cE (fsh c)) else ldc (NBUF + 8 * fdw c)
+def fchildE (c : Nat) : E := if c = 3 ∨ c = 6 then .bin .srl (fsrcE c) (cE 21) else .bin .and (fsrcE c) (cE 127)
 def fieldE (c : Nat) : E := .bin .and (.bin .srl (fsrcE c) (cE 7)) (cE 16383)
 def expF (c : Nat) : PRes :=
-  pres [(.x6, .bin .sll (fieldE c) (cE 2)), (.x24, .bin .and (fsrcE c) (cE 127)), (.x25, fieldE c),
+  pres [(.x6, .bin .sll (fieldE c) (cE 2)), (.x24, fchildE c), (.x25, fieldE c),
     (.x28, .bin .add (.bin .sll (fieldE c) (cE 2)) (cE TBL))] [] [] (lwuI c) false
-    (if WCT9.coordBase c % 64 = 0 then 12 else 13) []
+    (if fhas c then 13 else 12) []
 def expZ (c : Nat) : PRes := pres [(.x18, cE 0)] [] [] (leafI c) false 1 []
 def expQ (c i : Nat) (b : Bool) : PRes :=
   pres [(.x6, q0E i), (.x7, qparE i)] [] [] (if b then sI c i else pI c i) false 5 [⟨.ne, qparE i, cE 0, b⟩]

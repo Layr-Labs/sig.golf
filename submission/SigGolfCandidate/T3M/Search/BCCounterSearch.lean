@@ -81,14 +81,14 @@ theorem length_filter_range (n : Nat) (p : Nat → Prop) [DecidablePred p] :
     rw [List.range_succ, List.filter_append, List.length_append, ih, Finset.sum_range_succ]
     by_cases h : p n <;> simp [h]
 theorem producerDecode_top (v : Digest) :
-    WCT9.producerDecode 0 v = if T3.topCredit v < 8 then none else T3.decode 0 v := by
+    WCT9.producerDecode 0 v = if T3.topCredit v < 7 then none else T3.decode 0 v := by
   unfold WCT9.producerDecode
   cases hd : T3.decode 0 v with
   | none => simp
   | some ds =>
     simp only
-    rw [WCT9.wordCredit_top hd, show WCT9.producerFloor 0 = 8 from rfl]
-    by_cases h : T3.topCredit v < 8
+    rw [WCT9.wordCredit_top hd, show WCT9.producerFloor 0 = 7 from rfl]
+    by_cases h : T3.topCredit v < 7
     · rw [if_neg (by omega), if_pos h]
     · rw [if_pos (by omega), if_neg h]
 theorem producerDecode_lower {lay : Layer} (hlz : lay ≠ 0) (v : Digest) (c : Nat) {ds : List Nat}
@@ -208,24 +208,27 @@ theorem target_lt (lay : Layer) : T3.target lay < 2 ^ 63 := by
 theorem getD_map_range {f : Nat → Nat} {n j : Nat} (hj : j < n) : ((List.range n).map f).getD j 0 = f j := by
   simp [List.getD_eq_getElem?_getD, hj]
 theorem cs_success {A : CsArgs} {s0 u : MachineState} {i : Nat} (hK : KernAt image b) (hpre : CsPre b A s0)
-    (hu : TrialSt b A s0 i u) (hpc : u.pc = pcOf (b + 438)) (hi : i < 2 ^ 22) (hlz : A.lay ≠ 0)
-    (v : Digest) (S : Nat) (ds : List Nat) (hdec : T3.decode A.lay v = some ds)
+    (hu : TrialSt b A s0 i u) (hpc : u.pc = pcOf (b + 433)) (hi : i < 2 ^ 22) (hlz : A.lay ≠ 0)
+    (v : Digest) (hv : T3.lowerSpare v) (S : Nat) (ds : List Nat) (hdec : T3.decode A.lay v = some ds)
     (hds : ds = lowDigits v ++ [T3.target A.lay - S]) (hS : S ≤ T3.target A.lay)
     (h6 : u.getReg .x6 = v.extractLsb' 0 64) (h7 : u.getReg .x7 = v.extractLsb' 64 64)
     (h25 : u.getReg .x25 = BitVec.ofNat 64 S) :
-    TBSim image sk u 810 (pure (some (BitVec.ofNat 32 i, ds))) (CsPost image b A s0) := by
+    TBSim image sk u 815 (pure (some (BitVec.ofNat 32 i, ds))) (CsPost image b A s0) := by
   have hl0 : A.lay.val ≠ 0 := fun h => hlz (Fin.ext h)
-  obtain ⟨k, t, st, kle, tpc, tdig, tchk, tr, tf⟩ := cs_tail hK u hpc v A.lay.val
+  obtain ⟨u1, su1, pu1, a6, a7, ru1, fu1⟩ := Credit.align_spec hK u hpc v hv h6 h7
+  have hu1 := hu.step ru1 (by decide) fu1
+  obtain ⟨k, t, st, kle, tpc, tdig, tchk, tr, tf⟩ := cs_tail hK u1 pu1 (BitVec.ofNat 128 (T3.lowerWord v)) A.lay.val
     (T3.target A.lay) S A.ret A.lay.isLt (target_lt _) (fun _ => hS)
-    (by rw [hu.reg (by decide), hpre.x1]) (by rw [hu.reg (by decide), hpre.x8])
-    (by rw [hu.reg (by decide), hpre.x17]) h25
-    (by rw [hu.reg (by decide), hpre.x26, chainCount_eq]; simp [hlz, hl0])
-    (by rw [hu.reg (by decide), hpre.x27, csN4]; simp [hlz, hl0]) h6 h7
+    (by rw [hu1.reg (by decide), hpre.x1]) (by rw [hu1.reg (by decide), hpre.x8])
+    (by rw [hu1.reg (by decide), hpre.x17]) (by rw [ru1.get (by decide), h25])
+    (by rw [hu1.reg (by decide), hpre.x26, chainCount_eq]; simp [hlz, hl0])
+    (by rw [hu1.reg (by decide), hpre.x27, csN4]; simp [hlz, hl0]) a6 a7
   rw [if_neg hl0] at kle tdig
   have hc : (BitVec.ofNat 32 i).toNat = i := by rw [BitVec.toNat_ofNat]; omega
-  refine (TBSim.steps st (TBSim.pure ?_)).mono kle (fun _ _ h => h)
-  refine ⟨tpc, by rw [hc]; exact hi, by rw [hc, tr.get (by decide), hu.x19], ?_, ⟨v, hdec⟩, ?_, ?_, ?_, ?_, ?_⟩
-  · rw [hc, tf.get (by simp only [ENC]; omega) (by simp only [DigW, DIGITS, ENC]; omega), hu.c32]
+  refine (TBSim.steps (su1.trans st) (TBSim.pure ?_)).mono (by omega) (fun _ _ h => h)
+  refine ⟨tpc, by rw [hc]; exact hi, by rw [hc, tr.get (by decide), hu1.x19], ?_, ⟨v, hdec⟩,
+    ?_, ?_, ?_, ?_, ?_⟩
+  · rw [hc, tf.get (by simp only [ENC]; omega) (by simp only [DigW, DIGITS, ENC]; omega), hu1.c32]
   · rw [hds, chainCount_eq, if_neg hlz]
     simp [lowDigits_length]
   · intro j hj
@@ -236,12 +239,12 @@ theorem cs_success {A : CsArgs} {s0 u : MachineState} {i : Nat} (hK : KernAt ima
       simpa only [if_neg hl0] using tdig j hj
     · rw [List.getD_append_right _ _ _ _ (by rw [lowDigits_length]), lowDigits_length]
       simpa using tchk hl0
-  · exact (hu.regs.trans tr).mono (by decide)
-  · exact (hu.frame.trans tf).mono (fun A _ h => by
+  · exact (hu1.regs.trans tr).mono (by decide)
+  · exact (hu1.frame.trans tf).mono (fun A _ h => by
       rcases h with h | h
       · exact h
       · exact Or.inr (Or.inr (Or.inr (Or.inr h))))
-  · rw [tr.get (by decide), h25, BitVec.toNat_ofNat]
+  · rw [tr.get (by decide), ru1.get (by decide), h25, BitVec.toNat_ofNat]
     have := target_lt A.lay
     omega
 theorem TrialSt.table {A : CsArgs} {s0 u : MachineState} {i : Nat}
@@ -435,7 +438,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
     · rw [if_pos (hl0.2 hlz)] at p4
       have hdec := decode_top_lookup v
       rw [← hlz] at hdec
-      have hsd : WCT9.producerDecode A.lay v = if T3.topCredit v < 8 then none else T3.decode A.lay v := by
+      have hsd : WCT9.producerDecode A.lay v = if T3.topCredit v < 7 then none else T3.decode A.lay v := by
         rw [hlz]; exact producerDecode_top v
       rw [hsd]
       obtain ⟨t5, s5, p5, r5, f5⟩ := cs263_spec hK t4 p4 v h7
@@ -457,7 +460,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
             (by rw [r7.get (by decide), r6.get (by decide), r5.get (by decide), h7])
             (by rw [r7.get (by decide), h30'])
           have hT8 := hT7.step r8 (by decide) f8
-          by_cases hc : T3.topCredit v < 8
+          by_cases hc : T3.topCredit v < 7
           · rw [if_pos hc] at p8 s8
             rw [if_pos hc]
             refine (TBSim.steps ((((s4.trans s5).trans s6).trans s7).trans s8) (cs_next hK hT8 p8 hi ih')).mono ?_
@@ -485,9 +488,9 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
         simp only [csT, csOk, if_pos hlz]; omega
     · rw [if_neg (fun h => hlz (hl0.1 h))] at p4
       have hdec := decode_low A.lay hlz v
-      obtain ⟨t5, s5, p5, r5, f5⟩ := cs130_spec hK t4 p4 v h7
+      obtain ⟨t5, s5, p5, r5, f5⟩ := cs130_spec hK t4 p4 v h6 h7
       have hT5 := hT4.step r5 (by decide) f5
-      by_cases hr : v.toNat < 2 ^ 126
+      by_cases hr : T3.lowerSpare v
       · rw [if_pos hr] at p5
         obtain ⟨t6, s6, p6, h25', h28', r6, f6⟩ := cs132_spec hK t5 p5 v (T3.target A.lay) (target_lt _)
           (by rw [r5.get (by decide), h6]) (by rw [r5.get (by decide), h7]) (by rw [r5.get (by decide), h25])
@@ -495,7 +498,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
         have hT6 := hT5.step r6 (by decide) f6
         by_cases hs : (lowDigits v).sum ≤ T3.target A.lay ∧ T3.target A.lay - (lowDigits v).sum < 8
         · rw [if_pos hs] at p6
-          obtain ⟨t7, s7, p7, r7, f7⟩ := cs262_spec hK t6 p6
+          obtain ⟨t7, s7, p7, r7, f7⟩ := cs259_spec hK t6 p6
           have hT7 := hT6.step r7 (by decide) f7
           have hd' : T3.decode A.lay v = some (lowDigits v ++ [T3.target A.lay - (lowDigits v).sum]) := by
             rw [hdec, if_pos ⟨hr, hs⟩]
@@ -512,13 +515,13 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
               show 2 ^ 64 - (lowDigits v).sum + T3.target A.lay = 2 ^ 64 + (T3.target A.lay - (lowDigits v).sum)
                 by omega, Nat.add_mod_left]
           obtain ⟨k8, n8, t8, s8, n8le, p8, r8, f8⟩ := scan_spec hK t7 p7 A.lay.val A.lay.isLt
-            (by rw [hT7.reg (by decide), hpre.x8]) v hr _ hcs hx28
+            (by rw [hT7.reg (by decide), hpre.x8]) v _ hcs hx28
             (by rw [r7.get (by decide), r6.get (by decide), r5.get (by decide), h6])
             (by rw [r7.get (by decide), r6.get (by decide), r5.get (by decide), h7])
           have hT8 := hT7.step r8 (by decide) f8
           by_cases hok : scanFloor A.lay.val ≤ scanCredit v (T3.target A.lay - (lowDigits v).sum)
           · rw [if_pos hok] at p8 ⊢
-            refine (TBSim.steps ((((s4.trans s5).trans s6).trans s7).trans s8) (cs_success hK hpre hT8 p8 hi22 hlz v _ _
+            refine (TBSim.steps ((((s4.trans s5).trans s6).trans s7).trans s8) (cs_success hK hpre hT8 p8 hi22 hlz v hr _ _
               hd' rfl hs.1
               (by rw [r8.get (by decide), r7.get (by decide), r6.get (by decide), r5.get (by decide), h6])
               (by rw [r8.get (by decide), r7.get (by decide), r6.get (by decide), r5.get (by decide), h7])

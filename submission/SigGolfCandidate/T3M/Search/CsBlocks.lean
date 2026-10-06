@@ -146,18 +146,22 @@ theorem ext64_shr_eq_zero (v : BitVec 128) (k : Nat) (hk : k < 64) :
   simp only [Nat.mod_eq_of_lt h1, Nat.zero_mod]
   rw [Nat.mod_eq_of_lt (show v.toNat / 2 ^ (64 + k) < 18446744073709551616 from h2),
     Nat.div_eq_zero_iff_lt (by positivity)]
+theorem spare_msb (v : BitVec 128) :
+    (v.extractLsb' 0 64 &&& v.extractLsb' 64 64).msb = decide (T3.lowerSpare v) := by
+  rw [BitVec.msb_and, BitVec.msb_eq_getLsbD_last, BitVec.msb_eq_getLsbD_last]
+  simp only [BitVec.getLsbD_extractLsb', show 64 - 1 < 64 from by decide, decide_true, Bool.true_and]
+  unfold T3.lowerSpare
+  simp only [BitVec.getLsbD, Nat.testBit, Nat.shiftRight_eq_div_pow, Nat.one_and_eq_mod_two]
+  by_cases h1 : v.toNat / 2 ^ 63 % 2 = 1 <;> by_cases h2 : v.toNat / 2 ^ 127 % 2 = 1 <;> simp_all
 theorem cs130_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 130)) (v : BitVec 128)
-    (h7 : s.getReg .x7 = v.extractLsb' 64 64) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = (if v.toNat < 2 ^ 126 then pcOf (b + 132) else pcOf (b + 468)) ∧
+    (h6 : s.getReg .x6 = v.extractLsb' 0 64) (h7 : s.getReg .x7 = v.extractLsb' 64 64) :
+    ∃ t, Steps image s 2 2 t ∧ t.pc = (if T3.lowerSpare v then pcOf (b + 132) else pcOf (b + 468)) ∧
       RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_130 hK.2) (codeAt_k_130 hK) s hpc (by simp [st_130, blk354_130.res, rv_simp]),
     ?_, ?_, ?_⟩
-  · simp only [Result.toState_pc, pcE_130, rebase, blk354_130.res, E.eval, CmpOp.eval, BinOp.eval, h7,
-      BitVec.toNat_ofNat, Nat.reduceMod]
-    have := ext64_shr_eq_zero v 62 (by decide)
-    rw [show (64 + 62 : Nat) = 126 from rfl] at this
-    simp only [Nat.reducePow, Nat.reduceMod, bne_iff_ne, ne_eq, this]
-    split_ifs <;> first | rfl | omega
+  · simp only [Result.toState_pc, pcE_130, rebase, blk354_130.res, E.eval, CmpOp.eval, BinOp.eval, h6, h7]
+    rw [BitVec.slt_zero_eq_msb, spare_msb]
+    by_cases h : T3.lowerSpare v <;> simp [h]
   · intro r hr; simp at hr; cases r <;> simp_all [st_130, blk354_130.res, rv_simp] <;> rfl
   · intro A _ _; simp [st_130, blk354_130.res, rv_simp]
 theorem cs263_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 263)) (v : BitVec 128)
@@ -177,8 +181,8 @@ theorem cs263_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (
 theorem cs132_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 132)) (v : BitVec 128)
     (T : Nat) (hT : T < 2 ^ 63) (h6 : s.getReg .x6 = v.extractLsb' 0 64) (h7 : s.getReg .x7 = v.extractLsb' 64 64)
     (h25 : s.getReg .x25 = BitVec.ofNat 64 0) (h17 : s.getReg .x17 = BitVec.ofNat 64 T) :
-    ∃ t, Steps image s 130 130 t ∧
-      t.pc = (if (lowDigits v).sum ≤ T ∧ T - (lowDigits v).sum < 8 then pcOf (b + 262) else pcOf (b + 468)) ∧
+    ∃ t, Steps image s 127 127 t ∧
+      t.pc = (if (lowDigits v).sum ≤ T ∧ T - (lowDigits v).sum < 8 then pcOf (b + 259) else pcOf (b + 468)) ∧
       t.getReg .x25 = BitVec.ofNat 64 (lowDigits v).sum ∧
       t.getReg .x28 = BitVec.ofNat 64 T - BitVec.ofNat 64 (lowDigits v).sum ∧
       RegsExcept s t [.x25, .x28, .x29] ∧ Frame s t (fun _ => False) := by
@@ -192,7 +196,7 @@ theorem cs132_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (
     ?_, ?_, ?_, ?_, ?_⟩
   · simp only [Result.toState_pc, pcE_132, rebase, blk354_132.res, E.eval, CmpOp.eval, BinOp.eval, h6, h7, h25,
       h17]
-    simp only [BitVec.toNat_ofNat, Nat.reduceMod, Nat.reducePow, ext_and7, ext_shr_and7, cross_low,
+    simp only [BitVec.toNat_ofNat, Nat.reduceMod, Nat.reducePow, ext_and7, ext_shr_and7,
       ofNat_add_ofNat, Nat.add_zero, Nat.zero_add, Nat.reduceAdd, Nat.reduceLeDiff, ← lowDigits_sum]
     rw [ofNat_sub_ult8 _ _ hT hS]
     by_cases h : (lowDigits v).sum ≤ T ∧ T - (lowDigits v).sum < 8
@@ -200,21 +204,21 @@ theorem cs132_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (
     · simp [h]
   · simp only [Result.toState_getReg, st_132, blk354_132.res]
     simp only [rv_simp, h6, h7, h25]
-    simp only [BitVec.toNat_ofNat, Nat.reduceMod, Nat.reducePow, ext_and7, ext_shr_and7, cross_low,
+    simp only [BitVec.toNat_ofNat, Nat.reduceMod, Nat.reducePow, ext_and7, ext_shr_and7,
       ofNat_add_ofNat, Nat.add_zero, Nat.zero_add, Nat.reduceAdd, Nat.reduceLeDiff, ← lowDigits_sum]
   · simp only [Result.toState_getReg, st_132, blk354_132.res]
     simp only [rv_simp, h6, h7, h25, h17]
-    simp only [BitVec.toNat_ofNat, Nat.reduceMod, Nat.reducePow, ext_and7, ext_shr_and7, cross_low,
+    simp only [BitVec.toNat_ofNat, Nat.reduceMod, Nat.reducePow, ext_and7, ext_shr_and7,
       ofNat_add_ofNat, Nat.add_zero, Nat.zero_add, Nat.reduceAdd, Nat.reduceLeDiff, ← lowDigits_sum]
   · intro r hr; simp at hr; cases r <;> simp_all [st_132, blk354_132.res, rv_simp] <;> rfl
   · intro A _ _; simp [st_132, blk354_132.res, rv_simp]
-theorem cs262_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 262)) :
+theorem cs259_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 259)) :
     ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf (capBase b + 7) ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound (run_262 hK.2) (codeAt_k_262 hK) s hpc (by simp [st_262, blk354_262.res, rv_simp]),
+  refine ⟨_, symRun_sound (run_259 hK.2) (codeAt_k_259 hK) s hpc (by simp [st_259, blk354_259.res, rv_simp]),
     ?_, ?_, ?_⟩
-  · simp [pcE_262, blk354_262.res, E.eval]
-  · intro r hr; simp at hr; cases r <;> simp_all [st_262, blk354_262.res, rv_simp] <;> rfl
-  · intro A _ _; simp [st_262, blk354_262.res, rv_simp]
+  · simp [pcE_259, blk354_259.res, E.eval]
+  · intro r hr; simp at hr; cases r <;> simp_all [st_259, blk354_259.res, rv_simp] <;> rfl
+  · intro A _ _; simp [st_259, blk354_259.res, rv_simp]
 theorem cs468_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 468)) (i : Nat)
     (h19 : s.getReg .x19 = BitVec.ofNat 64 i) :
     ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf (capBase b) ∧ t.getReg .x19 = BitVec.ofNat 64 (i + 1) ∧

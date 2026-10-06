@@ -82,23 +82,18 @@ theorem step_SK (hcode : NewCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 111
   · refine frame_of_memEval hm _ (fun p hp => ?_)
     simp only [expSK, pres, List.mem_cons, List.not_mem_nil, or_false] at hp
     rcases hp with rfl | rfl | rfl | rfl <;> simp only [mwc, PRIVW, BitVec.toNat_ofNat] <;> decide
-def fk (c : Nat) : Nat := if WCT9.coordBase c % 64 = 0 then 12 else 13
+def fk (c : Nat) : Nat := if fhas c then 13 else 12
 theorem fsrcE_eq (c : Nat) : fsrcE c = SearchM.grpE c := rfl
 theorem fieldE_eq (c : Nat) : fieldE c = SearchM.fieldE c := rfl
+theorem fchildE_eq (c : Nat) : fchildE c = SearchM.childE c := rfl
 theorem childE_eval (s : MachineState) (N : BitVec 256) (hN : OutAt s NBUF N) (c : Nat) (hc : c < 9) :
-    (E.bin .and (fsrcE c) (cE 127)).eval s = BitVec.ofNat 64 (N.toNat / 2 ^ WCT9.coordBase c % 128) := by
-  obtain ⟨h21, hcb, -⟩ := SearchM.sh_bound c hc
-  have hg := SearchM.grpE_toNat s N hN c hc
-  show BinOp.eval .and ((fsrcE c).eval s) (BitVec.ofNat 64 127) = _
-  rw [fsrcE_eq, SearchM.and_eval, show (127 : Nat) = 2 ^ 7 - 1 from rfl, SearchM.ofNat_and_mask _ 7 (by decide)]
-  congr 1
-  rw [hg, SearchM.mod64_div_mod _ (SearchM.sh c) 7 (by omega), Nat.div_div_eq_div_mul, ← Nat.pow_add, hcb]
-  rfl
+    (fchildE c).eval s = BitVec.ofNat 64 (N.toNat / 2 ^ WCT9.childBase c % 128) := by
+  rw [fchildE_eq]; exact SearchM.childE_eval s N hN c hc
 theorem step_F (hcode : NewCodeAt im) {c : Nat} (hc : c < 9) (s : MachineState) (hpc : s.pc = pcOf (cbase c))
     {N : BitVec 256} (hN : OutAt s NBUF N) :
     ∃ t, Steps im s (fk c) (fk c) t ∧ t.pc = pcOf (lwuI c) ∧
-      t.getReg .x24 = BitVec.ofNat 64 (N.toNat / 2 ^ WCT9.coordBase c % 128) ∧
-      t.getReg .x28 = BitVec.ofNat 64 (TBL + 4 * (N.toNat / 2 ^ (WCT9.coordBase c + 7) % 2 ^ 14)) ∧
+      t.getReg .x24 = BitVec.ofNat 64 (N.toNat / 2 ^ WCT9.childBase c % 128) ∧
+      t.getReg .x28 = BitVec.ofNat 64 (TBL + 4 * (N.toNat / 2 ^ WCT9.fieldBase c % 2 ^ 14)) ∧
       RegsExcept s t [.x6, .x24, .x25, .x28] ∧ Frame s t (fun _ => False) := by
   obtain ⟨hst, -⟩ := run_pres (coordLook_ok hcode hc) (runF_eq hc) s hpc (no_obl s) (no_br s)
   refine ⟨_, hst, rfl, ?_, ?_, pres_regsExcept _ _ _ _ _ _ _ s, fun A _ _ => rfl⟩

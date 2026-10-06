@@ -519,7 +519,7 @@ theorem passive_free_earlier {B t' t : Nat} (z : List Nat) (h : t' < t) (h7 : t 
 theorem leafHdr_free {B t : Nat} (o : Nat) (ho : o < 16) :
     B + slotC t + o ≠ B + 896 ∧ B + slotC t + o ≠ B + 904 := by
   unfold slotC; split <;> omega
-theorem expLook_lt {m : Nat} {w : BitVec 32} (h : expLook m = some w) : 1024 ≤ m ∧ m < 161 * 256 := by
+theorem expLook_lt {m : Nat} {w : BitVec 32} (h : expLook m = some w) : 1024 ≤ m ∧ m < 165 * 256 := by
   unfold expLook at h
   split at h
   · rename_i hm
@@ -529,7 +529,7 @@ theorem expLook_lt {m : Nat} {w : BitVec 32} (h : expLook m = some w) : 1024 ≤
     simp at h
   · cases h
 theorem window_bound {n : Nat} {ws : List (BitVec 32)} (h : windowOK n ws = true) (hne : ws ≠ []) :
-    n + ws.length ≤ 161 * 256 := by
+    n + ws.length ≤ 165 * 256 := by
   unfold windowOK at h
   have hl : 0 < ws.length := List.length_pos_of_ne_nil hne
   have := List.all_eq_true.mp h (ws.length - 1) (List.mem_range.mpr (by omega))

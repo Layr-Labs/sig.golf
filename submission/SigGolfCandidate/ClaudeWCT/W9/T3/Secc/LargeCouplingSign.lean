@@ -308,7 +308,7 @@ open OracleComp OracleSpec ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers treeValue builtTree leafValue honestPieces)
-open SigGolfCandidate.T3.Security.LargeResidual (listBlock slotValue digestIndex routeAddr filterMap_map_getD)
+open SigGolfCandidate.T3.Security.LargeResidual (listBlock slotValue routeAddr filterMap_map_getD)
 open ClaudeWCT.W9.T3.Security.CanonGraph
 open ClaudeWCT.W9.T3.Security.CanonEncoding
 set_option maxHeartbeats 1000000
@@ -571,7 +571,7 @@ theorem signPayload_disclosed {T : Answers} {labels : Labels} (h : Agrees T labe
       match signDigest T m with
       | none => none
       | some (_, N) =>
-          if RouteOk T (N.toNat % 2 ^ 31) then
+          if RouteOk T (WCT9.digestIndex N) then
             some (assembleSig (evalWithAnswerFn T (privateNonce m)) N (honestValue T) (Wots.referenceDigits T))
           else none := by
   rw [show signPayload cache m = WCT9.Rev3.signPayload cache m from rfl, WCT9.Rev3.signPayload_eq]
@@ -585,10 +585,10 @@ theorem signPayload_disclosed {T : Answers} {labels : Labels} (h : Agrees T labe
       simp only [evalWithAnswerFn_bind]
       rw [WCT9.eval_signForest]
       simp only
-      rw [signLayers_eq T cache hcache _ (Nat.mod_lt _ (by positivity)) 4 le_rfl _ (fun k hk => by
+      rw [signLayers_eq T cache hcache _ (WCT9.digestIndex_lt _) 4 le_rfl _ (fun k hk => by
         obtain rfl : k = 3 := by omega
         exact (honestMsg_top T _).symm)]
-      by_cases hok : RouteOk T (N.toNat % 2 ^ 31)
+      by_cases hok : RouteOk T (WCT9.digestIndex N)
       · rw [if_pos ((routeOk_iff T _).mpr hok), if_pos hok]
         simp only [evalWithAnswerFn_pure]
         unfold WCT9.assembledSignature assembleSig
@@ -596,13 +596,13 @@ theorem signPayload_disclosed {T : Answers} {labels : Labels} (h : Agrees T labe
         congr 2
         · funext k
           rw [List.getD_eq_getElem _ _ (by simp only [List.length_ofFn]; exact k.isLt), List.getElem_ofFn]
-          exact expectedOpening_eq h ⟨N.toNat % 2 ^ 31, Nat.mod_lt _ (by positivity)⟩ N k
+          exact expectedOpening_eq h ⟨WCT9.digestIndex N, WCT9.digestIndex_lt _⟩ N k
         · funext lay
           congr 1
           rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range (by have := lay.isLt; omega),
             Option.map_some, Option.getD_some,
             show (Fin.ofNat 4 lay.val : Layer) = lay from Fin.ext (by simp)]
-          exact honestPieces_eq h ⟨N.toNat % 2 ^ 31, Nat.mod_lt _ (by positivity)⟩ lay
+          exact honestPieces_eq h ⟨WCT9.digestIndex N, WCT9.digestIndex_lt _⟩ lay
       · rw [if_neg (fun h' => hok ((routeOk_iff T _).mp h')), if_neg hok]
         rfl
 theorem authenticatedSign_disclosed {T : Answers} {labels : Labels} (h : Agrees T labels)
@@ -614,7 +614,7 @@ theorem authenticatedSign_disclosed {T : Answers} {labels : Labels} (h : Agrees 
         match signDigest T request.message with
         | none => none
         | some (_, N) =>
-            if RouteOk T (N.toNat % 2 ^ 31) then
+            if RouteOk T (WCT9.digestIndex N) then
               some (assembleSig (evalWithAnswerFn T (privateNonce request.message)) N (honestValue T)
                 (Wots.referenceDigits T))
             else none

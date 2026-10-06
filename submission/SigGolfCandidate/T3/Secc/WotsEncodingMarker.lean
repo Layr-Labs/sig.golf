@@ -90,7 +90,7 @@ theorem rejAnswers_card (lay : Layer) :
   omega
 theorem rejAnswers_card_ge (lay : Layer) : 53 * 2 ^ 256 ≤ 57 * (rejAnswers lay).card := by
   have h := rejAnswers_card lay
-  have ha : EncodingCounting.acceptedCount lay ≤ 217433284086354415880083123326127992 := by
+  have ha : EncodingCounting.acceptedCount lay ≤ 217432284086354415880083123326127992 := by
     fin_cases lay <;> simp [EncodingCounting.acceptedCount]
   have e1 : (2 : Nat) ^ 128 = 340282366920938463463374607431768211456 := by norm_num
   have e2 : (2 : Nat) ^ 256 =
@@ -121,7 +121,7 @@ theorem probEvent_cell_rej_le (lay : Layer) (p : HashOutput → Prop) :
   · simp
 theorem rejAnswers_card_ge_tight (lay : Layer) : 1000 * 2 ^ 256 ≤ 1001 * (rejAnswers lay).card := by
   have h := rejAnswers_card lay
-  have ha : EncodingCounting.acceptedCount lay ≤ 217433284086354415880083123326127992 := by
+  have ha : EncodingCounting.acceptedCount lay ≤ 217432284086354415880083123326127992 := by
     fin_cases lay <;> simp [EncodingCounting.acceptedCount]
   have e1 : (2 : Nat) ^ 128 = 340282366920938463463374607431768211456 := by norm_num
   have e2 : (2 : Nat) ^ 256 =
