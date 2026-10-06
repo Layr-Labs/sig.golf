@@ -758,7 +758,7 @@ theorem certOut_le_psi (q : Nat) (r : Option (Option (Bool × RouterState)) × L
   · exact zero_le
 theorem bank_cert_le (hUpub : SeccLaw.publicUniverse ⊆ U) (initLaw : PMF AuxData) (adversary : AdversaryP) (q : Nat) :
     Pr[CertOut | lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial] ≤
-      (q : ENNReal) * (14774 / 100000000) / 2 ^ 128 +
+      (q : ENNReal) * (14710 / 100000000) / 2 ^ 128 +
         (∑' r, Pr[= r | lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial] *
           (r.2.counters.mass : ENNReal)) / 2 ^ 128 := by
   set L := lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial with hL
@@ -810,7 +810,7 @@ theorem bank_cert_le (hUpub : SeccLaw.publicUniverse ⊆ U) (initLaw : PMF AuxDa
       all_goals first
         | norm_num
         | exact ENNReal.div_le_div_right (by norm_num) _
-        | exact_mod_cast (by norm_num : (11324 : Nat) ≤ 14774)
+        | exact_mod_cast (by norm_num : (11324 : Nat) ≤ 14710)
 end Bank
 theorem large_cert_bound (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) : LargeCertBound adversary q hq := by
   unfold LargeCertBound
@@ -820,7 +820,7 @@ theorem large_cert_bound (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
       LargeResidual.initial] * (r.2.counters.mass : ENNReal)) = routerMass adversary q := rfl
   rw [hrm, SeccClosing.excessRate_def]
   calc
-    _ = routerMass adversary q / 2 ^ 128 + (q : ENNReal) * (14774 / 100000000) / 2 ^ 128 := add_comm _ _
+    _ = routerMass adversary q / 2 ^ 128 + (q : ENNReal) * (14710 / 100000000) / 2 ^ 128 := add_comm _ _
     _ ≤ _ := by
       simp only [add_assoc]
       exact add_le_add le_rfl le_self_add
@@ -1048,7 +1048,7 @@ theorem certOut_le_psi (q : Nat) (r : Option (Option (Bool × RouterState)) × L
   · exact zero_le
 theorem bank_cert_le (hUpub : SeccLaw.publicUniverse ⊆ U) (initLaw : PMF AuxData) (adversary : AdversaryP) (q : Nat) :
     Pr[CertOut | lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial] ≤
-      (q : ENNReal) * (14774 / 100000000) / 2 ^ 128 +
+      (q : ENNReal) * (14710 / 100000000) / 2 ^ 128 +
         (∑' r, Pr[= r | lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial] *
           (r.2.counters.mass : ENNReal)) / 2 ^ 128 := by
   set L := lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial with hL
@@ -1117,8 +1117,8 @@ theorem large_cert_bound (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
       LargeResidual.initial] * (r.2.counters.mass : ENNReal)) = routerMass adversary q := rfl
   rw [hrm, SeccClosing.excessRate_def]
   calc
-    _ = routerMass adversary q / 2 ^ 128 + (q : ENNReal) * (14774 / 100000000) / 2 ^ 128 + largeReserveAbsolute := by
-      rw [add_comm ((q : ENNReal) * (14774 / 100000000) / 2 ^ 128)]
+    _ = routerMass adversary q / 2 ^ 128 + (q : ENNReal) * (14710 / 100000000) / 2 ^ 128 + largeReserveAbsolute := by
+      rw [add_comm ((q : ENNReal) * (14710 / 100000000) / 2 ^ 128)]
     _ ≤ _ := add_le_add (le_add_right (le_add_right le_rfl)) le_rfl
 theorem large_route (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
     Pr[QueryRecorded.CleanWin q | PaddedGame.tracedExperiment adversary q hq] ≤ largeBound q :=

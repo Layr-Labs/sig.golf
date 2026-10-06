@@ -5,10 +5,10 @@ open SigGolfCandidate.T3.BaseAudit (zU)
 set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
 def J : ℕ := 9776740226758159252015394
-def p0 : ℚ := 1042 * 27 ^ 9 * J / 2 ^ 147
-def b0 : ℚ := 1012294076775 / 1000000000000
+def p0 : ℚ := 1040 * 27 ^ 9 * J / 2 ^ 147
+def b0 : ℚ := 1012318010458 / 1000000000000
 theorem step_0 : zU * ((1 - p0) * b0 + p0) ≤ b0 := by norm_num [zU, p0, b0, J]
-theorem probability_floor : 1 / 2297 ≤ p0 ∧ p0 ≤ 1 / 2296 := by norm_num [p0, J]
+theorem probability_floor : 1 / 2301 ≤ p0 ∧ p0 ≤ 1 / 2300 := by norm_num [p0, J]
 theorem p0_ge_5026 : 1 / 5026 ≤ p0 := by norm_num [p0, J]
 theorem p0_nonneg : 0 ≤ p0 := by norm_num [p0, J]
 theorem p0_le_one : p0 ≤ 1 := by norm_num [p0, J]
@@ -59,13 +59,13 @@ theorem rpow_two_ge_cubic (y : ℝ) (hy : 0 ≤ y) :
   linarith
 theorem signing_envelope_le :
     (2 : ℝ) ^ ((117468 : ℝ) / 131072) * ((b0 : ℝ) * (b1 : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤
-      19999 / 10000 := by
+      199995 / 100000 := by
   have hsplit : (2 : ℝ) ^ ((117468 : ℝ) / 131072) = 2 / (2 : ℝ) ^ ((13604 : ℝ) / 131072) := by
     rw [_root_.eq_div_iff (by positivity), ← Real.rpow_add (by norm_num)]
     norm_num
   have hlo := rpow_two_ge_cubic (13604 / 131072) (by norm_num)
   have hn : 2 * ((b0 : ℝ) * (b1 : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤
-      19999 / 10000 * (1 + 0.6931471803 * (13604 / 131072) + (0.6931471803 * (13604 / 131072)) ^ 2 / 2 +
+      199995 / 100000 * (1 + 0.6931471803 * (13604 / 131072) + (0.6931471803 * (13604 / 131072)) ^ 2 / 2 +
         (0.6931471803 * (13604 / 131072)) ^ 3 / 6) := by
     norm_num [b0, b1, b2, b3, b4]
   rw [hsplit, div_mul_eq_mul_div, div_le_iff₀ (by positivity)]

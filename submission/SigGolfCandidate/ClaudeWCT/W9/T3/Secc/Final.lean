@@ -473,8 +473,8 @@ theorem prefixCoeff_le (q : Nat) (hs : q ≤ SeccClosing.budgetSplit) : prefixCo
   rw [div_eq_mul_inv _ (1 - x), div_eq_mul_inv _ ((1 - x) ^ 2), div_eq_mul_inv _ (1 - x), ENNReal.inv_pow]
   generalize (1 - x)⁻¹ = u at hu ⊢
   calc ((3 / 2 : ENNReal) + 4 * x + 2 * x ^ 2) * u + 4 * x * u ^ 2 + 2 * 57 * x * u
-      ≤ ((3 / 2 : ENNReal) + 4 * (5/32768:ENNReal) + 2 * ((5/32768:ENNReal))^2) * (32768/32763) +
-          4 * (5/32768:ENNReal) * (32768/32763)^2 + 2 * 57 * (5/32768:ENNReal) * (32768/32763) := by
+      ≤ ((3 / 2 : ENNReal) + 4 * (5 / 32768 : ENNReal) + 2 * ((5 / 32768 : ENNReal))^2) * (32768/32763) +
+          4 * (5 / 32768 : ENNReal) * (32768/32763)^2 + 2 * 57 * (5 / 32768 : ENNReal) * (32768/32763) := by
         gcongr
     _ ≤ 1875 / 1000 := by
         apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
@@ -488,7 +488,7 @@ theorem encodingCoeff_le (q : Nat) (hs : q ≤ SeccClosing.budgetSplit) : encodi
   generalize (q : ENNReal) / 2 ^ 128 = x at hx hu ⊢
   rw [div_eq_mul_inv _ (1 - x)]
   generalize (1 - x)⁻¹ = u at hu ⊢
-  calc (1 : ENNReal) + 2 * 2865 * x * u ≤ 1 + 2 * 2865 * (5/32768:ENNReal) * (32768/32763) := by gcongr
+  calc (1 : ENNReal) + 2 * 2865 * x * u ≤ 1 + 2 * 2865 * (5 / 32768 : ENNReal) * (32768/32763) := by gcongr
     _ ≤ 1875 / 1000 := by
         apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
         simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_div,
@@ -512,8 +512,8 @@ theorem excess_le (q : Nat) :
   unfold signRatio
   push_cast
   simp only [div_eq_mul_inv]
-  calc (201 : ENNReal) * q * (14774 * 100000000⁻¹) * (2 ^ 128)⁻¹
-      = (201 * (14774 * 100000000⁻¹)) * (q * (2 ^ 128)⁻¹) := by ring
+  calc (201 : ENNReal) * q * (14710 * 100000000⁻¹) * (2 ^ 128)⁻¹
+      = (201 * (14710 * 100000000⁻¹)) * (q * (2 ^ 128)⁻¹) := by ring
     _ ≤ (3 * 100⁻¹) * (q * (2 ^ 128)⁻¹) := by
         gcongr ?_ * _
         apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp

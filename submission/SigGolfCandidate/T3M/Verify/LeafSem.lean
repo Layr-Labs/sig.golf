@@ -13,7 +13,7 @@ def keepLfAll (lay : Nat) : List Reg :=
   if lay = 0 then [.x1, .x2, .x7, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23,
     .x6, .x25, .x26, .x28, .x29, .x31, .x30]
   else [.x1, .x2, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23,
-    .x6, .x25, .x26, .x29, .x31, .x30] ++ (if lay = 1 then [] else [.x28])
+    .x6, .x26, .x29, .x31, .x30] ++ (if lay = 1 then [] else [.x25, .x28])
 def tailRejBr (d : Bool) : Br := ⟨.ne, .reg .x24, kw 0, d⟩
 def lfDirsT : List Dir := [.br false, .jmp]
 def specLfT : Spec := { specLf 0 with steps := 13, brs := [tailRejBr false], cycles := 13 }
