@@ -331,18 +331,22 @@ theorem admissible_iff' (output : HashOutput) :
       output.toNat / 2 ^ 235 < gateLimit ∧ ∀ coord : Coord, field output coord < fieldLimit := by
   rw [admissible_iff, gate_value]; rfl
 theorem jointCost_eq_sum (output : HashOutput) :
-    jointCost output = ∑ coord : Coord, routineCost (rank output coord) := by
+    jointCost output = ∑ coord : Coord, (routineCost (rank output coord) + childExtra (child output coord)) := by
   unfold jointCost
   rw [← List.sum_ofFn]
   congr 1
-theorem jointCost_bounds (output : HashOutput) : 594 ≤ jointCost output ∧ jointCost output ≤ 720 := by
+theorem childExtra_le (c : Child) : childExtra c ≤ 2 := by
+  unfold childExtra maxChildSave; omega
+theorem jointCost_bounds (output : HashOutput) : 594 ≤ jointCost output ∧ jointCost output ≤ 738 := by
   rw [jointCost_eq_sum]
   have hb := fun coord => routineCost_bounds (rank output coord)
+  have he := fun coord => childExtra_le (child output coord)
   constructor
   · calc 594 = ∑ _coord : Coord, 66 := by simp
-      _ ≤ _ := Finset.sum_le_sum fun coord _ => (hb coord).1
-  · calc _ ≤ ∑ _coord : Coord, 80 := Finset.sum_le_sum fun coord _ => (hb coord).2
-      _ = 720 := by simp
+      _ ≤ _ := Finset.sum_le_sum fun coord _ => le_trans (hb coord).1 (Nat.le_add_right _ _)
+  · calc _ ≤ ∑ _coord : Coord, 82 := Finset.sum_le_sum fun coord _ => by
+          have := (hb coord).2; have := he coord; omega
+      _ = 738 := by simp
 theorem capOk_iff (output : HashOutput) : capOk output = true ↔ jointCost output ≤ jointCap := by
   simp [capOk]
 theorem producerAdmissible_iff (output : HashOutput) :
