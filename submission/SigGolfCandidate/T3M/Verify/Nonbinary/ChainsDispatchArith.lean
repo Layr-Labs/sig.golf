@@ -74,7 +74,7 @@ theorem fault_value (q k : Nat) (hq : q<17) (hk : 125 ≤ k) (hk' : k<128) :
   have he := entOff_le q hq
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]; omega
 theorem g9_value (W : Word) :
-    ((((W <<< (BitVec.ofNat 64 11).toNat) &&& 130048#64)+4096#64)+BitVec.ofNat 64 (2^64-1796)) &&& ~~~1#64 =
+    (((W <<< (BitVec.ofNat 64 11).toNat) &&& 130048#64)+2300#64) &&& ~~~1#64 =
       BitVec.ofNat 64 (2048*(W.toNat%64)+2300) := by
   have hm : ((W <<< (BitVec.ofNat 64 11).toNat) &&& 130048#64) = BitVec.ofNat 64 (2048*(W.toNat%64)) := by
     apply BitVec.eq_of_toNat_eq
@@ -88,11 +88,7 @@ theorem g9_value (W : Word) :
         show (2:Nat)^11*(W.toNat%2^53) = 1024*(2*(W.toNat%2^53)) by ring, Nat.mul_div_cancel_left _ (by norm_num)]
       omega
     rw [this]; ring
-  rw [hm, ofNat_add_ofNat, ofNat_add_ofNat, even_andNot1' _ (by omega)]
-  have hw := W.isLt
-  apply BitVec.eq_of_toNat_eq
-  simp only [BitVec.toNat_ofNat]
-  omega
+  rw [hm, ofNat_add_ofNat, even_andNot1' _ (by omega)]
 theorem g9_cell (u : Nat) (hu : u ≤ 62) : BitVec.ofNat 64 (2048*(63-u)+2300)=pcOf (cellW 9 (2*u)) := by
   unfold pcOf cellW entOff; norm_num; congr 1; omega
 theorem g9_fault : (BitVec.ofNat 64 (2048*(63-63)+2300)).toNat<0x1000 := by decide
