@@ -1,4 +1,5 @@
-import Mathlib
+import Mathlib.Tactic
+import Mathlib.Data.List.GetD
 
 namespace ClaudeWCT.WCT9
 def compositions (width : Nat) : Nat → Nat → List (List Nat)

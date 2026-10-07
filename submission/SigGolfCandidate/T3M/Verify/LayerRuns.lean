@@ -12,7 +12,7 @@ def stepsA (lay : Nat) : Nat := if lay = 3 then 11 else if lay = 0 then 5 else 7
 def retOff (lay : Nat) : Nat := if lay = 0 then 11 else if lay = 3 then 42 else 41
 def s6v (lay : Nat) : Nat := [12480,15664,18720,21776].getD lay 0
 def s3v : Nat := 12480
-def tgtL (lay : Nat) : Nat := [129,197,197,198].getD lay 0
+def tgtL (lay : Nat) : Nat := [129,198,198,198].getD lay 0
 def hw (t lay : Nat) : Nat := 1 + 256 * t + 65536 * lay
 def rejEcall : Nat := 33511
 def stabIdx (lay : Nat) : Nat := [209768,209640,209576,209512].getD lay 0
@@ -59,8 +59,8 @@ def rReg (lay : Nat) : Reg := if lay = 3 then .x22 else .x31
 def leafE (lay : Nat) : E := if lay = 0 then .reg .x31 else .bin .and (.reg (rReg lay)) (kw (2 ^ hL lay - 1))
 def treeE (lay : Nat) : E := .bin .srl (.reg (rReg lay)) (kw (hL lay))
 def tpE (lay : Nat) : E := if lay = 0 then .bin .sll (leafE lay) (kw 32) else .bin .or (.bin .sll (leafE lay) (kw 32)) (treeE lay)
-def dispatchHeap (lay leaf : Nat) : Nat := s7Bias lay + leaf
-def s7E (lay : Nat) : E := if lay = 0 then .bin .or (leafE lay) (kw (2 ^ hL lay)) else .bin .add (leafE lay) (kw (s7Bias lay))
+def dispatchHeap (lay leaf : Nat) : Nat := if lay = 0 then 16 * (s7Bias lay + leaf) else s7Bias lay + leaf
+def s7E (lay : Nat) : E := if lay = 0 then .bin .or (.bin .sll (leafE lay) (kw 4)) (kw (16 * 2 ^ hL lay)) else .bin .add (leafE lay) (kw (s7Bias lay))
 def ctrE (lay : Nat) : E := .un (.ld .wu (4 * ((lay + 1) % 2))) (.ld (kw (0x810 + 8 * ((lay + 1) / 2))))
 def ctrBr (lay : Nat) (d : Bool) : Br := ⟨if lay = 3 then .ltu else .geu, ctrE lay, kw 0x400000, d⟩
 def setupPc (lay p : Nat) : Nat := if lay = 3 then 32955 else p
@@ -109,7 +109,7 @@ def rejCk (lay : Nat) : Spec :=
 def leafK (lay : Nat) : List (Reg × Word) :=
   baseK ++ (if lay = 0 then [(.x15, 262144), (.x6, 130048)] else [(.x7, 1), (.x15, 0x40000)])
 def x14lf (lay : Nat) : E :=
-  if lay = 0 then .bin .sll (.bin .add (.bin .and (.reg .x23) (kw 63)) (kw 2042)) (kw 8)
+  if lay = 0 then .bin .sll (.bin .add (.bin .and (.reg .x31) (kw 63)) (kw 2042)) (kw 8)
   else if lay = 1 then .bin .sll (.reg .x23) (kw 8)
   else .bin .sll (.reg .x23) (kw 9)
 def tgtLf (lay : Nat) : E := if lay = 0 then .bin .and (x14lf lay) (.c (~~~1#64)) else .bin .and (.reg .x23) (.c (~~~1#64))

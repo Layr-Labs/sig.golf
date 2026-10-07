@@ -451,8 +451,8 @@ theorem chainsCost_add (c : LCtx) (hck : c.ck < 8) : ∀ k i, i + k ≤ 43 →
     have := chainCost_add i (c.dig i) hd
     simp only [chainsCost, List.range'_succ, List.map_cons, List.sum_cons] at h ⊢
     omega
-theorem cbase_sum43 : ((List.range' 0 43).map cbase).sum = 2946 := by decide
-theorem cbase_sum_top : ((List.range' 33 9).map cbase).sum = 616 := by decide
+theorem cbase_sum43 : ((List.range' 0 43).map cbase).sum = 2946 := by decide +kernel
+theorem cbase_sum_top : ((List.range' 33 9).map cbase).sum = 616 := by decide +kernel
 def zSum (c : LCtx) (i k : Nat) : Nat := ((List.range' i k).map fun j => zc j (c.dig j)).sum
 theorem chainsCost_lower (c : LCtx) (hck : c.ck < 8) (T : Nat) (hT : ((List.range' 0 43).map c.dig).sum = T) :
     c.chainsCost 0 42 + chainCost 42 c.ck + 9 * T + c.zSum 0 43 = 2946 := by

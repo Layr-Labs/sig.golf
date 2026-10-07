@@ -142,9 +142,9 @@ theorem srchd_spec {im : Image} (hc : NewCodeAt im) (s : MachineState) (hpc : s.
       else s.getMem (BitVec.ofNat 64 A) := by
     intro A hA
     simp only [srchdM, cMem, List.cons_append, List.nil_append]
-    rw [memEval_cons_ofNat _ _ _ _ _ hA (by decide), memEval_cons_ofNat _ _ _ _ _ hA (by decide),
-      memEval_cons_ofNat _ _ _ _ _ hA (by decide), memEval_cons_ofNat _ _ _ _ _ hA (by decide),
-      memEval_cons_ofNat _ _ _ _ _ hA (by decide)]
+    rw [memEval_cons_ofNat _ _ _ _ _ hA (by decide +kernel), memEval_cons_ofNat _ _ _ _ _ hA (by decide +kernel),
+      memEval_cons_ofNat _ _ _ _ _ hA (by decide +kernel), memEval_cons_ofNat _ _ _ _ _ hA (by decide +kernel),
+      memEval_cons_ofNat _ _ _ _ _ hA (by decide +kernel)]
     rfl
   refine ⟨_, _, _, st, hcy, p, rg, ?_, ?_, ?_, ?_⟩
   · intro k hk
@@ -156,23 +156,23 @@ theorem srchd_spec {im : Image} (hc : NewCodeAt im) (s : MachineState) (hpc : s.
     · simp only [show (0x60 : Nat) + 8 * 1 = 104 from rfl]; simp; exact this
     · simp only [show (0x60 : Nat) + 8 * 2 = 112 from rfl]; simp; exact this
     · simp only [show (0x60 : Nat) + 8 * 3 = 120 from rfl]; simp; exact this
-  · rw [mm, hM _ (by decide)]
-    simp only [show ((0x810 : Nat) = 120) = False by decide, show ((0x810 : Nat) = 112) = False by decide,
-      show ((0x810 : Nat) = 104) = False by decide, show ((0x810 : Nat) = 96) = False by decide,
-      show ((0x810 : Nat) = 2064) = True by decide, if_false, if_true]
+  · rw [mm, hM _ (by decide +kernel)]
+    simp only [show ((0x810 : Nat) = 120) = False by decide +kernel, show ((0x810 : Nat) = 112) = False by decide +kernel,
+      show ((0x810 : Nat) = 104) = False by decide +kernel, show ((0x810 : Nat) = 96) = False by decide +kernel,
+      show ((0x810 : Nat) = 2064) = True by decide +kernel, if_false, if_true]
     simp only [StoreKind.merge, Nat.zero_div]
-    have := replaceWord32_get (s.getMem (BitVec.ofNat 64 2064)) 0 (by decide)
+    have := replaceWord32_get (s.getMem (BitVec.ofNat 64 2064)) 0 (by decide +kernel)
       ((s.getReg .x19).truncate 32)
     simp only [Nat.mul_zero] at this
     rw [this, h19]
     apply BitVec.eq_of_toNat_eq
     simp
-  · rw [mm, hM _ (by decide)]
-    simp only [show ((0x810 : Nat) = 120) = False by decide, show ((0x810 : Nat) = 112) = False by decide,
-      show ((0x810 : Nat) = 104) = False by decide, show ((0x810 : Nat) = 96) = False by decide,
-      show ((0x810 : Nat) = 2064) = True by decide, if_false, if_true]
+  · rw [mm, hM _ (by decide +kernel)]
+    simp only [show ((0x810 : Nat) = 120) = False by decide +kernel, show ((0x810 : Nat) = 112) = False by decide +kernel,
+      show ((0x810 : Nat) = 104) = False by decide +kernel, show ((0x810 : Nat) = 96) = False by decide +kernel,
+      show ((0x810 : Nat) = 2064) = True by decide +kernel, if_false, if_true]
     simp only [StoreKind.merge, Nat.zero_div]
-    have := replaceWord32_other (s.getMem (BitVec.ofNat 64 2064)) 0 1 (by decide) (by decide) (by decide)
+    have := replaceWord32_other (s.getMem (BitVec.ofNat 64 2064)) 0 1 (by decide +kernel) (by decide +kernel) (by decide +kernel)
       ((s.getReg .x19).truncate 32)
     simp only [Nat.mul_one] at this
     exact this
@@ -285,8 +285,8 @@ theorem suf_spec {im : Image} (hc : NewCodeAt im) (s : MachineState) (hpc : s.pc
   obtain ⟨⟨⟨⟨hrun, h28⟩, h29⟩, hbr⟩, hcy⟩ := hb
   obtain ⟨st, p, rg, mm⟩ := runB_spec hc hr hrun s hpc (by simp) (by rw [hbr]; simp)
   refine ⟨_, _, _, st, hcy, p, regIsB_ok h28 s, regIsB_ok h29 s, rg, ?_, ?_, ?_⟩
-  · rw [mm _ (by decide)]; rfl
-  · rw [mm _ (by decide)]; rfl
+  · rw [mm _ (by decide +kernel)]; rfl
+  · rw [mm _ (by decide +kernel)]; rfl
   · exact frame_of_eff mm _ (by
       intro q hq
       simp only [List.mem_cons, List.mem_nil_iff, or_false] at hq
@@ -428,7 +428,7 @@ theorem fts_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.Si
     TBSim im sk sF ftsCost (WCT9.recoverFts sig (WCT9.digestIndex N) N)
       (fun root t => t.pc = pcOf 39142 ∧ t.getReg .x5 = 0 ∧ DigAt t 0x100 root ∧ Frame sF t FtsW) := by
   have hidx : WCT9.digestIndex N < 2 ^ 31 := WCT9.digestIndex_lt N
-  have hg : N.toNat / 2 ^ 235 % 2 ^ 21 < 1094 := ((admissible_iff N).mp hin.adm).1
+  have hg : N.toNat / 2 ^ 235 % 2 ^ 21 < 2364 := ((admissible_iff N).mp hin.adm).1
   obtain ⟨t0, s0, p0, r0, x8_0, x28_0, x15_0, f0⟩ := drv_entry hc N sF hpc h5 hin.out hg
   have hI0 : DrvInv sig N sF 0 [] t0 := drvInv_zero (by rw [p0]) r0 x8_0 x28_0 x15_0 f0
   unfold WCT9.recoverFts
@@ -472,18 +472,18 @@ theorem fts_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.Si
       rw [readWords_two, m400, show 0x400 + 8 = 0x408 from rfl, m408]
     have hhd : t1.readWords (BitVec.ofNat 64 (0x400 + 8 * 2)) 2 =
         [BitVec.ofNat 64 (hdr0 15 0 (WCT9.digestIndex N) 0), BitVec.ofNat 64 (hdr1 (WCT9.digestIndex N) 0)] := by
-      rw [readWords_two, show 0x400 + 8 * 2 = 0x410 from rfl, m410, show 0x410 + 8 = 0x418 from rfl, m418, x22u, hdr0_index _ _ _ hidx, hdr1_eq _ 0 (by omega) (by decide)]
+      rw [readWords_two, show 0x400 + 8 * 2 = 0x410 from rfl, m410, show 0x410 + 8 = 0x418 from rfl, m418, x22u, hdr0_index _ _ _ hidx, hdr1_eq _ 0 (by omega) (by decide +kernel)]
       simp; rfl
     have e40 : 8 * (4 + 1) = 2 + (2 + 2 * (pairDigs pairs).length) := by rw [hd]
     rw [e40, readWords_add, readWords_add, hz, hhd, show 0x400 + 8 * 2 + 8 * 2 = 0x420 from rfl, hpd.words]
     simp only [List.append_assoc]
   have hq : hashInput t1 = toQ (pad64 (WCT9.forestInput (WCT9.digestIndex N) pairs)) :=
     hashInput_toQ t1 _ 4 0x400 (by rw [pad64_forest _ pairs hlen, forestInput_length _ pairs hlen])
-      h10 (by decide) (by decide) h11 (by decide) hw
+      h10 (by decide +kernel) (by decide +kernel) h11 (by decide +kernel) hw
   have hv : hashArgumentsValid t1 = true :=
-    hashArgs_const t1 0x400 320 0x100 h10 h11 h12 (by decide) (by decide) (by decide) (by decide) (by decide)
+    hashArgs_const t1 0x400 320 0x100 h10 h11 h12 (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel)
   have h5' : t1.getReg .x5 = 0 := by
-    rw [k1 _ (by decide) (by decide) (by decide) (by decide)]; exact hI.regs.x5
+    rw [k1 _ (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel)]; exact hI.regs.x5
   have hblk : (toQ (pad64 (WCT9.forestInput (WCT9.digestIndex N) pairs))).blocks = 5 := by
     rw [blocks_toQ ⟨by rw [pad64_forest _ pairs hlen, forestInput_length _ pairs hlen]; decide,
       by rw [pad64_forest _ pairs hlen, forestInput_length _ pairs hlen]⟩,
@@ -496,8 +496,8 @@ theorem fts_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.Si
     (fun a => ?_))).mono (by rw [hblk]) (fun _ _ h => h)
   have p2 : (writeHash t1 a).pc = pcOf (base + 204) := by rw [pc_writeHash, p1, pcOf_add4]
   obtain ⟨t2, s2, p3, k2, m2⟩ := end_blk hc (writeHash t1 a) p2
-  have hd := DigAt.writeHash_lo t1 a 0x100 h12 (by decide)
-  have fw := Frame.writeHash t1 a 0x100 h12 (by decide)
+  have hd := DigAt.writeHash_lo t1 a 0x100 h12 (by decide +kernel)
+  have fw := Frame.writeHash t1 a 0x100 h12 (by decide +kernel)
   refine TBSim.steps s2 (TBSim.pure ⟨p3, ?_, ⟨(m2 _).trans hd.1, (m2 _).trans hd.2⟩, ?_⟩)
   · rw [k2, getReg_writeHash]; exact h5'
   have F2 : Frame (writeHash t1 a) t2 (fun _ => False) := fun A _ _ => m2 _
@@ -554,8 +554,8 @@ theorem cell_window (j : Nat) (op : WCT9.Opening) (m : Nat) (hm : m < 64) :
     have ho : 16 * m = 64 * (6 - l.val) + 16 * (m % 4) := by simp only [hl]; omega
     rw [region_merkleV5 _ _ _ _ (by omega), ho, merkleBytesV5_window _ _ l _ (by omega)]
     have hlv : l.val = 6 - m / 4 := rfl
-    have hb : j / 2 ^ l.val % 2 < 2 := Nat.mod_lt _ (by decide)
-    have hq : m % 4 < 4 := Nat.mod_lt _ (by decide)
+    have hb : j / 2 ^ l.val % 2 < 2 := Nat.mod_lt _ (by decide +kernel)
+    have hq : m % 4 < 4 := Nat.mod_lt _ (by decide +kernel)
     rw [hlv] at hb ⊢
     by_cases hbit : j / 2 ^ (6 - m / 4) % 2 = 1
     · rw [if_pos hbit]
@@ -641,7 +641,7 @@ theorem placed_of {N : HashOutput} {sig : WCT9.Signature} {s0 t : MachineState}
       | none => 0) :
     Placed N sig t := by
   intro k i hk hi
-  have hk' : (⟨k % 9, Nat.mod_lt _ (by decide)⟩ : WCT9.Coord) = ⟨k, hk⟩ := Fin.ext (Nat.mod_eq_of_lt hk)
+  have hk' : (⟨k % 9, Nat.mod_lt _ (by decide +kernel)⟩ : WCT9.Coord) = ⟨k, hk⟩ := Fin.ext (Nat.mod_eq_of_lt hk)
   unfold regionWord
   rw [hk', hdone k i hk hi]
   set j := (WCT9.child N ⟨k, hk⟩).val
@@ -696,7 +696,7 @@ theorem hdrBank_frame {s t : MachineState} {W : Nat → Prop} (h : HdrBankOK s) 
   · rw [g _ (by omega) (by unfold HB0; omega)]; exact h3
 theorem hook_step {im : Image} (hh : HookAt im) (s : MachineState) (hpc : s.pc = pcOf 30) :
     Steps im s 1 1 (s.setPC (pcOf 40893)) := by
-  obtain ⟨imm, hd, hoff⟩ := jalTo_sound (show jalTo hookWord 30 = some 40893 by decide)
+  obtain ⟨imm, hd, hoff⟩ := jalTo_sound (show jalTo hookWord 30 = some 40893 by decide +kernel)
   exact jal_x0_step hh hd hoff s hpc
 theorem newCost_split : 1 + (2 ^ 21 * 200 + 100 + 30000) ≤ newCost := by unfold newCost; norm_num
 def NewPostHi (sig : WCT9.Signature) (s0 : MachineState) (r : Option (BitVec 32 × HashOutput × Digest))
@@ -741,7 +741,7 @@ theorem newCode_tb {im : Image} (hc : NewCodeAt im) (hh : HookAt im) (sk : BitVe
   have p4 : t4.pc = pcOf 3151 := by rw [hI4.pc, cOff_nine]
   obtain ⟨t5, k5, c5, st5, hc5, p5, r5, mv5, f5⟩ := mv_spec hc t4 p4
   have x5_5 : t5.getReg .x5 = 0 := by
-    rw [r5.get (by decide), hI4.regs.get (by decide), r3.get (by decide)]; exact x5_2
+    rw [r5.get (by decide +kernel), hI4.regs.get (by decide +kernel), r3.get (by decide +kernel)]; exact x5_2
   have g5 : ∀ A, A < 2 ^ 64 → (A < 0x60 ∨ 0x80 ≤ A) → A ≠ 0x810 → ¬ (A = 0x20130 ∨ A = 0x20138) →
       (A < 0x20160 ∨ 0x20180 ≤ A) → A ≠ 0x20550 → (A < 0x840 ∨ 0x2c40 ≤ A) → (A < 0x7890 ∨ 0x85f0 ≤ A) →
       t5.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A) := by
@@ -800,11 +800,11 @@ theorem newCode_tb {im : Image} (hc : NewCodeAt im) (hh : HookAt im) (sk : BitVe
   swap
   ·
     have e3 : t10.getMem (BitVec.ofNat 64 0x810) = t3.getMem (BitVec.ofNat 64 0x810) := by
-      rw [f10 _ (by decide) (fun h => h), hI9.frame _ (by decide) (by unfold regBase; decide),
-        g8 _ (by decide) (by decide), g7 _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide),
-        f5 _ (by decide) (by decide), hI4.frame _ (by decide) (by unfold regBase; decide)]
+      rw [f10 _ (by decide +kernel) (fun h => h), hI9.frame _ (by decide +kernel) (by unfold regBase; decide),
+        g8 _ (by decide +kernel) (by decide +kernel), g7 _ (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel),
+        f5 _ (by decide +kernel) (by decide +kernel), hI4.frame _ (by decide +kernel) (by unfold regBase; decide)]
     have e2 : t2.getMem (BitVec.ofNat 64 0x810) = s.getMem (BitVec.ofNat 64 0x810) := by
-      rw [f2 _ (by decide) (nW _ (by decide) (by decide) (by decide))]; rfl
+      rw [f2 _ (by decide +kernel) (nW _ (by decide +kernel) (by decide +kernel) (by decide +kernel))]; rfl
     rw [e3, hi3, e2]
   have g10 : ∀ A, A < 2 ^ 64 → (A < 0x840 ∨ 0x2c48 ≤ A) →
       t10.getMem (BitVec.ofNat 64 A) = t7.getMem (BitVec.ofNat 64 A) := by
@@ -817,18 +817,18 @@ theorem newCode_tb {im : Image} (hc : NewCodeAt im) (hh : HookAt im) (sk : BitVe
     intro A hA h1 h2 h3 h4 h5 h6 h7 h8 h9 h10 h11
     rw [g10 A hA h6, g7 A hA (by omega) h8 h9 h10 h11, g5 A hA h1 h2 h3 h4 h5 (by omega) h7]
   refine ⟨p10, ?_, x2_10, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · rw [r10.get (by decide), hI9.regs.get (by decide), r8.get (by decide), r7.get (by decide)]; exact x5_6
+  · rw [r10.get (by decide +kernel), hI9.regs.get (by decide +kernel), r8.get (by decide +kernel), r7.get (by decide +kernel)]; exact x5_6
   ·
     have : t10.getMem (BitVec.ofNat 64 IDXV) = t2.getMem (BitVec.ofNat 64 IDXV) := by
       simp only [IDXV]
-      rw [g10 _ (by decide) (by decide), g7 _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide),
-        f5 _ (by decide) (by decide), hI4.frame _ (by decide) (by unfold regBase; decide),
-        f3 _ (by decide) (nS _ (by decide) (by decide))]
+      rw [g10 _ (by decide +kernel) (by decide +kernel), g7 _ (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel),
+        f5 _ (by decide +kernel) (by decide +kernel), hI4.frame _ (by decide +kernel) (by unfold regBase; decide),
+        f3 _ (by decide +kernel) (nS _ (by decide +kernel) (by decide +kernel))]
     rw [this]; exact idx2
   ·
-    have e1 : t10.getMem (BitVec.ofNat 64 0x20260) = t7.getMem (BitVec.ofNat 64 0x20260) := g10 _ (by decide) (by decide)
+    have e1 : t10.getMem (BitVec.ofNat 64 0x20260) = t7.getMem (BitVec.ofNat 64 0x20260) := g10 _ (by decide +kernel) (by decide +kernel)
     have e2 : t10.getMem (BitVec.ofNat 64 (0x20260 + 8)) = t7.getMem (BitVec.ofNat 64 (0x20260 + 8)) :=
-      g10 _ (by decide) (by decide)
+      g10 _ (by decide +kernel) (by decide +kernel)
     refine ⟨?_, ?_⟩
     · show t10.getMem (BitVec.ofNat 64 0x20260) = _
       rw [e1, enc7lo]; exact root6.1
@@ -836,8 +836,8 @@ theorem newCode_tb {im : Image} (hc : NewCodeAt im) (hh : HookAt im) (sk : BitVe
       rw [e2, enc7hi]; exact root6.2
   ·
     have : t10.getMem (BitVec.ofNat 64 0x810) = t3.getMem (BitVec.ofNat 64 0x810) := by
-      rw [g10 _ (by decide) (by decide), g7 _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide),
-        f5 _ (by decide) (by decide), hI4.frame _ (by decide) (by unfold regBase; decide)]
+      rw [g10 _ (by decide +kernel) (by decide +kernel), g7 _ (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel),
+        f5 _ (by decide +kernel) (by decide +kernel), hI4.frame _ (by decide +kernel) (by unfold regBase; decide)]
     rw [this]; exact dc3
   ·
     have hsig8 : ∀ n, n < 127 → DigAt t8 (0x7000 + 16 * n) ((ClaudeWCT.W9.T3M.sigDigests sig).getD n 0) := by
