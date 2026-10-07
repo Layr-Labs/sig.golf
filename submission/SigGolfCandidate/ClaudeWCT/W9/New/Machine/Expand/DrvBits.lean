@@ -26,14 +26,14 @@ theorem s0_spec (hpc : s.pc = pcOf 0) :
       t.getMem (BitVec.ofNat 64 0x808) = s.getMem (BitVec.ofNat 64 0x7008) ∧
       t.getMem (BitVec.ofNat 64 DIG) = s.getMem (BitVec.ofNat 64 0x7000) ∧
       t.getMem (BitVec.ofNat 64 (DIG + 8)) = s.getMem (BitVec.ofNat 64 0x7008) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 23880) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 23888) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 23896) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 23904) ∧
-      (∀ k < 4, t.getMem (BitVec.ofNat 64 (23880 + 8 * k)) = 0) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 23896) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 23904) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 23912) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 23920) ∧
+      (∀ k < 4, t.getMem (BitVec.ofNat 64 (23896 + 8 * k)) = 0) ∧
       RegsExcept s t [.x5, .x6, .x7, .x19, .x29, .x30] ∧
       Frame s t (fun A => A = 0x800 ∨ A = 0x808 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨ A = DIG + 40 ∨
-        A = DIG + 48 ∨ A = DIG + 56 ∨ A = 23880 ∨ A = 23888 ∨ A = 23896 ∨ A = 23904) := by
+        A = DIG + 48 ∨ A = DIG + 56 ∨ A = 23896 ∨ A = 23904 ∨ A = 23912 ∨ A = 23920) := by
   refine ⟨_, symRun_sound eblk_0 codeAt_0 s hpc
     (by simp [eblk_0.res, rv_simp, accessValid_iff, MEMORY_BYTES]),
     ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
@@ -244,7 +244,7 @@ theorem index_eq (a : BitVec 256) :
   omega
 def fieldN (a : BitVec 256) (c : Nat) : Nat := a.toNat / 2 ^ WCT9.fieldBase c % 2 ^ 14
 theorem admissible_iff (a : BitVec 256) :
-    WCT9.admissible a = true ↔ a.toNat / 2 ^ 235 % 2 ^ 21 < 1094 ∧ ∀ c', 0 ≤ c' → c' < 9 → fieldN a c' < 16200 := by
+    WCT9.admissible a = true ↔ a.toNat / 2 ^ 235 % 2 ^ 21 < 1091 ∧ ∀ c', 0 ≤ c' → c' < 9 → fieldN a c' < 16200 := by
   rw [WCT9.admissible_iff]
   constructor
   · rintro ⟨h1, h2⟩; exact ⟨h1, fun c _ hc => h2 ⟨c, hc⟩⟩
@@ -259,7 +259,7 @@ set_option maxRecDepth 16384
 def base : Nat := 3164
 def seg_0 : List (BitVec 32) := [16777327]
 def seg_1 : List (BitVec 32) := [1049235,1049875,115]
-def seg_4 : List (BitVec 32) := [0x6003b03,0x7803183,45207955,19,0x4461b193]
+def seg_4 : List (BitVec 32) := [0x6003b03,0x7803183,45207955,19,0x4431b193]
 def seg_9 : List (BitVec 32) := [0xfe0180e3]
 def seg_10 : List (BitVec 32) := [727827,35347219,1049491,29038483,66359,197395,2098835,3148179,4196883,5245587,6294803,7343891,34281619,5175,0x84040413,0xffee37,0x600e0e13,65847,0xffc10113,20151,0x4a4e8e93,52279,0x4a4c0c13,67110291]
 def seg_34 : List (BitVec 32) := [0x6003803,545171,0x7f1f193,33657363,23224883,21077907,0xffefb3,8493971,31165363,0x9c0e3d83,18738611,5789459,2586419,25626419,0x42000493,458983]

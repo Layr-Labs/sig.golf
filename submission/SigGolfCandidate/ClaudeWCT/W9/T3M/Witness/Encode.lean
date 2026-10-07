@@ -15,7 +15,7 @@ def expandN (message : Message) (pk : Digest) (sig : WCT9.Signature) :
 def headerBytes (w : WCT9.Witness) : List UInt8 :=
   bytesLE 4 (w.counters 3) ++ zeros 28
 def digestBytes (w : WCT9.Witness) : List UInt8 :=
-  bytesLE 16 w.signature.rho ++ zeros 12 ++ bytesLE 4 w.digestCounter
+  bytesLE 4 w.digestCounter ++ zeros 12 ++ bytesLE 16 w.signature.rho
 def authByte (child : Nat) (op : WCT9.Opening) (p : Nat) : UInt8 :=
   match (List.finRange 7).find? (fun l => decide (authSibOff child l.val ≤ p ∧ p < authSibOff child l.val + 16)) with
   | some l => (bytesLE 16 (op.path l)).getD (p - authSibOff child l.val) 0

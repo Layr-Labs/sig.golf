@@ -71,7 +71,7 @@ def NewCodeSpec (im : Image) : Prop :=
     TBSim im sk s newCost (newProg m sig) (NewPost sig s)
 def w9Sub (imgs : Phase → Image) : Submission where
   sizes := ⟨5456, 21832, 131072⟩
-  layout := ⟨23880, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩
+  layout := ⟨23896, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩
   image := imgs
 def FrontAt (im : Image) : Prop := CodeAt im (pcOf 0) (SigGolfCandidate.T3M.Expand.seg_0 ++ [hookWord])
 def compactJal : BitVec 32 := 0x4d52706f

@@ -108,13 +108,14 @@ def VERIFY_DATA : Nat := 0xffbde0
 structure InitOK (m : T3.Message) (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (s : MachineState) : Prop where
   known : KnownOK k0 s
   pc : s.pc = pcOf 0
-  msg : ∀ k, k < 4 → s.getMem (BitVec.ofNat 64 (23880 + 8 * k)) = m.extractLsb' (64 * k) 64
+  msg : ∀ k, k < 4 → s.getMem (BitVec.ofNat 64 (23896 + 8 * k)) = m.extractLsb' (64 * k) 64
   pk : PkOK pk s
   wit : WitAll w s
   digest : WitDigest w s
   zero : ∀ A, A < WIT → (A < 0x40 ∨ (0x60 ≤ A ∧ A < 0xA0) ∨ 0xB0 ≤ A) → s.getMem (BitVec.ofNat 64 A) = 0
   data : DataOK s
   sp : s.getReg .x2 = BitVec.ofNat 64 VERIFY_DATA
+  gap : s.getMem (BitVec.ofNat 64 23880) = 0 ∧ s.getMem (BitVec.ofNat 64 23888) = 0
 theorem verifyData_length : (submission.image .verify).data.length = 16928 := Images.verifyData_length
 theorem dataBase_verify : dataBase (submission.image .verify) = VERIFY_DATA := by
   unfold dataBase; rw [verifyData_length]; decide
@@ -135,7 +136,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 21832) (s : Mac
   simp only [submission_admissible.2 .verify, if_true, Option.some.injEq] at h
   subst h
   have hl : inputBuffers submission.sizes submission.layout .verify (m, pk, w) =
-      [(23880, bytes m), (0xA0, bytes pk), (0x800, bytes w)] := rfl
+      [(23896, bytes m), (0xA0, bytes pk), (0x800, bytes w)] := rfl
   rw [hl]
   simp only [List.foldl_cons, List.foldl_nil]
   have lm : (bytes m).length = 32 := length_bytes m
@@ -146,7 +147,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 21832) (s : Mac
   set blank : MachineState := { regs := fun _ => 0, mem := fun _ => 0, pc := 0x1000 }
   set s0 := blank.writeBytesAsWords (BitVec.ofNat 64 (dataBase (submission.image .verify)))
     (submission.image .verify).data
-  set s1 := s0.writeBytesAsWords (BitVec.ofNat 64 23880) (bytes m)
+  set s1 := s0.writeBytesAsWords (BitVec.ofNat 64 23896) (bytes m)
   set s2 := s1.writeBytesAsWords (BitVec.ofNat 64 0xA0) (bytes pk)
   set s3 := s2.writeBytesAsWords (BitVec.ofNat 64 0x800) (bytes w)
   have gm : ∀ A, (s3.setReg .x2 (BitVec.ofNat 64 (dataBase (submission.image .verify)))).getMem A =
@@ -161,10 +162,10 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 21832) (s : Mac
     intro A hA
     rw [g0 A (by unfold VERIFY_DATA at hA; omega), if_neg (by omega)]
   have g1 : ∀ A, A < 2 ^ 64 → s1.getMem (BitVec.ofNat 64 A) =
-      if 23880 ≤ A ∧ A < 23880 + 8 * ((32 + 7) / 8) ∧ (A - 23880) % 8 = 0 then
-        bytesToWordLE (((bytes m).drop (A - 23880)).take 8) else s0.getMem (BitVec.ofNat 64 A) := by
+      if 23896 ≤ A ∧ A < 23896 + 8 * ((32 + 7) / 8) ∧ (A - 23896) % 8 = 0 then
+        bytesToWordLE (((bytes m).drop (A - 23896)).take 8) else s0.getMem (BitVec.ofNat 64 A) := by
     intro A hA
-    rw [getMem_writeBytesAsWords _ s0 23880 A (by rw [lm]; omega) hA, lm]
+    rw [getMem_writeBytesAsWords _ s0 23896 A (by rw [lm]; omega) hA, lm]
   have g2 : ∀ A, A < 2 ^ 64 → s2.getMem (BitVec.ofNat 64 A) =
       if 0xA0 ≤ A ∧ A < 0xA0 + 8 * ((16 + 7) / 8) ∧ (A - 0xA0) % 8 = 0 then
         bytesToWordLE (((bytes pk).drop (A - 0xA0)).take 8) else s1.getMem (BitVec.ofNat 64 A) := by
@@ -191,7 +192,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 21832) (s : Mac
       unfold VERIFY_DATA at hA ⊢
       omega
     rw [hidx]
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro p hp
     have hr1 : ∀ (st : MachineState) (base : Word) (l : List (BitVec 8)),
         (st.writeBytesAsWords base l).regs = st.regs := by
@@ -228,7 +229,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 21832) (s : Mac
     rfl
   · intro k hk
     rw [gm, g3 _ (by omega), if_neg (by omega), g2 _ (by omega), if_neg (by omega), g1 _ (by omega),
-      if_pos (by omega), show 23880 + 8 * k - 23880 = 8 * k by omega, bytes_word m k (by omega)]
+      if_pos (by omega), show 23896 + 8 * k - 23896 = 8 * k by omega, bytes_word m k (by omega)]
   · refine ⟨?_, ?_⟩
     · show (s3.setReg .x2 _).getMem (BitVec.ofNat 64 0xA0) = _
       rw [gm, g3 _ (by omega), if_neg (by omega), g2 _ (by omega), if_pos (by omega),
@@ -265,4 +266,6 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 21832) (s : Mac
         verifyData_header lay hl]
   · simp [MachineState.setReg, MachineState.getReg]
     exact congrArg (BitVec.ofNat 64) eD
+  · constructor <;> rw [gm, g3 _ (by omega), if_neg (by omega), g2 _ (by omega),
+      if_neg (by omega), g1 _ (by omega), if_neg (by omega), g0z _ (by unfold VERIFY_DATA; omega)]
 end SigGolfCandidate.T3M.Verify

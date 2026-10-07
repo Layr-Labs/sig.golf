@@ -45,11 +45,7 @@ theorem rotatedWord_witness (N : HashOutput) (w : WCT9.Witness) (s : MachineStat
     have hl : (wordsOf (witBody N w)).length = 2725 :=
       length_wordsOf 2725 _ (by rw [witBody_length_eq])
     rw [tailWit_words, List.getD_append_right _ _ _ _ (by omega), hl]
-    interval_cases i <;> simp [rotatedWord, h0, h1, h2, lwu_counter, shift_counter]
-    simpa [BitVec.shiftLeft_eq'] using
-      (show (LoadKind.wu.fromWord (BitVec.ofNat 64 w.digestCounter.toNat) 0) <<<
-        (32 : Word) = BitVec.ofNat 64 (256^4 * w.digestCounter.toNat) by
-        rw [lwu_counter, shift_counter])
+    interval_cases i <;> simp [rotatedWord, h0, h1, h2, lwu_counter]
 
 section
 variable {im : Image} (hc : NewCodeAt im)

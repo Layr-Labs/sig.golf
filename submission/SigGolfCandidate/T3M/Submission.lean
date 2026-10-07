@@ -20,14 +20,14 @@ namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy
 def submission : Submission where
   sizes := ⟨5456, 21832, 131072⟩
-  layout := ⟨23880, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩
+  layout := ⟨23896, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩
   image
     | .keygen => Images.keygenImage
     | .sign => Images.signImage
     | .expand => Images.expandImage
     | .verify => Images.verifyImage
 @[simp] theorem submission_sizes : submission.sizes = ⟨5456, 21832, 131072⟩ := rfl
-@[simp] theorem submission_layout : submission.layout = ⟨23880, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩ := rfl
+@[simp] theorem submission_layout : submission.layout = ⟨23896, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩ := rfl
 @[simp] theorem submission_keygen : submission.image .keygen = Images.keygenImage := rfl
 @[simp] theorem submission_sign : submission.image .sign = Images.signImage := rfl
 @[simp] theorem submission_expand : submission.image .expand = Images.expandImage := rfl

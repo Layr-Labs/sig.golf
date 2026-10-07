@@ -31,7 +31,7 @@ theorem legacyWitList_eq (N : HashOutput) (w : WCT9.Witness) :
 
 /-- Move the body forward, then retain nonce and counter with the new zero header. -/
 def rotateWitBytes (l : List UInt8) : List UInt8 :=
-  l.drop 32 ++ l.take 16 ++ zeros 12 ++ (l.drop 16).take 4
+  l.drop 32 ++ (l.drop 16).take 4 ++ zeros 12 ++ l.take 16
 
 theorem legacyDigestBytes_length (w : WCT9.Witness) :
     (legacyDigestBytes w).length = 32 := by
@@ -45,7 +45,7 @@ theorem legacyWitList_length_eq (N : HashOutput) (w : WCT9.Witness) :
 theorem rotate_legacy_parts (nonce counter body : List UInt8)
     (hn : nonce.length = 16) (hc : counter.length = 4) :
     rotateWitBytes ((nonce ++ counter ++ zeros 12) ++ body) =
-      body ++ nonce ++ zeros 12 ++ counter := by
+      body ++ counter ++ zeros 12 ++ nonce := by
   have hh : (nonce ++ counter ++ zeros 12).length = 32 := by
     simp [hn, hc, zeros]
   have hb : (((nonce ++ counter ++ zeros 12) ++ body).drop 32) = body :=

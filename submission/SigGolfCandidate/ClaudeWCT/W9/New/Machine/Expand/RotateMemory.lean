@@ -8,23 +8,23 @@ set_option maxHeartbeats 1000000
 
 def rotatedWord (s : MachineState) (i : Nat) : Word :=
   if i < 2725 then s.getMem (BitVec.ofNat 64 (2048 + 8 * (i + 4)))
-  else if i = 2725 then s.getMem 2048
-  else if i = 2726 then s.getMem 2056
-  else if i = 2727 then 0
-  else (LoadKind.wu.fromWord (s.getMem 2064) 0) <<< (32 : Word)
+  else if i = 2725 then LoadKind.wu.fromWord (s.getMem 2064) 0
+  else if i = 2726 then 0
+  else if i = 2727 then s.getMem 2048
+  else s.getMem 2056
 
 theorem tail_mem (s : MachineState) (A : Word) :
     (RTail.res.toState s).getMem A =
-      if A = 23872 then s.getReg .x17 <<< (32 : Word)
-      else if A = 23864 then 0
-      else if A = 23856 then s.getReg .x16
-      else if A = 23848 then s.getReg .x15
+      if A = 23848 then s.getReg .x17
+      else if A = 23856 then 0
+      else if A = 23864 then s.getReg .x15
+      else if A = 23872 then s.getReg .x16
       else s.getMem A := by
   by_cases h0 : A = 23872
   <;> by_cases h1 : A = 23864
   <;> by_cases h2 : A = 23856
   <;> by_cases h3 : A = 23848
-  <;> simp_all [RTail.res, rv_simp, BitVec.shiftLeft_eq']
+  <;> simp_all [RTail.res, rv_simp]
 
 section
 variable {im : Image} (hc : NewCodeAt im)
@@ -49,10 +49,10 @@ theorem rotate_spec (s : MachineState) (hpc : s.pc = pcOf 42144) :
       simpa only [BitVec.toNat_ofNat, Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb] using h'
     · intro h; rw [h]
   rw [tail_mem]
-  change (if BitVec.ofNat 64 (2048 + 8 * i) = BitVec.ofNat 64 23872 then _ else
-    if BitVec.ofNat 64 (2048 + 8 * i) = BitVec.ofNat 64 23864 then _ else
+  change (if BitVec.ofNat 64 (2048 + 8 * i) = BitVec.ofNat 64 23848 then _ else
     if BitVec.ofNat 64 (2048 + 8 * i) = BitVec.ofNat 64 23856 then _ else
-    if BitVec.ofNat 64 (2048 + 8 * i) = BitVec.ofNat 64 23848 then _ else _) = _
+    if BitVec.ofNat 64 (2048 + 8 * i) = BitVec.ofNat 64 23864 then _ else
+    if BitVec.ofNat 64 (2048 + 8 * i) = BitVec.ofNat 64 23872 then _ else _) = _
   simp only [e 23872 (by norm_num), e 23864 (by norm_num), e 23856 (by norm_num), e 23848 (by norm_num)]
   by_cases hb : i < 2725
   · rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), mv _ ha]

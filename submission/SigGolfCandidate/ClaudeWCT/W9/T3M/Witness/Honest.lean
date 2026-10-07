@@ -322,17 +322,17 @@ theorem win_header (off n : Nat) (h : off + n ≤ 32) :
     window_append_left _ _ _ _ (by rw [headerBytes_length]; omega)]
 theorem wrho_witEnc : wrho (witEnc N w) = w.signature.rho := by
   unfold wrho rhoOff
-  rw [wdig_witEnc, show 21800 = 21800 + 0 by rfl, win_digest]
-  unfold digestBytes
-  rw [window_append_left _ _ _ _ (by simp [bytesLE_length, zeros]),
-    window_append_left _ _ _ _ (by simp [bytesLE_length]), window_full _ _ (bytesLE_length _ _),
-    Correctness.readDigest_bytesLE]
-theorem wdc_witEnc : wdc (witEnc N w) = w.digestCounter := by
-  unfold wdc dcOff
-  rw [wle32_witEnc, show 21828 = 21800 + 28 by rfl, win_digest]
+  rw [wdig_witEnc, show 21816 = 21800 + 16 by rfl, win_digest]
   unfold digestBytes
   rw [window_append_right _ _ _ _ (by simp [bytesLE_length, zeros]),
-    show 28 - (bytesLE 16 w.signature.rho ++ zeros 12).length = 0 by simp [bytesLE_length, zeros],
+    show 16 - (bytesLE 4 w.digestCounter ++ zeros 12).length = 0 by simp [bytesLE_length, zeros],
+    window_full _ _ (bytesLE_length _ _), Correctness.readDigest_bytesLE]
+theorem wdc_witEnc : wdc (witEnc N w) = w.digestCounter := by
+  unfold wdc dcOff
+  rw [wle32_witEnc, show 21800 = 21800 + 0 by rfl, win_digest]
+  unfold digestBytes
+  rw [window_append_left _ _ _ _ (by simp [bytesLE_length, zeros]),
+    window_append_left _ _ _ _ (by simp [bytesLE_length]),
     window_full _ _ (bytesLE_length _ _), readLE_bytesLE_32]
 theorem wctr3_witEnc : wle32 (witEnc N w) 0 = w.counters 3 := by
   rw [wle32_witEnc, win_header _ _ _ _ (by omega)]

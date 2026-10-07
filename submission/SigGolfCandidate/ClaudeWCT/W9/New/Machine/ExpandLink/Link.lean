@@ -177,7 +177,7 @@ theorem lP_eq (lay : Layer) : lP lay = 0x7000 + 2192 + 16 * (ClaudeWCT.W9.T3M.la
   fin_cases lay <;> decide
 def FrontW (A : Nat) : Prop :=
   A = 0x800 ∨ A = 0x808 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨ A = DIG + 40 ∨ A = DIG + 48 ∨ A = DIG + 56 ∨
-    A = 23880 ∨ A = 23888 ∨ A = 23896 ∨ A = 23904
+    A = 23896 ∨ A = 23904 ∨ A = 23912 ∨ A = 23920
 theorem lD_cases (lay : Layer) : lD lay = 0x3ce8 ∨ lD lay = 0x4968 ∨ lD lay = 0x55a8 ∨ lD lay = 0x820 := by
   fin_cases lay <;> simp [lD]
 theorem lk_zero (lay : Layer) : lk lay = 0 := by fin_cases lay <;> rfl
@@ -211,7 +211,7 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hd : E
   set sig := sigDec σ with hsig
   set s0 := w9init im m pk σ with hs0
   obtain ⟨t1, st1, hpre, w800, w808, zm1, f1⟩ := front_pre30 hF hd m pk σ
-  have hz0 : ∀ A, A < PLAN → (A < 0x7000 ∨ 0x7000 + 5456 ≤ A) → (A < 0xA0 ∨ 0xB0 ≤ A) → (A < 23880 ∨ 23912 ≤ A) →
+  have hz0 : ∀ A, A < PLAN → (A < 0x7000 ∨ 0x7000 + 5456 ≤ A) → (A < 0xA0 ∨ 0xB0 ≤ A) → (A < 23896 ∨ 23928 ≤ A) →
       s0.getMem (BitVec.ofNat 64 A) = 0 := fun A hA h1 h2 h3 => w9init_zero hd m pk σ A hA ⟨h1, h2, h3⟩
   unfold PLAN at hz0
   rw [expandN_split]
@@ -230,7 +230,7 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hd : E
   have F7 : Frame s0 t7 (fun A => FrontW A ∨ NewW A) := f1.trans P.frame
   have g7 : ∀ A, A < 2 ^ 64 → ¬ FrontW A → ¬ NewW A → t7.getMem (BitVec.ofNat 64 A) = s0.getMem (BitVec.ofNat 64 A) :=
     fun A hA h1 h2 => F7 A hA (fun h => h.elim h1 h2)
-  have nFW : ∀ A, (A < 0x800 ∨ 0x810 ≤ A) → (A < DIG ∨ DIG + 64 ≤ A) → (A < 23880 ∨ 23912 ≤ A) → ¬ FrontW A := by
+  have nFW : ∀ A, (A < 0x800 ∨ 0x810 ≤ A) → (A < DIG ∨ DIG + 64 ≤ A) → (A < 23896 ∨ 23928 ≤ A) → ¬ FrontW A := by
     intro A h1 h2 h3 h; unfold FrontW at h; simp only [DIG] at h h2; omega
   have nNW : ∀ A, A ≠ 0x810 → (A < 0x60 ∨ 0x80 ≤ A) → (A < 0x100 ∨ 0x120 ≤ A) → (A < 0x400 ∨ 0x550 ≤ A) →
       (A < 0x840 ∨ 0x2c48 ≤ A) → (A < 0x7890 ∨ 0x85f0 ≤ A) → (A < DIG + 16 ∨ DIG + 32 ≤ A) →
@@ -241,10 +241,10 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hd : E
       (A < 0x800 ∨ 0x818 ≤ A) → (A < 0x840 ∨ 0x2c48 ≤ A) → (A < 0xA0 ∨ 0xB0 ≤ A) → (A < 0x40 ∨ 0x60 ≤ A) →
       t7.getMem (BitVec.ofNat 64 A) = 0 := by
     intro A h0 h1 h2 h3 h4 h4' h5 h6
-    by_cases hm : 23880 ≤ A ∧ A < 23912
+    by_cases hm : 23896 ≤ A ∧ A < 23928
     · rw [P.frame.get (by omega) (by unfold NewW; simp only [DIG, NBUF, IDXV, ENC]; omega)]
       exact zm1 A hm.1 hm.2
-    have hgap : A < 23880 ∨ 23912 ≤ A := by omega
+    have hgap : A < 23896 ∨ 23928 ≤ A := by omega
     rw [g7 A (by omega) (nFW _ (by omega) (by simp only [DIG]; omega) hgap)
       (nNW _ (by omega) h1 h2 h3 h4' (by omega) (by simp only [DIG]; omega) (by simp only [NBUF]; omega)
         (by simp only [IDXV]; omega) (by simp only [ENC]; omega) (by simp only [ENC]; omega)),

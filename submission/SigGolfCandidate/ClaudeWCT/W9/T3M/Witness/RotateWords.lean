@@ -37,11 +37,11 @@ theorem legacyDigest_words (w : WCT9.Witness) :
 
 theorem tailDigest_words (w : WCT9.Witness) :
     wordsOf (digestBytes w) =
-      [w.signature.rho.extractLsb' 0 64, w.signature.rho.extractLsb' 64 64,
-        0, BitVec.ofNat 64 (256 ^ 4 * w.digestCounter.toNat)] := by
+      [BitVec.ofNat 64 w.digestCounter.toNat, 0,
+        w.signature.rho.extractLsb' 0 64, w.signature.rho.extractLsb' 64 64] := by
   unfold digestBytes
-  rw [List.append_assoc, wordsOf_append _ _ (by simp [bytesLE_length]),
-    wordsOf_bytesLE16, tailCounter_words]
+  rw [wordsOf_append _ _ (by simp [bytesLE_length, zeros]),
+    legacyCounter_words, wordsOf_bytesLE16]
   rfl
 
 theorem legacyWit_words (N : HashOutput) (w : WCT9.Witness) :
@@ -52,8 +52,8 @@ theorem legacyWit_words (N : HashOutput) (w : WCT9.Witness) :
 
 theorem tailWit_words (N : HashOutput) (w : WCT9.Witness) :
     wordsOf (witList N w) = wordsOf (witBody N w) ++
-      [w.signature.rho.extractLsb' 0 64, w.signature.rho.extractLsb' 64 64,
-        0, BitVec.ofNat 64 (256 ^ 4 * w.digestCounter.toNat)] := by
+      [BitVec.ofNat 64 w.digestCounter.toNat, 0,
+        w.signature.rho.extractLsb' 0 64, w.signature.rho.extractLsb' 64 64] := by
   rw [witList, wordsOf_append _ _ (by simp [witBody_length_eq]), tailDigest_words]
 
 theorem moved_body_word (N : HashOutput) (w : WCT9.Witness) (i : Nat) (hi : i < 2725) :

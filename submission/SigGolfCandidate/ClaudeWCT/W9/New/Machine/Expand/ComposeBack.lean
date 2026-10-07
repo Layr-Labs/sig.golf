@@ -81,7 +81,7 @@ theorem codeAt_appR {im : Image} {n : Nat} {a b : List (BitVec 32)} (h : CodeAt 
   rw [← ht, List.append_assoc, List.drop_left]
 def w9init (im : Image) (m : Message) (pk : PublicKey) (σ : Bytes 5456) : MachineState :=
   (((((({ regs := fun _ => 0, mem := fun _ => 0, pc := 0x1000 } : MachineState).writeBytesAsWords
-    (BitVec.ofNat 64 (dataBase im)) im.data).writeBytesAsWords (BitVec.ofNat 64 23880) (bytes m)).writeBytesAsWords
+    (BitVec.ofNat 64 (dataBase im)) im.data).writeBytesAsWords (BitVec.ofNat 64 23896) (bytes m)).writeBytesAsWords
     (BitVec.ofNat 64 0xA0) (bytes pk)).writeBytesAsWords (BitVec.ofNat 64 0x7000) (bytes σ))).setReg .x2
     (BitVec.ofNat 64 (dataBase im))
 set_option maxRecDepth 100000 in
@@ -126,21 +126,21 @@ theorem w9init_getMem (A : Nat) (hA : A < 2 ^ 64) :
       if 0x7000 ≤ A ∧ A < 0x7000 + 5456 ∧ (A - 0x7000) % 8 = 0 then
         bytesToWordLE (((bytes σ).drop (A - 0x7000)).take 8)
       else if 0xA0 ≤ A ∧ A < 0xB0 ∧ (A - 0xA0) % 8 = 0 then bytesToWordLE (((bytes pk).drop (A - 0xA0)).take 8)
-      else if 23880 ≤ A ∧ A < 23912 ∧ (A - 23880) % 8 = 0 then bytesToWordLE (((bytes m).drop (A - 23880)).take 8)
+      else if 23896 ≤ A ∧ A < 23928 ∧ (A - 23896) % 8 = 0 then bytesToWordLE (((bytes m).drop (A - 23896)).take 8)
       else if PLAN ≤ A ∧ A < PLAN + 26112 ∧ (A - PLAN) % 8 = 0 then
         bytesToWordLE ((im.data.drop (A - PLAN)).take 8)
       else 0 := by
   unfold w9init
   rw [MachineState.getMem_setReg, getMem_writeBytesAsWords _ _ 0x7000 A (by rw [bytes_length_e]; decide) hA,
     getMem_writeBytesAsWords _ _ 0xA0 A (by rw [bytes_length_e]; decide) hA,
-    getMem_writeBytesAsWords _ _ 23880 A (by rw [bytes_length_e]; decide) hA, dataBase_eq hd,
+    getMem_writeBytesAsWords _ _ 23896 A (by rw [bytes_length_e]; decide) hA, dataBase_eq hd,
     getMem_writeBytesAsWords _ _ PLAN A (by rw [data_length hd]; decide) hA, bytes_length_e, bytes_length_e,
     bytes_length_e, data_length hd]
   rfl
 theorem w9init_msg (j : Nat) (hj : j < 4) :
-    (w9init im m pk σ).getMem (BitVec.ofNat 64 (23880 + 8 * j)) = m.extractLsb' (64 * j) 64 := by
+    (w9init im m pk σ).getMem (BitVec.ofNat 64 (23896 + 8 * j)) = m.extractLsb' (64 * j) 64 := by
   rw [w9init_getMem hd _ _ _ _ (by omega), if_neg (by omega), if_neg (by omega), if_pos (by omega),
-    show 23880 + 8 * j - 23880 = 8 * j by omega, bytesToWordLE_bytes_e m j (by omega)]
+    show 23896 + 8 * j - 23896 = 8 * j by omega, bytesToWordLE_bytes_e m j (by omega)]
 theorem w9init_pk (j : Nat) (hj : j < 2) :
     (w9init im m pk σ).getMem (BitVec.ofNat 64 (0xA0 + 8 * j)) = pk.extractLsb' (64 * j) 64 := by
   rw [w9init_getMem hd _ _ _ _ (by omega), if_neg (by omega), if_pos (by omega),
@@ -158,7 +158,7 @@ theorem w9init_sig (k : Nat) (hk : k < 341) : DigAt (w9init im m pk σ) (0x7000 
     apply BitVec.eq_of_getLsbD_eq; intro i hi
     simp [ClaudeWCT.W9.T3M.sigDig, BitVec.getLsbD_extractLsb', hi, show 64 + i < 128 by omega]; ring_nf
 theorem w9init_zero (A : Nat) (hA : A < PLAN)
-    (h : (A < 0x7000 ∨ 0x7000 + 5456 ≤ A) ∧ (A < 0xA0 ∨ 0xB0 ≤ A) ∧ (A < 23880 ∨ 23912 ≤ A)) :
+    (h : (A < 0x7000 ∨ 0x7000 + 5456 ≤ A) ∧ (A < 0xA0 ∨ 0xB0 ≤ A) ∧ (A < 23896 ∨ 23928 ≤ A)) :
     (w9init im m pk σ).getMem (BitVec.ofNat 64 A) = 0 := by
   unfold PLAN at hA
   rw [w9init_getMem hd _ _ _ _ (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
@@ -267,14 +267,14 @@ theorem front_spec {im : Image} (hF : CodeAt im (pcOf 0) SigGolfCandidate.T3M.Ex
       t.getMem (BitVec.ofNat 64 0x808) = s.getMem (BitVec.ofNat 64 0x7008) ∧
       t.getMem (BitVec.ofNat 64 DIG) = s.getMem (BitVec.ofNat 64 0x7000) ∧
       t.getMem (BitVec.ofNat 64 (DIG + 8)) = s.getMem (BitVec.ofNat 64 0x7008) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 23880) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 23888) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 23896) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 23904) ∧
-      (∀ k < 4, t.getMem (BitVec.ofNat 64 (23880 + 8 * k)) = 0) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 23896) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 23904) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 23912) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 23920) ∧
+      (∀ k < 4, t.getMem (BitVec.ofNat 64 (23896 + 8 * k)) = 0) ∧
       RegsExcept s t [.x5, .x6, .x7, .x19, .x29, .x30] ∧
       Frame s t (fun A => A = 0x800 ∨ A = 0x808 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨ A = DIG + 40 ∨
-        A = DIG + 48 ∨ A = DIG + 56 ∨ A = 23880 ∨ A = 23888 ∨ A = 23896 ∨ A = 23904) := by
+        A = DIG + 48 ∨ A = DIG + 56 ∨ A = 23896 ∨ A = 23904 ∨ A = 23912 ∨ A = 23920) := by
   refine ⟨_, symRun_sound SigGolfCandidate.T3M.Expand.eblk_0 hF s hpc
     (by simp [SigGolfCandidate.T3M.Expand.eblk_0.res, rv_simp, accessValid_iff, MEMORY_BYTES]),
     ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
@@ -299,9 +299,9 @@ theorem front_pre30 {im : Image} (hF : FrontAt im) (hd : ExpandDataOK im) (m : M
     ∃ t, Steps im (w9init im m pk σ) 30 30 t ∧ Pre30 m (sigDec σ) t ∧
       t.getMem (BitVec.ofNat 64 0x800) = (sigDec σ).rho.extractLsb' 0 64 ∧
       t.getMem (BitVec.ofNat 64 0x808) = (sigDec σ).rho.extractLsb' 64 64 ∧
-      (∀ A, 23880 ≤ A → A < 23912 → t.getMem (BitVec.ofNat 64 A) = 0) ∧
+      (∀ A, 23896 ≤ A → A < 23928 → t.getMem (BitVec.ofNat 64 A) = 0) ∧
       Frame (w9init im m pk σ) t (fun A => A = 0x800 ∨ A = 0x808 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨
-        A = DIG + 40 ∨ A = DIG + 48 ∨ A = DIG + 56 ∨ A = 23880 ∨ A = 23888 ∨ A = 23896 ∨ A = 23904) := by
+        A = DIG + 40 ∨ A = DIG + 48 ∨ A = DIG + 56 ∨ A = 23896 ∨ A = 23904 ∨ A = 23912 ∨ A = 23920) := by
   set s := w9init im m pk σ
   obtain ⟨t, st, p, x5, x19, w800, w808, d0, d8, d32, d40, d48, d56, zmsg, r, f⟩ :=
     front_spec (codeAt_appL hF) s (w9init_pc m pk σ)
@@ -312,11 +312,11 @@ theorem front_pre30 {im : Image} (hF : FrontAt im) (hd : ExpandDataOK im) (m : M
     rw [sigDigests_sigDec σ k hk]
     exact ⟨(f _ (by omega) (by simp only [DIG]; omega)).trans this.1,
       (f _ (by omega) (by simp only [DIG]; omega)).trans this.2⟩
-  have zrange : ∀ A, 23880 ≤ A → A < 23912 → t.getMem (BitVec.ofNat 64 A) = 0 := by
+  have zrange : ∀ A, 23896 ≤ A → A < 23928 → t.getMem (BitVec.ofNat 64 A) = 0 := by
     intro A h1 h2
-    by_cases ha : (A - 23880) % 8 = 0
-    · obtain ⟨k, hk, he⟩ : ∃ k < 4, A = 23880 + 8 * k :=
-        ⟨(A - 23880) / 8, by omega, by omega⟩
+    by_cases ha : (A - 23896) % 8 = 0
+    · obtain ⟨k, hk, he⟩ : ∃ k < 4, A = 23896 + 8 * k :=
+        ⟨(A - 23896) / 8, by omega, by omega⟩
       rw [he]; exact zmsg k hk
     · rw [f A (by omega) (by simp only [DIG]; omega), w9init_getMem hd _ _ _ _ (by omega),
         if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by unfold PLAN; omega)]
