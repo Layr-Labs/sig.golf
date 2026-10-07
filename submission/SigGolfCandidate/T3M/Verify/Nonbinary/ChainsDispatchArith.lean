@@ -30,13 +30,13 @@ def shiftWord10 (W : Word) (b : Nat) : Word := if b<10 then W<<<(10-b) else W>>>
 theorem word_mask10 (W : Word) (b : Nat) (hb : b<64) :
     shiftWord10 W b &&& 130048#64=BitVec.ofNat 64 (1024*(W.toNat/2^b%128)) := by
   apply BitVec.eq_of_toNat_eq
-  rw [BitVec.toNat_and,show (130048#64).toNat=1024*(2^7-1) by rfl,land_mask10 _ _ (by decide)]
+  rw [BitVec.toNat_and,show (130048#64).toNat=1024*(2^7-1) by rfl,land_mask10 _ _ (by decide +kernel)]
   rw [BitVec.toNat_ofNat,Nat.mod_eq_of_lt (show 1024*(W.toNat/2^b%128)<2^64 by omega)]
   apply congrArg (fun x => 1024*x)
   unfold shiftWord10
   split_ifs with h
   · simp only [BitVec.toNat_shiftLeft,Nat.shiftLeft_eq]
-    rw [field_shl10 _ _ _ (by omega) (by decide),show 10-(10-b)=b by omega]
+    rw [field_shl10 _ _ _ (by omega) (by decide +kernel),show 10-(10-b)=b by omega]
     rfl
   · simp only [BitVec.toNat_ushiftRight,Nat.shiftRight_eq_div_pow]
     rw [Nat.div_div_eq_div_mul,
@@ -48,10 +48,10 @@ theorem shift10_eval (s : MachineState) (w : Reg) (W : Word) (hw : s.getReg w=W)
   split_ifs with h <;> simp only [E.eval,BinOp.eval,hw,BitVec.toNat_ofNat]
   · rw [Nat.mod_eq_of_lt (show 10-b<2^64 by omega),Nat.mod_eq_of_lt (show 10-b<64 by omega)]
   · rw [Nat.mod_eq_of_lt (show b-10<2^64 by omega),Nat.mod_eq_of_lt (show b-10<64 by omega)]
-theorem sub127_xor : ∀ f, f<128 → 127-f=127 ^^^ f := by decide
+theorem sub127_xor : ∀ f, f<128 → 127-f=127 ^^^ f := by decide +kernel
 theorem not_field (X : Word) (b : Nat) (hb : b+7 ≤ 64) :
     (~~~X).toNat/2^b%128=127-X.toNat/2^b%128 := by
-  rw [sub127_xor _ (Nat.mod_lt _ (by decide))]
+  rw [sub127_xor _ (Nat.mod_lt _ (by decide +kernel))]
   apply Nat.eq_of_testBit_eq; intro j
   rw [Nat.testBit_xor, show (128:Nat)=2^7 by norm_num, show (127:Nat)=2^7-1 by norm_num,
     Nat.testBit_mod_two_pow, Nat.testBit_mod_two_pow, Nat.testBit_div_two_pow, Nat.testBit_div_two_pow,
@@ -78,7 +78,7 @@ theorem g9_value (W : Word) :
       BitVec.ofNat 64 (2048*(W.toNat%64)+2300) := by
   have hm : ((W <<< (BitVec.ofNat 64 11).toNat) &&& 130048#64) = BitVec.ofNat 64 (2048*(W.toNat%64)) := by
     apply BitVec.eq_of_toNat_eq
-    rw [BitVec.toNat_and,show (130048#64).toNat=1024*(2^7-1) by rfl,land_mask10 _ _ (by decide)]
+    rw [BitVec.toNat_and,show (130048#64).toNat=1024*(2^7-1) by rfl,land_mask10 _ _ (by decide +kernel)]
     simp only [BitVec.toNat_shiftLeft, BitVec.toNat_ofNat, Nat.shiftLeft_eq]
     have hw := W.isLt
     rw [show (11 : Nat) % 2^64 = 11 by rfl]
@@ -91,10 +91,10 @@ theorem g9_value (W : Word) :
   rw [hm, ofNat_add_ofNat, even_andNot1' _ (by omega)]
 theorem g9_cell (u : Nat) (hu : u ≤ 62) : BitVec.ofNat 64 (2048*(63-u)+2300)=pcOf (cellW 9 (2*u)) := by
   unfold pcOf cellW entOff; norm_num; congr 1; omega
-theorem g9_fault : (BitVec.ofNat 64 (2048*(63-63)+2300)).toNat<0x1000 := by decide
+theorem g9_fault : (BitVec.ofNat 64 (2048*(63-63)+2300)).toNat<0x1000 := by decide +kernel
 theorem prologue_value (W : Word) :
     (((W <<< (BitVec.ofNat 64 10).toNat) &&& 130048#64)+BitVec.ofNat 64 1056) &&& ~~~1#64 =
       BitVec.ofNat 64 (1024*(W.toNat%128)+1056) := by
-  have h := dispatch_value W 0 0 (by decide) (by decide)
-  simpa [shiftWord10, entOff, Nat.mod_mod_of_dvd _ (show 128∣2^64 by decide)] using h
+  have h := dispatch_value W 0 0 (by decide +kernel) (by decide +kernel)
+  simpa [shiftWord10, entOff, Nat.mod_mod_of_dvd _ (show 128∣2^64 by decide +kernel)] using h
 end SigGolfCandidate.T3M.Nonbinary

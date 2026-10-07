@@ -166,12 +166,15 @@ theorem fieldOk_of_admissible {N : HashOutput} (h : WCT9.admissible N = true) (k
   have := ((WCT9.admissible_iff N).1 h).2 k
   exact decide_eq_true this
 theorem gateOk_of_admissible {N : HashOutput} (h : WCT9.admissible N = true) : gateOk N = true := by
-  have := ((WCT9.admissible_iff N).1 h).1
-  simp only [gateOk, decide_eq_true_eq]; exact this
+  unfold gateOk
+  apply decide_eq_true
+  simpa only [WCT9.gateLimit] using ((WCT9.admissible_iff N).1 h).1
 theorem admissible_of_ok {N : HashOutput} (hg : gateOk N = true) (hf : ∀ k, fieldOk N k = true) :
     WCT9.admissible N = true := by
+  unfold gateOk at hg
+  have hgate := of_decide_eq_true hg
   rw [WCT9.admissible_iff]
-  refine ⟨by simpa [gateOk] using hg, fun k => ?_⟩
+  refine ⟨by simpa only [WCT9.gateLimit] using hgate, fun k => ?_⟩
   have := hf k
   exact of_decide_eq_true this
 theorem wctP_shaped (N : HashOutput) (w : WBytes) (h : Shaped N w) :

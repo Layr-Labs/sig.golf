@@ -306,7 +306,7 @@ theorem tgtLf0_eval (t : MachineState) (leaf : Nat) (hl : leaf < 4096)
     rw [toNat_sll _ 8 (by norm_num), BitVec.toNat_ofNat, BitVec.toNat_ofNat]
     omega
   rw [hs, even_andNot1' _ (by omega)]
-theorem stabBits_le (lay : Layer) : stabBits lay.val ≤ hL lay.val := by fin_cases lay <;> decide
+theorem stabBits_le (lay : Layer) : stabBits lay.val ≤ hL lay.val := by fin_cases lay <;> decide +kernel
 theorem stabIdx_lt (lay : Nat) : stabIdx lay < 2 ^ 32 := by
   unfold stabIdx
   rcases lay with _ | _ | _ | _ | n <;> simp
@@ -322,7 +322,7 @@ structure TopLeafReady (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Na
   orig : Verify.Orig w (fun o => 8000 ≤ o ∧
     o < ClaudeWCT.W9.T3M.layerBase 0 + 16 * ClaudeWCT.W9.T3M.pathSlots 0) t
   s8 : t.getReg .x24 = 0
-theorem lfKeepK_keep : (lfKeepK 0).all (fun p => decide (p.1 ∈ keepLfAll 0)) = true := by decide
+theorem lfKeepK_keep : (lfKeepK 0).all (fun p => decide (p.1 ∈ keepLfAll 0)) = true := by decide +kernel
 theorem leafT_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0) (hidx : index < 2 ^ 31)
     (ends : List Digest) (t : MachineState) (ht : TopLeafReady w pk index c ends t) :
     ∃ u, Steps image t 8 8 u ∧ LeafOut w pk index 0 ends u := by
