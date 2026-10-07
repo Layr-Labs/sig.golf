@@ -156,7 +156,7 @@ theorem Inv.rung {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 12
     (hu : Pre L w index k j rank u) (hs : Inv u index k j tr answers s)
     (digit pc old : Nat) (dst : Option Nat) (ans : BitVec 256)
     (hn : 0 < answers.length) (hi : 320 ≤ tr.input ∧ tr.input + 64 ≤ 896)
-    (hdst : 320 ≤ dst.getD tr.output ∧ dst.getD tr.output + 32 ≤ 896)
+    (hdst : 336 ≤ dst.getD tr.output ∧ dst.getD tr.output + 32 ≤ 896)
     (hc : tr.chain < 7) (ho : old < 3) (hd : digit < 3)
     (hh : tr.read (tr.input + 16) = .header tr.chain old) :
     Inv u index k j (tr.step (.rung digit dst)) (answers ++ [ans])
@@ -219,7 +219,7 @@ theorem Inv.head {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 12
     {u s : MachineState} {tr : ChainTrace} {answers : List (BitVec 256)}
     (hu : Pre L w index k j rank u) (hs : Inv u index k j tr answers s)
     (off dst pc chain digit : Nat) (ans : BitVec 256)
-    (hoff : 320 ≤ off ∧ off + 64 ≤ 896) (hdst : 320 ≤ dst ∧ dst + 32 ≤ 896)
+    (hoff : 320 ≤ off ∧ off + 64 ≤ 896) (hdst : 336 ≤ dst ∧ dst + 32 ≤ 896)
     (hc : chain < 7) (hd : digit < 3) :
     Inv u index k j (tr.step (.head off dst chain digit)) (answers ++ [ans])
       (writeHash ((headRHRel .x8 (BitVec.ofNat 64 off) (BitVec.ofNat 64 dst)
@@ -269,7 +269,7 @@ theorem Inv.copy {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 12
     {u s : MachineState} {tr : ChainTrace} {answers : List (BitVec 256)}
     (hu : Pre L w index k j rank u) (hs : Inv u index k j tr answers s)
     (off dst pc : Nat) (hoff : off + 64 ≤ 896)
-    (hdst : 320 ≤ dst ∧ dst + 16 ≤ 896) :
+    (hdst : 336 ≤ dst ∧ dst + 16 ≤ 896) :
     Inv u index k j (tr.step (.copy off dst)) answers
       ((copyFHRel .x8 (BitVec.ofNat 64 off) (BitVec.ofNat 64 dst) pc).toState s) := by
   have hk := k.isLt
@@ -532,7 +532,7 @@ open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest)
 theorem merkleField_of_frame {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9}
     {j : Fin 128} {rank : Fin 728} {u s : MachineState} (hu : Pre L w index k j rank u)
-    (hf : Frame u s (writes k)) (off : Nat) (ha : off % 8 = 0) (ho : off + 16 ≤ 320) :
+    (hf : Frame u s (writes k)) (off : Nat) (ha : off % 8 = 0) (ho : off + 16 ≤ 336) :
     DigAt s (base k + off) (wdig w (V3.regionOffset k.val + off)) := by
   have hk := k.isLt
   have h0 := hu.origW off (by omega) ha
@@ -547,7 +547,7 @@ theorem merkleField_of_frame {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9}
     (by unfold writes; omega) (by unfold writes; omega)
 theorem auth_bounds : ∀ j : Fin 128, ∀ l : Fin 7,
     ClaudeWCT.W9.T3M.authSibOff j.val l.val % 8 = 0 ∧ ClaudeWCT.W9.T3M.authSibOff j.val l.val + 16 ≤ 320 ∧
-    ClaudeWCT.W9.T3M.authPadOff j.val l.val % 8 = 0 ∧ ClaudeWCT.W9.T3M.authPadOff j.val l.val + 16 ≤ 320 := by
+    ClaudeWCT.W9.T3M.authPadOff j.val l.val % 8 = 0 ∧ ClaudeWCT.W9.T3M.authPadOff j.val l.val + 16 ≤ 336 := by
   decide +kernel
 theorem merklePad_of_frame {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9}
     {j : Fin 128} {rank : Fin 728} {u s : MachineState} (hu : Pre L w index k j rank u)
@@ -562,7 +562,7 @@ theorem merkleSibling_of_frame {L : Layout} {w : WBytes} {index : Nat} {k : Fin 
     (hf : Frame u s (writes k)) (l : Nat) (hl : l < 7) :
     DigAt s (base k + ClaudeWCT.W9.T3M.authSibOff j.val l) (V3.sibling w k.val j.val l) := by
   have hb := auth_bounds j ⟨l, hl⟩
-  have h := merkleField_of_frame hu hf (ClaudeWCT.W9.T3M.authSibOff j.val l) hb.1 hb.2.1
+  have h := merkleField_of_frame hu hf (ClaudeWCT.W9.T3M.authSibOff j.val l) hb.1 (le_trans hb.2.1 (by decide : 320 ≤ 336))
   simpa only [V3.sibling, ClaudeWCT.W9.T3M.wsib, ClaudeWCT.W9.T3M.regionBase, V3.regionOffset, wdig]
     using h
 theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128}
@@ -611,6 +611,7 @@ theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
     baseReg := (hkeep .x8 (by decide)).trans hu.baseReg,
     hashInput := hp.1, hashLen := hp.2.1,
     nodeWord := (hkeep .x15 (by decide)).trans hu.nodeWord,
+    childIdx := (hkeep .x4 (by decide)).trans hu.childIdx,
     forestPointer := (hkeep .x9 (by decide)).trans hu.forestPointer,
     returnPC := (hkeep .x1 (by decide)).trans hu.returnPC,
     heaps := ?_, leafAt := ?_,

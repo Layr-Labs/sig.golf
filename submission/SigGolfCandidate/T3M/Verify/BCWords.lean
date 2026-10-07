@@ -24,10 +24,10 @@ def headerWrites (lay c : Nat) : List (Addr × E) :=
    (⟨none, BitVec.ofNat 64 (rowA lay c + 16)⟩, .reg .x28)]
 def specA (lay c : Nat) : Spec :=
   if lay = 3 then T3M.specA lay (trPc lay c) else
-  ⟨if lay = 0 then [(.x23, s7E lay), (.x3, ctrE lay c), (.x12, .reg .x12)]
-   else [(.x23, s7E lay), (.x31, treeE lay), (.x3, ctrE lay c), (.x12, .reg .x12)],
+  ⟨if lay = 0 then [(.x23, s7E lay), (.x12, .reg .x12)]
+   else [(.x23, s7E lay), (.x31, treeE lay), (.x12, .reg .x12)],
    headerWrites lay c, trPc lay c + stepsA lay, true, stepsA lay,
-   [ctrBr lay c false], none, stepsA lay⟩
+   [], none, stepsA lay⟩
 def rejA (lay c : Nat) : Spec :=
   if lay = 3 then T3M.rejA lay (trPc lay c) else
   ⟨[(.x5, kw 1), (.x10, kw 1)], headerWrites lay c,
@@ -38,10 +38,8 @@ def oblB : List Oblig := [.valid ⟨some (.reg .x12), 8⟩ 8, .valid ⟨some (.r
 def allowed (lay c : Nat) : List Nat :=
   if lay = 3 then [2064, 2072] else [rowA lay c + 16, rowA lay c + 24]
 def setupCheck (lay c : Nat) : Bool :=
-  specB (allowed lay c) [] baseK (runAt (preK lay) [] (setupPc lay (trPc lay c)) [.br (setupAcceptDir lay)])
-    (specA lay c) [] (bK lay c) (keepA lay) &&
-  specB (allowed lay c) [] [] (runAt (preK lay) [] (setupPc lay (trPc lay c)) [.br (!setupAcceptDir lay)])
-    (rejA lay c) [] [] []
+  specB (allowed lay c) [] baseK (runAt (preK lay) [] (setupPc lay (trPc lay c)) [])
+    (specA lay c) [] (bK lay c) (keepA lay)
 def copyCheck (lay c : Nat) : Bool :=
   setupCheck lay c &&
   (if lay = 0 then true else
