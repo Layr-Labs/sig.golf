@@ -571,9 +571,9 @@ theorem layerCostA_low (lay : Layer) (h : lay ≠ 0) :
   fin_cases lay
   · exact absurd rfl h
   all_goals rfl
-theorem layerCost_vals : layerCost 3 0 = 1215 ∧ layerCost 2 0 = 1218 ∧ layerCost 1 0 = 1218 := by decide
-theorem layerCostA_vals : layerCostA 3 = 1211 ∧ layerCostA 2 = 1214 ∧ layerCostA 1 = 1214 := by decide
-theorem layerFuel_vals : layerFuel 3 = 1761 ∧ layerFuel 2 = 1755 ∧ layerFuel 1 = 1755 := by decide
+theorem layerCost_vals : layerCost 3 0 = 1214 ∧ layerCost 2 0 = 1209 ∧ layerCost 1 0 = 1209 := by decide +kernel
+theorem layerCostA_vals : layerCostA 3 = 1210 ∧ layerCostA 2 = 1205 ∧ layerCostA 1 = 1205 := by decide +kernel
+theorem layerFuel_vals : layerFuel 3 = 1760 ∧ layerFuel 2 = 1755 ∧ layerFuel 1 = 1755 := by decide
 theorem ckOf_lt (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (ds : List Nat)
     (hds : decode lay (ansD a) = some ds) : ckOf lay a < 8 := by
   rw [decode_lower_v6 lay hlay] at hds

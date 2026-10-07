@@ -110,7 +110,7 @@ theorem sub60_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSta
       RegsExcept s t [.x6, .x7, .x28, .x29, .x30] ∧
       Frame s t (fun A => A = CHAIN + 48 ∨ A = CHAIN + 56) := by
   have hrun := run_60 h.2.1
-  have hm : i % 2 < 2 := Nat.mod_lt _ (by decide)
+  have hm : i % 2 < 2 := Nat.mod_lt _ (by decide +kernel)
   have hobl : Oblig.all s st_60.obl := by
     simp only [st_60, blk117_60.res]
     t3n [h19, ofNat_and1]
@@ -142,7 +142,7 @@ theorem sub72_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSta
   refine ⟨_, st, ?_, ?_, ?_, ?_⟩
   · show s.pc + 4 = pcOf (b + 73)
     rw [hpc, pcOf_add4]
-  · rw [MachineState.getReg_setPC, MachineState.getReg_setReg_eq (by decide), hoff, hbyte]
+  · rw [MachineState.getReg_setPC, MachineState.getReg_setReg_eq (by decide +kernel), hoff, hbyte]
     apply BitVec.eq_of_toNat_eq
     simp only [BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth, BitVec.toNat_ofNat]
     omega
@@ -337,7 +337,7 @@ theorem sub96_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSta
   · simp [pcE_96, Result.toState_pc, E.eval]
   · simp [st_96, blk117_96.res, rv_simp]
   · simp only [Result.toState_getReg, st_96, blk117_96.res, rv_simp, h26]
-    rcases hn with rfl | rfl <;> decide
+    rcases hn with rfl | rfl <;> decide +kernel
   · simp [st_96, blk117_96.res, rv_simp]
   · intro r hr; simp at hr; cases r <;> simp_all [st_96, blk117_96.res, rv_simp] <;> rfl
   · intro A _ _; simp [st_96, blk117_96.res, rv_simp]

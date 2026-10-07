@@ -1,4 +1,4 @@
-import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Sign.FtsRuns
+import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Sign.FtsCheckBPart0
 
 namespace ClaudeWCT.W9.Machine.Sign
 set_option maxRecDepth 100000

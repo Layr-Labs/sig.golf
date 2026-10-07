@@ -68,28 +68,28 @@ theorem average_forecast (R : Nat) (X : List HashOutput) :
       fun W => (2 ^ 128 : ENNReal)⁻¹ * S.price (S.proposals X ++ W) by
     funext W; exact mul_comm _ _, ClaudeWCT.Numerics.Law.lawAvg_mul_left, mul_comm]
 noncomputable def excessForecast (R : Nat) (X : List HashOutput) : ENNReal :=
-  ClaudeWCT.Numerics.Law.lawAvg S.law R (fun W => S.price (S.proposals X ++ W) - CaseC.theta)
+  ClaudeWCT.Numerics.Law.lawAvg S.law R (fun W => S.price (S.proposals X ++ W) - S.specTheta)
 theorem excessForecast_step (R : Nat) (X : List HashOutput) :
     expectedValue S.accepted (fun A => S.excessForecast R (X ++ [A])) = S.excessForecast (R + 1) X := by
   unfold excessForecast
   rw [ClaudeWCT.Numerics.Law.lawAvg_succ]
   have hA (A : HashOutput) : ClaudeWCT.Numerics.Law.lawAvg S.law R
-      (fun W => S.price (S.proposals (X ++ [A]) ++ W) - CaseC.theta) =
+      (fun W => S.price (S.proposals (X ++ [A]) ++ W) - S.specTheta) =
       (fun p : P => ClaudeWCT.Numerics.Law.lawAvg S.law R
-        (fun W => S.price (S.proposals X ++ p :: W) - CaseC.theta)) (S.proposal A) := by
+        (fun W => S.price (S.proposals X ++ p :: W) - S.specTheta)) (S.proposal A) := by
     simp [proposals, List.map_append, List.append_assoc]
   simp_rw [hA]
   exact S.expected_accepted_proposal (fun p => ClaudeWCT.Numerics.Law.lawAvg S.law R
-    (fun W => S.price (S.proposals X ++ p :: W) - CaseC.theta))
+    (fun W => S.price (S.proposals X ++ p :: W) - S.specTheta))
 theorem average_forecast_le (R : Nat) (X : List HashOutput) :
     BPORS.finiteAverage (fun N : HashOutput => S.forecast R X N) ≤
-      (CaseC.theta + S.excessForecast R X) / 2 ^ 128 := by
+      (S.specTheta + S.excessForecast R X) / 2 ^ 128 := by
   rw [average_forecast]
   apply ENNReal.div_le_div_right
   unfold excessForecast
   calc
     _ ≤ ClaudeWCT.Numerics.Law.lawAvg S.law R
-          (fun W => CaseC.theta + (S.price (S.proposals X ++ W) - CaseC.theta)) :=
+          (fun W => S.specTheta + (S.price (S.proposals X ++ W) - S.specTheta)) :=
       ClaudeWCT.Numerics.Law.lawAvg_mono S.law R fun W => le_add_tsub
     _ = _ := by
       rw [ClaudeWCT.Numerics.Law.lawAvg_add, ClaudeWCT.Numerics.Law.lawAvg_const S.law S.law_sum]
@@ -174,7 +174,7 @@ theorem expected_admInd : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) 
   unfold admInd
   rw [expectedValue_ite_one]
   rfl
-theorem expected_admInd_tight : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) S.admInd ≤ 1 / 64 := by
+theorem expected_admInd_tight : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) S.admInd ≤ S.admBound := by
   rw [expected_admInd]
   exact S.acceptance_le
 theorem admissibleEntry_cacheQuery (cache : Sampling.RCache) (x : HashInput) (a : HashOutput)
@@ -235,9 +235,9 @@ theorem ledger_slack_mono (R : Nat) (targets X : List HashOutput) {slack slack' 
   exact_mod_cast h
 theorem ledger_birth (R : Nat) (targets X : List HashOutput) (slack : Nat) :
     expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun a => S.ledger R (targets ++ [a]) X slack) ≤
-      S.ledger R targets X (slack + 1) + theta / 2 ^ 128 := by
+      S.ledger R targets X (slack + 1) + S.specTheta / 2 ^ 128 := by
   have hfa : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun a => S.forecast R X a) ≤
-      (theta + S.excessForecast R X) / 2 ^ 128 := by
+      (S.specTheta + S.excessForecast R X) / 2 ^ 128 := by
     rw [BPORS.expected_uniform_eq_finiteAverage]
     exact S.average_forecast_le R X
   have hsplit : ∀ a, S.ledger R (targets ++ [a]) X slack = S.ledger R targets X slack + S.forecast R X a := by
@@ -308,7 +308,7 @@ theorem core_birth (b : BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : HashOut
         (fun N => S.corePotential { b with targets := b.targets ++ [N], slack := s, reuse := C' N }) ≤
       S.corePotential b + (theta + 1 / 64) / 2 ^ 128 := by
   have hadm : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun N => S.admInd N / 2 ^ 128) ≤
-      (1 / 64) / 2 ^ 128 := by
+      S.admBound / 2 ^ 128 := by
     simp only [div_eq_mul_inv]
     rw [expectedValue_mul_const]
     exact mul_le_mul' (by simpa [div_eq_mul_inv] using S.expected_admInd_tight) le_rfl
@@ -323,10 +323,10 @@ theorem core_birth (b : BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : HashOut
     calc
       _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun N => S.admInd N / 2 ^ 128 + (1 + b.reuse)) :=
         expectedValue_mono _ fun N => (add_le_add le_rfl (hC N)).trans (le_of_eq (by ring))
-      _ ≤ (1 / 64) / 2 ^ 128 + (1 + b.reuse) :=
+      _ ≤ S.admBound / 2 ^ 128 + (1 + b.reuse) :=
         (CaseC.expectedValue_add_const_le _ _ _).trans (add_le_add hadm le_rfl)
       _ ≤ _ := by
-        rw [add_comm]
+        rw [add_comm, ← S.theta_add_admBound]
         apply add_le_add le_rfl
         apply ENNReal.div_le_div_right
         exact le_add_self
@@ -339,11 +339,11 @@ theorem core_birth (b : BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : HashOut
       _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
           (fun N => S.ledger R (b.targets ++ [N]) b.exposures s + S.admInd N / 2 ^ 128) + b.reuse :=
         CaseC.expectedValue_add_const_le _ _ _
-      _ ≤ (S.ledger R b.targets b.exposures (s + 1) + theta / 2 ^ 128 + (1 / 64) / 2 ^ 128) + b.reuse := by
+      _ ≤ (S.ledger R b.targets b.exposures (s + 1) + S.specTheta / 2 ^ 128 + S.admBound / 2 ^ 128) + b.reuse := by
         rw [expectedValue_add]
         exact add_le_add (add_le_add (S.ledger_birth R b.targets b.exposures s) hadm) le_rfl
       _ = _ := by
-        rw [hs, ENNReal.add_div]
+        rw [hs, ← S.theta_add_admBound, ENNReal.add_div]
         ring
 theorem core_sign (b : BankCore) (cache : Sampling.RCache) (m : Message) (C' : ENNReal)
     (hC : C' + S.reuseMass cache m ≤ b.reuse) (secret : BitVec 256) (fuel : Nat) (hfuel : fuel ≤ 2 ^ 32) :
