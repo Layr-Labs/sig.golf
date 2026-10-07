@@ -216,7 +216,7 @@ theorem agree_layers (hash : Hash) (sig : ClaudeWCT.WCT9.Signature) (index : Nat
             (ClaudeWCT.WCT9.searchLimit (Fin.ofNat 4 n)) 0 counter digits
             (by unfold counterLimit at hlim; omega) hs
           have hdecode := ClaudeWCT.WCT9.producerDecode_decode hsd
-          have hnot : ¬counter.toNat ≥ counterLimit := by omega
+          have hnot : ¬counter.toNat ≥ ClaudeWCT.WCT9.verifyWindow := ClaudeWCT.WCT9.ctr_not_ge_verifyWindow counter
           have hlay := ClaudeWCT.WCT9.ofNat_layer_val n (by omega)
           simp only [hs] at he
           rw [eval_shortHash] at hsd

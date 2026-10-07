@@ -40,7 +40,7 @@ theorem fts_x5 : FtsGoodByCost W9Drv.GatePre FtsOutV (ftsAcceptCost 1047) := by
   have h := W9Drv.fts_good W9Machine.Chain.allGood pk w a u N C A Q K hu hK
     (fun root t ht => goodQ_frozen.mpr (hnext root t ht))
   exact goodQ_frozen.mp h
-theorem after_x6 : AfterGoodBudget FtsOutV 5487 :=
+theorem after_x6 : AfterGoodBudget FtsOutV 5478 :=
   fun pk w Q hQ a root u h => SigGolfCandidate.T3M.after_good_budget pk w Q hQ a root u h
 theorem verify_final_closed :
     ClaudeWCT.W9.T3M.Final.VerifyRefines I0 ∧ ClaudeWCT.W9.T3M.Final.VerifyTerminates I0 ∧
@@ -93,7 +93,7 @@ section
 namespace SigGolfCandidate.Packaging
 open ClaudeWCT.W9.Machine.ExpandLink (I0)
 theorem certificate_ready :
-    SigGolf.Certificate (SigGolfCandidate.Transfer.currentOf SigGolfCandidate.T3M.submission) 7347 :=
+    SigGolf.Certificate (SigGolfCandidate.Transfer.currentOf SigGolfCandidate.T3M.submission) 7338 :=
   ClaudeWCT.W9.Final.certificate_of_pending (I := I0)
     { large_route := ClaudeWCT.W9.T3.Security.LargeCoupling.large_route_hlarge
       pair_bound := ClaudeWCT.W9.T3.Security.WPair.pair_guess_bound
