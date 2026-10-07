@@ -93,7 +93,7 @@ section
 namespace SigGolfCandidate.Packaging
 open ClaudeWCT.W9.Machine.ExpandLink (I0)
 theorem certificate_ready :
-    SigGolf.Certificate (SigGolfCandidate.Transfer.currentOf SigGolfCandidate.T3M.submission) 7351 :=
+    SigGolf.Certificate (SigGolfCandidate.Transfer.currentOf SigGolfCandidate.T3M.submission) 7348 :=
   ClaudeWCT.W9.Final.certificate_of_pending (I := I0)
     { large_route := ClaudeWCT.W9.T3.Security.LargeCoupling.large_route_hlarge
       pair_bound := ClaudeWCT.W9.T3.Security.WPair.pair_guess_bound
