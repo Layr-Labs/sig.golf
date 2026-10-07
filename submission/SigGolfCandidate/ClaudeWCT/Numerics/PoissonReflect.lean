@@ -191,6 +191,14 @@ theorem rejection_window (T : ℕ) (hT : 2 ^ 32 ≤ T) :
     push_cast
     linarith
   · norm_num
+theorem rejection_window_sharp (T : ℕ) (hT : 2 ^ 32 ≤ T) :
+    (1 - (2 ^ 31 : ENNReal)⁻¹) ^ (T - 80) ≤ ((13533529 : ℕ) : ENNReal) / ((100000000 : ℕ) : ENNReal) := by
+  refine rejection_ennreal _ 13533529 100000000 (by norm_num) (by norm_num) ((2 ^ 32 - 80) / 2 ^ 31) ?_ ?_
+  · rw [div_mul_cancel₀ _ (by positivity), Nat.cast_sub (by omega)]
+    have : (2 : ℝ) ^ 32 ≤ T := by exact_mod_cast hT
+    push_cast
+    linarith
+  · norm_num
 theorem lam_le (T : ℕ) (hT : T ≤ 2 ^ 32 + 2 ^ 23) :
     (T : ENNReal) * (2 ^ 31 : ENNReal)⁻¹ ≤ ((513 : ℕ) : ENNReal) / ((256 : ℕ) : ENNReal) := by
   have hfin : (T : ENNReal) * (2 ^ 31 : ENNReal)⁻¹ ≠ ⊤ :=

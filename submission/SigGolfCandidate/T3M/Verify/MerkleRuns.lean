@@ -25,11 +25,11 @@ def mkWords (lay l : Nat) : Nat := (if l = 0 then (if lay = 0 then 6 else 8) els
 def mkOff (lay ci : Nat) : Nat → Nat
   | 0 => 0
   | kk + 1 => mkOff lay ci kk + mkWords lay (mkLo lay ci + kk)
-def mkBase (lay : Nat) : Nat := [8104,12328,15528,18664].getD lay 0
+def mkBase (lay : Nat) : Nat := [8136,12360,15560,18696].getD lay 0
 def mkBo (lay l : Nat) : Nat := mkBase lay + 64 * (hL lay - 1 - l)
 def mkBlk (lay l : Nat) : Nat := 0x800 + mkBo lay l
 def mkCur (lay l b : Nat) : Nat := mkBlk lay l + 48 * b
-def mkDst (lay leaf : Nat) : Nat := if lay = 0 then 10152 + 48 * (leaf / 2048 % 2) else 256
+def mkDst (lay leaf : Nat) : Nat := if lay = 0 then 10184 + 48 * (leaf / 2048 % 2) else 256
 def mkMove (lay level : Nat) : Nat := if lay = 0 ∧ level = 11 then 0 else 1
 def mkHeap (lay ci sh l : Nat) : Nat := (2 ^ hL lay + sh * 2 ^ mkLo lay ci) / 2 ^ (l + 1)
 def mkHdrReg (lay : Nat) : Reg := if lay = 1 then .x25 else .x4
@@ -66,7 +66,7 @@ def mkDispTgt : E :=
 def mkBody (lay l : Nat) : Nat := (if l = 0 then (if lay = 0 then 3 else 5) else 2) + (if mkReg lay l then 1 else 2)
 def mkIsDisp (lay ci kk : Nat) : Bool := decide (lay = 0 ∧ ci = 0 ∧ kk + 1 = mkBits lay ci)
 def mkNextA2 (lay ci sh kk : Nat) : Nat :=
-  if kk + 1 < mkBits lay ci then mkCur lay (mkLo lay ci + kk + 1) (sh / 2 ^ (kk + 1) % 2) else if lay = 0 then 10152 + 48 * (sh / 32 % 2) else 256
+  if kk + 1 < mkBits lay ci then mkCur lay (mkLo lay ci + kk + 1) (sh / 2 ^ (kk + 1) % 2) else if lay = 0 then 10184 + 48 * (sh / 32 % 2) else 256
 def mkLvlSpecN (lay ci sh kk : Nat) : Spec :=
   ⟨mkLvlRegs lay (mkLo lay ci + kk), mkLvlMem lay ci sh (mkLo lay ci + kk),
     mkShp lay ci sh + mkOff lay ci (kk + 1) + mkMove lay (mkLo lay ci + kk), true,
@@ -100,7 +100,7 @@ def mkBlockCheck (lay ci sh : Nat) : Bool :=
   mkEntCheck lay ci sh && (List.range (mkBits lay ci)).all (mkLvlCheck lay ci sh)
 def mkChunkCheck (lay ci lo n : Nat) : Bool := (List.range' lo n).all (mkBlockCheck lay ci)
 def cmpPc (c : Nat) : Nat := 39970 + 128 * c
-def cmpDst (c : Nat) : Nat := 10152 + 48 * (c / 32 % 2)
+def cmpDst (c : Nat) : Nat := 10184 + 48 * (c / 32 % 2)
 def cmpK (c : Nat) : List (Reg × Word) := baseK ++ [(.x12, BitVec.ofNat 64 (cmpDst c))]
 def cmpBr1 (c : Nat) (d : Bool) : Br := ⟨.ne, .ld (kw (cmpDst c)), .ld (kw 160), d⟩
 def cmpBr2 (c : Nat) (d : Bool) : Br := ⟨.ne, .ld (kw (cmpDst c + 8)), .ld (kw 168), d⟩

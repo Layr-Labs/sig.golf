@@ -43,20 +43,22 @@ theorem witnessCycles_eq : witnessCycles (submission I).sizes.witness = 86 := by
 theorem claimedC_eq : claimedC = verifyCycleBound + witnessCycles (submission I).sizes.witness := by
   rw [witnessCycles_eq]
   decide
-theorem submission_verificationBound (P : Pending I) : (submission I).VerificationBound 7408 := by
+theorem submission_verificationBound (P : Pending I) : (submission I).VerificationBound 7398 := by
   intro hash sk m
   dsimp only
   intro h
   obtain ⟨pk, s, w, he, hacc, hcyc⟩ := Credit.honest_success_verify_cf (submission I) hash sk m h
   obtain ⟨N, wt, hx, rfl⟩ := Credit.expand_witness P hash m pk s w he
-  have heq := Credit.verify_run_ok P hash m pk _ (Credit.agree_verifyP hash m pk _ N wt hx)
+  have hproj : _root_.ClaudeWCT.W9.T3M.wProj (_root_.ClaudeWCT.W9.T3M.wLift (ClaudeWCT.W9.T3M.witEnc N wt)) =
+      ClaudeWCT.W9.T3M.witEnc N wt := _root_.ClaudeWCT.W9.T3M.wProj_wLift _
+  have heq := Credit.verify_run_ok P hash m pk _ (by rw [hproj]; exact Credit.agree_verifyP hash m pk _ N wt hx)
   rw [hcyc, witnessCycles_eq, heq]
   rw [heq] at hacc
   have := P.verify_accept_cycles (SigGolfCandidate.T3M.Verify.okHash hash) m pk _
-    (SigGolfCandidate.T3M.Verify.hashOk_okHash hash) (Credit.digestCap_okHash hash m pk _ N wt hx) hacc
+    (SigGolfCandidate.T3M.Verify.hashOk_okHash hash) (by rw [hproj]; exact Credit.digestCap_okHash hash m pk _ N wt hx) hacc
   unfold verifyCycleBound at this
   omega
-theorem certificate_of (P : Pending I) (S : SourceFacts) : Certificate (submission I) 7408 where
+theorem certificate_of (P : Pending I) (S : SourceFacts) : Certificate (submission I) 7398 where
   admissible := P.admissible
   termination := submission_terminates P
   completeness := submission_complete P S

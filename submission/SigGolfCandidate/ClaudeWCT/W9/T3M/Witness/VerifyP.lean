@@ -6,8 +6,8 @@ section
 namespace ClaudeWCT.W9.T3M
 open SigGolfCandidate.T3
 open SigGolfCandidate.T3M (sibOff)
-def regionBase (k : Nat) : Nat := 32 + 896 * k
-def wctEnd : Nat := 8096
+def regionBase (k : Nat) : Nat := 64 + 896 * k
+def wctEnd : Nat := 8128
 def wctChainBlock (k t : Nat) : Nat := regionBase k + (704 - 64 * t)
 def wctLeafBlock (k : Nat) : Nat := regionBase k + 752
 def wctLeafSlot (k t : Nat) : Nat := regionBase k + (if t = 0 then 752 else 768 + 16 * t)
@@ -89,7 +89,7 @@ def wcpads (w : WBytes) (k t : Nat) : Digest × Digest :=
 def wsib (w : WBytes) (k child l : Nat) : Digest := wdig w (regionBase k + authSibOff child l)
 def wmpad (w : WBytes) (k child l : Nat) : Digest := wdig w (regionBase k + authPadOff child l)
 def wcHeaderPad (w : WBytes) (k t : Nat) : BitVec 64 := (wdig w (wctChainBlock k t + 16)).extractLsb' 64 64
-def bcCounterOff (lay : Layer) : Nat := (![12360, 15560, 18696, 0] : Layer → Nat) lay
+def bcCounterOff (lay : Layer) : Nat := (![12392, 15592, 18728, 32] : Layer → Nat) lay
 def wbcCtr (w : WBytes) (lay : Layer) : BitVec 32 := wle32 w (bcCounterOff lay)
 def wbcPad (w : WBytes) (lay : Layer) : BitVec 96 := w.extractLsb' (8 * (bcCounterOff lay + 4)) 96
 theorem wctLeafSlot_zero (k : Nat) : wctLeafSlot k 0 = wctChainBlock k 0 + 48 := by
@@ -115,7 +115,7 @@ def wctNodeHashP (coord index heap : Nat) (left pad right : Digest) : M Digest :
   nodeHashP 3 (WCT9.nodeLayer coord) index heap left pad right
 def digestP (m : Message) (w : WBytes) : M (Option HashOutput) :=
   if (wdc w).toNat ≥ WCT9.digestAttemptLimit then pure none else some <$> digest (wrho w) m (wdc w)
-def gateOk (N : HashOutput) : Bool := decide (N.toNat / 2 ^ 235 % 2 ^ 21 < 1091)
+def gateOk (N : HashOutput) : Bool := decide (N.toNat / 2 ^ 235 % 2 ^ 21 < 1208)
 def fieldOk (N : HashOutput) (coord : WCT9.Coord) : Bool := decide (WCT9.field N coord < WCT9.fieldLimit)
 def wctCoordP (w : WBytes) (index : Nat) (coord : WCT9.Coord) (child : WCT9.Child) (word : WCT9.Rank) :
     M (Digest × Digest) := do

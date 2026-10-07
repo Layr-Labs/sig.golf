@@ -85,7 +85,7 @@ theorem lfSlotCheck_at (lay c : Nat) (h0 : lay ≠ 0) (h4 : lay < 4) (hc : c < 8
 theorem geomL (lay : Layer) (h : lay ≠ 0) :
     s6v lay.val = 2048 + ClaudeWCT.W9.T3M.layerBase lay + 64 * height lay + 1024 ∧
       ClaudeWCT.W9.T3M.layerBase lay + 64 * height lay ≤ layerEnd lay.val ∧
-      8104 ≤ ClaudeWCT.W9.T3M.layerBase lay ∧ layerEnd lay.val < 21801 := by
+      8136 ≤ ClaudeWCT.W9.T3M.layerBase lay ∧ layerEnd lay.val < 21833 := by
   fin_cases lay
   · exact absurd rfl h
   all_goals decide
@@ -103,10 +103,10 @@ theorem lfS7_pc (lay : Layer) (hlay : lay ≠ 0) (leaf : Nat) (hl : leaf < 2 ^ h
 theorem leafL_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay : lay ≠ 0)
     (hidx : index < 2 ^ 31) (a : BitVec 256) (s0 : MachineState)
     (hk : ∀ p ∈ (lctxOf w index lay a).known, s0.getReg p.1 = p.2) (hck : (lctxOf w index lay a).ck < 8)
-    (hG : Glob (chainK lay.val) w pk s0) (hO : Verify.Orig w (fun o => 8104 ≤ o ∧ o < layerEnd lay.val) s0)
+    (hG : Glob (chainK lay.val) w pk s0) (hO : Verify.Orig w (fun o => 8136 ≤ o ∧ o < layerEnd lay.val) s0)
     (h23 : s0.getReg .x23 = BitVec.ofNat 64 (lfS7 lay.val (route index lay).1))
     (h30 : s0.getReg .x31 = BitVec.ofNat 64 (route index lay).2)
-    (h1 : s0.getReg .x1 = BitVec.ofNat 64 TOPBASE)
+    (h1 : s0.getReg .x9 = BitVec.ofNat 64 FBASE)
     (ends : List Digest) (t : MachineState)
     (ht : (lctxOf w index lay a).ChainOut s0 43 ends t) :
     ∃ u, Steps image t 7 7 u ∧ LeafOut w pk index lay ends u := by
@@ -193,7 +193,7 @@ theorem leafL_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (la
     simp only [E.eval]
     rw [hR .x4 (by simp [chainRegs]), hk (.x4, BitVec.ofNat 64 L.w1) (by simp [LCtx.known])]
     rfl
-  · have hOt : Verify.Orig w (fun o => 8104 ≤ o ∧ o < ClaudeWCT.W9.T3M.layerBase lay + 64 * height lay) t :=
+  · have hOt : Verify.Orig w (fun o => 8136 ≤ o ∧ o < ClaudeWCT.W9.T3M.layerBase lay + 64 * height lay) t :=
       (hO.mono (fun o ho => ⟨ho.1, by omega⟩)).frame (fun j hj hp => hF.get (by unfold WIT WX at *; omega)
         (fun hw => by
           unfold LCtx.Wr at hw; rw [hS6] at hw
@@ -224,7 +224,7 @@ theorem counter_eval : CounterEval := fun w pk index lay msg s hs => by
       have hm := hs.msg.2.2.2 4 (Or.inl rfl)
       simp only [ctrE, if_neg h3, E.eval, kw, UnOp.eval, hm]
       rw [counterWord]
-      fin_cases lay <;> first | rfl | (exfalso; apply h3; rfl)
+      fin_cases lay <;> rfl
   case pos =>
     obtain rfl : lay = 3 := Fin.ext h3
     exact T3M.ctrE_eval w s hs.glob.2.1
@@ -384,7 +384,7 @@ theorem pair_setup_hash : PairSetupHash := fun w pk index lay left right s hs c 
   have h11 : t.getReg .x11 = BitVec.ofNat 64 64 :=
     ht.known (.x11, _) (by fin_cases lay <;> simp [bK, T3M.bK, layK])
   obtain ⟨d, h12, hd⟩ : ∃ d, t.getReg .x12 = BitVec.ofNat 64 d ∧
-      (d = 14376 ∨ d = 14424 ∨ d = 17576 ∨ d = 17624 ∨ d = 20712 ∨ d = 20760) := by
+      (d = 14408 ∨ d = 14456 ∨ d = 17608 ∨ d = 17656 ∨ d = 20744 ∨ d = 20792) := by
     by_cases h0 : lay.val = 0
     · obtain ⟨d, hd, hdd⟩ := hs.dst0 h0
       obtain rfl : lay = 0 := Fin.ext h0
@@ -431,14 +431,10 @@ theorem pair_setup_hash : PairSetupHash := fun w pk index lay left right s hs c 
   case refine_5 => simpa [Nat.add_assoc] using hs.msg.2.2.1.2
   case refine_3 =>
     rw [frame 32 (by decide) (by decide) (by decide)]
-    fin_cases lay <;> first
-      | exact (hs.msg.2.2.2 4 (Or.inl rfl)).trans (Verify.wdig_lo w _).symm
-      | (exfalso; apply h3; rfl)
+    fin_cases lay <;> exact (hs.msg.2.2.2 4 (Or.inl rfl)).trans (Verify.wdig_lo w _).symm
   case refine_4 =>
     rw [frame 40 (by decide) (by decide) (by decide)]
-    fin_cases lay <;> first
-      | exact (hs.msg.2.2.2 5 (Or.inr rfl)).trans (Verify.wdig_hi w _).symm
-      | (exfalso; apply h3; rfl)
+    fin_cases lay <;> exact (hs.msg.2.2.2 5 (Or.inr rfl)).trans (Verify.wdig_hi w _).symm
   case refine_1 =>
     rw [hm]
     unfold headerWrites
@@ -755,15 +751,15 @@ theorem layer_good_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
     exact (GoodQP.steps' hst this (by omega) (by omega) (by omega)).toGoodQ
 theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (root : Digest) (u : MachineState)
     (hidx : idx < 2 ^ 31) (hglob : Glob baseK w pk u) (hreg : u.getReg .x22 = BitVec.ofNat 64 idx)
-    (hpc : u.pc = pcOf 32971) (hroot : DigAt u 0x100 root)
-    (hwit : Verify.Orig w (fun o => o < 32 ∨ 8104 ≤ o) u) (ha2 : u.getReg .x12 = BitVec.ofNat 64 0x100)
+    (hpc : u.pc = pcOf 32970) (hroot : DigAt u 0x100 root)
+    (hwit : Verify.Orig w (fun o => o < 64 ∨ 8136 ≤ o) u) (ha2 : u.getReg .x12 = BitVec.ofNat 64 0x100)
     (hs10 : u.getReg .x26 = 6) (hOne : u.getReg .x7 = 1) (hTwo : u.getReg .x13 = 2) (hSeven : u.getReg .x30 = 7)
     (hThree : u.getReg .x19 = 3) (hFour : u.getReg .x20 = 4) (hFive : u.getReg .x21 = 5)
     (hCoord : u.getReg .x6 = 0x10000)
-    (hbase : u.getReg .x1 = BitVec.ofNat 64 TOPBASE)
+    (hbase : u.getReg .x9 = BitVec.ofNat 64 FBASE)
     (htop : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
       BitVec.ofNat 64 (topWords.getD k 0))
-    (htop8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 22120) :
+    (htop8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 22152) :
     ∃ t, Steps image u 5 5 t ∧ LayerIn w pk idx 3 (.forest root) t := by
   have hk0 : KnownOK ld3In u := by
     intro p hp
@@ -775,8 +771,8 @@ theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (
   have hm : ∀ A, t.getMem A = u.getMem A := fun A => by rw [ht.mem]; rfl
   have r19 : t.getReg .x8 = (kw 0x400000).eval u := ht.regs (.x8, kw 0x400000) (by simp [ld3Spec])
   have r21 : t.getReg .x24 = (E.ld (kw TOPLOAD)).eval u := ht.regs (.x24, .ld (kw TOPLOAD)) (by simp [ld3Spec])
-  have r20 : t.getReg .x9 = (E.ld (kw (TOPLOAD + 8))).eval u :=
-    ht.regs (.x9, .ld (kw (TOPLOAD + 8))) (by simp [ld3Spec])
+  have r20 : t.getReg .x1 = (E.ld (kw (TOPLOAD + 8))).eval u :=
+    ht.regs (.x1, .ld (kw (TOPLOAD + 8))) (by simp [ld3Spec])
   have r27 : t.getReg .x27 = (E.ld (kw (TOPLOAD + 16))).eval u :=
     ht.regs (.x27, .ld (kw (TOPLOAD + 16))) (by simp [ld3Spec])
   have r2 : t.getReg .x2 = (E.ld (kw (TOPLOAD + 24))).eval u :=
@@ -786,7 +782,7 @@ theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (
     rw [r21]
     change u.getMem (BitVec.ofNat 64 TOPLOAD) = _
     exact (htop 0 (by decide)).trans (by decide +kernel)
-  have e20 : t.getReg .x9 = BitVec.ofNat 64 M1c := by
+  have e20 : t.getReg .x1 = BitVec.ofNat 64 M1c := by
     rw [r20]
     change u.getMem (BitVec.ofNat 64 (TOPLOAD + 8)) = _
     exact (htop 1 (by decide)).trans (by decide +kernel)
@@ -800,10 +796,10 @@ theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (
     exact (htop 3 (by decide)).trans (by decide +kernel)
   have hG0 : Glob baseK w pk t := ht.glob _ _ _ hglob (RelOK.nil u)
   have hpk : preK 3 = baseK ++ [(.x8, BitVec.ofNat 64 0x400000), (.x24, BitVec.ofNat 64 M2c),
-      (.x9, BitVec.ofNat 64 M1c), (.x27, BitVec.ofNat 64 (hw 4 3)), (.x2, BitVec.ofNat 64 0x3fe00),
-      (.x12, BitVec.ofNat 64 256), (.x26, 6), (.x7, 1), (.x13, 2), (.x30, 7), (.x1, BitVec.ofNat 64 TOPBASE), (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0x10000)] := rfl
-  have e28 : t.getReg .x1 = BitVec.ofNat 64 TOPBASE :=
-    ht.known (.x1, BitVec.ofNat 64 TOPBASE) (by rw [ld3In]; exact List.mem_append_right _ (List.mem_singleton_self _))
+      (.x1, BitVec.ofNat 64 M1c), (.x27, BitVec.ofNat 64 (hw 4 3)), (.x2, BitVec.ofNat 64 0x3fe00),
+      (.x12, BitVec.ofNat 64 256), (.x26, 6), (.x7, 1), (.x13, 2), (.x30, 7), (.x9, BitVec.ofNat 64 FBASE), (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0x10000)] := rfl
+  have e28 : t.getReg .x9 = BitVec.ofNat 64 FBASE :=
+    ht.known (.x9, BitVec.ofNat 64 FBASE) (by rw [ld3In]; exact List.mem_append_right _ (List.mem_singleton_self _))
   have e12 : t.getReg .x12 = BitVec.ofNat 64 256 := (ht.keep .x12 (by simp)).trans ha2
   have e26 : t.getReg .x26 = 6 := (ht.keep .x26 (by simp)).trans hs10
   have eOne : t.getReg .x7 = 1 := (ht.keep .x7 (by simp)).trans hOne

@@ -255,7 +255,7 @@ open SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest Layer route)
 open ClaudeWCT.WCT9 (LayerMsg)
 def below (lay : Nat) : Nat := [19,12,6,0].getD lay 0
-def layerEnd (lay : Nat) : Nat := [12328,15528,18664,21800].getD lay 0
+def layerEnd (lay : Nat) : Nat := [12360,15560,18696,21832].getD lay 0
 def MsgAt (w : ClaudeWCT.W9.T3M.WBytes) (lay : Nat) (msg : LayerMsg) (s : MachineState) : Prop :=
   match msg with
   | .forest root => lay = 3 ∧ DigAt s 256 root
@@ -272,10 +272,10 @@ structure LayerIn (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index lay : Nat) 
   glob : Glob (preK lay) w pk s
   route : s.getReg (rReg lay) = BitVec.ofNat 64 (index / 2 ^ below lay)
   msg : MsgAt w lay msg s
-  orig : Verify.Orig w (fun o => 8104 ≤ o ∧ o < layerEnd lay) s
+  orig : Verify.Orig w (fun o => 8136 ≤ o ∧ o < layerEnd lay) s
   hdr3 : lay = 3 → s.getMem (BitVec.ofNat 64 (TOPLOAD + 32)) = BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + 3 * 2 ^ 48) ∧
-    s.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 22120
-  dst0 : lay = 0 → ∃ d, s.getReg .x12 = BitVec.ofNat 64 d ∧ (d = 14376 ∨ d = 14424)
+    s.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 22152
+  dst0 : lay = 0 → ∃ d, s.getReg .x12 = BitVec.ofNat 64 d ∧ (d = 14408 ∨ d = 14456)
   dstL : lay = 1 ∨ lay = 2 → ∃ d, s.getReg .x12 = BitVec.ofNat 64 d ∧ (d = x10In lay ∨ d = x10In lay + 48)
   tp0 : lay = 0 → s.getReg .x4 = BitVec.ofNat 64 (hdr1 (T3.route index 0).2 (T3.route index 0).1)
 structure EncPre (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index lay c : Nat)
@@ -288,13 +288,13 @@ structure EncPre (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index lay c : Nat)
     t.getReg .x23 = BitVec.ofNat 64 (dispatchHeap lay (route index L).1)
   t5 : ∀ L : Layer, L.val = lay → lay ≠ 0 →
     t.getReg .x31 = BitVec.ofNat 64 (route index L).2
-  orig : Verify.Orig w (fun o => 8104 ≤ o ∧ o < layerEnd lay) t
+  orig : Verify.Orig w (fun o => 8136 ≤ o ∧ o < layerEnd lay) t
   hdr3 : lay = 3 → t.getMem (BitVec.ofNat 64 (TOPLOAD + 32)) = BitVec.ofNat 64 (128 + 193 * 2 ^ 56 + 3 * 2 ^ 48) ∧
-    t.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 22120
+    t.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 22152
   index3 : lay = 3 → t.getReg .x22 = BitVec.ofNat 64 index
   packed12 : lay = 1 ∨ lay = 2 →
     t.getReg .x28 = BitVec.ofNat 64 ((index / 2 ^ below lay) * 65536)
-  dst0 : lay = 0 → ∃ d, t.getReg .x12 = BitVec.ofNat 64 d ∧ (d = 14376 ∨ d = 14424)
+  dst0 : lay = 0 → ∃ d, t.getReg .x12 = BitVec.ofNat 64 d ∧ (d = 14408 ∨ d = 14456)
   dstL : lay = 1 ∨ lay = 2 → ∃ d, t.getReg .x12 = BitVec.ofNat 64 d ∧ (d = x10In lay ∨ d = x10In lay + 48)
 def rejectSteps (lay : Nat) : Nat := stepsA lay + if lay = 3 then 1 else 3
 def EncodingSetup : Prop :=
@@ -325,7 +325,7 @@ open SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput Layer route height chainCount counterLimit decode encodingInput target
   dataDigits pad64)
 def below (lay : Nat) : Nat := [19,12,6,0].getD lay 0
-def layerEnd (lay : Nat) : Nat := [12328,15528,18664,21800].getD lay 0
+def layerEnd (lay : Nat) : Nat := [12360,15560,18696,21832].getD lay 0
 theorem hL_eq (lay : Layer) : hL lay.val = height lay := by fin_cases lay <;> rfl
 def slotT (i : Nat) : Nat := if i = 0 then 512 else 528 + 16 * i
 theorem below_eq (lay : Layer) : below lay.val = (![19, 12, 6, 0] : Layer → Nat) lay := by fin_cases lay <;> rfl
@@ -445,11 +445,11 @@ open SigGolfCandidate.T3 (Digest HashOutput Layer route height chainCount counte
   dataDigits pad64 lowerSpare lowerWord)
 theorem ctrE_eval (w : ClaudeWCT.W9.T3M.WBytes) (s : MachineState) (hH : WitHdr w s) :
     (ctrE 3).eval s = BitVec.ofNat 64 (ClaudeWCT.W9.T3M.wbcCtr w 3).toNat := by
-  have hw := hH 0 (by decide)
-  change s.getMem (BitVec.ofNat 64 WIT) = wword w 0 at hw
-  show LoadKind.wu.fromWord (s.getMem (BitVec.ofNat 64 WIT)) 0 = _
+  have hw := hH 4 (by decide) (by decide)
+  rw [show WIT + 8 * 4 = 0x810 + 8 * ((3 + 1) / 2) by unfold WIT; rfl] at hw
+  show LoadKind.wu.fromWord (s.getMem (BitVec.ofNat 64 (0x810 + 8 * ((3 + 1) / 2)))) (4 * ((3 + 1) % 2)) = _
   rw [hw]
-  exact BC.counterWord w 0
+  exact BC.counterWord w 4
 theorem ctr_lt (w : ClaudeWCT.W9.T3M.WBytes) (lay : Layer) : (ClaudeWCT.W9.T3M.wbcCtr w lay).toNat < 2 ^ 32 :=
   (ClaudeWCT.W9.T3M.wbcCtr w lay).isLt
 theorem copy_parts (lay p : Nat) (h : BC.copyCheck lay p = true) :
@@ -792,7 +792,7 @@ theorem packedRouteE_eval (lay : Layer) (tree leaf : Nat) (s : MachineState)
       rw [Nat.mod_eq_of_lt hr]
       ring
 theorem origW_of {w : ClaudeWCT.W9.T3M.WBytes} {s : MachineState} {P : Nat → Prop} (hO : Verify.Orig w P s) (A : Nat)
-    (hA : WIT ≤ A) (h8 : (A - WIT) % 8 = 0) (hx : A - WIT < WX) (hP : P (A - WIT)) : OrigW w s A := by
+    (hA : WIT + 16 ≤ A) (h8 : (A - WIT) % 8 = 0) (hx : A - WIT < WX) (hP : P (A - WIT)) : OrigW w s A := by
   have := hO.word (A - WIT) h8 hx hP
   rw [show WIT + (A - WIT) = A by omega] at this
   unfold OrigW
@@ -862,10 +862,10 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
         (∀ p ∈ (lctxOf w index lay a).known, s0.getReg p.1 = p.2) ∧
         (lctxOf w index lay a).Orig0 s0 ∧
         (lctxOf w index lay a).ChainIn s0 0 [] s0 ∧ Glob (chainK lay.val) w pk s0 ∧
-        Verify.Orig w (fun o => 8104 ≤ o ∧ o < layerEnd lay.val) s0 ∧
+        Verify.Orig w (fun o => 8136 ≤ o ∧ o < layerEnd lay.val) s0 ∧
         s0.getReg .x23 = BitVec.ofNat 64 (lfS7 lay.val (route index lay).1) ∧
         s0.getReg .x31 = BitVec.ofNat 64 (route index lay).2 ∧
-        s0.getReg .x1 = BitVec.ofNat 64 TOPBASE) := by
+        s0.getReg .x9 = BitVec.ofNat 64 FBASE) := by
   set u := writeHash t a with hu
   have hcc := copy_parts lay.val (trPc lay.val c) (BC.copyCheck_at lay.val c lay.isLt hc)
   have hB := hcc.2.2 (fun h => hlay (Fin.ext h))
@@ -879,7 +879,7 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
         have := lay.isLt; have h0 : lay.val ≠ 0 := fun h => hlay (Fin.ext h); omega
       obtain ⟨d, hd, hdd⟩ := ht.dstL h12'
       exact ⟨d, hd, by rw [if_neg h3]; exact hdd⟩
-  have hdv : d = 256 ∨ d = 17576 ∨ d = 17624 ∨ d = 20712 ∨ d = 20760 := by
+  have hdv : d = 256 ∨ d = 17608 ∨ d = 17656 ∨ d = 20744 ∨ d = 20792 := by
     fin_cases lay
     · exact absurd rfl hlay
     all_goals simp [x10In] at hdc; omega
@@ -985,7 +985,7 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
     have hGu : Glob (BC.bK lay.val) w pk u :=
       Glob_writeHash ht.glob a d h12 (by rcases hdv with rfl | rfl | rfl | rfl | rfl <;> decide)
     have hGs0 := hs0.glob _ w pk hGu (RelOK.nil u)
-    have hOu : Verify.Orig w (fun o => 8104 ≤ o ∧ o < layerEnd lay.val) u := by
+    have hOu : Verify.Orig w (fun o => 8136 ≤ o ∧ o < layerEnd lay.val) u := by
       have := Orig_writeHash ht.orig a d h12 (by omega)
       have hxl : lay.val ≠ 3 → x10In lay.val = WIT + layerEnd lay.val := by
         fin_cases lay <;> decide
@@ -1000,7 +1000,7 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
       · rw [if_neg h3] at hdc
         have hx := hxl h3
         exact Or.inl (by omega)
-    have hOs0 : Verify.Orig w (fun o => 8104 ≤ o ∧ o < layerEnd lay.val) s0 := by
+    have hOs0 : Verify.Orig w (fun o => 8136 ≤ o ∧ o < layerEnd lay.val) s0 := by
       have := hs0.orig_const hOu
       exact this.mono (fun o ho => ⟨ho, by simp⟩)
     have hpc0 : s0.pc = pcOf (L.startPc 0) := by
@@ -1074,10 +1074,7 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
       have hS6 : L.S6 = s6v lay.val := rfl
       apply origW_of hOs0 _ (by unfold WIT; omega) (by
           unfold WIT; simp only [LCtx.blk, hS6]; fin_cases lay <;> simp [s6v] <;> omega)
-        (by
-          simp only [LCtx.blk, hS6]
-          unfold WIT WX
-          fin_cases lay <;> simp [s6v] <;> omega)
+        (by unfold WIT WX; simp only [LCtx.blk, hS6]; fin_cases lay <;> simp [s6v] <;> omega)
       simp only [LCtx.blk, hS6]
       unfold WIT
       fin_cases lay <;> simp [s6v, layerEnd] <;> omega
@@ -1092,7 +1089,7 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
       rw [toNat_sll _ _ hsh, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hD]
       rfl
     · rw [hkeep .x31 (by simp [keepB]), hu, writeHash_getReg, ht.t5 lay rfl (fun h => hlay (Fin.ext h))]
-    · exact hko (.x1, BitVec.ofNat 64 TOPBASE) (by simp [postBl])
+    · exact hko (.x9, BitVec.ofNat 64 FBASE) (by simp [postBl])
 end SigGolfCandidate.T3M
 end
 end

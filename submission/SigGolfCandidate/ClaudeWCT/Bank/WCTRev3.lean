@@ -770,7 +770,7 @@ theorem wctL_record_erasure (published : T3.Cache) (request : Request) :
   · rfl
 theorem excess_of_excessBound (h : ExcessBound horizon rate) :
     ClaudeWCT.Numerics.Law.lawAvg (wctSpecL horizon rate hexc).law (wctSpecL horizon rate hexc).horizon
-      (fun W : List WProposal => (wctSpecL horizon rate hexc).price W - CaseC.theta) ≤ rate := h
+      (fun W : List WProposal => (wctSpecL horizon rate hexc).price W - 1995 / 1996) ≤ rate := h
 theorem wctL_bank_potential_le (rest : Digest → T3.Cache → OracleComp (Interaction' WCT9.Signature) Bool)
     (budget : Nat) :
     expectedValue ((wctSpecL horizon rate hexc).bankExperiment payAfterDigest rest budget)

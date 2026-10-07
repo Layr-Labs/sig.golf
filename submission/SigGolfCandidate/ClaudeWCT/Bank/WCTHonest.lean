@@ -17,7 +17,7 @@ theorem producerAdmissible_eq (x : HashOutput) :
   rw [capOk_eq_capOkC]
 theorem sum_producer (g : WProposal → ENNReal) :
     (∑ x : HashOutput, if WCT9.producerAdmissible x = true then g (proposal x) else 0) =
-      ((27 ^ 9 * 1091 * 2 ^ 15 : Nat) : ENNReal) * ∑ p : WProposal, if capOkC p.2 = true then g p else 0 := by
+      ((27 ^ 9 * 1208 * 2 ^ 15 : Nat) : ENNReal) * ∑ p : WProposal, if capOkC p.2 = true then g p else 0 := by
   rw [← sum_admissible (fun p => if capOkC p.2 = true then g p else 0)]
   apply Finset.sum_congr rfl
   intro x _
@@ -77,7 +77,7 @@ theorem sum_capOkC_prod_one :
   simp only [sum_capOkC_one, Finset.sum_const, nsmul_eq_mul, Finset.card_univ, Fintype.card_fin]
 theorem producer_acceptance_eq :
     Pr[fun x : HashOutput => WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      ((27 ^ 9 * 1091 * 2 ^ 15 : Nat) : ENNReal) * (((2 ^ 31 : Nat) : ENNReal) * (capSet.card : ENNReal)) /
+      ((27 ^ 9 * 1208 * 2 ^ 15 : Nat) : ENNReal) * (((2 ^ 31 : Nat) : ENNReal) * (capSet.card : ENNReal)) /
         (Fintype.card HashOutput : ENNReal) := by
   rw [← expectedValue_ite_one, BPORS.expected_uniform_eq_finiteAverage]
   unfold SigGolfResearch.Gate6.Moments.finiteAverage
@@ -94,16 +94,24 @@ theorem acceptedProposalHonest : AcceptedProposalHonest := by
   set K := ((2 ^ 31 : Nat) : ENNReal) * (capSet.card : ENNReal)
   set S := ∑ p : WProposal, if capOkC p.2 = true then g p else 0
   simp only [div_eq_mul_inv]
-  calc ((27 ^ 9 * 1091 * 2 ^ 15 : Nat) : ENNReal) * S * (Fintype.card HashOutput : ENNReal)⁻¹
-      = ((27 ^ 9 * 1091 * 2 ^ 15 : Nat) : ENNReal) * S * (Fintype.card HashOutput : ENNReal)⁻¹ * (K⁻¹ * K) := by
+  calc ((27 ^ 9 * 1208 * 2 ^ 15 : Nat) : ENNReal) * S * (Fintype.card HashOutput : ENNReal)⁻¹
+      = ((27 ^ 9 * 1208 * 2 ^ 15 : Nat) : ENNReal) * S * (Fintype.card HashOutput : ENNReal)⁻¹ * (K⁻¹ * K) := by
         rw [ENNReal.inv_mul_cancel hK hK', mul_one]
     _ = _ := by ring
-theorem producer_le_admissible :
-    Pr[fun x : HashOutput => WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤
-      Pr[fun x : HashOutput => WCT9.admissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] :=
-  probEvent_mono fun x _ h => WCT9.admissible_of_producer h
-theorem producerAcceptanceBound : ProducerAcceptanceBound :=
-  producer_le_admissible.trans acceptanceBound
+theorem capSet_eq_n4 : capSet = ClaudeWCT.Numerics.N600Cap.capSet := by
+  ext c
+  rw [capSet_mem, ClaudeWCT.Numerics.N600Cap.mem_capSet]
+  unfold capOkC ClaudeWCT.Numerics.N600Cap.pairCost
+  simp only [decide_eq_true_eq]
+theorem capSet_card : capSet.card = ClaudeWCT.Numerics.N600Cap.J := by
+  rw [capSet_eq_n4, ClaudeWCT.Numerics.N600Cap.card_capSet]
+theorem producerAcceptanceBound : ProducerAcceptanceBound := by
+  unfold ProducerAcceptanceBound
+  rw [producer_acceptance_eq, capSet_card]
+  unfold ClaudeWCT.Numerics.N600Cap.J
+  simp only [Fintype.card_bitVec]
+  apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+  norm_num [ENNReal.toReal_div, ENNReal.toReal_mul, ENNReal.toReal_pow]
 theorem producerAdmissible_zero : WCT9.producerAdmissible 0 = true := by
   rw [producerAdmissible_eq, admissible_zero, Bool.true_and]
   have hz : (proposal 0).2 = fun _ => ((0 : Child), (0 : Rank)) := by
@@ -117,11 +125,6 @@ noncomputable def wctSpec' (horizon : Nat) (rate : ENNReal) (hexc : ExcessBound 
 theorem wctSpec'_eq (horizon : Nat) (rate : ENNReal) (hexc : ExcessBound horizon rate) :
     wctSpec' horizon rate hexc =
       wctSpec honestLawSum acceptedProposalHonest producerAcceptanceBound exists_producer horizon rate hexc := rfl
-theorem capSet_eq_n4 : capSet = ClaudeWCT.Numerics.N600Cap.capSet := by
-  ext c
-  rw [capSet_mem, ClaudeWCT.Numerics.N600Cap.mem_capSet]
-  unfold capOkC ClaudeWCT.Numerics.N600Cap.pairCost
-  simp only [decide_eq_true_eq]
 set_option linter.constructorNameAsVariable false in
 theorem honestCoordLaw_eq_n4 : honestCoordLaw = ClaudeWCT.Numerics.N600Cap.honestLaw := by
   funext c
@@ -139,7 +142,7 @@ theorem honestLaw_eq_n4 : honestLaw = ClaudeWCT.Numerics.Law.marked (α := Fin (
   rw [honestCoordLaw_eq_n4]
 theorem excessBound_of_honest {T : Nat} {rate : ENNReal}
     (h : ClaudeWCT.Numerics.Law.lawAvg (ClaudeWCT.Numerics.Law.marked (α := Fin (2 ^ 31))
-      ClaudeWCT.Numerics.N600Cap.honestLaw) T (fun W : List WProposal => price W - 63 / 64) ≤ rate) :
+      ClaudeWCT.Numerics.N600Cap.honestLaw) T (fun W : List WProposal => price W - 1995 / 1996) ≤ rate) :
     ExcessBound T rate := by
   unfold ExcessBound
   rw [honestLaw_eq_n4]

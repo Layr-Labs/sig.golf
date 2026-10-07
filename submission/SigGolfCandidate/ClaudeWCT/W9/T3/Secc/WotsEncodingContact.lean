@@ -70,9 +70,9 @@ theorem contacts_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (trace : 
 noncomputable def costL (T : Answers) (F : Set EncIndex) : List Entry → List Entry → Nat
   | _, [] => 0
   | hist, e :: rest =>
-      (if Lazy.IsCell encInput F e.1 then 57 * contacts T hist else 0) + costL T F (hist ++ [e]) rest
+      (if Lazy.IsCell encInput F e.1 then 54 * contacts T hist else 0) + costL T F (hist ++ [e]) rest
 theorem costL_le (T : Answers) (F : Set EncIndex) :
-    ∀ (trace hist : List Entry), costL T F hist trace ≤ 57 * trace.length * contacts T (hist ++ trace) := by
+    ∀ (trace hist : List Entry), costL T F hist trace ≤ 54 * trace.length * contacts T (hist ++ trace) := by
   intro trace
   induction trace with
   | nil => intro hist; simp [costL]
@@ -83,7 +83,7 @@ theorem costL_le (T : Answers) (F : Set EncIndex) :
         contacts_mono T (fun x hx => List.mem_append_left _ hx)
       have h2 := ih (hist ++ [e])
       rw [List.append_assoc, List.singleton_append] at h2
-      have h3 : (if Lazy.IsCell encInput F e.1 then 57 * contacts T hist else 0) ≤ 57 * contacts T hist := by
+      have h3 : (if Lazy.IsCell encInput F e.1 then 54 * contacts T hist else 0) ≤ 54 * contacts T hist := by
         split_ifs <;> omega
       rw [List.length_cons]
       nlinarith
@@ -103,7 +103,7 @@ theorem cfk_new {T : Answers} {h : List Entry} {e : Entry} (hold : ¬ CFK T h) (
   · rw [List.take_of_length_le (by rw [List.length_append, List.length_singleton]; omega)] at hnm
     exact absurd hm hnm
 noncomputable def cfCharge (T : Answers) (F : Set EncIndex) (h : FreeMonoid Entry) : RefWorld.Domain → Nat
-  | .inl (.inr x) => if Lazy.IsCell encInput F x then 57 * contacts T h.toList else 0
+  | .inl (.inr x) => if Lazy.IsCell encInput F x then 54 * contacts T h.toList else 0
   | _ => 0
 theorem costL_step (T : Answers) (F : Set EncIndex) (h : FreeMonoid Entry) (input : RefWorld.Domain)
     (answer : RefWorld.Range input) (tail : FreeMonoid Entry) :
@@ -121,7 +121,7 @@ section Step
 variable [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, DecidableEq k]
 theorem cf_step (T : Answers) (F : Set EncIndex) (init : F → Finset HashOutput)
     (hcell : ∀ (e : F) (p : CanonGraph.LeafPos × Fin 58),
-      Pr[fun ans => MarkEntry T (chainAt p) (encInput e.val, ans) | cell (init e)] ≤ 57 / (2 : ENNReal) ^ 128)
+      Pr[fun ans => MarkEntry T (chainAt p) (encInput e.val, ans) | cell (init e)] ≤ 54 / (2 : ENNReal) ^ 128)
     (hother : ∀ x, ¬ Lazy.IsCell encInput F x → ∀ p,
       ¬ (WotsExtract.SourceChain (chainAt p) ∧ MarkEntry T (chainAt p) (x, T (.inl (.inr x)))))
     (h : FreeMonoid Entry) (allowed : F → Finset HashOutput) (hc : Lazy.Consistent encInput F init h allowed)
@@ -175,11 +175,11 @@ theorem cf_step (T : Answers) (F : Set EncIndex) (init : F → Finset HashOutput
               exact ⟨hs, hcon⟩
           _ ≤ ∑ p ∈ S, Pr[fun ans => MarkEntry T (chainAt p) (x, ans) | cell (init e₀)] :=
               probEvent_exists_finset_le_sum S _ _
-          _ ≤ ∑ p ∈ S, 57 / (2 : ENNReal) ^ 128 := by
+          _ ≤ ∑ p ∈ S, 54 / (2 : ENNReal) ^ 128 := by
               refine Finset.sum_le_sum fun p _ => ?_
               rw [← hx₀]
               exact hcell e₀ p
-          _ = (2 ^ 128 : ENNReal)⁻¹ * ((57 * contacts T h.toList : Nat) : ENNReal) := by
+          _ = (2 ^ 128 : ENNReal)⁻¹ * ((54 * contacts T h.toList : Nat) : ENNReal) := by
               rw [Finset.sum_const, nsmul_eq_mul]
               unfold contacts
               push_cast
@@ -198,7 +198,7 @@ theorem cf_step (T : Answers) (F : Set EncIndex) (init : F → Finset HashOutput
 theorem lazy_cf_le {α : Type} (T : Answers) (F : Set EncIndex) (init : F → Finset HashOutput)
     (hinit : ∀ e, (init e).Nonempty)
     (hcell : ∀ (e : F) (p : CanonGraph.LeafPos × Fin 58),
-      Pr[fun ans => MarkEntry T (chainAt p) (encInput e.val, ans) | cell (init e)] ≤ 57 / (2 : ENNReal) ^ 128)
+      Pr[fun ans => MarkEntry T (chainAt p) (encInput e.val, ans) | cell (init e)] ≤ 54 / (2 : ENNReal) ^ 128)
     (hother : ∀ x, ¬ Lazy.IsCell encInput F x → ∀ p,
       ¬ (WotsExtract.SourceChain (chainAt p) ∧ MarkEntry T (chainAt p) (x, T (.inl (.inr x)))))
     (C : OracleComp RefWorld α) :
@@ -225,7 +225,7 @@ theorem lazy_cf_le {α : Type} (T : Answers) (F : Set EncIndex) (init : F → Fi
   simpa using key
 end Step
 noncomputable def cfInd (s : RefSample) : ENNReal := if CFK s.answers s.trace then 1 else 0
-noncomputable def cfCost (s : RefSample) : ENNReal := ((57 * s.trace.length * contacts s.answers s.trace : Nat) : ENNReal)
+noncomputable def cfCost (s : RefSample) : ENNReal := ((54 * s.trace.length * contacts s.answers s.trace : Nat) : ENNReal)
 theorem cells_cf_le [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, DecidableEq k]
     (adversary : AdversaryP) (q : Nat) (U : Finset HashInput)
     (hU : SeccLaw.publicUniverse ⊆ U) (privateTable : FullGame.FullTable) (pub : U → HashOutput) :
@@ -243,12 +243,12 @@ theorem cells_cf_le [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, Dec
         unfold cfInd mkSample
         simp only [cfk_congr (agree_ovc U hU privateTable pub y hy)]),
     cell_transfer adversary q U hU privateTable pub cfCost
-      (fun tr => ((57 * tr.length * contacts (eagerAnswers U privateTable pub) tr : Nat) : ENNReal))
+      (fun tr => ((54 * tr.length * contacts (eagerAnswers U privateTable pub) tr : Nat) : ENNReal))
       (fun y hy r => by
         unfold cfCost mkSample
         simp only [contacts_congr (agree_ovc U hU privateTable pub y hy)])]
   refine (lazy_cf_le (eagerAnswers U privateTable pub) (cellKey (eagerAnswers U privateTable pub)).1 (cellInit (cellKey (eagerAnswers U privateTable pub))) (cellInit_nonempty _)
-    (fun e p => markEntry_init_le (eagerAnswers U privateTable pub) (cellKey (eagerAnswers U privateTable pub)) e p)
+    (fun e p => markEntry_init_le_54 (eagerAnswers U privateTable pub) (cellKey (eagerAnswers U privateTable pub)) e p)
     (fun x hx p => markEntry_noncell U privateTable pub x hx p) _).trans ?_
   refine mul_le_mul' le_rfl (ENNReal.tsum_le_tsum fun z => mul_le_mul' le_rfl ?_)
   have := costL_le (eagerAnswers U privateTable pub) (cellKey (eagerAnswers U privateTable pub)).1 z.1.2.toList []
@@ -294,7 +294,7 @@ theorem contacts_eq_contactCount (s : RefSample) : contacts s.answers s.trace = 
     exact ha
 theorem cfCost_le (adversary : AdversaryP) (q : Nat) :
     ∑' s, referenceExperiment adversary q s * cfCost s ≤
-      ((57 * q : Nat) : ENNReal) * ∑' s, referenceExperiment adversary q s * (contactCount s : ENNReal) := by
+      ((54 * q : Nat) : ENNReal) * ∑' s, referenceExperiment adversary q s * (contactCount s : ENNReal) := by
   rw [← ENNReal.tsum_mul_left]
   refine ENNReal.tsum_le_tsum fun s => ?_
   by_cases hs : referenceExperiment adversary q s = 0
@@ -311,7 +311,7 @@ theorem reference_contactFirst_le (adversary : AdversaryP) (q : Nat) :
     Pr[fun s => ∃ a, WotsExtract.SourceChain a ∧
         ∃ k, ContactAt s.answers (s.trace.take k) a ∧ ¬MarkerAt s.answers (s.trace.take k) a ∧
           MarkerAt s.answers s.trace a | referenceExperiment adversary q] ≤
-      57 * ((q : ENNReal) / 2 ^ 128) * ∑' s, referenceExperiment adversary q s * (contactCount s : ENNReal) := by
+      54 * ((q : ENNReal) / 2 ^ 128) * ∑' s, referenceExperiment adversary q s * (contactCount s : ENNReal) := by
   calc _ ≤ ∑' s, referenceExperiment adversary q s * Enc.cfInd s := by
         rw [probEvent_eq_tsum_ite]
         refine ENNReal.tsum_le_tsum fun s => ?_
@@ -321,7 +321,7 @@ theorem reference_contactFirst_le (adversary : AdversaryP) (q : Nat) :
           rw [Enc.cfInd, if_pos ⟨p, ha, hcf⟩, mul_one, PMF.probOutput_eq_apply]
         · exact zero_le
     _ ≤ (2 ^ 128 : ENNReal)⁻¹ * ∑' s, referenceExperiment adversary q s * Enc.cfCost s := Enc.reference_cfInd_le adversary q
-    _ ≤ (2 ^ 128 : ENNReal)⁻¹ * (((57 * q : Nat) : ENNReal) *
+    _ ≤ (2 ^ 128 : ENNReal)⁻¹ * (((54 * q : Nat) : ENNReal) *
           ∑' s, referenceExperiment adversary q s * (contactCount s : ENNReal)) :=
         mul_le_mul' le_rfl (Enc.cfCost_le adversary q)
     _ = _ := by

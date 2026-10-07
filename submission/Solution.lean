@@ -7,15 +7,15 @@ def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGo
 
 theorem signature_bytes : submission.sizes.signature = 5456 := rfl
 
-theorem witness_bytes : submission.sizes.witness = 21832 := rfl
+theorem witness_bytes : submission.sizes.witness = 21848 := rfl
 
 theorem cache_bytes : submission.sizes.cache = 131072 := rfl
 
 theorem layout_offsets : submission.layout =
-  { message := 23880, secretKey := 128, publicKey := 160,
+  { message := 0x5d68, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 2048 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7408 := by
+theorem certificate : SigGolf.Certificate submission 7398 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge

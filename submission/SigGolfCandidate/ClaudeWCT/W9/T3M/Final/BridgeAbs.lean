@@ -3,8 +3,6 @@ import SigGolfCandidate.ClaudeWCT.W9.New.F1a.Clean
 
 section
 namespace ClaudeWCT.W9.T3M.Final
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 100000
 open SigGolfCandidate.Legacy OracleComp OracleSpec SigGolfCandidate.Bridge
 open SigGolfCandidate.T3 (M Spec keygen Cache Digest privateInput realize)
 open ClaudeWCT.WCT9 (Signature)
@@ -54,20 +52,23 @@ theorem sign_eq (P : Pending I) (sk : SecretKey) (cache : Bytes 131072) (m : Mes
 set_option maxRecDepth 100000 in
 theorem expand_eq (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5456) :
     (fun r => (r.value, r.hashCalls)) <$> (submission I).run .expand (m, pk, s) =
-      SigGolfCandidate.Bridge.countCalls (relabel toQ (hrealize 0 (expandB m pk (sigDec s)))) := by
+      (fun p => (p.1.map _root_.ClaudeWCT.W9.T3M.wLift, p.2)) <$>
+        SigGolfCandidate.Bridge.countCalls (relabel toQ (hrealize 0 (expandB m pk (sigDec s)))) := by
   have h := calls_of_counts
-    (F := Option.map (fun x : SigGolfCandidate.T3.HashOutput × ClaudeWCT.WCT9.Witness => witEnc x.1 x.2))
+    (F := Option.map (fun x : SigGolfCandidate.T3.HashOutput × ClaudeWCT.WCT9.Witness =>
+      _root_.ClaudeWCT.W9.T3M.wLift (witEnc x.1 x.2)))
     (P.expand_refines m pk s)
   rw [mrealize_eq_relabel] at h
   refine h.trans ?_
   rw [expandB, hrealize_map, relabel_map]
   unfold SigGolfCandidate.Bridge.countCalls
-  rw [countFrom_map]
+  rw [countFrom_map, Functor.map_map]
+  exact congrArg (· <$> _) (funext fun x => by rcases x with ⟨_ | _, _⟩ <;> rfl)
 set_option maxRecDepth 100000 in
-theorem verify_eq (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 21832) :
+theorem verify_eq (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 21848) :
     (fun r => (r.value, r.hashCalls)) <$> (submission I).run .verify (m, pk, w) =
       (fun p => (if p.1 then some () else none, p.2)) <$>
-        SigGolfCandidate.Bridge.countCalls (relabel toQ (hrealize 0 (verifyP m pk w))) := by
+        SigGolfCandidate.Bridge.countCalls (relabel toQ (hrealize 0 (verifyP m pk (_root_.ClaudeWCT.W9.T3M.wProj w)))) := by
   rw [P.verify_refines m pk w, SigGolfCandidate.T3M.Final.countCalls_eq, mrealize_eq_relabel]
 end eqs
 end ClaudeWCT.W9.T3M.Final
@@ -141,7 +142,7 @@ lemma relabel_verify (F : QFacts) (P : Pending I) (m : Message) (w : Bytes (subm
         (pure (⟨verify.value.isSome && fresh, calls + verify.hashCalls⟩ : AttackResult) :
           OracleComp HashSpec AttackResult)) =
       (fun p => (⟨p.1 && fresh, calls + p.2⟩ : AttackResult)) <$>
-        SigGolfCandidate.Bridge.countCalls (hrealize 0 (verifyP m pk w)) := by
+        SigGolfCandidate.Bridge.countCalls (hrealize 0 (verifyP m pk (_root_.ClaudeWCT.W9.T3M.wProj w))) := by
   have e : (((submission I).run .verify (m, pk, w)) >>= fun verify =>
         (pure (⟨verify.value.isSome && fresh, calls + verify.hashCalls⟩ : AttackResult) :
           OracleComp HashSpec AttackResult)) =
@@ -151,7 +152,7 @@ lemma relabel_verify (F : QFacts) (P : Pending I) (m : Message) (w : Bytes (subm
     rfl
   rw [e, verify_eq P m pk w]
   erw [Functor.map_map, relabel_map]
-  erw [relabel_ofQ_countCalls _ (allQ_hrealize 0 (F.good_verifyP m pk w))]
+  erw [relabel_ofQ_countCalls _ (allQ_hrealize 0 (F.good_verifyP m pk (_root_.ClaudeWCT.W9.T3M.wProj w)))]
   refine congrArg (· <$> _) ?_
   funext a
   rcases a with ⟨b, c⟩
@@ -161,7 +162,7 @@ lemma orgK_submit_witness (F : QFacts) (P : Pending I) {n : ℕ} {s : A.State}
     (h : A.step s = .submit (.witness m w)) :
     orgK I A sk pk (n + 1) s T =
       (liftM ((fun p => (⟨p.1 && T.freshMessage m, T.hashCalls + p.2⟩ : AttackResult)) <$>
-        SigGolfCandidate.Bridge.countCalls (hrealize 0 (verifyP m pk w))) : OracleComp AW _) := by
+        SigGolfCandidate.Bridge.countCalls (hrealize 0 (verifyP m pk (_root_.ClaudeWCT.W9.T3M.wProj w)))) : OracleComp AW _) := by
   simp only [orgK, Submission.interact, h, relabelW_liftM_hash]
   rw [← relabel_verify F P m w]
   rfl
@@ -180,9 +181,11 @@ lemma orgK_submit_signature (F : QFacts) (P : Pending I) {n : ℕ} {s : A.State}
   simp only [orgK, Submission.interact, h, relabelW_liftM_hash, Submission.checkForgery]
   have hE : relabel ofQ ((fun r => (r.value, r.hashCalls)) <$>
       (submission I).run .expand (m, pk, σ)) =
-        SigGolfCandidate.Bridge.countCalls (hrealize 0 (expandB m pk (sigDec σ))) := by
-    erw [expand_eq P m pk σ]
-    exact relabel_ofQ_countCalls _ (allQ_hrealize 0 (F.good_expandB _ _ _))
+        (fun p => (p.1.map _root_.ClaudeWCT.W9.T3M.wLift, p.2)) <$>
+          SigGolfCandidate.Bridge.countCalls (hrealize 0 (expandB m pk (sigDec σ))) := by
+    erw [expand_eq P m pk σ, relabel_map]
+    rw [relabel_ofQ_countCalls _ (allQ_hrealize 0 (F.good_expandB _ _ _))]
+    rfl
   refine (congrArg (fun X => (liftM (relabel ofQ X) : OracleComp AW AttackResult))
     (bind_eq_of_proj ((submission I).run .expand (m, pk, σ)) (fun r => (r.value, r.hashCalls))
       (fun (p : Option (Output (submission I).sizes .expand) × ℕ) =>
@@ -196,10 +199,12 @@ lemma orgK_submit_signature (F : QFacts) (P : Pending I) {n : ℕ} {s : A.State}
   refine (congrArg liftM (relabel_bind ofQ _ _)).trans ?_
   refine (liftM_bind _ _).trans ?_
   rw [hE]
+  erw [liftM_map, bind_map_left]
   refine bind_congr fun p => ?_
   rcases p with ⟨_ | w, c⟩
   · rfl
-  · exact congrArg _ (relabel_verify F P m w _ _)
+  · simp only [Option.map_some]
+    erw [relabel_verify F P m (_root_.ClaudeWCT.W9.T3M.wLift w), _root_.ClaudeWCT.W9.T3M.wProj_wLift]
 variable (I A)
 noncomputable def orgGame (rounds : ℕ) : OracleComp AW AttackResult := do
   let sk ← (liftM sampleSecretKey : OracleComp AW _)
@@ -255,7 +260,7 @@ def advLoop : ℕ → A.State → ℕ → OracleComp SSpec (Option ForgeryP)
   | 0, _, _ => pure none
   | n + 1, s, k =>
     match A.step s with
-    | .submit (.witness m w) => pure (some (.witness m w))
+    | .submit (.witness m w) => pure (some (.witness m (_root_.ClaudeWCT.W9.T3M.wProj w)))
     | .submit (.signature m σ) => pure (some (.signature m (sigDec σ)))
     | .hash y resume => do
         let a ← (liftM (SSpec.query (Sum.inl (Sum.inr (ofQ y)))) : OracleComp SSpec (BitVec 256))
@@ -412,7 +417,7 @@ theorem absK_submit_witness (F : QFacts) {n : ℕ} {s : A.State} {k : ℕ} {lg :
     {m : Message} {w : Bytes (submission I).sizes.witness} (h : A.step s = .submit (.witness m w)) :
     absK I A secret pk (n + 1) s k lg c =
       (fun p => (decide (lg.length ≤ 2^32) && (freshW lg m && p.1), p.2)) <$>
-        (liftM (countFrom (fun _ => 1) (hrealize secret (verifyP m pk w)) c) : OracleComp AW _) := by
+        (liftM (countFrom (fun _ => 1) (hrealize secret (verifyP m pk (_root_.ClaudeWCT.W9.T3M.wProj w))) c) : OracleComp AW _) := by
   unfold absK
   simp only [advLoop, h]
   rw [srcRest_some, checkForgeryP_witness, bind_assoc]
