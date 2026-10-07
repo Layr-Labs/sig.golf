@@ -46,7 +46,7 @@ def resCc1 (k : Nat) : PRes :=
   ⟨⟨rfs [(.x6, .bin .add (.reg .x7) (.reg .x24))], [], []⟩, pcOf (sci k + 4), false, 1, 1, [], none⟩
 def resCc3 (k : Nat) : PRes :=
   ⟨⟨rfs [(.x20, .bin .add (.reg .x20) (.reg .x6))], [], []⟩, pcOf (fsi (k + 1)), false, 1, 1, [], none⟩
-def capE : E := .bin .sltu (.reg .x20) (cst 708)
+def capE : E := .bin .sltu (.reg .x20) (cst 707)
 def resCap (d : Bool) : PRes :=
   ⟨⟨rfs [(.x6, capE)], [], []⟩, if d then pcOf 11170 else pcOf 11164, false, 2, 2, [⟨.eq, capE, .c 0, d⟩], none⟩
 def idxE : E := .bin .srl (.bin .sll (.reg .x22) (cst 0)) (cst 33)
@@ -648,24 +648,24 @@ theorem psum_nine (a : BitVec 256) (h : ∀ c : WCT9.Coord, WCT9.field a c < 162
   rfl
 theorem cap_spec (hl : LookOK im headLook) (s : MachineState) (hpc : s.pc = pcOf 11162) (S : Nat)
     (hS : S < 2 ^ 64) (h20 : s.getReg .x20 = BitVec.ofNat 64 S) :
-    ∃ t, Steps im s 2 2 t ∧ t.pc = (if S ≤ 707 then pcOf 11164 else pcOf 11170) ∧
+    ∃ t, Steps im s 2 2 t ∧ t.pc = (if S ≤ 706 then pcOf 11164 else pcOf 11170) ∧
       RegsExcept s t [.x6] ∧ Frame s t (fun _ => False) := by
-  have hce : capE.eval s = BitVec.ofNat 64 (if S < 708 then 1 else 0) := by
+  have hce : capE.eval s = BitVec.ofNat 64 (if S < 707 then 1 else 0) := by
     simp only [capE, cst, E.eval, h20, BinOp.eval, BitVec.ult, toNat_ofNat_lt hS,
-      toNat_ofNat_lt (show 708 < 2 ^ 64 by decide)]
-    by_cases h : S < 708 <;> simp [h]
-  have hbr : ∀ b ∈ (resCap (decide ¬ (S ≤ 707))).brs, b.holds s := by
+      toNat_ofNat_lt (show 707 < 2 ^ 64 by decide)]
+    by_cases h : S < 707 <;> simp [h]
+  have hbr : ∀ b ∈ (resCap (decide ¬ (S ≤ 706))).brs, b.holds s := by
     intro b hb
     simp only [resCap, List.mem_singleton] at hb
     subst hb
     simp only [Br.holds, CmpOp.eval, E.eval, hce]
-    by_cases h0 : S ≤ 707
-    · simp only [show S < 708 by omega, if_true, h0, not_true_eq_false, decide_false]; decide
-    · simp only [show ¬ S < 708 by omega, if_false, h0, not_false_eq_true, decide_true]; decide
+    by_cases h0 : S ≤ 706
+    · simp only [show S < 707 by omega, if_true, h0, not_true_eq_false, decide_false]; decide
+    · simp only [show ¬ S < 707 by omega, if_false, h0, not_false_eq_true, decide_true]; decide
   obtain ⟨hs, hp, -, hr, hm⟩ := piece hl (run_cap _) s hpc rfl hbr rfl
   refine ⟨_, hs, ?_, regs_rfs hr, fun A _ _ => by rw [hm]; rfl⟩
   rw [hp]; simp only [resCap]
-  by_cases h0 : S ≤ 707
+  by_cases h0 : S ≤ 706
   · simp only [h0, not_true_eq_false, decide_false, Bool.false_eq_true, if_false, if_true]
   · simp only [h0, not_false_eq_true, decide_true, if_false, if_true]
 theorem checks_spec (hl : LookOK im headLook) (u : MachineState) (hpc : u.pc = pcOf 11020) (a : BitVec 256)
@@ -707,7 +707,7 @@ theorem checks_spec (hl : LookOK im headLook) (u : MachineState) (hpc : u.pc = p
         rw [if_pos (by rw [hjc]; exact hcap)] at p4
         exact ⟨p4, by rw [r4.get (by decide)]; exact h22 r3⟩
       · rw [if_neg hA]
-        have hcap : ¬ psum a 9 ≤ 707 := fun h => hA (hprod.2 ⟨hadm.2 ⟨hg, hf⟩, by rw [← hjc]; exact h⟩)
+        have hcap : ¬ psum a 9 ≤ 706 := fun h => hA (hprod.2 ⟨hadm.2 ⟨hg, hf⟩, by rw [← hjc]; exact h⟩)
         rw [if_neg hcap] at p4; exact p4
     · rw [if_neg (fun h => hf (hall.1 h))] at p3
       refine ⟨t3, 7 + 3 + c3, (s1.trans s2).trans s3, by omega, ((r1.trans r2).trans r3).mono (by decide),
