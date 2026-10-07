@@ -3,6 +3,8 @@ import SigGolfCandidate.ClaudeWCT.W9.New.F1a.Clean
 
 section
 namespace ClaudeWCT.W9.T3M.Final
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 100000
 open SigGolfCandidate.Legacy OracleComp OracleSpec SigGolfCandidate.Bridge
 open SigGolfCandidate.T3 (M Spec keygen Cache Digest privateInput realize)
 open ClaudeWCT.WCT9 (Signature)

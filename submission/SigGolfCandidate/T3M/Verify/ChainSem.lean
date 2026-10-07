@@ -159,7 +159,7 @@ def pad1 (c : LCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0
 def padHeader (c : LCtx) (i : Nat) : Word := c.w.extractLsb' (8 * (c.blk i - 0x800 + 24)) 64
 def val (c : LCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x800 + 48)
 def ok (c : LCtx) : Prop :=
-  c.tree < 2 ^ 32 ∧ c.leaf < 2 ^ 32 ∧ c.koff ≤ 16 ∧ c.S6 % 8 = 0 ∧ 0x800 + 8136 + 1024 ≤ c.S6 ∧
+  c.tree < 2 ^ 32 ∧ c.leaf < 2 ^ 32 ∧ c.koff ≤ 16 ∧ c.S6 % 8 = 0 ∧ 0x800 + 8104 + 1024 ≤ c.S6 ∧
     c.S6 + 2688 + 80 ≤ 0x7000 ∧ c.ck ≤ 8 ∧ c.ret = ckSlot c.ck + partLen c.ck ∧ c.i0 ≤ 42 ∧
     c.tree < 2 ^ (31 - height c.lay) ∧ c.leaf < 2 ^ height c.lay ∧
     2 ^ 63 ≤ c.d0.toNat ∧ 2 ^ 63 ≤ c.d1.toNat
@@ -304,7 +304,7 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open SigGolfCandidate.T3
 namespace LCtx
 theorem blk_props (c : LCtx) (hc : c.ok) (i : Nat) (hi : i ≤ 42) :
-    c.blk i % 8 = 0 ∧ 0x800 + 8136 ≤ c.blk i ∧ c.blk i + 80 ≤ 0x7000 := by
+    c.blk i % 8 = 0 ∧ 0x800 + 8104 ≤ c.blk i ∧ c.blk i + 80 ≤ 0x7000 := by
   obtain ⟨-, -, -, h64, hlo, hhi, -⟩ := hc
   unfold blk; refine ⟨?_, ?_, ?_⟩ <;> omega
 theorem blk_succ (c : LCtx) (hc : c.ok) (i : Nat) (hi : i < 42) : c.blk (i + 1) + 64 = c.blk i := by

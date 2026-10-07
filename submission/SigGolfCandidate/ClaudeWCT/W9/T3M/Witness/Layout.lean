@@ -10,9 +10,9 @@ abbrev WBytes := BitVec (8 * 21832)
 def wbyte (w : WBytes) (i : Nat) : UInt8 := UInt8.ofBitVec (w.extractLsb' (8 * i) 8)
 def wdig (w : WBytes) (off : Nat) : Digest := w.extractLsb' (8 * off) 128
 def wle32 (w : WBytes) (off : Nat) : BitVec 32 := w.extractLsb' (8 * off) 32
-def rhoOff : Nat := 0
-def dcOff : Nat := 16
-def layerBase (lay : Layer) : Nat := (![8136, 12360, 15560, 18696] : Layer → Nat) lay
+def rhoOff : Nat := 21800
+def dcOff : Nat := 21828
+def layerBase (lay : Layer) : Nat := (![8104, 12328, 15528, 18664] : Layer → Nat) lay
 def merkleBlock (lay : Layer) (j : Nat) : Nat := layerBase lay + 64 * (height lay - 1 - j)
 def chainBlock (lay : Layer) (i : Nat) : Nat := layerBase lay + 64 * height lay + 64 * (chainCount lay - 1 - i)
 def wrho (w : WBytes) : Digest := wdig w rhoOff
@@ -25,8 +25,8 @@ def wchainHeaderPad (w : WBytes) (lay : Layer) (i : Nat) : BitVec 64 :=
 def wpath (w : WBytes) (lay : Layer) (leaf j : Nat) : Digest :=
   wdig w (merkleBlock lay j + sibOff (leaf / 2 ^ j % 2))
 def wmerklePad (w : WBytes) (lay : Layer) (j : Nat) : Digest := wdig w (merkleBlock lay j + 32)
-theorem layerBase_values : List.ofFn (fun lay : Layer => layerBase lay) = [8136, 12360, 15560, 18696] := rfl
-theorem layerBase_end : layerBase 3 + 64 * (height 3 + chainCount 3) = wsize := rfl
+theorem layerBase_values : List.ofFn (fun lay : Layer => layerBase lay) = [8104, 12328, 15528, 18664] := rfl
+theorem layerBase_end : layerBase 3 + 64 * (height 3 + chainCount 3) = wsize - 32 := rfl
 def layerP (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) : M Digest := do
   let (leaf, tree) := route index lay
   let ends ← (List.finRange (chainCount lay)).mapM fun i =>

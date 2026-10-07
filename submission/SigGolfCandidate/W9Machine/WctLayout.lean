@@ -24,9 +24,9 @@ structure Budget where
   allCycles : Nat
   acceptCycles : Nat
 def layerEntryWord : Nat := 33360
-def layerWitnessOffset : Nat := 8136
+def layerWitnessOffset : Nat := 8104
 def forestRootAddress : Nat := 0x100
-def coordinateBase (k : Fin 9) : Nat := 2112 + 896 * k.val
+def coordinateBase (k : Fin 9) : Nat := 2080 + 896 * k.val
 def headerTable (k : Fin 9) : Nat := 0xfee600 + 512 * k.val
 def forestInputAddress : Nat := 0xffbdf0
 def pairAddress (k : Fin 9) : Nat := forestInputAddress + 32 + 32 * k.val

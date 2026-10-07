@@ -12,10 +12,10 @@ theorem witness_bytes : submission.sizes.witness = 21832 := rfl
 theorem cache_bytes : submission.sizes.cache = 131072 := rfl
 
 theorem layout_offsets : submission.layout =
-  { message := 64, secretKey := 128, publicKey := 160,
+  { message := 23880, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 2048 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7412 := by
+theorem certificate : SigGolf.Certificate submission 7410 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
