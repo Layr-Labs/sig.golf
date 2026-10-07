@@ -124,7 +124,7 @@ theorem decode_top_eq (v : Digest) : decode 0 v = if 2 ^ 125 ≤ v.toNat then no
       simp only [Bool.and_eq_true, decide_eq_true_eq]
       rw [if_neg h2]
 theorem producerDecode_top_isSome_iff (v : Digest) :
-    (producerDecode 0 v).isSome ↔ ∃ w, Decoder.parse 17 v.toNat = some w ∧
+    (producerDecode 0 v).isSome ↔ ∃ w, Decoder.parse 17 (topFlip v).toNat = some w ∧
       Counting.weight w = target 0 ∧ producerFloor 0 ≤ CreditCounting.credit w := by
   unfold producerDecode
   rw [decode_top_eq]
@@ -161,7 +161,10 @@ theorem card_producer_top (T f n : ℕ) (hT : target 0 = T) (hf : producerFloor 
     (univ.filter fun v : Digest => (producerDecode 0 v).isSome).card = n := by
   classical
   rw [← hn, ← ClaudeWCT.Numerics.TopCredit.card_parse_filter]
-  exact congrArg Finset.card (filter_congr fun v _ => by rw [producerDecode_top_isSome_iff, hT, hf])
+  refine Finset.card_equiv topFlipEquiv fun v => ?_
+  simp only [mem_filter, mem_univ, true_and]
+  rw [producerDecode_top_isSome_iff, hT, hf]
+  rfl
 def producerCount (lay : Layer) : ℕ := ![V5.topCount129, V5.lowerCount197, V5.lowerCount197, V5.lowerCount198] lay
 theorem card_producerDecode (lay : Layer) :
     (univ.filter fun v : Digest => (producerDecode lay v).isSome).card = producerCount lay := by

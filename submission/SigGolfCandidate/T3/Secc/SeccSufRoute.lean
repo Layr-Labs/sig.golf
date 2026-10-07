@@ -205,16 +205,29 @@ theorem hdrTag_digestInput (rho : Digest) (m : Message) (c : BitVec 32) :
   change ((digestHeader c).extractLsb' 8 8).toNat = 0
   rw [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, digestHeader_toNat]
   omega
+def hdrMarker (input : HashInput) : Nat := ((Extract.hdrBlock input).getD 0 0).toNat
+theorem hdrMarker_eq {input : HashInput} {hdr : Digest}
+    (h : Extract.hdrBlock input = SphincsSecurity.bytesLE 16 hdr) : hdrMarker input = tweakMarker hdr := by
+  unfold hdrMarker
+  rw [h, bytesLE16_first_toNat]
+  rfl
+theorem hdrMarker_digestInput (rho : Digest) (m : Message) (c : BitVec 32) :
+    hdrMarker (pad64 (digestInput rho m c)) = 0 := by
+  rw [hdrMarker_eq (hdrBlock_digestInput rho m c), digestHeader_marker]
 def NotDigestQ : T3.Spec.Domain → Prop
-  | .inl (.inr input) => hdrTag input ≠ 0
+  | .inl (.inr input) => hdrMarker input ≠ 0
   | _ => True
-theorem shortHash_ok {input : HashInput} {tag lay tree position index : Nat}
-    (h : Extract.hdrBlock (pad64 input) = SphincsSecurity.bytesLE 16 (header tag lay tree position index))
-    (ht : tag % 256 ≠ 0) : AllQueriesSatisfy (shortHash input) NotDigestQ := by
+theorem shortHash_ok_marker {input : HashInput} {hdr : Digest}
+    (h : Extract.hdrBlock (pad64 input) = SphincsSecurity.bytesLE 16 hdr) (hm : tweakMarker hdr ≠ 0) :
+    AllQueriesSatisfy (shortHash input) NotDigestQ := by
   unfold shortHash publicHash
   apply SourceQueries.bind_allowed
-  · exact (allQueriesSatisfy_query_iff _ _).mpr (show hdrTag (pad64 input) ≠ 0 by rw [hdrTag_eq h]; exact ht)
+  · exact (allQueriesSatisfy_query_iff _ _).mpr (show hdrMarker (pad64 input) ≠ 0 by rw [hdrMarker_eq h]; exact hm)
   · intro _; exact SourceQueries.pure_allowed _ _
+theorem shortHash_ok {input : HashInput} {tag lay tree position index : Nat}
+    (h : Extract.hdrBlock (pad64 input) = SphincsSecurity.bytesLE 16 (header tag lay tree position index))
+    (_ht : tag % 256 ≠ 0) : AllQueriesSatisfy (shortHash input) NotDigestQ :=
+  shortHash_ok_marker h (by rw [header_marker]; decide)
 theorem privatePair_ok (tag lay tree position index : Nat) :
     AllQueriesSatisfy (privatePair tag lay tree position index) NotDigestQ :=
   SourceQueries.privatePair_allowed NotDigestQ (fun _ => trivial) tag lay tree position index
@@ -228,18 +241,21 @@ theorem chain_ok (lay : Layer) (tree leaf i start count : Nat) (value : Digest) 
   unfold shortHash publicHash
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
-    change hdrTag (pad64 (chainInput lay tree leaf i step v)) ≠ 0
-    rw [hdrTag_chainInput]
-    decide
+    change hdrMarker (pad64 (chainInput lay tree leaf i step v)) ≠ 0
+    rw [chainInput_padded]
+    unfold hdrMarker Extract.hdrBlock
+    rw [chainInput_header, bytesLE16_first_toNat]
+    have := chainHeader_firstByte lay tree leaf i step
+    omega
   · intro _; exact SourceQueries.pure_allowed _ _
 theorem leafHash_ok (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
-    AllQueriesSatisfy (leafHash lay tree leaf ends) NotDigestQ := by
-  rw [Extract.leafHash_eq_shortHash]
-  exact shortHash_ok (tag := 2) (Extract.hdrBlock_listInput _ _ _) (by decide)
-theorem nodeHash_ok (tag lay tree heap : Nat) (left right : Digest) (ht : tag % 256 ≠ 0) :
+    AllQueriesSatisfy (leafHash lay tree leaf ends) NotDigestQ :=
+  shortHash_ok_marker (Extract.hdrBlock_leafInput _ _ _ _) (by rw [leafTweak_marker]; decide)
+theorem nodeHash_ok (tag lay tree heap : Nat) (left right : Digest) (_ht : tag % 256 ≠ 0) :
     AllQueriesSatisfy (nodeHash tag lay tree heap left right) NotDigestQ := by
   rw [nodeHash_eq_shortHash]
-  exact shortHash_ok (by rw [pad64_nodeInputP]; exact BSuf.hdrBlock_nodeInputP _ _ _ _ _ _ _) ht
+  exact shortHash_ok_marker (by rw [pad64_nodeInputP]; exact BSuf.hdrBlock_nodeInputP _ _ _ _ _ _ _)
+    (nodeTweak_marker_ne_zero _ _ _ _)
 theorem nodeHash3_ok (lay tree heap : Nat) (left right : Digest) :
     AllQueriesSatisfy (nodeHash 3 lay tree heap left right) NotDigestQ :=
   nodeHash_ok 3 lay tree heap left right (by decide)
@@ -253,9 +269,9 @@ theorem forestPk_ok (index : Nat) (roots : List Digest) : AllQueriesSatisfy (for
   exact shortHash_ok (tag := 11) (Extract.hdrBlock_listInput _ _ _) (by decide)
 theorem encoding_ok (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : BitVec 32) :
     AllQueriesSatisfy (shortHash (encodingInput lay tree leaf message counter)) NotDigestQ :=
-  shortHash_ok (tag := 4) (by
+  shortHash_ok_marker (by
     rw [Extract.hdrBlock_pad64 _ (by simp [encodingInput, SphincsSecurity.bytesLE_length])]
-    exact Extract.hdrBlock_prefix _ _ _) (by decide)
+    exact Extract.hdrBlock_prefix _ _ _) (by rw [rowTweak_marker]; decide)
 theorem counterSearch_ok (lay : Layer) (tree leaf : Nat) (message : Digest) :
     ∀ fuel counter, AllQueriesSatisfy (counterSearch lay tree leaf message counter fuel) NotDigestQ := by
   intro fuel
@@ -332,40 +348,6 @@ theorem queried_privateMac (answers : Correctness.Answers) (region : Region) :
       [.inr (.inl (header 14 0 0 0 0)), .inr (.inl (header 14 0 0 0 1))] := rfl
 theorem queried_privateNonce (answers : Correctness.Answers) (m : Message) :
     queried answers (privateNonce m) = [.inr (.inr (.inl m))] := rfl
-theorem signer_digest_query (answers : Correctness.Answers) (published : T3.Cache) (request : Request)
-    (rho : Digest) (m : Message) (ctr : BitVec 32)
-    (hq : (.inl (.inr (pad64 (digestInput rho m ctr))) : Spec.Domain) ∈
-      queried answers (FullGame.authenticatedSign published request)) :
-    request.cache = published ∧ request.message = m ∧
-      rho = evalWithAnswerFn answers (privateNonce request.message) ∧
-      (.inl (.inr (pad64 (digestInput rho m ctr))) : Spec.Domain) ∈
-        queried answers (digestSearch rho m 0 attemptLimit) := by
-  unfold FullGame.authenticatedSign at hq
-  rw [queried_bind, queried_privateMac] at hq
-  rcases List.mem_append.mp hq with hq | hq
-  · simp at hq
-  by_cases hc : request.cache = published
-  swap
-  · rw [if_neg hc] at hq; simp at hq
-  rw [if_pos hc, signPayload_factor, queried_bind, queried_privateNonce] at hq
-  rcases List.mem_append.mp hq with hq | hq
-  · simp at hq
-  rw [queried_bind] at hq
-  rcases List.mem_append.mp hq with hq | hq
-  ·
-    obtain ⟨c, -, -, heq, -⟩ := digestSearch_queried answers _ _ attemptLimit 0 _ hq
-    simp only [Sum.inl.injEq, Sum.inr.injEq] at heq
-    obtain ⟨hrho, hctr, hm⟩ := digestInput_injective heq
-    subst hrho hm
-    exact ⟨hc, rfl, rfl, hq⟩
-  ·
-    exfalso
-    generalize evalWithAnswerFn answers (digestSearch (evalWithAnswerFn answers (privateNonce request.message))
-      request.message 0 attemptLimit) = found at hq
-    rcases found with _ | ⟨_, output⟩
-    · simp at hq
-    · have := allQ_queried answers NotDigestQ _ (payloadAfterDigest_ok _ _ _) _ hq
-      exact this (hdrTag_digestInput rho m ctr)
 theorem eval_authenticatedSign (answers : Correctness.Answers) (published : T3.Cache) (request : Request) :
     evalWithAnswerFn answers (FullGame.authenticatedSign published request) =
       if request.cache = published then
@@ -382,59 +364,6 @@ theorem eval_authenticatedSign (answers : Correctness.Answers) (published : T3.C
     unfold payloadRecord
     rw [evalWithAnswerFn_bind]
   · rw [if_neg hc, if_neg hc, evalWithAnswerFn_pure]
-theorem caseC_fresh_not_signer (answers : Correctness.Answers) (published : T3.Cache) (log : QueryLog Requests)
-    (state : LazyPrivate.State)
-    (hres : ∀ entry ∈ log, SourceReplay.Resolves state (FullGame.authenticatedSign published entry.1) entry.2)
-    (hagree : ∀ input answer, SourceReplay.known state input = some answer → answers input = answer)
-    (m : Message) (w : WBytes) (N : HashOutput)
-    (hN : evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N) (hS : Shaped N w)
-    (hgate : digestGate N = true)
-    (hgood : ∀ lay : Layer, Extract.Good answers w (N.toNat % 2 ^ 31) lay)
-    (hfresh : ¬SignedDigest log m w) :
-    ∀ entry ∈ log, (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∉
-      queried answers (FullGame.authenticatedSign published entry.1) := by
-  intro entry he hq
-  obtain ⟨hc, hm, hrho, hq'⟩ := signer_digest_query answers published entry.1 _ _ _ hq
-  rw [← ofNat_toNat32 (wdc w)] at hq'
-  have hacc := rejected_trial_inadmissible answers (wrho w) m (wdc w).toNat hq'
-    (by rw [ofNat_toNat32, hN]; simp [digestAdmissible, hS.2.1, hgate])
-  rw [ofNat_toNat32, hN] at hacc
-  have hsel : (evalWithAnswerFn answers (payloadRecordForNonce published (wrho w) m)).2 = some N := by
-    unfold payloadRecordForNonce
-    simp only [evalWithAnswerFn_bind, hacc, evalWithAnswerFn_pure]
-  obtain ⟨sig, hsig, hsrho⟩ := selected_payload_succeeds answers published (wrho w) m N w hsel hgood
-  apply hfresh
-  refine ⟨entry, he, hm, sig, ?_, hsrho⟩
-  rw [← (hres entry he).eval answers hagree, eval_authenticatedSign, if_pos hc, hm, ← hm, ← hrho, hm]
-  exact hsig
-theorem caseC_fresh_first_occurrence (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
-    (z : PaddedGame.TraceResult × Correctness.Answers) (hz : z ∈ (SeccLaw.completedExperiment adversary q hq).support)
-    (hC : CaseCFresh adversary z) :
-    ∃ generated ∈ support (FirstHit.record keygen (∅, ∅)),
-      ∃ interaction ∈ support (FirstHit.record
-        (FullGame.loggedWith (FullGame.authenticatedSign generated.value.2)
-          (adversary generated.value.1 generated.value.2)) generated.state),
-        SourceReplay.Extends interaction.state (QueryRecorded.recordedTrace z.1).state ∧
-        ∃ (message : Message) (witness : WBytes) (N : HashOutput),
-          evalWithAnswerFn z.2 (digest (wrho witness) message (wdc witness)) = N ∧
-          (∀ entry ∈ interaction.value.2,
-            (.inl (.inr (pad64 (digestInput (wrho witness) message (wdc witness)))) : Spec.Domain) ∉
-              queried z.2 (FullGame.authenticatedSign generated.value.2 entry.1)) ∧
-          ∃ first : LazyPrivate.State,
-            (⟨first, .inl (.inr (pad64 (digestInput (wrho witness) message (wdc witness)))), N⟩ :
-              FirstHit.QueryEvent) ∈ (QueryRecorded.recordedTrace z.1).events ∧
-            first.2 (pad64 (digestInput (wrho witness) message (wdc witness))) = none := by
-  obtain ⟨hz1, hagree⟩ := SeccLaw.completed_agrees adversary q hq z hz
-  obtain ⟨generated, hg, interaction, hi, hext, -, -, forgery, -, -, message, witness, -, hsigned, hC⟩ := hC
-  obtain ⟨N, -, hN, ⟨prior, hev⟩, hS, hgate, hgood, -⟩ := hC
-  have hai : ∀ input answer, SourceReplay.known interaction.state input = some answer → z.2 input = answer :=
-    fun input answer hk => hagree input answer (SourceReplay.known_mono _ _ hext hk)
-  have hres := logged_resolves generated.value.2 _ generated.state _ (FirstHit.recorded_support _ _ _ hi)
-  refine ⟨generated, hg, interaction, hi, hext, message, witness, N, hN,
-    caseC_fresh_not_signer z.2 generated.value.2 interaction.value.2 interaction.state hres hai message witness N
-      hN hS hgate hgood hsigned, ?_⟩
-  exact FirstHit.first_public_occurrence _ _ (PaddedExtraction.traced_record_support adversary q hq z.1 hz1)
-    prior _ _ hev
 theorem digestSearch_rejects (answers : Correctness.Answers) (rho : Digest) (m : Message) :
     ∀ fuel start (c : BitVec 32) (N0 : HashOutput), start + fuel ≤ 2 ^ 32 →
       evalWithAnswerFn answers (digestSearch rho m start fuel) = some (c, N0) →

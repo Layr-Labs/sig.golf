@@ -876,9 +876,42 @@ def treeRowsP (lay : Layer) (tree selected : Nat) (digits : List Nat) : M (List 
 theorem buildTreeP_factor (lay : Layer) (tree selected : Nat) (digits : List Nat) :
     buildTreeP lay tree selected digits = (do
       let rows ← treeRowsP lay tree selected digits
-      let levels ← buildLevels 3 lay.val tree (height lay) rows.1
+      let levels ← buildLevelsBelow 3 lay.val tree (height lay) rows.1
       pure (levels, rows.2.1)) := by
   rfl
+theorem buildLevels_eq_below (tag lay tree h : Nat) (leaves : List Digest) (hh : 1 ≤ h) :
+    buildLevels tag lay tree h leaves = (buildLevelsBelow tag lay tree h leaves >>= fun levels => do
+      let nodes ← buildLevel tag lay tree h h (levels.getD (h - 1) [])
+      pure (levels ++ [nodes])) := by
+  unfold buildLevels buildLevelsBelow
+  rw [show h = (h - 1) + 1 from by omega, ← List.range'_append_1, List.foldlM_append]
+  simp only [show 1 + (h - 1) = h - 1 + 1 by omega, List.range'_one, List.foldlM_cons, List.foldlM_nil, bind_pure,
+    Nat.add_sub_cancel]
+theorem eval_buildLevelsBelow (answers : Answers) (tag lay tree h : Nat) (leaves : List Digest)
+    (hlen : leaves.length = 2 ^ h) (hh : 1 ≤ h) :
+    evalWithAnswerFn answers (buildLevelsBelow tag lay tree h leaves) =
+      (evalWithAnswerFn answers (buildLevels tag lay tree h leaves)).take h := by
+  have hfull := (eval_buildLevels_correct answers tag lay tree h leaves hlen).1.1
+  rw [buildLevels_eq_below tag lay tree h leaves hh] at hfull ⊢
+  simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure] at hfull ⊢
+  generalize evalWithAnswerFn answers (buildLevelsBelow tag lay tree h leaves) = L at hfull ⊢
+  simp only [List.length_append, List.length_singleton] at hfull
+  rw [List.take_append_of_le_length (by omega), List.take_of_length_le (by omega)]
+theorem getD_take_of_lt {α : Type} (L : List α) {n j : Nat} (hj : j < n) (d : α) :
+    (L.take n).getD j d = L.getD j d := by
+  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_take_of_lt hj]
+theorem topPair_take (lay : Layer) (L : List (List Digest)) : topPair lay (L.take (height lay)) = topPair lay L := by
+  have : 1 ≤ height lay := by fin_cases lay <;> decide
+  unfold topPair
+  rw [getD_take_of_lt L (by omega)]
+theorem map_range_take_path (L : List (List Digest)) (h : Nat) (f : Nat → Nat) :
+    (List.range h).map (fun j => ((L.take h).getD j []).getD (f j) 0) =
+      (List.range h).map (fun j => (L.getD j []).getD (f j) 0) :=
+  List.map_congr_left fun j hj => by rw [getD_take_of_lt L (List.mem_range.mp hj)]
+theorem treeValue_take (L : List (List Digest)) {n j : Nat} (hj : j < n) (x : Nat) :
+    treeValue (L.take n) j x = treeValue L j x := by
+  unfold treeValue
+  rw [getD_take_of_lt L hj]
 def TreeRowsP (answers : Answers) (lay : Layer) (tree selected : Nat) (digits : List Nat) (done : Nat)
     (rows : List Digest × List Digest × Digest) : Prop :=
   rows.1.length = done ∧ (∀ j, j < done → rows.1.getD j 0 = wotsRoot answers lay tree j) ∧
@@ -919,7 +952,8 @@ theorem eval_treeRowsP (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) (tre
 theorem eval_buildTreeP_result (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree selected : Nat)
     (digits : List Nat) (hvalid : Cost.ValidDigits lay digits) (hsel : selected < 2 ^ height lay) :
     evalWithAnswerFn answers (buildTreeP lay tree selected digits) =
-      (wotsTree answers lay tree, (List.range (chainCount lay)).map (wotsValue answers lay tree selected digits)) := by
+      ((wotsTree answers lay tree).take (height lay),
+        (List.range (chainCount lay)).map (wotsValue answers lay tree selected digits)) := by
   let rows := evalWithAnswerFn answers (treeRowsP lay tree selected digits)
   have hr : TreeRowsP answers lay tree selected digits (2 ^ height lay) rows :=
     eval_treeRowsP answers hlay tree selected digits hvalid
@@ -929,8 +963,9 @@ theorem eval_buildTreeP_result (answers : Answers) {lay : Layer} (hlay : lay ≠
   rw [if_pos hsel] at hvalues
   rw [buildTreeP_factor, evalWithAnswerFn_bind]
   simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-  change (evalWithAnswerFn answers (buildLevels 3 lay.val tree (height lay) rows.1), rows.2.1) = _
-  rw [hroots, hvalues]
+  change (evalWithAnswerFn answers (buildLevelsBelow 3 lay.val tree (height lay) rows.1), rows.2.1) = _
+  rw [hroots, hvalues, eval_buildLevelsBelow answers 3 lay.val tree (height lay) _ (by simp)
+    (by fin_cases lay <;> decide)]
   rfl
 theorem wotsTree_correct (answers : Answers) (lay : Layer) (tree : Nat) :
     TreeLevels answers 3 lay.val tree (height lay)
@@ -1099,7 +1134,8 @@ theorem signLayersBC_expandLayersBC (answers : Answers) (cache : Cache) (index :
               have h1 := congrArg Fin.val h0
               rwa [ofNat_layer_val n (by omega)] at h1)
             simp only [hn0, if_false, evalWithAnswerFn_bind,
-              eval_buildTreeP_result answers hlay0 _ _ digits hvalid (route_leaf_bound index _)] at he
+              eval_buildTreeP_result answers hlay0 _ _ digits hvalid (route_leaf_bound index _), topPair_take,
+              map_range_take_path] at he
             cases hp : evalWithAnswerFn answers (signLayersBC cache index n
               (.pair (topPair (Fin.ofNat 4 n) (wotsTree answers (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2)).1
                 (topPair (Fin.ofNat 4 n) (wotsTree answers (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2)).2)) with

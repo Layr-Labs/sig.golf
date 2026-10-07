@@ -92,20 +92,25 @@ theorem layerCounterSearch_none (answers : Correctness.Answers) (lay : Layer) (t
             rwa [show counter + 1 + (offset - 1) = counter + offset by omega] at this
 theorem goodZ_row (answers : Correctness.Answers) (w : WBytes) (index : Nat) (lay : Layer)
     (hgood : ClaudeWCT.W9.T3M.BC.GoodZ answers w index lay) :
-    ∃ digits, (ClaudeWCT.W9.T3M.wbcCtr w lay).toNat < counterLimit ∧
+    ∃ digits, (ClaudeWCT.W9.T3M.wbcCtr w index lay).toNat < counterLimit ∧
       decode lay (evalWithAnswerFn answers (shortHash (WCT9.layerEncodingInput lay (route index lay).2
         (route index lay).1 (ClaudeWCT.W9.T3M.Extract.honestMsg answers index lay)
-        (ClaudeWCT.W9.T3M.wbcCtr w lay)))) = some digits := by
-  obtain ⟨⟨digits, ⟨hlt, hdec⟩, -⟩, hpad⟩ := hgood
+        (ClaudeWCT.W9.T3M.wbcCtr w index lay)))) = some digits := by
+  obtain ⟨⟨digits, ⟨hlt, hdec⟩, -⟩, hpad, hright⟩ := hgood
   refine ⟨digits, hlt, ?_⟩
+  rw [hpad] at hdec
   have hfit := ClaudeWCT.W9.T3M.Extract.msgFits_honestMsg answers index lay
-  by_cases h3 : lay.val < 3
-  · rw [← ClaudeWCT.W9.T3M.BC.layerEncodingInputP_zero, ← hpad h3]
-    exact hdec
-  · revert hfit hdec
+  have key : ClaudeWCT.W9.T3M.layerEncodingInputP lay (route index lay).2 (route index lay).1
+      (ClaudeWCT.W9.T3M.Extract.honestMsg answers index lay) (ClaudeWCT.W9.T3M.wbcCtr w index lay) 0
+      (ClaudeWCT.W9.T3M.wbcRight w) =
+    ClaudeWCT.W9.T3M.layerEncodingInputP lay (route index lay).2 (route index lay).1
+      (ClaudeWCT.W9.T3M.Extract.honestMsg answers index lay) (ClaudeWCT.W9.T3M.wbcCtr w index lay) 0 0 := by
+    revert hfit
     cases ClaudeWCT.W9.T3M.Extract.honestMsg answers index lay with
-    | forest root => intro hdec _; exact hdec
-    | pair l r => intro _ hfit; exact absurd hfit (by change ¬(lay.val < 3); exact h3)
+    | forest root => intro hfit; rw [hright hfit]
+    | pair l r => intro _; rfl
+  rw [key, ClaudeWCT.W9.T3M.shortHash_layerEncodingInputP_zero] at hdec
+  exact hdec
 theorem honestMsg_lower (answers : Correctness.Answers) (index n : Nat) (hn : n + 1 < 4) :
     ClaudeWCT.W9.T3M.Extract.honestMsg answers index (Fin.ofNat 4 n) =
       .pair (ClaudeWCT.W9.T3M.Extract.honestPair answers (Fin.ofNat 4 (n + 1)) (route index (Fin.ofNat 4 (n + 1))).2).1
@@ -165,7 +170,7 @@ theorem payload_succeeds_of_complete (answers : Correctness.Answers) (hcomp : Si
 theorem hdrBlock_pairEncodingInputP (lay : Layer) (tree leaf : Nat) (left right : Digest) (counter : BitVec 32)
     (pad : BitVec 96) :
     SigGolfCandidate.T3M.Extract.hdrBlock (pad64 (WCT9.pairEncodingInputP lay tree leaf left right counter pad)) =
-      SphincsSecurity.bytesLE 16 (header 4 lay.val tree 0 leaf) := by
+      SphincsSecurity.bytesLE 16 (rowTweak lay tree leaf) := by
   have hl : (WCT9.pairEncodingInputP lay tree leaf left right counter pad).length = 64 := by
     simp [WCT9.pairEncodingInputP, SphincsSecurity.bytesLE_length]
   rw [SigGolfCandidate.T3M.Extract.hdrBlock_pad64 _ (by omega)]
@@ -178,8 +183,8 @@ theorem layerEncoding_ok (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (
   cases msg with
   | forest root => exact SigGolfCandidate.T3.Security.BPB.encoding_ok lay tree leaf root counter
   | pair left right =>
-      exact SigGolfCandidate.T3.Security.BPB.shortHash_ok
-        (hdrBlock_pairEncodingInputP lay tree leaf left right counter 0) (by decide)
+      exact SigGolfCandidate.T3.Security.BPB.shortHash_ok_marker
+        (hdrBlock_pairEncodingInputP lay tree leaf left right counter 0) (by rw [rowTweak_marker]; decide)
 theorem afterDigest_ok (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (output : HashOutput) :
     AllQueriesSatisfy (do
       let forest ← WCT9.signForest (WCT9.digestIndex output) output
@@ -191,7 +196,7 @@ theorem afterDigest_ok (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (outpu
   apply SourceQueries.bind_allowed _ (ClaudeWCT.W9.T3.Security.Signer.signLayersBC_allowed' _ _ layerEncoding_ok
     (ClaudeWCT.W9.T3.Security.Signer.buildTreeP_allowed' _ SigGolfCandidate.T3.Security.BPB.chain_ok
       SigGolfCandidate.T3.Security.BPB.leafHash_ok
-      (fun _ _ _ _ => SigGolfCandidate.T3.Security.BPB.buildLevels_ok _ _ _ _ _ (by decide))
+      (fun _ _ _ _ _ => SigGolfCandidate.T3.Security.BPB.buildLevel_ok _ _ _ _ _ _ (by decide))
       (fun _ _ _ => SigGolfCandidate.T3.Security.BPB.privatePair_ok _ _ _ _ _))
     (SigGolfCandidate.T3.Security.BPB.signTop_ok _) _ _ _)
   intro layers
@@ -235,7 +240,7 @@ theorem signer_digest_query (answers : Correctness.Answers) (published : SigGolf
     · simp at hq
     · have := SigGolfCandidate.T3.Security.BPB.allQ_queried answers _ _ (afterDigest_ok request.cache
         (evalWithAnswerFn answers (privateNonce request.message)) output) _ hq
-      exact this (SigGolfCandidate.T3.Security.BPB.hdrTag_digestInput rho m ctr)
+      exact this (SigGolfCandidate.T3.Security.BPB.hdrMarker_digestInput rho m ctr)
 theorem caseC_fresh_not_signer (answers : Correctness.Answers) (published : SigGolfCandidate.T3.Cache)
     (log : QueryLog Requests) (state : LazyPrivate.State)
     (hres : ∀ entry ∈ log, SourceReplay.Resolves state (FullGame.authenticatedSign published entry.1) entry.2)

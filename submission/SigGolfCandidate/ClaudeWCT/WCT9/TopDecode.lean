@@ -75,7 +75,7 @@ theorem decode_top_of {answer : Digest} (hg : answer.toNat < 2 ^ encodedBits 0)
   rw [if_neg (by omega)]
   simp only [↓reduceIte, hr, hs, decide_true, Bool.and_self]
 theorem topGroupBad_eq_false_iff (answer : Digest) (i : Nat) :
-    topGroupBad answer i = false ↔ ¬(i % 3 = 0 ∧ i < 51 ∧ 125 ≤ answer.toNat / 2 ^ (7 * (i / 3)) % 128) := by
+    topGroupBad answer i = false ↔ ¬(i % 3 = 0 ∧ i < 51 ∧ 125 ≤ topCode answer / 2 ^ (7 * (i / 3)) % 128) := by
   unfold topGroupBad
   exact decide_eq_false_iff_not
 theorem topRanksValid_iff_good (answer : Digest) :

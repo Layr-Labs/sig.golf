@@ -1,4 +1,5 @@
 import SigGolfCandidate.SphincsSecurity.Completeness.Search
+import SigGolfCandidate.T3.Tweaks
 import SigGolfCandidate.T3.Nonbinary.CreditFilter
 import VCVio.EvalDist.Monad.Disagreement
 import SigGolfCandidate.SphincsSecurity.Proof.Deterministic.Memoize
@@ -927,31 +928,6 @@ theorem header_injective {tag lay tree position index tag' lay' tree' position' 
       (Nat.mod_lt tree' (by positivity)) hpacked
     exact ⟨rfl,hlay,by omega,hposition,hindex⟩
 open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
-theorem digestHeader_toNat (counter : BitVec 32) :
-    (digestHeader counter).toNat = counter.toNat * 2 ^ 96 := by
-  simp only [digestHeader, BitVec.toNat_append, BitVec.toNat_zero, Nat.or_zero, Nat.shiftLeft_eq]
-  rw [Nat.mul_assoc, ← Nat.pow_add]
-theorem digestHeader_firstByte (counter : BitVec 32) :
-    (digestHeader counter).toNat % 256 = 0 := by
-  rw [digestHeader_toNat, Nat.mul_mod]
-  norm_num
-theorem digestHeader_low (counter : BitVec 32) :
-    (digestHeader counter).extractLsb' 0 64 = 0 := by
-  exact BitVec.extractLsb'_append_eq_right
-theorem digestHeader_high (counter : BitVec 32) :
-    (digestHeader counter).extractLsb' 64 64 = BitVec.ofNat 64 (counter.toNat * 2 ^ 32) := by
-  rw [digestHeader, BitVec.extractLsb'_append_eq_left]
-  apply BitVec.eq_of_toNat_eq
-  simp only [BitVec.toNat_append, BitVec.toNat_zero, Nat.or_zero, Nat.shiftLeft_eq, BitVec.toNat_ofNat,
-    Nat.zero_mod]
-  have hc := counter.isLt
-  rw [Nat.mod_eq_of_lt (show counter.toNat * 2 ^ 32 < 2 ^ (32 + 32) by omega)]
-theorem digestHeader_injective : Function.Injective digestHeader := by
-  intro counter counter' h
-  have hh := congrArg (fun x : BitVec 128 => x.extractLsb' 64 64) h
-  simp only [digestHeader, BitVec.extractLsb'_append_eq_left] at hh
-  have hc := congrArg (fun x : BitVec 64 => x.extractLsb' 32 32) hh
-  simpa only [BitVec.extractLsb'_append_eq_left] using hc
 theorem digestInput_injective {rho rho' : Digest} {message message' : Message}
     {counter counter' : BitVec 32}
     (h : digestInput rho message counter=digestInput rho' message' counter') :
@@ -959,7 +935,7 @@ theorem digestInput_injective {rho rho' : Digest} {message message' : Message}
   unfold digestInput at h
   obtain ⟨hhead,hm⟩ := List.append_inj h (by simp only [List.length_append,bytesLE_length])
   obtain ⟨hr,hh⟩ := List.append_inj hhead (by simp only [bytesLE_length])
-  exact ⟨bytesLE_injective hr, bytesLE_injective hm, digestHeader_injective (bytesLE_injective hh)⟩
+  exact ⟨bytesLE_injective hr,bytesLE_injective hm,digestHeader_injective (bytesLE_injective hh)⟩
 theorem admissible_bucket_map (chosen : List Selection) (f : Selection → Nat) :
     admissible (chosen.map fun s => {s with bucket := f s})=admissible chosen := by
   simp only [admissible,List.all_map,List.map_map,Function.comp_def]
@@ -1230,8 +1206,7 @@ theorem bound_nodeHash (tag lay tree heap : Nat) (left right : Digest) :
   apply bound_shortHash <;> simp [nodeHash,pad64_length,zero16,SphincsSecurity.bytesLE_length]
 theorem bound_top_leafHash (tree leaf : Nat) (ends : List Digest) (hlen : ends.length=54) :
     CBound (fun _ => True) 14 (leafHash 0 tree leaf ends) := by
-  apply bound_shortHash <;> simp only [leafHash,pad64_length,List.length_append,SphincsSecurity.bytesLE_length,
-    digest_list_bytes_length,List.length_drop,hlen] <;> norm_num
+  apply bound_shortHash <;> simp only [leafHash,pad64_length,leafInput_length,hlen] <;> norm_num
 def topPairCost (pair : Nat) : Nat :=
   1+∑ half ∈ range 2, (maxDigit 0 (2*pair+half))
 theorem topPairCost_sum : (∑ pair ∈ range 27,topPairCost pair)=240 := by decide +kernel
@@ -1483,8 +1458,7 @@ def fullLeafCost (lay : Layer) : Nat := if lay=0 then 254 else 334
 theorem bound_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest)
     (hlen : ends.length=chainCount lay) :
     CBound (fun _ => True) (leafHashCost lay) (leafHash lay tree leaf ends) := by
-  apply bound_shortHash <;> simp only [leafHash,pad64_length,List.length_append,
-    SphincsSecurity.bytesLE_length,digest_list_bytes_length,List.length_drop,hlen]
+  apply bound_shortHash <;> simp only [leafHash,pad64_length,leafInput_length,hlen]
   · fin_cases lay <;> decide
   · fin_cases lay <;> decide
 def fullPairCost (lay : Layer) (pair : Nat) : Nat :=

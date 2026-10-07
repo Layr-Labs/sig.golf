@@ -15,7 +15,7 @@ def mkLvlSpecN (lay ci sh kk : Nat) : Spec :=
   { T3M.mkLvlSpecN lay ci sh kk with
     pc := mkShp lay ci sh + mkOff lay ci (kk + 1) + mkMove lay (mkLo lay ci + kk) }
 def mkLvlCheckN (lay ci sh kk : Nat) : Bool :=
-  mkSpecB (mkLvlAllow lay (mkLo lay ci + kk)) [] baseK
+  mkSpecB (mkLvlAllow lay sh (mkLo lay ci + kk)) [] baseK
     (mkLvlKN lay ci sh kk) [] (mkShp lay ci sh + mkOff lay ci kk + 2) []
     (mkLvlSpecN lay ci sh kk) [] (mkLvlPostN lay ci sh kk)
     (mkKeep ++ (.x14 :: mkLvlKeep lay (mkLo lay ci + kk)))

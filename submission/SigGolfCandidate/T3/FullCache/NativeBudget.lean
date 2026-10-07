@@ -379,29 +379,26 @@ set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
 theorem encodingInput_injective {lay lay' : Layer} {tree tree' leaf leaf' : Nat}
     {message message' : Digest} {counter counter' : BitVec 32}
-    (ht : tree < 2^40) (ht' : tree' < 2^40)
-    (hl : leaf < 2^32) (hl' : leaf' < 2^32)
+    (hl : leaf < 2 ^ height lay) (hr : tree * 2 ^ height lay + leaf < 2 ^ 32)
+    (hl' : leaf' < 2 ^ height lay') (hr' : tree' * 2 ^ height lay' + leaf' < 2 ^ 32)
     (he : encodingInput lay tree leaf message counter =
       encodingInput lay' tree' leaf' message' counter') :
     lay=lay' ∧ tree=tree' ∧ leaf=leaf' ∧ message=message' ∧ counter=counter' := by
   unfold encodingInput at he
   obtain ⟨hh,hc⟩ := List.append_inj he (by simp only [List.length_append,bytesLE_length])
   obtain ⟨hm,hh⟩ := List.append_inj hh (by simp only [bytesLE_length])
-  have hhead := header_injective (by decide : 4<256) (by have := lay.isLt; omega)
-    ht (by decide : 0<2^32) hl (by decide : 4<256) (by have := lay'.isLt; omega)
-    ht' (by decide : 0<2^32) hl' (bytesLE_injective hh)
-  exact ⟨Fin.ext hhead.2.1,hhead.2.2.1,hhead.2.2.2.2,
-    bytesLE_injective hm,bytesLE_injective hc⟩
+  obtain ⟨a,b,c⟩ := rowTweak_injective hl hr hl' hr' (bytesLE_injective hh)
+  exact ⟨a,b,c,bytesLE_injective hm,bytesLE_injective hc⟩
 theorem encodingTrial_coordinates {lay lay' : Layer} {tree tree' leaf leaf' : Nat}
     {message message' : Digest} {counter counter' : Nat}
-    (ht : tree < 2^40) (ht' : tree' < 2^40)
-    (hl : leaf < 2^32) (hl' : leaf' < 2^32)
+    (hl : leaf < 2 ^ height lay) (hr : tree * 2 ^ height lay + leaf < 2 ^ 32)
+    (hl' : leaf' < 2 ^ height lay') (hr' : tree' * 2 ^ height lay' + leaf' < 2 ^ 32)
     (hc : counter < 2^32) (hc' : counter' < 2^32)
     (he : encodingTrial lay tree leaf message counter =
       encodingTrial lay' tree' leaf' message' counter') :
     lay=lay' ∧ tree=tree' ∧ leaf=leaf' ∧ message=message' ∧ counter=counter' := by
   have he := pad64_inj_of_length (by simp [encodingInput,bytesLE_length]) he
-  obtain ⟨a,b,c,d,e⟩ := encodingInput_injective ht ht' hl hl' he
+  obtain ⟨a,b,c,d,e⟩ := encodingInput_injective hl hr hl' hr' he
   refine ⟨a,b,c,d,?_⟩
   have e := congrArg BitVec.toNat e
   simpa only [BitVec.toNat_ofNat,Nat.mod_eq_of_lt hc,Nat.mod_eq_of_lt hc'] using e
@@ -457,39 +454,56 @@ theorem padded_headers_ne (leftPrefix rightPrefix leftSuffix rightSuffix : HashI
   exact header_ne_of_tag htags (bytesLE_injective he)
 @[simp] theorem queryHeader_encoding (lay : Layer) (tree leaf : Nat) (message : Digest)
     (counter : Nat) : queryHeader (encodingTrial lay tree leaf message counter) =
-      bytesLE 16 (header 4 lay.val tree 0 leaf) := by
+      bytesLE 16 (rowTweak lay tree leaf) := by
   simp [queryHeader,encodingTrial,encodingInput,pad64,List.append_assoc,bytesLE_length]
 @[simp] theorem queryHeader_digest (rho : Digest) (message : Message) (counter : Nat) :
     queryHeader (digestTrial rho message counter) =
       bytesLE 16 (digestHeader (BitVec.ofNat 32 counter)) := by
   simp [queryHeader,digestTrial,digestInput,pad64,List.append_assoc,bytesLE_length]
+theorem queryHeader_leafInput (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
+    queryHeader (pad64 (leafInput lay tree leaf ends)) = bytesLE 16 (leafTweak lay tree leaf) := by
+  unfold leafInput
+  split
+  · exact queryHeader_padded zero16 _ (by simp [zero16]) _
+  · exact queryHeader_padded _ _ (bytesLE_length ..) _
 theorem encodingTrial_ne_digestTrial (lay : Layer) (tree leaf : Nat) (message : Digest)
-    (counter : Nat) (rho : Digest) (msg : Message) (ctr : Nat)
-    (ht : tree<2^40) (hl : leaf<2^32) :
+    (counter : Nat) (rho : Digest) (msg : Message) (ctr : Nat) :
     encodingTrial lay tree leaf message counter ≠ digestTrial rho msg ctr := by
   intro he
   have he := congrArg queryHeader he
   simp only [queryHeader_encoding,queryHeader_digest] at he
-  exact (digestHeader_ne_header _ _ _ _ _ _).symm (bytesLE_injective he)
-abbrev EncodingFamily := Layer × Fin (2^31) × Fin 4096 × Digest
+  exact (digestHeader_ne_rowTweak _ lay tree leaf) (bytesLE_injective he).symm
+def routedTree (lay : Layer) (r : Nat) : Nat := r / 2 ^ height lay
+def routedLeaf (lay : Layer) (r : Nat) : Nat := r % 2 ^ height lay
+theorem routedLeaf_lt (lay : Layer) (r : Nat) : routedLeaf lay r < 2 ^ height lay := Nat.mod_lt _ (by positivity)
+theorem routed_eq (lay : Layer) (r : Nat) : routedTree lay r * 2 ^ height lay + routedLeaf lay r = r := by
+  unfold routedTree routedLeaf; rw [Nat.mul_comm]; exact Nat.div_add_mod r _
+theorem routedTree_of (lay : Layer) {tree leaf : Nat} (hl : leaf < 2 ^ height lay) :
+    routedTree lay (tree * 2 ^ height lay + leaf) = tree := by
+  unfold routedTree
+  rw [Nat.add_comm, Nat.add_mul_div_right _ _ (by positivity), Nat.div_eq_of_lt hl, Nat.zero_add]
+theorem routedLeaf_of (lay : Layer) {tree leaf : Nat} (hl : leaf < 2 ^ height lay) :
+    routedLeaf lay (tree * 2 ^ height lay + leaf) = leaf := by
+  unfold routedLeaf
+  rw [Nat.add_comm, Nat.add_mul_mod_self_right, Nat.mod_eq_of_lt hl]
+abbrev EncodingFamily := Layer × Fin (2^32) × Digest
 abbrev DigestFamily := Digest × Message
 abbrev EncodingKey := EncodingFamily × Fin (2^22)
 abbrev DigestKey := DigestFamily × Fin (2^20)
 abbrev SearchKey := EncodingKey ⊕ DigestKey
 def encodingQuery (key : EncodingKey) : HashInput :=
-  encodingTrial key.1.1 key.1.2.1 key.1.2.2.1 key.1.2.2.2 key.2
+  encodingTrial key.1.1 (routedTree key.1.1 key.1.2.1) (routedLeaf key.1.1 key.1.2.1) key.1.2.2 key.2
 def digestQuery (key : DigestKey) : HashInput := digestTrial key.1.1 key.1.2 key.2
 def searchQuery : SearchKey → HashInput := Sum.elim encodingQuery digestQuery
 theorem encodingQuery_injective : Function.Injective encodingQuery := by
-  rintro ⟨⟨lay,tree,leaf,message⟩,counter⟩ ⟨⟨lay',tree',leaf',message'⟩,counter'⟩ he
-  obtain ⟨a,b,c,d,e⟩ := encodingTrial_coordinates
-    (by have := tree.isLt; omega) (by have := tree'.isLt; omega)
-    (by have := leaf.isLt; omega) (by have := leaf'.isLt; omega)
+  rintro ⟨⟨lay,r,message⟩,counter⟩ ⟨⟨lay',r',message'⟩,counter'⟩ he
+  obtain ⟨a,b,c,d,e⟩ := encodingTrial_coordinates (routedLeaf_lt lay r)
+    (by rw [routed_eq]; exact r.isLt) (routedLeaf_lt lay' r') (by rw [routed_eq]; exact r'.isLt)
     (by have := counter.isLt; omega) (by have := counter'.isLt; omega) he
-  have b := Fin.ext b
-  have c := Fin.ext c
+  subst a
+  have hr : r = r' := Fin.ext (by rw [← routed_eq lay r.val, ← routed_eq lay r'.val, b, c])
   have e := Fin.ext e
-  cases a; cases b; cases c; cases d; cases e; rfl
+  cases hr; cases d; cases e; rfl
 theorem digestQuery_injective : Function.Injective digestQuery := by
   rintro ⟨⟨rho,msg⟩,counter⟩ ⟨⟨rho',msg'⟩,counter'⟩ he
   obtain ⟨a,b,c⟩ := digestTrial_coordinates
@@ -502,14 +516,10 @@ theorem searchQuery_injective : Function.Injective searchQuery := by
   | inl l =>
     cases right with
     | inl r => exact congrArg Sum.inl (encodingQuery_injective he)
-    | inr r => exact False.elim (encodingTrial_ne_digestTrial l.1.1 l.1.2.1 l.1.2.2.1
-        l.1.2.2.2 l.2 r.1.1 r.1.2 r.2 (by have := l.1.2.1.isLt; omega)
-        (by have := l.1.2.2.1.isLt; omega) he)
+    | inr r => exact False.elim (encodingTrial_ne_digestTrial _ _ _ _ _ _ _ _ he)
   | inr l =>
     cases right with
-    | inl r => exact False.elim (encodingTrial_ne_digestTrial r.1.1 r.1.2.1 r.1.2.2.1
-        r.1.2.2.2 r.2 l.1.1 l.1.2 l.2 (by have := r.1.2.1.isLt; omega)
-        (by have := r.1.2.2.1.isLt; omega) he.symm)
+    | inl r => exact False.elim (encodingTrial_ne_digestTrial _ _ _ _ _ _ _ _ he.symm)
     | inr r => exact congrArg Sum.inr (digestQuery_injective he)
 end SigGolfCandidate.T3.QuerySpace
 end
@@ -588,16 +598,17 @@ theorem uniform_table_restriction_failure {J : Type} [Fintype J]
 theorem counterSearch_none_table (outputs : SearchKey → HashOutput)
     (fallback : Correctness.Answers) (family : EncodingFamily) :
     evalWithAnswerFn (tableAnswers outputs fallback)
-      (counterSearch family.1 family.2.1 family.2.2.1 family.2.2.2 0 counterLimit)=none ↔
+      (counterSearch family.1 (QuerySpace.routedTree family.1 family.2.1) (QuerySpace.routedLeaf family.1 family.2.1) family.2.2 0
+        counterLimit)=none ↔
     ∀ c : Fin (2^22), Sampling.encodingDecode family.1 (outputs (.inl (family,c)))=none := by
   rw [Correctness.counterSearch_none_iff]
   have hv (c : Nat) (hc : c<counterLimit) :
       evalWithAnswerFn (tableAnswers outputs fallback)
-        (shortHash (encodingInput family.1 family.2.1 family.2.2.1 family.2.2.2
-          (BitVec.ofNat 32 (0+c)))) = (outputs (.inl (family,⟨c,hc⟩))).extractLsb' 0 128 := by
+        (shortHash (encodingInput family.1 (QuerySpace.routedTree family.1 family.2.1) (QuerySpace.routedLeaf family.1 family.2.1)
+          family.2.2 (BitVec.ofNat 32 (0+c)))) = (outputs (.inl (family,⟨c,hc⟩))).extractLsb' 0 128 := by
     rw [eval_shortHash]
-    have hinput : pad64 (encodingInput family.1 family.2.1 family.2.2.1 family.2.2.2
-        (BitVec.ofNat 32 (0+c))) = searchQuery (.inl (family,⟨c,hc⟩)) := by
+    have hinput : pad64 (encodingInput family.1 (QuerySpace.routedTree family.1 family.2.1) (QuerySpace.routedLeaf family.1 family.2.1)
+        family.2.2 (BitVec.ofNat 32 (0+c))) = searchQuery (.inl (family,⟨c,hc⟩)) := by
       simp only [searchQuery,Sum.elim_inl,encodingQuery,Sampling.encodingTrial,Nat.zero_add]
     rw [hinput,tableAnswers_apply]
   constructor
@@ -634,7 +645,8 @@ theorem digestSearch_none_table (outputs : SearchKey → HashOutput)
     exact (hd _).mp (h ⟨c,hc⟩)
 theorem counterSearch_table_failure (fallback : Correctness.Answers) (family : EncodingFamily) :
     Pr[fun outputs => evalWithAnswerFn (tableAnswers outputs fallback)
-      (counterSearch family.1 family.2.1 family.2.2.1 family.2.2.2 0 counterLimit)=none |
+      (counterSearch family.1 (QuerySpace.routedTree family.1 family.2.1) (QuerySpace.routedLeaf family.1 family.2.1) family.2.2 0
+        counterLimit)=none |
       ($ᵗ (SearchKey → HashOutput) : ProbComp _)] =
     SphincsSecurity.Completeness.failMass (Sampling.encodingDecode family.1)^counterLimit := by
   simp_rw [counterSearch_none_table]
@@ -715,19 +727,22 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 set_option linter.unusedSimpArgs false
-abbrev EncodingFamily := Layer × Fin (2^31) × Fin 4096 × Digest
+abbrev EncodingFamily := QuerySpace.EncodingFamily
 abbrev DigestFamily := Digest × Message
 def EncodingSearchesSucceed (answers : Answers) : Prop :=
   ∀ family : EncodingFamily, ∃ found,
-    evalWithAnswerFn answers (counterSearch family.1 family.2.1.val
-      family.2.2.1.val family.2.2.2 0 counterLimit)=some found
+    evalWithAnswerFn answers (counterSearch family.1 (QuerySpace.routedTree family.1 family.2.1)
+      (QuerySpace.routedLeaf family.1 family.2.1) family.2.2 0 counterLimit)=some found
 def DigestSearchesSucceed (answers : Answers) : Prop :=
   ∀ family : DigestFamily, ∃ found,
     evalWithAnswerFn answers (digestSearch family.1 family.2 0 attemptLimit)=some found
 def SearchesSucceed (answers : Answers) : Prop :=
   DigestSearchesSucceed answers ∧ EncodingSearchesSucceed answers
-theorem encodingFamily_card : Fintype.card EncodingFamily=2^173 := by
-  norm_num [EncodingFamily,Layer,Fintype.card_prod,Fintype.card_bitVec]
+theorem encodingFamily_card : Fintype.card EncodingFamily=2^162 := by
+  norm_num [EncodingFamily,QuerySpace.EncodingFamily,Layer,Fintype.card_prod,Fintype.card_bitVec]
+theorem encodingFamily_card_le : (Fintype.card EncodingFamily : ENNReal) ≤ 2^173 := by
+  rw [encodingFamily_card, Nat.cast_pow, Nat.cast_ofNat]
+  exact pow_le_pow_right₀ (by norm_num) (by norm_num)
 theorem digestFamily_card : Fintype.card DigestFamily=2^384 := by
   calc
     Fintype.card DigestFamily = (2 : Nat)^128 * (2 : Nat)^256 := by
@@ -745,8 +760,12 @@ theorem encodingSearchesSucceed_at_route (answers : Answers)
     (lay : Layer) (message : Digest) : ∃ found,
     evalWithAnswerFn answers (counterSearch lay (route index lay).2
       (route index lay).1 message 0 counterLimit)=some found := by
-  exact hgood (lay,⟨_,route_tree_bound index lay hindex⟩,
-    ⟨_,route_leaf_4096 index lay⟩,message)
+  have hl := route_leaf_bound index lay
+  have hr : (route index lay).2 * 2 ^ height lay + (route index lay).1 < 2 ^ 32 := by
+    fin_cases lay <;> simp [route, height] <;> omega
+  obtain ⟨found, hf⟩ := hgood (lay,⟨_,hr⟩,message)
+  refine ⟨found, ?_⟩
+  simpa only [QuerySpace.routedTree_of lay hl, QuerySpace.routedLeaf_of lay hl] using hf
 theorem topSearchesSucceed_of (answers : Answers) (hgood : EncodingSearchesSucceed answers) :
     TopSearchesSucceed answers :=
   fun index hindex m => encodingSearchesSucceed_at_route answers hgood index hindex (Fin.ofNat 4 0) m
@@ -893,8 +912,8 @@ open Correctness
 def DigestFailed (family : DigestFamily) (answers : Answers) : Prop :=
   evalWithAnswerFn answers (digestSearch family.1 family.2 0 attemptLimit)=none
 def EncodingFailed (family : EncodingFamily) (answers : Answers) : Prop :=
-  evalWithAnswerFn answers (counterSearch family.1 family.2.1.val
-    family.2.2.1.val family.2.2.2 0 counterLimit)=none
+  evalWithAnswerFn answers (counterSearch family.1 (QuerySpace.routedTree family.1 family.2.1)
+    (QuerySpace.routedLeaf family.1 family.2.1) family.2.2 0 counterLimit)=none
 theorem incomplete_implies_failed_search (answers : Answers)
     (h : ¬SigningComplete answers (evalWithAnswerFn answers keygen)) :
     (∃ family,DigestFailed family answers) ∨ (∃ family,EncodingFailed family answers) := by
@@ -909,8 +928,8 @@ theorem incomplete_implies_failed_search (answers : Answers)
     | none => exact False.elim (hd ⟨family,hx⟩)
     | some found => exact ⟨found,rfl⟩
   · intro family
-    cases hx : evalWithAnswerFn answers (counterSearch family.1 family.2.1.val
-      family.2.2.1.val family.2.2.2 0 counterLimit) with
+    cases hx : evalWithAnswerFn answers (counterSearch family.1 (QuerySpace.routedTree family.1 family.2.1)
+      (QuerySpace.routedLeaf family.1 family.2.1) family.2.2 0 counterLimit) with
     | none => exact False.elim (he ⟨family,hx⟩)
     | some found => exact ⟨found,rfl⟩
 theorem finite_family_failure_le {ι α : Type} [Fintype ι]
@@ -933,7 +952,7 @@ theorem signing_incomplete_probability_le (law : ProbComp Answers) (digestFail e
   have hd' := finite_family_failure_le law DigestFailed digestFail hd
   have he' := finite_family_failure_le law EncodingFailed encodingFail he
   rw [digestFamily_card,Nat.cast_pow,Nat.cast_ofNat] at hd'
-  rw [encodingFamily_card,Nat.cast_pow,Nat.cast_ofNat] at he'
+  replace he' := he'.trans (mul_le_mul' encodingFamily_card_le le_rfl)
   exact hm.trans ((probEvent_or_le law _ _).trans (add_le_add hd' he'))
 theorem signing_incomplete_probability_small (law : ProbComp Answers)
     (hd : ∀ family,Pr[DigestFailed family | law] ≤ 1/(2 : ENNReal)^450)
@@ -1006,16 +1025,17 @@ def tableGood (outputs : QuerySpace.SearchKey → HashOutput) : Prop :=
 theorem counterSearch_none_agreement (outputs : QuerySpace.SearchKey → HashOutput)
     (answers : Answers) (hagree : SearchAgreement outputs answers) (family : EncodingFamily) :
     evalWithAnswerFn answers
-      (counterSearch family.1 family.2.1 family.2.2.1 family.2.2.2 0 counterLimit)=none ↔
+      (counterSearch family.1 (QuerySpace.routedTree family.1 family.2.1) (QuerySpace.routedLeaf family.1 family.2.1) family.2.2 0
+        counterLimit)=none ↔
     ∀ c : Fin (2^22), Sampling.encodingDecode family.1 (outputs (.inl (family,c)))=none := by
   rw [counterSearch_none_iff]
   have hv (c : Nat) (hc : c<counterLimit) :
       evalWithAnswerFn answers
-        (shortHash (encodingInput family.1 family.2.1 family.2.2.1 family.2.2.2
-          (BitVec.ofNat 32 (0+c)))) = (outputs (.inl (family,⟨c,hc⟩))).extractLsb' 0 128 := by
+        (shortHash (encodingInput family.1 (QuerySpace.routedTree family.1 family.2.1) (QuerySpace.routedLeaf family.1 family.2.1)
+          family.2.2 (BitVec.ofNat 32 (0+c)))) = (outputs (.inl (family,⟨c,hc⟩))).extractLsb' 0 128 := by
     rw [Presampling.eval_shortHash]
-    have hinput : pad64 (encodingInput family.1 family.2.1 family.2.2.1 family.2.2.2
-        (BitVec.ofNat 32 (0+c))) = QuerySpace.searchQuery (.inl (family,⟨c,hc⟩)) := by
+    have hinput : pad64 (encodingInput family.1 (QuerySpace.routedTree family.1 family.2.1) (QuerySpace.routedLeaf family.1 family.2.1)
+        family.2.2 (BitVec.ofNat 32 (0+c))) = QuerySpace.searchQuery (.inl (family,⟨c,hc⟩)) := by
       simp only [QuerySpace.searchQuery,Sum.elim_inl,QuerySpace.encodingQuery,Sampling.encodingTrial,Nat.zero_add]
     rw [hinput,hagree]
   constructor
@@ -1087,7 +1107,7 @@ theorem tableGood_failure_le (digestFail encodingFail : ENNReal)
     (fun family outputs => EncodingFailed family (Presampling.tableAnswers outputs zeroAnswers)) encodingFail
     (fun family => (Presampling.counterSearch_table_failure zeroAnswers family).le.trans (he family.1))
   rw [digestFamily_card,Nat.cast_pow,Nat.cast_ofNat] at hd'
-  rw [encodingFamily_card,Nat.cast_pow,Nat.cast_ofNat] at he'
+  replace he' := he'.trans (mul_le_mul' encodingFamily_card_le le_rfl)
   simp only [tableGood,not_searchesSucceed_iff]
   exact (probEvent_or_le law _ _).trans (add_le_add hd' he')
 theorem tableGood_failure_small_of_acceptance (p : ℝ) (hp : 1/3300 ≤ p) (hp1 : p ≤ 1)
@@ -1143,7 +1163,7 @@ theorem tableGoodFor_failure_le (message : Message) (digestFail encodingFail : E
     (fun family outputs => EncodingFailed family (Presampling.tableAnswers outputs zeroAnswers)) encodingFail
     (fun family => (Presampling.counterSearch_table_failure zeroAnswers family).le.trans (he family.1))
   rw [Fintype.card_bitVec,Nat.cast_pow,Nat.cast_ofNat] at hd'
-  rw [encodingFamily_card,Nat.cast_pow,Nat.cast_ofNat] at he'
+  replace he' := he'.trans (mul_le_mul' encodingFamily_card_le le_rfl)
   simp only [tableGoodFor,not_searchesSucceedFor_iff]
   exact (probEvent_or_le law _ _).trans (add_le_add hd' he')
 theorem tableGoodFor_failure_small_of_acceptance (message : Message) (p : ℝ) (hp : 1/3300 ≤ p) (hp1 : p ≤ 1)
@@ -1418,7 +1438,7 @@ theorem tableGoodForNonces_failure_le (nonces : Message → HashOutput) :
       (1/(2 : ENNReal)^1024)
     (fun family => (Presampling.counterSearch_table_failure zeroAnswers family).le.trans (encoding_failure_power family.1))
   rw [Fintype.card_bitVec,Nat.cast_pow,Nat.cast_ofNat] at hd'
-  rw [encodingFamily_card,Nat.cast_pow,Nat.cast_ofNat] at he'
+  replace he' := he'.trans (mul_le_mul' encodingFamily_card_le le_rfl)
   simp only [not_tableGoodForNonces_iff]
   exact (probEvent_or_le law _ _).trans (add_le_add hd' he')
 theorem tableGoodForNonces_failure_small (nonces : Message → HashOutput) :
@@ -1536,34 +1556,68 @@ theorem preserves {α : Type} (secret : BitVec 256) (target : HashInput) (progra
    obtain ⟨step,hs,hr⟩ := hr
    exact (ih step.1 (hp.2 step.1) step.2 hr).trans (query_preserves secret target q hp.1 cache step hs)
 def HasTag (tag : Nat) (input : HashInput) : Prop :=
- (∃ lay tree position index, queryHeader input = bytesLE 16 (header tag lay tree position index)) ∨
- (tag % 256 = 12 ∧ ∃ counter : BitVec 32, queryHeader input = bytesLE 16 (digestHeader counter))
+ ∃ lay tree position index, queryHeader input = bytesLE 16 (header tag lay tree position index)
 theorem tagged_ne {tag tag' : Nat} {input input' : HashInput}
  (h : HasTag tag input) (h' : HasTag tag' input') (hne : tag%256 ≠ tag'%256) : input ≠ input' := by
+ rcases h with ⟨l,t,p,i,h⟩
+ rcases h' with ⟨l',t',p',i',h'⟩
  intro he
- have hh := congrArg queryHeader he
- rcases h with ⟨l,t,p,i,h⟩ | ⟨ht,c,h⟩
- · rcases h' with ⟨l',t',p',i',h'⟩ | ⟨ht',c',h'⟩
-   · exact header_ne_of_tag hne (bytesLE_injective (h.symm.trans (hh.trans h')))
-   · exact (digestHeader_ne_header _ _ _ _ _ _).symm (bytesLE_injective (h.symm.trans (hh.trans h')))
- · rcases h' with ⟨l',t',p',i',h'⟩ | ⟨ht',c',h'⟩
-   · exact digestHeader_ne_header _ _ _ _ _ _ (bytesLE_injective (h.symm.trans (hh.trans h')))
-   · exact hne (ht.trans ht'.symm)
+ exact header_ne_of_tag hne (bytesLE_injective (h.symm.trans ((congrArg queryHeader he).trans h')))
 theorem hasTag_padded (front back : HashInput) (hfront : front.length=16)
  (tag lay tree position index : Nat) :
  HasTag tag (pad64 (front ++ bytesLE 16 (header tag lay tree position index) ++ back)) :=
- Or.inl ⟨lay,tree,position,index,queryHeader_padded _ _ hfront _⟩
-@[simp] theorem hasTag_encoding (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : Nat) :
- HasTag 4 (encodingTrial lay tree leaf message counter) := Or.inl ⟨lay.val,tree,0,leaf,queryHeader_encoding ..⟩
-@[simp] theorem hasTag_digest (rho : Digest) (message : Message) (counter : Nat) :
- HasTag 12 (digestTrial rho message counter) :=
- Or.inr ⟨rfl, BitVec.ofNat 32 counter, queryHeader_digest ..⟩
-theorem tagged_ne_search {tag : Nat} {input target : HashInput}
- (hi : HasTag tag input) (ht : HasTag 4 target ∨ HasTag 12 target)
- (h4 : tag%256 ≠ 4) (h12 : tag%256 ≠ 12) : input ≠ target := by
- rcases ht with ht | ht
- · exact tagged_ne hi ht h4
- · exact tagged_ne hi ht h12
+ ⟨lay,tree,position,index,queryHeader_padded _ _ hfront _⟩
+def RowHdr (hdr : BitVec 128) : Prop := tweakMarker hdr = 1 ∧ tweakTag hdr = 2 ∧ tweakHigh hdr = 1
+def SearchHdr (hdr : BitVec 128) : Prop := tweakMarker hdr = 0 ∨ RowHdr hdr
+def RowQ (input : HashInput) : Prop := ∃ hdr, queryHeader input = bytesLE 16 hdr ∧ RowHdr hdr
+def SearchQ (input : HashInput) : Prop := ∃ hdr, queryHeader input = bytesLE 16 hdr ∧ SearchHdr hdr
+theorem RowQ.searchQ {input : HashInput} (h : RowQ input) : SearchQ input :=
+ let ⟨hdr, hq, hr⟩ := h; ⟨hdr, hq, Or.inr hr⟩
+theorem searchQ_ne {input target : HashInput} {hdr : BitVec 128}
+ (h : queryHeader input = bytesLE 16 hdr) (hn : ¬ SearchHdr hdr) (ht : SearchQ target) : input ≠ target := by
+ rintro rfl
+ obtain ⟨hdr', h', hs⟩ := ht
+ rw [h] at h'
+ exact hn ((bytesLE_injective h') ▸ hs)
+theorem rowQ_ne {input target : HashInput} {hdr : BitVec 128}
+ (h : queryHeader input = bytesLE 16 hdr) (hn : ¬ RowHdr hdr) (ht : RowQ target) : input ≠ target := by
+ rintro rfl
+ obtain ⟨hdr', h', hs⟩ := ht
+ rw [h] at h'
+ exact hn ((bytesLE_injective h') ▸ hs)
+theorem header_not_search (tag lay tree position index : Nat) (ht : tag % 256 ≠ 2) :
+ ¬ SearchHdr (header tag lay tree position index) := by
+ unfold SearchHdr RowHdr; rw [header_marker, header_tag]; omega
+theorem chainHeader_not_search (lay : Layer) (tree leaf i step : Nat) :
+ ¬ SearchHdr (chainHeader lay tree leaf i step) := by
+ have := chainHeader_tweakMarker lay tree leaf i step
+ unfold SearchHdr RowHdr; omega
+theorem leafTweak_not_search (lay : Layer) (tree leaf : Nat) : ¬ SearchHdr (leafTweak lay tree leaf) := by
+ unfold SearchHdr RowHdr; rw [leafTweak_marker, leafTweak_high]; omega
+theorem digestHeader_not_row (counter : BitVec 32) : ¬ RowHdr (digestHeader counter) := by
+ unfold RowHdr; rw [digestHeader_marker]; omega
+theorem nodeTweak_not_search (tag lay tree heap : Nat) (htag : tag % 256 ≠ 2)
+ (hroot : tag = 3 → 1 ≤ lay → lay < 4 → heap % 2 ^ 64 ≠ 1) : ¬ SearchHdr (nodeTweak tag lay tree heap) := by
+ by_cases h : tag = 3 ∧ lay < 4
+ · obtain ⟨rfl, h4⟩ := h
+   by_cases h0 : lay = 0
+   · subst h0; unfold SearchHdr RowHdr; rw [nodeTweak_top_marker]; omega
+   · have hh := hroot rfl (by omega) h4
+     unfold SearchHdr RowHdr
+     rw [nodeTweak_lower_marker h0 h4, nodeTweak_hyper_high h4]; omega
+ · by_cases hf : tag = 3 ∧ lay < 13
+   · obtain ⟨rfl, h13⟩ := hf
+     unfold SearchHdr RowHdr
+     rw [nodeTweak_fts_marker (by omega) h13, nodeTweak_fts_tag (by omega) h13]; omega
+   · rw [nodeTweak_other hf]; exact header_not_search _ _ _ _ _ htag
+@[simp] theorem rowQ_encoding (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : Nat) :
+ RowQ (encodingTrial lay tree leaf message counter) :=
+ ⟨rowTweak lay tree leaf, queryHeader_encoding .., rowTweak_marker .., rowTweak_tag .., rowTweak_high ..⟩
+@[simp] theorem searchQ_encoding (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : Nat) :
+ SearchQ (encodingTrial lay tree leaf message counter) := (rowQ_encoding ..).searchQ
+@[simp] theorem searchQ_digest (rho : Digest) (message : Message) (counter : Nat) :
+ SearchQ (digestTrial rho message counter) :=
+ ⟨digestHeader _, queryHeader_digest .., Or.inl (digestHeader_marker _)⟩
 theorem avoids_shortHash_of_ne (secret : BitVec 256) (target input : HashInput)
  (hne : pad64 input ≠ target) : Avoids secret target (shortHash input) := by
  unfold shortHash
@@ -1582,24 +1636,26 @@ theorem hasTag_privateMac (secret : BitVec 256) (region : Region) :
 theorem hasTag_privateNonce (secret : BitVec 256) (message : Message) :
  HasTag 7 (privateInput secret (.inr (.inl message))) := by
  exact hasTag_padded _ _ (bytesLE_length ..) 7 0 0 0 0
+theorem hasTag_not_search {tag : Nat} {input target : HashInput} (hi : HasTag tag input) (h2 : tag % 256 ≠ 2)
+ (ht : SearchQ target) : input ≠ target := by
+ obtain ⟨l, tr, p, ix, h⟩ := hi
+ exact searchQ_ne h (header_not_search _ _ _ _ _ h2) ht
 attribute [aesop safe apply] avoids_pure avoids_bind avoids_map avoids_mapM avoids_foldlM
 macro "avoids_search" : tactic => `(tactic| aesop (config := { maxRuleApplications := 1000 }))
 section NonSearch
-variable (secret : BitVec 256) (target : HashInput) (ht : HasTag 4 target ∨ HasTag 12 target)
+variable (secret : BitVec 256) (target : HashInput) (ht : SearchQ target)
 include ht
-@[aesop safe apply] theorem avoids_privatePair (tag lay tree position index : Nat)
- (h4 : tag%256 ≠ 4) (h12 : tag%256 ≠ 12) :
+@[aesop safe apply] theorem avoids_privatePair (tag lay tree position index : Nat) (h2 : tag%256 ≠ 2) :
  Avoids secret target (privatePair tag lay tree position index) := by
  unfold privatePair
  apply avoids_bind
- · exact avoids_privateHash_of_ne secret target _
-     (tagged_ne_search (hasTag_privatePair ..) ht h4 h12)
+ · exact avoids_privateHash_of_ne secret target _ (hasTag_not_search (hasTag_privatePair ..) h2 ht)
  · intro _; exact avoids_pure _ _ _
 @[aesop safe apply] theorem avoids_privateMac (region : Region) :
  Avoids secret target (privateMac region) := by
  have hk (i : Nat) : Avoids secret target (privateHash (.inl (header 14 0 0 0 i))) :=
    avoids_privateHash_of_ne secret target _
-     (tagged_ne_search (hasTag_privatePair secret 14 0 0 0 i) ht (by decide) (by decide))
+     (hasTag_not_search (hasTag_privatePair secret 14 0 0 0 i) (by decide) ht)
  unfold privateMac privateMacKey
  simp only [bind_assoc,pure_bind]
  exact avoids_bind (hk 0) fun _ => avoids_bind (hk 1) fun _ => avoids_pure _ _ _
@@ -1607,8 +1663,7 @@ include ht
  Avoids secret target (privateNonce message) := by
  unfold privateNonce
  apply avoids_bind
- · exact avoids_privateHash_of_ne secret target _
-     (tagged_ne_search (hasTag_privateNonce ..) ht (by decide) (by decide))
+ · exact avoids_privateHash_of_ne secret target _ (hasTag_not_search (hasTag_privateNonce ..) (by decide) ht)
  · intro _; exact avoids_pure _ _ _
 @[aesop safe apply] theorem avoids_chain (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
  Avoids secret target (chain lay tree leaf i start count value) := by
@@ -1616,49 +1671,48 @@ include ht
  apply avoids_foldlM
  intro value step
  apply avoids_shortHash_of_ne
- intro he
  have hh : queryHeader (pad64 (chainInput lay tree leaf i step value)) =
      bytesLE 16 (chainHeader lay tree leaf i step) := by
    simpa only [chainInput, List.append_assoc] using
      queryHeader_padded zero16 (zero16 ++ bytesLE 16 value) (by simp [zero16])
        (chainHeader lay tree leaf i step)
- rw [he] at hh
- rcases ht with ht | ht
- all_goals
-   rcases ht with ⟨l,tr,p,ix,ht⟩ | ⟨hclass,c,ht⟩
-   · exact chainHeader_ne_header _ _ _ _ _ _ _ _ _ _ (bytesLE_injective (hh.symm.trans ht))
-   · exact chainHeader_ne_digestHeader _ _ _ _ _ _ (bytesLE_injective (hh.symm.trans ht))
+ exact searchQ_ne hh (chainHeader_not_search lay tree leaf i step) ht
 @[aesop safe apply] theorem avoids_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
  Avoids secret target (leafHash lay tree leaf ends) := by
  unfold leafHash
  apply avoids_shortHash_of_ne
- exact tagged_ne_search (hasTag_padded _ _ (bytesLE_length ..) 2 lay.val tree 0 leaf) ht (by decide) (by decide)
+ exact searchQ_ne (queryHeader_leafInput ..) (leafTweak_not_search lay tree leaf) ht
 @[aesop safe apply] theorem avoids_nodeHash (tag lay tree heap : Nat) (left right : Digest)
- (h4 : tag%256 ≠ 4) (h12 : tag%256 ≠ 12) :
+ (h2 : tag%256 ≠ 2) (hroot : tag = 3 → 1 ≤ lay → lay < 4 → heap % 2 ^ 64 ≠ 1) :
  Avoids secret target (nodeHash tag lay tree heap left right) := by
  unfold nodeHash
  apply avoids_shortHash_of_ne
- apply tagged_ne_search (tag := tag) _ ht h4 h12
+ apply searchQ_ne _ (nodeTweak_not_search tag lay tree heap h2 hroot) ht
  simpa only [List.append_assoc] using
-   (hasTag_padded (bytesLE 16 left) (zero16 ++ bytesLE 16 right) (bytesLE_length ..) tag lay tree 0 heap)
+   (queryHeader_padded (bytesLE 16 left) (zero16 ++ bytesLE 16 right) (bytesLE_length ..)
+     (nodeTweak tag lay tree heap))
 @[aesop safe apply] theorem avoids_buildLeaf (lay : Layer) (tree leaf : Nat) (digits : List Nat)
  (signatureOnly : Bool) : Avoids secret target (buildLeaf lay tree leaf digits signatureOnly) := by
  unfold buildLeaf; avoids_search
 @[aesop safe apply] theorem avoids_buildLevel (tag lay tree h level : Nat) (nodes : List Digest)
- (h4 : tag%256 ≠ 4) (h12 : tag%256 ≠ 12) :
- Avoids secret target (buildLevel tag lay tree h level nodes) := by unfold buildLevel; avoids_search
+ (h2 : tag%256 ≠ 2) (hlow : tag = 3 → lay = 0 ∨ 4 ≤ lay) :
+ Avoids secret target (buildLevel tag lay tree h level nodes) := by
+ unfold buildLevel
+ exact avoids_mapM _ _ _ _ fun i => avoids_nodeHash secret target ht _ _ _ _ _ _ h2
+   (fun h3 h1 h4 => by rcases hlow h3 with h | h <;> omega)
 @[aesop safe apply] theorem avoids_buildLevels (tag lay tree h : Nat) (leaves : List Digest)
- (h4 : tag%256 ≠ 4) (h12 : tag%256 ≠ 12) :
+ (h2 : tag%256 ≠ 2) (hlow : tag = 3 → lay = 0 ∨ 4 ≤ lay) :
  Avoids secret target (buildLevels tag lay tree h leaves) := by unfold buildLevels; avoids_search
-@[aesop safe apply] theorem avoids_buildTree (lay : Layer) (tree selected : Nat) (digits : List Nat) :
- Avoids secret target (buildTree lay tree selected digits) := by unfold buildTree; avoids_search
+@[aesop safe apply] theorem avoids_buildTree_top (tree selected : Nat) (digits : List Nat) :
+ Avoids secret target (buildTree 0 tree selected digits) := by
+ unfold buildTree; avoids_search
 @[aesop safe apply] theorem avoids_ftsLeaf (index coord leaf : Nat) (value : Digest) :
  Avoids secret target (ftsLeaf index coord leaf value) := by
  unfold ftsLeaf
  apply avoids_shortHash_of_ne
- apply tagged_ne_search (tag := 9) _ ht (by decide) (by decide)
+ apply searchQ_ne _ (header_not_search 9 coord index 0 leaf (by decide)) ht
  simpa only [List.append_assoc] using
-   (hasTag_padded zero16 (bytesLE 16 value ++ zero16) (by simp [zero16]) 9 coord index 0 leaf)
+   (queryHeader_padded zero16 (bytesLE 16 value ++ zero16) (by simp [zero16]) (header 9 coord index 0 leaf))
 @[aesop safe apply] theorem avoids_buildFts (index coord : Nat) :
  Avoids secret target (buildFts index coord) := by unfold buildFts; avoids_search
 @[aesop safe apply] theorem avoids_signForest (index : Nat) (chosen : List Selection) :
@@ -1667,7 +1721,7 @@ include ht
  Avoids secret target (forestPk index roots) := by
  unfold forestPk
  apply avoids_shortHash_of_ne
- exact tagged_ne_search (hasTag_padded _ _ (bytesLE_length ..) 11 0 index 0 0) ht (by decide) (by decide)
+ exact searchQ_ne (queryHeader_padded _ _ (bytesLE_length ..) _) (header_not_search 11 0 index 0 0 (by decide)) ht
 @[aesop safe apply] theorem avoids_mask (level index : Nat) :
  Avoids secret target (mask level index) := by unfold mask pairedMask; avoids_search
 @[aesop safe apply] theorem avoids_keygenPayload : Avoids secret target keygenPayload := by
@@ -1675,6 +1729,11 @@ include ht
 @[aesop safe apply] theorem avoids_keygen : Avoids secret target keygen := by
  unfold keygen; avoids_search
 end NonSearch
+theorem hyperWord_layer (lay routed : Nat) : (hyperWord lay routed).toNat / 2 ^ 48 % 256 = lay % 256 := by
+ rw [hyperWord_toNat]
+ have := Nat.mod_lt routed (show 0 < 2 ^ 32 by decide)
+ have := Nat.mod_lt lay (show 0 < 256 by decide)
+ omega
 theorem encodingTrial_ne_of_layer (lay other : Layer) (hne : lay ≠ other)
  (tree leaf : Nat) (message : Digest) (counter : Nat)
  (tree' leaf' : Nat) (message' : Digest) (counter' : Nat) :
@@ -1682,11 +1741,13 @@ theorem encodingTrial_ne_of_layer (lay other : Layer) (hne : lay ≠ other)
  intro he
  have hh := congrArg queryHeader he
  simp only [queryHeader_encoding] at hh
- apply header_ne_of_layer _ (bytesLE_injective hh)
+ have hw := (append64_inj (bytesLE_injective hh)).2
+ have hl := congrArg (fun w : BitVec 64 => w.toNat / 2 ^ 48 % 256) hw
+ simp only [hyperWord_layer] at hl
  have h1 : lay.val < 256 := by have := lay.isLt; omega
  have h2 : other.val < 256 := by have := other.isLt; omega
- rw [Nat.mod_eq_of_lt h1,Nat.mod_eq_of_lt h2]
- exact fun h => hne (Fin.ext h)
+ rw [Nat.mod_eq_of_lt h1,Nat.mod_eq_of_lt h2] at hl
+ exact hne (Fin.ext hl)
 theorem avoids_counterSearch (secret : BitVec 256) (lay other : Layer) (hne : lay ≠ other)
  (tree leaf : Nat) (message : Digest) (counter fuel : Nat)
  (tree' leaf' : Nat) (message' : Digest) (counter' : Nat) :
@@ -1704,72 +1765,36 @@ theorem avoids_counterSearch (secret : BitVec 256) (lay other : Layer) (hne : la
      · exact ih _
      · exact avoids_pure _ _ _
 @[aesop safe apply] theorem avoids_digest_encoding (secret : BitVec 256) (target : HashInput)
- (ht : HasTag 4 target) (rho : Digest) (message : Message) (counter : BitVec 32) :
+ (ht : RowQ target) (rho : Digest) (message : Message) (counter : BitVec 32) :
  Avoids secret target (digest rho message counter) := by
  unfold digest publicHash
  apply (allQueriesSatisfy_query_iff _ _).mpr
  change pad64 (digestInput rho message counter) ≠ target
- apply tagged_ne (tag := 12) _ ht (by decide)
- exact Or.inr ⟨rfl, counter, by simp [queryHeader, digestInput, pad64, List.append_assoc, bytesLE_length]⟩
-theorem avoids_digestSearch_encoding (secret : BitVec 256) (target : HashInput) (ht : HasTag 4 target)
+ exact rowQ_ne (queryHeader_padded _ _ (bytesLE_length ..) _) (digestHeader_not_row counter) ht
+theorem avoids_digestSearch_encoding (secret : BitVec 256) (target : HashInput) (ht : RowQ target)
  (rho : Digest) (message : Message) (counter fuel : Nat) :
  Avoids secret target (digestSearch rho message counter fuel) := by
  induction fuel generalizing counter with
  | zero => unfold digestSearch; avoids_search
  | succ fuel ih => unfold digestSearch; avoids_search
 theorem preserves_allSearches {α : Type} (secret : BitVec 256) (program : M α)
- (h : ∀ target,HasTag 4 target ∨ HasTag 12 target → Avoids secret target program)
+ (h : ∀ target, SearchQ target → Avoids secret target program)
  (cache : RCache) (hc : Budgets.AllSearchesFresh cache) (result : α × RCache)
  (hr : result ∈ support (roRun secret program cache)) : Budgets.AllSearchesFresh result.2 := by
  constructor
  · intro rho message c hlt
-   rw [preserves secret _ program (h _ (Or.inr (hasTag_digest ..))) cache result hr]
+   rw [preserves secret _ program (h _ (searchQ_digest ..)) cache result hr]
    exact hc.1 rho message c hlt
  · intro lay hl tree leaf message c hlt
-   rw [preserves secret _ program (h _ (Or.inl (hasTag_encoding ..))) cache result hr]
+   rw [preserves secret _ program (h _ (searchQ_encoding ..)) cache result hr]
    exact hc.2 lay hl tree leaf message c hlt
 theorem preserves_encodingBelow {α : Type} (secret : BitVec 256) (program : M α)
- (h : ∀ target,HasTag 4 target → Avoids secret target program)
+ (h : ∀ target, RowQ target → Avoids secret target program)
  (n : Nat) (cache : RCache) (hc : Budgets.EncodingFreshBelow n cache) (result : α × RCache)
  (hr : result ∈ support (roRun secret program cache)) : Budgets.EncodingFreshBelow n result.2 := by
  intro lay hl tree leaf message c hlt
- rw [preserves secret _ program (h _ (hasTag_encoding ..)) cache result hr]
+ rw [preserves secret _ program (h _ (rowQ_encoding ..)) cache result hr]
  exact hc lay hl tree leaf message c hlt
-theorem sourceFreshness (secret : BitVec 256) : Budgets.SourceFreshness secret where
- counter := by
-   intro lay tree leaf message cache hc result hr other ho tree' leaf' message' c hlt
-   have hne : lay ≠ other := by intro he; subst other; omega
-   rw [preserves secret _ _ (avoids_counterSearch secret lay other hne tree leaf message 0 counterLimit
-     tree' leaf' message' c) cache result hr]
-   exact hc other (by omega) tree' leaf' message' c hlt
- tree := by
-   intro lay tree leaf digits cache hc result hr
-   exact preserves_encodingBelow secret _
-     (fun target ht => avoids_buildTree secret target (Or.inl ht) lay tree leaf digits)
-     lay.val cache hc result hr
- mac := by
-   intro region cache hc result hr
-   exact preserves_allSearches secret _
-     (fun target ht => avoids_privateMac secret target ht region) cache hc result hr
- nonce := by
-   intro message cache hc result hr
-   exact preserves_allSearches secret _
-     (fun target ht => avoids_privateNonce secret target ht message) cache hc result hr
- digest := by
-   intro rho message cache hc result hr
-   exact preserves_encodingBelow secret _
-     (fun target ht => avoids_digestSearch_encoding secret target ht rho message 0 attemptLimit)
-     4 cache hc.2 result hr
- forest := by
-   intro index chosen cache hc result hr
-   exact preserves_encodingBelow secret _
-     (fun target ht => avoids_signForest secret target (Or.inl ht) index chosen)
-     4 cache hc result hr
- forestPk := by
-   intro index roots cache hc result hr
-   exact preserves_encodingBelow secret _
-     (fun target ht => avoids_forestPk secret target (Or.inl ht) index roots)
-     4 cache hc result hr
 theorem keygen_preserves_fresh (secret : BitVec 256) (cache : RCache)
  (hc : Budgets.AllSearchesFresh cache) (result : (Digest × Cache) × RCache)
  (hr : result ∈ support (roRun secret keygen cache)) : Budgets.AllSearchesFresh result.2 :=

@@ -33,9 +33,9 @@ def ftsPairsHonest (answers : Answers) (index : Nat) : List (Digest × Digest) :
 def listInput (first : Digest) (hdr : BitVec 128) (rest : List Digest) : HashInput :=
   bytesLE 16 first ++ bytesLE 16 hdr ++ rest.flatMap (bytesLE 16)
 def leafInput (lay : Layer) (tree leaf : Nat) (ends : List Digest) : HashInput :=
-  listInput (ends.getD 0 0) (header 2 lay.val tree 0 leaf) (ends.drop 1)
+  SigGolfCandidate.T3.leafInput lay tree leaf ends
 def wctLeafInput (index coord child : Nat) (ends : List Digest) : HashInput :=
-  listInput (ends.getD 0 0) (header 6 coord index 0 child) (ends.drop 1)
+  listInput (ends.getD 0 0) (WCT9.ftsLeafHeader index coord child) (ends.drop 1)
 abbrev forestInput (index : Nat) (pairs : List (Digest × Digest)) : HashInput := WCT9.forestInput index pairs
 def honestForest (answers : Answers) (index : Nat) : Digest :=
   evalWithAnswerFn answers (WCT9.forestPk index (ftsPairsHonest answers index))
@@ -69,16 +69,17 @@ noncomputable def honestInput (answers : Answers) : Pos → HashInput
       (treeValue (ftsLevels answers index coord) level (2 * node + 1)))
 def Pos.hdr : Pos → BitVec 128
   | .chain lay tree lf i step => chainHeader lay tree lf i step
-  | .leaf lay tree lf => header 2 lay.val tree 0 lf
-  | .node lay tree level nd => header 3 lay.val tree 0 (2 ^ (height lay - level - 1) + nd)
+  | .leaf lay tree lf => leafTweak lay tree lf
+  | .node lay tree level nd => nodeTweak 3 lay.val tree (2 ^ (height lay - level - 1) + nd)
   | .forest index => header 15 0 index 0 0
   | .wctChain index coord child t step => WCT9.ftsChainHeader index coord child t step
-  | .wctLeaf index coord child => header 6 coord index 0 child
+  | .wctLeaf index coord child => WCT9.ftsLeafHeader index coord child
   | .wctNode index coord level nd => WCT9.wctNodeHeader coord index (2 ^ (7 - level - 1) + nd)
 def Pos.Bounded : Pos → Prop
   | .chain _ tree lf i step => tree < 2 ^ 31 ∧ lf < 4096 ∧ i < 64 ∧ step < 8
-  | .leaf _ tree lf => tree < 2 ^ 40 ∧ lf < 2 ^ 32
-  | .node lay tree level nd => tree < 2 ^ 40 ∧ level < height lay ∧ nd < 2 ^ (height lay - level - 1)
+  | .leaf lay tree lf => lf < 2 ^ height lay ∧ tree * 2 ^ height lay + lf < 2 ^ 32
+  | .node lay tree level nd => tree < 2 ^ 32 ∧ level < height lay ∧ (lay = 0 ∨ level + 1 < height lay) ∧
+      (lay = 0 → tree = 0) ∧ nd < 2 ^ (height lay - level - 1)
   | .forest index => index < 2 ^ 40
   | .wctChain index coord child t step => index < 2 ^ 31 ∧ coord < 9 ∧ child < 128 ∧ t < 7 ∧ step < 3
   | .wctLeaf index coord child => index < 2 ^ 31 ∧ coord < 9 ∧ child < 128

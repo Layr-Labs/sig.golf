@@ -18,7 +18,7 @@ def rungW (step : Nat) (dst : Option Nat) : List (BitVec 32) :=
 def copyW (t : Nat) : List (BitVec 32) :=
   [eL 3 8 (offC t + 48), eL 14 8 (offC t + 56), eS 3 3 (slotC t) 8, eS 3 14 (slotC t + 8) 8]
 def leafW : List (BitVec 32) :=
-  [eL 25 28 (456 + 2048), eS 3 25 896 8, eS 3 4 904 8, eI 10 8 880, eI 11 0 128, 0x000b8067]
+  [eI 25 31 1537, eS 3 25 896 8, eS 3 0 904 8, eI 10 8 880, eI 11 0 128, 0x000b8067]
 def ownC (z : List Nat) (t : Nat) : Bool := decide (0 < t) && decide (t < 6) && decide (z.getD (t + 1) 0 = 0)
 def a2C (t d : Nat) (own : Bool) : Nat := if d = 1 then (if own then offC t + 48 else slotC t) else offC t + 48
 def rungDst (t step : Nat) (own : Bool) : Option Nat :=
@@ -52,9 +52,9 @@ def copySt (t : Nat) : SymState :=
       .valid (aX .x8 (offC t + 48)) 8]⟩
 def copyR (t : Nat) (p : Word) : Result := ⟨copySt t, .c (p + 4 + 4 + 4 + 4), .fuel, 4, 4⟩
 def leafSt : SymState :=
-  ⟨((RegFile.init.set .x25 (.ld (eX .x28 (hbO 456)))).set .x10 (eX .x8 880)).set .x11 (.c 128#64),
-    [(aX .x8 904, .reg .x4), (aX .x8 896, .ld (eX .x28 (hbO 456)))],
-    [.valid (aX .x8 904) 8, .valid (aX .x8 896) 8, .valid (aX .x28 (hbO 456)) 8]⟩
+  ⟨((RegFile.init.set .x25 (.bin .add (.reg .x31) (.c 0x601#64))).set .x10 (eX .x8 880)).set .x11 (.c 128#64),
+    [(aX .x8 904, .c 0#64), (aX .x8 896, .bin .add (.reg .x31) (.c 0x601#64))],
+    [.valid (aX .x8 904) 8, .valid (aX .x8 896) 8]⟩
 def leafR : Result := ⟨leafSt, .bin .and (.reg .x23) (.c 0xfffffffffffffffe#64), .jump, 6, 6⟩
 abbrev cfgE : Config := { noAlias := true }
 end ClaudeWCT.W9.Machine.Expand

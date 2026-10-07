@@ -1,5 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Queries
-import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Header
+import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.HdrBlocks
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Defs
 
 namespace ClaudeWCT.W9.T3M.WctExtract
@@ -191,7 +191,7 @@ end chain
 theorem leafHash_eq_shortHash (index coord child : Nat) (ends : List Digest) :
     WCT9.leafHash index coord child ends = shortHash (Extract.wctLeafInput index coord child ends) := by
   unfold WCT9.leafHash Extract.wctLeafInput Extract.listInput
-  rw [WCT9.leaf_header_eq]
+  rfl
 theorem childRoot_eq_out (answers : Answers) (index coord child : Nat) :
     WCT9.childRoot answers index coord child =
       (answers (.inl (.inr (Extract.honestInput answers (.wctLeaf index coord child))))).extractLsb' 0 128 := by
@@ -275,7 +275,7 @@ theorem merkle_honestInput (step : Nat) :
   rfl
 theorem hdrBlock_merkleInput (path pads : Nat → Digest) (step : Nat) (value : Digest) :
     Extract.hdrBlock (pad64 (merkleInput 3 (WCT9.nodeLayer c.val) index 7 j path pads step value)) =
-      bytesLE 16 (header 3 (WCT9.nodeLayer c.val) index 0 (2 ^ (7 - step - 1) + j / 2 ^ (step + 1))) := by
+      bytesLE 16 (nodeTweak 3 (WCT9.nodeLayer c.val) index (2 ^ (7 - step - 1) + j / 2 ^ (step + 1))) := by
   unfold merkleInput
   dsimp only
   split <;> rw [Extract.hdrBlock_nodeInputP]
@@ -491,10 +491,10 @@ theorem eval_rejectTail (answers : Answers) (w : WBytes) (N : HashOutput) :
   · rw [evalWithAnswerFn_map]
 theorem shaped_of_verifyP (answers : Answers) (m : Message) (pk : Digest) (w : WBytes)
     (hv : evalWithAnswerFn answers (verifyP m pk w) = true) :
-    (wdc w).toNat < WCT9.digestAttemptLimit ∧ Shaped (evalWithAnswerFn answers (digest (wrho w) m (wdc w))) w := by
+    (wdcWord w).toNat < WCT9.digestAttemptLimit ∧ Shaped (evalWithAnswerFn answers (digest (wrho w) m (wdc w))) w := by
   classical
   rw [verifyP_normal] at hv
-  by_cases hdc : (wdc w).toNat ≥ WCT9.digestAttemptLimit
+  by_cases hdc : (wdcWord w).toNat ≥ WCT9.digestAttemptLimit
   · rw [if_pos hdc] at hv; simp at hv
   rw [if_neg hdc, evalWithAnswerFn_bind] at hv
   refine ⟨by omega, ?_⟩
@@ -515,7 +515,8 @@ theorem verifyP_walk_wct (answers : Answers) (m : Message) (pk : Digest) (w : WB
           (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N)))),
         q ∈ queried answers (verifyP m pk w)) := by
   classical
-  obtain ⟨hdc, hS⟩ := shaped_of_verifyP answers m pk w hv
+  obtain ⟨hdcW, hS⟩ := shaped_of_verifyP answers m pk w hv
+  have hdc := lt_of_le_of_lt (wdc_toNat_le w) hdcW
   rw [verifyP_eq_tail] at hv ⊢
   have hD : digestP m w = some <$> digest (wrho w) m (wdc w) := by unfold digestP; rw [if_neg (by omega)]
   rw [hD, bind_map_left] at hv ⊢

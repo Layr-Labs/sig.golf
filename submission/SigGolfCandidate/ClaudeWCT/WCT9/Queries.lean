@@ -10,7 +10,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 def leafInput (index coord selected : Nat) (ends : List Digest) : HashInput :=
-  bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (wctHeader 6 coord index 0 selected) ++
+  bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (ftsLeafHeader index coord selected) ++
     (ends.drop 1).flatMap (bytesLE 16)
 def nodeInput (coord index heap : Nat) (left right : Digest) : HashInput :=
   bytesLE 16 left ++ bytesLE 16 (wctNodeHeader coord index heap) ++ zero16 ++ bytesLE 16 right
@@ -84,25 +84,26 @@ theorem hdrBlock_pad64_prefix (a : HashInput) (h : BitVec 128) (rest : HashInput
 theorem FtsInput.hdrBlock {index : Nat} {x : HashInput} (h : FtsInput index x) :
     (∃ coord selected t step, SigGolfCandidate.T3M.Extract.hdrBlock x =
       bytesLE 16 (ftsChainHeader index coord selected t step)) ∨
-    ∃ tag lay position idx, ((tag = 3 ∧ 4 ≤ lay ∧ lay < 13) ∨ tag = 6 ∨ tag = 15) ∧
-      SigGolfCandidate.T3M.Extract.hdrBlock x = bytesLE 16 (header tag lay index position idx) := by
+    (∃ coord selected, coord < 9 ∧ selected < 128 ∧
+      SigGolfCandidate.T3M.Extract.hdrBlock x = bytesLE 16 (ftsLeafHeader index coord selected)) ∨
+    (∃ coord heap, coord < 9 ∧ 2 ≤ heap ∧ heap < 128 ∧
+      SigGolfCandidate.T3M.Extract.hdrBlock x = bytesLE 16 (wctNodeHeader coord index heap)) ∨
+    SigGolfCandidate.T3M.Extract.hdrBlock x = bytesLE 16 (header 15 0 index 0 0) := by
   cases h with
   | @chain coord selected t step value hcoord hsel ht hstep =>
       refine Or.inl ⟨coord, selected, t, step, ?_⟩
       unfold chainInput
       rw [List.append_assoc (zero16 ++ _), hdrBlock_pad64_prefix _ _ _ (by simp [zero16])]
   | @leaf coord selected ends hcoord hsel hlen =>
-      refine Or.inr ⟨6, coord, 0, selected, Or.inr (Or.inl rfl), ?_⟩
+      refine Or.inr (Or.inl ⟨coord, selected, hcoord, hsel, ?_⟩)
       unfold leafInput
-      rw [hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _), wctHeader_eq_header _ _ _ _ _ (by decide)]
+      rw [hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _)]
   | @node coord heap left right hcoord hlo hhi =>
-      refine Or.inr ⟨3, nodeLayer coord, 0, heap, Or.inl ⟨rfl, by unfold nodeLayer; omega,
-        by unfold nodeLayer; omega⟩, ?_⟩
+      refine Or.inr (Or.inr (Or.inl ⟨coord, heap, hcoord, hlo, hhi, ?_⟩))
       unfold nodeInput
       rw [List.append_assoc (bytesLE 16 left ++ _), hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _)]
-      rfl
   | @forest pairs hlen =>
-      refine Or.inr ⟨15, 0, 0, 0, Or.inr (Or.inr rfl), ?_⟩
+      refine Or.inr (Or.inr (Or.inr ?_))
       unfold forestInput
       rw [show zero16 = bytesLE 16 (0 : Digest) by decide, hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _)]
 theorem bound_shortHashP {P : Query → Prop} (input : HashInput) (k : Nat)

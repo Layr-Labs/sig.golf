@@ -19,7 +19,7 @@ namespace Enc
 open SigGolfCandidate.T3.Security.Wots.Enc
 def chainAt (p : CanonGraph.LeafPos × Fin 58) : ChainAddr := ⟨leafOf p.1, p.2.val⟩
 def MarkEntry (T : Answers) (a : ChainAddr) (entry : Entry) : Prop :=
-  ∃ (message : WCT9.LayerMsg) (counter : BitVec 32) (pad : BitVec 96) (digits : List Nat),
+  ∃ (message : WCT9.LayerMsg) (counter : BitVec 32) (pad : RowPad) (digits : List Nat),
     Extract.msgFits a.key.lay message ∧ entry.1 = encRow a.key message counter pad ∧
       referenceInput T a.key ≠ some (encRow a.key message counter pad) ∧
       decode a.key.lay (low entry.2) = some digits ∧
@@ -33,10 +33,11 @@ theorem markerAt_iff (T : Answers) (trace : List Entry) (a : ChainAddr) :
   · rintro ⟨⟨input, answer⟩, hmem, message, counter, pad, digits, hfit, rfl, hne, hd, hlow, hrest⟩
     exact ⟨message, counter, pad, answer, digits, hfit, hmem, hne, hd, hlow, hrest⟩
 theorem markerAt_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (trace : List Entry)
-    (p : CanonGraph.LeafPos × Fin 58) : MarkerAt T' trace (chainAt p) ↔ MarkerAt T trace (chainAt p) := by
+    (p : CanonGraph.LeafPos × Fin 58) (hs : p.1.Source) :
+    MarkerAt T' trace (chainAt p) ↔ MarkerAt T trace (chainAt p) := by
   unfold MarkerAt chainAt
   simp only
-  rw [referenceInput_congr_honest h, referenceDigits_congr_honest h]
+  rw [referenceInput_congr_honest h hs, referenceDigits_congr_honest h hs]
 theorem markEntry_cell_le (T : Answers) (x : HashInput) (a : ChainAddr) :
     Pr[fun ans => MarkEntry T a (x, ans) | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 57 / (2 : ENNReal) ^ 128 := by
   classical
@@ -155,10 +156,11 @@ theorem markEntry_rej_le (T : Answers) (x : HashInput) (a : ChainAddr) :
     rw [hz]
     exact zero_le
 theorem markEntry_init_le (T : Answers) (k : CellKey) (e : k.1) (p : CanonGraph.LeafPos × Fin 58) :
-    Pr[fun ans => MarkEntry T (chainAt p) (encInput e.val, ans) | cell (cellInit k e)] ≤
-      57 / (2 : ENNReal) ^ 128 := by
+    Pr[fun ans => WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e.val, ans) |
+      cell (cellInit k e)] ≤ 57 / (2 : ENNReal) ^ 128 := by
   by_cases hp : p.1 = e.val.1.1
-  · unfold cellInit
+  · refine (probEvent_mono fun ans _ h => h.2).trans ?_
+    unfold cellInit
     split_ifs
     · rw [Lazy.probEvent_cell_univ]
       exact markEntry_cell_le T _ _
@@ -166,8 +168,8 @@ theorem markEntry_init_le (T : Answers) (k : CellKey) (e : k.1) (p : CanonGraph.
       rw [show (chainAt p).key.lay = e.val.1.1.lay from by rw [← hp]; rfl] at h
       exact h
   · refine le_trans (le_of_eq (probEvent_eq_zero ?_)) zero_le
-    rintro ans - ⟨message, counter, pad, digits, -, he, -⟩
-    exact hp (encInput_leaf (he.trans rfl : encInput e.val = encRow (leafOf p.1) message counter pad)).symm
+    rintro ans - ⟨hsrc, message, counter, pad, digits, -, he, -⟩
+    exact hp (encInput_leaf hsrc.1 (he.trans rfl : encInput e.val = encRow (leafOf p.1) message counter pad)).symm
 theorem rejAnswers_card_ge_tight (lay : Layer) : 1000 * 2 ^ 256 ≤ 1001 * (rejAnswers lay).card := by
   have h := rejAnswers_card lay
   have ha := producerCount_le lay
@@ -267,10 +269,11 @@ theorem markEntry_rej_le_tight (T : Answers) (x : HashInput) (a : ChainAddr) :
     rw [hz]
     exact zero_le
 theorem markEntry_init_le_tight (T : Answers) (k : CellKey) (e : k.1) (p : CanonGraph.LeafPos × Fin 58) :
-    Pr[fun ans => MarkEntry T (chainAt p) (encInput e.val, ans) | cell (cellInit k e)] ≤
-      (53053 / 1000) / (2 : ENNReal) ^ 128 := by
+    Pr[fun ans => WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e.val, ans) |
+      cell (cellInit k e)] ≤ (53053 / 1000) / (2 : ENNReal) ^ 128 := by
   by_cases hp : p.1 = e.val.1.1
-  · unfold cellInit
+  · refine (probEvent_mono fun ans _ h => h.2).trans ?_
+    unfold cellInit
     split_ifs
     · rw [Lazy.probEvent_cell_univ]
       exact markEntry_cell_le_tight T _ _
@@ -278,20 +281,20 @@ theorem markEntry_init_le_tight (T : Answers) (k : CellKey) (e : k.1) (p : Canon
       rw [show (chainAt p).key.lay = e.val.1.1.lay from by rw [← hp]; rfl] at h
       exact h
   · refine le_trans (le_of_eq (probEvent_eq_zero ?_)) zero_le
-    rintro ans - ⟨message, counter, pad, digits, -, he, -⟩
-    exact hp (encInput_leaf (he.trans rfl : encInput e.val = encRow (leafOf p.1) message counter pad)).symm
+    rintro ans - ⟨hsrc, message, counter, pad, digits, -, he, -⟩
+    exact hp (encInput_leaf hsrc.1 (he.trans rfl : encInput e.val = encRow (leafOf p.1) message counter pad)).symm
 theorem markEntry_sum_init_le (T : Answers) (k : CellKey) (e : k.1) :
     ∑ p : CanonGraph.LeafPos × Fin 58,
-      Pr[fun ans => WotsExtract.SourceChain (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e.val, ans) |
+      Pr[fun ans => WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e.val, ans) |
         cell (cellInit k e)] ≤ 2865 / (2 : ENNReal) ^ 128 := by
   classical
   have hb : ∀ p : CanonGraph.LeafPos × Fin 58,
-      Pr[fun ans => WotsExtract.SourceChain (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e.val, ans) |
+      Pr[fun ans => WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e.val, ans) |
         cell (cellInit k e)] ≤ if p.1 = e.val.1.1 then
           (if p.2.val < 54 then (53053 / 1000) / (2 : ENNReal) ^ 128 else 0) else 0 := by
     intro p
     split_ifs with hp hc
-    · exact (probEvent_mono fun ans _ h => h.2).trans (markEntry_init_le_tight T k e p)
+    · exact markEntry_init_le_tight T k e p
     · apply le_of_eq
       apply probEvent_eq_zero
       rintro ans - ⟨hsource, -⟩
@@ -300,8 +303,8 @@ theorem markEntry_sum_init_le (T : Answers) (k : CellKey) (e : k.1) :
       omega
     · apply le_of_eq
       apply probEvent_eq_zero
-      rintro ans - ⟨-, message, counter, pad, digits, -, he, -⟩
-      exact hp (encInput_leaf (he.trans rfl : encInput e.val = encRow (leafOf p.1) message counter pad)).symm
+      rintro ans - ⟨hsrc, message, counter, pad, digits, -, he, -⟩
+      exact hp (encInput_leaf hsrc.1 (he.trans rfl : encInput e.val = encRow (leafOf p.1) message counter pad)).symm
   refine (Finset.sum_le_sum fun p _ => hb p).trans ?_
   rw [Fintype.sum_prod_type, Finset.sum_eq_single e.val.1.1 (fun L _ hL => by simp [hL]) (by simp)]
   simp only [if_true]
@@ -314,11 +317,11 @@ theorem markEntry_sum_init_le (T : Answers) (k : CellKey) (e : k.1) :
   norm_num
 theorem markEntry_sum_cell_le (T : Answers) (e : EncIndex) :
     ∑ p : CanonGraph.LeafPos × Fin 58,
-      Pr[fun ans => WotsExtract.SourceChain (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e, ans) |
+      Pr[fun ans => WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e, ans) |
         ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 2865 / (2 : ENNReal) ^ 128 := by
   classical
   have hb : ∀ p : CanonGraph.LeafPos × Fin 58,
-      Pr[fun ans => WotsExtract.SourceChain (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e, ans) |
+      Pr[fun ans => WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e, ans) |
         ($ᵗ HashOutput : ProbComp HashOutput)] ≤ if p.1 = e.1.1 then
           (if p.2.val < 54 then (53053 / 1000) / (2 : ENNReal) ^ 128 else 0) else 0 := by
     intro p
@@ -332,8 +335,8 @@ theorem markEntry_sum_cell_le (T : Answers) (e : EncIndex) :
       omega
     · apply le_of_eq
       apply probEvent_eq_zero
-      rintro ans - ⟨-, message, counter, pad, digits, -, he, -⟩
-      exact hp (encInput_leaf (he.trans rfl : encInput e = encRow (leafOf p.1) message counter pad)).symm
+      rintro ans - ⟨hsrc, message, counter, pad, digits, -, he, -⟩
+      exact hp (encInput_leaf hsrc.1 (he.trans rfl : encInput e = encRow (leafOf p.1) message counter pad)).symm
   refine (Finset.sum_le_sum fun p _ => hb p).trans ?_
   rw [Fintype.sum_prod_type, Finset.sum_eq_single e.1.1 (fun L _ hL => by simp [hL]) (by simp)]
   simp only [if_true]
@@ -347,28 +350,28 @@ theorem markEntry_sum_cell_le (T : Answers) (e : EncIndex) :
 theorem markEntry_noncell (U : Finset HashInput) (privateTable : FullGame.FullTable) (pub : U → HashOutput)
     (x : HashInput) (hx : ¬ Lazy.IsCell encInput (cellKey (eagerAnswers U privateTable pub)).1 x)
     (p : CanonGraph.LeafPos × Fin 58) :
-    ¬ (WotsExtract.SourceChain (chainAt p) ∧
+    ¬ (WotsExtract.SourceChain7 (chainAt p) ∧
       MarkEntry (eagerAnswers U privateTable pub) (chainAt p) (x, eagerAnswers U privateTable pub (.inl (.inr x)))) := by
-  rintro ⟨-, message, counter, pad, digits, hfit, he, hne, hdec, -⟩
-  have hin : encInput (encIdx p.1 message counter pad hfit) = x :=
-    (encInput_encIdx p.1 message counter pad hfit).trans he.symm
-  have hnc : ¬ (Free (eagerAnswers U privateTable pub) (encIdx p.1 message counter pad hfit) ∨
-      Rej (eagerAnswers U privateTable pub) (encIdx p.1 message counter pad hfit)) :=
-    fun hc => hx ⟨encIdx p.1 message counter pad hfit, hc, hin⟩
+  rintro ⟨hsrc, message, counter, pad, digits, hfit, he, hne, hdec, -⟩
+  have hin : encInput (encIdx p.1 hsrc.1 message counter pad hfit) = x :=
+    (encInput_encIdx p.1 hsrc.1 message counter pad hfit).trans he.symm
+  have hnc : ¬ (Free (eagerAnswers U privateTable pub) (encIdx p.1 hsrc.1 message counter pad hfit) ∨
+      Rej (eagerAnswers U privateTable pub) (encIdx p.1 hsrc.1 message counter pad hfit)) :=
+    fun hc => hx ⟨encIdx p.1 hsrc.1 message counter pad hfit, hc, hin⟩
   have hreached : Reached (eagerAnswers U privateTable pub) (leafOf p.1) x := by
     by_contra hfree
     refine hnc (Or.inl ?_)
-    change ¬ Reached _ _ (encInput (encIdx p.1 message counter pad hfit))
+    change ¬ Reached _ _ (encInput (encIdx p.1 hsrc.1 message counter pad hfit))
     rw [hin]
     exact hfree
   cases hs : WCT9.producerDecode p.1.lay (low (eagerAnswers U privateTable pub (.inl (.inr x)))) with
   | none =>
       refine hnc (Or.inr ⟨?_, ?_⟩)
-      · change Reached _ _ (encInput (encIdx p.1 message counter pad hfit))
+      · change Reached _ _ (encInput (encIdx p.1 hsrc.1 message counter pad hfit))
         rw [hin]
         exact hreached
       · change WCT9.producerDecode p.1.lay (low (eagerAnswers U privateTable pub
-          (.inl (.inr (encInput (encIdx p.1 message counter pad hfit)))))) = none
+          (.inl (.inr (encInput (encIdx p.1 hsrc.1 message counter pad hfit)))))) = none
         rw [hin]
         exact hs
   | some w =>
@@ -376,15 +379,15 @@ theorem markEntry_noncell (U : Finset HashInput) (privateTable : FullGame.FullTa
       exact hne (he ▸ href)
 noncomputable def markerCount (s : RefSample) : Nat :=
   (Finset.univ.filter fun p : CanonGraph.LeafPos × Fin 58 =>
-    WotsExtract.SourceChain (chainAt p) ∧ MarkerAt s.answers s.trace (chainAt p)).card
+    WotsExtract.SourceChain7 (chainAt p) ∧ MarkerAt s.answers s.trace (chainAt p)).card
 theorem markerCount_marks (T : Answers) (trace : List Entry) (pk : Digest) :
     markerCount ⟨T, pk, trace⟩ =
-      Lazy.marks (fun p entry => WotsExtract.SourceChain (chainAt p) ∧ MarkEntry T (chainAt p) entry) trace := by
+      Lazy.marks (fun p entry => WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) entry) trace := by
   unfold markerCount Lazy.marks
   rw [Finset.card_filter, Finset.card_filter]
   refine Finset.sum_congr rfl fun p _ => ?_
-  have hiff : (WotsExtract.SourceChain (chainAt p) ∧ MarkerAt T trace (chainAt p)) ↔
-      ∃ entry ∈ trace, WotsExtract.SourceChain (chainAt p) ∧ MarkEntry T (chainAt p) entry := by
+  have hiff : (WotsExtract.SourceChain7 (chainAt p) ∧ MarkerAt T trace (chainAt p)) ↔
+      ∃ entry ∈ trace, WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) entry := by
     rw [markerAt_iff]
     constructor
     · rintro ⟨hs, entry, hmem, hm⟩
@@ -401,12 +404,11 @@ theorem markerCount_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (trace
   unfold markerCount
   rw [Finset.card_filter, Finset.card_filter]
   refine Finset.sum_congr rfl fun p _ => ?_
-  have hiff := markerAt_congr h trace p
-  simp only at hiff ⊢
+  simp only
   split_ifs with h1 h2 h2
   · rfl
-  · exact absurd ⟨h1.1, hiff.mp h1.2⟩ h2
-  · exact absurd ⟨h2.1, hiff.mpr h2.2⟩ h1
+  · exact absurd ⟨h1.1, (markerAt_congr h trace p h1.1.1).mp h1.2⟩ h2
+  · exact absurd ⟨h2.1, (markerAt_congr h trace p h2.1.1).mpr h2.2⟩ h1
   · rfl
 theorem cells_marker_le [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, DecidableEq k]
     (adversary : AdversaryP) (q : Nat) (U : Finset HashInput)
@@ -420,7 +422,7 @@ theorem cells_marker_le [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex,
         ∑' r, (liftM (offlineRun (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) adversary q) : PMF SeedResult) r *
           (encodingCount (mkSample (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) r) : ENNReal) := by
   rw [cell_transfer adversary q U hU privateTable pub (fun s => (markerCount s : ENNReal))
-      (fun tr => (Lazy.marks (fun p entry => WotsExtract.SourceChain (chainAt p) ∧
+      (fun tr => (Lazy.marks (fun p entry => WotsExtract.SourceChain7 (chainAt p) ∧
         MarkEntry (eagerAnswers U privateTable pub) (chainAt p) entry) tr : ENNReal))
       (fun y hy r => by
         unfold mkSample
@@ -430,7 +432,7 @@ theorem cells_marker_le [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex,
       (fun y _ r => encodingCount_mkSample _ r)]
   refine (Lazy.lazy_marks_init_le encInput (cellKey (eagerAnswers U privateTable pub)).1 encInput_injective
     (eagerAnswers U privateTable pub)
-    (fun p entry => WotsExtract.SourceChain (chainAt p) ∧ MarkEntry (eagerAnswers U privateTable pub) (chainAt p) entry)
+    (fun p entry => WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry (eagerAnswers U privateTable pub) (chainAt p) entry)
     _ (cellInit (cellKey (eagerAnswers U privateTable pub))) (cellInit_nonempty _)
     (fun e => markEntry_sum_init_le (eagerAnswers U privateTable pub) (cellKey (eagerAnswers U privateTable pub)) e)
     (fun x hx p => markEntry_noncell U privateTable pub x hx p) _).trans ?_
@@ -450,7 +452,7 @@ theorem reference_markerCount_le (adversary : AdversaryP) (q : Nat) :
 open Enc in
 theorem reference_marker_sum_le (adversary : AdversaryP) (q : Nat) :
     ∑ a : CanonGraph.LeafPos × Fin 58,
-      Pr[fun s => WotsExtract.SourceChain ⟨⟨a.1.lay, a.1.tree.val, a.1.leaf.val⟩, a.2.val⟩ ∧
+      Pr[fun s => WotsExtract.SourceChain7 ⟨⟨a.1.lay, a.1.tree.val, a.1.leaf.val⟩, a.2.val⟩ ∧
         MarkerAt s.answers s.trace ⟨⟨a.1.lay, a.1.tree.val, a.1.leaf.val⟩, a.2.val⟩ | referenceExperiment adversary q] ≤
       (2865 / 2 ^ 128 : ENNReal) * ∑' s, referenceExperiment adversary q s * (encodingCount s : ENNReal) := by
   refine le_trans (le_of_eq ?_) (reference_markerCount_le adversary q)

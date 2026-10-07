@@ -1,6 +1,5 @@
-import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Basic
+import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.HdrBlocks
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Queries
-import SigGolfCandidate.ClaudeWCT.WCT9.Domains
 
 namespace ClaudeWCT.W9.T3M.Extract
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3M
@@ -96,6 +95,18 @@ theorem listHash_extract (answers : Answers) (hdr : BitVec 128) (xs ys : List Di
       rw [hdrBlock_listInput, hdrBlock_listInput]
     · rw [queried_shortHash]
       exact List.mem_singleton_self _
+theorem leafInput_lists {lay : Layer} {tree leaf : Nat} {xs ys : List Digest} (hlen : xs.length = ys.length)
+    (hpos : 0 < ys.length)
+    (h : pad64 (leafInput lay tree leaf xs) = pad64 (leafInput lay tree leaf ys)) : xs = ys := by
+  unfold leafInput SigGolfCandidate.T3.leafInput at h
+  split at h
+  · have hl : (zero16 ++ bytesLE 16 (leafTweak lay tree leaf) ++ xs.flatMap (bytesLE 16)).length =
+        (zero16 ++ bytesLE 16 (leafTweak lay tree leaf) ++ ys.flatMap (bytesLE 16)).length := by
+      simp only [List.length_append, digest_list_bytes_length, hlen]
+    have h' := Sampling.pad64_inj_of_length hl h
+    obtain ⟨-, hr⟩ := List.append_inj h' (by simp only [List.length_append, bytesLE_length])
+    exact flatMap_bytes_injective hlen hr
+  · exact (listInput_lists (hdr := leafTweak lay tree leaf) (hdr' := leafTweak lay tree leaf) hlen hpos h).1
 theorem leafHash_extract (answers : Answers) (lay : Layer) (tree leaf : Nat) (ends honest : List Digest)
     (hlen : ends.length = honest.length) (hpos : 0 < honest.length)
     (reaches : evalWithAnswerFn answers (leafHash lay tree leaf ends) =
@@ -103,8 +114,16 @@ theorem leafHash_extract (answers : Answers) (lay : Layer) (tree leaf : Nat) (en
     ends = honest ∨
       (HashHit answers (pad64 (leafInput lay tree leaf honest)) (pad64 (leafInput lay tree leaf ends)) ∧
         SameHeader (pad64 (leafInput lay tree leaf ends)) (pad64 (leafInput lay tree leaf honest)) ∧
-        .inl (.inr (pad64 (leafInput lay tree leaf ends))) ∈ queried answers (leafHash lay tree leaf ends)) :=
-  listHash_extract answers _ ends honest hlen hpos reaches
+        .inl (.inr (pad64 (leafInput lay tree leaf ends))) ∈ queried answers (leafHash lay tree leaf ends)) := by
+  by_cases heq : pad64 (leafInput lay tree leaf ends) = pad64 (leafInput lay tree leaf honest)
+  · exact Or.inl (leafInput_lists hlen hpos heq)
+  · refine Or.inr ⟨⟨heq, ?_⟩, ?_, ?_⟩
+    · rw [leafHash_eq_shortHash, leafHash_eq_shortHash, eval_shortHash, eval_shortHash] at reaches
+      exact reaches
+    · unfold SameHeader
+      rw [hdrBlock_leafInput, hdrBlock_leafInput]
+    · rw [leafHash_eq_shortHash, queried_shortHash]
+      exact List.mem_singleton_self _
 theorem forestPk_extract (answers : Answers) (index : Nat) (pairs honest : List (Digest × Digest))
     (hlen : pairs.length = honest.length)
     (reaches : evalWithAnswerFn answers (WCT9.forestPk index pairs) =

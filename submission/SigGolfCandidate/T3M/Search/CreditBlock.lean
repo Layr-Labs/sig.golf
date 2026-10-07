@@ -149,7 +149,7 @@ theorem setup_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (
     ∃ t, Steps image s 4 4 t ∧ t.pc = pcOf (b + 396) ∧ t.getReg .x10 = s.getReg .x6 ∧
       t.getReg .x11 = s.getReg .x7 ∧ t.getReg .x12 = 0 ∧ t.getReg .x20 = 17#64 ∧
       RegsExcept s t [.x10, .x11, .x12, .x20] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound (run_setup hK.2) (code_setup hK) s hpc (by simp [cs354.res, rv_simp]),
+  refine ⟨_, symRun_sound (run_setup hK.2.1) (code_setup hK) s hpc (by simp [cs354.res, rv_simp]),
     ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · rfl
   · simp [cs354.res, rv_simp]
@@ -162,7 +162,7 @@ theorem pre_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b 
     ∃ t, Steps image s 3 3 t ∧ t.pc = pcOf (b + 399) ∧
       t.getReg .x28 = ((s.getReg .x10 &&& 127#64) <<< 2) + s.getReg .x30 ∧
       RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound (run_pre hK.2) (code_pre hK) s hpc (by simp [cp354.res, rv_simp]),
+  refine ⟨_, symRun_sound (run_pre hK.2.1) (code_pre hK) s hpc (by simp [cp354.res, rv_simp]),
     ?_, ?_, ?_, ?_⟩
   · rfl
   · simp [cp354.res, rv_simp]
@@ -171,7 +171,7 @@ theorem pre_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b 
 theorem ok_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 422)) :
     ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf (b + 363) ∧ t.getReg .x20 = 0 ∧
       RegsExcept s t [.x20] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound (run_ok hK.2) (code_ok hK) s hpc (by simp [co354.res, rv_simp]),
+  refine ⟨_, symRun_sound (run_ok hK.2.1) (code_ok hK) s hpc (by simp [co354.res, rv_simp]),
     ?_, ?_, ?_, ?_⟩
   · rfl
   · simp [co354.res, rv_simp]
@@ -180,7 +180,7 @@ theorem ok_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b +
 theorem dum_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 430)) :
     ∃ t, Steps image s 3 3 t ∧ t.pc = pcOf (b + 363) ∧ t.getReg .x20 = 0 ∧ t.getReg .x25 = 129#64 ∧
       RegsExcept s t [.x20, .x25] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound (run_dum hK.2) (code_dum hK) s hpc (by simp [cd354.res, rv_simp]),
+  refine ⟨_, symRun_sound (run_dum hK.2.1) (code_dum hK) s hpc (by simp [cd354.res, rv_simp]),
     ?_, ?_, ?_, ?_, ?_⟩
   · rfl
   · simp [cd354.res, rv_simp]
@@ -190,7 +190,7 @@ theorem dum_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b 
 theorem lui_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 425)) :
     ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf (b + 426) ∧ t.getReg .x30 = BitVec.ofNat 64 TOP_DATA ∧
       RegsExcept s t [.x30] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound (run_lui hK.2) (code_lui hK) s hpc (by simp [cl354.res, rv_simp]),
+  refine ⟨_, symRun_sound (run_lui hK.2.1) (code_lui hK) s hpc (by simp [cl354.res, rv_simp]),
     ?_, ?_, ?_, ?_⟩
   · rfl
   · simp [cl354.res, rv_simp, TOP_DATA]
@@ -200,7 +200,7 @@ theorem h0_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b +
     (hl : lay < 4) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) :
     ∃ t, Steps image s 1 1 t ∧ t.pc = (if lay = 0 then pcOf (b + 425) else pcOf (b + 0)) ∧
       RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound (run_h0 hK.2) (code_h0 hK) s hpc (by simp [ch354.res, rv_simp]),
+  refine ⟨_, symRun_sound (run_h0 hK.2.1) (code_h0 hK) s hpc (by simp [ch354.res, rv_simp]),
     ?_, ?_, ?_⟩
   · simp only [Result.toState_pc, h0End, rebase, ch354.res, E.eval, CmpOp.eval, h8]
     by_cases h : lay = 0
@@ -213,7 +213,7 @@ theorem beq_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b 
     (hf : f < 256) (h28 : s.getReg .x28 = BitVec.ofNat 64 f) :
     ∃ t, Steps image s 1 1 t ∧ t.pc = (if f = 0 then pcOf (b + 0) else pcOf (b + 428)) ∧
       RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound (run_beq hK.2) (code_beq hK) s hpc (by simp [cb354.res, rv_simp]),
+  refine ⟨_, symRun_sound (run_beq hK.2.1) (code_beq hK) s hpc (by simp [cb354.res, rv_simp]),
     ?_, ?_, ?_⟩
   · simp only [Result.toState_pc, beqEnd, rebase, cb354.res, E.eval, CmpOp.eval, h28]
     by_cases h : f = 0
@@ -358,7 +358,7 @@ theorem post_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b
       t.getReg .x10 = (s.getReg .x10 >>> 7 ||| s.getReg .x11 <<< 57) ∧
       t.getReg .x11 = s.getReg .x11 >>> 7 ∧ t.getReg .x20 = BitVec.ofNat 64 (n - 1) ∧
       RegsExcept s t [.x10, .x11, .x12, .x20, .x28] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound (run_post hK.2) (code_post hK) s hpc (by simp [cq354.res, rv_simp]),
+  refine ⟨_, symRun_sound (run_post hK.2.1) (code_post hK) s hpc (by simp [cq354.res, rv_simp]),
     ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · simp only [Result.toState_pc, postEnd, rebase, cq354.res, E.eval, CmpOp.eval, BinOp.eval, h20]
     rw [ofNat_dec n hn (by omega)]
@@ -400,7 +400,7 @@ theorem tail_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b
   have e1 : (BitVec.ofNat 64 X >>> 2 &&& 3#64) = BitVec.ofNat 64 (X / 4 % 4) := by
     rw [ofNat_shr X 2 (by omega)]; exact ofNat_and_mask _ 2 (by decide)
   have e2 : BitVec.ofNat 64 X >>> 4 = BitVec.ofNat 64 (X / 16) := ofNat_shr X 4 (by omega)
-  refine ⟨_, symRun_sound (run_tail hK.2) (code_tail hK) s hpc (by simp [ct354.res, rv_simp]), ?_, ?_, ?_, ?_⟩
+  refine ⟨_, symRun_sound (run_tail hK.2.1) (code_tail hK) s hpc (by simp [ct354.res, rv_simp]), ?_, ?_, ?_, ?_⟩
   · simp [tailEnd, rebase, ct354.res, rv_simp, E.eval, CmpOp.eval, BinOp.eval, h10, h12]
     rw [e1, e2, eq2_ofNat _ (by omega), eq2_ofNat _ (by omega), eq2_ofNat _ (by omega), ofNat_add_ofNat,
       ofNat_add_ofNat, ofNat_add_ofNat]
@@ -437,7 +437,7 @@ theorem creditSum_le (v : Digest) (k : Nat) : creditSum v k ≤ 3 * k := by
   induction k with
   | zero => simp [creditSum]
   | succ k ih => rw [creditSum_succ]; have := rankCredit_le (topRank v k); omega
-private def cf (v : Digest) (i : Nat) : Nat := if T3.coreDigit 0 v i = (if i < 51 then 3 else 2) then 1 else 0
+private def cf (v : Digest) (i : Nat) : Nat := if T3.coreDigit 0 (T3.topFlip v) i = (if i < 51 then 3 else 2) then 1 else 0
 private theorem cf_rank (v : Digest) (k i : Nat) (hk : k < 17) (hi : i < 3) :
     cf v (3 * k + i) = if rankDigit (topRank v k) i = 3 then 1 else 0 := by
   unfold cf
@@ -461,13 +461,13 @@ private theorem cf_groups (v : Digest) : ∀ k, k ≤ 17 → ((List.range (3 * k
         cf_rank v k 2 (by omega) (by omega)]
       omega
 theorem topCredit_split (v : Digest) (hv : v.toNat < 2 ^ 125) :
-    T3.topCredit v = creditSum v 17 + tailCredit (v.toNat / 2 ^ 119) := by
-  have h : T3.topCredit v = ((List.range 54).map (cf v)).sum := rfl
+    T3.topCredit (T3.topFlip v) = creditSum v 17 + tailCredit (v.toNat / 2 ^ 119) := by
+  have h : T3.topCredit (T3.topFlip v) = ((List.range 54).map (cf v)).sum := rfl
   rw [h, show (54 : Nat) = 51 + 3 from rfl, range_three, List.map_append, List.sum_append,
     show (51 : Nat) = 3 * 17 from rfl, cf_groups v 17 le_rfl]
   simp only [List.map_cons, List.map_nil, List.sum_cons, List.sum_nil]
   unfold cf tailCredit
-  simp only [T3.coreDigit, if_pos rfl, show ¬ (51 : Nat) < 51 by omega, show ¬ (3 * 17 + 1 : Nat) < 51 by omega,
+  simp only [T3.coreDigit, T3.topCode_topFlip, if_pos rfl, show ¬ (51 : Nat) < 51 by omega, show ¬ (3 * 17 + 1 : Nat) < 51 by omega,
     show ¬ (3 * 17 + 2 : Nat) < 51 by omega, if_false]
   have e3 : v.toNat / 2 ^ 123 < 4 := by omega
   have hX2 : v.toNat / 2 ^ 119 / 4 % 4 = v.toNat / 2 ^ 121 % 4 := by
@@ -517,14 +517,14 @@ theorem table_credit_byte (s : MachineState) (ht : TableOK s) (r : Nat) (hr : r 
   have h2 : (128 + 4 * r + 3 - 128) / 4 = r := by omega
   rw [h1, h2, if_neg (by omega)]
 theorem loop_body (hK : KernAt image b) {s0 t : MachineState} (ht : TableOK s0) (v : Digest)
-    (hvalid : T3.topRanksValid v = true) (k : Nat) (hk : k < 17) (hI : LInv b s0 v k t) :
+    (hvalid : T3.topRanksValid (T3.topFlip v) = true) (k : Nat) (hk : k < 17) (hI : LInv b s0 v k t) :
     ∃ u, Steps image t 11 11 u ∧ LInv b s0 v (k + 1) u := by
   have pc := hI.pc
   rw [if_pos hk] at pc
   obtain ⟨t1, s1, p1, a28, r1, f1⟩ := pre_spec hK t pc
   have rankbound : topRank v k < 125 := by
     have hv := (List.all_eq_true.mp hvalid) k (List.mem_range.mpr hk)
-    exact of_decide_eq_true hv
+    simpa only [T3.topCode_topFlip, topRank] using of_decide_eq_true hv
   have hp1 : t1.getReg .x28 = BitVec.ofNat 64 (TOP_DATA + 4 * topRank v k) := by
     rw [a28, hI.lo, hI.tab, ptr_credit]
     rfl
@@ -558,7 +558,7 @@ theorem loop_body (hK : KernAt image b) {s0 t : MachineState} (ht : TableOK s0) 
   · exact ((hI.regs.trans r1).trans r2 |>.trans r3).mono (by decide)
   · exact ((hI.frame.trans f1).trans f2 |>.trans f3).mono (by simp)
 theorem loop_iter (hK : KernAt image b) {s0 t : MachineState} (ht : TableOK s0) (v : Digest)
-    (hvalid : T3.topRanksValid v = true) (hI : LInv b s0 v 0 t) (n : Nat) (hn : n ≤ 17) :
+    (hvalid : T3.topRanksValid (T3.topFlip v) = true) (hI : LInv b s0 v 0 t) (n : Nat) (hn : n ≤ 17) :
     ∃ u, Steps image t (11 * n) (11 * n) u ∧ LInv b s0 v n u := by
   induction n with
   | zero => exact ⟨t, Steps.refl t, hI⟩
@@ -567,12 +567,12 @@ theorem loop_iter (hK : KernAt image b) {s0 t : MachineState} (ht : TableOK s0) 
       obtain ⟨w, hw, hwI⟩ := loop_body hK ht v hvalid n (by omega) hu
       exact ⟨w, (hs.trans hw).of_eq (by omega) (by omega), hwI⟩
 theorem credit_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 392)) (v : Digest)
-    (hv : v.toNat < 2 ^ 125) (hvalid : T3.topRanksValid v = true) (ht : TableOK s)
+    (hv : v.toNat < 2 ^ 125) (hvalid : T3.topRanksValid (T3.topFlip v) = true) (ht : TableOK s)
     (h6 : s.getReg .x6 = v.extractLsb' 0 64) (h7 : s.getReg .x7 = v.extractLsb' 64 64)
     (h30 : s.getReg .x30 = BitVec.ofNat 64 TOP_DATA) :
-    ∃ t, Steps image s (if T3.topCredit v < 8 then 206 else 208) (if T3.topCredit v < 8 then 206 else 208) t ∧
-      t.pc = (if T3.topCredit v < 8 then pcOf (b + 468) else pcOf (b + 363)) ∧
-      (¬ T3.topCredit v < 8 → t.getReg .x20 = 0) ∧
+    ∃ t, Steps image s (if T3.topCredit (T3.topFlip v) < 8 then 206 else 208) (if T3.topCredit (T3.topFlip v) < 8 then 206 else 208) t ∧
+      t.pc = (if T3.topCredit (T3.topFlip v) < 8 then pcOf (b + 468) else pcOf (b + 363)) ∧
+      (¬ T3.topCredit (T3.topFlip v) < 8 → t.getReg .x20 = 0) ∧
       RegsExcept s t Changed ∧ Frame s t (fun _ => False) := by
   have h6' : s.getReg .x6 = BitVec.ofNat 64 v.toNat := by
     rw [h6]; apply BitVec.eq_of_toNat_eq; simp
@@ -592,7 +592,7 @@ theorem credit_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf 
   obtain ⟨t1, s1, p1, g12', r1, f1⟩ := tail_spec hK m pm (v.toNat / 2 ^ 119) (creditSum v 17) hX
     (by have := creditSum_le v 17; omega) (by simpa using hm.lo) hm.acc
   rw [← topCredit_split v hv] at p1
-  by_cases hc : T3.topCredit v < 8
+  by_cases hc : T3.topCredit (T3.topFlip v) < 8
   · rw [if_pos hc] at p1
     refine ⟨t1, ?_, by rw [if_pos hc, p1], fun h => absurd hc h, ?_, ?_⟩
     · rw [if_pos hc]; exact (s0'.trans (sm.trans s1)).of_eq (by norm_num) (by norm_num)
@@ -714,8 +714,8 @@ theorem exhaust_dummy (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcO
   · exact (((((r0.trans r1).trans r2).trans r3).trans r4).trans r5).mono (by decide)
   · exact (((((f0.trans f1).trans f2).trans f3).trans f4).trans f5).mono (by simp)
 theorem dummy_lt : dummyDigest.toNat < 2 ^ 125 := by decide
-theorem dummy_valid : T3.topRanksValid dummyDigest = true := by decide
-theorem dummy_digits : topDigits dummyDigest = T3.dummyTop := by decide
+theorem dummy_valid : T3.topRanksValid (T3.topFlip dummyDigest) = true := by decide
+theorem dummy_digits : topDigits (T3.topFlip dummyDigest) = T3.dummyTop := by decide
 end SigGolfCandidate.T3M.Search.Credit
 end
 section
@@ -779,7 +779,7 @@ theorem align_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (
       t.getReg .x6 = (BitVec.ofNat 128 (T3.lowerWord v)).extractLsb' 0 64 ∧
       t.getReg .x7 = (BitVec.ofNat 128 (T3.lowerWord v)).extractLsb' 64 64 ∧
       RegsExcept s t [.x6, .x7, .x28] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound (run_align hK.2) (code_align hK) s hpc (by simp [ca354.res, rv_simp]),
+  refine ⟨_, symRun_sound (run_align hK.2.1) (code_align hK) s hpc (by simp [ca354.res, rv_simp]),
     ?_, ?_, ?_, ?_, ?_⟩
   · rfl
   · simp only [Result.toState_getReg, ca354.res]

@@ -1,4 +1,3 @@
-import SigGolfCandidate.T3.Proofs
 import SigGolfCandidate.T3M.Verify.Judg
 import SigGolfCandidate.T3M.Mem
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Layout
@@ -12,7 +11,7 @@ abbrev dhi (d : BitVec 128) : Word := d.extractLsb' 64 64
 def wword (w : ClaudeWCT.W9.T3M.WBytes) (j : Nat) : Word := w.extractLsb' (64 * j) 64
 theorem wword_toNat (w : ClaudeWCT.W9.T3M.WBytes) (j : Nat) : (wword w j).toNat = w.toNat / 2 ^ (64 * j) % 2 ^ 64 := by
   simp only [wword, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
-theorem wword_zero (w : ClaudeWCT.W9.T3M.WBytes) (j : Nat) (h : 2729 ≤ j) : wword w j = 0 := by
+theorem wword_zero (w : ClaudeWCT.W9.T3M.WBytes) (j : Nat) (h : 2686 ≤ j) : wword w j = 0 := by
   apply BitVec.eq_of_toNat_eq
   rw [wword_toNat]
   have hw : w.toNat < 2 ^ (64 * j) :=
@@ -48,15 +47,37 @@ theorem aligned_blk4 (a b c d : BitVec 128) : Aligned (blk4 a b c d) := by
 theorem blocks_blk4 (a b c d : BitVec 128) : (toQ (pad64 (blk4 a b c d))).blocks = 1 := by
   rw [pad64_blk4, blocks_toQ (aligned_blk4 a b c d), blk4_length]
 theorem bytesLE16_zero : bytesLE 16 (0 : BitVec 128) = zero16 := by decide
+theorem dlo_append (hi lo : BitVec 64) : dlo (hi ++ lo) = lo := by
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.extractLsb'_toNat, BitVec.toNat_append, Nat.shiftRight_zero,
+    ← Nat.shiftLeft_add_eq_or_of_lt lo.isLt, Nat.shiftLeft_eq]
+  have := lo.isLt
+  omega
+theorem dhi_append (hi lo : BitVec 64) : dhi (hi ++ lo) = hi := by
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.extractLsb'_toNat, BitVec.toNat_append,
+    ← Nat.shiftLeft_add_eq_or_of_lt lo.isLt, Nat.shiftLeft_eq, Nat.shiftRight_eq_div_pow]
+  have := lo.isLt; have := hi.isLt
+  rw [Nat.mul_comm, Nat.mul_add_div (by decide), Nat.div_eq_of_lt lo.isLt, Nat.add_zero, Nat.mod_eq_of_lt hi.isLt]
+theorem wordsOf_append64 (hi lo : BitVec 64) : wordsOf (bytesLE 16 (hi ++ lo)) = [lo, hi] := by
+  rw [wordsOf_bytesLE16]; exact congrArg₂ (fun x y => [x, y]) (dlo_append hi lo) (dhi_append hi lo)
+theorem wordsOf_rowTweak (lay : Layer) (tree leaf : Nat) :
+    wordsOf (bytesLE 16 (T3.rowTweak lay tree leaf)) =
+      [T3.hyperWord lay.val (tree * 2 ^ T3.height lay + leaf), 1] :=
+  wordsOf_append64 _ _
+theorem wordsOf_leafTweak (lay : Layer) (tree leaf : Nat) :
+    wordsOf (bytesLE 16 (T3.leafTweak lay tree leaf)) =
+      [T3.hyperWord lay.val (tree * 2 ^ T3.height lay + leaf), 0] :=
+  wordsOf_append64 _ _
 theorem ftsLeafP_eq (index coord leaf : Nat) (pad0 secret pad1 : Digest) :
     T3M.ftsLeafP index coord leaf pad0 secret pad1 =
       T3.shortHash (blk4 pad0 (header 9 coord index 0 leaf) secret pad1) := rfl
 theorem nodeHashP_eq (tag lay tree heap : Nat) (left pad right : Digest) :
     T3M.nodeHashP tag lay tree heap left pad right =
-      T3.shortHash (blk4 left (header tag lay tree 0 heap) pad right) := rfl
+      T3.shortHash (blk4 left (T3.nodeTweak tag lay tree heap) pad right) := rfl
 theorem nodeHash_eq (tag lay tree heap : Nat) (left right : Digest) :
     T3.nodeHash tag lay tree heap left right =
-      T3.shortHash (blk4 left (header tag lay tree 0 heap) 0 right) := by
+      T3.shortHash (blk4 left (T3.nodeTweak tag lay tree heap) 0 right) := by
   unfold T3.nodeHash blk4
   rw [bytesLE16_zero]
 theorem ftsLeaf_eq (index coord leaf : Nat) (secret : Digest) :
@@ -70,18 +91,23 @@ theorem chainInputP_eq (lay : Layer) (tree leaf i step : Nat) (pad0 pad1 : Diges
 theorem digestInput_length (rho : Digest) (m : T3.Message) (c : BitVec 32) :
     (T3.digestInput rho m c).length = 64 := by
   simp only [T3.digestInput, List.length_append, bytesLE_length]
+theorem digestHeader_lo (c : BitVec 32) : (T3.digestHeader c).extractLsb' 0 64 = 0 :=
+  dlo_append (0#32 ++ c) 0#64
+theorem digestHeader_hi (c : BitVec 32) : (T3.digestHeader c).extractLsb' 64 64 = BitVec.ofNat 64 c.toNat := by
+  have h := dhi_append (0#32 ++ c) 0#64
+  refine h.trans ?_
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_append, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.zero_shiftLeft, Nat.zero_or]
+  have := c.isLt; omega
 theorem wordsOf_digestInput (rho : Digest) (m : T3.Message) (c : BitVec 32) :
     wordsOf (T3.digestInput rho m c) =
-      [dlo rho, dhi rho, (0 : BitVec 64), BitVec.ofNat 64 (hdr1 0 c.toNat),
+      [dlo rho, dhi rho, 0, BitVec.ofNat 64 c.toNat,
         m.extractLsb' 0 64, m.extractLsb' 64 64, m.extractLsb' 128 64, m.extractLsb' 192 64] := by
   unfold T3.digestInput
   rw [wordsOf_append _ _ (by simp only [List.length_append, bytesLE_length]),
     wordsOf_append _ _ (by simp only [bytesLE_length]), wordsOf_bytesLE16, wordsOf_bytesLE16,
-    wordsOf_bytesLE32]
-  rw [SigGolfCandidate.T3.digestHeader_low, SigGolfCandidate.T3.digestHeader_high]
-  have hc := c.isLt
-  have e1 : hdr1 0 c.toNat = c.toNat * 2 ^ 32 := by unfold hdr1; omega
-  simp only [List.append_assoc, e1] <;> rfl
+    digestHeader_lo, digestHeader_hi, wordsOf_bytesLE32]
+  rfl
 theorem pad64_digestInput (rho : Digest) (m : T3.Message) (c : BitVec 32) :
     pad64 (T3.digestInput rho m c) = T3.digestInput rho m c :=
   pad64_of_aligned _ (by rw [digestInput_length])
@@ -98,17 +124,17 @@ theorem readLE_bytesLE4_pad (c : BitVec 32) : T3.readLE (bytesLE 4 c ++ List.rep
   simp
 theorem wordsOf_encodingInput (lay : Layer) (tree leaf : Nat) (msg : Digest) (c : BitVec 32) :
     wordsOf (pad64 (T3.encodingInput lay tree leaf msg c)) =
-      [dlo msg, dhi msg, BitVec.ofNat 64 (hdr0 4 lay.val tree 0), BitVec.ofNat 64 (hdr1 tree leaf),
+      [dlo msg, dhi msg, T3.hyperWord lay.val (tree * 2 ^ T3.height lay + leaf), 1,
         BitVec.ofNat 64 c.toNat, 0, 0, 0] := by
   rw [pad64_encodingInput]
   unfold T3.encodingInput
-  have e : bytesLE 16 msg ++ bytesLE 16 (header 4 lay.val tree 0 leaf) ++ bytesLE 4 c ++ List.replicate 28 0 =
-      bytesLE 16 msg ++ bytesLE 16 (header 4 lay.val tree 0 leaf) ++
+  have e : bytesLE 16 msg ++ bytesLE 16 (T3.rowTweak lay tree leaf) ++ bytesLE 4 c ++ List.replicate 28 0 =
+      bytesLE 16 msg ++ bytesLE 16 (T3.rowTweak lay tree leaf) ++
         ((bytesLE 4 c ++ List.replicate 4 0) ++ List.replicate 24 0) := by
     simp only [List.append_assoc]
     rfl
   rw [e, wordsOf_append _ _ (by simp only [List.length_append, bytesLE_length]),
-    wordsOf_append _ _ (by simp only [bytesLE_length]), wordsOf_bytesLE16, wordsOf_header,
+    wordsOf_append _ _ (by simp only [bytesLE_length]), wordsOf_rowTweak, wordsOf_bytesLE16,
     wordsOf_append8 _ _ (by simp only [List.length_append, bytesLE_length, List.length_replicate]),
     readLE_bytesLE4_pad, show (24 : Nat) = 8 * 3 by rfl, wordsOf_replicate_zero]
   rfl

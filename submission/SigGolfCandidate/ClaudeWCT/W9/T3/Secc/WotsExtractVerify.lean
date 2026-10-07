@@ -51,7 +51,7 @@ theorem layersBC_wots_walk (answers : Answers) (w : WBytes) (index : Nat) (hidx 
         have hroot : evalWithAnswerFn answers (layerP w index (Fin.ofNat 4 0) digits) =
             Extract.honestRoot answers (Fin.ofNat 4 0) (route index (Fin.ofNat 4 0)).2 := by
           rw [hout, show (Fin.ofNat 4 0 : Layer) = 0 from rfl, route_top_tree index hidx]
-        exact finish (layer_wots answers w index (Fin.ofNat 4 0) msg digits hidx hfit hframe _ henc hq hroot)
+        exact finish (layer_wots answers w index (Fin.ofNat 4 0) msg digits hidx rfl hfit hframe _ henc hq hroot)
           (fun l hl => absurd hl (by omega))
       · obtain ⟨hrest, hqP, hqR⟩ := hlow hn0
         have hfit' : Extract.msgFits (Fin.ofNat 4 (n - 1))

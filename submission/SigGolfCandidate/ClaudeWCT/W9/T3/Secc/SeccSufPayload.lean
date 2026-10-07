@@ -102,8 +102,9 @@ theorem layers_payload (answers : Answers) (published : SigGolfCandidate.T3.Cach
                 rw [hctr _ (by rw [hv]; omega), ← hcs, hv, List.getD_append_right _ _ _ _ (by omega), hlen']
                 simp
           obtain ⟨digitsG, ⟨_, hdec⟩, hshape⟩ := hgood (Fin.ofNat 4 n)
-          rw [ClaudeWCT.W9.T3M.wbcCtr_witEnc, ClaudeWCT.W9.T3M.wbcPad_witEnc, hcounter, ← hmsg,
-            ClaudeWCT.W9.T3M.BC.layerEncodingInputP_zero] at hdec
+          have hright : ClaudeWCT.W9.T3M.wbcRight (witEnc N wit) = 0 := ClaudeWCT.W9.T3M.wright3_witEnc N wit
+          rw [ClaudeWCT.W9.T3M.wbcCtr_witEnc, ClaudeWCT.W9.T3M.wbcPad_witEnc, hright, hcounter, ← hmsg,
+            ClaudeWCT.W9.T3M.shortHash_layerEncodingInputP_zero] at hdec
           rw [hsome.2.2, Option.some.injEq] at hdec
           subst hdec
           rename' digits => digitsG
@@ -167,7 +168,8 @@ theorem layers_payload (answers : Answers) (published : SigGolfCandidate.T3.Cach
               (route (WCT9.digestIndex N) (Fin.ofNat 4 (k + 1))).1 digitsG], ?_,
               by simp [hplen], ?_⟩
             · rw [WCT9.signLayersBC]
-              simp only [evalWithAnswerFn_bind, hs, htree, show k + 1 ≠ 0 by omega, ite_false]
+              simp only [evalWithAnswerFn_bind, hs, htree, show k + 1 ≠ 0 by omega, ite_false, WCT9.topPair_take,
+                WCT9.map_range_take_path]
               have hpair : WCT9.topPair (Fin.ofNat 4 (k + 1)) (WCT9.wotsTree answers (Fin.ofNat 4 (k + 1))
                   (route (WCT9.digestIndex N) (Fin.ofNat 4 (k + 1))).2) =
                   WCT9.builtPair answers (Fin.ofNat 4 (k + 1)) (route (WCT9.digestIndex N) (Fin.ofNat 4 (k + 1))).2 :=

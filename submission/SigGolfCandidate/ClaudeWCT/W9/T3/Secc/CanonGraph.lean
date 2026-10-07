@@ -19,6 +19,13 @@ structure LeafPos where
   tree : Fin (2^31)
   leaf : Fin 4096
   deriving DecidableEq, Fintype
+export ClaudeWCT.W9.T3M.Extract (treeBits)
+def LeafPos.Source (L : LeafPos) : Prop := L.tree.val < 2 ^ treeBits L.lay ∧ L.leaf.val < 2 ^ height L.lay
+instance instDecidablePredLeafPosSource : DecidablePred LeafPos.Source := fun L => by unfold LeafPos.Source; infer_instance
+theorem LeafPos.Source.routed {L : LeafPos} (h : L.Source) :
+    L.leaf.val < 2 ^ height L.lay ∧ L.tree.val * 2 ^ height L.lay + L.leaf.val < 2 ^ 32 :=
+  ⟨h.2, lt_trans (ClaudeWCT.W9.T3M.Extract.routed_lt_of_treeBits h.1 h.2) (by norm_num)⟩
+abbrev SrcLeaf := {L : LeafPos // L.Source}
 structure TreeNodeRaw where
   lay : Layer
   tree : Fin (2^31)
@@ -26,7 +33,8 @@ structure TreeNodeRaw where
   idx : Fin 2048
   deriving DecidableEq, Fintype
 def TreeNodeRaw.Valid (n : TreeNodeRaw) : Prop :=
-  n.level.val < height n.lay ∧ n.idx.val < 2 ^ (height n.lay - n.level.val - 1)
+  n.level.val < height n.lay ∧ n.idx.val < 2 ^ (height n.lay - n.level.val - 1) ∧
+    n.tree.val < 2 ^ treeBits n.lay ∧ (n.lay = 0 ∨ n.level.val + 1 < height n.lay)
 instance instDecidablePredTreeNodeRawValid : DecidablePred TreeNodeRaw.Valid := fun n => by unfold TreeNodeRaw.Valid; infer_instance
 abbrev TreeNode := {n : TreeNodeRaw // n.Valid}
 abbrev WctAddr := Fin (2 ^ 31) × Fin 9 × Fin 128 × Fin 7
@@ -47,7 +55,7 @@ instance instDecidablePredWctNodeRawValid : DecidablePred WctNodeRaw.Valid := fu
 abbrev WctNodePos := {n : WctNodeRaw // n.Valid}
 inductive Node where
   | chain (point : Point)
-  | leaf (pos : LeafPos)
+  | leaf (pos : SrcLeaf)
   | node (pos : TreeNode)
   | wctChain (point : WctPoint)
   | wctLeaf (pos : WctLeafPos)
@@ -87,16 +95,25 @@ def wctEndLabel (labels : Labels) (a : WctAddr) : Digest := (labels (.wctChain (
 theorem wctValueL_three (secrets : Secrets) (labels : Labels) (a : WctAddr) :
     wctValueL secrets labels a 3 = wctEndLabel labels a := rfl
 def treeNodeAt (lay : Layer) (tree : Fin (2^31)) (level c : Nat) : Option TreeNode :=
-  if h : level < height lay ∧ c < 2 ^ (height lay - level - 1) then
+  if h : level < height lay ∧ c < 2 ^ (height lay - level - 1) ∧ tree.val < 2 ^ treeBits lay ∧
+      (lay = 0 ∨ level + 1 < height lay) then
     some ⟨⟨lay, tree, ⟨level, lt_of_lt_of_le h.1 (SigGolfCandidate.T3M.Extract.height_le lay)⟩,
-      ⟨c, lt_of_lt_of_le h.2 (by
+      ⟨c, lt_of_lt_of_le h.2.1 (by
         calc 2 ^ (height lay - level - 1) ≤ 2 ^ 11 := Nat.pow_le_pow_right (by decide) (by
               have := SigGolfCandidate.T3M.Extract.height_le lay; omega)
           _ = 2048 := by norm_num)⟩⟩, h⟩
   else none
+theorem height_le_12 (lay : Layer) : 2 ^ height lay ≤ 4096 :=
+  (Nat.pow_le_pow_right (by decide) (SigGolfCandidate.T3M.Extract.height_le lay)).trans (by norm_num)
+def leafAt (lay : Layer) (tree : Fin (2^31)) (c : Nat) : Option SrcLeaf :=
+  if h : c < 2 ^ height lay ∧ tree.val < 2 ^ treeBits lay then
+    some ⟨⟨lay, tree, ⟨c, lt_of_lt_of_le h.1 (height_le_12 lay)⟩⟩, ⟨h.2, h.1⟩⟩
+  else none
 def treeLabel (labels : Labels) (lay : Layer) (tree : Fin (2^31)) (level c : Nat) : Digest :=
   if level = 0 then
-    (if h : c < 4096 then (labels (.leaf ⟨lay, tree, ⟨c, h⟩⟩)).extractLsb' 0 128 else 0)
+    (match leafAt lay tree c with
+     | some L => (labels (.leaf L)).extractLsb' 0 128
+     | none => 0)
   else
     match treeNodeAt lay tree (level - 1) c with
     | some n => (labels (.node n)).extractLsb' 0 128
@@ -116,8 +133,8 @@ def ftsLabel (labels : Labels) (index : Fin (2^31)) (coord : Fin 9) (level c : N
     | none => 0
 def cell (secrets : Secrets) : Node → Labels → HashInput
   | .chain p, labels => ChainGraph.input (seedsOf secrets) p (chainLabels labels)
-  | .leaf L, labels => pad64 (Extract.leafInput L.lay L.tree.val L.leaf.val
-      ((List.range (chainCount L.lay)).map (endLabel secrets labels L)))
+  | .leaf L, labels => pad64 (Extract.leafInput L.1.lay L.1.tree.val L.1.leaf.val
+      ((List.range (chainCount L.1.lay)).map (endLabel secrets labels L.1)))
   | .node n, labels => pad64 (nodeInputP 3 n.1.lay.val n.1.tree.val
       (2 ^ (height n.1.lay - n.1.level.val - 1) + n.1.idx.val)
       (treeLabel labels n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val)) 0
@@ -132,12 +149,9 @@ def cell (secrets : Secrets) : Node → Labels → HashInput
       (ftsLabel labels n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)))
   | .forest index, labels => pad64 (Extract.forestInput index.val
       ((List.range 9).map fun coord => (ftsLabel labels index (fin9 coord) 6 0, ftsLabel labels index (fin9 coord) 6 1)))
-def treeBits (lay : Layer) : Nat := ![0, 12, 19, 25] lay
-def LeafPos.Source (L : LeafPos) : Prop := L.tree.val < 2 ^ treeBits L.lay ∧ L.leaf.val < 2 ^ height L.lay
-instance instDecidablePredLeafPosSource : DecidablePred LeafPos.Source := fun L => by unfold LeafPos.Source; infer_instance
 def Node.toPos : Node → Extract.Pos
   | .chain p => .chain p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val p.2.val
-  | .leaf L => .leaf L.lay L.tree.val L.leaf.val
+  | .leaf L => .leaf L.1.lay L.1.tree.val L.1.leaf.val
   | .node n => .node n.1.lay n.1.tree.val n.1.level.val n.1.idx.val
   | .wctChain p => .wctChain p.1.1.val p.1.2.1.val p.1.2.2.1.val p.1.2.2.2.val p.2.val
   | .wctLeaf L => .wctLeaf L.index.val L.coord.val L.child.val
@@ -145,19 +159,31 @@ def Node.toPos : Node → Extract.Pos
   | .forest index => .forest index.val
 def SourcePos : Extract.Pos → Prop
   | .chain _ tree leaf i step => tree < 2 ^ 31 ∧ leaf < 4096 ∧ i < 58 ∧ step < 7
-  | .leaf _ tree leaf => tree < 2 ^ 31 ∧ leaf < 4096
-  | .node lay tree level nd => tree < 2 ^ 31 ∧ level < height lay ∧ nd < 2 ^ (height lay - level - 1)
+  | .leaf lay tree leaf => tree < 2 ^ treeBits lay ∧ leaf < 2 ^ height lay
+  | .node lay tree level nd => tree < 2 ^ treeBits lay ∧ level < height lay ∧ nd < 2 ^ (height lay - level - 1) ∧
+      (lay = 0 ∨ level + 1 < height lay)
   | .forest index => index < 2 ^ 31
   | .wctChain index coord child t step => index < 2 ^ 31 ∧ coord < 9 ∧ child < 128 ∧ t < 7 ∧ step < 3
   | .wctLeaf index coord child => index < 2 ^ 31 ∧ coord < 9 ∧ child < 128
   | .wctNode index coord level nd => index < 2 ^ 31 ∧ coord < 9 ∧ level < 6 ∧ nd < 2 ^ (7 - level - 1)
+theorem treeBits_lt (lay : Layer) : 2 ^ treeBits lay ≤ 2 ^ 31 :=
+  Nat.pow_le_pow_right (by decide) (by fin_cases lay <;> decide)
+theorem source_routed_lt {lay : Layer} {tree leaf : Nat} (ht : tree < 2 ^ treeBits lay) (hl : leaf < 2 ^ height lay) :
+    tree * 2 ^ height lay + leaf < 2 ^ 31 := by
+  fin_cases lay <;> simp [treeBits, Extract.treeBits, height] at ht hl ⊢ <;> omega
+theorem source_tree_zero {lay : Layer} {tree : Nat} (ht : tree < 2 ^ treeBits lay) : lay = 0 → tree = 0 := by
+  rintro rfl; simpa [treeBits, Extract.treeBits] using ht
 theorem toPos_bounded (node : Node) : node.toPos.Bounded := by
   cases node with
   | chain p =>
       have := p.1.tree.isLt; have := p.1.leaf.isLt; have := p.1.chain.isLt; have := p.2.isLt
       exact ⟨by omega, by omega, by omega, by omega⟩
-  | leaf L => have := L.tree.isLt; have := L.leaf.isLt; exact ⟨by omega, by omega⟩
-  | node n => have := n.1.tree.isLt; exact ⟨by omega, n.2.1, n.2.2⟩
+  | leaf L =>
+      have := source_routed_lt L.2.1 L.2.2
+      exact ⟨L.2.2, by omega⟩
+  | node n =>
+      have := n.1.tree.isLt
+      exact ⟨by omega, n.2.1, n.2.2.2.2, source_tree_zero n.2.2.2.1, n.2.2.1⟩
   | wctChain p => exact ⟨p.1.1.isLt, p.1.2.1.isLt, p.1.2.2.1.isLt, p.1.2.2.2.isLt, p.2.isLt⟩
   | wctLeaf L => exact ⟨L.index.isLt, L.coord.isLt, L.child.isLt⟩
   | wctNode n => exact ⟨n.1.index.isLt, n.1.coord.isLt, n.1.level.isLt, n.2⟩
@@ -165,8 +191,8 @@ theorem toPos_bounded (node : Node) : node.toPos.Bounded := by
 theorem toPos_source (node : Node) : SourcePos node.toPos := by
   cases node with
   | chain p => exact ⟨p.1.tree.isLt, p.1.leaf.isLt, p.1.chain.isLt, p.2.isLt⟩
-  | leaf L => exact ⟨L.tree.isLt, L.leaf.isLt⟩
-  | node n => exact ⟨n.1.tree.isLt, n.2.1, n.2.2⟩
+  | leaf L => exact ⟨L.2.1, L.2.2⟩
+  | node n => exact ⟨n.2.2.2.1, n.2.1, n.2.2.1, n.2.2.2.2⟩
   | wctChain p => exact ⟨p.1.1.isLt, p.1.2.1.isLt, p.1.2.2.1.isLt, p.1.2.2.2.isLt, p.2.isLt⟩
   | wctLeaf L => exact ⟨L.index.isLt, L.coord.isLt, L.child.isLt⟩
   | wctNode n => exact ⟨n.1.index.isLt, n.1.coord.isLt, n.1.level.isLt, n.2⟩
@@ -186,10 +212,12 @@ theorem toPos_injective : Function.Injective Node.toPos := by
       rename_i M
       simp only [Extract.Pos.leaf.injEq] at h
       obtain ⟨h1, h2, h3⟩ := h
-      cases L; cases M
+      obtain ⟨⟨lay, tree, leaf⟩, hL⟩ := L; obtain ⟨⟨lay', tree', leaf'⟩, hM⟩ := M
       simp only at h1 h2 h3
       subst h1
-      rw [Fin.ext h2, Fin.ext h3]
+      have e2 := Fin.ext h2; have e3 := Fin.ext h3
+      subst e2 e3
+      rfl
   | node n =>
       cases right <;> simp only [Node.toPos, reduceCtorEq] at h
       rename_i m
@@ -242,15 +270,16 @@ theorem exists_toPos {p : Extract.Pos} (hp : SourcePos p) : ∃ node : Node, nod
       exact ⟨.chain (⟨lay, ⟨tree, h1⟩, ⟨leaf, h2⟩, ⟨i, h3⟩⟩, ⟨step, h4⟩), rfl⟩
   | leaf lay tree leaf =>
       obtain ⟨h1, h2⟩ := hp
-      exact ⟨.leaf ⟨lay, ⟨tree, h1⟩, ⟨leaf, h2⟩⟩, rfl⟩
+      exact ⟨.leaf ⟨⟨lay, ⟨tree, lt_of_lt_of_le h1 (treeBits_lt lay)⟩, ⟨leaf, lt_of_lt_of_le h2 (height_le_12 lay)⟩⟩,
+        ⟨h1, h2⟩⟩, rfl⟩
   | node lay tree level nd =>
-      obtain ⟨h1, h2, h3⟩ := hp
+      obtain ⟨h1, h2, h3, h4⟩ := hp
       have hl : level < 12 := lt_of_lt_of_le h2 (SigGolfCandidate.T3M.Extract.height_le lay)
       have hn : nd < 2048 := lt_of_lt_of_le h3 (by
         calc 2 ^ (height lay - level - 1) ≤ 2 ^ 11 := Nat.pow_le_pow_right (by decide) (by
               have := SigGolfCandidate.T3M.Extract.height_le lay; omega)
           _ = 2048 := by norm_num)
-      exact ⟨.node ⟨⟨lay, ⟨tree, h1⟩, ⟨level, hl⟩, ⟨nd, hn⟩⟩, h2, h3⟩, rfl⟩
+      exact ⟨.node ⟨⟨lay, ⟨tree, lt_of_lt_of_le h1 (treeBits_lt lay)⟩, ⟨level, hl⟩, ⟨nd, hn⟩⟩, h2, h3, h1, h4⟩, rfl⟩
   | forest index => exact ⟨.forest ⟨index, hp⟩, rfl⟩
   | wctChain index coord child t step =>
       obtain ⟨h1, h2, h3, h4, h5⟩ := hp
@@ -318,9 +347,12 @@ theorem treeLabel_congr (left right : Labels) (lay : Layer) (tree : Fin (2^31)) 
     (h : ∀ other : Node, other.depth < 8 + level → left other = right other) :
     treeLabel left lay tree level c = treeLabel right lay tree level c := by
   unfold treeLabel
-  split_ifs with hzero hc
-  · rw [h _ (by simp only [Node.depth]; omega)]
-  · rfl
+  split_ifs with hzero
+  · cases leafAt lay tree c with
+    | none => rfl
+    | some L =>
+        simp only
+        rw [h _ (by simp only [Node.depth]; omega)]
   · cases hn : treeNodeAt lay tree (level - 1) c with
     | none => rfl
     | some n =>
@@ -352,8 +384,8 @@ theorem cell_congr (secrets : Secrets) (node : Node) (left right : Labels)
           simp only [Node.depth, ChainGraph.predecessor]; omega)
         simp only [chainLabels, hd]
   | leaf L =>
-      have hends : (List.range (chainCount L.lay)).map (endLabel secrets left L) =
-          (List.range (chainCount L.lay)).map (endLabel secrets right L) := by
+      have hends : (List.range (chainCount L.1.lay)).map (endLabel secrets left L.1) =
+          (List.range (chainCount L.1.lay)).map (endLabel secrets right L.1) := by
         apply List.map_congr_left
         intro i _
         unfold endLabel ChainGraph.value
@@ -421,28 +453,29 @@ theorem cell_eq_of_posOf {input : HashInput} {node node' : Node} (secrets : Secr
   rw [posOf_cell] at hpos
   exact toPos_injective (Option.some.inj hpos)
 theorem height_pos (lay : Layer) : 0 < height lay := by fin_cases lay <;> decide
-def rootNode (lay : Layer) (tree : Fin (2^31)) : TreeNode :=
-  ⟨⟨lay, tree, ⟨height lay - 1, by have := SigGolfCandidate.T3M.Extract.height_le lay; omega⟩, ⟨0, by decide⟩⟩,
-    ⟨Nat.sub_lt (height_pos lay) Nat.one_pos, pow_pos (by decide : 0 < 2) _⟩⟩
+def rootNode : TreeNode :=
+  ⟨⟨0, 0, ⟨height 0 - 1, by decide⟩, ⟨0, by decide⟩⟩, by decide⟩
 def ftsTopNode (index : Fin (2^31)) (coord : Fin 9) (b : Fin 2) : WctNodePos :=
   ⟨⟨index, coord, ⟨5, by decide⟩, ⟨b.val, by have := b.isLt; omega⟩⟩, show b.val < 2 ^ (7 - 5 - 1) by
     have := b.isLt; omega⟩
 theorem height_ge_two (lay : Layer) : 2 ≤ height lay := by fin_cases lay <;> decide
-def topNode (lay : Layer) (tree : Fin (2^31)) (b : Fin 2) : TreeNode :=
+def topNode (lay : Layer) (tree : Fin (2^31)) (ht : tree.val < 2 ^ treeBits lay) (b : Fin 2) : TreeNode :=
   ⟨⟨lay, tree, ⟨height lay - 2, by have := SigGolfCandidate.T3M.Extract.height_le lay; omega⟩,
     ⟨b.val, by have := b.isLt; omega⟩⟩,
     ⟨show height lay - 2 < height lay by have := height_ge_two lay; omega, by
       have := height_ge_two lay
       show b.val < 2 ^ (height lay - (height lay - 2) - 1)
       rw [show height lay - (height lay - 2) - 1 = 1 by omega]
-      have := b.isLt; omega⟩⟩
-theorem treeLabel_top (labels : Labels) (lay : Layer) (tree : Fin (2^31)) (b : Fin 2) :
-    treeLabel labels lay tree (height lay - 1) b.val = (labels (.node (topNode lay tree b))).extractLsb' 0 128 := by
+      have := b.isLt; omega, ht, Or.inr (by have := height_ge_two lay; show height lay - 2 + 1 < height lay; omega)⟩⟩
+theorem treeLabel_top (labels : Labels) (lay : Layer) (tree : Fin (2^31)) (ht : tree.val < 2 ^ treeBits lay)
+    (b : Fin 2) :
+    treeLabel labels lay tree (height lay - 1) b.val = (labels (.node (topNode lay tree ht b))).extractLsb' 0 128 := by
   have h2 := height_ge_two lay
   unfold treeLabel
   rw [if_neg (by omega)]
-  have hv : height lay - 1 - 1 < height lay ∧ b.val < 2 ^ (height lay - (height lay - 1 - 1) - 1) := by
-    refine ⟨by omega, ?_⟩
+  have hv : height lay - 1 - 1 < height lay ∧ b.val < 2 ^ (height lay - (height lay - 1 - 1) - 1) ∧
+      tree.val < 2 ^ treeBits lay ∧ (lay = 0 ∨ height lay - 1 - 1 + 1 < height lay) := by
+    refine ⟨by omega, ?_, ht, Or.inr (by omega)⟩
     rw [show height lay - (height lay - 1 - 1) - 1 = 1 by omega]
     have := b.isLt; omega
   unfold treeNodeAt
@@ -450,16 +483,20 @@ theorem treeLabel_top (labels : Labels) (lay : Layer) (tree : Fin (2^31)) (b : F
   have e : height lay - 1 - 1 = height lay - 2 := by omega
   simp only [e]
   rfl
-theorem treeLabel_root (labels : Labels) (lay : Layer) (tree : Fin (2^31)) :
-    treeLabel labels lay tree (height lay) 0 = (labels (.node (rootNode lay tree))).extractLsb' 0 128 := by
+theorem treeLabel_root (labels : Labels) :
+    treeLabel labels 0 0 (height 0) 0 = (labels (.node rootNode)).extractLsb' 0 128 := by
+  unfold treeLabel
+  rw [if_neg (by decide)]
+  unfold treeNodeAt
+  rw [dif_pos (by decide)]
+  rfl
+theorem treeLabel_lower_root (labels : Labels) {lay : Layer} (h : lay ≠ 0) (tree : Fin (2^31)) (c : Nat) :
+    treeLabel labels lay tree (height lay) c = 0 := by
   have hpos := height_pos lay
   unfold treeLabel
   rw [if_neg (by omega)]
-  have hv : height lay - 1 < height lay ∧ 0 < 2 ^ (height lay - (height lay - 1) - 1) :=
-    ⟨by omega, pow_pos (by decide) _⟩
   unfold treeNodeAt
-  rw [dif_pos hv]
-  rfl
+  rw [dif_neg (by rintro ⟨-, -, -, h0 | h1⟩ <;> [exact h h0; omega])]
 theorem ftsLabel_top (labels : Labels) (index : Fin (2^31)) (coord : Fin 9) (b : Fin 2) :
     ftsLabel labels index coord 6 b.val = (labels (.wctNode (ftsTopNode index coord b))).extractLsb' 0 128 := by
   unfold ftsLabel
@@ -481,13 +518,10 @@ theorem cell_length_le (secrets : Secrets) (node : Node) (labels : Labels) :
       rw [ChainGraph.row_length]; omega
   | leaf L =>
       simp only [cell, Extract.leafInput]
-      rw [Cost.pad64_length, Extract.listInput_length']
-      have hc : chainCount L.lay ≤ 58 := chainCount_bound L.lay
-      have hl : ((List.map (endLabel secrets labels L) (List.range (chainCount L.lay))).drop 1).length ≤ 57 := by
-        simp only [List.length_drop, List.length_map, List.length_range]; omega
-      have hm := Nat.mod_lt (32 + 16 * ((List.map (endLabel secrets labels L)
-        (List.range (chainCount L.lay))).drop 1).length) (by decide : 0 < 64)
-      omega
+      rw [Cost.pad64_length, SigGolfCandidate.T3.leafInput_length]
+      have hc : chainCount L.1.lay ≤ 58 := chainCount_bound L.1.lay
+      simp only [List.length_map, List.length_range]
+      split_ifs <;> omega
   | node n =>
       simp only [cell]
       rw [pad64_nodeInputP, nodeInputP, block4]

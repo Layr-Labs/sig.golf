@@ -136,7 +136,7 @@ theorem keygen_noDigest (generated : (Digest × T3.Cache) × QueryRecorded.State
     (allQueriesSatisfy_mono _ _ _ (fun q hq x hqx hd => by
       subst hqx
       obtain ⟨rho, m, c, rfl⟩ := hd
-      exact hq (BPB.hdrTag_digestInput rho m c)) keygen_notDigest)
+      exact hq (BPB.hdrMarker_digestInput rho m c)) keygen_notDigest)
     (lazyOf QueryRecorded.initial) (generated.1, lazyOf generated.2) hl x rfl hne
   exact this hx
 theorem potential_initial_le (budget : Nat) (generated : (Digest × T3.Cache) × QueryRecorded.State)

@@ -62,7 +62,7 @@ theorem pubGood_chain (lay : Layer) (tree leaf i start count : Nat) (v : Digest)
   allQ_foldlM _ _ (fun _ _ => pubGood_shortHash _ (by simp [chainInput, bytesLE_length, zero16])) _
 theorem pubGood_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     AllQueriesSatisfy (leafHash lay tree leaf ends) PubGood :=
-  pubGood_shortHash _ (by simp [bytesLE_length])
+  pubGood_shortHash _ (by rw [leafInput_length]; split_ifs <;> omega)
 theorem pubGood_forestPk (index : Nat) (roots : List Digest) :
     AllQueriesSatisfy (forestPk index roots) PubGood :=
   pubGood_shortHash _ (by simp [bytesLE_length])
@@ -336,7 +336,7 @@ private theorem bytesLE_zero : bytesLE 16 (0 : Digest) = zero16 := by decide
 def ftsLeafInputP (index coord leaf : Nat) (pad0 secret pad1 : Digest) : HashInput :=
   block4 pad0 (header 9 coord index 0 leaf) secret pad1
 def nodeInputP (tag lay tree heap : Nat) (left pad right : Digest) : HashInput :=
-  block4 left (header tag lay tree 0 heap) pad right
+  block4 left (nodeTweak tag lay tree heap) pad right
 theorem ftsLeafP_eq_shortHash (index coord leaf : Nat) (pad0 secret pad1 : Digest) :
     ftsLeafP index coord leaf pad0 secret pad1 = shortHash (ftsLeafInputP index coord leaf pad0 secret pad1) := rfl
 theorem nodeHashP_eq_shortHash (tag lay tree heap : Nat) (left pad right : Digest) :
@@ -379,7 +379,7 @@ theorem ftsLeafInputP_fields {index coord leaf index' coord' leaf' : Nat}
 theorem nodeInputP_fields {tag lay tree heap tag' lay' tree' heap' : Nat}
     {left pad right left' pad' right' : Digest}
     (h : nodeInputP tag lay tree heap left pad right = nodeInputP tag' lay' tree' heap' left' pad' right') :
-    left = left' ∧ header tag lay tree 0 heap = header tag' lay' tree' 0 heap' ∧
+    left = left' ∧ nodeTweak tag lay tree heap = nodeTweak tag' lay' tree' heap' ∧
       pad = pad' ∧ right = right' := block4_injective h
 theorem chainInputP_fields {lay lay' : Layer} {tree leaf i step tree' leaf' i' step' : Nat}
     {pad0 pad1 value pad0' pad1' value' : Digest}
@@ -438,8 +438,8 @@ theorem ftsLeafInputP_eq_canonical {index coord leaf index' coord' leaf' : Nat}
 theorem nodeInputP_eq_canonical {tag lay tree heap tag' lay' tree' heap' : Nat}
     {left pad right left' right' : Digest}
     (h : nodeInputP tag lay tree heap left pad right = bytesLE 16 left' ++
-      bytesLE 16 (header tag' lay' tree' 0 heap') ++ zero16 ++ bytesLE 16 right') :
-    left = left' ∧ header tag lay tree 0 heap = header tag' lay' tree' 0 heap' ∧
+      bytesLE 16 (nodeTweak tag' lay' tree' heap') ++ zero16 ++ bytesLE 16 right') :
+    left = left' ∧ nodeTweak tag lay tree heap = nodeTweak tag' lay' tree' heap' ∧
       pad = 0 ∧ right = right' := by
   apply nodeInputP_fields
   simpa only [nodeInputP, block4, bytesLE_zero] using h
@@ -466,15 +466,6 @@ theorem ftsLeafInputP_injective {index coord leaf index' coord' leaf' : Nat}
   obtain ⟨_, hc, hi, _, hl⟩ := header_injective (by decide) hc hi (by decide) hl
     (by decide) hc' hi' (by decide) hl' hh
   exact ⟨hi, hc, hl, hp0, hs, hp1⟩
-theorem nodeInputP_injective {tag lay tree heap tag' lay' tree' heap' : Nat}
-    {left pad right left' pad' right' : Digest}
-    (ht : tag < 256) (hl : lay < 256) (htr : tree < 2^40) (hh : heap < 2^32)
-    (ht' : tag' < 256) (hl' : lay' < 256) (htr' : tree' < 2^40) (hh' : heap' < 2^32)
-    (h : nodeInputP tag lay tree heap left pad right = nodeInputP tag' lay' tree' heap' left' pad' right') :
-    tag = tag' ∧ lay = lay' ∧ tree = tree' ∧ heap = heap' ∧ left = left' ∧ pad = pad' ∧ right = right' := by
-  obtain ⟨hleft, he, hpad, hright⟩ := nodeInputP_fields h
-  obtain ⟨ht, hl, htr, _, hh⟩ := header_injective ht hl htr (by decide) hh ht' hl' htr' (by decide) hh' he
-  exact ⟨ht, hl, htr, hh, hleft, hpad, hright⟩
 theorem chainInputP_injective {lay lay' : Layer} {tree leaf i step tree' leaf' i' step' : Nat}
     {pad0 pad1 value pad0' pad1' value' : Digest}
     {headerPad headerPad' : BitVec 64}

@@ -88,7 +88,7 @@ theorem blk34_spec (s : MachineState) (hpc : s.pc = pcOf 34) (leaf : Nat)
   · intro A _ _; simp [blk_34.res, rv_simp]
 theorem blk36_spec (s : MachineState) (hpc : s.pc = pcOf 36) :
     ∃ t, Steps image s 3 3 t ∧ t.pc = pcOf (117 + 113) ∧ t.getReg .x1 = pcOf 39 ∧
-      t.getReg .x15 = BitVec.ofNat 64 12 ∧ t.getReg .x21 = BitVec.ofNat 64 769 ∧
+      t.getReg .x15 = BitVec.ofNat 64 12 ∧ t.getReg .x21 = BitVec.ofNat 64 64 ∧
       RegsExcept s t [.x1, .x15, .x21] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound blk_36 codeAt_36 s hpc (by simp [blk_36.res, rv_simp]), ?_, ?_, ?_, ?_, ?_,
     ?_⟩

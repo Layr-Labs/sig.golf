@@ -159,7 +159,8 @@ theorem step_unit (hcode : NewCodeAt im) {c i j index sel w : Nat} {word : WCT9.
       t.pc = pcOf (lcEnd c i) ∧ BodySt sk j index sel w t ∧ RowsAt c j sel (i + 1) (rows'.1, rows'.2.1) t ∧
         DigAt t (PAIRW + 16) rows'.2.2 ∧ RegsExcept s t bodyRegs ∧ Frame s t (bodyW c) ∧
         (j ≠ sel → ∀ A, A < 2 ^ 64 → slotV c 0 ≤ A → A < slotV c 7 →
-          t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A))) := by
+          t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)) ∧
+        t.getReg .x29 = BitVec.ofNat 64 LEAFW) := by
   rw [childStep_eq]
   obtain ⟨t1, s1, p1, x6, r1, f1⟩ := step_Q hcode hc hi s hpc hb.x18 hj
   have hb1 : BodySt sk j index sel w t1 := hb.of_body hc r1 (by simp [bodyRegs]) f1 (fun A hA => hA.elim)
@@ -175,14 +176,15 @@ theorem step_unit (hcode : NewCodeAt im) {c i j index sel w : Nat} {word : WCT9.
           t.pc = pcOf (lcEnd c i) ∧ BodySt sk j index sel w t ∧ RowsAt c j sel (i + 1) (rows'.1, rows'.2.1) t ∧
             DigAt t (PAIRW + 16) rows'.2.2 ∧ RegsExcept s t bodyRegs ∧ Frame s t (bodyW c) ∧
             (j ≠ sel → ∀ A, A < 2 ^ 64 → slotV c 0 ≤ A → A < slotV c 7 →
-              t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A))) := by
+              t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)) ∧
+            t.getReg .x29 = BitVec.ofNat 64 LEAFW) := by
     intro u seed carry upc ub ur us uc ureg ufr unos
     rw [hdig]
     refine (TBSim.bind (W₂ := 0) (chain_unit hcode hc hi hj hsel hidx hw
       ⟨upc, ub.x5, ub.x18, ub.x22, ub.x24, ub.x25, us, ub.z0, ub.z8, ub.z32, ub.z40⟩) (fun r t ht => ?_)).mono
       (by omega) (fun _ _ h => h)
-    obtain ⟨tpc, tleaf, tsig, tregs, tframe, tnos⟩ := ht
-    refine TBSim.pure ⟨tpc, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    obtain ⟨tpc, tleaf, tsig, tregs, tframe, tnos, tx29⟩ := ht
+    refine TBSim.pure ⟨tpc, ?_, ?_, ?_, ?_, ?_, ?_, tx29⟩
     · exact ub.of_body hc tregs (by simp [chainRegs, bodyRegs]) tframe (fun A hA => chainW_bodyW hi hA)
     · exact (ur.frame hc (by omega) tframe (fun i' hi' => chainW_other hc hi (by omega) (by omega))).snoc tleaf tsig
     · have := leafOff_lt i hi
@@ -258,14 +260,14 @@ open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (M Digest header pad64 shortHash privatePair privateInput)
 open SphincsSecurity (bytesLE bytesLE_length)
 theorem hashInput_leaf (t : MachineState) {c j index : Nat} (ends : List Digest) (hlen : ends.length = 7) (hc : c < 9)
-    (hidx : index < 2 ^ 32) (hj : j < 2 ^ 32) (h10 : t.getReg .x10 = BitVec.ofNat 64 LEAFW)
+    (hidx : index < 2 ^ 31) (hj : j < 128) (h10 : t.getReg .x10 = BitVec.ofNat 64 LEAFW)
     (h11 : t.getReg .x11 = BitVec.ofNat 64 128) (he : ∀ i < 7, DigAt t (LEAFW + leafOff i) (ends.getD i 0))
-    (m16 : t.getMem (BitVec.ofNat 64 (LEAFW + 16)) = BitVec.ofNat 64 (hdr6 c))
-    (m24 : t.getMem (BitVec.ofNat 64 (LEAFW + 24)) = BitVec.ofNat 64 (index + 2 ^ 32 * j)) :
+    (m16 : t.getMem (BitVec.ofNat 64 (LEAFW + 16)) = BitVec.ofNat 64 (leafLo7 c index j))
+    (m24 : t.getMem (BitVec.ofNat 64 (LEAFW + 24)) = 0) :
     hashInput t = toQ (pad64 (leafIn index c j ends)) := by
   refine hashInput_of_words t _ 1 LEAFW (by rw [pad64_of_aligned _ (by rw [leafIn_len _ _ _ _ hlen]),
     leafIn_len _ _ _ _ hlen]) h10 (by ao) (by ao) h11 ?_
-  rw [wordsOf_leaf index c j ends hlen (by omega) hidx hj]
+  rw [wordsOf_leaf index c j ends hlen hc hidx hj]
   match ends, hlen with
   | [e0, e1, e2, e3, e4, e5, e6], _ =>
     have d0 := he 0 (by norm_num); have d1 := he 1 (by norm_num); have d2 := he 2 (by norm_num)
@@ -317,6 +319,7 @@ structure StepInv (sk : BitVec 256) (c j index sel w : Nat) (s0 : MachineState) 
   frame : Frame s0 t (bodyW c)
   nos : j ≠ sel → ∀ A, A < 2 ^ 64 → slotV c 0 ≤ A → A < slotV c 7 →
     t.getMem (BitVec.ofNat 64 A) = s0.getMem (BitVec.ofNat 64 A)
+  x29 : 0 < k → t.getReg .x29 = BitVec.ofNat 64 LEAFW
 section child
 variable {im : Image} {sk : BitVec 256}
 theorem child_unit (hcode : NewCodeAt im) {c j index sel w : Nat} {word : WCT9.Rank} (hc : c < 9) (hj : j < 128)
@@ -333,7 +336,7 @@ theorem child_unit (hcode : NewCodeAt im) {c j index sel w : Nat} {word : WCT9.R
   have h0 : StepInv sk c j index sel w s 0 ([], [], carry) s :=
     ⟨by rw [if_pos (by norm_num), ← leafI_qI c hc]; exact hpc, hb,
       ⟨rfl, rfl, fun i hi => absurd hi (by omega), fun _ i hi => absurd hi (by omega)⟩,
-      fun h => hcar (by omega), RegsExcept.refl _ _, Frame.refl _ _, fun _ _ _ _ _ => rfl⟩
+      fun h => hcar (by omega), RegsExcept.refl _ _, Frame.refl _ _, fun _ _ _ _ _ => rfl, fun h => absurd h (by omega)⟩
   refine (TBSim.bind (W₂ := 16 + (16 + 0))
     (TBSim.foldlM_range' 0 7 _ _ (StepInv sk c j index sel w s) stepC (fun k hk rows t ht => ?_) h0)
     (fun rows t4 h4 => ?_)).mono (by unfold childC; omega) (fun _ _ h => h)
@@ -341,10 +344,10 @@ theorem child_unit (hcode : NewCodeAt im) {c j index sel w : Nat} {word : WCT9.R
     have hpc' : t.pc = pcOf (qI c k) := by rw [ht.pc, if_pos hk]
     refine (step_unit hcode hc hk hj hsel hidx hw hword hpc' ht.body ht.rws (fun hq => ht.carry (by omega))).mono
       le_rfl (fun rows' u hu => ?_)
-    obtain ⟨upc, ub, ur, uc, ureg, ufr, unos⟩ := hu
+    obtain ⟨upc, ub, ur, uc, ureg, ufr, unos, ux29⟩ := hu
     refine ⟨?_, ub, ur, fun _ => uc, (ht.regs.trans ureg).mono (by simp [bodyRegs]),
       (ht.frame.trans ufr).mono (fun A _ hA => by rcases hA with hA | hA <;> exact hA),
-      fun hjs A hA h1 h2 => by rw [unos hjs A hA h1 h2, ht.nos hjs A hA h1 h2]⟩
+      fun hjs A hA h1 h2 => by rw [unos hjs A hA h1 h2, ht.nos hjs A hA h1 h2], fun _ => ux29⟩
     rw [upc]; unfold lcEnd
     by_cases h6 : k = 6
     · subst h6; rw [if_pos rfl, if_neg (by omega)]
@@ -352,7 +355,7 @@ theorem child_unit (hcode : NewCodeAt im) {c j index sel w : Nat} {word : WCT9.R
   · have p4 : t4.pc = pcOf (lI c) := by rw [h4.pc, if_neg (by omega)]
     have b4 := h4.body
     obtain ⟨t5, s5, e5, p5, x10, x11, x12, m16, m24, r5, f5⟩ :=
-      step_L hcode hc t4 p4 b4.x18 b4.x22 (by omega)
+      step_L hcode hc t4 p4 b4.x18 b4.x22 hj (h4.x29 (by norm_num))
     have hrows : RowsAt c j sel 7 (rows.1, rows.2.1) t5 := h4.rws.frame hc (by norm_num) f5 (fun i hi => by
       have := leafOff_lt i (by omega)
       have := leafOff_ne i 1 (by omega) (by norm_num)
@@ -533,9 +536,9 @@ structure TreeInv (c index : Nat) (s0 : MachineState) (k : Nat) (nodes : Array D
   regs : RegsExcept s0 t (.x18 :: treeRegs)
   frame : Frame s0 t treeW
 def treeC : Nat := 25 + (8 + 13)
-theorem hashInput_node (t : MachineState) {c index h : Nat} {L R : Digest} (hc : c < 9) (hidx : index < 2 ^ 32)
+theorem hashInput_node (t : MachineState) {c index h : Nat} {L R : Digest} (hc : c < 9) (hidx : index < 2 ^ 31)
     (hh : h < 2 ^ 32) (h10 : t.getReg .x10 = BitVec.ofNat 64 NODEW) (h11 : t.getReg .x11 = BitVec.ofNat 64 64)
-    (hL : DigAt t NODEW L) (m16 : t.getMem (BitVec.ofNat 64 (NODEW + 16)) = BitVec.ofNat 64 (nodeK c + 2 ^ 32 * index))
+    (hL : DigAt t NODEW L) (m16 : t.getMem (BitVec.ofNat 64 (NODEW + 16)) = BitVec.ofNat 64 (nodeLo7 c index))
     (m24 : t.getMem (BitVec.ofNat 64 (NODEW + 24)) = BitVec.ofNat 64 h)
     (z32 : t.getMem (BitVec.ofNat 64 (NODEW + 32)) = 0) (z40 : t.getMem (BitVec.ofNat 64 (NODEW + 40)) = 0)
     (hR : DigAt t (NODEW + 48) R) : hashInput t = toQ (pad64 (nodeIn c index h L R)) := by
@@ -559,7 +562,7 @@ theorem tree_step (hcode : NewCodeAt im) {c index : Nat} (hc : c < 9) (hidx : in
     TBSim im sk t treeC (treeStep index c nodes (127 - k)) (TreeInv c index s0 (k + 1)) := by
   have hpc : t.pc = pcOf (nodeI c) := by rw [h.pc, if_pos hk]
   obtain ⟨t1, s1, e1, p1, x10, x11, x12, n0, n8, n48, n56, n16, n24, r1, f1⟩ :=
-    step_N hcode hc (by omega : 1 ≤ 127 - k) (by omega) t hpc h.x18 h.x22 (by omega)
+    step_N hcode hc (by omega : 1 ≤ 127 - k) (by omega) t hpc h.x18 h.x22 hidx
   have hL : DigAt t1 NODEW (nodes.getD (2 * (127 - k)) 0) := by
     have := h.heap (2 * (127 - k)) (by omega) (by omega)
     exact ⟨by rw [n0, show HEAPW + 32 * (127 - k) = HEAPW + 16 * (2 * (127 - k)) by ring]; exact this.1,
@@ -571,7 +574,7 @@ theorem tree_step (hcode : NewCodeAt im) {c index : Nat} (hc : c < 9) (hidx : in
         show HEAPW + 32 * (127 - k) + 24 = HEAPW + 16 * (2 * (127 - k) + 1) + 8 by ring]; exact this.2⟩
   have hz32 : t1.getMem (BitVec.ofNat 64 (NODEW + 32)) = 0 := by rw [f1.get (by ao) (by intro h'; aoh)]; exact h.z32
   have hz40 : t1.getMem (BitVec.ofNat 64 (NODEW + 40)) = 0 := by rw [f1.get (by ao) (by intro h'; aoh)]; exact h.z40
-  have hq := hashInput_node t1 hc (by omega : index < 2 ^ 32) (by omega : 127 - k < 2 ^ 32) x10 x11 hL n16 n24 hz32 hz40 hR
+  have hq := hashInput_node t1 hc hidx (by omega : 127 - k < 2 ^ 32) x10 x11 hL n16 n24 hz32 hz40 hR
   have hx5 : t1.getReg .x5 = 0 := by rw [r1.get (by simp)]; exact h.x5
   unfold treeStep
   rw [nodeHash_eq]

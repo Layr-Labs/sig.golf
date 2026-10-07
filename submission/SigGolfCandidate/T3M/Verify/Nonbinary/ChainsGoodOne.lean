@@ -77,7 +77,7 @@ theorem prehash_step (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) (s0 : MachineStat
         by_cases hjl : j < acc.length
         · have hj' := hS j hjl
           have hsj := slot_props j (by omega)
-          have hmono : slot j + 16 ≤ slot i := by unfold slot; split_ifs <;> omega
+          have hmono : slot j + 16 ≤ slot i := by unfold slot; omega
           rw [List.getD_eq_getElem?_getD, List.getElem?_append_left hjl, ← List.getD_eq_getElem?_getD]
           exact hj'.frame fr (by omega) (by omega) (by omega)
         · have hj2 : j = acc.length := by omega
@@ -225,9 +225,12 @@ theorem lAt_eval (c : NCtx) (hc : c.ok) {s : MachineState} (h19 : s.getReg .x8 =
   simp only [lAt, E.eval, addC_eval, h19]
   rw [c.base_off hc i hi k hk]
 theorem header_load (c : NCtx) {s : MachineState} (i d : Nat)
-    (h28 : s.getReg .x28 = BitVec.ofNat 64 c.prefix) :
+    (h28 : s.getReg .x28 = BitVec.ofNat 64 (c.prefix + 385)) :
     (hLoad i d).eval s = BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * d) := by
-  simp only [hLoad, addC_eval, E.eval, h28, ofNat_add_ofNat]
+  simp only [hLoad, addC_eval, E.eval, h28]
+  have e : BitVec.ofNat 64 (c.prefix + 385) = BitVec.ofNat 64 c.prefix + BitVec.ofNat 64 385 := by
+    rw [ofNat_add_ofNat]
+  rw [e, show ∀ x y z : Word, x + z + (y - z) = x + y from fun x y z => by bv_omega, ofNat_add_ofNat]
   congr 1
   unfold w0
   omega
@@ -288,7 +291,7 @@ theorem copy_post (c : NCtx) (hc : c.ok) {s0 s t : MachineState} (h0 : c.Orig0 s
   · rw [List.length_append, List.length_singleton] at hj
     by_cases hjl : j < acc.length
     · have hsj := slot_props j (by omega)
-      have hmono : slot j + 16 ≤ slot i := by unfold slot; split_ifs <;> omega
+      have hmono : slot j + 16 ≤ slot i := by unfold slot; omega
       rw [List.getD_eq_getElem?_getD, List.getElem?_append_left hjl, ← List.getD_eq_getElem?_getD]
       exact (hS j hjl).frame hfr (by omega) (by omega) (by omega)
     · have hj2 : j = acc.length := by omega

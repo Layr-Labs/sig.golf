@@ -56,23 +56,26 @@ theorem leafEnds_eq (h : Agrees answers labels) (L : LeafPos) :
   apply List.map_congr_left
   intro i hi
   exact leafEnd_eq h L i (lt_of_lt_of_le (List.mem_range.mp hi) (chainCount_bound L.lay))
-theorem leafRoot_eq (h : Agrees answers labels) (L : LeafPos) :
-    WCT9.wotsRoot answers L.lay L.tree.val L.leaf.val = (labels (.leaf L)).extractLsb' 0 128 := by
+theorem leafRoot_eq (h : Agrees answers labels) (L : SrcLeaf) :
+    WCT9.wotsRoot answers L.1.lay L.1.tree.val L.1.leaf.val = (labels (.leaf L)).extractLsb' 0 128 := by
   unfold WCT9.wotsRoot
-  rw [show leafHash L.lay L.tree.val L.leaf.val ((List.range (chainCount L.lay)).map
-      (WCT9.wotsEnd answers L.lay L.tree.val L.leaf.val)) = shortHash (Extract.leafInput L.lay L.tree.val L.leaf.val
-      ((List.range (chainCount L.lay)).map (WCT9.wotsEnd answers L.lay L.tree.val L.leaf.val))) from rfl,
-    eval_shortHash, leafEnds_eq h L]
+  rw [show leafHash L.1.lay L.1.tree.val L.1.leaf.val ((List.range (chainCount L.1.lay)).map
+      (WCT9.wotsEnd answers L.1.lay L.1.tree.val L.1.leaf.val)) =
+      shortHash (Extract.leafInput L.1.lay L.1.tree.val L.1.leaf.val
+      ((List.range (chainCount L.1.lay)).map (WCT9.wotsEnd answers L.1.lay L.1.tree.val L.1.leaf.val))) from rfl,
+    eval_shortHash, leafEnds_eq h L.1]
   exact congrArg (fun output : HashOutput => output.extractLsb' 0 128) (h (.leaf L))
 theorem treeNodeAt_some (lay : Layer) (tree : Fin (2^31)) (level c : Nat) (hlevel : level < height lay)
-    (hc : c < 2 ^ (height lay - level - 1)) :
+    (hc : c < 2 ^ (height lay - level - 1)) (ht : tree.val < 2 ^ treeBits lay)
+    (hroot : lay = 0 ∨ level + 1 < height lay) :
     ∃ n : TreeNode, treeNodeAt lay tree level c = some n ∧ n.1.lay = lay ∧ n.1.tree = tree ∧
       n.1.level.val = level ∧ n.1.idx.val = c := by
   unfold treeNodeAt
-  rw [dif_pos ⟨hlevel, hc⟩]
+  rw [dif_pos ⟨hlevel, hc, ht, hroot⟩]
   exact ⟨_, rfl, rfl, rfl, rfl, rfl⟩
 theorem builtTree_eq (h : Agrees answers labels) (lay : Layer) (tree : Fin (2^31)) (level c : Nat)
-    (hlevel : level ≤ height lay) (hc : c < 2 ^ (height lay - level)) :
+    (hlevel : level ≤ height lay) (hc : c < 2 ^ (height lay - level)) (ht : tree.val < 2 ^ treeBits lay)
+    (hroot : lay = 0 ∨ level < height lay) :
     treeValue (WCT9.wotsTree answers lay tree.val) level c = treeLabel labels lay tree level c := by
   have hcorrect := WCT9.wotsTree_correct answers lay tree.val
   obtain ⟨-, -, hnodes⟩ := hcorrect
@@ -86,9 +89,9 @@ theorem builtTree_eq (h : Agrees answers labels) (lay : Layer) (tree : Fin (2^31
               (SigGolfCandidate.T3M.Extract.height_le lay)
           _ = 4096 := by norm_num)
       rw [WCT9.wotsTree_leaf answers lay tree.val c hc']
-      have hr := leafRoot_eq h ⟨lay, tree, ⟨c, h4096⟩⟩
-      unfold treeLabel
-      rw [if_pos rfl, dif_pos h4096]
+      have hr := leafRoot_eq h ⟨⟨lay, tree, ⟨c, h4096⟩⟩, ⟨ht, hc'⟩⟩
+      unfold treeLabel leafAt
+      rw [if_pos rfl, dif_pos ⟨hc', ht⟩]
       exact hr
   | succ level ih =>
       intro c hc
@@ -101,8 +104,8 @@ theorem builtTree_eq (h : Agrees answers labels) (lay : Layer) (tree : Fin (2^31
       have hchild : ∀ j, j < 2 * c + 2 → treeValue (WCT9.wotsTree answers lay tree.val) level j =
           treeLabel labels lay tree level j := by
         intro j hj
-        exact ih (by omega) j (by omega)
-      obtain ⟨n, hn, hlay, htree, hlev, hidx⟩ := treeNodeAt_some lay tree level c hlt hc1
+        exact ih (by omega) (by omega) j (by omega)
+      obtain ⟨n, hn, hlay, htree, hlev, hidx⟩ := treeNodeAt_some lay tree level c hlt hc1 ht (by omega)
       change ((WCT9.wotsTree answers lay tree.val).getD (level + 1) []).getD c 0 = _
       rw [hrec, nodeHash_eq_shortHash, eval_shortHash]
       unfold treeLabel
@@ -123,21 +126,22 @@ theorem builtTree_eq (h : Agrees answers labels) (lay : Layer) (tree : Fin (2^31
         rw [hlev, hidx, show height nlay - level - 1 = height nlay - (level + 1) by omega]
       rw [← hinput]
       exact congrArg (fun output : HashOutput => output.extractLsb' 0 128) (h (.node n))
-theorem honestRoot_eq (h : Agrees answers labels) (lay : Layer) (tree : Fin (2^31)) :
-    Extract.honestRoot answers lay tree.val = treeLabel labels lay tree (height lay) 0 :=
-  builtTree_eq h lay tree (height lay) 0 le_rfl (by simp)
-theorem honestRoot_label (h : Agrees answers labels) (lay : Layer) (tree : Fin (2^31)) :
-    Extract.honestRoot answers lay tree.val = (labels (.node (rootNode lay tree))).extractLsb' 0 128 := by
+theorem honestRoot_eq (h : Agrees answers labels) :
+    Extract.honestRoot answers 0 0 = treeLabel labels 0 0 (height 0) 0 :=
+  builtTree_eq h 0 0 (height 0) 0 le_rfl (by simp) (by decide) (Or.inl rfl)
+theorem honestRoot_label (h : Agrees answers labels) :
+    Extract.honestRoot answers 0 0 = (labels (.node rootNode)).extractLsb' 0 128 := by
   rw [honestRoot_eq h, treeLabel_root]
-theorem honestPair_eq (h : Agrees answers labels) (lay : Layer) (tree : Fin (2^31)) :
+theorem honestPair_eq (h : Agrees answers labels) (lay : Layer) (tree : Fin (2^31))
+    (ht : tree.val < 2 ^ treeBits lay) :
     Extract.honestPair answers lay tree.val =
       (treeLabel labels lay tree (height lay - 1) 0, treeLabel labels lay tree (height lay - 1) 1) := by
   have hpos := height_pos lay
   have hpow : 2 ≤ 2 ^ (height lay - (height lay - 1)) := by
     rw [show height lay - (height lay - 1) = 1 by omega]; norm_num
   unfold Extract.honestPair
-  rw [builtTree_eq h lay tree (height lay - 1) 0 (by omega) (by omega),
-    builtTree_eq h lay tree (height lay - 1) 1 (by omega) (by omega)]
+  rw [builtTree_eq h lay tree (height lay - 1) 0 (by omega) (by omega) ht (Or.inr (by omega)),
+    builtTree_eq h lay tree (height lay - 1) 1 (by omega) (by omega) ht (Or.inr (by omega))]
 theorem wctValue_eq (h : Agrees answers labels) (a : WctAddr) (s : Nat) (hs : s ≤ 3) :
     Extract.wctValue answers a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val s = wctValueL (secretsOf answers) labels a s := by
   induction s with
@@ -180,7 +184,7 @@ theorem childRoot_eq (h : Agrees answers labels) (L : WctLeafPos) :
   have hends : (List.ofFn fun i : Fin 7 => WCT9.chainEnd answers L.index.val L.coord.val L.child.val i) =
       Extract.wctEnds answers L.index.val L.coord.val L.child.val := rfl
   unfold WCT9.childRoot WCT9.leafHash
-  rw [WCT9.leaf_header_eq, hends, wctEnds_eq h L]
+  rw [hends, wctEnds_eq h L]
   change (answers (.inl (.inr (pad64 (Extract.wctLeafInput L.index.val L.coord.val L.child.val
     (List.ofFn fun t : Fin 7 => wctEndLabel labels (L.index, L.coord, L.child, t))))))).extractLsb' 0 128 = _
   exact congrArg (fun output : HashOutput => output.extractLsb' 0 128) (h (.wctLeaf L))
@@ -294,16 +298,18 @@ theorem honestInput_eq (h : Agrees answers labels) (node : Node) :
       rw [ChainGraph.row_pad64, ChainGraph.prior_eq_value]
   | leaf L =>
       simp only [Node.toPos, Extract.honestInput, cell]
-      rw [leafEnds_eq h L]
+      rw [leafEnds_eq h L.1]
   | node n =>
-      obtain ⟨⟨lay, tree, level, idx⟩, hv1, hv2⟩ := n
+      obtain ⟨⟨lay, tree, level, idx⟩, hv1, hv2, hv3, hv4⟩ := n
       change level.val < height lay at hv1
       change idx.val < 2 ^ (height lay - level.val - 1) at hv2
+      change tree.val < 2 ^ treeBits lay at hv3
+      change lay = 0 ∨ level.val + 1 < height lay at hv4
       simp only [Node.toPos, Extract.honestInput, cell]
       have hpow : 2 ^ (height lay - level.val) = 2 * 2 ^ (height lay - level.val - 1) := by
         rw [← pow_succ']; congr 1; omega
-      rw [builtTree_eq h lay tree level.val (2 * idx.val) (by omega) (by omega),
-        builtTree_eq h lay tree level.val (2 * idx.val + 1) (by omega) (by omega)]
+      rw [builtTree_eq h lay tree level.val (2 * idx.val) (by omega) (by omega) hv3 (by omega),
+        builtTree_eq h lay tree level.val (2 * idx.val + 1) (by omega) (by omega) hv3 (by omega)]
   | wctChain p =>
       simp only [Node.toPos, Extract.honestInput, cell]
       rw [wctValue_eq h p.1 p.2.val (by have := p.2.isLt; omega), Extract.pad64_wctChainInput]

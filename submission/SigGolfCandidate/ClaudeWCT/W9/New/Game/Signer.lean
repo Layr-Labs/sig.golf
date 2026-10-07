@@ -23,10 +23,16 @@ theorem lowerQuery_chain (leaf i start count : Nat) (value : Digest) :
     (fun _ h => Or.inl h)
 theorem lowerQuery_leafHash (leaf : Nat) (ends : List Digest) :
     AllQueriesSatisfy (SigGolfCandidate.T3.leafHash lay tree leaf ends) (LowerQuery lay tree) :=
-  allQ_mono (pubGood_shortHash _ (by simp [bytesLE_length])) (fun _ h => Or.inl h)
+  allQ_mono (SigGolfCandidate.T3M.pubGood_leafHash _ _ _ _) (fun _ h => Or.inl h)
 theorem lowerQuery_buildLevels (h : Nat) (leaves : List Digest) :
     AllQueriesSatisfy (buildLevels 3 lay.val tree h leaves) (LowerQuery lay tree) := by
   unfold buildLevels
+  refine allQ_foldlM _ _ (fun levels level => allQ_bind ?_ fun _ => allQ_pure _) _
+  unfold buildLevel
+  exact allQ_mono (allQ_mapM _ _ fun _ => pubGood_nodeHash _ _ _ _ _ _) (fun _ h => Or.inl h)
+theorem lowerQuery_buildLevelsBelow (h : Nat) (leaves : List Digest) :
+    AllQueriesSatisfy (buildLevelsBelow 3 lay.val tree h leaves) (LowerQuery lay tree) := by
+  unfold buildLevelsBelow
   refine allQ_foldlM _ _ (fun levels level => allQ_bind ?_ fun _ => allQ_pure _) _
   unfold buildLevel
   exact allQ_mono (allQ_mapM _ _ fun _ => pubGood_nodeHash _ _ _ _ _ _) (fun _ h => Or.inl h)
@@ -53,7 +59,7 @@ theorem lowerQuery_buildTreeP (selected : Nat) (digits : List Nat) :
     AllQueriesSatisfy (buildTreeP lay tree selected digits) (LowerQuery lay tree) := by
   unfold buildTreeP
   refine allQ_bind (allQ_foldlM _ _ (fun state leaf => ?_) _) fun _ =>
-    allQ_bind (lowerQuery_buildLevels lay tree _ _) fun _ => allQ_pure _
+    allQ_bind (lowerQuery_buildLevelsBelow lay tree _ _) fun _ => allQ_pure _
   exact allQ_bind (lowerQuery_buildLeafP lay tree _ _ _) fun _ => allQ_pure _
 end
 theorem lowerSeedQ_separated {lay : Layer} (hlay : lay ≠ 0) (tree : Nat) {tweak : BitVec 128}
@@ -261,13 +267,17 @@ theorem buildTreeP_allowed' (P : SigGolfCandidate.T3.Spec.Domain → Prop)
     (hchain : ∀ (lay : Layer) tree leaf i start count value,
       AllQueriesSatisfy (SigGolfCandidate.T3.chain lay tree leaf i start count value) P)
     (hleaf : ∀ (lay : Layer) tree leaf ends, AllQueriesSatisfy (SigGolfCandidate.T3.leafHash lay tree leaf ends) P)
-    (hlevels : ∀ (lay : Layer) tree h leaves, AllQueriesSatisfy (buildLevels 3 lay.val tree h leaves) P)
+    (hlevel : ∀ (lay : Layer) tree h level nodes, AllQueriesSatisfy (buildLevel 3 lay.val tree h level nodes) P)
     (hseed : ∀ (lay : Layer) tree pair, AllQueriesSatisfy (WCT9.lowerSeedPair lay tree pair) P)
     (lay : Layer) (tree selected : Nat) (digits : List Nat) :
     AllQueriesSatisfy (WCT9.buildTreeP lay tree selected digits) P := by
   unfold WCT9.buildTreeP
   refine SourceQueries.bind_allowed P (SourceQueries.foldlM_allowed P _ _ (fun state leaf => ?_) _) fun _ =>
-    SourceQueries.bind_allowed P (hlevels _ _ _ _) fun _ => SourceQueries.pure_allowed P _
+    SourceQueries.bind_allowed P ?_ fun _ => SourceQueries.pure_allowed P _
+  swap
+  · unfold WCT9.buildLevelsBelow
+    exact SourceQueries.foldlM_allowed P _ _ (fun _ _ =>
+      SourceQueries.bind_allowed P (hlevel _ _ _ _ _) fun _ => SourceQueries.pure_allowed P _) _
   refine SourceQueries.bind_allowed P ?_ fun _ => SourceQueries.pure_allowed P _
   unfold WCT9.buildLeafP
   refine SourceQueries.bind_allowed P (SourceQueries.foldlM_allowed P _ _ (fun state i => ?_) _) fun _ =>

@@ -84,6 +84,9 @@ theorem hashOnly_packedSecret (pairQuery : Nat → M (Digest × Digest)) (h : �
     exact hashOnly_bind (SigGolfCandidate.T3.SourceReplay.hashOnly_chain _ _ _ _ _ _ _) fun _ =>
       hashOnly_bind (SigGolfCandidate.T3.SourceReplay.hashOnly_chain _ _ _ _ _ _ _) fun _ => hashOnly_pure _
   · exact hashOnly_bind (SigGolfCandidate.T3.SourceReplay.hashOnly_leafHash _ _ _ _) fun _ => hashOnly_pure _
+@[aesop safe apply] theorem hashOnly_buildLevelsBelow (tag lay tree h : Nat) (leaves : List Digest) :
+    HashOnly (ClaudeWCT.WCT9.buildLevelsBelow tag lay tree h leaves) := by
+  unfold ClaudeWCT.WCT9.buildLevelsBelow; hashes
 @[aesop safe apply] theorem hashOnly_buildTreeP (lay : Layer) (tree selected : Nat) (digits : List Nat) :
     HashOnly (ClaudeWCT.WCT9.buildTreeP lay tree selected digits) := by
   unfold ClaudeWCT.WCT9.buildTreeP
@@ -91,7 +94,7 @@ theorem hashOnly_packedSecret (pairQuery : Nat → M (Digest × Digest)) (h : �
   · refine hashOnly_bind (hashOnly_buildLeafP lay tree leaf _ _) fun r => ?_
     rcases r with ⟨⟨root, values⟩, carry⟩
     exact hashOnly_pure _
-  · exact hashOnly_bind (SigGolfCandidate.T3.SourceReplay.hashOnly_buildLevels _ _ _ _ _) fun _ => hashOnly_pure _
+  · exact hashOnly_bind (hashOnly_buildLevelsBelow _ _ _ _ _) fun _ => hashOnly_pure _
 @[aesop safe apply] theorem hashOnly_digestSearch (rho : Digest) (message : Message) (counter fuel : Nat) :
     HashOnly (ClaudeWCT.WCT9.digestSearch rho message counter fuel) := by
   induction fuel generalizing counter with
@@ -490,41 +493,41 @@ namespace ClaudeWCT.W9.T3.Freshness
 open OracleComp OracleSpec
 open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
 open SigGolfCandidate.T3 hiding Signature Witness sign expand verify signPayload digestSearch admissible
-open SigGolfCandidate.T3.Freshness (Avoids avoidsQuery HasTag tagged_ne_search hasTag_privatePair)
+open SigGolfCandidate.T3.Freshness (Avoids avoidsQuery SearchQ SearchHdr RowHdr searchQ_ne header_not_search
+  hasTag_not_search hasTag_privatePair)
 open ClaudeWCT.WCT9 (FtsQuery FtsInput FtsSeed)
 set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
 set_option linter.unusedSimpArgs false
+theorem ftsChain_not_search (index coord selected t step : Nat) :
+    ¬ SearchHdr (ClaudeWCT.WCT9.ftsChainHeader index coord selected t step) := by
+  have := ClaudeWCT.WCT9.ftsChainHeaderP_tweakMarker index coord selected t step 0
+  unfold SearchHdr RowHdr ClaudeWCT.WCT9.ftsChainHeader; omega
+theorem ftsLeaf_not_search (index coord selected : Nat) :
+    ¬ SearchHdr (ClaudeWCT.WCT9.ftsLeafHeader index coord selected) := by
+  unfold SearchHdr RowHdr
+  rw [ClaudeWCT.WCT9.ftsLeafHeader_tweakMarker, ClaudeWCT.WCT9.ftsLeafHeader_tweakTag]; omega
+theorem ftsNode_not_search {coord : Nat} (hk : coord < 9) (index heap : Nat) :
+    ¬ SearchHdr (ClaudeWCT.WCT9.wctNodeHeader coord index heap) := by
+  unfold SearchHdr RowHdr
+  rw [ClaudeWCT.WCT9.wctNodeHeader_tweakMarker, ClaudeWCT.WCT9.wctNodeHeader_tweakTag hk]; omega
 theorem avoidsQuery_of_fts (secret : BitVec 256) (target : HashInput)
-    (ht : HasTag 4 target ∨ HasTag 12 target) (index : Nat) (q : Spec.Domain)
+    (ht : SearchQ target) (index : Nat) (q : Spec.Domain)
     (hq : FtsQuery index q) : avoidsQuery secret target q := by
   rcases q with (coin | input) | (tweak | other)
   · exact hq.elim
   · rcases ClaudeWCT.WCT9.FtsInput.hdrBlock (show FtsInput index input from hq) with
-      ⟨coord, selected, t, step, hblock⟩ | ⟨tag, lay, position, idx, htag, hblock⟩
-    · intro he
-      subst he
-      rcases ht with (⟨l, tr, p, ix, hh⟩ | ⟨htag, -⟩) |
-        (⟨l, tr, p, ix, hh⟩ | ⟨-, counter, hh⟩)
-      · exact ClaudeWCT.WCT9.ftsChainHeaderP_ne_header index coord selected t step 0 4 l tr p ix
-          (bytesLE_injective (hblock.symm.trans hh))
-      · norm_num at htag
-      · exact ClaudeWCT.WCT9.ftsChainHeaderP_ne_header index coord selected t step 0 12 l tr p ix
-          (bytesLE_injective (hblock.symm.trans hh))
-      · have he := bytesLE_injective (hblock.symm.trans hh)
-        have hn := congrArg (fun h : Digest => h.toNat % 256) he
-        simp only [ClaudeWCT.WCT9.ftsChainHeader,
-          ClaudeWCT.WCT9.ftsChainHeaderP_firstByte, digestHeader_firstByte] at hn
-        omega
-    · have hmod := ClaudeWCT.WCT9.Wots.tag_mod' htag
-      exact tagged_ne_search (tag := tag) (Or.inl ⟨lay, index, position, idx, hblock⟩) ht hmod.2.2.1 hmod.2.2.2
+      ⟨coord, selected, t, step, hblock⟩ | ⟨coord, selected, -, -, hblock⟩ | ⟨coord, heap, hk, -, -, hblock⟩ | hblock
+    · exact searchQ_ne hblock (ftsChain_not_search index coord selected t step) ht
+    · exact searchQ_ne hblock (ftsLeaf_not_search index coord selected) ht
+    · exact searchQ_ne hblock (ftsNode_not_search hk index heap) ht
+    · exact searchQ_ne hblock (header_not_search 15 0 index 0 0 (by decide)) ht
   · obtain ⟨coord, pair, -, -, rfl⟩ := (show FtsSeed index tweak from hq)
-    exact tagged_ne_search (tag := 8) (hasTag_privatePair secret 8 coord index 0 pair)
-      ht (by decide) (by decide)
+    exact hasTag_not_search (hasTag_privatePair secret 8 coord index 0 pair) (by decide) ht
   · exact hq.elim
 theorem avoids_signForest (secret : BitVec 256) (target : HashInput)
-    (ht : HasTag 4 target ∨ HasTag 12 target) (index : Nat) (output : HashOutput) :
+    (ht : SearchQ target) (index : Nat) (output : HashOutput) :
     Avoids secret target (ClaudeWCT.WCT9.signForest index output) :=
   ClaudeWCT.WCT9.Wots.allQueriesSatisfy_mono (ClaudeWCT.WCT9.signForest_queries index output)
     (fun q hq => avoidsQuery_of_fts secret target ht index q hq)
@@ -532,7 +535,7 @@ theorem sourceFreshness (secret : BitVec 256) : Budgets.SourceFreshness secret w
   forest := by
     intro index output cache hc result hr
     exact ClaudeWCT.W9.T3.PairRows.preserves_pairBelow secret _
-      (fun target ht => avoids_signForest secret target (Or.inl ht) index output)
+      (fun target ht => avoids_signForest secret target ht.searchQ index output)
       4 cache hc result hr
 end ClaudeWCT.W9.T3.Freshness
 end
@@ -696,9 +699,9 @@ open ClaudeWCT.WCT9 (Signature Witness)
 open ClaudeWCT.WCT9.Rev3 (sign expand verify)
 open SigGolfCandidate.T3M (mrealize countBoth countCalls cacheB cacheDec isHash)
 open ClaudeWCT.W9.T3M (Images submission)
-def verifyCycleBound : Nat := 7321
-def claimedC : Nat := 7407
-def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 21832) : Prop :=
+def verifyCycleBound : Nat := 7264
+def claimedC : Nat := 7348
+def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 21488) : Prop :=
   ∀ N, evalWithAnswerFn hash (mrealize 0 (digestP m w)) = some N → WCT9.capOk N = true
 variable (I : Images)
 def KeygenRunCounts : Prop := ∀ sk : SecretKey,
@@ -707,7 +710,7 @@ def KeygenRunCounts : Prop := ∀ sk : SecretKey,
 def KeygenRunWith : Prop := ∀ (hash : Hash) (sk : SecretKey),
   (submission I).runWith hash .keygen sk =
     ⟨some (((evalWithAnswerFn hash (mrealize sk keygen)).1 : PublicKey),
-      cacheB (evalWithAnswerFn hash (mrealize sk keygen)).2), true, 53919407, 995328, 1048576⟩
+      cacheB (evalWithAnswerFn hash (mrealize sk keygen)).2), true, 53923503, 995328, 1048576⟩
 def SignRefines : Prop := ∀ (sk : SecretKey) (cache : Bytes 131072) (m : Message),
   (fun r => (r.value, r.hashCalls, r.hashCompressions)) <$> (submission I).run .sign (sk, cache, m) =
     (fun p => (p.1.map sigB, p.2.1, p.2.2)) <$> countBoth (mrealize sk (sign (cacheDec cache) m))
@@ -721,13 +724,13 @@ def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5456),
 def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5456),
   ((submission I).runWith hash .expand (m, pk, s)).finished = true ∧
     ((submission I).runWith hash .expand (m, pk, s)).cycles < CYCLE_LIMIT
-def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 21832),
+def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 21488),
   (fun r => (r.value, r.hashCalls)) <$> (submission I).run .verify (m, pk, w) =
     (fun p => (if p.1 then some () else none, p.2)) <$> countCalls (mrealize 0 (verifyP m pk w))
-def VerifyTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 21832),
+def VerifyTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 21488),
   ((submission I).runWith hash .verify (m, pk, w)).finished = true ∧
     ((submission I).runWith hash .verify (m, pk, w)).cycles < CYCLE_LIMIT
-def VerifyAcceptCycles : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 21832),
+def VerifyAcceptCycles : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 21488),
   SigGolfCandidate.T3M.Verify.HashOk hash → DigestCapOk hash m w →
   ((submission I).runWith hash .verify (m, pk, w)).value.isSome = true →
     ((submission I).runWith hash .verify (m, pk, w)).cycles ≤ verifyCycleBound

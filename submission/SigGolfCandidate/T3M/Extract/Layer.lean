@@ -36,7 +36,7 @@ theorem merkle_honestInput (answers : Answers) (lay : Layer) (tree leaf step : N
     Correctness.div_pow_succ]
 theorem hdrBlock_merkleInput (tag lay tree h leaf : Nat) (path pads : Nat → Digest) (step : Nat) (value : Digest) :
     hdrBlock (pad64 (merkleInput tag lay tree h leaf path pads step value)) =
-      bytesLE 16 (header tag lay tree 0 (2 ^ (h - step - 1) + leaf / 2 ^ (step + 1))) := by
+      bytesLE 16 (nodeTweak tag lay tree (2 ^ (h - step - 1) + leaf / 2 ^ (step + 1))) := by
   unfold merkleInput
   dsimp only
   split <;> rw [pad64_nodeInputP, nodeInputP, hdrBlock_block4]
@@ -94,7 +94,11 @@ theorem layerP_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : Lay
   have hleafB := route_leaf_bound index lay
   generalize hleaf : (route index lay).1 = leaf at hleafB
   have htreeB := route_tree_bound index lay hidx
-  generalize htree : (route index lay).2 = tree at htreeB
+  have hroutedB := route_packed_bound index lay hidx
+  have htop0 : lay = 0 → (route index lay).2 = 0 := by
+    rintro rfl; simp only [route, height]; norm_num; omega
+  rw [hleaf] at hroutedB
+  generalize htree : (route index lay).2 = tree at htreeB hroutedB htop0
   have htree31 : tree < 2 ^ 31 := by
     rw [← htree]
     exact lt_of_le_of_lt (Nat.div_le_self _ _) hidx
@@ -129,7 +133,7 @@ theorem layerP_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : Lay
     apply hH
     refine ⟨.node lay tree step (leaf / 2 ^ (step + 1)), pad64 (pathInput answers
       (merkleInput 3 lay.val tree (height lay) leaf (wpath w lay leaf) (wmerklePad w lay))
-      (evalWithAnswerFn answers (layerLeafP w index lay digits)) step), ⟨htreeB, hstep, ?_⟩, ?_, ?_, ?_⟩
+      (evalWithAnswerFn answers (layerLeafP w index lay digits)) step), ⟨by omega, htop0, hstep, ?_⟩, ?_, ?_, ?_⟩
     · simpa only [Nat.sub_sub, Nat.zero_add] using Correctness.div_pow_bound (start := 0) (level := step + 1)
         (node := leaf) (height := height lay) (by omega) (by simpa using hleafB)
     · rw [layerP_eq_hashPath, queried_bind, hleaf, htree]
@@ -156,7 +160,7 @@ theorem layerP_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : Lay
   swap
   · exfalso
     apply hH
-    refine ⟨.leaf lay tree leaf, _, ⟨htreeB, hleaf32⟩, ?_, hhit, hsame⟩
+    refine ⟨.leaf lay tree leaf, _, ⟨hleafB, hroutedB⟩, ?_, hhit, hsame⟩
     apply hqL
     rw [layerLeafP_eq, queried_bind, hleaf, htree]
     exact List.mem_append_right _ hq

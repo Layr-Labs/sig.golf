@@ -1,4 +1,5 @@
 import SigGolfCandidate.T3M.Search.Arith
+import SigGolfCandidate.T3.Nonbinary.TopFlip
 
 namespace SigGolfCandidate.T3M.Search
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
@@ -101,7 +102,7 @@ theorem lowDigits_sum (v : Digest) : (lowDigits v).sum =
   simp only [lowDigits, List.range_succ, List.range_zero, List.nil_append, List.map_append, List.map_cons,
     List.map_nil, List.sum_append, List.sum_cons, List.sum_nil]
   norm_num [T3.lowerShift]
-theorem topDigits_sum (v : Digest) : (topDigits v).sum =
+theorem topDigits_sum (v : Digest) : (topDigits (T3.topFlip v)).sum =
       (v.toNat / 1 % 128) / 1 % 5 +
       (v.toNat / 1 % 128) / 5 % 5 +
       (v.toNat / 1 % 128) / 25 % 5 +
@@ -158,7 +159,7 @@ theorem topDigits_sum (v : Digest) : (topDigits v).sum =
       v.toNat / 10633823966279326983230456482242756608 % 4 := by
   simp only [topDigits, List.range_succ, List.range_zero, List.nil_append, List.map_append, List.map_cons,
     List.map_nil, List.sum_append, List.sum_cons, List.sum_nil]
-  norm_num [T3.coreDigit]
+  norm_num [T3.coreDigit, T3.topCode_topFlip]
 theorem decode_low (lay : Layer) (h : lay ≠ 0) (v : Digest) :
     T3.decode lay v =
       if T3.lowerSpare v ∧ (lowDigits v).sum ≤ T3.target lay ∧ T3.target lay - (lowDigits v).sum < 8

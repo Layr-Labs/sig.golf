@@ -50,6 +50,7 @@ end
 section
 
 
+
 section
 namespace SigGolfCandidate.T3M.Keygen
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
@@ -239,13 +240,24 @@ theorem sub140_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSt
     rw [Result.toState_getMem]
     exact sub140_frame s h30 X hX (by simp only [NODE] at hn; omega)
 def revX (tag : Nat) : Nat := if tag = 10 then 28 else 0
+def nodeLo (lay tree : Nat) : Nat := if lay = 0 then 64 else (T3.hyperWord (lay - 1) tree).toNat
+theorem nodeLo_mod (lay tree : Nat) : nodeLo lay tree % 4096 < 2048 := by
+  unfold nodeLo; split
+  · decide
+  · rw [T3.hyperWord_toNat]; simp only [Nat.reducePow]; omega
+theorem nodeTweak_3_low {lay : Nat} (hlay : lay < 4) (tree heap : Nat) :
+    T3.nodeTweak 3 lay tree heap = BitVec.ofNat 64 heap ++ BitVec.ofNat 64 (nodeLo lay tree) := by
+  unfold nodeLo
+  by_cases h0 : lay = 0
+  · subst h0; rw [T3.nodeTweak_top, if_pos rfl]
+  · rw [T3.nodeTweak_lower h0 hlay, if_neg h0, BitVec.ofNat_toNat, BitVec.setWidth_eq]
 theorem sub120_full {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)
-    (hpc : s.pc = pcOf (b + 120)) (tag lay arena k tree : Nat) (htag : tag = 3 ∨ tag = 10)
+    (hpc : s.pc = pcOf (b + 120)) (tag lay arena k tree : Nat) (htag : tag = 3)
     (ha8 : arena % 8 = 0) (hk : 32 * k + 32 + arena ≤ 2 ^ 24) (hk' : k < 2 ^ 12) (htree : tree < 2 ^ 32)
     (hdis : NODE + 64 ≤ arena + 32 * k ∨ arena + 32 * k + 32 ≤ NODE)
     (h2 : s.getReg .x2 = BitVec.ofNat 64 arena) (h24 : s.getReg .x24 = BitVec.ofNat 64 k)
     (h9 : s.getReg .x9 = BitVec.ofNat 64 tree)
-    (h21 : s.getReg .x21 = BitVec.ofNat 64 (hdr0 tag lay tree 0)) :
+    (h21 : s.getReg .x21 = BitVec.ofNat 64 (nodeLo lay tree)) :
     ∃ t, Steps image s (26 + revX tag) (26 + revX tag) t ∧ t.pc = pcOf (b + 146) ∧
       t.getReg .x10 = BitVec.ofNat 64 NODE ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 NOUT ∧
@@ -259,21 +271,15 @@ theorem sub120_full {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSt
       Frame s t (fun X => X = NODE ∨ X = NODE + 8 ∨ X = NODE + 16 ∨ X = NODE + 24 ∨ X = NODE + 48 ∨
         X = NODE + 56) := by
   obtain ⟨t1, st1, t1pc, t1x7, t1x30, m0, m8, m16, m48, m56, t1r, t1f⟩ :=
-    sub120_spec h s hpc arena k tree (hdr0 tag lay tree 0) ha8 hk htree hdis h2 h24 h9 h21
-  have hmod : hdr0 tag lay tree 0 % 4096 = 1 + 256 * (tag % 16) := by
-    unfold hdr0; omega
+    sub120_spec h s hpc arena k tree (nodeLo lay tree) ha8 hk htree hdis h2 h24 h9 h21
+  have hmod := nodeLo_mod lay tree
   have mid : ∃ u, Steps image t1 (revX tag) (revX tag) u ∧ u.pc = pcOf (b + 140) ∧
       u.getReg .x7 = BitVec.ofNat 64 (T3.nodeWord tag 0 k) ∧ RegsExcept t1 u [.x6, .x7, .x28] ∧
       Frame t1 u (fun _ => False) := by
-    rcases htag with rfl | rfl
-    · rw [hmod, if_neg (by norm_num)] at t1pc
-      refine ⟨t1, (Steps.refl _).of_eq (by decide) (by decide), t1pc, ?_, RegsExcept.refl _ _, Frame.refl _ _⟩
-      rw [t1x7, nodeWord_3, hdr1_eq k 0 (by omega) (by norm_num)]; simp
-    · rw [hmod, if_pos (by norm_num)] at t1pc
-      obtain ⟨u, stu, upc, ux7, ur, uf⟩ := sub214_spec h t1 t1pc k hk'
-        (by rw [t1r.get (by simp)]; exact h24)
-      refine ⟨u, stu.of_eq (by decide) (by decide), upc, ?_, ur, uf⟩
-      rw [ux7, nodeWord_10, hdr1_eq k 0 (by omega) (by norm_num)]; simp
+    subst htag
+    rw [if_neg (by omega)] at t1pc
+    refine ⟨t1, (Steps.refl _).of_eq (by decide) (by decide), t1pc, ?_, RegsExcept.refl _ _, Frame.refl _ _⟩
+    rw [t1x7, nodeWord_3, hdr1_eq k 0 (by omega) (by norm_num)]; simp
   obtain ⟨u, stu, upc, ux7, ur, uf⟩ := mid
   obtain ⟨t, stt, tpc, tx10, tx11, tx12, tm24, tr, tf⟩ := sub140_spec h u upc
     (by rw [ur.get (by simp)]; exact t1x30)
@@ -377,8 +383,9 @@ structure LevPre (s : MachineState) (B : LevArgs) (leaves : List Digest) : Prop 
   x5 : s.getReg .x5 = 0
   x9 : s.getReg .x9 = BitVec.ofNat 64 B.tree
   x15 : s.getReg .x15 = BitVec.ofNat 64 B.h
-  x21 : s.getReg .x21 = BitVec.ofNat 64 (hdr0 B.tag B.lay B.tree 0)
-  tag3 : B.tag = 3 ∨ B.tag = 10
+  x21 : s.getReg .x21 = BitVec.ofNat 64 (nodeLo B.lay B.tree)
+  tag3 : B.tag = 3
+  hlay : B.lay < 4
   htree : B.tree < 2 ^ 32
   hh1 : 1 ≤ B.h
   hh : B.h ≤ 12
@@ -423,12 +430,25 @@ theorem wordsOf_nodeInput_3 (lay tree heap : Nat) (l r : Digest) :
       [l.extractLsb' 0 64, l.extractLsb' 64 64, BitVec.ofNat 64 (hdr0 3 lay tree tree),
         BitVec.ofNat 64 (hdr1 heap 0), 0, 0, r.extractLsb' 0 64, r.extractLsb' 64 64] := by
   rw [wordsOf_nodeInput 3 lay tree heap l r (by decide), nodeWord_3]
+theorem wordsOf_nodeInputT {lay : Nat} (hlay : lay < 4) (tree heap : Nat) (l r : Digest) :
+    wordsOf (bytesLE 16 l ++ bytesLE 16 (T3.nodeTweak 3 lay tree heap) ++ zero16 ++ bytesLE 16 r) =
+      [l.extractLsb' 0 64, l.extractLsb' 64 64, BitVec.ofNat 64 (nodeLo lay tree),
+        BitVec.ofNat 64 heap, 0, 0, r.extractLsb' 0 64, r.extractLsb' 64 64] := by
+  rw [wordsOf_append _ _ (by simp [bytesLE_length, zero16]), wordsOf_append _ _ (by simp [bytesLE_length]),
+    wordsOf_append _ _ (by simp [bytesLE_length]), wordsOf_bytesLE16, wordsOf_bytesLE16, wordsOf_zero16,
+    wordsOf_bytesLE16, nodeTweak_3_low hlay, T3.append64_low]
+  have hhi : (BitVec.ofNat 64 heap ++ BitVec.ofNat 64 (nodeLo lay tree)).extractLsb' 64 64 = BitVec.ofNat 64 heap :=
+    BitVec.extractLsb'_append_eq_left
+  rw [hhi]; rfl
+theorem nodeInputT_length (tag lay tree heap : Nat) (l r : Digest) :
+    (bytesLE 16 l ++ bytesLE 16 (T3.nodeTweak tag lay tree heap) ++ zero16 ++ bytesLE 16 r).length = 64 := by
+  simp [bytesLE_length, zero16]
 theorem two_pow_split {h l : Nat} (hl : l < h) : 2 ^ (h - l) = 2 * 2 ^ (h - l - 1) := by
   rw [← Nat.pow_succ']; congr 1; omega
 section lev
 variable {image : Image} {b : Nat} (hsub : SubAt image b) (sk : BitVec 256) {s0 : MachineState}
-  {B : LevArgs} {leaves : List Digest} (hpre : LevPre s0 B leaves)
-include hsub hpre
+  {B : LevArgs} {leaves : List Digest} (hpre : LevPre s0 B leaves) (htop : B.lay = 0 ∧ B.tree = 0)
+include hsub hpre htop
 theorem lev_node {ℓ : Nat} (hl : ℓ < B.h) {levels : List (List Digest)} {pre : List Digest}
     (hi : pre.length < 2 ^ (B.h - ℓ - 1)) {t : MachineState} (ht : NodeInv s0 B ℓ levels pre t)
     (hpc : t.pc = pcOf (b + 118)) :
@@ -454,7 +474,7 @@ theorem lev_node {ℓ : Nat} (hl : ℓ < B.h) {levels : List (List Digest)} {pre
   have r2 : t.getReg .x2 = BitVec.ofNat 64 B.arena := by rw [g _ (by simp [levRegs]), hpre.x2]
   have r9 : t.getReg .x9 = BitVec.ofNat 64 B.tree := by rw [g _ (by simp [levRegs]), hpre.x9]
   have r5 : t.getReg .x5 = 0 := by rw [g _ (by simp [levRegs]), hpre.x5]
-  have r21 : t.getReg .x21 = BitVec.ofNat 64 (hdr0 B.tag B.lay B.tree 0) := by
+  have r21 : t.getReg .x21 = BitVec.ofNat 64 (nodeLo B.lay B.tree) := by
     rw [g _ (by simp [levRegs]), hpre.x21]
   obtain ⟨t1, st1, t1pc, t1r, t1f⟩ := sub118_spec hsub t hpc lo (lo + i) (by omega) (by omega) ht.x20 ht.x24
   rw [if_pos (by omega)] at t1pc
@@ -479,23 +499,24 @@ theorem lev_node {ℓ : Nat} (hl : ℓ < B.h) {levels : List (List Digest)} {pre
     rw [t2f.get hX' (by simp only [NODE] at hX ⊢; omega), t1f.get hX' (by simp),
       ht.frame.get hX' (by unfold LevW; simp only [NODE, NOUT] at hX has ⊢; omega)]
   have hq : hashInput t2 = toQ (pad64 (bytesLE 16 ((levels.getD ℓ []).getD (2 * i) 0) ++
-      bytesLE 16 (header B.tag B.lay B.tree 0 (lo + i)) ++ zero16 ++
+      bytesLE 16 (T3.nodeTweak B.tag B.lay B.tree (lo + i)) ++ zero16 ++
       bytesLE 16 ((levels.getD ℓ []).getD (2 * i + 1) 0))) := by
-    rw [pad64_of_aligned _ (by rw [nodeInput_length])]
-    refine hashInput_toQ t2 _ 0 NODE (nodeInput_length _ _ _ _ _ _) t2x10 (by decide) (by decide) t2x11
+    rw [pad64_of_aligned _ (by rw [nodeInputT_length])]
+    refine hashInput_toQ t2 _ 0 NODE (nodeInputT_length _ _ _ _ _ _) t2x10 (by decide) (by decide) t2x11
       (by decide) ?_
-    rw [wordsOf_nodeInput _ _ _ _ _ _ (by rcases hpre.tag3 with h | h <;> rw [h] <;> decide), readWords_eight, t2n0, t2n8, t2n16, t2n24, fr (NODE + 32) (by simp),
+    rw [hpre.tag3, wordsOf_nodeInputT hpre.hlay, readWords_eight, t2n0, t2n8, t2n16, t2n24, fr (NODE + 32) (by simp),
       fr (NODE + 40) (by simp), t2n48, t2n56, hpre.z32, hpre.z40, hL1.1, hL1.2, hR1.1, hR1.2,
-      t1r.get (by simp), r21, hdr0_or_tree B.tag B.lay B.tree hpre.htree]
+      t1r.get (by simp), r21, htop.2, hpre.tag3, nodeWord_3, hdr1_eq (lo + i) 0 (by omega) (by norm_num)]
+    simp
   have hv : hashArgumentsValid t2 = true :=
     hashArgs_const t2 NODE 64 NOUT t2x10 t2x11 t2x12 (by decide) (by decide) (by decide) (by decide)
       (by decide)
   have h5 : t2.getReg .x5 = 0 := by rw [t2r.get (by simp), t1r.get (by simp), r5]
   have hblk : (toQ (pad64 (bytesLE 16 ((levels.getD ℓ []).getD (2 * i) 0) ++
-      bytesLE 16 (header B.tag B.lay B.tree 0 (lo + i)) ++ zero16 ++
+      bytesLE 16 (T3.nodeTweak B.tag B.lay B.tree (lo + i)) ++ zero16 ++
       bytesLE 16 ((levels.getD ℓ []).getD (2 * i + 1) 0)))).blocks = 1 := by
-    rw [pad64_of_aligned _ (by rw [nodeInput_length]),
-      blocks_toQ ⟨by rw [nodeInput_length]; omega, by rw [nodeInput_length]⟩, nodeInput_length]
+    rw [pad64_of_aligned _ (by rw [nodeInputT_length]),
+      blocks_toQ ⟨by rw [nodeInputT_length]; omega, by rw [nodeInputT_length]⟩, nodeInputT_length]
   unfold nodeHash
   rw [hk']
   refine (TSim.steps (st1.trans st2)
@@ -593,7 +614,7 @@ theorem lev_level {ℓ : Nat} (hl : ℓ < B.h) {levels : List (List Digest)} {t 
       (fun pre w => w.pc = pcOf (b + 118) ∧ NodeInv s0 B ℓ levels pre w)
       (fun pre w hpre' hw => ?_) ⟨t2pc, h0⟩) (fun nodes w hw => ?_))).of_eq rfl ?_ ?_ ?_ ?_
   · rw [show 1 + ℓ - 1 = ℓ by omega, show 1 + ℓ = ℓ + 1 by omega]
-    exact lev_node hsub sk hpre hl hpre' hw.2 hw.1
+    exact lev_node hsub sk hpre htop hl hpre' hw.2 hw.1
   · obtain ⟨hlen, wpc, hw⟩ := hw
     obtain ⟨w1, st3, w1pc, w1r, w1f⟩ := sub118_spec hsub w wpc lo (lo + nodes.length) (by omega) (by omega)
       hw.x20 (by rw [hw.x24])
@@ -651,7 +672,7 @@ theorem buildLevels_tsim (hpc : s0.pc = pcOf (b + 113)) :
       (fun j levels t => t.pc = pcOf (b + 116) ∧ LevInv s0 B j levels t)
       (fun j => 6 + (39 + revX B.tag) * 2 ^ (B.h - 1 - j)) (fun j => 6 + (46 + revX B.tag) * 2 ^ (B.h - 1 - j))
       (fun j => 2 ^ (B.h - 1 - j)) (fun j => 2 ^ (B.h - 1 - j))
-      (fun j hj levels t ht => lev_level hsub sk hpre hj ht.2 ht.1) ⟨t1pc, h0⟩)
+      (fun j hj levels t ht => lev_level hsub sk hpre htop hj ht.2 ht.1) ⟨t1pc, h0⟩)
     (fun levels t ht => ?_))).of_eq (bind_pure _) ?_ ?_ ?_ ?_
   · obtain ⟨tpc, hinv⟩ := ht
     have hx : 2 ^ B.h / 2 ^ (B.h + 1) = 0 := Nat.div_eq_of_lt (Nat.pow_lt_pow_right (by norm_num) (by omega))

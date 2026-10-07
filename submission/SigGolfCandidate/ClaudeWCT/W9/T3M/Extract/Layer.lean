@@ -1,6 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Leaf
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Defs
-import SigGolfCandidate.T3M.Extract.HeaderBytes
 
 namespace ClaudeWCT.W9.T3M.Extract
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3M
@@ -31,7 +30,7 @@ theorem merkle_honestInput (answers : Answers) (lay : Layer) (tree leaf step : N
     Correctness.div_pow_succ]
 theorem hdrBlock_merkleInput (tag lay tree h leaf : Nat) (path pads : Nat → Digest) (step : Nat) (value : Digest) :
     hdrBlock (pad64 (merkleInput tag lay tree h leaf path pads step value)) =
-      bytesLE 16 (header tag lay tree 0 (2 ^ (h - step - 1) + leaf / 2 ^ (step + 1))) := by
+      bytesLE 16 (nodeTweak tag lay tree (2 ^ (h - step - 1) + leaf / 2 ^ (step + 1))) := by
   unfold merkleInput
   dsimp only
   split <;> rw [pad64_nodeInputP, nodeInputP, hdrBlock_block4]
@@ -73,8 +72,18 @@ theorem layerChains_queried (answers : Answers) (w : WBytes) (index : Nat) (lay 
 theorem map_finRange_val {β : Type} (n : Nat) (g : Nat → β) :
     (List.finRange n).map (fun i => g i.val) = (List.range n).map g := by
   rw [show (fun i : Fin n => g i.val) = g ∘ Fin.val from rfl, ← List.map_map, map_val_finRange]
-theorem route_tree_bound (index : Nat) (lay : Layer) (hidx : index < 2 ^ 31) : (route index lay).2 < 2 ^ 40 :=
+theorem route_tree_bound (index : Nat) (lay : Layer) (hidx : index < 2 ^ 31) : (route index lay).2 < 2 ^ 32 :=
   lt_of_le_of_lt (Nat.div_le_self _ _) (lt_trans hidx (by norm_num))
+theorem route_routed_bound (index : Nat) (lay : Layer) (hidx : index < 2 ^ 31) :
+    (route index lay).2 * 2 ^ height lay + (route index lay).1 < 2 ^ 32 := by
+  unfold route
+  dsimp only
+  generalize hb : ((![19, 12, 6, 0] : Layer → Nat) lay) = b
+  have hd : index / 2 ^ (b + height lay) * 2 ^ height lay + index / 2 ^ b % 2 ^ height lay = index / 2 ^ b := by
+    rw [pow_add, ← Nat.div_div_eq_div_mul]
+    exact Nat.div_add_mod' _ _
+  rw [hd]
+  exact lt_of_le_of_lt (Nat.div_le_self _ _) (lt_trans hidx (by norm_num))
 theorem height_le (lay : Layer) : height lay ≤ 12 := by fin_cases lay <;> decide
 theorem chainCount_le (lay : Layer) : chainCount lay ≤ 58 := by fin_cases lay <;> decide
 theorem width_le (lay : Layer) (i : Nat) : width lay i ≤ 3 := by unfold width; split_ifs <;> omega
@@ -93,13 +102,14 @@ theorem layerLeaf_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : 
   right
   have hleafB := route_leaf_bound index lay
   have htreeB := route_tree_bound index lay hidx
+  have hrouted := route_routed_bound index lay hidx
   have hqC : ∀ q ∈ queried answers (layerChains w index lay digits),
       q ∈ queried answers (layerLeafP w index lay digits) := by
     intro q hq
     rw [layerLeafP_eq, queried_bind]
     exact List.mem_append_left _ hq
-  generalize hleaf : (route index lay).1 = leaf at hleafB hv0 hH hqC ⊢
-  generalize htree : (route index lay).2 = tree at htreeB hv0 hH hqC ⊢
+  generalize hleaf : (route index lay).1 = leaf at hleafB hrouted hv0 hH hqC ⊢
+  generalize htree : (route index lay).2 = tree at htreeB hrouted hv0 hH hqC ⊢
   have htree31 : tree < 2 ^ 31 := by
     rw [← htree]
     exact lt_of_le_of_lt (Nat.div_le_self _ _) hidx
@@ -124,7 +134,7 @@ theorem layerLeaf_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : 
   swap
   · exfalso
     apply hH
-    refine ⟨.leaf lay tree leaf, _, ⟨htreeB, hleaf32⟩, ?_, hhit, hsame⟩
+    refine ⟨.leaf lay tree leaf, _, ⟨hleafB, hrouted⟩, ?_, hhit, hsame⟩
     rw [layerLeafP_eq, queried_bind, hleaf, htree]
     exact List.mem_append_right _ hq
   rw [hends] at hE
@@ -160,7 +170,7 @@ theorem layerLeaf_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : 
       rw [chainInput_header]
       exact canonicalHeader_chainHeaderP _ _ _ _ _ _
 theorem layerP_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat)
-    (hidx : index < 2 ^ 31) (hvalid : Cost.ValidDigits lay digits)
+    (hlay : lay = 0) (hidx : index < 2 ^ 31) (hvalid : Cost.ValidDigits lay digits)
     (reaches : evalWithAnswerFn answers (layerP w index lay digits) = honestRoot answers lay (route index lay).2) :
     HitIn answers (queried answers (layerP w index lay digits)) ∨ LayerShaped answers w index lay digits := by
   classical
@@ -174,7 +184,7 @@ theorem layerP_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : Lay
   have hleafB := route_leaf_bound index lay
   have htreeB := route_tree_bound index lay hidx
   have hM := merklePath_extract answers 3 lay.val (route index lay).2 (height lay) (route index lay).1 (height lay)
-    (wpath w lay (route index lay).1) (wmerklePad w lay)
+    (wpath w lay (route index lay).1) (wmerklePad w lay (route index lay).1)
     (fun j => treeValue (wotsTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1))
     (fun step => treeValue (wotsTree answers lay (route index lay).2) step ((route index lay).1 / 2 ^ step))
     (evalWithAnswerFn answers (layerLeafP w index lay digits))
@@ -191,8 +201,9 @@ theorem layerP_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : Lay
     apply hH
     refine ⟨.node lay (route index lay).2 step ((route index lay).1 / 2 ^ (step + 1)), pad64 (pathInput answers
       (merkleInput 3 lay.val (route index lay).2 (height lay) (route index lay).1 (wpath w lay (route index lay).1)
-        (wmerklePad w lay))
-      (evalWithAnswerFn answers (layerLeafP w index lay digits)) step), ⟨htreeB, hstep, ?_⟩, ?_, ?_, ?_⟩
+        (wmerklePad w lay (route index lay).1))
+      (evalWithAnswerFn answers (layerLeafP w index lay digits)) step), ⟨htreeB, hstep, Or.inl hlay,
+        fun _ => by subst hlay; exact route_top_tree index hidx, ?_⟩, ?_, ?_, ?_⟩
     · simpa only [Nat.sub_sub, Nat.zero_add] using Correctness.div_pow_bound (start := 0) (level := step + 1)
         (node := (route index lay).1) (height := height lay) (by omega) (by simpa using hleafB)
     · rw [layerP_eq_hashPath, queried_bind]
@@ -207,7 +218,7 @@ theorem layerP_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : Lay
 theorem layerPairP_eq_hashPath (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) :
     layerPairP w index lay digits = (layerLeafP w index lay digits >>= fun value =>
       hashPath (merkleInput 3 lay.val (route index lay).2 (height lay) (route index lay).1
-        (wpath w lay (route index lay).1) (wmerklePad w lay)) (height lay - 1) value >>= fun top =>
+        (wpath w lay (route index lay).1) (wmerklePad w lay (route index lay).1)) (height lay - 1) value >>= fun top =>
       pure (if (route index lay).1 / 2 ^ (height lay - 1) % 2 = 0
         then (top, wpath w lay (route index lay).1 (height lay - 1))
         else (wpath w lay (route index lay).1 (height lay - 1), top))) := by
@@ -220,7 +231,7 @@ theorem layerPairP_eq_hashPath (w : WBytes) (index : Nat) (lay : Layer) (digits 
   congr 1
   funext value
   rw [← foldlM_finRange_eq_hashPath
-    (merkleInput 3 lay.val tree (height lay) leaf (wpath w lay leaf) (wmerklePad w lay)) (height lay - 1) value]
+    (merkleInput 3 lay.val tree (height lay) leaf (wpath w lay leaf) (wmerklePad w lay leaf)) (height lay - 1) value]
   rfl
 theorem height_pos (lay : Layer) : 1 ≤ height lay := by fin_cases lay <;> decide
 theorem layerPairP_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat)
@@ -238,7 +249,7 @@ theorem layerPairP_extract (answers : Answers) (w : WBytes) (index : Nat) (lay :
     rw [layerPairP_eq_hashPath, queried_bind]
     exact List.mem_append_left _ hq
   have hqM : ∀ q ∈ queried answers (hashPath (merkleInput 3 lay.val (route index lay).2 (height lay)
-      (route index lay).1 (wpath w lay (route index lay).1) (wmerklePad w lay)) (height lay - 1)
+      (route index lay).1 (wpath w lay (route index lay).1) (wmerklePad w lay (route index lay).1)) (height lay - 1)
       (evalWithAnswerFn answers (layerLeafP w index lay digits))),
       q ∈ queried answers (layerPairP w index lay digits) := by
     intro q hq
@@ -256,7 +267,7 @@ theorem layerPairP_extract (answers : Answers) (w : WBytes) (index : Nat) (lay :
     omega
   rw [layerPairP_eq_hashPath, evalWithAnswerFn_bind, evalWithAnswerFn_bind, evalWithAnswerFn_pure] at reaches
   generalize htop : evalWithAnswerFn answers (hashPath (merkleInput 3 lay.val (route index lay).2 (height lay)
-      (route index lay).1 (wpath w lay (route index lay).1) (wmerklePad w lay)) (height lay - 1)
+      (route index lay).1 (wpath w lay (route index lay).1) (wmerklePad w lay (route index lay).1)) (height lay - 1)
       (evalWithAnswerFn answers (layerLeafP w index lay digits))) = top at reaches
   have hpair : top = treeValue (wotsTree answers lay (route index lay).2) (height lay - 1)
         ((route index lay).1 / 2 ^ (height lay - 1)) ∧
@@ -268,7 +279,7 @@ theorem layerPairP_extract (answers : Answers) (w : WBytes) (index : Nat) (lay :
       simp only [Nat.one_mod, if_true, if_false, Prod.mk.injEq, one_ne_zero] at reaches <;>
       exact ⟨by first | exact reaches.1 | exact reaches.2, by first | exact reaches.2 | exact reaches.1⟩
   have hM := merklePath_extract answers 3 lay.val (route index lay).2 (height lay) (route index lay).1
-    (height lay - 1) (wpath w lay (route index lay).1) (wmerklePad w lay)
+    (height lay - 1) (wpath w lay (route index lay).1) (wmerklePad w lay (route index lay).1)
     (fun j => treeValue (wotsTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1))
     (fun step => treeValue (wotsTree answers lay (route index lay).2) step ((route index lay).1 / 2 ^ step))
     (evalWithAnswerFn answers (layerLeafP w index lay digits))
@@ -282,8 +293,9 @@ theorem layerPairP_extract (answers : Answers) (w : WBytes) (index : Nat) (lay :
     apply hH
     refine ⟨.node lay (route index lay).2 step ((route index lay).1 / 2 ^ (step + 1)), pad64 (pathInput answers
       (merkleInput 3 lay.val (route index lay).2 (height lay) (route index lay).1 (wpath w lay (route index lay).1)
-        (wmerklePad w lay))
-      (evalWithAnswerFn answers (layerLeafP w index lay digits)) step), ⟨htreeB, by omega, ?_⟩, hqM _ hq, ?_, ?_⟩
+        (wmerklePad w lay (route index lay).1))
+      (evalWithAnswerFn answers (layerLeafP w index lay digits)) step), ⟨htreeB, by omega, Or.inr (by omega),
+        fun hl => by subst hl; exact route_top_tree index hidx, ?_⟩, hqM _ hq, ?_, ?_⟩
     · simpa only [Nat.sub_sub, Nat.zero_add] using Correctness.div_pow_bound (start := 0) (level := step + 1)
         (node := (route index lay).1) (height := height lay) (by omega) (by simpa using hleafB)
     · rw [merkle_honestInput]; exact hhit
@@ -319,9 +331,11 @@ theorem layerP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes) (la
   have hindex : WCT9.digestIndex N < 2 ^ 31 := WCT9.digestIndex_lt N
   unfold layerP recoverLayer
   simp only [hpath, hvals]
-  generalize hr : route (WCT9.digestIndex N) lay = r at hs hzero ⊢
+  have hmz : ∀ j : Fin (height lay), wmerklePad w lay (route (WCT9.digestIndex N) lay).1 j.val = 0 :=
+    fun j => (hs.1 j.val j.isLt).2 (Or.inr hlay)
+  generalize hr : route (WCT9.digestIndex N) lay = r at hs hzero hmz ⊢
   obtain ⟨leaf, tree⟩ := r
-  dsimp only at hs hzero ⊢
+  dsimp only at hs hzero hmz ⊢
   have hchains : ((List.finRange (chainCount lay)).mapM fun i =>
       chainP lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
         (wchainPads w lay i.val).1 (wchainPads w lay i.val).2
@@ -344,7 +358,7 @@ theorem layerP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes) (la
   funext value
   congr 1
   funext v j
-  rw [(hs.1 j.val j.isLt).2 (Or.inr hlay), nodeHashP_zero]
+  rw [hmz j, nodeHashP_zero]
 theorem layerPairP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes) (lay : Layer) (digits : List Nat)
     (hs : LayerShaped answers w (WCT9.digestIndex N) lay digits) :
     layerPairP w (WCT9.digestIndex N) lay digits =
@@ -357,9 +371,11 @@ theorem layerPairP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes)
     fun _ => rfl
   unfold layerPairP WCT9.recoverLayerPair
   simp only [hpath, hvals, Fin.val_castLE, WCT9.topLevel]
-  generalize hr : route (WCT9.digestIndex N) lay = r at hs hzero ⊢
+  have hmz : ∀ j : Fin (height lay - 1), wmerklePad w lay (route (WCT9.digestIndex N) lay).1 j.val = 0 :=
+    fun j => (hs.1 j.val (by omega)).2 (Or.inl (by omega))
+  generalize hr : route (WCT9.digestIndex N) lay = r at hs hzero hmz ⊢
   obtain ⟨leaf, tree⟩ := r
-  dsimp only at hs hzero ⊢
+  dsimp only at hs hzero hmz ⊢
   have hchains : ((List.finRange (chainCount lay)).mapM fun i =>
       chainP lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
         (wchainPads w lay i.val).1 (wchainPads w lay i.val).2
@@ -380,7 +396,5 @@ theorem layerPairP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes)
   funext ends
   congr 1
   funext value
-  have hfold : ∀ j : Fin (height lay - 1), wmerklePad w lay j.val = 0 := fun j =>
-    (hs.1 j.val (by omega)).2 (Or.inl (by omega))
-  simp only [hfold, nodeHashP_zero]
+  simp only [hmz, nodeHashP_zero]
 end ClaudeWCT.W9.T3M.Extract

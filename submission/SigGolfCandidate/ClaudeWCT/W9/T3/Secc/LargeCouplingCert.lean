@@ -1,8 +1,261 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeContactCertClean
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeCouplingContact
-import SigGolfCandidate.T3.Secc.LargeCouplingCertChain
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeCouplingBankSign
 import SigGolfCandidate.ClaudeWCT.W9.New.C2.SignerCompleteBound
+
+section
+
+
+namespace SigGolfCandidate.T3.Security.LargeCoupling
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final
+open SigGolfCandidate.T3.Correctness (Answers)
+open LargeResidual
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+noncomputable local instance instDecidableEqCache_largeCouplingCertShort : DecidableEq T3.Cache := Classical.decEq _
+theorem routerStep_world (U : Finset HashInput) (A : Answers) (nv : Message → Digest) (published : T3.Cache)
+    (st : RouterState) (e : FirstHit.QueryEvent) : routerStep U A nv published st (.world e) = routerEvent U st e := rfl
+theorem routerStep_sign (U : Finset HashInput) (A : Answers) (nv : Message → Digest) (published : T3.Cache)
+    (st : RouterState) (request : Security.Request) (out : Option Signature) (events : List FirstHit.QueryEvent) :
+    routerStep U A nv published st (.sign request out events) = signedState A nv published st request := rfl
+section Short
+variable {A T : Answers} (hAT : Wots.Ref.ShortAgree A T)
+include hAT
+theorem honestNonce_short : honestNonce A = honestNonce T := by
+  funext m
+  unfold honestNonce
+  simp only [T3.privateNonce, privateHash, evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+  change (A (.inr (.inr (.inl m)))).extractLsb' 0 128 = (T (.inr (.inr (.inl m)))).extractLsb' 0 128
+  rw [hAT.priv]
+theorem routeOk_short : RouteOk A = RouteOk T := by
+  funext index
+  apply propext
+  unfold RouteOk
+  simp only [Wots.Ref.referenceSearch_short hAT]
+theorem signedState_short (nv : Message → Digest) (published : T3.Cache) (st : RouterState)
+    (request : Security.Request) :
+    signedState A nv published st request = signedState T nv published st request := by
+  have hd : Wots.referenceDigits A = Wots.referenceDigits T := funext (Wots.Ref.referenceDigits_short hAT)
+  unfold signedState LargeResidual.signItems
+  rw [signDigest_short hAT, hd, routeOk_short hAT]
+theorem routerStep_short (U : Finset HashInput) (published : T3.Cache) (st : RouterState) (s : TaggedStep) :
+    routerStep U A (honestNonce A) published st s = routerStep U T (honestNonce T) published st s := by
+  cases s with
+  | world e => rw [routerStep_world, routerStep_world]
+  | sign request out events =>
+      rw [routerStep_sign, routerStep_sign, honestNonce_short hAT, signedState_short hAT]
+theorem steps_router_short (U : Finset HashInput) (published : T3.Cache) (steps : List TaggedStep) :
+    ∀ st, steps.foldl (routerStep U A (honestNonce A) published) st =
+      steps.foldl (routerStep U T (honestNonce T) published) st := by
+  induction steps with
+  | nil => intro st; rw [List.foldl_nil, List.foldl_nil]
+  | cons s rest ih =>
+      intro st
+      rw [List.foldl_cons, List.foldl_cons, routerStep_short hAT, ih]
+theorem routerFold_short (U : Finset HashInput) (published : T3.Cache) (steps : List TaggedStep)
+    (verdict : List FirstHit.QueryEvent) :
+    routerFold U A published steps verdict = routerFold U T published steps verdict := by
+  unfold routerFold
+  rw [steps_router_short hAT]
+end Short
+end SigGolfCandidate.T3.Security.LargeCoupling
+end
+
+section
+
+
+
+
+
+
+section
+namespace SigGolfCandidate.T3.Security.LargeCoupling
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final SigGolfCandidate.T3M.SecurityInputs
+  SigGolfCandidate.T3M.SecurityExtraction
+open SigGolfCandidate.T3.Correctness (Answers)
+open LargeResidual CanonGraph CanonEncoding
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+noncomputable local instance instDecidableEqCache_largeCouplingCertInteraction : DecidableEq T3.Cache := Classical.decEq _
+section Interaction
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
+  {τ : Cell U → HashOutput} {a : AuxData} {q : Nat} (initLaw : PMF AuxData)
+end Interaction
+end SigGolfCandidate.T3.Security.LargeCoupling
+end
+section
+namespace SigGolfCandidate.T3.Security.LargeCoupling
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final SigGolfCandidate.T3M.SecurityInputs
+  SigGolfCandidate.T3M.SecurityExtraction
+open SigGolfCandidate.T3.Correctness (Answers)
+open LargeResidual CanonGraph CanonEncoding
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+attribute [local irreducible] keygen
+noncomputable local instance instDecidableEqCache_largeCouplingCertTable : DecidableEq T3.Cache := Classical.decEq _
+noncomputable def verdictCert (U : Finset HashInput) (T : Answers) (q : Nat) (pk : Digest) (mon : Monitor)
+    (st : RouterState) (value : Option ForgeryP × QueryLog Requests) (state : LazyPrivate.State) : Prop :=
+  evalWithAnswerFn T (GameWith.verdict PaddedGame.checker pk value) = true ∧
+  ((Wots.Ref.pureRecord T (GameWith.verdict PaddedGame.checker pk value) state).events.foldl
+    (Monitor.event U T q) mon).contact = false ∧
+  ((Wots.Ref.pureRecord T (GameWith.verdict PaddedGame.checker pk value) state).events.foldl
+    (Monitor.event U T q) mon).calls ≤ q ∧
+  CertGhost ((Wots.Ref.pureRecord T (GameWith.verdict PaddedGame.checker pk value) state).events.foldl
+    (routerEvent U) st)
+theorem honestNonce_coherent {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
+    {τ : Cell U → HashOutput} {a : AuxData} (hcoh : Coherent U T vals nv τ a) : nv = honestNonce T := by
+  funext m
+  exact (hcoh.privateNonce m).symm
+end SigGolfCandidate.T3.Security.LargeCoupling
+end
+section
+namespace SigGolfCandidate.T3.Security.LargeCoupling
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final
+open SigGolfCandidate.T3.Correctness (Answers)
+open LargeResidual CanonGraph CanonEncoding
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+section CertChain
+attribute [local instance] Classical.propDecidable
+open SigGolfCandidate.T3.Security.LargeCoupling.Samplers
+theorem pmf_probEvent_mono_support' {α : Type} (p : PMF α) {F G : α → Prop} (h : ∀ x ∈ p.support, F x → G x) :
+    Pr[F | p] ≤ Pr[G | p] := by
+  simp only [probEvent_eq_tsum_ite]
+  apply ENNReal.tsum_le_tsum
+  intro x
+  by_cases hx : x ∈ p.support
+  · by_cases hF : F x
+    · simp [hF, h x hx hF]
+    · simp [hF]
+  · have hp : p x = 0 := by
+      rw [PMF.apply_eq_zero_iff]
+      exact hx
+    simp [hp]
+def RealCert (adversary : AdversaryP) (q : Nat) (x : FirstHit.Recorded Bool × Answers) : Prop :=
+  CertR adversary q x.1 x.2
+section Lazy
+variable {U : Finset HashInput}
+theorem probEvent_bind_mono_le {α β γ : Type} (m : SPMF α) (f : α → SPMF β) (g : α → SPMF γ) (E : β → Prop)
+    (E' : γ → Prop) (h : ∀ x, Pr[E | f x] ≤ Pr[E' | g x]) : Pr[E | m >>= f] ≤ Pr[E' | m >>= g] := by
+  rw [probEvent_bind_eq_tsum, probEvent_bind_eq_tsum]
+  exact ENNReal.tsum_le_tsum fun x => by gcongr; exact h x
+theorem finish_some_le {R : Type} (X : SPMF (Option R × LargeResidual.State WCoord (Cell U))) (P : R → Prop) :
+    Pr[fun r => ∃ v, r.1 = some v ∧ P v.2.2 | X >>= finish] ≤ Pr[fun r => ∃ v, r.1 = some v ∧ P v | X] := by
+  rw [probEvent_bind_eq_tsum, probEvent_eq_tsum_ite]
+  apply ENNReal.tsum_le_tsum
+  intro r
+  rcases r with ⟨v, st⟩
+  cases v with
+  | none =>
+      have h0 : Pr[fun r => ∃ v, r.1 = some v ∧ P v.2.2 | finish ((none : Option R), st)] = 0 := by
+        simp only [finish, probEvent_pure]
+        rw [if_neg]
+        rintro ⟨v, hv, -⟩
+        cases hv
+      rw [h0, mul_zero]
+      exact zero_le
+  | some v =>
+      by_cases hP : P v
+      · rw [if_pos ⟨v, rfl, hP⟩]
+        exact mul_le_of_le_one_right zero_le probEvent_le_one
+      · have h0 : Pr[fun r => ∃ v, r.1 = some v ∧ P v.2.2 | finish (some v, st)] = 0 := by
+          rw [probEvent_eq_zero_iff]
+          intro x hx hE
+          unfold finish at hx
+          simp only [mem_support_bind_iff, mem_support_pure_iff] at hx
+          obtain ⟨labels, -, table, -, rfl⟩ := hx
+          obtain ⟨v', hv', hP'⟩ := hE
+          simp only [Option.some.injEq] at hv'
+          subst hv'
+          exact hP hP'
+        rw [h0, mul_zero]
+        exact zero_le
+theorem observed_avg_le {R : Type} (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input)) (q : Nat)
+    (program : OracleComp (RWorld U) R) (P : R → Prop) :
+    Pr[fun r => ∃ v, r.1 = some v ∧ P v | 𝒮[($ᵗ (WCoord → LargeResidual.Digest) : ProbComp _)] >>= fun labels =>
+        𝒮[($ᵗ (Cell U → LargeResidual.HashOutput) : ProbComp _)] >>= fun τ =>
+          observedRun aux q labels τ program LargeResidual.initial] ≤
+      Pr[fun r => ∃ v, r.1 = some v ∧ P v | lazyRun aux q program LargeResidual.initial] := by
+  rw [← complete_univ, ← completeRows_none]
+  have hpost := run_posterior aux q program (LargeResidual.initial : LargeResidual.State WCoord (Cell U))
+    (fun _ => Finset.univ_nonempty)
+  refine le_trans (le_of_eq ?_) (finish_some_le (lazyRun aux q program LargeResidual.initial) P)
+  rw [← hpost]
+  apply probEvent_bind_congr_eq
+  intro labels
+  apply probEvent_bind_congr_eq
+  intro τ
+  rw [probEvent_map]
+  congr 1
+  funext r
+  apply propext
+  rcases r with ⟨_ | v, st⟩
+  · simp [retain]
+  · simp [retain]
+theorem certOut_iff (r : Option (Option (Bool × RouterState)) × LargeResidual.State WCoord (Cell U)) :
+    CertOut r ↔ ∃ v, r.1 = some v ∧ ∃ st, v = some (true, st) ∧ CertGhost st := by
+  constructor
+  · rintro ⟨st, h1, h2⟩
+    exact ⟨_, h1, st, rfl, h2⟩
+  · rintro ⟨v, h1, st, rfl, h2⟩
+    exact ⟨st, h1, h2⟩
+theorem router_side_cert (adversary : AdversaryP) (q : Nat) :
+    Pr[CertOut |
+        𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun high =>
+        𝒮[($ᵗ (EncLeaf → Fin (2 ^ 22) → HashOutput) : ProbComp _)] >>= fun rows =>
+        𝒮[($ᵗ FullGame.FullTable : ProbComp _)] >>= fun priv =>
+        𝒮[($ᵗ (WCoord → LargeResidual.Digest) : ProbComp _)] >>= fun lab =>
+        𝒮[($ᵗ (Cell (Wots.referenceInputs adversary) → LargeResidual.HashOutput) : ProbComp _)] >>= fun τ =>
+        observedRun (auxLaw initLaw) q lab τ (routerWith (Wots.referenceInputs adversary) adversary q ⟨high, rows, priv⟩)
+          LargeResidual.initial] ≤
+      Pr[CertOut |
+        lazyRun (auxLaw initLaw) q (router (Wots.referenceInputs adversary) adversary q) LargeResidual.initial] := by
+  have hce : (@CertOut (Wots.referenceInputs adversary)) =
+      fun r => ∃ v, r.1 = some v ∧ ∃ st, v = some (true, st) ∧ CertGhost st :=
+    funext fun r => propext (certOut_iff r)
+  rw [hce]
+  unfold router initReq
+  rw [lazy_aux]
+  change _ ≤ Pr[_ | (liftM initLaw : SPMF AuxData) >>= _]
+  rw [initLaw_spmf]
+  unfold initComp
+  simp only [evalSPMF_bind, evalSPMF_pure, bind_assoc, pure_bind]
+  apply probEvent_bind_mono_le
+  intro high
+  apply probEvent_bind_mono_le
+  intro rows
+  apply probEvent_bind_mono_le
+  intro priv
+  exact observed_avg_le (auxLaw initLaw) q _ _
+end Lazy
+end CertChain
+end SigGolfCandidate.T3.Security.LargeCoupling
+end
+end
+
+section
+
+
+
+
+
+
+
+
+
+
+
 
 section
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling
@@ -514,125 +767,12 @@ noncomputable def bankPay {U : Finset HashInput} (q : Nat)
     | _ => 0) + slackT q r.2
 section Run
 variable {U : Finset HashInput} (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input)) (q : Nat)
-theorem bank_interaction (hUpub : SeccLaw.publicUniverse ⊆ U) (a : AuxData) (published : T3.Cache) {α : Type}
-    (program : OracleComp LazyPrivate.Interaction α) :
-    ∀ {β : Type} (K : Option ((α × QueryLog Requests) × RouterState) → OracleComp (RWorld U) β)
-      (pay : Option β × LargeResidual.State WCoord (Cell U) → ENNReal),
-      (∀ ws', pay (none, ws') ≤ slackT q ws') →
-      (∀ v st ws, BankInv U ws st → st.calls ≤ q →
-        expectedValue (lazyRun aux q (K (some (v, st))) ws) pay ≤ psi q st + slackT q ws) →
-      (∀ ws, expectedValue (lazyRun aux q (K none) ws) pay ≤ slackT q ws) →
-      ∀ st ws, BankInv U ws st → st.calls ≤ q →
-        expectedValue (lazyRun aux q (routeInteraction U a published q program st >>= K) ws) pay ≤
-          psi q st + slackT q ws := by
-  induction program using OracleComp.inductionOn with
-  | pure v =>
-      intro β K pay _ hleaf _ st ws hinv hcalls
-      rw [routeInteraction_pure, pure_bind]
-      exact hleaf _ st ws hinv hcalls
-  | query_bind input next ih =>
-      intro β K pay hstop hleaf hnone st ws hinv hcalls
-      rcases input with (n | X) | request
-      · rw [routeInteraction_coin, bind_assoc, lazy_coinReq]
-        apply ev_bind_le
-        intro c
-        exact ih c K pay hstop hleaf hnone st ws hinv hcalls
-      · rw [routeInteraction_hash]
-        split_ifs with hb
-        · rw [pure_bind]
-          exact (hnone ws).trans le_add_self
-        · rw [bind_assoc, lazyRun, ev_runWith_bind, ← lazyRun]
-          apply bank_routeQuery aux q a st ws X hinv (by omega)
-          · intro ws'
-            exact hstop ws'
-          · intro y st' ws' hinv' hcalls'
-            exact ih y K pay hstop hleaf hnone st' ws' hinv' hcalls'
-      · rw [routeInteraction_request, bind_assoc, lazyRun, ev_runWith_bind, ← lazyRun]
-        apply bank_routeSign aux q hUpub a published st ws request hinv
-        intro sig st' ws' hinv' hcalls'
-        simp only [Option.elim_some, bind_assoc, pure_bind]
-        refine ih sig (fun rest => K (rest.map fun res => ((res.1.1, ⟨request, sig⟩ :: res.1.2), res.2))) pay hstop
-          ?_ ?_ st' ws' hinv' (by omega)
-        · intro v st ws hinv hc
-          exact hleaf _ st ws hinv hc
-        · intro ws
-          exact hnone ws
-theorem bank_verdict (a : AuxData) {β : Type} (V : M β) :
-    ∀ (pay : Option (Option (β × RouterState)) × LargeResidual.State WCoord (Cell U) → ENNReal),
-      (∀ ws', pay (none, ws') ≤ slackT q ws') →
-      (∀ v st ws, BankInv U ws st → st.calls ≤ q → pay (some (some (v, st)), ws) ≤ psi q st + slackT q ws) →
-      (∀ ws, pay (some none, ws) ≤ slackT q ws) →
-      ∀ st ws, BankInv U ws st → st.calls ≤ q →
-        expectedValue (lazyRun aux q (routeVerdict U a q V st) ws) pay ≤ psi q st + slackT q ws := by
-  induction V using OracleComp.inductionOn with
-  | pure v =>
-      intro pay _ hleaf _ st ws hinv hcalls
-      rw [routeVerdict_pure, lazy_pure, expectedValue_pure]
-      exact hleaf v st ws hinv hcalls
-  | query_bind input next ih =>
-      intro pay hstop hleaf hnone st ws hinv hcalls
-      rcases input with (n | X) | c
-      · change expectedValue (lazyRun aux q (coinReq U n >>= fun c => routeVerdict U a q (next c) st) ws) pay ≤ _
-        rw [lazy_coinReq]
-        apply ev_bind_le
-        intro c
-        exact ih c pay hstop hleaf hnone st ws hinv hcalls
-      · rw [routeVerdict_public]
-        split_ifs with hb
-        · rw [lazy_pure, expectedValue_pure]
-          exact (hnone ws).trans le_add_self
-        · rw [lazyRun, ev_runWith_bind, ← lazyRun]
-          apply bank_routeQuery aux q a st ws X hinv (by omega)
-          · intro ws'
-            exact hstop ws'
-          · intro y st' ws' hinv' hcalls'
-            exact ih y pay hstop hleaf hnone st' ws' hinv' hcalls'
-      · change expectedValue (lazyRun aux q (routeVerdict U a q (next (a.priv c)) st) ws) pay ≤ _
-        exact ih (a.priv c) pay hstop hleaf hnone st ws hinv hcalls
 theorem bankInv_initial (s : LargeResidual.State WCoord (Cell U)) (hd : DiscFrame U LargeResidual.initial s) :
     BankInv U s RouterState.initial := by
   obtain ⟨hr, hc, hn⟩ := hd
   refine ⟨by rw [hc]; rfl, by rw [hc]; exact le_rfl, le_rfl, fun m _ => by rw [hn m]; rfl,
     fun X hX _ _ _ => by rw [hr]; rfl, fun X hX _ hs _ => absurd hs (by simp [RouterState.initial]),
     fun p hp => absurd hp (by simp [RouterState.initial]), fun X hX => absurd hX (by simp [RouterState.initial])⟩
-theorem bank_router (hUpub : SeccLaw.publicUniverse ⊆ U) (initLaw : PMF AuxData) (adversary : AdversaryP) :
-    expectedValue (lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial) (bankPay q) ≤
-      psi q RouterState.initial + (q : ENNReal) / 2 ^ 128 := by
-  have hslack0 : slackT q (LargeResidual.initial : LargeResidual.State WCoord (Cell U)) = (q : ENNReal) / 2 ^ 128 := by
-    unfold slackT; rfl
-  rw [← hslack0]
-  unfold router
-  rw [lazy_initReq]
-  apply ev_bind_le
-  intro a
-  unfold routerWith
-  apply ev_discloseAll_le
-  intro pairs s hd
-  have hinv := bankInv_initial s hd
-  refine (bank_interaction (auxLaw initLaw) q hUpub a _ _ _ (bankPay q) ?_ ?_ ?_ RouterState.initial s hinv
-    (Nat.zero_le _)).trans ?_
-  · intro ws'
-    simp only [bankPay, zero_add]
-    exact le_rfl
-  · intro v st ws hinv' hc
-    apply bank_verdict (auxLaw initLaw) q a _ (bankPay q)
-    · intro ws'
-      simp only [bankPay, zero_add]
-      exact le_rfl
-    · intro v' st' ws' _ _
-      simp only [bankPay]
-      exact le_rfl
-    · intro ws'
-      simp only [bankPay, zero_add]
-      exact le_rfl
-    · exact hinv'
-    · exact hc
-  · intro ws
-    rw [lazy_pure, expectedValue_pure]
-    simp only [bankPay, zero_add]
-    exact le_rfl
-  · rw [slackT_eq_of_mass q (show s.counters.mass = (LargeResidual.initial : LargeResidual.State WCoord (Cell U)).counters.mass by
-      rw [hd.2.1])]
 end Run
 end SigGolfCandidate.T3.Security.LargeCoupling
 end
@@ -653,19 +793,6 @@ def LargeCertBound (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) : Pro
   Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ¬Contact adversary q z | SeccLaw.completedExperiment adversary q hq] ≤
     routerMass adversary q / 2 ^ 128 + (q : ENNReal) * excessRate / 2 ^ 128 + (q : ENNReal) * cacheRate / 2 ^ 128 +
       (q : ENNReal) * largeReserveRate / 2 ^ 128 + largeReserveAbsolute
-theorem large_route_of_cert (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
-    (hcert : LargeCertBound adversary q hq) :
-    Pr[QueryRecorded.CleanWin q | PaddedGame.tracedExperiment adversary q hq] ≤ largeBound q := by
-  rw [← SeccLaw.completed_trace_event adversary q hq (QueryRecorded.CleanWin q)]
-  apply SeccClosing.largeBound_of_parts q _
-    (Pr[fun r => r.1 = none ∧ r.2.counters.calls ≤ q | lazyRouter adversary q]) _ (routerMass adversary q)
-  · refine (SeccClosing.probEvent_le_contact_add _ (fun z => QueryRecorded.CleanWin q z.1) (Contact adversary q)
-      (fun _ => True) (fun _ _ => trivial)).trans ?_
-    gcongr
-    refine le_trans (probEvent_mono'' fun z hz => hz.2) ?_
-    exact contact_le_lazy adversary q hq
-  · exact residual_potential (auxLaw initLaw) q hq _
-  · exact hcert
 end SigGolfCandidate.T3.Security.LargeCoupling
 end
 section
@@ -756,76 +883,7 @@ theorem certOut_le_psi (q : Nat) (r : Option (Option (Bool × RouterState)) × L
     rw [hr]
     exact psi_cert q st hc
   · exact zero_le
-theorem bank_cert_le (hUpub : SeccLaw.publicUniverse ⊆ U) (initLaw : PMF AuxData) (adversary : AdversaryP) (q : Nat) :
-    Pr[CertOut | lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial] ≤
-      (q : ENNReal) * (15200 / 100000000) / 2 ^ 128 +
-        (∑' r, Pr[= r | lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial] *
-          (r.2.counters.mass : ENNReal)) / 2 ^ 128 := by
-  set L := lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial with hL
-  have hfail : Pr[⊥ | L] = 0 := lazy_noFail (auxLaw initLaw) q _
-  have hbank := bank_router q hUpub initLaw adversary
-  rw [← hL] at hbank
-  have hbp : (bankPay q : Option (Option (Bool × RouterState)) × LargeResidual.State WCoord (Cell U) → ENNReal) =
-      fun r => psiOut q r + slackT q r.2 := rfl
-  rw [hbp, expectedValue_add] at hbank
-  have hcert : Pr[CertOut | L] ≤ expectedValue L (psiOut q) := by
-    rw [← expectedValue_ite_one]
-    exact expectedValue_mono _ (certOut_le_psi q)
-  set S := expectedValue L (fun r => slackT q r.2) with hS
-  set Mass := ∑' r, Pr[= r | L] * (r.2.counters.mass : ENNReal) with hMass
-  have hmass : (q : ENNReal) / 2 ^ 128 ≤ S + Mass / 2 ^ 128 := by
-    have hMass' : Mass / 2 ^ 128 = expectedValue L (fun r => (r.2.counters.mass : ENNReal) / 2 ^ 128) := by
-      rw [hMass]
-      simp only [div_eq_mul_inv]
-      rw [expectedValue_mul_const L (fun r => (r.2.counters.mass : ENNReal))]
-      rfl
-    rw [hMass', hS, ← expectedValue_add, ← expectedValue_const hfail ((q : ENNReal) / 2 ^ 128)]
-    apply expectedValue_mono
-    intro r
-    unfold slackT
-    rw [← ENNReal.add_div]
-    apply ENNReal.div_le_div_right
-    rw [← Nat.cast_add]
-    exact_mod_cast (show q ≤ q - r.2.counters.mass + r.2.counters.mass by omega)
-  have hSfin : S ≠ ⊤ := by
-    apply ne_top_of_le_ne_top (b := (q : ENNReal) / 2 ^ 128)
-    · exact ENNReal.div_ne_top (ENNReal.natCast_ne_top q) (by positivity)
-    · apply expectedValue_le_of_le
-      intro r
-      unfold slackT
-      apply ENNReal.div_le_div_right
-      exact_mod_cast Nat.sub_le q _
-  have hkey : expectedValue L (psiOut q) + S ≤ (psi q RouterState.initial + Mass / 2 ^ 128) + S := by
-    calc
-      _ ≤ psi q RouterState.initial + (q : ENNReal) / 2 ^ 128 := hbank
-      _ ≤ psi q RouterState.initial + (S + Mass / 2 ^ 128) := add_le_add le_rfl hmass
-      _ = _ := by ring
-  have hpsi := (ENNReal.add_le_add_iff_right hSfin).mp hkey
-  calc
-    _ ≤ expectedValue L (psiOut q) := hcert
-    _ ≤ psi q RouterState.initial + Mass / 2 ^ 128 := hpsi
-    _ ≤ _ := by
-      apply add_le_add _ le_rfl
-      exact (psi_initial q).trans (by gcongr <;> norm_num)
 end Bank
-theorem large_cert_bound (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) : LargeCertBound adversary q hq := by
-  unfold LargeCertBound
-  refine (cert_le_lazy adversary q hq).trans ?_
-  refine (bank_cert_le (Wots.Ref.referenceInputs_universe adversary) initLaw adversary q).trans ?_
-  have hrm : (∑' r, Pr[= r | lazyRun (auxLaw initLaw) q (router (Wots.referenceInputs adversary) adversary q)
-      LargeResidual.initial] * (r.2.counters.mass : ENNReal)) = routerMass adversary q := rfl
-  rw [hrm, SeccClosing.excessRate_def]
-  calc
-    _ = routerMass adversary q / 2 ^ 128 + (q : ENNReal) * (15200 / 100000000) / 2 ^ 128 := add_comm _ _
-    _ ≤ _ := by
-      simp only [add_assoc]
-      exact add_le_add le_rfl le_self_add
-theorem large_route (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
-    Pr[QueryRecorded.CleanWin q | PaddedGame.tracedExperiment adversary q hq] ≤ largeBound q :=
-  large_route_of_cert adversary q hq (large_cert_bound adversary q hq)
-theorem large_route_hlarge : ∀ (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127), SeccClosing.budgetSplit ≤ q →
-    Pr[QueryRecorded.CleanWin q | PaddedGame.tracedExperiment adversary q hq] ≤ largeBound q :=
-  fun adversary q hq _ => large_route adversary q hq
 end SigGolfCandidate.T3.Security.LargeCoupling
 end
 section
@@ -1044,7 +1102,7 @@ theorem certOut_le_psi (q : Nat) (r : Option (Option (Bool × RouterState)) × L
   · exact zero_le
 theorem bank_cert_le (hUpub : SeccLaw.publicUniverse ⊆ U) (initLaw : PMF AuxData) (adversary : AdversaryP) (q : Nat) :
     Pr[CertOut | lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial] ≤
-      (q : ENNReal) * (15200 / 100000000) / 2 ^ 128 +
+      (q : ENNReal) * (14774 / 100000000) / 2 ^ 128 +
         (∑' r, Pr[= r | lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial] *
           (r.2.counters.mass : ENNReal)) / 2 ^ 128 := by
   set L := lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial with hL
@@ -1113,8 +1171,8 @@ theorem large_cert_bound (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
       LargeResidual.initial] * (r.2.counters.mass : ENNReal)) = routerMass adversary q := rfl
   rw [hrm, SeccClosing.excessRate_def]
   calc
-    _ = routerMass adversary q / 2 ^ 128 + (q : ENNReal) * (15200 / 100000000) / 2 ^ 128 + largeReserveAbsolute := by
-      rw [add_comm ((q : ENNReal) * (15200 / 100000000) / 2 ^ 128)]
+    _ = routerMass adversary q / 2 ^ 128 + (q : ENNReal) * (14774 / 100000000) / 2 ^ 128 + largeReserveAbsolute := by
+      rw [add_comm ((q : ENNReal) * (14774 / 100000000) / 2 ^ 128)]
     _ ≤ _ := add_le_add (le_add_right (le_add_right le_rfl)) le_rfl
 theorem large_route (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
     Pr[QueryRecorded.CleanWin q | PaddedGame.tracedExperiment adversary q hq] ≤ largeBound q :=
@@ -1123,4 +1181,5 @@ theorem large_route_hlarge : ∀ (adversary : AdversaryP) (q : Nat) (hq : q ≤ 
     Pr[QueryRecorded.CleanWin q | PaddedGame.tracedExperiment adversary q hq] ≤ largeBound q :=
   fun adversary q hq _ => large_route adversary q hq
 end ClaudeWCT.W9.T3.Security.LargeCoupling
+end
 end

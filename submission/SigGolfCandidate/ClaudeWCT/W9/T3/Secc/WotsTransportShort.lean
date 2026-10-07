@@ -131,9 +131,9 @@ theorem honestInput_length (answers : Answers) (position : Extract.Pos) :
       rw [chainInput_length]; omega
   | leaf lay tree leaf =>
       apply short_of_le
-      simp only [Extract.leafInput, Extract.listInput_length', List.length_drop, List.length_map, List.length_range]
+      simp only [Extract.leafInput, SigGolfCandidate.T3.leafInput_length, List.length_map, List.length_range]
       have := chainCount_le lay
-      omega
+      split_ifs <;> omega
   | node lay tree level node =>
       apply short_of_le
       simp [nodeInputP]

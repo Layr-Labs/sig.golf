@@ -791,11 +791,6 @@ theorem disclosed_steps_mem (U : Finset HashInput) (A : Answers) (q : Nat) (publ
               · exact Or.inl h
               · exact Or.inr ⟨request, out, evs, List.mem_cons_self, h⟩
       · exact Or.inr ⟨r, o, e, List.mem_cons_of_mem _ hm, hr⟩
-theorem posOf_probeInput (f : BPair.FtsCoord) (s : Digest) :
-    Extract.posOf (BPair.probeInput f s) = some (CanonGraph.Node.ftsLeaf (BPair.toLeafPos f)).toPos := by
-  apply Extract.posOf_eq (CanonGraph.toPos_bounded _)
-  rw [BPair.hdrBlock_probeInput]
-  rfl
 theorem slotValue_probeInput (f : BPair.FtsCoord) (s : Digest) : slotValue (BPair.probeInput f s) 2 = s := by
   rw [BPair.probeInput_eq]
   exact (slotValue_block4 0 _ s 0).2.1

@@ -17,7 +17,7 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance low] Classical.propDecidable
 attribute [local irreducible] referenceGame offlineGame
 def EncodingInput (input : HashInput) : Prop :=
-  ∃ (L : LeafAddr) (message : WCT9.LayerMsg) (counter : BitVec 32) (pad : BitVec 96),
+  ∃ (L : LeafAddr) (message : WCT9.LayerMsg) (counter : BitVec 32) (pad : RowPad),
     Extract.msgFits L.lay message ∧ input = encRow L message counter pad
 def EncodingRow : Answers → SigGolfCandidate.T3.Spec.Domain → Prop
   | _, .inl (.inr input) => EncodingInput input
@@ -70,29 +70,28 @@ theorem reached_valid_reference {T : Answers} {L : LeafAddr} {input : HashInput}
   rw [hs]
   rfl
 def MatchEntry (T : Answers) (entry : Entry) : Prop :=
-  ∃ (L : CanonGraph.LeafPos) (message : WCT9.LayerMsg) (counter : BitVec 32) (pad : BitVec 96),
+  ∃ (L : CanonGraph.LeafPos) (message : WCT9.LayerMsg) (counter : BitVec 32) (pad : RowPad), L.Source ∧
     Extract.msgFits L.lay message ∧ entry.1 = encRow (leafOf L) message counter pad ∧
       referenceInput T (leafOf L) ≠ some (encRow (leafOf L) message counter pad) ∧
       decode L.lay (low entry.2) = some (referenceDigits T (leafOf L))
 theorem matchAt_iff (T : Answers) (trace : List Entry) :
-    (∃ L : CanonGraph.LeafPos, EncodingMatchAt T trace (leafOf L)) ↔ ∃ entry ∈ trace, MatchEntry T entry := by
+    (∃ L : CanonGraph.LeafPos, L.Source ∧ EncodingMatchAt T trace (leafOf L)) ↔
+      ∃ entry ∈ trace, MatchEntry T entry := by
   constructor
-  · rintro ⟨L, message, counter, pad, answer, hfit, hmem, hne, hdec⟩
-    exact ⟨_, hmem, L, message, counter, pad, hfit, rfl, hne, hdec⟩
-  · rintro ⟨⟨input, answer⟩, hmem, L, message, counter, pad, hfit, rfl, hne, hdec⟩
-    exact ⟨L, message, counter, pad, answer, hfit, hmem, hne, hdec⟩
+  · rintro ⟨L, hs, message, counter, pad, answer, hfit, hmem, hne, hdec⟩
+    exact ⟨_, hmem, L, message, counter, pad, hs, hfit, rfl, hne, hdec⟩
+  · rintro ⟨⟨input, answer⟩, hmem, L, message, counter, pad, hs, hfit, rfl, hne, hdec⟩
+    exact ⟨L, hs, message, counter, pad, answer, hfit, hmem, hne, hdec⟩
 theorem encInput_leaf {e : EncIndex} {L : CanonGraph.LeafPos} {message : WCT9.LayerMsg} {counter : BitVec 32}
-    {pad : BitVec 96} (he : encInput e = encRow (leafOf L) message counter pad) : e.1.1 = L := by
-  obtain ⟨⟨⟨lay, tree, leaf⟩, m, c, p⟩, hok⟩ := e
+    {pad : RowPad} (hL : L.Source) (he : encInput e = encRow (leafOf L) message counter pad) : e.1.1 = L := by
+  obtain ⟨⟨⟨lay, tree, leaf⟩, m, c, p⟩, hs, hok⟩ := e
   obtain ⟨lay', tree', leaf'⟩ := L
-  have ht : tree.val < 2 ^ 40 := lt_of_lt_of_le tree.isLt (by norm_num)
-  have ht' : tree'.val < 2 ^ 40 := lt_of_lt_of_le tree'.isLt (by norm_num)
-  have hl : leaf.val < 2 ^ 32 := lt_of_lt_of_le leaf.isLt (by norm_num)
-  have hl' : leaf'.val < 2 ^ 32 := lt_of_lt_of_le leaf'.isLt (by norm_num)
-  obtain ⟨h1, h2, h3, -⟩ := ClaudeWCT.W9.T3M.BC.layerEncodingRow_coords ht hl ht' hl' he
+  obtain ⟨h1, h2, h3, -⟩ := ClaudeWCT.W9.T3M.BC.layerEncodingRow_coords hs.routed.1 hs.routed.2 hL.routed.1
+    hL.routed.2 he
   subst h1
-  dsimp only
-  rw [Fin.ext h2, Fin.ext h3]
+  have e2 : tree = tree' := Fin.ext h2
+  have e3 : leaf = leaf' := Fin.ext h3
+  subst e2 e3
   rfl
 theorem matchEntry_cell_le (T : Answers) (e : EncIndex) :
     Pr[fun ans => MatchEntry T (encInput e, ans) | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ (2 ^ 128 : ENNReal)⁻¹ := by
@@ -105,8 +104,8 @@ theorem matchEntry_cell_le (T : Answers) (e : EncIndex) :
     exact decode_some_injective (Finset.mem_filter.mp ha).2 (Finset.mem_filter.mp hb).2
   calc _ ≤ Pr[fun output => output.extractLsb' 0 128 ∈ targets | ($ᵗ HashOutput : ProbComp HashOutput)] := by
         apply probEvent_mono
-        rintro ans - ⟨L, message, counter, pad, -, he, -, hdec⟩
-        have hL : e.1.1 = L := encInput_leaf he
+        rintro ans - ⟨L, message, counter, pad, hLs, -, he, -, hdec⟩
+        have hL : e.1.1 = L := encInput_leaf hLs he
         subst hL
         exact Finset.mem_filter.mpr ⟨Finset.mem_univ _, hdec⟩
     _ = targets.card / (2 : ENNReal) ^ 128 := FirstHit.uniform_low_mem targets
@@ -115,12 +114,13 @@ theorem matchEntry_cell_le (T : Answers) (e : EncIndex) :
 theorem matchEntry_other (U : Finset HashInput) (privateTable : FullGame.FullTable) (pub : U → HashOutput)
     (x : HashInput) (hx : ¬ Lazy.IsCell encInput (freeSet (eagerAnswers U privateTable pub)) x) :
     ¬ MatchEntry (eagerAnswers U privateTable pub) (x, eagerAnswers U privateTable pub (.inl (.inr x))) := by
-  rintro ⟨L, message, counter, pad, hfit, he, hne, hdec⟩
+  rintro ⟨L, message, counter, pad, hLs, hfit, he, hne, hdec⟩
   have hreached : Reached (eagerAnswers U privateTable pub) (leafOf L) x := by
     by_contra hfree
-    have hx' : encInput (encIdx L message counter pad hfit) = x := (encInput_encIdx L message counter pad hfit).trans he.symm
-    exact hx ⟨encIdx L message counter pad hfit, by
-      change ¬ Reached _ _ (encInput (encIdx L message counter pad hfit))
+    have hx' : encInput (encIdx L hLs message counter pad hfit) = x :=
+      (encInput_encIdx L hLs message counter pad hfit).trans he.symm
+    exact hx ⟨encIdx L hLs message counter pad hfit, by
+      change ¬ Reached _ _ (encInput (encIdx L hLs message counter pad hfit))
       rw [hx']
       exact hfree, hx'⟩
   have href := reached_valid_reference hreached (ClaudeWCT.W9.T3.Security.WotsExtract.producerDecode_of_reference _ _ hdec)
@@ -253,11 +253,17 @@ theorem cell_transfer [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, D
       ← Lazy.eager_lazy_init (hinit := cellInit_nonempty _), tsum_probOutput_bind_mul]
     simp only [probOutput_complete_init _ (cellInit_nonempty _)]
 noncomputable def matchInd (s : RefSample) : ENNReal :=
-  if ∃ L : CanonGraph.LeafPos, EncodingMatchAt s.answers s.trace (leafOf L) then 1 else 0
+  if ∃ L : CanonGraph.LeafPos, L.Source ∧ EncodingMatchAt s.answers s.trace (leafOf L) then 1 else 0
 theorem encodingMatchAt_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (trace : List Entry)
-    (L : CanonGraph.LeafPos) : EncodingMatchAt T' trace (leafOf L) ↔ EncodingMatchAt T trace (leafOf L) := by
+    {L : CanonGraph.LeafPos} (hs : L.Source) :
+    EncodingMatchAt T' trace (leafOf L) ↔ EncodingMatchAt T trace (leafOf L) := by
   unfold EncodingMatchAt
-  rw [referenceInput_congr_honest h, referenceDigits_congr_honest h]
+  rw [referenceInput_congr_honest h hs, referenceDigits_congr_honest h hs]
+theorem matchAt_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (trace : List Entry) :
+    (∃ L : CanonGraph.LeafPos, L.Source ∧ EncodingMatchAt T' trace (leafOf L)) ↔
+      ∃ L : CanonGraph.LeafPos, L.Source ∧ EncodingMatchAt T trace (leafOf L) :=
+  exists_congr fun _ => ⟨fun ⟨hs, hm⟩ => ⟨hs, (encodingMatchAt_congr h trace hs).mp hm⟩,
+    fun ⟨hs, hm⟩ => ⟨hs, (encodingMatchAt_congr h trace hs).mpr hm⟩⟩
 theorem cellCount_le_encoding (F : Set EncIndex) (tr : List Entry) :
     Lazy.cellCount encInput F tr ≤ (tr.filter fun e => decide (EncodingInput e.1)).length := by
   unfold Lazy.cellCount
@@ -266,7 +272,7 @@ theorem cellCount_le_encoding (F : Set EncIndex) (tr : List Entry) :
   intro e he
   simp only [decide_eq_true_eq] at he ⊢
   obtain ⟨x, -, hx⟩ := he
-  exact ⟨_, _, _, _, x.2.1, hx.symm⟩
+  exact ⟨_, _, _, _, x.2.2.1, hx.symm⟩
 theorem free_match_le [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, DecidableEq k]
     (iX : ∀ k : Set EncIndex, Fintype (k → HashOutput)) (U : Finset HashInput) (hU : SeccLaw.publicUniverse ⊆ U) (privateTable : FullGame.FullTable)
     (pub : U → HashOutput) :
@@ -288,9 +294,9 @@ theorem free_match_le [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, D
         split_ifs with h1 h2 h2
         · rfl
         · exact absurd ((matchAt_iff _ _).mp
-            (by simpa only [encodingMatchAt_congr (AgreeOn.of_eq (honest_ov U privateTable pub y))] using h1)) h2
-        · exact absurd (by simpa only [encodingMatchAt_congr (AgreeOn.of_eq (honest_ov U privateTable pub y))] using
-            (matchAt_iff _ _).mpr h2) h1
+            ((matchAt_congr (AgreeOn.of_eq (honest_ov U privateTable pub y)) _).mp h1)) h2
+        · exact absurd ((matchAt_congr (AgreeOn.of_eq (honest_ov U privateTable pub y)) _).mpr
+            ((matchAt_iff _ _).mpr h2)) h1
         · rfl),
     free_transfer adversary q iX U hU privateTable pub (fun s => (encodingCount s : ENNReal))
       (fun tr => (((tr.filter fun e => decide (EncodingInput e.1)).length : Nat) : ENNReal))

@@ -195,7 +195,7 @@ theorem chainValue_append (base : ChainWord → Word) (answers : List (BitVec 25
     simp only [chainValue, List.getD_eq_getElem?_getD, List.getElem?_append_left h]
   | original off => rfl
   | header t d => rfl
-  | index => rfl
+  | zero => rfl
   | leafHeader => rfl
 theorem traceMem_append (base : ChainWord → Word) (answers : List (BitVec 256))
     (ans : BitVec 256) (tr : ChainTrace) (s : MachineState) (B : Nat)

@@ -27,16 +27,18 @@ theorem treeChild_top_some (level node : Nat) (hl : 0 ≤ level) (hl' : level �
     ∃ c, treeChild 0 0 level node = some c := by
   by_cases hz : level=0
   · subst level
-    have hn' : node < 4096 := by simpa using hn
-    simp only [treeChild,ite_true,dif_pos hn']
-    exact ⟨_,rfl⟩
+    have hn' : node < 2 ^ height 0 := by simpa [height] using hn
+    simp only [treeChild, ite_true]
+    unfold leafAt
+    rw [dif_pos ⟨hn', by decide⟩]
+    exact ⟨_, rfl⟩
   unfold treeChild treeNodeAt
   rw [if_neg hz]
   have h1 : level - 1 < height 0 := by simp [height]; omega
   have h2 : node < 2 ^ (height 0 - (level - 1) - 1) := by
     have : height 0 - (level - 1) - 1 = 12 - level := by simp [height]; omega
     rw [this]; exact hn
-  rw [dif_pos ⟨h1, h2⟩]
+  rw [dif_pos ⟨h1, h2, by decide, Or.inl rfl⟩]
   exact ⟨_, rfl⟩
 theorem treeChild_mem_keygen (level node : Nat) (hl : 0 ≤ level) (hl' : level ≤ 12) (hn : node < 2 ^ (12 - level))
     (c : Coord) (hc : treeChild 0 0 level node = some c) : c ∈ keygenDisclosed := by
@@ -51,7 +53,7 @@ theorem Coherent.topValue_eq (hcoh : Coherent U T vals nv τ a) (level node : Na
   obtain ⟨c, hc⟩ := treeChild_top_some level node (by omega) (by omega) hn
   have hmem := treeChild_mem_keygen level node hl (by omega) hn c hc
   have hb := builtTree_eq hcoh.agrees 0 ⟨0, by decide⟩ level node (by simp [height]; omega)
-    (by simpa [height] using hn)
+    (by simpa [height] using hn) (by decide) (Or.inl rfl)
   change _ = treeValue (builtTree T 0 (⟨0, by decide⟩ : Fin (2 ^ 31)).val) level node
   rw [← WCT9.wotsTree_top, hb, treeLabel_eq (secretsOf T), ← honestValue_eq hcoh.agrees, hcoh.honestValue]
   have hc' : treeChild 0 ⟨0, by decide⟩ level node = some c := hc
@@ -107,14 +109,14 @@ theorem Coherent.region (hcoh : Coherent U T vals nv τ a) :
   intro level node hl hl' hn
   rw [hcoh.topValue_eq level node hl hl' hn, hcoh.mask_eq]
   rfl
-theorem rootNode_coord : treeChild 0 0 12 0 = some (.inl (.node (rootNode 0 0))) := by
+theorem rootNode_coord : treeChild 0 0 12 0 = some (.inl (.node rootNode)) := by
   unfold treeChild treeNodeAt
   rw [if_neg (by decide), dif_pos (by simp [height])]
   rfl
 theorem Coherent.pk (hcoh : Coherent U T vals nv τ a) :
-    keyValues vals (.inl (.node (rootNode 0 0))) = (evalWithAnswerFn T keygen).1 := by
+    keyValues vals (.inl (.node rootNode)) = (evalWithAnswerFn T keygen).1 := by
   rw [show (evalWithAnswerFn T keygen).1 = Extract.honestRoot T 0 0 from Extract.keygen_pk T,
-    honestRoot_label hcoh.agrees 0 ⟨0, by decide⟩]
+    honestRoot_label hcoh.agrees]
   have hmem := treeChild_mem_keygen 12 0 (by decide) le_rfl (by decide) _ rootNode_coord
   unfold keyValues
   rw [lookupVal_map vals keygenDisclosed _ hmem]

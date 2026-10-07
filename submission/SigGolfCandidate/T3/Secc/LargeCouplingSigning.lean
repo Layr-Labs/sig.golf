@@ -84,14 +84,6 @@ theorem digestRow_mem (hUpub : SeccLaw.publicUniverse ⊆ U) (rho : Digest) (m :
     simp only [digestInput, List.length_append, SphincsSecurity.bytesLE_length]
   unfold SeccLaw.maxInputLength
   omega
-theorem Coherent.digestRow (hcoh : Coherent U T vals nv τ a) (hUpub : SeccLaw.publicUniverse ⊆ U) (rho : Digest)
-    (m : Message) (c : BitVec 32) :
-    T (.inl (.inr (pad64 (digestInput rho m c)))) = τ ⟨_, digestRow_mem hUpub rho m c⟩ := by
-  have hd := digestRow_isDigest rho m c
-  have hnp := not_parsed_of_digest hd
-  apply hcoh.residual _ _ (fun N' => by rw [hcoh.cell]; exact not_cell_unparsed hcoh hnp N')
-  rintro ⟨L, ctr, hX, -⟩
-  exact encRow_not_digest L _ ctr (hX ▸ hd)
 theorem Coherent.privateNonce (hcoh : Coherent U T vals nv τ a) (m : Message) :
     evalWithAnswerFn T (T3.privateNonce m) = nv m := by
   simp only [T3.privateNonce, privateHash, evalWithAnswerFn_bind, evalWithAnswerFn_pure]
@@ -439,86 +431,5 @@ theorem finishOut_real (hcoh : Coherent U T vals nv τ a) (published : T3.Cache)
   rcases LargeResidual.signDigest T request.message with _ | ⟨c, N⟩
   · rfl
   · dsimp only
-theorem routeSign_observed (hcoh : Coherent U T vals nv τ a) (hUpub : SeccLaw.publicUniverse ⊆ U)
-    (published : T3.Cache) (hpub : published.region = Correctness.cacheRegion (Correctness.maskedTop T))
-    (hrel : Rel U T vals nv τ a q mon st ws) (hmemo : MemoOk T st) (request : Security.Request) :
-    ∃ wsF, observedRun aux q (Sum.elim vals nv) τ (routeSign U a published st request) ws =
-        pure (some (evalWithAnswerFn T (FullGame.authenticatedSign published request),
-          signedState T nv published st request), wsF) ∧
-      Rel U T vals nv τ a q (mon.sign T published request) (signedState T nv published st request) wsF := by
-  unfold routeSign
-  by_cases hc : request.cache = published
-  · rw [if_pos hc, observed_discloseReq]
-    simp only [Sum.elim_inr]
-    have hreal := finishOut_real hcoh published hpub request hc
-    have hsd : signDisclosed T published request = match LargeResidual.signDigest T request.message with
-        | some (_, N) => if RouteOk T (N.toNat % 2 ^ 31) then LargeResidual.signItems T N else []
-        | none => [] := by
-      unfold signDisclosed
-      rw [if_pos hc]
-      congr 1
-    set ws1 := disclosedState q ws (.inr request.message) (nv request.message) .none with hws1
-    have hws1c := (disclosedState_props (q := q) ws (.inr request.message) (nv request.message)).1
-    have hws1n := (disclosedState_props (q := q) ws (.inr request.message) (nv request.message)).2.1
-    have hws1r := (disclosedState_props (q := q) ws (.inr request.message) (nv request.message)).2.2
-    have hmem1 : ∀ c, Sum.elim vals nv c ∈ ws1.candidates c := by
-      intro c
-      rw [hws1c]
-      by_cases hcm : c = .inr request.message
-      · subst hcm
-        rw [Function.update_self]
-        exact Finset.mem_singleton_self _
-      · rw [Function.update_of_ne hcm]
-        exact hrel.mem c
-    have hfinal : ∀ ws2 : LargeResidual.State WCoord (Cell U), ReadsOnly τ ws1 ws2 →
-        Rel U T vals nv τ a q (mon.sign T published request) (signedState T nv published st request)
-          (finishWorld T U q (Sum.elim vals nv) ws2 (LargeResidual.signDigest T request.message)) := by
-      intro ws2 hro
-      obtain ⟨hfc, hfr, hfcand, hfold⟩ := finishWorld_props (T := T) (q := q) (vals := vals) (nv := nv) ws2
-        (LargeResidual.signDigest T request.message)
-      apply hrel.afterSign published request
-      · intro c hcn
-        rw [hsd] at hcn
-        rw [hfold c hcn, hro.candidates, hws1c, Function.update_of_ne (by simp)]
-      · intro c
-        rcases hfcand c with h | h
-        · rw [h, hro.candidates]; exact hmem1 c
-        · rw [h]; exact Finset.mem_singleton_self _
-      · rw [hfc, hro.counters, hws1n]
-      · intro row v hv
-        rw [hfr] at hv
-        rcases hro.rows row v hv with h | h
-        · rw [hws1r] at h; exact Or.inl h
-        · exact Or.inr h
-    cases hm : st.memo.lookup request.message with
-    | some f =>
-        have hf := hmemo _ f hm
-        simp only
-        rw [observed_signFinish aux hcoh st (nv request.message) f ws1, hf]
-        refine ⟨_, ?_, hfinal ws1 (ReadsOnly.refl τ ws1)⟩
-        rw [hreal, signedState_eq, if_pos hc]
-        unfold startState
-        rw [hm]
-        rfl
-    | none =>
-        simp only
-        obtain ⟨ws2, hs, hro⟩ := observed_search aux q (Sum.elim vals nv) τ a T (nv request.message)
-          request.message (digestRow_mem hUpub _ _) (hcoh.digestRow hUpub _ _) attemptLimit 0 ws1
-        rw [observedRun, runWith_bind, ← observedRun, hs, pure_bind]
-        simp only [Option.elim_some]
-        rw [← observedRun, ← hcoh.signDigest, observed_signFinish aux hcoh _ (nv request.message) _ ws2]
-        refine ⟨_, ?_, hfinal ws2 hro⟩
-        rw [hreal, signedState_eq, if_pos hc]
-        unfold startState
-        rw [hm]
-        rfl
-  · rw [if_neg hc]
-    have hnone : evalWithAnswerFn T (FullGame.authenticatedSign published request) = none := by
-      rw [eval_authenticatedSign, if_neg hc]
-    have hst : signedState T nv published st request = st := by rw [signedState_eq, if_neg hc]
-    refine ⟨ws, ?_, ?_⟩
-    · rw [hnone, hst]
-      exact observed_pure aux q _ τ _ ws
-    · exact hrel.afterSign published request ws (fun c _ => rfl) hrel.mem rfl (fun row v hv => Or.inl hv)
 end SignMain
 end SigGolfCandidate.T3.Security.LargeCoupling

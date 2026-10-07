@@ -95,20 +95,21 @@ theorem digestSearch_table_failure (fallback : Correctness.Answers) (family : Di
     ClaudeWCT.WCT9.digestAttemptLimit, HashOutput, SphincsSecurity.HashOutput,
     SphincsSecurity.hashOutputBits] using h
 theorem layerCounterSearch_none_table_le (L : ℕ) (hL : L ≤ 2 ^ 22) (outputs : SearchKey → HashOutput)
-    (fallback : Correctness.Answers) (lay : Layer) (tree : Fin (2 ^ 31)) (leaf : Fin 4096)
+    (fallback : Correctness.Answers) (lay : Layer) (r : Fin (2 ^ 32))
     (msg : ClaudeWCT.WCT9.LayerMsg) :
     evalWithAnswerFn (tableAnswers outputs fallback)
-      (ClaudeWCT.WCT9.layerCounterSearch lay tree leaf msg 0 L) = none ↔
+      (ClaudeWCT.WCT9.layerCounterSearch lay (routedTree lay r) (routedLeaf lay r) msg 0 L) = none ↔
     ∀ c : Fin L, producerEncodingDecode lay
-      (outputs (.inl ((lay, tree, leaf, msgLeft msg, msgRight msg), Fin.castLE hL c))) = none := by
+      (outputs (.inl ((lay, r, msgLeft msg, msgRight msg), Fin.castLE hL c))) = none := by
   rw [layerCounterSearch_none_iff]
   have hv (c : Nat) (hc : c < L) :
       evalWithAnswerFn (tableAnswers outputs fallback)
-        (shortHash (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 (0 + c)))) =
-        (outputs (.inl ((lay, tree, leaf, msgLeft msg, msgRight msg), Fin.castLE hL ⟨c, hc⟩))).extractLsb' 0 128 := by
+        (shortHash (ClaudeWCT.WCT9.layerEncodingInput lay (routedTree lay r) (routedLeaf lay r) msg
+          (BitVec.ofNat 32 (0 + c)))) =
+        (outputs (.inl ((lay, r, msgLeft msg, msgRight msg), Fin.castLE hL ⟨c, hc⟩))).extractLsb' 0 128 := by
     rw [Nat.zero_add, eval_shortHash_layer]
-    have hinput : PairRows.pairTrial lay tree leaf (msgLeft msg) (msgRight msg) c =
-        searchQuery (.inl ((lay, tree, leaf, msgLeft msg, msgRight msg), Fin.castLE hL ⟨c, hc⟩)) := rfl
+    have hinput : PairRows.pairTrial lay (routedTree lay r) (routedLeaf lay r) (msgLeft msg) (msgRight msg) c =
+        searchQuery (.inl ((lay, r, msgLeft msg, msgRight msg), Fin.castLE hL ⟨c, hc⟩)) := rfl
     rw [hinput, tableAnswers_apply]
   constructor
   · intro h c
@@ -119,32 +120,33 @@ theorem layerCounterSearch_none_table_le (L : ℕ) (hL : L ≤ 2 ^ 22) (outputs 
     rw [hv c hc]
     exact h ⟨c, hc⟩
 theorem layerCounterSearch_table_failure_le (L : ℕ) (hL : L ≤ 2 ^ 22) (fallback : Correctness.Answers)
-    (lay : Layer) (tree : Fin (2 ^ 31)) (leaf : Fin 4096) (left right : Digest) :
+    (lay : Layer) (r : Fin (2 ^ 32)) (left right : Digest) :
     Pr[fun outputs => evalWithAnswerFn (tableAnswers outputs fallback)
-      (ClaudeWCT.WCT9.layerCounterSearch lay tree leaf (.pair left right) 0 L) = none |
+      (ClaudeWCT.WCT9.layerCounterSearch lay (routedTree lay r) (routedLeaf lay r) (.pair left right) 0 L) = none |
       ($ᵗ (SearchKey → HashOutput) : ProbComp _)] =
     SphincsSecurity.Completeness.failMass (producerEncodingDecode lay) ^ L := by
   simp_rw [layerCounterSearch_none_table_le L hL, msgLeft, msgRight]
   have h := uniform_table_restriction_failure
-    (fun c : Fin L => .inl ((lay, tree, leaf, left, right), Fin.castLE hL c))
+    (fun c : Fin L => .inl ((lay, r, left, right), Fin.castLE hL c))
     (fun _ _ h => Fin.castLE_injective hL (congrArg Prod.snd (Sum.inl.inj h)))
     (fun x => producerEncodingDecode lay x = none)
   simpa only [SphincsSecurity.Completeness.failMass_eq_probEvent, Fintype.card_fin,
     HashOutput, SphincsSecurity.HashOutput, SphincsSecurity.hashOutputBits] using h
 theorem searchLimit_le_rows (lay : Layer) : searchLimit lay ≤ 2 ^ 22 := ClaudeWCT.WCT9.searchLimit_le lay
 theorem layerCounterSearch_none_table (outputs : SearchKey → HashOutput)
-    (fallback : Correctness.Answers) (lay : Layer) (tree : Fin (2 ^ 31)) (leaf : Fin 4096)
+    (fallback : Correctness.Answers) (lay : Layer) (r : Fin (2 ^ 32))
     (msg : ClaudeWCT.WCT9.LayerMsg) :
     evalWithAnswerFn (tableAnswers outputs fallback)
-      (ClaudeWCT.WCT9.layerCounterSearch lay tree leaf msg 0 (searchLimit lay)) = none ↔
+      (ClaudeWCT.WCT9.layerCounterSearch lay (routedTree lay r) (routedLeaf lay r) msg 0 (searchLimit lay)) = none ↔
     ∀ c : Fin (searchLimit lay), producerEncodingDecode lay
-      (outputs (.inl ((lay, tree, leaf, msgLeft msg, msgRight msg), Fin.castLE (searchLimit_le_rows lay) c))) = none :=
-  layerCounterSearch_none_table_le _ (searchLimit_le_rows lay) outputs fallback lay tree leaf msg
-theorem layerCounterSearch_table_failure (fallback : Correctness.Answers) (lay : Layer) (tree : Fin (2 ^ 31))
-    (leaf : Fin 4096) (left right : Digest) :
+      (outputs (.inl ((lay, r, msgLeft msg, msgRight msg), Fin.castLE (searchLimit_le_rows lay) c))) = none :=
+  layerCounterSearch_none_table_le _ (searchLimit_le_rows lay) outputs fallback lay r msg
+theorem layerCounterSearch_table_failure (fallback : Correctness.Answers) (lay : Layer) (r : Fin (2 ^ 32))
+    (left right : Digest) :
     Pr[fun outputs => evalWithAnswerFn (tableAnswers outputs fallback)
-      (ClaudeWCT.WCT9.layerCounterSearch lay tree leaf (.pair left right) 0 (searchLimit lay)) = none |
+      (ClaudeWCT.WCT9.layerCounterSearch lay (routedTree lay r) (routedLeaf lay r) (.pair left right) 0
+        (searchLimit lay)) = none |
       ($ᵗ (SearchKey → HashOutput) : ProbComp _)] =
     SphincsSecurity.Completeness.failMass (producerEncodingDecode lay) ^ searchLimit lay :=
-  layerCounterSearch_table_failure_le _ (searchLimit_le_rows lay) fallback lay tree leaf left right
+  layerCounterSearch_table_failure_le _ (searchLimit_le_rows lay) fallback lay r left right
 end ClaudeWCT.W9.T3.Presampling

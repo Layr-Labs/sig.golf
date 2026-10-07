@@ -95,7 +95,7 @@ def macOf (a : AuxData) (region : Region) : HashOutput :=
 def topValue (v : Coord → Digest) (level node : Nat) : Digest :=
   ((treeChild 0 0 level node).map v).getD 0
 def EncRow (X : HashInput) : Prop :=
-  ∃ (L : EncLeaf) (m : WCT9.LayerMsg) (ctr : BitVec 32) (pad : BitVec 96), Extract.msgFits L.1.lay m ∧
+  ∃ (L : EncLeaf) (m : WCT9.LayerMsg) (ctr : BitVec 32) (pad : Wots.RowPad), Extract.msgFits L.1.lay m ∧
     X = Wots.encRow L.toWots m ctr pad
 def Parsed (X : HashInput) : Prop := ∃ N : CanonGraph.Node, Extract.posOf X = some N.toPos
 section Route
@@ -228,7 +228,7 @@ noncomputable def routerWith (adversary : Final.AdversaryP) (q : Nat) (a : AuxDa
     OracleComp (RWorld U) (Option (Bool × RouterState)) := do
   let pairs ← discloseAll U keygenDisclosed
   let v := lookupVal pairs
-  let pk := v (.inl (.node (rootNode 0 0)))
+  let pk := v (.inl (.node rootNode))
   let region := Correctness.cacheRegion fun level node => topValue v level node ^^^ maskOf a level node
   let published : SigGolfCandidate.T3.Cache := ⟨macOf a region, region⟩
   let r ← routeInteraction U a published q (adversary pk published) RouterState.initial

@@ -1,5 +1,4 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CanonGraphHonest
-import SigGolfCandidate.ClaudeWCT.W9.New.BC.Rows
 import SigGolfCandidate.SphincsSecurity.Proof.Base.FirstSuccessFamily
 import SigGolfCandidate.SphincsSecurity.Proof.Base.UniformTableOverwrite
 
@@ -17,8 +16,8 @@ set_option backward.isDefEq.respectTransparency false
 abbrev EncLeaf := {L : LeafPos // L.Source}
 def EncLeaf.toWots (L : EncLeaf) : Wots.LeafAddr := ⟨L.1.lay, L.1.tree.val, L.1.leaf.val⟩
 theorem route_tree_lt (index : Nat) (hindex : index < 2 ^ 31) (lay : Layer) :
-    (route index lay).2 < 2 ^ treeBits lay := by
-  fin_cases lay <;> simp [route, treeBits, height] <;> omega
+    (route index lay).2 < 2 ^ treeBits lay :=
+  Extract.route_tree_treeBits index hindex lay
 theorem route_source (index : Nat) (hindex : index < 2 ^ 31) (lay : Layer) :
     ∃ L : EncLeaf, L.toWots = ⟨lay, (route index lay).2, (route index lay).1⟩ := by
   have hleaf := route_leaf_bound index lay
@@ -37,6 +36,14 @@ theorem childIndex_lt (L : EncLeaf) : L.1.tree.val * 2 ^ height L.1.lay + L.1.le
   fin_cases lay <;> simp [treeBits, height] at ht hl ⊢ <;> omega
 def childIndex (L : EncLeaf) : Fin (2^31) :=
   ⟨L.1.tree.val * 2 ^ height L.1.lay + L.1.leaf.val, childIndex_lt L⟩
+theorem childIndex_treeBits (L : EncLeaf) (hlay : L.1.lay.val < 3) :
+    (childIndex L).val < 2 ^ treeBits ⟨L.1.lay.val + 1, by omega⟩ := by
+  obtain ⟨⟨lay, tree, leaf⟩, ht, hl⟩ := L
+  change tree.val < 2 ^ treeBits lay at ht
+  change leaf.val < 2 ^ height lay at hl
+  change lay.val < 3 at hlay
+  change tree.val * 2 ^ height lay + leaf.val < 2 ^ treeBits ⟨lay.val + 1, by omega⟩
+  fin_cases lay <;> simp [treeBits, height] at ht hl hlay ⊢ <;> omega
 def msgLabel (labels : Labels) (L : EncLeaf) : WCT9.LayerMsg :=
   if h : L.1.lay.val < 3 then
     .pair (treeLabel labels ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (height ⟨L.1.lay.val + 1, by omega⟩ - 1) 0)
@@ -48,7 +55,7 @@ theorem leafMsg_eq {answers : Answers} {labels : Labels} (h : Agrees answers lab
   dsimp only
   split_ifs with hlay
   · rw [show L.1.tree.val * 2 ^ height L.1.lay + L.1.leaf.val = (childIndex L).val from rfl,
-      honestPair_eq h ⟨L.1.lay.val + 1, by omega⟩ (childIndex L)]
+      honestPair_eq h ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L hlay)]
   · rw [show L.1.tree.val * 2 ^ height L.1.lay + L.1.leaf.val = (childIndex L).val from rfl,
       Nat.mod_eq_of_lt (childIndex L).isLt, honestForest_eq h (childIndex L)]
 def encKey (labels : Labels) (x : EncLeaf × Fin (2^22)) : EncKey :=
@@ -60,27 +67,16 @@ theorem encKey_injective (labels : Labels) : Function.Injective (encKey labels) 
   subst h1 h2 h3 h4
   rfl
 theorem hdrBlock_encQuery (key : EncKey) :
-    Extract.hdrBlock (encQuery key) = bytesLE 16 (header 4 key.1.1.val key.1.2.1.val 0 key.1.2.2.1.val) :=
+    Extract.hdrBlock (encQuery key) = bytesLE 16 (rowTweak key.1.1 key.1.2.1.val key.1.2.2.1.val) :=
   BC.hdrBlock_layerEncodingInput _ _ _ _ _
-theorem header4_ne_hdr (lay tree leaf : Nat) (node : Node) : header 4 lay tree 0 leaf ≠ node.toPos.hdr := by
-  intro h2
-  cases node with
-  | chain point =>
-      exact chainHeader_ne_header _ _ _ _ _ _ _ _ _ _ h2.symm
-  | wctChain point =>
-      exact WCT9.ftsChainHeaderP_ne_header _ _ _ _ _ _ _ _ _ _ _ h2.symm
-  | wctNode n =>
-      simp only [Node.toPos, Extract.Pos.hdr, WCT9.wctNodeHeader] at h2
-      exact QuerySpace.header_ne_of_tag (by decide) h2
-  | _ =>
-      simp only [Node.toPos, Extract.Pos.hdr] at h2
-      exact QuerySpace.header_ne_of_tag (by decide) h2
+theorem row_ne_hdr (lay : Layer) (tree leaf : Nat) (node : Node) : rowTweak lay tree leaf ≠ node.toPos.hdr :=
+  Extract.rowTweak_ne_hdr lay tree leaf (toPos_bounded node)
 theorem encodingQuery_ne_cell (key : EncKey) (secrets : Secrets) (node : Node) (labels : Labels) :
     encQuery key ≠ cell secrets node labels := by
   intro heq
   have h1 := hdrBlock_encQuery key
   rw [heq, hdrBlock_cell] at h1
-  exact header4_ne_hdr _ _ _ node (bytesLE_injective h1).symm
+  exact row_ne_hdr _ _ _ node (bytesLE_injective h1).symm
 noncomputable def encCell (U : Finset HashInput) (hE : encInputs ⊆ U) (labels : Labels)
     (x : EncLeaf × Fin (2^22)) : U :=
   ⟨encQuery (encKey labels x), hE (encQuery_mem _)⟩
@@ -91,9 +87,8 @@ theorem encCell_injective (U : Finset HashInput) (hE : encInputs ⊆ U) (labels 
     Function.Injective (encCell U hE labels) := by
   rintro ⟨⟨⟨lay, tree, leaf⟩, hL⟩, c⟩ ⟨⟨⟨lay', tree', leaf'⟩, hL'⟩, c'⟩ heq
   have hv := congrArg Subtype.val heq
-  rw [encCell_val, encCell_val, ← BC.layerEncodingInputP_zero, ← BC.layerEncodingInputP_zero] at hv
-  obtain ⟨e1, e2, e3, e4⟩ := BC.layerEncodingRow_coords (by have := tree.isLt; omega) (by have := leaf.isLt; omega)
-    (by have := tree'.isLt; omega) (by have := leaf'.isLt; omega) hv
+  rw [encCell_val, encCell_val, ← BC.pad64_layerEncodingInputP_zero, ← BC.pad64_layerEncodingInputP_zero] at hv
+  obtain ⟨e1, e2, e3, e4⟩ := BC.layerEncodingRow_coords hL.routed.1 hL.routed.2 hL'.routed.1 hL'.routed.2 hv
   simp only at e1 e2 e3 e4
   subst e1
   have e2' : tree = tree' := Fin.ext e2
@@ -455,8 +450,6 @@ theorem referenceInput_eq (U : Finset HashInput) (hU : canonInputs ⊆ U) (hE : 
   | some r =>
       obtain ⟨w, hw⟩ := selection_valid U hE labels residual L r hsel
       simp only [Option.bind_some, hw, Option.map_some]
-      rw [encCell_val]
-      unfold Wots.encRow
-      rw [BC.layerEncodingInputP_zero]
+      rw [encCell_val, Wots.encRow_zero]
       rfl
 end ClaudeWCT.W9.T3.Security.CanonEncoding

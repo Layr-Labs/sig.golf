@@ -70,15 +70,17 @@ def NewCodeSpec (im : Image) : Prop :=
   ∀ (sk : BitVec 256) (m : Message) (sig : WCT9.Signature) (s : MachineState), Pre30 m sig s →
     TBSim im sk s newCost (newProg m sig) (NewPost sig s)
 def w9Sub (imgs : Phase → Image) : Submission where
-  sizes := ⟨5456, 21832, 131072⟩
-  layout := ⟨23880, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩
+  sizes := ⟨5456, 21488, 131072⟩
+  layout := ⟨0x5BF0, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩
   image := imgs
-def FrontAt (im : Image) : Prop := CodeAt im (pcOf 0) (SigGolfCandidate.T3M.Expand.seg_0 ++ [hookWord])
+def zeroBlk : List (BitVec 32) := [28343,0xbe0eb823,0xbe0ebc23,0xc00eb023,0xc00eb423,2451,0xce4d606f]
+def FrontAt (im : Image) : Prop :=
+  CodeAt im (pcOf 0) (SigGolfCandidate.T3M.Expand.seg_0 ++ [hookWord]) ∧ CodeAt im (pcOf 42719) zeroBlk
 def compactJal : BitVec 32 := 0x4d52706f
 def compareCode : List (BitVec 32) :=
   SigGolfCandidate.T3M.Expand.seg_342 ++ SigGolfCandidate.T3M.Expand.seg_348 ++ [compactJal]
 def ExpandDataOK (im : Image) : Prop :=
-  im.data = planBytes ++ expCostBytes ++ hdrBankBytes ++ SigGolfCandidate.T3M.Images.expandLegacyData
+  im.data = lplanBytes ++ planBytes ++ expCostBytes ++ hdrBankBytes ++ SigGolfCandidate.T3M.Images.expandLegacyData
 def ExpandRefinesW (imgs : Phase → Image) : Prop :=
   ∀ (m : Message) (pk : PublicKey) (s : Bytes 5456),
     (fun r => (r.value, r.hashCalls, r.hashCompressions)) <$> (w9Sub imgs).run .expand (m, pk, s) =

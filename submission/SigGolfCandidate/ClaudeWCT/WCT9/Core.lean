@@ -9,10 +9,10 @@ def children : Nat := 128
 def chains : Nat := 7
 def gateShift : Nat := 235
 def gateBits : Nat := 21
-def gateLimit : Nat := 1094
+def gateLimit : Nat := 1091
 def fieldBits : Nat := 14
 def fieldLimit : Nat := 16200
-def jointCap : Nat := 709
+def jointCap : Nat := 704
 abbrev Coord := Fin 9
 abbrev Child := Fin 128
 abbrev Rank := Fin 600
@@ -32,16 +32,17 @@ def field (output : HashOutput) (coord : Coord) : Nat :=
 def rank (output : HashOutput) (coord : Coord) : Rank :=
   ⟨field output coord % 600, Nat.mod_lt _ (by decide)⟩
 def admissible (output : HashOutput) : Bool :=
-  decide (output.toNat / 2 ^ 235 % 2 ^ 21 < 1094) &&
+  decide (output.toNat / 2 ^ 235 % 2 ^ 21 < 1091) &&
     (List.range 9).all (fun coord =>
       decide (output.toNat / 2 ^ fieldBase coord % 2 ^ 14 < 16200))
-def childSaveTable : List Nat := [1,2,1,1,1,2,2,1,2,2,2,2,1,2,2,1,1,2,3,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,3,2,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,1,1,1,1,0,0,1,1,1,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,1,1,1,1,1]
-def maxChildSave : Nat := 3
-def childSave (c : Nat) : Nat := childSaveTable.getD (c % 128) 0
+def childSaveTable : List Nat :=
+  [0,1,1,1,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,1,1,1,1,0]
+def maxChildSave : Nat := 2
+def childSave (c : Nat) : Nat := childSaveTable.getD (c % 64) 0
 def childExtra (c : Child) : Nat := maxChildSave - childSave c.val
-theorem childSaveTable_le : ∀ i, i < 128 → childSaveTable.getD i 0 ≤ maxChildSave := by decide
+theorem childSaveTable_le : ∀ i, i < 64 → childSaveTable.getD i 0 ≤ maxChildSave := by decide
 theorem childSave_le (c : Nat) : childSave c ≤ maxChildSave :=
-  childSaveTable_le (c % 128) (Nat.mod_lt _ (by decide))
+  childSaveTable_le (c % 64) (Nat.mod_lt _ (by decide))
 theorem childExtra_add (c : Child) : childExtra c + childSave c.val = maxChildSave := by
   have := childSave_le c.val
   unfold childExtra; omega
@@ -71,9 +72,13 @@ def chainInput (index coord selected chain step : Nat) (value : Digest) : HashIn
 def chain (index coord selected i start count : Nat) (value : Digest) : M Digest :=
   (List.range' start count).foldlM
     (fun value step => shortHash (chainInput index coord selected i step value)) value
+def ftsLeafLow (index coord selected : Nat) : Nat :=
+  1 + 6 * 2 ^ 8 + coord % 16 * 2 ^ 16 + selected % 128 * 2 ^ 20 + index % 2 ^ 31 * 2 ^ 27
+def ftsLeafHeader (index coord selected : Nat) : BitVec 128 :=
+  0#64 ++ BitVec.ofNat 64 (ftsLeafLow index coord selected)
 def leafHash (index coord selected : Nat) (ends : List Digest) : M Digest :=
   shortHash (bytesLE 16 (ends.getD 0 0) ++
-    bytesLE 16 (wctHeader 6 coord index 0 selected) ++ (ends.drop 1).flatMap (bytesLE 16))
+    bytesLE 16 (ftsLeafHeader index coord selected) ++ (ends.drop 1).flatMap (bytesLE 16))
 def seedHalf (seeds : Digest × Digest) (q : Nat) : Digest := if q % 2 = 0 then seeds.1 else seeds.2
 def packedSecret (pairQuery : Nat → M (Digest × Digest)) (q : Nat) (carry : Digest) : M (Digest × Digest) :=
   if q % 2 = 0 then do
@@ -95,7 +100,7 @@ def buildChild (index coord selected : Nat) (word : Rank) (carry : Digest) :
   let root ← leafHash index coord selected state.1
   pure ((root, state.2.1), state.2.2)
 def nodeLayer (coord : Nat) : Nat := 4 + coord
-def wctNodeHeader (coord index heap : Nat) : BitVec 128 := header 3 (nodeLayer coord) index 0 heap
+def wctNodeHeader (coord index heap : Nat) : BitVec 128 := nodeTweak 3 (nodeLayer coord) index heap
 def wctNodeHash (coord index heap : Nat) (left right : Digest) : M Digest :=
   nodeHash 3 (nodeLayer coord) index heap left right
 def heapBuild (index coord : Nat) (leaves : List Digest) : M (Array Digest) :=
@@ -124,7 +129,7 @@ inductive LayerMsg where
   deriving DecidableEq
 def pairEncodingInputP (up : Layer) (tree leaf : Nat) (left right : Digest) (counter : BitVec 32)
     (pad : BitVec 96) : HashInput :=
-  bytesLE 16 left ++ bytesLE 16 (header 4 up.val tree 0 leaf) ++ bytesLE 4 counter ++ bytesLE 12 pad ++
+  bytesLE 16 left ++ bytesLE 16 (rowTweak up tree leaf) ++ bytesLE 4 counter ++ bytesLE 12 pad ++
     bytesLE 16 right
 def layerEncodingInput (lay : Layer) (tree leaf : Nat) : LayerMsg → BitVec 32 → HashInput
   | .forest root, counter => encodingInput lay tree leaf root counter
@@ -160,13 +165,17 @@ def buildLeafP (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Dige
       pure (state.1 ++ [last], state.2.1 ++ [value], carry)) ([], [], carry)
   let root ← SigGolfCandidate.T3.leafHash lay tree leaf state.1
   pure ((root, state.2.1), state.2.2)
+def buildLevelsBelow (tag lay tree h : Nat) (leaves : List Digest) : M (List (List Digest)) :=
+  (List.range' 1 (h - 1)).foldlM (fun levels level => do
+    let nodes ← buildLevel tag lay tree h level (levels.getD (level - 1) [])
+    pure (levels ++ [nodes])) [leaves]
 def buildTreeP (lay : Layer) (tree selected : Nat) (digits : List Nat) :
     M (List (List Digest) × List Digest) := do
   let state ← (List.range (2 ^ height lay)).foldlM
     (fun (state : List Digest × List Digest × Digest) leaf => do
       let ((root, values), carry) ← buildLeafP lay tree leaf (if leaf = selected then digits else []) state.2.2
       pure (state.1 ++ [root], (if leaf = selected then values else state.2.1), carry)) ([], [], 0)
-  let levels ← buildLevels 3 lay.val tree (height lay) state.1
+  let levels ← buildLevelsBelow 3 lay.val tree (height lay) state.1
   pure (levels, state.2.1)
 def topLevel (lay : Layer) : Fin (height lay) :=
   ⟨height lay - 1, by fin_cases lay <;> decide⟩
@@ -218,7 +227,7 @@ def recoverLayerPair (sig : Signature) (index : Nat) (lay : Layer) (digits : Lis
   let other := (sig.layers lay).path (topLevel lay)
   pure (if leaf / 2 ^ (height lay - 1) % 2 = 0 then (top, other) else (other, top))
 def topGroupBad (answer : Digest) (i : Nat) : Bool :=
-  decide (i % 3 = 0 ∧ i < 51 ∧ 125 ≤ answer.toNat / 2 ^ (7 * (i / 3)) % 128)
+  decide (i % 3 = 0 ∧ i < 51 ∧ 125 ≤ topCode answer / 2 ^ (7 * (i / 3)) % 128)
 def topDecodeStep (run : Fin (chainCount 0) → Nat → M Digest) (answer : Digest)
     (state : Option (List Digest)) (i : Fin (chainCount 0)) : M (Option (List Digest)) := do
   let some ends := state | pure none

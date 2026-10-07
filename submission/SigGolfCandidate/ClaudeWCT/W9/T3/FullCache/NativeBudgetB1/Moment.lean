@@ -103,15 +103,76 @@ theorem bound_topPart (cache : Cache) (leaf : Nat) (out : Option (BitVec 32 × L
            have hd := hout counter digits rfl
            exact ⟨hd.1, hd.2.1.trans_le (by decide)⟩
      exact ⟨_, (bound_signTop cache _ _ hdig.1 hdig.2).mono_k (by simp [layerFixedCost])⟩)
+section AvoidsSupport
+open SigGolfCandidate.T3.Freshness (Avoids avoids_pure avoids_bind)
+theorem avoids_bind_support {α β : Type} {secret : BitVec 256} {target : HashInput} {program : M α}
+    {next : α → M β} (hp : Avoids secret target program)
+    (hn : ∀ a ∈ support program, Avoids secret target (next a)) : Avoids secret target (program >>= next) := by
+  induction program using OracleComp.inductionOn with
+  | pure a =>
+    rw [pure_bind]
+    exact hn a (by simp)
+  | query_bind t mx ih =>
+    rw [bind_assoc]
+    change AllQueriesSatisfy _ _ at hp ⊢
+    rw [allQueriesSatisfy_query_bind_iff] at hp ⊢
+    refine ⟨hp.1, fun u => ih u (hp.2 u) fun a ha => hn a ?_⟩
+    rw [mem_support_bind_iff]
+    exact ⟨u, by simp, ha⟩
+theorem avoids_mapM_mem {α β : Type} {secret : BitVec 256} {target : HashInput} (f : α → M β) :
+    ∀ items : List α, (∀ a ∈ items, Avoids secret target (f a)) → Avoids secret target (items.mapM f)
+  | [], _ => by rw [List.mapM_nil]; exact avoids_pure secret target _
+  | a :: items, h => by
+    rw [List.mapM_cons]
+    exact avoids_bind (h a List.mem_cons_self) fun _ =>
+      avoids_bind (avoids_mapM_mem f items fun b hb => h b (List.mem_cons_of_mem a hb)) fun _ =>
+        avoids_pure secret target _
+theorem length_of_mem_support_mapM {α β : Type} (f : α → M β) :
+    ∀ (xs : List α) (ys : List β), ys ∈ support (xs.mapM f) → ys.length = xs.length
+  | [], ys, h => by simpa using h
+  | x :: xs, ys, h => by
+    rw [List.mapM_cons, mem_support_bind_iff] at h
+    obtain ⟨y, -, h⟩ := h
+    rw [mem_support_bind_iff] at h
+    obtain ⟨zs, hzs, h⟩ := h
+    simp only [support_pure, Set.mem_singleton_iff] at h
+    subst h
+    simp [length_of_mem_support_mapM f xs zs hzs]
+theorem mem_support_foldlM_inv {α β : Type} (f : α → β → M α) (Inv : Nat → α → Prop)
+    (hstep : ∀ k a b, Inv k a → ∀ a' ∈ support (f a b), Inv (k + 1) a') :
+    ∀ (xs : List β) (k : Nat) (init : α), Inv k init → ∀ s ∈ support (xs.foldlM f init), Inv (k + xs.length) s
+  | [], k, init, hinit, s, hs => by
+    rw [List.foldlM_nil] at hs
+    simp only [support_pure, Set.mem_singleton_iff] at hs
+    subst hs
+    simpa using hinit
+  | x :: xs, k, init, hinit, s, hs => by
+    rw [List.foldlM_cons, mem_support_bind_iff] at hs
+    obtain ⟨a, ha, hs⟩ := hs
+    have := mem_support_foldlM_inv f Inv hstep xs (k + 1) a (hstep k init x hinit a ha) s hs
+    simpa [Nat.add_assoc, Nat.add_comm 1] using this
+theorem avoids_foldlM_range'_inv {α : Type} {secret : BitVec 256} {target : HashInput} (f : α → Nat → M α)
+    (Inv : Nat → α → Prop) :
+    ∀ n s, (∀ k a, s ≤ k → k < s + n → Inv k a →
+        Avoids secret target (f a k) ∧ ∀ b ∈ support (f a k), Inv (k + 1) b) →
+      ∀ init, Inv s init → Avoids secret target ((List.range' s n).foldlM f init)
+  | 0, s, _, init, _ => by rw [List.range'_zero, List.foldlM_nil]; exact avoids_pure secret target init
+  | n + 1, s, hstep, init, hinit => by
+    rw [List.range'_succ, List.foldlM_cons]
+    have h0 := hstep s init le_rfl (by omega) hinit
+    exact avoids_bind_support h0.1 fun b hb =>
+      avoids_foldlM_range'_inv f Inv n (s + 1)
+        (fun k a hk hk' ha => hstep k a (by omega) (by omega) ha) b (h0.2 b hb)
+end AvoidsSupport
 section Avoid
 open SigGolfCandidate.T3.Freshness
-variable (secret : BitVec 256) (target : HashInput) (ht : HasTag 4 target ∨ HasTag 12 target)
+variable (secret : BitVec 256) (target : HashInput) (ht : SearchQ target)
 include ht
 theorem avoids_packedLowerSecret (lay : Layer) (tree q : Nat) (carry : Digest) :
     Avoids secret target (ClaudeWCT.WCT9.packedSecret (ClaudeWCT.WCT9.lowerSeedPair lay tree) q carry) := by
   unfold ClaudeWCT.WCT9.packedSecret ClaudeWCT.WCT9.lowerSeedPair
   split
-  · exact avoids_bind (avoids_privatePair secret target ht 0 _ _ _ _ (by decide) (by decide))
+  · exact avoids_bind (avoids_privatePair secret target ht 0 _ _ _ _ (by decide))
       fun _ => avoids_pure _ _ _
   · exact avoids_pure _ _ _
 theorem avoids_buildLeafP (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
@@ -123,15 +184,65 @@ theorem avoids_buildLeafP (lay : Layer) (tree leaf : Nat) (digits : List Nat) (c
   rcases sc with ⟨seed, carry'⟩
   exact avoids_bind (avoids_chain secret target ht _ _ _ _ _ _ _) fun value =>
     avoids_bind (avoids_chain secret target ht _ _ _ _ _ _ _) fun _ => avoids_pure _ _ _
+theorem avoids_buildLevel_below (lay tree h level : Nat) (nodes : List Digest) (hlev : level < h) (hh : h < 64)
+    (hlen : nodes.length / 2 ≤ 2 ^ (h - level)) :
+    Avoids secret target (buildLevel 3 lay tree h level nodes) := by
+  unfold buildLevel
+  refine avoids_mapM_mem _ _ fun i hi => avoids_nodeHash secret target ht _ _ _ _ _ _ (by decide)
+    fun _ _ _ => ?_
+  have hi : i < nodes.length / 2 := List.mem_range.mp hi
+  have h2 : 2 ≤ 2 ^ (h - level) := by
+    calc 2 = 2 ^ 1 := rfl
+      _ ≤ 2 ^ (h - level) := Nat.pow_le_pow_right (by decide) (by omega)
+  have h64 : 2 ^ (h - level) + 2 ^ (h - level) ≤ 2 ^ 64 := by
+    rw [← Nat.two_mul, ← Nat.pow_succ']
+    exact Nat.pow_le_pow_right (by decide) (by omega)
+  rw [Nat.mod_eq_of_lt (by omega)]
+  omega
+theorem avoids_buildLevelsBelow (lay tree h : Nat) (hh : h < 64) (leaves : List Digest)
+    (hlen : leaves.length ≤ 2 ^ h) :
+    Avoids secret target (ClaudeWCT.WCT9.buildLevelsBelow 3 lay tree h leaves) := by
+  unfold ClaudeWCT.WCT9.buildLevelsBelow
+  refine avoids_foldlM_range'_inv _ (fun k (levels : List (List Digest)) => levels.length = k ∧
+      ∀ j < k, (levels.getD j []).length ≤ 2 ^ (h - j)) (h - 1) 1 ?_ [leaves]
+    ⟨rfl, fun j hj => by rw [show j = 0 by omega]; simpa using hlen⟩
+  intro k levels hk hk' ⟨hlk, hshape⟩
+  have hnodes := hshape (k - 1) (by omega)
+  rw [show h - (k - 1) = h - k + 1 by omega, Nat.pow_succ] at hnodes
+  refine ⟨avoids_bind (avoids_buildLevel_below secret target ht lay tree h k _ (by omega) hh (by omega))
+    fun _ => avoids_pure _ _ _, fun b hb => ?_⟩
+  rw [mem_support_bind_iff] at hb
+  obtain ⟨nodes, hn, hb⟩ := hb
+  simp only [support_pure, Set.mem_singleton_iff] at hb
+  subst hb
+  have hlenN : nodes.length = (levels.getD (k - 1) []).length / 2 := by
+    unfold buildLevel at hn
+    rw [length_of_mem_support_mapM _ _ _ hn, List.length_range]
+  refine ⟨by simp [hlk], fun j hj => ?_⟩
+  by_cases hjk : j < k
+  · rw [List.getD_append _ _ _ _ (by omega)]
+    exact hshape j hjk
+  · rw [show j = k by omega, List.getD_append_right _ _ _ _ (by omega), hlk, Nat.sub_self, List.getD_cons_zero,
+      hlenN]
+    omega
 theorem avoids_buildTreeP (lay : Layer) (tree selected : Nat) (digits : List Nat) :
     Avoids secret target (ClaudeWCT.WCT9.buildTreeP lay tree selected digits) := by
   unfold ClaudeWCT.WCT9.buildTreeP
-  refine avoids_bind (avoids_foldlM _ _ _ _ (fun state leaf =>
-      avoids_bind (avoids_buildLeafP secret target ht _ _ _ _ _) fun r => ?_) _)
-    (fun state => avoids_bind (avoids_buildLevels secret target ht 3 _ _ _ _ (by decide) (by decide))
-      fun _ => avoids_pure _ _ _)
-  rcases r with ⟨⟨root, values⟩, carry⟩
-  exact avoids_pure _ _ _
+  refine avoids_bind_support (avoids_foldlM _ _ _ _ (fun state leaf =>
+      avoids_bind (avoids_buildLeafP secret target ht _ _ _ _ _) fun r => ?_) _) fun state hs => ?_
+  · rcases r with ⟨⟨root, values⟩, carry⟩
+    exact avoids_pure _ _ _
+  · have hlen := mem_support_foldlM_inv _ (fun k (s : List Digest × List Digest × Digest) => s.1.length = k)
+      (fun k a b ha a' ha' => by
+        rw [mem_support_bind_iff] at ha'
+        obtain ⟨⟨⟨root, values⟩, carry⟩, -, ha'⟩ := ha'
+        simp only [support_pure, Set.mem_singleton_iff] at ha'
+        subst ha'
+        simp [ha]) _ 0 _ rfl state hs
+    have hh : height lay < 64 := by fin_cases lay <;> decide
+    refine avoids_bind (avoids_buildLevelsBelow secret target ht _ _ _ hh _ ?_) fun _ => avoids_pure _ _ _
+    simp only [List.length_range, Nat.zero_add] at hlen
+    omega
 end Avoid
 theorem V_signLayersBC (secret : BitVec 256) (cache : Cache) (index : Nat) :
     ∀ n, n ≤ 4 → ∀ msg rcache, PairFreshBelow n rcache →
@@ -186,7 +297,7 @@ theorem V_signLayersBC (secret : BitVec 256) (cache : Cache) (index : Nat) :
           intro treeResult htree
           have ht : PairFreshBelow n treeResult.2 :=
             preserves_pairBelow secret _ (fun target htag =>
-              avoids_buildTreeP secret target (Or.inl htag) _ _ _ digits)
+              avoids_buildTreeP secret target htag.searchQ _ _ _ digits)
               n result.2 hnext treeResult htree
           refine V_bind_bounded secret signingZ _ _ treeResult.2 _ 1
             (ih (by omega) _ _ ht) ?_ |>.trans_eq (mul_one _)
@@ -392,7 +503,7 @@ theorem envelope_product_eq : digestEnvelope * layerEnvelopes.envelope 0 * layer
     ← ENNReal.ofReal_mul (show 0 ≤ (BaseAudit.V5.b0 : ℝ) * (BaseAudit.V5.b1 : ℝ) * (BaseAudit.V5.b2 : ℝ) *
       (BaseAudit.V5.b3 : ℝ) by
       norm_num [BaseAudit.V5.b0, BaseAudit.V5.b1, BaseAudit.V5.b2, BaseAudit.V5.b3])]
-theorem fixed_le_117468 {fts : ℕ} (h : fts ≤ 31667) : 4 + fts + ClaudeWCT.WCT9.Cost.layerFixedCostP 4 ≤ 117468 := by
+theorem fixed_le_117465 {fts : ℕ} (h : fts ≤ 31667) : 4 + fts + ClaudeWCT.WCT9.Cost.layerFixedCostP 4 ≤ 117465 := by
   have h1 := ClaudeWCT.WCT9.Cost.layerFixedCostP_four
   have h2 := SigGolfCandidate.T3.Cost.layerFixedCost_four
   omega
@@ -401,13 +512,13 @@ theorem signingMomentFor_le_two_of_le {fts : ℕ} (h : fts ≤ 31667) : signingM
   calc signingZ ^ (4 + fts + ClaudeWCT.WCT9.Cost.layerFixedCostP 4) *
         (digestEnvelope * layerEnvelopes.envelope 0 * layerEnvelopes.envelope 1 * layerEnvelopes.envelope 2 *
           layerEnvelopes.envelope 3)
-      ≤ signingZ ^ 117468 * (digestEnvelope * layerEnvelopes.envelope 0 * layerEnvelopes.envelope 1 *
+      ≤ signingZ ^ 117465 * (digestEnvelope * layerEnvelopes.envelope 0 * layerEnvelopes.envelope 1 *
           layerEnvelopes.envelope 2 * layerEnvelopes.envelope 3) :=
-        mul_le_mul' (pow_le_pow_right₀ (SigGolfCandidate.Budget.one_le_zOf _) (fixed_le_117468 h)) le_rfl
+        mul_le_mul' (pow_le_pow_right₀ (SigGolfCandidate.Budget.one_le_zOf _) (fixed_le_117465 h)) le_rfl
     _ ≤ 2 := by
         rw [SigGolfCandidate.Budget.zOf_pow, envelope_product_eq]
         have hcast := ENNReal.ofReal_le_ofReal BaseAudit.V5.signing_envelope
-        rw [ENNReal.ofReal_mul (show 0 ≤ (2 : ℝ) ^ ((117468 : ℝ) / 131072) by positivity)] at hcast
+        rw [ENNReal.ofReal_mul (show 0 ≤ (2 : ℝ) ^ ((117465 : ℝ) / 131072) by positivity)] at hcast
         norm_num only [ENNReal.ofReal_ofNat] at hcast
         convert hcast using 1
         norm_num

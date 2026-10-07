@@ -206,7 +206,7 @@ theorem topTail_spec {image : Image} {b : Nat} (hK : KernAt image b)
       t.pc = (if sum + tailWeight v = 129 then pcOf (b + 362) else pcOf (b + 468)) ∧
       t.getReg .x25 = BitVec.ofNat 64 (sum + tailWeight v) ∧
       RegsExcept s t [.x25,.x29] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound (run_top353 hK.2) (codeAt_top353 hK) s hpc
+  refine ⟨_, symRun_sound (run_top353 hK.2.1) (codeAt_top353 hK) s hpc
     (by simp [topState353, tb354_353.res, rv_simp]), ?_, ?_, ?_, ?_⟩
   · simp only [Result.toState_pc, topEnd353, rebase, tb354_353.res,
       E.eval, CmpOp.eval, BinOp.eval, h28, h25, h17,
@@ -850,13 +850,13 @@ theorem pad64_encodingInput (lay : Layer) (tree leaf : Nat) (msg : Digest) (c : 
   simp only [T3.encodingInput, List.length_append, SphincsSecurity.bytesLE_length]
 theorem wordsOf_encodingInput (lay : Layer) (tree leaf : Nat) (msg : Digest) (c : BitVec 32) :
     wordsOf (T3.pad64 (T3.encodingInput lay tree leaf msg c)) =
-      [msg.extractLsb' 0 64, msg.extractLsb' 64 64, BitVec.ofNat 64 (hdr0 4 lay.val tree 0),
-        BitVec.ofNat 64 (hdr1 tree leaf), BitVec.ofNat 64 c.toNat, 0, 0, 0] := by
+      [msg.extractLsb' 0 64, msg.extractLsb' 64 64, rowLo lay tree leaf,
+        BitVec.ofNat 64 1, BitVec.ofNat 64 c.toNat, 0, 0, 0] := by
   rw [pad64_encodingInput]
   unfold T3.encodingInput
-  have e : SphincsSecurity.bytesLE 16 msg ++ SphincsSecurity.bytesLE 16 (T3.header 4 lay.val tree 0 leaf) ++
+  have e : SphincsSecurity.bytesLE 16 msg ++ SphincsSecurity.bytesLE 16 (T3.rowTweak lay tree leaf) ++
       SphincsSecurity.bytesLE 4 c ++ List.replicate 28 0 =
-      SphincsSecurity.bytesLE 16 msg ++ SphincsSecurity.bytesLE 16 (T3.header 4 lay.val tree 0 leaf) ++
+      SphincsSecurity.bytesLE 16 msg ++ SphincsSecurity.bytesLE 16 (T3.rowTweak lay tree leaf) ++
         ((SphincsSecurity.bytesLE 4 c ++ List.replicate 4 0) ++ List.replicate 24 0) := by
     simp only [List.append_assoc]
     rfl
@@ -864,7 +864,7 @@ theorem wordsOf_encodingInput (lay : Layer) (tree leaf : Nat) (msg : Digest) (c 
     rw [readLE_append, readLE_bytesLE, readLE_replicate_zero]
     simp
   rw [e, wordsOf_append _ _ (by simp only [List.length_append, SphincsSecurity.bytesLE_length]),
-    wordsOf_append _ _ (by simp only [SphincsSecurity.bytesLE_length]), wordsOf_bytesLE16, wordsOf_header,
+    wordsOf_append _ _ (by simp only [SphincsSecurity.bytesLE_length]), wordsOf_bytesLE16, wordsOf_bytesLE16, rowTweak_lo, rowTweak_hi,
     wordsOf_append8 _ _ (by simp only [List.length_append, SphincsSecurity.bytesLE_length, List.length_replicate]),
     hc, show (24 : Nat) = 8 * 3 by rfl, wordsOf_replicate_zero]
   rfl
@@ -921,8 +921,8 @@ structure CsInv (b : Nat) (A : CsArgs) (s0 : MachineState) (i : Nat) (t : Machin
   pc : t.pc = pcOf (b + 113)
   hi : i ≤ 2 ^ 22
   x19 : t.getReg .x19 = BitVec.ofNat 64 i
-  h16 : t.getMem (BitVec.ofNat 64 (ENC + 16)) = BitVec.ofNat 64 (hdr0 4 A.lay.val A.tree 0)
-  h24 : t.getMem (BitVec.ofNat 64 (ENC + 24)) = BitVec.ofNat 64 (hdr1 A.tree A.leaf)
+  h16 : t.getMem (BitVec.ofNat 64 (ENC + 16)) = rowLo A.lay A.tree A.leaf
+  h24 : t.getMem (BitVec.ofNat 64 (ENC + 24)) = BitVec.ofNat 64 1
   c32 : ∃ x < 2 ^ 32, t.getMem (BitVec.ofNat 64 (ENC + 32)) = BitVec.ofNat 64 x
   regs : RegsExcept s0 t csRegs
   frame : Frame s0 t CsW
@@ -936,8 +936,8 @@ def CsPost (image : Image) (b : Nat) (A : CsArgs) (s0 : MachineState) : Option (
       RegsExcept s0 t csRegs ∧ Frame s0 t CsW ∧ (t.getReg .x25).toNat ≤ T3.target A.lay
 structure TrialSt (b : Nat) (A : CsArgs) (s0 : MachineState) (i : Nat) (u : MachineState) : Prop where
   x19 : u.getReg .x19 = BitVec.ofNat 64 i
-  h16 : u.getMem (BitVec.ofNat 64 (ENC + 16)) = BitVec.ofNat 64 (hdr0 4 A.lay.val A.tree 0)
-  h24 : u.getMem (BitVec.ofNat 64 (ENC + 24)) = BitVec.ofNat 64 (hdr1 A.tree A.leaf)
+  h16 : u.getMem (BitVec.ofNat 64 (ENC + 16)) = rowLo A.lay A.tree A.leaf
+  h24 : u.getMem (BitVec.ofNat 64 (ENC + 24)) = BitVec.ofNat 64 1
   c32 : u.getMem (BitVec.ofNat 64 (ENC + 32)) = BitVec.ofNat 64 i
   regs : RegsExcept s0 u csRegs
   frame : Frame s0 u CsW

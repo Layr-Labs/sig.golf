@@ -4,11 +4,11 @@ namespace ClaudeWCT.W9.T3.BaseAudit.V5
 open SigGolfCandidate.T3.BaseAudit (zU)
 set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
-def J : ℕ := 90639337065342912098698416405567796813197824
-def p0 : ℚ := 1094 * 27 ^ 9 * J / 2 ^ 210
-def b0 : ℚ := 1011642161657 / 1000000000000
+def J : ℕ := 91165211245290257558782579115354775751229440
+def p0 : ℚ := 1091 * 27 ^ 9 * J / 2 ^ 210
+def b0 : ℚ := 15806857617 / 15625000000
 theorem step_0 : zU * ((1 - p0) * b0 + p0) ≤ b0 := by norm_num [zU, p0, b0, J]
-theorem probability_floor : 1 / 2177 ≤ p0 ∧ p0 ≤ 1 / 2176 := by norm_num [p0, J]
+theorem probability_floor : 1 / 2170 ≤ p0 ∧ p0 ≤ 1 / 2169 := by norm_num [p0, J]
 theorem p0_ge_5026 : 1 / 5026 ≤ p0 := by norm_num [p0, J]
 theorem p0_nonneg : 0 ≤ p0 := by norm_num [p0, J]
 theorem p0_le_one : p0 ≤ 1 := by norm_num [p0, J]
@@ -35,9 +35,9 @@ theorem step_mono {p q b : ℚ} (hb : 1 ≤ b) (hpq : p ≤ q) (h : zU * ((1 - p
   nlinarith [mul_nonneg (sub_nonneg.mpr hpq) (sub_nonneg.mpr hb)]
 def ftsSign : ℕ := 31667
 theorem ftsSign_eq : ftsSign + 576 = 32243 := by norm_num [ftsSign]
-def layerFixed : ℕ := 85797
-theorem layerFixed_eq : layerFixed + 128 = 85925 := by norm_num [layerFixed]
-def fixedSign : ℕ := 117468
+def layerFixed : ℕ := 85794
+theorem layerFixed_eq : layerFixed + 131 = 85925 := by norm_num [layerFixed]
+def fixedSign : ℕ := 117465
 theorem fixedSign_eq : fixedSign = 2 + 2 + ftsSign + layerFixed := by norm_num [fixedSign, ftsSign, layerFixed]
 theorem rpow_two_ge_cubic (y : ℝ) (hy : 0 ≤ y) :
     1 + 0.6931471803 * y + (0.6931471803 * y) ^ 2 / 2 + (0.6931471803 * y) ^ 3 / 6 ≤ (2 : ℝ) ^ y := by
@@ -58,20 +58,20 @@ theorem rpow_two_ge_cubic (y : ℝ) (hy : 0 ≤ y) :
   have h3 : (0.6931471803 * y) ^ 3 ≤ (Real.log 2 * y) ^ 3 := pow_le_pow_left₀ ht0 hts 3
   linarith
 theorem signing_envelope_le :
-    (2 : ℝ) ^ ((117468 : ℝ) / 131072) * ((b0 : ℝ) * (b1 : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤
+    (2 : ℝ) ^ ((117465 : ℝ) / 131072) * ((b0 : ℝ) * (b1 : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤
       19999 / 10000 := by
-  have hsplit : (2 : ℝ) ^ ((117468 : ℝ) / 131072) = 2 / (2 : ℝ) ^ ((13604 : ℝ) / 131072) := by
+  have hsplit : (2 : ℝ) ^ ((117465 : ℝ) / 131072) = 2 / (2 : ℝ) ^ ((13607 : ℝ) / 131072) := by
     rw [_root_.eq_div_iff (by positivity), ← Real.rpow_add (by norm_num)]
     norm_num
-  have hlo := rpow_two_ge_cubic (13604 / 131072) (by norm_num)
+  have hlo := rpow_two_ge_cubic (13607 / 131072) (by norm_num)
   have hn : 2 * ((b0 : ℝ) * (b1 : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤
-      19999 / 10000 * (1 + 0.6931471803 * (13604 / 131072) + (0.6931471803 * (13604 / 131072)) ^ 2 / 2 +
-        (0.6931471803 * (13604 / 131072)) ^ 3 / 6) := by
+      19999 / 10000 * (1 + 0.6931471803 * (13607 / 131072) + (0.6931471803 * (13607 / 131072)) ^ 2 / 2 +
+        (0.6931471803 * (13607 / 131072)) ^ 3 / 6) := by
     norm_num [b0, b1, b2, b3, b4]
   rw [hsplit, div_mul_eq_mul_div, div_le_iff₀ (by positivity)]
   exact hn.trans (mul_le_mul_of_nonneg_left hlo (by norm_num))
 theorem signing_envelope :
-    (2 : ℝ) ^ ((117468 : ℝ) / 131072) * ((b0 : ℝ) * (b1 : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤ 2 :=
+    (2 : ℝ) ^ ((117465 : ℝ) / 131072) * ((b0 : ℝ) * (b1 : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤ 2 :=
   signing_envelope_le.trans (by norm_num)
 theorem rate_top_1000 : (1000 : ℚ) * 0.6931471808 ≤ 2 ^ 22 * p1 := by norm_num [p1, topCount129]
 theorem rate_lower197_1000 : (1000 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p2 := by norm_num [p2, lowerCount197]

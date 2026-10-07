@@ -53,6 +53,36 @@ theorem hdrBlock_listInput (first : Digest) (hdr : BitVec 128) (rest : List Dige
   exact hdrBlock_prefix first hdr _
 theorem leafHash_eq_shortHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     leafHash lay tree leaf ends = shortHash (leafInput lay tree leaf ends) := rfl
+theorem leafInput_eq_listInput {lay : Layer} (h0 : lay ≠ 0) (tree leaf : Nat) (ends : List Digest) :
+    leafInput lay tree leaf ends = listInput (ends.getD 0 0) (leafTweak lay tree leaf) (ends.drop 1) := by
+  simp only [leafInput, T3.leafInput, h0, if_false, listInput]
+theorem leafInput_top (tree leaf : Nat) (ends : List Digest) :
+    leafInput 0 tree leaf ends = bytesLE 16 (0 : Digest) ++ bytesLE 16 (leafTweak 0 tree leaf) ++
+      ends.flatMap (bytesLE 16) := by
+  have hz : bytesLE 16 (0 : Digest) = zero16 := by decide
+  simp only [leafInput, T3.leafInput, if_true, hz]
+theorem hdrBlock_leafInput (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
+    hdrBlock (pad64 (leafInput lay tree leaf ends)) = bytesLE 16 (leafTweak lay tree leaf) := by
+  by_cases h0 : lay = 0
+  · subst h0
+    rw [leafInput_top, hdrBlock_pad64 _ (by simp [bytesLE_length]; omega), List.append_assoc]
+    exact hdrBlock_prefix _ _ _
+  · rw [leafInput_eq_listInput h0]
+    exact hdrBlock_listInput _ _ _
+theorem leafInput_ends {lay : Layer} {tree leaf : Nat} {xs ys : List Digest} (hlen : xs.length = ys.length)
+    (hpos : 0 < ys.length) (h : pad64 (leafInput lay tree leaf xs) = pad64 (leafInput lay tree leaf ys)) :
+    xs = ys := by
+  by_cases h0 : lay = 0
+  · subst h0
+    rw [leafInput_top, leafInput_top] at h
+    have hl : (bytesLE 16 (0 : Digest) ++ bytesLE 16 (leafTweak 0 tree leaf) ++ xs.flatMap (bytesLE 16)).length =
+        (bytesLE 16 (0 : Digest) ++ bytesLE 16 (leafTweak 0 tree leaf) ++ ys.flatMap (bytesLE 16)).length := by
+      simp only [List.length_append, bytesLE_length, digest_list_bytes_length, hlen]
+    have h := Sampling.pad64_inj_of_length hl h
+    obtain ⟨-, hr⟩ := List.append_inj h (by simp only [List.length_append, bytesLE_length])
+    exact flatMap_bytes_injective hlen hr
+  · rw [leafInput_eq_listInput h0, leafInput_eq_listInput h0] at h
+    exact (listInput_lists hlen hpos h).1
 theorem forestPk_eq_shortHash (index : Nat) (roots : List Digest) :
     forestPk index roots = shortHash (forestInput index roots) := rfl
 theorem listHash_extract (answers : Answers) (hdr : BitVec 128) (xs ys : List Digest)
@@ -82,8 +112,16 @@ theorem leafHash_extract (answers : Answers) (lay : Layer) (tree leaf : Nat) (en
     ends = honest ∨
       (HashHit answers (pad64 (leafInput lay tree leaf honest)) (pad64 (leafInput lay tree leaf ends)) ∧
         SameHeader (pad64 (leafInput lay tree leaf ends)) (pad64 (leafInput lay tree leaf honest)) ∧
-        .inl (.inr (pad64 (leafInput lay tree leaf ends))) ∈ queried answers (leafHash lay tree leaf ends)) :=
-  listHash_extract answers _ ends honest hlen hpos reaches
+        .inl (.inr (pad64 (leafInput lay tree leaf ends))) ∈ queried answers (leafHash lay tree leaf ends)) := by
+  by_cases heq : pad64 (leafInput lay tree leaf ends) = pad64 (leafInput lay tree leaf honest)
+  · exact Or.inl (leafInput_ends hlen hpos heq)
+  · refine Or.inr ⟨⟨heq, ?_⟩, ?_, ?_⟩
+    · rw [leafHash_eq_shortHash, leafHash_eq_shortHash, eval_shortHash, eval_shortHash] at reaches
+      exact reaches
+    · unfold SameHeader
+      rw [hdrBlock_leafInput, hdrBlock_leafInput]
+    · rw [leafHash_eq_shortHash, queried_shortHash]
+      exact List.mem_singleton_self _
 theorem forestPk_extract (answers : Answers) (index : Nat) (roots honest : List Digest)
     (hlen : roots.length = honest.length) (hpos : 0 < honest.length)
     (reaches : evalWithAnswerFn answers (forestPk index roots) =

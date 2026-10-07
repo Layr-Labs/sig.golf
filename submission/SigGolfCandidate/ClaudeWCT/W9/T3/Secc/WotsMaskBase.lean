@@ -232,6 +232,12 @@ theorem respectsP_nodeHash (tag lay tree heap : Nat) (left right : Digest) (ht :
 theorem respectsP_buildLevels (tag lay tree h : Nat) (leaves : List Digest) (ht : tag % 256 ≠ 1) :
     Respects (UntouchedP a) (buildLevels tag lay tree h leaves) :=
   Respects.untouchedP (fun c => respects_buildLevels c tag lay tree h leaves ht) a
+theorem respectsP_buildLevelsBelow (tag lay tree h : Nat) (leaves : List Digest) (ht : tag % 256 ≠ 1) :
+    Respects (UntouchedP a) (WCT9.buildLevelsBelow tag lay tree h leaves) :=
+  Respects.untouchedP (fun c => by
+    unfold WCT9.buildLevelsBelow
+    exact Respects.foldlM _ _ (fun level _ levels =>
+      Respects.bind (respects_buildLevel c tag lay tree h level _ ht) fun _ => Respects.pure' _) _) a
 theorem respectsP_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     Respects (UntouchedP a) (leafHash lay tree leaf ends) :=
   Respects.untouchedP (fun c => respects_leafHash c lay tree leaf ends) a

@@ -118,12 +118,46 @@ theorem bound_buildLeafP (lay : Layer) (tree leaf : Nat) (digits : List Nat) (hd
     exact .pure _ 0 hstate.2
   · unfold leafCostP digitTotal
     rw [Finset.sum_add_distrib, leafSeedsP_eq]
-def treeCostP (lay : Layer) : Nat := (∑ leaf ∈ Finset.range (2 ^ height lay), leafCostP lay leaf) + (2 ^ height lay - 1)
+theorem bound_buildLevelsBelow (tag lay tree h : Nat) (leaves : List Digest) (hlen : leaves.length = 2 ^ h)
+    (hh : 1 ≤ h) : CBound (LevelShape h (h - 1)) (2 ^ h - 2) (buildLevelsBelow tag lay tree h leaves) := by
+  unfold buildLevelsBelow
+  refine Bound.foldlM_range'_le 1 (h - 1) _ (LevelShape h) (fun i => 2 ^ (h - i) / 2) [leaves]
+    ⟨rfl, fun j hj => by
+      have he : j = 0 := by omega
+      subst j
+      simpa using hlen⟩
+    (fun i hi levels hlevels => ?_) (fun _ h => h) ?_
+  · have hprevious : (levels.getD (1 + i - 1) []).length = 2 ^ (h - i) := by
+      simpa using hlevels.2 i le_rfl
+    refine (bound_buildLevel tag lay tree h (1 + i) (levels.getD (1 + i - 1) [])).bind' (l := 0)
+      (fun nodes hnodes => ?_) (by rw [hprevious]; omega)
+    have hnext : nodes.length = 2 ^ (h - (i + 1)) := by
+      rw [hprevious, show h - i = h - (i + 1) + 1 by omega, pow_succ, Nat.mul_div_cancel _ (by decide : 0 < 2)]
+        at hnodes
+      exact hnodes
+    refine .pure (levels ++ [nodes]) 0 ⟨by simp [hlevels.1], ?_⟩
+    intro j hj
+    by_cases hold : j ≤ i
+    · rw [List.getD_append levels [nodes] [] j (by have := hlevels.1; omega)]
+      exact hlevels.2 j hold
+    · have he : j = i + 1 := by omega
+      subst j
+      rw [List.getD_append_right levels [nodes] [] (i + 1) (by have := hlevels.1; omega)]
+      simp only [hlevels.1, Nat.sub_self, List.getD_cons_zero]
+      exact hnext
+  · have hs := sum_levels h
+    obtain ⟨k, rfl⟩ : ∃ k, h = k + 1 := ⟨h - 1, by omega⟩
+    rw [Finset.sum_range_succ, show k + 1 - k = 1 by omega] at hs
+    simp only [Nat.add_sub_cancel]
+    have : 1 ≤ 2 ^ (k + 1) := Nat.one_le_two_pow
+    norm_num at hs
+    omega
+def treeCostP (lay : Layer) : Nat := (∑ leaf ∈ Finset.range (2 ^ height lay), leafCostP lay leaf) + (2 ^ height lay - 2)
 theorem bound_buildTreeP (lay : Layer) (tree selected : Nat) (digits : List Nat) (hd : ValidDigits lay digits) :
-    CBound (fun result => LevelShape (height lay) (height lay) result.1) (treeCostP lay)
+    CBound (fun result => LevelShape (height lay) (height lay - 1) result.1) (treeCostP lay)
       (buildTreeP lay tree selected digits) := by
   unfold buildTreeP
-  refine Bound.bind' (l := 2 ^ height lay - 1) (Bound.foldlM_range (2 ^ height lay) _
+  refine Bound.bind' (l := 2 ^ height lay - 2) (Bound.foldlM_range (2 ^ height lay) _
     (fun i (state : List Digest × List Digest × Digest) => state.1.length = i)
     (leafCostP lay) ([], [], 0) rfl (fun leaf _ state hstate => ?_))
     (fun state hstate => ?_) le_rfl
@@ -131,7 +165,8 @@ theorem bound_buildTreeP (lay : Layer) (tree selected : Nat) (digits : List Nat)
       split <;> first | exact hd | exact validDigits_nil lay
     refine (bound_buildLeafP lay tree leaf _ hd' state.2.2).bind' (l := 0) (fun result _ => ?_) (by omega)
     exact .pure _ 0 (by simp [hstate])
-  · refine (bound_buildLevels 3 lay.val tree (height lay) state.1 hstate).bind' (l := 0)
+  · refine (bound_buildLevelsBelow 3 lay.val tree (height lay) state.1 hstate
+      (by fin_cases lay <;> decide)).bind' (l := 0)
       (fun levels hlevels => .pure (levels, state.2.1) 0 hlevels) (by omega)
 theorem chainCount_lower {lay : Layer} (hlay : lay ≠ 0) : chainCount lay = 43 := by
   fin_cases lay <;> first | exact absurd rfl hlay | rfl
@@ -162,7 +197,7 @@ theorem parity_sum (m : Nat) :
       simp only [h1, h2, if_true, show (1 : Nat) ≠ 0 by decide, if_false]
       ring
 theorem treeCostP_lower_eq {lay : Layer} (hlay : lay ≠ 0) :
-    treeCostP lay = 2 ^ height lay / 2 * 667 + (2 ^ height lay - 1) := by
+    treeCostP lay = 2 ^ height lay / 2 * 667 + (2 ^ height lay - 2) := by
   unfold treeCostP
   have hh : 2 ^ height lay = 2 * (2 ^ height lay / 2) := by
     fin_cases lay <;> first | exact absurd rfl hlay | decide
@@ -170,7 +205,7 @@ theorem treeCostP_lower_eq {lay : Layer} (hlay : lay ≠ 0) :
   conv_lhs => rw [hh]
   rw [parity_sum, ← hh]
 theorem treeCostP_lower :
-    treeCostP 1 + 64 = treeCost 1 ∧ treeCostP 2 + 32 = treeCost 2 ∧ treeCostP 3 + 32 = treeCost 3 := by
+    treeCostP 1 + 65 = treeCost 1 ∧ treeCostP 2 + 33 = treeCost 2 ∧ treeCostP 3 + 33 = treeCost 3 := by
   rw [treeCostP_lower_eq (by decide), treeCostP_lower_eq (by decide), treeCostP_lower_eq (by decide)]
   decide
 def layerFixedCostP : Nat → Nat
@@ -183,7 +218,7 @@ theorem layerFixedCostP_succ_succ (n : Nat) :
     layerFixedCostP (n + 2) = treeCostP (Fin.ofNat 4 (n + 1)) + layerFixedCostP (n + 1) := rfl
 theorem layerFixedCost_succ_succ (n : Nat) :
     layerFixedCost (n + 2) = treeCost (Fin.ofNat 4 (n + 1)) + layerFixedCost (n + 1) := rfl
-theorem layerFixedCostP_four : layerFixedCostP 4 + 128 = layerFixedCost 4 := by
+theorem layerFixedCostP_four : layerFixedCostP 4 + 131 = layerFixedCost 4 := by
   obtain ⟨h1, h2, h3⟩ := treeCostP_lower
   have e3 : (Fin.ofNat 4 3 : Layer) = 3 := rfl
   have e2 : (Fin.ofNat 4 2 : Layer) = 2 := rfl
@@ -375,7 +410,7 @@ theorem bound_expandLayersBC (sig : Signature) (index : Nat) :
             refine (ih _).bind' (l := 0) (fun result _ => ?_) (by omega)
             cases result <;> exact .pure _ 0 trivial
 def signPayloadFixed : Nat := 2 + 31667 + layerFixedCostP 4
-theorem signPayloadFixed_eq : signPayloadFixed + 704 = 2 + 32243 + layerFixedCost 4 := by
+theorem signPayloadFixed_eq : signPayloadFixed + 707 = 2 + 32243 + layerFixedCost 4 := by
   have h := layerFixedCostP_four
   unfold signPayloadFixed
   omega

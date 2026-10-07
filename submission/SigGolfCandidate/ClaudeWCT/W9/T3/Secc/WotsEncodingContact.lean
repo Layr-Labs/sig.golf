@@ -22,33 +22,41 @@ open SigGolfCandidate.T3.Security.Wots.Enc
 def ContactFirstAt (T : Answers) (trace : List Entry) (a : ChainAddr) : Prop :=
   ∃ k, ContactAt T (trace.take k) a ∧ ¬MarkerAt T (trace.take k) a ∧ MarkerAt T trace a
 def CFK (T : Answers) (trace : List Entry) : Prop :=
-  ∃ p : CanonGraph.LeafPos × Fin 58, WotsExtract.SourceChain (chainAt p) ∧ ContactFirstAt T trace (chainAt p)
+  ∃ p : CanonGraph.LeafPos × Fin 58, WotsExtract.SourceChain7 (chainAt p) ∧ ContactFirstAt T trace (chainAt p)
 theorem wotsSeed_congr_nonEnc {T T' : Answers} (h : ∀ q, Enc.NonEnc q → T' q = T q) (lay : Layer)
     (tree leaf i : Nat) : WCT9.wotsSeed T' lay tree leaf i = WCT9.wotsSeed T lay tree leaf i := by
   rw [ClaudeWCT.W9.T3.Security.Wots.Mask.wotsSeed_eq, ClaudeWCT.W9.T3.Security.Wots.Mask.wotsSeed_eq,
     h (.inr (.inl _)) trivial]
 theorem frontierValue_congr_honest {T T' : Answers} (h : AgreeOn (HonestQ T) T T')
-    (p : CanonGraph.LeafPos × Fin 58) : frontierValue T' (chainAt p) = frontierValue T (chainAt p) := by
+    (p : CanonGraph.LeafPos × Fin 58) (hs : p.1.Source) :
+    frontierValue T' (chainAt p) = frontierValue T (chainAt p) := by
   have hd : depth T' (chainAt p) = depth T (chainAt p) := by
     unfold depth chainAt
-    rw [referenceDigits_congr_honest h]
+    rw [referenceDigits_congr_honest h hs]
   unfold frontierValue honestChainValue
   rw [hd, wotsSeed_congr_nonEnc (nonEnc_of_honest h)]
   exact (Enc.respects_chain _ _ _ _ _ _ _).eval_eq (nonEnc_of_honest h)
 theorem contactAt_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (trace : List Entry)
-    (p : CanonGraph.LeafPos × Fin 58) : ContactAt T' trace (chainAt p) ↔ ContactAt T trace (chainAt p) := by
+    (p : CanonGraph.LeafPos × Fin 58) (hs : p.1.Source) :
+    ContactAt T' trace (chainAt p) ↔ ContactAt T trace (chainAt p) := by
   have hd : depth T' (chainAt p) = depth T (chainAt p) := by
     unfold depth chainAt
-    rw [referenceDigits_congr_honest h]
+    rw [referenceDigits_congr_honest h hs]
   unfold ContactAt
-  rw [hd, frontierValue_congr_honest h p]
+  rw [hd, frontierValue_congr_honest h p hs]
 theorem cfk_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (trace : List Entry) :
     CFK T' trace ↔ CFK T trace := by
   unfold CFK ContactFirstAt
-  simp only [contactAt_congr h, markerAt_congr h]
+  refine exists_congr fun p => ⟨fun ⟨hs, k, hc, hm, hm'⟩ => ⟨hs, k, ?_, ?_, ?_⟩, fun ⟨hs, k, hc, hm, hm'⟩ => ⟨hs, k, ?_, ?_, ?_⟩⟩
+  · exact (contactAt_congr h _ p hs.1).mp hc
+  · exact fun h' => hm ((markerAt_congr h _ p hs.1).mpr h')
+  · exact (markerAt_congr h _ p hs.1).mp hm'
+  · exact (contactAt_congr h _ p hs.1).mpr hc
+  · exact fun h' => hm ((markerAt_congr h _ p hs.1).mp h')
+  · exact (markerAt_congr h _ p hs.1).mpr hm'
 noncomputable def contacts (T : Answers) (trace : List Entry) : Nat :=
   (Finset.univ.filter fun p : CanonGraph.LeafPos × Fin 58 =>
-    WotsExtract.SourceChain (chainAt p) ∧ ContactAt T trace (chainAt p)).card
+    WotsExtract.SourceChain7 (chainAt p) ∧ ContactAt T trace (chainAt p)).card
 theorem contacts_mono (T : Answers) {trace trace' : List Entry} (hsub : ∀ e ∈ trace, e ∈ trace') :
     contacts T trace ≤ contacts T trace' := by
   unfold contacts
@@ -61,11 +69,10 @@ theorem contacts_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (trace : 
   unfold contacts
   rw [Finset.card_filter, Finset.card_filter]
   refine Finset.sum_congr rfl fun p _ => ?_
-  have hiff := contactAt_congr h trace p
   split_ifs with h1 h2 h2
   · rfl
-  · exact absurd ⟨h1.1, hiff.mp h1.2⟩ h2
-  · exact absurd ⟨h2.1, hiff.mpr h2.2⟩ h1
+  · exact absurd ⟨h1.1, (contactAt_congr h trace p h1.1.1).mp h1.2⟩ h2
+  · exact absurd ⟨h2.1, (contactAt_congr h trace p h2.1.1).mpr h2.2⟩ h1
   · rfl
 noncomputable def costL (T : Answers) (F : Set EncIndex) : List Entry → List Entry → Nat
   | _, [] => 0
@@ -88,7 +95,7 @@ theorem costL_le (T : Answers) (F : Set EncIndex) :
       rw [List.length_cons]
       nlinarith
 theorem cfk_new {T : Answers} {h : List Entry} {e : Entry} (hold : ¬ CFK T h) (hnew : CFK T (h ++ [e])) :
-    ∃ p : CanonGraph.LeafPos × Fin 58, WotsExtract.SourceChain (chainAt p) ∧ ContactAt T h (chainAt p) ∧
+    ∃ p : CanonGraph.LeafPos × Fin 58, WotsExtract.SourceChain7 (chainAt p) ∧ ContactAt T h (chainAt p) ∧
       MarkEntry T (chainAt p) e ∧ ¬ MarkerAt T h (chainAt p) := by
   obtain ⟨p, hs, k, hc, hnm, hm⟩ := hnew
   by_cases hk : k ≤ h.length
@@ -121,9 +128,10 @@ section Step
 variable [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, DecidableEq k]
 theorem cf_step (T : Answers) (F : Set EncIndex) (init : F → Finset HashOutput)
     (hcell : ∀ (e : F) (p : CanonGraph.LeafPos × Fin 58),
-      Pr[fun ans => MarkEntry T (chainAt p) (encInput e.val, ans) | cell (init e)] ≤ 57 / (2 : ENNReal) ^ 128)
+      Pr[fun ans => WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e.val, ans) |
+        cell (init e)] ≤ 57 / (2 : ENNReal) ^ 128)
     (hother : ∀ x, ¬ Lazy.IsCell encInput F x → ∀ p,
-      ¬ (WotsExtract.SourceChain (chainAt p) ∧ MarkEntry T (chainAt p) (x, T (.inl (.inr x)))))
+      ¬ (WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) (x, T (.inl (.inr x)))))
     (h : FreeMonoid Entry) (allowed : F → Finset HashOutput) (hc : Lazy.Consistent encInput F init h allowed)
     (input : RefWorld.Domain) :
     ∑' result, Pr[= result | (Lazy.lazyImpl encInput F T input).run allowed] *
@@ -161,7 +169,7 @@ theorem cf_step (T : Answers) (F : Set EncIndex) (init : F → Finset HashOutput
         · rw [SPMF.probOutput_eq_apply, cell_apply, if_neg (by simpa using hne), zero_mul]
       · rw [hc.2 e₀ (fun ans hans => hq ⟨ans, hans⟩)]
         let S := Finset.univ.filter fun p : CanonGraph.LeafPos × Fin 58 =>
-          WotsExtract.SourceChain (chainAt p) ∧ ContactAt T h.toList (chainAt p)
+          WotsExtract.SourceChain7 (chainAt p) ∧ ContactAt T h.toList (chainAt p)
         calc _ = Pr[fun ans => CFK T (h.toList ++ [(x, ans)]) | cell (init e₀)] := by
               rw [probEvent_eq_tsum_ite]
               refine tsum_congr fun ans => ?_
@@ -176,9 +184,12 @@ theorem cf_step (T : Answers) (F : Set EncIndex) (init : F → Finset HashOutput
           _ ≤ ∑ p ∈ S, Pr[fun ans => MarkEntry T (chainAt p) (x, ans) | cell (init e₀)] :=
               probEvent_exists_finset_le_sum S _ _
           _ ≤ ∑ p ∈ S, 57 / (2 : ENNReal) ^ 128 := by
-              refine Finset.sum_le_sum fun p _ => ?_
+              refine Finset.sum_le_sum fun p hp => ?_
+              have hsrc : WotsExtract.SourceChain7 (chainAt p) := by
+                simp only [S, Finset.mem_filter, Finset.mem_univ, true_and] at hp
+                exact hp.1
               rw [← hx₀]
-              exact hcell e₀ p
+              exact (probEvent_mono fun ans _ h => ⟨hsrc, h⟩).trans (hcell e₀ p)
           _ = (2 ^ 128 : ENNReal)⁻¹ * ((57 * contacts T h.toList : Nat) : ENNReal) := by
               rw [Finset.sum_const, nsmul_eq_mul]
               unfold contacts
@@ -198,9 +209,10 @@ theorem cf_step (T : Answers) (F : Set EncIndex) (init : F → Finset HashOutput
 theorem lazy_cf_le {α : Type} (T : Answers) (F : Set EncIndex) (init : F → Finset HashOutput)
     (hinit : ∀ e, (init e).Nonempty)
     (hcell : ∀ (e : F) (p : CanonGraph.LeafPos × Fin 58),
-      Pr[fun ans => MarkEntry T (chainAt p) (encInput e.val, ans) | cell (init e)] ≤ 57 / (2 : ENNReal) ^ 128)
+      Pr[fun ans => WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e.val, ans) |
+        cell (init e)] ≤ 57 / (2 : ENNReal) ^ 128)
     (hother : ∀ x, ¬ Lazy.IsCell encInput F x → ∀ p,
-      ¬ (WotsExtract.SourceChain (chainAt p) ∧ MarkEntry T (chainAt p) (x, T (.inl (.inr x)))))
+      ¬ (WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) (x, T (.inl (.inr x)))))
     (C : OracleComp RefWorld α) :
     ∑' z, Pr[= z | (simulateQ (Lazy.lazyImpl encInput F T) (SphincsSecurity.QueryPause.traced Lazy.obs C)).run
         init] * (if CFK T z.1.2.toList then (1 : ENNReal) else 0) ≤
@@ -271,27 +283,22 @@ theorem chainAt_injective : Function.Injective chainAt := by
   have : i = i' := Fin.ext hi
   subst tree leaf i
   rfl
-theorem exists_chainAt {a : ChainAddr} (ha : WotsExtract.SourceChain a) : ∃ p, chainAt p = a := by
-  obtain ⟨⟨ht, hl⟩, hc⟩ := ha
+theorem exists_chainAt {a : ChainAddr} (ha : WotsExtract.SourceChain7 a) : ∃ p, chainAt p = a := by
+  have ht := ha.1.tree_lt
+  obtain ⟨⟨-, hl⟩, hc⟩ := ha
   have hh : 2 ^ height a.key.lay ≤ 4096 :=
     (Nat.pow_le_pow_right (by norm_num) (SigGolfCandidate.T3M.Extract.height_le a.key.lay)).trans (by norm_num)
   have hcc := Mask.chainCount_le a.key.lay
   exact ⟨⟨⟨a.key.lay, ⟨a.key.tree, ht⟩, ⟨a.key.leaf, by omega⟩⟩, ⟨a.chain, by omega⟩⟩, rfl⟩
-theorem contacts_eq_contactCount (s : RefSample) : contacts s.answers s.trace = contactCount s := by
+theorem contacts_le_contactCount (s : RefSample) : contacts s.answers s.trace ≤ contactCount s := by
   unfold contacts contactCount
-  apply Finset.card_bij (fun p _ => chainAt p)
-  · intro p hp
-    simp only [Finset.mem_filter, Finset.mem_univ, true_and] at hp
-    rw [Finset.mem_filter, mem_sourceChains]
-    exact hp
-  · intro p _ p' _ h
-    exact chainAt_injective h
-  · intro a ha
-    rw [Finset.mem_filter, mem_sourceChains] at ha
-    obtain ⟨p, rfl⟩ := exists_chainAt ha.1
-    refine ⟨p, ?_, rfl⟩
-    simp only [Finset.mem_filter, Finset.mem_univ, true_and]
-    exact ha
+  refine Finset.card_le_card_of_injOn (fun p => chainAt p) ?_ (fun p _ p' _ h => chainAt_injective h)
+  intro p hp
+  simp only [Finset.coe_filter, Finset.mem_univ, true_and, Set.mem_setOf_eq] at hp
+  rw [Finset.mem_coe, Finset.mem_filter, mem_sourceChains]
+  have ht := hp.1.1.tree_lt
+  obtain ⟨⟨-, hl⟩, hc⟩ := hp.1
+  exact ⟨⟨⟨ht, hl⟩, hc⟩, hp.2⟩
 theorem cfCost_le (adversary : AdversaryP) (q : Nat) :
     ∑' s, referenceExperiment adversary q s * cfCost s ≤
       ((57 * q : Nat) : ENNReal) * ∑' s, referenceExperiment adversary q s * (contactCount s : ENNReal) := by
@@ -303,12 +310,11 @@ theorem cfCost_le (adversary : AdversaryP) (q : Nat) :
     rw [mul_left_comm]
     refine mul_le_mul' le_rfl ?_
     unfold cfCost
-    rw [contacts_eq_contactCount]
-    exact_mod_cast Nat.mul_le_mul_right _ (Nat.mul_le_mul_left _ hlen)
+    exact_mod_cast Nat.mul_le_mul (Nat.mul_le_mul_left _ hlen) (contacts_le_contactCount s)
 end Enc
 open Enc in
 theorem reference_contactFirst_le (adversary : AdversaryP) (q : Nat) :
-    Pr[fun s => ∃ a, WotsExtract.SourceChain a ∧
+    Pr[fun s => ∃ a, WotsExtract.SourceChain7 a ∧
         ∃ k, ContactAt s.answers (s.trace.take k) a ∧ ¬MarkerAt s.answers (s.trace.take k) a ∧
           MarkerAt s.answers s.trace a | referenceExperiment adversary q] ≤
       57 * ((q : ENNReal) / 2 ^ 128) * ∑' s, referenceExperiment adversary q s * (contactCount s : ENNReal) := by

@@ -23,7 +23,7 @@ end FCtx
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
-def layerPc : Nat := 32971
+def layerPc : Nat := 32952
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
@@ -32,9 +32,9 @@ structure FtsOut (F : FCtx) (root : Digest) (u : MachineState) : Prop where
   glob : Glob baseK F.w F.pk u
   idx : u.getReg .x22 = BitVec.ofNat 64 F.idx
   pc : u.pc = pcOf layerPc
-  root : DigAt u 0x100 root
-  wit : Orig F.w (fun o => o < 32 ∨ 8104 ≤ o) u
-  a2 : u.getReg .x12 = BitVec.ofNat 64 0x100
+  root : DigAt u WIT root
+  wit : Orig F.w (fun o => (32 ≤ o ∧ o < 64) ∨ (8000 ≤ o ∧ o < 21472)) u
+  a2 : u.getReg .x12 = BitVec.ofNat 64 WIT
   s10 : u.getReg .x26 = 6
   heapOne : u.getReg .x7 = 1
   heapTwo : u.getReg .x13 = 2
@@ -46,7 +46,7 @@ structure FtsOut (F : FCtx) (root : Digest) (u : MachineState) : Prop where
   topBase : u.getReg .x1 = BitVec.ofNat 64 TOPBASE
   top : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
     BitVec.ofNat 64 (topWords.getD k 0)
-  top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 22120
+  top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21776
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp

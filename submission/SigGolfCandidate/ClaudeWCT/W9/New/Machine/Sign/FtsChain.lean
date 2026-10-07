@@ -254,34 +254,52 @@ theorem step_Stp (hcode : NewCodeAt im) {c i st j index : Nat} (hc : c < 9) (hi 
 theorem step_Lc (hcode : NewCodeAt im) {c i : Nat} (hc : c < 9) (hi : i < 7) (s : MachineState)
     (hpc : s.pc = pcOf (skipI c i 3)) {v : Digest} (hv : DigAt s (CHAINW + 48) v) :
     ∃ t, Steps im s 8 8 t ∧ t.pc = pcOf (lcEnd c i) ∧ DigAt t (LEAFW + leafOff i) v ∧
-      RegsExcept s t [.x6, .x7, .x28, .x29] ∧
+      t.getReg .x29 = BitVec.ofNat 64 LEAFW ∧ RegsExcept s t [.x6, .x7, .x28, .x29] ∧
       Frame s t (fun A => A = LEAFW + leafOff i + 8 ∨ A = LEAFW + leafOff i) := by
   obtain ⟨hst', -⟩ := run_pres (coordLook_ok hcode hc) (runLc_eq hc hi) s hpc (no_obl s) (no_br s)
   have hlo : leafOff i ≤ 112 := by unfold leafOff; split_ifs <;> omega
-  refine ⟨_, hst', rfl, ⟨?_, ?_⟩, pres_regsExcept _ _ _ _ _ _ _ s, ?_⟩
+  refine ⟨_, hst', rfl, ⟨?_, ?_⟩, rfl, pres_regsExcept _ _ _ _ _ _ _ s, ?_⟩
   · rw [pres_getMem, memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_self _ _ _ _ (by ao)]; exact hv.1
   · rw [pres_getMem, memEval_mwc_self _ _ _ _ (by ao)]; exact hv.2
   · refine frame_of_memEval (fun a => rfl) _ (fun q hq => ?_)
     simp only [expLc, pres, List.mem_cons, List.not_mem_nil, or_false] at hq
     rcases hq with rfl | rfl <;> refine ⟨rfl, ?_⟩ <;> rw [off_mwc _ _ (by ao)] <;> ao
 theorem step_L (hcode : NewCodeAt im) {c j index : Nat} (hc : c < 9) (s : MachineState) (hpc : s.pc = pcOf (lI c))
-    (h18 : s.getReg .x18 = BitVec.ofNat 64 j) (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (hidx : index < 2 ^ 32) :
+    (h18 : s.getReg .x18 = BitVec.ofNat 64 j) (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (hj : j < 128)
+    (h29 : s.getReg .x29 = BitVec.ofNat 64 LEAFW) :
     ∃ t, Steps im s (if c = 0 then 15 else 16) (if c = 0 then 15 else 16) t ∧ fetch im t = some (.base .ECALL) ∧
       t.pc = pcOf (tI c - 1) ∧ t.getReg .x10 = BitVec.ofNat 64 LEAFW ∧ t.getReg .x11 = BitVec.ofNat 64 128 ∧
       t.getReg .x12 = BitVec.ofNat 64 (HEAPW + 16 * (j + 128)) ∧
-      t.getMem (BitVec.ofNat 64 (LEAFW + 16)) = BitVec.ofNat 64 (hdr6 c) ∧
-      t.getMem (BitVec.ofNat 64 (LEAFW + 24)) = BitVec.ofNat 64 (index + 2 ^ 32 * j) ∧
-      RegsExcept s t [.x6, .x10, .x11, .x12, .x29] ∧ Frame s t (fun A => A = LEAFW + 24 ∨ A = LEAFW + 16) := by
-  obtain ⟨hst', hec⟩ := run_pres (coordLook_ok hcode hc) (runL_eq hc) s hpc (no_obl s) (no_br s)
+      t.getMem (BitVec.ofNat 64 (LEAFW + 16)) = BitVec.ofNat 64 (leafLo7 c index j) ∧
+      t.getMem (BitVec.ofNat 64 (LEAFW + 24)) = 0 ∧
+      RegsExcept s t [.x6, .x7, .x10, .x11, .x12] ∧ Frame s t (fun A => A = LEAFW + 24 ∨ A = LEAFW + 16) := by
+  have hx : ∀ a, memEval s [(x29A 24, cE 0), (x29A 16, leafLoE c)] a =
+      memEval s [mwc (LEAFW + 24) (cE 0), mwc (LEAFW + 16) (leafLoE c)] a := by
+    intro a
+    simp only [memEval, Addr.eval, x29A, mwc, E.eval, h29, ofNat_add_ofNat]
+    rfl
+  obtain ⟨hst', hec⟩ := run_pres (coordLook_ok hcode hc) (runL_eq hc) s hpc (by
+    intro o ho
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at ho
+    rcases ho with rfl | rfl
+    · exact valid_ofNat (b := .reg .x29) (B := LEAFW) (by simp only [E.eval]; exact h29) (by ao)
+        (by unfold MEMORY_BYTES; ao)
+    · exact valid_ofNat (b := .reg .x29) (B := LEAFW) (by simp only [E.eval]; exact h29) (by ao)
+        (by unfold MEMORY_BYTES; ao)) (no_br s)
+  have ht : ∀ a, ((expL c).toState s).getMem a = memEval s [mwc (LEAFW + 24) (cE 0), mwc (LEAFW + 16) (leafLoE c)] a :=
+    fun a => hx a
   refine ⟨_, hst', hec rfl, rfl, rfl, rfl, ?_, ?_, ?_, pres_regsExcept _ _ _ _ _ _ _ s, ?_⟩
   · rw [pres_getReg]
     show BinOp.eval .add (heapLeafE.eval s) (BitVec.ofNat 64 HEAPW) = _
     rw [eval_heapLeafE s h18]; simp only [BinOp.eval, ofNat_add_ofNat]
     rw [Nat.add_comm]
-  · rw [pres_getMem, memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_self _ _ _ _ (by ao)]; rfl
-  · rw [pres_getMem, memEval_mwc_self _ _ _ _ (by ao)]; exact eval_w1E s h18 h22 hidx
-  · refine frame_of_memEval (fun a => rfl) _ (fun q hq => ?_)
-    simp only [expL, pres, List.mem_cons, List.not_mem_nil, or_false] at hq
+  · refine (ht _).trans ?_
+    rw [memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_self _ _ _ _ (by ao)]
+    exact eval_leafLoE s h22 h18 hc hj
+  · refine (ht _).trans ?_
+    rw [memEval_mwc_self _ _ _ _ (by ao)]; rfl
+  · refine frame_of_memEval ht _ (fun q hq => ?_)
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hq
     rcases hq with rfl | rfl <;> refine ⟨rfl, ?_⟩ <;> rw [off_mwc _ _ (by ao)] <;> ao
 theorem step_T (hcode : NewCodeAt im) {c j : Nat} (hc : c < 9) (hj : j < 128) (s : MachineState)
     (hpc : s.pc = pcOf (tI c)) (h18 : s.getReg .x18 = BitVec.ofNat 64 j) :
@@ -310,7 +328,7 @@ theorem eval_nodeLd (s : MachineState) {h : Nat} (h18 : s.getReg .x18 = BitVec.o
   rw [eval_sh5 s h18, ofNat_add_ofNat]; congr 2; ring
 theorem step_N (hcode : NewCodeAt im) {c h index : Nat} (hc : c < 9) (hh1 : 1 ≤ h) (hh : h < 128)
     (s : MachineState) (hpc : s.pc = pcOf (nodeI c)) (h18 : s.getReg .x18 = BitVec.ofNat 64 h)
-    (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (_hidx : index < 2 ^ 32) :
+    (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (hidx : index < 2 ^ 31) :
     ∃ t, Steps im s 25 25 t ∧ fetch im t = some (.base .ECALL) ∧ t.pc = pcOf (ntI c - 1) ∧
       t.getReg .x10 = BitVec.ofNat 64 NODEW ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 NOUTW ∧
@@ -318,7 +336,7 @@ theorem step_N (hcode : NewCodeAt im) {c h index : Nat} (hc : c < 9) (hh1 : 1 �
       t.getMem (BitVec.ofNat 64 (NODEW + 8)) = s.getMem (BitVec.ofNat 64 (HEAPW + 32 * h + 8)) ∧
       t.getMem (BitVec.ofNat 64 (NODEW + 48)) = s.getMem (BitVec.ofNat 64 (HEAPW + 32 * h + 16)) ∧
       t.getMem (BitVec.ofNat 64 (NODEW + 56)) = s.getMem (BitVec.ofNat 64 (HEAPW + 32 * h + 24)) ∧
-      t.getMem (BitVec.ofNat 64 (NODEW + 16)) = BitVec.ofNat 64 (nodeK c + 2 ^ 32 * index) ∧
+      t.getMem (BitVec.ofNat 64 (NODEW + 16)) = BitVec.ofNat 64 (nodeLo7 c index) ∧
       t.getMem (BitVec.ofNat 64 (NODEW + 24)) = BitVec.ofNat 64 h ∧
       RegsExcept s t [.x6, .x7, .x10, .x11, .x12, .x28, .x29] ∧
       Frame s t (fun A => A = NODEW + 24 ∨ A = NODEW + 16 ∨ A = NODEW + 56 ∨ A = NODEW + 48 ∨ A = NODEW + 8 ∨
@@ -356,7 +374,7 @@ theorem step_N (hcode : NewCodeAt im) {c h index : Nat} (hc : c < 9) (hh1 : 1 �
     rw [memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao),
       memEval_mwc_self _ _ _ _ (by ao), eval_nodeLd s h18]
   · rw [pres_getMem, memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_self _ _ _ _ (by ao)]
-    exact eval_nodeLoE s h22 (nodeK_lt c hc)
+    exact eval_nodeLoE s h22 hc hidx
   · rw [pres_getMem, memEval_mwc_self _ _ _ _ (by ao)]; exact h18
   · refine frame_of_memEval (fun a => rfl) _ (fun q hq => ?_)
     simp only [expN, pres, List.mem_cons, List.not_mem_nil, or_false] at hq
@@ -550,23 +568,38 @@ theorem wordsOf_chain (index c j i st : Nat) (v : Digest) (hc : c < 9) (hidx : i
   rw [WCT9.ftsChainHeaderP_low, WCT9.ftsChainHeaderP_high, ftsChainLow_eq index c j i st hc hidx hst hi hj]
   rfl
 def leafIn (index c j : Nat) (ends : List Digest) : List UInt8 :=
-  bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (WCT9.wctHeader 6 c index 0 j) ++ (ends.drop 1).flatMap (bytesLE 16)
+  bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (WCT9.ftsLeafHeader index c j) ++ (ends.drop 1).flatMap (bytesLE 16)
 theorem leafHash_eq (index c j : Nat) (ends : List Digest) :
     WCT9.leafHash index c j ends = SigGolfCandidate.T3.shortHash (leafIn index c j ends) := rfl
 theorem leafIn_len (index c j : Nat) (ends : List Digest) (h : ends.length = 7) : (leafIn index c j ends).length = 128 := by
   have : ((ends.drop 1).flatMap (bytesLE 16)).length = 96 := by
     rw [List.length_flatMap]; simp [bytesLE_length, h]
   simp only [leafIn, List.length_append, bytesLE_length, this]
-theorem wordsOf_leaf (index c j : Nat) (ends : List Digest) (h : ends.length = 7) (hc : c < 256)
-    (hidx : index < 2 ^ 32) (hj : j < 2 ^ 32) :
+theorem ftsLeafHeader_words (index c j : Nat) (hc : c < 9) (hidx : index < 2 ^ 31) (hj : j < 128) :
+    wordsOf (bytesLE 16 (WCT9.ftsLeafHeader index c j)) = [BitVec.ofNat 64 (leafLo7 c index j), 0] := by
+  rw [wordsOf_bytesLE16]
+  unfold WCT9.ftsLeafHeader
+  rw [SigGolfCandidate.T3.append64_low]
+  congr 1
+  · unfold WCT9.ftsLeafLow leafLo7
+    congr 1
+    rw [Nat.mod_eq_of_lt (show c < 16 by omega), Nat.mod_eq_of_lt (show j < 128 from hj), Nat.mod_eq_of_lt hidx]
+    ring
+  · congr 1
+    apply BitVec.eq_of_toNat_eq
+    rw [BitVec.extractLsb'_toNat, SigGolfCandidate.T3.append64_toNat]
+    have := (BitVec.ofNat 64 (WCT9.ftsLeafLow index c j)).isLt
+    have h0' : (0 : BitVec 64).toNat = 0 := rfl
+    simp only [BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow, h0']
+    omega
+theorem wordsOf_leaf (index c j : Nat) (ends : List Digest) (h : ends.length = 7) (hc : c < 9)
+    (hidx : index < 2 ^ 31) (hj : j < 128) :
     wordsOf (pad64 (leafIn index c j ends)) =
-      wordsOf (bytesLE 16 (ends.getD 0 0)) ++ [BitVec.ofNat 64 (hdr6 c), BitVec.ofNat 64 (index + 2 ^ 32 * j)] ++
+      wordsOf (bytesLE 16 (ends.getD 0 0)) ++ [BitVec.ofNat 64 (leafLo7 c index j), 0] ++
         (ends.drop 1).flatMap fun d => [d.extractLsb' 0 64, d.extractLsb' 64 64] := by
   rw [pad64_of_aligned _ (by rw [leafIn_len _ _ _ _ h]), leafIn,
     wordsOf_append _ _ (by simp [bytesLE_length]), wordsOf_append _ _ (by simp [bytesLE_length]),
-    WCT9.leaf_header_eq, header_words 6 c index 0 j (by decide) (by norm_num) hc hidx (by norm_num) hj,
-    wordsOf_flatMap16]
-  simp only [hdr6]; congr 4
+    ftsLeafHeader_words index c j hc hidx hj, wordsOf_flatMap16]
 def nodeIn (c index h : Nat) (L R : Digest) : List UInt8 :=
   bytesLE 16 L ++ bytesLE 16 (WCT9.wctNodeHeader c index h) ++ zero16 ++ bytesLE 16 R
 theorem nodeHash_eq (c index h : Nat) (L R : Digest) :
@@ -579,15 +612,29 @@ theorem hdr0_node (c index : Nat) (hc : c < 9) (hidx : index < 2 ^ 32) :
   rw [Nat.mod_eq_of_lt (show 3 < 256 by norm_num), Nat.mod_eq_of_lt (show 4 + c < 256 by omega),
     Nat.div_eq_of_lt hidx, Nat.mod_eq_of_lt hidx]
   ring
-theorem wordsOf_node (c index h : Nat) (L R : Digest) (hc : c < 9) (hidx : index < 2 ^ 32) (hh : h < 2 ^ 32) :
+theorem wordsOf_node (c index h : Nat) (L R : Digest) (hc : c < 9) (hidx : index < 2 ^ 31) (hh : h < 2 ^ 32) :
     wordsOf (pad64 (nodeIn c index h L R)) =
-      [L.extractLsb' 0 64, L.extractLsb' 64 64, BitVec.ofNat 64 (nodeK c + 2 ^ 32 * index), BitVec.ofNat 64 h, 0, 0,
+      [L.extractLsb' 0 64, L.extractLsb' 64 64, BitVec.ofNat 64 (nodeLo7 c index), BitVec.ofNat 64 h, 0, 0,
         R.extractLsb' 0 64, R.extractLsb' 64 64] := by
-  have h1 : hdr1 h 0 = h := by unfold hdr1; rw [Nat.mod_eq_of_lt hh]; simp
+  have hlo : (WCT9.wctNodeHeader c index h).extractLsb' 0 64 = BitVec.ofNat 64 (nodeLo7 c index) := by
+    unfold WCT9.wctNodeHeader WCT9.nodeLayer
+    rw [SigGolfCandidate.T3.nodeTweak_fts (by omega) (by omega), SigGolfCandidate.T3.append64_low]
+    unfold SigGolfCandidate.T3.ftsNodeWord nodeLo7
+    congr 1
+    rw [show 4 + c - 4 = c by omega, Nat.mod_eq_of_lt (show c < 16 by omega), Nat.mod_eq_of_lt hidx]
+    ring
+  have hhi : (WCT9.wctNodeHeader c index h).extractLsb' 64 64 = BitVec.ofNat 64 h := by
+    unfold WCT9.wctNodeHeader WCT9.nodeLayer
+    rw [SigGolfCandidate.T3.nodeTweak_fts (by omega) (by omega)]
+    apply BitVec.eq_of_toNat_eq
+    rw [BitVec.extractLsb'_toNat, SigGolfCandidate.T3.append64_toNat]
+    have := (SigGolfCandidate.T3.ftsNodeWord (4 + c - 4) index).isLt
+    simp only [BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow]
+    omega
   rw [pad64_of_aligned _ (by rw [nodeIn_len]), nodeIn,
     wordsOf_append _ _ (by simp [zero16, bytesLE_length]), wordsOf_append _ _ (by simp [zero16, bytesLE_length]),
-    wordsOf_append _ _ (by simp [zero16, bytesLE_length]), wordsOf_zero16, WCT9.wctNodeHeader, WCT9.nodeLayer,
-    wordsOf_packed_header_3, wordsOf_bytesLE16, wordsOf_bytesLE16, hdr0_node c index hc hidx, h1]
+    wordsOf_append _ _ (by simp [zero16, bytesLE_length]), wordsOf_zero16, wordsOf_bytesLE16, wordsOf_bytesLE16,
+    wordsOf_bytesLE16, hlo, hhi]
   rfl
 theorem forestPk_eq (index : Nat) (pairs : List (Digest × Digest)) :
     WCT9.forestPk index pairs = SigGolfCandidate.T3.shortHash (WCT9.forestInput index pairs) := rfl
@@ -673,7 +720,8 @@ def ChainPost (c i j sel : Nat) (s0 : MachineState) (r : Digest × Digest) (t : 
   t.pc = pcOf (lcEnd c i) ∧ DigAt t (LEAFW + leafOff i) r.2 ∧ (j = sel → DigAt t (slotV c i) r.1) ∧
     RegsExcept s0 t chainRegs ∧ Frame s0 t (chainW c i) ∧
     (j ≠ sel → ∀ A, A < 2 ^ 64 → slotV c 0 ≤ A → A < slotV c 7 →
-      t.getMem (BitVec.ofNat 64 A) = s0.getMem (BitVec.ofNat 64 A))
+      t.getMem (BitVec.ofNat 64 A) = s0.getMem (BitVec.ofNat 64 A)) ∧
+    t.getReg .x29 = BitVec.ofNat 64 LEAFW
 theorem chkI_pos : ∀ c, c < 9 → ∀ i, i < 7 → ∀ st, st < 4 → 1 ≤ chkI c i st := by decide +kernel
 theorem blocks64 (l : List UInt8) (hl : l.length = 64) : (toQ (pad64 l)).blocks = 1 := by
   rw [pad64_of_aligned _ (by rw [hl]), blocks_toQ ⟨by rw [hl]; norm_num, by rw [hl]⟩, hl]
@@ -694,9 +742,10 @@ theorem chain_from (hcode : NewCodeAt im) {c i j index sel w d : Nat} (hc : c < 
     intro _ L t h
     obtain ⟨t1, k1, s1, hk1, p1, r1, f1, o1, n1⟩ :=
       step_Chk hcode hc hi (by norm_num : 3 < 4) t h.pc h.x18 h.x24 h.x26 (by omega) (by omega) (by omega) h.val
-    obtain ⟨t2, s2, p2, l2, r2, f2⟩ := step_Lc hcode hc hi t1 p1 (h.val.frame f1 (by ao) (by ao) (by ao))
+    obtain ⟨t2, s2, p2, l2, x29_2, r2, f2⟩ := step_Lc hcode hc hi t1 p1 (h.val.frame f1 (by ao) (by ao) (by ao))
     have hlo : leafOff i ≤ 112 := by unfold leafOff; split_ifs <;> omega
-    refine (TBSim.pure_steps' (s1.trans s2) ⟨p2, l2, fun hjs => ?_, ?_, ?_, ?_⟩).mono (by omega) (fun _ _ h => h)
+    refine (TBSim.pure_steps' (s1.trans s2) ⟨p2, l2, fun hjs => ?_, ?_, ?_, ?_, x29_2⟩).mono (by omega)
+      (fun _ _ h => h)
     · by_cases hd0 : d = 0
       · subst hd0
         have := o1 hjs rfl

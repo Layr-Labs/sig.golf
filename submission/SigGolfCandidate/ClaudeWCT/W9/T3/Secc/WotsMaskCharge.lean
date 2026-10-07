@@ -85,7 +85,7 @@ theorem count_buildTreeP_maskAt (lay : Layer) (hlay : lay ≠ 0) (tree selected 
       (slotOK_of (Or.inr hm) (by have := List.mem_range.mp hleaf; have := height_pow_le lay; omega)))
   rw [WCT9.buildTreeP_factor]
   simp only [queried_length_bind, queried_length_pure, queried_length_treeRowsP]
-  rw [hroots, hroots, hm', count_maskAt_of_respects answers a (respectsP_buildLevels a 3 _ _ _ _ (by decide))]
+  rw [hroots, hroots, hm', count_maskAt_of_respects answers a (respectsP_buildLevelsBelow a 3 _ _ _ _ (by decide))]
 theorem count_keygenPayload_maskAt :
     (SourceReplay.queried (maskAt answers a) keygenPayload).length =
       (SourceReplay.queried answers keygenPayload).length := by
@@ -144,6 +144,7 @@ theorem count_signLayers_maskAt (htree : a.key.tree < 2 ^ 40) (hleaf : a.key.lea
               (count_buildTreeP_maskAt answers a _ hl0 _ _ digits hvalid (maskOK_of_lt hleaf)) ?_
             rw [WCT9.eval_buildTreeP_result answers hl0 _ _ digits hvalid (route_leaf_bound index _)]
             dsimp only
+            rw [WCT9.topPair_take]
             obtain ⟨m, rfl⟩ : ∃ m, n = m + 1 := ⟨n - 1, by omega⟩
             have hmsg' : ∀ m', m + 1 = m' + 1 → WCT9.LayerMsg.pair
                 (WCT9.topPair (Fin.ofNat 4 (m + 1)) (WCT9.wotsTree answers (Fin.ofNat 4 (m + 1))

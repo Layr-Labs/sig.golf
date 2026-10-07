@@ -18,7 +18,7 @@ def chainP (index coord child chain start count : Nat) (a : Digest) (b : HeaderP
     (c value : Digest) : M Digest :=
   (List.range' start count).foldlM
     (fun v step => shortHash (chainInput index coord child chain step a b c v)) value
-def regionOffset (coord : Nat) : Nat := 32 + 896 * coord
+def regionOffset (coord : Nat) : Nat := 64 + 880 * (8 - coord)
 def chainOffset (coord chain : Nat) : Nat := regionOffset coord + (704 - 64 * chain)
 def leafSlot (chain : Nat) : Nat := if chain = 0 then 752 else 768 + 16 * chain
 def chainPadA (w : WBytes) (coord chain : Nat) : Digest := wdig w (chainOffset coord chain)
@@ -36,8 +36,8 @@ def chainProgram (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
     chainP index k.val j.val t.val (3 - d) d
       (chainPadA w k.val t.val) (chainPadB w k.val t.val)
       (chainPadC w k.val t.val) (reveal w k.val t.val d)
-def nodeLow (coord index : Nat) : Nat :=
-  1 ||| (3 <<< 8) ||| ((4 + coord) <<< 16) ||| (index <<< 32)
+def leafLow (index coord child : Nat) : Nat := ClaudeWCT.WCT9.ftsLeafLow index coord child
+def nodeLow (coord index : Nat) : Nat := ClaudeWCT.WCT9.ftsLeafLow index coord 0
 def nodeInput (coord index heap : Nat) (left pad right : Digest) : HashInput :=
   bytesLE 16 left ++ bytesLE 8 (nodeLow coord index) ++ bytesLE 8 heap ++
     bytesLE 16 pad ++ bytesLE 16 right
@@ -45,7 +45,7 @@ def nodePad (w : WBytes) (coord child level : Nat) : Digest := ClaudeWCT.W9.T3M.
 def sibling (w : WBytes) (coord child level : Nat) : Digest := ClaudeWCT.W9.T3M.wsib w coord child level
 def leafFields (coord index child : Nat) (ends : List Digest) (slot : Nat) : Digest :=
   if slot = 0 then ends.getD 0 0
-  else if slot = 1 then header 6 coord index 0 child else ends.getD (slot - 1) 0
+  else if slot = 1 then ClaudeWCT.WCT9.ftsLeafHeader index coord child else ends.getD (slot - 1) 0
 def leafInput (coord index child : Nat) (ends : List Digest) : HashInput :=
   (List.range 8).flatMap fun slot => bytesLE 16 (leafFields coord index child ends slot)
 structure RootPair where

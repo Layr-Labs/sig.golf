@@ -39,18 +39,19 @@ def LayerShaped (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (di
   (∀ j, j < height lay →
     wpath w lay (route index lay).1 j =
         treeValue (wotsTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1) ∧
-      (j + 1 < height lay ∨ lay.val = 0 → wmerklePad w lay j = 0)) ∧
+      (j + 1 < height lay ∨ lay.val = 0 → wmerklePad w lay (route index lay).1 j = 0)) ∧
   (∀ i, i < chainCount lay →
     wvalue w lay i = wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
       (digits.getD i 0 < maxDigit lay i →
         wchainPads w lay i = (0, 0) ∧ wchainHeaderPad w lay i = 0))
 def Frame (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (msg : WCT9.LayerMsg) (digits : List Nat) :
     Prop :=
-  (wbcCtr w lay).toNat < counterLimit ∧
+  (wbcCtr w index lay).toNat < counterLimit ∧
     decode lay (evalWithAnswerFn answers (shortHash (layerEncodingInputP lay (route index lay).2 (route index lay).1
-      msg (wbcCtr w lay) (wbcPad w lay)))) = some digits
+      msg (wbcCtr w index lay) (wbcPad w index lay) (wbcRight w)))) = some digits
 def encodingQuery (w : WBytes) (index : Nat) (lay : Layer) (msg : WCT9.LayerMsg) : Spec.Domain :=
-  .inl (.inr (pad64 (layerEncodingInputP lay (route index lay).2 (route index lay).1 msg (wbcCtr w lay) (wbcPad w lay))))
+  .inl (.inr (pad64 (layerEncodingInputP lay (route index lay).2 (route index lay).1 msg (wbcCtr w index lay)
+    (wbcPad w index lay) (wbcRight w))))
 def Good (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) : Prop :=
   ∃ digits, Frame answers w index lay (honestMsg answers index lay) digits ∧ LayerShaped answers w index lay digits
 def Diverge (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (qs : List Spec.Domain) : Prop :=

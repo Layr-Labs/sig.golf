@@ -472,7 +472,8 @@ theorem treeChild_inl {lay : Layer} {tree : Fin (2 ^ 31)} {level c : Nat} {x : C
     (h : treeChild lay tree level c = some x) : ∃ n, x = .inl n := by
   unfold treeChild at h
   split_ifs at h
-  · exact ⟨_, (Option.some.inj h).symm⟩
+  · obtain ⟨n, -, rfl⟩ := Option.map_eq_some_iff.mp h
+    exact ⟨_, rfl⟩
   · obtain ⟨n, -, rfl⟩ := Option.map_eq_some_iff.mp h
     exact ⟨_, rfl⟩
 theorem ftsChild_inl {index : Fin (2 ^ 31)} {coord : Fin 9} {level c : Nat} {x : Coord}

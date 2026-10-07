@@ -1,7 +1,6 @@
-import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Header
 import SigGolfCandidate.ClaudeWCT.W9.New.G3a.PaddedWitness
 import SigGolfCandidate.T3.Secc.WotsEvents
-import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Defs
+import SigGolfCandidate.ClaudeWCT.W9.New.BC.Rows
 
 namespace ClaudeWCT.W9.T3.Security.Wots
 open OracleComp OracleSpec ENNReal
@@ -22,12 +21,12 @@ theorem msgFits_leafMsg (answers : Answers) (L : LeafAddr) : Extract.msgFits L.l
   · show L.lay.val = 3
     have := L.lay.isLt
     omega
-def encRow (L : LeafAddr) (msg : WCT9.LayerMsg) (counter : BitVec 32) (pad : BitVec 96) : HashInput :=
-  pad64 (layerEncodingInputP L.lay L.tree L.leaf msg counter pad)
+abbrev RowPad := BitVec 96 × Digest
+def encRow (L : LeafAddr) (msg : WCT9.LayerMsg) (counter : BitVec 32) (pad : RowPad) : HashInput :=
+  pad64 (layerEncodingInputP L.lay L.tree L.leaf msg counter pad.1 pad.2)
 theorem encRow_zero (L : LeafAddr) (msg : WCT9.LayerMsg) (counter : BitVec 32) :
-    encRow L msg counter 0 = pad64 (WCT9.layerEncodingInput L.lay L.tree L.leaf msg counter) := by
-  unfold encRow
-  cases msg <;> rfl
+    encRow L msg counter 0 = pad64 (WCT9.layerEncodingInput L.lay L.tree L.leaf msg counter) :=
+  BC.pad64_layerEncodingInputP_zero _ _ _ _ _
 theorem searchLimit_fits (lay : Layer) : 0 + WCT9.searchLimit lay ≤ 2 ^ 32 := by
   have := WCT9.searchLimit_le lay
   unfold counterLimit at this
@@ -81,3 +80,11 @@ def VerifierWots (answers : Answers) (publicKey : Digest) (forgery : ForgeryP) :
     evalWithAnswerFn answers (verifyP message publicKey witness) = true ∧
     WotsPrimitive answers (entriesOf answers (queried answers (verifyP message publicKey witness)))
 end ClaudeWCT.W9.T3.Security.Wots
+namespace ClaudeWCT.W9.T3.Security.WotsExtract
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Security.Wots
+def SourceLeaf7 (L : LeafAddr) : Prop := L.tree < 2 ^ ClaudeWCT.W9.T3M.Extract.treeBits L.lay ∧ L.leaf < 2 ^ height L.lay
+def SourceChain7 (a : ChainAddr) : Prop := SourceLeaf7 a.key ∧ a.chain < chainCount a.key.lay
+theorem SourceLeaf7.tree_lt {L : LeafAddr} (h : SourceLeaf7 L) : L.tree < 2 ^ 31 :=
+  lt_of_lt_of_le h.1 (Nat.pow_le_pow_right (by decide)
+    (le_trans (ClaudeWCT.W9.T3M.Extract.treeBits_le _) (by decide)))
+end ClaudeWCT.W9.T3.Security.WotsExtract

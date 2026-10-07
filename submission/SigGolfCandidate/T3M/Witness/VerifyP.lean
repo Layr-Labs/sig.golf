@@ -7,7 +7,7 @@ def ftsLeafP (index coord leaf : Nat) (pad0 secret pad1 : Digest) : M Digest :=
   shortHash (bytesLE 16 pad0 ++ bytesLE 16 (header 9 coord index 0 leaf) ++ bytesLE 16 secret ++
     bytesLE 16 pad1)
 def nodeHashP (tag lay tree heap : Nat) (left pad right : Digest) : M Digest :=
-  shortHash (bytesLE 16 left ++ bytesLE 16 (header tag lay tree 0 heap) ++ bytesLE 16 pad ++ bytesLE 16 right)
+  shortHash (bytesLE 16 left ++ bytesLE 16 (nodeTweak tag lay tree heap) ++ bytesLE 16 pad ++ bytesLE 16 right)
 def chainHeaderP (lay : Layer) (tree leaf i step : Nat) (headerPad : BitVec 64) : Digest :=
   headerPad ++ (chainHeader lay tree leaf i step).extractLsb' 0 64
 def chainInputP (lay : Layer) (tree leaf i step : Nat) (pad0 pad1 : Digest)

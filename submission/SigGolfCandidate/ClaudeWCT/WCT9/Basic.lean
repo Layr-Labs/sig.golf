@@ -15,9 +15,6 @@ theorem forest_header_plain (index : Nat) :
     header 15 0 index 0 0 = wctHeader 15 0 index 0 0 :=
   (wctHeader_eq_header 15 0 index 0 0 (by decide)).symm
 theorem wct_tags_plain : ¬ packedNodeTag 6 ∧ ¬ packedNodeTag 15 ∧ packedNodeTag 3 := by decide
-theorem leaf_header_eq (coord index selected : Nat) :
-    wctHeader 6 coord index 0 selected = header 6 coord index 0 selected :=
-  wctHeader_eq_header 6 coord index 0 selected (by decide)
 theorem ftsChainLow_lt (index coord selected chain step : Nat) :
     ftsChainLow index coord selected chain step < 2 ^ 58 := by
   unfold ftsChainLow
@@ -81,28 +78,89 @@ theorem chainInput_eq (index coord selected chain step : Nat) (value : Digest) :
     chainInput index coord selected chain step value =
       zero16 ++ bytesLE 16 (ftsChainHeader index coord selected chain step) ++
         zero16 ++ bytesLE 16 value := rfl
-theorem wctNodeHeader_eq (coord index heap : Nat) (hk : coord < 252) (hi : index < 2 ^ 32) (hh : heap < 2 ^ 32) :
-    wctNodeHeader coord index heap =
-      BitVec.ofNat 128 (1 + 3 * 2 ^ 8 + (4 + coord) * 2 ^ 16 + index * 2 ^ 32 + heap * 2 ^ 64) := by
-  apply BitVec.eq_of_toNat_eq
+theorem ftsLeafLow_lt (index coord selected : Nat) : ftsLeafLow index coord selected < 2 ^ 58 := by
+  unfold ftsLeafLow
+  have := Nat.mod_lt coord (show 0 < 16 by decide)
+  have := Nat.mod_lt selected (show 0 < 128 by decide)
+  have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
+  norm_num only at *
+  omega
+theorem ftsLeafLow_byte0 (index coord selected : Nat) : ftsLeafLow index coord selected % 256 = 1 := by
+  unfold ftsLeafLow
+  omega
+theorem ftsLeafLow_byte1 (index coord selected : Nat) : ftsLeafLow index coord selected / 2 ^ 8 % 256 = 6 := by
+  unfold ftsLeafLow
+  omega
+theorem ftsLeafLow_injective {i k j i' k' j' : Nat}
+    (hi : i < 2 ^ 31) (hk : k < 16) (hj : j < 128) (hi' : i' < 2 ^ 31) (hk' : k' < 16) (hj' : j' < 128)
+    (h : ftsLeafLow i k j = ftsLeafLow i' k' j') : i = i' ∧ k = k' ∧ j = j' := by
+  unfold ftsLeafLow at h
+  rw [Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hk, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hi',
+    Nat.mod_eq_of_lt hk', Nat.mod_eq_of_lt hj'] at h
+  norm_num only at h hi hi'
+  omega
+theorem ftsLeafHeader_toNat (index coord selected : Nat) :
+    (ftsLeafHeader index coord selected).toNat = ftsLeafLow index coord selected := by
+  have hq := ftsLeafLow_lt index coord selected
+  unfold ftsLeafHeader
+  rw [BitVec.toNat_append, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (lt_trans hq (by decide))]
+  simp
+theorem ftsLeafHeader_low (index coord selected : Nat) :
+    (ftsLeafHeader index coord selected).extractLsb' 0 64 = BitVec.ofNat 64 (ftsLeafLow index coord selected) :=
+  BitVec.extractLsb'_append_eq_right
+theorem ftsLeafHeader_high (index coord selected : Nat) :
+    (ftsLeafHeader index coord selected).extractLsb' 64 64 = 0 :=
+  BitVec.extractLsb'_append_eq_left
+theorem ftsLeafHeader_firstByte (index coord selected : Nat) :
+    (ftsLeafHeader index coord selected).toNat % 256 = 1 := by
+  rw [ftsLeafHeader_toNat, ftsLeafLow_byte0]
+theorem ftsLeafHeader_byte1 (index coord selected : Nat) :
+    (ftsLeafHeader index coord selected).toNat / 2 ^ 8 % 256 = 6 := by
+  rw [ftsLeafHeader_toNat, ftsLeafLow_byte1]
+theorem ftsLeafHeader_injective {i k j i' k' j' : Nat}
+    (hi : i < 2 ^ 31) (hk : k < 16) (hj : j < 128) (hi' : i' < 2 ^ 31) (hk' : k' < 16) (hj' : j' < 128)
+    (h : ftsLeafHeader i k j = ftsLeafHeader i' k' j') : i = i' ∧ k = k' ∧ j = j' := by
+  have hq := congrArg BitVec.toNat h
+  rw [ftsLeafHeader_toNat, ftsLeafHeader_toNat] at hq
+  exact ftsLeafLow_injective hi hk hj hi' hk' hj' hq
+theorem wctNodeHeader_eq {coord : Nat} (hk : coord < 9) (index heap : Nat) :
+    wctNodeHeader coord index heap = BitVec.ofNat 64 heap ++ BitVec.ofNat 64 (ftsLeafLow index coord 0) := by
   unfold wctNodeHeader nodeLayer
-  rw [header_toNat, if_pos (by decide), BitVec.toNat_ofNat]
-  have hnw : nodeWord 3 0 heap = heap := by
-    unfold nodeWord
-    rw [if_neg (by decide)]
-    omega
-  rw [hnw]
-  have h1 : index / 2 ^ 32 = 0 := Nat.div_eq_of_lt hi
-  rw [h1, Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt (show 4 + coord < 256 by omega)]
-  norm_num only at hi hh ⊢
+  rw [nodeTweak_fts (by omega) (by omega), show 4 + coord - 4 = coord by omega]
+  rfl
+theorem wctNodeHeader_toNat {coord : Nat} (hk : coord < 9) (index heap : Nat) :
+    (wctNodeHeader coord index heap).toNat = heap % 2 ^ 64 * 2 ^ 64 + ftsLeafLow index coord 0 := by
+  rw [wctNodeHeader_eq hk, append64_toNat, BitVec.toNat_ofNat, BitVec.toNat_ofNat,
+    Nat.mod_eq_of_lt (lt_trans (ftsLeafLow_lt _ _ _) (by decide))]
+theorem wctNodeHeader_low {coord : Nat} (hk : coord < 9) (index heap : Nat) :
+    (wctNodeHeader coord index heap).extractLsb' 0 64 = BitVec.ofNat 64 (ftsLeafLow index coord 0) := by
+  rw [wctNodeHeader_eq hk]; exact BitVec.extractLsb'_append_eq_right
+theorem wctNodeHeader_high {coord : Nat} (hk : coord < 9) (index heap : Nat) :
+    (wctNodeHeader coord index heap).extractLsb' 64 64 = BitVec.ofNat 64 heap := by
+  rw [wctNodeHeader_eq hk]; exact BitVec.extractLsb'_append_eq_left
+theorem wctNodeHeader_firstByte (coord index heap : Nat) : (wctNodeHeader coord index heap).toNat % 256 = 1 := by
+  have h := nodeTweak_marker 3 (nodeLayer coord) index heap
+  unfold tweakMarker at h
+  unfold wctNodeHeader
+  rw [h, if_neg (by unfold nodeLayer; omega)]
+theorem wctNodeHeader_byte1 {coord : Nat} (hk : coord < 9) (index heap : Nat) :
+    (wctNodeHeader coord index heap).toNat / 2 ^ 8 % 256 = 6 := by
+  rw [wctNodeHeader_toNat hk]
+  have := ftsLeafLow_byte1 index coord 0
   omega
 theorem wctNodeHeader_injective {k i h k' i' h' : Nat}
-    (hk : k < 252) (hi : i < 2 ^ 40) (hh : h < 2 ^ 32) (hk' : k' < 252) (hi' : i' < 2 ^ 40) (hh' : h' < 2 ^ 32)
+    (hk : k < 9) (hi : i < 2 ^ 31) (hh : h < 2 ^ 64) (hk' : k' < 9) (hi' : i' < 2 ^ 31) (hh' : h' < 2 ^ 64)
     (he : wctNodeHeader k i h = wctNodeHeader k' i' h') : k = k' ∧ i = i' ∧ h = h' := by
   unfold wctNodeHeader nodeLayer at he
-  obtain ⟨-, e2, e3, -, e5⟩ := header_injective (by decide) (by omega) hi (by norm_num) hh
-    (by decide) (by omega) hi' (by norm_num) hh' he
-  exact ⟨by omega, e3, e5⟩
+  obtain ⟨e1, e2, e3⟩ := nodeTweak_fts_injective (by omega) (by omega) (by omega) (by omega) hi hi' hh hh' he
+  exact ⟨by omega, e2, e3⟩
+theorem ftsLeafHeader_ne_wctNodeHeader (index coord selected : Nat) {coord' : Nat} (hk : coord' < 9)
+    (index' heap : Nat) (hh : heap % 2 ^ 64 ≠ 0) :
+    ftsLeafHeader index coord selected ≠ wctNodeHeader coord' index' heap := by
+  intro h
+  have hhi := congrArg BitVec.toNat (congrArg (fun x : BitVec 128 => x.extractLsb' 64 64) h)
+  simp only [ftsLeafHeader_high, wctNodeHeader_high hk, BitVec.toNat_ofNat] at hhi
+  exact hh hhi.symm
 theorem radix_inj {B a a' m m' : Nat} (h : a + B * m = a' + B * m') (ha : a < B) (ha' : a' < B) :
     a = a' ∧ m = m' := by
   have hB : 0 < B := by omega
@@ -225,7 +283,7 @@ theorem rank_val (output : HashOutput) (coord : Coord) :
     (rank output coord).val = field output coord % 600 := rfl
 theorem admissible_iff (output : HashOutput) :
     admissible output = true ↔
-      output.toNat / 2 ^ 235 % 2 ^ 21 < 1094 ∧ ∀ coord : Coord, field output coord < 16200 := by
+      output.toNat / 2 ^ 235 % 2 ^ 21 < 1091 ∧ ∀ coord : Coord, field output coord < 16200 := by
   unfold admissible field
   simp only [Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, List.mem_range]
   constructor
@@ -335,18 +393,18 @@ theorem jointCost_eq_sum (output : HashOutput) :
   unfold jointCost
   rw [← List.sum_ofFn]
   congr 1
-theorem childExtra_le (c : Child) : childExtra c ≤ 3 := by
+theorem childExtra_le (c : Child) : childExtra c ≤ 2 := by
   unfold childExtra maxChildSave; omega
-theorem jointCost_bounds (output : HashOutput) : 594 ≤ jointCost output ∧ jointCost output ≤ 747 := by
+theorem jointCost_bounds (output : HashOutput) : 594 ≤ jointCost output ∧ jointCost output ≤ 738 := by
   rw [jointCost_eq_sum]
   have hb := fun coord => routineCost_bounds (rank output coord)
   have he := fun coord => childExtra_le (child output coord)
   constructor
   · calc 594 = ∑ _coord : Coord, 66 := by simp
       _ ≤ _ := Finset.sum_le_sum fun coord _ => le_trans (hb coord).1 (Nat.le_add_right _ _)
-  · calc _ ≤ ∑ _coord : Coord, 83 := Finset.sum_le_sum fun coord _ => by
+  · calc _ ≤ ∑ _coord : Coord, 82 := Finset.sum_le_sum fun coord _ => by
           have := (hb coord).2; have := he coord; omega
-      _ = 747 := by simp
+      _ = 738 := by simp
 theorem capOk_iff (output : HashOutput) : capOk output = true ↔ jointCost output ≤ jointCap := by
   simp [capOk]
 theorem producerAdmissible_iff (output : HashOutput) :

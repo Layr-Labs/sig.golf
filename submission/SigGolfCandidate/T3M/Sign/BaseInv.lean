@@ -7,7 +7,7 @@ open SigGolfCandidate.T3M.Keygen (PRIV SEEDS CHAIN NODE NOUT LOUT LEAFPK MOUT ZD
 open SphincsSecurity (bytesLE bytesLE_length)
 def NeverW (A : Nat) : Prop :=
   A = FLEAF ∨ A = FLEAF + 8 ∨ A = FLEAF + 48 ∨ A = FLEAF + 56 ∨ A = NODE + 32 ∨ A = NODE + 40 ∨
-    A = CHAIN ∨ A = CHAIN + 8 ∨ A = CHAIN + 32 ∨ A = CHAIN + 40 ∨ A = LEAFPK + 880 ∨ A = LEAFPK + 888 ∨
+    A = CHAIN ∨ A = CHAIN + 8 ∨ A = CHAIN + 32 ∨ A = CHAIN + 40 ∨
     (ZDIG ≤ A ∧ A < ZDIG + 64) ∨ A = ENC + 40 ∨ A = NBUF + 32
 def BaseA (A : Nat) : Prop :=
   A = PRIV ∨ A = PRIV + 8 ∨ A = PRIV + 32 ∨ A = PRIV + 40 ∨ A = PRIV + 48 ∨ A = PRIV + 56 ∨

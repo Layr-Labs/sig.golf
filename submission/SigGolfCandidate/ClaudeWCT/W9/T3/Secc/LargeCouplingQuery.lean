@@ -74,14 +74,14 @@ theorem Coherent.leafMsg (h : Coherent U T vals nv τ a) (L : EncLeaf) :
   by_cases hl : L.1.lay.val < 3
   · rw [dif_pos hl, dif_pos hl]
     congr 1
-    · exact (treeLabel_top _ _ _ 0).trans (joinLabels_low _ _ _)
-    · exact (treeLabel_top _ _ _ 1).trans (joinLabels_low _ _ _)
+    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 0).trans (joinLabels_low _ _ _)
+    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 1).trans (joinLabels_low _ _ _)
   · rw [dif_neg hl, dif_neg hl]
     exact congrArg WCT9.LayerMsg.forest (joinLabels_low _ _ _)
 end Coherent
-theorem encodingRow_parsed_none (L : Wots.LeafAddr) (m : WCT9.LayerMsg) (c : BitVec 32) (pad : BitVec 96) :
+theorem encodingRow_parsed_none (L : Wots.LeafAddr) (m : WCT9.LayerMsg) (c : BitVec 32) (pad : Wots.RowPad) :
     Extract.posOf (Wots.encRow L m c pad) = none :=
-  Wots.Structural.posOf_layerEncodingP _ _ _ _ _ _
+  Wots.Structural.posOf_layerEncodingP _ _ _ _ _ _ _
 theorem digestRow_parsed_none {X : HashInput} (h : IsDigestRow X) : Extract.posOf X = none := by
   obtain ⟨rho, m, c, rfl⟩ := h
   exact Wots.Structural.posOf_digest _ _ _
@@ -98,15 +98,12 @@ theorem cellValues_parsed (N : CanonGraph.Node) (v : Coord → Digest) (s : Secr
     (hv : cellValues N v = cell s N labels) : Extract.posOf (cellValues N v) = some N.toPos := by
   rw [hv]
   exact posOf_cell s N labels
-theorem encRow_encLeaf {L L' : EncLeaf} {m m' : WCT9.LayerMsg} {c c' : BitVec 32} {pad pad' : BitVec 96}
+theorem encRow_encLeaf {L L' : EncLeaf} {m m' : WCT9.LayerMsg} {c c' : BitVec 32} {pad pad' : Wots.RowPad}
     (h : Wots.encRow L.toWots m c pad = Wots.encRow L'.toWots m' c' pad') : L = L' ∧ c = c' := by
   obtain ⟨⟨lay, tree, leaf⟩, hs⟩ := L
   obtain ⟨⟨lay', tree', leaf'⟩, hs'⟩ := L'
-  have ht : tree.val < 2 ^ 40 := lt_of_lt_of_le tree.isLt (by norm_num)
-  have ht' : tree'.val < 2 ^ 40 := lt_of_lt_of_le tree'.isLt (by norm_num)
-  have hl : leaf.val < 2 ^ 32 := lt_of_lt_of_le leaf.isLt (by norm_num)
-  have hl' : leaf'.val < 2 ^ 32 := lt_of_lt_of_le leaf'.isLt (by norm_num)
-  obtain ⟨h1, h2, h3, h4⟩ := ClaudeWCT.W9.T3M.BC.layerEncodingRow_coords ht hl ht' hl' h
+  obtain ⟨h1, h2, h3, h4⟩ := ClaudeWCT.W9.T3M.BC.layerEncodingRow_coords hs.routed.1 hs.routed.2
+    hs'.routed.1 hs'.routed.2 h
   refine ⟨?_, h4⟩
   subst h1
   have e2 : tree = tree' := Fin.ext h2
@@ -135,7 +132,7 @@ theorem slotValue_three (A B C E : HashInput) (hA : A.length = 16) (hB : B.lengt
     show (2 : Nat) = 1 + 1 from rfl, SigGolfCandidate.T3.Security.LargeResidual.slotValue_shift _ _ _ hB,
     show (1 : Nat) = 0 + 1 from rfl, SigGolfCandidate.T3.Security.LargeResidual.slotValue_shift _ _ _ hC]
   exact SigGolfCandidate.T3.Security.LargeResidual.slotValue_bytes_cons x E
-theorem slot_msgVals (L : EncLeaf) (v : Coord → Digest) (c : BitVec 32) (pad : BitVec 96) :
+theorem slot_msgVals (L : EncLeaf) (v : Coord → Digest) (c : BitVec 32) (pad : Wots.RowPad) :
     ∀ cs ∈ msgSlots L, slotValue (Wots.encRow L.toWots (msgVals v L) c pad) cs.2 = v cs.1 := by
   intro cs hcs
   have hl16 : ∀ x : Digest, (bytesLE 16 x).length = 16 := fun x => bytesLE_length 16 x
@@ -154,8 +151,8 @@ theorem slot_msgVals (L : EncLeaf) (v : Coord → Digest) (c : BitVec 32) (pad :
       exact slotValue_three _ _ _ [] (hl16 _) (hl16 _) (by simp only [List.length_append, bytesLE_length]) _
   · simp only [List.mem_cons, List.mem_nil_iff, or_false] at hcs
     subst hcs
-    rw [ClaudeWCT.W9.T3M.BC.layerEncodingInputP_forest]
-    unfold encodingInput pad64
+    rw [ClaudeWCT.W9.T3M.BC.layerEncodingInputP_forest, ClaudeWCT.W9.T3M.BC.pad64_pairEncodingInputP]
+    unfold WCT9.pairEncodingInputP
     simp only [List.append_assoc]
     exact SigGolfCandidate.T3.Security.LargeResidual.slotValue_bytes_cons _ _
 theorem firstUnknownMsg_some {K : Coord → Prop} {L : EncLeaf} {cs : Coord × Nat}
@@ -193,7 +190,8 @@ theorem childSlots_ne (N : CanonGraph.Node) : ∀ cs ∈ childSlots N, cs.1 ≠ 
       rcases hcs with ⟨c, hc, rfl⟩ | ⟨c, hc, rfl⟩ <;>
       · unfold treeChild at hc
         split_ifs at hc with hl
-        · obtain ⟨⟩ := hc
+        · simp only [Option.map_eq_some_iff] at hc
+          obtain ⟨L, -, rfl⟩ := hc
           simp
         · simp only [Option.map_eq_some_iff] at hc
           obtain ⟨m, hm, rfl⟩ := hc
@@ -270,7 +268,7 @@ theorem contactTest_parsed {A : Answers} {K : Coord → Prop} {X : HashInput} {y
   · intro h
     exact Or.inl ⟨N, hN, h⟩
 theorem contactTest_enc {A : Answers} {K : Coord → Prop} {y : HashOutput} {L : EncLeaf} {m : WCT9.LayerMsg}
-    {c : BitVec 32} {pad : BitVec 96} (hfit : Extract.msgFits L.1.lay m) :
+    {c : BitVec 32} {pad : Wots.RowPad} (hfit : Extract.msgFits L.1.lay m) :
     ContactTest A K (Wots.encRow L.toWots m c pad) y ↔
       (∃ cs, firstUnknownMsg K L = some cs ∧
           slotValue (Wots.encRow L.toWots m c pad) cs.2 = LargeResidual.honestValue A cs.1) ∨
@@ -585,7 +583,7 @@ theorem not_prefix_enc {X : HashInput} (he : ¬EncRow X) : ¬HonestPrefix vals a
   rintro ⟨L, ctr, rfl, -⟩
   exact he ⟨L, _, ctr, 0, msgFits_msgVals vals L, rfl⟩
 theorem not_enc_parsed {X : HashInput} (hp : Parsed X) (L : EncLeaf) (m : WCT9.LayerMsg) (ctr : BitVec 32)
-    (pad : BitVec 96) (hfit : Extract.msgFits L.1.lay m) : X ≠ Wots.encRow L.toWots m ctr pad := by
+    (pad : Wots.RowPad) (hfit : Extract.msgFits L.1.lay m) : X ≠ Wots.encRow L.toWots m ctr pad := by
   rintro rfl
   exact not_parsed_of_encRow ⟨L, m, ctr, pad, hfit, rfl⟩ hp
 theorem case_outside (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals nv τ a q mon st ws) (hlt : st.calls < q)
@@ -953,7 +951,7 @@ theorem case_knownChildren (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T va
         rw [keep_label, not_not] at hk
         rw [hTX]
         exact hk.symm
-theorem honestPrefix_iff {L : EncLeaf} {m : WCT9.LayerMsg} {ctr : BitVec 32} {pad : BitVec 96} :
+theorem honestPrefix_iff {L : EncLeaf} {m : WCT9.LayerMsg} {ctr : BitVec 32} {pad : Wots.RowPad} :
     HonestPrefix vals a (Wots.encRow L.toWots m ctr pad) ↔
       Wots.encRow L.toWots m ctr pad = Wots.encRow L.toWots (msgVals vals L) ctr 0 ∧ PrefixRow a L ctr := by
   constructor
@@ -963,7 +961,7 @@ theorem honestPrefix_iff {L : EncLeaf} {m : WCT9.LayerMsg} {ctr : BitVec 32} {pa
   · rintro ⟨hX, hp⟩
     exact ⟨L, ctr, hX, hp⟩
 theorem Coherent.referenceInput_eq (hcoh : Coherent U T vals nv τ a) {L : EncLeaf} {m : WCT9.LayerMsg}
-    {ctr : BitVec 32} {pad : BitVec 96}
+    {ctr : BitVec 32} {pad : Wots.RowPad}
     (h : Wots.referenceInput T L.toWots = some (Wots.encRow L.toWots m ctr pad)) :
     Wots.encRow L.toWots m ctr pad = Wots.encRow L.toWots (msgVals vals L) ctr 0 ∧ PrefixRow a L ctr := by
   obtain ⟨r, hr, hX⟩ := hcoh.referenceInput L _ h
@@ -981,13 +979,13 @@ theorem Coherent.referenceInput_eq (hcoh : Coherent U T vals nv τ a) {L : EncLe
     rw [hc, BitVec.toNat_ofNat]
     have := r.1.isLt
     omega
-theorem encRow_not_digest (L : EncLeaf) (m : WCT9.LayerMsg) (ctr : BitVec 32) (pad : BitVec 96) :
+theorem encRow_not_digest (L : EncLeaf) (m : WCT9.LayerMsg) (ctr : BitVec 32) (pad : Wots.RowPad) :
     ¬IsDigestRow (Wots.encRow L.toWots m ctr pad) := by
   rintro ⟨rho, m', c, h⟩
   exact Wots.SmallA.encRow_ne_digest _ _ _ _ _ _ _ h
 theorem case_enc_known (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals nv τ a q mon st ws)
     (hlt : st.calls < q) (X : HashInput) (hX : X ∈ U) (L : EncLeaf) (m : WCT9.LayerMsg) (ctr : BitVec 32)
-    (pad : BitVec 96) (hfit : Extract.msgFits L.1.lay m) (hXe : X = Wots.encRow L.toWots m ctr pad)
+    (pad : Wots.RowPad) (hfit : Extract.msgFits L.1.lay m) (hXe : X = Wots.encRow L.toWots m ctr pad)
     (hkm : firstUnknownMsg st.known L = none) :
     QueryOutcome U T vals nv τ a q mon st ws X (observedRun aux q (Sum.elim vals nv) τ (do
       let pairs ← discloseAll U ((msgSlots L).map Prod.fst)
@@ -1091,7 +1089,7 @@ theorem case_enc_known (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals n
         exact hk.symm
 theorem case_enc_unknown (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals nv τ a q mon st ws)
     (hlt : st.calls < q) (hq : q ≤ 2 ^ 127) (X : HashInput) (hX : X ∈ U) (L : EncLeaf) (m : WCT9.LayerMsg)
-    (ctr : BitVec 32) (pad : BitVec 96) (hfit : Extract.msgFits L.1.lay m)
+    (ctr : BitVec 32) (pad : Wots.RowPad) (hfit : Extract.msgFits L.1.lay m)
     (hXe : X = Wots.encRow L.toWots m ctr pad) (cs : Coord × Nat) (hfu : firstUnknownMsg st.known L = some cs) :
     QueryOutcome U T vals nv τ a q mon st ws X (observedRun aux q (Sum.elim vals nv) τ
       ((fun y => (y, st.after X)) <$>

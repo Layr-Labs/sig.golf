@@ -1,5 +1,6 @@
 import SigGolfCandidate.T3M.Keygen.Tree
 import SigGolfCandidate.T3M.Sign.SeedChain
+import SigGolfCandidate.ClaudeWCT.WCT9.Core
 
 namespace SigGolfCandidate.T3M.Sign.Seed
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp
@@ -78,41 +79,41 @@ theorem sub120_spec {image : Image} {b : Nat} (h : SeedIndependentAt image b) (s
       t.getReg .x7 = BitVec.ofNat 64 k ∧ t.getReg .x30 = BitVec.ofNat 64 (NODE + 48) ∧
       t.getMem (BitVec.ofNat 64 NODE) = s.getMem (BitVec.ofNat 64 (arena + 32 * k)) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 8)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 8)) ∧
-      t.getMem (BitVec.ofNat 64 (NODE + 16)) = s.getReg .x21 ||| (BitVec.ofNat 64 tree <<< 32) ∧
+      t.getMem (BitVec.ofNat 64 (NODE + 16)) = s.getReg .x21 ∧
       t.getMem (BitVec.ofNat 64 (NODE + 48)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 16)) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 56)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 24)) ∧
       RegsExcept s t [.x6, .x7, .x28, .x30] ∧
       Frame s t (fun X => X = NODE ∨ X = NODE + 8 ∨ X = NODE + 16 ∨ X = NODE + 48 ∨ X = NODE + 56) := by
-  have hrun := run_120 h.2.1
-  have hobl : Oblig.all s st_120.obl := by
-    simp only [st_120, blk117_120.res]
+  obtain rfl := SeedIndependent.b_eq h
+  have hobl : Oblig.all s SeedIndependent.blkS_120.res.st.obl := by
+    simp only [SeedIndependent.blkS_120.res]
     t3n [h2, h24]
     simp only [NODE] at hdis
     omega
-  refine ⟨_, symRun_sound hrun (SeedIndependent.codeAt_sub_120 h) s hpc hobl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · simp only [Result.toState_pc, pcE_120, rebase, blk117_120.res, E.eval, CmpOp.eval, BinOp.eval, h21]
+  refine ⟨_, symRun_sound SeedIndependent.blkS_120 (SeedIndependent.codeAt_sub120S h) s hpc hobl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · simp only [Result.toState_pc, SeedIndependent.blkS_120.res, E.eval, CmpOp.eval, BinOp.eval, h21]
     simp only [slt_shl52, slt_shl52', slt_shl52n, slt_shl52n']
     by_cases hc : 2048 ≤ h0 % 4096 <;> simp [hc]
-  · simp [st_120, blk117_120.res, rv_simp, h24]
-  · simp [st_120, blk117_120.res, rv_simp]
-  · simp only [Result.toState_getMem, st_120, blk117_120.res, NODE]
+  · simp [SeedIndependent.blkS_120.res, rv_simp, h24]
+  · simp [SeedIndependent.blkS_120.res, rv_simp]
+  · simp only [Result.toState_getMem, SeedIndependent.blkS_120.res, NODE]
     t3n [h2, h24]
     congr 2; omega
-  · simp only [Result.toState_getMem, st_120, blk117_120.res, NODE]
+  · simp only [Result.toState_getMem, SeedIndependent.blkS_120.res, NODE]
     t3n [h2, h24]
     congr 2; omega
-  · simp only [Result.toState_getMem, st_120, blk117_120.res, NODE]
+  · simp only [Result.toState_getMem, SeedIndependent.blkS_120.res, NODE]
     t3n [h9]
-  · simp only [Result.toState_getMem, st_120, blk117_120.res, NODE]
+  · simp only [Result.toState_getMem, SeedIndependent.blkS_120.res, NODE]
     t3n [h2, h24]
     congr 2; omega
-  · simp only [Result.toState_getMem, st_120, blk117_120.res, NODE]
+  · simp only [Result.toState_getMem, SeedIndependent.blkS_120.res, NODE]
     t3n [h2, h24]
     congr 2; omega
-  · intro r hr; simp at hr; cases r <;> simp_all [st_120, blk117_120.res, rv_simp] <;> rfl
+  · intro r hr; simp at hr; cases r <;> simp_all [SeedIndependent.blkS_120.res, rv_simp] <;> rfl
   · intro X hX hn
     simp only [NODE] at hn
-    simp only [Result.toState_getMem, st_120, blk117_120.res]
+    simp only [Result.toState_getMem, SeedIndependent.blkS_120.res]
     t3n []
     rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega)]
 theorem sub214_spec {image : Image} {b : Nat} (h : SeedIndependentAt image b) (s : MachineState)
@@ -147,18 +148,18 @@ theorem sub140_spec {image : Image} {b : Nat} (h : SeedIndependentAt image b) (s
     rw [Result.toState_getMem]
     exact sub140_frame s h30 X hX (by simp only [NODE] at hn; omega)
 theorem sub120_full {image : Image} {b : Nat} (h : SeedIndependentAt image b) (s : MachineState)
-    (hpc : s.pc = pcOf (b + 120)) (tag lay arena k tree : Nat) (htag : tag = 3 ∨ tag = 10)
+    (hpc : s.pc = pcOf (b + 120)) (tag lay arena k tree : Nat) (htag : tag = 3)
     (ha8 : arena % 8 = 0) (hk : 32 * k + 32 + arena ≤ 2 ^ 24) (hk' : k < 2 ^ 12) (htree : tree < 2 ^ 32)
     (hdis : NODE + 64 ≤ arena + 32 * k ∨ arena + 32 * k + 32 ≤ NODE)
     (h2 : s.getReg .x2 = BitVec.ofNat 64 arena) (h24 : s.getReg .x24 = BitVec.ofNat 64 k)
     (h9 : s.getReg .x9 = BitVec.ofNat 64 tree)
-    (h21 : s.getReg .x21 = BitVec.ofNat 64 (hdr0 tag lay tree 0)) :
+    (h21 : s.getReg .x21 = BitVec.ofNat 64 (nodeLo lay tree)) :
     ∃ t, Steps image s (26 + revX tag) (26 + revX tag) t ∧ t.pc = pcOf (b + 146) ∧
       t.getReg .x10 = BitVec.ofNat 64 NODE ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 NOUT ∧
       t.getMem (BitVec.ofNat 64 NODE) = s.getMem (BitVec.ofNat 64 (arena + 32 * k)) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 8)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 8)) ∧
-      t.getMem (BitVec.ofNat 64 (NODE + 16)) = s.getReg .x21 ||| (BitVec.ofNat 64 tree <<< 32) ∧
+      t.getMem (BitVec.ofNat 64 (NODE + 16)) = s.getReg .x21 ∧
       t.getMem (BitVec.ofNat 64 (NODE + 24)) = BitVec.ofNat 64 (T3.nodeWord tag 0 k) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 48)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 16)) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 56)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 24)) ∧
@@ -166,21 +167,15 @@ theorem sub120_full {image : Image} {b : Nat} (h : SeedIndependentAt image b) (s
       Frame s t (fun X => X = NODE ∨ X = NODE + 8 ∨ X = NODE + 16 ∨ X = NODE + 24 ∨ X = NODE + 48 ∨
         X = NODE + 56) := by
   obtain ⟨t1, st1, t1pc, t1x7, t1x30, m0, m8, m16, m48, m56, t1r, t1f⟩ :=
-    sub120_spec h s hpc arena k tree (hdr0 tag lay tree 0) ha8 hk htree hdis h2 h24 h9 h21
-  have hmod : hdr0 tag lay tree 0 % 4096 = 1 + 256 * (tag % 16) := by
-    unfold hdr0; omega
+    sub120_spec h s hpc arena k tree (nodeLo lay tree) ha8 hk htree hdis h2 h24 h9 h21
+  have hmod := nodeLo_mod lay tree
   have mid : ∃ u, Steps image t1 (revX tag) (revX tag) u ∧ u.pc = pcOf (b + 140) ∧
       u.getReg .x7 = BitVec.ofNat 64 (T3.nodeWord tag 0 k) ∧ RegsExcept t1 u [.x6, .x7, .x28] ∧
       Frame t1 u (fun _ => False) := by
-    rcases htag with rfl | rfl
-    · rw [hmod, if_neg (by norm_num)] at t1pc
-      refine ⟨t1, (Steps.refl _).of_eq (by decide) (by decide), t1pc, ?_, RegsExcept.refl _ _, Frame.refl _ _⟩
-      rw [t1x7, nodeWord_3, hdr1_eq k 0 (by omega) (by norm_num)]; simp
-    · rw [hmod, if_pos (by norm_num)] at t1pc
-      obtain ⟨u, stu, upc, ux7, ur, uf⟩ := sub214_spec h t1 t1pc k hk'
-        (by rw [t1r.get (by simp)]; exact h24)
-      refine ⟨u, stu.of_eq (by decide) (by decide), upc, ?_, ur, uf⟩
-      rw [ux7, nodeWord_10, hdr1_eq k 0 (by omega) (by norm_num)]; simp
+    subst htag
+    rw [if_neg (by omega)] at t1pc
+    refine ⟨t1, (Steps.refl _).of_eq (by decide) (by decide), t1pc, ?_, RegsExcept.refl _ _, Frame.refl _ _⟩
+    rw [t1x7, nodeWord_3, hdr1_eq k 0 (by omega) (by norm_num)]; simp
   obtain ⟨u, stu, upc, ux7, ur, uf⟩ := mid
   obtain ⟨t, stt, tpc, tx10, tx11, tx12, tm24, tr, tf⟩ := sub140_spec h u upc
     (by rw [ur.get (by simp)]; exact t1x30)
@@ -235,16 +230,49 @@ theorem sub147_spec {image : Image} {b : Nat} (h : SeedIndependentAt image b) (s
     rw [if_neg (by omega), if_neg (by omega)]
 theorem sub157_spec {image : Image} {b : Nat} (h : SeedIndependentAt image b) (s : MachineState)
     (hpc : s.pc = pcOf (b + 157)) (lo : Nat) (hlo : lo < 2 ^ 64) (h20 : s.getReg .x20 = BitVec.ofNat 64 lo) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf (b + 116) ∧ t.getReg .x20 = BitVec.ofNat 64 (lo / 2) ∧
-      RegsExcept s t [.x20] ∧ Frame s t (fun _ => False) := by
-  have hrun := run_157 h.2.1
-  refine ⟨_, symRun_sound hrun (SeedIndependent.codeAt_sub_157 h) s hpc (by simp [st_157, blk117_157.res, rv_simp]),
-    ?_, ?_, ?_, ?_⟩
-  · simp [pcE_157, Result.toState_pc, E.eval]
-  · simp only [Result.toState_getReg, st_157, blk117_157.res, rv_simp, h20]
-    rw [ofNat_shr _ _ hlo]; rfl
-  · intro r hr; simp at hr; cases r <;> simp_all [st_157, blk117_157.res, rv_simp] <;> rfl
-  · intro A _ _; simp [st_157, blk117_157.res, rv_simp]
+    ∃ t, Steps image s (if lo / 2 = 1 then 4 else 5) (if lo / 2 = 1 then 4 else 5) t ∧
+      t.pc = (if lo / 2 = 1 then pcOf (b + 159) else pcOf (b + 116)) ∧
+      t.getReg .x20 = BitVec.ofNat 64 (lo / 2) ∧
+      RegsExcept s t [.x6, .x20] ∧ Frame s t (fun _ => False) := by
+  obtain rfl := SeedIndependent.b_eq h
+  obtain ⟨t1, s1, p1, x20, r1, f1⟩ : ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf 1551 ∧
+      t.getReg .x20 = BitVec.ofNat 64 (lo / 2) ∧ RegsExcept s t [.x20] ∧ Frame s t (fun _ => False) := by
+    refine ⟨_, symRun_sound SeedIndependent.blkS_157 (SeedIndependent.codeAt_sub157S h) s hpc
+      (by simp [SeedIndependent.blkS_157.res, rv_simp]), ?_, ?_, ?_, ?_⟩
+    · simp [SeedIndependent.blkS_157.res, E.eval]
+    · simp only [Result.toState_getReg, SeedIndependent.blkS_157.res, rv_simp, h20]
+      rw [ofNat_shr _ _ hlo]; rfl
+    · intro r hr; simp at hr; cases r <;> simp_all [SeedIndependent.blkS_157.res, rv_simp] <;> rfl
+    · intro A _ _; simp [SeedIndependent.blkS_157.res, rv_simp]
+  obtain ⟨t2, s2, p2, r2, f2⟩ : ∃ t, Steps image t1 2 2 t ∧
+      t.pc = (if lo / 2 = 1 then pcOf (1013 + 159) else pcOf 1553) ∧ RegsExcept t1 t [.x6] ∧
+      Frame t1 t (fun _ => False) := by
+    refine ⟨_, symRun_sound SeedIndependent.blkS_noroot (SeedIndependent.codeAt_norootS h) t1 p1
+      (by simp [SeedIndependent.blkS_noroot.res, rv_simp]), ?_, ?_, ?_⟩
+    · simp only [Result.toState_pc, SeedIndependent.blkS_noroot.res, E.eval, CmpOp.eval, BinOp.eval, x20]
+      by_cases h1 : lo / 2 = 1
+      · simp [h1]
+      · have : BitVec.ofNat 64 (lo / 2) ≠ 1#64 := fun he => h1 (by
+          have := congrArg BitVec.toNat he; rwa [toNat_ofNat_lt (by omega)] at this)
+        simp [h1, this]
+    · intro r hr; simp at hr; cases r <;> simp_all [SeedIndependent.blkS_noroot.res, rv_simp] <;> rfl
+    · intro A _ _; simp [SeedIndependent.blkS_noroot.res, rv_simp]
+  by_cases h1 : lo / 2 = 1
+  · rw [if_pos h1] at p2
+    refine ⟨t2, (s1.trans s2).of_eq (by simp [h1]) (by simp [h1]), by rw [if_pos h1]; exact p2, ?_,
+      (r1.trans r2).mono (by decide), (f1.trans f2).mono (fun A _ h => by simp_all)⟩
+    rw [r2.get (by decide), x20]
+  · rw [if_neg h1] at p2
+    obtain ⟨t3, s3, p3, r3, f3⟩ : ∃ t, Steps image t2 1 1 t ∧ t.pc = pcOf (1013 + 116) ∧
+        RegsExcept t2 t [] ∧ Frame t2 t (fun _ => False) := by
+      refine ⟨_, symRun_sound SeedIndependent.blkS_nrj (SeedIndependent.codeAt_norootJ h) t2 p2
+        (by simp [SeedIndependent.blkS_nrj.res, rv_simp]), ?_, ?_, ?_⟩
+      · simp [SeedIndependent.blkS_nrj.res, E.eval]
+      · intro r hr; cases r <;> rfl
+      · intro A hA hn; rfl
+    refine ⟨t3, ((s1.trans s2).trans s3).of_eq (by simp [h1]) (by simp [h1]), by rw [if_neg h1]; exact p3, ?_,
+      ((r1.trans r2).trans r3).mono (by decide), ((f1.trans f2).trans f3).mono (fun A _ h => by simp_all)⟩
+    rw [r3.get (by decide), r2.get (by decide), x20]
 theorem sub159_spec {image : Image} {b : Nat} (h : SeedIndependentAt image b) (s : MachineState)
     (hpc : s.pc = pcOf (b + 159)) (k : Nat) (h1 : s.getReg .x1 = pcOf k) :
     ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf k ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
@@ -254,6 +282,11 @@ theorem sub159_spec {image : Image} {b : Nat} (h : SeedIndependentAt image b) (s
   · simp only [Result.toState_pc, pcE_159, blk117_159.res, rv_simp, h1, pcOf_and_max]
   · intro r hr; cases r <;> simp_all [st_159, blk117_159.res, rv_simp] <;> rfl
   · intro A _ _; simp [st_159, blk117_159.res, rv_simp]
+def levKB (B : LevArgs) : Nat :=
+  3 + sumTo (fun j => 8 + (if j + 2 = B.h then 0 else 1) + (39 + revX B.tag) * 2 ^ (B.h - 1 - j)) (B.h - 1) + 1
+def levCB (B : LevArgs) : Nat :=
+  3 + sumTo (fun j => 8 + (if j + 2 = B.h then 0 else 1) + (46 + revX B.tag) * 2 ^ (B.h - 1 - j)) (B.h - 1) + 1
+def levNB (B : LevArgs) : Nat := sumTo (fun j => 2 ^ (B.h - 1 - j)) (B.h - 1)
 section lev
 variable {image : Image} {b : Nat} (hsub : SeedIndependentAt image b) (sk : BitVec 256) {s0 : MachineState}
   {B : LevArgs} {leaves : List Digest} (hpre : LevPre s0 B leaves)
@@ -283,7 +316,7 @@ theorem lev_node {ℓ : Nat} (hl : ℓ < B.h) {levels : List (List Digest)} {pre
   have r2 : t.getReg .x2 = BitVec.ofNat 64 B.arena := by rw [g _ (by simp [levRegs]), hpre.x2]
   have r9 : t.getReg .x9 = BitVec.ofNat 64 B.tree := by rw [g _ (by simp [levRegs]), hpre.x9]
   have r5 : t.getReg .x5 = 0 := by rw [g _ (by simp [levRegs]), hpre.x5]
-  have r21 : t.getReg .x21 = BitVec.ofNat 64 (hdr0 B.tag B.lay B.tree 0) := by
+  have r21 : t.getReg .x21 = BitVec.ofNat 64 (nodeLo B.lay B.tree) := by
     rw [g _ (by simp [levRegs]), hpre.x21]
   obtain ⟨t1, st1, t1pc, t1r, t1f⟩ := sub118_spec hsub t hpc lo (lo + i) (by omega) (by omega) ht.x20 ht.x24
   rw [if_pos (by omega)] at t1pc
@@ -308,23 +341,24 @@ theorem lev_node {ℓ : Nat} (hl : ℓ < B.h) {levels : List (List Digest)} {pre
     rw [t2f.get hX' (by simp only [NODE] at hX ⊢; omega), t1f.get hX' (by simp),
       ht.frame.get hX' (by unfold LevW; simp only [NODE, NOUT] at hX has ⊢; omega)]
   have hq : hashInput t2 = toQ (pad64 (bytesLE 16 ((levels.getD ℓ []).getD (2 * i) 0) ++
-      bytesLE 16 (header B.tag B.lay B.tree 0 (lo + i)) ++ zero16 ++
+      bytesLE 16 (T3.nodeTweak B.tag B.lay B.tree (lo + i)) ++ zero16 ++
       bytesLE 16 ((levels.getD ℓ []).getD (2 * i + 1) 0))) := by
-    rw [pad64_of_aligned _ (by rw [nodeInput_length])]
-    refine hashInput_toQ t2 _ 0 NODE (nodeInput_length _ _ _ _ _ _) t2x10 (by decide) (by decide) t2x11
+    rw [pad64_of_aligned _ (by rw [nodeInputT_length])]
+    refine hashInput_toQ t2 _ 0 NODE (nodeInputT_length _ _ _ _ _ _) t2x10 (by decide) (by decide) t2x11
       (by decide) ?_
-    rw [wordsOf_nodeInput _ _ _ _ _ _ (by rcases hpre.tag3 with h | h <;> rw [h] <;> decide), readWords_eight, t2n0, t2n8, t2n16, t2n24, fr (NODE + 32) (by simp),
+    rw [hpre.tag3, wordsOf_nodeInputT hpre.hlay, readWords_eight, t2n0, t2n8, t2n16, t2n24, fr (NODE + 32) (by simp),
       fr (NODE + 40) (by simp), t2n48, t2n56, hpre.z32, hpre.z40, hL1.1, hL1.2, hR1.1, hR1.2,
-      t1r.get (by simp), r21, hdr0_or_tree B.tag B.lay B.tree hpre.htree]
+      t1r.get (by simp), r21, hpre.tag3, nodeWord_3, hdr1_eq (lo + i) 0 (by omega) (by norm_num)]
+    simp
   have hv : hashArgumentsValid t2 = true :=
     hashArgs_const t2 NODE 64 NOUT t2x10 t2x11 t2x12 (by decide) (by decide) (by decide) (by decide)
       (by decide)
   have h5 : t2.getReg .x5 = 0 := by rw [t2r.get (by simp), t1r.get (by simp), r5]
   have hblk : (toQ (pad64 (bytesLE 16 ((levels.getD ℓ []).getD (2 * i) 0) ++
-      bytesLE 16 (header B.tag B.lay B.tree 0 (lo + i)) ++ zero16 ++
+      bytesLE 16 (T3.nodeTweak B.tag B.lay B.tree (lo + i)) ++ zero16 ++
       bytesLE 16 ((levels.getD ℓ []).getD (2 * i + 1) 0)))).blocks = 1 := by
-    rw [pad64_of_aligned _ (by rw [nodeInput_length]),
-      blocks_toQ ⟨by rw [nodeInput_length]; omega, by rw [nodeInput_length]⟩, nodeInput_length]
+    rw [pad64_of_aligned _ (by rw [nodeInputT_length]),
+      blocks_toQ ⟨by rw [nodeInputT_length]; omega, by rw [nodeInputT_length]⟩, nodeInputT_length]
   unfold nodeHash
   rw [hk']
   refine (TSim.steps (st1.trans st2)
@@ -375,14 +409,17 @@ theorem lev_node {ℓ : Nat} (hl : ℓ < B.h) {levels : List (List Digest)} {pre
       · rw [show B.arena + 16 * lo + 16 * i = B.arena + 16 * (lo + i) by ring]; exact hnew
   all_goals (try rw [hblk])
   all_goals (first | rfl | omega)
-theorem lev_level {ℓ : Nat} (hl : ℓ < B.h) {levels : List (List Digest)} {t : MachineState}
+theorem lev_level {ℓ : Nat} (hl1 : ℓ + 1 < B.h) {levels : List (List Digest)} {t : MachineState}
     (ht : LevInv s0 B ℓ levels t) (hpc : t.pc = pcOf (b + 116)) :
-    TSim image sk t (6 + (39 + revX B.tag) * 2 ^ (B.h - 1 - ℓ)) (6 + (46 + revX B.tag) * 2 ^ (B.h - 1 - ℓ))
+    TSim image sk t (8 + (if ℓ + 2 = B.h then 0 else 1) + (39 + revX B.tag) * 2 ^ (B.h - 1 - ℓ))
+      (8 + (if ℓ + 2 = B.h then 0 else 1) + (46 + revX B.tag) * 2 ^ (B.h - 1 - ℓ))
       (2 ^ (B.h - 1 - ℓ))
       (2 ^ (B.h - 1 - ℓ))
       (do let nodes ← buildLevel B.tag B.lay B.tree B.h (1 + ℓ) (levels.getD (1 + ℓ - 1) [])
           pure (levels ++ [nodes]))
-      (fun levels' u => u.pc = pcOf (b + 116) ∧ LevInv s0 B (ℓ + 1) levels' u) := by
+      (fun levels' u => u.pc = (if ℓ + 2 = B.h then pcOf (b + 159) else pcOf (b + 116)) ∧
+        LevInv s0 B (ℓ + 1) levels' u) := by
+  have hl : ℓ < B.h := by omega
   have hh := hpre.hh
   set lo := 2 ^ (B.h - ℓ - 1) with hlo_def
   have hY : 2 ^ (B.h - ℓ) = 2 * lo := two_pow_split hl
@@ -417,7 +454,8 @@ theorem lev_level {ℓ : Nat} (hl : ℓ < B.h) {levels : List (List Digest)} {t 
     rw [show 1 + ℓ - 1 = ℓ by omega, (ht.heap.2 ℓ le_rfl).1, hY]; omega
   unfold buildLevel
   rw [hnodes]
-  refine (TSim.steps (st1.trans st2) (TSim.bind (k₂ := 4) (c₂ := 4) (n₂ := 0) (b₂ := 0)
+  refine (TSim.steps (st1.trans st2) (TSim.bind (k₂ := 6 + (if ℓ + 2 = B.h then 0 else 1))
+    (c₂ := 6 + (if ℓ + 2 = B.h then 0 else 1)) (n₂ := 0) (b₂ := 0)
     (TSim.mapM_range lo _ (fun _ => 39 + revX B.tag) (fun _ => 46 + revX B.tag) (fun _ => 1) (fun _ => 1)
       (fun pre w => w.pc = pcOf (b + 118) ∧ NodeInv s0 B ℓ levels pre w)
       (fun pre w hpre' hw => ?_) ⟨t2pc, h0⟩) (fun nodes w hw => ?_))).of_eq rfl ?_ ?_ ?_ ?_
@@ -429,8 +467,24 @@ theorem lev_level {ℓ : Nat} (hl : ℓ < B.h) {levels : List (List Digest)} {t 
     rw [if_neg (by omega)] at w1pc
     obtain ⟨w2, st4, w2pc, w2x20, w2r, w2f⟩ := sub157_spec hsub w1 w1pc lo (by omega)
       (by rw [w1r.get (by simp)]; exact hw.x20)
+    have hlo2 : lo / 2 = 2 ^ (B.h - ℓ - 2) := by
+      rw [hlo_def, show B.h - ℓ - 1 = (B.h - ℓ - 2) + 1 by omega, Nat.pow_succ, Nat.mul_div_cancel _ (by norm_num)]
+    have hiff : lo / 2 = 1 ↔ ℓ + 2 = B.h := by
+      rw [hlo2]
+      constructor
+      · intro he
+        by_contra hne
+        have : 2 ≤ 2 ^ (B.h - ℓ - 2) := by
+          calc 2 = 2 ^ 1 := by norm_num
+            _ ≤ 2 ^ (B.h - ℓ - 2) := Nat.pow_le_pow_right (by norm_num) (by omega)
+        omega
+      · intro he; rw [show B.h - ℓ - 2 = 0 by omega]; rfl
+    have st34 : Steps image w (6 + (if ℓ + 2 = B.h then 0 else 1)) (6 + (if ℓ + 2 = B.h then 0 else 1)) w2 :=
+      (st3.trans st4).of_eq (by by_cases hE : ℓ + 2 = B.h <;> simp [hE, hiff]) (by by_cases hE : ℓ + 2 = B.h <;> simp [hE, hiff])
+    have p2 : w2.pc = if ℓ + 2 = B.h then pcOf (b + 159) else pcOf (b + 116) := by
+      rw [w2pc]; by_cases hE : ℓ + 2 = B.h <;> simp [hE, hiff]
     have f12 : Frame w w2 (fun _ => False) := (w1f.trans w2f).mono (fun X _ h => by simp_all)
-    refine TSim.pure_steps (st3.trans st4) ⟨w2pc, ?_, ?_, ?_, ?_⟩
+    refine TSim.pure_steps st34 ⟨p2, ?_, ?_, ?_, ?_⟩
     · rw [w2x20, hx20']
     · exact (hw.regs.trans (w1r.trans w2r)).mono (by decide)
     · exact (hw.frame.trans f12).mono (fun X _ h => by rcases h with h | h; exact h; exact h.elim)
@@ -456,9 +510,10 @@ theorem lev_level {ℓ : Nat} (hl : ℓ < B.h) {levels : List (List Digest)} {t 
         exact ⟨hlen, hw.cur.frame f12 (by rw [hlen]; omega) (fun X _ _ h => h.elim)⟩
   all_goals simp only [sumTo_const, hl1]
   all_goals (first | omega | ring)
-theorem buildLevels_tsim (hpc : s0.pc = pcOf (b + 113)) :
-    TSim image sk s0 B.levK B.levC B.levN B.levN (buildLevels B.tag B.lay B.tree B.h leaves)
-      (fun levels t => t.pc = pcOf B.ret ∧ HeapAt t B B.h levels ∧ RegsExcept s0 t levRegs ∧
+theorem buildLevelsBelow_tsim (hh2 : 2 ≤ B.h) (hpc : s0.pc = pcOf (b + 113)) :
+    TSim image sk s0 (levKB B) (levCB B) (levNB B) (levNB B)
+      (ClaudeWCT.WCT9.buildLevelsBelow B.tag B.lay B.tree B.h leaves)
+      (fun levels t => t.pc = pcOf B.ret ∧ HeapAt t B (B.h - 1) levels ∧ RegsExcept s0 t levRegs ∧
         Frame s0 t (LevW B)) := by
   have hh := hpre.hh
   have hh1 := hpre.hh1
@@ -474,28 +529,28 @@ theorem buildLevels_tsim (hpc : s0.pc = pcOf (b + 113)) :
       subst hl0
       simp only [List.getD_cons_zero, Nat.sub_zero]
       exact ⟨hpre.hlen, hpre.hleaves.frame t1f (by rw [hpre.hlen]; omega) (fun X _ _ h => h.elim)⟩
-  unfold buildLevels
-  refine (TSim.steps st1 (TSim.bind (k₂ := 2) (c₂ := 2) (n₂ := 0) (b₂ := 0) (f := Pure.pure)
-    (TSim.foldlM_range' 1 B.h _ [leaves]
-      (fun j levels t => t.pc = pcOf (b + 116) ∧ LevInv s0 B j levels t)
-      (fun j => 6 + (39 + revX B.tag) * 2 ^ (B.h - 1 - j)) (fun j => 6 + (46 + revX B.tag) * 2 ^ (B.h - 1 - j))
+  unfold ClaudeWCT.WCT9.buildLevelsBelow
+  refine (TSim.steps st1 (TSim.bind (k₂ := 1) (c₂ := 1) (n₂ := 0) (b₂ := 0) (f := Pure.pure)
+    (TSim.foldlM_range' 1 (B.h - 1) _ [leaves]
+      (fun j levels t => t.pc = (if j + 1 = B.h then pcOf (b + 159) else pcOf (b + 116)) ∧ LevInv s0 B j levels t)
+      (fun j => 8 + (if j + 2 = B.h then 0 else 1) + (39 + revX B.tag) * 2 ^ (B.h - 1 - j))
+      (fun j => 8 + (if j + 2 = B.h then 0 else 1) + (46 + revX B.tag) * 2 ^ (B.h - 1 - j))
       (fun j => 2 ^ (B.h - 1 - j)) (fun j => 2 ^ (B.h - 1 - j))
-      (fun j hj levels t ht => lev_level hsub sk hpre hj ht.2 ht.1) ⟨t1pc, h0⟩)
+      (fun j hj levels t ht => (lev_level hsub sk hpre (by omega) ht.2
+        (by rw [ht.1, if_neg (by omega)])).mono (fun _ _ h => h))
+      ⟨by rw [if_neg (by omega)]; exact t1pc, h0⟩)
     (fun levels t ht => ?_))).of_eq (bind_pure _) ?_ ?_ ?_ ?_
   · obtain ⟨tpc, hinv⟩ := ht
-    have hx : 2 ^ B.h / 2 ^ (B.h + 1) = 0 := Nat.div_eq_of_lt (Nat.pow_lt_pow_right (by norm_num) (by omega))
-    obtain ⟨u1, st2, u1pc, u1r, u1f⟩ := sub116_spec hsub t tpc 0 (by omega) (by rw [hinv.x20, hx])
-    rw [if_pos rfl] at u1pc
-    obtain ⟨u2, st3, u2pc, u2r, u2f⟩ := sub159_spec hsub u1 u1pc B.ret
-      (by rw [u1r.get (by simp), hinv.regs.get (by simp [levRegs]), hpre.x1])
-    have f12 : Frame t u2 (fun _ => False) := (u1f.trans u2f).mono (fun X _ h => by simp_all)
-    refine TSim.pure_steps (st2.trans st3) ⟨u2pc, ⟨hinv.heap.1, fun l hl => ?_⟩,
-      (hinv.regs.trans (u1r.trans u2r)).mono (by decide),
-      (hinv.frame.trans f12).mono (fun X _ h => by rcases h with h | h; exact h; exact h.elim)⟩
+    rw [if_pos (by omega)] at tpc
+    obtain ⟨u2, st3, u2pc, u2r, u2f⟩ := sub159_spec hsub t tpc B.ret
+      (by rw [hinv.regs.get (by simp [levRegs]), hpre.x1])
+    refine TSim.pure_steps st3 ⟨u2pc, ⟨hinv.heap.1, fun l hl => ?_⟩,
+      (hinv.regs.trans u2r).mono (by decide),
+      (hinv.frame.trans u2f).mono (fun X _ h => by rcases h with h | h; exact h; exact h.elim)⟩
     obtain ⟨h1, h2⟩ := hinv.heap.2 l hl
     have : 2 ^ (B.h - l) ≤ 2 ^ B.h := Nat.pow_le_pow_right (by norm_num) (by omega)
-    exact ⟨h1, h2.frame f12 (by rw [h1]; omega) (fun X _ _ h => h.elim)⟩
-  all_goals simp only [LevArgs.levK, LevArgs.levC, LevArgs.levN]
+    exact ⟨h1, h2.frame u2f (by rw [h1]; omega) (fun X _ _ h => h.elim)⟩
+  all_goals simp only [levKB, levCB, levNB]
   all_goals omega
 end lev
 end SigGolfCandidate.T3M.Sign.Seed

@@ -90,12 +90,19 @@ theorem chain_free (lay : Layer) (tree leaf i start count : Nat) (value : Digest
   exact foldlM_allowed WFree _ _ (fun v step => chainStep_free lay tree leaf i step v) value
 theorem leafHash_free (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     AllQueriesSatisfy (leafHash lay tree leaf ends) WFree := by
-  unfold leafHash
-  exact shortHash_header_free _ _ _ _ _ _ _
+  unfold leafHash shortHash publicHash
+  apply bind_allowed WFree
+  · apply (allQueriesSatisfy_query_iff _ _).mpr
+    change Guess.decodeProbe (pad64 (leafInput lay tree leaf ends)) = none
+    exact Guess.decodeProbe_of_hdrBlock (ClaudeWCT.W9.T3M.Extract.hdrBlock_leafInput lay tree leaf ends)
+      (by have := leafTweak_marker lay tree leaf; unfold tweakMarker at this; omega)
+  · intro _; exact pure_allowed _ _
 theorem nodeHash_free (tag lay tree heap : Nat) (left right : Digest) :
     AllQueriesSatisfy (nodeHash tag lay tree heap left right) WFree := by
   unfold nodeHash
-  exact shortHash_header_free _ _ _ _ _ _ _
+  rw [List.append_assoc]
+  exact shortHash_free _ _
+    (by have := nodeTweak_marker tag lay tree heap; unfold tweakMarker at this; split_ifs at this <;> omega)
 theorem mask_free (level index : Nat) : AllQueriesSatisfy (mask level index) WFree := by
   unfold mask pairedMask
   exact bind_allowed WFree (privatePair_free _ _ _ _ (by decide)) fun _ => pure_allowed _ _
@@ -128,6 +135,11 @@ theorem buildLevel_free (tag lay tree h level : Nat) (nodes : List Digest) :
 theorem buildLevels_free (tag lay tree h : Nat) (leaves : List Digest) :
     AllQueriesSatisfy (buildLevels tag lay tree h leaves) WFree := by
   unfold buildLevels
+  exact foldlM_allowed WFree _ _ (fun levels level =>
+    bind_allowed WFree (buildLevel_free _ _ _ _ _ _) fun _ => pure_allowed _ _) _
+theorem buildLevelsBelow_free (tag lay tree h : Nat) (leaves : List Digest) :
+    AllQueriesSatisfy (WCT9.buildLevelsBelow tag lay tree h leaves) WFree := by
+  unfold WCT9.buildLevelsBelow
   exact foldlM_allowed WFree _ _ (fun levels level =>
     bind_allowed WFree (buildLevel_free _ _ _ _ _ _) fun _ => pure_allowed _ _) _
 theorem buildTree_free (lay : Layer) (tree selected : Nat) (digits : List Nat) :
@@ -163,7 +175,7 @@ theorem buildTreeP_free (lay : Layer) (tree selected : Nat) (digits : List Nat) 
   · exact foldlM_allowed WFree _ _ (fun state leaf =>
       bind_allowed WFree (buildLeafP_free _ _ _ _ _) fun _ => pure_allowed _ _) _
   · intro state
-    exact bind_allowed WFree (buildLevels_free _ _ _ _ _) fun _ => pure_allowed _ _
+    exact bind_allowed WFree (buildLevelsBelow_free _ _ _ _ _) fun _ => pure_allowed _ _
 theorem maskedLevel_free (nodes : List Digest) (level : Nat) :
     AllQueriesSatisfy (maskedLevel nodes level) WFree := by
   unfold maskedLevel pairedMask
@@ -192,7 +204,7 @@ theorem counterSearch_free (lay : Layer) (tree leaf : Nat) (message : Digest) (c
       unfold counterSearch
       apply bind_allowed WFree
       · unfold encodingInput
-        exact shortHash_header_free _ _ _ _ _ _ _
+        exact shortHash_free _ _ (by have := rowTweak_marker lay tree leaf; unfold tweakMarker at this; omega)
       · intro answer
         split
         · exact ih _
@@ -229,7 +241,7 @@ theorem layerEncoding_free (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg)
   · apply (allQueriesSatisfy_query_iff _ _).mpr
     change Guess.decodeProbe (pad64 (WCT9.layerEncodingInput lay tree leaf msg counter)) = none
     exact Guess.decodeProbe_of_hdrBlock (ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInput lay tree leaf msg counter)
-      (firstByte_header _ _ _ _ _)
+      (by have := rowTweak_marker lay tree leaf; unfold tweakMarker at this; omega)
   · intro _; exact pure_allowed _ _
 theorem signLayersBC_free (cache : SigGolfCandidate.T3.Cache) (index n : Nat) (msg : WCT9.LayerMsg) :
     AllQueriesSatisfy (WCT9.signLayersBC cache index n msg) WFree :=
@@ -237,8 +249,7 @@ theorem signLayersBC_free (cache : SigGolfCandidate.T3.Cache) (index n : Nat) (m
 theorem wctLeafHash_free (index coord selected : Nat) (ends : List Digest) :
     AllQueriesSatisfy (WCT9.leafHash index coord selected ends) WFree := by
   unfold WCT9.leafHash
-  rw [WCT9.leaf_header_eq]
-  exact shortHash_header_free _ _ _ _ _ _ _
+  exact shortHash_free _ _ (by rw [WCT9.ftsLeafHeader_firstByte]; decide)
 theorem wctForestPk_free (index : Nat) (pairs : List (Digest × Digest)) :
     AllQueriesSatisfy (WCT9.forestPk index pairs) WFree := by
   unfold WCT9.forestPk WCT9.forestInput

@@ -175,27 +175,26 @@ theorem hdrBlock_pad64_prefix (a h rest : HashInput) (ha : a.length = 16) (hh : 
   unfold T3M.Extract.hdrBlock
   rw [List.append_assoc, List.drop_left' ha, List.take_left' hh]
 theorem shortHash_wct_ok (a rest : HashInput) (tag lay tree position index : Nat) (ha : a.length = 16)
-    (ht : tag % 256 ≠ 0) :
+    (_ht : tag % 256 ≠ 0) :
     AllQueriesSatisfy (shortHash (a ++ bytesLE 16 (wctHeader tag lay tree position index) ++ rest)) BPB.NotDigestQ := by
   unfold shortHash publicHash
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
-    show BPB.hdrTag (pad64 (a ++ bytesLE 16 (wctHeader tag lay tree position index) ++ rest)) ≠ 0
-    unfold BPB.hdrTag
-    rw [hdrBlock_pad64_prefix _ _ _ ha (bytesLE_length _ _), wctHeader_byte0, if_neg (by decide),
-      wctHeader_byte1]
-    exact ht
+    show BPB.hdrMarker (pad64 (a ++ bytesLE 16 (wctHeader tag lay tree position index) ++ rest)) ≠ 0
+    unfold BPB.hdrMarker
+    rw [hdrBlock_pad64_prefix _ _ _ ha (bytesLE_length _ _), wctHeader_byte0]
+    decide
   · intro _; exact SourceQueries.pure_allowed _ _
 theorem chainInput_ok (index coord selected i step : Nat) (value : Digest) :
     AllQueriesSatisfy (shortHash (WCT9.chainInput index coord selected i step value)) BPB.NotDigestQ := by
   unfold shortHash publicHash
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
-    show BPB.hdrTag (pad64 (WCT9.chainInput index coord selected i step value)) ≠ 0
-    unfold BPB.hdrTag WCT9.chainInput
+    show BPB.hdrMarker (pad64 (WCT9.chainInput index coord selected i step value)) ≠ 0
+    unfold BPB.hdrMarker WCT9.chainInput
     rw [List.append_assoc (zero16 ++ _), hdrBlock_pad64_prefix _ _ _ (by simp [zero16]) (bytesLE_length _ _),
-      bytesLE16_first_toNat, WCT9.ftsChainHeader_toNat, WCT9.ftsChainLow_byte0, if_pos (by omega)]
-    decide
+      bytesLE16_first_toNat, WCT9.ftsChainHeader_toNat, WCT9.ftsChainLow_byte0]
+    omega
   · intro _; exact SourceQueries.pure_allowed _ _
 theorem chain_ok (index coord selected i start count : Nat) (value : Digest) :
     AllQueriesSatisfy (WCT9.chain index coord selected i start count value) BPB.NotDigestQ := by
@@ -203,8 +202,16 @@ theorem chain_ok (index coord selected i start count : Nat) (value : Digest) :
   exact SourceQueries.foldlM_allowed BPB.NotDigestQ _ _ (fun v step => chainInput_ok _ _ _ _ _ _) _
 theorem leafHash_ok (index coord selected : Nat) (ends : List Digest) :
     AllQueriesSatisfy (WCT9.leafHash index coord selected ends) BPB.NotDigestQ := by
-  unfold WCT9.leafHash
-  exact shortHash_wct_ok _ _ 6 _ _ _ _ (bytesLE_length _ _) (by decide)
+  unfold WCT9.leafHash shortHash publicHash
+  apply SourceQueries.bind_allowed
+  · apply (allQueriesSatisfy_query_iff _ _).mpr
+    show BPB.hdrMarker (pad64 (bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (WCT9.ftsLeafHeader index coord selected) ++
+      (ends.drop 1).flatMap (bytesLE 16))) ≠ 0
+    unfold BPB.hdrMarker
+    rw [hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _) (bytesLE_length _ _), bytesLE16_first_toNat,
+      WCT9.ftsLeafHeader_firstByte]
+    decide
+  · intro _; exact SourceQueries.pure_allowed _ _
 theorem forest_header_plain (index : Nat) : header 15 0 index 0 0 = wctHeader 15 0 index 0 0 := by
   unfold wctHeader header
   rw [if_neg (by decide)]
@@ -217,7 +224,7 @@ theorem forestPk_ok (index : Nat) (roots : List (Digest × Digest)) :
 theorem hdrBlock_pairEncodingInputP (lay : Layer) (tree leaf : Nat) (left right : Digest) (counter : BitVec 32)
     (pad : BitVec 96) :
     T3M.Extract.hdrBlock (pad64 (WCT9.pairEncodingInputP lay tree leaf left right counter pad)) =
-      SphincsSecurity.bytesLE 16 (header 4 lay.val tree 0 leaf) := by
+      SphincsSecurity.bytesLE 16 (rowTweak lay tree leaf) := by
   have hl : (WCT9.pairEncodingInputP lay tree leaf left right counter pad).length = 64 := by
     simp [WCT9.pairEncodingInputP, SphincsSecurity.bytesLE_length]
   rw [T3M.Extract.hdrBlock_pad64 _ (by omega)]
@@ -228,7 +235,9 @@ theorem layerEncoding_ok (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (
     AllQueriesSatisfy (shortHash (WCT9.layerEncodingInput lay tree leaf msg counter)) BPB.NotDigestQ := by
   cases msg with
   | forest root => exact BPB.encoding_ok lay tree leaf root counter
-  | pair left right => exact BPB.shortHash_ok (hdrBlock_pairEncodingInputP lay tree leaf left right counter 0) (by decide)
+  | pair left right =>
+      exact BPB.shortHash_ok_marker (hdrBlock_pairEncodingInputP lay tree leaf left right counter 0)
+        (by rw [rowTweak_marker]; decide)
 theorem buildChild_ok (index coord selected : Nat) (word : Rank) (carry : Digest) :
     AllQueriesSatisfy (buildChild index coord selected word carry) BPB.NotDigestQ := by
   unfold buildChild
@@ -276,7 +285,7 @@ theorem wct_payNotDigest : PayNotDigest payAfterDigest := by
     intro root
     apply SourceQueries.bind_allowed _ (W9.T3.Security.Signer.signLayersBC_allowed' _ _ layerEncoding_ok
       (W9.T3.Security.Signer.buildTreeP_allowed' _ BPB.chain_ok BPB.leafHash_ok
-        (fun _ _ _ _ => BPB.buildLevels_ok _ _ _ _ _ (by decide))
+        (fun _ _ _ _ _ => BPB.buildLevel_ok _ _ _ _ _ _ (by decide))
         (fun _ _ _ => BPB.privatePair_ok _ _ _ _ _)) (BPB.signTop_ok _) _ _ _)
     intro layers
     split

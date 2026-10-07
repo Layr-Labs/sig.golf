@@ -44,7 +44,15 @@ def hoffE (i : Nat) : E := .bin .sll (halfE i) (cE 4)
 def w1E : E := .bin .or (.bin .sll (.reg .x18) (cE 32)) (.reg .x22)
 def qE (c i : Nat) : E := .bin .or (.bin .or (.bin .sll (.reg .x22) (cE 27)) (.bin .sll (.reg .x18) (cE 20))) (cE (chainK c i))
 def idx32E : E := .bin .sll (.reg .x22) (cE 32)
-def nodeLoE (c : Nat) : E := .bin .or (cE (nodeK c)) idx32E
+def nodeLoE (c : Nat) : E :=
+  if c = 0 then .bin .or (.bin .sll (.reg .x22) (cE 27)) (cE 1537)
+  else .bin .or (.bin .or (.bin .sll (.reg .x22) (cE 27)) (cE (65536 * c))) (cE 1537)
+def leafLoE (c : Nat) : E :=
+  .bin .or (.bin .or (.bin .sll (.reg .x22) (cE 27)) (.bin .sll (.reg .x18) (cE 20))) (cE (1537 + 65536 * c))
+def leafX7 (c : Nat) : E := if c = 0 then .bin .sll (.reg .x18) (cE 20) else cE (65536 * c + 1537)
+def x29A (off : Nat) : Addr := ⟨some (.reg .x29), BitVec.ofNat 64 off⟩
+def nodeLo7 (c index : Nat) : Nat := 1537 + 65536 * c + 2 ^ 27 * index
+def leafLo7 (c index j : Nat) : Nat := 1537 + 65536 * c + 2 ^ 20 * j + 2 ^ 27 * index
 def dE (i : Nat) : E := .bin .sub (cE 3) (.bin .and (.bin .srl (.reg .x25) (cE (2 * i))) (cE 3))
 def x18p1 : E := .bin .add (.reg .x18) (cE 1)
 def x18m1 : E := .bin .add (.reg .x18) (cE (2 ^ 64 - 1))
@@ -93,16 +101,17 @@ def expLc (c i : Nat) : PRes :=
     [mwc (LEAFW + leafOff i + 8) (ldc (CHAINW + 56)), mwc (LEAFW + leafOff i) (ldc (CHAINW + 48))] []
     (lcEnd c i) false 8 []
 def expL (c : Nat) : PRes :=
-  pres [(.x6, heapLeafE), (.x10, cE LEAFW), (.x11, cE 128), (.x12, .bin .add heapLeafE (cE HEAPW)),
-    (.x29, cE LEAFW)] [mwc (LEAFW + 24) w1E, mwc (LEAFW + 16) (cE (hdr6 c))] [] (tI c - 1) true
+  pres [(.x6, heapLeafE), (.x7, leafX7 c), (.x10, cE LEAFW), (.x11, cE 128), (.x12, .bin .add heapLeafE (cE HEAPW))]
+    [(x29A 24, cE 0), (x29A 16, leafLoE c)] [.valid (x29A 24) 8, .valid (x29A 16) 8] (tI c - 1) true
     (if c = 0 then 15 else 16) []
 def expT (c : Nat) (back : Bool) : PRes :=
   if back then pres [(.x6, cE 128), (.x18, x18p1)] [] [] (leafI c) false 3 [⟨.ltu, x18p1, cE 128, true⟩]
   else pres [(.x6, cE 128), (.x18, cE 127)] [] [] (nodeI c) false 4 [⟨.ltu, x18p1, cE 128, false⟩]
 def nodeLd (off : Nat) : E := .ld (.bin .add sh5 (cE (HEAPW + off)))
 def nodeAddr (off : Nat) : Addr := ⟨some sh5, BitVec.ofNat 64 (HEAPW + off)⟩
+def nodeX7 (c : Nat) : E := if c = 0 then nodeLd 24 else cE (65536 * c)
 def expN (c : Nat) : PRes :=
-  pres [(.x6, nodeLoE c), (.x7, idx32E), (.x10, cE NODEW), (.x11, cE 64), (.x12, cE NOUTW),
+  pres [(.x6, nodeLoE c), (.x7, nodeX7 c), (.x10, cE NODEW), (.x11, cE 64), (.x12, cE NOUTW),
     (.x28, .bin .add sh5 (cE HEAPW)), (.x29, cE NODEW)]
     [mwc (NODEW + 24) (.reg .x18), mwc (NODEW + 16) (nodeLoE c), mwc (NODEW + 56) (nodeLd 24),
       mwc (NODEW + 48) (nodeLd 16), mwc (NODEW + 8) (nodeLd 8), mwc NODEW (nodeLd 0)]

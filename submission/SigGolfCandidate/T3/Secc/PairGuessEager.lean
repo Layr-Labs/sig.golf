@@ -1,5 +1,299 @@
-import SigGolfCandidate.T3.Secc.PairGuessSigner
+import SigGolfCandidate.T3.Secc.PairGuessWorld
 import SigGolfCandidate.T3.Secc.WotsTransportTable
+
+section
+
+
+namespace SigGolfCandidate.T3.Security.BPair
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final SigGolfCandidate.T3M.SecurityInputs
+open SigGolfCandidate.T3.Correctness (Answers treeValue)
+open SphincsSecurity (OracleWorld bytesLE bytesLE_length bytesLE_injective)
+open SphincsSecurity.Concrete
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+def IsFtsPair (c : Coordinate) : Prop := ∃ f : FtsCoord, c = .inl (header 8 f.2.1.val f.1.val 0 (f.2.2.val / 2))
+def FtsFree : T3.Spec.Domain → Prop
+  | .inl (.inl _) => True
+  | .inl (.inr x) => decodeProbe x = none
+  | .inr c => ¬IsFtsPair c
+theorem not_isFtsPair_header {t l tr p ix : Nat} (ht : t % 256 ≠ 8) : ¬IsFtsPair (.inl (header t l tr p ix)) := by
+  rintro ⟨f, hf⟩
+  exact QuerySpace.header_ne_of_tag (by omega) (Sum.inl.inj hf)
+theorem decodeProbe_prefix (a : Digest) {t : Nat} (l tr p ix : Nat) (rest : HashInput) (ht : t % 256 ≠ 9) :
+    decodeProbe (pad64 (bytesLE 16 a ++ bytesLE 16 (header t l tr p ix) ++ rest)) = none := by
+  refine decodeProbe_of_hdr (t := t) (l := l) (tr := tr) (p := p) (ix := ix) ?_ ht
+  rw [Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega)]
+  exact Extract.hdrBlock_prefix _ _ _
+theorem eval_query' (A : Answers) (input : T3.Spec.Domain) :
+    evalWithAnswerFn A (liftM (T3.Spec.query input)) = A input :=
+  simulateQ_spec_query A input
+theorem eval_congr_allowed {P : T3.Spec.Domain → Prop} {α : Type} {program : M α}
+    (hp : AllQueriesSatisfy program P) {A A' : Answers} (h : ∀ q, P q → A q = A' q) :
+    evalWithAnswerFn A program = evalWithAnswerFn A' program := by
+  induction program using OracleComp.inductionOn with
+  | pure value => rfl
+  | query_bind input next ih =>
+      obtain ⟨hi, hn⟩ := (allQueriesSatisfy_query_bind_iff _ _ _).mp hp
+      rw [evalWithAnswerFn_bind, evalWithAnswerFn_bind, eval_query', eval_query', h input hi]
+      exact ih _ (hn _)
+section Free
+open SourceQueries
+theorem zero16_eq : zero16 = bytesLE 16 (0 : Digest) := by decide
+theorem shortHash_free (a : Digest) {t : Nat} (l tr p ix : Nat) (rest : HashInput) (ht : t % 256 ≠ 9) :
+    AllQueriesSatisfy (shortHash (bytesLE 16 a ++ bytesLE 16 (header t l tr p ix) ++ rest)) FtsFree := by
+  unfold shortHash publicHash
+  exact bind_allowed FtsFree ((allQueriesSatisfy_query_iff _ _).mpr (decodeProbe_prefix a l tr p ix rest ht))
+    fun _ => pure_allowed _ _
+theorem privatePair_free {t : Nat} (l tr p ix : Nat) (ht : t % 256 ≠ 8) :
+    AllQueriesSatisfy (privatePair t l tr p ix) FtsFree := by
+  unfold privatePair privateHash
+  exact bind_allowed FtsFree ((allQueriesSatisfy_query_iff _ _).mpr (not_isFtsPair_header ht))
+    fun _ => pure_allowed _ _
+theorem privateNonce_free (message : Message) : AllQueriesSatisfy (privateNonce message) FtsFree := by
+  unfold privateNonce privateHash
+  refine bind_allowed FtsFree ((allQueriesSatisfy_query_iff _ _).mpr ?_) fun _ => pure_allowed _ _
+  rintro ⟨f, hf⟩
+  cases hf
+theorem privateMac_free (region : Region) : AllQueriesSatisfy (privateMac region) FtsFree := by
+  have hquery (i : Nat) : AllQueriesSatisfy (privateHash (.inl (header 14 0 0 0 i))) FtsFree := by
+    exact (allQueriesSatisfy_query_iff _ _).mpr (not_isFtsPair_header (by decide : 14 % 256 ≠ 8))
+  unfold privateMac privateMacKey
+  apply bind_allowed FtsFree
+  · exact bind_allowed FtsFree (hquery 0) (fun _ => bind_allowed FtsFree (hquery 1) (fun _ => pure_allowed _ _))
+  · intro key; exact pure_allowed _ _
+theorem chainStep_free (lay : Layer) (tree leaf i step : Nat) (value : Digest) :
+    AllQueriesSatisfy (shortHash (chainInput lay tree leaf i step value)) FtsFree := by
+  unfold shortHash publicHash
+  apply bind_allowed FtsFree
+  · apply (allQueriesSatisfy_query_iff _ _).mpr
+    change decodeProbe (pad64 (chainInput lay tree leaf i step value)) = none
+    rw [decodeProbe_eq_none, chainInput_padded]
+    intro f c he
+    have hh := congrArg Extract.hdrBlock he
+    rw [hdrBlock_probeInput] at hh
+    change ((chainInput lay tree leaf i step value).drop 16).take 16 = _ at hh
+    rw [chainInput_header] at hh
+    exact chainHeader_ne_header _ _ _ _ _ _ _ _ _ _ (bytesLE_injective hh)
+  · intro _; exact pure_allowed _ _
+theorem chain_free (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
+    AllQueriesSatisfy (chain lay tree leaf i start count value) FtsFree := by
+  unfold chain
+  exact foldlM_allowed FtsFree _ _ (fun v step => chainStep_free lay tree leaf i step v) value
+theorem mask_free (level index : Nat) : AllQueriesSatisfy (mask level index) FtsFree := by
+  unfold mask pairedMask
+  exact bind_allowed FtsFree (privatePair_free _ _ _ _ (by decide)) fun _ => pure_allowed _ _
+theorem maskedLevel_free (nodes : List Digest) (level : Nat) :
+    AllQueriesSatisfy (maskedLevel nodes level) FtsFree := by
+  unfold maskedLevel pairedMask
+  apply bind_allowed FtsFree
+  · exact mapM_allowed FtsFree _ _ (fun pair => bind_allowed FtsFree (privatePair_free _ _ _ _ (by decide)) (fun _ => pure_allowed _ _))
+  · intro _; exact pure_allowed _ _
+theorem forestPk_free (index : Nat) (roots : List Digest) : AllQueriesSatisfy (forestPk index roots) FtsFree := by
+  unfold forestPk
+  exact shortHash_free _ _ _ _ _ _ (by decide)
+theorem topPath_free (cache : T3.Cache) (leaf : Nat) : AllQueriesSatisfy (topPath cache leaf) FtsFree := by
+  unfold topPath
+  exact mapM_allowed FtsFree _ _ fun level =>
+    bind_allowed FtsFree (mask_free _ _) fun _ => pure_allowed _ _
+end Free
+section Table
+variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : Omega U)
+theorem splitEquiv_symm_secret (s : CanonGraph.Secrets) (o : CanonGraph.OtherHalves) (i : CanonGraph.SecretIndex) :
+    CanonGraph.splitEquiv.symm (s, o) (CanonGraph.secretCoordinate i) = s i := by
+  have h := CanonGraph.splitEquiv_fst (CanonGraph.splitEquiv.symm (s, o))
+  rw [Equiv.apply_symm_apply] at h
+  exact (congrFun h i).symm
+theorem splitEquiv_snd (t : ChainGraph.HalfTable) (h : ChainGraph.HalfCoordinate)
+    (hh : h ∉ Set.range CanonGraph.secretCoordinate) : (CanonGraph.splitEquiv t).2 ⟨h, hh⟩ = t h := by
+  simp [CanonGraph.splitEquiv, Equiv.sumArrowEquivProdArrow, Equiv.Set.sumCompl]
+  rfl
+theorem splitEquiv_symm_other (s : CanonGraph.Secrets) (o : CanonGraph.OtherHalves) (h : ChainGraph.HalfCoordinate)
+    (hh : h ∉ Set.range CanonGraph.secretCoordinate) : CanonGraph.splitEquiv.symm (s, o) h = o ⟨h, hh⟩ := by
+  have e := splitEquiv_snd (CanonGraph.splitEquiv.symm (s, o)) h hh
+  rw [Equiv.apply_symm_apply] at e
+  exact e.symm
+theorem privateEquiv_symm_apply (s : CanonGraph.Secrets) (o : CanonGraph.OtherHalves) (c : Coordinate) :
+    CanonGraph.privateEquiv.symm (s, o) c =
+      ChainGraph.joinOutput (CanonGraph.splitEquiv.symm (s, o) (c, 0)) (CanonGraph.splitEquiv.symm (s, o) (c, 1)) :=
+  rfl
+theorem private_free (fts fts' : FtsCoord → Digest) (c : Coordinate) (hc : ¬IsFtsPair c) :
+    CanonGraph.privateEquiv.symm (ω.secrets fts, ω.other) c = CanonGraph.privateEquiv.symm (ω.secrets fts', ω.other) c := by
+  have hhalf : ∀ h : Fin 2, CanonGraph.splitEquiv.symm (ω.secrets fts, ω.other) (c, h) =
+      CanonGraph.splitEquiv.symm (ω.secrets fts', ω.other) (c, h) := by
+    intro h
+    by_cases hr : (c, h) ∈ Set.range CanonGraph.secretCoordinate
+    · obtain ⟨i, hi⟩ := hr
+      rw [← hi, splitEquiv_symm_secret, splitEquiv_symm_secret]
+      cases i with
+      | inl a => rfl
+      | inr p =>
+          exfalso
+          apply hc
+          refine ⟨ofLeafPos p, ?_⟩
+          have := congrArg Prod.fst hi
+          exact this.symm
+    · rw [splitEquiv_symm_other _ _ _ hr, splitEquiv_symm_other _ _ _ hr]
+  rw [privateEquiv_symm_apply, privateEquiv_symm_apply, hhalf 0, hhalf 1]
+theorem secretNat_answers (fts : FtsCoord → Digest) (f : FtsCoord) :
+    secretNat (Omega.answers hU ω fts) f.1.val f.2.1.val f.2.2.val = fts f := by
+  have hc : CanonGraph.ftsCoordinate (toLeafPos f) =
+      (.inl (header 8 f.2.1.val f.1.val 0 (f.2.2.val / 2)), ⟨f.2.2.val % 2, Nat.mod_lt _ (by decide)⟩) := rfl
+  have hs := splitEquiv_symm_secret (ω.secrets fts) ω.other (.inr (toLeafPos f))
+  change CanonGraph.splitEquiv.symm (ω.secrets fts, ω.other) (CanonGraph.ftsCoordinate (toLeafPos f)) = fts f at hs
+  rw [hc] at hs
+  unfold secretNat privatePair privateHash
+  simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+  change (if f.2.2.val % 2 = 0 then (CanonGraph.privateEquiv.symm (ω.secrets fts, ω.other)
+      (.inl (header 8 f.2.1.val f.1.val 0 (f.2.2.val / 2)))).extractLsb' 0 128
+    else (CanonGraph.privateEquiv.symm (ω.secrets fts, ω.other)
+      (.inl (header 8 f.2.1.val f.1.val 0 (f.2.2.val / 2)))).extractLsb' 128 128) = fts f
+  rw [privateEquiv_symm_apply, ChainGraph.joinOutput_low, ChainGraph.joinOutput_high]
+  have h2 := Nat.mod_lt f.2.2.val (by decide : 0 < 2)
+  split_ifs with he
+  · have e : (⟨f.2.2.val % 2, Nat.mod_lt _ (by decide)⟩ : Fin 2) = 0 := Fin.ext he
+    rw [e] at hs
+    exact hs
+  · have e : (⟨f.2.2.val % 2, Nat.mod_lt _ (by decide)⟩ : Fin 2) = 1 :=
+      Fin.ext (by change f.2.2.val % 2 = 1; omega)
+    rw [e] at hs
+    exact hs
+theorem secretAt_answers (fts : FtsCoord → Digest) (f : FtsCoord) : secretAt (Omega.answers hU ω fts) f = fts f :=
+  secretNat_answers hU ω fts f
+theorem cell_ftsLeaf (s : CanonGraph.Secrets) (p : CanonGraph.FtsLeafPos) (labels : CanonGraph.Labels) :
+    CanonGraph.cell s (.ftsLeaf p) labels = probeInput (ofLeafPos p) (CanonGraph.ftsOf s p) := rfl
+theorem cell_seeds (s s' : CanonGraph.Secrets) (hs : CanonGraph.seedsOf s = CanonGraph.seedsOf s')
+    (node : CanonGraph.Node) (hnode : ∀ p, node ≠ .ftsLeaf p) (labels : CanonGraph.Labels) :
+    CanonGraph.cell s node labels = CanonGraph.cell s' node labels := by
+  cases node with
+  | chain p => simp only [CanonGraph.cell, hs]
+  | leaf L =>
+      have he : CanonGraph.endLabel s labels L = CanonGraph.endLabel s' labels L := by
+        funext i
+        simp only [CanonGraph.endLabel, hs]
+      simp only [CanonGraph.cell, he]
+  | node n => rfl
+  | ftsLeaf p => exact absurd rfl (hnode p)
+  | ftsNode n => rfl
+  | forest i => rfl
+include hU in
+theorem probeInput_mem (f : FtsCoord) (c : Digest) : probeInput f c ∈ U := by
+  apply hU
+  have h := CanonGraph.cell_mem (fun _ => c) (.ftsLeaf (toLeafPos f)) (fun _ => 0)
+  rwa [cell_ftsLeaf] at h
+end Table
+theorem list_ext_getD {α : Type} {l l' : List α} (d : α) (hl : l.length = l'.length)
+    (h : ∀ n, n < l.length → l.getD n d = l'.getD n d) : l = l' := by
+  apply List.ext_getElem hl
+  intro n h1 h2
+  have := h n h1
+  rwa [List.getD_eq_getElem _ _ h1, List.getD_eq_getElem _ _ h2] at this
+theorem levels_ext {levels levels' : List (List Digest)} (hs : Cost.LevelShape 11 11 levels)
+    (hs' : Cost.LevelShape 11 11 levels')
+    (h : ∀ level, level ≤ 11 → ∀ c, c < 2 ^ (11 - level) → treeValue levels level c = treeValue levels' level c) :
+    levels = levels' := by
+  apply list_ext_getD [] (by rw [hs.1, hs'.1])
+  intro j hj
+  have hj' : j ≤ 11 := by rw [hs.1] at hj; omega
+  apply list_ext_getD 0 (by rw [hs.2 j hj', hs'.2 j hj'])
+  intro c hc
+  rw [hs.2 j hj'] at hc
+  exact h j hj' c hc
+section Levels
+variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : Omega U)
+attribute [local irreducible] SigGolfCandidate.T3.buildFts SigGolfCandidate.T3.buildLevels Correctness.ftsRows
+end Levels
+theorem selection_bounds (output : HashOutput) (c : Nat) (hc : c < 7) :
+    ((selections output).getD c ⟨0, []⟩).bucket < 16 ∧
+      ∀ leaf ∈ ((selections output).getD c ⟨0, []⟩).leaves, leaf < 128 := by
+  simp only [selections, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hc,
+    Option.map_some, Option.getD_some]
+  refine ⟨Nat.mod_lt _ (by decide), ?_⟩
+  intro leaf hleaf
+  rw [List.mem_mergeSort] at hleaf
+  simp only [List.mem_map, List.mem_range] at hleaf
+  obtain ⟨j, -, rfl⟩ := hleaf
+  exact Nat.mod_lt _ (by decide)
+def openedValues (fts : FtsCoord → Digest) (output : HashOutput) : List Digest := (openedPositions output).map fts
+section Sign
+variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : Omega U)
+theorem forestOpened_answers (fts : FtsCoord → Digest) (output : HashOutput) (c : Fin 7) :
+    Correctness.forestOpened (Omega.answers hU ω fts) (output.toNat % 2 ^ 31) c.val
+        ((selections output).getD c.val ⟨0, []⟩) =
+      (((selections output).getD c.val ⟨0, []⟩).leaves.map fun leaf =>
+        (outputIndex output, c, leafIndex ((selections output).getD c.val ⟨0, []⟩).bucket leaf)).map fts := by
+  obtain ⟨hb, hl⟩ := selection_bounds output c.val c.isLt
+  have hsec : ∀ s (hs : s < 2048),
+      (evalWithAnswerFn (Omega.answers hU ω fts) (buildFts (output.toNat % 2 ^ 31) c.val)).2.getD s 0 =
+        fts (outputIndex output, c, ⟨s, hs⟩) := by
+    intro s hs
+    rw [buildFts_secret _ _ _ _ hs]
+    exact secretNat_answers hU ω fts (outputIndex output, c, ⟨s, hs⟩)
+  unfold Correctness.forestOpened
+  generalize evalWithAnswerFn (Omega.answers hU ω fts) (buildFts (output.toNat % 2 ^ 31) c.val) = X at hsec ⊢
+  rw [List.map_map, List.map_map]
+  apply List.map_congr_left
+  intro leaf hleaf
+  have hlt : ((selections output).getD c.val ⟨0, []⟩).bucket * 128 + leaf < 2048 := by
+    have := hl leaf hleaf; omega
+  rw [Function.comp_apply, Function.comp_apply, hsec _ hlt]
+  have hidx : (⟨_, hlt⟩ : Fin 2048) = leafIndex ((selections output).getD c.val ⟨0, []⟩).bucket leaf := by
+    apply Fin.ext
+    simp only [leafIndex]
+    exact (Nat.mod_eq_of_lt hlt).symm
+  rw [hidx]
+theorem forestOpenPrefix_answers (fts : FtsCoord → Digest) (output : HashOutput) :
+    Correctness.forestOpenPrefix (Omega.answers hU ω fts) (output.toNat % 2 ^ 31) (selections output) 7 =
+      openedValues fts output := by
+  unfold Correctness.forestOpenPrefix openedValues openedPositions
+  rw [List.map_flatMap, ← List.map_coe_finRange_eq_range, List.flatMap_map]
+  apply List.flatMap_congr
+  intro c _
+  exact forestOpened_answers hU ω fts output c
+end Sign
+section Signer
+variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : Omega U)
+noncomputable local instance instDecidableEqCache_pairGuessSigner : DecidableEq T3.Cache := Classical.decEq _
+noncomputable def signerRho (request : Request) : Digest :=
+  evalWithAnswerFn (Omega.answers hU ω (fun _ => 0)) (privateNonce request.message)
+noncomputable def signerFound (request : Request) : Option (BitVec 32 × HashOutput) :=
+  evalWithAnswerFn (Omega.answers hU ω (fun _ => 0))
+    (digestSearch (signerRho hU ω request) request.message 0 attemptLimit)
+noncomputable def signerForest (output : HashOutput) : List Digest × List Digest × List Digest :=
+  evalWithAnswerFn (Omega.answers hU ω (fun _ => 0)) (Correctness.signForest (output.toNat % 2 ^ 31) (selections output))
+noncomputable def signerLayers (request : Request) (output : HashOutput) : Option (List Pieces) :=
+  evalWithAnswerFn (Omega.answers hU ω (fun _ => 0)) (signLayers request.cache (output.toNat % 2 ^ 31) 4
+    (evalWithAnswerFn (Omega.answers hU ω (fun _ => 0))
+      (forestPk (output.toNat % 2 ^ 31) (signerForest hU ω output).2.2)))
+noncomputable def signWith (published : T3.Cache) (request : Request) (opener : HashOutput → List Digest) :
+    Option Signature :=
+  if request.cache = published then
+    match signerFound hU ω request with
+    | some (_, output) =>
+        match signerLayers hU ω request output with
+        | some pieces => some (Correctness.assembledSignature (signerRho hU ω request)
+            (opener output, (signerForest hU ω output).2.1, (signerForest hU ω output).2.2) pieces)
+        | none => none
+    | none => none
+  else none
+noncomputable def signerOpened (published : T3.Cache) (request : Request) : List FtsCoord :=
+  if request.cache = published then
+    match signerFound hU ω request with
+    | some (_, output) =>
+        match signerLayers hU ω request output with
+        | some _ => openedPositions output
+        | none => []
+    | none => []
+  else []
+end Signer
+end SigGolfCandidate.T3.Security.BPair
+end
+
+section
+
+
 
 section
 namespace SigGolfCandidate.T3.Security.BPair
@@ -16,24 +310,6 @@ section Couple
 variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : Omega U)
 noncomputable abbrev fixedW (fts : FtsCoord → Digest) : QueryImpl WSpec ProbComp :=
   SecretGuessObservation.fixedAnswers coinImpl fts
-theorem keygen_answers (fts : FtsCoord → Digest) :
-    evalWithAnswerFn (Omega.answers hU ω fts) keygen = evalWithAnswerFn (Omega.answers hU ω (fun _ => 0)) keygen :=
-  eval_free hU ω fts (fun _ => 0) keygen_free
-theorem fixed_hashW (fts : FtsCoord → Digest) (x : HashInput) :
-    simulateQ (fixedW fts) (hashW hU ω x) = pure (Omega.answers hU ω fts (.inl (.inr x))) := by
-  unfold hashW
-  cases hd : decodeProbe x with
-  | none =>
-      rw [simulateQ_pure, answers_public hU ω (fun _ => 0) fts x hd]
-  | some p =>
-      have hx := eq_of_decodeProbe hd
-      rw [simulateQ_bind, simulateQ_spec_query]
-      change (pure (decide (fts p.1 = p.2)) >>= fun hit => simulateQ (fixedW fts) (pure (if hit then
-        ω.labels (.ftsLeaf (toLeafPos p.1)) else finiteHashAnswer ∅ U ω.residual x))) = _
-      rw [pure_bind, simulateQ_pure, hx, answers_probe]
-      by_cases he : fts p.1 = p.2
-      · simp only [he, decide_true, if_true]
-      · simp only [he, decide_false, Bool.false_eq_true, if_false]
 theorem overwrite_map (g : FtsCoord → Digest) (positions : List FtsCoord) (f : FtsCoord) (hf : f ∈ positions) :
     overwrite positions (positions.map g) f = g f := by
   induction positions with
@@ -57,15 +333,6 @@ theorem fixed_disclosures (fts : FtsCoord → Digest) (positions : List FtsCoord
         let values ← rest.mapM fun f => (liftM (WSpec.query (.inr (.inr f))) : OracleComp WSpec Digest)
         pure (value :: values))) = _
       rw [pure_bind, simulateQ_bind, ih, pure_bind, simulateQ_pure, List.map_cons]
-theorem fixed_signW (fts : FtsCoord → Digest) (published : T3.Cache) (request : Request) :
-    simulateQ (fixedW fts) (signW hU ω published request) =
-      pure (evalWithAnswerFn (Omega.answers hU ω fts) (FullGame.authenticatedSign published request)) := by
-  unfold signW
-  rw [simulateQ_bind, fixed_disclosures, pure_bind, simulateQ_pure]
-  congr 1
-  apply sign_local
-  intro f hf
-  exact overwrite_map fts _ f hf
 theorem interactionW_pure (published : T3.Cache) {α : Type} (value : α) :
     interactionW hU ω published (pure value : OracleComp LazyPrivate.Interaction α) = pure (value, [], []) := rfl
 theorem interactionW_coin (published : T3.Cache) {α : Type} (n : Nat)
@@ -105,46 +372,6 @@ theorem interactionT_request (T : Answers) (published : T3.Cache) {α : Type} (r
       (interactionT T published (next (evalWithAnswerFn T (FullGame.authenticatedSign published request))) >>=
         fun rest => pure (rest.1, ⟨request, evalWithAnswerFn T (FullGame.authenticatedSign published request)⟩ ::
           rest.2.1, rest.2.2)) := rfl
-theorem fixed_interactionW (fts : FtsCoord → Digest) (published : T3.Cache) {α : Type}
-    (program : OracleComp LazyPrivate.Interaction α) :
-    simulateQ (fixedW fts) (interactionW hU ω published program) =
-      interactionT (Omega.answers hU ω fts) published program := by
-  induction program using OracleComp.inductionOn with
-  | pure value => rw [interactionW_pure, interactionT_pure, simulateQ_pure]
-  | query_bind input next ih =>
-      rcases input with (n | x) | request
-      · rw [interactionW_coin, interactionT_coin, simulateQ_bind, simulateQ_spec_query]
-        exact bind_congr fun coin => ih coin
-      · rw [interactionW_public, interactionT_public, simulateQ_bind, fixed_hashW, pure_bind, simulateQ_bind, ih]
-        exact bind_congr fun rest => by rw [simulateQ_pure]
-      · rw [interactionW_request, interactionT_request, simulateQ_bind, fixed_signW, pure_bind, simulateQ_bind, ih]
-        exact bind_congr fun rest => by rw [simulateQ_pure]
-theorem fixed_programW (fts : FtsCoord → Digest) {β : Type} (program : M β) (hp : PublicVerdict.Only program) :
-    simulateQ (fixedW fts) (programW hU ω program) =
-      pure (evalWithAnswerFn (Omega.answers hU ω fts) program,
-        Wots.entriesOf (Omega.answers hU ω fts) (SourceReplay.queried (Omega.answers hU ω fts) program)) := by
-  induction program using OracleComp.inductionOn with
-  | pure value => rw [programW_pure, simulateQ_pure]; rfl
-  | query_bind input next ih =>
-      obtain ⟨hi, hn⟩ := (allQueriesSatisfy_query_bind_iff _ _ _).mp hp
-      rcases input with (n | x) | c
-      · exact hi.elim
-      · rw [programW_public, simulateQ_bind, fixed_hashW, pure_bind, simulateQ_bind, ih _ (hn _), pure_bind,
-          simulateQ_pure, SourceReplay.queried_query_bind, evalWithAnswerFn_bind, eval_query']
-        rfl
-      · exact hi.elim
-theorem simulate_worldGame (fts : FtsCoord → Digest) (adversary : AdversaryP) :
-    simulateQ (fixedW fts) (worldGame hU ω adversary) = pairRun (Omega.answers hU ω fts) adversary := by
-  unfold worldGame pairRun
-  rw [← keygen_answers hU ω fts]
-  rw [simulateQ_bind, fixed_interactionW]
-  apply bind_congr
-  intro interaction
-  rw [simulateQ_bind, fixed_programW _ _ _ _ (PaddedGame.verdict_public _ _), pure_bind, simulateQ_pure]
-theorem fixed_worldGame (fts : FtsCoord → Digest) (adversary : AdversaryP) :
-    Prod.fst <$> SecretGuessObservation.fixedRun env fts (worldGame hU ω adversary) init =
-      𝒮[pairRun (Omega.answers hU ω fts) adversary] := by
-  rw [env, SecretGuessObservation.fixedRun_projection, simulate_worldGame]
 end Couple
 section Tracking
 open SecretGuessObservation (runWith fixedRun fixedImpl afterTrial afterDisclosure)
@@ -212,63 +439,6 @@ theorem fixed_coin_tracks (fts : FtsCoord → Digest) (n : Nat) (state : WState)
     ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] at hr
   obtain ⟨answer, _, rfl⟩ := hr
   exact Tracks.refl hU ω fts state
-theorem fixed_hashW_tracks (fts : FtsCoord → Digest) (x : HashInput) (state : WState) (result : HashOutput × WState)
-    (hr : fixedRun env fts (hashW hU ω x) state result ≠ 0) :
-    result.1 = Omega.answers hU ω fts (.inl (.inr x)) ∧ Tracks hU ω fts state result.2 [] [(x, result.1)] := by
-  unfold hashW at hr
-  cases hd : decodeProbe x with
-  | none =>
-      rw [hd] at hr
-      have hres := fixedRun_pure_nonzero fts _ state result hr
-      subst hres
-      refine ⟨answers_public hU ω _ _ x hd, ⟨by simp, Finset.Subset.refl _, Finset.Subset.refl _,
-        fun _ h => Or.inl h, ?_⟩⟩
-      intro f answer h
-      rw [List.mem_singleton] at h
-      have hx := congrArg Prod.fst h
-      simp only at hx
-      rw [← hx, decodeProbe_probeInput] at hd
-      cases hd
-  | some p =>
-      rw [hd] at hr
-      have hx := eq_of_decodeProbe hd
-      unfold fixedRun at hr
-      rw [SecretGuessObservation.runWith_query_bind] at hr
-      simp only [fixedImpl, StateT.run_mk, pure_bind, SecretGuessObservation.runWith_pure, ne_eq,
-        SPMF.pure_apply_eq_zero_iff, not_not] at hr
-      subst hr
-      have hans : (if decide (fts p.1 = p.2) = true then ω.labels (.ftsLeaf (toLeafPos p.1))
-          else finiteHashAnswer ∅ U ω.residual x) = Omega.answers hU ω fts (.inl (.inr x)) := by
-        rw [hx, answers_probe]
-        by_cases he : fts p.1 = p.2
-        · simp only [he, decide_true, if_true]
-        · simp only [he, decide_false, Bool.false_eq_true, if_false]
-      refine ⟨hans, ⟨?_, ?_, ?_, ?_, ?_⟩⟩
-      · simp [afterTrial]
-      · simp only [afterTrial]
-        split <;> simp only [Finset.subset_insert, Finset.Subset.refl]
-      · simp only [afterTrial]
-        split <;> simp only [Finset.subset_insert, Finset.Subset.refl]
-      · intro f hf
-        simp only [afterTrial] at hf ⊢
-        by_cases hhit : decide (fts p.1 = p.2) = true
-        · rw [if_pos hhit, Finset.mem_insert] at hf
-          rcases hf with rfl | hf
-          · by_cases hr : p.1 ∈ state.retired
-            · exact Or.inl hr
-            · exact Or.inr (Or.inl (by rw [if_pos ⟨hhit, hr⟩]; exact Finset.mem_insert_self _ _))
-          · exact Or.inl hf
-        · rw [if_neg hhit] at hf
-          exact Or.inl hf
-      · intro f answer h
-        rw [List.mem_singleton] at h
-        have hin := congrArg Prod.fst h
-        simp only at hin
-        rw [hx] at hin
-        obtain ⟨rfl, hc⟩ := probeInput_injective hin
-        simp only [afterTrial]
-        rw [if_pos (by simp [hc])]
-        exact Finset.mem_insert_self _ _
 theorem fixed_disclosures_run (fts : FtsCoord → Digest) (positions : List FtsCoord) (state : WState)
     (result : List Digest × WState)
     (hr : fixedRun env fts (positions.mapM fun f => (liftM (WSpec.query (.inr (.inr f))) : OracleComp WSpec Digest))
@@ -296,103 +466,6 @@ theorem fixed_disclosures_run (fts : FtsCoord → Digest) (positions : List FtsC
       rw [h4]
       simp only [afterDisclosure, Finset.mem_insert, List.mem_cons]
       tauto
-theorem fixed_signW_tracks (fts : FtsCoord → Digest) (published : T3.Cache) (request : Request) (state : WState)
-    (result : Option Signature × WState) (hr : fixedRun env fts (signW hU ω published request) state result ≠ 0) :
-    result.1 = evalWithAnswerFn (Omega.answers hU ω fts) (FullGame.authenticatedSign published request) ∧
-      Tracks hU ω fts state result.2 [⟨request, result.1⟩] [] := by
-  unfold signW at hr
-  obtain ⟨middle, hm, hr⟩ := fixedRun_bind_nonzero fts _ _ state result hr
-  have h := fixedRun_pure_nonzero fts _ _ result hr
-  subst h
-  obtain ⟨h1, h2, h3, h4⟩ := fixed_disclosures_run fts _ state middle hm
-  have hsig : evalWithAnswerFn (Omega.answers hU ω (overwrite (openedFor hU ω published request) middle.1))
-      (FullGame.authenticatedSign published request) =
-      evalWithAnswerFn (Omega.answers hU ω fts) (FullGame.authenticatedSign published request) := by
-    rw [h1]
-    exact sign_local hU ω _ _ published request fun f hf => overwrite_map fts _ f hf
-  refine ⟨hsig, ⟨by simp [h2], by rw [h3], fun f hf => (h4 f).mpr (Or.inl hf), ?_, fun _ _ h => by cases h⟩⟩
-  intro f hf
-  rcases (h4 f).mp hf with h | h
-  · exact Or.inl h
-  · right; right
-    obtain ⟨signature, output, hs, ho, hp⟩ := sign_opened hU ω fts published request f h
-    refine ⟨⟨request, _⟩, List.mem_singleton_self _, signature, output, ?_, ho, hp⟩
-    change evalWithAnswerFn _ _ = some signature
-    rw [hsig]
-    exact hs
-theorem interactionW_tracks (fts : FtsCoord → Digest) (published : T3.Cache) {α : Type}
-    (program : OracleComp LazyPrivate.Interaction α) (state : WState)
-    (result : (α × QueryLog Requests × List Wots.Entry) × WState)
-    (hr : fixedRun env fts (interactionW hU ω published program) state result ≠ 0) :
-    Tracks hU ω fts state result.2 result.1.2.1 result.1.2.2 := by
-  induction program using OracleComp.inductionOn generalizing state result with
-  | pure value =>
-      rw [interactionW_pure] at hr
-      have h := fixedRun_pure_nonzero fts _ state result hr
-      subst h
-      exact Tracks.refl hU ω fts state
-  | query_bind input next ih =>
-      rcases input with (n | x) | request
-      · rw [interactionW_coin] at hr
-        obtain ⟨middle, hm, hr⟩ := fixedRun_bind_nonzero fts _ _ state result hr
-        have h := Tracks.trans hU ω (fixed_coin_tracks hU ω fts n state middle hm) (ih middle.1 middle.2 result hr)
-        simpa only [List.nil_append] using h
-      · rw [interactionW_public] at hr
-        obtain ⟨middle, hm, hr⟩ := fixedRun_bind_nonzero fts _ _ state result hr
-        obtain ⟨tail, ht, hr⟩ := fixedRun_bind_nonzero fts _ _ _ result hr
-        have h := fixedRun_pure_nonzero fts _ _ result hr
-        subst h
-        have h := Tracks.trans hU ω (fixed_hashW_tracks hU ω fts x state middle hm).2 (ih middle.1 middle.2 tail ht)
-        simpa only [List.nil_append, List.singleton_append] using h
-      · rw [interactionW_request] at hr
-        obtain ⟨middle, hm, hr⟩ := fixedRun_bind_nonzero fts _ _ state result hr
-        obtain ⟨tail, ht, hr⟩ := fixedRun_bind_nonzero fts _ _ _ result hr
-        have h := fixedRun_pure_nonzero fts _ _ result hr
-        subst h
-        have h := Tracks.trans hU ω (fixed_signW_tracks hU ω fts published request state middle hm).2 (ih middle.1 middle.2 tail ht)
-        simpa only [List.nil_append, List.singleton_append] using h
-theorem programW_tracks (fts : FtsCoord → Digest) {β : Type} (program : M β) (hp : PublicVerdict.Only program)
-    (state : WState) (result : (β × List Wots.Entry) × WState)
-    (hr : fixedRun env fts (programW hU ω program) state result ≠ 0) :
-    Tracks hU ω fts state result.2 [] result.1.2 := by
-  induction program using OracleComp.inductionOn generalizing state result with
-  | pure value =>
-      rw [programW_pure] at hr
-      have h := fixedRun_pure_nonzero fts _ state result hr
-      subst h
-      exact Tracks.refl hU ω fts state
-  | query_bind input next ih =>
-      obtain ⟨hi, hn⟩ := (allQueriesSatisfy_query_bind_iff _ _ _).mp hp
-      rcases input with (n | x) | c
-      · exact hi.elim
-      · rw [programW_public] at hr
-        obtain ⟨middle, hm, hr⟩ := fixedRun_bind_nonzero fts _ _ state result hr
-        obtain ⟨tail, ht, hr⟩ := fixedRun_bind_nonzero fts _ _ _ result hr
-        have h := fixedRun_pure_nonzero fts _ _ result hr
-        subst h
-        have h := Tracks.trans hU ω (fixed_hashW_tracks hU ω fts x state middle hm).2 (ih middle.1 (hn _) middle.2 tail ht)
-        simpa only [List.nil_append, List.singleton_append] using h
-      · exact hi.elim
-theorem worldGame_tracking (fts : FtsCoord → Digest) (adversary : AdversaryP)
-    (result : (Bool × QueryLog Requests × List Wots.Entry) × WState)
-    (hr : fixedRun env fts (worldGame hU ω adversary) init result ≠ 0) :
-    result.2.probes ≤ result.1.2.2.length ∧
-      ∀ f, GuessedIn (Omega.answers hU ω fts) result.1.2.1 result.1.2.2 f → f ∈ result.2.guesses := by
-  unfold worldGame at hr
-  obtain ⟨interaction, hi, hr⟩ := fixedRun_bind_nonzero fts _ _ init result hr
-  obtain ⟨verdict, hv, hr⟩ := fixedRun_bind_nonzero fts _ _ _ result hr
-  have h := fixedRun_pure_nonzero fts _ _ result hr
-  subst h
-  have t := Tracks.trans hU ω (interactionW_tracks hU ω fts _ _ init interaction hi)
-    (programW_tracks hU ω fts _ (PaddedGame.verdict_public _ _) _ verdict hv)
-  rw [List.append_nil] at t
-  refine ⟨by simpa [init, SecretGuessObservation.initialState] using t.probes, ?_⟩
-  intro f ⟨hnd, answer, he⟩
-  rw [secretAt_answers] at he
-  rcases t.origin f (t.queried f answer he) with h | h | h
-  · simp [init, SecretGuessObservation.initialState] at h
-  · exact h
-  · exact absurd h hnd
 end Tracking
 end SigGolfCandidate.T3.Security.BPair
 end
@@ -413,56 +486,6 @@ variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : Omega 
 noncomputable def secretsLaw : SPMF (FtsCoord → Digest) := UniformTableCompletion.complete init.allowed
 noncomputable def ftsRun (adversary : AdversaryP) : SPMF ((FtsCoord → Digest) × (Bool × QueryLog Requests × List Wots.Entry)) :=
   secretsLaw >>= fun fts => (fun run => (fts, run)) <$> 𝒮[pairRun (Omega.answers hU ω fts) adversary]
-theorem fts_event_le_world (adversary : AdversaryP)
-    (event : (FtsCoord → Digest) → (Bool × QueryLog Requests × List Wots.Entry) → Prop)
-    (wevent : (Bool × QueryLog Requests × List Wots.Entry) × WState → Prop)
-    (himp : ∀ fts result, fixedRun env fts (worldGame hU ω adversary) init result ≠ 0 → event fts result.1 →
-      wevent result) :
-    Pr[fun x => event x.1 x.2 | ftsRun hU ω adversary] ≤ Pr[wevent | lazyRun env (worldGame hU ω adversary) init] := by
-  rw [← SecretGuessObservation.run_erasure env (worldGame hU ω adversary) init (fun _ => Finset.univ_nonempty)]
-  unfold ftsRun secretsLaw
-  rw [probEvent_bind_eq_tsum, probEvent_bind_eq_tsum]
-  apply ENNReal.tsum_le_tsum
-  intro fts
-  apply mul_le_mul' le_rfl
-  rw [probEvent_map, ← fixed_worldGame hU ω fts adversary, probEvent_map]
-  apply probEvent_mono
-  intro result hr he
-  exact himp fts result (by simpa only [mem_support_iff, SPMF.probOutput_eq_apply] using hr) he
-theorem fts_pair_le (adversary : AdversaryP) (q : Nat) :
-    Pr[fun x => x.2.2.2.length ≤ q ∧ PairGuessIn (Omega.answers hU ω x.1) x.2.2.1 x.2.2.2 | ftsRun hU ω adversary] ≤
-      pairTerm q := by
-  refine (fts_event_le_world hU ω adversary
-    (fun fts run => run.2.2.length ≤ q ∧ PairGuessIn (Omega.answers hU ω fts) run.2.1 run.2.2)
-    (fun result => 2 ≤ result.2.guesses.card ∧ result.2.probes ≤ q)
-    ?_).trans ?_
-  · rintro fts result hr ⟨hlen, f, g, hfg, hf, hg⟩
-    obtain ⟨hp, hgs⟩ := worldGame_tracking hU ω fts adversary result hr
-    refine ⟨?_, hp.trans hlen⟩
-    have hsub : ({f, g} : Finset FtsCoord) ⊆ result.2.guesses := by
-      intro x hx
-      rw [Finset.mem_insert, Finset.mem_singleton] at hx
-      rcases hx with rfl | rfl
-      · exact hgs _ hf
-      · exact hgs _ hg
-    have := Finset.card_le_card hsub
-    rwa [Finset.card_pair hfg] at this
-  · have h := lazyRun_pair_le env (worldGame hU ω adversary) PUnit.unit q
-    rw [card_digest] at h
-    exact h
-theorem fts_one_le (adversary : AdversaryP) (q : Nat) :
-    Pr[fun x => x.2.2.2.length ≤ q ∧ OneGuessIn (Omega.answers hU ω x.1) x.2.2.1 x.2.2.2 | ftsRun hU ω adversary] ≤
-      guessTerm q := by
-  refine (fts_event_le_world hU ω adversary
-    (fun fts run => run.2.2.length ≤ q ∧ OneGuessIn (Omega.answers hU ω fts) run.2.1 run.2.2)
-    (fun result => result.2.guesses.Nonempty ∧ result.2.probes ≤ q)
-    ?_).trans ?_
-  · rintro fts result hr ⟨hlen, f, hf⟩
-    obtain ⟨hp, hgs⟩ := worldGame_tracking hU ω fts adversary result hr
-    exact ⟨⟨f, hgs f hf⟩, hp.trans hlen⟩
-  · have h := lazyRun_guess_le env (worldGame hU ω adversary) PUnit.unit q
-    rw [card_digest] at h
-    exact h
 end WorldBound
 end SigGolfCandidate.T3.Security.BPair
 end
@@ -830,4 +853,5 @@ theorem shared_le_pair (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
     P hshort hmono
 end Law
 end SigGolfCandidate.T3.Security.BPair
+end
 end

@@ -482,23 +482,6 @@ theorem matchAt_iff (T : Answers) (trace : List Entry) :
     exact ⟨_, hmem, L, message, counter, rfl, hne, hdec⟩
   · rintro ⟨⟨input, answer⟩, hmem, L, message, counter, rfl, hne, hdec⟩
     exact ⟨L, message, counter, answer, hmem, hne, hdec⟩
-theorem matchEntry_cell_le (T : Answers) (e : EncIndex) :
-    Pr[fun ans => MatchEntry T (encInput e, ans) | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ (2 ^ 128 : ENNReal)⁻¹ := by
-  classical
-  let targets : Finset Digest := Finset.univ.filter fun d => decode e.1.lay d = some (referenceDigits T (leafOf e.1))
-  have hcard : targets.card ≤ 1 := by
-    apply Finset.card_le_one.mpr
-    intro a ha b hb
-    exact decode_some_injective (Finset.mem_filter.mp ha).2 (Finset.mem_filter.mp hb).2
-  calc _ ≤ Pr[fun output => output.extractLsb' 0 128 ∈ targets | ($ᵗ HashOutput : ProbComp HashOutput)] := by
-        apply probEvent_mono
-        rintro ans - ⟨L, message, counter, he, -, hdec⟩
-        have hL : e = (L, message, counter) := encInput_injective he
-        subst hL
-        exact Finset.mem_filter.mpr ⟨Finset.mem_univ _, hdec⟩
-    _ = targets.card / (2 : ENNReal) ^ 128 := FirstHit.uniform_low_mem targets
-    _ ≤ 1 / (2 : ENNReal) ^ 128 := ENNReal.div_le_div_right (by exact_mod_cast hcard) _
-    _ = (2 ^ 128 : ENNReal)⁻¹ := one_div _
 theorem matchEntry_other (U : Finset HashInput) (privateTable : FullGame.FullTable) (pub : U → HashOutput)
     (x : HashInput) (hx : ¬ Lazy.IsCell encInput (freeSet (eagerAnswers U privateTable pub)) x) :
     ¬ MatchEntry (eagerAnswers U privateTable pub) (x, eagerAnswers U privateTable pub (.inl (.inr x))) := by
@@ -550,44 +533,6 @@ theorem probOutput_complete_univ {ι : Type} [Fintype ι] [DecidableEq ι] (iX :
     Pr[= y | complete (fun _ : ι => (Finset.univ : Finset HashOutput))] =
       @PMF.uniformOfFintype (ι → HashOutput) iX _ y :=
   (probOutput_complete_univ' y).trans (uniformOfFintype_inst _ iX y)
-theorem free_transfer [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, DecidableEq k]
-    (iX : ∀ k : Set EncIndex, Fintype (k → HashOutput)) (U : Finset HashInput) (hU : SeccLaw.publicUniverse ⊆ U) (privateTable : FullGame.FullTable)
-    (pub : U → HashOutput) (h : RefSample → ENNReal) (φ : List Entry → ENNReal)
-    (hφ : ∀ y r, h (mkSample (eagerAnswers U privateTable (ov (freeSet (eagerAnswers U privateTable pub)) pub y)) r) =
-      φ (traceOf (eagerAnswers U privateTable (ov (freeSet (eagerAnswers U privateTable pub)) pub y)) r.2)) :
-    ∑' y, @PMF.uniformOfFintype (freeSet (eagerAnswers U privateTable pub) → HashOutput) (iX _) _ y *
-        ∑' r, (liftM (offlineRun (eagerAnswers U privateTable (ov (freeSet (eagerAnswers U privateTable pub)) pub y))
-          adversary q) : PMF SeedResult) r *
-          h (mkSample (eagerAnswers U privateTable (ov (freeSet (eagerAnswers U privateTable pub)) pub y)) r) =
-      ∑' z, Pr[= z | (simulateQ (Lazy.lazyImpl encInput (freeSet (eagerAnswers U privateTable pub))
-          (eagerAnswers U privateTable pub))
-          (SphincsSecurity.QueryPause.traced Lazy.obs (referenceGame (eagerAnswers U privateTable pub) adversary q))).run
-          (fun _ => Finset.univ)] * φ z.1.2.toList := by
-  have hinner : ∀ y : freeSet (eagerAnswers U privateTable pub) → HashOutput,
-      ∑' r, (liftM (offlineRun (eagerAnswers U privateTable (ov (freeSet (eagerAnswers U privateTable pub)) pub y))
-          adversary q) : PMF SeedResult) r *
-          h (mkSample (eagerAnswers U privateTable (ov (freeSet (eagerAnswers U privateTable pub)) pub y)) r) =
-        ∑' r, Pr[= r | 𝒮[simulateQ (refImpl (Lazy.overwrite encInput (freeSet (eagerAnswers U privateTable pub))
-          (eagerAnswers U privateTable pub) y))
-          (SphincsSecurity.QueryPause.traced Lazy.obs (referenceGame (eagerAnswers U privateTable pub) adversary q))]] *
-            φ r.2.toList := by
-    intro y
-    have hgame : referenceGame (eagerAnswers U privateTable (ov (freeSet (eagerAnswers U privateTable pub)) pub y))
-        adversary q = referenceGame (eagerAnswers U privateTable pub) adversary q :=
-      referenceGame_congr_honest (AgreeOn.of_eq (honest_ov U privateTable pub y)) adversary q
-    simp only [PrefixGame.liftM_apply, hφ, probOutput_evalSPMF]
-    unfold offlineRun
-    rw [hgame, ← eager_ov_eq U hU privateTable pub y]
-    have hmap := Lazy.recorded_traced (eagerAnswers U privateTable (ov (freeSet (eagerAnswers U privateTable pub)) pub y))
-      (referenceGame (eagerAnswers U privateTable pub) adversary q)
-    rw [← tsum_probOutput_map_mul _ (fun r : SeedResult => (r.1, traceOf (eagerAnswers U privateTable
-      (ov (freeSet (eagerAnswers U privateTable pub)) pub y)) r.2)) (fun z : Option (Bool × Nat) × List Entry => φ z.2),
-      hmap, tsum_probOutput_map_mul]
-  simp only [hinner]
-  rw [← Lazy.lazyRun_eq_simulate,
-    ← tsum_probOutput_map_mul _ Prod.fst (fun r : Option (Bool × Nat) × FreeMonoid Entry => φ r.2.toList),
-    ← Lazy.eager_lazy, tsum_probOutput_bind_mul]
-  simp only [probOutput_complete_univ (iX (freeSet (eagerAnswers U privateTable pub)))]
 theorem eager_ovk_eq (U : Finset HashInput) (hU : SeccLaw.publicUniverse ⊆ U) (privateTable : FullGame.FullTable)
     (pub : U → HashOutput) (k : Set EncIndex) (y : k → HashOutput) :
     eagerAnswers U privateTable (ov k pub y) = Lazy.overwrite encInput k (eagerAnswers U privateTable pub) y := by
@@ -616,46 +561,6 @@ theorem probOutput_complete_init {ι : Type} [Fintype ι] [DecidableEq ι] (init
       PMF.uniformOfFinset (Fintype.piFinset init) (Fintype.piFinset_nonempty.mpr hinit) y := by
   rw [complete_of_nonempty _ hinit, SPMF.probOutput_eq_apply, SPMF.liftM_apply]
   rfl
-theorem cell_transfer [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, DecidableEq k]
-    (U : Finset HashInput) (hU : SeccLaw.publicUniverse ⊆ U) (privateTable : FullGame.FullTable)
-    (pub : U → HashOutput) (h : RefSample → ENNReal) (φ : List Entry → ENNReal)
-    (hφ : ∀ y, (∀ e, y e ∈ cellInit (cellKey (eagerAnswers U privateTable pub)) e) → ∀ r,
-      h (mkSample (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) r) = φ (traceOf (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) r.2)) :
-    ∑' y, PMF.uniformOfFinset (Fintype.piFinset (cellInit (cellKey (eagerAnswers U privateTable pub))))
-          (Fintype.piFinset_nonempty.mpr (cellInit_nonempty _)) y *
-        ∑' r, (liftM (offlineRun (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) adversary q) : PMF SeedResult) r *
-          h (mkSample (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) r) =
-      ∑' z, Pr[= z | (simulateQ (Lazy.lazyImpl encInput (cellKey (eagerAnswers U privateTable pub)).1 (eagerAnswers U privateTable pub))
-          (SphincsSecurity.QueryPause.traced Lazy.obs (referenceGame (eagerAnswers U privateTable pub) adversary q))).run
-          (cellInit (cellKey (eagerAnswers U privateTable pub)))] * φ z.1.2.toList := by
-  have hinner : ∀ y : (cellKey (eagerAnswers U privateTable pub)).1 → HashOutput, (∀ e, y e ∈ cellInit (cellKey (eagerAnswers U privateTable pub)) e) →
-      ∑' r, (liftM (offlineRun (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) adversary q) : PMF SeedResult) r *
-          h (mkSample (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) r) =
-        ∑' r, Pr[= r | 𝒮[simulateQ (refImpl (Lazy.overwrite encInput (cellKey (eagerAnswers U privateTable pub)).1 (eagerAnswers U privateTable pub) y))
-          (SphincsSecurity.QueryPause.traced Lazy.obs (referenceGame (eagerAnswers U privateTable pub) adversary q))]] *
-            φ r.2.toList := by
-    intro y hy
-    have hgame : referenceGame (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) adversary q = referenceGame (eagerAnswers U privateTable pub) adversary q :=
-      referenceGame_congr_honest (agree_ovc U hU privateTable pub y hy) adversary q
-    simp only [PrefixGame.liftM_apply, hφ y hy, probOutput_evalSPMF]
-    unfold offlineRun
-    rw [hgame, ← eager_ovk_eq U hU privateTable pub _ y]
-    have hmap := Lazy.recorded_traced (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) (referenceGame (eagerAnswers U privateTable pub) adversary q)
-    rw [← tsum_probOutput_map_mul _ (fun r : SeedResult => (r.1, traceOf (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) r.2))
-      (fun z : Option (Bool × Nat) × List Entry => φ z.2), hmap, tsum_probOutput_map_mul]
-  refine Eq.trans (tsum_congr (g := fun y : (cellKey (eagerAnswers U privateTable pub)).1 → HashOutput =>
-      PMF.uniformOfFinset (Fintype.piFinset (cellInit (cellKey (eagerAnswers U privateTable pub))))
-          (Fintype.piFinset_nonempty.mpr (cellInit_nonempty _)) y *
-        ∑' r, Pr[= r | 𝒮[simulateQ (refImpl (Lazy.overwrite encInput (cellKey (eagerAnswers U privateTable pub)).1 (eagerAnswers U privateTable pub) y))
-          (SphincsSecurity.QueryPause.traced Lazy.obs (referenceGame (eagerAnswers U privateTable pub) adversary q))]] *
-            φ r.2.toList) fun y => ?_) ?_
-  · by_cases hy : ∀ e, y e ∈ cellInit (cellKey (eagerAnswers U privateTable pub)) e
-    · rw [hinner y hy]
-    · rw [PMF.uniformOfFinset_apply, if_neg (fun hm => hy (Fintype.mem_piFinset.mp hm)), zero_mul, zero_mul]
-  · rw [← Lazy.lazyRun_eq_simulate,
-      ← tsum_probOutput_map_mul _ Prod.fst (fun r : Option (Bool × Nat) × FreeMonoid Entry => φ r.2.toList),
-      ← Lazy.eager_lazy_init (hinit := cellInit_nonempty _), tsum_probOutput_bind_mul]
-    simp only [probOutput_complete_init _ (cellInit_nonempty _)]
 noncomputable def matchInd (s : RefSample) : ENNReal :=
   if ∃ L : CanonGraph.LeafPos, EncodingMatchAt s.answers s.trace (leafOf L) then 1 else 0
 theorem marks_unit (P : Entry → Prop) (tr : List Entry) :
@@ -666,10 +571,6 @@ theorem marks_unit (P : Entry → Prop) (tr : List Entry) :
     simp
   · rw [if_neg h, Finset.filter_false_of_mem (fun _ _ => h)]
     simp
-theorem encodingMatchAt_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (trace : List Entry)
-    (L : CanonGraph.LeafPos) : EncodingMatchAt T' trace (leafOf L) ↔ EncodingMatchAt T trace (leafOf L) := by
-  unfold EncodingMatchAt
-  rw [referenceInput_congr_honest h, referenceDigits_congr_honest h]
 theorem encodingCount_mkSample (T : Answers) (r : SeedResult) :
     (encodingCount (mkSample T r) : ENNReal) =
       (((traceOf T r.2).filter fun e => decide (EncodingInput e.1)).length : ENNReal) := rfl
@@ -682,41 +583,6 @@ theorem cellCount_le_encoding (F : Set EncIndex) (tr : List Entry) :
   simp only [decide_eq_true_eq] at he ⊢
   obtain ⟨x, -, hx⟩ := he
   exact ⟨_, _, _, hx.symm⟩
-theorem free_match_le [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, DecidableEq k]
-    (iX : ∀ k : Set EncIndex, Fintype (k → HashOutput)) (U : Finset HashInput) (hU : SeccLaw.publicUniverse ⊆ U) (privateTable : FullGame.FullTable)
-    (pub : U → HashOutput) :
-    ∑' y, @PMF.uniformOfFintype (freeSet (eagerAnswers U privateTable pub) → HashOutput) (iX _) _ y *
-        ∑' r, (liftM (offlineRun (eagerAnswers U privateTable (ov (freeSet (eagerAnswers U privateTable pub)) pub y))
-          adversary q) : PMF SeedResult) r *
-          matchInd (mkSample (eagerAnswers U privateTable (ov (freeSet (eagerAnswers U privateTable pub)) pub y)) r) ≤
-      (2 ^ 128 : ENNReal)⁻¹ * ∑' y, @PMF.uniformOfFintype (freeSet (eagerAnswers U privateTable pub) → HashOutput) (iX _) _ y *
-        ∑' r, (liftM (offlineRun (eagerAnswers U privateTable (ov (freeSet (eagerAnswers U privateTable pub)) pub y))
-          adversary q) : PMF SeedResult) r *
-          (encodingCount (mkSample (eagerAnswers U privateTable
-            (ov (freeSet (eagerAnswers U privateTable pub)) pub y)) r) : ENNReal) := by
-  rw [free_transfer adversary q iX U hU privateTable pub matchInd
-      (fun tr => (Lazy.marks (fun (_ : Unit) => MatchEntry (eagerAnswers U privateTable pub)) tr : ENNReal))
-      (fun y r => by
-        unfold matchInd mkSample
-        rw [marks_unit]
-        dsimp only
-        split_ifs with h1 h2 h2
-        · rfl
-        · exact absurd ((matchAt_iff _ _).mp
-            (by simpa only [encodingMatchAt_congr (AgreeOn.of_eq (honest_ov U privateTable pub y))] using h1)) h2
-        · exact absurd (by simpa only [encodingMatchAt_congr (AgreeOn.of_eq (honest_ov U privateTable pub y))] using
-            (matchAt_iff _ _).mpr h2) h1
-        · rfl),
-    free_transfer adversary q iX U hU privateTable pub (fun s => (encodingCount s : ENNReal))
-      (fun tr => (((tr.filter fun e => decide (EncodingInput e.1)).length : Nat) : ENNReal))
-      (fun y r => encodingCount_mkSample _ r)]
-  refine (Lazy.lazy_marks_le encInput (freeSet (eagerAnswers U privateTable pub)) encInput_injective
-    (eagerAnswers U privateTable pub) (fun (_ : Unit) => MatchEntry (eagerAnswers U privateTable pub)) _
-    (fun e => by simpa only [Finset.univ_unique, Finset.sum_singleton] using
-      matchEntry_cell_le (eagerAnswers U privateTable pub) e.val)
-    (fun x hx _ => matchEntry_other U privateTable pub x hx) _).trans ?_
-  refine mul_le_mul' le_rfl (ENNReal.tsum_le_tsum fun z => mul_le_mul' le_rfl ?_)
-  exact_mod_cast cellCount_le_encoding _ _
 end Table
 end Enc
 end SigGolfCandidate.T3.Security.Wots
