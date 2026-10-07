@@ -241,7 +241,7 @@ theorem rejectTail_false (w : WBytes) (N : HashOutput) : ∀ b ∈ support (reje
     rfl
 theorem verifyP_normal (m : Message) (pk : Digest) (w : WBytes) :
     verifyP m pk w =
-      if (wdcWord w).toNat ≥ WCT9.digestVerifyLimit then pure false else (do
+      if (wdc w).toNat ≥ WCT9.digestVerifyWindow then pure false else (do
         let N ← digest (wrho w) m (wdc w)
         if Shaped N w then verifyPadsTail pk N (witDecP N w) (padDecP N w) else rejectTail w N) := by
   rw [verifyP_eq_tail]
@@ -1060,12 +1060,12 @@ theorem verifyP_witEnc_eval (answers : Correctness.Answers) (m : Message) (pk : 
       digest w.signature.rho m w.digestCounter >>= verifyTailP pk (witEnc N w) := by
     rw [verifyP_eq_tail]
     unfold digestP
-    rw [wdcWord_witEnc, wdc_witEnc, wrho_witEnc, if_neg (by have := F.dc; have := WCT9.digestAttemptLimit_le_digestVerifyLimit; omega), bind_map_left]
+    rw [wdc_witEnc, wrho_witEnc, if_neg (by have := w.digestCounter.isLt; unfold WCT9.digestVerifyWindow; omega), bind_map_left]
   have hw : WCT9.Rev3.verify m pk w =
       digest w.signature.rho m w.digestCounter >>= fun N' => verifyPadsTail pk N' w 0 := by
     rw [← verifyPads_zero]
     unfold verifyPads
-    rw [if_neg (by have := F.dc; have := WCT9.digestAttemptLimit_le_digestVerifyLimit; omega)]
+    rw [if_neg (by have := F.dc; omega)]
   rw [hv, hw]
   apply eval_countCalls_bind_congr
   rw [F.sig, F.digest, verifyTailP_shaped pk N _ F.adm, witDecP_witEnc, padDecP_witEnc]
