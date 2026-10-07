@@ -140,8 +140,8 @@ theorem Good.halt {s : MachineState} (hf : fetch image s = some (.base .ECALL))
   · rw [hF', evalWith_halt hash (F - 1) hf ht0]
     refine ⟨?_, le_refl _⟩
     by_cases hx : s.getReg .x10 = 0
-    · simp only [hx, if_true]; decide
-    · simp only [hx, if_false]; decide
+    · simp only [hx, if_true]; decide +kernel
+    · simp only [hx, if_false]; decide +kernel
 def GoodQP (P : Hash → Prop) (s : MachineState) (N C : Nat) (Q : Prop) (A : Nat)
     (X : OracleComp HashSpec Obs) : Prop :=
   ∀ F, N ≤ F → obs <$> Riscv.execute F image s = X ∧
@@ -246,12 +246,12 @@ theorem GoodQ.halt {s : MachineState} {Q : Prop} {A : Nat} (hf : fetch image s =
   · rw [hF', evalWith_halt hash (F - 1) hf h5]
     by_cases hx : s.getReg .x10 = 0
     · simp only [hx, if_true]
-      exact ⟨by decide, le_refl _, fun _ _ => hQ hx⟩
+      exact ⟨by decide +kernel, le_refl _, fun _ _ => hQ hx⟩
     · simp only [hx, if_false]
-      exact ⟨by decide, le_refl _, fun h _ => absurd h (by decide)⟩
+      exact ⟨by decide +kernel, le_refl _, fun h _ => absurd h (by decide +kernel)⟩
 theorem GoodQ.reject {s : MachineState} {Q : Prop} {A : Nat} (hf : fetch image s = some (.base .ECALL))
     (h5 : s.getReg .x5 = 1) (h10 : s.getReg .x10 = 1) : GoodQ s 1 1 Q A (pure (false, 0)) := by
-  have := GoodQ.halt (Q := Q) (A := A) hf h5 (fun h => absurd (h10.symm.trans h) (by decide))
+  have := GoodQ.halt (Q := Q) (A := A) hf h5 (fun h => absurd (h10.symm.trans h) (by decide +kernel))
   rwa [h10] at this
 theorem GoodQ.accept {s : MachineState} {Q : Prop} {A : Nat} (hf : fetch image s = some (.base .ECALL))
     (h5 : s.getReg .x5 = 1) (h10 : s.getReg .x10 = 0) (hQ : Q) (hA : 1 ≤ A) :

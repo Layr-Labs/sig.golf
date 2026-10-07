@@ -166,12 +166,15 @@ theorem fieldOk_of_admissible {N : HashOutput} (h : WCT9.admissible N = true) (k
   have := ((WCT9.admissible_iff N).1 h).2 k
   exact decide_eq_true this
 theorem gateOk_of_admissible {N : HashOutput} (h : WCT9.admissible N = true) : gateOk N = true := by
-  have := ((WCT9.admissible_iff N).1 h).1
-  simp only [gateOk, decide_eq_true_eq]; exact this
+  unfold gateOk
+  apply decide_eq_true
+  simpa only [WCT9.gateLimit] using ((WCT9.admissible_iff N).1 h).1
 theorem admissible_of_ok {N : HashOutput} (hg : gateOk N = true) (hf : ∀ k, fieldOk N k = true) :
     WCT9.admissible N = true := by
+  unfold gateOk at hg
+  have hgate := of_decide_eq_true hg
   rw [WCT9.admissible_iff]
-  refine ⟨by simpa [gateOk] using hg, fun k => ?_⟩
+  refine ⟨by simpa only [WCT9.gateLimit] using hgate, fun k => ?_⟩
   have := hf k
   exact of_decide_eq_true this
 theorem wctP_shaped (N : HashOutput) (w : WBytes) (h : Shaped N w) :
@@ -241,7 +244,7 @@ theorem rejectTail_false (w : WBytes) (N : HashOutput) : ∀ b ∈ support (reje
     rfl
 theorem verifyP_normal (m : Message) (pk : Digest) (w : WBytes) :
     verifyP m pk w =
-      if (wdcWord w).toNat ≥ WCT9.digestAttemptLimit then pure false else (do
+      if (wdcWord w).toNat ≥ WCT9.digestVerifyLimit then pure false else (do
         let N ← digest (wrho w) m (wdc w)
         if Shaped N w then verifyPadsTail pk N (witDecP N w) (padDecP N w) else rejectTail w N) := by
   rw [verifyP_eq_tail]
@@ -1060,12 +1063,12 @@ theorem verifyP_witEnc_eval (answers : Correctness.Answers) (m : Message) (pk : 
       digest w.signature.rho m w.digestCounter >>= verifyTailP pk (witEnc N w) := by
     rw [verifyP_eq_tail]
     unfold digestP
-    rw [wdcWord_witEnc, wdc_witEnc, wrho_witEnc, if_neg (by have := F.dc; omega), bind_map_left]
+    rw [wdcWord_witEnc, wdc_witEnc, wrho_witEnc, if_neg (by have := F.dc; have := WCT9.digestAttemptLimit_le_digestVerifyLimit; omega), bind_map_left]
   have hw : WCT9.Rev3.verify m pk w =
       digest w.signature.rho m w.digestCounter >>= fun N' => verifyPadsTail pk N' w 0 := by
     rw [← verifyPads_zero]
     unfold verifyPads
-    rw [if_neg (by have := F.dc; omega)]
+    rw [if_neg (by have := F.dc; have := WCT9.digestAttemptLimit_le_digestVerifyLimit; omega)]
   rw [hv, hw]
   apply eval_countCalls_bind_congr
   rw [F.sig, F.digest, verifyTailP_shaped pk N _ F.adm, witDecP_witEnc, padDecP_witEnc]
