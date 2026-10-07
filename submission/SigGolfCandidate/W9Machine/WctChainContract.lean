@@ -26,7 +26,7 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   witness : ∀ off, off < 880 → off % 8 = 0 →
     u.getMem (BitVec.ofNat 64 (base k + off)) =
       w.extractLsb' (8 * (V3.regionOffset k.val + off)) 64
-def writes (k : Fin 9) (A : Nat) : Prop := base k + 320 ≤ A ∧ A < base k + 896
+def writes (k : Fin 9) (A : Nat) : Prop := base k + 336 ≤ A ∧ A < base k + 896
 def clobbers : List Reg := [.x3, .x10, .x11, .x12, .x14, .x25]
 structure Post (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
     (u : MachineState) (ends : List Digest) (t : MachineState) : Prop where

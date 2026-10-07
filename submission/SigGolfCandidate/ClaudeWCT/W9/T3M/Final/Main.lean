@@ -43,7 +43,7 @@ theorem witnessCycles_eq : witnessCycles (submission I).sizes.witness = 84 := by
 theorem claimedC_eq : claimedC = verifyCycleBound + witnessCycles (submission I).sizes.witness := by
   rw [witnessCycles_eq]
   decide
-theorem submission_verificationBound (P : Pending I) : (submission I).VerificationBound 7351 := by
+theorem submission_verificationBound (P : Pending I) : (submission I).VerificationBound 7347 := by
   intro hash sk m
   dsimp only
   intro h
@@ -56,7 +56,7 @@ theorem submission_verificationBound (P : Pending I) : (submission I).Verificati
     (SigGolfCandidate.T3M.Verify.hashOk_okHash hash) (Credit.digestCap_okHash hash m pk _ N wt hx) hacc
   unfold verifyCycleBound at this
   omega
-theorem certificate_of (P : Pending I) (S : SourceFacts) : Certificate (submission I) 7351 where
+theorem certificate_of (P : Pending I) (S : SourceFacts) : Certificate (submission I) 7347 where
   admissible := P.admissible
   termination := submission_terminates P
   completeness := submission_complete P S
