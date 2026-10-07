@@ -640,22 +640,17 @@ open SigGolfCandidate.T3 (Digest HashOutput Layer route leafHash)
 open ClaudeWCT.WCT9 (LayerMsg)
 set_option maxHeartbeats 1000000
 set_option linter.unusedSimpArgs false
-def topFuel : Nat := 7 + 1 + 2367
-def topCyc : Nat := 7 + 8 + 2512
-def topCycA : Nat := 7 + 8 + 1343
+def topFuel : Nat := 5 + 1 + 2367
+def topCyc : Nat := 5 + 8 + 2512
+def topCycA : Nat := 5 + 8 + 1343
 theorem top_layer_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^ 31) (Q : Prop) (hQ : Q)
     (M : LayerMsg) (s : MachineState) (hs : LayerIn w pk index 0 M s) :
     GoodQ s topFuel topCyc Q topCycA (ccM (BC.layerLoop w index 1 M) (kFin pk)) := by
   rw [layerLoop_one]
   have hA := BC.encoding_setup w pk index 0 M s hs
-  have hsA : stepsA (0 : Layer).val = 7 := rfl
-  by_cases hctr : (ClaudeWCT.W9.T3M.wbcCtr w index 0).toNat ≥ T3.counterLimit
-  · rw [if_pos hctr, ccM_pure, kFin_none]
-    obtain ⟨u, hst, hf, h5, h10⟩ := hA.1 hctr
-    have hr : BC.rejectSteps (0 : Layer).val = 10 := rfl
-    rw [hr] at hst
-    exact GoodQ.steps' hst (GoodQ.reject (Q := Q) (A := 0) hf h5 h10) (by simp [topFuel]) (by simp [topCyc])
-      (fun hq => ⟨hq, by simp [topCycA]⟩)
+  have hsA : stepsA (0 : Layer).val = 5 := rfl
+  by_cases hctr : (ClaudeWCT.W9.T3M.wbcCtr w index 0).toNat ≥ ClaudeWCT.WCT9.verifyWindow
+  · exact absurd hctr (ClaudeWCT.WCT9.ctr_not_ge_verifyWindow _)
   · rw [if_neg hctr]
     obtain ⟨t, hst, hf, h5, hv, hin, hpre⟩ := hA.2 (by omega)
     set c := BC.cpIdx index (0 : Layer).val with hcdef
@@ -686,9 +681,9 @@ def lFuel : Nat → Nat
   | 0 => 9
   | 1 => topFuel
   | n + 2 => layerFuel (n + 1) + mkFuel (n + 1) + lFuel (n + 1)
-theorem lCyc_4 : lCyc 4 = 6664 := by decide
-theorem lCycA_4 : lCycA 4 = 5483 := by decide
-theorem lFuel_4 : lFuel 4 = 7759 := by decide
+theorem lCyc_4 : lCyc 4 = 6657 := by decide
+theorem lCycA_4 : lCycA 4 = 5476 := by decide
+theorem lFuel_4 : lFuel 4 = 7752 := by decide
 theorem layers_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^ 31) (Q : Prop) (hQ : Q) :
     ∀ n, n ≤ 4 → ∀ msg s, RestIn w pk index n msg s →
       GoodQ s (lFuel n) (lCyc n) Q (lCycA n) (ccM (BC.layerLoop w index n msg) (kFin pk)) := by
@@ -731,7 +726,7 @@ theorem layers_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (h
       (fun q => ⟨q, by simp only [lCycA]; omega⟩)
 theorem after_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (Q : Prop) (hQ : Q) (a : HashOutput) (root : Digest) (u : MachineState)
     (h : FtsOut ⟨pk, w, a⟩ root u) :
-    GoodQ u 8050 8050 Q 5487 (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some root)) Kb) := by
+    GoodQ u 8050 8050 Q 5479 (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some root)) Kb) := by
   have hidx : ClaudeWCT.WCT9.digestIndex a < 2 ^ 31 := ClaudeWCT.WCT9.digestIndex_lt a
   obtain ⟨t, hst, hL3⟩ := layerIn_of_fts w pk _ root u hidx h.glob h.idx h.pc h.root h.wit h.a2 h.s10 h.heapOne h.heapTwo h.heapSeven h.heapThree h.heapFour h.heapFive h.coordStep h.topBase h.top h.top8
   have hg := layers_good w pk _ hidx Q hQ 4 le_rfl (.forest root) t (by simpa [RestIn] using hL3)
@@ -743,7 +738,7 @@ theorem after_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (Q : Prop) (hQ : 
   rw [e]
   rw [lFuel_4, lCyc_4, lCycA_4] at hg
   exact GoodQ.steps' hst hg (by omega) (by omega) (fun q => ⟨q, by omega⟩)
-theorem after_good_budget : AfterGoodBudget 5487 :=
+theorem after_good_budget : AfterGoodBudget 5479 :=
   fun pk w Q hQ a root u h => after_good pk w Q hQ a root u h
 end SigGolfCandidate.T3M
 end

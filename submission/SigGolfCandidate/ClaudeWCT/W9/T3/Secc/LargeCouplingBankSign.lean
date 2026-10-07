@@ -259,7 +259,7 @@ theorem psi_cert (q : Nat) (st : RouterState) (h : CertGhost st) : 1 ≤ psi q s
       change p.2 ∈ (st.births.map Prod.snd).reverse
       rw [List.mem_reverse]
       exact List.mem_map_of_mem hp
-theorem psi_initial (q : Nat) : psi q RouterState.initial ≤ (q : ENNReal) * (14774 / 100000000) / 2 ^ 128 := by
+theorem psi_initial (q : Nat) : psi q RouterState.initial ≤ (q : ENNReal) * (15200 / 100000000) / 2 ^ 128 := by
   have h0 : reuseC RouterState.initial = 0 := by
     unfold reuseC
     apply ENNReal.tsum_eq_zero.mpr
@@ -269,9 +269,9 @@ theorem psi_initial (q : Nat) : psi q RouterState.initial ≤ (q : ENNReal) * (1
     simp only [hm, Option.isSome_none, Bool.false_eq_true, if_false]
     simp only [ClaudeWCT.Bank.FtsBankSpec.reuseMass, ClaudeWCT.Bank.FtsBankSpec.admissibleEntry, hc,
       Option.elim_none, tsum_zero, ENNReal.zero_div]
-  have hinit := ClaudeWCT.Bank.WCT.wct_core_initial CaseC.horizon (14774 / 100000000)
+  have hinit := ClaudeWCT.Bank.WCT.wct_core_initial CaseC.horizon (15200 / 100000000)
     ClaudeWCT.Numerics.WCTPrice.wct_excessBound_2_32 q
-  rw [ClaudeWCT.Bank.WCT.wct_corePotential_rate CaseC.horizon (14774 / 100000000)
+  rw [ClaudeWCT.Bank.WCT.wct_corePotential_rate CaseC.horizon (15200 / 100000000)
     ClaudeWCT.Numerics.WCTPrice.wct_excessBound_2_32 ⊤ CaseC.excessBound_top] at hinit
   unfold psi bankOf
   rw [h0]

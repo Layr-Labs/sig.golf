@@ -119,7 +119,7 @@ def wctNodeHashP (coord index heap : Nat) (left pad right : Digest) : M Digest :
   nodeHashP 3 (WCT9.nodeLayer coord) index heap left pad right
 def digestP (m : Message) (w : WBytes) : M (Option HashOutput) :=
   if (wdcWord w).toNat ≥ WCT9.digestAttemptLimit then pure none else some <$> digest (wrho w) m (wdc w)
-def gateOk (N : HashOutput) : Bool := decide (N.toNat / 2 ^ 235 % 2 ^ 21 < 1091)
+def gateOk (N : HashOutput) : Bool := decide (N.toNat / 2 ^ 235 % 2 ^ 21 < 1094)
 def fieldOk (N : HashOutput) (coord : WCT9.Coord) : Bool := decide (WCT9.field N coord < WCT9.fieldLimit)
 def wctCoordP (w : WBytes) (index : Nat) (coord : WCT9.Coord) (child : WCT9.Child) (word : WCT9.Rank) :
     M (Digest × Digest) := do
@@ -180,7 +180,7 @@ def layersBC (w : WBytes) (index : Nat) : Nat → WCT9.LayerMsg → M (Option Di
   | n + 1, msg => do
       let lay : Layer := Fin.ofNat 4 n
       let counter := wbcCtr w index lay
-      if counter.toNat ≥ counterLimit then return none
+      if counter.toNat ≥ WCT9.verifyWindow then return none
       let (leaf, tree) := route index lay
       let answer ← shortHash (layerEncodingInputP lay tree leaf msg counter (wbcPad w index lay) (wbcRight w))
       if n = 0 then topLayerP w index answer
@@ -200,7 +200,7 @@ def layersBCPrepass (w : WBytes) (index : Nat) : Nat → WCT9.LayerMsg → M (Op
   | n + 1, msg => do
       let lay : Layer := Fin.ofNat 4 n
       let counter := wbcCtr w index lay
-      if counter.toNat ≥ counterLimit then return none
+      if counter.toNat ≥ WCT9.verifyWindow then return none
       let (leaf, tree) := route index lay
       let answer ← shortHash (layerEncodingInputP lay tree leaf msg counter (wbcPad w index lay) (wbcRight w))
       let some digits := decode lay answer | pure none
@@ -280,7 +280,7 @@ def verifyLayersBCP (w : WCT9.Witness) (pads : Pads) (index : Nat) : Nat → WCT
   | n + 1, msg => do
       let lay : Layer := Fin.ofNat 4 n
       let counter := w.counters lay
-      if counter.toNat ≥ counterLimit then return none
+      if counter.toNat ≥ WCT9.verifyWindow then return none
       let (leaf, tree) := route index lay
       let answer ← shortHash (layerEncodingInputP lay tree leaf msg counter (pads.bc lay) pads.bcRight)
       if n = 0 then verifyTopP w.signature pads index answer
