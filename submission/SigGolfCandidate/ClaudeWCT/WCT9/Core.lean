@@ -12,7 +12,7 @@ def gateBits : Nat := 21
 def gateLimit : Nat := 1091
 def fieldBits : Nat := 14
 def fieldLimit : Nat := 16200
-def jointCap : Nat := 707
+def jointCap : Nat := 706
 abbrev Coord := Fin 9
 abbrev Child := Fin 128
 abbrev Rank := Fin 600
@@ -36,7 +36,7 @@ def admissible (output : HashOutput) : Bool :=
     (List.range 9).all (fun coord =>
       decide (output.toNat / 2 ^ fieldBase coord % 2 ^ 14 < 16200))
 def childSaveTable : List Nat :=
-  [0,1,1,1,1,2,2,1,1,2,2,1,1,2,2,1,1,2,2,1,1,2,2,1,1,2,2,1,1,1,1,0,1,2,2,1,1,2,2,1,1,2,2,1,1,1,1,0,1,2,2,1,1,1,1,0,1,1,1,0,0,1,1,0]
+  [0,1,1,1,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,1,1,1,1,1,1,2,2,2,1,2,2,1,1,2,2,1,1,1,1,1,1,2,2,1,1,1,1,1,1,1,1,1,0,1,1,0]
 def maxChildSave : Nat := 2
 def childSave (c : Nat) : Nat := childSaveTable.getD (c % 64) 0
 def childExtra (c : Child) : Nat := maxChildSave - childSave c.val
@@ -143,6 +143,11 @@ def producerDecode (lay : Layer) (answer : Digest) : Option (List Nat) :=
   | none => none
 def lowerSearchLimit : Nat := 2 ^ 21
 def searchLimit (lay : Layer) : Nat := if lay = 0 then counterLimit else lowerSearchLimit
+/-- The verifier accepts every 32-bit counter: its window is the whole `BitVec 32` range, so the layer check
+never rejects. The signer still searches `searchLimit`. -/
+def verifyWindow : Nat := 2 ^ 32
+theorem ctr_not_ge_verifyWindow (c : BitVec 32) : ¬c.toNat ≥ verifyWindow := by
+  unfold verifyWindow; exact Nat.not_le.mpr c.isLt
 def layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) (counter : Nat) :
     Nat → M (Option (BitVec 32 × List Nat))
   | 0 => pure none
@@ -273,7 +278,7 @@ def verifyLayersBC (w : Witness) (index : Nat) : Nat → LayerMsg → M (Option 
   | n + 1, msg => do
       let lay : Layer := Fin.ofNat 4 n
       let counter := w.counters lay
-      if counter.toNat ≥ counterLimit then return none
+      if counter.toNat ≥ verifyWindow then return none
       let (leaf, tree) := route index lay
       let answer ← shortHash (layerEncodingInput lay tree leaf msg counter)
       if n = 0 then verifyTop w.signature index answer

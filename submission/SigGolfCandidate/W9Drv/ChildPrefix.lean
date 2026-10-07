@@ -91,7 +91,7 @@ def stageW (j l : Nat) : List Nat :=
   [curO l j, curO l j + 8, curO l j + 16, curO l j + 24, blkO j l + 16, blkO j l + 24]
 def stagesW (j n : Nat) : List Nat := (List.range n).flatMap (stageW j)
 def planOK (j : Nat) : Bool :=
-  (List.range 6).all (fun l => decide (blkO j l % 16 = 0 ∧ blkO j l + 64 ≤ 320 ∧ curO l j + 32 ≤ 336)) &&
+  (List.range 6).all (fun l => decide (blkO j l % 16 = 0 ∧ blkO j l + 64 ≤ 336 ∧ curO l j + 32 ≤ 352)) &&
   decide (sibO 6 j % 16 = 0 ∧ sibO 6 j + 16 ≤ 320) &&
   (List.range 6).all (fun l => (stagesW j (l + 1)).all (fun off =>
     decide (off ≠ padO j l ∧ off ≠ padO j l + 8 ∧ off ≠ sibO l j ∧ off ≠ sibO l j + 8))) &&
@@ -157,7 +157,7 @@ theorem child_linked (j : Nat) (hj : j < 128) : sliceChecked (childBase j) (chil
   exact hall 112 16 childLinked_7 (by omega) (by omega)
 theorem planOK_at (j : Nat) (hj : j < 128) : planOK j = true := planOK_all ⟨j, hj⟩
 theorem blk_bounds (j : Nat) (hj : j < 128) (l : Nat) (hl : l < 6) :
-    blkO j l % 16 = 0 ∧ blkO j l + 64 ≤ 320 ∧ curO l j + 32 ≤ 336 := by
+    blkO j l % 16 = 0 ∧ blkO j l + 64 ≤ 336 ∧ curO l j + 32 ≤ 352 := by
   have h := planOK_at j hj
   simp only [planOK, Bool.and_eq_true] at h
   have := List.all_eq_true.mp h.1.1.1 l (List.mem_range.mpr hl)
@@ -296,7 +296,7 @@ theorem sibO_cases (j l : Nat) (hl : l < 6) :
     (bitAt j l = 1 ∧ curO l j = blkO j l + 48 ∧ sibO l j = blkO j l) := by
   have := bitAt_lt j l; unfold curO sibO; rw [if_pos hl]; omega
 theorem stagesW_bound {j n off : Nat} (hj : j < 128) (hn : n ≤ 6) (h : off ∈ stagesW j n) :
-    off % 8 = 0 ∧ off + 8 ≤ 336 := by
+    off % 8 = 0 ∧ off + 8 ≤ 352 := by
   obtain ⟨m, hm, ho⟩ := List.mem_flatMap.mp h
   have hm' := List.mem_range.mp hm
   have hb := blk_bounds j hj m (by omega)
@@ -474,7 +474,7 @@ theorem lvl_step {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j
       simp only [E.eval]
       exact (hs.a2)
     · rw [if_neg hsk, eX8_eval hx8]
-  have hcur : curO (l + 1) j % 8 = 0 ∧ curO (l + 1) j + 32 ≤ 336 := by
+  have hcur : curO (l + 1) j % 8 = 0 ∧ curO (l + 1) j + 32 ≤ 352 := by
     have := curO_cases j (l + 1); omega
   have hv : hashArgumentsValid t = true :=
     hashArgs_of t (B + blkO j l) 64 (B + curO (l + 1) j) h10 h11 h12 (by omega) (by decide)
@@ -576,7 +576,7 @@ theorem child_prefix_good (im : Image) (j : Nat) (hj : j < 128) (hcode : ChildCo
   have hother : ∀ r : Reg, r ≠ .x12 → t.getReg r = u.getReg r := by
     intro r h12; rw [hreg, RegFile.get_set_ne _ _ h12, RegFile.init_get_eval]
   have hb0 := blk_bounds j hj 0 (by decide)
-  have hc0 : curO 0 j % 8 = 0 ∧ curO 0 j + 32 ≤ 336 := by have := curO_cases j 0; omega
+  have hc0 : curO 0 j % 8 = 0 ∧ curO 0 j + 32 ≤ 352 := by have := curO_cases j 0; omega
   have h10 : t.getReg .x10 = BitVec.ofNat 64 (B + leafO) := (hother .x10 (by decide)).trans hu.a0
   have h11 : t.getReg .x11 = BitVec.ofNat 64 (64 * (1 + 1)) := (hother .x11 (by decide)).trans hu.a1
   have h12 : t.getReg .x12 = BitVec.ofNat 64 (B + curO 0 j) := by
