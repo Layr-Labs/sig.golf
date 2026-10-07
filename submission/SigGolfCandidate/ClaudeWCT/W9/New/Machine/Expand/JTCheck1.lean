@@ -1,4 +1,4 @@
-import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.JTCheckParts
+import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.JTCheck0
 
 set_option Elab.async false
 

@@ -7,6 +7,7 @@ import SigGolfCandidate.W9Drv.Gate
 import SigGolfCandidate.T3M.Verify.AfterDefs
 import SigGolfCandidate.T3M.Verify.Common
 
+set_option Elab.async false
 section
 
 
@@ -275,8 +276,9 @@ theorem jtChunk_length (c : Fin 64) : (jtChunk c).length = 256 := by
 theorem jtChunk_checked (c : Fin 64) : jtCheck (256 * c.val) (jtChunk c) = true := by
   fin_cases c <;> decide +kernel
 theorem jtChunk_linked (c : Fin 64) : CodeAt Frozen.image (pcOf (jtStart + 256 * c.val)) (jtChunk c) := by
-  apply slice_at
-  fin_cases c <;> decide +kernel
+  have hb := Frozen.codeFrom_at (jtStart + 256 * c.val) (by have := c.isLt; unfold jtStart; omega)
+  have hpref : jtChunk c <+: Frozen.codeFrom (jtStart + 256 * c.val) := List.take_prefix _ _
+  exact ⟨hb.1, hb.2.1, by have := hpref.length_le; have := hb.2.2.1; omega, hpref.trans hb.2.2.2⟩
 end W9Drv
 end
 

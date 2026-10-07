@@ -3,6 +3,7 @@ import SigGolfCandidate.ClaudeWCT.WCT9.Limits
 import SigGolfCandidate.ClaudeWCT.WCT9.TopDecode
 
 section
+def ClaudeWCT.WCT9.digestVerifyWindow : Nat := 2 ^ 32
 namespace ClaudeWCT.W9.T3M
 open SigGolfCandidate.T3
 open SigGolfCandidate.T3M (sibOff)
@@ -118,7 +119,7 @@ def wctChainP (index coord child t start count : Nat) (padA : Digest) (padB : Bi
 def wctNodeHashP (coord index heap : Nat) (left pad right : Digest) : M Digest :=
   nodeHashP 3 (WCT9.nodeLayer coord) index heap left pad right
 def digestP (m : Message) (w : WBytes) : M (Option HashOutput) :=
-  if (wdcWord w).toNat ≥ WCT9.digestVerifyLimit then pure none else some <$> digest (wrho w) m (wdc w)
+  if (wdc w).toNat ≥ WCT9.digestVerifyWindow then pure none else some <$> digest (wrho w) m (wdc w)
 def gateOk (N : HashOutput) : Bool := decide (N.toNat / 2 ^ 235 % 2 ^ 21 < WCT9.gateLimit)
 def fieldOk (N : HashOutput) (coord : WCT9.Coord) : Bool := decide (WCT9.field N coord < WCT9.fieldLimit)
 def wctCoordP (w : WBytes) (index : Nat) (coord : WCT9.Coord) (child : WCT9.Child) (word : WCT9.Rank) :
