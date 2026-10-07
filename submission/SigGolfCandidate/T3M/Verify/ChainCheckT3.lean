@@ -1,4 +1,5 @@
 import SigGolfCandidate.T3M.Verify.ChainCheckT2
+set_option Elab.async false
 
 namespace SigGolfCandidate.T3M
 set_option maxRecDepth 100000

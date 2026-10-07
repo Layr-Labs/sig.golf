@@ -42,10 +42,10 @@ theorem top_failure_power {β : Type} (decoder : HashOutput → Option β)
     (by exact_mod_cast V5.rate_top_1000)
 theorem lower197_failure_power {β : Type} (decoder : HashOutput → Option β)
     (hacc : Pr[fun answer => (decoder answer).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      (V5.lowerCount197 : ENNReal) / 2 ^ 128) :
+      (V5.lowerCount198 : ENNReal) / 2 ^ 128) :
     failMass decoder ^ (2 ^ 21) ≤ 1 / (2 : ENNReal) ^ 1000 :=
-  failure_power_of_rate decoder V5.p2 (2 ^ 21) 1000 (by norm_num [V5.p2, V5.lowerCount197])
-    (by norm_num [V5.p2, V5.lowerCount197])
+  failure_power_of_rate decoder V5.p2 (2 ^ 21) 1000 (by norm_num [V5.p2, V5.lowerCount198])
+    (by norm_num [V5.p2, V5.lowerCount198])
     (by rw [hacc, V5.p2, ofReal_count_div])
     (by exact_mod_cast V5.rate_lower197_1000)
 theorem lower198_failure_power {β : Type} (decoder : HashOutput → Option β)
