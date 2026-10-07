@@ -92,7 +92,24 @@ theorem posOf_layerEncodingP (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMs
 theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
     Extract.posOf (pad64 (digestInput rho message counter)) = none := by
   unfold digestInput
-  exact posOf_prefixed_none (by decide) _ _ _ _ _ _
+  apply posOf_eq_none
+  intro p _ he
+  rw [Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
+    Extract.hdrBlock_prefix,
+    SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _
+      (by rw [digestHeader_firstByte]; decide)] at he
+  have hh := bytesLE_injective he
+  cases p with
+  | chain lay tree leaf i step => exact (chainHeader_ne_digestHeader _ _ _ _ _ counter).symm hh
+  | wctChain index coord child c step =>
+      have hn := congrArg (fun x : Digest => x.toNat % 256) hh
+      simp only [Extract.Pos.hdr, WCT9.ftsChainHeader, WCT9.ftsChainHeaderP_firstByte,
+        digestHeader_firstByte] at hn
+      omega
+  | wctNode index coord level nd =>
+      simp only [Extract.Pos.hdr, WCT9.wctNodeHeader] at hh
+      exact digestHeader_ne_header _ _ _ _ _ _ hh
+  | _ => simp only [Extract.Pos.hdr] at hh; exact digestHeader_ne_header _ _ _ _ _ _ hh
 theorem sat_counterSearch (T : Answers) (lay : Layer) (tree leaf : Nat) (message : Digest) :
     ∀ fuel counter, QueriesSat T (HonestQuery T) (counterSearch lay tree leaf message counter fuel) := by
   intro fuel

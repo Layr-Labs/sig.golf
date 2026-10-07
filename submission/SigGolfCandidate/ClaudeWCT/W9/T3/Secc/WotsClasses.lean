@@ -43,11 +43,11 @@ theorem encRow_ne_digest (L : LeafAddr) (m : WCT9.LayerMsg) (c : BitVec 32) (pad
   intro h
   have hb := congrArg ClaudeWCT.W9.T3M.Extract.hdrBlock h
   have h2 : ClaudeWCT.W9.T3M.Extract.hdrBlock (pad64 (digestInput rho m' c')) =
-      bytesLE 16 (header 12 0 0 0 c'.toNat) :=
+      bytesLE 16 (digestHeader c') :=
     SigGolfCandidate.T3.Security.Wots.SmallA.hdrBlock_digest rho m' c'
   rw [h2, show encRow L m c pad = pad64 (layerEncodingInputP L.lay L.tree L.leaf m c pad) from rfl,
     ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP] at hb
-  exact SigGolfCandidate.T3.Security.Wots.Mask.header_ne_of_tag (by decide) (bytesLE_injective hb)
+  exact (digestHeader_ne_header _ _ _ _ _ _).symm (bytesLE_injective hb)
 end SmallA
 theorem prefixRow_encodingRow_disjoint (T : Answers) (input : SigGolfCandidate.T3.Spec.Domain) :
     ¬(PrefixRow T input ∧ EncodingRow T input) := by
