@@ -26,28 +26,33 @@ theorem s0_spec (hpc : s.pc = pcOf 0) :
       t.getMem (BitVec.ofNat 64 0x808) = s.getMem (BitVec.ofNat 64 0x7008) ∧
       t.getMem (BitVec.ofNat 64 DIG) = s.getMem (BitVec.ofNat 64 0x7000) ∧
       t.getMem (BitVec.ofNat 64 (DIG + 8)) = s.getMem (BitVec.ofNat 64 0x7008) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 0x40) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 0x48) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 0x50) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 0x58) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 23880) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 23888) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 23896) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 23904) ∧
+      (∀ k < 4, t.getMem (BitVec.ofNat 64 (23880 + 8 * k)) = 0) ∧
       RegsExcept s t [.x5, .x6, .x7, .x19, .x29, .x30] ∧
       Frame s t (fun A => A = 0x800 ∨ A = 0x808 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨ A = DIG + 40 ∨
-        A = DIG + 48 ∨ A = DIG + 56) := by
-  refine ⟨_, symRun_sound eblk_0 codeAt_0 s hpc (by simp [eblk_0.res, rv_simp, accessValid_iff, MEMORY_BYTES]),
-    ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+        A = DIG + 48 ∨ A = DIG + 56 ∨ A = 23880 ∨ A = 23888 ∨ A = 23896 ∨ A = 23904) := by
+  refine ⟨_, symRun_sound eblk_0 codeAt_0 s hpc
+    (by simp [eblk_0.res, rv_simp, accessValid_iff, MEMORY_BYTES]),
+    ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · simp [Result.toState_pc, eblk_0.res, E.eval]
   · simp [eblk_0.res, rv_simp]
   · simp [eblk_0.res, rv_simp]
   iterate 8
     · simp only [Result.toState_getMem, eblk_0.res, DIG]
       t3n []
+  · intro k hk
+    interval_cases k <;> (simp only [Result.toState_getMem, eblk_0.res]; t3n [])
   · ex_regs eblk_0.res
   · intro A hA hn
     simp only [DIG] at hn
     simp only [Result.toState_getMem, eblk_0.res]
     t3n []
     rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
-      if_neg (by omega), if_neg (by omega), if_neg (by omega)]
+      if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
+      if_neg (by omega), if_neg (by omega)]
 theorem s49_spec (hpc : s.pc = pcOf 49) (c : Nat) (h19 : s.getReg .x19 = BitVec.ofNat 64 c) :
     ∃ t, Steps image s 16 16 t ∧ t.pc = pcOf 65 ∧
       t.getReg .x9 = BitVec.ofNat 64 ((s.getMem (BitVec.ofNat 64 NBUF)).toNat % 2 ^ 31) ∧

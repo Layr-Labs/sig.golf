@@ -2,7 +2,7 @@ import SigGolfCandidate.T3M.Images.Sign
 
 set_option maxRecDepth 100000
 namespace ClaudeWCT.W9.Machine.Sign
-def signCodeSha256 : String := "486459cdddf5c8bb84c1216382581aa94d89de18261b3bddab39364f38497283"
+def signCodeSha256 : String := "7455221f938e1493dbffcd0e08aa032883a207bb0e5175a9091265a5115c790f"
 def signDataSha256 : String := "a1dd5920b48459b912d6cbb76617318d3b78fc078b10b7368ef54f61af92d84a"
 def signNewSha256 : String := "b41cb6c564bacbbc8df274be1a78318f5f275dfb9ba19fc464c162b6e62e33e4"
 def costSha256 : String := "89971046f1a857fef402791cc106172a994e1ef152327fc68a3f7cfcf9ec7dea"

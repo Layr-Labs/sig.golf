@@ -12,7 +12,7 @@ def gateBits : Nat := 21
 def gateLimit : Nat := 1091
 def fieldBits : Nat := 14
 def fieldLimit : Nat := 16200
-def jointCap : Nat := 706
+def jointCap : Nat := 707
 abbrev Coord := Fin 9
 abbrev Child := Fin 128
 abbrev Rank := Fin 600
@@ -35,7 +35,7 @@ def admissible (output : HashOutput) : Bool :=
   decide (output.toNat / 2 ^ 235 % 2 ^ 21 < 1091) &&
     (List.range 9).all (fun coord =>
       decide (output.toNat / 2 ^ fieldBase coord % 2 ^ 14 < 16200))
-def childSaveTable : List Nat := [0,1,1,1,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,1,1,1,1,1,1,2,2,2,1,2,2,1,1,2,2,1,1,1,1,1,1,2,2,1,1,1,1,1,1,1,1,1,0,1,1,0]
+def childSaveTable : List Nat := [0,1,1,1,1,2,2,1,1,2,2,1,1,2,2,1,1,2,2,1,1,2,2,1,1,2,2,1,1,1,1,0,1,2,2,1,1,2,2,1,1,2,2,1,1,1,1,0,1,2,2,1,1,1,1,0,1,1,1,0,0,1,1,0]
 def maxChildSave : Nat := 2
 def childSave (c : Nat) : Nat := childSaveTable.getD (c % 64) 0
 def childExtra (c : Child) : Nat := maxChildSave - childSave c.val

@@ -33,12 +33,12 @@ structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   forestPointer : u.getReg .x9 = BitVec.ofNat 64 (0xffbdf0 + 32 + 32 * (n-1))
   jt : u.getReg .x24 = BitVec.ofNat 64 0xd6800
   childBlock : u.getReg .x29 = BitVec.ofNat 64 0xce800
-  baseReg : u.getReg .x8 = BitVec.ofNat 64 (2112 + 896 * (n-1))
+  baseReg : u.getReg .x8 = BitVec.ofNat 64 (2080 + 896 * (n-1))
   headerZero : n = 0 → u.getReg .x28 = BitVec.ofNat 64 (idxOf a * 2^32)
   headerReg : n ≠ 0 → u.getReg .x28 = BitVec.ofNat 64 (1537 + 65536 * (n-1))
   pairs : ∀ i, i < n → DigAt u (0xffbe10 + 32*i) (pairs.getD i (0,0)).1 ∧
     DigAt u (0xffbe10 + 32*i + 16) (pairs.getD i (0,0)).2
   coords : ∀ k : Fin 9, n ≤ k.val → ∀ off, off < 896 → off % 8 = 0 →
     W9Machine.OrigW w u (coordinateBase k + off)
-  layer : Orig w (fun o => o < 64 ∨ 8136 ≤ o) u
+  layer : Orig w (fun o => o < 32 ∨ 8104 ≤ o) u
 end W9Drv

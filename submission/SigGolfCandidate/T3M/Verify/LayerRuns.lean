@@ -10,8 +10,8 @@ def kw (k : Nat) : E := .c (BitVec.ofNat 64 k)
 def hL (lay : Nat) : Nat := [12,7,6,6].getD lay 0
 def stepsA (lay : Nat) : Nat := if lay = 3 then 12 else if lay = 0 then 8 else 13
 def retOff (lay : Nat) : Nat := if lay = 0 then 11 else if lay = 3 then 42 else 41
-def s6v (lay : Nat) : Nat := [11912,15880,19016,22152].getD lay 0
-def s3v : Nat := 12616
+def s6v (lay : Nat) : Nat := [11880,15848,18984,22120].getD lay 0
+def s3v : Nat := 12584
 def tgtL (lay : Nat) : Nat := [129,197,197,198].getD lay 0
 def hw (t lay : Nat) : Nat := 1 + 256 * t + 65536 * lay
 def rejEcall : Nat := 33511
@@ -26,7 +26,7 @@ def M4c : Nat := 3689348814741910323
 def M8c : Nat := 1085102592571150095
 def t3In (lay : Nat) : Nat := if lay = 0 then headerBank 0 0 else headerBank (lay + 1) 0
 def lfT3 (lay : Nat) : Nat := if lay ≤ 1 then headerBank 0 0 else headerBank lay 0
-def x10In (lay : Nat) : Nat := [14408,17608,20744].getD lay 0
+def x10In (lay : Nat) : Nat := [14376,17576,20712].getD lay 0
 def preK (lay : Nat) : List (Reg × Word) :=
   if lay = 3 then baseK ++ [(.x8, BitVec.ofNat 64 0x400000), (.x24, BitVec.ofNat 64 M2c), (.x9, BitVec.ofNat 64 M1c),
     (.x27, BitVec.ofNat 64 (hw 4 3)), (.x2, BitVec.ofNat 64 0x3fe00), (.x12, BitVec.ofNat 64 256), (.x26, 6), (.x7, 1), (.x13, 2), (.x30, 7), (.x1, BitVec.ofNat 64 TOPBASE), (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0x10000)]
@@ -62,7 +62,9 @@ def tpE (lay : Nat) : E := if lay = 0 then .bin .sll (leafE lay) (kw 32) else .b
 def tp0E (lay : Nat) : E := if lay = 0 then .reg .x4 else tpE lay
 def dispatchHeap (lay leaf : Nat) : Nat := s7Bias lay + leaf
 def s7E (lay : Nat) : E := if lay = 0 then .bin .or (leafE lay) (kw (2 ^ hL lay)) else .bin .add (leafE lay) (kw (s7Bias lay))
-def ctrE (lay : Nat) : E := .un (.ld .wu (4 * ((lay + 1) % 2))) (.ld (kw (0x810 + 8 * ((lay + 1) / 2))))
+def ctrE (lay : Nat) : E :=
+  if lay = 3 then .un (.ld .wu 0) (.ld (kw 0x800))
+  else .un (.ld .wu (4 * ((lay + 1) % 2))) (.ld (kw (0x810 + 8 * ((lay + 1) / 2))))
 def ctrBr (lay : Nat) (d : Bool) : Br := ⟨if lay = 3 then .ltu else .geu, ctrE lay, kw 0x400000, d⟩
 def setupPc (lay p : Nat) : Nat := if lay = 3 then 32976 else p
 def setupAcceptDir (lay : Nat) : Bool := decide (lay = 3)

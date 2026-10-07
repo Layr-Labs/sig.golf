@@ -13,7 +13,9 @@ def expandN (message : Message) (pk : Digest) (sig : WCT9.Signature) :
   if root ≠ pk then return none
   pure (some (output, ⟨sig, counter, fun lay => counters.getD lay.val 0⟩))
 def headerBytes (w : WCT9.Witness) : List UInt8 :=
-  bytesLE 16 w.signature.rho ++ bytesLE 4 w.digestCounter ++ zeros 12 ++ bytesLE 4 (w.counters 3) ++ zeros 28
+  bytesLE 4 (w.counters 3) ++ zeros 28
+def digestBytes (w : WCT9.Witness) : List UInt8 :=
+  bytesLE 16 w.signature.rho ++ zeros 12 ++ bytesLE 4 w.digestCounter
 def authByte (child : Nat) (op : WCT9.Opening) (p : Nat) : UInt8 :=
   match (List.finRange 7).find? (fun l => decide (authSibOff child l.val ≤ p ∧ p < authSibOff child l.val + 16)) with
   | some l => (bytesLE 16 (op.path l)).getD (p - authSibOff child l.val) 0
@@ -38,8 +40,10 @@ def layerRegion (N : HashOutput) (w : WCT9.Witness) (lay : Layer) : List UInt8 :
   if lay.val = 0 then layerBytes lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)
   else layerBytesBC lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)
     (w.counters (Fin.ofNat 4 (lay.val - 1)))
-def witList (N : HashOutput) (w : WCT9.Witness) : List UInt8 :=
+def witBody (N : HashOutput) (w : WCT9.Witness) : List UInt8 :=
   headerBytes w ++ wctBytes N w.signature ++ zeros 8 ++ (List.finRange 4).flatMap (layerRegion N w)
+def witList (N : HashOutput) (w : WCT9.Witness) : List UInt8 :=
+  witBody N w ++ digestBytes w
 def witEnc (N : HashOutput) (w : WCT9.Witness) : WBytes := BitVec.ofNat _ (readLE (witList N w))
 def expandB (message : Message) (pk : Digest) (sig : WCT9.Signature) : M (Option WBytes) :=
   (Option.map fun x => witEnc x.1 x.2) <$> expandN message pk sig
