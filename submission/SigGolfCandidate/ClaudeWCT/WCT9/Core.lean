@@ -9,10 +9,10 @@ def children : Nat := 128
 def chains : Nat := 7
 def gateShift : Nat := 235
 def gateBits : Nat := 21
-def gateLimit : Nat := 1094
+def gateLimit : Nat := 1208
 def fieldBits : Nat := 14
 def fieldLimit : Nat := 16200
-def jointCap : Nat := 709
+def jointCap : Nat := 703
 abbrev Coord := Fin 9
 abbrev Child := Fin 128
 abbrev Rank := Fin 600
@@ -32,7 +32,7 @@ def field (output : HashOutput) (coord : Coord) : Nat :=
 def rank (output : HashOutput) (coord : Coord) : Rank :=
   ⟨field output coord % 600, Nat.mod_lt _ (by decide)⟩
 def admissible (output : HashOutput) : Bool :=
-  decide (output.toNat / 2 ^ 235 % 2 ^ 21 < 1094) &&
+  decide (output.toNat / 2 ^ 235 % 2 ^ 21 < 1208) &&
     (List.range 9).all (fun coord =>
       decide (output.toNat / 2 ^ fieldBase coord % 2 ^ 14 < 16200))
 def childSaveTable : List Nat := [1,2,1,1,1,2,2,1,2,2,2,2,1,2,2,1,1,2,3,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,3,2,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,1,1,1,1,0,0,1,1,1,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,1,1,1,1,1]

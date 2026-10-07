@@ -12,8 +12,8 @@ def cStart : List (BitVec 32) := [5431,0x84050513,2098615,361875,1591,0x48060613
 def cRegs : List (BitVec 32) := [2098231,263187,5303,0x84048493,0xffa937,0xa0090913]
 def cRow : List (BitVec 32) := [66712467,4428691,7932467]
 def cStep : List (BitVec 32) := [0x40040413,939820179]
-def cFinal : List (BitVec 32) := [13623,0xc4050513,9655,0x7c058593,1591,0x6b160613,16777455]
-def cHalt : List (BitVec 32) := [1049235,1299]
+def cFinal : List (BitVec 32) := [13623,0xc4050513,9655,0x7c058593,1591,0x6b360613,16777455]
+def cHalt : List (BitVec 32) := [1049235,1299,115]
 def cCopy : List (BitVec 32) := [340739,6664227,8717587,8750483,0xfff60613,0xfe0616e3,32871]
 def cZero : List (BitVec 32) := [372771,8750483,0xfff60613,0xfe061ae3,32871]
 def cHeads : List (List (BitVec 32)) :=[[0x6003303,217875,0x7f37993,296339,41944595,0x7cd000ef],[0x6803303,217875,0x7f37993,296339,41944595,0x611000ef],[0x6803303,22237971,0x7f37993,296339,41944595,0x455000ef],[0x6803303,59986707,0x7f37993,296339,41944595,697303279],[0x7003303,217875,0x7f37993,296339,41944595,0xdd000ef],[0x7003303,22237971,0x7f37993,296339,41944595,0x720000ef],[0x7003303,59986707,0x7f37993,296339,41944595,0x564000ef],[0x7803303,217875,0x7f37993,296339,41944595,981467375],[0x7803303,22237971,0x7f37993,296339,41944595,515899631]]
@@ -546,7 +546,7 @@ theorem regs_spec (s : MachineState) (hpc : s.pc = pcOf 41115) :
   · intro A _ _; rfl
 theorem final_spec (s : MachineState) (hpc : s.pc = pcOf 42120) :
     ∃ t, Steps im s 7 7 t ∧ t.pc = pcOf 42130 ∧ t.getReg .x10 = BitVec.ofNat 64 (0x800 + 9280) ∧
-      t.getReg .x11 = BitVec.ofNat 64 (0x800 + 8128) ∧ t.getReg .x12 = BitVec.ofNat 64 1713 ∧
+      t.getReg .x11 = BitVec.ofNat 64 (0x800 + 8128) ∧ t.getReg .x12 = BitVec.ofNat 64 1715 ∧
       t.getReg .x1 = pcOf 42127 ∧ RegsExcept s t [.x1, .x10, .x11, .x12] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound RFinal (code_cFinal hc) s hpc (by simp [RFinal.res, rv_simp]), ?_, ?_, ?_, ?_, ?_, ?_,
     ?_⟩
@@ -559,12 +559,14 @@ theorem final_spec (s : MachineState) (hpc : s.pc = pcOf 42120) :
   · intro A _ _; rfl
 theorem halt_spec (s : MachineState) (hpc : s.pc = pcOf 42127) :
     ∃ t, Steps im s 2 2 t ∧ t.pc = pcOf 42129 ∧ t.getReg .x5 = BitVec.ofNat 64 1 ∧
-      t.getReg .x10 = BitVec.ofNat 64 0 ∧
+      t.getReg .x10 = BitVec.ofNat 64 0 ∧ fetch im t = some (.base .ECALL) ∧
       RegsExcept s t [.x5, .x10] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound RHalt (code_cHalt hc) s hpc (by simp [RHalt.res, rv_simp]), ?_, ?_, ?_, ?_, ?_⟩
+  have hcode : CodeAt im (pcOf 42129) [0x73] := codeAt_of_window hc (by decide) (by decide +kernel)
+  refine ⟨_, symRun_sound RHalt (code_cHalt hc) s hpc (by simp [RHalt.res, rv_simp]), ?_, ?_, ?_, ?_, ?_, ?_⟩
   · simp [Result.toState_pc, RHalt.res, E.eval]
   · simp [RHalt.res, rv_simp]
   · simp [RHalt.res, rv_simp]
+  · rw [hcode.fetch _ (by simp [Result.toState_pc, RHalt.res, E.eval])]; rfl
   · c_regs RHalt.res
   · intro A _ _; rfl
 end

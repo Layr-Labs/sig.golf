@@ -1,5 +1,5 @@
+import SigGolfCandidate.ClaudeWCT.W9.T3M.Submission
 import SigGolfCandidate.T3M.Verify.Common
-import SigGolfCandidate.T3M.Verify.DigestTail
 import SigGolfCandidate.T3M.Submission
 
 set_option linter.unusedSimpArgs false
@@ -108,13 +108,23 @@ def VERIFY_DATA : Nat := 0xffbde0
 structure InitOK (m : T3.Message) (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (s : MachineState) : Prop where
   known : KnownOK k0 s
   pc : s.pc = pcOf 0
-  msg : ∀ k, k < 4 → s.getMem (BitVec.ofNat 64 (23880 + 8 * k)) = m.extractLsb' (64 * k) 64
+  msg : ∀ k, k < 4 → s.getMem (BitVec.ofNat 64 (0x5d68 + 8 * k)) = m.extractLsb' (64 * k) 64
   pk : PkOK pk s
   wit : WitAll w s
-  digest : WitDigest w s
-  zero : ∀ A, A < WIT → (A < 0x40 ∨ (0x60 ≤ A ∧ A < 0xA0) ∨ 0xB0 ≤ A) → s.getMem (BitVec.ofNat 64 A) = 0
+  rho : s.getMem (BitVec.ofNat 64 0x5d48) = wword w 0 ∧ s.getMem (BitVec.ofNat 64 0x5d50) = wword w 1
+  z5d58 : s.getMem (BitVec.ofNat 64 0x5d58) = 0 ∧ s.getMem (BitVec.ofNat 64 0x5d60) = 0
+  zero : ∀ A, A < WIT → (A < 0xA0 ∨ 0xB0 ≤ A) → s.getMem (BitVec.ofNat 64 A) = 0
   data : DataOK s
   sp : s.getReg .x2 = BitVec.ofNat 64 VERIFY_DATA
+theorem wword_wProj_ge2 (w : Bytes 21848) (j : Nat) (h2 : 2 ≤ j) (hj : 8 * j < 21832) :
+    w.extractLsb' (64 * j) 64 = wword (_root_.ClaudeWCT.W9.T3M.wProj w) j :=
+  _root_.ClaudeWCT.W9.T3M.wProj_extract_ge2 w j h2 hj
+theorem wword_wProj_0 (w : Bytes 21848) :
+    w.extractLsb' (64 * 2729) 64 = wword (_root_.ClaudeWCT.W9.T3M.wProj w) 0 :=
+  _root_.ClaudeWCT.W9.T3M.wProj_extract_0 w
+theorem wword_wProj_1 (w : Bytes 21848) :
+    w.extractLsb' (64 * 2730) 64 = wword (_root_.ClaudeWCT.W9.T3M.wProj w) 1 :=
+  _root_.ClaudeWCT.W9.T3M.wProj_extract_1 w
 theorem verifyData_length : (submission.image .verify).data.length = 16928 := Images.verifyData_length
 theorem dataBase_verify : dataBase (submission.image .verify) = VERIFY_DATA := by
   unfold dataBase; rw [verifyData_length]; decide
@@ -128,25 +138,29 @@ theorem verifyData_header (k : Nat) (hk : k < 4) :
 theorem verifyData_initialMask :
     bytesToWordLE ((((submission.image .verify).data).take 8)) = 0xfff#64 := by
   decide +kernel
+theorem verifyData_bufAddr :
+    bytesToWordLE ((((submission.image .verify).data).drop 8).take 8) = 0x5d48#64 := by
+  decide +kernel
 set_option maxRecDepth 200000 in
-theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 21832) (s : MachineState)
-    (h : initialState submission .verify (m, pk, w) = some s) : InitOK m pk w s := by
+theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 21848) (s : MachineState)
+    (h : initialState submission .verify (m, pk, w) = some s) :
+    InitOK m pk (_root_.ClaudeWCT.W9.T3M.wProj w) s := by
   unfold initialState at h
   simp only [submission_admissible.2 .verify, if_true, Option.some.injEq] at h
   subst h
   have hl : inputBuffers submission.sizes submission.layout .verify (m, pk, w) =
-      [(23880, bytes m), (0xA0, bytes pk), (0x800, bytes w)] := rfl
+      [(0x5d68, bytes m), (0xA0, bytes pk), (0x800, bytes w)] := rfl
   rw [hl]
   simp only [List.foldl_cons, List.foldl_nil]
   have lm : (bytes m).length = 32 := length_bytes m
   have lp : (bytes pk).length = 16 := length_bytes pk
-  have lw : (bytes w).length = 21832 := length_bytes w
+  have lw : (bytes w).length = 21848 := length_bytes w
   have lD := verifyData_length
   have eD := dataBase_verify
   set blank : MachineState := { regs := fun _ => 0, mem := fun _ => 0, pc := 0x1000 }
   set s0 := blank.writeBytesAsWords (BitVec.ofNat 64 (dataBase (submission.image .verify)))
     (submission.image .verify).data
-  set s1 := s0.writeBytesAsWords (BitVec.ofNat 64 23880) (bytes m)
+  set s1 := s0.writeBytesAsWords (BitVec.ofNat 64 0x5d68) (bytes m)
   set s2 := s1.writeBytesAsWords (BitVec.ofNat 64 0xA0) (bytes pk)
   set s3 := s2.writeBytesAsWords (BitVec.ofNat 64 0x800) (bytes w)
   have gm : ∀ A, (s3.setReg .x2 (BitVec.ofNat 64 (dataBase (submission.image .verify)))).getMem A =
@@ -161,17 +175,17 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 21832) (s : Mac
     intro A hA
     rw [g0 A (by unfold VERIFY_DATA at hA; omega), if_neg (by omega)]
   have g1 : ∀ A, A < 2 ^ 64 → s1.getMem (BitVec.ofNat 64 A) =
-      if 23880 ≤ A ∧ A < 23880 + 8 * ((32 + 7) / 8) ∧ (A - 23880) % 8 = 0 then
-        bytesToWordLE (((bytes m).drop (A - 23880)).take 8) else s0.getMem (BitVec.ofNat 64 A) := by
+      if 0x5d68 ≤ A ∧ A < 0x5d68 + 8 * ((32 + 7) / 8) ∧ (A - 0x5d68) % 8 = 0 then
+        bytesToWordLE (((bytes m).drop (A - 0x5d68)).take 8) else s0.getMem (BitVec.ofNat 64 A) := by
     intro A hA
-    rw [getMem_writeBytesAsWords _ s0 23880 A (by rw [lm]; omega) hA, lm]
+    rw [getMem_writeBytesAsWords _ s0 0x5d68 A (by rw [lm]; omega) hA, lm]
   have g2 : ∀ A, A < 2 ^ 64 → s2.getMem (BitVec.ofNat 64 A) =
       if 0xA0 ≤ A ∧ A < 0xA0 + 8 * ((16 + 7) / 8) ∧ (A - 0xA0) % 8 = 0 then
         bytesToWordLE (((bytes pk).drop (A - 0xA0)).take 8) else s1.getMem (BitVec.ofNat 64 A) := by
     intro A hA
     rw [getMem_writeBytesAsWords _ s1 0xA0 A (by rw [lp]; omega) hA, lp]
   have g3 : ∀ A, A < 2 ^ 64 → s3.getMem (BitVec.ofNat 64 A) =
-      if 0x800 ≤ A ∧ A < 0x800 + 8 * ((21832 + 7) / 8) ∧ (A - 0x800) % 8 = 0 then
+      if 0x800 ≤ A ∧ A < 0x800 + 8 * ((21848 + 7) / 8) ∧ (A - 0x800) % 8 = 0 then
         bytesToWordLE (((bytes w).drop (A - 0x800)).take 8) else s2.getMem (BitVec.ofNat 64 A) := by
     intro A hA
     rw [getMem_writeBytesAsWords _ s2 0x800 A (by rw [lw]; omega) hA, lw]
@@ -191,7 +205,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 21832) (s : Mac
       unfold VERIFY_DATA at hA ⊢
       omega
     rw [hidx]
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro p hp
     have hr1 : ∀ (st : MachineState) (base : Word) (l : List (BitVec 8)),
         (st.writeBytesAsWords base l).regs = st.regs := by
@@ -228,7 +242,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 21832) (s : Mac
     rfl
   · intro k hk
     rw [gm, g3 _ (by omega), if_neg (by omega), g2 _ (by omega), if_neg (by omega), g1 _ (by omega),
-      if_pos (by omega), show 23880 + 8 * k - 23880 = 8 * k by omega, bytes_word m k (by omega)]
+      if_pos (by omega), show 0x5d68 + 8 * k - 0x5d68 = 8 * k by omega, bytes_word m k (by omega)]
   · refine ⟨?_, ?_⟩
     · show (s3.setReg .x2 _).getMem (BitVec.ofNat 64 0xA0) = _
       rw [gm, g3 _ (by omega), if_neg (by omega), g2 _ (by omega), if_pos (by omega),
@@ -236,15 +250,25 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 21832) (s : Mac
     · show (s3.setReg .x2 _).getMem (BitVec.ofNat 64 0xA8) = _
       rw [gm, g3 _ (by omega), if_neg (by omega), g2 _ (by omega), if_pos (by omega),
         show (0xA8 : Nat) - 0xA0 = 8 * 1 by rfl, bytes_word pk 1 (by omega)]
-  · intro j hj
+  · intro j hj h2
     unfold WX at hj
     rw [gm, g3 _ (by unfold WIT; omega), if_pos (by unfold WIT; omega),
-      show WIT + 8 * j - 0x800 = 8 * j by unfold WIT; omega, bytes_word w j (by omega)]
-    rfl
-  · intro j hj hEnd
-    rw [gm, g3 _ (by unfold WIT; omega), if_pos (by unfold WIT; omega),
-      show WIT + 8 * j - 0x800 = 8 * j by unfold WIT; omega, bytes_word w j (by omega)]
-    rfl
+      show WIT + 8 * j - 0x800 = 8 * j by unfold WIT; omega,
+      bytes_word w j (by omega), wword_wProj_ge2 w j h2 hj]
+  · refine ⟨?_, ?_⟩
+    · show (s3.setReg .x2 _).getMem (BitVec.ofNat 64 0x5d48) = _
+      rw [gm, g3 _ (by omega), if_pos (by omega),
+        show (0x5d48 : Nat) - 0x800 = 8 * 2729 by decide, bytes_word w 2729 (by omega), wword_wProj_0]
+    · show (s3.setReg .x2 _).getMem (BitVec.ofNat 64 0x5d50) = _
+      rw [gm, g3 _ (by omega), if_pos (by omega),
+        show (0x5d50 : Nat) - 0x800 = 8 * 2730 by decide, bytes_word w 2730 (by omega), wword_wProj_1]
+  · refine ⟨?_, ?_⟩
+    · show (s3.setReg .x2 _).getMem (BitVec.ofNat 64 0x5d58) = _
+      rw [gm, g3 _ (by omega), if_neg (by omega), g2 _ (by omega), if_neg (by omega),
+        g1 _ (by omega), if_neg (by omega), g0z _ (by unfold VERIFY_DATA; omega)]
+    · show (s3.setReg .x2 _).getMem (BitVec.ofNat 64 0x5d60) = _
+      rw [gm, g3 _ (by omega), if_neg (by omega), g2 _ (by omega), if_neg (by omega),
+        g1 _ (by omega), if_neg (by omega), g0z _ (by unfold VERIFY_DATA; omega)]
   · intro A hA hz
     unfold WIT at hA
     rw [gm, g3 _ (by omega), if_neg (by omega), g2 _ (by omega), if_neg (by omega), g1 _ (by omega),

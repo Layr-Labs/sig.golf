@@ -280,6 +280,14 @@ theorem markEntry_init_le_tight (T : Answers) (k : CellKey) (e : k.1) (p : Canon
   · refine le_trans (le_of_eq (probEvent_eq_zero ?_)) zero_le
     rintro ans - ⟨message, counter, pad, digits, -, he, -⟩
     exact hp (encInput_leaf (he.trans rfl : encInput e.val = encRow (leafOf p.1) message counter pad)).symm
+theorem markEntry_init_le_54 (T : Answers) (k : CellKey) (e : k.1) (p : CanonGraph.LeafPos × Fin 58) :
+    Pr[fun ans => MarkEntry T (chainAt p) (encInput e.val, ans) | cell (cellInit k e)] ≤
+      54 / (2 : ENNReal) ^ 128 := by
+  refine (markEntry_init_le_tight T k e p).trans ?_
+  gcongr
+  apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+  simp only [ENNReal.toReal_div, ENNReal.toReal_ofNat]
+  norm_num
 theorem markEntry_sum_init_le (T : Answers) (k : CellKey) (e : k.1) :
     ∑ p : CanonGraph.LeafPos × Fin 58,
       Pr[fun ans => WotsExtract.SourceChain (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e.val, ans) |
