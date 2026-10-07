@@ -22,14 +22,14 @@ def prefixTarget (v : Digest) : Word := BitVec.ofNat 64 (1024 * (v.toNat % 128) 
 theorem prefix_spec (s : MachineState) (v : Digest) (a d p : Nat) (ha : a ∈ aVals)
     (hpc : s.pc = pcOf p) (hcode : CodeAt Verify.image (pcOf p) (prefixWordsOf a))
     (h12 : s.getReg .x12 = BitVec.ofNat 64 d) (hd : d % 8 = 0 ∧ 0x1000 ≤ d ∧ d + 16 ≤ 0x7000)
-    (hv : DigAt s d v) (hra : s.getReg .x1 = BitVec.ofNat 64 TOPBASE)
+    (hv : DigAt s d v) (hra : s.getReg .x9 = BitVec.ofNat 64 TOPB9)
     (hmask : s.getMem 0xffbff8#64 = 130048#64) (h10 : s.getReg .x10 = BitVec.ofNat 64 a) :
     ∃ t, Steps Verify.image s 8 8 t ∧ t.pc = prefixTarget v ∧
       t.getReg .x16 = v.extractLsb' 0 64 ∧ t.getReg .x17 = v.extractLsb' 64 64 ∧
       t.getReg .x29 = BitVec.ofNat 64 (v.toNat / 2 ^ 119) ∧
       t.getReg .x8 = 12480#64 ∧ t.getReg .x6 = 130048#64 ∧
       RegsExcept s t [.x16,.x17,.x29,.x6,.x8,.x14] ∧ Frame s t (fun _ => False) := by
-  have hm : s.getMem (s.getReg .x1 + 18446744073709551608#64) = 130048#64 := by
+  have hm : s.getMem (s.getReg .x9 + 232#64) = 130048#64 := by
     rw [hra]; exact hmask
   have h0 : s.getMem (s.getReg .x12) = v.extractLsb' 0 64 := by rw [h12]; exact hv.1
   have h1 : s.getMem (s.getReg .x12 + 8#64) = v.extractLsb' 64 64 := by
@@ -38,7 +38,7 @@ theorem prefix_spec (s : MachineState) (v : Digest) (a d p : Nat) (ha : a ∈ aV
     intro o ho
     simp [prefixRes, prefixRegs, prefixBase.res] at ho
     rcases ho with rfl | rfl | rfl
-    all_goals simp [Oblig.holds, rv_simp, accessValid_iff, MEMORY_BYTES, hra, h12, TOPBASE]
+    all_goals simp [Oblig.holds, rv_simp, accessValid_iff, MEMORY_BYTES, hra, h12, TOPB9]
     all_goals omega
   have hal : 14272 ≤ a ∧ a ≤ 14528 := by
     simp only [aVals, List.mem_cons, List.not_mem_nil, or_false] at ha; omega
@@ -152,13 +152,13 @@ set_option linter.unusedSimpArgs false
 def topEntryRegs : List Reg := [.x16,.x17,.x29,.x6,.x8,.x14]
 structure TopEntry (u : MachineState) (v : Digest) (p : Nat) (s : MachineState) : Prop where
   pc : s.pc = Nonbinary.prefixTarget v
-  ra : s.getReg .x1 = BitVec.ofNat 64 TOPBASE
+  ra : s.getReg .x9 = BitVec.ofNat 64 TOPB9
   lo : s.getReg .x16 = v.extractLsb' 0 64
   hi : s.getReg .x17 = v.extractLsb' 64 64
   tail : s.getReg .x29 = BitVec.ofNat 64 (v.toNat / 2 ^ 119)
   s3 : s.getReg .x8 = 12480#64
   mask : s.getReg .x6 = 130048#64
-  table : s.getReg .x15 = 262144#64
+  table : s.getReg .x2 = 0x3fe00#64
   regs : RegsExcept u s topEntryRegs
   frame : Frame u s (fun _ => False)
 def topRowA (c : Nat) : Nat := rowA 0 c
@@ -203,10 +203,10 @@ theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
   have hD := hglob.2.2.2.2.2
   have h10 : (writeHash t a).getReg .x10 = BitVec.ofNat 64 (topRowA c) :=
     hk (.x10, BitVec.ofNat 64 (rowA 0 c)) (by simp [BC.bK])
-  have hra : (writeHash t a).getReg .x1 = BitVec.ofNat 64 TOPBASE :=
-    hk (.x1, BitVec.ofNat 64 TOPBASE) (by simp [BC.bK, T3M.bK, layK])
-  have h15 : (writeHash t a).getReg .x15 = 262144#64 :=
-    hk (.x15, 262144#64) (by simp [BC.bK, T3M.bK, layK])
+  have hra : (writeHash t a).getReg .x9 = BitVec.ofNat 64 TOPB9 :=
+    hk (.x9, BitVec.ofNat 64 TOPB9) (by simp [BC.bK, T3M.bK, layK])
+  have h15 : (writeHash t a).getReg .x2 = 0x3fe00#64 :=
+    hk (.x2, 0x3fe00#64) (by simp [BC.bK, T3M.bK, layK])
   have hmask : (writeHash t a).getMem 0xffbff8#64 = 130048#64 := hD.mask
   obtain ⟨z, ez, pz, lo, hi, tl, s3, mask, rz, fz⟩ :=
     Verify.Nonbinary.prefix_spec _ _ (topRowA c) d (trPc 0 c + 6) ha

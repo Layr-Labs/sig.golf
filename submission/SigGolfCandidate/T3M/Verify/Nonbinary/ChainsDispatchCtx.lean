@@ -81,7 +81,7 @@ theorem dispatch_step {p q : Nat} (hq : q<17) (h9 : q≠9) (hp : p<251927)
 theorem dispatch9_step {p : Nat} (hp : p<251927)
     (hrun : vrun p 5=some dispatch9R) (s : MachineState) (v : Digest)
     (hpc : s.pc=pcOf p) (h17 : s.getReg .x17= ~~~(v.extractLsb' 64 64) ^^^ hiMask) (h6 : s.getReg .x6=130048#64)
-    (h15 : s.getReg .x15=262144#64) :
+    (h15 : s.getReg .x2=0x3fe00#64) :
     ∃t, Steps Images.verifyImage s 4 4 t ∧
       t.pc=BitVec.ofNat 64 (2048*(63-v.toNat/2^64%64)+2300) ∧
       RegsExcept s t [.x14] ∧ Frame s t (fun _ => False) := by
@@ -129,9 +129,9 @@ theorem bge9_step (k : Nat) (hk : k<125) (he : k%2=0) (s : MachineState) (v : Di
 theorem tail_dispatch_step {p : Nat} (hp : p<251927)
     (hrun : vrun p 5=some tailDispatchR) (s : MachineState) (k : Nat) (hk : k<64)
     (hpc : s.pc=pcOf p) (h29 : s.getReg .x29=BitVec.ofNat 64 k)
-    (h15 : s.getReg .x15=262144#64) :
+    (h15 : s.getReg .x2=0x3fe00#64) :
     ∃t, Steps Images.verifyImage s 3 3 t ∧ t.pc=pcOf (entW 17 k) ∧
-      RegsExcept s t [.x14,.x15] ∧ Frame s t (fun _ => False) ∧ t.getReg .x15 = 262144#64 := by
+      RegsExcept s t [.x14,.x15] ∧ Frame s t (fun _ => False) ∧ t.getReg .x2 = 0x3fe00#64 := by
   refine ⟨tailDispatchR.toState s,piece_steps45 hrun hp s hpc
     (by simp [tailDispatchR,TailDispatch.dispatchR]),?_,?_,?_,?_⟩
   · simp only [Result.toState_pc,tailDispatchR,TailDispatch.dispatchR,E.eval,BinOp.eval,h29]
@@ -265,7 +265,7 @@ structure Encoded (v : Digest) (s : MachineState) : Prop where
   hi : s.getReg .x17= ~~~(v.extractLsb' 64 64) ^^^ hiMask
   tail : s.getReg .x29=BitVec.ofNat 64 (v.toNat/2^119)
   mask : s.getReg .x6=130048#64
-  table : s.getReg .x15=262144#64
+  table : s.getReg .x2=0x3fe00#64
 theorem dispatch_at (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<17) :
     vrun (c.endPc (3*q+2)) 5=some (if q=8 then dispatch9R else if q<16 then dispatchR (q+1) else tailDispatchR) := by
   have h := (c.groupFacts hds q (by omega)).disp hq
@@ -298,7 +298,7 @@ theorem end_dispatch_raw (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : Machine
   have h16 : s.getReg .x16= ~~~(v.extractLsb' 0 64) := (hR _ (by decide +kernel)).trans he.lo
   have h17 : s.getReg .x17= ~~~(v.extractLsb' 64 64) ^^^ hiMask := (hR _ (by decide +kernel)).trans he.hi
   have h6 : s.getReg .x6=130048#64 := (hR _ (by decide +kernel)).trans he.mask
-  have h15 : s.getReg .x15=262144#64 := (hR _ (by decide +kernel)).trans he.table
+  have h15 : s.getReg .x2=0x3fe00#64 := (hR _ (by decide +kernel)).trans he.table
   have base_of : ∀ t, RegsExcept s t [.x14] → Frame s t (fun _ => False) →
       c.Base s0 (c.Wr (3*(q+1))) acc t := by
     intro t rt ft
@@ -394,7 +394,7 @@ theorem tailInitial_orig (c : NCtx) {s0 t : MachineState} (h0 : c.Orig0 s0) :
 theorem end_tail (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState} {v : Digest}
     (he : Encoded v s0) (hf : c.Fit v) (hv : v.toNat<2^125)
     (acc : List Digest) (s : MachineState) (hs : c.EndInv s0 50 acc s) :
-    ∃t,Steps vimage s 3 3 t ∧ c.GroupIn (tailInitial s0 t) 17 acc t ∧ t.getReg .x15 = 262144#64 := by
+    ∃t,Steps vimage s 3 3 t ∧ c.GroupIn (tailInitial s0 t) 17 acc t ∧ t.getReg .x2 = 0x3fe00#64 := by
   obtain ⟨⟨hR,hF,hS⟩,hlen,hpc⟩ := hs
   have hr := c.dispatch_at hds 16 (by decide +kernel)
   norm_num at hr

@@ -1,6 +1,8 @@
 import SigGolfCandidate.T3M.Verify.LayerRuns
 import SigGolfCandidate.T3M.Verify.ChainRuns
 
+set_option Elab.async false
+
 section
 
 

@@ -75,10 +75,10 @@ theorem dispatch_target (k : Nat) (hk : k < 64) :
   interval_cases k <;> decide +kernel
 theorem dispatch_steps {image : Image} (pc : Word) (hc : CodeAt image pc dispatchWords)
     (s : MachineState) (hp : s.pc = pc) (k : Nat) (hk : k < 64)
-    (hr : s.getReg .x29 = BitVec.ofNat 64 k) (hb : s.getReg .x15 = 262144#64) :
+    (hr : s.getReg .x29 = BitVec.ofNat 64 k) (hb : s.getReg .x2 = 0x3fe00#64) :
     ∃ t, Steps image s 3 3 t ∧ t.pc = pcOf (armPC k) ∧
       (∀ r, r ≠ .x14 → t.getReg r = s.getReg r) ∧
-      (∀ a, t.getMem a = s.getMem a) ∧ t.getReg .x15 = 262144#64 := by
+      (∀ a, t.getMem a = s.getMem a) ∧ t.getReg .x2 = 0x3fe00#64 := by
   let t := dispatchR.toState s
   have st : Steps image s 3 3 t := symRun_sound (dispatch_run pc) hc s hp (by simp [dispatchR, Result.obligs, Oblig.all])
   refine ⟨t, st, ?_, ?_, ?_, ?_⟩
@@ -92,7 +92,7 @@ theorem dispatch_steps {image : Image} (pc : Word) (hc : CodeAt image pc dispatc
   · intro a
     simp [t, dispatchR, Result.toState_getMem, memEval]
   · rw [Result.toState_getReg]
-    change (RegFile.get (RegFile.set RegFile.init .x14 _) .x15).eval s = _
+    change (RegFile.get (RegFile.set RegFile.init .x14 _) .x2).eval s = _
     rw [RegFile.get_set_ne _ _ (by decide +kernel), RegFile.init_get_eval, hb]
 end SigGolfCandidate.T3M.Nonbinary.TailDispatch
 end

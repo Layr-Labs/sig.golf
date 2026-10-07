@@ -11,7 +11,7 @@ theorem swar7_split (x m : BitVec 64) : (x &&& m) + (x &&& ~~~m) = x := by
   · ext i hi; simp only [BitVec.getElem_and, BitVec.getElem_not, BitVec.getElem_zero]; cases x[i] <;> cases m[i] <;> rfl
 theorem swar7_period : ∀ i : Fin 61,
     (0x71c71c71c71c71c7#64).getLsbD i.val = !(0x71c71c71c71c71c7#64).getLsbD (i.val + 3) := by
-  decide
+  decide +kernel
 theorem swar7_shift (x : BitVec 64) :
     (x >>> 3) &&& 0x71c71c71c71c71c7#64 = (x &&& ~~~0x71c71c71c71c71c7#64) >>> 3 := by
   apply BitVec.eq_of_getLsbD_eq
@@ -30,13 +30,13 @@ theorem swar7_low (x : BitVec 64) : (x &&& ~~~0x71c71c71c71c71c7#64).toNat % 8 =
     simp only [BitVec.getLsbD_and, BitVec.getLsbD_not, BitVec.getLsbD_zero]
     by_cases h : i < 3
     · have : (0x71c71c71c71c71c7#64).getLsbD i = true := by
-        rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2) with rfl | rfl | rfl <;> decide
+        rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2) with rfl | rfl | rfl <;> decide +kernel
       simp [this]
     · have : (7#64).getLsbD i = false := by
         rw [BitVec.getLsbD_ofNat]; simp only [Bool.and_eq_false_iff]; right
         exact Nat.testBit_lt_two_pow (by
-          calc 7 < 2 ^ 3 := by decide
-            _ ≤ 2 ^ i := Nat.pow_le_pow_right (by decide) (by omega))
+          calc 7 < 2 ^ 3 := by decide +kernel
+            _ ≤ 2 ^ i := Nat.pow_le_pow_right (by decide +kernel) (by omega))
       simp [this]
   have := congrArg BitVec.toNat h7
   rw [BitVec.toNat_and] at this
@@ -77,7 +77,7 @@ theorem swar7_eq (a b : BitVec 64) (hb : b.toNat < 2 ^ 63) :
   ac_rfl
 theorem swar2_period : ∀ i : Fin 62,
     (0x3333333333333333#64).getLsbD i.val = !(0x3333333333333333#64).getLsbD (i.val + 2) := by
-  decide
+  decide +kernel
 theorem swar2_shift (x : BitVec 64) :
     (x >>> 2) &&& 0x3333333333333333#64 = (x &&& ~~~0x3333333333333333#64) >>> 2 := by
   apply BitVec.eq_of_getLsbD_eq
@@ -96,13 +96,13 @@ theorem swar2_low (x : BitVec 64) : (x &&& ~~~0x3333333333333333#64).toNat % 4 =
     simp only [BitVec.getLsbD_and, BitVec.getLsbD_not, BitVec.getLsbD_zero]
     by_cases h : i < 2
     · have : (0x3333333333333333#64).getLsbD i = true := by
-        rcases (by omega : i = 0 ∨ i = 1) with rfl | rfl <;> decide
+        rcases (by omega : i = 0 ∨ i = 1) with rfl | rfl <;> decide +kernel
       simp [this]
     · have : (3#64).getLsbD i = false := by
         rw [BitVec.getLsbD_ofNat]; simp only [Bool.and_eq_false_iff]; right
         exact Nat.testBit_lt_two_pow (by
-          calc 3 < 2 ^ 2 := by decide
-            _ ≤ 2 ^ i := Nat.pow_le_pow_right (by decide) (by omega))
+          calc 3 < 2 ^ 2 := by decide +kernel
+            _ ≤ 2 ^ i := Nat.pow_le_pow_right (by decide +kernel) (by omega))
       simp [this]
   have := congrArg BitVec.toNat h7
   rw [BitVec.toNat_and] at this
@@ -226,7 +226,7 @@ theorem route_snd (index : Nat) (lay : Layer) : (route index lay).2 = index / 2 
   simp only [route, below_eq, hL_eq]
 theorem leaf_lt (index : Nat) (lay : Layer) : (route index lay).1 < 2 ^ hL lay.val := by
   rw [route_fst]; exact Nat.mod_lt _ (Nat.two_pow_pos _)
-theorem hL_le (lay : Layer) : 6 ≤ hL lay.val ∧ hL lay.val ≤ 12 := by fin_cases lay <;> decide
+theorem hL_le (lay : Layer) : 6 ≤ hL lay.val ∧ hL lay.val ≤ 12 := by fin_cases lay <;> decide +kernel
 theorem tree_lt (index : Nat) (lay : Layer) (h : index < 2 ^ 31) : (route index lay).2 < 2 ^ 32 := by
   rw [route_snd]
   exact lt_of_le_of_lt (Nat.div_le_self _ _) (by omega)
@@ -268,7 +268,7 @@ theorem route_evals (index : Nat) (lay : Layer) (hidx : index < 2 ^ 31) (s : Mac
       apply BitVec.eq_of_toNat_eq
       rw [BitVec.toNat_and, BitVec.toNat_ofNat, BitVec.toNat_ofNat, BitVec.toNat_ofNat,
         Nat.mod_eq_of_lt hU, Nat.mod_eq_of_lt (show 2 ^ hL lay.val - 1 < 2 ^ 64 by
-          have := Nat.pow_le_pow_right (show 0 < 2 by decide) (hL_le lay).2; omega),
+          have := Nat.pow_le_pow_right (show 0 < 2 by decide +kernel) (hL_le lay).2; omega),
         Nat.and_two_pow_sub_one_eq_mod, Nat.mod_eq_of_lt (lt_of_lt_of_le (Nat.mod_lt _ (Nat.two_pow_pos _))
           (Nat.pow_le_pow_right (by norm_num) (by have := (hL_le lay).2; omega)))]
   have htE : (treeE lay.val).eval s = BitVec.ofNat 64 (route index lay).2 := by
@@ -338,7 +338,7 @@ open SigGolfCandidate.T3 (Digest HashOutput Layer route height chainCount counte
   dataDigits pad64 lowerSpare lowerWord)
 theorem ctrE_eval (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (s : MachineState) (hH : WitHdr w s) :
     (ctrE 3).eval s = BitVec.ofNat 64 (ClaudeWCT.W9.T3M.wbcCtr w index 3).toNat := by
-  have hw := hH 4 (by decide) (by decide)
+  have hw := hH 4 (by decide +kernel) (by decide +kernel)
   rw [show WIT + 8 * 4 = 0x810 + 8 * ((3 + 1) / 2) by unfold WIT; rfl] at hw
   show LoadKind.wu.fromWord (s.getMem (BitVec.ofNat 64 (0x810 + 8 * ((3 + 1) / 2)))) (4 * ((3 + 1) % 2)) = _
   rw [hw]
@@ -411,8 +411,8 @@ theorem clr63_M1 (x : BitVec 64) :
   by_cases hi : i < 63
   · simp [hi]
   · have : Nat.testBit 8198552921648689607 i = false :=
-      Nat.testBit_lt_two_pow (lt_of_lt_of_le (show 8198552921648689607 < 2 ^ 63 by decide)
-        (Nat.pow_le_pow_right (by decide) (by omega)))
+      Nat.testBit_lt_two_pow (lt_of_lt_of_le (show 8198552921648689607 < 2 ^ 63 by decide +kernel)
+        (Nat.pow_le_pow_right (by decide +kernel) (by omega)))
     simp [this]
 theorem add_clr63 (x y : BitVec 64) (hx : 2 ^ 63 ≤ x.toNat) (hy : 2 ^ 63 ≤ y.toNat) :
     x + y = BitVec.ofNat 64 (x.toNat % 2 ^ 63) + BitVec.ofNat 64 (y.toNat % 2 ^ 63) := by
@@ -449,7 +449,7 @@ theorem spare_iff (a : BitVec 256) :
 theorem sumE_eval {u : MachineState} {a : BitVec 256} (h : AnsAt u a) (hs : lowerSpare (ansD a)) :
     (sumE.eval u).toNat = lowSumS1 (ansD a) := by
   obtain ⟨h6, h7⟩ := (spare_iff a).mp hs
-  have he : (BitVec.ofNat 64 3).toNat % 64 = 3 := by decide
+  have he : (BitVec.ofNat 64 3).toNat % 64 = 3 := by decide +kernel
   have hs1 : (sw1E.eval u).toNat = sw1 ((a.extractLsb' 0 64).toNat % 2 ^ 63) ((a.extractLsb' 64 64).toNat % 2 ^ 63) := by
     simp only [sw1E, swLowE, E.eval, BinOp.eval, kw, M1c, he, a6E_eval h, a7E_eval h]
     exact swS1 _ _ h6 h7
@@ -478,8 +478,8 @@ theorem ckBr_iff {u : MachineState} {a : BitVec 256} (h : AnsAt u a) (hs : lower
     (d : Bool) :
     Br.holds u (ckBr lay.val d) ↔ d = decide (¬ ckOf lay a < 8) := by
   have hS := lowSumS1_lt (ansD a)
-  have hT : tgtL lay.val ≤ 198 := by fin_cases lay <;> decide
-  have hT7 : 7 ≤ tgtL lay.val := by fin_cases lay <;> decide
+  have hT : tgtL lay.val ≤ 198 := by fin_cases lay <;> decide +kernel
+  have hT7 : 7 ≤ tgtL lay.val := by fin_cases lay <;> decide +kernel
   have ht4 : ((t4E lay.val).eval u).toNat = (lowSumS1 (ansD a) + 2 ^ 64 - (tgtL lay.val - 7)) % 2 ^ 64 := by
     simp only [t4E, E.eval, BinOp.eval, kw]
     rw [BitVec.toNat_add, sumE_eval h hs, BitVec.toNat_ofNat]
@@ -554,7 +554,7 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput Layer route height chainCount counterLimit decode encodingInput target
   dataDigits pad64 lowerSpare lowerWord)
-theorem xtrTab_bound : (xtrTab.all fun r => r.all fun x => decide (x < 160000)) = true := by decide
+theorem xtrTab_bound : (xtrTab.all fun r => r.all fun x => decide (x < 160000)) = true := by decide +kernel
 theorem getD_lt_of_all : ∀ (l : List Nat) (B c : Nat), 0 < B → (l.all fun x => decide (x < B)) = true →
     l.getD c 0 < B
   | [], B, c, hB, _ => by simpa using hB
@@ -650,7 +650,7 @@ theorem lctxOf_known (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (
   · exact knownOK_at _ s 12 (.x26, 6) hk rfl
   · exact h28
   · exact knownOK_at _ s 3 (.x2, 0x3fe00) hk rfl
-  · exact knownOK_at _ s 14 (.x15, 0x40000) hk rfl
+  · exact knownOK_at _ s 14 (.x5, 0) hk rfl
   · exact knownOK_at _ s 15 (.x22, BitVec.ofNat 64 (s6v lay.val)) hk rfl
   · exact h16
   · exact h17
@@ -688,7 +688,7 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
         Verify.Orig w (fun o => 8000 ≤ o ∧ o < layerEnd lay.val) s0 ∧
         s0.getReg .x23 = BitVec.ofNat 64 (lfS7 lay.val (route index lay).1) ∧
         s0.getReg .x31 = BitVec.ofNat 64 (route index lay).2 ∧
-        s0.getReg .x1 = BitVec.ofNat 64 TOPBASE) := by
+        s0.getReg .x9 = BitVec.ofNat 64 TOPB9) := by
   set u := writeHash t a with hu
   have h0 : lay.val ≠ 0 := fun h => hlay (Fin.ext h)
   have hcc := copy_parts lay.val c (BC.copyCheck_at lay.val c lay.isLt hc)
@@ -704,7 +704,7 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
   have hdf : d % 8 = 0 ∧ d + 32 ≤ 2 ^ 23 ∧ safeDest d = true ∧ (lay.val ≠ 3 → WIT + layerEnd lay.val ≤ d) := by
     by_cases h3 : lay.val = 3
     · rw [if_pos h3] at hdc; subst hdc
-      exact ⟨by decide, by decide, by decide, fun h => absurd h3 h⟩
+      exact ⟨by decide +kernel, by decide +kernel, by decide +kernel, fun h => absurd h3 h⟩
     · rw [if_neg h3] at hdc
       obtain ⟨r16, rlo, rhi, rend⟩ := rowA_facts lay.val c (by have := lay.isLt; omega) hc
       have hd8 : d % 8 = 0 := by rcases hdc with rfl | rfl <;> omega
@@ -787,8 +787,8 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
         exact hk0
     have hkeep := hs0.keep
     have e29 : ((t4E lay.val).eval u) = 7#64 - BitVec.ofNat 64 (ckOf lay a) := by
-      have hT : tgtL lay.val ≤ 198 := by fin_cases lay <;> decide
-      have hT7 : 7 ≤ tgtL lay.val := by fin_cases lay <;> decide
+      have hT : tgtL lay.val ≤ 198 := by fin_cases lay <;> decide +kernel
+      have hT7 : 7 ≤ tgtL lay.val := by fin_cases lay <;> decide +kernel
       have hle : lowSumS1 (ansD a) ≤ tgtL lay.val ∧ tgtL lay.val - lowSumS1 (ansD a) < 8 := by
         unfold ckOf at hck; omega
       have hcv : ckOf lay a = tgtL lay.val - lowSumS1 (ansD a) := by unfold ckOf; omega
@@ -801,9 +801,9 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
     have hLok : L.ok := by
       refine ⟨tree_lt index lay hidx, leaf_lt32 index lay, by simp [hL, lctxOf], ?_, ?_, ?_, ?_, rfl,
         by simp [hL, lctxOf], tree_actual_lt index lay hidx, ?_, ?_, ?_⟩
-      · simp only [hL, lctxOf]; fin_cases lay <;> decide
+      · simp only [hL, lctxOf]; fin_cases lay <;> decide +kernel
       · simp only [hL, lctxOf]; fin_cases lay <;> simp [s6v]
-      · simp only [hL, lctxOf]; fin_cases lay <;> decide
+      · simp only [hL, lctxOf]; fin_cases lay <;> decide +kernel
       · simp only [hL, lctxOf]; omega
       · simpa only [hL, lctxOf, hL_eq] using leaf_lt index lay
       · simp only [hL, lctxOf]; exact h6
@@ -813,7 +813,7 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
     have hOu : Verify.Orig w (fun o => 8000 ≤ o ∧ o < layerEnd lay.val) u := by
       have := Orig_writeHash ht.orig a d h12 (by omega)
       have hL8 : layerEnd lay.val % 8 = 0 := by
-        fin_cases lay <;> decide
+        fin_cases lay <;> decide +kernel
       intro j hj hp
       refine this j hj ⟨hp, ?_⟩
       have hp2 := hp.2
@@ -868,13 +868,13 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
       simp only [E.eval, BinOp.eval, kw]
       rw [hu, writeHash_getReg, ht.s7 lay rfl]
       have hsh : s7Sh lay.val < 64 := by unfold s7Sh; split_ifs <;> omega
-      have hb : s7Bias lay.val ≤ 4096 := by fin_cases lay <;> decide
+      have hb : s7Bias lay.val ≤ 4096 := by fin_cases lay <;> decide +kernel
       have hl := leaf_lt32 index lay
       have hD : dispatchHeap lay.val (route index lay).1 < 2 ^ 64 := by unfold dispatchHeap; split_ifs <;> omega
       apply BitVec.eq_of_toNat_eq
       rw [toNat_sll _ _ hsh, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hD]
       rfl
     · rw [hkeep .x31 (by simp [keepB]), hu, writeHash_getReg, (ht.t5 lay rfl).1 h0]
-    · exact hko (.x1, BitVec.ofNat 64 TOPBASE) (by simp [postBl])
+    · exact hko (.x9, BitVec.ofNat 64 TOPB9) (by simp [postBl])
 end SigGolfCandidate.T3M
 end

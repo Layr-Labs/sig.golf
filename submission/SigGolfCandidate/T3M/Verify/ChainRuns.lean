@@ -203,16 +203,16 @@ def shE (w : Reg) (b : Nat) : E :=
   else if 9 < b then .bin .srl (.reg w) (.c (BitVec.ofNat 64 (b - 9)))
   else .reg w
 def xJ (w : Reg) (b : Nat) (mreg : Reg) (imm : Word) : Result :=
-  ⟨⟨RegFile.init.set .x14 (.bin .add (.bin .and (shE w b) (.reg mreg)) (.reg .x15)), [], []⟩,
-    .bin .and (.bin .add (.bin .add (.bin .and (shE w b) (.reg mreg)) (.reg .x15)) (.c imm)) (.c (~~~1#64)),
+  ⟨⟨RegFile.init.set .x14 (.bin .add (.bin .and (shE w b) (.reg mreg)) (.reg .x2)), [], []⟩,
+    .bin .and (.bin .add (.bin .add (.bin .and (shE w b) (.reg mreg)) (.reg .x2)) (.c imm)) (.c (~~~1#64)),
     .jump, (if b = 9 then 3 else 4), (if b = 9 then 3 else 4)⟩
 def xbfJ (w : Reg) (imm : Word) : Result :=
   ⟨⟨RegFile.init.set .x14 (.bin .sll (.bin .srl (.reg w) (.c 54)) (.c 9)), [], []⟩,
     .bin .and (.bin .add (.bin .sll (.bin .srl (.reg w) (.c 54)) (.c 9)) (.c imm)) (.c (~~~1#64)),
     .jump, 3, 3⟩
 def ctabX : Result :=
-  ⟨⟨RegFile.init.set .x14 (.bin .sub (.reg .x15) (.bin .sll (.reg .x29) (.c 7))), [], []⟩,
-    .bin .and (.bin .add (.bin .sub (.reg .x15) (.bin .sll (.reg .x29) (.c 7))) (.c (-1824))) (.c (~~~1#64)),
+  ⟨⟨RegFile.init.set .x14 (.bin .sub (.reg .x2) (.bin .sll (.reg .x29) (.c 7))), [], []⟩,
+    .bin .and (.bin .add (.bin .sub (.reg .x2) (.bin .sll (.reg .x29) (.c 7))) (.c (-1312))) (.c (~~~1#64)),
     .jump, 3, 3⟩
 def retR : Result := ⟨⟨RegFile.init, [], []⟩, .bin .and (.reg .x1) (.c (~~~1#64)), .jump, 1, 1⟩
 def offL (i : Nat) : Word := BitVec.ofNat 64 (64 * (42 - i)) - BitVec.ofNat 64 1024
@@ -244,7 +244,7 @@ def xOK (t dB dC : Nat) : Bool :=
     (xbfJ (if t + 1 < 7 then .x16 else .x17) (BitVec.ofNat 64 (32 * (t + 1)) - BitVec.ofNat 64 1760))
   else rOK (vrun (pcX t dB dC) 5)
     (xJ (if t + 1 < 7 then .x16 else .x17) (9 * ((t + 1) % 7)) .x2
-      (BitVec.ofNat 64 (32 * (t + 1)) - BitVec.ofNat 64 1760))
+      (BitVec.ofNat 64 (32 * (t + 1)) - BitVec.ofNat 64 1248))
 def blkCheck (t dB dC : Nat) : Bool :=
   rungsOK 0 (slotL (3 * t)) (triBase t dB dC) && partOK (3 * t + 1) dB (pcB t dB dC) &&
     partOK (3 * t + 2) dC (pcC t dB dC) && xOK t dB dC

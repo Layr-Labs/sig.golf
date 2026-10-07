@@ -118,7 +118,7 @@ def wctChainP (index coord child t start count : Nat) (padA : Digest) (padB : Bi
 def wctNodeHashP (coord index heap : Nat) (left pad right : Digest) : M Digest :=
   nodeHashP 3 (WCT9.nodeLayer coord) index heap left pad right
 def digestP (m : Message) (w : WBytes) : M (Option HashOutput) :=
-  if (wdcWord w).toNat ≥ WCT9.digestVerifyLimit then pure none else some <$> digest (wrho w) m (wdc w)
+  if (wdc w).toNat ≥ WCT9.digestVerifyWindow then pure none else some <$> digest (wrho w) m (wdc w)
 def gateOk (N : HashOutput) : Bool := decide (N.toNat / 2 ^ 235 % 2 ^ 21 < WCT9.gateLimit)
 def fieldOk (N : HashOutput) (coord : WCT9.Coord) : Bool := decide (WCT9.field N coord < WCT9.fieldLimit)
 def wctCoordP (w : WBytes) (index : Nat) (coord : WCT9.Coord) (child : WCT9.Child) (word : WCT9.Rank) :
@@ -295,7 +295,7 @@ def verifyPadsTail (pk : Digest) (output : HashOutput) (w : WCT9.Witness) (pads 
   let some root ← verifyLayersBCP w pads index 4 (.forest root) | pure false
   pure (root == pk)
 def verifyPads (m : Message) (pk : Digest) (w : WCT9.Witness) (pads : Pads) : M Bool := do
-  if w.digestCounter.toNat ≥ WCT9.digestVerifyLimit then return false
+  if w.digestCounter.toNat ≥ WCT9.digestAttemptLimit then return false
   let output ← digest w.signature.rho m w.digestCounter
   verifyPadsTail pk output w pads
 end ClaudeWCT.W9.T3M

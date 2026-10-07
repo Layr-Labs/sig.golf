@@ -1,21 +1,7 @@
-import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecks4
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecksPart10
 
 section
-section
-namespace SigGolfCandidate.T3M.Nonbinary
-set_option maxRecDepth 200000
-set_option maxHeartbeats 2000000
-private theorem inlineBatch_16_25_part_25 : (List.range' 25 5).all (inlineCheck 16) = true := by decide +kernel
-private theorem inlineBatch_16_25_part_30 : (List.range' 30 5).all (inlineCheck 16) = true := by decide +kernel
-private theorem inlineBatch_16_25_part_35 : (List.range' 35 5).all (inlineCheck 16) = true := by decide +kernel
-private theorem inlineBatch_16_25_part_40 : (List.range' 40 5).all (inlineCheck 16) = true := by decide +kernel
-private theorem inlineBatch_16_25_part_45 : (List.range' 45 5).all (inlineCheck 16) = true := by decide +kernel
-private theorem inlineBatch_16_25 : (List.range' 25 25).all (inlineCheck 16) = true := by
-  exact (@check_range_add (inlineCheck 16) 25 5 20 inlineBatch_16_25_part_25 (@check_range_add (inlineCheck 16) 30 5 15 inlineBatch_16_25_part_30 (@check_range_add (inlineCheck 16) 35 5 10 inlineBatch_16_25_part_35 (@check_range_add (inlineCheck 16) 40 5 5 inlineBatch_16_25_part_40 inlineBatch_16_25_part_45))))
-theorem inlineGroupCheck_16_25 : inlineGroupCheck 16 25 25=true := by
-  exact inlineBatch_16_25
-end SigGolfCandidate.T3M.Nonbinary
-end
+
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
@@ -87,6 +73,91 @@ theorem rejCheck_ok : rejCheck=true := by
   unfold rejCheck
   rw [List.range_eq_range']
   exact rejectBatch
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
+set_option maxRecDepth 200000
+set_option maxHeartbeats 1000000
+theorem tripleCheck_at (q : Nat) (hq : q<18) (hn : inl q=false) : tripleCheck q=true := by
+  interval_cases q
+  all_goals first | (simp [inl] at hn) | skip
+  exacts [tripleCheck_0, tripleCheck_1, tripleCheck_2, tripleCheck_3, tripleCheck_4, tripleCheck_5,
+    tripleCheck_6, tripleCheck_7, tripleCheck_8, tripleCheck_9, tripleCheck_10, tripleCheck_11, tripleCheck_12,
+    tripleCheck_17]
+theorem inlineGroupCheck_at (q : Nat) (hq : inl q=true) :
+    inlineGroupCheck q 0 25=true ∧ inlineGroupCheck q 25 25=true ∧ inlineGroupCheck q 50 25=true ∧
+      inlineGroupCheck q 75 25=true ∧ inlineGroupCheck q 100 25=true := by
+  have h : q=13 ∨ q=14 ∨ q=15 ∨ q=16 := by simp [inl] at hq; omega
+  rcases h with rfl|rfl|rfl|rfl
+  · exact ⟨inlineGroupCheck_13_0,inlineGroupCheck_13_25,inlineGroupCheck_13_50,inlineGroupCheck_13_75,inlineGroupCheck_13_100⟩
+  · exact ⟨inlineGroupCheck_14_0,inlineGroupCheck_14_25,inlineGroupCheck_14_50,inlineGroupCheck_14_75,
+      inlineGroupCheck_14_100⟩
+  · exact ⟨inlineGroupCheck_15_0,inlineGroupCheck_15_25,inlineGroupCheck_15_50,inlineGroupCheck_15_75,
+      inlineGroupCheck_15_100⟩
+  · exact ⟨inlineGroupCheck_16_0,inlineGroupCheck_16_25,inlineGroupCheck_16_50,inlineGroupCheck_16_75,
+      inlineGroupCheck_16_100⟩
+theorem inlineCheck_at (q k : Nat) (hq : inl q=true) (hk : k<125) : inlineCheck q k=true := by
+  obtain ⟨h0,h1,h2,h3,h4⟩ := inlineGroupCheck_at q hq
+  have pick : ∀ lo, inlineGroupCheck q lo 25=true → lo ≤ k → k<lo+25 → inlineCheck q k=true := by
+    intro lo h hl hh
+    exact List.all_eq_true.mp h k (List.mem_range'_1.mpr ⟨hl,by omega⟩)
+  by_cases a : k<25
+  · exact pick 0 h0 (by omega) (by omega)
+  by_cases b : k<50
+  · exact pick 25 h1 (by omega) (by omega)
+  by_cases d : k<75
+  · exact pick 50 h2 (by omega) (by omega)
+  by_cases e : k<100
+  · exact pick 75 h3 (by omega) (by omega)
+  · exact pick 100 h4 (by omega) (by omega)
+theorem entCheck_at (q k : Nat) (hq : q<18) (hn : inl q=false) (hk : k<(mx q+1)^3) : entCheck q k=true := by
+  have h := tripleCheck_at q hq hn
+  simp only [tripleCheck,Bool.and_eq_true] at h
+  exact (Bool.and_eq_true _ _ |>.mp (List.all_eq_true.mp h.1 k (List.mem_range.mpr hk))).1
+theorem mx_inl (q : Nat) (hq : inl q=true) : mx q=4 := by
+  simp [inl] at hq; unfold mx; rw [if_pos (by omega)]
+theorem s8Check_at (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) : s8Check q k=true := by
+  cases hn : inl q
+  · have h := tripleCheck_at q hq hn
+    simp only [tripleCheck,Bool.and_eq_true] at h
+    exact (Bool.and_eq_true _ _ |>.mp (List.all_eq_true.mp h.1 k (List.mem_range.mpr hk))).2
+  · have hm := mx_inl q hn
+    rw [hm] at hk
+    have h := inlineCheck_at q k hn (by norm_num at hk; omega)
+    simp only [inlineCheck,Bool.and_eq_true] at h
+    exact h.1.1.1.1
+theorem blockCheck_at (q dB dC : Nat) (hq : q<18) (hn : inl q=false) (hB : dB ≤ mx q) (hC : dC ≤ mx q) :
+    blockCheck q dB dC=true := by
+  have h := tripleCheck_at q hq hn
+  simp only [tripleCheck,Bool.and_eq_true] at h
+  have hh : (mx q+1)*dB+dC<(mx q+1)^2 := by
+    unfold mx at *
+    split_ifs at * <;> nlinarith
+  have e1 : ((mx q+1)*dB+dC)/(mx q+1)=dB := by
+    unfold mx at *
+    split_ifs at * <;> omega
+  have e2 : ((mx q+1)*dB+dC)%(mx q+1)=dC := by
+    unfold mx at *
+    split_ifs at * <;> omega
+  have hb := List.all_eq_true.mp h.2 ((mx q+1)*dB+dC) (List.mem_range.mpr hh)
+  rwa [e1,e2] at hb
+theorem stub_at (k : Nat) (hk : k<125) : vrun (guardW k) 1=some rejJ := by
+  have h := rejCheck_ok
+  simp only [rejCheck] at h
+  exact rOK_eq (List.all_eq_true.mp h k (List.mem_range.mpr hk))
+theorem s8Run_at (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) :
+    (if q=0 then rOK (vrun (entW 0 k) 3) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k)))=true := by
+  have h := s8Check_at q k hq hk
+  simp only [s8Check,Bool.and_eq_true] at h
+  exact h.1
+theorem bge9_at (k : Nat) (hk : k<125) (he : k%2=0) : vrun (cellW 9 k) 1=some (bge9R (cellW 9 k)) := by
+  have h := s8Check_at 9 k (by decide +kernel) (by unfold mx; norm_num; omega)
+  simp only [s8Check,Bool.and_eq_true] at h
+  have h2 := h.2
+  rw [if_pos (by simp [he])] at h2
+  exact rOK_eq h2
 end SigGolfCandidate.T3M.Nonbinary
 end
 end
