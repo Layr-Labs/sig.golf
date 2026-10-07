@@ -23,7 +23,7 @@ end FCtx
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
-def layerPc : Nat := 32952
+def layerPc : Nat := 32951
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
@@ -43,7 +43,7 @@ structure FtsOut (F : FCtx) (root : Digest) (u : MachineState) : Prop where
   heapFour : u.getReg .x20 = 4
   heapFive : u.getReg .x21 = 5
   coordStep : u.getReg .x6 = 0x10000
-  topBase : u.getReg .x1 = BitVec.ofNat 64 TOPBASE
+  topBase : u.getReg .x9 = BitVec.ofNat 64 TOPB9
   top : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
     BitVec.ofNat 64 (topWords.getD k 0)
   top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21776

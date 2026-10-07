@@ -136,6 +136,7 @@ def dataWords : List Nat :=
   [2 ^ 40, 17311559823019733055, 8198552921648689607, 0x30401, 0x3fe00, 2256, 11736, 0xa01, 0x901, 7072, 15264, 0]
 def TOPLOAD : Nat := 0xffbf68
 def TOPBASE : Nat := 0xffc000
+def TOPB9 : Nat := 0xffbf10
 def topWords : List Nat :=
   [17311559823019733055, 8198552921648689607, 0x30401, 0x3fe00, 0x201 + 193 * 2 ^ 56 + 3 * 2 ^ 48]
 def DATA : Nat := 16777120
