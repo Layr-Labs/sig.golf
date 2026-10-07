@@ -27,6 +27,12 @@ theorem theta_excess_le_square (value mean : ENNReal) (hvalue : value ≠ ⊤) (
 theorem excess_three_quarters :
     uniformWordAverage BPORS.Numeric.proposalLength (fun W => BPORS.History.fullPrice W - theta) ≤
       11324 / 100000000 := by
-  simpa only [theta] using BPORS.History.excess_three_quarters
+  have ht : (63/64 : ENNReal) ≤ theta := by
+    unfold theta
+    apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+    norm_num [ENNReal.toReal_div]
+  refine (SphincsSecurity.Concrete.uniformWordAverage_mono BPORS.Numeric.proposalLength
+    (fun W => tsub_le_tsub_left ht _)).trans
+      BPORS.History.excess_three_quarters
 end SigGolfCandidate.T3.Security.CaseC
 end

@@ -218,7 +218,7 @@ theorem slackT_le_of_mass {s s' : LargeResidual.State WCoord (Cell U)} (q : Nat)
   apply ENNReal.div_le_div_right
   exact_mod_cast Nat.sub_le_sub_left h q
 theorem birth_pay (m q : Nat) (hm : m < q) (p : ENNReal) :
-    p + (CaseC.theta + 1 / 64) / 2 ^ 128 + ((q - (m + 1) : Nat) : ENNReal) / 2 ^ 128 ≤
+    p + (CaseC.theta + 1 / 512) / 2 ^ 128 + ((q - (m + 1) : Nat) : ENNReal) / 2 ^ 128 ≤
       p + ((q - m : Nat) : ENNReal) / 2 ^ 128 := by
   rw [add_assoc]
   apply add_le_add le_rfl
@@ -328,7 +328,7 @@ theorem bank_routeQuery (a : AuxData) (st : RouterState) (ws : LargeResidual.Sta
               _ ≤ expectedValue (liftM (PMF.uniformOfFintype LargeResidual.HashOutput) : SPMF LargeResidual.HashOutput)
                   (fun y => psi q (st.born X y) + ((q - (ws.counters.mass + 1) : Nat) : ENNReal) / 2 ^ 128) :=
                 expectedValue_mono _ hpt
-              _ ≤ psi q st + (CaseC.theta + 1 / 64) / 2 ^ 128 + ((q - (ws.counters.mass + 1) : Nat) : ENNReal) / 2 ^ 128 := by
+              _ ≤ psi q st + (CaseC.theta + 1 / 512) / 2 ^ 128 + ((q - (ws.counters.mass + 1) : Nat) : ENNReal) / 2 ^ 128 := by
                 rw [expectedValue_add]
                 exact add_le_add (psi_birth_le q st X hc0 hlen) (expectedValue_le_of_le _ fun _ => le_rfl)
               _ ≤ _ := birth_pay _ q hmass_lt _

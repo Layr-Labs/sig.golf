@@ -42,7 +42,7 @@ theorem potential_run {α : Type} (published : T3.Cache) (budget : Nat)
 noncomputable def birthWeight (budget : Nat) : LazyPrivate.Interaction.Domain → QueryRecorded.State → ENNReal :=
   fun input s => (CreationGame.classWeight IsDigestInput budget input ([], s) : ENNReal)
 theorem birthCharge_eq (budget : Nat) (input : LazyPrivate.Interaction.Domain) (st : BankState) :
-    birthCharge budget input st = (theta + 1 / 64) / 2 ^ 128 * birthWeight budget input st.2 := by
+    birthCharge budget input st = (theta + 1 / 512) / 2 ^ 128 * birthWeight budget input st.2 := by
   rcases input with (n | x) | request
   · simp [birthCharge, birthWeight, CreationGame.classWeight]
   · simp only [birthCharge, birthWeight, CreationGame.classWeight]
@@ -57,12 +57,12 @@ theorem birthCharge_eq (budget : Nat) (input : LazyPrivate.Interaction.Domain) (
 theorem bank_charges_eq_births {α : Type} (published : T3.Cache) (budget : Nat) (hbudget : budget ≤ 2 ^ 127)
     (program : OracleComp LazyPrivate.Interaction α) (s : QueryRecorded.State) (g : Ghost) :
     BPORS.Adaptive.Creation.expectedCharges (bankImpl published budget) (birthCharge budget) program (g, s) =
-      (theta + 1 / 64) / 2 ^ 128 * BPORS.Adaptive.Creation.expectedCharges
+      (theta + 1 / 512) / 2 ^ 128 * BPORS.Adaptive.Creation.expectedCharges
         (QueryRecorded.proposalModel published budget hbudget).traced
         (fun input state => (CreationGame.classWeight IsDigestInput budget input state : ENNReal)) program ([], s) := by
   have h1 : BPORS.Adaptive.Creation.expectedCharges (bankImpl published budget) (birthCharge budget) program (g, s) =
       BPORS.Adaptive.Creation.expectedCharges (bankImpl published budget)
-        (fun input st => (theta + 1 / 64) / 2 ^ 128 * birthWeight budget input st.2) program (g, s) := by
+        (fun input st => (theta + 1 / 512) / 2 ^ 128 * birthWeight budget input st.2) program (g, s) := by
     congr 1
     funext input st
     exact birthCharge_eq budget input st
@@ -164,14 +164,14 @@ theorem potential_initial_le (budget : Nat) (generated : (Digest × T3.Cache) ×
       simpa [excessForecast, Ghost.empty, labels, horizon] using he
 theorem bank_potential_le (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2 ^ 127) :
     expectedValue (bankExperiment adversary budget) (fun r => potential budget r.2) ≤
-      (theta + 1 / 64) / 2 ^ 128 * CreationGame.expectedBirths IsDigestInput adversary budget hbudget +
+      (theta + 1 / 512) / 2 ^ 128 * CreationGame.expectedBirths IsDigestInput adversary budget hbudget +
         (budget : ENNReal) * (11324 / 100000000) / 2 ^ 128 := by
   unfold bankExperiment
   rw [expectedValue_bind]
   calc
     _ ≤ expectedValue (liftM (QueryRecorded.run keygen QueryRecorded.initial) : PMF _) (fun generated =>
         (budget : ENNReal) * (11324 / 100000000) / 2 ^ 128 +
-          (theta + 1 / 64) / 2 ^ 128 * BPORS.Adaptive.Creation.expectedCharges
+          (theta + 1 / 512) / 2 ^ 128 * BPORS.Adaptive.Creation.expectedCharges
             (QueryRecorded.proposalModel generated.1.2 budget hbudget).traced
             (fun input state => (CreationGame.classWeight IsDigestInput budget input state : ENNReal))
             (CreationGame.rest adversary generated.1.1 generated.1.2) ([], generated.2)) := by

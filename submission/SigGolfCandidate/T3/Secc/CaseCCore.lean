@@ -99,7 +99,7 @@ theorem ledger_initial (budget : Nat) :
   apply mul_le_mul' le_rfl
   unfold excessForecast
   simpa [labels] using excess_three_quarters
-theorem theta_add_sixteenth_le_one : theta + 1 / 64 ≤ 1 := by
+theorem theta_add_sixteenth_le_one : theta + 1 / 512 ≤ 1 := by
   unfold theta
   apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
   simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_div, ENNReal.toReal_ofNat, ENNReal.toReal_one]
@@ -115,7 +115,7 @@ theorem expected_admInd : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) 
   exact acceptance_le_sixteenth
 def CoveredBy (X : List HashOutput) (N : HashOutput) : Prop :=
   ∀ f ∈ BPair.openedPositions N, ∃ out ∈ X, f ∈ BPair.openedPositions out
-theorem expected_admInd_tight : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) admInd ≤ 1/64 := by
+theorem expected_admInd_tight : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) admInd ≤ 1/512 := by
   have he : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) admInd=DigestSampling.acceptanceProbability := by
     rw [←Sampling.digest_acceptanceProbability,←expectedValue_ite_one]
     rfl
@@ -151,8 +151,8 @@ theorem core_birth (b : BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : HashOut
     (hC : ∀ N, C' N ≤ b.reuse + admInd N / 2 ^ 128) :
     expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
         (fun N => corePotential { b with targets := b.targets ++ [N], slack := s, reuse := C' N }) ≤
-      corePotential b + (theta + 1 / 64) / 2 ^ 128 := by
-  have hadm : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun N => admInd N / 2 ^ 128) ≤ (1 / 64) / 2 ^ 128 := by
+      corePotential b + (theta + 1 / 512) / 2 ^ 128 := by
+  have hadm : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun N => admInd N / 2 ^ 128) ≤ (1 / 512) / 2 ^ 128 := by
     simp only [div_eq_mul_inv]
     rw [expectedValue_mul_const]
     exact mul_le_mul' (by simpa [div_eq_mul_inv] using expected_admInd_tight) le_rfl
@@ -167,7 +167,7 @@ theorem core_birth (b : BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : HashOut
     calc
       _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun N => admInd N / 2 ^ 128 + (1 + b.reuse)) :=
         expectedValue_mono _ fun N => (add_le_add le_rfl (hC N)).trans (le_of_eq (by ring))
-      _ ≤ (1 / 64) / 2 ^ 128 + (1 + b.reuse) := (expectedValue_add_const_le _ _ _).trans (add_le_add hadm le_rfl)
+      _ ≤ (1 / 512) / 2 ^ 128 + (1 + b.reuse) := (expectedValue_add_const_le _ _ _).trans (add_le_add hadm le_rfl)
       _ ≤ _ := by
         rw [add_comm]
         apply add_le_add le_rfl
@@ -182,7 +182,7 @@ theorem core_birth (b : BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : HashOut
       _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
           (fun N => ledger R (b.targets ++ [N]) b.exposures s + admInd N / 2 ^ 128) + b.reuse :=
         expectedValue_add_const_le _ _ _
-      _ ≤ (ledger R b.targets b.exposures (s + 1) + theta / 2 ^ 128 + (1 / 64) / 2 ^ 128) + b.reuse := by
+      _ ≤ (ledger R b.targets b.exposures (s + 1) + theta / 2 ^ 128 + (1 / 512) / 2 ^ 128) + b.reuse := by
         rw [expectedValue_add]
         exact add_le_add (add_le_add (ledger_birth R b.targets b.exposures s) hadm) le_rfl
       _ = _ := by

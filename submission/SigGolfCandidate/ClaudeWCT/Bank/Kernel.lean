@@ -174,7 +174,7 @@ theorem expected_admInd : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) 
   unfold admInd
   rw [expectedValue_ite_one]
   rfl
-theorem expected_admInd_tight : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) S.admInd ≤ 1 / 64 := by
+theorem expected_admInd_tight : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) S.admInd ≤ 1 / 512 := by
   rw [expected_admInd]
   exact S.acceptance_le
 theorem admissibleEntry_cacheQuery (cache : Sampling.RCache) (x : HashInput) (a : HashOutput)
@@ -306,9 +306,9 @@ theorem core_birth (b : BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : HashOut
     (hC : ∀ N, C' N ≤ b.reuse + S.admInd N / 2 ^ 128) :
     expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
         (fun N => S.corePotential { b with targets := b.targets ++ [N], slack := s, reuse := C' N }) ≤
-      S.corePotential b + (theta + 1 / 64) / 2 ^ 128 := by
+      S.corePotential b + (theta + 1 / 512) / 2 ^ 128 := by
   have hadm : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun N => S.admInd N / 2 ^ 128) ≤
-      (1 / 64) / 2 ^ 128 := by
+      (1 / 512) / 2 ^ 128 := by
     simp only [div_eq_mul_inv]
     rw [expectedValue_mul_const]
     exact mul_le_mul' (by simpa [div_eq_mul_inv] using S.expected_admInd_tight) le_rfl
@@ -323,7 +323,7 @@ theorem core_birth (b : BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : HashOut
     calc
       _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun N => S.admInd N / 2 ^ 128 + (1 + b.reuse)) :=
         expectedValue_mono _ fun N => (add_le_add le_rfl (hC N)).trans (le_of_eq (by ring))
-      _ ≤ (1 / 64) / 2 ^ 128 + (1 + b.reuse) :=
+      _ ≤ (1 / 512) / 2 ^ 128 + (1 + b.reuse) :=
         (CaseC.expectedValue_add_const_le _ _ _).trans (add_le_add hadm le_rfl)
       _ ≤ _ := by
         rw [add_comm]
@@ -339,7 +339,7 @@ theorem core_birth (b : BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : HashOut
       _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
           (fun N => S.ledger R (b.targets ++ [N]) b.exposures s + S.admInd N / 2 ^ 128) + b.reuse :=
         CaseC.expectedValue_add_const_le _ _ _
-      _ ≤ (S.ledger R b.targets b.exposures (s + 1) + theta / 2 ^ 128 + (1 / 64) / 2 ^ 128) + b.reuse := by
+      _ ≤ (S.ledger R b.targets b.exposures (s + 1) + theta / 2 ^ 128 + (1 / 512) / 2 ^ 128) + b.reuse := by
         rw [expectedValue_add]
         exact add_le_add (add_le_add (S.ledger_birth R b.targets b.exposures s) hadm) le_rfl
       _ = _ := by

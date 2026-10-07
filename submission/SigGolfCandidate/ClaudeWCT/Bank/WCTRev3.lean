@@ -414,7 +414,7 @@ theorem t3_core_birth (b : CaseC.BankCore) (s : Nat) (hs : b.slack = s + 1) (C' 
     (hC : ∀ N, C' N ≤ b.reuse + CaseC.admInd N / 2 ^ 128) :
     expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
         (fun N => CaseC.corePotential { b with targets := b.targets ++ [N], slack := s, reuse := C' N }) ≤
-      CaseC.corePotential b + (CaseC.theta + 1 / 64) / 2 ^ 128 := by
+      CaseC.corePotential b + (CaseC.theta + 1 / 512) / 2 ^ 128 := by
   have h := bporsSpec.core_birth b s hs C' (by rw [bpors_admInd]; exact hC)
   simp only [bpors_corePotential] at h
   exact h
@@ -522,7 +522,7 @@ theorem bpors_expectedBirths (adversary : SigGolfCandidate.T3M.Final.AdversaryP)
 theorem t3_bank_potential_le (adversary : SigGolfCandidate.T3M.Final.AdversaryP) (budget : Nat) (hbudget : budget ≤ 2 ^ 127) :
     expectedValue (bporsSpec.bankExperiment payloadAfterDigest (CreationGame.rest adversary) budget)
         (fun r => bporsSpec.potential budget r.2) ≤
-      (CaseC.theta + 1 / 64) / 2 ^ 128 * CreationGame.expectedBirths CaseC.IsDigestInput adversary budget hbudget +
+      (CaseC.theta + 1 / 512) / 2 ^ 128 * CreationGame.expectedBirths CaseC.IsDigestInput adversary budget hbudget +
         (budget : ENNReal) * (11324 / 100000000) / 2 ^ 128 := by
   rw [← bpors_expectedBirths adversary budget hbudget]
   exact bporsSpec.bank_potential_le payloadAfterDigest bpors_payNotDigest bpors_payAvoids
@@ -577,7 +577,7 @@ theorem wct_bank_potential_le (rest : Digest → T3.Cache → OracleComp (Intera
     (budget : Nat) :
     expectedValue ((wctSpec' horizon rate hexc).bankExperiment payAfterDigest rest budget)
         (fun r => (wctSpec' horizon rate hexc).potential budget r.2) ≤
-      (CaseC.theta + 1 / 64) / 2 ^ 128 * (wctSpec' horizon rate hexc).expectedBirths payAfterDigest rest budget +
+      (CaseC.theta + 1 / 512) / 2 ^ 128 * (wctSpec' horizon rate hexc).expectedBirths payAfterDigest rest budget +
         (budget : ENNReal) * rate / 2 ^ 128 :=
   (wctSpec' horizon rate hexc).bank_potential_le payAfterDigest wct_payNotDigest wct_payAvoids rest budget
 theorem wct_potential_win (budget : Nat) (st : BankState WCT9.Signature) (halive : st.1.dead = false)
@@ -590,7 +590,7 @@ theorem wct_event_le (rest : Digest → T3.Cache → OracleComp (Interaction' WC
     (hwin : ∀ b ∈ ((wctSpec' horizon rate hexc).bankExperiment payAfterDigest rest budget).support,
       weight (b.1, b.2.2) ≠ 0 → 1 ≤ (wctSpec' horizon rate hexc).potential budget b.2) :
     expectedValue ((wctSpec' horizon rate hexc).recordedExperiment payAfterDigest rest) weight ≤
-      (CaseC.theta + 1 / 64) / 2 ^ 128 * (wctSpec' horizon rate hexc).expectedBirths payAfterDigest rest budget +
+      (CaseC.theta + 1 / 512) / 2 ^ 128 * (wctSpec' horizon rate hexc).expectedBirths payAfterDigest rest budget +
         (budget : ENNReal) * rate / 2 ^ 128 :=
   (wctSpec' horizon rate hexc).bank_event_le payAfterDigest wct_payNotDigest wct_payAvoids rest budget
     weight hw hwin
@@ -775,7 +775,7 @@ theorem wctL_bank_potential_le (rest : Digest → T3.Cache → OracleComp (Inter
     (budget : Nat) :
     expectedValue ((wctSpecL horizon rate hexc).bankExperiment payAfterDigest rest budget)
         (fun r => (wctSpecL horizon rate hexc).potential budget r.2) ≤
-      (CaseC.theta + 1 / 64) / 2 ^ 128 * (wctSpecL horizon rate hexc).expectedBirths payAfterDigest rest budget +
+      (CaseC.theta + 1 / 512) / 2 ^ 128 * (wctSpecL horizon rate hexc).expectedBirths payAfterDigest rest budget +
         (budget : ENNReal) * rate / 2 ^ 128 :=
   (wctSpecL horizon rate hexc).bank_potential_le payAfterDigest wct_payNotDigest wct_payAvoids rest budget
 theorem wctL_potential_win (budget : Nat) (st : BankState WCT9.Signature) (halive : st.1.dead = false)
@@ -788,7 +788,7 @@ theorem wctL_event_le (rest : Digest → T3.Cache → OracleComp (Interaction' W
     (hwin : ∀ b ∈ ((wctSpecL horizon rate hexc).bankExperiment payAfterDigest rest budget).support,
       weight (b.1, b.2.2) ≠ 0 → 1 ≤ (wctSpecL horizon rate hexc).potential budget b.2) :
     expectedValue ((wctSpecL horizon rate hexc).recordedExperiment payAfterDigest rest) weight ≤
-      (CaseC.theta + 1 / 64) / 2 ^ 128 * (wctSpecL horizon rate hexc).expectedBirths payAfterDigest rest budget +
+      (CaseC.theta + 1 / 512) / 2 ^ 128 * (wctSpecL horizon rate hexc).expectedBirths payAfterDigest rest budget +
         (budget : ENNReal) * rate / 2 ^ 128 :=
   (wctSpecL horizon rate hexc).bank_event_le payAfterDigest wct_payNotDigest wct_payAvoids rest budget
     weight hw hwin

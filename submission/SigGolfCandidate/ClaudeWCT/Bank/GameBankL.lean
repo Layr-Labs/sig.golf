@@ -412,7 +412,7 @@ theorem world_step (published : T3.Cache) (budget : Nat) (input : SphincsSecurit
       | none =>
           rw [CaseC.lazy_world_fresh x lz hx]
           by_cases hbirth : Birth budget x st.2
-          · have hcb : birthCharge (Sig := Sig) budget (.inl (.inr x)) st = (theta + 1 / 64) / 2 ^ 128 := by
+          · have hcb : birthCharge (Sig := Sig) budget (.inl (.inr x)) st = (theta + 1 / 512) / 2 ^ 128 := by
               simp [birthCharge, hbirth]
             rw [hcb]
             have hlt : c < budget := hbirth.2.2
@@ -441,7 +441,7 @@ theorem world_step (published : T3.Cache) (budget : Nat) (input : SphincsSecurit
                   congr 1
                   simp only [div_eq_mul_inv]
                   rw [expectedValue_mul_const]
-                _ ≤ 1 + S.reusePotential lz + (1 / 64) / 2 ^ 128 :=
+                _ ≤ 1 + S.reusePotential lz + (1 / 512) / 2 ^ 128 :=
                   add_le_add le_rfl (ENNReal.div_le_div_right S.expected_admInd_tight _)
                 _ ≤ _ := by
                   apply add_le_add le_rfl
@@ -472,12 +472,12 @@ theorem world_step (published : T3.Cache) (budget : Nat) (input : SphincsSecurit
                   simp only [expectedValue_add, expectedValue_const (by simp : Pr[⊥ |
                     ($ᵗ HashOutput : ProbComp HashOutput)] = 0), div_eq_mul_inv, expectedValue_mul_const]
                 _ ≤ S.bankValue g + (theta + S.excessForecast R g.exposures) / 2 ^ 128 +
-                    (S.reusePotential lz + (1 / 64) / 2 ^ 128) + S.excessTerm budget (c + 1) g := by
+                    (S.reusePotential lz + (1 / 512) / 2 ^ 128) + S.excessTerm budget (c + 1) g := by
                   gcongr
                   exact S.expected_admInd_tight
                 _ = S.bankValue g + S.reusePotential lz +
                     (S.excessTerm budget (c + 1) g + S.excessForecast R g.exposures / 2 ^ 128) +
-                    (theta + 1 / 64) / 2 ^ 128 := by
+                    (theta + 1 / 512) / 2 ^ 128 := by
                   rw [ENNReal.add_div, ENNReal.add_div]
                   ring
                 _ = _ := by rw [← S.excessTerm_succ budget c g hlt]
@@ -676,12 +676,12 @@ theorem potential_run {α : Type} (hNotDigest : PayNotDigest pay) (hAvoids : Pay
 theorem bank_charges_eq_births {α : Type} (published : T3.Cache) (budget : Nat)
     (program : OracleComp (Interaction' Sig) α) (s : QueryRecorded.State) (g : Ghost Sig) :
     BPORS.Adaptive.Creation.expectedCharges (S.bankImpl pay published budget) (birthCharge budget) program (g, s) =
-      (theta + 1 / 64) / 2 ^ 128 * BPORS.Adaptive.Creation.expectedCharges (S.recordedImpl pay published)
+      (theta + 1 / 512) / 2 ^ 128 * BPORS.Adaptive.Creation.expectedCharges (S.recordedImpl pay published)
         (birthWeight budget) program s := by
   have h1 : BPORS.Adaptive.Creation.expectedCharges (S.bankImpl pay published budget) (birthCharge budget)
       program (g, s) =
       BPORS.Adaptive.Creation.expectedCharges (S.bankImpl pay published budget)
-        (fun input st => (theta + 1 / 64) / 2 ^ 128 * birthWeight budget input st.2) program (g, s) := by
+        (fun input st => (theta + 1 / 512) / 2 ^ 128 * birthWeight budget input st.2) program (g, s) := by
     congr 1
     funext input st
     exact birthCharge_eq budget input st
@@ -716,14 +716,14 @@ noncomputable def expectedBirths (rest : Digest → T3.Cache → OracleComp (Int
 theorem bank_potential_le (hNotDigest : PayNotDigest pay) (hAvoids : PayAvoids pay)
     (rest : Digest → T3.Cache → OracleComp (Interaction' Sig) Bool) (budget : Nat) :
     expectedValue (S.bankExperiment pay rest budget) (fun r => S.potential budget r.2) ≤
-      (theta + 1 / 64) / 2 ^ 128 * S.expectedBirths pay rest budget +
+      (theta + 1 / 512) / 2 ^ 128 * S.expectedBirths pay rest budget +
         (budget : ENNReal) * S.excessRate / 2 ^ 128 := by
   unfold bankExperiment
   rw [expectedValue_bind]
   calc
     _ ≤ expectedValue (liftM (QueryRecorded.run keygen QueryRecorded.initial) : PMF _) (fun generated =>
         (budget : ENNReal) * S.excessRate / 2 ^ 128 +
-          (theta + 1 / 64) / 2 ^ 128 * BPORS.Adaptive.Creation.expectedCharges (S.recordedImpl pay generated.1.2)
+          (theta + 1 / 512) / 2 ^ 128 * BPORS.Adaptive.Creation.expectedCharges (S.recordedImpl pay generated.1.2)
             (birthWeight budget) (rest generated.1.1 generated.1.2) generated.2) := by
       apply CaseC.pmf_expectedValue_mono
       intro generated hg
@@ -740,7 +740,7 @@ theorem bank_event_le (hNotDigest : PayNotDigest pay) (hAvoids : PayAvoids pay)
     (weight : Bool × QueryRecorded.State → ENNReal) (hle : ∀ y, weight y ≤ 1)
     (hwin : ∀ b ∈ (S.bankExperiment pay rest budget).support, weight (b.1, b.2.2) ≠ 0 → 1 ≤ S.potential budget b.2) :
     expectedValue (S.recordedExperiment pay rest) weight ≤
-      (theta + 1 / 64) / 2 ^ 128 * S.expectedBirths pay rest budget +
+      (theta + 1 / 512) / 2 ^ 128 * S.expectedBirths pay rest budget +
         (budget : ENNReal) * S.excessRate / 2 ^ 128 := by
   rw [← S.bank_experiment_project pay rest budget, PMF.monad_map_eq_map, CaseC.expectedValue_pmf_map]
   refine le_trans ?_ (S.bank_potential_le pay hNotDigest hAvoids rest budget)
@@ -753,14 +753,14 @@ theorem bank_potential_le_rate (hNotDigest : PayNotDigest pay) (hAvoids : PayAvo
     (rest : Digest → T3.Cache → OracleComp (Interaction' Sig) Bool) (budget : Nat) (rate : ENNReal)
     (hrate : ClaudeWCT.Numerics.Law.lawAvg S.law S.horizon (fun W : List P => S.price W - theta) ≤ rate) :
     expectedValue (S.bankExperiment pay rest budget) (fun r => S.potential budget r.2) ≤
-      (theta + 1 / 64) / 2 ^ 128 * S.expectedBirths pay rest budget +
+      (theta + 1 / 512) / 2 ^ 128 * S.expectedBirths pay rest budget +
         (budget : ENNReal) * rate / 2 ^ 128 := by
   unfold bankExperiment
   rw [expectedValue_bind]
   calc
     _ ≤ expectedValue (liftM (QueryRecorded.run keygen QueryRecorded.initial) : PMF _) (fun generated =>
         (budget : ENNReal) * rate / 2 ^ 128 +
-          (theta + 1 / 64) / 2 ^ 128 * BPORS.Adaptive.Creation.expectedCharges (S.recordedImpl pay generated.1.2)
+          (theta + 1 / 512) / 2 ^ 128 * BPORS.Adaptive.Creation.expectedCharges (S.recordedImpl pay generated.1.2)
             (birthWeight budget) (rest generated.1.1 generated.1.2) generated.2) := by
       apply CaseC.pmf_expectedValue_mono
       intro generated hg
@@ -778,7 +778,7 @@ theorem bank_event_le_rate (hNotDigest : PayNotDigest pay) (hAvoids : PayAvoids 
     (weight : Bool × QueryRecorded.State → ENNReal) (hle : ∀ y, weight y ≤ 1)
     (hwin : ∀ b ∈ (S.bankExperiment pay rest budget).support, weight (b.1, b.2.2) ≠ 0 → 1 ≤ S.potential budget b.2) :
     expectedValue (S.recordedExperiment pay rest) weight ≤
-      (theta + 1 / 64) / 2 ^ 128 * S.expectedBirths pay rest budget +
+      (theta + 1 / 512) / 2 ^ 128 * S.expectedBirths pay rest budget +
         (budget : ENNReal) * rate / 2 ^ 128 := by
   rw [← S.bank_experiment_project pay rest budget, PMF.monad_map_eq_map, CaseC.expectedValue_pmf_map]
   refine le_trans ?_ (S.bank_potential_le_rate pay hNotDigest hAvoids rest budget rate hrate)

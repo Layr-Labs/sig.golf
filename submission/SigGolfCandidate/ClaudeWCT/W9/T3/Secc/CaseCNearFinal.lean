@@ -110,7 +110,7 @@ theorem invM_empty : InvM (LazyMem.empty, NearGhost.empty) := by
 noncomputable def ghostPot (q : Nat) (M : LazyMem × NearGhost) : ENNReal :=
   nearMemPotential q M.1.births M.2.fresh M.2.reused M.1.rows M.1.nonces
 noncomputable def ΦI (q : Nat) (s : GState) : ENNReal := if InvM s.memory then ghostPot q s.memory else ⊤
-theorem ΦI_initial (q : Nat) : ΦI q initG ≤ (q : ENNReal) * 404 / 2 ^ 128 := by
+theorem ΦI_initial (q : Nat) : ΦI q initG ≤ (q : ENNReal) * 132 / 2 ^ 128 := by
   unfold ΦI
   rw [if_pos (show InvM initG.memory from invM_empty)]
   exact mem_initial q
@@ -910,7 +910,7 @@ theorem worldGame_ΦI {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U)
 theorem forced_payoff_le {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : CanonTable.Omega U)
     (adversary : AdversaryP) (slot q : Nat) :
     expectedValue (SecretGuessObservation.forcedRun WPair.envL slot (WPair.worldGameCore hU ω adversary) WPair.initL)
-      (WPair.nearPayoff q) ≤ (q : ENNReal) * 404 / 2 ^ 128 := by
+      (WPair.nearPayoff q) ≤ (q : ENNReal) * 132 / 2 ^ 128 := by
   unfold SecretGuessObservation.forcedRun
   rw [← projS_initG, expectedValue_project WPair.envL slot _ initG (WPair.nearPayoff q)]
   calc
@@ -921,7 +921,7 @@ theorem forced_payoff_le {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆
 theorem forced_payoff_sum_le {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : CanonTable.Omega U)
     (adversary : AdversaryP) (slot q : Nat) :
     ∑' r, Pr[= r | SecretGuessObservation.forcedRun WPair.envL slot (WPair.worldGameCore hU ω adversary)
-      WPair.initL] * WPair.nearPayoff q r ≤ (q : ENNReal) * 404 / 2 ^ 128 :=
+      WPair.initL] * WPair.nearPayoff q r ≤ (q : ENNReal) * 132 / 2 ^ 128 :=
   forced_payoff_le hU ω adversary slot q
 end ClaudeWCT.W9.T3.Security.CaseC
 end
@@ -978,7 +978,7 @@ theorem near_event (adversary : AdversaryP) (q : Nat) (ω : CanonTable.Omega (Wo
   obtain ⟨-, -, -, -, -, c, -, -, -, -, -, -, -, -, hguess, -⟩ := hP
   exact Guess.nonempty_of_prefixIn (htrack c hguess)
 noncomputable def nearTermTight (q : Nat) : ENNReal :=
-  (q : ENNReal) * ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * (404 * q / 2 ^ 128)
+  (q : ENNReal) * ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * (132 * q / 2 ^ 128)
 theorem nearBoundTight : NearBound caseCExtraction NearQ nearTermTight := by
   intro adversary q hq _ _
   have hchain := WPair.near_chain adversary q hq NearIn nearIn_short nearIn_mono (WPair.nearPayoff q)
@@ -986,12 +986,12 @@ theorem nearBoundTight : NearBound caseCExtraction NearQ nearTermTight := by
   have hslot : ∀ slot, (∑' ω, Pr[= ω | WPair.omegaLaw adversary] *
       ∑' r, Pr[= r | SphincsSecurity.Concrete.SecretGuessObservation.forcedRun WPair.envL slot
         (WPair.worldGameL (WPair.canon_subset adversary) ω adversary) WPair.initL] * WPair.nearPayoff q r) ≤
-      (q : ENNReal) * 404 / 2 ^ 128 :=
+      (q : ENNReal) * 132 / 2 ^ 128 :=
     fun slot => omega_avg_le _ _ _ fun ω => forced_payoff_sum_le (WPair.canon_subset adversary) ω adversary slot q
   calc
     _ ≤ Pr[NearAll adversary q | SeccLaw.completedExperiment adversary q hq] := near_le_all adversary q hq
     _ ≤ _ := hchain
-    _ ≤ ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * ∑ _slot ∈ Finset.range q, (q : ENNReal) * 404 / 2 ^ 128 :=
+    _ ≤ ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * ∑ _slot ∈ Finset.range q, (q : ENNReal) * 132 / 2 ^ 128 :=
       mul_le_mul' le_rfl (Finset.sum_le_sum fun slot _ => hslot slot)
     _ = nearTermTight q := by
       rw [Finset.sum_const, Finset.card_range, nsmul_eq_mul]
@@ -1005,7 +1005,7 @@ theorem nearTermTight_le (q : Nat) : nearTermTight q ≤ Wots.nearTerm q := by
   rfl
 theorem nearBound : NearBound caseCExtraction NearQ Wots.nearTerm :=
   fun adversary q hq h1 h2 => (nearBoundTight adversary q hq h1 h2).trans (nearTermTight_le q)
-theorem excessBound_horizon : ClaudeWCT.Bank.WCT.ExcessBound horizon (14774 / 100000000) :=
+theorem excessBound_horizon : ClaudeWCT.Bank.WCT.ExcessBound horizon (15914 / 100000000) :=
   ClaudeWCT.Numerics.WCTPrice.wct_excessBound_2_32
 theorem caseC_small_bound_wct :
     CaseCSmallBound CaseCFreshPinned Wots.nearTerm WPair.pairTerm :=

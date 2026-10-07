@@ -60,8 +60,8 @@ theorem completed_full_eq (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127
   rw [ht]
 theorem full_bound_births (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
     Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ PinnedC adversary FullQ z | SeccLaw.completedExperiment adversary q hq] ≤
-      (theta + 1 / 64) / 2 ^ 128 * CreationGame.expectedBirths IsDigestInput adversary q hq +
-        (q : ENNReal) * (14774 / 100000000) / 2 ^ 128 := by
+      (theta + 1 / 512) / 2 ^ 128 * CreationGame.expectedBirths IsDigestInput adversary q hq +
+        (q : ENNReal) * (15914 / 100000000) / 2 ^ 128 := by
   calc
     _ ≤ Pr[fun z => FullEvent adversary q (z.1.1, z.1.2.2) z.2 | SeccLaw.completedExperiment adversary q hq] := by
       apply pmf_probEvent_mono
@@ -84,7 +84,7 @@ theorem full_bound_births (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127
           exact pmf_probEvent_eq_zero _ hex
         rw [h0]
         exact bot_le
-    _ ≤ (theta + 1 / 64) / 2 ^ 128 * CreationGame.expectedBirths IsDigestInput adversary q hq +
+    _ ≤ (theta + 1 / 512) / 2 ^ 128 * CreationGame.expectedBirths IsDigestInput adversary q hq +
         (q : ENNReal) * (11324 / 100000000) / 2 ^ 128 := bank_potential_le adversary q hq
     _ ≤ _ := by
       gcongr
@@ -223,7 +223,7 @@ theorem full_bound_births (X : CaseCExtraction) (rate : ENNReal) (hexc : ExcessB
     (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
     Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ PinnedC X adversary FullQ z |
         SeccLaw.completedExperiment adversary q hq] ≤
-      (theta + 1 / 64) / 2 ^ 128 * CreationGame.expectedBirths IsDigestInput adversary q hq +
+      (theta + 1 / 512) / 2 ^ 128 * CreationGame.expectedBirths IsDigestInput adversary q hq +
         (q : ENNReal) * rate / 2 ^ 128 := by
   calc
     _ ≤ Pr[fun z => FullEvent X adversary q (z.1.1, z.1.2.2) z.2 | SeccLaw.completedExperiment adversary q hq] := by
@@ -263,7 +263,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-theorem full_bound (X : CaseCExtraction) (hexc : ExcessBound horizon (14774 / 100000000))
+theorem full_bound (X : CaseCExtraction) (hexc : ExcessBound horizon (15914 / 100000000))
     (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
     Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ PinnedC X adversary FullQ z |
         SeccLaw.completedExperiment adversary q hq] ≤
@@ -306,7 +306,7 @@ def CaseCSmallBound (CaseCFreshPinned : AdversaryP → PaddedGame.TraceResult ×
         ((Wots.signRatio * q : Nat) : ENNReal) * SeccClosing.excessRate / 2 ^ 128 + nearTerm q + pairTerm q +
         (2 : ENNReal)⁻¹ ^ 700
 theorem caseC_small_bound (X : CaseCExtraction) (Y : CaseCSplitInterface X) (nearTerm : Nat → ENNReal)
-    (hexc : ExcessBound horizon (14774 / 100000000)) (hnear : NearBound X Y.NearQ nearTerm) :
+    (hexc : ExcessBound horizon (15914 / 100000000)) (hnear : NearBound X Y.NearQ nearTerm) :
     CaseCSmallBound Y.CaseCFreshPinned nearTerm Y.pairTerm := by
   intro adversary q hq h1 hsplit
   set P := SeccLaw.completedExperiment adversary q hq

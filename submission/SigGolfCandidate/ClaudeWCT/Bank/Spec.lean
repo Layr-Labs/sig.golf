@@ -14,7 +14,7 @@ structure FtsBankSpec (P : Type) [Fintype P] [SampleableType P] where
   admissible : HashOutput → Bool
   producer : HashOutput → Bool
   exists_producer : ∃ x, producer x = true
-  acceptance_le : Pr[fun x : HashOutput => producer x = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 1 / 64
+  acceptance_le : Pr[fun x : HashOutput => producer x = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 1 / 512
   proposal : HashOutput → P
   law : P → ENNReal
   law_sum : ∑ p, law p = 1
@@ -77,7 +77,7 @@ theorem acceptance_ne_zero : S.acceptance ≠ 0 := by
   exact_mod_cast (Finset.card_pos.mpr S.admissibleSet_nonempty).ne'
 theorem acceptance_le_one : S.acceptance ≤ 1 := probEvent_le_one
 theorem acceptance_ne_top : S.acceptance ≠ ⊤ := ne_top_of_le_ne_top (by simp) S.acceptance_le_one
-theorem acceptance_le_sixtyfourth : S.acceptance ≤ 1 / 64 := S.acceptance_le
+theorem acceptance_le_sixtyfourth : S.acceptance ≤ 1 / 512 := S.acceptance_le
 theorem failMass_decode : failMass S.decode = 1 - S.acceptance := by
   have hf : failMass S.decode = Pr[fun answer : HashOutput => S.decode answer = none |
       ($ᵗ HashOutput : ProbComp HashOutput)] := failMass_eq_probEvent S.decode

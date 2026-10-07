@@ -150,7 +150,7 @@ theorem psi_birth_le (q : Nat) (st : RouterState) (X : HashInput) (hX : st.cache
     (hlen : st.births.length < q) :
     expectedValue (liftM (PMF.uniformOfFintype LargeResidual.HashOutput) : SPMF LargeResidual.HashOutput)
         (fun y => psi q (st.born X y)) ≤
-      psi q st + (CaseC.theta + 1 / 64) / 2 ^ 128 := by
+      psi q st + (CaseC.theta + 1 / 512) / 2 ^ 128 := by
   rw [expectedValue_uniform_reply]
   have hs : (bankOf q st).slack = (q - (st.births.length + 1)) + 1 := by
     change q - st.births.length = _

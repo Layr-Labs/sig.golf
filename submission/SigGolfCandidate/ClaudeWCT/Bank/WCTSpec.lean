@@ -64,7 +64,7 @@ def AcceptedProposalUniform : Prop :=
       BPORS.finiteAverage g *
         Pr[fun x : HashOutput => WCT9.admissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)]
 def AcceptanceBound : Prop :=
-  Pr[fun x : HashOutput => WCT9.admissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 1 / 64
+  Pr[fun x : HashOutput => WCT9.admissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 1 / 512
 abbrev Coords := Coord → Child × Rank
 def capOkC (c : Coords) : Bool :=
   decide ((∑ k, (WCT9.routineCost (c k).2 + WCT9.childExtra (c k).1)) ≤ WCT9.jointCap)
@@ -81,7 +81,7 @@ def AcceptedProposalHonest : Prop :=
       (∑ p, honestLaw p * g p) *
         Pr[fun x : HashOutput => WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)]
 def ProducerAcceptanceBound : Prop :=
-  Pr[fun x : HashOutput => WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 1 / 64
+  Pr[fun x : HashOutput => WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 1 / 512
 def ExcessBound (horizon : Nat) (rate : ENNReal) : Prop :=
   ClaudeWCT.Numerics.Law.lawAvg honestLaw horizon (fun W : List WProposal => price W - CaseC.theta) ≤ rate
 noncomputable def wctSpec (hsum : HonestLawSum) (hacc : AcceptedProposalHonest) (hle : ProducerAcceptanceBound)

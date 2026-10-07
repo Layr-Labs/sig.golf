@@ -265,7 +265,7 @@ theorem bankInv_initial (published : SigGolfCandidate.T3.Cache) (budget : Nat)
 theorem bank_potential_le (rate : ENNReal) (hexc : ExcessBound horizon rate) (adversary : AdversaryP)
     (budget : Nat) (hbudget : budget ≤ 2 ^ 127) :
     expectedValue (bankExperiment adversary budget) (fun r => potential budget r.2) ≤
-      (theta + 1 / 64) / 2 ^ 128 * CreationGame.expectedBirths IsDigestInput adversary budget hbudget +
+      (theta + 1 / 512) / 2 ^ 128 * CreationGame.expectedBirths IsDigestInput adversary budget hbudget +
         (budget : ENNReal) * rate / 2 ^ 128 := by
   rw [← BankLinkL.wct_expectedBirths_eq horizon ⊤ excessBound_top adversary budget hbudget]
   exact bankSpec.bank_potential_le_rate payAfterDigest ClaudeWCT.Bank.WCT.wct_payNotDigest

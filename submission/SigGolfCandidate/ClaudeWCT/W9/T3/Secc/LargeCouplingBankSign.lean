@@ -98,7 +98,7 @@ theorem wct_core_birth (b : BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : Has
     expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
         (fun N => (wctSpecL horizon rate hexc).corePotential
           { b with targets := b.targets ++ [N], slack := s, reuse := C' N }) ≤
-      (wctSpecL horizon rate hexc).corePotential b + (theta + 1 / 64) / 2 ^ 128 :=
+      (wctSpecL horizon rate hexc).corePotential b + (theta + 1 / 512) / 2 ^ 128 :=
   (wctSpecL horizon rate hexc).core_birth b s hs C' hC
 theorem wct_core_sign (b : BankCore) (cache : Sampling.RCache) (m : Message) (C' : ENNReal)
     (hC : C' + (wctSpecL horizon rate hexc).reuseMass cache m ≤ b.reuse) (secret : BitVec 256) (fuel : Nat)
@@ -231,7 +231,7 @@ theorem psi_birth_le (q : Nat) (st : RouterState) (X : HashInput) (hX : st.cache
     (hlen : st.births.length < q) :
     expectedValue (liftM (PMF.uniformOfFintype LargeResidual.HashOutput) : SPMF LargeResidual.HashOutput)
         (fun y => psi q (st.born X y)) ≤
-      psi q st + (CaseC.theta + 1 / 64) / 2 ^ 128 := by
+      psi q st + (CaseC.theta + 1 / 512) / 2 ^ 128 := by
   rw [expectedValue_uniform_reply]
   have hs : (bankOf q st).slack = (q - (st.births.length + 1)) + 1 := by
     change q - st.births.length = _
@@ -259,7 +259,7 @@ theorem psi_cert (q : Nat) (st : RouterState) (h : CertGhost st) : 1 ≤ psi q s
       change p.2 ∈ (st.births.map Prod.snd).reverse
       rw [List.mem_reverse]
       exact List.mem_map_of_mem hp
-theorem psi_initial (q : Nat) : psi q RouterState.initial ≤ (q : ENNReal) * (14774 / 100000000) / 2 ^ 128 := by
+theorem psi_initial (q : Nat) : psi q RouterState.initial ≤ (q : ENNReal) * (15914 / 100000000) / 2 ^ 128 := by
   have h0 : reuseC RouterState.initial = 0 := by
     unfold reuseC
     apply ENNReal.tsum_eq_zero.mpr
@@ -269,9 +269,9 @@ theorem psi_initial (q : Nat) : psi q RouterState.initial ≤ (q : ENNReal) * (1
     simp only [hm, Option.isSome_none, Bool.false_eq_true, if_false]
     simp only [ClaudeWCT.Bank.FtsBankSpec.reuseMass, ClaudeWCT.Bank.FtsBankSpec.admissibleEntry, hc,
       Option.elim_none, tsum_zero, ENNReal.zero_div]
-  have hinit := ClaudeWCT.Bank.WCT.wct_core_initial CaseC.horizon (14774 / 100000000)
+  have hinit := ClaudeWCT.Bank.WCT.wct_core_initial CaseC.horizon (15914 / 100000000)
     ClaudeWCT.Numerics.WCTPrice.wct_excessBound_2_32 q
-  rw [ClaudeWCT.Bank.WCT.wct_corePotential_rate CaseC.horizon (14774 / 100000000)
+  rw [ClaudeWCT.Bank.WCT.wct_corePotential_rate CaseC.horizon (15914 / 100000000)
     ClaudeWCT.Numerics.WCTPrice.wct_excessBound_2_32 ⊤ CaseC.excessBound_top] at hinit
   unfold psi bankOf
   rw [h0]
@@ -609,7 +609,7 @@ theorem bank_routeQuery (a : AuxData) (st : RouterState) (ws : LargeResidual.Sta
               _ ≤ expectedValue (liftM (PMF.uniformOfFintype LargeResidual.HashOutput) : SPMF LargeResidual.HashOutput)
                   (fun y => psi q (st.born X y) + ((q - (ws.counters.mass + 1) : Nat) : ENNReal) / 2 ^ 128) :=
                 expectedValue_mono _ hpt
-              _ ≤ psi q st + (CaseC.theta + 1 / 64) / 2 ^ 128 + ((q - (ws.counters.mass + 1) : Nat) : ENNReal) / 2 ^ 128 := by
+              _ ≤ psi q st + (CaseC.theta + 1 / 512) / 2 ^ 128 + ((q - (ws.counters.mass + 1) : Nat) : ENNReal) / 2 ^ 128 := by
                 rw [expectedValue_add]
                 exact add_le_add (psi_birth_le q st X hc0 hlen) (expectedValue_le_of_le _ fun _ => le_rfl)
               _ ≤ _ := birth_pay _ q hmass_lt _

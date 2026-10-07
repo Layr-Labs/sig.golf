@@ -133,7 +133,7 @@ theorem average_forecast (R : Nat) (X : List HashOutput) :
   rw [show (fun W => BPORS.History.fullPrice (labels X ++ W) * (2 ^ 128 : ENNReal)⁻¹) =
       fun W => (2 ^ 128 : ENNReal)⁻¹ * BPORS.History.fullPrice (labels X ++ W) by
     funext W; exact mul_comm _ _, SphincsSecurity.Concrete.uniformWordAverage_mul_left, mul_comm]
-noncomputable def theta : ENNReal := 63 / 64
+noncomputable def theta : ENNReal := 511 / 512
 noncomputable def excessForecast (R : Nat) (X : List HashOutput) : ENNReal :=
   uniformWordAverage R (fun W => BPORS.History.fullPrice (labels X ++ W) - theta)
 theorem excessForecast_step (R : Nat) (X : List HashOutput) :
