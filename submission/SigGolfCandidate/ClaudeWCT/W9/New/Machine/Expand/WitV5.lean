@@ -1,10 +1,10 @@
-import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Rotate
+import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Honest
 
 namespace ClaudeWCT.W9.Machine.Expand
 open SigGolfCandidate.T3 (HashOutput Layer height chainCount)
 open SigGolfCandidate.T3M (window window_append_left window_append_right window_flatMap_const window_zeros zeros)
 open SphincsSecurity (bytesLE bytesLE_length)
-open ClaudeWCT.W9.T3M (legacyHeaderBytes chainBytes leafBytes layerRegion)
+open ClaudeWCT.W9.T3M (headerBytes chainBytes leafBytes layerRegion)
 def merkleBytesV5 (child : Nat) (op : WCT9.Opening) : List UInt8 :=
   (List.finRange 7).reverse.flatMap fun l =>
     if child / 2 ^ l.val % 2 = 1 then bytesLE 16 (op.path l) ++ zeros 48 else zeros 48 ++ bytesLE 16 (op.path l)
@@ -13,7 +13,7 @@ def regionBytesV5 (child : Nat) (op : WCT9.Opening) : List UInt8 :=
 def wctBytesV5 (N : HashOutput) (sig : WCT9.Signature) : List UInt8 :=
   (List.finRange 9).flatMap fun k => regionBytesV5 (WCT9.child N k).val (sig.openings k)
 def witListV5 (N : HashOutput) (w : WCT9.Witness) : List UInt8 :=
-  legacyHeaderBytes w ++ wctBytesV5 N w.signature ++ zeros 8 ++ (List.finRange 4).flatMap (layerRegion N w)
+  headerBytes w ++ wctBytesV5 N w.signature ++ zeros 8 ++ (List.finRange 4).flatMap (layerRegion N w)
 theorem merkleBytesV5_length (c : Nat) (op : WCT9.Opening) : (merkleBytesV5 c op).length = 448 := by
   unfold merkleBytesV5
   rw [List.length_flatMap]
@@ -30,7 +30,7 @@ theorem wctBytesV5_length (N : HashOutput) (sig : WCT9.Signature) : (wctBytesV5 
   simp only [regionBytesV5_length, List.map_const', List.length_finRange, List.sum_replicate, smul_eq_mul]
 theorem witListV5_length (N : HashOutput) (w : WCT9.Witness) : (witListV5 N w).length = 22984 := by
   unfold witListV5
-  simp only [List.length_append, ClaudeWCT.W9.T3M.legacyHeaderBytes_length, wctBytesV5_length, zeros,
+  simp only [List.length_append, ClaudeWCT.W9.T3M.headerBytes_length, wctBytesV5_length, zeros,
     List.length_replicate, List.length_flatMap, ClaudeWCT.W9.T3M.layerRegion_length]
   simp [List.finRange, height, chainCount]
 section region

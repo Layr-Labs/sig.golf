@@ -38,12 +38,16 @@ theorem sign_value (P : Pending I) (sk : SecretKey) (cache : Bytes 131072) (m : 
   value_of_counts (F := Option.map sigB) (P.sign_refines sk cache m)
 set_option maxRecDepth 100000 in
 theorem expand_value (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5456) :
-    (fun r => r.value) <$> (submission I).run .expand (m, pk, s) = mrealize 0 (expandB m pk (sigDec s)) := by
-  rw [value_of_counts (F := Option.map (fun x : SigGolfCandidate.T3.HashOutput × Witness => witEnc x.1 x.2))
-    (P.expand_refines m pk s), expandB, mrealize_map]
+    (fun r => r.value) <$> (submission I).run .expand (m, pk, s) =
+      Option.map _root_.ClaudeWCT.W9.T3M.wLift <$> mrealize 0 (expandB m pk (sigDec s)) := by
+  rw [value_of_counts (F := Option.map (fun x : SigGolfCandidate.T3.HashOutput × Witness =>
+      _root_.ClaudeWCT.W9.T3M.wLift (witEnc x.1 x.2)))
+    (P.expand_refines m pk s), expandB, mrealize_map, Functor.map_map]
+  exact congrArg (· <$> mrealize 0 (expandN m pk (sigDec s))) (funext fun x => by cases x <;> rfl)
 set_option maxRecDepth 100000 in
-theorem verify_value (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 21832) :
-    (fun r => r.value.isSome) <$> (submission I).run .verify (m, pk, w) = mrealize 0 (verifyP m pk w) := by
+theorem verify_value (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 21848) :
+    (fun r => r.value.isSome) <$> (submission I).run .verify (m, pk, w) =
+      mrealize 0 (verifyP m pk (_root_.ClaudeWCT.W9.T3M.wProj w)) := by
   have h := congrArg (fun x => (fun p : Option Unit × Nat => p.1.isSome) <$> x) (P.verify_refines m pk w)
   simp only [Functor.map_map] at h
   refine h.trans ?_
@@ -62,11 +66,13 @@ theorem successPipe_eq (P : Pending I) (sk : SecretKey) (m : Message) :
   rcases s with _ | σ
   · rfl
   · simp only [Option.map_some]
-    rw [expand_value P, sigDec_sigB, mrealize_bind, mrealize_public 0 sk (publicOnly_expandB m kp.1 σ)]
+    rw [expand_value P, bind_map_left, sigDec_sigB, mrealize_bind, mrealize_public 0 sk (publicOnly_expandB m kp.1 σ)]
     refine bind_congr fun e => ?_
     rcases e with _ | w
     · rfl
-    · exact (verify_value P m _ w).trans (mrealize_public 0 sk (publicOnly_verifyP m kp.1 w))
+    · simp only [Option.map_some]
+      rw [verify_value P m _ (_root_.ClaudeWCT.W9.T3M.wLift w), _root_.ClaudeWCT.W9.T3M.wProj_wLift]
+      exact mrealize_public 0 sk (publicOnly_verifyP m kp.1 w)
 noncomputable def foldB : M Bool := foldAll msgs honestProgramB true
 noncomputable def foldC : M Bool := foldAll msgs honestProgramCore true
 theorem allSucceed_eq (P : Pending I) (sk : SecretKey) :
@@ -193,7 +199,7 @@ theorem abstract_expand_raw_cost (P : Pending I) (m : Message) (pk : PublicKey)
       (evalWithAnswerFn hash (mrealize 0 (SigGolfCandidate.T3.Cost.countBlocks (expandN m pk (sigDec sig))))).2 := by
   exact abstract_count_refinement 0 hash (expandN m pk (sigDec sig))
     ((submission I).run .expand (m,pk,sig))
-    (Option.map (fun x : SigGolfCandidate.T3.HashOutput × Witness => witEnc x.1 x.2))
+    (Option.map (fun x : SigGolfCandidate.T3.HashOutput × Witness => _root_.ClaudeWCT.W9.T3M.wLift (witEnc x.1 x.2)))
     (P.expand_refines m pk sig) (goodQ_expandN _ _ _)
 theorem abstract_expand_encoded_cost (P : Pending I) (m : Message) (pk : PublicKey)
     (sig : Signature) (hash : Hash) :

@@ -696,8 +696,8 @@ open ClaudeWCT.WCT9 (Signature Witness)
 open ClaudeWCT.WCT9.Rev3 (sign expand verify)
 open SigGolfCandidate.T3M (mrealize countBoth countCalls cacheB cacheDec isHash)
 open ClaudeWCT.W9.T3M (Images submission)
-def verifyCycleBound : Nat := 7322
-def claimedC : Nat := 7408
+def verifyCycleBound : Nat := 7312
+def claimedC : Nat := 7398
 def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 21832) : Prop :=
   ∀ N, evalWithAnswerFn hash (mrealize 0 (digestP m w)) = some N → WCT9.capOk N = true
 variable (I : Images)
@@ -716,19 +716,20 @@ def SignTerminates : Prop := ∀ (hash : Hash) (sk : SecretKey) (cache : Bytes 1
     ((submission I).runWith hash .sign (sk, cache, m)).cycles < CYCLE_LIMIT
 def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5456),
   (fun r => (r.value, r.hashCalls, r.hashCompressions)) <$> (submission I).run .expand (m, pk, s) =
-    (fun p => (p.1.map (fun x => witEnc x.1 x.2), p.2.1, p.2.2)) <$>
+    (fun p => (p.1.map (fun x => _root_.ClaudeWCT.W9.T3M.wLift (witEnc x.1 x.2)), p.2.1, p.2.2)) <$>
       countBoth (mrealize 0 (expandN m pk (sigDec s)))
 def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5456),
   ((submission I).runWith hash .expand (m, pk, s)).finished = true ∧
     ((submission I).runWith hash .expand (m, pk, s)).cycles < CYCLE_LIMIT
-def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 21832),
+def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 21848),
   (fun r => (r.value, r.hashCalls)) <$> (submission I).run .verify (m, pk, w) =
-    (fun p => (if p.1 then some () else none, p.2)) <$> countCalls (mrealize 0 (verifyP m pk w))
-def VerifyTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 21832),
+    (fun p => (if p.1 then some () else none, p.2)) <$>
+      countCalls (mrealize 0 (verifyP m pk (_root_.ClaudeWCT.W9.T3M.wProj w)))
+def VerifyTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 21848),
   ((submission I).runWith hash .verify (m, pk, w)).finished = true ∧
     ((submission I).runWith hash .verify (m, pk, w)).cycles < CYCLE_LIMIT
-def VerifyAcceptCycles : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 21832),
-  SigGolfCandidate.T3M.Verify.HashOk hash → DigestCapOk hash m w →
+def VerifyAcceptCycles : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 21848),
+  SigGolfCandidate.T3M.Verify.HashOk hash → DigestCapOk hash m (_root_.ClaudeWCT.W9.T3M.wProj w) →
   ((submission I).runWith hash .verify (m, pk, w)).value.isSome = true →
     ((submission I).runWith hash .verify (m, pk, w)).cycles ≤ verifyCycleBound
 structure Pending : Prop where

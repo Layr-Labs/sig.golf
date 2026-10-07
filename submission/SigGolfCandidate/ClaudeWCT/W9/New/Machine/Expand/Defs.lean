@@ -1,3 +1,4 @@
+import SigGolfCandidate.ClaudeWCT.W9.T3M.Submission
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.Fetch
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.WitV5
 import SigGolfCandidate.ClaudeWCT.W9.T3M.SigCodec
@@ -70,8 +71,8 @@ def NewCodeSpec (im : Image) : Prop :=
   ∀ (sk : BitVec 256) (m : Message) (sig : WCT9.Signature) (s : MachineState), Pre30 m sig s →
     TBSim im sk s newCost (newProg m sig) (NewPost sig s)
 def w9Sub (imgs : Phase → Image) : Submission where
-  sizes := ⟨5456, 21832, 131072⟩
-  layout := ⟨23880, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩
+  sizes := ⟨5456, 21848, 131072⟩
+  layout := ⟨0x5d68, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩
   image := imgs
 def FrontAt (im : Image) : Prop := CodeAt im (pcOf 0) (SigGolfCandidate.T3M.Expand.seg_0 ++ [hookWord])
 def compactJal : BitVec 32 := 0x4d52706f
@@ -82,7 +83,7 @@ def ExpandDataOK (im : Image) : Prop :=
 def ExpandRefinesW (imgs : Phase → Image) : Prop :=
   ∀ (m : Message) (pk : PublicKey) (s : Bytes 5456),
     (fun r => (r.value, r.hashCalls, r.hashCompressions)) <$> (w9Sub imgs).run .expand (m, pk, s) =
-      (fun p => (p.1.map (fun x => ClaudeWCT.W9.T3M.witEnc x.1 x.2), p.2.1, p.2.2)) <$>
+      (fun p => (p.1.map (fun x => _root_.ClaudeWCT.W9.T3M.wLift (ClaudeWCT.W9.T3M.witEnc x.1 x.2)), p.2.1, p.2.2)) <$>
         countBoth (mrealize 0 (ClaudeWCT.W9.T3M.expandN m pk (ClaudeWCT.W9.T3M.sigDec s)))
 def ExpandTerminatesW (imgs : Phase → Image) : Prop :=
   ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5456),

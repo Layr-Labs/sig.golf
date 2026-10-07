@@ -303,23 +303,23 @@ attribute [local reducible] SphincsSecurity.hashOutputBits ClaudeWCT.W9.T3M.subm
   SigGolfCandidate.Legacy.Output SigGolfCandidate.Legacy.Input
 set_option maxRecDepth 100000 in
 theorem expand_witness (P : Pending I) (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5456)
-    (w : Bytes 21832) (he : ((ClaudeWCT.W9.T3M.submission I).runWith hash .expand (m, pk, s)).value = some w) :
+    (w : Bytes 21848) (he : ((ClaudeWCT.W9.T3M.submission I).runWith hash .expand (m, pk, s)).value = some w) :
     ∃ N wt, evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.W9.T3M.expandN m pk (sigDec s)) = some (N, wt) ∧
-      w = ClaudeWCT.W9.T3M.witEnc N wt := by
+      w = _root_.ClaudeWCT.W9.T3M.wLift (ClaudeWCT.W9.T3M.witEnc N wt) := by
   have h := congrArg (evalWithAnswerFn hash) (expand_value P m pk s)
-  rw [evalWithAnswerFn_map, eval_mrealize hash 0 (ClaudeWCT.W9.T3M.expandB m pk (sigDec s)),
+  rw [evalWithAnswerFn_map, evalWithAnswerFn_map, eval_mrealize hash 0 (ClaudeWCT.W9.T3M.expandB m pk (sigDec s)),
     ClaudeWCT.W9.T3M.eval_expandB] at h
   unfold Submission.runWith at he
   rw [h] at he
   cases hx : evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.W9.T3M.expandN m pk (sigDec s)) with
-  | none => rw [hx] at he; cases he
+  | none => simp only [hx, Option.map_none, reduceCtorEq] at he
   | some x =>
-      rw [hx] at he
+      simp only [hx, Option.map_some] at he
       obtain ⟨N, wt⟩ := x
       exact ⟨N, wt, rfl, (Option.some.inj he).symm⟩
 set_option maxRecDepth 100000 in
-theorem verify_run_ok (P : Pending I) (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 21832)
-    (hagree : Agree hash (okHash hash) (mrealize 0 (ClaudeWCT.W9.T3M.verifyP m pk w))) :
+theorem verify_run_ok (P : Pending I) (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 21848)
+    (hagree : Agree hash (okHash hash) (mrealize 0 (ClaudeWCT.W9.T3M.verifyP m pk (_root_.ClaudeWCT.W9.T3M.wProj w)))) :
     (ClaudeWCT.W9.T3M.submission I).runWith hash .verify (m, pk, w) =
       (ClaudeWCT.W9.T3M.submission I).runWith (okHash hash) .verify (m, pk, w) := by
   have ha : Agree hash (okHash hash) ((ClaudeWCT.W9.T3M.submission I).run .verify (m, pk, w)) := by

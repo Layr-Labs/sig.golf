@@ -234,7 +234,7 @@ theorem dispatch_chain_pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : Hash
       have hw := hu.coords k (Nat.le_refl _) off ho h8
       rw [hm]
       simpa only [W9Machine.OrigW, Chain.base, coordinateBase, V3.regionOffset,
-        show 2080 + 896*k.val + off - 2048 = 32 + 896*k.val + off by omega] using hw }
+        show 2112 + 896*k.val + off - 2048 = 64 + 896*k.val + off by omega] using hw }
   · change ((dispatchResult k).toState u).getReg .x8 = _
     fin_cases k <;> simp [dispatchResult, dispatchResultN, coordDispatch, ldOf, cposOf, fshOf, dispatchPc,
       Result.toState_getReg, RegFile.get, RegFile.set, RegFile.init, addC_eval, E.eval, hu.baseReg, Chain.base,
@@ -457,8 +457,8 @@ theorem coord_next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   have hc := dispatch_chain_pre pk w a k pairs u hu
   have hf := coord_frame w a k u entry t ends pair hp ht
   have hm (A : Nat) (hA : A < 2^64)
-      (hs : A < 1056 ∨ (1360 ≤ A ∧ A < 2080) ∨
-      (10144 ≤ A ∧ A < 0xffbe10) ∨ 0xffbf40 ≤ A) :
+      (hs : A < 1056 ∨ (1360 ≤ A ∧ A < 2112) ∨
+      (10176 ≤ A ∧ A < 0xffbe10) ∨ 0xffbf40 ≤ A) :
       t.getMem (BitVec.ofNat 64 A) = u.getMem (BitVec.ofNat 64 A) := by
     apply hf A hA
     unfold coordinateBase pairAddress forestInputAddress
@@ -577,7 +577,7 @@ theorem coord_good (chains : N600.AllGood Frozen.layout)
     (hnext : ∀ root t, CoordPre pk w a (k.val + 1) (roots ++ [root]) t →
       GoodQFor Frozen.image t N C Q A (K (some (roots ++ [root])))) :
     GoodQFor Frozen.image u (N + (dispatchLen k + 190))
-      (C + (dispatchLen k + 190)) Q (A + ((dispatchLen k + 99) + (N600.rankCost (ClaudeWCT.WCT9.rank a k) +
+      (C + (dispatchLen k + 190)) Q (A + ((dispatchLen k + 98) + (N600.rankCost (ClaudeWCT.WCT9.rank a k) +
         ClaudeWCT.WCT9.childExtra (ClaudeWCT.WCT9.child a k))))
       (ccM (ClaudeWCT.W9.T3M.wctStep w a (some roots) k) K) := by
   have ds := dispatch_steps pk w a k roots u hu
@@ -596,7 +596,7 @@ theorem coord_good (chains : N600.AllGood Frozen.layout)
       (fun ends entry hp pair t ht => hnext _ _ (coord_next pk w a k roots u entry t ends pair hu hp ht))
     have full := (core.steps js).steps ds
     have hce := ClaudeWCT.WCT9.childExtra_add (ClaudeWCT.WCT9.child a k)
-    have hmx : ClaudeWCT.WCT9.maxChildSave = 2 := rfl
+    have hmx : ClaudeWCT.WCT9.maxChildSave = 3 := rfl
     simp only [ClaudeWCT.W9.T3M.wctStep, hok, Bool.not_true, Bool.false_eq_true,
       ↓reduceIte, ccM_bind, ccM_pure]
     exact full.mono (by omega) (by omega) (fun hq => ⟨hq, by omega⟩)
@@ -630,18 +630,19 @@ namespace W9Drv
 open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64 W9Machine
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
-def fPrepWords : List (BitVec 32) := [16761015,3781211171,3741353235,335545747,268437011,115]
+def fPrepWords : List (BitVec 32) := [4016356387,3993273619,335545747,268437011,115]
 def fTailWords : List (BitVec 32) := []
 def gpE : E := .bin .add (.reg .x18) (.c (BitVec.ofNat 64 (2 ^ 64 - 254)))
 def fPrep : Result :=
-  ⟨⟨(((RegFile.init.set .x1 (.c (BitVec.ofNat 64 0xffc000))).set .x10 (.c 0xffbdf0)).set
+  ⟨⟨((RegFile.init.set .x10 (addC (.reg .x9) (BitVec.ofNat 64 (2 ^ 64 - 288)))).set
       .x11 (.c 320)).set .x12 (.c 256),
-    [(⟨none, 0xffbe08⟩, .reg .x22)], []⟩, .c (pcOf 32970), .ecall, 5, 5⟩
-def fTail : Result := ⟨SymState.init, .c (pcOf 32971), .fuel, 0, 0⟩
-theorem fPrep_checked : rOK (symRun {} fPrepWords (pcOf 32965) 6) fPrep = true := by decide +kernel
+    [(⟨some (.reg .x9), BitVec.ofNat 64 (2 ^ 64 - 264)⟩, .reg .x22)],
+    [.valid ⟨some (.reg .x9), BitVec.ofNat 64 (2 ^ 64 - 264)⟩ 8]⟩, .c (pcOf 32969), .ecall, 4, 4⟩
+def fTail : Result := ⟨SymState.init, .c (pcOf 32970), .fuel, 0, 0⟩
+theorem fPrep_checked : rOK (symRun {} fPrepWords (pcOf 32965) 5) fPrep = true := by decide +kernel
 theorem fPrep_linked : sliceChecked 32965 fPrepWords = true := by decide +kernel
-theorem fTail_checked : rOK (symRun {} fTailWords (pcOf 32971) 0) fTail = true := by decide +kernel
-theorem fTail_linked : sliceChecked 32971 fTailWords = true := by decide +kernel
+theorem fTail_checked : rOK (symRun {} fTailWords (pcOf 32970) 0) fTail = true := by decide +kernel
+theorem fTail_linked : sliceChecked 32970 fTailWords = true := by decide +kernel
 end W9Drv
 end
 section
@@ -651,6 +652,7 @@ open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput M HashInput pad64 shortHash)
 open SphincsSecurity (bytesLE bytesLE_length)
 open W9Machine
+set_option maxRecDepth 100000
 abbrev forestIn := ClaudeWCT.WCT9.forestInput
 theorem forestIn_length (index : Nat) (pairs : List (Digest × Digest)) (h : pairs.length = 9) :
     (forestIn index pairs).length = 320 := by
@@ -687,18 +689,25 @@ theorem hdr0_forest15 (idx : Nat) (hi : idx < 2^32) : hdr0 15 0 idx 0 = 3841 := 
   rw [hdr0_eq 15 0 idx 0 (by decide) (by decide) hi (by decide)]; norm_num
 theorem hdr1_forest15 (idx : Nat) (hi : idx < 2^32) : hdr1 idx 0 = idx := by
   unfold hdr1; rw [Nat.mod_eq_of_lt hi]; simp
-theorem fPrep_mem (u : MachineState) (B : Nat) (hB : B < 2^64) :
+theorem fPrep_mem (u : MachineState) (h9 : u.getReg .x9 = BitVec.ofNat 64 0xffbf10) (B : Nat) (hB : B < 2^64) :
     (fPrep.toState u).getMem (BitVec.ofNat 64 B) =
       if B = 0xffbe08 then u.getReg .x22 else u.getMem (BitVec.ofNat 64 B) := by
   rw [Result.toState_getMem]
-  change memEval u [(⟨none, BitVec.ofNat 64 0xffbe08⟩, .reg .x22)] (BitVec.ofNat 64 B) = _
-  rw [memEval_cons_ofNat _ _ _ _ _ hB (by norm_num), memEval_nil]
-  rfl
-theorem fPrep_frame (u : MachineState) (B : Nat) (hB : B < 2^64)
+  change memEval u [(⟨some (.reg .x9), BitVec.ofNat 64 (2 ^ 64 - 264)⟩, .reg .x22)] (BitVec.ofNat 64 B) = _
+  rw [memEval_cons]
+  have e : Addr.eval u ⟨some (.reg .x9), BitVec.ofNat 64 (2 ^ 64 - 264)⟩ = BitVec.ofNat 64 0xffbe08 := by
+    simp [Addr.eval, E.eval, h9]
+  by_cases h : B = 0xffbe08
+  · subst h; rw [if_pos e.symm, if_pos rfl]; rfl
+  · have hne : BitVec.ofNat 64 B ≠ Addr.eval u ⟨some (.reg .x9), BitVec.ofNat 64 (2 ^ 64 - 264)⟩ := by
+      rw [e]; exact ofNat_ne hB (by norm_num) h
+    rw [if_neg hne, if_neg h]; rfl
+theorem fPrep_frame (u : MachineState) (h9 : u.getReg .x9 = BitVec.ofNat 64 0xffbf10) (B : Nat) (hB : B < 2^64)
     (h : B ≠ 0xffbe08) :
     (fPrep.toState u).getMem (BitVec.ofNat 64 B) = u.getMem (BitVec.ofNat 64 B) := by
-  rw [fPrep_mem u B hB, if_neg h]
-theorem forest_words (u : MachineState) (idx : Nat) (pairs : List (Digest × Digest))
+  rw [fPrep_mem u h9 B hB, if_neg h]
+theorem forest_words (u : MachineState) (h9 : u.getReg .x9 = BitVec.ofNat 64 0xffbf10)
+    (idx : Nat) (pairs : List (Digest × Digest))
     (hlen : pairs.length = 9) (hi : idx < 2^31)
     (h22 : u.getReg .x22 = BitVec.ofNat 64 idx) (h18 : u.getReg .x18 = 0xFFF)
     (hz : u.getMem (BitVec.ofNat 64 0xffbdf0) = 0 ∧ u.getMem (BitVec.ofNat 64 0xffbdf8) = 0)
@@ -711,10 +720,10 @@ theorem forest_words (u : MachineState) (idx : Nat) (pairs : List (Digest × Dig
       DigAt (fPrep.toState u) (0xffbe10+32*i+16) (pairs.getD i (0,0)).2 := by
     intro i hi9
     refine ⟨⟨?_, ?_⟩, ⟨?_, ?_⟩⟩
-    · exact (fPrep_frame u _ (by omega) (by omega)).trans (hr i hi9).1.1
-    · exact (fPrep_frame u _ (by omega) (by omega)).trans (hr i hi9).1.2
-    · exact (fPrep_frame u _ (by omega) (by omega)).trans (hr i hi9).2.1
-    · exact (fPrep_frame u _ (by omega) (by omega)).trans (hr i hi9).2.2
+    · exact (fPrep_frame u h9 _ (by omega) (by omega)).trans (hr i hi9).1.1
+    · exact (fPrep_frame u h9 _ (by omega) (by omega)).trans (hr i hi9).1.2
+    · exact (fPrep_frame u h9 _ (by omega) (by omega)).trans (hr i hi9).2.1
+    · exact (fPrep_frame u h9 _ (by omega) (by omega)).trans (hr i hi9).2.2
   rw [readWords_ofNat _ 0xffbdf0 40 (by norm_num), pad64_forestIn idx pairs hlen,
     wordsOf_forestIn, show List.range 40 = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39] from rfl]
   match pairs, hlen, hp with
@@ -731,15 +740,15 @@ theorem forest_words (u : MachineState) (idx : Nat) (pairs : List (Digest × Dig
     norm_num [List.getD_cons_zero, List.getD_cons_succ] at d0 d1 d2 d3 d4 d5 d6 d7 d8
     have h16 : (fPrep.toState u).getMem (BitVec.ofNat 64 0xffbe00) =
         BitVec.ofNat 64 (hdr0 15 0 idx 0) := by
-      rw [fPrep_frame u _ (by norm_num) (by norm_num), hdr0_forest15 idx (by omega)]
+      rw [fPrep_frame u h9 _ (by norm_num) (by norm_num), hdr0_forest15 idx (by omega)]
       exact hheader
     have h24 : (fPrep.toState u).getMem (BitVec.ofNat 64 0xffbe08) =
         BitVec.ofNat 64 (hdr1 idx 0) := by
-      rw [fPrep_mem u _ (by norm_num), hdr1_forest15 idx (by omega)]; exact h22
+      rw [fPrep_mem u h9 _ (by norm_num), hdr1_forest15 idx (by omega)]; exact h22
     have z0 : (fPrep.toState u).getMem (BitVec.ofNat 64 0xffbdf0) = 0 :=
-      (fPrep_frame u _ (by norm_num) (by omega)).trans hz.1
+      (fPrep_frame u h9 _ (by norm_num) (by omega)).trans hz.1
     have z1 : (fPrep.toState u).getMem (BitVec.ofNat 64 0xffbdf8) = 0 :=
-      (fPrep_frame u _ (by norm_num) (by omega)).trans hz.2
+      (fPrep_frame u h9 _ (by norm_num) (by omega)).trans hz.2
     simp only [List.map_cons, List.map_nil, Nat.reduceMul, Nat.reduceAdd, d0.1.1, d0.1.2, d0.2.1, d0.2.2, d1.1.1, d1.1.2, d1.2.1, d1.2.2, d2.1.1, d2.1.2, d2.2.1, d2.2.2, d3.1.1, d3.1.2, d3.2.1, d3.2.2, d4.1.1, d4.1.2, d4.2.1, d4.2.2, d5.1.1, d5.1.2, d5.2.1, d5.2.2, d6.1.1, d6.1.2, d6.2.1, d6.2.2, d7.1.1, d7.1.2, d7.2.1, d7.2.2, d8.1.1, d8.1.2, d8.2.1, d8.2.2,
       h16, h24, z0, z1, List.flatMap_cons, List.flatMap_nil, List.cons_append,
       List.nil_append, List.append_nil]
@@ -749,20 +758,30 @@ theorem forest_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
     (hu : CoordPre pk w a 9 roots u)
     (hnext : ∀ root t, FtsOut ⟨pk, w, a⟩ root t →
       GoodQFor Frozen.image t N C Q A (K root)) :
-    GoodQFor Frozen.image u (N + 6) (C + 45) Q (A + 45)
+    GoodQFor Frozen.image u (N + 5) (C + 44) Q (A + 44)
       (ccM (ClaudeWCT.WCT9.forestPk (idxOf a) roots) K) := by
   have hi : idxOf a < 2 ^ 31 := ClaudeWCT.WCT9.digestIndex_lt a
-  have st1 := block_steps fPrep_checked fPrep_linked rfl u hu.pc
-  have st1' : Steps Frozen.image u 5 5 (fPrep.toState u) := st1
+  have h9 : u.getReg .x9 = BitVec.ofNat 64 0xffbf10 := hu.forestPointer
+  have hob : fPrep.obligs u := by
+    apply (Oblig.all_iff u _).mpr
+    intro o ho
+    simp only [fPrep, List.mem_cons, List.not_mem_nil, or_false] at ho
+    subst ho
+    change accessValid (u.getReg .x9 + _) 8 = true
+    rw [h9]
+    decide +kernel
+  have st1 := symRun_sound (rOK_eq fPrep_checked) (slice_at _ _ fPrep_linked) u hu.pc hob
+  have st1' : Steps Frozen.image u 4 4 (fPrep.toState u) := st1
   set s1 := fPrep.toState u with hs1
-  have hf := block_ecall fPrep_checked fPrep_linked rfl u rfl
+  have hf := symRun_ecall (rOK_eq fPrep_checked) (slice_at _ _ fPrep_linked) u hob rfl
   have r1 : ∀ x, x ≠ .x3 → x ≠ .x10 → x ≠ .x11 → x ≠ .x12 → x ≠ .x1 → s1.getReg x = u.getReg x := by
     intro x h3 h10 h11 h12 h1
     rw [hs1, Result.toState_getReg]
     cases x <;> first | exact absurd rfl ‹_› | rfl
   have h5 : s1.getReg .x5 = 0 :=
     (r1 .x5 (by decide) (by decide) (by decide) (by decide) (by decide)).trans (hu.glob.1 (.x5, 0) (by simp [baseK]))
-  have h10 : s1.getReg .x10 = BitVec.ofNat 64 0xffbdf0 := by rw [hs1, Result.toState_getReg]; rfl
+  have h10 : s1.getReg .x10 = BitVec.ofNat 64 0xffbdf0 := by
+    simp [hs1, fPrep, Result.toState_getReg, RegFile.get, RegFile.set, RegFile.init, addC_eval, E.eval, h9]
   have h11 : s1.getReg .x11 = BitVec.ofNat 64 (64 * (4 + 1)) := by rw [hs1, Result.toState_getReg]; rfl
   have h12 : s1.getReg .x12 = BitVec.ofNat 64 0x100 := by rw [hs1, Result.toState_getReg]; rfl
   have h22 : s1.getReg .x22 = BitVec.ofNat 64 (idxOf a) :=
@@ -772,38 +791,38 @@ theorem forest_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
       (by norm_num)
   have hin : hashInput s1 = toQ (pad64 (forestIn (idxOf a) roots)) :=
     hashInput_toQ s1 _ 4 0xffbdf0 (by rw [pad64_forestIn _ _ hu.length, forestIn_length _ _ hu.length]) h10 (by decide) (by norm_num)
-      h11 (by norm_num) (forest_words u (idxOf a) roots hu.length hi hu.index
+      h11 (by norm_num) (forest_words u h9 (idxOf a) roots hu.length hi hu.index
         (hu.glob.1 (.x18, 0xFFF) (by simp [baseK]))
         ⟨by simpa using hu.bank.forest 0 (by decide), by simpa using hu.bank.forest 1 (by decide)⟩
         (by simpa using hu.bank.forest 2 (by decide)) hu.pairs)
   have g1 : Glob [] w pk s1 := by
     obtain ⟨-, hh, hpk, hz, hhalf, hdata⟩ := hu.glob
     refine ⟨by simp, ?_, ?_, ?_, ?_, ?_⟩
-    · intro j hj
-      exact (fPrep_frame u _ (by simp only [WIT, WX] at *; omega) (by simp only [WIT, WX] at *; omega)).trans (hh j hj)
-    · exact ⟨(fPrep_frame u _ (by norm_num) (by norm_num)).trans hpk.1,
-        (fPrep_frame u _ (by norm_num) (by norm_num)).trans hpk.2⟩
+    · intro j hj h2
+      exact (fPrep_frame u h9 _ (by simp only [WIT, WX] at *; omega) (by simp only [WIT, WX] at *; omega)).trans (hh j hj h2)
+    · exact ⟨(fPrep_frame u h9 _ (by norm_num) (by norm_num)).trans hpk.1,
+        (fPrep_frame u h9 _ (by norm_num) (by norm_num)).trans hpk.2⟩
     · intro A hA
-      exact (fPrep_frame u _ (by simp [pSlots] at hA; omega)
+      exact (fPrep_frame u h9 _ (by simp [pSlots] at hA; omega)
         (by simp [pSlots] at hA; omega)).trans (hz A hA)
     · change ((fPrep.toState u).getMem (BitVec.ofNat 64 CTRW)).toNat / 2 ^ 32 = 0
-      rw [fPrep_frame u CTRW (by unfold CTRW; omega) (by unfold CTRW; omega)]
+      rw [fPrep_frame u h9 CTRW (by unfold CTRW; omega) (by unfold CTRW; omega)]
       exact hhalf
     · refine ⟨?_, ?_⟩
-      · exact (fPrep_frame u _ (by unfold TOPBASE; omega) (by unfold TOPBASE; omega)).trans hdata.mask
+      · exact (fPrep_frame u h9 _ (by unfold TOPBASE; omega) (by unfold TOPBASE; omega)).trans hdata.mask
       · intro lay hl
-        exact (fPrep_frame u _ (by unfold HDATA; omega) (by unfold HDATA; omega)).trans (hdata.header lay hl)
-  have o1 : Orig w (fun o => o < 32 ∨ 8104 ≤ o) s1 :=
-    hu.layer.frame (fun j hj _ => fPrep_frame u _ (by simp only [WIT, WX] at *; omega)
+        exact (fPrep_frame u h9 _ (by unfold HDATA; omega) (by unfold HDATA; omega)).trans (hdata.header lay hl)
+  have o1 : Orig w (fun o => o < 64 ∨ 8136 ≤ o) s1 :=
+    hu.layer.frame (fun j hj _ => fPrep_frame u h9 _ (by simp only [WIT, WX] at *; omega)
       (by simp only [WIT, WX] at *; omega))
   have hpost : ∀ ans : BitVec 256, GoodQFor Frozen.image (writeHash s1 ans) (N + 0) (C + 0) Q (A + 0)
       (ccM (pure (ans.extractLsb' 0 128) : M Digest) K) := by
     intro ans
     rw [ccM_pure]
-    have hpc : (writeHash s1 ans).pc = pcOf 32971 := by
+    have hpc : (writeHash s1 ans).pc = pcOf 32970 := by
       rw [writeHash_pc]
-      show pcOf 32970 + 4 = pcOf 32971
-      exact SigGolfCandidate.T3M.pcOf_add4 32970
+      show pcOf 32969 + 4 = pcOf 32970
+      exact SigGolfCandidate.T3M.pcOf_add4 32969
     have st2 := block_steps fTail_checked fTail_linked rfl (writeHash s1 ans) hpc
     have st2' : Steps Frozen.image (writeHash s1 ans) 0 0 (fTail.toState (writeHash s1 ans)) := st2
     set t := fTail.toState (writeHash s1 ans) with ht
@@ -821,7 +840,7 @@ theorem forest_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
           · change (writeHash s1 ans).getReg .x18 = 4095
             rw [writeHash_getReg, r1 .x18 (by decide) (by decide) (by decide) (by decide) (by decide)]
             exact hu.glob.1 (.x18,4095) (by simp [baseK])
-        · exact fun j hj => (et _).trans (gg.2.1 j hj)
+        · exact fun j hj h2 => (et _).trans (gg.2.1 j hj h2)
         · exact ⟨(et _).trans gg.2.2.1.1, (et _).trans gg.2.2.1.2⟩
         · exact fun A hA => (et _).trans (gg.2.2.2.1 A hA)
         · change (t.getMem _).toNat / 2^32 = 0
@@ -833,7 +852,7 @@ theorem forest_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
       · obtain ⟨e0, e1⟩ := writeHash_lo s1 ans 0x100 h12 (by norm_num)
         exact ⟨(et _).trans e0, (et _).trans e1⟩
       · have o2 := Orig_writeHash o1 ans 0x100 h12 (by norm_num)
-        have o3 : Orig w (fun o => o < 32 ∨ 8104 ≤ o) (writeHash s1 ans) :=
+        have o3 : Orig w (fun o => o < 64 ∨ 8136 ≤ o) (writeHash s1 ans) :=
           o2.mono (fun o ho => ⟨ho, Or.inr (by simp only [WIT, WX] at *; omega)⟩)
         exact o3.frame (fun j _ _ => et _)
       · rw [ht, Result.toState_getReg]
@@ -873,24 +892,24 @@ theorem forest_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
         rw [writeHash_getReg, r1 .x6 (by decide) (by decide) (by decide) (by decide) (by decide)]
         exact hu.coordStep
       · rw [ht, Result.toState_getReg]
-        show (writeHash s1 ans).getReg .x1 = _
-        rw [writeHash_getReg, hs1, Result.toState_getReg]
-        rfl
+        show (writeHash s1 ans).getReg .x9 = _
+        rw [writeHash_getReg, r1 .x9 (by decide) (by decide) (by decide) (by decide) (by decide)]
+        exact h9
       · intro k hk
         rw [et, writeHash_frame s1 ans 0x100 (TOPLOAD + 8 * k) h12
           (by unfold TOPLOAD; omega) (by norm_num) (Or.inr (by unfold TOPLOAD; omega))]
-        exact (fPrep_frame u _ (by unfold TOPLOAD; omega) (by unfold TOPLOAD; omega)).trans
+        exact (fPrep_frame u h9 _ (by unfold TOPLOAD; omega) (by unfold TOPLOAD; omega)).trans
           (hu.bank.top k hk)
       · rw [et, writeHash_frame s1 ans 0x100 (TOPLOAD - 8) h12
           (by unfold TOPLOAD; omega) (by norm_num) (Or.inr (by unfold TOPLOAD; omega))]
-        exact (fPrep_frame u _ (by unfold TOPLOAD; omega) (by unfold TOPLOAD; omega)).trans
+        exact (fPrep_frame u h9 _ (by unfold TOPLOAD; omega) (by unfold TOPLOAD; omega)).trans
           hu.bank.top8
     exact (hnext _ t hout).steps st2'
   have hq := GoodQFor.shortHash_bind (f := fun d : Digest => (pure d : M Digest)) (K := K)
     hf h5 hv hin hpost
   rw [blocks_forestIn _ _ hu.length, bind_pure] at hq
   have := hq.steps st1'
-  change GoodQFor Frozen.image u (N+6) (C+45) Q (A+45) (ccM (shortHash (forestIn (idxOf a) roots)) K)
+  change GoodQFor Frozen.image u (N+5) (C+44) Q (A+44) (ccM (shortHash (forestIn (idxOf a) roots)) K)
   exact this.mono (by omega) (by omega) (fun hq => ⟨hq, by omega⟩)
 end W9Drv
 end
@@ -914,7 +933,7 @@ def FtsGoodByCost (acceptCost : HashOutput → Nat) : Prop :=
       GoodQFor Frozen.image t N C Q A (K (some root))) →
     GoodQFor Frozen.image u (N+2023) (C+2023) Q (A+acceptCost a)
       (ccM (if ClaudeWCT.W9.T3M.gateOk a then ClaudeWCT.W9.T3M.wctP w a else pure none) K)
-def ftsAcceptCost (a : HashOutput) : Nat := 1085 + ClaudeWCT.WCT9.jointCost a
+def ftsAcceptCost (a : HashOutput) : Nat := 1075 + ClaudeWCT.WCT9.jointCost a
 end W9Drv
 end
 
@@ -935,7 +954,7 @@ def finishFts (a : HashOutput) (state : Option (List (Digest × Digest))) : M (O
 def coordsCost (ks : List (Fin 9)) : Nat :=
   (ks.map (fun k => dispatchLen k + 190)).sum
 def coordsAccept (a : HashOutput) (ks : List (Fin 9)) : Nat :=
-  (ks.map (fun k => (dispatchLen k + 99) + (N600.rankCost (ClaudeWCT.WCT9.rank a k) +
+  (ks.map (fun k => (dispatchLen k + 98) + (N600.rankCost (ClaudeWCT.WCT9.rank a k) +
     ClaudeWCT.WCT9.childExtra (ClaudeWCT.WCT9.child a k)))).sum
 theorem fold_none (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (ks : List (Fin 9)) :
     ks.foldlM (ClaudeWCT.W9.T3M.wctStep w a) none = pure none := by
@@ -950,8 +969,8 @@ theorem coordinates_good (chains : N600.AllGood Frozen.layout)
     (hu : CoordPre pk w a n roots u) (hnone : K none = pure (false, 0))
     (hnext : ∀ root t, FtsOut ⟨pk,w,a⟩ root t →
       GoodQFor Frozen.image t N C Q A (K (some root))) :
-    GoodQFor Frozen.image u (N + (coordsCost ks + 45)) (C + (coordsCost ks + 45)) Q
-      (A + (coordsAccept a ks + 45))
+    GoodQFor Frozen.image u (N + (coordsCost ks + 44)) (C + (coordsCost ks + 44)) Q
+      (A + (coordsAccept a ks + 44))
       (ccM (ks.foldlM (ClaudeWCT.W9.T3M.wctStep w a) (some roots) >>= finishFts a) K) := by
   induction ks generalizing n roots u with
   | nil =>
@@ -961,7 +980,7 @@ theorem coordinates_good (chains : N600.AllGood Frozen.layout)
     have hf := forest_good pk w a roots u N C A Q (fun root => K (some root)) hu hnext
     rw [map_eq_bind_pure_comp, ccM_bind]
     simp only [Function.comp_apply, ccM_pure]
-    exact hf.mono (by change N + 6 ≤ N + 45; omega) (by rfl) (fun hq => ⟨hq, by rfl⟩)
+    exact hf.mono (by change N + 5 ≤ N + 44; omega) (by rfl) (fun hq => ⟨hq, by rfl⟩)
   | cons k ks ih =>
     simp only [List.map_cons, List.length_cons, List.range'_succ, List.cons.injEq] at horder
     obtain ⟨hn, ht⟩ := horder
@@ -970,17 +989,17 @@ theorem coordinates_good (chains : N600.AllGood Frozen.layout)
       ccM (ks.foldlM (ClaudeWCT.W9.T3M.wctStep w a) state >>= finishFts a) K
     have hkNone : K' none = pure (false, 0) := by
       simp only [K', fold_none, pure_bind, finishFts, ccM_pure, hnone]
-    have hstep := coord_good chains childs pk w a k roots u (N + (coordsCost ks + 45))
-      (C + (coordsCost ks + 45)) (A + (coordsAccept a ks + 45)) Q K' hu hkNone
+    have hstep := coord_good chains childs pk w a k roots u (N + (coordsCost ks + 44))
+      (C + (coordsCost ks + 44)) (A + (coordsAccept a ks + 44)) Q K' hu hkNone
       (fun root t hh => ih (k.val + 1) (roots ++ [root]) t ht (by simpa [Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using hend) hh)
     simp only [List.foldlM_cons, bind_assoc, ccM_bind]
     convert hstep using 1 <;> simp [coordsCost, coordsAccept, Nat.add_left_comm, Nat.add_comm,
       K', ccM_bind] <;> omega
 theorem coordsAccept_all (a : HashOutput) :
-    coordsAccept a (List.finRange 9) = 1020 + ClaudeWCT.WCT9.jointCost a := by
+    coordsAccept a (List.finRange 9) = 1011 + ClaudeWCT.WCT9.jointCost a := by
   unfold coordsAccept
   rw [List.sum_map_add]
-  have hfixed : ((List.finRange 9).map (fun k => dispatchLen k + 99)).sum = 1020 := by decide
+  have hfixed : ((List.finRange 9).map (fun k => dispatchLen k + 98)).sum = 1011 := by decide
   rw [hfixed]
   congr 1
   simp only [ClaudeWCT.WCT9.jointCost, ClaudeWCT.WCT9.coordCost,
@@ -990,14 +1009,14 @@ theorem fts_good_of (chains : N600.AllGood Frozen.layout)
   intro pk w a u N C A Q K hu hnone hnext
   let KG : Bool → OracleComp HashSpec Obs := fun b =>
     if b then ccM (ClaudeWCT.W9.T3M.wctP w a) K else K none
-  have hg := gate_good pk w a u (N + 1884) (C + 1884) (A + (1065 + ClaudeWCT.WCT9.jointCost a)) Q KG hu
+  have hg := gate_good pk w a u (N + 1883) (C + 1883) (A + (1055 + ClaudeWCT.WCT9.jointCost a)) Q KG hu
     (by simpa only [KG, Bool.false_eq_true, ↓reduceIte] using hnone)
     (fun t ht => by
       have hc := coordinates_good chains childs pk w a (List.finRange 9) 0 [] t N C A Q K
         (by decide)
         (by simp) ht hnone hnext
-      rw [show coordsCost (List.finRange 9) + 45 = 1884 by decide,
-        show coordsAccept a (List.finRange 9) + 45 = 1065 + ClaudeWCT.WCT9.jointCost a by
+      rw [show coordsCost (List.finRange 9) + 44 = 1883 by decide,
+        show coordsAccept a (List.finRange 9) + 44 = 1055 + ClaudeWCT.WCT9.jointCost a by
           rw [coordsAccept_all]; omega] at hc
       apply hc.congr
       change ccM (_ >>= finishFts a) K = ccM (ClaudeWCT.W9.T3M.wctP w a) K
@@ -1007,7 +1026,7 @@ theorem fts_good_of (chains : N600.AllGood Frozen.layout)
         (List.finRange 9).foldlM (ClaudeWCT.W9.T3M.wctStep w a) (some []) >>= f)
       funext state
       cases state <;> rfl)
-  change GoodQFor Frozen.image u (N + 1904) (C + 1904) Q (A + (1065 + ClaudeWCT.WCT9.jointCost a) + 20)
+  change GoodQFor Frozen.image u (N + 1903) (C + 1903) Q (A + (1055 + ClaudeWCT.WCT9.jointCost a) + 20)
     (KG (ClaudeWCT.W9.T3M.gateOk a)) at hg
   apply (hg.mono (by omega) (by omega) (fun hq => ⟨hq, by simp only [ftsAcceptCost]; omega⟩)).congr
   cases ClaudeWCT.W9.T3M.gateOk a <;> simp [KG, ccM_pure]

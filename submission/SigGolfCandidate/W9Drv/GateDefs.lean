@@ -12,7 +12,7 @@ structure HeaderBank (u : MachineState) : Prop where
     BitVec.ofNat 64 (1 + 3 * 256 + 4 * 65536)
   top : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
     BitVec.ofNat 64 (topWords.getD k 0)
-  top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 22120
+  top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 22152
   forest : ∀ j, j < 3 → u.getMem (BitVec.ofNat 64 (0xffbdf0 + 8 * j)) =
     BitVec.ofNat 64 (if j = 2 then 3841 else 0)
 def setupMaskAddr : Nat := 0xffbf40
@@ -20,7 +20,7 @@ structure SetupMask (u : MachineState) : Prop where
   child : u.getMem (BitVec.ofNat 64 (setupMaskAddr + 16)) = BitVec.ofNat 64 0xce800
   jt : u.getMem (BitVec.ofNat 64 (setupMaskAddr + 24)) = BitVec.ofNat 64 0xd6800
 structure GatePre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (u : MachineState) : Prop where
-  pc : u.pc = pcOf 32779
+  pc : u.pc = pcOf 32777
   glob : Glob baseK w pk u
   cached0 : u.getReg .x16 = a.extractLsb' 0 64
   len64 : u.getReg .x11 = 64

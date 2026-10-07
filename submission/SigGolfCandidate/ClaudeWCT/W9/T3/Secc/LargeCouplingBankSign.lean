@@ -82,6 +82,7 @@ end Router
 end ClaudeWCT.W9.T3.Security.LargeCoupling
 end
 section
+section
 namespace ClaudeWCT.Bank.WCT
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -119,6 +120,289 @@ theorem wct_core_win (b : BankCore) (halive : ¬horizon < b.exposures.length)
 theorem wct_core_initial (budget : Nat) :
     (wctSpecL horizon rate hexc).corePotential ⟨[], [], false, 0, budget⟩ ≤ (budget : ENNReal) * rate / 2 ^ 128 :=
   (wctSpecL horizon rate hexc).core_initial budget
+noncomputable abbrev S0 : FtsBankSpec WProposal :=
+  (wctSpecL horizon ⊤ (by unfold ExcessBound; exact le_top)).toFtsBankSpec
+noncomputable def excessForecast54 (R : Nat) (X : List HashOutput) : ENNReal :=
+  ClaudeWCT.Numerics.Law.lawAvg (S0 horizon).law R
+    (fun W => (S0 horizon).price ((S0 horizon).proposals X ++ W) - 3741 / 1996)
+theorem excessForecast54_step (R : Nat) (X : List HashOutput) :
+    expectedValue (S0 horizon).accepted (fun A => excessForecast54 horizon R (X ++ [A])) =
+      excessForecast54 horizon (R + 1) X := by
+  unfold excessForecast54
+  rw [ClaudeWCT.Numerics.Law.lawAvg_succ]
+  have hA (A : HashOutput) : ClaudeWCT.Numerics.Law.lawAvg (S0 horizon).law R
+      (fun W => (S0 horizon).price ((S0 horizon).proposals (X ++ [A]) ++ W) - 3741 / 1996) =
+      (fun p : WProposal => ClaudeWCT.Numerics.Law.lawAvg (S0 horizon).law R
+        (fun W => (S0 horizon).price ((S0 horizon).proposals X ++ p :: W) - 3741 / 1996))
+        ((S0 horizon).proposal A) := by
+    simp [FtsBankSpec.proposals, List.map_append, List.append_assoc]
+  simp_rw [hA]
+  exact (S0 horizon).expected_accepted_proposal (fun p => ClaudeWCT.Numerics.Law.lawAvg (S0 horizon).law R
+    (fun W => (S0 horizon).price ((S0 horizon).proposals X ++ p :: W) - 3741 / 1996))
+theorem average_forecast_le_54 (R : Nat) (X : List HashOutput) :
+    BPORS.finiteAverage (fun N : HashOutput => (S0 horizon).forecast R X N) ≤
+      ((3741 / 1996 : ENNReal) + excessForecast54 horizon R X) / 2 ^ 128 := by
+  rw [(S0 horizon).average_forecast]
+  apply ENNReal.div_le_div_right
+  unfold excessForecast54
+  calc
+    _ ≤ ClaudeWCT.Numerics.Law.lawAvg (S0 horizon).law R
+          (fun W => (3741 / 1996 : ENNReal) + ((S0 horizon).price ((S0 horizon).proposals X ++ W) - 3741 / 1996)) :=
+      ClaudeWCT.Numerics.Law.lawAvg_mono (S0 horizon).law R fun W => le_add_tsub
+    _ = _ := by
+      rw [ClaudeWCT.Numerics.Law.lawAvg_add, ClaudeWCT.Numerics.Law.lawAvg_const (S0 horizon).law (S0 horizon).law_sum]
+noncomputable def ledger54 (R : Nat) (targets X : List HashOutput) (slack : Nat) : ENNReal :=
+  (targets.map fun N => (S0 horizon).forecast R X N).sum + (slack : ENNReal) * excessForecast54 horizon R X / 2 ^ 128
+theorem ledger54_slack_succ (R : Nat) (targets X : List HashOutput) (slack : Nat) :
+    ledger54 horizon R targets X (slack + 1) =
+      ledger54 horizon R targets X slack + excessForecast54 horizon R X / 2 ^ 128 := by
+  unfold ledger54
+  rw [Nat.cast_add, Nat.cast_one, add_mul, one_mul, ENNReal.add_div, add_assoc]
+theorem ledger54_birth (R : Nat) (targets X : List HashOutput) (slack : Nat) :
+    expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun a => ledger54 horizon R (targets ++ [a]) X slack) ≤
+      ledger54 horizon R targets X (slack + 1) + (3741 / 1996 : ENNReal) / 2 ^ 128 := by
+  have hfa : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun a => (S0 horizon).forecast R X a) ≤
+      ((3741 / 1996 : ENNReal) + excessForecast54 horizon R X) / 2 ^ 128 := by
+    rw [BPORS.expected_uniform_eq_finiteAverage]
+    exact average_forecast_le_54 horizon R X
+  have hsplit : ∀ a, ledger54 horizon R (targets ++ [a]) X slack =
+      ledger54 horizon R targets X slack + (S0 horizon).forecast R X a := by
+    intro a
+    simp only [ledger54, List.map_append, List.map_cons, List.map_nil, List.sum_append, List.sum_cons,
+      List.sum_nil, add_zero]
+    ring
+  simp_rw [hsplit]
+  rw [expectedValue_add, expectedValue_const (by simp : Pr[⊥ | ($ᵗ HashOutput : ProbComp HashOutput)] = 0),
+    ledger54_slack_succ, add_assoc]
+  exact add_le_add le_rfl (hfa.trans (by rw [ENNReal.add_div, add_comm]))
+theorem ledger54_expose (R : Nat) (targets X : List HashOutput) (slack : Nat) :
+    expectedValue (S0 horizon).accepted (fun A => ledger54 horizon R targets (X ++ [A]) slack) =
+      ledger54 horizon (R + 1) targets X slack := by
+  unfold ledger54
+  rw [expectedValue_add, CaseC.expectedValue_list_sum']
+  refine congrArg₂ (· + ·) (congrArg List.sum ?_) ?_
+  · apply List.map_congr_left
+    intro N _
+    exact (S0 horizon).forecast_step R X N
+  · simp only [div_eq_mul_inv]
+    rw [show (fun A : HashOutput => (slack : ENNReal) * excessForecast54 horizon R (X ++ [A]) * (2 ^ 128 : ENNReal)⁻¹) =
+        fun A => (slack : ENNReal) * (2 ^ 128 : ENNReal)⁻¹ * excessForecast54 horizon R (X ++ [A]) by
+      funext A; ring]
+    rw [CaseC.pmf_expectedValue_left_mul, excessForecast54_step]
+    ring
+theorem ledger54_freshPrice (R : Nat) (targets X : List HashOutput) (slack : Nat) :
+    (S0 horizon).freshPrice (fun A => ledger54 horizon R targets (X ++ [A]) slack) =
+      ledger54 horizon (R + 1) targets X slack := by
+  rw [← (S0 horizon).expected_accepted, ledger54_expose]
+theorem ledger54_search (secret : BitVec 256) (rho : Digest) (message : Message) (fuel : Nat)
+    (hlimit : fuel ≤ 2 ^ 32) (cache : Sampling.RCache)
+    (hreject : Sampling.CachedTrialsReject (Sampling.digestTrial rho message) (S0 horizon).decode 0 (2 ^ 32) cache)
+    (R : Nat) (targets X : List HashOutput) (slack : Nat) :
+    expectedValue (Sampling.roRun secret ((S0 horizon).search rho message 0 fuel) cache)
+      (fun result => result.1.elim (ledger54 horizon (R + 1) targets X slack)
+        (fun found => ledger54 horizon R targets (X ++ [found.2]) slack)) ≤
+      ledger54 horizon (R + 1) targets X slack :=
+  (S0 horizon).search_le_price secret rho message fuel hlimit cache hreject _ _ _ le_rfl
+    (ledger54_freshPrice horizon R targets X slack).le
+theorem ledger54_win (R : Nat) (targets X : List HashOutput) (slack : Nat) (N : HashOutput) (hN : N ∈ targets)
+    (hadm : WCT9.admissible N = true) (hcov : Covered X N) :
+    1 ≤ ledger54 horizon R targets X slack :=
+  calc
+    (1 : ENNReal) ≤ (S0 horizon).score X N := (S0 horizon).one_le_score X N hadm hcov
+    _ ≤ (S0 horizon).forecast R X N := (S0 horizon).score_le_forecast R X N
+    _ ≤ (targets.map fun N => (S0 horizon).forecast R X N).sum := List.le_sum_of_mem (List.mem_map_of_mem hN)
+    _ ≤ _ := le_self_add
+noncomputable def corePotential54 (b : BankCore) : ENNReal :=
+  if horizon < b.exposures.length then 0
+  else if b.reused = true then 1 + b.reuse
+  else ledger54 horizon (horizon - b.exposures.length) b.targets b.exposures b.slack + b.reuse
+theorem wct_core_birth_54 (b : BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : HashOutput → ENNReal)
+    (hC : ∀ N, C' N ≤ b.reuse + (S0 horizon).admInd N / 2 ^ 128) :
+    expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+        (fun N => corePotential54 horizon { b with targets := b.targets ++ [N], slack := s, reuse := C' N }) ≤
+      corePotential54 horizon b + (15 / 8 : ENNReal) / 2 ^ 128 := by
+  have hadm : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun N => (S0 horizon).admInd N / 2 ^ 128) ≤
+      (S0 horizon).admBound / 2 ^ 128 := by
+    simp only [div_eq_mul_inv]
+    rw [expectedValue_mul_const]
+    exact mul_le_mul' (by simpa [div_eq_mul_inv] using (S0 horizon).expected_admInd_tight) le_rfl
+  have h54_adm : (S0 horizon).admBound ≤ 15 / 8 := by
+    change (1 / 1996 : ENNReal) ≤ 15 / 8
+    apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+    norm_num [ENNReal.toReal_div]
+  have h54_sum : (3741 / 1996 : ENNReal) + (S0 horizon).admBound ≤ 15 / 8 := by
+    change (3741 / 1996 : ENNReal) + 1 / 1996 ≤ 15 / 8
+    apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+    simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_div, ENNReal.toReal_inv,
+      ENNReal.toReal_ofNat, ENNReal.toReal_one]
+    norm_num
+  unfold corePotential54
+  simp only
+  by_cases hd : horizon < b.exposures.length
+  · simp only [hd, if_true]
+    exact (expectedValue_le_of_le _ fun _ => le_rfl).trans bot_le
+  simp only [hd, if_false]
+  by_cases hr : b.reused = true
+  · simp only [hr, if_true]
+    calc
+      _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+            (fun N => (S0 horizon).admInd N / 2 ^ 128 + (1 + b.reuse)) :=
+        expectedValue_mono _ fun N => (add_le_add le_rfl (hC N)).trans (le_of_eq (by ring))
+      _ ≤ (S0 horizon).admBound / 2 ^ 128 + (1 + b.reuse) :=
+        (CaseC.expectedValue_add_const_le _ _ _).trans (add_le_add hadm le_rfl)
+      _ ≤ _ := by
+        rw [add_comm]
+        exact add_le_add le_rfl (ENNReal.div_le_div_right h54_adm _)
+  · simp only [hr, Bool.false_eq_true, if_false]
+    set R := horizon - b.exposures.length
+    calc
+      _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+          (fun N => (ledger54 horizon R (b.targets ++ [N]) b.exposures s + (S0 horizon).admInd N / 2 ^ 128) + b.reuse) :=
+        expectedValue_mono _ fun N => (add_le_add le_rfl (hC N)).trans (le_of_eq (by ring))
+      _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+          (fun N => ledger54 horizon R (b.targets ++ [N]) b.exposures s + (S0 horizon).admInd N / 2 ^ 128) + b.reuse :=
+        CaseC.expectedValue_add_const_le _ _ _
+      _ ≤ (ledger54 horizon R b.targets b.exposures (s + 1) + (3741 / 1996 : ENNReal) / 2 ^ 128 +
+            (S0 horizon).admBound / 2 ^ 128) + b.reuse := by
+        rw [expectedValue_add]
+        exact add_le_add (add_le_add (ledger54_birth horizon R b.targets b.exposures s) hadm) le_rfl
+      _ ≤ _ := by
+        rw [← hs, add_assoc (ledger54 _ _ _ _ _), ← ENNReal.add_div,
+          show ledger54 horizon R b.targets b.exposures b.slack +
+            ((3741 / 1996 : ENNReal) + (S0 horizon).admBound) / 2 ^ 128 + b.reuse =
+            (ledger54 horizon R b.targets b.exposures b.slack + b.reuse) +
+            ((3741 / 1996 : ENNReal) + (S0 horizon).admBound) / 2 ^ 128 by ring]
+        exact add_le_add le_rfl (ENNReal.div_le_div_right h54_sum _)
+theorem wct_core_sign_54 (b : BankCore) (cache : Sampling.RCache) (m : Message) (C' : ENNReal)
+    (hC : C' + (S0 horizon).reuseMass cache m ≤ b.reuse) (secret : BitVec 256) (fuel : Nat)
+    (hfuel : fuel ≤ 2 ^ 32) :
+    expectedValue ($ᵗ Digest : ProbComp Digest) (fun rho =>
+      if (S0 horizon).Reuse cache rho m then
+        corePotential54 horizon { b with reused := true, reuse := C' }
+      else expectedValue (Sampling.roRun secret (WCT9.digestSearch rho m 0 fuel) cache)
+        (fun result => corePotential54 horizon (b.expose C' (result.1.map Prod.snd)))) ≤
+      corePotential54 horizon b := by
+  have h : expectedValue ($ᵗ Digest : ProbComp Digest) (fun rho =>
+      if (S0 horizon).Reuse cache rho m then corePotential54 horizon { b with reused := true, reuse := C' }
+      else expectedValue (Sampling.roRun secret ((S0 horizon).search rho m 0 fuel) cache)
+        (fun result => corePotential54 horizon (b.expose C' (result.1.map Prod.snd)))) ≤
+      corePotential54 horizon b := by
+    have hlenA : ∀ (o : Option HashOutput), b.exposures.length ≤ (b.exposures ++ o.toList).length := by
+      intro o; simp
+    by_cases hd : horizon < b.exposures.length
+    · apply expectedValue_le_of_le
+      intro rho
+      have h0 : ∀ (o : Option HashOutput), corePotential54 horizon (b.expose C' o) = 0 := by
+        intro o
+        unfold corePotential54 BankCore.expose
+        simp only
+        rw [if_pos (lt_of_lt_of_le hd (hlenA o))]
+      split_ifs
+      · unfold corePotential54; simp only; rw [if_pos hd]; exact bot_le
+      · exact (expectedValue_le_of_le _ fun result => (h0 _).le).trans bot_le
+    by_cases hr : b.reused = true
+    · have hb : corePotential54 horizon b = 1 + b.reuse := by unfold corePotential54; simp [hd, hr]
+      rw [hb]
+      apply expectedValue_le_of_le
+      intro rho
+      have hle : ∀ (o : Option HashOutput), corePotential54 horizon (b.expose C' o) ≤ 1 + b.reuse := by
+        intro o
+        unfold corePotential54 BankCore.expose
+        simp only [hr, if_true]
+        split_ifs
+        · exact bot_le
+        · exact add_le_add le_rfl (le_of_add_le_left hC)
+      split_ifs
+      · unfold corePotential54; simp only [hd, if_false, if_true]; exact add_le_add le_rfl (le_of_add_le_left hC)
+      · exact expectedValue_le_of_le _ fun result => hle _
+    have hr' : b.reused = false := by simpa using hr
+    set R0 := horizon - b.exposures.length with hR0
+    have hb : corePotential54 horizon b = ledger54 horizon R0 b.targets b.exposures b.slack + b.reuse := by
+      unfold corePotential54; simp only [hd, hr', if_false, Bool.false_eq_true]; rfl
+    have hsearch : ∀ rho, ¬(S0 horizon).Reuse cache rho m →
+        expectedValue (Sampling.roRun secret ((S0 horizon).search rho m 0 fuel) cache)
+          (fun result => corePotential54 horizon (b.expose C' (result.1.map Prod.snd))) ≤
+            ledger54 horizon R0 b.targets b.exposures b.slack + C' := by
+      intro rho hnr
+      have hrej : Sampling.CachedTrialsReject (Sampling.digestTrial rho m) (S0 horizon).decode 0 (2 ^ 32) cache := by
+        unfold FtsBankSpec.Reuse at hnr; push Not at hnr; exact hnr
+      by_cases hlen : b.exposures.length < horizon
+      · obtain ⟨R, hR⟩ : ∃ R, R0 = R + 1 := ⟨R0 - 1, by omega⟩
+        calc
+          _ ≤ expectedValue (Sampling.roRun secret ((S0 horizon).search rho m 0 fuel) cache)
+              (fun result => result.1.elim (ledger54 horizon (R + 1) b.targets b.exposures b.slack)
+                (fun found => ledger54 horizon R b.targets (b.exposures ++ [found.2]) b.slack) + C') := by
+            apply expectedValue_mono
+            intro result
+            rcases result with ⟨_ | found, cache'⟩
+            · unfold corePotential54 BankCore.expose
+              simp only [Option.map_none, Option.toList_none, List.append_nil, hd, if_false, hr',
+                Bool.false_eq_true, Option.elim_none]
+              rw [← hR]
+            · unfold corePotential54 BankCore.expose
+              have hl1 : (b.exposures ++ [found.2]).length = b.exposures.length + 1 := by simp
+              have hnd : ¬horizon < (b.exposures ++ [found.2]).length := by omega
+              simp only [Option.map_some, Option.toList_some, hnd, if_false, hr', Bool.false_eq_true,
+                Option.elim_some]
+              rw [show horizon - (b.exposures ++ [found.2]).length = R by omega]
+          _ ≤ ledger54 horizon (R + 1) b.targets b.exposures b.slack + C' :=
+            (CaseC.expectedValue_add_const_le _ _ _).trans
+              (add_le_add (ledger54_search horizon secret rho m fuel hfuel cache hrej R b.targets b.exposures b.slack) le_rfl)
+          _ = _ := by rw [hR]
+      · apply expectedValue_le_of_le
+        intro result
+        rcases result with ⟨_ | found, cache'⟩
+        · unfold corePotential54 BankCore.expose
+          simp only [Option.map_none, Option.toList_none, List.append_nil, hd, if_false, hr', Bool.false_eq_true]
+          exact le_rfl
+        · unfold corePotential54 BankCore.expose
+          have hnd : horizon < (b.exposures ++ [found.2]).length := by simp; omega
+          simp only [Option.map_some, Option.toList_some, hnd, if_true]
+          exact bot_le
+    rw [hb]
+    calc
+      _ ≤ expectedValue ($ᵗ Digest : ProbComp Digest)
+          (fun rho => (if (S0 horizon).Reuse cache rho m then 1 else 0) +
+            (ledger54 horizon R0 b.targets b.exposures b.slack + C')) := by
+        apply expectedValue_mono
+        intro rho
+        by_cases hre : (S0 horizon).Reuse cache rho m
+        · rw [if_pos hre, if_pos hre]
+          unfold corePotential54
+          simp only [hd, if_false, if_true]
+          exact add_le_add le_rfl le_add_self
+        · rw [if_neg hre, if_neg hre, zero_add]
+          exact hsearch rho hre
+      _ ≤ (S0 horizon).reuseMass cache m + (ledger54 horizon R0 b.targets b.exposures b.slack + C') :=
+        (CaseC.expectedValue_add_const_le _ _ _).trans (add_le_add ((S0 horizon).reuse_probability_le cache m) le_rfl)
+      _ ≤ _ := by
+        rw [add_comm (ledger54 _ _ _ _ _), ← add_assoc, add_comm ((S0 horizon).reuseMass cache m),
+          add_comm _ (ledger54 _ _ _ _ _)]
+        exact add_le_add le_rfl hC
+  simp only [← wct_digestSearch_public (S0 horizon) rfl] at h
+  exact h
+theorem wct_core_win_54 (b : BankCore) (halive : ¬horizon < b.exposures.length)
+    (h : b.reused = true ∨ ∃ N ∈ b.targets, WCT9.admissible N = true ∧ Covered b.exposures N) :
+    1 ≤ corePotential54 horizon b := by
+  unfold corePotential54
+  rw [if_neg halive]
+  by_cases hr : b.reused = true
+  · rw [if_pos hr]; exact le_self_add
+  · rw [if_neg hr]
+    obtain ⟨N, hN, hadm, hcov⟩ := h.resolve_left hr
+    exact (ledger54_win horizon _ _ _ _ N hN hadm hcov).trans le_self_add
+theorem wct_core_initial_54 (budget : Nat) :
+    corePotential54 (2 ^ 32) ⟨[], [], false, 0, budget⟩ ≤
+      (budget : ENNReal) * (52138 / 100000000) / 2 ^ 128 := by
+  unfold corePotential54 ledger54 excessForecast54
+  simp only [List.length_nil, Nat.not_lt_zero, if_false, Bool.false_eq_true, Nat.sub_zero, add_zero,
+    List.map_nil, List.sum_nil, zero_add]
+  apply ENNReal.div_le_div_right
+  apply mul_le_mul' le_rfl
+  change ClaudeWCT.Numerics.Law.lawAvg honestLaw (2 ^ 32)
+    (fun W : List WProposal => price W - 3741 / 1996) ≤ 52138 / 100000000
+  rw [honestLaw_eq_n4]
+  exact ClaudeWCT.Numerics.WCTPrice.wct_excess_honest_2_32_54
 end ClaudeWCT.Bank.WCT
 end
 section
@@ -140,9 +424,12 @@ noncomputable def reuseC (st : RouterState) : ENNReal :=
   ∑' m : Message, if (st.memo.lookup m).isSome then 0 else CaseC.bankSpec.reuseMass st.cache m
 noncomputable def bankOf (q : Nat) (st : RouterState) : CaseC.BankCore :=
   ⟨(st.births.map Prod.snd).reverse, st.exposures, st.reused, reuseC st, q - st.births.length⟩
-noncomputable def psi (q : Nat) (st : RouterState) : ENNReal := CaseC.bankSpec.corePotential (bankOf q st)
+noncomputable def coeffQ (q : Nat) : ENNReal := if q ≤ 2 ^ 123 then 15 / 8 else 1
+noncomputable def psi (q : Nat) (st : RouterState) : ENNReal :=
+  if q ≤ 2 ^ 123 then ClaudeWCT.Bank.WCT.corePotential54 CaseC.horizon (bankOf q st)
+  else CaseC.bankSpec.corePotential (bankOf q st)
 noncomputable def slackT {U : Finset HashInput} (q : Nat) (ws : LargeResidual.State WCoord (Cell U)) : ENNReal :=
-  ((q - ws.counters.mass : Nat) : ENNReal) / 2 ^ 128
+  coeffQ q * ((q - ws.counters.mass : Nat) : ENNReal) / 2 ^ 128
 structure BankInv (U : Finset HashInput) (ws : LargeResidual.State WCoord (Cell U)) (st : RouterState) : Prop where
   calls : ws.counters.calls = st.calls
   mass : ws.counters.mass ≤ ws.counters.calls
@@ -231,35 +518,54 @@ theorem psi_birth_le (q : Nat) (st : RouterState) (X : HashInput) (hX : st.cache
     (hlen : st.births.length < q) :
     expectedValue (liftM (PMF.uniformOfFintype LargeResidual.HashOutput) : SPMF LargeResidual.HashOutput)
         (fun y => psi q (st.born X y)) ≤
-      psi q st + (CaseC.theta + 1 / 64) / 2 ^ 128 := by
+      psi q st + coeffQ q / 2 ^ 128 := by
   rw [expectedValue_uniform_reply]
   have hs : (bankOf q st).slack = (q - (st.births.length + 1)) + 1 := by
     change q - st.births.length = _
     omega
-  have h := ClaudeWCT.Bank.WCT.wct_core_birth CaseC.horizon ⊤ CaseC.excessBound_top (bankOf q st) _ hs
-    (fun y => reuseC (st.born X y))
-    (fun y => reuseC_birth st X y hX)
-  refine le_trans (le_of_eq ?_) h
-  apply tsum_congr
-  intro y
-  have hb : bankOf q (st.born X y) = { bankOf q st with
-      targets := (bankOf q st).targets ++ [(y : HashOutput)]
+  have hb : ∀ y : HashOutput, bankOf q (st.born X y) = { bankOf q st with
+      targets := (bankOf q st).targets ++ [y]
       slack := q - (st.births.length + 1)
       reuse := reuseC (st.born X y) } := by
+    intro y
     simp only [bankOf, RouterState.born, List.map_cons, List.reverse_cons, List.length_cons]
     rfl
-  congr 1
-  exact congrArg CaseC.bankSpec.corePotential hb
+  unfold psi coeffQ
+  by_cases h125 : q ≤ 2 ^ 123
+  · simp only [if_pos h125]
+    have h := ClaudeWCT.Bank.WCT.wct_core_birth_54 CaseC.horizon (bankOf q st) _ hs
+      (fun y => reuseC (st.born X y))
+      (fun y => reuseC_birth st X y hX)
+    refine le_trans (le_of_eq ?_) h
+    apply tsum_congr
+    intro y
+    congr 1
+    exact congrArg (ClaudeWCT.Bank.WCT.corePotential54 CaseC.horizon) (hb y)
+  · simp only [if_neg h125]
+    have h := ClaudeWCT.Bank.WCT.wct_core_birth CaseC.horizon ⊤ CaseC.excessBound_top (bankOf q st) _ hs
+      (fun y => reuseC (st.born X y))
+      (fun y => reuseC_birth st X y hX)
+    refine le_trans (le_of_eq ?_) (h.trans (add_le_add le_rfl (ENNReal.div_le_div_right CaseC.theta_add_sixteenth_le_one _)))
+    apply tsum_congr
+    intro y
+    congr 1
+    exact congrArg CaseC.bankSpec.corePotential (hb y)
 theorem psi_cert (q : Nat) (st : RouterState) (h : CertGhost st) : 1 ≤ psi q st := by
-  apply ClaudeWCT.Bank.WCT.wct_core_win CaseC.horizon ⊤ CaseC.excessBound_top
-  · exact not_lt.mpr h.1
-  · rcases h.2 with h | ⟨p, hp, hadm, hcov⟩
+  unfold psi
+  have hcov : (bankOf q st).reused = true ∨
+      ∃ N ∈ (bankOf q st).targets, WCT9.admissible N = true ∧ ClaudeWCT.Bank.WCT.Covered (bankOf q st).exposures N := by
+    rcases h.2 with h | ⟨p, hp, hadm, hcov⟩
     · exact Or.inl h
     · refine Or.inr ⟨p.2, ?_, hadm, hcov⟩
       change p.2 ∈ (st.births.map Prod.snd).reverse
       rw [List.mem_reverse]
       exact List.mem_map_of_mem hp
-theorem psi_initial (q : Nat) : psi q RouterState.initial ≤ (q : ENNReal) * (14774 / 100000000) / 2 ^ 128 := by
+  split_ifs with h125
+  · exact ClaudeWCT.Bank.WCT.wct_core_win_54 CaseC.horizon (bankOf q st) (not_lt.mpr h.1) hcov
+  · exact ClaudeWCT.Bank.WCT.wct_core_win CaseC.horizon ⊤ CaseC.excessBound_top (bankOf q st) (not_lt.mpr h.1) hcov
+theorem psi_initial (q : Nat) :
+    psi q RouterState.initial ≤
+      (q : ENNReal) * (if q ≤ 2 ^ 123 then 52138 / 100000000 else 805356 / 100000000) / 2 ^ 128 := by
   have h0 : reuseC RouterState.initial = 0 := by
     unfold reuseC
     apply ENNReal.tsum_eq_zero.mpr
@@ -269,13 +575,15 @@ theorem psi_initial (q : Nat) : psi q RouterState.initial ≤ (q : ENNReal) * (1
     simp only [hm, Option.isSome_none, Bool.false_eq_true, if_false]
     simp only [ClaudeWCT.Bank.FtsBankSpec.reuseMass, ClaudeWCT.Bank.FtsBankSpec.admissibleEntry, hc,
       Option.elim_none, tsum_zero, ENNReal.zero_div]
-  have hinit := ClaudeWCT.Bank.WCT.wct_core_initial CaseC.horizon (14774 / 100000000)
-    ClaudeWCT.Numerics.WCTPrice.wct_excessBound_2_32 q
-  rw [ClaudeWCT.Bank.WCT.wct_corePotential_rate CaseC.horizon (14774 / 100000000)
-    ClaudeWCT.Numerics.WCTPrice.wct_excessBound_2_32 ⊤ CaseC.excessBound_top] at hinit
   unfold psi bankOf
   rw [h0]
-  exact hinit
+  split_ifs with h125
+  · exact ClaudeWCT.Bank.WCT.wct_core_initial_54 q
+  · have hinit := ClaudeWCT.Bank.WCT.wct_core_initial CaseC.horizon (805356 / 100000000)
+      ClaudeWCT.Numerics.WCTPrice.wct_excessBound_2_32 q
+    rw [ClaudeWCT.Bank.WCT.wct_corePotential_rate CaseC.horizon (805356 / 100000000)
+      ClaudeWCT.Numerics.WCTPrice.wct_excessBound_2_32 ⊤ CaseC.excessBound_top] at hinit
+    exact hinit
 end ClaudeWCT.W9.T3.Security.LargeCoupling
 end
 section
@@ -507,6 +815,7 @@ theorem slackT_le_of_mass {s s' : LargeResidual.State WCoord (Cell U)} (q : Nat)
     (h : s.counters.mass ≤ s'.counters.mass) : slackT q s' ≤ slackT q s := by
   unfold slackT
   apply ENNReal.div_le_div_right
+  apply mul_le_mul' le_rfl
   exact_mod_cast Nat.sub_le_sub_left h q
 theorem inlTest_guess (c : Coord) (v : Digest) (hit : Hit WCoord) (hh : ∀ p, hit = .label p → ∃ c' : Coord, p = .inl c') :
     InlTest ⟨some (.inl c, v), hit⟩ :=
@@ -598,7 +907,7 @@ theorem bank_routeQuery (a : AuxData) (st : RouterState) (ws : LargeResidual.Sta
             simp only [if_pos hfr]
             have hpt : ∀ y : LargeResidual.HashOutput,
                 g (some (y, st.born X y), readState q ws ⟨X, hX⟩ y .mass) ≤
-                  psi q (st.born X y) + ((q - (ws.counters.mass + 1) : Nat) : ENNReal) / 2 ^ 128 := by
+                  psi q (st.born X y) + coeffQ q * ((q - (ws.counters.mass + 1) : Nat) : ENNReal) / 2 ^ 128 := by
               intro y
               refine (hcont y _ _ (hinv.born q X hX hd hfr.1 y) (by
                 change st.calls + 1 ≤ q; omega)).trans (le_of_eq ?_)
@@ -607,12 +916,19 @@ theorem bank_routeQuery (a : AuxData) (st : RouterState) (ws : LargeResidual.Sta
               simp only [readState, LargeResidual.Counters.charge, if_pos hcalls]
             calc
               _ ≤ expectedValue (liftM (PMF.uniformOfFintype LargeResidual.HashOutput) : SPMF LargeResidual.HashOutput)
-                  (fun y => psi q (st.born X y) + ((q - (ws.counters.mass + 1) : Nat) : ENNReal) / 2 ^ 128) :=
+                  (fun y => psi q (st.born X y) + coeffQ q * ((q - (ws.counters.mass + 1) : Nat) : ENNReal) / 2 ^ 128) :=
                 expectedValue_mono _ hpt
-              _ ≤ psi q st + (CaseC.theta + 1 / 64) / 2 ^ 128 + ((q - (ws.counters.mass + 1) : Nat) : ENNReal) / 2 ^ 128 := by
+              _ ≤ psi q st + coeffQ q / 2 ^ 128 + coeffQ q * ((q - (ws.counters.mass + 1) : Nat) : ENNReal) / 2 ^ 128 := by
                 rw [expectedValue_add]
                 exact add_le_add (psi_birth_le q st X hc0 hlen) (expectedValue_le_of_le _ fun _ => le_rfl)
-              _ ≤ _ := birth_pay _ q hmass_lt _
+              _ ≤ _ := by
+                rw [add_assoc]
+                apply add_le_add le_rfl
+                unfold slackT
+                rw [← ENNReal.add_div]
+                apply ENNReal.div_le_div_right
+                have hsub : (q - ws.counters.mass : Nat) = 1 + (q - (ws.counters.mass + 1)) := by omega
+                rw [hsub, Nat.cast_add, Nat.cast_one, mul_add, mul_one]
           · simp only [if_neg hfr]
             by_cases ht : X ∈ st.trials
             ·
@@ -828,14 +1144,33 @@ theorem reuseC_signed_eq (st : RouterState) (rho rho' : Digest) (m : Message)
   · subst h; simp
   · have hb2 : (m' == m) = false := by simpa using h
     simp only [List.lookup_cons, hb2]
+noncomputable def corePotentialQ (q : Nat) (b : CaseC.BankCore) : ENNReal :=
+  if q ≤ 2 ^ 123 then ClaudeWCT.Bank.WCT.corePotential54 CaseC.horizon b
+  else CaseC.bankSpec.corePotential b
+theorem psi_eq_corePotentialQ (q : Nat) (st : RouterState) :
+    psi q st = corePotentialQ q (bankOf q st) := rfl
+theorem wct_core_sign_q (q : Nat) (b : CaseC.BankCore) (cache : Sampling.RCache) (m : Message) (C' : ENNReal)
+    (hC : C' + CaseC.bankSpec.reuseMass cache m ≤ b.reuse) (secret : BitVec 256) (fuel : Nat)
+    (hfuel : fuel ≤ 2 ^ 32) :
+    expectedValue ($ᵗ Digest : ProbComp Digest) (fun rho =>
+      if CaseC.bankSpec.Reuse cache rho m then
+        corePotentialQ q { b with reused := true, reuse := C' }
+      else expectedValue (Sampling.roRun secret (WCT9.digestSearch rho m 0 fuel) cache)
+        (fun result => corePotentialQ q (b.expose C' (result.1.map Prod.snd)))) ≤
+      corePotentialQ q b := by
+  unfold corePotentialQ
+  by_cases h125 : q ≤ 2 ^ 123
+  · simp only [if_pos h125]
+    exact ClaudeWCT.Bank.WCT.wct_core_sign_54 CaseC.horizon b cache m C' hC secret fuel hfuel
+  · simp only [if_neg h125]
+    exact ClaudeWCT.Bank.WCT.wct_core_sign CaseC.horizon ⊤ CaseC.excessBound_top b cache m C' hC secret fuel hfuel
 theorem psi_signed (q : Nat) (st : RouterState) (rho : Digest) (m : Message)
     (found : Option (BitVec 32 × LargeResidual.HashOutput)) :
     psi q (st.signed rho m found) =
       if CaseC.bankSpec.Reuse st.cache rho m then
-        CaseC.bankSpec.corePotential { bankOf q st with reused := true, reuse := reuseC (st.signed 0 m none) }
-      else CaseC.bankSpec.corePotential ((bankOf q st).expose (reuseC (st.signed 0 m none)) (found.map Prod.snd)) := by
-  rw [← reuseC_signed_eq st rho 0 m found none]
-  unfold psi
+        corePotentialQ q { bankOf q st with reused := true, reuse := reuseC (st.signed 0 m none) }
+      else corePotentialQ q ((bankOf q st).expose (reuseC (st.signed 0 m none)) (found.map Prod.snd)) := by
+  rw [← reuseC_signed_eq st rho 0 m found none, psi_eq_corePotentialQ]
   by_cases hr : CaseC.bankSpec.Reuse st.cache rho m
   · rw [if_pos hr]
     congr 1
@@ -990,14 +1325,14 @@ theorem bank_routeSign (hUpub : SeccLaw.publicUniverse ⊆ U) (a : AuxData) (pub
       set C0 := reuseC (st.signed 0 m none) with hC0
       have hC : C0 + CaseC.bankSpec.reuseMass st.cache m ≤ (bankOf q st).reuse := by
         rw [hC0, reuseC_signed st 0 m none hm]; exact le_rfl
-      have hcore := ClaudeWCT.Bank.WCT.wct_core_sign CaseC.horizon ⊤ CaseC.excessBound_top (bankOf q st) st.cache m C0 hC 0
+      have hcore := wct_core_sign_q q (bankOf q st) st.cache m C0 hC 0
         WCT9.digestAttemptLimit WCT9.digestAttemptLimit_le
       have hrho : ∀ rho : Digest,
           expectedValue (lazyRun aux q (simulateQ (readImpl U a) (WCT9.digestSearch rho m 0 WCT9.digestAttemptLimit) >>= fun found =>
               signFinish U a (st.signed rho m found) rho found) (disclosedState q ws (.inr m) rho .none)) g ≤
-            (if CaseC.bankSpec.Reuse st.cache rho m then CaseC.bankSpec.corePotential { bankOf q st with reused := true, reuse := C0 }
+            (if CaseC.bankSpec.Reuse st.cache rho m then corePotentialQ q { bankOf q st with reused := true, reuse := C0 }
               else expectedValue (Sampling.roRun 0 (WCT9.digestSearch rho m 0 WCT9.digestAttemptLimit) st.cache)
-                (fun result => CaseC.bankSpec.corePotential ((bankOf q st).expose C0 (result.1.map Prod.snd)))) +
+                (fun result => corePotentialQ q ((bankOf q st).expose C0 (result.1.map Prod.snd)))) +
               slackT q ws := by
         intro rho
         rw [lazyRun, ev_runWith_bind, ← lazyRun]
@@ -1034,11 +1369,11 @@ theorem bank_routeSign (hUpub : SeccLaw.publicUniverse ⊆ U) (a : AuxData) (pub
           rw [psi_signed, if_neg hr]
       calc
         _ ≤ expectedValue ($ᵗ Digest : ProbComp Digest) (fun rho =>
-            (if CaseC.bankSpec.Reuse st.cache rho m then CaseC.bankSpec.corePotential { bankOf q st with reused := true, reuse := C0 }
+            (if CaseC.bankSpec.Reuse st.cache rho m then corePotentialQ q { bankOf q st with reused := true, reuse := C0 }
               else expectedValue (Sampling.roRun 0 (WCT9.digestSearch rho m 0 WCT9.digestAttemptLimit) st.cache)
-                (fun result => CaseC.bankSpec.corePotential ((bankOf q st).expose C0 (result.1.map Prod.snd)))) +
+                (fun result => corePotentialQ q ((bankOf q st).expose C0 (result.1.map Prod.snd)))) +
               slackT q ws) := expectedValue_mono _ hrho
-        _ ≤ CaseC.bankSpec.corePotential (bankOf q st) + slackT q ws := by
+        _ ≤ corePotentialQ q (bankOf q st) + slackT q ws := by
           rw [expectedValue_add]
           exact add_le_add hcore (expectedValue_le_of_le _ fun _ => le_rfl)
         _ = _ := rfl
