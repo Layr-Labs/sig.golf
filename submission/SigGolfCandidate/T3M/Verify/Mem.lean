@@ -88,11 +88,11 @@ theorem writeHash_lo (t : MachineState) (ans : BitVec 256) (d : Nat)
 theorem land_split (n M w s : Nat) (hws : w ≤ s) :
     n &&& (2 ^ s * M + (2 ^ w - 1)) = 2 ^ s * ((n / 2 ^ s) &&& M) + n % 2 ^ w := by
   have hw : 2 ^ w - 1 < 2 ^ s := by
-    have := Nat.pow_le_pow_right (show 0 < 2 by decide) hws
+    have := Nat.pow_le_pow_right (show 0 < 2 by decide +kernel) hws
     have : 0 < 2 ^ w := Nat.two_pow_pos _
     omega
   have hm : n % 2 ^ w < 2 ^ s := lt_of_lt_of_le (Nat.mod_lt _ (Nat.two_pow_pos _))
-    (Nat.pow_le_pow_right (by decide) hws)
+    (Nat.pow_le_pow_right (by decide +kernel) hws)
   apply Nat.eq_of_testBit_eq
   intro j
   rw [Nat.testBit_land, Nat.testBit_two_pow_mul_add _ hw, Nat.testBit_two_pow_mul_add _ hm]
@@ -104,7 +104,7 @@ theorem replaceWord32_0_toNat (w : BitVec 64) (v : BitVec 32) :
     (replaceWord32 w 0 v).toNat = w.toNat / 2 ^ 32 % 2 ^ 32 * 2 ^ 32 + v.toNat := by
   unfold replaceWord32
   have hm : (~~~(0xFFFFFFFF#64 <<< (0 * 32)) : BitVec 64) =
-      BitVec.ofNat 64 (2 ^ 32 * (2 ^ 32 - 1) + (2 ^ 0 - 1)) := by decide
+      BitVec.ofNat 64 (2 ^ 32 * (2 ^ 32 - 1) + (2 ^ 0 - 1)) := by decide +kernel
   rw [hm, BitVec.toNat_or, BitVec.toNat_and, BitVec.toNat_shiftLeft]
   simp only [BitVec.toNat_ofNat, BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth, Nat.zero_mul,
     Nat.shiftLeft_zero]
@@ -112,7 +112,7 @@ theorem replaceWord32_0_toNat (w : BitVec 64) (v : BitVec 32) :
   have hw := w.isLt
   rw [Nat.mod_eq_of_lt (show v.toNat < 2 ^ 64 by omega), Nat.mod_eq_of_lt (show v.toNat < 2 ^ 64 by omega),
     Nat.mod_eq_of_lt (show 2 ^ 32 * (2 ^ 32 - 1) + (2 ^ 0 - 1) < 2 ^ 64 by norm_num),
-    land_split _ _ 0 32 (by decide), Nat.and_two_pow_sub_one_eq_mod, Nat.pow_zero, Nat.mod_one, Nat.add_zero,
+    land_split _ _ 0 32 (by decide +kernel), Nat.and_two_pow_sub_one_eq_mod, Nat.pow_zero, Nat.mod_one, Nat.add_zero,
     ← Nat.two_pow_add_eq_or_of_lt hv]
   ring
 theorem merge_w0_toNat (w v : BitVec 64) :
@@ -136,6 +136,7 @@ def dataWords : List Nat :=
   [2 ^ 40, 17311559823019733055, 8198552921648689607, 0x30401, 0x3fe00, 2256, 11736, 0xa01, 0x901, 7072, 15264, 0]
 def TOPLOAD : Nat := 0xffbf68
 def TOPBASE : Nat := 0xffc000
+def TOPB9 : Nat := 0xffbf10
 def topWords : List Nat :=
   [17311559823019733055, 8198552921648689607, 0x30401, 0x3fe00, 0x201 + 193 * 2 ^ 56 + 3 * 2 ^ 48]
 def DATA : Nat := 16777120
@@ -277,7 +278,7 @@ theorem memOKA_prot {allow : List Nat} {rel : List Reg} {ws : SymMem} (h : memOK
     (s : MachineState) (hrel : RelOK rel s) (A : Nat) (hA : A < 2 ^ 64) (hp : Prot A) :
     ∀ p ∈ ws, BitVec.ofNat 64 A ≠ p.1.eval s := by
   intro p hp'
-  have hps : ∀ a ∈ pSlots, a < WIT := by decide
+  have hps : ∀ a ∈ pSlots, a < WIT := by decide +kernel
   rcases memOKA_cases h hp' with ⟨r, hr, hb, hoff⟩ | ⟨hb, hc⟩
   · obtain ⟨_, hge⟩ := relWrite_ge hrel hr hb hoff
     intro heq
@@ -467,7 +468,7 @@ theorem Glob_writeHash {gk : List (Reg × Word)} {w : ClaudeWCT.W9.T3M.WBytes} {
     intro A hA hp
     rw [writeHash_getMem_ofNat s ans d A hd hA (by omega)]
     rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega)]
-  have hps : ∀ a ∈ pSlots, a < WIT := by decide
+  have hps : ∀ a ∈ pSlots, a < WIT := by decide +kernel
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro p hp; rw [writeHash_getReg]; exact h1 p hp
   · intro j hj4 hj

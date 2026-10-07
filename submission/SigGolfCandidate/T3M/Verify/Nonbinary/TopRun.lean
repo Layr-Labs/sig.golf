@@ -8,7 +8,7 @@ set_option maxHeartbeats 1000000
 set_option linter.unusedSimpArgs false
 theorem set24_set24 (b : MachineState) (x y : Word) : set24 (set24 b x) y=set24 b y := by
   unfold set24
-  rw [setReg_of_ne _ _ (by decide),setReg_of_ne b _ (by decide),setReg_of_ne b _ (by decide)]
+  rw [setReg_of_ne _ _ (by decide +kernel),setReg_of_ne b _ (by decide +kernel),setReg_of_ne b _ (by decide +kernel)]
   simp only
   congr 1
   funext r
@@ -31,16 +31,16 @@ theorem guard_ok (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     (acc : List Digest) (s : MachineState) (hs : c.GroupIn s0 0 acc s) :
     ∃t,Steps vimage s 2 2 t ∧ c.ChainIn (set24 s0 (c.s8v 0)) 0 acc t := by
   obtain ⟨⟨hR,hF,hS⟩,hlen,hpc⟩ := hs
-  have hchk := s8Run_at 0 (c.kOf 0) (by decide) (c.kOf_lt hds 0 (by decide))
+  have hchk := s8Run_at 0 (c.kOf 0) (by decide +kernel) (c.kOf_lt hds 0 (by decide +kernel))
   rw [if_pos rfl] at hchk
   have hrun := rOK_eq hchk
   have hp : entW 0 (c.kOf 0)<251927 := by
-    have := (c.kOf_bounds hds 0 (by decide)).2 (by decide)
+    have := (c.kOf_bounds hds 0 (by decide +kernel)).2 (by decide +kernel)
     unfold entW cellW entOff; simp; omega
   have hst := piece_steps45 hrun hp s hpc (by simp [guardR])
   set r := guardR (c.kOf 0) with hr
-  have h29 : s.getReg .x29=BitVec.ofNat 64 (v.toNat/2^119) := (hR .x29 (by decide)).trans he.tail
-  have h11 : s.getReg .x11=64#64 := (hR .x11 (by decide)).trans (hk (.x11,64) (by simp [known]))
+  have h29 : s.getReg .x29=BitVec.ofNat 64 (v.toNat/2^119) := (hR .x29 (by decide +kernel)).trans he.tail
+  have h11 : s.getReg .x11=64#64 := (hR .x11 (by decide +kernel)).trans (hk (.x11,64) (by simp [known]))
   have hcond := guard_cond v
   have hfr : Frame s (r.toState s) (fun _ => False) := fun A _ _ => by
     rw [Result.toState_getMem]; simp [hr,guardR,memEval_nil]
@@ -49,9 +49,9 @@ theorem guard_ok (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     by_cases hx : x=.x24
     · subst x
       simp only [hr,guardR]
-      rw [RegFile.get_set_self _ _ (by decide),set24_24]
+      rw [RegFile.get_set_self _ _ (by decide +kernel),set24_24]
       simp only [E.eval,s8v,kss]
-      obtain ⟨k1,k2,k3⟩ := c.kdig_kOf hds 0 (by decide)
+      obtain ⟨k1,k2,k3⟩ := c.kdig_kOf hds 0 (by decide +kernel)
       rw [k1,k2,k3]
       simp [List.range_succ]
       congr 1
@@ -70,14 +70,14 @@ theorem guard_rej (c : NCtx) (hds : c.DigitsOk) {s0 : MachineState}
     (acc : List Digest) (s : MachineState) (hs : c.GroupIn s0 0 acc s) :
     ∃t,Steps vimage s 3 3 t ∧ t.pc=pcOf 129638 := by
   obtain ⟨⟨hR,hF,hS⟩,hlen,hpc⟩ := hs
-  have hchk := s8Run_at 0 (c.kOf 0) (by decide) (c.kOf_lt hds 0 (by decide))
+  have hchk := s8Run_at 0 (c.kOf 0) (by decide +kernel) (c.kOf_lt hds 0 (by decide +kernel))
   rw [if_pos rfl] at hchk
   have hrun := rOK_eq hchk
-  have hk125 := (c.kOf_bounds hds 0 (by decide)).2 (by decide)
+  have hk125 := (c.kOf_bounds hds 0 (by decide +kernel)).2 (by decide +kernel)
   have hp : entW 0 (c.kOf 0)<251927 := by unfold entW cellW entOff; simp; omega
   have hst := piece_steps45 hrun hp s hpc (by simp [guardR])
-  have h29 : s.getReg .x29=BitVec.ofNat 64 (v.toNat/2^119) := (hR .x29 (by decide)).trans he.tail
-  have h11 : s.getReg .x11=64#64 := (hR .x11 (by decide)).trans (hk (.x11,64) (by simp [known]))
+  have h29 : s.getReg .x29=BitVec.ofNat 64 (v.toNat/2^119) := (hR .x29 (by decide +kernel)).trans he.tail
+  have h11 : s.getReg .x11=64#64 := (hR .x11 (by decide +kernel)).trans (hk (.x11,64) (by simp [known]))
   have hcond := guard_cond v
   set t := (guardR (c.kOf 0)).toState s with ht
   have hpt : t.pc=pcOf (guardW (c.kOf 0)) := by
@@ -130,7 +130,7 @@ theorem groups_from (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState
     · subst hk0
       have hqn : q'+1=n-1 := by omega
       have H := c.group_good hc hds hkB h0B (q'+1) (by omega) K N C A Q (by rw [← hqn] at hK; exact hK)
-        3 (3*(q'+1)) (le_refl _) (by omega) (by decide) acc t hin
+        3 (3*(q'+1)) (le_refl _) (by omega) (by decide +kernel) acc t hin
       have H' := Verify.GoodQ.steps hst H
       simp only [Nat.mul_zero,Nat.add_zero,List.range'_zero,List.foldlM_nil,bind_pure,Verify.ccM_pure] at H' ⊢
       have h1 : ov (q'+1) (0+1)=1 := rfl
@@ -149,7 +149,7 @@ theorem groups_from (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState
           have H := ih (q'+2) (by omega) (by omega) (by omega) ends u' (by simpa using hu')
           rw [show 3*(q'+2)=3*(q'+1)+3 by omega] at H
           refine (Verify.GoodQ.steps st H).mono ?_ ?_ (fun h => ⟨h,?_⟩) <;> omega)
-        3 (3*(q'+1)) (le_refl _) (by omega) (by decide) acc t hin
+        3 (3*(q'+1)) (le_refl _) (by omega) (by decide +kernel) acc t hin
       have H' := Verify.GoodQ.steps hst H
       rw [ec]
       refine H'.mono ?_ ?_ (fun h => ⟨h,?_⟩) <;> omega
@@ -171,7 +171,7 @@ theorem groups_zero (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState
   by_cases hm0 : m=0
   · subst hm0
     have H := c.group_good hc hds hkB h0B 0 (by omega) K N C A Q (by simpa using hK)
-      3 0 (le_refl _) (by omega) (by decide) [] t (by simpa using hin)
+      3 0 (le_refl _) (by omega) (by decide +kernel) [] t (by simpa using hin)
     have H' := Verify.GoodQ.steps hst H
     simp only [Nat.mul_zero,Nat.add_zero,List.range'_zero,List.foldlM_nil,bind_pure,Verify.ccM_pure] at H' ⊢
     have h1 : ov 0 (0+1)=1 := rfl
@@ -190,7 +190,7 @@ theorem groups_zero (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState
         have e1 : dsp (0+1)=3 := rfl
         rw [e1] at st
         refine (Verify.GoodQ.steps st H).mono ?_ ?_ (fun h => ⟨h,?_⟩) <;> omega)
-      3 0 (le_refl _) (by omega) (by decide) [] t (by simpa using hin)
+      3 0 (le_refl _) (by omega) (by decide +kernel) [] t (by simpa using hin)
     have H' := Verify.GoodQ.steps hst H
     simp only [Nat.zero_add] at H' ec ⊢
     rw [ec]
@@ -200,16 +200,16 @@ def TopOut (c : NCtx) (s0 : MachineState) (acc : List Digest) (s : MachineState)
   (∀ x, x ∉ chainRegs → x ≠ .x15 → x ≠ .x24 → s.getReg x=s0.getReg x) ∧
   Frame s0 s (c.Wr 54) ∧ acc.length=54 ∧
   (∀ j < acc.length, DigAt s (slot j) (acc.getD j 0)) ∧
-  (∃ dB dC, dB < 4 ∧ dC < 4 ∧ s.pc = pcOf (pcX 17 dB dC)) ∧ s.getReg .x15 = 262144#64 ∧
+  (∃ dB dC, dB < 4 ∧ dC < 4 ∧ s.pc = pcOf (pcX 17 dB dC)) ∧ s.getReg .x2 = 0x3fe00#64 ∧
   s.getReg .x24=c.s8v 17
 theorem end_return (c : NCtx) (hds : c.DigitsOk) {s0 b : MachineState}
-    (hb : b.getReg .x15 = 262144#64)
+    (hb : s0.getReg .x2 = 0x3fe00#64)
     (acc : List Digest) (s : MachineState)
     (hs : c.EndInv (set24 (tailInitial (set24 s0 (c.s8v 16)) b) (c.s8v 17)) 53 acc s) :
     c.TopOut s0 acc s := by
   obtain ⟨⟨hR,hF,hS⟩,hlen,hpc⟩ := hs
-  have hB := c.dig_group_le hds 17 1 (by decide) (by decide)
-  have hC := c.dig_group_le hds 17 2 (by decide) (by decide)
+  have hB := c.dig_group_le hds 17 1 (by decide +kernel) (by decide +kernel)
+  have hC := c.dig_group_le hds 17 2 (by decide +kernel) (by decide +kernel)
   have hreg : ∀ x, x ∉ chainRegs → x ≠ .x15 → x ≠ .x24 → s.getReg x=s0.getReg x := by
     intro x hx h15 h24
     rw [hR x hx,set24_regs _ _ _ h24,tailInitial_regs _ _ _ h15,set24_regs _ _ _ h24]
@@ -220,12 +220,12 @@ theorem end_return (c : NCtx) (hds : c.DigitsOk) {s0 b : MachineState}
     · simpa [mx] using Nat.lt_succ_of_le hB
     · simpa [mx] using Nat.lt_succ_of_le hC
     · rw [hpc]
-      have eB := c.gB_noninl hds 17 (by decide) (by decide)
-      have eC : gC 17 (c.kOf 17) = pcC 17 (c.dig 52) (c.dig 53) := by rw [c.gC_eq hds 17 (by decide), eB]; rfl
+      have eB := c.gB_noninl hds 17 (by decide +kernel) (by decide +kernel)
+      have eC : gC 17 (c.kOf 17) = pcC 17 (c.dig 52) (c.dig 53) := by rw [c.gC_eq hds 17 (by decide +kernel), eB]; rfl
       have eE : c.endPc 53 = gX 17 (c.kOf 17) := by simp [endPc, qX]
-      rw [eE, c.gX_eq hds 17 (by decide), eC]; rfl
-  · rw [hR .x15 (by decide),set24_regs _ _ _ (by decide),tailInitial_15,hb]
-  · rw [hR .x24 (by decide),set24_24]
+      rw [eE, c.gX_eq hds 17 (by decide +kernel), eC]; rfl
+  · rw [hR .x2 (by decide +kernel),set24_regs _ _ _ (by decide +kernel),tailInitial_regs _ _ _ (by decide +kernel),set24_regs _ _ _ (by decide +kernel),hb]
+  · rw [hR .x24 (by decide +kernel),set24_24]
 theorem top_full (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     (hk : ∀p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0) {v : Digest} (he : Encoded v s0) (hf : c.Fit v)
     (hv : v.toNat<2^125) (hval : ∀ q, q<17 → Search.topRank v q<125)
@@ -236,21 +236,21 @@ theorem top_full (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
   unfold topP
   rw [show (54:Nat)=3*17+3 from rfl,← List.range'_append_1,List.foldlM_append,Verify.ccM_bind]
   have ec := c.chainsCost_add' 0 (3*17) 3
-  have hov : ov 0 17=67 := by decide
-  have H := c.groups_zero hc hds hk h0 he hf hv 17 (le_refl _) (by decide) hval
+  have hov : ov 0 17=67 := by decide +kernel
+  have H := c.groups_zero hc hds hk h0 he hf hv 17 (le_refl _) (by decide +kernel) hval
     (fun ends => Verify.ccM ((List.range' (0+3*17) 3).foldlM c.chainF ends) K)
     (N+126) (C+c.chainsCost 51 3+4) (A+c.chainsCost 51 3+4) Q
     (fun acc t ht => by
       obtain ⟨u,st,hu,hu15⟩ := c.end_tail hc hds (set24_encoded _ he) hf hv acc t (by simpa using ht)
       have h24 : (tailInitial (set24 s0 (c.s8v 16)) u).getReg .x24=c.s8v 16 := by
-        rw [tailInitial_regs _ _ _ (by decide),set24_24]
-      obtain ⟨u2,st2,hu2⟩ := c.entry_step hc hds 16 (by decide) h24 acc u hu
+        rw [tailInitial_regs _ _ _ (by decide +kernel),set24_24]
+      obtain ⟨u2,st2,hu2⟩ := c.entry_step hc hds 16 (by decide +kernel) h24 acc u hu
       have hkB : ∀p∈c.known,(set24 (tailInitial (set24 s0 (c.s8v 16)) u) (c.s8v 17)).getReg p.1=p.2 :=
         set24_known c _ (tailInitial_known c (set24_known c _ hk))
       have h0B := set24_orig c (c.s8v 17) (tailInitial_orig c (t := u) (set24_orig c (c.s8v 16) h0))
-      have H := c.group_good hc hds hkB h0B 17 (by decide) K N C A Q
-        (fun ends z hz => hK ends z (c.end_return hds hu15 ends z hz))
-        3 51 (by decide) (by decide) (by decide) acc u2 (by simpa using hu2)
+      have H := c.group_good hc hds hkB h0B 17 (by decide +kernel) K N C A Q
+        (fun ends z hz => hK ends z (c.end_return hds he.table ends z hz))
+        3 51 (by decide +kernel) (by decide +kernel) (by decide +kernel) acc u2 (by simpa using hu2)
       have H2 := Verify.GoodQ.steps st (Verify.GoodQ.steps st2 H)
       simp only [Nat.zero_add]
       refine H2.mono ?_ ?_ (fun h => ⟨h,?_⟩) <;> omega)
@@ -265,7 +265,7 @@ theorem goodQ_vacuous {s : MachineState} {N C A : Nat} {X : OracleComp Legacy.Ha
   intro F hF
   obtain ⟨h1,h2⟩ := h F hF
   exact ⟨h1,fun hash => ⟨(h2 hash).1,(h2 hash).2.1,fun hs hok => ((h2 hash).2.2 hs hok).1.elim⟩⟩
-theorem ov_le (j : Nat) (hj : j ≤ 17) : ov 0 j ≤ 67 := by interval_cases j <;> decide
+theorem ov_le (j : Nat) (hj : j ≤ 17) : ov 0 j ≤ 67 := by interval_cases j <;> decide +kernel
 theorem top_bad_group (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     (hk : ∀p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0) {v : Digest} (he : Encoded v s0) (hf : c.Fit v)
     (hv : v.toNat<2^125) (j : Nat) (hj1 : 1 ≤ j) (hj : j ≤ 16) (hval : ∀ q, q<j → Search.topRank v q<125)

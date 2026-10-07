@@ -1,5 +1,7 @@
 import SigGolfCandidate.T3M.Verify.MerkleRuns
 
+set_option Elab.async false
+
 section
 namespace SigGolfCandidate.T3M.BC
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv

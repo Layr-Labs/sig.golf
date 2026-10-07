@@ -110,7 +110,7 @@ theorem invM_empty : InvM (LazyMem.empty, NearGhost.empty) := by
 noncomputable def ghostPot (q : Nat) (M : LazyMem × NearGhost) : ENNReal :=
   nearMemPotential q M.1.births M.2.fresh M.2.reused M.1.rows M.1.nonces
 noncomputable def ΦI (q : Nat) (s : GState) : ENNReal := if InvM s.memory then ghostPot q s.memory else ⊤
-theorem ΦI_initial (q : Nat) : ΦI q initG ≤ (q : ENNReal) * 404 / 2 ^ 128 := by
+theorem ΦI_initial (q : Nat) : ΦI q initG ≤ (q : ENNReal) * 364 / 2 ^ 128 := by
   unfold ΦI
   rw [if_pos (show InvM initG.memory from invM_empty)]
   exact mem_initial q
@@ -690,6 +690,53 @@ theorem fts_event_le_worldL (adversary : AdversaryP)
   exact himp g result (by simpa only [mem_support_iff, SPMF.probOutput_eq_apply] using hr) he
 end WorldBoundL
 section Chain
+theorem lazyRun_event_le_forced_slot {Coordinate Value Memory AuxIndex Result : Type} {auxSpec : OracleSpec AuxIndex}
+    [Fintype Coordinate] [DecidableEq Coordinate] [DecidableEq Value] [Fintype Value] [Nonempty Value]
+    (environment : SecretGuessObservation.Environment auxSpec Coordinate Value Memory)
+    (computation : OracleComp (SecretGuessObservation.World auxSpec Coordinate Value) Result) (memory : Memory) (budget : Nat)
+    (event : Result × SecretGuessObservation.State Coordinate Value Memory → Prop)
+    (payoff : Nat → Result × SecretGuessObservation.State Coordinate Value Memory → ENNReal)
+    (hevent : ∀ result, SecretGuessObservation.lazyRun environment computation (SecretGuessObservation.initialState memory) result ≠ 0 →
+      event result → result.2.guesses.Nonempty ∧ result.2.probes ≤ budget ∧ ∀ slot < result.2.probes, 1 ≤ payoff slot result) :
+    Pr[event | SecretGuessObservation.lazyRun environment computation (SecretGuessObservation.initialState memory)] ≤
+      ((Fintype.card Value - budget : Nat) : ENNReal)⁻¹ *
+        ∑ slot ∈ Finset.range budget, ∑' result,
+          Pr[= result | SecretGuessObservation.forcedRun environment slot computation (SecretGuessObservation.initialState memory)] *
+            payoff slot result := by
+  have hstep : (∑' result, Pr[= result | SecretGuessObservation.lazyRun environment computation (SecretGuessObservation.initialState memory)] *
+      (if result.2.guesses.Nonempty ∧ result.2.probes ≤ budget ∧ ∀ slot < result.2.probes, 1 ≤ payoff slot result then (1 : ENNReal) else 0)) ≤
+      ∑ slot ∈ Finset.range budget, ∑' result,
+        Pr[= result | SecretGuessObservation.hitRun environment slot computation (SecretGuessObservation.initialState memory)] * payoff slot result := by
+    rw [← Summable.tsum_finsetSum (fun _ _ => ENNReal.summable)]
+    apply ENNReal.tsum_le_tsum
+    intro result
+    by_cases hz : SecretGuessObservation.lazyRun environment computation (SecretGuessObservation.initialState memory) result = 0
+    · simp only [SPMF.probOutput_eq_apply, hz, zero_mul]
+      exact bot_le
+    by_cases hg : result.2.guesses.Nonempty ∧ result.2.probes ≤ budget ∧ ∀ slot < result.2.probes, 1 ≤ payoff slot result
+    · rw [if_pos hg, mul_one, SPMF.probOutput_eq_apply]
+      have h := SecretGuessObservation.lazyRun_new_guesses_le_sum environment computation
+        (SecretGuessObservation.initialState memory) result result.2.probes le_rfl
+        (show result.2.guesses ≠ (SecretGuessObservation.initialState memory : SecretGuessObservation.State Coordinate Value Memory).guesses from hg.1.ne_empty)
+      have h0 : (SecretGuessObservation.initialState memory : SecretGuessObservation.State Coordinate Value Memory).probes = 0 := rfl
+      rw [h0, ← Finset.range_eq_Ico] at h
+      refine h.trans ?_
+      refine (Finset.sum_le_sum fun slot hslot => ?_).trans
+        (Finset.sum_le_sum_of_subset (f := fun slot => Pr[= result | SecretGuessObservation.hitRun environment slot computation (SecretGuessObservation.initialState memory)] * payoff slot result) (Finset.range_mono hg.2.1))
+      rw [SPMF.probOutput_eq_apply]
+      exact le_mul_of_one_le_right' (hg.2.2 slot (Finset.mem_range.mp hslot))
+    · simp only [if_neg hg, mul_zero]
+      exact bot_le
+  apply (probEvent_le_tsum_probOutput_mul_cost_of_mem_support _ _
+    (fun result => if result.2.guesses.Nonempty ∧ result.2.probes ≤ budget ∧ ∀ slot < result.2.probes, 1 ≤ payoff slot result then (1 : ENNReal) else 0) ?_).trans
+  · apply hstep.trans
+    rw [Finset.mul_sum]
+    apply Finset.sum_le_sum
+    intro slot hslot
+    exact SecretGuessObservation.hitRun_payoff_le_forced environment budget slot (Finset.mem_range.mp hslot).le computation memory (payoff slot)
+  · intro result hr he
+    have h := hevent result (by simpa only [mem_support_iff, SPMF.probOutput_eq_apply] using hr) he
+    rw [if_pos h]
 theorem near_chain (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
     (P : Answers → QueryLog Requests → List Wots.Entry → Prop)
     (hshort : ∀ A T log entries, Wots.Ref.ShortAgree A T → P A log entries → P T log entries)
@@ -741,6 +788,57 @@ theorem near_chain (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
         exact Finset.sum_congr rfl fun slot _ => ENNReal.tsum_mul_left
     _ = _ := congrArg (fun t => ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * t)
         (Finset.sum_congr rfl fun slot _ => forced_avg_eq_lazy adversary slot payoff)
+theorem near_chain_slot (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
+    (P : Answers → QueryLog Requests → List Wots.Entry → Prop)
+    (hshort : ∀ A T log entries, Wots.Ref.ShortAgree A T → P A log entries → P T log entries)
+    (hmono : ∀ A log entries entries', (∀ e ∈ entries, e ∈ entries') → P A log entries → P A log entries')
+    (payoff : Nat → (Bool × QueryLog Requests × List Wots.Entry) × WStateL → ENNReal)
+    (hevent : ∀ ω g r, SecretGuessObservation.fixedRun (envE (digestOf ω) (nonceOf ω)) g
+        (worldGameL (canon_subset adversary) ω adversary) initL r ≠ 0 →
+      r.1.2.2.length ≤ q → P (wA (canon_subset adversary) ω g) r.1.2.1 r.1.2.2 →
+      r.2.guesses.Nonempty ∧ ∀ slot < r.2.probes, 1 ≤ payoff slot r) :
+    Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ∀ generated interaction checked,
+        CaseC.GameSplit adversary (QueryRecorded.recordedTrace z.1) generated interaction checked →
+          P z.2 interaction.value.2 (SigGolfCandidate.T3.Security.BPair.publicEntries checked.events) |
+        SeccLaw.completedExperiment adversary q hq] ≤
+      ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * ∑ slot ∈ Finset.range q, ∑' ω, Pr[= ω | omegaLaw adversary] *
+        ∑' r, Pr[= r | SecretGuessObservation.forcedRun envL slot (worldGameL (canon_subset adversary) ω adversary)
+          initL] * payoff slot r := by
+  refine (shared_le_pair adversary q hq P hshort hmono).trans ?_
+  rw [pairExperiment_avg]
+  have hω : ∀ ω : CanonTable.Omega (Wots.referenceInputs adversary),
+      Pr[fun x => x.2.2.2.length ≤ q ∧ P (wA (canon_subset adversary) ω x.1) x.2.2.1 x.2.2.2 |
+        ftsRun (canon_subset adversary) ω adversary] ≤
+      ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * ∑ slot ∈ Finset.range q, ∑' r,
+        Pr[= r | SecretGuessObservation.forcedRun (envE (digestOf ω) (nonceOf ω)) slot
+          (worldGameL (canon_subset adversary) ω adversary) initL] * payoff slot r := by
+    intro ω
+    refine (fts_event_le_worldL (canon_subset adversary) ω adversary
+      (fun g run => run.2.2.length ≤ q ∧ P (wA (canon_subset adversary) ω g) run.2.1 run.2.2)
+      (fun r => r.2.guesses.Nonempty ∧ r.2.probes ≤ q ∧ ∀ slot < r.2.probes, 1 ≤ payoff slot r) ?_).trans ?_
+    · rintro g r hr ⟨hlen, hP⟩
+      obtain ⟨hg, hp⟩ := hevent ω g r hr hlen hP
+      exact ⟨hg, (worldGameL_tracking (canon_subset adversary) ω g adversary r hr).1.trans hlen, hp⟩
+    · have h := lazyRun_event_le_forced_slot (envE (digestOf ω) (nonceOf ω))
+        (worldGameL (canon_subset adversary) ω adversary) LazyMem.empty q
+        (fun r => r.2.guesses.Nonempty ∧ r.2.probes ≤ q ∧ ∀ slot < r.2.probes, 1 ≤ payoff slot r) payoff (fun _ _ h => h)
+      rw [card_digest] at h
+      exact h
+  calc (∑' ω, Pr[= ω | omegaLaw adversary] *
+        Pr[fun x => x.2.2.2.length ≤ q ∧ P (wA (canon_subset adversary) ω x.1) x.2.2.1 x.2.2.2 |
+          ftsRun (canon_subset adversary) ω adversary])
+      ≤ ∑' ω, Pr[= ω | omegaLaw adversary] * (((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * ∑ slot ∈ Finset.range q, ∑' r,
+          Pr[= r | SecretGuessObservation.forcedRun (envE (digestOf ω) (nonceOf ω)) slot
+            (worldGameL (canon_subset adversary) ω adversary) initL] * payoff slot r) :=
+        ENNReal.tsum_le_tsum fun ω => mul_le_mul' le_rfl (hω ω)
+    _ = ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * ∑ slot ∈ Finset.range q, ∑' ω, Pr[= ω | omegaLaw adversary] *
+          ∑' r, Pr[= r | SecretGuessObservation.forcedRun (envE (digestOf ω) (nonceOf ω)) slot
+            (worldGameL (canon_subset adversary) ω adversary) initL] * payoff slot r := by
+        simp only [Finset.mul_sum, mul_left_comm (Pr[= _ | omegaLaw adversary])]
+        rw [Summable.tsum_finsetSum (fun _ _ => ENNReal.summable)]
+        exact Finset.sum_congr rfl fun slot _ => ENNReal.tsum_mul_left
+    _ = _ := congrArg (fun t => ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * t)
+        (Finset.sum_congr rfl fun slot _ => forced_avg_eq_lazy adversary slot (payoff slot))
 end Chain
 end ClaudeWCT.W9.T3.Security.WPair
 end
@@ -839,6 +937,31 @@ theorem payoff_of_ghosts (q : Nat) (T : Correctness.Answers) (published : SigGol
     exact ⟨output, hexp entry he σ output hσ hout, congrArg Fin.val h1, h2, h3⟩
   unfold WPair.nearPayoff
   rw [if_pos ⟨hbirths.trans hq, hexplen.trans hlen, N, hbirth, hS, hcov⟩]
+theorem payoff_of_ghosts_birthBudget (q : Nat) (T : Correctness.Answers) (published : SigGolfCandidate.T3.Cache)
+    (r : (Bool × QueryLog Requests × List Wots.Entry) × WPair.WStateL)
+    (hlog : ∀ e ∈ r.1.2.1, e.2 = evalWithAnswerFn T (FullGame.authenticatedSign published e.1))
+    (hexp : ∀ entry ∈ r.1.2.1, ∀ σ output, entry.2 = some σ →
+      signedOutput T entry.1.message σ = some output → output ∈ r.2.memory.exposures)
+    (hrows : ∀ x a, (x, a) ∈ r.1.2.2 → x ∈ SigGolfCandidate.T3.Security.BPair.digestInputs →
+      a ∈ r.2.memory.births ∨ x ∈ r.2.memory.trials)
+    (htrials : ∀ x ∈ r.2.memory.trials, ∃ entry ∈ r.1.2.1,
+      (.inl (.inr x) : SigGolfCandidate.T3.Spec.Domain) ∈ queried T (FullGame.authenticatedSign published entry.1))
+    (hbirths : r.2.memory.births.length ≤ q)
+    (hexplen : r.2.memory.exposures.length ≤ r.1.2.1.length)
+    (hP : NearIn T r.1.2.1 r.1.2.2) : 1 ≤ WPair.nearPayoff q r := by
+  obtain ⟨m, w, N, k, t, c, hx, hN, hS, hgood, hsd, hlen, -, -, -, hdis, hcomp⟩ := hP
+  have hbirth : N ∈ r.2.memory.births := by
+    rcases hrows _ N hx (SigGolfCandidate.T3.Security.BPair.digestInput_mem _ _ _) with hb | ht
+    · exact hb
+    · exfalso
+      obtain ⟨entry, he, hqe⟩ := htrials _ ht
+      exact caseC_not_signer_eval T published r.1.2.1 hlog m w hcomp hsd entry he hqe
+  have hcov : Guess.NearCoveredBy r.2.memory.exposures N := by
+    refine ⟨k, t, fun k' t' hne => ?_⟩
+    obtain ⟨entry, he, σ, output, hσ, hout, h1, h2, h3⟩ := hdis k' t' hne
+    exact ⟨output, hexp entry he σ output hσ hout, congrArg Fin.val h1, h2, h3⟩
+  unfold WPair.nearPayoff
+  rw [if_pos ⟨hbirths, hexplen.trans hlen, N, hbirth, hS, hcov⟩]
 end ClaudeWCT.W9.T3.Security.CaseC
 end
 section
@@ -859,7 +982,7 @@ theorem worldGame_ΦI {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U)
 theorem forced_payoff_le {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : CanonTable.Omega U)
     (adversary : AdversaryP) (slot q : Nat) :
     expectedValue (SecretGuessObservation.forcedRun WPair.envL slot (WPair.worldGameCore hU ω adversary) WPair.initL)
-      (WPair.nearPayoff q) ≤ (q : ENNReal) * 404 / 2 ^ 128 := by
+      (WPair.nearPayoff q) ≤ (q : ENNReal) * 364 / 2 ^ 128 := by
   unfold SecretGuessObservation.forcedRun
   rw [← projS_initG, expectedValue_project WPair.envL slot _ initG (WPair.nearPayoff q)]
   calc
@@ -870,7 +993,7 @@ theorem forced_payoff_le {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆
 theorem forced_payoff_sum_le {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : CanonTable.Omega U)
     (adversary : AdversaryP) (slot q : Nat) :
     ∑' r, Pr[= r | SecretGuessObservation.forcedRun WPair.envL slot (WPair.worldGameCore hU ω adversary)
-      WPair.initL] * WPair.nearPayoff q r ≤ (q : ENNReal) * 404 / 2 ^ 128 :=
+      WPair.initL] * WPair.nearPayoff q r ≤ (q : ENNReal) * 364 / 2 ^ 128 :=
   forced_payoff_le hU ω adversary slot q
 end ClaudeWCT.W9.T3.Security.CaseC
 end
@@ -926,25 +1049,60 @@ theorem near_event (adversary : AdversaryP) (q : Nat) (ω : CanonTable.Omega (Wo
     hexplen hq hP⟩
   obtain ⟨-, -, -, -, -, c, -, -, -, -, -, -, -, -, hguess, -⟩ := hP
   exact Guess.nonempty_of_prefixIn (htrack c hguess)
+theorem near_event_slot (adversary : AdversaryP) (q : Nat) (ω : CanonTable.Omega (Wots.referenceInputs adversary))
+    (g : Guess.GCoord → Digest) (r : (Bool × QueryLog Requests × List Wots.Entry) × WPair.WStateL)
+    (hr : SphincsSecurity.Concrete.SecretGuessObservation.fixedRun (WPair.envE (WPair.digestOf ω) (WPair.nonceOf ω)) g
+      (WPair.worldGameL (WPair.canon_subset adversary) ω adversary) WPair.initL r ≠ 0)
+    (hq : r.1.2.2.length ≤ q) (hP : NearIn (WPair.wA (WPair.canon_subset adversary) ω g) r.1.2.1 r.1.2.2) :
+    r.2.guesses.Nonempty ∧ ∀ slot < r.2.probes, 1 ≤ WPair.nearPayoff (q - (slot + 1)) r := by
+  obtain ⟨hexp, hrows, -, htrack, -, htrials, hexplen⟩ :=
+    WPair.worldGameL_bank (WPair.canon_subset adversary) ω g adversary r hr
+  have hpb := WPair.worldGameL_probes_births (WPair.canon_subset adversary) ω g adversary r hr
+  obtain ⟨hlog, -⟩ := pairRun_honest _ adversary r.1 (fixed_support_pairRun adversary ω g r hr)
+  refine ⟨?_, fun slot hslot => payoff_of_ghosts_birthBudget (q - (slot + 1)) _ _ r hlog hexp
+    (fun x a hx hd => (hrows x a hx hd).2) htrials (by omega) hexplen hP⟩
+  obtain ⟨-, -, -, -, -, c, -, -, -, -, -, -, -, -, hguess, -⟩ := hP
+  exact Guess.nonempty_of_prefixIn (htrack c hguess)
+theorem sum_range_sub_succ_twice_le (q : Nat) :
+    (∑ slot ∈ Finset.range q, (q - (slot + 1))) * 2 ≤ q * q := by
+  induction q with
+  | zero => simp
+  | succ q ih =>
+      rw [Finset.sum_range_succ']
+      simp only [Nat.succ_sub_succ_eq_sub, Nat.sub_zero]
+      nlinarith
+theorem sum_range_sub_succ_mul_le (q coefficient : Nat) :
+    (∑ slot ∈ Finset.range q, (q - (slot + 1))) * (2 * coefficient) ≤ coefficient * q * q := by
+  calc
+    _ = coefficient * ((∑ slot ∈ Finset.range q, (q - (slot + 1))) * 2) := by ring
+    _ ≤ coefficient * (q * q) := Nat.mul_le_mul_left coefficient (sum_range_sub_succ_twice_le q)
+    _ = _ := by ring
 noncomputable def nearTermTight (q : Nat) : ENNReal :=
-  (q : ENNReal) * ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * (404 * q / 2 ^ 128)
+  (q : ENNReal) * ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * (182 * q / 2 ^ 128)
 theorem nearBoundTight : NearBound caseCExtraction NearQ nearTermTight := by
   intro adversary q hq _ _
-  have hchain := WPair.near_chain adversary q hq NearIn nearIn_short nearIn_mono (WPair.nearPayoff q)
-    (fun ω g r hr hlen hP => near_event adversary q ω g r hr hlen hP)
+  have hchain := WPair.near_chain_slot adversary q hq NearIn nearIn_short nearIn_mono (fun slot => WPair.nearPayoff (q - (slot + 1)))
+    (fun ω g r hr hlen hP => near_event_slot adversary q ω g r hr hlen hP)
   have hslot : ∀ slot, (∑' ω, Pr[= ω | WPair.omegaLaw adversary] *
       ∑' r, Pr[= r | SphincsSecurity.Concrete.SecretGuessObservation.forcedRun WPair.envL slot
-        (WPair.worldGameL (WPair.canon_subset adversary) ω adversary) WPair.initL] * WPair.nearPayoff q r) ≤
-      (q : ENNReal) * 404 / 2 ^ 128 :=
-    fun slot => omega_avg_le _ _ _ fun ω => forced_payoff_sum_le (WPair.canon_subset adversary) ω adversary slot q
+        (WPair.worldGameL (WPair.canon_subset adversary) ω adversary) WPair.initL] * WPair.nearPayoff (q - (slot + 1)) r) ≤
+      ((q - (slot + 1) : Nat) : ENNReal) * 364 / 2 ^ 128 :=
+    fun slot => omega_avg_le _ _ _ fun ω => forced_payoff_sum_le (WPair.canon_subset adversary) ω adversary slot (q - (slot + 1))
   calc
     _ ≤ Pr[NearAll adversary q | SeccLaw.completedExperiment adversary q hq] := near_le_all adversary q hq
     _ ≤ _ := hchain
-    _ ≤ ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * ∑ _slot ∈ Finset.range q, (q : ENNReal) * 404 / 2 ^ 128 :=
+    _ ≤ ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * ∑ slot ∈ Finset.range q, ((q - (slot + 1) : Nat) : ENNReal) * 364 / 2 ^ 128 :=
       mul_le_mul' le_rfl (Finset.sum_le_sum fun slot _ => hslot slot)
+    _ = ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ *
+          ((((∑ slot ∈ Finset.range q, (q - (slot + 1))) * 364 : Nat) : ENNReal) / 2 ^ 128) := by
+      congr 1
+      push_cast
+      simp only [div_eq_mul_inv, ← Finset.sum_mul]
+    _ ≤ ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * (((182 * q * q : Nat) : ENNReal) / 2 ^ 128) :=
+      mul_le_mul' le_rfl (ENNReal.div_le_div_right (Nat.cast_le.mpr (by simpa using sum_range_sub_succ_mul_le q 182)) _)
     _ = nearTermTight q := by
-      rw [Finset.sum_const, Finset.card_range, nsmul_eq_mul]
       unfold nearTermTight
+      push_cast
       simp only [div_eq_mul_inv]
       ring
 theorem nearTermTight_le (q : Nat) : nearTermTight q ≤ Wots.nearTerm q := by
@@ -954,7 +1112,7 @@ theorem nearTermTight_le (q : Nat) : nearTermTight q ≤ Wots.nearTerm q := by
   rfl
 theorem nearBound : NearBound caseCExtraction NearQ Wots.nearTerm :=
   fun adversary q hq h1 h2 => (nearBoundTight adversary q hq h1 h2).trans (nearTermTight_le q)
-theorem excessBound_horizon : ClaudeWCT.Bank.WCT.ExcessBound horizon (15200 / 100000000) :=
+theorem excessBound_horizon : ClaudeWCT.Bank.WCT.ExcessBound horizon (2933 / 1000000) :=
   ClaudeWCT.Numerics.WCTPrice.wct_excessBound_2_32
 theorem caseC_small_bound_wct :
     CaseCSmallBound CaseCFreshPinned Wots.nearTerm WPair.pairTerm :=

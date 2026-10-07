@@ -72,7 +72,7 @@ theorem layersBC_wots_walk (answers : Answers) (w : WBytes) (index : Nat) (hidx 
 theorem verifyP_walk_wots (answers : Answers) (m : Message) (pk : Digest) (w : WBytes)
     (hpk : pk = Extract.honestRoot answers 0 0)
     (hv : evalWithAnswerFn answers (verifyP m pk w) = true) :
-    ∃ N : HashOutput, (wdc w).toNat < WCT9.digestVerifyLimit ∧
+    ∃ N : HashOutput, (wdc w).toNat < WCT9.digestVerifyWindow ∧
       evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N ∧
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
@@ -215,7 +215,7 @@ theorem fts_structural (answers : Answers) (N : HashOutput) (w : WBytes) (hS : S
 theorem verifyP_wots_cases_src (answers : Answers) (m : Message) (pk : Digest) (w : WBytes)
     (hpk : pk = Extract.honestRoot answers 0 0)
     (hv : evalWithAnswerFn answers (verifyP m pk w) = true) :
-    ∃ N : HashOutput, (wdc w).toNat < WCT9.digestVerifyLimit ∧
+    ∃ N : HashOutput, (wdc w).toNat < WCT9.digestVerifyWindow ∧
       evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N ∧
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
@@ -242,7 +242,7 @@ open SigGolfCandidate.T3.Correctness (Answers)
 theorem verifyP_wots_cases (answers : Answers) (m : Message) (pk : Digest) (w : WBytes)
     (hpk : pk = Extract.honestRoot answers 0 0)
     (hv : evalWithAnswerFn answers (verifyP m pk w) = true) :
-    ∃ N : HashOutput, (wdc w).toNat < WCT9.digestVerifyLimit ∧
+    ∃ N : HashOutput, (wdc w).toNat < WCT9.digestVerifyWindow ∧
       evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N ∧
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
