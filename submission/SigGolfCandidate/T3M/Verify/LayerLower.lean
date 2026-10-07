@@ -112,7 +112,7 @@ theorem leafL_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (la
     · rw [hR .x5 (by simp [chainRegs])]; exact hkL (_, _) (by simp [chainK, baseK])
     · rw [hR .x18 (by simp [chainRegs])]; exact hkL (_, _) (by simp [chainK, baseK])
     · rw [hR .x7 (by simp [chainRegs])]; exact hkL (_, _) (by simp [chainK])
-    · rw [hR .x15 (by simp [chainRegs])]; exact hk (.x15, 0x40000) (by simp [LCtx.known])
+    · rw [hR .x5 (by simp [chainRegs])]; exact hkL (_, _) (by simp [chainK, baseK])
   obtain ⟨u, hu⟩ := spec_run (lfSlotCheck_at lay.val L.ck h0 lay.isLt hck) t (by rw [hpc]; rfl) hknown
     (by intro b hb; simp [specLf, h0] at hb) (by simp)
   have hst := hu.steps
@@ -571,9 +571,9 @@ theorem layerCostA_low (lay : Layer) (h : lay ≠ 0) :
   fin_cases lay
   · exact absurd rfl h
   all_goals rfl
-theorem layerCost_vals : layerCost 3 0 = 1215 ∧ layerCost 2 0 = 1209 ∧ layerCost 1 0 = 1209 := by decide +kernel
-theorem layerCostA_vals : layerCostA 3 = 1211 ∧ layerCostA 2 = 1205 ∧ layerCostA 1 = 1205 := by decide +kernel
-theorem layerFuel_vals : layerFuel 3 = 1761 ∧ layerFuel 2 = 1755 ∧ layerFuel 1 = 1755 := by decide +kernel
+theorem layerCost_vals : layerCost 3 0 = 1214 ∧ layerCost 2 0 = 1209 ∧ layerCost 1 0 = 1209 := by decide +kernel
+theorem layerCostA_vals : layerCostA 3 = 1210 ∧ layerCostA 2 = 1205 ∧ layerCostA 1 = 1205 := by decide +kernel
+theorem layerFuel_vals : layerFuel 3 = 1760 ∧ layerFuel 2 = 1755 ∧ layerFuel 1 = 1755 := by decide +kernel
 theorem ckOf_lt (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (ds : List Nat)
     (hds : decode lay (ansD a) = some ds) : ckOf lay a < 8 := by
   rw [decode_lower_v6 lay hlay] at hds

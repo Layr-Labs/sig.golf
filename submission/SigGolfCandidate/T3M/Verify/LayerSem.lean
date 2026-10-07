@@ -650,7 +650,7 @@ theorem lctxOf_known (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (
   · exact knownOK_at _ s 12 (.x26, 6) hk rfl
   · exact h28
   · exact knownOK_at _ s 3 (.x2, 0x3fe00) hk rfl
-  · exact knownOK_at _ s 14 (.x15, 0x40000) hk rfl
+  · exact knownOK_at _ s 14 (.x5, 0) hk rfl
   · exact knownOK_at _ s 15 (.x22, BitVec.ofNat 64 (s6v lay.val)) hk rfl
   · exact h16
   · exact h17
