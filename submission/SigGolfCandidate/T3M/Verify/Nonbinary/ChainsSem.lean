@@ -29,7 +29,7 @@ def ok (c : NCtx) : Prop :=
     c.ret < 209920
 def known (c : NCtx) : List (Reg × Word) :=
   [(.x5, 0), (.x11, 64), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
-   (.x28, BitVec.ofNat 64 (c.prefix + 385)), (.x8, BitVec.ofNat 64 c.S3), (.x1, BitVec.ofNat 64 0xffc000)]
+   (.x28, BitVec.ofNat 64 (c.prefix + 385)), (.x8, BitVec.ofNat 64 c.S3), (.x9, BitVec.ofNat 64 0xffbf10)]
 def kOf (c : NCtx) (q : Nat) : Nat :=
   c.dig (3*q) + (mx q+1)*c.dig (3*q+1) + (mx q+1)^2*c.dig (3*q+2)
 def qb (c : NCtx) (i : Nat) : Nat := gbase (i/3) (c.kOf (i/3))

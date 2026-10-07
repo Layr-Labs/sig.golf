@@ -1,6 +1,229 @@
-import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecks5
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsSem
+set_option Elab.async false
 
 section
+
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem tripleCheck_0 : tripleCheck 0=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem tripleCheck_1 : tripleCheck 1=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem tripleCheck_2 : tripleCheck 2=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem tripleCheck_3 : tripleCheck 3=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem tripleCheck_4 : tripleCheck 4=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem tripleCheck_5 : tripleCheck 5=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem tripleCheck_6 : tripleCheck 6=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem tripleCheck_7 : tripleCheck 7=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem tripleCheck_8 : tripleCheck 8=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem tripleCheck_9 : tripleCheck 9=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem tripleCheck_10 : tripleCheck 10=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem tripleCheck_11 : tripleCheck 11=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem tripleCheck_12 : tripleCheck 12=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem inlineGroupCheck_13_0 : inlineGroupCheck 13 0 25=true := by decide +kernel
+theorem inlineGroupCheck_13_25 : inlineGroupCheck 13 25 25=true := by decide +kernel
+theorem inlineGroupCheck_13_50 : inlineGroupCheck 13 50 25=true := by decide +kernel
+theorem inlineGroupCheck_13_75 : inlineGroupCheck 13 75 25=true := by decide +kernel
+theorem inlineGroupCheck_13_100 : inlineGroupCheck 13 100 25=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem tripleCheck_17 : tripleCheck 17=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem inlineGroupCheck_14_0 : inlineGroupCheck 14 0 25=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem inlineGroupCheck_14_25 : inlineGroupCheck 14 25 25=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem inlineGroupCheck_14_50 : inlineGroupCheck 14 50 25=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem inlineGroupCheck_14_75 : inlineGroupCheck 14 75 25=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem inlineGroupCheck_14_100 : inlineGroupCheck 14 100 25=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem inlineGroupCheck_15_0 : inlineGroupCheck 15 0 25=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem inlineGroupCheck_15_25 : inlineGroupCheck 15 25 25=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem inlineGroupCheck_15_50 : inlineGroupCheck 15 50 25=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem inlineGroupCheck_15_75 : inlineGroupCheck 15 75 25=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem inlineGroupCheck_15_100 : inlineGroupCheck 15 100 25=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem inlineGroupCheck_16_0 : inlineGroupCheck 16 0 25=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem inlineGroupCheck_16_25 : inlineGroupCheck 16 25 25=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem inlineGroupCheck_16_50 : inlineGroupCheck 16 50 25=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem inlineGroupCheck_16_75 : inlineGroupCheck 16 75 25=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem inlineGroupCheck_16_100 : inlineGroupCheck 16 100 25=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+theorem rejCheck_ok : rejCheck=true := by decide +kernel
+end SigGolfCandidate.T3M.Nonbinary
+end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
@@ -79,7 +302,7 @@ theorem s8Run_at (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) :
   simp only [s8Check,Bool.and_eq_true] at h
   exact h.1
 theorem bge9_at (k : Nat) (hk : k<125) (he : k%2=0) : vrun (cellW 9 k) 1=some (bge9R (cellW 9 k)) := by
-  have h := s8Check_at 9 k (by decide +kernel) (by unfold mx; norm_num; omega)
+  have h := s8Check_at 9 k (by decide) (by unfold mx; norm_num; omega)
   simp only [s8Check,Bool.and_eq_true] at h
   have h2 := h.2
   rw [if_pos (by simp [he])] at h2
@@ -147,10 +370,10 @@ theorem rungsOK_mono (q d0 d1 sl b : Nat) (h : d0 ≤ d1) (hk : rungsOK q d0 sl 
 theorem groupFacts (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<18) : c.GroupFacts q := by
   obtain ⟨k1,k2,k3⟩ := c.kdig_kOf hds q hq
   have hk := c.kOf_lt hds q hq
-  have hA := c.dig_group_le hds q 0 hq (by decide +kernel)
+  have hA := c.dig_group_le hds q 0 hq (by decide)
   simp only [Nat.add_zero] at hA
-  have hB := c.dig_group_le hds q 1 hq (by decide +kernel)
-  have hC := c.dig_group_le hds q 2 hq (by decide +kernel)
+  have hB := c.dig_group_le hds q 1 hq (by decide)
+  have hC := c.dig_group_le hds q 2 hq (by decide)
   have hm := mx_bounds' q
   cases hn : inl q
   · have he := entCheck_at q (c.kOf q) hq hn hk

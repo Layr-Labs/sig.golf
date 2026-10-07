@@ -169,7 +169,7 @@ theorem x28v_eq (c : LCtx) (h0 : c.koff = 0) : c.x28v = packedPrefix c.lay c.tre
   unfold x28v; rw [hp]; omega
 def known (c : LCtx) : List (Reg × Word) :=
   [(.x5, 0), (.x11, 64), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
-   (.x28, BitVec.ofNat 64 c.x28v), (.x2, 0x3fe00), (.x15, 0x40000),
+   (.x28, BitVec.ofNat 64 c.x28v), (.x2, 0x3fe00), (.x2, 0x3fe00),
    (.x22, BitVec.ofNat 64 c.S6),
    (.x16, c.d0), (.x17, c.d1), (.x29, 7#64 - BitVec.ofNat 64 c.ck)]
 def kOf (c : LCtx) (t : Nat) : Nat := c.dig (3 * t) + 8 * c.dig (3 * t + 1) + 64 * c.dig (3 * t + 2)
@@ -1003,7 +1003,7 @@ theorem kOf_lt (c : LCtx) (t : Nat) (ht : t < 14) : c.kOf t < 512 := by
 theorem x_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (t : Nat) (ht : t < 13) (hi : c.i0 ≤ 3 * t + 2) (hp : c.tX (3 * t + 2) < 209920)
     (hrun : vrun (c.tX (3 * t + 2)) 5 = some (xJ (if t + 1 < 7 then .x16 else .x17) (9 * ((t + 1) % 7)) .x2
-      (BitVec.ofNat 64 (32 * (t + 1)) - BitVec.ofNat 64 1760)))
+      (BitVec.ofNat 64 (32 * (t + 1)) - BitVec.ofNat 64 1248)))
     (acc : List Digest) (s : MachineState) (hs : c.EndInv s0 (3 * t + 2) acc s) :
     ∃ u, Steps vimage s (if 9 * ((t + 1) % 7) = 9 then 3 else 4)
       (if 9 * ((t + 1) % 7) = 9 then 3 else 4) u ∧ c.ChainIn s0 (3 * t + 3) acc u := by
@@ -1013,16 +1013,15 @@ theorem x_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.know
   have hpc' : s.pc = pcOf (c.tX (3 * t + 2)) := by
     rw [hpc]; unfold endPc; rw [if_neg (by omega), if_neg (by omega), if_neg (by omega)]
   set r := xJ (if t + 1 < 7 then .x16 else .x17) (9 * ((t + 1) % 7)) .x2
-    (BitVec.ofNat 64 (32 * (t + 1)) - BitVec.ofNat 64 1760) with hr
+    (BitVec.ofNat 64 (32 * (t + 1)) - BitVec.ofNat 64 1248) with hr
   have hst := piece_steps hrun hp s hpc' (by simp [hr, xJ])
   have hkeep := xJ_keeps (if t + 1 < 7 then .x16 else .x17) (9 * ((t + 1) % 7)) .x2
-    (BitVec.ofNat 64 (32 * (t + 1)) - BitVec.ofNat 64 1760)
+    (BitVec.ofNat 64 (32 * (t + 1)) - BitVec.ofNat 64 1248)
   have hW : s.getReg (if t + 1 < 7 then .x16 else .x17) = (if t + 1 < 7 then c.d0 else c.d1) := by
     split
     · exact kr .x16 c.d0 (by simp [known]) (by decide +kernel)
     · exact kr .x17 c.d1 (by simp [known]) (by decide +kernel)
   have h2 : s.getReg .x2 = BitVec.ofNat 64 (512 * (2 ^ 9 - 1)) := kr .x2 0x3fe00 (by simp [known]) (by decide +kernel)
-  have h15 : s.getReg .x15 = BitVec.ofNat 64 0x40000 := kr .x15 0x40000 (by simp [known]) (by decide +kernel)
   have hm := shE_mask s _ _ hW (9 * ((t + 1) % 7)) 9 (by omega) (le_refl _)
   have hk1 := c.kOf_lt (t + 1) (by omega)
   have hrow : ((if t + 1 < 7 then c.d0 else c.d1).toNat / 2 ^ (9 * ((t + 1) % 7)) % 2 ^ 9) = c.kOf (t + 1) := by
@@ -1035,13 +1034,13 @@ theorem x_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.know
       · right; refine ⟨?_, h.2⟩; omega), hS⟩, by omega, h25, ?_⟩⟩
   · rw [Result.toState_pc]
     simp only [hr, xJ, E.eval, BinOp.eval]
-    rw [h2, h15]
+    rw [h2]
     have e : ((shE (if t + 1 < 7 then Reg.x16 else Reg.x17) (9 * ((t + 1) % 7))).eval s &&&
         BitVec.ofNat 64 (512 * (2 ^ 9 - 1))) = BitVec.ofNat 64 (512 * c.kOf (t + 1)) := by
       apply BitVec.eq_of_toNat_eq; rw [hm, hrow, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
-    rw [e]
-    have e2 : BitVec.ofNat 64 (512 * c.kOf (t + 1)) + BitVec.ofNat 64 0x40000 +
-        (BitVec.ofNat 64 (32 * (t + 1)) - BitVec.ofNat 64 1760) =
+    rw [e, show (512 * (2 ^ 9 - 1) : Nat) = 261632 by norm_num]
+    have e2 : BitVec.ofNat 64 (512 * c.kOf (t + 1)) + BitVec.ofNat 64 261632 +
+        (BitVec.ofNat 64 (32 * (t + 1)) - BitVec.ofNat 64 1248) =
         BitVec.ofNat 64 (0x1000 + 4 * entW (t + 1) (c.kOf (t + 1))) := by
       rw [tab_target _ _ _ _ (by omega) (by omega)]
       congr 1
@@ -1140,7 +1139,7 @@ theorem x13_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.kn
     (hR r hn).trans (hk _ hm)
   have hpc' : s.pc = pcOf (c.tX 41) := by rw [hpc]; unfold endPc; simp
   have hst := piece_steps hrun hp s hpc' (by simp [ctabX])
-  have h15 : s.getReg .x15 = BitVec.ofNat 64 0x40000 := kr .x15 0x40000 (by simp [known]) (by decide +kernel)
+  have h15 : s.getReg .x2 = BitVec.ofNat 64 0x3fe00 := kr .x2 0x3fe00 (by simp [known]) (by decide +kernel)
   have h29 : s.getReg .x29 = 7#64 - BitVec.ofNat 64 c.ck := kr .x29 _ (by simp [known]) (by decide +kernel)
   have hck := hc.2.2.2.2.2.2.1
   refine ⟨ctabX.toState s, hst, ⟨⟨fun x hx => (ctabX_keeps.reg s (not_mem_sub hx (by decide +kernel))).trans (hR x hx),
@@ -1151,7 +1150,7 @@ theorem x13_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.kn
       · right; refine ⟨?_, h.2⟩; omega), hS⟩, by omega, h25, ?_⟩⟩
   · rw [Result.toState_pc]
     simp only [ctabX, E.eval, BinOp.eval, h15, h29]
-    have e2 : BitVec.ofNat 64 0x40000 - (7#64 - BitVec.ofNat 64 c.ck) <<< ((7 : Word).toNat % 64) + (-1824 : Word) =
+    have e2 : BitVec.ofNat 64 0x3fe00 - (7#64 - BitVec.ofNat 64 c.ck) <<< ((7 : Word).toNat % 64) + (-1312 : Word) =
         BitVec.ofNat 64 (0x1000 + 4 * ckSlot c.ck) := by
       have hk : c.ck ≤ 8 := hck
       generalize c.ck = k at hk ⊢

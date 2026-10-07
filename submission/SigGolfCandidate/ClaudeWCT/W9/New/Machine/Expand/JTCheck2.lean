@@ -1,5 +1,7 @@
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.JTCheckParts
 
+set_option Elab.async false
+
 namespace ClaudeWCT.W9.Machine.Expand
 set_option maxRecDepth 100000
 private theorem jtOK_part_2048 : (List.range' 2048 64).all jtOK = true := by decide +kernel

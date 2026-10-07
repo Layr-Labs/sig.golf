@@ -176,8 +176,8 @@ theorem signing_complete_at (answers : Answers) (keys : Digest × Cache)
     rw [show sign keys.2 message = ClaudeWCT.WCT9.signWith digestAttemptLimit keys.2 message from rfl,
       ClaudeWCT.WCT9.signWith_valid_cache digestAttemptLimit answers keys message hkeys.2.2]
     exact hs
-  obtain ⟨w, he, hv⟩ := ClaudeWCT.WCT9.Rev3.signing_success_valid
-    answers keys hkeys htop message sig hs'
+  obtain ⟨w, he, hv⟩ := ClaudeWCT.WCT9.signingWith_success_valid digestAttemptLimit
+    ClaudeWCT.WCT9.digestAttemptLimit_le answers keys hkeys htop message sig hs'
   exact ⟨sig, w, hs', he, hv⟩
 theorem signing_complete_of_searches (answers : Answers) (keys : Digest × Cache)
     (hkeys : KeygenCorrect answers keys) (hgood : SearchesSucceed answers) :

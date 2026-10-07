@@ -380,22 +380,11 @@ theorem verifyWith_inadmissible (limit : Nat) (answers : Answers) (message : Mes
   · exact verifyWith_counter_ge limit answers message pk w hc
   · simp only [verifyWith, ge_iff_le, hc, ite_false, evalWithAnswerFn_bind, h, Bool.not_false, ite_true,
       evalWithAnswerFn_pure]
-/-- Raising only the verifier cutoff preserves every previously accepting witness. -/
-theorem verifyWith_mono (small large : Nat) (hsl : small ≤ large)
-    (answers : Answers) (message : Message) (pk : Digest) (w : Witness)
-    (hv : evalWithAnswerFn answers (verifyWith small message pk w) = true) :
-    evalWithAnswerFn answers (verifyWith large message pk w) = true := by
-  by_cases hs : w.digestCounter.toNat ≥ small
-  · simp only [verifyWith, hs, ite_true, evalWithAnswerFn_pure, Bool.false_eq_true] at hv
-  · have hl : ¬ w.digestCounter.toNat ≥ large := by omega
-    simpa only [verifyWith, hs, hl, ite_false] using hv
 namespace Rev3
 theorem expand_implies_verify (answers : Answers) (message : Message) (pk : Digest)
     (sig : Signature) (w : Witness) (he : evalWithAnswerFn answers (expand message pk sig) = some w) :
     evalWithAnswerFn answers (verify message pk w) = true :=
-  verifyWith_mono digestAttemptLimit digestVerifyLimit digestAttemptLimit_le_digestVerifyLimit
-    answers message pk w
-    (expandWith_implies_verifyWith digestAttemptLimit digestAttemptLimit_le answers message pk sig w he)
+  expandWith_implies_verifyWith digestAttemptLimit digestAttemptLimit_le answers message pk sig w he
 def SigningCorrect (answers : Answers) (keys : Digest × Cache) : Prop :=
   ∀ (message : Message) (sig : Signature),
     evalWithAnswerFn answers (sign keys.2 message) = some sig →
@@ -403,11 +392,8 @@ def SigningCorrect (answers : Answers) (keys : Digest × Cache) : Prop :=
       evalWithAnswerFn answers (verify message keys.1 w) = true
 theorem signing_success_valid (answers : Answers) (keys : Digest × Cache)
     (hkeys : KeygenCorrect answers keys) (htop : TopSearchesSucceedBC answers) : SigningCorrect answers keys :=
-  fun message sig hsign => by
-    obtain ⟨w, he, hv⟩ := signingWith_success_valid digestAttemptLimit digestAttemptLimit_le
-      answers keys hkeys htop message sig hsign
-    exact ⟨w, he, verifyWith_mono digestAttemptLimit digestVerifyLimit
-      digestAttemptLimit_le_digestVerifyLimit answers message keys.1 w hv⟩
+  fun message sig hsign =>
+    signingWith_success_valid digestAttemptLimit digestAttemptLimit_le answers keys hkeys htop message sig hsign
 theorem honest_signing_success_valid (answers : Answers) (htop : TopSearchesSucceedBC answers) :
     SigningCorrect answers (evalWithAnswerFn answers keygen) :=
   signing_success_valid answers _ (ClaudeWCT.WCT9.keygen_correct answers) htop

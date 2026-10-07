@@ -33,11 +33,11 @@ def mkMove (lay level : Nat) : Nat := if lay = 0 ∧ level = 11 then 0 else 1
 def mkHeap (lay ci sh l : Nat) : Nat := (2 ^ hL lay + sh * 2 ^ mkLo lay ci) / 2 ^ (l + 1)
 def mkK (lay : Nat) : List (Reg × Word) :=
   baseK ++ [(if lay = 0 then (.x8, BitVec.ofNat 64 s3v) else (.x22, BitVec.ofNat 64 (s6v lay))), (.x7, 1), (.x13, 2),
-    (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x30, 7), (.x15, BitVec.ofNat 64 0x40000)] ++
-    (if lay = 0 then [] else [(.x1, BitVec.ofNat 64 TOPBASE)])
+    (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x30, 7), (.x2, 0x3fe00)] ++
+    (if lay = 0 then [] else [(.x9, BitVec.ofNat 64 TOPB9)])
 def mkKc (lay : Nat) : List (Reg × Word) :=
   baseK ++ [(if lay = 0 then (.x8, BitVec.ofNat 64 s3v) else (.x22, BitVec.ofNat 64 (s6v lay))), (.x7, 1), (.x13, 2),
-    (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x30, 7), (.x15, BitVec.ofNat 64 0x40000)]
+    (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x30, 7), (.x2, 0x3fe00)]
 def mkKeep : List Reg := [.x1, .x2, .x16, .x17, .x8, .x9, .x24, .x23, .x6, .x25, .x27, .x29, .x31]
 def mkEntSpec (lay ci sh : Nat) : Spec := let st := if lay = 0 ∧ ci = 1 then 2 else 1; ⟨[], [], mkShp lay ci sh + 1, true, st, [], none, st⟩
 def mkEntPost (lay ci sh : Nat) : List (Reg × Word) :=
@@ -78,7 +78,7 @@ def mkLvlPostN (lay ci sh kk : Nat) : List (Reg × Word) :=
   mkKc lay ++ [(.x11, 64), (.x10, BitVec.ofNat 64 (mkBlk lay sh (mkLo lay ci + kk))),
     (.x12, BitVec.ofNat 64 (mkNextA2 lay ci sh kk))]
 def mkLvlPostD (lay ci sh kk : Nat) : List (Reg × Word) :=
-  mkKc lay ++ [(.x11, 64), (.x10, BitVec.ofNat 64 (mkBlk lay sh (mkLo lay ci + kk))), (.x15, 262144)]
+  mkKc lay ++ [(.x11, 64), (.x10, BitVec.ofNat 64 (mkBlk lay sh (mkLo lay ci + kk))), (.x2, 0x3fe00)]
 def mkLvlKN (lay ci sh kk : Nat) : List (Reg × Word) :=
   mkLvlK lay (mkLo lay ci + kk) ++
     (if lay = 0 then
