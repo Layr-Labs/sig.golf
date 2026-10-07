@@ -1,5 +1,6 @@
 import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsSem
 
+set_option Elab.async false
 section
 
 section

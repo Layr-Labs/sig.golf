@@ -91,7 +91,7 @@ theorem vChunks_ok : (vChunks.dropLast.all fun c => c.length == 256) = true := b
 set_option maxRecDepth 100000 in
 theorem vSup_ok : (vSup.dropLast.all fun c => c.length == 32) = true := by decide +kernel
 set_option maxRecDepth 100000 in
-theorem vSup_flatten : vSup.flatten = vChunks := by kernel_rfl
+theorem vSup_flatten : vSup.flatten = vChunks := by rfl
 theorem foldl_append_flatten : ∀ (l : List (List (BitVec 32))) (a : List (BitVec 32)),
     l.foldl (· ++ ·) a = a ++ l.flatten
   | [], a => by simp
@@ -107,13 +107,13 @@ theorem vlook_ok : LookOK image vlook := by
   show Images.verifyCode[n]? = some w
   rw [verifyCode_eq, ← vSup_flatten]
   unfold vlook at h
-  apply lookup_chunks 256 (by decide) vSup.flatten n w (by rw [vSup_flatten]; exact vChunks_ok)
+  apply lookup_chunks 256 (by decide +kernel) vSup.flatten n w (by rw [vSup_flatten]; exact vChunks_ok)
   split at h
   · rename_i sc hsc
     split at h
     · rename_i c hc
       have h1 : vSup.flatten[n / 256]? = some c := by
-        apply lookup_chunks 32 (by decide) vSup (n / 256) c vSup_ok
+        apply lookup_chunks 32 (by decide +kernel) vSup (n / 256) c vSup_ok
         rw [Nat.div_div_eq_div_mul, show 256 * 32 = 8192 by rfl, hsc]
         exact hc
       rw [h1]; exact h

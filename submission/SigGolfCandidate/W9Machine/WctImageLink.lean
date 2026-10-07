@@ -5,23 +5,23 @@ namespace W9Machine.Frozen
 open SigGolfCandidate.T3M SigGolfCandidate.Rv
 set_option maxRecDepth 200000
 set_option maxHeartbeats 0
-theorem codeChunks_length : codeChunks.length = 985 := by
-  decide +kernel
-theorem codeChunks_ok : (codeChunks.dropLast.all fun c ↦ c.length == 256) = true := by
-  decide +kernel
-theorem codeChunks_le : (codeChunks.all fun c ↦ decide (c.length ≤ 256)) = true := by
-  decide +kernel
-def codeFrom (p : Nat) : List (BitVec 32) :=
-  (codeChunks.drop (p / 256)).flatten.drop (p % 256)
+theorem codeChunks_length : codeChunks.length = 985 :=
+  SigGolfCandidate.T3M.Verify.vChunks_length
+theorem codeChunks_ok : (codeChunks.dropLast.all fun c ↦ c.length == 256) = true :=
+  SigGolfCandidate.T3M.Verify.vChunks_ok
+theorem codeChunks_le : (codeChunks.all fun c ↦ decide (c.length ≤ 256)) = true :=
+  SigGolfCandidate.T3M.Verify.vChunks_le
+theorem image_code_eq : image.code = SigGolfCandidate.T3M.Images.verifyCode := by
+  change SigGolfCandidate.T3M.Verify.vChunks.flatten = _
+  exact SigGolfCandidate.T3M.Verify.verifyCode_eq.symm
+def codeFrom (p : Nat) : List (BitVec 32) := SigGolfCandidate.T3M.Verify.codeFrom p
 theorem codeFrom_eq (p : Nat) (hp : p < 251927) : codeFrom p = image.code.drop p := by
-  simpa only [codeFrom, image, List.drop_drop,
-    show 256 * (p / 256) + p % 256 = p by omega] using
-      (congrArg (List.drop (p % 256))
-        (drop_chunks' codeChunks (p / 256) codeChunks_ok
-          (by rw [codeChunks_length]; omega))).symm
+  rw [image_code_eq]
+  exact SigGolfCandidate.T3M.Verify.codeFrom_eq p (by omega)
 theorem codeFrom_at (p : Nat) (hp : p < 251927) : CodeAt image (pcOf p) (codeFrom p) := by
   have hl : image.code.length ≤ 256 * 985 := by
-    simpa only [image, codeChunks_length] using flatten_len_le' codeChunks codeChunks_le
+    rw [image_code_eq]
+    exact SigGolfCandidate.T3M.Verify.verifyCode_length
   have hp' : (pcOf p).toNat = 0x1000 + 4 * p := by
     simp only [pcOf, BitVec.toNat_ofNat]
     omega

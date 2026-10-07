@@ -1,3 +1,4 @@
+import SigGolfCandidate.Research.V7Composed198Gate
 import SigGolfCandidate.W9Machine.WctFetch
 import SigGolfCandidate.W9Drv.CoordDefs
 
@@ -8,18 +9,17 @@ open W9Machine
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 def gJumpWords : List (BitVec 32) := [41943151]
-def gCheckWords : List (BitVec 32) :=
-  [35150611,25180291,45666707,0x4461b393,0xa039263]
+def gCheckWords : List (BitVec 32) := [35150611,0x1803883,0x2c8d193,0x49e1b393,0xa039263]
 def gSetupWords : List (BitVec 32) :=
   [29038483,0x60178793,66359,2098835,3148179,4196883,5245587,6294803,7343891,486618115,385957507,394345475,50398355,0xffc30113]
 def gRejectWords : List (BitVec 32) := [1049235,1049875,115]
 def gateE : E := .bin .sltu
   (.bin .srl (.ld (.c (BitVec.ofNat 64 24)))
-    (.c (BitVec.ofNat 64 43))) (.c (BitVec.ofNat 64 1094))
+    (.c (BitVec.ofNat 64 44))) (.c (BitVec.ofNat 64 1182))
 def gJump : Result := ⟨SymState.init, .c (pcOf 32792), .jump, 1, 1⟩
 def gCheck : Result :=
   ⟨⟨(((RegFile.init.set .x3
-    (.bin .srl (.ld (.c (BitVec.ofNat 64 24))) (.c 43))).set .x7 gateE).set
+    (.bin .srl (.ld (.c (BitVec.ofNat 64 24))) (.c 44))).set .x7 gateE).set
     .x17 (.ld (.c (BitVec.ofNat 64 24)))).set
     .x22 (.bin .srl (.reg .x16) (.c (BitVec.ofNat 64 33))), [], []⟩,
     .ite .ne gateE (.c 0) (.c (pcOf 32822)) (.c (pcOf 32782)), .branch, 5, 5⟩
@@ -94,11 +94,11 @@ theorem heap_val (i h : Nat) (hi : i < 2 ^ 31) :
   rw [ofNat_or_disjoint i (2 ^ 32 * h) 32 (by omega) (by simp), Nat.add_comm]
 theorem gateE_eval (s : MachineState) (a : BitVec 256)
     (hw : s.getMem (BitVec.ofNat 64 24) = a.extractLsb' 192 64) :
-    gateE.eval s = if decide (a.toNat / 2 ^ 235 % 2 ^ 21 < 1094) then 1 else 0 := by
-  change (if BitVec.ult (s.getMem (BitVec.ofNat 64 24) >>> 43)
-    (BitVec.ofNat 64 1094) then (1 : BitVec 64) else 0) = _
-  rw [hw]
-  simp only [BitVec.ult, digest_gate_val, BitVec.toNat_ofNat]
+    gateE.eval s = if decide (a.toNat / 2 ^ 235 % 2 ^ 21 < 2364) then 1 else 0 := by
+  change (if BitVec.ult (s.getMem (BitVec.ofNat 64 24) >>> 44)
+    (BitVec.ofNat 64 1182) then (1 : BitVec 64) else 0) = _
+  rw [hw, SigGolfCandidate.Research.V7Composed198Gate.gate_ult_shift44]
+
 theorem word0_toNat (a : HashOutput) : (a.extractLsb' 0 64).toNat = a.toNat % 2 ^ 64 := by
   rw [BitVec.extractLsb'_toNat, Nat.shiftRight_zero]
 theorem index_eq (a : HashOutput) : (a.extractLsb' 0 64).toNat / 2 ^ 33 = idxOf a := by
@@ -123,7 +123,7 @@ theorem gate_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
   set s2 := gCheck.toState s1 with hs2
   have m2 : s2.mem = u.mem := (toState_mem_nil _ _ rfl).trans m1
   have hw3 : s1.getMem (BitVec.ofNat 64 24) = a.extractLsb' 192 64 := by
-    have := hu.digest 3 (by decide)
+    have := hu.digest 3 (by decide +kernel)
     simpa [MachineState.getMem, m1] using this
   have pc2 : s2.pc = if gateE.eval s1 != 0 then pcOf 32822 else pcOf 32782 := by
     show (E.ite .ne gateE (.c 0) (.c (pcOf 32822)) (.c (pcOf 32782))).eval s1 = _
@@ -191,7 +191,7 @@ theorem gate_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
       rw [r1]; exact hu.glob.1 (.x18, 0xFFF) (by simp [baseK])
     have hpre : CoordPre pk w a 0 [] s3 := by
       refine {
-        le := (by decide), length := rfl, pc := rfl,
+        le := (by decide +kernel), length := rfl, pc := rfl,
         glob := glob_congr hu.glob m3 h5 h18,
         digest := ?_, bank := ?_, forest := ?_, index := ?_, heaps := ?_,
         stepOne := ?_, stepTwo := rfl, hashLen := ?_, coordStep := rfl,

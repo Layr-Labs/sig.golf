@@ -1,5 +1,6 @@
 import SigGolfCandidate.T3M.Verify.ChainCheckT1
 
+set_option Elab.async false
 namespace SigGolfCandidate.T3M
 set_option maxRecDepth 100000
 theorem triCheck_4_0 : triCheck 4 0 256 = true := by decide +kernel
