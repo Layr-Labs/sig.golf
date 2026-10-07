@@ -61,7 +61,7 @@ theorem coveredP_iff (W : List WProposal) (N : SigGolfCandidate.T3.HashOutput) :
   · rintro ⟨e, he, h2, h3⟩
     exact ⟨(outIdx N, e), (mem_atIndex _ _ _).mp he, rfl, h2, h3⟩
 theorem price_scale :
-    (2 : ENNReal) ^ 128 * ((27 ^ 9 * 1094 * 2 ^ 15 : ℕ) : ENNReal) * ((N600.Q ^ 9 : ℕ) : ENNReal) *
+    (2 : ENNReal) ^ 128 * ((27 ^ 9 * 2364 * 2 ^ 15 : ℕ) : ENNReal) * ((N600.Q ^ 9 : ℕ) : ENNReal) *
         ((2 ^ 256 : ℕ) : ENNReal)⁻¹ = N600.priceScale := by
   rw [← div_eq_mul_inv]
   apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by unfold N600.priceScale; finiteness)).mp
@@ -86,6 +86,7 @@ theorem price_eq (W : List WProposal) : price W = N600.priceN wordDigit W := by
   unfold price SigGolfCandidate.T3.BPORS.finiteAverage
   simp_rw [hs]
   rw [ClaudeWCT.Bank.WCT.sum_admissible g, hsum, Fintype.card_bitVec, N600.priceN, ← price_scale]
+  unfold ClaudeWCT.WCT9.gateLimit
   simp only [div_eq_mul_inv]
   ring
 end ClaudeWCT.Numerics.WCTEnvelope

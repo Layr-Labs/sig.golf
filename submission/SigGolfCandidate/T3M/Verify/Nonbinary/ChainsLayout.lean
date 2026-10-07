@@ -93,7 +93,7 @@ theorem dispatch_steps {image : Image} (pc : Word) (hc : CodeAt image pc dispatc
     simp [t, dispatchR, Result.toState_getMem, memEval]
   · rw [Result.toState_getReg]
     change (RegFile.get (RegFile.set RegFile.init .x14 _) .x15).eval s = _
-    rw [RegFile.get_set_ne _ _ (by decide), RegFile.init_get_eval, hb]
+    rw [RegFile.get_set_ne _ _ (by decide +kernel), RegFile.init_get_eval, hb]
 end SigGolfCandidate.T3M.Nonbinary.TailDispatch
 end
 

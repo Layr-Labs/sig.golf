@@ -297,10 +297,7 @@ theorem agree_verifyP (hash : Hash) (m : SigGolfCandidate.T3.Message) (pk : Dige
     rw [ClaudeWCT.W9.T3M.verifyP_eq_tail]
     unfold ClaudeWCT.W9.T3M.digestP
     rw [ClaudeWCT.W9.T3M.wdcWord_witEnc, ClaudeWCT.W9.T3M.wdc_witEnc, ClaudeWCT.W9.T3M.wrho_witEnc,
-      if_neg (by
-        have := F.dc
-        have := ClaudeWCT.WCT9.digestAttemptLimit_le_digestVerifyLimit
-        omega), bind_map_left]
+      if_neg (by have := F.dc; have := ClaudeWCT.WCT9.digestAttemptLimit_le_digestVerifyLimit; omega), bind_map_left]
   rw [hv, agree_mrealize_bind]
   refine ⟨agree_mrealize (notEnc_digest _ _ _) (hfg_ok hash), ?_⟩
   rw [F.sig, F.digest, ClaudeWCT.W9.T3M.verifyTailP_shaped pk N _ F.adm, ClaudeWCT.W9.T3M.witDecP_witEnc,
@@ -323,10 +320,7 @@ theorem digestCap_okHash (hash : Hash) (m : SigGolfCandidate.T3.Message) (pk : D
       some <$> SigGolfCandidate.T3.digest wt.signature.rho m wt.digestCounter := by
     unfold ClaudeWCT.W9.T3M.digestP
     rw [ClaudeWCT.W9.T3M.wdcWord_witEnc, ClaudeWCT.W9.T3M.wdc_witEnc, ClaudeWCT.W9.T3M.wrho_witEnc,
-      if_neg (by
-        have := F.dc
-        have := ClaudeWCT.WCT9.digestAttemptLimit_le_digestVerifyLimit
-        omega)]
+      if_neg (by have := F.dc; have := ClaudeWCT.WCT9.digestAttemptLimit_le_digestVerifyLimit; omega)]
   have hag : Agree hash (okHash hash) (mrealize 0 (ClaudeWCT.W9.T3M.digestP m (ClaudeWCT.W9.T3M.witEnc N wt))) := by
     rw [hd, mrealize_map, agree_map_iff]
     exact agree_mrealize (notEnc_digest _ _ _) (hfg_ok hash)

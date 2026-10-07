@@ -288,7 +288,7 @@ theorem ld_step (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB) (s : Ma
   refine ⟨s1, h1.steps, ⟨hknown, h1.pc rfl, fun k hk => (hm _).trans (hs.msg k hk),
     ⟨(hm _).trans hs.pk.1, (hm _).trans hs.pk.2⟩, fun j hj => (hm _).trans (hs.wit j hj),
     fun A hA hz => (hm _).trans (hs.zero A hA hz), hs.data.congr (fun A _ _ => hm _),
-    h1.known (.x2, BitVec.ofNat 64 VERIFY_DATA) (by decide)⟩, hb.congr (fun A _ _ => hm _)⟩
+    h1.known (.x2, BitVec.ofNat 64 VERIFY_DATA) (by decide +kernel)⟩, hb.congr (fun A _ _ => hm _)⟩
 def rejectPc : Nat := 33511
 def rejSpec (steps : Nat) (brs : List Br) : Spec :=
   ⟨[(.x5, cw 1), (.x10, cw 1)], [], rejectPc, true, steps, brs, none, steps⟩
@@ -354,9 +354,9 @@ theorem digest_tail (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB) (s 
       exact (proBr_iff w s hs.wit true).mpr (by simp [hlt])) (by simp)
     have hm : ∀ A, t.getMem A = memEval s proSpec.mem A := ht.mem
     have hkt : KnownOK proPost t := ht.known
-    have h10 : t.getReg .x10 = BitVec.ofNat 64 23504 := hkt (.x10, 23504) (by decide)
-    have h11 : t.getReg .x11 = BitVec.ofNat 64 64 := hkt (.x11, 64) (by decide)
-    have h12 : t.getReg .x12 = BitVec.ofNat 64 0 := hkt (.x12, 0) (by decide)
+    have h10 : t.getReg .x10 = BitVec.ofNat 64 23504 := hkt (.x10, 23504) (by decide +kernel)
+    have h11 : t.getReg .x11 = BitVec.ofNat 64 64 := hkt (.x11, 64) (by decide +kernel)
+    have h12 : t.getReg .x12 = BitVec.ofNat 64 0 := hkt (.x12, 0) (by decide +kernel)
     have frame : ∀ A, A < 2 ^ 64 → A ≠ 23520 → t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A) := by
       intro A hA h1
       rw [hm]
@@ -370,10 +370,10 @@ theorem digest_tail (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB) (s 
     have hdc : (ClaudeWCT.W9.T3M.wdcWord w).toNat < 2 ^ 32 :=
       lt_trans hlt ClaudeWCT.WCT9.digestVerifyLimit_lt
     refine ⟨t, ht.steps, ht.ecall rfl, ?_, ?_, ?_⟩
-    · exact hashArgs_of t 23504 64 0 h10 h11 h12 (by decide) (by decide) (by decide) (by decide) (by decide)
+    · exact hashArgs_of t 23504 64 0 h10 h11 h12 (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel)
     · have hl := digestInput_length (ClaudeWCT.W9.T3M.wrho w) m (ClaudeWCT.W9.T3M.wdc w)
       rw [pad64_digestInput]
-      apply hashInput_words8 t _ 23504 hl h10 (by decide) (by decide) h11
+      apply hashInput_words8 t _ 23504 hl h10 (by decide +kernel) (by decide +kernel) h11
       rw [digest_words]
       have e0 : t.getMem (BitVec.ofNat 64 23504) = dlo (ClaudeWCT.W9.T3M.wrho w) := by
         rw [frame _ (by omega) (by omega), show (23504 : Nat) = WIT + 8 * 2682 by unfold WIT; omega,
@@ -411,7 +411,7 @@ theorem digest_tail (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB) (s 
       · apply hs.data.congr
         intro A hA hEnd
         exact frame A (by omega) (by unfold TAB at hA; omega)
-      · exact hkt (.x2, BitVec.ofNat 64 VERIFY_DATA) (by decide)
+      · exact hkt (.x2, BitVec.ofNat 64 VERIFY_DATA) (by decide +kernel)
       · exact hb.congr (fun A hA _ => frame A (by unfold VERIFY_DATA at *; omega)
           (by unfold VERIFY_DATA at hA; omega))
 theorem digest_step (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB) (s : MachineState)
@@ -434,7 +434,7 @@ theorem digest_step (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB) (s 
     exact ⟨t, ste.trans (st.trans stt), hf, hv, hin, hp⟩
 theorem digest_out (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB) (t : MachineState)
     (ht : DgPre m pk w t) (a : HashOutput) : DgOut m pk w a (writeHash t a) := by
-  have h12 : t.getReg .x12 = BitVec.ofNat 64 0 := ht.known (.x12, 0) (by decide)
+  have h12 : t.getReg .x12 = BitVec.ofNat 64 0 := ht.known (.x12, 0) (by decide +kernel)
   refine ⟨?_, ht.known.writeHash a, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · rw [writeHash_pc, ht.pc]; rfl
   · intro j hj hp
@@ -474,7 +474,7 @@ theorem digestP_good (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB) (s
   · rw [if_neg hdc, ccM_map]
     obtain ⟨t, hst, hf, hv, hin, hpre⟩ := hacc (by omega)
     unfold SigGolfCandidate.T3.digest
-    have h5 : t.getReg .x5 = 0 := hpre.known (.x5, 0) (by decide)
+    have h5 : t.getReg .x5 = 0 := hpre.known (.x5, 0) (by decide +kernel)
     have := GoodQP.publicHash_bind_pre (P := P) (f := pure) (K := fun a => K (some a)) hf h5 hv hin (fun a => by
       rw [ccM_pure]; exact hcont a _ (by omega) (digest_out m pk w t hpre a))
     rw [bind_pure, blocks_digestInput] at this
@@ -486,8 +486,8 @@ theorem hookCheck : specB [] [] baseK (runAt proPost [32777] 32776 []) hookSpec 
 theorem gatePre_of_hook (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB) (a : HashOutput)
     (u : MachineState) (hu : DgOut m pk w a u) :
     ∃ t, Steps image u 1 1 t ∧ W9Drv.GatePre pk w a t := by
-  have h5 : u.getReg .x5 = 0 := hu.known (.x5, 0) (by decide)
-  have h18 : u.getReg .x18 = 0xFFF := hu.known (.x18, 0xFFF) (by decide)
+  have h5 : u.getReg .x5 = 0 := hu.known (.x5, 0) (by decide +kernel)
+  have h18 : u.getReg .x18 = 0xFFF := hu.known (.x18, 0xFFF) (by decide +kernel)
   have hglob : Glob baseK w pk u := by
     refine ⟨?_, fun j hj hj' => hu.wit j (by unfold WX; omega) (by omega), hu.pk, ?_, ?_, hu.data⟩
     · intro p hp
@@ -506,15 +506,15 @@ theorem gatePre_of_hook (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB)
   have h16 : t.getReg .x16 = a.extractLsb' 0 64 := by
     rw [ht.regs (.x16, .ld (cw 0)) (by simp [hookSpec])]
     show u.getMem (BitVec.ofNat 64 0) = _
-    simpa using hu.digest 0 (by decide)
+    simpa using hu.digest 0 (by decide +kernel)
   refine ⟨t, ht.steps, ⟨ht.pc rfl, ht.glob baseK w pk hglob (RelOK.nil u), h16,
-    ht.known (.x11, 64) (by decide),
+    ht.known (.x11, 64) (by decide +kernel),
     ⟨(e _).trans hu.bank.1.zero0, (e _).trans hu.bank.1.zero1, (e _).trans hu.bank.1.header⟩,
     fun k hk => (e _).trans (hu.digest k hk),
     ⟨fun k hk => (e _).trans (hu.bank.2.1.top k hk), (e _).trans hu.bank.2.1.top8⟩,
     fun j hj hp => (e _).trans (hu.wit j hj hp),
     ⟨(e _).trans hu.bank.2.2.1.child, (e _).trans hu.bank.2.2.1.jt, (e _).trans hu.bank.2.2.1.coord⟩,
-    ht.known (.x2, BitVec.ofNat 64 VERIFY_DATA) (by decide)⟩⟩
+    ht.known (.x2, BitVec.ofNat 64 VERIFY_DATA) (by decide +kernel)⟩⟩
 theorem prefixGood : PrefixGood W9Drv.GatePre := by
   intro m pk w s hs P N C A Q K hK hcont
   have h := digestP_good m pk w s (init_ok m pk w s hs) (init_bank m pk w s hs) (P := P) (N := N + 1)
@@ -547,7 +547,7 @@ theorem capOk_of_pre {hash : Hash} {m : SigGolfCandidate.Legacy.Message} {w : By
     (hcap : ClaudeWCT.W9.T3M.Final.DigestCapOk hash m w) : ClaudeWCT.WCT9.capOk a = true :=
   hcap a ((digestP_eval hash m w hdc).trans (congrArg some hq))
 theorem jointCost_le_of_capOk {a : HashOutput} (h : ClaudeWCT.WCT9.capOk a = true) :
-    ClaudeWCT.WCT9.jointCost a ≤ 712 := by
+    ClaudeWCT.WCT9.jointCost a ≤ 710 := by
   unfold ClaudeWCT.WCT9.capOk ClaudeWCT.WCT9.jointCap at h
   exact of_decide_eq_true h
 structure Inputs (GatePre : Digest → WB → HashOutput → MachineState → Prop)
@@ -555,7 +555,7 @@ structure Inputs (GatePre : Digest → WB → HashOutput → MachineState → Pr
   prefixGood : PrefixGood GatePre
   fts : FtsGoodByCost GatePre FtsOut (ftsAcceptCost ovh)
   after : AfterGoodBudget FtsOut aG
-  hnum : 16 + aG + ovh + 712 ≤ ClaudeWCT.W9.T3M.Final.verifyCycleBound
+  hnum : 16 + aG + ovh + 710 ≤ ClaudeWCT.W9.T3M.Final.verifyCycleBound
 section
 variable {GatePre : Digest → WB → HashOutput → MachineState → Prop}
   {FtsOut : Digest → WB → HashOutput → Digest → MachineState → Prop} {ovh aG : Nat}
@@ -581,7 +581,7 @@ theorem afterDigest_good (fts : FtsGoodByCost GatePre FtsOut (ftsAcceptCost ovh)
     (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : Bytes 21488) (a : HashOutput) (u : MachineState)
     (hdc : (ClaudeWCT.W9.T3M.wdcWord w).toNat < ClaudeWCT.WCT9.digestVerifyLimit) (hu : GatePre pk w a u) :
     GoodQP (fun hash => hash (digestQ m w) = a ∧ Pre m w hash) u (8050 + 2023) (8050 + 2023) True
-      (aG + (ovh + 712)) (ccM (afterDigest pk w a) Kb) := by
+      (aG + (ovh + 710)) (ccM (afterDigest pk w a) Kb) := by
   have h := fts pk w a u 8050 8050 aG True (fun r => ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) r) Kb) hu
     (by simp only [afterFts, ccM_pure, Kb])
     (fun root t ht => after pk w True trivial a root t ht)
@@ -593,7 +593,7 @@ theorem afterDigest_good (fts : FtsGoodByCost GatePre FtsOut (ftsAcceptCost ovh)
   rw [e]
   by_cases hcap : ClaudeWCT.WCT9.capOk a = true
   · have hj := jointCost_le_of_capOk hcap
-    have h' : GoodQ u (8050 + 2023) (8050 + 2023) True (aG + (ovh + 712))
+    have h' : GoodQ u (8050 + 2023) (8050 + 2023) True (aG + (ovh + 710))
         (ccM (if ClaudeWCT.W9.T3M.gateOk a then ClaudeWCT.W9.T3M.wctP w a else pure none)
           (fun r => ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) r) Kb)) :=
       h.mono (le_refl _) (le_refl _) (fun hq => ⟨hq, by simp only [ftsAcceptCost]; omega⟩)
@@ -609,10 +609,10 @@ theorem verify_good (prefixGood : PrefixGood GatePre)
     (after : AfterGoodBudget FtsOut aG)
     (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : Bytes 21488) (s : MachineState)
     (hs : initialState submission .verify (m, pk, w) = some s) :
-    GoodQP (Pre m w) s fuelBound cycleBoundAll True (aG + (ovh + 712) + 16)
+    GoodQP (Pre m w) s fuelBound cycleBoundAll True (aG + (ovh + 710) + 16)
       (ccM (ClaudeWCT.W9.T3M.verifyP m pk w) Kb) := by
   rw [verifyP_eq, ccM_bind]
-  exact prefixGood m pk w s hs (Pre m w) (8050 + 2023) (8050 + 2023) (aG + (ovh + 712)) True
+  exact prefixGood m pk w s hs (Pre m w) (8050 + 2023) (8050 + 2023) (aG + (ovh + 710)) True
     (fun o => ccM (match o with
       | some N => afterDigest pk w N
       | none => pure false) Kb) (by simp only [ccM_pure, Kb])
@@ -682,7 +682,7 @@ theorem verify_accept_cycles_of (I : ClaudeWCT.W9.T3M.Images) (hI : I.verify = I
     rw [if_neg hne] at h
     cases h
   have h1 := (hg.2.2 hsucc ⟨hok, hcap⟩).2
-  have h2 : aG + (ovh + 712) + 16 ≤ ClaudeWCT.W9.T3M.Final.verifyCycleBound := by have := H.hnum; omega
+  have h2 : aG + (ovh + 710) + 16 ≤ ClaudeWCT.W9.T3M.Final.verifyCycleBound := by have := H.hnum; omega
   exact le_trans h1 h2
 theorem verify_inputs_of (I : ClaudeWCT.W9.T3M.Images) (hI : I.verify = Images.verifyImage)
     (H : Inputs GatePre FtsOut ovh aG) :
@@ -712,7 +712,7 @@ theorem verify_inputs_x {FtsOut : SigGolfCandidate.T3.Digest → ClaudeWCT.W9.T3
     {ovh aG : Nat}
     (fts : FtsGoodByCost W9Drv.GatePre FtsOut (ftsAcceptCost ovh))
     (after : AfterGoodBudget FtsOut aG)
-    (hnum : 16 + aG + ovh + 712 ≤ ClaudeWCT.W9.T3M.Final.verifyCycleBound) :
+    (hnum : 16 + aG + ovh + 710 ≤ ClaudeWCT.W9.T3M.Final.verifyCycleBound) :
     ClaudeWCT.W9.T3M.Final.VerifyRefines I0 ∧ ClaudeWCT.W9.T3M.Final.VerifyTerminates I0 ∧
       ClaudeWCT.W9.T3M.Final.VerifyAcceptCycles I0 :=
   verify_inputs ⟨prefixGood, fts, after, hnum⟩
