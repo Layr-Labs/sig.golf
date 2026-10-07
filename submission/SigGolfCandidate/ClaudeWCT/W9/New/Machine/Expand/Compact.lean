@@ -143,7 +143,7 @@ theorem run_spec (N : HashOutput) (s : MachineState) (hpc : s.pc = pcOf 41108) (
   obtain ⟨u5, s5, p5, d10, d11, d12, d1, g5, f5⟩ := final_spec hc u4 (by rw [p4]; rfl)
   obtain ⟨u6, s6, p6, g6, m6⟩ := copy_spec hc u5 p5 (0x800 + 9280) (0x800 + 8128) 1713 42127 d10 d11 d12 d1
     (by norm_num) (by norm_num) (by norm_num) (by omega) (by norm_num) (by omega) (Or.inl (by norm_num))
-  obtain ⟨u7, s7, p7, e5, e10, g7, f7⟩ := halt_spec hc u6 p6
+  obtain ⟨u7, s7, p7, e5, e10, _, g7, f7⟩ := halt_spec hc u6 p6
   refine ⟨u7, ((((((s1.trans s2).trans s3).trans s4).trans s5).trans s6).trans s7).of_eq (by norm_num)
     (by norm_num), p7, e5, e10, fun i hi => ?_⟩
   have h4 : ∀ A < 2 ^ 64, u5.getMem (BitVec.ofNat 64 A) =
@@ -201,9 +201,9 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open SigGolfCandidate.T3 (HashOutput readLE)
 open SigGolfCandidate.T3M (window window_append_left window_append_right window_flatMap_const window_full zeros wordsOf)
 open SphincsSecurity (bytesLE bytesLE_length)
-open ClaudeWCT.W9.T3M (legacyWitList legacyHeaderBytes wctBytes regionBytes merkleBytes authSibOff authByte legacyHeaderBytes_length
+open ClaudeWCT.W9.T3M (witList headerBytes wctBytes regionBytes merkleBytes authSibOff authByte headerBytes_length
   wctBytes_length regionBytes_length merkleBytes_length region_merkle merkleBytes_sib authByte_none window_map_range
-  legacyWitList_length_eq)
+  witList_length_eq)
 open ClaudeWCT.W9.Machine.Expand (witListV5 wctBytesV5 regionBytesV5 merkleBytesV5 merkleBytesV5_length
   regionBytesV5_length wctBytesV5_length witListV5_length region_merkleV5 merkleBytesV5_window wordsOf_getD)
 set_option linter.unusedSimpArgs false
@@ -213,27 +213,27 @@ theorem window_window (L : List UInt8) (o m a n : Nat) (h : a + n ≤ m) :
   rw [List.drop_take, List.take_take, List.drop_drop, Nat.min_eq_left (by omega)]
 section
 variable (N : HashOutput) (w : WCT9.Witness)
-theorem witList_head (o : Nat) (h : o + 8 ≤ 64) : window (legacyWitList N w) o 8 = window (witListV5 N w) o 8 := by
-  unfold legacyWitList witListV5
+theorem witList_head (o : Nat) (h : o + 8 ≤ 64) : window (witList N w) o 8 = window (witListV5 N w) o 8 := by
+  unfold witList witListV5
   simp only [List.append_assoc]
-  rw [window_append_left _ _ _ _ (by rw [legacyHeaderBytes_length]; omega),
-    window_append_left _ _ _ _ (by rw [legacyHeaderBytes_length]; omega)]
+  rw [window_append_left _ _ _ _ (by rw [headerBytes_length]; omega),
+    window_append_left _ _ _ _ (by rw [headerBytes_length]; omega)]
 theorem witList_tail (o : Nat) (h : 8128 ≤ o) :
-    window (legacyWitList N w) o 8 = window (witListV5 N w) (o + 1152) 8 := by
-  unfold legacyWitList witListV5
+    window (witList N w) o 8 = window (witListV5 N w) (o + 1152) 8 := by
+  unfold witList witListV5
   simp only [List.append_assoc]
-  rw [window_append_right (legacyHeaderBytes w) _ _ _ (by rw [legacyHeaderBytes_length]; omega),
-    window_append_right (legacyHeaderBytes w) _ _ _ (by rw [legacyHeaderBytes_length]; omega), legacyHeaderBytes_length,
+  rw [window_append_right (headerBytes w) _ _ _ (by rw [headerBytes_length]; omega),
+    window_append_right (headerBytes w) _ _ _ (by rw [headerBytes_length]; omega), headerBytes_length,
     window_append_right (wctBytes N w.signature) _ _ _ (by rw [wctBytes_length]; omega),
     window_append_right (wctBytesV5 N w.signature) _ _ _ (by rw [wctBytesV5_length]; omega), wctBytes_length,
     wctBytesV5_length,
     show o + 1152 - 64 - 9216 = o - 64 - 8064 by omega]
 theorem witList_region (k : Nat) (hk : k < 9) (j : Nat) (hj : j + 8 ≤ 896) :
-    window (legacyWitList N w) (64 + 896 * k + j) 8 =
+    window (witList N w) (64 + 896 * k + j) 8 =
       window (regionBytes (WCT9.child N ⟨k, hk⟩).val (w.signature.openings ⟨k, hk⟩)) j 8 := by
-  unfold legacyWitList
+  unfold witList
   simp only [List.append_assoc]
-  rw [window_append_right _ _ _ _ (by rw [legacyHeaderBytes_length]; omega), legacyHeaderBytes_length,
+  rw [window_append_right _ _ _ _ (by rw [headerBytes_length]; omega), headerBytes_length,
     window_append_left _ _ _ _ (by rw [wctBytes_length]; omega),
     show 64 + 896 * k + j - 64 = 896 * k + j by omega]
   unfold wctBytes
@@ -244,7 +244,7 @@ theorem witListV5_region (k : Nat) (hk : k < 9) (j : Nat) (hj : j + 8 ≤ 1024) 
       window (regionBytesV5 (WCT9.child N ⟨k, hk⟩).val (w.signature.openings ⟨k, hk⟩)) j 8 := by
   unfold witListV5
   simp only [List.append_assoc]
-  rw [window_append_right _ _ _ _ (by rw [legacyHeaderBytes_length]; omega), legacyHeaderBytes_length,
+  rw [window_append_right _ _ _ _ (by rw [headerBytes_length]; omega), headerBytes_length,
     window_append_left _ _ _ _ (by rw [wctBytesV5_length]; omega),
     show 64 + 1024 * k + j - 64 = 1024 * k + j by omega]
   unfold wctBytesV5
@@ -294,10 +294,10 @@ theorem merkle_none (hc : c < 128) (j : Nat) (hj : j < 40) (h : sibSrc c j = non
   simp [zeros, List.map_const']
 end
 theorem compact_words (N : HashOutput) (w : WCT9.Witness) (i : Nat) (hi : i < 2729) :
-    (wordsOf (legacyWitList N w)).getD i 0 =
+    (wordsOf (witList N w)).getD i 0 =
       finalWord (fun B => (wordsOf (witListV5 N w)).getD ((B - 0x800) / 8) 0)
         (fun k => N.toNat / 2 ^ WCT9.childBase k % 128) i := by
-  have hW := legacyWitList_length_eq N w
+  have hW := witList_length_eq N w
   have hV := witListV5_length N w
   rw [wordsOf_getD _ 2729 (by omega) i hi]
   unfold finalWord
@@ -384,7 +384,7 @@ def CompactGood (im : Image) : Prop :=
   NewCodeAt im → CodeAt im (pcOf 351) [compactJal] → ∀ N w s, CompactPre N w s →
     ∃ t, Steps im s compactC compactC t ∧ t.pc = pcOf 42129 ∧ t.getReg .x5 = BitVec.ofNat 64 1 ∧
       t.getReg .x10 = BitVec.ofNat 64 0 ∧
-      t.readWords (BitVec.ofNat 64 0x800) 2729 = wordsOf (ClaudeWCT.W9.T3M.legacyWitList N w)
+      t.readWords (BitVec.ofNat 64 0x800) 2729 = wordsOf (ClaudeWCT.W9.T3M.witList N w)
 namespace Compact
 sym_block cJal := symRun { noAlias := true } [compactJal] (pcOf 351) 10
 theorem jal_spec {im : Image} (hJ : CodeAt im (pcOf 351) [compactJal]) (s : MachineState) (hpc : s.pc = pcOf 351) :
@@ -425,8 +425,8 @@ theorem compactGood_holds (im : Image) : CompactGood im := by
     intro i' hi'
     rw [← hpre.wit, VLib.readWords_ofNat s 0x800 2873 (by norm_num)]
     simp [List.getD_eq_getElem?_getD, hi']
-  have hl : (wordsOf (ClaudeWCT.W9.T3M.legacyWitList N w)).length = 2729 :=
-    length_wordsOf 2729 _ (by rw [ClaudeWCT.W9.T3M.legacyWitList_length_eq])
+  have hl : (wordsOf (ClaudeWCT.W9.T3M.witList N w)).length = 2729 :=
+    length_wordsOf 2729 _ (by rw [ClaudeWCT.W9.T3M.witList_length_eq])
   rw [← hl]
   refine readWords_ext t _ 0x800 (fun i hi => ?_)
   rw [hl] at hi

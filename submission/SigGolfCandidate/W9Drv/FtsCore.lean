@@ -221,7 +221,7 @@ theorem dispatch_chain_pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : Hash
       have hw := hu.coords k (Nat.le_refl _) off ho h8
       rw [hm]
       simpa only [W9Machine.OrigW, Chain.base, coordinateBase, V3.regionOffset,
-        show 2080 + 896*k.val + off - 2048 = 32 + 896*k.val + off by omega] using hw }
+        show 2112 + 896*k.val + off - 2048 = 64 + 896*k.val + off by omega] using hw }
   · change ((dispatchResult k).toState u).getReg .x8 = _
     fin_cases k <;> simp [dispatchResult, dispatchResultN, coordDispatch, ldOf, cposOf, fshOf, dispatchPc,
       Result.toState_getReg, RegFile.get, RegFile.set, RegFile.init, addC_eval, E.eval, hu.baseReg, Chain.base,
@@ -444,8 +444,8 @@ theorem coord_next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   have hc := dispatch_chain_pre pk w a k pairs u hu
   have hf := coord_frame w a k u entry t ends pair hp ht
   have hm (A : Nat) (hA : A < 2^64)
-      (hs : A < 1056 ∨ (1360 ≤ A ∧ A < 2080) ∨
-      (10144 ≤ A ∧ A < 0xffbe10) ∨ 0xffbf40 ≤ A) :
+      (hs : A < 1056 ∨ (1360 ≤ A ∧ A < 2112) ∨
+      (10176 ≤ A ∧ A < 0xffbe10) ∨ 0xffbf40 ≤ A) :
       t.getMem (BitVec.ofNat 64 A) = u.getMem (BitVec.ofNat 64 A) := by
     apply hf A hA
     unfold coordinateBase pairAddress forestInputAddress
@@ -780,7 +780,7 @@ theorem forest_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
       · exact (fPrep_frame u _ (by unfold TOPBASE; omega) (by unfold TOPBASE; omega)).trans hdata.mask
       · intro lay hl
         exact (fPrep_frame u _ (by unfold HDATA; omega) (by unfold HDATA; omega)).trans (hdata.header lay hl)
-  have o1 : Orig w (fun o => o < 32 ∨ 8104 ≤ o) s1 :=
+  have o1 : Orig w (fun o => o < 64 ∨ 8136 ≤ o) s1 :=
     hu.layer.frame (fun j hj _ => fPrep_frame u _ (by simp only [WIT, WX] at *; omega)
       (by simp only [WIT, WX] at *; omega))
   have hpost : ∀ ans : BitVec 256, GoodQFor Frozen.image (writeHash s1 ans) (N + 0) (C + 0) Q (A + 0)
@@ -820,7 +820,7 @@ theorem forest_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
       · obtain ⟨e0, e1⟩ := writeHash_lo s1 ans 0x100 h12 (by norm_num)
         exact ⟨(et _).trans e0, (et _).trans e1⟩
       · have o2 := Orig_writeHash o1 ans 0x100 h12 (by norm_num)
-        have o3 : Orig w (fun o => o < 32 ∨ 8104 ≤ o) (writeHash s1 ans) :=
+        have o3 : Orig w (fun o => o < 64 ∨ 8136 ≤ o) (writeHash s1 ans) :=
           o2.mono (fun o ho => ⟨ho, Or.inr (by simp only [WIT, WX] at *; omega)⟩)
         exact o3.frame (fun j _ _ => et _)
       · rw [ht, Result.toState_getReg]

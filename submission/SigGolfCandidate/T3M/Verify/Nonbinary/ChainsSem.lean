@@ -25,7 +25,7 @@ def pad1 (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0
 def padHeader (c : NCtx) (i : Nat) : Word := (ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x800 + 16)).extractLsb' 64 64
 def val (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x800 + 48)
 def ok (c : NCtx) : Prop :=
-  c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ 0x800 + 8104 + 1664 ≤ c.S3 ∧ c.S3 + 2064 ≤ 0x7000 ∧
+  c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ 0x800 + 8136 + 1664 ≤ c.S3 ∧ c.S3 + 2064 ≤ 0x7000 ∧
     c.ret < 209920
 def known (c : NCtx) : List (Reg × Word) :=
   [(.x5, 0), (.x11, 64), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
@@ -76,7 +76,7 @@ def PreHash (c : NCtx) (s0 : MachineState) (i : Nat) (acc : List Digest) (m : Na
 def EndInv (c : NCtx) (s0 : MachineState) (i : Nat) (acc : List Digest) (s : MachineState) : Prop :=
   c.Base s0 (c.Wr (i + 1)) acc s ∧ acc.length = i + 1 ∧ s.pc = pcOf (c.endPc i)
 theorem blk_props (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 54) :
-    c.blk i % 8 = 0 ∧ 0x800 + 8104 ≤ c.blk i ∧ c.blk i + 80 ≤ 0x7000 := by
+    c.blk i % 8 = 0 ∧ 0x800 + 8136 ≤ c.blk i ∧ c.blk i + 80 ≤ 0x7000 := by
   obtain ⟨-, -, h64, hlo, hhi, -⟩ := hc
   unfold blk; refine ⟨?_, ?_, ?_⟩ <;> omega
 theorem blk_le (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 54) : c.blk i + 64 * i = c.blk 0 := by

@@ -2,7 +2,6 @@ import SigGolfCandidate.ClaudeWCT.W9.T3M.Final.Pending
 import SigGolfCandidate.T3M.Keygen.Main
 
 namespace ClaudeWCT.W9.T3M.Final
-set_option maxRecDepth 100000
 open SigGolfCandidate.Legacy OracleComp
 open ClaudeWCT.W9.T3M (Images submission)
 variable (I : Images)
@@ -22,11 +21,11 @@ theorem run_keygen_congr {sA wA sB wB c : Nat} {l : Layout} {iA iB : Phase → R
   rfl
 theorem keygen_run_eq (hadm : (submission I).Admissible) (sk : SecretKey) :
     (submission I).run .keygen sk = SigGolfCandidate.T3M.submission.run .keygen sk := by
-  have hvA : ((submission I).image .keygen).Valid ⟨5456, 21832, 131072⟩ ⟨23880, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩ :=
+  have hvA : ((submission I).image .keygen).Valid ⟨5456, 21832, 131072⟩ ⟨0x40, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩ :=
     hadm.2 .keygen
   have hvB : (SigGolfCandidate.T3M.submission.image .keygen).Valid
       ⟨SigGolfCandidate.T3M.submission.sizes.signature, SigGolfCandidate.T3M.submission.sizes.witness, 131072⟩
-      ⟨23880, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩ := SigGolfCandidate.T3M.submission_keygen_valid
+      ⟨0x40, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩ := SigGolfCandidate.T3M.submission_keygen_valid
   have hk : (submission I).image .keygen = SigGolfCandidate.T3M.submission.image .keygen := by
     rw [ClaudeWCT.W9.T3M.submission_keygen, SigGolfCandidate.T3M.submission_keygen]
   exact run_keygen_congr (iA := (submission I).image) (iB := SigGolfCandidate.T3M.submission.image) hk hvA hvB sk

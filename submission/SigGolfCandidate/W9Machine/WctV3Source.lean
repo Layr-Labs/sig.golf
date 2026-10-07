@@ -18,7 +18,7 @@ def chainP (index coord child chain start count : Nat) (a : Digest) (b : HeaderP
     (c value : Digest) : M Digest :=
   (List.range' start count).foldlM
     (fun v step => shortHash (chainInput index coord child chain step a b c v)) value
-def regionOffset (coord : Nat) : Nat := 32 + 896 * coord
+def regionOffset (coord : Nat) : Nat := 64 + 896 * coord
 def chainOffset (coord chain : Nat) : Nat := regionOffset coord + (704 - 64 * chain)
 def leafSlot (chain : Nat) : Nat := if chain = 0 then 752 else 768 + 16 * chain
 def chainPadA (w : WBytes) (coord chain : Nat) : Digest := wdig w (chainOffset coord chain)

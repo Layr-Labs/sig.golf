@@ -7,11 +7,11 @@ open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
 open W9Machine
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
-def gJumpWords : List (BitVec 32) := [0x200006f]
+def gJumpWords : List (BitVec 32) := [0x180006f]
 def gCheckWords : List (BitVec 32) :=
-  [35150611,0x1803883,45666707,0x4431b393,0x8039e63]
+  [35150611,0x1803883,45666707,0x4431b393,0x8039a63]
 def gSetupWords : List (BitVec 32) :=
-  [29038483,66359,2098835,3148179,4196883,5245587,6294803,7343891,34283027,2182677523,377568643,385957507,394345475,50398355]
+  [29038483,66359,2098835,3148179,4196883,5245587,6294803,7343891,34283027,2216231955,377568643,385957507,394345475,50398355]
 def gRejectWords : List (BitVec 32) := [1049235,1049875,115]
 def gateE : E := .bin .sltu
   (.bin .srl (.ld (.c (BitVec.ofNat 64 24)))
@@ -22,17 +22,17 @@ def gCheck : Result :=
     (.bin .srl (.ld (.c (BitVec.ofNat 64 24))) (.c 43))).set .x7 gateE).set
     .x17 (.ld (.c (BitVec.ofNat 64 24)))).set
     .x22 (.bin .srl (.reg .x16) (.c (BitVec.ofNat 64 33))), [], []⟩,
-    .ite .ne gateE (.c 0) (.c (pcOf 32822)) (.c (pcOf 32784)), .branch, 5, 5⟩
+    .ite .ne gateE (.c 0) (.c (pcOf 32822)) (.c (pcOf 32786)), .branch, 5, 5⟩
 def gSetup : Result :=
-  ⟨⟨((((((((((((((RegFile.init).set .x9 (addC (.reg .x2) 48)).set .x6 (.c 65536)).set .x8 (.bin .add (.reg .x18) (.c (BitVec.ofNat 64 (2 ^ 64 - 2015))))).set .x13 (.c 2)).set .x15 (.bin .sll (.reg .x22) (.c 27))).set .x19 (.c 3)).set .x20 (.c 4)).set .x21 (.c 5)).set .x24 (.ld (addC (.reg .x2) 376))).set .x26 (.c 6)).set .x27 (.ld (addC (.reg .x2) 360))).set .x28 (.bin .sll (.reg .x22) (.c 32))).set .x29 (.ld (addC (.reg .x2) 368))).set .x30 (.c 7), [],
+  ⟨⟨((((((((((((((RegFile.init).set .x9 (addC (.reg .x2) 48)).set .x6 (.c 65536)).set .x8 (.bin .add (.reg .x18) (.c (BitVec.ofNat 64 (2 ^ 64 - 1983))))).set .x13 (.c 2)).set .x15 (.bin .sll (.reg .x22) (.c 27))).set .x19 (.c 3)).set .x20 (.c 4)).set .x21 (.c 5)).set .x24 (.ld (addC (.reg .x2) 376))).set .x26 (.c 6)).set .x27 (.ld (addC (.reg .x2) 360))).set .x28 (.bin .sll (.reg .x22) (.c 32))).set .x29 (.ld (addC (.reg .x2) 368))).set .x30 (.c 7), [],
     [.valid ⟨some (.reg .x2), 376⟩ 8, .valid ⟨some (.reg .x2), 368⟩ 8, .valid ⟨some (.reg .x2), 360⟩ 8]⟩,
     .c (pcOf 32836), .fuel, 14, 14⟩
 def gReject : Result :=
   ⟨⟨(RegFile.init.set .x5 (.c 1)).set .x10 (.c 1), [], []⟩, .c (pcOf 32794), .ecall, 2, 2⟩
-theorem gJump_checked : rOK (symRun {} gJumpWords (pcOf 32784) 1) gJump = true := by decide +kernel
-theorem gJump_linked : sliceChecked 32784 gJumpWords = true := by decide +kernel
-theorem gCheck_checked : rOK (symRun {} gCheckWords (pcOf 32779) 5) gCheck = true := by decide +kernel
-theorem gCheck_linked : sliceChecked 32779 gCheckWords = true := by decide +kernel
+theorem gJump_checked : rOK (symRun {} gJumpWords (pcOf 32786) 1) gJump = true := by decide +kernel
+theorem gJump_linked : sliceChecked 32786 gJumpWords = true := by decide +kernel
+theorem gCheck_checked : rOK (symRun {} gCheckWords (pcOf 32781) 5) gCheck = true := by decide +kernel
+theorem gCheck_linked : sliceChecked 32781 gCheckWords = true := by decide +kernel
 theorem gSetup_checked : rOK (symRun {} gSetupWords (pcOf 32822) 14) gSetup = true := by decide +kernel
 theorem gSetup_linked : sliceChecked 32822 gSetupWords = true := by decide +kernel
 theorem gReject_checked : rOK (symRun {} gRejectWords (pcOf 32792) 3) gReject = true := by decide +kernel
@@ -109,15 +109,15 @@ theorem gate_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
   let s1 := u
   have m1 : s1.mem = u.mem := rfl
   have r1 : ∀ x, s1.getReg x = u.getReg x := fun _ => rfl
-  have pc1 : s1.pc = pcOf 32779 := hu.pc
+  have pc1 : s1.pc = pcOf 32781 := hu.pc
   have st2 := block_steps gCheck_checked gCheck_linked rfl s1 pc1
   set s2 := gCheck.toState s1 with hs2
   have m2 : s2.mem = u.mem := (toState_mem_nil _ _ rfl).trans m1
   have hw3 : s1.getMem (BitVec.ofNat 64 24) = a.extractLsb' 192 64 := by
     have := hu.digest 3 (by decide)
     simpa [MachineState.getMem, m1] using this
-  have pc2 : s2.pc = if gateE.eval s1 != 0 then pcOf 32822 else pcOf 32784 := by
-    show (E.ite .ne gateE (.c 0) (.c (pcOf 32822)) (.c (pcOf 32784))).eval s1 = _
+  have pc2 : s2.pc = if gateE.eval s1 != 0 then pcOf 32822 else pcOf 32786 := by
+    show (E.ite .ne gateE (.c 0) (.c (pcOf 32822)) (.c (pcOf 32786))).eval s1 = _
     rfl
   have hg : gateE.eval s1 = if ClaudeWCT.W9.T3M.gateOk a then 1 else 0 :=
     gateE_eval s1 a hw3
@@ -240,7 +240,7 @@ theorem gate_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
         show s1.getReg .x16 = _
         rw [r1]; exact hu.cached0
       · rw [hs3, Result.toState_getReg]
-        show s2.getReg .x18 + BitVec.ofNat 64 (2 ^ 64 - 2015) = _
+        show s2.getReg .x18 + BitVec.ofNat 64 (2 ^ 64 - 1983) = _
         rw [h18s]; rfl
       · intro _
         change s2.getReg .x22 <<< 32 = _
@@ -251,10 +251,10 @@ theorem gate_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
       · intro k _ off hoff h8
         unfold W9Machine.OrigW
         rw [e3]
-        have hw := hu.wit ((32 + 896 * k.val + off) / 8) (by unfold WX; have := k.isLt; omega)
-        rw [show WIT + 8 * ((32 + 896 * k.val + off) / 8) = coordinateBase k + off by
+        have hw := hu.wit ((64 + 896 * k.val + off) / 8) (by unfold WX; have := k.isLt; omega)
+        rw [show WIT + 8 * ((64 + 896 * k.val + off) / 8) = coordinateBase k + off by
           unfold WIT coordinateBase; omega] at hw
-        have e : 8 * (coordinateBase k + off - 0x800) = 64 * ((32 + 896 * k.val + off) / 8) := by
+        have e : 8 * (coordinateBase k + off - 0x800) = 64 * ((64 + 896 * k.val + off) / 8) := by
           unfold coordinateBase; omega
         rw [hw, wword, e]
       · exact (hu.wit.orig _).frame (fun j _ _ => e3 _)
@@ -264,7 +264,7 @@ theorem gate_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
     have hok' : ClaudeWCT.W9.T3M.gateOk a = false := by simpa using hok
     rw [hok', hnone]
     have hz : gateE.eval s1 = 0 := by simpa [hok'] using hg
-    have pc2' : s2.pc = pcOf 32784 := by
+    have pc2' : s2.pc = pcOf 32786 := by
       rw [pc2, hz]; rfl
     have sj := block_steps gJump_checked gJump_linked rfl s2 pc2'
     let sr := gJump.toState s2

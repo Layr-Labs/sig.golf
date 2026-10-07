@@ -45,7 +45,7 @@ theorem sdata_zero (A : Nat) (hA : A < SIGN_DATA) : sdata.getMem (BitVec.ofNat 6
 def sinit (sk : SecretKey) (cache : Bytes 131072) (m : Message) : MachineState :=
   (((sdata.writeBytesAsWords
     (BitVec.ofNat 64 0x80) (bytes sk)).writeBytesAsWords (BitVec.ofNat 64 0x80000) (bytes cache)).writeBytesAsWords
-    (BitVec.ofNat 64 23880) (bytes m)).setReg .x2 (BitVec.ofNat 64 SIGN_DATA)
+    (BitVec.ofNat 64 0x40) (bytes m)).setReg .x2 (BitVec.ofNat 64 SIGN_DATA)
 theorem sinit_pc (sk : SecretKey) (cache : Bytes 131072) (m : Message) : (sinit sk cache m).pc = pcOf 0 := by
   unfold sinit
   rw [MachineState.pc_setReg, MachineState.pc_writeBytesAsWords, MachineState.pc_writeBytesAsWords,
@@ -54,13 +54,13 @@ theorem sinit_pc (sk : SecretKey) (cache : Bytes 131072) (m : Message) : (sinit 
 theorem bytes_length' {n : Nat} (x : Bytes n) : (bytes x).length = n := by simp [bytes]
 theorem sinit_getMem (sk : SecretKey) (cache : Bytes 131072) (m : Message) (A : Nat) (hA : A < 2 ^ 64) :
     (sinit sk cache m).getMem (BitVec.ofNat 64 A) =
-      if 23880 ≤ A ∧ A < 23912 ∧ (A - 23880) % 8 = 0 then bytesToWordLE (((bytes m).drop (A - 23880)).take 8)
+      if 0x40 ≤ A ∧ A < 0x60 ∧ (A - 0x40) % 8 = 0 then bytesToWordLE (((bytes m).drop (A - 0x40)).take 8)
       else if 0x80000 ≤ A ∧ A < 0xA0000 ∧ (A - 0x80000) % 8 = 0 then
         bytesToWordLE (((bytes cache).drop (A - 0x80000)).take 8)
       else if 0x80 ≤ A ∧ A < 0xA0 ∧ (A - 0x80) % 8 = 0 then bytesToWordLE (((bytes sk).drop (A - 0x80)).take 8)
       else sdata.getMem (BitVec.ofNat 64 A) := by
   unfold sinit
-  rw [MachineState.getMem_setReg, getMem_writeBytesAsWords _ _ 23880 A (by rw [bytes_length']; decide) hA,
+  rw [MachineState.getMem_setReg, getMem_writeBytesAsWords _ _ 0x40 A (by rw [bytes_length']; decide) hA,
     getMem_writeBytesAsWords _ _ 0x80000 A (by rw [bytes_length']; decide) hA,
     getMem_writeBytesAsWords _ _ 0x80 A (by rw [bytes_length']; decide) hA, bytes_length', bytes_length',
     bytes_length']
@@ -70,14 +70,14 @@ theorem sinit_sk (sk : SecretKey) (cache : Bytes 131072) (m : Message) (j : Nat)
     show SK + 8 * j - 0x80 = 8 * j by sg_omega, bytesToWordLE_bytes sk j (by omega)]
 theorem sinit_msg (sk : SecretKey) (cache : Bytes 131072) (m : Message) (j : Nat) (hj : j < 4) :
     (sinit sk cache m).getMem (BitVec.ofNat 64 (MSG + 8 * j)) = m.extractLsb' (64 * j) 64 := by
-  rw [sinit_getMem _ _ _ _ (by sg_omega), if_pos (by sg_omega), show MSG + 8 * j - 23880 = 8 * j by sg_omega,
+  rw [sinit_getMem _ _ _ _ (by sg_omega), if_pos (by sg_omega), show MSG + 8 * j - 0x40 = 8 * j by sg_omega,
     bytesToWordLE_bytes m j (by omega)]
 theorem sinit_cache (sk : SecretKey) (cache : Bytes 131072) (m : Message) (j : Nat) (hj : j < 16384) :
     (sinit sk cache m).getMem (BitVec.ofNat 64 (CACHE + 8 * j)) = cache.extractLsb' (64 * j) 64 := by
   rw [sinit_getMem _ _ _ _ (by sg_omega), if_neg (by sg_omega), if_pos (by sg_omega),
     show CACHE + 8 * j - 0x80000 = 8 * j by sg_omega, bytesToWordLE_bytes cache j (by omega)]
 theorem sinit_zero (sk : SecretKey) (cache : Bytes 131072) (m : Message) (A : Nat) (hA : A < SIGN_DATA)
-    (h : (A < 0x80 ∨ 0xA0 ≤ A) ∧ (A < 0x80000 ∨ 0xA0000 ≤ A) ∧ (A < 23880 ∨ 23912 ≤ A)) :
+    (h : A < 0x40 ∨ (0x60 ≤ A ∧ A < 0x80) ∨ (0xA0 ≤ A ∧ A < 0x80000) ∨ 0xA0000 ≤ A) :
     (sinit sk cache m).getMem (BitVec.ofNat 64 A) = 0 := by
   rw [sinit_getMem _ _ _ _ (by unfold SIGN_DATA at hA; omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), sdata_zero A hA]
 theorem sinit_cacheWords (sk : SecretKey) (cache : Bytes 131072) (m : Message) (j : Nat) (hj : j < 16384) :

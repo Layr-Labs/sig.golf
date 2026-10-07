@@ -8,7 +8,7 @@ structure Images where
   verify : Riscv.Image
 def submission (I : Images) : Submission where
   sizes := ⟨5456, 21832, 131072⟩
-  layout := ⟨23880, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩
+  layout := ⟨0x40, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩
   image
     | .keygen => SigGolfCandidate.T3M.Images.keygenImage
     | .sign => I.sign
@@ -16,7 +16,7 @@ def submission (I : Images) : Submission where
     | .verify => I.verify
 variable (I : Images)
 @[simp] theorem submission_sizes : (submission I).sizes = ⟨5456, 21832, 131072⟩ := rfl
-@[simp] theorem submission_layout : (submission I).layout = ⟨23880, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩ := rfl
+@[simp] theorem submission_layout : (submission I).layout = ⟨0x40, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩ := rfl
 @[simp] theorem submission_keygen : (submission I).image .keygen = SigGolfCandidate.T3M.Images.keygenImage := rfl
 @[simp] theorem submission_sign : (submission I).image .sign = I.sign := rfl
 @[simp] theorem submission_expand : (submission I).image .expand = I.expand := rfl

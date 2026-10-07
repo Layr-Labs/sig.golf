@@ -740,7 +740,6 @@ theorem top_full (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     s hs
   simp only [Nat.zero_add] at H ec ⊢
   rw [show (3*17 : Nat)=51 from rfl] at ec H ⊢
-  rw [hov] at H
   rw [ec]
   refine H.mono ?_ ?_ (fun h => ⟨h,?_⟩) <;> omega
 theorem goodQ_vacuous {s : MachineState} {N C A : Nat} {X : OracleComp Legacy.HashSpec Verify.Obs}

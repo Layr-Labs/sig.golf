@@ -244,7 +244,7 @@ structure LeafOut (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
   T1 : u.getMem (BitVec.ofNat 64 (lfBase lay.val + 24)) =
     BitVec.ofNat 64 (hdr1 (route index lay).2 (route index lay).1)
   zero : lay = 0 → u.getMem (BitVec.ofNat 64 0x570) = 0 ∧ u.getMem (BitVec.ofNat 64 0x578) = 0
-  orig : Verify.Orig w (fun o => 8104 ≤ o ∧ o < ClaudeWCT.W9.T3M.layerBase lay + 64 * height lay) u
+  orig : Verify.Orig w (fun o => 8136 ≤ o ∧ o < ClaudeWCT.W9.T3M.layerBase lay + 64 * height lay) u
 theorem LeafOut.hashInput {w : ClaudeWCT.W9.T3M.WBytes} {pk : Digest} {index : Nat} {lay : Layer} {ends : List Digest}
     {u : MachineState} (h : LeafOut w pk index lay ends u) :
     hashInput u = toQ (pad64 (leafInput lay (route index lay).2 (route index lay).1 ends)) ∧
@@ -266,7 +266,7 @@ theorem LeafOut.hashInput {w : ClaudeWCT.W9.T3M.WBytes} {pk : Digest} {index : N
     exact lowLeaf_hashInput u lay _ _ ends hn h10 h11 hS hT0 hT1
 theorem glob_frame {gk gk' : List (Reg × Word)} {w : ClaudeWCT.W9.T3M.WBytes} {pk : Digest} {s t : MachineState}
     {W : Nat → Prop} (hG : Glob gk w pk s) (hf : Frame s t W)
-    (hW : ∀ A, W A → 0x140 ≤ A ∧ (A < 0x800 ∨ 0x820 ≤ A) ∧ A < 2 ^ 23) (hk : ∀ p ∈ gk', t.getReg p.1 = p.2) :
+    (hW : ∀ A, W A → 0x140 ≤ A ∧ (A < 0x800 ∨ 0x840 ≤ A) ∧ A < 2 ^ 23) (hk : ∀ p ∈ gk', t.getReg p.1 = p.2) :
     Glob gk' w pk t := by
   obtain ⟨-, hH, hP, hZ, hh, hD⟩ := hG
   have hn : ∀ A, A < 0x140 → ¬ W A := fun A hA h => by have := hW A h; omega
@@ -329,7 +329,7 @@ structure TopLeafReady (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Na
   tp : t.getReg .x4 = BitVec.ofNat 64 (hdr1 (route index 0).2 (route index 0).1)
   len : ends.length = 54
   ends : ∀ j < 54, DigAt t (slotT j) (ends.getD j 0)
-  orig : Verify.Orig w (fun o => 8104 ≤ o ∧ o < ClaudeWCT.W9.T3M.layerBase 0 + 64 * height 0) t
+  orig : Verify.Orig w (fun o => 8136 ≤ o ∧ o < ClaudeWCT.W9.T3M.layerBase 0 + 64 * height 0) t
   s8 : t.getReg .x24 = 0
 theorem leafT_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0) (hidx : index < 2 ^ 31)
     (ends : List Digest) (t : MachineState) (ht : TopLeafReady w pk index c ends t) :

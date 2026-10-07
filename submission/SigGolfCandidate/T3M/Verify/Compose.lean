@@ -117,7 +117,7 @@ open SigGolfCandidate.T3 (Digest route)
 set_option maxHeartbeats 800000
 set_option linter.unusedSimpArgs false
 def topChainRegs : List Reg := [.x10,.x12,.x25,.x3,.x14,.x15,.x24]
-def topChainWrites (A : Nat) : Prop := (512 ≤ A ∧ A < 1488) ∨ (10920 ≤ A ∧ A < 14392)
+def topChainWrites (A : Nat) : Prop := (512 ≤ A ∧ A < 1488) ∨ (10952 ≤ A ∧ A < 14424)
 theorem topLeafK_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (t s0 s : MachineState)
     (a : BitVec 256) (ht : EncPre w pk index 0 c t)
     (he : TopEntry (writeHash t a) (a.extractLsb' 0 128) (trPc 0 c) s0)
@@ -180,7 +180,7 @@ set_option maxHeartbeats 1000000
 set_option linter.unusedSimpArgs false
 theorem nctx_block (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (v : Digest) (p i : Nat) :
     (nctxOf w index v p).blk i - 0x800 = ClaudeWCT.W9.T3M.chainBlock 0 i := by
-  change 12584 - 1664 + 64 * (53 - i) - 2048 = 8104 + 64 * 12 + 64 * (54 - 1 - i)
+  change 12616 - 1664 + 64 * (53 - i) - 2048 = 8136 + 64 * 12 + 64 * (54 - 1 - i)
   omega
 def srcChain (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (v : Digest) (i : Nat) : T3.M Digest :=
   chainP 0 (route index 0).2 (route index 0).1 i ((dataDigits 0 v).getD i 0)
@@ -240,7 +240,7 @@ theorem nctx_group0 (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (v : Digest) (p 
   omega
 theorem nctx_encoded (u s : MachineState) (v : Digest) (p : Nat) (he : TopEntry u v p s) : NCtx.Encoded v s := by
   exact ⟨he.lo,he.hi,he.tail,he.mask,he.table⟩
-theorem top_chain_frame (c : NCtx) (hc : c.S3 = 12584) {s t : MachineState}
+theorem top_chain_frame (c : NCtx) (hc : c.S3 = 12616) {s t : MachineState}
     (hf : Frame s t (c.Wr 54)) : Frame s t topChainWrites := by
   apply hf.mono
   intro A _ hA
@@ -373,7 +373,7 @@ theorem mkEnd_top (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (u :
     · rw [ht.dstReg]
       congr 1
       exact (mkDst_chunk _).symm
-  · change DigAt t (10152 + 48 * (mkSh 0 1 (route index 0).1 / 32 % 2)) root
+  · change DigAt t (10184 + 48 * (mkSh 0 1 (route index 0).1 / 32 % 2)) root
     rw [mkDst_chunk]
     exact ht.root
 theorem mkStop_next (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^ 31)
