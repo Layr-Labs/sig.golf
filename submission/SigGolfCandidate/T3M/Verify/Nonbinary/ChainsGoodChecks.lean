@@ -1,226 +1,790 @@
 import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsSem
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsCheckParts
+
+set_option Elab.async false
+section
 
 section
-
-section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem tripleCheck_0 : tripleCheck 0=true := by decide +kernel
+private theorem tripleEnt_0_part_0 : (List.range' 0 8).all (fun k => entCheck 0 k && s8Check 0 k) = true := by decide +kernel
+private theorem tripleEnt_0_part_8 : (List.range' 8 8).all (fun k => entCheck 0 k && s8Check 0 k) = true := by decide +kernel
+private theorem tripleEnt_0_part_16 : (List.range' 16 8).all (fun k => entCheck 0 k && s8Check 0 k) = true := by decide +kernel
+private theorem tripleEnt_0_part_24 : (List.range' 24 8).all (fun k => entCheck 0 k && s8Check 0 k) = true := by decide +kernel
+private theorem tripleEnt_0_part_32 : (List.range' 32 8).all (fun k => entCheck 0 k && s8Check 0 k) = true := by decide +kernel
+private theorem tripleEnt_0_part_40 : (List.range' 40 8).all (fun k => entCheck 0 k && s8Check 0 k) = true := by decide +kernel
+private theorem tripleEnt_0_part_48 : (List.range' 48 8).all (fun k => entCheck 0 k && s8Check 0 k) = true := by decide +kernel
+private theorem tripleEnt_0_part_56 : (List.range' 56 8).all (fun k => entCheck 0 k && s8Check 0 k) = true := by decide +kernel
+private theorem tripleEnt_0_part_64 : (List.range' 64 8).all (fun k => entCheck 0 k && s8Check 0 k) = true := by decide +kernel
+private theorem tripleEnt_0_part_72 : (List.range' 72 8).all (fun k => entCheck 0 k && s8Check 0 k) = true := by decide +kernel
+private theorem tripleEnt_0_part_80 : (List.range' 80 8).all (fun k => entCheck 0 k && s8Check 0 k) = true := by decide +kernel
+private theorem tripleEnt_0_part_88 : (List.range' 88 8).all (fun k => entCheck 0 k && s8Check 0 k) = true := by decide +kernel
+private theorem tripleEnt_0_part_96 : (List.range' 96 8).all (fun k => entCheck 0 k && s8Check 0 k) = true := by decide +kernel
+private theorem tripleEnt_0_part_104 : (List.range' 104 8).all (fun k => entCheck 0 k && s8Check 0 k) = true := by decide +kernel
+private theorem tripleEnt_0_part_112 : (List.range' 112 8).all (fun k => entCheck 0 k && s8Check 0 k) = true := by decide +kernel
+private theorem tripleEnt_0_part_120 : (List.range' 120 5).all (fun k => entCheck 0 k && s8Check 0 k) = true := by decide +kernel
+private theorem tripleEnt_0 : (List.range' 0 125).all (fun k => entCheck 0 k && s8Check 0 k) = true := by
+  exact (@check_range_add (fun k => entCheck 0 k && s8Check 0 k) 0 8 117 tripleEnt_0_part_0 (@check_range_add (fun k => entCheck 0 k && s8Check 0 k) 8 8 109 tripleEnt_0_part_8 (@check_range_add (fun k => entCheck 0 k && s8Check 0 k) 16 8 101 tripleEnt_0_part_16 (@check_range_add (fun k => entCheck 0 k && s8Check 0 k) 24 8 93 tripleEnt_0_part_24 (@check_range_add (fun k => entCheck 0 k && s8Check 0 k) 32 8 85 tripleEnt_0_part_32 (@check_range_add (fun k => entCheck 0 k && s8Check 0 k) 40 8 77 tripleEnt_0_part_40 (@check_range_add (fun k => entCheck 0 k && s8Check 0 k) 48 8 69 tripleEnt_0_part_48 (@check_range_add (fun k => entCheck 0 k && s8Check 0 k) 56 8 61 tripleEnt_0_part_56 (@check_range_add (fun k => entCheck 0 k && s8Check 0 k) 64 8 53 tripleEnt_0_part_64 (@check_range_add (fun k => entCheck 0 k && s8Check 0 k) 72 8 45 tripleEnt_0_part_72 (@check_range_add (fun k => entCheck 0 k && s8Check 0 k) 80 8 37 tripleEnt_0_part_80 (@check_range_add (fun k => entCheck 0 k && s8Check 0 k) 88 8 29 tripleEnt_0_part_88 (@check_range_add (fun k => entCheck 0 k && s8Check 0 k) 96 8 21 tripleEnt_0_part_96 (@check_range_add (fun k => entCheck 0 k && s8Check 0 k) 104 8 13 tripleEnt_0_part_104 (@check_range_add (fun k => entCheck 0 k && s8Check 0 k) 112 8 5 tripleEnt_0_part_112 tripleEnt_0_part_120)))))))))))))))
+private theorem tripleBlock_0_part_0 : (List.range' 0 4).all (fun x => blockCheck 0 (x / (mx 0 + 1)) (x % (mx 0 + 1))) = true := by decide +kernel
+private theorem tripleBlock_0_part_4 : (List.range' 4 4).all (fun x => blockCheck 0 (x / (mx 0 + 1)) (x % (mx 0 + 1))) = true := by decide +kernel
+private theorem tripleBlock_0_part_8 : (List.range' 8 4).all (fun x => blockCheck 0 (x / (mx 0 + 1)) (x % (mx 0 + 1))) = true := by decide +kernel
+private theorem tripleBlock_0_part_12 : (List.range' 12 4).all (fun x => blockCheck 0 (x / (mx 0 + 1)) (x % (mx 0 + 1))) = true := by decide +kernel
+private theorem tripleBlock_0_part_16 : (List.range' 16 4).all (fun x => blockCheck 0 (x / (mx 0 + 1)) (x % (mx 0 + 1))) = true := by decide +kernel
+private theorem tripleBlock_0_part_20 : (List.range' 20 4).all (fun x => blockCheck 0 (x / (mx 0 + 1)) (x % (mx 0 + 1))) = true := by decide +kernel
+private theorem tripleBlock_0_part_24 : (List.range' 24 1).all (fun x => blockCheck 0 (x / (mx 0 + 1)) (x % (mx 0 + 1))) = true := by decide +kernel
+private theorem tripleBlock_0 : (List.range' 0 25).all (fun x => blockCheck 0 (x / (mx 0 + 1)) (x % (mx 0 + 1))) = true := by
+  exact (@check_range_add (fun x => blockCheck 0 (x / (mx 0 + 1)) (x % (mx 0 + 1))) 0 4 21 tripleBlock_0_part_0 (@check_range_add (fun x => blockCheck 0 (x / (mx 0 + 1)) (x % (mx 0 + 1))) 4 4 17 tripleBlock_0_part_4 (@check_range_add (fun x => blockCheck 0 (x / (mx 0 + 1)) (x % (mx 0 + 1))) 8 4 13 tripleBlock_0_part_8 (@check_range_add (fun x => blockCheck 0 (x / (mx 0 + 1)) (x % (mx 0 + 1))) 12 4 9 tripleBlock_0_part_12 (@check_range_add (fun x => blockCheck 0 (x / (mx 0 + 1)) (x % (mx 0 + 1))) 16 4 5 tripleBlock_0_part_16 (@check_range_add (fun x => blockCheck 0 (x / (mx 0 + 1)) (x % (mx 0 + 1))) 20 4 1 tripleBlock_0_part_20 tripleBlock_0_part_24))))))
+theorem tripleCheck_0 : tripleCheck 0=true := by
+  exact @tripleCheck_join 0 tripleEnt_0 tripleBlock_0
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem tripleCheck_1 : tripleCheck 1=true := by decide +kernel
+private theorem tripleEnt_1_part_0 : (List.range' 0 8).all (fun k => entCheck 1 k && s8Check 1 k) = true := by decide +kernel
+private theorem tripleEnt_1_part_8 : (List.range' 8 8).all (fun k => entCheck 1 k && s8Check 1 k) = true := by decide +kernel
+private theorem tripleEnt_1_part_16 : (List.range' 16 8).all (fun k => entCheck 1 k && s8Check 1 k) = true := by decide +kernel
+private theorem tripleEnt_1_part_24 : (List.range' 24 8).all (fun k => entCheck 1 k && s8Check 1 k) = true := by decide +kernel
+private theorem tripleEnt_1_part_32 : (List.range' 32 8).all (fun k => entCheck 1 k && s8Check 1 k) = true := by decide +kernel
+private theorem tripleEnt_1_part_40 : (List.range' 40 8).all (fun k => entCheck 1 k && s8Check 1 k) = true := by decide +kernel
+private theorem tripleEnt_1_part_48 : (List.range' 48 8).all (fun k => entCheck 1 k && s8Check 1 k) = true := by decide +kernel
+private theorem tripleEnt_1_part_56 : (List.range' 56 8).all (fun k => entCheck 1 k && s8Check 1 k) = true := by decide +kernel
+private theorem tripleEnt_1_part_64 : (List.range' 64 8).all (fun k => entCheck 1 k && s8Check 1 k) = true := by decide +kernel
+private theorem tripleEnt_1_part_72 : (List.range' 72 8).all (fun k => entCheck 1 k && s8Check 1 k) = true := by decide +kernel
+private theorem tripleEnt_1_part_80 : (List.range' 80 8).all (fun k => entCheck 1 k && s8Check 1 k) = true := by decide +kernel
+private theorem tripleEnt_1_part_88 : (List.range' 88 8).all (fun k => entCheck 1 k && s8Check 1 k) = true := by decide +kernel
+private theorem tripleEnt_1_part_96 : (List.range' 96 8).all (fun k => entCheck 1 k && s8Check 1 k) = true := by decide +kernel
+private theorem tripleEnt_1_part_104 : (List.range' 104 8).all (fun k => entCheck 1 k && s8Check 1 k) = true := by decide +kernel
+private theorem tripleEnt_1_part_112 : (List.range' 112 8).all (fun k => entCheck 1 k && s8Check 1 k) = true := by decide +kernel
+private theorem tripleEnt_1_part_120 : (List.range' 120 5).all (fun k => entCheck 1 k && s8Check 1 k) = true := by decide +kernel
+private theorem tripleEnt_1 : (List.range' 0 125).all (fun k => entCheck 1 k && s8Check 1 k) = true := by
+  exact (@check_range_add (fun k => entCheck 1 k && s8Check 1 k) 0 8 117 tripleEnt_1_part_0 (@check_range_add (fun k => entCheck 1 k && s8Check 1 k) 8 8 109 tripleEnt_1_part_8 (@check_range_add (fun k => entCheck 1 k && s8Check 1 k) 16 8 101 tripleEnt_1_part_16 (@check_range_add (fun k => entCheck 1 k && s8Check 1 k) 24 8 93 tripleEnt_1_part_24 (@check_range_add (fun k => entCheck 1 k && s8Check 1 k) 32 8 85 tripleEnt_1_part_32 (@check_range_add (fun k => entCheck 1 k && s8Check 1 k) 40 8 77 tripleEnt_1_part_40 (@check_range_add (fun k => entCheck 1 k && s8Check 1 k) 48 8 69 tripleEnt_1_part_48 (@check_range_add (fun k => entCheck 1 k && s8Check 1 k) 56 8 61 tripleEnt_1_part_56 (@check_range_add (fun k => entCheck 1 k && s8Check 1 k) 64 8 53 tripleEnt_1_part_64 (@check_range_add (fun k => entCheck 1 k && s8Check 1 k) 72 8 45 tripleEnt_1_part_72 (@check_range_add (fun k => entCheck 1 k && s8Check 1 k) 80 8 37 tripleEnt_1_part_80 (@check_range_add (fun k => entCheck 1 k && s8Check 1 k) 88 8 29 tripleEnt_1_part_88 (@check_range_add (fun k => entCheck 1 k && s8Check 1 k) 96 8 21 tripleEnt_1_part_96 (@check_range_add (fun k => entCheck 1 k && s8Check 1 k) 104 8 13 tripleEnt_1_part_104 (@check_range_add (fun k => entCheck 1 k && s8Check 1 k) 112 8 5 tripleEnt_1_part_112 tripleEnt_1_part_120)))))))))))))))
+private theorem tripleBlock_1_part_0 : (List.range' 0 4).all (fun x => blockCheck 1 (x / (mx 1 + 1)) (x % (mx 1 + 1))) = true := by decide +kernel
+private theorem tripleBlock_1_part_4 : (List.range' 4 4).all (fun x => blockCheck 1 (x / (mx 1 + 1)) (x % (mx 1 + 1))) = true := by decide +kernel
+private theorem tripleBlock_1_part_8 : (List.range' 8 4).all (fun x => blockCheck 1 (x / (mx 1 + 1)) (x % (mx 1 + 1))) = true := by decide +kernel
+private theorem tripleBlock_1_part_12 : (List.range' 12 4).all (fun x => blockCheck 1 (x / (mx 1 + 1)) (x % (mx 1 + 1))) = true := by decide +kernel
+private theorem tripleBlock_1_part_16 : (List.range' 16 4).all (fun x => blockCheck 1 (x / (mx 1 + 1)) (x % (mx 1 + 1))) = true := by decide +kernel
+private theorem tripleBlock_1_part_20 : (List.range' 20 4).all (fun x => blockCheck 1 (x / (mx 1 + 1)) (x % (mx 1 + 1))) = true := by decide +kernel
+private theorem tripleBlock_1_part_24 : (List.range' 24 1).all (fun x => blockCheck 1 (x / (mx 1 + 1)) (x % (mx 1 + 1))) = true := by decide +kernel
+private theorem tripleBlock_1 : (List.range' 0 25).all (fun x => blockCheck 1 (x / (mx 1 + 1)) (x % (mx 1 + 1))) = true := by
+  exact (@check_range_add (fun x => blockCheck 1 (x / (mx 1 + 1)) (x % (mx 1 + 1))) 0 4 21 tripleBlock_1_part_0 (@check_range_add (fun x => blockCheck 1 (x / (mx 1 + 1)) (x % (mx 1 + 1))) 4 4 17 tripleBlock_1_part_4 (@check_range_add (fun x => blockCheck 1 (x / (mx 1 + 1)) (x % (mx 1 + 1))) 8 4 13 tripleBlock_1_part_8 (@check_range_add (fun x => blockCheck 1 (x / (mx 1 + 1)) (x % (mx 1 + 1))) 12 4 9 tripleBlock_1_part_12 (@check_range_add (fun x => blockCheck 1 (x / (mx 1 + 1)) (x % (mx 1 + 1))) 16 4 5 tripleBlock_1_part_16 (@check_range_add (fun x => blockCheck 1 (x / (mx 1 + 1)) (x % (mx 1 + 1))) 20 4 1 tripleBlock_1_part_20 tripleBlock_1_part_24))))))
+theorem tripleCheck_1 : tripleCheck 1=true := by
+  exact @tripleCheck_join 1 tripleEnt_1 tripleBlock_1
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem tripleCheck_2 : tripleCheck 2=true := by decide +kernel
+private theorem tripleEnt_2_part_0 : (List.range' 0 8).all (fun k => entCheck 2 k && s8Check 2 k) = true := by decide +kernel
+private theorem tripleEnt_2_part_8 : (List.range' 8 8).all (fun k => entCheck 2 k && s8Check 2 k) = true := by decide +kernel
+private theorem tripleEnt_2_part_16 : (List.range' 16 8).all (fun k => entCheck 2 k && s8Check 2 k) = true := by decide +kernel
+private theorem tripleEnt_2_part_24 : (List.range' 24 8).all (fun k => entCheck 2 k && s8Check 2 k) = true := by decide +kernel
+private theorem tripleEnt_2_part_32 : (List.range' 32 8).all (fun k => entCheck 2 k && s8Check 2 k) = true := by decide +kernel
+private theorem tripleEnt_2_part_40 : (List.range' 40 8).all (fun k => entCheck 2 k && s8Check 2 k) = true := by decide +kernel
+private theorem tripleEnt_2_part_48 : (List.range' 48 8).all (fun k => entCheck 2 k && s8Check 2 k) = true := by decide +kernel
+private theorem tripleEnt_2_part_56 : (List.range' 56 8).all (fun k => entCheck 2 k && s8Check 2 k) = true := by decide +kernel
+private theorem tripleEnt_2_part_64 : (List.range' 64 8).all (fun k => entCheck 2 k && s8Check 2 k) = true := by decide +kernel
+private theorem tripleEnt_2_part_72 : (List.range' 72 8).all (fun k => entCheck 2 k && s8Check 2 k) = true := by decide +kernel
+private theorem tripleEnt_2_part_80 : (List.range' 80 8).all (fun k => entCheck 2 k && s8Check 2 k) = true := by decide +kernel
+private theorem tripleEnt_2_part_88 : (List.range' 88 8).all (fun k => entCheck 2 k && s8Check 2 k) = true := by decide +kernel
+private theorem tripleEnt_2_part_96 : (List.range' 96 8).all (fun k => entCheck 2 k && s8Check 2 k) = true := by decide +kernel
+private theorem tripleEnt_2_part_104 : (List.range' 104 8).all (fun k => entCheck 2 k && s8Check 2 k) = true := by decide +kernel
+private theorem tripleEnt_2_part_112 : (List.range' 112 8).all (fun k => entCheck 2 k && s8Check 2 k) = true := by decide +kernel
+private theorem tripleEnt_2_part_120 : (List.range' 120 5).all (fun k => entCheck 2 k && s8Check 2 k) = true := by decide +kernel
+private theorem tripleEnt_2 : (List.range' 0 125).all (fun k => entCheck 2 k && s8Check 2 k) = true := by
+  exact (@check_range_add (fun k => entCheck 2 k && s8Check 2 k) 0 8 117 tripleEnt_2_part_0 (@check_range_add (fun k => entCheck 2 k && s8Check 2 k) 8 8 109 tripleEnt_2_part_8 (@check_range_add (fun k => entCheck 2 k && s8Check 2 k) 16 8 101 tripleEnt_2_part_16 (@check_range_add (fun k => entCheck 2 k && s8Check 2 k) 24 8 93 tripleEnt_2_part_24 (@check_range_add (fun k => entCheck 2 k && s8Check 2 k) 32 8 85 tripleEnt_2_part_32 (@check_range_add (fun k => entCheck 2 k && s8Check 2 k) 40 8 77 tripleEnt_2_part_40 (@check_range_add (fun k => entCheck 2 k && s8Check 2 k) 48 8 69 tripleEnt_2_part_48 (@check_range_add (fun k => entCheck 2 k && s8Check 2 k) 56 8 61 tripleEnt_2_part_56 (@check_range_add (fun k => entCheck 2 k && s8Check 2 k) 64 8 53 tripleEnt_2_part_64 (@check_range_add (fun k => entCheck 2 k && s8Check 2 k) 72 8 45 tripleEnt_2_part_72 (@check_range_add (fun k => entCheck 2 k && s8Check 2 k) 80 8 37 tripleEnt_2_part_80 (@check_range_add (fun k => entCheck 2 k && s8Check 2 k) 88 8 29 tripleEnt_2_part_88 (@check_range_add (fun k => entCheck 2 k && s8Check 2 k) 96 8 21 tripleEnt_2_part_96 (@check_range_add (fun k => entCheck 2 k && s8Check 2 k) 104 8 13 tripleEnt_2_part_104 (@check_range_add (fun k => entCheck 2 k && s8Check 2 k) 112 8 5 tripleEnt_2_part_112 tripleEnt_2_part_120)))))))))))))))
+private theorem tripleBlock_2_part_0 : (List.range' 0 4).all (fun x => blockCheck 2 (x / (mx 2 + 1)) (x % (mx 2 + 1))) = true := by decide +kernel
+private theorem tripleBlock_2_part_4 : (List.range' 4 4).all (fun x => blockCheck 2 (x / (mx 2 + 1)) (x % (mx 2 + 1))) = true := by decide +kernel
+private theorem tripleBlock_2_part_8 : (List.range' 8 4).all (fun x => blockCheck 2 (x / (mx 2 + 1)) (x % (mx 2 + 1))) = true := by decide +kernel
+private theorem tripleBlock_2_part_12 : (List.range' 12 4).all (fun x => blockCheck 2 (x / (mx 2 + 1)) (x % (mx 2 + 1))) = true := by decide +kernel
+private theorem tripleBlock_2_part_16 : (List.range' 16 4).all (fun x => blockCheck 2 (x / (mx 2 + 1)) (x % (mx 2 + 1))) = true := by decide +kernel
+private theorem tripleBlock_2_part_20 : (List.range' 20 4).all (fun x => blockCheck 2 (x / (mx 2 + 1)) (x % (mx 2 + 1))) = true := by decide +kernel
+private theorem tripleBlock_2_part_24 : (List.range' 24 1).all (fun x => blockCheck 2 (x / (mx 2 + 1)) (x % (mx 2 + 1))) = true := by decide +kernel
+private theorem tripleBlock_2 : (List.range' 0 25).all (fun x => blockCheck 2 (x / (mx 2 + 1)) (x % (mx 2 + 1))) = true := by
+  exact (@check_range_add (fun x => blockCheck 2 (x / (mx 2 + 1)) (x % (mx 2 + 1))) 0 4 21 tripleBlock_2_part_0 (@check_range_add (fun x => blockCheck 2 (x / (mx 2 + 1)) (x % (mx 2 + 1))) 4 4 17 tripleBlock_2_part_4 (@check_range_add (fun x => blockCheck 2 (x / (mx 2 + 1)) (x % (mx 2 + 1))) 8 4 13 tripleBlock_2_part_8 (@check_range_add (fun x => blockCheck 2 (x / (mx 2 + 1)) (x % (mx 2 + 1))) 12 4 9 tripleBlock_2_part_12 (@check_range_add (fun x => blockCheck 2 (x / (mx 2 + 1)) (x % (mx 2 + 1))) 16 4 5 tripleBlock_2_part_16 (@check_range_add (fun x => blockCheck 2 (x / (mx 2 + 1)) (x % (mx 2 + 1))) 20 4 1 tripleBlock_2_part_20 tripleBlock_2_part_24))))))
+theorem tripleCheck_2 : tripleCheck 2=true := by
+  exact @tripleCheck_join 2 tripleEnt_2 tripleBlock_2
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem tripleCheck_3 : tripleCheck 3=true := by decide +kernel
+private theorem tripleEnt_3_part_0 : (List.range' 0 8).all (fun k => entCheck 3 k && s8Check 3 k) = true := by decide +kernel
+private theorem tripleEnt_3_part_8 : (List.range' 8 8).all (fun k => entCheck 3 k && s8Check 3 k) = true := by decide +kernel
+private theorem tripleEnt_3_part_16 : (List.range' 16 8).all (fun k => entCheck 3 k && s8Check 3 k) = true := by decide +kernel
+private theorem tripleEnt_3_part_24 : (List.range' 24 8).all (fun k => entCheck 3 k && s8Check 3 k) = true := by decide +kernel
+private theorem tripleEnt_3_part_32 : (List.range' 32 8).all (fun k => entCheck 3 k && s8Check 3 k) = true := by decide +kernel
+private theorem tripleEnt_3_part_40 : (List.range' 40 8).all (fun k => entCheck 3 k && s8Check 3 k) = true := by decide +kernel
+private theorem tripleEnt_3_part_48 : (List.range' 48 8).all (fun k => entCheck 3 k && s8Check 3 k) = true := by decide +kernel
+private theorem tripleEnt_3_part_56 : (List.range' 56 8).all (fun k => entCheck 3 k && s8Check 3 k) = true := by decide +kernel
+private theorem tripleEnt_3_part_64 : (List.range' 64 8).all (fun k => entCheck 3 k && s8Check 3 k) = true := by decide +kernel
+private theorem tripleEnt_3_part_72 : (List.range' 72 8).all (fun k => entCheck 3 k && s8Check 3 k) = true := by decide +kernel
+private theorem tripleEnt_3_part_80 : (List.range' 80 8).all (fun k => entCheck 3 k && s8Check 3 k) = true := by decide +kernel
+private theorem tripleEnt_3_part_88 : (List.range' 88 8).all (fun k => entCheck 3 k && s8Check 3 k) = true := by decide +kernel
+private theorem tripleEnt_3_part_96 : (List.range' 96 8).all (fun k => entCheck 3 k && s8Check 3 k) = true := by decide +kernel
+private theorem tripleEnt_3_part_104 : (List.range' 104 8).all (fun k => entCheck 3 k && s8Check 3 k) = true := by decide +kernel
+private theorem tripleEnt_3_part_112 : (List.range' 112 8).all (fun k => entCheck 3 k && s8Check 3 k) = true := by decide +kernel
+private theorem tripleEnt_3_part_120 : (List.range' 120 5).all (fun k => entCheck 3 k && s8Check 3 k) = true := by decide +kernel
+private theorem tripleEnt_3 : (List.range' 0 125).all (fun k => entCheck 3 k && s8Check 3 k) = true := by
+  exact (@check_range_add (fun k => entCheck 3 k && s8Check 3 k) 0 8 117 tripleEnt_3_part_0 (@check_range_add (fun k => entCheck 3 k && s8Check 3 k) 8 8 109 tripleEnt_3_part_8 (@check_range_add (fun k => entCheck 3 k && s8Check 3 k) 16 8 101 tripleEnt_3_part_16 (@check_range_add (fun k => entCheck 3 k && s8Check 3 k) 24 8 93 tripleEnt_3_part_24 (@check_range_add (fun k => entCheck 3 k && s8Check 3 k) 32 8 85 tripleEnt_3_part_32 (@check_range_add (fun k => entCheck 3 k && s8Check 3 k) 40 8 77 tripleEnt_3_part_40 (@check_range_add (fun k => entCheck 3 k && s8Check 3 k) 48 8 69 tripleEnt_3_part_48 (@check_range_add (fun k => entCheck 3 k && s8Check 3 k) 56 8 61 tripleEnt_3_part_56 (@check_range_add (fun k => entCheck 3 k && s8Check 3 k) 64 8 53 tripleEnt_3_part_64 (@check_range_add (fun k => entCheck 3 k && s8Check 3 k) 72 8 45 tripleEnt_3_part_72 (@check_range_add (fun k => entCheck 3 k && s8Check 3 k) 80 8 37 tripleEnt_3_part_80 (@check_range_add (fun k => entCheck 3 k && s8Check 3 k) 88 8 29 tripleEnt_3_part_88 (@check_range_add (fun k => entCheck 3 k && s8Check 3 k) 96 8 21 tripleEnt_3_part_96 (@check_range_add (fun k => entCheck 3 k && s8Check 3 k) 104 8 13 tripleEnt_3_part_104 (@check_range_add (fun k => entCheck 3 k && s8Check 3 k) 112 8 5 tripleEnt_3_part_112 tripleEnt_3_part_120)))))))))))))))
+private theorem tripleBlock_3_part_0 : (List.range' 0 4).all (fun x => blockCheck 3 (x / (mx 3 + 1)) (x % (mx 3 + 1))) = true := by decide +kernel
+private theorem tripleBlock_3_part_4 : (List.range' 4 4).all (fun x => blockCheck 3 (x / (mx 3 + 1)) (x % (mx 3 + 1))) = true := by decide +kernel
+private theorem tripleBlock_3_part_8 : (List.range' 8 4).all (fun x => blockCheck 3 (x / (mx 3 + 1)) (x % (mx 3 + 1))) = true := by decide +kernel
+private theorem tripleBlock_3_part_12 : (List.range' 12 4).all (fun x => blockCheck 3 (x / (mx 3 + 1)) (x % (mx 3 + 1))) = true := by decide +kernel
+private theorem tripleBlock_3_part_16 : (List.range' 16 4).all (fun x => blockCheck 3 (x / (mx 3 + 1)) (x % (mx 3 + 1))) = true := by decide +kernel
+private theorem tripleBlock_3_part_20 : (List.range' 20 4).all (fun x => blockCheck 3 (x / (mx 3 + 1)) (x % (mx 3 + 1))) = true := by decide +kernel
+private theorem tripleBlock_3_part_24 : (List.range' 24 1).all (fun x => blockCheck 3 (x / (mx 3 + 1)) (x % (mx 3 + 1))) = true := by decide +kernel
+private theorem tripleBlock_3 : (List.range' 0 25).all (fun x => blockCheck 3 (x / (mx 3 + 1)) (x % (mx 3 + 1))) = true := by
+  exact (@check_range_add (fun x => blockCheck 3 (x / (mx 3 + 1)) (x % (mx 3 + 1))) 0 4 21 tripleBlock_3_part_0 (@check_range_add (fun x => blockCheck 3 (x / (mx 3 + 1)) (x % (mx 3 + 1))) 4 4 17 tripleBlock_3_part_4 (@check_range_add (fun x => blockCheck 3 (x / (mx 3 + 1)) (x % (mx 3 + 1))) 8 4 13 tripleBlock_3_part_8 (@check_range_add (fun x => blockCheck 3 (x / (mx 3 + 1)) (x % (mx 3 + 1))) 12 4 9 tripleBlock_3_part_12 (@check_range_add (fun x => blockCheck 3 (x / (mx 3 + 1)) (x % (mx 3 + 1))) 16 4 5 tripleBlock_3_part_16 (@check_range_add (fun x => blockCheck 3 (x / (mx 3 + 1)) (x % (mx 3 + 1))) 20 4 1 tripleBlock_3_part_20 tripleBlock_3_part_24))))))
+theorem tripleCheck_3 : tripleCheck 3=true := by
+  exact @tripleCheck_join 3 tripleEnt_3 tripleBlock_3
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem tripleCheck_4 : tripleCheck 4=true := by decide +kernel
+private theorem tripleEnt_4_part_0 : (List.range' 0 8).all (fun k => entCheck 4 k && s8Check 4 k) = true := by decide +kernel
+private theorem tripleEnt_4_part_8 : (List.range' 8 8).all (fun k => entCheck 4 k && s8Check 4 k) = true := by decide +kernel
+private theorem tripleEnt_4_part_16 : (List.range' 16 8).all (fun k => entCheck 4 k && s8Check 4 k) = true := by decide +kernel
+private theorem tripleEnt_4_part_24 : (List.range' 24 8).all (fun k => entCheck 4 k && s8Check 4 k) = true := by decide +kernel
+private theorem tripleEnt_4_part_32 : (List.range' 32 8).all (fun k => entCheck 4 k && s8Check 4 k) = true := by decide +kernel
+private theorem tripleEnt_4_part_40 : (List.range' 40 8).all (fun k => entCheck 4 k && s8Check 4 k) = true := by decide +kernel
+private theorem tripleEnt_4_part_48 : (List.range' 48 8).all (fun k => entCheck 4 k && s8Check 4 k) = true := by decide +kernel
+private theorem tripleEnt_4_part_56 : (List.range' 56 8).all (fun k => entCheck 4 k && s8Check 4 k) = true := by decide +kernel
+private theorem tripleEnt_4_part_64 : (List.range' 64 8).all (fun k => entCheck 4 k && s8Check 4 k) = true := by decide +kernel
+private theorem tripleEnt_4_part_72 : (List.range' 72 8).all (fun k => entCheck 4 k && s8Check 4 k) = true := by decide +kernel
+private theorem tripleEnt_4_part_80 : (List.range' 80 8).all (fun k => entCheck 4 k && s8Check 4 k) = true := by decide +kernel
+private theorem tripleEnt_4_part_88 : (List.range' 88 8).all (fun k => entCheck 4 k && s8Check 4 k) = true := by decide +kernel
+private theorem tripleEnt_4_part_96 : (List.range' 96 8).all (fun k => entCheck 4 k && s8Check 4 k) = true := by decide +kernel
+private theorem tripleEnt_4_part_104 : (List.range' 104 8).all (fun k => entCheck 4 k && s8Check 4 k) = true := by decide +kernel
+private theorem tripleEnt_4_part_112 : (List.range' 112 8).all (fun k => entCheck 4 k && s8Check 4 k) = true := by decide +kernel
+private theorem tripleEnt_4_part_120 : (List.range' 120 5).all (fun k => entCheck 4 k && s8Check 4 k) = true := by decide +kernel
+private theorem tripleEnt_4 : (List.range' 0 125).all (fun k => entCheck 4 k && s8Check 4 k) = true := by
+  exact (@check_range_add (fun k => entCheck 4 k && s8Check 4 k) 0 8 117 tripleEnt_4_part_0 (@check_range_add (fun k => entCheck 4 k && s8Check 4 k) 8 8 109 tripleEnt_4_part_8 (@check_range_add (fun k => entCheck 4 k && s8Check 4 k) 16 8 101 tripleEnt_4_part_16 (@check_range_add (fun k => entCheck 4 k && s8Check 4 k) 24 8 93 tripleEnt_4_part_24 (@check_range_add (fun k => entCheck 4 k && s8Check 4 k) 32 8 85 tripleEnt_4_part_32 (@check_range_add (fun k => entCheck 4 k && s8Check 4 k) 40 8 77 tripleEnt_4_part_40 (@check_range_add (fun k => entCheck 4 k && s8Check 4 k) 48 8 69 tripleEnt_4_part_48 (@check_range_add (fun k => entCheck 4 k && s8Check 4 k) 56 8 61 tripleEnt_4_part_56 (@check_range_add (fun k => entCheck 4 k && s8Check 4 k) 64 8 53 tripleEnt_4_part_64 (@check_range_add (fun k => entCheck 4 k && s8Check 4 k) 72 8 45 tripleEnt_4_part_72 (@check_range_add (fun k => entCheck 4 k && s8Check 4 k) 80 8 37 tripleEnt_4_part_80 (@check_range_add (fun k => entCheck 4 k && s8Check 4 k) 88 8 29 tripleEnt_4_part_88 (@check_range_add (fun k => entCheck 4 k && s8Check 4 k) 96 8 21 tripleEnt_4_part_96 (@check_range_add (fun k => entCheck 4 k && s8Check 4 k) 104 8 13 tripleEnt_4_part_104 (@check_range_add (fun k => entCheck 4 k && s8Check 4 k) 112 8 5 tripleEnt_4_part_112 tripleEnt_4_part_120)))))))))))))))
+private theorem tripleBlock_4_part_0 : (List.range' 0 4).all (fun x => blockCheck 4 (x / (mx 4 + 1)) (x % (mx 4 + 1))) = true := by decide +kernel
+private theorem tripleBlock_4_part_4 : (List.range' 4 4).all (fun x => blockCheck 4 (x / (mx 4 + 1)) (x % (mx 4 + 1))) = true := by decide +kernel
+private theorem tripleBlock_4_part_8 : (List.range' 8 4).all (fun x => blockCheck 4 (x / (mx 4 + 1)) (x % (mx 4 + 1))) = true := by decide +kernel
+private theorem tripleBlock_4_part_12 : (List.range' 12 4).all (fun x => blockCheck 4 (x / (mx 4 + 1)) (x % (mx 4 + 1))) = true := by decide +kernel
+private theorem tripleBlock_4_part_16 : (List.range' 16 4).all (fun x => blockCheck 4 (x / (mx 4 + 1)) (x % (mx 4 + 1))) = true := by decide +kernel
+private theorem tripleBlock_4_part_20 : (List.range' 20 4).all (fun x => blockCheck 4 (x / (mx 4 + 1)) (x % (mx 4 + 1))) = true := by decide +kernel
+private theorem tripleBlock_4_part_24 : (List.range' 24 1).all (fun x => blockCheck 4 (x / (mx 4 + 1)) (x % (mx 4 + 1))) = true := by decide +kernel
+private theorem tripleBlock_4 : (List.range' 0 25).all (fun x => blockCheck 4 (x / (mx 4 + 1)) (x % (mx 4 + 1))) = true := by
+  exact (@check_range_add (fun x => blockCheck 4 (x / (mx 4 + 1)) (x % (mx 4 + 1))) 0 4 21 tripleBlock_4_part_0 (@check_range_add (fun x => blockCheck 4 (x / (mx 4 + 1)) (x % (mx 4 + 1))) 4 4 17 tripleBlock_4_part_4 (@check_range_add (fun x => blockCheck 4 (x / (mx 4 + 1)) (x % (mx 4 + 1))) 8 4 13 tripleBlock_4_part_8 (@check_range_add (fun x => blockCheck 4 (x / (mx 4 + 1)) (x % (mx 4 + 1))) 12 4 9 tripleBlock_4_part_12 (@check_range_add (fun x => blockCheck 4 (x / (mx 4 + 1)) (x % (mx 4 + 1))) 16 4 5 tripleBlock_4_part_16 (@check_range_add (fun x => blockCheck 4 (x / (mx 4 + 1)) (x % (mx 4 + 1))) 20 4 1 tripleBlock_4_part_20 tripleBlock_4_part_24))))))
+theorem tripleCheck_4 : tripleCheck 4=true := by
+  exact @tripleCheck_join 4 tripleEnt_4 tripleBlock_4
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem tripleCheck_5 : tripleCheck 5=true := by decide +kernel
+private theorem tripleEnt_5_part_0 : (List.range' 0 8).all (fun k => entCheck 5 k && s8Check 5 k) = true := by decide +kernel
+private theorem tripleEnt_5_part_8 : (List.range' 8 8).all (fun k => entCheck 5 k && s8Check 5 k) = true := by decide +kernel
+private theorem tripleEnt_5_part_16 : (List.range' 16 8).all (fun k => entCheck 5 k && s8Check 5 k) = true := by decide +kernel
+private theorem tripleEnt_5_part_24 : (List.range' 24 8).all (fun k => entCheck 5 k && s8Check 5 k) = true := by decide +kernel
+private theorem tripleEnt_5_part_32 : (List.range' 32 8).all (fun k => entCheck 5 k && s8Check 5 k) = true := by decide +kernel
+private theorem tripleEnt_5_part_40 : (List.range' 40 8).all (fun k => entCheck 5 k && s8Check 5 k) = true := by decide +kernel
+private theorem tripleEnt_5_part_48 : (List.range' 48 8).all (fun k => entCheck 5 k && s8Check 5 k) = true := by decide +kernel
+private theorem tripleEnt_5_part_56 : (List.range' 56 8).all (fun k => entCheck 5 k && s8Check 5 k) = true := by decide +kernel
+private theorem tripleEnt_5_part_64 : (List.range' 64 8).all (fun k => entCheck 5 k && s8Check 5 k) = true := by decide +kernel
+private theorem tripleEnt_5_part_72 : (List.range' 72 8).all (fun k => entCheck 5 k && s8Check 5 k) = true := by decide +kernel
+private theorem tripleEnt_5_part_80 : (List.range' 80 8).all (fun k => entCheck 5 k && s8Check 5 k) = true := by decide +kernel
+private theorem tripleEnt_5_part_88 : (List.range' 88 8).all (fun k => entCheck 5 k && s8Check 5 k) = true := by decide +kernel
+private theorem tripleEnt_5_part_96 : (List.range' 96 8).all (fun k => entCheck 5 k && s8Check 5 k) = true := by decide +kernel
+private theorem tripleEnt_5_part_104 : (List.range' 104 8).all (fun k => entCheck 5 k && s8Check 5 k) = true := by decide +kernel
+private theorem tripleEnt_5_part_112 : (List.range' 112 8).all (fun k => entCheck 5 k && s8Check 5 k) = true := by decide +kernel
+private theorem tripleEnt_5_part_120 : (List.range' 120 5).all (fun k => entCheck 5 k && s8Check 5 k) = true := by decide +kernel
+private theorem tripleEnt_5 : (List.range' 0 125).all (fun k => entCheck 5 k && s8Check 5 k) = true := by
+  exact (@check_range_add (fun k => entCheck 5 k && s8Check 5 k) 0 8 117 tripleEnt_5_part_0 (@check_range_add (fun k => entCheck 5 k && s8Check 5 k) 8 8 109 tripleEnt_5_part_8 (@check_range_add (fun k => entCheck 5 k && s8Check 5 k) 16 8 101 tripleEnt_5_part_16 (@check_range_add (fun k => entCheck 5 k && s8Check 5 k) 24 8 93 tripleEnt_5_part_24 (@check_range_add (fun k => entCheck 5 k && s8Check 5 k) 32 8 85 tripleEnt_5_part_32 (@check_range_add (fun k => entCheck 5 k && s8Check 5 k) 40 8 77 tripleEnt_5_part_40 (@check_range_add (fun k => entCheck 5 k && s8Check 5 k) 48 8 69 tripleEnt_5_part_48 (@check_range_add (fun k => entCheck 5 k && s8Check 5 k) 56 8 61 tripleEnt_5_part_56 (@check_range_add (fun k => entCheck 5 k && s8Check 5 k) 64 8 53 tripleEnt_5_part_64 (@check_range_add (fun k => entCheck 5 k && s8Check 5 k) 72 8 45 tripleEnt_5_part_72 (@check_range_add (fun k => entCheck 5 k && s8Check 5 k) 80 8 37 tripleEnt_5_part_80 (@check_range_add (fun k => entCheck 5 k && s8Check 5 k) 88 8 29 tripleEnt_5_part_88 (@check_range_add (fun k => entCheck 5 k && s8Check 5 k) 96 8 21 tripleEnt_5_part_96 (@check_range_add (fun k => entCheck 5 k && s8Check 5 k) 104 8 13 tripleEnt_5_part_104 (@check_range_add (fun k => entCheck 5 k && s8Check 5 k) 112 8 5 tripleEnt_5_part_112 tripleEnt_5_part_120)))))))))))))))
+private theorem tripleBlock_5_part_0 : (List.range' 0 4).all (fun x => blockCheck 5 (x / (mx 5 + 1)) (x % (mx 5 + 1))) = true := by decide +kernel
+private theorem tripleBlock_5_part_4 : (List.range' 4 4).all (fun x => blockCheck 5 (x / (mx 5 + 1)) (x % (mx 5 + 1))) = true := by decide +kernel
+private theorem tripleBlock_5_part_8 : (List.range' 8 4).all (fun x => blockCheck 5 (x / (mx 5 + 1)) (x % (mx 5 + 1))) = true := by decide +kernel
+private theorem tripleBlock_5_part_12 : (List.range' 12 4).all (fun x => blockCheck 5 (x / (mx 5 + 1)) (x % (mx 5 + 1))) = true := by decide +kernel
+private theorem tripleBlock_5_part_16 : (List.range' 16 4).all (fun x => blockCheck 5 (x / (mx 5 + 1)) (x % (mx 5 + 1))) = true := by decide +kernel
+private theorem tripleBlock_5_part_20 : (List.range' 20 4).all (fun x => blockCheck 5 (x / (mx 5 + 1)) (x % (mx 5 + 1))) = true := by decide +kernel
+private theorem tripleBlock_5_part_24 : (List.range' 24 1).all (fun x => blockCheck 5 (x / (mx 5 + 1)) (x % (mx 5 + 1))) = true := by decide +kernel
+private theorem tripleBlock_5 : (List.range' 0 25).all (fun x => blockCheck 5 (x / (mx 5 + 1)) (x % (mx 5 + 1))) = true := by
+  exact (@check_range_add (fun x => blockCheck 5 (x / (mx 5 + 1)) (x % (mx 5 + 1))) 0 4 21 tripleBlock_5_part_0 (@check_range_add (fun x => blockCheck 5 (x / (mx 5 + 1)) (x % (mx 5 + 1))) 4 4 17 tripleBlock_5_part_4 (@check_range_add (fun x => blockCheck 5 (x / (mx 5 + 1)) (x % (mx 5 + 1))) 8 4 13 tripleBlock_5_part_8 (@check_range_add (fun x => blockCheck 5 (x / (mx 5 + 1)) (x % (mx 5 + 1))) 12 4 9 tripleBlock_5_part_12 (@check_range_add (fun x => blockCheck 5 (x / (mx 5 + 1)) (x % (mx 5 + 1))) 16 4 5 tripleBlock_5_part_16 (@check_range_add (fun x => blockCheck 5 (x / (mx 5 + 1)) (x % (mx 5 + 1))) 20 4 1 tripleBlock_5_part_20 tripleBlock_5_part_24))))))
+theorem tripleCheck_5 : tripleCheck 5=true := by
+  exact @tripleCheck_join 5 tripleEnt_5 tripleBlock_5
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem tripleCheck_6 : tripleCheck 6=true := by decide +kernel
+private theorem tripleEnt_6_part_0 : (List.range' 0 8).all (fun k => entCheck 6 k && s8Check 6 k) = true := by decide +kernel
+private theorem tripleEnt_6_part_8 : (List.range' 8 8).all (fun k => entCheck 6 k && s8Check 6 k) = true := by decide +kernel
+private theorem tripleEnt_6_part_16 : (List.range' 16 8).all (fun k => entCheck 6 k && s8Check 6 k) = true := by decide +kernel
+private theorem tripleEnt_6_part_24 : (List.range' 24 8).all (fun k => entCheck 6 k && s8Check 6 k) = true := by decide +kernel
+private theorem tripleEnt_6_part_32 : (List.range' 32 8).all (fun k => entCheck 6 k && s8Check 6 k) = true := by decide +kernel
+private theorem tripleEnt_6_part_40 : (List.range' 40 8).all (fun k => entCheck 6 k && s8Check 6 k) = true := by decide +kernel
+private theorem tripleEnt_6_part_48 : (List.range' 48 8).all (fun k => entCheck 6 k && s8Check 6 k) = true := by decide +kernel
+private theorem tripleEnt_6_part_56 : (List.range' 56 8).all (fun k => entCheck 6 k && s8Check 6 k) = true := by decide +kernel
+private theorem tripleEnt_6_part_64 : (List.range' 64 8).all (fun k => entCheck 6 k && s8Check 6 k) = true := by decide +kernel
+private theorem tripleEnt_6_part_72 : (List.range' 72 8).all (fun k => entCheck 6 k && s8Check 6 k) = true := by decide +kernel
+private theorem tripleEnt_6_part_80 : (List.range' 80 8).all (fun k => entCheck 6 k && s8Check 6 k) = true := by decide +kernel
+private theorem tripleEnt_6_part_88 : (List.range' 88 8).all (fun k => entCheck 6 k && s8Check 6 k) = true := by decide +kernel
+private theorem tripleEnt_6_part_96 : (List.range' 96 8).all (fun k => entCheck 6 k && s8Check 6 k) = true := by decide +kernel
+private theorem tripleEnt_6_part_104 : (List.range' 104 8).all (fun k => entCheck 6 k && s8Check 6 k) = true := by decide +kernel
+private theorem tripleEnt_6_part_112 : (List.range' 112 8).all (fun k => entCheck 6 k && s8Check 6 k) = true := by decide +kernel
+private theorem tripleEnt_6_part_120 : (List.range' 120 5).all (fun k => entCheck 6 k && s8Check 6 k) = true := by decide +kernel
+private theorem tripleEnt_6 : (List.range' 0 125).all (fun k => entCheck 6 k && s8Check 6 k) = true := by
+  exact (@check_range_add (fun k => entCheck 6 k && s8Check 6 k) 0 8 117 tripleEnt_6_part_0 (@check_range_add (fun k => entCheck 6 k && s8Check 6 k) 8 8 109 tripleEnt_6_part_8 (@check_range_add (fun k => entCheck 6 k && s8Check 6 k) 16 8 101 tripleEnt_6_part_16 (@check_range_add (fun k => entCheck 6 k && s8Check 6 k) 24 8 93 tripleEnt_6_part_24 (@check_range_add (fun k => entCheck 6 k && s8Check 6 k) 32 8 85 tripleEnt_6_part_32 (@check_range_add (fun k => entCheck 6 k && s8Check 6 k) 40 8 77 tripleEnt_6_part_40 (@check_range_add (fun k => entCheck 6 k && s8Check 6 k) 48 8 69 tripleEnt_6_part_48 (@check_range_add (fun k => entCheck 6 k && s8Check 6 k) 56 8 61 tripleEnt_6_part_56 (@check_range_add (fun k => entCheck 6 k && s8Check 6 k) 64 8 53 tripleEnt_6_part_64 (@check_range_add (fun k => entCheck 6 k && s8Check 6 k) 72 8 45 tripleEnt_6_part_72 (@check_range_add (fun k => entCheck 6 k && s8Check 6 k) 80 8 37 tripleEnt_6_part_80 (@check_range_add (fun k => entCheck 6 k && s8Check 6 k) 88 8 29 tripleEnt_6_part_88 (@check_range_add (fun k => entCheck 6 k && s8Check 6 k) 96 8 21 tripleEnt_6_part_96 (@check_range_add (fun k => entCheck 6 k && s8Check 6 k) 104 8 13 tripleEnt_6_part_104 (@check_range_add (fun k => entCheck 6 k && s8Check 6 k) 112 8 5 tripleEnt_6_part_112 tripleEnt_6_part_120)))))))))))))))
+private theorem tripleBlock_6_part_0 : (List.range' 0 4).all (fun x => blockCheck 6 (x / (mx 6 + 1)) (x % (mx 6 + 1))) = true := by decide +kernel
+private theorem tripleBlock_6_part_4 : (List.range' 4 4).all (fun x => blockCheck 6 (x / (mx 6 + 1)) (x % (mx 6 + 1))) = true := by decide +kernel
+private theorem tripleBlock_6_part_8 : (List.range' 8 4).all (fun x => blockCheck 6 (x / (mx 6 + 1)) (x % (mx 6 + 1))) = true := by decide +kernel
+private theorem tripleBlock_6_part_12 : (List.range' 12 4).all (fun x => blockCheck 6 (x / (mx 6 + 1)) (x % (mx 6 + 1))) = true := by decide +kernel
+private theorem tripleBlock_6_part_16 : (List.range' 16 4).all (fun x => blockCheck 6 (x / (mx 6 + 1)) (x % (mx 6 + 1))) = true := by decide +kernel
+private theorem tripleBlock_6_part_20 : (List.range' 20 4).all (fun x => blockCheck 6 (x / (mx 6 + 1)) (x % (mx 6 + 1))) = true := by decide +kernel
+private theorem tripleBlock_6_part_24 : (List.range' 24 1).all (fun x => blockCheck 6 (x / (mx 6 + 1)) (x % (mx 6 + 1))) = true := by decide +kernel
+private theorem tripleBlock_6 : (List.range' 0 25).all (fun x => blockCheck 6 (x / (mx 6 + 1)) (x % (mx 6 + 1))) = true := by
+  exact (@check_range_add (fun x => blockCheck 6 (x / (mx 6 + 1)) (x % (mx 6 + 1))) 0 4 21 tripleBlock_6_part_0 (@check_range_add (fun x => blockCheck 6 (x / (mx 6 + 1)) (x % (mx 6 + 1))) 4 4 17 tripleBlock_6_part_4 (@check_range_add (fun x => blockCheck 6 (x / (mx 6 + 1)) (x % (mx 6 + 1))) 8 4 13 tripleBlock_6_part_8 (@check_range_add (fun x => blockCheck 6 (x / (mx 6 + 1)) (x % (mx 6 + 1))) 12 4 9 tripleBlock_6_part_12 (@check_range_add (fun x => blockCheck 6 (x / (mx 6 + 1)) (x % (mx 6 + 1))) 16 4 5 tripleBlock_6_part_16 (@check_range_add (fun x => blockCheck 6 (x / (mx 6 + 1)) (x % (mx 6 + 1))) 20 4 1 tripleBlock_6_part_20 tripleBlock_6_part_24))))))
+theorem tripleCheck_6 : tripleCheck 6=true := by
+  exact @tripleCheck_join 6 tripleEnt_6 tripleBlock_6
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem tripleCheck_7 : tripleCheck 7=true := by decide +kernel
+private theorem tripleEnt_7_part_0 : (List.range' 0 8).all (fun k => entCheck 7 k && s8Check 7 k) = true := by decide +kernel
+private theorem tripleEnt_7_part_8 : (List.range' 8 8).all (fun k => entCheck 7 k && s8Check 7 k) = true := by decide +kernel
+private theorem tripleEnt_7_part_16 : (List.range' 16 8).all (fun k => entCheck 7 k && s8Check 7 k) = true := by decide +kernel
+private theorem tripleEnt_7_part_24 : (List.range' 24 8).all (fun k => entCheck 7 k && s8Check 7 k) = true := by decide +kernel
+private theorem tripleEnt_7_part_32 : (List.range' 32 8).all (fun k => entCheck 7 k && s8Check 7 k) = true := by decide +kernel
+private theorem tripleEnt_7_part_40 : (List.range' 40 8).all (fun k => entCheck 7 k && s8Check 7 k) = true := by decide +kernel
+private theorem tripleEnt_7_part_48 : (List.range' 48 8).all (fun k => entCheck 7 k && s8Check 7 k) = true := by decide +kernel
+private theorem tripleEnt_7_part_56 : (List.range' 56 8).all (fun k => entCheck 7 k && s8Check 7 k) = true := by decide +kernel
+private theorem tripleEnt_7_part_64 : (List.range' 64 8).all (fun k => entCheck 7 k && s8Check 7 k) = true := by decide +kernel
+private theorem tripleEnt_7_part_72 : (List.range' 72 8).all (fun k => entCheck 7 k && s8Check 7 k) = true := by decide +kernel
+private theorem tripleEnt_7_part_80 : (List.range' 80 8).all (fun k => entCheck 7 k && s8Check 7 k) = true := by decide +kernel
+private theorem tripleEnt_7_part_88 : (List.range' 88 8).all (fun k => entCheck 7 k && s8Check 7 k) = true := by decide +kernel
+private theorem tripleEnt_7_part_96 : (List.range' 96 8).all (fun k => entCheck 7 k && s8Check 7 k) = true := by decide +kernel
+private theorem tripleEnt_7_part_104 : (List.range' 104 8).all (fun k => entCheck 7 k && s8Check 7 k) = true := by decide +kernel
+private theorem tripleEnt_7_part_112 : (List.range' 112 8).all (fun k => entCheck 7 k && s8Check 7 k) = true := by decide +kernel
+private theorem tripleEnt_7_part_120 : (List.range' 120 5).all (fun k => entCheck 7 k && s8Check 7 k) = true := by decide +kernel
+private theorem tripleEnt_7 : (List.range' 0 125).all (fun k => entCheck 7 k && s8Check 7 k) = true := by
+  exact (@check_range_add (fun k => entCheck 7 k && s8Check 7 k) 0 8 117 tripleEnt_7_part_0 (@check_range_add (fun k => entCheck 7 k && s8Check 7 k) 8 8 109 tripleEnt_7_part_8 (@check_range_add (fun k => entCheck 7 k && s8Check 7 k) 16 8 101 tripleEnt_7_part_16 (@check_range_add (fun k => entCheck 7 k && s8Check 7 k) 24 8 93 tripleEnt_7_part_24 (@check_range_add (fun k => entCheck 7 k && s8Check 7 k) 32 8 85 tripleEnt_7_part_32 (@check_range_add (fun k => entCheck 7 k && s8Check 7 k) 40 8 77 tripleEnt_7_part_40 (@check_range_add (fun k => entCheck 7 k && s8Check 7 k) 48 8 69 tripleEnt_7_part_48 (@check_range_add (fun k => entCheck 7 k && s8Check 7 k) 56 8 61 tripleEnt_7_part_56 (@check_range_add (fun k => entCheck 7 k && s8Check 7 k) 64 8 53 tripleEnt_7_part_64 (@check_range_add (fun k => entCheck 7 k && s8Check 7 k) 72 8 45 tripleEnt_7_part_72 (@check_range_add (fun k => entCheck 7 k && s8Check 7 k) 80 8 37 tripleEnt_7_part_80 (@check_range_add (fun k => entCheck 7 k && s8Check 7 k) 88 8 29 tripleEnt_7_part_88 (@check_range_add (fun k => entCheck 7 k && s8Check 7 k) 96 8 21 tripleEnt_7_part_96 (@check_range_add (fun k => entCheck 7 k && s8Check 7 k) 104 8 13 tripleEnt_7_part_104 (@check_range_add (fun k => entCheck 7 k && s8Check 7 k) 112 8 5 tripleEnt_7_part_112 tripleEnt_7_part_120)))))))))))))))
+private theorem tripleBlock_7_part_0 : (List.range' 0 4).all (fun x => blockCheck 7 (x / (mx 7 + 1)) (x % (mx 7 + 1))) = true := by decide +kernel
+private theorem tripleBlock_7_part_4 : (List.range' 4 4).all (fun x => blockCheck 7 (x / (mx 7 + 1)) (x % (mx 7 + 1))) = true := by decide +kernel
+private theorem tripleBlock_7_part_8 : (List.range' 8 4).all (fun x => blockCheck 7 (x / (mx 7 + 1)) (x % (mx 7 + 1))) = true := by decide +kernel
+private theorem tripleBlock_7_part_12 : (List.range' 12 4).all (fun x => blockCheck 7 (x / (mx 7 + 1)) (x % (mx 7 + 1))) = true := by decide +kernel
+private theorem tripleBlock_7_part_16 : (List.range' 16 4).all (fun x => blockCheck 7 (x / (mx 7 + 1)) (x % (mx 7 + 1))) = true := by decide +kernel
+private theorem tripleBlock_7_part_20 : (List.range' 20 4).all (fun x => blockCheck 7 (x / (mx 7 + 1)) (x % (mx 7 + 1))) = true := by decide +kernel
+private theorem tripleBlock_7_part_24 : (List.range' 24 1).all (fun x => blockCheck 7 (x / (mx 7 + 1)) (x % (mx 7 + 1))) = true := by decide +kernel
+private theorem tripleBlock_7 : (List.range' 0 25).all (fun x => blockCheck 7 (x / (mx 7 + 1)) (x % (mx 7 + 1))) = true := by
+  exact (@check_range_add (fun x => blockCheck 7 (x / (mx 7 + 1)) (x % (mx 7 + 1))) 0 4 21 tripleBlock_7_part_0 (@check_range_add (fun x => blockCheck 7 (x / (mx 7 + 1)) (x % (mx 7 + 1))) 4 4 17 tripleBlock_7_part_4 (@check_range_add (fun x => blockCheck 7 (x / (mx 7 + 1)) (x % (mx 7 + 1))) 8 4 13 tripleBlock_7_part_8 (@check_range_add (fun x => blockCheck 7 (x / (mx 7 + 1)) (x % (mx 7 + 1))) 12 4 9 tripleBlock_7_part_12 (@check_range_add (fun x => blockCheck 7 (x / (mx 7 + 1)) (x % (mx 7 + 1))) 16 4 5 tripleBlock_7_part_16 (@check_range_add (fun x => blockCheck 7 (x / (mx 7 + 1)) (x % (mx 7 + 1))) 20 4 1 tripleBlock_7_part_20 tripleBlock_7_part_24))))))
+theorem tripleCheck_7 : tripleCheck 7=true := by
+  exact @tripleCheck_join 7 tripleEnt_7 tripleBlock_7
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem tripleCheck_8 : tripleCheck 8=true := by decide +kernel
+private theorem tripleEnt_8_part_0 : (List.range' 0 8).all (fun k => entCheck 8 k && s8Check 8 k) = true := by decide +kernel
+private theorem tripleEnt_8_part_8 : (List.range' 8 8).all (fun k => entCheck 8 k && s8Check 8 k) = true := by decide +kernel
+private theorem tripleEnt_8_part_16 : (List.range' 16 8).all (fun k => entCheck 8 k && s8Check 8 k) = true := by decide +kernel
+private theorem tripleEnt_8_part_24 : (List.range' 24 8).all (fun k => entCheck 8 k && s8Check 8 k) = true := by decide +kernel
+private theorem tripleEnt_8_part_32 : (List.range' 32 8).all (fun k => entCheck 8 k && s8Check 8 k) = true := by decide +kernel
+private theorem tripleEnt_8_part_40 : (List.range' 40 8).all (fun k => entCheck 8 k && s8Check 8 k) = true := by decide +kernel
+private theorem tripleEnt_8_part_48 : (List.range' 48 8).all (fun k => entCheck 8 k && s8Check 8 k) = true := by decide +kernel
+private theorem tripleEnt_8_part_56 : (List.range' 56 8).all (fun k => entCheck 8 k && s8Check 8 k) = true := by decide +kernel
+private theorem tripleEnt_8_part_64 : (List.range' 64 8).all (fun k => entCheck 8 k && s8Check 8 k) = true := by decide +kernel
+private theorem tripleEnt_8_part_72 : (List.range' 72 8).all (fun k => entCheck 8 k && s8Check 8 k) = true := by decide +kernel
+private theorem tripleEnt_8_part_80 : (List.range' 80 8).all (fun k => entCheck 8 k && s8Check 8 k) = true := by decide +kernel
+private theorem tripleEnt_8_part_88 : (List.range' 88 8).all (fun k => entCheck 8 k && s8Check 8 k) = true := by decide +kernel
+private theorem tripleEnt_8_part_96 : (List.range' 96 8).all (fun k => entCheck 8 k && s8Check 8 k) = true := by decide +kernel
+private theorem tripleEnt_8_part_104 : (List.range' 104 8).all (fun k => entCheck 8 k && s8Check 8 k) = true := by decide +kernel
+private theorem tripleEnt_8_part_112 : (List.range' 112 8).all (fun k => entCheck 8 k && s8Check 8 k) = true := by decide +kernel
+private theorem tripleEnt_8_part_120 : (List.range' 120 5).all (fun k => entCheck 8 k && s8Check 8 k) = true := by decide +kernel
+private theorem tripleEnt_8 : (List.range' 0 125).all (fun k => entCheck 8 k && s8Check 8 k) = true := by
+  exact (@check_range_add (fun k => entCheck 8 k && s8Check 8 k) 0 8 117 tripleEnt_8_part_0 (@check_range_add (fun k => entCheck 8 k && s8Check 8 k) 8 8 109 tripleEnt_8_part_8 (@check_range_add (fun k => entCheck 8 k && s8Check 8 k) 16 8 101 tripleEnt_8_part_16 (@check_range_add (fun k => entCheck 8 k && s8Check 8 k) 24 8 93 tripleEnt_8_part_24 (@check_range_add (fun k => entCheck 8 k && s8Check 8 k) 32 8 85 tripleEnt_8_part_32 (@check_range_add (fun k => entCheck 8 k && s8Check 8 k) 40 8 77 tripleEnt_8_part_40 (@check_range_add (fun k => entCheck 8 k && s8Check 8 k) 48 8 69 tripleEnt_8_part_48 (@check_range_add (fun k => entCheck 8 k && s8Check 8 k) 56 8 61 tripleEnt_8_part_56 (@check_range_add (fun k => entCheck 8 k && s8Check 8 k) 64 8 53 tripleEnt_8_part_64 (@check_range_add (fun k => entCheck 8 k && s8Check 8 k) 72 8 45 tripleEnt_8_part_72 (@check_range_add (fun k => entCheck 8 k && s8Check 8 k) 80 8 37 tripleEnt_8_part_80 (@check_range_add (fun k => entCheck 8 k && s8Check 8 k) 88 8 29 tripleEnt_8_part_88 (@check_range_add (fun k => entCheck 8 k && s8Check 8 k) 96 8 21 tripleEnt_8_part_96 (@check_range_add (fun k => entCheck 8 k && s8Check 8 k) 104 8 13 tripleEnt_8_part_104 (@check_range_add (fun k => entCheck 8 k && s8Check 8 k) 112 8 5 tripleEnt_8_part_112 tripleEnt_8_part_120)))))))))))))))
+private theorem tripleBlock_8_part_0 : (List.range' 0 4).all (fun x => blockCheck 8 (x / (mx 8 + 1)) (x % (mx 8 + 1))) = true := by decide +kernel
+private theorem tripleBlock_8_part_4 : (List.range' 4 4).all (fun x => blockCheck 8 (x / (mx 8 + 1)) (x % (mx 8 + 1))) = true := by decide +kernel
+private theorem tripleBlock_8_part_8 : (List.range' 8 4).all (fun x => blockCheck 8 (x / (mx 8 + 1)) (x % (mx 8 + 1))) = true := by decide +kernel
+private theorem tripleBlock_8_part_12 : (List.range' 12 4).all (fun x => blockCheck 8 (x / (mx 8 + 1)) (x % (mx 8 + 1))) = true := by decide +kernel
+private theorem tripleBlock_8_part_16 : (List.range' 16 4).all (fun x => blockCheck 8 (x / (mx 8 + 1)) (x % (mx 8 + 1))) = true := by decide +kernel
+private theorem tripleBlock_8_part_20 : (List.range' 20 4).all (fun x => blockCheck 8 (x / (mx 8 + 1)) (x % (mx 8 + 1))) = true := by decide +kernel
+private theorem tripleBlock_8_part_24 : (List.range' 24 1).all (fun x => blockCheck 8 (x / (mx 8 + 1)) (x % (mx 8 + 1))) = true := by decide +kernel
+private theorem tripleBlock_8 : (List.range' 0 25).all (fun x => blockCheck 8 (x / (mx 8 + 1)) (x % (mx 8 + 1))) = true := by
+  exact (@check_range_add (fun x => blockCheck 8 (x / (mx 8 + 1)) (x % (mx 8 + 1))) 0 4 21 tripleBlock_8_part_0 (@check_range_add (fun x => blockCheck 8 (x / (mx 8 + 1)) (x % (mx 8 + 1))) 4 4 17 tripleBlock_8_part_4 (@check_range_add (fun x => blockCheck 8 (x / (mx 8 + 1)) (x % (mx 8 + 1))) 8 4 13 tripleBlock_8_part_8 (@check_range_add (fun x => blockCheck 8 (x / (mx 8 + 1)) (x % (mx 8 + 1))) 12 4 9 tripleBlock_8_part_12 (@check_range_add (fun x => blockCheck 8 (x / (mx 8 + 1)) (x % (mx 8 + 1))) 16 4 5 tripleBlock_8_part_16 (@check_range_add (fun x => blockCheck 8 (x / (mx 8 + 1)) (x % (mx 8 + 1))) 20 4 1 tripleBlock_8_part_20 tripleBlock_8_part_24))))))
+theorem tripleCheck_8 : tripleCheck 8=true := by
+  exact @tripleCheck_join 8 tripleEnt_8 tripleBlock_8
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem tripleCheck_9 : tripleCheck 9=true := by decide +kernel
+private theorem tripleEnt_9_part_0 : (List.range' 0 8).all (fun k => entCheck 9 k && s8Check 9 k) = true := by decide +kernel
+private theorem tripleEnt_9_part_8 : (List.range' 8 8).all (fun k => entCheck 9 k && s8Check 9 k) = true := by decide +kernel
+private theorem tripleEnt_9_part_16 : (List.range' 16 8).all (fun k => entCheck 9 k && s8Check 9 k) = true := by decide +kernel
+private theorem tripleEnt_9_part_24 : (List.range' 24 8).all (fun k => entCheck 9 k && s8Check 9 k) = true := by decide +kernel
+private theorem tripleEnt_9_part_32 : (List.range' 32 8).all (fun k => entCheck 9 k && s8Check 9 k) = true := by decide +kernel
+private theorem tripleEnt_9_part_40 : (List.range' 40 8).all (fun k => entCheck 9 k && s8Check 9 k) = true := by decide +kernel
+private theorem tripleEnt_9_part_48 : (List.range' 48 8).all (fun k => entCheck 9 k && s8Check 9 k) = true := by decide +kernel
+private theorem tripleEnt_9_part_56 : (List.range' 56 8).all (fun k => entCheck 9 k && s8Check 9 k) = true := by decide +kernel
+private theorem tripleEnt_9_part_64 : (List.range' 64 8).all (fun k => entCheck 9 k && s8Check 9 k) = true := by decide +kernel
+private theorem tripleEnt_9_part_72 : (List.range' 72 8).all (fun k => entCheck 9 k && s8Check 9 k) = true := by decide +kernel
+private theorem tripleEnt_9_part_80 : (List.range' 80 8).all (fun k => entCheck 9 k && s8Check 9 k) = true := by decide +kernel
+private theorem tripleEnt_9_part_88 : (List.range' 88 8).all (fun k => entCheck 9 k && s8Check 9 k) = true := by decide +kernel
+private theorem tripleEnt_9_part_96 : (List.range' 96 8).all (fun k => entCheck 9 k && s8Check 9 k) = true := by decide +kernel
+private theorem tripleEnt_9_part_104 : (List.range' 104 8).all (fun k => entCheck 9 k && s8Check 9 k) = true := by decide +kernel
+private theorem tripleEnt_9_part_112 : (List.range' 112 8).all (fun k => entCheck 9 k && s8Check 9 k) = true := by decide +kernel
+private theorem tripleEnt_9_part_120 : (List.range' 120 5).all (fun k => entCheck 9 k && s8Check 9 k) = true := by decide +kernel
+private theorem tripleEnt_9 : (List.range' 0 125).all (fun k => entCheck 9 k && s8Check 9 k) = true := by
+  exact (@check_range_add (fun k => entCheck 9 k && s8Check 9 k) 0 8 117 tripleEnt_9_part_0 (@check_range_add (fun k => entCheck 9 k && s8Check 9 k) 8 8 109 tripleEnt_9_part_8 (@check_range_add (fun k => entCheck 9 k && s8Check 9 k) 16 8 101 tripleEnt_9_part_16 (@check_range_add (fun k => entCheck 9 k && s8Check 9 k) 24 8 93 tripleEnt_9_part_24 (@check_range_add (fun k => entCheck 9 k && s8Check 9 k) 32 8 85 tripleEnt_9_part_32 (@check_range_add (fun k => entCheck 9 k && s8Check 9 k) 40 8 77 tripleEnt_9_part_40 (@check_range_add (fun k => entCheck 9 k && s8Check 9 k) 48 8 69 tripleEnt_9_part_48 (@check_range_add (fun k => entCheck 9 k && s8Check 9 k) 56 8 61 tripleEnt_9_part_56 (@check_range_add (fun k => entCheck 9 k && s8Check 9 k) 64 8 53 tripleEnt_9_part_64 (@check_range_add (fun k => entCheck 9 k && s8Check 9 k) 72 8 45 tripleEnt_9_part_72 (@check_range_add (fun k => entCheck 9 k && s8Check 9 k) 80 8 37 tripleEnt_9_part_80 (@check_range_add (fun k => entCheck 9 k && s8Check 9 k) 88 8 29 tripleEnt_9_part_88 (@check_range_add (fun k => entCheck 9 k && s8Check 9 k) 96 8 21 tripleEnt_9_part_96 (@check_range_add (fun k => entCheck 9 k && s8Check 9 k) 104 8 13 tripleEnt_9_part_104 (@check_range_add (fun k => entCheck 9 k && s8Check 9 k) 112 8 5 tripleEnt_9_part_112 tripleEnt_9_part_120)))))))))))))))
+private theorem tripleBlock_9_part_0 : (List.range' 0 4).all (fun x => blockCheck 9 (x / (mx 9 + 1)) (x % (mx 9 + 1))) = true := by decide +kernel
+private theorem tripleBlock_9_part_4 : (List.range' 4 4).all (fun x => blockCheck 9 (x / (mx 9 + 1)) (x % (mx 9 + 1))) = true := by decide +kernel
+private theorem tripleBlock_9_part_8 : (List.range' 8 4).all (fun x => blockCheck 9 (x / (mx 9 + 1)) (x % (mx 9 + 1))) = true := by decide +kernel
+private theorem tripleBlock_9_part_12 : (List.range' 12 4).all (fun x => blockCheck 9 (x / (mx 9 + 1)) (x % (mx 9 + 1))) = true := by decide +kernel
+private theorem tripleBlock_9_part_16 : (List.range' 16 4).all (fun x => blockCheck 9 (x / (mx 9 + 1)) (x % (mx 9 + 1))) = true := by decide +kernel
+private theorem tripleBlock_9_part_20 : (List.range' 20 4).all (fun x => blockCheck 9 (x / (mx 9 + 1)) (x % (mx 9 + 1))) = true := by decide +kernel
+private theorem tripleBlock_9_part_24 : (List.range' 24 1).all (fun x => blockCheck 9 (x / (mx 9 + 1)) (x % (mx 9 + 1))) = true := by decide +kernel
+private theorem tripleBlock_9 : (List.range' 0 25).all (fun x => blockCheck 9 (x / (mx 9 + 1)) (x % (mx 9 + 1))) = true := by
+  exact (@check_range_add (fun x => blockCheck 9 (x / (mx 9 + 1)) (x % (mx 9 + 1))) 0 4 21 tripleBlock_9_part_0 (@check_range_add (fun x => blockCheck 9 (x / (mx 9 + 1)) (x % (mx 9 + 1))) 4 4 17 tripleBlock_9_part_4 (@check_range_add (fun x => blockCheck 9 (x / (mx 9 + 1)) (x % (mx 9 + 1))) 8 4 13 tripleBlock_9_part_8 (@check_range_add (fun x => blockCheck 9 (x / (mx 9 + 1)) (x % (mx 9 + 1))) 12 4 9 tripleBlock_9_part_12 (@check_range_add (fun x => blockCheck 9 (x / (mx 9 + 1)) (x % (mx 9 + 1))) 16 4 5 tripleBlock_9_part_16 (@check_range_add (fun x => blockCheck 9 (x / (mx 9 + 1)) (x % (mx 9 + 1))) 20 4 1 tripleBlock_9_part_20 tripleBlock_9_part_24))))))
+theorem tripleCheck_9 : tripleCheck 9=true := by
+  exact @tripleCheck_join 9 tripleEnt_9 tripleBlock_9
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem tripleCheck_10 : tripleCheck 10=true := by decide +kernel
+private theorem tripleEnt_10_part_0 : (List.range' 0 8).all (fun k => entCheck 10 k && s8Check 10 k) = true := by decide +kernel
+private theorem tripleEnt_10_part_8 : (List.range' 8 8).all (fun k => entCheck 10 k && s8Check 10 k) = true := by decide +kernel
+private theorem tripleEnt_10_part_16 : (List.range' 16 8).all (fun k => entCheck 10 k && s8Check 10 k) = true := by decide +kernel
+private theorem tripleEnt_10_part_24 : (List.range' 24 8).all (fun k => entCheck 10 k && s8Check 10 k) = true := by decide +kernel
+private theorem tripleEnt_10_part_32 : (List.range' 32 8).all (fun k => entCheck 10 k && s8Check 10 k) = true := by decide +kernel
+private theorem tripleEnt_10_part_40 : (List.range' 40 8).all (fun k => entCheck 10 k && s8Check 10 k) = true := by decide +kernel
+private theorem tripleEnt_10_part_48 : (List.range' 48 8).all (fun k => entCheck 10 k && s8Check 10 k) = true := by decide +kernel
+private theorem tripleEnt_10_part_56 : (List.range' 56 8).all (fun k => entCheck 10 k && s8Check 10 k) = true := by decide +kernel
+private theorem tripleEnt_10_part_64 : (List.range' 64 8).all (fun k => entCheck 10 k && s8Check 10 k) = true := by decide +kernel
+private theorem tripleEnt_10_part_72 : (List.range' 72 8).all (fun k => entCheck 10 k && s8Check 10 k) = true := by decide +kernel
+private theorem tripleEnt_10_part_80 : (List.range' 80 8).all (fun k => entCheck 10 k && s8Check 10 k) = true := by decide +kernel
+private theorem tripleEnt_10_part_88 : (List.range' 88 8).all (fun k => entCheck 10 k && s8Check 10 k) = true := by decide +kernel
+private theorem tripleEnt_10_part_96 : (List.range' 96 8).all (fun k => entCheck 10 k && s8Check 10 k) = true := by decide +kernel
+private theorem tripleEnt_10_part_104 : (List.range' 104 8).all (fun k => entCheck 10 k && s8Check 10 k) = true := by decide +kernel
+private theorem tripleEnt_10_part_112 : (List.range' 112 8).all (fun k => entCheck 10 k && s8Check 10 k) = true := by decide +kernel
+private theorem tripleEnt_10_part_120 : (List.range' 120 5).all (fun k => entCheck 10 k && s8Check 10 k) = true := by decide +kernel
+private theorem tripleEnt_10 : (List.range' 0 125).all (fun k => entCheck 10 k && s8Check 10 k) = true := by
+  exact (@check_range_add (fun k => entCheck 10 k && s8Check 10 k) 0 8 117 tripleEnt_10_part_0 (@check_range_add (fun k => entCheck 10 k && s8Check 10 k) 8 8 109 tripleEnt_10_part_8 (@check_range_add (fun k => entCheck 10 k && s8Check 10 k) 16 8 101 tripleEnt_10_part_16 (@check_range_add (fun k => entCheck 10 k && s8Check 10 k) 24 8 93 tripleEnt_10_part_24 (@check_range_add (fun k => entCheck 10 k && s8Check 10 k) 32 8 85 tripleEnt_10_part_32 (@check_range_add (fun k => entCheck 10 k && s8Check 10 k) 40 8 77 tripleEnt_10_part_40 (@check_range_add (fun k => entCheck 10 k && s8Check 10 k) 48 8 69 tripleEnt_10_part_48 (@check_range_add (fun k => entCheck 10 k && s8Check 10 k) 56 8 61 tripleEnt_10_part_56 (@check_range_add (fun k => entCheck 10 k && s8Check 10 k) 64 8 53 tripleEnt_10_part_64 (@check_range_add (fun k => entCheck 10 k && s8Check 10 k) 72 8 45 tripleEnt_10_part_72 (@check_range_add (fun k => entCheck 10 k && s8Check 10 k) 80 8 37 tripleEnt_10_part_80 (@check_range_add (fun k => entCheck 10 k && s8Check 10 k) 88 8 29 tripleEnt_10_part_88 (@check_range_add (fun k => entCheck 10 k && s8Check 10 k) 96 8 21 tripleEnt_10_part_96 (@check_range_add (fun k => entCheck 10 k && s8Check 10 k) 104 8 13 tripleEnt_10_part_104 (@check_range_add (fun k => entCheck 10 k && s8Check 10 k) 112 8 5 tripleEnt_10_part_112 tripleEnt_10_part_120)))))))))))))))
+private theorem tripleBlock_10_part_0 : (List.range' 0 4).all (fun x => blockCheck 10 (x / (mx 10 + 1)) (x % (mx 10 + 1))) = true := by decide +kernel
+private theorem tripleBlock_10_part_4 : (List.range' 4 4).all (fun x => blockCheck 10 (x / (mx 10 + 1)) (x % (mx 10 + 1))) = true := by decide +kernel
+private theorem tripleBlock_10_part_8 : (List.range' 8 4).all (fun x => blockCheck 10 (x / (mx 10 + 1)) (x % (mx 10 + 1))) = true := by decide +kernel
+private theorem tripleBlock_10_part_12 : (List.range' 12 4).all (fun x => blockCheck 10 (x / (mx 10 + 1)) (x % (mx 10 + 1))) = true := by decide +kernel
+private theorem tripleBlock_10_part_16 : (List.range' 16 4).all (fun x => blockCheck 10 (x / (mx 10 + 1)) (x % (mx 10 + 1))) = true := by decide +kernel
+private theorem tripleBlock_10_part_20 : (List.range' 20 4).all (fun x => blockCheck 10 (x / (mx 10 + 1)) (x % (mx 10 + 1))) = true := by decide +kernel
+private theorem tripleBlock_10_part_24 : (List.range' 24 1).all (fun x => blockCheck 10 (x / (mx 10 + 1)) (x % (mx 10 + 1))) = true := by decide +kernel
+private theorem tripleBlock_10 : (List.range' 0 25).all (fun x => blockCheck 10 (x / (mx 10 + 1)) (x % (mx 10 + 1))) = true := by
+  exact (@check_range_add (fun x => blockCheck 10 (x / (mx 10 + 1)) (x % (mx 10 + 1))) 0 4 21 tripleBlock_10_part_0 (@check_range_add (fun x => blockCheck 10 (x / (mx 10 + 1)) (x % (mx 10 + 1))) 4 4 17 tripleBlock_10_part_4 (@check_range_add (fun x => blockCheck 10 (x / (mx 10 + 1)) (x % (mx 10 + 1))) 8 4 13 tripleBlock_10_part_8 (@check_range_add (fun x => blockCheck 10 (x / (mx 10 + 1)) (x % (mx 10 + 1))) 12 4 9 tripleBlock_10_part_12 (@check_range_add (fun x => blockCheck 10 (x / (mx 10 + 1)) (x % (mx 10 + 1))) 16 4 5 tripleBlock_10_part_16 (@check_range_add (fun x => blockCheck 10 (x / (mx 10 + 1)) (x % (mx 10 + 1))) 20 4 1 tripleBlock_10_part_20 tripleBlock_10_part_24))))))
+theorem tripleCheck_10 : tripleCheck 10=true := by
+  exact @tripleCheck_join 10 tripleEnt_10 tripleBlock_10
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem tripleCheck_11 : tripleCheck 11=true := by decide +kernel
+private theorem tripleEnt_11_part_0 : (List.range' 0 8).all (fun k => entCheck 11 k && s8Check 11 k) = true := by decide +kernel
+private theorem tripleEnt_11_part_8 : (List.range' 8 8).all (fun k => entCheck 11 k && s8Check 11 k) = true := by decide +kernel
+private theorem tripleEnt_11_part_16 : (List.range' 16 8).all (fun k => entCheck 11 k && s8Check 11 k) = true := by decide +kernel
+private theorem tripleEnt_11_part_24 : (List.range' 24 8).all (fun k => entCheck 11 k && s8Check 11 k) = true := by decide +kernel
+private theorem tripleEnt_11_part_32 : (List.range' 32 8).all (fun k => entCheck 11 k && s8Check 11 k) = true := by decide +kernel
+private theorem tripleEnt_11_part_40 : (List.range' 40 8).all (fun k => entCheck 11 k && s8Check 11 k) = true := by decide +kernel
+private theorem tripleEnt_11_part_48 : (List.range' 48 8).all (fun k => entCheck 11 k && s8Check 11 k) = true := by decide +kernel
+private theorem tripleEnt_11_part_56 : (List.range' 56 8).all (fun k => entCheck 11 k && s8Check 11 k) = true := by decide +kernel
+private theorem tripleEnt_11_part_64 : (List.range' 64 8).all (fun k => entCheck 11 k && s8Check 11 k) = true := by decide +kernel
+private theorem tripleEnt_11_part_72 : (List.range' 72 8).all (fun k => entCheck 11 k && s8Check 11 k) = true := by decide +kernel
+private theorem tripleEnt_11_part_80 : (List.range' 80 8).all (fun k => entCheck 11 k && s8Check 11 k) = true := by decide +kernel
+private theorem tripleEnt_11_part_88 : (List.range' 88 8).all (fun k => entCheck 11 k && s8Check 11 k) = true := by decide +kernel
+private theorem tripleEnt_11_part_96 : (List.range' 96 8).all (fun k => entCheck 11 k && s8Check 11 k) = true := by decide +kernel
+private theorem tripleEnt_11_part_104 : (List.range' 104 8).all (fun k => entCheck 11 k && s8Check 11 k) = true := by decide +kernel
+private theorem tripleEnt_11_part_112 : (List.range' 112 8).all (fun k => entCheck 11 k && s8Check 11 k) = true := by decide +kernel
+private theorem tripleEnt_11_part_120 : (List.range' 120 5).all (fun k => entCheck 11 k && s8Check 11 k) = true := by decide +kernel
+private theorem tripleEnt_11 : (List.range' 0 125).all (fun k => entCheck 11 k && s8Check 11 k) = true := by
+  exact (@check_range_add (fun k => entCheck 11 k && s8Check 11 k) 0 8 117 tripleEnt_11_part_0 (@check_range_add (fun k => entCheck 11 k && s8Check 11 k) 8 8 109 tripleEnt_11_part_8 (@check_range_add (fun k => entCheck 11 k && s8Check 11 k) 16 8 101 tripleEnt_11_part_16 (@check_range_add (fun k => entCheck 11 k && s8Check 11 k) 24 8 93 tripleEnt_11_part_24 (@check_range_add (fun k => entCheck 11 k && s8Check 11 k) 32 8 85 tripleEnt_11_part_32 (@check_range_add (fun k => entCheck 11 k && s8Check 11 k) 40 8 77 tripleEnt_11_part_40 (@check_range_add (fun k => entCheck 11 k && s8Check 11 k) 48 8 69 tripleEnt_11_part_48 (@check_range_add (fun k => entCheck 11 k && s8Check 11 k) 56 8 61 tripleEnt_11_part_56 (@check_range_add (fun k => entCheck 11 k && s8Check 11 k) 64 8 53 tripleEnt_11_part_64 (@check_range_add (fun k => entCheck 11 k && s8Check 11 k) 72 8 45 tripleEnt_11_part_72 (@check_range_add (fun k => entCheck 11 k && s8Check 11 k) 80 8 37 tripleEnt_11_part_80 (@check_range_add (fun k => entCheck 11 k && s8Check 11 k) 88 8 29 tripleEnt_11_part_88 (@check_range_add (fun k => entCheck 11 k && s8Check 11 k) 96 8 21 tripleEnt_11_part_96 (@check_range_add (fun k => entCheck 11 k && s8Check 11 k) 104 8 13 tripleEnt_11_part_104 (@check_range_add (fun k => entCheck 11 k && s8Check 11 k) 112 8 5 tripleEnt_11_part_112 tripleEnt_11_part_120)))))))))))))))
+private theorem tripleBlock_11_part_0 : (List.range' 0 4).all (fun x => blockCheck 11 (x / (mx 11 + 1)) (x % (mx 11 + 1))) = true := by decide +kernel
+private theorem tripleBlock_11_part_4 : (List.range' 4 4).all (fun x => blockCheck 11 (x / (mx 11 + 1)) (x % (mx 11 + 1))) = true := by decide +kernel
+private theorem tripleBlock_11_part_8 : (List.range' 8 4).all (fun x => blockCheck 11 (x / (mx 11 + 1)) (x % (mx 11 + 1))) = true := by decide +kernel
+private theorem tripleBlock_11_part_12 : (List.range' 12 4).all (fun x => blockCheck 11 (x / (mx 11 + 1)) (x % (mx 11 + 1))) = true := by decide +kernel
+private theorem tripleBlock_11_part_16 : (List.range' 16 4).all (fun x => blockCheck 11 (x / (mx 11 + 1)) (x % (mx 11 + 1))) = true := by decide +kernel
+private theorem tripleBlock_11_part_20 : (List.range' 20 4).all (fun x => blockCheck 11 (x / (mx 11 + 1)) (x % (mx 11 + 1))) = true := by decide +kernel
+private theorem tripleBlock_11_part_24 : (List.range' 24 1).all (fun x => blockCheck 11 (x / (mx 11 + 1)) (x % (mx 11 + 1))) = true := by decide +kernel
+private theorem tripleBlock_11 : (List.range' 0 25).all (fun x => blockCheck 11 (x / (mx 11 + 1)) (x % (mx 11 + 1))) = true := by
+  exact (@check_range_add (fun x => blockCheck 11 (x / (mx 11 + 1)) (x % (mx 11 + 1))) 0 4 21 tripleBlock_11_part_0 (@check_range_add (fun x => blockCheck 11 (x / (mx 11 + 1)) (x % (mx 11 + 1))) 4 4 17 tripleBlock_11_part_4 (@check_range_add (fun x => blockCheck 11 (x / (mx 11 + 1)) (x % (mx 11 + 1))) 8 4 13 tripleBlock_11_part_8 (@check_range_add (fun x => blockCheck 11 (x / (mx 11 + 1)) (x % (mx 11 + 1))) 12 4 9 tripleBlock_11_part_12 (@check_range_add (fun x => blockCheck 11 (x / (mx 11 + 1)) (x % (mx 11 + 1))) 16 4 5 tripleBlock_11_part_16 (@check_range_add (fun x => blockCheck 11 (x / (mx 11 + 1)) (x % (mx 11 + 1))) 20 4 1 tripleBlock_11_part_20 tripleBlock_11_part_24))))))
+theorem tripleCheck_11 : tripleCheck 11=true := by
+  exact @tripleCheck_join 11 tripleEnt_11 tripleBlock_11
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem tripleCheck_12 : tripleCheck 12=true := by decide +kernel
+private theorem tripleEnt_12_part_0 : (List.range' 0 8).all (fun k => entCheck 12 k && s8Check 12 k) = true := by decide +kernel
+private theorem tripleEnt_12_part_8 : (List.range' 8 8).all (fun k => entCheck 12 k && s8Check 12 k) = true := by decide +kernel
+private theorem tripleEnt_12_part_16 : (List.range' 16 8).all (fun k => entCheck 12 k && s8Check 12 k) = true := by decide +kernel
+private theorem tripleEnt_12_part_24 : (List.range' 24 8).all (fun k => entCheck 12 k && s8Check 12 k) = true := by decide +kernel
+private theorem tripleEnt_12_part_32 : (List.range' 32 8).all (fun k => entCheck 12 k && s8Check 12 k) = true := by decide +kernel
+private theorem tripleEnt_12_part_40 : (List.range' 40 8).all (fun k => entCheck 12 k && s8Check 12 k) = true := by decide +kernel
+private theorem tripleEnt_12_part_48 : (List.range' 48 8).all (fun k => entCheck 12 k && s8Check 12 k) = true := by decide +kernel
+private theorem tripleEnt_12_part_56 : (List.range' 56 8).all (fun k => entCheck 12 k && s8Check 12 k) = true := by decide +kernel
+private theorem tripleEnt_12_part_64 : (List.range' 64 8).all (fun k => entCheck 12 k && s8Check 12 k) = true := by decide +kernel
+private theorem tripleEnt_12_part_72 : (List.range' 72 8).all (fun k => entCheck 12 k && s8Check 12 k) = true := by decide +kernel
+private theorem tripleEnt_12_part_80 : (List.range' 80 8).all (fun k => entCheck 12 k && s8Check 12 k) = true := by decide +kernel
+private theorem tripleEnt_12_part_88 : (List.range' 88 8).all (fun k => entCheck 12 k && s8Check 12 k) = true := by decide +kernel
+private theorem tripleEnt_12_part_96 : (List.range' 96 8).all (fun k => entCheck 12 k && s8Check 12 k) = true := by decide +kernel
+private theorem tripleEnt_12_part_104 : (List.range' 104 8).all (fun k => entCheck 12 k && s8Check 12 k) = true := by decide +kernel
+private theorem tripleEnt_12_part_112 : (List.range' 112 8).all (fun k => entCheck 12 k && s8Check 12 k) = true := by decide +kernel
+private theorem tripleEnt_12_part_120 : (List.range' 120 5).all (fun k => entCheck 12 k && s8Check 12 k) = true := by decide +kernel
+private theorem tripleEnt_12 : (List.range' 0 125).all (fun k => entCheck 12 k && s8Check 12 k) = true := by
+  exact (@check_range_add (fun k => entCheck 12 k && s8Check 12 k) 0 8 117 tripleEnt_12_part_0 (@check_range_add (fun k => entCheck 12 k && s8Check 12 k) 8 8 109 tripleEnt_12_part_8 (@check_range_add (fun k => entCheck 12 k && s8Check 12 k) 16 8 101 tripleEnt_12_part_16 (@check_range_add (fun k => entCheck 12 k && s8Check 12 k) 24 8 93 tripleEnt_12_part_24 (@check_range_add (fun k => entCheck 12 k && s8Check 12 k) 32 8 85 tripleEnt_12_part_32 (@check_range_add (fun k => entCheck 12 k && s8Check 12 k) 40 8 77 tripleEnt_12_part_40 (@check_range_add (fun k => entCheck 12 k && s8Check 12 k) 48 8 69 tripleEnt_12_part_48 (@check_range_add (fun k => entCheck 12 k && s8Check 12 k) 56 8 61 tripleEnt_12_part_56 (@check_range_add (fun k => entCheck 12 k && s8Check 12 k) 64 8 53 tripleEnt_12_part_64 (@check_range_add (fun k => entCheck 12 k && s8Check 12 k) 72 8 45 tripleEnt_12_part_72 (@check_range_add (fun k => entCheck 12 k && s8Check 12 k) 80 8 37 tripleEnt_12_part_80 (@check_range_add (fun k => entCheck 12 k && s8Check 12 k) 88 8 29 tripleEnt_12_part_88 (@check_range_add (fun k => entCheck 12 k && s8Check 12 k) 96 8 21 tripleEnt_12_part_96 (@check_range_add (fun k => entCheck 12 k && s8Check 12 k) 104 8 13 tripleEnt_12_part_104 (@check_range_add (fun k => entCheck 12 k && s8Check 12 k) 112 8 5 tripleEnt_12_part_112 tripleEnt_12_part_120)))))))))))))))
+private theorem tripleBlock_12_part_0 : (List.range' 0 4).all (fun x => blockCheck 12 (x / (mx 12 + 1)) (x % (mx 12 + 1))) = true := by decide +kernel
+private theorem tripleBlock_12_part_4 : (List.range' 4 4).all (fun x => blockCheck 12 (x / (mx 12 + 1)) (x % (mx 12 + 1))) = true := by decide +kernel
+private theorem tripleBlock_12_part_8 : (List.range' 8 4).all (fun x => blockCheck 12 (x / (mx 12 + 1)) (x % (mx 12 + 1))) = true := by decide +kernel
+private theorem tripleBlock_12_part_12 : (List.range' 12 4).all (fun x => blockCheck 12 (x / (mx 12 + 1)) (x % (mx 12 + 1))) = true := by decide +kernel
+private theorem tripleBlock_12_part_16 : (List.range' 16 4).all (fun x => blockCheck 12 (x / (mx 12 + 1)) (x % (mx 12 + 1))) = true := by decide +kernel
+private theorem tripleBlock_12_part_20 : (List.range' 20 4).all (fun x => blockCheck 12 (x / (mx 12 + 1)) (x % (mx 12 + 1))) = true := by decide +kernel
+private theorem tripleBlock_12_part_24 : (List.range' 24 1).all (fun x => blockCheck 12 (x / (mx 12 + 1)) (x % (mx 12 + 1))) = true := by decide +kernel
+private theorem tripleBlock_12 : (List.range' 0 25).all (fun x => blockCheck 12 (x / (mx 12 + 1)) (x % (mx 12 + 1))) = true := by
+  exact (@check_range_add (fun x => blockCheck 12 (x / (mx 12 + 1)) (x % (mx 12 + 1))) 0 4 21 tripleBlock_12_part_0 (@check_range_add (fun x => blockCheck 12 (x / (mx 12 + 1)) (x % (mx 12 + 1))) 4 4 17 tripleBlock_12_part_4 (@check_range_add (fun x => blockCheck 12 (x / (mx 12 + 1)) (x % (mx 12 + 1))) 8 4 13 tripleBlock_12_part_8 (@check_range_add (fun x => blockCheck 12 (x / (mx 12 + 1)) (x % (mx 12 + 1))) 12 4 9 tripleBlock_12_part_12 (@check_range_add (fun x => blockCheck 12 (x / (mx 12 + 1)) (x % (mx 12 + 1))) 16 4 5 tripleBlock_12_part_16 (@check_range_add (fun x => blockCheck 12 (x / (mx 12 + 1)) (x % (mx 12 + 1))) 20 4 1 tripleBlock_12_part_20 tripleBlock_12_part_24))))))
+theorem tripleCheck_12 : tripleCheck 12=true := by
+  exact @tripleCheck_join 12 tripleEnt_12 tripleBlock_12
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem inlineGroupCheck_13_0 : inlineGroupCheck 13 0 25=true := by decide +kernel
-theorem inlineGroupCheck_13_25 : inlineGroupCheck 13 25 25=true := by decide +kernel
-theorem inlineGroupCheck_13_50 : inlineGroupCheck 13 50 25=true := by decide +kernel
-theorem inlineGroupCheck_13_75 : inlineGroupCheck 13 75 25=true := by decide +kernel
-theorem inlineGroupCheck_13_100 : inlineGroupCheck 13 100 25=true := by decide +kernel
+private theorem inlineBatch_13_0_part_0 : (List.range' 0 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_0_part_5 : (List.range' 5 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_0_part_10 : (List.range' 10 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_0_part_15 : (List.range' 15 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_0_part_20 : (List.range' 20 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_0 : (List.range' 0 25).all (inlineCheck 13) = true := by
+  exact (@check_range_add (inlineCheck 13) 0 5 20 inlineBatch_13_0_part_0 (@check_range_add (inlineCheck 13) 5 5 15 inlineBatch_13_0_part_5 (@check_range_add (inlineCheck 13) 10 5 10 inlineBatch_13_0_part_10 (@check_range_add (inlineCheck 13) 15 5 5 inlineBatch_13_0_part_15 inlineBatch_13_0_part_20))))
+theorem inlineGroupCheck_13_0 : inlineGroupCheck 13 0 25=true := by
+  exact inlineBatch_13_0
+private theorem inlineBatch_13_25_part_25 : (List.range' 25 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_25_part_30 : (List.range' 30 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_25_part_35 : (List.range' 35 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_25_part_40 : (List.range' 40 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_25_part_45 : (List.range' 45 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_25 : (List.range' 25 25).all (inlineCheck 13) = true := by
+  exact (@check_range_add (inlineCheck 13) 25 5 20 inlineBatch_13_25_part_25 (@check_range_add (inlineCheck 13) 30 5 15 inlineBatch_13_25_part_30 (@check_range_add (inlineCheck 13) 35 5 10 inlineBatch_13_25_part_35 (@check_range_add (inlineCheck 13) 40 5 5 inlineBatch_13_25_part_40 inlineBatch_13_25_part_45))))
+theorem inlineGroupCheck_13_25 : inlineGroupCheck 13 25 25=true := by
+  exact inlineBatch_13_25
+private theorem inlineBatch_13_50_part_50 : (List.range' 50 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_50_part_55 : (List.range' 55 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_50_part_60 : (List.range' 60 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_50_part_65 : (List.range' 65 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_50_part_70 : (List.range' 70 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_50 : (List.range' 50 25).all (inlineCheck 13) = true := by
+  exact (@check_range_add (inlineCheck 13) 50 5 20 inlineBatch_13_50_part_50 (@check_range_add (inlineCheck 13) 55 5 15 inlineBatch_13_50_part_55 (@check_range_add (inlineCheck 13) 60 5 10 inlineBatch_13_50_part_60 (@check_range_add (inlineCheck 13) 65 5 5 inlineBatch_13_50_part_65 inlineBatch_13_50_part_70))))
+theorem inlineGroupCheck_13_50 : inlineGroupCheck 13 50 25=true := by
+  exact inlineBatch_13_50
+private theorem inlineBatch_13_75_part_75 : (List.range' 75 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_75_part_80 : (List.range' 80 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_75_part_85 : (List.range' 85 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_75_part_90 : (List.range' 90 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_75_part_95 : (List.range' 95 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_75 : (List.range' 75 25).all (inlineCheck 13) = true := by
+  exact (@check_range_add (inlineCheck 13) 75 5 20 inlineBatch_13_75_part_75 (@check_range_add (inlineCheck 13) 80 5 15 inlineBatch_13_75_part_80 (@check_range_add (inlineCheck 13) 85 5 10 inlineBatch_13_75_part_85 (@check_range_add (inlineCheck 13) 90 5 5 inlineBatch_13_75_part_90 inlineBatch_13_75_part_95))))
+theorem inlineGroupCheck_13_75 : inlineGroupCheck 13 75 25=true := by
+  exact inlineBatch_13_75
+private theorem inlineBatch_13_100_part_100 : (List.range' 100 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_100_part_105 : (List.range' 105 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_100_part_110 : (List.range' 110 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_100_part_115 : (List.range' 115 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_100_part_120 : (List.range' 120 5).all (inlineCheck 13) = true := by decide +kernel
+private theorem inlineBatch_13_100 : (List.range' 100 25).all (inlineCheck 13) = true := by
+  exact (@check_range_add (inlineCheck 13) 100 5 20 inlineBatch_13_100_part_100 (@check_range_add (inlineCheck 13) 105 5 15 inlineBatch_13_100_part_105 (@check_range_add (inlineCheck 13) 110 5 10 inlineBatch_13_100_part_110 (@check_range_add (inlineCheck 13) 115 5 5 inlineBatch_13_100_part_115 inlineBatch_13_100_part_120))))
+theorem inlineGroupCheck_13_100 : inlineGroupCheck 13 100 25=true := by
+  exact inlineBatch_13_100
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem tripleCheck_17 : tripleCheck 17=true := by decide +kernel
+private theorem tripleEnt_17_part_0 : (List.range' 0 8).all (fun k => entCheck 17 k && s8Check 17 k) = true := by decide +kernel
+private theorem tripleEnt_17_part_8 : (List.range' 8 8).all (fun k => entCheck 17 k && s8Check 17 k) = true := by decide +kernel
+private theorem tripleEnt_17_part_16 : (List.range' 16 8).all (fun k => entCheck 17 k && s8Check 17 k) = true := by decide +kernel
+private theorem tripleEnt_17_part_24 : (List.range' 24 8).all (fun k => entCheck 17 k && s8Check 17 k) = true := by decide +kernel
+private theorem tripleEnt_17_part_32 : (List.range' 32 8).all (fun k => entCheck 17 k && s8Check 17 k) = true := by decide +kernel
+private theorem tripleEnt_17_part_40 : (List.range' 40 8).all (fun k => entCheck 17 k && s8Check 17 k) = true := by decide +kernel
+private theorem tripleEnt_17_part_48 : (List.range' 48 8).all (fun k => entCheck 17 k && s8Check 17 k) = true := by decide +kernel
+private theorem tripleEnt_17_part_56 : (List.range' 56 8).all (fun k => entCheck 17 k && s8Check 17 k) = true := by decide +kernel
+private theorem tripleEnt_17 : (List.range' 0 64).all (fun k => entCheck 17 k && s8Check 17 k) = true := by
+  exact (@check_range_add (fun k => entCheck 17 k && s8Check 17 k) 0 8 56 tripleEnt_17_part_0 (@check_range_add (fun k => entCheck 17 k && s8Check 17 k) 8 8 48 tripleEnt_17_part_8 (@check_range_add (fun k => entCheck 17 k && s8Check 17 k) 16 8 40 tripleEnt_17_part_16 (@check_range_add (fun k => entCheck 17 k && s8Check 17 k) 24 8 32 tripleEnt_17_part_24 (@check_range_add (fun k => entCheck 17 k && s8Check 17 k) 32 8 24 tripleEnt_17_part_32 (@check_range_add (fun k => entCheck 17 k && s8Check 17 k) 40 8 16 tripleEnt_17_part_40 (@check_range_add (fun k => entCheck 17 k && s8Check 17 k) 48 8 8 tripleEnt_17_part_48 tripleEnt_17_part_56)))))))
+private theorem tripleBlock_17_part_0 : (List.range' 0 4).all (fun x => blockCheck 17 (x / (mx 17 + 1)) (x % (mx 17 + 1))) = true := by decide +kernel
+private theorem tripleBlock_17_part_4 : (List.range' 4 4).all (fun x => blockCheck 17 (x / (mx 17 + 1)) (x % (mx 17 + 1))) = true := by decide +kernel
+private theorem tripleBlock_17_part_8 : (List.range' 8 4).all (fun x => blockCheck 17 (x / (mx 17 + 1)) (x % (mx 17 + 1))) = true := by decide +kernel
+private theorem tripleBlock_17_part_12 : (List.range' 12 4).all (fun x => blockCheck 17 (x / (mx 17 + 1)) (x % (mx 17 + 1))) = true := by decide +kernel
+private theorem tripleBlock_17 : (List.range' 0 16).all (fun x => blockCheck 17 (x / (mx 17 + 1)) (x % (mx 17 + 1))) = true := by
+  exact (@check_range_add (fun x => blockCheck 17 (x / (mx 17 + 1)) (x % (mx 17 + 1))) 0 4 12 tripleBlock_17_part_0 (@check_range_add (fun x => blockCheck 17 (x / (mx 17 + 1)) (x % (mx 17 + 1))) 4 4 8 tripleBlock_17_part_4 (@check_range_add (fun x => blockCheck 17 (x / (mx 17 + 1)) (x % (mx 17 + 1))) 8 4 4 tripleBlock_17_part_8 tripleBlock_17_part_12)))
+theorem tripleCheck_17 : tripleCheck 17=true := by
+  exact @tripleCheck_join 17 tripleEnt_17 tripleBlock_17
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem inlineGroupCheck_14_0 : inlineGroupCheck 14 0 25=true := by decide +kernel
+private theorem inlineBatch_14_0_part_0 : (List.range' 0 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_0_part_5 : (List.range' 5 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_0_part_10 : (List.range' 10 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_0_part_15 : (List.range' 15 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_0_part_20 : (List.range' 20 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_0 : (List.range' 0 25).all (inlineCheck 14) = true := by
+  exact (@check_range_add (inlineCheck 14) 0 5 20 inlineBatch_14_0_part_0 (@check_range_add (inlineCheck 14) 5 5 15 inlineBatch_14_0_part_5 (@check_range_add (inlineCheck 14) 10 5 10 inlineBatch_14_0_part_10 (@check_range_add (inlineCheck 14) 15 5 5 inlineBatch_14_0_part_15 inlineBatch_14_0_part_20))))
+theorem inlineGroupCheck_14_0 : inlineGroupCheck 14 0 25=true := by
+  exact inlineBatch_14_0
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem inlineGroupCheck_14_25 : inlineGroupCheck 14 25 25=true := by decide +kernel
+private theorem inlineBatch_14_25_part_25 : (List.range' 25 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_25_part_30 : (List.range' 30 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_25_part_35 : (List.range' 35 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_25_part_40 : (List.range' 40 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_25_part_45 : (List.range' 45 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_25 : (List.range' 25 25).all (inlineCheck 14) = true := by
+  exact (@check_range_add (inlineCheck 14) 25 5 20 inlineBatch_14_25_part_25 (@check_range_add (inlineCheck 14) 30 5 15 inlineBatch_14_25_part_30 (@check_range_add (inlineCheck 14) 35 5 10 inlineBatch_14_25_part_35 (@check_range_add (inlineCheck 14) 40 5 5 inlineBatch_14_25_part_40 inlineBatch_14_25_part_45))))
+theorem inlineGroupCheck_14_25 : inlineGroupCheck 14 25 25=true := by
+  exact inlineBatch_14_25
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem inlineGroupCheck_14_50 : inlineGroupCheck 14 50 25=true := by decide +kernel
+private theorem inlineBatch_14_50_part_50 : (List.range' 50 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_50_part_55 : (List.range' 55 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_50_part_60 : (List.range' 60 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_50_part_65 : (List.range' 65 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_50_part_70 : (List.range' 70 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_50 : (List.range' 50 25).all (inlineCheck 14) = true := by
+  exact (@check_range_add (inlineCheck 14) 50 5 20 inlineBatch_14_50_part_50 (@check_range_add (inlineCheck 14) 55 5 15 inlineBatch_14_50_part_55 (@check_range_add (inlineCheck 14) 60 5 10 inlineBatch_14_50_part_60 (@check_range_add (inlineCheck 14) 65 5 5 inlineBatch_14_50_part_65 inlineBatch_14_50_part_70))))
+theorem inlineGroupCheck_14_50 : inlineGroupCheck 14 50 25=true := by
+  exact inlineBatch_14_50
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem inlineGroupCheck_14_75 : inlineGroupCheck 14 75 25=true := by decide +kernel
+private theorem inlineBatch_14_75_part_75 : (List.range' 75 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_75_part_80 : (List.range' 80 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_75_part_85 : (List.range' 85 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_75_part_90 : (List.range' 90 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_75_part_95 : (List.range' 95 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_75 : (List.range' 75 25).all (inlineCheck 14) = true := by
+  exact (@check_range_add (inlineCheck 14) 75 5 20 inlineBatch_14_75_part_75 (@check_range_add (inlineCheck 14) 80 5 15 inlineBatch_14_75_part_80 (@check_range_add (inlineCheck 14) 85 5 10 inlineBatch_14_75_part_85 (@check_range_add (inlineCheck 14) 90 5 5 inlineBatch_14_75_part_90 inlineBatch_14_75_part_95))))
+theorem inlineGroupCheck_14_75 : inlineGroupCheck 14 75 25=true := by
+  exact inlineBatch_14_75
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem inlineGroupCheck_14_100 : inlineGroupCheck 14 100 25=true := by decide +kernel
+private theorem inlineBatch_14_100_part_100 : (List.range' 100 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_100_part_105 : (List.range' 105 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_100_part_110 : (List.range' 110 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_100_part_115 : (List.range' 115 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_100_part_120 : (List.range' 120 5).all (inlineCheck 14) = true := by decide +kernel
+private theorem inlineBatch_14_100 : (List.range' 100 25).all (inlineCheck 14) = true := by
+  exact (@check_range_add (inlineCheck 14) 100 5 20 inlineBatch_14_100_part_100 (@check_range_add (inlineCheck 14) 105 5 15 inlineBatch_14_100_part_105 (@check_range_add (inlineCheck 14) 110 5 10 inlineBatch_14_100_part_110 (@check_range_add (inlineCheck 14) 115 5 5 inlineBatch_14_100_part_115 inlineBatch_14_100_part_120))))
+theorem inlineGroupCheck_14_100 : inlineGroupCheck 14 100 25=true := by
+  exact inlineBatch_14_100
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem inlineGroupCheck_15_0 : inlineGroupCheck 15 0 25=true := by decide +kernel
+private theorem inlineBatch_15_0_part_0 : (List.range' 0 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_0_part_5 : (List.range' 5 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_0_part_10 : (List.range' 10 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_0_part_15 : (List.range' 15 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_0_part_20 : (List.range' 20 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_0 : (List.range' 0 25).all (inlineCheck 15) = true := by
+  exact (@check_range_add (inlineCheck 15) 0 5 20 inlineBatch_15_0_part_0 (@check_range_add (inlineCheck 15) 5 5 15 inlineBatch_15_0_part_5 (@check_range_add (inlineCheck 15) 10 5 10 inlineBatch_15_0_part_10 (@check_range_add (inlineCheck 15) 15 5 5 inlineBatch_15_0_part_15 inlineBatch_15_0_part_20))))
+theorem inlineGroupCheck_15_0 : inlineGroupCheck 15 0 25=true := by
+  exact inlineBatch_15_0
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem inlineGroupCheck_15_25 : inlineGroupCheck 15 25 25=true := by decide +kernel
+private theorem inlineBatch_15_25_part_25 : (List.range' 25 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_25_part_30 : (List.range' 30 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_25_part_35 : (List.range' 35 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_25_part_40 : (List.range' 40 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_25_part_45 : (List.range' 45 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_25 : (List.range' 25 25).all (inlineCheck 15) = true := by
+  exact (@check_range_add (inlineCheck 15) 25 5 20 inlineBatch_15_25_part_25 (@check_range_add (inlineCheck 15) 30 5 15 inlineBatch_15_25_part_30 (@check_range_add (inlineCheck 15) 35 5 10 inlineBatch_15_25_part_35 (@check_range_add (inlineCheck 15) 40 5 5 inlineBatch_15_25_part_40 inlineBatch_15_25_part_45))))
+theorem inlineGroupCheck_15_25 : inlineGroupCheck 15 25 25=true := by
+  exact inlineBatch_15_25
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem inlineGroupCheck_15_50 : inlineGroupCheck 15 50 25=true := by decide +kernel
+private theorem inlineBatch_15_50_part_50 : (List.range' 50 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_50_part_55 : (List.range' 55 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_50_part_60 : (List.range' 60 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_50_part_65 : (List.range' 65 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_50_part_70 : (List.range' 70 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_50 : (List.range' 50 25).all (inlineCheck 15) = true := by
+  exact (@check_range_add (inlineCheck 15) 50 5 20 inlineBatch_15_50_part_50 (@check_range_add (inlineCheck 15) 55 5 15 inlineBatch_15_50_part_55 (@check_range_add (inlineCheck 15) 60 5 10 inlineBatch_15_50_part_60 (@check_range_add (inlineCheck 15) 65 5 5 inlineBatch_15_50_part_65 inlineBatch_15_50_part_70))))
+theorem inlineGroupCheck_15_50 : inlineGroupCheck 15 50 25=true := by
+  exact inlineBatch_15_50
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem inlineGroupCheck_15_75 : inlineGroupCheck 15 75 25=true := by decide +kernel
+private theorem inlineBatch_15_75_part_75 : (List.range' 75 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_75_part_80 : (List.range' 80 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_75_part_85 : (List.range' 85 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_75_part_90 : (List.range' 90 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_75_part_95 : (List.range' 95 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_75 : (List.range' 75 25).all (inlineCheck 15) = true := by
+  exact (@check_range_add (inlineCheck 15) 75 5 20 inlineBatch_15_75_part_75 (@check_range_add (inlineCheck 15) 80 5 15 inlineBatch_15_75_part_80 (@check_range_add (inlineCheck 15) 85 5 10 inlineBatch_15_75_part_85 (@check_range_add (inlineCheck 15) 90 5 5 inlineBatch_15_75_part_90 inlineBatch_15_75_part_95))))
+theorem inlineGroupCheck_15_75 : inlineGroupCheck 15 75 25=true := by
+  exact inlineBatch_15_75
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem inlineGroupCheck_15_100 : inlineGroupCheck 15 100 25=true := by decide +kernel
+private theorem inlineBatch_15_100_part_100 : (List.range' 100 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_100_part_105 : (List.range' 105 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_100_part_110 : (List.range' 110 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_100_part_115 : (List.range' 115 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_100_part_120 : (List.range' 120 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_100 : (List.range' 100 25).all (inlineCheck 15) = true := by
+  exact (@check_range_add (inlineCheck 15) 100 5 20 inlineBatch_15_100_part_100 (@check_range_add (inlineCheck 15) 105 5 15 inlineBatch_15_100_part_105 (@check_range_add (inlineCheck 15) 110 5 10 inlineBatch_15_100_part_110 (@check_range_add (inlineCheck 15) 115 5 5 inlineBatch_15_100_part_115 inlineBatch_15_100_part_120))))
+theorem inlineGroupCheck_15_100 : inlineGroupCheck 15 100 25=true := by
+  exact inlineBatch_15_100
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem inlineGroupCheck_16_0 : inlineGroupCheck 16 0 25=true := by decide +kernel
+private theorem inlineBatch_16_0_part_0 : (List.range' 0 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_0_part_5 : (List.range' 5 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_0_part_10 : (List.range' 10 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_0_part_15 : (List.range' 15 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_0_part_20 : (List.range' 20 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_0 : (List.range' 0 25).all (inlineCheck 16) = true := by
+  exact (@check_range_add (inlineCheck 16) 0 5 20 inlineBatch_16_0_part_0 (@check_range_add (inlineCheck 16) 5 5 15 inlineBatch_16_0_part_5 (@check_range_add (inlineCheck 16) 10 5 10 inlineBatch_16_0_part_10 (@check_range_add (inlineCheck 16) 15 5 5 inlineBatch_16_0_part_15 inlineBatch_16_0_part_20))))
+theorem inlineGroupCheck_16_0 : inlineGroupCheck 16 0 25=true := by
+  exact inlineBatch_16_0
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem inlineGroupCheck_16_25 : inlineGroupCheck 16 25 25=true := by decide +kernel
+private theorem inlineBatch_16_25_part_25 : (List.range' 25 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_25_part_30 : (List.range' 30 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_25_part_35 : (List.range' 35 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_25_part_40 : (List.range' 40 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_25_part_45 : (List.range' 45 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_25 : (List.range' 25 25).all (inlineCheck 16) = true := by
+  exact (@check_range_add (inlineCheck 16) 25 5 20 inlineBatch_16_25_part_25 (@check_range_add (inlineCheck 16) 30 5 15 inlineBatch_16_25_part_30 (@check_range_add (inlineCheck 16) 35 5 10 inlineBatch_16_25_part_35 (@check_range_add (inlineCheck 16) 40 5 5 inlineBatch_16_25_part_40 inlineBatch_16_25_part_45))))
+theorem inlineGroupCheck_16_25 : inlineGroupCheck 16 25 25=true := by
+  exact inlineBatch_16_25
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem inlineGroupCheck_16_50 : inlineGroupCheck 16 50 25=true := by decide +kernel
+private theorem inlineBatch_16_50_part_50 : (List.range' 50 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_50_part_55 : (List.range' 55 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_50_part_60 : (List.range' 60 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_50_part_65 : (List.range' 65 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_50_part_70 : (List.range' 70 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_50 : (List.range' 50 25).all (inlineCheck 16) = true := by
+  exact (@check_range_add (inlineCheck 16) 50 5 20 inlineBatch_16_50_part_50 (@check_range_add (inlineCheck 16) 55 5 15 inlineBatch_16_50_part_55 (@check_range_add (inlineCheck 16) 60 5 10 inlineBatch_16_50_part_60 (@check_range_add (inlineCheck 16) 65 5 5 inlineBatch_16_50_part_65 inlineBatch_16_50_part_70))))
+theorem inlineGroupCheck_16_50 : inlineGroupCheck 16 50 25=true := by
+  exact inlineBatch_16_50
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem inlineGroupCheck_16_75 : inlineGroupCheck 16 75 25=true := by decide +kernel
+private theorem inlineBatch_16_75_part_75 : (List.range' 75 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_75_part_80 : (List.range' 80 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_75_part_85 : (List.range' 85 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_75_part_90 : (List.range' 90 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_75_part_95 : (List.range' 95 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_75 : (List.range' 75 25).all (inlineCheck 16) = true := by
+  exact (@check_range_add (inlineCheck 16) 75 5 20 inlineBatch_16_75_part_75 (@check_range_add (inlineCheck 16) 80 5 15 inlineBatch_16_75_part_80 (@check_range_add (inlineCheck 16) 85 5 10 inlineBatch_16_75_part_85 (@check_range_add (inlineCheck 16) 90 5 5 inlineBatch_16_75_part_90 inlineBatch_16_75_part_95))))
+theorem inlineGroupCheck_16_75 : inlineGroupCheck 16 75 25=true := by
+  exact inlineBatch_16_75
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem inlineGroupCheck_16_100 : inlineGroupCheck 16 100 25=true := by decide +kernel
+private theorem inlineBatch_16_100_part_100 : (List.range' 100 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_100_part_105 : (List.range' 105 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_100_part_110 : (List.range' 110 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_100_part_115 : (List.range' 115 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_100_part_120 : (List.range' 120 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_100 : (List.range' 100 25).all (inlineCheck 16) = true := by
+  exact (@check_range_add (inlineCheck 16) 100 5 20 inlineBatch_16_100_part_100 (@check_range_add (inlineCheck 16) 105 5 15 inlineBatch_16_100_part_105 (@check_range_add (inlineCheck 16) 110 5 10 inlineBatch_16_100_part_110 (@check_range_add (inlineCheck 16) 115 5 5 inlineBatch_16_100_part_115 inlineBatch_16_100_part_120))))
+theorem inlineGroupCheck_16_100 : inlineGroupCheck 16 100 25=true := by
+  exact inlineBatch_16_100
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem rejCheck_ok : rejCheck=true := by decide +kernel
+private theorem rejectBatch_part_0 : (List.range' 0 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_8 : (List.range' 8 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_16 : (List.range' 16 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_24 : (List.range' 24 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_32 : (List.range' 32 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_40 : (List.range' 40 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_48 : (List.range' 48 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_56 : (List.range' 56 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_64 : (List.range' 64 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_72 : (List.range' 72 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_80 : (List.range' 80 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_88 : (List.range' 88 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_96 : (List.range' 96 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_104 : (List.range' 104 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_112 : (List.range' 112 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_120 : (List.range' 120 5).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch : (List.range' 0 125).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by
+  exact (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 0 8 117 rejectBatch_part_0 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 8 8 109 rejectBatch_part_8 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 16 8 101 rejectBatch_part_16 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 24 8 93 rejectBatch_part_24 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 32 8 85 rejectBatch_part_32 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 40 8 77 rejectBatch_part_40 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 48 8 69 rejectBatch_part_48 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 56 8 61 rejectBatch_part_56 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 64 8 53 rejectBatch_part_64 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 72 8 45 rejectBatch_part_72 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 80 8 37 rejectBatch_part_80 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 88 8 29 rejectBatch_part_88 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 96 8 21 rejectBatch_part_96 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 104 8 13 rejectBatch_part_104 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 112 8 5 rejectBatch_part_112 rejectBatch_part_120)))))))))))))))
+theorem rejCheck_ok : rejCheck=true := by
+  unfold rejCheck
+  rw [List.range_eq_range']
+  exact rejectBatch
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
@@ -301,7 +865,7 @@ theorem s8Run_at (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) :
   simp only [s8Check,Bool.and_eq_true] at h
   exact h.1
 theorem bge9_at (k : Nat) (hk : k<125) (he : k%2=0) : vrun (cellW 9 k) 1=some (bge9R (cellW 9 k)) := by
-  have h := s8Check_at 9 k (by decide) (by unfold mx; norm_num; omega)
+  have h := s8Check_at 9 k (by decide +kernel) (by unfold mx; norm_num; omega)
   simp only [s8Check,Bool.and_eq_true] at h
   have h2 := h.2
   rw [if_pos (by simp [he])] at h2
@@ -369,10 +933,10 @@ theorem rungsOK_mono (q d0 d1 sl b : Nat) (h : d0 ≤ d1) (hk : rungsOK q d0 sl 
 theorem groupFacts (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<18) : c.GroupFacts q := by
   obtain ⟨k1,k2,k3⟩ := c.kdig_kOf hds q hq
   have hk := c.kOf_lt hds q hq
-  have hA := c.dig_group_le hds q 0 hq (by decide)
+  have hA := c.dig_group_le hds q 0 hq (by decide +kernel)
   simp only [Nat.add_zero] at hA
-  have hB := c.dig_group_le hds q 1 hq (by decide)
-  have hC := c.dig_group_le hds q 2 hq (by decide)
+  have hB := c.dig_group_le hds q 1 hq (by decide +kernel)
+  have hC := c.dig_group_le hds q 2 hq (by decide +kernel)
   have hm := mx_bounds' q
   cases hn : inl q
   · have he := entCheck_at q (c.kOf q) hq hn hk

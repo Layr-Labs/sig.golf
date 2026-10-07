@@ -44,7 +44,7 @@ private theorem queried_map_l {α β : Type} (answers : Answers) (f : α → β)
   simp
 theorem layersBC_succ_eq (w : WBytes) (index n : Nat) (msg : WCT9.LayerMsg) :
     layersBC w index (n + 1) msg =
-      if (wbcCtr w index (Fin.ofNat 4 n)).toNat ≥ WCT9.verifyWindow then pure none else
+      if (wbcCtr w index (Fin.ofNat 4 n)).toNat ≥ counterLimit then pure none else
       (shortHash (layerEncodingInputP (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
           (route index (Fin.ofNat 4 n)).1 msg (wbcCtr w index (Fin.ofNat 4 n)) (wbcPad w index (Fin.ofNat 4 n)) (wbcRight w)) >>= fun answer =>
         if n = 0 then topLayerP w index answer
@@ -72,7 +72,7 @@ theorem layersBC_succ_split (answers : Answers) (w : WBytes) (index n : Nat) (ms
               (evalWithAnswerFn answers (layerPairP w index (Fin.ofNat 4 n) digits)).2)),
           q ∈ queried answers (layersBC w index (n + 1) msg))) := by
   rw [layersBC_succ_eq] at h ⊢
-  by_cases hc : (wbcCtr w index (Fin.ofNat 4 n)).toNat ≥ WCT9.verifyWindow
+  by_cases hc : (wbcCtr w index (Fin.ofNat 4 n)).toNat ≥ counterLimit
   · rw [if_pos hc] at h; simp at h
   rw [if_neg hc] at h ⊢
   rw [evalWithAnswerFn_bind] at h

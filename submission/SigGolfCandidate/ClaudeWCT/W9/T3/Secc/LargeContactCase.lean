@@ -199,7 +199,7 @@ theorem layersBC_wots_walk_route (answers : Answers) (w : WBytes) (index : Nat) 
 theorem verifyP_walk_wots_route (answers : Answers) (m : Message) (pk : Digest) (w : WBytes)
     (hpk : pk = Extract.honestRoot answers 0 0)
     (hv : evalWithAnswerFn answers (verifyP m pk w) = true) :
-    ∃ N : HashOutput, (wdc w).toNat < WCT9.digestVerifyLimit ∧
+    ∃ N : HashOutput, (wdc w).toNat < WCT9.digestAttemptLimit ∧
       evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N ∧
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
@@ -225,7 +225,7 @@ theorem verifyP_walk_wots_route (answers : Answers) (m : Message) (pk : Digest) 
 theorem verifyP_wots_cases_route (answers : Answers) (m : Message) (pk : Digest) (w : WBytes)
     (hpk : pk = Extract.honestRoot answers 0 0)
     (hv : evalWithAnswerFn answers (verifyP m pk w) = true) :
-    ∃ N : HashOutput, (wdc w).toNat < WCT9.digestVerifyLimit ∧
+    ∃ N : HashOutput, (wdc w).toNat < WCT9.digestAttemptLimit ∧
       evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N ∧
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧

@@ -9,10 +9,10 @@ def children : Nat := 128
 def chains : Nat := 7
 def gateShift : Nat := 235
 def gateBits : Nat := 21
-def gateLimit : Nat := 1094
+def gateLimit : Nat := 2364
 def fieldBits : Nat := 14
 def fieldLimit : Nat := 16200
-def jointCap : Nat := 712
+def jointCap : Nat := 710
 abbrev Coord := Fin 9
 abbrev Child := Fin 128
 abbrev Rank := Fin 600
@@ -32,7 +32,7 @@ def field (output : HashOutput) (coord : Coord) : Nat :=
 def rank (output : HashOutput) (coord : Coord) : Rank :=
   ⟨field output coord % 600, Nat.mod_lt _ (by decide)⟩
 def admissible (output : HashOutput) : Bool :=
-  decide (output.toNat / 2 ^ 235 % 2 ^ 21 < 1094) &&
+  decide (output.toNat / 2 ^ 235 % 2 ^ 21 < 2364) &&
     (List.range 9).all (fun coord =>
       decide (output.toNat / 2 ^ fieldBase coord % 2 ^ 14 < 16200))
 def childSaveTable : List Nat :=
@@ -143,11 +143,6 @@ def producerDecode (lay : Layer) (answer : Digest) : Option (List Nat) :=
   | none => none
 def lowerSearchLimit : Nat := 2 ^ 21
 def searchLimit (lay : Layer) : Nat := if lay = 0 then counterLimit else lowerSearchLimit
-/-- The verifier accepts every 32-bit counter: its window is the whole `BitVec 32` range, so the layer check
-never rejects. The signer still searches `searchLimit`. -/
-def verifyWindow : Nat := 2 ^ 32
-theorem ctr_not_ge_verifyWindow (c : BitVec 32) : ¬c.toNat ≥ verifyWindow := by
-  unfold verifyWindow; exact Nat.not_le.mpr c.isLt
 def layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) (counter : Nat) :
     Nat → M (Option (BitVec 32 × List Nat))
   | 0 => pure none
@@ -278,7 +273,7 @@ def verifyLayersBC (w : Witness) (index : Nat) : Nat → LayerMsg → M (Option 
   | n + 1, msg => do
       let lay : Layer := Fin.ofNat 4 n
       let counter := w.counters lay
-      if counter.toNat ≥ verifyWindow then return none
+      if counter.toNat ≥ counterLimit then return none
       let (leaf, tree) := route index lay
       let answer ← shortHash (layerEncodingInput lay tree leaf msg counter)
       if n = 0 then verifyTop w.signature index answer

@@ -1,3 +1,4 @@
+import SigGolfCandidate.Research.V7Composed198Closing
 import SigGolfCandidate.T3.Secc.CaseCSplit
 import SigGolfCandidate.T3.Secc.WotsSmallContract
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CaseCFull
@@ -180,6 +181,178 @@ theorem full_bound_births (X : CaseCExtraction) (rate : ENNReal) (hexc : ExcessB
 end ClaudeWCT.W9.T3.Security.CaseC
 end
 section
+namespace ClaudeWCT.W9.T3.Security.SeccClosingW9
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3.Security
+open ClaudeWCT.W9.T3M.Final
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option exponentiation.threshold 1024
+theorem small_closing_real (y : ℝ) (hlow : 1 / 2 ^ 128 ≤ y) (hhigh : y ≤ 565 / 1048576) :
+    1884 / 1000 * y + (184) * y ^ 2 + 1 / 2 ^ 697 +
+      (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
+  exact SigGolfCandidate.Research.V7Composed198Closing.small_closing_real y hlow hhigh
+theorem large_closing_real (y : ℝ) (hlow : 565 / 1048576 ≤ y) :
+    (2 * y - y ^ 2) + y * (5344 / 10000000) + y * (1 / 2 ^ 25) + y * (1 / 2 ^ 50) + 1 / 2 ^ 132 +
+      (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
+  exact SigGolfCandidate.Research.V7Composed198Closing.large_closing_real y hlow
+theorem large_closing_real_high (y : ℝ) (hlow : 1 / 32 ≤ y) :
+    (2 * y - y ^ 2) + y * (2933 / 1000000) + y * (1 / 2 ^ 25) + y * (1 / 2 ^ 50) + 1 / 2 ^ 132 +
+      (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
+  exact SigGolfCandidate.Research.V7Composed198Closing.large_closing_real_high y hlow
+irreducible_def budgetSplit : Nat := 565 * 2 ^ 108
+noncomputable irreducible_def smallCoefficient : ENNReal := 1884 / 1000
+noncomputable irreducible_def smallQuadratic : ENNReal := 184
+noncomputable irreducible_def smallAbsolute : ENNReal := ((2 : ENNReal) ^ 697)⁻¹
+noncomputable irreducible_def excessRate : ENNReal := 2933 / 1000000
+noncomputable irreducible_def excessRate54 : ENNReal := 5344 / 10000000
+noncomputable irreducible_def cacheRate : ENNReal := ((2 : ENNReal) ^ 25)⁻¹
+noncomputable irreducible_def largeReserveRate : ENNReal := ((2 : ENNReal) ^ 50)⁻¹
+noncomputable irreducible_def largeReserveAbsolute : ENNReal := ((2 : ENNReal) ^ 132)⁻¹
+noncomputable def secTerms (q : Nat) : ENNReal :=
+  q / (2 : ENNReal) ^ 146 + (2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 152)⁻¹ + q / ((2 ^ 256 : Nat) : ENNReal)
+noncomputable def smallBound (q : Nat) : ENNReal :=
+  smallCoefficient * ((q : ENNReal) / 2 ^ 128) + smallQuadratic * ((q : ENNReal) / 2 ^ 128) ^ 2 + smallAbsolute
+noncomputable def largeBound (q : Nat) : ENNReal :=
+  ENNReal.ofReal (2 * ((q : ℝ) / 2 ^ 128) - ((q : ℝ) / 2 ^ 128) ^ 2) +
+    (q : ENNReal) * (if q ≤ 2 ^ 123 then excessRate54 else excessRate) / 2 ^ 128 +
+    (q : ENNReal) * cacheRate / 2 ^ 128 + (q : ENNReal) * largeReserveRate / 2 ^ 128 + largeReserveAbsolute
+theorem budgetSplit_le : budgetSplit ≤ 2 ^ 127 := by
+  rw [budgetSplit_def]
+  norm_num
+theorem one_le_budgetSplit : 1 ≤ budgetSplit := by
+  rw [budgetSplit_def]
+  norm_num
+theorem small_closing (q : Nat) (hq : 1 ≤ q) (hsplit : q ≤ budgetSplit) :
+    smallBound q + secTerms q ≤ (q : ENNReal) / 2 ^ 127 := by
+  rw [budgetSplit_def] at hsplit
+  unfold smallBound secTerms
+  rw [smallCoefficient_def, smallQuadratic_def, smallAbsolute_def]
+  have hlow : (1 : ℝ) / 2 ^ 128 ≤ (q : ℝ) / 2 ^ 128 := by
+    apply div_le_div_of_nonneg_right _ (by positivity)
+    exact_mod_cast hq
+  have hhigh : (q : ℝ) / 2 ^ 128 ≤ 565 / 1048576 := by
+    have hq' : (q : ℝ) ≤ 565 * 2 ^ 108 := by exact_mod_cast hsplit
+    rw [div_le_div_iff₀ (by positivity) (by positivity)]
+    nlinarith
+  have h := small_closing_real ((q : ℝ) / 2 ^ 128) hlow hhigh
+  apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+  simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_inv,
+    ENNReal.toReal_pow, ENNReal.toReal_natCast, ENNReal.toReal_ofNat, Nat.cast_pow, Nat.cast_ofNat]
+  convert h using 1 <;> ring
+theorem large_closing (q : Nat) (hsplit : budgetSplit ≤ q) (hq : q ≤ 2 ^ 127) :
+    largeBound q + secTerms q ≤ (q : ENNReal) / 2 ^ 127 := by
+  rw [budgetSplit_def] at hsplit
+  unfold largeBound secTerms
+  have hhigh : (q : ℝ) / 2 ^ 128 ≤ 1 / 2 := by
+    have hq' : (q : ℝ) ≤ 2 ^ 127 := by exact_mod_cast hq
+    rw [div_le_div_iff₀ (by positivity) (by positivity)]
+    nlinarith
+  have hp : 0 ≤ 2 * ((q : ℝ) / 2 ^ 128) - ((q : ℝ) / 2 ^ 128) ^ 2 := by
+    have hn : 0 ≤ (q : ℝ) / 2 ^ 128 := by positivity
+    nlinarith
+  by_cases h125 : q ≤ 2 ^ 123
+  · rw [if_pos h125, excessRate54_def, cacheRate_def, largeReserveRate_def, largeReserveAbsolute_def]
+    have hlow : (565 : ℝ) / 1048576 ≤ (q : ℝ) / 2 ^ 128 := by
+      have hq' : (565 : ℝ) * 2 ^ 108 ≤ q := by exact_mod_cast hsplit
+      rw [div_le_div_iff₀ (by positivity) (by positivity)]
+      nlinarith
+    have h := large_closing_real ((q : ℝ) / 2 ^ 128) hlow
+    apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+    simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_inv,
+      ENNReal.toReal_pow, ENNReal.toReal_natCast, ENNReal.toReal_ofNat, Nat.cast_pow, Nat.cast_ofNat,
+      ENNReal.toReal_ofReal hp]
+    convert h using 1 <;> ring
+  · rw [if_neg h125, excessRate_def, cacheRate_def, largeReserveRate_def, largeReserveAbsolute_def]
+    have hlow : (1 : ℝ) / 32 ≤ (q : ℝ) / 2 ^ 128 := by
+      have hq' : (2 ^ 123 : ℝ) ≤ q := by exact_mod_cast (Nat.le_of_not_le h125)
+      rw [div_le_div_iff₀ (by positivity) (by positivity)]
+      nlinarith
+    have h := large_closing_real_high ((q : ℝ) / 2 ^ 128) hlow
+    apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+    simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_inv,
+      ENNReal.toReal_pow, ENNReal.toReal_natCast, ENNReal.toReal_ofNat, Nat.cast_pow, Nat.cast_ofNat,
+      ENNReal.toReal_ofReal hp]
+    convert h using 1 <;> ring
+theorem largeBound_of_parts (q : Nat) (win contact certificate mass : ENNReal)
+    (hsplit : win ≤ contact + certificate)
+    (hpotential : contact + (if q ≤ 2 ^ 123 then 15 / 8 else 1) * mass / 2 ^ 128 ≤
+      ENNReal.ofReal (2 * ((q : ℝ) / 2 ^ 128) - ((q : ℝ) / 2 ^ 128) ^ 2))
+    (hcertificate : certificate ≤ (if q ≤ 2 ^ 123 then 15 / 8 else 1) * mass / 2 ^ 128 +
+      (q : ENNReal) * (if q ≤ 2 ^ 123 then excessRate54 else excessRate) / 2 ^ 128 +
+      (q : ENNReal) * cacheRate / 2 ^ 128 + (q : ENNReal) * largeReserveRate / 2 ^ 128 + largeReserveAbsolute) :
+    win ≤ largeBound q := by
+  unfold largeBound
+  calc
+    win ≤ contact + certificate := hsplit
+    _ ≤ contact + ((if q ≤ 2 ^ 123 then 15 / 8 else 1) * mass / 2 ^ 128 +
+        (q : ENNReal) * (if q ≤ 2 ^ 123 then excessRate54 else excessRate) / 2 ^ 128 +
+        (q : ENNReal) * cacheRate / 2 ^ 128 + (q : ENNReal) * largeReserveRate / 2 ^ 128 + largeReserveAbsolute) :=
+      add_le_add le_rfl hcertificate
+    _ = (contact + (if q ≤ 2 ^ 123 then 15 / 8 else 1) * mass / 2 ^ 128) +
+        (q : ENNReal) * (if q ≤ 2 ^ 123 then excessRate54 else excessRate) / 2 ^ 128 +
+        (q : ENNReal) * cacheRate / 2 ^ 128 + (q : ENNReal) * largeReserveRate / 2 ^ 128 + largeReserveAbsolute := by
+      simp only [add_assoc]
+    _ ≤ _ := by gcongr
+theorem probEvent_le_contact_add {β : Type} (law : PMF β) (win contact : β → Prop) (count : β → Prop)
+    (hcount : ∀ value, win value → count value) :
+    Pr[win | law] ≤ Pr[fun value => count value ∧ contact value | law] +
+      Pr[fun value => win value ∧ ¬contact value | law] :=
+  SeccClosing.probEvent_le_contact_add law win contact count hcount
+theorem x_le_of_small (q : Nat) (hsplit : q ≤ budgetSplit) :
+    (q : ENNReal) / 2 ^ 128 ≤ (565 / 1048576 : ENNReal) := by
+  rw [budgetSplit_def] at hsplit
+  rw [ENNReal.div_le_iff (by positivity) (by finiteness)]
+  calc
+    (q : ENNReal) ≤ (565 * 2 ^ 108 : Nat) := by exact_mod_cast hsplit
+    _ = (565 / 1048576 : ENNReal) * 2 ^ 128 := by
+      apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
+      norm_num [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_inv, ENNReal.toReal_pow]
+theorem sq_le_of_small (q : Nat) (hsplit : q ≤ budgetSplit) :
+    ((q : ENNReal) / 2 ^ 128) ^ 2 ≤ (565 / 1048576 : ENNReal) * ((q : ENNReal) / 2 ^ 128) := by
+  rw [pow_two]
+  exact mul_le_mul' (x_le_of_small q hsplit) le_rfl
+theorem one_sub_x_ge_of_small (q : Nat) (hsplit : q ≤ budgetSplit) :
+    (1048011 / 1048576 : ENNReal) ≤ 1 - (q : ENNReal) / 2 ^ 128 := by
+  have hx := x_le_of_small q hsplit
+  refine le_trans ?_ (tsub_le_tsub_left hx 1)
+  apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+  rw [ENNReal.toReal_sub_of_le (by
+    apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+    norm_num [ENNReal.toReal_div, ENNReal.toReal_inv, ENNReal.toReal_pow]) (by finiteness)]
+  norm_num [ENNReal.toReal_div, ENNReal.toReal_inv, ENNReal.toReal_pow]
+theorem div_sub_le_of_small (q : Nat) (hsplit : q ≤ budgetSplit) :
+    (q : ENNReal) / ((2 ^ 128 - q : Nat) : ENNReal) ≤ (1048576 / 1048011 : ENNReal) * ((q : ENNReal) / 2 ^ 128) := by
+  rw [budgetSplit_def] at hsplit
+  have hlt : q < 2 ^ 128 := lt_of_le_of_lt hsplit (by norm_num)
+  have hden : (0 : ℝ) < ((2 ^ 128 - q : Nat) : ℝ) := by exact_mod_cast Nat.sub_pos_of_lt hlt
+  have hpos : ((2 ^ 128 - q : Nat) : ENNReal) ≠ 0 := by exact_mod_cast (Nat.sub_pos_of_lt hlt).ne'
+  apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+  simp (disch := finiteness) only [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_pow,
+    ENNReal.toReal_natCast, ENNReal.toReal_ofNat]
+  have hcast : ((2 ^ 128 - q : Nat) : ℝ) = 2 ^ 128 - (q : ℝ) := by
+    rw [Nat.cast_sub hlt.le]
+    norm_num
+  rw [hcast] at hden ⊢
+  have hq' : (q : ℝ) ≤ 565 * 2 ^ 108 := by exact_mod_cast hsplit
+  have hq0 : (0 : ℝ) ≤ q := Nat.cast_nonneg q
+  rw [div_le_iff₀ hden]
+  have : 1048576 / 1048011 * ((q : ℝ) / 2 ^ 128) * (2 ^ 128 - (q : ℝ)) =
+      (q : ℝ) * (1048576 / 1048011 * (1 - (q : ℝ) / 2 ^ 128)) := by ring
+  rw [this]
+  have hx : (q : ℝ) / 2 ^ 128 ≤ 565 / 1048576 := by
+    rw [div_le_div_iff₀ (by positivity) (by positivity)]
+    nlinarith
+  have hfac : 1 ≤ 1048576 / 1048011 * (1 - (q : ℝ) / 2 ^ 128) := by linarith
+  nlinarith
+theorem smallBound_of_le (q : Nat) (P c Q A : ENNReal) (hc : c ≤ smallCoefficient) (hQ : Q ≤ smallQuadratic)
+    (hA : A ≤ smallAbsolute)
+    (hP : P ≤ c * ((q : ENNReal) / 2 ^ 128) + Q * ((q : ENNReal) / 2 ^ 128) ^ 2 + A) : P ≤ smallBound q := by
+  unfold smallBound
+  exact hP.trans (by gcongr)
+end ClaudeWCT.W9.T3.Security.SeccClosingW9
+end
+section
 namespace ClaudeWCT.W9.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -192,26 +365,23 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-theorem full_bound (X : CaseCExtraction) (hexc : ExcessBound horizon (15200 / 100000000))
+theorem full_bound (X : CaseCExtraction) (hexc : ExcessBound horizon (2933 / 1000000))
     (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
     Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ PinnedC X adversary FullQ z |
         SeccLaw.completedExperiment adversary q hq] ≤
-      (1 + SeccClosing.cacheRate) / 2 ^ 128 * SeccLaw.expectedCharge adversary q hq Wots.digestClass +
-        ((Wots.signRatio * q : Nat) : ENNReal) * SeccClosing.excessRate / 2 ^ 128 := by
+      (1 + SeccClosingW9.cacheRate) / 2 ^ 128 * SeccLaw.expectedCharge adversary q hq Wots.digestClass +
+        (q : ENNReal) * SeccClosingW9.excessRate / 2 ^ 128 := by
   refine (full_bound_births X _ hexc adversary q hq).trans (add_le_add ?_ ?_)
   · apply mul_le_mul'
     · apply ENNReal.div_le_div_right
       exact theta_add_sixteenth_le_one.trans le_self_add
     · rw [← publicClass_digest]
       exact CreationGame.expectedBirths_le_shared IsDigestInput adversary q hq
-  · rw [SeccClosing.excessRate_def]
-    apply ENNReal.div_le_div_right
-    apply mul_le_mul' _ le_rfl
-    exact_mod_cast (by unfold Wots.signRatio; omega : q ≤ Wots.signRatio * q)
+  · rw [SeccClosingW9.excessRate_def]
 def NearBound (X : CaseCExtraction)
     (NearQ : Correctness.Answers → QueryLog Requests → Message → WBytes → List FirstHit.QueryEvent → Prop)
     (nearTerm : Nat → ENNReal) : Prop :=
-  ∀ (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127), 1 ≤ q → q ≤ SeccClosing.budgetSplit →
+  ∀ (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127), 1 ≤ q → q ≤ SeccClosingW9.budgetSplit →
     Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ PinnedC X adversary NearQ z |
         SeccLaw.completedExperiment adversary q hq] ≤ nearTerm q
 structure CaseCSplitInterface (X : CaseCExtraction) where
@@ -228,14 +398,14 @@ structure CaseCSplitInterface (X : CaseCExtraction) where
       pairTerm q
 def CaseCSmallBound (CaseCFreshPinned : AdversaryP → PaddedGame.TraceResult × Correctness.Answers → Prop)
     (nearTerm pairTerm : Nat → ENNReal) : Prop :=
-  ∀ (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127), 1 ≤ q → q ≤ SeccClosing.budgetSplit →
+  ∀ (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127), 1 ≤ q → q ≤ SeccClosingW9.budgetSplit →
     Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ CaseCFreshPinned adversary z |
         SeccLaw.completedExperiment adversary q hq] ≤
-      (1 + SeccClosing.cacheRate) / 2 ^ 128 * SeccLaw.expectedCharge adversary q hq Wots.digestClass +
-        ((Wots.signRatio * q : Nat) : ENNReal) * SeccClosing.excessRate / 2 ^ 128 + nearTerm q + pairTerm q +
+      (1 + SeccClosingW9.cacheRate) / 2 ^ 128 * SeccLaw.expectedCharge adversary q hq Wots.digestClass +
+        (q : ENNReal) * SeccClosingW9.excessRate / 2 ^ 128 + nearTerm q + pairTerm q +
         (2 : ENNReal)⁻¹ ^ 700
 theorem caseC_small_bound (X : CaseCExtraction) (Y : CaseCSplitInterface X) (nearTerm : Nat → ENNReal)
-    (hexc : ExcessBound horizon (15200 / 100000000)) (hnear : NearBound X Y.NearQ nearTerm) :
+    (hexc : ExcessBound horizon (2933 / 1000000)) (hnear : NearBound X Y.NearQ nearTerm) :
     CaseCSmallBound Y.CaseCFreshPinned nearTerm Y.pairTerm := by
   intro adversary q hq h1 hsplit
   set P := SeccLaw.completedExperiment adversary q hq
@@ -254,8 +424,8 @@ theorem caseC_small_bound (X : CaseCExtraction) (Y : CaseCSplitInterface X) (nea
         (Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ PinnedC X adversary Y.NearQ z | P] +
           Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ Y.PairGuess adversary z | P]) :=
       (pmf_probEvent_or_le _ _ _).trans (add_le_add le_rfl (pmf_probEvent_or_le _ _ _))
-    _ ≤ ((1 + SeccClosing.cacheRate) / 2 ^ 128 * SeccLaw.expectedCharge adversary q hq Wots.digestClass +
-          ((Wots.signRatio * q : Nat) : ENNReal) * SeccClosing.excessRate / 2 ^ 128) +
+    _ ≤ ((1 + SeccClosingW9.cacheRate) / 2 ^ 128 * SeccLaw.expectedCharge adversary q hq Wots.digestClass +
+          (q : ENNReal) * SeccClosingW9.excessRate / 2 ^ 128) +
         (nearTerm q + Y.pairTerm q) :=
       add_le_add (full_bound X hexc adversary q hq)
         (add_le_add (hnear adversary q hq h1 hsplit) (Y.pair_guess_bound adversary q hq))

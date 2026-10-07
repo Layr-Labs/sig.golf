@@ -484,7 +484,7 @@ theorem bound_expand (message : Message) (pk : Digest) (sig : Signature) :
   bound_expandWith digestAttemptLimit message pk sig
 theorem bound_verify (message : Message) (pk : Digest) (w : Witness) :
     CBound (fun _ => True) 709 (Rev3.verify message pk w) :=
-  bound_verifyWith digestVerifyLimit message pk w
+  bound_verifyWith digestAttemptLimit message pk w
 theorem sign_compression_ceiling (secret : BitVec 256) (cache : Cache) (message : Message) :
     ∀ result ∈ support (World.countBlocks (realize secret (Rev3.sign cache message))),
       result.2 ≤ 18992537 := by

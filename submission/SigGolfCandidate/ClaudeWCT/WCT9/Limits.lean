@@ -9,12 +9,6 @@ theorem digestAttemptLimit_eq_two_mul : digestAttemptLimit = 2 * SigGolfCandidat
   norm_num [digestAttemptLimit, SigGolfCandidate.T3.attemptLimit]
 theorem digestAttemptLimit_le : digestAttemptLimit ≤ 2 ^ 32 := by
   norm_num [digestAttemptLimit]
-/-- Verifier-only digest cutoff, equal to the pinned verifier data base. Sign and expand retain their search cutoff. -/
-def digestVerifyLimit : Nat := 16760288
-theorem digestAttemptLimit_le_digestVerifyLimit : digestAttemptLimit ≤ digestVerifyLimit := by
-  norm_num [digestAttemptLimit, digestVerifyLimit]
-theorem digestVerifyLimit_lt : digestVerifyLimit < 2 ^ 32 := by
-  norm_num [digestVerifyLimit]
 theorem attemptLimit_le_digestAttemptLimit : SigGolfCandidate.T3.attemptLimit ≤ digestAttemptLimit := by
   norm_num [digestAttemptLimit, SigGolfCandidate.T3.attemptLimit]
 def signPayloadWith (limit : Nat) (cache : Cache) (message : Message) : M (Option Signature) := do
@@ -67,7 +61,7 @@ def sign (cache : Cache) (message : Message) : M (Option Signature) :=
 def expand (message : Message) (pk : Digest) (sig : Signature) : M (Option Witness) :=
   expandWith digestAttemptLimit message pk sig
 def verify (message : Message) (pk : Digest) (w : Witness) : M Bool :=
-  verifyWith digestVerifyLimit message pk w
+  verifyWith digestAttemptLimit message pk w
 def keygen : M (Digest × Cache) := ClaudeWCT.WCT9.keygen
 theorem sign_eq (cache : Cache) (message : Message) : sign cache message = (do
     let tag ← privateMac cache.region

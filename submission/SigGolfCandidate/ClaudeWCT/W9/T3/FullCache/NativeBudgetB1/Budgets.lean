@@ -29,7 +29,7 @@ theorem card_capP : #{p : WProposal | capP p} = 2 ^ 31 * ClaudeWCT.Numerics.N600
   rw [h, card_product, ClaudeWCT.Numerics.N600Cap.card_capSet, card_univ, Fintype.card_fin]
 theorem acceptanceV5 :
     Pr[fun x : HashOutput => ClaudeWCT.WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      (1094 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 210 := by
+      (2364 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 210 := by
   rw [← expectedValue_ite_one, SigGolfCandidate.T3.BPORS.expected_uniform_eq_finiteAverage]
   unfold SigGolfResearch.Gate6.Moments.finiteAverage
   have hsum : (∑ x : HashOutput, if ClaudeWCT.WCT9.producerAdmissible x = true then (1 : ENNReal) else 0) =
@@ -42,6 +42,7 @@ theorem acceptanceV5 :
     · rw [if_neg ha, if_neg (fun h => ha ((producerAdmissible_iff_capP x).mp h).1)]
   rw [hsum, ClaudeWCT.Bank.WCT.sum_admissible (fun p : WProposal => if capP p then (1 : ENNReal) else 0),
     sum_boole, card_capP, Fintype.card_bitVec]
+  unfold ClaudeWCT.WCT9.gateLimit
   generalize hJ : ClaudeWCT.Numerics.N600Cap.J = J
   apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
   simp only [ENNReal.toReal_div, ENNReal.toReal_mul, ENNReal.toReal_natCast, ENNReal.toReal_pow,
@@ -51,7 +52,7 @@ theorem acceptanceV5_eq_p0 :
     Pr[fun x : HashOutput => ClaudeWCT.WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
       ENNReal.ofReal (BaseAudit.V5.p0 : ℝ) := by
   rw [acceptanceV5]
-  have hq : ((BaseAudit.V5.p0 : ℚ) : ℝ) = (1094 : ℝ) * 27 ^ 9 * (ClaudeWCT.Numerics.N600Cap.J : ℝ) / 2 ^ 210 := by
+  have hq : ((BaseAudit.V5.p0 : ℚ) : ℝ) = (2364 : ℝ) * 27 ^ 9 * (ClaudeWCT.Numerics.N600Cap.J : ℝ) / 2 ^ 210 := by
     simp only [BaseAudit.V5.p0, BaseAudit.V5.J, ClaudeWCT.Numerics.N600Cap.J]
     push_cast
     ring
@@ -175,8 +176,8 @@ theorem signing_complete_at (answers : Answers) (keys : Digest × Cache)
     rw [show sign keys.2 message = ClaudeWCT.WCT9.signWith digestAttemptLimit keys.2 message from rfl,
       ClaudeWCT.WCT9.signWith_valid_cache digestAttemptLimit answers keys message hkeys.2.2]
     exact hs
-  obtain ⟨w, he, hv⟩ := ClaudeWCT.WCT9.Rev3.signing_success_valid
-    answers keys hkeys htop message sig hs'
+  obtain ⟨w, he, hv⟩ := ClaudeWCT.WCT9.signingWith_success_valid digestAttemptLimit
+    ClaudeWCT.WCT9.digestAttemptLimit_le answers keys hkeys htop message sig hs'
   exact ⟨sig, w, hs', he, hv⟩
 theorem signing_complete_of_searches (answers : Answers) (keys : Digest × Cache)
     (hkeys : KeygenCorrect answers keys) (hgood : SearchesSucceed answers) :
@@ -291,7 +292,7 @@ theorem digest_failure_power :
   digest_failure_power_of_acceptance (BaseAudit.V5.p0 : ℝ)
     (by norm_num [BaseAudit.V5.p0, BaseAudit.V5.J]) (by norm_num [BaseAudit.V5.p0, BaseAudit.V5.J]) digest_probability_eq_p0
 theorem digest_failMass_eq :
-    failMass digestDecode = 1 - (1094 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 210 := by
+    failMass digestDecode = 1 - (2364 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 210 := by
   have h : (fun answer : HashOutput => (digestDecode answer).isSome = true) =
       fun x => ClaudeWCT.WCT9.producerAdmissible x = true := by
     funext x
@@ -299,7 +300,7 @@ theorem digest_failMass_eq :
     split <;> simp_all
   rw [failMass_eq_one_sub_accept, h, acceptanceV5]
 theorem digest_failure_explicit :
-    (1 - (1094 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 210) ^ (2 ^ 21) ≤
+    (1 - (2364 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 210) ^ (2 ^ 21) ≤
       1 / (2 : ENNReal) ^ 450 := by
   rw [← digest_failMass_eq]
   exact digest_failure_power

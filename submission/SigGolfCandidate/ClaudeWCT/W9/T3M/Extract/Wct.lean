@@ -491,10 +491,10 @@ theorem eval_rejectTail (answers : Answers) (w : WBytes) (N : HashOutput) :
   · rw [evalWithAnswerFn_map]
 theorem shaped_of_verifyP (answers : Answers) (m : Message) (pk : Digest) (w : WBytes)
     (hv : evalWithAnswerFn answers (verifyP m pk w) = true) :
-    (wdcWord w).toNat < WCT9.digestVerifyLimit ∧ Shaped (evalWithAnswerFn answers (digest (wrho w) m (wdc w))) w := by
+    (wdcWord w).toNat < WCT9.digestAttemptLimit ∧ Shaped (evalWithAnswerFn answers (digest (wrho w) m (wdc w))) w := by
   classical
   rw [verifyP_normal] at hv
-  by_cases hdc : (wdcWord w).toNat ≥ WCT9.digestVerifyLimit
+  by_cases hdc : (wdcWord w).toNat ≥ WCT9.digestAttemptLimit
   · rw [if_pos hdc] at hv; simp at hv
   rw [if_neg hdc, evalWithAnswerFn_bind] at hv
   refine ⟨by omega, ?_⟩
@@ -503,7 +503,7 @@ theorem shaped_of_verifyP (answers : Answers) (m : Message) (pk : Digest) (w : W
   exact Bool.false_ne_true hv
 theorem verifyP_walk_wct (answers : Answers) (m : Message) (pk : Digest) (w : WBytes)
     (hv : evalWithAnswerFn answers (verifyP m pk w) = true) :
-    ∃ N : HashOutput, (wdc w).toNat < WCT9.digestVerifyLimit ∧
+    ∃ N : HashOutput, (wdc w).toNat < WCT9.digestAttemptLimit ∧
       evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N ∧
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
@@ -550,7 +550,7 @@ theorem verifyP_walk_wct (answers : Answers) (m : Message) (pk : Digest) (w : WB
     fun q hq => List.mem_append_right _ (List.mem_append_right _ (List.mem_append_left _ hq))⟩
 theorem verifyP_wct_extract (answers : Answers) (m : Message) (pk : Digest) (w : WBytes)
     (hv : evalWithAnswerFn answers (verifyP m pk w) = true) :
-    ∃ N : HashOutput, (wdc w).toNat < WCT9.digestVerifyLimit ∧
+    ∃ N : HashOutput, (wdc w).toNat < WCT9.digestAttemptLimit ∧
       evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N ∧
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
@@ -572,7 +572,7 @@ theorem verifyP_extract {LayerEvent : Answers → WBytes → Nat → List Spec.D
     {LayersGood : Answers → WBytes → Nat → Prop} (hL : LayersWalkSpec LayerEvent LayersGood)
     (answers : Answers) (m : Message) (pk : Digest) (w : WBytes) (hpk : pk = Extract.honestRoot answers 0 0)
     (hv : evalWithAnswerFn answers (verifyP m pk w) = true) :
-    ∃ N : HashOutput, (wdc w).toNat < WCT9.digestVerifyLimit ∧
+    ∃ N : HashOutput, (wdc w).toNat < WCT9.digestAttemptLimit ∧
       evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N ∧
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧

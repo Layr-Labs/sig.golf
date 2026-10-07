@@ -81,12 +81,20 @@ def AcceptedProposalHonest : Prop :=
       (∑ p, honestLaw p * g p) *
         Pr[fun x : HashOutput => WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)]
 def ProducerAcceptanceBound : Prop :=
-  Pr[fun x : HashOutput => WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 1 / 64
+  Pr[fun x : HashOutput => WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 1 / 1024
 def ExcessBound (horizon : Nat) (rate : ENNReal) : Prop :=
-  ClaudeWCT.Numerics.Law.lawAvg honestLaw horizon (fun W : List WProposal => price W - CaseC.theta) ≤ rate
+  ClaudeWCT.Numerics.Law.lawAvg honestLaw horizon (fun W : List WProposal => price W - 1023 / 1024) ≤ rate
 noncomputable def wctSpec (hsum : HonestLawSum) (hacc : AcceptedProposalHonest) (hle : ProducerAcceptanceBound)
     (hprod : ∃ x, WCT9.producerAdmissible x = true) (horizon : Nat) (rate : ENNReal)
     (hexc : ExcessBound horizon rate) : FtsBankSpec WProposal where
+  specTheta := 1023 / 1024
+  admBound := 1 / 1024
+  theta_add_admBound := by
+    apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by unfold CaseC.theta; finiteness)).mp
+    unfold CaseC.theta
+    simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_div, ENNReal.toReal_inv,
+      ENNReal.toReal_ofNat, ENNReal.toReal_one]
+    norm_num
   admissible := WCT9.admissible
   producer := WCT9.producerAdmissible
   exists_producer := hprod

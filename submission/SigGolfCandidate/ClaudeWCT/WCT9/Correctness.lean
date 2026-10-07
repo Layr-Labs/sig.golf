@@ -665,7 +665,7 @@ theorem expandLayersBC_verified (answers : Answers) (sig : Signature) (index : N
           obtain ⟨_, hbound, hdecode⟩ := layerCounterSearch_some answers (Fin.ofNat 4 n)
             (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg
             (searchLimit (Fin.ofNat 4 n)) 0 counter digits (by unfold counterLimit at hlim; omega) hs
-          have hnot : ¬counter.toNat ≥ verifyWindow := ctr_not_ge_verifyWindow counter
+          have hnot : ¬counter.toNat ≥ counterLimit := by omega
           have hlay := ofNat_layer_val n (by omega)
           simp only [hs] at he
           by_cases hn0 : n = 0

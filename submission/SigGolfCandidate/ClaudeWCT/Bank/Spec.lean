@@ -11,10 +11,13 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 structure FtsBankSpec (P : Type) [Fintype P] [SampleableType P] where
+  specTheta : ENNReal := CaseC.theta
+  admBound : ENNReal := 1 / 64
+  theta_add_admBound : specTheta + admBound = CaseC.theta + 1 / 64 := by rfl
   admissible : HashOutput → Bool
   producer : HashOutput → Bool
   exists_producer : ∃ x, producer x = true
-  acceptance_le : Pr[fun x : HashOutput => producer x = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 1 / 64
+  acceptance_le : Pr[fun x : HashOutput => producer x = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ admBound
   proposal : HashOutput → P
   law : P → ENNReal
   law_sum : ∑ p, law p = 1
@@ -30,7 +33,7 @@ structure FtsBankSpec (P : Type) [Fintype P] [SampleableType P] where
   average_score : ∀ X, BPORS.finiteAverage (fun N : HashOutput => score X N) = price (X.map proposal) / 2 ^ 128
   horizon : Nat
   excessRate : ENNReal
-  excess_le : ClaudeWCT.Numerics.Law.lawAvg law horizon (fun W : List P => price W - CaseC.theta) ≤ excessRate
+  excess_le : ClaudeWCT.Numerics.Law.lawAvg law horizon (fun W : List P => price W - specTheta) ≤ excessRate
 namespace FtsBankSpec
 variable {P : Type} [Fintype P] [SampleableType P] (S : FtsBankSpec P)
 def decode (x : HashOutput) : Option HashOutput := if S.producer x then some x else none
@@ -77,7 +80,7 @@ theorem acceptance_ne_zero : S.acceptance ≠ 0 := by
   exact_mod_cast (Finset.card_pos.mpr S.admissibleSet_nonempty).ne'
 theorem acceptance_le_one : S.acceptance ≤ 1 := probEvent_le_one
 theorem acceptance_ne_top : S.acceptance ≠ ⊤ := ne_top_of_le_ne_top (by simp) S.acceptance_le_one
-theorem acceptance_le_sixtyfourth : S.acceptance ≤ 1 / 64 := S.acceptance_le
+theorem acceptance_le_sixtyfourth : S.acceptance ≤ S.admBound := S.acceptance_le
 theorem failMass_decode : failMass S.decode = 1 - S.acceptance := by
   have hf : failMass S.decode = Pr[fun answer : HashOutput => S.decode answer = none |
       ($ᵗ HashOutput : ProbComp HashOutput)] := failMass_eq_probEvent S.decode
