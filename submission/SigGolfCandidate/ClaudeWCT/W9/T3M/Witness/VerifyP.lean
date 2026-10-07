@@ -180,7 +180,7 @@ def layersBC (w : WBytes) (index : Nat) : Nat → WCT9.LayerMsg → M (Option Di
   | n + 1, msg => do
       let lay : Layer := Fin.ofNat 4 n
       let counter := wbcCtr w index lay
-      if counter.toNat ≥ counterLimit then return none
+      if counter.toNat ≥ WCT9.verifyWindow then return none
       let (leaf, tree) := route index lay
       let answer ← shortHash (layerEncodingInputP lay tree leaf msg counter (wbcPad w index lay) (wbcRight w))
       if n = 0 then topLayerP w index answer
@@ -200,7 +200,7 @@ def layersBCPrepass (w : WBytes) (index : Nat) : Nat → WCT9.LayerMsg → M (Op
   | n + 1, msg => do
       let lay : Layer := Fin.ofNat 4 n
       let counter := wbcCtr w index lay
-      if counter.toNat ≥ counterLimit then return none
+      if counter.toNat ≥ WCT9.verifyWindow then return none
       let (leaf, tree) := route index lay
       let answer ← shortHash (layerEncodingInputP lay tree leaf msg counter (wbcPad w index lay) (wbcRight w))
       let some digits := decode lay answer | pure none
@@ -280,7 +280,7 @@ def verifyLayersBCP (w : WCT9.Witness) (pads : Pads) (index : Nat) : Nat → WCT
   | n + 1, msg => do
       let lay : Layer := Fin.ofNat 4 n
       let counter := w.counters lay
-      if counter.toNat ≥ counterLimit then return none
+      if counter.toNat ≥ WCT9.verifyWindow then return none
       let (leaf, tree) := route index lay
       let answer ← shortHash (layerEncodingInputP lay tree leaf msg counter (pads.bc lay) pads.bcRight)
       if n = 0 then verifyTopP w.signature pads index answer

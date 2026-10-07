@@ -1008,7 +1008,7 @@ theorem layerLoop_succ (w : ClaudeWCT.W9.T3M.WBytes) (index n : Nat) (hn : n < 4
       | succ m => simpa only [bind_assoc, pure_bind, BC.layerLoop] using h
 theorem layerLoop_one (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (msg : LayerMsg) :
     BC.layerLoop w index 1 msg =
-      if (ClaudeWCT.W9.T3M.wbcCtr w index 0).toNat ≥ SigGolfCandidate.T3.counterLimit then pure none else
+      if (ClaudeWCT.W9.T3M.wbcCtr w index 0).toNat ≥ ClaudeWCT.WCT9.verifyWindow then pure none else
       shortHash (ClaudeWCT.W9.T3M.layerEncodingInputP 0 (route index 0).2 (route index 0).1 msg
         (ClaudeWCT.W9.T3M.wbcCtr w index 0) (ClaudeWCT.W9.T3M.wbcPad w index 0) (ClaudeWCT.W9.T3M.wbcRight w)) >>=
         ClaudeWCT.W9.T3M.topLayerP w index := by
