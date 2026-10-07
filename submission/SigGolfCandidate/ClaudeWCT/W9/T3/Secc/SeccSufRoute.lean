@@ -92,7 +92,7 @@ theorem layerCounterSearch_none (answers : Correctness.Answers) (lay : Layer) (t
             rwa [show counter + 1 + (offset - 1) = counter + offset by omega] at this
 theorem goodZ_row (answers : Correctness.Answers) (w : WBytes) (index : Nat) (lay : Layer)
     (hgood : ClaudeWCT.W9.T3M.BC.GoodZ answers w index lay) :
-    ∃ digits, (ClaudeWCT.W9.T3M.wbcCtr w index lay).toNat < counterLimit ∧
+    ∃ digits, (ClaudeWCT.W9.T3M.wbcCtr w index lay).toNat < ClaudeWCT.WCT9.verifyWindow ∧
       decode lay (evalWithAnswerFn answers (shortHash (WCT9.layerEncodingInput lay (route index lay).2
         (route index lay).1 (ClaudeWCT.W9.T3M.Extract.honestMsg answers index lay)
         (ClaudeWCT.W9.T3M.wbcCtr w index lay)))) = some digits := by
