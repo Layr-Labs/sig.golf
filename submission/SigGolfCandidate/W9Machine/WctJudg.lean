@@ -86,12 +86,12 @@ theorem GoodQFor.halt {s : MachineState} {Q : Prop} {A : Nat} (hf : fetch im s =
   · rw [hF', evalWith_halt hash (F - 1) hf h5]
     by_cases hx : s.getReg .x10 = 0
     · simp only [hx, if_true]
-      exact ⟨by decide, le_refl _, fun _ _ => hQ hx⟩
+      exact ⟨by decide +kernel, le_refl _, fun _ _ => hQ hx⟩
     · simp only [hx, if_false]
-      exact ⟨by decide, le_refl _, fun h _ => absurd h (by decide)⟩
+      exact ⟨by decide +kernel, le_refl _, fun h _ => absurd h (by decide +kernel)⟩
 theorem GoodQFor.reject {s : MachineState} {Q : Prop} {A : Nat} (hf : fetch im s = some (.base .ECALL))
     (h5 : s.getReg .x5 = 1) (h10 : s.getReg .x10 = 1) : GoodQFor im s 1 1 Q A (pure (false, 0)) := by
-  have := GoodQFor.halt (Q := Q) (A := A) hf h5 (fun h => absurd (h10.symm.trans h) (by decide))
+  have := GoodQFor.halt (Q := Q) (A := A) hf h5 (fun h => absurd (h10.symm.trans h) (by decide +kernel))
   rwa [h10] at this
 theorem GoodQFor.accept {s : MachineState} {Q : Prop} {A : Nat} (hf : fetch im s = some (.base .ECALL))
     (h5 : s.getReg .x5 = 1) (h10 : s.getReg .x10 = 0) (hQ : Q) (hA : 1 ≤ A) :

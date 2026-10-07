@@ -15,7 +15,7 @@ theorem wword_zero (w : ClaudeWCT.W9.T3M.WBytes) (j : Nat) (h : 2686 ≤ j) : ww
   apply BitVec.eq_of_toNat_eq
   rw [wword_toNat]
   have hw : w.toNat < 2 ^ (64 * j) :=
-    lt_of_lt_of_le w.isLt (Nat.pow_le_pow_right (by decide) (by omega))
+    lt_of_lt_of_le w.isLt (Nat.pow_le_pow_right (by decide +kernel) (by omega))
   rw [Nat.div_eq_of_lt hw]; rfl
 theorem wdig_lo (w : ClaudeWCT.W9.T3M.WBytes) (j : Nat) : dlo (ClaudeWCT.W9.T3M.wdig w (8 * j)) = wword w j := by
   apply BitVec.eq_of_toNat_eq
@@ -46,7 +46,7 @@ theorem aligned_blk4 (a b c d : BitVec 128) : Aligned (blk4 a b c d) := by
   rw [Aligned, blk4_length]; omega
 theorem blocks_blk4 (a b c d : BitVec 128) : (toQ (pad64 (blk4 a b c d))).blocks = 1 := by
   rw [pad64_blk4, blocks_toQ (aligned_blk4 a b c d), blk4_length]
-theorem bytesLE16_zero : bytesLE 16 (0 : BitVec 128) = zero16 := by decide
+theorem bytesLE16_zero : bytesLE 16 (0 : BitVec 128) = zero16 := by decide +kernel
 theorem dlo_append (hi lo : BitVec 64) : dlo (hi ++ lo) = lo := by
   apply BitVec.eq_of_toNat_eq
   rw [BitVec.extractLsb'_toNat, BitVec.toNat_append, Nat.shiftRight_zero,
@@ -58,7 +58,7 @@ theorem dhi_append (hi lo : BitVec 64) : dhi (hi ++ lo) = hi := by
   rw [BitVec.extractLsb'_toNat, BitVec.toNat_append,
     ← Nat.shiftLeft_add_eq_or_of_lt lo.isLt, Nat.shiftLeft_eq, Nat.shiftRight_eq_div_pow]
   have := lo.isLt; have := hi.isLt
-  rw [Nat.mul_comm, Nat.mul_add_div (by decide), Nat.div_eq_of_lt lo.isLt, Nat.add_zero, Nat.mod_eq_of_lt hi.isLt]
+  rw [Nat.mul_comm, Nat.mul_add_div (by decide +kernel), Nat.div_eq_of_lt lo.isLt, Nat.add_zero, Nat.mod_eq_of_lt hi.isLt]
 theorem wordsOf_append64 (hi lo : BitVec 64) : wordsOf (bytesLE 16 (hi ++ lo)) = [lo, hi] := by
   rw [wordsOf_bytesLE16]; exact congrArg₂ (fun x y => [x, y]) (dlo_append hi lo) (dhi_append hi lo)
 theorem wordsOf_rowTweak (lay : Layer) (tree leaf : Nat) :

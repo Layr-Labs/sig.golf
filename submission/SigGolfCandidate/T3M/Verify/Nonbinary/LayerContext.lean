@@ -1,3 +1,4 @@
+import SigGolfCandidate.T3M.Verify.Nonbinary.LayerPrefix
 import SigGolfCandidate.T3M.Verify.LayerSem
 import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsDispatchCtx
 
@@ -8,16 +9,6 @@ open SigGolfCandidate.T3 (Digest)
 set_option maxRecDepth 8192
 set_option maxHeartbeats 600000
 set_option linter.unusedSimpArgs false
-def prefixWordsOf (a : Nat) : List (BitVec 32) :=
-  [0x63803,0x863883,0x378de93,0xff80b303,
-   BitVec.ofNat 32 ((4096 - (a - 12480)) % 4096 * 2 ^ 20 + 10 * 2 ^ 15 + 8 * 2 ^ 7 + 0x13),
-   0xa81713,0x677733,0x42070067]
-def aVals : List Nat := [14272,14288,14304,14336,14368,14384,14400,14432,14464,14480,14496,14528]
-sym_block prefixBase := symRun { noAlias := true } (prefixWordsOf 14464) (pcOf 48176) 200
-def prefixRegs (a : Nat) : RegFile :=
-  prefixBase.res.st.regs.set .x8 (.bin .add (.reg .x10) (.c (BitVec.ofNat 64 (2 ^ 64 - (a - 12480)))))
-def prefixRes (a : Nat) : Result :=
-  { prefixBase.res with st := { prefixBase.res.st with regs := prefixRegs a } }
 theorem prefix_run (a : Nat) (ha : a ∈ aVals) (pc : Word) :
     symRun { noAlias := true } (prefixWordsOf a) pc 200 = some (prefixRes a) := by
   simp only [aVals, List.mem_cons, List.not_mem_nil, or_false] at ha
@@ -54,11 +45,11 @@ theorem prefix_spec (s : MachineState) (v : Digest) (a d p : Nat) (ha : a ∈ aV
   refine ⟨_, symRun_sound (prefix_run a ha (pcOf p)) hcode s hpc ((Oblig.all_iff _ _).mpr hobl),
     ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · simp only [Result.toState_pc, prefixRes, prefixRegs, prefixBase.res, E.eval, BinOp.eval, h0, hm]
-    have e1 : (10#64 : Word).toNat % 64 = (BitVec.ofNat 64 10).toNat := by decide
-    have e2 : (18446744073709551614#64 : Word) = ~~~1#64 := by decide
+    have e1 : (10#64 : Word).toNat % 64 = (BitVec.ofNat 64 10).toNat := by decide +kernel
+    have e2 : (18446744073709551614#64 : Word) = ~~~1#64 := by decide +kernel
     have hx : (v.extractLsb' 0 64).toNat % 128 = v.toNat % 128 := by
       simp only [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, pow_zero, Nat.div_one]
-      exact Nat.mod_mod_of_dvd _ (show 128 ∣ 2 ^ 64 by decide)
+      exact Nat.mod_mod_of_dvd _ (show 128 ∣ 2 ^ 64 by decide +kernel)
     rw [e1, e2, SigGolfCandidate.T3M.Nonbinary.prologue_value, prefixTarget, hx]
   · simp only [Result.toState_getReg, prefixRes, prefixRegs, prefixBase.res, RegFile.get, RegFile.set, E.eval, BinOp.eval, h0]
   · simp only [Result.toState_getReg, prefixRes, prefixRegs, prefixBase.res, RegFile.get, RegFile.set, E.eval, BinOp.eval, h1]
@@ -105,7 +96,7 @@ theorem flip_low7 (v : Digest) : (T3.topFlip v).toNat % 128 = 127 - v.toNat % 12
   rw [flip_toNat, show (v.toNat ^^^ (2 ^ 119 - 1)) % 128 = (v.toNat ^^^ (2 ^ 119 - 1)) % 2 ^ 7 from rfl,
     show v.toNat % 128 = v.toNat % 2 ^ 7 from rfl, Nat.xor_mod_two_pow,
     show (2 ^ 119 - 1) % 2 ^ 7 = 127 by norm_num]
-  have hl := Nat.mod_lt v.toNat (show 0 < 2 ^ 7 by decide)
+  have hl := Nat.mod_lt v.toNat (show 0 < 2 ^ 7 by decide +kernel)
   generalize v.toNat % 2 ^ 7 = y at hl ⊢
   interval_cases y <;> rfl
 theorem prefixTarget_flip (v : Digest) :
@@ -113,7 +104,7 @@ theorem prefixTarget_flip (v : Digest) :
   unfold prefixTarget
   rw [flip_low7]
   congr 2
-  have := Nat.mod_lt v.toNat (show 0 < 128 by decide)
+  have := Nat.mod_lt v.toNat (show 0 < 128 by decide +kernel)
   omega
 end SigGolfCandidate.T3M.Verify.Nonbinary
 end
@@ -125,15 +116,15 @@ set_option maxHeartbeats 600000
 def rejectJumpCode : List (BitVec 32) := [0x9fca206f]
 sym_block rejectJumpBase := symRun { noAlias := true } rejectJumpCode (pcOf 129638) 20
 theorem rejectJump_at : CodeAt Verify.image (pcOf 129638) rejectJumpCode := by
-  have h := codeAt_from 129638 (by decide)
+  have h := codeAt_from 129638 (by decide +kernel)
   have hp : rejectJumpCode <+: codeFrom 129638 := by decide +kernel
-  exact ⟨by decide, by decide, by decide +kernel, hp.trans h.2.2.2⟩
+  exact ⟨by decide +kernel, by decide +kernel, by decide +kernel, hp.trans h.2.2.2⟩
 def rejectExitCode : List (BitVec 32) := [1049235,1049875]
 sym_block rejectExitBase := symRun { noAlias := true } rejectExitCode (pcOf 33509) 20
 theorem rejectExit_at : CodeAt Verify.image (pcOf 33509) rejectExitCode := by
-  have h := codeAt_from 33509 (by decide)
+  have h := codeAt_from 33509 (by decide +kernel)
   have hp : rejectExitCode <+: codeFrom 33509 := by decide +kernel
-  exact ⟨by decide, by decide, by decide +kernel, hp.trans h.2.2.2⟩
+  exact ⟨by decide +kernel, by decide +kernel, by decide +kernel, hp.trans h.2.2.2⟩
 theorem reject_halt (s : MachineState) (hpc : s.pc = pcOf 129638) :
     ∃ t, Steps Verify.image s 3 3 t ∧ fetch Verify.image t = some (.base .ECALL) ∧
       t.getReg .x5 = 1 ∧ t.getReg .x10 = 1 := by
@@ -143,9 +134,9 @@ theorem reject_halt (s : MachineState) (hpc : s.pc = pcOf 129638) :
     (by simp [rejectExitBase.res, rv_simp])
   refine ⟨_, e1.trans e2, ?_, ?_, ?_⟩
   · have h : CodeAt Verify.image (pcOf 33511) [0x00000073] := by
-      have h := codeAt_from 33511 (by decide)
+      have h := codeAt_from 33511 (by decide +kernel)
       have hp : [0x00000073] <+: codeFrom 33511 := by decide +kernel
-      exact ⟨by decide, by decide, by decide +kernel, hp.trans h.2.2.2⟩
+      exact ⟨by decide +kernel, by decide +kernel, by decide +kernel, hp.trans h.2.2.2⟩
     exact h.fetch _ (by simp [rejectExitBase.res, rv_simp, pcOf])
   · simp [rejectExitBase.res, rv_simp]
   · simp [rejectExitBase.res, rv_simp]
@@ -167,7 +158,7 @@ structure TopEntry (u : MachineState) (v : Digest) (p : Nat) (s : MachineState) 
   tail : s.getReg .x29 = BitVec.ofNat 64 (v.toNat / 2 ^ 119)
   s3 : s.getReg .x8 = 12480#64
   mask : s.getReg .x6 = 130048#64
-  table : s.getReg .x15 = 262144#64
+  table : s.getReg .x2 = 0x3fe00#64
   regs : RegsExcept u s topEntryRegs
   frame : Frame u s (fun _ => False)
 def topRowA (c : Nat) : Nat := rowA 0 c
@@ -198,7 +189,7 @@ theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
   have ha := topRowA_mem c hc'
   have hal : 14272 ≤ topRowA c ∧ topRowA c ≤ 14528 ∧ topRowA c % 16 = 0 := by
     simp only [Nonbinary.aVals, List.mem_cons, List.not_mem_nil, or_false] at ha; omega
-  obtain ⟨d, h12, hd⟩ := ht.dst (by decide)
+  obtain ⟨d, h12, hd⟩ := ht.dst (by decide +kernel)
   change d = topRowA c ∨ d = topRowA c + 48 at hd
   have hdA : d % 8 = 0 ∧ 0x1000 ≤ d ∧ d + 16 ≤ 0x7000 := by omega
   have hk : KnownOK (BC.bK 0 c) (writeHash t a) := fun p hp => by rw [writeHash_getReg]; exact ht.glob.1 p hp
@@ -214,15 +205,15 @@ theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
     hk (.x10, BitVec.ofNat 64 (rowA 0 c)) (by simp [BC.bK])
   have hra : (writeHash t a).getReg .x1 = BitVec.ofNat 64 TOPBASE :=
     hk (.x1, BitVec.ofNat 64 TOPBASE) (by simp [BC.bK, T3M.bK, layK])
-  have h15 : (writeHash t a).getReg .x15 = 262144#64 :=
-    hk (.x15, 262144#64) (by simp [BC.bK, T3M.bK, layK])
+  have h15 : (writeHash t a).getReg .x2 = 0x3fe00#64 :=
+    hk (.x2, 0x3fe00#64) (by simp [BC.bK, T3M.bK, layK])
   have hmask : (writeHash t a).getMem 0xffbff8#64 = 130048#64 := hD.mask
   obtain ⟨z, ez, pz, lo, hi, tl, s3, mask, rz, fz⟩ :=
     Verify.Nonbinary.prefix_spec _ _ (topRowA c) d (trPc 0 c + 6) ha
       hpc (prefix_at c hc') h12s hdA hv hra hmask h10
   refine ⟨z, ez, ⟨pz, ?_, lo, hi, tl, s3, mask, ?_, rz, fz⟩⟩
-  · rw [rz.get (by decide), hra]
-  · rw [rz.get (by decide), h15]
+  · rw [rz.get (by decide +kernel), hra]
+  · rw [rz.get (by decide +kernel), h15]
 theorem topEntry_encoded {u s : MachineState} {v : Digest} {p : Nat} (he : TopEntry u v p s) :
     Nonbinary.NCtx.Encoded (T3.topFlip v) s :=
   ⟨by rw [he.lo, Verify.Nonbinary.flip_lo], by rw [he.hi, Verify.Nonbinary.flip_hi],
@@ -278,7 +269,7 @@ theorem topEntry_orig (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
   have ha := topRowA_mem c hc'
   have hal : 14272 ≤ topRowA c ∧ topRowA c ≤ 14528 := by
     simp only [Nonbinary.aVals, List.mem_cons, List.not_mem_nil, or_false] at ha; omega
-  obtain ⟨d, h12, hd⟩ := ht.dst (by decide)
+  obtain ⟨d, h12, hd⟩ := ht.dst (by decide +kernel)
   change d = topRowA c ∨ d = topRowA c + 48 at hd
   have ho := Orig_writeHash ht.orig a d h12 (by omega)
   have hu : Verify.Orig w (fun o => 8000 ≤ o ∧ o < layerEnd 0) (writeHash t a) :=

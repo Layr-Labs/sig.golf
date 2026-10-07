@@ -240,7 +240,7 @@ theorem headLook_ok {im : Image} (h : NewCodeAt im) : LookOK im headLook := by
     rwa [Nat.add_sub_cancel' hle] at this
   · cases hw
 theorem cbase_ge (c : Nat) (hc : c < 9) : 11003 ≤ cbase c := by
-  interval_cases c <;> decide
+  interval_cases c <;> decide +kernel
 theorem coordLook_ok {im : Image} (h : NewCodeAt im) {c : Nat} (hc : c < 9) : LookOK im (coordLook c) := by
   intro n w hw
   unfold coordLook at hw
