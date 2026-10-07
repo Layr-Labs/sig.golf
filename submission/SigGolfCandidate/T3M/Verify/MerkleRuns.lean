@@ -16,7 +16,7 @@ def mkNch (lay : Nat) : Nat := if lay = 0 then 2 else 1
 def mkLo (lay ci : Nat) : Nat := if lay = 0 ∧ ci = 1 then 6 else 0
 def mkBits (lay ci : Nat) : Nat := if lay = 0 then 6 else hL lay
 def mkTab (lay ci : Nat) : Nat := if lay = 0 ∧ ci = 1 then 39936 else stabIdx lay
-def mkTabW (lay ci sh : Nat) : Nat := if lay = 0 ∧ ci = 1 then 39936 + 128 * sh else stabW lay sh
+def mkTabW (lay ci sh : Nat) : Nat := if lay = 0 ∧ ci = 1 then 15612 + 256 * sh else stabW lay sh
 def mkShp (lay ci sh : Nat) : Nat :=
   if lay = 3 then 133760 + 128 * sh else if lay = 2 then 141952 + 128 * sh
   else if lay = 1 then 48128 + 64 * sh else if ci = 0 then 129664 + 64 * sh else 39936 + 128 * sh
@@ -39,7 +39,7 @@ def mkKc (lay : Nat) : List (Reg × Word) :=
   baseK ++ [(if lay = 0 then (.x8, BitVec.ofNat 64 s3v) else (.x22, BitVec.ofNat 64 (s6v lay))), (.x7, 1), (.x13, 2),
     (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x30, 7), (.x15, BitVec.ofNat 64 0x40000)]
 def mkKeep : List Reg := [.x1, .x2, .x16, .x17, .x8, .x9, .x24, .x23, .x6, .x25, .x27, .x29, .x31]
-def mkEntSpec (lay ci sh : Nat) : Spec := ⟨[], [], mkShp lay ci sh + 1, true, 1, [], none, 1⟩
+def mkEntSpec (lay ci sh : Nat) : Spec := let st := if lay = 0 ∧ ci = 1 then 2 else 1; ⟨[], [], mkShp lay ci sh + 1, true, st, [], none, st⟩
 def mkEntPost (lay ci sh : Nat) : List (Reg × Word) :=
   mkKc lay ++ [(.x12, BitVec.ofNat 64 (mkCur lay sh (mkLo lay ci) (sh % 2)))]
 def mkEntKeep : List Reg := mkKeep ++ [.x10, .x11, .x14, .x4, .x28]
@@ -48,7 +48,7 @@ def mkEntK (lay ci : Nat) : List (Reg × Word) :=
 def mkEntCheck (lay ci sh : Nat) : Bool :=
   mkSpecB [] [] baseK (mkEntK lay ci) [] (mkTabW lay ci sh) [] (mkEntSpec lay ci sh) [] (mkEntPost lay ci sh) mkEntKeep
 def mkHeapE (lay ci sh l : Nat) : E :=
-  if lay = 0 ∧ ci = 0 then .bin .srl (.reg .x23) (kw (l + 1)) else kw (mkHeap lay ci sh l)
+  if lay = 0 ∧ ci = 0 then .bin .srl (.reg .x23) (kw (l + 5)) else kw (mkHeap lay ci sh l)
 def t3E (l' : Nat) : E := .bin .or (.bin .sll (.reg .x31) (kw 16)) (.ld (kw (hdrA l')))
 def mkHdrE (lay l : Nat) : E := if lay = 0 then kw 64 else if l = 0 then t3E (lay - 1) else .reg .x28
 def mkLvlMem (lay ci sh l : Nat) : List (Addr × E) :=
@@ -57,8 +57,8 @@ def mkLvlMem (lay ci sh l : Nat) : List (Addr × E) :=
 def mkLvlRegs (lay l : Nat) : List (Reg × E) := if l = 0 ∧ lay ≠ 0 then [(.x28, t3E (lay - 1))] else []
 def mkLvlKeep (lay l : Nat) : List Reg := if l = 0 ∧ lay ≠ 0 then [] else [.x28]
 def mkLvlAllow (lay sh l : Nat) : List Nat := [mkBlk lay sh l + 16, mkBlk lay sh l + 24]
-def mkDispTgt : E :=
-  .bin .and (.bin .add (.bin .add (.bin .sll (.bin .srl (.reg .x23) (kw 6)) (kw 9)) (.reg .x6)) (.c 1024)) (.c (~~~1#64))
+def mkDispTgt (sh : Nat) : E :=
+  .bin .and (addC (.reg .x23) (BitVec.ofNat 64 (1008 - 16 * sh))) (.c (~~~1#64))
 def mkBody (lay l : Nat) : Nat := (if l = 0 then (if lay = 0 then 3 else 6) else 2) + (if mkReg lay l then 1 else 2)
 def mkIsDisp (lay ci kk : Nat) : Bool := decide (lay = 0 ∧ ci = 0 ∧ kk + 1 = mkBits lay ci)
 def mkNextA2 (lay ci sh kk : Nat) : Nat :=
@@ -71,8 +71,8 @@ def mkLvlSpecN (lay ci sh kk : Nat) : Spec :=
     mkBody lay (mkLo lay ci + kk) + mkMove lay (mkLo lay ci + kk)⟩
 def mkLvlSpecD (lay ci sh kk : Nat) : Spec :=
   ⟨mkLvlRegs lay (mkLo lay ci + kk), mkLvlMem lay ci sh (mkLo lay ci + kk), 0, false,
-    mkBody lay (mkLo lay ci + kk) + 3, [], some mkDispTgt,
-    mkBody lay (mkLo lay ci + kk) + 3⟩
+    mkBody lay (mkLo lay ci + kk) + 1, [], some (mkDispTgt sh),
+    mkBody lay (mkLo lay ci + kk) + 1⟩
 def mkLvlK (lay l : Nat) : List (Reg × Word) := if l = 0 then mkK lay else mkKc lay ++ [(.x11, 64)]
 def mkLvlPostN (lay ci sh kk : Nat) : List (Reg × Word) :=
   mkKc lay ++ [(.x11, 64), (.x10, BitVec.ofNat 64 (mkBlk lay sh (mkLo lay ci + kk))),

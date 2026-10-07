@@ -189,10 +189,10 @@ def rejectSteps (lay : Nat) : Nat := stepsA lay + if lay = 3 then 21 else 3
 def EncodingSetup : Prop :=
   ∀ (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer)
     (msg : LayerMsg) (s : MachineState), LayerIn w pk index lay.val msg s →
-  ((ClaudeWCT.W9.T3M.wbcCtr w index lay).toNat ≥ ClaudeWCT.WCT9.verifyWindow →
+  ((ClaudeWCT.W9.T3M.wbcCtr w index lay).toNat ≥ T3.counterLimit →
     ∃ u, Steps image s (rejectSteps lay.val) (rejectSteps lay.val) u ∧
       fetch image u = some (.base .ECALL) ∧ u.getReg .x5 = 1 ∧ u.getReg .x10 = 1) ∧
-  ((ClaudeWCT.W9.T3M.wbcCtr w index lay).toNat < ClaudeWCT.WCT9.verifyWindow →
+  ((ClaudeWCT.W9.T3M.wbcCtr w index lay).toNat < T3.counterLimit →
     ∃ t, Steps image s (stepsA lay.val) (stepsA lay.val) t ∧
       fetch image t = some (.base .ECALL) ∧ t.getReg .x5 = 0 ∧
       hashArgumentsValid t = true ∧
@@ -348,7 +348,9 @@ theorem ctr_lt (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) :
   (ClaudeWCT.W9.T3M.wbcCtr w index lay).isLt
 theorem copy_parts (lay c : Nat) (h : BC.copyCheck lay c = true) :
     specB (BC.allowed lay c) [] baseK (runAt (BC.preK lay) [] (T3M.setupPc lay (trPc lay c))
-      []) (BC.specA lay c) [] (BC.bK lay c) (BC.keepA lay) = true ∧
+      [.br (T3M.setupAcceptDir lay)]) (BC.specA lay c) [] (BC.bK lay c) (BC.keepA lay) = true ∧
+    specB (BC.allowed lay c) [] [] (runAt (BC.preK lay) [] (T3M.setupPc lay (trPc lay c))
+      [.br (!T3M.setupAcceptDir lay)]) (BC.rejA lay c) [] [] [] = true ∧
     (lay ≠ 0 →
       specB [] [] baseK (runAt (BC.bKB lay c) [] (trPc lay c + stepsA lay + 1) [.br false, .br false, .jmp])
         (specBl lay (trPc lay c)) BC.oblB (postBlC lay (trPc lay c)) keepB = true ∧
@@ -357,8 +359,8 @@ theorem copy_parts (lay c : Nat) (h : BC.copyCheck lay c = true) :
       specB [] [] [] (runAt (BC.bKB lay c) [] (trPc lay c + stepsA lay + 1) [.br true]) rejSpare BC.oblB [] [] = true) := by
   unfold BC.copyCheck BC.setupCheck at h
   simp only [Bool.and_eq_true] at h
-  obtain ⟨h1, h3⟩ := h
-  refine ⟨h1, fun h0 => ?_⟩
+  obtain ⟨⟨h1, h2⟩, h3⟩ := h
+  refine ⟨h1, h2, fun h0 => ?_⟩
   rw [if_neg h0] at h3; simp only [Bool.and_eq_true] at h3; exact ⟨h3.1.1, h3.1.2, h3.2⟩
 abbrev EncPre := BC.EncPre
 theorem hw4_hdr0 (lay : Layer) (tree : Nat) (ht : tree < 2 ^ 32) : hw 4 lay.val = hdr0 4 lay.val tree 0 := by
@@ -650,8 +652,8 @@ theorem lctxOf_known (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (
   · exact knownOK_at _ s 12 (.x26, 6) hk rfl
   · exact h28
   · exact knownOK_at _ s 3 (.x2, 0x3fe00) hk rfl
-  · exact knownOK_at _ s 14 (.x15, 0x40000) hk rfl
-  · exact knownOK_at _ s 15 (.x22, BitVec.ofNat 64 (s6v lay.val)) hk rfl
+  · exact knownOK_at _ s 15 (.x15, 0x40000) hk rfl
+  · exact knownOK_at _ s 16 (.x22, BitVec.ofNat 64 (s6v lay.val)) hk rfl
   · exact h16
   · exact h17
   · exact h29
@@ -692,7 +694,7 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
   set u := writeHash t a with hu
   have h0 : lay.val ≠ 0 := fun h => hlay (Fin.ext h)
   have hcc := copy_parts lay.val c (BC.copyCheck_at lay.val c lay.isLt hc)
-  have hB := hcc.2 h0
+  have hB := hcc.2.2 h0
   have hkt : KnownOK (BC.bK lay.val c) t := ht.glob.1
   obtain ⟨d, h12, hdc⟩ : ∃ d, t.getReg .x12 = BitVec.ofNat 64 d ∧
       (if lay.val = 3 then d = 2048 else (d = rowA lay.val c ∨ d = rowA lay.val c + 48)) := by

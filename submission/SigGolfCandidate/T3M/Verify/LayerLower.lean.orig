@@ -304,10 +304,24 @@ theorem counter_branch : CounterBranch := fun w pk index lay msg s hs d => by
       counterLimit, ← decide_not, eq_comm]
 theorem encoding_reject (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer)
     (msg : LayerMsg) (s : MachineState) (hs : LayerIn w pk index lay.val msg s)
-    (hge : (ClaudeWCT.W9.T3M.wbcCtr w index lay).toNat ≥ ClaudeWCT.WCT9.verifyWindow) :
+    (hge : (ClaudeWCT.W9.T3M.wbcCtr w index lay).toNat ≥ counterLimit) :
     ∃ u, Steps image s (rejectSteps lay.val) (rejectSteps lay.val) u ∧
-      fetch image u = some (.base .ECALL) ∧ u.getReg .x5 = 1 ∧ u.getReg .x10 = 1 :=
-  absurd hge (ClaudeWCT.WCT9.ctr_not_ge_verifyWindow _)
+      fetch image u = some (.base .ECALL) ∧ u.getReg .x5 = 1 ∧ u.getReg .x10 = 1 := by
+  have hcc := (T3M.copy_parts lay.val (cpIdx index lay.val)
+    (copyCheck_at lay.val _ lay.isLt (T3M.cpIdx_lt index lay.val lay.isLt))).2.1
+  have hbrs : (rejA lay.val (cpIdx index lay.val)).brs =
+      [ctrBr lay.val (cpIdx index lay.val) (!setupAcceptDir lay.val)] := by
+    fin_cases lay <;> rfl
+  obtain ⟨u, hu⟩ := spec_run hcc s hs.copy hs.glob.1 (by
+    intro b hb
+    rw [hbrs, List.mem_singleton] at hb
+    subst b
+    exact (counter_branch w pk index lay msg s hs (!setupAcceptDir lay.val)).mpr (by
+      by_cases h3 : lay.val = 3 <;> simp [setupAcceptDir, h3, hge, Nat.not_lt.mpr hge]))
+    (by simp)
+  exact ⟨u, (by fin_cases lay <;> exact hu.steps), hu.ecall (by fin_cases lay <;> rfl),
+    hu.regs (.x5, kw 1) (by fin_cases lay <;> simp [rejA, T3M.rejA]),
+    hu.regs (.x10, kw 1) (by fin_cases lay <;> simp [rejA, T3M.rejA])⟩
 def PairInputBlock : Prop := ∀ (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (tree leaf : Nat)
   (left right : Digest), ClaudeWCT.WCT9.pairEncodingInputP lay tree leaf left right
     (ClaudeWCT.W9.T3M.wbcCtr w index lay) (ClaudeWCT.W9.T3M.wbcPad w index lay) =
@@ -320,15 +334,21 @@ theorem pair_input_block : PairInputBlock := fun w index lay tree leaf left righ
     ClaudeWCT.W9.T3M.wdig w (ClaudeWCT.W9.T3M.bcCounterOff index lay) from counterPadExtract w _]
 def EncodingRun : Prop := ∀ (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer)
   (msg : LayerMsg) (s : MachineState), LayerIn w pk index lay.val msg s →
-  (ClaudeWCT.W9.T3M.wbcCtr w index lay).toNat < ClaudeWCT.WCT9.verifyWindow →
+  (ClaudeWCT.W9.T3M.wbcCtr w index lay).toNat < counterLimit →
   ∃ t, SpecRes (allowed lay.val (cpIdx index lay.val)) [] baseK (specA lay.val (cpIdx index lay.val))
       (bK lay.val (cpIdx index lay.val)) (keepA lay.val) s t
-theorem encoding_run : EncodingRun := fun w pk index lay msg s hs _ => by
+theorem encoding_run : EncodingRun := fun w pk index lay msg s hs hlt => by
   have hcc := (T3M.copy_parts lay.val (cpIdx index lay.val)
     (copyCheck_at lay.val _ lay.isLt (T3M.cpIdx_lt index lay.val lay.isLt))).1
-  have hbrs : (specA lay.val (cpIdx index lay.val)).brs = [] := by
+  have hbrs : (specA lay.val (cpIdx index lay.val)).brs =
+      [ctrBr lay.val (cpIdx index lay.val) (setupAcceptDir lay.val)] := by
     fin_cases lay <;> rfl
-  exact spec_run hcc s hs.copy hs.glob.1 (by rw [hbrs]; simp) (by simp)
+  exact spec_run hcc s hs.copy hs.glob.1 (by
+    intro b hb
+    rw [hbrs, List.mem_singleton] at hb
+    subst b
+    exact (counter_branch w pk index lay msg s hs (setupAcceptDir lay.val)).mpr (by
+      by_cases h3 : lay.val = 3 <;> simp [setupAcceptDir, h3, hlt, Nat.not_le.mpr hlt])) (by simp)
 theorem t3E3_eval (s : MachineState) (index : Nat) (hidx : index < 2 ^ 31)
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index)
     (hm : s.getMem (BitVec.ofNat 64 (TOPLOAD + 32)) = BitVec.ofNat 64 (hyperBase 3)) :
@@ -549,7 +569,7 @@ theorem layerP_eq (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (dig
   rfl
 def layerHead {β : Type} (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (M : ClaudeWCT.WCT9.LayerMsg)
     (R : List Digest → T3.M (Option β)) : T3.M (Option β) :=
-  if (ClaudeWCT.W9.T3M.wbcCtr w index lay).toNat ≥ ClaudeWCT.WCT9.verifyWindow then pure none else
+  if (ClaudeWCT.W9.T3M.wbcCtr w index lay).toNat ≥ counterLimit then pure none else
   shortHash (ClaudeWCT.W9.T3M.layerEncodingInputP lay (route index lay).2 (route index lay).1 M
     (ClaudeWCT.W9.T3M.wbcCtr w index lay) (ClaudeWCT.W9.T3M.wbcPad w index lay) (ClaudeWCT.W9.T3M.wbcRight w)) >>= fun answer =>
     match decode lay answer with
@@ -568,9 +588,9 @@ theorem layerCostA_low (lay : Layer) (h : lay ≠ 0) :
   fin_cases lay
   · exact absurd rfl h
   all_goals rfl
-theorem layerCost_vals : layerCost 3 0 = 1216 ∧ layerCost 2 0 = 1218 ∧ layerCost 1 0 = 1218 := by decide
-theorem layerCostA_vals : layerCostA 3 = 1212 ∧ layerCostA 2 = 1214 ∧ layerCostA 1 = 1214 := by decide
-theorem layerFuel_vals : layerFuel 3 = 1762 ∧ layerFuel 2 = 1755 ∧ layerFuel 1 = 1755 := by decide
+theorem layerCost_vals : layerCost 3 0 = 1216 ∧ layerCost 2 0 = 1220 ∧ layerCost 1 0 = 1220 := by decide
+theorem layerCostA_vals : layerCostA 3 = 1212 ∧ layerCostA 2 = 1216 ∧ layerCostA 1 = 1216 := by decide
+theorem layerFuel_vals : layerFuel 3 = 1762 ∧ layerFuel 2 = 1757 ∧ layerFuel 1 = 1757 := by decide
 theorem ckOf_lt (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (ds : List Nat)
     (hds : decode lay (ansD a) = some ds) : ckOf lay a < 8 := by
   rw [decode_lower_v6 lay hlay] at hds
@@ -669,7 +689,7 @@ theorem layer_good_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
   have hrej : BC.rejectSteps lay.val ≤ stepsA lay.val + 21 := by
     unfold BC.rejectSteps; split_ifs <;> omega
   unfold layerHead
-  by_cases hctr : (ClaudeWCT.W9.T3M.wbcCtr w index lay).toNat ≥ ClaudeWCT.WCT9.verifyWindow
+  by_cases hctr : (ClaudeWCT.W9.T3M.wbcCtr w index lay).toNat ≥ counterLimit
   · rw [if_pos hctr, ccM_pure, hK0]
     obtain ⟨u, hst, hf, h5, h10⟩ := hA.1 hctr
     exact GoodQ.steps' hst (GoodQ.reject (Q := Q) (A := 0) hf h5 h10) (by omega) (by omega) (fun hq => ⟨hq, by omega⟩)
@@ -745,7 +765,7 @@ theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (
     (htop : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
       BitVec.ofNat 64 (topWords.getD k 0))
     (htop8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21776) :
-    ∃ t, Steps image u 3 3 t ∧ LayerIn w pk idx 3 (.forest root) t := by
+    ∃ t, Steps image u 4 4 t ∧ LayerIn w pk idx 3 (.forest root) t := by
   have hk0 : KnownOK ld3In u := by
     intro p hp
     simp only [ld3In, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hp
@@ -754,11 +774,13 @@ theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (
     · exact hbase
   obtain ⟨t, ht⟩ := spec_run BC.ld3Check_ok u hpc hk0 (by simp [ld3Spec]) (by simp)
   have hm : ∀ A, t.getMem A = u.getMem A := fun A => by rw [ht.mem]; rfl
+  have r19 : t.getReg .x8 = (kw 0x400000).eval u := ht.regs (.x8, kw 0x400000) (by simp [ld3Spec])
   have r21 : t.getReg .x24 = (E.ld (kw TOPLOAD)).eval u := ht.regs (.x24, .ld (kw TOPLOAD)) (by simp [ld3Spec])
   have r20 : t.getReg .x9 = (E.ld (kw (TOPLOAD + 8))).eval u :=
     ht.regs (.x9, .ld (kw (TOPLOAD + 8))) (by simp [ld3Spec])
   have r2 : t.getReg .x2 = (E.ld (kw (TOPLOAD + 24))).eval u :=
     ht.regs (.x2, .ld (kw (TOPLOAD + 24))) (by simp [ld3Spec])
+  have e19 : t.getReg .x8 = BitVec.ofNat 64 0x400000 := r19
   have e21 : t.getReg .x24 = BitVec.ofNat 64 M2c := by
     rw [r21]
     change u.getMem (BitVec.ofNat 64 TOPLOAD) = _
@@ -772,7 +794,7 @@ theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (
     change u.getMem (BitVec.ofNat 64 (TOPLOAD + 24)) = _
     exact (htop 3 (by decide)).trans (by decide +kernel)
   have hG0 : Glob baseK w pk t := ht.glob _ _ _ hglob (RelOK.nil u)
-  have hpk : preK 3 = baseK ++ [(.x24, BitVec.ofNat 64 M2c),
+  have hpk : preK 3 = baseK ++ [(.x8, BitVec.ofNat 64 0x400000), (.x24, BitVec.ofNat 64 M2c),
       (.x9, BitVec.ofNat 64 M1c), (.x2, BitVec.ofNat 64 0x3fe00),
       (.x12, BitVec.ofNat 64 2048), (.x26, 6), (.x7, 1), (.x13, 2), (.x30, 7), (.x1, BitVec.ofNat 64 TOPBASE),
       (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0x10000)] := rfl
@@ -791,8 +813,9 @@ theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (
     intro p hp
     rw [hpk] at hp
     simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hp
-    rcases hp with hp | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+    rcases hp with hp | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
     · exact ht.known p (by rw [ld3In]; exact List.mem_append_left _ hp)
+    · exact e19
     · exact e21
     · exact e20
     · exact e2
