@@ -5,14 +5,17 @@ set_option autoImplicit false
 namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
 def packedHeader (chain digit : Nat) : E :=
-  addC (.reg .x31) (BitVec.ofNat 64 (128 + 4 * chain + 256 * digit))
+  addC (.reg .x31) (BitVec.ofNat 64 (128 + 4 * chain + 256 * digit) - 644)
 def packedPos (digit : Nat) : E :=
   if digit = 1 then .reg .x7 else if digit = 2 then .reg .x13 else .c 0
+def headSteps (chain digit : Nat) : Nat := if chain = 1 ∧ digit = 2 then 3 else 4
 def headRHRel (rb : Reg) (off dst : Word) (p chain digit : Nat) : Result :=
-  ⟨⟨((RegFile.init.set .x10 (addC (.reg rb) off)).set .x12 (addC (.reg rb) dst)).set
-      .x25 (packedHeader chain digit),
+  ⟨⟨(if chain = 1 ∧ digit = 2 then
+      (RegFile.init.set .x10 (addC (.reg rb) off)).set .x12 (addC (.reg rb) dst)
+      else ((RegFile.init.set .x10 (addC (.reg rb) off)).set .x12 (addC (.reg rb) dst)).set
+      .x25 (packedHeader chain digit)),
     [(kAt rb off 16, packedHeader chain digit)], [.valid (kAt rb off 16) 8]⟩,
-    .c (pcOf (p + 4)), .ecall, 4, 4⟩
+    .c (pcOf (p + headSteps chain digit)), .ecall, headSteps chain digit, headSteps chain digit⟩
 def rungRRel (rb : Reg) (digit : Nat) (dst : Option Word) (p : Nat) : Result :=
   let n := if dst.isSome then 2 else 1
   ⟨⟨(match dst with

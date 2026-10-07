@@ -3,6 +3,8 @@ import SigGolfCandidate.W9Machine.WctPackedRuns
 import SigGolfCandidate.T3M.Verify.ChainSem
 
 set_option autoImplicit false
+set_option maxRecDepth 100000
+set_option maxHeartbeats 0
 namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
 theorem chainPrefix_shift (index coord child : Nat) :
@@ -31,10 +33,17 @@ theorem chainLow_add (index coord child chain digit : Nat) (hc : chain < 7) (hd 
   rw [hlo, Nat.or_comm, chainPrefix_shift,
     ← Nat.shiftLeft_add_eq_or_of_lt (by omega : 128 + 4 * chain + 256 * digit < 2 ^ 16)]
 theorem packedHeader_eval (s : MachineState) (index coord child chain digit : Nat)
-    (hp : s.getReg .x31 = BitVec.ofNat 64 (V3.chainPrefix index coord child))
+    (hp : s.getReg .x31 = BitVec.ofNat 64 (V3.chainPrefix index coord child + 644))
     (hc : chain < 7) (hd : digit < 3) :
     (packedHeader chain digit).eval s = BitVec.ofNat 64 (V3.chainLow index coord child chain digit) := by
-  simp only [packedHeader, addC_eval, E.eval, hp, ofNat_add_ofNat, chainLow_add _ _ _ _ _ hc hd]
+  rw [packedHeader, addC_eval]
+  change s.getReg .x31 + (BitVec.ofNat 64 (128 + 4 * chain + 256 * digit) - 644) = _
+  rw [hp, chainLow_add _ _ _ _ _ hc hd]
+  rw [BitVec.ofNat_add (V3.chainPrefix index coord child) 644,
+    BitVec.ofNat_add (V3.chainPrefix index coord child) (128 + 4 * chain + 256 * digit)]
+  rw [BitVec.add_assoc, BitVec.add_comm (BitVec.ofNat 64 644)]
+  congr 1
+  exact BitVec.sub_add_cancel (BitVec.ofNat 64 (128 + 4 * chain + 256 * digit)) (BitVec.ofNat 64 644)
 theorem packedPos_eval (s : MachineState) (digit : Nat) (hd : digit < 3)
     (h7 : s.getReg .x7 = 1) (h13 : s.getReg .x13 = 2) :
     (packedPos digit).eval s = BitVec.ofNat 64 digit := by
