@@ -24,8 +24,8 @@ def poissonCheckQ (Qv un ud ln ld : Nat) (f : Nat → Nat) (dbase sn sd Mn Md R 
     un * ln ^ r * ld ^ (R - r) * (fact R / fact r) * f r * Qv ^ (9 * (R - r)) + s) 0
   Md * sn * (S * ld * (R + 1) + ln ^ (R + 1) * ud * dbase * Qv ^ (9 * R)) ≤
     Mn * sd * ud * dbase * ld ^ (R + 1) * fact (R + 1) * Qv ^ (9 * R)
-def A : Nat := 1091 * 2 ^ 8 * 2025 ^ 9
-def LN : Nat := 2048795
+def A : Nat := 1092 * 2 ^ 8 * 2025 ^ 9
+def LN : Nat := 2050962
 def LD : Nat := 1000000
 def MN : Nat := 3234
 def MD : Nat := 10000
@@ -440,7 +440,7 @@ open ClaudeWCT.Numerics.Law
 open SphincsSecurity.Concrete (uniformWordAverage binomialAverage binomialAverage_mono binomialAverage_mul_left)
 open SigGolfCandidate.T3.BPORS.History (atIndex)
 open ClaudeWCT.Numerics.PoissonReflect (rejection_window rate_le_one)
-noncomputable def priceScale : ENNReal := ((1091 * 2025 ^ 9 : ℕ) : ENNReal) / 2 ^ 23
+noncomputable def priceScale : ENNReal := ((1092 * 2025 ^ 9 : ℕ) : ENNReal) / 2 ^ 23
 theorem priceScale_mul : priceScale * ((2 ^ 31 : ℕ) : ENNReal) = (A : ENNReal) := by
   apply (ENNReal.toReal_eq_toReal_iff' (by unfold priceScale; finiteness) (by finiteness)).mp
   unfold priceScale
@@ -681,7 +681,7 @@ theorem lawOK_uniform (hne : Fintype.card (Fin 9 → C × β) ≠ 0) :
 noncomputable def uniformOn (S : Finset (Fin 9 → C × β)) (x : Fin 9 → C × β) : ENNReal :=
   open Classical in if x ∈ S then (S.card : ENNReal)⁻¹ else 0
 theorem lawOK_uniformOn (S : Finset (Fin 9 → C × β)) (hS : S.Nonempty)
-    (hrate : 10 ^ 6 * (2 ^ 32 + 2 ^ 23) * Fintype.card (Fin 9 → C × β) ≤ 2048795 * 2 ^ 31 * S.card) :
+    (hrate : 10 ^ 6 * (2 ^ 32 + 2 ^ 23) * Fintype.card (Fin 9 → C × β) ≤ 2050962 * 2 ^ 31 * S.card) :
     LawOK (uniformOn S) ((Fintype.card (Fin 9 → C × β) : ENNReal) / S.card) where
   sum_one := by
     classical
@@ -708,18 +708,18 @@ theorem lawOK_uniformOn (S : Finset (Fin 9 → C × β)) (hS : S.Nonempty)
     simp only [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_inv, ENNReal.toReal_natCast, LN, LD,
       ENNReal.toReal_pow, ENNReal.toReal_ofNat]
     have h : ((10 ^ 6 * (2 ^ 32 + 2 ^ 23) * Fintype.card (Fin 9 → C × β) : ℕ) : ℝ) ≤
-        ((2048795 * 2 ^ 31 * S.card : ℕ) : ℝ) := by exact_mod_cast hrate
+        ((2050962 * 2 ^ 31 * S.card : ℕ) : ℝ) := by exact_mod_cast hrate
     push_cast at h ⊢
     set c : ℝ := (Fintype.card (Fin 9 → C × β) : ℝ)
     set t : ℝ := (S.card : ℝ)
     rw [show (4303355904 : ℝ) * (2 ^ 31)⁻¹ * (c / t) = (4303355904000000 * c) / (2147483648000000 * t) by
       field_simp; ring]
     rw [div_le_iff₀ (by positivity)]
-    calc 4303355904000000 * c ≤ 4399753760604160 * t := h
-      _ = 2048795 / 1000000 * (2147483648000000 * t) := by ring
+    calc 4303355904000000 * c ≤ 4404407357669376 * t := h
+      _ = 2050962 / 1000000 * (2147483648000000 * t) := by ring
 theorem lawOK_uniformOn' (S : Finset (Fin 9 → C × β)) (hS : S.Nonempty) (Ncoords Ns : ℕ)
     (hcard : Fintype.card (Fin 9 → C × β) = Ncoords) (hNs : S.card = Ns)
-    (hrate : 10 ^ 6 * (2 ^ 32 + 2 ^ 23) * Ncoords ≤ 2048795 * 2 ^ 31 * Ns) :
+    (hrate : 10 ^ 6 * (2 ^ 32 + 2 ^ 23) * Ncoords ≤ 2050962 * 2 ^ 31 * Ns) :
     LawOK (uniformOn S) ((Ncoords : ENNReal) / Ns) := by
   have h := lawOK_uniformOn S hS (by rw [hcard, hNs]; exact hrate)
   rwa [hcard, hNs] at h
