@@ -3,6 +3,9 @@ import SigGolfCandidate.ClaudeWCT.WCT9.Core
 namespace ClaudeWCT.WCT9
 open OracleComp OracleSpec SigGolfCandidate.T3
 def digestAttemptLimit : Nat := 2 ^ 21
+/- The verifier can accept the full serialized counter range without changing
+the signer's bounded search.  The machine normalizes the upper padding word. -/
+def digestVerifyWindow : Nat := 2 ^ 32
 theorem digestAttemptLimit_eq : digestAttemptLimit = 2097152 := by
   norm_num [digestAttemptLimit]
 theorem digestAttemptLimit_eq_two_mul : digestAttemptLimit = 2 * SigGolfCandidate.T3.attemptLimit := by

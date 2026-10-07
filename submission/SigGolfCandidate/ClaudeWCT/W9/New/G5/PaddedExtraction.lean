@@ -42,7 +42,7 @@ def PadAt (answers : Answers) (witness : WBytes) (index : Nat) : Prop :=
     (ClaudeWCT.W9.T3M.wbcPad witness index lay ≠ 0 ∨ (lay.val = 3 ∧ ClaudeWCT.W9.T3M.wbcRight witness ≠ 0))
 def Conclusion (answers : Answers) (message : Message) (witness : WBytes)
     (events : List FirstHit.QueryEvent) : Prop :=
-  ∃ digestAnswer : HashOutput, (wdc witness).toNat < WCT9.digestAttemptLimit ∧
+  ∃ digestAnswer : HashOutput, (wdc witness).toNat < WCT9.digestVerifyWindow ∧
       evalWithAnswerFn answers (digest (wrho witness) message (wdc witness)) = digestAnswer ∧
       (∃ prior, (⟨prior, .inl (.inr (pad64 (digestInput (wrho witness) message (wdc witness)))), digestAnswer⟩ :
         FirstHit.QueryEvent) ∈ events) ∧ Shaped digestAnswer witness ∧
