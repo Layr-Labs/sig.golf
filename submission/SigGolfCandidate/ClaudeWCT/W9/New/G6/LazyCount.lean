@@ -712,6 +712,225 @@ theorem worldGameL_bank (g : Guess.GCoord → Digest) (adversary : AdversaryP)
   obtain ⟨t1, t2⟩ := worldGameL_tracking hU ω g adversary r hr
   obtain ⟨c1, c2, c3⟩ := worldGameL_counts hU ω g adversary r hr
   exact ⟨g1, g2, t1, t2, c1, c2, c3⟩
+theorem fixed_aux_probes (E : SecretGuessObservation.Environment AuxSpecL Guess.GCoord Digest LazyMem)
+    (g : Guess.GCoord → Digest) (i : AuxL) (s : WStateL) (r : AuxSpecL.Range i × WStateL)
+    (hr : fixedRun E g (liftM (WSpecL.query (.inl i))) s r ≠ 0) : r.2.probes = s.probes := by
+  unfold fixedRun runWith at hr
+  rw [simulateQ_spec_query] at hr
+  change ((fun result => (result.1, { s with memory := result.2 })) <$>
+    (liftM (E.auxiliary s i) : SPMF _)) r ≠ 0 at hr
+  simp only [map_eq_bind_pure_comp, RetainedObservation.bind_nonzero, Function.comp_def, ne_eq,
+    SPMF.pure_apply_eq_zero_iff, not_not] at hr
+  obtain ⟨_, _, rfl⟩ := hr
+  rfl
+theorem fixed_trialQ_probes (D : digestInputs → HashOutput) (Nn : Message → Digest) (g : Guess.GCoord → Digest)
+    (c : Guess.GCoord) (v : Digest) (s : WStateL) (r : Bool × WStateL)
+    (hr : fixedRun (envE D Nn) g (Guess.trialQ (auxSpec := AuxSpecL) c v) s r ≠ 0) : r.2.probes = s.probes + 1 := by
+  rw [Guess.fixedRun_trialQ (envE D Nn) g c v s r hr]
+  cases decide (g c = v) <;> rfl
+theorem fixed_discloseQ_probes (D : digestInputs → HashOutput) (Nn : Message → Digest) (g : Guess.GCoord → Digest)
+    (c : Guess.GCoord) (s : WStateL) (r : Digest × WStateL)
+    (hr : fixedRun (envE D Nn) g (Guess.discloseQ (auxSpec := AuxSpecL) c) s r ≠ 0) : r.2.probes = s.probes := by
+  rw [Guess.fixedRun_discloseQ (envE D Nn) g c s r hr]
+  rfl
+theorem fixed_probeW_probes (D : digestInputs → HashOutput) (Nn : Message → Digest) (g : Guess.GCoord → Digest)
+    (step : Guess.ChainAddr → Fin 3 → Digest → HashOutput) (top : Guess.ChainAddr → HashOutput)
+    (miss : HashOutput) (a : Guess.ChainAddr) (p : Fin 3) (v : Digest) (s : WStateL) (r : HashOutput × WStateL)
+    (hr : fixedRun (envE D Nn) g (Guess.probeW (auxSpec := AuxSpecL) step top miss a p v) s r ≠ 0) :
+    r.2.probes = s.probes + 1 := by
+  unfold Guess.probeW at hr
+  obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ g _ _ s r hr
+  have k1 := fixed_trialQ_probes D Nn g _ v s m1 h1
+  cases hhit : m1.1 with
+  | false =>
+      rw [hhit] at hr
+      simp only [Bool.false_eq_true, if_false] at hr
+      rw [runL_pure_nonzero _ g _ _ r hr]
+      exact k1
+  | true =>
+      rw [hhit] at hr
+      simp only [if_true] at hr
+      cases hs : Guess.succPos p with
+      | none =>
+          rw [hs] at hr
+          rw [runL_pure_nonzero _ g _ _ r hr]
+          exact k1
+      | some p' =>
+          rw [hs] at hr
+          obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ g _ _ m1.2 r hr
+          rw [runL_pure_nonzero _ g _ _ r hr]
+          exact (fixed_discloseQ_probes D Nn g _ m1.2 m2 h2).trans k1
+theorem fixed_discloseAll_probes (D : digestInputs → HashOutput) (Nn : Message → Digest) (g : Guess.GCoord → Digest)
+    (cs : List Guess.GCoord) (s : WStateL) (r : List Digest × WStateL)
+    (hr : fixedRun (envE D Nn) g (Guess.discloseAll (auxSpec := AuxSpecL) (V := Digest) cs) s r ≠ 0) :
+    r.2.probes = s.probes := by
+  induction cs generalizing s r with
+  | nil =>
+      unfold Guess.discloseAll at hr
+      rw [List.mapM_nil] at hr
+      rw [runL_pure_nonzero _ g _ s r hr]
+  | cons first rest ih =>
+      unfold Guess.discloseAll at hr ih
+      rw [List.mapM_cons] at hr
+      obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ g _ _ s r hr
+      obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ g _ _ m1.2 r hr
+      rw [runL_pure_nonzero _ g _ _ r hr]
+      exact (ih m1.2 m2 h2).trans (fixed_discloseQ_probes D Nn g first s m1 h1)
+theorem searchL_probes (g : Guess.GCoord → Digest) (rho : Digest) (m : Message) (counter fuel : Nat) (s : WStateL)
+    (r : Option (BitVec 32 × HashOutput) × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) g (searchL rho m counter fuel) s r ≠ 0) :
+    r.2.probes = s.probes := by
+  induction fuel generalizing counter s r with
+  | zero =>
+      rw [runL_pure_nonzero _ g _ s r hr]
+  | succ fuel ih =>
+      rw [searchL] at hr
+      obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ g _ _ s r hr
+      have hp1 := fixed_aux_probes (envE (digestOf ω) (nonceOf ω)) g (.trial _) s m1 h1
+      by_cases hadm : WCT9.producerAdmissible m1.1 = true
+      · simp only [hadm, ↓reduceIte] at hr
+        rw [runL_pure_nonzero _ g _ _ r hr]
+        exact hp1
+      · simp only [hadm, ↓reduceIte, Bool.false_eq_true] at hr
+        exact (ih (counter + 1) m1.2 r hr).trans hp1
+theorem finishL_probes (g : Guess.GCoord → Digest) (request : Request) (rho : Digest)
+    (found : Option (BitVec 32 × HashOutput)) (s : WStateL) (r : Option Signature × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) g (finishL hU ω request rho found) s r ≠ 0) :
+    r.2.probes = s.probes := by
+  cases found with
+  | none => rw [runL_pure_nonzero _ g _ s r hr]
+  | some found =>
+      obtain ⟨c, out⟩ := found
+      simp only [finishL] at hr
+      cases hl : signerLayersW hU ω request out with
+      | none =>
+          rw [hl] at hr
+          rw [runL_pure_nonzero _ g _ s r hr]
+      | some pieces =>
+          rw [hl] at hr
+          obtain ⟨mid, hm, hr⟩ := runL_bind_nonzero _ g _ _ s r hr
+          rw [runL_pure_nonzero _ g _ _ r hr]
+          exact fixed_discloseAll_probes _ _ g _ s mid hm
+theorem signL_probes (g : Guess.GCoord → Digest) (published : SigGolfCandidate.T3.Cache) (request : Request)
+    (s : WStateL) (r : Option Signature × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) g (signL hU ω published request) s r ≠ 0) :
+    r.2.probes = s.probes := by
+  unfold signL at hr
+  by_cases hc : request.cache = published
+  · rw [if_pos hc] at hr
+    obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ g _ _ s r hr
+    obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ g _ _ m1.2 r hr
+    obtain ⟨m3, h3, hr⟩ := runL_bind_nonzero _ g _ _ m2.2 r hr
+    have hp1 := fixed_aux_probes (envE (digestOf ω) (nonceOf ω)) g (.nonce _) s m1 h1
+    have hp2 := searchL_probes ω g m1.1 request.message 0 WCT9.digestAttemptLimit m1.2 m2 h2
+    have hp3 := fixed_aux_probes (envE (digestOf ω) (nonceOf ω)) g (.expose _) m2.2 m3 h3
+    have hp4 := finishL_probes hU ω g request m1.1 m2.1 m3.2 r hr
+    exact hp4.trans (hp3.trans (hp2.trans hp1))
+  · rw [if_neg hc] at hr
+    rw [runL_pure_nonzero _ g _ s r hr]
+theorem hashL_probes_births (g : Guess.GCoord → Digest) (x : HashInput) (s : WStateL) (r : HashOutput × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) g (hashL hU ω x) s r ≠ 0) :
+    r.2.probes + r.2.memory.births.length ≤ s.probes + s.memory.births.length + 1 := by
+  unfold hashL at hr
+  cases hd : Guess.decodeProbe x with
+  | some q =>
+      rw [hd] at hr
+      dsimp only at hr
+      have hm := fixed_probeW_state _ _ g _ _ _ _ _ _ s r hr
+      have hp := fixed_probeW_probes _ _ g _ _ _ _ _ _ s r hr
+      rw [hm, hp]
+      omega
+  | none =>
+      rw [hd] at hr
+      dsimp only at hr
+      by_cases hx : x ∈ digestInputs
+      · rw [if_pos hx] at hr
+        have hb := (fixed_birth_counts _ _ g x s r hr).1
+        have hp := fixed_aux_probes (envE (digestOf ω) (nonceOf ω)) g (.birth x) s r hr
+        omega
+      · rw [if_neg hx] at hr
+        rw [runL_pure_nonzero _ g _ s r hr]
+        exact Nat.le_succ _
+theorem interactionL_probes_births (g : Guess.GCoord → Digest) (published : SigGolfCandidate.T3.Cache) {α : Type}
+    (program : OracleComp LazyPrivate.Interaction α) (s : WStateL) (hs : Good (digestOf ω) (nonceOf ω) s.memory)
+    (r : (α × QueryLog Requests × List Wots.Entry) × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) g (interactionL hU ω published program) s r ≠ 0) :
+    r.2.probes + r.2.memory.births.length ≤ s.probes + s.memory.births.length + r.1.2.2.length := by
+  induction program using OracleComp.inductionOn generalizing s r with
+  | pure value =>
+      rw [interactionL_pure] at hr
+      rw [runL_pure_nonzero _ g _ s r hr]
+      simp
+  | query_bind input next ih =>
+      rcases input with (n | x) | request
+      · rw [interactionL_coin] at hr
+        obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ g _ _ s r hr
+        have hm := fixed_coin_state _ _ g n s m1 h1
+        have := ih m1.1 m1.2 (by rw [hm]; exact hs) r hr
+        rw [hm] at this
+        exact this
+      · rw [interactionL_public] at hr
+        obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ g _ _ s r hr
+        obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ g _ _ m1.2 r hr
+        rw [runL_pure_nonzero _ g _ _ r hr]
+        have g1 := run_good _ _ g _ s hs m1 h1
+        have hb1 := hashL_probes_births hU ω g x s m1 h1
+        have i1 := ih m1.1 m1.2 g1.1 m2 h2
+        change m2.2.probes + m2.2.memory.births.length ≤ s.probes + s.memory.births.length + (m2.1.2.2.length + 1)
+        omega
+      · rw [interactionL_request] at hr
+        obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ g _ _ s r hr
+        obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ g _ _ m1.2 r hr
+        rw [runL_pure_nonzero _ g _ _ r hr]
+        have g1 := run_good _ _ g _ s hs m1 h1
+        have hb1 := (signL_counts hU ω g published request s hs m1 h1).1
+        have hp1 := signL_probes hU ω g published request s m1 h1
+        have i1 := ih m1.1 m1.2 g1.1 m2 h2
+        rw [hb1, hp1] at i1
+        exact i1
+theorem programL_probes_births (g : Guess.GCoord → Digest) {β : Type} (program : M β) (s : WStateL)
+    (hs : Good (digestOf ω) (nonceOf ω) s.memory) (r : (β × List Wots.Entry) × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) g (programL hU ω program) s r ≠ 0) :
+    r.2.probes + r.2.memory.births.length ≤ s.probes + s.memory.births.length + r.1.2.length := by
+  induction program using OracleComp.inductionOn generalizing s r with
+  | pure value =>
+      rw [programL_pure] at hr
+      rw [runL_pure_nonzero _ g _ s r hr]
+      simp
+  | query_bind input next ih =>
+      rcases input with (n | x) | c
+      · rw [programL_coin] at hr
+        obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ g _ _ s r hr
+        have hm := fixed_coin_state _ _ g n s m1 h1
+        have := ih m1.1 m1.2 (by rw [hm]; exact hs) r hr
+        rw [hm] at this
+        exact this
+      · rw [programL_public] at hr
+        obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ g _ _ s r hr
+        obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ g _ _ m1.2 r hr
+        rw [runL_pure_nonzero _ g _ _ r hr]
+        have g1 := run_good _ _ g _ s hs m1 h1
+        have hb1 := hashL_probes_births hU ω g x s m1 h1
+        have i1 := ih m1.1 m1.2 g1.1 m2 h2
+        change m2.2.probes + m2.2.memory.births.length ≤ s.probes + s.memory.births.length + (m2.1.2.length + 1)
+        omega
+      · rw [programL_private] at hr
+        exact ih (0 : HashOutput) s hs r hr
+theorem worldGameL_probes_births (g : Guess.GCoord → Digest) (adversary : AdversaryP)
+    (r : (Bool × QueryLog Requests × List Wots.Entry) × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) g (worldGameL hU ω adversary) initL r ≠ 0) :
+    r.2.probes + r.2.memory.births.length ≤ r.1.2.2.length := by
+  unfold worldGameL worldGameCore at hr
+  obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ g _ _ initL r hr
+  obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ g _ _ m1.2 r hr
+  rw [runL_pure_nonzero _ g _ _ r hr]
+  have g1 := run_good _ _ g _ initL (good_empty _ _) m1 h1
+  have i1 := interactionL_probes_births hU ω g _ _ initL (good_empty _ _) m1 h1
+  have p1 := programL_probes_births hU ω g _ m1.2 g1.1 m2 h2
+  change m2.2.probes + m2.2.memory.births.length ≤ (m1.1.2.2 ++ m2.1.2).length
+  rw [List.length_append]
+  change m1.2.probes + m1.2.memory.births.length ≤ 0 + 0 + m1.1.2.2.length at i1
+  omega
 end Programs
 end ClaudeWCT.W9.T3.Security.WPair
 end

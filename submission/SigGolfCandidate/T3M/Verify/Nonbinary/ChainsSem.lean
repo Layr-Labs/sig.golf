@@ -105,7 +105,7 @@ theorem w0_lt (c : NCtx) (i m : Nat) (hi : i < 54) (hm : m < 256) : c.w0 i + 2 ^
 theorem w0_header (c : NCtx) (hc : c.ok) (i m : Nat) (hi : i < 54) (hm : m < 8) :
     BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * m) = (chainHeader 0 c.tree c.leaf i m).extractLsb' 0 64 := by
   rw [chainHeader_low_bounded _ _ _ _ _ (by omega) hm
-    (by rw [hc.1]; decide) hc.2.1]
+    (by rw [hc.1]; decide +kernel) hc.2.1]
   congr 1
   simp only [w0, «prefix», packedPrefix, packedHi, show height 0 = 12 from rfl, Fin.val_zero,
     Nat.zero_mul, Nat.add_zero]
@@ -184,9 +184,9 @@ theorem dig_group_le (c : NCtx) (hd : c.DigitsOk) (q k : Nat) (hq : q<18) (hk : 
   simpa only [topMax,show (3*q+k)/3=q by omega] using h
 theorem kOf_lt (c : NCtx) (hd : c.DigitsOk) (q : Nat) (hq : q<18) :
     c.kOf q < (mx q+1)^3 := by
-  have h0 := c.dig_group_le hd q 0 hq (by decide)
-  have h1 := c.dig_group_le hd q 1 hq (by decide)
-  have h2 := c.dig_group_le hd q 2 hq (by decide)
+  have h0 := c.dig_group_le hd q 0 hq (by decide +kernel)
+  have h1 := c.dig_group_le hd q 1 hq (by decide +kernel)
+  have h2 := c.dig_group_le hd q 2 hq (by decide +kernel)
   simp only [Nat.add_zero] at h0
   unfold kOf mx at *
   split_ifs at * <;> omega
@@ -194,16 +194,16 @@ theorem kOf_digits (c : NCtx) (hd : c.DigitsOk) (q : Nat) (hq : q<18) :
     c.kOf q%(mx q+1)=c.dig (3*q) ∧
     c.kOf q/(mx q+1)%(mx q+1)=c.dig (3*q+1) ∧
     c.kOf q/(mx q+1)^2=c.dig (3*q+2) := by
-  have h0 := c.dig_group_le hd q 0 hq (by decide)
-  have h1 := c.dig_group_le hd q 1 hq (by decide)
-  have h2 := c.dig_group_le hd q 2 hq (by decide)
+  have h0 := c.dig_group_le hd q 0 hq (by decide +kernel)
+  have h1 := c.dig_group_le hd q 1 hq (by decide +kernel)
+  have h2 := c.dig_group_le hd q 2 hq (by decide +kernel)
   simp only [Nat.add_zero] at h0
   unfold kOf mx at *
   split_ifs at * <;> exact ⟨by omega,by omega,by omega⟩
 theorem kdig_kOf (c : NCtx) (hd : c.DigitsOk) (q : Nat) (hq : q<18) :
     kdig q (c.kOf q) 0=c.dig (3*q) ∧ kdig q (c.kOf q) 1=c.dig (3*q+1) ∧ kdig q (c.kOf q) 2=c.dig (3*q+2) := by
   obtain ⟨k1,k2,k3⟩ := c.kOf_digits hd q hq
-  have h2 := c.dig_group_le hd q 2 hq (by decide)
+  have h2 := c.dig_group_le hd q 2 hq (by decide +kernel)
   unfold kdig
   simp only [pow_zero,Nat.div_one,pow_one]
   refine ⟨k1,k2,?_⟩
@@ -226,9 +226,9 @@ theorem posE_eval (c : NCtx) {s0 s : MachineState} (hk : ∀ p ∈ c.known, s0.g
   have hm3 : m ≤ 3 := by have := last_bounds i; omega
   interval_cases m
   · rfl
-  · exact kr .x7 1 (by simp [known]) (by decide)
-  · exact kr .x13 2 (by simp [known]) (by decide)
-  · exact kr .x19 3 (by simp [known]) (by decide)
+  · exact kr .x7 1 (by simp [known]) (by decide +kernel)
+  · exact kr .x13 2 (by simp [known]) (by decide +kernel)
+  · exact kr .x19 3 (by simp [known]) (by decide +kernel)
 theorem w0_low (c : NCtx) (i m : Nat) (hi : i < 54) (hm : m < 256) :
     (BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * m)).toNat % 2 ^ 8 = 128 + i ∧
       (BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * m)).toNat / 2 ^ 16 = c.prefix / 2 ^ 16 := by
