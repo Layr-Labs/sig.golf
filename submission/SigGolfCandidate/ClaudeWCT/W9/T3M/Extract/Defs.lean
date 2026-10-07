@@ -46,7 +46,7 @@ def LayerShaped (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (di
         wchainPads w lay i = (0, 0) ∧ wchainHeaderPad w lay i = 0))
 def Frame (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (msg : WCT9.LayerMsg) (digits : List Nat) :
     Prop :=
-  (wbcCtr w index lay).toNat < counterLimit ∧
+  (wbcCtr w index lay).toNat < WCT9.verifyWindow ∧
     decode lay (evalWithAnswerFn answers (shortHash (layerEncodingInputP lay (route index lay).2 (route index lay).1
       msg (wbcCtr w index lay) (wbcPad w index lay) (wbcRight w)))) = some digits
 def encodingQuery (w : WBytes) (index : Nat) (lay : Layer) (msg : WCT9.LayerMsg) : Spec.Domain :=
