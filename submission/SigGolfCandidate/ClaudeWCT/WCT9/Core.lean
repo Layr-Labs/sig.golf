@@ -9,10 +9,10 @@ def children : Nat := 128
 def chains : Nat := 7
 def gateShift : Nat := 235
 def gateBits : Nat := 21
-def gateLimit : Nat := 1091
+def gateLimit : Nat := 1094
 def fieldBits : Nat := 14
 def fieldLimit : Nat := 16200
-def jointCap : Nat := 703
+def jointCap : Nat := 712
 abbrev Coord := Fin 9
 abbrev Child := Fin 128
 abbrev Rank := Fin 600
@@ -32,17 +32,17 @@ def field (output : HashOutput) (coord : Coord) : Nat :=
 def rank (output : HashOutput) (coord : Coord) : Rank :=
   ⟨field output coord % 600, Nat.mod_lt _ (by decide)⟩
 def admissible (output : HashOutput) : Bool :=
-  decide (output.toNat / 2 ^ 235 % 2 ^ 21 < 1091) &&
+  decide (output.toNat / 2 ^ 235 % 2 ^ 21 < 1094) &&
     (List.range 9).all (fun coord =>
       decide (output.toNat / 2 ^ fieldBase coord % 2 ^ 14 < 16200))
 def childSaveTable : List Nat :=
-  [0,1,1,1,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,1,1,1,1,0]
-def maxChildSave : Nat := 2
-def childSave (c : Nat) : Nat := childSaveTable.getD (c % 64) 0
+  [1,2,1,1,1,2,2,1,2,2,2,2,1,2,2,1,1,2,3,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,3,2,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,1,1,1,1,0,0,1,1,1,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,1,1,1,1,1]
+def maxChildSave : Nat := 3
+def childSave (c : Nat) : Nat := childSaveTable.getD (c % 128) 0
 def childExtra (c : Child) : Nat := maxChildSave - childSave c.val
-theorem childSaveTable_le : ∀ i, i < 64 → childSaveTable.getD i 0 ≤ maxChildSave := by decide
+theorem childSaveTable_le : ∀ i, i < 128 → childSaveTable.getD i 0 ≤ maxChildSave := by decide
 theorem childSave_le (c : Nat) : childSave c ≤ maxChildSave :=
-  childSaveTable_le (c % 64) (Nat.mod_lt _ (by decide))
+  childSaveTable_le (c % 128) (Nat.mod_lt _ (by decide))
 theorem childExtra_add (c : Child) : childExtra c + childSave c.val = maxChildSave := by
   have := childSave_le c.val
   unfold childExtra; omega
@@ -143,6 +143,11 @@ def producerDecode (lay : Layer) (answer : Digest) : Option (List Nat) :=
   | none => none
 def lowerSearchLimit : Nat := 2 ^ 21
 def searchLimit (lay : Layer) : Nat := if lay = 0 then counterLimit else lowerSearchLimit
+/-- The verifier accepts every 32-bit counter: its window is the whole `BitVec 32` range, so the layer check
+never rejects. The signer still searches `searchLimit`. -/
+def verifyWindow : Nat := 2 ^ 32
+theorem ctr_not_ge_verifyWindow (c : BitVec 32) : ¬c.toNat ≥ verifyWindow := by
+  unfold verifyWindow; exact Nat.not_le.mpr c.isLt
 def layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) (counter : Nat) :
     Nat → M (Option (BitVec 32 × List Nat))
   | 0 => pure none
@@ -273,7 +278,7 @@ def verifyLayersBC (w : Witness) (index : Nat) : Nat → LayerMsg → M (Option 
   | n + 1, msg => do
       let lay : Layer := Fin.ofNat 4 n
       let counter := w.counters lay
-      if counter.toNat ≥ counterLimit then return none
+      if counter.toNat ≥ verifyWindow then return none
       let (leaf, tree) := route index lay
       let answer ← shortHash (layerEncodingInput lay tree leaf msg counter)
       if n = 0 then verifyTop w.signature index answer

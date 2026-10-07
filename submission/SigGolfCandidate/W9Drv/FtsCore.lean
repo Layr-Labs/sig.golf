@@ -23,7 +23,7 @@ def C1JointCostEq : Prop :=
     JointCost (ClaudeWCT.WCT9.rank a) (ClaudeWCT.WCT9.child a) = ClaudeWCT.WCT9.jointCost a
 def C1ProducerCapEq : Prop :=
   ∀ a : SigGolfCandidate.T3.HashOutput,
-    JointCost (ClaudeWCT.WCT9.rank a) (ClaudeWCT.WCT9.child a) ≤ ClaudeWCT.WCT9.jointCap ↔ ClaudeWCT.WCT9.capOk a = true
+    ProducerCostOK (ClaudeWCT.WCT9.rank a) (ClaudeWCT.WCT9.child a) ↔ ClaudeWCT.WCT9.capOk a = true
 end W9Machine.N600
 end
 
@@ -58,8 +58,9 @@ theorem jointCost_eq_c1 : C1JointCostEq := by
   rw [rankCost_eq_c1, ← List.sum_map_add]
 theorem producerCostOK_iff_c1 : C1ProducerCapEq := by
   intro a
-  unfold ClaudeWCT.WCT9.capOk
+  unfold ProducerCostOK ClaudeWCT.WCT9.capOk
   rw [jointCost_eq_c1 a, decide_eq_true_iff]
+  rfl
 end W9Machine.N600
 end
 
@@ -421,6 +422,9 @@ theorem dispatch_childPC (k : Fin 9) (u : MachineState) :
     ((dispatchResult k).toState u).getReg .x23 =
       ((dispatchChild k).eval u <<< 8) + u.getReg .x29 := by
   fin_cases k <;> rfl
+theorem dispatch_x4 (k : Fin 9) (u : MachineState) :
+    ((dispatchResult k).toState u).getReg .x4 = (dispatchChild k).eval u := by
+  fin_cases k <;> rfl
 theorem dispatch_node (k : Fin 9) (u : MachineState) :
     ((dispatchResult k).toState u).getReg .x15 =
       (if k.val = 0 then u.getReg .x15 else u.getReg .x15 + u.getReg .x6) := by
@@ -490,6 +494,7 @@ theorem dispatch_chain_pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : Hash
     baseReg := ?_
     leafWord := ?_
     nodeWord := hnode
+    childIdx := (dispatch_x4 k u).trans hc
     hashMode := (hr .x5 (by decide)).trans (hu.glob.1 (.x5, 0) (by simp [baseK]))
     stepOne := (hr .x7 (by decide)).trans hu.stepOne
     stepTwo := (hr .x13 (by decide)).trans hu.stepTwo
@@ -815,7 +820,7 @@ theorem coord_good (chains : N600.AllGood Frozen.layout)
     (hnext : ∀ root t, CoordPre pk w a (k.val + 1) (roots ++ [root]) t →
       GoodQFor Frozen.image t N C Q A (K (some (roots ++ [root])))) :
     GoodQFor Frozen.image u (N + (dispatchLen k + 189))
-      (C + (dispatchLen k + 189)) Q (A + ((dispatchLen k + 98) + (N600.rankCost (ClaudeWCT.WCT9.rank a k) +
+      (C + (dispatchLen k + 189)) Q (A + ((dispatchLen k + 97) + (N600.rankCost (ClaudeWCT.WCT9.rank a k) +
         ClaudeWCT.WCT9.childExtra (ClaudeWCT.WCT9.child a k))))
       (ccM (ClaudeWCT.W9.T3M.wctStep w a (some roots) k) K) := by
   have ds := dispatch_steps pk w a k roots u hu
@@ -834,7 +839,7 @@ theorem coord_good (chains : N600.AllGood Frozen.layout)
       (fun ends entry hp pair t ht => hnext _ _ (coord_next pk w a k roots u entry t ends pair hu hp ht))
     have full := (core.steps js).steps ds
     have hce := ClaudeWCT.WCT9.childExtra_add (ClaudeWCT.WCT9.child a k)
-    have hmx : ClaudeWCT.WCT9.maxChildSave = 2 := rfl
+    have hmx : ClaudeWCT.WCT9.maxChildSave = 3 := rfl
     simp only [ClaudeWCT.W9.T3M.wctStep, hok, Bool.not_true, Bool.false_eq_true,
       ↓reduceIte, ccM_bind, ccM_pure]
     exact full.mono (by omega) (by omega) (fun hq => ⟨hq, by omega⟩)
@@ -1122,7 +1127,7 @@ def FtsGoodByCost (acceptCost : HashOutput → Nat) : Prop :=
       GoodQFor Frozen.image t N C Q A (K (some root))) →
     GoodQFor Frozen.image u (N+2023) (C+2023) Q (A+acceptCost a)
       (ccM (if ClaudeWCT.W9.T3M.gateOk a then ClaudeWCT.W9.T3M.wctP w a else pure none) K)
-def ftsAcceptCost (a : HashOutput) : Nat := 1056 + ClaudeWCT.WCT9.jointCost a
+def ftsAcceptCost (a : HashOutput) : Nat := 1047 + ClaudeWCT.WCT9.jointCost a
 end W9Drv
 end
 
@@ -1143,7 +1148,7 @@ def finishFts (a : HashOutput) (state : Option (List (Digest × Digest))) : M (O
 def coordsCost (ks : List (Fin 9)) : Nat :=
   (ks.map (fun k => dispatchLen k + 189)).sum
 def coordsAccept (a : HashOutput) (ks : List (Fin 9)) : Nat :=
-  (ks.map (fun k => (dispatchLen k + 98) + (N600.rankCost (ClaudeWCT.WCT9.rank a k) +
+  (ks.map (fun k => (dispatchLen k + 97) + (N600.rankCost (ClaudeWCT.WCT9.rank a k) +
     ClaudeWCT.WCT9.childExtra (ClaudeWCT.WCT9.child a k)))).sum
 theorem fold_none (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (ks : List (Fin 9)) :
     ks.foldlM (ClaudeWCT.W9.T3M.wctStep w a) none = pure none := by
@@ -1185,10 +1190,10 @@ theorem coordinates_good (chains : N600.AllGood Frozen.layout)
     convert hstep using 1 <;> simp [coordsCost, coordsAccept, Nat.add_left_comm, Nat.add_comm,
       K', ccM_bind] <;> omega
 theorem coordsAccept_all (a : HashOutput) :
-    coordsAccept a (List.finRange 9) = 992 + ClaudeWCT.WCT9.jointCost a := by
+    coordsAccept a (List.finRange 9) = 983 + ClaudeWCT.WCT9.jointCost a := by
   unfold coordsAccept
   rw [List.sum_map_add]
-  have hfixed : ((List.finRange 9).map (fun k => dispatchLen k + 98)).sum = 992 := by decide
+  have hfixed : ((List.finRange 9).map (fun k => dispatchLen k + 97)).sum = 983 := by decide
   rw [hfixed]
   congr 1
   simp only [ClaudeWCT.WCT9.jointCost, ClaudeWCT.WCT9.coordCost,
@@ -1198,14 +1203,14 @@ theorem fts_good_of (chains : N600.AllGood Frozen.layout)
   intro pk w a u N C A Q K hu hnone hnext
   let KG : Bool → OracleComp HashSpec Obs := fun b =>
     if b then ccM (ClaudeWCT.W9.T3M.wctP w a) K else K none
-  have hg := gate_good pk w a u (N + 1856) (C + 1856) (A + (1037 + ClaudeWCT.WCT9.jointCost a)) Q KG hu
+  have hg := gate_good pk w a u (N + 1856) (C + 1856) (A + (1028 + ClaudeWCT.WCT9.jointCost a)) Q KG hu
     (by simpa only [KG, Bool.false_eq_true, ↓reduceIte] using hnone)
     (fun t ht => by
       have hc := coordinates_good chains childs pk w a (List.finRange 9) 0 [] t N C A Q K
         (by decide)
         (by simp) ht hnone hnext
       rw [show coordsCost (List.finRange 9) + 45 = 1856 by decide,
-        show coordsAccept a (List.finRange 9) + 45 = 1037 + ClaudeWCT.WCT9.jointCost a by
+        show coordsAccept a (List.finRange 9) + 45 = 1028 + ClaudeWCT.WCT9.jointCost a by
           rw [coordsAccept_all]; omega] at hc
       apply hc.congr
       change ccM (_ >>= finishFts a) K = ccM (ClaudeWCT.W9.T3M.wctP w a) K
@@ -1215,7 +1220,7 @@ theorem fts_good_of (chains : N600.AllGood Frozen.layout)
         (List.finRange 9).foldlM (ClaudeWCT.W9.T3M.wctStep w a) (some []) >>= f)
       funext state
       cases state <;> rfl)
-  change GoodQFor Frozen.image u (N + 1875) (C + 1875) Q (A + (1037 + ClaudeWCT.WCT9.jointCost a) + 19)
+  change GoodQFor Frozen.image u (N + 1875) (C + 1875) Q (A + (1028 + ClaudeWCT.WCT9.jointCost a) + 19)
     (KG (ClaudeWCT.W9.T3M.gateOk a)) at hg
   apply (hg.mono (by omega) (by omega) (fun hq => ⟨hq, by simp only [ftsAcceptCost]; omega⟩)).congr
   cases ClaudeWCT.W9.T3M.gateOk a <;> simp [KG, ccM_pure]
