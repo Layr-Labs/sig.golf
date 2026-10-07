@@ -128,6 +128,9 @@ theorem verifyData_header (k : Nat) (hk : k < 4) :
 theorem verifyData_initialMask :
     bytesToWordLE ((((submission.image .verify).data).take 8)) = 0xfff#64 := by
   decide +kernel
+theorem verifyData_bufAddr :
+    bytesToWordLE ((((submission.image .verify).data).drop 8).take 8) = 0x5d28#64 := by
+  decide +kernel
 set_option maxRecDepth 200000 in
 theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 21832) (s : MachineState)
     (h : initialState submission .verify (m, pk, w) = some s) : InitOK m pk w s := by
