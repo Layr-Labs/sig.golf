@@ -33,7 +33,7 @@ theorem layersWalkSpec_holds : WctExtract.LayersWalkSpec
 theorem verifyP_walk_extract (answers : Answers) (m : Message) (pk : Digest) (w : WBytes)
     (hpk : pk = honestRoot answers 0 0)
     (hv : evalWithAnswerFn answers (verifyP m pk w) = true) :
-    ∃ N : HashOutput, (wdc w).toNat < WCT9.digestAttemptLimit ∧
+    ∃ N : HashOutput, (wdc w).toNat < WCT9.digestVerifyLimit ∧
       evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N ∧
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
@@ -56,7 +56,7 @@ theorem verifyP_walk_extract (answers : Answers) (m : Message) (pk : Digest) (w 
 theorem verifyP_extract_normal (answers : Answers) (m : Message) (pk : Digest) (w : WBytes)
     (hpk : pk = honestRoot answers 0 0)
     (hv : evalWithAnswerFn answers (verifyP m pk w) = true) :
-    ∃ N : HashOutput, (wdc w).toNat < WCT9.digestAttemptLimit ∧
+    ∃ N : HashOutput, (wdc w).toNat < WCT9.digestVerifyLimit ∧
       evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N ∧
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧

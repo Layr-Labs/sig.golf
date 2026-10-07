@@ -200,10 +200,10 @@ def TopOut (c : NCtx) (s0 : MachineState) (acc : List Digest) (s : MachineState)
   (∀ x, x ∉ chainRegs → x ≠ .x15 → x ≠ .x24 → s.getReg x=s0.getReg x) ∧
   Frame s0 s (c.Wr 54) ∧ acc.length=54 ∧
   (∀ j < acc.length, DigAt s (slot j) (acc.getD j 0)) ∧
-  (∃ dB dC, dB < 4 ∧ dC < 4 ∧ s.pc = pcOf (pcX 17 dB dC)) ∧ s.getReg .x15 = 262144#64 ∧
+  (∃ dB dC, dB < 4 ∧ dC < 4 ∧ s.pc = pcOf (pcX 17 dB dC)) ∧ s.getReg .x2 = 0x3fe00#64 ∧
   s.getReg .x24=c.s8v 17
 theorem end_return (c : NCtx) (hds : c.DigitsOk) {s0 b : MachineState}
-    (hb : b.getReg .x15 = 262144#64)
+    (hb : s0.getReg .x2 = 0x3fe00#64)
     (acc : List Digest) (s : MachineState)
     (hs : c.EndInv (set24 (tailInitial (set24 s0 (c.s8v 16)) b) (c.s8v 17)) 53 acc s) :
     c.TopOut s0 acc s := by
@@ -224,7 +224,7 @@ theorem end_return (c : NCtx) (hds : c.DigitsOk) {s0 b : MachineState}
       have eC : gC 17 (c.kOf 17) = pcC 17 (c.dig 52) (c.dig 53) := by rw [c.gC_eq hds 17 (by decide), eB]; rfl
       have eE : c.endPc 53 = gX 17 (c.kOf 17) := by simp [endPc, qX]
       rw [eE, c.gX_eq hds 17 (by decide), eC]; rfl
-  · rw [hR .x15 (by decide),set24_regs _ _ _ (by decide),tailInitial_15,hb]
+  · rw [hR .x2 (by decide),set24_regs _ _ _ (by decide),tailInitial_regs _ _ _ (by decide),set24_regs _ _ _ (by decide),hb]
   · rw [hR .x24 (by decide),set24_24]
 theorem top_full (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     (hk : ∀p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0) {v : Digest} (he : Encoded v s0) (hf : c.Fit v)
@@ -249,7 +249,7 @@ theorem top_full (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
         set24_known c _ (tailInitial_known c (set24_known c _ hk))
       have h0B := set24_orig c (c.s8v 17) (tailInitial_orig c (t := u) (set24_orig c (c.s8v 16) h0))
       have H := c.group_good hc hds hkB h0B 17 (by decide) K N C A Q
-        (fun ends z hz => hK ends z (c.end_return hds hu15 ends z hz))
+        (fun ends z hz => hK ends z (c.end_return hds he.table ends z hz))
         3 51 (by decide) (by decide) (by decide) acc u2 (by simpa using hu2)
       have H2 := Verify.GoodQ.steps st (Verify.GoodQ.steps st2 H)
       simp only [Nat.zero_add]

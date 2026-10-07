@@ -167,7 +167,7 @@ structure TopEntry (u : MachineState) (v : Digest) (p : Nat) (s : MachineState) 
   tail : s.getReg .x29 = BitVec.ofNat 64 (v.toNat / 2 ^ 119)
   s3 : s.getReg .x8 = 12480#64
   mask : s.getReg .x6 = 130048#64
-  table : s.getReg .x15 = 262144#64
+  table : s.getReg .x2 = 0x3fe00#64
   regs : RegsExcept u s topEntryRegs
   frame : Frame u s (fun _ => False)
 def topRowA (c : Nat) : Nat := rowA 0 c
@@ -214,8 +214,8 @@ theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
     hk (.x10, BitVec.ofNat 64 (rowA 0 c)) (by simp [BC.bK])
   have hra : (writeHash t a).getReg .x1 = BitVec.ofNat 64 TOPBASE :=
     hk (.x1, BitVec.ofNat 64 TOPBASE) (by simp [BC.bK, T3M.bK, layK])
-  have h15 : (writeHash t a).getReg .x15 = 262144#64 :=
-    hk (.x15, 262144#64) (by simp [BC.bK, T3M.bK, layK])
+  have h15 : (writeHash t a).getReg .x2 = 0x3fe00#64 :=
+    hk (.x2, 0x3fe00#64) (by simp [BC.bK, T3M.bK, layK])
   have hmask : (writeHash t a).getMem 0xffbff8#64 = 130048#64 := hD.mask
   obtain ⟨z, ez, pz, lo, hi, tl, s3, mask, rz, fz⟩ :=
     Verify.Nonbinary.prefix_spec _ _ (topRowA c) d (trPc 0 c + 6) ha
