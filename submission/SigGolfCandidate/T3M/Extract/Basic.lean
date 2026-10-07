@@ -16,7 +16,7 @@ def ftsRootsHonest (answers : Answers) (index : Nat) : List Digest := (List.rang
 def listInput (first : Digest) (hdr : BitVec 128) (rest : List Digest) : HashInput :=
   bytesLE 16 first ++ bytesLE 16 hdr ++ rest.flatMap (bytesLE 16)
 def leafInput (lay : Layer) (tree leaf : Nat) (ends : List Digest) : HashInput :=
-  listInput (ends.getD 0 0) (header 2 lay.val tree 0 leaf) (ends.drop 1)
+  T3.leafInput lay tree leaf ends
 def forestInput (index : Nat) (roots : List Digest) : HashInput :=
   listInput (roots.getD 0 0) (header 11 0 index 0 0) (roots.drop 1)
 def honestForest (answers : Answers) (index : Nat) : Digest :=
@@ -46,15 +46,16 @@ noncomputable def honestInput (answers : Answers) : Pos → HashInput
       (treeValue (ftsLevels answers index coord) level (2 * node + 1)))
 def Pos.hdr : Pos → BitVec 128
   | .chain lay tree lf i step => chainHeader lay tree lf i step
-  | .leaf lay tree lf => header 2 lay.val tree 0 lf
-  | .node lay tree level nd => header 3 lay.val tree 0 (2 ^ (height lay - level - 1) + nd)
+  | .leaf lay tree lf => leafTweak lay tree lf
+  | .node lay tree level nd => nodeTweak 3 lay.val tree (2 ^ (height lay - level - 1) + nd)
   | .forest index => header 11 0 index 0 0
   | .ftsLeaf index coord lf => header 9 coord index 0 lf
   | .ftsNode index coord level nd => header 10 coord index 0 (2 ^ (11 - level - 1) + nd)
 def Pos.Bounded : Pos → Prop
   | .chain _ tree lf i step => tree < 2 ^ 31 ∧ lf < 4096 ∧ i < 64 ∧ step < 8
-  | .leaf _ tree lf => tree < 2 ^ 40 ∧ lf < 2 ^ 32
-  | .node lay tree level nd => tree < 2 ^ 40 ∧ level < height lay ∧ nd < 2 ^ (height lay - level - 1)
+  | .leaf lay tree lf => lf < 2 ^ height lay ∧ tree * 2 ^ height lay + lf < 2 ^ 32
+  | .node lay tree level nd => tree < 2 ^ 32 ∧ (lay = 0 → tree = 0) ∧ level < height lay ∧
+      nd < 2 ^ (height lay - level - 1)
   | .forest index => index < 2 ^ 40
   | .ftsLeaf index coord lf => coord < 256 ∧ index < 2 ^ 40 ∧ lf < 2 ^ 32
   | .ftsNode index coord level nd => coord < 256 ∧ index < 2 ^ 40 ∧ level < 11 ∧ nd < 2 ^ (11 - level - 1)

@@ -68,27 +68,45 @@ open ClaudeWCT.W9.T3.PairRows (pairTrial pairTrial_coordinates pairTrial_ne_dige
 set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
-abbrev EncodingFamilyBC := Layer × Fin (2 ^ 31) × Fin 4096 × Digest × Digest
-theorem encodingFamilyBC_card : Fintype.card EncodingFamilyBC = 2 ^ 301 := by
+abbrev EncodingFamilyBC := Layer × Fin (2 ^ 32) × Digest × Digest
+theorem encodingFamilyBC_card : Fintype.card EncodingFamilyBC = 2 ^ 290 := by
   set_option exponentiation.threshold 512 in
   norm_num [EncodingFamilyBC, Layer, Fintype.card_prod, Fintype.card_bitVec]
+theorem encodingFamilyBC_card_le : (Fintype.card EncodingFamilyBC : ENNReal) ≤ 2 ^ 301 := by
+  rw [encodingFamilyBC_card]
+  exact_mod_cast Nat.pow_le_pow_right (by norm_num) (by norm_num)
+def routedTree (lay : Layer) (r : Nat) : Nat := r / 2 ^ height lay
+def routedLeaf (lay : Layer) (r : Nat) : Nat := r % 2 ^ height lay
+theorem routedLeaf_lt (lay : Layer) (r : Nat) : routedLeaf lay r < 2 ^ height lay :=
+  Nat.mod_lt _ (Nat.two_pow_pos _)
+theorem routed_eq (lay : Layer) (r : Nat) : routedTree lay r * 2 ^ height lay + routedLeaf lay r = r := by
+  unfold routedTree routedLeaf
+  rw [Nat.mul_comm]
+  exact Nat.div_add_mod r _
+theorem routedTree_of (lay : Layer) {tree leaf : Nat} (hl : leaf < 2 ^ height lay) :
+    routedTree lay (tree * 2 ^ height lay + leaf) = tree := by
+  unfold routedTree
+  rw [Nat.mul_comm, Nat.mul_add_div (Nat.two_pow_pos _), Nat.div_eq_of_lt hl, Nat.add_zero]
+theorem routedLeaf_of (lay : Layer) {tree leaf : Nat} (hl : leaf < 2 ^ height lay) :
+    routedLeaf lay (tree * 2 ^ height lay + leaf) = leaf := by
+  unfold routedLeaf
+  rw [Nat.mul_comm, Nat.mul_add_mod, Nat.mod_eq_of_lt hl]
 abbrev EncodingKeyBC := EncodingFamilyBC × Fin (2 ^ 22)
 abbrev DigestKey := DigestFamily × Fin (2 ^ 21)
 abbrev SearchKey := EncodingKeyBC ⊕ DigestKey
 def encodingQueryBC (key : EncodingKeyBC) : HashInput :=
-  pairTrial key.1.1 key.1.2.1 key.1.2.2.1 key.1.2.2.2.1 key.1.2.2.2.2 key.2
+  pairTrial key.1.1 (routedTree key.1.1 key.1.2.1) (routedLeaf key.1.1 key.1.2.1) key.1.2.2.1 key.1.2.2.2 key.2
 def digestQuery (key : DigestKey) : HashInput := digestTrial key.1.1 key.1.2 key.2
 def searchQuery : SearchKey → HashInput := Sum.elim encodingQueryBC digestQuery
 theorem encodingQueryBC_injective : Function.Injective encodingQueryBC := by
-  rintro ⟨⟨lay, tree, leaf, left, right⟩, counter⟩ ⟨⟨lay', tree', leaf', left', right'⟩, counter'⟩ he
-  obtain ⟨a, b, c, d, e, f⟩ := pairTrial_coordinates
-    (by have := tree.isLt; omega) (by have := tree'.isLt; omega)
-    (by have := leaf.isLt; omega) (by have := leaf'.isLt; omega)
+  rintro ⟨⟨lay, r, left, right⟩, counter⟩ ⟨⟨lay', r', left', right'⟩, counter'⟩ he
+  obtain ⟨a, b, c, d, e, f⟩ := pairTrial_coordinates (routedLeaf_lt lay r)
+    (by rw [routed_eq]; exact r.isLt) (routedLeaf_lt lay' r') (by rw [routed_eq]; exact r'.isLt)
     (by have := counter.isLt; omega) (by have := counter'.isLt; omega) he
-  have b := Fin.ext b
-  have c := Fin.ext c
+  cases a
+  have hr : r = r' := Fin.ext (by rw [← routed_eq lay r.val, ← routed_eq lay r'.val, b, c])
   have f := Fin.ext f
-  cases a; cases b; cases c; cases d; cases e; cases f; rfl
+  cases hr; cases d; cases e; cases f; rfl
 theorem digestQuery_injective : Function.Injective digestQuery := by
   rintro ⟨⟨rho, msg⟩, counter⟩ ⟨⟨rho', msg'⟩, counter'⟩ he
   obtain ⟨a, b, c⟩ := digestTrial_coordinates

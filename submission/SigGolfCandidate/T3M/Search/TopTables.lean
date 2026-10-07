@@ -53,15 +53,15 @@ theorem rankLookup_le (r : Nat) : rankLookup r ≤ 255 := by
   · omega
 theorem rankLookup_bad (r : Nat) (h : ¬ r < 125) : rankLookup r = 255 := by simp [rankLookup, h]
 theorem topDigits_grouped (v : Digest) :
-    (topDigits v).sum = ((rankDigits v).map rankWeight).sum + tailWeight v := by
+    (topDigits (T3.topFlip v)).sum = ((rankDigits v).map rankWeight).sum + tailWeight v := by
   simp only [topDigits, rankDigits, List.map_map, Function.comp_def, rankWeight, topRank, tailWeight,
     List.range_succ, List.range_zero, List.nil_append, List.map_append, List.map_cons,
     List.map_nil, List.sum_append, List.sum_cons, List.sum_nil]
-  norm_num [T3.coreDigit]
+  norm_num [T3.coreDigit, T3.topCode_topFlip]
   omega
 theorem topRanksValid_iff (v : Digest) :
-    T3.topRanksValid v = true ↔ ∀ r ∈ rankDigits v, r < 125 := by
-  simp [T3.topRanksValid, rankDigits, topRank]
+    T3.topRanksValid (T3.topFlip v) = true ↔ ∀ r ∈ rankDigits v, r < 125 := by
+  simp [T3.topRanksValid, rankDigits, topRank, T3.topCode_topFlip]
 private theorem map_sum_entry_le {xs : List Nat} (f : Nat → Nat) {r : Nat} (h : r ∈ xs) :
     f r ≤ (xs.map f).sum := by
   induction xs with
@@ -72,8 +72,8 @@ private theorem map_sum_entry_le {xs : List Nat} (f : Nat → Nat) {r : Nat} (h 
     rcases h with rfl | h
     · omega
     · have := ih h; omega
-theorem topLookupSum_good (v : Digest) (h : T3.topRanksValid v = true) :
-    topLookupSum v = (topDigits v).sum := by
+theorem topLookupSum_good (v : Digest) (h : T3.topRanksValid (T3.topFlip v) = true) :
+    topLookupSum v = (topDigits (T3.topFlip v)).sum := by
   rw [topDigits_grouped]
   unfold topLookupSum
   apply congrArg (fun x : Nat => x + tailWeight v)
@@ -82,10 +82,10 @@ theorem topLookupSum_good (v : Digest) (h : T3.topRanksValid v = true) :
   intro r hr
   simp [rankLookup, (topRanksValid_iff v).mp h r hr]
 theorem topLookupSum_eq_iff (v : Digest) :
-    topLookupSum v = 129 ↔ T3.topRanksValid v = true ∧ (topDigits v).sum = 129 := by
+    topLookupSum v = 129 ↔ T3.topRanksValid (T3.topFlip v) = true ∧ (topDigits (T3.topFlip v)).sum = 129 := by
   constructor
   · intro h
-    have hv : T3.topRanksValid v = true := by
+    have hv : T3.topRanksValid (T3.topFlip v) = true := by
       rw [topRanksValid_iff]
       intro r hr
       have hb := map_sum_entry_le rankLookup hr
@@ -97,8 +97,7 @@ theorem topLookupSum_eq_iff (v : Digest) :
   · rintro ⟨hv, hsum⟩
     exact (topLookupSum_good v hv).trans hsum
 theorem decode_top_lookup (v : Digest) :
-    T3.decode 0 v = if v.toNat < 2 ^ 125 ∧ topLookupSum v = 129
-      then some (topDigits v) else none := by
-  rw [decode_top]
-  simp only [topLookupSum_eq_iff]
+    T3.decode 0 (T3.topFlip v) = if v.toNat < 2 ^ 125 ∧ topLookupSum v = 129
+      then some (topDigits (T3.topFlip v)) else none := by
+  simp only [decode_top, topLookupSum_eq_iff, T3.topFlip_toNat_lt]
 end SigGolfCandidate.T3M.Search

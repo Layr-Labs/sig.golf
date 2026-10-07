@@ -146,10 +146,9 @@ theorem chain_loop (lay : Layer) (tree leaf i d e : Nat)
       (f1.mono (fun _ _ h => h.elim)), dv.frame f1 (by simp only [CHAIN]; omega) (by simp) (by simp),
     (rr.trans r1).mono (by simp), (ff.trans f1).mono (fun A _ h => by rcases h with h | h; exact h; exact h.elim)⟩)).mono
     (by omega) (fun _ _ h => h)
-def slotOff (c : Nat) : Nat := if c = 0 then 0 else 16 * c + 16
 def oneRegs : List Reg := [.x6, .x7, .x10, .x11, .x12, .x19, .x20, .x21, .x23, .x28, .x29, .x30]
-def OneW (i W : Nat) (A : Nat) : Prop :=
-  StepW A ∨ A = LEAFPK + slotOff i ∨ A = LEAFPK + slotOff i + 8 ∨ A = W + 48 ∨ A = W + 56
+def OneW (lay : T3.Layer) (i W : Nat) (A : Nat) : Prop :=
+  StepW A ∨ A = LEAFPK + slotOff lay i ∨ A = LEAFPK + slotOff lay i + 8 ∨ A = W + 48 ∨ A = W + 56
 def endpoint (lay : Layer) (i n4 : Nat) : Nat :=
   if lay = 0 then (if i < n4 then 4 else 3) else 7
 def endpointExtra (lay : Layer) (i n4 : Nat) : Nat :=
@@ -163,10 +162,10 @@ theorem rl_one (lay : Layer) (tree leaf i d P W n n4 : Nat)
     (h27 : t.getReg .x27 = BitVec.ofNat 64 n4) (h16 : t.getReg .x16 = BitVec.ofNat 64 P)
     (h23 : t.getReg .x23 = BitVec.ofNat 64 W) (hv : DigAt t (P + 16 * i) v)
     (hdig : t.getByte (BitVec.ofNat 64 (DIGITS + i)) = BitVec.ofNat 8 d) :
-    TBSim image sk t 351 (chain lay tree leaf i d ((endpoint lay i n4) - d) v)
+    TBSim image sk t 353 (chain lay tree leaf i d ((endpoint lay i n4) - d) v)
       (fun v' u => u.pc = pcOf 1010 ∧ u.getReg .x19 = BitVec.ofNat 64 (i + 1) ∧
         u.getReg .x23 = BitVec.ofNat 64 (W - 64) ∧ ChainCtx lay.val tree leaf (i + 1) u ∧
-        DigAt u (LEAFPK + slotOff i) v' ∧ DigAt u (W + 48) v ∧ RegsExcept t u oneRegs ∧ Frame t u (OneW i W)) := by
+        DigAt u (LEAFPK + slotOff lay i) v' ∧ DigAt u (W + 48) v ∧ RegsExcept t u oneRegs ∧ Frame t u (OneW lay i W)) := by
   have hlay := lay.isLt
   set e := (endpoint lay i n4) with he
   have he7 : e ≤ 7 := by rw [he]; unfold endpoint; split_ifs <;> omega
@@ -240,40 +239,30 @@ theorem rl_one (lay : Layer) (tree leaf i d P W n n4 : Nat)
   have hloop := chain_loop (sk := sk) lay tree leaf i d e hr hf hd he7 (by omega) v t5 p5 hc5 x20' x21' hv5
   have hprog : chain lay tree leaf i d (e - d) v = (chain lay tree leaf i d (e - d) v >>= pure) := by rw [bind_pure]
   rw [hprog]
-  have total_cost : (1 + 16 + 1 + 2 + endpointExtra lay i n4) + ((e - d) * 45 + 1 + 14) ≤ 351 := by
+  have total_cost : (1 + 16 + 1 + 2 + endpointExtra lay i n4) + ((e - d) * 45 + 1 + 17) ≤ 353 := by
     rw [he]; unfold endpointExtra endpoint
     split_ifs <;> omega
-  refine (TBSim.steps (((((s1.trans s2).trans s3).trans s4).trans s5)) (TBSim.bind (W₂ := 14) hloop
+  refine (TBSim.steps (((((s1.trans s2).trans s3).trans s4).trans s5)) (TBSim.bind (W₂ := 17) hloop
     (fun v' u hu => ?_))).mono (by
       simpa only [Nat.add_assoc] using total_cost) (fun _ _ h => h)
   obtain ⟨pu, u21, cu, du, ru, fu⟩ := hu
-  obtain ⟨u1, q1, pu1, y28, ry1, fy1⟩ := rl1049_spec u pu i (by omega) cu.x19
-  obtain ⟨u2, q2, pu2, z28, ry2, fy2⟩ : ∃ u2, Steps image u1 (if i = 0 then 0 else 1) (if i = 0 then 0 else 1) u2 ∧
-      u2.pc = pcOf 1052 ∧ u2.getReg .x28 = BitVec.ofNat 64 (slotOff i) ∧ RegsExcept u1 u2 [.x28] ∧
-      Frame u1 u2 (fun _ => False) := by
-    by_cases h0 : i = 0
-    · rw [if_pos h0] at pu1
-      exact ⟨u1, by simpa [h0] using Steps.refl u1, pu1, by rw [y28, slotOff, if_pos h0, h0], RegsExcept.refl _ _,
-        Frame.refl _ _⟩
-    · rw [if_neg h0] at pu1
-      obtain ⟨u2, q2, pu2, z28, ry2, fy2⟩ := rl1051_spec u1 pu1 (16 * i) y28
-      exact ⟨u2, by simpa [h0] using q2, pu2, by rw [z28, slotOff, if_neg h0], ry2, fy2⟩
-  have hslot8 : slotOff i % 8 = 0 := by unfold slotOff; split_ifs <;> omega
-  have hslot : LEAFPK + slotOff i + 16 ≤ 2 ^ 24 := by unfold slotOff; simp only [LEAFPK]; split_ifs <;> omega
-  obtain ⟨u3, q3, pu3, w19, m0, m8, ry3, fy3⟩ := rl1052_spec u2 pu2 i (slotOff i) hslot8 hslot z28
-    (by rw [ry2.get (by simp), ry1.get (by simp)]; exact cu.x19)
-  have fy12 : Frame u u2 (fun _ => False) := (fy1.trans fy2).mono (fun A _ h => by rcases h with h | h <;> exact h)
-  have hslotC : ∀ A, (A = LEAFPK + slotOff i ∨ A = LEAFPK + slotOff i + 8) → ¬ StepW A := by
+  obtain ⟨u2, q2, pu2, z28, ry2, fy2⟩ := rl1049_spec u pu lay i (by omega) cu.x8 cu.x19
+  have hslot8 : slotOff lay i % 8 = 0 := by unfold slotOff; split_ifs <;> omega
+  have hslot : LEAFPK + slotOff lay i + 16 ≤ 2 ^ 24 := by unfold slotOff; simp only [LEAFPK]; split_ifs <;> omega
+  obtain ⟨u3, q3, pu3, w19, m0, m8, ry3, fy3⟩ := rl1052_spec u2 pu2 i (slotOff lay i) hslot8 hslot z28
+    (by rw [ry2.get (by simp)]; exact cu.x19)
+  have fy12 : Frame u u2 (fun _ => False) := fy2
+  have hslotC : ∀ A, (A = LEAFPK + slotOff lay i ∨ A = LEAFPK + slotOff lay i + 8) → ¬ StepW A := by
     intro A hA hS; unfold StepW at hS; unfold slotOff at hA; simp only [LEAFPK, CHAIN] at hA hS; split_ifs at hA <;> omega
-  refine (TBSim.steps (q1.trans (q2.trans q3)) (TBSim.pure ⟨pu3, w19, ?_, ?_, ?_, ?_, ?_, ?_⟩)).mono
-    (by split_ifs <;> omega) (fun _ _ h => h)
-  · rw [ry3.get (by simp), ry2.get (by simp), ry1.get (by simp), ru.get (by simp [stepRegs]),
+  refine (TBSim.steps (q2.trans q3) (TBSim.pure ⟨pu3, w19, ?_, ?_, ?_, ?_, ?_, ?_⟩)).mono
+    (by unfold slK; split_ifs <;> omega) (fun _ _ h => h)
+  · rw [ry3.get (by simp), ry2.get (by simp), ru.get (by simp [stepRegs]),
       r5.get (by simp), r4.get (by simp), r3.get (by simp)]; exact x23
   · refine
-      { x5 := by rw [ry3.get (by simp), ry2.get (by simp), ry1.get (by simp)]; exact cu.x5
-        x8 := by rw [ry3.get (by simp), ry2.get (by simp), ry1.get (by simp)]; exact cu.x8
-        x9 := by rw [ry3.get (by simp), ry2.get (by simp), ry1.get (by simp)]; exact cu.x9
-        x18 := by rw [ry3.get (by simp), ry2.get (by simp), ry1.get (by simp)]; exact cu.x18
+      { x5 := by rw [ry3.get (by simp), ry2.get (by simp)]; exact cu.x5
+        x8 := by rw [ry3.get (by simp), ry2.get (by simp)]; exact cu.x8
+        x9 := by rw [ry3.get (by simp), ry2.get (by simp)]; exact cu.x9
+        x18 := by rw [ry3.get (by simp), ry2.get (by simp)]; exact cu.x18
         x19 := w19
         z0 := ?_, z8 := ?_, z32 := ?_, z40 := ?_ } <;>
     · rw [fy3.get (by simp only [CHAIN]; omega) (by unfold slotOff; simp only [LEAFPK, CHAIN]; split_ifs <;> omega),
@@ -282,7 +271,7 @@ theorem rl_one (lay : Layer) (tree leaf i d P W n n4 : Nat)
   · constructor
     · rw [m0, fy12.get (by simp only [CHAIN]; omega) (by simp)]; exact du.1
     · rw [m8, fy12.get (by simp only [CHAIN]; omega) (by simp)]; exact du.2
-  · have hW : ∀ A, (A = W + 48 ∨ A = W + 56) → A < 2 ^ 64 ∧ ¬ StepW A ∧ ¬ (A = LEAFPK + slotOff i ∨ A = LEAFPK + slotOff i + 8) := by
+  · have hW : ∀ A, (A = W + 48 ∨ A = W + 56) → A < 2 ^ 64 ∧ ¬ StepW A ∧ ¬ (A = LEAFPK + slotOff lay i ∨ A = LEAFPK + slotOff lay i + 8) := by
       intro A hA; unfold StepW slotOff; simp only [LEAFPK, CHAIN]; split_ifs <;> omega
     constructor
     · obtain ⟨h1, h2, h3⟩ := hW (W + 48) (Or.inl rfl)
@@ -296,7 +285,6 @@ theorem rl_one (lay : Layer) (tree leaf i d P W n n4 : Nat)
     simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr'
     rw [ry3.get (by simp only [List.mem_cons, List.not_mem_nil, or_false, not_or]; tauto),
       ry2.get (by simp only [List.mem_cons, List.not_mem_nil, or_false, not_or]; tauto),
-      ry1.get (by simp only [List.mem_cons, List.not_mem_nil, or_false, not_or]; tauto),
       ru.get (by simp only [stepRegs, List.mem_cons, List.not_mem_nil, or_false, not_or]; tauto),
       g5 r (by simp only [List.mem_cons, List.not_mem_nil, or_false, not_or]; tauto)]
   · intro A hA hn
@@ -304,27 +292,35 @@ theorem rl_one (lay : Layer) (tree leaf i d P W n n4 : Nat)
     simp only [not_or] at hn
     rw [fy3.get hA (by tauto), fy12.get hA (by simp), fu.get hA hn.1,
       f15.get hA (by simp only [CHAIN] at hn ⊢; unfold StepW at hn; simp only [CHAIN] at hn; omega)]
-def ChW (WC k : Nat) (A : Nat) : Prop :=
-  StepW A ∨ (∃ c < k, A = LEAFPK + slotOff c ∨ A = LEAFPK + slotOff c + 8) ∨
+def ChW (lay : T3.Layer) (WC k : Nat) (A : Nat) : Prop :=
+  StepW A ∨ (∃ c < k, A = LEAFPK + slotOff lay c ∨ A = LEAFPK + slotOff lay c + 8) ∨
     (∃ c < k, A = WC - 64 * c + 48 ∨ A = WC - 64 * c + 56)
-theorem not_ChW_of {WC k A : Nat} (hk : k ≤ 58) (h1 : WC + 64 ≤ A) (h2 : A < CHAIN + 16 ∨ CHAIN + 80 ≤ A)
-    (h3 : A < LEAFPK ∨ LEAFPK + 16 * 60 ≤ A) : ¬ ChW WC k A := by
+theorem not_ChW_of {lay : T3.Layer} {WC k A : Nat} (hk : k ≤ 58) (h1 : WC + 64 ≤ A) (h2 : A < CHAIN + 16 ∨ CHAIN + 80 ≤ A)
+    (h3 : A < LEAFPK ∨ LEAFPK + 16 * 60 ≤ A) : ¬ ChW lay WC k A := by
   unfold ChW StepW
   rintro (h | ⟨c, hc, h | h⟩ | ⟨c, _, h | h⟩) <;> simp only [CHAIN, LEAFPK] at h h2 h3 <;>
     first | omega | (unfold slotOff at h; split_ifs at h <;> omega)
-theorem not_ChW_hdr {WC k A : Nat} (hW : WC + 64 ≤ LEAFPK) (h : A = LEAFPK + 16 ∨ A = LEAFPK + 24 ∨
-    A = LEAFPK + 880 ∨ A = LEAFPK + 888) (hk : k ≤ 54) : ¬ ChW WC k A := by
-  unfold ChW StepW
-  rintro (h' | ⟨c, hc, h' | h'⟩ | ⟨c, _, h' | h'⟩) <;> simp only [CHAIN, LEAFPK] at h h' hW <;>
-    first | omega | (unfold slotOff at h'; split_ifs at h' <;> omega)
+theorem not_ChW_hdr {lay : T3.Layer} {WC k A : Nat} (hW : WC + 64 ≤ LEAFPK) (h : A = LEAFPK + 16 ∨ A = LEAFPK + 24 ∨
+    (lay = 0 ∧ (A = LEAFPK ∨ A = LEAFPK + 8))) (hk : k ≤ 54) : ¬ ChW lay WC k A := by
+  rcases h with h | h | ⟨hl, h⟩
+  · unfold ChW StepW
+    rintro (h' | ⟨c, hc, h' | h'⟩ | ⟨c, _, h' | h'⟩) <;> simp only [CHAIN, LEAFPK] at h h' hW <;>
+      first | omega | (unfold slotOff at h'; split_ifs at h' <;> omega)
+  · unfold ChW StepW
+    rintro (h' | ⟨c, hc, h' | h'⟩ | ⟨c, _, h' | h'⟩) <;> simp only [CHAIN, LEAFPK] at h h' hW <;>
+      first | omega | (unfold slotOff at h'; split_ifs at h' <;> omega)
+  · subst hl
+    unfold ChW StepW
+    rintro (h' | ⟨c, hc, h' | h'⟩ | ⟨c, _, h' | h'⟩) <;> simp only [CHAIN, LEAFPK, slotOff, if_pos] at h h' hW <;>
+      omega
 structure ChainsInv (t0 : MachineState) (lay : Layer) (tree leaf P WC n n4 : Nat) (vals : Nat → Digest)
     (ends : List Digest) (t : MachineState) : Prop where
   pc : t.pc = pcOf 1010
   ctx : ChainCtx lay.val tree leaf ends.length t
   x23 : t.getReg .x23 = BitVec.ofNat 64 (WC - 64 * ends.length)
-  slots : ∀ j < ends.length, DigAt t (LEAFPK + slotOff j) (ends.getD j 0)
+  slots : ∀ j < ends.length, DigAt t (LEAFPK + slotOff lay j) (ends.getD j 0)
   wvals : ∀ j < ends.length, DigAt t (WC - 64 * j + 48) (vals j)
   regs : RegsExcept t0 t oneRegs
-  frame : Frame t0 t (ChW WC ends.length)
+  frame : Frame t0 t (ChW lay WC ends.length)
 end chain
 end SigGolfCandidate.T3M.Expand

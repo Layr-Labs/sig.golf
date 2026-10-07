@@ -20,7 +20,7 @@ abbrev Coord := CanonGraph.Node ⊕ CanonGraph.SecretIndex
 def chainChild (p : ChainGraph.Point) : Coord :=
   if p.2.val = 0 then .inr (.inl (CanonGraph.seedIdx p.1)) else .inl (.chain (ChainGraph.predecessor p))
 def treeChild (lay : Layer) (tree : Fin (2^31)) (level c : Nat) : Option Coord :=
-  if level = 0 then (if h : c < 4096 then some (.inl (.leaf ⟨lay, tree, ⟨c, h⟩⟩)) else none)
+  if level = 0 then (leafAt lay tree c).map fun L => .inl (.leaf L)
   else (treeNodeAt lay tree (level - 1) c).map fun n => .inl (.node n)
 def wctItem (a : WctAddr) (p : Nat) : Coord :=
   if p = 0 then .inr (.inr a) else .inl (.wctChain (a, ⟨(p - 1) % 3, Nat.mod_lt _ (by decide)⟩))
@@ -29,9 +29,10 @@ def ftsChild (index : Fin (2^31)) (coord : Fin 9) (level c : Nat) : Option Coord
   else (ftsNodeAt index coord (level - 1) c).map fun n => .inl (.wctNode n)
 def endPoint (L : LeafPos) (i : Nat) : ChainGraph.Point :=
   (⟨L.lay, L.tree, L.leaf, fin58 i⟩, ⟨(maxDigit L.lay i - 1) % 7, Nat.mod_lt _ (by decide)⟩)
+def leafBlock (lay : Layer) (i : Nat) : Nat := if lay = 0 then i + 2 else listBlock i
 def childSlots : CanonGraph.Node → List (Coord × Nat)
   | .chain p => [(chainChild p, 3)]
-  | .leaf L => (List.range (chainCount L.lay)).map fun i => (.inl (.chain (endPoint L i)), listBlock i)
+  | .leaf L => (List.range (chainCount L.1.lay)).map fun i => (.inl (.chain (endPoint L.1 i)), leafBlock L.1.lay i)
   | .node n => ((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val)).map (·, 0)).toList ++
       ((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val + 1)).map (·, 3)).toList
   | .wctChain p => [(wctItem p.1 p.2.val, 3)]
@@ -91,13 +92,13 @@ noncomputable def signDisclosed (A : Answers) (published : SigGolfCandidate.T3.C
   else []
 def msgSlots (L : EncLeaf) : List (Coord × Nat) :=
   if h : L.1.lay.val < 3 then
-    [(.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) 0)), 0),
-      (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) 1)), 3)]
+    [(.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 0)), 0),
+      (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 1)), 3)]
   else [(.inl (.forest (childIndex L)), 0)]
 def msgVals (vals : Coord → Digest) (L : EncLeaf) : WCT9.LayerMsg :=
   if h : L.1.lay.val < 3 then
-    .pair (vals (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) 0))))
-      (vals (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) 1))))
+    .pair (vals (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 0))))
+      (vals (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 1))))
   else .forest (vals (.inl (.forest (childIndex L))))
 noncomputable def firstUnknownMsg (K : Coord → Prop) (L : EncLeaf) : Option (Coord × Nat) :=
   (msgSlots L).find? fun cs => decide (¬K cs.1)
@@ -106,7 +107,7 @@ def StructuralContact (A : Answers) (K : Coord → Prop) (input : HashInput) (an
     ((∃ cs, firstUnknown K N = some cs ∧ slotValue input cs.2 = honestValue A cs.1) ∨
       (input ≠ Extract.honestInput A N.toPos ∧ answer.extractLsb' 0 128 = honestValue A (.inl N)))
 def EncodingContact (A : Answers) (K : Coord → Prop) (input : HashInput) (answer : HashOutput) : Prop :=
-  ∃ (L : EncLeaf) (m : WCT9.LayerMsg) (ctr : BitVec 32) (pad : BitVec 96), Extract.msgFits L.1.lay m ∧
+  ∃ (L : EncLeaf) (m : WCT9.LayerMsg) (ctr : BitVec 32) (pad : Wots.RowPad), Extract.msgFits L.1.lay m ∧
     input = Wots.encRow L.toWots m ctr pad ∧
     ((∃ cs, firstUnknownMsg K L = some cs ∧ slotValue input cs.2 = honestValue A cs.1) ∨
       (Wots.referenceInput A L.toWots ≠ some input ∧

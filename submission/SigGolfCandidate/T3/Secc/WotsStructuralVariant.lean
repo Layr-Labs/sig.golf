@@ -54,41 +54,26 @@ theorem Variant.congr {labels : CanonGraph.Labels} {T T' : Answers} (hv : Varian
   congr_of_queried T T' program (fun q hq => hv.honest q (hp q hq))
 section Game
 variable {labels : CanonGraph.Labels} {T T' : Answers}
-theorem keygenCharge_variant (hv : Variant labels T T') : keygenCharge T = keygenCharge T' := by
-  unfold keygenCharge
-  rw [(hv.congr (sat_keygen T)).2]
-theorem eval_keygen_variant (hv : Variant labels T T') :
-    evalWithAnswerFn T keygen = evalWithAnswerFn T' keygen :=
-  (hv.congr (sat_keygen T)).1
-theorem signCharge_variant (hv : Variant labels T T') (published : T3.Cache) (request : Request) :
-    signCharge T published request = signCharge T' published request := by
-  unfold signCharge
-  rw [(hv.congr (sat_authenticatedSign T published request)).2]
-theorem eval_sign_variant (hv : Variant labels T T') (published : T3.Cache) (request : Request) :
-    evalWithAnswerFn T (FullGame.authenticatedSign published request) =
-      evalWithAnswerFn T' (FullGame.authenticatedSign published request) :=
-  (hv.congr (sat_authenticatedSign T published request)).1
-theorem offlineSign_variant (hv : Variant labels T T') (published : T3.Cache) (request : Request) :
-    offlineSign T published request = offlineSign T' published request := by
-  unfold offlineSign
-  rw [signCharge_variant hv, eval_sign_variant hv]
-theorem offlineImpl_variant (hv : Variant labels T T') (published : T3.Cache) :
-    offlineImpl T published = offlineImpl T' published := by
-  unfold offlineImpl
-  have h : offlineSign T published = offlineSign T' published := funext (offlineSign_variant hv published)
-  rw [h]
-theorem offlineGame_variant (hv : Variant labels T T') (adversary : Final.AdversaryP) :
-    offlineGame T adversary = offlineGame T' adversary := by
-  unfold offlineGame offlineInteraction
-  rw [keygenCharge_variant hv, eval_keygen_variant hv, offlineImpl_variant hv]
-theorem referenceGame_variant (hv : Variant labels T T') (adversary : Final.AdversaryP) (q : Nat) :
-    referenceGame T adversary q = referenceGame T' adversary q := by
-  unfold referenceGame
-  rw [offlineGame_variant hv]
-theorem publicKey_variant (hv : Variant labels T T') :
-    (evalWithAnswerFn T keygen).1 = (evalWithAnswerFn T' keygen).1 := by
-  rw [eval_keygen_variant hv]
 end Game
+theorem leafTweak_alias (lay : Layer) {tree tree' : Nat} (h : tree % 2 ^ 40 = tree' % 2 ^ 40) (leaf : Nat) :
+    leafTweak lay tree leaf = leafTweak lay tree' leaf := by
+  have h32 : tree % 2 ^ 32 = tree' % 2 ^ 32 := by
+    rw [← Nat.mod_mod_of_dvd tree (show 2 ^ 32 ∣ 2 ^ 40 by norm_num),
+      ← Nat.mod_mod_of_dvd tree' (show 2 ^ 32 ∣ 2 ^ 40 by norm_num), h]
+  have hr : (tree * 2 ^ height lay + leaf) % 2 ^ 32 = (tree' * 2 ^ height lay + leaf) % 2 ^ 32 :=
+    ((Nat.ModEq.mul_right (2 ^ height lay) h32).add_right leaf)
+  unfold leafTweak hyperWord
+  rw [hr]
+theorem nodeTweak_alias (tag lay : Nat) {tree tree' : Nat} (h : tree % 2 ^ 40 = tree' % 2 ^ 40) (heap : Nat) :
+    nodeTweak tag lay tree heap = nodeTweak tag lay tree' heap := by
+  have h32 : tree % 2 ^ 32 = tree' % 2 ^ 32 := by
+    rw [← Nat.mod_mod_of_dvd tree (show 2 ^ 32 ∣ 2 ^ 40 by norm_num),
+      ← Nat.mod_mod_of_dvd tree' (show 2 ^ 32 ∣ 2 ^ 40 by norm_num), h]
+  have h31 : tree % 2 ^ 31 = tree' % 2 ^ 31 := by
+    rw [← Nat.mod_mod_of_dvd tree (show 2 ^ 31 ∣ 2 ^ 40 by norm_num),
+      ← Nat.mod_mod_of_dvd tree' (show 2 ^ 31 ∣ 2 ^ 40 by norm_num), h]
+  unfold nodeTweak hyperWord ftsNodeWord
+  rw [h32, h31, Mask.header_congr rfl h rfl]
 section Alias
 variable (T : Answers) (lay : Layer) {tree tree' : Nat} (h : tree % 2 ^ 40 = tree' % 2 ^ 40)
 include h
@@ -102,8 +87,8 @@ theorem leafRoot_alias (leaf : Nat) : leafRoot T lay tree leaf = leafRoot T lay 
       (List.range (chainCount lay)).map (leafEnd T lay tree' leaf) :=
     List.map_congr_left fun i _ => leafEnd_alias T lay h leaf i
   rw [hends]
-  unfold leafHash
-  rw [Mask.header_congr (t := 2) (p := 0) rfl h rfl]
+  unfold leafHash leafInput
+  rw [leafTweak_alias lay h]
 omit h in
 theorem buildLevels_alias (tag lay' : Nat) {tree tree' : Nat} (h : tree % 2 ^ 40 = tree' % 2 ^ 40) (height : Nat)
     (leaves : List Digest) :
@@ -111,7 +96,7 @@ theorem buildLevels_alias (tag lay' : Nat) {tree tree' : Nat} (h : tree % 2 ^ 40
   have hn : T3.nodeHash tag lay' tree = T3.nodeHash tag lay' tree' := by
     funext heap left right
     unfold T3.nodeHash
-    rw [Mask.header_congr (t := tag) (p := 0) rfl h rfl]
+    rw [nodeTweak_alias tag lay' h]
   have hl : T3.buildLevel tag lay' tree = T3.buildLevel tag lay' tree' := by
     funext height level nodes
     unfold T3.buildLevel
@@ -128,20 +113,6 @@ theorem honestRoot_alias : Extract.honestRoot T lay tree = Extract.honestRoot T 
 end Alias
 section Depth
 variable {labels : CanonGraph.Labels} {T T' : Answers}
-theorem builtTree_variant_bounded (hv : Variant labels T T') (lay : Layer) (tree : Nat) (htree : tree < 2 ^ 40) :
-    builtTree T lay tree = builtTree T' lay tree := by
-  rw [← Correctness.eval_buildTree_levels T lay tree 0 [] (Cost.validDigits_nil lay),
-    ← Correctness.eval_buildTree_levels T' lay tree 0 [] (Cost.validDigits_nil lay),
-    (hv.congr (sat_buildTree T lay tree 0 [] (Cost.validDigits_nil lay) htree)).1]
-theorem builtTree_variant (hv : Variant labels T T') (lay : Layer) (tree : Nat) :
-    builtTree T lay tree = builtTree T' lay tree := by
-  have hmod : tree % 2 ^ 40 = tree % 2 ^ 40 % 2 ^ 40 := (Nat.mod_mod _ _).symm
-  rw [builtTree_alias T lay hmod, builtTree_alias T' lay hmod]
-  exact builtTree_variant_bounded hv lay _ (Nat.mod_lt _ (by decide))
-theorem honestRoot_variant (hv : Variant labels T T') (lay : Layer) (tree : Nat) :
-    Extract.honestRoot T lay tree = Extract.honestRoot T' lay tree := by
-  unfold Extract.honestRoot
-  rw [builtTree_variant hv]
 theorem honestForest_variant (hv : Variant labels T T') (index : Nat) (hindex : index < 2 ^ 40) :
     Extract.honestForest T index = Extract.honestForest T' index := by
   rw [Mask.honestForest_eq T, Mask.honestForest_eq T']
@@ -152,35 +123,5 @@ theorem honestForest_variant (hv : Variant labels T T') (index : Nat) (hindex : 
     List.map_congr_left fun c hc => by rw [hfts c hc]
   rw [hroots]
   exact (hv.congr (sat_forestPk T index hindex)).1
-theorem leafMsg_variant (hv : Variant labels T T') (L : LeafAddr) (htree : L.tree < 2 ^ 31)
-    (hleaf : L.leaf < 2 ^ height L.lay) : leafMsg T L = leafMsg T' L := by
-  unfold leafMsg
-  split
-  · exact honestRoot_variant hv _ _
-  · rename_i hl
-    have h3 : L.lay = 3 := by
-      apply Fin.ext
-      have := L.lay.isLt
-      change L.lay.val = 3
-      omega
-    have hh : height L.lay = 6 := by rw [h3]; rfl
-    rw [hh] at hleaf ⊢
-    exact honestForest_variant hv _ (by
-      have : L.tree * 2 ^ 6 < 2 ^ 31 * 2 ^ 6 := Nat.mul_lt_mul_of_pos_right htree (by decide)
-      have : (2 : Nat) ^ 31 * 2 ^ 6 + 2 ^ 6 ≤ 2 ^ 40 := by norm_num
-      omega)
-theorem referenceSearch_variant (hv : Variant labels T T') (L : LeafAddr) (htree : L.tree < 2 ^ 31)
-    (hleaf : L.leaf < 2 ^ height L.lay) : referenceSearch T L = referenceSearch T' L := by
-  unfold referenceSearch
-  rw [leafMsg_variant hv L htree hleaf]
-  exact (hv.congr (sat_counterSearch T _ _ _ _ _ _)).1
-theorem referenceDigits_variant (hv : Variant labels T T') (L : LeafAddr) (htree : L.tree < 2 ^ 31)
-    (hleaf : L.leaf < 2 ^ height L.lay) : referenceDigits T L = referenceDigits T' L := by
-  unfold referenceDigits
-  rw [referenceSearch_variant hv L htree hleaf]
-theorem depth_variant (hv : Variant labels T T') (a : ChainAddr) (htree : a.key.tree < 2 ^ 31)
-    (hleaf : a.key.leaf < 2 ^ height a.key.lay) : depth T a = depth T' a := by
-  unfold depth
-  rw [referenceDigits_variant hv a.key htree hleaf]
 end Depth
 end SigGolfCandidate.T3.Security.Wots.Structural

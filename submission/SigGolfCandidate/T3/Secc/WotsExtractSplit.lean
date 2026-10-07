@@ -150,90 +150,6 @@ theorem GameCaseWots.verifierWots {adversary : AdversaryP} {answers : Answers} {
           VerifierWots answers generated.value.1 forgery := by
   obtain ⟨generated, hg, interaction, hi, -, hpk, -, forgery, hf, hfresh, message, witness, hof, hv, -, hprim⟩ := h
   exact ⟨generated, hg, interaction, hi, hpk, forgery, hf, hfresh, message, witness, hof, hv, hprim.toPrimitive⟩
-theorem game_linked_split (adversary : AdversaryP) (result : FirstHit.Recorded Bool)
-    (hr : result ∈ support (FirstHit.record (GameWith.idealGame PaddedGame.checker adversary) (∅, ∅)))
-    (answers : Answers)
-    (ha : ∀ input answer, SourceReplay.known result.state input = some answer → answers input = answer)
-    (hwin : result.value = true) :
-    GameCaseWots adversary answers result ∨ BPB.GameCaseC adversary answers Not result ∨
-      BPB.GameCaseC adversary answers id result := by
-  obtain ⟨generated, hg, interaction, hi, hext, hpk, hlen, forgery, hf, hfresh, message, witness, hof, hv, hrec⟩ :=
-    game_accepting_linked adversary result hr answers ha hwin
-  obtain ⟨N, hdc, hN, hdq, hS, hcase⟩ := verifyP_wots_cases_src answers message generated.value.1 witness hpk hv
-  rcases hcase with hprim | ⟨hgood, hshape⟩
-  · exact Or.inl ⟨generated, hg, interaction, hi, hext, hpk, hlen, forgery, hf, hfresh, message, witness, hof, hv,
-      hrec, hprim⟩
-  · have hCat : BPB.CaseCAt answers message witness result.events := by
-      obtain ⟨prior, hev⟩ := hrec _ hdq
-      have hans : answers (.inl (.inr (pad64 (digestInput (wrho witness) message (wdc witness))))) = N := hN
-      exact ⟨N, hdc, hN, ⟨prior, by simpa only [hans] using hev⟩, hS, by simpa only [← hN] using verifyP_digestGate answers message generated.value.1 witness hv, hgood, hshape⟩
-    by_cases hsd : BPB.SignedDigest interaction.value.2 message witness
-    · exact Or.inr (Or.inr ⟨generated, hg, interaction, hi, hext, hpk, hlen, forgery, hf, hfresh, message, witness,
-        hof, hsd, hCat⟩)
-    · exact Or.inr (Or.inl ⟨generated, hg, interaction, hi, hext, hpk, hlen, forgery, hf, hfresh, message, witness,
-        hof, hsd, hCat⟩)
-theorem completed_linked_split (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
-    (z : PaddedGame.TraceResult × Answers) (hz : z ∈ (SeccLaw.completedExperiment adversary q hq).support)
-    (hwin : QueryRecorded.CleanWin q z.1) :
-    GameCaseWots adversary z.2 (QueryRecorded.recordedTrace z.1) ∨ BPB.CaseCFresh adversary z ∨
-      BPB.CaseCSigned adversary z := by
-  obtain ⟨hr, ha⟩ := SeccLaw.completed_agrees adversary q hq z hz
-  exact game_linked_split adversary _ (PaddedExtraction.traced_record_support adversary q hq z.1 hr) z.2 ha hwin.1
-theorem completed_linked_split_events (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
-    (z : PaddedGame.TraceResult × Answers) (hz : z ∈ (SeccLaw.completedExperiment adversary q hq).support)
-    (hwin : QueryRecorded.CleanWin q z.1) :
-    WotsPrimitiveSrc z.2 (recordedEntries z.2 (QueryRecorded.recordedTrace z.1).events) ∨
-      BPB.CaseCFresh adversary z ∨ BPB.CaseCSigned adversary z :=
-  (completed_linked_split adversary q hq z hz hwin).imp_left GameCaseWots.recordedSrc
-theorem completed_linked_split_fresh (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
-    (z : PaddedGame.TraceResult × Answers) (hz : z ∈ (SeccLaw.completedExperiment adversary q hq).support)
-    (hwin : QueryRecorded.CleanWin q z.1) :
-    GameCaseWots adversary z.2 (QueryRecorded.recordedTrace z.1) ∨ BPB.CaseCFresh adversary z := by
-  rcases completed_linked_split adversary q hq z hz hwin with h | h | h
-  · exact Or.inl h
-  · exact Or.inr h
-  · exact (BPB.caseC_signed_impossible adversary q hq z hz hwin h).elim
-theorem traced_wots_split_src (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
-    (result : PaddedGame.TraceResult) (hr : result ∈ (PaddedGame.tracedExperiment adversary q hq).support)
-    (hwin : QueryRecorded.CleanWin q result) (answers : Answers)
-    (ha : ∀ input answer, SourceReplay.known result.2.2.base.source.2 input = some answer → answers input = answer) :
-    ∃ generated ∈ support (FirstHit.record keygen (∅, ∅)),
-      ∃ interaction ∈ support (FirstHit.record (FullGame.loggedWith (FullGame.authenticatedSign generated.value.2)
-          (adversary generated.value.1 generated.value.2)) generated.state),
-        generated.value.1 = Extract.honestRoot answers 0 0 ∧
-        ∃ forgery, interaction.value.1 = some forgery ∧ PaddedExtraction.Fresh interaction.value.2 forgery ∧
-          (VerifierWotsSrc answers generated.value.1 forgery ∨ VerifierAllGood answers generated.value.1 forgery) := by
-  obtain ⟨generated, hgenerated, interaction, hinteraction, -, hpk, -, forgery, hforgery, hfresh, message, witness,
-    hof, hv, -⟩ := game_accepting_linked adversary _ (PaddedExtraction.traced_record_support adversary q hq result hr)
-      answers ha hwin.1
-  refine ⟨generated, hgenerated, interaction, hinteraction, hpk, forgery, hforgery, hfresh, ?_⟩
-  obtain ⟨N, -, hN, -, -, hcase⟩ := verifyP_wots_cases_src answers message generated.value.1 witness hpk hv
-  rcases hcase with hprim | ⟨hgood, hshape⟩
-  · exact Or.inl ⟨message, witness, hof, hv, hprim⟩
-  · exact Or.inr ⟨message, witness, N, hof, hN, hgood, hshape⟩
-theorem completed_wots_split_src (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
-    (z : PaddedGame.TraceResult × Answers) (hz : z ∈ (SeccLaw.completedExperiment adversary q hq).support)
-    (hwin : QueryRecorded.CleanWin q z.1) :
-    ∃ generated ∈ support (FirstHit.record keygen (∅, ∅)),
-      ∃ interaction ∈ support (FirstHit.record (FullGame.loggedWith (FullGame.authenticatedSign generated.value.2)
-          (adversary generated.value.1 generated.value.2)) generated.state),
-        generated.value.1 = Extract.honestRoot z.2 0 0 ∧
-        ∃ forgery, interaction.value.1 = some forgery ∧ PaddedExtraction.Fresh interaction.value.2 forgery ∧
-          (VerifierWotsSrc z.2 generated.value.1 forgery ∨ VerifierAllGood z.2 generated.value.1 forgery) := by
-  obtain ⟨hr, ha⟩ := SeccLaw.completed_agrees adversary q hq z hz
-  exact traced_wots_split_src adversary q hq z.1 hr hwin z.2 ha
-theorem completed_wots_split (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
-    (z : PaddedGame.TraceResult × Answers) (hz : z ∈ (SeccLaw.completedExperiment adversary q hq).support)
-    (hwin : QueryRecorded.CleanWin q z.1) :
-    ∃ generated ∈ support (FirstHit.record keygen (∅, ∅)),
-      ∃ interaction ∈ support (FirstHit.record (FullGame.loggedWith (FullGame.authenticatedSign generated.value.2)
-          (adversary generated.value.1 generated.value.2)) generated.state),
-        generated.value.1 = Extract.honestRoot z.2 0 0 ∧
-        ∃ forgery, interaction.value.1 = some forgery ∧ PaddedExtraction.Fresh interaction.value.2 forgery ∧
-          (VerifierWots z.2 generated.value.1 forgery ∨ VerifierAllGood z.2 generated.value.1 forgery) := by
-  obtain ⟨generated, hg, interaction, hi, hpk, forgery, hf, hfresh, hcase⟩ :=
-    completed_wots_split_src adversary q hq z hz hwin
-  exact ⟨generated, hg, interaction, hi, hpk, forgery, hf, hfresh, hcase.imp_left VerifierWotsSrc.toVerifierWots⟩
 end SigGolfCandidate.T3.Security.WotsExtract
 namespace SigGolfCandidate.T3.Security.Wots
 open OracleComp OracleSpec
@@ -244,17 +160,4 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local irreducible] keygen verifyP expandB
-theorem traced_wots_split (adversary : Final.AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
-    (result : PaddedGame.TraceResult) (hr : result ∈ (PaddedGame.tracedExperiment adversary q hq).support)
-    (hwin : QueryRecorded.CleanWin q result) (answers : Answers)
-    (ha : ∀ input answer, SourceReplay.known result.2.2.base.source.2 input = some answer → answers input = answer) :
-    ∃ generated ∈ support (FirstHit.record keygen (∅, ∅)),
-      ∃ interaction ∈ support (FirstHit.record (FullGame.loggedWith (FullGame.authenticatedSign generated.value.2)
-          (adversary generated.value.1 generated.value.2)) generated.state),
-        generated.value.1 = Extract.honestRoot answers 0 0 ∧
-        ∃ forgery, interaction.value.1 = some forgery ∧ PaddedExtraction.Fresh interaction.value.2 forgery ∧
-          (VerifierWots answers generated.value.1 forgery ∨ VerifierAllGood answers generated.value.1 forgery) := by
-  obtain ⟨generated, hg, interaction, hi, hpk, forgery, hf, hfresh, hcase⟩ :=
-    traced_wots_split_src adversary q hq result hr hwin answers ha
-  exact ⟨generated, hg, interaction, hi, hpk, forgery, hf, hfresh, hcase.imp_left VerifierWotsSrc.toVerifierWots⟩
 end SigGolfCandidate.T3.Security.Wots

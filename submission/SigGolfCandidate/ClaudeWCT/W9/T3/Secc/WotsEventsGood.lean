@@ -1,7 +1,6 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEvents
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Layers
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Wct
-import SigGolfCandidate.ClaudeWCT.W9.New.BC.Rows
 
 namespace ClaudeWCT.W9.T3.Security.Wots
 open OracleComp OracleSpec

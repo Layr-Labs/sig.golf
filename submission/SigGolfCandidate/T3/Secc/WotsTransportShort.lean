@@ -88,8 +88,8 @@ theorem leafHash_respects (lay : Layer) (tree leaf : Nat) (ends : List Digest) (
   unfold leafHash
   apply ShortRespects.shortHash
   apply short_of_le
-  simp only [List.length_append, bytesLE_length, digest_list_bytes_length, List.length_drop]
-  omega
+  rw [leafInput_length]
+  split_ifs <;> omega
 theorem nodeHash_respects (tag lay tree heap : Nat) (left right : Digest) :
     ShortRespects (nodeHash tag lay tree heap left right) := by
   unfold nodeHash
@@ -259,9 +259,11 @@ theorem honestInput_length (answers : Answers) (position : Extract.Pos) :
       rw [chainInput_length]; omega
   | leaf lay tree leaf =>
       apply short_of_le
-      simp only [Extract.leafInput, listInput_length, List.length_drop, List.length_map, List.length_range]
+      simp only [Extract.leafInput]
+      rw [leafInput_length]
+      simp only [List.length_map, List.length_range]
       have := chainCount_le lay
-      omega
+      split_ifs <;> omega
   | node lay tree level node =>
       apply short_of_le
       simp [nodeInputP]

@@ -13,24 +13,15 @@ theorem hdrBlock_honestInput (answers : Answers) (p : Pos) :
   cases p with
   | chain lay tree lf i step =>
       simp only [honestInput, Pos.hdr, chainInput_padded, hdrBlock, chainInput_header]
-  | leaf lay tree lf => simp only [honestInput, Pos.hdr, leafInput]; rw [hdrBlock_listInput]
+  | leaf lay tree lf => simp only [honestInput, Pos.hdr]; rw [hdrBlock_leafInput]
   | node lay tree level nd =>
       simp only [honestInput, Pos.hdr]; rw [pad64_nodeInputP, nodeInputP, hdrBlock_block4]
   | forest index => simp only [honestInput, Pos.hdr, forestInput]; rw [hdrBlock_listInput]
   | ftsLeaf index coord lf =>
       simp only [honestInput, Pos.hdr]; rw [pad64_ftsLeafInputP, ftsLeafInputP, hdrBlock_block4]
   | ftsNode index coord level nd =>
-      simp only [honestInput, Pos.hdr]; rw [pad64_nodeInputP, nodeInputP, hdrBlock_block4]
-def Pos.fields : Pos → Nat × Nat × Nat × Nat × Nat
-  | .chain lay tree lf i step => (1, lay.val, tree, step + 256 * i, lf)
-  | .leaf lay tree lf => (2, lay.val, tree, 0, lf)
-  | .node lay tree level nd => (3, lay.val, tree, 0, 2 ^ (height lay - level - 1) + nd)
-  | .forest index => (11, 0, index, 0, 0)
-  | .ftsLeaf index coord lf => (9, coord, index, 0, lf)
-  | .ftsNode index coord level nd => (10, coord, index, 0, 2 ^ (11 - level - 1) + nd)
-theorem Pos.hdr_eq (p : Pos) (hn : p.fields.1 ≠ 1) :
-    p.hdr = header p.fields.1 p.fields.2.1 p.fields.2.2.1 p.fields.2.2.2.1 p.fields.2.2.2.2 := by
-  cases p <;> first | rfl | exact False.elim (hn rfl)
+      simp only [honestInput, Pos.hdr]
+      rw [pad64_nodeInputP, nodeInputP, hdrBlock_block4, nodeTweak_other (by omega)]
 theorem heap_lt {e x : Nat} (hx : x < 2 ^ e) (he : e ≤ 12) : 2 ^ e + x < 2 ^ 32 := by
   have : 2 ^ e ≤ 2 ^ 12 := Nat.pow_le_pow_right (by decide) he
   have : (2 : Nat) ^ 12 = 4096 := by norm_num
@@ -46,94 +37,139 @@ theorem heap_inj {e f x y : Nat} (hx : x < 2 ^ e) (hy : y < 2 ^ f) (h : 2 ^ e + 
   · exact absurd h (ne_of_lt (key hx hlt))
   · subst heq; exact ⟨rfl, by omega⟩
   · exact absurd h.symm (ne_of_lt (key hy hgt))
-theorem Pos.fields_bounded {p : Pos} (hb : p.Bounded) :
-    p.fields.1 < 256 ∧ p.fields.2.1 < 256 ∧ p.fields.2.2.1 < 2 ^ 40 ∧ p.fields.2.2.2.1 < 2 ^ 32 ∧
-      p.fields.2.2.2.2 < 2 ^ 32 := by
-  have hl : ∀ lay : Layer, lay.val < 256 := fun lay => lt_trans lay.isLt (by decide)
-  cases p with
-  | chain lay tree lf i step =>
-      obtain ⟨h1, h2, h3, h4⟩ := hb
-      simp only [Pos.fields]
-      exact ⟨by decide, hl lay, by omega, by omega, by omega⟩
-  | leaf lay tree lf =>
-      simp only [Pos.fields]; exact ⟨by decide, hl lay, hb.1, by norm_num, hb.2⟩
-  | node lay tree level nd =>
-      obtain ⟨h1, h2, h3⟩ := hb
-      simp only [Pos.fields]
-      refine ⟨by decide, hl lay, h1, by norm_num, ?_⟩
-      exact heap_lt h3 (le_trans (Nat.sub_le _ _) (le_trans (Nat.sub_le _ _) (height_le lay)))
-  | forest index =>
-      simp only [Pos.fields]; exact ⟨by decide, by decide, hb, by norm_num, by norm_num⟩
-  | ftsLeaf index coord lf =>
-      simp only [Pos.fields]; exact ⟨by decide, hb.1, hb.2.1, by norm_num, hb.2.2⟩
-  | ftsNode index coord level nd =>
-      obtain ⟨h1, h2, h3, h4⟩ := hb
-      simp only [Pos.fields]
-      exact ⟨by decide, h1, h2, by norm_num, heap_lt h4 (by omega)⟩
-theorem Pos.fields_injective {p p' : Pos} (hb : p.Bounded) (hb' : p'.Bounded) (he : p.fields = p'.fields) :
-    p = p' := by
-  cases p <;> cases p' <;> simp only [Pos.fields, Prod.mk.injEq] at he <;>
-    (try (obtain ⟨h, _⟩ := he; exact absurd h (by decide)))
-  · obtain ⟨-, hl, ht, hp, hlf⟩ := he
-    obtain ⟨-, -, -, hs⟩ := hb
-    obtain ⟨-, -, -, hs'⟩ := hb'
-    obtain ⟨h1, h2⟩ := pack_nat_injective (base := 256) (by omega : _ < 256) (by omega : _ < 256) hp
-    rw [Fin.ext hl, ht, hlf, h1, h2]
-  · obtain ⟨-, hl, ht, -, hlf⟩ := he
-    rw [Fin.ext hl, ht, hlf]
-  · obtain ⟨-, hl, ht, -, hh⟩ := he
-    have hlay := Fin.ext hl
-    subst hlay ht
-    obtain ⟨-, h1, h2⟩ := hb
-    obtain ⟨-, h1', h2'⟩ := hb'
-    obtain ⟨e, x⟩ := heap_inj h2 h2' hh
-    rw [x]
-    congr 1
-    omega
-  · obtain ⟨-, -, ht, -, -⟩ := he
-    rw [ht]
-  · obtain ⟨-, hc, ht, -, hlf⟩ := he
-    rw [hc, ht, hlf]
-  · obtain ⟨-, hc, ht, -, hh⟩ := he
-    subst hc ht
-    obtain ⟨-, -, h1, h2⟩ := hb
-    obtain ⟨-, -, h1', h2'⟩ := hb'
-    obtain ⟨e, x⟩ := heap_inj h2 h2' hh
-    rw [show _ = _ from x]
-    congr 1
-    omega
-private theorem Pos.hdr_injective_nonchain {p p' : Pos} (hb : p.Bounded) (hb' : p'.Bounded)
-    (hn : p.fields.1 ≠ 1) (hn' : p'.fields.1 ≠ 1) (h : p.hdr = p'.hdr) : p = p' := by
-  obtain ⟨a1, a2, a3, a4, a5⟩ := Pos.fields_bounded hb
-  obtain ⟨b1, b2, b3, b4, b5⟩ := Pos.fields_bounded hb'
-  rw [Pos.hdr_eq p hn, Pos.hdr_eq p' hn'] at h
-  obtain ⟨e1, e2, e3, e4, e5⟩ := header_injective a1 a2 a3 a4 a5 b1 b2 b3 b4 b5 h
-  exact Pos.fields_injective hb hb' (Prod.ext e1 (Prod.ext e2 (Prod.ext e3 (Prod.ext e4 e5))))
+theorem Pos.hdr_view (p : Pos) (hb : p.Bounded) :
+    (∀ lay tree lf i step, p = .chain lay tree lf i step → 128 ≤ tweakMarker p.hdr) ∧
+    (∀ lay tree lf, p = .leaf lay tree lf →
+      tweakMarker p.hdr = 1 ∧ tweakTag p.hdr = 2 ∧ tweakHigh p.hdr = 0) ∧
+    (∀ lay tree level nd, p = .node lay tree level nd →
+      (lay = 0 ∧ tweakMarker p.hdr = 64) ∨
+        (lay ≠ 0 ∧ tweakMarker p.hdr = 1 ∧ tweakTag p.hdr = 2 ∧ 1 ≤ tweakHigh p.hdr)) ∧
+    (∀ index, p = .forest index → tweakMarker p.hdr = 1 ∧ tweakTag p.hdr = 11) ∧
+    (∀ index coord lf, p = .ftsLeaf index coord lf → tweakMarker p.hdr = 1 ∧ tweakTag p.hdr = 9) ∧
+    (∀ index coord level nd, p = .ftsNode index coord level nd → tweakMarker p.hdr = 1 ∧ tweakTag p.hdr = 10) := by
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
+  · rintro lay tree lf i step rfl; exact chainHeader_tweakMarker ..
+  · rintro lay tree lf rfl; exact ⟨leafTweak_marker .., leafTweak_tag .., leafTweak_high ..⟩
+  · rintro lay tree level nd rfl
+    simp only [Pos.hdr]
+    by_cases h0 : lay = 0
+    · subst h0; exact Or.inl ⟨rfl, nodeTweak_top_marker ..⟩
+    · have hv : lay.val ≠ 0 := fun h => h0 (Fin.ext h)
+      have hlt := lay.isLt
+      obtain ⟨_, _, hl, hnd⟩ := hb
+      have hheap : 2 ^ (height lay - level - 1) + nd < 2 ^ 64 :=
+        lt_trans (heap_lt hnd (le_trans (Nat.sub_le _ _) (le_trans (Nat.sub_le _ _) (height_le lay))))
+          (by norm_num)
+      refine Or.inr ⟨h0, nodeTweak_lower_marker hv hlt _ _, nodeTweak_lower_tag hv hlt _ _, ?_⟩
+      rw [nodeTweak_hyper_high hlt, Nat.mod_eq_of_lt hheap]
+      have := Nat.one_le_two_pow (n := height lay - level - 1)
+      omega
+  · rintro index rfl; exact ⟨header_marker .., by rw [Pos.hdr, header_tag]⟩
+  · rintro index coord lf rfl; exact ⟨header_marker .., by rw [Pos.hdr, header_tag]⟩
+  · rintro index coord level nd rfl; exact ⟨header_marker .., by rw [Pos.hdr, header_tag]⟩
 theorem Pos.hdr_injective {p p' : Pos} (hb : p.Bounded) (hb' : p'.Bounded)
     (h : p.hdr = p'.hdr) : p = p' := by
-  by_cases hn : p.fields.1 = 1
-  · have hp : ∃ lay tree leaf i step, p = .chain lay tree leaf i step := by
-      cases p <;> simp_all [Pos.fields]
-    obtain ⟨lay, tree, leaf, i, step, rfl⟩ := hp
-    by_cases hn' : p'.fields.1 = 1
-    · have hp' : ∃ lay tree leaf i step, p' = .chain lay tree leaf i step := by
-        cases p' <;> simp_all [Pos.fields]
-      obtain ⟨lay', tree', leaf', i', step', rfl⟩ := hp'
-      obtain ⟨ht, hf, hi, hs⟩ := hb
-      obtain ⟨ht', hf', hi', hs'⟩ := hb'
-      obtain ⟨hl, ht, hf, hi, hs⟩ := chainHeader_low_injective ht hf hi hs ht' hf' hi' hs'
-        (congrArg (BitVec.extractLsb' 0 64) h)
-      subst_vars
-      rfl
-    · rw [Pos.hdr_eq p' hn'] at h
-      exact False.elim (chainHeader_ne_header _ _ _ _ _ _ _ _ _ _ h)
-  · by_cases hn' : p'.fields.1 = 1
-    · have hp' : ∃ lay tree leaf i step, p' = .chain lay tree leaf i step := by
-        cases p' <;> simp_all [Pos.fields]
-      obtain ⟨lay', tree', leaf', i', step', rfl⟩ := hp'
-      rw [Pos.hdr_eq p hn] at h
-      exact False.elim (chainHeader_ne_header _ _ _ _ _ _ _ _ _ _ h.symm)
-    · exact Pos.hdr_injective_nonchain hb hb' hn hn' h
+  obtain ⟨c1, c2, c3, c4, c5, c6⟩ := Pos.hdr_view p hb
+  obtain ⟨d1, d2, d3, d4, d5, d6⟩ := Pos.hdr_view p' hb'
+  rw [h] at c1 c2 c3 c4 c5 c6
+  cases p with
+  | chain lay tree lf i step =>
+      have e := c1 _ _ _ _ _ rfl
+      cases p' with
+      | chain lay' tree' lf' i' step' =>
+          obtain ⟨ht, hf, hi, hs⟩ := hb
+          obtain ⟨ht', hf', hi', hs'⟩ := hb'
+          obtain ⟨hl, ht, hf, hi, hs⟩ := chainHeader_low_injective ht hf hi hs ht' hf' hi' hs'
+            (congrArg (BitVec.extractLsb' 0 64) h)
+          subst_vars; rfl
+      | leaf => have := (d2 _ _ _ rfl).1; omega
+      | node => rcases d3 _ _ _ _ rfl with ⟨_, hm⟩ | ⟨_, hm, _⟩ <;> omega
+      | forest => have := (d4 _ rfl).1; omega
+      | ftsLeaf => have := (d5 _ _ _ rfl).1; omega
+      | ftsNode => have := (d6 _ _ _ _ rfl).1; omega
+  | leaf lay tree lf =>
+      obtain ⟨m1, t1, h1⟩ := c2 _ _ _ rfl
+      cases p' with
+      | chain => have := d1 _ _ _ _ _ rfl; omega
+      | leaf lay' tree' lf' =>
+          obtain ⟨hl, hr⟩ := hb
+          obtain ⟨hl', hr'⟩ := hb'
+          obtain ⟨a, b, c⟩ := leafTweak_injective hl hr hl' hr' h
+          subst_vars; rfl
+      | node => rcases d3 _ _ _ _ rfl with ⟨_, hm⟩ | ⟨_, _, _, hh⟩ <;> omega
+      | forest => have := (d4 _ rfl).2; omega
+      | ftsLeaf => have := (d5 _ _ _ rfl).2; omega
+      | ftsNode => have := (d6 _ _ _ _ rfl).2; omega
+  | node lay tree level nd =>
+      have cv := c3 _ _ _ _ rfl
+      cases p' with
+      | chain => have := d1 _ _ _ _ _ rfl; rcases cv with ⟨_, hm⟩ | ⟨_, hm, _⟩ <;> omega
+      | leaf => have := d2 _ _ _ rfl; rcases cv with ⟨_, hm⟩ | ⟨_, _, _, hh⟩ <;> omega
+      | node lay' tree' level' nd' =>
+          obtain ⟨ht, h0, hl, hnd⟩ := hb
+          obtain ⟨ht', h0', hl', hnd'⟩ := hb'
+          simp only [Pos.hdr] at h
+          have hh := heap_lt hnd (le_trans (Nat.sub_le _ _) (le_trans (Nat.sub_le _ _) (height_le lay)))
+          have hh' := heap_lt hnd' (le_trans (Nat.sub_le _ _) (le_trans (Nat.sub_le _ _) (height_le lay')))
+          obtain ⟨hlay, htree, hheap⟩ := nodeTweak_hyper_injective lay.isLt lay'.isLt ht ht'
+            (fun e => h0 (Fin.ext e)) (fun e => h0' (Fin.ext e))
+            (lt_trans hh (by norm_num)) (lt_trans hh' (by norm_num)) h
+          have hla : lay = lay' := Fin.ext hlay
+          subst hla htree
+          obtain ⟨e, x⟩ := heap_inj hnd hnd' hheap
+          subst x
+          have : level = level' := by omega
+          subst this; rfl
+      | forest => have := d4 _ rfl; rcases cv with ⟨_, hm⟩ | ⟨_, _, ht, _⟩ <;> omega
+      | ftsLeaf => have := d5 _ _ _ rfl; rcases cv with ⟨_, hm⟩ | ⟨_, _, ht, _⟩ <;> omega
+      | ftsNode => have := d6 _ _ _ _ rfl; rcases cv with ⟨_, hm⟩ | ⟨_, _, ht, _⟩ <;> omega
+  | forest index =>
+      obtain ⟨m1, t1⟩ := c4 _ rfl
+      cases p' with
+      | chain => have := d1 _ _ _ _ _ rfl; omega
+      | leaf => have := (d2 _ _ _ rfl).2.1; omega
+      | node => rcases d3 _ _ _ _ rfl with ⟨_, hm⟩ | ⟨_, _, ht, _⟩ <;> omega
+      | forest index' =>
+          simp only [Pos.hdr] at h
+          obtain ⟨-, -, e, -, -⟩ := header_injective (by decide) (by decide) hb (by decide) (by decide)
+            (by decide) (by decide) hb' (by decide) (by decide) h
+          rw [e]
+      | ftsLeaf => have := (d5 _ _ _ rfl).2; omega
+      | ftsNode => have := (d6 _ _ _ _ rfl).2; omega
+  | ftsLeaf index coord lf =>
+      obtain ⟨m1, t1⟩ := c5 _ _ _ rfl
+      cases p' with
+      | chain => have := d1 _ _ _ _ _ rfl; omega
+      | leaf => have := (d2 _ _ _ rfl).2.1; omega
+      | node => rcases d3 _ _ _ _ rfl with ⟨_, hm⟩ | ⟨_, _, ht, _⟩ <;> omega
+      | forest => have := (d4 _ rfl).2; omega
+      | ftsLeaf index' coord' lf' =>
+          simp only [Pos.hdr] at h
+          obtain ⟨hc, hi, hl⟩ := hb
+          obtain ⟨hc', hi', hl'⟩ := hb'
+          obtain ⟨-, e1, e2, -, e3⟩ := header_injective (by decide) hc hi (by decide) hl
+            (by decide) hc' hi' (by decide) hl' h
+          rw [e1, e2, e3]
+      | ftsNode => have := (d6 _ _ _ _ rfl).2; omega
+  | ftsNode index coord level nd =>
+      obtain ⟨m1, t1⟩ := c6 _ _ _ _ rfl
+      cases p' with
+      | chain => have := d1 _ _ _ _ _ rfl; omega
+      | leaf => have := (d2 _ _ _ rfl).2.1; omega
+      | node => rcases d3 _ _ _ _ rfl with ⟨_, hm⟩ | ⟨_, _, ht, _⟩ <;> omega
+      | forest => have := (d4 _ rfl).2; omega
+      | ftsLeaf => have := (d5 _ _ _ rfl).2; omega
+      | ftsNode index' coord' level' nd' =>
+          simp only [Pos.hdr] at h
+          obtain ⟨hc, hi, hl, hnd⟩ := hb
+          obtain ⟨hc', hi', hl', hnd'⟩ := hb'
+          obtain ⟨-, e1, e2, -, e3⟩ := header_injective (by decide) hc hi (by decide) (heap_lt hnd (by omega))
+            (by decide) hc' hi' (by decide) (heap_lt hnd' (by omega)) h
+          subst e1 e2
+          obtain ⟨e, x⟩ := heap_inj hnd hnd' e3
+          subst x
+          have : level = level' := by omega
+          subst this; rfl
 theorem Pos.canonicalHeader_eq {p : Pos} (hb : p.Bounded) :
     canonicalHeader (bytesLE 16 p.hdr) = bytesLE 16 p.hdr := by
   cases p with
@@ -142,8 +178,14 @@ theorem Pos.canonicalHeader_eq {p : Pos} (hb : p.Bounded) :
         (T3M.chainHeader_high_zero lay tree leaf i step hb.1 hb.2.1 hb.2.2.1 hb.2.2.2)
   | _ =>
       apply canonicalHeader_marker_ne
-      simp only [Pos.hdr, header_firstByte]
-      decide
+      have hv := Pos.hdr_view _ hb
+      first
+        | (have := hv.2.1 _ _ _ rfl; exact lt_of_eq_of_lt this.1 (by decide))
+        | (rcases hv.2.2.1 _ _ _ _ rfl with ⟨_, hm⟩ | ⟨_, hm, _⟩ <;>
+            exact lt_of_eq_of_lt hm (by decide))
+        | (have := hv.2.2.2.1 _ rfl; exact lt_of_eq_of_lt this.1 (by decide))
+        | (have := hv.2.2.2.2.1 _ _ _ rfl; exact lt_of_eq_of_lt this.1 (by decide))
+        | (have := hv.2.2.2.2.2 _ _ _ _ rfl; exact lt_of_eq_of_lt this.1 (by decide))
 noncomputable def posOf (input : HashInput) : Option Pos := by
   classical
   exact if h : ∃ p : Pos, p.Bounded ∧ canonicalHeader (hdrBlock input) = bytesLE 16 p.hdr

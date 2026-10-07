@@ -12,22 +12,17 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
     (ends : List Digest) (u : MachineState) : Prop where
   indexBound : index < 2 ^ 31
   length : ends.length = 7
-  pc : u.pc = pcOf (L.childWord j)
+  pc : u.pc = pcOf (L.childWord j + 1)
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (coordinateBase k)
   hashMode : u.getReg .x5 = 0
   hashInput : u.getReg .x10 = BitVec.ofNat 64 (coordinateBase k + 752)
   hashLen : u.getReg .x11 = 128
-  nodeHeader : u.getReg .x27 = BitVec.ofNat 64 (V3.nodeLow k.val index)
-  indexReg : u.getReg .x22 = BitVec.ofNat 64 index
+  nodeWord : u.getReg .x15 = BitVec.ofNat 64 (V3.nodeLow k.val index)
   forestPointer : u.getReg .x9 = BitVec.ofNat 64 (pairAddress k)
   returnPC : u.getReg .x1 = pcOf (L.returnWord k)
   heaps : ∀ h, 2 ≤ h → h ≤ 7 → u.getReg (heapReg h) = BitVec.ofNat 64 h
-  childReg : u.getReg .x4 = BitVec.ofNat 64 j.val
-  leafAt : ∀ i, i < 8 → i ≠ 1 → DigAt u (coordinateBase k + 752 + 16 * i)
+  leafAt : ∀ i, i < 8 → DigAt u (coordinateBase k + 752 + 16 * i)
     (V3.leafFields k.val index j.val ends i)
-  headerLo : u.getMem (BitVec.ofNat 64 (coordinateBase k + 768)) =
-    (SigGolfCandidate.T3.header 6 k.val index 0 j.val).extractLsb' 0 64
-  headerIndex : u.getMem (BitVec.ofNat 64 (coordinateBase k + 776)) = BitVec.ofNat 64 index
   padAt : ∀ l, l < 6 → DigAt u (coordinateBase k + ClaudeWCT.W9.T3M.authPadOff j.val l)
     (V3.nodePad w k.val j.val l)
   sibAt : ∀ l, l < 7 → DigAt u (coordinateBase k + ClaudeWCT.W9.T3M.authSibOff j.val l)

@@ -232,31 +232,31 @@ theorem wordDigits_sum (w : Codec.Word) : (wordDigits w).sum=Counting.weight w :
   simp only [wordDigits,List.sum_append,List.sum_flatten,List.map_ofFn,List.sum_ofFn,Function.comp_def]
   rfl
 theorem coreDigit_parse5 {v : Digest} {w : Codec.Word}
-    (h : Decoder.parse 17 v.toNat=some w) (j : Fin 17) (k : Fin 3) :
+    (h : Decoder.parse 17 (topFlip v).toNat=some w) (j : Fin 17) (k : Fin 3) :
     coreDigit 0 v (3*j.val+k.val)=(w.1 j k).val := by
   rw [top_core_triple v j.val k.val j.isLt k.isLt]
   have hp := (Decoder.parse_fields h).1 j
-  have he : (Codec.rank5 (w.1 j)).val=v.toNat/2^(7*j.val)%128 := by
-    simpa only [show (128:Nat)=2^7 by decide,←pow_mul] using hp
+  have he : (Codec.rank5 (w.1 j)).val=topCode v/2^(7*j.val)%128 := by
+    simpa only [show (128:Nat)=2^7 by decide,←pow_mul,topCode] using hp
   rw [←he]
   have hd := congrFun (Codec.digits5_rank5 (w.1 j)) k
   have hh := (Codec.rank5 (w.1 j)).isLt
   apply Fin.val_inj.mpr at hd
   fin_cases k <;> simp [Codec.digits5] at hd ⊢ <;> omega
 theorem coreDigit_parse4 {v : Digest} {w : Codec.Word}
-    (h : Decoder.parse 17 v.toNat=some w) (k : Fin 3) :
+    (h : Decoder.parse 17 (topFlip v).toNat=some w) (k : Fin 3) :
     coreDigit 0 v (51+k.val)=(w.2 k).val := by
   have hp := (Decoder.parse_fields h).2
-  have he : (Codec.rank4 w.2).val=v.toNat/2^119 := by simpa using hp
+  have he : (Codec.rank4 w.2).val=topCode v/2^119 := by simpa [topCode] using hp
   have hd := congrFun (Codec.digits4_rank4 w.2) k
   apply Fin.val_inj.mpr at hd
   have hh := (Codec.rank4 w.2).isLt
-  have hediv : ∀ t : Nat,v.toNat/2^(119+t)=v.toNat/2^119/2^t := by
+  have hediv : ∀ t : Nat,topCode v/2^(119+t)=topCode v/2^119/2^t := by
     intro t; rw [Nat.div_div_eq_div_mul,pow_add]
   simp only [coreDigit,if_pos rfl,show ¬51+k.val<51 by omega,if_false,Nat.add_sub_cancel_left,hediv,←he]
   fin_cases k <;> simp [Codec.digits4] at hd ⊢ <;> omega
 theorem dataDigits_parse {v : Digest} {w : Codec.Word}
-    (h : Decoder.parse 17 v.toNat=some w) : dataDigits 0 v=wordDigits w := by
+    (h : Decoder.parse 17 (topFlip v).toNat=some w) : dataDigits 0 v=wordDigits w := by
   have hof : dataDigits 0 v=List.ofFn (fun i : Fin 54 => coreDigit 0 v i.val) := by
     apply List.ext_getElem
     · simp only [dataDigits,List.length_map,List.length_range,List.length_ofFn,dataCount,ite_true]
@@ -277,16 +277,16 @@ theorem dataDigits_parse {v : Digest} {w : Codec.Word}
     funext k
     exact coreDigit_parse4 h k
 theorem parse_top_isSome_iff (v : Digest) :
-    (Decoder.parse 17 v.toNat).isSome ↔ v.toNat<2^125 ∧ topRanksValid v=true := by
+    (Decoder.parse 17 (topFlip v).toNat).isSome ↔ v.toNat<2^125 ∧ topRanksValid v=true := by
   rw [Decoder.parse_isSome_iff]
   have hbound : 64*128^17=(2:Nat)^125 := by decide +kernel
-  rw [hbound]
-  simp only [topRanksValid,List.all_eq_true,List.mem_range,decide_eq_true_eq]
+  rw [hbound,topFlip_toNat_lt]
+  simp only [topRanksValid,topCode,List.all_eq_true,List.mem_range,decide_eq_true_eq]
   simp only [show (128:Nat)=2^7 by decide,←pow_mul]
 theorem decode_top_eq_map (v : Digest) :
-    T3.decode 0 v=(Decoder.decodeBV v).map wordDigits := by
-  change T3.decode 0 v=((Decoder.parse 17 v.toNat).filter fun w => decide (Counting.weight w=129)).map wordDigits
-  cases hp : Decoder.parse 17 v.toNat with
+    T3.decode 0 v=(Decoder.decodeBV (topFlip v)).map wordDigits := by
+  change T3.decode 0 v=((Decoder.parse 17 (topFlip v).toNat).filter fun w => decide (Counting.weight w=129)).map wordDigits
+  cases hp : Decoder.parse 17 (topFlip v).toNat with
   | none =>
     have hn : ¬(v.toNat<2^125 ∧ topRanksValid v=true) := by
       intro hh
@@ -310,26 +310,38 @@ theorem decode_top_eq_map (v : Digest) :
         hdata,wordDigits_sum,show target 0=129 by rfl,hsum,decide_true,
         if_true,decide_false,Bool.false_eq_true,if_false,Option.filter_some,Option.map_some,Option.map_none]
 theorem decode_top_isSome (v : Digest) :
-    (T3.decode 0 v).isSome=(Decoder.decodeBV v).isSome := by
+    (T3.decode 0 v).isSome=(Decoder.decodeBV (topFlip v)).isSome := by
   rw [decode_top_eq_map]
   simp only [Option.isSome_map]
 theorem actual_decoder_count :
     Fintype.card {v : Digest // (T3.decode 0 v).isSome}=Counting.count := by
-  classical
   simp_rw [decode_top_isSome]
-  exact Decoder.decoder_bv_count
+  exact (Fintype.card_congr (Equiv.subtypeEquiv (p := fun v => (Decoder.decodeBV (topFlip v)).isSome = true)
+    (q := fun d => (Decoder.decodeBV d).isSome = true) topFlipEquiv (fun _ => Iff.rfl))).trans
+    Decoder.decoder_bv_count
 open OracleComp OracleSpec ENNReal
 theorem actual_decoder_probability :
     Pr[fun v => (T3.decode 0 v).isSome | ($ᵗ Digest : ProbComp Digest)]=
       (Counting.count : ENNReal)/(2 : ENNReal)^128 := by
-  simp_rw [decode_top_isSome]
-  exact Decoder.decoder_bv_probability
+  have hc := actual_decoder_count
+  rw [Fintype.card_subtype] at hc
+  rw [probEvent_uniformSample,hc]
+  simp only [Fintype.card_bitVec,Nat.cast_pow,Nat.cast_ofNat]
+theorem topMask_low : (BitVec.ofNat 256 topMask).extractLsb' 0 128 = BitVec.ofNat 128 topMask := by
+  apply BitVec.eq_of_toNat_eq
+  simp [BitVec.extractLsb'_toNat, topMask]
 theorem actual_encoding_probability :
     Pr[fun answer : BitVec 256 => (T3.decode 0 (answer.extractLsb' 0 128)).isSome |
       ($ᵗ BitVec 256 : ProbComp (BitVec 256))]=
       (Counting.count : ENNReal)/(2 : ENNReal)^128 := by
-  simp_rw [decode_top_isSome]
-  exact Decoder.encoding_uniform_probability
+  have hg : Function.Bijective (fun a : BitVec 256 => a ^^^ BitVec.ofNat 256 topMask) :=
+    Function.Involutive.bijective (fun a => by simp [BitVec.xor_assoc])
+  have hpred : (fun answer : BitVec 256 => (T3.decode 0 (answer.extractLsb' 0 128)).isSome = true) =
+      (fun d => (Decoder.encodingDecode d).isSome = true) ∘ (fun a => a ^^^ BitVec.ofNat 256 topMask) := by
+    funext a
+    simp only [Function.comp, Decoder.encodingDecode, decode_top_isSome, topFlip, BitVec.extractLsb'_xor, topMask_low]
+  rw [hpred, ← probEvent_map, ← Decoder.encoding_uniform_probability]
+  simp only [probEvent_eq_tsum_indicator, probOutput_map_bijective_uniformSample (hf := hg)]
 end SigGolfCandidate.T3.Nonbinary
 #print axioms SigGolfCandidate.T3.Nonbinary.decode_top_eq_map
 #print axioms SigGolfCandidate.T3.Nonbinary.actual_decoder_count

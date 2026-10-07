@@ -64,13 +64,25 @@ theorem hdrTag_ftsChain {input : HashInput} {index coord selected t step : Nat}
   unfold Security.BPB.hdrTag
   rw [h, bytesLE16_first_toNat, show (ftsChainHeader index coord selected t step).toNat % 256 = 128 + 4 * (t % 8)
     from ftsChainHeaderP_firstByte _ _ _ _ _ 0, if_pos (by omega)]
+theorem hdrTag_ftsLeaf {input : HashInput} {index coord selected : Nat}
+    (h : SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (ftsLeafHeader index coord selected)) :
+    Security.BPB.hdrTag input = 6 := by
+  unfold Security.BPB.hdrTag
+  rw [h, bytesLE16_first_toNat, ftsLeafHeader_firstByte, if_neg (by decide)]
+  have hb : ((bytesLE 16 (ftsLeafHeader index coord selected)).getD 1 0).toNat =
+      (ftsLeafHeader index coord selected).toNat / 2 ^ 8 % 256 := by
+    show ((ftsLeafHeader index coord selected).extractLsb' 8 8).toNat = _
+    rw [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
+  rw [hb, ftsLeafHeader_byte1]
 theorem ftsQuery_untouched {index : Nat} (a : ChainAddr) {q : Query} (h : FtsQuery index q) :
     Mask.Untouched a q := by
   rcases q with (coin | input) | (tweak | other)
   · exact h.elim
   · rcases FtsInput.hdrBlock (show FtsInput index input from h) with
-      ⟨coord, selected, t, step, hblock⟩ | ⟨tag, lay, position, idx, htag, hblock⟩
+      ⟨coord, selected, t, step, hblock⟩ | ⟨coord, selected, -, -, hblock⟩ | ⟨coord, heap, -, -, -, hblock⟩ | hblock
     · exact Mask.untouched_of_hdr a input _ hblock (ftsChainHeader_ne_wots _ _ _ _ _)
+    · exact Mask.untouched_of_hdr a input _ hblock (fun _ _ _ _ _ => ftsLeafHeader_ne_chainHeader _ _ _ _ _ _ _ _)
+    · exact Mask.untouched_of_hdr a input _ hblock (fun _ _ _ _ _ => wctNodeHeader_ne_chainHeader _ _ _ _ _ _ _ _)
     · exact Mask.untouched_of_hdr a input _ hblock
         (fun _ _ _ _ _ => Ne.symm (chainHeader_ne_header _ _ _ _ _ _ _ _ _ _))
   · obtain ⟨coord, selected, pair, -, -, -, rfl⟩ := (show FtsSeed index tweak from h)
@@ -80,9 +92,11 @@ theorem ftsQuery_nonEnc {index : Nat} {q : Query} (h : FtsQuery index q) : Enc.N
   rcases q with (coin | input) | (tweak | other)
   · exact h.elim
   · rcases FtsInput.hdrBlock (show FtsInput index input from h) with
-      ⟨coord, selected, t, step, hblock⟩ | ⟨tag, lay, position, idx, htag, hblock⟩
-    · exact Enc.nonEnc_of_hdr input _ hblock (ftsChainHeader_ne_header' _ _ _ _ _)
-    · exact Enc.nonEnc_of_hdr input _ hblock (Enc.tag_ne_four (tag_mod' htag).2.2.1 _ _ _ _)
+      ⟨coord, selected, t, step, hblock⟩ | ⟨coord, selected, -, -, hblock⟩ | ⟨coord, heap, hk, -, -, hblock⟩ | hblock
+    · exact Enc.nonEnc_of_hdr input _ hblock (fun lay tr lf => ftsChainHeaderP_ne_rowTweak _ _ _ _ _ 0 lay tr lf)
+    · exact Enc.nonEnc_of_hdr input _ hblock (fun lay tr lf => ftsLeafHeader_ne_rowTweak _ _ _ lay tr lf)
+    · exact Enc.nonEnc_of_hdr input _ hblock (fun lay tr lf => wctNodeHeader_ne_rowTweak hk _ _ lay tr lf)
+    · exact Enc.nonEnc_of_hdr input _ hblock (Enc.tag_ne_four (by decide) _ _ _ _)
   · trivial
   · trivial
 theorem ftsQuery_short {index : Nat} {q : Query} (h : FtsQuery index q) : Ref.ShortQuery q := by
@@ -97,12 +111,17 @@ theorem ftsQuery_short {index : Nat} {q : Query} (h : FtsQuery index q) : Ref.Sh
 theorem ftsQuery_notDigest {index : Nat} {q : Query} (h : FtsQuery index q) : BPB.NotDigestQ q := by
   rcases q with (coin | input) | (tweak | other)
   · trivial
-  · show BPB.hdrTag input ≠ 0
+  · show BPB.hdrMarker input ≠ 0
     rcases FtsInput.hdrBlock (show FtsInput index input from h) with
-      ⟨coord, selected, t, step, hblock⟩ | ⟨tag, lay, position, idx, htag, hblock⟩
-    · rw [hdrTag_ftsChain hblock]; decide
-    · rw [BPB.hdrTag_eq hblock]
-      exact (tag_mod' htag).1
+      ⟨coord, selected, t, step, hblock⟩ | ⟨coord, selected, -, -, hblock⟩ | ⟨coord, heap, -, -, -, hblock⟩ | hblock
+    · rw [BPB.hdrMarker_eq hblock]
+      unfold tweakMarker
+      rw [show ftsChainHeader index coord selected t step = ftsChainHeaderP index coord selected t step 0 from rfl,
+        ftsChainHeaderP_firstByte]
+      omega
+    · rw [BPB.hdrMarker_eq hblock]; unfold tweakMarker; rw [ftsLeafHeader_firstByte]; decide
+    · rw [BPB.hdrMarker_eq hblock]; unfold tweakMarker; rw [wctNodeHeader_firstByte]; decide
+    · rw [BPB.hdrMarker_eq hblock, header_marker]; decide
   · trivial
   · trivial
 namespace Mask
@@ -118,8 +137,9 @@ theorem respects_chain (coord selected t start count : Nat) (value : Digest) :
 theorem respects_leafHash (coord selected : Nat) (ends : List Digest) :
     Wots.Mask.Respects (Wots.Mask.Untouched a) (WCT9.leafHash index coord selected ends) := by
   unfold WCT9.leafHash
-  rw [wctHeader_eq_header _ _ _ _ _ (by decide)]
-  exact Wots.Mask.Respects.shortHash _ (Wots.Mask.untouched_prefixed a _ _ (by decide) _ _ _ _)
+  exact Wots.Mask.Respects.shortHash _ (Wots.Mask.untouched_of_hdr a _ _
+    (hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _))
+    (fun _ _ _ _ _ => ftsLeafHeader_ne_chainHeader _ _ _ _ _ _ _ _))
 theorem respects_forestPk (pairs : List (Digest × Digest)) :
     Wots.Mask.Respects (Wots.Mask.Untouched a) (WCT9.forestPk index pairs) := by
   unfold WCT9.forestPk forestInput
@@ -165,12 +185,13 @@ theorem respects_chain (coord selected t start count : Nat) (value : Digest) :
   unfold chainInput
   rw [List.append_assoc (zero16 ++ _)]
   exact Wots.Enc.nonEnc_of_hdr _ _ (hdrBlock_pad64_prefix _ _ _ (by simp [zero16]))
-    (ftsChainHeader_ne_header' _ _ _ _ _)
+    (fun lay tr lf => ftsChainHeaderP_ne_rowTweak _ _ _ _ _ 0 lay tr lf)
 theorem respects_leafHash (coord selected : Nat) (ends : List Digest) :
     Wots.Mask.Respects Wots.Enc.NonEnc (WCT9.leafHash index coord selected ends) := by
   unfold WCT9.leafHash
-  rw [wctHeader_eq_header _ _ _ _ _ (by decide)]
-  exact Wots.Mask.Respects.shortHash _ (Wots.Enc.nonEnc_prefixed _ _ (by decide) _ _ _ _)
+  exact Wots.Mask.Respects.shortHash _ (Wots.Enc.nonEnc_of_hdr _ _
+    (hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _))
+    (fun lay tr lf => ftsLeafHeader_ne_rowTweak _ _ _ lay tr lf))
 theorem respects_forestPk (pairs : List (Digest × Digest)) :
     Wots.Mask.Respects Wots.Enc.NonEnc (WCT9.forestPk index pairs) := by
   unfold WCT9.forestPk forestInput

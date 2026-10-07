@@ -29,25 +29,25 @@ end SmallA
 open SigGolfCandidate.T3.Security.Wots.SmallA (chainRow_ne_digest sourceChain_bounds)
 namespace SmallA
 theorem chainRow_ne_encRow (a : ChainAddr) (s : Nat) (v : Digest) (L : LeafAddr) (m : WCT9.LayerMsg)
-    (c : BitVec 32) (pad : BitVec 96) : chainRow a s v ≠ encRow L m c pad := by
+    (c : BitVec 32) (pad : RowPad) : chainRow a s v ≠ encRow L m c pad := by
   intro h
   have hb := congrArg ClaudeWCT.W9.T3M.Extract.hdrBlock h
   have h1 : ClaudeWCT.W9.T3M.Extract.hdrBlock (chainRow a s v) =
       bytesLE 16 (chainHeader a.key.lay a.key.tree a.key.leaf a.chain s) :=
     SigGolfCandidate.T3.Security.Wots.SmallA.hdrBlock_chainRow a s v
-  rw [h1, show encRow L m c pad = pad64 (layerEncodingInputP L.lay L.tree L.leaf m c pad) from rfl,
+  rw [h1, show encRow L m c pad = pad64 (layerEncodingInputP L.lay L.tree L.leaf m c pad.1 pad.2) from rfl,
     ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP] at hb
-  exact chainHeader_ne_header _ _ _ _ _ _ _ _ _ _ (bytesLE_injective hb)
-theorem encRow_ne_digest (L : LeafAddr) (m : WCT9.LayerMsg) (c : BitVec 32) (pad : BitVec 96) (rho : Digest)
+  exact chainHeader_ne_rowTweak _ _ _ _ _ _ _ _ (bytesLE_injective hb)
+theorem encRow_ne_digest (L : LeafAddr) (m : WCT9.LayerMsg) (c : BitVec 32) (pad : RowPad) (rho : Digest)
     (m' : Message) (c' : BitVec 32) : encRow L m c pad ≠ pad64 (digestInput rho m' c') := by
   intro h
   have hb := congrArg ClaudeWCT.W9.T3M.Extract.hdrBlock h
   have h2 : ClaudeWCT.W9.T3M.Extract.hdrBlock (pad64 (digestInput rho m' c')) =
       bytesLE 16 (digestHeader c') :=
     SigGolfCandidate.T3.Security.Wots.SmallA.hdrBlock_digest rho m' c'
-  rw [h2, show encRow L m c pad = pad64 (layerEncodingInputP L.lay L.tree L.leaf m c pad) from rfl,
+  rw [h2, show encRow L m c pad = pad64 (layerEncodingInputP L.lay L.tree L.leaf m c pad.1 pad.2) from rfl,
     ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP] at hb
-  exact (digestHeader_ne_header _ _ _ _ _ _).symm (bytesLE_injective hb)
+  exact (digestHeader_ne_rowTweak _ _ _ _).symm (bytesLE_injective hb)
 end SmallA
 theorem prefixRow_encodingRow_disjoint (T : Answers) (input : SigGolfCandidate.T3.Spec.Domain) :
     ¬(PrefixRow T input ∧ EncodingRow T input) := by
@@ -70,7 +70,7 @@ theorem encodingRow_otherQuery_disjoint (T : Answers) (input : SigGolfCandidate.
   · exact hE
   · obtain ⟨L, m, c, pad, -, rfl⟩ := hE
     obtain ⟨position, hpos, -⟩ := hO
-    have hnone : Extract.posOf (encRow L m c pad) = none := Structural.posOf_layerEncodingP _ _ _ _ _ _
+    have hnone : Extract.posOf (encRow L m c pad) = none := Structural.posOf_layerEncodingP _ _ _ _ _ _ _
     rw [hnone] at hpos
     cases hpos
   · exact hE
@@ -135,7 +135,7 @@ theorem ftsRow_not_prefixRow (T : Answers) {x : HashInput} {p : Extract.Pos} (hp
 theorem ftsRow_not_encodingRow (T : Answers) {x : HashInput} {p : Extract.Pos} (hpos : Extract.posOf x = some p) :
     ¬EncodingRow T (.inl (.inr x)) := by
   rintro ⟨L, m, c, pad, -, rfl⟩
-  have hnone : Extract.posOf (encRow L m c pad) = none := Structural.posOf_layerEncodingP _ _ _ _ _ _
+  have hnone : Extract.posOf (encRow L m c pad) = none := Structural.posOf_layerEncodingP _ _ _ _ _ _ _
   rw [hnone] at hpos
   cases hpos
 theorem ftsRow_not_digest {x : HashInput} {p : Extract.Pos} (hpos : Extract.posOf x = some p) :

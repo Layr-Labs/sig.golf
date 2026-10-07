@@ -136,9 +136,24 @@ def chainInput (lay : Layer) (tree leaf i step : Nat) (value : Digest) : HashInp
 def chain (lay : Layer) (tree leaf i start count : Nat) (value : Digest) : M Digest :=
   (List.range' start count).foldlM
     (fun value step => shortHash (chainInput lay tree leaf i step value)) value
+def hyperWord (lay routed : Nat) : BitVec 64 :=
+  BitVec.ofNat 64 (1 + 2 * 2 ^ 8 + routed % 2 ^ 32 * 2 ^ 16 + lay % 256 * 2 ^ 48 + 193 * 2 ^ 56)
+def leafTweak (lay : Layer) (tree leaf : Nat) : BitVec 128 :=
+  0#64 ++ hyperWord lay.val (tree * 2 ^ height lay + leaf)
+def rowTweak (lay : Layer) (tree leaf : Nat) : BitVec 128 :=
+  1#64 ++ hyperWord lay.val (tree * 2 ^ height lay + leaf)
+def ftsNodeWord (coord index : Nat) : BitVec 64 :=
+  BitVec.ofNat 64 (1 + 6 * 2 ^ 8 + coord % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27)
+def nodeTweak (tag lay tree heap : Nat) : BitVec 128 :=
+  if tag = 3 ∧ lay < 4 then
+    BitVec.ofNat 64 heap ++ (if lay = 0 then 64#64 else hyperWord (lay - 1) tree)
+  else if tag = 3 ∧ lay < 13 then BitVec.ofNat 64 heap ++ ftsNodeWord (lay - 4) tree
+  else header tag lay tree 0 heap
+def leafInput (lay : Layer) (tree leaf : Nat) (ends : List Digest) : HashInput :=
+  if lay = 0 then zero16 ++ bytesLE 16 (leafTweak lay tree leaf) ++ ends.flatMap (bytesLE 16)
+  else bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (leafTweak lay tree leaf) ++ (ends.drop 1).flatMap (bytesLE 16)
 def leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) : M Digest :=
-  shortHash (bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (header 2 lay.val tree 0 leaf) ++
-    (ends.drop 1).flatMap (bytesLE 16))
+  shortHash (leafInput lay tree leaf ends)
 def buildLeaf (lay : Layer) (tree leaf : Nat) (digits : List Nat)
     (signatureOnly : Bool := false) : M (Digest × List Digest) := do
   let state ← (List.range ((chainCount lay + 1) / 2)).foldlM
@@ -157,7 +172,7 @@ def buildLeaf (lay : Layer) (tree leaf : Nat) (digits : List Nat)
   let root ← leafHash lay tree leaf state.1
   pure (root, state.2)
 def nodeHash (tag lay tree heap : Nat) (left right : Digest) : M Digest :=
-  shortHash (bytesLE 16 left ++ bytesLE 16 (header tag lay tree 0 heap) ++ zero16 ++ bytesLE 16 right)
+  shortHash (bytesLE 16 left ++ bytesLE 16 (nodeTweak tag lay tree heap) ++ zero16 ++ bytesLE 16 right)
 def buildLevel (tag lay tree h level : Nat) (nodes : List Digest) : M (List Digest) :=
   (List.range (nodes.length / 2)).mapM fun i =>
     nodeHash tag lay tree (2 ^ (h-level) + i) (nodes.getD (2*i) 0) (nodes.getD (2*i+1) 0)
@@ -192,13 +207,16 @@ def keygen : M (Digest × Cache) := do
   let tag ← privateMac region
   pure (publicKey, ⟨tag, region⟩)
 def lowerShift (i : Nat) : Nat := if i < 21 then 3 * i else 64 + 3 * (i - 21)
+def topMask : Nat := 2 ^ 119 - 1
+def topFlip (value : Digest) : Digest := value ^^^ BitVec.ofNat 128 topMask
+def topCode (value : Digest) : Nat := (topFlip value).toNat
 def coreDigit (lay : Layer) (value : Digest) (i : Nat) : Nat :=
   if lay = 0 then
-    if i < 51 then (value.toNat / 2^(7*(i/3)) % 128) / 5^(i%3) % 5
-    else value.toNat / 2^(119+2*(i-51)) % 4
+    if i < 51 then (topCode value / 2^(7*(i/3)) % 128) / 5^(i%3) % 5
+    else topCode value / 2^(119+2*(i-51)) % 4
   else value.toNat / 2 ^ lowerShift i % 8
 def topRanksValid (value : Digest) : Bool :=
-  (List.range 17).all fun j => decide (value.toNat / 2^(7*j) % 128 < 125)
+  (List.range 17).all fun j => decide (topCode value / 2^(7*j) % 128 < 125)
 def dataDigits (lay : Layer) (value : Digest) : List Nat :=
   (List.range (dataCount lay)).map (coreDigit lay value)
 def lowerSpare (value : Digest) : Prop := value.toNat / 2 ^ 63 % 2 = 1 ∧ value.toNat / 2 ^ 127 % 2 = 1
@@ -224,7 +242,7 @@ def searchDecode (lay : Layer) (value : Digest) : Option (List Nat) :=
   if encCredit lay value < creditFloor lay then none else decode lay value
 def dummyTop : List Nat := [4,4,4] ++ List.replicate 39 3 ++ List.replicate 12 0
 def encodingInput (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : BitVec 32) : HashInput :=
-  bytesLE 16 message ++ bytesLE 16 (header 4 lay.val tree 0 leaf) ++ bytesLE 4 counter
+  bytesLE 16 message ++ bytesLE 16 (rowTweak lay tree leaf) ++ bytesLE 4 counter
 def counterSearch (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : Nat) :
     Nat → M (Option (BitVec 32 × List Nat))
   | 0 => pure none
@@ -249,10 +267,8 @@ def admissible (chosen : List Selection) : Bool :=
 def digestGate (output : HashOutput) : Bool := decide (output.toNat / 2^206 % 8 = 0)
 def digestAdmissible (output : HashOutput) : Bool :=
   admissible (selections output) && digestGate output
--- The zero marker separates this domain from ordinary headers (marker 1)
--- and both families of packed chain headers (markers at least 128).
 def digestHeader (counter : BitVec 32) : Digest :=
-  (counter ++ 0#32) ++ 0#64
+  (0#32 ++ counter) ++ 0#64
 def digestInput (rho : Digest) (message : Message) (counter : BitVec 32) : HashInput :=
   bytesLE 16 rho ++ bytesLE 16 (digestHeader counter) ++ bytesLE 32 message
 def digest (rho : Digest) (message : Message) (counter : BitVec 32) : M HashOutput :=

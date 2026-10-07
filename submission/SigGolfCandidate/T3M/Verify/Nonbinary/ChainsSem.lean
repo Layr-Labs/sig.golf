@@ -25,12 +25,11 @@ def pad1 (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0
 def padHeader (c : NCtx) (i : Nat) : Word := (ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x800 + 16)).extractLsb' 64 64
 def val (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x800 + 48)
 def ok (c : NCtx) : Prop :=
-  c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ 0x800 + 8104 + 1664 ≤ c.S3 ∧ c.S3 + 2064 ≤ 0x7000 ∧
+  c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ 0x800 + 8000 + 1664 ≤ c.S3 ∧ c.S3 + 2064 ≤ 0x7000 ∧
     c.ret < 209920
 def known (c : NCtx) : List (Reg × Word) :=
   [(.x5, 0), (.x11, 64), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
-   (.x28, BitVec.ofNat 64 c.prefix), (.x8, BitVec.ofNat 64 c.S3),
-   (.x4, BitVec.ofNat 64 c.w1), (.x27, BitVec.ofNat 64 0x401), (.x1, BitVec.ofNat 64 0xffc000)]
+   (.x28, BitVec.ofNat 64 (c.prefix + 385)), (.x8, BitVec.ofNat 64 c.S3), (.x1, BitVec.ofNat 64 0xffc000)]
 def kOf (c : NCtx) (q : Nat) : Nat :=
   c.dig (3*q) + (mx q+1)*c.dig (3*q+1) + (mx q+1)^2*c.dig (3*q+2)
 def qb (c : NCtx) (i : Nat) : Nat := gbase (i/3) (c.kOf (i/3))
@@ -46,7 +45,7 @@ def rungPc (c : NCtx) (i m : Nat) : Nat :=
 def endPc (c : NCtx) (i : Nat) : Nat :=
   if i%3=0 then c.qB i else if i%3=1 then c.qC i else c.qX i
 def Wr (c : NCtx) (i : Nat) (A : Nat) : Prop :=
-  (0x200 ≤ A ∧ A < 0x5D0) ∨ (c.S3 - 1664 + 64 * (54 - i) ≤ A ∧ A < c.blk 0 + 80)
+  (0x220 ≤ A ∧ A < 0x5D0) ∨ (c.S3 - 1664 + 64 * (54 - i) ≤ A ∧ A < c.blk 0 + 80)
 def WrIn (c : NCtx) (i : Nat) (A : Nat) : Prop :=
   c.Wr i A ∨ (c.blk i + 16 ≤ A ∧ A < c.blk i + 32) ∨ (c.blk i + 48 ≤ A ∧ A < c.blk i + 80)
 def Orig0 (c : NCtx) (s0 : MachineState) : Prop :=
@@ -76,14 +75,14 @@ def PreHash (c : NCtx) (s0 : MachineState) (i : Nat) (acc : List Digest) (m : Na
 def EndInv (c : NCtx) (s0 : MachineState) (i : Nat) (acc : List Digest) (s : MachineState) : Prop :=
   c.Base s0 (c.Wr (i + 1)) acc s ∧ acc.length = i + 1 ∧ s.pc = pcOf (c.endPc i)
 theorem blk_props (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 54) :
-    c.blk i % 8 = 0 ∧ 0x800 + 8104 ≤ c.blk i ∧ c.blk i + 80 ≤ 0x7000 := by
+    c.blk i % 8 = 0 ∧ 0x800 + 8000 ≤ c.blk i ∧ c.blk i + 80 ≤ 0x7000 := by
   obtain ⟨-, -, h64, hlo, hhi, -⟩ := hc
   unfold blk; refine ⟨?_, ?_, ?_⟩ <;> omega
 theorem blk_le (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 54) : c.blk i + 64 * i = c.blk 0 := by
   obtain ⟨-, -, -, hlo, -⟩ := hc
   unfold blk; omega
-theorem slot_props (i : Nat) (hi : i < 54) : slot i % 16 = 0 ∧ 512 ≤ slot i ∧ slot i + 32 ≤ 0x580 := by
-  unfold slot; split <;> omega
+theorem slot_props (i : Nat) (hi : i < 54) : slot i % 16 = 0 ∧ 0x220 ≤ slot i ∧ slot i + 32 ≤ 0x5A0 := by
+  unfold slot; omega
 theorem base_off (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 54) (k : Nat) (hk : k ≤ 80) :
     BitVec.ofNat 64 c.S3 + (off i + BitVec.ofNat 64 k) = BitVec.ofNat 64 (c.blk i + k) := by
   obtain ⟨-, -, -, hlo, hhi, -⟩ := hc

@@ -29,7 +29,7 @@ theorem card_capP : #{p : WProposal | capP p} = 2 ^ 31 * ClaudeWCT.Numerics.N600
   rw [h, card_product, ClaudeWCT.Numerics.N600Cap.card_capSet, card_univ, Fintype.card_fin]
 theorem acceptanceV5 :
     Pr[fun x : HashOutput => ClaudeWCT.WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      (1094 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 210 := by
+      (1091 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 210 := by
   rw [← expectedValue_ite_one, SigGolfCandidate.T3.BPORS.expected_uniform_eq_finiteAverage]
   unfold SigGolfResearch.Gate6.Moments.finiteAverage
   have hsum : (∑ x : HashOutput, if ClaudeWCT.WCT9.producerAdmissible x = true then (1 : ENNReal) else 0) =
@@ -46,14 +46,12 @@ theorem acceptanceV5 :
   apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
   simp only [ENNReal.toReal_div, ENNReal.toReal_mul, ENNReal.toReal_natCast, ENNReal.toReal_pow,
     ENNReal.toReal_ofNat, Nat.cast_mul, Nat.cast_pow, Nat.cast_ofNat]
-  push_cast
   field_simp
-  try ring
 theorem acceptanceV5_eq_p0 :
     Pr[fun x : HashOutput => ClaudeWCT.WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
       ENNReal.ofReal (BaseAudit.V5.p0 : ℝ) := by
   rw [acceptanceV5]
-  have hq : ((BaseAudit.V5.p0 : ℚ) : ℝ) = (1094 : ℝ) * 27 ^ 9 * (ClaudeWCT.Numerics.N600Cap.J : ℝ) / 2 ^ 210 := by
+  have hq : ((BaseAudit.V5.p0 : ℚ) : ℝ) = (1091 : ℝ) * 27 ^ 9 * (ClaudeWCT.Numerics.N600Cap.J : ℝ) / 2 ^ 210 := by
     simp only [BaseAudit.V5.p0, BaseAudit.V5.J, ClaudeWCT.Numerics.N600Cap.J]
     push_cast
     ring
@@ -77,9 +75,8 @@ open OracleComp OracleSpec
 open ClaudeWCT.WCT9 (Signature Witness digestAttemptLimit honestForest eval_signForest)
 open ClaudeWCT.WCT9.Rev3 (sign expand verify signPayload)
 open SigGolfCandidate.T3 hiding Signature Witness sign expand verify signPayload digestSearch admissible
-open SigGolfCandidate.T3.Correctness (Answers DigestFamily KeygenCorrect route_tree_bound route_leaf_4096
-)
-open ClaudeWCT.W9.T3.QuerySpace (EncodingFamilyBC)
+open SigGolfCandidate.T3.Correctness (Answers DigestFamily KeygenCorrect)
+open ClaudeWCT.W9.T3.QuerySpace (EncodingFamilyBC routedTree routedLeaf routedTree_of routedLeaf_of)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
@@ -89,23 +86,35 @@ def DigestSearchesSucceed (answers : Answers) : Prop :=
     evalWithAnswerFn answers (ClaudeWCT.WCT9.digestSearch family.1 family.2 0 digestAttemptLimit) = some found
 def EncodingSearchesSucceedBC (answers : Answers) : Prop :=
   ∀ family : EncodingFamilyBC, ∃ found,
-    evalWithAnswerFn answers (ClaudeWCT.WCT9.layerCounterSearch family.1 family.2.1 family.2.2.1
-      (.pair family.2.2.2.1 family.2.2.2.2) 0 (ClaudeWCT.WCT9.searchLimit family.1)) = some found
+    evalWithAnswerFn answers (ClaudeWCT.WCT9.layerCounterSearch family.1 (routedTree family.1 family.2.1)
+      (routedLeaf family.1 family.2.1) (.pair family.2.2.1 family.2.2.2) 0 (ClaudeWCT.WCT9.searchLimit family.1)) =
+      some found
 theorem encodingSearchesSucceedBC_msg (answers : Answers) (hgood : EncodingSearchesSucceedBC answers)
-    (lay : Layer) (tree : Fin (2 ^ 31)) (leaf : Fin 4096) (msg : ClaudeWCT.WCT9.LayerMsg) : ∃ found,
+    (lay : Layer) (tree leaf : Nat) (hleaf : leaf < 2 ^ height lay) (hr : tree * 2 ^ height lay + leaf < 2 ^ 32)
+    (msg : ClaudeWCT.WCT9.LayerMsg) : ∃ found,
     evalWithAnswerFn answers (ClaudeWCT.WCT9.layerCounterSearch lay tree leaf msg 0 (ClaudeWCT.WCT9.searchLimit lay)) =
       some found := by
+  have ht := routedTree_of lay (tree := tree) hleaf
+  have hl := routedLeaf_of lay (tree := tree) hleaf
   cases msg with
   | forest root =>
       rw [ClaudeWCT.W9.T3.PairRows.layerCounterSearch_forest_eval]
-      exact hgood (lay, tree, leaf, root, 0)
-  | pair left right => exact hgood (lay, tree, leaf, left, right)
+      have h := hgood (lay, ⟨_, hr⟩, root, 0)
+      simp only [ht, hl] at h
+      exact h
+  | pair left right =>
+      have h := hgood (lay, ⟨_, hr⟩, left, right)
+      simp only [ht, hl] at h
+      exact h
+theorem route_routed_lt (index : Nat) (hindex : index < 2 ^ 31) (lay : Layer) :
+    (route index lay).2 * 2 ^ height lay + (route index lay).1 < 2 ^ 32 := by
+  fin_cases lay <;> simp [route, height] <;> omega
 theorem encodingSearchesSucceedBC_at_route (answers : Answers) (hgood : EncodingSearchesSucceedBC answers)
     (index : Nat) (hindex : index < 2 ^ 31) (lay : Layer) (msg : ClaudeWCT.WCT9.LayerMsg) : ∃ found,
     evalWithAnswerFn answers (ClaudeWCT.WCT9.layerCounterSearch lay (route index lay).2
       (route index lay).1 msg 0 (ClaudeWCT.WCT9.searchLimit lay)) = some found :=
-  encodingSearchesSucceedBC_msg answers hgood lay ⟨_, route_tree_bound index lay hindex⟩
-    ⟨_, route_leaf_4096 index lay⟩ msg
+  encodingSearchesSucceedBC_msg answers hgood lay _ _ (route_leaf_bound index lay)
+    (route_routed_lt index hindex lay) msg
 theorem topSearchesSucceedBC_of (answers : Answers) (hgood : EncodingSearchesSucceedBC answers) :
     ClaudeWCT.WCT9.TopSearchesSucceedBC answers :=
   fun index hindex msg => encodingSearchesSucceedBC_at_route answers hgood index hindex (Fin.ofNat 4 0) msg
@@ -247,7 +256,7 @@ open SigGolfCandidate.T3.Budgets (zeroAnswers failMass_eq_one_sub_accept
 open ClaudeWCT.W9.T3.Correctness (SearchesSucceed DigestSearchesSucceed EncodingSearchesSucceedBC SigningComplete
   SearchesSucceedFor SearchesSucceedSelected signing_complete_of_searches honest_signing_complete_of_searches
   signing_complete_for_of_searches signing_complete_of_selected_searches)
-open ClaudeWCT.W9.T3.QuerySpace (SearchKey searchQuery EncodingFamilyBC encodingFamilyBC_card)
+open ClaudeWCT.W9.T3.QuerySpace (SearchKey searchQuery EncodingFamilyBC encodingFamilyBC_card_le routedTree routedLeaf)
 open ClaudeWCT.W9.T3.PairRows (pairTrial msgLeft msgRight layerCounterSearch_none_iff eval_shortHash_layer)
 open ClaudeWCT.W9.T3.Sampling (digestDecode)
 set_option maxHeartbeats 1000000
@@ -282,7 +291,7 @@ theorem digest_failure_power :
   digest_failure_power_of_acceptance (BaseAudit.V5.p0 : ℝ)
     (by norm_num [BaseAudit.V5.p0, BaseAudit.V5.J]) (by norm_num [BaseAudit.V5.p0, BaseAudit.V5.J]) digest_probability_eq_p0
 theorem digest_failMass_eq :
-    failMass digestDecode = 1 - (1094 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 210 := by
+    failMass digestDecode = 1 - (1091 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 210 := by
   have h : (fun answer : HashOutput => (digestDecode answer).isSome = true) =
       fun x => ClaudeWCT.WCT9.producerAdmissible x = true := by
     funext x
@@ -290,7 +299,7 @@ theorem digest_failMass_eq :
     split <;> simp_all
   rw [failMass_eq_one_sub_accept, h, acceptanceV5]
 theorem digest_failure_explicit :
-    (1 - (1094 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 210) ^ (2 ^ 21) ≤
+    (1 - (1091 * 27 ^ 9 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 210) ^ (2 ^ 21) ≤
       1 / (2 : ENNReal) ^ 450 := by
   rw [← digest_failMass_eq]
   exact digest_failure_power
@@ -312,8 +321,8 @@ theorem digest_failure_power_602 :
 def DigestFailed (family : DigestFamily) (answers : Answers) : Prop :=
   evalWithAnswerFn answers (ClaudeWCT.WCT9.digestSearch family.1 family.2 0 digestAttemptLimit) = none
 def EncodingFailedBC (family : EncodingFamilyBC) (answers : Answers) : Prop :=
-  evalWithAnswerFn answers (ClaudeWCT.WCT9.layerCounterSearch family.1 family.2.1 family.2.2.1
-    (.pair family.2.2.2.1 family.2.2.2.2) 0 (ClaudeWCT.WCT9.searchLimit family.1)) = none
+  evalWithAnswerFn answers (ClaudeWCT.WCT9.layerCounterSearch family.1 (routedTree family.1 family.2.1)
+    (routedLeaf family.1 family.2.1) (.pair family.2.2.1 family.2.2.2) 0 (ClaudeWCT.WCT9.searchLimit family.1)) = none
 theorem not_searchesSucceed_iff (answers : Answers) :
     ¬ SearchesSucceed answers ↔
       (∃ family, DigestFailed family answers) ∨ (∃ family, EncodingFailedBC family answers) := by
@@ -333,7 +342,7 @@ theorem signing_incomplete_probability_le (law : ProbComp Answers) (digestFail e
   have hd' := finite_family_failure_le law DigestFailed digestFail hd
   have he' := finite_family_failure_le law EncodingFailedBC encodingFail he
   rw [digestFamily_card, Nat.cast_pow, Nat.cast_ofNat] at hd'
-  rw [encodingFamilyBC_card, Nat.cast_pow, Nat.cast_ofNat] at he'
+  replace he' := he'.trans (mul_le_mul' encodingFamilyBC_card_le le_rfl)
   exact hm.trans ((probEvent_or_le law _ _).trans (add_le_add hd' he'))
 theorem union_real_65 : (2 : ℝ) ^ 384 * (1 / 2 ^ 450) + 2 ^ 301 * (1 / 2 ^ 1000) ≤ 1 / 2 ^ 65 := by
   set_option exponentiation.threshold 2048 in norm_num
@@ -361,22 +370,24 @@ def SearchAgreement (outputs : SearchKey → HashOutput) (answers : Answers) : P
 def tableGood (outputs : SearchKey → HashOutput) : Prop :=
   SearchesSucceed (Presampling.tableAnswers outputs zeroAnswers)
 theorem layerCounterSearch_none_agreement (outputs : SearchKey → HashOutput)
-    (answers : Answers) (hagree : SearchAgreement outputs answers) (lay : Layer) (tree : Fin (2 ^ 31))
-    (leaf : Fin 4096) (msg : ClaudeWCT.WCT9.LayerMsg) :
+    (answers : Answers) (hagree : SearchAgreement outputs answers) (lay : Layer) (r : Fin (2 ^ 32))
+    (msg : ClaudeWCT.WCT9.LayerMsg) :
     evalWithAnswerFn answers
-      (ClaudeWCT.WCT9.layerCounterSearch lay tree leaf msg 0 (ClaudeWCT.WCT9.searchLimit lay)) = none ↔
+      (ClaudeWCT.WCT9.layerCounterSearch lay (routedTree lay r) (routedLeaf lay r) msg 0
+        (ClaudeWCT.WCT9.searchLimit lay)) = none ↔
     ∀ c : Fin (ClaudeWCT.WCT9.searchLimit lay), ClaudeWCT.W9.T3.ProducerV5.producerEncodingDecode lay
-      (outputs (.inl ((lay, tree, leaf, msgLeft msg, msgRight msg),
+      (outputs (.inl ((lay, r, msgLeft msg, msgRight msg),
         Fin.castLE (Presampling.searchLimit_le_rows lay) c))) = none := by
   rw [layerCounterSearch_none_iff]
   have hv (c : Nat) (hc : c < ClaudeWCT.WCT9.searchLimit lay) :
       evalWithAnswerFn answers
-        (shortHash (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 (0 + c)))) =
-        (outputs (.inl ((lay, tree, leaf, msgLeft msg, msgRight msg),
+        (shortHash (ClaudeWCT.WCT9.layerEncodingInput lay (routedTree lay r) (routedLeaf lay r) msg
+          (BitVec.ofNat 32 (0 + c)))) =
+        (outputs (.inl ((lay, r, msgLeft msg, msgRight msg),
           Fin.castLE (Presampling.searchLimit_le_rows lay) ⟨c, hc⟩))).extractLsb' 0 128 := by
     rw [Nat.zero_add, eval_shortHash_layer]
-    have hinput : pairTrial lay tree leaf (msgLeft msg) (msgRight msg) c =
-        searchQuery (.inl ((lay, tree, leaf, msgLeft msg, msgRight msg),
+    have hinput : pairTrial lay (routedTree lay r) (routedLeaf lay r) (msgLeft msg) (msgRight msg) c =
+        searchQuery (.inl ((lay, r, msgLeft msg, msgRight msg),
           Fin.castLE (Presampling.searchLimit_le_rows lay) ⟨c, hc⟩)) := rfl
     rw [hinput, hagree]
   constructor
@@ -390,10 +401,10 @@ theorem layerCounterSearch_none_agreement (outputs : SearchKey → HashOutput)
 theorem encodingFamily_none_iff (outputs : SearchKey → HashOutput) (answers : Answers)
     (hagree : SearchAgreement outputs answers) (family : EncodingFamilyBC) :
     EncodingFailedBC family answers ↔ EncodingFailedBC family (Presampling.tableAnswers outputs zeroAnswers) :=
-  (layerCounterSearch_none_agreement outputs answers hagree family.1 family.2.1 family.2.2.1
-    (.pair family.2.2.2.1 family.2.2.2.2)).trans
-    (Presampling.layerCounterSearch_none_table outputs zeroAnswers family.1 family.2.1 family.2.2.1
-      (.pair family.2.2.2.1 family.2.2.2.2)).symm
+  (layerCounterSearch_none_agreement outputs answers hagree family.1 family.2.1
+    (.pair family.2.2.1 family.2.2.2)).trans
+    (Presampling.layerCounterSearch_none_table outputs zeroAnswers family.1 family.2.1
+      (.pair family.2.2.1 family.2.2.2)).symm
 theorem digestSearch_none_agreement (outputs : SearchKey → HashOutput)
     (answers : Answers) (hagree : SearchAgreement outputs answers) (family : DigestFamily) :
     evalWithAnswerFn answers
@@ -441,8 +452,8 @@ theorem encodingFamily_table_failure (encodingFail : ENNReal)
     (family : EncodingFamilyBC) :
     Pr[fun outputs => EncodingFailedBC family (Presampling.tableAnswers outputs zeroAnswers) |
       ($ᵗ (SearchKey → HashOutput) : ProbComp _)] ≤ encodingFail :=
-  (Presampling.layerCounterSearch_table_failure zeroAnswers family.1 family.2.1 family.2.2.1
-    family.2.2.2.1 family.2.2.2.2).le.trans (he family.1)
+  (Presampling.layerCounterSearch_table_failure zeroAnswers family.1 family.2.1
+    family.2.2.1 family.2.2.2).le.trans (he family.1)
 theorem tableGood_failure_le (digestFail encodingFail : ENNReal)
     (hd : failMass digestDecode ^ digestAttemptLimit ≤ digestFail)
     (he : ∀ lay, failMass (ClaudeWCT.W9.T3.ProducerV5.producerEncodingDecode lay) ^ ClaudeWCT.WCT9.searchLimit lay ≤
@@ -458,7 +469,7 @@ theorem tableGood_failure_le (digestFail encodingFail : ENNReal)
     (fun family outputs => EncodingFailedBC family (Presampling.tableAnswers outputs zeroAnswers)) encodingFail
     (encodingFamily_table_failure encodingFail he)
   rw [digestFamily_card, Nat.cast_pow, Nat.cast_ofNat] at hd'
-  rw [encodingFamilyBC_card, Nat.cast_pow, Nat.cast_ofNat] at he'
+  replace he' := he'.trans (mul_le_mul' encodingFamilyBC_card_le le_rfl)
   simp only [tableGood, not_searchesSucceed_iff]
   exact (probEvent_or_le law _ _).trans (add_le_add hd' he')
 theorem tableGood_failure_small_of_acceptance (p : ℝ) (hp : 1 / 5026 ≤ p) (hp1 : p ≤ 1)
@@ -503,7 +514,7 @@ theorem tableGoodFor_failure_le (message : Message) (digestFail encodingFail : E
     (fun family outputs => EncodingFailedBC family (Presampling.tableAnswers outputs zeroAnswers)) encodingFail
     (encodingFamily_table_failure encodingFail he)
   rw [Fintype.card_bitVec, Nat.cast_pow, Nat.cast_ofNat] at hd'
-  rw [encodingFamilyBC_card, Nat.cast_pow, Nat.cast_ofNat] at he'
+  replace he' := he'.trans (mul_le_mul' encodingFamilyBC_card_le le_rfl)
   simp only [tableGoodFor, not_searchesSucceedFor_iff]
   exact (probEvent_or_le law _ _).trans (add_le_add hd' he')
 theorem tableGoodFor_failure_small_of_acceptance (message : Message) (p : ℝ) (hp : 1 / 5026 ≤ p) (hp1 : p ≤ 1)
@@ -591,7 +602,7 @@ theorem tableGoodForNonces_failure_le (nonces : Message → HashOutput) :
       (1 / (2 : ENNReal) ^ 1000)
     (encodingFamily_table_failure _ ClaudeWCT.W9.T3.ProducerV5.producer_failure_power)
   rw [Fintype.card_bitVec, Nat.cast_pow, Nat.cast_ofNat] at hd'
-  rw [encodingFamilyBC_card, Nat.cast_pow, Nat.cast_ofNat] at he'
+  replace he' := he'.trans (mul_le_mul' encodingFamilyBC_card_le le_rfl)
   simp only [not_tableGoodForNonces_iff]
   exact (probEvent_or_le law _ _).trans (add_le_add hd' he')
 theorem tableGoodForNonces_failure_small (nonces : Message → HashOutput) :

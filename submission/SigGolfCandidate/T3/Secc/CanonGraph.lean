@@ -127,20 +127,6 @@ def SourcePos : Extract.Pos → Prop
   | .forest index => index < 2 ^ 31
   | .ftsLeaf index coord leaf => index < 2 ^ 31 ∧ coord < 7 ∧ leaf < 2048
   | .ftsNode index coord level nd => index < 2 ^ 31 ∧ coord < 7 ∧ level < 11 ∧ nd < 2 ^ (11 - level - 1)
-theorem toPos_bounded (node : Node) : node.toPos.Bounded := by
-  cases node with
-  | chain p =>
-      have := p.1.tree.isLt; have := p.1.leaf.isLt; have := p.1.chain.isLt; have := p.2.isLt
-      exact ⟨by omega, by omega, by omega, by omega⟩
-  | leaf L => have := L.tree.isLt; have := L.leaf.isLt; exact ⟨by omega, by omega⟩
-  | node n => have := n.1.tree.isLt; exact ⟨by omega, n.2.1, n.2.2⟩
-  | ftsLeaf f =>
-      have := f.index.isLt; have := f.coord.isLt; have := f.leaf.isLt
-      exact ⟨by omega, by omega, by omega⟩
-  | ftsNode n =>
-      have := n.1.index.isLt; have := n.1.coord.isLt; have := n.1.level.isLt
-      exact ⟨by omega, by omega, by omega, n.2⟩
-  | forest index => have := index.isLt; change index.val < 2 ^ 40; omega
 theorem toPos_source (node : Node) : SourcePos node.toPos := by
   cases node with
   | chain p => exact ⟨p.1.tree.isLt, p.1.leaf.isLt, p.1.chain.isLt, p.2.isLt⟩
@@ -237,8 +223,8 @@ theorem hdrBlock_cell (secrets : Secrets) (node : Node) (labels : Labels) :
       change Extract.hdrBlock (chainInput p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val p.2.val _) = _
       exact chainInput_header _ _ _ _ _ _
   | leaf L =>
-      simp only [cell, Extract.leafInput]
-      rw [Extract.hdrBlock_listInput]
+      simp only [cell]
+      rw [Extract.hdrBlock_leafInput]
       rfl
   | node n =>
       simp only [cell]
@@ -250,19 +236,12 @@ theorem hdrBlock_cell (secrets : Secrets) (node : Node) (labels : Labels) :
       rfl
   | ftsNode n =>
       simp only [cell]
-      rw [pad64_nodeInputP, nodeInputP, Extract.hdrBlock_block4]
+      rw [pad64_nodeInputP, nodeInputP, Extract.hdrBlock_block4, nodeTweak_other (by omega)]
       rfl
   | forest index =>
       simp only [cell, Extract.forestInput]
       rw [Extract.hdrBlock_listInput]
       rfl
-theorem cell_separated (secrets : Secrets) : Separated (cell secrets) := by
-  intro left right hne before after heq
-  have h1 := hdrBlock_cell secrets left before
-  have h2 := hdrBlock_cell secrets right after
-  rw [heq] at h1
-  exact hne (toPos_injective (Extract.Pos.hdr_injective (toPos_bounded left) (toPos_bounded right)
-    (bytesLE_injective (h1.symm.trans h2))))
 theorem treeNodeAt_level {lay : Layer} {tree : Fin (2^31)} {level c : Nat} {n : TreeNode}
     (h : treeNodeAt lay tree level c = some n) : n.1.level.val = level := by
   unfold treeNodeAt at h
@@ -355,14 +334,6 @@ theorem toPos_of_posNode {p : Extract.Pos} {node : Node} (h : posNode p = some n
   split_ifs at h with hp
   cases h
   exact Classical.choose_spec (exists_toPos hp)
-theorem posOf_cell (secrets : Secrets) (node : Node) (labels : Labels) :
-    Extract.posOf (cell secrets node labels) = some node.toPos :=
-  Extract.posOf_eq (toPos_bounded node) (hdrBlock_cell secrets node labels)
-theorem cell_eq_of_posOf {input : HashInput} {node node' : Node} (secrets : Secrets) (labels : Labels)
-    (hpos : Extract.posOf input = some node.toPos) (h : input = cell secrets node' labels) : node' = node := by
-  subst h
-  rw [posOf_cell] at hpos
-  exact toPos_injective (Option.some.inj hpos)
 theorem height_pos (lay : Layer) : 0 < height lay := by fin_cases lay <;> decide
 def rootNode (lay : Layer) (tree : Fin (2^31)) : TreeNode :=
   ⟨⟨lay, tree, ⟨height lay - 1, by have := Extract.height_le lay; omega⟩, ⟨0, by decide⟩⟩,
@@ -400,13 +371,10 @@ theorem cell_length_le (secrets : Secrets) (node : Node) (labels : Labels) :
       rw [ChainGraph.row_length]; omega
   | leaf L =>
       simp only [cell, Extract.leafInput]
-      rw [Cost.pad64_length, Extract.listInput_length]
+      rw [Cost.pad64_length, leafInput_length]
       have hc : chainCount L.lay ≤ 58 := chainCount_bound L.lay
-      have hl : ((List.map (endLabel secrets labels L) (List.range (chainCount L.lay))).drop 1).length ≤ 57 := by
-        simp only [List.length_drop, List.length_map, List.length_range]; omega
-      have hm := Nat.mod_lt (32 + 16 * ((List.map (endLabel secrets labels L)
-        (List.range (chainCount L.lay))).drop 1).length) (by decide : 0 < 64)
-      omega
+      simp only [List.length_map, List.length_range]
+      split_ifs <;> omega
   | node n =>
       simp only [cell]
       rw [pad64_nodeInputP, nodeInputP, block4]
@@ -432,15 +400,6 @@ theorem canonInputs_subset_publicUniverse : canonInputs ⊆ SeccLaw.publicUniver
 noncomputable def cellIn (U : Finset HashInput) (hU : canonInputs ⊆ U) (secrets : Secrets)
     (node : Node) (labels : Labels) : U :=
   ⟨cell secrets node labels, hU (cell_mem secrets node labels)⟩
-theorem cellIn_separated (U : Finset HashInput) (hU : canonInputs ⊆ U) (secrets : Secrets) :
-    Separated (cellIn U hU secrets) := by
-  intro left right hne before after heq
-  exact cell_separated secrets left right hne before after (congrArg Subtype.val heq)
-theorem cellIn_injective (U : Finset HashInput) (hU : canonInputs ⊆ U) (secrets : Secrets) (labels : Labels) :
-    Function.Injective (fun node => cellIn U hU secrets node labels) := by
-  intro left right heq
-  by_contra hne
-  exact cellIn_separated U hU secrets left right hne labels labels heq
 noncomputable def order : List Node :=
   (Finset.univ : Finset Node).toList.mergeSort (fun left right => decide (left.depth ≤ right.depth))
 attribute [irreducible] order
@@ -511,57 +470,12 @@ theorem read_consistent (secrets : Secrets) (table : U → HashOutput) (nodes : 
 theorem graph_consistent (secrets : Secrets) (table : U → HashOutput) (node : Node) :
     graph U hU secrets table node = table (cellIn U hU secrets node (graph U hU secrets table)) :=
   read_consistent U hU secrets table order order_nodup order_sorted _ node (mem_order node)
-theorem programmed_at (secrets : Secrets) (labels : Labels) (residual : U → HashOutput) (node : Node) :
-    programmed U hU secrets labels residual (cellIn U hU secrets node labels) = labels node :=
-  patch_at _ (cellIn_injective U hU secrets labels) labels residual order node (mem_order node)
 theorem programmed_other (secrets : Secrets) (labels : Labels) (residual : U → HashOutput) (query : U)
     (hquery : ∀ node, query.val ≠ cell secrets node labels) :
     programmed U hU secrets labels residual query = residual query := by
   apply patch_of_forall_ne
   intro node _ heq
   exact hquery node (congrArg Subtype.val heq)
-theorem programmed_residual (secrets : Secrets) (labels : Labels) (residual : U → HashOutput) (query : U)
-    (hquery : ∀ node, Extract.posOf query.val = some node.toPos → query.val ≠ cell secrets node labels) :
-    programmed U hU secrets labels residual query = residual query := by
-  apply programmed_other
-  intro node heq
-  exact hquery node (heq ▸ posOf_cell secrets node labels) heq
-theorem read_programmed (secrets : Secrets) (labels : Labels) (residual : U → HashOutput) (nodes : List Node)
-    (hsorted : nodes.Pairwise (fun left right => left.depth ≤ right.depth))
-    (before : Labels) (hagrees : ∀ node, node ∉ nodes → before node = labels node) :
-    read (cellIn U hU secrets) advance (programmed U hU secrets labels residual) nodes before = labels := by
-  induction nodes generalizing before with
-  | nil => exact funext fun node => hagrees node (by simp)
-  | cons first rest ih =>
-      obtain ⟨hdepth, hsorted⟩ := List.pairwise_cons.mp hsorted
-      have hinput : cellIn U hU secrets first before = cellIn U hU secrets first labels := by
-        apply Subtype.ext
-        apply cell_congr
-        intro other hother
-        apply hagrees
-        intro hmem
-        rcases List.mem_cons.mp hmem with heq | hmem
-        · rw [heq] at hother; omega
-        · have := hdepth _ hmem; omega
-      change read (cellIn U hU secrets) advance (programmed U hU secrets labels residual) rest
-        (Function.update before first (programmed U hU secrets labels residual (cellIn U hU secrets first before))) = _
-      rw [hinput, programmed_at]
-      apply ih hsorted
-      intro node hnode
-      by_cases heq : node = first
-      · subst node; rw [Function.update_self]
-      · rw [Function.update_of_ne heq]
-        exact hagrees node (fun hmem => (List.mem_cons.mp hmem).elim heq hnode)
-theorem graph_programmed (secrets : Secrets) (labels : Labels) (residual : U → HashOutput) :
-    graph U hU secrets (programmed U hU secrets labels residual) = labels :=
-  read_programmed U hU secrets labels residual order order_sorted _
-    (fun node hnode => (hnode (mem_order node)).elim)
-theorem read_eq_plant (secrets : Secrets) (nodes : List Node) (hnodup : nodes.Nodup) (before : Labels) :
-    𝒮[do
-      let table ← ($ᵗ (U → HashOutput) : ProbComp _)
-      pure (read (cellIn U hU secrets) advance table nodes before, table)] =
-      𝒮[plant (cellIn U hU secrets) advance nodes before] :=
-  evalDist_read_eq_plant (cellIn U hU secrets) advance (cellIn_separated U hU secrets) nodes hnodup before
 theorem replay_eq_programmed (secrets : Secrets) (labels : Labels) (residual : U → HashOutput)
     (nodes : List Node) (hsorted : nodes.Pairwise (fun left right => left.depth ≤ right.depth))
     (before : Labels) (hagrees : ∀ node, node ∉ nodes → before node = labels node) :
@@ -605,34 +519,6 @@ theorem plant_eq_uniform_programmed (secrets : Secrets) :
   rw [replay_eq_programmed U hU secrets labels residual order order_sorted _
     (fun node hnode => (hnode (mem_order node)).elim)]
   rfl
-theorem graph_eq_uniform_programmed (secrets : Secrets) :
-    𝒮[do
-      let table ← ($ᵗ (U → HashOutput) : ProbComp _)
-      pure (graph U hU secrets table, table)] =
-      𝒮[do
-        let labels ← ($ᵗ Labels : ProbComp _)
-        let residual ← ($ᵗ (U → HashOutput) : ProbComp _)
-        pure (labels, programmed U hU secrets labels residual)] :=
-  (read_eq_plant U hU secrets order order_nodup _).trans (plant_eq_uniform_programmed U hU secrets)
-theorem graph_bind_eq_uniform_programmed {Result : Type} (secrets : Secrets)
-    (next : Labels → (U → HashOutput) → ProbComp Result) :
-    𝒮[do
-      let table ← ($ᵗ (U → HashOutput) : ProbComp _)
-      next (graph U hU secrets table) table] =
-      𝒮[do
-        let labels ← ($ᵗ Labels : ProbComp _)
-        let residual ← ($ᵗ (U → HashOutput) : ProbComp _)
-        next labels (programmed U hU secrets labels residual)] := by
-  have h := congrArg (fun law : SPMF (Labels × (U → HashOutput)) =>
-    law >>= fun result => 𝒮[next result.1 result.2]) (graph_eq_uniform_programmed U hU secrets)
-  simpa only [evalSPMF_bind, evalSPMF_pure, bind_assoc, pure_bind] using h
-theorem uniform_bind_programmed {Result : Type} (secrets : Secrets) (next : (U → HashOutput) → ProbComp Result) :
-    𝒮[do let table ← ($ᵗ (U → HashOutput) : ProbComp _); next table] =
-      𝒮[do
-        let labels ← ($ᵗ Labels : ProbComp _)
-        let residual ← ($ᵗ (U → HashOutput) : ProbComp _)
-        next (programmed U hU secrets labels residual)] :=
-  graph_bind_eq_uniform_programmed U hU secrets (fun _ table => next table)
 end Laws
 def ftsCoordinate (f : FtsLeafPos) : ChainGraph.HalfCoordinate :=
   (.inl (header 8 f.coord.val f.index.val 0 (f.leaf.val / 2)), ⟨f.leaf.val % 2, Nat.mod_lt _ (by decide)⟩)
@@ -750,40 +636,6 @@ theorem private_bind {Result : Type} (next : FullGame.FullTable → ProbComp Res
     law >>= fun result => 𝒮[next (privateEquiv.symm result)]) uniform_private_split
   simpa only [evalSPMF_map, evalSPMF_bind, bind_map_left, evalSPMF_pure, bind_assoc, pure_bind,
     Equiv.symm_apply_apply] using h
-theorem tables_bind {Result : Type} (U : Finset HashInput) (hU : canonInputs ⊆ U)
-    (next : FullGame.FullTable → (U → HashOutput) → ProbComp Result) :
-    𝒮[do
-      let privateTable ← ($ᵗ FullGame.FullTable : ProbComp _)
-      let publicTable ← ($ᵗ (U → HashOutput) : ProbComp _)
-      next privateTable publicTable] =
-      𝒮[do
-        let secrets ← ($ᵗ Secrets : ProbComp _)
-        let other ← ($ᵗ OtherHalves : ProbComp _)
-        let labels ← ($ᵗ Labels : ProbComp _)
-        let residual ← ($ᵗ (U → HashOutput) : ProbComp _)
-        next (privateEquiv.symm (secrets, other)) (programmed U hU secrets labels residual)] := by
-  rw [private_bind (fun privateTable => do
-    let publicTable ← ($ᵗ (U → HashOutput) : ProbComp _)
-    next privateTable publicTable)]
-  apply evalSPMF_bind_congr_left
-  intro secrets
-  apply evalSPMF_bind_congr_left
-  intro other
-  exact uniform_bind_programmed U hU secrets (fun table => next (privateEquiv.symm (secrets, other)) table)
-theorem recorded_canon_law {α : Type} (program : M α) :
-    𝒮[FirstHit.record program (∅, ∅)] =
-      𝒮[do
-        let secrets ← ($ᵗ Secrets : ProbComp _)
-        let other ← ($ᵗ OtherHalves : ProbComp _)
-        let labels ← ($ᵗ Labels : ProbComp _)
-        let residual ← ($ᵗ (canonUniverse program → HashOutput) : ProbComp _)
-        ChainGraph.finiteRecorded (privateEquiv.symm (secrets, other)) (canonUniverse program)
-          (programmed (canonUniverse program) (canonInputs_subset_universe program) secrets labels residual)
-          program] := by
-  rw [ChainGraph.recorded_finite_tables program (canonUniverse program) (fun privateTable =>
-    (ChainGraph.program_subset_recordedInputs program privateTable).trans (recordedInputs_subset_universe program))]
-  exact tables_bind (canonUniverse program) (canonInputs_subset_universe program)
-    (fun privateTable publicTable => ChainGraph.finiteRecorded privateTable (canonUniverse program) publicTable program)
 abbrev LowLabels := Node → Digest
 noncomputable def labelPairEquiv : Labels ≃ LowLabels × LowLabels :=
   (Equiv.arrowCongr (Equiv.refl Node) ChainGraph.outputEquiv).trans
@@ -834,20 +686,6 @@ theorem secretsOf_eager (privateTable : FullGame.FullTable) (U : Finset HashInpu
 theorem eagerAnswers_mem (privateTable : FullGame.FullTable) (U : Finset HashInput) (publicTable : U → HashOutput)
     (x : U) : eagerAnswers privateTable U publicTable (.inl (.inr x.val)) = publicTable x :=
   finiteHashAnswer_none ∅ U publicTable x.val x.property rfl
-theorem agrees_of_programmed (U : Finset HashInput) (hU : canonInputs ⊆ U) (answers : Answers)
-    (labels : Labels) (residual : U → HashOutput)
-    (hpub : ∀ x : U, answers (.inl (.inr x.val)) = programmed U hU (secretsOf answers) labels residual x) :
-    Agrees answers labels := by
-  intro node
-  have h := hpub (cellIn U hU (secretsOf answers) node labels)
-  rw [programmed_at] at h
-  exact h
-theorem eager_programmed_agrees (U : Finset HashInput) (hU : canonInputs ⊆ U) (secrets : Secrets)
-    (other : OtherHalves) (labels : Labels) (residual : U → HashOutput) :
-    Agrees (eagerAnswers (privateEquiv.symm (secrets, other)) U (programmed U hU secrets labels residual)) labels := by
-  apply agrees_of_programmed U hU _ labels residual
-  intro x
-  rw [secretsOf_eager, privateSecrets_symm, eagerAnswers_mem]
 theorem eager_graph_agrees (privateTable : FullGame.FullTable) (U : Finset HashInput) (hU : canonInputs ⊆ U)
     (table : U → HashOutput) :
     Agrees (eagerAnswers privateTable U table) (graph U hU (privateSecrets privateTable) table) := by

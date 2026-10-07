@@ -1,3 +1,4 @@
+import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Header
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.VerifyP
 import SigGolfCandidate.ClaudeWCT.WCT9.Honest
 
@@ -55,8 +56,7 @@ theorem honestInput_ofFts (T : Answers) (index : Nat) (p : WCT9.Wots.FtsPos) (hp
   cases p with
   | chain coord child t step => rfl
   | leaf coord child =>
-      simp only [Pos.ofFts, honestInput, WCT9.Wots.ftsHonestInput, wctLeafInput, listInput, WCT9.leafInput,
-        WCT9.leaf_header_eq]
+      simp only [Pos.ofFts, honestInput, WCT9.Wots.ftsHonestInput, wctLeafInput, listInput, WCT9.leafInput]
       rfl
   | node coord heap =>
       obtain ⟨h1, h2, h3⟩ := heap_decomp hp.1 hp.2

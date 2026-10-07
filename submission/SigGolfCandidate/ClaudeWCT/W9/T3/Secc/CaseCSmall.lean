@@ -58,37 +58,6 @@ theorem completed_full_eq (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127
   have ht := bank_traced adversary q hq
   rw [PMF.monad_map_eq_map, PMF.monad_map_eq_map] at ht
   rw [ht]
-theorem full_bound_births (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
-    Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ PinnedC adversary FullQ z | SeccLaw.completedExperiment adversary q hq] ≤
-      (theta + 1 / 64) / 2 ^ 128 * CreationGame.expectedBirths IsDigestInput adversary q hq +
-        (q : ENNReal) * (15200 / 100000000) / 2 ^ 128 := by
-  calc
-    _ ≤ Pr[fun z => FullEvent adversary q (z.1.1, z.1.2.2) z.2 | SeccLaw.completedExperiment adversary q hq] := by
-      apply pmf_probEvent_mono
-      intro z hz
-      exact ⟨hz.1.1, hz.1.2.1, hz.2⟩
-    _ = expectedValue (bankExperiment adversary q) (fun b => fullWeight adversary q (b.1, b.2.2)) :=
-      completed_full_eq adversary q hq
-    _ ≤ expectedValue (bankExperiment adversary q) (fun b => potential q b.2) := by
-      apply pmf_expectedValue_mono
-      intro b hb
-      by_cases hex : ∃ t, FullEvent adversary q (b.1, b.2.2) (SeccLaw.completeWith (lazyOf b.2.2) t)
-      · obtain ⟨t, ht⟩ := hex
-        have hA : Agrees (SeccLaw.completeWith (lazyOf b.2.2) t) (lazyOf b.2.2) :=
-          fun input answer hk => SeccLaw.completeWith_agrees _ t input answer hk
-        exact (fullWeight_le_one adversary q _).trans
-          (full_potential adversary q hq b hb [] _ hA ht.2.1 ht.2.2)
-      · push Not at hex
-        have h0 : fullWeight adversary q (b.1, b.2.2) = 0 := by
-          unfold fullWeight
-          exact pmf_probEvent_eq_zero _ hex
-        rw [h0]
-        exact bot_le
-    _ ≤ (theta + 1 / 64) / 2 ^ 128 * CreationGame.expectedBirths IsDigestInput adversary q hq +
-        (q : ENNReal) * (11324 / 100000000) / 2 ^ 128 := bank_potential_le adversary q hq
-    _ ≤ _ := by
-      gcongr
-      norm_num
 end SigGolfCandidate.T3.Security.CaseC
 end
 section
@@ -135,46 +104,6 @@ theorem publicClass_digest : (fun _ => CreationGame.publicClass IsDigestInput) =
       cases h
       exact ⟨rho, m, ctr, rfl⟩
   · exact ⟨fun h => h.elim, fun ⟨_, _, _, h⟩ => by cases h⟩
-theorem full_bound (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
-    Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ PinnedC adversary FullQ z | SeccLaw.completedExperiment adversary q hq] ≤
-      (1 + SeccClosing.cacheRate) / 2 ^ 128 * SeccLaw.expectedCharge adversary q hq Wots.digestClass +
-        ((Wots.signRatio * q : Nat) : ENNReal) * SeccClosing.excessRate / 2 ^ 128 := by
-  refine (full_bound_births adversary q hq).trans (add_le_add ?_ ?_)
-  · apply mul_le_mul'
-    · apply ENNReal.div_le_div_right
-      exact theta_add_sixteenth_le_one.trans le_self_add
-    · rw [← publicClass_digest]
-      exact CreationGame.expectedBirths_le_shared IsDigestInput adversary q hq
-  · rw [SeccClosing.excessRate_def]
-    apply ENNReal.div_le_div_right
-    apply mul_le_mul' _ le_rfl
-    exact_mod_cast (by unfold Wots.signRatio; omega : q ≤ Wots.signRatio * q)
-theorem caseC_small_bound (hnear : NearBound) : Wots.CaseCSmallBound := by
-  intro adversary q hq h1 hsplit
-  set P := SeccLaw.completedExperiment adversary q hq
-  calc
-    Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ Wots.CaseCFreshPinned adversary z | P] ≤
-        Pr[fun z => (QueryRecorded.CleanWin q z.1 ∧ PinnedC adversary FullQ z) ∨
-          ((QueryRecorded.CleanWin q z.1 ∧ PinnedC adversary NearQ z) ∨
-            (QueryRecorded.CleanWin q z.1 ∧ BPair.PairGuess adversary z)) | P] := by
-      apply pmf_probEvent_mono_support
-      intro z hz hzC
-      rcases caseC_three_way adversary q hq z hz hzC.1 hzC.2 with h | h | h
-      · exact Or.inl ⟨hzC.1, h⟩
-      · exact Or.inr (Or.inl ⟨hzC.1, h⟩)
-      · exact Or.inr (Or.inr ⟨hzC.1, h⟩)
-    _ ≤ Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ PinnedC adversary FullQ z | P] +
-        (Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ PinnedC adversary NearQ z | P] +
-          Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ BPair.PairGuess adversary z | P]) :=
-      (pmf_probEvent_or_le _ _ _).trans (add_le_add le_rfl (pmf_probEvent_or_le _ _ _))
-    _ ≤ ((1 + SeccClosing.cacheRate) / 2 ^ 128 * SeccLaw.expectedCharge adversary q hq Wots.digestClass +
-          ((Wots.signRatio * q : Nat) : ENNReal) * SeccClosing.excessRate / 2 ^ 128) +
-        (Wots.nearTerm q + BPair.pairTerm q) :=
-      add_le_add (full_bound adversary q hq)
-        (add_le_add (hnear adversary q hq h1 hsplit) (BPair.pair_guess_bound adversary q hq))
-    _ ≤ _ := by
-      rw [← add_assoc]
-      exact le_self_add
 end SigGolfCandidate.T3.Security.CaseC
 end
 section
@@ -263,7 +192,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-theorem full_bound (X : CaseCExtraction) (hexc : ExcessBound horizon (15200 / 100000000))
+theorem full_bound (X : CaseCExtraction) (hexc : ExcessBound horizon (14774 / 100000000))
     (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
     Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ PinnedC X adversary FullQ z |
         SeccLaw.completedExperiment adversary q hq] ≤
@@ -306,7 +235,7 @@ def CaseCSmallBound (CaseCFreshPinned : AdversaryP → PaddedGame.TraceResult ×
         ((Wots.signRatio * q : Nat) : ENNReal) * SeccClosing.excessRate / 2 ^ 128 + nearTerm q + pairTerm q +
         (2 : ENNReal)⁻¹ ^ 700
 theorem caseC_small_bound (X : CaseCExtraction) (Y : CaseCSplitInterface X) (nearTerm : Nat → ENNReal)
-    (hexc : ExcessBound horizon (15200 / 100000000)) (hnear : NearBound X Y.NearQ nearTerm) :
+    (hexc : ExcessBound horizon (14774 / 100000000)) (hnear : NearBound X Y.NearQ nearTerm) :
     CaseCSmallBound Y.CaseCFreshPinned nearTerm Y.pairTerm := by
   intro adversary q hq h1 hsplit
   set P := SeccLaw.completedExperiment adversary q hq

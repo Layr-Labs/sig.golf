@@ -66,46 +66,5 @@ theorem routeVerdict_pure {β : Type} (v : β) (st : RouterState) :
 theorem routeVerdict_public {β : Type} (X : HashInput) (next : HashOutput → M β) (st : RouterState) :
     routeVerdict U a q (liftM (T3.Spec.query (.inl (.inr X))) >>= next) st =
       if q ≤ st.calls then pure none else (routeQuery U a st X >>= fun r => routeVerdict U a q (next r.1) r.2) := rfl
-theorem routeVerdict_observed (hcoh : Coherent U T vals nv τ a) (hq : q ≤ 2 ^ 127) {β : Type} (V : M β)
-    (hV : PublicVerdict.Only V) :
-    ∀ (mon : Monitor) (st : RouterState) (ws : LargeResidual.State WCoord (Cell U)) (state : LazyPrivate.State),
-      Rel U T vals nv τ a q mon st ws →
-      ∃ out ws', observedRun aux q (Sum.elim vals nv) τ (routeVerdict U a q V st) ws = pure (out, ws') ∧
-        PhaseOutcome U T vals nv τ a q ((Wots.Ref.pureRecord T V state).events.foldl (Monitor.event U T q) mon)
-          (evalWithAnswerFn T V) ((Wots.Ref.pureRecord T V state).events.foldl (routerEvent U) st) out ws' := by
-  induction V using OracleComp.inductionOn with
-  | pure v =>
-      intro mon st ws state hrel
-      refine ⟨some (some (v, st)), ws, ?_, Or.inr (Or.inr ⟨rfl, hrel⟩)⟩
-      rw [routeVerdict_pure]
-      exact observed_pure aux q _ τ _ ws
-  | query_bind input next ih =>
-      intro mon st ws state hrel
-      obtain ⟨hi, hn⟩ := (allQueriesSatisfy_query_bind_iff _ _ _).mp hV
-      rcases input with (n | X) | c
-      · exact False.elim hi
-      · rw [Wots.Ref.pureRecord_query_bind]
-        simp only [List.foldl_cons]
-        rw [routeVerdict_public]
-        by_cases hb : q ≤ st.calls
-        · rw [if_pos hb]
-          refine ⟨some none, ws, observed_pure aux q _ τ _ ws, Or.inr (Or.inl ⟨rfl, ?_⟩)⟩
-          have h1 := query_over U T q mon hrel.contact (by rw [hrel.calls]; exact hb) X (T (.inl (.inr X)))
-          exact events_over U T q _ h1.1 h1.2 _
-        · rw [if_neg hb]
-          have hlt : st.calls < q := by omega
-          obtain ⟨ws1, hout⟩ := routeQuery_observed aux hcoh hrel hlt hq X
-          rcases hout with ⟨hc, hrun, -, hcalls⟩ | ⟨hc, hrun, hrel1⟩
-          · refine ⟨none, ws1, ?_, Or.inl ⟨rfl, ?_, hcalls⟩⟩
-            · rw [observedRun, runWith_bind, ← observedRun, hrun, pure_bind]
-              rfl
-            · change (List.foldl (Monitor.event U T q) (mon.query U T q X (T (.inl (.inr X)))) _).contact = true
-              rw [events_frozen U T q _ hc]
-              exact hc
-          · obtain ⟨out, ws2, hrun2, hph⟩ := ih (T (.inl (.inr X))) (hn _) _ _ ws1 _ hrel1
-            refine ⟨out, ws2, ?_, hph⟩
-            rw [observedRun, runWith_bind, ← observedRun, hrun, pure_bind]
-            exact hrun2
-      · exact False.elim hi
 end Verdict
 end SigGolfCandidate.T3.Security.LargeCoupling

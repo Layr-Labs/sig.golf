@@ -1,112 +1,348 @@
-import SigGolfCandidate.T3M.Sign.PackedSourceBridge
-import SigGolfCandidate.T3M.Sign.BoundaryInvariant
-import SigGolfCandidate.T3M.Sign.InitState
-import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Sign.Main
-import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Sign.PackedLeaf
-import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Sign.TopLeafP
-import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.RotateCompact
+import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.CompactRun
+import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.Compact2Wit
+import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.ComposeBack
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Submission
+import SigGolfCandidate.T3M.Submission
 
 section
 
 
 
+namespace ClaudeWCT.W9.Machine.Expand.Compact
+open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
+open SigGolfCandidate.T3 (HashOutput readLE)
+open SigGolfCandidate.T3M (window window_append_left window_append_right window_flatMap_const window_full zeros wordsOf)
+open SphincsSecurity (bytesLE bytesLE_length)
+open ClaudeWCT.W9.T3M (headerBytes regionBytes merkleBytes authSibOff authByte headerBytes_length
+  regionBytes_length merkleBytes_length region_merkle merkleBytes_sib authByte_none window_map_range)
+open ClaudeWCT.W9.Machine.Expand (witListV6 wctBytesV6 wctBytesV6_length witListV6_length witListV5 wctBytesV5 regionBytesV5 merkleBytesV5 merkleBytesV5_length
+  regionBytesV5_length wctBytesV5_length witListV5_length region_merkleV5 merkleBytesV5_window wordsOf_getD)
+set_option linter.unusedSimpArgs false
+theorem window_window (L : List UInt8) (o m a n : Nat) (h : a + n ≤ m) :
+    window (window L o m) a n = window L (o + a) n := by
+  unfold window
+  rw [List.drop_take, List.take_take, List.drop_drop, Nat.min_eq_left (by omega)]
+section
+variable (N : HashOutput) (w : WCT9.Witness)
+theorem witList_head (o : Nat) (h : o + 8 ≤ 64) : window (witListV6 N w) o 8 = window (witListV5 N w) o 8 := by
+  unfold witListV6 witListV5
+  simp only [List.append_assoc]
+  rw [window_append_left _ _ _ _ (by rw [headerBytes_length]; omega),
+    window_append_left _ _ _ _ (by rw [headerBytes_length]; omega)]
+theorem witList_tail (o : Nat) (h : 8128 ≤ o) :
+    window (witListV6 N w) o 8 = window (witListV5 N w) (o + 1152) 8 := by
+  unfold witListV6 witListV5
+  simp only [List.append_assoc]
+  rw [window_append_right (headerBytes w) _ _ _ (by rw [headerBytes_length]; omega),
+    window_append_right (headerBytes w) _ _ _ (by rw [headerBytes_length]; omega), headerBytes_length,
+    window_append_right (wctBytesV6 N w.signature) _ _ _ (by rw [wctBytesV6_length]; omega),
+    window_append_right (wctBytesV5 N w.signature) _ _ _ (by rw [wctBytesV5_length]; omega), wctBytesV6_length,
+    wctBytesV5_length,
+    show o + 1152 - 64 - 9216 = o - 64 - 8064 by omega]
+theorem witList_region (k : Nat) (hk : k < 9) (j : Nat) (hj : j + 8 ≤ 896) :
+    window (witListV6 N w) (64 + 896 * k + j) 8 =
+      window (regionBytes (WCT9.child N ⟨k, hk⟩).val (w.signature.openings ⟨k, hk⟩)) j 8 := by
+  unfold witListV6
+  simp only [List.append_assoc]
+  rw [window_append_right _ _ _ _ (by rw [headerBytes_length]; omega), headerBytes_length,
+    window_append_left _ _ _ _ (by rw [wctBytesV6_length]; omega),
+    show 64 + 896 * k + j - 64 = 896 * k + j by omega]
+  unfold wctBytesV6
+  rw [window_flatMap_const _ _ 896 (fun k => regionBytes_length _ _) k (by simp; omega) j 8 hj]
+  simp
+theorem witListV5_region (k : Nat) (hk : k < 9) (j : Nat) (hj : j + 8 ≤ 1024) :
+    window (witListV5 N w) (64 + 1024 * k + j) 8 =
+      window (regionBytesV5 (WCT9.child N ⟨k, hk⟩).val (w.signature.openings ⟨k, hk⟩)) j 8 := by
+  unfold witListV5
+  simp only [List.append_assoc]
+  rw [window_append_right _ _ _ _ (by rw [headerBytes_length]; omega), headerBytes_length,
+    window_append_left _ _ _ _ (by rw [wctBytesV5_length]; omega),
+    show 64 + 1024 * k + j - 64 = 1024 * k + j by omega]
+  unfold wctBytesV5
+  rw [window_flatMap_const _ _ 1024 (fun k => regionBytesV5_length _ _) k (by simp; omega) j 8 hj]
+  simp
+end
+section
+variable (c : Nat) (op : WCT9.Opening)
+theorem region_tail (o : Nat) (h0 : 320 ≤ o) (h : o + 8 ≤ 896) :
+    window (regionBytes c op) o 8 = window (regionBytesV5 c op) (o + 128) 8 := by
+  unfold regionBytes regionBytesV5
+  simp only [List.append_assoc]
+  rw [window_append_right (merkleBytes c op) _ _ _ (by rw [merkleBytes_length]; omega),
+    window_append_right (merkleBytesV5 c op) _ _ _ (by rw [merkleBytesV5_length]; omega), merkleBytes_length,
+    merkleBytesV5_length,
+    show o + 128 - 448 = o - 320 by omega]
+theorem merkleV5_sib (l : Fin 7) : window (merkleBytesV5 c op) (srcOff c l.val) 16 = bytesLE 16 (op.path l) := by
+  unfold srcOff
+  have hb : c / 2 ^ l.val % 2 < 2 := Nat.mod_lt _ (by norm_num)
+  rw [merkleBytesV5_window c op l _ (by omega)]
+  by_cases h1 : c / 2 ^ l.val % 2 = 1
+  · rw [if_pos h1, h1, show 48 * (1 - 1) = 0 from rfl,
+      window_append_left _ _ _ _ (by simp [bytesLE_length]), window_full _ _ (bytesLE_length _ _)]
+  · rw [if_neg h1, show 48 * (1 - c / 2 ^ l.val % 2) = 48 by omega,
+      window_append_right _ _ _ _ (by simp [zeros]), show 48 - (zeros 48).length = 0 by simp [zeros],
+      window_full _ _ (bytesLE_length _ _)]
+theorem sib_window (hc : c < 128) (l : Nat) (hl : l < 7) (a : Nat) (ha : a + 8 ≤ 16) :
+    window (merkleBytes c op) (authSibOff c l + a) 8 = window (merkleBytesV5 c op) (srcOff c l + a) 8 := by
+  rw [← window_window _ _ 16 _ _ ha, ← window_window _ _ 16 _ _ ha,
+    merkleBytes_sib hc op ⟨l, hl⟩, merkleV5_sib c op ⟨l, hl⟩]
+theorem merkle_none (hc : c < 128) (j : Nat) (hj : j < 40) (h : sibSrc c j = none) :
+    window (merkleBytes c op) (8 * j) 8 = zeros 8 := by
+  have hn : ∀ l < 7, authSibOff c l ≠ 8 * j ∧ authSibOff c l + 8 ≠ 8 * j := by
+    intro l hl
+    unfold sibSrc sibLev at h
+    rw [Option.map_eq_none_iff] at h
+    have := find_none h l hl
+    simp only [decide_eq_false_iff_not, not_or] at this
+    exact this
+  unfold merkleBytes
+  rw [window_map_range _ _ _ _ (by omega)]
+  rw [List.map_congr_left (fun i hi => authByte_none op (fun l => by
+    have hi' := List.mem_range.mp hi
+    have h16 := authSibOff_ok c hc l.val l.isLt
+    have := hn l.val l.isLt
+    omega))]
+  simp [zeros, List.map_const']
+end
+theorem compact_words (N : HashOutput) (w : WCT9.Witness) (i : Nat) (hi : i < 2729) :
+    (wordsOf (witListV6 N w)).getD i 0 =
+      finalWord (fun B => (wordsOf (witListV5 N w)).getD ((B - 0x800) / 8) 0)
+        (fun k => N.toNat / 2 ^ WCT9.childBase k % 128) i := by
+  have hW := witListV6_length N w
+  have hV := witListV5_length N w
+  rw [wordsOf_getD _ 2729 (by omega) i hi]
+  unfold finalWord
+  by_cases h8 : i < 8
+  · rw [if_pos h8]
+    beta_reduce
+    rw [show (0x800 + 8 * i - 0x800) / 8 = i by omega, wordsOf_getD _ 2873 (by omega) i (by omega),
+      witList_head N w _ (by omega)]
+  rw [if_neg h8]
+  by_cases ht : 1016 ≤ i
+  · rw [if_neg (show ¬ i < 1016 by omega)]
+    beta_reduce
+    rw [show (0x800 + 8 * (i + 144) - 0x800) / 8 = i + 144 by omega,
+      wordsOf_getD _ 2873 (by omega) (i + 144) (by omega), witList_tail N w _ (by omega),
+      show 8 * i + 1152 = 8 * (i + 144) by ring]
+  rw [if_pos (show i < 1016 by omega)]
+  obtain ⟨k, j, hj, rfl⟩ : ∃ k j, j < 112 ∧ i = 8 + 112 * k + j :=
+    ⟨(i - 8) / 112, (i - 8) % 112, Nat.mod_lt _ (by norm_num), by omega⟩
+  have hk : k < 9 := by omega
+  have hcl : N.toNat / 2 ^ WCT9.childBase k % 128 < 128 := Nat.mod_lt _ (by norm_num)
+  rw [show (8 + 112 * k + j - 8) / 112 = k by omega, show (8 + 112 * k + j - 8) % 112 = j by omega,
+    show 8 * (8 + 112 * k + j) = 64 + 896 * k + 8 * j by ring, witList_region N w k hk (8 * j) (by omega)]
+  have hcv : (WCT9.child N ⟨k, hk⟩).val = N.toNat / 2 ^ WCT9.childBase k % 128 := rfl
+  rw [hcv]
+  by_cases hj40 : j < 40
+  · rw [if_pos hj40, region_merkle _ _ _ _ (by omega)]
+    cases h : sibSrc (N.toNat / 2 ^ WCT9.childBase k % 128) j with
+    | none =>
+      rw [merkle_none _ _ hcl j hj40 h]
+      rfl
+    | some o =>
+      have ho := sibSrc_lt h
+      simp only
+      rw [show (0x840 + 1024 * k + o - 0x800) / 8 = 8 + 128 * k + o / 8 by omega,
+        wordsOf_getD _ 2873 (by omega) _ (by omega),
+        show 8 * (8 + 128 * k + o / 8) = 64 + 1024 * k + o by omega, witListV5_region N w k hk o (by omega), hcv,
+        region_merkleV5 _ _ _ _ (by omega)]
+      unfold sibSrc at h
+      cases hl : sibLev (N.toNat / 2 ^ WCT9.childBase k % 128) j with
+      | none => rw [hl] at h; simp at h
+      | some l =>
+        rw [hl] at h
+        simp only [Option.map_some, Option.some.injEq] at h
+        unfold sibLev at hl
+        obtain ⟨hl7, hp⟩ := find_some hl
+        simp only [decide_eq_true_eq] at hp
+        by_cases h0 : authSibOff (N.toNat / 2 ^ WCT9.childBase k % 128) l = 8 * j
+        · rw [if_pos h0] at h
+          subst h
+          have := sib_window _ (w.signature.openings ⟨k, hk⟩) hcl l hl7 0 (by norm_num)
+          rw [Nat.add_zero, Nat.add_zero, h0] at this
+          rw [this]
+        · rw [if_neg h0] at h
+          subst h
+          have := sib_window _ (w.signature.openings ⟨k, hk⟩) hcl l hl7 8 (by norm_num)
+          rw [show authSibOff (N.toNat / 2 ^ WCT9.childBase k % 128) l + 8 = 8 * j by omega] at this
+          rw [this]
+  · rw [if_neg hj40, region_tail _ _ _ (by omega) (by omega)]
+    beta_reduce
+    rw [show (0x840 + 1024 * k + 448 + 8 * (j - 40) - 0x800) / 8 = 8 + 128 * k + (j + 16) by omega,
+      wordsOf_getD _ 2873 (by omega) _ (by omega),
+      show 8 * (8 + 128 * k + (j + 16)) = 64 + 1024 * k + (8 * j + 128) by ring,
+      witListV5_region N w k hk _ (by omega), hcv]
+end ClaudeWCT.W9.Machine.Expand.Compact
+end
 
+section
 
-
-namespace ClaudeWCT.W9.Machine.SignLink
-open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
-open SigGolfCandidate.T3M SigGolfCandidate.T3M.Sign SigGolfCandidate.T3M.Sign.Boundary
-open ClaudeWCT.W9.Machine.Sign (TableAt CostAt TBL COST tblBytes costBytes HookPre SignCodeAt SignRefinesW
-  SignTerminatesW signNew)
+namespace ClaudeWCT.W9.Machine.Expand.Compact2
+open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
+set_option linter.unusedSimpArgs false
 set_option maxRecDepth 100000
-theorem signPrefixData_split : Images.signPrefixData = costBytes ++ tblBytes := by
-  unfold Images.signPrefixData ClaudeWCT.W9.Machine.Sign.costBytes ClaudeWCT.W9.Machine.Sign.tblBytes
-  rw [← List.flatten_append]
-  rfl
-theorem signData_split : Images.signData = costBytes ++ (tblBytes ++ Images.signLegacyData) := by
-  rw [Images.signData, signPrefixData_split, List.append_assoc]
-theorem slice_mid {α : Type} (l1 l2 l3 : List α) (n : Nat) (h : n + 8 ≤ l2.length) :
-    ((l1 ++ (l2 ++ l3)).drop (l1.length + n)).take 8 = (l2.drop n).take 8 := by
-  rw [List.drop_append, List.drop_eq_nil_of_le (show l1.length ≤ l1.length + n by omega), List.nil_append,
-    Nat.add_sub_cancel_left, List.drop_append_of_le_length (show n ≤ l2.length by omega),
-    List.take_append_of_le_length (show 8 ≤ (l2.drop n).length by rw [List.length_drop]; omega)]
-theorem slice_head {α : Type} (l1 l2 : List α) (n : Nat) (h : n + 8 ≤ l1.length) :
-    ((l1 ++ l2).drop n).take 8 = (l1.drop n).take 8 := by
-  rw [List.drop_append_of_le_length (show n ≤ l1.length by omega),
-    List.take_append_of_le_length (show 8 ≤ (l1.drop n).length by rw [List.length_drop]; omega)]
-theorem sinit_wct_cost (sk : SecretKey) (cache : Bytes 131072) (m : Message) : CostAt (sinit sk cache m) := by
-  intro k hk
-  have hc := ClaudeWCT.W9.Machine.Sign.SearchM.costBytes_length
-  rw [sinit_getMem _ _ _ _ (by unfold COST; omega), if_neg (by unfold COST; omega), if_neg (by unfold COST; omega),
-    if_neg (by unfold COST; omega), sdata_getMem _ (by unfold COST; omega),
-    if_pos (by unfold COST SIGN_DATA; omega), show COST + 8 * k - SIGN_DATA = 8 * k by unfold COST SIGN_DATA; omega,
-    signData_split, slice_head _ _ _ (by omega)]
-theorem sinit_wct_table (sk : SecretKey) (cache : Bytes 131072) (m : Message) : TableAt (sinit sk cache m) := by
-  intro k hk
-  have hc := ClaudeWCT.W9.Machine.Sign.SearchM.costBytes_length
-  have ht := ClaudeWCT.W9.Machine.Sign.tblBytes_length
-  rw [sinit_getMem _ _ _ _ (by unfold TBL; omega), if_neg (by unfold TBL; omega), if_neg (by unfold TBL; omega),
-    if_neg (by unfold TBL; omega), sdata_getMem _ (by unfold TBL; omega),
-    if_pos (by unfold TBL SIGN_DATA; omega), show TBL + 8 * k - SIGN_DATA = costBytes.length + 8 * k by
-      rw [hc]; unfold TBL SIGN_DATA; omega,
-    signData_split, slice_mid _ _ _ _ (by omega)]
-theorem hook_v6 {sk : SecretKey} {cache : Bytes 131072} {m : Message} {rho : SigGolfCandidate.T3.Digest}
-    {t : MachineState} (h : NoncePost sk cache m rho t) : HookPre sk m rho t := by
-  refine ⟨⟨h.search.pc, h.search.x5, h.search.x19, h.search.rho, h.search.msg, ?_⟩, h.rho, ?_, ?_, ?_⟩
-  · intro k hk
-    rw [h.frame.get (by unfold COST; omega) (by unfold FrontW COST; sg_omega)]
-    exact sinit_wct_cost sk cache m k hk
-  · intro k hk
-    change t.getMem (BitVec.ofNat 64 (0x80 + 8 * k)) = _
-    rw [h.frame.get (by omega) (by unfold FrontW; sg_omega)]
-    exact sinit_sk sk cache m k hk
-  · intro A hA
-    simp only [ClaudeWCT.W9.Machine.Sign.ScrZero, ClaudeWCT.W9.Machine.Sign.PRIVW, ClaudeWCT.W9.Machine.Sign.CHAINW,
-      ClaudeWCT.W9.Machine.Sign.NODEW] at hA
-    rw [h.frame.get (by omega) (by unfold FrontW; sg_omega)]
-    exact sinit_zero sk cache m A (by unfold SIGN_DATA; omega) (by sg_omega)
-  · intro k hk
-    rw [h.frame.get (by unfold TBL; omega) (by unfold FrontW TBL; sg_omega)]
-    exact sinit_wct_table sk cache m k hk
-theorem wct_unchanged_v6 :
-    ClaudeWCT.W9.Machine.Sign.Unchanged submission.image (fun sk cache _m => Inv sk cache) := by
-  refine ⟨?_, ?_, ?_⟩
-  · intro sk cache m
-    refine ⟨sinit sk cache m, initialState_sign sk cache m, ?_⟩
-    intro α W Q K hfail hrest
-    exact nonce_front K (fun t ht => hfail t ⟨ht.pc, ht.x5, ht.x10⟩)
-      (fun rho t ht => hrest rho t (hook_v6 ht) ht.inv)
-  · intro sk cache m t u h hf hr
-    exact Inv.stable h hf hr (by decide)
-  · intro sk cache m index root s hp hi
-    have hs := Sign.Packed.layers_from370_canonical ClaudeWCT.W9.Machine.Sign.PackedLeaf.packedLeafSpecV
-      ClaudeWCT.W9.Machine.Sign.TopLeafP.topLeafSpec
-      hp.pc hi.1 hp.hidx hp.idx hp.root (by rw [hi.2.1]; decide) (by exact ⟨hi.2.2.1, hi.2.2.2⟩)
-    refine TBSim.mono hs (by rw [Sign.Packed.layers_entry_cost]; decide) (fun r u hu => ?_)
-    cases r with
-    | none => exact ⟨hu.pc, hu.x5, hu.x10⟩
-    | some ps =>
-      obtain ⟨hpc, hlen, hpieces, hf⟩ := hu
-      exact ⟨hpc, hlen, fun lay => hpieces lay lay.isLt, hf.mono (fun A _ h => h.1)⟩
-set_option maxHeartbeats 0 in
-theorem signCode_drop_v6 : Images.signImage.code.drop 11003 = signNew ++ Images.signImage.code.drop 20771 := by
-  decide +kernel
-set_option maxHeartbeats 0 in
-theorem wct_signCodeAt_v6 : SignCodeAt Images.signImage := by
-  refine ⟨?_, ?_⟩
-  · exact ⟨_, signCode_drop_v6.symm⟩
-  · exact ⟨by decide +kernel, by decide +kernel, by decide +kernel⟩
-theorem wct_sign_certified_v6 :
-    SignRefinesW submission.image ∧ SignTerminatesW submission.image :=
-  ClaudeWCT.W9.Machine.Sign.signMain submission.image (fun sk cache _m => Inv sk cache) wct_signCodeAt_v6
-    wct_unchanged_v6
-end ClaudeWCT.W9.Machine.SignLink
+theorem lvSrc_val (lay j : Nat) (hl : 1 ≤ lay ∧ lay < 4) :
+    SNAP2 + 8136 ≤ lvSrc lay j ∧ lvSrc lay j ≤ SNAP2 + 8136 + 64 * 171 ∧ (lvSrc lay j - SNAP2) % 8 = 0 := by
+  have hS : SNAP2 = 0x300000 := rfl
+  unfold lvSrc
+  split_ifs <;> omega
+theorem pathOut_congr (M M' : Nat → Word) (lay r p : Nat)
+    (h : ∀ j < lvH lay, M (lvSrc lay j - SNAP2 + WIT + (p - 16 * plan lay r j)) =
+      M' (lvSrc lay j - SNAP2 + WIT + (p - 16 * plan lay r j))) :
+    pathOut M lay r p = pathOut M' lay r p := by
+  unfold pathOut
+  split
+  · rename_i j hj
+    exact h j (List.mem_range.mp (List.mem_of_find?_eq_some hj))
+  · rfl
+theorem out2_congr (M M' : Nat → Word) (h : ∀ x < 8 * 2729, x % 8 = 0 → M (WIT + x) = M' (WIT + x))
+    (idx o : Nat) (ho : o % 8 = 0) : out2 M idx o = out2 M' idx o := by
+  have hW : WIT = 0x800 := rfl
+  have hS : SNAP2 = 0x300000 := rfl
+  have e : ∀ A, WIT ≤ A → A - WIT < 8 * 2729 → (A - WIT) % 8 = 0 → M A = M' A := fun A h1 h2 h3 => by
+    have := h (A - WIT) h2 h3
+    rwa [show WIT + (A - WIT) = A by omega] at this
+  obtain ⟨d1, d2, d3, c1, c2, c3⟩ := lay_consts
+  have hz : (zoneLay o = 1 ∧ o < 15344) ∨ (zoneLay o = 2 ∧ 15344 ≤ o ∧ o < 18400) ∨
+      (zoneLay o = 3 ∧ 18400 ≤ o) := by
+    unfold zoneLay; split_ifs <;> omega
+  have hzl : 1 ≤ zoneLay o ∧ zoneLay o < 4 := by omega
+  have hpt : pathTop (zoneLay o) ≤ 368 := by unfold pathTop; split_ifs <;> omega
+  have hch : chSrc (zoneLay o) - SNAP2 + (o - (chDst (zoneLay o) - WIT)) + 8 ≤ 8 * 2729 ∨ ¬ o < 21456 := by
+    unfold chSrc
+    rcases hz with ⟨hz, _⟩ | ⟨hz, _, _⟩ | ⟨hz, _⟩ <;> rw [hz] <;> simp only [hz] at * <;> norm_num <;> omega
+  have hch8 : (chSrc (zoneLay o) - SNAP2 + (o - (chDst (zoneLay o) - WIT))) % 8 = 0 := by
+    unfold chSrc
+    rcases hz with ⟨hz, _⟩ | ⟨hz, _, _⟩ | ⟨hz, _⟩ <;> rw [hz] <;> simp only [hz] at * <;> norm_num <;> omega
+  have hdl : (lvDst (zoneLay o) - WIT) % 8 = 0 := by
+    rcases hz with ⟨hz, _⟩ | ⟨hz, _, _⟩ | ⟨hz, _⟩ <;> rw [hz] <;> omega
+  have hcs : SNAP2 ≤ chSrc (zoneLay o) := by unfold chSrc; omega
+  unfold out2
+  split_ifs with h1 h2 h3 h4 h5 h6 h7 h8 h9
+  · exact e _ (by omega) (by omega) (by omega)
+  · rcases Nat.le_total ((o - 64) / 880) 8 with hq | hq
+    · rw [Nat.min_eq_left hq]
+      exact e _ (by omega) (by omega) (by omega)
+    · rw [Nat.min_eq_right hq]
+      exact e _ (by omega) (by omega) (by omega)
+  · exact e _ (by omega) (by omega) (by omega)
+  · apply pathOut_congr
+    intro j hj
+    obtain ⟨s1, s2, s3⟩ := lvSrc_val (zoneLay o) j hzl
+    exact e _ (by omega) (by omega) (by omega)
+  · exact e _ (by omega) (by omega) (by omega)
+  · exact e _ (by omega) (by omega) (by omega)
+  · exact e _ (by omega) (by omega) (by omega)
+  · rfl
+  · rw [e _ (by omega) (by omega) (by omega)]
+theorem index_shr (N : SigGolfCandidate.T3.HashOutput) :
+    N.extractLsb' 0 64 >>> 33 = BitVec.ofNat 64 (WCT9.digestIndex N) := by
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_ushiftRight, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, Nat.shiftRight_zero,
+    BitVec.toNat_ofNat]
+  unfold WCT9.digestIndex
+  rw [Nat.mod_eq_of_lt (show N.toNat / 2 ^ 33 % 2 ^ 31 < 2 ^ 64 by omega)]
+  rw [show (2 : Nat) ^ 64 = 2 ^ 33 * 2 ^ 31 by norm_num, Nat.mod_mul_right_div_self]
+end ClaudeWCT.W9.Machine.Expand.Compact2
 end
 
 section
 
 
+
+
+namespace ClaudeWCT.W9.Machine.Expand
+open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
+open SigGolfCandidate.T3 (HashOutput)
+open SigGolfCandidate.T3M
+open SigGolfCandidate.T3M.Search (OutAt)
+set_option linter.unusedSimpArgs false
+structure CompactPre (N : HashOutput) (w : WCT9.Witness) (s : MachineState) : Prop where
+  pc : s.pc = pcOf 351
+  wit : s.readWords (BitVec.ofNat 64 0x800) 2873 = wordsOf (witListV5 N w)
+  dig : OutAt s 0x60 N
+  plan : PlanAt s
+  lplan : Compact2.LPlanAt s
+def compactC : Nat := 66725
+def CompactGood (im : Image) : Prop :=
+  NewCodeAt im → CodeAt im (pcOf 351) [compactJal] → ∀ N w s, CompactPre N w s →
+    ∃ t, Steps im s compactC compactC t ∧ t.pc = pcOf 42718 ∧ t.getReg .x5 = BitVec.ofNat 64 1 ∧
+      t.getReg .x10 = BitVec.ofNat 64 0 ∧
+      t.readWords (BitVec.ofNat 64 0x800) 2686 = wordsOf (ClaudeWCT.W9.T3M.witList N w)
+namespace Compact
+sym_block cJal := symRun { noAlias := true } [compactJal] (pcOf 351) 10
+theorem jal_spec {im : Image} (hJ : CodeAt im (pcOf 351) [compactJal]) (s : MachineState) (hpc : s.pc = pcOf 351) :
+    ∃ t, Steps im s 1 1 t ∧ t.pc = pcOf 41108 ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_, symRun_sound cJal hJ s hpc (by simp [cJal.res, rv_simp]), ?_, ?_, ?_⟩
+  · simp [Result.toState_pc, cJal.res, E.eval]
+  · c_regs cJal.res
+  · intro A _ _; simp [cJal.res, rv_simp]
+theorem finalWord_congr (M M' : Nat → Word) (cs : Nat → Nat)
+    (h : ∀ i' < 2873, M (0x800 + 8 * i') = M' (0x800 + 8 * i')) (i : Nat) (hi : i < 2729) :
+    finalWord M cs i = finalWord M' cs i := by
+  unfold finalWord
+  split
+  · exact h i (by omega)
+  · split
+    · split
+      · cases hs : sibSrc (cs ((i - 8) / 112)) ((i - 8) % 112) with
+        | none => rfl
+        | some o =>
+          have := sibSrc_lt hs
+          simp only
+          rw [show 0x840 + 1024 * ((i - 8) / 112) + o = 0x800 + 8 * (8 + 128 * ((i - 8) / 112) + o / 8) by omega]
+          exact h _ (by omega)
+      · rw [show 0x840 + 1024 * ((i - 8) / 112) + 448 + 8 * ((i - 8) % 112 - 40) =
+          0x800 + 8 * (8 + 128 * ((i - 8) / 112) + 56 + ((i - 8) % 112 - 40)) by omega]
+        exact h _ (by omega)
+    · exact h _ (by omega)
+end Compact
+theorem compactGood_holds (im : Image) : CompactGood im := by
+  intro hc hJ N w s hpre
+  have hPL : PLAN = 0xff9a00 := rfl
+  have hLP : Compact2.LPLAN = 0xff9400 := rfl
+  obtain ⟨u, su, pu, ru, fu⟩ := Compact.jal_spec hJ s hpre.pc
+  have hNu : OutAt u 0x60 N := fun j hj => by rw [fu _ (by omega) (fun h => h)]; exact hpre.dig j hj
+  have hpu : PlanAt u := fun j hj => by rw [fu _ (by omega) (fun h => h)]; exact hpre.plan j hj
+  obtain ⟨v, sv, pv, rv, mv, fv⟩ := Compact.run_spec hc N u pu hNu hpu
+  have hix : v.getMem (BitVec.ofNat 64 0x60) >>> 33 = BitVec.ofNat 64 (WCT9.digestIndex N) := by
+    rw [fv 0x60 (by norm_num) (Or.inl (by norm_num))]
+    have h0 := hNu 0 (by norm_num)
+    rw [show (0x60 : Nat) + 8 * 0 = 0x60 from rfl] at h0
+    rw [h0]
+    exact Compact2.index_shr N
+  have hlv : Compact2.LPlanAt v := fun k hk => by
+    rw [fv _ (by omega) (Or.inr (by omega)), fu _ (by omega) (fun h => h)]
+    exact hpre.lplan k hk
+  obtain ⟨t, st, pt, t5, t10, mt⟩ := Compact2.run2_spec hc v pv (WCT9.digestIndex N) (WCT9.digestIndex_lt N) hix hlv
+  refine ⟨t, ((su.trans sv).trans st).of_eq (by unfold compactC; norm_num) (by unfold compactC; norm_num), pt, t5,
+    t10, ?_⟩
+  have hW5 : ∀ i' < 2873, s.getMem (BitVec.ofNat 64 (0x800 + 8 * i')) = (wordsOf (witListV5 N w)).getD i' 0 := by
+    intro i' hi'
+    rw [← hpre.wit, VLib.readWords_ofNat s 0x800 2873 (by norm_num)]
+    simp [List.getD_eq_getElem?_getD, hi']
+  have hv6 : ∀ x < 8 * 2729, x % 8 = 0 →
+      v.getMem (BitVec.ofNat 64 (Compact2.WIT + x)) = Compact2.v6M N w (Compact2.WIT + x) := by
+    intro x hx h8
+    obtain ⟨i, rfl⟩ : ∃ i, x = 8 * i := ⟨x / 8, by omega⟩
+    rw [show Compact2.WIT = 0x800 from rfl, mv i (by omega)]
+    unfold Compact2.v6M
+    rw [show (0x800 + 8 * i - Compact2.WIT) / 8 = i by unfold Compact2.WIT; omega,
+      Compact.compact_words N w i (by omega)]
+    apply Compact.finalWord_congr _ _ _ (fun i' hi' => ?_) i (by omega)
+    rw [fu _ (by omega) (fun h => h), hW5 i' hi', show (0x800 + 8 * i' - 0x800) / 8 = i' by omega]
+  have hl : (wordsOf (ClaudeWCT.W9.T3M.witList N w)).length = 2686 :=
+    length_wordsOf 2686 _ (by rw [ClaudeWCT.W9.T3M.witList_length_eq])
+  rw [← hl]
+  refine readWords_ext t _ 0x800 (fun i hi => ?_)
+  rw [hl] at hi
+  rw [mt _ (by omega), show 0x800 + 8 * i = Compact2.WIT + 8 * i from rfl,
+    Compact2.run2_zone _ _ _ (by omega) (by omega), Compact2.compact2_words N w i hi]
+  exact Compact2.out2_congr _ _ hv6 _ _ (by omega)
+end ClaudeWCT.W9.Machine.Expand
+end
+
+section
 
 
 
@@ -156,28 +392,28 @@ theorem dword_of_halves (w : BitVec 64) :
   omega
 def ExpQW : Option (HashOutput × WCT9.Witness) → MachineState → Prop
   | none, t => FailedAt 354 t ∨ FailedAt 41062 t
-  | some (N, w), t => t.pc = pcOf 42161 ∧ t.getReg .x5 = BitVec.ofNat 64 1 ∧ t.getReg .x10 = BitVec.ofNat 64 0 ∧
-      t.readWords (BitVec.ofNat 64 0x800) 2729 = wordsOf (ClaudeWCT.W9.T3M.witList N w)
-def expCostW : Nat := 30 + newCost + (lcost 4 + 9 + rotatedCompactC)
+  | some (N, w), t => t.pc = pcOf 42718 ∧ t.getReg .x5 = BitVec.ofNat 64 1 ∧ t.getReg .x10 = BitVec.ofNat 64 0 ∧
+      t.readWords (BitVec.ofNat 64 0x800) 2686 = wordsOf (ClaudeWCT.W9.T3M.witList N w)
+def expCostW : Nat := 37 + newCost + (lcost 4 + 9 + compactC)
 theorem lcost_four : lcost 4 ≤ 3011803496 := by decide
-theorem expCostW_le : expCostW ≤ 3431373864 := by
+theorem expCostW_le : expCostW ≤ 3431400667 := by
   have h := lcost_four
-  unfold expCostW newCost rotatedCompactC compactC
+  unfold expCostW newCost compactC
   generalize lcost 4 = L at h ⊢
   omega
 theorem expCostW_lt : expCostW + 1 < CYCLE_LIMIT := by
   have h := lcost_four
-  unfold expCostW newCost rotatedCompactC compactC CYCLE_LIMIT
+  unfold expCostW newCost compactC CYCLE_LIMIT
   generalize lcost 4 = L at h ⊢
   omega
 theorem hookAt_of_front {im : Image} (hF : FrontAt im) : HookAt im :=
-  codeAt_appR (n := 0) (a := SigGolfCandidate.T3M.Expand.seg_0) hF (by decide)
+  codeAt_appR (n := 0) (a := SigGolfCandidate.T3M.Expand.seg_0) hF.1 (by decide)
 theorem lP_eq (lay : Layer) : lP lay = 0x7000 + 2192 + 16 * (ClaudeWCT.W9.T3M.layIdx lay - 127) ∧ 127 ≤ ClaudeWCT.W9.T3M.layIdx lay ∧
     ClaudeWCT.W9.T3M.layIdx lay + chainCount lay + height lay ≤ 341 := by
   fin_cases lay <;> decide
 def FrontW (A : Nat) : Prop :=
   A = 0x800 ∨ A = 0x808 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨ A = DIG + 40 ∨ A = DIG + 48 ∨ A = DIG + 56 ∨
-    A = 23880 ∨ A = 23888 ∨ A = 23896 ∨ A = 23904
+    A = 0x5BF0 ∨ A = 0x5BF8 ∨ A = 0x5C00 ∨ A = 0x5C08
 theorem lD_cases (lay : Layer) : lD lay = 0x3ce8 ∨ lD lay = 0x4968 ∨ lD lay = 0x55a8 ∨ lD lay = 0x820 := by
   fin_cases lay <;> simp [lD]
 theorem lk_zero (lay : Layer) : lk lay = 0 := by fin_cases lay <;> rfl
@@ -210,14 +446,18 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hd : E
     TBSim im sk (w9init im m pk σ) expCostW (ClaudeWCT.W9.T3M.expandN m pk (sigDec σ)) ExpQW := by
   set sig := sigDec σ with hsig
   set s0 := w9init im m pk σ with hs0
-  obtain ⟨t1, st1, hpre, w800, w808, zm1, f1⟩ := front_pre30 hF hd m pk σ
-  have hz0 : ∀ A, A < PLAN → (A < 0x7000 ∨ 0x7000 + 5456 ≤ A) → (A < 0xA0 ∨ 0xB0 ≤ A) → (A < 23880 ∨ 23912 ≤ A) →
-      s0.getMem (BitVec.ofNat 64 A) = 0 := fun A hA h1 h2 h3 => w9init_zero hd m pk σ A hA ⟨h1, h2, h3⟩
-  unfold PLAN at hz0
+  obtain ⟨t1, st1, hpre, hmz, w800, w808, f1⟩ := front_pre30 hF hd m pk σ
+  have hz0 : ∀ A, A < Compact2.LPLAN → (A < 0x7000 ∨ 0x7000 + 5456 ≤ A) → (A < 0xA0 ∨ 0xB0 ≤ A) →
+      (A < 0x5BF0 ∨ 0x5C10 ≤ A) → s0.getMem (BitVec.ofNat 64 A) = 0 := fun A hA h1 h2 h3 =>
+    w9init_zero hd m pk σ A hA ⟨h1, h2, by omega⟩
+  have hz0' : ∀ A, A < Compact2.LPLAN → (A < 0x7000 ∨ 0x7000 + 5456 ≤ A) → (A < 0xA0 ∨ 0xB0 ≤ A) →
+      ¬ (0x5BF0 ≤ A ∧ A < 0x5C10 ∧ (A - 0x5BF0) % 8 = 0) → s0.getMem (BitVec.ofNat 64 A) = 0 :=
+    fun A hA h1 h2 h3 => w9init_zero hd m pk σ A hA ⟨h1, h2, h3⟩
+  unfold Compact2.LPLAN at hz0 hz0'
   rw [expandN_split]
-  have hCC : rotatedCompactC = 39929 := rfl
+  have hCC : compactC = 66725 := rfl
   have hPL : PLAN = 0xff9a00 := rfl
-  refine (TBSim.steps st1 (TBSim.bind (W₂ := lcost 4 + 9 + rotatedCompactC)
+  refine (TBSim.steps st1 (TBSim.bind (W₂ := lcost 4 + 9 + compactC)
     (newCode_tb hc (hookAt_of_front hF) sk m sig t1 hpre) (fun r t7 h7 => ?_))).mono
     (by unfold expCostW; omega) (fun _ _ h => h)
   rcases r with _ | ⟨counter, N, root⟩
@@ -230,7 +470,7 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hd : E
   have F7 : Frame s0 t7 (fun A => FrontW A ∨ NewW A) := f1.trans P.frame
   have g7 : ∀ A, A < 2 ^ 64 → ¬ FrontW A → ¬ NewW A → t7.getMem (BitVec.ofNat 64 A) = s0.getMem (BitVec.ofNat 64 A) :=
     fun A hA h1 h2 => F7 A hA (fun h => h.elim h1 h2)
-  have nFW : ∀ A, (A < 0x800 ∨ 0x810 ≤ A) → (A < DIG ∨ DIG + 64 ≤ A) → (A < 23880 ∨ 23912 ≤ A) → ¬ FrontW A := by
+  have nFW : ∀ A, (A < 0x800 ∨ 0x810 ≤ A) → (A < DIG ∨ DIG + 64 ≤ A) → (A < 0x5BF0 ∨ 0x5C10 ≤ A) → ¬ FrontW A := by
     intro A h1 h2 h3 h; unfold FrontW at h; simp only [DIG] at h h2; omega
   have nNW : ∀ A, A ≠ 0x810 → (A < 0x60 ∨ 0x80 ≤ A) → (A < 0x100 ∨ 0x120 ≤ A) → (A < 0x400 ∨ 0x550 ≤ A) →
       (A < 0x840 ∨ 0x2c48 ≤ A) → (A < 0x7890 ∨ 0x85f0 ≤ A) → (A < DIG + 16 ∨ DIG + 32 ≤ A) →
@@ -238,17 +478,13 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hd : E
     intro A h1 h2 h3 h4 h5 h6 h7 h8 h9 h10 h11 h
     unfold NewW at h; simp only [DIG, NBUF, IDXV, ENC] at h h7 h8 h9 h10 h11; omega
   have z7 : ∀ A, A < 0x7000 → (A < 0x60 ∨ 0x80 ≤ A) → (A < 0x100 ∨ 0x120 ≤ A) → (A < 0x400 ∨ 0x550 ≤ A) →
-      (A < 0x800 ∨ 0x818 ≤ A) → (A < 0x840 ∨ 0x2c48 ≤ A) → (A < 0xA0 ∨ 0xB0 ≤ A) → (A < 0x40 ∨ 0x60 ≤ A) →
+      (A < 0x800 ∨ 0x818 ≤ A) → (A < 0x840 ∨ 0x2c48 ≤ A) → (A < 0xA0 ∨ 0xB0 ≤ A) → (A < 0x5BF0 ∨ 0x5C10 ≤ A) →
       t7.getMem (BitVec.ofNat 64 A) = 0 := by
     intro A h0 h1 h2 h3 h4 h4' h5 h6
-    by_cases hm : 23880 ≤ A ∧ A < 23912
-    · rw [P.frame.get (by omega) (by unfold NewW; simp only [DIG, NBUF, IDXV, ENC]; omega)]
-      exact zm1 A hm.1 hm.2
-    have hgap : A < 23880 ∨ 23912 ≤ A := by omega
-    rw [g7 A (by omega) (nFW _ (by omega) (by simp only [DIG]; omega) hgap)
+    rw [g7 A (by omega) (nFW _ (by omega) (by simp only [DIG]; omega) h6)
       (nNW _ (by omega) h1 h2 h3 h4' (by omega) (by simp only [DIG]; omega) (by simp only [NBUF]; omega)
         (by simp only [IDXV]; omega) (by simp only [ENC]; omega) (by simp only [ENC]; omega)),
-      hz0 _ (by omega) (by omega) h5 hgap]
+      hz0 _ (by omega) (by omega) h5 h6]
   have z7h : ∀ A, 0x20000 ≤ A → A < 0x30000 → A ≠ ENC → A ≠ ENC + 8 → (A < DIG ∨ DIG + 64 ≤ A) →
       (A < NBUF ∨ NBUF + 32 ≤ A) → A ≠ IDXV → t7.getMem (BitVec.ofNat 64 A) = 0 := by
     intro A h0 h1 h2 h3 h4 h5 h6
@@ -285,7 +521,7 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hd : E
           show 0x7000 + 2192 + 16 * (ClaudeWCT.W9.T3M.layIdx lay - 127 + (chainCount lay + j)) =
             lP lay + 16 * chainCount lay + 16 * j by rw [hP]; ring] at hd
         exact hd
-    · refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
+    · refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
       · rw [z7h _ (by simp only [CHAIN, Search.NODE, LEAFPK, ENC]; omega)
           (by simp only [CHAIN, Search.NODE, LEAFPK, ENC]; omega) (by simp only [CHAIN, Search.NODE, LEAFPK, ENC]; omega)
           (by simp only [CHAIN, Search.NODE, LEAFPK, ENC]; omega)
@@ -303,7 +539,7 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hd : E
       · unfold FrontW at h; simp only [TOP_DATA, DIG] at h; omega
       · unfold NewW at h; simp only [TOP_DATA, DIG, NBUF, IDXV, ENC] at h; omega
   simp only [tailProg]
-  refine (TBSim.bind (W₂ := 9 + rotatedCompactC) (hB.1 sk sig index root t7 hL) (fun r8 t8 h8 => ?_)).mono
+  refine (TBSim.bind (W₂ := 9 + compactC) (hB.1 sk sig index root t7 hL) (fun r8 t8 h8 => ?_)).mono
     (by omega) (fun _ _ h => h)
   rcases r8 with _ | ⟨root', counters⟩
   · exact (TBSim.pure (Q := ExpQW) (a := none) (Or.inl h8)).mono (by omega) (fun _ _ h => h)
@@ -320,7 +556,8 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hd : E
     · have := rlWit_range h; have := ltable_lo lay; omega
   have hpk : ∀ j < 2, t8.getMem (BitVec.ofNat 64 (0xA0 + 8 * j)) = pk.extractLsb' (64 * j) 64 := by
     intro j hj
-    rw [g87 _ (by omega) (nLW _ (by omega) (by omega)), g7 _ (by omega) (nFW _ (by omega) (by simp only [DIG]; omega) (by omega))
+    rw [g87 _ (by omega) (nLW _ (by omega) (by omega)), g7 _ (by omega)
+      (nFW _ (by omega) (by simp only [DIG]; omega) (by omega))
       (nNW _ (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by simp only [DIG]; omega)
         (by simp only [NBUF]; omega) (by simp only [IDXV]; omega) (by simp only [ENC]; omega)
         (by simp only [ENC]; omega))]
@@ -369,6 +606,12 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hd : E
       rw [f810.get (by omega) (fun h => h), g87 _ (by omega) (nLWp _ (by omega)),
         P.frame _ (by omega) (by unfold NewW; simp only [DIG, NBUF, IDXV, ENC]; omega)]
       exact hpre.plan j hj
+    have hlplan : Compact2.LPlanAt t10 := fun j hj => by
+      have hLP : Compact2.LPLAN = 0xff9400 := rfl
+      rw [f810.get (by omega) (fun h => h), g87 _ (by omega) (nLWp _ (by omega)),
+        P.frame _ (by omega) (by unfold NewW; simp only [DIG, NBUF, IDXV, ENC]; omega),
+        f1.get (by omega) (by simp only [DIG]; omega)]
+      exact w9init_lplan hd m pk σ j hj
     have hwit8 : t8.readWords (BitVec.ofNat 64 0x800) 2873 = wordsOf (witListV5 N w) := by
       have halves : ∀ D lo hi, (t8.getMem (BitVec.ofNat 64 D)).extractLsb' 0 32 = lo →
           (t8.getMem (BitVec.ofNat 64 D)).extractLsb' 32 32 = hi →
@@ -412,7 +655,7 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hd : E
         intro A h1 h2
         rw [g87 A (by omega) (nLW A (by omega) (by omega))]
         exact z7 _ (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by omega)
-      have hh : t8.readWords (BitVec.ofNat 64 0x800) 8 = wordsOf (ClaudeWCT.W9.T3M.legacyHeaderBytes w) := by
+      have hh : t8.readWords (BitVec.ofNat 64 0x800) 8 = wordsOf (ClaudeWCT.W9.T3M.headerBytes w) := by
         rw [headerW_words, readWords_eight, r0, show 0x800 + 8 = 0x808 from rfl, r8',
           show 0x800 + 16 = 0x810 from rfl, c810, show 0x800 + 24 = 0x818 from rfl, c818,
           show 0x800 + 32 = 0x820 from rfl, c820, hz8 (0x800 + 40) (by decide) (by decide),
@@ -431,9 +674,16 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hd : E
       have g8L : ∀ A, 0x2c48 ≤ A → A < 0x61C8 → ¬ LW index 4 A → t8.getMem (BitVec.ofNat 64 A) = 0 := by
         intro A h1 h2 hn
         rw [g87 A (by omega) hn]
-        exact z7 _ (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by omega)
+        by_cases hm : 0x5BF0 ≤ A ∧ A < 0x5C10 ∧ (A - 0x5BF0) % 8 = 0
+        · rw [P.frame A (by omega) (by unfold NewW; simp only [DIG, NBUF, IDXV, ENC]; omega)]
+          exact hmz A (by omega) (by omega)
+        · rw [g7 A (by omega) (by unfold FrontW; simp only [DIG]; omega)
+            (nNW _ (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by simp only [DIG]; omega)
+              (by simp only [NBUF]; omega) (by simp only [IDXV]; omega) (by simp only [ENC]; omega)
+              (by simp only [ENC]; omega))]
+          exact hz0' _ (by omega) (by omega) (by omega) hm
       have hlay : ∀ lay : Layer, t8.readWords (BitVec.ofNat 64 (lBase lay)) (8 * (height lay + chainCount lay)) =
-          wordsOf (ClaudeWCT.W9.T3M.layerRegion N w lay) := by
+          wordsOf (layerRegionV6 N w lay) := by
         intro lay
         have hout := hout8 lay (by omega)
         have hrb := region_bounds lay
@@ -448,7 +698,7 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hd : E
           have e : lpath (WCT9.toT3Signature sig) lay j = (sig.layers lay).path ⟨j, h⟩ := by
             unfold lpath; rw [dif_pos h]; rfl
           rw [← e]; exact hout.2.2 j h
-        unfold ClaudeWCT.W9.T3M.layerRegion
+        unfold layerRegionV6
         split
         · rename_i h0
           refine layer_words t8 lay _ _ hv hp (fun A h1 h2 hn => g8L A (by omega) (by omega) ?_)
@@ -470,6 +720,8 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hd : E
             have hlo := (hout8 (Fin.ofNat 4 (lay.val - 1)) (by rw [fin_ofNat_pred]; omega)).1
             simp only [HalfAt, lk_zero, Nat.mul_zero, hD] at hlo
             have hhi1 := hhf1 (lBase lay + 32) (by rw [← hD]; exact lD_cases _)
+            have hcase := lD_cases (Fin.ofNat 4 (lay.val - 1))
+            rw [hD] at hcase
             rw [z7 _ (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by omega)] at hhi1
             rw [halves _ _ _ hlo hhi1]
             exact halves_lo _ _ _ (by decide) rfl
@@ -485,7 +737,7 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hd : E
     have hwit : t10.readWords (BitVec.ofNat 64 0x800) 2873 = wordsOf (witListV5 N w) := by
       rw [frame_readWords f810 0x800 2873 (by decide) (fun _ _ h => h)]; exact hwit8
     obtain ⟨t11, st11, p11, x5_11, x10_11, hw11⟩ :=
-      rotatedCompactGood_holds im hc (codeAt_351W hB.2.1) N w t10 ⟨p10, hwit, hdig, hplan⟩
+      compactGood_holds im hc (codeAt_351W hB.2.1) N w t10 ⟨p10, hwit, hdig, hplan, hlplan⟩
     exact (TBSim.steps (st9.trans (st10.trans st11)) (TBSim.pure (Q := ExpQW) (a := some (N, w))
       ⟨p11, x5_11, x10_11, hw11⟩)).mono (by omega) (fun _ _ h => h)
   · simp only [ne_eq, heq, not_false_eq_true, ↓reduceIte]
@@ -503,11 +755,11 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hd : E
         (Or.inl ⟨p10, x5_10, x10_10⟩))).mono (by omega) (fun _ _ h => h)
 end run
 theorem expqW_output {imgs : Phase → Image} {N : HashOutput} {w : WCT9.Witness} {t : MachineState}
-    (h : t.readWords (BitVec.ofNat 64 0x800) 2729 = wordsOf (ClaudeWCT.W9.T3M.witList N w)) :
+    (h : t.readWords (BitVec.ofNat 64 0x800) 2686 = wordsOf (ClaudeWCT.W9.T3M.witList N w)) :
     readOutput (w9Sub imgs).sizes (w9Sub imgs).layout .expand t = ClaudeWCT.W9.T3M.witEnc N w :=
-  readBuffer_of_words t 0x800 2729 (ClaudeWCT.W9.T3M.witList N w) (by decide) (by decide)
+  readBuffer_of_words t 0x800 2686 (ClaudeWCT.W9.T3M.witList N w) (by decide) (by decide)
     (ClaudeWCT.W9.T3M.witList_length_eq N w) h
-theorem codeAt_42161 {im : Image} (hc : NewCodeAt im) : CodeAt im (pcOf 42161) [0x00000073] :=
+theorem codeAt_42718 {im : Image} (hc : NewCodeAt im) : CodeAt im (pcOf 42718) [0x00000073] :=
   codeAt_of_window hc (by decide) (by decide +kernel)
 theorem expqW_halt (imgs : Phase → Image) (hc : NewCodeAt (imgs .expand)) (hB : BackSpec (imgs .expand))
     (a : Option (HashOutput × WCT9.Witness)) (t : MachineState) (h : ExpQW a t) :
@@ -521,7 +773,7 @@ theorem expqW_halt (imgs : Phase → Image) (hc : NewCodeAt (imgs .expand)) (hB 
     · refine ⟨((codeAt_41064 hc).fetch t p).trans rfl, x5, ?_⟩
       rw [x10]; rfl
   · obtain ⟨p, x5, x10, hw⟩ := h
-    refine ⟨((codeAt_42161 hc).fetch t p).trans rfl, x5, ?_⟩
+    refine ⟨((codeAt_42718 hc).fetch t p).trans rfl, x5, ?_⟩
     rw [x10, if_pos (show (0#64 : BitVec 64) = 0 from rfl), expqW_output hw]; rfl
 set_option maxRecDepth 10000 in
 theorem expandComposeSpec_holds : ExpandComposeSpec := by
@@ -550,18 +802,19 @@ theorem wct_backSpec : BackSpec Images.expandImage := by
   exact ⟨fun sk sig index value s h => layers_tbsim 4 (.forest value) s h, wct_compareCode, Search.kernAt_expand⟩
 set_option maxRecDepth 100000 in
 theorem wct_prefixData : Images.expandPrefixData =
-    ClaudeWCT.W9.Machine.Expand.planBytes ++ ClaudeWCT.W9.Machine.Expand.expCostBytes ++
-      ClaudeWCT.W9.Machine.Expand.hdrBankBytes := by
-  unfold Images.expandPrefixData ClaudeWCT.W9.Machine.Expand.planBytes ClaudeWCT.W9.Machine.Expand.expCostBytes
-    ClaudeWCT.W9.Machine.Expand.hdrBankBytes
-  rw [← List.flatten_append, ← List.flatten_append]
+    ClaudeWCT.W9.Machine.Expand.lplanBytes ++ ClaudeWCT.W9.Machine.Expand.planBytes ++
+      ClaudeWCT.W9.Machine.Expand.expCostBytes ++ ClaudeWCT.W9.Machine.Expand.hdrBankBytes := by
+  unfold Images.expandPrefixData ClaudeWCT.W9.Machine.Expand.lplanBytes ClaudeWCT.W9.Machine.Expand.planBytes
+    ClaudeWCT.W9.Machine.Expand.expCostBytes ClaudeWCT.W9.Machine.Expand.hdrBankBytes
+  rw [← List.flatten_append, ← List.flatten_append, ← List.flatten_append]
   rfl
 theorem wct_expandData : Images.expandImage.data =
-    ClaudeWCT.W9.Machine.Expand.planBytes ++ ClaudeWCT.W9.Machine.Expand.expCostBytes ++
-      ClaudeWCT.W9.Machine.Expand.hdrBankBytes ++ Images.expandLegacyData := by
+    ClaudeWCT.W9.Machine.Expand.lplanBytes ++ ClaudeWCT.W9.Machine.Expand.planBytes ++
+      ClaudeWCT.W9.Machine.Expand.expCostBytes ++ ClaudeWCT.W9.Machine.Expand.hdrBankBytes ++
+        Images.expandLegacyData := by
   change Images.expandPrefixData ++ Images.expandLegacyData = _
   rw [wct_prefixData]
-theorem wct_frontAt : ClaudeWCT.W9.Machine.Expand.FrontAt Images.expandImage := by
+theorem wct_front0 : CodeAt Images.expandImage (pcOf 0) (seg_0 ++ [ClaudeWCT.W9.Machine.Expand.hookWord]) := by
   apply codeAt_slice
   · decide +kernel
   · decide +kernel
@@ -573,10 +826,10 @@ open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGol
 open ClaudeWCT.W9.Machine.Expand (NewCodeAt expChunks expChunks_len_le)
 set_option maxRecDepth 100000
 private def chunks : List (List (BitVec 32)) :=
-  [Images.expandCode_0, Images.expandCode_1, Images.expandCode_2, Images.expandCode_3, Images.expandCode_4, Images.expandCode_5, Images.expandCode_6, Images.expandCode_7, Images.expandCode_8, Images.expandCode_9, Images.expandCode_10, Images.expandCode_11, Images.expandCode_12, Images.expandCode_13, Images.expandCode_14, Images.expandCode_15, Images.expandCode_16, Images.expandCode_17, Images.expandCode_18, Images.expandCode_19, Images.expandCode_20, Images.expandCode_21, Images.expandCode_22, Images.expandCode_23, Images.expandCode_24, Images.expandCode_25, Images.expandCode_26, Images.expandCode_27, Images.expandCode_28, Images.expandCode_29, Images.expandCode_30, Images.expandCode_31, Images.expandCode_32, Images.expandCode_33, Images.expandCode_34, Images.expandCode_35, Images.expandCode_36, Images.expandCode_37, Images.expandCode_38, Images.expandCode_39, Images.expandCode_40, Images.expandCode_41, Images.expandCode_42, Images.expandCode_43, Images.expandCode_44, Images.expandCode_45, Images.expandCode_46, Images.expandCode_47, Images.expandCode_48, Images.expandCode_49, Images.expandCode_50, Images.expandCode_51, Images.expandCode_52, Images.expandCode_53, Images.expandCode_54, Images.expandCode_55, Images.expandCode_56, Images.expandCode_57, Images.expandCode_58, Images.expandCode_59, Images.expandCode_60, Images.expandCode_61, Images.expandCode_62, Images.expandCode_63, Images.expandCode_64, Images.expandCode_65, Images.expandCode_66, Images.expandCode_67, Images.expandCode_68, Images.expandCode_69, Images.expandCode_70, Images.expandCode_71, Images.expandCode_72, Images.expandCode_73, Images.expandCode_74, Images.expandCode_75, Images.expandCode_76, Images.expandCode_77, Images.expandCode_78, Images.expandCode_79, Images.expandCode_80, Images.expandCode_81, Images.expandCode_82, Images.expandCode_83, Images.expandCode_84, Images.expandCode_85, Images.expandCode_86, Images.expandCode_87, Images.expandCode_88, Images.expandCode_89, Images.expandCode_90, Images.expandCode_91, Images.expandCode_92, Images.expandCode_93, Images.expandCode_94, Images.expandCode_95, Images.expandCode_96, Images.expandCode_97, Images.expandCode_98, Images.expandCode_99, Images.expandCode_100, Images.expandCode_101, Images.expandCode_102, Images.expandCode_103, Images.expandCode_104, Images.expandCode_105, Images.expandCode_106, Images.expandCode_107, Images.expandCode_108, Images.expandCode_109, Images.expandCode_110, Images.expandCode_111, Images.expandCode_112, Images.expandCode_113, Images.expandCode_114, Images.expandCode_115, Images.expandCode_116, Images.expandCode_117, Images.expandCode_118, Images.expandCode_119, Images.expandCode_120, Images.expandCode_121, Images.expandCode_122, Images.expandCode_123, Images.expandCode_124, Images.expandCode_125, Images.expandCode_126, Images.expandCode_127, Images.expandCode_128, Images.expandCode_129, Images.expandCode_130, Images.expandCode_131, Images.expandCode_132, Images.expandCode_133, Images.expandCode_134, Images.expandCode_135, Images.expandCode_136, Images.expandCode_137, Images.expandCode_138, Images.expandCode_139, Images.expandCode_140, Images.expandCode_141, Images.expandCode_142, Images.expandCode_143, Images.expandCode_144, Images.expandCode_145, Images.expandCode_146, Images.expandCode_147, Images.expandCode_148, Images.expandCode_149, Images.expandCode_150, Images.expandCode_151, Images.expandCode_152, Images.expandCode_153, Images.expandCode_154, Images.expandCode_155, Images.expandCode_156, Images.expandCode_157, Images.expandCode_158, Images.expandCode_159, Images.expandCode_160, Images.expandCode_161, Images.expandCode_162, Images.expandCode_163, Images.expandCode_164]
+  [Images.expandCode_0, Images.expandCode_1, Images.expandCode_2, Images.expandCode_3, Images.expandCode_4, Images.expandCode_5, Images.expandCode_6, Images.expandCode_7, Images.expandCode_8, Images.expandCode_9, Images.expandCode_10, Images.expandCode_11, Images.expandCode_12, Images.expandCode_13, Images.expandCode_14, Images.expandCode_15, Images.expandCode_16, Images.expandCode_17, Images.expandCode_18, Images.expandCode_19, Images.expandCode_20, Images.expandCode_21, Images.expandCode_22, Images.expandCode_23, Images.expandCode_24, Images.expandCode_25, Images.expandCode_26, Images.expandCode_27, Images.expandCode_28, Images.expandCode_29, Images.expandCode_30, Images.expandCode_31, Images.expandCode_32, Images.expandCode_33, Images.expandCode_34, Images.expandCode_35, Images.expandCode_36, Images.expandCode_37, Images.expandCode_38, Images.expandCode_39, Images.expandCode_40, Images.expandCode_41, Images.expandCode_42, Images.expandCode_43, Images.expandCode_44, Images.expandCode_45, Images.expandCode_46, Images.expandCode_47, Images.expandCode_48, Images.expandCode_49, Images.expandCode_50, Images.expandCode_51, Images.expandCode_52, Images.expandCode_53, Images.expandCode_54, Images.expandCode_55, Images.expandCode_56, Images.expandCode_57, Images.expandCode_58, Images.expandCode_59, Images.expandCode_60, Images.expandCode_61, Images.expandCode_62, Images.expandCode_63, Images.expandCode_64, Images.expandCode_65, Images.expandCode_66, Images.expandCode_67, Images.expandCode_68, Images.expandCode_69, Images.expandCode_70, Images.expandCode_71, Images.expandCode_72, Images.expandCode_73, Images.expandCode_74, Images.expandCode_75, Images.expandCode_76, Images.expandCode_77, Images.expandCode_78, Images.expandCode_79, Images.expandCode_80, Images.expandCode_81, Images.expandCode_82, Images.expandCode_83, Images.expandCode_84, Images.expandCode_85, Images.expandCode_86, Images.expandCode_87, Images.expandCode_88, Images.expandCode_89, Images.expandCode_90, Images.expandCode_91, Images.expandCode_92, Images.expandCode_93, Images.expandCode_94, Images.expandCode_95, Images.expandCode_96, Images.expandCode_97, Images.expandCode_98, Images.expandCode_99, Images.expandCode_100, Images.expandCode_101, Images.expandCode_102, Images.expandCode_103, Images.expandCode_104, Images.expandCode_105, Images.expandCode_106, Images.expandCode_107, Images.expandCode_108, Images.expandCode_109, Images.expandCode_110, Images.expandCode_111, Images.expandCode_112, Images.expandCode_113, Images.expandCode_114, Images.expandCode_115, Images.expandCode_116, Images.expandCode_117, Images.expandCode_118, Images.expandCode_119, Images.expandCode_120, Images.expandCode_121, Images.expandCode_122, Images.expandCode_123, Images.expandCode_124, Images.expandCode_125, Images.expandCode_126, Images.expandCode_127, Images.expandCode_128, Images.expandCode_129, Images.expandCode_130, Images.expandCode_131, Images.expandCode_132, Images.expandCode_133, Images.expandCode_134, Images.expandCode_135, Images.expandCode_136, Images.expandCode_137, Images.expandCode_138, Images.expandCode_139, Images.expandCode_140, Images.expandCode_141, Images.expandCode_142, Images.expandCode_143, Images.expandCode_144, Images.expandCode_145, Images.expandCode_146, Images.expandCode_147, Images.expandCode_148, Images.expandCode_149, Images.expandCode_150, Images.expandCode_151, Images.expandCode_152, Images.expandCode_153, Images.expandCode_154, Images.expandCode_155, Images.expandCode_156, Images.expandCode_157, Images.expandCode_158, Images.expandCode_159, Images.expandCode_160, Images.expandCode_161, Images.expandCode_162, Images.expandCode_163, Images.expandCode_164, Images.expandCode_165, Images.expandCode_166, Images.expandCode_167]
 private theorem chunks_ok : (chunks.dropLast.all fun c => c.length == 256) = true := by
   decide +kernel
-private theorem chunks_length : chunks.length = 165 := by rfl
+private theorem chunks_length : chunks.length = 168 := by rfl
 private theorem chunks_new : expChunks = chunks.drop 4 := rfl
 private theorem code_chunks : Images.expandCode = chunks.flatten := by
   change chunks.foldl (· ++ ·) [] = chunks.flatten
@@ -602,15 +855,18 @@ theorem wct_newCodeAt : NewCodeAt Images.expandImage := by
   change List.take (expChunks.getD c []).length (Images.expandCode.drop (256 * (c + 4))) = _
   obtain ⟨rest, hrest⟩ := hp
   rw [← hrest, List.take_append_of_le_length (Nat.le_refl _), List.take_length]
+theorem wct_frontAt : ClaudeWCT.W9.Machine.Expand.FrontAt Images.expandImage :=
+  ⟨wct_front0, ClaudeWCT.W9.Machine.Expand.codeAt_of_window wct_newCodeAt
+    (by simp [ClaudeWCT.W9.Machine.Expand.zeroBlk]) (by decide +kernel)⟩
 end SigGolfCandidate.T3M.Expand
 end
 section
 namespace ClaudeWCT.W9.Machine.Expand
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
 set_option maxRecDepth 100000 in
-theorem expChunks_full : ∀ c, c < 160 → (expChunks.getD c []).length = 256 := by decide +kernel
+theorem expChunks_full : ∀ c, c < 163 → (expChunks.getD c []).length = 256 := by decide +kernel
 set_option maxRecDepth 100000 in
-theorem expChunks_flatten_length : expChunks.flatten.length = 41138 := by decide +kernel
+theorem expChunks_flatten_length : expChunks.flatten.length = 41753 := by decide +kernel
 theorem drop_flatten_chunks : ∀ (L : List (List (BitVec 32))) (c : Nat), (∀ i, i < c → (L.getD i []).length = 256) →
     c ≤ L.length → L.flatten.drop (256 * c) = (L.drop c).flatten
   | L, 0, _, _ => by simp
@@ -638,18 +894,14 @@ section
 namespace ClaudeWCT.W9.Machine.ExpandLink
 open SigGolfCandidate.T3M
 def I0 : ClaudeWCT.W9.T3M.Images := ⟨Images.signImage, Images.expandImage, Images.verifyImage⟩
-theorem v6_valid : I0.expand.Valid (ClaudeWCT.W9.T3M.submission I0).sizes (ClaudeWCT.W9.T3M.submission I0).layout :=
+theorem v7_valid : I0.expand.Valid (ClaudeWCT.W9.T3M.submission I0).sizes (ClaudeWCT.W9.T3M.submission I0).layout :=
   submission_expand_valid
-theorem v6_dataOK : ClaudeWCT.W9.Machine.Expand.ExpandDataOK I0.expand := Expand.wct_expandData
-theorem expand_W_v6 :
+theorem v7_dataOK : ClaudeWCT.W9.Machine.Expand.ExpandDataOK I0.expand := Expand.wct_expandData
+theorem expand_W_v7 :
     ClaudeWCT.W9.Machine.Expand.ExpandRefinesW (ClaudeWCT.W9.T3M.submission I0).image ∧
       ClaudeWCT.W9.Machine.Expand.ExpandTerminatesW (ClaudeWCT.W9.T3M.submission I0).image :=
-  ClaudeWCT.W9.Machine.Expand.expandComposeSpec_holds _ v6_valid Expand.wct_newCodeAt Expand.wct_frontAt
-    v6_dataOK Expand.wct_backSpec
-theorem sign_W_v6 :
-    ClaudeWCT.W9.Machine.Sign.SignRefinesW (ClaudeWCT.W9.T3M.submission I0).image ∧
-      ClaudeWCT.W9.Machine.Sign.SignTerminatesW (ClaudeWCT.W9.T3M.submission I0).image :=
-  ClaudeWCT.W9.Machine.SignLink.wct_sign_certified_v6
+  ClaudeWCT.W9.Machine.Expand.expandComposeSpec_holds _ v7_valid Expand.wct_newCodeAt Expand.wct_frontAt
+    v7_dataOK Expand.wct_backSpec
 end ClaudeWCT.W9.Machine.ExpandLink
 end
 end

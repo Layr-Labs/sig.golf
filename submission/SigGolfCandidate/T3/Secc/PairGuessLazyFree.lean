@@ -16,15 +16,18 @@ def NotDN : T3.Spec.Domain → Prop
   | .inr (.inl _) => True
   | .inr (.inr (.inl _)) => False
   | .inr (.inr (.inr _)) => True
-theorem not_digest_of_hdr {x : HashInput} {t l tr p ix : Nat} (hx : Extract.hdrBlock x = bytesLE 16 (header t l tr p ix))
-    (ht : t % 256 ≠ 12) : x ∉ digestInputs := by
-  intro hm
-  obtain ⟨rho, m, ctr, rfl⟩ := mem_digestInputs.mp hm
+theorem not_digest_of_marker {x : HashInput} {h : Digest} (hx : Extract.hdrBlock x = bytesLE 16 h)
+    (hm : tweakMarker h ≠ 0) : x ∉ digestInputs := by
+  intro hmem
+  obtain ⟨rho, m, ctr, rfl⟩ := mem_digestInputs.mp hmem
   rw [Extract.hdrBlock_pad64 _ (by rw [digestInput_length]; omega)] at hx
   unfold digestInput at hx
-  have h2 : bytesLE 16 (digestHeader ctr) = bytesLE 16 (header t l tr p ix) :=
+  have h2 : bytesLE 16 (digestHeader ctr) = bytesLE 16 h :=
     (Extract.hdrBlock_prefix rho (digestHeader ctr) (bytesLE 32 m)).symm.trans hx
-  exact digestHeader_ne_header _ _ _ _ _ _ (bytesLE_injective h2)
+  exact hm (by rw [← bytesLE_injective h2, digestHeader_marker])
+theorem not_digest_of_hdr {x : HashInput} {t l tr p ix : Nat} (hx : Extract.hdrBlock x = bytesLE 16 (header t l tr p ix))
+    (_ht : t % 256 ≠ 12) : x ∉ digestInputs :=
+  not_digest_of_marker hx (by rw [header_marker]; decide)
 theorem not_digest_prefix (a : Digest) {t : Nat} (l tr p ix : Nat) (rest : HashInput) (ht : t % 256 ≠ 12) :
     pad64 (bytesLE 16 a ++ bytesLE 16 (header t l tr p ix) ++ rest) ∉ digestInputs := by
   refine not_digest_of_hdr (t := t) (l := l) (tr := tr) (p := p) (ix := ix) ?_ ht
@@ -65,12 +68,18 @@ theorem chain_dn (lay : Layer) (tree leaf i start count : Nat) (value : Digest) 
   exact foldlM_allowed NotDN _ _ (fun v step => chainStep_dn lay tree leaf i step v) value
 theorem leafHash_dn (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     AllQueriesSatisfy (leafHash lay tree leaf ends) NotDN := by
-  unfold leafHash
-  exact shortHash_dn _ _ _ _ _ _ (by decide)
-theorem nodeHash_dn {tag : Nat} (lay tree heap : Nat) (left right : Digest) (ht : tag % 256 ≠ 12) :
+  unfold leafHash shortHash publicHash
+  exact bind_allowed NotDN ((allQueriesSatisfy_query_iff _ _).mpr
+    (not_digest_of_marker (Extract.hdrBlock_leafInput lay tree leaf ends) (by rw [leafTweak_marker]; decide)))
+    fun _ => pure_allowed _ _
+theorem nodeHash_dn {tag : Nat} (lay tree heap : Nat) (left right : Digest) (_ht : tag % 256 ≠ 12) :
     AllQueriesSatisfy (nodeHash tag lay tree heap left right) NotDN := by
-  unfold nodeHash
-  exact shortHash_dn _ _ _ _ _ _ ht
+  rw [nodeHash_eq_shortHash]
+  unfold shortHash publicHash
+  exact bind_allowed NotDN ((allQueriesSatisfy_query_iff _ _).mpr
+    (not_digest_of_marker (by rw [pad64_nodeInputP, nodeInputP]; exact Extract.hdrBlock_block4 _ _ _ _)
+      (nodeTweak_marker_ne_zero _ _ _ _)))
+    fun _ => pure_allowed _ _
 theorem mask_dn (level index : Nat) : AllQueriesSatisfy (mask level index) NotDN := by
   unfold mask pairedMask
   exact bind_allowed NotDN (privatePair_dn _ _ _ _ _) fun _ => pure_allowed _ _
@@ -132,19 +141,6 @@ theorem keygen_dn : AllQueriesSatisfy keygen NotDN := by
   apply bind_allowed NotDN keygenPayload_dn
   intro generated
   exact bind_allowed NotDN (privateMac_dn _) fun _ => pure_allowed _ _
-theorem counterSearch_dn (lay : Layer) (tree leaf : Nat) (message : Digest) (counter fuel : Nat) :
-    AllQueriesSatisfy (counterSearch lay tree leaf message counter fuel) NotDN := by
-  induction fuel generalizing counter with
-  | zero => exact pure_allowed _ _
-  | succ fuel ih =>
-      unfold counterSearch
-      apply bind_allowed NotDN
-      · unfold encodingInput
-        exact shortHash_dn _ _ _ _ _ _ (by decide)
-      · intro answer
-        split
-        · exact ih _
-        · exact pure_allowed _ _
 theorem forestPk_dn (index : Nat) (roots : List Digest) : AllQueriesSatisfy (forestPk index roots) NotDN := by
   unfold forestPk
   exact shortHash_dn _ _ _ _ _ _ (by decide)
@@ -157,27 +153,6 @@ theorem signTop_dn (cache : T3.Cache) (leaf : Nat) (digits : List Nat) :
   unfold signTop
   exact bind_allowed NotDN (buildLeaf_dn _ _ _ _ _) fun _ =>
     bind_allowed NotDN (topPath_dn _ _) fun _ => pure_allowed _ _
-theorem signLayers_dn (cache : T3.Cache) (index n : Nat) (message : Digest) :
-    AllQueriesSatisfy (signLayers cache index n message) NotDN := by
-  induction n generalizing message with
-  | zero => exact pure_allowed _ _
-  | succ n ih =>
-      unfold signLayers
-      apply bind_allowed NotDN (counterSearch_dn _ _ _ _ _ _)
-      intro found
-      split
-      · exact bind_allowed NotDN (signTop_dn _ _ _) fun _ => pure_allowed _ _
-      · split
-        · apply bind_allowed NotDN (buildTree_dn _ _ _ _)
-          intro built
-          obtain ⟨levels, values⟩ := built
-          dsimp only
-          apply bind_allowed NotDN (ih _)
-          intro previous
-          split
-          · exact pure_allowed _ _
-          · exact pure_allowed _ _
-        · exact pure_allowed _ _
 theorem ftsLeaf_dn (index coord leaf : Nat) (secret : Digest) : AllQueriesSatisfy (ftsLeaf index coord leaf secret) NotDN := by
   unfold ftsLeaf
   rw [zero16_eq]
@@ -227,18 +202,6 @@ theorem secrets_sameRest {ω₁ ω₂ : Omega U} (h : SameRest ω₁ ω₂) (fts
   cases i with
   | inl a => exact congrFun h.1 a
   | inr p => rfl
-theorem programmed_sameRest {ω₁ ω₂ : Omega U} (h : SameRest ω₁ ω₂) (fts : FtsCoord → Digest) (x : U)
-    (hx : x.val ∉ digestInputs) :
-    CanonGraph.programmed U hU (ω₁.secrets fts) ω₁.labels ω₁.residual x =
-      CanonGraph.programmed U hU (ω₂.secrets fts) ω₂.labels ω₂.residual x := by
-  rw [secrets_sameRest h fts, h.2.1]
-  by_cases hc : ∃ node, x.val = CanonGraph.cell (ω₂.secrets fts) node ω₂.labels
-  · obtain ⟨node, hnode⟩ := hc
-    have hx' : x = CanonGraph.cellIn U hU (ω₂.secrets fts) node ω₂.labels := Subtype.ext hnode
-    rw [hx', CanonGraph.programmed_at, CanonGraph.programmed_at]
-  · have hn : ∀ node, x.val ≠ CanonGraph.cell (ω₂.secrets fts) node ω₂.labels := fun node he => hc ⟨node, he⟩
-    rw [CanonGraph.programmed_other U hU _ _ _ _ hn, CanonGraph.programmed_other U hU _ _ _ _ hn]
-    exact h.2.2.1 x hx
 theorem private_sameRest {ω₁ ω₂ : Omega U} (h : SameRest ω₁ ω₂) (fts : FtsCoord → Digest) (c : Coordinate)
     (hc : ∀ m, c ≠ .inr (.inl m)) :
     CanonGraph.privateEquiv.symm (ω₁.secrets fts, ω₁.other) c = CanonGraph.privateEquiv.symm (ω₂.secrets fts, ω₂.other) c := by
@@ -254,65 +217,11 @@ theorem private_sameRest {ω₁ ω₂ : Omega U} (h : SameRest ω₁ ω₂) (fts
       have := congrArg (fun o : CanonGraph.OtherHalf => o.1.1) he
       exact hc m this
   rw [privateEquiv_symm_apply, privateEquiv_symm_apply, hhalf 0, hhalf 1]
-theorem answers_sameRest {ω₁ ω₂ : Omega U} (h : SameRest ω₁ ω₂) (fts : FtsCoord → Digest) (q : T3.Spec.Domain)
-    (hq : NotDN q) : Omega.answers hU ω₁ fts q = Omega.answers hU ω₂ fts q := by
-  rcases q with (n | x) | c
-  · rfl
-  · change finiteHashAnswer ∅ U (CanonGraph.programmed U hU (ω₁.secrets fts) ω₁.labels ω₁.residual) x =
-      finiteHashAnswer ∅ U (CanonGraph.programmed U hU (ω₂.secrets fts) ω₂.labels ω₂.residual) x
-    by_cases hxU : x ∈ U
-    · rw [finiteHashAnswer_none ∅ U _ _ hxU rfl, finiteHashAnswer_none ∅ U _ _ hxU rfl]
-      exact programmed_sameRest hU h fts ⟨x, hxU⟩ hq
-    · simp only [finiteHashAnswer, dif_neg hxU]
-  · apply private_sameRest h fts c
-    rintro m rfl
-    exact hq
-theorem eval_sameRest {ω₁ ω₂ : Omega U} (h : SameRest ω₁ ω₂) (fts : FtsCoord → Digest) {α : Type} {program : M α}
-    (hp : AllQueriesSatisfy program NotDN) :
-    evalWithAnswerFn (Omega.answers hU ω₁ fts) program = evalWithAnswerFn (Omega.answers hU ω₂ fts) program :=
-  eval_congr_allowed hp (answers_sameRest hU h fts)
 theorem residual_sameRest {ω₁ ω₂ : Omega U} (h : SameRest ω₁ ω₂) (x : HashInput) (hx : x ∉ digestInputs) :
     finiteHashAnswer ∅ U ω₁.residual x = finiteHashAnswer ∅ U ω₂.residual x := by
   by_cases hxU : x ∈ U
   · rw [finiteHashAnswer_none ∅ U _ _ hxU rfl, finiteHashAnswer_none ∅ U _ _ hxU rfl]
     exact h.2.2.1 ⟨x, hxU⟩ hx
   · simp only [finiteHashAnswer, dif_neg hxU]
-theorem hashL_sameRest {ω₁ ω₂ : Omega U} (h : SameRest ω₁ ω₂) : hashL hU ω₁ = hashL hU ω₂ := by
-  funext x
-  unfold hashL
-  cases hd : decodeProbe x with
-  | some p =>
-      have hx := eq_of_decodeProbe hd
-      have hnd : x ∉ digestInputs := by rw [hx]; exact probeInput_not_digest _ _
-      simp only [h.2.1, residual_sameRest h x hnd]
-  | none =>
-      by_cases hx : x ∈ digestInputs
-      · simp only [if_pos hx]
-      · simp only [if_neg hx]
-        rw [answers_sameRest hU h (fun _ => 0) (.inl (.inr x)) hx]
-theorem signerForest_sameRest {ω₁ ω₂ : Omega U} (h : SameRest ω₁ ω₂) : signerForest hU ω₁ = signerForest hU ω₂ := by
-  funext output
-  exact eval_sameRest hU h _ (signForest_dn _ _)
-theorem signerLayers_sameRest {ω₁ ω₂ : Omega U} (h : SameRest ω₁ ω₂) : signerLayers hU ω₁ = signerLayers hU ω₂ := by
-  funext request output
-  unfold signerLayers
-  rw [signerForest_sameRest hU h, eval_sameRest hU h _ (forestPk_dn _ _), eval_sameRest hU h _ (signLayers_dn _ _ _ _)]
-theorem signL_sameRest {ω₁ ω₂ : Omega U} (h : SameRest ω₁ ω₂) : signL hU ω₁ = signL hU ω₂ := by
-  funext published request
-  unfold signL finishL
-  simp only [signerLayers_sameRest hU h, signerForest_sameRest hU h]
-theorem interactionL_sameRest {ω₁ ω₂ : Omega U} (h : SameRest ω₁ ω₂) (published : T3.Cache) {α : Type} :
-    (interactionL hU ω₁ published : OracleComp LazyPrivate.Interaction α → _) = interactionL hU ω₂ published := by
-  unfold interactionL
-  simp only [hashL_sameRest hU h, signL_sameRest hU h]
-theorem programL_sameRest {ω₁ ω₂ : Omega U} (h : SameRest ω₁ ω₂) {β : Type} :
-    (programL hU ω₁ : M β → _) = programL hU ω₂ := by
-  unfold programL
-  simp only [hashL_sameRest hU h]
-theorem worldGameL_congr {ω₁ ω₂ : Omega U} (h : SameRest ω₁ ω₂) (adversary : AdversaryP) :
-    worldGameCore hU ω₁ adversary = worldGameCore hU ω₂ adversary := by
-  unfold worldGameCore
-  rw [eval_sameRest hU h _ keygen_dn]
-  simp only [interactionL_sameRest hU h, programL_sameRest hU h]
 end Rest
 end SigGolfCandidate.T3.Security.BPair

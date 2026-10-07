@@ -37,13 +37,6 @@ def gAddr (a : Wots.ChainAddr) (ha : WotsExtract.SourceChain a) : ChainGraph.Add
         _ = 4096 := by norm_num)⟩,
     ⟨a.chain, lt_of_lt_of_le ha.2 (chainCount_le58 _)⟩⟩
 theorem wotsAddr_gAddr (a : Wots.ChainAddr) (ha : WotsExtract.SourceChain a) : wotsAddr (gAddr a ha) = a := rfl
-theorem posOf_chainRow (a : Wots.ChainAddr) (ha : WotsExtract.SourceChain a) (s : Nat) (hs : s < 7) (v : Digest) :
-    Extract.posOf (Wots.chainRow a s v) = some (CanonGraph.Node.chain (gAddr a ha, ⟨s, hs⟩)).toPos := by
-  apply Extract.posOf_eq (CanonGraph.toPos_bounded _)
-  unfold Wots.chainRow
-  rw [show Extract.hdrBlock (chainInput a.key.lay a.key.tree a.key.leaf a.chain s v) =
-    bytesLE 16 (chainHeader a.key.lay a.key.tree a.key.leaf a.chain s) from chainInput_header _ _ _ _ _ _]
-  rfl
 theorem honestInput_chainNode (A : Answers) (p : ChainGraph.Point) :
     Extract.honestInput A (CanonGraph.Node.chain p).toPos =
       Wots.chainRow (wotsAddr p.1) p.2.val (honestChainValue A p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val
@@ -71,40 +64,6 @@ theorem honestValue_chainChild (A : Answers) (p : ChainGraph.Point) :
     congr 1
     omega
 theorem childSlots_chain (p : ChainGraph.Point) : childSlots (.chain p) = [(chainChild p, 3)] := rfl
-theorem contactAt_false (A : Answers) (published : T3.Cache) (qs : List Spec.Domain) (a : Wots.ChainAddr)
-    (ha : WotsExtract.SourceChain a) (hc : Wots.ContactAt A (Wots.entriesOf A qs) a)
-    (hclear : AllClear A (Known (Disclosed A published)) qs) : False := by
-  obtain ⟨hd, value, answer, hmem, hlow⟩ := hc
-  obtain ⟨hq, hans⟩ := WotsExtract.mem_entriesOf_iff.mp hmem
-  have hd7 : Wots.depth A a ≤ 7 := by
-    have := WotsExtract.depth_le A a ha.2
-    have hw : maxDigit a.key.lay a.chain ≤ 7 := by unfold maxDigit; split_ifs <;> norm_num
-    omega
-  set s := Wots.depth A a - 1 with hsdef
-  have hs7 : s < 7 := by omega
-  let p : ChainGraph.Point := (gAddr a ha, ⟨s, hs7⟩)
-  have hpos := posOf_chainRow a ha s hs7 value
-  obtain ⟨hhit, hsingle, -⟩ := hclear _ hq
-  have hcv : honestValue A (chainChild p) = honestChainValue A a.key.lay a.key.tree a.key.leaf a.chain
-      (leafSeed A a.key.lay a.key.tree a.key.leaf a.chain) s := honestValue_chainChild A p
-  by_cases hv : value = honestValue A (chainChild p)
-  · have hk := hsingle (.chain p) hpos (chainChild p) 3 (childSlots_chain p) (by rw [slotValue_chainRow]; exact hv)
-    exact frontier_child_unknown A published (gAddr a ha) ⟨s, hs7⟩ (by
-      change s + 1 = Wots.depth A (wotsAddr (gAddr a ha))
-      rw [wotsAddr_gAddr]; omega) hk
-  · apply hhit (.chain p) hpos
-    refine ⟨fun heq => hv ?_, ?_⟩
-    · have := congrArg (fun X => slotValue X 3) heq
-      simp only [slotValue_chainRow] at this
-      rw [this, honestInput_chainNode, slotValue_chainRow, hcv]
-      rfl
-    · rw [hans]
-      change Wots.low answer = _
-      rw [hlow, honestValue_chainNode]
-      unfold Wots.frontierValue
-      congr 1
-      change Wots.depth A a = s + 1
-      omega
 theorem structuralHitSrc_false (A : Answers) (K : Coord → Prop) (qs : List Spec.Domain)
     (h : WotsExtract.StructuralHitSrc A (Wots.entriesOf A qs)) (hclear : AllClear A K qs) : False := by
   obtain ⟨position, input, answer, hmem, hpos, hb, hsrc, -, hne, hlow⟩ := h
@@ -141,14 +100,4 @@ theorem encodingMatch_route_false (A : Answers) (K : Coord → Prop) (qs : List 
   · rw [hL']; exact hne
   · have hlay : L.1.lay = lay := congrArg Wots.LeafAddr.lay hL'
     rw [hans, hL', hlay]; exact hdec
-theorem wotsPrimitiveRoute_false (A : Answers) (published : T3.Cache) (qs : List Spec.Domain) (index : Nat)
-    (hidx : index < 2 ^ 31) (h : WotsExtract.WotsPrimitiveRoute index A (Wots.entriesOf A qs))
-    (hclear : AllClear A (Known (Disclosed A published)) qs) : False := by
-  rcases h with ⟨lay, h⟩ | h | ⟨a, ha, h⟩ | ⟨a, b, ha, -, -, h, -⟩ | ⟨a, ha, -, h⟩
-  · exact encodingMatch_route_false A _ qs index hidx lay h hclear
-  · exact structuralHitSrc_false A _ qs h hclear
-  · obtain ⟨hd, start, middle, -, hrow⟩ := h
-    exact contactAt_false A published qs a ha ⟨by omega, middle, hrow⟩ hclear
-  · exact contactAt_false A published qs a ha h hclear
-  · exact contactAt_false A published qs a ha h hclear
 end SigGolfCandidate.T3.Security.LargeCoupling

@@ -38,8 +38,8 @@ theorem hit_recorded {α : Type} (program : M α) (hp : Security.SourceReplay.Ha
     result hr answers ha actual hquery
   exact ⟨position, actual, prior, hbounded, hpos, hevent, hhit⟩
 def PadAt (answers : Answers) (witness : WBytes) (index : Nat) : Prop :=
-  ∃ lay : Layer, lay.val < 3 ∧ ClaudeWCT.W9.T3M.Extract.Good answers witness index lay ∧
-    ClaudeWCT.W9.T3M.wbcPad witness lay ≠ 0
+  ∃ lay : Layer, ClaudeWCT.W9.T3M.Extract.Good answers witness index lay ∧
+    (ClaudeWCT.W9.T3M.wbcPad witness index lay ≠ 0 ∨ (lay.val = 3 ∧ ClaudeWCT.W9.T3M.wbcRight witness ≠ 0))
 def Conclusion (answers : Answers) (message : Message) (witness : WBytes)
     (events : List FirstHit.QueryEvent) : Prop :=
   ∃ digestAnswer : HashOutput, (wdc witness).toNat < WCT9.digestAttemptLimit ∧
@@ -77,11 +77,14 @@ theorem verifyP_extracted_in {α : Type} (program : M α) (hp : Security.SourceR
     rw [FirstHit.recorded_inputs program hp before result hr answers ha,
       SigGolfCandidate.T3.Security.PaddedExtraction.queried_eq]
     exact hsub _ hin
-  · by_cases hz : ∀ lay : Layer, lay.val < 3 → ClaudeWCT.W9.T3M.wbcPad witness lay = 0
+  · by_cases hz : ∀ lay : Layer, ClaudeWCT.W9.T3M.wbcPad witness (WCT9.digestIndex N) lay = 0 ∧
+        (lay.val = 3 → ClaudeWCT.W9.T3M.wbcRight witness = 0)
     · exact Or.inr (Or.inr (Or.inr ⟨fun lay => ⟨hgood lay, hz lay⟩, hfts⟩))
-    · push_neg at hz
-      obtain ⟨lay, hlay, hpad⟩ := hz
-      exact Or.inr (Or.inr (Or.inl ⟨lay, hlay, hgood lay, hpad⟩))
+    · obtain ⟨lay, hlay⟩ := not_forall.mp hz
+      refine Or.inr (Or.inr (Or.inl ⟨lay, hgood lay, ?_⟩))
+      by_cases hp : ClaudeWCT.W9.T3M.wbcPad witness (WCT9.digestIndex N) lay = 0
+      · exact Or.inr (by_contra fun hr => hlay ⟨hp, fun h3 => by_contra fun hne => hr ⟨h3, hne⟩⟩)
+      · exact Or.inl hp
 theorem verifyP_recorded (message : Message) (publicKey : Digest) (witness : WBytes)
     (before : LazyPrivate.State) (result : FirstHit.Recorded Bool)
     (hr : result ∈ support (FirstHit.record (verifyP message publicKey witness) before))

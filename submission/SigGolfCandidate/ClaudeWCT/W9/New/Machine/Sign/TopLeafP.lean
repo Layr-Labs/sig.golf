@@ -27,12 +27,12 @@ theorem leaf_iterS {j : Nat} (hj : j < A.n) {st : List Digest × List Digest} {t
     TSim image sk t (A.iterK j) (A.iterC j) (A.e j) (A.e j) (halfUpd A st <$> chainProg A j seed)
       (fun st' u => u.pc = pcOf (b + 41) ∧ LeafInv s0 A (j + 1) st' u ∧
         Frame t u (fun X => (X = CHAIN + 16 ∨ X = CHAIN + 24) ∨ (CHAIN + 48 ≤ X ∧ X < CHAIN + 80) ∨
-          (slot j ≤ X ∧ X < slot j + 16) ∨ (A.valp + 16 * j ≤ X ∧ X < A.valp + 16 * j + 16))) := by
+          (slot A.lay j ≤ X ∧ X < slot A.lay j + 16) ∨ (A.valp + 16 * j ≤ X ∧ X < A.valp + 16 * j + 16))) := by
   obtain ⟨u0, st0, u0pc, hcp, hcs, u0r, u0f⟩ := Sign.Seed.leaf_prechainS hsub sk hpre hj ht hpc seed hseed
   have hch := Sign.Seed.chainRun_tsim hsub sk hcp u0pc seed hcs
   rw [map_eq_bind_pure_comp]
-  refine (TSim.steps st0 (TSim.bind (k₂ := 4 + (if A.so then 0 else 11 + (if j = 0 then 0 else 1)))
-    (c₂ := 4 + (if A.so then 0 else 11 + (if j = 0 then 0 else 1))) (n₂ := 0) (b₂ := 0) hch
+  refine (TSim.steps st0 (TSim.bind (k₂ := 4 + (if A.so then 0 else 11 + slotK A.lay j))
+    (c₂ := 4 + (if A.so then 0 else 11 + slotK A.lay j)) (n₂ := 0) (b₂ := 0) hch
     (fun r u hu => ?_))).of_eq (by unfold chainProg; rfl) ?_ ?_ ?_ ?_
   · obtain ⟨hupc, hv, hl, hur, huf⟩ := hu
     obtain ⟨w, stw, wpc, hw, hfw⟩ := Sign.Seed.leaf_postchainS hsub sk hpre hj ht hupc (u0r.trans hur)
@@ -83,6 +83,7 @@ theorem leaf_prfS {p : Nat} (hp : 2 * p < A.n) {st : List Digest × List Digest}
     intro X hX hw
     have := hpre.hvs; have := hpre.hds; have := hpre.hdv
     unfold LeafW at hw
+    rw [if_pos hl0] at hw
     sc_omega
   have fr : ∀ X, (X = PRIV ∨ X = PRIV + 8 ∨ X = PRIV + 32 ∨ X = PRIV + 40 ∨ X = PRIV + 48 ∨
       X = PRIV + 56) → t3.getMem (BitVec.ofNat 64 X) = s0.getMem (BitVec.ofNat 64 X) := fun X hX =>
@@ -124,8 +125,8 @@ theorem leaf_prfS {p : Nat} (hp : 2 * p < A.n) {st : List Digest × List Digest}
   · exact ht.elen
   · exact ht.vlen
   · intro hso c hc
-    have h1 := slot_ge c
-    have h2 := slot_lt (show c < A.n by omega)
+    have h1 := slot_ge A.lay c
+    have h2 := slot_lt A.lay (show c < A.n by omega)
     exact (ht.ends hso c hc).frame (f13.trans hwf) (by sc_omega) (by sc_omega) (by sc_omega)
   · have hvs := hpre.hvs
     have hvb := hpre.hv
@@ -153,7 +154,7 @@ theorem leaf_oddS {j : Nat} (hj : j < A.n) (hodd : j % 2 = 1) {st : List Digest 
   · rw [f12.get (by decide) (by simp)]; exact ht.lh16
   · rw [f12.get (by decide) (by simp)]; exact ht.lh24
   · intro hso c hc
-    have h1 := slot_ge c; have h2 := slot_lt (show c < A.n by omega)
+    have h1 := slot_ge A.lay c; have h2 := slot_lt A.lay (show c < A.n by omega)
     exact (ht.ends hso c hc).frame f12 (by sc_omega) (by simp) (by simp)
   · exact ht.vals.frame f12 (by rw [ht.vlen]; have := hpre.hv; omega) (fun X _ _ => by simp)
 theorem leaf_pairS {p : Nat} (hp : 2 * p < A.n) {st : List Digest × List Digest} {t : MachineState}
@@ -187,9 +188,9 @@ theorem leaf_pairS {p : Nat} (hp : 2 * p < A.n) {st : List Digest × List Digest
     have hhi' : DigAt x (SEEDS + 16 * ((2 * p + 1) % 2)) (a.extractLsb' 128 128) := by
       rw [show (2 * p + 1) % 2 = 1 by omega, Nat.mul_one]
       refine (hhi.frame hwf (by decide) ?_ ?_).frame xf (by decide) (by simp) (by simp)
-      · have := slot_ge (2 * p); have := slot_lt hp; have := hpre.hvs
+      · have := slot_ge A.lay (2 * p); have := slot_lt A.lay hp; have := hpre.hvs
         simp only [CHAIN, SEEDS, LEAFPK, PRIV] at *; omega
-      · have := slot_ge (2 * p); have := slot_lt hp; have := hpre.hvs
+      · have := slot_ge A.lay (2 * p); have := slot_lt A.lay hp; have := hpre.hvs
         simp only [CHAIN, SEEDS, LEAFPK, PRIV] at *; omega
     refine (TSim.steps stx ((leaf_iterS hsub h42 sk hpre hl0 (j := 2 * p + 1) hq hx xpc _ hhi').mono
       (fun st2 y hy => ⟨hy.1, by rw [show min (2 * p + 2) A.n = 2 * p + 1 + 1 by omega]; exact hy.2.1⟩))).of_eq
@@ -200,23 +201,23 @@ theorem leaf_pairS {p : Nat} (hp : 2 * p < A.n) {st : List Digest × List Digest
     exact (h1.mono (fun st1 w hw => ⟨hw.1, by
       rw [show min (2 * p + 2) A.n = 2 * p + 1 by omega]; exact hw.2.1⟩)).of_eq rfl (by omega) (by omega)
       (by omega) (by omega)
-theorem buildLeaf_tsimT (hpc : s0.pc = pcOf (b + 27)) :
-    TSim image sk s0 (14 + sumTo (pairK3 A) ((A.n + 1) / 2) + (if A.so then 3 else 19))
-      (14 + sumTo (pairC3 A) ((A.n + 1) / 2) + (if A.so then 3 else 18 + 8 * leafBlocks A.lay)) A.leafN A.leafB
+theorem buildLeaf_tsimT (hpc : s0.pc = pcOf (b + 27))
+    (h15 : A.tree = 0 ∨ s0.getReg .x15 = BitVec.ofNat 64 (SigGolfCandidate.T3.height A.lay)) :
+    TSim image sk s0 (17 + sumTo (pairK3 A) ((A.n + 1) / 2) + (if A.so then 3 else 19))
+      (17 + sumTo (pairC3 A) ((A.n + 1) / 2) + (if A.so then 3 else 18 + 8 * leafBlocks A.lay)) A.leafN A.leafB
       (buildLeaf A.lay A.tree A.leaf A.digits A.so)
       (fun r t => t.pc = pcOf A.ret ∧ (A.so = false → DigAt t A.dest r.1) ∧ DigsAt t A.valp r.2 ∧
         r.2.length = A.n ∧ t.getReg .x23 = BitVec.ofNat 64 (A.valp + 16 * A.n) ∧ RegsExcept s0 t leafRegs ∧
         Frame s0 t (LeafW A)) := by
   have hn : A.n = 54 ∨ A.n = 43 := chainCount_cases A.lay
   have hlay : A.lay.val < 256 := by have := A.lay.isLt; omega
-  obtain ⟨t1, st1, t1pc, t1x3, t1x19, t1c24, t1l24, t1l16, t1r, t1f⟩ :=
-    Sign.Seed.sub27_spec hsub s0 hpc A.lay.val A.tree A.leaf hlay hpre.htree hpre.hleaf hpre.x8 hpre.x9 hpre.x18
+  obtain ⟨t1, st1, t1pc, t1x3, t1x19, t1l16, t1l24, t1r, t1f⟩ :=
+    Sign.Seed.sub27_spec hsub s0 hpc A.lay A.tree A.leaf (by have := hpre.hroute; omega) hpre.x8 hpre.x9 hpre.x18 h15
   have h0 : LeafInv s0 A 0 ([], []) t1 := by
-    refine ⟨t1x19, ?_, by rw [t1x3, hpre.x1], t1r.mono (by decide), t1f.mono (fun X _ h => ?_), ?_,
+    refine ⟨t1x19, ?_, by rw [t1x3, hpre.x1], t1r.mono (by decide), t1f.mono (fun X _ h => ?_), t1l16,
       t1l24, by simp, rfl, fun _ c hc => absurd hc (by omega), DigsAt.nil _ _⟩
     · rw [t1r.get (by simp), hpre.x23]; simp
-    · unfold LeafW; simp only [CHAIN, LEAFPK] at h ⊢; omega
-    · rw [t1l16]
+    · unfold LeafW; rw [if_pos hl0]; simp only [CHAIN, LEAFPK] at h ⊢; omega
   rw [buildLeaf_unfold]
   refine (TSim.steps st1 (TSim.bind (k₂ := if A.so then 3 else 19)
     (c₂ := if A.so then 3 else 18 + 8 * leafBlocks A.lay) (n₂ := if A.so then 0 else 1)
@@ -249,7 +250,7 @@ theorem top42_spec : Top42 Sign.image 1013 := by
   · rw [h, if_pos (by decide), if_pos rfl]
   · rw [h, if_neg (by decide), if_neg (by decide)]
 theorem top_cycles (A : LeafArgs) (hl0 : A.lay = 0) (hso : A.so = true) (hd : ∀ i < A.n, A.d i ≤ 7) :
-    14 + sumTo (pairC3 A) ((A.n + 1) / 2) + (if A.so then 3 else 18 + 8 * leafBlocks A.lay) ≤ 18836 := by
+    17 + sumTo (pairC3 A) ((A.n + 1) / 2) + (if A.so then 3 else 18 + 8 * leafBlocks A.lay) ≤ 18839 := by
   have hn : A.n = 54 := by unfold LeafArgs.n; rw [hl0]; rfl
   have hit : ∀ i < A.n, A.iterC i ≤ 331 := by
     intro i hi
@@ -283,8 +284,8 @@ theorem pair_steps_le (A : LeafArgs) (p : Nat) : pairK3 A p ≤ pairC3 A p := by
   have := hit (2 * p); have := hit (2 * p + 1)
   split_ifs <;> omega
 theorem topLeafSpec : SigGolfCandidate.T3M.Sign.Packed.TopLeafSpec := by
-  intro sk A s hl0 hso hd hpre hpc
-  have h := buildLeaf_tsimT Sign.SeedIndependent.seedIndependentAt_sign top42_spec sk hpre hl0 hpc
+  intro sk A s hl0 hso hd hpre hpc h15
+  have h := buildLeaf_tsimT Sign.SeedIndependent.seedIndependentAt_sign top42_spec sk hpre hl0 hpc h15
   refine (h.toTBSim ?_).mono (top_cycles A hl0 hso hd) (fun r t ht => ht)
   have := SigGolfCandidate.T3M.Sign.Packed.sumTo_le_sumTo (pairK3 A) (pairC3 A) ((A.n + 1) / 2)
     (fun p _ => pair_steps_le A p)

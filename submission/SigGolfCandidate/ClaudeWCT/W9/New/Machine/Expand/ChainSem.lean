@@ -413,15 +413,14 @@ theorem leaf_spec {im : Image} {p B H : Nat} (hc : CodeAt im (pcOf p) leafW) (s 
     ∃ u, Steps im s 6 6 u ∧ u.pc = s.getReg .x23 &&& 0xfffffffffffffffe#64 ∧
       u.getReg .x10 = BitVec.ofNat 64 (B + 880) ∧ u.getReg .x11 = BitVec.ofNat 64 128 ∧
       (∀ r, r ≠ .x10 → r ≠ .x11 → r ≠ .x25 → u.getReg r = s.getReg r) ∧
-      u.getMem (BitVec.ofNat 64 (B + 896)) = s.getMem (BitVec.ofNat 64 (H - 2048 + 456)) ∧
-      u.getMem (BitVec.ofNat 64 (B + 904)) = s.getReg .x4 ∧
+      u.getMem (BitVec.ofNat 64 (B + 896)) = s.getReg .x31 + 0x601#64 ∧
+      u.getMem (BitVec.ofNat 64 (B + 904)) = 0 ∧
       Frame s u (fun A => A = B + 896 ∨ A = B + 904) := by
   have hrun := run_leaf (pcOf p)
   have hobl : leafR.obligs s := by
-    simp only [Result.obligs, leafR, leafSt, Oblig.all, Oblig.holds, aX_eval hB, aX_eval hH, ofNat_hbO H _ hb.hlo]
+    simp only [Result.obligs, leafR, leafSt, Oblig.all, Oblig.holds, aX_eval hB]
     exact ⟨valid_of (by have := hb.b8; omega) (by have := hb.bhi; omega),
-      valid_of (by have := hb.b8; omega) (by have := hb.bhi; omega),
-      valid_of (by have := hb.h8; have := hb.hlo; omega) (by have := hb.hhi; have := hb.hlo; omega)⟩
+      valid_of (by have := hb.b8; omega) (by have := hb.bhi; omega)⟩
   have := hb.bhi
   refine ⟨_, symRun_sound hrun hc s hpc hobl, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · simp only [Result.toState_pc, leafR, E.eval, BinOp.eval]
@@ -432,11 +431,10 @@ theorem leaf_spec {im : Image} {p B H : Nat} (hc : CodeAt im (pcOf p) leafW) (s 
   · intro r h10 h11 h25
     simp only [Result.toState_getReg, leafR, leafSt]
     rw [RegFile.get_set_ne _ _ h11, RegFile.get_set_ne _ _ h10, RegFile.get_set_ne _ _ h25, RegFile.init_get_eval]
-  · simp only [Result.toState_getMem, leafR, leafSt, memEval_cons, memEval_nil, aX_eval hB, E.eval, eX_eval hH,
-      ofNat_hbO H _ hb.hlo]
+  · simp only [Result.toState_getMem, leafR, leafSt, memEval_cons, memEval_nil, aX_eval hB, E.eval, BinOp.eval]
     rw [if_neg (by rw [ofNat_eq_iff]; omega)]; simp only [if_true]
   · simp only [Result.toState_getMem, leafR, leafSt, memEval_cons, memEval_nil, aX_eval hB, E.eval]
-    simp only [if_true]
+    simp only [if_true]; rfl
   · intro A hA hn
     simp only [not_or] at hn
     simp only [Result.toState_getMem, leafR, leafSt, memEval_cons, memEval_nil, aX_eval hB]

@@ -162,21 +162,23 @@ theorem childWrites_bound {j off : Nat} (h : off ∈ childWrites j) : off % 8 = 
   simp only [stageW, List.mem_cons, List.not_mem_nil, or_false] at ho
   unfold curO at ho; unfold blkO at ho
   rcases ho with rfl | rfl | rfl | rfl | rfl | rfl <;> omega
-theorem hdr0_nodeLo (k index : Nat) (hk : k < 252) (hidx : index < 2 ^ 32) :
-    hdr0 3 (4 + k) index index = nodeLo k index := by
-  simp only [hdr0, nodeLo]
-  rw [Nat.div_eq_of_lt hidx, Nat.mod_eq_of_lt hidx]
-  omega
-theorem nodeHdr_lo (k index heap : Nat) (hk : k < 252) (hidx : index < 2 ^ 32) :
-    (ClaudeWCT.WCT9.wctNodeHeader k index heap).extractLsb' 0 64 = BitVec.ofNat 64 (nodeLo k index) := by
+theorem nodeHdr_lo (k index heap : Nat) (hk : k < 9) (hidx : index < 2 ^ 31) :
+    (ClaudeWCT.WCT9.wctNodeHeader k index heap).extractLsb' 0 64 = BitVec.ofNat 64 (Merkle.nodeLo k index) := by
   unfold ClaudeWCT.WCT9.wctNodeHeader ClaudeWCT.WCT9.nodeLayer
-  rw [header_packed_lo_3, hdr0_nodeLo k index hk hidx]
-theorem nodeHdr_hi (k index heap : Nat) (hh : heap < 2 ^ 32) :
+  rw [SigGolfCandidate.T3.nodeTweak_fts (by omega) (by omega), SigGolfCandidate.T3.append64_low]
+  unfold SigGolfCandidate.T3.ftsNodeWord Merkle.nodeLo
+  congr 1
+  rw [show 4 + k - 4 = k by omega, Nat.mod_eq_of_lt (show k < 16 by omega), Nat.mod_eq_of_lt hidx]
+  ring
+theorem nodeHdr_hi (k index heap : Nat) (hk : k < 9) (hh : heap < 2 ^ 32) :
     (ClaudeWCT.WCT9.wctNodeHeader k index heap).extractLsb' 64 64 = BitVec.ofNat 64 heap := by
   unfold ClaudeWCT.WCT9.wctNodeHeader ClaudeWCT.WCT9.nodeLayer
-  rw [header_packed_hi_3]
-  congr 1
-  unfold hdr1; rw [Nat.mod_eq_of_lt hh]; simp
+  rw [SigGolfCandidate.T3.nodeTweak_fts (by omega) (by omega)]
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.extractLsb'_toNat, SigGolfCandidate.T3.append64_toNat]
+  have := (SigGolfCandidate.T3.ftsNodeWord (4 + k - 4) index).isLt
+  simp only [BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow]
+  omega
 def nodeInC (k index j : Nat) (sibs : Nat → Digest) (v : Digest) (l : Nat) : List UInt8 :=
   let pair := if bitAt j l = 0 then (v, sibs l) else (sibs l, v)
   blk4 pair.1 (ClaudeWCT.WCT9.wctNodeHeader k index (heapOf l j)) 0 pair.2
@@ -249,8 +251,8 @@ structure ChildPreE (j B k index P : Nat) (leaf sibs : Nat → Digest) (u : Mach
   baseHi : B + 1024 ≤ MEMORY_BYTES
   p16 : P % 16 = 0
   sep : P + 48 ≤ B
-  hk : k < 252
-  hidx : index < 2 ^ 32
+  hk : k < 9
+  hidx : index < 2 ^ 31
   t0 : u.getReg .x5 = 0
   s0 : u.getReg .x8 = BitVec.ofNat 64 B
   a0 : u.getReg .x10 = BitVec.ofNat 64 (B + leafO)
@@ -360,7 +362,7 @@ theorem lvl_piece {im : Image} {j : Nat} (hj : j < 128) (hcode : NewCodeAt im)
     · rw [hmem _ (by omega), if_neg (by omega), if_pos rfl, nodeHdr_lo k index _ hu.hk hu.hidx,
         hkeep .x27 (by decide) (by decide) (by decide) (by decide), hu.w0]
     · rw [show B + blkO l + 16 + 8 = B + blkO l + 24 by omega, hmem _ (by omega), if_pos rfl,
-        nodeHdr_hi k index _ (by omega)]
+        nodeHdr_hi k index _ hu.hk (by omega)]
       apply hdr1E_eval hj hl
       intro h h1 h7
       obtain ⟨n3, n10, n11, n12, -⟩ := heapReg_ne h

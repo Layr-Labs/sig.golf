@@ -541,57 +541,6 @@ theorem nearIn_mono (A : Correctness.Answers) (log : QueryLog Requests) (entries
   obtain ⟨m, w, N, f, hx, hN, hS, hgate, hgood, hsd, hlen, hf, hguess, hdis⟩ := hn
   exact ⟨m, w, N, f, hsub _ hx, hN, hS, hgate, hgood, hsd, hlen, hf, BPair.guessedIn_mono A log entries entries' hsub f hguess,
     hdis⟩
-theorem near_shared (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
-    (z : PaddedGame.TraceResult × Correctness.Answers) (hz : z ∈ (SeccLaw.completedExperiment adversary q hq).support)
-    (hclean : QueryRecorded.CleanWin q z.1) (hnear : PinnedC adversary NearQ z) :
-    ∀ generated interaction checked, Wots.GameSplit adversary (QueryRecorded.recordedTrace z.1) generated interaction
-      checked → NearIn z.2 interaction.value.2 (BPair.publicEntries checked.events) := by
-  obtain ⟨g, i, c, hs, hpk, hlen, f, hf, hfr, m, w, hof, hsd, hCat, hQ⟩ := hnear
-  intro g' i' c' hs'
-  obtain ⟨hg', hi', hce⟩ := split_events_unique adversary _ g i c g' i' c' hs hs'
-  rw [hce, hi']
-  have hagree := (SeccLaw.completed_agrees adversary q hq z hz).2
-  have hstate : c.state = z.1.2.2.base.source.2 := (congrArg FirstHit.Recorded.state hs.2.2.2).symm
-  have hvalue : c.value = true := (congrArg FirstHit.Recorded.value hs.2.2.2).symm.trans hclean.1
-  have ha : ∀ input answer, SourceReplay.known c.state input = some answer → z.2 input = answer :=
-    fun input answer hk => hagree input answer (by rw [← hstate]; exact hk)
-  obtain ⟨N, -, hN, -, hS, hgate, hgood, -⟩ := hCat
-  obtain ⟨check, hcheck, hev, hst, m', w', hof', hv, hsub⟩ :=
-    verdict_accepting g.value.1 i.value i.state c hs.2.2.1 z.2 ha hvalue f hf
-  obtain ⟨rfl, rfl⟩ := witnessOf_unique hof hof'
-  obtain ⟨N', -, hN', hdq, -⟩ := WotsExtract.verifyP_walk_wots_route z.2 m g.value.1 w hpk hv
-  have hNN : N' = N := hN'.symm.trans hN
-  subst hNN
-  obtain ⟨prior, hevent⟩ := PaddedExtraction.public_occurrence _ (PaddedExtraction.check_hashOnly _ _ f) _ check hcheck
-    z.2 (by rw [hst]; exact ha) _ (hsub _ hdq)
-  rw [hev] at hevent
-  have hans : z.2 (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w))))) = N' := hN'
-  rw [hans] at hevent
-  obtain ⟨f0, hf0, hguess, hdis⟩ := hQ
-  rw [hN'] at hf0 hdis
-  exact ⟨m, w, N', f0, mem_publicEntries hevent, hN', hS, hgate, hgood, hsd, hlen, hf0, hguess, hdis⟩
-theorem caseC_not_signer_eval (answers : Correctness.Answers) (published : T3.Cache) (log : QueryLog Requests)
-    (hsig : ∀ entry ∈ log, entry.2 = evalWithAnswerFn answers (FullGame.authenticatedSign published entry.1))
-    (m : Message) (w : WBytes) (N : HashOutput)
-    (hN : evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N) (hS : Shaped N w) (hgate : digestGate N=true)
-    (hgood : ∀ lay : Layer, Extract.Good answers w (N.toNat % 2 ^ 31) lay)
-    (hfresh : ¬BPB.SignedDigest log m w) :
-    ∀ entry ∈ log, (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : T3.Spec.Domain) ∉
-      queried answers (FullGame.authenticatedSign published entry.1) := by
-  intro entry he hq
-  obtain ⟨hc, hm, hrho, hq'⟩ := BPB.signer_digest_query answers published entry.1 _ _ _ hq
-  rw [← BPB.ofNat_toNat32 (wdc w)] at hq'
-  have hacc := BPB.rejected_trial_inadmissible answers (wrho w) m (wdc w).toNat hq'
-    (by rw [BPB.ofNat_toNat32, hN]; simp [digestAdmissible,hS.2.1,hgate])
-  rw [BPB.ofNat_toNat32, hN] at hacc
-  have hsel : (evalWithAnswerFn answers (payloadRecordForNonce published (wrho w) m)).2 = some N := by
-    unfold payloadRecordForNonce
-    simp only [evalWithAnswerFn_bind, hacc, evalWithAnswerFn_pure]
-  obtain ⟨sig, hsig', hsrho⟩ := BPB.selected_payload_succeeds answers published (wrho w) m N w hsel hgood
-  apply hfresh
-  refine ⟨entry, he, hm, sig, ?_, hsrho⟩
-  rw [hsig entry he, BPB.eval_authenticatedSign, if_pos hc, hm, ← hm, ← hrho, hm]
-  exact hsig'
 end SigGolfCandidate.T3.Security.CaseC
 end
 section
@@ -1005,7 +954,7 @@ theorem nearTermTight_le (q : Nat) : nearTermTight q ≤ Wots.nearTerm q := by
   rfl
 theorem nearBound : NearBound caseCExtraction NearQ Wots.nearTerm :=
   fun adversary q hq h1 h2 => (nearBoundTight adversary q hq h1 h2).trans (nearTermTight_le q)
-theorem excessBound_horizon : ClaudeWCT.Bank.WCT.ExcessBound horizon (15200 / 100000000) :=
+theorem excessBound_horizon : ClaudeWCT.Bank.WCT.ExcessBound horizon (14774 / 100000000) :=
   ClaudeWCT.Numerics.WCTPrice.wct_excessBound_2_32
 theorem caseC_small_bound_wct :
     CaseCSmallBound CaseCFreshPinned Wots.nearTerm WPair.pairTerm :=

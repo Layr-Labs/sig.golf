@@ -32,13 +32,13 @@ theorem extract_hi (x : BitVec 256) :
   rw [show (2 : Nat) ^ 128 = 2 ^ 64 * 2 ^ 64 by norm_num, Nat.mod_mul_right_div_self, Nat.mod_mod]
 theorem orig_word {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 728}
     {u : MachineState} (hu : Pre L w index k j rank u) (as : List (BitVec 256)) (off : Nat)
-    (ho : off < 896) (ha : off % 8 = 0) :
+    (ho : off < 880) (ha : off % 8 = 0) :
     chainValue (originalValue u index k j) as (.original off) =
       w.extractLsb' (8 * (V3.regionOffset k.val + off)) 64 := by
   exact hu.witness off ho ha
 theorem orig_block {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 728}
     {u : MachineState} (hu : Pre L w index k j rank u) (as : List (BitVec 256)) (t c : Nat)
-    (ht : t < 7) (hc : c < 192) (ha : c % 8 = 0) :
+    (ht : t < 7) (hc : c < 64) (ha : c % 8 = 0) :
     chainValue (originalValue u index k j) as (.original (704 - 64 * t + c)) =
       w.extractLsb' (8 * (V3.chainOffset k.val t + c)) 64 := by
   rw [orig_word hu as _ (by omega) (by omega)]

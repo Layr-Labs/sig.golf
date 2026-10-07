@@ -15,36 +15,35 @@ set_option backward.isDefEq.respectTransparency false
 namespace Enc
 open SigGolfCandidate.T3.Security.Wots.Enc
 open SigGolfCandidate.T3.Security.Wots.Enc (tsum_uniform_coe)
-def EncOk (lay : Layer) (msg : WCT9.LayerMsg) (pad : BitVec 96) : Prop :=
-  Extract.msgFits lay msg ∧ (lay.val = 3 → pad = 0)
-abbrev EncIndex := {e : CanonGraph.LeafPos × WCT9.LayerMsg × BitVec 32 × BitVec 96 // EncOk e.1.lay e.2.1 e.2.2.2}
+def EncOk (lay : Layer) (msg : WCT9.LayerMsg) (pad : RowPad) : Prop :=
+  Extract.msgFits lay msg ∧ (lay.val < 3 → pad.2 = 0)
+abbrev EncIndex :=
+  {e : CanonGraph.LeafPos × WCT9.LayerMsg × BitVec 32 × RowPad // e.1.Source ∧ EncOk e.1.lay e.2.1 e.2.2.2}
 instance encIndex_finite : Finite EncIndex := by
   haveI : Finite WCT9.LayerMsg := Finite.of_equiv _ CanonGraph.layerMsgEquiv.symm
   infer_instance
 def encInput (e : EncIndex) : HashInput := encRow (leafOf e.1.1) e.1.2.1 e.1.2.2.1 e.1.2.2.2
-def encIdx (L : CanonGraph.LeafPos) (msg : WCT9.LayerMsg) (counter : BitVec 32) (pad : BitVec 96)
+def encIdx (L : CanonGraph.LeafPos) (hs : L.Source) (msg : WCT9.LayerMsg) (counter : BitVec 32) (pad : RowPad)
     (hfit : Extract.msgFits L.lay msg) : EncIndex :=
-  ⟨(L, msg, counter, if L.lay.val = 3 then 0 else pad), hfit, fun h => if_pos h⟩
-theorem encInput_encIdx (L : CanonGraph.LeafPos) (msg : WCT9.LayerMsg) (counter : BitVec 32) (pad : BitVec 96)
-    (hfit : Extract.msgFits L.lay msg) : encInput (encIdx L msg counter pad hfit) = encRow (leafOf L) msg counter pad := by
+  ⟨(L, msg, counter, if L.lay.val < 3 then (pad.1, 0) else pad), hs, hfit, fun h => by simp only [if_pos h]⟩
+theorem encInput_encIdx (L : CanonGraph.LeafPos) (hs : L.Source) (msg : WCT9.LayerMsg) (counter : BitVec 32)
+    (pad : RowPad) (hfit : Extract.msgFits L.lay msg) :
+    encInput (encIdx L hs msg counter pad hfit) = encRow (leafOf L) msg counter pad := by
   unfold encInput encIdx
   dsimp only
   split_ifs with h3
   · cases msg with
-    | forest root => rfl
-    | pair l r =>
-        change L.lay.val < 3 at hfit
+    | forest root =>
+        change L.lay.val = 3 at hfit
         omega
+    | pair l r => rfl
   · rfl
 theorem encInput_length (e : EncIndex) : (encInput e).length = 64 :=
-  ClaudeWCT.W9.T3M.BC.layerEncodingRow_length _ _ _ _ _ _
+  ClaudeWCT.W9.T3M.BC.layerEncodingRow_length _ _ _ _ _ _ _
 theorem encInput_injective : Function.Injective encInput := by
-  rintro ⟨⟨L, m, c, p⟩, hf, hp⟩ ⟨⟨L', m', c', p'⟩, hf', hp'⟩ he
-  have ht : L.tree.val < 2 ^ 40 := lt_of_lt_of_le L.tree.isLt (by norm_num)
-  have ht' : L'.tree.val < 2 ^ 40 := lt_of_lt_of_le L'.tree.isLt (by norm_num)
-  have hl : L.leaf.val < 2 ^ 32 := lt_of_lt_of_le L.leaf.isLt (by norm_num)
-  have hl' : L'.leaf.val < 2 ^ 32 := lt_of_lt_of_le L'.leaf.isLt (by norm_num)
-  obtain ⟨h1, h2, h3, h4, h5, h6⟩ := ClaudeWCT.W9.T3M.BC.layerEncodingRow_injective ht hl ht' hl' hf hf' he
+  rintro ⟨⟨L, m, c, p⟩, hs, hf, hp⟩ ⟨⟨L', m', c', p'⟩, hs', hf', hp'⟩ he
+  obtain ⟨h1, h2, h3, h4, h5, h6⟩ := ClaudeWCT.W9.T3M.BC.layerEncodingRow_injective hs.routed.1 hs.routed.2
+    hs'.routed.1 hs'.routed.2 hf hf' he
   obtain ⟨lay, tree, leaf⟩ := L
   obtain ⟨lay', tree', leaf'⟩ := L'
   simp only at h1 h2 h3 hf hp hf' hp'
@@ -53,44 +52,46 @@ theorem encInput_injective : Function.Injective encInput := by
   have : leaf = leaf' := Fin.ext h3
   subst tree leaf
   have hpp : p = p' := by
+    obtain ⟨h6, h7⟩ := h6
     cases m with
-    | forest root =>
-        change lay.val = 3 at hf
-        rw [hp hf, hp' hf]
-    | pair l r => exact h6 l r rfl
+    | forest root => exact Prod.ext h6 (h7 root rfl)
+    | pair l r =>
+        change lay.val < 3 at hf
+        exact Prod.ext h6 ((hp hf).trans (hp' hf).symm)
   subst hpp
   rfl
 theorem encInput_short (e : EncIndex) : encInput e ∈ SeccLaw.publicUniverse :=
   SeccLaw.mem_publicUniverse _ (by rw [encInput_length]; unfold SeccLaw.maxInputLength; omega)
 theorem encInput_encHeader (e : EncIndex) : EncHeader (encInput e) :=
-  ⟨e.1.1.lay.val, e.1.1.tree.val, 0, e.1.1.leaf.val,
-    ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP _ _ _ _ _ _⟩
-theorem reached_encInput {T : Answers} {L : CanonGraph.LeafPos} {input : HashInput}
+  ⟨e.1.1.lay, e.1.1.tree.val, e.1.1.leaf.val, ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP _ _ _ _ _ _ _⟩
+theorem reached_encInput {T : Answers} {L : CanonGraph.LeafPos} (hs : L.Source) {input : HashInput}
     (h : Reached T (leafOf L) input) :
-    ∃ c : BitVec 32, input = encInput ⟨(L, leafMsg T (leafOf L), c, 0), msgFits_leafMsg T (leafOf L), fun _ => rfl⟩ := by
+    ∃ c : BitVec 32,
+      input = encInput ⟨(L, leafMsg T (leafOf L), c, 0), hs, msgFits_leafMsg T (leafOf L), fun _ => rfl⟩ := by
   obtain ⟨c, -, rfl, -⟩ := h
   exact ⟨_, rfl⟩
 def Free (T : Answers) (e : EncIndex) : Prop := ¬ Reached T (leafOf e.1.1) (encInput e)
 def freeSet (T : Answers) : Set EncIndex := {e | Free T e}
-theorem encRow_hdr (L : LeafAddr) (msg : WCT9.LayerMsg) (counter : BitVec 32) (pad : BitVec 96) :
-    Extract.hdrBlock (encRow L msg counter pad) = bytesLE 16 (header 4 L.lay.val L.tree 0 L.leaf) :=
-  ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP _ _ _ _ _ _
+theorem encRow_hdr (L : LeafAddr) (msg : WCT9.LayerMsg) (counter : BitVec 32) (pad : RowPad) :
+    Extract.hdrBlock (encRow L msg counter pad) = bytesLE 16 (rowTweak L.lay L.tree L.leaf) :=
+  ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP _ _ _ _ _ _ _
 theorem encInput_hdr (e : EncIndex) :
-    Extract.hdrBlock (encInput e) = bytesLE 16 (header 4 e.1.1.lay.val e.1.1.tree.val 0 e.1.1.leaf.val) :=
-  ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP _ _ _ _ _ _
+    Extract.hdrBlock (encInput e) = bytesLE 16 (rowTweak e.1.1.lay e.1.1.tree.val e.1.1.leaf.val) :=
+  ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP _ _ _ _ _ _ _
 noncomputable def rowDec (T A : Answers) (L : CanonGraph.LeafPos) (c : Nat) : Option (List Nat) :=
   WCT9.producerDecode (leafOf L).lay (low (A (.inl (.inr (encRow (leafOf L) (leafMsg T (leafOf L))
     (BitVec.ofNat 32 c) 0)))))
-theorem rowDec_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (L : CanonGraph.LeafPos) (c : Nat)
-    (hc : c < WCT9.searchLimit (leafOf L).lay) (hprev : ∀ c' < c, rowDec T T L c' = none) :
+theorem rowDec_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') {L : CanonGraph.LeafPos} (hs : L.Source)
+    (c : Nat) (hc : c < WCT9.searchLimit (leafOf L).lay) (hprev : ∀ c' < c, rowDec T T L c' = none) :
     rowDec T T' L c = none ↔ rowDec T T L c = none := by
   rcases h (.inl (.inr (encRow (leafOf L) (leafMsg T (leafOf L)) (BitVec.ofNat 32 c) 0)))
-      (Or.inr ⟨L, c, hc, rfl, hprev⟩) with he | hrej
+      (Or.inr ⟨L, hs, c, hc, rfl, hprev⟩) with he | hrej
   · unfold rowDec
     rw [he]
   · obtain ⟨hT, hT'⟩ := hrej.layer (encRow_hdr (leafOf L) (leafMsg T (leafOf L)) (BitVec.ofNat 32 c) 0)
     exact ⟨fun _ => hT, fun _ => hT'⟩
-theorem rowDec_prefix_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (L : CanonGraph.LeafPos) :
+theorem rowDec_prefix_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') {L : CanonGraph.LeafPos}
+    (hs : L.Source) :
     ∀ c, c ≤ WCT9.searchLimit (leafOf L).lay →
       ((∀ c' < c, rowDec T T' L c' = none) ↔ ∀ c' < c, rowDec T T L c' = none) := by
   intro c
@@ -106,26 +107,26 @@ theorem rowDec_prefix_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (L :
         have hprev := ih'.mp (fun c'' hc'' => hT' c'' (by omega))
         rcases Nat.lt_succ_iff_lt_or_eq.mp hc' with hlt | rfl
         · exact hprev c' hlt
-        · exact (rowDec_congr h L c' (by omega) hprev).mp (hT' c' (by omega))
+        · exact (rowDec_congr h hs c' (by omega) hprev).mp (hT' c' (by omega))
       · intro hT c' hc'
         have hprev : ∀ c'' < c, rowDec T T L c'' = none := fun c'' hc'' => hT c'' (by omega)
         rcases Nat.lt_succ_iff_lt_or_eq.mp hc' with hlt | rfl
         · exact ih'.mpr hprev c' hlt
-        · exact (rowDec_congr h L c' (by omega) hprev).mpr (hT c' (by omega))
-theorem reached_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (L : CanonGraph.LeafPos)
+        · exact (rowDec_congr h hs c' (by omega) hprev).mpr (hT c' (by omega))
+theorem reached_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') {L : CanonGraph.LeafPos} (hs : L.Source)
     (input : HashInput) : Reached T' (leafOf L) input ↔ Reached T (leafOf L) input := by
   have hm : leafMsg T' (leafOf L) = leafMsg T (leafOf L) := leafMsg_congr_nonEnc (nonEnc_of_honest h) _
   unfold Reached
   rw [hm]
   constructor
   · rintro ⟨c, hc, rfl, hprev⟩
-    exact ⟨c, hc, rfl, (rowDec_prefix_congr h L c (le_of_lt hc)).mp hprev⟩
+    exact ⟨c, hc, rfl, (rowDec_prefix_congr h hs c (le_of_lt hc)).mp hprev⟩
   · rintro ⟨c, hc, rfl, hprev⟩
-    exact ⟨c, hc, rfl, (rowDec_prefix_congr h L c (le_of_lt hc)).mpr hprev⟩
+    exact ⟨c, hc, rfl, (rowDec_prefix_congr h hs c (le_of_lt hc)).mpr hprev⟩
 theorem free_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') : freeSet T' = freeSet T := by
   ext e
   simp only [freeSet, Set.mem_ofPred_eq, Free]
-  rw [reached_congr h]
+  rw [reached_congr h e.2.1]
 section Overwrite
 variable {U : Finset HashInput}
 noncomputable def ov (k : Set EncIndex) (pub : U → HashOutput) (y : k → HashOutput) : U → HashOutput :=
@@ -177,10 +178,10 @@ theorem honest_ov (privateTable : FullGame.FullTable) (pub : U → HashOutput)
         eagerAnswers_public_mem U privateTable _ ⟨input, hin⟩]
       apply ov_other
       intro e he heq
-      rcases hq with hnon | ⟨L, hr⟩
+      rcases hq with hnon | ⟨L, hs, hr⟩
       · have h' : encInput e = input := heq
         exact hnon (h' ▸ encInput_encHeader e)
-      · obtain ⟨c, hc⟩ := reached_encInput hr
+      · obtain ⟨c, hc⟩ := reached_encInput hs hr
         have hee := encInput_injective ((show encInput e = input from heq).trans hc)
         apply he
         rw [hee, ← hc]
@@ -226,16 +227,16 @@ theorem cellInit_nonempty (k : CellKey) (e : k.1) : (cellInit k e).Nonempty := b
 theorem rej_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (e : EncIndex) : Rej T' e ↔ Rej T e := by
   constructor
   · rintro ⟨hr', hv'⟩
-    have hr := (reached_congr h e.1.1 _).mp hr'
+    have hr := (reached_congr h e.2.1 _).mp hr'
     refine ⟨hr, ?_⟩
     obtain ⟨c, hc, hin, hprev⟩ := hr
     rw [hin] at hv' ⊢
-    exact (rowDec_congr h e.1.1 c hc hprev).mp hv'
+    exact (rowDec_congr h e.2.1 c hc hprev).mp hv'
   · rintro ⟨hr, hv⟩
-    refine ⟨(reached_congr h e.1.1 _).mpr hr, ?_⟩
+    refine ⟨(reached_congr h e.2.1 _).mpr hr, ?_⟩
     obtain ⟨c, hc, hin, hprev⟩ := hr
     rw [hin] at hv ⊢
-    exact (rowDec_congr h e.1.1 c hc hprev).mpr hv
+    exact (rowDec_congr h e.2.1 c hc hprev).mpr hv
 theorem cellKey_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') : cellKey T' = cellKey T := by
   have hf := free_congr h
   refine Prod.ext ?_ hf
@@ -261,9 +262,9 @@ theorem agree_ovc (hU : SeccLaw.publicUniverse ⊆ U) (privateTable : FullGame.F
     · by_cases hcell : ∃ e, e ∈ (cellKey (eagerAnswers U privateTable pub)).1 ∧ encInput e = input
       · obtain ⟨e, he, rfl⟩ := hcell
         right
-        rcases hq with hnon | ⟨L, hr⟩
+        rcases hq with hnon | ⟨L, hs, hr⟩
         · exact absurd (encInput_encHeader e) hnon
-        · obtain ⟨c, hc⟩ := reached_encInput hr
+        · obtain ⟨c, hc⟩ := reached_encInput hs hr
           have hee := encInput_injective hc
           have hr' : Reached (eagerAnswers U privateTable pub) (leafOf e.1.1) (encInput e) := by
             rw [hee]

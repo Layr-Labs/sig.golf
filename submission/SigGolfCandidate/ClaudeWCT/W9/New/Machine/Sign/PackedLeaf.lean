@@ -6,15 +6,15 @@ namespace ClaudeWCT.W9.Machine.Sign.PackedLeaf
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3M.Keygen (PRIV SEEDS CHAIN LEAFPK LOUT LeafArgs LeafW leafRegs LeafInv ChainPre ChainW
-  chainRegs chainProg n4 selectorExtra rungK rungC leafBlocks slot slot_ge slot_lt LeafW_of_c48 LeafW_of_chainW
+  chainRegs chainProg n4 selectorExtra rungK rungC leafBlocks slot slotK slot_ge slot_lt LeafW_of_c48 LeafW_of_chainW
   LeafW_of_slot chainCount_cases)
 open SigGolfCandidate.T3M.Sign (LeafPreS)
 open SigGolfCandidate.T3 (Layer Digest chainCount maxDigit privatePair header privateInput)
 set_option maxRecDepth 10000
 def KP (A : LeafArgs) (j : Nat) : Nat :=
-  (if (j + A.leaf) % 2 = 1 then 7 else 25) + 16 + (rungK A.lay * A.e j + 10) + (4 + (11 + (if j = 0 then 0 else 1)))
+  (if (j + A.leaf) % 2 = 1 then 7 else 25) + 16 + (rungK A.lay * A.e j + 10) + (4 + (11 + slotK A.lay j))
 def CP (A : LeafArgs) (j : Nat) : Nat :=
-  (if (j + A.leaf) % 2 = 1 then 7 else 35) + 16 + (rungC A.lay * A.e j + 10) + (4 + (11 + (if j = 0 then 0 else 1)))
+  (if (j + A.leaf) % 2 = 1 then 7 else 35) + 16 + (rungC A.lay * A.e j + 10) + (4 + (11 + slotK A.lay j))
 def NP (A : LeafArgs) (j : Nat) : Nat := (if (j + A.leaf) % 2 = 1 then 0 else 1) + A.e j
 theorem LeafInv.of_step {sk : BitVec 256} {s0 t u : MachineState} {A : LeafArgs} {j : Nat} {st : List Digest × List Digest}
     (ht : LeafInv s0 A j st t) (hr : RegsExcept t u [.x6, .x7, .x10, .x11, .x12, .x28, .x30])
@@ -36,7 +36,7 @@ theorem LeafInv.of_step {sk : BitVec 256} {s0 t u : MachineState} {A : LeafArgs}
     · unfold LeafW; right; right; left; exact h
   · rw [hf.get (by decide) (by simp only [PRIV, SEEDS]; omega)]; exact ht.lh16
   · rw [hf.get (by decide) (by simp only [PRIV, SEEDS]; omega)]; exact ht.lh24
-  · have h1 := slot_ge c; have h2 := slot_lt (show c < A.n by omega)
+  · have h1 := slot_ge A.lay c; have h2 := slot_lt A.lay (show c < A.n by omega)
     exact (ht.ends hso c hc).frame hf (by omega) (by omega) (by omega)
   · exact ht.vals.frame hf (by rw [ht.vlen]; omega) (fun X h1 h2 => by rw [ht.vlen] at h2; omega)
 theorem packedSecret_odd {q : Nat} (hq : q % 2 = 1) (pq : Nat → SigGolfCandidate.T3.M (Digest × Digest)) (carry : Digest) :
@@ -83,8 +83,8 @@ theorem chainP_tsim (hlay : A.lay ≠ 0) (hso : A.so = false) {j : Nat} (hj : j 
   have cont : ∀ (u : MachineState) (half : Nat) (seed carry' : Digest), half < 2 → u.pc = pcOf (1013 + 61) →
       LeafInv s0 A j st u → u.getReg .x28 = BitVec.ofNat 64 half → DigAt u (SEEDS + 16 * half) seed →
       DigAt u (SEEDS + 16) carry' →
-      TSim Sign.image sk u (16 + (rungK A.lay * A.e j + 10) + (4 + (11 + (if j = 0 then 0 else 1))))
-        (16 + (rungC A.lay * A.e j + 10) + (4 + (11 + (if j = 0 then 0 else 1)))) (A.e j) (A.e j)
+      TSim Sign.image sk u (16 + (rungK A.lay * A.e j + 10) + (4 + (11 + slotK A.lay j)))
+        (16 + (rungC A.lay * A.e j + 10) + (4 + (11 + slotK A.lay j))) (A.e j) (A.e j)
         ((fun r : Digest × Digest => (st.1 ++ [r.2], st.2 ++ [r.1], carry')) <$> chainProg A j seed)
         (fun st' u => u.pc = pcOf (1013 + 41) ∧ LeafInv s0 A (j + 1) (st'.1, st'.2.1) u ∧
           DigAt u (SEEDS + 16) st'.2.2) := by
@@ -95,17 +95,17 @@ theorem chainP_tsim (hlay : A.lay ≠ 0) (hso : A.so = false) {j : Nat} (hj : j 
     simp only [Bool.false_eq_true, if_false, Nat.add_zero] at st0
     have hch := Sign.Seed.chainRun_tsim hsub sk hcp u0pc seed hcs
     rw [map_eq_bind_pure_comp]
-    refine (TSim.steps st0 (TSim.bind (k₂ := 4 + (11 + (if j = 0 then 0 else 1)))
-      (c₂ := 4 + (11 + (if j = 0 then 0 else 1))) (n₂ := 0) (b₂ := 0) hch (fun r w hw => ?_))).of_eq
-      (by unfold chainProg; rfl) (by split_ifs <;> omega) (by split_ifs <;> omega) (by simp) (by simp)
+    refine (TSim.steps st0 (TSim.bind (k₂ := 4 + (11 + slotK A.lay j))
+      (c₂ := 4 + (11 + slotK A.lay j)) (n₂ := 0) (b₂ := 0) hch (fun r w hw => ?_))).of_eq
+      (by unfold chainProg; rfl) (by omega) (by omega) (by simp) (by simp)
     obtain ⟨wpc, hwv, hwl, hwr, hwf⟩ := hw
     obtain ⟨x, stx, xpc, hx, hfx⟩ := Sign.Seed.leaf_postchainS hsub sk hpre hj hu wpc (u0r.trans hwr)
       (u0f.trans hwf) r.1 r.2 hwv hwl
     rw [hso] at stx hx
     simp only [Bool.false_eq_true, if_false] at stx hx
     refine TSim.pure_steps stx ⟨xpc, hx, ?_⟩
-    have hsj := slot_ge j
-    have hsj' := slot_lt hj
+    have hsj := slot_ge A.lay j
+    have hsj' := slot_lt A.lay hj
     have hvj : A.valp + 16 * j + 16 ≤ A.valp + 16 * A.n := by omega
     refine ((hc'.frame u0f (by omega) (by omega) (by omega)).frame hwf (by omega) ?_ ?_).frame hfx (by omega)
       (by omega) (by omega)
@@ -150,6 +150,7 @@ theorem chainP_tsim (hlay : A.lay ≠ 0) (hso : A.so = false) {j : Nat} (hj : j 
       intro X hX hw
       have := hpre.hds; have := hpre.hdv
       unfold LeafW at hw
+      rw [if_neg hlay] at hw
       omega
     have fr : ∀ X, (X = PRIV ∨ X = PRIV + 8 ∨ X = PRIV + 32 ∨ X = PRIV + 40 ∨ X = PRIV + 48 ∨
         X = PRIV + 56) → t3.getMem (BitVec.ofNat 64 X) = s0.getMem (BitVec.ofNat 64 X) := fun X hX =>
@@ -167,8 +168,8 @@ theorem chainP_tsim (hlay : A.lay ≠ 0) (hso : A.so = false) {j : Nat} (hj : j 
     have h5 : t3.getReg .x5 = 0 := by rw [r13.get (by simp), g _ (by simp [leafRegs]), hpre.x5]
     unfold WCT9.lowerSeedPair
     refine (TSim.steps (st1.trans (st2.trans st3)) (TSim.privatePair_bind
-      (k := 2 + (16 + (rungK A.lay * A.e j + 10) + (4 + (11 + (if j = 0 then 0 else 1)))))
-      (c := 2 + (16 + (rungC A.lay * A.e j + 10) + (4 + (11 + (if j = 0 then 0 else 1)))))
+      (k := 2 + (16 + (rungK A.lay * A.e j + 10) + (4 + (11 + slotK A.lay j))))
+      (c := 2 + (16 + (rungC A.lay * A.e j + 10) + (4 + (11 + slotK A.lay j))))
       (n := A.e j) (b := A.e j) e3 h5 hva hqin (fun a => ?_))).of_eq rfl ?_ ?_ ?_ ?_
     rotate_left
     · (try simp only [KP, hpar, if_false]) <;> (try split_ifs) <;> omega
@@ -192,8 +193,9 @@ theorem chainP_tsim (hlay : A.lay ≠ 0) (hso : A.so = false) {j : Nat} (hj : j 
       (DigAt.writeHash_hi t3 a SEEDS x12 (by decide)).frame t4f (by decide) (by simp) (by simp)
     exact TSim.steps st4 (cont t4 0 _ _ (by norm_num) (by rw [t4pc]) hu t4x28 (by simpa using hlo) hhi)
 theorem buildLeafP_tsim (hlay : A.lay ≠ 0) (hso : A.so = false) (hpc : s0.pc = pcOf (1013 + 27))
+    (h15 : s0.getReg .x15 = BitVec.ofNat 64 (SigGolfCandidate.T3.height A.lay))
     (carry : Digest) (hcar : A.leaf % 2 = 1 → DigAt s0 (SEEDS + 16) carry) :
-    TSim Sign.image sk s0 (14 + (sumTo (KP A) A.n + 19)) (14 + (sumTo (CP A) A.n + (18 + 8 * leafBlocks A.lay)))
+    TSim Sign.image sk s0 (17 + (sumTo (KP A) A.n + 19)) (17 + (sumTo (CP A) A.n + (18 + 8 * leafBlocks A.lay)))
       (sumTo (NP A) A.n + 1) (sumTo (NP A) A.n + leafBlocks A.lay)
       (WCT9.buildLeafP A.lay A.tree A.leaf A.digits carry)
       (fun r t => t.pc = pcOf A.ret ∧ DigAt t A.dest r.1.1 ∧ DigsAt t A.valp r.1.2 ∧ r.1.2.length = A.n ∧
@@ -206,14 +208,14 @@ theorem buildLeafP_tsim (hlay : A.lay ≠ 0) (hso : A.so = false) (hpc : s0.pc =
   have hC : CHAIN = 131488 := rfl
   have hLO : LOUT = 132032 := rfl
   have hlay' : A.lay.val < 256 := by have := A.lay.isLt; omega
-  obtain ⟨t1, st1, t1pc, t1x3, t1x19, t1c24, t1l24, t1l16, t1r, t1f⟩ :=
-    Sign.Seed.sub27_spec hsub s0 hpc A.lay.val A.tree A.leaf hlay' hpre.htree hpre.hleaf hpre.x8 hpre.x9 hpre.x18
+  obtain ⟨t1, st1, t1pc, t1x3, t1x19, t1l16, t1l24, t1r, t1f⟩ :=
+    Sign.Seed.sub27_spec hsub s0 hpc A.lay A.tree A.leaf (by have := hpre.hroute; omega) hpre.x8 hpre.x9 hpre.x18
+      (Or.inr h15)
   have h0 : LeafInv s0 A 0 ([], []) t1 := by
-    refine ⟨t1x19, ?_, by rw [t1x3, hpre.x1], t1r.mono (by decide), t1f.mono (fun X _ h => ?_), ?_,
+    refine ⟨t1x19, ?_, by rw [t1x3, hpre.x1], t1r.mono (by decide), t1f.mono (fun X _ h => ?_), t1l16,
       t1l24, by simp, rfl, fun _ c hc => absurd hc (by omega), DigsAt.nil _ _⟩
     · rw [t1r.get (by simp), hpre.x23]; simp
-    · unfold LeafW; omega
-    · rw [t1l16]
+    · unfold LeafW; rw [if_neg hlay]; omega
   have hc1 : A.leaf % 2 = 1 → DigAt t1 (SEEDS + 16) carry := fun h =>
     (hcar h).frame t1f (by omega) (by omega) (by omega)
   unfold WCT9.buildLeafP
@@ -253,18 +255,19 @@ theorem lower_rungC {lay : Layer} (h : lay ≠ 0) : rungC lay = if lay = 1 then 
 theorem lower_blocks {lay : Layer} (h : lay ≠ 0) : leafBlocks lay = 11 := by
   unfold leafBlocks; rw [lower_n h]
 theorem leaf_cycles {A : LeafArgs} (hlay : A.lay ≠ 0) (hso : A.so = false) :
-    14 + (sumTo (CP A) A.n + (18 + 8 * leafBlocks A.lay)) ≤ (if A.lay = 1 then 16387 else 16688) := by
+    17 + (sumTo (CP A) A.n + (18 + 8 * leafBlocks A.lay)) ≤ (if A.lay = 1 then 16390 else 16691) := by
   have hn : A.n = 43 := lower_n hlay
   have hc : sumTo (CP A) A.n = sumTo (cpG (A.leaf % 2) (rungC A.lay)) 43 := by
     rw [hn]
     refine sumTo_congr _ _ 43 (fun j _ => ?_)
     unfold CP cpG
-    rw [lower_e hlay hso j, show (j + A.leaf) % 2 = (j + A.leaf % 2) % 2 by omega]
+    rw [lower_e hlay hso j, show (j + A.leaf) % 2 = (j + A.leaf % 2) % 2 by omega,
+      SigGolfCandidate.T3M.Sign.Seed.slotK_low hlay j]
   rw [hc, lower_blocks hlay, lower_rungC hlay]
   obtain ⟨h1, h2, h3, h4⟩ := cpG_sums
   rcases Nat.mod_two_eq_zero_or_one A.leaf with hp | hp <;> rw [hp] <;> split_ifs <;> omega
 theorem leaf_steps_le (A : LeafArgs) :
-    14 + (sumTo (KP A) A.n + 19) ≤ 14 + (sumTo (CP A) A.n + (18 + 8 * leafBlocks A.lay)) := by
+    17 + (sumTo (KP A) A.n + 19) ≤ 17 + (sumTo (CP A) A.n + (18 + 8 * leafBlocks A.lay)) := by
   have : sumTo (KP A) A.n ≤ sumTo (CP A) A.n := by
     refine SigGolfCandidate.T3M.Sign.Packed.sumTo_le_sumTo _ _ A.n (fun j _ => ?_)
     unfold KP CP
@@ -273,18 +276,8 @@ theorem leaf_steps_le (A : LeafArgs) :
     split_ifs <;> omega
   have : 1 ≤ leafBlocks A.lay := by unfold leafBlocks; omega
   omega
-def PackedLeafSpecV : Prop :=
-  ∀ (sk : SecretKey) (A : LeafArgs) (s : MachineState) (carry : Digest),
-    A.lay ≠ 0 → A.so = false → LeafPreS sk s A → s.pc = pcOf (1013 + 27) →
-    (A.leaf % 2 = 1 → DigAt s (SEEDS + 16) carry) →
-    TBSim Sign.image sk s (if A.lay = 1 then 16387 else 16688)
-      (WCT9.buildLeafP A.lay A.tree A.leaf A.digits carry)
-      (fun r t => t.pc = pcOf A.ret ∧
-        (A.so = false → DigAt t A.dest r.1.1) ∧ DigsAt t A.valp r.1.2 ∧
-        r.1.2.length = A.n ∧ DigAt t (SEEDS + 16) r.2 ∧
-        RegsExcept s t leafRegs ∧ Frame s t (LeafW A))
-theorem packedLeafSpecV : PackedLeafSpecV := by
-  intro sk A s carry hlay hso hpre hpc hcar
-  refine ((buildLeafP_tsim sk hpre hlay hso hpc carry hcar).toTBSim (leaf_steps_le A)).mono (leaf_cycles hlay hso)
+theorem packedLeafSpecV : SigGolfCandidate.T3M.Sign.Packed.PackedLeafSpec WCT9.buildLeafP := by
+  intro sk A s carry hlay hso hpre hpc h15 hcar
+  refine ((buildLeafP_tsim sk hpre hlay hso hpc h15 carry hcar).toTBSim (leaf_steps_le A)).mono (leaf_cycles hlay hso)
     (fun r t ht => ⟨ht.1, fun _ => ht.2.1, ht.2.2.1, ht.2.2.2.1, ht.2.2.2.2.1, ht.2.2.2.2.2.1, ht.2.2.2.2.2.2⟩)
 end ClaudeWCT.W9.Machine.Sign.PackedLeaf

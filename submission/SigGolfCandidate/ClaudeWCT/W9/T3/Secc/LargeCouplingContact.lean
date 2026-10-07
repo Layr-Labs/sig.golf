@@ -168,8 +168,8 @@ theorem msgLabel_router (vals : Coord → Digest) (a : AuxData) (L : EncLeaf) :
   by_cases hl : L.1.lay.val < 3
   · rw [dif_pos hl, dif_pos hl]
     congr 1
-    · exact (treeLabel_top _ _ _ 0).trans (joinLabels_low _ _ _)
-    · exact (treeLabel_top _ _ _ 1).trans (joinLabels_low _ _ _)
+    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 0).trans (joinLabels_low _ _ _)
+    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 1).trans (joinLabels_low _ _ _)
   · rw [dif_neg hl, dif_neg hl]
     exact congrArg WCT9.LayerMsg.forest (joinLabels_low _ _ _)
 theorem sel_psi (a : AuxData) (labels : Labels) (τ : U → HashOutput) (L : EncLeaf) :

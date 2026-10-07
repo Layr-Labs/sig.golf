@@ -13,7 +13,7 @@ theorem signLayersP_eq (cache : Cache) (index n : Nat) (msg : WCT9.LayerMsg) :
   | succ n ih =>
     simp only [signLayersP, WCT9.signLayersBC, buildTreeP_eq, ih]
     rfl
-theorem layers_entry_cost : 26 + Boundary.layersC = 3009711049 := by decide +kernel
+theorem layers_entry_cost : 26 + Boundary.layersC = 3013905353 := by decide +kernel
 theorem layers_from370_canonical
     (hPacked : PackedLeafSpec WCT9.buildLeafP) (hTop : TopLeafSpec)
     {sk : SecretKey} {cache : Bytes 131072} {index : Nat}

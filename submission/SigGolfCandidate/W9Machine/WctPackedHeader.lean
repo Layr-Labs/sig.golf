@@ -3,8 +3,6 @@ import SigGolfCandidate.W9Machine.WctPackedRuns
 import SigGolfCandidate.T3M.Verify.ChainSem
 
 set_option autoImplicit false
-set_option maxRecDepth 100000
-set_option maxHeartbeats 0
 namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
 theorem chainPrefix_shift (index coord child : Nat) :
@@ -32,18 +30,26 @@ theorem chainLow_add (index coord child chain digit : Nat) (hc : chain < 7) (hd 
   unfold V3.chainLow
   rw [hlo, Nat.or_comm, chainPrefix_shift,
     ← Nat.shiftLeft_add_eq_or_of_lt (by omega : 128 + 4 * chain + 256 * digit < 2 ^ 16)]
+theorem leafLow_eq (index coord child : Nat) (hi : index < 2 ^ 31) (hk : coord < 9) (hj : child < 128) :
+    V3.leafLow index coord child = 1537 + V3.chainPrefix index coord child := by
+  rw [chainPrefix_value _ _ _ hk hj]
+  unfold V3.leafLow ClaudeWCT.WCT9.ftsLeafLow
+  rw [Nat.mod_eq_of_lt (by omega : coord < 16), Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hi]
+  omega
 theorem packedHeader_eval (s : MachineState) (index coord child chain digit : Nat)
-    (hp : s.getReg .x31 = BitVec.ofNat 64 (V3.chainPrefix index coord child + 644))
+    (hp : s.getReg .x31 = BitVec.ofNat 64 (V3.leafLow index coord child))
+    (hi : index < 2 ^ 31) (hk : coord < 9) (hj : child < 128)
     (hc : chain < 7) (hd : digit < 3) :
     (packedHeader chain digit).eval s = BitVec.ofNat 64 (V3.chainLow index coord child chain digit) := by
-  rw [packedHeader, addC_eval]
-  change s.getReg .x31 + (BitVec.ofNat 64 (128 + 4 * chain + 256 * digit) - 644) = _
-  rw [hp, chainLow_add _ _ _ _ _ hc hd]
-  rw [BitVec.ofNat_add (V3.chainPrefix index coord child) 644,
-    BitVec.ofNat_add (V3.chainPrefix index coord child) (128 + 4 * chain + 256 * digit)]
-  rw [BitVec.add_assoc, BitVec.add_comm (BitVec.ofNat 64 644)]
-  congr 1
-  exact BitVec.sub_add_cancel (BitVec.ofNat 64 (128 + 4 * chain + 256 * digit)) (BitVec.ofNat 64 644)
+  simp only [packedHeader, addC_eval, E.eval, hp]
+  rw [leafLow_eq _ _ _ hi hk hj, chainLow_add _ _ _ _ _ hc hd, chainPrefix_value _ _ _ hk hj]
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_add, BitVec.toNat_sub, BitVec.toNat_ofNat]
+  have hc' : 128 + 4 * chain + 256 * digit < 1537 := by omega
+  rw [Nat.mod_eq_of_lt (by omega : 128 + 4 * chain + 256 * digit < 2 ^ 64),
+    Nat.mod_eq_of_lt (by omega : 1537 < 2 ^ 64),
+    Nat.mod_eq_of_lt (by omega : 1537 + 65536 * (2048 * index + 16 * child + coord) < 2 ^ 64)]
+  omega
 theorem packedPos_eval (s : MachineState) (digit : Nat) (hd : digit < 3)
     (h7 : s.getReg .x7 = 1) (h13 : s.getReg .x13 = 2) :
     (packedPos digit).eval s = BitVec.ofNat 64 digit := by

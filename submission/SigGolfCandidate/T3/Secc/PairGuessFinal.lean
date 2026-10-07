@@ -81,46 +81,6 @@ theorem secrets_bind {R : Type} (next : CanonGraph.Secrets → ProbComp R) :
     _ = _ := by simp only [bind_assoc, pure_bind]
 theorem canon_subset (adversary : AdversaryP) : CanonGraph.canonInputs ⊆ Wots.referenceInputs adversary :=
   CanonGraph.canonInputs_subset_publicUniverse.trans (referenceInputs_universe' adversary)
-theorem pairExperiment_eq (adversary : AdversaryP) :
-    𝒮[pairExperiment adversary] =
-      𝒮[($ᵗ ChainGraph.Seeds : ProbComp _) >>= fun seeds =>
-        ($ᵗ CanonGraph.OtherHalves : ProbComp _) >>= fun other =>
-        ($ᵗ CanonGraph.Labels : ProbComp _) >>= fun labels =>
-        (@uniformSample (Wots.referenceInputs adversary → HashOutput)
-          (CanonGraph.instSampleableTypeForallSubtypeHashInputMemFinsetHashOutput_canonGraph_1 _) : ProbComp _) >>=
-          fun residual =>
-        ($ᵗ (FtsCoord → Digest) : ProbComp _) >>= fun fts =>
-          (fun (run : Bool × QueryLog Requests × List Wots.Entry) =>
-              (Omega.answers (canon_subset adversary) ⟨seeds, other, labels, residual⟩ fts, run.2.1, run.2.2)) <$>
-            pairRun (Omega.answers (canon_subset adversary) ⟨seeds, other, labels, residual⟩ fts) adversary] := by
-  let K : FullGame.FullTable → (Wots.referenceInputs adversary → HashOutput) →
-      ProbComp (Answers × QueryLog Requests × List Wots.Entry) := fun privateTable publicTable =>
-    (fun (run : Bool × QueryLog Requests × List Wots.Entry) =>
-        (Wots.eagerAnswers (Wots.referenceInputs adversary) privateTable publicTable, run.2.1, run.2.2)) <$>
-      pairRun (Wots.eagerAnswers (Wots.referenceInputs adversary) privateTable publicTable) adversary
-  have h1 : 𝒮[pairExperiment adversary] =
-      𝒮[(@uniformSample FullGame.FullTable CanonGraph.instSampleableTypeFullTable_canonGraph : ProbComp _) >>=
-        fun privateTable => (@uniformSample (Wots.referenceInputs adversary → HashOutput)
-          (CanonGraph.instSampleableTypeForallSubtypeHashInputMemFinsetHashOutput_canonGraph_1 _) : ProbComp _) >>=
-          fun publicTable => K privateTable publicTable] := by
-    unfold pairExperiment
-    rw [bind_uniform_congr Wots.Ref.instSampleableTypeFullTable_wotsTransportCompletion
-      CanonGraph.instSampleableTypeFullTable_canonGraph]
-  rw [h1, CanonGraph.tables_bind (Wots.referenceInputs adversary) (canon_subset adversary) K, secrets_bind]
-  apply evalSPMF_bind_congr_left
-  intro seeds
-  rw [evalSPMF_bind_bind_swap]
-  apply evalSPMF_bind_congr_left
-  intro other
-  rw [evalSPMF_bind_bind_swap]
-  apply evalSPMF_bind_congr_left
-  intro labels
-  rw [evalSPMF_bind_bind_swap]
-  apply evalSPMF_bind_congr_left
-  intro residual
-  apply evalSPMF_bind_congr_left
-  intro fts
-  simp only [K, eager_omega]
 theorem inner_fts_eq {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : Omega U) (adversary : AdversaryP)
     (E : Answers × QueryLog Requests × List Wots.Entry → Prop) :
     Pr[E | ($ᵗ (FtsCoord → Digest) : ProbComp _) >>= fun fts =>
@@ -133,29 +93,6 @@ theorem inner_fts_eq {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) 
   intro fts
   rw [uniform_secretsLaw, probEvent_map, probEvent_map]
   rfl
-theorem pairExperiment_event_le (adversary : AdversaryP) (E : Answers × QueryLog Requests × List Wots.Entry → Prop)
-    (bound : ENNReal)
-    (h : ∀ ω : Omega (Wots.referenceInputs adversary),
-      Pr[fun x => E (Omega.answers (canon_subset adversary) ω x.1, x.2.2.1, x.2.2.2) |
-        ftsRun (canon_subset adversary) ω adversary] ≤ bound) :
-    Pr[E | pairExperiment adversary] ≤ bound := by
-  rw [probEvent_congr' (fun _ _ => Iff.rfl) (pairExperiment_eq adversary)]
-  apply probEvent_bind_le_of_forall_le
-  intro seeds _
-  apply probEvent_bind_le_of_forall_le
-  intro other _
-  apply probEvent_bind_le_of_forall_le
-  intro labels _
-  apply probEvent_bind_le_of_forall_le
-  intro residual _
-  rw [inner_fts_eq]
-  exact h ⟨seeds, other, labels, residual⟩
-theorem pairExperiment_pair (adversary : AdversaryP) (q : Nat) :
-    Pr[fun s => s.2.2.length ≤ q ∧ PairGuessIn s.1 s.2.1 s.2.2 | pairExperiment adversary] ≤ pairTerm q :=
-  pairExperiment_event_le adversary _ _ fun ω => fts_pair_le (canon_subset adversary) ω adversary q
-theorem pairExperiment_one (adversary : AdversaryP) (q : Nat) :
-    Pr[fun s => s.2.2.length ≤ q ∧ OneGuessIn s.1 s.2.1 s.2.2 | pairExperiment adversary] ≤ guessTerm q :=
-  pairExperiment_event_le adversary _ _ fun ω => fts_one_le (canon_subset adversary) ω adversary q
 end Chain
 section Short
 open SourceQueries
@@ -204,20 +141,4 @@ theorem guessedIn_mono (A : Answers) (log : QueryLog Requests) (entries entries'
     GuessedIn A log entries' f :=
   ⟨hg.1, hg.2.elim fun answer he => ⟨answer, hsub _ he⟩⟩
 end Short
-theorem pair_guess_bound (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
-    Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ PairGuess adversary z | SeccLaw.completedExperiment adversary q hq] ≤
-      pairTerm q := by
-  refine (shared_le_pair adversary q hq PairGuessIn ?_ ?_).trans (pairExperiment_pair adversary q)
-  · rintro A T log entries h ⟨f, g, hfg, hf, hg⟩
-    exact ⟨f, g, hfg, guessedIn_short h log entries f hf, guessedIn_short h log entries g hg⟩
-  · rintro A log entries entries' hsub ⟨f, g, hfg, hf, hg⟩
-    exact ⟨f, g, hfg, guessedIn_mono A log entries entries' hsub f hf, guessedIn_mono A log entries entries' hsub g hg⟩
-theorem one_guess_bound (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
-    Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ OneGuess adversary z | SeccLaw.completedExperiment adversary q hq] ≤
-      guessTerm q := by
-  refine (shared_le_pair adversary q hq OneGuessIn ?_ ?_).trans (pairExperiment_one adversary q)
-  · rintro A T log entries h ⟨f, hf⟩
-    exact ⟨f, guessedIn_short h log entries f hf⟩
-  · rintro A log entries entries' hsub ⟨f, hf⟩
-    exact ⟨f, guessedIn_mono A log entries entries' hsub f hf⟩
 end SigGolfCandidate.T3.Security.BPair

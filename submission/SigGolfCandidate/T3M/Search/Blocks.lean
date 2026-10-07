@@ -8,7 +8,7 @@ set_option linter.unusedSimpArgs false
 def dsE_0 : List (BitVec 32) := [1049399,0x50698663]
 def dsS_0 : List (BitVec 32) := [1049399,0x60698a63]
 def ds_0 (d : Nat) : List (BitVec 32) := if d = 30 then dsE_0 else dsS_0
-def ds_2 (_d : Nat) : List (BitVec 32) := [4919,0x313,34182035,134711,302910995,7223331,8272931,132407,302318867,67110291,132663,369493523]
+def ds_2 (_d : Nat) : List (BitVec 32) := [4919,787,627603,134711,302910995,7223331,8272931,132407,302318867,67110291,132663,369493523]
 def ds_14 (_d : Nat) : List (BitVec 32) := [115]
 def dsE_15 : List (BitVec 32) := [348131567]
 def dsS_15 : List (BitVec 32) := [0x74010ef]

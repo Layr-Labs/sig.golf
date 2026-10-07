@@ -159,15 +159,18 @@ def pad1 (c : LCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0
 def padHeader (c : LCtx) (i : Nat) : Word := c.w.extractLsb' (8 * (c.blk i - 0x800 + 24)) 64
 def val (c : LCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x800 + 48)
 def ok (c : LCtx) : Prop :=
-  c.tree < 2 ^ 32 ∧ c.leaf < 2 ^ 32 ∧ c.koff ≤ 16 ∧ c.S6 % 8 = 0 ∧ 0x800 + 8104 + 1024 ≤ c.S6 ∧
+  c.tree < 2 ^ 32 ∧ c.leaf < 2 ^ 32 ∧ c.koff ≤ 16 ∧ c.S6 % 8 = 0 ∧ 0x800 + 8000 + 1024 ≤ c.S6 ∧
     c.S6 + 2688 + 80 ≤ 0x7000 ∧ c.ck ≤ 8 ∧ c.ret = ckSlot c.ck + partLen c.ck ∧ c.i0 ≤ 42 ∧
     c.tree < 2 ^ (31 - height c.lay) ∧ c.leaf < 2 ^ height c.lay ∧
     2 ^ 63 ≤ c.d0.toNat ∧ 2 ^ 63 ≤ c.d1.toNat
+def x28v (c : LCtx) : Nat := packedPrefix c.lay c.tree c.leaf + c.koff + 385
+theorem x28v_eq (c : LCtx) (h0 : c.koff = 0) : c.x28v = packedPrefix c.lay c.tree c.leaf + 385 := by
+  generalize hp : packedPrefix c.lay c.tree c.leaf = q
+  unfold x28v; rw [hp]; omega
 def known (c : LCtx) : List (Reg × Word) :=
   [(.x5, 0), (.x11, 64), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
-   (.x28, BitVec.ofNat 64 (packedPrefix c.lay c.tree c.leaf + c.koff)), (.x2, 0x3fe00), (.x15, 0x40000),
+   (.x28, BitVec.ofNat 64 c.x28v), (.x2, 0x3fe00), (.x15, 0x40000),
    (.x22, BitVec.ofNat 64 c.S6),
-   (.x4, BitVec.ofNat 64 c.w1), (.x27, BitVec.ofNat 64 (0x401 + 65536 * c.lay.val)),
    (.x16, c.d0), (.x17, c.d1), (.x29, 7#64 - BitVec.ofNat 64 c.ck)]
 def kOf (c : LCtx) (t : Nat) : Nat := c.dig (3 * t) + 8 * c.dig (3 * t + 1) + 64 * c.dig (3 * t + 2)
 def tb (c : LCtx) (i : Nat) : Nat := triBase (i / 3) (c.dig (3 * (i / 3) + 1)) (c.dig (3 * (i / 3) + 2))
@@ -304,7 +307,7 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open SigGolfCandidate.T3
 namespace LCtx
 theorem blk_props (c : LCtx) (hc : c.ok) (i : Nat) (hi : i ≤ 42) :
-    c.blk i % 8 = 0 ∧ 0x800 + 8104 ≤ c.blk i ∧ c.blk i + 80 ≤ 0x7000 := by
+    c.blk i % 8 = 0 ∧ 0x800 + 8000 ≤ c.blk i ∧ c.blk i + 80 ≤ 0x7000 := by
   obtain ⟨-, -, -, h64, hlo, hhi, -⟩ := hc
   unfold blk; refine ⟨?_, ?_, ?_⟩ <;> omega
 theorem blk_succ (c : LCtx) (hc : c.ok) (i : Nat) (hi : i < 42) : c.blk (i + 1) + 64 = c.blk i := by
@@ -627,12 +630,20 @@ theorem val_at {c : LCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 s0) {i
   have := DigAt_origW o6 o7 (by omega)
   rwa [show c.blk i + 48 - 0x800 = c.blk i - 0x800 + 48 by omega] at this
 theorem Wr_mono (c : LCtx) (i : Nat) (A : Nat) (h : c.Wr i A) : c.WrIn i A := Or.inl h
+theorem bv385 (a b : Nat) :
+    BitVec.ofNat 64 (a + 385) + (BitVec.ofNat 64 b - BitVec.ofNat 64 385) = BitVec.ofNat 64 (a + b) := by
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_add, BitVec.toNat_sub, BitVec.toNat_ofNat]
+  omega
 theorem header_load (c : LCtx) {s : MachineState} (i d : Nat)
-    (h28 : s.getReg .x28 = BitVec.ofNat 64 (packedPrefix c.lay c.tree c.leaf + c.koff)) :
+    (h28 : s.getReg .x28 = BitVec.ofNat 64 c.x28v) :
     (hLoad i d).eval s = BitVec.ofNat 64 (c.w0 i + 256 * d) := by
   rw [hLoad, addC_eval]
-  simp only [E.eval, h28, ofNat_add_ofNat]
-  congr 1; unfold w0; omega
+  show s.getReg .x28 + (BitVec.ofNat 64 (i + 256 * d) - BitVec.ofNat 64 385) = _
+  rw [h28, LCtx.x28v, bv385]
+  congr 1
+  unfold w0
+  omega
 theorem padHeader_at {c : LCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 s0)
     {i : Nat} (hi : c.i0 ≤ i ∧ i ≤ 42) (hF : Frame s0 t (c.Wr i)) :
     t.getMem (BitVec.ofNat 64 (c.blk i + 24)) = c.padHeader i := by

@@ -349,7 +349,7 @@ theorem full_potential (X : CaseCExtraction) (adversary : AdversaryP) (q : Nat) 
         rw [← hkg]
         exact List.mem_map_of_mem hk
       have hnd := SigGolfCandidate.T3.Security.CaseC.queried_notDigest_keygen _ _ hmem
-      exact hnd (BPB.hdrTag_digestInput (wrho w) m (wdc w))
+      exact hnd (BPB.hdrMarker_digestInput (wrho w) m (wdc w))
     · rcases hp _ N rfl hdig hfresh with ht | hb' | hs
       · exact ht
       · exfalso

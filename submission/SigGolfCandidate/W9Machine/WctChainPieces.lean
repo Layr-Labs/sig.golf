@@ -4,10 +4,10 @@ namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
 def leafSetupRel : Result :=
   ⟨⟨(RegFile.init.set .x10 (addC (.reg .x8) 752)).set .x11 (.c 128),
-    [(kAt .x8 752 24, .reg .x22),
-      (kAt .x8 752 16, .reg .x28)],
+    [(kAt .x8 752 24, .c 0),
+      (kAt .x8 752 16, .reg .x31)],
     [.valid (kAt .x8 752 24) 8, .valid (kAt .x8 752 16) 8]⟩,
-    .bin .and (.reg .x23) (.c (~~~1#64)), .jump, 5, 5⟩
+    .bin .and (.bin .add (.reg .x23) (.c 4)) (.c (~~~1#64)), .jump, 5, 5⟩
 inductive ChainPieceKind where
   | head (off dst chain digit : Nat)
   | rung (digit : Nat) (dst : Option Nat)

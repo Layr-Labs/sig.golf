@@ -81,73 +81,61 @@ theorem publicKey_variant (hv : Variant labels T T') :
 end Game
 section Depth
 variable {labels : CanonGraph.Labels} {T T' : Answers}
-theorem wotsEnd_alias (T : Answers) (lay : Layer) {tree tree' : Nat} (h : tree % 2 ^ 40 = tree' % 2 ^ 40)
-    (leaf i : Nat) (hleaf : leaf < 2 ^ 24) :
-    WCT9.wotsEnd T lay tree leaf i = WCT9.wotsEnd T lay tree' leaf i := by
-  have hal : Mask.LeafAlias lay tree leaf ⟨lay, tree', leaf⟩ := ⟨rfl, h, rfl⟩
-  unfold WCT9.wotsEnd
-  rw [Mask.chain_alias hal, Mask.wotsSeed_alias T hal (Or.inr ⟨hleaf, hleaf⟩)]
-theorem wotsRoot_alias (T : Answers) (lay : Layer) {tree tree' : Nat} (h : tree % 2 ^ 40 = tree' % 2 ^ 40)
-    (leaf : Nat) (hleaf : leaf < 2 ^ 24) :
-    WCT9.wotsRoot T lay tree leaf = WCT9.wotsRoot T lay tree' leaf := by
-  unfold WCT9.wotsRoot
-  have hends : (List.range (chainCount lay)).map (WCT9.wotsEnd T lay tree leaf) =
-      (List.range (chainCount lay)).map (WCT9.wotsEnd T lay tree' leaf) :=
-    List.map_congr_left fun i _ => wotsEnd_alias T lay h leaf i hleaf
-  rw [hends]
-  unfold leafHash
-  rw [Mask.header_congr (t := 2) (p := 0) rfl h rfl]
-theorem wotsTree_alias (T : Answers) (lay : Layer) {tree tree' : Nat} (h : tree % 2 ^ 40 = tree' % 2 ^ 40) :
-    WCT9.wotsTree T lay tree = WCT9.wotsTree T lay tree' := by
-  unfold WCT9.wotsTree
-  have hr : (List.range (2 ^ height lay)).map (WCT9.wotsRoot T lay tree) =
-      (List.range (2 ^ height lay)).map (WCT9.wotsRoot T lay tree') :=
-    List.map_congr_left fun leaf hleaf => wotsRoot_alias T lay h leaf
-      (by have := List.mem_range.mp hleaf; have := Mask.height_pow_le lay; omega)
-  rw [hr, buildLevels_alias 3 lay.val h]
-theorem wotsTree_variant_bounded (hv : Variant labels T T') (lay : Layer) (tree : Nat) (htree : tree < 2 ^ 40) :
-    WCT9.wotsTree T lay tree = WCT9.wotsTree T' lay tree := by
+theorem wotsTree_variant_top (hv : Variant labels T T') (tree : Nat) (ht : tree < 2 ^ Extract.treeBits 0) :
+    WCT9.wotsTree T 0 tree = WCT9.wotsTree T' 0 tree := by
+  have htree : tree < 2 ^ 40 := lt_trans (Extract.tree_lt_of_treeBits ht) (by norm_num)
+  rw [WCT9.wotsTree_top, WCT9.wotsTree_top,
+    ← Correctness.eval_buildTree_levels T 0 tree 0 [] (Cost.validDigits_nil 0),
+    ← Correctness.eval_buildTree_levels T' 0 tree 0 [] (Cost.validDigits_nil 0),
+    (hv.congr (sat_buildTree T 0 rfl tree 0 [] (Cost.validDigits_nil 0) htree ht)).1]
+theorem wotsTree_take_variant (hv : Variant labels T T') (lay : Layer) (tree : Nat)
+    (ht : tree < 2 ^ Extract.treeBits lay) :
+    (WCT9.wotsTree T lay tree).take (height lay) = (WCT9.wotsTree T' lay tree).take (height lay) := by
+  have htree : tree < 2 ^ 40 := lt_trans (Extract.tree_lt_of_treeBits ht) (by norm_num)
   by_cases hl : lay = 0
   · subst hl
-    rw [WCT9.wotsTree_top, WCT9.wotsTree_top,
-      ← Correctness.eval_buildTree_levels T 0 tree 0 [] (Cost.validDigits_nil 0),
-      ← Correctness.eval_buildTree_levels T' 0 tree 0 [] (Cost.validDigits_nil 0),
-      (hv.congr (sat_buildTree T 0 rfl tree 0 [] (Cost.validDigits_nil 0) htree)).1]
+    rw [wotsTree_variant_top hv tree ht]
   · have h0 : 0 < 2 ^ height lay := by positivity
-    have hc := (hv.congr (sat_buildTreeP T hl tree 0 [] (Cost.validDigits_nil lay) htree)).1
+    have hc := (hv.congr (sat_buildTreeP T hl tree 0 [] (Cost.validDigits_nil lay) htree ht)).1
     rw [WCT9.eval_buildTreeP_result T hl tree 0 [] (Cost.validDigits_nil lay) h0,
       WCT9.eval_buildTreeP_result T' hl tree 0 [] (Cost.validDigits_nil lay) h0] at hc
     exact congrArg Prod.fst hc
-theorem wotsTree_variant (hv : Variant labels T T') (lay : Layer) (tree : Nat) :
-    WCT9.wotsTree T lay tree = WCT9.wotsTree T' lay tree := by
-  have hmod : tree % 2 ^ 40 = tree % 2 ^ 40 % 2 ^ 40 := (Nat.mod_mod _ _).symm
-  rw [wotsTree_alias T lay hmod, wotsTree_alias T' lay hmod]
-  exact wotsTree_variant_bounded hv lay _ (Nat.mod_lt _ (by decide))
-theorem honestRoot_variant (hv : Variant labels T T') (lay : Layer) (tree : Nat) :
-    Extract.honestRoot T lay tree = Extract.honestRoot T' lay tree := by
+theorem honestPair_variant (hv : Variant labels T T') (lay : Layer) (tree : Nat)
+    (ht : tree < 2 ^ Extract.treeBits lay) :
+    Extract.honestPair T lay tree = Extract.honestPair T' lay tree := by
+  have hh : height lay - 1 < height lay := by have : 1 ≤ height lay := by fin_cases lay <;> decide
+                                              omega
+  have key : ∀ x, treeValue (WCT9.wotsTree T lay tree) (height lay - 1) x =
+      treeValue (WCT9.wotsTree T' lay tree) (height lay - 1) x := fun x => by
+    rw [← WCT9.treeValue_take _ hh, wotsTree_take_variant hv lay tree ht, WCT9.treeValue_take _ hh]
+  unfold Extract.honestPair
+  rw [key, key]
+theorem honestRoot_variant (hv : Variant labels T T') (tree : Nat) (ht : tree < 2 ^ Extract.treeBits 0) :
+    Extract.honestRoot T 0 tree = Extract.honestRoot T' 0 tree := by
   unfold Extract.honestRoot
-  rw [wotsTree_variant hv]
+  rw [wotsTree_variant_top hv tree ht]
 theorem honestForest_variant (hv : Variant labels T T') (index : Nat) (hindex : index < 2 ^ 31) :
     Extract.honestForest T index = Extract.honestForest T' index := by
   rw [Extract.honestForest_eq_wct9, Extract.honestForest_eq_wct9,
     ← ClaudeWCT.WCT9.signForest_root T index 0, ← ClaudeWCT.WCT9.signForest_root T' index 0,
     (hv.congr (sat_signForest T index hindex 0)).1]
-theorem leafMsg_variant (hv : Variant labels T T') (L : LeafAddr) : leafMsg T L = leafMsg T' L := by
+theorem leafMsg_variant (hv : Variant labels T T') (L : LeafAddr) (htree : L.tree < 2 ^ Extract.treeBits L.lay)
+    (hleaf : L.leaf < 2 ^ height L.lay) : leafMsg T L = leafMsg T' L := by
   unfold leafMsg
   split
-  · unfold Extract.honestPair
-    rw [wotsTree_variant hv]
+  · rename_i h3
+    rw [honestPair_variant hv _ _ (Extract.routed_treeBits_succ h3 htree hleaf)]
   · rw [honestForest_variant hv _ (Nat.mod_lt _ (by decide))]
-theorem referenceSearch_variant (hv : Variant labels T T') (L : LeafAddr) (htree : L.tree < 2 ^ 31)
+theorem referenceSearch_variant (hv : Variant labels T T') (L : LeafAddr) (htree : L.tree < 2 ^ Extract.treeBits L.lay)
     (hleaf : L.leaf < 2 ^ height L.lay) : referenceSearch T L = referenceSearch T' L := by
   unfold referenceSearch
-  rw [leafMsg_variant hv L]
+  rw [leafMsg_variant hv L htree hleaf]
   exact (hv.congr (sat_layerCounterSearch T _ _ _ _ _ _)).1
-theorem referenceDigits_variant (hv : Variant labels T T') (L : LeafAddr) (htree : L.tree < 2 ^ 31)
+theorem referenceDigits_variant (hv : Variant labels T T') (L : LeafAddr) (htree : L.tree < 2 ^ Extract.treeBits L.lay)
     (hleaf : L.leaf < 2 ^ height L.lay) : referenceDigits T L = referenceDigits T' L := by
   unfold referenceDigits
   rw [referenceSearch_variant hv L htree hleaf]
-theorem depth_variant (hv : Variant labels T T') (a : ChainAddr) (htree : a.key.tree < 2 ^ 31)
+theorem depth_variant (hv : Variant labels T T') (a : ChainAddr) (htree : a.key.tree < 2 ^ Extract.treeBits a.key.lay)
     (hleaf : a.key.leaf < 2 ^ height a.key.lay) : depth T a = depth T' a := by
   unfold depth
   rw [referenceDigits_variant hv a.key htree hleaf]
@@ -194,12 +182,8 @@ theorem exists_node_of_posSource {p : Extract.Pos} (h : WotsExtract.PosSource p)
       have hw : 2 ^ width lay i ≤ 2 ^ 3 :=
         Nat.pow_le_pow_right (by decide) (Extract.width_le lay i)
       have hc := Extract.chainCount_le lay
-      exact ⟨h1, by omega, by omega, by omega⟩
-  | leaf lay tree leaf =>
-      obtain ⟨h1, h2⟩ := h
-      have hh : 2 ^ height lay ≤ 2 ^ 12 :=
-        Nat.pow_le_pow_right (by decide) (Extract.height_le lay)
-      exact ⟨h1, by omega⟩
+      exact ⟨Extract.tree_lt_of_treeBits h1, by omega, by omega, by omega⟩
+  | leaf lay tree leaf => exact h
   | node lay tree level nd => exact h
   | forest index => exact h
   | wctChain index coord child t step => exact h
@@ -217,7 +201,7 @@ theorem structuralClass_variant {labels : Labels} {T T' : Answers} (hv : Variant
         rw [hpos] at h
         simp only [Option.some.injEq, Extract.Pos.chain.injEq] at h
         obtain ⟨hl, ht, hlf, -, -⟩ := h
-        exact depth_variant hv a (by rw [← ht]; exact htree) (by rw [← hlf, ← hl]; exact hleaf)
+        exact depth_variant hv a (by rw [← ht, ← hl]; exact htree) (by rw [← hlf, ← hl]; exact hleaf)
       change OtherChainRow T x ↔ OtherChainRow T' x
       constructor
       · rintro ⟨a, step', h, hc⟩

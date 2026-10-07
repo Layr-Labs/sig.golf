@@ -177,7 +177,7 @@ theorem range54_map_ofFn (f : Nat → Nat) :
   · simp
   · intro i hi hj;simp only [List.getElem_map,List.getElem_range,List.getElem_ofFn]
 theorem topCredit_parse {v : Digest} {w : Codec.Word}
-    (hp : Decoder.parse 17 v.toNat=some w) : topCredit v=CreditCounting.credit w := by
+    (hp : Decoder.parse 17 (topFlip v).toNat=some w) : topCredit v=CreditCounting.credit w := by
   unfold topCredit
   rw [range54_map_ofFn,List.ofFn_add (n:=51) (m:=3),List.sum_append]
   change (List.ofFn fun i : Fin (17*3) => if coreDigit 0 v i.val=(if i.val<51 then 3 else 2) then 1 else 0).sum+
@@ -209,13 +209,14 @@ theorem decodeBV_parse {v : Digest} {w : Codec.Word} (hw : Decoder.decodeBV v=so
   change ((Decoder.parse 17 v.toNat).filter fun w => decide (Counting.weight w=129))=some w at hw
   exact (Option.filter_eq_some_iff.mp hw).1
 theorem searchDecode_top_isSome (v : Digest) :
-    (searchDecode 0 v).isSome=true ↔ ∃ w,Decoder.decodeBV v=some w ∧ creditFloor 0≤CreditCounting.credit w := by
+    (searchDecode 0 v).isSome=true ↔
+      ∃ w,Decoder.decodeBV (topFlip v)=some w ∧ creditFloor 0≤CreditCounting.credit w := by
   constructor
   · intro h
     obtain ⟨ds,hds⟩ := Option.isSome_iff_exists.mp h
     have hm := searchDecode_some hds
     rw [decode_top_eq_map] at hm
-    cases hw : Decoder.decodeBV v with
+    cases hw : Decoder.decodeBV (topFlip v) with
     | none => simp [hw] at hm
     | some w =>
     refine ⟨w,rfl,?_⟩
@@ -228,7 +229,8 @@ theorem searchDecode_top_isSome (v : Digest) :
 theorem searchDecode_top_count :
     Fintype.card {v : Digest // (searchDecode 0 v).isSome=true}=CreditCounting.count := by
   classical
-  let e : Digest ≃ Fin (2^128) := ⟨BitVec.toFin,BitVec.ofFin,fun _ => rfl,fun _ => rfl⟩
+  let e : Digest ≃ Fin (2^128) := ⟨fun v => (topFlip v).toFin,fun d => topFlip (BitVec.ofFin d),
+    fun v => by simp [topFlip_topFlip],fun d => by simp [topFlip_topFlip]⟩
   rw [Fintype.card_congr (e.subtypeEquiv (p := fun v => (searchDecode 0 v).isSome=true)
     (q := fun d => ∃ w,Decoder.decode d=some w ∧ CreditCounting.creditFloor≤CreditCounting.credit w)
     (fun v => searchDecode_top_isSome v))]

@@ -95,7 +95,7 @@ end Assembly
 end Enc
 open Enc in
 theorem reference_encodingMatch_le (adversary : AdversaryP) (q : Nat) :
-    Pr[fun s => ∃ L, WotsExtract.SourceLeaf L ∧ EncodingMatchAt s.answers s.trace L |
+    Pr[fun s => ∃ L, WotsExtract.SourceLeaf7 L ∧ EncodingMatchAt s.answers s.trace L |
         referenceExperiment adversary q] ≤
       (2 ^ 128 : ENNReal)⁻¹ * ∑' s, referenceExperiment adversary q s * (encodingCount s : ENNReal) := by
   let _ : ∀ k : Set Enc.EncIndex, Fintype k := fun k => Fintype.ofFinite k
@@ -104,9 +104,11 @@ theorem reference_encodingMatch_le (adversary : AdversaryP) (q : Nat) :
   rw [probEvent_eq_tsum_ite]
   refine ENNReal.tsum_le_tsum fun s => ?_
   split_ifs with h
-  · obtain ⟨L, hsrc, hm⟩ := h
-    have hpos : ∃ L' : CanonGraph.LeafPos, EncodingMatchAt s.answers s.trace (Enc.leafOf L') := by
-      refine ⟨⟨L.lay, ⟨L.tree, hsrc.1⟩, ⟨L.leaf, lt_of_lt_of_le hsrc.2 ?_⟩⟩, hm⟩
+  · obtain ⟨L, h7, hm⟩ := h
+    have ht31 : L.tree < 2 ^ 31 := lt_of_lt_of_le h7.1
+      (Nat.pow_le_pow_right (by decide) (le_trans (ClaudeWCT.W9.T3M.Extract.treeBits_le _) (by decide)))
+    have hpos : ∃ L' : CanonGraph.LeafPos, L'.Source ∧ EncodingMatchAt s.answers s.trace (Enc.leafOf L') := by
+      refine ⟨⟨L.lay, ⟨L.tree, ht31⟩, ⟨L.leaf, lt_of_lt_of_le h7.2 ?_⟩⟩, h7, hm⟩
       calc 2 ^ height L.lay ≤ 2 ^ 12 := Nat.pow_le_pow_right (by decide) (SigGolfCandidate.T3M.Extract.height_le L.lay)
         _ = 4096 := by norm_num
     rw [Enc.matchInd, if_pos hpos, mul_one, PMF.probOutput_eq_apply]

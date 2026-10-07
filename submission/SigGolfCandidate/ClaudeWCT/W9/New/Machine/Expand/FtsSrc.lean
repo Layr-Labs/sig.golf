@@ -9,7 +9,7 @@ open SigGolfCandidate.T3 (Digest HashOutput M header shortHash pad64)
 open SphincsSecurity (bytesLE bytesLE_length)
 theorem leafBytes_canon (k index j : Nat) (ends : List Digest) (h : ends.length = 7) :
     leafBytes (leafFields k index j ends) =
-      bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (ClaudeWCT.WCT9.wctHeader 6 k index 0 j) ++
+      bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (ClaudeWCT.WCT9.ftsLeafHeader index k j) ++
         (ends.drop 1).flatMap (bytesLE 16) := by
   match ends, h with
   | [e0, e1, e2, e3, e4, e5, e6], _ =>

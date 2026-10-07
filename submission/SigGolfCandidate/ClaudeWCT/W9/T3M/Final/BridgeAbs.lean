@@ -3,8 +3,6 @@ import SigGolfCandidate.ClaudeWCT.W9.New.F1a.Clean
 
 section
 namespace ClaudeWCT.W9.T3M.Final
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 100000
 open SigGolfCandidate.Legacy OracleComp OracleSpec SigGolfCandidate.Bridge
 open SigGolfCandidate.T3 (M Spec keygen Cache Digest privateInput realize)
 open ClaudeWCT.WCT9 (Signature)
@@ -14,6 +12,7 @@ open SigGolfCandidate.T3M.Final (hrealize mrealize_eq_relabel hrealize_map)
 open ClaudeWCT.W9.T3M (Images submission)
 set_option allowUnsafeReducibility true in
 attribute [local reducible] SphincsSecurity.hashOutputBits
+set_option maxHeartbeats 1000000 in
 structure QFacts : Prop where
   hashOnly_keygen : AllQueriesSatisfy keygen isHash
   hashOnly_sign : ∀ (c : Cache) (m : SigGolfCandidate.T3.Message), AllQueriesSatisfy (sign c m) isHash
@@ -64,7 +63,7 @@ theorem expand_eq (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5456
   unfold SigGolfCandidate.Bridge.countCalls
   rw [countFrom_map]
 set_option maxRecDepth 100000 in
-theorem verify_eq (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 21832) :
+theorem verify_eq (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 21488) :
     (fun r => (r.value, r.hashCalls)) <$> (submission I).run .verify (m, pk, w) =
       (fun p => (if p.1 then some () else none, p.2)) <$>
         SigGolfCandidate.Bridge.countCalls (relabel toQ (hrealize 0 (verifyP m pk w))) := by

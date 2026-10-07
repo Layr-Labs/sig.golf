@@ -25,12 +25,8 @@ theorem leafHash_cost_ge (answers : SigGolfCandidate.T3.Correctness.Answers) (in
     (ends : List Digest) : 1 ≤ cost answers (ClaudeWCT.WCT9.leafHash index coord selected ends) := by
   unfold ClaudeWCT.WCT9.leafHash
   rw [shortHash_cost]
-  have hpos : 0 < (SphincsSecurity.bytesLE 16 (ends.getD 0 0) ++
-      SphincsSecurity.bytesLE 16 (ClaudeWCT.WCT9.wctHeader 6 coord index 0 selected) ++
-      (ends.drop 1).flatMap (SphincsSecurity.bytesLE 16)).length := by
-    simp only [List.length_append, SphincsSecurity.bytesLE_length]
-    omega
-  have := pad64_length_ge _ hpos
+  refine le_trans (by norm_num) (Nat.div_le_div_right (c := 64) (pad64_length_ge _ ?_))
+  simp only [List.length_append, SphincsSecurity.bytesLE_length]
   omega
 theorem buildChild_cost_ge (answers : SigGolfCandidate.T3.Correctness.Answers) (index coord selected : Nat)
     (word : ClaudeWCT.WCT9.Rank) (carry : Digest) :
@@ -164,7 +160,8 @@ theorem expandLayersBC_cost_le (answers : Answers) (cache : Cache) (index : Nat)
               simp only [Fin.val_ofNat, Fin.val_zero] at hv
               omega
             simp only [hn0, if_false, evalWithAnswerFn_bind,
-              ClaudeWCT.WCT9.eval_buildTreeP_result answers hlay _ _ digits hvalid (route_leaf_bound index _)] at he
+              ClaudeWCT.WCT9.eval_buildTreeP_result answers hlay _ _ digits hvalid (route_leaf_bound index _),
+              ClaudeWCT.WCT9.topPair_take, ClaudeWCT.WCT9.map_range_take_path] at he
             cases hp : evalWithAnswerFn answers (ClaudeWCT.WCT9.signLayersBC cache index n
               (.pair (ClaudeWCT.WCT9.topPair (Fin.ofNat 4 n)
                 (ClaudeWCT.WCT9.wotsTree answers (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2)).1
@@ -194,7 +191,7 @@ theorem expandLayersBC_cost_le (answers : Answers) (cache : Cache) (index : Nat)
                 unfold ClaudeWCT.WCT9.builtPair at hrecover
                 simp only [ClaudeWCT.WCT9.expandLayersBC, ClaudeWCT.WCT9.signLayersBC, cost_bind, hs, hn0,
                   if_false, hrecover, hp, ClaudeWCT.WCT9.eval_buildTreeP_result answers hlay _ _ digits hvalid
-                    (route_leaf_bound index _), recoveryLayersCost]
+                    (route_leaf_bound index _), ClaudeWCT.WCT9.topPair_take, recoveryLayersCost]
                 cases hx : evalWithAnswerFn answers (ClaudeWCT.WCT9.expandLayersBC sig index n
                     (.pair (ClaudeWCT.WCT9.topPair (Fin.ofNat 4 n)
                       (ClaudeWCT.WCT9.wotsTree answers (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2)).1

@@ -189,7 +189,7 @@ theorem notDigestQ_signerQ (m : Message) (q : T3.Spec.Domain) (h : BPB.NotDigest
   intro x hq ⟨rho, m', c, hx⟩
   subst hq
   exfalso
-  have := BPB.hdrTag_digestInput rho m' c
+  have := BPB.hdrMarker_digestInput rho m' c
   rw [← hx] at this
   exact h this
 theorem digestTrial_rowOf (rho : Digest) (m : Message) (c : Nat) (hc : c < 2 ^ 32) :

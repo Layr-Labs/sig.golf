@@ -15,6 +15,12 @@ open SphincsSecurity (bytesLE)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
+theorem SourceLeaf7.source {L : LeafAddr} (h : SourceLeaf7 L) : SourceLeaf L :=
+  ⟨lt_of_lt_of_le h.1 (Nat.pow_le_pow_right (by decide) (le_trans (Extract.treeBits_le _) (by decide))), h.2⟩
+theorem SourceChain7.source {a : ChainAddr} (h : SourceChain7 a) : SourceChain a := ⟨h.1.source, h.2⟩
+theorem routeLeaf_source7 (index : Nat) (hindex : index < 2 ^ 31) (lay : Layer) :
+    SourceLeaf7 ⟨lay, (route index lay).2, (route index lay).1⟩ :=
+  ⟨Extract.route_tree_treeBits index hindex lay, route_leaf_bound index lay⟩
 theorem structuralHitSrc_mono {answers : Answers} {trace trace' : List Entry} (h : StructuralHitSrc answers trace)
     (hsub : ∀ e ∈ trace, e ∈ trace') : StructuralHitSrc answers trace' := by
   obtain ⟨position, input, answer, hm, hpos, hb, hs, hc, hh⟩ := h
@@ -42,7 +48,8 @@ theorem chain_bounded {a : ChainAddr} {step : Nat} (hsrc : SourceChain a)
 theorem structuralHit_chain {answers : Answers} {qs : List Spec.Domain} (a : ChainAddr) (step : Nat)
     (pad0 pad1 : Digest) (headerPad : BitVec 64) (v : Digest)
     (hq : (.inl (.inr (chainInputP a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v)) : Spec.Domain) ∈ qs)
-    (hsrc : SourceChain a) (hstep : step + 1 < 2 ^ width a.key.lay a.chain)
+    (hsrc : SourceChain a) (htb : a.key.tree < 2 ^ Extract.treeBits a.key.lay)
+    (hstep : step + 1 < 2 ^ width a.key.lay a.chain)
     (hhit : HashHit answers (Extract.honestInput answers (.chain a.key.lay a.key.tree a.key.leaf a.chain step))
       (chainInputP a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v))
     (hclass : ¬(pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0) ∨ depth answers a ≤ step) :
@@ -55,7 +62,7 @@ theorem structuralHit_chain {answers : Answers} {qs : List Spec.Domain} (a : Cha
     exact Extract.Pos.canonicalHeader_eq
       (p := .chain a.key.lay a.key.tree a.key.leaf a.chain step) hb
   have hpos := Extract.posOf_key_eq (p := .chain a.key.lay a.key.tree a.key.leaf a.chain step) hb hhdr
-  refine ⟨_, _, _, mem_entriesOf hq, hpos, hb, ⟨hsrc.1.1, hsrc.1.2, hsrc.2, hstep⟩, ?_, hhit⟩
+  refine ⟨_, _, _, mem_entriesOf hq, hpos, hb, ⟨htb, hsrc.1.2, hsrc.2, hstep⟩, ?_, hhit⟩
   refine otherChainRow_intro hpos ?_
   rcases hclass with hpad | hdepth
   · refine Or.inl fun value he => hpad ?_
@@ -69,7 +76,8 @@ theorem chain_cases (answers : Answers) (a : ChainAddr) (start count : Nat)
     (qs : List Spec.Domain)
     (hsub : ∀ q ∈ queried answers (chainP a.key.lay a.key.tree a.key.leaf a.chain start count pad0 pad1 headerPad value),
       q ∈ qs)
-    (hsrc : SourceChain a) (hcount : start + count < 2 ^ width a.key.lay a.chain)
+    (hsrc : SourceChain a) (htb : a.key.tree < 2 ^ Extract.treeBits a.key.lay)
+    (hcount : start + count < 2 ^ width a.key.lay a.chain)
     (hdepth : depth answers a ≤ start + count)
     (reaches : evalWithAnswerFn answers (chainP a.key.lay a.key.tree a.key.leaf a.chain start count pad0 pad1 headerPad value) =
       honestChainValue answers a.key.lay a.key.tree a.key.leaf a.chain
@@ -108,7 +116,7 @@ theorem chain_cases (answers : Answers) (a : ChainAddr) (start count : Nat)
     intro step hstep hq hhit hclass
     apply hS
     simp only [pathInput, chainPathInput, pad64_chainInputP] at hq hhit
-    exact structuralHit_chain a (start + step) pad0 pad1 headerPad _ (hsub _ hq) hsrc (by omega) hhit hclass
+    exact structuralHit_chain a (start + step) pad0 pad1 headerPad _ (hsub _ hq) hsrc htb (by omega) hhit hclass
   constructor
   · intro hle
     rcases chainP_extract answers a.key.lay a.key.tree a.key.leaf a.chain start count pad0 pad1 headerPad value

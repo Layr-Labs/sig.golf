@@ -28,27 +28,6 @@ noncomputable def ftsPart (adversary : AdversaryP) (ω : Omega (Wots.referenceIn
     (fun (run : Bool × QueryLog Requests × List Wots.Entry) =>
         (Omega.answers (canon_subset adversary) ω fts, run.2.1, run.2.2)) <$>
       pairRun (Omega.answers (canon_subset adversary) ω fts) adversary
-theorem pairExperiment_omega (adversary : AdversaryP) :
-    𝒮[pairExperiment adversary] = 𝒮[omegaLaw adversary >>= ftsPart adversary] := by
-  rw [pairExperiment_eq]
-  unfold omegaLaw ftsPart
-  simp only [bind_assoc, pure_bind]
-theorem pairExperiment_avg (adversary : AdversaryP) (E : Answers × QueryLog Requests × List Wots.Entry → Prop) :
-    Pr[E | pairExperiment adversary] = ∑' ω, Pr[= ω | omegaLaw adversary] *
-      Pr[fun x => E (Omega.answers (canon_subset adversary) ω x.1, x.2.2.1, x.2.2.2) |
-        ftsRun (canon_subset adversary) ω adversary] := by
-  rw [probEvent_congr' (fun _ _ => Iff.rfl) (pairExperiment_omega adversary), probEvent_bind_eq_tsum]
-  apply tsum_congr
-  intro ω
-  rw [← inner_fts_eq (canon_subset adversary) ω adversary E]
-  rfl
-theorem pairExperiment_event_le_avg (adversary : AdversaryP) (E : Answers × QueryLog Requests × List Wots.Entry → Prop)
-    (bound : Omega (Wots.referenceInputs adversary) → ENNReal)
-    (h : ∀ ω, Pr[fun x => E (Omega.answers (canon_subset adversary) ω x.1, x.2.2.1, x.2.2.2) |
-      ftsRun (canon_subset adversary) ω adversary] ≤ bound ω) :
-    Pr[E | pairExperiment adversary] ≤ ∑' ω, Pr[= ω | omegaLaw adversary] * bound ω := by
-  rw [pairExperiment_avg]
-  exact ENNReal.tsum_le_tsum fun ω => mul_le_mul' le_rfl (h ω)
 end Avg
 end SigGolfCandidate.T3.Security.BPair
 end

@@ -9,9 +9,11 @@ open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3.Security.Wots
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers)
 def PosSource : Extract.Pos → Prop
-  | .chain lay tree leaf i step => tree < 2 ^ 31 ∧ leaf < 2 ^ height lay ∧ i < chainCount lay ∧ step + 1 < 2 ^ width lay i
-  | .leaf lay tree leaf => tree < 2 ^ 31 ∧ leaf < 2 ^ height lay
-  | .node lay tree level node => tree < 2 ^ 31 ∧ level < height lay ∧ node < 2 ^ (height lay - level - 1)
+  | .chain lay tree leaf i step => tree < 2 ^ Extract.treeBits lay ∧ leaf < 2 ^ height lay ∧ i < chainCount lay ∧
+      step + 1 < 2 ^ width lay i
+  | .leaf lay tree leaf => tree < 2 ^ Extract.treeBits lay ∧ leaf < 2 ^ height lay
+  | .node lay tree level node => tree < 2 ^ Extract.treeBits lay ∧ level < height lay ∧
+      node < 2 ^ (height lay - level - 1) ∧ (lay = 0 ∨ level + 1 < height lay)
   | .forest index => index < 2 ^ 31
   | .wctChain index coord child t step => index < 2 ^ 31 ∧ coord < 9 ∧ child < 128 ∧ t < 7 ∧ step < 3
   | .wctLeaf index coord child => index < 2 ^ 31 ∧ coord < 9 ∧ child < 128

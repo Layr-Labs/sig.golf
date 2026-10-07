@@ -26,7 +26,7 @@ theorem disp_0 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
       t.getReg .x28 = BitVec.ofNat 64 (HB0 + 2048 + 512 * 0) ∧
       t.getReg .x4 = BitVec.ofNat 64 (index + 2 ^ 32 * (WCT9.child N ⟨0, by decide⟩).val) ∧
       t.getReg .x23 = BitVec.ofNat 64 (17572 + 256 * (WCT9.child N ⟨0, by decide⟩).val) ∧
-      t.getReg .x27 = s.getMem (BitVec.ofNat 64 (HB0 + 512 * 0 + 448)) ||| s.getReg .x17 ∧
+      t.getReg .x27 = BitVec.ofNat 64 (Merkle.nodeLo 0 index) ∧
       t.getReg .x15 = BitVec.ofNat 64 (index * 2 ^ 27 + 65536 * 0) ∧
       t.getReg .x31 = BitVec.ofNat 64 ((WCT9.child N ⟨0, by decide⟩).val * 2 ^ 20 + index * 2 ^ 27 + 65536 * 0) ∧
       t.getReg .x16 = N.extractLsb' (64 * 0) 64 ∧
@@ -55,8 +55,9 @@ theorem disp_0 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
   · simp only [Result.toState_getReg, blk_34.res, rv_simp, hw, h29, BitVec.toNat_ofNat, Nat.reduceMod,
       Nat.reducePow, BitVec.ushiftRight_zero]
     rw [disp_x23 _ _ hch hcl]; rfl
-  · simp only [Result.toState_getReg, blk_34.res, rv_simp, h28, HB0]
-    congr 2
+  · simp only [Result.toState_getReg, blk_34.res, rv_simp, h15, h6]
+    t3n []
+    unfold Merkle.nodeLo; omega
   · simp only [Result.toState_getReg, blk_34.res, rv_simp, h15] <;> try rfl
   · simp only [Result.toState_getReg, blk_34.res, rv_simp, hw, h15, h6, BitVec.toNat_ofNat, Nat.reduceMod,
       Nat.reducePow, BitVec.ushiftRight_zero]
@@ -79,7 +80,7 @@ theorem disp_1 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
       t.getReg .x28 = BitVec.ofNat 64 (HB0 + 2048 + 512 * 1) ∧
       t.getReg .x4 = BitVec.ofNat 64 (index + 2 ^ 32 * (WCT9.child N ⟨1, by decide⟩).val) ∧
       t.getReg .x23 = BitVec.ofNat 64 (17572 + 256 * (WCT9.child N ⟨1, by decide⟩).val) ∧
-      t.getReg .x27 = s.getMem (BitVec.ofNat 64 (HB0 + 512 * 1 + 448)) ||| s.getReg .x17 ∧
+      t.getReg .x27 = BitVec.ofNat 64 (Merkle.nodeLo 1 index) ∧
       t.getReg .x15 = BitVec.ofNat 64 (index * 2 ^ 27 + 65536 * 1) ∧
       t.getReg .x31 = BitVec.ofNat 64 ((WCT9.child N ⟨1, by decide⟩).val * 2 ^ 20 + index * 2 ^ 27 + 65536 * 1) ∧
       t.getReg .x16 = N.extractLsb' (64 * 1) 64 ∧
@@ -108,8 +109,9 @@ theorem disp_1 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
   · simp only [Result.toState_getReg, blk_50.res, rv_simp, hw, h29, BitVec.toNat_ofNat, Nat.reduceMod,
       Nat.reducePow, BitVec.ushiftRight_zero]
     rw [disp_x23 _ _ hch hcl]; rfl
-  · simp only [Result.toState_getReg, blk_50.res, rv_simp, h28, HB0]
-    congr 2
+  · simp only [Result.toState_getReg, blk_50.res, rv_simp, h15, h6]
+    t3n []
+    unfold Merkle.nodeLo; omega
   · simp only [Result.toState_getReg, blk_50.res, rv_simp, h15, h6]
     rw [disp_x15]
   · simp only [Result.toState_getReg, blk_50.res, rv_simp, hw, h15, h6, BitVec.toNat_ofNat, Nat.reduceMod,
@@ -134,7 +136,7 @@ theorem disp_2 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
       t.getReg .x28 = BitVec.ofNat 64 (HB0 + 2048 + 512 * 2) ∧
       t.getReg .x4 = BitVec.ofNat 64 (index + 2 ^ 32 * (WCT9.child N ⟨2, by decide⟩).val) ∧
       t.getReg .x23 = BitVec.ofNat 64 (17572 + 256 * (WCT9.child N ⟨2, by decide⟩).val) ∧
-      t.getReg .x27 = s.getMem (BitVec.ofNat 64 (HB0 + 512 * 2 + 448)) ||| s.getReg .x17 ∧
+      t.getReg .x27 = BitVec.ofNat 64 (Merkle.nodeLo 2 index) ∧
       t.getReg .x15 = BitVec.ofNat 64 (index * 2 ^ 27 + 65536 * 2) ∧
       t.getReg .x31 = BitVec.ofNat 64 ((WCT9.child N ⟨2, by decide⟩).val * 2 ^ 20 + index * 2 ^ 27 + 65536 * 2) ∧
       t.getReg .x16 = N.extractLsb' (64 * 1) 64 ∧
@@ -163,8 +165,9 @@ theorem disp_2 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
   · simp only [Result.toState_getReg, blk_68.res, rv_simp, hw, h29, BitVec.toNat_ofNat, Nat.reduceMod,
       Nat.reducePow, BitVec.ushiftRight_zero]
     rw [disp_x23 _ _ hch hcl]; rfl
-  · simp only [Result.toState_getReg, blk_68.res, rv_simp, h28, HB0]
-    congr 2
+  · simp only [Result.toState_getReg, blk_68.res, rv_simp, h15, h6]
+    t3n []
+    unfold Merkle.nodeLo; omega
   · simp only [Result.toState_getReg, blk_68.res, rv_simp, h15, h6]
     rw [disp_x15]
   · simp only [Result.toState_getReg, blk_68.res, rv_simp, hw, h15, h6, BitVec.toNat_ofNat, Nat.reduceMod,
@@ -189,7 +192,7 @@ theorem disp_3 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
       t.getReg .x28 = BitVec.ofNat 64 (HB0 + 2048 + 512 * 3) ∧
       t.getReg .x4 = BitVec.ofNat 64 (index + 2 ^ 32 * (WCT9.child N ⟨3, by decide⟩).val) ∧
       t.getReg .x23 = BitVec.ofNat 64 (17572 + 256 * (WCT9.child N ⟨3, by decide⟩).val) ∧
-      t.getReg .x27 = s.getMem (BitVec.ofNat 64 (HB0 + 512 * 3 + 448)) ||| s.getReg .x17 ∧
+      t.getReg .x27 = BitVec.ofNat 64 (Merkle.nodeLo 3 index) ∧
       t.getReg .x15 = BitVec.ofNat 64 (index * 2 ^ 27 + 65536 * 3) ∧
       t.getReg .x31 = BitVec.ofNat 64 ((WCT9.child N ⟨3, by decide⟩).val * 2 ^ 20 + index * 2 ^ 27 + 65536 * 3) ∧
       t.getReg .x16 = N.extractLsb' (64 * 1) 64 ∧
@@ -218,8 +221,9 @@ theorem disp_3 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
   · simp only [Result.toState_getReg, blk_86.res, rv_simp, hw, h29, BitVec.toNat_ofNat, Nat.reduceMod,
       Nat.reducePow, BitVec.ushiftRight_zero]
     rw [disp_x23 _ _ hch hcl]; rfl
-  · simp only [Result.toState_getReg, blk_86.res, rv_simp, h28, HB0]
-    congr 2
+  · simp only [Result.toState_getReg, blk_86.res, rv_simp, h15, h6]
+    t3n []
+    unfold Merkle.nodeLo; omega
   · simp only [Result.toState_getReg, blk_86.res, rv_simp, h15, h6]
     rw [disp_x15]
   · simp only [Result.toState_getReg, blk_86.res, rv_simp, hw, h15, h6, BitVec.toNat_ofNat, Nat.reduceMod,
@@ -243,7 +247,7 @@ theorem disp_4 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
       t.getReg .x28 = BitVec.ofNat 64 (HB0 + 2048 + 512 * 4) ∧
       t.getReg .x4 = BitVec.ofNat 64 (index + 2 ^ 32 * (WCT9.child N ⟨4, by decide⟩).val) ∧
       t.getReg .x23 = BitVec.ofNat 64 (17572 + 256 * (WCT9.child N ⟨4, by decide⟩).val) ∧
-      t.getReg .x27 = s.getMem (BitVec.ofNat 64 (HB0 + 512 * 4 + 448)) ||| s.getReg .x17 ∧
+      t.getReg .x27 = BitVec.ofNat 64 (Merkle.nodeLo 4 index) ∧
       t.getReg .x15 = BitVec.ofNat 64 (index * 2 ^ 27 + 65536 * 4) ∧
       t.getReg .x31 = BitVec.ofNat 64 ((WCT9.child N ⟨4, by decide⟩).val * 2 ^ 20 + index * 2 ^ 27 + 65536 * 4) ∧
       t.getReg .x16 = N.extractLsb' (64 * 2) 64 ∧
@@ -272,8 +276,9 @@ theorem disp_4 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
   · simp only [Result.toState_getReg, blk_104.res, rv_simp, hw, h29, BitVec.toNat_ofNat, Nat.reduceMod,
       Nat.reducePow, BitVec.ushiftRight_zero]
     rw [disp_x23 _ _ hch hcl]; rfl
-  · simp only [Result.toState_getReg, blk_104.res, rv_simp, h28, HB0]
-    congr 2
+  · simp only [Result.toState_getReg, blk_104.res, rv_simp, h15, h6]
+    t3n []
+    unfold Merkle.nodeLo; omega
   · simp only [Result.toState_getReg, blk_104.res, rv_simp, h15, h6]
     rw [disp_x15]
   · simp only [Result.toState_getReg, blk_104.res, rv_simp, hw, h15, h6, BitVec.toNat_ofNat, Nat.reduceMod,
@@ -298,7 +303,7 @@ theorem disp_5 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
       t.getReg .x28 = BitVec.ofNat 64 (HB0 + 2048 + 512 * 5) ∧
       t.getReg .x4 = BitVec.ofNat 64 (index + 2 ^ 32 * (WCT9.child N ⟨5, by decide⟩).val) ∧
       t.getReg .x23 = BitVec.ofNat 64 (17572 + 256 * (WCT9.child N ⟨5, by decide⟩).val) ∧
-      t.getReg .x27 = s.getMem (BitVec.ofNat 64 (HB0 + 512 * 5 + 448)) ||| s.getReg .x17 ∧
+      t.getReg .x27 = BitVec.ofNat 64 (Merkle.nodeLo 5 index) ∧
       t.getReg .x15 = BitVec.ofNat 64 (index * 2 ^ 27 + 65536 * 5) ∧
       t.getReg .x31 = BitVec.ofNat 64 ((WCT9.child N ⟨5, by decide⟩).val * 2 ^ 20 + index * 2 ^ 27 + 65536 * 5) ∧
       t.getReg .x16 = N.extractLsb' (64 * 2) 64 ∧
@@ -327,8 +332,9 @@ theorem disp_5 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
   · simp only [Result.toState_getReg, blk_122.res, rv_simp, hw, h29, BitVec.toNat_ofNat, Nat.reduceMod,
       Nat.reducePow, BitVec.ushiftRight_zero]
     rw [disp_x23 _ _ hch hcl]; rfl
-  · simp only [Result.toState_getReg, blk_122.res, rv_simp, h28, HB0]
-    congr 2
+  · simp only [Result.toState_getReg, blk_122.res, rv_simp, h15, h6]
+    t3n []
+    unfold Merkle.nodeLo; omega
   · simp only [Result.toState_getReg, blk_122.res, rv_simp, h15, h6]
     rw [disp_x15]
   · simp only [Result.toState_getReg, blk_122.res, rv_simp, hw, h15, h6, BitVec.toNat_ofNat, Nat.reduceMod,
@@ -353,7 +359,7 @@ theorem disp_6 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
       t.getReg .x28 = BitVec.ofNat 64 (HB0 + 2048 + 512 * 6) ∧
       t.getReg .x4 = BitVec.ofNat 64 (index + 2 ^ 32 * (WCT9.child N ⟨6, by decide⟩).val) ∧
       t.getReg .x23 = BitVec.ofNat 64 (17572 + 256 * (WCT9.child N ⟨6, by decide⟩).val) ∧
-      t.getReg .x27 = s.getMem (BitVec.ofNat 64 (HB0 + 512 * 6 + 448)) ||| s.getReg .x17 ∧
+      t.getReg .x27 = BitVec.ofNat 64 (Merkle.nodeLo 6 index) ∧
       t.getReg .x15 = BitVec.ofNat 64 (index * 2 ^ 27 + 65536 * 6) ∧
       t.getReg .x31 = BitVec.ofNat 64 ((WCT9.child N ⟨6, by decide⟩).val * 2 ^ 20 + index * 2 ^ 27 + 65536 * 6) ∧
       t.getReg .x16 = N.extractLsb' (64 * 2) 64 ∧
@@ -382,8 +388,9 @@ theorem disp_6 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
   · simp only [Result.toState_getReg, blk_140.res, rv_simp, hw, h29, BitVec.toNat_ofNat, Nat.reduceMod,
       Nat.reducePow, BitVec.ushiftRight_zero]
     rw [disp_x23 _ _ hch hcl]; rfl
-  · simp only [Result.toState_getReg, blk_140.res, rv_simp, h28, HB0]
-    congr 2
+  · simp only [Result.toState_getReg, blk_140.res, rv_simp, h15, h6]
+    t3n []
+    unfold Merkle.nodeLo; omega
   · simp only [Result.toState_getReg, blk_140.res, rv_simp, h15, h6]
     rw [disp_x15]
   · simp only [Result.toState_getReg, blk_140.res, rv_simp, hw, h15, h6, BitVec.toNat_ofNat, Nat.reduceMod,
@@ -407,7 +414,7 @@ theorem disp_7 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
       t.getReg .x28 = BitVec.ofNat 64 (HB0 + 2048 + 512 * 7) ∧
       t.getReg .x4 = BitVec.ofNat 64 (index + 2 ^ 32 * (WCT9.child N ⟨7, by decide⟩).val) ∧
       t.getReg .x23 = BitVec.ofNat 64 (17572 + 256 * (WCT9.child N ⟨7, by decide⟩).val) ∧
-      t.getReg .x27 = s.getMem (BitVec.ofNat 64 (HB0 + 512 * 7 + 448)) ||| s.getReg .x17 ∧
+      t.getReg .x27 = BitVec.ofNat 64 (Merkle.nodeLo 7 index) ∧
       t.getReg .x15 = BitVec.ofNat 64 (index * 2 ^ 27 + 65536 * 7) ∧
       t.getReg .x31 = BitVec.ofNat 64 ((WCT9.child N ⟨7, by decide⟩).val * 2 ^ 20 + index * 2 ^ 27 + 65536 * 7) ∧
       t.getReg .x16 = N.extractLsb' (64 * 3) 64 ∧
@@ -436,8 +443,9 @@ theorem disp_7 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
   · simp only [Result.toState_getReg, blk_158.res, rv_simp, hw, h29, BitVec.toNat_ofNat, Nat.reduceMod,
       Nat.reducePow, BitVec.ushiftRight_zero]
     rw [disp_x23 _ _ hch hcl]; rfl
-  · simp only [Result.toState_getReg, blk_158.res, rv_simp, h28, HB0]
-    congr 2
+  · simp only [Result.toState_getReg, blk_158.res, rv_simp, h15, h6]
+    t3n []
+    unfold Merkle.nodeLo; omega
   · simp only [Result.toState_getReg, blk_158.res, rv_simp, h15, h6]
     rw [disp_x15]
   · simp only [Result.toState_getReg, blk_158.res, rv_simp, hw, h15, h6, BitVec.toNat_ofNat, Nat.reduceMod,
@@ -462,7 +470,7 @@ theorem disp_8 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
       t.getReg .x28 = BitVec.ofNat 64 (HB0 + 2048 + 512 * 8) ∧
       t.getReg .x4 = BitVec.ofNat 64 (index + 2 ^ 32 * (WCT9.child N ⟨8, by decide⟩).val) ∧
       t.getReg .x23 = BitVec.ofNat 64 (17572 + 256 * (WCT9.child N ⟨8, by decide⟩).val) ∧
-      t.getReg .x27 = s.getMem (BitVec.ofNat 64 (HB0 + 512 * 8 + 448)) ||| s.getReg .x17 ∧
+      t.getReg .x27 = BitVec.ofNat 64 (Merkle.nodeLo 8 index) ∧
       t.getReg .x15 = BitVec.ofNat 64 (index * 2 ^ 27 + 65536 * 8) ∧
       t.getReg .x31 = BitVec.ofNat 64 ((WCT9.child N ⟨8, by decide⟩).val * 2 ^ 20 + index * 2 ^ 27 + 65536 * 8) ∧
       t.getReg .x16 = N.extractLsb' (64 * 3) 64 ∧
@@ -491,8 +499,9 @@ theorem disp_8 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
   · simp only [Result.toState_getReg, blk_176.res, rv_simp, hw, h29, BitVec.toNat_ofNat, Nat.reduceMod,
       Nat.reducePow, BitVec.ushiftRight_zero]
     rw [disp_x23 _ _ hch hcl]; rfl
-  · simp only [Result.toState_getReg, blk_176.res, rv_simp, h28, HB0]
-    congr 2
+  · simp only [Result.toState_getReg, blk_176.res, rv_simp, h15, h6]
+    t3n []
+    unfold Merkle.nodeLo; omega
   · simp only [Result.toState_getReg, blk_176.res, rv_simp, h15, h6]
     rw [disp_x15]
   · simp only [Result.toState_getReg, blk_176.res, rv_simp, hw, h15, h6, BitVec.toNat_ofNat, Nat.reduceMod,
@@ -528,7 +537,7 @@ theorem shl_index (index n : Nat) : BitVec.ofNat 64 index <<< n = BitVec.ofNat 6
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_shiftLeft, BitVec.toNat_ofNat, Nat.shiftLeft_eq, Nat.mod_mul_mod]
 theorem drv_entry {im : Image} (hc : NewCodeAt im) (N : HashOutput) (s : MachineState) (hpc : s.pc = pcOf base)
-    (h5 : s.getReg .x5 = 0) (hN : OutAt s 0x60 N) (hg : N.toNat / 2 ^ 235 % 2 ^ 21 < 1094) :
+    (h5 : s.getReg .x5 = 0) (hN : OutAt s 0x60 N) (hg : N.toNat / 2 ^ 235 % 2 ^ 21 < 1091) :
     ∃ t, Steps im s 31 31 t ∧ t.pc = pcOf (base + 34) ∧ DRegs (WCT9.digestIndex N) t ∧
       t.getReg .x8 = BitVec.ofNat 64 (regBase (0 - 1)) ∧
       t.getReg .x28 = BitVec.ofNat 64 (HB0 + 2048 + 512 * (0 - 1)) ∧
@@ -548,8 +557,8 @@ theorem drv_entry {im : Image} (hc : NewCodeAt im) (N : HashOutput) (s : Machine
   have x3_2 : u2.getReg .x3 = 1#64 := by
     simp only [hu2, Result.toState_getReg, blk_4.res, rv_simp, m1, hw, hw3, BitVec.toNat_ofNat, Nat.reduceMod,
       Nat.reducePow]
-    have hlt : BitVec.ult (N.extractLsb' 192 64 >>> 43) 1094#64 = true := by
-      simp only [BitVec.ult, gate21_toNat N, show (1094#64 : Word).toNat = 1094 from rfl, decide_eq_true_eq]; exact hg
+    have hlt : BitVec.ult (N.extractLsb' 192 64 >>> 43) 1091#64 = true := by
+      simp only [BitVec.ult, gate21_toNat N, show (1091#64 : Word).toNat = 1091 from rfl, decide_eq_true_eq]; exact hg
     simp [hlt]
   have s3 := symRun_sound blk_9 (codeAt_9 hc) u2 p2 (by simp [blk_9.res, rv_simp])
   set u3 := blk_9.res.toState u2 with hu3
@@ -603,7 +612,7 @@ theorem disp_spec {im : Image} (hc : NewCodeAt im) (k : Nat) (hk : k < 9) (N : H
       t.getReg .x28 = BitVec.ofNat 64 (HB0 + 2048 + 512 * k) ∧
       t.getReg .x4 = BitVec.ofNat 64 (index + 2 ^ 32 * (WCT9.child N ⟨k, hk⟩).val) ∧
       t.getReg .x23 = BitVec.ofNat 64 (17572 + 256 * (WCT9.child N ⟨k, hk⟩).val) ∧
-      t.getReg .x27 = s.getMem (BitVec.ofNat 64 (HB0 + 512 * k + 448)) ||| s.getReg .x17 ∧
+      t.getReg .x27 = BitVec.ofNat 64 (Merkle.nodeLo k index) ∧
       t.getReg .x15 = BitVec.ofNat 64 (index * 2 ^ 27 + 65536 * k) ∧
       t.getReg .x31 = BitVec.ofNat 64 ((WCT9.child N ⟨k, hk⟩).val * 2 ^ 20 + index * 2 ^ 27 + 65536 * k) ∧
       t.getReg .x16 = N.extractLsb' (64 * dWord k) 64 ∧

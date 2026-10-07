@@ -6,7 +6,7 @@ def seg_0 : List (BitVec 32) := [659,0x8000e93,134967,963331,9352067,7286819,833
 def seg_26 : List (BitVec 32) := [4919,40456803]
 def seg_28 : List (BitVec 32) := [138167,0xa00b8b93,6882227,4428691,2329779,465567983]
 def seg_34 : List (BitVec 32) := [1640723,0xfddff06f]
-def seg_36 : List (BitVec 32) := [0xc00793,806357651,805306607]
+def seg_36 : List (BitVec 32) := [0xc00793,67111571,805306607]
 def seg_39 : List (BitVec 32) := [998244463,16855811,25244547,7286819,8336419,39991,34343955,0x40000a13,2098835]
 def seg_48 : List (BitVec 32) := [1049363,0x86a0663]
 def seg_50 : List (BitVec 32) := [2451]
@@ -34,7 +34,7 @@ def sub_9 : List (BitVec 32) := [0x7340006f,21201843,33788691,17047315,31679283,
 def sub_23 : List (BitVec 32) := [115]
 def sub_24 : List (BitVec 32) := [1706515,0xfa1ff06f]
 def sub_26 : List (BitVec 32) := [32871]
-def sub_27 : List (BitVec 32) := [33171,295827,34152211,31712179,134711,437128723,8272931,134711,0x600e0e13,8272931,17044243,538141459,7223331,2451]
+def sub_27 : List (BitVec 32) := [33171,17371923,538141459,50601747,31679283,0xc100f13,59711251,31679283,134711,0x600e0e13,7223331,932899,19,2451]
 def sub_41 : List (BitVec 32) := [0xda9dc63]
 def sub_42 : List (BitVec 32) := [1700627,67310179]
 def sub_44 : List (BitVec 32) := [1695251,17044243,34479891,31679283,1270547,295827,34152211,31712179,134711,7223331,8272931,132407,67110291,132663,67503635]
@@ -47,7 +47,7 @@ def sub_76 : List (BitVec 32) := [0xf8463]
 def sub_77 : List (BitVec 32) := [559763]
 def sub_78 : List (BitVec 32) := [0xec9ff0ef]
 def sub_79 : List (BitVec 32) := [34576995]
-def sub_80 : List (BitVec 32) := [4824595,623715]
+def sub_80 : List (BitVec 32) := [4824595,17698323]
 def sub_82 : List (BitVec 32) := [17698323]
 def sub_83 : List (BitVec 32) := [134839,0x600e8e93,31329843,134839,487493267,963331,9352067,7221283,8270883]
 def sub_92 : List (BitVec 32) := [17533843,1673619,0xf2dff06f]
@@ -511,7 +511,7 @@ theorem run_79 {b : Nat} (hb : b = 117 ∨ b = 1013) :
   · exact blk117_79.trans (congrArg some (by kernel_rfl))
   · exact blk1013_79.trans (congrArg some (by kernel_rfl))
 def st_80 : SymState := blk117_80.res.st
-def pcE_80 (b : Nat) : E := rebase blk117_80.res.pc (pcOf (b + 83)) (pcOf (b + 82))
+def pcE_80 (b : Nat) : E := .c (pcOf (b + 82))
 theorem run_80 {b : Nat} (hb : b = 117 ∨ b = 1013) :
     symRun { noAlias := true } sub_80 (pcOf (b + 80)) 100 =
       some ⟨st_80, pcE_80 b, blk117_80.res.stop, blk117_80.res.steps, blk117_80.res.cycles⟩ := by

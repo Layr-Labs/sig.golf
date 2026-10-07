@@ -133,7 +133,7 @@ def LayPost (t : MachineState) : Option (List Pieces) → MachineState → Prop
   | none, u => FailedT u
   | some ps, u => u.pc = pcOf 540 ∧ ps.length = 4 ∧ (∀ lay : Layer, PieceAt u lay (ps.getD lay.val ([], []))) ∧
       Frame t u (fun A => ¬ (SIG ≤ A ∧ A < SIG + 2192))
-def layC : Nat := 26 + 3009712023
+def layC : Nat := 26 + 3014005327
 def LayersSpec (im : Image) (sk : BitVec 256) (cache : Bytes 131072) (Inv : MachineState → Prop) : Prop :=
   ∀ (index : Nat) (root : Digest) (t : MachineState), LayPre index root t → Inv t →
     TBSim im sk t layC (WCT9.signLayersBC (cacheDec cache) index 4 (.forest root)) (LayPost t)
@@ -142,7 +142,7 @@ def NewW (A : Nat) : Prop := SearchW A ∨ FtsW A
 def InvStable (Inv : MachineState → Prop) : Prop :=
   ∀ t u, Inv t → Frame t u NewW → RegsExcept t u newRegs → Inv u
 def wsub (imgs : Phase → Image) : Submission :=
-  ⟨⟨5456, 21832, 131072⟩, ⟨23880, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩, imgs⟩
+  ⟨⟨5456, 21488, 131072⟩, ⟨0x5BF0, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩, imgs⟩
 structure Unchanged (imgs : Phase → Image) (Inv : BitVec 256 → Bytes 131072 → Message → MachineState → Prop) :
     Prop where
   front : ∀ sk cache m, ∃ s0, initialState (wsub imgs) .sign (sk, cache, m) = some s0 ∧

@@ -24,11 +24,13 @@ theorem signerComplete_of_searches (A : Correctness.Answers)
   · obtain ⟨found, hf⟩ := h.1 (rho, m)
     rw [hf]
     rfl
-  · have hl : leaf < 4096 := by
-      have : 2 ^ height lay ≤ 2 ^ 12 := Nat.pow_le_pow_right (by decide) (SigGolfCandidate.T3M.Extract.height_le lay)
-      omega
+  · have hr : tree * 2 ^ height lay + leaf < 2 ^ 32 := by
+      rename_i hlay
+      fin_cases lay
+      · exact absurd rfl hlay
+      all_goals simp only [height] at hleaf ⊢; norm_num at hleaf ⊢; omega
     obtain ⟨found, hf⟩ := ClaudeWCT.W9.T3.Correctness.encodingSearchesSucceedBC_msg A h.2 lay
-      ⟨tree, by omega⟩ ⟨leaf, hl⟩ msg
+      tree leaf hleaf hr msg
     change (evalWithAnswerFn A (WCT9.layerCounterSearch lay tree leaf msg 0 (WCT9.searchLimit lay))).isSome
     rw [hf]
     rfl

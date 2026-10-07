@@ -162,14 +162,24 @@ theorem hdr0_node_lt (k : Nat) : hdr0 3 (4 + k) 0 0 < 2 ^ 32 := by
   have := Nat.mod_lt (4 + k) (show 0 < 256 by decide)
   simp only [Nat.zero_div, Nat.zero_mod, Nat.zero_mul, Nat.add_zero]
   omega
-theorem leafHdr_digAt {w : MachineState} {B k index j : Nat} (hidx : index < 2 ^ 31) (hj : j < 128)
-    (h0 : w.getMem (BitVec.ofNat 64 (B + 896)) = BitVec.ofNat 64 (hdr0 6 k 0 0))
-    (h1 : w.getMem (BitVec.ofNat 64 (B + 904)) = BitVec.ofNat 64 (index + 2 ^ 32 * j)) :
-    DigAt w (B + 896) (WCT9.wctHeader 6 k index 0 j) := by
-  rw [WCT9.leaf_header_eq]
+theorem leafHdr_digAt {w : MachineState} {B k index j : Nat} (hk : k < 9) (hidx : index < 2 ^ 31) (hj : j < 128)
+    (h0 : w.getMem (BitVec.ofNat 64 (B + 896)) = BitVec.ofNat 64 (qQ k index j + 1537))
+    (h1 : w.getMem (BitVec.ofNat 64 (B + 904)) = 0) :
+    DigAt w (B + 896) (ClaudeWCT.WCT9.ftsLeafHeader index k j) := by
+  unfold ClaudeWCT.WCT9.ftsLeafHeader
   constructor
-  · rw [h0, header_lo, if_neg (by decide), hdr0_index _ _ _ hidx]
-  · rw [show B + 896 + 8 = B + 904 by omega, h1, header_hi, if_neg (by decide), hdr1_eq _ _ (by omega) (by omega)]
+  · rw [h0, SigGolfCandidate.T3.append64_low]
+    unfold ClaudeWCT.WCT9.ftsLeafLow qQ
+    congr 1
+    rw [Nat.mod_eq_of_lt (show k < 16 by omega), Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hidx]
+    ring
+  · rw [show B + 896 + 8 = B + 904 by omega, h1]
+    apply BitVec.eq_of_toNat_eq
+    rw [BitVec.extractLsb'_toNat, SigGolfCandidate.T3.append64_toNat]
+    have := (BitVec.ofNat 64 (ClaudeWCT.WCT9.ftsLeafLow index k j)).isLt
+    have h0' : (0 : BitVec 64).toNat = 0 := rfl
+    simp only [BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow, h0']
+    omega
 theorem pc_child (j : Nat) : (BitVec.ofNat 64 (17572 + 256 * j)) &&& 18446744073709551614#64 = pcOf (cbE j) := by
   have : BitVec.ofNat 64 (17572 + 256 * j) = pcOf (cbE j) := by
     unfold pcOf cbE cb0; congr 1; ring
@@ -233,7 +243,7 @@ theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.
   have hpre : RPre (regBase k) (HB0 + 2048 + 512 * k) k index j (codewordL ((WCT9.embed (WCT9.rank N ⟨k, hk⟩)).val))
       (fun t => if h : t < 7 then (sig.openings ⟨k, hk⟩).values ⟨t, h⟩ else 0) t2 := by
     refine ⟨⟨by omega, by omega, by unfold HB0; omega, by unfold HB0; omega, by unfold HB0; omega⟩,
-      by unfold HB0; omega, hk, hidx, hj, ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_,
+      by unfold HB0; omega, hk, hidx, hj, ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
       fun t' ht => rp t' ht, fun t' ht => ?_, fun t' ht _ => ?_, fun t' ht => codewordL_le3 _ hr t' ht⟩
     · rw [r21, x8_1]
     · rw [r21, x28_1]
@@ -244,9 +254,6 @@ theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.
     · rw [k21 _ (by decide)]; exact hI.regs.x5
     · rw [r21, keep1 _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by decide)
         (by decide) (by decide) (by decide) (by decide) (by decide)]; exact hI.regs.x11
-    · rw [m21, hhigh _ (by unfold HB0; omega) (by unfold HB0; omega),
-        show HB0 + 2048 + 512 * k - 2048 + 456 = HB0 + 512 * k + 456 by unfold HB0; omega]
-      exact (hin.bank k hk).2
     · simp only [dif_pos ht]; exact rv t' ht
     · simp only [dif_pos ht]; exact rl t' ht
   have hW := walk_tb (sk := sk) hc hpre 64 0 _ c [] t2 hw (by omega) rfl
@@ -286,10 +293,7 @@ theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.
     · rw [hw'.pc, r21, x23_1, pc_child]
     · rw [kw _ (by decide)]; exact hI.regs.x5
     · rw [hw'.keep _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), r21, x8_1]
-    · rw [hw'.keep _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), r21, x27_1,
-        hhigh _ (by unfold HB0; omega) (by unfold HB0; omega), (hin.bank k hk).1, hI.regs.x17,
-        disp_x27 _ _ (hdr0_node_lt k)]
-      rfl
+    · rw [hw'.keep _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), r21, x27_1]
     · intro h h2 h7
       have hh : Merkle.heapReg h = .x13 ∨ Merkle.heapReg h = .x19 ∨ Merkle.heapReg h = .x20 ∨
           Merkle.heapReg h = .x21 ∨ Merkle.heapReg h = .x26 ∨ Merkle.heapReg h = .x30 := by
@@ -304,7 +308,7 @@ theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.
         have := hw'.ends 0 (by decide); rwa [show slotC 0 = 880 from rfl] at this
       · by_cases h1 : i = 1
         · subst h1; simp only [show (1 : Nat) ≠ 0 by decide, if_false, if_true]
-          exact leafHdr_digAt hidx hj hw'.h0 hw'.h1
+          exact leafHdr_digAt hk hidx hj hw'.h0 hw'.h1
         · simp only [h0, h1, if_false]
           have := hw'.ends (i - 1) (by omega)
           rwa [show slotC (i - 1) = 880 + 16 * i by unfold slotC; split <;> omega, ← Nat.add_assoc] at this

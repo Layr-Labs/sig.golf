@@ -240,18 +240,32 @@ theorem chainHeader_ne_header (lay : Layer) (tree leaf i step tag roleLay roleTr
   have hc := chainHeader_firstByte lay tree leaf i step
   rw [h, header_firstByte] at hc
   omega
-theorem digestHeader_ne_header (counter : BitVec 32) (tag lay tree position index : Nat) :
-    digestHeader counter ≠ header tag lay tree position index := by
-  intro h
-  have hc := digestHeader_firstByte counter
-  rw [h, header_firstByte] at hc
-  contradiction
+theorem chainHeader_tweakMarker (lay : Layer) (tree leaf i step : Nat) :
+    128 ≤ tweakMarker (chainHeader lay tree leaf i step) := chainHeader_firstByte lay tree leaf i step
 theorem chainHeader_ne_digestHeader (lay : Layer) (tree leaf i step : Nat) (counter : BitVec 32) :
     chainHeader lay tree leaf i step ≠ digestHeader counter := by
   intro h
-  have hc := chainHeader_firstByte lay tree leaf i step
-  rw [h, digestHeader_firstByte] at hc
+  have hc := chainHeader_tweakMarker lay tree leaf i step
+  rw [h, digestHeader_marker] at hc
   omega
+theorem chainHeader_ne_leafTweak (lay : Layer) (tree leaf i step : Nat) (lay' : Layer) (tree' leaf' : Nat) :
+    chainHeader lay tree leaf i step ≠ leafTweak lay' tree' leaf' := by
+  intro h
+  have hc := chainHeader_tweakMarker lay tree leaf i step
+  rw [h, leafTweak_marker] at hc
+  omega
+theorem chainHeader_ne_rowTweak (lay : Layer) (tree leaf i step : Nat) (lay' : Layer) (tree' leaf' : Nat) :
+    chainHeader lay tree leaf i step ≠ rowTweak lay' tree' leaf' := by
+  intro h
+  have hc := chainHeader_tweakMarker lay tree leaf i step
+  rw [h, rowTweak_marker] at hc
+  omega
+theorem chainHeader_ne_nodeTweak (lay : Layer) (tree leaf i step : Nat) (tag lay' tree' heap : Nat) :
+    chainHeader lay tree leaf i step ≠ nodeTweak tag lay' tree' heap := by
+  intro h
+  have hc := chainHeader_tweakMarker lay tree leaf i step
+  rw [h, nodeTweak_marker] at hc
+  split_ifs at hc <;> omega
 theorem header_marker_lt_nonpacked (tag lay tree position index : Nat)
     (hn : packedNodeTag tag = false) (hp : position < 2^31) :
     (header tag lay tree position index).toNat / 2^56 % 256 < 128 := by

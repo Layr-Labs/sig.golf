@@ -20,7 +20,7 @@ theorem hdrBlock_chainRow (a : ChainAddr) (s : Nat) (v : Digest) :
       bytesLE 16 (chainHeader a.key.lay a.key.tree a.key.leaf a.chain s) :=
   chainInput_header _ _ _ _ _ _
 theorem hdrBlock_encodingRow (L : LeafAddr) (m : Digest) (c : BitVec 32) :
-    Extract.hdrBlock (encodingRow L m c) = bytesLE 16 (header 4 L.lay.val L.tree 0 L.leaf) := by
+    Extract.hdrBlock (encodingRow L m c) = bytesLE 16 (rowTweak L.lay L.tree L.leaf) := by
   unfold encodingRow encodingInput
   rw [Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega), Extract.hdrBlock_prefix]
 theorem hdrBlock_digest (rho : Digest) (m : Message) (c : BitVec 32) :
@@ -32,7 +32,7 @@ theorem chainRow_ne_encodingRow (a : ChainAddr) (s : Nat) (v : Digest) (L : Leaf
   intro h
   have hb := congrArg Extract.hdrBlock h
   rw [hdrBlock_chainRow, hdrBlock_encodingRow] at hb
-  exact chainHeader_ne_header _ _ _ _ _ _ _ _ _ _ (bytesLE_injective hb)
+  exact chainHeader_ne_rowTweak _ _ _ _ _ _ _ _ (bytesLE_injective hb)
 theorem chainRow_ne_digest (a : ChainAddr) (s : Nat) (v : Digest) (rho : Digest) (m : Message) (c : BitVec 32) :
     chainRow a s v ≠ pad64 (digestInput rho m c) := by
   intro h
@@ -44,7 +44,7 @@ theorem encodingRow_ne_digest (L : LeafAddr) (m : Digest) (c : BitVec 32) (rho :
   intro h
   have hb := congrArg Extract.hdrBlock h
   rw [hdrBlock_encodingRow, hdrBlock_digest] at hb
-  exact (digestHeader_ne_header _ _ _ _ _ _).symm (bytesLE_injective hb)
+  exact (digestHeader_ne_rowTweak _ _ _ _) (bytesLE_injective hb).symm
 theorem posOf_chainRow (a : ChainAddr) (s : Nat) (v : Digest) (htree : a.key.tree < 2 ^ 31)
     (hleaf : a.key.leaf < 4096) (hc : a.chain < 64) (hs : s < 8) :
     Extract.posOf (chainRow a s v) = some (.chain a.key.lay a.key.tree a.key.leaf a.chain s) :=
@@ -77,23 +77,6 @@ theorem encodingRow_digest_disjoint (T : Answers) (input : T3.Spec.Domain) :
   rintro ⟨hE, rho, m, c, rfl⟩
   obtain ⟨L, m', c', hx⟩ := hE
   exact encodingRow_ne_digest L m' c' rho m c hx.symm
-theorem encodingRow_otherQuery_disjoint (T : Answers) (input : T3.Spec.Domain) :
-    ¬(EncodingRow T input ∧ OtherQuery T input) := by
-  rintro ⟨hE, hO⟩
-  rcases input with (n | x) | c
-  · exact hE
-  · obtain ⟨L, m, c, rfl⟩ := hE
-    obtain ⟨position, hpos, -⟩ := hO
-    have hnone : Extract.posOf (encodingRow L m c) = none := Structural.posOf_encoding _ _ _ _ _
-    rw [hnone] at hpos
-    cases hpos
-  · exact hE
-theorem otherQuery_digest_disjoint (T : Answers) (input : T3.Spec.Domain) :
-    ¬(OtherQuery T input ∧ IsDigestQuery input) := by
-  rintro ⟨hO, rho, m, c, rfl⟩
-  obtain ⟨position, hpos, -⟩ := hO
-  rw [Structural.posOf_digest] at hpos
-  cases hpos
 theorem prefixRow_otherQuery_disjoint (T : Answers) (input : T3.Spec.Domain) :
     ¬(PrefixRow T input ∧ OtherQuery T input) := by
   rintro ⟨hP, hO⟩
@@ -147,11 +130,4 @@ noncomputable def refExpect (adversary : AdversaryP) (q : Nat) (f : RefSample �
 theorem prefixClassCount_eq (s : RefSample) : prefixClassCount s = refCount PrefixRow s := rfl
 theorem encodingCount_eq (s : RefSample) : encodingCount s = refCount EncodingRow s := rfl
 theorem otherCount_eq (s : RefSample) : otherCount s = refCount OtherQuery s := rfl
-theorem reference_class_budget (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
-    refExpect adversary q prefixClassCount + refExpect adversary q encodingCount + refExpect adversary q otherCount +
-      SeccLaw.expectedCharge adversary q hq digestClass ≤ q :=
-  reference_shared_budget adversary q hq PrefixRow EncodingRow OtherQuery digestClass shortCongruent_prefixRow
-    shortCongruent_encodingRow shortCongruent_otherQuery prefixRow_encodingRow_disjoint prefixRow_otherQuery_disjoint
-    encodingRow_otherQuery_disjoint (fun z input => prefixRow_digest_disjoint z.2 input)
-    (fun z input => encodingRow_digest_disjoint z.2 input) (fun z input => otherQuery_digest_disjoint z.2 input)
 end SigGolfCandidate.T3.Security.Wots

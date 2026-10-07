@@ -1,5 +1,4 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEvents
-import SigGolfCandidate.ClaudeWCT.W9.New.BC.Rows
 import SigGolfCandidate.T3.Secc.WotsExtractVerify
 
 namespace ClaudeWCT.W9.T3.Security.WotsExtract
@@ -18,8 +17,7 @@ theorem referenceSearch_producerDecode (answers : Answers) (L : LeafAddr) {c : B
   have hs := (WCT9.layerCounterSearch_some_search answers L.lay L.tree L.leaf (leafMsg answers L)
     (WCT9.searchLimit L.lay) 0 c digits
     (by have := WCT9.searchLimit_le L.lay; unfold counterLimit at this; omega) h).2.2
-  unfold encRow
-  rw [BC.layerEncodingInputP_zero]
+  rw [encRow_zero]
   exact hs
 theorem referenceSearch_decode (answers : Answers) (L : LeafAddr) {c : BitVec 32} {digits : List Nat}
     (h : referenceSearch answers L = some (c, digits)) :

@@ -8,8 +8,8 @@ open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 def originalValue (u : MachineState) (index : Nat) (k : Fin 9) (j : Fin 128) : ChainWord → Word
   | .original off => u.getMem (BitVec.ofNat 64 (base k + off))
   | .header t d => BitVec.ofNat 64 (V3.chainLow index k.val j.val t d)
-  | .index => BitVec.ofNat 64 index
-  | .leafHeader => (SigGolfCandidate.T3.header 6 k.val index 0 j.val).extractLsb' 0 64
+  | .zero => 0
+  | .leafHeader => BitVec.ofNat 64 (V3.leafLow index k.val j.val)
   | .answer _ _ => 0
 structure Inv (u : MachineState) (index : Nat) (k : Fin 9) (j : Fin 128)
     (tr : ChainTrace) (answers : List (BitVec 256)) (s : MachineState) : Prop where

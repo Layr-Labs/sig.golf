@@ -395,9 +395,5 @@ theorem sat_digestSearch_of (T : Answers) (Q : Query → Prop) (rho : Digest) (m
       split
       · exact Wots.Structural.QueriesSat.pure' _
       · exact ih _
-theorem sat_digestSearch (T : Answers) (rho : Digest) (message : Message) :
-    ∀ fuel counter, Wots.Structural.QueriesSat T (Wots.Structural.HonestQuery T)
-      (WCT9.digestSearch rho message counter fuel) :=
-  sat_digestSearch_of T _ rho message fun _ => Or.inl (Wots.Structural.posOf_digest _ _ _)
 end Structural
 end ClaudeWCT.WCT9.Wots

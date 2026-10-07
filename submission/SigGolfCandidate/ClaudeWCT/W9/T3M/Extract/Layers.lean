@@ -44,9 +44,9 @@ private theorem queried_map_l {α β : Type} (answers : Answers) (f : α → β)
   simp
 theorem layersBC_succ_eq (w : WBytes) (index n : Nat) (msg : WCT9.LayerMsg) :
     layersBC w index (n + 1) msg =
-      if (wbcCtr w (Fin.ofNat 4 n)).toNat ≥ counterLimit then pure none else
+      if (wbcCtr w index (Fin.ofNat 4 n)).toNat ≥ counterLimit then pure none else
       (shortHash (layerEncodingInputP (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
-          (route index (Fin.ofNat 4 n)).1 msg (wbcCtr w (Fin.ofNat 4 n)) (wbcPad w (Fin.ofNat 4 n))) >>= fun answer =>
+          (route index (Fin.ofNat 4 n)).1 msg (wbcCtr w index (Fin.ofNat 4 n)) (wbcPad w index (Fin.ofNat 4 n)) (wbcRight w)) >>= fun answer =>
         if n = 0 then topLayerP w index answer
         else match decode (Fin.ofNat 4 n) answer with
           | some digits => layerPairP w index (Fin.ofNat 4 n) digits >>= fun pair =>
@@ -72,14 +72,14 @@ theorem layersBC_succ_split (answers : Answers) (w : WBytes) (index n : Nat) (ms
               (evalWithAnswerFn answers (layerPairP w index (Fin.ofNat 4 n) digits)).2)),
           q ∈ queried answers (layersBC w index (n + 1) msg))) := by
   rw [layersBC_succ_eq] at h ⊢
-  by_cases hc : (wbcCtr w (Fin.ofNat 4 n)).toNat ≥ counterLimit
+  by_cases hc : (wbcCtr w index (Fin.ofNat 4 n)).toNat ≥ counterLimit
   · rw [if_pos hc] at h; simp at h
   rw [if_neg hc] at h ⊢
   rw [evalWithAnswerFn_bind] at h
   rw [queried_bind]
   generalize hans : evalWithAnswerFn answers (shortHash (layerEncodingInputP (Fin.ofNat 4 n)
-    (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg (wbcCtr w (Fin.ofNat 4 n))
-    (wbcPad w (Fin.ofNat 4 n)))) = answer at h ⊢
+    (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg (wbcCtr w index (Fin.ofNat 4 n))
+    (wbcPad w index (Fin.ofNat 4 n)) (wbcRight w))) = answer at h ⊢
   have hdig : ∃ digits, decode (Fin.ofNat 4 n) answer = some digits := by
     by_cases hn0 : n = 0
     · subst hn0
@@ -152,7 +152,7 @@ theorem layersBC_walk_n (answers : Answers) (w : WBytes) (index : Nat) (hidx : i
             honestRoot answers (Fin.ofNat 4 0) (route index (Fin.ofNat 4 0)).2 := by
           rw [hout, show (Fin.ofNat 4 0 : Layer) = 0 from rfl, route_top_tree index hidx]
         refine finish ?_ (fun l hl => absurd hl (by omega))
-        rcases layerP_extract answers w index (Fin.ofNat 4 0) digits hidx hvalid hroot with hhit | hshape
+        rcases layerP_extract answers w index (Fin.ofNat 4 0) digits rfl hidx hvalid hroot with hhit | hshape
         · exact Or.inl (hhit.mono hq)
         · exact Or.inr hshape
       · obtain ⟨hrest, hqP, hqR⟩ := hlow hn0

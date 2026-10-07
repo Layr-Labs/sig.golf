@@ -4,7 +4,7 @@ namespace W9Machine
 inductive ChainWord where
   | original (offset : Nat)
   | header (chain step : Nat)
-  | index
+  | zero
   | answer (query word : Nat)
   | leafHeader
   deriving BEq, DecidableEq, Repr
@@ -40,7 +40,7 @@ def ChainTrace.step (s : ChainTrace) : ChainPieceKind → ChainTrace
       let hi := s.read (off + 56)
       (s.put dst lo).put (dst + 8) hi
   | .jump _ => s
-  | .leaf => ((s.put 768 .leafHeader).put 776 .index)
+  | .leaf => ((s.put 768 .leafHeader).put 776 .zero)
 def chainTrace (r : ChainRoutine) : ChainTrace :=
   r.pieces.foldl (fun s p => s.step p.kind) {}
 def traceLeafSlot (t : Nat) : Nat := if t = 0 then 752 else 768 + 16 * t
@@ -61,6 +61,6 @@ def ChainRoutine.traceChecked (r : ChainRoutine) : Bool :=
   s.valid && (s.queries == expectedQueries r.digits) &&
     ((List.range 7).all fun t => (List.range 2).all fun word =>
       s.read (traceLeafSlot t + 8 * word) == expectedEndpoint r.digits t word) &&
-    (s.read 768 == .leafHeader) && (s.read 776 == .index) &&
+    (s.read 768 == .leafHeader) && (s.read 776 == .zero) &&
     (s.mem.all fun p => decide (p.1 % 8 = 0 ∧ p.1 + 8 ≤ 896))
 end W9Machine

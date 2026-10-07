@@ -472,7 +472,6 @@ structure RPre (B H k index j : Nat) (z : List Nat) (vals : Nat → Digest) (s0 
   hidx : index < 2 ^ 31
   hj : j < 128
   regs : CRegs B H (index + 2 ^ 32 * j) (qQ k index j) s0
-  leafHdr : s0.getMem (BitVec.ofNat 64 (H - 2048 + 456)) = BitVec.ofNat 64 (hdr0 6 k 0 0)
   pads : ∀ t, t < 7 → PadsZ B t s0
   valAt : ∀ t, t < 7 → DigAt s0 (B + offC t + 48) (vals t)
   passive : ∀ t, t < 7 → z.getD t 0 = 0 → DigAt s0 (B + slotC t) (vals t)
@@ -492,8 +491,8 @@ structure RPost (B k index j : Nat) (z : List Nat) (s0 : MachineState) (ends : L
   keep : ∀ r, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → r ≠ .x14 → r ≠ .x25 → w.getReg r = s0.getReg r
   len : ends.length = 7
   ends : ∀ t, t < 7 → DigAt w (B + slotC t) (ends.getD t 0)
-  h0 : w.getMem (BitVec.ofNat 64 (B + 896)) = BitVec.ofNat 64 (hdr0 6 k 0 0)
-  h1 : w.getMem (BitVec.ofNat 64 (B + 904)) = BitVec.ofNat 64 (index + 2 ^ 32 * j)
+  h0 : w.getMem (BitVec.ofNat 64 (B + 896)) = BitVec.ofNat 64 (qQ k index j + 1537)
+  h1 : w.getMem (BitVec.ofNat 64 (B + 904)) = 0
   frame : Frame s0 w (fun A => chainsWr B z 7 A ∨ A = B + 896 ∨ A = B + 904)
 theorem offC_lt_slot (t t' : Nat) (ht : t < 7) (ht' : t' < 7) : offC t + 80 ≤ slotC t' ∨ (t = 0 ∧ t' = 0) := by
   unfold offC slotC; split <;> omega
@@ -519,7 +518,7 @@ theorem passive_free_earlier {B t' t : Nat} (z : List Nat) (h : t' < t) (h7 : t 
 theorem leafHdr_free {B t : Nat} (o : Nat) (ho : o < 16) :
     B + slotC t + o ≠ B + 896 ∧ B + slotC t + o ≠ B + 904 := by
   unfold slotC; split <;> omega
-theorem expLook_lt {m : Nat} {w : BitVec 32} (h : expLook m = some w) : 1024 ≤ m ∧ m < 165 * 256 := by
+theorem expLook_lt {m : Nat} {w : BitVec 32} (h : expLook m = some w) : 1024 ≤ m ∧ m < 168 * 256 := by
   unfold expLook at h
   split at h
   · rename_i hm
@@ -529,7 +528,7 @@ theorem expLook_lt {m : Nat} {w : BitVec 32} (h : expLook m = some w) : 1024 ≤
     simp at h
   · cases h
 theorem window_bound {n : Nat} {ws : List (BitVec 32)} (h : windowOK n ws = true) (hne : ws ≠ []) :
-    n + ws.length ≤ 165 * 256 := by
+    n + ws.length ≤ 168 * 256 := by
   unfold windowOK at h
   have hl : 0 < ws.length := List.length_pos_of_ne_nil hne
   have := List.all_eq_true.mp h (ws.length - 1) (List.mem_range.mpr (by omega))
@@ -686,9 +685,8 @@ theorem walk_tb {im : Image} (hcode : NewCodeAt im) {sk : BitVec 256} {B H k ind
               simp only [Nat.add_zero] at hl
               exact ⟨(fw _ (by omega) (by rintro (h | h) <;> omega)).trans hD.1,
                 (fw _ (by omega) (by rintro (h | h) <;> omega)).trans hD.2⟩
-            · rw [m0, hI.frame _ (by have := hb.hhi; omega) (hbank_free (by omega) hsep (by omega))]
-              exact hpre.leafHdr
-            · rw [m1, hI.regs.x4]
+            · rw [m0, hI.regs.x31, show (0x601#64 : Word) = BitVec.ofNat 64 1537 from rfl, ofNat_add_ofNat]
+            · rw [m1]
             · exact (hI.frame.trans fw).mono (fun A _ hA => by
                 rcases hA with h | h
                 · exact Or.inl h

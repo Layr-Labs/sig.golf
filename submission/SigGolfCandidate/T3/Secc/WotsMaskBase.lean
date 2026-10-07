@@ -335,7 +335,8 @@ theorem respects_nodeHash (tag lay tree heap : Nat) (left right : Digest) (ht : 
   rw [nodeHash_eq_shortHash]
   apply Respects.shortHash
   rw [pad64_nodeInputP]
-  exact untouched_block4 a left 0 right ht lay tree 0 heap
+  exact untouched_of_hdr a _ (nodeTweak tag lay tree heap) (Extract.hdrBlock_block4 left _ 0 right)
+    (fun _ _ _ _ _ => Ne.symm (chainHeader_ne_nodeTweak _ _ _ _ _ _ _ _ _))
 theorem respects_buildLevel (tag lay tree h level : Nat) (nodes : List Digest) (ht : tag % 256 ≠ 1) :
     Respects (Untouched a) (buildLevel tag lay tree h level nodes) :=
   Respects.mapM _ _ fun _ _ => respects_nodeHash a _ _ _ _ _ _ ht
@@ -347,7 +348,8 @@ theorem respects_buildLevels (tag lay tree h : Nat) (leaves : List Digest) (ht :
 theorem respects_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     Respects (Untouched a) (leafHash lay tree leaf ends) := by
   unfold leafHash
-  exact Respects.shortHash _ (untouched_prefixed a _ _ (by decide) _ _ _ _)
+  exact Respects.shortHash _ (untouched_of_hdr a _ (leafTweak lay tree leaf) (Extract.hdrBlock_leafInput _ _ _ _)
+    (fun _ _ _ _ _ => Ne.symm (chainHeader_ne_leafTweak _ _ _ _ _ _ _ _)))
 theorem respects_forestPk (index : Nat) (roots : List Digest) :
     Respects (Untouched a) (forestPk index roots) := by
   unfold forestPk
@@ -398,8 +400,11 @@ theorem respects_counterSearch (lay : Layer) (tree leaf : Nat) (message : Digest
       intro counter
       simp only [counterSearch]
       refine Respects.bind (Respects.shortHash _ ?_) fun answer => ?_
-      · unfold encodingInput
-        exact untouched_prefixed a _ _ (by decide) _ _ _ _
+      · apply untouched_of_hdr a _ (rowTweak lay tree leaf) _
+          (fun _ _ _ _ _ => Ne.symm (chainHeader_ne_rowTweak _ _ _ _ _ _ _ _))
+        unfold encodingInput
+        rw [Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
+          Extract.hdrBlock_prefix]
       · split
         · exact ih _
         · exact Respects.pure' _

@@ -65,9 +65,10 @@ theorem treeLabel_outer (left right : Labels) (h : ∀ node, ¬Hidden node → l
   have hn : ∀ node : Node, (∀ q, node ≠ .wctChain q) → left node = right node := fun node hq =>
     h node (fun ⟨a, q, _, he⟩ => hq (a, q) he)
   unfold treeLabel
-  split_ifs with hzero hc
-  · rw [hn _ (fun _ => Node.noConfusion)]
-  · rfl
+  split_ifs with hzero
+  · cases leafAt lay tree c with
+    | none => rfl
+    | some L => simp only; rw [hn _ (fun _ => Node.noConfusion)]
   · cases treeNodeAt lay tree (level - 1) c with
     | none => rfl
     | some n => simp only; rw [hn _ (fun _ => Node.noConfusion)]
@@ -96,8 +97,8 @@ theorem cell_outer (secrets secrets' : Secrets) (labels labels' : Labels)
         ChainGraph.input (seedsOf secrets') p (chainLabels labels')
       rw [hseeds, hchain]
   | leaf L =>
-      have hends : (List.range (chainCount L.lay)).map (endLabel secrets labels L) =
-          (List.range (chainCount L.lay)).map (endLabel secrets' labels' L) := by
+      have hends : (List.range (chainCount L.1.lay)).map (endLabel secrets labels L.1) =
+          (List.range (chainCount L.1.lay)).map (endLabel secrets' labels' L.1) := by
         apply List.map_congr_left
         intro i _
         unfold endLabel

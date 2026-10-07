@@ -7,7 +7,8 @@ open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
 open SigGolfCandidate.T3 hiding digestSearch admissible
 open SigGolfCandidate.T3.Sampling (RCache roRun V publicProgram digestTrial V_publicSearch public_randomOracle)
 open ClaudeWCT.W9.T3.ProducerV5 (producerEncodingDecode)
-open SigGolfCandidate.T3.Freshness (Avoids HasTag avoids_pure avoids_bind preserves avoids_shortHash_of_ne)
+open SigGolfCandidate.T3.Freshness (Avoids RowQ SearchQ RowQ.searchQ searchQ_digest avoids_pure avoids_bind preserves
+  avoids_shortHash_of_ne)
 open ClaudeWCT.WCT9 (LayerMsg layerEncodingInput pairEncodingInputP layerCounterSearch)
 set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
@@ -44,8 +45,9 @@ theorem layerTrial_length (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) (coun
     (layerTrial lay tree leaf msg counter).length = 64 := by
   rw [layerTrial_eq, pairTrial_length]
 theorem pairTrial_coordinates {lay lay' : Layer} {tree tree' leaf leaf' : Nat} {left left' right right' : Digest}
-    {counter counter' : Nat} (ht : tree < 2 ^ 40) (ht' : tree' < 2 ^ 40) (hl : leaf < 2 ^ 32)
-    (hl' : leaf' < 2 ^ 32) (hc : counter < 2 ^ 32) (hc' : counter' < 2 ^ 32)
+    {counter counter' : Nat} (hl : leaf < 2 ^ height lay) (hr : tree * 2 ^ height lay + leaf < 2 ^ 32)
+    (hl' : leaf' < 2 ^ height lay') (hr' : tree' * 2 ^ height lay' + leaf' < 2 ^ 32)
+    (hc : counter < 2 ^ 32) (hc' : counter' < 2 ^ 32)
     (he : pairTrial lay tree leaf left right counter = pairTrial lay' tree' leaf' left' right' counter') :
     lay = lay' ∧ tree = tree' ∧ leaf = leaf' ∧ left = left' ∧ right = right' ∧ counter = counter' := by
   unfold pairTrial pairEncodingInputP at he
@@ -53,11 +55,10 @@ theorem pairTrial_coordinates {lay lay' : Layer} {tree tree' leaf leaf' : Nat} {
   obtain ⟨he, -⟩ := List.append_inj he (by simp [bytesLE_length])
   obtain ⟨he, hC⟩ := List.append_inj he (by simp [bytesLE_length])
   obtain ⟨hL, hH⟩ := List.append_inj he (by simp [bytesLE_length])
-  have hH := header_injective (by decide : 4 < 256) (by have := lay.isLt; omega) ht (by decide : 0 < 2 ^ 32) hl
-    (by decide : 4 < 256) (by have := lay'.isLt; omega) ht' (by decide : 0 < 2 ^ 32) hl' (bytesLE_injective hH)
+  obtain ⟨hlay, htree, hleaf⟩ := rowTweak_injective hl hr hl' hr' (bytesLE_injective hH)
   have hC := congrArg BitVec.toNat (bytesLE_injective hC)
   simp only [BitVec.toNat_ofNat, Nat.mod_eq_of_lt hc, Nat.mod_eq_of_lt hc'] at hC
-  exact ⟨Fin.ext hH.2.1, hH.2.2.1, hH.2.2.2.2, bytesLE_injective hL, bytesLE_injective hR, hC⟩
+  exact ⟨hlay, htree, hleaf, bytesLE_injective hL, bytesLE_injective hR, hC⟩
 theorem pairTrial_injective (lay : Layer) (tree leaf : Nat) (left right : Digest) {c c' : Nat}
     (hc : c < 2 ^ 32) (hc' : c' < 2 ^ 32)
     (he : pairTrial lay tree leaf left right c = pairTrial lay tree leaf left right c') : c = c' := by
@@ -74,28 +75,33 @@ theorem layerTrial_injective (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) {c
   exact pairTrial_injective lay tree leaf _ _ hc hc' he
 @[simp] theorem queryHeader_pairTrial (lay : Layer) (tree leaf : Nat) (left right : Digest) (counter : Nat) :
     SigGolfCandidate.T3.QuerySpace.queryHeader (pairTrial lay tree leaf left right counter) =
-      bytesLE 16 (header 4 lay.val tree 0 leaf) := by
+      bytesLE 16 (rowTweak lay tree leaf) := by
   simp [SigGolfCandidate.T3.QuerySpace.queryHeader, pairTrial, pairEncodingInputP, List.append_assoc,
     bytesLE_length]
-theorem hasTag_pairTrial (lay : Layer) (tree leaf : Nat) (left right : Digest) (counter : Nat) :
-    HasTag 4 (pairTrial lay tree leaf left right counter) :=
-  Or.inl ⟨lay.val, tree, 0, leaf, queryHeader_pairTrial ..⟩
+theorem rowQ_pairTrial (lay : Layer) (tree leaf : Nat) (left right : Digest) (counter : Nat) :
+    RowQ (pairTrial lay tree leaf left right counter) :=
+  ⟨rowTweak lay tree leaf, queryHeader_pairTrial .., rowTweak_marker .., rowTweak_tag .., rowTweak_high ..⟩
 theorem pairTrial_ne_of_layer {lay other : Layer} (hne : lay ≠ other) (tree leaf : Nat) (left right : Digest)
     (counter : Nat) (tree' leaf' : Nat) (left' right' : Digest) (counter' : Nat) :
     pairTrial lay tree leaf left right counter ≠ pairTrial other tree' leaf' left' right' counter' := by
   intro he
   have hh := congrArg SigGolfCandidate.T3.QuerySpace.queryHeader he
   simp only [queryHeader_pairTrial] at hh
-  apply SigGolfCandidate.T3.QuerySpace.header_ne_of_layer _ (bytesLE_injective hh)
-  have h1 : lay.val < 256 := by have := lay.isLt; omega
-  have h2 : other.val < 256 := by have := other.isLt; omega
-  rw [Nat.mod_eq_of_lt h1, Nat.mod_eq_of_lt h2]
-  exact fun h => hne (Fin.ext h)
+  have hw := (append64_inj (bytesLE_injective hh)).2
+  have hl := congrArg (fun w : BitVec 64 => w.toNat / 2 ^ 48 % 256) hw
+  simp only [hyperWord_toNat] at hl
+  have h1 := lay.isLt
+  have h2 := other.isLt
+  have := Nat.mod_lt (tree * 2 ^ height lay + leaf) (show 0 < 2 ^ 32 by decide)
+  have := Nat.mod_lt (tree' * 2 ^ height other + leaf') (show 0 < 2 ^ 32 by decide)
+  exact hne (Fin.ext (by omega))
 theorem pairTrial_ne_digestTrial (lay : Layer) (tree leaf : Nat) (left right : Digest) (counter : Nat)
     (rho : Digest) (message : Message) (ctr : Nat) :
-    pairTrial lay tree leaf left right counter ≠ digestTrial rho message ctr :=
-  SigGolfCandidate.T3.Freshness.tagged_ne (hasTag_pairTrial ..)
-    (SigGolfCandidate.T3.Freshness.hasTag_digest ..) (by decide)
+    pairTrial lay tree leaf left right counter ≠ digestTrial rho message ctr := by
+  intro he
+  have hh := congrArg SigGolfCandidate.T3.QuerySpace.queryHeader he
+  rw [queryHeader_pairTrial, SigGolfCandidate.T3.QuerySpace.queryHeader_digest] at hh
+  exact digestHeader_ne_rowTweak _ lay tree leaf (bytesLE_injective hh).symm
 theorem layerCounterSearch_public (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) :
     ∀ fuel counter, layerCounterSearch lay tree leaf msg counter fuel =
       publicProgram (SphincsSecurity.Completeness.searchLoop
@@ -250,22 +256,22 @@ theorem avoids_layerCounterSearch (secret : BitVec 256) {lay other : Layer} (hne
         · exact ih _
         · exact avoids_pure _ _ _
 theorem preserves_pairBelow {α : Type} (secret : BitVec 256) (program : M α)
-    (h : ∀ target, HasTag 4 target → Avoids secret target program)
+    (h : ∀ target, RowQ target → Avoids secret target program)
     (n : Nat) (cache : RCache) (hc : PairFreshBelow n cache) (result : α × RCache)
     (hr : result ∈ support (roRun secret program cache)) : PairFreshBelow n result.2 := by
   intro lay hl tree leaf left right c hlt
-  rw [preserves secret _ program (h _ (hasTag_pairTrial ..)) cache result hr]
+  rw [preserves secret _ program (h _ (rowQ_pairTrial ..)) cache result hr]
   exact hc lay hl tree leaf left right c hlt
 theorem preserves_allSearchesBC {α : Type} (secret : BitVec 256) (program : M α)
-    (h : ∀ target, HasTag 4 target ∨ HasTag 12 target → Avoids secret target program)
+    (h : ∀ target, SearchQ target → Avoids secret target program)
     (cache : RCache) (hc : AllSearchesFreshBC cache) (result : α × RCache)
     (hr : result ∈ support (roRun secret program cache)) : AllSearchesFreshBC result.2 := by
   constructor
   · intro rho message c hlt
-    rw [preserves secret _ program (h _ (Or.inr (SigGolfCandidate.T3.Freshness.hasTag_digest ..))) cache result hr]
+    rw [preserves secret _ program (h _ (searchQ_digest ..)) cache result hr]
     exact hc.1 rho message c hlt
-  · exact preserves_pairBelow secret program (fun target ht => h target (Or.inl ht)) 4 cache hc.2 result hr
-theorem avoids_digestSearch_encoding (secret : BitVec 256) (target : HashInput) (ht : HasTag 4 target)
+  · exact preserves_pairBelow secret program (fun target ht => h target ht.searchQ) 4 cache hc.2 result hr
+theorem avoids_digestSearch_encoding (secret : BitVec 256) (target : HashInput) (ht : RowQ target)
     (rho : Digest) (message : Message) (counter fuel : Nat) :
     Avoids secret target (ClaudeWCT.WCT9.digestSearch rho message counter fuel) := by
   induction fuel generalizing counter with

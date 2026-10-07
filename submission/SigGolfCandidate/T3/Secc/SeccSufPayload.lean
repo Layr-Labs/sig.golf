@@ -25,7 +25,7 @@ abbrev H (answers : Answers) (index coord level node : Nat) : Digest :=
   treeValue (evalWithAnswerFn answers (buildFts index coord)).1 level node
 abbrev S (answers : Answers) (index coord leaf : Nat) : Digest := Extract.ftsSecret answers index coord leaf
 theorem hdrBlock_nodeInputP (tag lay tree heap : Nat) (l p r : Digest) :
-    Extract.hdrBlock (nodeInputP tag lay tree heap l p r) = bytesLE 16 (header tag lay tree 0 heap) := by
+    Extract.hdrBlock (nodeInputP tag lay tree heap l p r) = bytesLE 16 (nodeTweak tag lay tree heap) := by
   unfold nodeInputP; exact Extract.hdrBlock_block4 _ _ _ _
 theorem hdrBlock_ftsLeafInputP (index coord leaf : Nat) (a s b : Digest) :
     Extract.hdrBlock (ftsLeafInputP index coord leaf a s b) = bytesLE 16 (header 9 coord index 0 leaf) := by
@@ -36,7 +36,8 @@ theorem honQ_node {answers : Answers} {index coord level node : Nat} {left pad r
     left = H answers index coord level (2 * node) ∧ pad = 0 ∧ right = H answers index coord level (2 * node + 1) := by
   have hb : (Extract.Pos.ftsNode index coord level node).Bounded :=
     ⟨hc, hi, hl, by simpa only [Nat.sub_sub] using hn⟩
-  have he := honQ_eq hb (by rw [hdrBlock_nodeInputP]; simp only [Extract.Pos.hdr, Nat.sub_sub]) hq
+  have he := honQ_eq hb (by
+    rw [hdrBlock_nodeInputP, nodeTweak_other (by omega)]; simp only [Extract.Pos.hdr, Nat.sub_sub]) hq
   rw [FtsExtract.honestInput_ftsNode answers index coord level node hl hn,
     show FtsExtract.builtSecret answers index coord =
       fun g => (evalWithAnswerFn answers (buildFts index coord)).2.getD g 0 from rfl,

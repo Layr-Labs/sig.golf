@@ -15,75 +15,8 @@ attribute [local instance] Classical.propDecidable
 section WorldBoundL
 open SecretGuessObservation (fixedRun lazyRun)
 variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : Omega U)
-theorem fts_event_le_worldL (adversary : AdversaryP)
-    (event : (FtsCoord → Digest) → (Bool × QueryLog Requests × List Wots.Entry) → Prop)
-    (wevent : (Bool × QueryLog Requests × List Wots.Entry) × WStateL → Prop)
-    (himp : ∀ fts result, fixedRun (envE (digestOf ω) (nonceOf ω)) fts (worldGameL hU ω adversary) initL result ≠ 0 →
-      event fts result.1 → wevent result) :
-    Pr[fun x => event x.1 x.2 | ftsRun hU ω adversary] ≤
-      Pr[wevent | lazyRun (envE (digestOf ω) (nonceOf ω)) (worldGameL hU ω adversary) initL] := by
-  rw [← SecretGuessObservation.run_erasure _ (worldGameL hU ω adversary) initL (fun _ => Finset.univ_nonempty)]
-  unfold ftsRun secretsLaw
-  rw [probEvent_bind_eq_tsum, probEvent_bind_eq_tsum]
-  apply ENNReal.tsum_le_tsum
-  intro fts
-  apply mul_le_mul' le_rfl
-  rw [probEvent_map, ← fixed_worldGameL hU ω fts adversary, probEvent_map]
-  apply probEvent_mono
-  intro result hr he
-  exact himp fts result (by simpa only [mem_support_iff, SPMF.probOutput_eq_apply] using hr) he
 end WorldBoundL
 section Chain
-theorem near_chain (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
-    (P : Answers → QueryLog Requests → List Wots.Entry → Prop)
-    (hshort : ∀ A T log entries, Wots.Ref.ShortAgree A T → P A log entries → P T log entries)
-    (hmono : ∀ A log entries entries', (∀ e ∈ entries, e ∈ entries') → P A log entries → P A log entries')
-    (payoff : (Bool × QueryLog Requests × List Wots.Entry) × WStateL → ENNReal)
-    (hevent : ∀ ω fts r, SecretGuessObservation.fixedRun (envE (digestOf ω) (nonceOf ω)) fts
-        (worldGameL (canon_subset adversary) ω adversary) initL r ≠ 0 →
-      r.1.2.2.length ≤ q → P (Omega.answers (canon_subset adversary) ω fts) r.1.2.1 r.1.2.2 →
-      r.2.guesses.Nonempty ∧ 1 ≤ payoff r) :
-    Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ∀ generated interaction checked,
-        Wots.GameSplit adversary (QueryRecorded.recordedTrace z.1) generated interaction checked →
-          P z.2 interaction.value.2 (publicEntries checked.events) | SeccLaw.completedExperiment adversary q hq] ≤
-      ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * ∑ slot ∈ Finset.range q, ∑' ω, Pr[= ω | omegaLaw adversary] *
-        ∑' r, Pr[= r | SecretGuessObservation.forcedRun envL slot (worldGameL (canon_subset adversary) ω adversary)
-          initL] * payoff r := by
-  refine (shared_le_pair adversary q hq P hshort hmono).trans ?_
-  rw [pairExperiment_avg]
-  have hω : ∀ ω : Omega (Wots.referenceInputs adversary),
-      Pr[fun x => x.2.2.2.length ≤ q ∧ P (Omega.answers (canon_subset adversary) ω x.1) x.2.2.1 x.2.2.2 |
-        ftsRun (canon_subset adversary) ω adversary] ≤
-      ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * ∑ slot ∈ Finset.range q, ∑' r,
-        Pr[= r | SecretGuessObservation.forcedRun (envE (digestOf ω) (nonceOf ω)) slot
-          (worldGameL (canon_subset adversary) ω adversary) initL] * payoff r := by
-    intro ω
-    refine (fts_event_le_worldL (canon_subset adversary) ω adversary
-      (fun fts run => run.2.2.length ≤ q ∧ P (Omega.answers (canon_subset adversary) ω fts) run.2.1 run.2.2)
-      (fun r => r.2.guesses.Nonempty ∧ r.2.probes ≤ q ∧ 1 ≤ payoff r) ?_).trans ?_
-    · rintro fts r hr ⟨hlen, hP⟩
-      obtain ⟨hg, hp⟩ := hevent ω fts r hr hlen hP
-      exact ⟨hg, (worldGameL_tracking (canon_subset adversary) ω fts adversary r hr).1.trans hlen, hp⟩
-    · have h := lazyRun_event_le_forced_of (envE (digestOf ω) (nonceOf ω))
-        (worldGameL (canon_subset adversary) ω adversary) LazyMem.empty q
-        (fun r => r.2.guesses.Nonempty ∧ r.2.probes ≤ q ∧ 1 ≤ payoff r) payoff (fun _ _ h => h)
-      rw [card_digest] at h
-      exact h
-  calc (∑' ω, Pr[= ω | omegaLaw adversary] *
-        Pr[fun x => x.2.2.2.length ≤ q ∧ P (Omega.answers (canon_subset adversary) ω x.1) x.2.2.1 x.2.2.2 |
-          ftsRun (canon_subset adversary) ω adversary])
-      ≤ ∑' ω, Pr[= ω | omegaLaw adversary] * (((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * ∑ slot ∈ Finset.range q, ∑' r,
-          Pr[= r | SecretGuessObservation.forcedRun (envE (digestOf ω) (nonceOf ω)) slot
-            (worldGameL (canon_subset adversary) ω adversary) initL] * payoff r) :=
-        ENNReal.tsum_le_tsum fun ω => mul_le_mul' le_rfl (hω ω)
-    _ = ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * ∑ slot ∈ Finset.range q, ∑' ω, Pr[= ω | omegaLaw adversary] *
-          ∑' r, Pr[= r | SecretGuessObservation.forcedRun (envE (digestOf ω) (nonceOf ω)) slot
-            (worldGameL (canon_subset adversary) ω adversary) initL] * payoff r := by
-        simp only [Finset.mul_sum, mul_left_comm (Pr[= _ | omegaLaw adversary])]
-        rw [Summable.tsum_finsetSum (fun _ _ => ENNReal.summable)]
-        exact Finset.sum_congr rfl fun slot _ => ENNReal.tsum_mul_left
-    _ = _ := congrArg (fun t => ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * t)
-        (Finset.sum_congr rfl fun slot _ => forced_avg_eq_lazy adversary slot payoff)
 end Chain
 section Laws
 open SecretGuessObservation (forcedRun forcedImpl runWith)
@@ -370,45 +303,6 @@ theorem queried_digestSearch_succ (A : Answers) (rho : Digest) (m : Message) (co
             else digestSearch rho m (counter + 1) fuel) := by
   rw [digestSearch]
   exact SecurityExtraction.queried_query_bind A _ _
-theorem searchL_counts (fts : FtsCoord → Digest) (rho : Digest) (m : Message) (counter fuel : Nat) (s : WStateL)
-    (hs : Good (digestOf ω) (nonceOf ω) s.memory) (r : Option (BitVec 32 × HashOutput) × WStateL)
-    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) fts (searchL rho m counter fuel) s r ≠ 0) :
-    r.2.memory.births = s.memory.births ∧ r.2.memory.exposures = s.memory.exposures ∧
-      ∀ x ∈ r.2.memory.trials, x ∈ s.memory.trials ∨ (.inl (.inr x) : T3.Spec.Domain) ∈
-        SecurityExtraction.queried (Omega.answers hU ω fts) (digestSearch rho m counter fuel) := by
-  induction fuel generalizing counter s r with
-  | zero =>
-      rw [runL_pure_nonzero _ fts _ s r hr]
-      exact ⟨rfl, rfl, fun x hx => Or.inl hx⟩
-  | succ fuel ih =>
-      rw [searchL] at hr
-      obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ fts _ _ s r hr
-      obtain ⟨hb1, he1, ht1⟩ := fixed_trial_counts _ _ fts _ s m1 h1
-      have g1 := run_good _ _ fts _ s hs m1 h1
-      have hv1 : m1.1 = Omega.answers hU ω fts (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 counter))))) := by
-        have h := fixed_inline_nonzero (digestOf ω) (nonceOf ω) fts _ s hs.1 m1 h1
-        rw [show simulateQ (inlineWith (digestOf ω) (nonceOf ω)) (trialReq (pad64 (digestInput rho m
-            (BitVec.ofNat 32 counter)))) = pure (rowVal (digestOf ω) (pad64 (digestInput rho m (BitVec.ofNat 32 counter))))
-          from by simp only [trialReq, simulateQ_spec_query, inlineWith]] at h
-        rw [congrArg Prod.fst (fixedRun_pure_nonzero fts _ _ _ h), answers_digest hU ω fts _ (digestInput_mem _ _ _)]
-      rw [queried_digestSearch_succ, ← hv1]
-      by_cases hadm : digestAdmissible m1.1 = true
-      · simp only [hadm, ↓reduceIte] at hr ⊢
-        rw [runL_pure_nonzero _ fts _ _ r hr]
-        refine ⟨hb1, he1, fun x hx => ?_⟩
-        rw [ht1, List.mem_append, List.mem_singleton] at hx
-        rcases hx with hx | rfl
-        · exact Or.inl hx
-        · exact Or.inr (List.mem_cons_self)
-      · simp only [hadm, ↓reduceIte, Bool.false_eq_true] at hr ⊢
-        obtain ⟨hb2, he2, ht2⟩ := ih (counter + 1) m1.2 g1.1 r hr
-        refine ⟨hb2.trans hb1, he2.trans he1, fun x hx => ?_⟩
-        rcases ht2 x hx with hx | hx
-        · rw [ht1, List.mem_append, List.mem_singleton] at hx
-          rcases hx with hx | rfl
-          · exact Or.inl hx
-          · exact Or.inr (List.mem_cons_self)
-        · exact Or.inr (List.mem_cons_of_mem _ hx)
 theorem finishL_state (fts : FtsCoord → Digest) (request : Request) (rho : Digest)
     (found : Option (BitVec 32 × HashOutput)) (s : WStateL) (r : Option Signature × WStateL)
     (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) fts (finishL hU ω request rho found) s r ≠ 0) :
@@ -433,42 +327,6 @@ theorem finishL_state (fts : FtsCoord → Digest) (request : Request) (rho : Dig
           obtain ⟨mid, hm, hr⟩ := runL_bind_nonzero _ fts _ _ s r hr
           rw [runL_pure_nonzero _ fts _ _ r hr]
           exact fixed_disclosures_state _ _ fts _ s mid hm
-theorem signL_counts (fts : FtsCoord → Digest) (published : T3.Cache) (request : Request) (s : WStateL)
-    (hs : Good (digestOf ω) (nonceOf ω) s.memory) (r : Option Signature × WStateL)
-    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) fts (signL hU ω published request) s r ≠ 0) :
-    r.2.memory.births = s.memory.births ∧ r.2.memory.exposures.length ≤ s.memory.exposures.length + 1 ∧
-      ∀ x ∈ r.2.memory.trials, x ∈ s.memory.trials ∨ (.inl (.inr x) : T3.Spec.Domain) ∈
-        SecurityExtraction.queried (Omega.answers hU ω fts) (FullGame.authenticatedSign published request) := by
-  unfold signL at hr
-  by_cases hc : request.cache = published
-  · rw [if_pos hc] at hr
-    obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ fts _ _ s r hr
-    obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ fts _ _ m1.2 r hr
-    obtain ⟨m3, h3, hr⟩ := runL_bind_nonzero _ fts _ _ m2.2 r hr
-    have k1 := fixed_nonce_keeps _ _ fts request.message s m1 h1
-    have g1 := run_good _ _ fts _ s hs m1 h1
-    have hv1 : m1.1 = nonceOf ω request.message := by
-      have h := fixed_inline_nonzero (digestOf ω) (nonceOf ω) fts _ s hs.1 m1 h1
-      rw [show simulateQ (inlineWith (digestOf ω) (nonceOf ω)) (nonceReq request.message) =
-        pure (nonceOf ω request.message) from by simp only [nonceReq, simulateQ_spec_query, inlineWith]] at h
-      exact congrArg Prod.fst (fixedRun_pure_nonzero fts _ _ _ h)
-    obtain ⟨hb2, he2, ht2⟩ := searchL_counts hU ω fts m1.1 request.message 0 attemptLimit m1.2 g1.1 m2 h2
-    have hm3 := fixed_expose_mem _ _ fts _ m2.2 m3 h3
-    have hr4 := finishL_state hU ω fts request m1.1 m2.1 m3.2 r hr
-    rw [hr4, hm3]
-    refine ⟨hb2.trans k1.1, ?_, fun x hx => ?_⟩
-    · change (m2.2.memory.exposures ++ (m2.1.map Prod.snd).toList).length ≤ s.memory.exposures.length + 1
-      rw [List.length_append, he2, k1.2.1]
-      cases m2.1 <;> simp
-    · change x ∈ m2.2.memory.trials at hx
-      rcases ht2 x hx with hx | hx
-      · rw [k1.2.2] at hx
-        exact Or.inl hx
-      · rw [hv1] at hx
-        exact Or.inr (queried_sign_search hU ω fts published request hc x hx)
-  · rw [if_neg hc] at hr
-    rw [runL_pure_nonzero _ fts _ s r hr]
-    exact ⟨rfl, Nat.le_succ _, fun x hx => Or.inl hx⟩
 theorem hashL_counts (fts : FtsCoord → Digest) (x : HashInput) (s : WStateL) (r : HashOutput × WStateL)
     (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) fts (hashL hU ω x) s r ≠ 0) :
     r.2.memory.births.length ≤ s.memory.births.length + 1 ∧ r.2.memory.exposures = s.memory.exposures ∧
@@ -490,60 +348,6 @@ theorem hashL_counts (fts : FtsCoord → Digest) (x : HashInput) (s : WStateL) (
       · rw [if_neg hx] at hr
         rw [runL_pure_nonzero _ fts _ s r hr]
         exact ⟨Nat.le_succ _, rfl, rfl⟩
-theorem interactionL_counts (fts : FtsCoord → Digest) (published : T3.Cache) {α : Type}
-    (program : OracleComp LazyPrivate.Interaction α) (s : WStateL) (hs : Good (digestOf ω) (nonceOf ω) s.memory)
-    (r : (α × QueryLog Requests × List Wots.Entry) × WStateL)
-    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) fts (interactionL hU ω published program) s r ≠ 0) :
-    r.2.memory.births.length ≤ s.memory.births.length + r.1.2.2.length ∧
-      r.2.memory.exposures.length ≤ s.memory.exposures.length + r.1.2.1.length ∧
-      ∀ x ∈ r.2.memory.trials, x ∈ s.memory.trials ∨ ∃ entry ∈ r.1.2.1, (.inl (.inr x) : T3.Spec.Domain) ∈
-        SecurityExtraction.queried (Omega.answers hU ω fts) (FullGame.authenticatedSign published entry.1) := by
-  induction program using OracleComp.inductionOn generalizing s r with
-  | pure value =>
-      rw [interactionL_pure] at hr
-      rw [runL_pure_nonzero _ fts _ s r hr]
-      exact ⟨by simp, by simp, fun x hx => Or.inl hx⟩
-  | query_bind input next ih =>
-      rcases input with (n | x) | request
-      · rw [interactionL_coin] at hr
-        obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ fts _ _ s r hr
-        have hm := fixed_coin_state _ _ fts n s m1 h1
-        have := ih m1.1 m1.2 (by rw [hm]; exact hs) r hr
-        rw [hm] at this
-        exact this
-      · rw [interactionL_public] at hr
-        obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ fts _ _ s r hr
-        obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ fts _ _ m1.2 r hr
-        rw [runL_pure_nonzero _ fts _ _ r hr]
-        have g1 := run_good _ _ fts _ s hs m1 h1
-        obtain ⟨hb1, he1, ht1⟩ := hashL_counts hU ω fts x s m1 h1
-        obtain ⟨i1, i2, i3⟩ := ih m1.1 m1.2 g1.1 m2 h2
-        refine ⟨?_, ?_, fun y hy => ?_⟩
-        · change m2.2.memory.births.length ≤ s.memory.births.length + (m2.1.2.2.length + 1)
-          omega
-        · rw [he1] at i2
-          exact i2
-        · rcases i3 y hy with hy | hy
-          · rw [ht1] at hy
-            exact Or.inl hy
-          · exact Or.inr hy
-      · rw [interactionL_request] at hr
-        obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ fts _ _ s r hr
-        obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ fts _ _ m1.2 r hr
-        rw [runL_pure_nonzero _ fts _ _ r hr]
-        have g1 := run_good _ _ fts _ s hs m1 h1
-        obtain ⟨hb1, he1, ht1⟩ := signL_counts hU ω fts published request s hs m1 h1
-        obtain ⟨i1, i2, i3⟩ := ih m1.1 m1.2 g1.1 m2 h2
-        refine ⟨?_, ?_, fun y hy => ?_⟩
-        · rw [hb1] at i1
-          exact i1
-        · change m2.2.memory.exposures.length ≤ s.memory.exposures.length + (m2.1.2.1.length + 1)
-          omega
-        · rcases i3 y hy with hy | ⟨entry, he, hq⟩
-          · rcases ht1 y hy with hy | hq
-            · exact Or.inl hy
-            · exact Or.inr ⟨⟨request, m1.1⟩, List.mem_cons_self, hq⟩
-          · exact Or.inr ⟨entry, List.mem_cons_of_mem _ he, hq⟩
 theorem programL_counts (fts : FtsCoord → Digest) {β : Type} (program : M β) (s : WStateL)
     (hs : Good (digestOf ω) (nonceOf ω) s.memory) (r : (β × List Wots.Entry) × WStateL)
     (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) fts (programL hU ω program) s r ≠ 0) :
@@ -574,59 +378,8 @@ theorem programL_counts (fts : FtsCoord → Digest) {β : Type} (program : M β)
         omega
       · rw [programL_private] at hr
         exact ih (0 : HashOutput) s hs r hr
-theorem worldGameL_counts (fts : FtsCoord → Digest) (adversary : AdversaryP)
-    (r : (Bool × QueryLog Requests × List Wots.Entry) × WStateL)
-    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) fts (worldGameL hU ω adversary) initL r ≠ 0) :
-    r.2.memory.births.length ≤ r.1.2.2.length ∧
-      (∀ x ∈ r.2.memory.trials, ∃ entry ∈ r.1.2.1, (.inl (.inr x) : T3.Spec.Domain) ∈
-        SecurityExtraction.queried (Omega.answers hU ω fts)
-          (FullGame.authenticatedSign (evalWithAnswerFn (Omega.answers hU ω fts) keygen).2 entry.1)) ∧
-      r.2.memory.exposures.length ≤ r.1.2.1.length := by
-  unfold worldGameL worldGameCore at hr
-  obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ fts _ _ initL r hr
-  obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ fts _ _ m1.2 r hr
-  rw [runL_pure_nonzero _ fts _ _ r hr]
-  have g1 := run_good _ _ fts _ initL (good_empty _ _) m1 h1
-  obtain ⟨i1, i2, i3⟩ := interactionL_counts hU ω fts _ _ initL (good_empty _ _) m1 h1
-  obtain ⟨p1, p2, p3⟩ := programL_counts hU ω fts _ m1.2 g1.1 m2 h2
-  have h0 : initL.memory = LazyMem.empty := rfl
-  rw [h0] at i1 i2 i3
-  refine ⟨?_, fun x hx => ?_, ?_⟩
-  · change m2.2.memory.births.length ≤ (m1.1.2.2 ++ m2.1.2).length
-    rw [List.length_append]
-    change m1.2.memory.births.length ≤ 0 + m1.1.2.2.length at i1
-    omega
-  · change x ∈ m2.2.memory.trials at hx
-    rw [p3] at hx
-    rcases i3 x hx with hx | hx
-    · exact absurd hx (List.not_mem_nil)
-    · rw [keygen_answers hU ω fts]
-      exact hx
-  · change m2.2.memory.exposures.length ≤ m1.1.2.1.length
-    rw [p2]
-    change m1.2.memory.exposures.length ≤ 0 + m1.1.2.1.length at i2
-    omega
 end Programs
 section Bank
-theorem worldGameL_bank (adversary : AdversaryP) (ω : Omega (Wots.referenceInputs adversary))
-    (fts : FtsCoord → Digest) (r : (Bool × QueryLog Requests × List Wots.Entry) × WStateL)
-    (hr : SecretGuessObservation.fixedRun (envE (digestOf ω) (nonceOf ω)) fts
-      (worldGameL (canon_subset adversary) ω adversary) initL r ≠ 0) :
-    (∀ entry ∈ r.1.2.1, ∀ σ output, entry.2 = some σ →
-        signedOutput (Omega.answers (canon_subset adversary) ω fts) entry.1.message σ = some output →
-          output ∈ r.2.memory.exposures) ∧
-    (∀ x a, (x, a) ∈ r.1.2.2 → x ∈ digestInputs →
-        r.2.memory.rows x = some a ∧ (a ∈ r.2.memory.births ∨ x ∈ r.2.memory.trials)) ∧
-    (∀ f, GuessedIn (Omega.answers (canon_subset adversary) ω fts) r.1.2.1 r.1.2.2 f → f ∈ r.2.guesses) ∧
-    r.2.memory.births.length ≤ r.1.2.2.length ∧
-    (∀ x ∈ r.2.memory.trials, ∃ entry ∈ r.1.2.1, (.inl (.inr x) : T3.Spec.Domain) ∈
-      SecurityExtraction.queried (Omega.answers (canon_subset adversary) ω fts)
-        (FullGame.authenticatedSign (evalWithAnswerFn (Omega.answers (canon_subset adversary) ω fts) keygen).2
-          entry.1)) ∧
-    r.2.memory.exposures.length ≤ r.1.2.1.length := by
-  obtain ⟨g1, g2⟩ := worldGameL_ghosts (canon_subset adversary) ω fts adversary r hr
-  obtain ⟨c1, c2, c3⟩ := worldGameL_counts (canon_subset adversary) ω fts adversary r hr
-  exact ⟨g1, g2, (worldGameL_tracking (canon_subset adversary) ω fts adversary r hr).2, c1, c2, c3⟩
 end Bank
 end SigGolfCandidate.T3.Security.BPair
 end

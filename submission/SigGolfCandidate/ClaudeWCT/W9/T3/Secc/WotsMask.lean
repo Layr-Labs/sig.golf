@@ -163,6 +163,7 @@ theorem eval_signLayers_maskAt (htree : a.key.tree < 2 ^ 40) (hleaf : a.key.leaf
                 (fun hal _ => routeLeaf_alias a hindex hsearch htree (by omega) hal),
               WCT9.eval_buildTreeP_result answers hl0 _ _ digits hvalid (route_leaf_bound index _)]
             dsimp only
+            rw [WCT9.topPair_take]
             obtain ⟨m, rfl⟩ : ∃ m, n = m + 1 := ⟨n - 1, by omega⟩
             rw [ih (by omega) _ (fun m' hm' => by
               obtain rfl : m = m' := by omega
