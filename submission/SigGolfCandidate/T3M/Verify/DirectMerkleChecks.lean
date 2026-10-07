@@ -7,7 +7,8 @@ open SigGolfCandidate.T3M.Verify
 def mkShp (lay ci sh : Nat) : Nat :=
   T3M.mkShp lay ci sh
 def mkEntSpec (lay ci sh : Nat) : Spec :=
-  ⟨[], [], mkShp lay ci sh + 1, true, 1, [], none, 1⟩
+  let st := if lay = 0 ∧ ci = 1 then 2 else 1
+  ⟨[], [], mkShp lay ci sh + 1, true, st, [], none, st⟩
 def mkEntCheck (lay ci sh : Nat) : Bool :=
   mkSpecB [] [] baseK (mkEntK lay ci) [] (mkTabW lay ci sh) []
     (mkEntSpec lay ci sh) [] (mkEntPost lay ci sh) mkEntKeep
