@@ -73,10 +73,54 @@ section
 namespace SigGolfCandidate.T3M.BC
 set_option maxRecDepth 100000
 theorem layerCheck_3 : layerCheck 3 0 1 = true := by decide +kernel
-theorem layerCheck_2 : layerCheck 2 0 64 = true := by decide +kernel
-theorem layerCheck_1 : layerCheck 1 0 64 = true := by decide +kernel
-theorem layerCheck_0a : layerCheck 0 0 64 = true := by decide +kernel
-theorem layerCheck_0b : layerCheck 0 64 64 = true := by decide +kernel
+/-- Compose short code-window checks without normalizing a full closed batch. -/
+theorem layerCheck_add {lay lo left right : Nat}
+    (hleft : layerCheck lay lo left = true)
+    (hright : layerCheck lay (lo + left) right = true) :
+    layerCheck lay lo (left + right) = true := by
+  unfold layerCheck at *
+  rw [← List.range'_append_1, List.all_append, hleft, hright]
+  rfl
+private theorem layerCheck_part_2_0 : layerCheck 2 0 8 = true := by decide +kernel
+private theorem layerCheck_part_2_8 : layerCheck 2 8 8 = true := by decide +kernel
+private theorem layerCheck_part_2_16 : layerCheck 2 16 8 = true := by decide +kernel
+private theorem layerCheck_part_2_24 : layerCheck 2 24 8 = true := by decide +kernel
+private theorem layerCheck_part_2_32 : layerCheck 2 32 8 = true := by decide +kernel
+private theorem layerCheck_part_2_40 : layerCheck 2 40 8 = true := by decide +kernel
+private theorem layerCheck_part_2_48 : layerCheck 2 48 8 = true := by decide +kernel
+private theorem layerCheck_part_2_56 : layerCheck 2 56 8 = true := by decide +kernel
+theorem layerCheck_2 : layerCheck 2 0 64 = true := by
+  exact @layerCheck_add 2 0 8 56 layerCheck_part_2_0 (@layerCheck_add 2 8 8 48 layerCheck_part_2_8 (@layerCheck_add 2 16 8 40 layerCheck_part_2_16 (@layerCheck_add 2 24 8 32 layerCheck_part_2_24 (@layerCheck_add 2 32 8 24 layerCheck_part_2_32 (@layerCheck_add 2 40 8 16 layerCheck_part_2_40 (@layerCheck_add 2 48 8 8 layerCheck_part_2_48 (layerCheck_part_2_56)))))))
+private theorem layerCheck_part_1_0 : layerCheck 1 0 8 = true := by decide +kernel
+private theorem layerCheck_part_1_8 : layerCheck 1 8 8 = true := by decide +kernel
+private theorem layerCheck_part_1_16 : layerCheck 1 16 8 = true := by decide +kernel
+private theorem layerCheck_part_1_24 : layerCheck 1 24 8 = true := by decide +kernel
+private theorem layerCheck_part_1_32 : layerCheck 1 32 8 = true := by decide +kernel
+private theorem layerCheck_part_1_40 : layerCheck 1 40 8 = true := by decide +kernel
+private theorem layerCheck_part_1_48 : layerCheck 1 48 8 = true := by decide +kernel
+private theorem layerCheck_part_1_56 : layerCheck 1 56 8 = true := by decide +kernel
+theorem layerCheck_1 : layerCheck 1 0 64 = true := by
+  exact @layerCheck_add 1 0 8 56 layerCheck_part_1_0 (@layerCheck_add 1 8 8 48 layerCheck_part_1_8 (@layerCheck_add 1 16 8 40 layerCheck_part_1_16 (@layerCheck_add 1 24 8 32 layerCheck_part_1_24 (@layerCheck_add 1 32 8 24 layerCheck_part_1_32 (@layerCheck_add 1 40 8 16 layerCheck_part_1_40 (@layerCheck_add 1 48 8 8 layerCheck_part_1_48 (layerCheck_part_1_56)))))))
+private theorem layerCheck_part_0_0 : layerCheck 0 0 8 = true := by decide +kernel
+private theorem layerCheck_part_0_8 : layerCheck 0 8 8 = true := by decide +kernel
+private theorem layerCheck_part_0_16 : layerCheck 0 16 8 = true := by decide +kernel
+private theorem layerCheck_part_0_24 : layerCheck 0 24 8 = true := by decide +kernel
+private theorem layerCheck_part_0_32 : layerCheck 0 32 8 = true := by decide +kernel
+private theorem layerCheck_part_0_40 : layerCheck 0 40 8 = true := by decide +kernel
+private theorem layerCheck_part_0_48 : layerCheck 0 48 8 = true := by decide +kernel
+private theorem layerCheck_part_0_56 : layerCheck 0 56 8 = true := by decide +kernel
+theorem layerCheck_0a : layerCheck 0 0 64 = true := by
+  exact @layerCheck_add 0 0 8 56 layerCheck_part_0_0 (@layerCheck_add 0 8 8 48 layerCheck_part_0_8 (@layerCheck_add 0 16 8 40 layerCheck_part_0_16 (@layerCheck_add 0 24 8 32 layerCheck_part_0_24 (@layerCheck_add 0 32 8 24 layerCheck_part_0_32 (@layerCheck_add 0 40 8 16 layerCheck_part_0_40 (@layerCheck_add 0 48 8 8 layerCheck_part_0_48 (layerCheck_part_0_56)))))))
+private theorem layerCheck_part_0_64 : layerCheck 0 64 8 = true := by decide +kernel
+private theorem layerCheck_part_0_72 : layerCheck 0 72 8 = true := by decide +kernel
+private theorem layerCheck_part_0_80 : layerCheck 0 80 8 = true := by decide +kernel
+private theorem layerCheck_part_0_88 : layerCheck 0 88 8 = true := by decide +kernel
+private theorem layerCheck_part_0_96 : layerCheck 0 96 8 = true := by decide +kernel
+private theorem layerCheck_part_0_104 : layerCheck 0 104 8 = true := by decide +kernel
+private theorem layerCheck_part_0_112 : layerCheck 0 112 8 = true := by decide +kernel
+private theorem layerCheck_part_0_120 : layerCheck 0 120 8 = true := by decide +kernel
+theorem layerCheck_0b : layerCheck 0 64 64 = true := by
+  exact @layerCheck_add 0 64 8 56 layerCheck_part_0_64 (@layerCheck_add 0 72 8 48 layerCheck_part_0_72 (@layerCheck_add 0 80 8 40 layerCheck_part_0_80 (@layerCheck_add 0 88 8 32 layerCheck_part_0_88 (@layerCheck_add 0 96 8 24 layerCheck_part_0_96 (@layerCheck_add 0 104 8 16 layerCheck_part_0_104 (@layerCheck_add 0 112 8 8 layerCheck_part_0_112 (layerCheck_part_0_120)))))))
 end SigGolfCandidate.T3M.BC
 end
 end
@@ -94,7 +138,7 @@ theorem counterWord : CounterWord := fun w j => by
   simp [LoadKind.fromWord, extractWord32, wword_toNat, ClaudeWCT.W9.T3M.wle32,
     BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, ← Nat.mul_assoc]
 set_option maxRecDepth 100000
-theorem nCopy_eq : nCopy 3 = 1 ∧ nCopy 2 = 64 ∧ nCopy 1 = 64 ∧ nCopy 0 = 128 := by decide
+theorem nCopy_eq : nCopy 3 = 1 ∧ nCopy 2 = 64 ∧ nCopy 1 = 64 ∧ nCopy 0 = 128 := by decide +kernel
 theorem copyCheck_at (lay c : Nat) (hlay : lay < 4) (hc : c < nCopy lay) : copyCheck lay c = true := by
   obtain ⟨n3, n2, n1, n0⟩ := nCopy_eq
   have hall : ∀ lo n, layerCheck lay lo n = true → lo ≤ c → c < lo + n → copyCheck lay c = true :=

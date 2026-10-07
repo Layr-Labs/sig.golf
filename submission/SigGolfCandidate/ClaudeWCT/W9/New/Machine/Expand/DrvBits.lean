@@ -211,7 +211,7 @@ theorem index_eq (a : BitVec 256) :
   omega
 def fieldN (a : BitVec 256) (c : Nat) : Nat := a.toNat / 2 ^ WCT9.fieldBase c % 2 ^ 14
 theorem admissible_iff (a : BitVec 256) :
-    WCT9.admissible a = true ↔ a.toNat / 2 ^ 235 % 2 ^ 21 < 1094 ∧ ∀ c', 0 ≤ c' → c' < 9 → fieldN a c' < 16200 := by
+    WCT9.admissible a = true ↔ a.toNat / 2 ^ 235 % 2 ^ 21 < 2364 ∧ ∀ c', 0 ≤ c' → c' < 9 → fieldN a c' < 16200 := by
   rw [WCT9.admissible_iff]
   constructor
   · rintro ⟨h1, h2⟩; exact ⟨h1, fun c _ hc => h2 ⟨c, hc⟩⟩
@@ -226,7 +226,7 @@ set_option maxRecDepth 16384
 def base : Nat := 3164
 def seg_0 : List (BitVec 32) := [16777327]
 def seg_1 : List (BitVec 32) := [1049235,1049875,115]
-def seg_4 : List (BitVec 32) := [0x6003b03,0x7803183,45207955,19,0x4461b193]
+def seg_4 : List (BitVec 32) := [0x6003b03,0x7803183,0x2c1d193,19,0x49e1b193]
 def seg_9 : List (BitVec 32) := [0xfe0180e3]
 def seg_10 : List (BitVec 32) := [727827,35347219,1049491,29038483,66359,197395,2098835,3148179,4196883,5245587,6294803,7343891,34281619,5175,0x84040413,0xffee37,0x600e0e13,65847,0xffc10113,20151,0x4a4e8e93,52279,0x4a4c0c13,67110291]
 def seg_34 : List (BitVec 32) := [0x6003803,545171,0x7f1f193,33657363,23224883,21077907,0xffefb3,8493971,31165363,0x60178d93,19,5789459,2586419,25626419,0x42000493,458983]
@@ -246,7 +246,7 @@ def code : List (BitVec 32) := layoutCode layout
 theorem layout_ok : layoutOk 0 layout = true := by decide +kernel
 theorem window : windowOK base code = true := by decide +kernel
 theorem codeAt_region {im : Image} (hc : NewCodeAt im) : CodeAt im (pcOf base) code :=
-  codeAt_of_window hc (by decide) window
+  codeAt_of_window hc (by decide +kernel) window
 theorem codeAt_0 {im : Image} (hc : NewCodeAt im) : CodeAt im (pcOf (base + 0)) seg_0 :=
   codeAt_sublayout (codeAt_region hc) layout_ok (i := 0) (by kernel_rfl)
 theorem codeAt_1 {im : Image} (hc : NewCodeAt im) : CodeAt im (pcOf (base + 1)) seg_1 :=
@@ -322,9 +322,9 @@ theorem field4_bits (a : BitVec 256) (w sh : Nat) (h : sh + 21 ≤ 64) :
   rw [Nat.testBit_and, show (65532#64 : Word).toNat = 65532 from rfl]
   have hm : (65532 : Nat).testBit i = (decide (2 ≤ i) && decide (i < 16)) := by
     rcases Nat.lt_or_ge i 16 with h16 | h16
-    · interval_cases i <;> decide
-    · have : (65532 : Nat).testBit i = false := Nat.testBit_lt_two_pow (lt_of_lt_of_le (by decide)
-        (Nat.pow_le_pow_right (by decide) h16))
+    · interval_cases i <;> decide +kernel
+    · have : (65532 : Nat).testBit i = false := Nat.testBit_lt_two_pow (lt_of_lt_of_le (by decide +kernel)
+        (Nat.pow_le_pow_right (by decide +kernel) h16))
       rw [this]; simp; omega
   rw [hm, Nat.mul_comm 4, show (4 : Nat) = 2 ^ 2 from rfl, Nat.testBit_mul_two_pow]
   simp only [Nat.testBit_mod_two_pow, Nat.testBit_div_two_pow]
@@ -335,7 +335,7 @@ theorem field4_bits (a : BitVec 256) (w sh : Nat) (h : sh + 21 ≤ 64) :
         show i - 2 < 14 by omega, show i + (sh + 5) < 64 by omega]
       rw [show i + (sh + 5) + 64 * w = i - 2 + (64 * w + sh + 7) by omega]
     · simp [show ¬ i < 16 by omega, show ¬ i - 2 < 14 by omega]
-theorem not1_eq : (18446744073709551614#64 : Word) = ~~~1#64 := by decide
+theorem not1_eq : (18446744073709551614#64 : Word) = ~~~1#64 := by decide +kernel
 theorem disp_pc (v : Word) (f : Nat) (hv : v.toNat = 4 * f) (hf : f < 2 ^ 14) :
     v + 50340#64 &&& 18446744073709551614#64 = pcOf (11561 + f) := by
   have : v + 50340#64 = pcOf (11561 + f) := by

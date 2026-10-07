@@ -21,7 +21,7 @@ theorem zext_shl_toNat (b : BitVec 8) (k : Nat) (hk : k ≤ 56) :
   apply Nat.mod_eq_of_lt
   calc b.toNat * 2 ^ k < 2 ^ 8 * 2 ^ k := Nat.mul_lt_mul_of_pos_right this (Nat.two_pow_pos _)
     _ = 2 ^ (8 + k) := by rw [Nat.pow_add]
-    _ ≤ 2 ^ 64 := Nat.pow_le_pow_right (by decide) (by omega)
+    _ ≤ 2 ^ 64 := Nat.pow_le_pow_right (by decide +kernel) (by omega)
 theorem leNat8_lt : ∀ l : List (BitVec 8), leNat8 l < 256 ^ l.length
   | [] => by simp [leNat8]
   | b :: l => by
@@ -39,9 +39,9 @@ theorem bytesToWordLE8_toNat (b0 b1 b2 b3 b4 b5 b6 b7 : BitVec 8) :
     show (24 : Word) = BitVec.ofNat 64 24 from rfl, show (32 : Word) = BitVec.ofNat 64 32 from rfl,
     show (40 : Word) = BitVec.ofNat 64 40 from rfl, show (48 : Word) = BitVec.ofNat 64 48 from rfl,
     show (56 : Word) = BitVec.ofNat 64 56 from rfl]
-  rw [zext_shl_toNat _ _ (by decide), zext_shl_toNat _ _ (by decide), zext_shl_toNat _ _ (by decide),
-    zext_shl_toNat _ _ (by decide), zext_shl_toNat _ _ (by decide), zext_shl_toNat _ _ (by decide),
-    zext_shl_toNat _ _ (by decide)]
+  rw [zext_shl_toNat _ _ (by decide +kernel), zext_shl_toNat _ _ (by decide +kernel), zext_shl_toNat _ _ (by decide +kernel),
+    zext_shl_toNat _ _ (by decide +kernel), zext_shl_toNat _ _ (by decide +kernel), zext_shl_toNat _ _ (by decide +kernel),
+    zext_shl_toNat _ _ (by decide +kernel)]
   simp only [BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth]
   have := b0.isLt; have := b1.isLt; have := b2.isLt; have := b3.isLt
   have := b4.isLt; have := b5.isLt; have := b6.isLt; have := b7.isLt
@@ -116,7 +116,7 @@ structure InitOK (m : T3.Message) (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (s
   sp : s.getReg .x2 = BitVec.ofNat 64 VERIFY_DATA
 theorem verifyData_length : (submission.image .verify).data.length = 16928 := Images.verifyData_length
 theorem dataBase_verify : dataBase (submission.image .verify) = VERIFY_DATA := by
-  unfold dataBase; rw [verifyData_length]; decide
+  unfold dataBase; rw [verifyData_length]; decide +kernel
 theorem verifyData_mask :
     bytesToWordLE ((((submission.image .verify).data).drop 536).take 8) = 130048#64 := by
   decide +kernel
@@ -183,9 +183,9 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 21488) (s : Mac
       g2 _ (by omega), if_neg (by unfold VERIFY_DATA at hA; omega),
       g1 _ (by omega), if_neg (by unfold VERIFY_DATA MSGADDR at *; omega),
       g0 _ (by omega), if_pos (by unfold VERIFY_DATA at *; omega),
-      extractByte_bytesToWordLE _ _ (Nat.mod_lt _ (by decide))]
+      extractByte_bytesToWordLE _ _ (Nat.mod_lt _ (by decide +kernel))]
     simp only [List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
-      if_pos (Nat.mod_lt A (show 0 < 8 by decide))]
+      if_pos (Nat.mod_lt A (show 0 < 8 by decide +kernel))]
     have hidx : A / 8 * 8 - VERIFY_DATA + A % 8 = A - VERIFY_DATA := by
       unfold VERIFY_DATA at hA ⊢
       omega

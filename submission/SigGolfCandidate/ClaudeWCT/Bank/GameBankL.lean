@@ -285,7 +285,7 @@ noncomputable local instance instDecidableEqCache_bankGameL : DecidableEq T3.Cac
 namespace FtsBankSpec
 variable {P : Type} [Fintype P] [SampleableType P] (S : FtsBankSpec P) {Sig : Type}
 theorem potential_initial_le_rate (budget : Nat) (rate : ENNReal)
-    (hrate : ClaudeWCT.Numerics.Law.lawAvg S.law S.horizon (fun W : List P => S.price W - theta) ≤ rate)
+    (hrate : ClaudeWCT.Numerics.Law.lawAvg S.law S.horizon (fun W : List P => S.price W - S.specTheta) ≤ rate)
     (generated : (Digest × T3.Cache) × QueryRecorded.State)
     (hg : generated ∈ support (QueryRecorded.run keygen QueryRecorded.initial)) :
     S.potential budget ((Ghost.empty : Ghost Sig), generated.2) ≤ (budget : ENNReal) * rate / 2 ^ 128 := by
@@ -441,9 +441,10 @@ theorem world_step (published : T3.Cache) (budget : Nat) (input : SphincsSecurit
                   congr 1
                   simp only [div_eq_mul_inv]
                   rw [expectedValue_mul_const]
-                _ ≤ 1 + S.reusePotential lz + (1 / 64) / 2 ^ 128 :=
+                _ ≤ 1 + S.reusePotential lz + S.admBound / 2 ^ 128 :=
                   add_le_add le_rfl (ENNReal.div_le_div_right S.expected_admInd_tight _)
                 _ ≤ _ := by
+                  rw [← S.theta_add_admBound]
                   apply add_le_add le_rfl
                   apply ENNReal.div_le_div_right
                   exact le_add_self
@@ -453,7 +454,7 @@ theorem world_step (published : T3.Cache) (budget : Nat) (input : SphincsSecurit
               rw [hpt]
               set R := S.horizon - g.exposures.length
               have hfa : expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
-                  (fun a => S.forecast R g.exposures a) ≤ (theta + S.excessForecast R g.exposures) / 2 ^ 128 := by
+                  (fun a => S.forecast R g.exposures a) ≤ (S.specTheta + S.excessForecast R g.exposures) / 2 ^ 128 := by
                 rw [BPORS.expected_uniform_eq_finiteAverage]
                 exact S.average_forecast_le R g.exposures
               calc
@@ -471,14 +472,14 @@ theorem world_step (published : T3.Cache) (budget : Nat) (input : SphincsSecurit
                     S.excessTerm budget (c + 1) g := by
                   simp only [expectedValue_add, expectedValue_const (by simp : Pr[⊥ |
                     ($ᵗ HashOutput : ProbComp HashOutput)] = 0), div_eq_mul_inv, expectedValue_mul_const]
-                _ ≤ S.bankValue g + (theta + S.excessForecast R g.exposures) / 2 ^ 128 +
-                    (S.reusePotential lz + (1 / 64) / 2 ^ 128) + S.excessTerm budget (c + 1) g := by
+                _ ≤ S.bankValue g + (S.specTheta + S.excessForecast R g.exposures) / 2 ^ 128 +
+                    (S.reusePotential lz + S.admBound / 2 ^ 128) + S.excessTerm budget (c + 1) g := by
                   gcongr
                   exact S.expected_admInd_tight
                 _ = S.bankValue g + S.reusePotential lz +
                     (S.excessTerm budget (c + 1) g + S.excessForecast R g.exposures / 2 ^ 128) +
                     (theta + 1 / 64) / 2 ^ 128 := by
-                  rw [ENNReal.add_div, ENNReal.add_div]
+                  rw [← S.theta_add_admBound, ENNReal.add_div, ENNReal.add_div]
                   ring
                 _ = _ := by rw [← S.excessTerm_succ budget c g hlt]
           · have hcb : birthCharge (Sig := Sig) budget (.inl (.inr x)) st = 0 := by simp [birthCharge, hbirth]
@@ -751,7 +752,7 @@ theorem bank_event_le (hNotDigest : PayNotDigest pay) (hAvoids : PayAvoids pay)
   · exact (hle _).trans (hwin b hb h0)
 theorem bank_potential_le_rate (hNotDigest : PayNotDigest pay) (hAvoids : PayAvoids pay)
     (rest : Digest → T3.Cache → OracleComp (Interaction' Sig) Bool) (budget : Nat) (rate : ENNReal)
-    (hrate : ClaudeWCT.Numerics.Law.lawAvg S.law S.horizon (fun W : List P => S.price W - theta) ≤ rate) :
+    (hrate : ClaudeWCT.Numerics.Law.lawAvg S.law S.horizon (fun W : List P => S.price W - S.specTheta) ≤ rate) :
     expectedValue (S.bankExperiment pay rest budget) (fun r => S.potential budget r.2) ≤
       (theta + 1 / 64) / 2 ^ 128 * S.expectedBirths pay rest budget +
         (budget : ENNReal) * rate / 2 ^ 128 := by
@@ -774,7 +775,7 @@ theorem bank_potential_le_rate (hNotDigest : PayNotDigest pay) (hAvoids : PayAvo
       ring
 theorem bank_event_le_rate (hNotDigest : PayNotDigest pay) (hAvoids : PayAvoids pay)
     (rest : Digest → T3.Cache → OracleComp (Interaction' Sig) Bool) (budget : Nat) (rate : ENNReal)
-    (hrate : ClaudeWCT.Numerics.Law.lawAvg S.law S.horizon (fun W : List P => S.price W - theta) ≤ rate)
+    (hrate : ClaudeWCT.Numerics.Law.lawAvg S.law S.horizon (fun W : List P => S.price W - S.specTheta) ≤ rate)
     (weight : Bool × QueryRecorded.State → ENNReal) (hle : ∀ y, weight y ≤ 1)
     (hwin : ∀ b ∈ (S.bankExperiment pay rest budget).support, weight (b.1, b.2.2) ≠ 0 → 1 ≤ S.potential budget b.2) :
     expectedValue (S.recordedExperiment pay rest) weight ≤

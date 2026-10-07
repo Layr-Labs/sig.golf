@@ -20,7 +20,7 @@ def SignerComplete (answers : Correctness.Answers) : Prop :=
       (evalWithAnswerFn answers (WCT9.layerCounterSearch lay tree leaf msg 0 (WCT9.searchLimit lay))).isSome
 def CaseCAt (answers : Correctness.Answers) (message : Message) (witness : WBytes)
     (events : List FirstHit.QueryEvent) : Prop :=
-  ∃ digestAnswer : HashOutput, (wdc witness).toNat < WCT9.digestVerifyLimit ∧
+  ∃ digestAnswer : HashOutput, (wdc witness).toNat < WCT9.digestVerifyWindow ∧
     evalWithAnswerFn answers (digest (wrho witness) message (wdc witness)) = digestAnswer ∧
     (∃ prior, (⟨prior, .inl (.inr (pad64 (digestInput (wrho witness) message (wdc witness)))), digestAnswer⟩ :
       FirstHit.QueryEvent) ∈ events) ∧ Shaped digestAnswer witness ∧
@@ -111,7 +111,7 @@ theorem traced_game_linked (adversary : AdversaryP) (budget : Nat) (hbudget : bu
     answers ha hwin
 def ConclusionAB (answers : Correctness.Answers) (message : Message) (witness : WBytes)
     (events : List FirstHit.QueryEvent) : Prop :=
-  ∃ digestAnswer : HashOutput, (wdc witness).toNat < WCT9.digestVerifyLimit ∧
+  ∃ digestAnswer : HashOutput, (wdc witness).toNat < WCT9.digestVerifyWindow ∧
       evalWithAnswerFn answers (digest (wrho witness) message (wdc witness)) = digestAnswer ∧
       (∃ prior, (⟨prior, .inl (.inr (pad64 (digestInput (wrho witness) message (wdc witness)))), digestAnswer⟩ :
         FirstHit.QueryEvent) ∈ events) ∧ Shaped digestAnswer witness ∧
