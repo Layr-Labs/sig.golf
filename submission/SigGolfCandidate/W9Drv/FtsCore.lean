@@ -168,6 +168,19 @@ theorem packedPrefix_eval (i k j : Nat) (hk : k < 9) :
   rw [hs, ← BitVec.ofNat_or, ← BitVec.ofNat_or]
   unfold V3.chainPrefix
   rw [Nat.or_comm]
+theorem packedPrefix_bias_eval (i k j : Nat) (hk : k < 9) :
+    (BitVec.ofNat 64 j <<< 20) ||| BitVec.ofNat 64 (i*2^27 + 65536*k + 644) =
+      BitVec.ofNat 64 (V3.chainPrefix i k j + 644) := by
+  have he : BitVec.ofNat 64 (i*2^27 + 65536*k + 644) =
+      BitVec.ofNat 64 (i*2^27 + 65536*k) ||| BitVec.ofNat 64 644 := by
+    rw [← BitVec.ofNat_or]
+    congr 1
+    have ht : i*2^27 + 65536*k = (i*2048+k) <<< 16 := by
+      simp only [Nat.shiftLeft_eq]; omega
+    rw [ht, Nat.shiftLeft_add_eq_or_of_lt (by decide : 644 < 2^16)]
+  rw [he, ← BitVec.or_assoc, packedPrefix_eval i k j hk, ← BitVec.ofNat_or]
+  congr 1
+  rw [chainPrefix_shift, Nat.shiftLeft_add_eq_or_of_lt (by decide : 644 < 2^16)]
 theorem nodeLow_step (k : Nat) (hk : k < 8) (index : Nat) :
     BitVec.ofNat 64 (V3.nodeLow k index) + 65536 = BitVec.ofNat 64 (V3.nodeLow (k + 1) index) := by
   have h1 := nodeLow_add ⟨k, by omega⟩ index
@@ -233,12 +246,12 @@ theorem dispatch_chain_pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : Hash
     congr 1 <;> omega
   · change ((dispatchResult k).toState u).getReg .x31 = _
     rw [dispatch_prefix, hc, hu.prefixReg, hu.coordStep]
-    have he : (if k.val = 0 then BitVec.ofNat 64 (idxOf a*2^27+65536*(k.val-1))
-        else BitVec.ofNat 64 (idxOf a*2^27+65536*(k.val-1)) + 65536) =
-        BitVec.ofNat 64 (idxOf a*2^27+65536*k.val) := by
+    have he : (if k.val = 0 then BitVec.ofNat 64 (idxOf a*2^27+65536*(k.val-1)+644)
+        else BitVec.ofNat 64 (idxOf a*2^27+65536*(k.val-1)+644) + 65536) =
+        BitVec.ofNat 64 (idxOf a*2^27+65536*k.val+644) := by
       fin_cases k <;> simp [← BitVec.ofNat_add, Nat.add_assoc]
     rw [he]
-    exact packedPrefix_eval _ _ _ k.isLt
+    exact packedPrefix_bias_eval _ _ _ k.isLt
   · change ((dispatchResult k).toState u).getReg .x4 = _
     rw [dispatch_childReg, hc]
   · change ((dispatchResult k).toState u).getReg .x23 = _
@@ -901,7 +914,7 @@ def FtsGoodByCost (acceptCost : HashOutput → Nat) : Prop :=
       GoodQFor Frozen.image t N C Q A (K (some root))) →
     GoodQFor Frozen.image u (N+2023) (C+2023) Q (A+acceptCost a)
       (ccM (if ClaudeWCT.W9.T3M.gateOk a then ClaudeWCT.W9.T3M.wctP w a else pure none) K)
-def ftsAcceptCost (a : HashOutput) : Nat := 1084 + ClaudeWCT.WCT9.jointCost a
+def ftsAcceptCost (a : HashOutput) : Nat := 1085 + ClaudeWCT.WCT9.jointCost a
 end W9Drv
 end
 
@@ -994,7 +1007,7 @@ theorem fts_good_of (chains : N600.AllGood Frozen.layout)
         (List.finRange 9).foldlM (ClaudeWCT.W9.T3M.wctStep w a) (some []) >>= f)
       funext state
       cases state <;> rfl)
-  change GoodQFor Frozen.image u (N + 1903) (C + 1903) Q (A + (1065 + ClaudeWCT.WCT9.jointCost a) + 19)
+  change GoodQFor Frozen.image u (N + 1904) (C + 1904) Q (A + (1065 + ClaudeWCT.WCT9.jointCost a) + 20)
     (KG (ClaudeWCT.W9.T3M.gateOk a)) at hg
   apply (hg.mono (by omega) (by omega) (fun hq => ⟨hq, by simp only [ftsAcceptCost]; omega⟩)).congr
   cases ClaudeWCT.W9.T3M.gateOk a <;> simp [KG, ccM_pure]

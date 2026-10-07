@@ -9,9 +9,7 @@ theorem headRHRel_keeps (rb : Reg) (off dst : Word) (p chain digit : Nat) :
     Keeps (headRHRel rb off dst p chain digit) [.x10, .x12, .x25] := by
   intro x hx
   simp only [headRHRel]
-  rw [RegFile.get_set_ne _ _ (ne_of_not_mem hx (by simp)),
-    RegFile.get_set_ne _ _ (ne_of_not_mem hx (by simp)),
-    RegFile.get_set_ne _ _ (ne_of_not_mem hx (by simp))]
+  split <;> cases x <;> first | exact False.elim (hx (by decide)) | rfl
 theorem rungRRel_keeps (rb : Reg) (digit : Nat) (dst : Option Word) (p : Nat) :
     Keeps (rungRRel rb digit dst p) [.x12] := by
   intro x hx; cases dst <;> first | rfl | exact RegFile.get_set_ne _ _ (ne_of_not_mem hx (by simp))
@@ -25,7 +23,8 @@ theorem headRHRel_addresses (rb : Reg) (off dst : Word) (p chain digit : Nat)
     (s : MachineState) :
     ((headRHRel rb off dst p chain digit).toState s).getReg .x10 = s.getReg rb + off ∧
     ((headRHRel rb off dst p chain digit).toState s).getReg .x12 = s.getReg rb + dst := by
-  simp [headRHRel, Result.toState_getReg, RegFile.get, RegFile.set, addC_eval, E.eval]
+  unfold headRHRel
+  split <;> simp [Result.toState_getReg, RegFile.get, RegFile.set, addC_eval, E.eval]
 end W9Machine
 end
 section

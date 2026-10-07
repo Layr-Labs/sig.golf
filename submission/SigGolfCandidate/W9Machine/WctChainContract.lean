@@ -14,7 +14,7 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   pc : u.pc = pcOf (L.chainWord rank)
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (base k)
   headerReg : u.getReg .x28 = (SigGolfCandidate.T3.header 6 k.val index 0 j.val).extractLsb' 0 64
-  prefixReg : u.getReg .x31 = BitVec.ofNat 64 (V3.chainPrefix index k.val j.val)
+  prefixReg : u.getReg .x31 = BitVec.ofNat 64 (V3.chainPrefix index k.val j.val + 644)
   childReg : u.getReg .x4 = BitVec.ofNat 64 j.val
   hashMode : u.getReg .x5 = 0
   stepOne : u.getReg .x7 = 1

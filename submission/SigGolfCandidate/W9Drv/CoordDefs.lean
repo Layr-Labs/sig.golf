@@ -23,7 +23,7 @@ structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   stepTwo : u.getReg .x13 = 2
   hashLen : u.getReg .x11 = 64
   coordStep : u.getReg .x6 = 65536
-  prefixReg : u.getReg .x15 = BitVec.ofNat 64 (idxOf a * 2^27 + 65536 * (n-1))
+  prefixReg : u.getReg .x15 = BitVec.ofNat 64 (idxOf a * 2^27 + 65536 * (n-1) + 644)
   cached3 : u.getReg .x17 = a.extractLsb' 192 64
   cached : u.getReg .x16 = a.extractLsb' (64 * cachedWord n) 64
   nodeReg : n ≠ 0 → u.getReg .x27 = BitVec.ofNat 64 (V3.nodeLow (n-1) (idxOf a))
