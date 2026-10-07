@@ -362,7 +362,7 @@ def SetupPost : Prop := ∀ (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index :
   ∀ t, SpecRes (allowed lay.val (cpIdx index lay.val)) [] baseK (specA lay.val (cpIdx index lay.val))
     (bK lay.val (cpIdx index lay.val)) (keepA lay.val) s t → EncPre w pk index lay.val (cpIdx index lay.val) t
 theorem setup_post : SetupPost := fun w pk index lay msg s hs t ht => by
-  obtain ⟨-, htE, -, hs7E⟩ := T3M.route_evals index lay hs.idx s hs.route
+  obtain ⟨hlE, htE, -, hs7E⟩ := T3M.route_evals index lay hs.idx s hs.route
   refine ⟨?_, ⟨ht.known, (ht.glob _ w pk hs.glob (RelOK.nil s)).2⟩, ?_, ?_, ?_,
     (ht.orig_const hs.orig).mono (fun o ho => ⟨ho, by
       have hc := T3M.cpIdx_lt index lay.val lay.isLt
@@ -388,9 +388,10 @@ theorem setup_post : SetupPost := fun w pk index lay msg s hs t ht => by
     obtain rfl : L = lay := Fin.ext hL
     exact (ht.regs (.x23, s7E L.val) (by fin_cases L <;> simp [specA, T3M.specA])).trans hs7E
   case refine_4 =>
-    intro L hL h0
+    intro L hL
     obtain rfl : L = lay := Fin.ext hL
-    exact (ht.regs (.x31, treeE L.val) (by fin_cases L <;> simp [specA, T3M.specA] at *)).trans htE
+    exact ⟨fun h0 => (ht.regs (.x31, treeE L.val) (by fin_cases L <;> simp [specA, T3M.specA] at *)).trans htE,
+      fun h0 => (ht.keep .x31 (by fin_cases L <;> simp [keepA] at *)).trans (by simpa [leafE, h0, E.eval] using hlE)⟩
   case refine_5 =>
     intro h3
     obtain rfl : lay = 3 := Fin.ext h3

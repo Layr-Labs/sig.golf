@@ -9,10 +9,10 @@ def children : Nat := 128
 def chains : Nat := 7
 def gateShift : Nat := 235
 def gateBits : Nat := 21
-def gateLimit : Nat := 1094
+def gateLimit : Nat := 1091
 def fieldBits : Nat := 14
 def fieldLimit : Nat := 16200
-def jointCap : Nat := 712
+def jointCap : Nat := 703
 abbrev Coord := Fin 9
 abbrev Child := Fin 128
 abbrev Rank := Fin 600
@@ -32,17 +32,17 @@ def field (output : HashOutput) (coord : Coord) : Nat :=
 def rank (output : HashOutput) (coord : Coord) : Rank :=
   ⟨field output coord % 600, Nat.mod_lt _ (by decide)⟩
 def admissible (output : HashOutput) : Bool :=
-  decide (output.toNat / 2 ^ 235 % 2 ^ 21 < 1094) &&
+  decide (output.toNat / 2 ^ 235 % 2 ^ 21 < 1091) &&
     (List.range 9).all (fun coord =>
       decide (output.toNat / 2 ^ fieldBase coord % 2 ^ 14 < 16200))
 def childSaveTable : List Nat :=
-  [1,2,1,1,1,2,2,1,2,2,2,2,1,2,2,1,1,2,3,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,3,2,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,1,1,1,1,0,0,1,1,1,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,1,1,1,1,1]
-def maxChildSave : Nat := 3
-def childSave (c : Nat) : Nat := childSaveTable.getD (c % 128) 0
+  [0,1,1,1,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,1,1,1,1,0]
+def maxChildSave : Nat := 2
+def childSave (c : Nat) : Nat := childSaveTable.getD (c % 64) 0
 def childExtra (c : Child) : Nat := maxChildSave - childSave c.val
-theorem childSaveTable_le : ∀ i, i < 128 → childSaveTable.getD i 0 ≤ maxChildSave := by decide
+theorem childSaveTable_le : ∀ i, i < 64 → childSaveTable.getD i 0 ≤ maxChildSave := by decide
 theorem childSave_le (c : Nat) : childSave c ≤ maxChildSave :=
-  childSaveTable_le (c % 128) (Nat.mod_lt _ (by decide))
+  childSaveTable_le (c % 64) (Nat.mod_lt _ (by decide))
 theorem childExtra_add (c : Child) : childExtra c + childSave c.val = maxChildSave := by
   have := childSave_le c.val
   unfold childExtra; omega

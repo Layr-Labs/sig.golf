@@ -15,7 +15,6 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (base k)
   leafWord : u.getReg .x31 = BitVec.ofNat 64 (V3.leafLow index k.val j.val)
   nodeWord : u.getReg .x15 = BitVec.ofNat 64 (V3.nodeLow k.val index)
-  childIdx : u.getReg .x4 = BitVec.ofNat 64 j.val
   hashMode : u.getReg .x5 = 0
   stepOne : u.getReg .x7 = 1
   stepTwo : u.getReg .x13 = 2
