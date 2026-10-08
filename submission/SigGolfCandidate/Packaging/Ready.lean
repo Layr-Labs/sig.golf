@@ -35,7 +35,7 @@ def FtsOutV (pk : Digest) (w : WB) (a : HashOutput) (root : Digest) (u : Machine
 theorem goodQ_frozen {s : MachineState} {N C A : Nat} {Q : Prop} {X : OracleComp HashSpec Obs} :
     W9Machine.GoodQFor W9Machine.Frozen.image s N C Q A X ↔ GoodQ s N C Q A X := by
   rw [W9Machine.Frozen.image_eq]; rfl
-theorem fts_x5 : FtsGoodByCost W9Drv.GatePre FtsOutV (ftsAcceptCost 1046) := by
+theorem fts_x5 : FtsGoodByCost W9Drv.GatePre FtsOutV (ftsAcceptCost 1048) := by
   intro pk w a u N C A Q K hu hK hnext
   have h := W9Drv.fts_good W9Machine.Chain.allGood pk w a u N C A Q K hu hK
     (fun root t ht => goodQ_frozen.mpr (hnext root t ht))

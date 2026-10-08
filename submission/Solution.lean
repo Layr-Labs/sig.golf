@@ -7,7 +7,7 @@ def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGo
 
 theorem signature_bytes : submission.sizes.signature = 5456 := rfl
 
-theorem witness_bytes : submission.sizes.witness = 21484 := rfl
+theorem witness_bytes : submission.sizes.witness = 21488 := rfl
 
 theorem cache_bytes : submission.sizes.cache = 131072 := rfl
 

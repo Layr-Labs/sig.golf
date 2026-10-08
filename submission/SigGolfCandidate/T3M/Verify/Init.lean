@@ -85,34 +85,6 @@ theorem bytes_word {n : Nat} (x : Bytes n) (j : Nat) (h : 8 * j + 8 ≤ n) :
   apply BitVec.eq_of_toNat_eq
   rw [BitVec.toNat_ofNat, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow,
     show 8 * (8 * j) = 64 * j by ring, show 8 * 8 = 64 by rfl, Nat.mod_mod]
-theorem bytesToWordLE_len4 (l : List (BitVec 8)) (hl : l.length = 4) :
-    bytesToWordLE l = BitVec.ofNat 64 (leNat8 l) := by
-  match l, hl with
-  | [b0, b1, b2, b3], _ =>
-    have e : bytesToWordLE [b0, b1, b2, b3] = bytesToWordLE [b0, b1, b2, b3, 0, 0, 0, 0] := rfl
-    rw [e, bytesToWordLE8]
-    simp [leNat8]
-/-- The last, half-filled word of a buffer whose length is 4 mod 8: the loader zero-pads it. -/
-theorem bytes_word_tail {n : Nat} (x : Bytes n) (j : Nat) (h : 8 * j + 4 = n) :
-    bytesToWordLE (((bytes x).drop (8 * j)).take 8) = x.extractLsb' (64 * j) 64 := by
-  have hd : ((bytes x).drop (8 * j)).length = 4 := by
-    rw [List.length_drop, length_bytes]; omega
-  have ht : ((bytes x).drop (8 * j)).take 8 = ((bytes x).drop (8 * j)).take 4 := by
-    rw [List.take_of_length_le (by omega), List.take_of_length_le (by omega)]
-  rw [ht, bytesToWordLE_len4 _ (by rw [List.length_take, hd]; rfl), leNat8_slice x 4 (8 * j) (by omega)]
-  apply BitVec.eq_of_toNat_eq
-  rw [BitVec.toNat_ofNat, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow,
-    show 8 * (8 * j) = 64 * j by ring]
-  have hx : x.toNat / 2 ^ (64 * j) < 2 ^ (8 * 4) := by
-    rw [Nat.div_lt_iff_lt_mul (by positivity), ← Nat.pow_add]
-    calc x.toNat < 2 ^ (8 * n) := x.isLt
-      _ = 2 ^ (8 * 4 + 64 * j) := by congr 1; omega
-  rw [Nat.mod_eq_of_lt hx]
-theorem bytes_word_lt {n : Nat} (x : Bytes n) (j : Nat) (hn : n % 8 = 4) (h : 8 * j < n) :
-    bytesToWordLE (((bytes x).drop (8 * j)).take 8) = x.extractLsb' (64 * j) 64 := by
-  rcases Nat.lt_or_ge (8 * j + 8) (n + 1) with h1 | h1
-  · exact bytes_word x j (by omega)
-  · exact bytes_word_tail x j (by omega)
 theorem extractByte_or8 (b0 b1 b2 b3 b4 b5 b6 b7 : BitVec 8) (j : Nat) (hj : j < 8) :
     extractByte (b0.zeroExtend 64 ||| (b1.zeroExtend 64 <<< (8 : Word)) |||
       (b2.zeroExtend 64 <<< (16 : Word)) ||| (b3.zeroExtend 64 <<< (24 : Word)) |||
@@ -156,7 +128,7 @@ theorem verifyData_initialMask :
     bytesToWordLE ((((submission.image .verify).data).take 8)) = 0xfff#64 := by
   decide +kernel
 set_option maxRecDepth 200000 in
-theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 21484) (s : MachineState)
+theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 21488) (s : MachineState)
     (h : initialState submission .verify (m, pk, w) = some s) : InitOK m pk w s := by
   unfold initialState at h
   simp only [submission_admissible.2 .verify, if_true, Option.some.injEq] at h
@@ -167,7 +139,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 21484) (s : Mac
   simp only [List.foldl_cons, List.foldl_nil]
   have lm : (bytes m).length = 32 := length_bytes m
   have lp : (bytes pk).length = 16 := length_bytes pk
-  have lw : (bytes w).length = 21484 := length_bytes w
+  have lw : (bytes w).length = 21488 := length_bytes w
   have lD := verifyData_length
   have eD := dataBase_verify
   set blank : MachineState := { regs := fun _ => 0, mem := fun _ => 0, pc := 0x1000 }
@@ -198,7 +170,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 21484) (s : Mac
     intro A hA
     rw [getMem_writeBytesAsWords _ s1 0xA0 A (by rw [lp]; omega) hA, lp]
   have g3 : ∀ A, A < 2 ^ 64 → s3.getMem (BitVec.ofNat 64 A) =
-      if 0x800 ≤ A ∧ A < 0x800 + 8 * ((21484 + 7) / 8) ∧ (A - 0x800) % 8 = 0 then
+      if 0x800 ≤ A ∧ A < 0x800 + 8 * ((21488 + 7) / 8) ∧ (A - 0x800) % 8 = 0 then
         bytesToWordLE (((bytes w).drop (A - 0x800)).take 8) else s2.getMem (BitVec.ofNat 64 A) := by
     intro A hA
     rw [getMem_writeBytesAsWords _ s2 0x800 A (by rw [lw]; omega) hA, lw]
@@ -268,7 +240,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 21484) (s : Mac
   · intro j hj
     unfold WX at hj
     rw [gm, g3 _ (by unfold WIT; omega), if_pos (by unfold WIT; omega),
-      show WIT + 8 * j - 0x800 = 8 * j by unfold WIT; omega, bytes_word_lt w j (by norm_num) (by omega)]
+      show WIT + 8 * j - 0x800 = 8 * j by unfold WIT; omega, bytes_word w j (by omega)]
     rfl
   · intro A hA hz
     unfold WIT at hA

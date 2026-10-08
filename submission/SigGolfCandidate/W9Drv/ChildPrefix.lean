@@ -47,7 +47,7 @@ def childTmpl (j : Nat) : List (BitVec 32) :=
     [encLoad 3 8 (sibO 6 j),
      encLoad 14 8 (sibO 6 j + 8),
      encS 3 3 (16 * (1 - bitAt j 6)) 9, encS 3 14 (16 * (1 - bitAt j 6) + 8) 9,
-     0x00008067] ++ List.replicate (21 + childSaveC j) 0x00000013
+     0x1cc08067] ++ List.replicate (21 + childSaveC j) 0x00000013
 def childWords (j : Nat) : List (BitVec 32) := childTmpl j
 def childLook (j n : Nat) : Option (BitVec 32) :=
   if childBase j ≤ n then (childWords j)[n - childBase j]? else none
@@ -77,7 +77,7 @@ def lvlRes (j l : Nat) : PRes :=
   ⟨⟨lvlRegs j l, lvlMem j l, lvlObl j l⟩, pcOf (childBase j + ecIdx j (l + 1)), true, lvlSt j l, lvlSt j l, [], none⟩
 def otherDest (j : Nat) : Nat := 16 * (1 - bitAt j 6)
 def aX9 (off : Nat) : Addr := ⟨some (.reg .x9), BitVec.ofNat 64 off⟩
-def retE : E := .bin .and (.reg .x1) (.c (~~~1#64))
+def retE : E := .bin .and (addC (.reg .x1) 460) (.c (~~~1#64))
 def p7Res (j : Nat) : PRes :=
   ⟨⟨(RegFile.init.set .x3 (.ld (eX8 (sibO 6 j)))).set .x14 (.ld (eX8 (sibO 6 j + 8))),
     [(aX9 (otherDest j + 8), .ld (eX8 (sibO 6 j + 8))),
@@ -704,7 +704,7 @@ theorem copy_pair {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im 
     (hP8 : P % 8 = 0) (hPhi : P + 48 ≤ MEMORY_BYTES)
     (hpc : s.pc = pcOf (childBase j + ecIdx j 6 + 1))
     (hv : DigAt s (P + 16 * bitAt j 6) v) (ho : DigAt s (B + sibO 6 j) other) :
-    ∃ t, Steps im s 5 5 t ∧ t.pc = s.getReg .x1 &&& ~~~1#64 ∧
+    ∃ t, Steps im s 5 5 t ∧ t.pc = (s.getReg .x1 + 460) &&& ~~~1#64 ∧
       DigAt t P (V3.orderPair j v other).left ∧ DigAt t (P + 16) (V3.orderPair j v other).right ∧
       (∀ r : Reg, r ≠ .x3 → r ≠ .x14 → t.getReg r = s.getReg r) ∧
       Frame s t (fun A => A = P + otherDest j ∨ A = P + otherDest j + 8) := by
@@ -756,7 +756,7 @@ theorem copy_pair {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im 
   · intro A hA hn
     rw [hmem A hA, if_neg (by tauto), if_neg (by tauto)]
 structure PairPost (B P : Nat) (u : MachineState) (pair : V3.RootPair) (t : MachineState) : Prop where
-  pc : t.pc = u.getReg .x1 &&& ~~~1#64
+  pc : t.pc = (u.getReg .x1 + 460) &&& ~~~1#64
   a1 : t.getReg .x11 = 64
   left : DigAt t P pair.left
   right : DigAt t (P + 16) pair.right

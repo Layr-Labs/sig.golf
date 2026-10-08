@@ -754,38 +754,11 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hd : E
       exact (TBSim.steps (st9.trans st10) (TBSim.pure (Q := ExpQW) (a := none)
         (Or.inl ⟨p10, x5_10, x10_10⟩))).mono (by omega) (fun _ _ h => h)
 end run
-theorem readBuffer_foldl_mod (t : MachineState) (A n : Nat) : ∀ m, n ≤ m →
-    (List.range m).foldl
-        (fun acc i => acc + (t.getByte (BitVec.ofNat 64 (A + i))).toNat * 2 ^ (8 * i)) 0 % 2 ^ (8 * n) =
-      (List.range n).foldl
-        (fun acc i => acc + (t.getByte (BitVec.ofNat 64 (A + i))).toNat * 2 ^ (8 * i)) 0 % 2 ^ (8 * n) := by
-  intro m hm
-  induction m, hm using Nat.le_induction with
-  | base => rfl
-  | succ m hnm ih =>
-    rw [List.range_succ, List.foldl_append, List.foldl_cons, List.foldl_nil, Nat.add_mod,
-      Nat.mod_eq_zero_of_dvd (Dvd.dvd.mul_left (Nat.pow_dvd_pow 2 (by omega : 8 * n ≤ 8 * m)) _),
-      Nat.add_zero, Nat.mod_mod, ih]
-/-- Reading a buffer prefix: the first `n` bytes of a longer read. -/
-theorem readBuffer_trunc (t : MachineState) (A n m : Nat) (h : n ≤ m) :
-    readBuffer t A n = BitVec.ofNat (8 * n) (readBuffer t A m).toNat := by
-  unfold readBuffer
-  apply BitVec.eq_of_toNat_eq
-  simp only [BitVec.toNat_ofNat]
-  rw [Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by omega : 8 * n ≤ 8 * m)), readBuffer_foldl_mod t A n m h]
-/-- Expand still writes 2686 whole words; the 21484-byte witness is their prefix (the 4 bytes
-after the 32-bit digest counter are zero and lie outside the witness). -/
 theorem expqW_output {imgs : Phase → Image} {N : HashOutput} {w : WCT9.Witness} {t : MachineState}
     (h : t.readWords (BitVec.ofNat 64 0x800) 2686 = wordsOf (ClaudeWCT.W9.T3M.witList N w)) :
-    readOutput (w9Sub imgs).sizes (w9Sub imgs).layout .expand t = ClaudeWCT.W9.T3M.witEnc N w := by
-  show readBuffer t 0x800 21484 =
-    BitVec.ofNat (8 * 21484) (SigGolfCandidate.T3.readLE (ClaudeWCT.W9.T3M.witList N w))
-  rw [readBuffer_trunc t 0x800 21484 (8 * 2686) (by omega),
-    readBuffer_of_words t 0x800 2686 (ClaudeWCT.W9.T3M.witList N w) (by decide) (by decide)
-      (ClaudeWCT.W9.T3M.witList_length_eq N w) h]
-  apply BitVec.eq_of_toNat_eq
-  simp only [BitVec.toNat_ofNat]
-  exact Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by omega))
+    readOutput (w9Sub imgs).sizes (w9Sub imgs).layout .expand t = ClaudeWCT.W9.T3M.witEnc N w :=
+  readBuffer_of_words t 0x800 2686 (ClaudeWCT.W9.T3M.witList N w) (by decide) (by decide)
+    (ClaudeWCT.W9.T3M.witList_length_eq N w) h
 theorem codeAt_42718 {im : Image} (hc : NewCodeAt im) : CodeAt im (pcOf 42718) [0x00000073] :=
   codeAt_of_window hc (by decide) (by decide +kernel)
 theorem expqW_halt (imgs : Phase → Image) (hc : NewCodeAt (imgs .expand)) (hB : BackSpec (imgs .expand))
