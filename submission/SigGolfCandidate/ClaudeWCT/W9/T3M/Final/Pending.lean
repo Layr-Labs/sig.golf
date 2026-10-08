@@ -3,7 +3,7 @@ import SigGolfCandidate.ClaudeWCT.WCT9.QueriesWots
 import SigGolfCandidate.ClaudeWCT.W9.T3.FullCache.NativeBudgetB1.ExpansionBudget
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Submission
 import SigGolfCandidate.T3M.Verify.HashOk
-import SigGolfCandidate.ClaudeWCT.W9.T3M.SigCodec
+import SigGolfCandidate.ClaudeWCT.W9.T3M.SigCodecC
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Final.SecurityP
 
 section
@@ -166,9 +166,51 @@ theorem hashOnly_packedSecret (pairQuery : Nat → M (Digest × Digest)) (h : �
 @[aesop safe apply] theorem hashOnly_sign (cache : Cache) (message : Message) :
     HashOnly (ClaudeWCT.WCT9.Rev3.sign cache message) :=
   hashOnly_signWith _ cache message
+theorem hashOnly_topFold (sig : Signature) (index : Nat) (digits : List Nat) :
+    HashOnly (ClaudeWCT.WCT9.topFold sig index digits) := by
+  unfold ClaudeWCT.WCT9.topFold ClaudeWCT.WCT9.topEnds
+  refine hashOnly_bind (hashOnly_mapM _ _ fun i => SigGolfCandidate.T3.SourceReplay.hashOnly_chain _ _ _ _ _ _ _)
+    fun ends => ?_
+  refine hashOnly_bind (SigGolfCandidate.T3.SourceReplay.hashOnly_leafHash _ _ _ _) fun value => ?_
+  exact hashOnly_foldlM _ _ (fun v j => by unfold ClaudeWCT.WCT9.topStep; exact hashOnly_nodeHash _ _ _ _ _ _) _
+theorem hashOnly_topNode (index : Nat) (v o : Digest) : HashOnly (ClaudeWCT.WCT9.topNode index v o) := by
+  unfold ClaudeWCT.WCT9.topNode; exact hashOnly_nodeHash _ _ _ _ _ _
+theorem hashOnly_expandLayersT (sig : Signature) (index : Nat) (o : Digest) (n : Nat)
+    (msg : ClaudeWCT.WCT9.LayerMsg) : HashOnly (ClaudeWCT.WCT9.expandLayersT sig index o n msg) := by
+  induction n generalizing msg with
+  | zero => unfold ClaudeWCT.WCT9.expandLayersT; exact hashOnly_pure _
+  | succ n ih =>
+    unfold ClaudeWCT.WCT9.expandLayersT
+    refine hashOnly_bind (hashOnly_layerCounterSearch _ _ _ _ _ _) fun r => ?_
+    rcases r with _ | ⟨counter, digits⟩
+    · exact hashOnly_pure _
+    · exact hashOnly_ite' (hashOnly_bind (hashOnly_topFold _ _ _) fun _ =>
+          hashOnly_bind (hashOnly_topNode _ _ _) fun _ => hashOnly_pure _)
+        (hashOnly_bind (hashOnly_recoverLayerPair _ _ _ _) fun _ => hashOnly_bind (ih _) fun r => by
+          rcases r with _ | ⟨v, root, cs⟩ <;> exact hashOnly_pure _)
+theorem hashOnly_searchTop (index : Nat) (v sib pk : Digest) (fuel c : Nat) :
+    HashOnly (ClaudeWCT.WCT9.searchTop index v sib pk fuel c) := by
+  induction fuel generalizing c with
+  | zero => unfold ClaudeWCT.WCT9.searchTop; exact hashOnly_pure _
+  | succ fuel ih =>
+    unfold ClaudeWCT.WCT9.searchTop
+    exact hashOnly_bind (hashOnly_topNode _ _ _) fun _ => hashOnly_ite' (hashOnly_pure _) (ih _)
+theorem hashOnly_expandS (limit : Nat) (message : Message) (pk : Digest) (sig : Signature) :
+    HashOnly (ClaudeWCT.WCT9.expandS limit message pk sig) := by
+  unfold ClaudeWCT.WCT9.expandS
+  refine hashOnly_bind (hashOnly_digestSearch _ _ _ _) fun r => ?_
+  rcases r with _ | ⟨counter, output⟩
+  · exact hashOnly_pure _
+  refine hashOnly_bind (hashOnly_recoverFts _ _ _) fun root => ?_
+  refine hashOnly_bind (hashOnly_expandLayersT _ _ _ _ _) fun r => ?_
+  rcases r with _ | ⟨v, root', cs⟩
+  · exact hashOnly_pure _
+  refine hashOnly_ite' (hashOnly_pure _) (hashOnly_bind (hashOnly_searchTop _ _ _ _ _ _) fun r => ?_)
+  rcases r with _ | c <;> exact hashOnly_pure _
 @[aesop safe apply] theorem hashOnly_expand (message : Message) (pk : Digest) (sig : Signature) :
-    HashOnly (ClaudeWCT.WCT9.Rev3.expand message pk sig) :=
-  hashOnly_expandWith _ message pk sig
+    HashOnly (ClaudeWCT.WCT9.Rev3.expand message pk sig) := by
+  unfold ClaudeWCT.WCT9.Rev3.expand
+  exact hashOnly_map _ (hashOnly_expandS _ message pk sig)
 @[aesop safe apply] theorem hashOnly_verify (message : Message) (pk : Digest) (w : Witness) :
     HashOnly (ClaudeWCT.WCT9.Rev3.verify message pk w) :=
   hashOnly_verifyWith _ message pk w
@@ -713,15 +755,15 @@ def KeygenRunWith : Prop := ∀ (hash : Hash) (sk : SecretKey),
       cacheB (evalWithAnswerFn hash (mrealize sk keygen)).2), true, 53923503, 995328, 1048576⟩
 def SignRefines : Prop := ∀ (sk : SecretKey) (cache : Bytes 131072) (m : Message),
   (fun r => (r.value, r.hashCalls, r.hashCompressions)) <$> (submission I).run .sign (sk, cache, m) =
-    (fun p => (p.1.map sigB, p.2.1, p.2.2)) <$> countBoth (mrealize sk (sign (cacheDec cache) m))
+    (fun p => (p.1.map sigBC, p.2.1, p.2.2)) <$> countBoth (mrealize sk (sign (cacheDec cache) m))
 def SignTerminates : Prop := ∀ (hash : Hash) (sk : SecretKey) (cache : Bytes 131072) (m : Message),
   ((submission I).runWith hash .sign (sk, cache, m)).finished = true ∧
     ((submission I).runWith hash .sign (sk, cache, m)).cycles < CYCLE_LIMIT
-def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5456),
+def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5454),
   (fun r => (r.value, r.hashCalls, r.hashCompressions)) <$> (submission I).run .expand (m, pk, s) =
     (fun p => (p.1.map (fun x => witEnc x.1 x.2), p.2.1, p.2.2)) <$>
-      countBoth (mrealize 0 (expandN m pk (sigDec s)))
-def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5456),
+      countBoth (mrealize 0 (expandN m pk (sigDecC s)))
+def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5454),
   ((submission I).runWith hash .expand (m, pk, s)).finished = true ∧
     ((submission I).runWith hash .expand (m, pk, s)).cycles < CYCLE_LIMIT
 def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 21484),

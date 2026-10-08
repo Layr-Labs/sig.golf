@@ -4,7 +4,12 @@ namespace ClaudeWCT.W9.T3M
 open OracleComp OracleSpec SigGolfCandidate.T3
 open SigGolfCandidate.T3M (zeros layerBytes sibOff)
 open SphincsSecurity (bytesLE)
+/-- The H2 expander (two omitted signature bytes recovered by search), with the digest output. -/
 def expandN (message : Message) (pk : Digest) (sig : WCT9.Signature) :
+    M (Option (HashOutput × WCT9.Witness)) :=
+  WCT9.expandS WCT9.digestAttemptLimit message pk sig
+/-- The expander before H2 (the full signature), with the digest output. -/
+def expandN0 (message : Message) (pk : Digest) (sig : WCT9.Signature) :
     M (Option (HashOutput × WCT9.Witness)) := do
   let some (counter, output) ← WCT9.digestSearch sig.rho message 0 WCT9.digestAttemptLimit | pure none
   let index := WCT9.digestIndex output

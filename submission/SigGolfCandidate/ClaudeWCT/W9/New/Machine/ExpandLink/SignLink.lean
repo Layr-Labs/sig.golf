@@ -87,7 +87,8 @@ set_option maxHeartbeats 0 in
 theorem wct_signCodeAt_v7 : SignCodeAt Images.signImage := by
   refine ⟨?_, ?_⟩
   · exact ⟨_, signCode_drop_v7.symm⟩
-  · exact ⟨by decide +kernel, by decide +kernel, by decide +kernel⟩
+  · -- [h2 lane] the fourth hook: the sign prepass tail at 20813
+    exact ⟨by decide +kernel, by decide +kernel, by decide +kernel, ⟨[], by rw [List.append_nil]; decide +kernel⟩⟩
 theorem wct_sign_certified_v7 :
     SignRefinesW submission.image ∧ SignTerminatesW submission.image :=
   ClaudeWCT.W9.Machine.Sign.signMain submission.image (fun sk cache _m => Inv sk cache) wct_signCodeAt_v7
