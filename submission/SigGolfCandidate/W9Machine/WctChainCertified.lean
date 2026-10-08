@@ -69,10 +69,6 @@ import SigGolfCandidate.W9Machine.WctN600Check67
 import SigGolfCandidate.W9Machine.WctN600Check68
 import SigGolfCandidate.W9Machine.WctN600Check69
 import SigGolfCandidate.W9Machine.WctN600Check70
-import SigGolfCandidate.W9Machine.WctN600Check71
-import SigGolfCandidate.W9Machine.WctN600Check72
-import SigGolfCandidate.W9Machine.WctN600Check73
-import SigGolfCandidate.W9Machine.WctN600Check74
 import SigGolfCandidate.W9Machine.WctN600Assembly
 import SigGolfCandidate.W9Machine.WctSourceEquiv
 import SigGolfCandidate.W9Machine.WctEndpoints
@@ -644,44 +640,7 @@ Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorr
 Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨560, by decide⟩ Checks.routine560 Checks.ready560.1 Checks.ready560.2) (
 Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨561, by decide⟩ Checks.routine561 Checks.ready561.1 Checks.ready561.2) (
 Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨562, by decide⟩ Checks.routine562 Checks.ready562.1 Checks.ready562.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨563, by decide⟩ Checks.routine563 Checks.ready563.1 Checks.ready563.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨564, by decide⟩ Checks.routine564 Checks.ready564.1 Checks.ready564.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨565, by decide⟩ Checks.routine565 Checks.ready565.1 Checks.ready565.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨566, by decide⟩ Checks.routine566 Checks.ready566.1 Checks.ready566.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨567, by decide⟩ Checks.routine567 Checks.ready567.1 Checks.ready567.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨568, by decide⟩ Checks.routine568 Checks.ready568.1 Checks.ready568.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨569, by decide⟩ Checks.routine569 Checks.ready569.1 Checks.ready569.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨570, by decide⟩ Checks.routine570 Checks.ready570.1 Checks.ready570.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨571, by decide⟩ Checks.routine571 Checks.ready571.1 Checks.ready571.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨572, by decide⟩ Checks.routine572 Checks.ready572.1 Checks.ready572.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨573, by decide⟩ Checks.routine573 Checks.ready573.1 Checks.ready573.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨574, by decide⟩ Checks.routine574 Checks.ready574.1 Checks.ready574.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨575, by decide⟩ Checks.routine575 Checks.ready575.1 Checks.ready575.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨576, by decide⟩ Checks.routine576 Checks.ready576.1 Checks.ready576.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨577, by decide⟩ Checks.routine577 Checks.ready577.1 Checks.ready577.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨578, by decide⟩ Checks.routine578 Checks.ready578.1 Checks.ready578.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨579, by decide⟩ Checks.routine579 Checks.ready579.1 Checks.ready579.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨580, by decide⟩ Checks.routine580 Checks.ready580.1 Checks.ready580.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨581, by decide⟩ Checks.routine581 Checks.ready581.1 Checks.ready581.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨582, by decide⟩ Checks.routine582 Checks.ready582.1 Checks.ready582.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨583, by decide⟩ Checks.routine583 Checks.ready583.1 Checks.ready583.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨584, by decide⟩ Checks.routine584 Checks.ready584.1 Checks.ready584.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨585, by decide⟩ Checks.routine585 Checks.ready585.1 Checks.ready585.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨586, by decide⟩ Checks.routine586 Checks.ready586.1 Checks.ready586.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨587, by decide⟩ Checks.routine587 Checks.ready587.1 Checks.ready587.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨588, by decide⟩ Checks.routine588 Checks.ready588.1 Checks.ready588.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨589, by decide⟩ Checks.routine589 Checks.ready589.1 Checks.ready589.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨590, by decide⟩ Checks.routine590 Checks.ready590.1 Checks.ready590.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨591, by decide⟩ Checks.routine591 Checks.ready591.1 Checks.ready591.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨592, by decide⟩ Checks.routine592 Checks.ready592.1 Checks.ready592.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨593, by decide⟩ Checks.routine593 Checks.ready593.1 Checks.ready593.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨594, by decide⟩ Checks.routine594 Checks.ready594.1 Checks.ready594.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨595, by decide⟩ Checks.routine595 Checks.ready595.1 Checks.ready595.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨596, by decide⟩ Checks.routine596 Checks.ready596.1 Checks.ready596.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨597, by decide⟩ Checks.routine597 Checks.ready597.1 Checks.ready597.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨598, by decide⟩ Checks.routine598 Checks.ready598.1 Checks.ready598.2) (
-Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨599, by decide⟩ Checks.routine599 Checks.ready599.1 Checks.ready599.2) (
-(fun i => Fin.elim0 i)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+(fun i => Fin.elim0 i))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 end W9Machine.N600
 namespace W9Machine.Chain
 theorem allGood : N600.AllGood Frozen.layout := N600.allGood

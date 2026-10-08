@@ -483,7 +483,7 @@ theorem ftsChild_inl {index : Fin (2 ^ 31)} {coord : Fin 9} {level c : Nat} {x :
   · exact ⟨_, (Option.some.inj h).symm⟩
   · obtain ⟨n, -, rfl⟩ := Option.map_eq_some_iff.mp h
     exact ⟨_, rfl⟩
-theorem not_inr_keygenDisclosed (s : CanonGraph.SecretIndex) : (.inr s : Coord) ∉ keygenDisclosed := by
+theorem not_inr_keygenDisclosed (s : SeedIndex) : (.inr s : Coord) ∉ keygenDisclosed := by
   unfold keygenDisclosed
   intro h
   simp only [List.mem_flatMap, List.mem_filterMap] at h
@@ -639,10 +639,10 @@ set_option synthInstance.maxSize 1024
 attribute [local instance] Classical.propDecidable
 noncomputable local instance instDecidableEqCache_w9largeContactCertClean : DecidableEq SigGolfCandidate.T3.Cache :=
   Classical.decEq _
-theorem exists_pos_digit (r : WCT9.Rank) : ∃ t : Fin 7, 1 ≤ WCT9.wordDigit r t := by
+theorem exists_pos_digit (r : WCT9.Rank) : ∃ t : Fin 6, 1 ≤ WCT9.wordDigit r t := by
   by_contra h
   push Not at h
-  have hz : ∀ t ∈ (Finset.univ : Finset (Fin 7)), WCT9.wordDigit r t = 0 := fun t _ => by have := h t; omega
+  have hz : ∀ t ∈ (Finset.univ : Finset (Fin 6)), WCT9.wordDigit r t = 0 := fun t _ => by have := h t; omega
   have := WCT9.wordStep_count r
   rw [Finset.sum_eq_zero hz] at this
   omega
@@ -783,20 +783,20 @@ theorem cert_of_clean (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
     apply hI2
     exact seen_events_self U c.events _ prior Xs _ hev
   refine ⟨(Xs, N), hbirth, hS, ?_⟩
-  have hposCov : ∀ (k : WCT9.Coord) (t : Fin 7), 1 ≤ WCT9.wordDigit (WCT9.rank N k) t →
+  have hposCov : ∀ (k : WCT9.Coord) (t : Fin 6), 1 ≤ WCT9.wordDigit (WCT9.rank N k) t →
       ∃ x ∈ st.exposures, ClaudeWCT.Bank.WCT.outIdx x = ClaudeWCT.Bank.WCT.outIdx N ∧
         WCT9.child x k = WCT9.child N k ∧ WCT9.wordDigit (WCT9.rank N k) t ≤ WCT9.wordDigit (WCT9.rank x k) t := by
     intro k tt hu1
-    have hu3 : WCT9.wordDigit (WCT9.rank N k) tt ≤ 3 := WCT9.wordDigit_le_three _ _
+    have hu3 : WCT9.wordDigit (WCT9.rank N k) tt ≤ 4 := WCT9.wordDigit_le_four _ _
     set a : CanonGraph.WctAddr := (digestIndex N, k, WCT9.child N k, tt) with ha
-    set s : Fin 3 := ⟨3 - WCT9.wordDigit (WCT9.rank N k) tt, by omega⟩ with hs
+    set s : Fin 4 := ⟨4 - WCT9.wordDigit (WCT9.rank N k) tt, by omega⟩ with hs
     have hq0 := CaseC.recoverFtsP_chain_queried z.2 N w k tt hu1
     obtain ⟨hval, hpad⟩ := (hfts.2 k).1 tt
     rw [hval, (hpad hu1).1, (hpad hu1).2] at hq0
     have hX : (.inl (.inr (pad64 (wctChainInputP (WCT9.digestIndex N) k.val (WCT9.child N k).val tt.val
-        (3 - WCT9.wordDigit (WCT9.rank N k) tt) ((0, 0) : Digest × Digest).1 0 ((0, 0) : Digest × Digest).2
+        (4 - WCT9.wordDigit (WCT9.rank N k) tt) ((0, 0) : Digest × Digest).1 0 ((0, 0) : Digest × Digest).2
         (Extract.wctValue z.2 (WCT9.digestIndex N) k.val (WCT9.child N k).val tt.val
-          (3 - WCT9.wordDigit (WCT9.rank N k) tt))))) : Spec.Domain) =
+          (4 - WCT9.wordDigit (WCT9.rank N k) tt))))) : Spec.Domain) =
         .inl (.inr (Extract.honestInput z.2 (CanonGraph.Node.wctChain (a, s)).toPos)) := by
       rw [wctChainInputP_zero]
       rfl
@@ -820,9 +820,9 @@ theorem cert_of_clean (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
       · rw [hsr] at hdis
         dsimp only at hdis
         split_ifs at hdis with hok
-        · have hp3 : p' ≤ 3 := by omega
+        · have hp3 : p' ≤ 4 := by omega
           obtain ⟨hidx, hchild, hpos⟩ := wctItem_mem_signItemsWith _ N' a p' hp3 hdis
-          have hd3 : WCT9.wordDigit (WCT9.rank N' k) tt ≤ 3 := WCT9.wordDigit_le_three _ _
+          have hd3 : WCT9.wordDigit (WCT9.rank N' k) tt ≤ 4 := WCT9.wordDigit_le_four _ _
           rcases covered_fold U z.2 g.value.2 t.steps c.events r o e hmem hcr c' N' hsr with hx | hx
           · refine ⟨N', hx, ?_, hchild.symm, ?_⟩
             · exact Fin.ext (congrArg Fin.val hidx).symm

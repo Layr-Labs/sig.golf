@@ -24,7 +24,7 @@ theorem v6_head (o : Nat) (h : o + 8 ≤ 64) : window (witListV6 N w) o 8 = wind
   unfold witListV6
   simp only [List.append_assoc]
   rw [window_append_left _ _ _ _ (by rw [headerBytes_length]; omega)]
-theorem v6_region (k : Nat) (hk : k < 9) (j : Nat) (hj : j + 8 ≤ 896) :
+theorem v6_region (k : Nat) (hk : k < 9) (j : Nat) (hj : j + 8 ≤ 832) :
     window (witListV6 N w) (64 + 896 * k + j) 8 =
       window (regionBytes (WCT9.child N ⟨k, hk⟩).val (w.signature.openings ⟨k, hk⟩)) j 8 := by
   unfold witListV6
@@ -33,8 +33,10 @@ theorem v6_region (k : Nat) (hk : k < 9) (j : Nat) (hj : j + 8 ≤ 896) :
     window_append_left _ _ _ _ (by rw [wctBytesV6_length]; omega),
     show 64 + 896 * k + j - 64 = 896 * k + j by omega]
   unfold wctBytesV6
-  rw [window_flatMap_const _ _ 896 (fun k => regionBytes_length _ _) k (by simp; omega) j 8 hj]
-  simp
+  rw [window_flatMap_const _ _ 896 (fun k => ClaudeWCT.W9.Machine.Expand.regionBytesV6_length _ _) k (by simp; omega)
+    j 8 (by omega)]
+  simp only [List.getElem_finRange, Fin.cast_mk, ClaudeWCT.W9.Machine.Expand.regionBytesV6]
+  rw [window_append_left _ _ _ _ (by rw [regionBytes_length]; omega)]
 def layOffV6 (lay : Layer) : Nat := (![0, 4224, 7424, 10560] : Layer → Nat) lay
 theorem v6_layer (lay : Layer) (j : Nat) (hj : j + 8 ≤ 64 * (height lay + chainCount lay)) :
     window (witListV6 N w) (8136 + layOffV6 lay + j) 8 = window (layerRegionV6 N w lay) j 8 := by
@@ -51,20 +53,20 @@ theorem v6_layer (lay : Layer) (j : Nat) (hj : j + 8 ≤ 64 * (height lay + chai
     fin_cases lay <;> decide
   rw [hpre, hlen] at key
   rw [show 8136 + layOffV6 lay + j - 64 - 8064 - 8 = layOffV6 lay + j by omega, key]
-theorem win_region0 (o : Nat) (h : o + 8 ≤ 896) :
-    window (witList N w) (64 + 880 * 8 + o) 8 =
+theorem win_region0 (o : Nat) (h : o + 8 ≤ 832) :
+    window (witList N w) (64 + 816 * 8 + o) 8 =
       window (regionBytes (WCT9.child N 0).val (w.signature.openings 0)) o 8 := by
   rw [ClaudeWCT.W9.T3M.witList_split, window_append_left _ _ _ _ (by
       simp only [List.length_append, headerBytes_length, wctBytes_length, layers_length]; omega),
     window_append_left _ _ _ _ (by simp only [List.length_append, headerBytes_length, wctBytes_length]; omega),
     window_append_right _ _ _ _ (by rw [headerBytes_length]; omega), headerBytes_length,
-    show 64 + 880 * 8 + o - 64 = 880 * (8 - (0 : WCT9.Coord).val) + o by simp; omega]
+    show 64 + 816 * 8 + o - 64 = 816 * (8 - (0 : WCT9.Coord).val) + o by simp; omega]
   have hidx : ((List.finRange 9).reverse[8 - (0 : WCT9.Coord).val]'(by simp)) = 0 := by decide
   have key := window_flatMap (List.finRange 9).reverse (fun k => (regionBytes (WCT9.child N k).val
-      (w.signature.openings k)).take (if k.val = 0 then 896 else 880)) (8 - (0 : WCT9.Coord).val) (by simp) o 8
+      (w.signature.openings k)).take (if k.val = 0 then 832 else 816)) (8 - (0 : WCT9.Coord).val) (by simp) o 8
     (by rw [hidx, regionTake_length]; unfold regionLen; simp; omega)
   rw [show (((List.finRange 9).reverse.take (8 - (0 : WCT9.Coord).val)).map fun b => ((regionBytes (WCT9.child N b).val
-      (w.signature.openings b)).take (if b.val = 0 then 896 else 880)).length) =
+      (w.signature.openings b)).take (if b.val = 0 then 832 else 816)).length) =
       (((List.finRange 9).reverse.take (8 - (0 : WCT9.Coord).val)).map regionLen) from
       List.map_congr_left (fun b _ => regionTake_length b _ _), wct_prefix, hidx] at key
   unfold wctBytes
@@ -412,45 +414,45 @@ theorem zone_low (L : Layer) (hL : L.val ≠ 0) (o : Nat) (h1 : ClaudeWCT.W9.T3M
       show 64 + (64 * height L + (o - ClaudeWCT.W9.T3M.layerBase L - 16 * ClaudeWCT.W9.T3M.pathSlots L) - 64) =
         64 * height L + (o - ClaudeWCT.W9.T3M.layerBase L - 16 * ClaudeWCT.W9.T3M.pathSlots L) by omega]
 end ident2
-theorem compact2_words (N : HashOutput) (w : WCT9.Witness) (i : Nat) (hi : i < 2686) :
+theorem compact2_words (N : HashOutput) (w : WCT9.Witness) (i : Nat) (hi : i < 2614) :
     (wordsOf (witList N w)).getD i 0 = out2 (v6M N w) (WCT9.digestIndex N) (8 * i) := by
-  rw [wordsOf_getD' _ 2686 (by rw [witList_length_eq]) i hi]
+  rw [wordsOf_getD' _ 2614 (by rw [witList_length_eq]) i hi]
   unfold out2
   by_cases h64 : 8 * i < 64
   · rw [if_pos h64, v6M_eq N w _ (by omega) (by omega), win_header N w _ _ (by omega), v6_head N w _ (by omega)]
   rw [if_neg h64]
-  by_cases h8k : 8 * i < 8000
+  by_cases h8k : 8 * i < 7424
   · rw [if_pos h8k]
-    by_cases hq : (8 * i - 64) / 880 < 8
-    · have hm : min ((8 * i - 64) / 880) 8 = (8 * i - 64) / 880 := Nat.min_eq_left (by omega)
+    by_cases hq : (8 * i - 64) / 816 < 8
+    · have hm : min ((8 * i - 64) / 816) 8 = (8 * i - 64) / 816 := Nat.min_eq_left (by omega)
       rw [hm]
-      have hw7 := win_region N w ⟨8 - (8 * i - 64) / 880, by omega⟩ ((8 * i - 64) % 880) 8 (by omega)
-      have hw6 := v6_region N w (8 - (8 * i - 64) / 880) (by omega) ((8 * i - 64) % 880) (by omega)
-      rw [show ClaudeWCT.W9.T3M.regionBase (8 - (8 * i - 64) / 880) + (8 * i - 64) % 880 = 8 * i by
+      have hw7 := win_region N w ⟨8 - (8 * i - 64) / 816, by omega⟩ ((8 * i - 64) % 816) 8 (by omega)
+      have hw6 := v6_region N w (8 - (8 * i - 64) / 816) (by omega) ((8 * i - 64) % 816) (by omega)
+      rw [show ClaudeWCT.W9.T3M.regionBase (8 - (8 * i - 64) / 816) + (8 * i - 64) % 816 = 8 * i by
         unfold ClaudeWCT.W9.T3M.regionBase; omega] at hw7
-      rw [hw7, show WIT + 64 + 896 * (8 - (8 * i - 64) / 880) + (8 * i - 64 - 880 * ((8 * i - 64) / 880)) =
-        WIT + (64 + 896 * (8 - (8 * i - 64) / 880) + (8 * i - 64) % 880) by omega,
+      rw [hw7, show WIT + 64 + 896 * (8 - (8 * i - 64) / 816) + (8 * i - 64 - 816 * ((8 * i - 64) / 816)) =
+        WIT + (64 + 896 * (8 - (8 * i - 64) / 816) + (8 * i - 64) % 816) by omega,
         v6M_eq N w _ (by omega) (by omega), hw6]
-    · have hm : min ((8 * i - 64) / 880) 8 = 8 := Nat.min_eq_right (by omega)
+    · have hm : min ((8 * i - 64) / 816) 8 = 8 := Nat.min_eq_right (by omega)
       rw [hm]
-      have hw7 := win_region0 N w (8 * i - 64 - 880 * 8) (by omega)
-      have hw6 := v6_region N w 0 (by omega) (8 * i - 64 - 880 * 8) (by omega)
-      rw [show 64 + 880 * 8 + (8 * i - 64 - 880 * 8) = 8 * i by omega] at hw7
-      rw [hw7, show WIT + 64 + 896 * (8 - 8) + (8 * i - 64 - 880 * 8) = WIT + (64 + 896 * 0 + (8 * i - 64 - 880 * 8))
+      have hw7 := win_region0 N w (8 * i - 64 - 816 * 8) (by omega)
+      have hw6 := v6_region N w 0 (by omega) (8 * i - 64 - 816 * 8) (by omega)
+      rw [show 64 + 816 * 8 + (8 * i - 64 - 816 * 8) = 8 * i by omega] at hw7
+      rw [hw7, show WIT + 64 + 896 * (8 - 8) + (8 * i - 64 - 816 * 8) = WIT + (64 + 896 * 0 + (8 * i - 64 - 816 * 8))
         by omega, v6M_eq N w _ (by omega) (by omega), hw6]
       rfl
   rw [if_neg h8k]
-  by_cases htop : 8 * i < 12224
+  by_cases htop : 8 * i < 11648
   · rw [if_pos htop]
-    have hw7 := win_layerRegion N w 0 (8 * i - 8000) 8 (by simp [ClaudeWCT.W9.T3M.pathSlots, chainCount]; omega)
-    have hw6 := v6_layer N w 0 (8 * i - 8000) (by simp [height, chainCount]; omega)
-    rw [show ClaudeWCT.W9.T3M.layerBase 0 + (8 * i - 8000) = 8 * i by simp [ClaudeWCT.W9.T3M.layerBase]; omega]
+    have hw7 := win_layerRegion N w 0 (8 * i - 7424) 8 (by simp [ClaudeWCT.W9.T3M.pathSlots, chainCount]; omega)
+    have hw6 := v6_layer N w 0 (8 * i - 7424) (by simp [height, chainCount]; omega)
+    rw [show ClaudeWCT.W9.T3M.layerBase 0 + (8 * i - 7424) = 8 * i by simp [ClaudeWCT.W9.T3M.layerBase]; omega]
       at hw7
-    rw [hw7, layerRegion_top, show WIT + 8 * i + 136 = WIT + (8136 + layOffV6 0 + (8 * i - 8000)) by
+    rw [hw7, layerRegion_top, show WIT + 8 * i + 712 = WIT + (8136 + layOffV6 0 + (8 * i - 7424)) by
       simp [layOffV6]; omega, v6M_eq N w _ (by simp [layOffV6]; omega) (by simp [layOffV6]; omega), hw6]
   rw [if_neg htop]
   obtain ⟨d1, d2, d3, c1, c2, c3⟩ := lay_consts
-  by_cases hlow : 8 * i < 21456
+  by_cases hlow : 8 * i < 20880
   · rw [if_pos hlow]
     have hW : WIT = 0x800 := rfl
     have key : ∀ L : Layer, L.val ≠ 0 → zoneLay (8 * i) = L.val → ClaudeWCT.W9.T3M.layerBase L ≤ 8 * i →
@@ -468,10 +470,10 @@ theorem compact2_words (N : HashOutput) (w : WCT9.Witness) (i : Nat) (hi : i < 2
       · rw [if_neg hc, if_neg hc, show 8136 + layOffV6 L + 64 * height L + (8 * i - ClaudeWCT.W9.T3M.layerBase L -
           16 * ClaudeWCT.W9.T3M.pathSlots L) + WIT = 8136 + layOffV6 L + 64 * height L + WIT +
           (8 * i - (ClaudeWCT.W9.T3M.layerBase L + 16 * ClaudeWCT.W9.T3M.pathSlots L)) by omega]
-    by_cases hz1 : 8 * i < 15344
+    by_cases hz1 : 8 * i < 14768
     · exact key 1 (by decide) (by unfold zoneLay; rw [if_pos hz1]; rfl) (by simp [ClaudeWCT.W9.T3M.layerBase]; omega)
         (by simp [ClaudeWCT.W9.T3M.layerBase, ClaudeWCT.W9.T3M.pathSlots, chainCount]; omega)
-    · by_cases hz2 : 8 * i < 18400
+    · by_cases hz2 : 8 * i < 17824
       · exact key 2 (by decide) (by unfold zoneLay; rw [if_neg hz1, if_pos hz2]; rfl)
           (by simp [ClaudeWCT.W9.T3M.layerBase]; omega)
           (by simp [ClaudeWCT.W9.T3M.layerBase, ClaudeWCT.W9.T3M.pathSlots, chainCount]; omega)
@@ -479,17 +481,17 @@ theorem compact2_words (N : HashOutput) (w : WCT9.Witness) (i : Nat) (hi : i < 2
           (by simp [ClaudeWCT.W9.T3M.layerBase]; omega)
           (by simp [ClaudeWCT.W9.T3M.layerBase, ClaudeWCT.W9.T3M.pathSlots, chainCount]; omega)
   · rw [if_neg hlow]
-    have hrho : ∀ t, t + 8 ≤ 16 → window (witList N w) (21456 + t) 8 = window (witListV6 N w) t 8 := fun t ht => by
+    have hrho : ∀ t, t + 8 ≤ 16 → window (witList N w) (20880 + t) 8 = window (witListV6 N w) t 8 := fun t ht => by
       rw [win_tail N w _ _ (by omega), v6_head N w _ (by omega)]
       unfold tailBytes headerBytes
       simp only [List.append_assoc]
       rw [window_append_left _ _ _ _ (by simp [bytesLE_length]; omega),
         window_append_left _ _ _ _ (by simp [bytesLE_length]; omega)]
-    rcases (show 8 * i = 21456 ∨ 8 * i = 21464 ∨ 8 * i = 21472 ∨ 8 * i = 21480 by omega) with h | h | h | h
-    · rw [if_pos h, h, show (21456 : Nat) = 21456 + 0 from rfl, hrho 0 (by omega),
+    rcases (show 8 * i = 20880 ∨ 8 * i = 20888 ∨ 8 * i = 20896 ∨ 8 * i = 20904 by omega) with h | h | h | h
+    · rw [if_pos h, h, show (20880 : Nat) = 20880 + 0 from rfl, hrho 0 (by omega),
         show WIT = WIT + 0 from rfl, v6M_eq N w 0 (by omega) (by omega)]
     · rw [if_neg (by omega), if_pos h, h, hrho 8 (by omega), v6M_eq N w 8 (by omega) (by omega)]
-    · rw [if_neg (by omega), if_neg (by omega), if_pos h, h, show (21472 : Nat) = 21456 + 16 from rfl,
+    · rw [if_neg (by omega), if_neg (by omega), if_pos h, h, show (20896 : Nat) = 20880 + 16 from rfl,
         win_tail N w _ _ (by omega)]
       unfold tailBytes
       simp only [List.append_assoc]
@@ -497,7 +499,7 @@ theorem compact2_words (N : HashOutput) (w : WCT9.Witness) (i : Nat) (hi : i < 2
         show 16 - (bytesLE 16 w.signature.rho).length = 0 by simp [bytesLE_length],
         window_append_left _ _ _ _ (by simp [zeros]), window_zeros _ _ _ (by omega)]
       rfl
-    · rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), h, show (21480 : Nat) = 21456 + 24 from rfl,
+    · rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), h, show (20904 : Nat) = 20880 + 24 from rfl,
         win_tail N w _ _ (by omega), ClaudeWCT.W9.T3M.tail_counter_window, v6M_eq N w 16 (by omega) (by omega),
         v6_head N w _ (by omega)]
       have hh : window (headerBytes w) 16 8 = bytesLE 4 w.digestCounter ++ zeros 4 := by

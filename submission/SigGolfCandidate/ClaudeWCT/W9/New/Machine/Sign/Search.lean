@@ -25,7 +25,7 @@ def ctrE : E := .bin .sll (.reg .x19) (cst 0)
 def resTrial : PRes :=
   ⟨⟨rfs [(.x6, ctrE), (.x10, cst DIG), (.x11, cst 64), (.x12, cst NBUF), (.x28, cst DIG)],
     [mw (DIG + 24) ctrE, mw (DIG + 16) (cst 0)], []⟩, pcOf 11019, true, 12, 12, [], none⟩
-def gateE : E := .bin .sltu (.bin .srl (.ld (cst (NBUF + 24))) (cst 44)) (cst 1182)
+def gateE : E := .bin .sltu (.bin .srl (.ld (cst (NBUF + 24))) (cst 50)) (cst 1131)
 def resGate (d : Bool) : PRes :=
   ⟨⟨rfs [(.x6, gateE), (.x22, .ld (cst NBUF)), (.x28, cst NBUF)], [], []⟩,
     if d then pcOf 11170 else pcOf 11027, false, 7, 7, [⟨.eq, gateE, .c 0, d⟩], none⟩
@@ -33,12 +33,12 @@ def resCost0 : PRes := ⟨⟨rfs [(.x20, cst 0), (.x21, cst COST)], [], []⟩, p
 def grpE (k : Nat) : E :=
   if hasSh k then .bin .srl (.ld (cst (NBUF + 8 * dw k))) (cst (sh k)) else .ld (cst (NBUF + 8 * dw k))
 def childE (k : Nat) : E := if k = 3 ∨ k = 6 then .bin .srl (grpE k) (cst 21) else .bin .and (grpE k) (cst 127)
-def fieldE (k : Nat) : E := .bin .srl (.bin .sll (grpE k) (cst 43)) (cst 50)
+def fieldE (k : Nat) : E := .bin .srl (.bin .sll (grpE k) (cst 47)) (cst 54)
 def fieldLen (k : Nat) : Nat := if hasSh k then 9 else 8
 def resField (k : Nat) (d : Bool) : PRes :=
-  ⟨⟨rfs [(.x6, cst 16200), (.x24, childE k), (.x25, fieldE k), (.x28, cst 131072)], [], []⟩,
+  ⟨⟨rfs [(.x6, cst 563), (.x24, childE k), (.x25, fieldE k), (.x28, cst 131072)], [], []⟩,
     if d then pcOf 11170 else pcOf (sci k), false, fieldLen k, fieldLen k,
-    [⟨.geu, fieldE k, cst 16200, d⟩], none⟩
+    [⟨.geu, fieldE k, cst 563, d⟩], none⟩
 def resSc1 (k : Nat) : PRes :=
   ⟨⟨rfs [(.x6, .bin .add (.reg .x21) (.reg .x25))], [], []⟩, pcOf (sci k + 1), false, 1, 1, [], none⟩
 def resSc3 (k : Nat) : PRes :=
@@ -47,7 +47,7 @@ def resCc1 (k : Nat) : PRes :=
   ⟨⟨rfs [(.x6, .bin .add (.reg .x7) (.reg .x24))], [], []⟩, pcOf (sci k + 4), false, 1, 1, [], none⟩
 def resCc3 (k : Nat) : PRes :=
   ⟨⟨rfs [(.x20, .bin .add (.reg .x20) (.reg .x6))], [], []⟩, pcOf (fsi (k + 1)), false, 1, 1, [], none⟩
-def capE : E := .bin .sltu (.reg .x20) (cst 711)
+def capE : E := .bin .sltu (.reg .x20) (cst 790)
 def resCap (d : Bool) : PRes :=
   ⟨⟨rfs [(.x6, capE)], [], []⟩, if d then pcOf 11170 else pcOf 11164, false, 2, 2, [⟨.eq, capE, .c 0, d⟩], none⟩
 def idxE : E := .bin .srl (.bin .sll (.reg .x22) (cst 0)) (cst 33)
@@ -162,7 +162,7 @@ open SphincsSecurity (bytesLE bytesLE_length)
 set_option maxRecDepth 10000
 set_option linter.unusedSimpArgs false
 def costByte (f : Nat) : Nat :=
-  if f < 16200 then WCT9.routineCosts.getD (f % 600) 0
+  if f < 563 then WCT9.routineCosts.getD f 0
   else if 16256 ≤ f then WCT9.maxChildSave - WCT9.childSave (f - 16256) else 255
 def costChk : Nat → List (BitVec 8) → Bool
   | _, [] => true
@@ -186,7 +186,7 @@ theorem costBytes_getD (f : Nat) (hf : f < 16384) : (costBytes.getD f 0).toNat =
 theorem costByte_lt (f : Nat) : costByte f < 256 := by
   unfold costByte
   split_ifs with h h2
-  · have hm : f % 600 < WCT9.routineCosts.length := by rw [WCT9.routineCosts_length]; exact Nat.mod_lt _ (by decide +kernel)
+  · have hm : f < WCT9.routineCosts.length := by rw [WCT9.routineCosts_length]; exact h
     rw [List.getD_eq_getElem _ _ hm]
     have := (WCT9.routineCosts_bounds _ (List.getElem_mem hm)).2
     omega
@@ -201,10 +201,11 @@ theorem costByte_child (c : Nat) (hc : c < 128) :
 theorem costByte_childN (a : HashOutput) (k : WCT9.Coord) :
     costByte (16256 + childN a k.val) = WCT9.childExtra (WCT9.child a k) := by
   rw [costByte_child _ (childN_lt a k.val)]; rfl
-theorem costByte_rank (a : HashOutput) (c : WCT9.Coord) (h : WCT9.field a c < 16200) :
+theorem costByte_rank (a : HashOutput) (c : WCT9.Coord) (h : WCT9.field a c < 563) :
     costByte (WCT9.field a c) = WCT9.routineCost (WCT9.rank a c) := by
   unfold costByte WCT9.routineCost WCT9.rank
-  rw [if_pos h, List.getD_eq_getElem]
+  rw [if_pos h, List.getD_eq_getElem _ _ (by rw [WCT9.routineCosts_length]; exact h)]
+  simp only [Nat.mod_eq_of_lt h]
 theorem cost_byte {s : MachineState} (hc : CostAt s) {f : Nat} (hf : f < 16384) :
     s.getByte (BitVec.ofNat 64 (COST + f)) = BitVec.ofNat 8 (costByte f) := by
   rw [getByte_eq_word s _ (by unfold COST; omega)]
@@ -263,19 +264,14 @@ theorem sh_bound (k : Nat) (hk : k < 9) : sh k + 21 ≤ 64 ∧ 64 * dw k + sh k 
   interval_cases k <;> decide +kernel
 theorem sll_eval (x : Word) (k : Nat) (hk : k < 64) : BinOp.eval .sll x (BitVec.ofNat 64 k) = x <<< k := by
   simp only [BinOp.eval, toNat_ofNat_lt (by omega : k < 2 ^ 64), Nat.mod_eq_of_lt hk]
-theorem gate21_word3 (a : BitVec 256) :
-    ((a.extractLsb' 192 64) >>> 43).toNat = a.toNat / 2 ^ 235 % 2 ^ 21 := by
-  rw [BitVec.toNat_ushiftRight, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, Nat.shiftRight_eq_div_pow,
-    show (2 : Nat) ^ 64 = 2 ^ 43 * 2 ^ 21 by norm_num, Nat.mod_mul_right_div_self, Nat.div_div_eq_div_mul,
-    ← pow_add]
 theorem gateE_eval (s : MachineState) (a : BitVec 256) (ha : OutAt s NBUF a) :
-    gateE.eval s = BitVec.ofNat 64 (if a.toNat / 2 ^ 235 % 2 ^ 21 < 2364 then 1 else 0) := by
+    gateE.eval s = BitVec.ofNat 64 (if a.toNat / 2 ^ 242 % 2 ^ 14 < 1131 then 1 else 0) := by
   have h3 : s.getMem (BitVec.ofNat 64 (NBUF + 24)) = a.extractLsb' 192 64 := ha 3 (by decide +kernel)
   simp only [gateE, cst, E.eval, h3]
-  rw [srl_eval _ 44 (by decide +kernel)]
-  change (if BitVec.ult (a.extractLsb' 192 64 >>> 44) 1182#64 then (1 : BitVec 64) else 0) = _
-  rw [SigGolfCandidate.Research.V7Composed198Gate.gate_ult_shift44]
-  by_cases h : a.toNat / 2 ^ 235 % 2 ^ 21 < 2364
+  rw [srl_eval _ 50 (by decide +kernel)]
+  change (if BitVec.ult (a.extractLsb' 192 64 >>> 50) 1131#64 then (1 : BitVec 64) else 0) = _
+  rw [SigGolfCandidate.Research.V7Composed198Gate.gate_ult_shift50]
+  by_cases h : a.toNat / 2 ^ 242 % 2 ^ 14 < 1131
   · simp only [h, decide_true, if_true]; rfl
   · simp only [h, decide_false, Bool.false_eq_true, if_false]; rfl
 
@@ -290,36 +286,36 @@ theorem grpE_toNat (s : MachineState) (a : BitVec 256) (ha : OutAt s NBUF a) (k 
       Nat.shiftRight_eq_div_pow]
   · have hs0 : sh k = 0 := by interval_cases k <;> simp_all [hasSh, sh]
     simp only [cst, E.eval, hm, hs0, pow_zero, Nat.div_one, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
-theorem sll43_srl50 (g : Word) : ((g <<< 43) >>> 50).toNat = g.toNat / 2 ^ 7 % 2 ^ 14 := by
+theorem sll47_srl54 (g : Word) : ((g <<< 47) >>> 54).toNat = g.toNat / 2 ^ 7 % 2 ^ 10 := by
   rw [BitVec.toNat_ushiftRight, BitVec.toNat_shiftLeft, Nat.shiftLeft_eq, Nat.shiftRight_eq_div_pow,
-    show (2 : Nat) ^ 64 = 2 ^ 21 * 2 ^ 43 by norm_num, Nat.mul_mod_mul_right,
-    show (2 : Nat) ^ 50 = 2 ^ 43 * 2 ^ 7 by norm_num, ← Nat.div_div_eq_div_mul,
-    Nat.mul_div_cancel _ (by positivity), show (2 : Nat) ^ 21 = 2 ^ 7 * 2 ^ 14 by norm_num,
+    show (2 : Nat) ^ 64 = 2 ^ 17 * 2 ^ 47 by norm_num, Nat.mul_mod_mul_right,
+    show (2 : Nat) ^ 54 = 2 ^ 47 * 2 ^ 7 by norm_num, ← Nat.div_div_eq_div_mul,
+    Nat.mul_div_cancel _ (by positivity), show (2 : Nat) ^ 17 = 2 ^ 7 * 2 ^ 10 by norm_num,
     Nat.mod_mul_right_div_self]
-theorem sll43_srl50' (g : Word) : (g <<< 43) >>> 50 = BitVec.ofNat 64 (g.toNat / 2 ^ 7 % 2 ^ 14) := by
+theorem sll47_srl54' (g : Word) : (g <<< 47) >>> 54 = BitVec.ofNat 64 (g.toNat / 2 ^ 7 % 2 ^ 10) := by
   apply BitVec.eq_of_toNat_eq
-  rw [sll43_srl50, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (lt_trans (Nat.mod_lt _ (by decide +kernel)) (by decide +kernel))]
+  rw [sll47_srl54, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (lt_trans (Nat.mod_lt _ (by decide +kernel)) (by decide +kernel))]
 theorem fieldE_eval (s : MachineState) (a : BitVec 256) (ha : OutAt s NBUF a) (k : Nat) (hk : k < 9) :
-    (fieldE k).eval s = BitVec.ofNat 64 (a.toNat / 2 ^ WCT9.fieldBase k % 2 ^ 14) := by
+    (fieldE k).eval s = BitVec.ofNat 64 (a.toNat / 2 ^ WCT9.fieldBase k % 2 ^ 10) := by
   obtain ⟨h21, hcb, -⟩ := sh_bound k hk
   have hg := grpE_toNat s a ha k hk
   simp only [fieldE, cst, E.eval]
-  rw [sll_eval _ 43 (by decide +kernel), srl_eval _ 50 (by decide +kernel), sll43_srl50']
+  rw [sll_eval _ 47 (by decide +kernel), srl_eval _ 54 (by decide +kernel), sll47_srl54']
   congr 1
   rw [hg, Nat.div_div_eq_div_mul, ← Nat.pow_add,
-    mod64_div_mod _ (sh k + 7) 14 (by omega), Nat.div_div_eq_div_mul, ← Nat.pow_add]
+    mod64_div_mod _ (sh k + 7) 10 (by omega), Nat.div_div_eq_div_mul, ← Nat.pow_add]
   congr 3
   all_goals omega
-def fieldEOld (k : Nat) : E := .bin .and (.bin .srl (grpE k) (cst 7)) (cst 16383)
+def fieldEOld (k : Nat) : E := .bin .and (.bin .srl (grpE k) (cst 7)) (cst 1023)
 theorem fieldEOld_eval (s : MachineState) (a : BitVec 256) (ha : OutAt s NBUF a) (k : Nat) (hk : k < 9) :
-    (fieldEOld k).eval s = BitVec.ofNat 64 (a.toNat / 2 ^ WCT9.fieldBase k % 2 ^ 14) := by
+    (fieldEOld k).eval s = BitVec.ofNat 64 (a.toNat / 2 ^ WCT9.fieldBase k % 2 ^ 10) := by
   obtain ⟨h21, hcb, -⟩ := sh_bound k hk
   have hg := grpE_toNat s a ha k hk
   simp only [fieldEOld, cst, E.eval]
-  rw [srl_eval _ 7 (by decide +kernel), and_eval, show (16383 : Nat) = 2 ^ 14 - 1 from rfl, ofNat_and_mask _ 14 (by decide +kernel)]
+  rw [srl_eval _ 7 (by decide +kernel), and_eval, show (1023 : Nat) = 2 ^ 10 - 1 from rfl, ofNat_and_mask _ 10 (by decide +kernel)]
   congr 1
   rw [BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow, hg, Nat.div_div_eq_div_mul, ← Nat.pow_add,
-    mod64_div_mod _ (sh k + 7) 14 (by omega), Nat.div_div_eq_div_mul, ← Nat.pow_add]
+    mod64_div_mod _ (sh k + 7) 10 (by omega), Nat.div_div_eq_div_mul, ← Nat.pow_add]
   congr 3
   all_goals omega
 theorem childE_eval (s : MachineState) (a : BitVec 256) (ha : OutAt s NBUF a) (k : Nat) (hk : k < 9) :
@@ -392,22 +388,22 @@ theorem trial_spec (hl : LookOK im headLook) (s : MachineState) (hpc : s.pc = pc
       if_neg hn.2]; rfl
 theorem gate_spec (hl : LookOK im headLook) (s : MachineState) (hpc : s.pc = pcOf 11020) (a : BitVec 256)
     (ha : OutAt s NBUF a) :
-    ∃ t, Steps im s 7 7 t ∧ t.pc = (if a.toNat / 2 ^ 235 % 2 ^ 21 < 2364 then pcOf 11027 else pcOf 11170) ∧
+    ∃ t, Steps im s 7 7 t ∧ t.pc = (if a.toNat / 2 ^ 242 % 2 ^ 14 < 1131 then pcOf 11027 else pcOf 11170) ∧
       t.getReg .x22 = a.extractLsb' 0 64 ∧ RegsExcept s t [.x6, .x22, .x28] ∧
       Frame s t (fun _ => False) := by
   have hg := gateE_eval s a ha
-  have hbr : ∀ b ∈ (resGate (decide ¬ (a.toNat / 2 ^ 235 % 2 ^ 21 < 2364))).brs, b.holds s := by
+  have hbr : ∀ b ∈ (resGate (decide ¬ (a.toNat / 2 ^ 242 % 2 ^ 14 < 1131))).brs, b.holds s := by
     intro b hb
     simp only [resGate, List.mem_singleton] at hb
     subst hb
     simp only [Br.holds, CmpOp.eval, E.eval, hg]
-    by_cases h0 : a.toNat / 2 ^ 235 % 2 ^ 21 < 2364
+    by_cases h0 : a.toNat / 2 ^ 242 % 2 ^ 14 < 1131
     · simp only [h0, if_true, not_true_eq_false, decide_false]; decide +kernel
     · simp only [h0, if_false, not_false_eq_true, decide_true]; decide +kernel
   obtain ⟨hs, hp, -, hr, hm⟩ := piece hl (run_gate _) s hpc rfl hbr rfl
   refine ⟨_, hs, ?_, ?_, regs_rfs hr, fun A _ _ => by rw [hm]; rfl⟩
   · rw [hp]; simp only [resGate]
-    by_cases h0 : a.toNat / 2 ^ 235 % 2 ^ 21 < 2364
+    by_cases h0 : a.toNat / 2 ^ 242 % 2 ^ 14 < 1131
     · simp only [h0, not_true_eq_false, decide_false, Bool.false_eq_true, if_false, if_true]
     · simp only [h0, not_false_eq_true, decide_true, if_false, if_true]
   · rw [hr]
@@ -423,26 +419,26 @@ theorem cost0_spec (hl : LookOK im headLook) (s : MachineState) (hpc : s.pc = pc
 theorem field_spec (hl : LookOK im headLook) (k : Nat) (hk : k < 9) (s : MachineState)
     (hpc : s.pc = pcOf (fsi k)) (a : BitVec 256) (ha : OutAt s NBUF a) :
     ∃ t c, Steps im s c c t ∧ c ≤ 9 ∧
-      t.pc = (if WCT9.field a ⟨k, hk⟩ < 16200 then pcOf (sci k) else pcOf 11170) ∧
+      t.pc = (if WCT9.field a ⟨k, hk⟩ < 563 then pcOf (sci k) else pcOf 11170) ∧
       t.getReg .x25 = BitVec.ofNat 64 (WCT9.field a ⟨k, hk⟩) ∧
       t.getReg .x24 = BitVec.ofNat 64 (childN a k) ∧
       RegsExcept s t [.x6, .x24, .x25, .x28] ∧ Frame s t (fun _ => False) := by
   have hf := fieldE_eval s a ha k hk
-  have hfd : WCT9.field a ⟨k, hk⟩ = a.toNat / 2 ^ WCT9.fieldBase k % 2 ^ 14 := rfl
-  have hlt : a.toNat / 2 ^ WCT9.fieldBase k % 2 ^ 14 < 2 ^ 64 :=
+  have hfd : WCT9.field a ⟨k, hk⟩ = a.toNat / 2 ^ WCT9.fieldBase k % 2 ^ 10 := rfl
+  have hlt : a.toNat / 2 ^ WCT9.fieldBase k % 2 ^ 10 < 2 ^ 64 :=
     lt_trans (Nat.mod_lt _ (by decide +kernel)) (by decide +kernel)
-  have hbr : ∀ b ∈ (resField k (decide ¬ (WCT9.field a ⟨k, hk⟩ < 16200))).brs, b.holds s := by
+  have hbr : ∀ b ∈ (resField k (decide ¬ (WCT9.field a ⟨k, hk⟩ < 563))).brs, b.holds s := by
     intro b hb
     simp only [resField, List.mem_singleton] at hb
     subst hb
     simp only [Br.holds, CmpOp.eval, E.eval, cst, hf, BitVec.ult, toNat_ofNat_lt hlt,
-      toNat_ofNat_lt (by decide +kernel : 16200 < 2 ^ 64), hfd]
+      toNat_ofNat_lt (by decide +kernel : 563 < 2 ^ 64), hfd]
     rw [decide_not]
   obtain ⟨hs, hp, -, hr, hm⟩ := piece hl (run_field k hk _) s hpc rfl hbr rfl
   refine ⟨_, _, hs, ?_, ?_, ?_, ?_, regs_rfs hr, fun A _ _ => by rw [hm]; rfl⟩
   · simp only [resField, fieldLen]; split <;> omega
   · rw [hp]; simp only [resField]
-    by_cases h : WCT9.field a ⟨k, hk⟩ < 16200 <;> simp [h]
+    by_cases h : WCT9.field a ⟨k, hk⟩ < 563 <;> simp [h]
   · rw [hr]; exact hf
   · rw [hr]; exact childE_eval s a ha k hk
 theorem decode_lbu : decodeInstruction 0x00034303 = some (.base (.LBU .x6 .x6 0)) := by rfl
@@ -563,7 +559,7 @@ theorem cc_spec (hl : LookOK im headLook) (k : Nat) (hk : k < 9) (s : MachineSta
     rw [hm3]
     show v.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)
     rw [hf2.get hA hn, hm1]; rfl
-def fieldN (a : BitVec 256) (c : Nat) : Nat := a.toNat / 2 ^ WCT9.fieldBase c % 2 ^ 14
+def fieldN (a : BitVec 256) (c : Nat) : Nat := a.toNat / 2 ^ WCT9.fieldBase c % 2 ^ 10
 def psum (a : BitVec 256) (k : Nat) : Nat :=
   ((List.range k).map fun c => costByte (fieldN a c) + costByte (16256 + childN a c)).sum
 theorem psum_succ (a : BitVec 256) (k : Nat) :
@@ -574,14 +570,15 @@ theorem psum_le (a : BitVec 256) (k : Nat) : psum a k ≤ 512 * k := by
   | zero => simp [psum]
   | succ k ih =>
     rw [psum_succ]; have := costByte_lt (fieldN a k); have := costByte_lt (16256 + childN a k); omega
-theorem fieldN_lt (a : BitVec 256) (c : Nat) : fieldN a c < 16384 := Nat.mod_lt _ (by decide +kernel)
+theorem fieldN_lt (a : BitVec 256) (c : Nat) : fieldN a c < 16384 :=
+  lt_of_lt_of_le (Nat.mod_lt _ (by decide +kernel)) (by decide +kernel)
 theorem fields_from (hl : LookOK im headLook) (a : BitVec 256) :
     ∀ n k, k + n = 9 → ∀ v : MachineState, v.pc = pcOf (fsi k) → OutAt v NBUF a → CostAt v →
       v.getReg .x21 = BitVec.ofNat 64 COST → v.getReg .x7 = BitVec.ofNat 64 CBASE →
       v.getReg .x20 = BitVec.ofNat 64 (psum a k) →
       ∃ t c, Steps im v c c t ∧ c ≤ 15 * n ∧ RegsExcept v t [.x6, .x20, .x24, .x25, .x28] ∧
         Frame v t (fun _ => False) ∧
-        (if ∀ k' (hk' : k' < 9), k ≤ k' → WCT9.field a ⟨k', hk'⟩ < 16200
+        (if ∀ k' (hk' : k' < 9), k ≤ k' → WCT9.field a ⟨k', hk'⟩ < 563
           then t.pc = pcOf 11162 ∧ t.getReg .x20 = BitVec.ofNat 64 (psum a 9) else t.pc = pcOf 11170) := by
   intro n
   induction n with
@@ -596,7 +593,7 @@ theorem fields_from (hl : LookOK im headLook) (a : BitVec 256) :
     intro k hk v hv ha hc h21 h7 h20
     have hk9 : k < 9 := by omega
     obtain ⟨t1, c1, s1, hc1, p1, x25, x24, r1, f1⟩ := field_spec hl k hk9 v hv a ha
-    by_cases hf : WCT9.field a ⟨k, hk9⟩ < 16200
+    by_cases hf : WCT9.field a ⟨k, hk9⟩ < 563
     · rw [if_pos hf] at p1
       have hc1' : CostAt t1 := fun j hj => by rw [f1.get (by unfold COST; omega) (fun h => h)]; exact hc j hj
       obtain ⟨t2, s2, p2, x20', r2, f2⟩ := sc_spec hl k hk9 t1 p1 (WCT9.field a ⟨k, hk9⟩) (psum a k)
@@ -620,21 +617,21 @@ theorem fields_from (hl : LookOK im headLook) (a : BitVec 256) :
       refine ⟨t, c1 + 3 + 3 + c, ((s1.trans s2).trans s2b).trans s3, by omega,
         (((r1.trans r2).trans r2b).trans r3).mono (by decide +kernel),
         (((f1.trans f2).trans f2b).trans f3).mono (fun _ _ h => by simp at h), ?_⟩
-      have hiff : (∀ k' (hk' : k' < 9), k ≤ k' → WCT9.field a ⟨k', hk'⟩ < 16200) ↔
-          (∀ k' (hk' : k' < 9), k + 1 ≤ k' → WCT9.field a ⟨k', hk'⟩ < 16200) := by
+      have hiff : (∀ k' (hk' : k' < 9), k ≤ k' → WCT9.field a ⟨k', hk'⟩ < 563) ↔
+          (∀ k' (hk' : k' < 9), k + 1 ≤ k' → WCT9.field a ⟨k', hk'⟩ < 563) := by
         constructor
         · intro h k' hk' hle; exact h k' hk' (by omega)
         · intro h k' hk' hle
           by_cases he : k' = k
           · subst he; exact hf
           · exact h k' hk' (by omega)
-      by_cases hall : ∀ k' (hk' : k' < 9), k + 1 ≤ k' → WCT9.field a ⟨k', hk'⟩ < 16200
+      by_cases hall : ∀ k' (hk' : k' < 9), k + 1 ≤ k' → WCT9.field a ⟨k', hk'⟩ < 563
       · rw [if_pos hall] at p3; rw [if_pos (hiff.2 hall)]; exact p3
       · rw [if_neg hall] at p3; rw [if_neg (fun h => hall (hiff.1 h))]; exact p3
     · rw [if_neg hf] at p1
       refine ⟨t1, c1, s1, by omega, r1.mono (by decide +kernel), f1, ?_⟩
       rw [if_neg (fun h => hf (h k hk9 le_rfl))]; exact p1
-theorem psum_nine (a : BitVec 256) (h : ∀ c : WCT9.Coord, WCT9.field a c < 16200) :
+theorem psum_nine (a : BitVec 256) (h : ∀ c : WCT9.Coord, WCT9.field a c < 563) :
     psum a 9 = WCT9.jointCost a := by
   unfold psum WCT9.jointCost WCT9.coordCost
   rw [show List.range 9 = [0, 1, 2, 3, 4, 5, 6, 7, 8] from rfl,
@@ -648,24 +645,24 @@ theorem psum_nine (a : BitVec 256) (h : ∀ c : WCT9.Coord, WCT9.field a c < 162
   rfl
 theorem cap_spec (hl : LookOK im headLook) (s : MachineState) (hpc : s.pc = pcOf 11162) (S : Nat)
     (hS : S < 2 ^ 64) (h20 : s.getReg .x20 = BitVec.ofNat 64 S) :
-    ∃ t, Steps im s 2 2 t ∧ t.pc = (if S ≤ 710 then pcOf 11164 else pcOf 11170) ∧
+    ∃ t, Steps im s 2 2 t ∧ t.pc = (if S ≤ 789 then pcOf 11164 else pcOf 11170) ∧
       RegsExcept s t [.x6] ∧ Frame s t (fun _ => False) := by
-  have hce : capE.eval s = BitVec.ofNat 64 (if S < 711 then 1 else 0) := by
+  have hce : capE.eval s = BitVec.ofNat 64 (if S < 790 then 1 else 0) := by
     simp only [capE, cst, E.eval, h20, BinOp.eval, BitVec.ult, toNat_ofNat_lt hS,
-      toNat_ofNat_lt (show 711 < 2 ^ 64 by decide +kernel)]
-    by_cases h : S < 711 <;> simp [h]
-  have hbr : ∀ b ∈ (resCap (decide ¬ (S ≤ 710))).brs, b.holds s := by
+      toNat_ofNat_lt (show 790 < 2 ^ 64 by decide +kernel)]
+    by_cases h : S < 790 <;> simp [h]
+  have hbr : ∀ b ∈ (resCap (decide ¬ (S ≤ 789))).brs, b.holds s := by
     intro b hb
     simp only [resCap, List.mem_singleton] at hb
     subst hb
     simp only [Br.holds, CmpOp.eval, E.eval, hce]
-    by_cases h0 : S ≤ 710
-    · simp only [show S < 711 by omega, if_true, h0, not_true_eq_false, decide_false]; decide +kernel
-    · simp only [show ¬ S < 711 by omega, if_false, h0, not_false_eq_true, decide_true]; decide +kernel
+    by_cases h0 : S ≤ 789
+    · simp only [show S < 790 by omega, if_true, h0, not_true_eq_false, decide_false]; decide +kernel
+    · simp only [show ¬ S < 790 by omega, if_false, h0, not_false_eq_true, decide_true]; decide +kernel
   obtain ⟨hs, hp, -, hr, hm⟩ := piece hl (run_cap _) s hpc rfl hbr rfl
   refine ⟨_, hs, ?_, regs_rfs hr, fun A _ _ => by rw [hm]; rfl⟩
   rw [hp]; simp only [resCap]
-  by_cases h0 : S ≤ 710
+  by_cases h0 : S ≤ 789
   · simp only [h0, not_true_eq_false, decide_false, Bool.false_eq_true, if_false, if_true]
   · simp only [h0, not_false_eq_true, decide_true, if_false, if_true]
 theorem checks_spec (hl : LookOK im headLook) (u : MachineState) (hpc : u.pc = pcOf 11020) (a : BitVec 256)
@@ -677,7 +674,7 @@ theorem checks_spec (hl : LookOK im headLook) (u : MachineState) (hpc : u.pc = p
   obtain ⟨t1, s1, p1, x22, r1, f1⟩ := gate_spec hl u hpc a ha
   have hadm := WCT9.admissible_iff a
   have hprod := WCT9.producerAdmissible_iff a
-  by_cases hg : a.toNat / 2 ^ 235 % 2 ^ 21 < 2364
+  by_cases hg : a.toNat / 2 ^ 242 % 2 ^ 14 < 1131
   · rw [if_pos hg] at p1
     obtain ⟨t2, s2, p2, x20, x21, r2, f2⟩ := cost0_spec hl t1 p1
     have ha2 : OutAt t2 NBUF a := fun j hj => by
@@ -689,10 +686,10 @@ theorem checks_spec (hl : LookOK im headLook) (u : MachineState) (hpc : u.pc = p
       (by rw [r2.get (by decide +kernel), r1.get (by decide +kernel)]; exact h7) (by rw [x20]; rfl)
     have h22 : ∀ {t : MachineState}, RegsExcept t2 t [.x6, .x20, .x24, .x25, .x28] →
         t.getReg .x22 = a.extractLsb' 0 64 := fun h => by rw [h.get (by decide +kernel), r2.get (by decide +kernel)]; exact x22
-    have hall : (∀ k' (hk' : k' < 9), 0 ≤ k' → WCT9.field a ⟨k', hk'⟩ < 16200) ↔
-        ∀ c : WCT9.Coord, WCT9.field a c < 16200 :=
+    have hall : (∀ k' (hk' : k' < 9), 0 ≤ k' → WCT9.field a ⟨k', hk'⟩ < 563) ↔
+        ∀ c : WCT9.Coord, WCT9.field a c < 563 :=
       ⟨fun h c => h c.val c.isLt (Nat.zero_le _), fun h k' hk' _ => h ⟨k', hk'⟩⟩
-    by_cases hf : ∀ c : WCT9.Coord, WCT9.field a c < 16200
+    by_cases hf : ∀ c : WCT9.Coord, WCT9.field a c < 563
     · rw [if_pos (hall.2 hf)] at p3
       obtain ⟨p3, x20'⟩ := p3
       have hS := psum_le a 9
@@ -707,7 +704,7 @@ theorem checks_spec (hl : LookOK im headLook) (u : MachineState) (hpc : u.pc = p
         rw [if_pos (by rw [hjc]; exact hcap)] at p4
         exact ⟨p4, by rw [r4.get (by decide +kernel)]; exact h22 r3⟩
       · rw [if_neg hA]
-        have hcap : ¬ psum a 9 ≤ 710 := fun h => hA (hprod.2 ⟨hadm.2 ⟨hg, hf⟩, by rw [← hjc]; exact h⟩)
+        have hcap : ¬ psum a 9 ≤ 789 := fun h => hA (hprod.2 ⟨hadm.2 ⟨hg, hf⟩, by rw [← hjc]; exact h⟩)
         rw [if_neg hcap] at p4; exact p4
     · rw [if_neg (fun h => hf (hall.1 h))] at p3
       refine ⟨t3, 7 + 3 + c3, (s1.trans s2).trans s3, by omega, ((r1.trans r2).trans r3).mono (by decide +kernel),

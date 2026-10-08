@@ -8,7 +8,7 @@ open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open SphincsSecurity.Completeness (searchLoop)
 open SphincsSecurity (bytesLE bytesLE_length)
-open ClaudeWCT.WCT9 (Coord Child Rank child rank Opening wctHeader buildChild buildCoordinate)
+open ClaudeWCT.WCT9 (Coord Child Rank child rank Opening wctHeader buildChildF buildCoordinateF)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
@@ -33,7 +33,7 @@ def payAfterDigest (cache : T3.Cache) (rho : Digest) (output : HashOutput) : M (
   let state ← (List.finRange 9).foldlM
     (fun (state : List Opening × List (Digest × Digest)) coord => do
       let selected := child output coord
-      let (levels, values) ← buildCoordinate index coord selected (rank output coord)
+      let (levels, values) ← buildCoordinateF index coord selected (rank output coord)
       let path := (List.range 7).map fun level =>
         (levels.getD level []).getD (selected.val / 2 ^ level ^^^ 1) 0
       let opening : Opening := ⟨fun i => values.getD i.val 0, fun i => path.getD i.val 0⟩
@@ -85,17 +85,21 @@ theorem avoids_forestPk (index : Nat) (roots : List (Digest × Digest)) :
     NonceFreshness.Avoids m (WCT9.forestPk index roots) := by
   unfold WCT9.forestPk
   exact NonceFreshness.avoids_shortHash m _
-theorem avoids_buildChild (index coord selected : Nat) (word : Rank) (carry : Digest) :
-    NonceFreshness.Avoids m (buildChild index coord selected word carry) :=
-  W9.T3.Security.Signer.buildChild_allowed _ (fun _ => by simp [NonceFreshness.nonceQuery])
-    (fun _ _ _ _ => by simp [NonceFreshness.nonceQuery]) index coord selected word carry
-theorem avoids_buildCoordinate (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
-    NonceFreshness.Avoids m (buildCoordinate index coord selected word) := by
-  unfold buildCoordinate
+theorem avoids_buildChildF (index coord selected : Nat) (word : Rank) (coefs : List Digest) :
+    NonceFreshness.Avoids m (buildChildF index coord selected word coefs) :=
+  W9.T3.Security.Signer.buildChildF_allowed _ (fun _ => by simp [NonceFreshness.nonceQuery])
+    index coord selected word coefs
+theorem avoids_ftsCoefs (index coord : Nat) : NonceFreshness.Avoids m (WCT9.ftsCoefs index coord) :=
+  W9.T3.Security.Signer.ftsCoefs_allowed _ (fun _ _ _ _ => by simp [NonceFreshness.nonceQuery]) index coord
+theorem avoids_buildCoordinateF (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
+    NonceFreshness.Avoids m (buildCoordinateF index coord selected word) := by
+  unfold buildCoordinateF
+  apply NonceFreshness.avoids_bind m (avoids_ftsCoefs m _ _)
+  intro coefs
   apply NonceFreshness.avoids_bind m
   · apply NonceFreshness.avoids_foldlM m
     intro state j
-    exact NonceFreshness.avoids_bind m (avoids_buildChild m _ _ _ _ _) fun _ => NonceFreshness.avoids_pure m _
+    exact NonceFreshness.avoids_bind m (avoids_buildChildF m _ _ _ _ _) fun _ => NonceFreshness.avoids_pure m _
   · intro state
     apply NonceFreshness.avoids_bind m
     · unfold WCT9.heapBuild
@@ -118,7 +122,7 @@ theorem wct_payAvoids : PayAvoids payAfterDigest := by
   apply NonceFreshness.avoids_bind m
   · apply NonceFreshness.avoids_foldlM m
     intro state coord
-    exact NonceFreshness.avoids_bind m (avoids_buildCoordinate m _ _ _ _) fun _ => NonceFreshness.avoids_pure m _
+    exact NonceFreshness.avoids_bind m (avoids_buildCoordinateF m _ _ _ _) fun _ => NonceFreshness.avoids_pure m _
   · intro state
     apply NonceFreshness.avoids_bind m (avoids_forestPk m _ _)
     intro root
@@ -206,9 +210,9 @@ theorem leafHash_ok (index coord selected : Nat) (ends : List Digest) :
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
     show BPB.hdrMarker (pad64 (bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (WCT9.ftsLeafHeader index coord selected) ++
-      (ends.drop 1).flatMap (bytesLE 16))) ≠ 0
+      zero16 ++ (ends.drop 1).flatMap (bytesLE 16))) ≠ 0
     unfold BPB.hdrMarker
-    rw [hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _) (bytesLE_length _ _), bytesLE16_first_toNat,
+    rw [List.append_assoc (bytesLE 16 _ ++ bytesLE 16 _), hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _) (bytesLE_length _ _), bytesLE16_first_toNat,
       WCT9.ftsLeafHeader_firstByte]
     decide
   · intro _; exact SourceQueries.pure_allowed _ _
@@ -238,18 +242,12 @@ theorem layerEncoding_ok (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (
   | pair left right =>
       exact BPB.shortHash_ok_marker (hdrBlock_pairEncodingInputP lay tree leaf left right counter 0)
         (by rw [rowTweak_marker]; decide)
-theorem buildChild_ok (index coord selected : Nat) (word : Rank) (carry : Digest) :
-    AllQueriesSatisfy (buildChild index coord selected word carry) BPB.NotDigestQ := by
-  unfold buildChild
+theorem buildChildF_ok (index coord selected : Nat) (word : Rank) (coefs : List Digest) :
+    AllQueriesSatisfy (buildChildF index coord selected word coefs) BPB.NotDigestQ := by
+  unfold buildChildF
   apply SourceQueries.bind_allowed
   · apply SourceQueries.foldlM_allowed
     intro state i
-    apply SourceQueries.bind_allowed
-    · unfold WCT9.packedSecret
-      split
-      · exact SourceQueries.bind_allowed _ (BPB.privatePair_ok _ _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
-      · exact SourceQueries.pure_allowed _ _
-    rintro ⟨secret, carry'⟩
     apply SourceQueries.bind_allowed _ (chain_ok _ _ _ _ _ _ _)
     intro value
     apply SourceQueries.bind_allowed _ (chain_ok _ _ _ _ _ _ _)
@@ -257,13 +255,20 @@ theorem buildChild_ok (index coord selected : Nat) (word : Rank) (carry : Digest
     exact SourceQueries.pure_allowed _ _
   · intro state
     exact SourceQueries.bind_allowed _ (leafHash_ok _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
-theorem buildCoordinate_ok (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
-    AllQueriesSatisfy (buildCoordinate index coord selected word) BPB.NotDigestQ := by
-  unfold buildCoordinate
+theorem ftsCoefs_ok (index coord : Nat) : AllQueriesSatisfy (WCT9.ftsCoefs index coord) BPB.NotDigestQ := by
+  unfold WCT9.ftsCoefs
+  apply SourceQueries.foldlM_allowed
+  intro acc j
+  exact SourceQueries.bind_allowed _ (BPB.privatePair_ok _ _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
+theorem buildCoordinateF_ok (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
+    AllQueriesSatisfy (buildCoordinateF index coord selected word) BPB.NotDigestQ := by
+  unfold buildCoordinateF
+  apply SourceQueries.bind_allowed _ (ftsCoefs_ok _ _)
+  intro coefs
   apply SourceQueries.bind_allowed
   · apply SourceQueries.foldlM_allowed
     intro state j
-    exact SourceQueries.bind_allowed _ (buildChild_ok _ _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
+    exact SourceQueries.bind_allowed _ (buildChildF_ok _ _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
   · intro state
     apply SourceQueries.bind_allowed
     · unfold WCT9.heapBuild
@@ -279,7 +284,7 @@ theorem wct_payNotDigest : PayNotDigest payAfterDigest := by
   apply SourceQueries.bind_allowed
   · apply SourceQueries.foldlM_allowed
     intro state coord
-    exact SourceQueries.bind_allowed _ (buildCoordinate_ok _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
+    exact SourceQueries.bind_allowed _ (buildCoordinateF_ok _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
   · intro state
     apply SourceQueries.bind_allowed _ (forestPk_ok _ _)
     intro root
@@ -609,7 +614,7 @@ section
 namespace ClaudeWCT.Bank.WCT
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open ClaudeWCT.WCT9 (Coord Child Rank child rank Opening buildChild buildCoordinate)
+open ClaudeWCT.WCT9 (Coord Child Rank child rank Opening buildChildF buildCoordinateF)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
@@ -622,18 +627,21 @@ theorem chain_allowed (index coord selected i start count : Nat) (value : Digest
     AllQueriesSatisfy (WCT9.chain index coord selected i start count value) Q := by
   unfold WCT9.chain
   exact SourceQueries.foldlM_allowed Q _ _ (fun _ _ => SourceQueries.shortHash_allowed Q hpublic _) _
-include hpublic hpair in
-theorem buildChild_allowed (index coord selected : Nat) (word : Rank) (carry : Digest) :
-    AllQueriesSatisfy (buildChild index coord selected word carry) Q :=
-  W9.T3.Security.Signer.buildChild_allowed Q hpublic (fun _ _ _ _ => hpair _) index coord selected word carry
+include hpublic in
+theorem buildChildF_allowed (index coord selected : Nat) (word : Rank) (coefs : List Digest) :
+    AllQueriesSatisfy (buildChildF index coord selected word coefs) Q :=
+  W9.T3.Security.Signer.buildChildF_allowed Q hpublic index coord selected word coefs
 include hpublic hpair hnonce in
-theorem buildCoordinate_allowed (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
-    AllQueriesSatisfy (buildCoordinate index coord selected word) Q := by
-  unfold buildCoordinate
+theorem buildCoordinateF_allowed (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
+    AllQueriesSatisfy (buildCoordinateF index coord selected word) Q := by
+  unfold buildCoordinateF
+  apply SourceQueries.bind_allowed _
+    (W9.T3.Security.Signer.ftsCoefs_allowed Q (fun _ _ _ _ => hpair _) _ _)
+  intro coefs
   apply SourceQueries.bind_allowed
   · apply SourceQueries.foldlM_allowed
     intro state j
-    exact SourceQueries.bind_allowed _ (buildChild_allowed Q hpublic hpair _ _ _ _ _)
+    exact SourceQueries.bind_allowed _ (buildChildF_allowed Q hpublic _ _ _ _ _)
       fun _ => SourceQueries.pure_allowed _ _
   · intro state
     apply SourceQueries.bind_allowed
@@ -651,7 +659,7 @@ theorem payAfterDigest_allowed (cache : T3.Cache) (rho : Digest) (output : HashO
   apply SourceQueries.bind_allowed
   · apply SourceQueries.foldlM_allowed
     intro state coord
-    exact SourceQueries.bind_allowed _ (buildCoordinate_allowed Q hpublic hpair hnonce _ _ _ _)
+    exact SourceQueries.bind_allowed _ (buildCoordinateF_allowed Q hpublic hpair hnonce _ _ _ _)
       fun _ => SourceQueries.pure_allowed _ _
   · intro state
     unfold WCT9.forestPk

@@ -20,7 +20,7 @@ theorem wctSeed_eq (answers : Answers) (a : WctAddr) :
   rw [secretsOf_wct]
   rfl
 theorem wctSeed_secrets (answers : Answers) (a : WctAddr) :
-    Extract.wctSeed answers a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val = secretsOf answers (.inr a) :=
+    Extract.wctSeed answers a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val = wctSeedsOf (secretsOf answers) a :=
   wctSeed_eq answers a
 section Honest
 variable {answers : Answers} {labels : Labels}
@@ -142,7 +142,7 @@ theorem honestPair_eq (h : Agrees answers labels) (lay : Layer) (tree : Fin (2^3
   unfold Extract.honestPair
   rw [builtTree_eq h lay tree (height lay - 1) 0 (by omega) (by omega) ht (Or.inr (by omega)),
     builtTree_eq h lay tree (height lay - 1) 1 (by omega) (by omega) ht (Or.inr (by omega))]
-theorem wctValue_eq (h : Agrees answers labels) (a : WctAddr) (s : Nat) (hs : s ≤ 3) :
+theorem wctValue_eq (h : Agrees answers labels) (a : WctAddr) (s : Nat) (hs : s ≤ 4) :
     Extract.wctValue answers a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val s = wctValueL (secretsOf answers) labels a s := by
   induction s with
   | zero =>
@@ -162,7 +162,7 @@ theorem wctValue_eq (h : Agrees answers labels) (a : WctAddr) (s : Nat) (hs : s 
       simp only [cell] at hcell
       unfold WCT9.shortAnswer
       rw [hcell]
-      have hnode : (Node.wctChain (a, ⟨(s + 1 - 1) % 3, Nat.mod_lt _ (by decide)⟩) : Node) =
+      have hnode : (Node.wctChain (a, ⟨(s + 1 - 1) % 4, Nat.mod_lt _ (by decide)⟩) : Node) =
           .wctChain (a, ⟨s, by omega⟩) := by
         congr
         simp only [Nat.add_sub_cancel]
@@ -170,23 +170,28 @@ theorem wctValue_eq (h : Agrees answers labels) (a : WctAddr) (s : Nat) (hs : s 
       unfold wctValueL
       rw [if_neg (by omega), hnode]
 theorem wctEnd_eq (h : Agrees answers labels) (a : WctAddr) :
-    Extract.wctValue answers a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val 3 = wctEndLabel labels a := by
-  rw [wctValue_eq h a 3 le_rfl, wctValueL_three]
+    Extract.wctValue answers a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val 4 = wctEndLabel labels a := by
+  rw [wctValue_eq h a 4 le_rfl, wctValueL_three]
 theorem wctEnds_eq (h : Agrees answers labels) (L : WctLeafPos) :
     Extract.wctEnds answers L.index.val L.coord.val L.child.val =
-      List.ofFn fun t : Fin 7 => wctEndLabel labels (L.index, L.coord, L.child, t) := by
+      List.ofFn fun t : Fin 6 => wctEndLabel labels (L.index, L.coord, L.child, t) := by
   unfold Extract.wctEnds
   congr 1
   funext t
   exact wctEnd_eq h (L.index, L.coord, L.child, t)
 theorem childRoot_eq (h : Agrees answers labels) (L : WctLeafPos) :
     WCT9.childRoot answers L.index.val L.coord.val L.child.val = (labels (.wctLeaf L)).extractLsb' 0 128 := by
-  have hends : (List.ofFn fun i : Fin 7 => WCT9.chainEnd answers L.index.val L.coord.val L.child.val i) =
+  have hends : (List.ofFn fun i : Fin 6 => WCT9.chainEnd answers L.index.val L.coord.val L.child.val i) =
       Extract.wctEnds answers L.index.val L.coord.val L.child.val := rfl
-  unfold WCT9.childRoot WCT9.leafHash
-  rw [hends, wctEnds_eq h L]
+  have hleaf : ∀ ends : List Digest, WCT9.leafHash L.index.val L.coord.val L.child.val ends =
+      shortHash (Extract.wctLeafInput L.index.val L.coord.val L.child.val ends) := by
+    intro ends
+    unfold WCT9.leafHash Extract.wctLeafInput Extract.listInput
+    simp only [List.flatMap_cons, WCT9.bytesLE_zero16, List.append_assoc]
+  unfold WCT9.childRoot
+  rw [hleaf, hends, wctEnds_eq h L]
   change (answers (.inl (.inr (pad64 (Extract.wctLeafInput L.index.val L.coord.val L.child.val
-    (List.ofFn fun t : Fin 7 => wctEndLabel labels (L.index, L.coord, L.child, t))))))).extractLsb' 0 128 = _
+    (List.ofFn fun t : Fin 6 => wctEndLabel labels (L.index, L.coord, L.child, t))))))).extractLsb' 0 128 = _
   exact congrArg (fun output : HashOutput => output.extractLsb' 0 128) (h (.wctLeaf L))
 theorem ftsNodeAt_some (index : Fin (2^31)) (coord : Fin 9) (level c : Nat) (hlevel : level < 6)
     (hc : c < 2 ^ (7 - level - 1)) :

@@ -90,9 +90,9 @@ theorem mkBit_lt (x k : Nat) : x / 2 ^ k % 2 < 2 := Nat.mod_lt _ (by decide +ker
 theorem mkBase_eq (lay : Layer) : mkBase lay.val = ClaudeWCT.W9.T3M.layerBase lay := by fin_cases lay <;> rfl
 def mkPS (lay : Nat) : Nat := [48,23,19,19].getD lay 0
 theorem mkPS_eq (lay : Layer) : mkPS lay.val = ClaudeWCT.W9.T3M.pathSlots lay := by fin_cases lay <;> rfl
-theorem mkBase_ge (lay : Nat) (hlay : lay < 4) : 8000 ≤ mkBase lay ∧ mkBase lay % 16 = 0 := by
+theorem mkBase_ge (lay : Nat) (hlay : lay < 4) : 7424 ≤ mkBase lay ∧ mkBase lay % 16 = 0 := by
   interval_cases lay <;> decide +kernel
-theorem mkBo_top (leaf k : Nat) : mkBo 0 leaf k = 8000 + 64 * (11 - k) := by
+theorem mkBo_top (leaf k : Nat) : mkBo 0 leaf k = 7424 + 64 * (11 - k) := by
   unfold mkBo; rw [if_pos rfl]; rfl
 theorem mkBo_low (lay leaf k : Nat) (h0 : lay ≠ 0) : mkBo lay leaf k = mkBase lay + 16 * plan lay leaf k := by
   unfold mkBo; rw [if_neg h0]
@@ -173,7 +173,7 @@ theorem mkKS_succ (lay leaf k s : Nat) (h : s ∈ mkKS lay leaf (k + 1)) : s ∈
   obtain ⟨j, ⟨hj, hkj⟩, hs⟩ := h
   exact ⟨j, ⟨hj, by omega⟩, hs⟩
 theorem mkBo_facts (lay leaf k : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL lay) (hk : k < hL lay) :
-    mkBo lay leaf k % 16 = 0 ∧ 8000 ≤ mkBo lay leaf k ∧ mkBo lay leaf k + 80 ≤ 19000 ∧ mkBase lay ≤ mkBo lay leaf k ∧
+    mkBo lay leaf k % 16 = 0 ∧ 7424 ≤ mkBo lay leaf k ∧ mkBo lay leaf k + 80 ≤ 19000 ∧ mkBase lay ≤ mkBo lay leaf k ∧
       mkBo lay leaf k + 64 ≤ mkBase lay + 16 * mkPS lay := by
   by_cases h0 : lay = 0
   · subst h0
@@ -236,13 +236,13 @@ theorem mkHeapE_eval (lay leaf k : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL 
   · simp only [E.eval, kw]
     rw [mkHeap_eq lay leaf k hlay hleaf hk hc]
 def mkPL (lay leaf k o : Nat) : Prop :=
-  (8000 ≤ o ∧ o < mkBase lay) ∨ (mkBase lay ≤ o ∧ (o - mkBase lay) / 16 ∈ mkKS lay leaf k)
+  (7424 ≤ o ∧ o < mkBase lay) ∨ (mkBase lay ≤ o ∧ (o - mkBase lay) / 16 ∈ mkKS lay leaf k)
 def mkP (lay leaf k b : Nat) (o : Nat) : Prop :=
   if lay = 0 then
-    8000 ≤ o ∧ o < mkBo 0 leaf k + 64 ∧ (0x800 + o + 8 ≤ mkCur 0 leaf k b ∨ mkCur 0 leaf k b + 32 ≤ 0x800 + o)
+    7424 ≤ o ∧ o < mkBo 0 leaf k + 64 ∧ (0x800 + o + 8 ≤ mkCur 0 leaf k b ∨ mkCur 0 leaf k b + 32 ≤ 0x800 + o)
   else mkPL lay leaf k o
 theorem mkP_top (leaf k b o : Nat) : mkP 0 leaf k b o ↔
-    (8000 ≤ o ∧ o < mkBo 0 leaf k + 64 ∧ (0x800 + o + 8 ≤ mkCur 0 leaf k b ∨ mkCur 0 leaf k b + 32 ≤ 0x800 + o)) := by
+    (7424 ≤ o ∧ o < mkBo 0 leaf k + 64 ∧ (0x800 + o + 8 ≤ mkCur 0 leaf k b ∨ mkCur 0 leaf k b + 32 ≤ 0x800 + o)) := by
   unfold mkP; rw [if_pos rfl]
 theorem mkP_low (lay leaf k b o : Nat) (h0 : lay ≠ 0) : mkP lay leaf k b o ↔ mkPL lay leaf k o := by
   unfold mkP; rw [if_neg h0]
@@ -295,7 +295,7 @@ theorem mkP_step (lay leaf k : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL lay)
       exact ⟨⟨Or.inr ⟨hge, mkKS_succ _ _ _ _ hs⟩, by omega, by omega⟩, by omega⟩
 theorem mkP_leaf (lay leaf : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL lay) (o : Nat) (h8 : o % 8 = 0)
     (ho : mkP lay leaf 0 (leaf / 2 ^ 0 % 2) o) :
-    (8000 ≤ o ∧ o < mkBase lay + 16 * mkPS lay) ∧
+    (7424 ≤ o ∧ o < mkBase lay + 16 * mkPS lay) ∧
       (0x800 + o + 8 ≤ mkCur lay leaf 0 (leaf / 2 ^ 0 % 2) ∨ mkCur lay leaf 0 (leaf / 2 ^ 0 % 2) + 32 ≤ 0x800 + o) := by
   have hhL : 0 < hL lay := by interval_cases lay <;> decide +kernel
   have hb := mkBit_lt leaf 0
@@ -304,8 +304,8 @@ theorem mkP_leaf (lay leaf : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL lay) (
   by_cases h0 : lay = 0
   · subst h0
     rw [mkP_top] at ho
-    have e1 : mkBo 0 leaf 0 = 8704 := by rw [mkBo_top]
-    have e2 : mkBase 0 + 16 * mkPS 0 = 8768 := rfl
+    have e1 : mkBo 0 leaf 0 = 8128 := by rw [mkBo_top]
+    have e2 : mkBase 0 + 16 * mkPS 0 = 8192 := rfl
     rw [e2]
     unfold mkCur mkBlk at *
     omega
@@ -339,7 +339,7 @@ structure MkEnd (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (lay leaf : Nat) (u 
   known : KnownOK (mkKc lay ++ [(.x11, 64)]) t
   keep : ∀ r ∈ mkKeep, t.getReg r = u.getReg r
   root : DigAt t (mkDst lay leaf) root
-  orig : Orig w (fun o => 8000 ≤ o ∧ o < mkBase lay) t
+  orig : Orig w (fun o => 7424 ≤ o ∧ o < mkBase lay) t
   dstReg : t.getReg .x12 = BitVec.ofNat 64 (mkDst lay leaf)
   x10 : t.getReg .x10 = BitVec.ofNat 64 (mkBlk lay leaf (hL lay - 1))
 def mkHashInputOf (a b : Word) (f : Word → BitVec 8) : Query :=
@@ -500,11 +500,11 @@ theorem safeDest_dst (lay leaf : Nat) (hlay : lay < 4) : safeDest (mkDst lay lea
   · simp [mkDst,h,safeDest,pSlots,CTRW,WIT,MEMORY_BYTES]
     intro x hx; right; omega
 theorem mkDst_chunk (leaf : Nat) :
-    10048 + 48 * (mkSh 0 1 leaf / 32 % 2) = mkDst 0 leaf := by
+    9472 + 48 * (mkSh 0 1 leaf / 32 % 2) = mkDst 0 leaf := by
   have h := mkSh_bit 0 1 leaf 5 (by decide +kernel)
-  change 10048 + 48 * (mkSh 0 1 leaf / 2^5 % 2) =
-    10048 + 48 * (leaf / 2^(mkLo 0 1+5) % 2)
-  exact congrArg (fun x => 10048 + 48*x) h
+  change 9472 + 48 * (mkSh 0 1 leaf / 2^5 % 2) =
+    9472 + 48 * (leaf / 2^(mkLo 0 1+5) % 2)
+  exact congrArg (fun x => 9472 + 48*x) h
 theorem mkMove_next (lay k : Nat) (hk : k+1 < hL lay) : mkMove lay k = 1 := by
   by_cases h : lay = 0
   · subst lay
@@ -928,7 +928,7 @@ theorem merkle_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (l
           exact hkU p (lfK_mkK _ p hp')
       · intro r hr; rw [writeHash_getReg]; exact ht.keep r (mkKeep_sub _ r hr)
       · exact DigAt.writeHash_lo t a _ h12 hd
-      · have hO : Orig w (fun o => 8000 ≤ o ∧
+      · have hO : Orig w (fun o => 7424 ≤ o ∧
             o < ClaudeWCT.W9.T3M.layerBase lay + 16 * ClaudeWCT.W9.T3M.pathSlots lay) t :=
           hu.orig.frame (fun j _ _ => hmem _)
         have hw2 := Orig_writeHash hO a _ h12 hd

@@ -10,14 +10,14 @@ open SigGolfCandidate.T3 (Digest HashOutput M header shortHash pad64 zero16)
 open SphincsSecurity (bytesLE)
 set_option linter.unusedSimpArgs false
 def qQ (k index j : Nat) : Nat := j * 2 ^ 20 + index * 2 ^ 27 + 65536 * k
-theorem ftsChainLow_qQ (index k j t st : Nat) (hk : k < 9) (hidx : index < 2 ^ 31) (hj : j < 128) (ht : t < 7)
-    (hst : st < 3) : WCT9.ftsChainLow index k j t st = qQ k index j + qK t st := by
+theorem ftsChainLow_qQ (index k j t st : Nat) (hk : k < 9) (hidx : index < 2 ^ 31) (hj : j < 128) (ht : t < 6)
+    (hst : st < 4) : WCT9.ftsChainLow index k j t st = qQ k index j + qK t st := by
   unfold WCT9.ftsChainLow qQ qK
   rw [Nat.mod_eq_of_lt (show t < 8 by omega), Nat.mod_eq_of_lt (show st < 4 by omega),
     Nat.mod_eq_of_lt (show k < 16 by omega), Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hidx]
   ring
-theorem step_byte (Q t st st' : Nat) (hQ : Q % 65536 = 0) (hQb : Q < 2 ^ 63) (ht : t < 7) (hst : st < 3)
-    (hst' : st' < 3) :
+theorem step_byte (Q t st st' : Nat) (hQ : Q % 65536 = 0) (hQb : Q < 2 ^ 63) (ht : t < 6) (hst : st < 4)
+    (hst' : st' < 4) :
     replaceByte (BitVec.ofNat 64 (Q + qK t st)) 1 ((BitVec.ofNat 64 st').truncate 8) =
       BitVec.ofNat 64 (Q + qK t st') := by
   apply BitVec.eq_of_toNat_eq
@@ -29,7 +29,7 @@ theorem chainInput_blk4 (index k j t st : Nat) (val : Digest) :
   rw [WCT9.chainInput_eq]
   simp only [VLib.blk4, VLib.bytesLE16_zero]
 theorem chain_hashIn {u : MachineState} {A : Nat} {k index j t st : Nat} {val : Digest} (hk : k < 9)
-    (hidx : index < 2 ^ 31) (hj : j < 128) (ht : t < 7) (hst : st < 3)
+    (hidx : index < 2 ^ 31) (hj : j < 128) (ht : t < 6) (hst : st < 4)
     (h10 : u.getReg .x10 = BitVec.ofNat 64 A) (h11 : u.getReg .x11 = BitVec.ofNat 64 64)
     (hA : A % 8 = 0) (hA' : A + 64 < 2 ^ 64)
     (p0 : u.getMem (BitVec.ofNat 64 A) = 0) (p0' : u.getMem (BitVec.ofNat 64 (A + 8)) = 0)
@@ -63,6 +63,7 @@ structure CRegs (B H X4 Q : Nat) (s : MachineState) : Prop where
   x31 : s.getReg .x31 = BitVec.ofNat 64 Q
   x7 : s.getReg .x7 = BitVec.ofNat 64 1
   x13 : s.getReg .x13 = BitVec.ofNat 64 2
+  x19 : s.getReg .x19 = BitVec.ofNat 64 3
   x5 : s.getReg .x5 = 0
   x11 : s.getReg .x11 = BitVec.ofNat 64 64
 def keepC (s u : MachineState) : Prop :=
@@ -78,6 +79,7 @@ theorem CRegs.of_keep {B H X4 Q : Nat} {s u : MachineState} (h : CRegs B H X4 Q 
     (hk _ (by decide) (by decide) (by decide) (by decide) (by decide)).trans h.x31,
     (hk _ (by decide) (by decide) (by decide) (by decide) (by decide)).trans h.x7,
     (hk _ (by decide) (by decide) (by decide) (by decide) (by decide)).trans h.x13,
+    (hk _ (by decide) (by decide) (by decide) (by decide) (by decide)).trans h.x19,
     (hk _ (by decide) (by decide) (by decide) (by decide) (by decide)).trans h.x5,
     (hk _ (by decide) (by decide) (by decide) (by decide) (by decide)).trans h.x11⟩
 def chainWr (B t : Nat) (own : Bool) (A : Nat) : Prop :=
@@ -97,13 +99,13 @@ structure CMid (B H k index j t : Nat) (own : Bool) (s u : MachineState) (st : N
   p1' : u.getMem (BitVec.ofNat 64 (B + offC t + 40)) = 0
   val : DigAt u D val
   frame : Frame s u (chainWr B t own)
-theorem offC_bounds (t : Nat) (ht : t < 7) : offC t % 64 = 0 ∧ 448 ≤ offC t ∧ offC t + 48 ≤ 880 := by
+theorem offC_bounds (t : Nat) (ht : t < 6) : offC t % 64 = 0 ∧ 448 ≤ offC t ∧ offC t + 48 ≤ 816 := by
   unfold offC; omega
-theorem slotC_bounds (t : Nat) (ht : t < 7) : slotC t % 16 = 0 ∧ 880 ≤ slotC t ∧ slotC t + 32 ≤ 1024 := by
+theorem slotC_bounds (t : Nat) (ht : t < 6) : slotC t % 16 = 0 ∧ 816 ≤ slotC t ∧ slotC t + 32 ≤ 960 := by
   unfold slotC; split <;> omega
 theorem tb_chainHash {β : Type} {im : Image} {sk : BitVec 256} {u : MachineState} {A D : Nat}
     {k index j t st : Nat} {val : Digest} {W : Nat} {f : Digest → M β} {Q : β → MachineState → Prop}
-    (hk : k < 9) (hidx : index < 2 ^ 31) (hj : j < 128) (ht : t < 7) (hst : st < 3)
+    (hk : k < 9) (hidx : index < 2 ^ 31) (hj : j < 128) (ht : t < 6) (hst : st < 4)
     (hf : fetch im u = some (.base .ECALL)) (h5 : u.getReg .x5 = 0) (h10 : u.getReg .x10 = BitVec.ofNat 64 A)
     (h11 : u.getReg .x11 = BitVec.ofNat 64 64) (h12 : u.getReg .x12 = BitVec.ofNat 64 D)
     (hA8 : A % 8 = 0) (hAhi : A + 64 ≤ 2 ^ 24) (hD8 : D % 8 = 0) (hDhi : D + 32 ≤ 2 ^ 24)
@@ -130,8 +132,8 @@ theorem writeHash_get_out {t : MachineState} {a : BitVec 256} {D A : Nat} (h12 :
     (hD : D + 32 < 2 ^ 64) (hA : A < 2 ^ 64) (hn : A + 8 ≤ D ∨ D + 32 ≤ A) :
     (writeHash t a).getMem (BitVec.ofNat 64 A) = t.getMem (BitVec.ofNat 64 A) := by
   rw [getMem_writeHash t a D A h12 hD hA, if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega)]
-theorem head_hash {β : Type} {im : Image} {sk : BitVec 256} {p t st a2 : Nat} {own : Bool} (ht : t < 7)
-    (hst : st < 3) (ha : a2 = offC t + 48 ∨ (a2 = slotC t ∧ (own = false ∨ t = 0)))
+theorem head_hash {β : Type} {im : Image} {sk : BitVec 256} {p t st a2 : Nat} {own : Bool} (ht : t < 6)
+    (hst : st < 4) (ha : a2 = offC t + 48 ∨ (a2 = slotC t ∧ (own = false ∨ t = 0)))
     (hc : CodeAt im (pcOf p) (headW t st a2))
     {B H k index j : Nat} (hb : Bnd B H) (hk : k < 9) (hidx : index < 2 ^ 31) (hj : j < 128)
     (s : MachineState) (hpc : s.pc = pcOf p) (hr : CRegs B H (index + 2 ^ 32 * j) (qQ k index j) s)
@@ -201,8 +203,8 @@ theorem rdst_cases (t step : Nat) (own : Bool) :
   split_ifs with h
   · exact Or.inr ⟨rfl, h.2.1, h.2.2⟩
   · exact Or.inl rfl
-theorem rung_hash {β : Type} {im : Image} {sk : BitVec 256} {q t step : Nat} {own : Bool} (ht : t < 7)
-    (hs : step = 1 ∨ step = 2) (hc : CodeAt im (pcOf q) (rungW step (rungDst t step own)))
+theorem rung_hash {β : Type} {im : Image} {sk : BitVec 256} {q t step : Nat} {own : Bool} (ht : t < 6)
+    (hs : step = 1 ∨ step = 2 ∨ step = 3) (hc : CodeAt im (pcOf q) (rungW step (rungDst t step own)))
     {B H k index j : Nat} (hb : Bnd B H) (hk : k < 9) (hidx : index < 2 ^ 31) (hj : j < 128)
     {s u : MachineState} {val : Digest} (hpc : u.pc = pcOf q)
     (hm : CMid B H k index j t own s u (step - 1) val (B + offC t + 48))
@@ -235,12 +237,14 @@ theorem rung_hash {β : Type} {im : Image} {sk : BitVec 256} {q t step : Nat} {o
   have hqm : qQ k index j % 65536 = 0 ∧ qQ k index j < 2 ^ 63 := by unfold qQ; omega
   have hdr2 : u2.getMem (BitVec.ofNat 64 (B + offC t + 16)) = BitVec.ofNat 64 (qQ k index j + qK t step) := by
     rw [m16, hm.hdr]
-    rcases hs with rfl | rfl
+    rcases hs with rfl | rfl | rfl
     · simp only [if_true, hm.regs.x7]; exact step_byte _ t 0 1 hqm.1 hqm.2 ht (by decide) (by decide)
-    · simp only [show ¬ (2 = 1) by decide, if_false, hm.regs.x13]
+    · simp only [show ¬ (2 = 1) by decide, if_false, if_true, hm.regs.x13]
       exact step_byte _ t 1 2 hqm.1 hqm.2 ht (by decide) (by decide)
+    · simp only [show ¬ (3 = 1) by decide, show ¬ (3 = 2) by decide, if_false, hm.regs.x19]
+      exact step_byte _ t 2 3 hqm.1 hqm.2 ht (by decide) (by decide)
   refine (TBSim.steps s2 (tb_chainHash (A := B + offC t) (D := B + rdst t step own) (W := W) hk hidx hj ht
-    (by rcases hs with rfl | rfl <;> decide) e2 r2.x5
+    (by rcases hs with rfl | rfl | rfl <;> decide) e2 r2.x5
     x10_2 r2.x11 x12' (by omega) (by omega) (by omega) (by omega) ?_ ?_ hdr2 ?_ ?_ ?_ ?_ (fun a => ?_))).mono
     (by omega) (fun _ _ h => h)
   · rw [fs2 _ (by omega) (by omega)]; exact hm.p0
@@ -280,7 +284,7 @@ theorem rung_hash {β : Type} {im : Image} {sk : BitVec 256} {q t step : Nat} {o
 def dfin (t : Nat) (own : Bool) : Nat := if own then offC t + 48 else slotC t
 theorem a2C_one (t : Nat) (own : Bool) : a2C t 1 own = dfin t own := by
   unfold a2C dfin; simp
-theorem rdst_two (t : Nat) (own : Bool) : rdst t 2 own = dfin t own := by
+theorem rdst_three (t : Nat) (own : Bool) : rdst t 3 own = dfin t own := by
   unfold rdst rungDst dfin
   cases own
   · by_cases h : t = 0
@@ -289,10 +293,10 @@ theorem rdst_two (t : Nat) (own : Bool) : rdst t 2 own = dfin t own := by
   · simp
 def ChainPost (B H k index j t : Nat) (own : Bool) (s : MachineState) (q : Nat) (e : Digest) (u : MachineState) : Prop :=
   u.pc = pcOf q ∧ DigAt u (B + slotC t) e ∧ CRegs B H (index + 2 ^ 32 * j) (qQ k index j) u ∧ keepC s u ∧ Frame s u (chainWr B t own)
-theorem chain_finish {im : Image} {sk : BitVec 256} {q t : Nat} {own : Bool} (ht : t < 7)
-    (hown : own = true → 0 < t ∧ t < 6) (hc : CodeAt im (pcOf q) (if own then copyW t else []))
+theorem chain_finish {im : Image} {sk : BitVec 256} {q t : Nat} {own : Bool} (ht : t < 6)
+    (hown : own = true → 0 < t ∧ t < 5) (hc : CodeAt im (pcOf q) (if own then copyW t else []))
     {B H k index j : Nat} (hb : Bnd B H) {s u : MachineState} {e : Digest} (hpc : u.pc = pcOf q)
-    (hm : CMid B H k index j t own s u 2 e (B + dfin t own)) :
+    (hm : CMid B H k index j t own s u 3 e (B + dfin t own)) :
     TBSim im sk u 4 (pure e : M Digest)
       (ChainPost B H k index j t own s (q + (if own then copyW t else []).length)) := by
   cases own with
@@ -318,29 +322,33 @@ theorem chain_finish {im : Image} {sk : BitVec 256} {q t : Nat} {own : Bool} (ht
       · exact h
       · right; right; simp only [↓reduceIte]; omega
       · right; right; simp only [↓reduceIte]; omega
-def chainCost : Nat := 40
-theorem chain_tb {im : Image} {sk : BitVec 256} {p t d : Nat} {own : Bool} (ht : t < 7) (hd1 : 1 ≤ d)
-    (hd3 : d ≤ 3) (hown : own = true → 0 < t ∧ t < 6) (hc : CodeAt im (pcOf p) (chainW t d own))
+def chainCost : Nat := 46
+theorem chain_tb {im : Image} {sk : BitVec 256} {p t d : Nat} {own : Bool} (ht : t < 6) (hd1 : 1 ≤ d)
+    (hd4 : d ≤ 4) (hown : own = true → 0 < t ∧ t < 5) (hc : CodeAt im (pcOf p) (chainW t d own))
     {B H k index j : Nat} (hb : Bnd B H) (hk : k < 9) (hidx : index < 2 ^ 31) (hj : j < 128)
     (s : MachineState) (hpc : s.pc = pcOf p) (hr : CRegs B H (index + 2 ^ 32 * j) (qQ k index j) s)
     (hpad : PadsZ B t s) (v : Digest) (hv : DigAt s (B + offC t + 48) v) :
-    TBSim im sk s chainCost (WCT9.chain index k j t (3 - d) d v)
+    TBSim im sk s chainCost (WCT9.chain index k j t (4 - d) d v)
       (ChainPost B H k index j t own s (p + (chainW t d own).length)) := by
   have hc1 := codeAt_left (codeAt_left hc)
   have hc23 := codeAt_right (codeAt_left hc)
   have hc4 := codeAt_right hc
   have hlenW : (chainW t d own).length = 5 + (rungsW t d own).length + (if own then copyW t else []).length := by
     simp [chainW, headW]; omega
-  have hd : d = 1 ∨ d = 2 ∨ d = 3 := by omega
-  rcases hd with rfl | rfl | rfl
+  have hd : d = 1 ∨ d = 2 ∨ d = 3 ∨ d = 4 := by omega
+  have hdn1 : rungDst t 1 own = none := by simp [rungDst]
+  have hdn2 : rungDst t 2 own = none := by simp [rungDst]
+  have hrd1 : rdst t 1 own = offC t + 48 := by simp [rdst, hdn1]
+  have hrd2 : rdst t 2 own = offC t + 48 := by simp [rdst, hdn2]
+  rcases hd with rfl | rfl | rfl | rfl
   ·
-    have hsrc : WCT9.chain index k j t (3 - 1) 1 v =
-        (shortHash (WCT9.chainInput index k j t 2 v) >>= fun v1 => pure v1) := by
+    have hsrc : WCT9.chain index k j t (4 - 1) 1 v =
+        (shortHash (WCT9.chainInput index k j t 3 v) >>= fun v1 => pure v1) := by
       simp [WCT9.chain, List.range', List.foldlM]
     rw [hsrc]
     have ha : a2C t 1 own = offC t + 48 ∨ (a2C t 1 own = slotC t ∧ (own = false ∨ t = 0)) := by
       unfold a2C; cases own <;> simp
-    refine (head_hash (st := 2) (a2 := a2C t 1 own) (own := own) ht (by decide) ha hc1 hb hk hidx hj s hpc hr
+    refine (head_hash (st := 3) (a2 := a2C t 1 own) (own := own) ht (by decide) ha hc1 hb hk hidx hj s hpc hr
       hpad v hv (W := 4) (fun v' w pw hw => ?_)).mono (by unfold chainCost; omega)
       (fun _ _ h => h)
     have hr0 : rungsW t 1 own = [] := by simp [rungsW]
@@ -348,63 +356,101 @@ theorem chain_tb {im : Image} {sk : BitVec 256} {p t d : Nat} {own : Bool} (ht :
     have := chain_finish (sk := sk) ht hown (by rw [hr0] at hc4; simpa [headW] using hc4) hb pw hw
     rw [hlenW, hr0]; simpa [headW, Nat.add_assoc] using this
   ·
-    have hsrc : WCT9.chain index k j t (3 - 2) 2 v =
-        (shortHash (WCT9.chainInput index k j t 1 v) >>= fun v1 =>
-          shortHash (WCT9.chainInput index k j t 2 v1) >>= fun v2 => pure v2) := by
+    have hsrc : WCT9.chain index k j t (4 - 2) 2 v =
+        (shortHash (WCT9.chainInput index k j t 2 v) >>= fun v1 =>
+          shortHash (WCT9.chainInput index k j t 3 v1) >>= fun v2 => pure v2) := by
       simp [WCT9.chain, List.range', List.foldlM]
     rw [hsrc]
-    have hr2 : rungsW t 2 own = rungW 2 (rungDst t 2 own) := by simp [rungsW]
+    have hr2 : rungsW t 2 own = rungW 3 (rungDst t 3 own) := by simp [rungsW]
     have ha2 : a2C t 2 own = offC t + 48 := by simp [a2C]
     rw [ha2] at hc1
     rw [hr2] at hc23 hc4
-    refine (head_hash (st := 1) (a2 := offC t + 48) (own := own) ht (by decide) (Or.inl rfl) hc1 hb hk hidx hj s hpc
+    refine (head_hash (st := 2) (a2 := offC t + 48) (own := own) ht (by decide) (Or.inl rfl) hc1 hb hk hidx hj s hpc
       hr hpad v hv (W := 2 + (8 + 4)) (fun v1 w1 pw1 hw1 => ?_)).mono
       (by unfold chainCost; omega) (fun _ _ h => h)
     rw [← Nat.add_assoc] at hw1
-    refine rung_hash (step := 2) (own := own) ht (Or.inr rfl) (by simpa [headW] using hc23) hb hk hidx hj
+    refine rung_hash (step := 3) (own := own) ht (Or.inr (Or.inr rfl)) (by simpa [headW] using hc23) hb hk hidx hj
       (by rw [pw1]) hw1 (fun v2 w2 pw2 hw2 => ?_)
-    rw [rdst_two] at hw2
-    have hc4' : CodeAt im (pcOf (p + 5 + (rungW 2 (rungDst t 2 own)).length)) (if own then copyW t else []) := by
-      have e : p + 5 + (rungW 2 (rungDst t 2 own)).length =
-          p + (headW t (3 - 2) (a2C t 2 own) ++ rungW 2 (rungDst t 2 own)).length := by
+    rw [rdst_three] at hw2
+    have hc4' : CodeAt im (pcOf (p + 5 + (rungW 3 (rungDst t 3 own)).length)) (if own then copyW t else []) := by
+      have e : p + 5 + (rungW 3 (rungDst t 3 own)).length =
+          p + (headW t (4 - 2) (a2C t 2 own) ++ rungW 3 (rungDst t 3 own)).length := by
         simp only [headW, List.length_append, List.length_cons, List.length_nil]; omega
       rw [e]; exact hc4
     have := chain_finish (sk := sk) ht hown hc4' hb pw2 hw2
     rw [hlenW, hr2]; simpa [headW, Nat.add_assoc] using this
   ·
-    have hsrc : WCT9.chain index k j t (3 - 3) 3 v =
-        (shortHash (WCT9.chainInput index k j t 0 v) >>= fun v1 =>
-          shortHash (WCT9.chainInput index k j t 1 v1) >>= fun v2 =>
-            shortHash (WCT9.chainInput index k j t 2 v2) >>= fun v3 => pure v3) := by
+    have hsrc : WCT9.chain index k j t (4 - 3) 3 v =
+        (shortHash (WCT9.chainInput index k j t 1 v) >>= fun v1 =>
+          shortHash (WCT9.chainInput index k j t 2 v1) >>= fun v2 =>
+            shortHash (WCT9.chainInput index k j t 3 v2) >>= fun v3 => pure v3) := by
       simp [WCT9.chain, List.range', List.foldlM]
     rw [hsrc]
-    have hr3 : rungsW t 3 own = rungW 1 (rungDst t 1 own) ++ rungW 2 (rungDst t 2 own) := by
+    have hr3 : rungsW t 3 own = rungW 2 (rungDst t 2 own) ++ rungW 3 (rungDst t 3 own) := by
       simp [rungsW, List.range']
-    have hd1 : rungDst t 1 own = none := by simp [rungDst]
     have ha3 : a2C t 3 own = offC t + 48 := by simp [a2C]
     rw [ha3] at hc1
     rw [hr3] at hc23 hc4
     have hc2 := codeAt_left hc23
     have hc3 := codeAt_right hc23
-    refine (head_hash (st := 0) (a2 := offC t + 48) (own := own) ht (by decide) (Or.inl rfl) hc1 hb hk hidx hj s hpc
+    refine (head_hash (st := 1) (a2 := offC t + 48) (own := own) ht (by decide) (Or.inl rfl) hc1 hb hk hidx hj s hpc
       hr hpad v hv (W := 2 + (8 + (2 + (8 + 4)))) (fun v1 w1 pw1 hw1 => ?_)).mono
       (by unfold chainCost; omega) (fun _ _ h => h)
     rw [← Nat.add_assoc] at hw1
-    refine rung_hash (step := 1) (own := own) ht (Or.inl rfl) (by simpa [headW] using hc2) hb hk hidx hj
+    refine rung_hash (step := 2) (own := own) ht (Or.inr (Or.inl rfl)) (by simpa [headW] using hc2) hb hk hidx hj
       (by rw [pw1]) hw1 (fun v2 w2 pw2 hw2 => ?_)
-    have hrd1 : rdst t 1 own = offC t + 48 := by simp [rdst, hd1]
-    rw [hrd1, ← Nat.add_assoc] at hw2
-    refine rung_hash (step := 2) (own := own) ht (Or.inr rfl) (by simpa [headW, Nat.add_assoc] using hc3) hb hk
-      hidx hj (by rw [pw2]; simp [headW, Nat.add_assoc]) hw2 (fun v3 w3 pw3 hw3 => ?_)
-    rw [rdst_two] at hw3
-    have hc4' : CodeAt im (pcOf (p + 5 + (rungW 1 (rungDst t 1 own)).length + (rungW 2 (rungDst t 2 own)).length))
+    rw [hrd2, ← Nat.add_assoc] at hw2
+    refine rung_hash (step := 3) (own := own) ht (Or.inr (Or.inr rfl)) (by simpa [headW, Nat.add_assoc] using hc3) hb
+      hk hidx hj (by rw [pw2]; simp [headW, Nat.add_assoc]) hw2 (fun v3 w3 pw3 hw3 => ?_)
+    rw [rdst_three] at hw3
+    have hc4' : CodeAt im (pcOf (p + 5 + (rungW 2 (rungDst t 2 own)).length + (rungW 3 (rungDst t 3 own)).length))
         (if own then copyW t else []) := by
-      have e : p + 5 + (rungW 1 (rungDst t 1 own)).length + (rungW 2 (rungDst t 2 own)).length =
-          p + (headW t (3 - 3) (a2C t 3 own) ++ (rungW 1 (rungDst t 1 own) ++ rungW 2 (rungDst t 2 own))).length := by
+      have e : p + 5 + (rungW 2 (rungDst t 2 own)).length + (rungW 3 (rungDst t 3 own)).length =
+          p + (headW t (4 - 3) (a2C t 3 own) ++ (rungW 2 (rungDst t 2 own) ++ rungW 3 (rungDst t 3 own))).length := by
         simp only [headW, List.length_append, List.length_cons, List.length_nil]; omega
       rw [e]; exact hc4
     have := chain_finish (sk := sk) ht hown hc4' hb pw3 hw3
     rw [hlenW, hr3]; simpa [headW, Nat.add_assoc] using this
+  ·
+    have hsrc : WCT9.chain index k j t (4 - 4) 4 v =
+        (shortHash (WCT9.chainInput index k j t 0 v) >>= fun v1 =>
+          shortHash (WCT9.chainInput index k j t 1 v1) >>= fun v2 =>
+            shortHash (WCT9.chainInput index k j t 2 v2) >>= fun v3 =>
+              shortHash (WCT9.chainInput index k j t 3 v3) >>= fun v4 => pure v4) := by
+      simp [WCT9.chain, List.range', List.foldlM]
+    rw [hsrc]
+    have hr4 : rungsW t 4 own =
+        rungW 1 (rungDst t 1 own) ++ (rungW 2 (rungDst t 2 own) ++ rungW 3 (rungDst t 3 own)) := by
+      simp [rungsW, List.range']
+    have ha4 : a2C t 4 own = offC t + 48 := by simp [a2C]
+    rw [ha4] at hc1
+    rw [hr4] at hc23 hc4
+    have hc2 := codeAt_left hc23
+    have hc3 := codeAt_left (codeAt_right hc23)
+    have hc3' := codeAt_right (codeAt_right hc23)
+    refine (head_hash (st := 0) (a2 := offC t + 48) (own := own) ht (by decide) (Or.inl rfl) hc1 hb hk hidx hj s hpc
+      hr hpad v hv (W := 2 + (8 + (2 + (8 + (2 + (8 + 4)))))) (fun v1 w1 pw1 hw1 => ?_)).mono
+      (by unfold chainCost; omega) (fun _ _ h => h)
+    rw [← Nat.add_assoc] at hw1
+    refine rung_hash (step := 1) (own := own) ht (Or.inl rfl) (by simpa [headW] using hc2) hb hk hidx hj
+      (by rw [pw1]) hw1 (fun v2 w2 pw2 hw2 => ?_)
+    rw [hrd1, ← Nat.add_assoc] at hw2
+    refine rung_hash (step := 2) (own := own) ht (Or.inr (Or.inl rfl)) (by simpa [headW, Nat.add_assoc] using hc3) hb
+      hk hidx hj (by rw [pw2]; simp [headW, Nat.add_assoc]) hw2 (fun v3 w3 pw3 hw3 => ?_)
+    rw [hrd2, ← Nat.add_assoc] at hw3
+    refine rung_hash (step := 3) (own := own) ht (Or.inr (Or.inr rfl)) (by simpa [headW, Nat.add_assoc] using hc3')
+      hb hk hidx hj (by rw [pw3]; simp [headW, Nat.add_assoc]) hw3 (fun v4 w4 pw4 hw4 => ?_)
+    rw [rdst_three] at hw4
+    have hc4' : CodeAt im (pcOf (p + 5 + (rungW 1 (rungDst t 1 own)).length + (rungW 2 (rungDst t 2 own)).length +
+        (rungW 3 (rungDst t 3 own)).length)) (if own then copyW t else []) := by
+      have e : p + 5 + (rungW 1 (rungDst t 1 own)).length + (rungW 2 (rungDst t 2 own)).length +
+          (rungW 3 (rungDst t 3 own)).length =
+          p + (headW t (4 - 4) (a2C t 4 own) ++
+            (rungW 1 (rungDst t 1 own) ++ (rungW 2 (rungDst t 2 own) ++ rungW 3 (rungDst t 3 own)))).length := by
+        simp only [headW, List.length_append, List.length_cons, List.length_nil]; omega
+      rw [e]; exact hc4
+    have := chain_finish (sk := sk) ht hown hc4' hb pw4 hw4
+    rw [hlenW, hr4]; simpa [headW, Nat.add_assoc] using this
 end ClaudeWCT.W9.Machine.Expand
 end
 section
@@ -446,23 +492,23 @@ def walk (z : List Nat) : Nat → Nat → Nat → Option Nat
       match jalTo w n with
       | some m => (walk z fuel t m).map (· + 1)
       | none =>
-        if t < 7 then
+        if t < 6 then
           if z.getD t 0 = 0 then walk z fuel (t + 1) n
           else if windowOK n (chainW t (z.getD t 0) (ownC z t)) then
             (walk z fuel (t + 1) (n + (chainW t (z.getD t 0) (ownC z t)).length)).map (· + chainCost)
           else none
         else if windowOK n leafW then some 6 else none
 def chainsFrom (index k j : Nat) (z : List Nat) (vals : Nat → Digest) (t : Nat) : M (List Digest) :=
-  (List.range' t (7 - t)).mapM fun i => WCT9.chain index k j i (3 - z.getD i 0) (z.getD i 0) (vals i)
-theorem chainsFrom_succ (index k j : Nat) (z : List Nat) (vals : Nat → Digest) (t : Nat) (ht : t < 7) :
+  (List.range' t (6 - t)).mapM fun i => WCT9.chain index k j i (4 - z.getD i 0) (z.getD i 0) (vals i)
+theorem chainsFrom_succ (index k j : Nat) (z : List Nat) (vals : Nat → Digest) (t : Nat) (ht : t < 6) :
     chainsFrom index k j z vals t =
-      (WCT9.chain index k j t (3 - z.getD t 0) (z.getD t 0) (vals t) >>= fun e =>
+      (WCT9.chain index k j t (4 - z.getD t 0) (z.getD t 0) (vals t) >>= fun e =>
         chainsFrom index k j z vals (t + 1) >>= fun es => pure (e :: es)) := by
   unfold chainsFrom
-  rw [show 7 - t = (7 - (t + 1)) + 1 by omega, List.range'_succ, List.mapM_cons]
-theorem chainsFrom_seven (index k j : Nat) (z : List Nat) (vals : Nat → Digest) :
-    chainsFrom index k j z vals 7 = pure [] := rfl
-theorem chain_zero (index k j t : Nat) (v : Digest) : WCT9.chain index k j t (3 - 0) 0 v = pure v := rfl
+  rw [show 6 - t = (6 - (t + 1)) + 1 by omega, List.range'_succ, List.mapM_cons]
+theorem chainsFrom_six (index k j : Nat) (z : List Nat) (vals : Nat → Digest) :
+    chainsFrom index k j z vals 6 = pure [] := rfl
+theorem chain_zero (index k j t : Nat) (v : Digest) : WCT9.chain index k j t (4 - 0) 0 v = pure v := rfl
 def chainsWr (B : Nat) (z : List Nat) (t : Nat) (A : Nat) : Prop :=
   ∃ t', t' < t ∧ z.getD t' 0 ≠ 0 ∧ chainWr B t' (ownC z t') A
 structure RPre (B H k index j : Nat) (z : List Nat) (vals : Nat → Digest) (s0 : MachineState) : Prop where
@@ -472,10 +518,10 @@ structure RPre (B H k index j : Nat) (z : List Nat) (vals : Nat → Digest) (s0 
   hidx : index < 2 ^ 31
   hj : j < 128
   regs : CRegs B H (index + 2 ^ 32 * j) (qQ k index j) s0
-  pads : ∀ t, t < 7 → PadsZ B t s0
-  valAt : ∀ t, t < 7 → DigAt s0 (B + offC t + 48) (vals t)
-  passive : ∀ t, t < 7 → z.getD t 0 = 0 → DigAt s0 (B + slotC t) (vals t)
-  digits : ∀ t, t < 7 → z.getD t 0 ≤ 3
+  pads : ∀ t, t < 6 → PadsZ B t s0
+  valAt : ∀ t, t < 6 → DigAt s0 (B + offC t + 48) (vals t)
+  passive : ∀ t, t < 6 → z.getD t 0 = 0 → DigAt s0 (B + slotC t) (vals t)
+  digits : ∀ t, t < 6 → z.getD t 0 ≤ 4
 structure RInv (B H k index j : Nat) (z : List Nat) (s0 : MachineState) (t : Nat) (pre : List Digest)
     (u : MachineState) : Prop where
   len : pre.length = t
@@ -486,25 +532,25 @@ structure RInv (B H k index j : Nat) (z : List Nat) (s0 : MachineState) (t : Nat
 structure RPost (B k index j : Nat) (z : List Nat) (s0 : MachineState) (ends : List Digest) (w : MachineState) :
     Prop where
   pc : w.pc = s0.getReg .x23 &&& 0xfffffffffffffffe#64
-  a0 : w.getReg .x10 = BitVec.ofNat 64 (B + 880)
+  a0 : w.getReg .x10 = BitVec.ofNat 64 (B + 816)
   a1 : w.getReg .x11 = BitVec.ofNat 64 128
   keep : ∀ r, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → r ≠ .x14 → r ≠ .x25 → w.getReg r = s0.getReg r
-  len : ends.length = 7
-  ends : ∀ t, t < 7 → DigAt w (B + slotC t) (ends.getD t 0)
-  h0 : w.getMem (BitVec.ofNat 64 (B + 896)) = BitVec.ofNat 64 (qQ k index j + 1537)
-  h1 : w.getMem (BitVec.ofNat 64 (B + 904)) = 0
-  frame : Frame s0 w (fun A => chainsWr B z 7 A ∨ A = B + 896 ∨ A = B + 904)
-theorem offC_lt_slot (t t' : Nat) (ht : t < 7) (ht' : t' < 7) : offC t + 80 ≤ slotC t' ∨ (t = 0 ∧ t' = 0) := by
+  len : ends.length = 6
+  ends : ∀ t, t < 6 → DigAt w (B + slotC t) (ends.getD t 0)
+  h0 : w.getMem (BitVec.ofNat 64 (B + 832)) = BitVec.ofNat 64 (qQ k index j + 1537)
+  h1 : w.getMem (BitVec.ofNat 64 (B + 840)) = 0
+  frame : Frame s0 w (fun A => chainsWr B z 6 A ∨ A = B + 832 ∨ A = B + 840)
+theorem offC_lt_slot (t t' : Nat) (ht : t < 6) (ht' : t' < 6) : offC t + 80 ≤ slotC t' ∨ (t = 0 ∧ t' = 0) := by
   unfold offC slotC; split <;> omega
-theorem slot_free_later {B t t'' : Nat} {own : Bool} (h : t < t'') (h7 : t'' < 7) (o : Nat) (ho : o < 16) :
+theorem slot_free_later {B t t'' : Nat} {own : Bool} (h : t < t'') (h7 : t'' < 6) (o : Nat) (ho : o < 16) :
     ¬ chainWr B t'' own (B + slotC t + o) := by
   unfold chainWr offC slotC
   split_ifs <;> omega
-theorem block_free_earlier {B t' t : Nat} {own : Bool} (h : t' < t) (h7 : t < 7) (o : Nat) (ho : o < 64)
+theorem block_free_earlier {B t' t : Nat} {own : Bool} (h : t' < t) (h7 : t < 6) (o : Nat) (ho : o < 64)
     : ¬ chainWr B t' own (B + offC t + o) := by
   unfold chainWr offC slotC
   split_ifs <;> omega
-theorem passive_free_earlier {B t' t : Nat} (z : List Nat) (h : t' < t) (h7 : t < 7) (hp : z.getD t 0 = 0)
+theorem passive_free_earlier {B t' t : Nat} (z : List Nat) (h : t' < t) (h7 : t < 6) (hp : z.getD t 0 = 0)
     (o : Nat) (ho : o < 16) : ¬ chainWr B t' (ownC z t') (B + slotC t + o) := by
   unfold chainWr offC slotC
   by_cases ht1 : t = t' + 1
@@ -516,8 +562,13 @@ theorem passive_free_earlier {B t' t : Nat} (z : List Nat) (h : t' < t) (h7 : t 
       rw [hown]; simp only [↓reduceIte]; split_ifs <;> omega
   · split_ifs <;> omega
 theorem leafHdr_free {B t : Nat} (o : Nat) (ho : o < 16) :
-    B + slotC t + o ≠ B + 896 ∧ B + slotC t + o ≠ B + 904 := by
+    B + slotC t + o ≠ B + 832 ∧ B + slotC t + o ≠ B + 840 := by
   unfold slotC; split <;> omega
+/-- The leaf pad slot (848..864) is never written by a chain. -/
+theorem leafPad_free {B t : Nat} {own : Bool} (ht : t < 6) (o : Nat) (ho : o < 16) :
+    ¬ chainWr B t own (B + 848 + o) := by
+  unfold chainWr offC slotC
+  split_ifs <;> omega
 theorem expLook_lt {m : Nat} {w : BitVec 32} (h : expLook m = some w) : 1024 ≤ m ∧ m < 168 * 256 := by
   unfold expLook at h
   split at h
@@ -548,18 +599,18 @@ theorem getD_append_lt {α : Type} (l1 l2 : List α) (d : α) (i : Nat) (h : i <
   simp [List.getD_eq_getElem?_getD, List.getElem?_append_left h]
 theorem getD_append_len {α : Type} (l : List α) (a : α) (d : α) : (l ++ [a]).getD l.length d = a := by
   simp [List.getD_eq_getElem?_getD]
-theorem chainNe (z : List Nat) (t : Nat) (h : z.getD t 0 ≠ 0) (h3 : z.getD t 0 ≤ 3) :
-    1 ≤ z.getD t 0 ∧ z.getD t 0 ≤ 3 := ⟨by omega, h3⟩
-theorem ownC_spec (z : List Nat) (t : Nat) : ownC z t = true → 0 < t ∧ t < 6 := by
+theorem chainNe (z : List Nat) (t : Nat) (h : z.getD t 0 ≠ 0) (h3 : z.getD t 0 ≤ 4) :
+    1 ≤ z.getD t 0 ∧ z.getD t 0 ≤ 4 := ⟨by omega, h3⟩
+theorem ownC_spec (z : List Nat) (t : Nat) : ownC z t = true → 0 < t ∧ t < 5 := by
   simp only [ownC, Bool.and_eq_true, decide_eq_true_eq]; exact fun h => h.1
-theorem hbank_free {B H : Nat} {z : List Nat} {t A : Nat} (ht : t ≤ 7) (hs : B + 1024 + 2048 ≤ H) (hA : H - 2048 ≤ A) :
+theorem hbank_free {B H : Nat} {z : List Nat} {t A : Nat} (ht : t ≤ 6) (hs : B + 1024 + 2048 ≤ H) (hA : H - 2048 ≤ A) :
     ¬ chainsWr B z t A := by
   rintro ⟨t', ht', _, h⟩
   unfold chainWr offC slotC at h
   split_ifs at h <;> omega
 theorem walk_tb {im : Image} (hcode : NewCodeAt im) {sk : BitVec 256} {B H k index j : Nat} {z : List Nat}
     {vals : Nat → Digest} {s0 : MachineState} (hpre : RPre B H k index j z vals s0) :
-    ∀ fuel t n c (pre : List Digest) (u : MachineState), walk z fuel t n = some c → t ≤ 7 → u.pc = pcOf n →
+    ∀ fuel t n c (pre : List Digest) (u : MachineState), walk z fuel t n = some c → t ≤ 6 → u.pc = pcOf n →
       RInv B H k index j z s0 t pre u →
       TBSim im sk u c (chainsFrom index k j z vals t) (fun rest w => RPost B k index j z s0 (pre ++ rest) w) := by
   have hb := hpre.bnd
@@ -582,7 +633,7 @@ theorem walk_tb {im : Image} (hcode : NewCodeAt im) {sk : BitVec 256} {B H k ind
         obtain ⟨imm, hd, hoff⟩ := jalTo_sound hjal
         have hs := jal_x0_step (codeAt_one hcode hlook) hd hoff u hpc
         have hI' : RInv B H k index j z s0 t pre (u.setPC (pcOf m)) :=
-          ⟨hI.len, ⟨hI.regs.x8, hI.regs.x28, hI.regs.x4, hI.regs.x31, hI.regs.x7, hI.regs.x13, hI.regs.x5,
+          ⟨hI.len, ⟨hI.regs.x8, hI.regs.x28, hI.regs.x4, hI.regs.x31, hI.regs.x7, hI.regs.x13, hI.regs.x19, hI.regs.x5,
             hI.regs.x11⟩,
             fun r a b c d e => hI.keep r a b c d e, fun A hA hn => hI.frame A hA hn,
             fun t' ht' => hI.done t' ht'⟩
@@ -662,13 +713,13 @@ theorem walk_tb {im : Image} (hcode : NewCodeAt im) {sk : BitVec 256} {B H k ind
             · cases hw
         ·
           rename_i ht7
-          have h7 : t = 7 := by omega
+          have h7 : t = 6 := by omega
           subst h7
           split at hw
           · rename_i hwin
             simp only [Option.some.injEq] at hw
             subst hw
-            rw [chainsFrom_seven]
+            rw [chainsFrom_six]
             have hcw : CodeAt im (pcOf n) leafW := codeAt_win hcode hwin (by simp [leafW])
             obtain ⟨w, sw, pw, a0, a1, kw, m0, m1, fw⟩ := leaf_spec hcw u hpc hI.regs.x8 hI.regs.x28 hb
             refine (TBSim.steps sw (TBSim.pure ⟨?_, a0, a1, ?_, by simp [hI.len], ?_, ?_, ?_, ?_⟩)).mono

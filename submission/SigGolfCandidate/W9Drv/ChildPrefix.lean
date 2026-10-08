@@ -15,7 +15,7 @@ def blkO (j l : Nat) : Nat := ClaudeWCT.W9.T3M.authBase j l
 def curO (l j : Nat) : Nat := blkO j l + 48 * bitAt j l
 def sibO (l j : Nat) : Nat := if l < 6 then blkO j l + 48 * (1 - bitAt j l) else ClaudeWCT.W9.T3M.authRoot j
 def padO (j l : Nat) : Nat := blkO j l + 32
-def leafO : Nat := 752
+def leafO : Nat := 688
 def heapOf (l j : Nat) : Nat := 2 ^ (6 - l) + j / 2 ^ (l + 1)
 def w0n (k index : Nat) : Nat := W9Machine.V3.nodeLow k index
 def heapReg (h : Nat) : Reg :=
@@ -647,7 +647,7 @@ namespace W9Drv.ChildProof
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify W9Machine
 open SigGolfCandidate.T3 (Digest HashOutput M shortHash pad64)
-def prefixWrites (B A : Nat) : Prop := B ≤ A ∧ A < B + 896
+def prefixWrites (B A : Nat) : Prop := B ≤ A ∧ A < B + 832
 theorem stagesW_prefix {j off B : Nat} (hj : j < 128) (h : off ∈ stagesW j 6) : prefixWrites B (B + off) := by
   have hb := stagesW_bound hj (by decide) h
   unfold prefixWrites at *
@@ -855,7 +855,7 @@ theorem source_level (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9) (j 
   split_ifs <;> rfl
 theorem childProgram_split (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9) (j : Fin 128) (ends : List Digest) :
     V3.childProgram w index k j ends =
-      (shortHash (leafBytes (V3.leafFields k.val index j.val ends)) >>= fun v =>
+      (shortHash (leafBytes (V3.leafFields k.val index j.val (V3.leafPad w k.val) ends)) >>= fun v =>
         (List.range 5).foldlM (childLevelP k.val index j.val (V3.nodePad w k.val j.val) (V3.sibling w k.val j.val)) v >>=
         fun v5 => childLevelP k.val index j.val (V3.nodePad w k.val j.val) (V3.sibling w k.val j.val) v5 5 >>=
         fun computed => pure (V3.orderPair j.val computed (V3.sibling w k.val j.val 6))) := by
@@ -896,7 +896,7 @@ theorem sibO_auth (j l : Nat) (hl : l < 7) : sibO l j = ClaudeWCT.W9.T3M.authSib
   split_ifs <;> omega
 theorem child_pre (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9) (j : Fin 128) (ends : List Digest)
     (u : MachineState) (hu : Child.Pre Frozen.layout w index k j ends u) :
-    ChildPre j.val (coordinateBase k) k.val index (V3.leafFields k.val index j.val ends)
+    ChildPre j.val (coordinateBase k) k.val index (V3.leafFields k.val index j.val (V3.leafPad w k.val) ends)
       (V3.nodePad w k.val j.val) (V3.sibling w k.val j.val) u := by
   refine ⟨hu.pc, ?_, ?_, hu.hashMode, hu.baseReg, hu.hashInput, hu.hashLen, hu.nodeWord, hu.childIdx,
     ?_, hu.leafAt, hu.padAt, ?_⟩
@@ -926,7 +926,7 @@ theorem child_good : ChildGood := by
     rw [sibO_auth j.val 6 (by decide)]
     exact hu.sibAt 6 (by decide)
   have hg := child_prefix_good Frozen.image j.val j.isLt hcode (coordinateBase k) k.val index
-    (V3.leafFields k.val index j.val ends) (V3.nodePad w k.val j.val) (V3.sibling w k.val j.val) u
+    (V3.leafFields k.val index j.val (V3.leafPad w k.val) ends) (V3.nodePad w k.val j.val) (V3.sibling w k.val j.val) u
     (N + 10) (C + 17) (A + 17) Q
     (fun v => ccM (childLevelP k.val index j.val (V3.nodePad w k.val j.val) (V3.sibling w k.val j.val) v 5 >>=
       fun computed => pure (V3.orderPair j.val computed (V3.sibling w k.val j.val 6))) K)

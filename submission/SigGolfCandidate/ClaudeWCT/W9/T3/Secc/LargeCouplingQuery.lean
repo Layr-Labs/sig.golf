@@ -11,9 +11,10 @@ open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final SigGolfCandidate.T3M.SecurityInputs
 open SigGolfCandidate.T3.Correctness (Answers)
 open ClaudeWCT.W9.T3.Security.LargeResidual
 open SigGolfCandidate.T3.Security.LargeResidual (listBlock slotValue IsDigestRow dummyDigest State Probe Hit Charge Cell
-  observedRun readState probeState stoppedState tickState disclosedState runWith_map observed_pure mem_restrict
-  card_restrict_ge low)
-open SigGolfCandidate.T3.Security.LargeCoupling (low_eq effective_self keep_guess_label keep_label keep_target
+  readState probeState stoppedState tickState disclosedState runWith_map mem_restrict card_restrict_ge low)
+open ClaudeWCT.W9.T3.Security.FamResidual (observedRun observed_pure effF_self adm_of_plain Adm famKnown famSeeds
+  mem_famSeeds mem_famKnown)
+open SigGolfCandidate.T3.Security.LargeCoupling (low_eq keep_guess_label keep_label keep_target
   keep_guess_target dummyDigest_decode')
 open ClaudeWCT.W9.T3.Security.CanonGraph
 open ClaudeWCT.W9.T3.Security.CanonEncoding
@@ -32,7 +33,7 @@ def HonestPrefix (vals : Coord → Digest) (a : AuxData) (X : HashInput) : Prop 
 structure Coherent (U : Finset HashInput) (T : Answers) (vals : Coord → Digest) (nv : Message → Digest)
     (τ : Cell U → HashOutput) (a : AuxData) : Prop where
   agrees : Agrees T (routerLabels vals a)
-  secrets : secretsOf T = fun s => vals (.inr s)
+  secrets : seedView (secretsOf T) = fun s => vals (.inr s)
   residual : ∀ (X : HashInput) (hX : X ∈ U), (∀ N : CanonGraph.Node, X ≠ cell (secretsOf T) N (routerLabels vals a)) →
     ¬HonestPrefix vals a X → T (.inl (.inr X)) = τ ⟨X, hX⟩
   prefixRow : ∀ (L : EncLeaf) (ctr : BitVec 32), PrefixRow a L ctr →
@@ -46,20 +47,19 @@ structure Coherent (U : Finset HashInput) (T : Answers) (vals : Coord → Digest
 section Coherent
 variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest} {τ : Cell U → HashOutput} {a : AuxData}
 theorem Coherent.honestValue (h : Coherent U T vals nv τ a) : LargeResidual.honestValue T = vals := by
-  rw [honestValue_eq h.agrees, h.secrets]
+  rw [honestValue_eq h.agrees]
   funext c
   cases c with
   | inl N => exact joinLabels_low _ _ N
-  | inr s => rfl
+  | inr s => exact congrFun h.secrets s
 theorem Coherent.honestInput (h : Coherent U T vals nv τ a) (N : CanonGraph.Node) :
     Extract.honestInput T N.toPos = cellValues N vals := by
   rw [honestInput_eq h.agrees N, cell_eq_cellValues]
   congr 1
-  rw [h.secrets]
   funext c
   cases c with
   | inl M => exact joinLabels_low _ _ M
-  | inr s => rfl
+  | inr s => exact congrFun h.secrets s
 theorem Coherent.cell (h : Coherent U T vals nv τ a) (N : CanonGraph.Node) :
     cell (secretsOf T) N (routerLabels vals a) = cellValues N vals := by
   rw [← honestInput_eq h.agrees N, h.honestInput N]
@@ -494,8 +494,8 @@ theorem observed_testReq (st' : RouterState) (X : HashInput) (hX : X ∈ U) (tes
     (hfresh : X ∉ st.seen → ws.rows ⟨X, hX⟩ = none) :
     observedRun aux q (Sum.elim vals nv) τ ((fun y => (y, st')) <$> testReq U (decide (X ∉ st.seen)) ⟨X, hX⟩ test) ws =
       if X ∉ st.seen then
-        (if (test.effective ws.candidates).keep (Sum.elim vals nv) (τ ⟨X, hX⟩) then
-          pure (some (τ ⟨X, hX⟩, st'), probeState ws ⟨X, hX⟩ (test.effective ws.candidates) (τ ⟨X, hX⟩))
+        (if (test.effF ws.candidates).keep (Sum.elim vals nv) (τ ⟨X, hX⟩) then
+          pure (some (τ ⟨X, hX⟩, st'), probeState ws ⟨X, hX⟩ (test.effF ws.candidates) (τ ⟨X, hX⟩))
         else pure (none, stoppedState ws))
       else pure (some (τ ⟨X, hX⟩, st'), readState q ws ⟨X, hX⟩ (τ ⟨X, hX⟩) .call) := by
   rw [observed_map]
@@ -700,8 +700,75 @@ theorem continue_probe (hrel : Rel U T vals nv τ a q mon st ws) (hlt : st.calls
   · exact rows_update_seen hrel X hX
   · exact fun _ => hcell
   · exact fun _ => henc
+/-- FTS seeds of family `f` disclosed by the router so far. -/
+@[irreducible] noncomputable def DiscSeeds (st : RouterState) (f : Fin (2 ^ 31) × Fin 9) : Finset CanonGraph.WctAddr :=
+  Finset.univ.filter fun w => (w.1, w.2.1) = f ∧ (.inr (.inr w) : Coord) ∈ st.disclosed
+theorem mem_DiscSeeds (st : RouterState) (f : Fin (2 ^ 31) × Fin 9) (w : CanonGraph.WctAddr) :
+    w ∈ DiscSeeds st f ↔ (w.1, w.2.1) = f ∧ (.inr (.inr w) : Coord) ∈ st.disclosed := by
+  unfold DiscSeeds
+  simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+/-- No FTS family has more than 101 disclosed seeds (the families stay undetermined). -/
+def FamOK (st : RouterState) : Prop := ∀ f, (DiscSeeds st f).card ≤ 101
+theorem DiscSeeds_mono {st st' : RouterState} (h : ∀ x ∈ st.disclosed, x ∈ st'.disclosed)
+    (f : Fin (2 ^ 31) × Fin 9) : DiscSeeds st f ⊆ DiscSeeds st' f := by
+  intro w hw
+  rw [mem_DiscSeeds] at hw ⊢
+  exact ⟨hw.1, h _ hw.2⟩
+theorem famOK_mono {st st' : RouterState} (h : ∀ x ∈ st.disclosed, x ∈ st'.disclosed) (hok : FamOK st') :
+    FamOK st := fun f => (Finset.card_le_card (DiscSeeds_mono h f)).trans (hok f)
+theorem famOK_of_disclosed {st st' : RouterState} (h : st'.disclosed = st.disclosed) (hok : FamOK st) :
+    FamOK st' := famOK_mono (fun x hx => by rw [h] at hx; exact hx) hok
+theorem _root_.ClaudeWCT.W9.T3.Security.LargeResidual.RouterState.next_disclosed (U : Finset HashInput)
+    (st : RouterState) (X : HashInput) (y : HashOutput) : (st.next U X y).disclosed = st.disclosed := by
+  unfold RouterState.next RouterState.after
+  split_ifs <;> rfl
+theorem known_seed_base {D : Coord → Prop} {s : SeedIndex} (h : Known D (.inr s)) : D (.inr s) := by
+  cases h with
+  | base h => exact h
+theorem keygen_inl {c : Coord} (hc : c ∈ keygenDisclosed) : ∃ N, c = .inl N := by
+  unfold keygenDisclosed at hc
+  simp only [List.mem_flatMap, List.mem_filterMap] at hc
+  obtain ⟨level, _, node, _, h⟩ := hc
+  unfold treeChild at h
+  split_ifs at h
+  · obtain ⟨L, _, rfl⟩ := Option.map_eq_some_iff.mp h; exact ⟨_, rfl⟩
+  · obtain ⟨n, _, rfl⟩ := Option.map_eq_some_iff.mp h; exact ⟨_, rfl⟩
+theorem famKnown_le (h : Rel U T vals nv τ a q mon st ws) (hlt : st.calls < q) (hq : q ≤ 2 ^ 127) (hok : FamOK st)
+    (f : Fin (2 ^ 31) × Fin 9) : (famKnown ws.candidates f).card ≤ 101 := by
+  let e : CanonGraph.WctAddr ↪ WCoord := ⟨fun w => .inl (.inr (.inr w)), fun w w' h => by
+    simpa using h⟩
+  refine (Finset.card_le_card (t := (DiscSeeds st f).map e) ?_).trans (by rw [Finset.card_map]; exact hok f)
+  intro c hc
+  have hm := (mem_famKnown ws.candidates f c).mp hc
+  have hpt0 := hm.1
+  have hc1 := hm.2
+  obtain ⟨pt, hpt⟩ := hpt0
+  rcases c with (N | a' | w) | m
+  · cases hpt
+  · cases hpt
+  · change Sum.inr ((w.1, w.2.1), WCT9.ftsPoint w.2.2.1.val w.2.2.2.val) = Sum.inr (f, pt) at hpt
+    simp only [Sum.inr.injEq, Prod.mk.injEq] at hpt
+    refine Finset.mem_map.mpr ⟨w, ?_, rfl⟩
+    have hk : st.known (.inr (.inr w)) := by
+      by_contra hn
+      have := h.two_le hlt hq _ hn
+      omega
+    rcases known_seed_base hk with hkg | hd
+    · obtain ⟨N, hN⟩ := keygen_inl hkg; cases hN
+    · exact (mem_DiscSeeds st f w).mpr ⟨hpt.1, hd⟩
+  · cases hpt
+/-- Admissibility of a router guess on an unknown coordinate (the hit, if a label, is a node). -/
+theorem Rel.adm (h : Rel U T vals nv τ a q mon st ws) (hlt : st.calls < q) (hq : q ≤ 2 ^ 127) (hok : FamOK st)
+    (c : Coord) (hc : ¬st.known c) (v : Digest) (hit : Hit WCoord)
+    (hpar : ∀ parent, hit = Hit.label parent → (.inl c : WCoord) ≠ parent ∧ ∃ N, parent = .inl (.inl N)) :
+    Adm ws.candidates hit ((.inl c : WCoord), v) := by
+  refine ⟨h.two_le hlt hq c hc, fun parent hp => (hpar parent hp).1, fun fp _ => ⟨famKnown_le h hlt hq hok fp.1,
+    fun parent hp fp' => ?_⟩⟩
+  obtain ⟨N, rfl⟩ := (hpar parent hp).2
+  intro hs
+  cases hs
 theorem case_unknownChild (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals nv τ a q mon st ws)
-    (hlt : st.calls < q) (hq : q ≤ 2 ^ 127) (X : HashInput) (hX : X ∈ U) (N : CanonGraph.Node)
+    (hlt : st.calls < q) (hq : q ≤ 2 ^ 127) (hok : FamOK st) (X : HashInput) (hX : X ∈ U) (N : CanonGraph.Node)
     (hN : Extract.posOf X = some N.toPos) (cs : Coord × Nat) (hfu : firstUnknown st.known N = some cs) :
     QueryOutcome U T vals nv τ a q mon st ws X (observedRun aux q (Sum.elim vals nv) τ
       ((fun y => (y, st.after X)) <$>
@@ -717,14 +784,14 @@ theorem case_unknownChild (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T val
     simp only [Hit.label.injEq] at hpar
     subst hpar
     exact fun h => childSlots_ne N cs hcsm (Sum.inl.inj h)
-  have heff : (⟨some (.inl cs.1, slotValue X cs.2), .label (.inl (.inl N))⟩ : Probe WCoord).effective ws.candidates =
+  have heff : (⟨some (.inl cs.1, slotValue X cs.2), .label (.inl (.inl N))⟩ : Probe WCoord).effF ws.candidates =
       ⟨some (.inl cs.1, slotValue X cs.2), .label (.inl (.inl N))⟩ := by
-    apply effective_self
+    apply effF_self
     intro g hg
-    refine ⟨?_, hadm g hg⟩
     simp only [Option.mem_def, Option.some.injEq] at hg
     subst hg
-    exact hrel.two_le hlt hq cs.1 hcsk
+    exact hrel.adm hlt hq hok cs.1 hcsk _ _ fun parent hpar =>
+      ⟨hadm _ rfl parent hpar, ⟨N, by simp only [Hit.label.injEq] at hpar; exact hpar.symm⟩⟩
   have hcomp := observed_testReq (U := U) (q := q) (vals := vals) (nv := nv) (τ := τ) (st := st) (ws := ws) aux
     (st.after X) X hX ⟨some (.inl cs.1, slotValue X cs.2), .label (.inl (.inl N))⟩
     (hrel.fresh X hX hnd)
@@ -930,7 +997,7 @@ theorem case_knownChildren (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T va
       (ws := discloseStates U q (Sum.elim vals nv) ws ((childSlots N).map Prod.fst)) aux
       (st.after X) X hX ⟨none, .label (.inl (.inl N))⟩ hfresh
     refine queryOutcome_congr hcomp ?_
-    rw [effective_self _ _ (by intro g hg; cases hg)]
+    rw [effF_self _ _ (by intro g hg; cases hg)]
     have hadm : ∀ g ∈ (⟨none, .label (.inl (.inl N))⟩ : Probe WCoord).guess, ∀ parent,
         (⟨none, .label (.inl (.inl N))⟩ : Probe WCoord).hit = Hit.label parent → g.1 ≠ parent := by
       intro g hg; cases hg
@@ -1067,7 +1134,7 @@ theorem case_enc_known (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals n
       (ws := discloseStates U q (Sum.elim vals nv) ws ((msgSlots L).map Prod.fst)) aux
       (st.after X) X hX ⟨none, .target (refDigest a L)⟩ hfresh
     refine queryOutcome_congr hcomp ?_
-    rw [effective_self _ _ (by intro g hg; cases hg)]
+    rw [effF_self _ _ (by intro g hg; cases hg)]
     have hadm : ∀ g ∈ (⟨none, .target (refDigest a L)⟩ : Probe WCoord).guess, ∀ parent,
         (⟨none, .target (refDigest a L)⟩ : Probe WCoord).hit = Hit.label parent → g.1 ≠ parent := by
       intro g hg; cases hg
@@ -1088,7 +1155,7 @@ theorem case_enc_known (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals n
         rw [hTX]
         exact hk.symm
 theorem case_enc_unknown (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals nv τ a q mon st ws)
-    (hlt : st.calls < q) (hq : q ≤ 2 ^ 127) (X : HashInput) (hX : X ∈ U) (L : EncLeaf) (m : WCT9.LayerMsg)
+    (hlt : st.calls < q) (hq : q ≤ 2 ^ 127) (hok : FamOK st) (X : HashInput) (hX : X ∈ U) (L : EncLeaf) (m : WCT9.LayerMsg)
     (ctr : BitVec 32) (pad : Wots.RowPad) (hfit : Extract.msgFits L.1.lay m)
     (hXe : X = Wots.encRow L.toWots m ctr pad) (cs : Coord × Nat) (hfu : firstUnknownMsg st.known L = some cs) :
     QueryOutcome U T vals nv τ a q mon st ws X (observedRun aux q (Sum.elim vals nv) τ
@@ -1116,14 +1183,13 @@ theorem case_enc_unknown (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals
         g.1 ≠ parent := by
     intro g hg parent hpar
     cases hpar
-  have heff : (⟨some (.inl cs.1, slotValue X cs.2), .target (refDigest a L)⟩ : Probe WCoord).effective ws.candidates =
+  have heff : (⟨some (.inl cs.1, slotValue X cs.2), .target (refDigest a L)⟩ : Probe WCoord).effF ws.candidates =
       ⟨some (.inl cs.1, slotValue X cs.2), .target (refDigest a L)⟩ := by
-    apply effective_self
+    apply effF_self
     intro g hg
-    refine ⟨?_, hadm g hg⟩
     simp only [Option.mem_def, Option.some.injEq] at hg
     subst hg
-    exact hrel.two_le hlt hq _ hcsk
+    exact hrel.adm hlt hq hok _ hcsk _ _ fun parent hpar => by cases hpar
   have hcomp := observed_testReq (U := U) (q := q) (vals := vals) (nv := nv) (τ := τ) (st := st) (ws := ws) aux
     (st.after X) X hX ⟨some (.inl cs.1, slotValue X cs.2), .target (refDigest a L)⟩ (hrel.fresh X hX hnd)
   refine queryOutcome_congr hcomp ?_
@@ -1213,7 +1279,7 @@ theorem case_other (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals nv τ
     (fun N' hN' => absurd hN' (not_cell_unparsed hcoh hnp N'))
     (fun L' ctr' hL' => absurd ⟨L', _, ctr', 0, msgFits_msgVals vals L', hL'⟩ hne)
 theorem routeQuery_observed (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals nv τ a q mon st ws)
-    (hlt : st.calls < q) (hq : q ≤ 2 ^ 127) (X : HashInput) :
+    (hlt : st.calls < q) (hq : q ≤ 2 ^ 127) (hok : FamOK st) (X : HashInput) :
     QueryOutcome U T vals nv τ a q mon st ws X
       (observedRun aux q (Sum.elim vals nv) τ (routeQuery U a st X) ws) := by
   unfold routeQuery
@@ -1225,7 +1291,7 @@ theorem routeQuery_observed (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T v
       have hN := Classical.choose_spec hp
       split
       · rename_i cs hfu
-        exact case_unknownChild aux hcoh hrel hlt hq X hX _ hN cs hfu
+        exact case_unknownChild aux hcoh hrel hlt hq hok X hX _ hN cs hfu
       · rename_i hfu
         exact case_knownChildren aux hcoh hrel hlt X hX _ hN hfu
     · rw [dif_neg hp]
@@ -1234,7 +1300,7 @@ theorem routeQuery_observed (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T v
         have hspec := Classical.choose_spec (Classical.choose_spec (Classical.choose_spec (Classical.choose_spec he)))
         split
         · rename_i cs hfu
-          exact case_enc_unknown aux hcoh hrel hlt hq X hX _ _ _ _ hspec.1 hspec.2 cs hfu
+          exact case_enc_unknown aux hcoh hrel hlt hq hok X hX _ _ _ _ hspec.1 hspec.2 cs hfu
         · rename_i hfu
           exact case_enc_known aux hcoh hrel hlt X hX _ _ _ _ hspec.1 hspec.2 hfu
       · rw [dif_neg he]

@@ -200,16 +200,16 @@ theorem pairEncoding_separation (up : Layer) (tree leaf : Nat) :
     omega
 theorem ordinal_slot_injective {q q' : Nat} (h1 : q / 2 = q' / 2) (h2 : q % 2 = q' % 2) : q = q' := by
   omega
-theorem ftsOrdinal_injective {child chain child' chain' : Nat} (hc : chain < 7) (hc' : chain' < 7)
+theorem ftsOrdinal_injective {child chain child' chain' : Nat} (hc : chain < 6) (hc' : chain' < 6)
     (h : ftsOrdinal child chain = ftsOrdinal child' chain') : child = child' ∧ chain = chain' := by
   unfold ftsOrdinal at h
   omega
-theorem ftsSlot_injective {child chain child' chain' : Nat} (hc : chain < 7) (hc' : chain' < 7)
+theorem ftsSlot_injective {child chain child' chain' : Nat} (hc : chain < 6) (hc' : chain' < 6)
     (h1 : ftsOrdinal child chain / 2 = ftsOrdinal child' chain' / 2)
     (h2 : ftsOrdinal child chain % 2 = ftsOrdinal child' chain' % 2) : child = child' ∧ chain = chain' :=
   ftsOrdinal_injective hc hc' (ordinal_slot_injective h1 h2)
-theorem ftsOrdinal_pair_lt {child chain : Nat} (hs : child < 128) (hc : chain < 7) :
-    ftsOrdinal child chain / 2 < 448 := by
+theorem ftsOrdinal_pair_lt {child chain : Nat} (hs : child < 128) (hc : chain < 6) :
+    ftsOrdinal child chain / 2 < 384 := by
   unfold ftsOrdinal; omega
 theorem lowerOrdinal_injective (lay : Layer) {leaf chain leaf' chain' : Nat} (hc : chain < chainCount lay)
     (hc' : chain' < chainCount lay) (h : lowerOrdinal lay leaf chain = lowerOrdinal lay leaf' chain') :

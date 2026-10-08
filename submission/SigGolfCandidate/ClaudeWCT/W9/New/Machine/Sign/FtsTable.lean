@@ -3,18 +3,17 @@ import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Sign.FtsTableCheck
 namespace ClaudeWCT.W9.Machine.Sign
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
-theorem pk_digit (r : Fin 728) (i : Fin 7) : pk.getD r.val 0 / 4 ^ i.val % 4 = WCT9.digit r i := by
-  have hl : (WCT9.compositions 4 7 6).length = 728 := WCT9.codebook_card
-  have hr1 : r.val < (WCT9.compositions 4 7 6).length := by rw [hl]; exact r.isLt
+theorem pk_digit (r : Fin 563) (i : Fin 6) : pk.getD r.val 0 / 8 ^ i.val % 8 = WCT9.wordDigit r i := by
+  have hl : WCT9.codeWords.length = 563 := WCT9.codeWords_length
   have hr2 : r.val < pk.length := by rw [pk_length]; exact r.isLt
-  have hz : r.val < ((WCT9.compositions 4 7 6).zip pk).length := by simp [hl, pk_length]
+  have hz : r.val < (WCT9.codeWords.zip pk).length := by simp [hl, pk_length]
   have h := List.all_eq_true.mp pk_digits_all _ (List.getElem_mem hz)
   simp only [List.getElem_zip] at h
   have h2 := List.all_eq_true.mp h i.val (List.mem_range.mpr i.isLt)
   simp only [beq_iff_eq] at h2
   rw [List.getD_eq_getElem _ _ hr2, h2]
-  unfold WCT9.digit WCT9.codeword
-  rfl
+  unfold WCT9.wordDigit WCT9.digit
+  rw [WCT9.codeword_embed]
 theorem tblChk_get : ∀ (m k : Nat) (l : List (BitVec 8)), tblChk k l = true → 8 * m + 8 ≤ l.length →
     extractWord32 (bytesToWordLE ((l.drop (8 * m)).take 8)) 0 = BitVec.ofNat 32 (pkAt (2 * (k + m))) ∧
     extractWord32 (bytesToWordLE ((l.drop (8 * m)).take 8)) 1 = BitVec.ofNat 32 (pkAt (2 * (k + m) + 1))
@@ -50,17 +49,14 @@ theorem table_word {t : MachineState} (h : TableAt t) {f : Nat} (hf : f < 16384)
   rcases Nat.mod_two_eq_zero_or_one f with h0 | h1
   · rw [h0, hr.1, show 2 * (f / 2) = f by omega]
   · rw [h1, hr.2, show 2 * (f / 2) + 1 = f by omega]
-theorem codeRanks_getD (f : Nat) : WCT9.codeRanks.getD (f % 600) 0 = (WCT9.embed ⟨f % 600, Nat.mod_lt _ (by norm_num)⟩).val := by
-  unfold WCT9.embed
-  rw [List.getD_eq_getElem _ _ (by rw [WCT9.codeRanks_length]; exact Nat.mod_lt _ (by norm_num))]
 theorem pkAt_lt (f : Nat) : pkAt f < 2 ^ 32 := by
   unfold pkAt
-  split_ifs
-  · rw [codeRanks_getD]; exact pk_lt_all _ (WCT9.embed _).isLt
+  split_ifs with h
+  · exact pk_lt_all _ h
   · norm_num
-theorem pkAt_digit (f : Nat) (hf : f < 16200) (i : Fin 7) :
-    pkAt f / 4 ^ i.val % 4 = WCT9.wordDigit ⟨f % 600, Nat.mod_lt _ (by norm_num)⟩ i := by
-  unfold pkAt; rw [if_pos hf, codeRanks_getD]; exact pk_digit _ i
+theorem pkAt_digit (f : Nat) (hf : f < 563) (i : Fin 6) :
+    pkAt f / 8 ^ i.val % 8 = WCT9.wordDigit ⟨f, hf⟩ i := by
+  unfold pkAt; rw [if_pos hf]; exact pk_digit ⟨f, hf⟩ i
 theorem decode_lwu : decodeInstruction 0x000e6c83 = some (.base (.LWU .x25 .x28 0)) := by rfl
 theorem step_lwu {im : Image} (hcode : NewCodeAt im) {c : Nat} (hc : c < 9) (s : MachineState)
     (hpc : s.pc = pcOf (lwuI c)) {f : Nat} (hf : f < 16384) (h28 : s.getReg .x28 = BitVec.ofNat 64 (TBL + 4 * f))

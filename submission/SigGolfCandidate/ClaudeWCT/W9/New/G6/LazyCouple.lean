@@ -411,8 +411,8 @@ noncomputable local instance instDecidableEqCache_g6LazyCouple : DecidableEq Sig
 noncomputable def inlineAux (ω : CanonTable.Omega U) : QueryImpl WSpecL (OracleComp WSpec) :=
   inlineWith (digestOf ω) (nonceOf ω)
 theorem inline_probeW (D : digestInputs → HashOutput) (Nn : Message → Digest)
-    (step : Guess.ChainAddr → Fin 3 → Digest → HashOutput) (top : Guess.ChainAddr → HashOutput) (miss : HashOutput)
-    (a : Guess.ChainAddr) (p : Fin 3) (v : Digest) :
+    (step : Guess.ChainAddr → Fin 4 → Digest → HashOutput) (top : Guess.ChainAddr → HashOutput) (miss : HashOutput)
+    (a : Guess.ChainAddr) (p : Fin 4) (v : Digest) :
     simulateQ (inlineWith D Nn) (Guess.probeW (auxSpec := AuxSpecL) step top miss a p v) =
       Guess.probeW (auxSpec := unifSpec) step top miss a p v := by
   unfold Guess.probeW Guess.trialQ
@@ -491,7 +491,7 @@ theorem signerCore_neg (ω : CanonTable.Omega U) {published : SigGolfCandidate.T
   rw [if_neg hc]
 theorem inline_signL (ω : CanonTable.Omega U) (published : SigGolfCandidate.T3.Cache) (request : Request) :
     simulateQ (inlineAux ω) (signL hU ω published request) = signW hU ω published request := by
-  unfold signW openedFor
+  unfold signW openedFor liftFor
   simp only [sign_answers]
   unfold signL
   by_cases hc : request.cache = published
@@ -687,30 +687,43 @@ section LazyCouple
 variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : CanonTable.Omega U)
 open SecretGuessObservation (fixedRun)
 theorem forget_initL : forget initL = init := rfl
-theorem fixed_worldGameL (g : Guess.GCoord → Digest) (adversary : AdversaryP) :
-    Prod.fst <$> fixedRun (envE (digestOf ω) (nonceOf ω)) g (worldGameL hU ω adversary) initL =
+theorem fixed_worldGameL (g : CanonTable.HiddenF) (adversary : AdversaryP) :
+    Prod.fst <$> fixedRun (envE (digestOf ω) (nonceOf ω)) (Guess.Fam.phi g.1 g.2) (worldGameL hU ω adversary) initL =
       𝒮[pairRun (wA hU ω g) adversary] := by
   have h := congrArg (Functor.map Prod.fst)
-    (fixed_inline (digestOf ω) (nonceOf ω) g (worldGameL hU ω adversary) initL
+    (fixed_inline (digestOf ω) (nonceOf ω) (Guess.Fam.phi g.1 g.2) (worldGameL hU ω adversary) initL
       (SigGolfCandidate.T3.Security.BPair.consistent_empty _ _))
   rw [Functor.map_map] at h
-  rw [show (Prod.fst <$> fixedRun (envE (digestOf ω) (nonceOf ω)) g (worldGameL hU ω adversary) initL) =
-    (fun r => (r.1, forget r.2).1) <$> fixedRun (envE (digestOf ω) (nonceOf ω)) g (worldGameL hU ω adversary) initL
-    from rfl, h, forget_initL, ← fixed_worldGame hU ω g adversary]
-  change _ = Prod.fst <$> fixedRun env g (worldGame hU ω adversary) init
+  rw [show (Prod.fst <$> fixedRun (envE (digestOf ω) (nonceOf ω)) (Guess.Fam.phi g.1 g.2) (worldGameL hU ω adversary)
+      initL) = (fun r => (r.1, forget r.2).1) <$> fixedRun (envE (digestOf ω) (nonceOf ω)) (Guess.Fam.phi g.1 g.2)
+      (worldGameL hU ω adversary) initL from rfl, h, forget_initL, ← fixed_worldGame hU ω g adversary]
+  change _ = Prod.fst <$> fixedRun env (Guess.Fam.phi g.1 g.2) (worldGame hU ω adversary) init
   rw [worldGame_inline]
   rfl
-theorem worldGameL_tracking (g : Guess.GCoord → Digest) (adversary : AdversaryP)
+theorem worldGameL_tracking (g : CanonTable.HiddenF) (adversary : AdversaryP)
     (r : (Bool × QueryLog Requests × List Wots.Entry) × WStateL)
-    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) g (worldGameL hU ω adversary) initL r ≠ 0) :
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) (Guess.Fam.phi g.1 g.2) (worldGameL hU ω adversary) initL r ≠ 0) :
     r.2.probes ≤ r.1.2.2.length ∧
       ∀ c, GuessedIn (wA hU ω g) r.1.2.1 r.1.2.2 c → Guess.PrefixIn r.2.guesses c.1 c.2.val := by
-  have h := fixed_inline_nonzero (digestOf ω) (nonceOf ω) g _ initL
+  have h := fixed_inline_nonzero (digestOf ω) (nonceOf ω) (Guess.Fam.phi g.1 g.2) _ initL
     (SigGolfCandidate.T3.Security.BPair.consistent_empty _ _) r hr
   rw [forget_initL] at h
-  change fixedRun env g (simulateQ (inlineAux ω) (worldGameL hU ω adversary)) init (r.1, forget r.2) ≠ 0 at h
+  change fixedRun env (Guess.Fam.phi g.1 g.2) (simulateQ (inlineAux ω) (worldGameL hU ω adversary)) init
+    (r.1, forget r.2) ≠ 0 at h
   rw [← worldGame_inline] at h
   exact worldGame_tracking hU ω g adversary (r.1, forget r.2) h
+/-- `worldGame_noBad` for the lazy-digest world. -/
+theorem worldGameL_noBad (g : CanonTable.HiddenF) (adversary : AdversaryP)
+    (r : (Bool × QueryLog Requests × List Wots.Entry) × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) (Guess.Fam.phi g.1 g.2) (worldGameL hU ω adversary) initL r ≠ 0)
+    (hno : ¬OverflowIn (wA hU ω g) r.1.2.1) : ¬Guess.Fam.Bad r.2 := by
+  have h := fixed_inline_nonzero (digestOf ω) (nonceOf ω) (Guess.Fam.phi g.1 g.2) _ initL
+    (SigGolfCandidate.T3.Security.BPair.consistent_empty _ _) r hr
+  rw [forget_initL] at h
+  change fixedRun env (Guess.Fam.phi g.1 g.2) (simulateQ (inlineAux ω) (worldGameL hU ω adversary)) init
+    (r.1, forget r.2) ≠ 0 at h
+  rw [← worldGame_inline] at h
+  exact worldGame_noBad hU ω g adversary (r.1, forget r.2) h hno
 end LazyCouple
 end ClaudeWCT.W9.T3.Security.WPair
 end

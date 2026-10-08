@@ -9,7 +9,7 @@ abbrev base := coordinateBase
 abbrev table := headerTable
 abbrev program := V3.chainProgram
 structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
-    (rank : Fin 728) (u : MachineState) : Prop where
+    (rank : Fin 666) (u : MachineState) : Prop where
   indexBound : index < 2 ^ 31
   pc : u.pc = pcOf (L.chainWord rank)
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (base k)
@@ -24,23 +24,23 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   returnPC : u.getReg .x1 = pcOf (L.returnWord k)
   forestPointer : u.getReg .x9 = BitVec.ofNat 64 (pairAddress k)
   heaps : ∀ h, 2 ≤ h → h ≤ 7 → u.getReg (Child.heapReg h) = BitVec.ofNat 64 h
-  witness : ∀ off, off < 880 → off % 8 = 0 →
+  witness : ∀ off, off < 816 → off % 8 = 0 →
     u.getMem (BitVec.ofNat 64 (base k + off)) =
       w.extractLsb' (8 * (V3.regionOffset k.val + off)) 64
-def writes (k : Fin 9) (A : Nat) : Prop := base k + 336 ≤ A ∧ A < base k + 896
+def writes (k : Fin 9) (A : Nat) : Prop := base k + 336 ≤ A ∧ A < base k + 832
 def clobbers : List Reg := [.x3, .x10, .x11, .x12, .x14, .x25]
 structure Post (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
     (u : MachineState) (ends : List Digest) (t : MachineState) : Prop where
-  length : ends.length = 7
+  length : ends.length = 6
   child : Child.Pre L w index k j ends t
   keep : ∀ r, r ∉ clobbers → t.getReg r = u.getReg r
   frame : Frame u t (writes k)
-def Good (L : Layout) (rank : Fin 728) : Prop :=
+def Good (L : Layout) (rank : Fin 666) : Prop :=
   ∀ (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128) (u : MachineState)
     (N C A : Nat) (Q : Prop) (K : List Digest → OracleComp HashSpec Obs),
     Pre L w index k j rank u →
     (∀ ends t, Post L w index k j u ends t → GoodQFor L.image t N C Q A (K ends)) →
-    GoodQFor L.image u (N + 89) (C + 89) Q (A + 83)
+    GoodQFor L.image u (N + 89) (C + 89) Q (A + 89)
       (ccM (program w index k j rank) K)
-def AllGood (L : Layout) : Prop := ∀ rank : Fin 728, Good L rank
+def AllGood (L : Layout) : Prop := ∀ rank : Fin 666, Good L rank
 end W9Machine.Chain

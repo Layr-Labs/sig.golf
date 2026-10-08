@@ -111,8 +111,8 @@ open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify SigGolfCandidate.Rv RiscvZ
 open SigGolfCandidate.Legacy.Riscv
 theorem copy_trace_mem (value : ChainWord → Word) (tr : ChainTrace) (s : MachineState)
     (B off dst p : Nat) (ht : TraceMem value B tr s)
-    (hbase : s.getReg .x8 = BitVec.ofNat 64 B) (hB : B + 896 < 2 ^ 64)
-    (hoff : off + 64 ≤ 896) (hdst : dst + 16 ≤ 896) :
+    (hbase : s.getReg .x8 = BitVec.ofNat 64 B) (hB : B + 832 < 2 ^ 64)
+    (hoff : off + 64 ≤ 832) (hdst : dst + 16 ≤ 832) :
     TraceMem value B ((tr.put dst (tr.read (off + 48))).put (dst + 8) (tr.read (off + 56)))
       ((copyFHRel .x8 (BitVec.ofNat 64 off) (BitVec.ofNat 64 dst) p).toState s) := by
   intro x hx
@@ -125,8 +125,8 @@ theorem copy_trace_mem (value : ChainWord → Word) (tr : ChainTrace) (s : Machi
   | omega
 theorem rung_trace_mem (value : ChainWord → Word) (tr : ChainTrace) (s : MachineState)
     (B digit p : Nat) (dst : Option Word) (ht : TraceMem value B tr s)
-    (h10 : s.getReg .x10 = BitVec.ofNat 64 (B + tr.input)) (hB : B + 896 < 2 ^ 64)
-    (hi : tr.input + 64 ≤ 896) (hstep : (packedPos digit).eval s = BitVec.ofNat 64 digit)
+    (h10 : s.getReg .x10 = BitVec.ofNat 64 (B + tr.input)) (hB : B + 832 < 2 ^ 64)
+    (hi : tr.input + 64 ≤ 832) (hstep : (packedPos digit).eval s = BitVec.ofNat 64 digit)
     (hh : StoreKind.merge .b (s.getMem (BitVec.ofNat 64 (B + tr.input + 16))) 1
       (BitVec.ofNat 64 digit) = value (.header tr.chain digit)) :
     TraceMem value B (tr.put (tr.input + 16) (.header tr.chain digit))
@@ -137,8 +137,8 @@ theorem rung_trace_mem (value : ChainWord → Word) (tr : ChainTrace) (s : Machi
   split_ifs <;> first | exact hh | exact ht x hx | omega
 theorem hash_trace_mem (value : ChainWord → Word) (tr : ChainTrace) (s : MachineState)
     (B : Nat) (ans : BitVec 256) (ht : TraceMem value B tr s)
-    (h12 : s.getReg .x12 = BitVec.ofNat 64 (B + tr.output)) (hB : B + 896 < 2 ^ 64)
-    (ho : tr.output + 32 ≤ 896)
+    (h12 : s.getReg .x12 = BitVec.ofNat 64 (B + tr.output)) (hB : B + 832 < 2 ^ 64)
+    (ho : tr.output + 32 ≤ 832)
     (ha : ∀ i, i < 4 → value (.answer tr.queries.length i) = ans.extractLsb' (64 * i) 64) :
     TraceMem value B tr.hash (writeHash s ans) := by
   intro x hx
@@ -210,7 +210,7 @@ theorem hash_trace_append (base : ChainWord → Word) (answers : List (BitVec 25
     (ht : TraceMem (chainValue base answers) B tr s) (ha : tr.Available)
     (hn : tr.queries.length = answers.length)
     (h12 : s.getReg .x12 = BitVec.ofNat 64 (B + tr.output))
-    (hB : B + 896 < 2 ^ 64) (ho : tr.output + 32 ≤ 896) :
+    (hB : B + 832 < 2 ^ 64) (ho : tr.output + 32 ≤ 832) :
     TraceMem (chainValue base (answers ++ [ans])) B tr.hash (writeHash s ans) := by
   apply hash_trace_mem _ tr s B ans (traceMem_append base answers ans tr s B ht ha hn) h12 hB ho
   intro i hi
@@ -234,7 +234,7 @@ theorem ChainTrace.available_step (tr : ChainTrace) (kind : ChainPieceKind) (h :
     exact ChainTrace.available_put _ _ _
       (tr.available_put dst (tr.read (off + 48)) h (h _)) (h _)
   | jump target => exact h
-  | leaf => exact ChainTrace.available_put _ _ _ (tr.available_put 768 .leafHeader h trivial) trivial
+  | leaf => exact ChainTrace.available_put _ _ _ (tr.available_put 704 .leafHeader h trivial) trivial
 theorem chainTrace_available (r : ChainRoutine) : (chainTrace r).Available := by
   have hfold : ∀ (ps : List ChainPiece) (tr : ChainTrace), tr.Available →
       (ps.foldl (fun s p => s.step p.kind) tr).Available := by
@@ -246,8 +246,8 @@ theorem chainTrace_available (r : ChainRoutine) : (chainTrace r).Available := by
 theorem TraceMem.hashInput (value : ChainWord → Word) (B : Nat) (tr : ChainTrace)
     (s : MachineState) (input : List UInt8) (ht : TraceMem value B tr s)
     (h10 : s.getReg .x10 = BitVec.ofNat 64 (B + tr.input))
-    (h11 : s.getReg .x11 = 64) (hB : B + 896 < 2 ^ 64)
-    (hi : tr.input + 64 ≤ 896) (halign : (B + tr.input) % 8 = 0)
+    (h11 : s.getReg .x11 = 64) (hB : B + 832 < 2 ^ 64)
+    (hi : tr.input + 64 ≤ 832) (halign : (B + tr.input) % 8 = 0)
     (hlen : input.length = 64)
     (hwords : wordsOf input = ((List.range 8).map fun i => value (tr.read (tr.input + 8 * i)))) :
     SigGolfCandidate.Legacy.Riscv.hashInput s = toQ input := by

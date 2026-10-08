@@ -12,8 +12,9 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
+/-- Private cells holding FTS family coefficients (campaign X1: the hidden FTS secrets). -/
 def IsSeedPair (c : Coordinate) : Prop :=
-  ∃ a : Guess.ChainAddr, c = .inl (WCT9.ftsSeedHeader a.2.1.val a.1.val (WCT9.ftsOrdinal a.2.2.1.val a.2.2.2.val / 2))
+  ∃ cf : CanonGraph.WctCoef, c = .inl (WCT9.ftsSeedHeader cf.2.1.val cf.1.val (cf.2.2.val / 2))
 def WFree : SigGolfCandidate.T3.Spec.Domain → Prop
   | .inl (.inl _) => True
   | .inl (.inr x) => Guess.decodeProbe x = none
@@ -282,11 +283,11 @@ theorem privateEquiv_symm_apply (s : Secrets) (o : OtherHalves) (c : Coordinate)
     privateEquiv.symm (s, o) c =
       ChainGraph.joinOutput (splitEquiv.symm (s, o) (c, 0)) (splitEquiv.symm (s, o) (c, 1)) :=
   rfl
-theorem private_free (g g' : WctPoint → Digest) (c : Coordinate) (hc : ¬IsSeedPair c) :
-    privateEquiv.symm (CanonTable.worldSecrets ω.secrets g, ω.other) c =
-      privateEquiv.symm (CanonTable.worldSecrets ω.secrets g', ω.other) c := by
-  have hhalf : ∀ h : Fin 2, splitEquiv.symm (CanonTable.worldSecrets ω.secrets g, ω.other) (c, h) =
-      splitEquiv.symm (CanonTable.worldSecrets ω.secrets g', ω.other) (c, h) := by
+theorem private_free (g g' : CanonTable.HiddenF) (c : Coordinate) (hc : ¬IsSeedPair c) :
+    privateEquiv.symm (CanonTable.worldSecrets ω.secrets g.1, ω.other) c =
+      privateEquiv.symm (CanonTable.worldSecrets ω.secrets g'.1, ω.other) c := by
+  have hhalf : ∀ h : Fin 2, splitEquiv.symm (CanonTable.worldSecrets ω.secrets g.1, ω.other) (c, h) =
+      splitEquiv.symm (CanonTable.worldSecrets ω.secrets g'.1, ω.other) (c, h) := by
     intro h
     by_cases hr : (c, h) ∈ Set.range secretCoordinate
     · obtain ⟨i, hi⟩ := hr
@@ -299,13 +300,13 @@ theorem private_free (g g' : WctPoint → Digest) (c : Coordinate) (hc : ¬IsSee
           exact ⟨a, (congrArg Prod.fst hi).symm⟩
     · rw [splitEquiv_symm_other _ _ _ hr, splitEquiv_symm_other _ _ _ hr]
   rw [privateEquiv_symm_apply, privateEquiv_symm_apply, hhalf 0, hhalf 1]
-theorem answers_free (g g' : WctPoint → Digest) (q : SigGolfCandidate.T3.Spec.Domain) (hq : WFree q) :
+theorem answers_free (g g' : CanonTable.HiddenF) (q : SigGolfCandidate.T3.Spec.Domain) (hq : WFree q) :
     CanonTable.worldAnswers hU ω g q = CanonTable.worldAnswers hU ω g' q := by
   rcases q with (n | x) | c
   · rfl
   · exact (CanonTable.chainTable hU ω).answers_public g g' x hq
   · exact private_free ω g g' c hq
-theorem eval_free (g g' : WctPoint → Digest) {α : Type} {program : M α} (hp : AllQueriesSatisfy program WFree) :
+theorem eval_free (g g' : CanonTable.HiddenF) {α : Type} {program : M α} (hp : AllQueriesSatisfy program WFree) :
     evalWithAnswerFn (CanonTable.worldAnswers hU ω g) program =
       evalWithAnswerFn (CanonTable.worldAnswers hU ω g') program :=
   eval_congr_allowed hp (answers_free hU ω g g')
@@ -324,13 +325,13 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 def outIndex (output : HashOutput) : Nat := WCT9.digestIndex output
 def revealedCoords (output : HashOutput) : List Guess.GCoord :=
-  (List.finRange 9).flatMap fun k => (List.finRange 7).filterMap fun t =>
+  (List.finRange 9).flatMap fun k => (List.finRange 6).filterMap fun t =>
     if h : 1 ≤ Guess.deficit output k t then
-      some (Guess.chainOf output k t, ⟨3 - Guess.deficit output k t, by omega⟩)
+      some (Guess.chainOf output k t, ⟨4 - Guess.deficit output k t, by omega⟩)
     else none
 theorem mem_revealedCoords {output : HashOutput} {c : Guess.GCoord} :
-    c ∈ revealedCoords output ↔ ∃ (k : Fin 9) (t : Fin 7), 1 ≤ Guess.deficit output k t ∧
-      c.1 = Guess.chainOf output k t ∧ c.2.val = 3 - Guess.deficit output k t := by
+    c ∈ revealedCoords output ↔ ∃ (k : Fin 9) (t : Fin 6), 1 ≤ Guess.deficit output k t ∧
+      c.1 = Guess.chainOf output k t ∧ c.2.val = 4 - Guess.deficit output k t := by
   unfold revealedCoords
   simp only [List.mem_flatMap, List.mem_finRange, true_and, List.mem_filterMap]
   constructor
@@ -348,65 +349,65 @@ theorem mem_revealedCoords {output : HashOutput} {c : Guess.GCoord} :
 section World
 variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : CanonTable.Omega U)
 noncomputable local instance instDecidableEqCache_g6Signer : DecidableEq SigGolfCandidate.T3.Cache := Classical.decEq _
-noncomputable abbrev wA (g : WctPoint → Digest) : Answers := CanonTable.worldAnswers hU ω g
-def addrOf (index : Nat) (hindex : index < 2 ^ 31) (k : Fin 9) (j : Fin 128) (t : Fin 7) : Guess.ChainAddr :=
+noncomputable abbrev wA (g : CanonTable.HiddenF) : Answers := CanonTable.worldAnswers hU ω g
+def addrOf (index : Nat) (hindex : index < 2 ^ 31) (k : Fin 9) (j : Fin 128) (t : Fin 6) : Guess.ChainAddr :=
   (⟨index, hindex⟩, k, j, t)
 theorem wctChainValue_eq (A : Answers) (index : Nat) (hindex : index < 2 ^ 31) (k : Fin 9) (j : Fin 128)
-    (word : WCT9.Rank) (t : Fin 7) :
-    WCT9.chainValue A index k.val j.val word t = Guess.chainValue A (addrOf index hindex k j t) (3 - WCT9.wordDigit word t) :=
+    (word : WCT9.Rank) (t : Fin 6) :
+    WCT9.chainValue A index k.val j.val word t = Guess.chainValue A (addrOf index hindex k j t) (4 - WCT9.wordDigit word t) :=
   rfl
-theorem chainEnd_eq (A : Answers) (index : Nat) (hindex : index < 2 ^ 31) (k : Fin 9) (j : Fin 128) (t : Fin 7) :
-    WCT9.chainEnd A index k.val j.val t = Guess.chainValue A (addrOf index hindex k j t) 3 :=
+theorem chainEnd_eq (A : Answers) (index : Nat) (hindex : index < 2 ^ 31) (k : Fin 9) (j : Fin 128) (t : Fin 6) :
+    WCT9.chainEnd A index k.val j.val t = Guess.chainValue A (addrOf index hindex k j t) 4 :=
   rfl
-theorem chainValue_world (g : WctPoint → Digest) (a : Guess.ChainAddr) (p : Nat) (hp : p ≤ 3) :
+theorem chainValue_world (g : CanonTable.HiddenF) (a : Guess.ChainAddr) (p : Nat) (hp : p ≤ 4) :
     Guess.chainValue (wA hU ω g) a p = (CanonTable.chainTable hU ω).walkVal g a p :=
   (CanonTable.chainTable hU ω).chainValue_answers g a p hp
-theorem walkVal_three (g g' : WctPoint → Digest) (a : Guess.ChainAddr) :
-    (CanonTable.chainTable hU ω).walkVal g a 3 = (CanonTable.chainTable hU ω).walkVal g' a 3 := by
+theorem walkVal_three (g g' : CanonTable.HiddenF) (a : Guess.ChainAddr) :
+    (CanonTable.chainTable hU ω).walkVal g a 4 = (CanonTable.chainTable hU ω).walkVal g' a 4 := by
   simp [Guess.ChainTable.walkVal]
-theorem chainEnd_world (g g' : WctPoint → Digest) (index : Nat) (hindex : index < 2 ^ 31) (k : Fin 9)
-    (j : Fin 128) (t : Fin 7) :
+theorem chainEnd_world (g g' : CanonTable.HiddenF) (index : Nat) (hindex : index < 2 ^ 31) (k : Fin 9)
+    (j : Fin 128) (t : Fin 6) :
     WCT9.chainEnd (wA hU ω g) index k.val j.val t = WCT9.chainEnd (wA hU ω g') index k.val j.val t := by
-  rw [chainEnd_eq _ index hindex, chainEnd_eq _ index hindex, chainValue_world hU ω g _ 3 le_rfl,
-    chainValue_world hU ω g' _ 3 le_rfl, walkVal_three]
-theorem childRoot_world (g g' : WctPoint → Digest) (index : Nat) (hindex : index < 2 ^ 31) (k : Fin 9)
+  rw [chainEnd_eq _ index hindex, chainEnd_eq _ index hindex, chainValue_world hU ω g _ 4 le_rfl,
+    chainValue_world hU ω g' _ 4 le_rfl, walkVal_three]
+theorem childRoot_world (g g' : CanonTable.HiddenF) (index : Nat) (hindex : index < 2 ^ 31) (k : Fin 9)
     (j : Nat) (hj : j < 128) :
     WCT9.childRoot (wA hU ω g) index k.val j = WCT9.childRoot (wA hU ω g') index k.val j := by
   unfold WCT9.childRoot
-  have he : (fun t : Fin 7 => WCT9.chainEnd (wA hU ω g) index k.val j t) =
-      (fun t : Fin 7 => WCT9.chainEnd (wA hU ω g') index k.val j t) := by
+  have he : (fun t : Fin 6 => WCT9.chainEnd (wA hU ω g) index k.val j t) =
+      (fun t : Fin 6 => WCT9.chainEnd (wA hU ω g') index k.val j t) := by
     funext t
     exact chainEnd_world hU ω g g' index hindex k ⟨j, hj⟩ t
   rw [he]
   exact eval_free hU ω g g' (wctLeafHash_free _ _ _ _)
-theorem coordLeaves_world (g g' : WctPoint → Digest) (index : Nat) (hindex : index < 2 ^ 31) (k : Fin 9) :
+theorem coordLeaves_world (g g' : CanonTable.HiddenF) (index : Nat) (hindex : index < 2 ^ 31) (k : Fin 9) :
     WCT9.coordLeaves (wA hU ω g) index k = WCT9.coordLeaves (wA hU ω g') index k := by
   unfold WCT9.coordLeaves
   exact congrArg List.ofFn (funext fun j : Fin 128 => childRoot_world hU ω g g' index hindex k j.val j.isLt)
-theorem coordNodes_world (g g' : WctPoint → Digest) (index : Nat) (hindex : index < 2 ^ 31) (k : Fin 9) :
+theorem coordNodes_world (g g' : CanonTable.HiddenF) (index : Nat) (hindex : index < 2 ^ 31) (k : Fin 9) :
     WCT9.coordNodes (wA hU ω g) index k = WCT9.coordNodes (wA hU ω g') index k := by
   unfold WCT9.coordNodes
   rw [coordLeaves_world hU ω g g' index hindex k]
   exact eval_free hU ω g g' (heapBuild_free _ _ _)
-theorem coordinatePair_world (g g' : WctPoint → Digest) (index : Nat) (hindex : index < 2 ^ 31) :
+theorem coordinatePair_world (g g' : CanonTable.HiddenF) (index : Nat) (hindex : index < 2 ^ 31) :
     WCT9.coordinatePair (wA hU ω g) index = WCT9.coordinatePair (wA hU ω g') index := by
   funext k
   unfold WCT9.coordinatePair
   rw [coordNodes_world hU ω g g' index hindex k]
-theorem honestForest_world (g g' : WctPoint → Digest) (index : Nat) (hindex : index < 2 ^ 31) :
+theorem honestForest_world (g g' : CanonTable.HiddenF) (index : Nat) (hindex : index < 2 ^ 31) :
     WCT9.honestForest (wA hU ω g) index = WCT9.honestForest (wA hU ω g') index := by
   unfold WCT9.honestForest
   rw [coordinatePair_world hU ω g g' index hindex]
   exact eval_free hU ω g g' (wctForestPk_free _ _)
 theorem outIndex_lt (output : HashOutput) : outIndex output < 2 ^ 31 := Nat.mod_lt _ (by positivity)
-theorem chainOf_eq_addrOf (output : HashOutput) (k : Fin 9) (t : Fin 7) :
+theorem chainOf_eq_addrOf (output : HashOutput) (k : Fin 9) (t : Fin 6) :
     Guess.chainOf output k t = addrOf (outIndex output) (outIndex_lt output) k (WCT9.child output k) t := rfl
-theorem expectedOpening_world (g g' : WctPoint → Digest) (output : HashOutput)
-    (h : ∀ c ∈ revealedCoords output, g c = g' c) (k : Fin 9) :
+theorem expectedOpening_world (g g' : CanonTable.HiddenF) (output : HashOutput)
+    (h : ∀ c ∈ revealedCoords output, Guess.Fam.phi g.1 g.2 c = Guess.Fam.phi g'.1 g'.2 c) (k : Fin 9) :
     WCT9.expectedOpening (wA hU ω g) (outIndex output) output k =
       WCT9.expectedOpening (wA hU ω g') (outIndex output) output k := by
   unfold WCT9.expectedOpening
-  rw [WCT9.buildCoordinate_result, WCT9.buildCoordinate_result,
+  rw [WCT9.buildCoordinateF_result, WCT9.buildCoordinateF_result,
     coordNodes_world hU ω g g' (outIndex output) (outIndex_lt output) k]
   congr 3
   funext t
@@ -414,12 +415,12 @@ theorem expectedOpening_world (g g' : WctPoint → Digest) (output : HashOutput)
     chainValue_world hU ω g _ _ (by omega), chainValue_world hU ω g' _ _ (by omega)]
   unfold Guess.ChainTable.walkVal
   by_cases hd : 1 ≤ WCT9.wordDigit (WCT9.rank output k) t
-  · have hlt : 3 - WCT9.wordDigit (WCT9.rank output k) t < 3 := by omega
+  · have hlt : 4 - WCT9.wordDigit (WCT9.rank output k) t < 4 := by omega
     rw [dif_pos hlt, dif_pos hlt]
     apply h
     rw [mem_revealedCoords]
     exact ⟨k, t, hd, rfl, rfl⟩
-  · have hlt : ¬3 - WCT9.wordDigit (WCT9.rank output k) t < 3 := by omega
+  · have hlt : ¬4 - WCT9.wordDigit (WCT9.rank output k) t < 4 := by omega
     rw [dif_neg hlt, dif_neg hlt]
 noncomputable def signerCore (published : SigGolfCandidate.T3.Cache) (request : Request) :
     Option (Digest × HashOutput × List Pieces) :=
@@ -438,7 +439,7 @@ def assembleWith (A : Answers) (core : Digest × HashOutput × List Pieces) : Si
 theorem eval_privateMac_bind (A : Answers) (region : Region) {β : Type} (next : M β) :
     evalWithAnswerFn A (privateMac region >>= fun _ => next) = evalWithAnswerFn A next := by
   rw [evalWithAnswerFn_bind]
-theorem sign_answers (g : WctPoint → Digest) (published : SigGolfCandidate.T3.Cache) (request : Request) :
+theorem sign_answers (g : CanonTable.HiddenF) (published : SigGolfCandidate.T3.Cache) (request : Request) :
     evalWithAnswerFn (wA hU ω g) (FullGame.authenticatedSign published request) =
       (signerCore hU ω published request).map (assembleWith (wA hU ω g)) := by
   unfold FullGame.authenticatedSign signerCore
@@ -474,8 +475,8 @@ theorem map_assemble_congr {A A' : Answers} (o : Option (Digest × HashOutput ×
   cases o with
   | none => exact (Option.map_none _).trans (Option.map_none _).symm
   | some core => exact (Option.map_some _ _).trans ((congrArg some (h core rfl)).trans (Option.map_some _ _).symm)
-theorem sign_local (g g' : WctPoint → Digest) (published : SigGolfCandidate.T3.Cache) (request : Request)
-    (h : ∀ c ∈ openedFor hU ω published request, g c = g' c) :
+theorem sign_local (g g' : CanonTable.HiddenF) (published : SigGolfCandidate.T3.Cache) (request : Request)
+    (h : ∀ c ∈ openedFor hU ω published request, Guess.Fam.phi g.1 g.2 c = Guess.Fam.phi g'.1 g'.2 c) :
     evalWithAnswerFn (wA hU ω g) (FullGame.authenticatedSign published request) =
       evalWithAnswerFn (wA hU ω g') (FullGame.authenticatedSign published request) := by
   rw [sign_answers, sign_answers]
@@ -498,14 +499,14 @@ theorem signerCore_search {published : SigGolfCandidate.T3.Cache} {request : Req
     · cases h
     · cases h
       exact ⟨ctr, hfound⟩
-theorem signedOutput_world (g : WctPoint → Digest) {published : SigGolfCandidate.T3.Cache} {request : Request}
+theorem signedOutput_world (g : CanonTable.HiddenF) {published : SigGolfCandidate.T3.Cache} {request : Request}
     {core : Digest × HashOutput × List Pieces} (h : signerCore hU ω published request = some core) :
     CaseC.signedOutput (wA hU ω g) request.message (assembleWith (wA hU ω g) core) = some core.2.1 := by
   obtain ⟨ctr, hs⟩ := signerCore_search hU ω h
   unfold CaseC.signedOutput assembleWith
   rw [WCT9.assembledSignature_rho, eval_free hU ω g 0 (wctDigestSearch_free _ _ _ _), hs]
   rfl
-theorem sign_opened (g : WctPoint → Digest) (published : SigGolfCandidate.T3.Cache) (request : Request)
+theorem sign_opened (g : CanonTable.HiddenF) (published : SigGolfCandidate.T3.Cache) (request : Request)
     (c : Guess.GCoord) (hc : c ∈ openedFor hU ω published request) :
     ∃ signature output, evalWithAnswerFn (wA hU ω g) (FullGame.authenticatedSign published request) = some signature ∧
       CaseC.signedOutput (wA hU ω g) request.message signature = some output ∧ c ∈ revealedCoords output := by
@@ -517,6 +518,51 @@ theorem sign_opened (g : WctPoint → Digest) (published : SigGolfCandidate.T3.C
       refine ⟨assembleWith (wA hU ω g) core, core.2.1, ?_, signedOutput_world hU ω g hcore, hc⟩
       rw [sign_answers, hcore]
       rfl
+theorem ftsPoint_child_injective (j : Fin 128) : Function.Injective fun t : Fin 6 => WCT9.ftsPoint j.val t.val :=
+  fun t t' h => (Guess.Fam.ftsPoint_inj (j := j) (j' := j) h).2
+/-- Coefficients whose seeds at the 6 chains of child `j` are `v` (the name is kept from the 7-chain code). -/
+noncomputable def interp7 (v : Fin 6 → Digest) (j : Fin 128) : Guess.Fam.Coefs :=
+  Classical.choose (ClaudeWCT.Arith.familyEval_surjective (n := 102) (t := 6) (by decide)
+    (fun t => WCT9.ftsPoint j.val t.val) (ftsPoint_child_injective j) (fun t => Guess.Fam.ftsPoint_lt j t) v)
+theorem interp7_spec (v : Fin 6 → Digest) (j : Fin 128) (t : Fin 6) :
+    ClaudeWCT.Arith.familyEval (List.ofFn (interp7 v j)) (WCT9.ftsPoint j.val t.val) = v t :=
+  congrFun (Classical.choose_spec (ClaudeWCT.Arith.familyEval_surjective (n := 102) (t := 6) (by decide)
+    (fun t => WCT9.ftsPoint j.val t.val) (ftsPoint_child_injective j) (fun t => Guess.Fam.ftsPoint_lt j t) v)) t
+/-- A hidden value whose table agrees with `v` on the coordinates revealed by `output`. -/
+noncomputable def liftH (v : Guess.GCoord → Digest) (output : HashOutput) : CanonTable.HiddenF :=
+  (fun f => if f.1.val = outIndex output then
+      interp7 (fun t => v ((f.1, f.2, WCT9.child output f.2, t), 0)) (WCT9.child output f.2) else 0,
+    fun l => v (l.1, l.2.succ))
+theorem phi_liftH (v : Guess.GCoord → Digest) (output : HashOutput) (c : Guess.GCoord)
+    (hc : c ∈ revealedCoords output) : Guess.Fam.phi (liftH v output).1 (liftH v output).2 c = v c := by
+  obtain ⟨k, t, -, h1, h2⟩ := mem_revealedCoords.mp hc
+  obtain ⟨a, q⟩ := c
+  simp only at h1 h2
+  subst h1
+  by_cases hq : q = 0
+  · subst hq
+    rw [Guess.Fam.phi_seed]
+    have hidx : (Guess.Fam.famOf (Guess.chainOf output k t)).1.val = outIndex output := rfl
+    simp only [liftH, Guess.Fam.seedK, hidx, if_true]
+    exact interp7_spec _ _ t
+  · rw [Guess.Fam.phi_label' _ _ (Guess.chainOf output k t, q) hq]
+    simp only [liftH, Fin.succ_pred]
+/-- The hidden value used by the world's signer for the disclosed values `v`. -/
+noncomputable def liftFor (published : SigGolfCandidate.T3.Cache) (request : Request) (v : Guess.GCoord → Digest) :
+    CanonTable.HiddenF :=
+  match signerCore hU ω published request with
+  | none => 0
+  | some core => liftH v core.2.1
+theorem phi_liftFor (published : SigGolfCandidate.T3.Cache) (request : Request) (v : Guess.GCoord → Digest)
+    (c : Guess.GCoord) (hc : c ∈ openedFor hU ω published request) :
+    Guess.Fam.phi (liftFor hU ω published request v).1 (liftFor hU ω published request v).2 c = v c := by
+  unfold liftFor
+  unfold openedFor at hc
+  cases hcore : signerCore hU ω published request with
+  | none => rw [hcore] at hc; cases hc
+  | some core =>
+      rw [hcore] at hc
+      exact phi_liftH v core.2.1 c hc
 end World
 end ClaudeWCT.W9.T3.Security.WPair
 end
@@ -530,13 +576,13 @@ set_option backward.isDefEq.respectTransparency false
 variable {E Memory : Type}
 def CovMono (Cov : List E → ChainAddr → ℕ → Prop) : Prop :=
   (∀ l1 l2 a p, Cov l1 a p → Cov (l1 ++ l2) a p) ∧ (∀ l1 l2 a p, Cov l2 a p → Cov (l1 ++ l2) a p)
-structure WTracks (T : ChainTable) (g : GCoord → Digest) (Cov : List E → ChainAddr → ℕ → Prop)
+structure WTracks {H : Type} (T : ChainTable H) (g : H) (Cov : List E → ChainAddr → ℕ → Prop)
     (before after : State GCoord Digest Memory) (log : List E) (entries : List (HashInput × HashOutput)) : Prop where
   probes : after.probes ≤ before.probes + entries.length
   prefixTracks : PrefixTracks (Cov log) before after
   queried : ∀ c ans, (honestProbe (T.answers g) c, ans) ∈ entries → c ∈ after.retired
 namespace WTracks
-variable {T : ChainTable} {g : GCoord → Digest} {Cov : List E → ChainAddr → ℕ → Prop}
+variable {H : Type} {T : ChainTable H} {g : H} {Cov : List E → ChainAddr → ℕ → Prop}
 theorem refl (state : State GCoord Digest Memory) : WTracks T g Cov state state [] [] :=
   ⟨by simp, PrefixTracks.refl _ _, fun _ _ h => by cases h⟩
 theorem trans (hc : CovMono Cov) {s1 s2 s3 : State GCoord Digest Memory} {l1 l2 : List E}
@@ -572,7 +618,7 @@ theorem of_prefix_false {before after : State GCoord Digest Memory} {log : List 
 theorem hashW {AuxIndex : Type} {auxSpec : OracleSpec AuxIndex}
     (environment : Environment auxSpec GCoord Digest Memory) (x : HashInput) (state : State GCoord Digest Memory)
     (result : HashOutput × State GCoord Digest Memory)
-    (hr : fixedRun environment g (T.hashW (auxSpec := auxSpec) x) state result ≠ 0) :
+    (hr : fixedRun environment (T.view g) (T.hashW (auxSpec := auxSpec) x) state result ≠ 0) :
     result.1 = T.answers g (.inl (.inr x)) ∧ WTracks T g Cov state result.2 [] [(x, result.1)] := by
   obtain ⟨h1, h2, h3, h4⟩ := T.fixedRun_hashW environment g x state result hr
   refine ⟨h1, of_prefix_false (by simpa using h3) h2 ?_⟩
@@ -583,9 +629,9 @@ theorem disclose {AuxIndex : Type} {auxSpec : OracleSpec AuxIndex}
     (environment : Environment auxSpec GCoord Digest Memory) (cs : List GCoord) (entry : E)
     (hcs : ∀ c ∈ cs, Cov [entry] c.1 c.2.val) (hpos : ∀ l a p p', p ≤ p' → Cov l a p → Cov l a p')
     (state : State GCoord Digest Memory) (result : List Digest × State GCoord Digest Memory)
-    (hr : fixedRun environment g (discloseAll (auxSpec := auxSpec) cs) state result ≠ 0) :
-    result.1 = cs.map g ∧ WTracks T g Cov state result.2 [entry] [] := by
-  obtain ⟨h1, h2, -, h4⟩ := fixedRun_discloseAll environment g cs state result hr
+    (hr : fixedRun environment (T.view g) (discloseAll (auxSpec := auxSpec) cs) state result ≠ 0) :
+    result.1 = cs.map (T.view g) ∧ WTracks T g Cov state result.2 [entry] [] := by
+  obtain ⟨h1, h2, -, h4⟩ := fixedRun_discloseAll environment (T.view g) cs state result hr
   refine ⟨h1, ⟨by simp [h2], h4.mono ?_, fun _ _ h => by cases h⟩⟩
   rintro a p ⟨c, hc, rfl, hle⟩
   exact hpos _ _ _ _ hle (hcs c hc)
@@ -652,7 +698,8 @@ noncomputable def signW (published : SigGolfCandidate.T3.Cache) (request : Reque
     OracleComp WSpec (Option Signature) := do
   let positions := openedFor hU ω published request
   let values ← Guess.discloseAll (auxSpec := unifSpec) (V := Digest) positions
-  pure (evalWithAnswerFn (wA hU ω (overwrite positions values)) (FullGame.authenticatedSign published request))
+  pure (evalWithAnswerFn (wA hU ω (liftFor hU ω published request (overwrite positions values)))
+    (FullGame.authenticatedSign published request))
 noncomputable def interactionW (published : SigGolfCandidate.T3.Cache) {α : Type} :
     OracleComp LazyPrivate.Interaction α → OracleComp WSpec (α × QueryLog Requests × List Wots.Entry) :=
   OracleComp.construct (fun value => pure (value, [], []))
@@ -709,15 +756,15 @@ noncomputable def pairRun (T : Answers) (adversary : AdversaryP) :
     interaction.2.2 ++ Wots.entriesOf T (SourceReplay.queried T verdict))
 section Couple
 variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : CanonTable.Omega U)
-noncomputable abbrev fixedW (g : Guess.GCoord → Digest) : QueryImpl WSpec ProbComp :=
-  SecretGuessObservation.fixedAnswers coinImpl g
-theorem keygen_answers (g : Guess.GCoord → Digest) :
+noncomputable abbrev fixedW (g : CanonTable.HiddenF) : QueryImpl WSpec ProbComp :=
+  SecretGuessObservation.fixedAnswers coinImpl (Guess.Fam.phi g.1 g.2)
+theorem keygen_answers (g : CanonTable.HiddenF) :
     evalWithAnswerFn (wA hU ω g) SigGolfCandidate.T3.keygen = evalWithAnswerFn (wA hU ω 0) SigGolfCandidate.T3.keygen :=
   eval_free hU ω g 0 keygen_free
-theorem fixed_hashW (g : Guess.GCoord → Digest) (x : HashInput) :
+theorem fixed_hashW (g : CanonTable.HiddenF) (x : HashInput) :
     simulateQ (fixedW g) (hashW hU ω x) = pure (wA hU ω g (.inl (.inr x))) :=
   (CanonTable.chainTable hU ω).fixed_hashW coinImpl g x
-theorem fixed_signW (g : Guess.GCoord → Digest) (published : SigGolfCandidate.T3.Cache) (request : Request) :
+theorem fixed_signW (g : CanonTable.HiddenF) (published : SigGolfCandidate.T3.Cache) (request : Request) :
     simulateQ (fixedW g) (signW hU ω published request) =
       pure (evalWithAnswerFn (wA hU ω g) (FullGame.authenticatedSign published request)) := by
   unfold signW
@@ -725,7 +772,8 @@ theorem fixed_signW (g : Guess.GCoord → Digest) (published : SigGolfCandidate.
   congr 1
   apply sign_local
   intro c hc
-  exact overwrite_map g _ c hc
+  rw [phi_liftFor hU ω published request _ c hc]
+  exact overwrite_map (Guess.Fam.phi g.1 g.2) _ c hc
 theorem interactionW_pure (published : SigGolfCandidate.T3.Cache) {α : Type} (value : α) :
     interactionW hU ω published (pure value : OracleComp LazyPrivate.Interaction α) = pure (value, [], []) := rfl
 theorem interactionW_coin (published : SigGolfCandidate.T3.Cache) {α : Type} (n : Nat)
@@ -766,7 +814,7 @@ theorem interactionT_request (T : Answers) (published : SigGolfCandidate.T3.Cach
       (interactionT T published (next (evalWithAnswerFn T (FullGame.authenticatedSign published request))) >>=
         fun rest => pure (rest.1, ⟨request, evalWithAnswerFn T (FullGame.authenticatedSign published request)⟩ ::
           rest.2.1, rest.2.2)) := rfl
-theorem fixed_interactionW (g : Guess.GCoord → Digest) (published : SigGolfCandidate.T3.Cache) {α : Type}
+theorem fixed_interactionW (g : CanonTable.HiddenF) (published : SigGolfCandidate.T3.Cache) {α : Type}
     (program : OracleComp LazyPrivate.Interaction α) :
     simulateQ (fixedW g) (interactionW hU ω published program) = interactionT (wA hU ω g) published program := by
   induction program using OracleComp.inductionOn with
@@ -779,7 +827,7 @@ theorem fixed_interactionW (g : Guess.GCoord → Digest) (published : SigGolfCan
         exact bind_congr fun rest => by rw [simulateQ_pure]
       · rw [interactionW_request, interactionT_request, simulateQ_bind, fixed_signW, pure_bind, simulateQ_bind, ih]
         exact bind_congr fun rest => by rw [simulateQ_pure]
-theorem fixed_programW (g : Guess.GCoord → Digest) {β : Type} (program : M β) (hp : PublicVerdict.Only program) :
+theorem fixed_programW (g : CanonTable.HiddenF) {β : Type} (program : M β) (hp : PublicVerdict.Only program) :
     simulateQ (fixedW g) (programW hU ω program) =
       pure (evalWithAnswerFn (wA hU ω g) program,
         Wots.entriesOf (wA hU ω g) (SourceReplay.queried (wA hU ω g) program)) := by
@@ -793,7 +841,7 @@ theorem fixed_programW (g : Guess.GCoord → Digest) {β : Type} (program : M β
           simulateQ_pure, SourceReplay.queried_query_bind, evalWithAnswerFn_bind, eval_query']
         rfl
       · exact hi.elim
-theorem simulate_worldGame (g : Guess.GCoord → Digest) (adversary : AdversaryP) :
+theorem simulate_worldGame (g : CanonTable.HiddenF) (adversary : AdversaryP) :
     simulateQ (fixedW g) (worldGame hU ω adversary) = pairRun (wA hU ω g) adversary := by
   unfold worldGame pairRun
   rw [← keygen_answers hU ω g]
@@ -801,8 +849,8 @@ theorem simulate_worldGame (g : Guess.GCoord → Digest) (adversary : AdversaryP
   apply bind_congr
   intro interaction
   rw [simulateQ_bind, fixed_programW _ _ _ _ (PaddedGame.verdict_public _ _), pure_bind, simulateQ_pure]
-theorem fixed_worldGame (g : Guess.GCoord → Digest) (adversary : AdversaryP) :
-    Prod.fst <$> SecretGuessObservation.fixedRun env g (worldGame hU ω adversary) init =
+theorem fixed_worldGame (g : CanonTable.HiddenF) (adversary : AdversaryP) :
+    Prod.fst <$> SecretGuessObservation.fixedRun env (Guess.Fam.phi g.1 g.2) (worldGame hU ω adversary) init =
       𝒮[pairRun (wA hU ω g) adversary] := by
   rw [env, SecretGuessObservation.fixedRun_projection, simulate_worldGame]
 end Couple
@@ -813,51 +861,56 @@ def Cov (A : Answers) (log : QueryLog Requests) (a : Guess.ChainAddr) (p : Nat) 
 theorem cov_mono (A : Answers) : Guess.CovMono (Cov A) :=
   ⟨fun l1 l2 a p h => Disclosed.mono_log (fun e he => List.mem_append_left _ he) h,
     fun l1 l2 a p h => Disclosed.mono_log (fun e he => List.mem_append_right _ he) h⟩
-abbrev Tracks (g : Guess.GCoord → Digest) (before after : WState) (log : QueryLog Requests)
+abbrev Tracks (g : CanonTable.HiddenF) (before after : WState) (log : QueryLog Requests)
     (entries : List Wots.Entry) : Prop :=
   Guess.WTracks (CanonTable.chainTable hU ω) g (Cov (wA hU ω g)) before after log entries
-theorem Tracks.trans' {g : Guess.GCoord → Digest} {s1 s2 s3 : WState} {l1 l2 : QueryLog Requests}
+theorem Tracks.trans' {g : CanonTable.HiddenF} {s1 s2 s3 : WState} {l1 l2 : QueryLog Requests}
     {e1 e2 : List Wots.Entry} (first : Tracks hU ω g s1 s2 l1 e1) (second : Tracks hU ω g s2 s3 l2 e2) :
     Tracks hU ω g s1 s3 (l1 ++ l2) (e1 ++ e2) :=
   Guess.WTracks.trans (cov_mono _) first second
-theorem fixedRun_bind_nonzero {First Result : Type} (g : Guess.GCoord → Digest) (first : OracleComp WSpec First)
+theorem fixedRun_bind_nonzero {First Result : Type} (g : CanonTable.HiddenF) (first : OracleComp WSpec First)
     (next : First → OracleComp WSpec Result) (state : WState) (result : Result × WState)
-    (hr : fixedRun env g (first >>= next) state result ≠ 0) :
-    ∃ middle, fixedRun env g first state middle ≠ 0 ∧ fixedRun env g (next middle.1) middle.2 result ≠ 0 :=
-  Guess.fixedRun_bind_nonzero' env g first next state result hr
-theorem fixedRun_pure_nonzero {Result : Type} (g : Guess.GCoord → Digest) (value : Result) (state : WState)
-    (result : Result × WState) (hr : fixedRun env g (pure value) state result ≠ 0) : result = (value, state) :=
-  Guess.fixedRun_pure_nonzero' env g value state result hr
-theorem fixed_coin_tracks (g : Guess.GCoord → Digest) (n : Nat) (state : WState) (result : Fin (n + 1) × WState)
-    (hr : fixedRun env g (liftM (WSpec.query (.inl n))) state result ≠ 0) : Tracks hU ω g state result.2 [] [] := by
+    (hr : fixedRun env (Guess.Fam.phi g.1 g.2) (first >>= next) state result ≠ 0) :
+    ∃ middle, fixedRun env (Guess.Fam.phi g.1 g.2) first state middle ≠ 0 ∧ fixedRun env (Guess.Fam.phi g.1 g.2) (next middle.1) middle.2 result ≠ 0 :=
+  Guess.fixedRun_bind_nonzero' env (Guess.Fam.phi g.1 g.2) first next state result hr
+theorem fixedRun_pure_nonzero {Result : Type} (g : CanonTable.HiddenF) (value : Result) (state : WState)
+    (result : Result × WState) (hr : fixedRun env (Guess.Fam.phi g.1 g.2) (pure value) state result ≠ 0) : result = (value, state) :=
+  Guess.fixedRun_pure_nonzero' env (Guess.Fam.phi g.1 g.2) value state result hr
+theorem fixed_coin_tracks (g : CanonTable.HiddenF) (n : Nat) (state : WState) (result : Fin (n + 1) × WState)
+    (hr : fixedRun env (Guess.Fam.phi g.1 g.2) (liftM (WSpec.query (.inl n))) state result ≠ 0) : Tracks hU ω g state result.2 [] [] := by
   unfold fixedRun runWith at hr
   rw [simulateQ_spec_query] at hr
   simp only [fixedImpl, StateT.run_mk, map_eq_bind_pure_comp, RetainedObservation.bind_nonzero, Function.comp_def,
     ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] at hr
   obtain ⟨answer, _, rfl⟩ := hr
   exact Guess.WTracks.refl state
-theorem fixed_hashW_tracks (g : Guess.GCoord → Digest) (x : HashInput) (state : WState) (result : HashOutput × WState)
-    (hr : fixedRun env g (hashW hU ω x) state result ≠ 0) :
+theorem fixed_hashW_tracks (g : CanonTable.HiddenF) (x : HashInput) (state : WState) (result : HashOutput × WState)
+    (hr : fixedRun env (Guess.Fam.phi g.1 g.2) (hashW hU ω x) state result ≠ 0) :
     result.1 = wA hU ω g (.inl (.inr x)) ∧ Tracks hU ω g state result.2 [] [(x, result.1)] :=
-  Guess.WTracks.hashW env x state result hr
-theorem fixed_signW_tracks (g : Guess.GCoord → Digest) (published : SigGolfCandidate.T3.Cache) (request : Request)
+  Guess.WTracks.hashW (T := CanonTable.chainTable hU ω) (g := g) env x state result hr
+theorem fixed_signW_tracks (g : CanonTable.HiddenF) (published : SigGolfCandidate.T3.Cache) (request : Request)
     (state : WState) (result : Option Signature × WState)
-    (hr : fixedRun env g (signW hU ω published request) state result ≠ 0) :
+    (hr : fixedRun env (Guess.Fam.phi g.1 g.2) (signW hU ω published request) state result ≠ 0) :
     result.1 = evalWithAnswerFn (wA hU ω g) (FullGame.authenticatedSign published request) ∧
       Tracks hU ω g state result.2 [⟨request, result.1⟩] [] := by
   unfold signW at hr
   obtain ⟨middle, hm, hr⟩ := fixedRun_bind_nonzero g _ _ state result hr
   have h := fixedRun_pure_nonzero g _ _ result hr
   subst h
-  have hsig : evalWithAnswerFn (wA hU ω (overwrite (openedFor hU ω published request) middle.1))
+  have hsig : evalWithAnswerFn (wA hU ω (liftFor hU ω published request
+        (overwrite (openedFor hU ω published request) middle.1)))
       (FullGame.authenticatedSign published request) =
       evalWithAnswerFn (wA hU ω g) (FullGame.authenticatedSign published request) := by
-    have h1 := (Guess.fixedRun_discloseAll env g (openedFor hU ω published request) state middle hm).1
+    have h1 := (Guess.fixedRun_discloseAll env (Guess.Fam.phi g.1 g.2) (openedFor hU ω published request) state
+      middle hm).1
     rw [h1]
-    exact sign_local hU ω _ _ published request fun c hc => overwrite_map g _ c hc
+    exact sign_local hU ω _ _ published request fun c hc => by
+      rw [phi_liftFor hU ω published request _ c hc]
+      exact overwrite_map (Guess.Fam.phi g.1 g.2) _ c hc
   refine ⟨hsig, ?_⟩
   have hcov : ∀ c ∈ openedFor hU ω published request,
-      Cov (wA hU ω g) [⟨request, evalWithAnswerFn (wA hU ω (overwrite (openedFor hU ω published request) middle.1))
+      Cov (wA hU ω g) [⟨request, evalWithAnswerFn (wA hU ω (liftFor hU ω published request
+        (overwrite (openedFor hU ω published request) middle.1)))
         (FullGame.authenticatedSign published request)⟩] c.1 c.2.val := by
     intro c hc
     rw [hsig]
@@ -869,10 +922,10 @@ theorem fixed_signW_tracks (g : Guess.GCoord → Digest) (published : SigGolfCan
     · rw [h1, h2]; exact le_rfl
   exact (Guess.WTracks.disclose env (openedFor hU ω published request) _ hcov
     (fun l a p p' hpp' hc => Disclosed.mono_pos hpp' hc) state middle hm).2
-theorem interactionW_tracks (g : Guess.GCoord → Digest) (published : SigGolfCandidate.T3.Cache) {α : Type}
+theorem interactionW_tracks (g : CanonTable.HiddenF) (published : SigGolfCandidate.T3.Cache) {α : Type}
     (program : OracleComp LazyPrivate.Interaction α) (state : WState)
     (result : (α × QueryLog Requests × List Wots.Entry) × WState)
-    (hr : fixedRun env g (interactionW hU ω published program) state result ≠ 0) :
+    (hr : fixedRun env (Guess.Fam.phi g.1 g.2) (interactionW hU ω published program) state result ≠ 0) :
     Tracks hU ω g state result.2 result.1.2.1 result.1.2.2 := by
   induction program using OracleComp.inductionOn generalizing state result with
   | pure value =>
@@ -901,9 +954,9 @@ theorem interactionW_tracks (g : Guess.GCoord → Digest) (published : SigGolfCa
         have h := Tracks.trans' hU ω (fixed_signW_tracks hU ω g published request state middle hm).2
           (ih middle.1 middle.2 tail ht)
         simpa only [List.nil_append, List.singleton_append] using h
-theorem programW_tracks (g : Guess.GCoord → Digest) {β : Type} (program : M β) (hp : PublicVerdict.Only program)
+theorem programW_tracks (g : CanonTable.HiddenF) {β : Type} (program : M β) (hp : PublicVerdict.Only program)
     (state : WState) (result : (β × List Wots.Entry) × WState)
-    (hr : fixedRun env g (programW hU ω program) state result ≠ 0) :
+    (hr : fixedRun env (Guess.Fam.phi g.1 g.2) (programW hU ω program) state result ≠ 0) :
     Tracks hU ω g state result.2 [] result.1.2 := by
   induction program using OracleComp.inductionOn generalizing state result with
   | pure value =>
@@ -924,9 +977,9 @@ theorem programW_tracks (g : Guess.GCoord → Digest) {β : Type} (program : M �
           (ih middle.1 (hn _) middle.2 tail ht)
         simpa only [List.nil_append, List.singleton_append] using h
       · exact hi.elim
-theorem worldGame_tracking (g : Guess.GCoord → Digest) (adversary : AdversaryP)
+theorem worldGame_tracking (g : CanonTable.HiddenF) (adversary : AdversaryP)
     (result : (Bool × QueryLog Requests × List Wots.Entry) × WState)
-    (hr : fixedRun env g (worldGame hU ω adversary) init result ≠ 0) :
+    (hr : fixedRun env (Guess.Fam.phi g.1 g.2) (worldGame hU ω adversary) init result ≠ 0) :
     result.2.probes ≤ result.1.2.2.length ∧
       ∀ c, GuessedIn (wA hU ω g) result.1.2.1 result.1.2.2 c → Guess.PrefixIn result.2.guesses c.1 c.2.val := by
   unfold worldGame at hr
@@ -940,6 +993,69 @@ theorem worldGame_tracking (g : Guess.GCoord → Digest) (adversary : AdversaryP
   refine ⟨by simpa [init, SecretGuessObservation.initialState] using t.probes, ?_⟩
   intro c hc
   exact t.guess (by simp [init, SecretGuessObservation.initialState]) c hc.1 hc.2
+/-- FTS overflow in a signing log: more than 50 distinct signed outputs share an index (campaign X1). -/
+def OverflowIn (A : Answers) (log : QueryLog Requests) : Prop :=
+  ∃ i : Nat, 50 < ((loggedOutputs A log).toFinset.filter fun out => WCT9.digestIndex out = i).card
+theorem rank_three_card_le (w : WCT9.Rank) :
+    ((Finset.univ : Finset (Fin 6)).filter fun t => WCT9.wordDigit w t = 4).card ≤ 2 := by
+  have hsum : (∑ t ∈ (Finset.univ : Finset (Fin 6)).filter (fun t => WCT9.wordDigit w t = 4), WCT9.wordDigit w t) ≤
+      ∑ t : Fin 6, WCT9.wordDigit w t :=
+    Finset.sum_le_sum_of_subset (Finset.filter_subset _ _)
+  rw [WCT9.wordStep_count, Finset.sum_congr rfl (fun t ht => (Finset.mem_filter.mp ht).2), Finset.sum_const,
+    smul_eq_mul] at hsum
+  omega
+/-- Without overflow in the log, the engine never flags `Bad`: retired-but-unguessed seeds were disclosed by at most
+50 signatures per index, at most two seeds per signature and family (campaign T8: at most one, the digit-4 chain). -/
+theorem worldGame_noBad (g : CanonTable.HiddenF) (adversary : AdversaryP)
+    (result : (Bool × QueryLog Requests × List Wots.Entry) × WState)
+    (hr : fixedRun env (Guess.Fam.phi g.1 g.2) (worldGame hU ω adversary) init result ≠ 0)
+    (hno : ¬OverflowIn (wA hU ω g) result.1.2.1) : ¬Guess.Fam.Bad result.2 := by
+  unfold worldGame at hr
+  obtain ⟨interaction, hi, hr⟩ := fixedRun_bind_nonzero g _ _ init result hr
+  obtain ⟨verdict, hv, hr⟩ := fixedRun_bind_nonzero g _ _ _ result hr
+  have h := fixedRun_pure_nonzero g _ _ result hr
+  subst h
+  have t := Tracks.trans' hU ω (interactionW_tracks hU ω g _ _ init interaction hi)
+    (programW_tracks hU ω g _ (PaddedGame.verdict_public _ _) _ verdict hv)
+  rw [List.append_nil] at t
+  rintro ⟨f, hf⟩
+  have hf' : 100 < (Guess.Fam.freeRetired verdict.2 f).card := hf
+  have hno' : ¬OverflowIn (wA hU ω g) interaction.1.2.1 := hno
+  set X := loggedOutputs (wA hU ω g) interaction.1.2.1
+  have hcount : ((X.toFinset.filter fun out => WCT9.digestIndex out = f.1.val)).card ≤ 50 := by
+    by_contra hc
+    exact hno' ⟨f.1.val, Nat.lt_of_not_le hc⟩
+  let S : Finset (Fin 128 × Fin 6) := (X.toFinset.filter fun out => WCT9.digestIndex out = f.1.val).biUnion
+    fun out => ((Finset.univ : Finset (Fin 6)).filter fun t => WCT9.wordDigit (WCT9.rank out f.2) t = 4).image
+      fun t => (WCT9.child out f.2, t)
+  have hsub : Guess.Fam.freeRetired verdict.2 f ⊆ S := by
+    intro p hp
+    rw [Guess.Fam.mem_freeRetired] at hp
+    obtain ⟨hret, hng⟩ := hp
+    rcases t.prefixTracks.origin (Guess.Fam.member f p.1 p.2) 0 (Guess.prefixIn_of_mem hret) with h0 | h0 | h0
+    · simp [init, SecretGuessObservation.initialState, Guess.not_prefixIn_empty] at h0
+    · obtain ⟨q, hq, hm⟩ := h0
+      have : q = 0 := Fin.ext (by omega)
+      subst this
+      exact absurd hm hng
+    · obtain ⟨out, hout, h1, h2, h3⟩ := h0
+      have hd := WCT9.wordDigit_le_four (WCT9.rank out f.2) p.2
+      simp only [S, Finset.mem_biUnion, Finset.mem_filter, List.mem_toFinset, Finset.mem_image, Finset.mem_univ,
+        true_and]
+      refine ⟨out, ⟨hout, h1⟩, p.2, ?_, ?_⟩
+      · change 4 - WCT9.wordDigit (WCT9.rank out f.2) p.2 ≤ 0 at h3
+        omega
+      · exact Prod.ext h2 rfl
+  have hS : S.card ≤ 100 := by
+    refine Finset.card_biUnion_le.trans ?_
+    calc (∑ out ∈ X.toFinset.filter (fun out => WCT9.digestIndex out = f.1.val),
+          (((Finset.univ : Finset (Fin 6)).filter fun t => WCT9.wordDigit (WCT9.rank out f.2) t = 4).image
+            fun t => (WCT9.child out f.2, t)).card)
+        ≤ ∑ out ∈ X.toFinset.filter (fun out => WCT9.digestIndex out = f.1.val), 2 :=
+          Finset.sum_le_sum fun out _ => Finset.card_image_le.trans (rank_three_card_le _)
+      _ ≤ 100 := by rw [Finset.sum_const, smul_eq_mul]; omega
+  have := Finset.card_le_card hsub
+  omega
 end Tracking
 end ClaudeWCT.W9.T3.Security.WPair
 end

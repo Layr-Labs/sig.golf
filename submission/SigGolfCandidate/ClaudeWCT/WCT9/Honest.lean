@@ -8,17 +8,17 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 inductive FtsPos where
-  | chain (coord : Coord) (child : Child) (t : Fin 7) (step : Nat)
+  | chain (coord : Coord) (child : Child) (t : Fin 6) (step : Nat)
   | leaf (coord : Coord) (child : Child)
   | node (coord : Coord) (heap : Nat)
   | forest
   deriving DecidableEq
 def FtsPos.Bounded : FtsPos → Prop
-  | .chain _ _ _ step => step < 3
+  | .chain _ _ _ step => step < 4
   | .leaf _ _ => True
   | .node _ heap => 2 ≤ heap ∧ heap < 128
   | .forest => True
-def ftsChainValue (T : Answers) (index : Nat) (coord : Coord) (child : Child) (t : Fin 7) (step : Nat) :
+def ftsChainValue (T : Answers) (index : Nat) (coord : Coord) (child : Child) (t : Fin 6) (step : Nat) :
     Digest :=
   evalWithAnswerFn T (chain index coord.val child.val t.val 0 step (seed T index coord.val child.val t))
 def ftsHonestInput (T : Answers) (index : Nat) : FtsPos → HashInput
@@ -34,11 +34,11 @@ def FtsHonestQuery (T : Answers) (index : Nat) : Query → Prop
   | .inl (.inr input) => ∃ p : FtsPos, p.Bounded ∧ input = ftsHonestInput T index p
   | .inr (.inl tweak) => FtsSeed index tweak
   | _ => False
-theorem ftsChainValue_end (T : Answers) (index : Nat) (coord : Coord) (child : Child) (t : Fin 7) :
-    ftsChainValue T index coord child t 3 = chainEnd T index coord.val child.val t := rfl
+theorem ftsChainValue_end (T : Answers) (index : Nat) (coord : Coord) (child : Child) (t : Fin 6) :
+    ftsChainValue T index coord child t 4 = chainEnd T index coord.val child.val t := rfl
 theorem ftsChainValue_revealed (T : Answers) (index : Nat) (coord : Coord) (child : Child) (word : Rank)
-    (t : Fin 7) :
-    ftsChainValue T index coord child t (3 - wordDigit word t) = chainValue T index coord.val child.val word t := rfl
+    (t : Fin 6) :
+    ftsChainValue T index coord child t (4 - wordDigit word t) = chainValue T index coord.val child.val word t := rfl
 theorem ftsHonestQuery_fts {T : Answers} {index : Nat} {q : Query} (h : FtsHonestQuery T index q) :
     FtsQuery index q := by
   rcases q with (coin | input) | (tweak | other)
@@ -56,23 +56,23 @@ theorem chain_zero' (index coord selected t start : Nat) (v : Digest) :
 theorem queried_chain_one (T : Answers) (index coord selected t s : Nat) (v : Digest) :
     SourceReplay.queried T (chain index coord selected t s 1 v) =
       [.inl (.inr (pad64 (chainInput index coord selected t s v)))] := rfl
-theorem eval_ftsChain (T : Answers) (index : Nat) (coord : Coord) (child : Child) (t : Fin 7)
+theorem eval_ftsChain (T : Answers) (index : Nat) (coord : Coord) (child : Child) (t : Fin 6)
     (start count : Nat) :
     evalWithAnswerFn T (chain index coord.val child.val t.val start count
       (ftsChainValue T index coord child t start)) = ftsChainValue T index coord child t (start + count) := by
   unfold ftsChainValue
   rw [eval_chain_add, Nat.zero_add]
-theorem eval_childRows_ends (T : Answers) (index coord selected : Nat) (word : Rank) (carry : Digest)
-    (hcarry : CarryOk T (ftsSeedPair index coord) (ftsOrdinal selected 0) carry) :
-    (evalWithAnswerFn T (childRows index coord selected word carry)).1 =
-      List.ofFn (fun i : Fin 7 => chainEnd T index coord selected i) := by
-  obtain ⟨he, -, hend, -, -⟩ := eval_childRows T index coord selected word carry hcarry
+theorem eval_childRows_ends (T : Answers) (index coord selected : Nat) (word : Rank) :
+    (evalWithAnswerFn T (childRows index coord selected word (List.ofFn (ftsCoef T index coord)))).1 =
+      List.ofFn (fun i : Fin 6 => chainEnd T index coord selected i) := by
+  obtain ⟨he, -, hend, -⟩ := eval_childRows T index coord selected word
   apply List.ext_getElem (by simpa only [List.length_ofFn] using he)
   intro i hi hj
   simpa only [List.getD_eq_getElem _ _ hi, List.getElem_ofFn] using hend ⟨i, by omega⟩ (by omega)
 theorem eval_coordRows_leaves (T : Answers) (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
-    (evalWithAnswerFn T (coordRows index coord selected word)).1 = coordLeaves T index coord := by
-  obtain ⟨hlen, hroot, -, -⟩ := eval_coordRows T index coord selected word
+    (evalWithAnswerFn T (coordRows index coord selected word (List.ofFn (ftsCoef T index coord.val)))).1 =
+      coordLeaves T index coord := by
+  obtain ⟨hlen, hroot, -⟩ := eval_coordRows T index coord selected word
   apply List.ext_getElem (by simpa only [coordLeaves, List.length_ofFn] using hlen)
   intro j hj hk
   simpa only [coordLeaves, List.getD_eq_getElem _ _ hj, List.getElem_ofFn] using hroot j (by omega)
@@ -81,22 +81,20 @@ variable (T : Answers) (index : Nat)
 theorem sat_query {q : Query} (h : FtsHonestQuery T index q) :
     Wots.Structural.QueriesSat T (FtsHonestQuery T index) (liftM (SigGolfCandidate.T3.Spec.query q)) :=
   Wots.Structural.QueriesSat.query h
-theorem sat_seedPair (coord : Coord) (pair : Nat) (hpair : pair < 448) :
+theorem sat_seedPair (coord : Coord) (pair : Nat) (hpair : pair < ftsCoefPairs) :
     Wots.Structural.QueriesSat T (FtsHonestQuery T index) (ftsSeedPair index coord.val pair) := by
   unfold ftsSeedPair privatePair privateHash
   exact Wots.Structural.QueriesSat.bind
     (Wots.Structural.QueriesSat.query (show FtsHonestQuery T index (.inr (.inl _)) from
       ⟨coord.val, pair, coord.isLt, hpair, rfl⟩))
     (Wots.Structural.QueriesSat.pure' _)
-theorem sat_packedSecret (coord : Coord) (child : Child) (t : Fin 7) (carry : Digest) :
-    Wots.Structural.QueriesSat T (FtsHonestQuery T index)
-      (packedSecret (ftsSeedPair index coord.val) (ftsOrdinal child.val t.val) carry) := by
-  unfold packedSecret
-  split
-  · exact Wots.Structural.QueriesSat.bind
-      (sat_seedPair T index coord _ (ftsOrdinal_pair_lt child.isLt t.isLt)) (Wots.Structural.QueriesSat.pure' _)
-  · exact Wots.Structural.QueriesSat.pure' _
-theorem sat_chain (coord : Coord) (child : Child) (t : Fin 7) (start count : Nat) (hcount : start + count ≤ 3) :
+theorem sat_ftsCoefs (coord : Coord) :
+    Wots.Structural.QueriesSat T (FtsHonestQuery T index) (ftsCoefs index coord.val) := by
+  unfold ftsCoefs
+  refine Wots.Structural.QueriesSat.foldlM_range _ _ (fun _ _ => True) _ trivial
+    (fun j hj acc _ => ⟨?_, trivial⟩)
+  exact Wots.Structural.QueriesSat.bind (sat_seedPair T index coord j hj) (Wots.Structural.QueriesSat.pure' _)
+theorem sat_chain (coord : Coord) (child : Child) (t : Fin 6) (start count : Nat) (hcount : start + count ≤ 4) :
     Wots.Structural.QueriesSat T (FtsHonestQuery T index)
       (chain index coord.val child.val t.val start count (ftsChainValue T index coord child t start)) := by
   induction count with
@@ -109,66 +107,46 @@ theorem sat_chain (coord : Coord) (child : Child) (t : Fin 7) (start count : Nat
       rw [queried_chain_one, List.mem_singleton] at hq
       subst hq
       exact ⟨.chain coord child t (start + count), (by simp only [FtsPos.Bounded]; omega), rfl⟩
-theorem sat_childStep (coord : Coord) (child : Child) (word : Rank) (carry : Digest)
-    (hcarry : CarryOk T (ftsSeedPair index coord.val) (ftsOrdinal child.val 0) carry)
-    (t : Fin 7) (rows : List Digest × List Digest × Digest)
-    (hrows : Rows T index coord.val child.val word carry t.val rows) :
-    Wots.Structural.QueriesSat T (FtsHonestQuery T index) (childStep index coord.val child.val word rows t) := by
-  have hok : CarryOk T (ftsSeedPair index coord.val) (ftsOrdinal child.val t.val) rows.2.2 := by
-    rw [hrows.2.2.2.2]
-    unfold childCarry
-    by_cases h0 : t.val = 0
-    · rw [if_pos h0, h0]; exact hcarry
-    · rw [if_neg h0]
-      have := carryOk_next T (ftsSeedPair index coord.val) (ftsOrdinal child.val (t.val - 1))
-      have hq : ftsOrdinal child.val (t.val - 1) + 1 = ftsOrdinal child.val t.val := by
-        unfold ftsOrdinal; omega
-      rwa [hq] at this
+theorem sat_childStep (coord : Coord) (child : Child) (word : Rank)
+    (t : Fin 6) (rows : List Digest × List Digest) :
+    Wots.Structural.QueriesSat T (FtsHonestQuery T index)
+      (childStep index coord.val child.val word (List.ofFn (ftsCoef T index coord.val)) rows t) := by
   unfold childStep
-  refine Wots.Structural.QueriesSat.bind (sat_packedSecret T index coord child t rows.2.2) ?_
-  rw [eval_packedSecret T _ _ _ hok]
-  have hd := wordDigit_le_three word t
-  have hz : seedHalf (evalWithAnswerFn T (ftsSeedPair index coord.val (ftsOrdinal child.val t.val / 2)))
-      (ftsOrdinal child.val t.val) = ftsChainValue T index coord child t 0 := rfl
+  have hd := wordDigit_le_four word t
+  have hz : ftsFamilySeed (List.ofFn (ftsCoef T index coord.val)) child.val t.val =
+      ftsChainValue T index coord child t 0 := rfl
   simp only []
   rw [hz]
   refine Wots.Structural.QueriesSat.bind (sat_chain T index coord child t 0 _ (by omega)) ?_
   rw [eval_ftsChain, Nat.zero_add]
   exact Wots.Structural.QueriesSat.bind (sat_chain T index coord child _ _ _ (by omega))
     (Wots.Structural.QueriesSat.pure' _)
-theorem sat_childRows (coord : Coord) (child : Child) (word : Rank) (carry : Digest)
-    (hcarry : CarryOk T (ftsSeedPair index coord.val) (ftsOrdinal child.val 0) carry) :
-    Wots.Structural.QueriesSat T (FtsHonestQuery T index) (childRows index coord.val child.val word carry) := by
+theorem sat_childRows (coord : Coord) (child : Child) (word : Rank) :
+    Wots.Structural.QueriesSat T (FtsHonestQuery T index)
+      (childRows index coord.val child.val word (List.ofFn (ftsCoef T index coord.val))) := by
   unfold childRows
-  refine Wots.Structural.QueriesSat.foldlM_list _ _ (Rows T index coord.val child.val word carry) _
-    (by simp [Rows, childCarry]) (fun i hi rows hrows => ⟨?_, ?_⟩)
-  · have hi7 : i < 7 := by simpa using hi
-    simp only [List.getElem_finRange, Fin.cast_mk]
-    exact sat_childStep T index coord child word carry hcarry ⟨i, hi7⟩ rows hrows
-  · have hi7 : i < 7 := by simpa using hi
-    simp only [List.getElem_finRange, Fin.cast_mk]
-    exact rows_step T index coord.val child.val word carry hcarry ⟨i, hi7⟩ rows hrows
-theorem sat_buildChild (coord : Coord) (child : Child) (word : Rank) (carry : Digest)
-    (hcarry : CarryOk T (ftsSeedPair index coord.val) (ftsOrdinal child.val 0) carry) :
-    Wots.Structural.QueriesSat T (FtsHonestQuery T index) (buildChild index coord.val child.val word carry) := by
-  rw [buildChild_factor]
-  refine Wots.Structural.QueriesSat.bind (sat_childRows T index coord child word carry hcarry) ?_
-  rw [eval_childRows_ends T index coord.val child.val word carry hcarry]
+  refine Wots.Structural.QueriesSat.foldlM_list _ _ (fun _ _ => True) _ trivial
+    (fun i hi rows _ => ⟨?_, trivial⟩)
+  have hi7 : i < 6 := by simpa using hi
+  simp only [List.getElem_finRange, Fin.cast_mk]
+  exact sat_childStep T index coord child word ⟨i, hi7⟩ rows
+theorem sat_buildChildF (coord : Coord) (child : Child) (word : Rank) :
+    Wots.Structural.QueriesSat T (FtsHonestQuery T index)
+      (buildChildF index coord.val child.val word (List.ofFn (ftsCoef T index coord.val))) := by
+  rw [buildChildF_factor]
+  refine Wots.Structural.QueriesSat.bind (sat_childRows T index coord child word) ?_
+  rw [eval_childRows_ends T index coord.val child.val word]
   refine Wots.Structural.QueriesSat.bind ?_ (Wots.Structural.QueriesSat.pure' _)
   rw [leafHash_eq]
   exact Wots.Structural.sat_shortHash _ ⟨.leaf coord child, trivial, rfl⟩
 theorem sat_coordRows (coord : Coord) (selected : Child) (word : Rank) :
-    Wots.Structural.QueriesSat T (FtsHonestQuery T index) (coordRows index coord selected word) := by
+    Wots.Structural.QueriesSat T (FtsHonestQuery T index)
+      (coordRows index coord selected word (List.ofFn (ftsCoef T index coord.val))) := by
   unfold coordRows
-  refine Wots.Structural.QueriesSat.foldlM_range _ _ (CoordRows T index coord selected word) _
-    (by simp [CoordRows, coordCarry]) (fun j hj rows hrows => ⟨?_, ?_⟩)
-  · rw [hrows.2.2.2]
-    refine Wots.Structural.QueriesSat.bind (sat_buildChild T index coord ⟨j, hj⟩ word _
-      (carryOk_coordCarry T index coord.val j)) ?_
-    exact Wots.Structural.QueriesSat.pure' _
-  · have hc := hrows.2.2.2
-    simp only [evalWithAnswerFn_bind, hc, buildChild_result', evalWithAnswerFn_pure]
-    exact coordRows_step T index coord selected word j rows hrows
+  refine Wots.Structural.QueriesSat.foldlM_range _ _ (fun _ _ => True) _ trivial
+    (fun j hj rows _ => ⟨?_, trivial⟩)
+  exact Wots.Structural.QueriesSat.bind (sat_buildChildF T index coord ⟨j, hj⟩ word)
+    (Wots.Structural.QueriesSat.pure' _)
 def HeapAgree (final : Array Digest) (done : Nat) (nodes : Array Digest) : Prop :=
   nodes.size = 256 ∧ ∀ j, 128 - done ≤ j → nodes.getD j 0 = final.getD j 0
 theorem sat_heapBuild (coord : Coord) :
@@ -214,9 +192,11 @@ theorem sat_heapBuild (coord : Coord) :
         exact (hnode (127 - done) (by omega) (by omega) (by omega)).symm
       · rw [getD_set_other nodes _ _ _ (Ne.symm he)]
         exact hagree j (by omega)
-theorem sat_buildCoordinate (coord : Coord) (selected : Child) (word : Rank) :
-    Wots.Structural.QueriesSat T (FtsHonestQuery T index) (buildCoordinate index coord selected word) := by
-  rw [buildCoordinate_factor]
+theorem sat_buildCoordinateF (coord : Coord) (selected : Child) (word : Rank) :
+    Wots.Structural.QueriesSat T (FtsHonestQuery T index) (buildCoordinateF index coord selected word) := by
+  rw [buildCoordinateF_factor]
+  refine Wots.Structural.QueriesSat.bind (sat_ftsCoefs T index coord) ?_
+  rw [eval_ftsCoefs]
   refine Wots.Structural.QueriesSat.bind (sat_coordRows T index coord selected word) ?_
   rw [eval_coordRows_leaves]
   exact Wots.Structural.QueriesSat.bind (sat_heapBuild T index coord) (Wots.Structural.QueriesSat.pure' _)
@@ -226,8 +206,8 @@ theorem sat_forestRows (output : HashOutput) :
   refine Wots.Structural.QueriesSat.foldlM_list _ _ (fun _ _ => True) _ trivial
     (fun i hi state _ => ⟨?_, trivial⟩)
   unfold openingStep
-  refine Wots.Structural.QueriesSat.bind (sat_buildCoordinate T index _ _ _) ?_
-  generalize evalWithAnswerFn T (buildCoordinate index _ _ _) = x
+  refine Wots.Structural.QueriesSat.bind (sat_buildCoordinateF T index _ _ _) ?_
+  generalize evalWithAnswerFn T (buildCoordinateF index _ _ _) = x
   obtain ⟨levels, values⟩ := x
   exact Wots.Structural.QueriesSat.pure' _
 theorem sat_forestPk :
@@ -248,27 +228,31 @@ include hTT
 theorem eval_congr {α : Type} {p : M α} (hp : AllQueriesSatisfy p (FtsQuery index)) :
     evalWithAnswerFn T p = evalWithAnswerFn T' p :=
   (respects_of_allQueriesSatisfy hp T T' hTT).1
-theorem seed_congr (coord : Coord) (child : Child) (t : Fin 7) :
-    seed T index coord.val child.val t = seed T' index coord.val child.val t := by
-  simp only [seed]
+theorem ftsCoef_congr (coord : Coord) (j : Fin 102) : ftsCoef T index coord.val j = ftsCoef T' index coord.val j := by
+  unfold ftsCoef
   rw [eval_congr hTT (allQueriesSatisfy_of_bound (ftsBound_seedPair index coord.val _ coord.isLt
-    (ftsOrdinal_pair_lt child.isLt t.isLt)))]
-theorem ftsChainValue_congr (coord : Coord) (child : Child) (t : Fin 7) (step : Nat) (hstep : step ≤ 3) :
+    (by have := j.isLt; unfold ftsCoefPairs; omega)))]
+theorem seed_congr (coord : Coord) (child : Child) (t : Fin 6) :
+    seed T index coord.val child.val t = seed T' index coord.val child.val t := by
+  unfold seed
+  rw [show List.ofFn (ftsCoef T index coord.val) = List.ofFn (ftsCoef T' index coord.val) from
+    congrArg List.ofFn (funext (ftsCoef_congr hTT coord))]
+theorem ftsChainValue_congr (coord : Coord) (child : Child) (t : Fin 6) (step : Nat) (hstep : step ≤ 4) :
     ftsChainValue T index coord child t step = ftsChainValue T' index coord child t step := by
   unfold ftsChainValue
   rw [seed_congr hTT]
   exact eval_congr hTT (chain_queries index _ _ _ 0 step _ coord.isLt child.isLt t.isLt (by omega))
-theorem chainEnd_congr (coord : Coord) (child : Child) (t : Fin 7) :
+theorem chainEnd_congr (coord : Coord) (child : Child) (t : Fin 6) :
     chainEnd T index coord.val child.val t = chainEnd T' index coord.val child.val t :=
-  ftsChainValue_congr hTT coord child t 3 le_rfl
-theorem chainValue_congr (coord : Coord) (child : Child) (word : Rank) (t : Fin 7) :
+  ftsChainValue_congr hTT coord child t 4 le_rfl
+theorem chainValue_congr (coord : Coord) (child : Child) (word : Rank) (t : Fin 6) :
     chainValue T index coord.val child.val word t = chainValue T' index coord.val child.val word t :=
   ftsChainValue_congr hTT coord child t _ (Nat.sub_le _ _)
 theorem childRoot_congr (coord : Coord) (child : Child) :
     childRoot T index coord.val child.val = childRoot T' index coord.val child.val := by
   unfold childRoot
-  rw [show List.ofFn (fun i : Fin 7 => chainEnd T index coord.val child.val i) =
-      List.ofFn (fun i : Fin 7 => chainEnd T' index coord.val child.val i) from
+  rw [show List.ofFn (fun i : Fin 6 => chainEnd T index coord.val child.val i) =
+      List.ofFn (fun i : Fin 6 => chainEnd T' index coord.val child.val i) from
     congrArg List.ofFn (funext (chainEnd_congr hTT coord child))]
   exact eval_congr hTT (leafHash_queries index _ _ _ coord.isLt child.isLt (by simp))
 theorem coordLeaves_congr (coord : Coord) : coordLeaves T index coord = coordLeaves T' index coord := by
@@ -289,12 +273,12 @@ theorem honestForest_congr : honestForest T index = honestForest T' index := by
 theorem expectedOpening_congr (output : HashOutput) (coord : Coord) :
     expectedOpening T index output coord = expectedOpening T' index output coord := by
   unfold expectedOpening
-  rw [eval_congr hTT (buildCoordinate_queries index coord _ _)]
+  rw [eval_congr hTT (buildCoordinateF_queries index coord _ _)]
 theorem ftsHonestInput_congr (p : FtsPos) (hp : p.Bounded) :
     ftsHonestInput T index p = ftsHonestInput T' index p := by
   cases p with
   | chain coord child t step =>
-      have hs : step < 3 := hp
+      have hs : step < 4 := hp
       simp only [ftsHonestInput]
       rw [ftsChainValue_congr hTT coord child t step (by omega)]
   | leaf coord child =>

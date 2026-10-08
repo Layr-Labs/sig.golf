@@ -107,33 +107,33 @@ def FtsQueryPos (actual : HashInput) : Prop :=
 theorem ftsQueryPos_of_hdr {actual : HashInput} {pos : Extract.Pos} (hb : pos.Bounded) (hsrc : PosSource pos)
     (hfts : FtsPos pos) (hdr : Extract.hdrBlock actual = bytesLE 16 pos.hdr) : FtsQueryPos actual :=
   ⟨pos, hb, hsrc, hfts, by rw [hdr, Extract.Pos.canonicalHeader_eq hb]⟩
-theorem chain_queries_pos (answers : Answers) (index coord child t d : Nat) (hd : d ≤ 3) (p0 : Digest)
-    (pb : BitVec 64) (p1 v : Digest) (hb : index < 2 ^ 31 ∧ coord < 9 ∧ child < 128 ∧ t < 7) :
-    ∀ q ∈ queried answers (wctChainP index coord child t (3 - d) d p0 pb p1 v),
+theorem chain_queries_pos (answers : Answers) (index coord child t d : Nat) (hd : d ≤ 4) (p0 : Digest)
+    (pb : BitVec 64) (p1 v : Digest) (hb : index < 2 ^ 31 ∧ coord < 9 ∧ child < 128 ∧ t < 6) :
+    ∀ q ∈ queried answers (wctChainP index coord child t (4 - d) d p0 pb p1 v),
       ∃ actual, q = .inl (.inr actual) ∧ FtsQueryPos actual := by
   intro q hq
   rw [wctChainP_eq_hashPath, queried_hashPath] at hq
   obtain ⟨s, hs, rfl⟩ := List.mem_map.mp hq
   have hs := List.mem_range.mp hs
   obtain ⟨hi, hc, hj, ht⟩ := hb
-  have hbd : (Extract.Pos.wctChain index coord child t (3 - d + s)).Bounded := ⟨hi, hc, hj, ht, by omega⟩
-  refine ⟨_, rfl, .wctChain index coord child t (3 - d + s), hbd, ⟨hi, hc, hj, ht, by omega⟩, trivial, ?_⟩
+  have hbd : (Extract.Pos.wctChain index coord child t (4 - d + s)).Bounded := ⟨hi, hc, hj, ht, by omega⟩
+  refine ⟨_, rfl, .wctChain index coord child t (4 - d + s), hbd, ⟨hi, hc, hj, ht, by omega⟩, trivial, ?_⟩
   simp only [pathInput, wctChainInputP_block4, pad64_block4, hdrBlock_block4W, Extract.Pos.hdr]
   rw [WctExtract.canonicalHeader_ftsChainHeaderP]
   have hk := Extract.Pos.canonicalHeader_eq hbd
   simp only [Extract.Pos.hdr] at hk
   exact hk
-theorem leaf_queries_pos (answers : Answers) (index coord child : Nat) (ends : List Digest)
+theorem leaf_queries_pos (answers : Answers) (index coord child : Nat) (pad : Digest) (ends : List Digest)
     (hb : index < 2 ^ 31 ∧ coord < 9 ∧ child < 128) :
-    ∀ q ∈ queried answers (WCT9.leafHash index coord child ends),
+    ∀ q ∈ queried answers (WCT9.leafHashP index coord child pad ends),
       ∃ actual, q = .inl (.inr actual) ∧ FtsQueryPos actual := by
   intro q hq
-  rw [leafHash_eq_shortHash, queried_shortHash] at hq
+  rw [WctExtract.leafHashP_eq_shortHash, queried_shortHash] at hq
   rw [List.mem_singleton] at hq
   subst hq
   obtain ⟨hi, hc, hj⟩ := hb
   refine ⟨_, rfl, ftsQueryPos_of_hdr (pos := .wctLeaf index coord child) ⟨hi, hc, hj⟩ ⟨hi, hc, hj⟩ trivial ?_⟩
-  rw [Extract.hdrBlock_wctLeafInput]
+  rw [Extract.hdrBlock_wctLeafInputP]
   rfl
 theorem merkle_queries_pos (answers : Answers) (index : Nat) (c : WCT9.Coord) (j : Nat) (hj : j < 128)
     (hidx : index < 2 ^ 31) (path pads : Nat → Digest) (leaf : Digest) :
@@ -163,9 +163,9 @@ theorem coord_queries_pos (answers : Answers) (N : HashOutput) (w : WBytes) (c :
   · rw [queried_mapM] at hq
     obtain ⟨t, -, hq⟩ := List.mem_flatMap.mp hq
     exact chain_queries_pos answers (WCT9.digestIndex N) c.val (WCT9.child N c).val t.val
-      (WCT9.wordDigit (WCT9.rank N c) t) (WCT9.wordDigit_le_three _ t) _ _ _ _ ⟨hidx, c.isLt, hj, t.isLt⟩ q hq
+      (WCT9.wordDigit (WCT9.rank N c) t) (WCT9.wordDigit_le_four _ t) _ _ _ _ ⟨hidx, c.isLt, hj, t.isLt⟩ q hq
   rcases List.mem_append.mp hq with hq | hq
-  · exact leaf_queries_pos answers (WCT9.digestIndex N) c.val (WCT9.child N c).val _ ⟨hidx, c.isLt, hj⟩ q hq
+  · exact leaf_queries_pos answers (WCT9.digestIndex N) c.val (WCT9.child N c).val _ _ ⟨hidx, c.isLt, hj⟩ q hq
   rcases List.mem_append.mp hq with hq | hq
   · exact merkle_queries_pos answers (WCT9.digestIndex N) c (WCT9.child N c).val hj hidx _ _ _ q hq
   · simp [queried_pure] at hq

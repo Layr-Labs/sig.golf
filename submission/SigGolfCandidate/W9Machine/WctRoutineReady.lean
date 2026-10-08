@@ -19,14 +19,14 @@ theorem planCycles_eq (r : ChainRoutine) : planCycles r.pieces = r.cycles := by
   induction r.pieces with
   | nil => rfl
   | cons p ps ih => simpa only [planCycles, List.map_cons, List.sum_cons, Nat.add_comm] using congrArg (· + p.totalCycles) ih
-theorem ChainRoutine.checked_cycles (r : ChainRoutine) (h : r.checked = true) : r.cycles ≤ 83 := by
+theorem ChainRoutine.checked_cycles (r : ChainRoutine) (h : r.checked = true) : r.cycles ≤ 89 := by
   simp only [checked, Bool.and_eq_true, decide_eq_true_eq] at h
   exact h.1.2
 theorem chainRoutine_good (r : ChainRoutine) (hr : r.checked = true)
     (s : MachineState) (post : MachineState → Prop) (hready : PlanReady r.pieces s post)
     (N C A : Nat) (Q : Prop) (K : MachineState → OracleComp HashSpec Obs)
     (hK : ∀ t, post t → GoodQFor Frozen.image t N C Q A (K t)) :
-    GoodQFor Frozen.image s (N + 89) (C + 89) Q (A + 83)
+    GoodQFor Frozen.image s (N + 89) (C + 89) Q (A + 89)
       (cc (chainPlan r.pieces s) K) := by
   have hc := r.checked_cycles hr
   have hp := planCycles_eq r
@@ -38,19 +38,23 @@ end
 section
 namespace W9Machine.Chain
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
-structure RoutineReady (rank : Fin 728) (r : ChainRoutine) : Prop where
+structure RoutineReady (rank : Fin 666) (r : ChainRoutine) : Prop where
   guard : planGuard r.pieces {} = true
   linked : PlanLinked r.pieces
   entry : r.pieces.head?.map ChainPiece.pc = some (chainEntries.getD rank.val 0)
   queries : planQueries r.pieces {} = expectedQueries (ClaudeWCT.WCT9.codeword rank)
-  endpoints : ∀ t, t < 7 → ∀ word, word < 2 →
+  endpoints : ∀ t, t < 6 → ∀ word, word < 2 →
     (terminalTrace r.pieces {}).read (traceLeafSlot t + 8 * word) =
       expectedEndpoint (ClaudeWCT.WCT9.codeword rank) t word
-  cycles : planCycles r.pieces ≤ 83
+  pad : (terminalTrace r.pieces {}).read 720 = .original 720 ∧
+    (terminalTrace r.pieces {}).read 728 = .original 728
+  cycles : planCycles r.pieces ≤ 89
 def terminalChecked (r : ChainRoutine) : Bool :=
   (planQueries r.pieces {} == expectedQueries r.digits) &&
-    ((List.range 7).all fun t => (List.range 2).all fun word =>
+    ((List.range 6).all fun t => (List.range 2).all fun word =>
       (terminalTrace r.pieces {}).read (traceLeafSlot t + 8 * word) ==
-        expectedEndpoint r.digits t word)
+        expectedEndpoint r.digits t word) &&
+    ((terminalTrace r.pieces {}).read 720 == .original 720) &&
+    ((terminalTrace r.pieces {}).read 728 == .original 728)
 end W9Machine.Chain
 end

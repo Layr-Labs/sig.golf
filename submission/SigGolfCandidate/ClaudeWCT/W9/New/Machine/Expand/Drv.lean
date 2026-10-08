@@ -17,7 +17,7 @@ def dWord (k : Nat) : Nat := WCT9.childBase k / 64
 theorem disp_0 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (hidx : index < 2 ^ 31)
     (s : MachineState) (hpc : s.pc = pcOf (base + 34))
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (h29 : s.getReg .x29 = BitVec.ofNat 64 17572)
-    (h24 : s.getReg .x24 = BitVec.ofNat 64 50340) (h2 : s.getReg .x2 = BitVec.ofNat 64 65532)
+    (h24 : s.getReg .x24 = BitVec.ofNat 64 50340) (h2 : s.getReg .x2 = BitVec.ofNat 64 4092)
     (h6 : s.getReg .x6 = BitVec.ofNat 64 65536)
     (h15 : s.getReg .x15 = BitVec.ofNat 64 (index * 2 ^ 27 + 65536 * (0 - 1)))
     (h8 : s.getReg .x8 = BitVec.ofNat 64 (regBase (0 - 1)))
@@ -71,7 +71,7 @@ theorem disp_0 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
 theorem disp_1 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (hidx : index < 2 ^ 31)
     (s : MachineState) (hpc : s.pc = pcOf (base + 50))
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (h29 : s.getReg .x29 = BitVec.ofNat 64 17572)
-    (h24 : s.getReg .x24 = BitVec.ofNat 64 50340) (h2 : s.getReg .x2 = BitVec.ofNat 64 65532)
+    (h24 : s.getReg .x24 = BitVec.ofNat 64 50340) (h2 : s.getReg .x2 = BitVec.ofNat 64 4092)
     (h6 : s.getReg .x6 = BitVec.ofNat 64 65536)
     (h15 : s.getReg .x15 = BitVec.ofNat 64 (index * 2 ^ 27 + 65536 * (1 - 1)))
     (h8 : s.getReg .x8 = BitVec.ofNat 64 (regBase (1 - 1)))
@@ -126,7 +126,7 @@ theorem disp_1 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
 theorem disp_2 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (hidx : index < 2 ^ 31)
     (s : MachineState) (hpc : s.pc = pcOf (base + 68))
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (h29 : s.getReg .x29 = BitVec.ofNat 64 17572)
-    (h24 : s.getReg .x24 = BitVec.ofNat 64 50340) (h2 : s.getReg .x2 = BitVec.ofNat 64 65532)
+    (h24 : s.getReg .x24 = BitVec.ofNat 64 50340) (h2 : s.getReg .x2 = BitVec.ofNat 64 4092)
     (h6 : s.getReg .x6 = BitVec.ofNat 64 65536)
     (h15 : s.getReg .x15 = BitVec.ofNat 64 (index * 2 ^ 27 + 65536 * (2 - 1)))
     (h16 : s.getReg .x16 = N.extractLsb' (64 * 1) 64)
@@ -182,7 +182,7 @@ theorem disp_2 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
 theorem disp_3 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (hidx : index < 2 ^ 31)
     (s : MachineState) (hpc : s.pc = pcOf (base + 86))
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (h29 : s.getReg .x29 = BitVec.ofNat 64 17572)
-    (h24 : s.getReg .x24 = BitVec.ofNat 64 50340) (h2 : s.getReg .x2 = BitVec.ofNat 64 65532)
+    (h24 : s.getReg .x24 = BitVec.ofNat 64 50340) (h2 : s.getReg .x2 = BitVec.ofNat 64 4092)
     (h6 : s.getReg .x6 = BitVec.ofNat 64 65536)
     (h15 : s.getReg .x15 = BitVec.ofNat 64 (index * 2 ^ 27 + 65536 * (3 - 1)))
     (h16 : s.getReg .x16 = N.extractLsb' (64 * 1) 64)
@@ -238,7 +238,7 @@ theorem disp_3 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
 theorem disp_4 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (hidx : index < 2 ^ 31)
     (s : MachineState) (hpc : s.pc = pcOf (base + 104))
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (h29 : s.getReg .x29 = BitVec.ofNat 64 17572)
-    (h24 : s.getReg .x24 = BitVec.ofNat 64 50340) (h2 : s.getReg .x2 = BitVec.ofNat 64 65532)
+    (h24 : s.getReg .x24 = BitVec.ofNat 64 50340) (h2 : s.getReg .x2 = BitVec.ofNat 64 4092)
     (h6 : s.getReg .x6 = BitVec.ofNat 64 65536)
     (h15 : s.getReg .x15 = BitVec.ofNat 64 (index * 2 ^ 27 + 65536 * (4 - 1)))
     (h8 : s.getReg .x8 = BitVec.ofNat 64 (regBase (4 - 1)))
@@ -293,7 +293,7 @@ theorem disp_4 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
 theorem disp_5 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (hidx : index < 2 ^ 31)
     (s : MachineState) (hpc : s.pc = pcOf (base + 122))
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (h29 : s.getReg .x29 = BitVec.ofNat 64 17572)
-    (h24 : s.getReg .x24 = BitVec.ofNat 64 50340) (h2 : s.getReg .x2 = BitVec.ofNat 64 65532)
+    (h24 : s.getReg .x24 = BitVec.ofNat 64 50340) (h2 : s.getReg .x2 = BitVec.ofNat 64 4092)
     (h6 : s.getReg .x6 = BitVec.ofNat 64 65536)
     (h15 : s.getReg .x15 = BitVec.ofNat 64 (index * 2 ^ 27 + 65536 * (5 - 1)))
     (h16 : s.getReg .x16 = N.extractLsb' (64 * 2) 64)
@@ -349,7 +349,7 @@ theorem disp_5 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
 theorem disp_6 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (hidx : index < 2 ^ 31)
     (s : MachineState) (hpc : s.pc = pcOf (base + 140))
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (h29 : s.getReg .x29 = BitVec.ofNat 64 17572)
-    (h24 : s.getReg .x24 = BitVec.ofNat 64 50340) (h2 : s.getReg .x2 = BitVec.ofNat 64 65532)
+    (h24 : s.getReg .x24 = BitVec.ofNat 64 50340) (h2 : s.getReg .x2 = BitVec.ofNat 64 4092)
     (h6 : s.getReg .x6 = BitVec.ofNat 64 65536)
     (h15 : s.getReg .x15 = BitVec.ofNat 64 (index * 2 ^ 27 + 65536 * (6 - 1)))
     (h16 : s.getReg .x16 = N.extractLsb' (64 * 2) 64)
@@ -405,7 +405,7 @@ theorem disp_6 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
 theorem disp_7 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (hidx : index < 2 ^ 31)
     (s : MachineState) (hpc : s.pc = pcOf (base + 158))
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (h29 : s.getReg .x29 = BitVec.ofNat 64 17572)
-    (h24 : s.getReg .x24 = BitVec.ofNat 64 50340) (h2 : s.getReg .x2 = BitVec.ofNat 64 65532)
+    (h24 : s.getReg .x24 = BitVec.ofNat 64 50340) (h2 : s.getReg .x2 = BitVec.ofNat 64 4092)
     (h6 : s.getReg .x6 = BitVec.ofNat 64 65536)
     (h15 : s.getReg .x15 = BitVec.ofNat 64 (index * 2 ^ 27 + 65536 * (7 - 1)))
     (h8 : s.getReg .x8 = BitVec.ofNat 64 (regBase (7 - 1)))
@@ -460,7 +460,7 @@ theorem disp_7 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (
 theorem disp_8 {im : Image} (hc : NewCodeAt im) (N : HashOutput) (index : Nat) (hidx : index < 2 ^ 31)
     (s : MachineState) (hpc : s.pc = pcOf (base + 176))
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (h29 : s.getReg .x29 = BitVec.ofNat 64 17572)
-    (h24 : s.getReg .x24 = BitVec.ofNat 64 50340) (h2 : s.getReg .x2 = BitVec.ofNat 64 65532)
+    (h24 : s.getReg .x24 = BitVec.ofNat 64 50340) (h2 : s.getReg .x2 = BitVec.ofNat 64 4092)
     (h6 : s.getReg .x6 = BitVec.ofNat 64 65536)
     (h15 : s.getReg .x15 = BitVec.ofNat 64 (index * 2 ^ 27 + 65536 * (8 - 1)))
     (h16 : s.getReg .x16 = N.extractLsb' (64 * 3) 64)
@@ -532,13 +532,13 @@ structure DRegs (index : Nat) (s : MachineState) : Prop where
   x17 : s.getReg .x17 = BitVec.ofNat 64 index <<< 32
   x29 : s.getReg .x29 = BitVec.ofNat 64 17572
   x24 : s.getReg .x24 = BitVec.ofNat 64 50340
-  x2 : s.getReg .x2 = BitVec.ofNat 64 65532
+  x2 : s.getReg .x2 = BitVec.ofNat 64 4092
   x11 : s.getReg .x11 = BitVec.ofNat 64 64
 theorem shl_index (index n : Nat) : BitVec.ofNat 64 index <<< n = BitVec.ofNat 64 (index * 2 ^ n) := by
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_shiftLeft, BitVec.toNat_ofNat, Nat.shiftLeft_eq, Nat.mod_mul_mod]
 theorem drv_entry {im : Image} (hc : NewCodeAt im) (N : HashOutput) (s : MachineState) (hpc : s.pc = pcOf base)
-    (h5 : s.getReg .x5 = 0) (hN : OutAt s 0x60 N) (hg : N.toNat / 2 ^ 235 % 2 ^ 21 < 2364) :
+    (h5 : s.getReg .x5 = 0) (hN : OutAt s 0x60 N) (hg : N.toNat / 2 ^ 242 % 2 ^ 14 < 1131) :
     ∃ t, Steps im s 31 31 t ∧ t.pc = pcOf (base + 34) ∧ DRegs (WCT9.digestIndex N) t ∧
       t.getReg .x8 = BitVec.ofNat 64 (regBase (0 - 1)) ∧
       t.getReg .x28 = BitVec.ofNat 64 (HB0 + 2048 + 512 * (0 - 1)) ∧
@@ -558,8 +558,8 @@ theorem drv_entry {im : Image} (hc : NewCodeAt im) (N : HashOutput) (s : Machine
   have x3_2 : u2.getReg .x3 = 1#64 := by
     simp only [hu2, Result.toState_getReg, blk_4.res, rv_simp, m1, hw, hw3, BitVec.toNat_ofNat, Nat.reduceMod,
       Nat.reducePow]
-    have hlt : BitVec.ult (N.extractLsb' 192 64 >>> 44) 1182#64 = true := by
-      rw [SigGolfCandidate.Research.V7Composed198Gate.gate_ult_shift44, decide_eq_true_eq]
+    have hlt : BitVec.ult (N.extractLsb' 192 64 >>> 50) 1131#64 = true := by
+      rw [SigGolfCandidate.Research.V7Composed198Gate.gate_ult_shift50, decide_eq_true_eq]
       exact hg
     simp [hlt]
   have s3 := symRun_sound blk_9 (codeAt_9 hc) u2 p2 (by simp [blk_9.res, rv_simp])
@@ -603,7 +603,7 @@ theorem dOff_succ (k : Nat) (hk : k < 9) : dOff (k + 1) = dOff k + dLen k := by
 theorem disp_spec {im : Image} (hc : NewCodeAt im) (k : Nat) (hk : k < 9) (N : HashOutput) (index : Nat)
     (hidx : index < 2 ^ 31) (s : MachineState) (hpc : s.pc = pcOf (base + dOff k))
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (h29 : s.getReg .x29 = BitVec.ofNat 64 17572)
-    (h24 : s.getReg .x24 = BitVec.ofNat 64 50340) (h2 : s.getReg .x2 = BitVec.ofNat 64 65532)
+    (h24 : s.getReg .x24 = BitVec.ofNat 64 50340) (h2 : s.getReg .x2 = BitVec.ofNat 64 4092)
     (h6 : s.getReg .x6 = BitVec.ofNat 64 65536)
     (h15 : s.getReg .x15 = BitVec.ofNat 64 (index * 2 ^ 27 + 65536 * (k - 1)))
     (h16 : 0 < k → s.getReg .x16 = N.extractLsb' (64 * dWord (k - 1)) 64)

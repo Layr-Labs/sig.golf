@@ -10,10 +10,11 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final
 open SigGolfCandidate.T3.Correctness (Answers)
 open ClaudeWCT.W9.T3.Security.LargeResidual
-open SigGolfCandidate.T3.Security.LargeResidual (State Cell Charge Probe lazyRun readState probeState stoppedState
-  disclosedState tickState lazyResponse)
-open SigGolfCandidate.T3.Security.LargeCoupling (lazy_read lazy_pure lazy_probe_cached lazy_probe_fresh lazy_aux'
-  lazy_disclose lazy_tick ev_bind_le)
+open SigGolfCandidate.T3.Security.LargeResidual (State Cell Charge Probe readState probeState stoppedState
+  disclosedState tickState)
+open ClaudeWCT.W9.T3.Security.FamResidual (lazyRun lazyResp discLaw lazy_read lazy_pure lazy_probe_cached
+  lazy_probe_fresh lazy_aux' lazy_disclose lazy_tick)
+open SigGolfCandidate.T3.Security.LargeCoupling (ev_bind_le)
 open SphincsSecurity.Concrete UniformTableCompletion ResidualTableCompletion RetainedObservation
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
@@ -41,13 +42,13 @@ theorem lazy_probeReq_cached {β : Type} (row : Cell U) (test : Probe WCoord)
 theorem lazy_probeReq_fresh {β : Type} (row : Cell U) (test : Probe WCoord)
     (k : HashOutput → OracleComp (RWorld U) β) (s : State WCoord (Cell U)) (h : s.rows row = none) :
     lazyRun aux q (probeReq U row test >>= k) s =
-      observe (lazyResponse s.candidates (test.effective s.candidates)) (pure (none, stoppedState s))
-        (fun y => lazyRun aux q (k y) (probeState s row (test.effective s.candidates) y)) :=
+      observe (lazyResp s.candidates (test.effF s.candidates)) (pure (none, stoppedState s))
+        (fun y => lazyRun aux q (k y) (probeState s row (test.effF s.candidates) y)) :=
   lazy_probe_fresh aux q row test k s h
 theorem lazy_discloseReq {β : Type} (c : WCoord) (ch : Charge) (k : Digest → OracleComp (RWorld U) β)
     (s : State WCoord (Cell U)) :
     lazyRun aux q (discloseReq U c ch >>= k) s =
-      (cell (s.candidates c) >>= fun v => lazyRun aux q (k v) (disclosedState q s c v ch)) :=
+      (discLaw s.candidates c >>= fun v => lazyRun aux q (k v) (disclosedState q s c v ch)) :=
   lazy_disclose aux q c ch k s
 theorem lazy_tickReq {β : Type} (ch : Charge) (k : Unit → OracleComp (RWorld U) β) (s : State WCoord (Cell U)) :
     lazyRun aux q (tickReq U ch >>= k) s = lazyRun aux q (k ()) (tickState q s ch) :=
@@ -393,14 +394,14 @@ theorem wct_core_win_54 (b : BankCore) (halive : ¬horizon < b.exposures.length)
     exact (ledger54_win horizon _ _ _ _ N hN hadm hcov).trans le_self_add
 theorem wct_core_initial_54 (budget : Nat) :
     corePotential54 (2 ^ 32) ⟨[], [], false, 0, budget⟩ ≤
-      (budget : ENNReal) * (5344 / 10000000) / 2 ^ 128 := by
+      (budget : ENNReal) * (5911 / 10000000) / 2 ^ 128 := by
   unfold corePotential54 ledger54 excessForecast54
   simp only [List.length_nil, Nat.not_lt_zero, if_false, Bool.false_eq_true, Nat.sub_zero, add_zero,
     List.map_nil, List.sum_nil, zero_add]
   apply ENNReal.div_le_div_right
   apply mul_le_mul' le_rfl
   change ClaudeWCT.Numerics.Law.lawAvg honestLaw (2 ^ 32)
-    (fun W : List WProposal => price W - 1919 / 1024) ≤ 5344 / 10000000
+    (fun W : List WProposal => price W - 1919 / 1024) ≤ 5911 / 10000000
   rw [honestLaw_eq_n4]
   exact ClaudeWCT.Numerics.WCTPrice.wct_excess_honest_2_32_54
 end ClaudeWCT.Bank.WCT
@@ -565,7 +566,7 @@ theorem psi_cert (q : Nat) (st : RouterState) (h : CertGhost st) : 1 ≤ psi q s
   · exact ClaudeWCT.Bank.WCT.wct_core_win CaseC.horizon ⊤ CaseC.excessBound_top (bankOf q st) (not_lt.mpr h.1) hcov
 theorem psi_initial (q : Nat) :
     psi q RouterState.initial ≤
-      (q : ENNReal) * (if q ≤ 2 ^ 123 then 5344 / 10000000 else 2933 / 1000000) / 2 ^ 128 := by
+      (q : ENNReal) * (if q ≤ 2 ^ 123 then 5911 / 10000000 else 2933 / 1000000) / 2 ^ 128 := by
   have h0 : reuseC RouterState.initial = 0 := by
     unfold reuseC
     apply ENNReal.tsum_eq_zero.mpr
@@ -593,9 +594,10 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final
 open SigGolfCandidate.T3.Correctness (Answers)
 open ClaudeWCT.W9.T3.Security.LargeResidual
-open SigGolfCandidate.T3.Security.LargeResidual (State Cell Probe Hit IsDigestRow lazyRun runWith_map readState
+open SigGolfCandidate.T3.Security.LargeResidual (State Cell Probe Hit IsDigestRow runWith_map readState
   probeState)
-open SigGolfCandidate.T3.Security.LargeCoupling (ev_bind_le ev_observe_le lazy_pure)
+open ClaudeWCT.W9.T3.Security.FamResidual (lazyRun lazy_pure)
+open SigGolfCandidate.T3.Security.LargeCoupling (ev_bind_le ev_observe_le)
 open ClaudeWCT.W9.T3.Security.CanonGraph
 open ClaudeWCT.W9.T3.Security.CanonEncoding
 open SphincsSecurity.Concrete UniformTableCompletion ResidualTableCompletion RetainedObservation
@@ -617,21 +619,21 @@ def InlTest (test : Probe WCoord) : Prop :=
   (∀ g ∈ test.guess, ∃ c : Coord, g.1 = Sum.inl c) ∧ ∀ p, test.hit = .label p → ∃ c : Coord, p = Sum.inl c
 theorem restrict_inr (test : Probe WCoord) (htest : InlTest test) (cand : WCoord → Finset Digest)
     (y : LargeResidual.HashOutput) (m : Message) :
-    (test.effective cand).restrict cand y (.inr m) = cand (.inr m) := by
-  have hg : (test.effective cand).guessRestrict cand (.inr m) = cand (.inr m) := by
+    (test.effF cand).restrict cand y (.inr m) = cand (.inr m) := by
+  have hg : (test.effF cand).guessRestrict cand (.inr m) = cand (.inr m) := by
     unfold LargeResidual.Probe.guessRestrict
-    cases hgs : (test.effective cand).guess with
+    cases hgs : (test.effF cand).guess with
     | none => rfl
     | some g =>
         have hmem : g ∈ test.guess := by
-          have : (test.effective cand).guess = test.guess.filter _ := rfl
+          have : (test.effF cand).guess = test.guess.filter _ := rfl
           rw [this] at hgs
           exact (Option.filter_eq_some_iff.mp hgs).1
         obtain ⟨c, hc⟩ := htest.1 g hmem
         simp only [eraseTableValue]
         rw [Function.update_of_ne (by rw [hc]; simp)]
   unfold LargeResidual.Probe.restrict
-  have hh : (test.effective cand).hit = test.hit := rfl
+  have hh : (test.effF cand).hit = test.hit := rfl
   cases hhit : test.hit with
   | label p =>
       obtain ⟨c, hc⟩ := htest.2 p hhit
@@ -773,8 +775,9 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final
 open SigGolfCandidate.T3.Correctness (Answers)
 open ClaudeWCT.W9.T3.Security.LargeResidual
-open SigGolfCandidate.T3.Security.LargeResidual (State Cell Probe Hit IsDigestRow lazyRun readState)
-open SigGolfCandidate.T3.Security.LargeCoupling (ev_bind_le lazy_pure birth_pay)
+open SigGolfCandidate.T3.Security.LargeResidual (State Cell Probe Hit IsDigestRow readState)
+open ClaudeWCT.W9.T3.Security.FamResidual (lazyRun lazy_pure)
+open SigGolfCandidate.T3.Security.LargeCoupling (ev_bind_le birth_pay)
 open ClaudeWCT.W9.T3.Security.CanonGraph
 open ClaudeWCT.W9.T3.Security.CanonEncoding
 open SphincsSecurity.Concrete UniformTableCompletion ResidualTableCompletion RetainedObservation
@@ -979,8 +982,9 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final
 open SigGolfCandidate.T3.Correctness (Answers)
 open ClaudeWCT.W9.T3.Security.LargeResidual
-open SigGolfCandidate.T3.Security.LargeResidual (State Cell IsDigestRow lazyRun readState)
-open SigGolfCandidate.T3.Security.LargeCoupling (lazy_pure trial_ne reply_of_some reply_of_none
+open SigGolfCandidate.T3.Security.LargeResidual (State Cell IsDigestRow readState)
+open ClaudeWCT.W9.T3.Security.FamResidual (lazyRun lazy_pure)
+open SigGolfCandidate.T3.Security.LargeCoupling (trial_ne reply_of_some reply_of_none
   expectedValue_uniform_ro)
 open SphincsSecurity.Concrete UniformTableCompletion ResidualTableCompletion RetainedObservation
 set_option maxHeartbeats 1000000
@@ -1116,8 +1120,9 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final
 open SigGolfCandidate.T3.Correctness (Answers)
 open ClaudeWCT.W9.T3.Security.LargeResidual
-open SigGolfCandidate.T3.Security.LargeResidual (State Cell IsDigestRow lazyRun disclosedState)
-open SigGolfCandidate.T3.Security.LargeCoupling (ev_bind_le lazy_pure ev_runWith_bind expectedValue_cell_univ
+open SigGolfCandidate.T3.Security.LargeResidual (State Cell IsDigestRow disclosedState)
+open ClaudeWCT.W9.T3.Security.FamResidual (lazyRun lazy_pure expectedValue_discLaw_le)
+open SigGolfCandidate.T3.Security.LargeCoupling (ev_bind_le ev_runWith_bind expectedValue_cell_univ
   digestRow_isDigest digestRow_mem)
 open SphincsSecurity.Concrete UniformTableCompletion ResidualTableCompletion RetainedObservation
 set_option maxHeartbeats 1000000
@@ -1321,7 +1326,9 @@ theorem bank_routeSign (hUpub : SeccLaw.publicUniverse ⊆ U) (a : AuxData) (pub
       rfl
   | none =>
       set m := request.message with hmdef
-      rw [hinv.nonce m hm, expectedValue_bind, expectedValue_cell_univ]
+      rw [expectedValue_bind]
+      refine (expectedValue_discLaw_le ws.candidates (c := (.inr m : WCoord)) (p := (.inr m : WPlain)) rfl _).trans ?_
+      rw [hinv.nonce m hm, expectedValue_cell_univ]
       set C0 := reuseC (st.signed 0 m none) with hC0
       have hC : C0 + CaseC.bankSpec.reuseMass st.cache m ≤ (bankOf q st).reuse := by
         rw [hC0, reuseC_signed st 0 m none hm]; exact le_rfl

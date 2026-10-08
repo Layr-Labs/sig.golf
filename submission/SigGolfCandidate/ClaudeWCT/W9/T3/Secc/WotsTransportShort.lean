@@ -63,15 +63,15 @@ theorem ftsPairsHonest_short (index : Nat) : Extract.ftsPairsHonest A index = Ex
   rw [Extract.ftsPairsHonest_eq, Extract.ftsPairsHonest_eq]
   exact congrArg List.ofFn (funext fun coord => ClaudeWCT.WCT9.Wots.coordinatePair_congr (index := index)
     (fun _ hq => hAT _ (ClaudeWCT.WCT9.Wots.ftsQuery_short hq)) coord)
-theorem wctValue_short (index coord child chain step : Nat) (hc : coord < 9) (hch : child < 128) (ht : chain < 7)
-    (hs : step ≤ 3) :
+theorem wctValue_short (index coord child chain step : Nat) (hc : coord < 9) (hch : child < 128) (ht : chain < 6)
+    (hs : step ≤ 4) :
     Extract.wctValue A index coord child chain step = Extract.wctValue T index coord child chain step :=
   ClaudeWCT.WCT9.Wots.ftsChainValue_congr (index := index) (T := A) (T' := T)
     (fun _ hq => hAT _ (ClaudeWCT.WCT9.Wots.ftsQuery_short hq)) ⟨coord, hc⟩ ⟨child, hch⟩ ⟨chain, ht⟩ step hs
 theorem wctEnds_short (index coord child : Nat) (hc : coord < 9) (hch : child < 128) :
     Extract.wctEnds A index coord child = Extract.wctEnds T index coord child := by
   unfold Extract.wctEnds
-  exact congrArg List.ofFn (funext fun t => wctValue_short hAT index coord child t.val 3 hc hch t.isLt le_rfl)
+  exact congrArg List.ofFn (funext fun t => wctValue_short hAT index coord child t.val 4 hc hch t.isLt le_rfl)
 theorem leafMsg_short (L : LeafAddr) : leafMsg A L = leafMsg T L := by
   unfold leafMsg
   split_ifs
@@ -147,8 +147,8 @@ theorem honestInput_length (answers : Answers) (position : Extract.Pos) :
       omega
   | wctLeaf index coord child =>
       apply short_of_le
-      simp only [Extract.wctLeafInput, Extract.listInput_length', List.length_drop, Extract.wctEnds,
-        List.length_ofFn]
+      simp only [Extract.wctLeafInput, Extract.listInput_length', List.length_cons, List.length_drop,
+        Extract.wctEnds, List.length_ofFn]
       omega
   | wctNode index coord level node =>
       apply short_of_le

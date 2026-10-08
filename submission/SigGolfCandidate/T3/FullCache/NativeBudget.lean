@@ -843,7 +843,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 noncomputable def encodingRate (lay : Layer) : ℝ := (EncodingCounting.acceptedCount lay : ℝ)/2^128
-theorem encodingRate_bounds (lay : Layer) : 1/4096 ≤ encodingRate lay ∧ encodingRate lay ≤ 1 := by
+theorem encodingRate_bounds (lay : Layer) : 1/5000 ≤ encodingRate lay ∧ encodingRate lay ≤ 1 := by
   fin_cases lay <;> norm_num [encodingRate,EncodingCounting.acceptedCount]
 theorem encodingRate_cast (lay : Layer) :
     ENNReal.ofReal (encodingRate lay)=(EncodingCounting.acceptedCount lay : ENNReal)/2^128 := by

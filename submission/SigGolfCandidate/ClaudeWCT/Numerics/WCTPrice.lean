@@ -14,7 +14,7 @@ section Window
 variable {T : ℕ} (hT1 : 2 ^ 32 ≤ T) (hT2 : T ≤ 2 ^ 32)
 include hT1 hT2
 theorem wct_price_mean_law {law : (Coord → Child × Rank) → ENNReal} {κ : ENNReal} (hlaw : N600.LawOK law κ) :
-    lawAvg (marked (α := Fin (2 ^ 31)) law) T price ≤ 803 / 1000 := by
+    lawAvg (marked (α := Fin (2 ^ 31)) law) T price ≤ 562 / 1000 := by
   rw [price_fun_eq]
   exact N600.law_price_mean_le wordDigit hT1 hT2 card_rank card_child w1Table_wordDigit hlaw
 theorem wct_price_excess_law {law : (Coord → Child × Rank) → ENNReal} {κ : ENNReal} (hlaw : N600.LawOK law κ) :
@@ -24,14 +24,14 @@ theorem wct_price_excess_law {law : (Coord → Child × Rank) → ENNReal} {κ :
   exact N600.law_price_excess_le wordDigit hT1 hT2 card_rank card_child w1Table_wordDigit w2Table_wordDigit hlaw
 theorem wct_price_excess_law_54 {law : (Coord → Child × Rank) → ENNReal} {κ : ENNReal} (hlaw : N600.LawOK law κ) :
     lawAvg (marked (α := Fin (2 ^ 31)) law) T (fun W : List WProposal => price W - 1919 / 1024) ≤
-      5344 / 10000000 := by
+      5911 / 10000000 := by
   rw [price_fun_eq]
   exact N600.law_price_excess_le_54 wordDigit hT1 hT2 card_rank card_child w1Table_wordDigit w2Table_wordDigit hlaw
 theorem wct_near_law {law : (Coord → Child × Rank) → ENNReal} {κ : ENNReal} (hlaw : N600.LawOK law κ) :
-    lawAvg (marked (α := Fin (2 ^ 31)) law) T (N600.nearPriceN (C := Child) wordDigit) ≤ 364 - 1 / 16 :=
+    lawAvg (marked (α := Fin (2 ^ 31)) law) T (N600.nearPriceN (C := Child) wordDigit) ≤ 300 - 1 / 16 :=
   (N600.law_nearPrice_le wordDigit hT1 hT2 card_rank card_child w1Table_wordDigit wfTable_wordDigit hlaw).trans
     N600.near_le_sub
-theorem wct_price_mean_bound_window : uniformWordAverage T price ≤ 803 / 1000 := by
+theorem wct_price_mean_bound_window : uniformWordAverage T price ≤ 562 / 1000 := by
   rw [price_fun_eq]
   exact N600.uniform_price_mean_le wordDigit hT1 hT2 card_rank card_child w1Table_wordDigit
 theorem wct_price_mean_bound_window' : uniformWordAverage T price ≤ 94 / 100 := by
@@ -62,18 +62,18 @@ theorem wct_excess_honest :
   wct_price_excess_law wctHorizon_ge wctHorizon_le N600Cap.lawOK_honest
 theorem wct_excess_honest_2_32_54 :
     lawAvg (marked (α := Fin (2 ^ 31)) N600Cap.honestLaw) (2 ^ 32)
-      (fun W : List WProposal => price W - 1919 / 1024) ≤ 5344 / 10000000 :=
+      (fun W : List WProposal => price W - 1919 / 1024) ≤ 5911 / 10000000 :=
   wct_price_excess_law_54 le_rfl (by norm_num) N600Cap.lawOK_honest
 theorem wct_excess_honest_54 :
     lawAvg (marked (α := Fin (2 ^ 31)) N600Cap.honestLaw) wctHorizon
-      (fun W : List WProposal => price W - 1919 / 1024) ≤ 5344 / 10000000 :=
+      (fun W : List WProposal => price W - 1919 / 1024) ≤ 5911 / 10000000 :=
   wct_price_excess_law_54 wctHorizon_ge wctHorizon_le N600Cap.lawOK_honest
 theorem wct_near_honest_2_32 :
     lawAvg (marked (α := Fin (2 ^ 31)) N600Cap.honestLaw) (2 ^ 32) (N600.nearPriceN (C := Child) wordDigit) ≤
-      364 - 1 / 16 :=
+      300 - 1 / 16 :=
   wct_near_law le_rfl (by norm_num) N600Cap.lawOK_honest
 theorem wct_near_honest :
     lawAvg (marked (α := Fin (2 ^ 31)) N600Cap.honestLaw) wctHorizon (N600.nearPriceN (C := Child) wordDigit) ≤
-      364 - 1 / 16 :=
+      300 - 1 / 16 :=
   wct_near_law wctHorizon_ge wctHorizon_le N600Cap.lawOK_honest
 end ClaudeWCT.Numerics.WCTPrice

@@ -19,12 +19,12 @@ open ClaudeWCT.WCT9 (wordDigit Child)
 open ClaudeWCT.Guess (nearScore nearPrice NearCoveredAt)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
-theorem guess_slotCovered_iff (X : List HashOutput) (N : HashOutput) (k : Fin 9) (t : Fin 7) :
+theorem guess_slotCovered_iff (X : List HashOutput) (N : HashOutput) (k : Fin 9) (t : Fin 6) :
     ClaudeWCT.Guess.SlotCovered X N k t ↔ ClaudeWCT.Bank.WCT.SlotCovered X N k t := by
   unfold ClaudeWCT.Guess.SlotCovered ClaudeWCT.Bank.WCT.SlotCovered
   refine exists_congr fun x => and_congr Iff.rfl (and_congr ?_ Iff.rfl)
   simp only [outIdx, Fin.mk.injEq]
-theorem slotCoveredP_iff_atIndex (W : List WProposal) (N : HashOutput) (k : Fin 9) (t : Fin 7) :
+theorem slotCoveredP_iff_atIndex (W : List WProposal) (N : HashOutput) (k : Fin 9) (t : Fin 6) :
     SlotCoveredP W N k t ↔
       ∃ e ∈ atIndex (outIdx N) W, (e k).1 = ((proposal N).2 k).1 ∧
         wordDigit ((proposal N).2 k).2 t ≤ wordDigit (e k).2 t := by
@@ -35,7 +35,7 @@ theorem slotCoveredP_iff_atIndex (W : List WProposal) (N : HashOutput) (k : Fin 
     exact hp
   · rintro ⟨e, he, h2, h3⟩
     exact ⟨(outIdx N, e), (ClaudeWCT.Numerics.WCTEnvelope.mem_atIndex _ _ _).mp he, rfl, h2, h3⟩
-theorem nearCoveredAt_iff (X : List HashOutput) (N : HashOutput) (k : Fin 9) (t : Fin 7) :
+theorem nearCoveredAt_iff (X : List HashOutput) (N : HashOutput) (k : Fin 9) (t : Fin 6) :
     NearCoveredAt X N k t ↔
       ListCovExcept wordDigit k t (atIndex (outIdx N) (X.map proposal)) (proposal N).2 := by
   unfold NearCoveredAt ListCovExcept
@@ -47,7 +47,7 @@ theorem nearPrice_eq_nearPriceP (X : List HashOutput) :
     nearPrice X = nearPriceP (X.map proposal) := by
   classical
   set W : List WProposal := X.map proposal with hW
-  set g : WProposal → ENNReal := fun p => ∑ k : Fin 9, ∑ t : Fin 7,
+  set g : WProposal → ENNReal := fun p => ∑ k : Fin 9, ∑ t : Fin 6,
     if ListCovExcept wordDigit k t (atIndex p.1 W) p.2 then 1 else 0 with hg
   have hs : ∀ N, nearScore X N = if ClaudeWCT.WCT9.admissible N = true then g (proposal N) else 0 := by
     intro N
@@ -58,7 +58,7 @@ theorem nearPrice_eq_nearPriceP (X : List HashOutput) :
         if_congr (nearCoveredAt_iff X N k t) rfl rfl
     · simp [hadm]
   have hsum : ∑ p, g p = ((ClaudeWCT.Numerics.N600.Q ^ 9 : ℕ) : ENNReal) *
-      ∑ index : Fin (2 ^ 31), ∑ k : Fin 9, ∑ t : Fin 7, nearEnv wordDigit k t (atIndex index W) := by
+      ∑ index : Fin (2 ^ 31), ∑ k : Fin 9, ∑ t : Fin 6, nearEnv wordDigit k t (atIndex index W) := by
     simp only [hg]
     rw [Fintype.sum_prod_type, mul_sum]
     refine sum_congr rfl fun index _ => ?_
@@ -76,15 +76,15 @@ theorem nearPrice_eq_nearPriceP (X : List HashOutput) :
   unfold ClaudeWCT.WCT9.gateLimit
   simp only [div_eq_mul_inv]
   ring
-theorem near_bound_add_charge : (5823 / 16 : ENNReal) + 1 / 16 = 364 := by
+theorem near_bound_add_charge : (4799 / 16 : ENNReal) + 1 / 16 = 300 := by
   apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
   rw [ENNReal.toReal_add (by finiteness) (by finiteness)]
   norm_num [ENNReal.toReal_div]
-theorem near_bound_eq_sub : (5823 / 16 : ENNReal) = 364 - 1 / 16 := by
+theorem near_bound_eq_sub : (4799 / 16 : ENNReal) = 300 - 1 / 16 := by
   rw [← near_bound_add_charge]
   exact (ENNReal.add_sub_cancel_right (by finiteness)).symm
 theorem wct_near_bound_2_32 :
-    ClaudeWCT.Numerics.Law.lawAvg ClaudeWCT.Bank.WCT.honestLaw (2 ^ 32) nearPriceP ≤ 5823 / 16 := by
+    ClaudeWCT.Numerics.Law.lawAvg ClaudeWCT.Bank.WCT.honestLaw (2 ^ 32) nearPriceP ≤ 4799 / 16 := by
   rw [near_bound_eq_sub, ClaudeWCT.Bank.WCT.honestLaw_eq_n4]
   exact ClaudeWCT.Numerics.WCTPrice.wct_near_honest_2_32
 end ClaudeWCT.W9.T3.Security.CaseC
@@ -220,7 +220,7 @@ theorem nearLedger_win (R : Nat) (targets X : List HashOutput) (slack : Nat) (N 
     _ ≤ (targets.map fun N => nearForecast R X N).sum := List.le_sum_of_mem (List.mem_map_of_mem hN)
     _ ≤ _ := le_self_add
 theorem nearLedger_initial (budget : Nat) :
-    nearLedger horizon [] [] budget ≤ (budget : ENNReal) * (5823 / 16) / 2 ^ 128 := by
+    nearLedger horizon [] [] budget ≤ (budget : ENNReal) * (4799 / 16) / 2 ^ 128 := by
   unfold nearLedger nearPriceForecast
   simp only [List.map_nil, List.sum_nil, zero_add]
   apply ENNReal.div_le_div_right
@@ -389,7 +389,7 @@ theorem near_win (b : BankCore) (halive : ¬horizon < b.exposures.length)
     obtain ⟨N, hN, hadm, hcov⟩ := h.resolve_left hr
     exact (nearLedger_win _ _ _ _ N hN hadm hcov).trans le_self_add
 theorem near_initial (budget : Nat) :
-    nearPotential ⟨[], [], false, 0, budget⟩ ≤ (budget : ENNReal) * (5823 / 16) / 2 ^ 128 := by
+    nearPotential ⟨[], [], false, 0, budget⟩ ≤ (budget : ENNReal) * (4799 / 16) / 2 ^ 128 := by
   unfold nearPotential
   simp only [List.length_nil, Nat.not_lt_zero, if_false, Bool.false_eq_true, Nat.sub_zero, add_zero]
   exact nearLedger_initial budget
@@ -667,7 +667,7 @@ theorem mem_sign_repeat (q : Nat) (births exposures : List HashOutput) (reused :
   unfold nearMemPotential
   rw [reuseC_signed_eq rows rows' nonces m hm hrows]
 theorem mem_initial (q : Nat) :
-    nearMemPotential q [] [] false ∅ (fun _ => none) ≤ (q : ENNReal) * 364 / 2 ^ 128 := by
+    nearMemPotential q [] [] false ∅ (fun _ => none) ≤ (q : ENNReal) * 300 / 2 ^ 128 := by
   unfold nearMemPotential
   simp only [List.length_nil, Nat.not_lt_zero, if_false, Nat.sub_zero]
   have hC : reuseC ∅ (fun _ => none) = 0 := by
@@ -676,8 +676,8 @@ theorem mem_initial (q : Nat) :
   have hn := near_initial q
   rw [show (⟨[], [], false, reuseC ∅ (fun _ => none), q⟩ : BankCore) = ⟨[], [], false, 0, q⟩ by rw [hC]]
   calc
-    _ ≤ (q : ENNReal) * (5823 / 16) / 2 ^ 128 + (q : ENNReal) * ((1 / 16) / 2 ^ 128) := add_le_add hn le_rfl
-    _ = (q : ENNReal) * ((5823 / 16) + 1 / 16) / 2 ^ 128 := by
+    _ ≤ (q : ENNReal) * (4799 / 16) / 2 ^ 128 + (q : ENNReal) * ((1 / 16) / 2 ^ 128) := add_le_add hn le_rfl
+    _ = (q : ENNReal) * ((4799 / 16) + 1 / 16) / 2 ^ 128 := by
       simp only [div_eq_mul_inv]
       ring
     _ = _ := by rw [ClaudeWCT.W9.T3.Security.CaseC.near_bound_add_charge]
@@ -845,6 +845,9 @@ noncomputable def envG (env : SecretGuessObservation.Environment AuxSpecL Guess.
   trial mem c v hit := (env.trial mem.1 c v hit, mem.2)
   disclosure mem c v := (env.disclosure mem.1 c v, mem.2)
 abbrev GState := SecretGuessObservation.State Guess.GCoord Digest (LazyMem × NearGhost)
+/-- The family sampler on the ghost-extended memory (it reads only the allowed sets). -/
+noncomputable abbrev samplerG : SecretGuessObservation.Sampler Guess.GCoord Digest (LazyMem × NearGhost) :=
+  Guess.Fam.sampler (LazyMem × NearGhost)
 def initG : GState := SecretGuessObservation.initialState (LazyMem.empty, NearGhost.empty)
 theorem projS_initG : projS initG = WPair.initL := rfl
 section Project
@@ -853,34 +856,28 @@ theorem liftM_map_pmf {α β : Type} (f : α → β) (p : PMF α) :
     (liftM (f <$> p) : SPMF β) = f <$> (liftM p : SPMF α) :=
   evalSPMF_map p f
 theorem step_project (q : WPair.WSpecL.Domain) (s : GState) :
-    (fun r => (r.1, projS r.2)) <$> (SecretGuessObservation.forcedImpl (envG env) slot q).run s =
-      (SecretGuessObservation.forcedImpl env slot q).run (projS s) := by
+    (fun r => (r.1, projS r.2)) <$> (SecretGuessObservation.forcedWithImpl (envG env) samplerG slot q).run s =
+      (SecretGuessObservation.forcedWithImpl env WPair.samplerL slot q).run (projS s) := by
   rcases q with i | (⟨c, v⟩ | c)
-  · simp only [SecretGuessObservation.forcedImpl, SecretGuessObservation.lazyImpl, StateT.run_mk]
+  · simp only [SecretGuessObservation.forcedWithImpl, SecretGuessObservation.withImpl, SecretGuessObservation.lazyImpl,
+    StateT.run_mk]
     change (fun r => (r.1, projS r.2)) <$> ((fun result => (result.1, { s with memory := result.2 })) <$>
       (liftM ((fun r => (r.1, (r.2, ghostStep s.memory.1 i r.1 s.memory.2))) <$> env.auxiliary (projS s) i) :
         SPMF _)) =
       (fun result => (result.1, { projS s with memory := result.2 })) <$> (liftM (env.auxiliary (projS s) i) : SPMF _)
     rw [liftM_map_pmf, Functor.map_map, Functor.map_map]
     rfl
-  · simp only [SecretGuessObservation.forcedImpl, StateT.run_mk]
+  · simp only [SecretGuessObservation.forcedWithImpl, StateT.run_mk]
     rw [Functor.map_map]
-    have h1 : SecretGuessObservation.forcedTrial slot s c v =
-        SecretGuessObservation.forcedTrial slot (projS s) c v := by
-      have hA : (projS s).allowed = s.allowed := rfl
-      have hP : (projS s).probes = s.probes := rfl
-      have hR : (projS s).retired = s.retired := rfl
-      unfold SecretGuessObservation.forcedTrial SecretGuessObservation.EligibleAt
-      rw [hA, hP, hR]
-    rw [h1]
     rfl
-  · simp only [SecretGuessObservation.forcedImpl, SecretGuessObservation.lazyImpl, StateT.run_mk]
+  · simp only [SecretGuessObservation.forcedWithImpl, SecretGuessObservation.withImpl, SecretGuessObservation.lazyImpl,
+    StateT.run_mk]
     rw [Functor.map_map]
     rfl
 theorem run_project {β : Type} (W : OracleComp WPair.WSpecL β) (s : GState) :
     (fun r => (r.1, projS r.2)) <$>
-        SecretGuessObservation.runWith (SecretGuessObservation.forcedImpl (envG env) slot) W s =
-      SecretGuessObservation.runWith (SecretGuessObservation.forcedImpl env slot) W (projS s) := by
+        SecretGuessObservation.runWith (SecretGuessObservation.forcedWithImpl (envG env) samplerG slot) W s =
+      SecretGuessObservation.runWith (SecretGuessObservation.forcedWithImpl env WPair.samplerL slot) W (projS s) := by
   induction W using OracleComp.inductionOn generalizing s with
   | pure b =>
       simp only [SecretGuessObservation.runWith, simulateQ_pure, StateT.run_pure, map_pure]
@@ -890,8 +887,8 @@ theorem run_project {β : Type} (W : OracleComp WPair.WSpecL β) (s : GState) :
       rw [← step_project env slot q s, bind_map_left]
 theorem expectedValue_project {β : Type} (W : OracleComp WPair.WSpecL β) (s : GState)
     (payoff : β × WPair.WStateL → ENNReal) :
-    expectedValue (SecretGuessObservation.runWith (SecretGuessObservation.forcedImpl env slot) W (projS s)) payoff =
-      expectedValue (SecretGuessObservation.runWith (SecretGuessObservation.forcedImpl (envG env) slot) W s)
+    expectedValue (SecretGuessObservation.runWith (SecretGuessObservation.forcedWithImpl env WPair.samplerL slot) W (projS s)) payoff =
+      expectedValue (SecretGuessObservation.runWith (SecretGuessObservation.forcedWithImpl (envG env) samplerG slot) W s)
         (fun r => payoff (r.1, projS r.2)) := by
   rw [← run_project env slot W s, expectedValue_map]
 end Project
@@ -908,7 +905,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-noncomputable abbrev implG (slot : Nat) := SecretGuessObservation.forcedImpl (envG WPair.envL) slot
+noncomputable abbrev implG (slot : Nat) := SecretGuessObservation.forcedWithImpl (envG WPair.envL) samplerG slot
 theorem ev_aux_bind {β : Type} (slot : Nat) (i : AuxL) (k : AuxSpecL.Range i → OracleComp WPair.WSpecL β)
     (s : GState) (G : β × GState → ENNReal) :
     expectedValue (SecretGuessObservation.runWith (implG slot) (liftM (WPair.WSpecL.query (.inl i)) >>= k) s) G =
@@ -916,7 +913,8 @@ theorem ev_aux_bind {β : Type} (slot : Nat) (i : AuxL) (k : AuxSpecL.Range i �
         expectedValue (SecretGuessObservation.runWith (implG slot) (k r.1)
           { s with memory := (r.2, ghostStep s.memory.1 i r.1 s.memory.2) }) G) := by
   rw [SecretGuessObservation.runWith_query_bind, expectedValue_bind]
-  simp only [SecretGuessObservation.forcedImpl, SecretGuessObservation.lazyImpl, StateT.run_mk]
+  simp only [SecretGuessObservation.forcedWithImpl, SecretGuessObservation.withImpl, SecretGuessObservation.lazyImpl,
+    StateT.run_mk]
   change expectedValue ((fun result => (result.1, { s with memory := result.2 })) <$>
     (liftM ((fun r => (r.1, (r.2, ghostStep s.memory.1 i r.1 s.memory.2))) <$> WPair.envL.auxiliary (projS s) i) :
       SPMF _)) _ = _
@@ -1013,7 +1011,8 @@ theorem aux_nonzero (slot : Nat) (i : AuxL) (s : GState) (r : AuxSpecL.Range i �
       r = (res.1, { s with memory := (res.2, ghostStep s.memory.1 i res.1 s.memory.2) }) := by
   unfold SecretGuessObservation.runWith at hr
   rw [simulateQ_spec_query] at hr
-  simp only [SecretGuessObservation.forcedImpl, SecretGuessObservation.lazyImpl, StateT.run_mk] at hr
+  simp only [SecretGuessObservation.forcedWithImpl, SecretGuessObservation.withImpl, SecretGuessObservation.lazyImpl,
+    StateT.run_mk] at hr
   change ((fun result => (result.1, { s with memory := result.2 })) <$>
     (liftM ((fun r => (r.1, (r.2, ghostStep s.memory.1 i r.1 s.memory.2))) <$> WPair.envL.auxiliary (projS s) i) :
       SPMF _)) r ≠ 0 at hr

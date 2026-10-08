@@ -20,7 +20,6 @@ theorem shl_shr_33 (w : BitVec 64) : w <<< 33 >>> 33 = BitVec.ofNat 64 (w.toNat 
   omega
 section blocks
 variable (s : MachineState)
--- [h2 lane] removed s0_spec: a fact about the record's original expand word 0 / 342, which H2 replaces
 theorem s49_spec (hpc : s.pc = pcOf 49) (c : Nat) (h19 : s.getReg .x19 = BitVec.ofNat 64 c) :
     ∃ t, Steps image s 16 16 t ∧ t.pc = pcOf 65 ∧
       t.getReg .x9 = BitVec.ofNat 64 ((s.getMem (BitVec.ofNat 64 NBUF)).toNat % 2 ^ 31) ∧
@@ -198,10 +197,10 @@ theorem field_toNat0 (a : BitVec 256) (w : Nat) :
     ((a.extractLsb' (64 * w) 64 >>> 7) &&& 16383#64).toNat = a.toNat / 2 ^ (64 * w + 7) % 2 ^ 14 := by
   have := field_toNat a w 0 (by omega)
   simpa using this
-theorem gate21_toNat (a : BitVec 256) :
-    ((a.extractLsb' 192 64) >>> 43).toNat = a.toNat / 2 ^ 235 % 2 ^ 21 := by
+theorem gate14_toNat (a : BitVec 256) :
+    ((a.extractLsb' 192 64) >>> 50).toNat = a.toNat / 2 ^ 242 % 2 ^ 14 := by
   rw [BitVec.toNat_ushiftRight, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, Nat.shiftRight_eq_div_pow,
-    show (2 : Nat) ^ 64 = 2 ^ 43 * 2 ^ 21 by norm_num, Nat.mod_mul_right_div_self, Nat.div_div_eq_div_mul,
+    show (2 : Nat) ^ 64 = 2 ^ 50 * 2 ^ 14 by norm_num, Nat.mod_mul_right_div_self, Nat.div_div_eq_div_mul,
     ← pow_add]
 theorem index_eq (a : BitVec 256) :
     a.extractLsb' 0 64 <<< 0 >>> 33 = BitVec.ofNat 64 (WCT9.digestIndex a) := by
@@ -210,9 +209,9 @@ theorem index_eq (a : BitVec 256) :
     Nat.shiftRight_eq_div_pow, show (0 : Nat) = 64 * 0 from rfl, extractLsb'_256_toNat, BitVec.toNat_ofNat]
   rw [show 64 * 0 = 0 from rfl, pow_zero, Nat.div_one]
   omega
-def fieldN (a : BitVec 256) (c : Nat) : Nat := a.toNat / 2 ^ WCT9.fieldBase c % 2 ^ 14
+def fieldN (a : BitVec 256) (c : Nat) : Nat := a.toNat / 2 ^ WCT9.fieldBase c % 2 ^ 10
 theorem admissible_iff (a : BitVec 256) :
-    WCT9.admissible a = true ↔ a.toNat / 2 ^ 235 % 2 ^ 21 < 2364 ∧ ∀ c', 0 ≤ c' → c' < 9 → fieldN a c' < 16200 := by
+    WCT9.admissible a = true ↔ a.toNat / 2 ^ 242 % 2 ^ 14 < 1131 ∧ ∀ c', 0 ≤ c' → c' < 9 → fieldN a c' < 563 := by
   rw [WCT9.admissible_iff]
   constructor
   · rintro ⟨h1, h2⟩; exact ⟨h1, fun c _ hc => h2 ⟨c, hc⟩⟩
@@ -227,9 +226,9 @@ set_option maxRecDepth 16384
 def base : Nat := 3164
 def seg_0 : List (BitVec 32) := [16777327]
 def seg_1 : List (BitVec 32) := [1049235,1049875,115]
-def seg_4 : List (BitVec 32) := [0x6003b03,0x7803183,0x2c1d193,19,0x49e1b193]
+def seg_4 : List (BitVec 32) := [100678403,125841795,52547987,19,0x46b1b193]
 def seg_9 : List (BitVec 32) := [0xfe0180e3]
-def seg_10 : List (BitVec 32) := [727827,35347219,1049491,29038483,66359,197395,2098835,3148179,4196883,5245587,6294803,7343891,34281619,5175,0x84040413,0xffee37,0x600e0e13,65847,0xffc10113,20151,0x4a4e8e93,52279,0x4a4c0c13,67110291]
+def seg_10 : List (BitVec 32) := [727827,35347219,1049491,29038483,66359,197395,2098835,3148179,4196883,5245587,6294803,7343891,34281619,5175,0x84040413,16772663,0x600e0e13,4407,0xffc10113,20151,0x4a4e8e93,52279,0x4a4c0c13,67110291]
 def seg_34 : List (BitVec 32) := [0x6003803,545171,0x7f1f193,33657363,23224883,21077907,0xffefb3,8493971,31165363,0x60178d93,19,5789459,2586419,25626419,0x42000493,458983]
 def seg_50 : List (BitVec 32) := [0x6803803,0x7f87193,33657363,23224883,6784947,21077907,0xffefb3,8493971,31165363,0x40040413,537792019,0x60178d93,19,5789459,2586419,25626419,0x44000493,458983]
 def seg_68 : List (BitVec 32) := [22565267,0x7f1f193,33657363,23224883,6784947,21077907,0xffefb3,8493971,31165363,0x40040413,537792019,0x60178d93,19,27809555,2586419,25626419,0x46000493,458983]
@@ -314,30 +313,30 @@ theorem child_bits (a : BitVec 256) (w sh : Nat) (h : sh + 7 ≤ 64) :
     show (127#64).toNat = 2 ^ 7 - 1 from rfl, Nat.and_two_pow_sub_one_eq_mod, Nat.shiftRight_eq_div_pow,
     mod_div_mod _ _ _ (by omega), Nat.div_div_eq_div_mul, ← Nat.pow_add]
   rfl
-theorem field4_bits (a : BitVec 256) (w sh : Nat) (h : sh + 21 ≤ 64) :
-    ((a.extractLsb' (64 * w) 64 >>> (sh + 5)) &&& 65532#64).toNat =
-      4 * (a.toNat / 2 ^ (64 * w + sh + 7) % 2 ^ 14) := by
+theorem field4_bits (a : BitVec 256) (w sh : Nat) (h : sh + 17 ≤ 64) :
+    ((a.extractLsb' (64 * w) 64 >>> (sh + 5)) &&& 4092#64).toNat =
+      4 * (a.toNat / 2 ^ (64 * w + sh + 7) % 2 ^ 10) := by
   rw [BitVec.toNat_and, BitVec.toNat_ushiftRight, extractLsb'_256_toNat, Nat.shiftRight_eq_div_pow]
   apply Nat.eq_of_testBit_eq
   intro i
-  rw [Nat.testBit_and, show (65532#64 : Word).toNat = 65532 from rfl]
-  have hm : (65532 : Nat).testBit i = (decide (2 ≤ i) && decide (i < 16)) := by
-    rcases Nat.lt_or_ge i 16 with h16 | h16
+  rw [Nat.testBit_and, show (4092#64 : Word).toNat = 4092 from rfl]
+  have hm : (4092 : Nat).testBit i = (decide (2 ≤ i) && decide (i < 12)) := by
+    rcases Nat.lt_or_ge i 12 with h12 | h12
     · interval_cases i <;> decide +kernel
-    · have : (65532 : Nat).testBit i = false := Nat.testBit_lt_two_pow (lt_of_lt_of_le (by decide +kernel)
-        (Nat.pow_le_pow_right (by decide +kernel) h16))
+    · have : (4092 : Nat).testBit i = false := Nat.testBit_lt_two_pow (lt_of_lt_of_le (by decide +kernel)
+        (Nat.pow_le_pow_right (by decide +kernel) h12))
       rw [this]; simp; omega
   rw [hm, Nat.mul_comm 4, show (4 : Nat) = 2 ^ 2 from rfl, Nat.testBit_mul_two_pow]
   simp only [Nat.testBit_mod_two_pow, Nat.testBit_div_two_pow]
   rcases Nat.lt_or_ge i 2 with h2 | h2
   · simp [show ¬ 2 ≤ i by omega]
-  · rcases Nat.lt_or_ge i 16 with h16 | h16
-    · simp only [show 2 ≤ i from h2, show i < 16 from h16, decide_true, Bool.and_true, Bool.true_and,
-        show i - 2 < 14 by omega, show i + (sh + 5) < 64 by omega]
+  · rcases Nat.lt_or_ge i 12 with h12 | h12
+    · simp only [show 2 ≤ i from h2, show i < 12 from h12, decide_true, Bool.and_true, Bool.true_and,
+        show i - 2 < 10 by omega, show i + (sh + 5) < 64 by omega]
       rw [show i + (sh + 5) + 64 * w = i - 2 + (64 * w + sh + 7) by omega]
-    · simp [show ¬ i < 16 by omega, show ¬ i - 2 < 14 by omega]
+    · simp [show ¬ i < 12 by omega, show ¬ i - 2 < 10 by omega]
 theorem not1_eq : (18446744073709551614#64 : Word) = ~~~1#64 := by decide +kernel
-theorem disp_pc (v : Word) (f : Nat) (hv : v.toNat = 4 * f) (hf : f < 2 ^ 14) :
+theorem disp_pc (v : Word) (f : Nat) (hv : v.toNat = 4 * f) (hf : f < 2 ^ 10) :
     v + 50340#64 &&& 18446744073709551614#64 = pcOf (11561 + f) := by
   have : v + 50340#64 = pcOf (11561 + f) := by
     apply BitVec.eq_of_toNat_eq

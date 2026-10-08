@@ -43,6 +43,9 @@ theorem hdrBlock_wctChainInput (index coord child t step : Nat) (value : Digest)
 theorem hdrBlock_wctLeafInput (index coord child : Nat) (ends : List Digest) :
     hdrBlock (pad64 (wctLeafInput index coord child ends)) = bytesLE 16 (WCT9.ftsLeafHeader index coord child) :=
   hdrBlock_listInput' _ _ _
+theorem hdrBlock_wctLeafInputP (index coord child : Nat) (pad : Digest) (ends : List Digest) :
+    hdrBlock (pad64 (wctLeafInputP index coord child pad ends)) = bytesLE 16 (WCT9.ftsLeafHeader index coord child) :=
+  hdrBlock_listInput' _ _ _
 theorem hdrBlock_forestInput (index : Nat) (pairs : List (Digest × Digest)) :
     hdrBlock (pad64 (forestInput index pairs)) = bytesLE 16 (header 15 0 index 0 0) := by
   have hl : 32 ≤ (forestInput index pairs).length := by

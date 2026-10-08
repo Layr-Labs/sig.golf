@@ -7,7 +7,7 @@ open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
 def packedHeader (chain digit : Nat) : E :=
   addC (.reg .x31) (BitVec.ofNat 64 (128 + 4 * chain + 256 * digit) - BitVec.ofNat 64 1537)
 def packedPos (digit : Nat) : E :=
-  if digit = 1 then .reg .x7 else if digit = 2 then .reg .x13 else .c 0
+  if digit = 1 then .reg .x7 else if digit = 2 then .reg .x13 else if digit = 3 then .reg .x19 else .c 0
 def headRHRel (rb : Reg) (off dst : Word) (p chain digit : Nat) : Result :=
   ⟨⟨((RegFile.init.set .x10 (addC (.reg rb) off)).set .x12 (addC (.reg rb) dst)).set
       .x25 (packedHeader chain digit),

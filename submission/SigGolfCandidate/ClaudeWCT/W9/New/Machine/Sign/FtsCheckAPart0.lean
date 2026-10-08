@@ -1,5 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Sign.FtsRuns
-import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.JTCheck3
+import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.JTCheck1
 
 set_option Elab.async false
 

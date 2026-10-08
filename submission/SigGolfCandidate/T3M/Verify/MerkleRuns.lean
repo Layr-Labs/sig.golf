@@ -28,7 +28,7 @@ def mkOff (lay ci : Nat) : Nat → Nat
 def mkBo (lay sh l : Nat) : Nat := mkBase lay + (if lay = 0 then 64 * (hL lay - 1 - l) else 16 * plan lay sh l)
 def mkBlk (lay sh l : Nat) : Nat := 0x800 + mkBo lay sh l
 def mkCur (lay sh l b : Nat) : Nat := mkBlk lay sh l + 48 * b
-def mkDst (lay leaf : Nat) : Nat := if lay = 0 then 10048 + 48 * (leaf / 2048 % 2) else 256
+def mkDst (lay leaf : Nat) : Nat := if lay = 0 then 9472 + 48 * (leaf / 2048 % 2) else 256
 def mkMove (lay level : Nat) : Nat := if lay = 0 ∧ level = 11 then 0 else 1
 def mkHeap (lay ci sh l : Nat) : Nat := (2 ^ hL lay + sh * 2 ^ mkLo lay ci) / 2 ^ (l + 1)
 def mkK (lay : Nat) : List (Reg × Word) :=
@@ -63,7 +63,7 @@ def mkBody (lay l : Nat) : Nat := (if l = 0 then (if lay = 0 then 3 else 6) else
 def mkIsDisp (lay ci kk : Nat) : Bool := decide (lay = 0 ∧ ci = 0 ∧ kk + 1 = mkBits lay ci)
 def mkNextA2 (lay ci sh kk : Nat) : Nat :=
   if kk + 1 < mkBits lay ci then mkCur lay sh (mkLo lay ci + kk + 1) (sh / 2 ^ (kk + 1) % 2)
-  else if lay = 0 then 10048 + 48 * (sh / 32 % 2) else 256
+  else if lay = 0 then 9472 + 48 * (sh / 32 % 2) else 256
 def mkLvlSpecN (lay ci sh kk : Nat) : Spec :=
   ⟨mkLvlRegs lay (mkLo lay ci + kk), mkLvlMem lay ci sh (mkLo lay ci + kk),
     mkShp lay ci sh + mkOff lay ci (kk + 1) + mkMove lay (mkLo lay ci + kk), true,
@@ -97,7 +97,7 @@ def mkBlockCheck (lay ci sh : Nat) : Bool :=
   mkEntCheck lay ci sh && (List.range (mkBits lay ci)).all (mkLvlCheck lay ci sh)
 def mkChunkCheck (lay ci lo n : Nat) : Bool := (List.range' lo n).all (mkBlockCheck lay ci)
 def cmpPc (c : Nat) : Nat := 39970 + 128 * c
-def cmpDst (c : Nat) : Nat := 10048 + 48 * (c / 32 % 2)
+def cmpDst (c : Nat) : Nat := 9472 + 48 * (c / 32 % 2)
 def cmpK (c : Nat) : List (Reg × Word) := baseK ++ [(.x12, BitVec.ofNat 64 (cmpDst c))]
 def cmpBr1 (c : Nat) (d : Bool) : Br := ⟨.ne, .ld (kw (cmpDst c)), .ld (kw 160), d⟩
 def cmpBr2 (c : Nat) (d : Bool) : Br := ⟨.ne, .ld (kw (cmpDst c + 8)), .ld (kw 168), d⟩

@@ -9,8 +9,9 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers)
 open ClaudeWCT.W9.T3.Security.LargeResidual
-open SigGolfCandidate.T3.Security.LargeResidual (slotValue routeAddr IsDigestRow State Cell observedRun
-  readState disclosedState runWith_bind observed_pure)
+open SigGolfCandidate.T3.Security.LargeResidual (slotValue routeAddr IsDigestRow State Cell
+  readState disclosedState runWith_bind)
+open ClaudeWCT.W9.T3.Security.FamResidual (observedRun observed_pure)
 open SigGolfCandidate.T3.Security.LargeCoupling (digestRow_isDigest digestRow_mem)
 open ClaudeWCT.W9.T3.Security.CanonGraph
 open ClaudeWCT.W9.T3.Security.CanonEncoding
@@ -162,7 +163,7 @@ theorem Coherent.signItems_eq (hcoh : Coherent U T vals nv τ a) (N : HashOutput
   rw [hcoh.layerItems_eq]
 theorem assembleSig_def (rho : Digest) (N : HashOutput) (v : Coord → Digest) (d : Wots.LeafAddr → List Nat) :
     assembleSig rho N v d = ⟨rho,
-      fun k => ⟨fun t => v (wctItem (digestIndex N, k, WCT9.child N k, t) (3 - WCT9.wordDigit (WCT9.rank N k) t)),
+      fun k => ⟨fun t => v (wctItem (digestIndex N, k, WCT9.child N k, t) (4 - WCT9.wordDigit (WCT9.rank N k) t)),
         fun l => ((wctPath (digestIndex N) k N).map v).getD l.val 0⟩,
       fun lay => piecesSignature lay ((layerChains d (digestIndex N) lay).map v, (layerPath (digestIndex N) lay).map v)⟩ :=
   rfl
@@ -172,12 +173,12 @@ theorem assembleSig_congr (rho : Digest) (N : HashOutput) (v v' : Coord → Dige
   have hfts : ∀ c ∈ ftsItems (digestIndex N) N, v c = v' c := fun c hc =>
     h c (List.mem_append_left _ hc)
   have hlay : ∀ c ∈ layerItems d (digestIndex N), v c = v' c := fun c hc => h c (List.mem_append_right _ hc)
-  have hopen : ∀ (k : Fin 9) (t : Fin 7),
-      v (wctItem (digestIndex N, k, WCT9.child N k, t) (3 - WCT9.wordDigit (WCT9.rank N k) t)) =
-        v' (wctItem (digestIndex N, k, WCT9.child N k, t) (3 - WCT9.wordDigit (WCT9.rank N k) t)) := by
+  have hopen : ∀ (k : Fin 9) (t : Fin 6),
+      v (wctItem (digestIndex N, k, WCT9.child N k, t) (4 - WCT9.wordDigit (WCT9.rank N k) t)) =
+        v' (wctItem (digestIndex N, k, WCT9.child N k, t) (4 - WCT9.wordDigit (WCT9.rank N k) t)) := by
     intro k t
     apply hfts
-    have ho : wctItem (digestIndex N, k, WCT9.child N k, t) (3 - WCT9.wordDigit (WCT9.rank N k) t) ∈
+    have ho : wctItem (digestIndex N, k, WCT9.child N k, t) (4 - WCT9.wordDigit (WCT9.rank N k) t) ∈
         wctOpened (digestIndex N) k N := by
       unfold wctOpened
       exact List.mem_ofFn.mpr ⟨t, rfl⟩
@@ -658,7 +659,8 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers)
 open ClaudeWCT.W9.T3.Security.LargeResidual
-open SigGolfCandidate.T3.Security.LargeResidual (State Cell observedRun runWith_bind observed_pure)
+open SigGolfCandidate.T3.Security.LargeResidual (State Cell runWith_bind)
+open ClaudeWCT.W9.T3.Security.FamResidual (observedRun observed_pure)
 open ClaudeWCT.W9.T3.Security.CanonGraph
 open ClaudeWCT.W9.T3.Security.CanonEncoding
 set_option maxHeartbeats 1000000
@@ -726,18 +728,18 @@ theorem routeVerdict_public {β : Type} (X : HashInput) (next : HashOutput → M
 theorem routeVerdict_observed (hcoh : Coherent U T vals nv τ a) (hq : q ≤ 2 ^ 127) {β : Type} (V : M β)
     (hV : PublicVerdict.Only V) :
     ∀ (mon : Monitor) (st : RouterState) (ws : LargeResidual.State WCoord (Cell U)) (state : LazyPrivate.State),
-      Rel U T vals nv τ a q mon st ws →
+      Rel U T vals nv τ a q mon st ws → FamOK st →
       ∃ out ws', observedRun aux q (Sum.elim vals nv) τ (routeVerdict U a q V st) ws = pure (out, ws') ∧
         PhaseOutcome U T vals nv τ a q ((Wots.Ref.pureRecord T V state).events.foldl (Monitor.event U T q) mon)
           (evalWithAnswerFn T V) ((Wots.Ref.pureRecord T V state).events.foldl (routerEvent U) st) out ws' := by
   induction V using OracleComp.inductionOn with
   | pure v =>
-      intro mon st ws state hrel
+      intro mon st ws state hrel _
       refine ⟨some (some (v, st)), ws, ?_, Or.inr (Or.inr ⟨rfl, hrel⟩)⟩
       rw [routeVerdict_pure]
       exact observed_pure aux q _ τ _ ws
   | query_bind input next ih =>
-      intro mon st ws state hrel
+      intro mon st ws state hrel hok
       obtain ⟨hi, hn⟩ := (allQueriesSatisfy_query_bind_iff _ _ _).mp hV
       rcases input with (n | X) | c
       · exact False.elim hi
@@ -751,7 +753,7 @@ theorem routeVerdict_observed (hcoh : Coherent U T vals nv τ a) (hq : q ≤ 2 ^
           exact events_over U T q _ h1.1 h1.2 _
         · rw [if_neg hb]
           have hlt : st.calls < q := by omega
-          obtain ⟨ws1, hout⟩ := routeQuery_observed aux hcoh hrel hlt hq X
+          obtain ⟨ws1, hout⟩ := routeQuery_observed aux hcoh hrel hlt hq hok X
           rcases hout with ⟨hc, hrun, -, hcalls⟩ | ⟨hc, hrun, hrel1⟩
           · refine ⟨none, ws1, ?_, Or.inl ⟨rfl, ?_, hcalls⟩⟩
             · rw [observedRun, runWith_bind, ← observedRun, hrun, pure_bind]
@@ -760,6 +762,7 @@ theorem routeVerdict_observed (hcoh : Coherent U T vals nv τ a) (hq : q ≤ 2 ^
               rw [events_frozen U T q _ hc]
               exact hc
           · obtain ⟨out, ws2, hrun2, hph⟩ := ih (T (.inl (.inr X))) (hn _) _ _ ws1 _ hrel1
+              (famOK_of_disclosed (st.next_disclosed U X _) hok)
             refine ⟨out, ws2, ?_, hph⟩
             rw [observedRun, runWith_bind, ← observedRun, hrun, pure_bind]
             exact hrun2
@@ -774,7 +777,8 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers)
 open ClaudeWCT.W9.T3.Security.LargeResidual
-open SigGolfCandidate.T3.Security.LargeResidual (State Cell observedRun runWith_bind)
+open SigGolfCandidate.T3.Security.LargeResidual (State Cell runWith_bind)
+open ClaudeWCT.W9.T3.Security.FamResidual (observedRun)
 open ClaudeWCT.W9.T3.Security.CanonGraph
 open ClaudeWCT.W9.T3.Security.CanonEncoding
 set_option maxHeartbeats 1000000
@@ -820,6 +824,32 @@ theorem steps_frozen (mon : Monitor) (hc : mon.contact = true) (steps : List Tag
         | sign request out events => simp only [Monitor.step, Monitor.sign, hc, if_true]
       rw [h1, ih]
 end Steps
+theorem routerStep_disclosed_mono (U : Finset HashInput) (T : Answers) (nv : Message → Digest)
+    (published : SigGolfCandidate.T3.Cache) (st : RouterState) (s : TaggedStep) :
+    ∀ x ∈ st.disclosed, x ∈ (routerStep U T nv published st s).disclosed := by
+  intro x hx
+  cases s with
+  | world e =>
+      have he : (routerEvent U st e).disclosed = st.disclosed := by
+        rcases e with ⟨before, (n | X) | c, y⟩
+        · rfl
+        · exact RouterState.next_disclosed U st X y
+        · rfl
+      change x ∈ (routerEvent U st e).disclosed
+      rw [he]; exact hx
+  | sign request out events =>
+      change x ∈ (signedState T nv published st request).disclosed
+      rw [signedState_disclosed]
+      exact List.mem_append_left _ hx
+theorem steps_disclosed_mono (U : Finset HashInput) (T : Answers) (nv : Message → Digest)
+    (published : SigGolfCandidate.T3.Cache) (steps : List TaggedStep) (st : RouterState) :
+    ∀ x ∈ st.disclosed, x ∈ (steps.foldl (routerStep U T nv published) st).disclosed := by
+  induction steps generalizing st with
+  | nil => exact fun x hx => hx
+  | cons s rest ih =>
+      intro x hx
+      rw [List.foldl_cons]
+      exact ih _ x (routerStep_disclosed_mono U T nv published st s x hx)
 section Interaction
 variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData} {q : Nat} (initLaw : PMF AuxData)
@@ -851,6 +881,7 @@ theorem interaction_le (hcoh : Coherent U T vals nv τ a) (hq : q ≤ 2 ^ 127) (
         1 ≤ Pr[F | observedRun (auxLaw initLaw) q (Sum.elim vals nv) τ (K (some ((v, log), st))) ws]) →
       (∀ m s v σ, Final m s v σ → m.contact = true ∨ m.calls ≤ q) →
       (∀ ws' : LargeResidual.State WCoord (Cell U), ws'.counters.calls ≤ q → F (none, ws')) →
+      (∀ m s v σ, Final m s v σ → FamOK s) →
       ∀ (mon : Monitor) (st : RouterState) (ws : LargeResidual.State WCoord (Cell U)) (state : LazyPrivate.State),
         Rel U T vals nv τ a q mon st ws → MemoOk T st →
         Pr[fun t => Final (t.steps.foldl (Monitor.step U T q published) mon)
@@ -860,13 +891,13 @@ theorem interaction_le (hcoh : Coherent U T vals nv τ a) (hq : q ≤ 2 ^ 127) (
             (routeInteraction U a published q program st >>= K) ws] := by
   induction program using OracleComp.inductionOn with
   | pure v =>
-      intro β Final K F hleaf habort hstop mon st ws state hrel hmemo
+      intro β Final K F hleaf habort hstop hfin mon st ws state hrel hmemo
       rw [taggedFixed_pure, routeInteraction_pure, pure_bind, probEvent_pure]
       split_ifs with hf
       · exact hleaf mon st ws state v [] hrel hmemo hf
       · exact zero_le
   | query_bind input next ih =>
-      intro β Final K F hleaf habort hstop mon st ws state hrel hmemo
+      intro β Final K F hleaf habort hstop hfin mon st ws state hrel hmemo
       rcases input with (n | X) | request
       ·
         rw [taggedFixed_world, routeInteraction_coin, bind_assoc, observed_coinReq]
@@ -880,7 +911,7 @@ theorem interaction_le (hcoh : Coherent U T vals nv τ a) (hq : q ≤ 2 ^ 127) (
         rw [hc]
         gcongr
         rw [probEvent_map]
-        exact ih c Final K F hleaf habort hstop mon st ws _ hrel hmemo
+        exact ih c Final K F hleaf habort hstop hfin mon st ws _ hrel hmemo
       ·
         rw [taggedFixed_world, Wots.Ref.fixedWorld_public, pure_bind, probEvent_map, routeInteraction_hash]
         by_cases hb : q ≤ st.calls
@@ -907,9 +938,22 @@ theorem interaction_le (hcoh : Coherent U T vals nv τ a) (hq : q ≤ 2 ^ 127) (
               omega
           rw [hzero]
           exact zero_le
-        · rw [if_neg hb, bind_assoc]
+        · by_cases hok : FamOK st
+          swap
+          · have hzero : Pr[(fun t => Final (t.steps.foldl (Monitor.step U T q published) mon)
+                  (t.steps.foldl (routerStep U T nv published) st) t.value t.state) ∘
+                (fun last => (⟨last.value, .world ⟨state, .inl (.inr X), T (.inl (.inr X))⟩ :: last.steps,
+                  last.state⟩ : Tagged α)) |
+                taggedFixed T published (next (T (.inl (.inr X))))
+                  (FirstHit.advance state (.inl (.inr X)) (T (.inl (.inr X))))] = 0 := by
+              refine le_antisymm ((probEvent_mono'' (q := fun _ => False) ?_).trans (by simp)) (zero_le)
+              intro t ht
+              exact hok (famOK_mono (steps_disclosed_mono U T nv published _ _) (hfin _ _ _ _ ht))
+            rw [hzero]
+            exact zero_le
+          rw [if_neg hb, bind_assoc]
           have hlt : st.calls < q := by omega
-          obtain ⟨ws1, hout⟩ := routeQuery_observed (auxLaw initLaw) hcoh hrel hlt hq X
+          obtain ⟨ws1, hout⟩ := routeQuery_observed (auxLaw initLaw) hcoh hrel hlt hq hok X
           rcases hout with ⟨hc, hrun, -, hcalls⟩ | ⟨hc, hrun, hrel1⟩
           ·
             rw [observedRun, runWith_bind, ← observedRun, hrun, pure_bind]
@@ -923,7 +967,7 @@ theorem interaction_le (hcoh : Coherent U T vals nv τ a) (hq : q ≤ 2 ^ 127) (
               apply hmemo m f
               unfold RouterState.next at hf
               split_ifs at hf <;> exact hf
-            exact ih (T (.inl (.inr X))) Final K F hleaf habort hstop _ _ ws1 _ hrel1 hmemo1
+            exact ih (T (.inl (.inr X))) Final K F hleaf habort hstop hfin _ _ ws1 _ hrel1 hmemo1
       ·
         rw [taggedFixed_request, Wots.Ref.fixedRecord_hashOnly T _ (Wots.Ref.authenticatedSign_hashOnly _ _),
           pure_bind, probEvent_map, routeInteraction_request, bind_assoc]
@@ -944,7 +988,7 @@ theorem interaction_le (hcoh : Coherent U T vals nv τ a) (hq : q ≤ 2 ^ 127) (
           fun mon st ws state v log hrel hmemo hf => hleaf mon st ws state v (⟨request, out⟩ :: log) hrel hmemo hf
         have habort' : ∀ m s v σ, Final' m s v σ → m.contact = true ∨ m.calls ≤ q :=
           fun m s v σ hf => habort _ _ _ _ hf
-        exact ih out Final' K' F hleaf' habort' hstop _ _ wsF _ hrelF
+        exact ih out Final' K' F hleaf' habort' hstop (fun m s v σ hf => hfin _ _ _ _ hf) _ _ wsF _ hrelF
           (signedState_memo T nv published st request hmemo)
 end Interaction
 end ClaudeWCT.W9.T3.Security.LargeCoupling

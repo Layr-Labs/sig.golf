@@ -1,21 +1,22 @@
 import SigGolfCandidate.T3.Core
 import SigGolfCandidate.ClaudeWCT.WCT9.Codebook
+import SigGolfCandidate.ClaudeWCT.Arith.GF128
 
 namespace ClaudeWCT.WCT9
 open OracleComp OracleSpec SigGolfCandidate.T3
 open SphincsSecurity (bytesLE)
 def coordinates : Nat := 9
 def children : Nat := 128
-def chains : Nat := 7
-def gateShift : Nat := 235
-def gateBits : Nat := 21
-def gateLimit : Nat := 2364
-def fieldBits : Nat := 14
-def fieldLimit : Nat := 16200
-def jointCap : Nat := 710
+def chains : Nat := 6
+def gateShift : Nat := 242
+def gateBits : Nat := 14
+def gateLimit : Nat := 1131
+def fieldBits : Nat := 10
+def fieldLimit : Nat := 563
+def jointCap : Nat := 789
 abbrev Coord := Fin 9
 abbrev Child := Fin 128
-abbrev Rank := Fin 600
+abbrev Rank := Fin 563
 def wctHeader (tag lay tree position index : Nat) : BitVec 128 :=
   BitVec.ofNat 128 (1 + tag % 256 * 2 ^ 8 + lay % 256 * 2 ^ 16 +
     (tree / 2 ^ 32 % 256) * 2 ^ 24 + position % 2 ^ 32 * 2 ^ 32 +
@@ -28,13 +29,13 @@ def fieldBase (k : Nat) : Nat := [7,71,92,107,135,156,171,199,220].getD k 0
 def child (output : HashOutput) (coord : Coord) : Child :=
   ⟨output.toNat / 2 ^ childBase coord.val % 128, Nat.mod_lt _ (by decide)⟩
 def field (output : HashOutput) (coord : Coord) : Nat :=
-  output.toNat / 2 ^ fieldBase coord.val % 2 ^ 14
+  output.toNat / 2 ^ fieldBase coord.val % 2 ^ 10
 def rank (output : HashOutput) (coord : Coord) : Rank :=
-  ⟨field output coord % 600, Nat.mod_lt _ (by decide)⟩
+  ⟨field output coord % 563, Nat.mod_lt _ (by decide)⟩
 def admissible (output : HashOutput) : Bool :=
-  decide (output.toNat / 2 ^ 235 % 2 ^ 21 < 2364) &&
+  decide (output.toNat / 2 ^ 242 % 2 ^ 14 < 1131) &&
     (List.range 9).all (fun coord =>
-      decide (output.toNat / 2 ^ fieldBase coord % 2 ^ 14 < 16200))
+      decide (output.toNat / 2 ^ fieldBase coord % 2 ^ 10 < 563))
 def childSaveTable : List Nat :=
   [1,2,1,1,1,2,2,1,2,2,2,2,1,2,2,1,1,2,3,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,3,2,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,1,1,1,1,0,0,1,1,1,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,1,1,1,1,1]
 def maxChildSave : Nat := 3
@@ -76,26 +77,40 @@ def ftsLeafLow (index coord selected : Nat) : Nat :=
   1 + 6 * 2 ^ 8 + coord % 16 * 2 ^ 16 + selected % 128 * 2 ^ 20 + index % 2 ^ 31 * 2 ^ 27
 def ftsLeafHeader (index coord selected : Nat) : BitVec 128 :=
   0#64 ++ BitVec.ofNat 64 (ftsLeafLow index coord selected)
+/-- FTS child leaf (campaign T8): `end0 | header | zero16 | end1..end5` (128 bytes, two blocks). The zero slot
+after the header is a witness pad in the padded verifier; the honest value is zero. -/
 def leafHash (index coord selected : Nat) (ends : List Digest) : M Digest :=
   shortHash (bytesLE 16 (ends.getD 0 0) ++
-    bytesLE 16 (ftsLeafHeader index coord selected) ++ (ends.drop 1).flatMap (bytesLE 16))
+    bytesLE 16 (ftsLeafHeader index coord selected) ++ zero16 ++ (ends.drop 1).flatMap (bytesLE 16))
+/-- Padded FTS leaf (campaign T8): the leaf with an arbitrary 16-byte value in the pad slot (the padded verifier's
+witness pad; `leafHashP_zero`: the honest pad 0 gives `leafHash`). -/
+def leafInputP (index coord selected : Nat) (pad : Digest) (ends : List Digest) : HashInput :=
+  bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (ftsLeafHeader index coord selected) ++ bytesLE 16 pad ++
+    (ends.drop 1).flatMap (bytesLE 16)
+def leafHashP (index coord selected : Nat) (pad : Digest) (ends : List Digest) : M Digest :=
+  shortHash (leafInputP index coord selected pad ends)
+theorem bytesLE_zero16 : bytesLE 16 (0 : Digest) = zero16 := by decide
+theorem leafHashP_zero (index coord selected : Nat) (ends : List Digest) :
+    leafHashP index coord selected 0 ends = leafHash index coord selected ends := by
+  unfold leafHashP leafInputP leafHash
+  rw [bytesLE_zero16]
 def seedHalf (seeds : Digest × Digest) (q : Nat) : Digest := if q % 2 = 0 then seeds.1 else seeds.2
 def packedSecret (pairQuery : Nat → M (Digest × Digest)) (q : Nat) (carry : Digest) : M (Digest × Digest) :=
   if q % 2 = 0 then do
     let seeds ← pairQuery (q / 2)
     pure (seeds.1, seeds.2)
   else pure (carry, carry)
-def ftsOrdinal (child chain : Nat) : Nat := 7 * child + chain
+def ftsOrdinal (child chain : Nat) : Nat := 6 * child + chain
 def ftsSeedHeader (coord index pair : Nat) : BitVec 128 := header 8 coord index 0 pair
 def ftsSeedPair (index coord pair : Nat) : M (Digest × Digest) := privatePair 8 coord index 0 pair
 def buildChild (index coord selected : Nat) (word : Rank) (carry : Digest) :
     M ((Digest × List Digest) × Digest) := do
-  let state ← (List.finRange 7).foldlM
+  let state ← (List.finRange 6).foldlM
     (fun (state : List Digest × List Digest × Digest) i => do
       let (secret, carry) ← packedSecret (ftsSeedPair index coord) (ftsOrdinal selected i.val) state.2.2
       let deficit := wordDigit word i
-      let value ← chain index coord selected i.val 0 (3 - deficit) secret
-      let last ← chain index coord selected i.val (3 - deficit) deficit value
+      let value ← chain index coord selected i.val 0 (4 - deficit) secret
+      let last ← chain index coord selected i.val (4 - deficit) deficit value
       pure (state.1 ++ [last], state.2.1 ++ [value], carry)) ([], [], carry)
   let root ← leafHash index coord selected state.1
   pure ((root, state.2.1), state.2.2)
@@ -118,6 +133,38 @@ def buildCoordinate (index : Nat) (coord : Coord) (selected : Child) (word : Ran
       pure (state.1 ++ [root], (if j = selected.val then values else state.2.1), carry)) ([], [], 0)
   let nodes ← heapBuild index coord.val state.1
   pure (heapLevels nodes, state.2.1)
+/-! ### Arithmetic seeds (campaign X1, stage A): FTS seeds from a degree-101 GF(2^128) family per coordinate.
+The 102 coefficients are the halves of `ftsSeedPair index coord j`, `j < 51`, low half first; the seed of chain
+`chain` of child `child` is `familyEval coefs (ftsPoint child chain)`. Used by `signPayload` and by `Rev3.sign`
+(through `signPayloadWith`). -/
+def ftsCoefPairs : Nat := 51
+def ftsCoefs (index coord : Nat) : M (List Digest) :=
+  (List.range ftsCoefPairs).foldlM (fun acc j => do
+    let p ← ftsSeedPair index coord j
+    pure (acc ++ [p.1, p.2])) []
+def ftsPoint (child chain : Nat) : Nat := ftsOrdinal child chain + 1
+def ftsFamilySeed (coefs : List Digest) (child chain : Nat) : Digest :=
+  ClaudeWCT.Arith.familyEval coefs (ftsPoint child chain)
+def buildChildF (index coord selected : Nat) (word : Rank) (coefs : List Digest) :
+    M (Digest × List Digest) := do
+  let state ← (List.finRange 6).foldlM
+    (fun (state : List Digest × List Digest) i => do
+      let secret := ftsFamilySeed coefs selected i.val
+      let deficit := wordDigit word i
+      let value ← chain index coord selected i.val 0 (4 - deficit) secret
+      let last ← chain index coord selected i.val (4 - deficit) deficit value
+      pure (state.1 ++ [last], state.2 ++ [value])) ([], [])
+  let root ← leafHash index coord selected state.1
+  pure (root, state.2)
+def buildCoordinateF (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
+    M (List (List Digest) × List Digest) := do
+  let coefs ← ftsCoefs index coord.val
+  let state ← (List.range 128).foldlM
+    (fun (state : List Digest × List Digest) j => do
+      let (root, values) ← buildChildF index coord.val j word coefs
+      pure (state.1 ++ [root], (if j = selected.val then values else state.2))) ([], [])
+  let nodes ← heapBuild index coord.val state.1
+  pure (heapLevels nodes, state.2)
 def forestInput (index : Nat) (pairs : List (Digest × Digest)) : HashInput :=
   zero16 ++ bytesLE 16 (header 15 0 index 0 0) ++
     pairs.flatMap (fun p => bytesLE 16 p.1 ++ bytesLE 16 p.2)
@@ -134,7 +181,7 @@ def pairEncodingInputP (up : Layer) (tree leaf : Nat) (left right : Digest) (cou
 def layerEncodingInput (lay : Layer) (tree leaf : Nat) : LayerMsg → BitVec 32 → HashInput
   | .forest root, counter => encodingInput lay tree leaf root counter
   | .pair left right, counter => pairEncodingInputP lay tree leaf left right counter 0
-def producerFloor (lay : Layer) : Nat := ![8, 4, 4, 4] lay
+def producerFloor (lay : Layer) : Nat := ![8, 5, 5, 4] lay
 def wordCredit (lay : Layer) (digits : List Nat) : Nat :=
   ((List.range (chainCount lay)).filter fun i => digits.getD i 0 + 1 = maxDigit lay i).length
 def producerDecode (lay : Layer) (answer : Digest) : Option (List Nat) :=
@@ -204,7 +251,7 @@ def signLayersBC (cache : Cache) (index : Nat) : Nat → LayerMsg → M (Option 
         let some previous ← signLayersBC cache index n (.pair top.1 top.2) | pure none
         pure (some (previous ++ [(values, path)]))
 structure Opening where
-  values : Fin 7 → Digest
+  values : Fin 6 → Digest
   path : Fin 7 → Digest
 structure Signature where
   rho : Digest
@@ -293,7 +340,7 @@ def signPayload (cache : Cache) (message : Message) : M (Option Signature) := do
   let state ← (List.finRange 9).foldlM
     (fun (state : List Opening × List (Digest × Digest)) coord => do
       let selected := child output coord
-      let (levels, values) ← buildCoordinate index coord selected (rank output coord)
+      let (levels, values) ← buildCoordinateF index coord selected (rank output coord)
       let path := (List.range 7).map fun level =>
         (levels.getD level []).getD (selected.val / 2 ^ level ^^^ 1) 0
       let opening : Opening := ⟨fun i => values.getD i.val 0, fun i => path.getD i.val 0⟩
@@ -317,9 +364,9 @@ def recoverCoordinate (sig : Signature) (index : Nat) (output : HashOutput) (coo
     M (Digest × Digest) := do
   let selected := child output coord
   let word := rank output coord
-  let ends ← (List.finRange 7).mapM fun i =>
+  let ends ← (List.finRange 6).mapM fun i =>
     let deficit := wordDigit word i
-    chain index coord.val selected.val i.val (3 - deficit) deficit ((sig.openings coord).values i)
+    chain index coord.val selected.val i.val (4 - deficit) deficit ((sig.openings coord).values i)
   let root ← leafHash index coord.val selected.val ends
   let top ← (List.finRange 6).foldlM
     (fun value level => do

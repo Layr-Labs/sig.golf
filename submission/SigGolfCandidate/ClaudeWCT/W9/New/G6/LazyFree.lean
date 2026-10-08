@@ -150,22 +150,22 @@ variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U)
 noncomputable def digestOf (ω : CanonTable.Omega U) : digestInputs → HashOutput :=
   fun x => finiteHashAnswer ∅ U ω.residual x.val
 def nonceOf (ω : CanonTable.Omega U) : Message → Digest := fun m => ω.other (nonceOther m)
-theorem answers_digest (ω : CanonTable.Omega U) (g : WctPoint → Digest) (x : HashInput) (hx : x ∈ digestInputs) :
+theorem answers_digest (ω : CanonTable.Omega U) (g : CanonTable.HiddenF) (x : HashInput) (hx : x ∈ digestInputs) :
     wA hU ω g (.inl (.inr x)) = rowVal (digestOf ω) x := by
   rw [rowVal, dif_pos hx]
-  change finiteHashAnswer ∅ U (CanonGraph.programmed U hU (CanonTable.worldSecrets ω.secrets g)
-    (CanonTable.worldLabels ω g) ω.residual) x = finiteHashAnswer ∅ U ω.residual x
+  change finiteHashAnswer ∅ U (CanonGraph.programmed U hU (CanonTable.worldSecrets ω.secrets g.1)
+    (CanonTable.worldLabels ω g.2) ω.residual) x = finiteHashAnswer ∅ U ω.residual x
   by_cases hxU : x ∈ U
   · rw [finiteHashAnswer_none ∅ U _ _ hxU rfl, finiteHashAnswer_none ∅ U _ _ hxU rfl]
     apply CanonGraph.programmed_other
     intro node he
     exact cell_not_digest _ node _ (by rw [← he]; exact hx)
   · simp only [finiteHashAnswer, dif_neg hxU]
-theorem eval_nonce (ω : CanonTable.Omega U) (g : WctPoint → Digest) (m : Message) :
+theorem eval_nonce (ω : CanonTable.Omega U) (g : CanonTable.HiddenF) (m : Message) :
     evalWithAnswerFn (wA hU ω g) (privateNonce m) = nonceOf ω m := by
   unfold privateNonce privateHash
   simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-  change (CanonGraph.privateEquiv.symm (CanonTable.worldSecrets ω.secrets g, ω.other) (.inr (.inl m))).extractLsb'
+  change (CanonGraph.privateEquiv.symm (CanonTable.worldSecrets ω.secrets g.1, ω.other) (.inr (.inl m))).extractLsb'
     0 128 = _
   rw [privateEquiv_symm_apply, ChainGraph.joinOutput_low]
   exact splitEquiv_symm_other _ _ (nonceHalf m) (nonceHalf_not_secret m)
@@ -178,31 +178,31 @@ def SameRest (ω₁ ω₂ : CanonTable.Omega U) : Prop :=
   ω₁.secrets = ω₂.secrets ∧ ω₁.low = ω₂.low ∧ ω₁.high = ω₂.high ∧
     (∀ x : U, x.val ∉ digestInputs → ω₁.residual x = ω₂.residual x) ∧
     (∀ h : CanonGraph.OtherHalf, (∀ m, h ≠ nonceOther m) → ω₁.other h = ω₂.other h)
-theorem programmed_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : WctPoint → Digest) (x : U)
+theorem programmed_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : CanonTable.HiddenF) (x : U)
     (hx : x.val ∉ digestInputs) :
-    CanonGraph.programmed U hU (CanonTable.worldSecrets ω₁.secrets g) (CanonTable.worldLabels ω₁ g) ω₁.residual x =
-      CanonGraph.programmed U hU (CanonTable.worldSecrets ω₂.secrets g) (CanonTable.worldLabels ω₂ g)
+    CanonGraph.programmed U hU (CanonTable.worldSecrets ω₁.secrets g.1) (CanonTable.worldLabels ω₁ g.2) ω₁.residual x =
+      CanonGraph.programmed U hU (CanonTable.worldSecrets ω₂.secrets g.1) (CanonTable.worldLabels ω₂ g.2)
         ω₂.residual x := by
-  have hs : CanonTable.worldSecrets ω₁.secrets g = CanonTable.worldSecrets ω₂.secrets g := by rw [h.1]
-  have hl : CanonTable.worldLabels ω₁ g = CanonTable.worldLabels ω₂ g := by
+  have hs : CanonTable.worldSecrets ω₁.secrets g.1 = CanonTable.worldSecrets ω₂.secrets g.1 := by rw [h.1]
+  have hl : CanonTable.worldLabels ω₁ g.2 = CanonTable.worldLabels ω₂ g.2 := by
     unfold CanonTable.worldLabels
     rw [h.2.1, h.2.2.1]
   rw [hs, hl]
-  by_cases hc : ∃ node, x.val = CanonGraph.cell (CanonTable.worldSecrets ω₂.secrets g) node (CanonTable.worldLabels ω₂ g)
+  by_cases hc : ∃ node, x.val = CanonGraph.cell (CanonTable.worldSecrets ω₂.secrets g.1) node (CanonTable.worldLabels ω₂ g.2)
   · obtain ⟨node, hnode⟩ := hc
-    have hx' : x = CanonGraph.cellIn U hU (CanonTable.worldSecrets ω₂.secrets g) node (CanonTable.worldLabels ω₂ g) :=
+    have hx' : x = CanonGraph.cellIn U hU (CanonTable.worldSecrets ω₂.secrets g.1) node (CanonTable.worldLabels ω₂ g.2) :=
       Subtype.ext hnode
     rw [hx', CanonGraph.programmed_at, CanonGraph.programmed_at]
-  · have hn : ∀ node, x.val ≠ CanonGraph.cell (CanonTable.worldSecrets ω₂.secrets g) node
-        (CanonTable.worldLabels ω₂ g) := fun node he => hc ⟨node, he⟩
+  · have hn : ∀ node, x.val ≠ CanonGraph.cell (CanonTable.worldSecrets ω₂.secrets g.1) node
+        (CanonTable.worldLabels ω₂ g.2) := fun node he => hc ⟨node, he⟩
     rw [CanonGraph.programmed_other U hU _ _ _ _ hn, CanonGraph.programmed_other U hU _ _ _ _ hn]
     exact h.2.2.2.1 x hx
-theorem private_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : WctPoint → Digest) (c : Coordinate)
+theorem private_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : CanonTable.HiddenF) (c : Coordinate)
     (hc : ∀ m, c ≠ .inr (.inl m)) :
-    CanonGraph.privateEquiv.symm (CanonTable.worldSecrets ω₁.secrets g, ω₁.other) c =
-      CanonGraph.privateEquiv.symm (CanonTable.worldSecrets ω₂.secrets g, ω₂.other) c := by
-  have hhalf : ∀ k : Fin 2, CanonGraph.splitEquiv.symm (CanonTable.worldSecrets ω₁.secrets g, ω₁.other) (c, k) =
-      CanonGraph.splitEquiv.symm (CanonTable.worldSecrets ω₂.secrets g, ω₂.other) (c, k) := by
+    CanonGraph.privateEquiv.symm (CanonTable.worldSecrets ω₁.secrets g.1, ω₁.other) c =
+      CanonGraph.privateEquiv.symm (CanonTable.worldSecrets ω₂.secrets g.1, ω₂.other) c := by
+  have hhalf : ∀ k : Fin 2, CanonGraph.splitEquiv.symm (CanonTable.worldSecrets ω₁.secrets g.1, ω₁.other) (c, k) =
+      CanonGraph.splitEquiv.symm (CanonTable.worldSecrets ω₂.secrets g.1, ω₂.other) (c, k) := by
     intro k
     by_cases hr : (c, k) ∈ Set.range CanonGraph.secretCoordinate
     · obtain ⟨i, hi⟩ := hr
@@ -213,14 +213,14 @@ theorem private_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ 
       have := congrArg (fun o : CanonGraph.OtherHalf => o.1.1) he
       exact hc m this
   rw [privateEquiv_symm_apply, privateEquiv_symm_apply, hhalf 0, hhalf 1]
-theorem answers_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : WctPoint → Digest)
+theorem answers_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : CanonTable.HiddenF)
     (q : SigGolfCandidate.T3.Spec.Domain) (hq : NotDN q) : wA hU ω₁ g q = wA hU ω₂ g q := by
   rcases q with (n | x) | c
   · rfl
-  · change finiteHashAnswer ∅ U (CanonGraph.programmed U hU (CanonTable.worldSecrets ω₁.secrets g)
-        (CanonTable.worldLabels ω₁ g) ω₁.residual) x =
-      finiteHashAnswer ∅ U (CanonGraph.programmed U hU (CanonTable.worldSecrets ω₂.secrets g)
-        (CanonTable.worldLabels ω₂ g) ω₂.residual) x
+  · change finiteHashAnswer ∅ U (CanonGraph.programmed U hU (CanonTable.worldSecrets ω₁.secrets g.1)
+        (CanonTable.worldLabels ω₁ g.2) ω₁.residual) x =
+      finiteHashAnswer ∅ U (CanonGraph.programmed U hU (CanonTable.worldSecrets ω₂.secrets g.1)
+        (CanonTable.worldLabels ω₂ g.2) ω₂.residual) x
     by_cases hxU : x ∈ U
     · rw [finiteHashAnswer_none ∅ U _ _ hxU rfl, finiteHashAnswer_none ∅ U _ _ hxU rfl]
       exact programmed_sameRest hU h g ⟨x, hxU⟩ hq
@@ -228,7 +228,7 @@ theorem answers_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ 
   · apply private_sameRest h g c
     rintro m rfl
     exact hq
-theorem eval_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : WctPoint → Digest) {α : Type}
+theorem eval_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : CanonTable.HiddenF) {α : Type}
     {program : M α} (hp : AllQueriesSatisfy program NotDN) :
     evalWithAnswerFn (wA hU ω₁ g) program = evalWithAnswerFn (wA hU ω₂ g) program :=
   eval_congr_allowed hp (answers_sameRest hU h g)
@@ -238,7 +238,7 @@ theorem residual_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁
   · rw [finiteHashAnswer_none ∅ U _ _ hxU rfl, finiteHashAnswer_none ∅ U _ _ hxU rfl]
     exact h.2.2.2.1 ⟨x, hxU⟩ hx
   · simp only [finiteHashAnswer, dif_neg hxU]
-theorem probeInput_not_digest (a : Guess.ChainAddr) (p : Fin 3) (c : Digest) :
+theorem probeInput_not_digest (a : Guess.ChainAddr) (p : Fin 4) (c : Digest) :
     Guess.probeInput a p c ∉ digestInputs := by
   have hx := CanonTable.probeInput_hdr a p c
   simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr] at hx
@@ -256,7 +256,7 @@ theorem hashL_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω
         rw [h.2.2.1]
       have htop : (CanonTable.chainTable hU ω₁).top = (CanonTable.chainTable hU ω₂).top := by
         funext a
-        change CanonGraph.joinLabels ω₁.low ω₁.high (.wctChain (a, 2)) = CanonGraph.joinLabels ω₂.low ω₂.high (.wctChain (a, 2))
+        change CanonGraph.joinLabels ω₁.low ω₁.high (.wctChain (a, 3)) = CanonGraph.joinLabels ω₂.low ω₂.high (.wctChain (a, 3))
         rw [h.2.1, h.2.2.1]
       have hmiss : (CanonTable.chainTable hU ω₁).miss x = (CanonTable.chainTable hU ω₂).miss x :=
         residual_sameRest h x hnd
@@ -266,15 +266,15 @@ theorem hashL_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω
       · simp only [if_pos hx]
       · simp only [if_neg hx]
         exact congrArg _ (answers_sameRest hU h 0 (.inl (.inr x)) hx)
-theorem honestForest_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : WctPoint → Digest)
+theorem honestForest_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : CanonTable.HiddenF)
     (index : Nat) : WCT9.honestForest (wA hU ω₁ g) index = WCT9.honestForest (wA hU ω₂ g) index := by
   rw [← WCT9.signForest_root _ index 0, ← WCT9.signForest_root _ index 0,
     eval_sameRest hU h g (signForest_dn _ _)]
-theorem expectedOpening_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : WctPoint → Digest)
+theorem expectedOpening_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : CanonTable.HiddenF)
     (index : Nat) (output : HashOutput) (k : WCT9.Coord) :
     WCT9.expectedOpening (wA hU ω₁ g) index output k = WCT9.expectedOpening (wA hU ω₂ g) index output k := by
   rw [← WCT9.signForest_openings, ← WCT9.signForest_openings, eval_sameRest hU h g (signForest_dn _ _)]
-theorem assembleWith_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : WctPoint → Digest)
+theorem assembleWith_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : CanonTable.HiddenF)
     (core : Digest × HashOutput × List Pieces) :
     assembleWith (wA hU ω₁ g) core = assembleWith (wA hU ω₂ g) core := by
   unfold assembleWith

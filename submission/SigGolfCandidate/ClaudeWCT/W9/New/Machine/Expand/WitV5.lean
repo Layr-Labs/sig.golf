@@ -17,15 +17,18 @@ def layerRegionV6 (N : HashOutput) (w : WCT9.Witness) (lay : Layer) : List UInt8
   if lay.val = 0 then layerBytes lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)
   else layerBytesBCV6 lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)
     (w.counters (Fin.ofNat 4 (lay.val - 1)))
+/-- Stage-1 compaction region (T8): the witness region (832 bytes) followed by 64 zero bytes (stride 896). -/
+def regionBytesV6 (child : Nat) (op : WCT9.Opening) : List UInt8 := regionBytes child op ++ zeros 64
 def wctBytesV6 (N : HashOutput) (sig : WCT9.Signature) : List UInt8 :=
-  (List.finRange 9).flatMap fun k => regionBytes (WCT9.child N k).val (sig.openings k)
+  (List.finRange 9).flatMap fun k => regionBytesV6 (WCT9.child N k).val (sig.openings k)
 def witListV6 (N : HashOutput) (w : WCT9.Witness) : List UInt8 :=
   headerBytes w ++ wctBytesV6 N w.signature ++ zeros 8 ++ (List.finRange 4).flatMap (layerRegionV6 N w)
 def merkleBytesV5 (child : Nat) (op : WCT9.Opening) : List UInt8 :=
   (List.finRange 7).reverse.flatMap fun l =>
     if child / 2 ^ l.val % 2 = 1 then bytesLE 16 (op.path l) ++ zeros 48 else zeros 48 ++ bytesLE 16 (op.path l)
+/-- Expand scratch region (T8): merkle 448 | chains 5..1 (320) | 48 zeros | leaf 128 | 80 zeros = 1024 bytes. -/
 def regionBytesV5 (child : Nat) (op : WCT9.Opening) : List UInt8 :=
-  merkleBytesV5 child op ++ chainBytes op ++ zeros 48 ++ leafBytes op ++ zeros 16
+  merkleBytesV5 child op ++ chainBytes op ++ zeros 48 ++ leafBytes op ++ zeros 80
 def wctBytesV5 (N : HashOutput) (sig : WCT9.Signature) : List UInt8 :=
   (List.finRange 9).flatMap fun k => regionBytesV5 (WCT9.child N k).val (sig.openings k)
 def witListV5 (N : HashOutput) (w : WCT9.Witness) : List UInt8 :=
@@ -68,10 +71,12 @@ theorem witListV5_length (N : HashOutput) (w : WCT9.Witness) : (witListV5 N w).l
   unfold witListV5
   simp only [List.length_append, ClaudeWCT.W9.T3M.headerBytes_length, wctBytesV5_length, zeros,
     List.length_replicate, layersV6_length]
+theorem regionBytesV6_length (c : Nat) (op : WCT9.Opening) : (regionBytesV6 c op).length = 896 := by
+  simp [regionBytesV6, ClaudeWCT.W9.T3M.regionBytes_length, zeros]
 theorem wctBytesV6_length (N : HashOutput) (sig : WCT9.Signature) : (wctBytesV6 N sig).length = 8064 := by
   unfold wctBytesV6
   rw [List.length_flatMap]
-  simp only [ClaudeWCT.W9.T3M.regionBytes_length, List.map_const', List.length_finRange, List.sum_replicate,
+  simp only [regionBytesV6_length, List.map_const', List.length_finRange, List.sum_replicate,
     smul_eq_mul]
 theorem witListV6_length (N : HashOutput) (w : WCT9.Witness) : (witListV6 N w).length = 21832 := by
   unfold witListV6
@@ -87,14 +92,14 @@ theorem region_merkleV5 (o n : Nat) (h : o + n ≤ 448) :
     window_append_left _ _ _ _ (by simp [merkleBytesV5_length, chainBytes_length, zeros]; omega),
     window_append_left _ _ _ _ (by simp [merkleBytesV5_length, chainBytes_length]; omega),
     window_append_left _ _ _ _ (by simp [merkleBytesV5_length]; omega)]
-theorem region_chainV5 (o n : Nat) (h0 : 448 ≤ o) (h : o + n ≤ 832) :
+theorem region_chainV5 (o n : Nat) (h0 : 448 ≤ o) (h : o + n ≤ 768) :
     window (regionBytesV5 c op) o n = window (chainBytes op) (o - 448) n := by
   unfold regionBytesV5
   rw [window_append_left _ _ _ _ (by simp [merkleBytesV5_length, chainBytes_length, leafBytes_length, zeros]; omega),
     window_append_left _ _ _ _ (by simp [merkleBytesV5_length, chainBytes_length, zeros]; omega),
     window_append_left _ _ _ _ (by simp [merkleBytesV5_length, chainBytes_length]; omega),
     window_append_right _ _ _ _ (by simp [merkleBytesV5_length]; omega), merkleBytesV5_length]
-theorem region_prefixV5 (o n : Nat) (h0 : 832 ≤ o) (h : o + n ≤ 880) :
+theorem region_prefixV5 (o n : Nat) (h0 : 768 ≤ o) (h : o + n ≤ 816) :
     window (regionBytesV5 c op) o n = zeros n := by
   unfold regionBytesV5
   rw [window_append_left _ _ _ _ (by simp [merkleBytesV5_length, chainBytes_length, leafBytes_length, zeros]; omega),
@@ -102,12 +107,19 @@ theorem region_prefixV5 (o n : Nat) (h0 : 832 ≤ o) (h : o + n ≤ 880) :
     window_append_right _ _ _ _ (by simp [merkleBytesV5_length, chainBytes_length]; omega)]
   simp only [List.length_append, merkleBytesV5_length, chainBytes_length]
   exact window_zeros _ _ _ (by omega)
-theorem region_leafV5 (o n : Nat) (h0 : 880 ≤ o) (h : o + n ≤ 1008) :
-    window (regionBytesV5 c op) o n = window (leafBytes op) (o - 880) n := by
+theorem region_leafV5 (o n : Nat) (h0 : 816 ≤ o) (h : o + n ≤ 944) :
+    window (regionBytesV5 c op) o n = window (leafBytes op) (o - 816) n := by
   unfold regionBytesV5
   rw [window_append_left _ _ _ _ (by simp [merkleBytesV5_length, chainBytes_length, leafBytes_length, zeros]; omega),
     window_append_right _ _ _ _ (by simp [merkleBytesV5_length, chainBytes_length, zeros]; omega)]
   simp only [List.length_append, merkleBytesV5_length, chainBytes_length, zeros, List.length_replicate]
+theorem region_tailV5 (o n : Nat) (h0 : 944 ≤ o) (h : o + n ≤ 1024) :
+    window (regionBytesV5 c op) o n = zeros n := by
+  unfold regionBytesV5
+  rw [window_append_right _ _ _ _ (by simp [merkleBytesV5_length, chainBytes_length, leafBytes_length, zeros]; omega)]
+  simp only [List.length_append, merkleBytesV5_length, chainBytes_length, leafBytes_length, zeros,
+    List.length_replicate]
+  exact window_zeros _ _ _ (by omega)
 theorem merkleBytesV5_window (l : Fin 7) (o : Nat) (ho : o + 16 ≤ 64) :
     window (merkleBytesV5 c op) (64 * (6 - l.val) + o) 16 =
       window (if c / 2 ^ l.val % 2 = 1 then bytesLE 16 (op.path l) ++ zeros 48

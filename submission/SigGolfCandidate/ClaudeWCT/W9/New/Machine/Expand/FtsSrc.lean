@@ -5,18 +5,19 @@ namespace ClaudeWCT.W9.Machine.Merkle
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open ClaudeWCT.W9.Machine.VLib
-open SigGolfCandidate.T3 (Digest HashOutput M header shortHash pad64)
+open SigGolfCandidate.T3 (Digest HashOutput M header shortHash pad64 zero16)
 open SphincsSecurity (bytesLE bytesLE_length)
-theorem leafBytes_canon (k index j : Nat) (ends : List Digest) (h : ends.length = 7) :
+theorem leafBytes_canon (k index j : Nat) (ends : List Digest) (h : ends.length = 6) :
     leafBytes (leafFields k index j ends) =
-      bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (ClaudeWCT.WCT9.ftsLeafHeader index k j) ++
+      bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (ClaudeWCT.WCT9.ftsLeafHeader index k j) ++ zero16 ++
         (ends.drop 1).flatMap (bytesLE 16) := by
   match ends, h with
-  | [e0, e1, e2, e3, e4, e5, e6], _ =>
+  | [e0, e1, e2, e3, e4, e5], _ =>
     simp only [leafBytes, show List.range 8 = [0, 1, 2, 3, 4, 5, 6, 7] from rfl, List.flatMap_cons,
       List.flatMap_nil, leafFields, List.drop_succ_cons, List.drop_zero, List.append_nil, List.append_assoc]
+    rw [← ClaudeWCT.WCT9.bytesLE_zero16]
     rfl
-theorem childCanon (k index j : Nat) (ends : List Digest) (sibs : Nat → Digest) (h : ends.length = 7) :
+theorem childCanon (k index j : Nat) (ends : List Digest) (sibs : Nat → Digest) (h : ends.length = 6) :
     childProgC k index j (leafFields k index j ends) sibs =
       (ClaudeWCT.WCT9.leafHash index k j ends >>= sixLevels k index j sibs >>= fun top =>
         pure (pairOf j top (sibs 6))) := by
@@ -56,31 +57,32 @@ namespace ClaudeWCT.W9.Machine.Expand
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M
 open SigGolfCandidate.T3 (Digest HashOutput M)
-theorem codewordL_eq (r : Fin 728) (i : Fin 7) : WCT9.digit r i = (codewordL r.val).getD i.val 0 := by
-  unfold WCT9.digit WCT9.codeword codewordL
-  rw [List.getD_eq_getElem (l := WCT9.compositions 4 7 6) (d := []) (by rw [WCT9.codebook_card]; exact r.isLt)]
-theorem mapM_finRange_eq {β : Type} (f : Fin 7 → M β) (g : Nat → M β) (h : ∀ i : Fin 7, f i = g i.val) :
-    (List.finRange 7).mapM f = (List.range' 0 7).mapM g := by
+theorem codewordL_eq (r : Fin 563) (i : Fin 6) : WCT9.wordDigit r i = (codewordL r.val).getD i.val 0 := by
+  unfold WCT9.wordDigit WCT9.digit codewordL
+  rw [WCT9.codeword_embed, List.getD_eq_getElem (l := WCT9.codeWords) (d := [])
+    (by rw [WCT9.codeWords_length]; exact r.isLt)]
+theorem mapM_finRange_eq {β : Type} (f : Fin 6 → M β) (g : Nat → M β) (h : ∀ i : Fin 6, f i = g i.val) :
+    (List.finRange 6).mapM f = (List.range' 0 6).mapM g := by
   have : f = g ∘ Fin.val := funext h
   rw [this, ← List.mapM_map, Merkle.finRange_map_val, List.range_eq_range']
 theorem recoverCoordinate_split (sig : WCT9.Signature) (index : Nat) (N : HashOutput) (k : WCT9.Coord) :
     WCT9.recoverCoordinate sig index N k =
-      (chainsFrom index k.val (WCT9.child N k).val (codewordL (WCT9.embed (WCT9.rank N k)).val)
-          (fun t => if h : t < 7 then (sig.openings k).values ⟨t, h⟩ else 0) 0 >>= fun ends =>
+      (chainsFrom index k.val (WCT9.child N k).val (codewordL (WCT9.rank N k).val)
+          (fun t => if h : t < 6 then (sig.openings k).values ⟨t, h⟩ else 0) 0 >>= fun ends =>
         (WCT9.leafHash index k.val (WCT9.child N k).val ends >>=
           Merkle.sixLevels k.val index (WCT9.child N k).val (Merkle.finPath (sig.openings k).path)) >>= fun top =>
         pure (Merkle.pairOf (WCT9.child N k).val top ((sig.openings k).path 6))) := by
   unfold WCT9.recoverCoordinate
   simp only
   have hm := mapM_finRange_eq (fun i => WCT9.chain index k.val (WCT9.child N k).val i.val
-      (3 - WCT9.wordDigit (WCT9.rank N k) i) (WCT9.wordDigit (WCT9.rank N k) i) ((sig.openings k).values i))
+      (4 - WCT9.wordDigit (WCT9.rank N k) i) (WCT9.wordDigit (WCT9.rank N k) i) ((sig.openings k).values i))
     (fun i => WCT9.chain index k.val (WCT9.child N k).val i
-      (3 - (codewordL (WCT9.embed (WCT9.rank N k)).val).getD i 0)
-      ((codewordL (WCT9.embed (WCT9.rank N k)).val).getD i 0)
-      (if h : i < 7 then (sig.openings k).values ⟨i, h⟩ else 0))
-    (fun i => by simp only [WCT9.wordDigit, codewordL_eq, dif_pos i.isLt])
+      (4 - (codewordL (WCT9.rank N k).val).getD i 0)
+      ((codewordL (WCT9.rank N k).val).getD i 0)
+      (if h : i < 6 then (sig.openings k).values ⟨i, h⟩ else 0))
+    (fun i => by simp only [codewordL_eq, dif_pos i.isLt])
   unfold chainsFrom
-  rw [show 7 - 0 = 7 from rfl, ← hm]
+  rw [show 6 - 0 = 6 from rfl, ← hm]
   refine bind_congr fun ends => ?_
   rw [bind_assoc]
   refine bind_congr fun root => ?_

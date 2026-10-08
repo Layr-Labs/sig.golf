@@ -1,7 +1,7 @@
 import SigGolfCandidate.T3M.Mem
 import SigGolfCandidate.T3M.Verify.Exec
 import SigGolfCandidate.ClaudeWCT.WCT9.Forest
-import SigGolfCandidate.ClaudeWCT.W9.T3M.SigCodecC
+import SigGolfCandidate.ClaudeWCT.W9.T3M.SigCodec
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Sign.Data
 
 section
@@ -31,16 +31,12 @@ abbrev FORW : Nat := 0x50600
 abbrev NOUTW : Nat := 0x50500
 abbrev HEAPW : Nat := 0x51000
 abbrev SCREND : Nat := 0x52010
+abbrev COEF : Nat := 0x50800
 def hook153 : BitVec 32 := 0x1890a06f
 def hook540 : BitVec 32 := 0x3791306f
 def NewCodeAt (im : Image) : Prop := signNew <+: im.code.drop 11003
-/-- [h2 lane] the sign prepass appended at word 20813 (entered from the record's copy at 20730): move digest 192 (the top
-sibling, scratch 0x7ca0) to the last scratch slot and digests 193..340 down one slot, then return to 20731. -/
-def h2SignTail : List (BitVec 32) := [0x8e37, 0xca0e0e13, 0xe3703, 0x8e3783, 0xe0e93, 0x10e0e13, 0x8f37, 0x5f0f0f13,
-  0xe3303, 0x8e3383, 0x6eb023, 0x7eb423, 0x10e0e13, 0x10e8e93, 0xffee64e3, 0xeeb023, 0xfeb423, 0x8e37, 0xe71ff06f]
 def HooksAt (im : Image) : Prop :=
-  im.code[153]? = some hook153 ∧ im.code[540]? = some hook540 ∧ im.code[545]? = some 0x00000073 ∧
-    h2SignTail <+: im.code.drop 20813
+  im.code[153]? = some hook153 ∧ im.code[540]? = some hook540 ∧ im.code[545]? = some 0x00000073
 def SignCodeAt (im : Image) : Prop := NewCodeAt im ∧ HooksAt im
 def TableAt (t : MachineState) : Prop :=
   ∀ k < 8192, t.getMem (BitVec.ofNat 64 (TBL + 8 * k)) = bytesToWordLE ((tblBytes.drop (8 * k)).take 8)
@@ -85,27 +81,24 @@ structure FtsPre (sk : BitVec 256) (N : HashOutput) (s : MachineState) : Prop wh
   sk : ∀ k < 4, s.getMem (BitVec.ofNat 64 (SK + 8 * k)) = sk.extractLsb' (64 * k) 64
   zero : ∀ A, ScrZero A → s.getMem (BitVec.ofNat 64 A) = 0
   table : TableAt s
-def ftsRegs : List Reg := [.x6, .x7, .x10, .x11, .x12, .x18, .x24, .x25, .x26, .x28, .x29]
-def FtsW (A : Nat) : Prop := (PRIVW ≤ A ∧ A < SCREND) ∨ (SIG + 16 ≤ A ∧ A < SIG + 2032) ∨ (FOUT ≤ A ∧ A < FOUT + 32)
+def ftsRegs : List Reg := [.x1, .x6, .x7, .x10, .x11, .x12, .x13, .x14, .x15, .x16, .x17, .x18, .x24, .x25, .x26, .x28,
+  .x29]
+def FtsW (A : Nat) : Prop := (PRIVW ≤ A ∧ A < SCREND) ∨ (SIG + 16 ≤ A ∧ A < SIG + 1888) ∨ (FOUT ≤ A ∧ A < FOUT + 32)
 def OpeningAt (t : MachineState) (k : Nat) (op : WCT9.Opening) : Prop :=
-  (∀ i : Fin 7, DigAt t (SIG + 16 + 224 * k + 16 * i.val) (op.values i)) ∧
-    ∀ l : Fin 7, DigAt t (SIG + 128 + 224 * k + 16 * l.val) (op.path l)
+  (∀ i : Fin 6, DigAt t (SIG + 16 + 208 * k + 16 * i.val) (op.values i)) ∧
+    ∀ l : Fin 7, DigAt t (SIG + 112 + 208 * k + 16 * l.val) (op.path l)
 def FtsPost (s : MachineState) : List WCT9.Opening × Digest → MachineState → Prop
   | (ops, root), t => t.pc = pcOf 370 ∧ t.getReg .x5 = 0 ∧ DigAt t FOUT root ∧ ops.length = 9 ∧
       (∀ k < 9, OpeningAt t k (ops.getD k ⟨fun _ => 0, fun _ => 0⟩)) ∧ RegsExcept s t ftsRegs ∧ Frame s t FtsW
-def ftsC : Nat := 2000000
+def ftsC : Nat := 114000000
 def FtsGood (im : Image) : Prop :=
   NewCodeAt im → ∀ (sk : BitVec 256) (N : HashOutput) (s : MachineState), FtsPre sk N s →
     TBSim im sk s ftsC (WCT9.signForest (WCT9.digestIndex N) N) (FtsPost s)
-/-- H2: scratch slot (relative to digest 127) read for compact output slot `p`: digest 192 (the top sibling,
-slot 65) goes last, digests 193..340 move down one slot. -/
-def cpIdx (p : Nat) : Nat := if p < 65 then p else if p < 213 then p + 1 else 65
 def CompactPost (s t : MachineState) : Prop :=
   t.pc = pcOf 20745 ∧ t.getReg .x5 = 1 ∧ t.getReg .x10 = 0 ∧
-    (∀ k < 428, t.getMem (BitVec.ofNat 64 (SIG + 2032 + 8 * k)) =
-      s.getMem (BitVec.ofNat 64 (SIG + 2192 + 16 * cpIdx (k / 2) + 8 * (k % 2)))) ∧
-    Frame s t (fun A => SIG + 2032 ≤ A ∧ A < SIG + 5616)
-def compactK : Nat := 1 + 9 + 148 * 7 + 4 + 5 + 214 * 7 + 2
+    (∀ k < 428, t.getMem (BitVec.ofNat 64 (SIG + 1888 + 8 * k)) = s.getMem (BitVec.ofNat 64 (SIG + 2192 + 8 * k))) ∧
+    Frame s t (fun A => SIG + 1888 ≤ A ∧ A < SIG + 5312)
+def compactK : Nat := 1 + 6 + 214 * 7 + 2
 def CompactGood (im : Image) : Prop :=
   NewCodeAt im → HooksAt im → ∀ s : MachineState, s.pc = pcOf 540 →
     ∃ t, Steps im s compactK compactK t ∧ CompactPost s t
@@ -146,12 +139,13 @@ def layC : Nat := 26 + 3014005327
 def LayersSpec (im : Image) (sk : BitVec 256) (cache : Bytes 131072) (Inv : MachineState → Prop) : Prop :=
   ∀ (index : Nat) (root : Digest) (t : MachineState), LayPre index root t → Inv t →
     TBSim im sk t layC (WCT9.signLayersBC (cacheDec cache) index 4 (.forest root)) (LayPost t)
-def newRegs : List Reg := [.x6, .x7, .x10, .x11, .x12, .x18, .x19, .x20, .x21, .x22, .x24, .x25, .x26, .x28, .x29]
+def newRegs : List Reg := [.x1, .x6, .x7, .x10, .x11, .x12, .x13, .x14, .x15, .x16, .x17, .x18, .x19, .x20, .x21, .x22,
+  .x24, .x25, .x26, .x28, .x29]
 def NewW (A : Nat) : Prop := SearchW A ∨ FtsW A
 def InvStable (Inv : MachineState → Prop) : Prop :=
   ∀ t u, Inv t → Frame t u NewW → RegsExcept t u newRegs → Inv u
 def wsub (imgs : Phase → Image) : Submission :=
-  ⟨⟨5454, 21484, 131072⟩, ⟨0x5BF0, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩, imgs⟩
+  ⟨⟨5312, 20908, 131072⟩, ⟨0x59b0, 0x80, 0xa0, 0x80000, 0x7000, 0x800⟩, imgs⟩
 structure Unchanged (imgs : Phase → Image) (Inv : BitVec 256 → Bytes 131072 → Message → MachineState → Prop) :
     Prop where
   front : ∀ sk cache m, ∃ s0, initialState (wsub imgs) .sign (sk, cache, m) = some s0 ∧
@@ -161,7 +155,7 @@ structure Unchanged (imgs : Phase → Image) (Inv : BitVec 256 → Bytes 131072 
 def SignRefinesW (imgs : Phase → Image) : Prop :=
   ∀ (sk : SecretKey) (cache : Bytes 131072) (m : Message),
     (fun r => (r.value, r.hashCalls, r.hashCompressions)) <$> (wsub imgs).run .sign (sk, cache, m) =
-      (fun p => (p.1.map W9.T3M.sigBC, p.2.1, p.2.2)) <$> countBoth (mrealize sk (WCT9.Rev3.sign (cacheDec cache) m))
+      (fun p => (p.1.map W9.T3M.sigB, p.2.1, p.2.2)) <$> countBoth (mrealize sk (WCT9.Rev3.sign (cacheDec cache) m))
 def SignTerminatesW (imgs : Phase → Image) : Prop :=
   ∀ (hash : Hash) (sk : SecretKey) (cache : Bytes 131072) (m : Message),
     ((wsub imgs).runWith hash .sign (sk, cache, m)).finished = true ∧
@@ -269,34 +263,12 @@ theorem tailLook_ok {im : Image} (h : NewCodeAt im) : LookOK im tailLook := by
   · cases hw
 theorem hookLook_ok {im : Image} (h : HooksAt im) : LookOK im hookLook := by
   intro n w hw
-  obtain ⟨h1, h2, h3, -⟩ := h
+  obtain ⟨h1, h2, h3⟩ := h
   unfold hookLook at hw
   split_ifs at hw with e1 e2 e3
   · subst e1; cases hw; exact h1
   · subst e2; cases hw; exact h2
   · subst e3; cases hw; exact h3
-def h2Look (n : Nat) : Option (BitVec 32) := if 20813 ≤ n then h2SignTail[n - 20813]? else none
-/-- The record's tail window, then the H2 prepass: the path from the copy hook at 20730 runs through both. -/
-def cLook (n : Nat) : Option (BitVec 32) := match tailLook n with | some w => some w | none => h2Look n
-theorem h2Look_ok {im : Image} (h : HooksAt im) : LookOK im h2Look := by
-  intro n w hw
-  obtain ⟨-, -, -, ⟨rest, hrest⟩⟩ := h
-  unfold h2Look at hw
-  split at hw
-  · rename_i hle
-    have hlen : n - 20813 < h2SignTail.length := (List.getElem?_eq_some_iff.mp hw).1
-    have h2 : (im.code.drop 20813)[n - 20813]? = some w := by
-      rw [← hrest, List.getElem?_append_left hlen]; exact hw
-    rwa [List.getElem?_drop, Nat.add_sub_cancel' hle] at h2
-  · cases hw
-theorem cLook_ok {im : Image} (h1 : NewCodeAt im) (h2 : HooksAt im) : LookOK im cLook := by
-  intro n w hw
-  unfold cLook at hw
-  split at hw
-  · rename_i w' hw'
-    cases hw
-    exact tailLook_ok h1 n _ hw'
-  · exact h2Look_ok h2 n w hw
 theorem run_sound {im : Image} {look : Nat → Option (BitVec 32)} (hl : LookOK im look) {stops : List Nat}
     {n : Nat} {dirs : List Dir} {r : PRes} (h : run look stops n dirs = some r) (s : MachineState)
     (hpc : s.pc = pcOf n) (hobl : ∀ o ∈ r.st.obl, o.holds s) (hbr : ∀ b ∈ r.brs, b.holds s) :

@@ -1,6 +1,7 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeResidualT3
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CaseCLinkInv
 import SigGolfCandidate.T3.Secc.LargeResidualRouter
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.FamResidual
 
 namespace ClaudeWCT.W9.T3.Security.LargeResidual
 open OracleComp OracleSpec ENNReal
@@ -30,6 +31,50 @@ noncomputable def auxLaw (initLaw : PMF AuxData) : (input : AuxSpec.Domain) → 
   | .coin n => PMF.uniformOfFintype (Fin (n + 1))
   | .init => initLaw
 abbrev WCoord := Coord ⊕ Message
+/-- Plain (independently uniform) world coordinates: nodes, WOTS seeds, nonces. -/
+abbrev WPlain := (CanonGraph.Node ⊕ ChainGraph.Address) ⊕ Message
+/-- Split of the world coordinates: FTS seeds are evaluations of their family `(index, coord)` at `ftsPoint`. -/
+def wsplit : WCoord → WPlain ⊕ ((Fin (2 ^ 31) × Fin 9) × ℕ)
+  | .inl (.inl N) => .inl (.inl (.inl N))
+  | .inl (.inr (.inl a)) => .inl (.inl (.inr a))
+  | .inl (.inr (.inr w)) => .inr ((w.1, w.2.1), WCT9.ftsPoint w.2.2.1.val w.2.2.2.val)
+  | .inr m => .inl (.inr m)
+/-- Embedding of the plain coordinates. -/
+def wembed : WPlain → WCoord
+  | .inl (.inl N) => .inl (.inl N)
+  | .inl (.inr a) => .inl (.inr (.inl a))
+  | .inr m => .inr m
+noncomputable instance instSeedsWCoord : ClaudeWCT.W9.T3.Security.FamResidual.Seeds WCoord where
+  Plain := WPlain
+  Fam := Fin (2 ^ 31) × Fin 9
+  plainDec := Classical.decEq _
+  famDec := Classical.decEq _
+  split := wsplit
+  embed := wembed
+  split_embed p := by rcases p with (N | a) | m <;> rfl
+  embed_of_split c p h := by
+    rcases c with (N | a | w) | m <;> simp only [wsplit, Sum.inl.injEq, reduceCtorEq] at h <;> subst h <;> rfl
+  point_lt c f pt h := by
+    rcases c with (N | a | w) | m <;> simp only [wsplit, reduceCtorEq, Sum.inr.injEq, Prod.mk.injEq] at h
+    rw [← h.2]
+    have := w.2.2.1.isLt; have := w.2.2.2.isLt
+    unfold WCT9.ftsPoint WCT9.ftsOrdinal
+    omega
+  seed_inj c c' fp h h' := by
+    rcases c with (N | a | w) | m <;> simp only [wsplit, reduceCtorEq] at h
+    rcases c' with (N' | a' | w') | m' <;> simp only [wsplit, reduceCtorEq] at h'
+    rw [← h'] at h
+    simp only [Sum.inr.injEq, Prod.mk.injEq] at h
+    obtain ⟨⟨h1, h2⟩, h3⟩ := h
+    unfold WCT9.ftsPoint WCT9.ftsOrdinal at h3
+    have := w.2.2.2.isLt; have := w'.2.2.2.isLt
+    have h4 : w.2.2.1 = w'.2.2.1 := Fin.ext (by omega)
+    have h5 : w.2.2.2 = w'.2.2.2 := Fin.ext (by omega)
+    have : w = w' := Prod.ext h1 (Prod.ext h2 (Prod.ext h4 h5))
+    rw [this]
+theorem wsplit_seed (w : WctAddr) :
+    ClaudeWCT.W9.T3.Security.FamResidual.Seeds.split (.inl (.inr (.inr w)) : WCoord) =
+      .inr ((w.1, w.2.1), WCT9.ftsPoint w.2.2.1.val w.2.2.2.val) := rfl
 abbrev RWorld (U : Finset HashInput) := World AuxSpec WCoord (Cell U)
 section Requests
 variable (U : Finset HashInput)
@@ -69,8 +114,27 @@ noncomputable def RouterState.next (U : Finset HashInput) (st : RouterState) (X 
   if X ∈ U ∧ IsDigestRow X ∧ st.Fresh X then { st.after X with births := (X, y) :: st.births } else st.after X
 def RouterState.known (st : RouterState) : Coord → Prop :=
   Known fun c => c ∈ keygenDisclosed ∨ c ∈ st.disclosed
-noncomputable def cellFrom (N : CanonGraph.Node) (v : Coord → Digest) : HashInput :=
-  cell (fun s => v (.inr s)) N (joinLabels (fun M => v (.inl M)) fun _ => 0)
+def cellValues : CanonGraph.Node → (Coord → Digest) → HashInput
+  | .chain p, v => ChainGraph.row p (v (chainChild p))
+  | .leaf L, v => pad64 (Extract.leafInput L.1.lay L.1.tree.val L.1.leaf.val
+      ((List.range (chainCount L.1.lay)).map fun i => v (.inl (.chain (endPoint L.1 i)))))
+  | .node n, v => pad64 (nodeInputP 3 n.1.lay.val n.1.tree.val
+      (2 ^ (height n.1.lay - n.1.level.val - 1) + n.1.idx.val)
+      (((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val)).map v).getD 0) 0
+      (((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val + 1)).map v).getD 0))
+  | .wctChain p, v => WCT9.chainInput p.1.1.val p.1.2.1.val p.1.2.2.1.val p.1.2.2.2.val p.2.val
+      (v (wctItem p.1 p.2.val))
+  | .wctLeaf L, v => pad64 (Extract.wctLeafInput L.index.val L.coord.val L.child.val
+      (List.ofFn fun t : Fin 6 => v (wctItem (L.index, L.coord, L.child, t) 4)))
+  | .wctNode n, v => pad64 (nodeInputP 3 (WCT9.nodeLayer n.1.coord.val) n.1.index.val
+      (2 ^ (7 - n.1.level.val - 1) + n.1.idx.val)
+      (((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val)).map v).getD 0) 0
+      (((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)).map v).getD 0))
+  | .forest index, v => pad64 (Extract.forestInput index.val
+      ((List.range 9).map fun c => (v (.inl (.wctNode (ftsTopNode index (fin9 c) 0))),
+        v (.inl (.wctNode (ftsTopNode index (fin9 c) 1))))))
+/-- The canonical input of node `N` from coordinate values (`cell` with the seeds read from the values). -/
+noncomputable def cellFrom (N : CanonGraph.Node) (v : Coord → Digest) : HashInput := cellValues N v
 noncomputable def refDigest (a : AuxData) (L : EncLeaf) : Digest :=
   match a.sel L with
   | some r => r.2
@@ -144,7 +208,7 @@ def assembleSig (rho : Digest) (N : HashOutput) (v : Coord → Digest) (digitsOf
     Signature :=
   let index := digestIndex N
   ⟨rho,
-    fun k => ⟨fun t => v (wctItem (index, k, WCT9.child N k, t) (3 - WCT9.wordDigit (WCT9.rank N k) t)),
+    fun k => ⟨fun t => v (wctItem (index, k, WCT9.child N k, t) (4 - WCT9.wordDigit (WCT9.rank N k) t)),
       fun l => ((wctPath index k N).map v).getD l.val 0⟩,
     fun lay => piecesSignature lay ((layerChains digitsOf index lay).map v, (layerPath index lay).map v)⟩
 def trialRows (rho : Digest) (m : Message) (found : Option (BitVec 32 × HashOutput)) : List HashInput :=

@@ -76,7 +76,7 @@ open SigGolfCandidate.T3 (Digest HashOutput Layer route height chainCount counte
 theorem geomL (lay : Layer) (h : lay ≠ 0) :
     s6v lay.val = 2048 + ClaudeWCT.W9.T3M.layerBase lay + 16 * ClaudeWCT.W9.T3M.pathSlots lay + 1024 ∧
       ClaudeWCT.W9.T3M.layerBase lay + 16 * ClaudeWCT.W9.T3M.pathSlots lay ≤ layerEnd lay.val ∧
-      8000 ≤ ClaudeWCT.W9.T3M.layerBase lay ∧ layerEnd lay.val < 21457 := by
+      7424 ≤ ClaudeWCT.W9.T3M.layerBase lay ∧ layerEnd lay.val < 20881 := by
   fin_cases lay
   · exact absurd rfl h
   all_goals decide +kernel
@@ -94,7 +94,7 @@ theorem lfS7_pc (lay : Layer) (hlay : lay ≠ 0) (leaf : Nat) (hl : leaf < 2 ^ h
 theorem leafL_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay : lay ≠ 0)
     (hidx : index < 2 ^ 31) (a : BitVec 256) (s0 : MachineState)
     (hk : ∀ p ∈ (lctxOf w index lay a).known, s0.getReg p.1 = p.2) (hck : (lctxOf w index lay a).ck < 8)
-    (hG : Glob (chainK lay.val) w pk s0) (hO : Verify.Orig w (fun o => 8000 ≤ o ∧ o < layerEnd lay.val) s0)
+    (hG : Glob (chainK lay.val) w pk s0) (hO : Verify.Orig w (fun o => 7424 ≤ o ∧ o < layerEnd lay.val) s0)
     (h23 : s0.getReg .x23 = BitVec.ofNat 64 (lfS7 lay.val (route index lay).1))
     (h30 : s0.getReg .x31 = BitVec.ofNat 64 (route index lay).2)
     (h1 : s0.getReg .x9 = BitVec.ofNat 64 TOPB9)
@@ -183,7 +183,7 @@ theorem leafL_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (la
   · rw [show lfBase lay.val + 24 = 792 by simp [lfBase, h0], hmem,
       memEval_cons_ofNat _ _ _ _ _ (by norm_num) (by norm_num), if_pos rfl]
     rfl
-  · have hOt : Verify.Orig w (fun o => 8000 ≤ o ∧
+  · have hOt : Verify.Orig w (fun o => 7424 ≤ o ∧
         o < ClaudeWCT.W9.T3M.layerBase lay + 16 * ClaudeWCT.W9.T3M.pathSlots lay) t :=
       (hO.mono (fun o ho => ⟨ho.1, by omega⟩)).frame (fun j hj hp => hF.get (by unfold WIT WX at *; omega)
         (fun hw => by
@@ -567,14 +567,14 @@ def chainCost0 (lay : Nat) : Nat := if lay = 0 then 1066 else 2946 - 9 * tgtL la
 def chainFuel (lay : Nat) : Nat := if lay = 0 then 2320 else 1720
 def layerCost (lay Z : Nat) : Nat := stepsA lay + 8 + cyB lay + lfStepsL + chainCost0 lay - Z
 def layerFuel (lay : Nat) : Nat := stepsA lay + 1 + stB lay + chainFuel lay + lfStepsL
-def layerCostA (lay : Nat) : Nat := layerCost lay 0 - [8, 4, 4, 4].getD lay 0
+def layerCostA (lay : Nat) : Nat := layerCost lay 0 - [8, 5, 5, 4].getD lay 0
 theorem layerCostA_low (lay : Layer) (h : lay ≠ 0) :
     layerCostA lay.val = layerCost lay.val 0 - ClaudeWCT.WCT9.producerFloor lay := by
   fin_cases lay
   · exact absurd rfl h
   all_goals rfl
-theorem layerCost_vals : layerCost 3 0 = 1216 ∧ layerCost 2 0 = 1209 ∧ layerCost 1 0 = 1209 := by decide +kernel
-theorem layerCostA_vals : layerCostA 3 = 1212 ∧ layerCostA 2 = 1205 ∧ layerCostA 1 = 1205 := by decide +kernel
+theorem layerCost_vals : layerCost 3 0 = 1225 ∧ layerCost 2 0 = 1227 ∧ layerCost 1 0 = 1218 := by decide +kernel
+theorem layerCostA_vals : layerCostA 3 = 1221 ∧ layerCostA 2 = 1222 ∧ layerCostA 1 = 1213 := by decide +kernel
 theorem layerFuel_vals : layerFuel 3 = 1762 ∧ layerFuel 2 = 1755 ∧ layerFuel 1 = 1755 := by decide +kernel
 theorem ckOf_lt (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (ds : List Nat)
     (hds : decode lay (ansD a) = some ds) : ckOf lay a < 8 := by
@@ -741,7 +741,7 @@ theorem layer_good_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
 theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (root : Digest) (u : MachineState)
     (hidx : idx < 2 ^ 31) (hglob : Glob baseK w pk u) (hreg : u.getReg .x22 = BitVec.ofNat 64 idx)
     (hpc : u.pc = pcOf 1396) (hroot : DigAt u WIT root)
-    (hwit : Verify.Orig w (fun o => (32 ≤ o ∧ o < 64) ∨ (8000 ≤ o ∧ o < 21472)) u)
+    (hwit : Verify.Orig w (fun o => (32 ≤ o ∧ o < 64) ∨ (7424 ≤ o ∧ o < 20896)) u)
     (ha2 : u.getReg .x12 = BitVec.ofNat 64 WIT)
     (hs10 : u.getReg .x26 = 6) (hOne : u.getReg .x7 = 1) (hTwo : u.getReg .x13 = 2) (hSeven : u.getReg .x30 = 7)
     (hThree : u.getReg .x19 = 3) (hFour : u.getReg .x20 = 4) (hFive : u.getReg .x21 = 5)
@@ -749,7 +749,7 @@ theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (
     (hbase : u.getReg .x9 = BitVec.ofNat 64 TOPB9)
     (htop : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
       BitVec.ofNat 64 (topWords.getD k 0))
-    (htop8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21776) :
+    (htop8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21200) :
     ∃ t, Steps image u 0 0 t ∧ LayerIn w pk idx 3 (.forest root) t := by
   have hpk : preK 3 = baseK ++ [(.x12, BitVec.ofNat 64 2048), (.x26, 6), (.x7, 1), (.x13, 2), (.x30, 7),
       (.x9, BitVec.ofNat 64 TOPB9), (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0x10000)] := rfl

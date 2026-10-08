@@ -40,27 +40,27 @@ def ChainTrace.step (s : ChainTrace) : ChainPieceKind → ChainTrace
       let hi := s.read (off + 56)
       (s.put dst lo).put (dst + 8) hi
   | .jump _ => s
-  | .leaf => ((s.put 768 .leafHeader).put 776 .zero)
+  | .leaf => ((s.put 704 .leafHeader).put 712 .zero)
 def chainTrace (r : ChainRoutine) : ChainTrace :=
   r.pieces.foldl (fun s p => s.step p.kind) {}
-def traceLeafSlot (t : Nat) : Nat := if t = 0 then 752 else 768 + 16 * t
+def traceLeafSlot (t : Nat) : Nat := if t = 0 then 688 else 720 + 16 * t
 def chainQueryWords (digits : List Nat) (t j : Nat) : List ChainWord :=
-  let off := 704 - 64 * t
+  let off := 640 - 64 * t
   let q := (digits.take t).sum + j
-  [.original off, .original (off + 8), .header t (3 - digits.getD t 0 + j), .original (off + 24),
+  [.original off, .original (off + 8), .header t (4 - digits.getD t 0 + j), .original (off + 24),
     .original (off + 32), .original (off + 40),
     if j = 0 then .original (off + 48) else .answer (q - 1) 0,
     if j = 0 then .original (off + 56) else .answer (q - 1) 1]
 def expectedQueries (digits : List Nat) : List (List ChainWord) :=
-  (List.range 7).flatMap fun t => (List.range (digits.getD t 0)).map (chainQueryWords digits t)
+  (List.range 6).flatMap fun t => (List.range (digits.getD t 0)).map (chainQueryWords digits t)
 def expectedEndpoint (digits : List Nat) (t word : Nat) : ChainWord :=
   if digits.getD t 0 = 0 then .original (traceLeafSlot t + 8 * word)
   else .answer ((digits.take (t + 1)).sum - 1) word
 def ChainRoutine.traceChecked (r : ChainRoutine) : Bool :=
   let s := chainTrace r
   s.valid && (s.queries == expectedQueries r.digits) &&
-    ((List.range 7).all fun t => (List.range 2).all fun word =>
+    ((List.range 6).all fun t => (List.range 2).all fun word =>
       s.read (traceLeafSlot t + 8 * word) == expectedEndpoint r.digits t word) &&
-    (s.read 768 == .leafHeader) && (s.read 776 == .zero) &&
-    (s.mem.all fun p => decide (p.1 % 8 = 0 ∧ p.1 + 8 ≤ 896))
+    (s.read 704 == .leafHeader) && (s.read 712 == .zero) &&
+    (s.mem.all fun p => decide (p.1 % 8 = 0 ∧ p.1 + 8 ≤ 832))
 end W9Machine

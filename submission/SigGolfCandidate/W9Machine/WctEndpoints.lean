@@ -16,11 +16,11 @@ theorem extract_hi (X : BitVec 256) :
   have h : 64 + i < 128 := by omega
   simp only [BitVec.getElem_extractLsb', BitVec.getLsbD_extractLsb', h, decide_true,
     Bool.true_and, Nat.zero_add]
-theorem traceLeafSlot_bound (t : Nat) (ht : t < 7) :
-    traceLeafSlot t + 16 ≤ 880 ∧ traceLeafSlot t % 8 = 0 := by
+theorem traceLeafSlot_bound (t : Nat) (ht : t < 6) :
+    traceLeafSlot t + 16 ≤ 816 ∧ traceLeafSlot t % 8 = 0 := by
   unfold traceLeafSlot; split <;> omega
-theorem sourceEnds_getD (w : WBytes) (k : Fin 9) (rank : Fin 728)
-    (answers : List (BitVec 256)) (t : Nat) (ht : t < 7) :
+theorem sourceEnds_getD (w : WBytes) (k : Fin 9) (rank : Fin 666)
+    (answers : List (BitVec 256)) (t : Nat) (ht : t < 6) :
     (sourceEnds w k rank answers).getD t 0 =
       if (ClaudeWCT.WCT9.codeword rank).getD t 0 = 0 then wdig w (V3.regionOffset k.val + V3.leafSlot t)
       else (answers.getD (((ClaudeWCT.WCT9.codeword rank).take (t + 1)).sum - 1) 0).extractLsb'

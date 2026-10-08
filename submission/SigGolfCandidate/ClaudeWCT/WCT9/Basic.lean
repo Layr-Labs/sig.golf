@@ -236,9 +236,9 @@ theorem wctHeader_inj {tag lay tree position index tag' lay' tree' position' ind
   rw [Nat.mod_eq_of_lt hp, Nat.mod_eq_of_lt hp'] at e4
   rw [Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hi'] at e6
   exact ⟨e1, e2, tree_of_split htr htr' e3 e5, e4, e6⟩
-theorem serializeOpening_length (opened : Opening) : (serializeOpening opened).length = 224 := by
+theorem serializeOpening_length (opened : Opening) : (serializeOpening opened).length = 208 := by
   simp only [serializeOpening, List.length_append, digest_list_bytes_length, List.length_ofFn]
-theorem serialize_length (sig : Signature) : (serialize sig).length = 5456 := by
+theorem serialize_length (sig : Signature) : (serialize sig).length = 5312 := by
   simp only [serialize, List.length_append, bytesLE_length, List.length_flatMap,
     List.map_ofFn, Function.comp_def, List.length_flatten]
   simp_rw [serializeOpening_length, serializeLayer_length]
@@ -255,7 +255,7 @@ theorem serialize_injective : Function.Injective serialize := by
   rintro ⟨lr, lo, ll⟩ ⟨rr, ro, rl⟩ h
   simp only [serialize] at h
   have hopen (o : Coord → Opening) :
-      ((List.ofFn o).flatMap serializeOpening).length = 2016 := by
+      ((List.ofFn o).flatMap serializeOpening).length = 1872 := by
     simp only [List.length_flatMap, List.map_ofFn, Function.comp_def, serializeOpening_length]
     decide
   obtain ⟨hhead, hlayers⟩ := List.append_inj h (by
@@ -275,15 +275,15 @@ theorem serialize_injective : Function.Injective serialize := by
 theorem child_val (output : HashOutput) (coord : Coord) :
     (child output coord).val = output.toNat / 2 ^ childBase coord.val % 128 := rfl
 theorem field_val (output : HashOutput) (coord : Coord) :
-    field output coord = output.toNat / 2 ^ fieldBase coord.val % 2 ^ 14 := rfl
+    field output coord = output.toNat / 2 ^ fieldBase coord.val % 2 ^ 10 := rfl
 theorem digestIndex_val (output : HashOutput) : digestIndex output = output.toNat / 2 ^ 33 % 2 ^ 31 := rfl
-theorem field_lt (output : HashOutput) (coord : Coord) : field output coord < 2 ^ 14 :=
+theorem field_lt (output : HashOutput) (coord : Coord) : field output coord < 2 ^ 10 :=
   Nat.mod_lt _ (by decide)
 theorem rank_val (output : HashOutput) (coord : Coord) :
-    (rank output coord).val = field output coord % 600 := rfl
+    (rank output coord).val = field output coord % 563 := rfl
 theorem admissible_iff (output : HashOutput) :
     admissible output = true ↔
-      output.toNat / 2 ^ 235 % 2 ^ 21 < 2364 ∧ ∀ coord : Coord, field output coord < 16200 := by
+      output.toNat / 2 ^ 242 % 2 ^ 14 < 1131 ∧ ∀ coord : Coord, field output coord < 563 := by
   unfold admissible field
   simp only [Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, List.mem_range]
   constructor
@@ -293,39 +293,39 @@ theorem admissible_iff (output : HashOutput) :
     exact ⟨hg, fun coord hc => hf ⟨coord, hc⟩⟩
 theorem admissible_field_split (output : HashOutput) (h : admissible output = true)
     (coord : Coord) :
-    field output coord = (rank output coord).val + 600 * (field output coord / 600) ∧
-      field output coord / 600 < 27 := by
+    field output coord = (rank output coord).val + 563 * (field output coord / 563) ∧
+      field output coord / 563 < 1 := by
   have hf := ((admissible_iff output).1 h).2 coord
   rw [rank_val]
   omega
 theorem rank_fiber_card (r : Rank) :
-    ((Finset.range 16200).filter (fun f => f % 600 = r.val)).card = 27 := by
-  have he : (Finset.range 16200).filter (fun f => f % 600 = r.val) =
-      (Finset.range 27).image (fun q => r.val + 600 * q) := by
+    ((Finset.range 563).filter (fun f => f % 563 = r.val)).card = 1 := by
+  have he : (Finset.range 563).filter (fun f => f % 563 = r.val) =
+      (Finset.range 1).image (fun q => r.val + 563 * q) := by
     ext f
     simp only [Finset.mem_filter, Finset.mem_range, Finset.mem_image]
     have hr := r.isLt
     constructor
     · rintro ⟨hf, hm⟩
-      exact ⟨f / 600, by omega, by omega⟩
+      exact ⟨f / 563, by omega, by omega⟩
     · rintro ⟨q, hq, rfl⟩
       constructor <;> omega
   rw [he, Finset.card_image_of_injective _
     (fun a b hab => Nat.eq_of_mul_eq_mul_left (by decide) (Nat.add_left_cancel hab))]
   simp
-def acceptedFieldEquiv : Fin 16200 ≃ Rank × Fin 27 where
-  toFun f := (⟨f.val % 600, Nat.mod_lt _ (by decide)⟩, ⟨f.val / 600, by omega⟩)
-  invFun p := ⟨p.1.val + 600 * p.2.val, by omega⟩
+def acceptedFieldEquiv : Fin 563 ≃ Rank × Fin 1 where
+  toFun f := (⟨f.val % 563, Nat.mod_lt _ (by decide)⟩, ⟨f.val / 563, by omega⟩)
+  invFun p := ⟨p.1.val + 563 * p.2.val, by omega⟩
   left_inv f := by apply Fin.ext; simp only; omega
   right_inv p := by
     apply Prod.ext <;> apply Fin.ext <;> simp only <;> omega
-theorem acceptedFieldEquiv_rank (f : Fin 16200) :
-    (acceptedFieldEquiv f).1.val = f.val % 600 := rfl
+theorem acceptedFieldEquiv_rank (f : Fin 563) :
+    (acceptedFieldEquiv f).1.val = f.val % 563 := rfl
 def digestLayout : List (Nat × Nat) :=
-  [(0, 7), (7, 14), (21, 12), (33, 31),
-   (64, 7), (71, 14), (85, 7), (92, 14), (106, 1), (107, 14), (121, 7),
-   (128, 7), (135, 14), (149, 7), (156, 14), (170, 1), (171, 14), (185, 7),
-   (192, 7), (199, 14), (213, 7), (220, 14), (234, 1), (235, 21)]
+  [(0, 7), (7, 10), (17, 16), (33, 31),
+   (64, 7), (71, 10), (81, 4), (85, 7), (92, 10), (102, 5), (107, 10), (117, 4), (121, 7),
+   (128, 7), (135, 10), (145, 4), (149, 7), (156, 10), (166, 5), (171, 10), (181, 4), (185, 7),
+   (192, 7), (199, 10), (209, 4), (213, 7), (220, 10), (230, 12), (242, 14)]
 theorem childBase_values :
     List.ofFn (fun k : Coord => childBase k.val) = [0, 64, 85, 121, 128, 149, 185, 192, 213] := by
   decide
@@ -339,7 +339,7 @@ theorem digestLayout_tiles :
 theorem digestLayout_index : (indexShift, 31) ∈ digestLayout := by decide
 theorem digestLayout_child (k : Coord) : (childBase k.val, 7) ∈ digestLayout := by
   revert k; decide
-theorem digestLayout_field (k : Coord) : (fieldBase k.val, 14) ∈ digestLayout := by
+theorem digestLayout_field (k : Coord) : (fieldBase k.val, 10) ∈ digestLayout := by
   revert k; decide
 theorem digestLayout_disjoint :
     digestLayout.Pairwise (fun p q => p.1 + p.2 ≤ q.1) ∧
@@ -349,36 +349,36 @@ theorem childBase_word_aligned (k : Coord) :
     childBase k.val / 64 = (childBase k.val + 6) / 64 ∧ childBase k.val + 7 ≤ 234 := by
   revert k; decide
 theorem fieldBase_word_aligned (k : Coord) :
-    fieldBase k.val / 64 = (fieldBase k.val + 13) / 64 ∧ fieldBase k.val + 14 ≤ 234 := by
+    fieldBase k.val / 64 = (fieldBase k.val + 9) / 64 ∧ fieldBase k.val + 10 ≤ 234 := by
   revert k; decide
 theorem childBase_disjoint (k l : Coord) (h : k ≠ l) :
     childBase k.val + 7 ≤ childBase l.val ∨ childBase l.val + 7 ≤ childBase k.val := by
   revert k l; decide
 theorem fieldBase_disjoint (k l : Coord) (h : k ≠ l) :
-    fieldBase k.val + 14 ≤ fieldBase l.val ∨ fieldBase l.val + 14 ≤ fieldBase k.val := by
+    fieldBase k.val + 10 ≤ fieldBase l.val ∨ fieldBase l.val + 10 ≤ fieldBase k.val := by
   revert k l; decide
 theorem childBase_fieldBase_disjoint (k l : Coord) :
-    childBase k.val + 7 ≤ fieldBase l.val ∨ fieldBase l.val + 14 ≤ childBase k.val := by
+    childBase k.val + 7 ≤ fieldBase l.val ∨ fieldBase l.val + 10 ≤ childBase k.val := by
   revert k l; decide
 theorem index_disjoint (k : Coord) :
-    (childBase k.val + 7 ≤ 33 ∨ 64 ≤ childBase k.val) ∧ (fieldBase k.val + 14 ≤ 33 ∨ 64 ≤ fieldBase k.val) := by
+    (childBase k.val + 7 ≤ 33 ∨ 64 ≤ childBase k.val) ∧ (fieldBase k.val + 10 ≤ 33 ∨ 64 ≤ fieldBase k.val) := by
   revert k; decide
 theorem coordinate_verify_steps (output : HashOutput) (coord : Coord) :
-    (∑ t : Fin 7, (List.range' (3 - wordDigit (rank output coord) t)
-      (wordDigit (rank output coord) t)).length) = 6 := by
+    (∑ t : Fin 6, (List.range' (4 - wordDigit (rank output coord) t)
+      (wordDigit (rank output coord) t)).length) = 7 := by
   simp only [List.length_range']
   exact wordStep_count _
-theorem verify_walk_positions (word : Rank) (t : Fin 7) :
-    (∀ s ∈ List.range' (3 - wordDigit word t) (wordDigit word t), s < 3) ∧
-      3 - wordDigit word t + wordDigit word t = 3 := by
-  have hd := wordDigit_le_three word t
+theorem verify_walk_positions (word : Rank) (t : Fin 6) :
+    (∀ s ∈ List.range' (4 - wordDigit word t) (wordDigit word t), s < 4) ∧
+      4 - wordDigit word t + wordDigit word t = 4 := by
+  have hd := wordDigit_le_four word t
   refine ⟨fun s hs => ?_, by omega⟩
   rw [List.mem_range'] at hs
   omega
 theorem verify_steps_total (output : HashOutput) :
-    (∑ coord : Coord, ∑ t : Fin 7, wordDigit (rank output coord) t) = 54 := by
+    (∑ coord : Coord, ∑ t : Fin 6, wordDigit (rank output coord) t) = 63 := by
   simp only [wordStep_count, Finset.sum_const, Finset.card_univ, Fintype.card_fin, smul_eq_mul]
-theorem gate_value (output : HashOutput) : output.toNat / 2 ^ 235 % 2 ^ 21 = output.toNat / 2 ^ 235 := by
+theorem gate_value (output : HashOutput) : output.toNat / 2 ^ 242 % 2 ^ 14 = output.toNat / 2 ^ 242 := by
   have h := output.isLt
   apply Nat.mod_eq_of_lt
   rw [Nat.div_lt_iff_lt_mul (by positivity)]
@@ -386,7 +386,7 @@ theorem gate_value (output : HashOutput) : output.toNat / 2 ^ 235 % 2 ^ 21 = out
   omega
 theorem admissible_iff' (output : HashOutput) :
     admissible output = true ↔
-      output.toNat / 2 ^ 235 < gateLimit ∧ ∀ coord : Coord, field output coord < fieldLimit := by
+      output.toNat / 2 ^ 242 < gateLimit ∧ ∀ coord : Coord, field output coord < fieldLimit := by
   rw [admissible_iff, gate_value]; rfl
 theorem jointCost_eq_sum (output : HashOutput) :
     jointCost output = ∑ coord : Coord, (routineCost (rank output coord) + childExtra (child output coord)) := by
@@ -395,16 +395,16 @@ theorem jointCost_eq_sum (output : HashOutput) :
   congr 1
 theorem childExtra_le (c : Child) : childExtra c ≤ 3 := by
   unfold childExtra maxChildSave; omega
-theorem jointCost_bounds (output : HashOutput) : 594 ≤ jointCost output ∧ jointCost output ≤ 747 := by
+theorem jointCost_bounds (output : HashOutput) : 675 ≤ jointCost output ∧ jointCost output ≤ 828 := by
   rw [jointCost_eq_sum]
   have hb := fun coord => routineCost_bounds (rank output coord)
   have he := fun coord => childExtra_le (child output coord)
   constructor
-  · calc 594 = ∑ _coord : Coord, 66 := by simp
+  · calc 675 = ∑ _coord : Coord, 75 := by simp
       _ ≤ _ := Finset.sum_le_sum fun coord _ => le_trans (hb coord).1 (Nat.le_add_right _ _)
-  · calc _ ≤ ∑ _coord : Coord, 83 := Finset.sum_le_sum fun coord _ => by
+  · calc _ ≤ ∑ _coord : Coord, 92 := Finset.sum_le_sum fun coord _ => by
           have := (hb coord).2; have := he coord; omega
-      _ = 747 := by simp
+      _ = 828 := by simp
 theorem capOk_iff (output : HashOutput) : capOk output = true ↔ jointCost output ≤ jointCap := by
   simp [capOk]
 theorem producerAdmissible_iff (output : HashOutput) :
@@ -412,4 +412,8 @@ theorem producerAdmissible_iff (output : HashOutput) :
   simp [producerAdmissible, capOk_iff]
 theorem admissible_of_producer {output : HashOutput} (h : producerAdmissible output = true) :
     admissible output = true := ((producerAdmissible_iff output).1 h).1
+/-- Coefficient `j < 102` of the FTS seed family of `(index, coord)` (campaign X1, stage A): half `j % 2` of the
+private pair `ftsSeedPair index coord (j / 2)`. -/
+def ftsCoef (answers : SigGolfCandidate.T3.Correctness.Answers) (index coord : Nat) (j : Fin 102) : Digest :=
+  seedHalf (evalWithAnswerFn answers (ftsSeedPair index coord (j.val / 2))) j.val
 end ClaudeWCT.WCT9

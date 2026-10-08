@@ -4,12 +4,7 @@ namespace ClaudeWCT.W9.T3M
 open OracleComp OracleSpec SigGolfCandidate.T3
 open SigGolfCandidate.T3M (zeros layerBytes sibOff)
 open SphincsSecurity (bytesLE)
-/-- The H2 expander (two omitted signature bytes recovered by search), with the digest output. -/
 def expandN (message : Message) (pk : Digest) (sig : WCT9.Signature) :
-    M (Option (HashOutput × WCT9.Witness)) :=
-  WCT9.expandS WCT9.digestAttemptLimit message pk sig
-/-- The expander before H2 (the full signature), with the digest output. -/
-def expandN0 (message : Message) (pk : Digest) (sig : WCT9.Signature) :
     M (Option (HashOutput × WCT9.Witness)) := do
   let some (counter, output) ← WCT9.digestSearch sig.rho message 0 WCT9.digestAttemptLimit | pure none
   let index := WCT9.digestIndex output
@@ -26,14 +21,15 @@ def authByte (child : Nat) (op : WCT9.Opening) (p : Nat) : UInt8 :=
 def merkleBytes (child : Nat) (op : WCT9.Opening) : List UInt8 :=
   (List.range 320).map (authByte child op)
 def chainBytes (op : WCT9.Opening) : List UInt8 :=
-  (List.finRange 6).reverse.flatMap fun i => zeros 48 ++ bytesLE 16 (op.values i.succ)
+  (List.finRange 5).reverse.flatMap fun i => zeros 48 ++ bytesLE 16 (op.values i.succ)
+/-- Leaf block (campaign T8): `end0 | header slot (zero) | leaf pad (zero) | end1..end5`. -/
 def leafBytes (op : WCT9.Opening) : List UInt8 :=
-  bytesLE 16 (op.values 0) ++ zeros 16 ++ (List.finRange 6).flatMap fun i => bytesLE 16 (op.values i.succ)
+  bytesLE 16 (op.values 0) ++ zeros 32 ++ (List.finRange 5).flatMap fun i => bytesLE 16 (op.values i.succ)
 def regionBytes (child : Nat) (op : WCT9.Opening) : List UInt8 :=
   merkleBytes child op ++ chainBytes op ++ zeros 48 ++ leafBytes op ++ zeros 16
 def wctBytes (N : HashOutput) (sig : WCT9.Signature) : List UInt8 :=
   (List.finRange 9).reverse.flatMap fun k =>
-    (regionBytes (WCT9.child N k).val (sig.openings k)).take (if k.val = 0 then 896 else 880)
+    (regionBytes (WCT9.child N k).val (sig.openings k)).take (if k.val = 0 then 832 else 816)
 def lowerSibSlot (lay : Layer) (leaf j : Nat) : Nat := 16 * (lowerPlan lay leaf).getD j 0 + sibOff (leaf / 2 ^ j % 2)
 def lowerCtrSlot (lay : Layer) (leaf : Nat) : Nat := 16 * (lowerPlan lay leaf).getD (height lay - 1) 0 + 32
 def lowerPathByte (lay : Layer) (leaf : Nat) (ls : LayerSignature lay) (ctr : BitVec 32) (p : Nat) : UInt8 :=
@@ -70,6 +66,7 @@ def padDecP (N : HashOutput) (w : WBytes) : Pads where
   wctChain k t := wcpads w k.val t.val
   wctChainHigh k t := wcHeaderPad w k.val t.val
   wctMerkle k l := if l.val < 6 then wmpad w k.val (WCT9.child N k).val l.val else 0
+  wctLeaf k := wleafPad w k.val
   chain lay i := wchainPads w lay i.val
   merkle lay j := if j.val + 1 < height lay ∨ lay.val = 0 then
     wmerklePad w lay (route (WCT9.digestIndex N) lay).1 j.val else 0

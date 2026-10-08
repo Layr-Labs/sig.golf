@@ -28,14 +28,14 @@ structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   nodeReg : u.getReg .x15 = BitVec.ofNat 64 (idxOf a * 2^27 + 1537 + 65536 * (n-1))
   cached3 : u.getReg .x17 = a.extractLsb' 192 64
   cached : u.getReg .x16 = a.extractLsb' (64 * cachedWord n) 64
-  mask : u.getReg .x2 = BitVec.ofNat 64 0xfffc
+  mask : u.getReg .x2 = BitVec.ofNat 64 0xffc
   jt : u.getReg .x24 = BitVec.ofNat 64 0xd6800
   childBlock : u.getReg .x29 = BitVec.ofNat 64 0xce800
-  baseReg : u.getReg .x8 = BitVec.ofNat 64 (9152 - 880 * (n-1))
+  baseReg : u.getReg .x8 = BitVec.ofNat 64 (8640 - 816 * (n-1))
   pairPtr : u.getReg .x9 = BitVec.ofNat 64 (pairBase + 32 * (n-1))
   pairs : ∀ i, i < n → DigAt u (pairBase + 32*i) (pairs.getD i (0,0)).1 ∧
     DigAt u (pairBase + 32*i + 16) (pairs.getD i (0,0)).2
-  coords : ∀ k : Fin 9, n ≤ k.val → ∀ off, off < 880 → off % 8 = 0 →
+  coords : ∀ k : Fin 9, n ≤ k.val → ∀ off, off < 816 → off % 8 = 0 →
     W9Machine.OrigW w u (coordinateBase k + off)
-  layer : Orig w (fun o => o < 64 ∨ (8000 ≤ o ∧ o < 21472)) u
+  layer : Orig w (fun o => o < 64 ∨ (7424 ≤ o ∧ o < 20896)) u
 end W9Drv

@@ -229,7 +229,7 @@ structure LeafOut (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
   T0 : u.getMem (BitVec.ofNat 64 (lfBase lay.val + 16)) =
     T3.hyperWord lay.val ((route index lay).2 * 2 ^ height lay + (route index lay).1)
   T1 : u.getMem (BitVec.ofNat 64 (lfBase lay.val + 24)) = 0
-  orig : Verify.Orig w (fun o => 8000 ≤ o ∧
+  orig : Verify.Orig w (fun o => 7424 ≤ o ∧
     o < ClaudeWCT.W9.T3M.layerBase lay + 16 * ClaudeWCT.W9.T3M.pathSlots lay) u
 theorem LeafOut.hashInput {w : ClaudeWCT.W9.T3M.WBytes} {pk : Digest} {index : Nat} {lay : Layer} {ends : List Digest}
     {u : MachineState} (h : LeafOut w pk index lay ends u) :
@@ -313,7 +313,7 @@ structure TopLeafReady (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Na
   word : t.getReg .x28 = leafWord 0 (route index 0).2 (route index 0).1
   len : ends.length = 54
   ends : ∀ j < 54, DigAt t (slotT j) (ends.getD j 0)
-  orig : Verify.Orig w (fun o => 8000 ≤ o ∧
+  orig : Verify.Orig w (fun o => 7424 ≤ o ∧
     o < ClaudeWCT.W9.T3M.layerBase 0 + 16 * ClaudeWCT.W9.T3M.pathSlots 0) t
   s8 : t.getReg .x24 = 0
 theorem lfKeepK_keep : (lfKeepK 0).all (fun p => decide (p.1 ∈ keepLfAll 0)) = true := by decide +kernel

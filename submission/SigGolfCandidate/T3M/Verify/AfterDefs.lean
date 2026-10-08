@@ -33,7 +33,7 @@ structure FtsOut (F : FCtx) (root : Digest) (u : MachineState) : Prop where
   idx : u.getReg .x22 = BitVec.ofNat 64 F.idx
   pc : u.pc = pcOf layerPc
   root : DigAt u WIT root
-  wit : Orig F.w (fun o => (32 ≤ o ∧ o < 64) ∨ (8000 ≤ o ∧ o < 21472)) u
+  wit : Orig F.w (fun o => (32 ≤ o ∧ o < 64) ∨ (7424 ≤ o ∧ o < 20896)) u
   a2 : u.getReg .x12 = BitVec.ofNat 64 WIT
   s10 : u.getReg .x26 = 6
   heapOne : u.getReg .x7 = 1
@@ -46,7 +46,7 @@ structure FtsOut (F : FCtx) (root : Digest) (u : MachineState) : Prop where
   topBase : u.getReg .x9 = BitVec.ofNat 64 TOPB9
   top : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
     BitVec.ofNat 64 (topWords.getD k 0)
-  top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21776
+  top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21200
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp

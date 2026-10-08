@@ -15,6 +15,8 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 abbrev WSpecL := SecretGuessObservation.World AuxSpecL Guess.GCoord Digest
+/-- The FTS seed-family sampler of the lazy-digest world (campaign X1, stage A). -/
+noncomputable abbrev samplerL : SecretGuessObservation.Sampler Guess.GCoord Digest LazyMem := Guess.Fam.sampler LazyMem
 abbrev WStateL := SecretGuessObservation.State Guess.GCoord Digest LazyMem
 def initL : WStateL := SecretGuessObservation.initialState LazyMem.empty
 noncomputable def auxWith (rowSrc : HashInput → PMF HashOutput) (nonceSrc : Message → PMF Digest)
@@ -67,7 +69,8 @@ noncomputable def finishL (ω : CanonTable.Omega U) (request : Request) (rho : D
       | none => pure none
       | some pieces => do
           let values ← Guess.discloseAll (auxSpec := AuxSpecL) (V := Digest) (revealedCoords output)
-          pure (some (assembleWith (wA hU ω (overwrite (revealedCoords output) values)) (rho, output, pieces)))
+          pure (some (assembleWith (wA hU ω (liftH (overwrite (revealedCoords output) values) output))
+            (rho, output, pieces)))
 noncomputable def signL (ω : CanonTable.Omega U) (published : SigGolfCandidate.T3.Cache) (request : Request) :
     OracleComp WSpecL (Option Signature) :=
   if request.cache = published then do
