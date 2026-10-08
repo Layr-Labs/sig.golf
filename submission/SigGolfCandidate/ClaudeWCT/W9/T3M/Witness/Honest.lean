@@ -1068,7 +1068,7 @@ theorem verifyP_witEnc_eval (answers : Correctness.Answers) (m : Message) (pk : 
       digest w.signature.rho m w.digestCounter >>= fun N' => verifyPadsTail pk N' w 0 := by
     rw [← verifyPads_zero]
     unfold verifyPads
-    rw [if_neg (by have := F.dc; omega)]
+    rw [if_neg (by have := F.dc; have := WCT9.digestAttemptLimit_le_digestVerifyLimit; omega)]
   rw [hv, hw]
   apply eval_countCalls_bind_congr
   rw [F.sig, F.digest, verifyTailP_shaped pk N _ F.adm, witDecP_witEnc, padDecP_witEnc]

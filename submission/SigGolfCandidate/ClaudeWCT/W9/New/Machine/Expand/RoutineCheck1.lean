@@ -1,4 +1,6 @@
-import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.RoutineData
+import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.RoutineCheck0
+
+set_option Elab.async false
 
 namespace ClaudeWCT.W9.Machine.Expand
 set_option maxRecDepth 100000
