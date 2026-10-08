@@ -20,7 +20,6 @@ theorem shl_shr_33 (w : BitVec 64) : w <<< 33 >>> 33 = BitVec.ofNat 64 (w.toNat 
   omega
 section blocks
 variable (s : MachineState)
--- [h2 lane] removed s0_spec: a fact about the record's original expand word 0 / 342, which H2 replaces
 theorem s49_spec (hpc : s.pc = pcOf 49) (c : Nat) (h19 : s.getReg .x19 = BitVec.ofNat 64 c) :
     ∃ t, Steps image s 16 16 t ∧ t.pc = pcOf 65 ∧
       t.getReg .x9 = BitVec.ofNat 64 ((s.getMem (BitVec.ofNat 64 NBUF)).toNat % 2 ^ 31) ∧

@@ -246,7 +246,19 @@ theorem l332_spec (hpc : s.pc = pcOf 332) (c : Nat) (h19 : s.getReg .x19 = BitVe
     simp only [Result.toState_getMem, eblk_332.res]
     t3n []
     rw [if_neg (by omega)]
--- [h2 lane] removed c342_spec: a fact about the record's original expand word 0 / 342, which H2 replaces
+theorem c342_spec (hpc : s.pc = pcOf 342) :
+    ∃ t, Steps image s 6 6 t ∧
+      t.pc = (if s.getMem (BitVec.ofNat 64 ENC) = s.getMem (BitVec.ofNat 64 0xA0) then pcOf 348 else pcOf 354) ∧
+      t.getReg .x28 = BitVec.ofNat 64 ENC ∧ t.getReg .x29 = BitVec.ofNat 64 0xA0 ∧
+      RegsExcept s t [.x6, .x7, .x28, .x29] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_, symRun_sound eblk_342 codeAt_342 s hpc (by simp [eblk_342.res, rv_simp, accessValid_iff, MEMORY_BYTES]),
+    ?_, ?_, ?_, ?_, ?_⟩
+  · simp only [Result.toState_pc, eblk_342.res, E.eval, CmpOp.eval, rebase, rv_simp, ENC]
+    split_ifs with h1 h2 h2 <;> simp_all
+  · simp [eblk_342.res, rv_simp]
+  · simp [eblk_342.res, rv_simp]
+  · ex_regs eblk_342.res
+  · intro A _ _; simp [eblk_342.res, rv_simp]
 theorem c348_spec (hpc : s.pc = pcOf 348) (h28 : s.getReg .x28 = BitVec.ofNat 64 ENC)
     (h29 : s.getReg .x29 = BitVec.ofNat 64 0xA0) :
     ∃ t, Steps image s 3 3 t ∧

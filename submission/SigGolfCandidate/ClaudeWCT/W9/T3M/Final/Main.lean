@@ -48,7 +48,7 @@ theorem submission_verificationBound (P : Pending I) : (submission I).Verificati
   dsimp only
   intro h
   obtain ⟨pk, s, w, he, hacc, hcyc⟩ := Credit.honest_success_verify_cf (submission I) hash sk m h
-  obtain ⟨σ', N, wt, hx, rfl⟩ := Credit.expand_witness P hash m pk s w he
+  obtain ⟨N, wt, hx, rfl⟩ := Credit.expand_witness P hash m pk s w he
   have heq := Credit.verify_run_ok P hash m pk _ (Credit.agree_verifyP hash m pk _ N wt hx)
   rw [hcyc, witnessCycles_eq, heq]
   rw [heq] at hacc

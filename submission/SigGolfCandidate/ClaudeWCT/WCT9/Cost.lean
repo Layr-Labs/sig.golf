@@ -479,6 +479,9 @@ theorem bound_signPayload (cache : Cache) (message : Message) :
 theorem bound_sign (cache : Cache) (message : Message) :
     CBound (fun _ => True) (signPayloadFixed + 2 + digestAttemptLimit + 4 * counterLimit) (Rev3.sign cache message) :=
   bound_signWith digestAttemptLimit cache message
+theorem bound_expand (message : Message) (pk : Digest) (sig : Signature) :
+    CBound (fun _ => True) (digestAttemptLimit + 4 * counterLimit + 612) (Rev3.expand message pk sig) :=
+  bound_expandWith digestAttemptLimit message pk sig
 theorem bound_verify (message : Message) (pk : Digest) (w : Witness) :
     CBound (fun _ => True) 709 (Rev3.verify message pk w) :=
   bound_verifyWith digestVerifyLimit message pk w
@@ -492,6 +495,14 @@ theorem sign_compression_ceiling (secret : BitVec 256) (cache : Cache) (message 
   have h := signPayloadFixed_eq
   rw [layerFixedCost_four] at h
   exact hc.trans (by norm_num [digestAttemptLimit, counterLimit]; omega)
+theorem expand_compression_ceiling (secret : BitVec 256) (message : Message) (pk : Digest) (sig : Signature) :
+    ∀ result ∈ support (World.countBlocks (realize secret (Rev3.expand message pk sig))),
+      result.2 ≤ 18874980 := by
+  intro result hr
+  rw [World.countBlocks, ← realize_count] at hr
+  have hc := (bound_expand message pk sig).count_support result
+    (realize_support_subset secret _ hr) |>.2
+  exact hc.trans (by norm_num [digestAttemptLimit, counterLimit])
 theorem verify_compression_bound (secret : BitVec 256) (message : Message) (pk : Digest) (w : Witness) :
     ∀ result ∈ support (World.countBlocks (realize secret (Rev3.verify message pk w))), result.2 ≤ 709 := by
   intro result hr

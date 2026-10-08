@@ -17,7 +17,7 @@ attribute [local instance] instDecidableEqSignature_securityP
 variable {I : Images}
 def Inv (T : Transcript (submission I).sizes) (k : ℕ) (lg : QueryLog Requests) (c : ℕ) : Prop :=
   T.hashCalls = c ∧ T.signingRequests = k ∧ lg.length = k ∧ k ≤ LIFETIME ∧
-    ∀ e ∈ lg, ∀ σ : Signature, e.2 = some σ → (e.1.message, sigBC σ) ∈ T.signed
+    ∀ e ∈ lg, ∀ σ : Signature, e.2 = some σ → (e.1.message, sigB σ) ∈ T.signed
 lemma length_of_inv {T : Transcript (submission I).sizes} {k : ℕ} {lg : QueryLog Requests} {c : ℕ}
     (hI : Inv T k lg c) : decide (lg.length ≤ 2 ^ 32) = true := by
   obtain ⟨-, -, hlen, hk, -⟩ := hI
@@ -35,13 +35,11 @@ lemma freshW_of_inv {T : Transcript (submission I).sizes} {k : ℕ} {lg : QueryL
     exact hfresh _ hmem rfl
 lemma freshS_of_inv {T : Transcript (submission I).sizes} {k : ℕ} {lg : QueryLog Requests} {c : ℕ}
     (hI : Inv T k lg c) {m : Message} {s : Bytes (submission I).sizes.signature}
-    (hfresh : T.freshSignature m s = true) : freshS lg m (sigDecC s) = true := by
+    (hfresh : T.freshSignature m s = true) : freshS lg m (sigDec s) = true := by
   rw [freshS_iff]
   rintro ⟨e, he, h1, h2⟩
-  obtain ⟨σ', hσ', hp⟩ := ClaudeWCT.WCT9.map_some_inv h2
-  have hmem := hI.2.2.2.2 e he σ' hσ'
-  have hs : sigBC σ' = s := by rw [← sigBC_proj, hp, proj_sigDecC, sigBC_sigDecC]
-  rw [h1, hs] at hmem
+  have hmem := hI.2.2.2.2 e he _ h2
+  rw [h1, sigB_sigDec] at hmem
   unfold Transcript.freshSignature at hfresh
   simp only [Bool.not_eq_true'] at hfresh
   have : T.signed.contains (m, s) = true := List.contains_iff_mem.mpr hmem
@@ -50,7 +48,7 @@ lemma freshS_of_inv {T : Transcript (submission I).sizes} {k : ℕ} {lg : QueryL
 lemma inv_record {T : Transcript (submission I).sizes} {k : ℕ} {lg : QueryLog Requests} {c : ℕ}
     (hI : Inv T k lg c) (hk : k < LIFETIME) (m : Message) (cache : Cache)
     (r : Option Signature) (calls : ℕ) :
-    Inv (recordVC T m (r.map sigBC) calls) (k + 1)
+    Inv (recordVC T m (r.map sigB) calls) (k + 1)
       (lg ++ [⟨⟨m, cache⟩, r⟩]) (c + calls) := by
   obtain ⟨hc, hs, hlen, -, hent⟩ := hI
   refine ⟨by simp [recordVC, hc], by simp [recordVC, hs], by simp [hlen], hk, ?_⟩

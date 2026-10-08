@@ -5,7 +5,7 @@ namespace SigGolf.Challenge
 
 def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGolfCandidate.T3M.submission
 
-theorem signature_bytes : submission.sizes.signature = 5454 := rfl
+theorem signature_bytes : submission.sizes.signature = 5456 := rfl
 
 theorem witness_bytes : submission.sizes.witness = 21484 := rfl
 

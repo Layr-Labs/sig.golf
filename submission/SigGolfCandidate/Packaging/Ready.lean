@@ -61,10 +61,9 @@ namespace ClaudeWCT.W9.Machine.Expand
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
 theorem expand_pending (I : ClaudeWCT.W9.T3M.Images)
     (hv : I.expand.Valid (ClaudeWCT.W9.T3M.submission I).sizes (ClaudeWCT.W9.T3M.submission I).layout)
-    (hc : NewCodeAt I.expand) (hF : FrontAt I.expand) (hP : ProAt I.expand) (hS : SrchAt I.expand)
-    (hd : ExpandDataOK I.expand) (hB : BackSpec I.expand) :
+    (hc : NewCodeAt I.expand) (hF : FrontAt I.expand) (hd : ExpandDataOK I.expand) (hB : BackSpec I.expand) :
     ClaudeWCT.W9.T3M.Final.ExpandRefines I ∧ ClaudeWCT.W9.T3M.Final.ExpandTerminates I :=
-  expandComposeSpec_holds (ClaudeWCT.W9.T3M.submission I).image hv hc hF hP hS hd hB
+  expandComposeSpec_holds (ClaudeWCT.W9.T3M.submission I).image hv hc hF hd hB
 end ClaudeWCT.W9.Machine.Expand
 namespace ClaudeWCT.W9.Machine.ExpandLink
 open SigGolfCandidate.T3M

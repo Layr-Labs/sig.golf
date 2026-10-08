@@ -1,5 +1,4 @@
 import SigGolfCandidate.ClaudeWCT.Bank.WCTAccept
-import SigGolfCandidate.ClaudeWCT.WCT9.Omit
 import SigGolfCandidate.ClaudeWCT.Numerics.N600CapCount
 import SigGolfCandidate.ClaudeWCT.W9.T3.FullCache.NativeBudgetB1.Presampling
 import SigGolfCandidate.ClaudeWCT.W9.T3.Gate6.SourceBudget
