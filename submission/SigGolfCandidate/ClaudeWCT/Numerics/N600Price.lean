@@ -392,7 +392,7 @@ open ClaudeWCT.Numerics.Law
 open SphincsSecurity.Concrete (uniformWordAverage binomialAverage binomialAverage_mono binomialAverage_mul_left)
 open SigGolfCandidate.T3.BPORS.History (atIndex)
 open ClaudeWCT.Numerics.PoissonReflect (rejection_window_sharp rate_le_one)
-noncomputable def priceScale : ENNReal := ((1451 * 563 ^ 9 : ℕ) : ENNReal) / 2 ^ 7
+noncomputable def priceScale : ENNReal := ((1367 * 563 ^ 9 : ℕ) : ENNReal) / 2 ^ 7
 theorem priceScale_mul : priceScale * ((2 ^ 31 : ℕ) : ENNReal) = (A : ENNReal) := by
   apply (ENNReal.toReal_eq_toReal_iff' (by unfold priceScale; finiteness) (by finiteness)).mp
   unfold priceScale
@@ -680,7 +680,7 @@ theorem lawOK_uniform (hne : Fintype.card (Fin 9 → C × β) ≠ 0) :
 noncomputable def uniformOn (S : Finset (Fin 9 → C × β)) (x : Fin 9 → C × β) : ENNReal :=
   open Classical in if x ∈ S then (S.card : ENNReal)⁻¹ else 0
 theorem lawOK_uniformOn (S : Finset (Fin 9 → C × β)) (hS : S.Nonempty)
-    (hrate : 10 ^ 8 * 2 ^ 32 * Fintype.card (Fin 9 → C × β) ≤ 200981999 * 2 ^ 31 * S.card) :
+    (hrate : 10 ^ 8 * 2 ^ 32 * Fintype.card (Fin 9 → C × β) ≤ 202260439 * 2 ^ 31 * S.card) :
     LawOK (uniformOn S) ((Fintype.card (Fin 9 → C × β) : ENNReal) / S.card) where
   sum_one := by
     classical
@@ -707,7 +707,7 @@ theorem lawOK_uniformOn (S : Finset (Fin 9 → C × β)) (hS : S.Nonempty)
     simp only [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_inv, ENNReal.toReal_natCast, LN, LD,
       ENNReal.toReal_pow, ENNReal.toReal_ofNat]
     have h : ((10 ^ 8 * 2 ^ 32 * Fintype.card (Fin 9 → C × β) : ℕ) : ℝ) ≤
-        ((200981999 * 2 ^ 31 * S.card : ℕ) : ℝ) := by exact_mod_cast hrate
+        ((202260439 * 2 ^ 31 * S.card : ℕ) : ℝ) := by exact_mod_cast hrate
     push_cast at h ⊢
     set c : ℝ := (Fintype.card (Fin 9 → C × β) : ℝ)
     set t : ℝ := (S.card : ℝ)
@@ -717,7 +717,7 @@ theorem lawOK_uniformOn (S : Finset (Fin 9 → C × β)) (hS : S.Nonempty)
     linarith
 theorem lawOK_uniformOn' (S : Finset (Fin 9 → C × β)) (hS : S.Nonempty) (Ncoords Ns : ℕ)
     (hcard : Fintype.card (Fin 9 → C × β) = Ncoords) (hNs : S.card = Ns)
-    (hrate : 10 ^ 8 * 2 ^ 32 * Ncoords ≤ 200981999 * 2 ^ 31 * Ns) :
+    (hrate : 10 ^ 8 * 2 ^ 32 * Ncoords ≤ 202260439 * 2 ^ 31 * Ns) :
     LawOK (uniformOn S) ((Ncoords : ENNReal) / Ns) := by
   have h := lawOK_uniformOn S hS (by rw [hcard, hNs]; exact hrate)
   rwa [hcard, hNs] at h

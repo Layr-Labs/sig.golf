@@ -45,6 +45,6 @@ def NineCost (ranks : Fin 9 → Fin 563) : Nat :=
 def JointCost (ranks : Fin 9 → Fin 563) (children : Fin 9 → Fin 128) : Nat :=
   NineCost ranks + ((List.finRange 9).map fun k => ClaudeWCT.WCT9.childExtra (children k)).sum
 def ProducerCostOK (ranks : Fin 9 → Fin 563) (children : Fin 9 → Fin 128) : Prop :=
-  JointCost ranks children ≤ 785
+  JointCost ranks children ≤ 783
 end W9Machine.N600
 end
