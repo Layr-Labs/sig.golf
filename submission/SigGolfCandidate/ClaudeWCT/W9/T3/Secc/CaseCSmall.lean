@@ -188,25 +188,25 @@ open ClaudeWCT.W9.T3M.Final
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option exponentiation.threshold 1024
-theorem small_closing_real (y : ℝ) (hlow : 1 / 2 ^ 128 ≤ y) (hhigh : y ≤ 653 / 1048576) :
-    1899 / 1000 * y + (152) * y ^ 2 + 1 / 2 ^ 136 +
+theorem small_closing_real (y : ℝ) (hlow : 1 / 2 ^ 128 ≤ y) (hhigh : y ≤ 705 / 1048576) :
+    1906 / 1000 * y + (136) * y ^ 2 + 5 / 2 ^ 139 +
       (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
   exact SigGolfCandidate.Research.V7Composed198Closing.small_closing_real y hlow hhigh
-theorem large_closing_real (y : ℝ) (hlow : 653 / 1048576 ≤ y) :
-    (2 * y - y ^ 2) + y * (6186 / 10000000) + y * (1 / 2 ^ 25) + y * (1 / 2 ^ 50) + 1 / 2 ^ 131 +
+theorem large_closing_real (y : ℝ) (hlow : 705 / 1048576 ≤ y) :
+    (2 * y - y ^ 2) + y * (6678 / 10000000) + y * (1 / 2 ^ 25) + y * (1 / 2 ^ 50) + 1 / 2 ^ 131 +
       (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
   exact SigGolfCandidate.Research.V7Composed198Closing.large_closing_real y hlow
 theorem large_closing_real_high (y : ℝ) (hlow : 1 / 128 ≤ y) :
-    (2 * y - y ^ 2) + y * (2933 / 1000000) + y * (1 / 2 ^ 25) + y * (1 / 2 ^ 50) + 1 / 2 ^ 131 +
+    (2 * y - y ^ 2) + y * (2435 / 1000000) + y * (1 / 2 ^ 25) + y * (1 / 2 ^ 50) + 1 / 2 ^ 131 +
       (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
   exact SigGolfCandidate.Research.V7Composed198Closing.large_closing_real_high y hlow
-irreducible_def budgetSplit : Nat := 653 * 2 ^ 108
-noncomputable irreducible_def smallCoefficient : ENNReal := 1899 / 1000
-noncomputable irreducible_def smallQuadratic : ENNReal := 152
+irreducible_def budgetSplit : Nat := 705 * 2 ^ 108
+noncomputable irreducible_def smallCoefficient : ENNReal := 1906 / 1000
+noncomputable irreducible_def smallQuadratic : ENNReal := 136
 /-- Small-route absolute term: covers 2^-700 + 2^-698 (signer incompleteness) + 2^-137 (FTS overflow, X1). -/
-noncomputable irreducible_def smallAbsolute : ENNReal := ((2 : ENNReal) ^ 136)⁻¹
-noncomputable irreducible_def excessRate : ENNReal := 2933 / 1000000
-noncomputable irreducible_def excessRate54 : ENNReal := 6186 / 10000000
+noncomputable irreducible_def smallAbsolute : ENNReal := 5 / 2 ^ 139
+noncomputable irreducible_def excessRate : ENNReal := 2435 / 1000000
+noncomputable irreducible_def excessRate54 : ENNReal := 6678 / 10000000
 noncomputable irreducible_def cacheRate : ENNReal := ((2 : ENNReal) ^ 25)⁻¹
 noncomputable irreducible_def largeReserveRate : ENNReal := ((2 : ENNReal) ^ 50)⁻¹
 /-- Large-route reserve absolute term: covers 2^-132 + 2^-698 + 2^-137 (FTS overflow, X1). -/
@@ -233,8 +233,8 @@ theorem small_closing (q : Nat) (hq : 1 ≤ q) (hsplit : q ≤ budgetSplit) :
   have hlow : (1 : ℝ) / 2 ^ 128 ≤ (q : ℝ) / 2 ^ 128 := by
     apply div_le_div_of_nonneg_right _ (by positivity)
     exact_mod_cast hq
-  have hhigh : (q : ℝ) / 2 ^ 128 ≤ 653 / 1048576 := by
-    have hq' : (q : ℝ) ≤ 653 * 2 ^ 108 := by exact_mod_cast hsplit
+  have hhigh : (q : ℝ) / 2 ^ 128 ≤ 705 / 1048576 := by
+    have hq' : (q : ℝ) ≤ 705 * 2 ^ 108 := by exact_mod_cast hsplit
     rw [div_le_div_iff₀ (by positivity) (by positivity)]
     nlinarith
   have h := small_closing_real ((q : ℝ) / 2 ^ 128) hlow hhigh
@@ -255,8 +255,8 @@ theorem large_closing (q : Nat) (hsplit : budgetSplit ≤ q) (hq : q ≤ 2 ^ 127
     nlinarith
   by_cases h125 : q ≤ 2 ^ 121
   · rw [if_pos h125, excessRate54_def, cacheRate_def, largeReserveRate_def, largeReserveAbsolute_def]
-    have hlow : (653 : ℝ) / 1048576 ≤ (q : ℝ) / 2 ^ 128 := by
-      have hq' : (653 : ℝ) * 2 ^ 108 ≤ q := by exact_mod_cast hsplit
+    have hlow : (705 : ℝ) / 1048576 ≤ (q : ℝ) / 2 ^ 128 := by
+      have hq' : (705 : ℝ) * 2 ^ 108 ≤ q := by exact_mod_cast hsplit
       rw [div_le_div_iff₀ (by positivity) (by positivity)]
       nlinarith
     have h := large_closing_real ((q : ℝ) / 2 ^ 128) hlow
@@ -302,20 +302,20 @@ theorem probEvent_le_contact_add {β : Type} (law : PMF β) (win contact : β �
       Pr[fun value => win value ∧ ¬contact value | law] :=
   SeccClosing.probEvent_le_contact_add law win contact count hcount
 theorem x_le_of_small (q : Nat) (hsplit : q ≤ budgetSplit) :
-    (q : ENNReal) / 2 ^ 128 ≤ (653 / 1048576 : ENNReal) := by
+    (q : ENNReal) / 2 ^ 128 ≤ (705 / 1048576 : ENNReal) := by
   rw [budgetSplit_def] at hsplit
   rw [ENNReal.div_le_iff (by positivity) (by finiteness)]
   calc
-    (q : ENNReal) ≤ (653 * 2 ^ 108 : Nat) := by exact_mod_cast hsplit
-    _ = (653 / 1048576 : ENNReal) * 2 ^ 128 := by
+    (q : ENNReal) ≤ (705 * 2 ^ 108 : Nat) := by exact_mod_cast hsplit
+    _ = (705 / 1048576 : ENNReal) * 2 ^ 128 := by
       apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
       norm_num [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_inv, ENNReal.toReal_pow]
 theorem sq_le_of_small (q : Nat) (hsplit : q ≤ budgetSplit) :
-    ((q : ENNReal) / 2 ^ 128) ^ 2 ≤ (653 / 1048576 : ENNReal) * ((q : ENNReal) / 2 ^ 128) := by
+    ((q : ENNReal) / 2 ^ 128) ^ 2 ≤ (705 / 1048576 : ENNReal) * ((q : ENNReal) / 2 ^ 128) := by
   rw [pow_two]
   exact mul_le_mul' (x_le_of_small q hsplit) le_rfl
 theorem one_sub_x_ge_of_small (q : Nat) (hsplit : q ≤ budgetSplit) :
-    (1047923 / 1048576 : ENNReal) ≤ 1 - (q : ENNReal) / 2 ^ 128 := by
+    (1047871 / 1048576 : ENNReal) ≤ 1 - (q : ENNReal) / 2 ^ 128 := by
   have hx := x_le_of_small q hsplit
   refine le_trans ?_ (tsub_le_tsub_left hx 1)
   apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
@@ -324,7 +324,7 @@ theorem one_sub_x_ge_of_small (q : Nat) (hsplit : q ≤ budgetSplit) :
     norm_num [ENNReal.toReal_div, ENNReal.toReal_inv, ENNReal.toReal_pow]) (by finiteness)]
   norm_num [ENNReal.toReal_div, ENNReal.toReal_inv, ENNReal.toReal_pow]
 theorem div_sub_le_of_small (q : Nat) (hsplit : q ≤ budgetSplit) :
-    (q : ENNReal) / ((2 ^ 128 - q : Nat) : ENNReal) ≤ (1048576 / 1047923 : ENNReal) * ((q : ENNReal) / 2 ^ 128) := by
+    (q : ENNReal) / ((2 ^ 128 - q : Nat) : ENNReal) ≤ (1048576 / 1047871 : ENNReal) * ((q : ENNReal) / 2 ^ 128) := by
   rw [budgetSplit_def] at hsplit
   have hlt : q < 2 ^ 128 := lt_of_le_of_lt hsplit (by norm_num)
   have hden : (0 : ℝ) < ((2 ^ 128 - q : Nat) : ℝ) := by exact_mod_cast Nat.sub_pos_of_lt hlt
@@ -336,16 +336,16 @@ theorem div_sub_le_of_small (q : Nat) (hsplit : q ≤ budgetSplit) :
     rw [Nat.cast_sub hlt.le]
     norm_num
   rw [hcast] at hden ⊢
-  have hq' : (q : ℝ) ≤ 653 * 2 ^ 108 := by exact_mod_cast hsplit
+  have hq' : (q : ℝ) ≤ 705 * 2 ^ 108 := by exact_mod_cast hsplit
   have hq0 : (0 : ℝ) ≤ q := Nat.cast_nonneg q
   rw [div_le_iff₀ hden]
-  have : 1048576 / 1047923 * ((q : ℝ) / 2 ^ 128) * (2 ^ 128 - (q : ℝ)) =
-      (q : ℝ) * (1048576 / 1047923 * (1 - (q : ℝ) / 2 ^ 128)) := by ring
+  have : 1048576 / 1047871 * ((q : ℝ) / 2 ^ 128) * (2 ^ 128 - (q : ℝ)) =
+      (q : ℝ) * (1048576 / 1047871 * (1 - (q : ℝ) / 2 ^ 128)) := by ring
   rw [this]
-  have hx : (q : ℝ) / 2 ^ 128 ≤ 653 / 1048576 := by
+  have hx : (q : ℝ) / 2 ^ 128 ≤ 705 / 1048576 := by
     rw [div_le_div_iff₀ (by positivity) (by positivity)]
     nlinarith
-  have hfac : 1 ≤ 1048576 / 1047923 * (1 - (q : ℝ) / 2 ^ 128) := by linarith
+  have hfac : 1 ≤ 1048576 / 1047871 * (1 - (q : ℝ) / 2 ^ 128) := by linarith
   nlinarith
 theorem smallBound_of_le (q : Nat) (P c Q A : ENNReal) (hc : c ≤ smallCoefficient) (hQ : Q ≤ smallQuadratic)
     (hA : A ≤ smallAbsolute)
@@ -367,7 +367,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-theorem full_bound (X : CaseCExtraction) (hexc : ExcessBound horizon (2933 / 1000000))
+theorem full_bound (X : CaseCExtraction) (hexc : ExcessBound horizon (2435 / 1000000))
     (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
     Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ PinnedC X adversary FullQ z |
         SeccLaw.completedExperiment adversary q hq] ≤
@@ -419,7 +419,7 @@ def CaseCSmallBound (CaseCFreshPinned Good : AdversaryP → PaddedGame.TraceResu
 /-- The small case-C bound on `Good` runs from the full bound, the near bound and the pair bound on `Good` runs. -/
 theorem caseC_small_bound (X : CaseCExtraction) (Y : CaseCSplitInterface X)
     (Good : AdversaryP → PaddedGame.TraceResult × Correctness.Answers → Prop) (nearTerm pairTerm : Nat → ENNReal)
-    (hexc : ExcessBound horizon (2933 / 1000000)) (hnear : NearBoundOn X Y.NearQ Good nearTerm)
+    (hexc : ExcessBound horizon (2435 / 1000000)) (hnear : NearBoundOn X Y.NearQ Good nearTerm)
     (hpair : PairBoundOn Y.PairGuess Good pairTerm) :
     CaseCSmallBound Y.CaseCFreshPinned Good nearTerm pairTerm := by
   intro adversary q hq h1 hsplit

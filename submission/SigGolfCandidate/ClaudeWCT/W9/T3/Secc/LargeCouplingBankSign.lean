@@ -394,14 +394,14 @@ theorem wct_core_win_54 (b : BankCore) (halive : ¬horizon < b.exposures.length)
     exact (ledger54_win horizon _ _ _ _ N hN hadm hcov).trans le_self_add
 theorem wct_core_initial_54 (budget : Nat) :
     corePotential54 (2 ^ 32) ⟨[], [], false, 0, budget⟩ ≤
-      (budget : ENNReal) * (6186 / 10000000) / 2 ^ 128 := by
+      (budget : ENNReal) * (6678 / 10000000) / 2 ^ 128 := by
   unfold corePotential54 ledger54 excessForecast54
   simp only [List.length_nil, Nat.not_lt_zero, if_false, Bool.false_eq_true, Nat.sub_zero, add_zero,
     List.map_nil, List.sum_nil, zero_add]
   apply ENNReal.div_le_div_right
   apply mul_le_mul' le_rfl
   change ClaudeWCT.Numerics.Law.lawAvg honestLaw (2 ^ 32)
-    (fun W : List WProposal => price W - 2031 / 1024) ≤ 6186 / 10000000
+    (fun W : List WProposal => price W - 2031 / 1024) ≤ 6678 / 10000000
   rw [honestLaw_eq_n4]
   exact ClaudeWCT.Numerics.WCTPrice.wct_excess_honest_2_32_54
 end ClaudeWCT.Bank.WCT
@@ -566,7 +566,7 @@ theorem psi_cert (q : Nat) (st : RouterState) (h : CertGhost st) : 1 ≤ psi q s
   · exact ClaudeWCT.Bank.WCT.wct_core_win CaseC.horizon ⊤ CaseC.excessBound_top (bankOf q st) (not_lt.mpr h.1) hcov
 theorem psi_initial (q : Nat) :
     psi q RouterState.initial ≤
-      (q : ENNReal) * (if q ≤ 2 ^ 121 then 6186 / 10000000 else 2933 / 1000000) / 2 ^ 128 := by
+      (q : ENNReal) * (if q ≤ 2 ^ 121 then 6678 / 10000000 else 2435 / 1000000) / 2 ^ 128 := by
   have h0 : reuseC RouterState.initial = 0 := by
     unfold reuseC
     apply ENNReal.tsum_eq_zero.mpr
@@ -580,9 +580,9 @@ theorem psi_initial (q : Nat) :
   rw [h0]
   split_ifs with h125
   · exact ClaudeWCT.Bank.WCT.wct_core_initial_54 q
-  · have hinit := ClaudeWCT.Bank.WCT.wct_core_initial CaseC.horizon (2933 / 1000000)
+  · have hinit := ClaudeWCT.Bank.WCT.wct_core_initial CaseC.horizon (2435 / 1000000)
       ClaudeWCT.Numerics.WCTPrice.wct_excessBound_2_32 q
-    rw [ClaudeWCT.Bank.WCT.wct_corePotential_rate CaseC.horizon (2933 / 1000000)
+    rw [ClaudeWCT.Bank.WCT.wct_corePotential_rate CaseC.horizon (2435 / 1000000)
       ClaudeWCT.Numerics.WCTPrice.wct_excessBound_2_32 ⊤ CaseC.excessBound_top] at hinit
     exact hinit
 end ClaudeWCT.W9.T3.Security.LargeCoupling

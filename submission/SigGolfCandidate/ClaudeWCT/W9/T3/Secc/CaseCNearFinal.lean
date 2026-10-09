@@ -110,7 +110,7 @@ theorem invM_empty : InvM (LazyMem.empty, NearGhost.empty) := by
 noncomputable def ghostPot (q : Nat) (M : LazyMem × NearGhost) : ENNReal :=
   nearMemPotential q M.1.births M.2.fresh M.2.reused M.1.rows M.1.nonces
 noncomputable def ΦI (q : Nat) (s : GState) : ENNReal := if InvM s.memory then ghostPot q s.memory else ⊤
-theorem ΦI_initial (q : Nat) : ΦI q initG ≤ (q : ENNReal) * 300 / 2 ^ 128 := by
+theorem ΦI_initial (q : Nat) : ΦI q initG ≤ (q : ENNReal) * 268 / 2 ^ 128 := by
   unfold ΦI
   rw [if_pos (show InvM initG.memory from invM_empty)]
   exact mem_initial q
@@ -893,7 +893,7 @@ theorem worldGame_ΦI {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U)
 theorem forced_payoff_le {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : CanonTable.Omega U)
     (adversary : AdversaryP) (slot q : Nat) :
     expectedValue (SecretGuessObservation.forcedWithRun WPair.envL WPair.samplerL slot
-      (WPair.worldGameCore hU ω adversary) WPair.initL) (WPair.nearPayoff q) ≤ (q : ENNReal) * 300 / 2 ^ 128 := by
+      (WPair.worldGameCore hU ω adversary) WPair.initL) (WPair.nearPayoff q) ≤ (q : ENNReal) * 268 / 2 ^ 128 := by
   unfold SecretGuessObservation.forcedWithRun
   rw [← projS_initG, expectedValue_project WPair.envL slot _ initG (WPair.nearPayoff q)]
   calc
@@ -904,7 +904,7 @@ theorem forced_payoff_le {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆
 theorem forced_payoff_sum_le {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : CanonTable.Omega U)
     (adversary : AdversaryP) (slot q : Nat) :
     ∑' r, Pr[= r | SecretGuessObservation.forcedWithRun WPair.envL WPair.samplerL slot
-      (WPair.worldGameCore hU ω adversary) WPair.initL] * WPair.nearPayoff q r ≤ (q : ENNReal) * 300 / 2 ^ 128 :=
+      (WPair.worldGameCore hU ω adversary) WPair.initL] * WPair.nearPayoff q r ≤ (q : ENNReal) * 268 / 2 ^ 128 :=
   forced_payoff_le hU ω adversary slot q
 end ClaudeWCT.W9.T3.Security.CaseC
 end
@@ -997,7 +997,7 @@ theorem sum_range_sub_succ_mul_le (q coefficient : Nat) :
     _ ≤ coefficient * (q * q) := Nat.mul_le_mul_left coefficient (sum_range_sub_succ_twice_le q)
     _ = _ := by ring
 noncomputable def nearTermTight (q : Nat) : ENNReal :=
-  (q : ENNReal) * ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * (150 * q / 2 ^ 128)
+  (q : ENNReal) * ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * (134 * q / 2 ^ 128)
 theorem nearBoundTight : NearBoundNO nearTermTight := by
   intro adversary q hq _ _
   have hchain := WPair.near_chain_slot adversary q hq
@@ -1010,20 +1010,20 @@ theorem nearBoundTight : NearBoundNO nearTermTight := by
   have hslot : ∀ slot, (∑' ω, Pr[= ω | WPair.omegaLaw adversary] *
       ∑' r, Pr[= r | SphincsSecurity.Concrete.SecretGuessObservation.forcedWithRun WPair.envL WPair.samplerL slot
         (WPair.worldGameL (WPair.canon_subset adversary) ω adversary) WPair.initL] * WPair.nearPayoff (q - (slot + 1)) r) ≤
-      ((q - (slot + 1) : Nat) : ENNReal) * 300 / 2 ^ 128 :=
+      ((q - (slot + 1) : Nat) : ENNReal) * 268 / 2 ^ 128 :=
     fun slot => omega_avg_le _ _ _ fun ω => forced_payoff_sum_le (WPair.canon_subset adversary) ω adversary slot (q - (slot + 1))
   calc
     _ ≤ Pr[NearAll adversary q | SeccLaw.completedExperiment adversary q hq] := near_le_all adversary q hq
     _ ≤ _ := hchain
-    _ ≤ ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * ∑ slot ∈ Finset.range q, ((q - (slot + 1) : Nat) : ENNReal) * 300 / 2 ^ 128 :=
+    _ ≤ ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * ∑ slot ∈ Finset.range q, ((q - (slot + 1) : Nat) : ENNReal) * 268 / 2 ^ 128 :=
       mul_le_mul' le_rfl (Finset.sum_le_sum fun slot _ => hslot slot)
     _ = ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ *
-          ((((∑ slot ∈ Finset.range q, (q - (slot + 1))) * 300 : Nat) : ENNReal) / 2 ^ 128) := by
+          ((((∑ slot ∈ Finset.range q, (q - (slot + 1))) * 268 : Nat) : ENNReal) / 2 ^ 128) := by
       congr 1
       push_cast
       simp only [div_eq_mul_inv, ← Finset.sum_mul]
-    _ ≤ ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * (((150 * q * q : Nat) : ENNReal) / 2 ^ 128) :=
-      mul_le_mul' le_rfl (ENNReal.div_le_div_right (Nat.cast_le.mpr (by simpa using sum_range_sub_succ_mul_le q 150)) _)
+    _ ≤ ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * (((134 * q * q : Nat) : ENNReal) / 2 ^ 128) :=
+      mul_le_mul' le_rfl (ENNReal.div_le_div_right (Nat.cast_le.mpr (by simpa using sum_range_sub_succ_mul_le q 134)) _)
     _ = nearTermTight q := by
       unfold nearTermTight
       push_cast
@@ -1037,7 +1037,7 @@ theorem nearTermTight_le (q : Nat) : nearTermTight q ≤ Wots.nearTerm q := by
 /-- The near bound of case C for FTS seed families: unchanged right-hand side, given no FTS overflow. -/
 theorem nearBound : NearBoundNO Wots.nearTerm :=
   fun adversary q hq h1 h2 => (nearBoundTight adversary q hq h1 h2).trans (nearTermTight_le q)
-theorem excessBound_horizon : ClaudeWCT.Bank.WCT.ExcessBound horizon (2933 / 1000000) :=
+theorem excessBound_horizon : ClaudeWCT.Bank.WCT.ExcessBound horizon (2435 / 1000000) :=
   ClaudeWCT.Numerics.WCTPrice.wct_excessBound_2_32
 /-- The small case-C bound of the WCT-9 instance on runs without FTS overflow (campaign X1 stage A). -/
 theorem caseC_small_bound_wct :

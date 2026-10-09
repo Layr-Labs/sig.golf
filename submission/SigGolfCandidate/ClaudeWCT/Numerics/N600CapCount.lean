@@ -6,7 +6,7 @@ open Finset Polynomial
 set_option maxRecDepth 100000
 open ClaudeWCT.WCT9 (routineCost routineCosts routineCosts_length jointCap Coord Child Rank childExtra childSave maxChildSave)
 def pairCost (c : Fin 9 → Child × Rank) : ℕ := ∑ k, (routineCost (c k).2 + childExtra (c k).1)
-def J : ℕ := 51990092440650528159656285305264677126206464
+def J : ℕ := 51788959108374987230403191723853726696732160
 noncomputable def costPoly : ℕ[X] := ∑ r : Fin 563, X ^ routineCost r
 noncomputable def pairPoly : ℕ[X] := ∑ p : Child × Rank, X ^ (routineCost p.2 + childExtra p.1)
 theorem sum_routineCost {M : Type*} [AddCommMonoid M] (f : ℕ → M) :
@@ -56,7 +56,7 @@ theorem pairEval_one : pairEval 1 = 72064 := by decide +kernel
 theorem eval_one_pairPoly : pairPoly.eval 1 = 72064 := by
   rw [eval_pairPoly, pairEval_one]
 def capCheck : Bool :=
-  Nat.beq ((List.range 785).foldr (fun t s => pairEval (2 ^ 150) ^ 9 / (2 ^ 150) ^ t % 2 ^ 150 + s) 0) J
+  Nat.beq ((List.range 784).foldr (fun t s => pairEval (2 ^ 150) ^ 9 / (2 ^ 150) ^ t % 2 ^ 150 + s) 0) J
 theorem capCheck_ok : capCheck = true := by decide +kernel
 theorem range_foldr_eq_sum' (h : ℕ → ℕ) (n : ℕ) :
     (List.range n).foldr (fun r s => h r + s) 0 = ∑ r ∈ Finset.range n, h r := by
@@ -85,12 +85,12 @@ theorem card_capSet : capSet.card = J := by
   have hext : ∀ t, (pairPoly ^ 9).coeff t = pairEval (2 ^ 150) ^ 9 / (2 ^ 150) ^ t % 2 ^ 150 := by
     intro t
     rw [← ClaudeWCT.Numerics.eval_div_pow_mod hB t _ hcoeff, eval_pow, eval_pairPoly]
-  have hsplit : capSet.card = ∑ t ∈ range 785, #{c : Fin 9 → Child × Rank | pairCost c = t} := by
-    have hmem : ∀ c ∈ capSet, pairCost c ∈ range 785 := by
+  have hsplit : capSet.card = ∑ t ∈ range 784, #{c : Fin 9 → Child × Rank | pairCost c = t} := by
+    have hmem : ∀ c ∈ capSet, pairCost c ∈ range 784 := by
       intro c hc
       rw [mem_capSet] at hc
       rw [mem_range]
-      have h707 : ClaudeWCT.WCT9.jointCap = 784 := rfl
+      have h707 : ClaudeWCT.WCT9.jointCap = 783 := rfl
       omega
     rw [card_eq_sum_card_fiberwise hmem]
     unfold capSet

@@ -61,7 +61,7 @@ theorem coveredP_iff (W : List WProposal) (N : SigGolfCandidate.T3.HashOutput) :
   · rintro ⟨e, he, h2, h3⟩
     exact ⟨(outIdx N, e), (mem_atIndex _ _ _).mp he, rfl, h2, h3⟩
 theorem price_scale :
-    (2 : ENNReal) ^ 128 * ((1131 * 2 ^ 58 : ℕ) : ENNReal) * ((N600.Q ^ 9 : ℕ) : ENNReal) *
+    (2 : ENNReal) ^ 128 * ((1135 * 2 ^ 58 : ℕ) : ENNReal) * ((N600.Q ^ 9 : ℕ) : ENNReal) *
         ((2 ^ 256 : ℕ) : ENNReal)⁻¹ = N600.priceScale := by
   rw [← div_eq_mul_inv]
   apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by unfold N600.priceScale; finiteness)).mp

@@ -6,7 +6,7 @@ open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final
 open SigGolfCandidate.T3.Security.Wots (signRatio digestClass)
-noncomputable def nearPrice : ENNReal := 150
+noncomputable def nearPrice : ENNReal := 134
 noncomputable def nearTermSlots (slots : Nat) (q : Nat) : ENNReal :=
   (q : ENNReal) * ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ *
     (nearPrice * q / 2 ^ 128 + slots * (signRatio * q : Nat) * SeccClosingW9.cacheRate / 2 ^ 128 +

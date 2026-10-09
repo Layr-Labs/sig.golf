@@ -16,7 +16,7 @@ structure SetupMask (u : MachineState) : Prop where
   child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xce800
   jt : u.getMem (BitVec.ofNat 64 (dataBase7 + 376)) = BitVec.ofNat 64 0xd6800
   coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 8640
-  gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 0x11ac000000000000
+  gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 0x11bc000000000000
   d0 : u.getMem (BitVec.ofNat 64 dataBase7) = BitVec.ofNat 64 0xfff
 structure ForestData (u : MachineState) : Prop where
   zero0 : u.getMem (BitVec.ofNat 64 (dataBase7 + 16)) = 0

@@ -538,7 +538,7 @@ theorem shl_index (index n : Nat) : BitVec.ofNat 64 index <<< n = BitVec.ofNat 6
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_shiftLeft, BitVec.toNat_ofNat, Nat.shiftLeft_eq, Nat.mod_mul_mod]
 theorem drv_entry {im : Image} (hc : NewCodeAt im) (N : HashOutput) (s : MachineState) (hpc : s.pc = pcOf base)
-    (h5 : s.getReg .x5 = 0) (hN : OutAt s 0x60 N) (hg : N.toNat / 2 ^ 242 % 2 ^ 14 < 1131) :
+    (h5 : s.getReg .x5 = 0) (hN : OutAt s 0x60 N) (hg : N.toNat / 2 ^ 242 % 2 ^ 14 < 1135) :
     ∃ t, Steps im s 31 31 t ∧ t.pc = pcOf (base + 34) ∧ DRegs (WCT9.digestIndex N) t ∧
       t.getReg .x8 = BitVec.ofNat 64 (regBase (0 - 1)) ∧
       t.getReg .x28 = BitVec.ofNat 64 (HB0 + 2048 + 512 * (0 - 1)) ∧
@@ -558,7 +558,7 @@ theorem drv_entry {im : Image} (hc : NewCodeAt im) (N : HashOutput) (s : Machine
   have x3_2 : u2.getReg .x3 = 1#64 := by
     simp only [hu2, Result.toState_getReg, blk_4.res, rv_simp, m1, hw, hw3, BitVec.toNat_ofNat, Nat.reduceMod,
       Nat.reducePow]
-    have hlt : BitVec.ult (N.extractLsb' 192 64 >>> 50) 1131#64 = true := by
+    have hlt : BitVec.ult (N.extractLsb' 192 64 >>> 50) 1135#64 = true := by
       rw [SigGolfCandidate.Research.V7Composed198Gate.gate_ult_shift50, decide_eq_true_eq]
       exact hg
     simp [hlt]

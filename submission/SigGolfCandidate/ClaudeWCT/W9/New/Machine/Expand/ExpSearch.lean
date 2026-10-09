@@ -235,22 +235,22 @@ theorem trial_spec (hl : LookOK im expLook) (s : MachineState) (hpc : s.pc = pcO
       if_neg hn.2]; rfl
 theorem gate_spec (hl : LookOK im expLook) (s : MachineState) (hpc : s.pc = pcOf 40910) (a : BitVec 256)
     (ha : OutAt s NBUF a) :
-    ∃ t, Steps im s 7 7 t ∧ t.pc = (if a.toNat / 2 ^ 242 % 2 ^ 14 < 1131 then pcOf 40917 else pcOf 41060) ∧
+    ∃ t, Steps im s 7 7 t ∧ t.pc = (if a.toNat / 2 ^ 242 % 2 ^ 14 < 1135 then pcOf 40917 else pcOf 41060) ∧
       t.getReg .x22 = a.extractLsb' 0 64 ∧ RegsExcept s t [.x6, .x22, .x28] ∧
       Frame s t (fun _ => False) := by
   have hg := gateE_eval s a (outS ha)
-  have hbr : ∀ b ∈ (resGate (decide ¬ (a.toNat / 2 ^ 242 % 2 ^ 14 < 1131))).brs, b.holds s := by
+  have hbr : ∀ b ∈ (resGate (decide ¬ (a.toNat / 2 ^ 242 % 2 ^ 14 < 1135))).brs, b.holds s := by
     intro b hb
     simp only [resGate, List.mem_singleton] at hb
     subst hb
     simp only [Br.holds, CmpOp.eval, E.eval, hg]
-    by_cases h0 : a.toNat / 2 ^ 242 % 2 ^ 14 < 1131
+    by_cases h0 : a.toNat / 2 ^ 242 % 2 ^ 14 < 1135
     · simp only [h0, if_true, not_true_eq_false, decide_false]; decide +kernel
     · simp only [h0, if_false, not_false_eq_true, decide_true]; decide +kernel
   obtain ⟨hs, hp, -, hr, hm⟩ := piece hl (run_gate _) s hpc rfl hbr rfl
   refine ⟨_, hs, ?_, ?_, regs_rfs hr, fun A _ _ => by rw [hm]; rfl⟩
   · rw [hp]; simp only [resGate]
-    by_cases h0 : a.toNat / 2 ^ 242 % 2 ^ 14 < 1131
+    by_cases h0 : a.toNat / 2 ^ 242 % 2 ^ 14 < 1135
     · simp only [h0, not_true_eq_false, decide_false, Bool.false_eq_true, if_false, if_true]
     · simp only [h0, not_false_eq_true, decide_true, if_false, if_true]
   · rw [hr]
@@ -467,24 +467,24 @@ theorem fields_from (hl : LookOK im expLook) (a : BitVec 256) :
       rw [if_neg (fun h => hf (h k hk9 le_rfl))]; exact p1
 theorem cap_spec (hl : LookOK im expLook) (s : MachineState) (hpc : s.pc = pcOf 41052) (S : Nat)
     (hS : S < 2 ^ 64) (h20 : s.getReg .x20 = BitVec.ofNat 64 S) :
-    ∃ t, Steps im s 2 2 t ∧ t.pc = (if S ≤ 784 then pcOf 41054 else pcOf 41060) ∧
+    ∃ t, Steps im s 2 2 t ∧ t.pc = (if S ≤ 783 then pcOf 41054 else pcOf 41060) ∧
       RegsExcept s t [.x6] ∧ Frame s t (fun _ => False) := by
-  have hce : capE.eval s = BitVec.ofNat 64 (if S < 785 then 1 else 0) := by
+  have hce : capE.eval s = BitVec.ofNat 64 (if S < 784 then 1 else 0) := by
     simp only [capE, cst, E.eval, h20, BinOp.eval, BitVec.ult, toNat_ofNat_lt hS,
-      toNat_ofNat_lt (show 785 < 2 ^ 64 by decide +kernel)]
-    by_cases h : S < 785 <;> simp [h]
-  have hbr : ∀ b ∈ (resCap (decide ¬ (S ≤ 784))).brs, b.holds s := by
+      toNat_ofNat_lt (show 784 < 2 ^ 64 by decide +kernel)]
+    by_cases h : S < 784 <;> simp [h]
+  have hbr : ∀ b ∈ (resCap (decide ¬ (S ≤ 783))).brs, b.holds s := by
     intro b hb
     simp only [resCap, List.mem_singleton] at hb
     subst hb
     simp only [Br.holds, CmpOp.eval, E.eval, hce]
-    by_cases h0 : S ≤ 784
-    · simp only [show S < 785 by omega, if_true, h0, not_true_eq_false, decide_false]; decide +kernel
-    · simp only [show ¬ S < 785 by omega, if_false, h0, not_false_eq_true, decide_true]; decide +kernel
+    by_cases h0 : S ≤ 783
+    · simp only [show S < 784 by omega, if_true, h0, not_true_eq_false, decide_false]; decide +kernel
+    · simp only [show ¬ S < 784 by omega, if_false, h0, not_false_eq_true, decide_true]; decide +kernel
   obtain ⟨hs, hp, -, hr, hm⟩ := piece hl (run_cap _) s hpc rfl hbr rfl
   refine ⟨_, hs, ?_, regs_rfs hr, fun A _ _ => by rw [hm]; rfl⟩
   rw [hp]; simp only [resCap]
-  by_cases h0 : S ≤ 784
+  by_cases h0 : S ≤ 783
   · simp only [h0, not_true_eq_false, decide_false, Bool.false_eq_true, if_false, if_true]
   · simp only [h0, not_false_eq_true, decide_true, if_false, if_true]
 theorem checks_spec (hl : LookOK im expLook) (u : MachineState) (hpc : u.pc = pcOf 40910) (a : BitVec 256)
@@ -496,7 +496,7 @@ theorem checks_spec (hl : LookOK im expLook) (u : MachineState) (hpc : u.pc = pc
   obtain ⟨t1, s1, p1, x22, r1, f1⟩ := gate_spec hl u hpc a ha
   have hadm := WCT9.admissible_iff a
   have hprod := WCT9.producerAdmissible_iff a
-  by_cases hg : a.toNat / 2 ^ 242 % 2 ^ 14 < 1131
+  by_cases hg : a.toNat / 2 ^ 242 % 2 ^ 14 < 1135
   · rw [if_pos hg] at p1
     obtain ⟨t2, s2, p2, x20, x21, r2, f2⟩ := cost0_spec hl t1 p1
     have ha2 : OutAt t2 NBUF a := fun j hj => by
@@ -526,7 +526,7 @@ theorem checks_spec (hl : LookOK im expLook) (u : MachineState) (hpc : u.pc = pc
         rw [if_pos (by rw [hjc]; exact hcap)] at p4
         exact ⟨p4, by rw [r4.get (by decide +kernel)]; exact h22 r3⟩
       · rw [if_neg hA]
-        have hcap : ¬ psum a 9 ≤ 784 := fun h => hA (hprod.2 ⟨hadm.2 ⟨hg, hf⟩, by rw [← hjc]; exact h⟩)
+        have hcap : ¬ psum a 9 ≤ 783 := fun h => hA (hprod.2 ⟨hadm.2 ⟨hg, hf⟩, by rw [← hjc]; exact h⟩)
         rw [if_neg hcap] at p4; exact p4
     · rw [if_neg (fun h => hf (hall.1 h))] at p3
       refine ⟨t3, 7 + 3 + c3, (s1.trans s2).trans s3, by omega, ((r1.trans r2).trans r3).mono (by decide +kernel),

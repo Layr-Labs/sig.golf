@@ -1462,7 +1462,7 @@ theorem certOut_le_psi (q : Nat) (r : Option (Option (Bool × RouterState)) × L
   · exact zero_le
 theorem bank_cert_le (hUpub : SeccLaw.publicUniverse ⊆ U) (initLaw : PMF AuxData) (adversary : AdversaryP) (q : Nat) :
     Pr[CertOut | lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial] ≤
-      (q : ENNReal) * (if q ≤ 2 ^ 121 then 6186 / 10000000 else 2933 / 1000000) / 2 ^ 128 +
+      (q : ENNReal) * (if q ≤ 2 ^ 121 then 6678 / 10000000 else 2435 / 1000000) / 2 ^ 128 +
         coeffQ q * (∑' r, Pr[= r | lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial] *
           (r.2.counters.mass : ENNReal)) / 2 ^ 128 := by
   set L := lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial with hL
@@ -1543,7 +1543,7 @@ theorem large_cert_bound (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
   refine (hmain.trans (le_of_eq (add_assoc _ _ _))).trans ((add_le_add le_rfl habs).trans ?_)
   have hrm : (∑' r, Pr[= r | lazyRun (auxLaw initLaw) q (router (Wots.referenceInputs adversary) adversary q)
       LargeResidual.initial] * (r.2.counters.mass : ENNReal)) = routerMass adversary q := rfl
-  have hexc_eq : (if q ≤ 2 ^ 121 then (6186 / 10000000 : ENNReal) else 2933 / 1000000) =
+  have hexc_eq : (if q ≤ 2 ^ 121 then (6678 / 10000000 : ENNReal) else 2435 / 1000000) =
       (if q ≤ 2 ^ 121 then excessRate54 else excessRate) := by
     rw [ClaudeWCT.W9.T3.Security.SeccClosingW9.excessRate54_def,
       ClaudeWCT.W9.T3.Security.SeccClosingW9.excessRate_def]

@@ -122,7 +122,7 @@ theorem gate_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
   have hw3 : s1.getMem (BitVec.ofNat 64 24) = a.extractLsb' 192 64 := by
     have := hu.digest 3 (by decide +kernel)
     simpa [MachineState.getMem, m1] using this
-  have hgate : s1.getMem ((addC (.reg .x2) 352).eval s1) = 0x11ac000000000000#64 := by
+  have hgate : s1.getMem ((addC (.reg .x2) 352).eval s1) = 0x11bc000000000000#64 := by
     change s1.getMem ((addC (.reg .x2) (BitVec.ofNat 64 352)).eval s1) = _
     rw [setup_load s1 hu.sp 352]
     exact hu.setupMask.gate
