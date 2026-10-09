@@ -1,6 +1,7 @@
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.Fetch
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.WitV5
-import SigGolfCandidate.ClaudeWCT.W9.T3M.SigCodec
+import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Honest
+import SigGolfCandidate.ClaudeWCT.W9.T3M.SigCodecC
 import SigGolfCandidate.T3M.Expand.LayersBlocks
 import SigGolfCandidate.T3M.Search.DigestSearch
 
@@ -70,7 +71,7 @@ def NewCodeSpec (im : Image) : Prop :=
   ∀ (sk : BitVec 256) (m : Message) (sig : WCT9.Signature) (s : MachineState), Pre30 m sig s →
     TBSim im sk s newCost (newProg m sig) (NewPost sig s)
 def w9Sub (imgs : Phase → Image) : Submission where
-  sizes := ⟨5312, 20908, 131072⟩
+  sizes := ⟨5310, 20908, 131072⟩
   layout := ⟨0x59b0, 0x80, 0xa0, 0x80000, 0x7000, 0x800⟩
   image := imgs
 def zeroBlk : List (BitVec 32) := [28343,0x9a0eb823,0x9a0ebc23,0x9c0eb023,0x9c0eb423,2451,0xce4d606f]
@@ -82,12 +83,12 @@ def compareCode : List (BitVec 32) :=
 def ExpandDataOK (im : Image) : Prop :=
   im.data = lplanBytes ++ planBytes ++ expCostBytes ++ hdrBankBytes ++ SigGolfCandidate.T3M.Images.expandLegacyData
 def ExpandRefinesW (imgs : Phase → Image) : Prop :=
-  ∀ (m : Message) (pk : PublicKey) (s : Bytes 5312),
+  ∀ (m : Message) (pk : PublicKey) (s : Bytes 5310),
     (fun r => (r.value, r.hashCalls, r.hashCompressions)) <$> (w9Sub imgs).run .expand (m, pk, s) =
       (fun p => (p.1.map (fun x => ClaudeWCT.W9.T3M.witEnc x.1 x.2), p.2.1, p.2.2)) <$>
-        countBoth (mrealize 0 (ClaudeWCT.W9.T3M.expandN m pk (ClaudeWCT.W9.T3M.sigDec s)))
+        countBoth (mrealize 0 (ClaudeWCT.W9.T3M.expandN m pk (ClaudeWCT.W9.T3M.sigDecC s)))
 def ExpandTerminatesW (imgs : Phase → Image) : Prop :=
-  ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5312),
+  ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5310),
     ((w9Sub imgs).runWith hash .expand (m, pk, s)).finished = true ∧
       ((w9Sub imgs).runWith hash .expand (m, pk, s)).cycles < CYCLE_LIMIT
 end ClaudeWCT.W9.Machine.Expand

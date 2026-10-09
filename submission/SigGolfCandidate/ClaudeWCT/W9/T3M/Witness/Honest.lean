@@ -1,6 +1,7 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Encode
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.TopLayer
 import SigGolfCandidate.ClaudeWCT.WCT9.Correctness
+import SigGolfCandidate.ClaudeWCT.WCT9.Omit
 
 section
 namespace ClaudeWCT.W9.T3M
@@ -1047,30 +1048,21 @@ def VerifyPWitEncEval : Prop := ∀ (answers : Correctness.Answers) (m : Message
 def HonestBEval : Prop := ∀ (answers : Correctness.Answers) (m : Message),
   evalWithAnswerFn answers (honestProgramB m) = evalWithAnswerFn answers (honestProgramCore m)
 theorem expand_eq_expandN (m : Message) (pk : Digest) (σ : WCT9.Signature) :
-    WCT9.Rev3.expand m pk σ = Option.map Prod.snd <$> expandN m pk σ := by
-  unfold WCT9.Rev3.expand WCT9.expandWith expandN
-  rw [map_bind]; congr 1; funext r
-  rcases r with _ | ⟨counter, output⟩
-  · simp
-  · simp only
-    rw [map_bind]; congr 1; funext root
-    rw [map_bind]; congr 1; funext r
-    rcases r with _ | ⟨root, counters⟩
-    · simp
-    · simp only
-      split <;> simp
+    WCT9.Rev3.expand m pk σ = Option.map Prod.snd <$> expandN m pk σ := rfl
 theorem expandEqExpandN_holds : ExpandEqExpandN := expand_eq_expandN
-structure ExpandFacts (answers : Correctness.Answers) (m : Message) (pk : Digest) (σ : WCT9.Signature)
+theorem expandN0_eq (m : Message) (pk : Digest) (σ : WCT9.Signature) :
+    expandN0 m pk σ = WCT9.expandWithN WCT9.digestAttemptLimit m pk σ := rfl
+structure ExpandFacts0 (answers : Correctness.Answers) (m : Message) (pk : Digest) (σ : WCT9.Signature)
     (N : HashOutput) (w : WCT9.Witness) : Prop where
   sig : w.signature = σ
   dc : w.digestCounter.toNat < WCT9.digestAttemptLimit
   digest : evalWithAnswerFn answers (digest σ.rho m w.digestCounter) = N
   adm : WCT9.admissible N = true
   cap : WCT9.capOk N = true
-theorem expandN_facts (answers : Correctness.Answers) (m : Message) (pk : Digest) (σ : WCT9.Signature)
-    (N : HashOutput) (w : WCT9.Witness) (he : evalWithAnswerFn answers (expandN m pk σ) = some (N, w)) :
-    ExpandFacts answers m pk σ N w := by
-  simp only [expandN, evalWithAnswerFn_bind] at he
+theorem expandN0_facts (answers : Correctness.Answers) (m : Message) (pk : Digest) (σ : WCT9.Signature)
+    (N : HashOutput) (w : WCT9.Witness) (he : evalWithAnswerFn answers (expandN0 m pk σ) = some (N, w)) :
+    ExpandFacts0 answers m pk σ N w := by
+  simp only [expandN0, evalWithAnswerFn_bind] at he
   cases hd : evalWithAnswerFn answers (WCT9.digestSearch σ.rho m 0 WCT9.digestAttemptLimit) with
   | none => simp only [hd, evalWithAnswerFn_pure, reduceCtorEq] at he
   | some found =>
@@ -1090,11 +1082,32 @@ theorem expandN_facts (answers : Correctness.Answers) (m : Message) (pk : Digest
               WCT9.digestAttemptLimit 0 counter output (by unfold WCT9.digestAttemptLimit; norm_num) hd
             exact ⟨rfl, by simpa using hcounter, houtput, WCT9.admissible_of_producer hadm,
               (WCT9.capOk_iff output).2 ((WCT9.producerAdmissible_iff output).1 hadm).2⟩
-theorem verifyP_witEnc_eval (answers : Correctness.Answers) (m : Message) (pk : Digest) (σ : WCT9.Signature)
+/-- An H2 expansion is the old expansion of a completion `fillTop σ c`. -/
+theorem expandN_completion (answers : Correctness.Answers) (m : Message) (pk : Digest) (σ : WCT9.Signature)
     (N : HashOutput) (w : WCT9.Witness) (he : evalWithAnswerFn answers (expandN m pk σ) = some (N, w)) :
+    ∃ c, c < 2 ^ 16 ∧ w.signature = WCT9.fillTop σ c ∧
+      evalWithAnswerFn answers (expandN0 m pk (WCT9.fillTop σ c)) = some (N, w) :=
+  WCT9.eval_expandS answers _ m pk σ N w he
+structure ExpandFacts (answers : Correctness.Answers) (m : Message) (pk : Digest) (σ : WCT9.Signature)
+    (N : HashOutput) (w : WCT9.Witness) : Prop where
+  rho : w.signature.rho = σ.rho
+  fill : ∃ c, c < 2 ^ 16 ∧ w.signature = WCT9.fillTop σ c ∧
+    evalWithAnswerFn answers (expandN0 m pk (WCT9.fillTop σ c)) = some (N, w)
+  dc : w.digestCounter.toNat < WCT9.digestAttemptLimit
+  digest : evalWithAnswerFn answers (digest σ.rho m w.digestCounter) = N
+  adm : WCT9.admissible N = true
+  cap : WCT9.capOk N = true
+theorem expandN_facts (answers : Correctness.Answers) (m : Message) (pk : Digest) (σ : WCT9.Signature)
+    (N : HashOutput) (w : WCT9.Witness) (he : evalWithAnswerFn answers (expandN m pk σ) = some (N, w)) :
+    ExpandFacts answers m pk σ N w := by
+  obtain ⟨c, hc, hsig, h0⟩ := expandN_completion answers m pk σ N w he
+  have F := expandN0_facts answers m pk _ N w h0
+  exact ⟨by rw [hsig]; rfl, ⟨c, hc, hsig, h0⟩, F.dc, F.digest, F.adm, F.cap⟩
+theorem verifyP_witEnc_eval0 (answers : Correctness.Answers) (m : Message) (pk : Digest) (σ : WCT9.Signature)
+    (N : HashOutput) (w : WCT9.Witness) (he : evalWithAnswerFn answers (expandN0 m pk σ) = some (N, w)) :
     evalWithAnswerFn answers (Cost.countCalls (verifyP m pk (witEnc N w))) =
       evalWithAnswerFn answers (Cost.countCalls (WCT9.Rev3.verify m pk w)) := by
-  have F := expandN_facts answers m pk σ N w he
+  have F := expandN0_facts answers m pk σ N w he
   have hv : verifyP m pk (witEnc N w) =
       digest w.signature.rho m w.digestCounter >>= verifyTailP pk (witEnc N w) := by
     rw [verifyP_eq_tail]
@@ -1108,7 +1121,20 @@ theorem verifyP_witEnc_eval (answers : Correctness.Answers) (m : Message) (pk : 
   rw [hv, hw]
   apply eval_countCalls_bind_congr
   rw [F.sig, F.digest, verifyTailP_shaped pk N _ F.adm, witDecP_witEnc, padDecP_witEnc]
+theorem verifyP_witEnc_eval (answers : Correctness.Answers) (m : Message) (pk : Digest) (σ : WCT9.Signature)
+    (N : HashOutput) (w : WCT9.Witness) (he : evalWithAnswerFn answers (expandN m pk σ) = some (N, w)) :
+    evalWithAnswerFn answers (Cost.countCalls (verifyP m pk (witEnc N w))) =
+      evalWithAnswerFn answers (Cost.countCalls (WCT9.Rev3.verify m pk w)) := by
+  obtain ⟨c, -, -, h0⟩ := expandN_completion answers m pk σ N w he
+  exact verifyP_witEnc_eval0 answers m pk _ N w h0
 theorem verifyPWitEncEval_holds : VerifyPWitEncEval := verifyP_witEnc_eval
+theorem expandN_proj (m : Message) (pk : Digest) (σ : WCT9.Signature) :
+    expandN m pk (WCT9.proj σ) = expandN m pk σ := by
+  unfold expandN WCT9.expandS
+  rw [WCT9.proj_proj]
+theorem expandB_proj (m : Message) (pk : Digest) (σ : WCT9.Signature) :
+    expandB m pk (WCT9.proj σ) = expandB m pk σ := by
+  unfold expandB; rw [expandN_proj]
 theorem eval_expandB (answers : Correctness.Answers) (m : Message) (pk : Digest) (σ : WCT9.Signature) :
     evalWithAnswerFn answers (expandB m pk σ) =
       (evalWithAnswerFn answers (expandN m pk σ)).map (fun x => witEnc x.1 x.2) := by
