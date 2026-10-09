@@ -167,7 +167,7 @@ theorem topLeafReady_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : N
     all_goals rw [he.regs.get (by simp [topEntryRegs]),writeHash_getReg]
     all_goals exact ht.glob.1 _ (by simp [BC.bK, T3M.bK, layK, baseK])
   · rw [hreg .x23 (by decide +kernel) (by decide +kernel)]
-    exact ht.s7 0 rfl
+    exact ht.s7 0 rfl (by decide)
   · rw [hreg .x31 (by decide +kernel) (by decide +kernel)]
     exact (ht.t5 0 rfl).2 rfl
   · rw [hreg .x28 (by decide +kernel) (by decide +kernel), ht.word]
@@ -669,9 +669,9 @@ def lFuel : Nat → Nat
   | 0 => 9
   | 1 => topFuel
   | n + 2 => layerFuel (n + 1) + mkFuel (n + 1) + lFuel (n + 1)
-theorem lCyc_4 : lCyc 4 = 6724 := by decide +kernel
-theorem lCycA_4 : lCycA 4 = 5407 := by decide +kernel
-theorem lFuel_4 : lFuel 4 = 7756 := by decide +kernel
+theorem lCyc_4 : lCyc 4 = 6727 := by decide +kernel
+theorem lCycA_4 : lCycA 4 = 5410 := by decide +kernel
+theorem lFuel_4 : lFuel 4 = 7759 := by decide +kernel
 theorem layers_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^ 31) (Q : Prop) (hQ : Q) :
     ∀ n, n ≤ 4 → ∀ msg s, RestIn w pk index n msg s →
       GoodQ s (lFuel n) (lCyc n) Q (lCycA n) (ccM (BC.layerLoop w index n msg) (kFin pk)) := by

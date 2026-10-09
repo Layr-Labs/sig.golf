@@ -16,19 +16,20 @@ structure SetupMask (u : MachineState) : Prop where
   child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xce800
   jt : u.getMem (BitVec.ofNat 64 (dataBase7 + 376)) = BitVec.ofNat 64 0xd6800
   coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 8640
+  gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 0x1524000000000000
+  d0 : u.getMem (BitVec.ofNat 64 dataBase7) = BitVec.ofNat 64 0xfff
 structure ForestData (u : MachineState) : Prop where
   zero0 : u.getMem (BitVec.ofNat 64 (dataBase7 + 16)) = 0
   zero1 : u.getMem (BitVec.ofNat 64 (dataBase7 + 24)) = 0
   header : u.getMem (BitVec.ofNat 64 (dataBase7 + 32)) = BitVec.ofNat 64 0xf01
 structure GatePre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (u : MachineState) : Prop where
-  pc : u.pc = pcOf 32777
-  glob : Glob baseK w pk u
-  cached0 : u.getReg .x16 = a.extractLsb' 0 64
+  pc : u.pc = pcOf 4
+  glob : Glob [(.x5, 0)] w pk u
   len64 : u.getReg .x11 = 64
   forest : ForestData u
   digest : DigestAt a u
   bank : HeaderBank u
-  wit : Orig w (fun o => o ≠ 20896 ∧ o ≠ 20904) u
+  wit : Orig w (fun o => o ≠ 20896) u
   setupMask : SetupMask u
   sp : u.getReg .x2 = BitVec.ofNat 64 dataBase7
 end W9Drv

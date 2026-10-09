@@ -879,12 +879,12 @@ def fPrepA : Addr := ⟨some (.reg .x9), BitVec.ofNat 64 (2 ^ 64 - 264)⟩
 def fPrep : Result :=
   ⟨⟨((RegFile.init.set .x10 (.bin .add (.reg .x9) (.c (BitVec.ofNat 64 (2 ^ 64 - 288))))).set
       .x11 (.c 320)).set .x12 a2E,
-    [(fPrepA, .reg .x22)], [.valid fPrepA 8]⟩, .c (pcOf 32950), .ecall, 4, 4⟩
-def fTail : Result := ⟨SymState.init, .c (pcOf 32951), .fuel, 0, 0⟩
-theorem fPrep_checked : rOK (symRun {} fPrepWords (pcOf 32946) 5) fPrep = true := by decide +kernel
-theorem fPrep_linked : sliceChecked 32946 fPrepWords = true := by decide +kernel
-theorem fTail_checked : rOK (symRun {} fTailWords (pcOf 32951) 0) fTail = true := by decide +kernel
-theorem fTail_linked : sliceChecked 32951 fTailWords = true := by decide +kernel
+    [(fPrepA, .reg .x22)], [.valid fPrepA 8]⟩, .c (pcOf 1395), .ecall, 4, 4⟩
+def fTail : Result := ⟨SymState.init, .c (pcOf 1396), .fuel, 0, 0⟩
+theorem fPrep_checked : rOK (symRun {} fPrepWords (pcOf 1391) 5) fPrep = true := by decide +kernel
+theorem fPrep_linked : sliceChecked 1391 fPrepWords = true := by decide +kernel
+theorem fTail_checked : rOK (symRun {} fTailWords (pcOf 1396) 0) fTail = true := by decide +kernel
+theorem fTail_linked : sliceChecked 1396 fTailWords = true := by decide +kernel
 end W9Drv
 end
 section
@@ -1064,10 +1064,10 @@ theorem forest_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
       (ccM (pure (ans.extractLsb' 0 128) : M Digest) K) := by
     intro ans
     rw [ccM_pure]
-    have hpc : (writeHash s1 ans).pc = pcOf 32951 := by
+    have hpc : (writeHash s1 ans).pc = pcOf 1396 := by
       rw [writeHash_pc]
-      show pcOf 32950 + 4 = pcOf 32951
-      exact SigGolfCandidate.T3M.pcOf_add4 32950
+      show pcOf 1395 + 4 = pcOf 1396
+      exact SigGolfCandidate.T3M.pcOf_add4 1395
     have st2 := block_steps fTail_checked fTail_linked rfl (writeHash s1 ans) hpc
     have st2' : Steps Frozen.image (writeHash s1 ans) 0 0 (fTail.toState (writeHash s1 ans)) := st2
     set t := fTail.toState (writeHash s1 ans) with ht
@@ -1149,7 +1149,7 @@ def FtsGoodByCost (acceptCost : HashOutput → Nat) : Prop :=
       GoodQFor Frozen.image t N C Q A (K (some root))) →
     GoodQFor Frozen.image u (N+2023) (C+2023) Q (A+acceptCost a)
       (ccM (if ClaudeWCT.W9.T3M.gateOk a then ClaudeWCT.W9.T3M.wctP w a else pure none) K)
-def ftsAcceptCost (a : HashOutput) : Nat := 1046 + ClaudeWCT.WCT9.jointCost a
+def ftsAcceptCost (a : HashOutput) : Nat := 1048 + ClaudeWCT.WCT9.jointCost a
 end W9Drv
 end
 
@@ -1242,7 +1242,7 @@ theorem fts_good_of (chains : N600.AllGood Frozen.layout)
         (List.finRange 9).foldlM (ClaudeWCT.W9.T3M.wctStep w a) (some []) >>= f)
       funext state
       cases state <;> rfl)
-  change GoodQFor Frozen.image u (N + 1874) (C + 1874) Q (A + (1027 + ClaudeWCT.WCT9.jointCost a) + 19)
+  change GoodQFor Frozen.image u (N + 1876) (C + 1876) Q (A + (1027 + ClaudeWCT.WCT9.jointCost a) + 21)
     (KG (ClaudeWCT.W9.T3M.gateOk a)) at hg
   apply (hg.mono (by omega) (by omega) (fun hq => ⟨hq, by simp only [ftsAcceptCost]; omega⟩)).congr
   cases ClaudeWCT.W9.T3M.gateOk a <;> simp [KG, ccM_pure]
