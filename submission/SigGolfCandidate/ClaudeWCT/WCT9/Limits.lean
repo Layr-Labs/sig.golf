@@ -56,13 +56,76 @@ theorem signPayloadWith_attemptLimit :
 theorem signWith_attemptLimit : signWith SigGolfCandidate.T3.attemptLimit = sign := rfl
 theorem expandWith_attemptLimit : expandWith SigGolfCandidate.T3.attemptLimit = expand := rfl
 theorem verifyWith_attemptLimit : verifyWith SigGolfCandidate.T3.attemptLimit = verify := rfl
+/-! ### H2: the compact signature omits the top 16 bits of the top layer's level-11 sibling.
+Expand recovers everything up to the level-11 node `v` with those bits zero, then searches the 2^16 completions
+against the public key. The witness carries the completed signature, so verify is unchanged. -/
+def setTop (d : Digest) (c : Nat) : Digest := BitVec.ofNat 128 (d.toNat % 2 ^ 112 + c % 2 ^ 16 * 2 ^ 112)
+def fillLayer (lay : Layer) (ls : LayerSignature lay) (c : Nat) : LayerSignature lay :=
+  ⟨ls.values, fun j => if lay.val = 0 ∧ j.val = 11 then setTop (ls.path j) c else ls.path j⟩
+def fillTop (sig : Signature) (c : Nat) : Signature :=
+  ⟨sig.rho, sig.openings, fun lay => fillLayer lay (sig.layers lay) c⟩
+def proj (sig : Signature) : Signature := fillTop sig 0
+def topJ : Fin (height 0) := ⟨11, by decide⟩
+def topSib (sig : Signature) : Digest := (sig.layers 0).path topJ
+def topStep (sig : Signature) (index : Nat) (value : Digest) (j : Fin (height 0)) : M Digest := do
+  let other := (sig.layers 0).path j
+  let pair := if (route index 0).1 / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
+  nodeHash 3 (0 : Layer).val (route index 0).2 (2 ^ (height 0 - j.val - 1) + (route index 0).1 / 2 ^ (j.val + 1))
+    pair.1 pair.2
+def topNode (index : Nat) (value other : Digest) : M Digest := do
+  let pair := if (route index 0).1 / 2 ^ topJ.val % 2 = 0 then (value, other) else (other, value)
+  nodeHash 3 (0 : Layer).val (route index 0).2 (2 ^ (height 0 - topJ.val - 1) + (route index 0).1 / 2 ^ (topJ.val + 1))
+    pair.1 pair.2
+def topEnds (sig : Signature) (index : Nat) (digits : List Nat) : M (List Digest) :=
+  (List.finRange (chainCount 0)).mapM fun i =>
+    SigGolfCandidate.T3.chain 0 (route index 0).2 (route index 0).1 i.val (digits.getD i.val 0)
+      (maxDigit 0 i.val - digits.getD i.val 0) ((sig.layers 0).values i)
+/-- The top layer folded to its level-11 node (the input of the last node hash). -/
+def topFold (sig : Signature) (index : Nat) (digits : List Nat) : M Digest := do
+  let ends ← topEnds sig index digits
+  let value ← SigGolfCandidate.T3.leafHash 0 (route index 0).2 (route index 0).1 ends
+  ((List.finRange (height 0)).take 11).foldlM (topStep sig index) value
+/-- `expandLayersBC` that also returns the top layer's level-11 node and takes the top sibling as an argument. -/
+def expandLayersT (sig : Signature) (index : Nat) (other : Digest) :
+    Nat → LayerMsg → M (Option (Digest × Digest × List (BitVec 32)))
+  | 0, _ => pure none
+  | n + 1, msg => do
+      let lay : Layer := Fin.ofNat 4 n
+      let (leaf, tree) := route index lay
+      let some (counter, digits) ← layerCounterSearch lay tree leaf msg 0 (searchLimit lay) | pure none
+      if n = 0 then
+        let v ← topFold sig index digits
+        let root ← topNode index v other
+        pure (some (v, root, [counter]))
+      else
+        let pair ← recoverLayerPair sig index lay digits
+        let some (v, root, counters) ← expandLayersT sig index other n (.pair pair.1 pair.2) | pure none
+        pure (some (v, root, counters ++ [counter]))
+def searchFuel : Nat := 65535
+/-- Candidates `c, c + 1, ...` for the omitted bits; the first whose root is `pk`. -/
+def searchTop (index : Nat) (v sib pk : Digest) : Nat → Nat → M (Option Nat)
+  | 0, _ => pure none
+  | fuel + 1, c => do
+      let root ← topNode index v (setTop sib c)
+      if root = pk then pure (some c) else searchTop index v sib pk fuel (c + 1)
+/-- The H2 expander on a signature whose omitted bits are ignored (read as zero). -/
+def expandS (limit : Nat) (message : Message) (pk : Digest) (sig : Signature) :
+    M (Option (HashOutput × Witness)) := do
+  let sig0 := proj sig
+  let some (counter, output) ← digestSearch sig0.rho message 0 limit | pure none
+  let index := digestIndex output
+  let root ← recoverFts sig0 index output
+  let some (v, root, counters) ← expandLayersT sig0 index (topSib sig0) 4 (.forest root) | pure none
+  if root = pk then return some (output, ⟨sig0, counter, fun lay => counters.getD lay.val 0⟩)
+  let some c ← searchTop index v (topSib sig0) pk searchFuel 1 | pure none
+  pure (some (output, ⟨fillTop sig0 c, counter, fun lay => counters.getD lay.val 0⟩))
 namespace Rev3
 def signPayload (cache : Cache) (message : Message) : M (Option Signature) :=
   signPayloadWith digestAttemptLimit cache message
 def sign (cache : Cache) (message : Message) : M (Option Signature) :=
   signWith digestAttemptLimit cache message
 def expand (message : Message) (pk : Digest) (sig : Signature) : M (Option Witness) :=
-  expandWith digestAttemptLimit message pk sig
+  Option.map Prod.snd <$> expandS digestAttemptLimit message pk sig
 def verify (message : Message) (pk : Digest) (w : Witness) : M Bool :=
   verifyWith digestAttemptLimit message pk w
 def keygen : M (Digest × Cache) := ClaudeWCT.WCT9.keygen

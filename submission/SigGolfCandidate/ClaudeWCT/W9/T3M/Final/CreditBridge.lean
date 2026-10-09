@@ -264,11 +264,11 @@ theorem agree_layers (hash : Hash) (sig : ClaudeWCT.WCT9.Signature) (index : Nat
                   rw [hc lay (by omega), List.getD_append previousCounters [counter] 0 lay.val (by omega)]
 theorem expandN_layers (A : SigGolfCandidate.T3.Correctness.Answers) (m : SigGolfCandidate.T3.Message) (pk : Digest)
     (σ : ClaudeWCT.WCT9.Signature) (N : HashOutput) (wt : ClaudeWCT.WCT9.Witness)
-    (he : evalWithAnswerFn A (ClaudeWCT.W9.T3M.expandN m pk σ) = some (N, wt)) :
+    (he : evalWithAnswerFn A (ClaudeWCT.W9.T3M.expandN0 m pk σ) = some (N, wt)) :
     ∃ root counters, evalWithAnswerFn A (ClaudeWCT.WCT9.expandLayersBC σ (ClaudeWCT.WCT9.digestIndex N) 4
         (.forest (evalWithAnswerFn A (ClaudeWCT.WCT9.recoverFts σ (ClaudeWCT.WCT9.digestIndex N) N)))) = some (root, counters) ∧
       ∀ lay : Layer, wt.counters lay = counters.getD lay.val 0 := by
-  simp only [ClaudeWCT.W9.T3M.expandN, evalWithAnswerFn_bind] at he
+  simp only [ClaudeWCT.W9.T3M.expandN0, evalWithAnswerFn_bind] at he
   cases hd : evalWithAnswerFn A (ClaudeWCT.WCT9.digestSearch σ.rho m 0 ClaudeWCT.WCT9.digestAttemptLimit) with
   | none => simp only [hd, evalWithAnswerFn_pure, reduceCtorEq] at he
   | some found =>
@@ -287,9 +287,9 @@ theorem expandN_layers (A : SigGolfCandidate.T3.Correctness.Answers) (m : SigGol
             exact ⟨root, counters, hl, fun _ => rfl⟩
 theorem agree_verifyP (hash : Hash) (m : SigGolfCandidate.T3.Message) (pk : Digest) (σ : ClaudeWCT.WCT9.Signature)
     (N : HashOutput) (wt : ClaudeWCT.WCT9.Witness)
-    (hx : evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.W9.T3M.expandN m pk σ) = some (N, wt)) :
+    (hx : evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.W9.T3M.expandN0 m pk σ) = some (N, wt)) :
     Agree hash (okHash hash) (mrealize 0 (ClaudeWCT.W9.T3M.verifyP m pk (ClaudeWCT.W9.T3M.witEnc N wt))) := by
-  have F := ClaudeWCT.W9.T3M.expandN_facts _ m pk σ N wt hx
+  have F := ClaudeWCT.W9.T3M.expandN0_facts _ m pk σ N wt hx
   obtain ⟨root, counters, hl, hcs⟩ := expandN_layers _ m pk σ N wt hx
   have hv : ClaudeWCT.W9.T3M.verifyP m pk (ClaudeWCT.W9.T3M.witEnc N wt) =
       SigGolfCandidate.T3.digest wt.signature.rho m wt.digestCounter >>=
@@ -313,9 +313,9 @@ theorem agree_verifyP (hash : Hash) (m : SigGolfCandidate.T3.Message) (pk : Dige
   · split <;> trivial
 theorem digestCap_okHash (hash : Hash) (m : SigGolfCandidate.T3.Message) (pk : Digest)
     (σ : ClaudeWCT.WCT9.Signature) (N : HashOutput) (wt : ClaudeWCT.WCT9.Witness)
-    (hx : evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.W9.T3M.expandN m pk σ) = some (N, wt)) :
+    (hx : evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.W9.T3M.expandN0 m pk σ) = some (N, wt)) :
     DigestCapOk (okHash hash) m (ClaudeWCT.W9.T3M.witEnc N wt) := by
-  have F := ClaudeWCT.W9.T3M.expandN_facts _ m pk σ N wt hx
+  have F := ClaudeWCT.W9.T3M.expandN0_facts _ m pk σ N wt hx
   have hd : ClaudeWCT.W9.T3M.digestP m (ClaudeWCT.W9.T3M.witEnc N wt) =
       some <$> SigGolfCandidate.T3.digest wt.signature.rho m wt.digestCounter := by
     unfold ClaudeWCT.W9.T3M.digestP
@@ -333,21 +333,22 @@ set_option allowUnsafeReducibility true in
 attribute [local reducible] SphincsSecurity.hashOutputBits ClaudeWCT.W9.T3M.submission
   SigGolfCandidate.Legacy.Output SigGolfCandidate.Legacy.Input
 set_option maxRecDepth 100000 in
-theorem expand_witness (P : Pending I) (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5312)
+theorem expand_witness (P : Pending I) (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5310)
     (w : Bytes 20912) (he : ((ClaudeWCT.W9.T3M.submission I).runWith hash .expand (m, pk, s)).value = some w) :
-    ∃ N wt, evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.W9.T3M.expandN m pk (sigDec s)) = some (N, wt) ∧
+    ∃ σ' N wt, evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.W9.T3M.expandN0 m pk σ') = some (N, wt) ∧
       w = ClaudeWCT.W9.T3M.witEnc N wt := by
   have h := congrArg (evalWithAnswerFn hash) (expand_value P m pk s)
-  rw [evalWithAnswerFn_map, eval_mrealize hash 0 (ClaudeWCT.W9.T3M.expandB m pk (sigDec s)),
+  rw [evalWithAnswerFn_map, eval_mrealize hash 0 (ClaudeWCT.W9.T3M.expandB m pk (sigDecC s)),
     ClaudeWCT.W9.T3M.eval_expandB] at h
   unfold Submission.runWith at he
   rw [h] at he
-  cases hx : evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.W9.T3M.expandN m pk (sigDec s)) with
+  cases hx : evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.W9.T3M.expandN m pk (sigDecC s)) with
   | none => rw [hx] at he; cases he
   | some x =>
       rw [hx] at he
       obtain ⟨N, wt⟩ := x
-      exact ⟨N, wt, rfl, (Option.some.inj he).symm⟩
+      obtain ⟨c, -, -, h0⟩ := ClaudeWCT.W9.T3M.expandN_completion _ m pk _ N wt hx
+      exact ⟨_, N, wt, h0, (Option.some.inj he).symm⟩
 set_option maxRecDepth 100000 in
 theorem verify_run_ok (P : Pending I) (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 20912)
     (hagree : Agree hash (okHash hash) (mrealize 0 (ClaudeWCT.W9.T3M.verifyP m pk w))) :

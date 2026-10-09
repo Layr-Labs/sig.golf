@@ -23,7 +23,8 @@ noncomputable def checkForgeryP (publicKey : Digest) (log : QueryLog Requests) :
         let wb ← expandB message publicKey signature
         let some wb := wb | return false
         let verified ← verifyP message publicKey wb
-        pure (decide (¬∃ entry ∈ log, entry.1.message = message ∧ entry.2 = some signature) && verified)
+        pure (decide (¬∃ entry ∈ log, entry.1.message = message ∧
+          entry.2.map ClaudeWCT.WCT9.proj = some (ClaudeWCT.WCT9.proj signature)) && verified)
 noncomputable def gameP (adversary : AdversaryP) : M Bool := do
     let (publicKey, cache) ← keygen
     let (forgery, log) ← (simulateQ

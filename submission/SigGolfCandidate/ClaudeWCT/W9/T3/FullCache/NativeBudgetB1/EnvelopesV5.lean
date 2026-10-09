@@ -4,18 +4,18 @@ namespace ClaudeWCT.W9.T3.BaseAudit.V5
 open SigGolfCandidate.T3.BaseAudit (zU)
 set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
-def J : ℕ := 51830372797018490545585430547555363659334656
-/-- Density-aware digest acceptance: gate 1367/2^14, fields 563/1024 (rank = field), cap fraction J(783) / 72064^9:
-`1367 * 563^9 * J / (2^104 * 72064^9) = 1367 * J / 2^167`. -/
-def p0 : ℚ := 1367 * J / 2 ^ 167
-def b0 : ℚ := 1014160502207165799 / 1000000000000000000
+def J : ℕ := 52160064112201547234724220284775092957963776
+/-- T8E digest acceptance: gate 1451/2^14, fields 563/1024 (rank = field), cap fraction J(785) / 72064^9:
+`1451 * 563^9 * J / (2^104 * 72064^9) = 1451 * J / 2^167` (about 1/2471.7). -/
+def p0 : ℚ := 1451 * J / 2 ^ 167
+def b0 : ℚ := 1013244437247 / 1000000000000
 theorem step_0 : zU * ((1 - p0) * b0 + p0) ≤ b0 := by norm_num [zU, p0, b0, J]
-theorem probability_floor : 1 / 5026 ≤ p0 ∧ p0 ≤ 1 / 2471 := by norm_num [p0, J]
+theorem probability_floor : 1 / 2472 ≤ p0 ∧ p0 ≤ 1 / 2471 := by norm_num [p0, J]
 theorem p0_ge_5026 : 1 / 5026 ≤ p0 := by norm_num [p0, J]
 theorem p0_nonneg : 0 ≤ p0 := by norm_num [p0, J]
 theorem p0_le_one : p0 ≤ 1 := by norm_num [p0, J]
 /-- Campaign T8D (NF17, 51 r5 + 3 r8): accepted top encodings at target 144 with credit floor 8 (about 1/2907). -/
-def topCount144 : ℕ := 113151284379417370579638218549543970
+def topCount144 : ℕ := 117045744219961653783874307332422420
 def lowerCount197 : ℕ := 140610462347261096978771217394878840
 def lowerCount198 : ℕ := 113470737483767875195512089978341656
 def lowerCount199 : ℕ := 87860897096037675585104420890976996
@@ -25,14 +25,14 @@ def lowerCount199f5 : ℕ := 87860897096037675585104420890976996
 /-- T8B accepted lower encodings at target 199 with credit floor 4 (layer 3). -/
 def lowerCount199f4 : ℕ := 91101791054941032223577582479356176
 def p1 : ℚ := topCount144 / 2 ^ 128
-def b1 : ℚ := 1016160613718328085 / 1000000000000000000
+def b1 : ℚ := 1015614505958976118 / 1000000000000000000
 theorem step_1 : zU * ((1 - p1) * b1 + p1) ≤ b1 := by norm_num [zU, p1, b1, topCount144]
-def p2 : ℚ := lowerCount199f4 / 2 ^ 128
-def b2 : ℚ := 1020150806935365360 / 1000000000000000000
-theorem step_2 : zU * ((1 - p2) * b2 + p2) ≤ b2 := by norm_num [zU, p2, b2, lowerCount199f4]
-def p3 : ℚ := lowerCount199f4 / 2 ^ 128
-def b3 : ℚ := 1020150806935365360 / 1000000000000000000
-theorem step_3 : zU * ((1 - p3) * b3 + p3) ≤ b3 := by norm_num [zU, p3, b3, lowerCount199f4]
+def p2 : ℚ := lowerCount199f5 / 2 ^ 128
+def b2 : ℚ := 1020909644701257878 / 1000000000000000000
+theorem step_2 : zU * ((1 - p2) * b2 + p2) ≤ b2 := by norm_num [zU, p2, b2, lowerCount199f5]
+def p3 : ℚ := lowerCount199f5 / 2 ^ 128
+def b3 : ℚ := 1020909644701257878 / 1000000000000000000
+theorem step_3 : zU * ((1 - p3) * b3 + p3) ≤ b3 := by norm_num [zU, p3, b3, lowerCount199f5]
 def p4 : ℚ := lowerCount199f4 / 2 ^ 128
 def b4 : ℚ := 1020150806935365360 / 1000000000000000000
 theorem step_4 : zU * ((1 - p4) * b4 + p4) ≤ b4 := by norm_num [zU, p4, b4, lowerCount199f4]
@@ -87,7 +87,7 @@ theorem signing_envelope :
 theorem rate_top_1000 : (1000 : ℚ) * 0.6931471808 ≤ 2 ^ 22 * p1 := by norm_num [p1, topCount144]
 /-- Lower searches (about 3.9k / 3.7k trials per hit at (target, floor) = (199, 5) / (199, 4)) with fuel 2^21 fail
 with probability at most 2^-600 each. -/
-theorem rate_lower199f5_600 : (600 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p3 := by norm_num [p3, lowerCount199f4]
+theorem rate_lower199f5_600 : (600 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p3 := by norm_num [p3, lowerCount199f5]
 theorem rate_lower199f4_600 : (600 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p4 := by norm_num [p4, lowerCount199f4]
 /-- Digest search (about 2472 trials per hit) with fuel 2^21: failure at most 2^-900 (2^21 p0 ≈ 848). -/
 theorem rate_digest_900 : (900 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p0 := by norm_num [p0, J]

@@ -380,35 +380,5 @@ theorem verifyWith_inadmissible (limit : Nat) (answers : Answers) (message : Mes
   · exact verifyWith_counter_ge limit answers message pk w hc
   · simp only [verifyWith, ge_iff_le, hc, ite_false, evalWithAnswerFn_bind, h, Bool.not_false, ite_true,
       evalWithAnswerFn_pure]
-namespace Rev3
-theorem expand_implies_verify (answers : Answers) (message : Message) (pk : Digest)
-    (sig : Signature) (w : Witness) (he : evalWithAnswerFn answers (expand message pk sig) = some w) :
-    evalWithAnswerFn answers (verify message pk w) = true :=
-  expandWith_implies_verifyWith digestAttemptLimit digestAttemptLimit_le answers message pk sig w he
-def SigningCorrect (answers : Answers) (keys : Digest × Cache) : Prop :=
-  ∀ (message : Message) (sig : Signature),
-    evalWithAnswerFn answers (sign keys.2 message) = some sig →
-    ∃ w : Witness, evalWithAnswerFn answers (expand message keys.1 sig) = some w ∧
-      evalWithAnswerFn answers (verify message keys.1 w) = true
-theorem signing_success_valid (answers : Answers) (keys : Digest × Cache)
-    (hkeys : KeygenCorrect answers keys) (htop : TopSearchesSucceedBC answers) : SigningCorrect answers keys :=
-  fun message sig hsign =>
-    signingWith_success_valid digestAttemptLimit digestAttemptLimit_le answers keys hkeys htop message sig hsign
-theorem honest_signing_success_valid (answers : Answers) (htop : TopSearchesSucceedBC answers) :
-    SigningCorrect answers (evalWithAnswerFn answers keygen) :=
-  signing_success_valid answers _ (ClaudeWCT.WCT9.keygen_correct answers) htop
-def RealizedSigningCorrect (answers : QueryImpl SphincsSecurity.OracleWorld Id)
-    (secret : BitVec 256) (keys : Digest × Cache) : Prop :=
-  ∀ (message : Message) (sig : Signature),
-    evalWithAnswerFn answers (realize secret (sign keys.2 message)) = some sig →
-    ∃ w : Witness, evalWithAnswerFn answers (realize secret (expand message keys.1 sig)) = some w ∧
-      evalWithAnswerFn answers (realize secret (verify message keys.1 w)) = true
-theorem realized_honest_signing_success_valid (answers : QueryImpl SphincsSecurity.OracleWorld Id)
-    (secret : BitVec 256) (htop : TopSearchesSucceedBC (answers.compose (realHandler secret))) :
-    RealizedSigningCorrect answers secret (evalWithAnswerFn answers (realize secret keygen)) := by
-  unfold RealizedSigningCorrect
-  simp only [realize_eval]
-  exact honest_signing_success_valid (answers.compose (realHandler secret)) htop
-end Rev3
 end ClaudeWCT.WCT9
 end

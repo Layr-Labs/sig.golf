@@ -166,13 +166,13 @@ theorem card_producer_top (T f n : ℕ) (hT : target 0 = T) (hf : producerFloor 
   rw [producerDecode_top_isSome_iff, hT, hf]
   rfl
 def producerCount (lay : Layer) : ℕ :=
-  ![V5.topCount144, V5.lowerCount199f4, V5.lowerCount199f4, V5.lowerCount199f4] lay
+  ![V5.topCount144, V5.lowerCount199f5, V5.lowerCount199f5, V5.lowerCount199f4] lay
 theorem card_producerDecode (lay : Layer) :
     (univ.filter fun v : Digest => (producerDecode lay v).isSome).card = producerCount lay := by
   fin_cases lay
-  · exact card_producer_top 144 9 _ rfl rfl ClaudeWCT.Numerics.TopCredit.credited_card_144_9
-  · exact card_producer_lower 1 (by decide) 199 4 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_199_4
-  · exact card_producer_lower 2 (by decide) 199 4 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_199_4
+  · exact card_producer_top 144 8 _ rfl rfl ClaudeWCT.Numerics.TopCredit.credited_card_144_8
+  · exact card_producer_lower 1 (by decide) 199 5 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_199_5
+  · exact card_producer_lower 2 (by decide) 199 5 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_199_5
   · exact card_producer_lower 3 (by decide) 199 4 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_199_4
 theorem producer_uniform_probability (lay : Layer) :
     Pr[fun answer => (producerEncodingDecode lay answer).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] =
@@ -204,7 +204,7 @@ theorem producer_failure_power (lay : Layer) :
   fin_cases lay
   · exact (ClaudeWCT.W9.T3.Budgets.V5.top_failure_power _ hp).trans
       (by gcongr <;> norm_num)
-  · exact ClaudeWCT.W9.T3.Budgets.V5.lower199f4_failure_power _ hp
-  · exact ClaudeWCT.W9.T3.Budgets.V5.lower199f4_failure_power _ hp
+  · exact ClaudeWCT.W9.T3.Budgets.V5.lower199f5_failure_power _ hp
+  · exact ClaudeWCT.W9.T3.Budgets.V5.lower199f5_failure_power _ hp
   · exact ClaudeWCT.W9.T3.Budgets.V5.lower199f4_failure_power _ hp
 end ClaudeWCT.W9.T3.ProducerV5

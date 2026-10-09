@@ -3,18 +3,18 @@ import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.SeccSufRoute
 namespace ClaudeWCT.W9.T3.Security.BSuf
 open OracleComp OracleSpec SigGolfCandidate.T3
 open SigGolfCandidate.T3.Correctness (Answers treeValue)
-open ClaudeWCT.W9.T3M (expandN witEnc expandN_facts wreveal_witEnc wsib_witEnc)
+open ClaudeWCT.W9.T3M (expandN0 witEnc expandN0_facts wreveal_witEnc wsib_witEnc)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 theorem expandN_unfold (answers : Answers) (m : Message) (pk : Digest) (σ : WCT9.Signature) (N : HashOutput)
-    (wit : WCT9.Witness) (he : evalWithAnswerFn answers (expandN m pk σ) = some (N, wit)) :
+    (wit : WCT9.Witness) (he : evalWithAnswerFn answers (expandN0 m pk σ) = some (N, wit)) :
     ∃ counter cs,
       evalWithAnswerFn answers (WCT9.digestSearch σ.rho m 0 WCT9.digestAttemptLimit) = some (counter, N) ∧
       evalWithAnswerFn answers (WCT9.expandLayersBC σ (WCT9.digestIndex N) 4
         (.forest (evalWithAnswerFn answers (WCT9.recoverFts σ (WCT9.digestIndex N) N)))) = some (pk, cs) ∧
       wit = ⟨σ, counter, fun lay => cs.getD lay.val 0⟩ := by
-  simp only [expandN, evalWithAnswerFn_bind] at he
+  simp only [expandN0, evalWithAnswerFn_bind] at he
   cases hd : evalWithAnswerFn answers (WCT9.digestSearch σ.rho m 0 WCT9.digestAttemptLimit) with
   | none => simp only [hd, evalWithAnswerFn_pure, reduceCtorEq] at he
   | some found =>
@@ -211,12 +211,12 @@ theorem openings_of_honest (answers : Answers) (N : HashOutput) (wit : WCT9.Witn
 theorem caseC_expansion_is_payload (answers : Answers) (published : SigGolfCandidate.T3.Cache)
     (message : Message) (pk : Digest) (signature : WCT9.Signature) (N : HashOutput) (wit : WCT9.Witness)
     (hcache : published.region = Correctness.cacheRegion (Correctness.maskedTop answers))
-    (he : evalWithAnswerFn answers (expandN message pk signature) = some (N, wit))
+    (he : evalWithAnswerFn answers (expandN0 message pk signature) = some (N, wit))
     (hgood : ∀ lay : Layer, ClaudeWCT.W9.T3M.Extract.Good answers (witEnc N wit) (WCT9.digestIndex N) lay)
     (hfts : ClaudeWCT.W9.T3M.WctExtract.WctHonest answers N (witEnc N wit)) :
     evalWithAnswerFn answers (ClaudeWCT.W9.T3.Security.BPB.payloadForNonce published signature.rho message) =
       some signature := by
-  have F := expandN_facts answers message pk signature N wit he
+  have F := expandN0_facts answers message pk signature N wit he
   obtain ⟨counter, cs, hds, hel, hwit⟩ := expandN_unfold answers message pk signature N wit he
   have hopen : ∀ coord, signature.openings coord = WCT9.expectedOpening answers (WCT9.digestIndex N) N coord := by
     intro coord
@@ -299,15 +299,17 @@ theorem gameCaseC_signed_false (adversary : ClaudeWCT.W9.T3M.Final.AdversaryP) (
           have F := expandN_facts answers m _ σ N wit hx
           obtain ⟨N', -, hN', -, -, hgood, hfts, -⟩ := hC
           have hNN : N' = N := by
-            rw [← hN', wrho_witEnc, wdc_witEnc, F.sig, hm]
+            rw [← hN', wrho_witEnc, wdc_witEnc, F.rho, hm]
             exact F.digest
           subst hNN
-          have hpayσ := BSuf.caseC_expansion_is_payload answers generated.value.2 m _ σ N' wit hcache hx
-            (fun lay => (hgood lay).good) hfts
-          have hrhoσ : σm.rho = σ.rho := by rw [hrho, wrho_witEnc, F.sig]
+          obtain ⟨c, -, -, h0⟩ := F.fill
+          have hpayσ := BSuf.caseC_expansion_is_payload answers generated.value.2 m _ (WCT9.fillTop σ c) N' wit
+            hcache h0 (fun lay => (hgood lay).good) hfts
+          rw [WCT9.fillTop_rho] at hpayσ
+          have hrhoσ : σm.rho = σ.rho := by rw [hrho, wrho_witEnc, F.rho]
           rw [hmsg, hrhoσ, hm, hpayσ, Option.some.injEq] at hpay
           subst hpay
-          exact hfresh ⟨entry, hentry, by rw [hmsg, hm], hσm⟩
+          exact hfresh ⟨entry, hentry, by rw [hmsg, hm], by rw [hσm]; simp only [Option.map_some, WCT9.proj_fillTop]⟩
 theorem caseC_signed_impossible (adversary : ClaudeWCT.W9.T3M.Final.AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
     (z : PaddedGame.TraceResult × Correctness.Answers) (hz : z ∈ (SeccLaw.completedExperiment adversary q hq).support)
     (_hclean : QueryRecorded.CleanWin q z.1) : ¬CaseCSigned adversary z :=

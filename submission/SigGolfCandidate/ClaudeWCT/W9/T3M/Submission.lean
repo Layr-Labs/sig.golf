@@ -7,16 +7,16 @@ structure Images where
   expand : Riscv.Image
   verify : Riscv.Image
 def submission (I : Images) : Submission where
-  sizes := ⟨5312, 20912, 131072⟩
-  layout := ⟨0x59B0, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩
+  sizes := ⟨5310, 20912, 131072⟩
+  layout := ⟨0x59b0, 0x80, 0xa0, 0x80000, 0x7000, 0x800⟩
   image
     | .keygen => SigGolfCandidate.T3M.Images.keygenImage
     | .sign => I.sign
     | .expand => I.expand
     | .verify => I.verify
 variable (I : Images)
-@[simp] theorem submission_sizes : (submission I).sizes = ⟨5312, 20912, 131072⟩ := rfl
-@[simp] theorem submission_layout : (submission I).layout = ⟨0x59B0, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩ := rfl
+@[simp] theorem submission_sizes : (submission I).sizes = ⟨5310, 20912, 131072⟩ := rfl
+@[simp] theorem submission_layout : (submission I).layout = ⟨0x59b0, 0x80, 0xa0, 0x80000, 0x7000, 0x800⟩ := rfl
 theorem message_after_witness : (submission I).layout.message = (submission I).layout.witness + 20912 := by
   rw [submission_layout]
 @[simp] theorem submission_keygen : (submission I).image .keygen = SigGolfCandidate.T3M.Images.keygenImage := rfl
