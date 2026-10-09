@@ -72,5 +72,24 @@ theorem tb_foldlM_finRange {γ : Type} (n : Nat) (f : γ → Fin n → T3.M γ) 
       rwa [show k + 1 + xs.length = k + (xs.length + 1) by omega] at this
   have := gen (List.finRange n) 0 init s (by rw [finRange_map_val]; simp) h0
   simpa using this
+theorem tb_foldlM_vals {γ : Type} {n : Nat} (f : γ → Fin n → T3.M γ) (W : Nat)
+    (Inv : Nat → γ → MachineState → Prop)
+    (hbody : ∀ (i : Fin n) acc t, Inv i.val acc t → TBSim image sk t W (f acc i) (Inv (i.val + 1))) :
+    ∀ (xs : List (Fin n)) (k : Nat) (acc : γ) (t : MachineState), xs.map Fin.val = List.range' k xs.length →
+      Inv k acc t → TBSim image sk t (xs.length * W) (xs.foldlM f acc) (Inv (k + xs.length)) := by
+  intro xs
+  induction xs with
+  | nil => intro k acc t _ ht; simpa using TBSim.pure (image := image) (sk := sk) ht
+  | cons x xs ih =>
+    intro k acc t hidx ht
+    simp only [List.map_cons, List.length_cons, List.range'_succ, List.cons.injEq] at hidx
+    rw [List.foldlM_cons]
+    have h1 := hbody x acc t (by rw [hidx.1]; exact ht)
+    rw [hidx.1] at h1
+    refine (TBSim.bind (W₂ := xs.length * W) h1 (fun acc' t' ht' => ?_)).mono
+      (by rw [List.length_cons, Nat.succ_mul]; omega) (fun _ _ h => by
+      simpa [Nat.add_assoc, Nat.add_comm 1] using h)
+    have := ih (k + 1) acc' t' (by simpa using hidx.2) ht'
+    rwa [show k + 1 + xs.length = k + (xs.length + 1) by omega] at this
 end tb
 end SigGolfCandidate.T3M.Expand

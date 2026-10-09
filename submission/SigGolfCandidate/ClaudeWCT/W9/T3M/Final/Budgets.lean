@@ -34,15 +34,15 @@ theorem keygen_value (P : Pending I) (sk : SecretKey) :
 set_option maxRecDepth 100000 in
 theorem sign_value (P : Pending I) (sk : SecretKey) (cache : Bytes 131072) (m : Message) :
     (fun r => r.value) <$> (submission I).run .sign (sk, cache, m) =
-      Option.map sigB <$> mrealize sk (sign (cacheDec cache) m) :=
-  value_of_counts (F := Option.map sigB) (P.sign_refines sk cache m)
+      Option.map sigBC <$> mrealize sk (sign (cacheDec cache) m) :=
+  value_of_counts (F := Option.map sigBC) (P.sign_refines sk cache m)
 set_option maxRecDepth 100000 in
-theorem expand_value (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5312) :
-    (fun r => r.value) <$> (submission I).run .expand (m, pk, s) = mrealize 0 (expandB m pk (sigDec s)) := by
+theorem expand_value (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5310) :
+    (fun r => r.value) <$> (submission I).run .expand (m, pk, s) = mrealize 0 (expandB m pk (sigDecC s)) := by
   rw [value_of_counts (F := Option.map (fun x : SigGolfCandidate.T3.HashOutput × Witness => witEnc x.1 x.2))
     (P.expand_refines m pk s), expandB, mrealize_map]
 set_option maxRecDepth 100000 in
-theorem verify_value (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 20912) :
+theorem verify_value (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 20908) :
     (fun r => r.value.isSome) <$> (submission I).run .verify (m, pk, w) = mrealize 0 (verifyP m pk w) := by
   have h := congrArg (fun x => (fun p : Option Unit × Nat => p.1.isSome) <$> x) (P.verify_refines m pk w)
   simp only [Functor.map_map] at h
@@ -62,7 +62,7 @@ theorem successPipe_eq (P : Pending I) (sk : SecretKey) (m : Message) :
   rcases s with _ | σ
   · rfl
   · simp only [Option.map_some]
-    rw [expand_value P, sigDec_sigB, mrealize_bind, mrealize_public 0 sk (publicOnly_expandB m kp.1 σ)]
+    rw [expand_value P, sigDecC_sigBC, expandB_proj, mrealize_bind, mrealize_public 0 sk (publicOnly_expandB m kp.1 σ)]
     refine bind_congr fun e => ?_
     rcases e with _ | w
     · rfl
@@ -166,7 +166,7 @@ theorem abstract_sign_raw (P : Pending I) (sk : SecretKey) (cache : Bytes 131072
     (evalWithAnswerFn hash ((submission I).run .sign (sk,cache,m))).hashCompressions =
       (evalWithAnswerFn hash (mrealize sk (SigGolfCandidate.T3.Cost.countBlocks (sign (cacheDec cache) m)))).2 := by
   exact abstract_count_refinement sk hash (sign (cacheDec cache) m)
-    ((submission I).run .sign (sk,cache,m)) (Option.map sigB)
+    ((submission I).run .sign (sk,cache,m)) (Option.map sigBC)
     (P.sign_refines sk cache m) (goodQ_sign _ _)
 theorem abstract_sign_encoded (P : Pending I) (sk : SecretKey) (cache : Cache)
     (m : Message) (hash : Hash) :
@@ -178,29 +178,29 @@ theorem abstract_sign_encoded (P : Pending I) (sk : SecretKey) (cache : Cache)
 theorem abstract_sign_raw_value (P : Pending I) (sk : SecretKey) (cache : Bytes 131072)
     (m : Message) (hash : Hash) :
     (evalWithAnswerFn hash ((submission I).run .sign (sk,cache,m))).value =
-      Option.map sigB (evalWithAnswerFn hash (mrealize sk (sign (cacheDec cache) m))) := by
-  exact (eval_of_counts (F := Option.map sigB) (P.sign_refines sk cache m) hash).1
+      Option.map sigBC (evalWithAnswerFn hash (mrealize sk (sign (cacheDec cache) m))) := by
+  exact (eval_of_counts (F := Option.map sigBC) (P.sign_refines sk cache m) hash).1
 theorem abstract_sign_encoded_value (P : Pending I) (sk : SecretKey) (cache : Cache)
     (m : Message) (hash : Hash) :
     (evalWithAnswerFn hash ((submission I).run .sign (sk,cacheB cache,m))).value =
-      Option.map sigB (evalWithAnswerFn hash (mrealize sk (sign cache m))) := by
+      Option.map sigBC (evalWithAnswerFn hash (mrealize sk (sign cache m))) := by
   have h := abstract_sign_raw_value P sk (cacheB cache) m hash
   rw [cacheDec_cacheB] at h
   exact h
 theorem abstract_expand_raw_cost (P : Pending I) (m : Message) (pk : PublicKey)
-    (sig : Bytes 5312) (hash : Hash) :
+    (sig : Bytes 5310) (hash : Hash) :
     (evalWithAnswerFn hash ((submission I).run .expand (m,pk,sig))).hashCompressions =
-      (evalWithAnswerFn hash (mrealize 0 (SigGolfCandidate.T3.Cost.countBlocks (expandN m pk (sigDec sig))))).2 := by
-  exact abstract_count_refinement 0 hash (expandN m pk (sigDec sig))
+      (evalWithAnswerFn hash (mrealize 0 (SigGolfCandidate.T3.Cost.countBlocks (expandN m pk (sigDecC sig))))).2 := by
+  exact abstract_count_refinement 0 hash (expandN m pk (sigDecC sig))
     ((submission I).run .expand (m,pk,sig))
     (Option.map (fun x : SigGolfCandidate.T3.HashOutput × Witness => witEnc x.1 x.2))
     (P.expand_refines m pk sig) (goodQ_expandN _ _ _)
 theorem abstract_expand_encoded_cost (P : Pending I) (m : Message) (pk : PublicKey)
     (sig : Signature) (hash : Hash) :
-    (evalWithAnswerFn hash ((submission I).run .expand (m,pk,sigB sig))).hashCompressions =
+    (evalWithAnswerFn hash ((submission I).run .expand (m,pk,sigBC sig))).hashCompressions =
       (evalWithAnswerFn hash (mrealize 0 (SigGolfCandidate.T3.Cost.countBlocks (expandN m pk sig)))).2 := by
-  have h := abstract_expand_raw_cost P m pk (sigB sig) hash
-  rw [sigDec_sigB] at h
+  have h := abstract_expand_raw_cost P m pk (sigBC sig) hash
+  rw [sigDecC_sigBC, expandN_proj] at h
   exact h
 theorem eval_expand_blocks (answers : SigGolfCandidate.T3.Correctness.Answers) (m : SigGolfCandidate.T3.Message)
     (pk : Digest) (σ : Signature) :
@@ -212,7 +212,7 @@ set_option maxRecDepth 100000 in
 theorem sign_count_value (P : Pending I) (sk : SecretKey) (cache : Cache)
     (m : Message) (hash : Hash) :
     ((submission I).runWith hash .sign (sk,cacheB cache,m)).value =
-      Option.map sigB (evalWithAnswerFn hash
+      Option.map sigBC (evalWithAnswerFn hash
         (mrealize sk (SigGolfCandidate.T3.Cost.countBlocks (sign cache m)))).1 := by
   have h := abstract_sign_encoded_value P sk cache m hash
   rw [eval_mrealize hash sk (SigGolfCandidate.T3.Cost.countBlocks (sign cache m)), SigGolfCandidate.T3.Cost.countBlocks,
@@ -221,7 +221,7 @@ theorem sign_count_value (P : Pending I) (sk : SecretKey) (cache : Cache)
 set_option maxRecDepth 100000 in
 theorem expand_count_cost (P : Pending I) (sk : SecretKey) (m : Message)
     (pk : PublicKey) (sig : Signature) (hash : Hash) :
-    ((submission I).runWith hash .expand (m,pk,sigB sig)).hashCompressions =
+    ((submission I).runWith hash .expand (m,pk,sigBC sig)).hashCompressions =
       evalWithAnswerFn hash (Prod.snd <$> mrealize sk (SigGolfCandidate.T3.Cost.countBlocks (expand m pk sig))) := by
   have h := abstract_expand_encoded_cost P m pk sig hash
   have hp : AllQueriesSatisfy (SigGolfCandidate.T3.Cost.countBlocks (expandN m pk sig)) isPublic :=
@@ -261,7 +261,7 @@ theorem costs_expand_eval (P : Pending I) (sk : SecretKey) (m : Message) (hash :
     congrArg RunResult.value (P.keygen_runWith hash sk)
   have h := generic_outer_expand_cost (submission I) hash sk m (mrealize sk keygen)
     (fun key => (key.1, cacheB key.2))
-    (fun key => mrealize sk (SigGolfCandidate.T3.Cost.countBlocks (sign key.2 m))) Prod.fst sigB
+    (fun key => mrealize sk (SigGolfCandidate.T3.Cost.countBlocks (sign key.2 m))) Prod.fst sigBC
     (fun key sig => Prod.snd <$> mrealize sk (SigGolfCandidate.T3.Cost.countBlocks (expand m key.1 sig)))
     hk (fun key => sign_count_value P sk key.2 m hash)
     (fun key sig => expand_count_cost P sk m key.1 sig hash)

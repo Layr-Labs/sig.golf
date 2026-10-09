@@ -303,7 +303,7 @@ theorem counter_branch : CounterBranch := fun w pk index lay msg s hs d => by
     simp [h3, CmpOp.eval, E.eval, kw, BitVec.ult, Nat.mod_eq_of_lt h64,
       counterLimit, ← decide_not, eq_comm]
 theorem encoding_reject (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer)
-    (msg : LayerMsg) (s : MachineState) (hs : LayerIn w pk index lay.val msg s)
+    (msg : LayerMsg) (s : MachineState) (_hs : LayerIn w pk index lay.val msg s)
     (hge : (ClaudeWCT.W9.T3M.wbcCtr w index lay).toNat ≥ ClaudeWCT.WCT9.verifyWindow) :
     ∃ u, Steps image s (rejectSteps lay.val) (rejectSteps lay.val) u ∧
       fetch image u = some (.base .ECALL) ∧ u.getReg .x5 = 1 ∧ u.getReg .x10 = 1 :=
@@ -364,14 +364,16 @@ theorem setup_post : SetupPost := fun w pk index lay msg s hs t ht => by
     · rw [ht.keep .x28 (by fin_cases lay <;> simp_all [keepA])]
       exact hs.word (by have := lay.isLt; omega)
   case refine_3 =>
-    intro L hL
+    intro L hL hl3
     obtain rfl : L = lay := Fin.ext hL
-    exact (ht.regs (.x23, s7E L.val) (by fin_cases L <;> simp [specA, T3M.specA])).trans hs7E
+    have h3 : L.val ≠ 3 := by omega
+    exact (ht.regs (.x23, s7E L.val) (by fin_cases L <;> simp_all [specA, T3M.specA])).trans hs7E
   case refine_4 =>
     intro L hL
     obtain rfl : L = lay := Fin.ext hL
-    refine ⟨fun h0 => ?_, fun h0 => ?_⟩
-    · exact (ht.regs (.x31, treeE L.val) (by fin_cases L <;> simp [specA, T3M.specA] at *)).trans htE
+    refine ⟨fun h0 hl3 => ?_, fun h0 => ?_⟩
+    · have h3 : L.val ≠ 3 := by omega
+      exact (ht.regs (.x31, treeE L.val) (by fin_cases L <;> simp_all [specA, T3M.specA])).trans htE
     · obtain rfl : L = 0 := Fin.ext h0
       rw [ht.keep .x31 (by simp [keepA])]
       simpa [leafE, E.eval] using hlE
@@ -386,11 +388,13 @@ theorem setup_post : SetupPost := fun w pk index lay msg s hs t ht => by
       intro p hp
       simp only [T3M.specA, List.mem_cons, List.not_mem_nil, or_false] at hp
       rcases hp with rfl | rfl <;> simp <;> omega
-    refine ⟨?_, ?_⟩
+    refine ⟨?_, ?_, fun k hk => ?_⟩
     · rw [hf _ (by unfold TOPLOAD; omega) (by unfold TOPLOAD; omega) (by unfold TOPLOAD; omega)]
       exact (hs.hdr3 rfl).1
     · rw [hf _ (by unfold TOPLOAD; omega) (by unfold TOPLOAD; omega) (by unfold TOPLOAD; omega)]
-      exact (hs.hdr3 rfl).2
+      exact (hs.hdr3 rfl).2.1
+    · rw [hf _ (by unfold TOPLOAD; omega) (by unfold TOPLOAD; omega) (by unfold TOPLOAD; omega)]
+      exact (hs.hdr3 rfl).2.2 k hk
   case refine_6 =>
     intro h3
     obtain rfl : lay = 3 := Fin.ext h3
@@ -521,8 +525,6 @@ theorem encoding_blocks : EncodingBlocks := fun w index lay tree leaf msg => by
       (ClaudeWCT.W9.T3M.wbcCtr w index lay) (ClaudeWCT.W9.T3M.wbcPad w index lay)))).blocks = 1
     rw [pair_input_block]
     exact blocks_blk4 _ _ _ _
-set_option maxRecDepth 100000 in
-theorem ld3Check_ok : ld3Check = true := by decide +kernel
 end SigGolfCandidate.T3M.BC
 end
 section
@@ -571,9 +573,9 @@ theorem layerCostA_low (lay : Layer) (h : lay ≠ 0) :
   fin_cases lay
   · exact absurd rfl h
   all_goals rfl
-theorem layerCost_vals : layerCost 3 0 = 1222 ∧ layerCost 2 0 = 1227 ∧ layerCost 1 0 = 1218 := by decide +kernel
-theorem layerCostA_vals : layerCostA 3 = 1218 ∧ layerCostA 2 = 1222 ∧ layerCostA 1 = 1213 := by decide +kernel
-theorem layerFuel_vals : layerFuel 3 = 1759 ∧ layerFuel 2 = 1755 ∧ layerFuel 1 = 1755 := by decide +kernel
+theorem layerCost_vals : layerCost 3 0 = 1225 ∧ layerCost 2 0 = 1227 ∧ layerCost 1 0 = 1218 := by decide +kernel
+theorem layerCostA_vals : layerCostA 3 = 1221 ∧ layerCostA 2 = 1222 ∧ layerCostA 1 = 1213 := by decide +kernel
+theorem layerFuel_vals : layerFuel 3 = 1762 ∧ layerFuel 2 = 1755 ∧ layerFuel 1 = 1755 := by decide +kernel
 theorem ckOf_lt (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (ds : List Nat)
     (hds : decode lay (ansD a) = some ds) : ckOf lay a < 8 := by
   rw [decode_lower_v6 lay hlay] at hds
@@ -738,7 +740,7 @@ theorem layer_good_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
     exact (GoodQP.steps' hst this (by omega) (by omega) (by omega)).toGoodQ
 theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (root : Digest) (u : MachineState)
     (hidx : idx < 2 ^ 31) (hglob : Glob baseK w pk u) (hreg : u.getReg .x22 = BitVec.ofNat 64 idx)
-    (hpc : u.pc = pcOf 32951) (hroot : DigAt u WIT root)
+    (hpc : u.pc = pcOf 1396) (hroot : DigAt u WIT root)
     (hwit : Verify.Orig w (fun o => (32 ≤ o ∧ o < 64) ∨ (7424 ≤ o ∧ o < 20896)) u)
     (ha2 : u.getReg .x12 = BitVec.ofNat 64 WIT)
     (hs10 : u.getReg .x26 = 6) (hOne : u.getReg .x7 = 1) (hTwo : u.getReg .x13 = 2) (hSeven : u.getReg .x30 = 7)
@@ -748,77 +750,34 @@ theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (
     (htop : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
       BitVec.ofNat 64 (topWords.getD k 0))
     (htop8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21200) :
-    ∃ t, Steps image u 3 3 t ∧ LayerIn w pk idx 3 (.forest root) t := by
-  have hk0 : KnownOK ld3In u := by
-    intro p hp
-    simp only [ld3In, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hp
-    rcases hp with hp | rfl
-    · exact hglob.1 p hp
-    · exact hbase
-  obtain ⟨t, ht⟩ := spec_run BC.ld3Check_ok u hpc hk0 (by simp [ld3Spec]) (by simp)
-  have hm : ∀ A, t.getMem A = u.getMem A := fun A => by rw [ht.mem]; rfl
-  have r21 : t.getReg .x24 = (E.ld (kw TOPLOAD)).eval u := ht.regs (.x24, .ld (kw TOPLOAD)) (by simp [ld3Spec])
-  have r20 : t.getReg .x1 = (E.ld (kw (TOPLOAD + 8))).eval u :=
-    ht.regs (.x1, .ld (kw (TOPLOAD + 8))) (by simp [ld3Spec])
-  have r2 : t.getReg .x2 = (E.ld (kw (TOPLOAD + 24))).eval u :=
-    ht.regs (.x2, .ld (kw (TOPLOAD + 24))) (by simp [ld3Spec])
-  have e21 : t.getReg .x24 = BitVec.ofNat 64 M2c := by
-    rw [r21]
-    change u.getMem (BitVec.ofNat 64 TOPLOAD) = _
-    exact (htop 0 (by decide +kernel)).trans (by decide +kernel)
-  have e20 : t.getReg .x1 = BitVec.ofNat 64 M1c := by
-    rw [r20]
-    change u.getMem (BitVec.ofNat 64 (TOPLOAD + 8)) = _
-    exact (htop 1 (by decide +kernel)).trans (by decide +kernel)
-  have e2 : t.getReg .x2 = BitVec.ofNat 64 0x3fe00 := by
-    rw [r2]
-    change u.getMem (BitVec.ofNat 64 (TOPLOAD + 24)) = _
-    exact (htop 3 (by decide +kernel)).trans (by decide +kernel)
-  have hG0 : Glob baseK w pk t := ht.glob _ _ _ hglob (RelOK.nil u)
-  have hpk : preK 3 = baseK ++ [(.x24, BitVec.ofNat 64 M2c),
-      (.x1, BitVec.ofNat 64 M1c), (.x2, BitVec.ofNat 64 0x3fe00),
-      (.x12, BitVec.ofNat 64 2048), (.x26, 6), (.x7, 1), (.x13, 2), (.x30, 7), (.x9, BitVec.ofNat 64 TOPB9),
-      (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0x10000)] := rfl
-  have e28 : t.getReg .x9 = BitVec.ofNat 64 TOPB9 :=
-    ht.known (.x9, BitVec.ofNat 64 TOPB9) (by rw [ld3In]; exact List.mem_append_right _ (List.mem_singleton_self _))
-  have e12 : t.getReg .x12 = BitVec.ofNat 64 2048 := (ht.keep .x12 (by simp)).trans ha2
-  have e26 : t.getReg .x26 = 6 := (ht.keep .x26 (by simp)).trans hs10
-  have eOne : t.getReg .x7 = 1 := (ht.keep .x7 (by simp)).trans hOne
-  have eTwo : t.getReg .x13 = 2 := (ht.keep .x13 (by simp)).trans hTwo
-  have eSeven : t.getReg .x30 = 7 := (ht.keep .x30 (by simp)).trans hSeven
-  have eThree : t.getReg .x19 = 3 := (ht.keep .x19 (by simp)).trans hThree
-  have eFour : t.getReg .x20 = 4 := (ht.keep .x20 (by simp)).trans hFour
-  have eFive : t.getReg .x21 = 5 := (ht.keep .x21 (by simp)).trans hFive
-  have eCoord : t.getReg .x6 = 0x10000 := (ht.keep .x6 (by simp)).trans hCoord
-  have hk : ∀ p ∈ preK 3, t.getReg p.1 = p.2 := by
+    ∃ t, Steps image u 0 0 t ∧ LayerIn w pk idx 3 (.forest root) t := by
+  have hpk : preK 3 = baseK ++ [(.x12, BitVec.ofNat 64 2048), (.x26, 6), (.x7, 1), (.x13, 2), (.x30, 7),
+      (.x9, BitVec.ofNat 64 TOPB9), (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0x10000)] := rfl
+  have hk : ∀ p ∈ preK 3, u.getReg p.1 = p.2 := by
     intro p hp
     rw [hpk] at hp
     simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hp
-    rcases hp with hp | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
-    · exact ht.known p (by rw [ld3In]; exact List.mem_append_left _ hp)
-    · exact e21
-    · exact e20
-    · exact e2
-    · exact e12
-    · exact e26
-    · exact eOne
-    · exact eTwo
-    · exact eSeven
-    · exact e28
-    · exact eThree
-    · exact eFour
-    · exact eFive
-    · exact eCoord
-  refine ⟨t, ht.steps, ⟨by norm_num, hidx, by rw [ht.pc rfl]; rfl, ⟨hk, hG0.2⟩,
+    rcases hp with hp | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+    · exact hglob.1 p hp
+    · exact ha2
+    · exact hs10
+    · exact hOne
+    · exact hTwo
+    · exact hSeven
+    · exact hbase
+    · exact hThree
+    · exact hFour
+    · exact hFive
+    · exact hCoord
+  refine ⟨u, Steps.refl u, ⟨by norm_num, hidx, hpc, ⟨hk, hglob.2⟩,
     ?_, ?_, ?_, ?_, ?_, ?_⟩⟩
-  · rw [show rReg 3 = .x22 from rfl, show BC.below 3 = 0 from rfl, pow_zero, Nat.div_one,
-      ht.keep .x22 (by simp), hreg]
+  · rw [show rReg 3 = .x22 from rfl, show BC.below 3 = 0 from rfl, pow_zero, Nat.div_one, hreg]
   · intro h
     exact absurd h (by decide +kernel)
-  · exact ⟨rfl, (hm _).trans hroot.1, (hm _).trans hroot.2⟩
-  · exact (hwit.mono (fun o ho => Or.inr ⟨ho.1, lt_of_lt_of_le ho.2 (by decide +kernel)⟩)).frame (fun j _ _ => hm _)
+  · exact ⟨rfl, hroot.1, hroot.2⟩
+  · exact hwit.mono (fun o ho => Or.inr ⟨ho.1, lt_of_lt_of_le ho.2 (by decide +kernel)⟩)
   · intro _
-    exact ⟨(hm _).trans ((htop 4 (by decide +kernel)).trans (by decide +kernel)), (hm _).trans htop8⟩
+    exact ⟨(htop 4 (by decide +kernel)).trans (by decide +kernel), htop8, htop⟩
   · intro h
     exact absurd h (by decide +kernel)
 theorem tree_next (index : Nat) (L : Layer) (h : L ≠ 0) : (route index L).2 = index / 2 ^ below (L.val - 1) := by

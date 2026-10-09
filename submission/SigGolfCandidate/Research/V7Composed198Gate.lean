@@ -27,4 +27,13 @@ theorem gate_ult_shift50 (answer : BitVec 256) :
       decide (answer.toNat / 2^242 % 2^14 < 1131) := by
   simp only [BitVec.ult, gate_shift50_toNat, show (1131#64 : BitVec 64).toNat = 1131 from rfl]
 
+theorem gate_ult_const (answer : BitVec 256) :
+    BitVec.ult (answer.extractLsb' 192 64) 0x11ac000000000000#64 =
+      decide (answer.toNat / 2^242 % 2^14 < 1131) := by
+  rw [← gate_ult_shift50]
+  simp only [BitVec.ult, BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow,
+    show (0x11ac000000000000#64 : BitVec 64).toNat = 1273392794639007744 from rfl,
+    show (1131#64 : BitVec 64).toNat = 1131 from rfl, decide_eq_decide]
+  omega
+
 end SigGolfCandidate.Research.V7Composed198Gate

@@ -26,7 +26,7 @@ section
 namespace SigGolfCandidate.T3M.Expand
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 set_option linter.unusedVariables false
-def seg_0 : List (BitVec 32) := [659,32439,7991,0x800f0f13,963331,9352067,7286819,8336419,32439,134967,302976787,963331,9352067,7286819,8336419,28343,134967,336531219,0x9b0eb303,0x9b8eb383,7286819,8336419,28343,134967,353308435,0x9c0eb303,0x9c8eb383,7286819,8336419,814911599]
+def seg_0 : List (BitVec 32) := [1179816047,32439,7991,0x800f0f13,963331,9352067,7286819,8336419,32439,134967,302976787,963331,9352067,7286819,8336419,28343,134967,336531219,0x9b0eb303,0x9b8eb383,7286819,8336419,28343,134967,353308435,0x9c0eb303,0x9c8eb383,7286819,8336419,814911599]
 def seg_49 : List (BitVec 32) := [134711,370019859,930947,34903187,34919571,134711,0x550e0e13,0x9e3023,7735,0x810e0e13,20848675,139575,2323,6967,0xc40b0b13,1043]
 def seg_65 : List (BitVec 32) := [7340819,610556515]
 def seg_67 : List (BitVec 32) := [2451]
@@ -62,7 +62,7 @@ def seg_295 : List (BitVec 32) := [1049619,7341971,45092115,3475,206571667,13471
 def seg_308 : List (BitVec 32) := [24119,0x968e0e13,20848675,34871,0xcb080813,23479,0x908b8b93,19511,0xe48c0c13,705691887]
 def seg_318 : List (BitVec 32) := [1043,0xc00793,56626451,53480851,0x8100893,134711,0x550e0e13,930563,20140947,7735,0xfffe0e13,29620531,32724115,528482543]
 def seg_332 : List (BitVec 32) := [20023,0xce8e0e13,20848675,34871,0x89080813,19383,0xc88b8b93,15415,0xf08c0c13,605028591]
-def seg_342 : List (BitVec 32) := [134711,638455315,0xa000e93,930563,963459,7544419]
+def seg_342 : List (BitVec 32) := [1967296623,638455315,0xa000e93,930563,963459,7544419]
 def seg_348 : List (BitVec 32) := [9319171,9352067,7542883]
 def seg_351 : List (BitVec 32) := [0x4d52706f,1299]
 def seg_353 : List (BitVec 32) := [115]
@@ -307,7 +307,6 @@ theorem codeAt_1190 : CodeAt image (pcOf 1190) seg_1190 :=
   codeAt_expand_slice (by decide +kernel) (by decide +kernel)
 theorem codeAt_1218 : CodeAt image (pcOf 1218) seg_1218 :=
   codeAt_expand_slice (by decide +kernel) (by decide +kernel)
-sym_block eblk_0 := symRun { noAlias := true } seg_0 (pcOf 0) 200
 sym_block eblk_49 := symRun { noAlias := true } seg_49 (pcOf 49) 200
 sym_block eblk_65 := symRun { noAlias := true } seg_65 (pcOf 65) 200
 sym_block eblk_67 := symRun { noAlias := true } seg_67 (pcOf 67) 200
@@ -341,7 +340,6 @@ sym_block eblk_295 := symRun { noAlias := true } seg_295 (pcOf 295) 200
 sym_block eblk_308 := symRun { noAlias := true } seg_308 (pcOf 308) 200
 sym_block eblk_318 := symRun { noAlias := true } seg_318 (pcOf 318) 200
 sym_block eblk_332 := symRun { noAlias := true } seg_332 (pcOf 332) 200
-sym_block eblk_342 := symRun { noAlias := true } seg_342 (pcOf 342) 200
 sym_block eblk_348 := symRun { noAlias := true } seg_348 (pcOf 348) 200
 sym_block eblk_351 := symRun { noAlias := true } seg_351 (pcOf 351) 200
 sym_block eblk_824 := symRun { noAlias := true } seg_824 (pcOf 824) 200
