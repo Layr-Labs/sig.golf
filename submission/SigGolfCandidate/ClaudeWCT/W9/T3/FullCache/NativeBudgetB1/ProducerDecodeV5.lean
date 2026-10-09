@@ -169,10 +169,10 @@ def producerCount (lay : Layer) : ℕ := ![V5.topCount129, V5.lowerCount198f5, V
 theorem card_producerDecode (lay : Layer) :
     (univ.filter fun v : Digest => (producerDecode lay v).isSome).card = producerCount lay := by
   fin_cases lay
-  · exact card_producer_top 129 8 _ rfl rfl ClaudeWCT.Numerics.TopCredit.credited_card_129_8
+  · exact card_producer_top 129 9 _ rfl rfl ClaudeWCT.Numerics.TopCredit.credited_card_129_9
   · exact card_producer_lower 1 (by decide) 198 5 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_198_5
   · exact card_producer_lower 2 (by decide) 198 5 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_198_5
-  · exact card_producer_lower 3 (by decide) 199 4 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_199_4
+  · exact card_producer_lower 3 (by decide) 199 5 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_199_5
 theorem producer_uniform_probability (lay : Layer) :
     Pr[fun answer => (producerEncodingDecode lay answer).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] =
       (producerCount lay : ENNReal) / 2 ^ 128 := by

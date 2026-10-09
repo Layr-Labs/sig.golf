@@ -14,17 +14,17 @@ theorem probability_floor : 1 / 3159 ≤ p0 ∧ p0 ≤ 1 / 3158 := by norm_num [
 theorem p0_ge_5026 : 1 / 5026 ≤ p0 := by norm_num [p0, J]
 theorem p0_nonneg : 0 ≤ p0 := by norm_num [p0, J]
 theorem p0_le_one : p0 ≤ 1 := by norm_num [p0, J]
-def topCount129 : ℕ := 97816978632729252580178283386927154
+def topCount129 : ℕ := 94239367759644528079483368378178554
 def lowerCount197 : ℕ := 140610462347261096978771217394878840
 def lowerCount198 : ℕ := 113470737483767875195512089978341656
 def lowerCount199 : ℕ := 87860897096037675585104420890976996
 def lowerCount200 : ℕ := 72766719968968561634032082840784641
 /-- T8B (stage-B seeds) accepted lower encodings at target 198 with credit floor 5 (layers 1, 2). -/
 def lowerCount198f5 : ℕ := 109268081639522143881701726611335386
-/-- T8B accepted lower encodings at target 199 with credit floor 4 (layer 3). -/
-def lowerCount199f4 : ℕ := 91101791054941032223577582479356176
+/-- T8B accepted lower encodings at target 199 with credit floor 5 (layer 3). -/
+def lowerCount199f4 : ℕ := 87860897096037675585104420890976996
 def p1 : ℚ := topCount129 / 2 ^ 128
-def b1 : ℚ := 1018741516995526746 / 1000000000000000000
+def b1 : ℚ := 1019466851918759000 / 1000000000000000000
 theorem step_1 : zU * ((1 - p1) * b1 + p1) ≤ b1 := by norm_num [zU, p1, b1, topCount129]
 def p2 : ℚ := lowerCount198f5 / 2 ^ 128
 def b2 : ℚ := 1016744551331373578 / 1000000000000000000
@@ -33,7 +33,7 @@ def p3 : ℚ := lowerCount198f5 / 2 ^ 128
 def b3 : ℚ := 1016744551331373578 / 1000000000000000000
 theorem step_3 : zU * ((1 - p3) * b3 + p3) ≤ b3 := by norm_num [zU, p3, b3, lowerCount198f5]
 def p4 : ℚ := lowerCount199f4 / 2 ^ 128
-def b4 : ℚ := 1020150806935365360 / 1000000000000000000
+def b4 : ℚ := 1020909644701258000 / 1000000000000000000
 theorem step_4 : zU * ((1 - p4) * b4 + p4) ≤ b4 := by norm_num [zU, p4, b4, lowerCount199f4]
 theorem zU_nonneg : (0 : ℚ) ≤ zU := by norm_num [zU]
 theorem step_mono {p q b : ℚ} (hb : 1 ≤ b) (hpq : p ≤ q) (h : zU * ((1 - p) * b + p) ≤ b) :

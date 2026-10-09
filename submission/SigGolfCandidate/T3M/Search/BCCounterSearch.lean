@@ -276,8 +276,8 @@ theorem pop_scanX (v : Digest) (c : Nat) (hc : c < 8) :
   intro a ha
   have ha' := Finset.mem_range.mp ha
   rw [e0 a ha', e1 a ha', e2 a ha', g0 a (by omega), g0 (21 + a) (by omega), Nat.add_zero]
-/-- Machine credit floor of the shared lower-layer search kernel (layers 1, 2: 5; layer 3: 4). -/
-def scanFloor (lay : Nat) : Nat := if lay = 3 then 4 else 5
+/-- Machine credit floor of the shared lower-layer search kernel (layers 1, 2, 3: 5). -/
+def scanFloor (lay : Nat) : Nat := if lay = 4 then 4 else 5
 section blocks
 variable {image : Image} {b : Nat}
 theorem capA0_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (capBase b + 0)) (i : Nat)
@@ -383,7 +383,7 @@ theorem scanA7_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf 
     (hl : lay < 4) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (c lo hi : BitVec 64)
     (h28 : s.getReg .x28 = c) (h6 : s.getReg .x6 = lo) (h7 : s.getReg .x7 = hi) :
     ∃ t, Steps image s 26 29 t ∧
-      t.pc = (if lay = 3 then pcOf (capBase b + 35) else pcOf (capBase b + 33)) ∧
+      t.pc = (if lay = 4 then pcOf (capBase b + 35) else pcOf (capBase b + 33)) ∧
       t.getReg .x28 = clr (scanX c lo hi) ∧
       RegsExcept s t [.x20, .x21, .x28, .x29, .x30] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (runa_7 hK.2.1) (codeAt_a_7 hK) s hpc (by simp [sta_7, blkA354_7.res, rv_simp]),
@@ -395,7 +395,7 @@ theorem scanA7_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf 
     rfl
   · intro r hr; simp at hr; cases r <;> simp_all [sta_7, blkA354_7.res, rv_simp] <;> rfl
   · intro A _ _; simp [sta_7, blkA354_7.res, rv_simp]
-/-- The extra lowest-bit clear taken on layers 1 and 2 (credit floor 5). -/
+/-- The extra lowest-bit clear taken on layers 1, 2, and 3 (credit floor 5). -/
 theorem scanA33_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (capBase b + 33)) (x : BitVec 64)
     (h28 : s.getReg .x28 = x) :
     ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf (capBase b + 35) ∧ t.getReg .x28 = clr x ∧
@@ -454,7 +454,7 @@ theorem scan_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (c
   obtain ⟨t0, k0, n0, s0, hn0, p0, x0, r0, f0⟩ : ∃ t0 k0 n0, Steps image s k0 n0 t0 ∧ n0 ≤ 31 ∧
       t0.pc = pcOf (capBase b + 35) ∧ t0.getReg .x28 = (clr^[scanFloor lay - 3]) X ∧
       RegsExcept s t0 [.x20, .x21, .x28, .x29, .x30] ∧ Frame s t0 (fun _ => False) := by
-    by_cases h3 : lay = 3
+    by_cases h3 : lay = 4
     · rw [if_pos h3] at p0'
       refine ⟨t0', 26, 29, s0', by norm_num, p0', ?_, r0', f0'⟩
       rw [x0', scanFloor, if_pos h3]; rfl
@@ -487,7 +487,6 @@ end
 end
 
 section
-
 
 
 
@@ -570,14 +569,14 @@ theorem length_filter_range (n : Nat) (p : Nat → Prop) [DecidablePred p] :
     rw [List.range_succ, List.filter_append, List.length_append, ih, Finset.sum_range_succ]
     by_cases h : p n <;> simp [h]
 theorem producerDecode_top (v : Digest) :
-    WCT9.producerDecode 0 v = if T3.topCredit v < 8 then none else T3.decode 0 v := by
+    WCT9.producerDecode 0 v = if T3.topCredit v < 9 then none else T3.decode 0 v := by
   unfold WCT9.producerDecode
   cases hd : T3.decode 0 v with
   | none => simp
   | some ds =>
     simp only
-    rw [WCT9.wordCredit_top hd, show WCT9.producerFloor 0 = 8 from rfl]
-    by_cases h : T3.topCredit v < 8
+    rw [WCT9.wordCredit_top hd, show WCT9.producerFloor 0 = 9 from rfl]
+    by_cases h : T3.topCredit v < 9
     · rw [if_neg (by omega), if_pos h]
     · rw [if_pos (by omega), if_neg h]
 theorem producerDecode_lower {lay : Layer} (hlz : lay ≠ 0) (v : Digest) (c : Nat) {ds : List Nat}
@@ -928,7 +927,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
     have hT4 := hT3.step r4 (by decide) f4
     by_cases hlz : A.lay = 0
     · rw [if_pos (hl0.2 hlz)] at p4
-      have hsd : WCT9.producerDecode A.lay v = if T3.topCredit v < 8 then none else T3.decode A.lay v := by
+      have hsd : WCT9.producerDecode A.lay v = if T3.topCredit v < 9 then none else T3.decode A.lay v := by
         rw [hlz]; exact producerDecode_top v
       rw [hsd]
       obtain ⟨tc, sc, pcc, h6c, h7c, rc, fc⟩ := tc_spec hK t4 p4 v h6 h7
@@ -957,7 +956,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
             (by rw [r7.get (by decide), r6.get (by decide), r5.get (by decide), h7c])
             (by rw [r7.get (by decide), h30'])
           have hT8 := hT7.step r8 (by decide) f8
-          by_cases hc : T3.topCredit (T3.topFlip w) < 8
+          by_cases hc : T3.topCredit (T3.topFlip w) < 9
           · rw [if_pos hc] at p8 s8
             rw [if_pos hc]
             refine (TBSim.steps (((((s4.trans sc).trans s5).trans s6).trans s7).trans s8) (cs_next hK hT8 p8 hi ih')).mono ?_

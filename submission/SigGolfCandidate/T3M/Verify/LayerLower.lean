@@ -567,14 +567,14 @@ def chainCost0 (lay : Nat) : Nat := if lay = 0 then 1066 else 2946 - 9 * tgtL la
 def chainFuel (lay : Nat) : Nat := if lay = 0 then 2320 else 1720
 def layerCost (lay Z : Nat) : Nat := stepsA lay + 8 + cyB lay + lfStepsL + chainCost0 lay - Z
 def layerFuel (lay : Nat) : Nat := stepsA lay + 1 + stB lay + chainFuel lay + lfStepsL
-def layerCostA (lay : Nat) : Nat := layerCost lay 0 - [8, 5, 5, 4].getD lay 0
+def layerCostA (lay : Nat) : Nat := layerCost lay 0 - [9, 5, 5, 5].getD lay 0
 theorem layerCostA_low (lay : Layer) (h : lay ≠ 0) :
     layerCostA lay.val = layerCost lay.val 0 - ClaudeWCT.WCT9.producerFloor lay := by
   fin_cases lay
   · exact absurd rfl h
   all_goals rfl
 theorem layerCost_vals : layerCost 3 0 = 1207 ∧ layerCost 2 0 = 1209 ∧ layerCost 1 0 = 1209 := by decide +kernel
-theorem layerCostA_vals : layerCostA 3 = 1203 ∧ layerCostA 2 = 1204 ∧ layerCostA 1 = 1204 := by decide +kernel
+theorem layerCostA_vals : layerCostA 3 = 1202 ∧ layerCostA 2 = 1204 ∧ layerCostA 1 = 1204 := by decide +kernel
 theorem layerFuel_vals : layerFuel 3 = 1762 ∧ layerFuel 2 = 1755 ∧ layerFuel 1 = 1755 := by decide +kernel
 theorem ckOf_lt (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (ds : List Nat)
     (hds : decode lay (ansD a) = some ds) : ckOf lay a < 8 := by

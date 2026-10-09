@@ -181,7 +181,7 @@ def pairEncodingInputP (up : Layer) (tree leaf : Nat) (left right : Digest) (cou
 def layerEncodingInput (lay : Layer) (tree leaf : Nat) : LayerMsg → BitVec 32 → HashInput
   | .forest root, counter => encodingInput lay tree leaf root counter
   | .pair left right, counter => pairEncodingInputP lay tree leaf left right counter 0
-def producerFloor (lay : Layer) : Nat := ![8, 5, 5, 4] lay
+def producerFloor (lay : Layer) : Nat := ![9, 5, 5, 5] lay
 def wordCredit (lay : Layer) (digits : List Nat) : Nat :=
   ((List.range (chainCount lay)).filter fun i => digits.getD i 0 + 1 = maxDigit lay i).length
 def producerDecode (lay : Layer) (answer : Digest) : Option (List Nat) :=
