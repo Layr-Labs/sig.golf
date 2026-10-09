@@ -277,7 +277,7 @@ theorem pop_scanX (v : Digest) (c : Nat) (hc : c < 8) :
   have ha' := Finset.mem_range.mp ha
   rw [e0 a ha', e1 a ha', e2 a ha', g0 a (by omega), g0 (21 + a) (by omega), Nat.add_zero]
 /-- Machine credit floor of the shared lower-layer search kernel (layers 1, 2: 5; layer 3: 4). -/
-def scanFloor (lay : Nat) : Nat := if lay = 3 then 4 else 5
+def scanFloor (_lay : Nat) : Nat := 4
 section blocks
 variable {image : Image} {b : Nat}
 theorem capA0_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (capBase b + 0)) (i : Nat)
@@ -383,13 +383,12 @@ theorem scanA7_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf 
     (hl : lay < 4) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (c lo hi : BitVec 64)
     (h28 : s.getReg .x28 = c) (h6 : s.getReg .x6 = lo) (h7 : s.getReg .x7 = hi) :
     ∃ t, Steps image s 26 29 t ∧
-      t.pc = (if lay = 3 then pcOf (capBase b + 35) else pcOf (capBase b + 33)) ∧
+      t.pc = pcOf (capBase b + 35) ∧
       t.getReg .x28 = clr (scanX c lo hi) ∧
       RegsExcept s t [.x20, .x21, .x28, .x29, .x30] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (runa_7 hK.2.1) (codeAt_a_7 hK) s hpc (by simp [sta_7, blkA354_7.res, rv_simp]),
     ?_, ?_, ?_, ?_⟩
-  · simp only [Result.toState_pc, pcEa_7, rebase, blkA354_7.res, E.eval, CmpOp.eval, BinOp.eval, h8]
-    interval_cases lay <;> simp
+  · rfl
   · simp only [Result.toState_getReg, sta_7, blkA354_7.res]
     simp only [rv_simp, h6, h7, h28, BitVec.toNat_ofNat, Nat.reduceMod, Nat.reducePow]
     rfl
@@ -454,21 +453,14 @@ theorem scan_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (c
   obtain ⟨t0, k0, n0, s0, hn0, p0, x0, r0, f0⟩ : ∃ t0 k0 n0, Steps image s k0 n0 t0 ∧ n0 ≤ 31 ∧
       t0.pc = pcOf (capBase b + 35) ∧ t0.getReg .x28 = (clr^[scanFloor lay - 3]) X ∧
       RegsExcept s t0 [.x20, .x21, .x28, .x29, .x30] ∧ Frame s t0 (fun _ => False) := by
-    by_cases h3 : lay = 3
-    · rw [if_pos h3] at p0'
-      refine ⟨t0', 26, 29, s0', by norm_num, p0', ?_, r0', f0'⟩
-      rw [x0', scanFloor, if_pos h3]; rfl
-    · rw [if_neg h3] at p0'
-      obtain ⟨t1, s1, p1, x1, r1, f1⟩ := scanA33_spec hK t0' p0' _ x0'
-      refine ⟨t1, _, _, s0'.trans s1, by norm_num, p1, ?_, (r0'.trans r1).mono (by decide),
-        (f0'.trans f1).mono (fun _ _ h => by simp at h)⟩
-      rw [x1, scanFloor, if_neg h3]; rfl
+    refine ⟨t0', 26, 29, s0', by norm_num, p0', ?_, r0', f0'⟩
+    rw [x0']; rfl
   obtain ⟨t1, s1, p1, r1, f1⟩ := scanA35_spec hK t0 p0 _ x0
   have hz : clr (clr ((clr^[scanFloor lay - 3]) X)) = 0#64 ↔ ¬ scanFloor lay ≤ scanCredit v c := by
     have := clr_iter_eq_zero_iff (scanFloor lay - 3 + 1 + 1) X
     simp only [Function.iterate_succ_apply'] at this
     rw [this, hpop]
-    have : 3 ≤ scanFloor lay := by unfold scanFloor; split <;> omega
+    have : 3 ≤ scanFloor lay := by norm_num [scanFloor]
     omega
   by_cases h0 : clr (clr ((clr^[scanFloor lay - 3]) X)) = 0#64
   · rw [if_pos h0] at p1
@@ -570,14 +562,14 @@ theorem length_filter_range (n : Nat) (p : Nat → Prop) [DecidablePred p] :
     rw [List.range_succ, List.filter_append, List.length_append, ih, Finset.sum_range_succ]
     by_cases h : p n <;> simp [h]
 theorem producerDecode_top (v : Digest) :
-    WCT9.producerDecode 0 v = if T3.topCredit v < 8 then none else T3.decode 0 v := by
+    WCT9.producerDecode 0 v = if T3.topCredit v < 9 then none else T3.decode 0 v := by
   unfold WCT9.producerDecode
   cases hd : T3.decode 0 v with
   | none => simp
   | some ds =>
     simp only
-    rw [WCT9.wordCredit_top hd, show WCT9.producerFloor 0 = 8 from rfl]
-    by_cases h : T3.topCredit v < 8
+    rw [WCT9.wordCredit_top hd, show WCT9.producerFloor 0 = 9 from rfl]
+    by_cases h : T3.topCredit v < 9
     · rw [if_neg (by omega), if_pos h]
     · rw [if_pos (by omega), if_neg h]
 theorem producerDecode_lower {lay : Layer} (hlz : lay ≠ 0) (v : Digest) (c : Nat) {ds : List Nat}
@@ -928,7 +920,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
     have hT4 := hT3.step r4 (by decide) f4
     by_cases hlz : A.lay = 0
     · rw [if_pos (hl0.2 hlz)] at p4
-      have hsd : WCT9.producerDecode A.lay v = if T3.topCredit v < 8 then none else T3.decode A.lay v := by
+      have hsd : WCT9.producerDecode A.lay v = if T3.topCredit v < 9 then none else T3.decode A.lay v := by
         rw [hlz]; exact producerDecode_top v
       rw [hsd]
       obtain ⟨tc, sc, pcc, h6c, h7c, rc, fc⟩ := tc_spec hK t4 p4 v h6 h7
@@ -955,7 +947,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
           (by rw [r7.get (by decide), r6.get (by decide), r5.get (by decide), h7c])
           (by rw [r7.get (by decide), h30'])
         have hT8 := hT7.step r8 (by decide) f8
-        by_cases hc : T3.topCredit (T3.topFlip w) < 8
+        by_cases hc : T3.topCredit (T3.topFlip w) < 9
         · rw [if_pos hc] at p8 s8
           rw [if_pos hc]
           refine (TBSim.steps (((((s4.trans sc).trans s5).trans s6).trans s7).trans s8) (cs_next hK hT8 p8 hi ih')).mono ?_

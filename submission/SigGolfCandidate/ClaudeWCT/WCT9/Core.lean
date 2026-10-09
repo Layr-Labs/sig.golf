@@ -10,10 +10,10 @@ def children : Nat := 128
 def chains : Nat := 6
 def gateShift : Nat := 242
 def gateBits : Nat := 14
-def gateLimit : Nat := 1451
+def gateLimit : Nat := 1367
 def fieldBits : Nat := 10
 def fieldLimit : Nat := 563
-def jointCap : Nat := 785
+def jointCap : Nat := 783
 abbrev Coord := Fin 9
 abbrev Child := Fin 128
 abbrev Rank := Fin 563
@@ -33,7 +33,7 @@ def field (output : HashOutput) (coord : Coord) : Nat :=
 def rank (output : HashOutput) (coord : Coord) : Rank :=
   ⟨field output coord % 563, Nat.mod_lt _ (by decide)⟩
 def admissible (output : HashOutput) : Bool :=
-  decide (output.toNat / 2 ^ 242 % 2 ^ 14 < 1451) &&
+  decide (output.toNat / 2 ^ 242 % 2 ^ 14 < 1367) &&
     (List.range 9).all (fun coord =>
       decide (output.toNat / 2 ^ fieldBase coord % 2 ^ 10 < 563))
 def childSaveTable : List Nat :=
@@ -181,7 +181,7 @@ def pairEncodingInputP (up : Layer) (tree leaf : Nat) (left right : Digest) (cou
 def layerEncodingInput (lay : Layer) (tree leaf : Nat) : LayerMsg → BitVec 32 → HashInput
   | .forest root, counter => encodingInput lay tree leaf root counter
   | .pair left right, counter => pairEncodingInputP lay tree leaf left right counter 0
-def producerFloor (lay : Layer) : Nat := ![8, 5, 5, 4] lay
+def producerFloor (lay : Layer) : Nat := ![9, 4, 4, 4] lay
 def wordCredit (lay : Layer) (digits : List Nat) : Nat :=
   ((List.range (chainCount lay)).filter fun i => digits.getD i 0 + 1 = maxDigit lay i).length
 def producerDecode (lay : Layer) (answer : Digest) : Option (List Nat) :=

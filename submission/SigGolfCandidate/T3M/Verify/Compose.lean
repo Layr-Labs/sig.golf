@@ -448,7 +448,7 @@ theorem s8v_zero_iff (c : NCtx) (hds : c.DigitsOk) :
 theorem top_after_hash (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0) (hidx : index < 2 ^ 31)
     (t : MachineState) (hpre : BC.EncPre w pk index 0 c t) (Q : Prop) (hQ : Q) (q : Query) (hq : EncQ 0 q)
     (a : BitVec 256) :
-    GoodQP (fun hash => hash q = a ∧ HashOk hash) (writeHash t a) 2373 2626 Q 1322
+    GoodQP (fun hash => hash q = a ∧ HashOk hash) (writeHash t a) 2373 2626 Q 1321
       (ccM (ClaudeWCT.W9.T3M.topLayerP w index (a.extractLsb' 0 128)) (kFin pk)) := by
   set v := a.extractLsb' 0 128 with hvdef
   obtain ⟨s0, st0, he⟩ := topTransition w pk index c hc t hpre a
@@ -524,7 +524,7 @@ theorem top_after_hash (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Na
       have hdigs : L.dig = coreDigit 0 v := funext hdig
       rw [hdigs] at H2 hcc
       refine H2.mono ?_ ?_ (fun h => ⟨h, ?_⟩) <;> omega
-    by_cases hcr : 8 ≤ T3.topCredit v
+    by_cases hcr : 9 ≤ T3.topCredit v
     · exact (body.mono (le_refl _) (le_refl _) (fun h => ⟨h, by omega⟩)).toP.pre_mono (fun _ h => h.2)
     · refine GoodQP.of_false body ?_
       rintro hash ⟨hea, hok⟩
@@ -533,7 +533,7 @@ theorem top_after_hash (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Na
       exact hcr h7
   | none =>
     refine GoodQP.pre_mono (P := HashOk) ?_ (fun _ h => h.2)
-    refine Nonbinary.NCtx.goodQ_vacuous (A := 0) ?_ Q 1322
+    refine Nonbinary.NCtx.goodQ_vacuous (A := 0) ?_ Q 1321
     rw [ClaudeWCT.W9.T3M.topLayerP_of_decode_none w index hdec, ccM_map]
     simp only [kFin_none]
     have reject_from : ∀ z : MachineState, z.pc = pcOf 129638 → GoodQ z 4 4 False 0 (pure (false, 0)) := by
@@ -630,7 +630,7 @@ set_option maxHeartbeats 1000000
 set_option linter.unusedSimpArgs false
 def topFuel : Nat := 5 + 1 + 2373
 def topCyc : Nat := 5 + 8 + 2626
-def topCycA : Nat := 5 + 8 + 1322
+def topCycA : Nat := 5 + 8 + 1321
 theorem top_layer_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^ 31) (Q : Prop) (hQ : Q)
     (M : LayerMsg) (s : MachineState) (hs : LayerIn w pk index 0 M s) :
     GoodQ s topFuel topCyc Q topCycA (ccM (BC.layerLoop w index 1 M) (kFin pk)) := by
@@ -670,7 +670,7 @@ def lFuel : Nat → Nat
   | 1 => topFuel
   | n + 2 => layerFuel (n + 1) + mkFuel (n + 1) + lFuel (n + 1)
 theorem lCyc_4 : lCyc 4 = 6724 := by decide +kernel
-theorem lCycA_4 : lCycA 4 = 5406 := by decide +kernel
+theorem lCycA_4 : lCycA 4 = 5407 := by decide +kernel
 theorem lFuel_4 : lFuel 4 = 7756 := by decide +kernel
 theorem layers_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^ 31) (Q : Prop) (hQ : Q) :
     ∀ n, n ≤ 4 → ∀ msg s, RestIn w pk index n msg s →
@@ -714,7 +714,7 @@ theorem layers_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (h
       (fun q => ⟨q, by simp only [lCycA]; omega⟩)
 theorem after_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (Q : Prop) (hQ : Q) (a : HashOutput) (root : Digest) (u : MachineState)
     (h : FtsOut ⟨pk, w, a⟩ root u) :
-    GoodQ u 8050 8050 Q 5409 (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some root)) Kb) := by
+    GoodQ u 8050 8050 Q 5410 (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some root)) Kb) := by
   have hidx : ClaudeWCT.WCT9.digestIndex a < 2 ^ 31 := ClaudeWCT.WCT9.digestIndex_lt a
   obtain ⟨t, hst, hL3⟩ := layerIn_of_fts w pk _ root u hidx h.glob h.idx h.pc h.root h.wit h.a2 h.s10 h.heapOne h.heapTwo h.heapSeven h.heapThree h.heapFour h.heapFive h.coordStep h.topBase h.top h.top8
   have hg := layers_good w pk _ hidx Q hQ 4 le_rfl (.forest root) t (by simpa [RestIn] using hL3)
@@ -726,7 +726,7 @@ theorem after_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (Q : Prop) (hQ : 
   rw [e]
   rw [lFuel_4, lCyc_4, lCycA_4] at hg
   exact GoodQ.steps' hst hg (by omega) (by omega) (fun q => ⟨q, by omega⟩)
-theorem after_good_budget : AfterGoodBudget 5409 :=
+theorem after_good_budget : AfterGoodBudget 5410 :=
   fun pk w Q hQ a root u h => after_good pk w Q hQ a root u h
 end SigGolfCandidate.T3M
 end

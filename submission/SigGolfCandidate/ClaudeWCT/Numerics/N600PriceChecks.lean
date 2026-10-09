@@ -25,8 +25,8 @@ def poissonCheckQ (Qv un ud ln ld : Nat) (f : Nat → Nat) (dbase sn sd Mn Md R 
     un * ln ^ r * ld ^ (R - r) * (fact R / fact r) * f r * Qv ^ (9 * (R - r)) + s) 0
   Md * sn * (S * ld * (R + 1) + ln ^ (R + 1) * ud * dbase * Qv ^ (9 * R)) ≤
     Mn * sd * ud * dbase * ld ^ (R + 1) * fact (R + 1) * Qv ^ (9 * R)
-def A : Nat := 1451 * 2 ^ 24 * 563 ^ 9
-def LN : Nat := 200981999
+def A : Nat := 1367 * 2 ^ 24 * 563 ^ 9
+def LN : Nat := 202260439
 def LD : Nat := 100000000
 def MN : Nat := 649
 def MD : Nat := 1000
