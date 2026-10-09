@@ -88,6 +88,20 @@ theorem hashOnly_packedSecret (pairQuery : Nat → M (Digest × Digest)) (h : �
     exact hashOnly_bind (SigGolfCandidate.T3.SourceReplay.hashOnly_chain _ _ _ _ _ _ _) fun _ =>
       hashOnly_bind (SigGolfCandidate.T3.SourceReplay.hashOnly_chain _ _ _ _ _ _ _) fun _ => hashOnly_pure _
   · exact hashOnly_bind (SigGolfCandidate.T3.SourceReplay.hashOnly_leafHash _ _ _ _) fun _ => hashOnly_pure _
+@[aesop safe apply] theorem hashOnly_buildLeafPF (lay : Layer) (tree leaf : Nat) (digits : List Nat)
+    (carry : Digest) : HashOnly (ClaudeWCT.WCT9.buildLeafPF lay tree leaf digits carry) := by
+  unfold ClaudeWCT.WCT9.buildLeafPF
+  refine hashOnly_bind ?_ fun cc => ?_
+  · unfold ClaudeWCT.WCT9.lowerCoefs
+    refine hashOnly_foldlM _ _ (fun state j => ?_) _
+    refine hashOnly_bind (hashOnly_packedSecret_lower _ _ _ _) fun r => ?_
+    rcases r with ⟨coef, carry'⟩
+    exact hashOnly_pure _
+  rcases cc with ⟨coefs, carry'⟩
+  refine hashOnly_bind (hashOnly_foldlM _ _ (fun state i => ?_) _) fun state => ?_
+  · exact hashOnly_bind (SigGolfCandidate.T3.SourceReplay.hashOnly_chain _ _ _ _ _ _ _) fun _ =>
+      hashOnly_bind (SigGolfCandidate.T3.SourceReplay.hashOnly_chain _ _ _ _ _ _ _) fun _ => hashOnly_pure _
+  · exact hashOnly_bind (SigGolfCandidate.T3.SourceReplay.hashOnly_leafHash _ _ _ _) fun _ => hashOnly_pure _
 @[aesop safe apply] theorem hashOnly_buildLevelsBelow (tag lay tree h : Nat) (leaves : List Digest) :
     HashOnly (ClaudeWCT.WCT9.buildLevelsBelow tag lay tree h leaves) := by
   unfold ClaudeWCT.WCT9.buildLevelsBelow; hashes
@@ -95,7 +109,7 @@ theorem hashOnly_packedSecret (pairQuery : Nat → M (Digest × Digest)) (h : �
     HashOnly (ClaudeWCT.WCT9.buildTreeP lay tree selected digits) := by
   unfold ClaudeWCT.WCT9.buildTreeP
   refine hashOnly_bind (hashOnly_foldlM _ _ (fun state leaf => ?_) _) fun state => ?_
-  · refine hashOnly_bind (hashOnly_buildLeafP lay tree leaf _ _) fun r => ?_
+  · refine hashOnly_bind (hashOnly_buildLeafPF lay tree leaf _ _) fun r => ?_
     rcases r with ⟨⟨root, values⟩, carry⟩
     exact hashOnly_pure _
   · exact hashOnly_bind (hashOnly_buildLevelsBelow _ _ _ _ _) fun _ => hashOnly_pure _
@@ -703,9 +717,9 @@ open ClaudeWCT.WCT9 (Signature Witness)
 open ClaudeWCT.WCT9.Rev3 (sign expand verify)
 open SigGolfCandidate.T3M (mrealize countBoth countCalls cacheB cacheDec isHash)
 open ClaudeWCT.W9.T3M (Images submission)
-def verifyCycleBound : Nat := 7342
-def claimedC : Nat := 7424
-def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 20912) : Prop :=
+def verifyCycleBound : Nat := 7294
+def claimedC : Nat := 7376
+def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 20908) : Prop :=
   ∀ N, evalWithAnswerFn hash (mrealize 0 (digestP m w)) = some N → WCT9.capOk N = true
 variable (I : Images)
 def KeygenRunCounts : Prop := ∀ sk : SecretKey,
@@ -728,13 +742,13 @@ def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5312),
 def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5312),
   ((submission I).runWith hash .expand (m, pk, s)).finished = true ∧
     ((submission I).runWith hash .expand (m, pk, s)).cycles < CYCLE_LIMIT
-def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 20912),
+def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 20908),
   (fun r => (r.value, r.hashCalls)) <$> (submission I).run .verify (m, pk, w) =
     (fun p => (if p.1 then some () else none, p.2)) <$> countCalls (mrealize 0 (verifyP m pk w))
-def VerifyTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 20912),
+def VerifyTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 20908),
   ((submission I).runWith hash .verify (m, pk, w)).finished = true ∧
     ((submission I).runWith hash .verify (m, pk, w)).cycles < CYCLE_LIMIT
-def VerifyAcceptCycles : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 20912),
+def VerifyAcceptCycles : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 20908),
   SigGolfCandidate.T3M.Verify.HashOk hash → DigestCapOk hash m w →
   ((submission I).runWith hash .verify (m, pk, w)).value.isSome = true →
     ((submission I).runWith hash .verify (m, pk, w)).cycles ≤ verifyCycleBound

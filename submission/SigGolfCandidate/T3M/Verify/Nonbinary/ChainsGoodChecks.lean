@@ -1,9 +1,95 @@
-import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecksPart11
-import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsSem
-import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsCheckParts
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecks5
 
 section
-
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
+set_option maxRecDepth 200000
+set_option maxHeartbeats 1000000
+theorem tripleCheck_at (q : Nat) (hq : q<18) (hn : inl q=false) : tripleCheck q=true := by
+  interval_cases q
+  all_goals first | (simp [inl] at hn) | skip
+  exacts [tripleCheck_0, tripleCheck_1, tripleCheck_2, tripleCheck_3, tripleCheck_4, tripleCheck_5,
+    tripleCheck_6, tripleCheck_7, tripleCheck_8, tripleCheck_9, tripleCheck_10, tripleCheck_11, tripleCheck_12]
+theorem inlineGroupCheck_at (q : Nat) (hq : inl q=true) (hq17 : q<17) :
+    inlineGroupCheck q 0 25=true ∧ inlineGroupCheck q 25 25=true ∧ inlineGroupCheck q 50 25=true ∧
+      inlineGroupCheck q 75 25=true ∧ inlineGroupCheck q 100 25=true := by
+  have h : q=13 ∨ q=14 ∨ q=15 ∨ q=16 := by simp [inl] at hq; omega
+  rcases h with rfl|rfl|rfl|rfl
+  · exact ⟨inlineGroupCheck_13_0,inlineGroupCheck_13_25,inlineGroupCheck_13_50,inlineGroupCheck_13_75,inlineGroupCheck_13_100⟩
+  · exact ⟨inlineGroupCheck_14_0,inlineGroupCheck_14_25,inlineGroupCheck_14_50,inlineGroupCheck_14_75,
+      inlineGroupCheck_14_100⟩
+  · exact ⟨inlineGroupCheck_15_0,inlineGroupCheck_15_25,inlineGroupCheck_15_50,inlineGroupCheck_15_75,
+      inlineGroupCheck_15_100⟩
+  · exact ⟨inlineGroupCheck_16_0,inlineGroupCheck_16_25,inlineGroupCheck_16_50,inlineGroupCheck_16_75,
+      inlineGroupCheck_16_100⟩
+theorem inlineCheck_at (q k : Nat) (hq : inl q=true) (hk : k<(mx q+1)^3) : inlineCheck q k=true := by
+  by_cases hq17 : q<17
+  · have hm : mx q=4 := by unfold mx; rw [if_pos hq17]
+    rw [hm] at hk
+    obtain ⟨h0,h1,h2,h3,h4⟩ := inlineGroupCheck_at q hq hq17
+    have pick : ∀ lo, inlineGroupCheck q lo 25=true → lo ≤ k → k<lo+25 → inlineCheck q k=true := by
+      intro lo h hl hh
+      exact List.all_eq_true.mp h k (List.mem_range'_1.mpr ⟨hl,by omega⟩)
+    by_cases a : k<25
+    · exact pick 0 h0 (by omega) (by omega)
+    by_cases b : k<50
+    · exact pick 25 h1 (by omega) (by omega)
+    by_cases d : k<75
+    · exact pick 50 h2 (by omega) (by omega)
+    by_cases e : k<100
+    · exact pick 75 h3 (by omega) (by omega)
+    · exact pick 100 h4 (by omega) (by norm_num at hk; omega)
+  · have hq' : q=17 := by simp [inl] at hq; omega
+    subst hq'
+    have hk64 : k<64 := by unfold mx at hk; norm_num at hk; omega
+    by_cases a : k<32
+    · exact List.all_eq_true.mp inlineGroupCheck_17_0 k (List.mem_range'_1.mpr ⟨by omega,by omega⟩)
+    · exact List.all_eq_true.mp inlineGroupCheck_17_32 k (List.mem_range'_1.mpr ⟨by omega,by omega⟩)
+theorem entCheck_at (q k : Nat) (hq : q<18) (hn : inl q=false) (hk : k<(mx q+1)^3) : entCheck q k=true := by
+  have h := tripleCheck_at q hq hn
+  simp only [tripleCheck,Bool.and_eq_true] at h
+  exact (Bool.and_eq_true _ _ |>.mp (List.all_eq_true.mp h.1 k (List.mem_range.mpr hk))).1
+theorem s8Check_at (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) : s8Check q k=true := by
+  cases hn : inl q
+  · have h := tripleCheck_at q hq hn
+    simp only [tripleCheck,Bool.and_eq_true] at h
+    exact (Bool.and_eq_true _ _ |>.mp (List.all_eq_true.mp h.1 k (List.mem_range.mpr hk))).2
+  · have h := inlineCheck_at q k hn hk
+    simp only [inlineCheck,Bool.and_eq_true] at h
+    exact h.1.1.1.1
+theorem blockCheck_at (q dB dC : Nat) (hq : q<18) (hn : inl q=false) (hB : dB ≤ mx q) (hC : dC ≤ mx q) :
+    blockCheck q dB dC=true := by
+  have h := tripleCheck_at q hq hn
+  simp only [tripleCheck,Bool.and_eq_true] at h
+  have hh : (mx q+1)*dB+dC<(mx q+1)^2 := by
+    unfold mx at *
+    split_ifs at * <;> nlinarith
+  have e1 : ((mx q+1)*dB+dC)/(mx q+1)=dB := by
+    unfold mx at *
+    split_ifs at * <;> omega
+  have e2 : ((mx q+1)*dB+dC)%(mx q+1)=dC := by
+    unfold mx at *
+    split_ifs at * <;> omega
+  have hb := List.all_eq_true.mp h.2 ((mx q+1)*dB+dC) (List.mem_range.mpr hh)
+  rwa [e1,e2] at hb
+theorem stub_at (k : Nat) (hk : k<125) : vrun (guardW k) 1=some rejJ := by
+  have h := rejCheck_ok
+  simp only [rejCheck] at h
+  exact rOK_eq (List.all_eq_true.mp h k (List.mem_range.mpr hk))
+theorem s8Run_at (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) :
+    (if q=0 then rOK (vrun (entW 0 k) 3) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k)))=true := by
+  have h := s8Check_at q k hq hk
+  simp only [s8Check,Bool.and_eq_true] at h
+  exact h.1
+theorem bge9_at (k : Nat) (hk : k<125) (he : k%2=0) : vrun (cellW 9 k) 1=some (bge9R (cellW 9 k)) := by
+  have h := s8Check_at 9 k (by decide +kernel) (by unfold mx; norm_num; omega)
+  simp only [s8Check,Bool.and_eq_true] at h
+  have h2 := h.2
+  rw [if_pos (by simp [he])] at h2
+  exact rOK_eq h2
+end SigGolfCandidate.T3M.Nonbinary
+end
 end
 
 section
@@ -93,10 +179,8 @@ theorem groupFacts (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<18) : c.Group
     · rw [eB]; exact hpB
     · rw [eC]; exact hpC
     · intro hq17; rw [eX]; rw [if_pos hq17] at hdisp; exact rOK_eq hdisp
-  · have hm4 := mx_inl q hn
-    rw [hm4] at hk
-    have he := inlineCheck_at q (c.kOf q) hn (by norm_num at hk; omega)
-    have hq16 : 13 ≤ q ∧ q ≤ 16 := by simp [inl] at hn; omega
+  · have he := inlineCheck_at q (c.kOf q) hn hk
+    have hq16 : 13 ≤ q ∧ q ≤ 17 := by simp [inl] at hn; omega
     simp only [inlineCheck,k1,k2,k3] at he
     by_cases hd : c.dig (3*q)=mx q
     · rw [if_pos hd] at he
@@ -104,14 +188,14 @@ theorem groupFacts (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<18) : c.Group
       obtain ⟨⟨⟨⟨hs8,hcopy⟩,hpB⟩,hpC⟩,hdisp⟩ := he
       refine ⟨fun h => by simp [hn] at h,fun h => by simp [hn] at h,fun h => by simp [hn] at h,
         fun _ _ => rOK_eq hcopy,fun _ h => absurd h (by omega),fun _ h => absurd h (by omega),
-        fun h => absurd h (by omega),?_,hpB,hpC,fun _ => by rw [if_neg (show q≠8 by omega)]; exact rOK_eq hdisp,hs8⟩
+        fun h => absurd h (by omega),?_,hpB,hpC,fun hq17 => by rw [if_pos hq17] at hdisp; rw [if_neg (show q≠8 by omega)]; exact rOK_eq hdisp,hs8⟩
       unfold rungsOK; rw [List.all_eq_true]; intro m hm'; rw [List.mem_range'_1] at hm'; omega
     · rw [if_neg hd] at he
       simp only [Bool.and_eq_true] at he
       obtain ⟨⟨⟨⟨hs8,⟨⟨hhead,htail⟩,hrungs⟩⟩,hpB⟩,hpC⟩,hdisp⟩ := he
       refine ⟨fun h => by simp [hn] at h,fun h => by simp [hn] at h,fun h => by simp [hn] at h,
         fun _ h => absurd h hd,fun _ h => ?_,fun _ h => ?_,fun _ => rOK_eq htail,hrungs,hpB,hpC,
-        fun _ => by rw [if_neg (show q≠8 by omega)]; exact rOK_eq hdisp,hs8⟩
+        fun hq17 => by rw [if_pos hq17] at hdisp; rw [if_neg (show q≠8 by omega)]; exact rOK_eq hdisp,hs8⟩
       · rw [if_neg (by omega)] at hhead; simpa only [if_neg (show ¬ c.dig (3*q)+1=mx q by omega)] using rOK_eq hhead
       · rw [if_pos h] at hhead; simpa only [if_pos h] using rOK_eq hhead
 theorem kOf_eq_lead (c : NCtx) (i : Nat) (h0 : i%3=0) : 3*(i/3)=i := by omega

@@ -51,16 +51,28 @@ def wotsTweak (lay : Layer) (tree leaf i : Nat) : BitVec 128 :=
 def wotsPar (lay : Layer) (leaf i : Nat) : Nat := if lay = 0 then i % 2 else WCT9.lowerOrdinal lay leaf i % 2
 theorem wotsPar_lt (lay : Layer) (leaf i : Nat) : wotsPar lay leaf i < 2 := by
   unfold wotsPar; split_ifs <;> omega
-theorem wotsSeed_eq (T : Answers) (lay : Layer) (tree leaf i : Nat) :
+/-- A top seed is a half-cell (lower seeds are family evaluations, `lowerSeed_eq_cells`). -/
+theorem wotsSeed_eq (T : Answers) {lay : Layer} (h : lay = 0) (tree leaf i : Nat) :
     WCT9.wotsSeed T lay tree leaf i =
       if wotsPar lay leaf i = 0 then (T (.inr (.inl (wotsTweak lay tree leaf i)))).extractLsb' 0 128
       else (T (.inr (.inl (wotsTweak lay tree leaf i)))).extractLsb' 128 128 := by
-  by_cases h : lay = 0
-  · subst h
-    rfl
-  · unfold WCT9.wotsSeed wotsPar wotsTweak
-    rw [if_neg h, if_neg h, if_neg h]
-    rfl
+  subst h
+  rfl
+/-- A lower seed only reads the coefficient cells `lowerSeedHeader lay tree p` of its tree. -/
+theorem lowerSeed_congr_cells {T T' : Answers} {lay : Layer} (tree leaf i : Nat)
+    (h : ∀ p, T (.inr (.inl (WCT9.lowerSeedHeader lay tree p))) = T' (.inr (.inl (WCT9.lowerSeedHeader lay tree p)))) :
+    WCT9.lowerSeed T lay tree leaf i = WCT9.lowerSeed T' lay tree leaf i := by
+  unfold WCT9.lowerSeed
+  congr 2
+  funext j
+  unfold WCT9.lowerCoef WCT9.lowerCoefN WCT9.lowerSeedPair privatePair privateHash
+  simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+  change WCT9.seedHalf ((T (.inr (.inl (header 0 lay.val tree _ 0)))).extractLsb' 0 128,
+      (T (.inr (.inl (header 0 lay.val tree _ 0)))).extractLsb' 128 128) _ =
+    WCT9.seedHalf ((T' (.inr (.inl (header 0 lay.val tree _ 0)))).extractLsb' 0 128,
+      (T' (.inr (.inl (header 0 lay.val tree _ 0)))).extractLsb' 128 128) _
+  rw [show header 0 lay.val tree (WCT9.lowerCoefOrdinal leaf j.val / 2) 0 =
+    WCT9.lowerSeedHeader lay tree (WCT9.lowerCoefOrdinal leaf j.val / 2) from rfl, h]
 theorem wotsTweak_self (a : ChainAddr) : wotsTweak a.key.lay a.key.tree a.key.leaf a.chain = seedTweakP a := by
   unfold wotsTweak seedTweakP seedTweak seedSlot
   split_ifs <;> rfl
@@ -154,17 +166,40 @@ theorem wotsSeed_maskAt (lay : Layer) (tree leaf i : Nat) (hi : i < chainCount l
   by_cases hd : depth answers a = 0
   · rw [maskAt_of_depth_zero answers a hd]
   have hac := chain_lt_of_depth answers a (by omega)
-  rw [wotsSeed_eq, wotsSeed_eq]
-  by_cases heq : wotsTweak lay tree leaf i = seedTweakP a
-  · have hpar : wotsPar lay leaf i ≠ seedSlot a % 2 := fun hp => hna (wotsTweak_alias a hi hb hac heq hp)
-    have hp2 := wotsPar_lt lay leaf i
-    rw [maskAt_tweak, heq, if_pos (⟨rfl, by omega⟩ : seedTweakP a = seedTweakP a ∧ 1 ≤ depth answers a)]
-    by_cases h0 : seedSlot a % 2 = 0
-    · have hi1 : ¬wotsPar lay leaf i = 0 := by omega
-      rw [if_neg hi1, if_neg hi1, if_pos h0, ChainGraph.joinOutput_high]
-    · have hi0 : wotsPar lay leaf i = 0 := by omega
-      rw [if_pos hi0, if_pos hi0, if_neg h0, ChainGraph.joinOutput_low]
-  · rw [maskAt_untouched answers a (q := .inr (.inl _)) heq]
+  by_cases hl : lay = 0
+  · rw [wotsSeed_eq _ hl, wotsSeed_eq _ hl]
+    by_cases heq : wotsTweak lay tree leaf i = seedTweakP a
+    · have hpar : wotsPar lay leaf i ≠ seedSlot a % 2 := fun hp => hna (wotsTweak_alias a hi hb hac heq hp)
+      have hp2 := wotsPar_lt lay leaf i
+      have ha0 : a.key.lay = 0 := by
+        by_contra ha0
+        unfold wotsTweak seedTweakP WCT9.lowerSeedHeader seedTweak at heq
+        rw [if_pos hl, if_neg ha0] at heq
+        have := (header_fields heq).2.1
+        have e1 : lay.val = 0 := by rw [hl]; rfl
+        have e2 : a.key.lay.val ≠ 0 := fun e => ha0 (Fin.ext e)
+        have := a.key.lay.isLt
+        omega
+      rw [maskAt_tweak, heq, if_pos (⟨rfl, by omega, ha0⟩ : seedTweakP a = seedTweakP a ∧ 1 ≤ depth answers a ∧
+        a.key.lay = 0)]
+      by_cases h0 : seedSlot a % 2 = 0
+      · have hi1 : ¬wotsPar lay leaf i = 0 := by omega
+        rw [if_neg hi1, if_neg hi1, if_pos h0, ChainGraph.joinOutput_high]
+      · have hi0 : wotsPar lay leaf i = 0 := by omega
+        rw [if_pos hi0, if_pos hi0, if_neg h0, ChainGraph.joinOutput_low]
+    · rw [maskAt_untouched answers a (q := .inr (.inl _)) heq]
+  · rw [WCT9.wotsSeed_lower _ hl, WCT9.wotsSeed_lower _ hl]
+    apply lowerSeed_congr_cells
+    intro p
+    rw [maskAt_tweak, if_neg]
+    rintro ⟨he, -, ha0⟩
+    unfold seedTweakP seedTweak WCT9.lowerSeedHeader at he
+    rw [if_pos ha0] at he
+    have := (header_fields he).2.1
+    have e1 : lay.val ≠ 0 := fun e => hl (Fin.ext e)
+    have e2 : a.key.lay.val = 0 := by rw [ha0]; rfl
+    have := lay.isLt
+    omega
 theorem wotsSeed_alias (T : Answers) {lay : Layer} {tree leaf : Nat} {L : LeafAddr}
     (h : LeafAlias lay tree leaf L) (hb : lay = 0 ∨ (leaf < 2 ^ 24 ∧ L.leaf < 2 ^ 24)) (i : Nat) :
     WCT9.wotsSeed T lay tree leaf i = WCT9.wotsSeed T L.lay L.tree L.leaf i := by
@@ -180,8 +215,21 @@ theorem wotsSeed_alias (T : Answers) {lay : Layer} {tree leaf : Nat} {L : LeafAd
     rw [Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)] at this
     exact this
   obtain ⟨hlay, ht, -⟩ := h
-  subst hlay he
-  rw [wotsSeed_eq, wotsSeed_eq, wotsTweak_congr ht]
+  subst he
+  rw [← hlay]
+  by_cases h0 : lay = 0
+  · rw [wotsSeed_eq _ h0, wotsSeed_eq _ h0, wotsTweak_congr ht]
+  · rw [WCT9.wotsSeed_lower _ h0, WCT9.wotsSeed_lower _ h0]
+    have hc : ∀ p, WCT9.lowerSeedHeader lay tree p = WCT9.lowerSeedHeader lay L.tree p := fun p => by
+      unfold WCT9.lowerSeedHeader
+      exact header_congr rfl ht rfl
+    have hcoef : WCT9.lowerCoef T lay tree L.leaf = WCT9.lowerCoef T lay L.tree L.leaf := by
+      funext j
+      unfold WCT9.lowerCoef WCT9.lowerCoefN WCT9.lowerSeedPair privatePair
+      rw [show header 0 lay.val tree (WCT9.lowerCoefOrdinal L.leaf j.val / 2) 0 =
+        header 0 lay.val L.tree (WCT9.lowerCoefOrdinal L.leaf j.val / 2) 0 from hc _]
+    unfold WCT9.lowerSeed
+    rw [hcoef]
 end Mask
 theorem chain_maskAt (answers : Answers) (a : ChainAddr) (count : Nat) (hcount : depth answers a ≤ count)
     (hsmall : count ≤ 256) :

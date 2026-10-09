@@ -30,7 +30,10 @@ theorem wotsSeed_short (lay : Layer) (tree leaf i : Nat) :
   unfold WCT9.wotsSeed
   split_ifs
   · exact leafSeed_short hAT lay tree leaf i
-  · unfold WCT9.lowerSeed WCT9.lowerSeedPair
+  · unfold WCT9.lowerSeed
+    congr 2
+    funext j
+    unfold WCT9.lowerCoef WCT9.lowerCoefN WCT9.lowerSeedPair
     rw [ShortRespects.privatePair 0 lay.val tree _ 0 A T hAT]
 theorem wotsEnd_short (lay : Layer) (tree leaf i : Nat) :
     WCT9.wotsEnd A lay tree leaf i = WCT9.wotsEnd T lay tree leaf i := by

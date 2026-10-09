@@ -5,8 +5,8 @@ open OracleComp OracleSpec SigGolfCandidate.T3
 open SigGolfCandidate.T3M (sibOff chainP nodeHashP PubGood allQ_bind allQ_mapM allQ_foldlM pubGood_chainP
   pubGood_leafHash pubGood_nodeHashP)
 open SigGolfCandidate.T3M.SecurityExtraction (hashPath merkleInput foldlM_finRange_eq_hashPath)
-def wsize : Nat := 20912
-abbrev WBytes := BitVec (8 * 20912)
+def wsize : Nat := 20908
+abbrev WBytes := BitVec (8 * 20908)
 def wbyte (w : WBytes) (i : Nat) : UInt8 := UInt8.ofBitVec (w.extractLsb' (8 * i) 8)
 def wdig (w : WBytes) (off : Nat) : Digest := w.extractLsb' (8 * off) 128
 def wle32 (w : WBytes) (off : Nat) : BitVec 32 := w.extractLsb' (8 * off) 32
@@ -43,7 +43,7 @@ theorem layerBase_tiles : ∀ lay : Fin 3,
     layerBase lay.castSucc + 16 * pathSlots lay.castSucc + 64 * chainCount lay.castSucc = layerBase lay.succ := by
   decide
 theorem layerBase_end : layerBase 3 + 16 * pathSlots 3 + 64 * chainCount 3 = rhoOff := rfl
-theorem dcOff_end : dcOff + 8 = wsize := rfl
+theorem dcOff_end : dcOff + 4 = wsize := rfl
 def layerP (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) : M Digest := do
   let (leaf, tree) := route index lay
   let ends ← (List.finRange (chainCount lay)).mapM fun i =>

@@ -219,6 +219,7 @@ theorem maskAt_congr (answers answers' : Answers) (a : ChainAddr)
       answers (.inr coordinate) = answers' (.inr coordinate))
     (hsibling : siblingHalfP a (answers (.inr (.inl (seedTweakP a)))) =
       siblingHalfP a (answers' (.inr (.inl (seedTweakP a)))))
+    (hlower : a.key.lay ≠ 0 → answers (.inr (.inl (seedTweakP a))) = answers' (.inr (.inl (seedTweakP a))))
     (hdepth : depth answers a = depth answers' a)
     (hfrontier : frontierValue answers a = frontierValue answers' a) :
     maskAt answers a = maskAt answers' a := by
@@ -237,8 +238,12 @@ theorem maskAt_congr (answers answers' : Answers) (a : ChainAddr)
   · rw [Mask.maskAt_tweak, Mask.maskAt_tweak, hdepth]
     by_cases ht : tweak = seedTweakP a
     · subst ht
+      by_cases hl0 : a.key.lay = 0
+      swap
+      · rw [if_neg (fun h => hl0 h.2.2), if_neg (fun h => hl0 h.2.2)]
+        exact hlower hl0
       by_cases hd : 1 ≤ depth answers' a
-      · have hc : seedTweakP a = seedTweakP a ∧ 1 ≤ depth answers' a := ⟨rfl, hd⟩
+      · have hc : seedTweakP a = seedTweakP a ∧ 1 ≤ depth answers' a ∧ a.key.lay = 0 := ⟨rfl, hd, hl0⟩
         rw [if_pos hc, if_pos hc]
         by_cases h0 : seedSlot a % 2 = 0
         · have e : (answers (.inr (.inl (seedTweakP a)))).extractLsb' 128 128 =
@@ -249,7 +254,7 @@ theorem maskAt_congr (answers answers' : Answers) (a : ChainAddr)
               (answers' (.inr (.inl (seedTweakP a)))).extractLsb' 0 128 := by
             simpa only [siblingHalfP, siblingHalf, hpar, if_neg h0] using hsibling
           rw [if_neg h0, if_neg h0, e]
-      · have hc : ¬(seedTweakP a = seedTweakP a ∧ 1 ≤ depth answers' a) := fun h => hd h.2
+      · have hc : ¬(seedTweakP a = seedTweakP a ∧ 1 ≤ depth answers' a ∧ a.key.lay = 0) := fun h => hd h.2.1
         rw [if_neg hc, if_neg hc]
         have h0 : depth answers a = 0 := by omega
         have h0' : depth answers' a = 0 := by omega
@@ -260,7 +265,7 @@ theorem maskAt_congr (answers answers' : Answers) (a : ChainAddr)
           unfold frontierValue honestChainValue
           rw [hT]
           change WCT9.wotsSeed T a.key.lay a.key.tree a.key.leaf a.chain = _
-          rw [Mask.wotsSeed_eq, Mask.wotsTweak_self, Mask.wotsPar_self]
+          rw [Mask.wotsSeed_eq _ hl0, Mask.wotsTweak_self, Mask.wotsPar_self]
         rw [hseed answers h0, hseed answers' h0'] at hfrontier
         rw [← ChainGraph.joinOutput_parts (answers (.inr (.inl (seedTweakP a)))),
           ← ChainGraph.joinOutput_parts (answers' (.inr (.inl (seedTweakP a))))]
@@ -300,14 +305,16 @@ theorem maskAt_idem (answers : Answers) (a : ChainAddr) (hm : Mask.MaskOK a) :
     · exact Mask.maskAt_untouched answers a (q := .inr (.inl tweak)) (fun h => hc (congrArg Sum.inl h))
     · rfl
   · rw [Mask.maskAt_tweak]
-    by_cases hd : 1 ≤ depth answers a
-    · rw [if_pos (⟨rfl, hd⟩ : seedTweakP a = seedTweakP a ∧ 1 ≤ depth answers a)]
+    by_cases hd : 1 ≤ depth answers a ∧ a.key.lay = 0
+    · rw [if_pos (⟨rfl, hd⟩ : seedTweakP a = seedTweakP a ∧ 1 ≤ depth answers a ∧ a.key.lay = 0)]
       unfold siblingHalfP siblingHalf
       rw [hpar]
       by_cases h0 : seedSlot a % 2 = 0
       · rw [if_pos h0, if_pos h0, ChainGraph.joinOutput_high, if_pos h0]
       · rw [if_neg h0, if_neg h0, ChainGraph.joinOutput_low, if_neg h0]
     · rw [if_neg (fun h => hd h.2)]
+  · intro hl0
+    rw [Mask.maskAt_tweak, if_neg (fun h => hl0 h.2.2)]
   · exact depth_maskAt answers a hm
   · exact frontierValue_maskAt answers a hm
 theorem eval_keygen_of_maskAt_eq (answers answers' : Answers) (a : ChainAddr)

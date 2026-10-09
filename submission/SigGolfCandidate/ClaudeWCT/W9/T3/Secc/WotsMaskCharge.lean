@@ -31,9 +31,8 @@ theorem count_buildTree_maskAt_top (tree selected : Nat) (digits : List Nat)
   rw [queried_length_bind, queried_length_bind, queried_length_pure, queried_length_pure,
     count_maskAt_of_respects answers a (respectsP_buildLevels a 3 _ _ _ _ (by decide))]
 def leafCountP (lay : Layer) (leaf : Nat) (digits : List Nat) : Nat :=
-  ((List.range (chainCount lay)).map fun i =>
-    (if WCT9.lowerOrdinal lay leaf i % 2 = 0 then 1 else 0) +
-      (digits.getD i 0 + (maxDigit lay i - digits.getD i 0))).sum + 1
+  ((List.range WCT9.lowerCoefCount).map fun j => if WCT9.lowerCoefOrdinal leaf j % 2 = 0 then 1 else 0).sum +
+    ((List.range (chainCount lay)).map fun i => digits.getD i 0 + (maxDigit lay i - digits.getD i 0)).sum + 1
 theorem queried_length_packedSecret (T : Answers) (lay : Layer) (tree q : Nat) (carry : Digest) :
     (SourceReplay.queried T (WCT9.packedSecret (WCT9.lowerSeedPair lay tree) q carry)).length =
       if q % 2 = 0 then 1 else 0 := by
@@ -42,35 +41,43 @@ theorem queried_length_packedSecret (T : Answers) (lay : Layer) (tree q : Nat) (
   · rw [queried_length_bind, queried_length_pure]
     rfl
   · rfl
-theorem queried_length_leafStepP (T : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat)
-    (s : List Digest × List Digest × Digest) (i : Nat) :
-    (SourceReplay.queried T (WCT9.leafStepP lay tree leaf digits s i)).length =
-      (if WCT9.lowerOrdinal lay leaf i % 2 = 0 then 1 else 0) +
-        (digits.getD i 0 + (maxDigit lay i - digits.getD i 0)) := by
-  unfold WCT9.leafStepP
+theorem queried_length_lowerCoefs (T : Answers) (lay : Layer) (tree leaf : Nat) (carry : Digest) :
+    (SourceReplay.queried T (WCT9.lowerCoefs lay tree leaf carry)).length =
+      ((List.range WCT9.lowerCoefCount).map fun j => if WCT9.lowerCoefOrdinal leaf j % 2 = 0 then 1 else 0).sum := by
+  unfold WCT9.lowerCoefs
+  refine queried_length_foldlM T _ _ _ (fun j _ s => ?_) _
   rw [queried_length_bind, queried_length_packedSecret]
-  generalize evalWithAnswerFn T (WCT9.packedSecret (WCT9.lowerSeedPair lay tree) (WCT9.lowerOrdinal lay leaf i) s.2.2) = sc
-  rcases sc with ⟨seed, c⟩
+  generalize evalWithAnswerFn T (WCT9.packedSecret (WCT9.lowerSeedPair lay tree) (WCT9.lowerCoefOrdinal leaf j) s.2) = sc
+  rcases sc with ⟨coef, c⟩
   dsimp only
+  rw [queried_length_pure, Nat.add_zero]
+theorem queried_length_leafStepF (T : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat)
+    (coefs : List Digest) (s : List Digest × List Digest) (i : Nat) :
+    (SourceReplay.queried T (WCT9.leafStepF lay tree leaf digits coefs s i)).length =
+      digits.getD i 0 + (maxDigit lay i - digits.getD i 0) := by
+  unfold WCT9.leafStepF
   rw [queried_length_bind, queried_length_chain, queried_length_bind, queried_length_chain, queried_length_pure,
     Nat.add_zero]
-theorem queried_length_buildLeafP (T : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
-    (SourceReplay.queried T (WCT9.buildLeafP lay tree leaf digits carry)).length = leafCountP lay leaf digits := by
-  rw [WCT9.buildLeafP_factor, queried_length_bind]
-  unfold WCT9.leafRowsP leafCountP
-  rw [queried_length_foldlM T _ _ _ (fun i _ s => queried_length_leafStepP T lay tree leaf digits s i),
+theorem queried_length_buildLeafPF (T : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
+    (SourceReplay.queried T (WCT9.buildLeafPF lay tree leaf digits carry)).length = leafCountP lay leaf digits := by
+  rw [WCT9.buildLeafPF_factor, queried_length_bind, queried_length_lowerCoefs, queried_length_bind]
+  unfold WCT9.leafRowsF leafCountP
+  rw [queried_length_foldlM T _ _ _ (fun i _ s => queried_length_leafStepF T lay tree leaf digits _ s i),
     queried_length_bind, queried_length_pure]
-  rfl
+  have hl : ∀ ends, (SourceReplay.queried T (leafHash lay tree leaf ends)).length = 1 := fun ends => rfl
+  rw [hl]
+  omega
 def treeCountP (lay : Layer) (selected : Nat) (digits : List Nat) : Nat :=
   ((List.range (2 ^ height lay)).map fun leaf => leafCountP lay leaf (if leaf = selected then digits else [])).sum
 theorem queried_length_treeRowsP (T : Answers) (lay : Layer) (tree selected : Nat) (digits : List Nat) :
     (SourceReplay.queried T (WCT9.treeRowsP lay tree selected digits)).length = treeCountP lay selected digits := by
   unfold WCT9.treeRowsP
   refine queried_length_foldlM T _ _ _ (fun leaf _ rows => ?_) _
-  rw [queried_length_bind, queried_length_buildLeafP]
-  generalize evalWithAnswerFn T (WCT9.buildLeafP lay tree leaf (if leaf = selected then digits else []) rows.2.2) = r
+  rw [queried_length_bind, queried_length_buildLeafPF]
+  generalize evalWithAnswerFn T (WCT9.buildLeafPF lay tree leaf (if leaf = selected then digits else []) rows.2.2) = r
   rcases r with ⟨⟨root, values⟩, c⟩
-  rfl
+  dsimp only
+  rw [queried_length_pure, Nat.add_zero]
 theorem count_buildTreeP_maskAt (lay : Layer) (hlay : lay ≠ 0) (tree selected : Nat) (digits : List Nat)
     (hvalid : Cost.ValidDigits lay digits) (hm : MaskOK a) :
     (SourceReplay.queried (maskAt answers a) (WCT9.buildTreeP lay tree selected digits)).length =

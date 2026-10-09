@@ -39,6 +39,17 @@ theorem respects_buildLeafP (lay : Layer) (tree leaf : Nat) (digits : List Nat) 
   exact Respects.bind (respects_packedSecret _ _ _ _) fun sc =>
     Respects.bind (respects_chain _ _ _ _ _ _ _) fun _ =>
       Respects.bind (respects_chain _ _ _ _ _ _ _) fun _ => Respects.pure' _
+theorem respects_buildLeafPF (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
+    Respects Enc.NonEnc (WCT9.buildLeafPF lay tree leaf digits carry) := by
+  unfold WCT9.buildLeafPF
+  refine Respects.bind ?_ fun cc => ?_
+  · unfold WCT9.lowerCoefs
+    exact Respects.foldlM _ _ (fun j _ state => Respects.bind (respects_packedSecret _ _ _ _) fun _ =>
+      Respects.pure' _) _
+  refine Respects.bind (Respects.foldlM _ _ (fun i _ state => ?_) _) fun state =>
+    Respects.bind (respects_leafHash _ _ _ _) fun _ => Respects.pure' _
+  exact Respects.bind (respects_chain _ _ _ _ _ _ _) fun _ =>
+    Respects.bind (respects_chain _ _ _ _ _ _ _) fun _ => Respects.pure' _
 theorem respects_bind_inv {S : Spec.Domain → Prop} {α β : Type} {p : M α} {f : α → M β} (P : α → Prop)
     (hp : Respects S p) (hP : ∀ T, P (evalWithAnswerFn T p)) (hf : ∀ x, P x → Respects S (f x)) :
     Respects S (p >>= f) := by
@@ -109,7 +120,7 @@ theorem respects_buildTreeP (lay : Layer) (tree selected : Nat) (digits : List N
     (fun T => treeRowsP_length T lay tree selected digits) fun rows hrows => ?_
   · unfold WCT9.treeRowsP
     exact Respects.foldlM _ _ (fun leaf _ state =>
-      Respects.bind (respects_buildLeafP _ _ _ _ _) fun _ => Respects.pure' _) _
+      Respects.bind (respects_buildLeafPF _ _ _ _ _) fun _ => Respects.pure' _) _
   · exact Respects.bind (respects_buildLevelsBelow _ _ _ (by fin_cases lay <;> decide) _ (le_of_eq hrows))
       fun _ => Respects.pure' _
 end Programs

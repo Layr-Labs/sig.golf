@@ -315,16 +315,22 @@ theorem horner_mul (hcode : NewCodeAt im) {s0 : MachineState} {d : Nat} {coefs :
   · exact ((ht.regs.trans r1).trans hu.regs).mono (by simp [hornRegs, hbRegs])
   · exact ((ht.frame.trans f1).trans hu.frame).mono (fun _ _ h => by simpa using h)
 
-theorem coef_limbs {s0 u : MachineState} {coefs : List Digest} (hcoef : CoefAt s0 coefs)
-    (hf : Frame s0 u (fun _ => False)) {m : Nat} (hm : m < 102) :
+/-- The first `n` coefficients of the buffer (stage B: the 17 lower-family coefficients). -/
+def CoefAtN (n : Nat) (t : MachineState) (coefs : List Digest) : Prop :=
+  ∀ k < n, DigAt t (COEF + 16 * k) (coefs.getD k 0)
+
+theorem coef_limbs {N : Nat} (hN : N ≤ 102) {s0 u : MachineState} {coefs : List Digest}
+    (hcoef : CoefAtN N s0 coefs) (hf : Frame s0 u (fun _ => False)) {m : Nat} (hm : m < N) :
     lim2 (u.getMem (BitVec.ofNat 64 (COEF + 16 * m))) (u.getMem (BitVec.ofNat 64 (COEF + 16 * m + 8))) =
       (coefs.getD m 0).toNat := by
   have h := hcoef m hm
   rw [hf.get (by unfold COEF; omega) id, hf.get (by unfold COEF; omega) id, h.1, h.2, lim2_toNat]
 
-theorem horner_loop (hcode : NewCodeAt im) {s0 : MachineState} {d : Nat} {coefs : List Digest}
-    (hd : d < 2 ^ 10) (hlen : coefs.length = 102) (hcoef : CoefAt s0 coefs) :
-    ∀ m, m < 102 → ∀ t, HkSt s0 d coefs (m + 1) t →
+/-- The Horner loop over the first `n ≤ 102` coefficients of the buffer (102: HORN of stage A; 17: the lower
+seeds of stage B, entered at `HK` with `x7 = COEF + 16 * 17`). -/
+theorem horner_loop (hcode : NewCodeAt im) {s0 : MachineState} {d : Nat} {coefs : List Digest} {N : Nat}
+    (hN : N ≤ 102) (hd : d < 2 ^ 10) (hlen : coefs.length = N) (hcoef : CoefAtN N s0 coefs) :
+    ∀ m, m < N → ∀ t, HkSt s0 d coefs (m + 1) t →
       ∃ u n c, Steps im t n c u ∧ c ≤ hornStepC * (m + 1) + 5 ∧
         u.pc = s0.getReg .x1 &&& BitVec.ofNat 64 (2 ^ 64 - 2) ∧ DigAt u (CHAINW + 48) (familyEval coefs d) ∧
         RegsExcept s0 u hornRegs ∧ Frame s0 u (fun A => A = CHAINW + 48 ∨ A = CHAINW + 56) := by
@@ -335,7 +341,7 @@ theorem horner_loop (hcode : NewCodeAt im) {s0 : MachineState} {d : Nat} {coefs 
     obtain ⟨u, n, su, hn, upc, u7, u28, -, upr, uregs, uframe⟩ := horner_mul hcode hd ht
     obtain ⟨v, sv, vpc, v48, v56, vregs, vframe⟩ := step_HF_exit hcode u upc (A := COEF + 16 * 0) u7
       (by unfold COEF; omega) (by unfold COEF MEMORY_BYTES; omega) (by rw [u7, u28])
-    have hl := horner_limbs upr (coef_limbs hcoef uframe (m := 0) (by norm_num))
+    have hl := horner_limbs upr (coef_limbs hN hcoef uframe (m := 0) (by omega))
     rw [← familyEval_drop coefs 0 (by omega), List.drop_zero] at hl
     obtain ⟨l0, l1⟩ := limbs_of_lim2 hl
     refine ⟨v, _, _, su.trans sv, by unfold hornStepC; omega, ?_, ⟨by rw [v48, l0], by rw [v56, ← l1]⟩, ?_, ?_⟩
@@ -349,7 +355,7 @@ theorem horner_loop (hcode : NewCodeAt im) {s0 : MachineState} {d : Nat} {coefs 
       rw [u7, u28]; intro h; rw [ofNat_inj (by unfold COEF; omega) (by unfold COEF; omega)] at h; omega
     obtain ⟨v, sv, vpc, v10, v11, vregs, vframe⟩ := step_HF_cont hcode u upc u7
       (by unfold COEF; omega) (by unfold COEF MEMORY_BYTES; omega) hne
-    have hl := horner_limbs upr (coef_limbs hcoef uframe (m := m + 1) (by omega))
+    have hl := horner_limbs upr (coef_limbs hN hcoef uframe (m := m + 1) (by omega))
     rw [← familyEval_drop coefs (m + 1) (by omega)] at hl
     have hv : HkSt s0 d coefs (m + 1) v := by
       refine ⟨vpc, ?_, ?_, ?_, ?_, (uregs.trans vregs).mono (by simp [hornRegs, hfRegs]),
@@ -377,7 +383,7 @@ theorem horn_run (hcode : NewCodeAt im) (s : MachineState) (hpc : s.pc = pcOf ho
     refine ⟨tpc, by rw [tregs.get (by simp)]; exact h6, t7, t28, ?_, tregs.mono (by simp [hornRegs]), tframe⟩
     rw [t10, t11, List.drop_eq_nil_of_le (by omega)]
     rfl
-  obtain ⟨u, n, c, su, hc, upc, ud, uregs, uframe⟩ := horner_loop hcode hd hlen hcoef 101 (by norm_num) t ht
+  obtain ⟨u, n, c, su, hc, upc, ud, uregs, uframe⟩ := horner_loop hcode (le_refl 102) hd hlen hcoef 101 (by norm_num) t ht
   exact ⟨u, _, _, st.trans su, by unfold hornC; omega, upc, ud, uregs, uframe⟩
 
 end loops

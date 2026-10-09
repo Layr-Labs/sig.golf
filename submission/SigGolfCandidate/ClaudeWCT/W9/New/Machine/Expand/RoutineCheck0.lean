@@ -1,5 +1,7 @@
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.RoutineData
 
+set_option Elab.async false
+
 namespace ClaudeWCT.W9.Machine.Expand
 set_option maxRecDepth 100000
 theorem routineOK_0 : (List.range' 0 64).all routineOK = true := by decide +kernel

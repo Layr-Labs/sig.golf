@@ -19,12 +19,12 @@ def digestIndex (N : HashOutput) : Fin (2^31) := ⟨WCT9.digestIndex N, WCT9.dig
 /-- Observable secret-side coordinates: WOTS seeds and FTS seeds (the latter are family evaluations, see
 `FamResidual`; the hidden FTS coefficients are not observables). -/
 abbrev SeedIndex := ChainGraph.Address ⊕ WctAddr
-/-- The observable seeds of a secret table. -/
+/-- The observable seeds of a secret table: WOTS seeds (top: secrets; lower: leaf-family values) and FTS seeds. -/
 def seedView (secrets : CanonGraph.Secrets) : SeedIndex → Digest :=
-  Sum.elim (fun a => secrets (.inl a)) (wctSeedsOf secrets)
+  Sum.elim (seedsOf secrets) (wctSeedsOf secrets)
 abbrev Coord := CanonGraph.Node ⊕ SeedIndex
 def chainChild (p : ChainGraph.Point) : Coord :=
-  if p.2.val = 0 then .inr (.inl (CanonGraph.seedIdx p.1)) else .inl (.chain (ChainGraph.predecessor p))
+  if p.2.val = 0 then .inr (.inl p.1) else .inl (.chain (ChainGraph.predecessor p))
 def treeChild (lay : Layer) (tree : Fin (2^31)) (level c : Nat) : Option Coord :=
   if level = 0 then (leafAt lay tree c).map fun L => .inl (.leaf L)
   else (treeNodeAt lay tree (level - 1) c).map fun n => .inl (.node n)
@@ -61,7 +61,7 @@ def keygenDisclosed : List Coord :=
   (List.range' 0 13).flatMap fun level =>
     (List.range (2 ^ (12 - level))).filterMap fun node => treeChild 0 0 level node
 def chainItem (L : LeafPos) (i d : Nat) : Coord :=
-  if d = 0 then .inr (.inl (CanonGraph.seedIdx ⟨L.lay, L.tree, L.leaf, fin58 i⟩))
+  if d = 0 then .inr (.inl ⟨L.lay, L.tree, L.leaf, fin58 i⟩)
   else .inl (.chain (⟨L.lay, L.tree, L.leaf, fin58 i⟩, ⟨(d - 1) % 7, Nat.mod_lt _ (by decide)⟩))
 def wctOpened (index : Fin (2^31)) (k : Fin 9) (N : HashOutput) : List Coord :=
   List.ofFn fun t : Fin 6 => wctItem (index, k, WCT9.child N k, t) (4 - WCT9.wordDigit (WCT9.rank N k) t)

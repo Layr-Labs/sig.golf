@@ -5,17 +5,17 @@ open SigGolfCandidate.T3
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open ClaudeWCT
 theorem buildTreeP_eq (lay : Layer) (tree selected : Nat) (digits : List Nat) :
-    buildTreeP WCT9.buildLeafP lay tree selected digits = WCT9.buildTreeP lay tree selected digits := rfl
+    buildTreeP WCT9.buildLeafPF lay tree selected digits = WCT9.buildTreeP lay tree selected digits := rfl
 theorem signLayersP_eq (cache : Cache) (index n : Nat) (msg : WCT9.LayerMsg) :
-    signLayersP WCT9.buildLeafP cache index n msg = WCT9.signLayersBC cache index n msg := by
+    signLayersP WCT9.buildLeafPF cache index n msg = WCT9.signLayersBC cache index n msg := by
   induction n generalizing msg with
   | zero => rfl
   | succ n ih =>
     simp only [signLayersP, WCT9.signLayersBC, buildTreeP_eq, ih]
     rfl
-theorem layers_entry_cost : 26 + Boundary.layersC = 3013905353 := by decide +kernel
+theorem layers_entry_cost : 26 + Boundary.layersC = 3059062025 := by decide +kernel
 theorem layers_from370_canonical
-    (hPacked : PackedLeafSpec WCT9.buildLeafP) (hTop : TopLeafSpec)
+    (hPacked : PackedLeafSpec WCT9.buildLeafPF) (hTop : TopLeafSpec)
     {sk : SecretKey} {cache : Bytes 131072} {index : Nat}
     {root : Digest} {s : MachineState} (hp : s.pc = pcOf 370)
     (hb : Base sk cache s) (hi : index < 2 ^ 31)

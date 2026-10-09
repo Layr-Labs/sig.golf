@@ -40,30 +40,22 @@ theorem top_failure_power {β : Type} (decoder : HashOutput → Option β)
     (by norm_num [V5.p1, V5.topCount129])
     (by rw [hacc, V5.p1, ofReal_count_div])
     (by exact_mod_cast V5.rate_top_1000)
-theorem lower197_failure_power {β : Type} (decoder : HashOutput → Option β)
+theorem lower198_failure_power {β : Type} (decoder : HashOutput → Option β)
     (hacc : Pr[fun answer => (decoder answer).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      (V5.lowerCount197f5 : ENNReal) / 2 ^ 128) :
+      (V5.lowerCount198f5 : ENNReal) / 2 ^ 128) :
     failMass decoder ^ (2 ^ 21) ≤ 1 / (2 : ENNReal) ^ 600 :=
-  failure_power_of_rate decoder V5.p2 (2 ^ 21) 600 (by norm_num [V5.p2, V5.lowerCount197f5])
-    (by norm_num [V5.p2, V5.lowerCount197f5])
+  failure_power_of_rate decoder V5.p2 (2 ^ 21) 600 (by norm_num [V5.p2, V5.lowerCount198f5])
+    (by norm_num [V5.p2, V5.lowerCount198f5])
     (by rw [hacc, V5.p2, ofReal_count_div])
-    (by exact_mod_cast V5.rate_lower197_600)
-theorem lower196_failure_power {β : Type} (decoder : HashOutput → Option β)
+    (by exact_mod_cast V5.rate_lower198_600)
+theorem lower199f4_failure_power {β : Type} (decoder : HashOutput → Option β)
     (hacc : Pr[fun answer => (decoder answer).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      (V5.lowerCount196f5 : ENNReal) / 2 ^ 128) :
+      (V5.lowerCount199f4 : ENNReal) / 2 ^ 128) :
     failMass decoder ^ (2 ^ 21) ≤ 1 / (2 : ENNReal) ^ 600 :=
-  failure_power_of_rate decoder V5.p3 (2 ^ 21) 600 (by norm_num [V5.p3, V5.lowerCount196f5])
-    (by norm_num [V5.p3, V5.lowerCount196f5])
-    (by rw [hacc, V5.p3, ofReal_count_div])
-    (by exact_mod_cast V5.rate_lower196_600)
-theorem lower197f4_failure_power {β : Type} (decoder : HashOutput → Option β)
-    (hacc : Pr[fun answer => (decoder answer).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      (V5.lowerCount197 : ENNReal) / 2 ^ 128) :
-    failMass decoder ^ (2 ^ 21) ≤ 1 / (2 : ENNReal) ^ 600 :=
-  failure_power_of_rate decoder V5.p4 (2 ^ 21) 600 (by norm_num [V5.p4, V5.lowerCount197])
-    (by norm_num [V5.p4, V5.lowerCount197])
+  failure_power_of_rate decoder V5.p4 (2 ^ 21) 600 (by norm_num [V5.p4, V5.lowerCount199f4])
+    (by norm_num [V5.p4, V5.lowerCount199f4])
     (by rw [hacc, V5.p4, ofReal_count_div])
-    (by exact_mod_cast V5.rate_lower197f4_600)
+    (by exact_mod_cast V5.rate_lower199f4_600)
 theorem digest_failure_power_900_of {β : Type} (decoder : HashOutput → Option β)
     (hacc : Pr[fun answer => (decoder answer).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] =
       ENNReal.ofReal (V5.p0 : ℝ)) :

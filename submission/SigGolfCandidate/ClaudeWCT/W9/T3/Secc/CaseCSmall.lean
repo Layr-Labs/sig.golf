@@ -189,7 +189,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option exponentiation.threshold 1024
 theorem small_closing_real (y : ℝ) (hlow : 1 / 2 ^ 128 ≤ y) (hhigh : y ≤ 624 / 1048576) :
-    1894 / 1000 * y + (151) * y ^ 2 + 1 / 2 ^ 136 +
+    1894 / 1000 * y + (152) * y ^ 2 + 1 / 2 ^ 136 +
       (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
   exact SigGolfCandidate.Research.V7Composed198Closing.small_closing_real y hlow hhigh
 theorem large_closing_real (y : ℝ) (hlow : 624 / 1048576 ≤ y) :
@@ -202,7 +202,7 @@ theorem large_closing_real_high (y : ℝ) (hlow : 1 / 32 ≤ y) :
   exact SigGolfCandidate.Research.V7Composed198Closing.large_closing_real_high y hlow
 irreducible_def budgetSplit : Nat := 624 * 2 ^ 108
 noncomputable irreducible_def smallCoefficient : ENNReal := 1894 / 1000
-noncomputable irreducible_def smallQuadratic : ENNReal := 151
+noncomputable irreducible_def smallQuadratic : ENNReal := 152
 /-- Small-route absolute term: covers 2^-700 + 2^-698 (signer incompleteness) + 2^-137 (FTS overflow, X1). -/
 noncomputable irreducible_def smallAbsolute : ENNReal := ((2 : ENNReal) ^ 136)⁻¹
 noncomputable irreducible_def excessRate : ENNReal := 2933 / 1000000

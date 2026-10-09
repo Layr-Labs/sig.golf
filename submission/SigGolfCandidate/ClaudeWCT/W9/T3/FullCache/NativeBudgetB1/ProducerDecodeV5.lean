@@ -165,14 +165,14 @@ theorem card_producer_top (T f n : ℕ) (hT : target 0 = T) (hf : producerFloor 
   simp only [mem_filter, mem_univ, true_and]
   rw [producerDecode_top_isSome_iff, hT, hf]
   rfl
-def producerCount (lay : Layer) : ℕ := ![V5.topCount129, V5.lowerCount197f5, V5.lowerCount196f5, V5.lowerCount197] lay
+def producerCount (lay : Layer) : ℕ := ![V5.topCount129, V5.lowerCount198f5, V5.lowerCount198f5, V5.lowerCount199f4] lay
 theorem card_producerDecode (lay : Layer) :
     (univ.filter fun v : Digest => (producerDecode lay v).isSome).card = producerCount lay := by
   fin_cases lay
   · exact card_producer_top 129 8 _ rfl rfl ClaudeWCT.Numerics.TopCredit.credited_card_129_8
-  · exact card_producer_lower 1 (by decide) 197 5 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_197_5
-  · exact card_producer_lower 2 (by decide) 196 5 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_196_5
-  · exact card_producer_lower 3 (by decide) 197 4 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_197_4
+  · exact card_producer_lower 1 (by decide) 198 5 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_198_5
+  · exact card_producer_lower 2 (by decide) 198 5 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_198_5
+  · exact card_producer_lower 3 (by decide) 199 4 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_199_4
 theorem producer_uniform_probability (lay : Layer) :
     Pr[fun answer => (producerEncodingDecode lay answer).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] =
       (producerCount lay : ENNReal) / 2 ^ 128 := by
@@ -189,7 +189,7 @@ theorem producer_uniform_probability (lay : Layer) :
 noncomputable def producerRate (lay : Layer) : ℝ := (producerCount lay : ℝ) / 2 ^ 128
 theorem producerRate_bounds (lay : Layer) : 1 / 8192 ≤ producerRate lay ∧ producerRate lay ≤ 1 := by
   fin_cases lay <;>
-    norm_num [producerRate, producerCount, V5.topCount129, V5.lowerCount197f5, V5.lowerCount196f5, V5.lowerCount197]
+    norm_num [producerRate, producerCount, V5.topCount129, V5.lowerCount198f5, V5.lowerCount199f4]
 theorem producer_failMass (lay : Layer) :
     failMass (producerEncodingDecode lay) = ENNReal.ofReal (1 - producerRate lay) := by
   rw [SigGolfCandidate.T3.Budgets.failMass_eq_one_sub_accept, producer_uniform_probability,
@@ -203,7 +203,7 @@ theorem producer_failure_power (lay : Layer) :
   fin_cases lay
   · exact (ClaudeWCT.W9.T3.Budgets.V5.top_failure_power _ hp).trans
       (by gcongr <;> norm_num)
-  · exact ClaudeWCT.W9.T3.Budgets.V5.lower197_failure_power _ hp
-  · exact ClaudeWCT.W9.T3.Budgets.V5.lower196_failure_power _ hp
-  · exact ClaudeWCT.W9.T3.Budgets.V5.lower197f4_failure_power _ hp
+  · exact ClaudeWCT.W9.T3.Budgets.V5.lower198_failure_power _ hp
+  · exact ClaudeWCT.W9.T3.Budgets.V5.lower198_failure_power _ hp
+  · exact ClaudeWCT.W9.T3.Budgets.V5.lower199f4_failure_power _ hp
 end ClaudeWCT.W9.T3.ProducerV5

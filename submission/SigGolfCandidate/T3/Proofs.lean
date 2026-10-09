@@ -2527,7 +2527,7 @@ theorem bound_recoverLayer (sig : Signature) (index : Nat) (lay : Layer) (digits
 def recoveryLayersCost : Nat → Nat
   | 0 => 0
   | n+1 => recoverLayerCost (Fin.ofNat 4 n)+recoveryLayersCost n
-theorem recoveryLayersCost_four : recoveryLayersCost 4=475 := by decide +kernel
+theorem recoveryLayersCost_four : recoveryLayersCost 4=470 := by decide +kernel
 theorem bound_verifyLayers (w : Witness) (index : Nat) :
     ∀ n root,CBound (fun _ => True) (n+recoveryLayersCost n) (verifyLayers w index n root) := by
   intro n

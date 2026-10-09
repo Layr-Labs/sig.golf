@@ -32,7 +32,16 @@ variable {T T' : Answers} (hT : ∀ q, UntouchedP a q → T q = T' q)
 include hT
 theorem wotsSeed_congr_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i : Nat) :
     WCT9.wotsSeed T lay tree leaf i = WCT9.wotsSeed T' lay tree leaf i := by
-  rw [wotsSeed_eq, wotsSeed_eq, hT (.inr (.inl _)) (wotsTweak_ne_of_lay a hl tree leaf i)]
+  by_cases h0 : lay = 0
+  · rw [wotsSeed_eq _ h0, wotsSeed_eq _ h0, hT (.inr (.inl _)) (wotsTweak_ne_of_lay a hl tree leaf i)]
+  · rw [WCT9.wotsSeed_lower _ h0, WCT9.wotsSeed_lower _ h0]
+    apply lowerSeed_congr_cells
+    intro p
+    apply hT (.inr (.inl _))
+    intro h
+    apply hl
+    unfold seedTweakP seedTweak WCT9.lowerSeedHeader at h
+    split_ifs at h <;> exact lay_eq_of_header a h
 theorem wotsEnd_congr_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i : Nat) :
     WCT9.wotsEnd T lay tree leaf i = WCT9.wotsEnd T' lay tree leaf i := by
   unfold WCT9.wotsEnd

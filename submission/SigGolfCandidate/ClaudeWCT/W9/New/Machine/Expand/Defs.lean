@@ -70,8 +70,8 @@ def NewCodeSpec (im : Image) : Prop :=
   ∀ (sk : BitVec 256) (m : Message) (sig : WCT9.Signature) (s : MachineState), Pre30 m sig s →
     TBSim im sk s newCost (newProg m sig) (NewPost sig s)
 def w9Sub (imgs : Phase → Image) : Submission where
-  sizes := ⟨5312, 20912, 131072⟩
-  layout := ⟨0x59B0, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩
+  sizes := ⟨5312, 20908, 131072⟩
+  layout := ⟨0x59b0, 0x80, 0xa0, 0x80000, 0x7000, 0x800⟩
   image := imgs
 def zeroBlk : List (BitVec 32) := [28343,0x9a0eb823,0x9a0ebc23,0x9c0eb023,0x9c0eb423,2451,0xce4d606f]
 def FrontAt (im : Image) : Prop :=

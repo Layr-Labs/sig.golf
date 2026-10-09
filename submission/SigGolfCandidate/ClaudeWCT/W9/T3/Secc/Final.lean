@@ -1,5 +1,5 @@
 import SigGolfCandidate.T3.Secc.WotsTwoContacts
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsRestart
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsLeafRestart
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsClasses
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEncodingContact
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsSmallTransport
@@ -127,12 +127,34 @@ theorem otherContact_take_count (s : RefSample) (a : ChainAddr)
   refine ⟨b, Finset.mem_filter.mpr ⟨(mem_sourceChains b).mpr hb, ?_⟩⟩
   obtain ⟨hd, value, answer, hm, hl⟩ := hc
   exact ⟨hd, value, answer, List.mem_of_mem_take hm, hl⟩
+theorem otherContact_stopL (a : ChainAddr) (ha : WotsExtract.SourceChain a) (hl : a.key.lay ≠ 0) :
+    ∀ T T', Leaf.LeafCongr a.key T T' → ∀ trace, OtherContact a T' trace ↔ OtherContact a T trace := by
+  intro T T' hC trace
+  unfold OtherContact
+  exact exists_congr fun b => and_congr_right fun hb => and_congr_right fun _ =>
+    Leaf.contactAt_leafCongr hC hl (Leaf.source_bounds ha).2 (Leaf.source_bounds ha).1 trace hb
+/-- `(2^128 + 2q) T / ((1 - x) 2^128) = (1 + 2x) / (1 - x) · T`. -/
+theorem big_div_mul (q : Nat) (T : ENNReal) :
+    ((2 ^ 128 : ENNReal) + ((2 * q : ℕ) : ENNReal)) * T / ((1 - (q : ENNReal) / 2 ^ 128) * 2 ^ 128) =
+      (1 + 2 * ((q : ENNReal) / 2 ^ 128)) / (1 - (q : ENNReal) / 2 ^ 128) * T := by
+  have h1 : (2 : ENNReal) ^ 128 * ((2 : ENNReal) ^ 128)⁻¹ = 1 := ENNReal.mul_inv_cancel (by simp) (by simp)
+  simp only [div_eq_mul_inv]
+  rw [ENNReal.mul_inv (Or.inr (by simp)) (Or.inr (by simp))]
+  have e : ∀ y : ENNReal, ((2 : ENNReal) ^ 128 + ((2 * q : ℕ) : ENNReal)) * T * (y * ((2 : ENNReal) ^ 128)⁻¹) =
+      y * T * ((2 : ENNReal) ^ 128 * ((2 : ENNReal) ^ 128)⁻¹) + 2 * ((q : ENNReal) * ((2 : ENNReal) ^ 128)⁻¹) * y * T := by
+    intro y
+    push_cast
+    ring
+  rw [e, h1]
+  ring
 theorem reference_twoContacts_le_raw (adversary : AdversaryP) (q : Nat) (hq : q < 2 ^ 128) :
     Pr[fun s => ∃ a b, WotsExtract.SourceChain a ∧ WotsExtract.SourceChain b ∧ a ≠ b ∧
         ContactAt s.answers s.trace a ∧ ContactAt s.answers s.trace b | referenceExperiment adversary q] ≤
-      ((2 * q : ℕ) : ENNReal) *
-          ((2 / 2 ^ 128) * (∑' s, referenceExperiment adversary q s * (prefixClassCount s : ENNReal)) /
-            (1 - (q : ENNReal) / 2 ^ 128)) /
+      (((2 * q : ℕ) : ENNReal) *
+          (((2 / 2 ^ 128) * (∑' s, referenceExperiment adversary q s * (prefixClassCount s : ENNReal)) +
+              (1 + (2 / 2 ^ 128) * q) * Leaf.errTot adversary q) /
+            (1 - (q : ENNReal) / 2 ^ 128)) +
+          ((2 ^ 128 : ENNReal) + ((2 * q : ℕ) : ENNReal)) * Leaf.errTot adversary q) /
         ((1 - (q : ENNReal) / 2 ^ 128) * 2 ^ 128) := by
   have hpos : (1 - (q : ENNReal) / 2 ^ 128) ≠ 0 := by
     apply ne_of_gt
@@ -153,8 +175,8 @@ theorem reference_twoContacts_le_raw (adversary : AdversaryP) (q : Nat) (hq : q 
     · exact ⟨a, (mem_sourceChains a).mpr ha, h⟩
     · exact ⟨b, (mem_sourceChains b).mpr hb, h⟩
   have hcharge := fun a (ha : a ∈ sourceChains) =>
-    reference_contactAfterStop_charge adversary q hq a ((mem_sourceChains a).mp ha) (OtherContact a)
-      (otherContact_maskAt a ((mem_sourceChains a).mp ha))
+    Leaf.source_contactAfterStop_charge (adversary := adversary) q ((mem_sourceChains a).mp ha) (OtherContact a)
+      (otherContact_maskAt a ((mem_sourceChains a).mp ha)) (otherContact_stopL a ((mem_sourceChains a).mp ha)) hq
   have halloc : ∑ a ∈ sourceChains, ∑' s, referenceExperiment adversary q s *
         (((2 * prefixCount a s : ℕ) : ENNReal) * (if ∃ k, OtherContact a s.answers (s.trace.take k) then 1 else 0)) ≤
       ((2 * q : ℕ) : ENNReal) * ∑' s, referenceExperiment adversary q s * (contactCount s : ENNReal) := by
@@ -203,21 +225,30 @@ theorem reference_twoContacts_le_raw (adversary : AdversaryP) (q : Nat) (hq : q 
         apply Finset.sum_congr rfl
         intro a _
         ring
-    _ ≤ ∑ a ∈ sourceChains, ∑' s, referenceExperiment adversary q s *
-        (((2 * prefixCount a s : ℕ) : ENNReal) * (if ∃ k, OtherContact a s.answers (s.trace.take k) then 1 else 0)) :=
+    _ ≤ ∑ a ∈ sourceChains, (∑' s, referenceExperiment adversary q s *
+          (((2 * prefixCount a s : ℕ) : ENNReal) * (if ∃ k, OtherContact a s.answers (s.trace.take k) then 1 else 0)) +
+          ((2 ^ 128 : ENNReal) + ((2 * q : ℕ) : ENNReal)) * Leaf.errC adversary q a) :=
         Finset.sum_le_sum fun a ha => hcharge a ha
-    _ ≤ ((2 * q : ℕ) : ENNReal) * ∑' s, referenceExperiment adversary q s * (contactCount s : ENNReal) := halloc
-    _ ≤ ((2 * q : ℕ) : ENNReal) *
-          ((2 / 2 ^ 128) * (∑' s, referenceExperiment adversary q s * (prefixClassCount s : ENNReal)) /
-            (1 - (q : ENNReal) / 2 ^ 128)) := mul_le_mul' le_rfl (reference_contacts_cost_le adversary q hq)
+    _ = ∑ a ∈ sourceChains, ∑' s, referenceExperiment adversary q s *
+          (((2 * prefixCount a s : ℕ) : ENNReal) * (if ∃ k, OtherContact a s.answers (s.trace.take k) then 1 else 0)) +
+          ((2 ^ 128 : ENNReal) + ((2 * q : ℕ) : ENNReal)) * Leaf.errTot adversary q := by
+        rw [Finset.sum_add_distrib, ← Finset.mul_sum]
+        rfl
+    _ ≤ ((2 * q : ℕ) : ENNReal) * ∑' s, referenceExperiment adversary q s * (contactCount s : ENNReal) +
+          ((2 ^ 128 : ENNReal) + ((2 * q : ℕ) : ENNReal)) * Leaf.errTot adversary q := add_le_add halloc le_rfl
+    _ ≤ _ := add_le_add (mul_le_mul' le_rfl (reference_contacts_cost_le adversary q hq)) le_rfl
 theorem reference_twoContacts_le (adversary : AdversaryP) (q : Nat) (hq : q < 2 ^ 128) :
     Pr[fun s => ∃ a b, WotsExtract.SourceChain a ∧ WotsExtract.SourceChain b ∧ a ≠ b ∧
         ContactAt s.answers s.trace a ∧ ContactAt s.answers s.trace b | referenceExperiment adversary q] ≤
       (4 * ((q : ENNReal) / 2 ^ 128) / 2 ^ 128) *
           (∑' s, referenceExperiment adversary q s * (prefixClassCount s : ENNReal)) /
-        (1 - (q : ENNReal) / 2 ^ 128) ^ 2 := by
+        (1 - (q : ENNReal) / 2 ^ 128) ^ 2 +
+      (2 * ((q : ENNReal) / 2 ^ 128) * (1 + 2 * ((q : ENNReal) / 2 ^ 128)) / (1 - (q : ENNReal) / 2 ^ 128) ^ 2 +
+        (1 + 2 * ((q : ENNReal) / 2 ^ 128)) / (1 - (q : ENNReal) / 2 ^ 128)) * Leaf.errTot adversary q := by
   refine (reference_twoContacts_le_raw adversary q hq).trans (le_of_eq ?_)
+  rw [ENNReal.add_div, big_div_mul]
   set E := ∑' s, referenceExperiment adversary q s * (prefixClassCount s : ENNReal)
+  set T := Leaf.errTot adversary q
   set y := 1 - (q : ENNReal) / 2 ^ 128
   have hy0 : y ≠ 0 := by
     apply ne_of_gt
@@ -225,8 +256,6 @@ theorem reference_twoContacts_le (adversary : AdversaryP) (q : Nat) (hq : q < 2 
     rw [ENNReal.div_lt_iff (Or.inl (by simp)) (Or.inl (by simp)), one_mul]
     exact_mod_cast hq
   have hyt : y ≠ ⊤ := ne_top_of_le_ne_top ENNReal.one_ne_top tsub_le_self
-  have hn0 : (2 : ENNReal) ^ 128 ≠ 0 := by simp
-  have hnt : (2 : ENNReal) ^ 128 ≠ ⊤ := by simp
   simp only [div_eq_mul_inv]
   rw [ENNReal.mul_inv (Or.inl hy0) (Or.inl hyt), pow_two, ENNReal.mul_inv (Or.inl hy0) (Or.inl hyt)]
   push_cast
@@ -641,7 +670,9 @@ def TwoContactsBound (adversary : AdversaryP) (q : Nat) : Prop :=
   Pr[fun s => ∃ a b, WotsExtract.SourceChain a ∧ WotsExtract.SourceChain b ∧ a ≠ b ∧
       ContactAt s.answers s.trace a ∧ ContactAt s.answers s.trace b | referenceExperiment adversary q] ≤
     (4 * ((q : ENNReal) / 2 ^ 128) / 2 ^ 128) * refExpect adversary q prefixClassCount /
-      (1 - (q : ENNReal) / 2 ^ 128) ^ 2
+      (1 - (q : ENNReal) / 2 ^ 128) ^ 2 +
+    (2 * ((q : ENNReal) / 2 ^ 128) * (1 + 2 * ((q : ENNReal) / 2 ^ 128)) / (1 - (q : ENNReal) / 2 ^ 128) ^ 2 +
+      (1 + 2 * ((q : ENNReal) / 2 ^ 128)) / (1 - (q : ENNReal) / 2 ^ 128)) * Leaf.errTot adversary q
 def ContactFirstBound (adversary : AdversaryP) (q : Nat) : Prop :=
   Pr[fun s => ∃ a, WotsExtract.SourceChain7 a ∧ SmallP.ContactFirst s.answers s.trace a | referenceExperiment adversary q] ≤
     57 * ((q : ENNReal) / 2 ^ 128) * refExpect adversary q contactCount
@@ -659,11 +690,46 @@ noncomputable def prefixCoeffW9 (q : Nat) : ENNReal :=
     (740 / 1000 : ENNReal) * 2 / (1 - (q : ENNReal) / 2 ^ 128)
 noncomputable def encodingCoeffW9 (q : Nat) : ENNReal :=
   1 + (260 / 1000 : ENNReal) * 2 * 2865 * ((q : ENNReal) / 2 ^ 128) / (1 - (q : ENNReal) / 2 ^ 128)
+/-- Coefficient of the total seed-test error `Leaf.errTot` in the small-route primitive bound (campaign X1 B3). -/
+noncomputable def errCoeffW9 (q : Nat) : ENNReal :=
+  (260 / 1000 : ENNReal) *
+    ((1 + twoEdgeRate q * q) / (1 - (q : ENNReal) / 2 ^ 128) +
+      (2 * ((q : ENNReal) / 2 ^ 128) * (1 + 2 * ((q : ENNReal) / 2 ^ 128)) / (1 - (q : ENNReal) / 2 ^ 128) ^ 2 +
+        (1 + 2 * ((q : ENNReal) / 2 ^ 128)) / (1 - (q : ENNReal) / 2 ^ 128)) +
+      (1 + 2 * ((q : ENNReal) / 2 ^ 128)) / (1 - (q : ENNReal) / 2 ^ 128) +
+      57 * ((q : ENNReal) / 2 ^ 128) * ((1 + (2 / 2 ^ 128) * q) / (1 - (q : ENNReal) / 2 ^ 128))) +
+    (740 / 1000 : ENNReal) * ((1 + (2 / 2 ^ 128) * q) / (1 - (q : ENNReal) / 2 ^ 128))
+theorem chainOf_injective : Function.Injective SmallP.chainOf := by
+  rintro ⟨⟨l, t, f⟩, c⟩ ⟨⟨l', t', f'⟩, c'⟩ h
+  simp only [SmallP.chainOf, ChainAddr.mk.injEq, LeafAddr.mk.injEq] at h
+  obtain ⟨⟨rfl, ht, hf⟩, hc⟩ := h
+  rw [Fin.ext ht, Fin.ext hf, Fin.ext hc]
+set_option linter.constructorNameAsVariable false in
+theorem sum_errC_chainOf_le (adversary : AdversaryP) (q : Nat) :
+    ∑ p : CanonGraph.LeafPos × Fin 58, Leaf.errC adversary q (SmallP.chainOf p) ≤ Leaf.errTot adversary q := by
+  have h1 : ∑ p : CanonGraph.LeafPos × Fin 58, Leaf.errC adversary q (SmallP.chainOf p) =
+      ∑ a ∈ Finset.univ.image SmallP.chainOf, Leaf.errC adversary q a :=
+    (Finset.sum_image (fun p _ p' _ h => chainOf_injective h)).symm
+  have h2 : ∑ a ∈ Finset.univ.image SmallP.chainOf, Leaf.errC adversary q a ≤
+      ∑ a ∈ (Finset.univ.image SmallP.chainOf).filter WotsExtract.SourceChain, Leaf.errC adversary q a := by
+    rw [Finset.sum_filter]
+    refine Finset.sum_le_sum fun a _ => ?_
+    split_ifs with h
+    · exact le_rfl
+    · unfold Leaf.errC
+      rw [dif_neg (fun h' => h h'.1)]
+  have h3 : (Finset.univ.image SmallP.chainOf).filter WotsExtract.SourceChain ⊆ sourceChains := by
+    intro a ha
+    rw [Finset.mem_filter] at ha
+    exact (mem_sourceChains a).mpr ha.2
+  rw [h1]
+  exact h2.trans (Finset.sum_le_sum_of_subset h3)
 theorem reference_markerFirst_sum_le (adversary : AdversaryP) (q : Nat) (hq : q < 2 ^ 128)
     (hMS : MarkerSumBound adversary q) :
     Pr[fun s => ∃ a, WotsExtract.SourceChain7 a ∧ SmallP.MarkerFirst s.answers s.trace a | referenceExperiment adversary q] ≤
       2 * ((q : ENNReal) / 2 ^ 128) / (1 - (q : ENNReal) / 2 ^ 128) *
-        ((2865 / 2 ^ 128 : ENNReal) * refExpect adversary q encodingCount) := by
+        ((2865 / 2 ^ 128 : ENNReal) * refExpect adversary q encodingCount) +
+      (1 + 2 * ((q : ENNReal) / 2 ^ 128)) / (1 - (q : ENNReal) / 2 ^ 128) * Leaf.errTot adversary q := by
   have hu0 : (1 - (q : ENNReal) / 2 ^ 128) ≠ 0 := by
     apply ne_of_gt
     apply tsub_pos_iff_lt.mpr
@@ -677,25 +743,28 @@ theorem reference_markerFirst_sum_le (adversary : AdversaryP) (q : Nat) (hq : q 
           referenceExperiment adversary q] ≤
         2 * ((q : ENNReal) / 2 ^ 128) / (1 - (q : ENNReal) / 2 ^ 128) *
           Pr[fun s => WotsExtract.SourceChain7 (SmallP.chainOf p) ∧ MarkerAt s.answers s.trace (SmallP.chainOf p) |
-            referenceExperiment adversary q] := by
+            referenceExperiment adversary q] +
+        (1 + 2 * ((q : ENNReal) / 2 ^ 128)) / (1 - (q : ENNReal) / 2 ^ 128) *
+          Leaf.errC adversary q (SmallP.chainOf p) := by
     intro p
     by_cases hs : WotsExtract.SourceChain7 (SmallP.chainOf p)
     · simp only [hs, true_and]
-      have hC := reference_markerFirst_at_le adversary q hq (SmallP.chainOf p) hs.source
+      have hC := Leaf.source_markerFirst_at_le (adversary := adversary) q hq (SmallP.chainOf p) hs.source
       set PF := Pr[fun s => ContactAfterStop (fun T trace => MarkerAt T trace (SmallP.chainOf p)) s.answers s.trace
         (SmallP.chainOf p) | referenceExperiment adversary q]
       set PM := Pr[fun s => MarkerAt s.answers s.trace (SmallP.chainOf p) | referenceExperiment adversary q]
+      set EC := Leaf.errC adversary q (SmallP.chainOf p)
       have hrhs : 2 * ((q : ENNReal) / 2 ^ 128) / (1 - (q : ENNReal) / 2 ^ 128) * PM =
           (((2 * q : ℕ) : ENNReal) * PM) / ((1 - (q : ENNReal) / 2 ^ 128) * 2 ^ 128) := by
         generalize hu : (1 - (q : ENNReal) / 2 ^ 128) = u at hu0 hutop ⊢
         rw [div_eq_mul_inv, div_eq_mul_inv, div_eq_mul_inv, ENNReal.mul_inv (Or.inl hu0) (Or.inl hutop)]
         push_cast
         ring
-      rw [hrhs]
+      rw [hrhs, ← big_div_mul, ENNReal.div_add_div_same]
       apply (ENNReal.le_div_iff_mul_le (Or.inl hun0) (Or.inl huntop)).mpr
       calc PF * ((1 - (q : ENNReal) / 2 ^ 128) * 2 ^ 128)
           = (1 - (q : ENNReal) / 2 ^ 128) * ((2 ^ 128 : ENNReal) * PF) := by ring
-        _ ≤ ((2 * q : ℕ) : ENNReal) * PM := hC
+        _ ≤ ((2 * q : ℕ) : ENNReal) * PM + ((2 ^ 128 : ENNReal) + ((2 * q : ℕ) : ENNReal)) * EC := hC
     · simp only [hs, false_and]
       simp
   calc Pr[fun s => ∃ a, WotsExtract.SourceChain7 a ∧ SmallP.MarkerFirst s.answers s.trace a | referenceExperiment adversary q]
@@ -710,23 +779,29 @@ theorem reference_markerFirst_sum_le (adversary : AdversaryP) (q : Nat) (hq : q 
           Pr[fun s => WotsExtract.SourceChain7 (SmallP.chainOf p) ∧ SmallP.MarkerFirst s.answers s.trace (SmallP.chainOf p) |
             referenceExperiment adversary q] :=
         probEvent_exists_finset_le_sum _ _ _
-    _ ≤ ∑ p : CanonGraph.LeafPos × Fin 58, 2 * ((q : ENNReal) / 2 ^ 128) / (1 - (q : ENNReal) / 2 ^ 128) *
+    _ ≤ ∑ p : CanonGraph.LeafPos × Fin 58, (2 * ((q : ENNReal) / 2 ^ 128) / (1 - (q : ENNReal) / 2 ^ 128) *
           Pr[fun s => WotsExtract.SourceChain7 (SmallP.chainOf p) ∧ MarkerAt s.answers s.trace (SmallP.chainOf p) |
-            referenceExperiment adversary q] :=
+            referenceExperiment adversary q] +
+          (1 + 2 * ((q : ENNReal) / 2 ^ 128)) / (1 - (q : ENNReal) / 2 ^ 128) *
+            Leaf.errC adversary q (SmallP.chainOf p)) :=
         Finset.sum_le_sum fun p _ => hper p
     _ = 2 * ((q : ENNReal) / 2 ^ 128) / (1 - (q : ENNReal) / 2 ^ 128) *
           ∑ p : CanonGraph.LeafPos × Fin 58,
             Pr[fun s => WotsExtract.SourceChain7 (SmallP.chainOf p) ∧ MarkerAt s.answers s.trace (SmallP.chainOf p) |
-              referenceExperiment adversary q] := by
-        rw [Finset.mul_sum]
+              referenceExperiment adversary q] +
+          (1 + 2 * ((q : ENNReal) / 2 ^ 128)) / (1 - (q : ENNReal) / 2 ^ 128) *
+            ∑ p : CanonGraph.LeafPos × Fin 58, Leaf.errC adversary q (SmallP.chainOf p) := by
+        rw [Finset.sum_add_distrib, Finset.mul_sum, Finset.mul_sum]
     _ ≤ _ := by
         gcongr
-        exact hMS
+        · exact hMS
+        · exact sum_errC_chainOf_le adversary q
 theorem reference_contactFirst_cost_le (adversary : AdversaryP) (q : Nat) (hq : q < 2 ^ 128)
     (hCF : ContactFirstBound adversary q) :
     Pr[fun s => ∃ a, WotsExtract.SourceChain7 a ∧ SmallP.ContactFirst s.answers s.trace a | referenceExperiment adversary q] ≤
       57 * ((q : ENNReal) / 2 ^ 128) *
-        ((2 / 2 ^ 128) * refExpect adversary q prefixClassCount / (1 - (q : ENNReal) / 2 ^ 128)) :=
+        (((2 / 2 ^ 128) * refExpect adversary q prefixClassCount + (1 + (2 / 2 ^ 128) * q) * Leaf.errTot adversary q) /
+          (1 - (q : ENNReal) / 2 ^ 128)) :=
   hCF.trans (by gcongr; exact reference_contacts_cost_le adversary q hq)
 theorem reference_markerFirst_contact_le (adversary : AdversaryP) (q : Nat) (hq : q < 2 ^ 128) :
     Pr[fun s => (∃ a, WotsExtract.SourceChain a ∧ TwoEdgeAt s.answers s.trace a) ∨
@@ -734,7 +809,8 @@ theorem reference_markerFirst_contact_le (adversary : AdversaryP) (q : Nat) (hq 
           ContactAt s.answers s.trace a ∧ ContactAt s.answers s.trace b) ∨
         (∃ a, WotsExtract.SourceChain7 a ∧ SmallP.MarkerFirst s.answers s.trace a) ∨
         (∃ a, WotsExtract.SourceChain7 a ∧ SmallP.ContactFirst s.answers s.trace a) | referenceExperiment adversary q] ≤
-      (2 / 2 ^ 128) * refExpect adversary q prefixClassCount / (1 - (q : ENNReal) / 2 ^ 128) := by
+      ((2 / 2 ^ 128) * refExpect adversary q prefixClassCount + (1 + (2 / 2 ^ 128) * q) * Leaf.errTot adversary q) /
+        (1 - (q : ENNReal) / 2 ^ 128) := by
   refine le_trans ?_ (reference_contacts_cost_le adversary q hq)
   rw [expected_contactCount]
   refine le_trans ?_ (probEvent_exists_finset_le_sum sourceChains (referenceExperiment adversary q)
@@ -751,7 +827,7 @@ theorem reference_primitive_le (adversary : AdversaryP) (q : Nat) (hq : q < 2 ^ 
     Pr[fun s => WotsExtract.WotsPrimitiveSrc s.answers s.trace | referenceExperiment adversary q] ≤
       prefixCoeffW9 q / 2 ^ 128 * refExpect adversary q prefixClassCount +
         encodingCoeffW9 q / 2 ^ 128 * refExpect adversary q encodingCount +
-        (2 ^ 128 : ENNReal)⁻¹ * refExpect adversary q otherCount := by
+        (2 ^ 128 : ENNReal)⁻¹ * refExpect adversary q otherCount + errCoeffW9 q * Leaf.errTot adversary q := by
   have hab : (260 / 1000 : ENNReal) + 740 / 1000 = 1 :=
     (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp (by
       simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_div, ENNReal.toReal_ofNat,
@@ -768,22 +844,27 @@ theorem reference_primitive_le (adversary : AdversaryP) (q : Nat) (hq : q < 2 ^ 
   calc _ ≤ (2 ^ 128 : ENNReal)⁻¹ * refExpect adversary q encodingCount +
         (2 ^ 128 : ENNReal)⁻¹ * refExpect adversary q otherCount +
         ((260 / 1000 : ENNReal) *
-          (twoEdgeRate q * refExpect adversary q prefixClassCount / (1 - (q : ENNReal) / 2 ^ 128) +
-            (4 * ((q : ENNReal) / 2 ^ 128) / 2 ^ 128) * refExpect adversary q prefixClassCount /
+          ((twoEdgeRate q * refExpect adversary q prefixClassCount + (1 + twoEdgeRate q * q) * Leaf.errTot adversary q) /
+              (1 - (q : ENNReal) / 2 ^ 128) +
+            ((4 * ((q : ENNReal) / 2 ^ 128) / 2 ^ 128) * refExpect adversary q prefixClassCount /
               (1 - (q : ENNReal) / 2 ^ 128) ^ 2 +
-            2 * ((q : ENNReal) / 2 ^ 128) / (1 - (q : ENNReal) / 2 ^ 128) *
+              (2 * ((q : ENNReal) / 2 ^ 128) * (1 + 2 * ((q : ENNReal) / 2 ^ 128)) / (1 - (q : ENNReal) / 2 ^ 128) ^ 2 +
+                (1 + 2 * ((q : ENNReal) / 2 ^ 128)) / (1 - (q : ENNReal) / 2 ^ 128)) * Leaf.errTot adversary q) +
+            (2 * ((q : ENNReal) / 2 ^ 128) / (1 - (q : ENNReal) / 2 ^ 128) *
               ((2865 / 2 ^ 128 : ENNReal) * refExpect adversary q encodingCount) +
+              (1 + 2 * ((q : ENNReal) / 2 ^ 128)) / (1 - (q : ENNReal) / 2 ^ 128) * Leaf.errTot adversary q) +
             57 * ((q : ENNReal) / 2 ^ 128) *
-              ((2 / 2 ^ 128) * refExpect adversary q prefixClassCount / (1 - (q : ENNReal) / 2 ^ 128))) +
-          (740 / 1000 : ENNReal) * ((2 / 2 ^ 128) * refExpect adversary q prefixClassCount /
-            (1 - (q : ENNReal) / 2 ^ 128))) := by
+              (((2 / 2 ^ 128) * refExpect adversary q prefixClassCount + (1 + (2 / 2 ^ 128) * q) * Leaf.errTot adversary q) /
+                (1 - (q : ENNReal) / 2 ^ 128))) +
+          (740 / 1000 : ENNReal) * (((2 / 2 ^ 128) * refExpect adversary q prefixClassCount +
+            (1 + (2 / 2 ^ 128) * q) * Leaf.errTot adversary q) / (1 - (q : ENNReal) / 2 ^ 128))) := by
         gcongr
         · exact h1
         · exact h2
         · exact h3
         · exact hTC
     _ = _ := by
-        unfold prefixCoeffW9 encodingCoeffW9 twoEdgeRate
+        unfold prefixCoeffW9 encodingCoeffW9 errCoeffW9 twoEdgeRate
         simp only [div_eq_mul_inv]
         ring
 end ClaudeWCT.W9.T3.Security.Wots
@@ -841,6 +922,51 @@ theorem encodingCoeffW9_le (q : Nat) (hs : q ≤ SeccClosingW9.budgetSplit) : en
         apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
         simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_div,
           ENNReal.toReal_inv, ENNReal.toReal_pow, ENNReal.toReal_ofNat, ENNReal.toReal_one]
+        norm_num
+theorem errCoeffW9_le (q : Nat) (hs : q ≤ SeccClosingW9.budgetSplit) : errCoeffW9 q ≤ 2 := by
+  have hx := SeccClosingW9.x_le_of_small q hs
+  have hu := inv_one_sub_leW9 q hs
+  have e1 : twoEdgeRate q * q = ((3 / 2 : ENNReal) + 4 * ((q : ENNReal) / 2 ^ 128) +
+      2 * ((q : ENNReal) / 2 ^ 128) ^ 2) * ((q : ENNReal) / 2 ^ 128) := by
+    unfold twoEdgeRate
+    simp only [div_eq_mul_inv]
+    ring
+  have e2 : (2 / 2 ^ 128 : ENNReal) * q = 2 * ((q : ENNReal) / 2 ^ 128) := by
+    simp only [div_eq_mul_inv]
+    ring
+  unfold errCoeffW9
+  rw [e1, e2]
+  generalize (q : ENNReal) / 2 ^ 128 = x at hx hu ⊢
+  simp only [div_eq_mul_inv _ (1 - x), div_eq_mul_inv _ ((1 - x) ^ 2), ENNReal.inv_pow]
+  generalize (1 - x)⁻¹ = u at hu ⊢
+  calc (260 / 1000 : ENNReal) * ((1 + (3 / 2 + 4 * x + 2 * x ^ 2) * x) * u +
+        (2 * x * (1 + 2 * x) * u ^ 2 + (1 + 2 * x) * u) + (1 + 2 * x) * u + 57 * x * ((1 + 2 * x) * u)) +
+        740 / 1000 * ((1 + 2 * x) * u)
+      ≤ (260 / 1000 : ENNReal) *
+          ((1 + (3 / 2 + 4 * (624 / 1048576 : ENNReal) + 2 * (624 / 1048576 : ENNReal) ^ 2) * (624 / 1048576 : ENNReal)) *
+              (1048576 / 1047952) +
+            (2 * (624 / 1048576 : ENNReal) * (1 + 2 * (624 / 1048576 : ENNReal)) * (1048576 / 1047952) ^ 2 +
+              (1 + 2 * (624 / 1048576 : ENNReal)) * (1048576 / 1047952)) +
+            (1 + 2 * (624 / 1048576 : ENNReal)) * (1048576 / 1047952) +
+            57 * (624 / 1048576 : ENNReal) * ((1 + 2 * (624 / 1048576 : ENNReal)) * (1048576 / 1047952))) +
+          740 / 1000 * ((1 + 2 * (624 / 1048576 : ENNReal)) * (1048576 / 1047952)) := by
+        gcongr
+    _ ≤ 2 := by
+        apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+        simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_div,
+          ENNReal.toReal_inv, ENNReal.toReal_pow, ENNReal.toReal_ofNat, ENNReal.toReal_one]
+        norm_num
+theorem errTerm_le (adversary : AdversaryP) (q : Nat) (hs : q ≤ SeccClosingW9.budgetSplit) :
+    errCoeffW9 q * Leaf.errTot adversary q ≤ (514 / 1000 : ENNReal) * ((q : ENNReal) / 2 ^ 128) ^ 2 := by
+  have hs' : q ≤ 624 * 2 ^ 108 := by rw [SeccClosingW9.budgetSplit_def] at hs; exact hs
+  calc errCoeffW9 q * Leaf.errTot adversary q
+      ≤ 2 * ((257 / 1000 : ENNReal) * ((q : ENNReal) / 2 ^ 128) ^ 2) :=
+        mul_le_mul' (errCoeffW9_le q hs) (Leaf.errTot_le_small q hs')
+    _ = (2 * (257 / 1000 : ENNReal)) * ((q : ENNReal) / 2 ^ 128) ^ 2 := by ring
+    _ = (514 / 1000 : ENNReal) * ((q : ENNReal) / 2 ^ 128) ^ 2 := by
+        congr 1
+        apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
+        simp (disch := finiteness) only [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_ofNat]
         norm_num
 theorem one_le_classRateW9 : (1 : ENNReal) ≤ classRateW9 := by
   unfold classRateW9
@@ -973,7 +1099,8 @@ theorem small_route (hC : CaseCSmallBound) :
       rw [one_div]
       exact ENNReal.inv_le_inv.mpr (pow_le_pow_right₀ one_le_two (by norm_num)))
   have hov := ClaudeWCT.W9.T3.Security.fts_overflow_le adversary q hq
-  apply SeccClosingW9.smallBound_of_le q _ (SmallR.classRateW9 + 2933 / 1000000 + 1 / 100000) (1507 / 10)
+  have herr := SmallR.errTerm_le adversary q hs
+  apply SeccClosingW9.smallBound_of_le q _ (SmallR.classRateW9 + 2933 / 1000000 + 1 / 100000) (15122 / 100)
     ((2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹)
   · rw [SeccClosingW9.smallCoefficient_def]
     unfold SmallR.classRateW9
@@ -990,7 +1117,8 @@ theorem small_route (hC : CaseCSmallBound) :
     simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_div, ENNReal.toReal_inv, ENNReal.toReal_pow,
       ENNReal.toReal_ofNat, ENNReal.toReal_one]
     norm_num
-  generalize (q : ENNReal) / 2 ^ 128 = x at hcq hex hnear hpair
+  generalize errCoeffW9 q * Leaf.errTot adversary q = ER at hab herr
+  generalize (q : ENNReal) / 2 ^ 128 = x at hcq hex hnear hpair herr
   calc Pr[QueryRecorded.CleanWin q | PaddedGame.tracedExperiment adversary q hq]
       ≤ Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ CaseABSrc adversary z |
             SeccLaw.completedExperiment adversary q hq] +
@@ -1000,32 +1128,32 @@ theorem small_route (hC : CaseCSmallBound) :
           Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ClaudeWCT.W9.T3.Security.FtsOverflow z.1 |
             SeccLaw.completedExperiment adversary q hq] :=
         cleanWin_le_cases adversary q hq
-    _ ≤ (prefixCoeffW9 q / 2 ^ 128 * EP + encodingCoeffW9 q / 2 ^ 128 * EE + (2 ^ 128 : ENNReal)⁻¹ * EO) +
+    _ ≤ (prefixCoeffW9 q / 2 ^ 128 * EP + encodingCoeffW9 q / 2 ^ 128 * EE + (2 ^ 128 : ENNReal)⁻¹ * EO +
+            ER) +
           ((1 + SeccClosingW9.cacheRate) / 2 ^ 128 * EM +
             (q : ENNReal) * SeccClosingW9.excessRate / 2 ^ 128 + nearTerm q + BPair.pairTerm q +
             (2 : ENNReal)⁻¹ ^ 700) + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹ :=
         add_le_add (add_le_add (add_le_add hab hc) hinc) hov
-    _ ≤ (SmallR.classRateW9 / 2 ^ 128 * EP + SmallR.classRateW9 / 2 ^ 128 * EE + SmallR.classRateW9 / 2 ^ 128 * EO) +
+    _ ≤ (SmallR.classRateW9 / 2 ^ 128 * EP + SmallR.classRateW9 / 2 ^ 128 * EE + SmallR.classRateW9 / 2 ^ 128 * EO +
+            (514 / 1000) * x ^ 2) +
           (SmallR.classRateW9 / 2 ^ 128 * EM + 2933 / 1000000 * x + ((1501 / 10) * x ^ 2 + 1 / 100000 * x) + (6 / 10) * x ^ 2 +
             (2 : ENNReal)⁻¹ ^ 700) + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹ := by gcongr
     _ = SmallR.classRateW9 / 2 ^ 128 * (EP + EE + EO + EM) +
-          (2933 / 1000000 * x + ((1501 / 10) * x ^ 2 + 1 / 100000 * x) + (6 / 10) * x ^ 2 +
+          (2933 / 1000000 * x + ((1501 / 10) * x ^ 2 + 1 / 100000 * x) + (6 / 10) * x ^ 2 + (514 / 1000) * x ^ 2 +
             ((2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹)) := by
         ring
     _ ≤ SmallR.classRateW9 * x + (2933 / 1000000 * x + ((1501 / 10) * x ^ 2 + 1 / 100000 * x) + (6 / 10) * x ^ 2 +
-          ((2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹)) := by
+          (514 / 1000) * x ^ 2 + ((2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹)) := by
         gcongr
-    _ = (SmallR.classRateW9 + 2933 / 1000000 + 1 / 100000) * x + ((1501 / 10 : ENNReal) + 6 / 10) * x ^ 2 +
+    _ = (SmallR.classRateW9 + 2933 / 1000000 + 1 / 100000) * x + ((1501 / 10 : ENNReal) + 6 / 10 + 514 / 1000) * x ^ 2 +
           ((2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹) := by
         ring
-    _ = (SmallR.classRateW9 + 2933 / 1000000 + 1 / 100000) * x + (1507 / 10) * x ^ 2 +
+    _ ≤ (SmallR.classRateW9 + 2933 / 1000000 + 1 / 100000) * x + (15122 / 100) * x ^ 2 +
           ((2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹) := by
-        congr 2
-        have hadd : (1501 / 10 : ENNReal) + 6 / 10 = 1507 / 10 := by
-          apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
-          simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_div, ENNReal.toReal_ofNat]
-          norm_num
-        rw [hadd]
+        gcongr
+        apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+        simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_div, ENNReal.toReal_ofNat]
+        norm_num
 theorem securityP_of_small (hC : CaseCSmallBound)
     (hlarge : ∀ (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127), SeccClosingW9.budgetSplit ≤ q →
       Pr[QueryRecorded.CleanWin q | PaddedGame.tracedExperiment adversary q hq] ≤ SeccClosingW9.largeBound q) :

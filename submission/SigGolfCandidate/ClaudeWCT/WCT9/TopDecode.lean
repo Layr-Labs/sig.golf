@@ -268,9 +268,9 @@ theorem eval_verifyTop_none (answers : QueryImpl Spec Id) (sig : WCT9.Signature)
   obtain ⟨leaf, tree⟩ := p
   dsimp only
   exact eval_topDecodeRun_none answers h
-def dummyLowData : List Nat := List.replicate 5 6 ++ List.replicate 15 5 ++ List.replicate 22 4
-def dummyLowDigits (lay : Layer) : List Nat := dummyLowData ++ [target lay - 193]
-def dummyLowDigest : Digest := 267364716866451649868197625498556624310
+def dummyLowData : List Nat := List.replicate 5 6 ++ List.replicate 16 5 ++ List.replicate 21 4
+def dummyLowDigits (lay : Layer) : List Nat := dummyLowData ++ [target lay - 194]
+def dummyLowDigest : Digest := 267364716866451649869350547003163471286
 theorem producerDecode_dummyLow (lay : Layer) (h : lay ≠ 0) :
     producerDecode lay dummyLowDigest = some (dummyLowDigits lay) := by
   fin_cases lay

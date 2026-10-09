@@ -78,8 +78,9 @@ theorem bound_layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : LayerMsg
           intro other values hv
           obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hv)
           exact ⟨(decode_length_sum hd).1, (decode_length_sum hd).2, validDigits_decode hd⟩
+/-- Stage B: private pairs read by the coefficient loop of leaf `leaf` (17 packed halves from ordinal `17 * leaf`). -/
 def leafSeedsP (lay : Layer) (leaf : Nat) : Nat :=
-  (lowerOrdinal lay leaf (chainCount lay) + 1) / 2 - (lowerOrdinal lay leaf 0 + 1) / 2
+  (lowerCoefOrdinal leaf lowerCoefCount + 1) / 2 - (lowerCoefOrdinal leaf 0 + 1) / 2
 theorem seedCost_sum (a n : Nat) :
     (∑ i ∈ Finset.range n, seedCost (a + i)) = (a + n + 1) / 2 - (a + 1) / 2 := by
   induction n with
@@ -89,27 +90,34 @@ theorem seedCost_sum (a n : Nat) :
       unfold seedCost
       split <;> omega
 theorem leafSeedsP_eq (lay : Layer) (leaf : Nat) :
-    leafSeedsP lay leaf = ∑ i ∈ Finset.range (chainCount lay), seedCost (lowerOrdinal lay leaf i) := by
-  unfold leafSeedsP lowerOrdinal
+    leafSeedsP lay leaf = ∑ j ∈ Finset.range lowerCoefCount, seedCost (lowerCoefOrdinal leaf j) := by
+  unfold leafSeedsP lowerCoefOrdinal
   rw [seedCost_sum, Nat.add_zero]
 def digitTotal (lay : Layer) : Nat := ∑ i ∈ Finset.range (chainCount lay), maxDigit lay i
 def leafCostP (lay : Layer) (leaf : Nat) : Nat := leafSeedsP lay leaf + digitTotal lay + leafHashCost lay
-theorem bound_buildLeafP (lay : Layer) (tree leaf : Nat) (digits : List Nat) (hd : ValidDigits lay digits)
+theorem bound_lowerCoefs (lay : Layer) (tree leaf : Nat) (carry : Digest) :
+    CBound (fun _ => True) (leafSeedsP lay leaf) (lowerCoefs lay tree leaf carry) := by
+  unfold lowerCoefs
+  refine (Bound.foldlM_range lowerCoefCount _ (fun _ _ => True) (fun j => seedCost (lowerCoefOrdinal leaf j))
+    ([], carry) trivial (fun j _ state _ => ?_)).mono_k (le_of_eq (leafSeedsP_eq lay leaf).symm)
+  refine (show CBound (fun _ => True) (seedCost (lowerCoefOrdinal leaf j))
+      (packedSecret (lowerSeedPair lay tree) (lowerCoefOrdinal leaf j) state.2) by
+    unfold packedSecret seedCost
+    split
+    · exact (bound_privatePair 0 lay.val tree _ 0).bind' (l := 0) (fun _ _ => .pure _ 0 trivial) (by omega)
+    · exact .pure _ 0 trivial).bind' (l := 0) (fun sc _ => .pure _ 0 trivial) (by omega)
+theorem bound_buildLeafPF (lay : Layer) (tree leaf : Nat) (digits : List Nat) (hd : ValidDigits lay digits)
     (carry : Digest) :
     CBound (fun result : (Digest × List Digest) × Digest => result.1.2.length = chainCount lay) (leafCostP lay leaf)
-      (buildLeafP lay tree leaf digits carry) := by
-  unfold buildLeafP
+      (buildLeafPF lay tree leaf digits carry) := by
+  unfold buildLeafPF
+  refine (bound_lowerCoefs lay tree leaf carry).bind' (l := digitTotal lay + leafHashCost lay)
+    (fun res _ => ?_) (by unfold leafCostP; omega)
   refine Bound.bind' (l := leafHashCost lay) (Bound.foldlM_range (chainCount lay) _
-    (fun i (state : List Digest × List Digest × Digest) => state.1.length = i ∧ state.2.1.length = i)
-    (fun i => seedCost (lowerOrdinal lay leaf i) + maxDigit lay i) ([], [], carry) ⟨rfl, rfl⟩
+    (fun i (state : List Digest × List Digest) => state.1.length = i ∧ state.2.length = i)
+    (fun i => maxDigit lay i) ([], []) ⟨rfl, rfl⟩
     (fun i hi state hstate => ?_)) (fun state hstate => ?_) ?_
-  · refine (show CBound (fun _ => True) (seedCost (lowerOrdinal lay leaf i))
-        (packedSecret (lowerSeedPair lay tree) (lowerOrdinal lay leaf i) state.2.2) by
-      unfold packedSecret seedCost
-      split
-      · exact (bound_privatePair 0 lay.val tree _ 0).bind' (l := 0) (fun _ _ => .pure _ 0 trivial) (by omega)
-      · exact .pure _ 0 trivial).bind' (l := maxDigit lay i) (fun sc _ => ?_) (by omega)
-    have hc := hd i hi
+  · have hc := hd i hi
     refine (bound_chain lay tree leaf i 0 (digits.getD i 0) _).bind'
       (l := maxDigit lay i - digits.getD i 0) (fun value _ => ?_) (by omega)
     refine (bound_chain lay tree leaf i (digits.getD i 0) (maxDigit lay i - digits.getD i 0) value).bind'
@@ -118,8 +126,8 @@ theorem bound_buildLeafP (lay : Layer) (tree leaf : Nat) (digits : List Nat) (hd
       by simp only [List.length_append, List.length_singleton]; omega⟩
   · refine (bound_leafHash lay tree leaf state.1 hstate.1).bind' (l := 0) (fun root _ => ?_) (by omega)
     exact .pure _ 0 hstate.2
-  · unfold leafCostP digitTotal
-    rw [Finset.sum_add_distrib, leafSeedsP_eq]
+  · unfold digitTotal
+    exact le_refl _
 theorem bound_buildLevelsBelow (tag lay tree h : Nat) (leaves : List Digest) (hlen : leaves.length = 2 ^ h)
     (hh : 1 ≤ h) : CBound (LevelShape h (h - 1)) (2 ^ h - 2) (buildLevelsBelow tag lay tree h leaves) := by
   unfold buildLevelsBelow
@@ -165,7 +173,7 @@ theorem bound_buildTreeP (lay : Layer) (tree selected : Nat) (digits : List Nat)
     (fun state hstate => ?_) le_rfl
   · have hd' : ValidDigits lay (if leaf = selected then digits else []) := by
       split <;> first | exact hd | exact validDigits_nil lay
-    refine (bound_buildLeafP lay tree leaf _ hd' state.2.2).bind' (l := 0) (fun result _ => ?_) (by omega)
+    refine (bound_buildLeafPF lay tree leaf _ hd' state.2.2).bind' (l := 0) (fun result _ => ?_) (by omega)
     exact .pure _ 0 (by simp [hstate])
   · refine (bound_buildLevelsBelow 3 lay.val tree (height lay) state.1 hstate
       (by fin_cases lay <;> decide)).bind' (l := 0)
@@ -174,22 +182,21 @@ theorem chainCount_lower {lay : Layer} (hlay : lay ≠ 0) : chainCount lay = 43 
   fin_cases lay <;> first | exact absurd rfl hlay | rfl
 theorem maxDigit_lower {lay : Layer} (hlay : lay ≠ 0) (i : Nat) : maxDigit lay i = 7 := by
   unfold maxDigit; rw [if_neg hlay]
-theorem leafSeedsP_lower {lay : Layer} (hlay : lay ≠ 0) (leaf : Nat) :
-    leafSeedsP lay leaf = if leaf % 2 = 0 then 22 else 21 := by
-  unfold leafSeedsP lowerOrdinal
-  rw [chainCount_lower hlay]
+theorem leafSeedsP_lower {lay : Layer} (_hlay : lay ≠ 0) (leaf : Nat) :
+    leafSeedsP lay leaf = if leaf % 2 = 0 then 9 else 8 := by
+  unfold leafSeedsP lowerCoefOrdinal lowerCoefCount
   split <;> omega
 theorem digitTotal_lower {lay : Layer} (hlay : lay ≠ 0) : digitTotal lay = 301 := by
   unfold digitTotal
   rw [chainCount_lower hlay]
   simp only [maxDigit_lower hlay, Finset.sum_const, Finset.card_range, smul_eq_mul]
 theorem leafCostP_lower {lay : Layer} (hlay : lay ≠ 0) (leaf : Nat) :
-    leafCostP lay leaf = (if leaf % 2 = 0 then 22 else 21) + 312 := by
+    leafCostP lay leaf = (if leaf % 2 = 0 then 9 else 8) + 312 := by
   unfold leafCostP
   rw [leafSeedsP_lower hlay, digitTotal_lower hlay]
   simp only [leafHashCost, if_neg hlay]
 theorem parity_sum (m : Nat) :
-    (∑ leaf ∈ Finset.range (2 * m), ((if leaf % 2 = 0 then 22 else 21) + 312)) = m * 667 := by
+    (∑ leaf ∈ Finset.range (2 * m), ((if leaf % 2 = 0 then 9 else 8) + 312)) = m * 641 := by
   induction m with
   | zero => simp
   | succ m ih =>
@@ -199,7 +206,7 @@ theorem parity_sum (m : Nat) :
       simp only [h1, h2, if_true, show (1 : Nat) ≠ 0 by decide, if_false]
       ring
 theorem treeCostP_lower_eq {lay : Layer} (hlay : lay ≠ 0) :
-    treeCostP lay = 2 ^ height lay / 2 * 667 + (2 ^ height lay - 2) := by
+    treeCostP lay = 2 ^ height lay / 2 * 641 + (2 ^ height lay - 2) := by
   unfold treeCostP
   have hh : 2 ^ height lay = 2 * (2 ^ height lay / 2) := by
     fin_cases lay <;> first | exact absurd rfl hlay | decide
@@ -207,7 +214,7 @@ theorem treeCostP_lower_eq {lay : Layer} (hlay : lay ≠ 0) :
   conv_lhs => rw [hh]
   rw [parity_sum, ← hh]
 theorem treeCostP_lower :
-    treeCostP 1 + 65 = treeCost 1 ∧ treeCostP 2 + 33 = treeCost 2 ∧ treeCostP 3 + 33 = treeCost 3 := by
+    treeCostP 1 + 1729 = treeCost 1 ∧ treeCostP 2 + 865 = treeCost 2 ∧ treeCostP 3 + 865 = treeCost 3 := by
   rw [treeCostP_lower_eq (by decide), treeCostP_lower_eq (by decide), treeCostP_lower_eq (by decide)]
   decide
 def layerFixedCostP : Nat → Nat
@@ -220,7 +227,7 @@ theorem layerFixedCostP_succ_succ (n : Nat) :
     layerFixedCostP (n + 2) = treeCostP (Fin.ofNat 4 (n + 1)) + layerFixedCostP (n + 1) := rfl
 theorem layerFixedCost_succ_succ (n : Nat) :
     layerFixedCost (n + 2) = treeCost (Fin.ofNat 4 (n + 1)) + layerFixedCost (n + 1) := rfl
-theorem layerFixedCostP_four : layerFixedCostP 4 + 131 = layerFixedCost 4 := by
+theorem layerFixedCostP_four : layerFixedCostP 4 + 3459 = layerFixedCost 4 := by
   obtain ⟨h1, h2, h3⟩ := treeCostP_lower
   have e3 : (Fin.ofNat 4 3 : Layer) = 3 := rfl
   have e2 : (Fin.ofNat 4 2 : Layer) = 2 := rfl
@@ -412,7 +419,7 @@ theorem bound_expandLayersBC (sig : Signature) (index : Nat) :
             refine (ih _).bind' (l := 0) (fun result _ => ?_) (by omega)
             cases result <;> exact .pure _ 0 trivial
 def signPayloadFixed : Nat := 2 + 31550 + layerFixedCostP 4
-theorem signPayloadFixed_eq : signPayloadFixed + 707 = 2 + 32126 + layerFixedCost 4 := by
+theorem signPayloadFixed_eq : signPayloadFixed + 4035 = 2 + 32126 + layerFixedCost 4 := by
   have h := layerFixedCostP_four
   unfold signPayloadFixed
   omega
@@ -486,7 +493,7 @@ theorem bound_expand (message : Message) (pk : Digest) (sig : Signature) :
   bound_expandWith digestAttemptLimit message pk sig
 theorem bound_verify (message : Message) (pk : Digest) (w : Witness) :
     CBound (fun _ => True) 720 (Rev3.verify message pk w) :=
-  bound_verifyWith digestAttemptLimit message pk w
+  bound_verifyWith digestVerifyLimit message pk w
 theorem sign_compression_ceiling (secret : BitVec 256) (cache : Cache) (message : Message) :
     ∀ result ∈ support (World.countBlocks (realize secret (Rev3.sign cache message))),
       result.2 ≤ 18995993 := by

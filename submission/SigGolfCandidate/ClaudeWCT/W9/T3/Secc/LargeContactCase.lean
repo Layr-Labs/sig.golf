@@ -264,7 +264,7 @@ theorem known_secret {D : Coord → Prop} {s : SeedIndex} (h : Known D (.inr s))
   | base h => exact h
 theorem known_chain_aux {D : Coord → Prop} {c : Coord} (h : Known D c) :
     ∀ p : ChainGraph.Point, c = .inl (.chain p) →
-      (∃ s : Fin 7, s.val ≤ p.2.val ∧ D (.inl (.chain (p.1, s)))) ∨ D (.inr (.inl (CanonGraph.seedIdx p.1))) := by
+      (∃ s : Fin 7, s.val ≤ p.2.val ∧ D (.inl (.chain (p.1, s)))) ∨ D (.inr (.inl p.1)) := by
   induction h with
   | base hc =>
       intro p hp
@@ -288,7 +288,7 @@ theorem known_chain_aux {D : Coord → Prop} {c : Coord} (h : Known D c) :
           omega
         · exact Or.inr hd
 theorem known_chain {D : Coord → Prop} {p : ChainGraph.Point} (h : Known D (.inl (.chain p))) :
-    (∃ s : Fin 7, s.val ≤ p.2.val ∧ D (.inl (.chain (p.1, s)))) ∨ D (.inr (.inl (CanonGraph.seedIdx p.1))) :=
+    (∃ s : Fin 7, s.val ≤ p.2.val ∧ D (.inl (.chain (p.1, s)))) ∨ D (.inr (.inl p.1)) :=
   known_chain_aux h p rfl
 theorem wctItem_zero (a : CanonGraph.WctAddr) : wctItem a 0 = .inr (.inr a) := rfl
 theorem wctItem_succ (a : CanonGraph.WctAddr) (s : Fin 4) :
@@ -367,7 +367,7 @@ theorem chainItem_chain {L : CanonGraph.LeafPos} {i d : Nat} {p : ChainGraph.Poi
     exact ⟨rfl, hd, rfl⟩
 theorem chainItem_seed {L : CanonGraph.LeafPos} {i d : Nat} {a : ChainGraph.Address}
     (h : chainItem L i d = .inr (.inl a)) :
-    a = CanonGraph.seedIdx ⟨L.lay, L.tree, L.leaf, CanonGraph.fin58 i⟩ ∧ d = 0 := by
+    a = ⟨L.lay, L.tree, L.leaf, CanonGraph.fin58 i⟩ ∧ d = 0 := by
   unfold chainItem at h
   by_cases hd : d = 0
   · rw [if_pos hd] at h
@@ -446,15 +446,6 @@ theorem layerItems_chain (A : Answers) (index : Fin (2^31)) (c : Coord)
         omega
       · intro a ha
         obtain ⟨h1, hd⟩ := chainItem_seed ha
-        have hin : CanonGraph.seedIdx (⟨lay, ⟨(route index.val lay).2, hb.1⟩, ⟨(route index.val lay).1, hb.2⟩,
-            CanonGraph.fin58 i⟩ : ChainGraph.Address) =
-            ⟨lay, ⟨(route index.val lay).2, hb.1⟩, ⟨(route index.val lay).1, hb.2⟩, CanonGraph.fin58 i⟩ := by
-          unfold CanonGraph.seedIdx
-          rw [dif_neg]
-          rintro ⟨-, h, -⟩
-          change chainCount lay ≤ (CanonGraph.fin58 i).val at h
-          omega
-        rw [hin] at h1
         rw [hdepth a h1, hd]
     · cases hc
   · unfold layerPath at hc
@@ -482,20 +473,13 @@ theorem signDisclosed_chain (A : Answers) (published : SigGolfCandidate.T3.Cache
   · cases hc
 def Disclosed (A : Answers) (published : SigGolfCandidate.T3.Cache) (c : Coord) : Prop :=
   c ∈ keygenDisclosed ∨ ∃ request, c ∈ signDisclosed A published request
-theorem seedIdx_of_depth (A : Answers) (a : ChainGraph.Address) (hd : 1 ≤ Wots.depth A (wotsAddr a)) :
-    CanonGraph.seedIdx a = a := by
-  have hc := Wots.Mask.chain_lt_of_depth A (wotsAddr a) hd
-  unfold CanonGraph.seedIdx
-  rw [dif_neg]
-  rintro ⟨-, h, -⟩
-  exact absurd hc (by change ¬(a.chain.val < chainCount a.layer); omega)
 theorem frontier_child_unknown (A : Answers) (published : SigGolfCandidate.T3.Cache) (a : ChainGraph.Address)
     (s : Fin 7) (hs : s.val + 1 = Wots.depth A (wotsAddr a)) :
     ¬Known (Disclosed A published) (chainChild (a, s)) := by
   intro hk
   unfold chainChild at hk
   by_cases h0 : s.val = 0
-  · rw [if_pos h0, seedIdx_of_depth A a (by omega)] at hk
+  · rw [if_pos h0] at hk
     rcases known_secret hk with hd | ⟨request, hd⟩
     · exact (keygen_not_chain _ hd).2 a rfl
     · have := (signDisclosed_chain A published request _ hd).2 a rfl
@@ -508,7 +492,6 @@ theorem frontier_child_unknown (A : Answers) (published : SigGolfCandidate.T3.Ca
         simp only [ChainGraph.predecessor] at ht this
         omega
     · simp only [ChainGraph.predecessor] at hd
-      rw [seedIdx_of_depth A a (by omega)] at hd
       rcases hd with hd | ⟨request, hd⟩
       · exact (keygen_not_chain _ hd).2 _ rfl
       · have := (signDisclosed_chain A published request _ hd).2 _ rfl

@@ -19,15 +19,15 @@ set_option maxRecDepth 10000
 namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy
 def submission : Submission where
-  sizes := ⟨5312, 20912, 131072⟩
-  layout := ⟨0x59B0, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩
+  sizes := ⟨5312, 20908, 131072⟩
+  layout := ⟨0x59b0, 0x80, 0xa0, 0x80000, 0x7000, 0x800⟩
   image
     | .keygen => Images.keygenImage
     | .sign => Images.signImage
     | .expand => Images.expandImage
     | .verify => Images.verifyImage
-@[simp] theorem submission_sizes : submission.sizes = ⟨5312, 20912, 131072⟩ := rfl
-@[simp] theorem submission_layout : submission.layout = ⟨0x59B0, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩ := rfl
+@[simp] theorem submission_sizes : submission.sizes = ⟨5312, 20908, 131072⟩ := rfl
+@[simp] theorem submission_layout : submission.layout = ⟨0x59b0, 0x80, 0xa0, 0x80000, 0x7000, 0x800⟩ := rfl
 @[simp] theorem submission_keygen : submission.image .keygen = Images.keygenImage := rfl
 @[simp] theorem submission_sign : submission.image .sign = Images.signImage := rfl
 @[simp] theorem submission_expand : submission.image .expand = Images.expandImage := rfl

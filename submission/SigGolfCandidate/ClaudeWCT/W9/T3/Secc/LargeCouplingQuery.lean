@@ -1,7 +1,10 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeCouplingObserved
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeCouplingSign
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeCouplingTrace
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsClasses
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsStructuralFinal
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEncodingMatch
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsTransportCount
+import SigGolfCandidate.T3.Secc.WotsClasses
 import SigGolfCandidate.T3.Secc.LargeCouplingQuery
 
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling
@@ -26,6 +29,18 @@ set_option synthInstance.maxSize 1024
 attribute [local instance] Classical.propDecidable
 noncomputable local instance instDecidableEqCache_w9largeCouplingQuery : DecidableEq SigGolfCandidate.T3.Cache :=
   Classical.decEq _
+/-- Local copy of `Wots.SmallA.encRow_ne_digest` (WotsClasses), so the large route does not import the small
+route's `WotsTwoEdge`. -/
+theorem encRow_ne_digest' (L : Wots.LeafAddr) (m : WCT9.LayerMsg) (c : BitVec 32) (pad : Wots.RowPad) (rho : Digest)
+    (m' : Message) (c' : BitVec 32) : Wots.encRow L m c pad ≠ pad64 (digestInput rho m' c') := by
+  intro h
+  have hb := congrArg ClaudeWCT.W9.T3M.Extract.hdrBlock h
+  have h2 : ClaudeWCT.W9.T3M.Extract.hdrBlock (pad64 (digestInput rho m' c')) =
+      bytesLE 16 (digestHeader c') :=
+    SigGolfCandidate.T3.Security.Wots.SmallA.hdrBlock_digest rho m' c'
+  rw [h2, show Wots.encRow L m c pad = pad64 (layerEncodingInputP L.lay L.tree L.leaf m c pad.1 pad.2) from rfl,
+    ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP] at hb
+  exact (digestHeader_ne_rowTweak _ _ _ _).symm (bytesLE_injective hb)
 noncomputable def routerLabels (vals : Coord → Digest) (a : AuxData) : Labels :=
   joinLabels (fun N => vals (.inl N)) a.high
 def HonestPrefix (vals : Coord → Digest) (a : AuxData) (X : HashInput) : Prop :=
@@ -707,15 +722,31 @@ theorem mem_DiscSeeds (st : RouterState) (f : Fin (2 ^ 31) × Fin 9) (w : CanonG
     w ∈ DiscSeeds st f ↔ (w.1, w.2.1) = f ∧ (.inr (.inr w) : Coord) ∈ st.disclosed := by
   unfold DiscSeeds
   simp only [Finset.mem_filter, Finset.mem_univ, true_and]
-/-- No FTS family has more than 101 disclosed seeds (the families stay undetermined). -/
-def FamOK (st : RouterState) : Prop := ∀ f, (DiscSeeds st f).card ≤ 101
+/-- Lower WOTS seeds of leaf `L` disclosed by the router so far (stage B). -/
+@[irreducible] noncomputable def DiscLower (st : RouterState) (L : LowerLeaf) : Finset ChainGraph.Address :=
+  Finset.univ.filter fun a => (a.layer, a.tree, a.leaf) = L.1 ∧ (.inr (.inl a) : Coord) ∈ st.disclosed
+theorem mem_DiscLower (st : RouterState) (L : LowerLeaf) (a : ChainGraph.Address) :
+    a ∈ DiscLower st L ↔ (a.layer, a.tree, a.leaf) = L.1 ∧ (.inr (.inl a) : Coord) ∈ st.disclosed := by
+  unfold DiscLower
+  simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+/-- No seed family is determined by the router's disclosures: FTS families have at most 101 disclosed seeds, lower
+leaf families at most 16 (stage B; structurally at most 14, `lower_zero_count_le`). -/
+def FamOK (st : RouterState) : Prop :=
+  (∀ f, (DiscSeeds st f).card ≤ 101) ∧ ∀ L, (DiscLower st L).card ≤ 16
 theorem DiscSeeds_mono {st st' : RouterState} (h : ∀ x ∈ st.disclosed, x ∈ st'.disclosed)
     (f : Fin (2 ^ 31) × Fin 9) : DiscSeeds st f ⊆ DiscSeeds st' f := by
   intro w hw
   rw [mem_DiscSeeds] at hw ⊢
   exact ⟨hw.1, h _ hw.2⟩
+theorem DiscLower_mono {st st' : RouterState} (h : ∀ x ∈ st.disclosed, x ∈ st'.disclosed)
+    (L : LowerLeaf) : DiscLower st L ⊆ DiscLower st' L := by
+  intro w hw
+  rw [mem_DiscLower] at hw ⊢
+  exact ⟨hw.1, h _ hw.2⟩
 theorem famOK_mono {st st' : RouterState} (h : ∀ x ∈ st.disclosed, x ∈ st'.disclosed) (hok : FamOK st') :
-    FamOK st := fun f => (Finset.card_le_card (DiscSeeds_mono h f)).trans (hok f)
+    FamOK st :=
+  ⟨fun f => (Finset.card_le_card (DiscSeeds_mono h f)).trans (hok.1 f),
+    fun L => (Finset.card_le_card (DiscLower_mono h L)).trans (hok.2 L)⟩
 theorem famOK_of_disclosed {st st' : RouterState} (h : st'.disclosed = st.disclosed) (hok : FamOK st) :
     FamOK st' := famOK_mono (fun x hx => by rw [h] at hx; exact hx) hok
 theorem _root_.ClaudeWCT.W9.T3.Security.LargeResidual.RouterState.next_disclosed (U : Finset HashInput)
@@ -733,30 +764,40 @@ theorem keygen_inl {c : Coord} (hc : c ∈ keygenDisclosed) : ∃ N, c = .inl N 
   split_ifs at h
   · obtain ⟨L, _, rfl⟩ := Option.map_eq_some_iff.mp h; exact ⟨_, rfl⟩
   · obtain ⟨n, _, rfl⟩ := Option.map_eq_some_iff.mp h; exact ⟨_, rfl⟩
+theorem known_seed_disc (h : Rel U T vals nv τ a q mon st ws) (hlt : st.calls < q) (hq : q ≤ 2 ^ 127)
+    (s : SeedIndex) (hc1 : (ws.candidates (.inl (.inr s))).card = 1) : (.inr s : Coord) ∈ st.disclosed := by
+  have hk : st.known (.inr s) := by
+    by_contra hn
+    have := h.two_le hlt hq _ hn
+    omega
+  rcases known_seed_base hk with hkg | hd
+  · obtain ⟨N, hN⟩ := keygen_inl hkg; cases hN
+  · exact hd
 theorem famKnown_le (h : Rel U T vals nv τ a q mon st ws) (hlt : st.calls < q) (hq : q ≤ 2 ^ 127) (hok : FamOK st)
-    (f : Fin (2 ^ 31) × Fin 9) : (famKnown ws.candidates f).card ≤ 101 := by
-  let e : CanonGraph.WctAddr ↪ WCoord := ⟨fun w => .inl (.inr (.inr w)), fun w w' h => by
-    simpa using h⟩
-  refine (Finset.card_le_card (t := (DiscSeeds st f).map e) ?_).trans (by rw [Finset.card_map]; exact hok f)
-  intro c hc
-  have hm := (mem_famKnown ws.candidates f c).mp hc
-  have hpt0 := hm.1
-  have hc1 := hm.2
-  obtain ⟨pt, hpt⟩ := hpt0
-  rcases c with (N | a' | w) | m
-  · cases hpt
-  · cases hpt
-  · change Sum.inr ((w.1, w.2.1), WCT9.ftsPoint w.2.2.1.val w.2.2.2.val) = Sum.inr (f, pt) at hpt
-    simp only [Sum.inr.injEq, Prod.mk.injEq] at hpt
-    refine Finset.mem_map.mpr ⟨w, ?_, rfl⟩
-    have hk : st.known (.inr (.inr w)) := by
-      by_contra hn
-      have := h.two_le hlt hq _ hn
-      omega
-    rcases known_seed_base hk with hkg | hd
-    · obtain ⟨N, hN⟩ := keygen_inl hkg; cases hN
-    · exact (mem_DiscSeeds st f w).mpr ⟨hpt.1, hd⟩
-  · cases hpt
+    (f : WFam) : (famKnown ws.candidates f).card ≤ ClaudeWCT.W9.T3.Security.FamResidual.Seeds.deg (Coord := WCoord) f := by
+  rcases f with L | f
+  · let e : ChainGraph.Address ↪ WCoord := ⟨fun a => .inl (.inr (.inl a)), fun a a' h => by simpa using h⟩
+    refine (Finset.card_le_card (t := (DiscLower st L).map e) ?_).trans
+      (by rw [Finset.card_map]; exact hok.2 L)
+    intro c hc
+    have hm := (mem_famKnown ws.candidates (Sum.inl L : WFam) c).mp hc
+    obtain ⟨pt, hpt⟩ := hm.1
+    rcases wsplit_inr hpt with ⟨a, ha, rfl, hfp⟩ | ⟨w, rfl, hfp⟩
+    · simp only [Prod.mk.injEq] at hfp
+      refine Finset.mem_map.mpr ⟨a, (mem_DiscLower st L a).mpr ⟨?_, known_seed_disc h hlt hq _ hm.2⟩, rfl⟩
+      rw [Sum.inl.inj hfp.1]
+    · simp only [Prod.mk.injEq, reduceCtorEq, false_and] at hfp
+  · let e : CanonGraph.WctAddr ↪ WCoord := ⟨fun w => .inl (.inr (.inr w)), fun w w' h => by simpa using h⟩
+    refine (Finset.card_le_card (t := (DiscSeeds st f).map e) ?_).trans
+      (by rw [Finset.card_map]; exact hok.1 f)
+    intro c hc
+    have hm := (mem_famKnown ws.candidates (Sum.inr f : WFam) c).mp hc
+    obtain ⟨pt, hpt⟩ := hm.1
+    rcases wsplit_inr hpt with ⟨a, ha, rfl, hfp⟩ | ⟨w, rfl, hfp⟩
+    · simp only [Prod.mk.injEq, reduceCtorEq, false_and] at hfp
+    · simp only [Prod.mk.injEq] at hfp
+      exact Finset.mem_map.mpr ⟨w, (mem_DiscSeeds st f w).mpr ⟨(Sum.inr.inj hfp.1).symm,
+        known_seed_disc h hlt hq _ hm.2⟩, rfl⟩
 /-- Admissibility of a router guess on an unknown coordinate (the hit, if a label, is a node). -/
 theorem Rel.adm (h : Rel U T vals nv τ a q mon st ws) (hlt : st.calls < q) (hq : q ≤ 2 ^ 127) (hok : FamOK st)
     (c : Coord) (hc : ¬st.known c) (v : Digest) (hit : Hit WCoord)
@@ -1049,7 +1090,7 @@ theorem Coherent.referenceInput_eq (hcoh : Coherent U T vals nv τ a) {L : EncLe
 theorem encRow_not_digest (L : EncLeaf) (m : WCT9.LayerMsg) (ctr : BitVec 32) (pad : Wots.RowPad) :
     ¬IsDigestRow (Wots.encRow L.toWots m ctr pad) := by
   rintro ⟨rho, m', c, h⟩
-  exact Wots.SmallA.encRow_ne_digest _ _ _ _ _ _ _ h
+  exact encRow_ne_digest' _ _ _ _ _ _ _ h
 theorem case_enc_known (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals nv τ a q mon st ws)
     (hlt : st.calls < q) (X : HashInput) (hX : X ∈ U) (L : EncLeaf) (m : WCT9.LayerMsg) (ctr : BitVec 32)
     (pad : Wots.RowPad) (hfit : Extract.msgFits L.1.lay m) (hXe : X = Wots.encRow L.toWots m ctr pad)

@@ -314,6 +314,8 @@ noncomputable scoped instance (priority := high) samplerWorld : SampleableType (
   SampleableType.ofFintype _
 noncomputable scoped instance (priority := high) samplerHid : SampleableType (ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord) :=
   SampleableType.ofFintype _
+noncomputable scoped instance (priority := high) samplerJunk : SampleableType (WJunk → LargeResidual.Digest) :=
+  SampleableType.ofFintype _
 noncomputable scoped instance (priority := high) samplerRows :
     SampleableType (EncLeaf → Fin (2 ^ 22) → HashOutput) := SampleableType.ofFintype _
 noncomputable scoped instance (priority := high) samplerRowsFlat :
@@ -604,39 +606,108 @@ theorem contact_real_side (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127
   apply probEvent_congr' (fun _ _ => Iff.rfl)
   rw [evalSPMF_bind, evalSPMF_bind, evalSPMF_uniform_inst _ samplerFull]
   congr 1
-/-- The FTS-coefficient secrets of a hidden object. -/
-def secOf (x : ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord) : Secrets :=
-  Sum.elim (fun a => x.1 (.inl (.inr a))) (fun c => x.2 (c.1, c.2.1) c.2.2)
-def worldEquiv : Secrets × ((Message → Digest) × LowLabels) ≃ ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord where
-  toFun p := ((Sum.elim (Sum.elim p.2.2 (fun a => p.1 (.inl a))) p.2.1 : WPlain → LargeResidual.Digest),
-    fun f j => p.1 (.inr (f.1, f.2, j)))
-  invFun x := (secOf x, fun m => x.1 (.inr m), fun N => x.1 (.inl (.inl N)))
+/-- The secrets of a hidden object (top seeds, lower-leaf and FTS coefficients) and the unused junk cells. -/
+noncomputable def secOf (x : ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord) (jk : WJunk → LargeResidual.Digest) :
+    Secrets :=
+  Sum.elim
+    (fun a => if h0 : a.layer = 0 then x.1 (.inl (.inr ⟨a, h0⟩))
+      else if hc : a.chain.val < 17 then
+        x.2 (Sum.inl ⟨(a.layer, a.tree, a.leaf), h0⟩ : WFam) (⟨a.chain.val, hc⟩ : Fin 17)
+      else jk ⟨a, h0, by omega⟩)
+    (fun c => x.2 (Sum.inr (c.1, c.2.1) : WFam) c.2.2)
+/-- The coefficient families of a secret table. -/
+def famOfSec (sec : Secrets) : (f : WFam) → ClaudeWCT.W9.T3.Security.FamResidual.Coefs
+    (ClaudeWCT.W9.T3.Security.FamResidual.Seeds.deg (Coord := WCoord) f)
+  | .inl L => fun j => sec (.inl ⟨L.1.1, L.1.2.1, L.1.2.2,
+      ⟨j.val, lt_of_lt_of_le j.isLt (show (16 : ℕ) + 1 ≤ 58 by norm_num)⟩⟩)
+  | .inr f => fun j => sec (.inr (f.1, f.2, j))
+noncomputable def worldEquiv : Secrets × ((Message → Digest) × LowLabels) ≃
+    ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord × (WJunk → LargeResidual.Digest) where
+  toFun p := (((Sum.elim (Sum.elim p.2.2 (fun t => p.1 (.inl t.1))) p.2.1 : WPlain → LargeResidual.Digest),
+    famOfSec p.1), fun jk => p.1 (.inl jk.1))
+  invFun y := (secOf y.1 y.2, fun m => y.1.1 (.inr m), fun N => y.1.1 (.inl (.inl N)))
   left_inv p := by
     obtain ⟨sec, nv, low⟩ := p
     refine Prod.ext ?_ rfl
     funext c
-    rcases c with a | ⟨i, k, j⟩ <;> rfl
-  right_inv x := by
-    obtain ⟨L, K⟩ := x
-    refine Prod.ext ?_ rfl
-    funext c
-    rcases c with (N | a) | m <;> rfl
+    rcases c with a | ⟨i, k, j⟩
+    · change (if h0 : a.layer = 0 then sec (.inl a) else if hc : a.chain.val < 17 then
+          sec (.inl ⟨a.layer, a.tree, a.leaf, ⟨a.chain.val, _⟩⟩) else sec (.inl a)) = sec (.inl a)
+      split_ifs <;> rfl
+    · rfl
+  right_inv y := by
+    obtain ⟨⟨L, K⟩, jk⟩ := y
+    refine Prod.ext (Prod.ext ?_ ?_) ?_
+    · funext c
+      rcases c with (N | ⟨a, ha⟩) | m
+      · rfl
+      · change (if h0 : a.layer = 0 then L (.inl (.inr ⟨a, h0⟩)) else _) = L (.inl (.inr ⟨a, ha⟩))
+        rw [dif_pos ha]
+      · rfl
+    · funext f
+      rcases f with ⟨⟨lay, tree, leaf⟩, hL⟩ | ⟨i, k⟩
+      · funext j
+        have hj : j.val < 17 := j.isLt
+        change (if h0 : lay = 0 then _ else if hc : j.val < 17 then
+            K (Sum.inl ⟨(lay, tree, leaf), h0⟩ : WFam) (⟨j.val, hc⟩ : Fin 17) else _) = K _ j
+        rw [dif_neg hL, dif_pos hj]
+        rfl
+      · rfl
+    · funext t
+      obtain ⟨a, h0, hc⟩ := t
+      show secOf (L, K) jk (.inl a) = jk ⟨a, h0, hc⟩
+      unfold secOf
+      simp only [Sum.elim_inl]
+      rw [dif_neg h0, dif_neg (by omega)]
 theorem world_split {R : Type} (K : Secrets → (Message → Digest) → LowLabels → ProbComp R) :
     𝒮[($ᵗ Secrets : ProbComp _) >>= fun sec => ($ᵗ (Message → Digest) : ProbComp _) >>= fun nv =>
         ($ᵗ LowLabels : ProbComp _) >>= fun low => K sec nv low] =
       𝒮[($ᵗ (ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord) : ProbComp _) >>= fun x =>
-        K (secOf x) (fun m => x.1 (.inr m)) (fun N => x.1 (.inl (.inl N)))] := by
+        ($ᵗ (WJunk → LargeResidual.Digest) : ProbComp _) >>= fun jk =>
+        K (secOf x jk) (fun m => x.1 (.inr m)) (fun N => x.1 (.inl (.inl N)))] := by
   let _ : SampleableType ((Message → Digest) × LowLabels) := SampleableType.ofFintype _
   let _ : SampleableType (Secrets × ((Message → Digest) × LowLabels)) := SampleableType.ofFintype _
+  let _ : SampleableType (ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord × (WJunk → LargeResidual.Digest)) :=
+    SampleableType.ofFintype _
   calc _ = 𝒮[($ᵗ (Secrets × ((Message → Digest) × LowLabels)) : ProbComp _) >>= fun p => K p.1 p.2.1 p.2.2] := by
         rw [uniform_prod_bind]
         refine evalSPMF_bind_congr' _ fun sec => ?_
         rw [uniform_prod_bind]
-    _ = _ := uniform_equiv_bind worldEquiv.symm _
-theorem seedView_secOf (x : ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord) :
-    seedView (secOf x) = fun s => view x (.inl (.inr s)) := by
+    _ = 𝒮[($ᵗ (ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord × (WJunk → LargeResidual.Digest)) : ProbComp _) >>=
+          fun y => K (secOf y.1 y.2) (fun m => y.1.1 (.inr m)) (fun N => y.1.1 (.inl (.inl N)))] :=
+        uniform_equiv_bind worldEquiv.symm _
+    _ = _ := uniform_prod_bind _
+theorem seedView_secOf (x : ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord) (jk : WJunk → LargeResidual.Digest) :
+    seedView (secOf x jk) = fun s => view x (.inl (.inr s)) := by
   funext s
-  rcases s with a | w <;> rfl
+  rcases s with a | w
+  · change seedsOf (secOf x jk) a = view x (.inl (.inr (.inl a)))
+    have hs : (ClaudeWCT.W9.T3.Security.FamResidual.Seeds.split (.inl (.inr (.inl a)) : WCoord)) =
+        wsplit (.inl (.inr (.inl a))) := rfl
+    unfold view
+    rw [hs, wsplit_addr]
+    unfold seedsOf
+    by_cases h0 : a.layer = 0
+    · rw [if_pos h0, dif_pos h0]
+      change (if h0 : a.layer = 0 then x.1 (.inl (.inr ⟨a, h0⟩)) else _) = _
+      rw [dif_pos h0]
+    · rw [if_neg h0, dif_neg h0]
+      change _ = ClaudeWCT.Arith.familyEval (List.ofFn (x.2 (Sum.inl ⟨(a.layer, a.tree, a.leaf), h0⟩ : WFam)))
+        (WCT9.lowerPoint a.chain.val)
+      congr 2
+      funext k
+      change (if h0 : a.layer = 0 then _ else if hc : k.val < 17 then
+        x.2 (Sum.inl ⟨(a.layer, a.tree, a.leaf), h0⟩ : WFam) (⟨k.val, hc⟩ : Fin 17) else _) = _
+      rw [dif_neg h0, dif_pos k.isLt]
+  · rfl
+/-- An event's probability under a bind is at most a uniform bound on the continuations. -/
+theorem probEvent_bind_le_const {α β : Type} (mx : ProbComp α) (f : α → ProbComp β) (E : β → Prop) (c : ENNReal)
+    (h : ∀ x, Pr[E | f x] ≤ c) : Pr[E | mx >>= f] ≤ c := by
+  rw [probEvent_bind_eq_tsum]
+  calc _ ≤ ∑' x, Pr[= x | mx] * c := ENNReal.tsum_le_tsum fun x => by gcongr; exact h x
+    _ = (∑' x, Pr[= x | mx]) * c := ENNReal.tsum_mul_right
+    _ ≤ 1 * c := by gcongr; exact tsum_probOutput_le_one
+    _ = c := one_mul c
 theorem contact_le_lazy (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
     Pr[ContactNO adversary q | SeccLaw.completedExperiment adversary q hq] ≤
       Pr[fun r => r.1 = none ∧ r.2.counters.calls ≤ q |
@@ -652,6 +723,7 @@ theorem contact_le_lazy (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) 
   refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun priv => ?_
   rw [probEvent_congr' (fun _ _ => Iff.rfl) (world_split _)]
   refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun x => ?_
+  refine probEvent_bind_le_const _ _ _ _ fun jk => ?_
   have hτ : ∀ (k : (Wots.referenceInputs adversary → HashOutput) → ProbComp (FirstHit.Recorded Bool × Answers)),
       𝒮[(@uniformSample (Wots.referenceInputs adversary → HashOutput) (samplerPublic _) : ProbComp _) >>= k] =
         𝒮[(@uniformSample (Wots.referenceInputs adversary → HashOutput) (samplerCell _) : ProbComp _) >>= k] := by
@@ -659,12 +731,12 @@ theorem contact_le_lazy (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) 
     rw [evalSPMF_bind]
   rw [probEvent_congr' (fun _ _ => Iff.rfl) (hτ _)]
   refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun τ => ?_
-  · have hT : CanonGraph.eagerAnswers (privateEquiv.symm (secOf x,
+  · have hT : CanonGraph.eagerAnswers (privateEquiv.symm (secOf x jk,
           nonceOver (privateEquiv priv).2 (fun m => x.1 (.inr m)))) (Wots.referenceInputs adversary)
-          (programmed (Wots.referenceInputs adversary) hU (secOf x)
+          (programmed (Wots.referenceInputs adversary) hU (secOf x jk)
             (joinLabels (fun N => x.1 (.inl (.inl N))) high)
             (residualPsi (Wots.referenceInputs adversary) hE (joinLabels (fun N => x.1 (.inl (.inl N))) high) rows τ)) =
-        tablePsi (Wots.referenceInputs adversary) hU hE (secOf x) (fun c => view x (.inl c)) (fun m => view x (.inr m)) τ
+        tablePsi (Wots.referenceInputs adversary) hU hE (secOf x jk) (fun c => view x (.inl c)) (fun m => view x (.inr m)) τ
           ⟨high, rows, priv⟩ := by
       unfold tablePsi
       rw [eagerAnswers_eq]
@@ -673,8 +745,8 @@ theorem contact_le_lazy (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) 
     unfold fixedNext RealContact
     rw [probEvent_map]
     have h := table_contact_le adversary q hq initLaw
-      (coherent_psi (Wots.referenceInputs adversary) hU hE (secOf x) (fun c => view x (.inl c))
-        (fun m => view x (.inr m)) τ ⟨high, rows, priv⟩ (seedView_secOf x))
+      (coherent_psi (Wots.referenceInputs adversary) hU hE (secOf x jk) (fun c => view x (.inl c))
+        (fun m => view x (.inr m)) τ ⟨high, rows, priv⟩ (seedView_secOf x jk))
     have hlab : Sum.elim (fun c => view x (.inl c)) (fun m => view x (.inr m)) = view x := by
       funext c
       rcases c with c | m <;> rfl

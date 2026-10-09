@@ -221,11 +221,37 @@ def buildLevelsBelow (tag lay tree h : Nat) (leaves : List Digest) : M (List (Li
   (List.range' 1 (h - 1)).foldlM (fun levels level => do
     let nodes ← buildLevel tag lay tree h level (levels.getD (level - 1) [])
     pure (levels ++ [nodes])) [leaves]
+/-! ### Arithmetic seeds (campaign X1, stage B): lower WOTS seeds from a degree-16 GF(2^128) family per leaf.
+Leaf `leaf` of tree `tree` in layer `lay ≥ 1` has 17 coefficients; coefficient `j` is the packed half with ordinal
+`17 * leaf + j` of `lowerSeedPair lay tree` (the same carry packing as `buildLeafP`, so a tree costs
+`⌈17 · 2^height / 2⌉` private pairs). The seed of chain `i` is `familyEval coefs (lowerPoint i)`, `lowerPoint i = i + 1`. -/
+def lowerCoefCount : Nat := 17
+def lowerCoefOrdinal (leaf j : Nat) : Nat := lowerCoefCount * leaf + j
+def lowerPoint (chain : Nat) : Nat := chain + 1
+def lowerCoefs (lay : Layer) (tree leaf : Nat) (carry : Digest) : M (List Digest × Digest) :=
+  (List.range lowerCoefCount).foldlM (fun (state : List Digest × Digest) j => do
+    let (coef, carry) ← packedSecret (lowerSeedPair lay tree) (lowerCoefOrdinal leaf j) state.2
+    pure (state.1 ++ [coef], carry)) ([], carry)
+def lowerFamilySeed (coefs : List Digest) (chain : Nat) : Digest :=
+  ClaudeWCT.Arith.familyEval coefs (lowerPoint chain)
+def buildLeafPF (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
+    M ((Digest × List Digest) × Digest) := do
+  let (coefs, carry) ← lowerCoefs lay tree leaf carry
+  let state ← (List.range (chainCount lay)).foldlM
+    (fun (state : List Digest × List Digest) i => do
+      let digit := digits.getD i 0
+      let value ← SigGolfCandidate.T3.chain lay tree leaf i 0 digit (lowerFamilySeed coefs i)
+      let last ← SigGolfCandidate.T3.chain lay tree leaf i digit (maxDigit lay i - digit) value
+      pure (state.1 ++ [last], state.2 ++ [value])) ([], [])
+  let root ← SigGolfCandidate.T3.leafHash lay tree leaf state.1
+  pure ((root, state.2), carry)
+/-- Lower tree of layer `lay ≥ 1` (stage B: leaves built by `buildLeafPF`, the family carry threaded across leaves).
+`buildLeafP` (per-chain packed seeds) is kept for the machine proofs of the pre-stage-B sign image. -/
 def buildTreeP (lay : Layer) (tree selected : Nat) (digits : List Nat) :
     M (List (List Digest) × List Digest) := do
   let state ← (List.range (2 ^ height lay)).foldlM
     (fun (state : List Digest × List Digest × Digest) leaf => do
-      let ((root, values), carry) ← buildLeafP lay tree leaf (if leaf = selected then digits else []) state.2.2
+      let ((root, values), carry) ← buildLeafPF lay tree leaf (if leaf = selected then digits else []) state.2.2
       pure (state.1 ++ [root], (if leaf = selected then values else state.2.1), carry)) ([], [], 0)
   let levels ← buildLevelsBelow 3 lay.val tree (height lay) state.1
   pure (levels, state.2.1)

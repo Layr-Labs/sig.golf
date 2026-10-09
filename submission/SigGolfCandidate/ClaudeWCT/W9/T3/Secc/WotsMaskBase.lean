@@ -38,6 +38,8 @@ def UntouchedP (a : ChainAddr) : Spec.Domain → Prop
   | _ => True
 noncomputable def prefixStep (answers : Answers) (a : ChainAddr) (input : HashInput) : Option Nat :=
   if h : ∃ step value, step < depth answers a ∧ input = chainRow a step value then some (Classical.choose h) else none
+/-- Mask of chain `a`: its rows below `depth` answer `0` (the last one answers the frontier). For a top chain the
+seed half-cell is blanked too; lower seeds are evaluations of the leaf family (campaign X1 stage B) and stay. -/
 noncomputable def maskAt (answers : Answers) (a : ChainAddr) : Answers
   | .inl (.inr input) =>
       match prefixStep answers a input with
@@ -46,7 +48,7 @@ noncomputable def maskAt (answers : Answers) (a : ChainAddr) : Answers
       | none => answers (.inl (.inr input))
   | .inl (.inl coin) => answers (.inl (.inl coin))
   | .inr (.inl tweak) =>
-      if tweak = seedTweakP a ∧ 1 ≤ depth answers a then
+      if tweak = seedTweakP a ∧ 1 ≤ depth answers a ∧ a.key.lay = 0 then
         (let output := answers (.inr (.inl tweak))
          if seedSlot a % 2 = 0 then ChainGraph.joinOutput 0 (output.extractLsb' 128 128)
          else ChainGraph.joinOutput (output.extractLsb' 0 128) 0)
@@ -158,7 +160,7 @@ theorem maskAt_public (answers : Answers) (a : ChainAddr) (input : HashInput) :
       | none => answers (.inl (.inr input)) := rfl
 theorem maskAt_tweak (answers : Answers) (a : ChainAddr) (tweak : BitVec 128) :
     maskAt answers a (.inr (.inl tweak)) =
-      if tweak = seedTweakP a ∧ 1 ≤ depth answers a then
+      if tweak = seedTweakP a ∧ 1 ≤ depth answers a ∧ a.key.lay = 0 then
         (if seedSlot a % 2 = 0 then ChainGraph.joinOutput 0 ((answers (.inr (.inl tweak))).extractLsb' 128 128)
          else ChainGraph.joinOutput ((answers (.inr (.inl tweak))).extractLsb' 0 128) 0)
       else answers (.inr (.inl tweak)) := rfl

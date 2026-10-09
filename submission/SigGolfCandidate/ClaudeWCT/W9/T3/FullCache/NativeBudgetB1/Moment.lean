@@ -184,6 +184,20 @@ theorem avoids_buildLeafP (lay : Layer) (tree leaf : Nat) (digits : List Nat) (c
   rcases sc with ⟨seed, carry'⟩
   exact avoids_bind (avoids_chain secret target ht _ _ _ _ _ _ _) fun value =>
     avoids_bind (avoids_chain secret target ht _ _ _ _ _ _ _) fun _ => avoids_pure _ _ _
+theorem avoids_buildLeafPF (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
+    Avoids secret target (ClaudeWCT.WCT9.buildLeafPF lay tree leaf digits carry) := by
+  unfold ClaudeWCT.WCT9.buildLeafPF
+  refine avoids_bind ?_ fun cc => ?_
+  · unfold ClaudeWCT.WCT9.lowerCoefs
+    refine avoids_foldlM _ _ _ _ (fun state j => ?_) _
+    refine avoids_bind (avoids_packedLowerSecret secret target ht _ _ _ _) fun sc => ?_
+    rcases sc with ⟨coef, carry'⟩
+    exact avoids_pure _ _ _
+  rcases cc with ⟨coefs, carry'⟩
+  refine avoids_bind (avoids_foldlM _ _ _ _ (fun state i => ?_) _)
+    (fun state => avoids_bind (avoids_leafHash secret target ht _ _ _ _) fun _ => avoids_pure _ _ _)
+  exact avoids_bind (avoids_chain secret target ht _ _ _ _ _ _ _) fun value =>
+    avoids_bind (avoids_chain secret target ht _ _ _ _ _ _ _) fun _ => avoids_pure _ _ _
 theorem avoids_buildLevel_below (lay tree h level : Nat) (nodes : List Digest) (hlev : level < h) (hh : h < 64)
     (hlen : nodes.length / 2 ≤ 2 ^ (h - level)) :
     Avoids secret target (buildLevel 3 lay tree h level nodes) := by
@@ -229,7 +243,7 @@ theorem avoids_buildTreeP (lay : Layer) (tree selected : Nat) (digits : List Nat
     Avoids secret target (ClaudeWCT.WCT9.buildTreeP lay tree selected digits) := by
   unfold ClaudeWCT.WCT9.buildTreeP
   refine avoids_bind_support (avoids_foldlM _ _ _ _ (fun state leaf =>
-      avoids_bind (avoids_buildLeafP secret target ht _ _ _ _ _) fun r => ?_) _) fun state hs => ?_
+      avoids_bind (avoids_buildLeafPF secret target ht _ _ _ _ _) fun r => ?_) _) fun state hs => ?_
   · rcases r with ⟨⟨root, values⟩, carry⟩
     exact avoids_pure _ _ _
   · have hlen := mem_support_foldlM_inv _ (fun k (s : List Digest × List Digest × Digest) => s.1.length = k)
@@ -330,7 +344,7 @@ noncomputable def Envelopes.v5 : Envelopes where
   step := by
     intro lay
     fin_cases lay <;> norm_num [producerRate, ClaudeWCT.W9.T3.ProducerV5.producerCount, V5.topCount129,
-      V5.lowerCount197f5, V5.lowerCount196f5, V5.lowerCount197, SigGolfCandidate.T3.BaseAudit.zU, V5.b1, V5.b2, V5.b3, V5.b4]
+      V5.lowerCount198f5, V5.lowerCount199f4, SigGolfCandidate.T3.BaseAudit.zU, V5.b1, V5.b2, V5.b3, V5.b4]
 end ClaudeWCT.W9.T3.LayerBudget
 end
 section
@@ -503,7 +517,7 @@ theorem envelope_product_eq : digestEnvelope * layerEnvelopes.envelope 0 * layer
     ← ENNReal.ofReal_mul (show 0 ≤ (BaseAudit.V5.b0 : ℝ) * (BaseAudit.V5.b1 : ℝ) * (BaseAudit.V5.b2 : ℝ) *
       (BaseAudit.V5.b3 : ℝ) by
       norm_num [BaseAudit.V5.b0, BaseAudit.V5.b1, BaseAudit.V5.b2, BaseAudit.V5.b3])]
-theorem fixed_le_117348 {fts : ℕ} (h : fts ≤ 31550) : 4 + fts + ClaudeWCT.WCT9.Cost.layerFixedCostP 4 ≤ 117348 := by
+theorem fixed_le_114020 {fts : ℕ} (h : fts ≤ 31550) : 4 + fts + ClaudeWCT.WCT9.Cost.layerFixedCostP 4 ≤ 114020 := by
   have h1 := ClaudeWCT.WCT9.Cost.layerFixedCostP_four
   have h2 := SigGolfCandidate.T3.Cost.layerFixedCost_four
   omega
@@ -512,13 +526,13 @@ theorem signingMomentFor_le_two_of_le {fts : ℕ} (h : fts ≤ 31550) : signingM
   calc signingZ ^ (4 + fts + ClaudeWCT.WCT9.Cost.layerFixedCostP 4) *
         (digestEnvelope * layerEnvelopes.envelope 0 * layerEnvelopes.envelope 1 * layerEnvelopes.envelope 2 *
           layerEnvelopes.envelope 3)
-      ≤ signingZ ^ 117348 * (digestEnvelope * layerEnvelopes.envelope 0 * layerEnvelopes.envelope 1 *
+      ≤ signingZ ^ 114020 * (digestEnvelope * layerEnvelopes.envelope 0 * layerEnvelopes.envelope 1 *
           layerEnvelopes.envelope 2 * layerEnvelopes.envelope 3) :=
-        mul_le_mul' (pow_le_pow_right₀ (SigGolfCandidate.Budget.one_le_zOf _) (fixed_le_117348 h)) le_rfl
+        mul_le_mul' (pow_le_pow_right₀ (SigGolfCandidate.Budget.one_le_zOf _) (fixed_le_114020 h)) le_rfl
     _ ≤ 2 := by
         rw [SigGolfCandidate.Budget.zOf_pow, envelope_product_eq]
         have hcast := ENNReal.ofReal_le_ofReal BaseAudit.V5.signing_envelope
-        rw [ENNReal.ofReal_mul (show 0 ≤ (2 : ℝ) ^ ((117348 : ℝ) / 131072) by positivity)] at hcast
+        rw [ENNReal.ofReal_mul (show 0 ≤ (2 : ℝ) ^ ((114020 : ℝ) / 131072) by positivity)] at hcast
         norm_num only [ENNReal.ofReal_ofNat] at hcast
         convert hcast using 1
         norm_num

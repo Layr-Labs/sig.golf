@@ -73,19 +73,21 @@ def Node.depth : Node → Nat
   | .forest _ => 11
 /-- Coefficient index of the FTS seed families (campaign X1, stage A): `(index, coord, j)`, `j < 102`. -/
 abbrev WctCoef := Fin (2 ^ 31) × Fin 9 × Fin 102
-/-- Hidden secrets: WOTS seeds (by address) and FTS family coefficients. FTS seeds are not secrets themselves but
-evaluations `wctSeedsOf` of the coefficient families. -/
+/-- Hidden secrets: top WOTS seeds and lower-family coefficients (by address: a lower address with chain `j < 17` is
+coefficient `j` of its leaf, campaign X1 stage B) and FTS family coefficients. Lower and FTS seeds are not secrets
+themselves but evaluations (`seedsOf`, `wctSeedsOf`) of the coefficient families. -/
 abbrev SecretIndex := Address ⊕ WctCoef
 abbrev Secrets := SecretIndex → Digest
 abbrev Labels := Node → HashOutput
 theorem chainCount_lower {lay : Layer} (h : lay ≠ 0) : chainCount lay = 43 := by
   revert h; fin_cases lay <;> decide
-def seedIdx (a : Address) : Address :=
-  if h : a.layer ≠ 0 ∧ chainCount a.layer ≤ a.chain.val ∧ a.leaf.val < 4095 then
-    ⟨a.layer, a.tree, ⟨a.leaf.val + 1, by omega⟩, ⟨a.chain.val - chainCount a.layer, by
-      have := a.chain.isLt; omega⟩⟩
-  else a
-def seedsOf (secrets : Secrets) : Seeds := fun address => secrets (.inl (seedIdx address))
+/-- The coefficient family of lower leaf `(lay, tree, leaf)` (stage B): the secrets of its chains `j < 17`. -/
+def lowerFamily (secrets : Secrets) (lay : Layer) (tree : Fin (2 ^ 31)) (leaf : Fin 4096) : Fin 17 → Digest :=
+  fun j => secrets (.inl ⟨lay, tree, leaf, ⟨j.val, by omega⟩⟩)
+/-- WOTS seeds: top seeds are secrets; a lower seed is its leaf family at `lowerPoint chain`. -/
+def seedsOf (secrets : Secrets) : Seeds := fun a =>
+  if a.layer = 0 then secrets (.inl a)
+  else ClaudeWCT.Arith.familyEval (List.ofFn (lowerFamily secrets a.layer a.tree a.leaf)) (WCT9.lowerPoint a.chain.val)
 /-- The coefficient family of FTS coordinate `(index, coord)`. -/
 def wctFamily (secrets : Secrets) (index : Fin (2 ^ 31)) (coord : Fin 9) : Fin 102 → Digest :=
   fun j => secrets (.inr (index, coord, j))
@@ -766,20 +768,20 @@ def fullHalf (n : Nat) : Fin 2 := ⟨n % 2, Nat.mod_lt _ (by decide)⟩
 /-- Half-cell of FTS coefficient `(index, coord, j)`: half `j % 2` of `ftsSeedPair index coord (j / 2)`. -/
 def wctCoefCoordinate (c : WctCoef) : ChainGraph.HalfCoordinate :=
   (.inl (WCT9.ftsSeedHeader c.2.1.val c.1.val (c.2.2.val / 2)), fullHalf c.2.2.val)
+/-- Half-cell of secret `a`: top seeds as before; lower coefficient `chain < 17` of a leaf is the packed half
+`lowerCoefOrdinal leaf chain` of `lowerSeedPair`; other lower addresses get distinct unused cells. -/
 def seedCoordinateP (a : Address) : ChainGraph.HalfCoordinate :=
   if a.layer = 0 then ChainGraph.seedCoordinate a
-  else if a.chain.val < chainCount a.layer ∨ a.leaf.val = 4095 then
-    (.inl (WCT9.lowerSeedHeader a.layer a.tree.val (WCT9.lowerOrdinal a.layer a.leaf.val a.chain.val / 2)),
-      fullHalf (WCT9.lowerOrdinal a.layer a.leaf.val a.chain.val))
+  else if a.chain.val < WCT9.lowerCoefCount then
+    (.inl (WCT9.lowerSeedHeader a.layer a.tree.val (WCT9.lowerCoefOrdinal a.leaf.val a.chain.val / 2)),
+      fullHalf (WCT9.lowerCoefOrdinal a.leaf.val a.chain.val))
   else (.inl (header 0 a.layer.val a.tree.val (a.chain.val / 2) (a.leaf.val + 1)), fullHalf a.chain.val)
 def secretCoordinate : SecretIndex → ChainGraph.HalfCoordinate := Sum.elim seedCoordinateP wctCoefCoordinate
 theorem fullHalf_val (n : Nat) : (fullHalf n).val = n % 2 := rfl
 theorem chainCount_le (lay : Layer) : chainCount lay ≤ 54 := by fin_cases lay <;> decide
-theorem lowerOrdinal_pair_lt' (a : Address) : WCT9.lowerOrdinal a.layer a.leaf.val a.chain.val / 2 < 2 ^ 32 := by
+theorem lowerOrdinal_pair_lt' (a : Address) : WCT9.lowerCoefOrdinal a.leaf.val a.chain.val / 2 < 2 ^ 32 := by
   have h1 := a.leaf.isLt; have h2 := a.chain.isLt
-  have hc := chainCount_le a.layer
-  unfold WCT9.lowerOrdinal
-  have : chainCount a.layer * a.leaf.val ≤ 54 * 4095 := Nat.mul_le_mul hc (by omega)
+  unfold WCT9.lowerCoefOrdinal WCT9.lowerCoefCount
   omega
 theorem wctCoefCoordinate_injective : Function.Injective wctCoefCoordinate := by
   intro left right heq
@@ -835,17 +837,15 @@ theorem seedCoordinateP_injective : Function.Injective seedCoordinateP := by
       omega
   · have hp := congrArg Prod.fst heq
     have hh := congrArg (fun coordinate : ChainGraph.HalfCoordinate => coordinate.2.val) heq
-    have cl := chainCount_lower h0; have cr := chainCount_lower h0'
     unfold seedCoordinateP at hp hh
     rw [if_neg h0, if_neg h0'] at hp hh
-    by_cases hc : left.chain.val < chainCount left.layer ∨ left.leaf.val = 4095 <;>
-      by_cases hc' : right.chain.val < chainCount right.layer ∨ right.leaf.val = 4095
+    by_cases hc : left.chain.val < WCT9.lowerCoefCount <;>
+      by_cases hc' : right.chain.val < WCT9.lowerCoefCount
     · rw [if_pos hc, if_pos hc'] at hp hh
       simp only [fullHalf_val, Sum.inl.injEq] at hp hh
       obtain ⟨e1, e2, e3⟩ := WCT9.lowerSeedHeader_injective (by omega) pl (by omega) pr hp
-      unfold WCT9.lowerOrdinal at e3 hh
-      rw [cl, cr] at e3 hh
-      rw [cl] at hc; rw [cr] at hc'
+      unfold WCT9.lowerCoefOrdinal at e3 hh
+      unfold WCT9.lowerCoefCount at e3 hh hc hc'
       have e4 : left.leaf.val = right.leaf.val ∧ left.chain.val = right.chain.val := by omega
       exact ChainGraph.Address.ext e1 (Fin.ext e2) (Fin.ext e4.1) (Fin.ext e4.2)
     · exfalso
@@ -1115,35 +1115,24 @@ theorem secretsOf_top (answers : Answers) (a : Address) (h : a.layer = 0) :
   change halfAnswer answers (seedCoordinateP a) = _
   unfold seedCoordinateP ChainGraph.seedCoordinate leafSeed
   rw [if_pos h, halfAnswer_pair]
-theorem secretsOf_lower (answers : Answers) (a : Address) (h : a.layer ≠ 0)
-    (hc : a.chain.val < chainCount a.layer ∨ a.leaf.val = 4095) :
-    secretsOf answers (.inl a) = WCT9.lowerSeed answers a.layer a.tree.val a.leaf.val a.chain.val := by
+/-- A lower coefficient secret is the packed half `lowerCoefN` the signer reads (stage B). -/
+theorem secretsOf_lower (answers : Answers) (a : Address) (h : a.layer ≠ 0) (hc : a.chain.val < WCT9.lowerCoefCount) :
+    secretsOf answers (.inl a) = WCT9.lowerCoefN answers a.layer a.tree.val a.leaf.val a.chain.val := by
   change halfAnswer answers (seedCoordinateP a) = _
-  unfold seedCoordinateP WCT9.lowerSeed WCT9.seedHalf WCT9.lowerSeedHeader WCT9.lowerSeedPair
+  unfold seedCoordinateP WCT9.lowerCoefN WCT9.seedHalf WCT9.lowerSeedHeader WCT9.lowerSeedPair
   rw [if_neg h, if_pos hc, halfAnswer_pair, fullHalf_val]
-theorem secretsOf_wots (answers : Answers) (a : Address) (hc : a.chain.val < chainCount a.layer) :
+theorem lowerFamily_secretsOf (answers : Answers) {lay : Layer} (h : lay ≠ 0) (tree : Fin (2 ^ 31))
+    (leaf : Fin 4096) : lowerFamily (secretsOf answers) lay tree leaf = WCT9.lowerCoef answers lay tree.val leaf.val :=
+  funext fun j => secretsOf_lower answers ⟨lay, tree, leaf, ⟨j.val, by omega⟩⟩ h (by
+    show j.val < WCT9.lowerCoefCount; unfold WCT9.lowerCoefCount; omega)
+theorem secretsOf_wots (answers : Answers) (a : Address) (h : a.layer = 0) :
     secretsOf answers (.inl a) = WCT9.wotsSeed answers a.layer a.tree.val a.leaf.val a.chain.val := by
-  unfold WCT9.wotsSeed
-  split_ifs with h
-  · exact secretsOf_top answers a h
-  · exact secretsOf_lower answers a h (Or.inl hc)
+  rw [secretsOf_top answers a h, h, WCT9.wotsSeed_top]
 theorem seedsOf_secretsOf (answers : Answers) (a : Address) :
     seedsOf (secretsOf answers) a = WCT9.wotsSeed answers a.layer a.tree.val a.leaf.val a.chain.val := by
-  unfold seedsOf seedIdx
-  split_ifs with hi
-  · obtain ⟨h0, hc, hl⟩ := hi
-    have cl := chainCount_lower h0
-    have key := secretsOf_lower answers ⟨a.layer, a.tree, ⟨a.leaf.val + 1, by omega⟩,
-      ⟨a.chain.val - chainCount a.layer, by have := a.chain.isLt; omega⟩⟩ h0
-      (Or.inl (by show a.chain.val - chainCount a.layer < chainCount a.layer; rw [cl]; have := a.chain.isLt; omega))
-    rw [key, WCT9.wotsSeed_lower answers h0]
-    dsimp only
-    unfold WCT9.lowerSeed WCT9.lowerOrdinal
-    rw [cl] at hc ⊢
-    rw [show 43 * (a.leaf.val + 1) + (a.chain.val - 43) = 43 * a.leaf.val + a.chain.val by omega]
-  · by_cases h0 : a.layer = 0
-    · rw [secretsOf_top answers a h0, h0, WCT9.wotsSeed_top]
-    · rw [secretsOf_lower answers a h0 (by
-        by_contra hn; push Not at hn; exact hi ⟨h0, hn.1, by have := a.leaf.isLt; omega⟩),
-        WCT9.wotsSeed_lower answers h0]
+  unfold seedsOf
+  split_ifs with h0
+  · exact secretsOf_wots answers a h0
+  · rw [lowerFamily_secretsOf answers h0, WCT9.wotsSeed_lower answers h0]
+    rfl
 end ClaudeWCT.W9.T3.Security.CanonGraph

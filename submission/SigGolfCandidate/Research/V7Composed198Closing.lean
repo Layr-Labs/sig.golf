@@ -12,7 +12,7 @@ set_option maxRecDepth 10000
 set_option exponentiation.threshold 1024
 
 theorem small_closing_real (y : ℝ) (hlow : 1 / 2 ^ 128 ≤ y) (hhigh : y ≤ 624 / 1048576) :
-    1894 / 1000 * y + (151) * y ^ 2 + 1 / 2 ^ 136 +
+    1894 / 1000 * y + (152) * y ^ 2 + 1 / 2 ^ 136 +
       (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
   have hn : 0 ≤ y := le_trans (by positivity) hlow
   have h136 : (1 : ℝ) / 2 ^ 136 ≤ y / 2 ^ 8 := by
@@ -27,7 +27,7 @@ theorem small_closing_real (y : ℝ) (hlow : 1 / 2 ^ 128 ≤ y) (hhigh : y ≤ 6
     have : (1 : ℝ) / 2 ^ 152 = (1 / 2 ^ 128) / 2 ^ 24 := by ring
     rw [this]
     exact div_le_div_of_nonneg_right hlow (by positivity)
-  have hsq : (151 : ℝ) * y ^ 2 ≤ (151) * (624 / 1048576) * y := by
+  have hsq : (152 : ℝ) * y ^ 2 ≤ (152) * (624 / 1048576) * y := by
     nlinarith [mul_le_mul_of_nonneg_left hhigh hn]
   linarith
 theorem large_closing_real (y : ℝ) (hlow : 624 / 1048576 ≤ y) :

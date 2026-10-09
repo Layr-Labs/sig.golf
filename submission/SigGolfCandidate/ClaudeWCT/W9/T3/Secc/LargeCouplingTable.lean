@@ -1,6 +1,7 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeCouplingShort
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeContactCase
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.FtsOverflow
+import SigGolfCandidate.ClaudeWCT.WCT9.LowerReveal
 import SigGolfCandidate.T3.Secc.LargeCouplingTable
 
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling
@@ -257,6 +258,127 @@ theorem discSeeds_initial (f : Fin (2 ^ 31) × Fin 9) : DiscSeeds RouterState.in
   ext w
   rw [mem_DiscSeeds]
   simp [RouterState.initial]
+theorem idx_zero_card (l : List ℕ) :
+    ((Finset.range l.length).filter fun i => l.getD i 0 = 0).card = (l.filter (· = 0)).length := by
+  induction l with
+  | nil => simp
+  | cons x t ih =>
+      rw [Finset.card_filter, List.length_cons, Finset.sum_range_succ']
+      rw [Finset.card_filter] at ih
+      simp only [List.getD_cons_succ, List.getD_cons_zero]
+      rw [ih]
+      by_cases hx : x = 0
+      · simp [List.filter_cons, hx]
+      · simp [List.filter_cons, hx]
+/-- Lower seeds of leaf `L` revealed by its reference digits (digit `0`), stage B. -/
+@[irreducible] noncomputable def lowerZeros (T : Answers) (L : LowerLeaf) : Finset ChainGraph.Address :=
+  Finset.univ.filter fun a => (a.layer, a.tree, a.leaf) = L.1 ∧ a.chain.val < 43 ∧ Wots.depth T (SigGolfCandidate.T3.Security.LargeCoupling.wotsAddr a) = 0
+theorem mem_lowerZeros (T : Answers) (L : LowerLeaf) (a : ChainGraph.Address) :
+    a ∈ lowerZeros T L ↔ (a.layer, a.tree, a.leaf) = L.1 ∧ a.chain.val < 43 ∧ Wots.depth T (SigGolfCandidate.T3.Security.LargeCoupling.wotsAddr a) = 0 := by
+  unfold lowerZeros
+  simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+/-- At most 14 revealed seeds per lower leaf (`lower_zero_count_le`). -/
+theorem lowerZeros_card (T : Answers) (L : LowerLeaf) : (lowerZeros T L).card ≤ 14 := by
+  set K : Wots.LeafAddr := ⟨L.1.1, L.1.2.1.val, L.1.2.2.val⟩ with hK
+  set ds := Wots.referenceDigits T K with hds
+  obtain ⟨value, hdec⟩ := WotsExtract.referenceDigits_decode T K
+  have hlen : ds.length = 43 := by
+    rw [(SigGolfCandidate.T3.decode_length_sum hdec).1]
+    exact CanonGraph.chainCount_lower L.2
+  have hzero := ClaudeWCT.WCT9.lower_zero_count_le L.2 (ClaudeWCT.WCT9.lower_target_ge _ L.2) hdec
+  refine le_trans (Finset.card_le_card_of_injOn (t := (Finset.range ds.length).filter fun i => ds.getD i 0 = 0)
+    (fun a => a.chain.val) ?_ ?_) ?_
+  · intro a ha
+    obtain ⟨hL, hc, hd⟩ := (mem_lowerZeros T L a).mp (Finset.mem_coe.mp ha)
+    refine Finset.mem_coe.mpr (Finset.mem_filter.mpr ⟨Finset.mem_range.mpr (by rw [hlen]; exact hc), ?_⟩)
+    have hk : (SigGolfCandidate.T3.Security.LargeCoupling.wotsAddr a).key = K := by
+      rw [hK, ← hL]; rfl
+    have : Wots.depth T (SigGolfCandidate.T3.Security.LargeCoupling.wotsAddr a) = ds.getD a.chain.val 0 := by
+      unfold Wots.depth; rw [hk]; rfl
+    rw [← this]; exact hd
+  · intro a ha b hb hab
+    obtain ⟨hL, -, -⟩ := (mem_lowerZeros T L a).mp (Finset.mem_coe.mp ha)
+    obtain ⟨hL', -, -⟩ := (mem_lowerZeros T L b).mp (Finset.mem_coe.mp hb)
+    rw [← hL'] at hL
+    simp only [Prod.mk.injEq] at hL
+    exact ChainGraph.Address.ext hL.1 hL.2.1 hL.2.2 (Fin.ext hab)
+  · rw [idx_zero_card]; exact hzero
+theorem layerItems_seed_lt (digitsOf : Wots.LeafAddr → List Nat) (index : Fin (2 ^ 31)) (a : ChainGraph.Address)
+    (h : (.inr (.inl a) : Coord) ∈ layerItems digitsOf index) : a.chain.val < chainCount a.layer := by
+  unfold layerItems at h
+  simp only [List.mem_flatMap, List.mem_finRange, true_and, List.mem_append] at h
+  obtain ⟨lay, hc | hc⟩ := h
+  · unfold layerChains at hc
+    split_ifs at hc with hb
+    · simp only [List.mem_map, List.mem_range] at hc
+      obtain ⟨i, hi, hi'⟩ := hc
+      obtain ⟨h1, -⟩ := chainItem_seed hi'
+      subst h1
+      have hi58 : i < 58 := lt_of_lt_of_le hi (by fin_cases lay <;> decide)
+      change (CanonGraph.fin58 i).val < chainCount lay
+      rw [show (CanonGraph.fin58 i).val = i from Nat.mod_eq_of_lt hi58]
+      exact hi
+    · cases hc
+  · unfold layerPath at hc
+    split_ifs at hc with hb
+    · simp only [List.mem_filterMap, List.mem_range] at hc
+      obtain ⟨j, _, hj⟩ := hc
+      exact absurd rfl ((treeChild_not_chain hj).2 a)
+    · cases hc
+theorem signDisclosed_lowerZeros (A : Answers) (published : SigGolfCandidate.T3.Cache) (request : Security.Request)
+    (L : LowerLeaf) (a : ChainGraph.Address) (hL : (a.layer, a.tree, a.leaf) = L.1)
+    (h : (.inr (.inl a) : Coord) ∈ signDisclosed A published request) : a ∈ lowerZeros A L := by
+  have hlay : a.layer ≠ 0 := by
+    have := congrArg Prod.fst hL
+    simp only at this
+    rw [this]; exact L.2
+  have hd := (signDisclosed_chain A published request _ h).2 a rfl
+  have hlt : a.chain.val < chainCount a.layer := by
+    unfold signDisclosed at h
+    split_ifs at h with hcache
+    · split at h
+      · split_ifs at h with hok
+        · unfold signItems signItemsWith at h
+          rcases List.mem_append.mp h with h | h
+          · exact absurd rfl ((ftsItems_not_chain _ _ _ h).2 a)
+          · exact layerItems_seed_lt _ _ a h
+        · cases h
+      · cases h
+    · cases h
+  rw [CanonGraph.chainCount_lower hlay] at hlt
+  exact (mem_lowerZeros A L a).mpr ⟨hL, hlt, hd⟩
+theorem discLower_initial (L : LowerLeaf) : DiscLower RouterState.initial L = ∅ := by
+  ext w
+  rw [mem_DiscLower]
+  simp [RouterState.initial]
+theorem discLower_steps (U : Finset HashInput) (T : Answers) (nv : Message → Digest)
+    (published : SigGolfCandidate.T3.Cache) (steps : List TaggedStep) :
+    ∀ (st : RouterState) (L : LowerLeaf),
+      DiscLower (steps.foldl (routerStep U T nv published) st) L ⊆ DiscLower st L ∪ lowerZeros T L := by
+  induction steps with
+  | nil => intro st L; exact Finset.subset_union_left
+  | cons s rest ih =>
+      intro st L w hw
+      rw [List.foldl_cons] at hw
+      rcases Finset.mem_union.mp (ih _ L hw) with h | h
+      · obtain ⟨hL, hd⟩ := (mem_DiscLower _ L w).mp h
+        cases s with
+        | world e =>
+            have he : (routerStep U T nv published st (.world e)).disclosed = st.disclosed := by
+              change (routerEvent U st e).disclosed = st.disclosed
+              rcases e with ⟨before, (n | X) | c, y⟩
+              · rfl
+              · exact RouterState.next_disclosed U st X y
+              · rfl
+            rw [he] at hd
+            exact Finset.mem_union_left _ ((mem_DiscLower st L w).mpr ⟨hL, hd⟩)
+        | sign request out events =>
+            change (.inr (.inl w) : Coord) ∈ (signedState T nv published st request).disclosed at hd
+            rw [signedState_disclosed, List.mem_append] at hd
+            rcases hd with hd | hd
+            · exact Finset.mem_union_left _ ((mem_DiscLower st L w).mpr ⟨hL, hd⟩)
+            · exact Finset.mem_union_right _ (signDisclosed_lowerZeros T published request L w hL hd)
+      · exact Finset.mem_union_right _ h
 end Overflow
 /-- No index carries more than 50 distinct signed outputs in the log of any game split. -/
 def NoOvR (adversary : AdversaryP) (rec : FirstHit.Recorded Bool) (A : Answers) : Prop :=
@@ -286,11 +408,15 @@ theorem table_contact_le (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
     have hsplit := canonical_split adversary T t ht
     have h := hc.1 _ _ _ hsplit
     rw [Wots.Ref.pureRecord_value] at h
-    refine ⟨h, fun f => ?_⟩
-    have hno : LogNoOverflow T t.value.2 := hc.2 _ _ _ hsplit.untag
-    have hsub := discSeeds_steps hcoh (evalWithAnswerFn T keygen).2 hpub _ _ t ht RouterState.initial f
-    rw [discSeeds_initial, Finset.empty_union] at hsub
-    exact (Finset.card_le_card hsub).trans ((logSeeds_card T _ hno f).trans (by norm_num))
+    refine ⟨h, fun f => ?_, fun L => ?_⟩
+    · have hno : LogNoOverflow T t.value.2 := hc.2 _ _ _ hsplit.untag
+      have hsub := discSeeds_steps hcoh (evalWithAnswerFn T keygen).2 hpub _ _ t ht RouterState.initial f
+      rw [discSeeds_initial, Finset.empty_union] at hsub
+      exact (Finset.card_le_card hsub).trans ((logSeeds_card T _ hno f).trans (by norm_num))
+    · have hsub := discLower_steps (Wots.referenceInputs adversary) T nv (evalWithAnswerFn T keygen).2 t.steps
+        RouterState.initial L
+      rw [discLower_initial, Finset.empty_union] at hsub
+      exact (Finset.card_le_card hsub).trans ((lowerZeros_card T L).trans (by norm_num))
   · intro mon st ws state v log hrel _ hf
     obtain ⟨out, ws', hrun, hph⟩ := routeVerdict_observed (auxLaw initLaw) hcoh hq
       (GameWith.verdict PaddedGame.checker (evalWithAnswerFn T keygen).1 (v, log))

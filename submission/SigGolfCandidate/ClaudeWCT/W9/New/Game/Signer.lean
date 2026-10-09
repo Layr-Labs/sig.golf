@@ -55,12 +55,24 @@ theorem lowerQuery_buildLeafP (leaf : Nat) (digits : List Nat) (carry : Digest) 
   refine allQ_bind (lowerQuery_packedSecret lay tree _ _) fun sc => ?_
   exact allQ_bind (lowerQuery_chain lay tree _ _ _ _ _) fun _ =>
     allQ_bind (lowerQuery_chain lay tree _ _ _ _ _) fun _ => allQ_pure _
+theorem lowerQuery_lowerCoefs (leaf : Nat) (carry : Digest) :
+    AllQueriesSatisfy (lowerCoefs lay tree leaf carry) (LowerQuery lay tree) := by
+  unfold lowerCoefs
+  exact allQ_foldlM _ _ (fun state j => allQ_bind (lowerQuery_packedSecret lay tree _ _) fun _ => allQ_pure _) _
+theorem lowerQuery_buildLeafPF (leaf : Nat) (digits : List Nat) (carry : Digest) :
+    AllQueriesSatisfy (buildLeafPF lay tree leaf digits carry) (LowerQuery lay tree) := by
+  unfold buildLeafPF
+  refine allQ_bind (lowerQuery_lowerCoefs lay tree leaf carry) fun cc => ?_
+  refine allQ_bind (allQ_foldlM _ _ (fun state i => ?_) _) fun _ =>
+    allQ_bind (lowerQuery_leafHash lay tree leaf _) fun _ => allQ_pure _
+  exact allQ_bind (lowerQuery_chain lay tree _ _ _ _ _) fun _ =>
+    allQ_bind (lowerQuery_chain lay tree _ _ _ _ _) fun _ => allQ_pure _
 theorem lowerQuery_buildTreeP (selected : Nat) (digits : List Nat) :
     AllQueriesSatisfy (buildTreeP lay tree selected digits) (LowerQuery lay tree) := by
   unfold buildTreeP
   refine allQ_bind (allQ_foldlM _ _ (fun state leaf => ?_) _) fun _ =>
     allQ_bind (lowerQuery_buildLevelsBelow lay tree _ _) fun _ => allQ_pure _
-  exact allQ_bind (lowerQuery_buildLeafP lay tree _ _ _) fun _ => allQ_pure _
+  exact allQ_bind (lowerQuery_buildLeafPF lay tree _ _ _) fun _ => allQ_pure _
 end
 theorem lowerSeedQ_separated {lay : Layer} (hlay : lay ≠ 0) (tree : Nat) {tweak : BitVec 128}
     (h : LowerSeedQ lay tree (.inr (.inl tweak))) :
@@ -278,16 +290,19 @@ theorem buildTreeP_allowed' (P : SigGolfCandidate.T3.Spec.Domain → Prop)
     exact SourceQueries.foldlM_allowed P _ _ (fun _ _ =>
       SourceQueries.bind_allowed P (hlevel _ _ _ _ _) fun _ => SourceQueries.pure_allowed P _) _
   refine SourceQueries.bind_allowed P ?_ fun _ => SourceQueries.pure_allowed P _
-  unfold WCT9.buildLeafP
-  refine SourceQueries.bind_allowed P (SourceQueries.foldlM_allowed P _ _ (fun state i => ?_) _) fun _ =>
-    SourceQueries.bind_allowed P (hleaf _ _ _ _) fun _ => SourceQueries.pure_allowed P _
-  refine SourceQueries.bind_allowed P ?_ fun sc => ?_
-  · unfold WCT9.packedSecret
+  unfold WCT9.buildLeafPF
+  refine SourceQueries.bind_allowed P ?_ fun cc => ?_
+  · unfold WCT9.lowerCoefs
+    refine SourceQueries.foldlM_allowed P _ _ (fun state j => ?_) _
+    refine SourceQueries.bind_allowed P ?_ fun _ => SourceQueries.pure_allowed P _
+    unfold WCT9.packedSecret
     split
     · exact SourceQueries.bind_allowed P (hseed _ _ _) fun _ => SourceQueries.pure_allowed P _
     · exact SourceQueries.pure_allowed P _
-  · exact SourceQueries.bind_allowed P (hchain _ _ _ _ _ _ _) fun _ =>
-      SourceQueries.bind_allowed P (hchain _ _ _ _ _ _ _) fun _ => SourceQueries.pure_allowed P _
+  refine SourceQueries.bind_allowed P (SourceQueries.foldlM_allowed P _ _ (fun state i => ?_) _) fun _ =>
+    SourceQueries.bind_allowed P (hleaf _ _ _ _) fun _ => SourceQueries.pure_allowed P _
+  exact SourceQueries.bind_allowed P (hchain _ _ _ _ _ _ _) fun _ =>
+    SourceQueries.bind_allowed P (hchain _ _ _ _ _ _ _) fun _ => SourceQueries.pure_allowed P _
 theorem buildTreeP_allowed (P : SigGolfCandidate.T3.Spec.Domain → Prop) (hpublic : ∀ input, P (.inl (.inr input)))
     (hlower : ∀ (lay : Layer) tree pair, P (.inr (.inl (WCT9.lowerSeedHeader lay tree pair))))
     (lay : Layer) (tree selected : Nat) (digits : List Nat) :

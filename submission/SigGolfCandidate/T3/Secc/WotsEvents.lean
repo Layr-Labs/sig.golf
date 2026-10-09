@@ -21,7 +21,7 @@ noncomputable def referenceSearch (answers : Answers) (L : LeafAddr) : Option (B
   evalWithAnswerFn answers (counterSearch L.lay L.tree L.leaf (leafMsg answers L) 0 counterLimit)
 def dummyDigits (lay : Layer) : List Nat :=
   if lay.val = 0 then dummyTop
-  else List.replicate 5 6 ++ List.replicate 15 5 ++ List.replicate 22 4 ++ [target lay - 193]
+  else List.replicate 5 6 ++ List.replicate 16 5 ++ List.replicate 21 4 ++ [target lay - 194]
 noncomputable def referenceDigits (answers : Answers) (L : LeafAddr) : List Nat :=
   ((referenceSearch answers L).map Prod.snd).getD (dummyDigits L.lay)
 noncomputable def depth (answers : Answers) (a : ChainAddr) : Nat :=

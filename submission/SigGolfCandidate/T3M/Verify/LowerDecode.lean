@@ -381,7 +381,7 @@ theorem lowSum_eq (V : Nat) (h : V / 2 ^ 64 < 2 ^ 62) :
   have := lowDigits_sum (V % 2 ^ 64) (V / 2 ^ 64) (Nat.mod_lt _ (by norm_num))
   rw [← hV] at this
   exact this.symm
-theorem target_le (lay : Layer) : target lay ≤ 200 := by
+theorem target_le (lay : Layer) : target lay ≤ 201 := by
   fin_cases lay <;> decide
 def lowSumS1 (v : Digest) : Nat := lowSwar (v.toNat % 2 ^ 63) (v.toNat / 2 ^ 64 % 2 ^ 63)
 theorem lowSumS1_lt (v : Digest) : lowSumS1 v < 4095 := Nat.mod_lt _ (by norm_num)

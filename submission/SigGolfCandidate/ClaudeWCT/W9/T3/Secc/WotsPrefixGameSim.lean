@@ -37,10 +37,20 @@ theorem prefixStep_none {T : Answers} {a : ChainAddr} {input : HashInput} (h : p
   split at h
   · cases h
   · assumption
+theorem evaluate_const_succ (n : Nat) (value start : Digest) :
+    evaluate (fun (_ : Fin (n + 1)) (_ : Digest) => value) start = value := by
+  simp only [evaluate]
+  exact evaluate_const n value
+theorem evaluate_fill (n : Nat) (tables : Fin n → Digest → Digest) (start : Digest) :
+    evaluate (fun (_ : Fin n) (_ : Digest) => evaluate tables start) start = evaluate tables start := by
+  cases n with
+  | zero => rfl
+  | succ n => exact evaluate_const_succ n _ start
 theorem maskAt_ov_fill (a : ChainAddr) (R : RefTables adversary) (x : Hidden (restDepth a R)) :
-    maskAt (restTable (ov a (restDepth a R) R x)) a = maskAt (fillTable a R (evaluate x.1 x.2)) a := by
+    maskAt (restTable (ov a (restDepth a R) R x)) a =
+      maskAt (fillTable a R (evaluate x.1 (ovSeed a R x.2))) a := by
   have hd : restDepth a R ≤ 256 := by have := restDepth_le a R; omega
-  set e := evaluate x.1 x.2 with he
+  set e := evaluate x.1 (ovSeed a R x.2) with he
   have hdx : depth (restTable (ov a (restDepth a R) R x)) a = restDepth a R :=
     (restDepth_eq a (ov a (restDepth a R) R x)).symm.trans (restDepth_ov a R x)
   have hdf : depth (fillTable a R e) a = restDepth a R :=
@@ -60,18 +70,29 @@ theorem maskAt_ov_fill (a : ChainAddr) (R : RefTables adversary) (x : Hidden (re
     unfold fillTable
     rw [restTable_ov_private a R x coordinate hc, restTable_ov_private a R _ coordinate hc]
   · unfold fillTable
-    rw [restTable_ov_seed, restTable_ov_seed]
-    unfold siblingHalfP
-    rw [siblingHalf_setSeed, siblingHalf_setSeed]
+    by_cases hl : a.key.lay = 0
+    · rw [restTable_ov_seed a hl, restTable_ov_seed a hl]
+      unfold siblingHalfP
+      rw [siblingHalf_setSeed, siblingHalf_setSeed]
+    · rw [restTable_ov_private_lower a hl, restTable_ov_private_lower a hl]
+  · intro hl
+    unfold fillTable
+    rw [restTable_ov_private_lower a hl, restTable_ov_private_lower a hl]
   · rw [hdx, hdf]
   · rw [frontierValue_ov]
     unfold fillTable
     rw [frontierValue_ov]
-    exact (evaluate_const _ e).symm
+    by_cases hl : a.key.lay = 0
+    · have h1 : ∀ v, ovSeed a R v = v := fun v => by unfold ovSeed; rw [if_pos hl]
+      rw [h1 e, he, h1 x.2]
+      exact (evaluate_const _ _).symm
+    · have h1 : ∀ v, ovSeed a R v = ovSeed a R x.2 := fun v => by unfold ovSeed; rw [if_neg hl, if_neg hl]
+      rw [h1 e, he]
+      exact (evaluate_fill _ _ _).symm
 theorem referenceGame_fill (a : ChainAddr) (htree : a.key.tree < 2 ^ 40) (hleaf : a.key.leaf < 2 ^ 24)
     (R : RefTables adversary) (x : Hidden (restDepth a R)) (q : Nat) :
     referenceGame (restTable (ov a (restDepth a R) R x)) adversary q =
-      referenceGame (fillTable a R (evaluate x.1 x.2)) adversary q := by
+      referenceGame (fillTable a R (evaluate x.1 (ovSeed a R x.2))) adversary q := by
   rw [← referenceGame_maskAt _ a htree hleaf, maskAt_ov_fill a R x, referenceGame_maskAt _ a htree hleaf]
 end PrefixGame
 open PrefixGame in
@@ -102,7 +123,8 @@ theorem fixed_route (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables ad
   · simp only [QueryImpl.apply_compose, routeImpl, refImpl, simulateQ_pure]
 theorem fixed_seedGame (q : Nat) (a : ChainAddr) (htree : a.key.tree < 2 ^ 40) (hleaf : a.key.leaf < 2 ^ 24)
     (R : RefTables adversary) (x : Hidden (restDepth a R)) :
-    simulateQ (fixedImpl SphincsSecurity.Concrete.OtsPrefix.uniformImpl x.1) (seedGame adversary q a R (evaluate x.1 x.2)) =
+    simulateQ (fixedImpl SphincsSecurity.Concrete.OtsPrefix.uniformImpl x.1)
+        (seedGame adversary q a R (evaluate x.1 (ovSeed a R x.2))) =
       (liftM (offlineRun (restTable (ov a (restDepth a R) R x)) adversary q) : PMF SeedResult) := by
   have hd : restDepth a R ≤ 256 := by have := restDepth_le a R; omega
   unfold seedGame

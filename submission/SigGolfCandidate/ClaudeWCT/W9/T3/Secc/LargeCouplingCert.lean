@@ -488,7 +488,7 @@ theorem table_cert_le (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) (i
     have hv : (Wots.Ref.verdictRecord T t.untag).value =
         evalWithAnswerFn T (GameWith.verdict PaddedGame.checker (evalWithAnswerFn T keygen).1 t.value) :=
       Wots.Ref.pureRecord_value _ _ _
-    refine ⟨⟨hv ▸ h1, h2, h3, ?_⟩, fun f => ?_⟩
+    refine ⟨⟨hv ▸ h1, h2, h3, ?_⟩, fun f => ?_, fun L => ?_⟩
     · unfold routerFold at h4
       rw [hnv]
       exact h4
@@ -496,6 +496,10 @@ theorem table_cert_le (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) (i
       have hsub := discSeeds_steps hcoh (evalWithAnswerFn T keygen).2 hpub _ _ t ht RouterState.initial f
       rw [discSeeds_initial, Finset.empty_union] at hsub
       exact (Finset.card_le_card hsub).trans ((logSeeds_card T _ hno f).trans (by norm_num))
+    · have hsub := discLower_steps (Wots.referenceInputs adversary) T nv (evalWithAnswerFn T keygen).2 t.steps
+        RouterState.initial L
+      rw [discLower_initial, Finset.empty_union] at hsub
+      exact (Finset.card_le_card hsub).trans ((lowerZeros_card T L).trans (by norm_num))
   · intro mon st ws state v log hrel _ hf
     obtain ⟨out, ws', hrun, hph⟩ := routeVerdict_observed (auxLaw initLaw) hcoh hq
       (GameWith.verdict PaddedGame.checker (evalWithAnswerFn T keygen).1 (v, log))
@@ -743,6 +747,7 @@ theorem cert_le_lazy (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
   refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun priv => ?_
   rw [probEvent_congr' (fun _ _ => Iff.rfl) (world_split _)]
   refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun x => ?_
+  refine probEvent_bind_le_const _ _ _ _ fun jk => ?_
   have hτ : ∀ (k : (Wots.referenceInputs adversary → HashOutput) → ProbComp (FirstHit.Recorded Bool × Answers)),
       𝒮[(@uniformSample (Wots.referenceInputs adversary → HashOutput) (samplerPublic _) : ProbComp _) >>= k] =
         𝒮[(@uniformSample (Wots.referenceInputs adversary → HashOutput) (samplerCell _) : ProbComp _) >>= k] := by
@@ -750,12 +755,12 @@ theorem cert_le_lazy (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
     rw [evalSPMF_bind]
   rw [probEvent_congr' (fun _ _ => Iff.rfl) (hτ _)]
   refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun τ => ?_
-  · have hT : CanonGraph.eagerAnswers (privateEquiv.symm (secOf x,
+  · have hT : CanonGraph.eagerAnswers (privateEquiv.symm (secOf x jk,
           nonceOver (privateEquiv priv).2 (fun m => x.1 (.inr m)))) (Wots.referenceInputs adversary)
-          (programmed (Wots.referenceInputs adversary) hU (secOf x)
+          (programmed (Wots.referenceInputs adversary) hU (secOf x jk)
             (joinLabels (fun N => x.1 (.inl (.inl N))) high)
             (residualPsi (Wots.referenceInputs adversary) hE (joinLabels (fun N => x.1 (.inl (.inl N))) high) rows τ)) =
-        tablePsi (Wots.referenceInputs adversary) hU hE (secOf x) (fun c => view x (.inl c)) (fun m => view x (.inr m)) τ
+        tablePsi (Wots.referenceInputs adversary) hU hE (secOf x jk) (fun c => view x (.inl c)) (fun m => view x (.inr m)) τ
           ⟨high, rows, priv⟩ := by
       unfold tablePsi
       rw [eagerAnswers_eq]
@@ -764,8 +769,8 @@ theorem cert_le_lazy (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
     unfold fixedNext RealCert
     rw [probEvent_map]
     have h := table_cert_le adversary q hq initLaw
-      (coherent_psi (Wots.referenceInputs adversary) hU hE (secOf x) (fun c => view x (.inl c))
-        (fun m => view x (.inr m)) τ ⟨high, rows, priv⟩ (seedView_secOf x))
+      (coherent_psi (Wots.referenceInputs adversary) hU hE (secOf x jk) (fun c => view x (.inl c))
+        (fun m => view x (.inr m)) τ ⟨high, rows, priv⟩ (seedView_secOf x jk))
     have hlab : Sum.elim (fun c => view x (.inl c)) (fun m => view x (.inr m)) = view x := by
       funext c
       rcases c with c | m <;> rfl

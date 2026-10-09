@@ -677,8 +677,15 @@ theorem expandLayersBC_verified (answers : Answers) (sig : Signature) (index : N
                 apply hverify w hw
                 intro lay hsmall
                 rw [hc lay (by omega), List.getD_append previousCounters [counter] 0 lay.val (by omega)]
+/-- Stage B: coefficient `j` of the seed family of a lower leaf, the packed half `lowerCoefOrdinal leaf j` of
+`lowerSeedPair lay tree`. -/
+def lowerCoefN (answers : Answers) (lay : Layer) (tree leaf j : Nat) : Digest :=
+  seedHalf (evalWithAnswerFn answers (lowerSeedPair lay tree (lowerCoefOrdinal leaf j / 2))) (lowerCoefOrdinal leaf j)
+def lowerCoef (answers : Answers) (lay : Layer) (tree leaf : Nat) (j : Fin 17) : Digest :=
+  lowerCoefN answers lay tree leaf j.val
+/-- Stage B: the lower WOTS seed of chain `i` is the leaf's degree-16 family evaluated at `lowerPoint i`. -/
 def lowerSeed (answers : Answers) (lay : Layer) (tree leaf i : Nat) : Digest :=
-  seedHalf (evalWithAnswerFn answers (lowerSeedPair lay tree (lowerOrdinal lay leaf i / 2))) (lowerOrdinal lay leaf i)
+  ClaudeWCT.Arith.familyEval (List.ofFn (lowerCoef answers lay tree leaf)) (lowerPoint i)
 def wotsSeed (answers : Answers) (lay : Layer) (tree leaf i : Nat) : Digest :=
   if lay = 0 then leafSeed answers lay tree leaf i else lowerSeed answers lay tree leaf i
 def wotsValue (answers : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat) (i : Nat) : Digest :=
@@ -728,61 +735,94 @@ theorem wotsValue_completes (answers : Answers) (lay : Layer) (tree leaf : Nat)
     (maxDigit lay i - digits.getD i 0) (wotsSeed answers lay tree leaf i)
   rw [Nat.zero_add, Nat.add_sub_of_le hd] at hc
   exact hc.symm
-def leafCarry (answers : Answers) (lay : Layer) (tree leaf : Nat) (carry : Digest) (done : Nat) : Digest :=
+def coefCarry (answers : Answers) (lay : Layer) (tree leaf : Nat) (carry : Digest) (done : Nat) : Digest :=
   if done = 0 then carry
-  else (evalWithAnswerFn answers (lowerSeedPair lay tree (lowerOrdinal lay leaf (done - 1) / 2))).2
-def LeafRowsP (answers : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest)
-    (done : Nat) (rows : List Digest × List Digest × Digest) : Prop :=
-  rows.1.length = done ∧ rows.2.1.length = done ∧
-    (∀ i, i < done → rows.1.getD i 0 = wotsEnd answers lay tree leaf i) ∧
-    (∀ i, i < done → rows.2.1.getD i 0 = wotsValue answers lay tree leaf digits i) ∧
-    rows.2.2 = leafCarry answers lay tree leaf carry done
-def leafStepP (lay : Layer) (tree leaf : Nat) (digits : List Nat) (state : List Digest × List Digest × Digest)
-    (i : Nat) : M (List Digest × List Digest × Digest) := do
-  let (seed, carry) ← packedSecret (lowerSeedPair lay tree) (lowerOrdinal lay leaf i) state.2.2
-  let digit := digits.getD i 0
-  let value ← SigGolfCandidate.T3.chain lay tree leaf i 0 digit seed
-  let last ← SigGolfCandidate.T3.chain lay tree leaf i digit (maxDigit lay i - digit) value
-  pure (state.1 ++ [last], state.2.1 ++ [value], carry)
-def leafRowsP (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
-    M (List Digest × List Digest × Digest) :=
-  (List.range (chainCount lay)).foldlM (leafStepP lay tree leaf digits) ([], [], carry)
-theorem buildLeafP_factor (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
-    buildLeafP lay tree leaf digits carry = (do
-      let rows ← leafRowsP lay tree leaf digits carry
-      let root ← SigGolfCandidate.T3.leafHash lay tree leaf rows.1
-      pure ((root, rows.2.1), rows.2.2)) := by
-  rfl
-theorem leafRowsP_step (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree leaf : Nat) (digits : List Nat)
-    (hvalid : Cost.ValidDigits lay digits) (carry : Digest)
-    (hcarry : CarryOk answers (lowerSeedPair lay tree) (lowerOrdinal lay leaf 0) carry)
-    (i : Nat) (hi : i < chainCount lay) (rows : List Digest × List Digest × Digest)
-    (hrows : LeafRowsP answers lay tree leaf digits carry i rows) :
-    LeafRowsP answers lay tree leaf digits carry (i + 1)
-      (evalWithAnswerFn answers (leafStepP lay tree leaf digits rows i)) := by
-  rcases hrows with ⟨he, hv, hend, hval, hc⟩
-  have hok : CarryOk answers (lowerSeedPair lay tree) (lowerOrdinal lay leaf i) rows.2.2 := by
-    rw [hc]
-    unfold leafCarry
-    by_cases h0 : i = 0
+  else (evalWithAnswerFn answers (lowerSeedPair lay tree (lowerCoefOrdinal leaf (done - 1) / 2))).2
+def CoefRows (answers : Answers) (lay : Layer) (tree leaf : Nat) (carry : Digest) (done : Nat)
+    (rows : List Digest × Digest) : Prop :=
+  rows.1 = (List.range done).map (lowerCoefN answers lay tree leaf) ∧ rows.2 = coefCarry answers lay tree leaf carry done
+theorem eval_lowerCoefs_inv (answers : Answers) (lay : Layer) (tree leaf : Nat) (carry : Digest)
+    (hcarry : CarryOk answers (lowerSeedPair lay tree) (lowerCoefOrdinal leaf 0) carry) :
+    CoefRows answers lay tree leaf carry lowerCoefCount (evalWithAnswerFn answers (lowerCoefs lay tree leaf carry)) := by
+  unfold lowerCoefs
+  refine eval_foldlM_range_inv answers lowerCoefCount _ (CoefRows answers lay tree leaf carry) ([], carry)
+    ⟨rfl, by simp [coefCarry]⟩ ?_
+  intro j _ rows hrows
+  obtain ⟨h1, h2⟩ := hrows
+  have hok : CarryOk answers (lowerSeedPair lay tree) (lowerCoefOrdinal leaf j) rows.2 := by
+    rw [h2]
+    unfold coefCarry
+    by_cases h0 : j = 0
     · rw [if_pos h0, h0]; exact hcarry
     · rw [if_neg h0]
-      have := carryOk_next answers (lowerSeedPair lay tree) (lowerOrdinal lay leaf (i - 1))
-      have hq : lowerOrdinal lay leaf (i - 1) + 1 = lowerOrdinal lay leaf i := by
-        unfold lowerOrdinal; omega
+      have := carryOk_next answers (lowerSeedPair lay tree) (lowerCoefOrdinal leaf (j - 1))
+      have hq : lowerCoefOrdinal leaf (j - 1) + 1 = lowerCoefOrdinal leaf j := by
+        unfold lowerCoefOrdinal; omega
       rwa [hq] at this
-  unfold leafStepP
-  rw [evalWithAnswerFn_bind, eval_packedSecret answers _ _ _ hok]
+  simp only [evalWithAnswerFn_bind, eval_packedSecret answers _ _ _ hok, evalWithAnswerFn_pure]
+  refine ⟨?_, ?_⟩
+  · rw [h1, List.range_succ, List.map_append]
+    rfl
+  · unfold coefCarry
+    rw [if_neg (by omega), Nat.add_sub_cancel]
+theorem ofFn_lowerCoef (answers : Answers) (lay : Layer) (tree leaf : Nat) :
+    List.ofFn (lowerCoef answers lay tree leaf) = (List.range lowerCoefCount).map (lowerCoefN answers lay tree leaf) := by
+  apply List.ext_getElem (by simp [lowerCoefCount])
+  intro j h1 h2
+  simp only [List.getElem_ofFn, List.getElem_map, List.getElem_range, lowerCoef]
+/-- The carry left by the coefficient loop of a leaf: the high half of the pair of its last coefficient. -/
+def leafCarryOut (answers : Answers) (lay : Layer) (tree leaf : Nat) : Digest :=
+  (evalWithAnswerFn answers (lowerSeedPair lay tree (lowerCoefOrdinal leaf (lowerCoefCount - 1) / 2))).2
+theorem eval_lowerCoefs (answers : Answers) (lay : Layer) (tree leaf : Nat) (carry : Digest)
+    (hcarry : CarryOk answers (lowerSeedPair lay tree) (lowerCoefOrdinal leaf 0) carry) :
+    evalWithAnswerFn answers (lowerCoefs lay tree leaf carry) =
+      (List.ofFn (lowerCoef answers lay tree leaf), leafCarryOut answers lay tree leaf) := by
+  obtain ⟨h1, h2⟩ := eval_lowerCoefs_inv answers lay tree leaf carry hcarry
+  rw [ofFn_lowerCoef]
+  refine Prod.ext h1 ?_
+  rw [h2]
+  unfold coefCarry leafCarryOut
+  rw [if_neg (by decide)]
+theorem lowerFamilySeed_eq (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree leaf i : Nat) :
+    lowerFamilySeed (List.ofFn (lowerCoef answers lay tree leaf)) i = wotsSeed answers lay tree leaf i := by
+  rw [wotsSeed_lower answers hlay]
+  rfl
+def LeafRowsF (answers : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat) (done : Nat)
+    (rows : List Digest × List Digest) : Prop :=
+  rows.1.length = done ∧ rows.2.length = done ∧
+    (∀ i, i < done → rows.1.getD i 0 = wotsEnd answers lay tree leaf i) ∧
+    (∀ i, i < done → rows.2.getD i 0 = wotsValue answers lay tree leaf digits i)
+def leafStepF (lay : Layer) (tree leaf : Nat) (digits : List Nat) (coefs : List Digest)
+    (state : List Digest × List Digest) (i : Nat) : M (List Digest × List Digest) := do
+  let digit := digits.getD i 0
+  let value ← SigGolfCandidate.T3.chain lay tree leaf i 0 digit (lowerFamilySeed coefs i)
+  let last ← SigGolfCandidate.T3.chain lay tree leaf i digit (maxDigit lay i - digit) value
+  pure (state.1 ++ [last], state.2 ++ [value])
+def leafRowsF (lay : Layer) (tree leaf : Nat) (digits : List Nat) (coefs : List Digest) :
+    M (List Digest × List Digest) :=
+  (List.range (chainCount lay)).foldlM (leafStepF lay tree leaf digits coefs) ([], [])
+theorem buildLeafPF_factor (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
+    buildLeafPF lay tree leaf digits carry = (do
+      let coefs ← lowerCoefs lay tree leaf carry
+      let rows ← leafRowsF lay tree leaf digits coefs.1
+      let root ← SigGolfCandidate.T3.leafHash lay tree leaf rows.1
+      pure ((root, rows.2), coefs.2)) := by
+  rfl
+theorem leafStepF_inv (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree leaf : Nat) (digits : List Nat)
+    (hvalid : Cost.ValidDigits lay digits) (i : Nat) (hi : i < chainCount lay) (rows : List Digest × List Digest)
+    (hrows : LeafRowsF answers lay tree leaf digits i rows) :
+    LeafRowsF answers lay tree leaf digits (i + 1)
+      (evalWithAnswerFn answers (leafStepF lay tree leaf digits (List.ofFn (lowerCoef answers lay tree leaf)) rows i)) := by
+  rcases hrows with ⟨he, hv, hend, hval⟩
+  unfold leafStepF
   simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-  rw [show seedHalf (evalWithAnswerFn answers (lowerSeedPair lay tree (lowerOrdinal lay leaf i / 2)))
-      (lowerOrdinal lay leaf i) = wotsSeed answers lay tree leaf i from (wotsSeed_lower answers hlay _ _ _).symm]
-  change LeafRowsP answers lay tree leaf digits carry (i + 1)
+  rw [lowerFamilySeed_eq answers hlay]
+  change LeafRowsF answers lay tree leaf digits (i + 1)
     (rows.1 ++ [evalWithAnswerFn answers (SigGolfCandidate.T3.chain lay tree leaf i (digits.getD i 0)
       (maxDigit lay i - digits.getD i 0) (wotsValue answers lay tree leaf digits i))],
-     rows.2.1 ++ [wotsValue answers lay tree leaf digits i],
-     (evalWithAnswerFn answers (lowerSeedPair lay tree (lowerOrdinal lay leaf i / 2))).2)
+     rows.2 ++ [wotsValue answers lay tree leaf digits i])
   rw [wotsValue_completes answers lay tree leaf digits hvalid i hi]
-  refine ⟨by simp [he], by simp [hv], ?_, ?_, ?_⟩
+  refine ⟨by simp [he], by simp [hv], ?_, ?_⟩
   · intro j hj
     rw [getD_append_singleton, he]
     by_cases hji : j < i
@@ -797,60 +837,46 @@ theorem leafRowsP_step (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) (tre
     · have hji' : j = i := by omega
       subst j
       simp
-  · unfold leafCarry
-    rw [if_neg (by omega), Nat.add_sub_cancel]
-theorem eval_leafRowsP (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree leaf : Nat) (digits : List Nat)
-    (hvalid : Cost.ValidDigits lay digits) (carry : Digest)
-    (hcarry : CarryOk answers (lowerSeedPair lay tree) (lowerOrdinal lay leaf 0) carry) :
-    LeafRowsP answers lay tree leaf digits carry (chainCount lay)
-      (evalWithAnswerFn answers (leafRowsP lay tree leaf digits carry)) := by
-  unfold leafRowsP
-  exact eval_foldlM_range_inv answers (chainCount lay) _ (LeafRowsP answers lay tree leaf digits carry)
-    ([], [], carry) (by simp [LeafRowsP, leafCarry])
-    (fun i hi rows hrows => leafRowsP_step answers hlay tree leaf digits hvalid carry hcarry i hi rows hrows)
-def leafCarryOut (answers : Answers) (lay : Layer) (tree leaf : Nat) : Digest :=
-  (evalWithAnswerFn answers (lowerSeedPair lay tree (lowerOrdinal lay leaf (chainCount lay - 1) / 2))).2
+theorem eval_leafRowsF (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree leaf : Nat) (digits : List Nat)
+    (hvalid : Cost.ValidDigits lay digits) :
+    evalWithAnswerFn answers (leafRowsF lay tree leaf digits (List.ofFn (lowerCoef answers lay tree leaf))) =
+      ((List.range (chainCount lay)).map (wotsEnd answers lay tree leaf),
+        (List.range (chainCount lay)).map (wotsValue answers lay tree leaf digits)) := by
+  have hr : LeafRowsF answers lay tree leaf digits (chainCount lay)
+      (evalWithAnswerFn answers (leafRowsF lay tree leaf digits (List.ofFn (lowerCoef answers lay tree leaf)))) := by
+    unfold leafRowsF
+    exact eval_foldlM_range_inv answers (chainCount lay) _ (LeafRowsF answers lay tree leaf digits) ([], [])
+      (by simp [LeafRowsF]) (fun i hi rows hrows => leafStepF_inv answers hlay tree leaf digits hvalid i hi rows hrows)
+  rcases hr with ⟨he, hv, hend, hval⟩
+  exact Prod.ext (list_eq_range_map _ _ _ he hend) (list_eq_range_map _ _ _ hv hval)
 theorem chainCount_pos (lay : Layer) : 0 < chainCount lay := by fin_cases lay <;> decide
-theorem buildLeafP_result (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree leaf : Nat) (digits : List Nat)
+theorem buildLeafPF_result (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree leaf : Nat) (digits : List Nat)
     (hvalid : Cost.ValidDigits lay digits) (carry : Digest)
-    (hcarry : CarryOk answers (lowerSeedPair lay tree) (lowerOrdinal lay leaf 0) carry) :
-    evalWithAnswerFn answers (buildLeafP lay tree leaf digits carry) =
+    (hcarry : CarryOk answers (lowerSeedPair lay tree) (lowerCoefOrdinal leaf 0) carry) :
+    evalWithAnswerFn answers (buildLeafPF lay tree leaf digits carry) =
       ((wotsRoot answers lay tree leaf, (List.range (chainCount lay)).map (wotsValue answers lay tree leaf digits)),
        leafCarryOut answers lay tree leaf) := by
-  let rows := evalWithAnswerFn answers (leafRowsP lay tree leaf digits carry)
-  have hr : LeafRowsP answers lay tree leaf digits carry (chainCount lay) rows :=
-    eval_leafRowsP answers hlay tree leaf digits hvalid carry hcarry
-  rcases hr with ⟨he, hv, hend, hval, hc⟩
-  have hends : rows.1 = (List.range (chainCount lay)).map (wotsEnd answers lay tree leaf) :=
-    list_eq_range_map _ _ _ he hend
-  have hvals : rows.2.1 = (List.range (chainCount lay)).map (wotsValue answers lay tree leaf digits) :=
-    list_eq_range_map _ _ _ hv hval
-  rw [buildLeafP_factor, evalWithAnswerFn_bind]
-  change ((evalWithAnswerFn answers (SigGolfCandidate.T3.leafHash lay tree leaf rows.1), rows.2.1), rows.2.2) = _
-  rw [hends, hvals, hc]
-  unfold leafCarry
-  rw [if_neg (by have := chainCount_pos lay; omega)]
+  rw [buildLeafPF_factor, evalWithAnswerFn_bind, eval_lowerCoefs answers lay tree leaf carry hcarry]
+  simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+  rw [eval_leafRowsF answers hlay tree leaf digits hvalid]
   rfl
 def treeCarry (answers : Answers) (lay : Layer) (tree leaf : Nat) : Digest :=
   if leaf = 0 then 0 else leafCarryOut answers lay tree (leaf - 1)
 theorem carryOk_treeCarry (answers : Answers) (lay : Layer) (tree leaf : Nat) :
-    CarryOk answers (lowerSeedPair lay tree) (lowerOrdinal lay leaf 0) (treeCarry answers lay tree leaf) := by
+    CarryOk answers (lowerSeedPair lay tree) (lowerCoefOrdinal leaf 0) (treeCarry answers lay tree leaf) := by
   unfold treeCarry
   by_cases h : leaf = 0
-  · rw [if_pos h]; exact carryOk_even _ _ _ _ (by subst h; simp [lowerOrdinal])
+  · rw [if_pos h]; exact carryOk_even _ _ _ _ (by subst h; simp [lowerCoefOrdinal])
   · rw [if_neg h]
-    have := carryOk_next answers (lowerSeedPair lay tree) (lowerOrdinal lay (leaf - 1) (chainCount lay - 1))
-    have hq : lowerOrdinal lay (leaf - 1) (chainCount lay - 1) + 1 = lowerOrdinal lay leaf 0 := by
-      unfold lowerOrdinal
-      have hpos := chainCount_pos lay
-      have : chainCount lay * leaf = chainCount lay * (leaf - 1) + chainCount lay := by
-        rw [← Nat.mul_succ]; congr 1; omega
+    have := carryOk_next answers (lowerSeedPair lay tree) (lowerCoefOrdinal (leaf - 1) (lowerCoefCount - 1))
+    have hq : lowerCoefOrdinal (leaf - 1) (lowerCoefCount - 1) + 1 = lowerCoefOrdinal leaf 0 := by
+      unfold lowerCoefOrdinal lowerCoefCount
       omega
     rwa [hq] at this
 def treeRowsP (lay : Layer) (tree selected : Nat) (digits : List Nat) : M (List Digest × List Digest × Digest) :=
   (List.range (2 ^ height lay)).foldlM
     (fun (state : List Digest × List Digest × Digest) leaf => do
-      let ((root, values), carry) ← buildLeafP lay tree leaf (if leaf = selected then digits else []) state.2.2
+      let ((root, values), carry) ← buildLeafPF lay tree leaf (if leaf = selected then digits else []) state.2.2
       pure (state.1 ++ [root], (if leaf = selected then values else state.2.1), carry)) ([], [], 0)
 theorem buildTreeP_factor (lay : Layer) (tree selected : Nat) (digits : List Nat) :
     buildTreeP lay tree selected digits = (do
@@ -911,7 +937,7 @@ theorem eval_treeRowsP (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) (tre
     · exact hvalid
     · exact Cost.validDigits_nil lay
   simp only [evalWithAnswerFn_bind, hc,
-    buildLeafP_result answers hlay tree done _ hv _ (carryOk_treeCarry answers lay tree done),
+    buildLeafPF_result answers hlay tree done _ hv _ (carryOk_treeCarry answers lay tree done),
     evalWithAnswerFn_pure]
   refine ⟨by simp [hlen], ?_, ?_, ?_⟩
   · intro j hj

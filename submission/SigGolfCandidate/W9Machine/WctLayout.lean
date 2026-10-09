@@ -23,7 +23,7 @@ structure Budget where
   fuel : Nat
   allCycles : Nat
   acceptCycles : Nat
-def layerEntryWord : Nat := 32951
+def layerEntryWord : Nat := 32952
 def layerWitnessOffset : Nat := 7424
 def forestRootAddress : Nat := 0x100
 def coordinateBase (k : Fin 9) : Nat := 2112 + 816 * (8 - k.val)

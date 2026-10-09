@@ -332,36 +332,24 @@ theorem sat_packedSecret (T : Answers) (lay : Layer) (tree q : Nat) (carry : Dig
     unfold WCT9.lowerSeedPair
     exact sat_privatePair T _ _ _ _ _
   · exact QueriesSat.pure' _
-theorem carryOk_leafCarry (T : Answers) (lay : Layer) (tree leaf : Nat) (carry : Digest)
-    (hcarry : WCT9.CarryOk T (WCT9.lowerSeedPair lay tree) (WCT9.lowerOrdinal lay leaf 0) carry) (i : Nat) :
-    WCT9.CarryOk T (WCT9.lowerSeedPair lay tree) (WCT9.lowerOrdinal lay leaf i)
-      (WCT9.leafCarry T lay tree leaf carry i) := by
-  unfold WCT9.leafCarry
-  by_cases h0 : i = 0
-  · rw [if_pos h0, h0]; exact hcarry
-  · rw [if_neg h0]
-    have := WCT9.carryOk_next T (WCT9.lowerSeedPair lay tree) (WCT9.lowerOrdinal lay leaf (i - 1))
-    have hq : WCT9.lowerOrdinal lay leaf (i - 1) + 1 = WCT9.lowerOrdinal lay leaf i := by
-      unfold WCT9.lowerOrdinal; omega
-    rwa [hq] at this
-theorem sat_leafRowsP (T : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree leaf : Nat) (digits : List Nat)
-    (hvalid : Cost.ValidDigits lay digits) (carry : Digest)
-    (hcarry : WCT9.CarryOk T (WCT9.lowerSeedPair lay tree) (WCT9.lowerOrdinal lay leaf 0) carry)
-    (htree : tree < 2 ^ 40) (hleaf : leaf < 2 ^ 32) :
-    QueriesSat T (HonestQuery T) (WCT9.leafRowsP lay tree leaf digits carry) := by
-  unfold WCT9.leafRowsP
-  refine QueriesSat.foldlM_range _ _ (WCT9.LeafRowsP T lay tree leaf digits carry) _
-    (by simp [WCT9.LeafRowsP, WCT9.leafCarry])
-    (fun i hi rows hrows => ⟨?_, WCT9.leafRowsP_step T hlay tree leaf digits hvalid carry hcarry i hi rows hrows⟩)
-  have hok : WCT9.CarryOk T (WCT9.lowerSeedPair lay tree) (WCT9.lowerOrdinal lay leaf i) rows.2.2 := by
-    rw [hrows.2.2.2.2]
-    exact carryOk_leafCarry T lay tree leaf carry hcarry i
-  unfold WCT9.leafStepP
+theorem sat_lowerCoefs (T : Answers) (lay : Layer) (tree leaf : Nat) (carry : Digest) :
+    QueriesSat T (HonestQuery T) (WCT9.lowerCoefs lay tree leaf carry) := by
+  unfold WCT9.lowerCoefs
+  refine QueriesSat.foldlM_range _ _ (fun _ _ => True) _ trivial (fun j _ rows _ => ⟨?_, trivial⟩)
   refine QueriesSat.bind (sat_packedSecret T lay tree _ _) ?_
-  rw [WCT9.eval_packedSecret T _ _ _ hok]
-  dsimp only
-  rw [show WCT9.seedHalf (evalWithAnswerFn T (WCT9.lowerSeedPair lay tree (WCT9.lowerOrdinal lay leaf i / 2)))
-      (WCT9.lowerOrdinal lay leaf i) = WCT9.wotsSeed T lay tree leaf i from (WCT9.wotsSeed_lower T hlay _ _ _).symm]
+  generalize evalWithAnswerFn T (WCT9.packedSecret (WCT9.lowerSeedPair lay tree) (WCT9.lowerCoefOrdinal leaf j)
+    rows.2) = sc
+  rcases sc with ⟨coef, c⟩
+  exact QueriesSat.pure' _
+theorem sat_leafRowsF (T : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree leaf : Nat) (digits : List Nat)
+    (hvalid : Cost.ValidDigits lay digits) (htree : tree < 2 ^ 40) (hleaf : leaf < 2 ^ 32) :
+    QueriesSat T (HonestQuery T) (WCT9.leafRowsF lay tree leaf digits (List.ofFn (WCT9.lowerCoef T lay tree leaf))) := by
+  unfold WCT9.leafRowsF
+  refine QueriesSat.foldlM_range _ _ (WCT9.LeafRowsF T lay tree leaf digits) _
+    (by simp [WCT9.LeafRowsF])
+    (fun i hi rows hrows => ⟨?_, WCT9.leafStepF_inv T hlay tree leaf digits hvalid i hi rows hrows⟩)
+  unfold WCT9.leafStepF
+  rw [WCT9.lowerFamilySeed_eq T hlay]
   have hd := hvalid i hi
   have hw := Mask.width_le lay i
   have hc := Mask.chainCount_le lay
@@ -369,17 +357,19 @@ theorem sat_leafRowsP (T : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree leaf 
   refine QueriesSat.bind (sat_chain T lay tree leaf _ 0 _ htree hleaf (by omega) (by omega)) ?_
   rw [eval_honestChain, Nat.zero_add]
   exact QueriesSat.bind (sat_chain T lay tree leaf _ _ _ htree hleaf (by omega) (by omega)) (QueriesSat.pure' _)
-theorem sat_buildLeafP (T : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree leaf : Nat) (digits : List Nat)
+theorem sat_buildLeafPF (T : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree leaf : Nat) (digits : List Nat)
     (hvalid : Cost.ValidDigits lay digits) (carry : Digest)
-    (hcarry : WCT9.CarryOk T (WCT9.lowerSeedPair lay tree) (WCT9.lowerOrdinal lay leaf 0) carry)
+    (hcarry : WCT9.CarryOk T (WCT9.lowerSeedPair lay tree) (WCT9.lowerCoefOrdinal leaf 0) carry)
     (htree : tree < 2 ^ 40) (hleaf : leaf < 2 ^ 32) (hb : (Extract.Pos.leaf lay tree leaf).Bounded) :
-    QueriesSat T (HonestQuery T) (WCT9.buildLeafP lay tree leaf digits carry) := by
-  rw [WCT9.buildLeafP_factor]
-  refine QueriesSat.bind (sat_leafRowsP T hlay tree leaf digits hvalid carry hcarry htree hleaf) ?_
-  obtain ⟨he, -, hend, -, -⟩ := WCT9.eval_leafRowsP T hlay tree leaf digits hvalid carry hcarry
-  have hends := Correctness.list_eq_range_map _ (WCT9.wotsEnd T lay tree leaf) _ he hend
+    QueriesSat T (HonestQuery T) (WCT9.buildLeafPF lay tree leaf digits carry) := by
+  rw [WCT9.buildLeafPF_factor]
+  refine QueriesSat.bind (sat_lowerCoefs T lay tree leaf carry) ?_
+  rw [WCT9.eval_lowerCoefs T lay tree leaf carry hcarry]
+  dsimp only
+  refine QueriesSat.bind (sat_leafRowsF T hlay tree leaf digits hvalid htree hleaf) ?_
+  rw [WCT9.eval_leafRowsF T hlay tree leaf digits hvalid]
   refine QueriesSat.bind ?_ (QueriesSat.pure' _)
-  rw [hends, Extract.leafHash_eq_shortHash]
+  rw [Extract.leafHash_eq_shortHash]
   exact sat_shortHash _ (honestQuery_honest T (.leaf lay tree leaf) hb)
 theorem sat_treeRowsP (T : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree selected : Nat) (digits : List Nat)
     (hvalid : Cost.ValidDigits lay digits) (htree : tree < 2 ^ 40) (ht : tree < 2 ^ Extract.treeBits lay) :
@@ -396,12 +386,12 @@ theorem sat_treeRowsP (T : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree selec
     omega
   have hcarry := WCT9.carryOk_treeCarry T lay tree leaf
   rw [← hrows] at hcarry
-  refine ⟨QueriesSat.bind (sat_buildLeafP T hlay tree leaf _ hd _ hcarry htree hl'
+  refine ⟨QueriesSat.bind (sat_buildLeafPF T hlay tree leaf _ hd _ hcarry htree hl'
     (Extract.leaf_bounded_of_treeBits ht hleaf)) ?_, ?_⟩
-  · generalize evalWithAnswerFn T (WCT9.buildLeafP lay tree leaf (if leaf = selected then digits else []) rows.2.2) = x
+  · generalize evalWithAnswerFn T (WCT9.buildLeafPF lay tree leaf (if leaf = selected then digits else []) rows.2.2) = x
     obtain ⟨⟨root, values⟩, c⟩ := x
     exact QueriesSat.pure' _
-  · simp only [evalWithAnswerFn_bind, WCT9.buildLeafP_result T hlay tree leaf _ hd _ hcarry, evalWithAnswerFn_pure]
+  · simp only [evalWithAnswerFn_bind, WCT9.buildLeafPF_result T hlay tree leaf _ hd _ hcarry, evalWithAnswerFn_pure]
     show WCT9.leafCarryOut T lay tree leaf = WCT9.treeCarry T lay tree (leaf + 1)
     unfold WCT9.treeCarry
     rw [if_neg (show leaf + 1 ≠ 0 by omega), Nat.add_sub_cancel]

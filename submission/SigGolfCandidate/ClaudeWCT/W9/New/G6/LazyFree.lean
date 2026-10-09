@@ -83,12 +83,30 @@ theorem buildLeafP_dn (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry
   · intro state
     exact SourceQueries.bind_allowed NotDN (SigGolfCandidate.T3.Security.BPair.leafHash_dn _ _ _ _) fun _ =>
       SourceQueries.pure_allowed _ _
+theorem buildLeafPF_dn (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
+    AllQueriesSatisfy (WCT9.buildLeafPF lay tree leaf digits carry) NotDN := by
+  unfold WCT9.buildLeafPF
+  apply SourceQueries.bind_allowed NotDN
+  · unfold WCT9.lowerCoefs
+    apply SourceQueries.foldlM_allowed NotDN
+    intro state j
+    exact SourceQueries.bind_allowed NotDN (packedSecret_dn _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
+  · intro cc
+    apply SourceQueries.bind_allowed NotDN
+    · apply SourceQueries.foldlM_allowed NotDN
+      intro state i
+      exact SourceQueries.bind_allowed NotDN (SigGolfCandidate.T3.Security.BPair.chain_dn _ _ _ _ _ _ _) fun _ =>
+        SourceQueries.bind_allowed NotDN (SigGolfCandidate.T3.Security.BPair.chain_dn _ _ _ _ _ _ _) fun _ =>
+          SourceQueries.pure_allowed _ _
+    · intro state
+      exact SourceQueries.bind_allowed NotDN (SigGolfCandidate.T3.Security.BPair.leafHash_dn _ _ _ _) fun _ =>
+        SourceQueries.pure_allowed _ _
 theorem buildTreeP_dn (lay : Layer) (tree selected : Nat) (digits : List Nat) :
     AllQueriesSatisfy (WCT9.buildTreeP lay tree selected digits) NotDN := by
   unfold WCT9.buildTreeP
   apply SourceQueries.bind_allowed NotDN
   · exact SourceQueries.foldlM_allowed NotDN _ _ (fun state leaf =>
-      SourceQueries.bind_allowed NotDN (buildLeafP_dn _ _ _ _ _) fun _ => SourceQueries.pure_allowed _ _) _
+      SourceQueries.bind_allowed NotDN (buildLeafPF_dn _ _ _ _ _) fun _ => SourceQueries.pure_allowed _ _) _
   · intro state
     refine SourceQueries.bind_allowed NotDN ?_ fun _ => SourceQueries.pure_allowed _ _
     unfold WCT9.buildLevelsBelow

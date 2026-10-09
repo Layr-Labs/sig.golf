@@ -169,12 +169,28 @@ theorem buildLeafP_free (lay : Layer) (tree leaf : Nat) (digits : List Nat) (car
       bind_allowed WFree (chain_free _ _ _ _ _ _ _) fun _ => pure_allowed _ _
   · intro state
     exact bind_allowed WFree (leafHash_free _ _ _ _) fun _ => pure_allowed _ _
+theorem buildLeafPF_free (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
+    AllQueriesSatisfy (WCT9.buildLeafPF lay tree leaf digits carry) WFree := by
+  unfold WCT9.buildLeafPF
+  apply bind_allowed WFree
+  · unfold WCT9.lowerCoefs
+    apply foldlM_allowed WFree
+    intro state j
+    exact bind_allowed WFree (packedSecret_free _ _ _ _) fun _ => pure_allowed _ _
+  · intro cc
+    apply bind_allowed WFree
+    · apply foldlM_allowed WFree
+      intro state i
+      exact bind_allowed WFree (chain_free _ _ _ _ _ _ _) fun _ =>
+        bind_allowed WFree (chain_free _ _ _ _ _ _ _) fun _ => pure_allowed _ _
+    · intro state
+      exact bind_allowed WFree (leafHash_free _ _ _ _) fun _ => pure_allowed _ _
 theorem buildTreeP_free (lay : Layer) (tree selected : Nat) (digits : List Nat) :
     AllQueriesSatisfy (WCT9.buildTreeP lay tree selected digits) WFree := by
   unfold WCT9.buildTreeP
   apply bind_allowed WFree
   · exact foldlM_allowed WFree _ _ (fun state leaf =>
-      bind_allowed WFree (buildLeafP_free _ _ _ _ _) fun _ => pure_allowed _ _) _
+      bind_allowed WFree (buildLeafPF_free _ _ _ _ _) fun _ => pure_allowed _ _) _
   · intro state
     exact bind_allowed WFree (buildLevelsBelow_free _ _ _ _ _) fun _ => pure_allowed _ _
 theorem maskedLevel_free (nodes : List Digest) (level : Nat) :

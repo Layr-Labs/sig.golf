@@ -9,10 +9,10 @@ and samples hidden labels uniformly from the product box. On the switched W9 spe
 the seed at `(family, point)` is `familyEval K point` for a hidden coefficient vector `K : Fin 102 → Digest`.
 
 This module keeps the T3 `State` (the `candidates` record every disclosure and every failed guess, seeds included) and
-changes the law: the hidden object is `x : Hid Coord = (Plain → Digest) × (Fam → Coefs)` (uniform prior), observed
+changes the law: the hidden object is `x : Hid Coord = (Plain → Digest) × (∀ f, Coefs (deg f))` (uniform prior), observed
 labels are `view x`, and the posterior given `candidates` is uniform on `supp candidates`, the hidden objects whose
 labels lie in the candidate sets. Disclosures sample the posterior marginal (`discLaw`, uniform on the candidates for
-plain coordinates); a probe's guess on a seed is kept only while its family is undetermined (`Adm`: at most 101
+plain coordinates); a probe's guess on a seed is kept only while its family is undetermined (`Adm`: at most `deg`
 disclosed seeds in the family, and the hit is not a seed), and the seed hazard then comes from
 `ClaudeWCT.Arith.fam_hazard_prob`. `run_posterior` (exact Bayes) and `residual_potential` keep the T3 statements.
 -/
@@ -26,11 +26,11 @@ attribute [local instance] Classical.propDecidable
 set_option backward.isDefEq.respectTransparency false
 set_option linter.unusedSectionVars false
 
-/-- Coefficient vectors of a degree-101 family. -/
-abbrev Coefs := Fin 102 → Digest
+/-- Coefficient vectors of a degree-`n` family. -/
+abbrev Coefs (n : ℕ) := Fin (n + 1) → Digest
 
 /-- The seed of a family at a point. -/
-def ev (K : Coefs) (p : ℕ) : Digest := ClaudeWCT.Arith.familyEval (List.ofFn K) p
+def ev {n : ℕ} (K : Fin n → Digest) (p : ℕ) : Digest := ClaudeWCT.Arith.familyEval (List.ofFn K) p
 
 /-- Observable coordinates split into plain coordinates (independent uniform labels) and FTS seeds (a family and
 an evaluation point below 1024; distinct seeds have distinct `(family, point)`). -/
@@ -41,6 +41,7 @@ class Seeds (Coord : Type) where
   [plainDec : DecidableEq Plain]
   [famFin : Fintype Fam]
   [famDec : DecidableEq Fam]
+  deg : Fam → ℕ
   split : Coord → Plain ⊕ (Fam × ℕ)
   embed : Plain → Coord
   split_embed : ∀ p, split (embed p) = .inl p
@@ -54,7 +55,8 @@ instance instSeedsFamFin {Coord : Type} [h : Seeds Coord] : Fintype (Seeds.Fam C
 instance instSeedsFamDec {Coord : Type} [h : Seeds Coord] : DecidableEq (Seeds.Fam Coord) := h.famDec
 
 /-- Hidden objects: plain labels and family coefficients. -/
-abbrev Hid (Coord : Type) [Seeds Coord] := (Seeds.Plain Coord → Digest) × (Seeds.Fam Coord → Coefs)
+abbrev Hid (Coord : Type) [Seeds Coord] :=
+  (Seeds.Plain Coord → Digest) × ((f : Seeds.Fam Coord) → Coefs (Seeds.deg f))
 
 section Bayes
 variable {Coord : Type} [Seeds Coord]
@@ -213,10 +215,10 @@ theorem mem_famKnown (cand : Coord → Finset Digest) (f : Seeds.Fam Coord) (c :
   rw [famKnown, Finset.mem_filter, mem_famSeeds]
 
 /-- A guess `g` is kept by a probe with hit `hit` when its coordinate is still uncertain, differs from the hit's
-parent, and, for a seed, its family is undetermined (at most 101 disclosed seeds) and the hit is not a seed. -/
+parent, and, for a seed, its family is undetermined (at most `deg` disclosed seeds) and the hit is not a seed. -/
 def Adm (cand : Coord → Finset Digest) (hit : Hit Coord) (g : Coord × Digest) : Prop :=
   2 ≤ (cand g.1).card ∧ (∀ parent, hit = Hit.label parent → g.1 ≠ parent) ∧
-    ∀ fp, Seeds.split g.1 = .inr fp → (famKnown cand fp.1).card ≤ 101 ∧
+    ∀ fp, Seeds.split g.1 = .inr fp → (famKnown cand fp.1).card ≤ Seeds.deg fp.1 ∧
       ∀ parent, hit = Hit.label parent → ∀ fp', Seeds.split parent ≠ .inr fp'
 
 end Effective
@@ -554,10 +556,11 @@ variable {Coord : Type} [Seeds Coord] [Fintype Coord] [DecidableEq Coord]
 def plainBox (cand : Coord → Finset Digest) : Seeds.Plain Coord → Finset Digest := fun p => cand (Seeds.embed p)
 
 /-- The family posteriors: coefficient vectors whose seeds lie in the candidate sets. -/
-@[irreducible] noncomputable def famSet (cand : Coord → Finset Digest) : Seeds.Fam Coord → Finset Coefs := fun f =>
+@[irreducible] noncomputable def famSet (cand : Coord → Finset Digest) :
+    (f : Seeds.Fam Coord) → Finset (Coefs (Seeds.deg f)) := fun f =>
   Finset.univ.filter fun K => ∀ c pt, Seeds.split c = .inr (f, pt) → ev K pt ∈ cand c
 
-theorem mem_famSet (cand : Coord → Finset Digest) (f : Seeds.Fam Coord) (K : Coefs) :
+theorem mem_famSet (cand : Coord → Finset Digest) (f : Seeds.Fam Coord) (K : Coefs (Seeds.deg f)) :
     K ∈ famSet cand f ↔ ∀ c pt, Seeds.split c = .inr (f, pt) → ev K pt ∈ cand c := by
   unfold famSet
   simp only [Finset.mem_filter, Finset.mem_univ, true_and]
@@ -713,7 +716,7 @@ noncomputable def famDebt (cand : Coord → Finset Digest) (f : Seeds.Fam Coord)
   ∑ c ∈ (famSeeds f).filter (fun c => (cand c).card ≠ 1), (2 ^ 128 - (cand c).card)
 
 theorem famSet_eq_famPost (cand : Coord → Finset Digest) (f : Seeds.Fam Coord) :
-    famSet cand f = ClaudeWCT.Arith.famPost (m := 101) (famKnownPairs cand f) (famMissPairs cand f) := by
+    famSet cand f = ClaudeWCT.Arith.famPost (m := Seeds.deg f) (famKnownPairs cand f) (famMissPairs cand f) := by
   ext K
   rw [mem_famSet]
   unfold ClaudeWCT.Arith.famPost ClaudeWCT.Arith.famAffine
