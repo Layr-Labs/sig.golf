@@ -80,14 +80,14 @@ theorem codeAt_appR {im : Image} {n : Nat} {a b : List (BitVec 32)} (h : CodeAt 
   obtain ⟨t, ht⟩ := h4
   refine ⟨t, ?_⟩
   rw [← ht, List.append_assoc, List.drop_left]
-def w9init (im : Image) (m : Message) (pk : PublicKey) {n : Nat} (σ : Bytes n) : MachineState :=
+def w9init (im : Image) (m : Message) (pk : PublicKey) (σ : Bytes 5312) : MachineState :=
   (((((({ regs := fun _ => 0, mem := fun _ => 0, pc := 0x1000 } : MachineState).writeBytesAsWords
     (BitVec.ofNat 64 (dataBase im)) im.data).writeBytesAsWords (BitVec.ofNat 64 0x59B0) (bytes m)).writeBytesAsWords
     (BitVec.ofNat 64 0xA0) (bytes pk)).writeBytesAsWords (BitVec.ofNat 64 0x7000) (bytes σ))).setReg .x2
     (BitVec.ofNat 64 (dataBase im))
 set_option maxRecDepth 100000 in
 theorem initialState_w9 (imgs : Phase → Image) (hv : (imgs .expand).Valid (w9Sub imgs).sizes (w9Sub imgs).layout)
-    (m : Message) (pk : PublicKey) (σ : Bytes 5310) :
+    (m : Message) (pk : PublicKey) (σ : Bytes 5312) :
     initialState (w9Sub imgs) .expand (m, pk, σ) = some (w9init (imgs .expand) m pk σ) := by
   unfold initialState
   simp only [show (w9Sub imgs).image .expand = imgs .expand from rfl]
@@ -286,8 +286,35 @@ theorem w9init_cf {im : Image} (hd : ExpandDataOK im) (m : Message) (pk : Public
   have hidx : (TOP_DATA + i) / 8 * 8 - TOP_DATA + (TOP_DATA + i) % 8 = i := by unfold TOP_DATA; omega
   rw [hidx]
   exact Search.expandLegacyData_cf i hi hi'
--- [h2 lane] removed front_spec: a fact about the record's original expand word 0 / 342, which H2 replaces
--- [h2 lane] removed front_pre30: a fact about the record's original expand word 0 / 342, which H2 replaces
+theorem front_spec {im : Image} (hF : CodeAt im (pcOf 0) SigGolfCandidate.T3M.Expand.seg_0) (s : MachineState)
+    (hpc : s.pc = pcOf 0) :
+    ∃ t, Steps im s 30 30 t ∧ t.pc = pcOf 42719 ∧ t.getReg .x5 = 0 ∧
+      t.getMem (BitVec.ofNat 64 0x800) = s.getMem (BitVec.ofNat 64 0x7000) ∧
+      t.getMem (BitVec.ofNat 64 0x808) = s.getMem (BitVec.ofNat 64 0x7008) ∧
+      t.getMem (BitVec.ofNat 64 DIG) = s.getMem (BitVec.ofNat 64 0x7000) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 8)) = s.getMem (BitVec.ofNat 64 0x7008) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 0x59B0) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 0x59B8) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 0x59C0) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 0x59C8) ∧
+      RegsExcept s t [.x5, .x6, .x7, .x19, .x29, .x30] ∧
+      Frame s t (fun A => A = 0x800 ∨ A = 0x808 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨ A = DIG + 40 ∨
+        A = DIG + 48 ∨ A = DIG + 56) := by
+  refine ⟨_, symRun_sound SigGolfCandidate.T3M.Expand.eblk_0 hF s hpc
+    (by simp [SigGolfCandidate.T3M.Expand.eblk_0.res, rv_simp, accessValid_iff, MEMORY_BYTES]),
+    ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · simp [Result.toState_pc, SigGolfCandidate.T3M.Expand.eblk_0.res, E.eval]
+  · simp [SigGolfCandidate.T3M.Expand.eblk_0.res, rv_simp]
+  iterate 8
+    · simp only [Result.toState_getMem, SigGolfCandidate.T3M.Expand.eblk_0.res, DIG]
+      t3n []
+  · ex_regs SigGolfCandidate.T3M.Expand.eblk_0.res
+  · intro A hA hn
+    simp only [DIG] at hn
+    simp only [Result.toState_getMem, SigGolfCandidate.T3M.Expand.eblk_0.res]
+    t3n []
+    rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
+      if_neg (by omega), if_neg (by omega), if_neg (by omega)]
 sym_block zblk := symRun { noAlias := true } zeroBlk (pcOf 42719) 20
 theorem zero_spec {im : Image} (hZ : CodeAt im (pcOf 42719) zeroBlk) (s : MachineState) (hpc : s.pc = pcOf 42719) :
     ∃ t, Steps im s 7 7 t ∧ t.pc = pcOf 30 ∧ t.getReg .x19 = BitVec.ofNat 64 0 ∧
@@ -307,7 +334,58 @@ theorem zero_spec {im : Image} (hZ : CodeAt im (pcOf 42719) zeroBlk) (s : Machin
     simp only [Result.toState_getMem, zblk.res]
     t3n []
     rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega)]
--- [h2 lane] removed front_pre30 (record word 0); H2Front.front_pre30' is the H2 version
+theorem front_pre30 {im : Image} (hF : FrontAt im) (hd : ExpandDataOK im) (m : Message) (pk : PublicKey)
+    (σ : Bytes 5312) :
+    ∃ t, Steps im (w9init im m pk σ) 37 37 t ∧ Pre30 m (sigDec σ) t ∧
+      (∀ A, A < 2 ^ 64 → (A = 0x59B0 ∨ A = 0x59B8 ∨ A = 0x59C0 ∨ A = 0x59C8) → t.getMem (BitVec.ofNat 64 A) = 0) ∧
+      t.getMem (BitVec.ofNat 64 0x800) = (sigDec σ).rho.extractLsb' 0 64 ∧
+      t.getMem (BitVec.ofNat 64 0x808) = (sigDec σ).rho.extractLsb' 64 64 ∧
+      Frame (w9init im m pk σ) t (fun A => A = 0x800 ∨ A = 0x808 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨
+        A = DIG + 40 ∨ A = DIG + 48 ∨ A = DIG + 56 ∨ A = 0x59B0 ∨ A = 0x59B8 ∨ A = 0x59C0 ∨ A = 0x59C8) := by
+  set s := w9init im m pk σ
+  obtain ⟨t0, st0, p0, x5_0, w800, w808, d0, d8, d32, d40, d48, d56, r0, f0⟩ :=
+    front_spec (codeAt_appL hF.1) s (w9init_pc m pk σ)
+  obtain ⟨t, st1, p, x19, z, r1, f1⟩ := zero_spec hF.2 t0 p0
+  have f : Frame s t (fun A => A = 0x800 ∨ A = 0x808 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨
+      A = DIG + 40 ∨ A = DIG + 48 ∨ A = DIG + 56 ∨ A = 0x59B0 ∨ A = 0x59B8 ∨ A = 0x59C0 ∨ A = 0x59C8) :=
+    (f0.trans f1).mono (fun A _ h => by
+      rcases h with h | h
+      · rcases h with h | h | h | h | h | h | h | h <;> simp [h]
+      · rcases h with h | h | h | h <;> simp [h])
+  have g : ∀ A, A < 2 ^ 64 → ¬ (A = 0x59B0 ∨ A = 0x59B8 ∨ A = 0x59C0 ∨ A = 0x59C8) →
+      t.getMem (BitVec.ofNat 64 A) = t0.getMem (BitVec.ofNat 64 A) := fun A hA h => f1 A hA h
+  have hrho : DigAt s 0x7000 (sigDec σ).rho := w9init_sig hd m pk σ 0 (by decide)
+  have hsd : ∀ k, k < 332 → DigAt t (0x7000 + 16 * k) ((sigDigests (sigDec σ)).getD k 0) := by
+    intro k hk
+    have := w9init_sig hd m pk σ k hk
+    rw [sigDigests_sigDec σ k hk]
+    exact ⟨(f _ (by omega) (by simp only [DIG]; omega)).trans this.1,
+      (f _ (by omega) (by simp only [DIG]; omega)).trans this.2⟩
+  have ex : ∀ A, A < 2 ^ 64 → ¬ (A = 0x59B0 ∨ A = 0x59B8 ∨ A = 0x59C0 ∨ A = 0x59C8) →
+      ¬ (A = 0x800 ∨ A = 0x808 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨ A = DIG + 40 ∨ A = DIG + 48 ∨
+        A = DIG + 56) → t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A) := fun A hA h1 h2 =>
+    (g A hA h1).trans (f0 A hA h2)
+  refine ⟨t, st0.trans st1, ⟨p, by rw [r1.get (by decide), x5_0], x19,
+      ⟨(g _ (by decide) (by simp only [DIG]; omega)).trans (d0.trans hrho.1),
+        (g _ (by decide) (by simp only [DIG]; omega)).trans (d8.trans hrho.2)⟩, fun k hk => ?_, hsd,
+      fun A h1 h2 => ?_,
+      hdrBank_frame (w9init_bank hd m pk σ) f (fun A h1 h2 h => by simp only [DIG] at h; unfold HB0 at h1; omega),
+      fun k hk => (f _ (by unfold ECOST; omega) (by simp only [DIG]; unfold ECOST; omega)).trans
+        (w9init_cost hd m pk σ k hk),
+      fun k hk => (f _ (by unfold PLAN; omega) (by simp only [DIG]; unfold PLAN; omega)).trans
+        (w9init_plan hd m pk σ k hk)⟩, z,
+    (g _ (by decide) (by omega)).trans (w800.trans hrho.1), (g _ (by decide) (by omega)).trans (w808.trans hrho.2), f⟩
+  · have hm : ∀ j, j < 4 → t.getMem (BitVec.ofNat 64 (DIG + 32 + 8 * j)) = m.extractLsb' (64 * j) 64 := by
+      intro j hj
+      rw [g _ (by simp only [DIG]; omega) (by simp only [DIG]; omega)]
+      interval_cases j
+      · rw [show DIG + 32 + 8 * 0 = DIG + 32 by rfl, d32]; simpa using w9init_msg hd m pk σ 0 (by decide)
+      · rw [show DIG + 32 + 8 * 1 = DIG + 40 by rfl, d40]; simpa using w9init_msg hd m pk σ 1 (by decide)
+      · rw [show DIG + 32 + 8 * 2 = DIG + 48 by rfl, d48]; simpa using w9init_msg hd m pk σ 2 (by decide)
+      · rw [show DIG + 32 + 8 * 3 = DIG + 56 by rfl, d56]; simpa using w9init_msg hd m pk σ 3 (by decide)
+    exact hm k hk
+  · rw [f A (by omega) (by simp only [DIG]; omega)]
+    exact w9init_zero hd m pk σ A (by unfold Compact2.LPLAN; omega) ⟨by omega, by omega, by omega⟩
 end ClaudeWCT.W9.Machine.Expand
 end
 section
@@ -660,7 +738,20 @@ theorem codeAt_351W : CodeAt im (pcOf 351) [compactJal] :=
   codeAt_appR (n := 342) (a := SigGolfCandidate.T3M.Expand.seg_342 ++ SigGolfCandidate.T3M.Expand.seg_348) hC
     (by decide)
 variable (s : MachineState)
--- [h2 lane] removed c342W: a fact about the record's original expand word 0 / 342, which H2 replaces
+theorem c342W (hpc : s.pc = pcOf 342) :
+    ∃ t, Steps im s 6 6 t ∧
+      t.pc = (if s.getMem (BitVec.ofNat 64 ENC) = s.getMem (BitVec.ofNat 64 0xA0) then pcOf 348 else pcOf 354) ∧
+      t.getReg .x28 = BitVec.ofNat 64 ENC ∧ t.getReg .x29 = BitVec.ofNat 64 0xA0 ∧
+      RegsExcept s t [.x6, .x7, .x28, .x29] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_, symRun_sound SigGolfCandidate.T3M.Expand.eblk_342 (codeAt_342W hC) s hpc
+    (by simp [SigGolfCandidate.T3M.Expand.eblk_342.res, rv_simp, accessValid_iff, MEMORY_BYTES]),
+    ?_, ?_, ?_, ?_, ?_⟩
+  · simp only [Result.toState_pc, SigGolfCandidate.T3M.Expand.eblk_342.res, E.eval, CmpOp.eval, rebase, rv_simp, ENC]
+    split_ifs with h1 h2 h2 <;> simp_all
+  · simp [SigGolfCandidate.T3M.Expand.eblk_342.res, rv_simp]
+  · simp [SigGolfCandidate.T3M.Expand.eblk_342.res, rv_simp]
+  · ex_regs SigGolfCandidate.T3M.Expand.eblk_342.res
+  · intro A _ _; simp [SigGolfCandidate.T3M.Expand.eblk_342.res, rv_simp]
 theorem c348W (hpc : s.pc = pcOf 348) (h28 : s.getReg .x28 = BitVec.ofNat 64 ENC)
     (h29 : s.getReg .x29 = BitVec.ofNat 64 0xA0) :
     ∃ t, Steps im s 3 3 t ∧
@@ -752,6 +843,14 @@ def tailProg (pk : PublicKey) (sig : WCT9.Signature) :
     let some (root, counters) ← WCT9.expandLayersBC sig (WCT9.digestIndex N) 4 (.forest root) | pure none
     if root ≠ pk then return none
     pure (some (N, ⟨sig, counter, fun lay => counters.getD lay.val 0⟩))
--- [h2 lane] removed expandN_split: with H2, `expandN` is the searching expander; H2Search.expandN_splitS replaces it
+theorem expandN_split (m : Message) (pk : PublicKey) (sig : WCT9.Signature) :
+    ClaudeWCT.W9.T3M.expandN m pk sig = newProg m sig >>= tailProg pk sig := by
+  unfold ClaudeWCT.W9.T3M.expandN newProg
+  rw [bind_assoc]
+  congr 1
+  funext r
+  rcases r with _ | ⟨counter, N⟩
+  · simp only [pure_bind]; rfl
+  · simp only [bind_assoc, pure_bind]; rfl
 end ClaudeWCT.W9.Machine.Expand
 end

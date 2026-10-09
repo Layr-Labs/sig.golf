@@ -25,11 +25,7 @@ def CFK (T : Answers) (trace : List Entry) : Prop :=
   ∃ p : CanonGraph.LeafPos × Fin 58, WotsExtract.SourceChain7 (chainAt p) ∧ ContactFirstAt T trace (chainAt p)
 theorem wotsSeed_congr_nonEnc {T T' : Answers} (h : ∀ q, Enc.NonEnc q → T' q = T q) (lay : Layer)
     (tree leaf i : Nat) : WCT9.wotsSeed T' lay tree leaf i = WCT9.wotsSeed T lay tree leaf i := by
-  by_cases h0 : lay = 0
-  · rw [ClaudeWCT.W9.T3.Security.Wots.Mask.wotsSeed_eq _ h0, ClaudeWCT.W9.T3.Security.Wots.Mask.wotsSeed_eq _ h0,
-      h (.inr (.inl _)) trivial]
-  · rw [WCT9.wotsSeed_lower _ h0, WCT9.wotsSeed_lower _ h0]
-    exact ClaudeWCT.W9.T3.Security.Wots.Mask.lowerSeed_congr_cells _ _ _ fun p => h (.inr (.inl _)) trivial
+  exact ClaudeWCT.W9.T3.Security.Wots.Mask.wotsSeed_congr_cells _ _ _ fun p => h (.inr (.inl _)) trivial
 theorem frontierValue_congr_honest {T T' : Answers} (h : AgreeOn (HonestQ T) T T')
     (p : CanonGraph.LeafPos × Fin 58) (hs : p.1.Source) :
     frontierValue T' (chainAt p) = frontierValue T (chainAt p) := by

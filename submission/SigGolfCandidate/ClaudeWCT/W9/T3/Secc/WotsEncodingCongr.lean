@@ -16,9 +16,6 @@ set_option maxRecDepth 10000
 namespace Enc
 open SigGolfCandidate.T3.Security.Wots.Enc
 section Programs
-theorem respects_forestPk (index : Nat) (pairs : List (Digest × Digest)) :
-    Respects Enc.NonEnc (ClaudeWCT.WCT9.forestPk index pairs) :=
-  ClaudeWCT.WCT9.Wots.Enc.respects_forestPk index pairs
 theorem respects_signForest (index : Nat) (output : HashOutput) :
     Respects Enc.NonEnc (ClaudeWCT.WCT9.signForest index output) :=
   ClaudeWCT.WCT9.Wots.Enc.respects_signForest index output
@@ -31,14 +28,6 @@ theorem respects_packedSecret (lay : Layer) (tree q : Nat) (carry : Digest) :
   split
   · exact Respects.bind (respects_privatePair _ _ _ _ _) fun _ => Respects.pure' _
   · exact Respects.pure' _
-theorem respects_buildLeafP (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
-    Respects Enc.NonEnc (WCT9.buildLeafP lay tree leaf digits carry) := by
-  unfold WCT9.buildLeafP
-  refine Respects.bind (Respects.foldlM _ _ (fun i _ state => ?_) _) fun state =>
-    Respects.bind (respects_leafHash _ _ _ _) fun _ => Respects.pure' _
-  exact Respects.bind (respects_packedSecret _ _ _ _) fun sc =>
-    Respects.bind (respects_chain _ _ _ _ _ _ _) fun _ =>
-      Respects.bind (respects_chain _ _ _ _ _ _ _) fun _ => Respects.pure' _
 theorem respects_buildLeafPF (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
     Respects Enc.NonEnc (WCT9.buildLeafPF lay tree leaf digits carry) := by
   unfold WCT9.buildLeafPF
@@ -271,8 +260,6 @@ def routePos (index : Nat) (hindex : index < 2 ^ 31) (lay : Layer) : CanonGraph.
     ⟨(route index lay).1, lt_of_lt_of_le (route_leaf_bound index lay)
       (by calc 2 ^ height lay ≤ 2 ^ 12 := Nat.pow_le_pow_right (by decide) (SigGolfCandidate.T3M.Extract.height_le lay)
             _ = 4096 := by norm_num)⟩⟩
-theorem leafOf_routePos (index : Nat) (hindex : index < 2 ^ 31) (lay : Layer) :
-    leafOf (routePos index hindex lay) = routeLeaf index lay := rfl
 theorem routePos_source (index : Nat) (hindex : index < 2 ^ 31) (lay : Layer) : (routePos index hindex lay).Source :=
   ⟨Extract.route_tree_treeBits index hindex lay, route_leaf_bound index lay⟩
 theorem respAt_routeSearch (T : Answers) (index : Nat) (hindex : index < 2 ^ 31) (lay : Layer) :
@@ -387,7 +374,21 @@ theorem wotsTree_take_congr_nonEnc {T T' : Answers} (h : ∀ q, Enc.NonEnc q →
     (WCT9.wotsTree T' lay tree).take (height lay) = (WCT9.wotsTree T lay tree).take (height lay) := by
   by_cases hl : lay = 0
   · subst hl
-    rw [WCT9.wotsTree_top, WCT9.wotsTree_top, SigGolfCandidate.T3.Security.Wots.builtTree_congr_nonEnc h 0 tree rfl]
+    have hs : ∀ leaf i, WCT9.wotsSeed T' 0 tree leaf i = WCT9.wotsSeed T 0 tree leaf i := fun leaf i =>
+      ClaudeWCT.W9.T3.Security.Wots.Mask.wotsSeed_congr_cells _ _ _ fun _ => h (.inr (.inl _)) trivial
+    have he : ∀ leaf, WCT9.wotsEnd T' 0 tree leaf = WCT9.wotsEnd T 0 tree leaf := by
+      intro leaf; funext i
+      unfold WCT9.wotsEnd
+      rw [hs]
+      exact (SigGolfCandidate.T3.Security.Wots.Enc.respects_chain _ _ _ _ _ _ _).eval_eq h
+    have hr : WCT9.wotsRoot T' 0 tree = WCT9.wotsRoot T 0 tree := by
+      funext leaf
+      unfold WCT9.wotsRoot
+      rw [he leaf]
+      exact (SigGolfCandidate.T3.Security.Wots.Enc.respects_leafHash _ _ _ _).eval_eq h
+    unfold WCT9.wotsTree
+    rw [hr, (SigGolfCandidate.T3.Security.Wots.Enc.respects_buildLevels 3 (0 : Layer).val tree (height 0)
+      ((List.range (2 ^ height 0)).map (WCT9.wotsRoot T 0 tree)) (by decide) (fun _ => Or.inl rfl)).eval_eq h]
   · have h0 : 0 < 2 ^ height lay := by positivity
     have he := (Enc.respects_buildTreeP lay tree 0 []).eval_eq h
     rw [WCT9.eval_buildTreeP_result T' hl tree 0 [] (Cost.validDigits_nil lay) h0,

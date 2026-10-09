@@ -75,19 +75,14 @@ theorem referenceGame_variant (hv : Variant labels T T') (adversary : Final.Adve
     referenceGame T adversary q = referenceGame T' adversary q := by
   unfold referenceGame
   rw [offlineGame_variant hv]
-theorem publicKey_variant (hv : Variant labels T T') :
-    (evalWithAnswerFn T keygen).1 = (evalWithAnswerFn T' keygen).1 := by
-  rw [eval_keygen_variant hv]
 end Game
 section Depth
 variable {labels : CanonGraph.Labels} {T T' : Answers}
 theorem wotsTree_variant_top (hv : Variant labels T T') (tree : Nat) (ht : tree < 2 ^ Extract.treeBits 0) :
     WCT9.wotsTree T 0 tree = WCT9.wotsTree T' 0 tree := by
-  have htree : tree < 2 ^ 40 := lt_trans (Extract.tree_lt_of_treeBits ht) (by norm_num)
-  rw [WCT9.wotsTree_top, WCT9.wotsTree_top,
-    ← Correctness.eval_buildTree_levels T 0 tree 0 [] (Cost.validDigits_nil 0),
-    ← Correctness.eval_buildTree_levels T' 0 tree 0 [] (Cost.validDigits_nil 0),
-    (hv.congr (sat_buildTree T 0 rfl tree 0 [] (Cost.validDigits_nil 0) htree ht)).1]
+  obtain rfl : tree = 0 := Extract.tree_zero_of_treeBits ht rfl
+  rw [WCT9.wotsTree_top, WCT9.wotsTree_top, ← Correctness.eval_buildTopTree, ← Correctness.eval_buildTopTree,
+    (hv.congr (sat_buildTopTree T)).1]
 theorem wotsTree_take_variant (hv : Variant labels T T') (lay : Layer) (tree : Nat)
     (ht : tree < 2 ^ Extract.treeBits lay) :
     (WCT9.wotsTree T lay tree).take (height lay) = (WCT9.wotsTree T' lay tree).take (height lay) := by
@@ -110,10 +105,6 @@ theorem honestPair_variant (hv : Variant labels T T') (lay : Layer) (tree : Nat)
     rw [← WCT9.treeValue_take _ hh, wotsTree_take_variant hv lay tree ht, WCT9.treeValue_take _ hh]
   unfold Extract.honestPair
   rw [key, key]
-theorem honestRoot_variant (hv : Variant labels T T') (tree : Nat) (ht : tree < 2 ^ Extract.treeBits 0) :
-    Extract.honestRoot T 0 tree = Extract.honestRoot T' 0 tree := by
-  unfold Extract.honestRoot
-  rw [wotsTree_variant_top hv tree ht]
 theorem honestForest_variant (hv : Variant labels T T') (index : Nat) (hindex : index < 2 ^ 31) :
     Extract.honestForest T index = Extract.honestForest T' index := by
   rw [Extract.honestForest_eq_wct9, Extract.honestForest_eq_wct9,

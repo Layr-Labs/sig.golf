@@ -12,23 +12,6 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-section Avg
-attribute [local instance] instSampleableTypeSeeds_pairGuessFinal instSampleableTypeForallFtsCoordDigest_pairGuessFinal
-  CanonGraph.instSampleableTypeSecrets CanonGraph.instSampleableTypeOtherHalves CanonGraph.instSampleableTypeLabels_1
-noncomputable def omegaLaw (adversary : AdversaryP) : ProbComp (Omega (Wots.referenceInputs adversary)) :=
-  ($ᵗ ChainGraph.Seeds : ProbComp _) >>= fun seeds =>
-    ($ᵗ CanonGraph.OtherHalves : ProbComp _) >>= fun other =>
-    ($ᵗ CanonGraph.Labels : ProbComp _) >>= fun labels =>
-    (@uniformSample (Wots.referenceInputs adversary → HashOutput)
-      (CanonGraph.instSampleableTypeForallSubtypeHashInputMemFinsetHashOutput_canonGraph_1 _) : ProbComp _) >>=
-      fun residual => pure ⟨seeds, other, labels, residual⟩
-noncomputable def ftsPart (adversary : AdversaryP) (ω : Omega (Wots.referenceInputs adversary)) :
-    ProbComp (Answers × QueryLog Requests × List Wots.Entry) :=
-  ($ᵗ (FtsCoord → Digest) : ProbComp _) >>= fun fts =>
-    (fun (run : Bool × QueryLog Requests × List Wots.Entry) =>
-        (Omega.answers (canon_subset adversary) ω fts, run.2.1, run.2.2)) <$>
-      pairRun (Omega.answers (canon_subset adversary) ω fts) adversary
-end Avg
 end SigGolfCandidate.T3.Security.BPair
 end
 section
@@ -95,7 +78,6 @@ structure LazyMem where
   exposures : List HashOutput
 def LazyMem.empty : LazyMem := ⟨∅, fun _ => none, [], [], []⟩
 abbrev WStateL := SecretGuessObservation.State FtsCoord Digest LazyMem
-def initL : WStateL := SecretGuessObservation.initialState LazyMem.empty
 def LazyMem.readRow (mem : LazyMem) (x : HashInput) (a : HashOutput) (isBirth : Bool) : LazyMem :=
   { mem with rows := mem.rows.cacheQuery x a,
              births := if isBirth then mem.births ++ [a] else mem.births,
@@ -166,28 +148,6 @@ noncomputable def finishL (ω : Omega U) (request : Request) (rho : Digest) :
           pure (some (Correctness.assembledSignature rho
             (openedValues (overwrite (openedPositions output) values) output,
               (signerForest hU ω output).2.1, (signerForest hU ω output).2.2) pieces))
-noncomputable def signL (ω : Omega U) (published : T3.Cache) (request : Request) : OracleComp WSpecL (Option Signature) :=
-  if request.cache = published then do
-    let rho ← nonceReq request.message
-    let found ← searchL rho request.message 0 attemptLimit
-    exposeReq (found.map Prod.snd)
-    finishL hU ω request rho found
-  else pure none
-noncomputable def interactionL (ω : Omega U) (published : T3.Cache) {α : Type} :
-    OracleComp LazyPrivate.Interaction α → OracleComp WSpecL (α × QueryLog Requests × List Wots.Entry) :=
-  OracleComp.construct (fun value => pure (value, [], []))
-    (fun input _ next => match input with
-      | .inl (.inl n) => do
-          let coin ← coinReqL n
-          next coin
-      | .inl (.inr x) => do
-          let answer ← hashL hU ω x
-          let rest ← next answer
-          pure (rest.1, rest.2.1, (x, answer) :: rest.2.2)
-      | .inr request => do
-          let signature ← signL hU ω published request
-          let rest ← next signature
-          pure (rest.1, ⟨request, signature⟩ :: rest.2.1, rest.2.2))
 noncomputable def programL (ω : Omega U) {β : Type} : M β → OracleComp WSpecL (β × List Wots.Entry) :=
   OracleComp.construct (fun value => pure (value, []))
     (fun input _ next => match input with
@@ -199,12 +159,6 @@ noncomputable def programL (ω : Omega U) {β : Type} : M β → OracleComp WSpe
           let rest ← next answer
           pure (rest.1, (x, answer) :: rest.2)
       | .inr _ => next (0 : HashOutput))
-noncomputable def worldGameCore (ω : Omega U) (adversary : AdversaryP) :
-    OracleComp WSpecL (Bool × QueryLog Requests × List Wots.Entry) := do
-  let generated := evalWithAnswerFn (Omega.answers hU ω (fun _ => 0)) keygen
-  let interaction ← interactionL hU ω generated.2 (adversary generated.1 generated.2)
-  let verdict ← programL hU ω (GameWith.verdict PaddedGame.checker generated.1 (interaction.1, interaction.2.1))
-  pure (verdict.1, interaction.2.1, interaction.2.2 ++ verdict.2)
 end World
 end SigGolfCandidate.T3.Security.BPair
 end

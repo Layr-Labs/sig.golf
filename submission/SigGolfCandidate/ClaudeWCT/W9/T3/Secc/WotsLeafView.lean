@@ -44,9 +44,9 @@ theorem mixLaw_seed (q : ℕ) (a : ChainAddr) (R : RefTables adversary) :
   rw [h]
 
 section View
-variable (q : ℕ) {a : ChainAddr} (ha : WotsExtract.SourceChain a) (hl : a.key.lay ≠ 0)
+variable (q : ℕ) {a : ChainAddr} (ha : WotsExtract.SourceChain a)
   (E : PrefixView → Prop) (hE0 : ∀ z : Digest × (SeedResult × TObs 0), ¬E (runViewD a 0 z))
-include ha hl hE0
+include ha hE0
 
 theorem view_hyps :
     (∀ T T', LeafCongr a.key T T' → GDseed adversary q T' = GDseed adversary q T) ∧
@@ -59,7 +59,7 @@ theorem view_hyps :
     (∀ (R : RefTables adversary) (z : Digest × (SeedResult × TObs 0)), ¬E (runViewD a 0 z)) := by
   have htree : a.key.tree < 2 ^ 40 := by have := ha.1.1; omega
   have hleaf := (ref_hyps q ha (GDseed adversary q) id (fun T => id_map _)).2
-  refine ⟨fun T T' h => GDseed_leaf hl hleaf htree q T T' h, fun R x res hres => ?_, fun R z => hE0 z⟩
+  refine ⟨fun T T' h => GDseed_leaf hleaf htree q T T' h, fun R x res hres => ?_, fun R z => hE0 z⟩
   rw [← seedGame_eq_gameD] at hres
   rw [id, sampleView_coupled adversary q a R x res hres, runView_eq]
 
@@ -69,8 +69,8 @@ theorem view_prob_le :
       ∑' R, restLaw adversary R * Pr[fun r => E (runView a R r) |
         realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (seedGame adversary q a R)
           (fun _ _ => none)] + errC adversary q a := by
-  obtain ⟨hG, hEF, hF0⟩ := view_hyps q ha hl E hE0
-  have h := ref_le_mix q ha hl (GDseed adversary q) id (fun T => id_map _) (fun s => E (sampleView a s))
+  obtain ⟨hG, hEF, hF0⟩ := view_hyps q ha E hE0
+  have h := ref_le_mix q ha (GDseed adversary q) id (fun T => id_map _) (fun s => E (sampleView a s))
     (fun d _ z => E (runViewD a d z)) (fun _ _ _ _ _ => rfl) hF0 hG hEF
   simp only [mixLaw_seed] at h
   exact h
@@ -81,8 +81,8 @@ theorem view_prob_ge :
         realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (seedGame adversary q a R)
           (fun _ _ => none)] ≤
       Pr[fun s => E (sampleView a s) | referenceExperiment adversary q] + errC adversary q a := by
-  obtain ⟨hG, hEF, hF0⟩ := view_hyps q ha hl E hE0
-  have h := mix_le_ref q ha hl (GDseed adversary q) id (fun T => id_map _) (fun s => E (sampleView a s))
+  obtain ⟨hG, hEF, hF0⟩ := view_hyps q ha E hE0
+  have h := mix_le_ref q ha (GDseed adversary q) id (fun T => id_map _) (fun s => E (sampleView a s))
     (fun d _ z => E (runViewD a d z)) (fun _ _ _ _ _ => rfl) hF0 hG hEF
   simp only [mixLaw_seed] at h
   exact h
@@ -122,7 +122,7 @@ theorem prefixCount_le_length (a : ChainAddr) (s : RefSample) : prefixCount a s 
   List.length_filter_le _ _
 
 /-- **Expected prefix counts, mixture ≤ reference + q · error.** -/
-theorem view_count_le (q : ℕ) {a : ChainAddr} (ha : WotsExtract.SourceChain a) (hl : a.key.lay ≠ 0) :
+theorem view_count_le (q : ℕ) {a : ChainAddr} (ha : WotsExtract.SourceChain a) :
     ∑' R, restLaw adversary R * ∑' r,
         realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (seedGame adversary q a R)
           (fun _ _ => none) r * (seedCost a R r.2.1 : ℝ≥0∞) ≤
@@ -151,7 +151,7 @@ theorem view_count_le (q : ℕ) {a : ChainAddr} (ha : WotsExtract.SourceChain a)
     _ ≤ ∑ k ∈ Finset.range q, (Pr[fun s => k < (sampleView a s).count | referenceExperiment adversary q] +
           errC adversary q a) := by
         refine Finset.sum_le_sum fun k _ => ?_
-        exact view_prob_ge q ha hl (fun v => k < v.count) (fun z h => by
+        exact view_prob_ge q ha (fun v => k < v.count) (fun z h => by
           simp only [runViewD, calls_prefixQuery_zero] at h
           omega)
     _ = _ := by

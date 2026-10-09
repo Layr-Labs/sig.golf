@@ -1,6 +1,22 @@
-import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecks3
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecksPart9
 
 section
+
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+private theorem inlineBatch_15_0_part_0 : (List.range' 0 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_0_part_5 : (List.range' 5 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_0_part_10 : (List.range' 10 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_0_part_15 : (List.range' 15 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_0_part_20 : (List.range' 20 5).all (inlineCheck 15) = true := by decide +kernel
+private theorem inlineBatch_15_0 : (List.range' 0 25).all (inlineCheck 15) = true := by
+  exact (@check_range_add (inlineCheck 15) 0 5 20 inlineBatch_15_0_part_0 (@check_range_add (inlineCheck 15) 5 5 15 inlineBatch_15_0_part_5 (@check_range_add (inlineCheck 15) 10 5 10 inlineBatch_15_0_part_10 (@check_range_add (inlineCheck 15) 15 5 5 inlineBatch_15_0_part_15 inlineBatch_15_0_part_20))))
+theorem inlineGroupCheck_15_0 : inlineGroupCheck 15 0 25=true := by
+  exact inlineBatch_15_0
+end SigGolfCandidate.T3M.Nonbinary
+end
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
@@ -74,6 +90,21 @@ private theorem inlineBatch_16_0 : (List.range' 0 25).all (inlineCheck 16) = tru
   exact (@check_range_add (inlineCheck 16) 0 5 20 inlineBatch_16_0_part_0 (@check_range_add (inlineCheck 16) 5 5 15 inlineBatch_16_0_part_5 (@check_range_add (inlineCheck 16) 10 5 10 inlineBatch_16_0_part_10 (@check_range_add (inlineCheck 16) 15 5 5 inlineBatch_16_0_part_15 inlineBatch_16_0_part_20))))
 theorem inlineGroupCheck_16_0 : inlineGroupCheck 16 0 25=true := by
   exact inlineBatch_16_0
+end SigGolfCandidate.T3M.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Nonbinary
+set_option maxRecDepth 200000
+set_option maxHeartbeats 2000000
+private theorem inlineBatch_16_25_part_25 : (List.range' 25 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_25_part_30 : (List.range' 30 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_25_part_35 : (List.range' 35 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_25_part_40 : (List.range' 40 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_25_part_45 : (List.range' 45 5).all (inlineCheck 16) = true := by decide +kernel
+private theorem inlineBatch_16_25 : (List.range' 25 25).all (inlineCheck 16) = true := by
+  exact (@check_range_add (inlineCheck 16) 25 5 20 inlineBatch_16_25_part_25 (@check_range_add (inlineCheck 16) 30 5 15 inlineBatch_16_25_part_30 (@check_range_add (inlineCheck 16) 35 5 10 inlineBatch_16_25_part_35 (@check_range_add (inlineCheck 16) 40 5 5 inlineBatch_16_25_part_40 inlineBatch_16_25_part_45))))
+theorem inlineGroupCheck_16_25 : inlineGroupCheck 16 25 25=true := by
+  exact inlineBatch_16_25
 end SigGolfCandidate.T3M.Nonbinary
 end
 end

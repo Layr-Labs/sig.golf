@@ -44,7 +44,7 @@ theorem producerDecode_eq_none_or (lay : Layer) (answer : Digest) :
       · exact Or.inr rfl
       · exact Or.inl rfl
 theorem producerFloor_values :
-    producerFloor 0 = 9 ∧ producerFloor 1 = 5 ∧ producerFloor 2 = 5 ∧ producerFloor 3 = 5 :=
+    producerFloor 0 = 8 ∧ producerFloor 1 = 5 ∧ producerFloor 2 = 5 ∧ producerFloor 3 = 4 :=
   ⟨rfl, rfl, rfl, rfl⟩
 theorem searchLimit_top : searchLimit 0 = counterLimit := rfl
 theorem searchLimit_lower {lay : Layer} (h : lay ≠ 0) : searchLimit lay = lowerSearchLimit := by
@@ -229,7 +229,7 @@ theorem wordCredit_top {answer : Digest} {digits : List Nat} (h : decode 0 answe
   unfold wordCredit topCredit
   have key : ∀ L : List Nat, (∀ i ∈ L, i < 54) →
       (L.filter fun i => (dataDigits 0 answer).getD i 0 + 1 = maxDigit 0 i).length =
-        (L.map fun i => if coreDigit 0 answer i = (if i < 51 then 3 else 2) then 1 else 0).sum := by
+        (L.map fun i => if coreDigit 0 answer i = (if i < 51 then 3 else 6) then 1 else 0).sum := by
     intro L hL
     induction L with
     | nil => rfl
@@ -237,8 +237,8 @@ theorem wordCredit_top {answer : Digest} {digits : List Nat} (h : decode 0 answe
         have hi := hL i List.mem_cons_self
         rw [List.filter_cons, List.map_cons, List.sum_cons, dataDigits_top_getD answer hi,
           ← ih (fun j hj => hL j (List.mem_cons_of_mem _ hj))]
-        have hm : maxDigit 0 i = if i < 51 then 4 else 3 := rfl
-        by_cases hc : coreDigit 0 answer i = (if i < 51 then 3 else 2)
+        have hm : maxDigit 0 i = if i < 51 then 4 else 7 := rfl
+        by_cases hc : coreDigit 0 answer i = (if i < 51 then 3 else 6)
         · have hp : (decide (coreDigit 0 answer i + 1 = maxDigit 0 i)) = true := by
             rw [decide_eq_true_eq, hm, hc]; split <;> rfl
           rw [if_pos hp, if_pos hc, List.length_cons]

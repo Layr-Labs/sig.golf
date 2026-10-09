@@ -83,8 +83,6 @@ theorem privPsi_nonce (s : Secrets) (nvv : Message → Digest) (priv : FullGame.
     exact (Sum.inl.inj (Sum.inr.inj h1)).symm
   rw [hm] at h
   simpa [ChainGraph.halves] using h
-theorem privateSecrets_privPsi (s : Secrets) (nvv : Message → Digest) (priv : FullGame.FullTable) :
-    privateSecrets (privPsi s nvv priv) = s := privateSecrets_symm _ _
 def rowPrefix (f : EncLeaf × Fin (2 ^ 22) → HashOutput) (x : EncLeaf × Fin (2 ^ 22)) : Prop :=
   x.2.val < WCT9.searchLimit x.1.1.lay ∧
     ∀ r, capSel x.1 (SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt x.1) (fun c => f (x.1, c))) = some r →
@@ -606,20 +604,23 @@ theorem contact_real_side (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127
   apply probEvent_congr' (fun _ _ => Iff.rfl)
   rw [evalSPMF_bind, evalSPMF_bind, evalSPMF_uniform_inst _ samplerFull]
   congr 1
-/-- The secrets of a hidden object (top seeds, lower-leaf and FTS coefficients) and the unused junk cells. -/
+/-- The secrets of a hidden object (leaf-family and FTS coefficients) and the unused junk cells. -/
 noncomputable def secOf (x : ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord) (jk : WJunk → LargeResidual.Digest) :
     Secrets :=
   Sum.elim
-    (fun a => if h0 : a.layer = 0 then x.1 (.inl (.inr ⟨a, h0⟩))
-      else if hc : a.chain.val < 17 then
-        x.2 (Sum.inl ⟨(a.layer, a.tree, a.leaf), h0⟩ : WFam) (⟨a.chain.val, hc⟩ : Fin 17)
-      else jk ⟨a, h0, by omega⟩)
+    (fun a => if hc : a.chain.val < WCT9.famCount a.layer then
+        x.2 (Sum.inl ⟨(a.layer, a.tree, a.leaf), trivial⟩ : WFam)
+          ⟨a.chain.val, by have := WCT9.famCount_ge a.layer; show a.chain.val < WCT9.famCount a.layer - 1 + 1; omega⟩
+      else jk ⟨a, by omega⟩)
     (fun c => x.2 (Sum.inr (c.1, c.2.1) : WFam) c.2.2)
 /-- The coefficient families of a secret table. -/
 def famOfSec (sec : Secrets) : (f : WFam) → ClaudeWCT.W9.T3.Security.FamResidual.Coefs
     (ClaudeWCT.W9.T3.Security.FamResidual.Seeds.deg (Coord := WCoord) f)
   | .inl L => fun j => sec (.inl ⟨L.1.1, L.1.2.1, L.1.2.2,
-      ⟨j.val, lt_of_lt_of_le j.isLt (show (16 : ℕ) + 1 ≤ 58 by norm_num)⟩⟩)
+      ⟨j.val, by
+        have hj : j.val < WCT9.famCount L.1.1 - 1 + 1 := j.isLt
+        have := WCT9.famCount_le L.1.1
+        omega⟩⟩)
   | .inr f => fun j => sec (.inr (f.1, f.2, j))
 noncomputable def worldEquiv : Secrets × ((Message → Digest) × LowLabels) ≃
     ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord × (WJunk → LargeResidual.Digest) where
@@ -631,7 +632,7 @@ noncomputable def worldEquiv : Secrets × ((Message → Digest) × LowLabels) �
     refine Prod.ext ?_ rfl
     funext c
     rcases c with a | ⟨i, k, j⟩
-    · change (if h0 : a.layer = 0 then sec (.inl a) else if hc : a.chain.val < 17 then
+    · change (if hc : a.chain.val < WCT9.famCount a.layer then
           sec (.inl ⟨a.layer, a.tree, a.leaf, ⟨a.chain.val, _⟩⟩) else sec (.inl a)) = sec (.inl a)
       split_ifs <;> rfl
     · rfl
@@ -641,24 +642,25 @@ noncomputable def worldEquiv : Secrets × ((Message → Digest) × LowLabels) �
     · funext c
       rcases c with (N | ⟨a, ha⟩) | m
       · rfl
-      · change (if h0 : a.layer = 0 then L (.inl (.inr ⟨a, h0⟩)) else _) = L (.inl (.inr ⟨a, ha⟩))
-        rw [dif_pos ha]
+      · exact ha.elim
       · rfl
     · funext f
       rcases f with ⟨⟨lay, tree, leaf⟩, hL⟩ | ⟨i, k⟩
       · funext j
-        have hj : j.val < 17 := j.isLt
-        change (if h0 : lay = 0 then _ else if hc : j.val < 17 then
-            K (Sum.inl ⟨(lay, tree, leaf), h0⟩ : WFam) (⟨j.val, hc⟩ : Fin 17) else _) = K _ j
-        rw [dif_neg hL, dif_pos hj]
-        rfl
+        have hj : j.val < WCT9.famCount lay := by
+          have h1 : j.val < WCT9.famCount lay - 1 + 1 := j.isLt
+          have := WCT9.famCount_ge lay
+          omega
+        change (if hc : j.val < WCT9.famCount lay then
+            K (Sum.inl ⟨(lay, tree, leaf), trivial⟩ : WFam) ⟨j.val, _⟩ else _) = K _ j
+        rw [dif_pos hj]
       · rfl
     · funext t
-      obtain ⟨a, h0, hc⟩ := t
-      show secOf (L, K) jk (.inl a) = jk ⟨a, h0, hc⟩
+      obtain ⟨a, hc⟩ := t
+      show secOf (L, K) jk (.inl a) = jk ⟨a, hc⟩
       unfold secOf
       simp only [Sum.elim_inl]
-      rw [dif_neg h0, dif_neg (by omega)]
+      rw [dif_neg (by omega)]
 theorem world_split {R : Type} (K : Secrets → (Message → Digest) → LowLabels → ProbComp R) :
     𝒮[($ᵗ Secrets : ProbComp _) >>= fun sec => ($ᵗ (Message → Digest) : ProbComp _) >>= fun nv =>
         ($ᵗ LowLabels : ProbComp _) >>= fun low => K sec nv low] =
@@ -677,6 +679,12 @@ theorem world_split {R : Type} (K : Secrets → (Message → Digest) → LowLabe
           fun y => K (secOf y.1 y.2) (fun m => y.1.1 (.inr m)) (fun N => y.1.1 (.inl (.inl N)))] :=
         uniform_equiv_bind worldEquiv.symm _
     _ = _ := uniform_prod_bind _
+theorem ofFn_congr_len {n m : Nat} (h : n = m) (f : Fin n → Digest) (g : Fin m → Digest)
+    (hfg : ∀ i (hi : i < n), f ⟨i, hi⟩ = g ⟨i, h ▸ hi⟩) : List.ofFn f = List.ofFn g := by
+  subst h
+  congr 1
+  funext i
+  exact hfg i.val i.isLt
 theorem seedView_secOf (x : ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord) (jk : WJunk → LargeResidual.Digest) :
     seedView (secOf x jk) = fun s => view x (.inl (.inr s)) := by
   funext s
@@ -687,18 +695,17 @@ theorem seedView_secOf (x : ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord) (jk
     unfold view
     rw [hs, wsplit_addr]
     unfold seedsOf
-    by_cases h0 : a.layer = 0
-    · rw [if_pos h0, dif_pos h0]
-      change (if h0 : a.layer = 0 then x.1 (.inl (.inr ⟨a, h0⟩)) else _) = _
-      rw [dif_pos h0]
-    · rw [if_neg h0, dif_neg h0]
-      change _ = ClaudeWCT.Arith.familyEval (List.ofFn (x.2 (Sum.inl ⟨(a.layer, a.tree, a.leaf), h0⟩ : WFam)))
+    change ClaudeWCT.Arith.familyEval (List.ofFn (leafFamily (secOf x jk) a.layer a.tree a.leaf)) (a.chain.val + 1) =
+      ClaudeWCT.Arith.familyEval (List.ofFn (x.2 (Sum.inl ⟨(a.layer, a.tree, a.leaf), trivial⟩ : WFam)))
         (WCT9.lowerPoint a.chain.val)
-      congr 2
-      funext k
-      change (if h0 : a.layer = 0 then _ else if hc : k.val < 17 then
-        x.2 (Sum.inl ⟨(a.layer, a.tree, a.leaf), h0⟩ : WFam) (⟨k.val, hc⟩ : Fin 17) else _) = _
-      rw [dif_neg h0, dif_pos k.isLt]
+    have hn : WCT9.famCount a.layer = WCT9.famCount a.layer - 1 + 1 := by
+      have := WCT9.famCount_ge a.layer; omega
+    congr 1
+    apply ofFn_congr_len hn
+    intro k hk
+    unfold leafFamily secOf
+    simp only [Sum.elim_inl]
+    rw [dif_pos hk]
   · rfl
 /-- An event's probability under a bind is at most a uniform bound on the continuations. -/
 theorem probEvent_bind_le_const {α β : Type} (mx : ProbComp α) (f : α → ProbComp β) (E : β → Prop) (c : ENNReal)

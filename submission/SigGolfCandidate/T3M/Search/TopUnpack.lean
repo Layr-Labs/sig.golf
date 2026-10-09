@@ -404,7 +404,7 @@ set_option linter.unusedSimpArgs false
 theorem tail383_spec {image : Image} {b : Nat} (hK : KernAt image b)
     (s : MachineState) (hpc : s.pc=pcOf (b+383)) :
     ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf (b+384) ∧
-      t.getReg .x28=s.getReg .x6 &&& 3#64 ∧ RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
+      t.getReg .x28=s.getReg .x6 &&& 7#64 ∧ RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
   refine ⟨_,symRun_sound (run_top383 hK.2.1) (codeAt_top383 hK) s hpc
     (by simp [topState383,tb354_383.res,rv_simp]),?_,?_,?_,?_⟩
   · simp [topState383,topEnd383,tb354_383.res,rv_simp]
@@ -414,7 +414,7 @@ theorem tail383_spec {image : Image} {b : Nat} (hK : KernAt image b)
 theorem tail385_spec {image : Image} {b : Nat} (hK : KernAt image b)
     (s : MachineState) (hpc : s.pc=pcOf (b+385)) :
     ∃ t, Steps image s 2 2 t ∧ t.pc=pcOf (b+387) ∧
-      t.getReg .x6=s.getReg .x6 >>> 2 ∧ t.getReg .x28=(s.getReg .x6 >>> 2) &&& 3#64 ∧ RegsExcept s t [.x6,.x28] ∧ Frame s t (fun _ => False) := by
+      t.getReg .x6=s.getReg .x6 >>> 3 ∧ t.getReg .x28=(s.getReg .x6 >>> 3) &&& 7#64 ∧ RegsExcept s t [.x6,.x28] ∧ Frame s t (fun _ => False) := by
   refine ⟨_,symRun_sound (run_top385 hK.2.1) (codeAt_top385 hK) s hpc
     (by simp [topState385,tb354_385.res,rv_simp]),?_,?_,?_,?_,?_⟩
   · simp [topState385,topEnd385,tb354_385.res,rv_simp]
@@ -425,7 +425,7 @@ theorem tail385_spec {image : Image} {b : Nat} (hK : KernAt image b)
 theorem tail388_spec {image : Image} {b : Nat} (hK : KernAt image b)
     (s : MachineState) (hpc : s.pc=pcOf (b+388)) :
     ∃ t, Steps image s 2 2 t ∧ t.pc=pcOf (b+390) ∧
-      t.getReg .x6=s.getReg .x6 >>> 2 ∧ t.getReg .x28=(s.getReg .x6 >>> 2) &&& 3#64 ∧ RegsExcept s t [.x6,.x28] ∧ Frame s t (fun _ => False) := by
+      t.getReg .x6=s.getReg .x6 >>> 3 ∧ t.getReg .x28=(s.getReg .x6 >>> 3) &&& 7#64 ∧ RegsExcept s t [.x6,.x28] ∧ Frame s t (fun _ => False) := by
   refine ⟨_,symRun_sound (run_top388 hK.2.1) (codeAt_top388 hK) s hpc
     (by simp [topState388,tb354_388.res,rv_simp]),?_,?_,?_,?_,?_⟩
   · simp [topState388,topEnd388,tb354_388.res,rv_simp]
@@ -451,48 +451,50 @@ set_option maxRecDepth 8192
 set_option maxHeartbeats 1000000
 set_option linter.unusedSimpArgs false
 theorem mask_byte (X : Nat) :
-    (BitVec.ofNat 64 X &&& 3#64).truncate 8=BitVec.ofNat 8 (X%4) := by
-  rw [ofNat_and3]
+    (BitVec.ofNat 64 X &&& 7#64).truncate 8=BitVec.ofNat 8 (X%8) := by
+  rw [ofNat_and7]
   apply BitVec.eq_of_toNat_eq
   simp
+/-- Campaign T8D (NF17): the three raw radix-8 digits above bit 119 (`X = v / 2^119 < 512`): chain 53 = `X % 8`
+(stored first, at `DIGITS + 53`), chain 51 = `X / 8 % 8`, chain 52 = `X / 64 % 8`. -/
 theorem tail_spec {image : Image} {b : Nat} (hK : KernAt image b)
-    (s : MachineState) (hpc : s.pc=pcOf (b+383)) (X : Nat) (hX : X<64)
+    (s : MachineState) (hpc : s.pc=pcOf (b+383)) (X : Nat) (hX : X<512)
     (h6 : s.getReg .x6=BitVec.ofNat 64 X)
     (h21 : s.getReg .x21=BitVec.ofNat 64 (DIGITS+51)) :
     ∃ t, Steps image s 9 9 t ∧ t.pc=s.getReg .x1 &&& ~~~1#64 ∧
       (∀ B, B<2^64 → t.getByte (BitVec.ofNat 64 B)=
-        if B=DIGITS+53 then BitVec.ofNat 8 (X/16%4)
-        else if B=DIGITS+52 then BitVec.ofNat 8 (X/4%4)
-        else if B=DIGITS+51 then BitVec.ofNat 8 (X%4)
+        if B=DIGITS+52 then BitVec.ofNat 8 (X/64%8)
+        else if B=DIGITS+51 then BitVec.ofNat 8 (X/8%8)
+        else if B=DIGITS+53 then BitVec.ofNat 8 (X%8)
         else s.getByte (BitVec.ofNat 64 B)) ∧
       RegsExcept s t [.x6,.x28] ∧ Frame s t Writes := by
   obtain ⟨t1,s1,p1,h28,r1,f1⟩ := tail383_spec hK s hpc
-  obtain ⟨t2,s2,p2,g2,r2,f2⟩ := store_spec t1 (pcOf (b+384)) 0x01ca8023 .x28 0
-    (DIGITS+51) (BitVec.ofNat 8 (X%4)) (codeAt_top384 hK) p1 rfl
-    (by rw [r1.get (by decide),h21];simp [signExtend12])
-    (by rw [h28,h6,mask_byte]) (by omega)
+  obtain ⟨t2,s2,p2,g2,r2,f2⟩ := store_spec t1 (pcOf (b+384)) 0x01ca8123 .x28 2
+    (DIGITS+53) (BitVec.ofNat 8 (X%8)) (codeAt_top384 hK) p1 rfl
+    (by rw [r1.get (by decide),h21]
+        exact ofNat_add_ofNat _ 2) (by rw [h28,h6,mask_byte]) (by omega)
   have p2' : t2.pc=pcOf (b+385) := by simpa only [pcOf_add4,Nat.add_assoc,Nat.reduceAdd] using p2
   obtain ⟨t3,s3,p3,g6a,h28a,r3,f3⟩ := tail385_spec hK t2 p2'
-  have l3 : t3.getReg .x6=BitVec.ofNat 64 (X/4) := by
+  have l3 : t3.getReg .x6=BitVec.ofNat 64 (X/8) := by
     rw [g6a,r2.get (by decide),r1.get (by decide),h6,ofNat_shr _ _ (by omega)]
     rfl
-  have h28a' : t3.getReg .x28=BitVec.ofNat 64 (X/4) &&& 3#64 := by
+  have h28a' : t3.getReg .x28=BitVec.ofNat 64 (X/8) &&& 7#64 := by
     rw [h28a,r2.get (by decide),r1.get (by decide),h6,ofNat_shr _ _ (by omega)]
     rfl
-  obtain ⟨t4,s4,p4,g4,r4,f4⟩ := store_spec t3 (pcOf (b+387)) 0x01ca80a3 .x28 1
-    (DIGITS+52) (BitVec.ofNat 8 (X/4%4)) (codeAt_top387 hK) p3 rfl
-    (by rw [r3.get (by decide),r2.get (by decide),r1.get (by decide),h21]
-        exact ofNat_add_ofNat _ 1) (by rw [h28a',mask_byte]) (by omega)
+  obtain ⟨t4,s4,p4,g4,r4,f4⟩ := store_spec t3 (pcOf (b+387)) 0x01ca8023 .x28 0
+    (DIGITS+51) (BitVec.ofNat 8 (X/8%8)) (codeAt_top387 hK) p3 rfl
+    (by rw [r3.get (by decide),r2.get (by decide),r1.get (by decide),h21];simp [signExtend12])
+    (by rw [h28a',mask_byte]) (by omega)
   have p4' : t4.pc=pcOf (b+388) := by simpa only [pcOf_add4,Nat.add_assoc,Nat.reduceAdd] using p4
   obtain ⟨t5,s5,p5,g6b,h28b,r5,f5⟩ := tail388_spec hK t4 p4'
-  have h28b' : t5.getReg .x28=BitVec.ofNat 64 (X/16) &&& 3#64 := by
+  have h28b' : t5.getReg .x28=BitVec.ofNat 64 (X/64) &&& 7#64 := by
     rw [h28b,r4.get (by decide),l3,ofNat_shr _ _ (by omega)]
     rw [Nat.div_div_eq_div_mul]
     rfl
-  obtain ⟨t6,s6,p6,g6,r6,f6⟩ := store_spec t5 (pcOf (b+390)) 0x01ca8123 .x28 2
-    (DIGITS+53) (BitVec.ofNat 8 (X/16%4)) (codeAt_top390 hK) p5 rfl
+  obtain ⟨t6,s6,p6,g6,r6,f6⟩ := store_spec t5 (pcOf (b+390)) 0x01ca80a3 .x28 1
+    (DIGITS+52) (BitVec.ofNat 8 (X/64%8)) (codeAt_top390 hK) p5 rfl
     (by rw [r5.get (by decide),r4.get (by decide),r3.get (by decide),r2.get (by decide),r1.get (by decide),h21]
-        exact ofNat_add_ofNat _ 2) (by rw [h28b',mask_byte]) (by omega)
+        exact ofNat_add_ofNat _ 1) (by rw [h28b',mask_byte]) (by omega)
   have p6' : t6.pc=pcOf (b+391) := by simpa only [pcOf_add4,Nat.add_assoc,Nat.reduceAdd] using p6
   obtain ⟨t7,s7,p7,r7,f7⟩ := tail391_spec hK t6 p6'
   refine ⟨t7,((((((s1.trans s2).trans s3).trans s4).trans s5).trans s6).trans s7),?_,?_,?_,?_⟩
@@ -547,11 +549,17 @@ open SigGolfCandidate.T3 (Digest)
 set_option maxRecDepth 8192
 set_option maxHeartbeats 1000000
 set_option linter.unusedSimpArgs false
-private theorem tail_digit (v : Digest) (k : Nat) (hk : k<3) :
-    T3.coreDigit 0 (T3.topFlip v) (51+k)=v.toNat/2^119/2^(2*k)%4 := by
-  simp [T3.coreDigit,T3.topCode_topFlip,show ¬51+k<51 by omega,Nat.div_div_eq_div_mul,pow_add]
+private theorem tail_digit53 (v : Digest) :
+    T3.coreDigit 0 (T3.topFlip v) 53 = v.toNat/2^119%8 := by
+  simp [T3.coreDigit,T3.topCode_topFlip,T3.topRawShift]
+private theorem tail_digit51 (v : Digest) :
+    T3.coreDigit 0 (T3.topFlip v) 51 = v.toNat/2^119/8%8 := by
+  simp [T3.coreDigit,T3.topCode_topFlip,T3.topRawShift,Nat.div_div_eq_div_mul]
+private theorem tail_digit52 (v : Digest) :
+    T3.coreDigit 0 (T3.topFlip v) 52 = v.toNat/2^119/64%8 := by
+  simp [T3.coreDigit,T3.topCode_topFlip,T3.topRawShift,Nat.div_div_eq_div_mul]
 theorem topUnpack_spec {image : Image} {b : Nat} (hK : KernAt image b)
-    (s : MachineState) (v : Digest) (hv : v.toNat<2^125)
+    (s : MachineState) (v : Digest)
     (hvalid : T3.topRanksValid (T3.topFlip v)=true) (ht : TableOK s)
     (hpc : s.pc=pcOf (b+363))
     (h6 : s.getReg .x6=v.extractLsb' 0 64)
@@ -570,27 +578,24 @@ theorem topUnpack_spec {image : Image} {b : Nat} (hK : KernAt image b)
     simp [Nat.shiftRight_eq_div_pow]
   obtain ⟨a,sa,ha⟩ := TopUnpack.init_inv hK s v hpc h6' h7' h30 h20
   obtain ⟨m,sm,hm⟩ := TopUnpack.iter hK ht v hvalid ha 17 (by decide)
-  have hx : v.toNat/2^119<64 := by omega
+  have hx : v.toNat/2^119<512 := by have := v.isLt; omega
   obtain ⟨t,st,pt,gt,rt,ft⟩ := TopUnpack.tail_spec hK m (by simpa using hm.pc)
     (v.toNat/2^119) hx (by simpa using hm.lo) (by simpa using hm.ptr)
   refine ⟨t,(sa.trans sm).trans st,?_,?_,?_,?_⟩
   · rw [pt,hm.regs.get (by decide)]
   · intro j hj
     rw [gt _ (by unfold DIGITS;omega)]
-    by_cases h53 : j=53
+    by_cases h52 : j=52
     · subst j
-      simp only [if_pos rfl]
-      simpa using congrArg (BitVec.ofNat 8) (tail_digit v 2 (by decide)).symm
+      rw [if_pos rfl, tail_digit52]
     · rw [if_neg (by omega)]
-      by_cases h52 : j=52
+      by_cases h51 : j=51
       · subst j
-        rw [if_pos rfl]
-        simpa using congrArg (BitVec.ofNat 8) (tail_digit v 1 (by decide)).symm
+        rw [if_pos rfl, tail_digit51]
       · rw [if_neg (by omega)]
-        by_cases h51 : j=51
+        by_cases h53 : j=53
         · subst j
-          rw [if_pos rfl]
-          simpa using congrArg (BitVec.ofNat 8) (tail_digit v 0 (by decide)).symm
+          rw [if_pos rfl, tail_digit53]
         · rw [if_neg (by omega)]
           exact hm.digits j (by omega)
   · exact (hm.regs.trans rt).mono (by decide)

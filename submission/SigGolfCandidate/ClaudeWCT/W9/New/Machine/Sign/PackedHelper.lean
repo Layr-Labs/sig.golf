@@ -8,7 +8,7 @@ open RiscvZkvm.Rv64 SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 def seedHookCode : List (BitVec 32) := [985739375]
 theorem codeAt_seedHookCode : CodeAt image (pcOf 1055) seedHookCode := by
   exact codeAt_sign_slice (by decide +kernel) (by decide +kernel)
-def packedSeedCode : List (BitVec 32) := [67374691,623715,0xb91f706f,335543,0x800e8e93,1667987,233059,134711,84817155,93205891,11448355,12497955,17731219,17826579,40436531,7537459,1266451,33755923,17044755,10707763,1270547,0xf69f606f,19,1700627,0xbf9ec06f]
+def packedSeedCode : List (BitVec 32) := [67374691,623715,0xb91f706f,335543,0x800e8e93,1667987,233059,134711,84817155,93205891,11448355,12497955,17731219,17826579,40436531,7537459,1266451,33755923,17044755,10707763,1270547,0xf69f606f,19,0xbd0ed06f,0xbf9ec06f]
 theorem codeAt_packedSeedCode : CodeAt image (pcOf 20746) packedSeedCode := by
   exact codeAt_sign_slice (by decide +kernel) (by decide +kernel)
 end SigGolfCandidate.T3M.Sign
@@ -48,31 +48,27 @@ theorem and_one_ofNat (x : Nat) (hx : x < 2 ^ 64) :
 theorem hkLook_ok : LookOK Sign.image hkLook := lookOK_of_codeAt Sign.codeAt_seedHookCode (by decide)
 theorem hLook_ok : LookOK Sign.image hLook := lookOK_of_codeAt Sign.codeAt_packedSeedCode (by decide)
 def resHk : PRes := ⟨⟨RegFile.init, [], []⟩, pcOf 20746, false, 1, 1, [], none⟩
+/-- Campaign T8D: the top branch `20746 beq s0` lands on `20769 j TOPSEED (1557)`. -/
 def resTop : PRes :=
-  ⟨⟨rfs [(.x6, .bin .and (.reg .x19) (cst 1))], [], []⟩, pcOf 1056, false, 3, 3, [⟨.eq, .reg .x8, cst 0, true⟩],
-    none⟩
+  ⟨⟨RegFile.init, [], []⟩, pcOf 1557, false, 2, 2, [⟨.eq, .reg .x8, cst 0, true⟩], none⟩
 theorem chk_helper : (optBeq (run hkLook [20746] 1055 []) resHk &&
-    optBeq (run hLook [1056] 20746 [.br true]) resTop) = true := by decide +kernel
+    optBeq (run hLook [1557] 20746 [.br true]) resTop) = true := by decide +kernel
 theorem run_hk : run hkLook [20746] 1055 [] = some resHk := by
   have h := chk_helper; simp only [Bool.and_eq_true] at h; exact optBeq_eq h.1
-theorem run_top : run hLook [1056] 20746 [.br true] = some resTop := by
+theorem run_top : run hLook [1557] 20746 [.br true] = some resTop := by
   have h := chk_helper; simp only [Bool.and_eq_true] at h; exact optBeq_eq h.2
 theorem hook_spec (s : MachineState) (hpc : s.pc = pcOf 1055) :
     ∃ t, Steps Sign.image s 1 1 t ∧ t.pc = pcOf 20746 ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
   obtain ⟨hs, hp, -, hr, hm⟩ := piece hkLook_ok run_hk s hpc rfl (by intro b hb; cases hb) rfl
   exact ⟨_, hs, hp, fun x _ => by rw [hr x]; exact RegFile.init_get_eval s x, fun A _ _ => by rw [hm]; rfl⟩
-theorem top_spec (s : MachineState) (hpc : s.pc = pcOf 20746) (h8 : s.getReg .x8 = BitVec.ofNat 64 0) {j : Nat}
-    (h19 : s.getReg .x19 = BitVec.ofNat 64 j) (hj : j < 2 ^ 32) :
-    ∃ t, Steps Sign.image s 3 3 t ∧ t.pc = pcOf 1056 ∧ t.getReg .x6 = BitVec.ofNat 64 (j % 2) ∧
-      RegsExcept s t [.x6] ∧ Frame s t (fun _ => False) := by
+theorem top_spec (s : MachineState) (hpc : s.pc = pcOf 20746) (h8 : s.getReg .x8 = BitVec.ofNat 64 0) :
+    ∃ t, Steps Sign.image s 2 2 t ∧ t.pc = pcOf 1557 ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
   obtain ⟨hs, hp, -, hr, hm⟩ := piece hLook_ok run_top s hpc rfl (by
     intro b hb
     simp only [resTop, List.mem_singleton] at hb
     subst hb
     simp only [Br.holds, CmpOp.eval, E.eval, cst, h8]; decide) rfl
-  refine ⟨_, hs, hp, ?_, regs_rfs hr, fun A _ _ => by rw [hm]; rfl⟩
-  rw [hr]; show s.getReg .x19 &&& BitVec.ofNat 64 1 = _
-  rw [h19]; exact and_one_ofNat _ (by omega)
+  exact ⟨_, hs, hp, fun x _ => by rw [hr x]; exact RegFile.init_get_eval s x, fun A _ _ => by rw [hm]; rfl⟩
 theorem hdr_or (lay pair : Nat) (hlay : lay < 256) (hp : pair < 2 ^ 32) :
     BitVec.ofNat 64 (lay * 2 ^ 16) ||| BitVec.ofNat 64 (pair * 2 ^ 32) ||| BitVec.ofNat 64 1 =
       BitVec.ofNat 64 (1 + 65536 * lay + 2 ^ 32 * pair) := by

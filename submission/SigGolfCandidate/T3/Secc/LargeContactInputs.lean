@@ -54,10 +54,4 @@ theorem record_inputs (U : Finset HashInput) {α : Type} (program : M α) (state
         · cases hx
         · rw [hadv] at hl
           exact ih middle.1 _ hin' last hl e he x hx
-theorem trace_inputs (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) (result : PaddedGame.TraceResult)
-    (hr : result ∈ (PaddedGame.tracedExperiment adversary q hq).support) :
-    ∀ e ∈ (QueryRecorded.recordedTrace result).events, ∀ x, e.input = .inl (.inr x) →
-      x ∈ Wots.referenceInputs adversary :=
-  record_inputs _ _ (∅, ∅) (Wots.Ref.referenceInputs_inputsIn adversary) _
-    (PaddedExtraction.traced_record_support adversary q hq result hr)
 end SigGolfCandidate.T3.Security.LargeCoupling

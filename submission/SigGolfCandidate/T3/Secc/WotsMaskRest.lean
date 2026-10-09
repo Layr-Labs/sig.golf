@@ -30,57 +30,5 @@ theorem respects_chain_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf 
     _
 variable {T T' : Answers} (hT : ∀ q, Untouched a q → T q = T' q)
 include hT
-theorem leafSeed_congr_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i : Nat) :
-    leafSeed T lay tree leaf i = leafSeed T' lay tree leaf i := by
-  rw [leafSeed_eq, leafSeed_eq, hT (.inr (.inl _)) (fun h => hl (lay_eq_of_header a (h.trans rfl)))]
-theorem leafEnd_congr_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i : Nat) :
-    leafEnd T lay tree leaf i = leafEnd T' lay tree leaf i := by
-  unfold leafEnd
-  rw [leafSeed_congr_of_lay a hT hl]
-  exact (respects_chain_of_lay a hl _ _ _ _ _ _).eval_eq hT
-theorem leafRoot_congr_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf : Nat) :
-    Correctness.leafRoot T lay tree leaf = Correctness.leafRoot T' lay tree leaf := by
-  unfold Correctness.leafRoot
-  rw [List.map_congr_left (fun i _ => leafEnd_congr_of_lay a hT hl tree leaf i)]
-  exact (respects_leafHash a _ _ _ _).eval_eq hT
-theorem builtTree_congr_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree : Nat) :
-    builtTree T lay tree = builtTree T' lay tree := by
-  unfold builtTree
-  have hr : Correctness.leafRoot T lay tree = Correctness.leafRoot T' lay tree :=
-    funext (leafRoot_congr_of_lay a hT hl tree)
-  rw [hr]
-  exact (respects_buildLevels a 3 _ _ _ _ (by decide)).eval_eq hT
-theorem honestForest_congr (index : Nat) : Extract.honestForest T index = Extract.honestForest T' index := by
-  rw [honestForest_eq, honestForest_eq]
-  have hl : ((List.range 7).map fun c => treeValue (evalWithAnswerFn T (buildFts index c)).1 11 0) =
-      (List.range 7).map fun c => treeValue (evalWithAnswerFn T' (buildFts index c)).1 11 0 :=
-    List.map_congr_left fun c _ => congrArg (fun x : List (List Digest) × List Digest => treeValue x.1 11 0)
-      ((respects_buildFts a index c).eval_eq hT)
-  rw [hl]
-  exact (respects_forestPk a _ _).eval_eq hT
-theorem leafMsg_congr : leafMsg T a.key = leafMsg T' a.key := by
-  unfold leafMsg
-  split
-  · rename_i h
-    unfold Extract.honestRoot
-    rw [builtTree_congr_of_lay a hT (fun he => by
-      have := congrArg Fin.val he
-      simp only at this
-      omega)]
-  · exact honestForest_congr a hT _
-theorem referenceSearch_congr : referenceSearch T a.key = referenceSearch T' a.key := by
-  unfold referenceSearch
-  rw [leafMsg_congr a hT]
-  exact (respects_counterSearch a _ _ _ _ _ _).eval_eq hT
 end Mask
-open Mask in
-theorem depth_congr (a : ChainAddr) (T T' : Answers) (hT : ∀ q, Untouched a q → T q = T' q) :
-    depth T a = depth T' a := by
-  unfold depth referenceDigits
-  rw [referenceSearch_congr a hT]
-open Mask in
-theorem referenceDigits_congr (a : ChainAddr) (T T' : Answers) (hT : ∀ q, Untouched a q → T q = T' q) :
-    referenceDigits T a.key = referenceDigits T' a.key := by
-  unfold referenceDigits
-  rw [referenceSearch_congr a hT]
 end SigGolfCandidate.T3.Security.Wots

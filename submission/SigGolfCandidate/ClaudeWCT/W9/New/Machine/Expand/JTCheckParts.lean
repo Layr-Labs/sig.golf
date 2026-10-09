@@ -1,4 +1,4 @@
-import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.RoutineCheck2
+import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.RoutineData
 
 namespace ClaudeWCT.W9.Machine.Expand
 /-- Compose bounded kernel checks without reducing the entire jump-table window at once. -/

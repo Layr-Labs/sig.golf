@@ -17,22 +17,22 @@ def keepLfAll (lay : Nat) : List Reg :=
 def tailRejBr (d : Bool) : Br := ⟨.ne, .reg .x24, kw 0, d⟩
 def lfDirsT : List Dir := [.br false, .jmp]
 def specLfT : Spec := { specLf 0 with steps := 8, brs := [tailRejBr false], cycles := 8 }
+/-- Campaign T8D: the final tail's `bne s8` goes to a local `j REJ` stub (one more jump than main's tail). -/
 def specRejT : Spec :=
-  ⟨[(.x5, kw 1), (.x10, kw 1)], (specLf 0).mem, rejEcall, true, 8, [tailRejBr true], none, 8⟩
-def fusedLeafCheck (k : Nat) : Bool :=
-  specB [] [] baseK (runAt (leafK 0) [] (Nonbinary.gX 17 k) lfDirsT) specLfT [] (postLf 0) (keepLfAll 0)
-def tailRejCheck (k : Nat) : Bool :=
-  specB [] [] [] (runAt (leafK 0) [] (Nonbinary.gX 17 k) [.br true]) specRejT [] [] []
-theorem fusedLeafChecks : (List.range 64).all fusedLeafCheck = true := by
+  ⟨[(.x5, kw 1), (.x10, kw 1)], (specLf 0).mem, rejEcall, true, 9, [tailRejBr true], none, 9⟩
+/-- Campaign T8D: the 8 final tails at `finW y` (after chain 53 with digit `y`). -/
+def fusedLeafCheck (y : Nat) : Bool :=
+  specB [] [] baseK (runAt (leafK 0) [] (Nonbinary.finW y) lfDirsT) specLfT [] (postLf 0) (keepLfAll 0)
+def tailRejCheck (y : Nat) : Bool :=
+  specB [] [] [] (runAt (leafK 0) [] (Nonbinary.finW y) [.br true]) specRejT [] [] []
+theorem fusedLeafChecks : ((List.range 8).all fun y => fusedLeafCheck y) = true := by
   decide +kernel
-theorem tailRejChecks : (List.range 64).all tailRejCheck = true := by
+theorem tailRejChecks : ((List.range 8).all fun y => tailRejCheck y) = true := by
   decide +kernel
-theorem fusedLeafCheck_at (k : Nat) (hk : k < 64) :
-    fusedLeafCheck k = true :=
-  List.all_eq_true.mp fusedLeafChecks k (List.mem_range.mpr hk)
-theorem tailRejCheck_at (k : Nat) (hk : k < 64) :
-    tailRejCheck k = true :=
-  List.all_eq_true.mp tailRejChecks k (List.mem_range.mpr hk)
+theorem fusedLeafCheck_at (y : Nat) (hy : y < 8) : fusedLeafCheck y = true :=
+  List.all_eq_true.mp fusedLeafChecks y (List.mem_range.mpr hy)
+theorem tailRejCheck_at (y : Nat) (hy : y < 8) : tailRejCheck y = true :=
+  List.all_eq_true.mp tailRejChecks y (List.mem_range.mpr hy)
 end SigGolfCandidate.T3M
 end
 
@@ -305,7 +305,7 @@ theorem stabIdx_lt (lay : Nat) : stabIdx lay < 2 ^ 32 := by
   rcases lay with _ | _ | _ | _ | n <;> simp
 structure TopLeafReady (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (ends : List Digest)
     (t : MachineState) : Prop where
-  pc : ∃ k, k < 64 ∧ t.pc = pcOf (Nonbinary.gX 17 k)
+  pc : ∃ y, y < 8 ∧ t.pc = pcOf (Nonbinary.finW y)
   glob : Glob (leafK 0) w pk t
   keep : KnownOK (lfKeepK 0) t
   s7 : t.getReg .x23 = BitVec.ofNat 64 (dispatchHeap 0 (route index 0).1)
@@ -320,8 +320,8 @@ theorem lfKeepK_keep : (lfKeepK 0).all (fun p => decide (p.1 ∈ keepLfAll 0)) =
 theorem leafT_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0) (hidx : index < 2 ^ 31)
     (ends : List Digest) (t : MachineState) (ht : TopLeafReady w pk index c ends t) :
     ∃ u, Steps image t 8 8 u ∧ LeafOut w pk index 0 ends u := by
-  obtain ⟨k, hk, hp⟩ := ht.pc
-  obtain ⟨u, hu⟩ := spec_run (fusedLeafCheck_at k hk) t hp ht.glob.1
+  obtain ⟨y, hy, hp⟩ := ht.pc
+  obtain ⟨u, hu⟩ := spec_run (fusedLeafCheck_at y hy) t hp ht.glob.1
     (by
       intro b hb
       simp only [specLfT, List.mem_singleton] at hb
@@ -374,12 +374,12 @@ theorem leafT_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (
     exact ht.glob.2.2.2.1 536 (by simp [pSlots])
   · exact (hu.orig_const ht.orig).mono (fun o ho => ⟨ho, by simp⟩)
 theorem leafT_reject (t : MachineState)
-    (hp : ∃ k, k < 64 ∧ t.pc = pcOf (Nonbinary.gX 17 k))
+    (hp : ∃ y, y < 8 ∧ t.pc = pcOf (Nonbinary.finW y))
     (hk : KnownOK (leafK 0) t) (h24 : t.getReg .x24 ≠ 0) :
-    ∃ u, Steps image t 8 8 u ∧ fetch image u = some (.base .ECALL) ∧
+    ∃ u, Steps image t 9 9 u ∧ fetch image u = some (.base .ECALL) ∧
       u.getReg .x5 = 1 ∧ u.getReg .x10 = 1 := by
-  obtain ⟨k, hkl, hpc⟩ := hp
-  obtain ⟨u, hu⟩ := spec_run (tailRejCheck_at k hkl) t hpc hk
+  obtain ⟨y, hy, hpc⟩ := hp
+  obtain ⟨u, hu⟩ := spec_run (tailRejCheck_at y hy) t hpc hk
     (by
       intro b hb
       simp only [specRejT, List.mem_singleton] at hb

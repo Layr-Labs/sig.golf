@@ -22,26 +22,17 @@ theorem respectsP_chain_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf
   Respects.mono' (Respects.inter (respects_chain_of_lay a hl tree leaf i start count v)
     (respects_chain_of_lay (slotAddr a) (by rw [slotAddr_lay]; exact hl) tree leaf i start count v))
     fun _ hq => untouchedP_of_untouched a hq
-theorem wotsTweak_ne_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i : Nat) :
-    wotsTweak lay tree leaf i ≠ seedTweakP a := by
-  intro h
-  apply hl
-  unfold wotsTweak seedTweakP seedTweak WCT9.lowerSeedHeader at h
-  split_ifs at h <;> exact lay_eq_of_header a h
 variable {T T' : Answers} (hT : ∀ q, UntouchedP a q → T q = T' q)
 include hT
 theorem wotsSeed_congr_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i : Nat) :
     WCT9.wotsSeed T lay tree leaf i = WCT9.wotsSeed T' lay tree leaf i := by
-  by_cases h0 : lay = 0
-  · rw [wotsSeed_eq _ h0, wotsSeed_eq _ h0, hT (.inr (.inl _)) (wotsTweak_ne_of_lay a hl tree leaf i)]
-  · rw [WCT9.wotsSeed_lower _ h0, WCT9.wotsSeed_lower _ h0]
-    apply lowerSeed_congr_cells
-    intro p
-    apply hT (.inr (.inl _))
-    intro h
-    apply hl
-    unfold seedTweakP seedTweak WCT9.lowerSeedHeader at h
-    split_ifs at h <;> exact lay_eq_of_header a h
+  apply wotsSeed_congr_cells
+  intro p
+  apply hT (.inr (.inl _))
+  intro h
+  apply hl
+  unfold seedTweakP seedTweak WCT9.lowerSeedHeader at h
+  split_ifs at h <;> exact lay_eq_of_header a h
 theorem wotsEnd_congr_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i : Nat) :
     WCT9.wotsEnd T lay tree leaf i = WCT9.wotsEnd T' lay tree leaf i := by
   unfold WCT9.wotsEnd
@@ -80,9 +71,5 @@ end Mask
 theorem depth_congr (a : ChainAddr) (T T' : Answers) (hT : ∀ q, UntouchedP a q → T q = T' q) :
     depth T a = depth T' a := by
   unfold depth referenceDigits
-  rw [Mask.referenceSearch_congr a hT]
-theorem referenceDigits_congr (a : ChainAddr) (T T' : Answers) (hT : ∀ q, UntouchedP a q → T q = T' q) :
-    referenceDigits T a.key = referenceDigits T' a.key := by
-  unfold referenceDigits
   rw [Mask.referenceSearch_congr a hT]
 end ClaudeWCT.W9.T3.Security.Wots

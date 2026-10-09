@@ -23,9 +23,6 @@ noncomputable def cellOf (input : HashInput) (h : IsCell cellInput F input) : F 
   ⟨Classical.choose h, (Classical.choose_spec h).1⟩
 theorem cellOf_input (input : HashInput) (h : IsCell cellInput F input) :
     cellInput (cellOf cellInput F input h).val = input := (Classical.choose_spec h).2
-theorem cellOf_eq (hinj : Function.Injective cellInput) (e : F) (h : IsCell cellInput F (cellInput e.val)) :
-    cellOf cellInput F (cellInput e.val) h = e :=
-  Subtype.ext (hinj (cellOf_input cellInput F _ h))
 noncomputable def translate : QueryImpl RefWorld (OracleComp (World F))
   | .inl (.inl n) => liftM ((World F).query (.inl (.inl (.inl n))))
   | .inl (.inr input) =>
@@ -422,105 +419,9 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance low] Classical.propDecidable
 attribute [local irreducible] referenceGame offlineGame
-def EncodingInput (input : HashInput) : Prop :=
-  ∃ (L : LeafAddr) (message : Digest) (counter : BitVec 32), input = encodingRow L message counter
-def EncodingRow : Answers → T3.Spec.Domain → Prop
-  | _, .inl (.inr input) => EncodingInput input
-  | _, _ => False
-noncomputable def encodingCount (s : RefSample) : Nat :=
-  (s.trace.filter fun e => decide (EncodingRow s.answers (.inl (.inr e.1)))).length
 namespace Enc
-theorem counterSearch_first (T : Answers) (lay : Layer) (tree leaf : Nat) (message : Digest) :
-    ∀ fuel start k digits, k < fuel →
-      (∀ i < k, searchDecode lay ((T (.inl (.inr (pad64 (encodingInput lay tree leaf message
-        (BitVec.ofNat 32 (start + i))))))).extractLsb' 0 128) = none) →
-      searchDecode lay ((T (.inl (.inr (pad64 (encodingInput lay tree leaf message
-        (BitVec.ofNat 32 (start + k))))))).extractLsb' 0 128) = some digits →
-      evalWithAnswerFn T (counterSearch lay tree leaf message start fuel) =
-        some (BitVec.ofNat 32 (start + k), digits) := by
-  intro fuel
-  induction fuel with
-  | zero => intro _ k _ hk; omega
-  | succ fuel ih =>
-      intro start k digits hk hprev hvalid
-      simp only [counterSearch, evalWithAnswerFn_bind, eval_shortHash]
-      rcases k with _ | k
-      · simp only [Nat.add_zero] at hvalid ⊢
-        rw [hvalid]
-        rfl
-      · have h0 := hprev 0 (by omega)
-        simp only [Nat.add_zero] at h0
-        rw [h0]
-        have := ih (start + 1) k digits (by omega)
-          (fun i hi => by rw [show start + 1 + i = start + (i + 1) by omega]; exact hprev (i + 1) (by omega))
-          (by rw [show start + 1 + k = start + (k + 1) by omega]; exact hvalid)
-        rw [show start + (k + 1) = start + 1 + k by omega]
-        exact this
-theorem reached_valid_reference {T : Answers} {L : LeafAddr} {input : HashInput} (hr : Reached T L input)
-    {w : List Nat} (hw : searchDecode L.lay (low (T (.inl (.inr input)))) = some w) :
-    referenceInput T L = some input := by
-  obtain ⟨c, hc, rfl, hprev⟩ := hr
-  have hs : referenceSearch T L = some (BitVec.ofNat 32 c, w) := by
-    unfold referenceSearch
-    have := counterSearch_first T L.lay L.tree L.leaf (leafMsg T L) counterLimit 0 c w hc
-      (fun i hi => by rw [Nat.zero_add]; exact hprev i hi)
-      (by rw [Nat.zero_add]; exact hw)
-    rw [Nat.zero_add] at this
-    exact this
-  unfold referenceInput
-  rw [hs]
-  rfl
-def MatchEntry (T : Answers) (entry : Entry) : Prop :=
-  ∃ (L : CanonGraph.LeafPos) (message : Digest) (counter : BitVec 32),
-    entry.1 = encodingRow (leafOf L) message counter ∧
-      referenceInput T (leafOf L) ≠ some (encodingRow (leafOf L) message counter) ∧
-      decode L.lay (low entry.2) = some (referenceDigits T (leafOf L))
-theorem matchAt_iff (T : Answers) (trace : List Entry) :
-    (∃ L : CanonGraph.LeafPos, EncodingMatchAt T trace (leafOf L)) ↔ ∃ entry ∈ trace, MatchEntry T entry := by
-  constructor
-  · rintro ⟨L, message, counter, answer, hmem, hne, hdec⟩
-    exact ⟨_, hmem, L, message, counter, rfl, hne, hdec⟩
-  · rintro ⟨⟨input, answer⟩, hmem, L, message, counter, rfl, hne, hdec⟩
-    exact ⟨L, message, counter, answer, hmem, hne, hdec⟩
-theorem matchEntry_other (U : Finset HashInput) (privateTable : FullGame.FullTable) (pub : U → HashOutput)
-    (x : HashInput) (hx : ¬ Lazy.IsCell encInput (freeSet (eagerAnswers U privateTable pub)) x) :
-    ¬ MatchEntry (eagerAnswers U privateTable pub) (x, eagerAnswers U privateTable pub (.inl (.inr x))) := by
-  rintro ⟨L, message, counter, he, hne, hdec⟩
-  have hreached : Reached (eagerAnswers U privateTable pub) (leafOf L) x := by
-    by_contra hfree
-    exact hx ⟨(L, message, counter), by
-      change ¬ Reached _ _ (encInput (L, message, counter))
-      rw [show encInput (L, message, counter) = x from he.symm]
-      exact hfree, he.symm⟩
-  have href := reached_valid_reference hreached (WotsExtract.searchDecode_of_reference _ _ hdec)
-  exact hne (he ▸ href)
 section Table
 variable (adversary : AdversaryP) (q : Nat)
-theorem publicUniverse_sub (adversary : AdversaryP) : SeccLaw.publicUniverse ⊆ referenceInputs adversary :=
-  Finset.subset_union_left
-theorem eager_ov_eq (U : Finset HashInput) (hU : SeccLaw.publicUniverse ⊆ U) (privateTable : FullGame.FullTable)
-    (pub : U → HashOutput) (y : freeSet (eagerAnswers U privateTable pub) → HashOutput) :
-    eagerAnswers U privateTable (ov (freeSet (eagerAnswers U privateTable pub)) pub y) =
-      Lazy.overwrite encInput (freeSet (eagerAnswers U privateTable pub)) (eagerAnswers U privateTable pub) y := by
-  funext query
-  rcases query with (n | x) | c
-  · simp only [eagerAnswers, Lazy.overwrite]
-  · by_cases hx : Lazy.IsCell encInput (freeSet (eagerAnswers U privateTable pub)) x
-    · have hxU : x ∈ U := by
-        obtain ⟨e, -, rfl⟩ := hx
-        exact hU (encInput_short e)
-      rw [eagerAnswers_public_mem U privateTable _ ⟨x, hxU⟩]
-      simp only [Lazy.overwrite, dif_pos hx]
-      unfold ov
-      have hx' : ∃ e, e ∈ freeSet (eagerAnswers U privateTable pub) ∧ encInput e = (⟨x, hxU⟩ : U).val := hx
-      rw [dif_pos hx']
-      rfl
-    · simp only [Lazy.overwrite, dif_neg hx]
-      by_cases hxU : x ∈ U
-      · rw [eagerAnswers_public_mem U privateTable _ ⟨x, hxU⟩, eagerAnswers_public_mem U privateTable _ ⟨x, hxU⟩]
-        exact ov_other _ _ _ _ (fun e he heq => hx ⟨e, he, heq⟩)
-      · rw [eagerAnswers_public_not_mem U _ _ x hxU, eagerAnswers_public_not_mem U _ _ x hxU]
-  · simp only [eagerAnswers, Lazy.overwrite]
 theorem probOutput_complete_univ' {ι : Type} [Fintype ι] [DecidableEq ι] (y : ι → HashOutput) :
     Pr[= y | complete (fun _ : ι => (Finset.univ : Finset HashOutput))] = PMF.uniformOfFintype (ι → HashOutput) y := by
   rw [complete_of_nonempty _ (fun _ => Finset.univ_nonempty), SPMF.probOutput_eq_apply, SPMF.liftM_apply,
@@ -533,36 +434,12 @@ theorem probOutput_complete_univ {ι : Type} [Fintype ι] [DecidableEq ι] (iX :
     Pr[= y | complete (fun _ : ι => (Finset.univ : Finset HashOutput))] =
       @PMF.uniformOfFintype (ι → HashOutput) iX _ y :=
   (probOutput_complete_univ' y).trans (uniformOfFintype_inst _ iX y)
-theorem eager_ovk_eq (U : Finset HashInput) (hU : SeccLaw.publicUniverse ⊆ U) (privateTable : FullGame.FullTable)
-    (pub : U → HashOutput) (k : Set EncIndex) (y : k → HashOutput) :
-    eagerAnswers U privateTable (ov k pub y) = Lazy.overwrite encInput k (eagerAnswers U privateTable pub) y := by
-  funext query
-  rcases query with (n | x) | c
-  · simp only [eagerAnswers, Lazy.overwrite]
-  · by_cases hx : Lazy.IsCell encInput k x
-    · have hxU : x ∈ U := by
-        obtain ⟨e, -, rfl⟩ := hx
-        exact hU (encInput_short e)
-      rw [eagerAnswers_public_mem U privateTable _ ⟨x, hxU⟩]
-      simp only [Lazy.overwrite, dif_pos hx]
-      unfold ov
-      have hx' : ∃ e, e ∈ k ∧ encInput e = (⟨x, hxU⟩ : U).val := hx
-      rw [dif_pos hx']
-      rfl
-    · simp only [Lazy.overwrite, dif_neg hx]
-      by_cases hxU : x ∈ U
-      · rw [eagerAnswers_public_mem U privateTable _ ⟨x, hxU⟩, eagerAnswers_public_mem U privateTable _ ⟨x, hxU⟩]
-        exact ov_other _ _ _ _ (fun e he heq => hx ⟨e, he, heq⟩)
-      · rw [eagerAnswers_public_not_mem U _ _ x hxU, eagerAnswers_public_not_mem U _ _ x hxU]
-  · simp only [eagerAnswers, Lazy.overwrite]
 theorem probOutput_complete_init {ι : Type} [Fintype ι] [DecidableEq ι] (init : ι → Finset HashOutput)
     (hinit : ∀ e, (init e).Nonempty) (y : ι → HashOutput) :
     Pr[= y | complete init] =
       PMF.uniformOfFinset (Fintype.piFinset init) (Fintype.piFinset_nonempty.mpr hinit) y := by
   rw [complete_of_nonempty _ hinit, SPMF.probOutput_eq_apply, SPMF.liftM_apply]
   rfl
-noncomputable def matchInd (s : RefSample) : ENNReal :=
-  if ∃ L : CanonGraph.LeafPos, EncodingMatchAt s.answers s.trace (leafOf L) then 1 else 0
 theorem marks_unit (P : Entry → Prop) (tr : List Entry) :
     (Lazy.marks (fun (_ : Unit) => P) tr : ENNReal) = if ∃ entry ∈ tr, P entry then 1 else 0 := by
   unfold Lazy.marks
@@ -571,18 +448,6 @@ theorem marks_unit (P : Entry → Prop) (tr : List Entry) :
     simp
   · rw [if_neg h, Finset.filter_false_of_mem (fun _ _ => h)]
     simp
-theorem encodingCount_mkSample (T : Answers) (r : SeedResult) :
-    (encodingCount (mkSample T r) : ENNReal) =
-      (((traceOf T r.2).filter fun e => decide (EncodingInput e.1)).length : ENNReal) := rfl
-theorem cellCount_le_encoding (F : Set EncIndex) (tr : List Entry) :
-    Lazy.cellCount encInput F tr ≤ (tr.filter fun e => decide (EncodingInput e.1)).length := by
-  unfold Lazy.cellCount
-  apply List.Sublist.length_le
-  apply List.monotone_filter_right
-  intro e he
-  simp only [decide_eq_true_eq] at he ⊢
-  obtain ⟨x, -, hx⟩ := he
-  exact ⟨_, _, _, hx.symm⟩
 end Table
 end Enc
 end SigGolfCandidate.T3.Security.Wots

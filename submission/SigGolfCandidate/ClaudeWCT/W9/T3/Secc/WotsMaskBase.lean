@@ -16,10 +16,6 @@ def seedSlot (a : ChainAddr) : Nat :=
   if a.key.lay = 0 then a.chain else WCT9.lowerOrdinal a.key.lay a.key.leaf a.chain
 def seedTweakP (a : ChainAddr) : BitVec 128 :=
   if a.key.lay = 0 then seedTweak a else WCT9.lowerSeedHeader a.key.lay a.key.tree (seedSlot a / 2)
-theorem seedTweakP_top {a : ChainAddr} (h : a.key.lay = 0) : seedTweakP a = seedTweak a := by
-  unfold seedTweakP; rw [if_pos h]
-theorem seedSlot_top {a : ChainAddr} (h : a.key.lay = 0) : seedSlot a = a.chain := by
-  unfold seedSlot; rw [if_pos h]
 def slotAddr (a : ChainAddr) : ChainAddr :=
   if a.key.lay = 0 then a else ⟨⟨a.key.lay, a.key.tree, 0⟩, 2 * (seedSlot a / 2)⟩
 theorem seedTweak_slotAddr (a : ChainAddr) : seedTweak (slotAddr a) = seedTweakP a := by
@@ -38,8 +34,9 @@ def UntouchedP (a : ChainAddr) : Spec.Domain → Prop
   | _ => True
 noncomputable def prefixStep (answers : Answers) (a : ChainAddr) (input : HashInput) : Option Nat :=
   if h : ∃ step value, step < depth answers a ∧ input = chainRow a step value then some (Classical.choose h) else none
-/-- Mask of chain `a`: its rows below `depth` answer `0` (the last one answers the frontier). For a top chain the
-seed half-cell is blanked too; lower seeds are evaluations of the leaf family (campaign X1 stage B) and stay. -/
+/-- Mask of chain `a`: its rows below `depth` answer `0` (the last one answers the frontier). Seeds are evaluations
+of their leaf family at every layer (campaign X1 stage B, top leaves since campaign T8D), so no private cell is
+blanked. -/
 noncomputable def maskAt (answers : Answers) (a : ChainAddr) : Answers
   | .inl (.inr input) =>
       match prefixStep answers a input with
@@ -47,13 +44,7 @@ noncomputable def maskAt (answers : Answers) (a : ChainAddr) : Answers
           else (0 : HashOutput)
       | none => answers (.inl (.inr input))
   | .inl (.inl coin) => answers (.inl (.inl coin))
-  | .inr (.inl tweak) =>
-      if tweak = seedTweakP a ∧ 1 ≤ depth answers a ∧ a.key.lay = 0 then
-        (let output := answers (.inr (.inl tweak))
-         if seedSlot a % 2 = 0 then ChainGraph.joinOutput 0 (output.extractLsb' 128 128)
-         else ChainGraph.joinOutput (output.extractLsb' 0 128) 0)
-      else answers (.inr (.inl tweak))
-  | .inr (.inr other) => answers (.inr (.inr other))
+  | .inr c => answers (.inr c)
 namespace Mask
 open SigGolfCandidate.T3.Security.Wots.Mask in
 theorem Respects.inter {S₁ S₂ : Spec.Domain → Prop} {α : Type} {p : M α} (h₁ : Respects S₁ p) (h₂ : Respects S₂ p) :
@@ -158,18 +149,16 @@ theorem maskAt_public (answers : Answers) (a : ChainAddr) (input : HashInput) :
       | some step => if step + 1 = depth answers a then ChainGraph.joinOutput (frontierValue answers a) 0
           else (0 : HashOutput)
       | none => answers (.inl (.inr input)) := rfl
+theorem maskAt_private (answers : Answers) (a : ChainAddr) (c : Coordinate) :
+    maskAt answers a (.inr c) = answers (.inr c) := rfl
 theorem maskAt_tweak (answers : Answers) (a : ChainAddr) (tweak : BitVec 128) :
-    maskAt answers a (.inr (.inl tweak)) =
-      if tweak = seedTweakP a ∧ 1 ≤ depth answers a ∧ a.key.lay = 0 then
-        (if seedSlot a % 2 = 0 then ChainGraph.joinOutput 0 ((answers (.inr (.inl tweak))).extractLsb' 128 128)
-         else ChainGraph.joinOutput ((answers (.inr (.inl tweak))).extractLsb' 0 128) 0)
-      else answers (.inr (.inl tweak)) := rfl
+    maskAt answers a (.inr (.inl tweak)) = answers (.inr (.inl tweak)) := rfl
 theorem maskAt_untouched (answers : Answers) (a : ChainAddr) {q : Spec.Domain} (h : UntouchedP a q) :
     maskAt answers a q = answers q := by
   rcases q with (coin | input) | (tweak | other)
   · rfl
   · rw [maskAt_public, prefixStep_untouched h]
-  · rw [maskAt_tweak, if_neg (fun h' => h h'.1)]
+  · rfl
   · rfl
 theorem maskAt_prefix (answers : Answers) (a : ChainAddr) {s : Nat} (v : Digest) (hs : s < depth answers a) :
     maskAt answers a (.inl (.inr (chainRow a s v))) =
@@ -189,7 +178,7 @@ theorem maskAt_of_depth_zero (answers : Answers) (a : ChainAddr) (hd : depth ans
     cases hp : prefixStep answers a input with
     | none => rfl
     | some step => have := (prefixStep_spec hp).1; omega
-  · rw [maskAt_tweak, if_neg (by omega)]
+  · rfl
   · rfl
 theorem eval_maskAt_of_respects (answers : Answers) (a : ChainAddr) {α : Type} {program : M α}
     (h : Respects (UntouchedP a) program) :
@@ -201,9 +190,6 @@ theorem queried_maskAt_of_respects (answers : Answers) (a : ChainAddr) {α : Typ
   (h _ _ fun _ hq => maskAt_untouched answers a hq).2
 section Programs
 variable (a : ChainAddr)
-theorem respectsP_forestPk (index : Nat) (pairs : List (Digest × Digest)) :
-    Respects (UntouchedP a) (ClaudeWCT.WCT9.forestPk index pairs) :=
-  Respects.untouchedP (fun c => ClaudeWCT.WCT9.Wots.Mask.respects_forestPk c index pairs) a
 theorem respectsP_signForest (index : Nat) (output : HashOutput) :
     Respects (UntouchedP a) (ClaudeWCT.WCT9.signForest index output) :=
   Respects.untouchedP (fun c => ClaudeWCT.WCT9.Wots.Mask.respects_signForest c index output) a
@@ -228,9 +214,6 @@ theorem respectsP_privateNonce (message : Message) : Respects (UntouchedP a) (pr
   Respects.untouchedP (fun c => respects_privateNonce c message) a
 theorem respectsP_mask (level index : Nat) : Respects (UntouchedP a) (mask level index) :=
   Respects.untouchedP (fun c => respects_mask c level index) a
-theorem respectsP_nodeHash (tag lay tree heap : Nat) (left right : Digest) (ht : tag % 256 ≠ 1) :
-    Respects (UntouchedP a) (nodeHash tag lay tree heap left right) :=
-  Respects.untouchedP (fun c => respects_nodeHash c tag lay tree heap left right ht) a
 theorem respectsP_buildLevels (tag lay tree h : Nat) (leaves : List Digest) (ht : tag % 256 ≠ 1) :
     Respects (UntouchedP a) (buildLevels tag lay tree h leaves) :=
   Respects.untouchedP (fun c => respects_buildLevels c tag lay tree h leaves ht) a

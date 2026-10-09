@@ -231,18 +231,13 @@ theorem cs130_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (
     by_cases h : T3.lowerSpare v <;> simp [h]
   · intro r hr; simp at hr; cases r <;> simp_all [st_130, blk354_130.res, rv_simp] <;> rfl
   · intro A _ _; simp [st_130, blk354_130.res, rv_simp]
-theorem cs263_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 263)) (v : BitVec 128)
-    (h7 : s.getReg .x7 = v.extractLsb' 64 64) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = (if v.toNat < 2 ^ 125 then pcOf (b + 265) else pcOf (b + 468)) ∧
-      RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
+/-- Campaign T8D (NF17): the former 2^125 range check at `b + 263` is two NOPs. -/
+theorem cs263_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 263)) :
+    ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf (b + 265) ∧
+      RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_263 hK.2.1) (codeAt_k_263 hK) s hpc (by simp [st_263, blk354_263.res, rv_simp]),
     ?_, ?_, ?_⟩
-  · simp only [Result.toState_pc, pcE_263, rebase, blk354_263.res, E.eval, CmpOp.eval, BinOp.eval, h7,
-      BitVec.toNat_ofNat, Nat.reduceMod]
-    have := ext64_shr_eq_zero v 61 (by decide)
-    rw [show (64 + 61 : Nat) = 125 from rfl] at this
-    simp only [Nat.reducePow, Nat.reduceMod, bne_iff_ne, ne_eq, this]
-    split_ifs <;> first | rfl | omega
+  · simp [pcE_263, E.eval]
   · intro r hr; simp at hr; cases r <;> simp_all [st_263, blk354_263.res, rv_simp] <;> rfl
   · intro A _ _; simp [st_263, blk354_263.res, rv_simp]
 theorem cs132_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 132)) (v : BitVec 128)

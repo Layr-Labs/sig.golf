@@ -49,7 +49,7 @@ theorem ftsLabel_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin
   · rw [if_neg h0, if_neg h0]
     cases ftsNodeAt index coord (level - 1) c <;> rfl
 theorem width_ge (lay : Layer) (i : Nat) : 2 ≤ width lay i := by
-  unfold width; split_ifs <;> norm_num
+  unfold width; norm_num
 theorem cell_eq_cellValues (s : Secrets) (L : Labels) (N : CanonGraph.Node) :
     cell s N L = cellValues N (coordVal s L) := by
   cases N with
@@ -83,66 +83,6 @@ theorem cell_eq_cellValues (s : Secrets) (L : Labels) (N : CanonGraph.Node) :
   | forest index =>
       change pad64 (Extract.forestInput _ ((List.range 7).map fun c => ftsLabel L index (fin7 c) 11 0)) = _
       congr 3
-theorem coordVal_from (v : Coord → Digest) :
-    coordVal (fun x => v (.inr x)) (joinLabels (fun M => v (.inl M)) fun _ => 0) = v := by
-  funext c
-  cases c with
-  | inl M => exact joinLabels_low _ _ M
-  | inr x => rfl
-theorem cellFrom_eq (N : CanonGraph.Node) (v : Coord → Digest) : cellFrom N v = cellValues N v := by
-  unfold cellFrom
-  rw [cell_eq_cellValues, coordVal_from]
-theorem cellValues_congr (N : CanonGraph.Node) (v v' : Coord → Digest)
-    (h : ∀ cs ∈ childSlots N, v cs.1 = v' cs.1) : cellValues N v = cellValues N v' := by
-  cases N with
-  | chain p =>
-      have := h (chainChild p, 3) (by simp [childSlots])
-      simp only [cellValues, this]
-  | leaf L =>
-      simp only [cellValues]
-      congr 2
-      exact List.map_congr_left (fun i hi => h _ (by simp only [childSlots, List.mem_map]; exact ⟨i, hi, rfl⟩))
-  | node n =>
-      simp only [cellValues]
-      have h1 : ((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val)).map v).getD 0 =
-          ((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val)).map v').getD 0 := by
-        cases hc : treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val) with
-        | none => rfl
-        | some c =>
-            have := h (c, 0) (by simp [childSlots, hc])
-            simp [this]
-      have h2 : ((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val + 1)).map v).getD 0 =
-          ((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val + 1)).map v').getD 0 := by
-        cases hc : treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val + 1) with
-        | none => rfl
-        | some c =>
-            have := h (c, 3) (by simp [childSlots, hc])
-            simp [this]
-      rw [h1, h2]
-  | ftsLeaf f =>
-      have := h (.inr (.inr f), 2) (by simp [childSlots])
-      simp only [cellValues, this]
-  | ftsNode n =>
-      simp only [cellValues]
-      have h1 : ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val)).map v).getD 0 =
-          ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val)).map v').getD 0 := by
-        cases hc : ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val) with
-        | none => rfl
-        | some c =>
-            have := h (c, 0) (by simp [childSlots, hc])
-            simp [this]
-      have h2 : ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)).map v).getD 0 =
-          ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)).map v').getD 0 := by
-        cases hc : ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1) with
-        | none => rfl
-        | some c =>
-            have := h (c, 3) (by simp [childSlots, hc])
-            simp [this]
-      rw [h1, h2]
-  | forest index =>
-      simp only [cellValues]
-      congr 2
-      exact List.map_congr_left (fun c hc => h _ (by simp only [childSlots, List.mem_map]; exact ⟨c, hc, rfl⟩))
 theorem slotValue_append_left (X Y : HashInput) (k : Nat) (hk : 16 * (k + 1) ≤ X.length) :
     slotValue (X ++ Y) k = slotValue X k := by
   unfold slotValue

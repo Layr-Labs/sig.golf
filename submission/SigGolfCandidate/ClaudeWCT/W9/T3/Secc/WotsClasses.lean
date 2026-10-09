@@ -108,45 +108,6 @@ theorem prefixRow_otherQuery_disjoint (T : Answers) (input : SigGolfCandidate.T3
     · exact hpad v rfl
     · omega
   · exact hP
-def NonChainPos : Extract.Pos → Prop
-  | .chain _ _ _ _ _ => False
-  | _ => True
-def FtsPos : Extract.Pos → Prop
-  | .wctChain _ _ _ _ _ => True
-  | .wctLeaf _ _ _ => True
-  | .wctNode _ _ _ _ => True
-  | .forest _ => True
-  | _ => False
-theorem FtsPos.nonChain {p : Extract.Pos} (h : FtsPos p) : NonChainPos p := by
-  cases p <;> first | exact h.elim | trivial
-theorem otherQuery_of_nonChain (T : Answers) {x : HashInput} {p : Extract.Pos} (hpos : Extract.posOf x = some p)
-    (hb : p.Bounded) (hsrc : WotsExtract.PosSource p) (hp : NonChainPos p) :
-    OtherQuery T (.inl (.inr x)) := by
-  refine ⟨p, hpos, hb, hsrc, ?_⟩
-  cases p <;> first | exact hp.elim | trivial
-theorem ftsRow_not_prefixRow (T : Answers) {x : HashInput} {p : Extract.Pos} (hpos : Extract.posOf x = some p)
-    (hp : FtsPos p) : ¬PrefixRow T (.inl (.inr x)) := by
-  rintro ⟨a, ha, s, v, hs, rfl⟩
-  obtain ⟨htree, hleaf, hc⟩ := sourceChain_bounds ha
-  have h7 := Mask.depth_le_seven T a
-  rw [SmallA.posOf_chainRow a s v htree hleaf hc (by omega)] at hpos
-  cases hpos
-  exact hp
-theorem ftsRow_not_encodingRow (T : Answers) {x : HashInput} {p : Extract.Pos} (hpos : Extract.posOf x = some p) :
-    ¬EncodingRow T (.inl (.inr x)) := by
-  rintro ⟨L, m, c, pad, -, rfl⟩
-  have hnone : Extract.posOf (encRow L m c pad) = none := Structural.posOf_layerEncodingP _ _ _ _ _ _ _
-  rw [hnone] at hpos
-  cases hpos
-theorem ftsRow_not_digest {x : HashInput} {p : Extract.Pos} (hpos : Extract.posOf x = some p) :
-    ¬IsDigestQuery (.inl (.inr x)) := by
-  rintro ⟨rho, m, c, he⟩
-  have hx : x = pad64 (digestInput rho m c) := by injection he with h; injection h
-  rw [hx, Structural.posOf_digest] at hpos
-  cases hpos
-theorem fts_tags_disjoint {tag : Nat} (h : tag = 5 ∨ tag = 6 ∨ tag = 11 ∨ tag = 15) :
-    tag % 256 ≠ 1 ∧ tag % 256 ≠ 4 ∧ tag % 256 ≠ 12 := by
-  rcases h with rfl | rfl | rfl | rfl <;> decide
 theorem encodingRow_digest_disjoint (T : Answers) (input : SigGolfCandidate.T3.Spec.Domain) :
     ¬(EncodingRow T input ∧ IsDigestQuery input) := by
   rintro ⟨hE, rho, m, c, rfl⟩
@@ -174,8 +135,6 @@ theorem shortCongruent_otherQuery : ShortCongruent OtherQuery := by
   · exact Iff.rfl
 noncomputable def refExpect (adversary : AdversaryP) (q : Nat) (f : RefSample → Nat) : ENNReal :=
   ∑' s, referenceExperiment adversary q s * (f s : ENNReal)
-theorem prefixClassCount_eq (s : RefSample) : prefixClassCount s = refCount PrefixRow s := rfl
-theorem otherCount_eq (s : RefSample) : otherCount s = refCount OtherQuery s := rfl
 theorem reference_class_budget (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
     refExpect adversary q prefixClassCount + refExpect adversary q encodingCount + refExpect adversary q otherCount +
       SeccLaw.expectedCharge adversary q hq digestClass ≤ q :=

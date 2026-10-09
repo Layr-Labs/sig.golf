@@ -13,7 +13,7 @@ theorem prefix_run (a : Nat) (ha : a ∈ aVals) (pc : Word) :
     symRun { noAlias := true } (prefixWordsOf a) pc 200 = some (prefixRes a) := by
   simp only [aVals, List.mem_cons, List.not_mem_nil, or_false] at ha
   rcases ha with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> rfl
-theorem tail_field (v : Digest) : (v.extractLsb' 64 64 >>> 55) = BitVec.ofNat 64 (v.toNat / 2 ^ 119) := by
+theorem tail_field (v : Digest) : (v.extractLsb' 64 64 >>> 58) = BitVec.ofNat 64 (v.toNat / 2 ^ 122) := by
   apply BitVec.eq_of_toNat_eq
   have hv := v.isLt
   simp only [BitVec.toNat_ushiftRight, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, BitVec.toNat_ofNat]
@@ -26,7 +26,7 @@ theorem prefix_spec (s : MachineState) (v : Digest) (a d p : Nat) (ha : a ∈ aV
     (hmask : s.getMem 0xffbff8#64 = 130048#64) (h10 : s.getReg .x10 = BitVec.ofNat 64 a) :
     ∃ t, Steps Verify.image s 8 8 t ∧ t.pc = prefixTarget v ∧
       t.getReg .x16 = v.extractLsb' 0 64 ∧ t.getReg .x17 = v.extractLsb' 64 64 ∧
-      t.getReg .x29 = BitVec.ofNat 64 (v.toNat / 2 ^ 119) ∧
+      t.getReg .x29 = BitVec.ofNat 64 (v.toNat / 2 ^ 122) ∧
       t.getReg .x8 = 11904#64 ∧ t.getReg .x6 = 130048#64 ∧
       RegsExcept s t [.x16,.x17,.x29,.x6,.x8,.x14] ∧ Frame s t (fun _ => False) := by
   have hm : s.getMem (s.getReg .x9 + 232#64) = 130048#64 := by
@@ -87,11 +87,11 @@ theorem flip_hi (v : Digest) :
 theorem flip_toNat (v : Digest) : (T3.topFlip v).toNat = v.toNat ^^^ (2 ^ 119 - 1) := by
   unfold T3.topFlip T3.topMask
   rw [BitVec.toNat_xor, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by norm_num)]
-theorem flip_tail (v : Digest) : (T3.topFlip v).toNat / 2 ^ 119 = v.toNat / 2 ^ 119 := by
+theorem flip_tail (v : Digest) : (T3.topFlip v).toNat / 2 ^ 122 = v.toNat / 2 ^ 122 := by
   rw [flip_toNat]
   apply Nat.eq_of_testBit_eq; intro j
   rw [Nat.testBit_div_two_pow, Nat.testBit_div_two_pow, Nat.testBit_xor, testBit_topMask]
-  simp
+  simp [show ¬ (j + 122 < 119) by omega]
 theorem flip_low7 (v : Digest) : (T3.topFlip v).toNat % 128 = 127 - v.toNat % 128 := by
   rw [flip_toNat, show (v.toNat ^^^ (2 ^ 119 - 1)) % 128 = (v.toNat ^^^ (2 ^ 119 - 1)) % 2 ^ 7 from rfl,
     show v.toNat % 128 = v.toNat % 2 ^ 7 from rfl, Nat.xor_mod_two_pow,
@@ -155,7 +155,7 @@ structure TopEntry (u : MachineState) (v : Digest) (p : Nat) (s : MachineState) 
   ra : s.getReg .x9 = BitVec.ofNat 64 TOPB9
   lo : s.getReg .x16 = v.extractLsb' 0 64
   hi : s.getReg .x17 = v.extractLsb' 64 64
-  tail : s.getReg .x29 = BitVec.ofNat 64 (v.toNat / 2 ^ 119)
+  tail : s.getReg .x29 = BitVec.ofNat 64 (v.toNat / 2 ^ 122)
   s3 : s.getReg .x8 = 11904#64
   mask : s.getReg .x6 = 130048#64
   table : s.getReg .x2 = 0x3fe00#64

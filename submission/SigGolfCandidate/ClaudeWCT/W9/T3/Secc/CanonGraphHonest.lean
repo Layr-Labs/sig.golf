@@ -266,15 +266,6 @@ theorem ftsPair_eq (h : Agrees answers labels) (index : Fin (2^31)) (coord : Fin
     Extract.ftsPair answers index.val coord.val = (ftsLabel labels index coord 6 0, ftsLabel labels index coord 6 1) := by
   unfold Extract.ftsPair
   rw [ftsTree_eq h index coord 6 0 le_rfl (by decide), ftsTree_eq h index coord 6 1 le_rfl (by decide)]
-theorem ftsPair_label (h : Agrees answers labels) (index : Fin (2^31)) (coord : Fin 9) :
-    Extract.ftsPair answers index.val coord.val =
-      ((labels (.wctNode (ftsTopNode index coord 0))).extractLsb' 0 128,
-        (labels (.wctNode (ftsTopNode index coord 1))).extractLsb' 0 128) := by
-  rw [ftsPair_eq h]
-  have h0 := ftsLabel_top labels index coord 0
-  have h1 := ftsLabel_top labels index coord 1
-  simp only [Fin.val_zero, Fin.val_one] at h0 h1
-  rw [h0, h1]
 theorem ftsPairs_eq (h : Agrees answers labels) (index : Fin (2^31)) :
     Extract.ftsPairsHonest answers index.val =
       (List.range 9).map fun coord => (ftsLabel labels index (fin9 coord) 6 0, ftsLabel labels index (fin9 coord) 6 1) := by
@@ -337,11 +328,5 @@ theorem honest_answer (h : Agrees answers labels) (node : Node) :
     answers (.inl (.inr (Extract.honestInput answers node.toPos))) = labels node := by
   rw [honestInput_eq h node]
   exact h node
-theorem frontierValue_eq (h : Agrees answers labels) (a : Address)
-    (hdepth : Wots.depth answers ⟨⟨a.layer, a.tree.val, a.leaf.val⟩, a.chain.val⟩ ≤ 7) :
-    Wots.frontierValue answers ⟨⟨a.layer, a.tree.val, a.leaf.val⟩, a.chain.val⟩ =
-      ChainGraph.value (seedsOf (secretsOf answers)) (chainLabels labels) a
-        (Wots.depth answers ⟨⟨a.layer, a.tree.val, a.leaf.val⟩, a.chain.val⟩) :=
-  chainValue_eq h a _ hdepth
 end Honest
 end ClaudeWCT.W9.T3.Security.CanonGraph

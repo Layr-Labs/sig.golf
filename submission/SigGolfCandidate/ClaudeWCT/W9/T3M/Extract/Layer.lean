@@ -86,7 +86,7 @@ theorem route_routed_bound (index : Nat) (lay : Layer) (hidx : index < 2 ^ 31) :
   exact lt_of_le_of_lt (Nat.div_le_self _ _) (lt_trans hidx (by norm_num))
 theorem height_le (lay : Layer) : height lay ≤ 12 := by fin_cases lay <;> decide
 theorem chainCount_le (lay : Layer) : chainCount lay ≤ 58 := by fin_cases lay <;> decide
-theorem width_le (lay : Layer) (i : Nat) : width lay i ≤ 3 := by unfold width; split_ifs <;> omega
+theorem width_le (lay : Layer) (i : Nat) : width lay i ≤ 3 := by unfold width; omega
 theorem layerLeaf_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat)
     (hidx : index < 2 ^ 31) (hvalid : Cost.ValidDigits lay digits)
     (hv0 : evalWithAnswerFn answers (layerLeafP w index lay digits) =

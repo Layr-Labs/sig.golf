@@ -1,4 +1,4 @@
-import SigGolfCandidate.T3.Core
+import Mathlib
 
 /-!
 # GF(2^128) arithmetic and polynomial seed families (arithmetic chain seeds)
@@ -7,10 +7,12 @@ Field: GF(2)[X] / (X^128 + X^7 + X^2 + X + 1) (the GCM polynomial). A 128-bit va
 whose coefficient of `X^i` is bit `i` of `a`. Seeds of a family are `familyEval coefs pt`, the Horner evaluation of
 the polynomial with coefficients `coefs` (constant term first) at the small point `pt < 1024`, read as a polynomial
 of degree < 10. Only multiplication by such small points is needed, so `gfMulSmall` folds once.
+
+Campaign T8D: this module no longer imports `T3.Core` (values are `BitVec 128`, i.e. `T3.Digest`), so that
+`T3.Core` can define the top WOTS seed family (`T3.topSeed`) with `familyEval`.
 -/
 
 namespace ClaudeWCT.Arith
-open SigGolfCandidate.T3
 
 /-- Carry-less product of `a` by the low `fuel` bits of `d`. -/
 def clmulSmall (a d : Nat) : Nat → Nat
@@ -24,10 +26,10 @@ def gfFold (c : Nat) : Nat := (c % 2 ^ 128) ^^^ clmulSmall (c >>> 128) 0x87 8
 def gfMulSmall (a d : Nat) : Nat := gfFold (clmulSmall a d 10)
 
 /-- Product of a 128-bit value by a small point. -/
-def gfMulPt (a : Digest) (pt : Nat) : Digest := BitVec.ofNat 128 (gfMulSmall a.toNat pt)
+def gfMulPt (a : BitVec 128) (pt : Nat) : BitVec 128 := BitVec.ofNat 128 (gfMulSmall a.toNat pt)
 
 /-- Horner evaluation in GF(2^128) at `pt`: `coefs = [c0, c1, ..., cm]` gives `c0 + pt·(c1 + pt·(... cm))`. -/
-def familyEval (coefs : List Digest) (pt : Nat) : Digest :=
+def familyEval (coefs : List (BitVec 128)) (pt : Nat) : BitVec 128 :=
   coefs.foldr (fun c acc => gfMulPt acc pt ^^^ c) 0
 
 example : gfMulSmall 5 3 = 15 := by decide

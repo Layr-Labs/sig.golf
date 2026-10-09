@@ -547,7 +547,7 @@ theorem buildLeafPF_tbsim (hlay : A.lay ≠ 0) (hso : A.so = false) (hpc : s0.pc
   have hLO : LOUT = 132032 := rfl
   obtain ⟨t1, st1, t1pc, t1x3, t1x19, t1l16, t1l24, t1r, t1f⟩ :=
     Sign.Seed.sub27_spec hsub s0 hpc A.lay A.tree A.leaf (by have := hpre.hroute; omega) hpre.x8 hpre.x9 hpre.x18
-      (Or.inr h15)
+      (Or.inr h15) hlay
   have h0 : LeafInv s0 A 0 ([], []) t1 := by
     refine ⟨t1x19, ?_, by rw [t1x3, hpre.x1], t1r.mono (by decide), t1f.mono (fun X _ h => ?_), t1l16,
       t1l24, by simp, rfl, fun _ c hc => absurd hc (by omega), DigsAt.nil _ _⟩

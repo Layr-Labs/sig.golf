@@ -315,38 +315,6 @@ theorem markEntry_sum_init_le (T : Answers) (k : CellKey) (e : k.1) :
   apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
   simp only [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_ofNat]
   norm_num
-theorem markEntry_sum_cell_le (T : Answers) (e : EncIndex) :
-    ∑ p : CanonGraph.LeafPos × Fin 58,
-      Pr[fun ans => WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e, ans) |
-        ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 2865 / (2 : ENNReal) ^ 128 := by
-  classical
-  have hb : ∀ p : CanonGraph.LeafPos × Fin 58,
-      Pr[fun ans => WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e, ans) |
-        ($ᵗ HashOutput : ProbComp HashOutput)] ≤ if p.1 = e.1.1 then
-          (if p.2.val < 54 then (53053 / 1000) / (2 : ENNReal) ^ 128 else 0) else 0 := by
-    intro p
-    split_ifs with hp hc
-    · exact (probEvent_mono fun ans _ h => h.2).trans (markEntry_cell_le_tight T _ _)
-    · apply le_of_eq
-      apply probEvent_eq_zero
-      rintro ans - ⟨hsource, -⟩
-      have hcount := chainCount_le_54 p.1.lay
-      have hchain : p.2.val < chainCount p.1.lay := hsource.2
-      omega
-    · apply le_of_eq
-      apply probEvent_eq_zero
-      rintro ans - ⟨hsrc, message, counter, pad, digits, -, he, -⟩
-      exact hp (encInput_leaf hsrc.1 (he.trans rfl : encInput e = encRow (leafOf p.1) message counter pad)).symm
-  refine (Finset.sum_le_sum fun p _ => hb p).trans ?_
-  rw [Fintype.sum_prod_type, Finset.sum_eq_single e.1.1 (fun L _ hL => by simp [hL]) (by simp)]
-  simp only [if_true]
-  have hn : (Finset.univ.filter (fun i : Fin 58 => i.val < 54)).card = 54 := by decide
-  rw [← Finset.sum_filter, Finset.sum_const, hn, nsmul_eq_mul]
-  rw [← mul_div_assoc]
-  gcongr
-  apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
-  simp only [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_ofNat]
-  norm_num
 theorem markEntry_noncell (U : Finset HashInput) (privateTable : FullGame.FullTable) (pub : U → HashOutput)
     (x : HashInput) (hx : ¬ Lazy.IsCell encInput (cellKey (eagerAnswers U privateTable pub)).1 x)
     (p : CanonGraph.LeafPos × Fin 58) :

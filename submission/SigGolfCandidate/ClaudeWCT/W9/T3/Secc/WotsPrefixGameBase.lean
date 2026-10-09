@@ -61,26 +61,20 @@ theorem restTable_nonmem (R : RefTables adversary) (input : HashInput) (h : inpu
   rfl
 theorem restTable_private (R : RefTables adversary) (coordinate : Coordinate) :
     restTable R (.inr coordinate) = R.1 coordinate := rfl
-theorem restTable_coin (R : RefTables adversary) (n : Nat) :
-    restTable R (.inl (.inl n)) = (⟨0, Nat.zero_lt_succ n⟩ : Fin (n + 1)) := rfl
 noncomputable def ovPub (a : ChainAddr) (d : Nat) (pub : referenceInputs adversary → HashOutput)
     (tables : Fin d → Digest → Digest) : referenceInputs adversary → HashOutput := fun x =>
   match rowOf a d x.val with
   | some p => ChainGraph.joinOutput (tables p.1 p.2) (high (pub x))
   | none => pub x
-/-- Override of chain `a`'s seed half-cell. Only top seeds are cells; a lower seed is an evaluation of its leaf
-family (campaign X1 stage B), so for lower chains the private table is left unchanged. -/
-noncomputable def ovPrivP (a : ChainAddr) (priv : FullGame.FullTable) (seed : Digest) : FullGame.FullTable :=
-  if a.key.lay = 0 then
-    Function.update priv (.inl (seedTweakP a)) (setSeed (parAddr a) (priv (.inl (seedTweakP a))) seed)
-  else priv
-/-- The seed of chain `a` in `ov a d R x`: `x.2` for a top chain, the (unchanged) family seed for a lower chain. -/
-noncomputable def ovSeed (a : ChainAddr) (R : RefTables adversary) (seed : Digest) : Digest :=
-  if a.key.lay = 0 then seed else WCT9.wotsSeed (restTable R) a.key.lay a.key.tree a.key.leaf a.chain
+/-- The seed of chain `a` in `ov a d R x`: its leaf-family evaluation (every layer: campaign X1 stage B, top leaves
+since campaign T8D), unchanged by `ov`; the seed component of `Hidden` is a dummy. -/
+noncomputable def ovSeed (a : ChainAddr) (R : RefTables adversary) (_seed : Digest) : Digest :=
+  WCT9.wotsSeed (restTable R) a.key.lay a.key.tree a.key.leaf a.chain
+/-- Override of chain `a`'s prefix rows (the private table is unchanged). -/
 noncomputable def ov (a : ChainAddr) (d : Nat) (R : RefTables adversary) (x : Hidden d) : RefTables adversary :=
-  (ovPrivP a R.1 x.2, ovPub a d R.2 x.1)
+  (R.1, ovPub a d R.2 x.1)
 noncomputable def rd (a : ChainAddr) (d : Nat) (R : RefTables adversary) : Hidden d :=
-  (fun i v => low (R.2 ⟨chainRow a i v, chainRow_mem a i v⟩), seedHalf (parAddr a) (R.1 (.inl (seedTweakP a))))
+  (fun i v => low (R.2 ⟨chainRow a i v, chainRow_mem a i v⟩), 0)
 theorem ovPub_row (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (pub : referenceInputs adversary → HashOutput)
     (tables : Fin d → Digest → Digest) (i : Fin d) (v : Digest) :
     ovPub a d pub tables ⟨chainRow a i v, chainRow_mem a i v⟩ =
@@ -92,17 +86,6 @@ theorem ovPub_none (a : ChainAddr) {d : Nat} (pub : referenceInputs adversary �
     ovPub a d pub tables x = pub x := by
   unfold ovPub
   rw [h]
-theorem rd_ov (a : ChainAddr) (hl : a.key.lay = 0) {d : Nat} (hd : d ≤ 256) (R : RefTables adversary) (x : Hidden d) :
-    rd a d (ov a d R x) = x := by
-  obtain ⟨tables, seed⟩ := x
-  unfold rd ov
-  simp only
-  refine Prod.ext ?_ ?_
-  · funext i v
-    simp only
-    rw [ovPub_row a hd, low, ChainGraph.joinOutput_low]
-  · simp only [ovPrivP, if_pos hl, Function.update_self]
-    exact seedHalf_setSeed (parAddr a) _ seed
 theorem rd_ov_rows (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables adversary) (x : Hidden d) :
     (rd a d (ov a d R x)).1 = x.1 := by
   obtain ⟨tables, seed⟩ := x
@@ -110,22 +93,16 @@ theorem rd_ov_rows (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables adv
   funext i v
   simp only
   rw [ovPub_row a hd, low, ChainGraph.joinOutput_low]
-/-- For a lower chain `ov` ignores the seed component. -/
-theorem ov_seed_irrel (a : ChainAddr) (hl : a.key.lay ≠ 0) {d : Nat} (R : RefTables adversary)
-    (t : Fin d → Digest → Digest) (s s' : Digest) : ov a d R (t, s) = ov a d R (t, s') := by
-  unfold ov ovPrivP
-  simp only [if_neg hl]
+/-- `ov` ignores the seed component. -/
+theorem ov_seed_irrel (a : ChainAddr) {d : Nat} (R : RefTables adversary)
+    (t : Fin d → Digest → Digest) (s s' : Digest) : ov a d R (t, s) = ov a d R (t, s') := rfl
 theorem ov_ov_rd (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables adversary) (x : Hidden d) :
     ov a d (ov a d R x) (rd a d R) = R := by
   obtain ⟨priv, pub⟩ := R
   obtain ⟨tables, seed⟩ := x
   unfold ov rd
   simp only
-  refine Prod.ext ?_ ?_
-  · by_cases hl : a.key.lay = 0
-    · simp only [ovPrivP, if_pos hl, Function.update_self, Function.update_idem, setSeed_setSeed, setSeed_seedHalf,
-        Function.update_eq_self]
-    · simp only [ovPrivP, if_neg hl]
+  refine Prod.ext rfl ?_
   · funext y
     unfold ovPub
     cases hp : rowOf a d y.val with
@@ -148,22 +125,8 @@ theorem restTable_ov_untouched (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : R
       | none => rfl
       | some p => exact absurd (rowOf_some hp) (hq p.1 p.2 (by have := p.1.isLt; omega))
     · rw [restTable_nonmem _ _ h, restTable_nonmem _ _ h]
-  · rw [restTable_private, restTable_private]
-    unfold ov ovPrivP
-    simp only
-    split_ifs
-    · rw [Function.update_of_ne]
-      intro he
-      exact hq (Sum.inl.inj he)
-    · rfl
-  · rw [restTable_private, restTable_private]
-    unfold ov ovPrivP
-    simp only
-    split_ifs
-    · rw [Function.update_of_ne]
-      intro he
-      cases he
-    · rfl
+  · rfl
+  · rfl
 theorem restTable_ov_prefix (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables adversary) (x : Hidden d)
     (i : Fin d) (v : Digest) :
     restTable (ov a d R x) (.inl (.inr (chainRow a i v))) =
@@ -177,28 +140,9 @@ theorem restTable_ov_nonprefix (a : ChainAddr) {d : Nat} (R : RefTables adversar
   · rw [restTable_mem _ _ hm, restTable_mem _ _ hm]
     exact ovPub_none a R.2 x.1 _ h
   · rw [restTable_nonmem _ _ hm, restTable_nonmem _ _ hm]
-theorem restTable_ov_seed (a : ChainAddr) (hl : a.key.lay = 0) {d : Nat} (R : RefTables adversary) (x : Hidden d) :
-    restTable (ov a d R x) (.inr (.inl (seedTweakP a))) =
-      setSeed (parAddr a) (restTable R (.inr (.inl (seedTweakP a)))) x.2 := by
-  rw [restTable_private, restTable_private]
-  unfold ov ovPrivP
-  simp only [if_pos hl, Function.update_self]
-/-- A lower chain's `ov` leaves the private table alone. -/
-theorem restTable_ov_private_lower (a : ChainAddr) (hl : a.key.lay ≠ 0) {d : Nat} (R : RefTables adversary)
-    (x : Hidden d) (coordinate : Coordinate) :
-    restTable (ov a d R x) (.inr coordinate) = restTable R (.inr coordinate) := by
-  rw [restTable_private, restTable_private]
-  unfold ov ovPrivP
-  simp only [if_neg hl]
+/-- `ov` leaves the private table alone. -/
 theorem restTable_ov_private (a : ChainAddr) {d : Nat} (R : RefTables adversary) (x : Hidden d)
-    (coordinate : Coordinate) (hc : coordinate ≠ .inl (seedTweakP a)) :
-    restTable (ov a d R x) (.inr coordinate) = restTable R (.inr coordinate) := by
-  rw [restTable_private, restTable_private]
-  unfold ov ovPrivP
-  simp only
-  split_ifs
-  · rw [Function.update_of_ne hc]
-  · rfl
+    (coordinate : Coordinate) : restTable (ov a d R x) (.inr coordinate) = restTable R (.inr coordinate) := rfl
 theorem depth_ov (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables adversary) (x : Hidden d) (b : ChainAddr)
     (hb : b = a) : depth (restTable (ov a d R x)) b = depth (restTable R) b := by
   subst hb
@@ -212,18 +156,8 @@ theorem restDepth_ov (a : ChainAddr) (R : RefTables adversary) (x : Hidden (rest
     _ = depth (restTable R) a := depth_ov a hd R x a rfl
     _ = restDepth a R := (restDepth_eq a R).symm
 theorem wotsSeed_ov (a : ChainAddr) {d : Nat} (R : RefTables adversary) (x : Hidden d) :
-    WCT9.wotsSeed (restTable (ov a d R x)) a.key.lay a.key.tree a.key.leaf a.chain = ovSeed a R x.2 := by
-  by_cases hl : a.key.lay = 0
-  · rw [Mask.wotsSeed_eq _ hl, Mask.wotsTweak_self, Mask.wotsPar_self, restTable_ov_seed a hl]
-    have := seedHalf_setSeed (parAddr a) (restTable R (.inr (.inl (seedTweakP a)))) x.2
-    unfold seedHalf at this
-    rw [parAddr_chain_mod] at this
-    unfold ovSeed
-    rw [if_pos hl]
-    exact this
-  · unfold ovSeed
-    rw [if_neg hl, WCT9.wotsSeed_lower _ hl, WCT9.wotsSeed_lower _ hl]
-    exact Mask.lowerSeed_congr_cells _ _ _ fun p => restTable_ov_private_lower a hl R x _
+    WCT9.wotsSeed (restTable (ov a d R x)) a.key.lay a.key.tree a.key.leaf a.chain = ovSeed a R x.2 :=
+  Mask.wotsSeed_congr_private (fun c => restTable_ov_private a R x c) _ _ _ _
 theorem eval_chain_ov (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables adversary) (x : Hidden d) :
     ∀ (n s : Nat) (hn : s + n ≤ d) (v : Digest),
       evalWithAnswerFn (restTable (ov a d R x)) (chain a.key.lay a.key.tree a.key.leaf a.chain s n v) =

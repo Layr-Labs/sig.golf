@@ -436,7 +436,7 @@ theorem rl1030_spec (hpc : s.pc = pcOf 1030) :
 theorem rl1158_spec (hpc : s.pc = pcOf 1158) (i n4 : Nat) (hi : i < 2 ^ 63) (hn : n4 < 2 ^ 63)
     (h19 : s.getReg .x19 = BitVec.ofNat 64 i) (h27 : s.getReg .x27 = BitVec.ofNat 64 n4) :
     ∃ t, Steps image s 2 2 t ∧ t.pc = (if i < n4 then pcOf 1160 else pcOf 1031) ∧
-      t.getReg .x21 = BitVec.ofNat 64 3 ∧ RegsExcept s t [.x21] ∧ Frame s t (fun _ => False) := by
+      t.getReg .x21 = BitVec.ofNat 64 7 ∧ RegsExcept s t [.x21] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound eblk_1158 codeAt_1158 s hpc (by simp [eblk_1158.res, rv_simp]), ?_, ?_, ?_, ?_⟩
   · simp only [Result.toState_pc, eblk_1158.res, E.eval, CmpOp.eval, h19, h27]
     rw [ex_slt i n4 hi hn]

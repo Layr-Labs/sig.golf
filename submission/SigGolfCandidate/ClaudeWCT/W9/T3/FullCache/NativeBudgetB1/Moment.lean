@@ -67,42 +67,21 @@ theorem V_layerCounterSearch_fresh (secret : BitVec 256) (lay : Layer)
       (ClaudeWCT.WCT9.layerCounterSearch lay tree leaf msg counter fuel) cache ≤ E.envelope lay :=
   V_layerCounterSearch secret _ _ (E.envelope_ge_one lay) lay tree leaf msg (E.moment_step lay) fuel counter
     hlimit cache hfresh
-set_option linter.unusedTactic false in
-set_option linter.unreachableTactic false in
 theorem bound_topPart (cache : Cache) (leaf : Nat) (out : Option (BitVec 32 × List Nat))
     (hout : ∀ counter digits, out = some (counter, digits) →
       digits.length = chainCount (Fin.ofNat 4 0) ∧ digits.sum = target (Fin.ofNat 4 0) ∧
         ValidDigits (Fin.ofNat 4 0) digits) :
     ∃ post, SigGolfCandidate.T3.Cost.CBound post (layerFixedCost 1)
       (signTop cache leaf ((out.map Prod.snd).getD dummyTop)) := by
-  first
-  | (have hdig : ((out.map Prod.snd).getD dummyTop).length = 54 ∧
-        ((out.map Prod.snd).getD dummyTop).sum = 126 := by
-       cases out with
-       | none => exact ⟨by decide, by decide⟩
-       | some pair =>
-           obtain ⟨counter, digits⟩ := pair
-           have hd := hout counter digits rfl
-           exact ⟨hd.1, hd.2.1⟩
-     exact ⟨_, (bound_signTop cache _ _ hdig.1 hdig.2).mono_k (by simp [layerFixedCost])⟩)
-  | (have hdig : ((out.map Prod.snd).getD dummyTop).length = 54 ∧
-        ((out.map Prod.snd).getD dummyTop).sum ≤ 128 := by
-       cases out with
-       | none => exact ⟨by decide, by decide⟩
-       | some pair =>
-           obtain ⟨counter, digits⟩ := pair
-           have hd := hout counter digits rfl
-           exact ⟨hd.1, hd.2.1.trans_le (by decide)⟩
-     exact ⟨_, (bound_signTop cache _ _ hdig.1 hdig.2).mono_k (by simp [layerFixedCost])⟩)
-  | (have hdig : ((out.map Prod.snd).getD dummyTop).length = 54 ∧
-        ((out.map Prod.snd).getD dummyTop).sum ≤ 129 := by
-       cases out with
-       | none => exact ⟨by decide, by decide⟩
-       | some pair =>
-           obtain ⟨counter, digits⟩ := pair
-           have hd := hout counter digits rfl
-           exact ⟨hd.1, hd.2.1.trans_le (by decide)⟩
-     exact ⟨_, (bound_signTop cache _ _ hdig.1 hdig.2).mono_k (by simp [layerFixedCost])⟩)
+  have hdig : ((out.map Prod.snd).getD dummyTop).length = 54 ∧
+      ((out.map Prod.snd).getD dummyTop).sum ≤ 144 := by
+    cases out with
+    | none => exact ⟨by decide, by decide⟩
+    | some pair =>
+        obtain ⟨counter, digits⟩ := pair
+        have hd := hout counter digits rfl
+        exact ⟨hd.1, hd.2.1.trans_le (by decide)⟩
+  exact ⟨_, (bound_signTop cache _ _ hdig.1 hdig.2).mono_k (by simp [layerFixedCost])⟩
 section AvoidsSupport
 open SigGolfCandidate.T3.Freshness (Avoids avoids_pure avoids_bind)
 theorem avoids_bind_support {α β : Type} {secret : BitVec 256} {target : HashInput} {program : M α}
@@ -343,8 +322,9 @@ noncomputable def Envelopes.v5 : Envelopes where
   ge_one := by intro lay; fin_cases lay <;> norm_num [V5.b1, V5.b2, V5.b3, V5.b4]
   step := by
     intro lay
-    fin_cases lay <;> norm_num [producerRate, ClaudeWCT.W9.T3.ProducerV5.producerCount, V5.topCount129,
-      V5.lowerCount198f5, V5.lowerCount199f4, SigGolfCandidate.T3.BaseAudit.zU, V5.b1, V5.b2, V5.b3, V5.b4]
+    fin_cases lay <;> norm_num [producerRate, ClaudeWCT.W9.T3.ProducerV5.producerCount, V5.topCount144,
+      V5.lowerCount199f5, V5.lowerCount199f4, SigGolfCandidate.T3.BaseAudit.zU, V5.b1, V5.b2,
+      V5.b3, V5.b4]
 end ClaudeWCT.W9.T3.LayerBudget
 end
 section

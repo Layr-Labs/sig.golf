@@ -18,83 +18,6 @@ attribute [local irreducible] referenceGame offlineGame
 namespace PrefixGame
 open SigGolfCandidate.T3.Security.Wots.PrefixGame
 variable {adversary : AdversaryP}
-theorem reference_map_eq_mixture_of (q : Nat) (a : ChainAddr) (ha : WotsExtract.SourceChain a) (hl : a.key.lay = 0)
-    {Res β : Type}
-    (game : (R : RefTables adversary) → Digest → OracleComp (SeedSpec (restDepth a R)) Res)
-    (out : Res → SeedResult) (hgame : ∀ R endpoint, out <$> game R endpoint = seedGame adversary q a R endpoint)
-    (f : RefSample → β)
-    (g : (R : RefTables adversary) → Digest × (Res × (Fin (restDepth a R) → Digest → Option Digest)) → β)
-    (hfg : ∀ (R : RefTables adversary) (x : Hidden (restDepth a R))
-      (res : Res × (Fin (restDepth a R) → Digest → Option Digest)),
-      res ∈ (observedRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl x.1 (game R (evaluate x.1 x.2))
-        (fun _ _ => none)).support →
-      f (mkSample (restTable (ov a (restDepth a R) R x)) (out res.1)) = g R (evaluate x.1 x.2, res)) :
-    (referenceExperiment adversary q).map f =
-      (restLaw adversary).bind (fun R =>
-        (realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (game R) (fun _ _ => none)).map (g R)) := by
-  have htree : a.key.tree < 2 ^ 40 := by have := ha.1.1; omega
-  have hleaf : a.key.leaf < 2 ^ 24 := by
-    have h1 := ha.1.2
-    have h2 : 2 ^ height a.key.lay ≤ 2 ^ 24 := Nat.pow_le_pow_right (by norm_num) (by
-      have := height_le a.key.lay; omega)
-    omega
-  rw [reference_eq_bind, PMF.map_bind, restLaw_resample adversary a]
-  apply congrArg (restLaw adversary).bind
-  funext R
-  rw [uniform_prod, PMF.bind_bind]
-  simp only [PMF.bind_map]
-  simp only [realRun, SphincsSecurity.Concrete.PartialChainEndpoint.completeTables_empty,
-    SphincsSecurity.Concrete.EndpointPreimageDensity.real, PMF.map_bind, PMF.bind_bind, PMF.bind_map,
-    PMF.map_comp, Function.comp_def]
-  apply congrArg (PMF.uniformOfFintype (Fin (restDepth a R) → Digest → Digest)).bind
-  funext t
-  apply congrArg (PMF.uniformOfFintype Digest).bind
-  funext s
-  have hfix := fixed_seedGame (adversary := adversary) q a htree hleaf R (t, s)
-  dsimp only at hfix
-  rw [ovSeed_top hl] at hfix
-  rw [← hgame, simulateQ_map, PMF.monad_map_eq_map] at hfix
-  rw [← hfix, ← SphincsSecurity.Concrete.PartialChainEndpoint.observedRun_forget _ _ _ (fun _ _ => none),
-    PMF.map_comp, PMF.map_comp]
-  exact map_congr_support _ _ _ fun res hres => hfg R (t, s) res hres
-theorem reference_prob_eq_of (q : Nat) (a : ChainAddr) (ha : WotsExtract.SourceChain a) (hl : a.key.lay = 0)
-    {Res : Type}
-    (game : (R : RefTables adversary) → Digest → OracleComp (SeedSpec (restDepth a R)) Res)
-    (out : Res → SeedResult) (hgame : ∀ R endpoint, out <$> game R endpoint = seedGame adversary q a R endpoint)
-    (E : RefSample → Prop)
-    (F : (R : RefTables adversary) → Digest × (Res × (Fin (restDepth a R) → Digest → Option Digest)) → Prop)
-    (hEF : ∀ (R : RefTables adversary) (x : Hidden (restDepth a R))
-      (res : Res × (Fin (restDepth a R) → Digest → Option Digest)),
-      res ∈ (observedRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl x.1 (game R (evaluate x.1 x.2))
-        (fun _ _ => none)).support →
-      (E (mkSample (restTable (ov a (restDepth a R) R x)) (out res.1)) ↔ F R (evaluate x.1 x.2, res))) :
-    Pr[E | referenceExperiment adversary q] =
-      ∑' R, restLaw adversary R * Pr[F R |
-        realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (game R) (fun _ _ => none)] := by
-  have h := congrArg (fun law : PMF Prop => Pr[fun p => p | law])
-    (reference_map_eq_mixture_of q a ha hl game out hgame E F (fun R x res hres => propext (hEF R x res hres)))
-  simp only [← PMF.monad_map_eq_map, probEvent_map, ← PMF.monad_bind_eq_bind, probEvent_bind_eq_tsum,
-    PMF.probOutput_eq_apply, Function.comp_def] at h
-  exact h
-theorem reference_expectation_eq_of (q : Nat) (a : ChainAddr) (ha : WotsExtract.SourceChain a) (hl : a.key.lay = 0)
-    {Res : Type}
-    (game : (R : RefTables adversary) → Digest → OracleComp (SeedSpec (restDepth a R)) Res)
-    (out : Res → SeedResult) (hgame : ∀ R endpoint, out <$> game R endpoint = seedGame adversary q a R endpoint)
-    (f : RefSample → ENNReal)
-    (g : (R : RefTables adversary) → Digest × (Res × (Fin (restDepth a R) → Digest → Option Digest)) → ENNReal)
-    (hfg : ∀ (R : RefTables adversary) (x : Hidden (restDepth a R))
-      (res : Res × (Fin (restDepth a R) → Digest → Option Digest)),
-      res ∈ (observedRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl x.1 (game R (evaluate x.1 x.2))
-        (fun _ _ => none)).support →
-      f (mkSample (restTable (ov a (restDepth a R) R x)) (out res.1)) = g R (evaluate x.1 x.2, res)) :
-    ∑' s, referenceExperiment adversary q s * f s =
-      ∑' R, restLaw adversary R * ∑' r,
-        realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (game R) (fun _ _ => none) r * g R r := by
-  have h := congrArg (fun law : PMF ENNReal => ∑' v, law v * v)
-    (reference_map_eq_mixture_of q a ha hl game out hgame f g hfg)
-  simp only [SphincsSecurity.Concrete.PartialChainEndpoint.expectation_map,
-    SphincsSecurity.Concrete.PartialChainEndpoint.expectation_bind] at h
-  exact h
 theorem fixed_pausedSeed (q : Nat) (a : ChainAddr) (htree : a.key.tree < 2 ^ 40) (hleaf : a.key.leaf < 2 ^ 24)
     (R : RefTables adversary) (x : Hidden (restDepth a R)) (stop : List Entry → Prop) :
     simulateQ (fixedImpl SphincsSecurity.Concrete.OtsPrefix.uniformImpl x.1)
@@ -144,10 +67,6 @@ theorem contactAt_take_mono (T : Answers) (trace : List Entry) (a : ChainAddr) {
     (h : ContactAt T (trace.take j) a) : ContactAt T (trace.take k) a := by
   obtain ⟨hd, value, answer, hm, hl⟩ := h
   exact ⟨hd, value, answer, (List.take_prefix_take_left hjk).subset hm, hl⟩
-theorem contactAt_take_full (T : Answers) (trace : List Entry) (a : ChainAddr) {k : Nat}
-    (h : ContactAt T (trace.take k) a) : ContactAt T trace a := by
-  obtain ⟨hd, value, answer, hm, hl⟩ := h
-  exact ⟨hd, value, answer, List.mem_of_mem_take hm, hl⟩
 theorem contactAt_congr {T T' : Answers} (trace : List Entry) (a : ChainAddr) (hd : depth T a = depth T' a)
     (hf : frontierValue T a = frontierValue T' a) : ContactAt T trace a ↔ ContactAt T' trace a := by
   unfold ContactAt
@@ -410,39 +329,6 @@ theorem charge_coupled :
 end Couple
 end PrefixGame
 
-open PrefixGame in
-/-- Top chains: contact after the stop, against the stop. -/
-theorem reference_contactAfterStop_le (adversary : AdversaryP) (q : Nat) (hq : q < 2 ^ 128) (a : ChainAddr)
-    (ha : WotsExtract.SourceChain a) (hl : a.key.lay = 0) (Stop : Answers → List Entry → Prop)
-    (hmask : ∀ T trace, Stop (maskAt T a) trace ↔ Stop T trace) :
-    (1 - (q : ENNReal) / 2 ^ 128) *
-        ((2 ^ 128 : ENNReal) * Pr[fun s => ContactAfterStop Stop s.answers s.trace a | referenceExperiment adversary q]) ≤
-      ((2 * q : ℕ) : ENNReal) * Pr[fun s => ∃ k, Stop s.answers (s.trace.take k) | referenceExperiment adversary q] := by
-  have hCAS := reference_prob_eq_of q a ha hl (restartGame adversary q a Stop) Prod.snd
-    (fun R e => restartGame_snd q a Stop R e) (fun s => ContactAfterStop Stop s.answers s.trace a) (genCAS Stop a)
-    (fun R x res hres => by
-      have h := cas_coupled q a ha Stop hmask R x res (by rw [ovSeed_top hl]; exact hres)
-      rw [ovSeed_top hl] at h; exact h)
-  have hSTOP := reference_prob_eq_of q a ha hl (restartGame adversary q a Stop) Prod.snd
-    (fun R e => restartGame_snd q a Stop R e) (fun s => ∃ k, Stop s.answers (s.trace.take k)) (genStop Stop a)
-    (fun R x res hres => by
-      have h := stop_coupled q a ha Stop hmask R x res (by rw [ovSeed_top hl]; exact hres)
-      rw [ovSeed_top hl] at h; exact h)
-  rw [hCAS, hSTOP, ← ENNReal.tsum_mul_left, ← ENNReal.tsum_mul_left, ← ENNReal.tsum_mul_left]
-  apply ENNReal.tsum_le_tsum
-  intro R
-  calc (1 - (q : ENNReal) / 2 ^ 128) * ((2 ^ 128 : ENNReal) * (restLaw adversary R * Pr[genCAS Stop a R |
-        realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (restartGame adversary q a Stop R)
-          (fun _ _ => none)]))
-      = restLaw adversary R * ((1 - (q : ENNReal) / 2 ^ 128) * ((2 ^ 128 : ENNReal) * Pr[genCAS Stop a R |
-        realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (restartGame adversary q a Stop R)
-          (fun _ _ => none)])) := by ring
-    _ ≤ restLaw adversary R * (((2 * q : ℕ) : ENNReal) * Pr[genStop Stop a R |
-        realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (restartGame adversary q a Stop R)
-          (fun _ _ => none)]) := mul_le_mul' le_rfl (restart_le_R q hq a Stop R)
-    _ = ((2 * q : ℕ) : ENNReal) * (restLaw adversary R * Pr[genStop Stop a R |
-        realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (restartGame adversary q a Stop R)
-          (fun _ _ => none)]) := by ring
 theorem markerAt_maskAt (T : Answers) (trace : List Entry) (a : ChainAddr) (hal : Mask.MaskOK a) :
     MarkerAt (maskAt T a) trace a ↔ MarkerAt T trace a := by
   unfold MarkerAt
@@ -460,46 +346,4 @@ theorem sourceChain_maskOK (a : ChainAddr) (ha : WotsExtract.SourceChain a) : Ma
     have h2 : 2 ^ height a.key.lay ≤ 2 ^ 24 := Nat.pow_le_pow_right (by norm_num) (by
       have := height_le a.key.lay; omega)
     omega)
-/-- Top chains: contact after the marker, against the marker. -/
-theorem reference_markerFirst_at_le (adversary : AdversaryP) (q : Nat) (hq : q < 2 ^ 128) (a : ChainAddr)
-    (ha : WotsExtract.SourceChain a) (hl : a.key.lay = 0) :
-    (1 - (q : ENNReal) / 2 ^ 128) *
-        ((2 ^ 128 : ENNReal) * Pr[fun s => ContactAfterStop (fun T trace => MarkerAt T trace a) s.answers s.trace a |
-          referenceExperiment adversary q]) ≤
-      ((2 * q : ℕ) : ENNReal) * Pr[fun s => MarkerAt s.answers s.trace a | referenceExperiment adversary q] := by
-  have h := reference_contactAfterStop_le adversary q hq a ha hl (fun T trace => MarkerAt T trace a)
-    (fun T trace => markerAt_maskAt T trace a (sourceChain_maskOK a ha))
-  simpa only [markerAt_take_exists] using h
-open PrefixGame in
-/-- Top chains: contact after the stop, against the prefix charge. -/
-theorem reference_contactAfterStop_charge (adversary : AdversaryP) (q : Nat) (hq : q < 2 ^ 128) (a : ChainAddr)
-    (ha : WotsExtract.SourceChain a) (hl : a.key.lay = 0) (Stop : Answers → List Entry → Prop)
-    (hmask : ∀ T trace, Stop (maskAt T a) trace ↔ Stop T trace) :
-    (1 - (q : ENNReal) / 2 ^ 128) *
-        ((2 ^ 128 : ENNReal) * Pr[fun s => ContactAfterStop Stop s.answers s.trace a | referenceExperiment adversary q]) ≤
-      ∑' s, referenceExperiment adversary q s * (((2 * prefixCount a s : ℕ) : ENNReal) *
-        (if ∃ k, Stop s.answers (s.trace.take k) then 1 else 0)) := by
-  have hCAS := reference_prob_eq_of q a ha hl (restartGame adversary q a Stop) Prod.snd
-    (fun R e => restartGame_snd q a Stop R e) (fun s => ContactAfterStop Stop s.answers s.trace a) (genCAS Stop a)
-    (fun R x res hres => by
-      have h := cas_coupled q a ha Stop hmask R x res (by rw [ovSeed_top hl]; exact hres)
-      rw [ovSeed_top hl] at h; exact h)
-  have hCHARGE := reference_expectation_eq_of q a ha hl (restartGame adversary q a Stop) Prod.snd
-    (fun R e => restartGame_snd q a Stop R e)
-    (fun s => ((2 * prefixCount a s : ℕ) : ENNReal) * (if ∃ k, Stop s.answers (s.trace.take k) then 1 else 0))
-    (genCharge Stop a) (fun R x res hres => by
-      have h := charge_coupled q a ha Stop hmask R x res (by rw [ovSeed_top hl]; exact hres)
-      rw [ovSeed_top hl] at h; exact h)
-  rw [hCAS, hCHARGE, ← ENNReal.tsum_mul_left, ← ENNReal.tsum_mul_left]
-  apply ENNReal.tsum_le_tsum
-  intro R
-  calc (1 - (q : ENNReal) / 2 ^ 128) * ((2 ^ 128 : ENNReal) * (restLaw adversary R * Pr[genCAS Stop a R |
-        realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (restartGame adversary q a Stop R)
-          (fun _ _ => none)]))
-      = restLaw adversary R * ((1 - (q : ENNReal) / 2 ^ 128) * ((2 ^ 128 : ENNReal) * Pr[genCAS Stop a R |
-        realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (restartGame adversary q a Stop R)
-          (fun _ _ => none)])) := by ring
-    _ ≤ restLaw adversary R * ∑' r, realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl)
-        (restartGame adversary q a Stop R) (fun _ _ => none) r * genCharge Stop a R r :=
-        mul_le_mul' le_rfl (charge_le_R q hq a Stop R)
 end ClaudeWCT.W9.T3.Security.Wots

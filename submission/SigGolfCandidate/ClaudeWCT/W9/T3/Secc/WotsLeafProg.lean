@@ -3,7 +3,7 @@ import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsPrefixGame
 
 /-! # Leaf decomposition of the rest tables (campaign X1 stage B, step B3)
 
-`ovL L R (K, f)` overrides lower leaf `L`'s 17 family coefficient halves by `K` and the low halves of the step-0
+`ovL L R (K, f)` overrides leaf `L`'s family coefficient halves (24 top, 17 lower) by `K` and the low halves of the step-0
 rows of `L`'s chains by `f`; `rdL` reads them back. The rest-table law is invariant under resampling this part
 (`restLaw_resampleL`), and the decomposition leaves every query outside `L` unchanged (`leafAgree_ovL`). -/
 
@@ -25,25 +25,25 @@ open SigGolfCandidate.T3.Security.Wots.PrefixGame (high uniform_resample uniform
 variable {adversary : AdversaryP}
 
 /-- Ordinal of coefficient `j` of leaf `L`. -/
-def ordL (L : LeafAddr) (j : Fin 17) : Nat := WCT9.lowerCoefOrdinal L.leaf j
+def ordL (L : LeafAddr) (j : Fin (WCT9.famCount L.lay)) : Nat := WCT9.famOrdinal L.lay L.leaf j
 /-- Tweak of the cell holding coefficient `j` of leaf `L`. -/
-def cellHdr (L : LeafAddr) (j : Fin 17) : BitVec 128 := WCT9.lowerSeedHeader L.lay L.tree (ordL L j / 2)
+def cellHdr (L : LeafAddr) (j : Fin (WCT9.famCount L.lay)) : BitVec 128 := WCT9.lowerSeedHeader L.lay L.tree (ordL L j / 2)
 
-theorem ordL_pair_lt {L : LeafAddr} (hL : L.leaf < 2 ^ 24) (j : Fin 17) : ordL L j / 2 < 2 ^ 32 := by
-  unfold ordL WCT9.lowerCoefOrdinal WCT9.lowerCoefCount; have := j.isLt; omega
-theorem cellHdr_inj {L : LeafAddr} (hL : L.leaf < 2 ^ 24) {j j' : Fin 17} (h : cellHdr L j = cellHdr L j') :
+theorem ordL_pair_lt {L : LeafAddr} (hL : L.leaf < 2 ^ 24) (j : Fin (WCT9.famCount L.lay)) : ordL L j / 2 < 2 ^ 32 :=
+  WCT9.famOrdinal_div_lt hL j.isLt
+theorem cellHdr_inj {L : LeafAddr} (hL : L.leaf < 2 ^ 24) {j j' : Fin (WCT9.famCount L.lay)} (h : cellHdr L j = cellHdr L j') :
     ordL L j / 2 = ordL L j' / 2 := by
   unfold cellHdr WCT9.lowerSeedHeader at h
   have := (header_fields h).2.2.2.1
   rwa [Nat.mod_eq_of_lt (ordL_pair_lt hL j), Nat.mod_eq_of_lt (ordL_pair_lt hL j')] at this
-theorem ordL_inj {L : LeafAddr} {j j' : Fin 17} (h1 : ordL L j / 2 = ordL L j' / 2)
+theorem ordL_inj {L : LeafAddr} {j j' : Fin (WCT9.famCount L.lay)} (h1 : ordL L j / 2 = ordL L j' / 2)
     (h2 : ordL L j % 2 = ordL L j' % 2) : j = j' := by
-  apply Fin.ext; unfold ordL WCT9.lowerCoefOrdinal at h1 h2; omega
+  apply Fin.ext; unfold ordL WCT9.famOrdinal at h1 h2; omega
 
 /-- The coefficient of `L` stored in half `b` (`0` low, `1` high) of the cell with tweak `tw`, if any. -/
-noncomputable def slotAt (L : LeafAddr) (tw : BitVec 128) (b : Nat) : Option (Fin 17) :=
-  if h : ∃ j : Fin 17, cellHdr L j = tw ∧ ordL L j % 2 = b then some (Classical.choose h) else none
-theorem slotAt_some {L : LeafAddr} {tw : BitVec 128} {b : Nat} {j : Fin 17} (h : slotAt L tw b = some j) :
+noncomputable def slotAt (L : LeafAddr) (tw : BitVec 128) (b : Nat) : Option (Fin (WCT9.famCount L.lay)) :=
+  if h : ∃ j : Fin (WCT9.famCount L.lay), cellHdr L j = tw ∧ ordL L j % 2 = b then some (Classical.choose h) else none
+theorem slotAt_some {L : LeafAddr} {tw : BitVec 128} {b : Nat} {j : Fin (WCT9.famCount L.lay)} (h : slotAt L tw b = some j) :
     cellHdr L j = tw ∧ ordL L j % 2 = b := by
   unfold slotAt at h
   split at h
@@ -51,15 +51,15 @@ theorem slotAt_some {L : LeafAddr} {tw : BitVec 128} {b : Nat} {j : Fin 17} (h :
     cases h
     exact Classical.choose_spec hex
   · cases h
-theorem slotAt_self {L : LeafAddr} (hL : L.leaf < 2 ^ 24) (j : Fin 17) :
+theorem slotAt_self {L : LeafAddr} (hL : L.leaf < 2 ^ 24) (j : Fin (WCT9.famCount L.lay)) :
     slotAt L (cellHdr L j) (ordL L j % 2) = some j := by
-  have hex : ∃ j' : Fin 17, cellHdr L j' = cellHdr L j ∧ ordL L j' % 2 = ordL L j % 2 := ⟨j, rfl, rfl⟩
+  have hex : ∃ j' : Fin (WCT9.famCount L.lay), cellHdr L j' = cellHdr L j ∧ ordL L j' % 2 = ordL L j % 2 := ⟨j, rfl, rfl⟩
   unfold slotAt
   rw [dif_pos hex]
   obtain ⟨h1, h2⟩ := Classical.choose_spec hex
   rw [ordL_inj (cellHdr_inj hL h1) h2]
 theorem slotAt_none {L : LeafAddr} {tw : BitVec 128} {b : Nat}
-    (h : ∀ j : Fin 17, cellHdr L j = tw → ordL L j % 2 ≠ b) : slotAt L tw b = none := by
+    (h : ∀ j : Fin (WCT9.famCount L.lay), cellHdr L j = tw → ordL L j % 2 ≠ b) : slotAt L tw b = none := by
   unfold slotAt
   rw [dif_neg]
   rintro ⟨j, h1, h2⟩
@@ -69,7 +69,7 @@ theorem slotAt_none {L : LeafAddr} {tw : BitVec 128} {b : Nat}
 def halfOf (b : Nat) (output : HashOutput) : Digest := if b = 0 then low output else high output
 
 /-- `priv` with `L`'s coefficient halves replaced by `K`. -/
-noncomputable def ovPrivL (L : LeafAddr) (priv : FullGame.FullTable) (K : Fin 17 → Digest) : FullGame.FullTable
+noncomputable def ovPrivL (L : LeafAddr) (priv : FullGame.FullTable) (K : Fin (WCT9.famCount L.lay) → Digest) : FullGame.FullTable
   | .inl tw => ChainGraph.joinOutput (((slotAt L tw 0).map K).getD (low (priv (.inl tw))))
       (((slotAt L tw 1).map K).getD (high (priv (.inl tw))))
   | .inr x => priv (.inr x)
@@ -117,7 +117,7 @@ noncomputable def ovPubL (L : LeafAddr) (pub : referenceInputs adversary → Has
   | none => pub x
 
 /-- Leaf data: the 17 coefficients and the step-0 row functions of the chains. -/
-abbrev LeafData (L : LeafAddr) := (Fin 17 → Digest) × (Fin (chainCount L.lay) → Digest → Digest)
+abbrev LeafData (L : LeafAddr) := (Fin (WCT9.famCount L.lay) → Digest) × (Fin (chainCount L.lay) → Digest → Digest)
 noncomputable def ovL (L : LeafAddr) (R : RefTables adversary) (y : LeafData L) : RefTables adversary :=
   (ovPrivL L R.1 y.1, ovPubL L R.2 y.2)
 noncomputable def rdL (L : LeafAddr) (R : RefTables adversary) : LeafData L :=
@@ -131,13 +131,11 @@ theorem ovPubL_zero (L : LeafAddr) (pub : referenceInputs adversary → HashOutp
   unfold ovPubL
   simp only [zeroOf_chainRow]
 
-theorem ovPrivL_inl (L : LeafAddr) (priv : FullGame.FullTable) (K : Fin 17 → Digest) (tw : BitVec 128) :
+theorem ovPrivL_inl (L : LeafAddr) (priv : FullGame.FullTable) (K : Fin (WCT9.famCount L.lay) → Digest) (tw : BitVec 128) :
     ovPrivL L priv K (.inl tw) = ChainGraph.joinOutput (((slotAt L tw 0).map K).getD (low (priv (.inl tw))))
       (((slotAt L tw 1).map K).getD (high (priv (.inl tw)))) := rfl
-theorem ovPrivL_inr (L : LeafAddr) (priv : FullGame.FullTable) (K : Fin 17 → Digest) (x : Message ⊕ Region) :
-    ovPrivL L priv K (.inr x) = priv (.inr x) := rfl
-theorem ovPrivL_cell {L : LeafAddr} (hL : L.leaf < 2 ^ 24) (priv : FullGame.FullTable) (K : Fin 17 → Digest)
-    (j : Fin 17) : halfOf (ordL L j % 2) (ovPrivL L priv K (.inl (cellHdr L j))) = K j := by
+theorem ovPrivL_cell {L : LeafAddr} (hL : L.leaf < 2 ^ 24) (priv : FullGame.FullTable) (K : Fin (WCT9.famCount L.lay) → Digest)
+    (j : Fin (WCT9.famCount L.lay)) : halfOf (ordL L j % 2) (ovPrivL L priv K (.inl (cellHdr L j))) = K j := by
   rw [ovPrivL_inl]
   unfold halfOf
   by_cases h0 : ordL L j % 2 = 0
@@ -252,10 +250,11 @@ theorem eval_lowerSeedPair (T : Answers) (lay : Layer) (tree p : Nat) :
   unfold WCT9.lowerSeedPair privatePair privateHash
   simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
   rfl
-theorem lowerCoef_ovL {L : LeafAddr} (hL : L.leaf < 2 ^ 24) (R : RefTables adversary) (K : Fin 17 → Digest)
-    (f : Fin (chainCount L.lay) → Digest → Digest) (j : Fin 17) :
-    WCT9.lowerCoef (restTable (ovL L R (K, f))) L.lay L.tree L.leaf j = K j := by
-  unfold WCT9.lowerCoef WCT9.lowerCoefN
+theorem famCoef_ovL {L : LeafAddr} (hL : L.leaf < 2 ^ 24) (R : RefTables adversary)
+    (K : Fin (WCT9.famCount L.lay) → Digest) (f : Fin (chainCount L.lay) → Digest → Digest)
+    (j : Fin (WCT9.famCount L.lay)) :
+    WCT9.famCoef (restTable (ovL L R (K, f))) L.lay L.tree L.leaf j = K j := by
+  unfold WCT9.famCoef WCT9.famCoefN
   rw [eval_lowerSeedPair]
   have hc := ovPrivL_cell hL R.1 K j
   rw [show ovPrivL L R.1 K (.inl (cellHdr L j)) = restTable (ovL L R (K, f)) (.inr (.inl (cellHdr L j))) from rfl]
@@ -266,15 +265,14 @@ theorem lowerCoef_ovL {L : LeafAddr} (hL : L.leaf < 2 ^ 24) (R : RefTables adver
   split_ifs with h1 h2 h2
   · rw [if_pos h1] at hc; exact hc
   · rw [if_neg h1] at hc; exact hc
-theorem wotsSeed_ovL {L : LeafAddr} (hL0 : L.lay ≠ 0) (hL : L.leaf < 2 ^ 24) (R : RefTables adversary)
-    (K : Fin 17 → Digest) (f : Fin (chainCount L.lay) → Digest → Digest) (c : Nat) :
+theorem wotsSeed_ovL {L : LeafAddr} (hL : L.leaf < 2 ^ 24) (R : RefTables adversary)
+    (K : Fin (WCT9.famCount L.lay) → Digest) (f : Fin (chainCount L.lay) → Digest → Digest) (c : Nat) :
     WCT9.wotsSeed (restTable (ovL L R (K, f))) L.lay L.tree L.leaf c =
       ClaudeWCT.Arith.familyEval (List.ofFn K) (WCT9.lowerPoint c) := by
-  rw [WCT9.wotsSeed_lower _ hL0]
-  unfold WCT9.lowerSeed
+  rw [WCT9.wotsSeed_fam]
   congr 2
   funext j
-  exact lowerCoef_ovL hL R K f j
+  exact famCoef_ovL hL R K f j
 /-- The leaf override changes nothing outside `L`'s own halves and step-0 rows. -/
 theorem leafAgree_ovL {L : LeafAddr} (hL : L.leaf < 2 ^ 24) (R : RefTables adversary) (y : LeafData L) :
     LeafAgree L (restTable R) (restTable (ovL L R y)) := by
@@ -297,7 +295,7 @@ theorem leafAgree_ovL {L : LeafAddr} (hL : L.leaf < 2 ^ 24) (R : RefTables adver
       have e1 := cellHdr_inj hL h1
       apply hno j' j'.isLt
       unfold ordL at e1 h2
-      unfold WCT9.lowerCoefOrdinal at e1 h2 hoj ⊢
+      unfold WCT9.famOrdinal at e1 h2 hoj ⊢
       simp only at e1 hoj
       omega
     rw [hhdr, PrefixGame.restTable_private, PrefixGame.restTable_private]
@@ -312,10 +310,10 @@ theorem leafAgree_ovL {L : LeafAddr} (hL : L.leaf < 2 ^ 24) (R : RefTables adver
     · rw [show o % 2 = 1 by omega] at hnone
       rw [hnone, ChainGraph.joinOutput_high]
       rfl
-theorem restDepth_ovL {L : LeafAddr} (hL0 : L.lay ≠ 0) (hL : L.leaf < 2 ^ 24) (a : ChainAddr) (ha : a.key = L)
+theorem restDepth_ovL {L : LeafAddr} (hL : L.leaf < 2 ^ 24) (a : ChainAddr) (ha : a.key = L)
     (R : RefTables adversary) (y : LeafData L) : restDepth a (ovL L R y) = restDepth a R := by
   rw [restDepth_eq, restDepth_eq]
-  exact depth_lay (leafAgree_ovL hL R y) hL0 hL (by rw [ha])
+  exact depth_lay (leafAgree_ovL hL R y) hL (by rw [ha])
 
 /-! ### Programming uniform functions at a point -/
 
@@ -361,10 +359,10 @@ theorem uniform_program {ι : Type} [Fintype ι] [DecidableEq ι] (Y : ι → Di
   exact (PMF.bind_const _ _).symm
 
 /-- The family seed of chain `c` for coefficients `K`. -/
-noncomputable def seedOf (K : Fin 17 → Digest) (c : Nat) : Digest :=
+noncomputable def seedOf {m : Nat} (K : Fin m → Digest) (c : Nat) : Digest :=
   ClaudeWCT.Arith.familyEval (List.ofFn K) (WCT9.lowerPoint c)
 /-- Step-0 rows programmed at the family seeds. -/
-noncomputable def progF {n : Nat} (g : Fin n → Digest → Digest) (Lab : Fin n → Digest) (K : Fin 17 → Digest) :
+noncomputable def progF {n m : Nat} (g : Fin n → Digest → Digest) (Lab : Fin n → Digest) (K : Fin m → Digest) :
     Fin n → Digest → Digest :=
   fun c => Function.update (g c) (seedOf K c) (Lab c)
 
@@ -387,9 +385,9 @@ theorem eval_chain_zero (T : Answers) (lay : Layer) (tree leaf i s : Nat) (v : D
     evalWithAnswerFn T (chain lay tree leaf i s 0 v) = v := rfl
 
 section Fill
-variable {L : LeafAddr} (hL0 : L.lay ≠ 0) (hLleaf : L.leaf < 2 ^ 24) {a : ChainAddr} (haL : a.key = L)
+variable {L : LeafAddr} (hLleaf : L.leaf < 2 ^ 24) {a : ChainAddr} (haL : a.key = L)
   (hac : a.chain < chainCount L.lay) (R : RefTables adversary) (hd1 : 1 ≤ restDepth a R)
-include hL0 hLleaf haL hac hd1
+include hLleaf haL hac hd1
 
 theorem fill_pub (X : LeafData L) (e : Digest) (input : HashInput)
     (h : ∀ c : Fin (chainCount L.lay), c.val ≠ a.chain → ∀ v, input ≠ chainRow ⟨L, c⟩ 0 v) :
@@ -397,7 +395,7 @@ theorem fill_pub (X : LeafData L) (e : Digest) (input : HashInput)
       if ∃ step v, step < restDepth a R ∧ input = chainRow a step v then
         ChainGraph.joinOutput e (high (restTable R (.inl (.inr input))))
       else restTable R (.inl (.inr input)) := by
-  have hdX := restDepth_ovL hL0 hLleaf a haL R X
+  have hdX := restDepth_ovL hLleaf a haL R X
   unfold PrefixGame.fillTable
   rw [restTable_ov_const a (by have := PrefixGame.restDepth_le a (ovL L R X); omega), hdX]
   split_ifs with hc
@@ -436,17 +434,17 @@ theorem fill_pub_indep (X X' : LeafData L) (e : Digest) (input : HashInput)
     (h : ∀ c : Fin (chainCount L.lay), c.val ≠ a.chain → ∀ v, input ≠ chainRow ⟨L, c⟩ 0 v) :
     PrefixGame.fillTable a (ovL L R X) e (.inl (.inr input)) =
       PrefixGame.fillTable a (ovL L R X') e (.inl (.inr input)) := by
-  rw [fill_pub hL0 hLleaf haL hac R hd1 X e input h, fill_pub hL0 hLleaf haL hac R hd1 X' e input h]
+  rw [fill_pub hLleaf haL hac R hd1 X e input h, fill_pub hLleaf haL hac R hd1 X' e input h]
 
 theorem fill_priv (X : LeafData L) (e : Digest) (coord : Coordinate) :
     PrefixGame.fillTable a (ovL L R X) e (.inr coord) = restTable (ovL L R X) (.inr coord) := by
   unfold PrefixGame.fillTable
-  exact PrefixGame.restTable_ov_private_lower a (by rw [haL]; exact hL0) _ _ _
+  exact PrefixGame.restTable_ov_private a _ _ _
 
 theorem fill_zero (X : LeafData L) (e : Digest) (c : Fin (chainCount L.lay)) (hca : c.val ≠ a.chain) (v : Digest) :
     PrefixGame.fillTable a (ovL L R X) e (.inl (.inr (chainRow ⟨L, c⟩ 0 v))) =
       ChainGraph.joinOutput (X.2 c v) (high (restTable R (.inl (.inr (chainRow ⟨L, c⟩ 0 v))))) := by
-  have hdX := restDepth_ovL hL0 hLleaf a haL R X
+  have hdX := restDepth_ovL hLleaf a haL R X
   unfold PrefixGame.fillTable
   rw [PrefixGame.restTable_ov_nonprefix, restTable_ovL_zero]
   rw [PrefixGame.rowOf_none_iff]
@@ -463,32 +461,32 @@ theorem leafAgree_fill (X : LeafData L) (e : Digest) :
   refine ⟨fun q hq => ?_, fun o ho hno => ?_⟩
   · rcases q with (n | input) | coord
     · rfl
-    · rw [fill_pub hL0 hLleaf haL hac R hd1 X e input (fun c _ v he => hq c 0 v c.isLt (by omega) he), if_neg]
+    · rw [fill_pub hLleaf haL hac R hd1 X e input (fun c _ v he => hq c 0 v c.isLt (by omega) he), if_neg]
       rintro ⟨step, v, hs, rfl⟩
       apply hq a.chain step v hac (by have := PrefixGame.restDepth_le a R; omega)
       subst haL; rfl
-    · rw [fill_priv hL0 hLleaf haL hac R hd1]
+    · rw [fill_priv hLleaf haL hac R hd1]
       exact hA.out _ hq
   · rw [eval_lowerSeedPair, eval_lowerSeedPair] at *
     have := hA.half o ho hno
     rw [eval_lowerSeedPair, eval_lowerSeedPair] at this
-    rw [fill_priv hL0 hLleaf haL hac R hd1]
+    rw [fill_priv hLleaf haL hac R hd1]
     exact this
 theorem depth_fill (X : LeafData L) (e : Digest) (b : ChainAddr) (hb : b.key = L) :
     depth (PrefixGame.fillTable a (ovL L R X) e) b = depth (restTable R) b :=
-  depth_lay (leafAgree_fill hL0 hLleaf haL hac R hd1 X e) hL0 hLleaf (by rw [hb])
+  depth_lay (leafAgree_fill hLleaf haL hac R hd1 X e) hLleaf (by rw [hb])
 
-theorem wotsSeed_fill (K : Fin 17 → Digest) (f : Fin (chainCount L.lay) → Digest → Digest) (e : Digest) (c : Nat) :
+theorem wotsSeed_fill (K : Fin (WCT9.famCount L.lay) → Digest) (f : Fin (chainCount L.lay) → Digest → Digest) (e : Digest) (c : Nat) :
     WCT9.wotsSeed (PrefixGame.fillTable a (ovL L R (K, f)) e) L.lay L.tree L.leaf c = seedOf K c := by
   rw [show seedOf K c = ClaudeWCT.Arith.familyEval (List.ofFn K) (WCT9.lowerPoint c) from rfl,
-    ← wotsSeed_ovL hL0 hLleaf R K f c, WCT9.wotsSeed_lower _ hL0, WCT9.wotsSeed_lower _ hL0]
-  apply lowerSeed_congr_cells
+    ← wotsSeed_ovL hLleaf R K f c]
+  apply Mask.wotsSeed_congr_cells
   intro p
-  exact fill_priv hL0 hLleaf haL hac R hd1 (K, f) e _
+  exact fill_priv hLleaf haL hac R hd1 (K, f) e _
 
 theorem fill_frontier_self (X : LeafData L) (e : Digest) :
     frontierValue (PrefixGame.fillTable a (ovL L R X) e) a = e := by
-  have hdX := restDepth_ovL hL0 hLleaf a haL R X
+  have hdX := restDepth_ovL hLleaf a haL R X
   unfold PrefixGame.fillTable
   rw [PrefixGame.frontierValue_ov]
   obtain ⟨d', hd'⟩ : ∃ d', restDepth a (ovL L R X) = d' + 1 := ⟨restDepth a (ovL L R X) - 1, by omega⟩
@@ -502,14 +500,14 @@ theorem fill_frontier_self (X : LeafData L) (e : Digest) :
 (`progF`), the honest tables for two coefficient vectors agreeing on the revealed (depth-0) chains are leaf
 congruent. -/
 theorem leafCongr_prog (g : Fin (chainCount L.lay) → Digest → Digest) (Lab : Fin (chainCount L.lay) → Digest)
-    (K K' : Fin 17 → Digest)
+    (K K' : Fin (WCT9.famCount L.lay) → Digest)
     (hKK : ∀ c : Fin (chainCount L.lay), depth (restTable R) ⟨L, c⟩ = 0 → seedOf K c = seedOf K' c) (e : Digest) :
     LeafCongr L (PrefixGame.fillTable a (ovL L R (K, progF g Lab K)) e)
       (PrefixGame.fillTable a (ovL L R (K', progF g Lab K')) e) := by
   set T := PrefixGame.fillTable a (ovL L R (K, progF g Lab K)) e with hT
   set T' := PrefixGame.fillTable a (ovL L R (K', progF g Lab K')) e with hT'
-  have hA := leafAgree_fill hL0 hLleaf haL hac R hd1 (K, progF g Lab K) e
-  have hA' := leafAgree_fill hL0 hLleaf haL hac R hd1 (K', progF g Lab K') e
+  have hA := leafAgree_fill hLleaf haL hac R hd1 (K, progF g Lab K) e
+  have hA' := leafAgree_fill hLleaf haL hac R hd1 (K', progF g Lab K') e
   have hda : depth (restTable R) a = restDepth a R := (restDepth_eq a R).symm
   have hnz : ∀ (c : Nat) (s : Nat) (v : Digest), s ≠ 0 → s < 256 →
       ∀ c' : Fin (chainCount L.lay), c'.val ≠ a.chain → ∀ v', chainRow ⟨L, c⟩ s v ≠ chainRow ⟨L, c'⟩ 0 v' := by
@@ -520,7 +518,7 @@ theorem leafCongr_prog (g : Fin (chainCount L.lay) → Digest → Digest) (Lab :
   refine ⟨⟨fun q hq => (hA'.out q hq).trans (hA.out q hq).symm, fun o ho hno =>
     (hA'.half o ho hno).trans (hA.half o ho hno).symm⟩, ?_, ?_⟩
   · intro c hc s v hs hs256
-    rw [depth_fill hL0 hLleaf haL hac R hd1 _ e ⟨L, c⟩ rfl] at hs
+    rw [depth_fill hLleaf haL hac R hd1 _ e ⟨L, c⟩ rfl] at hs
     by_cases hs0 : s = 0
     · subst hs0
       have hca : c ≠ a.chain := by
@@ -529,30 +527,30 @@ theorem leafCongr_prog (g : Fin (chainCount L.lay) → Digest → Digest) (Lab :
           rw [← hda]; subst haL; rw [hca]
         omega
       have hrev := hKK ⟨c, hc⟩ (by show depth (restTable R) ⟨L, c⟩ = 0; omega)
-      rw [hT, hT', fill_zero hL0 hLleaf haL hac R hd1 _ e ⟨c, hc⟩ hca,
-        fill_zero hL0 hLleaf haL hac R hd1 _ e ⟨c, hc⟩ hca]
+      rw [hT, hT', fill_zero hLleaf haL hac R hd1 _ e ⟨c, hc⟩ hca,
+        fill_zero hLleaf haL hac R hd1 _ e ⟨c, hc⟩ hca]
       simp only [progF]
       rw [hrev]
-    · exact fill_pub_indep hL0 hLleaf haL hac R hd1 _ _ e _ (hnz c s v hs0 hs256)
+    · exact fill_pub_indep hLleaf haL hac R hd1 _ _ e _ (hnz c s v hs0 hs256)
   · intro c hc
     by_cases hca : c = a.chain
     · have hb : (⟨L, c⟩ : ChainAddr) = a := by subst haL; rw [hca]
-      rw [hb, fill_frontier_self hL0 hLleaf haL hac R hd1, fill_frontier_self hL0 hLleaf haL hac R hd1]
+      rw [hb, fill_frontier_self hLleaf haL hac R hd1, fill_frontier_self hLleaf haL hac R hd1]
     · unfold frontierValue honestChainValue
       simp only
-      rw [depth_fill hL0 hLleaf haL hac R hd1 _ e ⟨L, c⟩ rfl, depth_fill hL0 hLleaf haL hac R hd1 _ e ⟨L, c⟩ rfl,
-        wotsSeed_fill hL0 hLleaf haL hac R hd1, wotsSeed_fill hL0 hLleaf haL hac R hd1]
+      rw [depth_fill hLleaf haL hac R hd1 _ e ⟨L, c⟩ rfl, depth_fill hLleaf haL hac R hd1 _ e ⟨L, c⟩ rfl,
+        wotsSeed_fill hLleaf haL hac R hd1, wotsSeed_fill hLleaf haL hac R hd1]
       rcases Nat.eq_zero_or_pos (depth (restTable R) ⟨L, c⟩) with h0 | hpos
       · rw [h0, hKK ⟨c, hc⟩ h0, eval_chain_zero, eval_chain_zero]
       · obtain ⟨k, hk⟩ : ∃ k, depth (restTable R) ⟨L, c⟩ = 1 + k := ⟨depth (restTable R) ⟨L, c⟩ - 1, by omega⟩
         rw [hk, Correctness.eval_chain_add, Correctness.eval_chain_add T]
-        have hlab : ∀ (X : Fin 17 → Digest), evalWithAnswerFn (PrefixGame.fillTable a (ovL L R (X, progF g Lab X)) e)
+        have hlab : ∀ (X : Fin (WCT9.famCount L.lay) → Digest), evalWithAnswerFn (PrefixGame.fillTable a (ovL L R (X, progF g Lab X)) e)
             (chain L.lay L.tree L.leaf c 0 1 (seedOf X c)) = Lab ⟨c, hc⟩ := by
           intro X
           rw [eval_chain_one]
           rw [show chainInput L.lay L.tree L.leaf c 0 (seedOf X c) =
             chainRow ⟨L, (⟨c, hc⟩ : Fin (chainCount L.lay))⟩ 0 (seedOf X c)
-            from rfl, fill_zero hL0 hLleaf haL hac R hd1 _ e ⟨c, hc⟩ hca, ChainGraph.joinOutput_low]
+            from rfl, fill_zero hLleaf haL hac R hd1 _ e ⟨c, hc⟩ hca, ChainGraph.joinOutput_low]
           simp only [progF, Function.update_self]
         rw [hlab K', hlab K]
         have hk256 : 0 + 1 + k ≤ 256 := by
@@ -562,7 +560,7 @@ theorem leafCongr_prog (g : Fin (chainCount L.lay) → Digest → Digest) (Lab :
         refine Respects.foldlM _ _ (fun step hstep value => Respects.shortHash _ ?_) _
         rw [pad64_chainInput]
         obtain ⟨hlo, hhi⟩ := List.mem_range'_1.mp hstep
-        exact (fill_pub_indep hL0 hLleaf haL hac R hd1 _ _ e _ (hnz c step value (by omega) (by omega))).symm
+        exact (fill_pub_indep hLleaf haL hac R hd1 _ _ e _ (hnz c step value (by omega) (by omega))).symm
 end Fill
 
 end Leaf

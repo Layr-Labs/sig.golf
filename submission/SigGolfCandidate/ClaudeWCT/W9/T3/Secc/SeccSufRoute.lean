@@ -40,77 +40,6 @@ theorem digestSearch_queried (answers : Correctness.Answers) (rho : Digest) (m :
           by_cases hc' : c' = start
           · subst hc'; simpa using hadm
           · exact h4 c' (by omega) h2'
-theorem digestSearch_accepts (answers : Correctness.Answers) (rho : Digest) (m : Message) :
-    ∀ fuel start c, start ≤ c → c < start + fuel →
-      (∀ c', start ≤ c' → c' < c →
-        WCT9.producerAdmissible (evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c'))) = false) →
-      WCT9.producerAdmissible (evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c))) = true →
-      evalWithAnswerFn answers (WCT9.digestSearch rho m start fuel) =
-        some (BitVec.ofNat 32 c, evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c))) := by
-  intro fuel
-  induction fuel with
-  | zero => intro start c h1 h2; omega
-  | succ fuel ih =>
-      intro start c h1 h2 hrej hadm
-      rw [digestSearch_succ, evalWithAnswerFn_bind]
-      by_cases hc : c = start
-      · subst hc
-        rw [if_pos hadm, evalWithAnswerFn_pure]
-      · rw [if_neg (by rw [hrej start le_rfl (by omega)]; decide)]
-        exact ih (start + 1) c (by omega) (by omega) (fun c' h1' h2' => hrej c' (by omega) h2') hadm
-theorem rejected_trial_inadmissible (answers : Correctness.Answers) (rho : Digest) (m : Message) (c : Nat)
-    (hq : (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 c)))) : Spec.Domain) ∈
-      queried answers (WCT9.digestSearch rho m 0 WCT9.digestAttemptLimit))
-    (hadm : WCT9.producerAdmissible (evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c))) = true) :
-    evalWithAnswerFn answers (WCT9.digestSearch rho m 0 WCT9.digestAttemptLimit) =
-      some (BitVec.ofNat 32 c, evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c))) := by
-  obtain ⟨c', _, hc', heq, hrej⟩ := digestSearch_queried answers rho m WCT9.digestAttemptLimit 0 _ hq
-  have hcc : BitVec.ofNat 32 c = BitVec.ofNat 32 c' := by
-    simp only [Sum.inl.injEq, Sum.inr.injEq] at heq
-    exact (SigGolfCandidate.T3.Security.BPB.digestInput_injective heq).2.1
-  rw [hcc] at hadm ⊢
-  exact digestSearch_accepts answers rho m WCT9.digestAttemptLimit 0 c' (Nat.zero_le _) hc' hrej hadm
-theorem layerCounterSearch_none (answers : Correctness.Answers) (lay : Layer) (tree leaf : Nat)
-    (msg : WCT9.LayerMsg) :
-    ∀ fuel counter, evalWithAnswerFn answers (WCT9.layerCounterSearch lay tree leaf msg counter fuel) = none →
-      ∀ offset, offset < fuel → WCT9.producerDecode lay (evalWithAnswerFn answers
-        (shortHash (WCT9.layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 (counter + offset))))) = none := by
-  intro fuel
-  induction fuel with
-  | zero => intro counter _ offset h; omega
-  | succ fuel ih =>
-      intro counter h offset hoff
-      simp only [WCT9.layerCounterSearch, evalWithAnswerFn_bind] at h
-      cases hd : WCT9.producerDecode lay (evalWithAnswerFn answers
-          (shortHash (WCT9.layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter)))) with
-      | some digits => simp [hd, evalWithAnswerFn_pure] at h
-      | none =>
-          simp only [hd] at h
-          rcases Nat.eq_zero_or_pos offset with rfl | hpos
-          · simpa using hd
-          · have := ih (counter + 1) h (offset - 1) (by omega)
-            rwa [show counter + 1 + (offset - 1) = counter + offset by omega] at this
-theorem goodZ_row (answers : Correctness.Answers) (w : WBytes) (index : Nat) (lay : Layer)
-    (hgood : ClaudeWCT.W9.T3M.BC.GoodZ answers w index lay) :
-    ∃ digits, (ClaudeWCT.W9.T3M.wbcCtr w index lay).toNat < ClaudeWCT.WCT9.verifyWindow ∧
-      decode lay (evalWithAnswerFn answers (shortHash (WCT9.layerEncodingInput lay (route index lay).2
-        (route index lay).1 (ClaudeWCT.W9.T3M.Extract.honestMsg answers index lay)
-        (ClaudeWCT.W9.T3M.wbcCtr w index lay)))) = some digits := by
-  obtain ⟨⟨digits, ⟨hlt, hdec⟩, -⟩, hpad, hright⟩ := hgood
-  refine ⟨digits, hlt, ?_⟩
-  rw [hpad] at hdec
-  have hfit := ClaudeWCT.W9.T3M.Extract.msgFits_honestMsg answers index lay
-  have key : ClaudeWCT.W9.T3M.layerEncodingInputP lay (route index lay).2 (route index lay).1
-      (ClaudeWCT.W9.T3M.Extract.honestMsg answers index lay) (ClaudeWCT.W9.T3M.wbcCtr w index lay) 0
-      (ClaudeWCT.W9.T3M.wbcRight w) =
-    ClaudeWCT.W9.T3M.layerEncodingInputP lay (route index lay).2 (route index lay).1
-      (ClaudeWCT.W9.T3M.Extract.honestMsg answers index lay) (ClaudeWCT.W9.T3M.wbcCtr w index lay) 0 0 := by
-    revert hfit
-    cases ClaudeWCT.W9.T3M.Extract.honestMsg answers index lay with
-    | forest root => intro hfit; rw [hright hfit]
-    | pair l r => intro _; rfl
-  rw [key, ClaudeWCT.W9.T3M.shortHash_layerEncodingInputP_zero] at hdec
-  exact hdec
 theorem honestMsg_lower (answers : Correctness.Answers) (index n : Nat) (hn : n + 1 < 4) :
     ClaudeWCT.W9.T3M.Extract.honestMsg answers index (Fin.ofNat 4 n) =
       .pair (ClaudeWCT.W9.T3M.Extract.honestPair answers (Fin.ofNat 4 (n + 1)) (route index (Fin.ofNat 4 (n + 1))).2).1
@@ -265,32 +194,4 @@ theorem caseCAt_fresh_not_signer (answers : Correctness.Answers) (published : Si
       queried answers (FullGame.authenticatedSign published entry.1) := by
   obtain ⟨N, -, hN, -, hS, hgood, -, hcomp⟩ := hC
   exact caseC_fresh_not_signer answers published log state hres hagree message witness hcomp hfresh
-theorem caseC_fresh_first_occurrence (adversary : ClaudeWCT.W9.T3M.Final.AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
-    (z : PaddedGame.TraceResult × Correctness.Answers) (hz : z ∈ (SeccLaw.completedExperiment adversary q hq).support)
-    (hC : CaseCFresh adversary z) :
-    ∃ generated ∈ support (FirstHit.record keygen (∅, ∅)),
-      ∃ interaction ∈ support (FirstHit.record
-        (FullGame.loggedWith (FullGame.authenticatedSign generated.value.2)
-          (adversary generated.value.1 generated.value.2)) generated.state),
-        SourceReplay.Extends interaction.state (QueryRecorded.recordedTrace z.1).state ∧
-        ∃ (message : Message) (witness : WBytes) (N : HashOutput),
-          evalWithAnswerFn z.2 (digest (wrho witness) message (wdc witness)) = N ∧
-          (∀ entry ∈ interaction.value.2,
-            (.inl (.inr (pad64 (digestInput (wrho witness) message (wdc witness)))) : Spec.Domain) ∉
-              queried z.2 (FullGame.authenticatedSign generated.value.2 entry.1)) ∧
-          ∃ first : LazyPrivate.State,
-            (⟨first, .inl (.inr (pad64 (digestInput (wrho witness) message (wdc witness)))), N⟩ :
-              FirstHit.QueryEvent) ∈ (QueryRecorded.recordedTrace z.1).events ∧
-            first.2 (pad64 (digestInput (wrho witness) message (wdc witness))) = none := by
-  obtain ⟨hz1, hagree⟩ := SeccLaw.completed_agrees adversary q hq z hz
-  obtain ⟨generated, hg, interaction, hi, hext, -, -, forgery, -, -, message, witness, -, hsigned, hC⟩ := hC
-  obtain ⟨N, -, hN, ⟨prior, hev⟩, hS, hgood, -, hcomp⟩ := hC
-  have hai : ∀ input answer, SourceReplay.known interaction.state input = some answer → z.2 input = answer :=
-    fun input answer hk => hagree input answer (SourceReplay.known_mono _ _ hext hk)
-  have hres := logged_resolves generated.value.2 _ generated.state _ (FirstHit.recorded_support _ _ _ hi)
-  refine ⟨generated, hg, interaction, hi, hext, message, witness, N, hN,
-    caseC_fresh_not_signer z.2 generated.value.2 interaction.value.2 interaction.state hres hai message witness
-      hcomp hsigned, ?_⟩
-  exact FirstHit.first_public_occurrence _ _ (PaddedExtraction.traced_record_support adversary q hq z.1 hz1)
-    prior _ _ hev
 end ClaudeWCT.W9.T3.Security.BPB

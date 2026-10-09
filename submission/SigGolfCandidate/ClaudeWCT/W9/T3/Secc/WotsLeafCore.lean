@@ -34,7 +34,7 @@ open ClaudeWCT.Arith.SideChannel (TSpec coinQ testQ evalT answerImpl Free enT ex
 open SphincsSecurity.Concrete.PartialChainEndpoint (PrefixSpec observedImpl record evaluate observedRun)
 variable {adversary : AdversaryP}
 
-/-- Evaluation points of the chains of a lower leaf (`lowerPoint`). -/
+/-- Evaluation points of the chains of a leaf (`i + 1`). -/
 def ptL (L : LeafAddr) : Fin (chainCount L.lay) → ℕ := fun c => c.val + 1
 
 /-- The free parameters of the programmed world: `L`'s step-0 row functions and labels, `a`'s prefix tables and
@@ -63,12 +63,12 @@ theorem evaluate_tY {L : LeafAddr} {d : Nat} (hd : 1 ≤ d) (P : TParams L d) (�
   rw [h1, h2]
 
 section Point
-variable {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.chain < chainCount L.lay) (hL0 : L.lay ≠ 0)
+variable {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.chain < chainCount L.lay)
   (hLleaf : L.leaf < 2 ^ 24) (R : RefTables adversary) (hd1 : 1 ≤ restDepth a R)
 include haL hac hd1
 
 /-- The prefix game's oracle world reads `L`'s step-0 rows only off chain `a` (whose step-0 row is a prefix row). -/
-theorem routeImpl_congr (K K' : Fin 17 → Digest) (f f' : Fin (chainCount L.lay) → Digest → Digest)
+theorem routeImpl_congr (K K' : Fin (WCT9.famCount L.lay) → Digest) (f f' : Fin (chainCount L.lay) → Digest → Digest)
     (hf : ∀ c : Fin (chainCount L.lay), c.val ≠ a.chain → f c = f' c) :
     PrefixGame.routeImpl a (restDepth a R) (ovL L R (K, f)) =
       PrefixGame.routeImpl a (restDepth a R) (ovL L R (K', f')) := by
@@ -102,14 +102,11 @@ end Point
 section Canon
 variable (L : LeafAddr) (a : ChainAddr) (R : RefTables adversary)
 
-/-- Chains of `L` revealed in `R`, as a test-program coordinate complement. -/
-noncomputable abbrev RevL : Finset (Fin (chainCount L.lay)) := revSet L R
-
 /-- A family with the given revealed seeds (any one, if it exists). -/
-noncomputable def Kst (r : Fin (chainCount L.lay) → Digest) : Fin 17 → Digest :=
+noncomputable def Kst (r : Fin (chainCount L.lay) → Digest) : Fin (WCT9.famCount L.lay) → Digest :=
   if h : ∃ K, seedsR (ptL L) (revSet L R) K = r then h.choose else 0
 
-theorem seedsR_Kst (K : Fin 17 → Digest) :
+theorem seedsR_Kst (K : Fin (WCT9.famCount L.lay) → Digest) :
     seedsR (ptL L) (revSet L R) (Kst L R (seedsR (ptL L) (revSet L R) K)) = seedsR (ptL L) (revSet L R) K := by
   unfold Kst
   rw [dif_pos ⟨K, rfl⟩]
@@ -132,21 +129,21 @@ noncomputable def testRun {Res : Type} (GD : Answers → OracleComp RefWorld Res
 end Canon
 
 section Points
-variable {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.chain < chainCount L.lay) (hL0 : L.lay ≠ 0)
+variable {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.chain < chainCount L.lay)
   (hLleaf : L.leaf < 2 ^ 24) (R : RefTables adversary) (hd1 : 1 ≤ restDepth a R)
   {Res : Type} (GD : Answers → OracleComp RefWorld Res) (hG : ∀ T T', LeafCongr L T T' → GD T' = GD T)
   (aF : Free (revSet L R)) (haF : aF.1.val = a.chain)
-include haL hac hL0 hLleaf hd1 hG haF
+include haL hac hLleaf hd1 hG haF
 
-theorem seedOf_eq_seedsY (K : Fin 17 → Digest) (i : Free (revSet L R)) :
+theorem seedOf_eq_seedsY (K : Fin (WCT9.famCount L.lay) → Digest) (i : Free (revSet L R)) :
     seedOf K i.1.val = seedsY (ptL L) (revSet L R) K i := rfl
 
 /-- The honest game of the programmed world is the canonical one. -/
-theorem GD_prog (K : Fin 17 → Digest) (p : PData L (restDepth a R)) :
+theorem GD_prog (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (restDepth a R)) :
     GD (PrefixGame.fillTable a (ovL L R (K, progF p.1.1 p.1.2 K)) (eP L p)) =
       GD (Tst L a R p (seedsR (ptL L) (revSet L R) K)) := by
   unfold Tst
-  refine (hG _ _ (leafCongr_prog hL0 hLleaf haL hac R hd1 p.1.1 p.1.2 K _ (fun c hc => ?_) (eP L p))).symm
+  refine (hG _ _ (leafCongr_prog hLleaf haL hac R hd1 p.1.1 p.1.2 K _ (fun c hc => ?_) (eP L p))).symm
   have h := congrFun (seedsR_Kst L R K) c
   unfold seedsR at h
   have hc' : c ∈ revSet L R := by unfold revSet; simp only [Finset.mem_filter, Finset.mem_univ, true_and]; exact hc
@@ -154,13 +151,13 @@ theorem GD_prog (K : Fin 17 → Digest) (p : PData L (restDepth a R)) :
   exact h.symm
 
 /-- **Frozen world = test program against the family seeds.** -/
-theorem frozen_point (K : Fin 17 → Digest) (p : PData L (restDepth a R)) :
+theorem frozen_point (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (restDepth a R)) :
     observedRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl
         (tY L (restDepth a R) (mkP p 0) (seedOf K a.chain))
         (simulateQ (PrefixGame.routeImpl a (restDepth a R) (ovL L R (K, progF p.1.1 p.1.2 K)))
           (GD (PrefixGame.fillTable a (ovL L R (K, progF p.1.1 p.1.2 K)) (eP L p)))) (fun _ _ => none) =
       evalT (seedsY (ptL L) (revSet L R) K) (testRun GD aF p (seedsR (ptL L) (revSet L R) K)) := by
-  rw [GD_prog haL hac hL0 hLleaf R hd1 GD hG aF haF K p]
+  rw [GD_prog haL hac hLleaf R hd1 GD hG aF haF K p]
   unfold testRun
   rw [evalT_testRun R aF (mkP p (seedsR (ptL L) (revSet L R) K)) (seedsY (ptL L) (revSet L R) K) K]
   have hfy : fY L (restDepth a R) (revSet L R) (mkP p (seedsR (ptL L) (revSet L R) K))
@@ -174,16 +171,16 @@ theorem frozen_point (K : Fin 17 → Digest) (p : PData L (restDepth a R)) :
       rfl
     · rfl
   have hya : seedsY (ptL L) (revSet L R) K aF = seedOf K a.chain := by
-    rw [← seedOf_eq_seedsY haL hac hL0 hLleaf R hd1 GD hG aF haF, haF]
+    rw [← seedOf_eq_seedsY haL hac hLleaf R hd1 GD hG aF haF, haF]
   rw [hfy, hya, tY_mkP p (seedsR (ptL L) (revSet L R) K) 0]
 
 /-- **Mixture world = test program against the hybrid seeds.** -/
-theorem mix_point (K : Fin 17 → Digest) (p : PData L (restDepth a R)) (s : Digest) :
+theorem mix_point (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (restDepth a R)) (s : Digest) :
     observedRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl (tY L (restDepth a R) (mkP p 0) s)
         (simulateQ (PrefixGame.routeImpl a (restDepth a R) (ovL L R (K, progF p.1.1 p.1.2 K)))
           (GD (PrefixGame.fillTable a (ovL L R (K, progF p.1.1 p.1.2 K)) (eP L p)))) (fun _ _ => none) =
       evalT (seedsH (ptL L) (revSet L R) aF K s) (testRun GD aF p (seedsR (ptL L) (revSet L R) K)) := by
-  rw [GD_prog haL hac hL0 hLleaf R hd1 GD hG aF haF K p]
+  rw [GD_prog haL hac hLleaf R hd1 GD hG aF haF K p]
   unfold testRun
   rw [evalT_testRun R aF (mkP p (seedsR (ptL L) (revSet L R) K)) (seedsH (ptL L) (revSet L R) aF K s) K]
   have hya : seedsH (ptL L) (revSet L R) aF K s aF = s := by unfold seedsH; rw [if_pos rfl]
@@ -228,12 +225,12 @@ noncomputable def mixLaw {Res : Type} (a : ChainAddr) (d : Nat) (R' : RefTables 
   SphincsSecurity.Concrete.PartialChainEndpoint.realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl)
     (gameD a d R' GD) (fun _ _ => none)
 
-theorem ovSeed_ovL {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hL0 : L.lay ≠ 0) (hLleaf : L.leaf < 2 ^ 24)
-    (R : RefTables adversary) (K : Fin 17 → Digest) (f : Fin (chainCount L.lay) → Digest → Digest) (s : Digest) :
-    PrefixGame.ovSeed a (ovL L R (K, f)) s = seedOf K a.chain := by
+theorem ovSeed_ovL {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hLleaf : L.leaf < 2 ^ 24)
+    (R : RefTables adversary) (K : Fin (WCT9.famCount L.lay) → Digest) (f : Fin (chainCount L.lay) → Digest → Digest)
+    (s : Digest) : PrefixGame.ovSeed a (ovL L R (K, f)) s = seedOf K a.chain := by
   unfold PrefixGame.ovSeed
   subst haL
-  rw [if_neg hL0, wotsSeed_ovL hL0 hLleaf]
+  rw [wotsSeed_ovL hLleaf]
   rfl
 
 theorem uniform_bind_const {α β : Type} [Fintype α] [Nonempty α] (p : PMF β) :
@@ -249,16 +246,16 @@ theorem uniform_prod_bind {α β γ : Type} [Fintype α] [Fintype β] [Nonempty 
   rfl
 
 section Decomp
-variable {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.chain < chainCount L.lay) (hL0 : L.lay ≠ 0)
+variable {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.chain < chainCount L.lay)
   (hLleaf : L.leaf < 2 ^ 24) (R : RefTables adversary) (hd1 : 1 ≤ restDepth a R)
   {Res : Type} (GD : Answers → OracleComp RefWorld Res) (hG : ∀ T T', LeafCongr L T T' → GD T' = GD T)
   (aF : Free (revSet L R)) (haF : aF.1.val = a.chain)
-include haL hac hL0 hLleaf hd1 hG haF
+include haL hac hLleaf hd1 hG haF
 
 /-- **Frozen law, decomposed.** -/
 theorem frozen_decomp :
     (PMF.uniformOfFintype (LeafData L)).bind (fun y => frozenLaw a (restDepth a R) (ovL L R y) GD) =
-      (PMF.uniformOfFintype (Fin 17 → Digest)).bind (fun K => (PMF.uniformOfFintype (PData L (restDepth a R))).bind
+      (PMF.uniformOfFintype (Fin (WCT9.famCount L.lay) → Digest)).bind (fun K => (PMF.uniformOfFintype (PData L (restDepth a R))).bind
         (fun p => (evalT (seedsY (ptL L) (revSet L R) K) (testRun GD aF p (seedsR (ptL L) (revSet L R) K))).map
           (fun res => (eP L p, res)))) := by
   rw [uniform_prod_bind]
@@ -276,7 +273,7 @@ theorem frozen_decomp :
       PMF.uniformOfFintype ((Fin (restDepth a R) → Digest → Digest) × Digest) from rfl, uniform_prod_bind]
     congr 1
     funext t
-    simp only [ovSeed_ovL haL hL0 hLleaf R K f]
+    simp only [ovSeed_ovL haL hLleaf R K f]
     exact uniform_bind_const _
   simp only [hfr]
   rw [uniform_program (fun c : Fin (chainCount L.lay) => seedOf K c.val)]
@@ -294,56 +291,14 @@ theorem frozen_decomp :
     evaluate_tY hd1 _ _
   rw [ht, he]
   unfold gameD
-  have hp := frozen_point haL hac hL0 hLleaf R hd1 GD hG aF haF K (gl, q)
+  have hp := frozen_point haL hac hLleaf R hd1 GD hG aF haF K (gl, q)
   exact congrArg (PMF.map _) hp
 
-/-- **Mixture law, decomposed.** -/
-theorem mix_decomp :
-    (PMF.uniformOfFintype (LeafData L)).bind (fun y => mixLaw a (restDepth a R) (ovL L R y) GD) =
-      (PMF.uniformOfFintype (Fin 17 → Digest)).bind (fun K => (PMF.uniformOfFintype (PData L (restDepth a R))).bind
-        (fun p => (PMF.uniformOfFintype Digest).bind (fun s =>
-          (evalT (seedsH (ptL L) (revSet L R) aF K s) (testRun GD aF p (seedsR (ptL L) (revSet L R) K))).map
-            (fun res => (eP L p, res))))) := by
-  rw [uniform_prod_bind]
-  congr 1
-  funext K
-  have hmx : ∀ f, mixLaw a (restDepth a R) (ovL L R (K, f)) GD =
-      (PMF.uniformOfFintype Digest).bind (fun s => (PMF.uniformOfFintype (Fin (restDepth a R) → Digest → Digest)).bind
-        (fun t => (observedRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl t
-          (gameD a (restDepth a R) (ovL L R (K, f)) GD (evaluate t s)) (fun _ _ => none)).map
-          (fun res => (evaluate t s, res)))) := by
-    intro f
-    unfold mixLaw
-    simp only [SphincsSecurity.Concrete.PartialChainEndpoint.realRun,
-      SphincsSecurity.Concrete.PartialChainEndpoint.completeTables_empty,
-      SphincsSecurity.Concrete.EndpointPreimageDensity.real, PMF.map_bind, PMF.bind_bind, PMF.bind_map,
-      PMF.map_comp, Function.comp_def]
-    rw [PMF.bind_comm]
-  simp only [hmx]
-  rw [uniform_program (fun c : Fin (chainCount L.lay) => seedOf K c.val)]
-  conv_rhs => rw [show PMF.uniformOfFintype (PData L (restDepth a R)) = PMF.uniformOfFintype
-    (((Fin (chainCount L.lay) → Digest → Digest) × (Fin (chainCount L.lay) → Digest)) ×
-      ((Fin (restDepth a R) → Digest → Digest) × (Fin (restDepth a R) → Digest))) from rfl, uniform_prod_bind]
-  congr 1
-  funext gl
-  conv_rhs => rw [PMF.bind_comm]
-  congr 1
-  funext s
-  rw [uniform_program (fun i : Fin (restDepth a R) => if i.val = 0 then s else 0)]
-  congr 1
-  funext q
-  have ht : (fun i : Fin (restDepth a R) => Function.update (q.1 i) (if i.val = 0 then s else 0) (q.2 i)) =
-      tY L (restDepth a R) (mkP (gl, q) 0) s := rfl
-  have he : evaluate (tY L (restDepth a R) (mkP (gl, q) 0) s) s = eP L (gl, q) := evaluate_tY hd1 _ _
-  rw [ht, he]
-  unfold gameD
-  have hp := mix_point haL hac hL0 hLleaf R hd1 GD hG aF haF K (gl, q) s
-  exact congrArg (PMF.map _) hp
 /-- **Frozen law with the leaf data, decomposed.** -/
 theorem frozen_decompY :
     (PMF.uniformOfFintype (LeafData L)).bind
         (fun y => (frozenLaw a (restDepth a R) (ovL L R y) GD).map (fun z => (y, z))) =
-      (PMF.uniformOfFintype (Fin 17 → Digest)).bind (fun K => (PMF.uniformOfFintype (PData L (restDepth a R))).bind
+      (PMF.uniformOfFintype (Fin (WCT9.famCount L.lay) → Digest)).bind (fun K => (PMF.uniformOfFintype (PData L (restDepth a R))).bind
         (fun p => (evalT (seedsY (ptL L) (revSet L R) K) (testRun GD aF p (seedsR (ptL L) (revSet L R) K))).map
           (fun res => (((K, progF p.1.1 p.1.2 K) : LeafData L), (eP L p, res))))) := by
   rw [uniform_prod_bind]
@@ -360,7 +315,7 @@ theorem frozen_decompY :
       PMF.uniformOfFintype ((Fin (restDepth a R) → Digest → Digest) × Digest) from rfl, uniform_prod_bind]
     congr 1
     funext t
-    simp only [ovSeed_ovL haL hL0 hLleaf R K f]
+    simp only [ovSeed_ovL haL hLleaf R K f]
     exact uniform_bind_const _
   simp only [hfr, PMF.map_bind, PMF.map_comp]
   rw [uniform_program (fun c : Fin (chainCount L.lay) => seedOf K c.val)]
@@ -378,14 +333,14 @@ theorem frozen_decompY :
     evaluate_tY hd1 _ _
   rw [ht, he]
   unfold gameD
-  have hp := frozen_point haL hac hL0 hLleaf R hd1 GD hG aF haF K (gl, q)
+  have hp := frozen_point haL hac hLleaf R hd1 GD hG aF haF K (gl, q)
   exact congrArg (PMF.map _) hp
 
 /-- **Mixture law with the leaf data, decomposed.** -/
 theorem mix_decompY :
     (PMF.uniformOfFintype (LeafData L)).bind
         (fun y => (mixLaw a (restDepth a R) (ovL L R y) GD).map (fun z => (y, z))) =
-      (PMF.uniformOfFintype (Fin 17 → Digest)).bind (fun K => (PMF.uniformOfFintype (PData L (restDepth a R))).bind
+      (PMF.uniformOfFintype (Fin (WCT9.famCount L.lay) → Digest)).bind (fun K => (PMF.uniformOfFintype (PData L (restDepth a R))).bind
         (fun p => (PMF.uniformOfFintype Digest).bind (fun s =>
           (evalT (seedsH (ptL L) (revSet L R) aF K s) (testRun GD aF p (seedsR (ptL L) (revSet L R) K))).map
             (fun res => (((K, progF p.1.1 p.1.2 K) : LeafData L), (eP L p, res)))))) := by
@@ -422,11 +377,11 @@ theorem mix_decompY :
   have he : evaluate (tY L (restDepth a R) (mkP (gl, q) 0) s) s = eP L (gl, q) := evaluate_tY hd1 _ _
   rw [ht, he]
   unfold gameD
-  have hp := mix_point haL hac hL0 hLleaf R hd1 GD hG aF haF K (gl, q) s
+  have hp := mix_point haL hac hLleaf R hd1 GD hG aF haF K (gl, q) s
   exact congrArg (PMF.map _) hp
 end Decomp
 
-/-! ### At most 14 revealed chains -/
+/-! ### Revealed chains -/
 
 theorem card_filter_getD_zero : ∀ (l : List ℕ),
     (Finset.univ.filter (fun c : Fin l.length => l.getD c 0 = 0)).card = (l.filter (· = 0)).length
@@ -446,25 +401,36 @@ theorem card_filter_getD_zero' (n : ℕ) (l : List ℕ) (hl : l.length = n) :
   subst hl
   exact card_filter_getD_zero l
 
-theorem dummyDigits_zero {lay : Layer} (hlay : lay ≠ 0) : ((dummyDigits lay).filter (· = 0)).length = 0 := by
-  revert hlay; fin_cases lay <;> decide
+theorem dummyDigits_zero (lay : Layer) : ((dummyDigits lay).filter (· = 0)).length = 0 := by
+  fin_cases lay <;> decide
 
-/-- **At most 14 revealed chains per lower leaf.** -/
-theorem revSet_card_le {L : LeafAddr} (hL0 : L.lay ≠ 0) (R : RefTables adversary) : (revSet L R).card ≤ 14 := by
+/-- **Revealed chains per leaf**: at most `famCount − 3` (campaign T8D: ≤ 20 of the 54 top chains with 24 top
+coefficients, `top_zero_count_le`; ≤ 14 of the 43 lower chains with 17 coefficients, `lower_zero_count_le`), so every
+unrevealed seed keeps 3 degrees of freedom. -/
+theorem revSet_card_le {L : LeafAddr} (R : RefTables adversary) :
+    (revSet L R).card + 3 ≤ WCT9.famCount L.lay := by
   unfold revSet
   have hspec := (Mask.referenceDigits_spec (restTable R) L).1
   have e : (Finset.univ.filter fun c : Fin (chainCount L.lay) => depth (restTable R) ⟨L, c⟩ = 0) =
       Finset.univ.filter fun c : Fin (chainCount L.lay) => (referenceDigits (restTable R) L).getD c 0 = 0 := rfl
   rw [e, card_filter_getD_zero' _ _ hspec]
+  have hN := WCT9.famCount_ge L.lay
   unfold referenceDigits
   cases h : referenceSearch (restTable R) L with
-  | none => simp only [Option.map_none, Option.getD_none]; rw [dummyDigits_zero hL0]; omega
+  | none => simp only [Option.map_none, Option.getD_none]; rw [dummyDigits_zero]; omega
   | some found =>
       obtain ⟨counter, digits⟩ := found
       simp only [Option.map_some, Option.getD_some]
       have hd := (WCT9.layerCounterSearch_some (restTable R) L.lay L.tree L.leaf (leafMsg (restTable R) L)
         (WCT9.searchLimit L.lay) 0 counter digits (ClaudeWCT.W9.T3.Security.Wots.searchLimit_fits _) h).2.2
-      exact ClaudeWCT.WCT9.lower_zero_count_le hL0 (ClaudeWCT.WCT9.lower_target_ge _ hL0) hd
+      by_cases h0 : L.lay = 0
+      · rw [h0] at hd
+        have := ClaudeWCT.WCT9.top_zero_count_le ClaudeWCT.WCT9.top_target_ge hd
+        rw [show WCT9.famCount L.lay = 24 by rw [h0]; rfl]
+        omega
+      · have := ClaudeWCT.WCT9.lower_zero_count_le h0 (ClaudeWCT.WCT9.lower_target_ge _ h0) hd
+        rw [show WCT9.famCount L.lay = 17 by unfold WCT9.famCount; rw [if_neg h0]; rfl]
+        omega
 
 /-! ### Probability bookkeeping -/
 
@@ -498,7 +464,7 @@ theorem sum_inv_ofReal {α : Type} [Fintype α] [Nonempty α] (f : α → ℝ) (
 /-! ### Real against mixture, one rest table -/
 
 section PerR
-variable {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.chain < chainCount L.lay) (hL0 : L.lay ≠ 0)
+variable {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.chain < chainCount L.lay)
   (hLleaf : L.leaf < 2 ^ 24) (R : RefTables adversary) (hd1 : 1 ≤ restDepth a R)
   {Res : Type} (GD : Answers → OracleComp RefWorld Res) (hG : ∀ T T', LeafCongr L T T' → GD T' = GD T)
   (aF : Free (revSet L R)) (haF : aF.1.val = a.chain) (q : ℕ)
@@ -512,15 +478,15 @@ theorem tdepth_testRun (p : PData L (restDepth a R)) (r : Fin (chainCount L.lay)
 
 /-- The per-rest-table error: `2 δ K(q) E_{p,K}[amLen]`. -/
 noncomputable def errR : ℝ :=
-  ∑ p : PData L (restDepth a R), ∑ K : Fin 17 → Digest,
-    (Fintype.card (Fin 17 → Digest) : ℝ)⁻¹ * ((Fintype.card (PData L (restDepth a R)) : ℝ)⁻¹ *
+  ∑ p : PData L (restDepth a R), ∑ K : Fin (WCT9.famCount L.lay) → Digest,
+    (Fintype.card (Fin (WCT9.famCount L.lay) → Digest) : ℝ)⁻¹ * ((Fintype.card (PData L (restDepth a R)) : ℝ)⁻¹ *
       (2 * ((Fintype.card Digest : ℝ)⁻¹) ^ 3 * ClaudeWCT.Arith.SideChannel.kconst q *
         amLen (testRun GD aF p (seedsR (ptL L) (revSet L R) K))))
 
-include haL hac hL0 hLleaf hd1 hG haF hGq
+include haL hac hLleaf hd1 hG haF hGq
 
 theorem frozen_le_mix_R (E : LeafData L → Digest × (Res × TObs (restDepth a R)) → Prop)
-    (hE : ∀ (p : PData L (restDepth a R)) (K K' : Fin 17 → Digest),
+    (hE : ∀ (p : PData L (restDepth a R)) (K K' : Fin (WCT9.famCount L.lay) → Digest),
       seedsR (ptL L) (revSet L R) K = seedsR (ptL L) (revSet L R) K' →
         E (K, progF p.1.1 p.1.2 K) = E (K', progF p.1.1 p.1.2 K')) :
     Pr[fun w => E w.1 w.2 | (PMF.uniformOfFintype (LeafData L)).bind
@@ -528,10 +494,10 @@ theorem frozen_le_mix_R (E : LeafData L → Digest × (Res × TObs (restDepth a 
       Pr[fun w => E w.1 w.2 | (PMF.uniformOfFintype (LeafData L)).bind
         (fun y => (mixLaw a (restDepth a R) (ovL L R y) GD).map (fun z => (y, z)))] +
         ENNReal.ofReal (errR (a := a) R GD aF q) := by
-  rw [frozen_decompY haL hac hL0 hLleaf R hd1 GD hG aF haF, mix_decompY haL hac hL0 hLleaf R hd1 GD hG aF haF]
+  rw [frozen_decompY haL hac hLleaf R hd1 GD hG aF haF, mix_decompY haL hac hLleaf R hd1 GD hG aF haF]
   set A : PData L (restDepth a R) → (Fin (chainCount L.lay) → Digest) → (Res × TObs (restDepth a R)) → Prop :=
     fun p r res => E (Kst L R r, progF p.1.1 p.1.2 (Kst L R r)) (eP L p, res) with hAdef
-  have hA : ∀ (K : Fin 17 → Digest) (p : PData L (restDepth a R)),
+  have hA : ∀ (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (restDepth a R)),
       (fun res => E (K, progF p.1.1 p.1.2 K) (eP L p, res)) = A p (seedsR (ptL L) (revSet L R) K) := by
     intro K p
     funext res
@@ -541,42 +507,42 @@ theorem frozen_le_mix_R (E : LeafData L → Digest × (Res × TObs (restDepth a 
   simp only [prob_uniform_bind, prob_pmf_map, Function.comp_def]
   simp only [prob_evalT]
   simp only [hA]
-  have hRev : (revSet L R).card + 3 ≤ 17 := by have := revSet_card_le hL0 R; omega
+  have hRev : (revSet L R).card + 3 ≤ WCT9.famCount L.lay := revSet_card_le R
   have hpt : Function.Injective (ptL L) := fun c c' h => Fin.ext (by unfold ptL at h; omega)
   have hsmall : ∀ c, ptL L c < 1024 := fun c => by
     unfold ptL; have := c.isLt; have := chainCount_le L.lay; omega
   -- convert to real sums
-  rw [show (∑ K : Fin 17 → Digest, (Fintype.card (Fin 17 → Digest) : ℝ≥0∞)⁻¹ *
+  rw [show (∑ K : Fin (WCT9.famCount L.lay) → Digest, (Fintype.card (Fin (WCT9.famCount L.lay) → Digest) : ℝ≥0∞)⁻¹ *
       ∑ p : PData L (restDepth a R), (Fintype.card (PData L (restDepth a R)) : ℝ≥0∞)⁻¹ *
         ENNReal.ofReal (prT (seedsY (ptL L) (revSet L R) K) (A p (seedsR (ptL L) (revSet L R) K))
           (testRun GD aF p (seedsR (ptL L) (revSet L R) K)))) =
-      ENNReal.ofReal (∑ K : Fin 17 → Digest, (Fintype.card (Fin 17 → Digest) : ℝ)⁻¹ *
+      ENNReal.ofReal (∑ K : Fin (WCT9.famCount L.lay) → Digest, (Fintype.card (Fin (WCT9.famCount L.lay) → Digest) : ℝ)⁻¹ *
         ∑ p : PData L (restDepth a R), (Fintype.card (PData L (restDepth a R)) : ℝ)⁻¹ *
           prT (seedsY (ptL L) (revSet L R) K) (A p (seedsR (ptL L) (revSet L R) K))
             (testRun GD aF p (seedsR (ptL L) (revSet L R) K))) by
     simp only [sum_inv_ofReal _ (fun _ => ClaudeWCT.Arith.SideChannel.prT_nonneg _ _ _)]
     exact sum_inv_ofReal _ (fun K => Finset.sum_nonneg fun p _ => mul_nonneg (by positivity)
       (ClaudeWCT.Arith.SideChannel.prT_nonneg _ _ _))]
-  set cK : ℝ := (Fintype.card (Fin 17 → Digest) : ℝ)⁻¹ with hcK
+  set cK : ℝ := (Fintype.card (Fin (WCT9.famCount L.lay) → Digest) : ℝ)⁻¹ with hcK
   set cp : ℝ := (Fintype.card (PData L (restDepth a R)) : ℝ)⁻¹ with hcp
   set cD : ℝ := (Fintype.card Digest : ℝ)⁻¹ with hcD
   set C : ℝ := 2 * ((Fintype.card Digest : ℝ)⁻¹) ^ 3 * ClaudeWCT.Arith.SideChannel.kconst q with hC
-  set x := fun (K : Fin 17 → Digest) (p : PData L (restDepth a R)) =>
+  set x := fun (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (restDepth a R)) =>
     prT (seedsY (ptL L) (revSet L R) K) (A p (seedsR (ptL L) (revSet L R) K)) (testRun GD aF p (seedsR (ptL L) (revSet L R) K))
     with hx
-  set z := fun (K : Fin 17 → Digest) (p : PData L (restDepth a R)) (s : Digest) =>
+  set z := fun (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (restDepth a R)) (s : Digest) =>
     prT (seedsH (ptL L) (revSet L R) aF K s) (A p (seedsR (ptL L) (revSet L R) K))
       (testRun GD aF p (seedsR (ptL L) (revSet L R) K)) with hz
-  set m := fun (K : Fin 17 → Digest) (p : PData L (restDepth a R)) =>
+  set m := fun (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (restDepth a R)) =>
     amLen (testRun GD aF p (seedsR (ptL L) (revSet L R) K)) with hm
   have hcK0 : 0 ≤ cK := by positivity
   have hcp0 : 0 ≤ cp := by positivity
   have hcD0 : 0 ≤ cD := by positivity
   have hz0 : ∀ K p s, 0 ≤ z K p s := fun _ _ _ => ClaudeWCT.Arith.SideChannel.prT_nonneg _ _ _
-  rw [show (∑ K : Fin 17 → Digest, (Fintype.card (Fin 17 → Digest) : ℝ≥0∞)⁻¹ *
+  rw [show (∑ K : Fin (WCT9.famCount L.lay) → Digest, (Fintype.card (Fin (WCT9.famCount L.lay) → Digest) : ℝ≥0∞)⁻¹ *
       ∑ p : PData L (restDepth a R), (Fintype.card (PData L (restDepth a R)) : ℝ≥0∞)⁻¹ *
         ∑ s : Digest, (Fintype.card Digest : ℝ≥0∞)⁻¹ * ENNReal.ofReal (z K p s)) =
-      ENNReal.ofReal (∑ K : Fin 17 → Digest, cK * ∑ p : PData L (restDepth a R), cp * ∑ s : Digest, cD * z K p s) by
+      ENNReal.ofReal (∑ K : Fin (WCT9.famCount L.lay) → Digest, cK * ∑ p : PData L (restDepth a R), cp * ∑ s : Digest, cD * z K p s) by
     have h1 : ∀ K p, ∑ s : Digest, (Fintype.card Digest : ℝ≥0∞)⁻¹ * ENNReal.ofReal (z K p s) =
         ENNReal.ofReal (∑ s : Digest, cD * z K p s) := fun K p => sum_inv_ofReal (z K p) (hz0 K p)
     simp only [h1]
@@ -588,7 +554,7 @@ theorem frozen_le_mix_R (E : LeafData L → Digest × (Res × TObs (restDepth a 
     simp only [h2]
     exact sum_inv_ofReal _ (fun K => Finset.sum_nonneg fun p _ => mul_nonneg hcp0
       (Finset.sum_nonneg fun s _ => mul_nonneg hcD0 (hz0 K p s)))]
-  have hY : 0 ≤ ∑ K : Fin 17 → Digest, cK * ∑ p : PData L (restDepth a R), cp * ∑ s : Digest, cD * z K p s :=
+  have hY : 0 ≤ ∑ K : Fin (WCT9.famCount L.lay) → Digest, cK * ∑ p : PData L (restDepth a R), cp * ∑ s : Digest, cD * z K p s :=
     Finset.sum_nonneg fun K _ => mul_nonneg hcK0 (Finset.sum_nonneg fun p _ => mul_nonneg hcp0
       (Finset.sum_nonneg fun s _ => mul_nonneg hcD0 (hz0 K p s)))
   have hZ : 0 ≤ errR (a := a) R GD aF q := by
@@ -602,12 +568,12 @@ theorem frozen_le_mix_R (E : LeafData L → Digest × (Res × TObs (restDepth a 
       ∑ K, (∑ s, z K p s) / Fintype.card Digest + C * ∑ K, m K p := fun p =>
     ClaudeWCT.Arith.SideChannel.family_test_le hpt hsmall hRev aF (A p)
       (fun r => testRun GD aF p r) q (fun r => tdepth_testRun R GD aF q hGq p r)
-  have e1 : ∑ K : Fin 17 → Digest, cK * ∑ p : PData L (restDepth a R), cp * x K p =
+  have e1 : ∑ K : Fin (WCT9.famCount L.lay) → Digest, cK * ∑ p : PData L (restDepth a R), cp * x K p =
       ∑ p : PData L (restDepth a R), (cK * cp) * ∑ K, x K p := by
     simp only [Finset.mul_sum]
     rw [Finset.sum_comm]
     refine Finset.sum_congr rfl fun p _ => Finset.sum_congr rfl fun K _ => by ring
-  have e2 : ∑ K : Fin 17 → Digest, cK * ∑ p : PData L (restDepth a R), cp * ∑ s : Digest, cD * z K p s =
+  have e2 : ∑ K : Fin (WCT9.famCount L.lay) → Digest, cK * ∑ p : PData L (restDepth a R), cp * ∑ s : Digest, cD * z K p s =
       ∑ p : PData L (restDepth a R), (cK * cp) * ∑ K, (∑ s, z K p s) / Fintype.card Digest := by
     simp only [Finset.mul_sum, div_eq_mul_inv, Finset.sum_mul]
     rw [Finset.sum_comm]
@@ -622,7 +588,7 @@ theorem frozen_le_mix_R (E : LeafData L → Digest × (Res × TObs (restDepth a 
   rw [← mul_add]
   exact mul_le_mul_of_nonneg_left (key p) (mul_nonneg hcK0 hcp0)
 theorem mix_le_frozen_R (E : LeafData L → Digest × (Res × TObs (restDepth a R)) → Prop)
-    (hE : ∀ (p : PData L (restDepth a R)) (K K' : Fin 17 → Digest),
+    (hE : ∀ (p : PData L (restDepth a R)) (K K' : Fin (WCT9.famCount L.lay) → Digest),
       seedsR (ptL L) (revSet L R) K = seedsR (ptL L) (revSet L R) K' →
         E (K, progF p.1.1 p.1.2 K) = E (K', progF p.1.1 p.1.2 K')) :
     Pr[fun w => E w.1 w.2 | (PMF.uniformOfFintype (LeafData L)).bind
@@ -630,10 +596,10 @@ theorem mix_le_frozen_R (E : LeafData L → Digest × (Res × TObs (restDepth a 
       Pr[fun w => E w.1 w.2 | (PMF.uniformOfFintype (LeafData L)).bind
         (fun y => (frozenLaw a (restDepth a R) (ovL L R y) GD).map (fun z => (y, z)))] +
         ENNReal.ofReal (errR (a := a) R GD aF q) := by
-  rw [frozen_decompY haL hac hL0 hLleaf R hd1 GD hG aF haF, mix_decompY haL hac hL0 hLleaf R hd1 GD hG aF haF]
+  rw [frozen_decompY haL hac hLleaf R hd1 GD hG aF haF, mix_decompY haL hac hLleaf R hd1 GD hG aF haF]
   set A : PData L (restDepth a R) → (Fin (chainCount L.lay) → Digest) → (Res × TObs (restDepth a R)) → Prop :=
     fun p r res => E (Kst L R r, progF p.1.1 p.1.2 (Kst L R r)) (eP L p, res) with hAdef
-  have hA : ∀ (K : Fin 17 → Digest) (p : PData L (restDepth a R)),
+  have hA : ∀ (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (restDepth a R)),
       (fun res => E (K, progF p.1.1 p.1.2 K) (eP L p, res)) = A p (seedsR (ptL L) (revSet L R) K) := by
     intro K p
     funext res
@@ -643,42 +609,42 @@ theorem mix_le_frozen_R (E : LeafData L → Digest × (Res × TObs (restDepth a 
   simp only [prob_uniform_bind, prob_pmf_map, Function.comp_def]
   simp only [prob_evalT]
   simp only [hA]
-  have hRev : (revSet L R).card + 3 ≤ 17 := by have := revSet_card_le hL0 R; omega
+  have hRev : (revSet L R).card + 3 ≤ WCT9.famCount L.lay := revSet_card_le R
   have hpt : Function.Injective (ptL L) := fun c c' h => Fin.ext (by unfold ptL at h; omega)
   have hsmall : ∀ c, ptL L c < 1024 := fun c => by
     unfold ptL; have := c.isLt; have := chainCount_le L.lay; omega
   -- convert to real sums
-  rw [show (∑ K : Fin 17 → Digest, (Fintype.card (Fin 17 → Digest) : ℝ≥0∞)⁻¹ *
+  rw [show (∑ K : Fin (WCT9.famCount L.lay) → Digest, (Fintype.card (Fin (WCT9.famCount L.lay) → Digest) : ℝ≥0∞)⁻¹ *
       ∑ p : PData L (restDepth a R), (Fintype.card (PData L (restDepth a R)) : ℝ≥0∞)⁻¹ *
         ENNReal.ofReal (prT (seedsY (ptL L) (revSet L R) K) (A p (seedsR (ptL L) (revSet L R) K))
           (testRun GD aF p (seedsR (ptL L) (revSet L R) K)))) =
-      ENNReal.ofReal (∑ K : Fin 17 → Digest, (Fintype.card (Fin 17 → Digest) : ℝ)⁻¹ *
+      ENNReal.ofReal (∑ K : Fin (WCT9.famCount L.lay) → Digest, (Fintype.card (Fin (WCT9.famCount L.lay) → Digest) : ℝ)⁻¹ *
         ∑ p : PData L (restDepth a R), (Fintype.card (PData L (restDepth a R)) : ℝ)⁻¹ *
           prT (seedsY (ptL L) (revSet L R) K) (A p (seedsR (ptL L) (revSet L R) K))
             (testRun GD aF p (seedsR (ptL L) (revSet L R) K))) by
     simp only [sum_inv_ofReal _ (fun _ => ClaudeWCT.Arith.SideChannel.prT_nonneg _ _ _)]
     exact sum_inv_ofReal _ (fun K => Finset.sum_nonneg fun p _ => mul_nonneg (by positivity)
       (ClaudeWCT.Arith.SideChannel.prT_nonneg _ _ _))]
-  set cK : ℝ := (Fintype.card (Fin 17 → Digest) : ℝ)⁻¹ with hcK
+  set cK : ℝ := (Fintype.card (Fin (WCT9.famCount L.lay) → Digest) : ℝ)⁻¹ with hcK
   set cp : ℝ := (Fintype.card (PData L (restDepth a R)) : ℝ)⁻¹ with hcp
   set cD : ℝ := (Fintype.card Digest : ℝ)⁻¹ with hcD
   set C : ℝ := 2 * ((Fintype.card Digest : ℝ)⁻¹) ^ 3 * ClaudeWCT.Arith.SideChannel.kconst q with hC
-  set x := fun (K : Fin 17 → Digest) (p : PData L (restDepth a R)) =>
+  set x := fun (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (restDepth a R)) =>
     prT (seedsY (ptL L) (revSet L R) K) (A p (seedsR (ptL L) (revSet L R) K)) (testRun GD aF p (seedsR (ptL L) (revSet L R) K))
     with hx
-  set z := fun (K : Fin 17 → Digest) (p : PData L (restDepth a R)) (s : Digest) =>
+  set z := fun (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (restDepth a R)) (s : Digest) =>
     prT (seedsH (ptL L) (revSet L R) aF K s) (A p (seedsR (ptL L) (revSet L R) K))
       (testRun GD aF p (seedsR (ptL L) (revSet L R) K)) with hz
-  set m := fun (K : Fin 17 → Digest) (p : PData L (restDepth a R)) =>
+  set m := fun (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (restDepth a R)) =>
     amLen (testRun GD aF p (seedsR (ptL L) (revSet L R) K)) with hm
   have hcK0 : 0 ≤ cK := by positivity
   have hcp0 : 0 ≤ cp := by positivity
   have hcD0 : 0 ≤ cD := by positivity
   have hz0 : ∀ K p s, 0 ≤ z K p s := fun _ _ _ => ClaudeWCT.Arith.SideChannel.prT_nonneg _ _ _
-  rw [show (∑ K : Fin 17 → Digest, (Fintype.card (Fin 17 → Digest) : ℝ≥0∞)⁻¹ *
+  rw [show (∑ K : Fin (WCT9.famCount L.lay) → Digest, (Fintype.card (Fin (WCT9.famCount L.lay) → Digest) : ℝ≥0∞)⁻¹ *
       ∑ p : PData L (restDepth a R), (Fintype.card (PData L (restDepth a R)) : ℝ≥0∞)⁻¹ *
         ∑ s : Digest, (Fintype.card Digest : ℝ≥0∞)⁻¹ * ENNReal.ofReal (z K p s)) =
-      ENNReal.ofReal (∑ K : Fin 17 → Digest, cK * ∑ p : PData L (restDepth a R), cp * ∑ s : Digest, cD * z K p s) by
+      ENNReal.ofReal (∑ K : Fin (WCT9.famCount L.lay) → Digest, cK * ∑ p : PData L (restDepth a R), cp * ∑ s : Digest, cD * z K p s) by
     have h1 : ∀ K p, ∑ s : Digest, (Fintype.card Digest : ℝ≥0∞)⁻¹ * ENNReal.ofReal (z K p s) =
         ENNReal.ofReal (∑ s : Digest, cD * z K p s) := fun K p => sum_inv_ofReal (z K p) (hz0 K p)
     simp only [h1]
@@ -690,7 +656,7 @@ theorem mix_le_frozen_R (E : LeafData L → Digest × (Res × TObs (restDepth a 
     simp only [h2]
     exact sum_inv_ofReal _ (fun K => Finset.sum_nonneg fun p _ => mul_nonneg hcp0
       (Finset.sum_nonneg fun s _ => mul_nonneg hcD0 (hz0 K p s)))]
-  have hY : 0 ≤ ∑ K : Fin 17 → Digest, cK * ∑ p : PData L (restDepth a R), cp * x K p :=
+  have hY : 0 ≤ ∑ K : Fin (WCT9.famCount L.lay) → Digest, cK * ∑ p : PData L (restDepth a R), cp * x K p :=
     Finset.sum_nonneg fun K _ => mul_nonneg hcK0 (Finset.sum_nonneg fun p _ => mul_nonneg hcp0
       (ClaudeWCT.Arith.SideChannel.prT_nonneg _ _ _))
   have hZ : 0 ≤ errR (a := a) R GD aF q := by
@@ -704,12 +670,12 @@ theorem mix_le_frozen_R (E : LeafData L → Digest × (Res × TObs (restDepth a 
       ∑ K, x K p + C * ∑ K, m K p := fun p =>
     ClaudeWCT.Arith.SideChannel.family_test_ge hpt hsmall hRev aF (A p)
       (fun r => testRun GD aF p r) q (fun r => tdepth_testRun R GD aF q hGq p r)
-  have e1 : ∑ K : Fin 17 → Digest, cK * ∑ p : PData L (restDepth a R), cp * x K p =
+  have e1 : ∑ K : Fin (WCT9.famCount L.lay) → Digest, cK * ∑ p : PData L (restDepth a R), cp * x K p =
       ∑ p : PData L (restDepth a R), (cK * cp) * ∑ K, x K p := by
     simp only [Finset.mul_sum]
     rw [Finset.sum_comm]
     refine Finset.sum_congr rfl fun p _ => Finset.sum_congr rfl fun K _ => by ring
-  have e2 : ∑ K : Fin 17 → Digest, cK * ∑ p : PData L (restDepth a R), cp * ∑ s : Digest, cD * z K p s =
+  have e2 : ∑ K : Fin (WCT9.famCount L.lay) → Digest, cK * ∑ p : PData L (restDepth a R), cp * ∑ s : Digest, cD * z K p s =
       ∑ p : PData L (restDepth a R), (cK * cp) * ∑ K, (∑ s, z K p s) / Fintype.card Digest := by
     simp only [Finset.mul_sum, div_eq_mul_inv, Finset.sum_mul]
     rw [Finset.sum_comm]

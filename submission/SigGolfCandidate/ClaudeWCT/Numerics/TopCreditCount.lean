@@ -10,17 +10,10 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
 set_option exponentiation.threshold 20000
 set_option linter.constructorNameAsVariable false
-def topCount129 : ℕ := 97816978632729252580178283386927154
-def topCount129_9 : ℕ := 94239367759644528079483368378178554
-theorem exact_packed_129_8 :
-    (packed % radix ^ 8320) % (radix - 1) - (packed % radix ^ (8256 + 8)) % (radix - 1) = topCount129 := by
-  decide +kernel
-theorem exact_packed_129_9 :
-    (packed % radix ^ 8320) % (radix - 1) - (packed % radix ^ (8256 + 9)) % (radix - 1) = topCount129_9 := by
-  decide +kernel
-theorem exact_packed_128_9 :
-    (packed % radix ^ 8256) % (radix - 1) - (packed % radix ^ (8192 + 9)) % (radix - 1) =
-      115848238762295281832019488595518415 := by
+/-- Campaign T8D (NF17, 51 r5 + 3 r8): accepted top words at target 144 with at least 8 credits (about one in 2907). -/
+def topCount144 : ℕ := 117045744219961653783874307332422420
+theorem exact_packed_144_8 :
+    (packed % radix ^ 9280) % (radix - 1) - (packed % radix ^ (9216 + 8)) % (radix - 1) = topCount144 := by
   decide +kernel
 theorem credited_card_of (T f n : ℕ) (hf : f ≤ 64) (hT : 0 < T)
     (h : (packed % radix ^ (64 * T + 64)) % (radix - 1) - (packed % radix ^ (64 * T + f)) % (radix - 1) = n) :
@@ -49,20 +42,14 @@ theorem credited_card_of (T f n : ℕ) (hf : f ≤ 64) (hT : 0 < T)
   · intro w hw
     simp only [mem_filter, mem_univ, true_and] at hw ⊢
     omega
-theorem credited_card_129_8 :
-    (univ.filter fun w : Word => weight w = 129 ∧ 8 ≤ credit w).card = topCount129 :=
-  credited_card_of 129 8 _ (by norm_num) (by norm_num) exact_packed_129_8
-theorem credited_card_129_9 :
-    (univ.filter fun w : Word => weight w = 129 ∧ 9 ≤ credit w).card = topCount129_9 :=
-  credited_card_of 129 9 _ (by norm_num) (by norm_num) exact_packed_129_9
-theorem credited_card_128_9 :
-    (univ.filter fun w : Word => weight w = 128 ∧ 9 ≤ credit w).card = 115848238762295281832019488595518415 :=
-  credited_card_of 128 9 _ (by norm_num) (by norm_num) exact_packed_128_9
+theorem credited_card_144_8 :
+    (univ.filter fun w : Word => weight w = 144 ∧ 8 ≤ credit w).card = topCount144 :=
+  credited_card_of 144 8 _ (by norm_num) (by norm_num) exact_packed_144_8
 theorem card_parse_filter (P : Word → Prop) [DecidablePred P] :
     (univ.filter fun v : BitVec 128 => ∃ w, Decoder.parse 17 v.toNat = some w ∧ P w).card =
       (univ.filter P).card := by
   classical
-  have hlt : ∀ w : Word, encode w < 2 ^ 128 := fun w => (encode_bound w).trans (by norm_num)
+  have hlt : ∀ w : Word, encode w < 2 ^ 128 := encode_bound
   have himage : (univ.filter fun v : BitVec 128 => ∃ w, Decoder.parse 17 v.toNat = some w ∧ P w) =
       (univ.filter P).image fun w => BitVec.ofNat 128 (encode w) := by
     ext v

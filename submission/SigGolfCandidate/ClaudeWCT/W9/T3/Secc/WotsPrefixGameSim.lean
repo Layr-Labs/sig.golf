@@ -66,29 +66,15 @@ theorem maskAt_ov_fill (a : ChainAddr) (R : RefTables adversary) (x : Hidden (re
     rw [restTable_ov_nonprefix a R x input hnone, restTable_ov_nonprefix a R _ input hnone]
   · intro coin
     rfl
-  · intro coordinate hc
-    unfold fillTable
-    rw [restTable_ov_private a R x coordinate hc, restTable_ov_private a R _ coordinate hc]
-  · unfold fillTable
-    by_cases hl : a.key.lay = 0
-    · rw [restTable_ov_seed a hl, restTable_ov_seed a hl]
-      unfold siblingHalfP
-      rw [siblingHalf_setSeed, siblingHalf_setSeed]
-    · rw [restTable_ov_private_lower a hl, restTable_ov_private_lower a hl]
-  · intro hl
-    unfold fillTable
-    rw [restTable_ov_private_lower a hl, restTable_ov_private_lower a hl]
+  · intro coordinate
+    rfl
   · rw [hdx, hdf]
   · rw [frontierValue_ov]
     unfold fillTable
     rw [frontierValue_ov]
-    by_cases hl : a.key.lay = 0
-    · have h1 : ∀ v, ovSeed a R v = v := fun v => by unfold ovSeed; rw [if_pos hl]
-      rw [h1 e, he, h1 x.2]
-      exact (evaluate_const _ _).symm
-    · have h1 : ∀ v, ovSeed a R v = ovSeed a R x.2 := fun v => by unfold ovSeed; rw [if_neg hl, if_neg hl]
-      rw [h1 e, he]
-      exact (evaluate_fill _ _ _).symm
+    have h1 : ∀ v, ovSeed a R v = ovSeed a R x.2 := fun v => rfl
+    rw [h1 e, he]
+    exact (evaluate_fill _ _ _).symm
 theorem referenceGame_fill (a : ChainAddr) (htree : a.key.tree < 2 ^ 40) (hleaf : a.key.leaf < 2 ^ 24)
     (R : RefTables adversary) (x : Hidden (restDepth a R)) (q : Nat) :
     referenceGame (restTable (ov a (restDepth a R) R x)) adversary q =

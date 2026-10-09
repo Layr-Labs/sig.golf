@@ -765,7 +765,7 @@ theorem ftsP_queried_forest (answers : Answers) (w : WBytes) (index : Nat) (chos
 theorem keygen_pk (answers : Answers) : (evalWithAnswerFn answers keygen).1 = honestRoot answers 0 0 := by
   unfold keygen keygenPayload
   simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-  rw [Correctness.eval_buildTree_levels answers 0 0 0 [] (Cost.validDigits_nil 0)]
+  rw [Correctness.eval_buildTopTree answers]
   rfl
 theorem verifyP_walk_extract (answers : Answers) (m : Message) (pk : Digest) (w : WBytes)
     (hpk : pk = honestRoot answers 0 0)

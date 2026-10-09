@@ -2,7 +2,7 @@ import SigGolfCandidate.T3M.Keygen.Mask
 
 namespace SigGolfCandidate.T3M.Keygen
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp
-open SigGolfCandidate.T3 (Digest Cache Region keygen keygenPayload buildTree mask privateMac privateInput
+open SigGolfCandidate.T3 (Digest Cache Region keygen keygenPayload buildTopTree mask privateMac privateInput
   header zero16 cacheBytes readLE)
 open SphincsSecurity (bytesLE bytesLE_length)
 theorem ofFn_getD_toArray (n : Nat) (l : List UInt8) (h : l.length = n) :
@@ -38,11 +38,10 @@ section main
 variable {sk : SecretKey} {s1 : MachineState} (hs : KStart sk s1)
 include hs
 theorem payload_tsim :
-    TSim image sk s1 44040333 51433599 995326 1048574 keygenPayload (PayloadPost sk) := by
+    TSim image sk s1 473464973 480784511 983038 1036286 keygenPayload (PayloadPost sk) := by
   unfold keygenPayload
-  refine (TSim.bind (k₂ := 143458) (c₂ := 172123) (n₂ := 4095) (b₂ := 4095) (buildTree_tsim hs)
-    (fun r t ht => ?_)).of_eq rfl rfl rfl rfl rfl
-  obtain ⟨levels, vals⟩ := r
+  refine (TSim.bind (k₂ := 143458) (c₂ := 172123) (n₂ := 4095) (b₂ := 4095) (buildTopTree_tsim hs)
+    (fun levels t ht => ?_)).of_eq rfl rfl rfl rfl rfl
   obtain ⟨tpc, theap, tregs, tframe⟩ := ht
   obtain ⟨t3, st3, t3pc, t3r, t3f⟩ := blk39_spec t tpc
   obtain ⟨t4, st4', t4pc, t4x2, t4x20, t4x22, t4x24, t4a', t4b', t4r', t4f'⟩ :=

@@ -394,20 +394,6 @@ theorem openingPath_eq (h : Agrees T labels) (index : Fin (2^31)) (N : HashOutpu
   have hx := ftsTree_eq h index k l.val ((WCT9.child N k).val / 2 ^ l.val ^^^ 1) (by omega) hb
   rw [ftsLabel_eq (secretsOf T), ← honestValue_eq h] at hx
   exact hx
-theorem wctOpened_eq (h : Agrees T labels) (index : Fin (2^31)) (k : Fin 9) (N : HashOutput) :
-    List.ofFn (WCT9.expectedOpening T index.val N k).values = (wctOpened index k N).map (honestValue T) := by
-  unfold wctOpened
-  rw [List.map_ofFn]
-  congr 1
-  funext t
-  exact openingValue_eq h index N k t
-theorem wctPath_eq (h : Agrees T labels) (index : Fin (2^31)) (k : Fin 9) (N : HashOutput) :
-    List.ofFn (WCT9.expectedOpening T index.val N k).path = (wctPath index k N).map (honestValue T) := by
-  have hlen : ((wctPath index k N).map (honestValue T)).length = 7 := by
-    rw [wctPath_map]; simp
-  apply List.ext_getElem (by rw [hlen]; simp)
-  intro l h1 h2
-  rw [List.getElem_ofFn, openingPath_eq h index N k ⟨l, by simpa using h1⟩, List.getD_eq_getElem _ _ h2]
 theorem expectedOpening_eq (h : Agrees T labels) (index : Fin (2^31)) (N : HashOutput) (k : Fin 9) :
     WCT9.expectedOpening T index.val N k =
       ⟨fun t => honestValue T (wctItem (index, k, WCT9.child N k, t) (4 - WCT9.wordDigit (WCT9.rank N k) t)),

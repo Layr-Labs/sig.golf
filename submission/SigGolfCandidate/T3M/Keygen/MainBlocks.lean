@@ -9,7 +9,7 @@ abbrev TOP : Nat := 0x50000
 abbrev REGION : Nat := 0x80020
 macro "kg_omega" : tactic =>
   `(tactic| ((try simp only [PRIV, SEEDS, CHAIN, NODE, NOUT, LOUT, LEAFPK, MOUT, ZDIG, DUMMY, TOP,
-    REGION] at *); omega))
+    REGION, KCOEF] at *); omega))
 theorem blk0_spec (s : MachineState) (hpc : s.pc = pcOf 0) :
     ∃ t, Steps image s 26 26 t ∧ t.pc = pcOf 26 ∧
       t.getReg .x2 = BitVec.ofNat 64 TOP ∧ t.getReg .x5 = 0 ∧ t.getReg .x8 = BitVec.ofNat 64 0 ∧

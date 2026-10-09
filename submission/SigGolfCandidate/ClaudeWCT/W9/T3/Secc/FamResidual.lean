@@ -74,14 +74,6 @@ noncomputable def supp (cand : Coord → Finset Digest) : Finset (Hid Coord) :=
 theorem mem_supp (cand : Coord → Finset Digest) (x : Hid Coord) : x ∈ supp cand ↔ ∀ c, view x c ∈ cand c := by
   simp only [supp, Finset.mem_filter, Finset.mem_univ, true_and]
 
-/-- Restricting the candidate sets by a per-coordinate predicate filters the support. -/
-theorem supp_restrict (cand cand' : Coord → Finset Digest) (Q : Coord → Digest → Prop)
-    (h : ∀ c v, v ∈ cand' c ↔ v ∈ cand c ∧ Q c v) :
-    supp cand' = (supp cand).filter fun x => ∀ c, Q c (view x c) := by
-  ext x
-  simp only [mem_supp, Finset.mem_filter, h]
-  exact ⟨fun hx => ⟨fun c => (hx c).1, fun c => (hx c).2⟩, fun hx c => ⟨hx.1 c, hx.2 c⟩⟩
-
 end Bayes
 
 section Cell

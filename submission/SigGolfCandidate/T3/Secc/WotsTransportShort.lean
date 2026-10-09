@@ -142,7 +142,13 @@ variable {A T : Answers} (hAT : ShortAgree A T)
 include hAT
 theorem leafSeed_short (lay : Layer) (tree leaf i : Nat) : leafSeed A lay tree leaf i = leafSeed T lay tree leaf i := by
   unfold leafSeed
-  rw [ShortRespects.privatePair 0 lay.val tree (i / 2) leaf A T hAT]
+  split_ifs
+  · unfold Correctness.topLeafSeed Correctness.topCoefList
+    congr 2
+    funext j
+    unfold Correctness.topCoef Correctness.topCoefN topSeedPair
+    rw [ShortRespects.privatePair 0 0 0 _ 0 A T hAT]
+  all_goals rw [ShortRespects.privatePair 0 lay.val tree (i / 2) leaf A T hAT]
 theorem chainValue_short (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
     evalWithAnswerFn A (chain lay tree leaf i start count value) =
       evalWithAnswerFn T (chain lay tree leaf i start count value) :=

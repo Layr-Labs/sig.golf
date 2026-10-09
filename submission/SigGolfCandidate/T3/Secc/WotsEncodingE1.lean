@@ -25,9 +25,6 @@ theorem tsum_uniform_prod {α β : Type} {iP : Fintype (α × β)} [Nonempty (α
   refine tsum_congr fun b => ?_
   simp only [PMF.uniformOfFintype_apply, Fintype.card_prod, Nat.cast_mul]
   rw [ENNReal.mul_inv (by simp) (by simp), mul_assoc]
-theorem restTable_pair (p : FullGame.FullTable) (x : referenceInputs adversary → HashOutput) :
-    restTable ((p, x) : RefTables adversary) = eagerAnswers (referenceInputs adversary) p x := by
-  rw [restTable]
 theorem weighted_le {α : Type} (μ : α → ENNReal) (left right : α → ENNReal) (rate : ENNReal)
     (h : ∀ x, left x ≤ rate * right x) : ∑' x, μ x * left x ≤ rate * ∑' x, μ x * right x := by
   calc _ ≤ ∑' x, μ x * (rate * right x) := ENNReal.tsum_le_tsum fun x => mul_le_mul' le_rfl (h x)

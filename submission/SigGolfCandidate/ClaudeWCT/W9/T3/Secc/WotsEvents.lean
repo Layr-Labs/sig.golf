@@ -75,10 +75,6 @@ def WotsPrimitive (answers : Answers) (trace : List Entry) : Prop :=
     (∃ a, TwoEdgeAt answers trace a) ∨
     (∃ a b, a ≠ b ∧ ContactAt answers trace a ∧ ContactAt answers trace b) ∨
     (∃ a, MarkerAt answers trace a ∧ ContactAt answers trace a)
-def VerifierWots (answers : Answers) (publicKey : Digest) (forgery : ForgeryP) : Prop :=
-  ∃ message witness, PaddedExtraction.WitnessOf answers publicKey forgery message witness ∧
-    evalWithAnswerFn answers (verifyP message publicKey witness) = true ∧
-    WotsPrimitive answers (entriesOf answers (queried answers (verifyP message publicKey witness)))
 end ClaudeWCT.W9.T3.Security.Wots
 namespace ClaudeWCT.W9.T3.Security.WotsExtract
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security.Wots

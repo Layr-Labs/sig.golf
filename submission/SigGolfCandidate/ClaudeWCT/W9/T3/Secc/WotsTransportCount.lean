@@ -19,12 +19,6 @@ noncomputable local instance instSampleableTypeFullTable_wotsTransportCount : Sa
 attribute [local instance] FiniteRowSplit.instSampleableTypeForallSubtypeHashInputMemFinsetHashOutput
 namespace Ref
 open SigGolfCandidate.T3.Security.Wots.Ref
-section Capped
-variable {ι : Type} (selected : ι → Prop) [DecidablePred selected] (cls : ι → Prop)
-end Capped
-section Steps
-variable (C : T3.Spec.Domain → Prop)
-end Steps
 theorem interaction_count_le (T : Answers) (published : T3.Cache) (C : T3.Spec.Domain → Prop) {α : Type}
     (program : OracleComp LazyPrivate.Interaction α) (state : LazyPrivate.State) (budget : Nat)
     (weight : α × QueryLog Requests → Nat → ℝ≥0∞) :
@@ -160,21 +154,6 @@ theorem reference_trace_length (adversary : AdversaryP) (q : Nat) (sample : RefS
     rw [← hsample]
   rw [htrace]
   exact (Ref.traceOf_length_le _ run.2).trans (Ref.offlineRun_calls_le _ adversary q run hrun)
-theorem reference_joint_budget (adversary : AdversaryP) (q : Nat) (A B C D : Answers → T3.Spec.Domain → Prop)
-    (hAB : ∀ T input, ¬(A T input ∧ B T input)) (hAC : ∀ T input, ¬(A T input ∧ C T input))
-    (hAD : ∀ T input, ¬(A T input ∧ D T input)) (hBC : ∀ T input, ¬(B T input ∧ C T input))
-    (hBD : ∀ T input, ¬(B T input ∧ D T input)) (hCD : ∀ T input, ¬(C T input ∧ D T input))
-    (sample : RefSample) (hs : sample ∈ (referenceExperiment adversary q).support) :
-    refCount A sample + refCount B sample + refCount C sample + refCount D sample ≤ q := by
-  have h1 := refCount_or A B hAB sample
-  have h2 := refCount_or (fun T input => A T input ∨ B T input) C
-    (fun T input h => h.1.elim (fun ha => hAC T input ⟨ha, h.2⟩) (fun hb => hBC T input ⟨hb, h.2⟩)) sample
-  have h3 := refCount_or (fun T input => (A T input ∨ B T input) ∨ C T input) D
-    (fun T input h => h.1.elim (fun h' => h'.elim (fun ha => hAD T input ⟨ha, h.2⟩)
-      (fun hb => hBD T input ⟨hb, h.2⟩)) (fun hc => hCD T input ⟨hc, h.2⟩)) sample
-  have hle := (refCount_le_length (fun T input => ((A T input ∨ B T input) ∨ C T input) ∨ D T input) sample).trans
-    (reference_trace_length adversary q sample hs)
-  omega
 theorem completed_eager_map (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
     (fun z => (QueryRecorded.recordedTrace z.1, z.2)) <$> SeccLaw.completedExperiment adversary q hq =
       (fun x => (x.1, Ref.cut x.1.state x.2)) <$> eagerRecorded adversary := by

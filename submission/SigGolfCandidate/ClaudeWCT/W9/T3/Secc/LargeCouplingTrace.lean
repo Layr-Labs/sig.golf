@@ -83,10 +83,4 @@ noncomputable def monitorRun (U : Finset HashInput) (A : Answers) (q : Nat) (pub
 def Contact (adversary : AdversaryP) (q : Nat) (z : PaddedGame.TraceResult × Answers) : Prop :=
   ∀ generated tagged checked, TaggedSplit adversary (QueryRecorded.recordedTrace z.1) generated tagged checked →
     (monitorRun (Wots.referenceInputs adversary) z.2 q generated.value.2 tagged.steps checked.events).contact = true
-noncomputable def digests (adversary : AdversaryP) (q : Nat) (z : PaddedGame.TraceResult × Answers) : Nat :=
-  if h : ∃ generated tagged checked,
-      TaggedSplit adversary (QueryRecorded.recordedTrace z.1) generated tagged checked then
-    (monitorRun (Wots.referenceInputs adversary) z.2 q (Classical.choose h).value.2 (Classical.choose (Classical.choose_spec h)).steps
-      (Classical.choose (Classical.choose_spec (Classical.choose_spec h))).events).digests
-  else 0
 end ClaudeWCT.W9.T3.Security.LargeCoupling

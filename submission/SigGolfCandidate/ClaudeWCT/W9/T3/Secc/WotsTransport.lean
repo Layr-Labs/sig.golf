@@ -40,26 +40,6 @@ theorem completed_map (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
   funext result
   rw [← PMF.monad_map_eq_map, ← liftM_map, map_eq_bind_pure_comp]
   rfl
-theorem caseAB_le_recorded (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
-    Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ CaseAB adversary z | SeccLaw.completedExperiment adversary q hq] ≤
-      Pr[fun pair => Good adversary q pair.1 pair.2 | recordedCompleted adversary] := by
-  calc _ ≤ Pr[fun z => Good adversary q (QueryRecorded.recordedTrace z.1) z.2 |
-        SeccLaw.completedExperiment adversary q hq] := by
-        apply pmf_probEvent_mono
-        intro z hz hev
-        obtain ⟨hwin, hab⟩ := hev
-        have hr := (SeccLaw.completed_agrees adversary q hq z hz).1
-        have hc := PaddedGame.traced_cost_coherent adversary q hq z.1 hr
-        refine ⟨hwin.1, ?_, hab⟩
-        have h := hwin.2.1
-        rw [hc] at h
-        exact h
-    _ = Pr[fun pair => Good adversary q pair.1 pair.2 |
-        (fun z => (QueryRecorded.recordedTrace z.1, z.2)) <$> SeccLaw.completedExperiment adversary q hq] := by
-        rw [probEvent_map]
-        rfl
-    _ = _ := by
-        rw [completed_map, MonitoredPrivate.event_lift]
 theorem referenceInputs_universe (adversary : AdversaryP) : SeccLaw.publicUniverse ⊆ referenceInputs adversary :=
   Finset.subset_union_left
 theorem referenceInputs_inputsIn (adversary : AdversaryP) :
@@ -89,26 +69,7 @@ theorem recorded_eq_eager (adversary : AdversaryP) (event : FirstHit.Recorded Bo
   have hc := record_completion (referenceInputs adversary) (GameWith.idealGame PaddedGame.checker adversary) (∅, ∅)
     (referenceInputs_inputsIn adversary)
   exact probEvent_congr' (fun _ _ => Iff.rfl) hc
-theorem eager_le_reference (adversary : AdversaryP) (q : Nat) :
-    Pr[fun pair => Good adversary q pair.1 (cut pair.1.state pair.2) |
-        eagerSide (referenceInputs adversary) (GameWith.idealGame PaddedGame.checker adversary) (∅, ∅)] ≤
-      Pr[fun sample => WotsPrimitive sample.answers sample.trace | referenceComp adversary q] := by
-  unfold eagerSide referenceComp
-  apply Ref.probEvent_bind_mono
-  intro privateTable
-  apply Ref.probEvent_bind_mono
-  intro publicTable
-  rw [probEvent_map, probEvent_map, fillAnswers_empty]
-  exact fixed_game_le adversary q _
 end Ref
-theorem caseAB_le_reference (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
-    Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ CaseAB adversary z | SeccLaw.completedExperiment adversary q hq] ≤
-      Pr[fun sample => WotsPrimitive sample.answers sample.trace | referenceExperiment adversary q] := by
-  refine (Ref.caseAB_le_recorded adversary q hq).trans ?_
-  rw [Ref.recorded_eq_eager adversary (Ref.Good adversary q)]
-  refine (Ref.eager_le_reference adversary q).trans (le_of_eq ?_)
-  unfold referenceExperiment
-  rw [MonitoredPrivate.event_lift]
 noncomputable def eagerRecorded (adversary : AdversaryP) : PMF (FirstHit.Recorded Bool × Answers) :=
   liftM (($ᵗ FullGame.FullTable : ProbComp _) >>= fun privateTable =>
     ($ᵗ (referenceInputs adversary → HashOutput) : ProbComp _) >>= fun publicTable =>
@@ -130,18 +91,4 @@ theorem completed_eager_cut (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 1
         unfold eagerRecorded Ref.eagerSide
         rw [MonitoredPrivate.event_lift]
         simp only [Ref.fillAnswers_empty]
-theorem completed_eager_event (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
-    (event : FirstHit.Recorded Bool → Answers → Prop)
-    (hshort : ∀ rec A T, Ref.ShortAgree A T → event rec A → event rec T) :
-    Pr[fun z => event (QueryRecorded.recordedTrace z.1) z.2 | SeccLaw.completedExperiment adversary q hq] ≤
-      Pr[fun x => event x.1 x.2 | eagerRecorded adversary] := by
-  rw [completed_eager_cut]
-  exact Ref.pmf_probEvent_mono _ fun x _ h => hshort x.1 _ x.2 (Ref.cut_shortAgree _ _) h
-theorem completed_eager_event_cut (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
-    (event : FirstHit.Recorded Bool → Answers → Prop)
-    (hcut : ∀ rec T, event rec (Ref.cut rec.state T) → event rec T) :
-    Pr[fun z => event (QueryRecorded.recordedTrace z.1) z.2 | SeccLaw.completedExperiment adversary q hq] ≤
-      Pr[fun x => event x.1 x.2 | eagerRecorded adversary] := by
-  rw [completed_eager_cut]
-  exact Ref.pmf_probEvent_mono _ fun x _ h => hcut x.1 x.2 h
 end ClaudeWCT.W9.T3.Security.Wots

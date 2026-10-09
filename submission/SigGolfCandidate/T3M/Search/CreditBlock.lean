@@ -12,7 +12,7 @@ def setupCode : List (BitVec 32) := [197907,230803,1555,17828371]
 def preCode : List (BitVec 32) := [0x7f57e13,3022355,32378419]
 def loadCode : List (BitVec 32) := [0x83e4e03]
 def postCode : List (BitVec 32) := [29754931,7689491,60136979,29713715,7722387,0xfffa0a13,0xfc0a1ce3]
-def tailCode : List (BitVec 32) := [3505683,0xffee0e13,1981971,29754931,2446611,3505683,0xffee0e13,1981971,29754931,2446611,0xffe50e13,1981971,29754931,9846291,0xa0e1e63]
+def tailCode : List (BitVec 32) := [0x757e13,0xffae0e13,1981971,29754931,0x355513,0x757e13,0xffae0e13,1981971,29754931,0x355513,0xffa50e13,1981971,29754931,8797715,0xa0e1e63]
 def okCode : List (BitVec 32) := [2579,0xf11ff06f]
 def h0Code : List (BitVec 32) := [0x960410e3]
 def luiCode : List (BitVec 32) := [0xffff37]
@@ -383,40 +383,48 @@ set_option maxRecDepth 8192
 set_option maxHeartbeats 800000
 set_option linter.unusedSimpArgs false
 variable {image : Image} {b : Nat}
+/-- Campaign T8D (NF17): credits of the three raw radix-8 digits above bit 119 (`X = v / 2^119`): chain 53 at
+`X % 8`, chain 51 at `X / 8 % 8`, chain 52 at `X / 64`; credit digit 6. -/
 def tailCredit (X : Nat) : Nat :=
-  (if X % 4 = 2 then 1 else 0) + (if X / 4 % 4 = 2 then 1 else 0) + (if X / 16 = 2 then 1 else 0)
-theorem eq2_ofNat (d : Nat) (hd : d < 4) :
-    (if ((BitVec.ofNat 64 d) - 2#64).ult 1#64 = true then 1#64 else 0#64) =
-      BitVec.ofNat 64 (if d = 2 then 1 else 0) := by
+  (if X % 8 = 6 then 1 else 0) + (if X / 8 % 8 = 6 then 1 else 0) + (if X / 64 = 6 then 1 else 0)
+theorem eq6_ofNat (d : Nat) (hd : d < 8) :
+    (if ((BitVec.ofNat 64 d) - 6#64).ult 1#64 = true then 1#64 else 0#64) =
+      BitVec.ofNat 64 (if d = 6 then 1 else 0) := by
+  interval_cases d <;> decide
+theorem eq6_ofNat' (d : Nat) (hd : d < 8) :
+    (if ((BitVec.ofNat 64 d) + 18446744073709551610#64).ult 1#64 = true then 1#64 else 0#64) =
+      BitVec.ofNat 64 (if d = 6 then 1 else 0) := by
   interval_cases d <;> decide
 theorem tail_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 407)) (X C : Nat)
-    (hX : X < 64) (hC : C < 64) (h10 : s.getReg .x10 = BitVec.ofNat 64 X)
+    (hX : X < 512) (hC : C < 64) (h10 : s.getReg .x10 = BitVec.ofNat 64 X)
     (h12 : s.getReg .x12 = BitVec.ofNat 64 C) :
     ∃ t, Steps image s 15 15 t ∧
-      t.pc = (if C + tailCredit X < 9 then pcOf (b + 468) else pcOf (b + 422)) ∧
+      t.pc = (if C + tailCredit X < 8 then pcOf (b + 468) else pcOf (b + 422)) ∧
       t.getReg .x12 = BitVec.ofNat 64 (C + tailCredit X) ∧
       RegsExcept s t [.x10, .x12, .x28] ∧ Frame s t (fun _ => False) := by
-  have e0 : (BitVec.ofNat 64 X &&& 3#64) = BitVec.ofNat 64 (X % 4) := ofNat_and_mask X 2 (by decide)
-  have e1 : (BitVec.ofNat 64 X >>> 2 &&& 3#64) = BitVec.ofNat 64 (X / 4 % 4) := by
-    rw [ofNat_shr X 2 (by omega)]; exact ofNat_and_mask _ 2 (by decide)
-  have e2 : BitVec.ofNat 64 X >>> 4 = BitVec.ofNat 64 (X / 16) := ofNat_shr X 4 (by omega)
+  have e1 : BitVec.ofNat 64 X >>> 3 = BitVec.ofNat 64 (X / 8) := by
+    rw [ofNat_shr X 3 (by omega)]; norm_num
+  have e2 : BitVec.ofNat 64 (X / 8) >>> 3 = BitVec.ofNat 64 (X / 64) := by
+    rw [ofNat_shr _ 3 (by omega), Nat.div_div_eq_div_mul]; norm_num
+  have ht3 : tailCredit X ≤ 3 := by unfold tailCredit; split_ifs <;> omega
+  have hsum : C + (if X % 8 = 6 then 1 else 0) + (if X / 8 % 8 = 6 then 1 else 0) + (if X / 64 = 6 then 1 else 0) =
+      C + tailCredit X := by unfold tailCredit; omega
   refine ⟨_, symRun_sound (run_tail hK.2.1) (code_tail hK) s hpc (by simp [ct354.res, rv_simp]), ?_, ?_, ?_, ?_⟩
-  · simp [tailEnd, rebase, ct354.res, rv_simp, E.eval, CmpOp.eval, BinOp.eval, h10, h12]
-    rw [e1, e2, eq2_ofNat _ (by omega), eq2_ofNat _ (by omega), eq2_ofNat _ (by omega), ofNat_add_ofNat,
-      ofNat_add_ofNat, ofNat_add_ofNat]
-    have ht : C + (if X % 4 = 2 then 1 else 0) + (if X / 4 % 4 = 2 then 1 else 0) + (if X / 16 = 2 then 1 else 0) =
-        C + tailCredit X := by unfold tailCredit; omega
-    rw [ht]
-    have hlt : (BitVec.ofNat 64 (C + tailCredit X)).ult 9#64 = decide (C + tailCredit X < 9) := by
-      have : tailCredit X ≤ 3 := by unfold tailCredit; split_ifs <;> omega
+  · simp [tailEnd, rebase, ct354.res, rv_simp, E.eval, CmpOp.eval, BinOp.eval, h10, h12, e1, e2]
+    first
+      | rw [eq6_ofNat _ (by omega), eq6_ofNat _ (by omega), eq6_ofNat _ (by omega)]
+      | rw [eq6_ofNat' _ (by omega), eq6_ofNat' _ (by omega), eq6_ofNat' _ (by omega)]
+    rw [ofNat_add_ofNat, ofNat_add_ofNat, ofNat_add_ofNat, hsum]
+    have hlt : (BitVec.ofNat 64 (C + tailCredit X)).ult 8#64 = decide (C + tailCredit X < 8) := by
       simp only [BitVec.ult, BitVec.toNat_ofNat]
       rw [Nat.mod_eq_of_lt (by omega)]
     rw [hlt]
-    by_cases h : C + tailCredit X < 9 <;> simp [h]
-  · simp [ct354.res, rv_simp, h10, h12]
-    rw [e1, e2, eq2_ofNat _ (by omega), eq2_ofNat _ (by omega), eq2_ofNat _ (by omega), ofNat_add_ofNat,
-      ofNat_add_ofNat, ofNat_add_ofNat]
-    unfold tailCredit; congr 1; omega
+    by_cases h : C + tailCredit X < 8 <;> simp [h]
+  · simp [ct354.res, rv_simp, h10, h12, e1, e2]
+    first
+      | rw [eq6_ofNat _ (by omega), eq6_ofNat _ (by omega), eq6_ofNat _ (by omega)]
+      | rw [eq6_ofNat' _ (by omega), eq6_ofNat' _ (by omega), eq6_ofNat' _ (by omega)]
+    rw [ofNat_add_ofNat, ofNat_add_ofNat, ofNat_add_ofNat, hsum]
   · intro r hr; simp at hr; cases r <;> simp_all [ct354.res, rv_simp] <;> rfl
   · intro A _ _; simp [ct354.res, rv_simp]
 end SigGolfCandidate.T3M.Search.Credit
@@ -437,7 +445,7 @@ theorem creditSum_le (v : Digest) (k : Nat) : creditSum v k ≤ 3 * k := by
   induction k with
   | zero => simp [creditSum]
   | succ k ih => rw [creditSum_succ]; have := rankCredit_le (topRank v k); omega
-private def cf (v : Digest) (i : Nat) : Nat := if T3.coreDigit 0 (T3.topFlip v) i = (if i < 51 then 3 else 2) then 1 else 0
+private def cf (v : Digest) (i : Nat) : Nat := if T3.coreDigit 0 (T3.topFlip v) i = (if i < 51 then 3 else 6) then 1 else 0
 private theorem cf_rank (v : Digest) (k i : Nat) (hk : k < 17) (hi : i < 3) :
     cf v (3 * k + i) = if rankDigit (topRank v k) i = 3 then 1 else 0 := by
   unfold cf
@@ -460,23 +468,24 @@ private theorem cf_groups (v : Digest) : ∀ k, k ≤ 17 → ((List.range (3 * k
       rw [show 3 * k = 3 * k + 0 by omega, cf_rank v k 0 (by omega) (by omega), cf_rank v k 1 (by omega) (by omega),
         cf_rank v k 2 (by omega) (by omega)]
       omega
-theorem topCredit_split (v : Digest) (hv : v.toNat < 2 ^ 125) :
+theorem topCredit_split (v : Digest) :
     T3.topCredit (T3.topFlip v) = creditSum v 17 + tailCredit (v.toNat / 2 ^ 119) := by
   have h : T3.topCredit (T3.topFlip v) = ((List.range 54).map (cf v)).sum := rfl
   rw [h, show (54 : Nat) = 51 + 3 from rfl, range_three, List.map_append, List.sum_append,
     show (51 : Nat) = 3 * 17 from rfl, cf_groups v 17 le_rfl]
   simp only [List.map_cons, List.map_nil, List.sum_cons, List.sum_nil]
   unfold cf tailCredit
-  simp only [T3.coreDigit, T3.topCode_topFlip, if_pos rfl, show ¬ (51 : Nat) < 51 by omega, show ¬ (3 * 17 + 1 : Nat) < 51 by omega,
-    show ¬ (3 * 17 + 2 : Nat) < 51 by omega, if_false]
-  have e3 : v.toNat / 2 ^ 123 < 4 := by omega
-  have hX2 : v.toNat / 2 ^ 119 / 4 % 4 = v.toNat / 2 ^ 121 % 4 := by
+  simp only [T3.coreDigit, T3.topCode_topFlip, T3.topRawShift, if_pos rfl, show ¬ (51 : Nat) < 51 by omega,
+    show ¬ (3 * 17 + 1 : Nat) < 51 by omega, show ¬ (3 * 17 + 2 : Nat) < 51 by omega, if_false]
+  have hv := v.isLt
+  have e3 : v.toNat / 2 ^ 125 < 8 := by omega
+  have hX1 : v.toNat / 2 ^ 119 / 8 % 8 = v.toNat / 2 ^ 122 % 8 := by
     rw [Nat.div_div_eq_div_mul]; norm_num
-  have hX3 : v.toNat / 2 ^ 119 / 16 = v.toNat / 2 ^ 123 % 4 := by
+  have hX2 : v.toNat / 2 ^ 119 / 64 = v.toNat / 2 ^ 125 % 8 := by
     rw [Nat.div_div_eq_div_mul, Nat.mod_eq_of_lt e3]; norm_num
-  rw [hX2, hX3]
+  rw [hX1, hX2]
   norm_num
-  ring
+  omega
 end SigGolfCandidate.T3M.Search.Credit
 end
 section
@@ -567,12 +576,12 @@ theorem loop_iter (hK : KernAt image b) {s0 t : MachineState} (ht : TableOK s0) 
       obtain ⟨w, hw, hwI⟩ := loop_body hK ht v hvalid n (by omega) hu
       exact ⟨w, (hs.trans hw).of_eq (by omega) (by omega), hwI⟩
 theorem credit_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 392)) (v : Digest)
-    (hv : v.toNat < 2 ^ 125) (hvalid : T3.topRanksValid (T3.topFlip v) = true) (ht : TableOK s)
+    (hvalid : T3.topRanksValid (T3.topFlip v) = true) (ht : TableOK s)
     (h6 : s.getReg .x6 = v.extractLsb' 0 64) (h7 : s.getReg .x7 = v.extractLsb' 64 64)
     (h30 : s.getReg .x30 = BitVec.ofNat 64 TOP_DATA) :
-    ∃ t, Steps image s (if T3.topCredit (T3.topFlip v) < 9 then 206 else 208) (if T3.topCredit (T3.topFlip v) < 9 then 206 else 208) t ∧
-      t.pc = (if T3.topCredit (T3.topFlip v) < 9 then pcOf (b + 468) else pcOf (b + 363)) ∧
-      (¬ T3.topCredit (T3.topFlip v) < 9 → t.getReg .x20 = 0) ∧
+    ∃ t, Steps image s (if T3.topCredit (T3.topFlip v) < 8 then 206 else 208) (if T3.topCredit (T3.topFlip v) < 8 then 206 else 208) t ∧
+      t.pc = (if T3.topCredit (T3.topFlip v) < 8 then pcOf (b + 468) else pcOf (b + 363)) ∧
+      (¬ T3.topCredit (T3.topFlip v) < 8 → t.getReg .x20 = 0) ∧
       RegsExcept s t Changed ∧ Frame s t (fun _ => False) := by
   have h6' : s.getReg .x6 = BitVec.ofNat 64 v.toNat := by
     rw [h6]; apply BitVec.eq_of_toNat_eq; simp
@@ -588,11 +597,11 @@ theorem credit_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf 
     · rw [r0.get (by decide), h30]
   obtain ⟨m, sm, hm⟩ := loop_iter hK ht v hvalid hI 17 le_rfl
   have pm : m.pc = pcOf (b + 407) := by simpa using hm.pc
-  have hX : v.toNat / 2 ^ 119 < 64 := by omega
+  have hX : v.toNat / 2 ^ 119 < 512 := by have := v.isLt; omega
   obtain ⟨t1, s1, p1, g12', r1, f1⟩ := tail_spec hK m pm (v.toNat / 2 ^ 119) (creditSum v 17) hX
     (by have := creditSum_le v 17; omega) (by simpa using hm.lo) hm.acc
-  rw [← topCredit_split v hv] at p1
-  by_cases hc : T3.topCredit (T3.topFlip v) < 9
+  rw [← topCredit_split v] at p1
+  by_cases hc : T3.topCredit (T3.topFlip v) < 8
   · rw [if_pos hc] at p1
     refine ⟨t1, ?_, by rw [if_pos hc, p1], fun h => absurd hc h, ?_, ?_⟩
     · rw [if_pos hc]; exact (s0'.trans (sm.trans s1)).of_eq (by norm_num) (by norm_num)
@@ -713,7 +722,6 @@ theorem exhaust_dummy (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcO
   · rw [r5.get (by decide), r4.get (by decide), r3.get (by decide), r2.get (by decide), g30]
   · exact (((((r0.trans r1).trans r2).trans r3).trans r4).trans r5).mono (by decide)
   · exact (((((f0.trans f1).trans f2).trans f3).trans f4).trans f5).mono (by simp)
-theorem dummy_lt : dummyDigest.toNat < 2 ^ 125 := by decide
 theorem dummy_valid : T3.topRanksValid (T3.topFlip dummyDigest) = true := by decide
 theorem dummy_digits : topDigits (T3.topFlip dummyDigest) = T3.dummyTop := by decide
 end SigGolfCandidate.T3M.Search.Credit

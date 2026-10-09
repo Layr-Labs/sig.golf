@@ -1,40 +1,34 @@
-import SigGolfCandidate.T3M.Keygen.Leaf
+import SigGolfCandidate.T3M.Keygen.TopLeaf
 import SigGolfCandidate.T3M.Keygen.Tree
 import SigGolfCandidate.T3M.Keygen.Init
 
 section
 namespace SigGolfCandidate.T3M.Keygen
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp
-open SigGolfCandidate.T3 (Layer Digest buildLeaf buildLevels buildTree height chainCount width)
+open SigGolfCandidate.T3 (Layer Digest buildLeafTop buildTopTree buildLevels height chainCount width)
 def kgLeaf (j : Nat) : LeafArgs := ⟨0, 0, j, [], false, ZDIG, DUMMY, TOP + 16 * (4096 + j), 34⟩
 def kgLev : LevArgs := ⟨3, 0, 0, 12, TOP, 39⟩
 theorem kgLeaf_n (j : Nat) : (kgLeaf j).n = 54 := rfl
-theorem kgLeaf_costs (j : Nat) : (kgLeaf j).leafK = 10668 ∧ (kgLeaf j).leafC = 12459 ∧
-    (kgLeaf j).leafN = 241 ∧ (kgLeaf j).leafB = 254 := by
-  have e : (kgLeaf j).leafK = (kgLeaf 0).leafK ∧ (kgLeaf j).leafC = (kgLeaf 0).leafC ∧
-      (kgLeaf j).leafN = (kgLeaf 0).leafN ∧ (kgLeaf j).leafB = (kgLeaf 0).leafB := ⟨rfl, rfl, rfl, rfl⟩
-  rw [e.1, e.2.1, e.2.2.1, e.2.2.2]
-  decide
 theorem kgLev_costs : kgLev.levK = 159782 ∧ kgLev.levC = 188447 ∧ kgLev.levN = 4095 := by decide
 def W1 (X : Nat) : Prop :=
   X = PRIV + 16 ∨ X = PRIV + 24 ∨ (SEEDS ≤ X ∧ X < SEEDS + 32) ∨ X = CHAIN + 16 ∨ X = CHAIN + 24 ∨
     (CHAIN + 48 ≤ X ∧ X < CHAIN + 80) ∨ (LEAFPK + 16 ≤ X ∧ X < LEAFPK + 896) ∨ (LOUT ≤ X ∧ X < LOUT + 32) ∨
-    (DUMMY ≤ X ∧ X < DUMMY + 864) ∨ (TOP + 65536 ≤ X ∧ X < TOP + 131072)
-def loopRegs : List Reg := leafRegs ++ [.x18, .x25]
-structure LoopInv (s1 : MachineState) (j : Nat) (st : List Digest × List Digest) (t : MachineState) :
+    (DUMMY ≤ X ∧ X < DUMMY + 864) ∨ (TOP + 65536 ≤ X ∧ X < TOP + 131072) ∨ (KCOEF ≤ X ∧ X < KCOEF + 384)
+def loopRegs : List Reg := tRegs ++ [.x18, .x25]
+structure LoopInv (s1 : MachineState) (j : Nat) (st : List Digest) (t : MachineState) :
     Prop where
   pc : t.pc = pcOf 26
   x18 : t.getReg .x18 = BitVec.ofNat 64 j
   regs : RegsExcept s1 t loopRegs
   frame : Frame s1 t W1
-  len : st.1.length = j
-  roots : DigsAt t (TOP + 65536) st.1
+  len : st.length = j
+  roots : DigsAt t (TOP + 65536) st
 theorem extractByte_zero (k : Nat) : extractByte (0 : Word) k = 0 := by
   simp [extractByte]
 section loop
 variable {sk : SecretKey} {s1 : MachineState} (hs : KStart sk s1)
 include hs
-theorem loopInv_zero : LoopInv s1 0 ([], []) s1 :=
+theorem loopInv_zero : LoopInv s1 0 [] s1 :=
   ⟨hs.pc, hs.x18, RegsExcept.refl _ _, Frame.refl _ _, rfl, DigsAt.nil _ _⟩
 theorem kgLeaf_pre {j : Nat} (hj : j < 4096) {t : MachineState} (hr : RegsExcept s1 t loopRegs)
     (hf : Frame s1 t W1) (h18 : t.getReg .x18 = BitVec.ofNat 64 j) (h1 : t.getReg .x1 = pcOf 34)
@@ -101,14 +95,17 @@ theorem kgLeaf_pre {j : Nat} (hj : j < 4096) {t : MachineState} (hr : RegsExcept
       hd := by show TOP + 16 * (4096 + j) + 16 ≤ 2 ^ 24; kg_omega
       hds := Or.inr (Or.inl (by show LEAFPK + 960 ≤ TOP + 16 * (4096 + j); kg_omega))
       hdv := Or.inr (by show DUMMY + 16 * 54 ≤ TOP + 16 * (4096 + j); kg_omega) }
-theorem leafLoop_body {j : Nat} (hj : j < 4096) (acc : List Digest × List Digest) (t : MachineState)
+omit hs in
+theorem kgLeaf_top (j : Nat) : TopArgs (kgLeaf j) :=
+  ⟨rfl, rfl, Or.inl (by show DUMMY + 16 * 54 ≤ KCOEF; decide),
+    Or.inr (by show KCOEF + 384 ≤ TOP + 16 * (4096 + j); kg_omega), Or.inl (by show ZDIG + 54 ≤ KCOEF; decide)⟩
+theorem leafLoop_body {j : Nat} (hj : j < 4096) (acc : List Digest) (t : MachineState)
     (ht : LoopInv s1 j acc t) :
-    TSim image sk t 10678 12469 241 254
+    TSim image sk t 115518 117291 238 251
       (do
-        let (root, values) ← buildLeaf 0 0 j (if j = 0 then [] else [])
-        pure (acc.1 ++ [root], if j = 0 then values else acc.2))
+        let (root, _) ← buildLeafTop j []
+        pure (acc ++ [root]))
       (LoopInv s1 (j + 1)) := by
-  rw [ite_self]
   have g : ∀ r, r ∉ loopRegs → t.getReg r = s1.getReg r := fun r hr => ht.regs.get hr
   obtain ⟨t1, st1, t1pc, t1x6, t1r, t1f⟩ := blk26_spec t ht.pc j (by omega) ht.x18
   rw [if_pos hj] at t1pc
@@ -118,22 +115,22 @@ theorem leafLoop_body {j : Nat} (hj : j < 4096) (acc : List Digest × List Diges
   have r12 : RegsExcept t t2 [.x6, .x1, .x7, .x23, .x25] := t1r.trans t2r
   have f12 : Frame t t2 (fun _ => False) := (t1f.trans t2f).mono (fun X _ h => by simp at h)
   have hpre : LeafPre sk t2 (kgLeaf j) :=
-    kgLeaf_pre hs hj ((ht.regs.trans r12).mono (by decide)) ((ht.frame.trans f12).mono
-      (fun X _ h => by rcases h with h | h; exact h; exact h.elim))
+    kgLeaf_pre hs hj ((ht.regs.trans r12).mono (by simp [loopRegs, tRegs, leafRegs]))
+      ((ht.frame.trans f12).mono (fun X _ h => by rcases h with h | h; exact h; exact h.elim))
       (by rw [r12.get (by decide)]; exact ht.x18) t2x1 t2x23 t2x25
-  have hleaf := buildLeaf_tsim subAt_keygen sk hpre t2pc
-  obtain ⟨cK, cC, cN, cB⟩ := kgLeaf_costs j
+  have hleaf := buildLeafTop_tsim sk hpre (kgLeaf_top j) t2pc
+  obtain ⟨cK, cC, cN, cB⟩ := topLeaf_counts
   rw [cK, cC, cN, cB] at hleaf
   refine (TSim.steps st1 (TSim.steps st2 (TSim.bind (k₂ := 2) (c₂ := 2) (n₂ := 0) (b₂ := 0) hleaf
     (fun r u hu => ?_)))).of_eq rfl rfl rfl rfl rfl
-  obtain ⟨upc, uroot, -, -, ur, uf⟩ := hu
+  obtain ⟨upc, uroot, -, ur, uf⟩ := hu
   obtain ⟨root, values⟩ := r
   obtain ⟨t3, st3, t3pc, t3x18, t3r, t3f⟩ := blk34_spec u upc j
-    (by rw [ur.get (by decide), r12.get (by decide)]; exact ht.x18)
+    (by rw [ur.get (by simp [tRegs, leafRegs]), r12.get (by decide)]; exact ht.x18)
   refine TSim.pure_steps st3 ⟨t3pc, t3x18, ?_, ?_, by simp [ht.len], ?_⟩
-  · exact (((ht.regs.trans r12).trans ur).trans t3r).mono (by decide)
+  · exact (((ht.regs.trans r12).trans ur).trans t3r).mono (by simp [loopRegs, tRegs, leafRegs])
   · refine (((ht.frame.trans f12).trans uf).trans t3f).mono (fun X _ h => ?_)
-    rcases h with ((h | h) | h) | h
+    rcases h with ((h | h) | h | h) | h
     · exact h
     · exact h.elim
     · unfold LeafW at h
@@ -144,15 +141,16 @@ theorem leafLoop_body {j : Nat} (hj : j < 4096) (acc : List Digest × List Diges
         (LOUT ≤ X ∧ X < LOUT + 32) ∨ (DUMMY ≤ X ∧ X < DUMMY + 16 * 54) ∨
         (TOP + 16 * (4096 + j) ≤ X ∧ X < TOP + 16 * (4096 + j) + 16) at h
       kg_omega
+    · unfold W1; kg_omega
     · exact h.elim
-  · have hd : DigAt u (TOP + 65536 + 16 * acc.1.length) root := by
+  · have hd : DigAt u (TOP + 65536 + 16 * acc.length) root := by
       rw [ht.len, show TOP + 65536 + 16 * j = TOP + 16 * (4096 + j) by kg_omega]
-      exact uroot rfl
-    have hold : DigsAt u (TOP + 65536) acc.1 := by
+      exact uroot
+    have hold : DigsAt u (TOP + 65536) acc := by
       refine ht.roots.frame ((f12.trans uf).mono (fun X _ h => h)) (by rw [ht.len]; kg_omega) ?_
       intro B h1 h2 h
       rw [ht.len] at h2
-      rcases h with h | h
+      rcases h with h | h | h
       · exact h
       · unfold LeafW at h
         simp only [kgLeaf_n] at h
@@ -161,17 +159,19 @@ theorem leafLoop_body {j : Nat} (hj : j < 4096) (acc : List Digest × List Diges
           (LOUT ≤ B ∧ B < LOUT + 32) ∨ (DUMMY ≤ B ∧ B < DUMMY + 16 * 54) ∨
           (TOP + 16 * (4096 + j) ≤ B ∧ B < TOP + 16 * (4096 + j) + 16) at h
         kg_omega
+      · kg_omega
     exact (hold.snoc hd).frame t3f (by simp only [List.length_append, List.length_singleton, ht.len]; kg_omega)
       (fun _ _ _ h => h)
 def treeRegs : List Reg := loopRegs ++ [.x6] ++ [.x1, .x15, .x21] ++ levRegs
-theorem buildTree_tsim :
-    TSim image sk s1 43896875 51261476 991231 1044479 (buildTree 0 0 0 [])
-      (fun r t => t.pc = pcOf 39 ∧ HeapAt t kgLev 12 r.1 ∧ RegsExcept s1 t treeRegs ∧
+/-- The keygen top tree (campaign T8D: family-seeded top leaves). -/
+theorem buildTopTree_tsim :
+    TSim image sk s1 473321515 480612388 978943 1032191 buildTopTree
+      (fun levels t => t.pc = pcOf 39 ∧ HeapAt t kgLev 12 levels ∧ RegsExcept s1 t treeRegs ∧
         Frame s1 t (fun X => W1 X ∨ LevW kgLev X)) := by
-  unfold buildTree
+  unfold buildTopTree
   refine (TSim.bind (k₂ := 159787) (c₂ := 188452) (n₂ := 4095) (b₂ := 4095)
-    (TSim.foldlM_range 4096 _ _ (LoopInv s1) (fun _ => 10678) (fun _ => 12469)
-    (fun _ => 241) (fun _ => 254) (fun j hj acc t ht => leafLoop_body hs hj acc t ht) (loopInv_zero hs))
+    (TSim.foldlM_range 4096 _ _ (LoopInv s1) (fun _ => 115518) (fun _ => 117291)
+    (fun _ => 238) (fun _ => 251) (fun j hj acc t ht => leafLoop_body hs hj acc t ht) (loopInv_zero hs))
     (fun st t ht => ?_)).of_eq rfl ?_ ?_ ?_ ?_
   rotate_left
   · rw [sumTo_const]
@@ -185,7 +185,7 @@ theorem buildTree_tsim :
   have f12 : Frame t t2 (fun _ => False) := (t1f.trans t2f).mono (fun X _ h => by simp at h)
   have f02 : Frame s1 t2 W1 := (ht.frame.trans f12).mono
     (fun X _ h => by rcases h with h | h; exact h; exact h.elim)
-  have hpre : LevPre t2 kgLev st.1 :=
+  have hpre : LevPre t2 kgLev st :=
     { x1 := t2x1
       x2 := by rw [r02.get (by decide), hs.x2]; rfl
       x5 := by rw [r02.get (by decide), hs.x5]
@@ -210,8 +210,8 @@ theorem buildTree_tsim :
       hleaves := ht.roots.frame f12 (by rw [ht.len]; decide) (fun _ _ _ h => h) }
   have hlev := buildLevels_tsim subAt_keygen sk hpre ⟨rfl, rfl⟩ t2pc
   rw [kgLev_costs.1, kgLev_costs.2.1, kgLev_costs.2.2] at hlev
-  exact TSim.steps st1 (TSim.steps st2 (TSim.bind (k₂ := 0) (c₂ := 0) (n₂ := 0) (b₂ := 0) hlev
-    (fun levels u hu => TSim.pure ⟨hu.1, hu.2.1, r02.trans hu.2.2.1, f02.trans hu.2.2.2⟩)))
+  exact TSim.steps st1 (TSim.steps st2 (hlev.mono
+    (fun levels u hu => ⟨hu.1, hu.2.1, r02.trans hu.2.2.1, f02.trans hu.2.2.2⟩)))
 end loop
 end SigGolfCandidate.T3M.Keygen
 end

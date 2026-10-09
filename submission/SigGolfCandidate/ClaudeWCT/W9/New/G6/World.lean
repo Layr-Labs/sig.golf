@@ -200,9 +200,36 @@ theorem maskedLevel_free (nodes : List Digest) (level : Nat) :
   · exact mapM_allowed WFree _ _ (fun pair => bind_allowed WFree (privatePair_free _ _ _ _ (by decide))
       (fun _ => pure_allowed _ _))
   · intro _; exact pure_allowed _ _
+theorem buildLeafTop_free (leaf : Nat) (digits : List Nat) (signatureOnly : Bool) :
+    AllQueriesSatisfy (buildLeafTop leaf digits signatureOnly) WFree := by
+  unfold buildLeafTop
+  apply bind_allowed WFree
+  · unfold topCoefs topSeedPair
+    exact foldlM_allowed WFree _ _ (fun _ _ => bind_allowed WFree (privatePair_free _ _ _ _ (by decide))
+      fun _ => pure_allowed _ _) _
+  · intro coefs
+    apply bind_allowed WFree
+    · apply foldlM_allowed WFree
+      intro state i
+      apply bind_allowed WFree (chain_free _ _ _ _ _ _ _)
+      intro value
+      split
+      · exact pure_allowed _ _
+      · exact bind_allowed WFree (chain_free _ _ _ _ _ _ _) fun _ => pure_allowed _ _
+    · intro state
+      split
+      · exact pure_allowed _ _
+      · exact bind_allowed WFree (leafHash_free _ _ _ _) fun _ => pure_allowed _ _
+theorem buildTopTree_free : AllQueriesSatisfy buildTopTree WFree := by
+  unfold buildTopTree
+  apply bind_allowed WFree
+  · exact foldlM_allowed WFree _ _ (fun state leaf =>
+      bind_allowed WFree (buildLeafTop_free _ _ _) fun _ => pure_allowed _ _) _
+  · intro roots
+    exact buildLevels_free _ _ _ _ _
 theorem keygenPayload_free : AllQueriesSatisfy keygenPayload WFree := by
   unfold keygenPayload
-  apply bind_allowed WFree (buildTree_free _ _ _ _)
+  apply bind_allowed WFree buildTopTree_free
   intro built
   apply bind_allowed WFree
   · exact mapM_allowed WFree _ _ (fun level => maskedLevel_free _ _)
@@ -249,7 +276,7 @@ theorem topPath_free (cache : SigGolfCandidate.T3.Cache) (leaf : Nat) : AllQueri
 theorem signTop_free (cache : SigGolfCandidate.T3.Cache) (leaf : Nat) (digits : List Nat) :
     AllQueriesSatisfy (signTop cache leaf digits) WFree := by
   unfold signTop
-  exact bind_allowed WFree (buildLeaf_free _ _ _ _ _) fun _ =>
+  exact bind_allowed WFree (buildLeafTop_free _ _ _) fun _ =>
     bind_allowed WFree (topPath_free _ _) fun _ => pure_allowed _ _
 theorem layerEncoding_free (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (counter : BitVec 32) :
     AllQueriesSatisfy (shortHash (WCT9.layerEncodingInput lay tree leaf msg counter)) WFree := by

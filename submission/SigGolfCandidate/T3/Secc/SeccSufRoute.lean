@@ -21,190 +21,15 @@ theorem digestInput_injective {rho rho' : Digest} {m m' : Message} {c c' : BitVe
   rw [pad64_digestInput, pad64_digestInput] at h
   obtain ⟨hr, hm, hc⟩ := SigGolfCandidate.T3.digestInput_injective h
   exact ⟨hr, hc, hm⟩
-theorem digestSearch_succ (rho : Digest) (m : Message) (counter fuel : Nat) :
-    digestSearch rho m counter (fuel + 1) = (digest rho m (BitVec.ofNat 32 counter) >>= fun output =>
-      if digestAdmissible output = true then pure (some (BitVec.ofNat 32 counter, output))
-      else digestSearch rho m (counter + 1) fuel) := rfl
 theorem queried_digest (answers : Correctness.Answers) (rho : Digest) (m : Message) (c : BitVec 32) :
     queried answers (digest rho m c) = [.inl (.inr (pad64 (digestInput rho m c)))] := rfl
-theorem digestSearch_queried (answers : Correctness.Answers) (rho : Digest) (m : Message) :
-    ∀ fuel start (q : Spec.Domain), q ∈ queried answers (digestSearch rho m start fuel) →
-      ∃ c, start ≤ c ∧ c < start + fuel ∧ q = .inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 c)))) ∧
-        ∀ c', start ≤ c' → c' < c →
-          digestAdmissible (evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c'))) = false := by
-  intro fuel
-  induction fuel with
-  | zero => intro start q hq; simp [digestSearch] at hq
-  | succ fuel ih =>
-      intro start q hq
-      rw [digestSearch_succ, queried_bind, queried_digest] at hq
-      rcases List.mem_append.mp hq with hq | hq
-      · rw [List.mem_singleton] at hq
-        exact ⟨start, le_rfl, by omega, hq, fun c' h1 h2 => by omega⟩
-      · by_cases hadm : digestAdmissible (evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 start))) = true
-        · rw [if_pos hadm] at hq; simp at hq
-        · rw [if_neg hadm] at hq
-          obtain ⟨c, h1, h2, h3, h4⟩ := ih (start + 1) q hq
-          refine ⟨c, by omega, by omega, h3, fun c' h1' h2' => ?_⟩
-          by_cases hc' : c' = start
-          · subst hc'; simpa using hadm
-          · exact h4 c' (by omega) h2'
-theorem digestSearch_accepts (answers : Correctness.Answers) (rho : Digest) (m : Message) :
-    ∀ fuel start c, start ≤ c → c < start + fuel →
-      (∀ c', start ≤ c' → c' < c →
-        digestAdmissible (evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c'))) = false) →
-      digestAdmissible (evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c))) = true →
-      evalWithAnswerFn answers (digestSearch rho m start fuel) =
-        some (BitVec.ofNat 32 c, evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c))) := by
-  intro fuel
-  induction fuel with
-  | zero => intro start c h1 h2; omega
-  | succ fuel ih =>
-      intro start c h1 h2 hrej hadm
-      rw [digestSearch_succ, evalWithAnswerFn_bind]
-      by_cases hc : c = start
-      · subst hc
-        rw [if_pos hadm, evalWithAnswerFn_pure]
-      · rw [if_neg (by rw [hrej start le_rfl (by omega)]; decide)]
-        exact ih (start + 1) c (by omega) (by omega) (fun c' h1' h2' => hrej c' (by omega) h2') hadm
-theorem rejected_trial_inadmissible (answers : Correctness.Answers) (rho : Digest) (m : Message) (c : Nat)
-    (hq : (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 c)))) : Spec.Domain) ∈
-      queried answers (digestSearch rho m 0 attemptLimit))
-    (hadm : digestAdmissible (evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c))) = true) :
-    evalWithAnswerFn answers (digestSearch rho m 0 attemptLimit) =
-      some (BitVec.ofNat 32 c, evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c))) := by
-  obtain ⟨c', _, hc', heq, hrej⟩ := digestSearch_queried answers rho m attemptLimit 0 _ hq
-  have hcc : BitVec.ofNat 32 c = BitVec.ofNat 32 c' := by
-    have h := congrArg (fun q : Spec.Domain => q) heq
-    simp only [Sum.inl.injEq, Sum.inr.injEq] at h
-    exact (digestInput_injective h).2.1
-  rw [hcc] at hadm ⊢
-  exact digestSearch_accepts answers rho m attemptLimit 0 c' (Nat.zero_le _) hc' hrej hadm
-theorem ofNat_toNat32 (x : BitVec 32) : BitVec.ofNat 32 x.toNat = x :=
-  BitVec.eq_of_toNat_eq (by rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt x.isLt])
-theorem counterSearch_good (answers : Correctness.Answers) (w : WBytes) (index : Nat) (lay : Layer) (hl : lay ≠ 0)
-    (hgood : Extract.Good answers w index lay) :
-    ∃ found, evalWithAnswerFn answers (counterSearch lay (route index lay).2 (route index lay).1
-      (Extract.honestMsg answers index lay) 0 counterLimit) = some found := by
-  obtain ⟨digits, ⟨hlt, hdec⟩, -⟩ := hgood
-  cases h : evalWithAnswerFn answers (counterSearch lay (route index lay).2 (route index lay).1
-      (Extract.honestMsg answers index lay) 0 counterLimit) with
-  | some found => exact ⟨found, rfl⟩
-  | none =>
-      have := (Correctness.counterSearch_none_iff answers lay _ _ _ counterLimit 0).mp h (wctr w lay).toNat hlt
-      rw [Nat.zero_add, ofNat_toNat32, Nonbinary.searchDecode_lower hl, hdec] at this
-      exact absurd this (by simp)
-theorem honestMsg_three (answers : Correctness.Answers) (index : Nat) :
-    Extract.honestMsg answers index (Fin.ofNat 4 3) =
-      evalWithAnswerFn answers (forestPk index (Correctness.forestRoots answers index 7)) := by
-  rw [show (Fin.ofNat 4 3 : Layer) = 3 from rfl]
-  simp only [Extract.honestMsg, show ¬((3 : Layer).val < 3) by decide, dite_false, Extract.honestForest,
-    BSuf.ftsRootsHonest_eq]
-theorem signLayers_good (answers : Correctness.Answers) (cache : T3.Cache) (index : Nat) (w : WBytes)
-    (hgood : ∀ lay : Layer, Extract.Good answers w index lay) :
-    ∀ n, n ≤ 4 → ∀ value : Digest, (∀ k, n = k + 1 → value = Extract.honestMsg answers index (Fin.ofNat 4 k)) →
-      ∃ pieces, evalWithAnswerFn answers (signLayers cache index n value) = some pieces := by
-  intro n
-  induction n with
-  | zero => intro _ value _; exact ⟨[], by simp [signLayers]⟩
-  | succ n ih =>
-      intro hn value hval
-      have hmsg := hval n rfl
-      by_cases hn0 : n = 0
-      · subst hn0
-        rw [signLayers]
-        simp only [evalWithAnswerFn_bind, ite_true, evalWithAnswerFn_pure]
-        exact ⟨_, rfl⟩
-      · have hl : (Fin.ofNat 4 n : Layer) ≠ 0 := by
-          intro h
-          have hv : (Fin.ofNat 4 n : Layer).val = n := Nat.mod_eq_of_lt (by omega)
-          rw [h] at hv
-          exact hn0 hv.symm
-        obtain ⟨⟨counter, digits⟩, hs⟩ := counterSearch_good answers w index (Fin.ofNat 4 n) hl (hgood _)
-        rw [← hmsg] at hs
-        have hvalid := Cost.validDigits_decode (Correctness.counterSearch_some answers _ _ _ _ counterLimit 0 counter
-          digits (by decide) hs).2.2
-        obtain ⟨k, rfl⟩ : ∃ k, n = k + 1 := ⟨n - 1, by omega⟩
-        have htree := Correctness.eval_buildTree_result answers (Fin.ofNat 4 (k + 1))
-          (route index (Fin.ofNat 4 (k + 1))).2 (route index (Fin.ofNat 4 (k + 1))).1 digits hvalid
-          (route_leaf_bound index _)
-        obtain ⟨pieces, hp⟩ := ih (by omega) (((Correctness.builtTree answers (Fin.ofNat 4 (k + 1))
-            (route index (Fin.ofNat 4 (k + 1))).2).getD (height (Fin.ofNat 4 (k + 1))) []).getD 0 0)
-          (fun k' hk' => by
-            have hkk : k' = k := by omega
-            rw [hkk, BSuf.honestMsg_lower answers index k (by omega)]
-            rfl)
-        rw [signLayers]
-        simp only [evalWithAnswerFn_bind, hs, htree, show k + 1 ≠ 0 by omega, ite_false, hp, evalWithAnswerFn_pure]
-        exact ⟨_, rfl⟩
-theorem selected_payload_succeeds (answers : Correctness.Answers) (cache : T3.Cache) (rho : Digest) (m : Message)
-    (N : HashOutput) (w : WBytes)
-    (hsel : (evalWithAnswerFn answers (payloadRecordForNonce cache rho m)).2 = some N)
-    (hgood : ∀ lay : Layer, Extract.Good answers w (N.toNat % 2 ^ 31) lay) :
-    ∃ sig, (evalWithAnswerFn answers (payloadRecordForNonce cache rho m)).1 = some sig ∧ sig.rho = rho := by
-  obtain ⟨counter, hds, -⟩ := payloadRecord_selected_valid answers cache rho m N hsel
-  have h1 : (evalWithAnswerFn answers (payloadRecordForNonce cache rho m)).1 =
-      evalWithAnswerFn answers (payloadAfterDigest cache rho N) := by
-    unfold payloadRecordForNonce
-    simp only [evalWithAnswerFn_bind, hds, evalWithAnswerFn_pure]
-  obtain ⟨pieces, hp⟩ := signLayers_good answers cache (N.toNat % 2 ^ 31) w hgood 4 le_rfl
-    (evalWithAnswerFn answers (forestPk (N.toNat % 2 ^ 31) (Correctness.forestRoots answers (N.toNat % 2 ^ 31) 7)))
-    (fun k hk => by
-      obtain rfl : k = 3 := by omega
-      exact (honestMsg_three answers _).symm)
-  rw [h1, SigningRecords.payloadAfterDigest_forestRows]
-  simp only [evalWithAnswerFn_bind, Correctness.eval_forestRows, hp, evalWithAnswerFn_pure]
-  exact ⟨_, rfl, rfl⟩
 def hdrTag (input : HashInput) : Nat :=
   if 128 ≤ ((Extract.hdrBlock input).getD 0 0).toNat then 1
   else ((Extract.hdrBlock input).getD 1 0).toNat
-theorem header_byte1 (tag lay tree position index : Nat) :
-    ((SphincsSecurity.bytesLE 16 (header tag lay tree position index)).getD 1 0).toNat = tag % 256 := by
-  have h : (SphincsSecurity.bytesLE 16 (header tag lay tree position index)).getD 1 0 =
-      ⟨(header tag lay tree position index).extractLsb' 8 8⟩ := rfl
-  rw [h]
-  show ((header tag lay tree position index).extractLsb' 8 8).toNat = tag % 256
-  rw [BitVec.extractLsb'_toNat]
-  unfold header
-  rw [BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow]
-  have h1 := Nat.mod_lt tag (show 0 < 256 by decide)
-  have h2 := Nat.mod_lt lay (show 0 < 256 by decide)
-  have h3 := Nat.mod_lt (tree / 2 ^ 32) (show 0 < 256 by decide)
-  have h4 := Nat.mod_lt position (show 0 < 2 ^ 32 by decide)
-  have h5 := Nat.mod_lt tree (show 0 < 2 ^ 32 by decide)
-  have h6 := Nat.mod_lt index (show 0 < 2 ^ 32 by decide)
-  have h7 := nodeWord_lt tag position index
-  generalize nodeWord tag position index = g at *
-  generalize tag % 256 = a at *
-  generalize lay % 256 = b at *
-  generalize tree / 2 ^ 32 % 256 = c at *
-  generalize position % 2 ^ 32 = d at *
-  generalize tree % 2 ^ 32 = e at *
-  generalize index % 2 ^ 32 = f at *
-  norm_num at h4 h5 h6 ⊢
-  split_ifs <;> omega
-theorem hdrTag_eq {input : HashInput} {tag lay tree position index : Nat}
-    (h : Extract.hdrBlock input = SphincsSecurity.bytesLE 16 (header tag lay tree position index)) :
-    hdrTag input = tag % 256 := by
-  unfold hdrTag
-  rw [h, bytesLE16_first_toNat, header_firstByte, if_neg (by decide)]
-  exact header_byte1 _ _ _ _ _
-theorem hdrTag_chainInput (lay : Layer) (tree leaf i step : Nat) (value : Digest) :
-    hdrTag (pad64 (chainInput lay tree leaf i step value)) = 1 := by
-  rw [chainInput_padded]
-  unfold hdrTag Extract.hdrBlock
-  rw [chainInput_header, bytesLE16_first_toNat, if_pos (chainHeader_firstByte _ _ _ _ _)]
 theorem hdrBlock_digestInput (rho : Digest) (m : Message) (c : BitVec 32) :
     Extract.hdrBlock (pad64 (digestInput rho m c)) = SphincsSecurity.bytesLE 16 (digestHeader c) := by
   rw [pad64_digestInput]
   exact Extract.hdrBlock_prefix _ _ _
-theorem hdrTag_digestInput (rho : Digest) (m : Message) (c : BitVec 32) :
-    hdrTag (pad64 (digestInput rho m c)) = 0 := by
-  unfold hdrTag
-  rw [hdrBlock_digestInput, bytesLE16_first_toNat, digestHeader_firstByte, if_neg (by decide)]
-  change ((digestHeader c).extractLsb' 8 8).toNat = 0
-  rw [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, digestHeader_toNat]
-  omega
 def hdrMarker (input : HashInput) : Nat := ((Extract.hdrBlock input).getD 0 0).toNat
 theorem hdrMarker_eq {input : HashInput} {hdr : Digest}
     (h : Extract.hdrBlock input = SphincsSecurity.bytesLE 16 hdr) : hdrMarker input = tweakMarker hdr := by
@@ -314,6 +139,18 @@ theorem buildFts_ok (index coord : Nat) : AllQueriesSatisfy (buildFts index coor
 theorem topPath_ok (cache : T3.Cache) (leaf : Nat) : AllQueriesSatisfy (topPath cache leaf) NotDigestQ := by
   unfold topPath; aesop (config := { maxRuleApplications := 1000 })
 attribute [local aesop safe apply] buildTree_ok buildFts_ok topPath_ok
+theorem topCoefs_ok (leaf : Nat) : AllQueriesSatisfy (topCoefs leaf) NotDigestQ := by
+  unfold topCoefs topSeedPair; aesop (config := { maxRuleApplications := 1000 })
+attribute [local aesop safe apply] topCoefs_ok
+theorem buildLeafTop_ok (leaf : Nat) (digits : List Nat) (signatureOnly : Bool) :
+    AllQueriesSatisfy (buildLeafTop leaf digits signatureOnly) NotDigestQ := by
+  unfold buildLeafTop; aesop (config := { maxRuleApplications := 1000 })
+attribute [local aesop safe apply] buildLeafTop_ok
+theorem buildTopTree_ok : AllQueriesSatisfy buildTopTree NotDigestQ := by
+  unfold buildTopTree
+  exact SourceQueries.bind_allowed _ (SourceQueries.foldlM_allowed NotDigestQ _ _ (fun _ _ =>
+    SourceQueries.bind_allowed _ (buildLeafTop_ok _ _ _) fun _ => SourceQueries.pure_allowed _ _) _)
+    fun _ => buildLevels3_ok _ _ _ _
 theorem signTop_ok (cache : T3.Cache) (leaf : Nat) (digits : List Nat) :
     AllQueriesSatisfy (signTop cache leaf digits) NotDigestQ := by
   unfold signTop; aesop (config := { maxRuleApplications := 1000 })
@@ -348,159 +185,4 @@ theorem queried_privateMac (answers : Correctness.Answers) (region : Region) :
       [.inr (.inl (header 14 0 0 0 0)), .inr (.inl (header 14 0 0 0 1))] := rfl
 theorem queried_privateNonce (answers : Correctness.Answers) (m : Message) :
     queried answers (privateNonce m) = [.inr (.inr (.inl m))] := rfl
-theorem eval_authenticatedSign (answers : Correctness.Answers) (published : T3.Cache) (request : Request) :
-    evalWithAnswerFn answers (FullGame.authenticatedSign published request) =
-      if request.cache = published then
-        (evalWithAnswerFn answers (payloadRecordForNonce published
-          (evalWithAnswerFn answers (privateNonce request.message)) request.message)).1
-      else none := by
-  unfold FullGame.authenticatedSign
-  simp only [evalWithAnswerFn_bind]
-  by_cases hc : request.cache = published
-  · rw [if_pos hc, if_pos hc]
-    have := congrArg (evalWithAnswerFn answers) (payloadRecord_erasure request.cache request.message)
-    rw [SigGolfCandidate.T3M.eval_map] at this
-    rw [← this, hc]
-    unfold payloadRecord
-    rw [evalWithAnswerFn_bind]
-  · rw [if_neg hc, if_neg hc, evalWithAnswerFn_pure]
-theorem digestSearch_rejects (answers : Correctness.Answers) (rho : Digest) (m : Message) :
-    ∀ fuel start (c : BitVec 32) (N0 : HashOutput), start + fuel ≤ 2 ^ 32 →
-      evalWithAnswerFn answers (digestSearch rho m start fuel) = some (c, N0) →
-      ∀ c', start ≤ c' → c' < c.toNat →
-        digestAdmissible (evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c'))) = false := by
-  intro fuel
-  induction fuel with
-  | zero => intro start c N0 _ h; simp [digestSearch] at h
-  | succ fuel ih =>
-      intro start c N0 hfit h c' h1 h2
-      rw [digestSearch_succ, evalWithAnswerFn_bind] at h
-      by_cases hadm : digestAdmissible (evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 start))) = true
-      · rw [if_pos hadm, evalWithAnswerFn_pure, Option.some.injEq, Prod.mk.injEq] at h
-        have : c.toNat = start := by
-          rw [← h.1, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
-        omega
-      · rw [if_neg hadm] at h
-        by_cases hc' : c' = start
-        · subst hc'; simpa using hadm
-        · exact ih (start + 1) c N0 (by omega) h c' (by omega) h2
-theorem digestSearch_none_rejects (answers : Correctness.Answers) (rho : Digest) (m : Message) :
-    ∀ fuel start, evalWithAnswerFn answers (digestSearch rho m start fuel) = none →
-      ∀ c', start ≤ c' → c' < start + fuel →
-        digestAdmissible (evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 c'))) = false := by
-  intro fuel
-  induction fuel with
-  | zero => intro start _ c' h1 h2; omega
-  | succ fuel ih =>
-      intro start h c' h1 h2
-      rw [digestSearch_succ, evalWithAnswerFn_bind] at h
-      by_cases hadm : digestAdmissible (evalWithAnswerFn answers (digest rho m (BitVec.ofNat 32 start))) = true
-      · rw [if_pos hadm, evalWithAnswerFn_pure] at h; simp at h
-      · rw [if_neg hadm] at h
-        by_cases hc' : c' = start
-        · subst hc'; simpa using hadm
-        · exact ih (start + 1) h c' (by omega) (by omega)
-theorem signer_vs_forgery (answers : Correctness.Answers) (published : T3.Cache) (m : Message) (w : WBytes)
-    (N : HashOutput) (hdc : (wdc w).toNat < attemptLimit)
-    (hN : evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N) (hS : Shaped N w)
-    (hgate : digestGate N = true)
-    (hgood : ∀ lay : Layer, Extract.Good answers w (N.toNat % 2 ^ 31) lay) :
-    (∃ (c : BitVec 32) (N0 : HashOutput),
-        evalWithAnswerFn answers (digestSearch (wrho w) m 0 attemptLimit) = some (c, N0) ∧
-          c.toNat < (wdc w).toNat) ∨
-      ∃ sig, (evalWithAnswerFn answers (payloadRecordForNonce published (wrho w) m)).1 = some sig ∧
-        sig.rho = wrho w := by
-  have hadm : digestAdmissible (evalWithAnswerFn answers (digest (wrho w) m
-      (BitVec.ofNat 32 (wdc w).toNat))) = true := by
-    rw [ofNat_toNat32, hN]; simp [digestAdmissible, hS.2.1, hgate]
-  cases hd : evalWithAnswerFn answers (digestSearch (wrho w) m 0 attemptLimit) with
-  | none =>
-      exfalso
-      have := digestSearch_none_rejects answers (wrho w) m attemptLimit 0 hd (wdc w).toNat (Nat.zero_le _) (by omega)
-      rw [hadm] at this
-      exact Bool.noConfusion this
-  | some found =>
-      obtain ⟨c, N0⟩ := found
-      have hsome := Correctness.digestSearch_some answers (wrho w) m attemptLimit 0 c N0 (by decide) hd
-      by_cases hlt : c.toNat < (wdc w).toNat
-      · exact Or.inl ⟨c, N0, rfl, hlt⟩
-      right
-      rcases Nat.lt_or_ge (wdc w).toNat c.toNat with hgt | hge
-      · exfalso
-        have := digestSearch_rejects answers (wrho w) m attemptLimit 0 c N0 (by decide) hd (wdc w).toNat
-          (Nat.zero_le _) hgt
-        rw [hadm] at this
-        exact Bool.noConfusion this
-      ·
-        have hcw : c = wdc w := BitVec.eq_of_toNat_eq (by omega)
-        subst hcw
-        have hN0 : N0 = N := by rw [← hsome.2.2.1, hN]
-        subst hN0
-        have hsel : (evalWithAnswerFn answers (payloadRecordForNonce published (wrho w) m)).2 = some N0 := by
-          unfold payloadRecordForNonce
-          simp only [evalWithAnswerFn_bind, hd, evalWithAnswerFn_pure]
-        exact selected_payload_succeeds answers published (wrho w) m N0 w hsel hgood
-theorem caseC_fresh_counter_cases (answers : Correctness.Answers) (published : T3.Cache) (log : QueryLog Requests)
-    (state : LazyPrivate.State)
-    (hres : ∀ entry ∈ log, SourceReplay.Resolves state (FullGame.authenticatedSign published entry.1) entry.2)
-    (hagree : ∀ input answer, SourceReplay.known state input = some answer → answers input = answer)
-    (m : Message) (w : WBytes) (N : HashOutput) (hdc : (wdc w).toNat < attemptLimit)
-    (hN : evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N) (hS : Shaped N w)
-    (hgate : digestGate N = true)
-    (hgood : ∀ lay : Layer, Extract.Good answers w (N.toNat % 2 ^ 31) lay)
-    (hfresh : ¬SignedDigest log m w) :
-    ∀ entry ∈ log, entry.1.message = m → entry.1.cache = published →
-      wrho w ≠ evalWithAnswerFn answers (privateNonce m) ∨
-      ∃ (c : BitVec 32) (N0 : HashOutput),
-        evalWithAnswerFn answers (digestSearch (wrho w) m 0 attemptLimit) = some (c, N0) ∧ c.toNat < (wdc w).toNat := by
-  intro entry he hm hc
-  by_cases hρ : wrho w = evalWithAnswerFn answers (privateNonce m)
-  swap
-  · exact Or.inl hρ
-  right
-  rcases signer_vs_forgery answers published m w N hdc hN hS hgate hgood with h | ⟨sig, hsig, hsrho⟩
-  · exact h
-  · exfalso
-    apply hfresh
-    refine ⟨entry, he, hm, sig, ?_, hsrho⟩
-    rw [← (hres entry he).eval answers hagree, eval_authenticatedSign, if_pos hc, hm, ← hρ]
-    exact hsig
-theorem eval_authenticatedRecord_published (answers : Correctness.Answers) (published : T3.Cache) (m : Message) :
-    evalWithAnswerFn answers (FullGame.authenticatedRecord published ⟨m, published⟩) =
-      evalWithAnswerFn answers (payloadRecordForNonce published (evalWithAnswerFn answers (privateNonce m)) m) := by
-  unfold FullGame.authenticatedRecord
-  simp only [evalWithAnswerFn_bind]
-  rw [if_pos trivial]
-  unfold payloadRecord
-  rw [evalWithAnswerFn_bind]
-theorem caseC_journal_cases (published : T3.Cache) (history : MonitoredPrivate.History)
-    (state : MonitoredPrivate.State) (journal : MonitoredPrivate.Journal)
-    (hj : MonitoredPrivate.JournalOK published history state journal) (answers : Correctness.Answers)
-    (hagree : ∀ input answer, SourceReplay.known state.source.2 input = some answer → answers input = answer)
-    (m : Message) (w : WBytes) (N : HashOutput) (hdc : (wdc w).toNat < attemptLimit)
-    (hN : evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N) (hS : Shaped N w)
-    (hgate : digestGate N = true)
-    (hgood : ∀ lay : Layer, Extract.Good answers w (N.toNat % 2 ^ 31) lay) :
-    state.source.2.1 (.inr (.inl m)) = none ∨
-      evalWithAnswerFn answers (privateNonce m) ≠ wrho w ∨
-      (∃ (c : BitVec 32) (N0 : HashOutput),
-        evalWithAnswerFn answers (digestSearch (wrho w) m 0 attemptLimit) = some (c, N0) ∧
-          c.toNat < (wdc w).toNat) ∨
-      ∃ entry ∈ journal, entry.1 = m ∧ ∃ sig, entry.2.1 = some sig ∧ sig.rho = wrho w := by
-  rcases hj.2.2.1 m with hnone | hmem
-  · exact Or.inl hnone
-  right
-  by_cases hρ : evalWithAnswerFn answers (privateNonce m) = wrho w
-  swap
-  · exact Or.inl hρ
-  right
-  rcases signer_vs_forgery answers published m w N hdc hN hS hgate hgood with h | ⟨sig, hsig, hsrho⟩
-  · exact Or.inl h
-  · right
-    obtain ⟨entry, he, hkey⟩ := List.mem_map.mp hmem
-    have hres := hj.2.1 entry he
-    have hev := hres.eval answers hagree
-    rw [hkey, eval_authenticatedRecord_published, hρ] at hev
-    refine ⟨entry, he, hkey, sig, ?_, hsrho⟩
-    rw [← hev, hsig]
 end SigGolfCandidate.T3.Security.BPB

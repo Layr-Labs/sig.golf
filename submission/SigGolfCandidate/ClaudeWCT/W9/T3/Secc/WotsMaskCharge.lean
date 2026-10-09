@@ -17,19 +17,6 @@ variable (answers : Answers) (a : ChainAddr)
 theorem count_maskAt_of_respects {α : Type} {program : M α} (h : Respects (UntouchedP a) program) :
     (SourceReplay.queried (maskAt answers a) program).length = (SourceReplay.queried answers program).length := by
   rw [queried_maskAt_of_respects answers a h]
-theorem count_buildTree_maskAt_top (tree selected : Nat) (digits : List Nat)
-    (hvalid : Cost.ValidDigits 0 digits) :
-    (SourceReplay.queried (maskAt answers a) (buildTree 0 tree selected digits)).length =
-      (SourceReplay.queried answers (buildTree 0 tree selected digits)).length := by
-  rw [Correctness.buildTree_eq, queried_length_bind (maskAt answers a), queried_length_bind answers,
-    queried_length_treeRows, queried_length_treeRows, Correctness.eval_treeRows _ 0 tree selected digits hvalid,
-    Correctness.eval_treeRows _ 0 tree selected digits hvalid]
-  have hr : Correctness.leafRoot (maskAt answers a) 0 tree = Correctness.leafRoot answers 0 tree :=
-    funext (leafRoot_maskAt_top answers a tree)
-  rw [hr]
-  dsimp only
-  rw [queried_length_bind, queried_length_bind, queried_length_pure, queried_length_pure,
-    count_maskAt_of_respects answers a (respectsP_buildLevels a 3 _ _ _ _ (by decide))]
 def leafCountP (lay : Layer) (leaf : Nat) (digits : List Nat) : Nat :=
   ((List.range WCT9.lowerCoefCount).map fun j => if WCT9.lowerCoefOrdinal leaf j % 2 = 0 then 1 else 0).sum +
     ((List.range (chainCount lay)).map fun i => digits.getD i 0 + (maxDigit lay i - digits.getD i 0)).sum + 1
@@ -96,8 +83,7 @@ theorem count_buildTreeP_maskAt (lay : Layer) (hlay : lay ≠ 0) (tree selected 
 theorem count_keygenPayload_maskAt :
     (SourceReplay.queried (maskAt answers a) keygenPayload).length =
       (SourceReplay.queried answers keygenPayload).length := by
-  rw [Correctness.keygenPayload_eq, queried_length_cachePayload, queried_length_cachePayload,
-    count_buildTree_maskAt_top answers a 0 0 [] (Cost.validDigits_nil 0)]
+  exact queried_length_keygenPayload_congr _ _
 end Mask
 theorem queried_length_maskAt_keygen (answers : Answers) (a : ChainAddr) :
     (SourceReplay.queried (maskAt answers a) keygen).length = (SourceReplay.queried answers keygen).length := by
@@ -195,16 +181,6 @@ theorem queried_length_maskAt_signPayload (answers : Answers) (a : ChainAddr) (h
       le_rfl _ hmsg) ?_
     generalize evalWithAnswerFn answers (WCT9.signLayersBC cache (WCT9.digestIndex output) 4 _) = pieces
     rcases pieces with _ | pieces <;> rfl
-theorem queried_length_maskAt_coreSign (answers : Answers) (a : ChainAddr) (htree : a.key.tree < 2 ^ 40)
-    (hleaf : a.key.leaf < 2 ^ 24) (cache : Cache) (message : Message) :
-    (SourceReplay.queried (maskAt answers a) (sign cache message)).length =
-      (SourceReplay.queried answers (sign cache message)).length := by
-  rw [ClaudeWCT.W9.T3.Security.sign_eq]
-  refine Mask.count_bind_of (Mask.eval_maskAt_of_respects answers a (Mask.respectsP_privateMac a _))
-    (Mask.count_maskAt_of_respects answers a (Mask.respectsP_privateMac a _)) ?_
-  split
-  · rfl
-  · exact queried_length_maskAt_signPayload answers a htree hleaf cache message
 theorem queried_length_maskAt_sign (answers : Answers) (a : ChainAddr) (htree : a.key.tree < 2 ^ 40)
     (hleaf : a.key.leaf < 2 ^ 24) (published : SigGolfCandidate.T3.Cache) (request : Request) :
     (SourceReplay.queried (maskAt answers a) (FullGame.authenticatedSign published request)).length =

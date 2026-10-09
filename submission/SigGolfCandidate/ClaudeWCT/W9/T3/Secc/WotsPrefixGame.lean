@@ -40,53 +40,37 @@ theorem reference_eq_bind (adversary : AdversaryP) (q : Nat) :
   rw [PMF.bind_map]
   rfl
 open PrefixGame in
+/-- Resampling chain `a`'s prefix rows preserves the rest-table law (the seed is a family evaluation at every layer,
+so the seed component of `Hidden` is a dummy). -/
 theorem restLaw_resample (adversary : AdversaryP) (a : ChainAddr) {β : Type} (F : RefTables adversary → PMF β) :
     (restLaw adversary).bind F = (restLaw adversary).bind (fun R =>
       (PMF.uniformOfFintype (Hidden (restDepth a R))).bind (fun x => F (PrefixGame.ov a (restDepth a R) R x))) := by
-  by_cases hl : a.key.lay = 0
-  · have h := uniform_resample (Ω := RefTables adversary) (X := Hidden) (restDepth a) (fun k R x => PrefixGame.ov a k R x)
-      (fun k R => PrefixGame.rd a k R)
-      (fun R x => PrefixGame.rd_ov a hl (by have := PrefixGame.restDepth_le a R; omega) R x)
-      (fun R x => PrefixGame.ov_ov_rd a (by have := PrefixGame.restDepth_le a R; omega) R x)
-      (fun R x => PrefixGame.restDepth_ov a R x)
-    unfold restLaw
-    conv_lhs => rw [← h]
-    rw [PMF.bind_bind]
-    apply congrArg (PMF.uniformOfFintype (RefTables adversary)).bind
-    funext R
-    rw [PMF.bind_map]
-    rfl
-  · -- a lower chain: only the prefix rows are resampled, the seed component is a dummy
-    have h := uniform_resample (Ω := RefTables adversary) (X := fun k => Fin k → Digest → Digest) (restDepth a)
-      (fun k R t => PrefixGame.ov a k R (t, 0)) (fun k R => (PrefixGame.rd a k R).1)
-      (fun R t => PrefixGame.rd_ov_rows a (by have := PrefixGame.restDepth_le a R; omega) R (t, 0))
-      (fun R t => by
-        have e := PrefixGame.ov_seed_irrel a hl (PrefixGame.ov a (restDepth a R) R (t, 0))
-          (PrefixGame.rd a (restDepth a R) R).1 0 (PrefixGame.rd a (restDepth a R) R).2
-        rw [e]
-        exact PrefixGame.ov_ov_rd a (by have := PrefixGame.restDepth_le a R; omega) R (t, 0))
-      (fun R t => PrefixGame.restDepth_ov a R (t, 0))
-    unfold restLaw
-    conv_lhs => rw [← h]
-    rw [PMF.bind_bind]
-    apply congrArg (PMF.uniformOfFintype (RefTables adversary)).bind
-    funext R
-    rw [PMF.bind_map, show PMF.uniformOfFintype (Hidden (restDepth a R)) =
-      PMF.uniformOfFintype ((Fin (restDepth a R) → Digest → Digest) × Digest) from rfl, uniform_prod, PMF.bind_bind]
-    simp only [PMF.bind_map]
-    apply congrArg (PMF.uniformOfFintype (Fin (restDepth a R) → Digest → Digest)).bind
-    funext t
-    change F (PrefixGame.ov a (restDepth a R) R (t, 0)) =
-      (PMF.uniformOfFintype Digest).bind (fun s => F (PrefixGame.ov a (restDepth a R) R (t, s)))
-    simp only [fun s => PrefixGame.ov_seed_irrel a hl R t s 0]
-    exact (PMF.bind_const _ _).symm
-open PrefixGame in
-theorem ovSeed_top {adversary : AdversaryP} {a : ChainAddr} (hl : a.key.lay = 0) (R : RefTables adversary)
-    (s : Digest) : ovSeed a R s = s := by
-  unfold ovSeed; rw [if_pos hl]
+  have h := uniform_resample (Ω := RefTables adversary) (X := fun k => Fin k → Digest → Digest) (restDepth a)
+    (fun k R t => PrefixGame.ov a k R (t, 0)) (fun k R => (PrefixGame.rd a k R).1)
+    (fun R t => PrefixGame.rd_ov_rows a (by have := PrefixGame.restDepth_le a R; omega) R (t, 0))
+    (fun R t => by
+      have e := PrefixGame.ov_seed_irrel a (PrefixGame.ov a (restDepth a R) R (t, 0))
+        (PrefixGame.rd a (restDepth a R) R).1 0 (PrefixGame.rd a (restDepth a R) R).2
+      rw [e]
+      exact PrefixGame.ov_ov_rd a (by have := PrefixGame.restDepth_le a R; omega) R (t, 0))
+    (fun R t => PrefixGame.restDepth_ov a R (t, 0))
+  unfold restLaw
+  conv_lhs => rw [← h]
+  rw [PMF.bind_bind]
+  apply congrArg (PMF.uniformOfFintype (RefTables adversary)).bind
+  funext R
+  rw [PMF.bind_map, show PMF.uniformOfFintype (Hidden (restDepth a R)) =
+    PMF.uniformOfFintype ((Fin (restDepth a R) → Digest → Digest) × Digest) from rfl, uniform_prod, PMF.bind_bind]
+  simp only [PMF.bind_map]
+  apply congrArg (PMF.uniformOfFintype (Fin (restDepth a R) → Digest → Digest)).bind
+  funext t
+  change F (PrefixGame.ov a (restDepth a R) R (t, 0)) =
+    (PMF.uniformOfFintype Digest).bind (fun s => F (PrefixGame.ov a (restDepth a R) R (t, s)))
+  simp only [fun s => PrefixGame.ov_seed_irrel a R t s 0]
+  exact (PMF.bind_const _ _).symm
 open PrefixGame in
 /-- The reference experiment as a mixture over the rest tables and chain `a`'s prefix rows, with the chain's seed
-frozen at `ovSeed` (the resampled seed for a top chain, the family evaluation for a lower chain). -/
+frozen at `ovSeed` (its leaf-family evaluation). -/
 theorem reference_map_eq_frozen (adversary : AdversaryP) (q : Nat) (a : ChainAddr)
     (ha : WotsExtract.SourceChain a) {β : Type} (f : RefSample → β)
     (g : (R : RefTables adversary) → Digest × (SeedResult × (Fin (restDepth a R) → Digest → Option Digest)) → β)
@@ -116,31 +100,6 @@ theorem reference_map_eq_frozen (adversary : AdversaryP) (q : Nat) (a : ChainAdd
   rw [← hfix, ← SphincsSecurity.Concrete.PartialChainEndpoint.observedRun_forget _ _ _ (fun _ _ => none),
     PMF.map_comp, PMF.map_comp]
   exact map_congr_support _ _ _ fun res hres => hfg R x res hres
-open PrefixGame in
-/-- Top chains: the frozen mixture is the `realRun` mixture (the seed is resampled with the prefix rows). -/
-theorem reference_map_eq_mixture (adversary : AdversaryP) (q : Nat) (a : ChainAddr)
-    (ha : WotsExtract.SourceChain a) (hl : a.key.lay = 0) {β : Type} (f : RefSample → β)
-    (g : (R : RefTables adversary) → Digest × (SeedResult × (Fin (restDepth a R) → Digest → Option Digest)) → β)
-    (hfg : ∀ (R : RefTables adversary) (x : Hidden (restDepth a R))
-      (res : SeedResult × (Fin (restDepth a R) → Digest → Option Digest)),
-      res ∈ (observedRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl x.1
-        (seedGame adversary q a R (evaluate x.1 x.2)) (fun _ _ => none)).support →
-      f (mkSample (restTable (PrefixGame.ov a (restDepth a R) R x)) res.1) = g R (evaluate x.1 x.2, res)) :
-    (referenceExperiment adversary q).map f =
-      (restLaw adversary).bind (fun R =>
-        (realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (seedGame adversary q a R)
-          (fun _ _ => none)).map (g R)) := by
-  rw [reference_map_eq_frozen adversary q a ha f g (fun R x res hres => by
-    rw [ovSeed_top hl] at hres ⊢; exact hfg R x res hres)]
-  apply congrArg (restLaw adversary).bind
-  funext R
-  simp only [ovSeed_top hl]
-  rw [show PMF.uniformOfFintype (Hidden (restDepth a R)) =
-    PMF.uniformOfFintype ((Fin (restDepth a R) → Digest → Digest) × Digest) from rfl, uniform_prod, PMF.bind_bind]
-  simp only [PMF.bind_map]
-  simp only [realRun, SphincsSecurity.Concrete.PartialChainEndpoint.completeTables_empty,
-    SphincsSecurity.Concrete.EndpointPreimageDensity.real, PMF.map_bind, PMF.bind_bind, PMF.bind_map,
-    PMF.map_comp, Function.comp_def]
 def PrefixRowAt (answers : Answers) (a : ChainAddr) (input : HashInput) : Prop :=
   ∃ step value, step < depth answers a ∧ input = chainRow a step value
 noncomputable def sampleRows (a : ChainAddr) (s : RefSample) (step : Nat) (value : Digest) : Option Digest :=
@@ -200,16 +159,6 @@ theorem sampleView_coupled (adversary : AdversaryP) (q : Nat) (a : ChainAddr) (R
       exact ⟨⟨step, hs⟩, value, rfl⟩
     · rintro ⟨i, v, rfl⟩
       exact ⟨_, rfl, i, v, by rw [hdepth]; exact i.isLt, rfl⟩
-theorem reference_eq_mixture (adversary : AdversaryP) (q : Nat) (a : ChainAddr) (ha : WotsExtract.SourceChain a)
-    (hl : a.key.lay = 0) :
-    (referenceExperiment adversary q).map (sampleView a) =
-      (restLaw adversary).bind (fun R =>
-        (realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (seedGame adversary q a R)
-          (fun _ _ => none)).map (runView a R)) :=
-  reference_map_eq_mixture adversary q a ha hl (sampleView a) (runView a)
-    (fun R x res hres => by
-      have h := sampleView_coupled adversary q a R x res (by rw [ovSeed_top hl]; exact hres)
-      rw [ovSeed_top hl] at h; exact h)
 theorem reference_support_trace (adversary : AdversaryP) (q : Nat) (s : RefSample)
     (hs : s ∈ (referenceExperiment adversary q).support) : ∃ qs, s.trace = traceOf s.answers qs := by
   rw [reference_eq_bind, PMF.mem_support_bind_iff] at hs
@@ -293,57 +242,4 @@ theorem runView_contact {adversary : AdversaryP} (a : ChainAddr) (R : RefTables 
     rw [dif_pos (by omega)]
     have : (⟨restDepth a R - 1, by omega⟩ : Fin (restDepth a R)) = i := Fin.ext (by simp only; omega)
     rw [this]; exact h
-theorem reference_view_prob (adversary : AdversaryP) (q : Nat) (a : ChainAddr) (ha : WotsExtract.SourceChain a) (hl : a.key.lay = 0)
-    (E : PrefixView → Prop) :
-    Pr[fun s => E (sampleView a s) | referenceExperiment adversary q] =
-      ∑' R, restLaw adversary R * Pr[fun r => E (runView a R r) |
-        realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (seedGame adversary q a R)
-          (fun _ _ => none)] := by
-  have h := congrArg (fun law : PMF PrefixView => Pr[E | law]) (reference_eq_mixture adversary q a ha hl)
-  simp only [← PMF.monad_map_eq_map, probEvent_map, ← PMF.monad_bind_eq_bind, probEvent_bind_eq_tsum,
-    PMF.probOutput_eq_apply] at h
-  exact h
-theorem reference_view_expectation (adversary : AdversaryP) (q : Nat) (a : ChainAddr)
-    (ha : WotsExtract.SourceChain a) (hl : a.key.lay = 0) (f : PrefixView → ENNReal) :
-    ∑' s, referenceExperiment adversary q s * f (sampleView a s) =
-      ∑' R, restLaw adversary R * ∑' r,
-        realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (seedGame adversary q a R)
-          (fun _ _ => none) r * f (runView a R r) := by
-  have h := congrArg (fun law : PMF PrefixView => ∑' v, law v * f v) (reference_eq_mixture adversary q a ha hl)
-  simp only [SphincsSecurity.Concrete.PartialChainEndpoint.expectation_map,
-    SphincsSecurity.Concrete.PartialChainEndpoint.expectation_bind] at h
-  exact h
-theorem reference_twoEdgeAt_eq (adversary : AdversaryP) (q : Nat) (a : ChainAddr) (ha : WotsExtract.SourceChain a) (hl : a.key.lay = 0) :
-    Pr[fun s => TwoEdgeAt s.answers s.trace a | referenceExperiment adversary q] =
-      ∑' R, restLaw adversary R * Pr[fun r => TwoEdgeEvent r.2.2 r.1 |
-        realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (seedGame adversary q a R)
-          (fun _ _ => none)] := by
-  have h1 : Pr[fun s => TwoEdgeAt s.answers s.trace a | referenceExperiment adversary q] =
-      Pr[fun s => (sampleView a s).TwoEdge | referenceExperiment adversary q] := by
-    apply pmf_probEvent_congr
-    intro s hs
-    obtain ⟨qs, hqs⟩ := reference_support_trace adversary q s hs
-    exact twoEdgeAt_iff_view a s qs hqs
-  rw [h1, reference_view_prob adversary q a ha hl PrefixView.TwoEdge]
-  simp only [runView_twoEdge]
-theorem reference_contactAt_eq (adversary : AdversaryP) (q : Nat) (a : ChainAddr) (ha : WotsExtract.SourceChain a) (hl : a.key.lay = 0) :
-    Pr[fun s => ContactAt s.answers s.trace a | referenceExperiment adversary q] =
-      ∑' R, restLaw adversary R * Pr[fun r => Contact r.2.2 r.1 |
-        realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (seedGame adversary q a R)
-          (fun _ _ => none)] := by
-  have h1 : Pr[fun s => ContactAt s.answers s.trace a | referenceExperiment adversary q] =
-      Pr[fun s => (sampleView a s).Contact | referenceExperiment adversary q] := by
-    apply pmf_probEvent_congr
-    intro s hs
-    obtain ⟨qs, hqs⟩ := reference_support_trace adversary q s hs
-    exact contactAt_iff_view a s qs hqs
-  rw [h1, reference_view_prob adversary q a ha hl PrefixView.Contact]
-  simp only [runView_contact]
-theorem reference_prefixCount_eq (adversary : AdversaryP) (q : Nat) (a : ChainAddr)
-    (ha : WotsExtract.SourceChain a) (hl : a.key.lay = 0) :
-    ∑' s, referenceExperiment adversary q s * (prefixCount a s : ENNReal) =
-      ∑' R, restLaw adversary R * ∑' r,
-        realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (seedGame adversary q a R)
-          (fun _ _ => none) r * (seedCost a R r.2.1 : ENNReal) :=
-  reference_view_expectation adversary q a ha hl (fun v => (v.count : ENNReal))
 end ClaudeWCT.W9.T3.Security.Wots

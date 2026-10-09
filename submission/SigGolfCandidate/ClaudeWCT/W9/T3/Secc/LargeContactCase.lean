@@ -654,7 +654,7 @@ theorem structuralHitSrc_false (A : Answers) (K : Coord → Prop) (qs : List Spe
         refine ⟨Extract.tree_lt_of_treeBits h1, lt_of_lt_of_le h2 ?_, lt_of_lt_of_le h3 (chainCount_le58 lay), ?_⟩
         · calc 2 ^ height lay ≤ 2 ^ 12 := Nat.pow_le_pow_right (by decide) (SigGolfCandidate.T3M.Extract.height_le _)
             _ = 4096 := by norm_num
-        · have hw : 2 ^ width lay i ≤ 8 := by unfold width; split_ifs <;> norm_num
+        · have hw : 2 ^ width lay i ≤ 8 := by unfold width; norm_num
           omega
     | leaf lay tree leaf => exact hsrc
     | node lay tree level nd => exact hsrc
@@ -744,93 +744,5 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-theorem noContact_caseC (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
-    (z : PaddedGame.TraceResult × Answers) (hz : z ∈ (SeccLaw.completedExperiment adversary q hq).support)
-    (hwin : QueryRecorded.CleanWin q z.1) (hno : ¬Contact adversary q z) (hcomp : BPB.SignerComplete z.2) :
-    BPB.CaseCFresh adversary z := by
-  obtain ⟨hz1, hagree⟩ := SeccLaw.completed_agrees adversary q hq z hz
-  simp only [Contact, not_forall] at hno
-  obtain ⟨g, t, c, hsplit, hmon⟩ := hno
-  have hmon' : (monitorRun (Wots.referenceInputs adversary) z.2 q g.value.2 t.steps c.events).contact = false := by
-    simpa using hmon
-  obtain ⟨hg, ht, hc, hres⟩ := hsplit
-  have hu := taggedRecord_untag _ _ _ t ht
-  have hgt : SourceReplay.Extends g.state t.state :=
-    SourceReplay.run_extends _ _ (t.untag.value, t.untag.state) (FirstHit.recorded_support _ _ _ hu)
-  have htc : SourceReplay.Extends t.state c.state :=
-    SourceReplay.run_extends _ _ (c.value, c.state) (FirstHit.recorded_support _ _ _ hc)
-  have hstate : (QueryRecorded.recordedTrace z.1).state = c.state := by rw [hres]
-  have hac : ∀ input answer, SourceReplay.known c.state input = some answer → z.2 input = answer := by
-    intro input answer h
-    apply hagree
-    rw [← hstate] at h
-    exact h
-  have hcval : c.value = true := by
-    have h1 : (QueryRecorded.recordedTrace z.1).value = c.value := by rw [hres]
-    rw [← h1]; exact hwin.1
-  have hgen : evalWithAnswerFn z.2 keygen = g.value :=
-    (SourceReplay.resolves_of_run keygen SourceReplay.keygen_hashOnly (∅, ∅) (g.value, g.state)
-      (FirstHit.recorded_support _ _ _ hg)).eval z.2
-        (fun input answer hk => hac input answer (SourceReplay.known_mono _ _ (hgt.trans htc) hk))
-  have hpk : g.value.1 = Extract.honestRoot z.2 0 0 := by
-    rw [← hgen]
-    exact Extract.keygen_pk z.2
-  obtain ⟨hlen, forgery, hf, hfresh, m, w, hof, hv, hsub⟩ :=
-    WotsExtract.verdict_accepting g.value.1 t.value t.state c hc z.2 hac hcval
-  obtain ⟨N, hdc, hN, hdq, hS, hcase⟩ := WotsExtract.verifyP_wots_cases_route z.2 m g.value.1 w hpk hv
-  have hsteps : StepsAgree z.2 t.steps := by
-    intro step hstep event heq hi
-    have hev : event ∈ t.untag.events := by
-      change event ∈ t.steps.flatMap TaggedStep.events
-      exact List.mem_flatMap.mpr ⟨step, hstep, by rw [heq]; exact List.mem_singleton_self _⟩
-    exact hac _ _ (SourceReplay.known_mono _ _ htc (record_events_known _ _ _ hu event hev hi))
-  have hverdict : EventsAgree z.2 c.events := fun event he hi =>
-    hac _ _ (record_events_known _ _ _ hc event he hi)
-  have hcalls : (monitorRun (Wots.referenceInputs adversary) z.2 q g.value.2 t.steps c.events).calls ≤ q := by
-    have hcost := PaddedGame.traced_cost_coherent adversary q hq z.1 hz1
-    have hle := monitorRun_calls_le (Wots.referenceInputs adversary) z.2 q g.value.2 t.steps c.events
-    have hev : (QueryRecorded.recordedTrace z.1).events = g.events ++ (t.events ++ c.events) := by rw [hres]
-    have htot : chargeOf (QueryRecorded.recordedTrace z.1).events = z.1.2.2.base.source.1 := hcost.symm
-    rw [hev] at htot
-    have hw := hwin.2.1
-    have hte : t.events = t.steps.flatMap TaggedStep.events := rfl
-    simp only [chargeOf, List.map_append, List.sum_append] at htot hle
-    rw [hte] at htot
-    omega
-  have hclear : AllClear z.2 (Known (Disclosed z.2 g.value.2)) (queried z.2 (verifyP m g.value.1 w)) := by
-    intro X hX
-    obtain ⟨prior, hev⟩ := hsub X hX
-    have hseen := events_seen (Wots.referenceInputs adversary) z.2 q c.events _ hmon' _ hev X rfl
-    have hXU : X ∈ Wots.referenceInputs adversary := by
-      have hmem := List.mem_append_right g.events (List.mem_append_right t.events hev)
-      have hev' : (QueryRecorded.recordedTrace z.1).events = g.events ++ (t.events ++ c.events) := by rw [hres]
-      rw [← hev'] at hmem
-      exact trace_inputs adversary q hq z.1 hz1 _ hmem X rfl
-    have hcl := monitorRun_clear (Wots.referenceInputs adversary) z.2 q g.value.2 t.steps c.events hsteps hverdict
-      hmon' hcalls X hseen hXU
-    exact hcl.mono fun d hd => monitorRun_known (Wots.referenceInputs adversary) z.2 q g.value.2 t.steps c.events d hd
-  rcases hcase with hprim | ⟨hgood, hfts, -⟩
-  · exact (wotsPrimitiveRoute_false z.2 g.value.2 _ _ (WCT9.digestIndex_lt _) hprim hclear).elim
-  have hdigest : ∃ prior, (⟨prior, .inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))), N⟩ :
-      FirstHit.QueryEvent) ∈ (QueryRecorded.recordedTrace z.1).events := by
-    obtain ⟨prior, hev⟩ := hsub _ hdq
-    refine ⟨prior, ?_⟩
-    rw [hres]
-    have hNz : z.2 (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w))))) = N := hN
-    rw [hNz] at hev
-    exact List.mem_append_right _ (List.mem_append_right _ hev)
-  have hcaseC : BPB.CaseCAt z.2 m w (QueryRecorded.recordedTrace z.1).events :=
-    ⟨N, hdc, hN, hdigest, hS, hgood, hfts, hcomp⟩
-  have hext : SourceReplay.Extends t.untag.state (QueryRecorded.recordedTrace z.1).state := by
-    rw [hstate]; exact htc
-  by_cases hsd : BPB.SignedDigest t.value.2 m w
-  · exact (BPB.caseC_signed_impossible adversary q hq z hz hwin
-      ⟨g, hg, t.untag, hu, hext, hpk, hlen, forgery, hf, hfresh, m, w, hof, hsd, hcaseC⟩).elim
-  · exact ⟨g, hg, t.untag, hu, hext, hpk, hlen, forgery, hf, hfresh, m, w, hof, hsd, hcaseC⟩
-theorem wct_noContact_caseC (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
-    (z : PaddedGame.TraceResult × Answers) (hz : z ∈ (SeccLaw.completedExperiment adversary q hq).support)
-    (hwin : QueryRecorded.CleanWin q z.1) (hno : ¬Contact adversary q z) (hcomp : BPB.SignerComplete z.2) :
-    BPB.CaseCFresh adversary z :=
-  noContact_caseC adversary q hq z hz hwin hno hcomp
 end ClaudeWCT.W9.T3.Security.LargeCoupling
 end

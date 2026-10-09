@@ -26,86 +26,8 @@ def lazyOf (s : QueryRecorded.State) : LazyPrivate.State := s.base.source.2
 def horizon : Nat := BPORS.Numeric.proposalLength
 def Birth (budget : Nat) (x : HashInput) (before : QueryRecorded.State) : Prop :=
   IsDigestInput x ∧ (lazyOf before).2 x = none ∧ countOf before < budget
-noncomputable def ghostWorld (budget : Nat) :
-    (input : SphincsSecurity.OracleWorld.Domain) → Ghost → QueryRecorded.State →
-      SphincsSecurity.OracleWorld.Range input → Ghost
-  | .inl _, g, _, _ => g
-  | .inr x, g, before, answer =>
-      if Birth budget x before then { g with targets := g.targets ++ [show HashOutput from answer] } else g
 def FreshSigning (published : T3.Cache) (request : Request) (before : QueryRecorded.State) : Prop :=
   request.cache = published ∧ (lazyOf before).1 (.inr (.inl request.message)) = none
-noncomputable def ghostSign (published : T3.Cache) (request : Request) (g : Ghost) (before : QueryRecorded.State)
-    (record : (Option Signature × Option HashOutput) × QueryRecorded.State) : Ghost :=
-  if FreshSigning published request before then
-    if horizon ≤ g.exposures.length then
-      { g with dead := true, log := g.log ++ [⟨request, record.1.1⟩] }
-    else
-      { g with exposures := g.exposures ++ record.1.2.toList,
-               reused := g.reused || decide (Reuse (lazyOf before).2 (nonceOf (lazyOf record.2) request.message)
-                 request.message),
-               log := g.log ++ [⟨request, record.1.1⟩] }
-  else { g with log := g.log ++ [⟨request, record.1.1⟩] }
-noncomputable def bankImpl (published : T3.Cache) (budget : Nat) :
-    QueryImpl LazyPrivate.Interaction (StateT BankState PMF)
-  | .inl input => StateT.mk fun st =>
-      (liftM (QueryRecorded.run (forwardWorld input) st.2) : PMF _).map fun r =>
-        (r.1, (ghostWorld budget input st.1 st.2 r.1, r.2))
-  | .inr request => StateT.mk fun st =>
-      (liftM (QueryRecorded.run (FullGame.authenticatedRecord published request) st.2) : PMF _).map fun r =>
-        (r.1.1, (ghostSign published request st.1 st.2 r, r.2))
-theorem bank_query_project (published : T3.Cache) (budget : Nat) (input : LazyPrivate.Interaction.Domain)
-    (st : BankState) :
-    Prod.map id Prod.snd <$> (bankImpl published budget input).run st =
-      (liftM (QueryRecorded.run (MonitoredPrivate.interactionSource published input) st.2) : PMF _) := by
-  cases input with
-  | inl input =>
-      change (PMF.map _ (PMF.map _ _)) = _
-      rw [PMF.map_comp]
-      change PMF.map id _ = _
-      rw [PMF.map_id]
-      rfl
-  | inr request =>
-      change (PMF.map _ (PMF.map _ _)) = _
-      rw [PMF.map_comp]
-      have hsign : Prod.map Prod.fst id <$> QueryRecorded.run (FullGame.authenticatedRecord published request) st.2 =
-          QueryRecorded.run (FullGame.authenticatedSign published request) st.2 := by
-        rw [← QueryRecorded.run_map, FullGame.authenticatedRecord_erasure]
-      change _ = (liftM (QueryRecorded.run (FullGame.authenticatedSign published request) st.2) : PMF _)
-      rw [← hsign, liftM_map, ← PMF.monad_map_eq_map]
-      rfl
-theorem bank_project {α : Type} (published : T3.Cache) (budget : Nat)
-    (program : OracleComp LazyPrivate.Interaction α) (st : BankState) :
-    Prod.map id Prod.snd <$> (simulateQ (bankImpl published budget) program).run st =
-      (liftM (QueryRecorded.run (simulateQ (MonitoredPrivate.interactionSource published) program) st.2) :
-        PMF (α × QueryRecorded.State)) := by
-  induction program using OracleComp.inductionOn generalizing st with
-  | pure value =>
-      simp only [simulateQ_pure, StateT.run_pure, QueryRecorded.run_pure, liftM_pure, map_pure]
-      rfl
-  | query_bind input next ih =>
-      rw [simulateQ_bind, simulateQ_spec_query, StateT.run_bind, map_bind]
-      rw [simulateQ_bind, simulateQ_spec_query, QueryRecorded.run_bind, liftM_bind]
-      rw [← bank_query_project published budget input st, bind_map_left]
-      apply bind_congr
-      intro result
-      exact ih result.1 result.2
-noncomputable def bankExperiment (adversary : AdversaryP) (budget : Nat) : PMF (Bool × BankState) := do
-  let generated ← (liftM (QueryRecorded.run keygen QueryRecorded.initial) : PMF _)
-  (simulateQ (bankImpl generated.1.2 budget) (CreationGame.rest adversary generated.1.1 generated.1.2)).run
-    (Ghost.empty, generated.2)
-theorem bank_traced (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2 ^ 127) :
-    (fun r : Bool × BankState => (r.1, r.2.2)) <$> bankExperiment adversary budget =
-      (fun r : PaddedGame.TraceResult => (r.1, r.2.2)) <$> PaddedGame.tracedExperiment adversary budget hbudget := by
-  rw [CreationGame.padded_trace_eq, bankExperiment, map_bind, map_bind]
-  apply bind_congr
-  intro generated
-  have hb := bank_project generated.1.2 budget (CreationGame.rest adversary generated.1.1 generated.1.2)
-    (Ghost.empty, generated.2)
-  have ht := (QueryRecorded.proposalModel generated.1.2 budget hbudget).traced_erasure
-    (CreationGame.rest adversary generated.1.1 generated.1.2) ([], generated.2)
-  rw [QueryRecorded.proposal_execution_erasure] at ht
-  change Prod.map id Prod.snd <$> _ = Prod.map id Prod.snd <$> _
-  rw [hb, ht]
 end SigGolfCandidate.T3.Security.CaseC
 end
 section
@@ -194,59 +116,6 @@ theorem notDigestQ_signerQ (m : Message) (q : T3.Spec.Domain) (h : BPB.NotDigest
   exact h this
 theorem digestTrial_rowOf (rho : Digest) (m : Message) (c : Nat) (hc : c < 2 ^ 32) :
     DigestRowOf (Sampling.digestTrial rho m c) m := ⟨(rho, ⟨c, hc⟩), rfl⟩
-theorem digestSearch_signerQ (rho : Digest) (m : Message) :
-    ∀ fuel counter, counter + fuel ≤ 2 ^ 32 → AllQueriesSatisfy (digestSearch rho m counter fuel) (SignerQ m) := by
-  intro fuel
-  induction fuel with
-  | zero => intro counter _; exact SourceQueries.pure_allowed _ _
-  | succ fuel ih =>
-      intro counter hlimit
-      rw [BPB.digestSearch_succ]
-      apply SourceQueries.bind_allowed
-      · apply (allQueriesSatisfy_query_iff _ _).mpr
-        intro x hx _
-        simp only [Sum.inl.injEq, Sum.inr.injEq] at hx
-        rw [← hx]
-        exact digestTrial_rowOf rho m counter (by omega)
-      · intro answer
-        split
-        · exact SourceQueries.pure_allowed _ _
-        · exact ih (counter + 1) (by omega)
-theorem authenticatedRecord_signerQ (published : T3.Cache) (request : Request) :
-    AllQueriesSatisfy (FullGame.authenticatedRecord published request) (SignerQ request.message) := by
-  unfold FullGame.authenticatedRecord
-  apply SourceQueries.bind_allowed
-  · apply SourceQueries.privateMac_allowed (SignerQ request.message)
-    intro tweak x hx
-    cases hx
-  · intro tag
-    split
-    · unfold payloadRecord payloadRecordForNonce
-      apply SourceQueries.bind_allowed
-      · unfold privateNonce
-        apply SourceQueries.bind_allowed
-        · apply (allQueriesSatisfy_query_iff _ _).mpr
-          intro x hx
-          cases hx
-        · intro _; exact SourceQueries.pure_allowed _ _
-      · intro rho
-        apply SourceQueries.bind_allowed _ (digestSearch_signerQ rho request.message attemptLimit 0 (by decide))
-        intro found
-        split
-        · exact SourceQueries.pure_allowed _ _
-        · apply SourceQueries.bind_allowed
-          · exact allQueriesSatisfy_mono _ _ _ (notDigestQ_signerQ request.message)
-              (BPB.payloadAfterDigest_ok _ _ _)
-          · intro _; exact SourceQueries.pure_allowed _ _
-    · exact SourceQueries.pure_allowed _ _
-theorem signer_new_rows (published : T3.Cache) (request : Request) (before : LazyPrivate.State)
-    (result : (Option Signature × Option HashOutput) × LazyPrivate.State)
-    (hr : result ∈ support (LazyPrivate.run (FullGame.authenticatedRecord published request) before))
-    (x : HashInput) (hx : before.2 x = none) (hnew : result.2.2 x ≠ none) (hdig : IsDigestInput x) :
-    DigestRowOf x request.message :=
-  run_new_public _ (fun x => IsDigestInput x → DigestRowOf x request.message)
-    (allQueriesSatisfy_mono _ _ _ (fun q hq x hx => hq x hx) (authenticatedRecord_signerQ published request))
-    before result hr x hx hnew hdig
 theorem digestRowOf_unique {x : HashInput} {m m' : Message} (h : DigestRowOf x m) (h' : DigestRowOf x m') :
     m = m' := by
   obtain ⟨p, rfl⟩ := h
@@ -262,84 +131,7 @@ theorem tsum_indicator_le_of_subsingleton {β : Type} (P : β → Prop) [Decidab
     simp [hb0]
   · push Not at h
     simp [h]
-theorem admissibleEntry_cacheQuery (cache : Sampling.RCache) (x : HashInput) (a : HashOutput)
-    (hx : cache x = none) (y : HashInput) :
-    admissibleEntry (cache.cacheQuery x a) y = admissibleEntry cache y + if y = x then admInd a else 0 := by
-  by_cases hy : y = x
-  · subst hy
-    simp [admissibleEntry, hx, admInd]
-  · simp [admissibleEntry, hy]
-theorem reuseMass_cacheQuery_le (cache : Sampling.RCache) (x : HashInput) (a : HashOutput)
-    (hx : cache x = none) (m : Message) :
-    reuseMass (cache.cacheQuery x a) m ≤ reuseMass cache m + (if DigestRowOf x m then admInd a else 0) / 2 ^ 128 := by
-  unfold reuseMass
-  rw [← ENNReal.add_div]
-  apply ENNReal.div_le_div_right
-  simp_rw [admissibleEntry_cacheQuery cache x a hx]
-  rw [ENNReal.tsum_add]
-  apply add_le_add le_rfl
-  by_cases hrow : DigestRowOf x m
-  · rw [if_pos hrow]
-    apply tsum_indicator_le_of_subsingleton
-    intro p q hp hq
-    exact Sampling.WeightedSelection.digest_nonce_trials_injective m (2 ^ 32) le_rfl (hp.trans hq.symm)
-  · rw [if_neg hrow]
-    apply le_of_eq
-    apply ENNReal.tsum_eq_zero.mpr
-    intro p
-    rw [if_neg]
-    intro he
-    exact hrow ⟨p, he.symm⟩
 noncomputable def reusePotential (s : LazyPrivate.State) : ENNReal :=
   ∑' m : Message, if s.1 (.inr (.inl m)) = none then reuseMass s.2 m else 0
-theorem reusePotential_public_le (s : LazyPrivate.State) (x : HashInput) (a : HashOutput) (hx : s.2 x = none) :
-    reusePotential (s.1, s.2.cacheQuery x a) ≤ reusePotential s + admInd a / 2 ^ 128 := by
-  unfold reusePotential
-  calc
-    (∑' m : Message, if s.1 (.inr (.inl m)) = none then reuseMass (s.2.cacheQuery x a) m else 0) ≤
-        ∑' m : Message, ((if s.1 (.inr (.inl m)) = none then reuseMass s.2 m else 0) +
-          (if DigestRowOf x m then admInd a / 2 ^ 128 else 0)) := by
-      apply ENNReal.tsum_le_tsum
-      intro m
-      split_ifs with h1 h2
-      · simpa [ENNReal.div_eq_inv_mul, h2] using reuseMass_cacheQuery_le s.2 x a hx m
-      · simpa [h2] using reuseMass_cacheQuery_le s.2 x a hx m
-      · exact bot_le
-      · exact bot_le
-    _ = _ + _ := ENNReal.tsum_add
-    _ ≤ _ := add_le_add le_rfl (tsum_indicator_le_of_subsingleton _ (fun _ _ h h' => digestRowOf_unique h h') _)
-theorem reusePotential_sign_le (s s' : LazyPrivate.State) (m : Message)
-    (hm : s.1 (.inr (.inl m)) = none) (hm' : s'.1 (.inr (.inl m)) ≠ none)
-    (hother : ∀ m', m' ≠ m → s'.1 (.inr (.inl m')) = s.1 (.inr (.inl m')))
-    (hrows : ∀ m', m' ≠ m → reuseMass s'.2 m' = reuseMass s.2 m') :
-    reusePotential s' + reuseMass s.2 m ≤ reusePotential s := by
-  unfold reusePotential
-  rw [ENNReal.tsum_eq_add_tsum_ite m, ENNReal.tsum_eq_add_tsum_ite m (f := fun m' =>
-    if s.1 (.inr (.inl m')) = none then reuseMass s.2 m' else 0)]
-  simp only [hm', if_false, zero_add, hm, if_true]
-  rw [add_comm]
-  apply add_le_add le_rfl
-  apply le_of_eq
-  apply tsum_congr
-  intro m'
-  by_cases he : m' = m
-  · simp [he]
-  · simp only [he, if_false, hother m' he, hrows m' he]
-theorem reusePotential_sign_stale_le (s s' : LazyPrivate.State) (m : Message)
-    (hm : s.1 (.inr (.inl m)) ≠ none → s'.1 (.inr (.inl m)) ≠ none)
-    (hnone : s.1 (.inr (.inl m)) = none → s'.1 (.inr (.inl m)) = none ∧ reuseMass s'.2 m = reuseMass s.2 m)
-    (hother : ∀ m', m' ≠ m → s'.1 (.inr (.inl m')) = s.1 (.inr (.inl m')))
-    (hrows : ∀ m', m' ≠ m → reuseMass s'.2 m' = reuseMass s.2 m') :
-    reusePotential s' ≤ reusePotential s := by
-  unfold reusePotential
-  apply ENNReal.tsum_le_tsum
-  intro m'
-  by_cases he : m' = m
-  · subst he
-    by_cases hc : s.1 (.inr (.inl m')) = none
-    · obtain ⟨h1, h2⟩ := hnone hc
-      simp [h1, h2, hc]
-    · simp [hm hc, hc]
-  · simp only [hother m' he, hrows m' he, le_refl]
 end SigGolfCandidate.T3.Security.CaseC
 end

@@ -12,55 +12,55 @@ set_option exponentiation.threshold 20000
 set_option linter.constructorNameAsVariable false
 def creditFloor : Nat := 7
 def credit5 (d : Triple5) : Nat := ∑ i,if (d i).val=3 then 1 else 0
-def credit4 (d : Triple4) : Nat := ∑ i,if (d i).val=2 then 1 else 0
-def credit (w : Word) : Nat := (∑ i,credit5 (w.1 i))+credit4 w.2
+def credit8 (d : Triple8) : Nat := ∑ i,if (d i).val=6 then 1 else 0
+def credit (w : Word) : Nat := (∑ i,credit5 (w.1 i))+credit8 w.2
 def g5 (n : Nat) : Nat := (if n=3 then 1 else 0)+64*n
-def g4 (n : Nat) : Nat := (if n=2 then 1 else 0)+64*n
+def g8 (n : Nat) : Nat := (if n=6 then 1 else 0)+64*n
 def s5 (d : Triple5) : Nat := ∑ i,g5 (d i).val
-def s4 (d : Triple4) : Nat := ∑ i,g4 (d i).val
-def stat (w : Word) : Nat := (∑ i,s5 (w.1 i))+s4 w.2
+def s8 (d : Triple8) : Nat := ∑ i,g8 (d i).val
+def stat (w : Word) : Nat := (∑ i,s5 (w.1 i))+s8 w.2
 theorem s5_eq (d : Triple5) : s5 d=credit5 d+64*tripleSum5 d := by
   simp only [s5,g5,credit5,tripleSum5,Finset.sum_add_distrib,←Finset.mul_sum]
-theorem s4_eq (d : Triple4) : s4 d=credit4 d+64*tripleSum4 d := by
-  simp only [s4,g4,credit4,tripleSum4,Finset.sum_add_distrib,←Finset.mul_sum]
+theorem s8_eq (d : Triple8) : s8 d=credit8 d+64*tripleSum8 d := by
+  simp only [s8,g8,credit8,tripleSum8,Finset.sum_add_distrib,←Finset.mul_sum]
 theorem stat_eq (w : Word) : stat w=credit w+64*weight w := by
-  simp only [stat,s5_eq,s4_eq,credit,weight,Finset.sum_add_distrib,←Finset.mul_sum]
+  simp only [stat,s5_eq,s8_eq,credit,weight,Finset.sum_add_distrib,←Finset.mul_sum]
   ring
 theorem credit5_le (d : Triple5) : credit5 d≤3 := by
   unfold credit5
   calc (∑ i : Fin 3,if (d i).val=3 then 1 else 0)≤∑ _i : Fin 3,1 :=
         Finset.sum_le_sum fun i _ => by split_ifs <;> omega
     _ = 3 := by simp
-theorem credit4_le (d : Triple4) : credit4 d≤3 := by
-  unfold credit4
-  calc (∑ i : Fin 3,if (d i).val=2 then 1 else 0)≤∑ _i : Fin 3,1 :=
+theorem credit8_le (d : Triple8) : credit8 d≤3 := by
+  unfold credit8
+  calc (∑ i : Fin 3,if (d i).val=6 then 1 else 0)≤∑ _i : Fin 3,1 :=
         Finset.sum_le_sum fun i _ => by split_ifs <;> omega
     _ = 3 := by simp
 theorem credit_le (w : Word) : credit w≤54 := by
   have h1 : (∑ i,credit5 (w.1 i))≤∑ _i : Fin 17,3 := Finset.sum_le_sum fun i _ => credit5_le _
-  have h2 := credit4_le w.2
+  have h2 := credit8_le w.2
   have h3 : (∑ _i : Fin 17,3)=51 := by simp
   unfold credit
   omega
 def r5 (y : Nat) : Nat := 1+y^64+y^128+y^193+y^256
-def r4 (y : Nat) : Nat := 1+y^64+y^129+y^192
+def r8 (y : Nat) : Nat := 1+y^64+y^128+y^192+y^256+y^320+y^385+y^448
 theorem weighted5 (y : Nat) : (∑ d : Triple5,y^s5 d)=r5 y^3 := by
   calc (∑ d : Triple5,y^s5 d)=(∑ a : Fin 5,y^g5 a.val)^3 :=
         weighted_tuples (fun a : Fin 5 => g5 a.val) y 3
     _ = r5 y^3 := by
         rw [Fin.sum_univ_eq_sum_range (fun n => y^g5 n) 5]
         norm_num [Finset.sum_range_succ,g5,r5]
-theorem weighted4 (y : Nat) : (∑ d : Triple4,y^s4 d)=r4 y^3 := by
-  calc (∑ d : Triple4,y^s4 d)=(∑ a : Fin 4,y^g4 a.val)^3 :=
-        weighted_tuples (fun a : Fin 4 => g4 a.val) y 3
-    _ = r4 y^3 := by
-        rw [Fin.sum_univ_eq_sum_range (fun n => y^g4 n) 4]
-        norm_num [Finset.sum_range_succ,g4,r4]
-theorem weighted_words (y : Nat) : (∑ w : Word,y^stat w)=r5 y^51*r4 y^3 := by
+theorem weighted8 (y : Nat) : (∑ d : Triple8,y^s8 d)=r8 y^3 := by
+  calc (∑ d : Triple8,y^s8 d)=(∑ a : Fin 8,y^g8 a.val)^3 :=
+        weighted_tuples (fun a : Fin 8 => g8 a.val) y 3
+    _ = r8 y^3 := by
+        rw [Fin.sum_univ_eq_sum_range (fun n => y^g8 n) 8]
+        norm_num [Finset.sum_range_succ,g8,r8]
+theorem weighted_words (y : Nat) : (∑ w : Word,y^stat w)=r5 y^51*r8 y^3 := by
   rw [Fintype.sum_prod_type]
   simp only [stat,pow_add]
-  rw [←Finset.sum_mul_sum,weighted_tuples,weighted5,weighted4,←pow_mul]
-def packed : Nat := r5 radix^51*r4 radix^3
+  rw [←Finset.sum_mul_sum,weighted_tuples,weighted5,weighted8,←pow_mul]
+def packed : Nat := r5 radix^51*r8 radix^3
 theorem truncated_card (cut : Nat) (hc : 0<cut) :
     (Finset.univ.filter fun w : Word => stat w<cut).card=
       (packed%radix^cut)%(radix-1) := by
@@ -72,28 +72,30 @@ theorem truncated_card (cut : Nat) (hc : 0<cut) :
       (by simpa only [Finset.card_univ] using Nat.lt_of_lt_of_le word_card_small (Nat.sub_le _ _)),
     SigGolfResearch.Gate6.sum_pow_mod_pred_generic (by norm_num [radix]),
     Nat.mod_eq_of_lt ((Finset.card_filter_le _ _).trans_lt (by simpa using word_card_small))]
-def count : Nat := 99688341888453976199567696916972594
+/-- Campaign T8D (NF17): accepted top words at target 144 with at least `creditFloor` = 7 credits (T3's legacy
+`creditFloor 0`; the W9 producer floor 8 is counted in `Numerics.TopCreditCount`). -/
+def count : Nat := 119055472510971231422674926968209380
 theorem exact_packed_count :
-    (packed%radix^8320)%(radix-1)-(packed%radix^(8256+creditFloor))%(radix-1)=count := by decide +kernel
+    (packed%radix^9280)%(radix-1)-(packed%radix^(9216+creditFloor))%(radix-1)=count := by decide +kernel
 theorem credited_card :
-    (Finset.univ.filter fun w : Word => weight w=129 ∧ creditFloor≤credit w).card=count := by
+    (Finset.univ.filter fun w : Word => weight w=144 ∧ creditFloor≤credit w).card=count := by
   classical
-  have hs : (Finset.univ.filter fun w : Word => weight w=129 ∧ creditFloor≤credit w)=
-      (Finset.univ.filter fun w : Word => stat w<8320)\
-        (Finset.univ.filter fun w : Word => stat w<8256+creditFloor) := by
+  have hs : (Finset.univ.filter fun w : Word => weight w=144 ∧ creditFloor≤credit w)=
+      (Finset.univ.filter fun w : Word => stat w<9280)\
+        (Finset.univ.filter fun w : Word => stat w<9216+creditFloor) := by
     ext w
     have hc := credit_le w
     have he := stat_eq w
     simp only [Finset.mem_filter,Finset.mem_univ,true_and,Finset.mem_sdiff]
     omega
   rw [hs,Finset.card_sdiff_of_subset]
-  · rw [truncated_card 8320 (by decide),truncated_card (8256+creditFloor) (by decide),exact_packed_count]
+  · rw [truncated_card 9280 (by decide),truncated_card (9216+creditFloor) (by decide),exact_packed_count]
   · intro w hw
     have hf : creditFloor≤64 := by decide
     simp only [Finset.mem_filter,Finset.mem_univ,true_and] at hw ⊢
     omega
 theorem credited_digest_card :
-    ((Finset.univ.filter fun w : Word => weight w=129 ∧ creditFloor≤credit w).image digest).card=count := by
+    ((Finset.univ.filter fun w : Word => weight w=144 ∧ creditFloor≤credit w).image digest).card=count := by
   classical
   rw [Finset.card_image_of_injective _ digest_injective,credited_card]
 theorem credited_decoder_count :
@@ -101,7 +103,7 @@ theorem credited_decoder_count :
   classical
   rw [Fintype.card_subtype]
   have he : (Finset.univ.filter fun d : Fin (2^128) => ∃ w,Decoder.decode d=some w ∧ creditFloor≤credit w)=
-      (Finset.univ.filter fun w : Word => weight w=129 ∧ creditFloor≤credit w).image digest := by
+      (Finset.univ.filter fun w : Word => weight w=144 ∧ creditFloor≤credit w).image digest := by
     ext d
     simp only [Finset.mem_filter,Finset.mem_univ,true_and,Finset.mem_image]
     constructor
@@ -112,7 +114,7 @@ theorem credited_decoder_count :
       exact ⟨w,(Decoder.decode_some_iff d w).mpr ⟨hd,hweight⟩,hc⟩
   rw [he,credited_digest_card]
 theorem probability_fraction : (count : ℚ)/2^128=
-    99688341888453976199567696916972594/2^128 := by
+    119055472510971231422674926968209380/2^128 := by
   simp only [count,Nat.cast_ofNat]
 end SigGolfResearch.NonbinaryTop.CreditCounting
 #print axioms SigGolfResearch.NonbinaryTop.CreditCounting.exact_packed_count
@@ -180,12 +182,12 @@ theorem topCredit_parse {v : Digest} {w : Codec.Word}
     (hp : Decoder.parse 17 (topFlip v).toNat=some w) : topCredit v=CreditCounting.credit w := by
   unfold topCredit
   rw [range54_map_ofFn,List.ofFn_add (n:=51) (m:=3),List.sum_append]
-  change (List.ofFn fun i : Fin (17*3) => if coreDigit 0 v i.val=(if i.val<51 then 3 else 2) then 1 else 0).sum+
+  change (List.ofFn fun i : Fin (17*3) => if coreDigit 0 v i.val=(if i.val<51 then 3 else 6) then 1 else 0).sum+
       (List.ofFn fun k : Fin 3 =>
-        if coreDigit 0 v (51+k.val)=(if 51+k.val<51 then 3 else 2) then 1 else 0).sum=CreditCounting.credit w
+        if coreDigit 0 v (51+k.val)=(if 51+k.val<51 then 3 else 6) then 1 else 0).sum=CreditCounting.credit w
   rw [List.ofFn_mul]
   simp only [List.sum_flatten,List.map_ofFn,List.sum_ofFn,Function.comp_def]
-  unfold CreditCounting.credit CreditCounting.credit5 CreditCounting.credit4
+  unfold CreditCounting.credit CreditCounting.credit5 CreditCounting.credit8
   apply congrArg₂ Nat.add
   · apply Finset.sum_congr rfl
     intro j hj
@@ -194,19 +196,19 @@ theorem topCredit_parse {v : Digest} {w : Codec.Word}
     have he := coreDigit_parse5 hp j k
     rw [Nat.mul_comm 3 j.val] at he
     have hlt : j.val*3+k.val<51 := by have := j.isLt;have := k.isLt;omega
-    show (if coreDigit 0 v (j.val*3+k.val)=(if j.val*3+k.val<51 then 3 else 2) then 1 else 0)=
+    show (if coreDigit 0 v (j.val*3+k.val)=(if j.val*3+k.val<51 then 3 else 6) then 1 else 0)=
       if (w.1 j k).val=3 then 1 else 0
     rw [if_pos hlt,he]
   · apply Finset.sum_congr rfl
     intro k hk
-    have he := coreDigit_parse4 hp k
-    show (if coreDigit 0 v (51+k.val)=(if 51+k.val<51 then 3 else 2) then 1 else 0)=
-      if (w.2 k).val=2 then 1 else 0
+    have he := coreDigit_parse8 hp k
+    show (if coreDigit 0 v (51+k.val)=(if 51+k.val<51 then 3 else 6) then 1 else 0)=
+      if (w.2 k).val=6 then 1 else 0
     have hn : ¬(51+k.val<51) := by omega
     rw [if_neg hn,he]
 theorem decodeBV_parse {v : Digest} {w : Codec.Word} (hw : Decoder.decodeBV v=some w) :
     Decoder.parse 17 v.toNat=some w := by
-  change ((Decoder.parse 17 v.toNat).filter fun w => decide (Counting.weight w=129))=some w at hw
+  change ((Decoder.parse 17 v.toNat).filter fun w => decide (Counting.weight w=144))=some w at hw
   exact (Option.filter_eq_some_iff.mp hw).1
 theorem searchDecode_top_isSome (v : Digest) :
     (searchDecode 0 v).isSome=true ↔

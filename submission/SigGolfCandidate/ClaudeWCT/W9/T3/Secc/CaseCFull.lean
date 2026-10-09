@@ -290,13 +290,6 @@ def PinnedC (X : CaseCExtraction) (adversary : AdversaryP)
       ¬SignedDigest interaction.value.2 message witness ∧
       X.CaseCAt z.2 message witness (QueryRecorded.recordedTrace z.1).events ∧
       Q z.2 interaction.value.2 message witness checked.events
-theorem PinnedC.mono {X : CaseCExtraction} {adversary : AdversaryP}
-    {Q Q' : Correctness.Answers → QueryLog Requests → Message → WBytes → List FirstHit.QueryEvent → Prop}
-    (hQ : ∀ answers log message witness events, Q answers log message witness events →
-      Q' answers log message witness events)
-    {z : PaddedGame.TraceResult × Correctness.Answers} (h : PinnedC X adversary Q z) : PinnedC X adversary Q' z := by
-  obtain ⟨g, i, c, hs, hpk, hlen, f, hf, hfr, m, w, hof, hsd, hC, hq⟩ := h
-  exact ⟨g, i, c, hs, hpk, hlen, f, hf, hfr, m, w, hof, hsd, hC, hQ _ _ _ _ _ hq⟩
 theorem bankSpec_search (rho : Digest) (m : Message) :
     bankSpec.search rho m 0 bankSpec.limit = WCT9.digestSearch rho m 0 WCT9.digestAttemptLimit :=
   ClaudeWCT.Bank.WCT.wctL_search horizon ⊤ excessBound_top rho m

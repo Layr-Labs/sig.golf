@@ -22,7 +22,7 @@ structure KDone (r : Digest × Cache) (t : MachineState) : Prop where
 section main
 variable {sk : SecretKey} {s1 : MachineState} (hs : KStart sk s1)
 include hs
-theorem keygen_from_start : TSim image sk s1 45743956 53923476 995328 1048576 keygen KDone := by
+theorem keygen_from_start : TSim image sk s1 475168596 483274388 983040 1036288 keygen KDone := by
   unfold keygen
   refine TSim.bind (k₂ := 1703623) (c₂ := 2489877) (n₂ := 2) (b₂ := 2)
     (payload_tsim hs) (fun r t ht => ?_)
@@ -51,7 +51,7 @@ theorem keygen_from_start : TSim image sk s1 45743956 53923476 995328 1048576 ke
     exact congrArg _ ht.region
 end main
 theorem keygen_tsim (sk : SecretKey) :
-    TSim image sk (kinit sk) 45743982 53923502 995328 1048576 keygen KDone := by
+    TSim image sk (kinit sk) 475168622 483274414 983040 1036288 keygen KDone := by
   obtain ⟨s1, st1, hs⟩ := kstart sk
   exact TSim.steps st1 (keygen_from_start hs)
 theorem kdone_output {r : Digest × Cache} {t : MachineState} (h : KDone r t) :
@@ -67,13 +67,13 @@ theorem kdone_output {r : Digest × Cache} {t : MachineState} (h : KDone r t) :
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt r.1.isLt]
 theorem keygen_run (sk : SecretKey) :
     submission.run .keygen sk =
-      (fun r => ⟨some ((r.1 : PublicKey), cacheB r.2), true, 53923503, 995328, 1048576⟩) <$>
+      (fun r => ⟨some ((r.1 : PublicKey), cacheB r.2), true, 483274415, 983040, 1036288⟩) <$>
         mrealize sk keygen :=
   XSim.run_eq submission .keygen sk (initialState_keygen sk) (keygen_tsim sk) (by decide)
     (fun r => ((r.1 : PublicKey), cacheB r.2))
     (fun _ t h => ⟨fetch_541 t h.pc, h.x5, h.x10, kdone_output h⟩)
 theorem keygen_countBoth (sk : SecretKey) :
-    countBoth (mrealize sk keygen) = (fun a => (a, 995328, 1048576)) <$> mrealize sk keygen :=
+    countBoth (mrealize sk keygen) = (fun a => (a, 983040, 1036288)) <$> mrealize sk keygen :=
   XSim.countBoth_eq (keygen_tsim sk)
 theorem keygen_run_counts (sk : SecretKey) :
     (fun r => (r.value, r.hashCalls, r.hashCompressions)) <$> submission.run .keygen sk =
@@ -83,7 +83,7 @@ theorem keygen_run_counts (sk : SecretKey) :
 theorem keygen_runWith (hash : Hash) (sk : SecretKey) :
     submission.runWith hash .keygen sk =
       ⟨some (((evalWithAnswerFn hash (mrealize sk keygen)).1 : PublicKey),
-        cacheB (evalWithAnswerFn hash (mrealize sk keygen)).2), true, 53923503, 995328, 1048576⟩ := by
+        cacheB (evalWithAnswerFn hash (mrealize sk keygen)).2), true, 483274415, 983040, 1036288⟩ := by
   unfold Submission.runWith
   rw [keygen_run, evalWithAnswerFn_map]
 end SigGolfCandidate.T3M.Keygen

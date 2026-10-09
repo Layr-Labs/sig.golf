@@ -138,13 +138,31 @@ theorem chain_alias {lay : Layer} {tree leaf : Nat} {L : LeafAddr} (h : LeafAlia
   funext start count value
   unfold chain
   rw [chainInput_alias h i]
-theorem leafSeed_eq (T : Answers) (lay : Layer) (tree leaf i : Nat) : leafSeed T lay tree leaf i =
+/-- Lower (legacy T3) seeds are private half-cells; top seeds are leaf-family values since campaign T8D
+(`Correctness.leafSeed_top`). -/
+theorem leafSeed_eq (T : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree leaf i : Nat) : leafSeed T lay tree leaf i =
     if i % 2 = 0 then (T (.inr (.inl (header 0 lay.val tree (i / 2) leaf)))).extractLsb' 0 128
-    else (T (.inr (.inl (header 0 lay.val tree (i / 2) leaf)))).extractLsb' 128 128 := rfl
+    else (T (.inr (.inl (header 0 lay.val tree (i / 2) leaf)))).extractLsb' 128 128 := by
+  unfold leafSeed; rw [if_neg hlay]; rfl
+theorem topCoefN_alias (T : Answers) {leaf leaf' : Nat} (h : leaf % 2 ^ 32 = leaf' % 2 ^ 32) (j : Nat) :
+    Correctness.topCoefN T leaf j = Correctness.topCoefN T leaf' j := by
+  unfold Correctness.topCoefN topSeedPair privatePair
+  have hp : (topCoefOrdinal leaf j / 2) % 2 ^ 32 = (topCoefOrdinal leaf' j / 2) % 2 ^ 32 := by
+    unfold topCoefOrdinal topCoefCount; omega
+  have hq : topCoefOrdinal leaf j % 2 = topCoefOrdinal leaf' j % 2 := by
+    unfold topCoefOrdinal topCoefCount; omega
+  rw [header_normal 0 0 0 (topCoefOrdinal leaf j / 2), header_normal 0 0 0 (topCoefOrdinal leaf' j / 2), hp, hq]
 theorem leafSeed_alias (T : Answers) {lay : Layer} {tree leaf : Nat} {L : LeafAddr}
     (h : LeafAlias lay tree leaf L) (i : Nat) :
     leafSeed T lay tree leaf i = leafSeed T L.lay L.tree L.leaf i := by
-  rw [leafSeed_eq, leafSeed_eq, h.header_eq]
+  by_cases h0 : lay = 0
+  · have h0' : L.lay = 0 := h.1 ▸ h0
+    rw [h0, h0', Correctness.leafSeed_top, Correctness.leafSeed_top]
+    unfold Correctness.topLeafSeed Correctness.topCoefList
+    congr 2
+    funext j
+    exact topCoefN_alias T h.2.2 j.val
+  · rw [leafSeed_eq T h0, leafSeed_eq T (h.1 ▸ h0), h.header_eq]
 theorem pad64_chainInput (lay : Layer) (tree leaf i step : Nat) (value : Digest) :
     pad64 (chainInput lay tree leaf i step value) = chainInput lay tree leaf i step value := by
   simp [chainInput, pad64, bytesLE_length, zero16]
@@ -189,16 +207,6 @@ theorem referenceDigits_spec (answers : Answers) (L : LeafAddr) :
       have hd := (Correctness.counterSearch_some answers L.lay L.tree L.leaf (leafMsg answers L)
         counterLimit 0 counter digits (by decide) h).2.2
       exact ⟨(decode_length_sum hd).1, Cost.validDigits_decode hd⟩
-theorem referenceDigits_of_search {answers : Answers} {L : LeafAddr} {counter : BitVec 32} {digits : List Nat}
-    (h : referenceSearch answers L = some (counter, digits)) : referenceDigits answers L = digits := by
-  unfold referenceDigits
-  rw [h]
-  rfl
-theorem topSigned_reference (answers : Answers) (L : LeafAddr) (hl : L.lay = 0) :
-    ((referenceSearch answers L).map Prod.snd).getD dummyTop = referenceDigits answers L := by
-  unfold referenceDigits
-  rw [hl]
-  rfl
 theorem depth_le_width (answers : Answers) (a : ChainAddr) (hc : a.chain < chainCount a.key.lay) :
     depth answers a ≤ maxDigit a.key.lay a.chain :=
   (referenceDigits_spec answers a.key).2 a.chain hc
@@ -231,23 +239,6 @@ theorem prefixStep_spec {answers : Answers} {a : ChainAddr} {input : HashInput} 
     obtain ⟨value, hlt, heq⟩ := Classical.choose_spec hex
     exact ⟨hlt, value, heq⟩
   · cases h
-theorem prefixStep_chainRow (answers : Answers) (a : ChainAddr) {s : Nat} (v : Digest) (hs : s < 256) :
-    prefixStep answers a (chainRow a s v) = if s < depth answers a then some s else none := by
-  have h7 := depth_le_seven answers a
-  split
-  · rename_i hlt
-    unfold prefixStep
-    rw [dif_pos ⟨s, v, hlt, rfl⟩]
-    obtain ⟨w, hw, heq⟩ := Classical.choose_spec (⟨s, v, hlt, rfl⟩ :
-      ∃ step value, step < depth answers a ∧ chainRow a s v = chainRow a step value)
-    exact congrArg some (chainRow_inj hs (by omega) heq).1.symm
-  · rename_i hge
-    cases hp : prefixStep answers a (chainRow a s v) with
-    | none => rfl
-    | some step =>
-        obtain ⟨hlt, w, heq⟩ := prefixStep_spec hp
-        have := (chainRow_inj hs (by omega) heq).1
-        omega
 theorem prefixStep_untouched {answers : Answers} {a : ChainAddr} {input : HashInput}
     (h : Untouched a (.inl (.inr input))) : prefixStep answers a input = none := by
   cases hp : prefixStep answers a input with
@@ -273,34 +264,6 @@ theorem maskAt_untouched (answers : Answers) (a : ChainAddr) {q : Spec.Domain} (
   · rw [maskAt_public, prefixStep_untouched h]
   · rw [maskAt_tweak, if_neg (fun h' => h h'.1)]
   · rfl
-theorem maskAt_prefix (answers : Answers) (a : ChainAddr) {s : Nat} (v : Digest) (hs : s < depth answers a) :
-    maskAt answers a (.inl (.inr (chainRow a s v))) =
-      if s + 1 = depth answers a then ChainGraph.joinOutput (frontierValue answers a) 0 else 0 := by
-  have h7 := depth_le_seven answers a
-  rw [maskAt_public, prefixStep_chainRow answers a v (by omega), if_pos hs]
-  rfl
-theorem maskAt_row_ge (answers : Answers) (a : ChainAddr) {s : Nat} (v : Digest) (hs : depth answers a ≤ s)
-    (hs' : s < 256) : maskAt answers a (.inl (.inr (chainRow a s v))) = answers (.inl (.inr (chainRow a s v))) := by
-  rw [maskAt_public, prefixStep_chainRow answers a v hs', if_neg (by omega)]
-theorem maskAt_of_depth_zero (answers : Answers) (a : ChainAddr) (hd : depth answers a = 0) :
-    maskAt answers a = answers := by
-  funext q
-  rcases q with (coin | input) | (tweak | other)
-  · rfl
-  · rw [maskAt_public]
-    cases hp : prefixStep answers a input with
-    | none => rfl
-    | some step => have := (prefixStep_spec hp).1; omega
-  · rw [maskAt_tweak, if_neg (by omega)]
-  · rfl
-theorem eval_maskAt_of_respects (answers : Answers) (a : ChainAddr) {α : Type} {program : M α}
-    (h : Respects (Untouched a) program) :
-    evalWithAnswerFn (maskAt answers a) program = evalWithAnswerFn answers program :=
-  (h _ _ fun _ hq => maskAt_untouched answers a hq).1
-theorem queried_maskAt_of_respects (answers : Answers) (a : ChainAddr) {α : Type} {program : M α}
-    (h : Respects (Untouched a) program) :
-    SourceReplay.queried (maskAt answers a) program = SourceReplay.queried answers program :=
-  (h _ _ fun _ hq => maskAt_untouched answers a hq).2
 theorem untouched_of_hdr (a : ChainAddr) (input : HashInput) (h : BitVec 128)
     (hblock : Extract.hdrBlock input = bytesLE 16 h)
     (htag : ∀ (l : Layer) tr leaf i step, h ≠ chainHeader l tr leaf i step) :
@@ -311,13 +274,6 @@ theorem untouched_of_hdr (a : ChainAddr) (input : HashInput) (h : BitVec 128)
     chainInput_header _ _ _ _ _ _
   rw [heq, hb] at hblock
   exact htag _ _ _ _ _ (bytesLE_injective hblock).symm
-theorem tag_ne_one {t : Nat} (ht : t % 256 ≠ 1) (l tr p ix : Nat) :
-    ∀ l' tr' p' ix', header t l tr p ix ≠ header 1 l' tr' p' ix' := fun _ _ _ _ =>
-  header_ne_of_tag (by simpa using ht)
-theorem untouched_block4 (a : ChainAddr) (x y z : Digest) {t : Nat} (ht : t % 256 ≠ 1) (l tr p ix : Nat) :
-    Untouched a (.inl (.inr (block4 x (header t l tr p ix) y z))) :=
-  untouched_of_hdr a _ _ (Extract.hdrBlock_block4 x _ y z)
-    (fun _ _ _ _ _ => Ne.symm (chainHeader_ne_header _ _ _ _ _ _ _ _ _ _))
 theorem untouched_prefixed (a : ChainAddr) (x : Digest) (rest : HashInput) {t : Nat} (ht : t % 256 ≠ 1)
     (l tr p ix : Nat) :
     Untouched a (.inl (.inr (pad64 (bytesLE 16 x ++ bytesLE 16 (header t l tr p ix) ++ rest)))) := by
@@ -350,16 +306,6 @@ theorem respects_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
   unfold leafHash
   exact Respects.shortHash _ (untouched_of_hdr a _ (leafTweak lay tree leaf) (Extract.hdrBlock_leafInput _ _ _ _)
     (fun _ _ _ _ _ => Ne.symm (chainHeader_ne_leafTweak _ _ _ _ _ _ _ _)))
-theorem respects_forestPk (index : Nat) (roots : List Digest) :
-    Respects (Untouched a) (forestPk index roots) := by
-  unfold forestPk
-  exact Respects.shortHash _ (untouched_prefixed a _ _ (by decide) _ _ _ _)
-theorem respects_ftsLeaf (index coord leaf : Nat) (secret : Digest) :
-    Respects (Untouched a) (ftsLeaf index coord leaf secret) := by
-  rw [ftsLeaf_eq_shortHash]
-  apply Respects.shortHash
-  rw [pad64_ftsLeafInputP]
-  exact untouched_block4 a 0 secret 0 (by decide) coord index 0 leaf
 theorem respects_mask (level index : Nat) : Respects (Untouched a) (mask level index) := by
   unfold mask pairedMask
   exact Respects.bind (Respects.privatePair _ _ _ _ _ (untouched_privatePair a (by decide) _ _ _ _))
@@ -373,41 +319,6 @@ theorem respects_privateMac (region : Region) : Respects (Untouched a) (privateM
 theorem respects_privateNonce (message : Message) : Respects (Untouched a) (privateNonce message) := by
   unfold privateNonce
   exact Respects.bind (Respects.privateHash _ trivial) fun _ => Respects.pure' _
-theorem respects_ftsRows (index coord : Nat) : Respects (Untouched a) (Correctness.ftsRows index coord) := by
-  unfold Correctness.ftsRows
-  refine Respects.foldlM _ _ (fun pair _ state => ?_) _
-  refine Respects.bind (Respects.privatePair _ _ _ _ _ (untouched_privatePair a (by decide) _ _ _ _)) ?_
-  rintro ⟨left, right⟩
-  exact Respects.bind (respects_ftsLeaf a _ _ _ _) fun _ =>
-    Respects.bind (respects_ftsLeaf a _ _ _ _) fun _ => Respects.pure' _
-theorem respects_buildFts (index coord : Nat) : Respects (Untouched a) (buildFts index coord) := by
-  rw [Correctness.buildFts_eq]
-  exact Respects.bind (respects_ftsRows a index coord) fun rows =>
-    Respects.bind (respects_buildLevels a 10 coord index 11 rows.1 (by decide)) fun _ => Respects.pure' _
-theorem respects_signForest (index : Nat) (chosen : List Selection) :
-    Respects (Untouched a) (Correctness.signForest index chosen) := by
-  unfold Correctness.signForest
-  refine Respects.foldlM _ _ (fun coord _ state => ?_) _
-  refine Respects.bind (respects_buildFts a index coord) ?_
-  rintro ⟨levels, secrets⟩
-  exact Respects.pure' _
-theorem respects_counterSearch (lay : Layer) (tree leaf : Nat) (message : Digest) :
-    ∀ fuel counter, Respects (Untouched a) (counterSearch lay tree leaf message counter fuel) := by
-  intro fuel
-  induction fuel with
-  | zero => intro counter; exact Respects.pure' _
-  | succ fuel ih =>
-      intro counter
-      simp only [counterSearch]
-      refine Respects.bind (Respects.shortHash _ ?_) fun answer => ?_
-      · apply untouched_of_hdr a _ (rowTweak lay tree leaf) _
-          (fun _ _ _ _ _ => Ne.symm (chainHeader_ne_rowTweak _ _ _ _ _ _ _ _))
-        unfold encodingInput
-        rw [Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
-          Extract.hdrBlock_prefix]
-      · split
-        · exact ih _
-        · exact Respects.pure' _
 theorem respects_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
     Respects (Untouched a) (digest rho message counter) := by
   unfold digest
@@ -417,18 +328,6 @@ theorem respects_digest (rho : Digest) (message : Message) (counter : BitVec 32)
   unfold digestInput
   rw [Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
     Extract.hdrBlock_prefix]
-theorem respects_digestSearch (rho : Digest) (message : Message) :
-    ∀ fuel counter, Respects (Untouched a) (digestSearch rho message counter fuel) := by
-  intro fuel
-  induction fuel with
-  | zero => intro counter; exact Respects.pure' _
-  | succ fuel ih =>
-      intro counter
-      simp only [digestSearch]
-      refine Respects.bind (respects_digest a _ _ _) fun output => ?_
-      split
-      · exact Respects.pure' _
-      · exact ih _
 end Programs
 end Mask
 end SigGolfCandidate.T3.Security.Wots

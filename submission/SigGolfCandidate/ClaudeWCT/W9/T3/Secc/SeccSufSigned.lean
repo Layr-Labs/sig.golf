@@ -26,11 +26,6 @@ def CaseCAt (answers : Correctness.Answers) (message : Message) (witness : WByte
       FirstHit.QueryEvent) ∈ events) ∧ Shaped digestAnswer witness ∧
     (∀ lay : Layer, ClaudeWCT.W9.T3M.BC.GoodZ answers witness (WCT9.digestIndex digestAnswer) lay) ∧
     ClaudeWCT.W9.T3M.WctExtract.WctHonest answers digestAnswer witness ∧ SignerComplete answers
-theorem CaseCAt.mono {answers : Correctness.Answers} {message : Message} {witness : WBytes}
-    {events events' : List FirstHit.QueryEvent} (h : CaseCAt answers message witness events)
-    (hsub : ∀ e ∈ events, e ∈ events') : CaseCAt answers message witness events' := by
-  obtain ⟨N, h1, h2, ⟨prior, hp⟩, h4, h5, h6⟩ := h
-  exact ⟨N, h1, h2, ⟨prior, hsub _ hp⟩, h4, h5, h6⟩
 def SignedDigest (log : QueryLog Requests) (message : Message) (witness : WBytes) : Prop :=
   ∃ entry ∈ log, entry.1.message = message ∧ ∃ signature, entry.2 = some signature ∧
     signature.rho = wrho witness
@@ -47,109 +42,8 @@ def GameCaseC (adversary : AdversaryP) (answers : Correctness.Answers) (signed :
       ∃ message witness, PaddedExtraction.WitnessOf answers generated.value.1 forgery message witness ∧
         signed (SignedDigest interaction.value.2 message witness) ∧
         CaseCAt answers message witness result.events
-abbrev CaseCFresh (adversary : AdversaryP) (z : PaddedGame.TraceResult × Correctness.Answers) : Prop :=
-  GameCaseC adversary z.2 Not (QueryRecorded.recordedTrace z.1)
 abbrev CaseCSigned (adversary : AdversaryP) (z : PaddedGame.TraceResult × Correctness.Answers) : Prop :=
   GameCaseC adversary z.2 id (QueryRecorded.recordedTrace z.1)
-def GameConclusionLinked (adversary : AdversaryP) (answers : Correctness.Answers)
-    (result : FirstHit.Recorded Bool) : Prop :=
-  ∃ generated ∈ support (FirstHit.record keygen (∅, ∅)),
-    ∃ interaction ∈ support (FirstHit.record
-      (FullGame.loggedWith (FullGame.authenticatedSign generated.value.2)
-        (adversary generated.value.1 generated.value.2)) generated.state),
-      SourceReplay.Extends interaction.state result.state ∧
-      generated.value.1 = ClaudeWCT.W9.T3M.Extract.honestRoot answers 0 0 ∧
-      interaction.value.2.length ≤ 2 ^ 32 ∧
-      ∃ forgery, interaction.value.1 = some forgery ∧ PaddedExtraction.Fresh interaction.value.2 forgery ∧
-      ∃ message witness, PaddedExtraction.WitnessOf answers generated.value.1 forgery message witness ∧
-        PaddedExtraction.Conclusion answers message witness result.events
-theorem game_recorded_linked (adversary : AdversaryP) (result : FirstHit.Recorded Bool)
-    (hr : result ∈ support (FirstHit.record (GameWith.idealGame PaddedGame.checker adversary) (∅, ∅)))
-    (answers : Correctness.Answers)
-    (ha : ∀ input answer, SourceReplay.known result.state input = some answer → answers input = answer)
-    (hwin : result.value = true) : GameConclusionLinked adversary answers result := by
-  unfold GameWith.idealGame at hr
-  obtain ⟨generated, hgenerated, rest, hrest, hvalue, hevents, hstate⟩ :=
-    FirstHit.record_bind_support _ _ (∅, ∅) result hr
-  obtain ⟨interaction, hinteraction, checked, hchecked, hrestValue, hrestEvents, hrestState⟩ :=
-    FirstHit.record_bind_support _ _ generated.state rest hrest
-  have hgeneratedState : SourceReplay.Extends generated.state result.state := by
-    rw [hstate]
-    exact SourceReplay.run_extends _ generated.state (rest.value, rest.state)
-      (FirstHit.recorded_support _ _ _ hrest)
-  have hinteractionState : SourceReplay.Extends interaction.state result.state := by
-    rw [hstate, hrestState]
-    exact SourceReplay.run_extends _ interaction.state (checked.value, checked.state)
-      (FirstHit.recorded_support _ _ _ hchecked)
-  have hgen : evalWithAnswerFn answers keygen = generated.value :=
-    (SourceReplay.resolves_of_run keygen SourceReplay.keygen_hashOnly (∅, ∅)
-      (generated.value, generated.state) (FirstHit.recorded_support _ _ _ hgenerated)).eval answers
-        (fun input answer hk => ha input answer
-          (SourceReplay.known_mono generated.state result.state hgeneratedState hk))
-  have hpk : generated.value.1 = ClaudeWCT.W9.T3M.Extract.honestRoot answers 0 0 := by
-    rw [← hgen]
-    exact ClaudeWCT.W9.T3M.Extract.keygen_pk answers
-  have hac : ∀ input answer, SourceReplay.known checked.state input = some answer → answers input = answer := by
-    simpa only [hstate, hrestState] using ha
-  have hw : checked.value = true := hrestValue.symm.trans (hvalue.symm.trans hwin)
-  obtain ⟨hlength, forgery, hforgery, hfresh, message, witness, hof, hconclusion⟩ :=
-    PaddedExtraction.verdict_recorded generated.value.1 interaction.value interaction.state checked hchecked
-      answers hac hpk hw
-  refine ⟨generated, hgenerated, interaction, hinteraction, hinteractionState, hpk, hlength, forgery, hforgery,
-    hfresh, message, witness, hof, hconclusion.mono ?_⟩
-  intro event he
-  rw [hevents, hrestEvents]
-  exact List.mem_append_right _ (List.mem_append_right _ he)
-theorem traced_game_linked (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2 ^ 127)
-    (result : PaddedGame.TraceResult)
-    (hr : result ∈ (PaddedGame.tracedExperiment adversary budget hbudget).support)
-    (answers : Correctness.Answers)
-    (ha : ∀ input answer, SourceReplay.known result.2.2.base.source.2 input = some answer →
-      answers input = answer)
-    (hwin : result.1 = true) : GameConclusionLinked adversary answers (QueryRecorded.recordedTrace result) :=
-  game_recorded_linked adversary _ (PaddedExtraction.traced_record_support adversary budget hbudget result hr)
-    answers ha hwin
-def ConclusionAB (answers : Correctness.Answers) (message : Message) (witness : WBytes)
-    (events : List FirstHit.QueryEvent) : Prop :=
-  ∃ digestAnswer : HashOutput, (wdc witness).toNat < WCT9.digestVerifyWindow ∧
-      evalWithAnswerFn answers (digest (wrho witness) message (wdc witness)) = digestAnswer ∧
-      (∃ prior, (⟨prior, .inl (.inr (pad64 (digestInput (wrho witness) message (wdc witness)))), digestAnswer⟩ :
-        FirstHit.QueryEvent) ∈ events) ∧ Shaped digestAnswer witness ∧
-      (PaddedExtraction.ActualHit answers events ∨
-        (∃ lay : Layer, ClaudeWCT.W9.T3M.Extract.Diverge answers witness (WCT9.digestIndex digestAnswer) lay
-          (events.map FirstHit.QueryEvent.input) ∧
-          ∀ above : Layer, above.val < lay.val →
-            ClaudeWCT.W9.T3M.Extract.Good answers witness (WCT9.digestIndex digestAnswer) above) ∨
-        PaddedExtraction.PadAt answers witness (WCT9.digestIndex digestAnswer))
-def GameCaseAB (adversary : AdversaryP) (answers : Correctness.Answers) (result : FirstHit.Recorded Bool) : Prop :=
-  ∃ generated ∈ support (FirstHit.record keygen (∅, ∅)),
-    ∃ interaction ∈ support (FirstHit.record
-      (FullGame.loggedWith (FullGame.authenticatedSign generated.value.2)
-        (adversary generated.value.1 generated.value.2)) generated.state),
-      SourceReplay.Extends interaction.state result.state ∧
-      generated.value.1 = ClaudeWCT.W9.T3M.Extract.honestRoot answers 0 0 ∧
-      interaction.value.2.length ≤ 2 ^ 32 ∧
-      ∃ forgery, interaction.value.1 = some forgery ∧ PaddedExtraction.Fresh interaction.value.2 forgery ∧
-      ∃ message witness, PaddedExtraction.WitnessOf answers generated.value.1 forgery message witness ∧
-        ConclusionAB answers message witness result.events
-theorem linked_split (adversary : AdversaryP) (answers : Correctness.Answers) (result : FirstHit.Recorded Bool)
-    (h : GameConclusionLinked adversary answers result) (hcomp : SignerComplete answers) :
-    GameCaseAB adversary answers result ∨ GameCaseC adversary answers Not result ∨
-      GameCaseC adversary answers id result := by
-  obtain ⟨generated, hg, interaction, hi, hext, hpk, hlen, forgery, hf, hfresh, message, witness, hof, hc⟩ := h
-  obtain ⟨N, hdc, hN, hq, hS, hcase⟩ := hc
-  rcases hcase with hA | hB | hP | ⟨hgood, hfts⟩
-  · exact Or.inl ⟨generated, hg, interaction, hi, hext, hpk, hlen, forgery, hf, hfresh, message, witness, hof,
-      N, hdc, hN, hq, hS, Or.inl hA⟩
-  · exact Or.inl ⟨generated, hg, interaction, hi, hext, hpk, hlen, forgery, hf, hfresh, message, witness, hof,
-      N, hdc, hN, hq, hS, Or.inr (Or.inl hB)⟩
-  · exact Or.inl ⟨generated, hg, interaction, hi, hext, hpk, hlen, forgery, hf, hfresh, message, witness, hof,
-      N, hdc, hN, hq, hS, Or.inr (Or.inr hP)⟩
-  · by_cases hsd : SignedDigest interaction.value.2 message witness
-    · exact Or.inr (Or.inr ⟨generated, hg, interaction, hi, hext, hpk, hlen, forgery, hf, hfresh, message, witness,
-        hof, hsd, N, hdc, hN, hq, hS, hgood, hfts, hcomp⟩)
-    · exact Or.inr (Or.inl ⟨generated, hg, interaction, hi, hext, hpk, hlen, forgery, hf, hfresh, message, witness,
-        hof, hsd, N, hdc, hN, hq, hS, hgood, hfts, hcomp⟩)
 theorem logged_resolves {α : Type} (published : SigGolfCandidate.T3.Cache)
     (program : OracleComp LazyPrivate.Interaction α)
     (before : LazyPrivate.State) (result : (α × QueryLog Requests) × LazyPrivate.State)

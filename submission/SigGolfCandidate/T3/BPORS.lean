@@ -5693,8 +5693,13 @@ def privateSeeds (table : FullGame.FullTable) : Seeds := halves table ∘ seedCo
 noncomputable def privateAnswers (table : FullGame.FullTable) (outside : Answers) : Answers
   | .inl query => outside (.inl query)
   | .inr coordinate => table coordinate
-theorem sourceSeeds_private (table : FullGame.FullTable) (outside : Answers) :
-    sourceSeeds (privateAnswers table outside)=privateSeeds table := rfl
+/-- Below the top layer the source seeds are the private halves at `seedCoordinate` (campaign T8D: top seeds are
+evaluations of the leaf's coefficient family, `leafSeed_top`). -/
+theorem sourceSeeds_private (table : FullGame.FullTable) (outside : Answers) (address : Address)
+    (hlay : address.layer≠0) : sourceSeeds (privateAnswers table outside) address=privateSeeds table address := by
+  unfold sourceSeeds leafSeed
+  rw [if_neg hlay]
+  rfl
 abbrev OtherHalf := {coordinate : HalfCoordinate // coordinate ∉ Set.range seedCoordinate}
 abbrev OtherHalves := OtherHalf → Digest
 noncomputable local instance : SampleableType OtherHalves := SampleableType.ofFintype _

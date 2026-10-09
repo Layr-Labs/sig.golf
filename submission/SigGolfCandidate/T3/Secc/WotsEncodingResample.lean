@@ -133,45 +133,6 @@ theorem uniform_resample_tsum {Ω K : Type} [Fintype Ω] [Nonempty Ω] {X : K �
   rw [tsum_map_mul]
 theorem encInput_short (e : EncIndex) : encInput e ∈ SeccLaw.publicUniverse :=
   SeccLaw.mem_publicUniverse _ (by rw [encInput_length]; unfold SeccLaw.maxInputLength; omega)
-theorem reached_encInput {T : Answers} {L : CanonGraph.LeafPos} {input : HashInput}
-    (h : Reached T (leafOf L) input) : ∃ c : BitVec 32, input = encInput (L, leafMsg T (leafOf L), c) := by
-  obtain ⟨c, -, rfl, -⟩ := h
-  exact ⟨_, rfl⟩
-def Free (T : Answers) (e : EncIndex) : Prop := ¬ Reached T (leafOf e.1) (encInput e)
-def freeSet (T : Answers) : Set EncIndex := {e | Free T e}
-noncomputable def rowDec (T A : Answers) (L : CanonGraph.LeafPos) (c : Nat) : Option (List Nat) :=
-  searchDecode (leafOf L).lay (low (A (.inl (.inr (encodingRow (leafOf L) (leafMsg T (leafOf L))
-    (BitVec.ofNat 32 c))))))
-theorem rowDec_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (L : CanonGraph.LeafPos) (c : Nat)
-    (hc : c < counterLimit) (hprev : ∀ c' < c, rowDec T T L c' = none) :
-    rowDec T T' L c = none ↔ rowDec T T L c = none := by
-  rcases h (.inl (.inr (encodingRow (leafOf L) (leafMsg T (leafOf L)) (BitVec.ofNat 32 c))))
-      (Or.inr ⟨L, c, hc, rfl, hprev⟩) with he | hrej
-  · unfold rowDec
-    rw [he]
-  · obtain ⟨hT, hT'⟩ := hrej.layer (encInput_hdr (L, leafMsg T (leafOf L), BitVec.ofNat 32 c))
-    exact ⟨fun _ => hT, fun _ => hT'⟩
-theorem rowDec_prefix_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (L : CanonGraph.LeafPos) :
-    ∀ c, c ≤ counterLimit → ((∀ c' < c, rowDec T T' L c' = none) ↔ ∀ c' < c, rowDec T T L c' = none) := by
-  intro c
-  induction c with
-  | zero =>
-      intro _
-      exact ⟨fun _ c' hc' => absurd hc' (Nat.not_lt_zero _), fun _ c' hc' => absurd hc' (Nat.not_lt_zero _)⟩
-  | succ c ih =>
-      intro hc
-      have ih' := ih (by omega)
-      constructor
-      · intro hT' c' hc'
-        have hprev := ih'.mp (fun c'' hc'' => hT' c'' (by omega))
-        rcases Nat.lt_succ_iff_lt_or_eq.mp hc' with hlt | rfl
-        · exact hprev c' hlt
-        · exact (rowDec_congr h L c' (by omega) hprev).mp (hT' c' (by omega))
-      · intro hT c' hc'
-        have hprev : ∀ c'' < c, rowDec T T L c'' = none := fun c'' hc'' => hT c'' (by omega)
-        rcases Nat.lt_succ_iff_lt_or_eq.mp hc' with hlt | rfl
-        · exact ih'.mpr hprev c' hlt
-        · exact (rowDec_congr h L c' (by omega) hprev).mpr (hT c' (by omega))
 section Overwrite
 variable {U : Finset HashInput}
 noncomputable def ov (k : Set EncIndex) (pub : U → HashOutput) (y : k → HashOutput) : U → HashOutput :=
@@ -180,21 +141,6 @@ noncomputable def ov (k : Set EncIndex) (pub : U → HashOutput) (y : k → Hash
 noncomputable def rd (hU : SeccLaw.publicUniverse ⊆ U) (k : Set EncIndex) (pub : U → HashOutput) :
     k → HashOutput :=
   fun e => pub ⟨encInput e.val, hU (encInput_short e.val)⟩
-theorem ov_other (k : Set EncIndex) (pub : U → HashOutput) (y : k → HashOutput) (u : U)
-    (hu : ∀ e, e ∈ k → encInput e ≠ u.val) : ov k pub y u = pub u := by
-  unfold ov
-  rw [dif_neg]
-  rintro ⟨e, he, heq⟩
-  exact hu e he heq
-theorem ov_ov_rd (hU : SeccLaw.publicUniverse ⊆ U) (k : Set EncIndex) (pub : U → HashOutput)
-    (y : k → HashOutput) : ov k (ov k pub y) (rd hU k pub) = pub := by
-  funext u
-  unfold ov
-  split_ifs with h
-  · unfold rd
-    congr 1
-    exact Subtype.ext ((Classical.choose_spec h).2)
-  · rfl
 end Overwrite
 section Tables
 variable (U : Finset HashInput)
@@ -208,41 +154,6 @@ theorem eagerAnswers_public_not_mem (privateTable : FullGame.FullTable) (pub : U
   unfold SphincsSecurity.Concrete.finiteHashAnswer
   simp [h]
   rfl
-def Rej (T : Answers) (e : EncIndex) : Prop :=
-  Reached T (leafOf e.1) (encInput e) ∧ searchDecode e.1.lay (low (T (.inl (.inr (encInput e))))) = none
-def cellSet (T : Answers) : Set EncIndex := {e | Free T e ∨ Rej T e}
-abbrev CellKey := Set EncIndex × Set EncIndex
-def cellKey (T : Answers) : CellKey := (cellSet T, freeSet T)
-noncomputable def rejAnswers (lay : Layer) : Finset HashOutput :=
-  Finset.univ.filter fun a => searchDecode lay (low a) = none
-theorem mem_rejAnswers (lay : Layer) (a : HashOutput) : a ∈ rejAnswers lay ↔ searchDecode lay (low a) = none := by
-  simp only [rejAnswers, Finset.mem_filter, Finset.mem_univ, true_and]
-theorem searchDecode_allOnes (lay : Layer) : searchDecode lay (low (BitVec.allOnes 256)) = none := by
-  fin_cases lay <;> decide +kernel
-theorem rejAnswers_nonempty (lay : Layer) : (rejAnswers lay).Nonempty :=
-  ⟨BitVec.allOnes 256, (mem_rejAnswers lay _).mpr (searchDecode_allOnes lay)⟩
-noncomputable def cellInit (k : CellKey) (e : k.1) : Finset HashOutput :=
-  if e.val ∈ k.2 then Finset.univ else rejAnswers e.val.1.lay
-theorem cellInit_nonempty (k : CellKey) (e : k.1) : (cellInit k e).Nonempty := by
-  unfold cellInit
-  split_ifs
-  · exact Finset.univ_nonempty
-  · exact rejAnswers_nonempty _
-theorem rej_of_cell {T : Answers} {e : EncIndex} (he : e ∈ (cellKey T).1) (hf : e ∉ (cellKey T).2) : Rej T e := by
-  rcases he with h | h
-  · exact absurd h hf
-  · exact h
-theorem rd_cellInit (hU : SeccLaw.publicUniverse ⊆ U) (privateTable : FullGame.FullTable) (pub : U → HashOutput)
-    (e : (cellKey (eagerAnswers U privateTable pub)).1) :
-    rd hU (cellKey (eagerAnswers U privateTable pub)).1 pub e ∈ cellInit (cellKey (eagerAnswers U privateTable pub)) e := by
-  unfold cellInit
-  split_ifs with hf
-  · exact Finset.mem_univ _
-  · have hrej := rej_of_cell e.property hf
-    rw [mem_rejAnswers]
-    have h2 := hrej.2
-    rw [eagerAnswers_public_mem U privateTable _ ⟨encInput e.val, hU (encInput_short e.val)⟩] at h2
-    exact h2
 theorem tsum_uniform_coe {α : Type} (A : Finset α) (hA : A.Nonempty) (iN : Nonempty ↥A) (G : α → ENNReal) :
     ∑' x : ↥A, @PMF.uniformOfFintype ↥A _ iN x * G x.val = ∑' y, PMF.uniformOfFinset A hA y * G y := by
   classical

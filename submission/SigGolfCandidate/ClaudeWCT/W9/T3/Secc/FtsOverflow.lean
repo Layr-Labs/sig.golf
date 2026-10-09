@@ -695,16 +695,6 @@ theorem pot_mono_r (q r n : ℕ) (s : LazyPrivate.State) : pot q r n s ≤ pot q
   · exact Finset.sum_le_sum fun i _ => G_mono le_rfl (Nat.le_succ r) le_rfl le_rfl
   · exact le_rfl
 
-theorem pot_le_of_le {q r n n' : ℕ} (h : n ≤ n') (s : LazyPrivate.State) : pot q r n' s ≤ pot q r n s := by
-  induction h with
-  | refl => exact le_rfl
-  | step _ ih => exact (pot_mono_n q r _ s).trans ih
-
-theorem pot_le_of_r_le {q r r' : ℕ} (n : ℕ) (h : r ≤ r') (s : LazyPrivate.State) : pot q r n s ≤ pot q r' n s := by
-  induction h with
-  | refl => exact le_rfl
-  | step _ ih => exact ih.trans (pot_mono_r q _ n s)
-
 theorem run_query_public (y : SphincsSecurity.OracleWorld.Domain) (n : ℕ) (s : LazyPrivate.State) :
     CountedPrivate.run (liftM (SigGolfCandidate.T3.Spec.query (.inl y))) (n, s) =
       (fun res => (res.1, (n + FullGame.queryCharge (.inl y), (s.1, res.2)))) <$>
@@ -1757,25 +1747,6 @@ theorem fts_overflow_le (adversary : ClaudeWCT.W9.T3M.Final.AdversaryP) (q : ℕ
       (2 ^ 137)⁻¹ := by
   rw [SeccLaw.completed_trace_event adversary q hq (fun z => QueryRecorded.CleanWin q z ∧ FtsOverflow z)]
   exact (traced_ftsOverflow_le adversary q hq).trans overflowConst_le
-
-/-- The same bound with the exact constant `2^31 (2 + 2^-32)^51 / 51!` (≈ 2^-137.88). -/
-theorem fts_overflow_le_exact (adversary : ClaudeWCT.W9.T3M.Final.AdversaryP) (q : ℕ) (hq : q ≤ 2 ^ 127) :
-    Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ FtsOverflow z.1 | SeccLaw.completedExperiment adversary q hq] ≤
-      2 ^ 31 * ((2 + (2 ^ 32)⁻¹) ^ 51 / (Nat.factorial 51 : ℝ≥0∞)) := by
-  rw [SeccLaw.completed_trace_event adversary q hq (fun z => QueryRecorded.CleanWin q z ∧ FtsOverflow z)]
-  exact (traced_ftsOverflow_le adversary q hq).trans overflowConst_le_real
-
-/-- Case-split shape for the closings: a clean-win event splits into its non-overflow part plus `2^-137`. -/
-theorem cleanWin_split_ftsOverflow (adversary : ClaudeWCT.W9.T3M.Final.AdversaryP) (q : ℕ) (hq : q ≤ 2 ^ 127)
-    (P : PaddedGame.TraceResult × Correctness.Answers → Prop) :
-    Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ P z | SeccLaw.completedExperiment adversary q hq] ≤
-      Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ¬FtsOverflow z.1 ∧ P z | SeccLaw.completedExperiment adversary q hq] +
-        (2 ^ 137)⁻¹ := by
-  refine le_trans ?_ (add_le_add le_rfl (fts_overflow_le adversary q hq))
-  refine le_trans (pmf_mono _ fun z hz => ?_) (probEvent_or_le _ _ _)
-  by_cases ho : FtsOverflow z.1
-  · exact Or.inr ⟨hz.1, ho⟩
-  · exact Or.inl ⟨hz.1, ho, hz.2⟩
 
 /-- Answers form for the consumers: off the overflow event, in every completed run each digest index is the
 honest index (computed from the completed answers) of at most 50 distinct signed messages (messages whose nonce

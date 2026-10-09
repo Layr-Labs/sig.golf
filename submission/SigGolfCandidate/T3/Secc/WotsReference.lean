@@ -56,9 +56,6 @@ noncomputable def refImpl (T : Answers) : QueryImpl RefWorld ProbComp
   | .inl (.inl n) => liftM (unifSpec.query n)
   | .inl (.inr input) => pure (T (.inl (.inr input)))
   | .inr _ => pure ()
-noncomputable def offlineRun (T : Answers) (adversary : AdversaryP) (q : Nat) :
-    ProbComp (Option (Bool × Nat) × List RefWorld.Domain) :=
-  simulateQ (refImpl T) (SphincsSecurity.QueryCap.recorded (referenceGame T adversary q))
 def traceOf (T : Answers) (queries : List RefWorld.Domain) : List Entry :=
   queries.filterMap fun query => match query with
     | .inl (.inr input) => some (input, T (.inl (.inr input)))
@@ -74,13 +71,4 @@ structure RefSample where
   answers : Answers
   publicKey : Digest
   trace : List Entry
-noncomputable def referenceComp (adversary : AdversaryP) (q : Nat) : ProbComp RefSample :=
-  ($ᵗ FullGame.FullTable : ProbComp _) >>= fun privateTable =>
-    ($ᵗ (referenceInputs adversary → HashOutput) : ProbComp _) >>= fun publicTable =>
-      (fun run => (⟨eagerAnswers (referenceInputs adversary) privateTable publicTable,
-          (evalWithAnswerFn (eagerAnswers (referenceInputs adversary) privateTable publicTable) keygen).1,
-          traceOf (eagerAnswers (referenceInputs adversary) privateTable publicTable) run.2⟩ : RefSample)) <$>
-        offlineRun (eagerAnswers (referenceInputs adversary) privateTable publicTable) adversary q
-noncomputable def referenceExperiment (adversary : AdversaryP) (q : Nat) : PMF RefSample :=
-  liftM (referenceComp adversary q)
 end SigGolfCandidate.T3.Security.Wots

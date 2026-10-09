@@ -79,8 +79,4 @@ def VerifierWots (answers : Answers) (publicKey : Digest) (forgery : Final.Forge
   ∃ message witness, PaddedExtraction.WitnessOf answers publicKey forgery message witness ∧
     evalWithAnswerFn answers (verifyP message publicKey witness) = true ∧
     WotsPrimitive answers (entriesOf answers (queried answers (verifyP message publicKey witness)))
-def VerifierAllGood (answers : Answers) (publicKey : Digest) (forgery : Final.ForgeryP) : Prop :=
-  ∃ message witness N, PaddedExtraction.WitnessOf answers publicKey forgery message witness ∧
-    evalWithAnswerFn answers (digest (wrho witness) message (wdc witness)) = N ∧
-    (∀ l : Layer, Extract.Good answers witness (N.toNat % 2 ^ 31) l) ∧ FtsExtract.FtsShaped answers N witness
 end SigGolfCandidate.T3.Security.Wots

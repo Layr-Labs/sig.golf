@@ -2,10 +2,10 @@ import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsLeafSum
 
 /-! # Reference experiment against the `realRun` mixture, lower chains (campaign X1 stage B, step B3)
 
-For a lower source chain `a` and an honest body `GD` refining the seed game (`out <$> GD T = GDseed T`), every
+For a source chain `a` and an honest body `GD` refining the seed game (`out <$> GD T = GDseed T`), every
 event of the reference experiment that is coupled (under the frozen seed) with a depth-uniform event of the
 prefix-game run has the same probability as in the `realRun` mixture, up to the per-chain error `errC a`
-(`ref_le_mix`, `mix_le_ref`). Top chains are exact (`WotsPrefixGame.reference_map_eq_mixture`). -/
+(`ref_le_mix`, `mix_le_ref`). Every source chain (top leaves are families since campaign T8D). -/
 
 namespace ClaudeWCT.W9.T3.Security.Wots
 open SigGolfCandidate SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
@@ -59,7 +59,7 @@ theorem errAR_map {a : ChainAddr} (hac : a.chain < chainCount a.key.lay) {Res Re
   · rfl
 
 section Ref
-variable (q : ℕ) {a : ChainAddr} (ha : WotsExtract.SourceChain a) (hl : a.key.lay ≠ 0)
+variable (q : ℕ) {a : ChainAddr} (ha : WotsExtract.SourceChain a)
   {Res : Type} (GD : Answers → OracleComp RefWorld Res) (out : Res → SeedResult)
   (hout : ∀ T, out <$> GD T = GDseed adversary q T)
 
@@ -119,14 +119,14 @@ theorem ref_hyps :
       have := SigGolfCandidate.T3.Security.Wots.height_le a.key.lay; omega)
     omega
 
-include ha hl hout in
+include ha hout in
 theorem errC_eq : ∑' R, restLaw adversary R * errAR a ha.2 GD q R = errC adversary q a := by
   unfold errC
-  rw [dif_pos ⟨ha, hl⟩]
+  rw [dif_pos ha]
   simp only [errAR_GD q ha GD out hout]
 
 variable (E : RefSample → Prop) (F : (d : ℕ) → RefTables adversary → Digest × (Res × TObs d) → Prop)
-  (hF : ∀ (R : RefTables adversary) (p : PData a.key (restDepth a R)) (K K' : Fin 17 → Digest),
+  (hF : ∀ (R : RefTables adversary) (p : PData a.key (restDepth a R)) (K K' : Fin (WCT9.famCount a.key.lay) → Digest),
     seedsR (ptL a.key) (revSet a.key R) K = seedsR (ptL a.key) (revSet a.key R) K' →
       F (restDepth a R) (ovL a.key R (K, progF p.1.1 p.1.2 K)) =
         F (restDepth a R) (ovL a.key R (K', progF p.1.1 p.1.2 K')))
@@ -137,7 +137,7 @@ variable (E : RefSample → Prop) (F : (d : ℕ) → RefTables adversary → Dig
         (gameD a (restDepth a R) R GD (evaluate x.1 (PrefixGame.ovSeed a R x.2))) (fun _ _ => none)).support →
       (E (mkSample (restTable (PrefixGame.ov a (restDepth a R) R x)) (out res.1)) ↔
         F (restDepth a R) R (evaluate x.1 (PrefixGame.ovSeed a R x.2), res)))
-include ha hl hout hF hF0 hG hEF
+include ha hout hF hF0 hG hEF
 
 theorem ref_prob_eq_frozen :
     Pr[E | referenceExperiment adversary q] =
@@ -155,18 +155,18 @@ theorem ref_le_mix :
       ∑' R, restLaw adversary R * Pr[F (restDepth a R) R | mixLaw a (restDepth a R) R GD] +
         errC adversary q a := by
   obtain ⟨hGq, hleaf⟩ := ref_hyps q ha GD out hout
-  rw [ref_prob_eq_frozen q ha hl GD out hout E F hF hF0 hG hEF,
-    ← errC_eq q ha hl GD out hout]
-  exact frozen_le_mix ha.2 hl hleaf GD hG q hGq F hF hF0
+  rw [ref_prob_eq_frozen q ha GD out hout E F hF hF0 hG hEF,
+    ← errC_eq q ha GD out hout]
+  exact frozen_le_mix ha.2 hleaf GD hG q hGq F hF hF0
 
 /-- **Mixture ≤ reference + error** (lower chains). -/
 theorem mix_le_ref :
     ∑' R, restLaw adversary R * Pr[F (restDepth a R) R | mixLaw a (restDepth a R) R GD] ≤
       Pr[E | referenceExperiment adversary q] + errC adversary q a := by
   obtain ⟨hGq, hleaf⟩ := ref_hyps q ha GD out hout
-  rw [ref_prob_eq_frozen q ha hl GD out hout E F hF hF0 hG hEF,
-    ← errC_eq q ha hl GD out hout]
-  exact mix_le_frozen ha.2 hl hleaf GD hG q hGq F hF hF0
+  rw [ref_prob_eq_frozen q ha GD out hout E F hF hF0 hG hEF,
+    ← errC_eq q ha GD out hout]
+  exact mix_le_frozen ha.2 hleaf GD hG q hGq F hF hF0
 end Ref
 
 end Leaf

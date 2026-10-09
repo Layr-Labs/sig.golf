@@ -10,7 +10,8 @@ set_option exponentiation.threshold 20000
 set_option linter.constructorNameAsVariable false
 def tripleSum5 (d : Triple5) : Nat := ∑ i,(d i).val
 def tripleSum4 (d : Triple4) : Nat := ∑ i,(d i).val
-def weight (w : Word) : Nat := (∑ i,tripleSum5 (w.1 i))+tripleSum4 w.2
+def tripleSum8 (d : Triple8) : Nat := ∑ i,(d i).val
+def weight (w : Word) : Nat := (∑ i,tripleSum5 (w.1 i))+tripleSum8 w.2
 theorem weighted_tuples {α : Type} [Fintype α] (f : α → Nat) (y n : Nat) :
     (∑ d : Fin n → α,y^(∑ i,f (d i)))=(∑ a : α,y^f a)^n := by
   classical
@@ -18,6 +19,7 @@ theorem weighted_tuples {α : Type} [Fintype α] (f : α → Nat) (y n : Nat) :
     (Finset.sum_pow' (Finset.univ : Finset α) (fun a => y^f a) n).symm
 def q4 (y : Nat) : Nat := 1+y+y^2+y^3
 def q5 (y : Nat) : Nat := 1+y+y^2+y^3+y^4
+def q8 (y : Nat) : Nat := 1+y+y^2+y^3+y^4+y^5+y^6+y^7
 theorem weighted5 (y : Nat) : (∑ d : Triple5,y^tripleSum5 d)=q5 y^3 := by
   simp only [tripleSum5]
   rw [weighted_tuples]
@@ -30,14 +32,20 @@ theorem weighted4 (y : Nat) : (∑ d : Triple4,y^tripleSum4 d)=q4 y^3 := by
   congr 1
   rw [Fin.sum_univ_eq_sum_range]
   norm_num [Finset.sum_range_succ,q4]
-theorem weighted_words (y : Nat) : (∑ w : Word,y^weight w)=q5 y^51*q4 y^3 := by
+theorem weighted8 (y : Nat) : (∑ d : Triple8,y^tripleSum8 d)=q8 y^3 := by
+  simp only [tripleSum8]
+  rw [weighted_tuples]
+  congr 1
+  rw [Fin.sum_univ_eq_sum_range]
+  norm_num [Finset.sum_range_succ,q8]
+theorem weighted_words (y : Nat) : (∑ w : Word,y^weight w)=q5 y^51*q8 y^3 := by
   rw [Fintype.sum_prod_type]
   simp only [weight,pow_add]
-  rw [←Finset.sum_mul_sum,weighted_tuples,weighted5,weighted4,←pow_mul]
+  rw [←Finset.sum_mul_sum,weighted_tuples,weighted5,weighted8,←pow_mul]
 def radix : Nat := 2^136
-def packed : Nat := q5 radix^51*q4 radix^3
+def packed : Nat := q5 radix^51*q8 radix^3
 theorem word_card_small : Fintype.card Word<radix-1 := by
-  norm_num [Word,Triple4,Triple5,Fintype.card_prod,Fintype.card_fun,radix]
+  norm_num [Word,Triple8,Triple5,Fintype.card_prod,Fintype.card_fun,radix]
 theorem truncated_card (cut : Nat) (hc : 0<cut) :
     (Finset.univ.filter fun w : Word => weight w<cut).card=
       (packed%radix^cut)%(radix-1) := by
@@ -49,22 +57,23 @@ theorem truncated_card (cut : Nat) (hc : 0<cut) :
       (by simpa only [Finset.card_univ] using Nat.lt_of_lt_of_le word_card_small (Nat.sub_le _ _)),
     SigGolfResearch.Gate6.sum_pow_mod_pred_generic (by norm_num [radix]),
     Nat.mod_eq_of_lt ((Finset.card_filter_le _ _).trans_lt (by simpa using word_card_small))]
-def count : Nat := 100958431273195967494075946364251158
+/-- Campaign T8D (NF17): accepted top words at target 144 (no credit floor). -/
+def count : Nat := 120395144243333064396508109237386055
 theorem exact_packed_count :
-    (packed%radix^130)%(radix-1)-(packed%radix^129)%(radix-1)=count := by decide +kernel
-theorem accepted_card : (Finset.univ.filter fun w : Word => weight w=129).card=count := by
+    (packed%radix^145)%(radix-1)-(packed%radix^144)%(radix-1)=count := by decide +kernel
+theorem accepted_card : (Finset.univ.filter fun w : Word => weight w=144).card=count := by
   classical
-  have hs : (Finset.univ.filter fun w : Word => weight w=129)=
-      (Finset.univ.filter fun w : Word => weight w<130)\
-        (Finset.univ.filter fun w : Word => weight w<129) := by
+  have hs : (Finset.univ.filter fun w : Word => weight w=144)=
+      (Finset.univ.filter fun w : Word => weight w<145)\
+        (Finset.univ.filter fun w : Word => weight w<144) := by
     ext w; simp only [Finset.mem_filter,Finset.mem_univ,true_and,Finset.mem_sdiff]; omega
   rw [hs,Finset.card_sdiff_of_subset]
-  · rw [truncated_card 130 (by decide),truncated_card 129 (by decide),exact_packed_count]
+  · rw [truncated_card 145 (by decide),truncated_card 144 (by decide),exact_packed_count]
   · intro w hw
     simp only [Finset.mem_filter,Finset.mem_univ,true_and] at hw ⊢
     omega
 def digest (w : Word) : Fin (2^128) :=
-  ⟨encode w,lt_of_lt_of_le (encode_bound w) (by norm_num)⟩
+  ⟨encode w,encode_bound w⟩
 theorem digest_injective : Function.Injective digest := by
   intro a b h
   apply encode_injective
@@ -72,13 +81,13 @@ theorem digest_injective : Function.Injective digest := by
   exact congrArg (fun x : Fin (2^128) => x.val) h
 noncomputable def acceptedDigests : Finset (Fin (2^128)) := by
   classical
-  exact (Finset.univ.filter fun w : Word => weight w=129).image digest
+  exact (Finset.univ.filter fun w : Word => weight w=144).image digest
 theorem accepted_digest_card : acceptedDigests.card=count := by
   classical
   unfold acceptedDigests
   rw [Finset.card_image_of_injective _ digest_injective,accepted_card]
 theorem probability_fraction : (count : ℚ)/2^128=
-    100958431273195967494075946364251158/340282366920938463463374607431768211456 := by
+    120395144243333064396508109237386055/340282366920938463463374607431768211456 := by
   norm_num [count]
 end SigGolfResearch.NonbinaryTop.Counting
 #print axioms SigGolfResearch.NonbinaryTop.Counting.weighted_words

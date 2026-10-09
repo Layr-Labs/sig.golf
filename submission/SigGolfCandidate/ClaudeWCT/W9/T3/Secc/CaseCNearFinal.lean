@@ -110,7 +110,7 @@ theorem invM_empty : InvM (LazyMem.empty, NearGhost.empty) := by
 noncomputable def ghostPot (q : Nat) (M : LazyMem × NearGhost) : ENNReal :=
   nearMemPotential q M.1.births M.2.fresh M.2.reused M.1.rows M.1.nonces
 noncomputable def ΦI (q : Nat) (s : GState) : ENNReal := if InvM s.memory then ghostPot q s.memory else ⊤
-theorem ΦI_initial (q : Nat) : ΦI q initG ≤ (q : ENNReal) * 268 / 2 ^ 128 := by
+theorem ΦI_initial (q : Nat) : ΦI q initG ≤ (q : ENNReal) * 300 / 2 ^ 128 := by
   unfold ΦI
   rw [if_pos (show InvM initG.memory from invM_empty)]
   exact mem_initial q
@@ -152,9 +152,6 @@ theorem spmf_ev_mono {α : Type} (p : SPMF α) {f g : α → ENNReal} (h : ∀ x
 theorem spmf_ev_le {α : Type} (p : SPMF α) {f : α → ENNReal} {c : ENNReal} (h : ∀ x, p x ≠ 0 → f x ≤ c) :
     expectedValue p f ≤ c :=
   (spmf_ev_mono p h).trans (expectedValue_le_of_le p fun _ => le_rfl)
-theorem spmf_ev_congr {α : Type} (p : SPMF α) {f g : α → ENNReal} (h : ∀ x, p x ≠ 0 → f x = g x) :
-    expectedValue p f = expectedValue p g :=
-  le_antisymm (spmf_ev_mono p fun x hx => (h x hx).le) (spmf_ev_mono p fun x hx => (h x hx).ge)
 theorem superProg_of_memory {β : Type} (slot q : Nat) (W : OracleComp WPair.WSpecL β)
     (h : ∀ s r, SecretGuessObservation.runWith (implG slot) W s r ≠ 0 → r.2.memory = s.memory) :
     SuperProg (implG slot) (ΦI q) W := by
@@ -503,47 +500,6 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-theorem honestMsg_short {A T : Correctness.Answers} (h : Wots.Ref.ShortAgree A T) (index : Nat) (lay : Layer) :
-    Extract.honestMsg A index lay = Extract.honestMsg T index lay := by
-  unfold Extract.honestMsg
-  split_ifs
-  · exact Wots.Ref.honestRoot_short h _ _
-  · exact Wots.Ref.honestForest_short h _
-theorem good_short {A T : Correctness.Answers} (h : Wots.Ref.ShortAgree A T) (w : WBytes) (index : Nat) (lay : Layer)
-    (hg : Extract.Good A w index lay) : Extract.Good T w index lay := by
-  obtain ⟨digits, ⟨hctr, hdec⟩, hpath, hchain⟩ := hg
-  refine ⟨digits, ⟨hctr, ?_⟩, ?_, ?_⟩
-  · rw [← honestMsg_short h]
-    rw [← Wots.Ref.ShortRespects.shortHash _ (Wots.Ref.short_of_le _ (by simp [encodingInput, SphincsSecurity.bytesLE_length])) A T h]
-    exact hdec
-  · intro j hj
-    obtain ⟨h1, h2⟩ := hpath j hj
-    exact ⟨by rw [h1, Wots.Ref.builtTree_short h], h2⟩
-  · intro i hi
-    obtain ⟨h1, h2⟩ := hchain i hi
-    refine ⟨?_, h2⟩
-    rw [h1]
-    unfold Correctness.leafValue
-    rw [Wots.Ref.leafSeed_short h, Wots.Ref.chainValue_short h]
-def NearIn (A : Correctness.Answers) (log : QueryLog Requests) (entries : List Wots.Entry) : Prop :=
-  ∃ (m : Message) (w : WBytes) (N : HashOutput) (f : BPair.FtsCoord),
-    (pad64 (digestInput (wrho w) m (wdc w)), N) ∈ entries ∧
-    evalWithAnswerFn A (digest (wrho w) m (wdc w)) = N ∧ Shaped N w ∧ digestGate N=true ∧
-    (∀ lay : Layer, Extract.Good A w (N.toNat % 2 ^ 31) lay) ∧ ¬BPB.SignedDigest log m w ∧ log.length ≤ 2 ^ 32 ∧
-    f ∈ BPair.openedPositions N ∧ BPair.GuessedIn A log entries f ∧
-    ∀ g ∈ BPair.openedPositions N, g ≠ f → BPair.Disclosed A log g
-theorem nearIn_short (A T : Correctness.Answers) (log : QueryLog Requests) (entries : List Wots.Entry)
-    (h : Wots.Ref.ShortAgree A T) (hn : NearIn A log entries) : NearIn T log entries := by
-  obtain ⟨m, w, N, f, hx, hN, hS, hgate, hgood, hsd, hlen, hf, hguess, hdis⟩ := hn
-  refine ⟨m, w, N, f, hx, ?_, hS, hgate, fun lay => good_short h w _ lay (hgood lay), hsd, hlen, hf,
-    BPair.guessedIn_short h log entries f hguess, fun g hg hne => BPair.disclosed_short h log g (hdis g hg hne)⟩
-  rw [← BPair.eval_congr_allowed (BPair.digest_short _ _ _) h]
-  exact hN
-theorem nearIn_mono (A : Correctness.Answers) (log : QueryLog Requests) (entries entries' : List Wots.Entry)
-    (hsub : ∀ e ∈ entries, e ∈ entries') (hn : NearIn A log entries) : NearIn A log entries' := by
-  obtain ⟨m, w, N, f, hx, hN, hS, hgate, hgood, hsd, hlen, hf, hguess, hdis⟩ := hn
-  exact ⟨m, w, N, f, hsub _ hx, hN, hS, hgate, hgood, hsd, hlen, hf, BPair.guessedIn_mono A log entries entries' hsub f hguess,
-    hdis⟩
 end SigGolfCandidate.T3.Security.CaseC
 end
 section
@@ -823,31 +779,6 @@ theorem pairRun_honest (T : Correctness.Answers) (adversary : AdversaryP)
   rcases List.mem_append.mp he with he | he
   · exact h2 e he
   · exact entriesOf_honest T _ e he
-theorem payoff_of_ghosts (q : Nat) (T : Correctness.Answers) (published : SigGolfCandidate.T3.Cache)
-    (r : (Bool × QueryLog Requests × List Wots.Entry) × WPair.WStateL)
-    (hlog : ∀ e ∈ r.1.2.1, e.2 = evalWithAnswerFn T (FullGame.authenticatedSign published e.1))
-    (hexp : ∀ entry ∈ r.1.2.1, ∀ σ output, entry.2 = some σ →
-      signedOutput T entry.1.message σ = some output → output ∈ r.2.memory.exposures)
-    (hrows : ∀ x a, (x, a) ∈ r.1.2.2 → x ∈ SigGolfCandidate.T3.Security.BPair.digestInputs →
-      a ∈ r.2.memory.births ∨ x ∈ r.2.memory.trials)
-    (htrials : ∀ x ∈ r.2.memory.trials, ∃ entry ∈ r.1.2.1,
-      (.inl (.inr x) : SigGolfCandidate.T3.Spec.Domain) ∈ queried T (FullGame.authenticatedSign published entry.1))
-    (hbirths : r.2.memory.births.length ≤ r.1.2.2.length)
-    (hexplen : r.2.memory.exposures.length ≤ r.1.2.1.length)
-    (hq : r.1.2.2.length ≤ q) (hP : NearIn T r.1.2.1 r.1.2.2) : 1 ≤ WPair.nearPayoff q r := by
-  obtain ⟨m, w, N, k, t, c, hx, hN, hS, hgood, hsd, hlen, -, -, -, hdis, hcomp⟩ := hP
-  have hbirth : N ∈ r.2.memory.births := by
-    rcases hrows _ N hx (SigGolfCandidate.T3.Security.BPair.digestInput_mem _ _ _) with hb | ht
-    · exact hb
-    · exfalso
-      obtain ⟨entry, he, hqe⟩ := htrials _ ht
-      exact caseC_not_signer_eval T published r.1.2.1 hlog m w hcomp hsd entry he hqe
-  have hcov : Guess.NearCoveredBy r.2.memory.exposures N := by
-    refine ⟨k, t, fun k' t' hne => ?_⟩
-    obtain ⟨entry, he, σ, output, hσ, hout, h1, h2, h3⟩ := hdis k' t' hne
-    exact ⟨output, hexp entry he σ output hσ hout, congrArg Fin.val h1, h2, h3⟩
-  unfold WPair.nearPayoff
-  rw [if_pos ⟨hbirths.trans hq, hexplen.trans hlen, N, hbirth, hS, hcov⟩]
 theorem payoff_of_ghosts_birthBudget (q : Nat) (T : Correctness.Answers) (published : SigGolfCandidate.T3.Cache)
     (r : (Bool × QueryLog Requests × List Wots.Entry) × WPair.WStateL)
     (hlog : ∀ e ∈ r.1.2.1, e.2 = evalWithAnswerFn T (FullGame.authenticatedSign published e.1))
@@ -893,7 +824,7 @@ theorem worldGame_ΦI {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U)
 theorem forced_payoff_le {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : CanonTable.Omega U)
     (adversary : AdversaryP) (slot q : Nat) :
     expectedValue (SecretGuessObservation.forcedWithRun WPair.envL WPair.samplerL slot
-      (WPair.worldGameCore hU ω adversary) WPair.initL) (WPair.nearPayoff q) ≤ (q : ENNReal) * 268 / 2 ^ 128 := by
+      (WPair.worldGameCore hU ω adversary) WPair.initL) (WPair.nearPayoff q) ≤ (q : ENNReal) * 300 / 2 ^ 128 := by
   unfold SecretGuessObservation.forcedWithRun
   rw [← projS_initG, expectedValue_project WPair.envL slot _ initG (WPair.nearPayoff q)]
   calc
@@ -904,7 +835,7 @@ theorem forced_payoff_le {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆
 theorem forced_payoff_sum_le {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : CanonTable.Omega U)
     (adversary : AdversaryP) (slot q : Nat) :
     ∑' r, Pr[= r | SecretGuessObservation.forcedWithRun WPair.envL WPair.samplerL slot
-      (WPair.worldGameCore hU ω adversary) WPair.initL] * WPair.nearPayoff q r ≤ (q : ENNReal) * 268 / 2 ^ 128 :=
+      (WPair.worldGameCore hU ω adversary) WPair.initL] * WPair.nearPayoff q r ≤ (q : ENNReal) * 300 / 2 ^ 128 :=
   forced_payoff_le hU ω adversary slot q
 end ClaudeWCT.W9.T3.Security.CaseC
 end
@@ -953,20 +884,6 @@ theorem fixed_support_pairRun (adversary : AdversaryP) (ω : CanonTable.Omega (W
   rw [SphincsSecurity.Concrete.RetainedObservation.bind_nonzero]
   refine ⟨r, hr, ?_⟩
   simp only [Function.comp_apply, ne_eq, SPMF.pure_apply_eq_zero_iff, not_not]
-theorem near_event (adversary : AdversaryP) (q : Nat) (ω : CanonTable.Omega (Wots.referenceInputs adversary))
-    (g : CanonTable.HiddenF) (r : (Bool × QueryLog Requests × List Wots.Entry) × WPair.WStateL)
-    (hr : SphincsSecurity.Concrete.SecretGuessObservation.fixedRun (WPair.envE (WPair.digestOf ω) (WPair.nonceOf ω))
-      (Guess.Fam.phi g.1 g.2)
-      (WPair.worldGameL (WPair.canon_subset adversary) ω adversary) WPair.initL r ≠ 0)
-    (hq : r.1.2.2.length ≤ q) (hP : NearIn (WPair.wA (WPair.canon_subset adversary) ω g) r.1.2.1 r.1.2.2) :
-    r.2.guesses.Nonempty ∧ 1 ≤ WPair.nearPayoff q r := by
-  obtain ⟨hexp, hrows, -, htrack, hbirths, htrials, hexplen⟩ :=
-    WPair.worldGameL_bank (WPair.canon_subset adversary) ω g adversary r hr
-  obtain ⟨hlog, -⟩ := pairRun_honest _ adversary r.1 (fixed_support_pairRun adversary ω g r hr)
-  refine ⟨?_, payoff_of_ghosts q _ _ r hlog hexp (fun x a hx hd => (hrows x a hx hd).2) htrials hbirths
-    hexplen hq hP⟩
-  obtain ⟨-, -, -, -, -, c, -, -, -, -, -, -, -, -, hguess, -⟩ := hP
-  exact Guess.nonempty_of_prefixIn (htrack c hguess)
 theorem near_event_slot (adversary : AdversaryP) (q : Nat) (ω : CanonTable.Omega (Wots.referenceInputs adversary))
     (g : CanonTable.HiddenF) (r : (Bool × QueryLog Requests × List Wots.Entry) × WPair.WStateL)
     (hr : SphincsSecurity.Concrete.SecretGuessObservation.fixedRun (WPair.envE (WPair.digestOf ω) (WPair.nonceOf ω))
@@ -997,7 +914,7 @@ theorem sum_range_sub_succ_mul_le (q coefficient : Nat) :
     _ ≤ coefficient * (q * q) := Nat.mul_le_mul_left coefficient (sum_range_sub_succ_twice_le q)
     _ = _ := by ring
 noncomputable def nearTermTight (q : Nat) : ENNReal :=
-  (q : ENNReal) * ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * (134 * q / 2 ^ 128)
+  (q : ENNReal) * ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * (150 * q / 2 ^ 128)
 theorem nearBoundTight : NearBoundNO nearTermTight := by
   intro adversary q hq _ _
   have hchain := WPair.near_chain_slot adversary q hq
@@ -1010,20 +927,20 @@ theorem nearBoundTight : NearBoundNO nearTermTight := by
   have hslot : ∀ slot, (∑' ω, Pr[= ω | WPair.omegaLaw adversary] *
       ∑' r, Pr[= r | SphincsSecurity.Concrete.SecretGuessObservation.forcedWithRun WPair.envL WPair.samplerL slot
         (WPair.worldGameL (WPair.canon_subset adversary) ω adversary) WPair.initL] * WPair.nearPayoff (q - (slot + 1)) r) ≤
-      ((q - (slot + 1) : Nat) : ENNReal) * 268 / 2 ^ 128 :=
+      ((q - (slot + 1) : Nat) : ENNReal) * 300 / 2 ^ 128 :=
     fun slot => omega_avg_le _ _ _ fun ω => forced_payoff_sum_le (WPair.canon_subset adversary) ω adversary slot (q - (slot + 1))
   calc
     _ ≤ Pr[NearAll adversary q | SeccLaw.completedExperiment adversary q hq] := near_le_all adversary q hq
     _ ≤ _ := hchain
-    _ ≤ ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * ∑ slot ∈ Finset.range q, ((q - (slot + 1) : Nat) : ENNReal) * 268 / 2 ^ 128 :=
+    _ ≤ ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * ∑ slot ∈ Finset.range q, ((q - (slot + 1) : Nat) : ENNReal) * 300 / 2 ^ 128 :=
       mul_le_mul' le_rfl (Finset.sum_le_sum fun slot _ => hslot slot)
     _ = ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ *
-          ((((∑ slot ∈ Finset.range q, (q - (slot + 1))) * 268 : Nat) : ENNReal) / 2 ^ 128) := by
+          ((((∑ slot ∈ Finset.range q, (q - (slot + 1))) * 300 : Nat) : ENNReal) / 2 ^ 128) := by
       congr 1
       push_cast
       simp only [div_eq_mul_inv, ← Finset.sum_mul]
-    _ ≤ ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * (((134 * q * q : Nat) : ENNReal) / 2 ^ 128) :=
-      mul_le_mul' le_rfl (ENNReal.div_le_div_right (Nat.cast_le.mpr (by simpa using sum_range_sub_succ_mul_le q 134)) _)
+    _ ≤ ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * (((150 * q * q : Nat) : ENNReal) / 2 ^ 128) :=
+      mul_le_mul' le_rfl (ENNReal.div_le_div_right (Nat.cast_le.mpr (by simpa using sum_range_sub_succ_mul_le q 150)) _)
     _ = nearTermTight q := by
       unfold nearTermTight
       push_cast
@@ -1037,14 +954,5 @@ theorem nearTermTight_le (q : Nat) : nearTermTight q ≤ Wots.nearTerm q := by
 /-- The near bound of case C for FTS seed families: unchanged right-hand side, given no FTS overflow. -/
 theorem nearBound : NearBoundNO Wots.nearTerm :=
   fun adversary q hq h1 h2 => (nearBoundTight adversary q hq h1 h2).trans (nearTermTight_le q)
-theorem excessBound_horizon : ClaudeWCT.Bank.WCT.ExcessBound horizon (2435 / 1000000) :=
-  ClaudeWCT.Numerics.WCTPrice.wct_excessBound_2_32
-/-- The small case-C bound of the WCT-9 instance on runs without FTS overflow (campaign X1 stage A). -/
-theorem caseC_small_bound_wct :
-    CaseCSmallBound CaseCFreshPinned WPair.NoOverflow Wots.nearTerm WPair.pairTerm :=
-  caseC_small_bound caseCExtraction caseCSplitInterface WPair.NoOverflow Wots.nearTerm WPair.pairTerm
-    excessBound_horizon nearBound WPair.pair_guess_bound
-theorem wots_caseCSmallBound : Wots.CaseCSmallBound :=
-  Wots.caseCSmallBound_iff.mpr caseC_small_bound_wct
 end ClaudeWCT.W9.T3.Security.CaseC
 end

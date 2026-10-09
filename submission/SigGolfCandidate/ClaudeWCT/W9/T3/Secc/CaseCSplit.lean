@@ -37,10 +37,6 @@ def PairGuess (adversary : AdversaryP) (z : PaddedGame.TraceResult × Correctnes
   ∀ generated interaction checked,
     CaseC.GameSplit adversary (QueryRecorded.recordedTrace z.1) generated interaction checked →
       PairGuessIn z.2 interaction.value.2 (BPair.publicEntries checked.events)
-def PairGuessBound (pairTerm : Nat → ENNReal) : Prop :=
-  ∀ (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127),
-    Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ PairGuess adversary z | SeccLaw.completedExperiment adversary q hq] ≤
-      pairTerm q
 theorem slotDisclosed_iff (answers : Correctness.Answers) (log : QueryLog Requests) (N : HashOutput)
     (k : WCT9.Coord) (t : Fin 6) :
     CaseC.SlotDisclosed answers log N k t ↔ Guess.SlotCovered (loggedOutputs answers log) N k t := by
@@ -50,11 +46,6 @@ theorem slotDisclosed_iff (answers : Correctness.Answers) (log : QueryLog Reques
   · rintro ⟨out, hout, h1, h2, h3⟩
     obtain ⟨entry, he, signature, hs, ho⟩ := mem_loggedOutputs.mp hout
     exact ⟨entry, he, signature, out, hs, ho, Fin.ext h1, h2, h3⟩
-theorem slotDisclosed_iff_disclosed (answers : Correctness.Answers) (log : QueryLog Requests) (N : HashOutput)
-    (k : WCT9.Coord) (t : Fin 6) :
-    CaseC.SlotDisclosed answers log N k t ↔ Disclosed answers log (Guess.chainOf N k t) (4 - Guess.deficit N k t) := by
-  rw [slotDisclosed_iff, Guess.slotCovered_iff_chainCovered]
-  rfl
 theorem Disclosed.mono_pos {answers : Correctness.Answers} {log : QueryLog Requests} {a : Guess.ChainAddr}
     {p p' : Nat} (h : p ≤ p') (hd : Disclosed answers log a p) : Disclosed answers log a p' :=
   Guess.ChainCovered.mono_pos h hd
@@ -66,10 +57,6 @@ theorem loggedOutputs_mono {answers : Correctness.Answers} {log log' : QueryLog 
 theorem Disclosed.mono_log {answers : Correctness.Answers} {log log' : QueryLog Requests} {a : Guess.ChainAddr}
     {p : Nat} (h : ∀ entry ∈ log, entry ∈ log') (hd : Disclosed answers log a p) : Disclosed answers log' a p :=
   Guess.ChainCovered.mono_log (loggedOutputs_mono h) hd
-theorem GuessedIn.not_disclosed_le {answers : Correctness.Answers} {log : QueryLog Requests}
-    {entries : List Wots.Entry} {c : Guess.GCoord} (h : GuessedIn answers log entries c) {p : Nat}
-    (hp : p ≤ c.2.val) : ¬Disclosed answers log c.1 p :=
-  fun hd => h.1 (hd.mono_pos hp)
 end ClaudeWCT.W9.T3.Security.WPair
 namespace ClaudeWCT.W9.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
@@ -114,11 +101,6 @@ def caseCExtraction : CaseCExtraction where
   fresh_not_signer := by
     intro answers published log state hres hagree message witness events hC hsd
     exact BPB.caseCAt_fresh_not_signer answers published log state hres hagree message witness events hC hsd
-theorem caseCExtraction_caseCAt : caseCExtraction.CaseCAt = BPB.CaseCAt := rfl
-theorem pinned_of_caseC {adversary : AdversaryP} {z : PaddedGame.TraceResult × Correctness.Answers}
-    (h : CaseCFreshPinned adversary z) : PinnedC caseCExtraction adversary (fun _ _ _ _ _ => True) z := by
-  obtain ⟨g, i, c, hs, hpk, hlen, f, hf, hfr, m, w, hof, hsd, hC⟩ := h
-  exact ⟨g, i, c, hs, hpk, hlen, f, hf, hfr, m, w, hof, hsd, hC, trivial⟩
 def NearQ (answers : Correctness.Answers) (log : QueryLog Requests) (message : Message) (witness : WBytes)
     (events : List FirstHit.QueryEvent) : Prop :=
   ∃ (k : WCT9.Coord) (t : Fin 6) (c : Guess.GCoord),
@@ -127,17 +109,6 @@ def NearQ (answers : Correctness.Answers) (log : QueryLog Requests) (message : M
     WPair.GuessedIn answers log (BPair.publicEntries events) c ∧
     ∀ k' t', (k', t') ≠ (k, t) →
       SlotDisclosed answers log (evalWithAnswerFn answers (digest (wrho witness) message (wdc witness))) k' t'
-theorem NearQ.slot {answers : Correctness.Answers} {log : QueryLog Requests} {message : Message} {witness : WBytes}
-    {events : List FirstHit.QueryEvent} (h : NearQ answers log message witness events) :
-    ∃ (k : WCT9.Coord) (t : Fin 6),
-      1 ≤ Guess.deficit (evalWithAnswerFn answers (digest (wrho witness) message (wdc witness))) k t ∧
-      ¬SlotDisclosed answers log (evalWithAnswerFn answers (digest (wrho witness) message (wdc witness))) k t := by
-  obtain ⟨k, t, ⟨a, p⟩, h1, h2, ⟨hnd, -⟩, -⟩ := h
-  simp only at h1 h2
-  subst h1
-  refine ⟨k, t, by have := p.isLt; omega, fun hd => hnd ?_⟩
-  rw [WPair.slotDisclosed_iff_disclosed, ← h2] at hd
-  exact hd
 theorem split_events_unique (adversary : AdversaryP) (result : FirstHit.Recorded Bool)
     (g i c g' i' c') (h : GameSplit adversary result g i c) (h' : GameSplit adversary result g' i' c') :
     g' = g ∧ i' = i ∧ c'.events = c.events := by

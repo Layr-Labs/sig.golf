@@ -10,27 +10,27 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option linter.constructorNameAsVariable false
 set_option backward.isDefEq.respectTransparency false
-def parse : (n : Nat) → Nat → Option ((Fin n → Triple5) × Triple4)
-  | 0,x => if h : x<64 then some ((fun i => Fin.elim0 i),digits4 ⟨x,h⟩) else none
+def parse : (n : Nat) → Nat → Option ((Fin n → Triple5) × Triple8)
+  | 0,x => if h : x<512 then some ((fun i => Fin.elim0 i),digits8 ⟨x,h⟩) else none
   | n+1,x => if h : x%128<125 then
       match parse n (x/128) with
       | none => none
       | some (ds,q) => some (Fin.cons (digits5 ⟨x%128,h⟩) ds,q)
     else none
-def encodeN {n : Nat} (d : (Fin n → Triple5) × Triple4) : Nat :=
-  pack (List.ofFn fun i => (rank5 (d.1 i)).val) (rank4 d.2).val
-theorem encodeN_zero (d : (Fin 0 → Triple5) × Triple4) : encodeN d=(rank4 d.2).val := rfl
-theorem encodeN_succ {n : Nat} (d : (Fin (n+1) → Triple5) × Triple4) :
+def encodeN {n : Nat} (d : (Fin n → Triple5) × Triple8) : Nat :=
+  pack (List.ofFn fun i => (rank5 (d.1 i)).val) (rank8 d.2).val
+theorem encodeN_zero (d : (Fin 0 → Triple5) × Triple8) : encodeN d=(rank8 d.2).val := rfl
+theorem encodeN_succ {n : Nat} (d : (Fin (n+1) → Triple5) × Triple8) :
     encodeN d=(rank5 (d.1 0)).val+128*encodeN (Fin.tail d.1,d.2) := by
   simp [encodeN,List.ofFn_succ,pack,Fin.tail]
-theorem parse_encodeN {n : Nat} (d : (Fin n → Triple5) × Triple4) :
+theorem parse_encodeN {n : Nat} (d : (Fin n → Triple5) × Triple8) :
     parse n (encodeN d)=some d := by
   induction n with
   | zero =>
     rw [encodeN_zero]
-    simp only [parse,dif_pos (rank4 d.2).isLt]
-    change some ((fun i => Fin.elim0 i),digits4 (rank4 d.2))=some d
-    rw [digits4_rank4]
+    simp only [parse,dif_pos (rank8 d.2).isLt]
+    change some ((fun i => Fin.elim0 i),digits8 (rank8 d.2))=some d
+    rw [digits8_rank8]
     congr 2
     funext i
     exact Fin.elim0 i
@@ -43,14 +43,14 @@ theorem parse_encodeN {n : Nat} (d : (Fin n → Triple5) × Triple4) :
       Nat.div_eq_of_lt hd128,Nat.zero_add,ih]
     change some (Fin.cons (digits5 (rank5 (d.1 0))) (Fin.tail d.1),d.2)=some d
     rw [digits5_rank5,Fin.cons_self_tail]
-theorem encodeN_parse {n x : Nat} {d : (Fin n → Triple5) × Triple4}
+theorem encodeN_parse {n x : Nat} {d : (Fin n → Triple5) × Triple8}
     (h : parse n x=some d) : encodeN d=x := by
   induction n generalizing x with
   | zero =>
     simp only [parse] at h
     split at h
     · cases h
-      simp [encodeN,pack,rank4_digits4]
+      simp [encodeN,pack,rank8_digits8]
     · contradiction
   | succ n ih =>
     simp only [parse] at h
@@ -65,11 +65,11 @@ theorem encodeN_parse {n x : Nat} {d : (Fin n → Triple5) × Triple4}
         exact Nat.mod_add_div x 128
     · contradiction
 def decode (d : Fin (2^128)) : Option Word :=
-  (parse 17 d.val).filter fun w => decide (weight w=129)
+  (parse 17 d.val).filter fun w => decide (weight w=144)
 theorem encodeN_word (w : Word) : encodeN w=encode w := rfl
 attribute [local irreducible] encodeN Codec.encode Codec.pack Codec.ranks
 theorem decode_some_iff (d : Fin (2^128)) (w : Word) :
-    decode d=some w ↔ digest w=d ∧ weight w=129 := by
+    decode d=some w ↔ digest w=d ∧ weight w=144 := by
   constructor
   · intro h
     obtain ⟨hparse,hw⟩ := Option.filter_eq_some_iff.mp h
@@ -166,13 +166,13 @@ theorem parse_succ_isSome (n x : Nat) :
   · cases hp : parse n (x/128) <;> simp [parse,h,hp]
   · simp [parse,h]
 theorem parse_isSome_iff (n x : Nat) :
-    (parse n x).isSome ↔ x<64*128^n ∧ ∀ j<n,x/128^j%128<125 := by
+    (parse n x).isSome ↔ x<512*128^n ∧ ∀ j<n,x/128^j%128<125 := by
   induction n generalizing x with
   | zero =>
-    by_cases h : x<64 <;> simp [parse,h]
+    by_cases h : x<512 <;> simp [parse,h]
   | succ n ih =>
     rw [parse_succ_isSome,ih]
-    have hb : x/128<64*128^n ↔ x<64*128^(n+1) := by
+    have hb : x/128<512*128^n ↔ x<512*128^(n+1) := by
       rw [Nat.div_lt_iff_lt_mul (by decide : 0<128),pow_succ,Nat.mul_assoc]
     constructor
     · rintro ⟨hzero,hbound,hrest⟩
@@ -188,10 +188,10 @@ theorem parse_isSome_iff (n x : Nat) :
       intro j hj
       have hh := hrest (j+1) (by omega)
       simpa [Nat.div_div_eq_div_mul,pow_succ,Nat.mul_comm] using hh
-theorem parse_fields {n x : Nat} {d : (Fin n → Triple5) × Triple4}
+theorem parse_fields {n x : Nat} {d : (Fin n → Triple5) × Triple8}
     (h : parse n x=some d) :
     (∀ j : Fin n,(rank5 (d.1 j)).val=x/128^j.val%128) ∧
-      (rank4 d.2).val=x/128^n := by
+      (rank8 d.2).val=x/128^n := by
   induction n generalizing x with
   | zero =>
     simp only [parse] at h
@@ -199,7 +199,7 @@ theorem parse_fields {n x : Nat} {d : (Fin n → Triple5) × Triple4}
     · cases h
       constructor
       · intro j; exact Fin.elim0 j
-      · simp [rank4_digits4]
+      · simp [rank8_digits8]
     · contradiction
   | succ n ih =>
     simp only [parse] at h
@@ -243,18 +243,20 @@ theorem coreDigit_parse5 {v : Digest} {w : Codec.Word}
   have hh := (Codec.rank5 (w.1 j)).isLt
   apply Fin.val_inj.mpr at hd
   fin_cases k <;> simp [Codec.digits5] at hd ⊢ <;> omega
-theorem coreDigit_parse4 {v : Digest} {w : Codec.Word}
+theorem coreDigit_parse8 {v : Digest} {w : Codec.Word}
     (h : Decoder.parse 17 (topFlip v).toNat=some w) (k : Fin 3) :
     coreDigit 0 v (51+k.val)=(w.2 k).val := by
   have hp := (Decoder.parse_fields h).2
-  have he : (Codec.rank4 w.2).val=topCode v/2^119 := by simpa [topCode] using hp
-  have hd := congrFun (Codec.digits4_rank4 w.2) k
+  have he : (Codec.rank8 w.2).val=topCode v/2^119 := by simpa [topCode] using hp
+  have hd := congrFun (Codec.digits8_rank8 w.2) k
   apply Fin.val_inj.mpr at hd
-  have hh := (Codec.rank4 w.2).isLt
+  have hh := (Codec.rank8 w.2).isLt
   have hediv : ∀ t : Nat,topCode v/2^(119+t)=topCode v/2^119/2^t := by
     intro t; rw [Nat.div_div_eq_div_mul,pow_add]
-  simp only [coreDigit,if_pos rfl,show ¬51+k.val<51 by omega,if_false,Nat.add_sub_cancel_left,hediv,←he]
-  fin_cases k <;> simp [Codec.digits4] at hd ⊢ <;> omega
+  have hsh : topRawShift (51+k.val)=119+(if k.val=2 then 0 else 3+3*k.val) := by
+    fin_cases k <;> rfl
+  simp only [coreDigit,if_pos rfl,show ¬51+k.val<51 by omega,if_false,hsh,hediv,←he]
+  fin_cases k <;> simp [Codec.digits8] at hd ⊢ <;> omega
 theorem dataDigits_parse {v : Digest} {w : Codec.Word}
     (h : Decoder.parse 17 (topFlip v).toNat=some w) : dataDigits 0 v=wordDigits w := by
   have hof : dataDigits 0 v=List.ofFn (fun i : Fin 54 => coreDigit 0 v i.val) := by
@@ -275,39 +277,37 @@ theorem dataDigits_parse {v : Digest} {w : Codec.Word}
     simpa [Nat.mul_comm] using coreDigit_parse5 h j k
   · apply congrArg List.ofFn
     funext k
-    exact coreDigit_parse4 h k
+    exact coreDigit_parse8 h k
+/-- Campaign T8D (NF17): the 17 triples and the 9-bit radix-8 tail fill all 128 bits, so only the triple ranks are
+checked. -/
 theorem parse_top_isSome_iff (v : Digest) :
-    (Decoder.parse 17 (topFlip v).toNat).isSome ↔ v.toNat<2^125 ∧ topRanksValid v=true := by
+    (Decoder.parse 17 (topFlip v).toNat).isSome ↔ topRanksValid v=true := by
   rw [Decoder.parse_isSome_iff]
-  have hbound : 64*128^17=(2:Nat)^125 := by decide +kernel
-  rw [hbound,topFlip_toNat_lt]
+  have hbound : 512*128^17=(2:Nat)^128 := by decide +kernel
+  rw [hbound]
   simp only [topRanksValid,topCode,List.all_eq_true,List.mem_range,decide_eq_true_eq]
   simp only [show (128:Nat)=2^7 by decide,←pow_mul]
+  exact and_iff_right (topFlip v).isLt
 theorem decode_top_eq_map (v : Digest) :
     T3.decode 0 v=(Decoder.decodeBV (topFlip v)).map wordDigits := by
-  change T3.decode 0 v=((Decoder.parse 17 (topFlip v).toNat).filter fun w => decide (Counting.weight w=129)).map wordDigits
+  change T3.decode 0 v=((Decoder.parse 17 (topFlip v).toNat).filter fun w => decide (Counting.weight w=144)).map wordDigits
+  have hb : ¬ v.toNat ≥ 2^encodedBits 0 := Nat.not_le.mpr v.isLt
   cases hp : Decoder.parse 17 (topFlip v).toNat with
   | none =>
-    have hn : ¬(v.toNat<2^125 ∧ topRanksValid v=true) := by
-      intro hh
-      have hx := (parse_top_isSome_iff v).mpr hh
-      simp [hp] at hx
-    by_cases hb : v.toNat ≥ 2^125
-    · simp only [T3.decode,encodedBits,ite_true,if_pos hb,Option.filter_none,Option.map_none]
-    · have hbits : v.toNat<2^125 := by omega
-      have hg : topRanksValid v=false := Bool.eq_false_iff.mpr (fun ht => hn ⟨hbits,ht⟩)
-      simp only [T3.decode,encodedBits,ite_true,if_neg hb,hg,Bool.false_and,
-        Bool.false_eq_true,if_false,Option.filter_none,Option.map_none]
+    have hg : topRanksValid v=false := Bool.eq_false_iff.mpr (fun ht => by
+      have hx := (parse_top_isSome_iff v).mpr ht
+      simp [hp] at hx)
+    simp only [T3.decode,if_neg hb,ite_true,hg,Bool.false_and,
+      Bool.false_eq_true,if_false,Option.filter_none,Option.map_none]
   | some w =>
     have hh := (parse_top_isSome_iff v).mp (by simp [hp])
     have hdata := dataDigits_parse hp
-    have hbits : ¬ v.toNat ≥ 2^125 := by omega
-    by_cases hsum : Counting.weight w=129
-    · simp only [T3.decode,encodedBits,ite_true,if_neg hbits,hh.2,Bool.true_and,
-        hdata,wordDigits_sum,show target 0=129 by rfl,hsum,decide_true,
+    by_cases hsum : Counting.weight w=144
+    · simp only [T3.decode,if_neg hb,ite_true,hh,Bool.true_and,
+        hdata,wordDigits_sum,show target 0=144 by rfl,hsum,decide_true,
         if_true,decide_false,Bool.false_eq_true,if_false,Option.filter_some,Option.map_some,Option.map_none]
-    · simp only [T3.decode,encodedBits,ite_true,if_neg hbits,hh.2,Bool.true_and,
-        hdata,wordDigits_sum,show target 0=129 by rfl,hsum,decide_true,
+    · simp only [T3.decode,if_neg hb,ite_true,hh,Bool.true_and,
+        hdata,wordDigits_sum,show target 0=144 by rfl,hsum,decide_true,
         if_true,decide_false,Bool.false_eq_true,if_false,Option.filter_some,Option.map_some,Option.map_none]
 theorem decode_top_isSome (v : Digest) :
     (T3.decode 0 v).isSome=(Decoder.decodeBV (topFlip v)).isSome := by

@@ -1,4 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.Arith.GF128
+import SigGolfCandidate.T3.Core
 import Mathlib.RingTheory.AdjoinRoot
 import Mathlib.Algebra.Field.ZMod
 import Mathlib.Data.FinEnum

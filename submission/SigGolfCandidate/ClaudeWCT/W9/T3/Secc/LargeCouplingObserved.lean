@@ -18,21 +18,11 @@ theorem observed_coinReq {β : Type} (n : Nat) (k : Fin (n + 1) → OracleComp (
     observedRun aux q labels table (coinReq U n >>= k) s =
       ((liftM (aux (.coin n)) : SPMF _) >>= fun v => observedRun aux q labels table (k v) s) :=
   observed_aux aux q labels table (.coin n) k s
-theorem observed_initReq {β : Type} (k : AuxData → OracleComp (RWorld U) β) (s : State WCoord (Cell U)) :
-    observedRun aux q labels table (initReq U >>= k) s =
-      ((liftM (aux .init) : SPMF _) >>= fun v => observedRun aux q labels table (k v) s) :=
-  observed_aux aux q labels table .init k s
 theorem observed_readReq {β : Type} (row : Cell U) (ch : Charge) (k : HashOutput → OracleComp (RWorld U) β)
     (s : State WCoord (Cell U)) :
     observedRun aux q labels table (readReq U row ch >>= k) s =
       observedRun aux q labels table (k (table row)) (readState q s row (table row) ch) :=
   observed_read aux q labels table row ch k s
-theorem observed_probeReq_cached {β : Type} (row : Cell U) (test : Probe WCoord)
-    (k : HashOutput → OracleComp (RWorld U) β) (s : State WCoord (Cell U)) (v : HashOutput)
-    (h : s.rows row = some v) :
-    observedRun aux q labels table (probeReq U row test >>= k) s =
-      observedRun aux q labels table (k v) (readState q s row v .call) :=
-  observed_probe_cached aux q labels table row test k s v h
 theorem observed_probeReq_fresh {β : Type} (row : Cell U) (test : Probe WCoord)
     (k : HashOutput → OracleComp (RWorld U) β) (s : State WCoord (Cell U)) (h : s.rows row = none) :
     observedRun aux q labels table (probeReq U row test >>= k) s =

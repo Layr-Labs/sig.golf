@@ -138,26 +138,4 @@ theorem taggedSplit_unique {adversary : AdversaryP} {result : FirstHit.Recorded 
   have hevents'' := List.append_cancel_left hevents'
   have hc := record_prefix_unique _ _ c1 c2 hc1 hc2 [] [] (by simpa using hevents'')
   exact ⟨rfl, rfl, hc⟩
-theorem digests_of_split {adversary : AdversaryP} {q : Nat} {z : PaddedGame.TraceResult × Answers}
-    {g : FirstHit.Recorded (Digest × SigGolfCandidate.T3.Cache)} {t : Tagged (Option ForgeryP)} {c : FirstHit.Recorded Bool}
-    (h : TaggedSplit adversary (QueryRecorded.recordedTrace z.1) g t c) :
-    digests adversary q z = (monitorRun (Wots.referenceInputs adversary) z.2 q g.value.2 t.steps c.events).digests := by
-  have hex : ∃ generated tagged checked,
-      TaggedSplit adversary (QueryRecorded.recordedTrace z.1) generated tagged checked := ⟨g, t, c, h⟩
-  unfold digests
-  rw [dif_pos hex]
-  have hspec := Classical.choose_spec (Classical.choose_spec (Classical.choose_spec hex))
-  obtain ⟨hg, ht, hc⟩ := taggedSplit_unique hspec h
-  rw [hc, ht, hg]
-theorem contact_of_split {adversary : AdversaryP} {q : Nat} {z : PaddedGame.TraceResult × Answers}
-    {g : FirstHit.Recorded (Digest × SigGolfCandidate.T3.Cache)} {t : Tagged (Option ForgeryP)} {c : FirstHit.Recorded Bool}
-    (h : TaggedSplit adversary (QueryRecorded.recordedTrace z.1) g t c) :
-    Contact adversary q z ↔ (monitorRun (Wots.referenceInputs adversary) z.2 q g.value.2 t.steps c.events).contact = true := by
-  constructor
-  · intro hc
-    exact hc g t c h
-  · intro hm g' t' c' h'
-    obtain ⟨hg, ht, hc⟩ := taggedSplit_unique h h'
-    rw [← hg, ← ht, ← hc]
-    exact hm
 end ClaudeWCT.W9.T3.Security.LargeCoupling

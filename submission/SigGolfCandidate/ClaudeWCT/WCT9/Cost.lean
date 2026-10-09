@@ -361,7 +361,8 @@ theorem bound_verifyTop (sig : Signature) (index : Nat) (answer : Digest) :
 def verifyLayersCostBC : Nat → Nat
   | 0 => 0
   | n + 1 => (if n = 0 then capacity 0 else recoverLayerPairCost (Fin.ofNat 4 n)) + verifyLayersCostBC n
-theorem verifyLayersCostBC_four_le : verifyLayersCostBC 4 ≤ 575 := by decide
+/-- Campaign T8E: 225 (top capacity) + 119 + 118 + 118 (lower targets 199/199/199). -/
+theorem verifyLayersCostBC_four_le : verifyLayersCostBC 4 ≤ 580 := by decide
 theorem bound_verifyLayersBC (w : Witness) (index : Nat) :
     ∀ n msg, CBound (fun _ => True) (n + verifyLayersCostBC n) (verifyLayersBC w index n msg) := by
   intro n
@@ -449,16 +450,16 @@ theorem bound_signWith (limit : Nat) (cache : Cache) (message : Message) :
   · exact .pure _ _ trivial
   · exact bound_signPayloadWith limit cache message
 theorem bound_verifyWith (limit : Nat) (message : Message) (pk : Digest) (w : Witness) :
-    CBound (fun _ => True) 720 (verifyWith limit message pk w) := by
+    CBound (fun _ => True) 726 (verifyWith limit message pk w) := by
   unfold verifyWith
   split
   · exact .pure _ _ trivial
-  · refine (bound_digest w.signature.rho message w.digestCounter).bind' (l := 719)
+  · refine (bound_digest w.signature.rho message w.digestCounter).bind' (l := 725)
       (fun output _ => ?_) (by decide)
     dsimp only
     split
     · exact .pure _ _ trivial
-    · refine (bound_recoverFts w.signature _ output).bind' (l := 579) (fun root _ => ?_) (by decide)
+    · refine (bound_recoverFts w.signature _ output).bind' (l := 585) (fun root _ => ?_) (by decide)
       refine (bound_verifyLayersBC w _ 4 (.forest root)).bind' (l := 0) (fun r _ => ?_)
         (by have := verifyLayersCostBC_four_le; omega)
       cases r <;> exact .pure _ 0 trivial
@@ -488,9 +489,12 @@ theorem bound_signPayload (cache : Cache) (message : Message) :
 theorem bound_sign (cache : Cache) (message : Message) :
     CBound (fun _ => True) (signPayloadFixed + 2 + digestAttemptLimit + 4 * counterLimit) (Rev3.sign cache message) :=
   bound_signWith digestAttemptLimit cache message
+theorem bound_expand (message : Message) (pk : Digest) (sig : Signature) :
+    CBound (fun _ => True) (digestAttemptLimit + 4 * counterLimit + 621) (Rev3.expand message pk sig) :=
+  bound_expandWith digestAttemptLimit message pk sig
 theorem bound_verify (message : Message) (pk : Digest) (w : Witness) :
-    CBound (fun _ => True) 720 (Rev3.verify message pk w) :=
-  bound_verifyWith digestVerifyLimit message pk w
+    CBound (fun _ => True) 726 (Rev3.verify message pk w) :=
+  bound_verifyWith digestAttemptLimit message pk w
 theorem sign_compression_ceiling (secret : BitVec 256) (cache : Cache) (message : Message) :
     ∀ result ∈ support (World.countBlocks (realize secret (Rev3.sign cache message))),
       result.2 ≤ 18995993 := by
@@ -501,8 +505,16 @@ theorem sign_compression_ceiling (secret : BitVec 256) (cache : Cache) (message 
   have h := signPayloadFixed_eq
   rw [layerFixedCost_four] at h
   exact hc.trans (by norm_num [digestAttemptLimit, counterLimit]; omega)
+theorem expand_compression_ceiling (secret : BitVec 256) (message : Message) (pk : Digest) (sig : Signature) :
+    ∀ result ∈ support (World.countBlocks (realize secret (Rev3.expand message pk sig))),
+      result.2 ≤ 18874989 := by
+  intro result hr
+  rw [World.countBlocks, ← realize_count] at hr
+  have hc := (bound_expand message pk sig).count_support result
+    (realize_support_subset secret _ hr) |>.2
+  exact hc.trans (by norm_num [digestAttemptLimit, counterLimit])
 theorem verify_compression_bound (secret : BitVec 256) (message : Message) (pk : Digest) (w : Witness) :
-    ∀ result ∈ support (World.countBlocks (realize secret (Rev3.verify message pk w))), result.2 ≤ 720 := by
+    ∀ result ∈ support (World.countBlocks (realize secret (Rev3.verify message pk w))), result.2 ≤ 726 := by
   intro result hr
   rw [World.countBlocks, ← realize_count] at hr
   exact (bound_verify message pk w).count_support result (realize_support_subset secret _ hr) |>.2

@@ -77,8 +77,6 @@ theorem Coherent.private_header (hcoh : Coherent U T vals nv τ a)
           exact QuerySpace.header_ne_of_tag (Ne.symm h0) (Sum.inl.inj hp)
         · change Sum.inl (header 0 _ _ _ _) = (Sum.inl (header tag 0 0 level node) : Coordinate) at hp
           exact QuerySpace.header_ne_of_tag (Ne.symm h0) (Sum.inl.inj hp)
-        · change Sum.inl (header 0 _ _ _ _) = (Sum.inl (header tag 0 0 level node) : Coordinate) at hp
-          exact QuerySpace.header_ne_of_tag (Ne.symm h0) (Sum.inl.inj hp)
     | inr f =>
         change Sum.inl (header 8 _ _ _ _) = (Sum.inl (header tag 0 0 level node) : Coordinate) at hp
         exact QuerySpace.header_ne_of_tag (Ne.symm h8) (Sum.inl.inj hp)
@@ -255,8 +253,6 @@ end Short
 def ContactR (adversary : AdversaryP) (q : Nat) (result : FirstHit.Recorded Bool) (A : Answers) : Prop :=
   ∀ generated tagged checked, TaggedSplit adversary result generated tagged checked →
     (monitorRun (Wots.referenceInputs adversary) A q generated.value.2 tagged.steps checked.events).contact = true
-theorem contact_eq_contactR (adversary : AdversaryP) (q : Nat) (z : PaddedGame.TraceResult × Answers) :
-    Contact adversary q z = ContactR adversary q (QueryRecorded.recordedTrace z.1) z.2 := rfl
 theorem contactR_short {A T : Answers} (hAT : Wots.Ref.ShortAgree A T) (adversary : AdversaryP) (q : Nat)
     (result : FirstHit.Recorded Bool) : ContactR adversary q result A ↔ ContactR adversary q result T := by
   unfold ContactR

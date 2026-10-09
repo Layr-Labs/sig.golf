@@ -1,95 +1,9 @@
-import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecks5
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecksPart11
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsSem
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsCheckParts
 
 section
-section
-namespace SigGolfCandidate.T3M.Nonbinary
-open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
-set_option maxRecDepth 200000
-set_option maxHeartbeats 1000000
-theorem tripleCheck_at (q : Nat) (hq : q<18) (hn : inl q=false) : tripleCheck q=true := by
-  interval_cases q
-  all_goals first | (simp [inl] at hn) | skip
-  exacts [tripleCheck_0, tripleCheck_1, tripleCheck_2, tripleCheck_3, tripleCheck_4, tripleCheck_5,
-    tripleCheck_6, tripleCheck_7, tripleCheck_8, tripleCheck_9, tripleCheck_10, tripleCheck_11, tripleCheck_12]
-theorem inlineGroupCheck_at (q : Nat) (hq : inl q=true) (hq17 : q<17) :
-    inlineGroupCheck q 0 25=true ∧ inlineGroupCheck q 25 25=true ∧ inlineGroupCheck q 50 25=true ∧
-      inlineGroupCheck q 75 25=true ∧ inlineGroupCheck q 100 25=true := by
-  have h : q=13 ∨ q=14 ∨ q=15 ∨ q=16 := by simp [inl] at hq; omega
-  rcases h with rfl|rfl|rfl|rfl
-  · exact ⟨inlineGroupCheck_13_0,inlineGroupCheck_13_25,inlineGroupCheck_13_50,inlineGroupCheck_13_75,inlineGroupCheck_13_100⟩
-  · exact ⟨inlineGroupCheck_14_0,inlineGroupCheck_14_25,inlineGroupCheck_14_50,inlineGroupCheck_14_75,
-      inlineGroupCheck_14_100⟩
-  · exact ⟨inlineGroupCheck_15_0,inlineGroupCheck_15_25,inlineGroupCheck_15_50,inlineGroupCheck_15_75,
-      inlineGroupCheck_15_100⟩
-  · exact ⟨inlineGroupCheck_16_0,inlineGroupCheck_16_25,inlineGroupCheck_16_50,inlineGroupCheck_16_75,
-      inlineGroupCheck_16_100⟩
-theorem inlineCheck_at (q k : Nat) (hq : inl q=true) (hk : k<(mx q+1)^3) : inlineCheck q k=true := by
-  by_cases hq17 : q<17
-  · have hm : mx q=4 := by unfold mx; rw [if_pos hq17]
-    rw [hm] at hk
-    obtain ⟨h0,h1,h2,h3,h4⟩ := inlineGroupCheck_at q hq hq17
-    have pick : ∀ lo, inlineGroupCheck q lo 25=true → lo ≤ k → k<lo+25 → inlineCheck q k=true := by
-      intro lo h hl hh
-      exact List.all_eq_true.mp h k (List.mem_range'_1.mpr ⟨hl,by omega⟩)
-    by_cases a : k<25
-    · exact pick 0 h0 (by omega) (by omega)
-    by_cases b : k<50
-    · exact pick 25 h1 (by omega) (by omega)
-    by_cases d : k<75
-    · exact pick 50 h2 (by omega) (by omega)
-    by_cases e : k<100
-    · exact pick 75 h3 (by omega) (by omega)
-    · exact pick 100 h4 (by omega) (by norm_num at hk; omega)
-  · have hq' : q=17 := by simp [inl] at hq; omega
-    subst hq'
-    have hk64 : k<64 := by unfold mx at hk; norm_num at hk; omega
-    by_cases a : k<32
-    · exact List.all_eq_true.mp inlineGroupCheck_17_0 k (List.mem_range'_1.mpr ⟨by omega,by omega⟩)
-    · exact List.all_eq_true.mp inlineGroupCheck_17_32 k (List.mem_range'_1.mpr ⟨by omega,by omega⟩)
-theorem entCheck_at (q k : Nat) (hq : q<18) (hn : inl q=false) (hk : k<(mx q+1)^3) : entCheck q k=true := by
-  have h := tripleCheck_at q hq hn
-  simp only [tripleCheck,Bool.and_eq_true] at h
-  exact (Bool.and_eq_true _ _ |>.mp (List.all_eq_true.mp h.1 k (List.mem_range.mpr hk))).1
-theorem s8Check_at (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) : s8Check q k=true := by
-  cases hn : inl q
-  · have h := tripleCheck_at q hq hn
-    simp only [tripleCheck,Bool.and_eq_true] at h
-    exact (Bool.and_eq_true _ _ |>.mp (List.all_eq_true.mp h.1 k (List.mem_range.mpr hk))).2
-  · have h := inlineCheck_at q k hn hk
-    simp only [inlineCheck,Bool.and_eq_true] at h
-    exact h.1.1.1.1
-theorem blockCheck_at (q dB dC : Nat) (hq : q<18) (hn : inl q=false) (hB : dB ≤ mx q) (hC : dC ≤ mx q) :
-    blockCheck q dB dC=true := by
-  have h := tripleCheck_at q hq hn
-  simp only [tripleCheck,Bool.and_eq_true] at h
-  have hh : (mx q+1)*dB+dC<(mx q+1)^2 := by
-    unfold mx at *
-    split_ifs at * <;> nlinarith
-  have e1 : ((mx q+1)*dB+dC)/(mx q+1)=dB := by
-    unfold mx at *
-    split_ifs at * <;> omega
-  have e2 : ((mx q+1)*dB+dC)%(mx q+1)=dC := by
-    unfold mx at *
-    split_ifs at * <;> omega
-  have hb := List.all_eq_true.mp h.2 ((mx q+1)*dB+dC) (List.mem_range.mpr hh)
-  rwa [e1,e2] at hb
-theorem stub_at (k : Nat) (hk : k<125) : vrun (guardW k) 1=some rejJ := by
-  have h := rejCheck_ok
-  simp only [rejCheck] at h
-  exact rOK_eq (List.all_eq_true.mp h k (List.mem_range.mpr hk))
-theorem s8Run_at (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) :
-    (if q=0 then rOK (vrun (entW 0 k) 3) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k)))=true := by
-  have h := s8Check_at q k hq hk
-  simp only [s8Check,Bool.and_eq_true] at h
-  exact h.1
-theorem bge9_at (k : Nat) (hk : k<125) (he : k%2=0) : vrun (cellW 9 k) 1=some (bge9R (cellW 9 k)) := by
-  have h := s8Check_at 9 k (by decide +kernel) (by unfold mx; norm_num; omega)
-  simp only [s8Check,Bool.and_eq_true] at h
-  have h2 := h.2
-  rw [if_pos (by simp [he])] at h2
-  exact rOK_eq h2
-end SigGolfCandidate.T3M.Nonbinary
-end
+
 end
 
 section
@@ -139,7 +53,7 @@ structure GroupFacts (c : NCtx) (q : Nat) : Prop where
   partC : partOK q (3*q+2) (c.dig (3*q+2)) (gC q (c.kOf q))=true
   disp : q<17 → vrun (gX q (c.kOf q)) 5=some (if q=8 then dispatch9R else if q<16 then dispatchR (q+1) else tailDispatchR)
   s8 : s8Check q (c.kOf q)=true
-theorem mx_bounds' (q : Nat) : 3≤ mx q ∧ mx q≤4 := by unfold mx;split <;> omega
+theorem mx_bounds' (q : Nat) : 3≤ mx q ∧ mx q≤7 := by unfold mx;split <;> omega
 theorem rungsOK_mono (q d0 d1 sl b : Nat) (h : d0 ≤ d1) (hk : rungsOK q d0 sl (b+2*d0)=true) :
     rungsOK q d1 sl (b+2*d1)=true := by
   unfold rungsOK at hk ⊢
@@ -148,13 +62,13 @@ theorem rungsOK_mono (q d0 d1 sl b : Nat) (h : d0 ≤ d1) (hk : rungsOK q d0 sl 
   rw [List.mem_range'_1] at hm
   have := hk m (List.mem_range'_1.mpr ⟨by omega,by omega⟩)
   rwa [show b+2*d0+2*(m-d0)=b+2*d1+2*(m-d1) by omega] at this
-theorem groupFacts (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<18) : c.GroupFacts q := by
-  obtain ⟨k1,k2,k3⟩ := c.kdig_kOf hds q hq
-  have hk := c.kOf_lt hds q hq
-  have hA := c.dig_group_le hds q 0 hq (by decide +kernel)
+theorem groupFacts (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<17) : c.GroupFacts q := by
+  obtain ⟨k1,k2,k3⟩ := c.kdig_kOf hds q (by omega)
+  have hk := c.kOf_lt hds q (by omega)
+  have hA := c.dig_group_le hds q 0 (by omega) (by decide +kernel)
   simp only [Nat.add_zero] at hA
-  have hB := c.dig_group_le hds q 1 hq (by decide +kernel)
-  have hC := c.dig_group_le hds q 2 hq (by decide +kernel)
+  have hB := c.dig_group_le hds q 1 (by omega) (by decide +kernel)
+  have hC := c.dig_group_le hds q 2 (by omega) (by decide +kernel)
   have hm := mx_bounds' q
   cases hn : inl q
   · have he := entCheck_at q (c.kOf q) hq hn hk
@@ -162,10 +76,10 @@ theorem groupFacts (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<18) : c.Group
     simp only [entCheck,k1] at he
     simp only [blockCheck,dispatchOK,Bool.and_eq_true] at hb
     obtain ⟨⟨⟨⟨htails,hrungs⟩,hpB⟩,hpC⟩,hdisp⟩ := hb
-    have eB := c.gB_noninl hds q hq hn
-    have eb := c.gbase_noninl hds q hq hn
-    have eC : gC q (c.kOf q)=pcC q (c.dig (3*q+1)) (c.dig (3*q+2)) := by rw [c.gC_eq hds q hq,eB]; rfl
-    have eX : gX q (c.kOf q)=pcX q (c.dig (3*q+1)) (c.dig (3*q+2)) := by rw [c.gX_eq hds q hq,eC]; rfl
+    have eB := c.gB_noninl hds q (by omega) hn
+    have eb := c.gbase_noninl hds q (by omega) hn
+    have eC : gC q (c.kOf q)=pcC q (c.dig (3*q+1)) (c.dig (3*q+2)) := by rw [c.gC_eq hds q (by omega),eB]; rfl
+    have eX : gX q (c.kOf q)=pcX q (c.dig (3*q+1)) (c.dig (3*q+2)) := by rw [c.gX_eq hds q (by omega),eC]; rfl
     refine ⟨fun _ hd => ?_,fun _ hd => ?_,fun _ hd => ?_,fun h => by simp [hn] at h,fun h => by simp [hn] at h,
       fun h => by simp [hn] at h,fun hd => ?_,?_,?_,?_,?_,s8Check_at q _ hq hk⟩
     · rw [if_pos hd] at he; exact rOK_eq he
@@ -179,8 +93,10 @@ theorem groupFacts (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<18) : c.Group
     · rw [eB]; exact hpB
     · rw [eC]; exact hpC
     · intro hq17; rw [eX]; rw [if_pos hq17] at hdisp; exact rOK_eq hdisp
-  · have he := inlineCheck_at q (c.kOf q) hn hk
-    have hq16 : 13 ≤ q ∧ q ≤ 17 := by simp [inl] at hn; omega
+  · have hm4 := mx_inl q hn
+    rw [hm4] at hk
+    have he := inlineCheck_at q (c.kOf q) hn (by norm_num at hk; omega)
+    have hq16 : 13 ≤ q ∧ q ≤ 16 := by simp [inl] at hn; omega
     simp only [inlineCheck,k1,k2,k3] at he
     by_cases hd : c.dig (3*q)=mx q
     · rw [if_pos hd] at he
@@ -188,90 +104,126 @@ theorem groupFacts (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<18) : c.Group
       obtain ⟨⟨⟨⟨hs8,hcopy⟩,hpB⟩,hpC⟩,hdisp⟩ := he
       refine ⟨fun h => by simp [hn] at h,fun h => by simp [hn] at h,fun h => by simp [hn] at h,
         fun _ _ => rOK_eq hcopy,fun _ h => absurd h (by omega),fun _ h => absurd h (by omega),
-        fun h => absurd h (by omega),?_,hpB,hpC,fun hq17 => by rw [if_pos hq17] at hdisp; rw [if_neg (show q≠8 by omega)]; exact rOK_eq hdisp,hs8⟩
+        fun h => absurd h (by omega),?_,hpB,hpC,fun _ => by rw [if_neg (show q≠8 by omega)]; exact rOK_eq hdisp,hs8⟩
       unfold rungsOK; rw [List.all_eq_true]; intro m hm'; rw [List.mem_range'_1] at hm'; omega
     · rw [if_neg hd] at he
       simp only [Bool.and_eq_true] at he
       obtain ⟨⟨⟨⟨hs8,⟨⟨hhead,htail⟩,hrungs⟩⟩,hpB⟩,hpC⟩,hdisp⟩ := he
       refine ⟨fun h => by simp [hn] at h,fun h => by simp [hn] at h,fun h => by simp [hn] at h,
         fun _ h => absurd h hd,fun _ h => ?_,fun _ h => ?_,fun _ => rOK_eq htail,hrungs,hpB,hpC,
-        fun hq17 => by rw [if_pos hq17] at hdisp; rw [if_neg (show q≠8 by omega)]; exact rOK_eq hdisp,hs8⟩
+        fun _ => by rw [if_neg (show q≠8 by omega)]; exact rOK_eq hdisp,hs8⟩
       · rw [if_neg (by omega)] at hhead; simpa only [if_neg (show ¬ c.dig (3*q)+1=mx q by omega)] using rOK_eq hhead
       · rw [if_pos h] at hhead; simpa only [if_pos h] using rOK_eq hhead
 theorem kOf_eq_lead (c : NCtx) (i : Nat) (h0 : i%3=0) : 3*(i/3)=i := by omega
 theorem chk_headJ (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54)
-    (h0 : i%3=0) (hn : inl (i/3)=false) (hd : c.dig i< last i) :
+    (h0 : i%3=0) (h51 : i<51) (hn : inl (i/3)=false) (hd : c.dig i< last i) :
     vrun (c.startPc i) 7=some (headJD .x8 (off i) (c.rungPc i (c.dig i)+1) i (c.dig i)) := by
   obtain ⟨q,rfl⟩ : ∃q,i=3*q := ⟨i/3,by omega⟩
   have eq : 3*q/3=q := by omega
   rw [eq] at hn
   have hf := (c.groupFacts hds q (by omega)).headJ hn (by simpa only [last,topMax,eq] using (show c.dig (3*q)+1<topMax (3*q) by unfold last at hd; omega))
-  have hs : c.startPc (3*q)=leadPc q (c.kOf q) := by simp [startPc,eq]
-  have hr : c.rungPc (3*q) (c.dig (3*q))=gbase q (c.kOf q)+2*c.dig (3*q) := by simp [rungPc,qb,eq]
+  have hs : c.startPc (3*q)=leadPc q (c.kOf q) := by simp [startPc,eq,show 3*q<51 by omega]
+  have hr : c.rungPc (3*q) (c.dig (3*q))=gbase q (c.kOf q)+2*c.dig (3*q) := by simp [rungPc,qb,eq,show 3*q<51 by omega]
   rw [hs,hr]; exact hf
 theorem chk_headJTerm (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54)
-    (h0 : i%3=0) (hn : inl (i/3)=false) (hd : c.dig i=last i) :
+    (h0 : i%3=0) (h51 : i<51) (hn : inl (i/3)=false) (hd : c.dig i=last i) :
     vrun (c.startPc i) 7=some (headJDTerm .x8 (off i) (c.rungPc i (c.dig i)+1) i (c.dig i)) := by
   obtain ⟨q,rfl⟩ : ∃q,i=3*q := ⟨i/3,by omega⟩
   have eq : 3*q/3=q := by omega
   rw [eq] at hn
   have hm := topMax_bounds (3*q)
   have hf := (c.groupFacts hds q (by omega)).headJT hn (by simp only [last,topMax,eq] at hd hm; omega)
-  have hs : c.startPc (3*q)=leadPc q (c.kOf q) := by simp [startPc,eq]
-  have hr : c.rungPc (3*q) (c.dig (3*q))=gbase q (c.kOf q)+2*c.dig (3*q) := by simp [rungPc,qb,eq]
+  have hs : c.startPc (3*q)=leadPc q (c.kOf q) := by simp [startPc,eq,show 3*q<51 by omega]
+  have hr : c.rungPc (3*q) (c.dig (3*q))=gbase q (c.kOf q)+2*c.dig (3*q) := by simp [rungPc,qb,eq,show 3*q<51 by omega]
   rw [hs,hr]; exact hf
 theorem chk_copyJ (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54)
-    (h0 : i%3=0) (hn : inl (i/3)=false) (hd : c.dig i=topMax i) :
+    (h0 : i%3=0) (h51 : i<51) (hn : inl (i/3)=false) (hd : c.dig i=topMax i) :
     vrun (c.startPc i) 7=some (copyN .x8 (off i) (slot i) (c.endPc i)) := by
   obtain ⟨q,rfl⟩ : ∃q,i=3*q := ⟨i/3,by omega⟩
   have eq : 3*q/3=q := by omega
   rw [eq] at hn
   have hf := (c.groupFacts hds q (by omega)).copyJ hn (by simpa only [topMax,eq] using hd)
-  have hs : c.startPc (3*q)=leadPc q (c.kOf q) := by simp [startPc,eq]
-  have he : c.endPc (3*q)=gB q (c.kOf q) := by simp [endPc,qB,eq]
+  have hs : c.startPc (3*q)=leadPc q (c.kOf q) := by simp [startPc,eq,show 3*q<51 by omega]
+  have he : c.endPc (3*q)=gB q (c.kOf q) := by simp [endPc,qB,eq,show 3*q<51 by omega]
   rw [hs,he]; exact hf
 theorem chk_headJF (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54)
-    (h0 : i%3=0) (hn : inl (i/3)=true) (hd : c.dig i< last i) :
+    (h0 : i%3=0) (h51 : i<51) (hn : inl (i/3)=true) (hd : c.dig i< last i) :
     vrun (c.startPc i) 4=some (headJDF .x8 (off i) (c.rungPc i (c.dig i)+1) i (c.dig i)) := by
   obtain ⟨q,rfl⟩ : ∃q,i=3*q := ⟨i/3,by omega⟩
   have eq : 3*q/3=q := by omega
   rw [eq] at hn
   have hf := (c.groupFacts hds q (by omega)).headF hn (by simpa only [last,topMax,eq] using (show c.dig (3*q)+1<topMax (3*q) by unfold last at hd; omega))
-  have hs : c.startPc (3*q)=leadPc q (c.kOf q) := by simp [startPc,eq]
-  have hr : c.rungPc (3*q) (c.dig (3*q))=gbase q (c.kOf q)+2*c.dig (3*q) := by simp [rungPc,qb,eq]
+  have hs : c.startPc (3*q)=leadPc q (c.kOf q) := by simp [startPc,eq,show 3*q<51 by omega]
+  have hr : c.rungPc (3*q) (c.dig (3*q))=gbase q (c.kOf q)+2*c.dig (3*q) := by simp [rungPc,qb,eq,show 3*q<51 by omega]
   rw [hs,hr]; exact hf
 theorem chk_headJTermF (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54)
-    (h0 : i%3=0) (hn : inl (i/3)=true) (hd : c.dig i=last i) :
+    (h0 : i%3=0) (h51 : i<51) (hn : inl (i/3)=true) (hd : c.dig i=last i) :
     vrun (c.startPc i) 3=some (headJDTermF .x8 (off i) (c.rungPc i (c.dig i)+1) i (c.dig i)) := by
   obtain ⟨q,rfl⟩ : ∃q,i=3*q := ⟨i/3,by omega⟩
   have eq : 3*q/3=q := by omega
   rw [eq] at hn
   have hm := topMax_bounds (3*q)
   have hf := (c.groupFacts hds q (by omega)).headFT hn (by simp only [last,topMax,eq] at hd hm; omega)
-  have hs : c.startPc (3*q)=leadPc q (c.kOf q) := by simp [startPc,eq]
-  have hr : c.rungPc (3*q) (c.dig (3*q))=gbase q (c.kOf q)+2*c.dig (3*q) := by simp [rungPc,qb,eq]
+  have hs : c.startPc (3*q)=leadPc q (c.kOf q) := by simp [startPc,eq,show 3*q<51 by omega]
+  have hr : c.rungPc (3*q) (c.dig (3*q))=gbase q (c.kOf q)+2*c.dig (3*q) := by simp [rungPc,qb,eq,show 3*q<51 by omega]
   rw [hs,hr]; exact hf
 theorem chk_copyFL (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54)
-    (h0 : i%3=0) (hn : inl (i/3)=true) (hd : c.dig i=topMax i) :
+    (h0 : i%3=0) (h51 : i<51) (hn : inl (i/3)=true) (hd : c.dig i=topMax i) :
     vrun (c.startPc i) 4=some (copyFH .x8 (off i) (slot i) (c.startPc i)) := by
   obtain ⟨q,rfl⟩ : ∃q,i=3*q := ⟨i/3,by omega⟩
   have eq : 3*q/3=q := by omega
   rw [eq] at hn
   have hf := (c.groupFacts hds q (by omega)).copyF hn (by simpa only [topMax,eq] using hd)
-  have hs : c.startPc (3*q)=leadPc q (c.kOf q) := by simp [startPc,eq]
+  have hs : c.startPc (3*q)=leadPc q (c.kOf q) := by simp [startPc,eq,show 3*q<51 by omega]
   rw [hs]; exact hf
-theorem part_at (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54) (h0 : i%3≠0) :
+theorem k17_lt (c : NCtx) (hds : c.DigitsOk) : c.k17<64 := by
+  have h1 := hds 51 (by decide +kernel)
+  have h2 := hds 52 (by decide +kernel)
+  rw [topMax_hi 51 (by decide +kernel)] at h1
+  rw [topMax_hi 52 (by decide +kernel)] at h2
+  unfold k17; omega
+theorem k17_digits (c : NCtx) (hds : c.DigitsOk) : c.k17%8=c.dig 51 ∧ c.k17/8=c.dig 52 := by
+  have h1 := hds 51 (by decide +kernel)
+  rw [topMax_hi 51 (by decide +kernel)] at h1
+  unfold k17; constructor <;> omega
+theorem r8Blk_facts (c : NCtx) (hds : c.DigitsOk) :
+    vrun (256*(c.k17+1)) 2=some (jR (c.dig 51+c.dig 52) (blkW c.k17)) ∧
+    partOK 17 51 (c.dig 51) (blkW c.k17)=true ∧
+    partOK 17 52 (c.dig 52) (blkW c.k17+partLen 17 (c.dig 51))=true ∧
+    vrun (blkW c.k17+partLen 17 (c.dig 51)+partLen 17 (c.dig 52)) 5=some genDispR := by
+  have h := r8BlkCheck_at c.k17 (c.k17_lt hds)
+  obtain ⟨d1,d2⟩ := c.k17_digits hds
+  simp only [r8BlkCheck,Bool.and_eq_true,d1,d2] at h
+  exact ⟨rOK_eq h.1.1.1,h.1.1.2,h.1.2,rOK_eq h.2⟩
+theorem r8Suf_facts (c : NCtx) (hds : c.DigitsOk) :
+    vrun (r8SlotW (c.dig 53)) 2=some (jR (c.dig 53) (sufW (c.dig 53))) ∧
+    partOK 17 53 (c.dig 53) (sufW (c.dig 53))=true := by
+  have h3 := hds 53 (by decide +kernel)
+  rw [topMax_hi 53 (by decide +kernel)] at h3
+  have h := r8SufCheck_at (c.dig 53) (by omega)
+  simp only [r8SufCheck,Bool.and_eq_true] at h
+  exact ⟨rOK_eq h.1,h.2⟩
+theorem part_at (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54) (h0 : ¬ (i%3=0 ∧ i<51)) :
     partOK (i/3) i (c.dig i) (c.startPc i)=true := by
-  obtain ⟨q,r,rfl,hr⟩ : ∃q r,i=3*q+r ∧ r<3 := ⟨i/3,i%3,by omega,by omega⟩
-  have eq : (3*q+r)/3=q := by omega
-  have hf := c.groupFacts hds q (by omega)
-  unfold startPc qB qC
-  rw [if_neg h0,eq]
-  rcases (show r=1 ∨ r=2 by omega) with rfl|rfl
-  · rw [if_pos (by omega)];exact hf.partB
-  · rw [if_neg (by omega)];exact hf.partC
+  by_cases h51 : i<51
+  · obtain ⟨q,r,rfl,hr⟩ : ∃q r,i=3*q+r ∧ r<3 := ⟨i/3,i%3,by omega,by omega⟩
+    have eq : (3*q+r)/3=q := by omega
+    have hf := c.groupFacts hds q (by omega)
+    unfold startPc qB qC
+    rw [if_pos h51,if_neg (by omega),eq]
+    rcases (show r=1 ∨ r=2 by omega) with rfl|rfl
+    · rw [if_pos (by omega)];exact hf.partB
+    · rw [if_neg (by omega)];exact hf.partC
+  · have hs : c.startPc i=c.r8Start i := by unfold startPc; rw [if_neg h51]
+    rw [hs, show i/3=17 by omega]
+    obtain ⟨-,p1,p2,-⟩ := c.r8Blk_facts hds
+    obtain ⟨-,p3⟩ := c.r8Suf_facts hds
+    rcases (show i=51 ∨ i=52 ∨ i=53 by omega) with rfl|rfl|rfl
+    · simpa [r8Start] using p1
+    · simpa [r8Start] using p2
+    · simpa [r8Start] using p3
 theorem chk_headR (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54)
-    (h0 : i%3≠0) (hd : c.dig i< last i) :
+    (h0 : ¬ (i%3=0 ∧ i<51)) (hd : c.dig i< last i) :
     vrun (c.startPc i) 8=some (headRH .x8 (off i) (c.dig i) none (c.startPc i) i) := by
   have hp := c.part_at hds i hi h0
   unfold partOK at hp
@@ -280,7 +232,7 @@ theorem chk_headR (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54)
   rw [if_neg (by omega)] at hp
   exact rOK_eq hp.1
 theorem chk_headRTerm (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54)
-    (h0 : i%3≠0) (hd : c.dig i=last i) :
+    (h0 : ¬ (i%3=0 ∧ i<51)) (hd : c.dig i=last i) :
     vrun (c.startPc i) 8=some (headRHT .x8 (off i) (c.dig i) (slot i) (c.startPc i) i) := by
   have hp := c.part_at hds i hi h0
   unfold partOK at hp
@@ -290,7 +242,7 @@ theorem chk_headRTerm (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54)
   rw [if_pos (by omega)] at hp
   exact rOK_eq hp.1
 theorem chk_copyF (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54)
-    (h0 : i%3≠0) (hd : c.dig i=topMax i) :
+    (h0 : ¬ (i%3=0 ∧ i<51)) (hd : c.dig i=topMax i) :
     vrun (c.startPc i) 4=some (copyFH .x8 (off i) (slot i) (c.startPc i)) := by
   have hp := c.part_at hds i hi h0
   unfold partOK at hp
@@ -301,14 +253,14 @@ theorem chk_rung (c : NCtx) (hds : c.DigitsOk) (i m : Nat) (hi : i<54)
     (hm : c.dig i< m) (hm2 : m ≤ last i) :
     vrun (c.rungPc i m) 3=some (rungR m (if m=last i then some (slot i) else none) (c.rungPc i m)) := by
   have hmx := topMax_bounds i
-  by_cases h0 : i%3=0
+  by_cases h0 : i%3=0 ∧ i<51
   · obtain ⟨q,rfl⟩ : ∃q,i=3*q := ⟨i/3,by omega⟩
     have eq : 3*q/3=q := by omega
     have hf := c.groupFacts hds q (by omega)
     have hn : m< mx q := by simpa only [last,topMax,eq] using (show m< topMax (3*q) by unfold last at hm2;omega)
     have hh := List.all_eq_true.mp hf.rungs m (List.mem_range'_1.mpr ⟨by omega,by omega⟩)
     have hr : c.rungPc (3*q) m=gbase q (c.kOf q)+2*(c.dig (3*q)+1)+2*(m-(c.dig (3*q)+1)) := by
-      simp [rungPc,qb,eq]; omega
+      simp [rungPc,qb,eq,show 3*q<51 by omega]; omega
     have ht : (m+1=mx q) ↔ m=last (3*q) := by unfold last topMax;rw [eq];omega
     simpa only [rungsOK,hr,ht] using rOK_eq hh
   · have hp := c.part_at hds i hi h0
@@ -323,14 +275,14 @@ theorem chk_rung (c : NCtx) (hds : c.DigitsOk) (i m : Nat) (hi : i<54)
       omega
     have ht : (m+1=mx (i/3)) ↔ m=last i := by unfold last topMax;omega
     simpa only [hr,ht] using rOK_eq hh
-theorem chk_tail (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54) (h0 : i%3=0) (hd : c.dig i<topMax i) :
+theorem chk_tail (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54) (h0 : i%3=0) (h51 : i<51) (hd : c.dig i<topMax i) :
     vrun (c.rungPc i (c.dig i)+1) 2=
       some (tailR (if c.dig i=last i then some (slot i) else none) (c.rungPc i (c.dig i)+1)) := by
   obtain ⟨q,rfl⟩ : ∃q,i=3*q := ⟨i/3,by omega⟩
   have eq : 3*q/3=q := by omega
   have hf := c.groupFacts hds q (by omega)
   have hmx := mx_bounds' q
-  have hr : c.rungPc (3*q) (c.dig (3*q))=gbase q (c.kOf q)+2*c.dig (3*q) := by simp [rungPc,qb,eq]
+  have hr : c.rungPc (3*q) (c.dig (3*q))=gbase q (c.kOf q)+2*c.dig (3*q) := by simp [rungPc,qb,eq,show 3*q<51 by omega]
   have ht : (c.dig (3*q)+1=mx q) ↔ c.dig (3*q)=last (3*q) := by unfold last topMax;rw [eq];omega
   have h := hf.tail (by simpa only [topMax,eq] using hd)
   rw [hr]

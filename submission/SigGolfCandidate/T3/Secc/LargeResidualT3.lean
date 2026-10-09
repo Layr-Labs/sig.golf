@@ -152,63 +152,6 @@ theorem Probe.mass (probe : Probe Coord) (allowed : Coord → Finset Digest) (an
       exact h
   · have hk : ¬probe.keep labels answer := fun h => ha ((Hit.miss_iff _ _ _).mp h.2).2
     simp only [hk, ha, if_false]
-theorem lazyResponse_apply (allowed : Coord → Finset Digest) (probe : Probe Coord) (answer : HashOutput) :
-    lazyResponse allowed probe answer = PMF.uniformOfFintype HashOutput answer *
-      (if probe.hit.answerOk (low answer) then restrictionWeight allowed (probe.restrict allowed answer) else 0) := by
-  rw [lazyResponse, SPMF.bind_apply_eq_tsum]
-  simp only [response_apply, mul_ite, mul_zero]
-  calc
-    _ = PMF.uniformOfFintype HashOutput answer *
-        ∑' labels, (if probe.keep labels answer then complete allowed labels else 0) := by
-      rw [← ENNReal.tsum_mul_left]
-      apply tsum_congr
-      intro labels
-      split <;> simp only [mul_comm, zero_mul]
-    _ = _ := by
-      simp only [Probe.mass]
-      by_cases ha : probe.hit.answerOk (low answer)
-      · simp only [ha, if_true]
-        rw [ENNReal.tsum_mul_left, weight_tsum_complete]
-      · simp only [ha, if_false, tsum_zero, mul_zero]
-theorem posterior_mass (allowed : Coord → Finset Digest) (probe : Probe Coord)
-    (answer : HashOutput) (labels : Coord → Digest) :
-    lazyResponse allowed probe answer * complete (probe.restrict allowed answer) labels =
-      complete allowed labels * response labels probe answer := by
-  rw [lazyResponse_apply, response_apply]
-  have h := Probe.mass probe allowed answer labels
-  by_cases hk : probe.keep labels answer
-  · rw [if_pos hk] at h
-    rw [if_pos hk, h]
-    split <;> simp only [mul_comm, mul_assoc, zero_mul, mul_left_comm]
-  · rw [if_neg hk] at h
-    rw [if_neg hk, mul_zero]
-    by_cases ha : probe.hit.answerOk (low answer)
-    · rw [if_pos ha] at h
-      rw [if_pos ha, mul_assoc, ← h, mul_zero]
-    · rw [if_neg ha, mul_zero, zero_mul]
-theorem lazyResponse_nonempty (allowed : Coord → Finset Digest) (probe : Probe Coord)
-    (answer : HashOutput) (h : lazyResponse allowed probe answer ≠ 0) :
-    ∀ c, (probe.restrict allowed answer c).Nonempty := by
-  by_contra hnonempty
-  rw [lazyResponse_apply] at h
-  by_cases ha : probe.hit.answerOk (low answer)
-  · rw [if_pos ha, weight_of_empty _ _ hnonempty, mul_zero] at h
-    exact h rfl
-  · rw [if_neg ha, mul_zero] at h
-    exact h rfl
-theorem bind_response_stopped {Result : Type} (allowed : Coord → Finset Digest)
-    (ha : ∀ c, (allowed c).Nonempty) (probe : Probe Coord) (stopped : SPMF Result)
-    (next : HashOutput → (Coord → Digest) → SPMF Result) :
-    (complete allowed >>= fun labels => observe (response labels probe) stopped (fun answer => next answer labels)) =
-      observe (lazyResponse allowed probe) stopped
-        (fun answer => complete (probe.restrict allowed answer) >>= next answer) := by
-  have h := posterior_observe (uniformTable allowed ha) (fun labels => response labels probe)
-    (lazyResponse allowed probe) (fun answer => complete (probe.restrict allowed answer))
-    (by rw [lazyResponse, complete_of_nonempty allowed ha])
-    (fun answer labels => by
-      simpa only [complete_of_nonempty allowed ha, SPMF.liftM_apply] using posterior_mass allowed probe answer labels)
-    stopped next
-  simpa only [complete_of_nonempty allowed ha] using h
 end Posterior
 section Hazard
 variable {Coord : Type} [Fintype Coord] [DecidableEq Coord]
@@ -228,18 +171,6 @@ theorem response_failure (labels : Coord → Digest) (probe : Probe Coord) :
       reduceCtorEq, mul_zero]
   · simp only [h, if_false, not_false_eq_true, if_true, SPMF.toPMF_failure, PMF.pure_apply,
       mul_one, PMF.probOutput_eq_apply]
-theorem lazyResponse_failure (allowed : Coord → Finset Digest) (ha : ∀ c, (allowed c).Nonempty)
-    (probe : Probe Coord) :
-    (lazyResponse allowed probe).toPMF none = Pr[fun x => ¬probe.keep x.1 x.2 | law allowed ha] := by
-  rw [lazyResponse, complete_of_nonempty allowed ha, toPMF_bind_lift, PMF.bind_apply]
-  change _ = Pr[fun x => ¬probe.keep x.1 x.2 |
-    (uniformTable allowed ha) >>= fun labels => (fun answer => (labels, answer)) <$> PMF.uniformOfFintype HashOutput]
-  rw [probEvent_bind_eq_tsum]
-  simp only [PMF.probOutput_eq_apply, probEvent_map]
-  apply tsum_congr
-  intro labels
-  rw [response_failure]
-  rfl
 omit [Fintype Coord] [DecidableEq Coord] in
 theorem hit_miss_prob (hit : Hit Coord) (labels : Coord → Digest) :
     Pr[fun answer => hit.miss labels (low answer) | PMF.uniformOfFintype HashOutput] =
@@ -259,80 +190,6 @@ theorem hit_miss_prob (hit : Hit Coord) (labels : Coord → Digest) :
         simp only [Hit.miss, low, ne_eq, eq_comm]
       rw [he]
       exact HiddenLabelProbe.prob_truncate_ne t
-theorem keep_prob (allowed : Coord → Finset Digest) (ha : ∀ c, (allowed c).Nonempty) (probe : Probe Coord) :
-    Pr[fun x => probe.keep x.1 x.2 | law allowed ha] =
-      Pr[fun labels => probe.guessMiss labels | uniformTable allowed ha] * (1 - (Fintype.card Digest : ENNReal)⁻¹) := by
-  change Pr[fun x => probe.keep x.1 x.2 |
-    (uniformTable allowed ha) >>= fun labels => (fun answer => (labels, answer)) <$> PMF.uniformOfFintype HashOutput] = _
-  rw [probEvent_bind_eq_tsum]
-  have hinner (labels : Coord → Digest) :
-      Pr[(fun x : (Coord → Digest) × HashOutput => probe.keep x.1 x.2) ∘ (fun answer => (labels, answer)) |
-        PMF.uniformOfFintype HashOutput] =
-      if probe.guessMiss labels then 1 - (Fintype.card Digest : ENNReal)⁻¹ else 0 := by
-    by_cases hg : probe.guessMiss labels
-    · rw [if_pos hg, ← hit_miss_prob probe.hit labels]
-      have he : ((fun x : (Coord → Digest) × HashOutput => probe.keep x.1 x.2) ∘ (fun answer => (labels, answer))) =
-          (fun answer => probe.hit.miss labels (low answer)) := by
-        funext answer
-        simp only [Function.comp_def, Probe.keep, hg, true_and]
-      rw [he]
-    · rw [if_neg hg]
-      have he : ((fun x : (Coord → Digest) × HashOutput => probe.keep x.1 x.2) ∘ (fun answer => (labels, answer))) =
-          (fun _ => False) := by
-        funext answer
-        simp only [Function.comp_def, Probe.keep, hg, false_and]
-      rw [he, probEvent_eq_tsum_ite]
-      simp
-  simp only [probEvent_map, hinner, PMF.probOutput_eq_apply, mul_ite, mul_zero]
-  rw [probEvent_eq_tsum_ite, ← ENNReal.tsum_mul_right]
-  simp only [PMF.probOutput_eq_apply, ite_mul, zero_mul]
-theorem guessMiss_prob_ge (allowed : Coord → Finset Digest) (ha : ∀ c, (allowed c).Nonempty) (probe : Probe Coord)
-    (minimum : Nat) (hmin : ∀ g ∈ probe.guess, minimum ≤ (allowed g.1).card) :
-    1 - (minimum : ENNReal)⁻¹ ≤ Pr[fun labels => probe.guessMiss labels | uniformTable allowed ha] := by
-  cases hg : probe.guess with
-  | none =>
-      have he : (fun labels => probe.guessMiss labels) = (fun _ => True) := by
-        funext labels
-        simp only [Probe.guessMiss, hg, Option.mem_def, reduceCtorEq, false_implies, implies_true]
-      rw [he, probEvent_eq_tsum_ite]
-      simp only [if_true, PMF.probOutput_eq_apply, PMF.tsum_coe]
-      exact tsub_le_self
-  | some g =>
-      have hmin' := hmin g (by rw [hg]; rfl)
-      have hcompl := probEvent_compl (uniformTable allowed ha) (fun labels => labels g.1 = g.2)
-      rw [probFailure_of_liftM_PMF, tsub_zero] at hcompl
-      have hhit : Pr[fun labels => labels g.1 = g.2 | uniformTable allowed ha] ≤ (minimum : ENNReal)⁻¹ := by
-        rw [probEvent_uniformTable_eq]
-        split
-        · exact ENNReal.inv_le_inv.mpr (by exact_mod_cast hmin')
-        · exact bot_le
-      have hmiss : (fun labels => probe.guessMiss labels) = (fun labels => ¬labels g.1 = g.2) := by
-        funext labels
-        simp only [Probe.guessMiss, hg, Option.mem_def, Option.some.injEq, forall_eq', ne_eq]
-      rw [hmiss]
-      have heq : Pr[fun labels => ¬labels g.1 = g.2 | uniformTable allowed ha] =
-          1 - Pr[fun labels => labels g.1 = g.2 | uniformTable allowed ha] :=
-        ENNReal.eq_sub_of_add_eq' (by simp) (by rw [add_comm]; exact hcompl)
-      rw [heq]
-      exact tsub_le_tsub_left hhit 1
-theorem lazyResponse_failure_le_hazard (allowed : Coord → Finset Digest) (ha : ∀ c, (allowed c).Nonempty)
-    (probe : Probe Coord) (probes : Nat)
-    (hmin : ∀ g ∈ probe.guess, 2 ^ 128 - probes ≤ (allowed g.1).card) :
-    (lazyResponse allowed probe).toPMF none ≤ LargePotential.hazard (2 ^ 128) probes := by
-  rw [lazyResponse_failure allowed ha probe]
-  have hcompl := probEvent_compl (law allowed ha) (fun x => probe.keep x.1 x.2)
-  rw [probFailure_of_liftM_PMF, tsub_zero] at hcompl
-  have heq : Pr[fun x => ¬probe.keep x.1 x.2 | law allowed ha] = 1 - Pr[fun x => probe.keep x.1 x.2 | law allowed ha] :=
-    ENNReal.eq_sub_of_add_eq' (by simp) (by rw [add_comm]; exact hcompl)
-  rw [heq, LargePotential.hazard]
-  apply tsub_le_tsub_left _ 1
-  rw [keep_prob allowed ha probe, pow_two]
-  apply mul_le_mul' (guessMiss_prob_ge allowed ha probe _ hmin)
-  apply tsub_le_tsub_left
-  have hcard : (Fintype.card Digest : ENNReal) = ((2 ^ 128 : Nat) : ENNReal) := by
-    simp [SphincsSecurity.digestBits]
-  rw [hcard]
-  exact ENNReal.inv_le_inv.mpr (by exact_mod_cast Nat.sub_le _ _)
 end Hazard
 end SigGolfCandidate.T3.Security.LargeResidual
 end
@@ -457,133 +314,6 @@ def retain {Result : Type} (labels : Coord → Digest) (table : Cell → HashOut
     (result : Option Result × State Coord Cell) :
     Option ((Coord → Digest) × (Cell → HashOutput) × Result) × State Coord Cell :=
   (result.1.map (fun value => (labels, table, value)), result.2)
-noncomputable def finish {Result : Type} (result : Option Result × State Coord Cell) :
-    SPMF (Option ((Coord → Digest) × (Cell → HashOutput) × Result) × State Coord Cell) :=
-  match result.1 with
-  | none => pure (none, result.2)
-  | some value => complete result.2.candidates >>= fun labels =>
-      completeRows result.2.rows >>= fun table => pure (some (labels, table, value), result.2)
-private theorem bind_if {A B : Type} (p : Prop) [Decidable p] (left right : SPMF A) (next : A → SPMF B) :
-    ((if p then left else right) >>= next) = if p then left >>= next else right >>= next := by
-  split <;> rfl
-private theorem map_if {A B : Type} (p : Prop) [Decidable p] (left right : SPMF A) (f : A → B) :
-    f <$> (if p then left else right) = if p then f <$> left else f <$> right := by
-  split <;> rfl
-omit [Fintype Coord] [DecidableEq Coord] in
-private theorem observe_response_eq (labels : Coord → Digest) (probe : Probe Coord) {Result : Type}
-    (stopped : SPMF Result) (next : HashOutput → SPMF Result) :
-    observe (response labels probe) stopped next =
-      ((liftM (PMF.uniformOfFintype HashOutput) : SPMF _) >>= fun answer =>
-        if probe.keep labels answer then next answer else stopped) := by
-  rw [observe, response, toPMF_bind_lift]
-  simp only [← PMF.monad_bind_eq_bind, evalSPMF_bind, bind_assoc]
-  apply congrArg ((liftM (PMF.uniformOfFintype HashOutput) : SPMF _) >>= ·)
-  funext answer
-  by_cases h : probe.keep labels answer
-  · simp only [h, if_true, SPMF.toPMF_pure, SPMF.lift_pure, pure_bind]
-  · simp only [h, if_false, SPMF.toPMF_failure, SPMF.lift_pure, pure_bind]
-omit [Fintype Coord] [DecidableEq Coord] in
-private theorem fixedLabels_fresh (labels : Coord → Digest) (cache : ResidualTableCompletion.Cache Cell) (input : Cell)
-    (hfresh : cache input = none) (probe : Probe Coord) {Result : Type} (stopped : SPMF Result)
-    (next : HashOutput → (Cell → HashOutput) → SPMF Result) :
-    (completeRows cache >>= fun table =>
-      if probe.keep labels (table input) then next (table input) table else stopped) =
-        observe (response labels probe) stopped
-          (fun answer => completeRows (Function.update cache input (some answer)) >>= next answer) := by
-  rw [bind_fresh cache input hfresh (fun answer table => if probe.keep labels answer then next answer table else stopped),
-    observe_response_eq]
-  apply congrArg ((liftM (PMF.uniformOfFintype HashOutput) : SPMF _) >>= ·)
-  funext answer
-  by_cases h : probe.keep labels answer
-  · simp only [h, if_true]
-  · simp only [h, if_false, completeRows_bind_const]
-private theorem bind_fresh_probe (candidates : Coord → Finset Digest)
-    (ha : ∀ c, (candidates c).Nonempty) (cache : ResidualTableCompletion.Cache Cell) (input : Cell)
-    (hfresh : cache input = none) (probe : Probe Coord) {Result : Type} (stopped : SPMF Result)
-    (next : HashOutput → (Coord → Digest) → (Cell → HashOutput) → SPMF Result) :
-    (complete candidates >>= fun labels => completeRows cache >>= fun table =>
-      if probe.keep labels (table input) then next (table input) labels table else stopped) =
-        observe (lazyResponse candidates probe) stopped (fun answer =>
-          complete (probe.restrict candidates answer) >>= fun labels =>
-            completeRows (Function.update cache input (some answer)) >>= next answer labels) := by
-  have hfixed (labels : Coord → Digest) := fixedLabels_fresh labels cache input hfresh probe stopped
-    (fun answer table => next answer labels table)
-  simp_rw [hfixed]
-  exact bind_response_stopped candidates ha probe stopped
-    (fun answer labels => completeRows (Function.update cache input (some answer)) >>= next answer labels)
-theorem run_posterior {Result : Type} (aux : (input : auxSpec.Domain) → PMF (auxSpec.Range input)) (q : Nat)
-    (computation : OracleComp (World auxSpec Coord Cell) Result) (state : State Coord Cell)
-    (ha : ∀ c, (state.candidates c).Nonempty) :
-    (complete state.candidates >>= fun labels => completeRows state.rows >>= fun table =>
-      retain labels table <$> observedRun aux q labels table computation state) =
-        (lazyRun aux q computation state >>= finish) := by
-  induction computation using OracleComp.inductionOn generalizing state with
-  | pure result =>
-      simp only [observedRun, lazyRun, runWith_pure, map_pure, pure_bind, retain, Option.map_some, finish]
-  | query_bind input next ih =>
-      cases input with
-      | inl input =>
-          simp only [observedRun, lazyRun, runWith_query_bind, observedImpl, lazyImpl, OptionT.run_mk,
-            StateT.run_mk, bind_assoc, pure_bind, map_bind, Option.elim_some]
-          conv_lhs => enter [2, labels]; rw [RetainedObservation.bind_comm]
-          rw [RetainedObservation.bind_comm]
-          apply congrArg ((liftM (aux input) : SPMF _) >>= ·)
-          funext answer
-          exact ih answer state ha
-      | inr input =>
-          cases input with
-          | read row charge =>
-              simp only [observedRun, lazyRun, runWith_query_bind, observedImpl, lazyImpl, OptionT.run_mk,
-                StateT.run_mk, bind_assoc, pure_bind, Option.elim_some]
-              have hread (labels : Coord → Digest) := bind_read state.rows row
-                (fun answer table => retain labels table <$>
-                  runWith (observedImpl aux q labels table) (next answer) (readState q state row answer charge))
-              simp_rw [hread]
-              rw [RetainedObservation.bind_comm]
-              apply congrArg (reply state.rows row >>= ·)
-              funext answer
-              exact ih answer (readState q state row answer charge) ha
-          | probe row test =>
-              cases hcache : state.rows row with
-              | some answer =>
-                  simp only [observedRun, lazyRun, runWith_query_bind, observedImpl, lazyImpl, OptionT.run_mk,
-                    StateT.run_mk, hcache, pure_bind, Option.elim_some]
-                  have hrows : Function.update state.rows row (some answer) = state.rows := by
-                    rw [← hcache, Function.update_eq_self]
-                  have h := ih answer (readState q state row answer .call) ha
-                  simp only [readState, hrows] at h ⊢
-                  exact h
-              | none =>
-                  change HashOutput → OracleComp (World auxSpec Coord Cell) Result at next
-                  dsimp only [OracleSpec.Range, World, ResidualSpec] at ih ⊢
-                  simp only [observedRun, lazyRun, runWith_query_bind, observedImpl, lazyImpl, OptionT.run_mk,
-                    StateT.run_mk, hcache, observe_bind, pure_bind, Option.elim_none, Option.elim_some, finish]
-                  dsimp only [OracleSpec.Range, World, OracleSpec.add_apply_inr, ResidualSpec]
-                  simp only [bind_if, pure_bind, Option.elim_none, Option.elim_some, map_if, map_pure, retain,
-                    Option.map_none]
-                  rw [bind_fresh_probe state.candidates ha state.rows row hcache (test.effective state.candidates)
-                    (pure (none, stoppedState state))
-                    (fun answer labels table => retain labels table <$>
-                      runWith (observedImpl aux q labels table) (next answer)
-                        (probeState state row (test.effective state.candidates) answer))]
-                  apply observe_congr
-                  intro answer hanswer
-                  exact ih answer (probeState state row (test.effective state.candidates) answer)
-                    (lazyResponse_nonempty state.candidates _ answer hanswer)
-          | disclose coord charge =>
-              simp only [observedRun, lazyRun, runWith_query_bind, observedImpl, lazyImpl, OptionT.run_mk,
-                StateT.run_mk, bind_assoc, pure_bind, Option.elim_some]
-              rw [bind_disclose state.candidates coord (fun value labels => completeRows state.rows >>= fun table =>
-                retain labels table <$> runWith (observedImpl aux q labels table) (next value)
-                  (disclosedState q state coord value charge))]
-              apply congrArg (cell (state.candidates coord) >>= ·)
-              funext value
-              exact ih value (disclosedState q state coord value charge)
-                (discloseTableValue_nonempty state.candidates ha coord value)
-          | tick charge =>
-              simp only [observedRun, lazyRun, runWith_query_bind, observedImpl, lazyImpl, OptionT.run_mk,
-                StateT.run_mk, pure_bind, Option.elim_some]
-              exact ih () (tickState q state charge) ha
 end World
 end SigGolfCandidate.T3.Security.LargeResidual
 end
@@ -597,32 +327,11 @@ set_option backward.isDefEq.respectTransparency false
 section Bound
 variable {Coord Cell AuxIndex : Type} {auxSpec : OracleSpec AuxIndex}
   [Fintype Coord] [DecidableEq Coord] [Fintype Cell] [DecidableEq Cell]
-noncomputable def residualStep (aux : (input : auxSpec.Domain) → PMF (auxSpec.Range input)) (q : Nat) :
-    Step SPMF (World auxSpec Coord Cell) (State Coord Cell) :=
-  fun request state => ((lazyImpl aux q request).run).run state
 def charges : Charges (State Coord Cell) :=
   ⟨fun state => state.counters.calls, fun state => state.counters.probes, fun state => state.counters.mass⟩
 def Inv (state : State Coord Cell) : Prop :=
   ∀ c, (state.candidates c).card = 1 ∨ 2 ^ 128 - state.counters.probes ≤ (state.candidates c).card
 def initial : State Coord Cell := ⟨fun _ => Finset.univ, fun _ => none, ⟨0, 0, 0⟩⟩
-theorem initial_inv : Inv (initial : State Coord Cell) := by
-  intro c
-  right
-  simp only [initial, Finset.card_univ, Nat.sub_zero]
-  simp [SphincsSecurity.digestBits]
-theorem run_residual {Result : Type} (aux : (input : auxSpec.Domain) → PMF (auxSpec.Range input)) (q : Nat)
-    (program : OracleComp (World auxSpec Coord Cell) Result) (state : State Coord Cell) :
-    LargePotential.run (residualStep aux q) program state = lazyRun aux q program state := by
-  induction program using OracleComp.inductionOn generalizing state with
-  | pure value => rw [LargePotential.run_pure, lazyRun, runWith_pure]
-  | query_bind input next ih =>
-      rw [LargePotential.run_query_bind, lazyRun, runWith_query_bind]
-      apply _root_.bind_congr
-      intro middle
-      rcases middle with ⟨answer, after⟩
-      cases answer with
-      | none => rfl
-      | some answer => exact ih answer after
 theorem stop_zero_of_shape {X R : Type} (p : SPMF X) (g : X → R) (f : X → State Coord Cell) :
     Pr[fun result : Option R × State Coord Cell => result.1 = none | p >>= fun a => pure (some (g a), f a)] = 0 := by
   apply probEvent_eq_zero
@@ -691,94 +400,9 @@ theorem observe_support {S : Type} (response : SPMF HashOutput) (stopped : S) (c
       rw [SPMF.apply_eq_toPMF_some response answer]
       rw [mem_support_iff] at ho
       simpa using ho
-theorem effective_guess_card (state : State Coord Cell) (hinv : Inv state) (test : Probe Coord) :
-    ∀ g ∈ (test.effective state.candidates).guess, 2 ^ 128 - state.counters.probes ≤ (state.candidates g.1).card := by
-  intro g hg
-  simp only [Probe.effective, Option.mem_def, Option.filter_eq_some_iff, decide_eq_true_eq] at hg
-  obtain ⟨_, hadm⟩ := hg
-  rcases hinv g.1 with h1 | h2
-  · exact absurd hadm.1 (by omega)
-  · exact h2
-theorem residual_step_bound (aux : (input : auxSpec.Domain) → PMF (auxSpec.Range input)) (q : Nat)
-    (input : (World auxSpec Coord Cell).Domain) (state : State Coord Cell) (hinv : Inv state) :
-    StepBound (residualStep aux q) charges (2 ^ 128) q input state := by
-  cases input with
-  | inl input =>
-      apply stepBound_of_charge q (residualStep aux q) (.inl input) state .none (liftM (aux input) : SPMF _)
-        id (fun _ => state)
-      · rfl
-      · intro a; rfl
-  | inr request =>
-      cases request with
-      | read row charge =>
-          apply stepBound_of_charge q (residualStep aux q) (.inr (.read row charge)) state charge
-            (reply state.rows row) id (fun a => readState q state row a charge)
-          · rfl
-          · intro a; rfl
-      | disclose coord charge =>
-          apply stepBound_of_charge q (residualStep aux q) (.inr (.disclose coord charge)) state charge
-            (cell (state.candidates coord)) id (fun v => disclosedState q state coord v charge)
-          · rfl
-          · intro a; rfl
-      | tick charge =>
-          apply stepBound_of_charge q (residualStep aux q) (.inr (.tick charge)) state charge
-            (pure ()) id (fun _ => tickState q state charge)
-          · change pure (some (), tickState q state charge) = _
-            rw [pure_bind]
-          · intro a; rfl
-      | probe row test =>
-          cases hcache : state.rows row with
-          | some answer =>
-              apply stepBound_of_charge q (residualStep aux q) (.inr (.probe row test)) state .call
-                (pure answer) id (fun a => readState q state row a .call)
-              · change (match state.rows row with
-                  | some answer => pure (some answer, readState q state row answer .call)
-                  | none => _) = _
-                rw [hcache, pure_bind]
-                rfl
-              · intro a; rfl
-          | none =>
-              right; right; right
-              have hstep : residualStep aux q (.inr (.probe row test)) state =
-                  observe (lazyResponse state.candidates (test.effective state.candidates))
-                    (pure (none, stoppedState state))
-                    (fun answer => pure (some answer, probeState state row (test.effective state.candidates) answer)) := by
-                change (match state.rows row with
-                  | some answer => pure (some answer, readState q state row answer .call)
-                  | none => _) = _
-                rw [hcache]
-              refine ⟨fun result hresult => ?_, ?_⟩
-              · rw [hstep] at hresult
-                rcases observe_support _ _ _ result hresult with rfl | ⟨answer, _, rfl⟩
-                · simp only [charges, stoppedState, Counters.probe]; omega
-                · simp only [charges, probeState, Counters.probe]; omega
-              · rw [hstep]
-                erw [observe_stop]
-                by_cases hp : state.counters.probes < 2 ^ 128
-                · have ha : ∀ c, (state.candidates c).Nonempty := by
-                    intro c
-                    rcases hinv c with h1 | h2
-                    · exact Finset.card_pos.mp (by omega)
-                    · exact Finset.card_pos.mp (by omega)
-                  exact lazyResponse_failure_le_hazard state.candidates ha _ state.counters.probes
-                    (effective_guess_card state hinv test)
-                · have hzero : (((2 ^ 128 - state.counters.probes : Nat) : ENNReal))⁻¹ = ⊤ := by
-                    rw [show 2 ^ 128 - state.counters.probes = 0 by omega, Nat.cast_zero, ENNReal.inv_zero]
-                  have hh : hazard (2 ^ 128) state.counters.probes = 1 := by
-                    simp only [LargePotential.hazard, hzero]
-                    simp
-                  change _ ≤ hazard (2 ^ 128) state.counters.probes
-                  rw [hh]
-                  exact PMF.coe_le_one _ _
 @[simp] theorem Counters.charge_probes (q : Nat) (counters : Counters) (charge : Charge) :
     (counters.charge q charge).probes = counters.probes := by
   cases charge <;> rfl
-omit [Fintype Coord] [DecidableEq Coord] [Fintype Cell] [DecidableEq Cell] in
-theorem inv_of_same (state after : State Coord Cell) (hc : after.candidates = state.candidates)
-    (hp : after.counters.probes = state.counters.probes) (hinv : Inv state) : Inv after := by
-  intro c
-  rw [hc, hp]
-  exact hinv c
 omit [Fintype Coord] in
 theorem card_erase_ge (allowed : Coord → Finset Digest) (c0 : Coord) (v : Digest) (c : Coord) :
     (allowed c).card - 1 ≤ (eraseTableValue allowed c0 v c).card := by
@@ -818,93 +442,10 @@ theorem card_restrict_ge (probe : Probe Coord) (allowed : Coord → Finset Diges
             exact h1
           · rw [card_erase_of_ne _ parent (low answer) c hc]
             exact card_erase_ge _ _ _ _
-omit [Fintype Coord] [Fintype Cell] [DecidableEq Cell] in
-theorem effective_admissible (candidates : Coord → Finset Digest) (test : Probe Coord) :
-    ∀ g ∈ (test.effective candidates).guess, ∀ parent, (test.effective candidates).hit = Hit.label parent →
-      g.1 ≠ parent := by
-  intro g hg parent hp
-  simp only [Probe.effective, Option.mem_def, Option.filter_eq_some_iff, decide_eq_true_eq] at hg
-  exact hg.2.2 parent hp
 omit [Fintype Coord] in
 theorem restrict_subset_card (probe : Probe Coord) (allowed : Coord → Finset Digest) (answer : HashOutput) (c : Coord) :
     (probe.restrict allowed answer c).card ≤ (allowed c).card :=
   Finset.card_le_card (restrict_subset probe allowed answer c)
-theorem residual_preserve (aux : (input : auxSpec.Domain) → PMF (auxSpec.Range input)) (q : Nat)
-    (input : (World auxSpec Coord Cell).Domain) (state : State Coord Cell) (hinv : Inv state)
-    (answer : (World auxSpec Coord Cell).Range input) (after : State Coord Cell)
-    (hafter : (some answer, after) ∈ support (residualStep aux q input state)) : Inv after := by
-  cases input with
-  | inl input =>
-      obtain ⟨a, ha⟩ := support_of_shape (liftM (aux input) : SPMF _) id (fun _ => state) _ hafter
-      simp only [Prod.mk.injEq] at ha
-      rw [ha.2]; exact hinv
-  | inr request =>
-      cases request with
-      | read row charge =>
-          obtain ⟨a, ha⟩ := support_of_shape (reply state.rows row) id (fun a => readState q state row a charge) _ hafter
-          simp only [Prod.mk.injEq] at ha
-          rw [ha.2]
-          exact inv_of_same state _ rfl (Counters.charge_probes _ _ _) hinv
-      | tick charge =>
-          change (some answer, after) ∈ support (pure (some (), tickState q state charge) : SPMF _) at hafter
-          rw [mem_support_pure_iff, Prod.mk.injEq] at hafter
-          rw [hafter.2]
-          exact inv_of_same state _ rfl (Counters.charge_probes _ _ _) hinv
-      | disclose coord charge =>
-          obtain ⟨v, hv⟩ := support_of_shape (cell (state.candidates coord)) id
-            (fun v => disclosedState q state coord v charge) _ hafter
-          simp only [Prod.mk.injEq] at hv
-          rw [hv.2]
-          intro c
-          by_cases hc : c = coord
-          · subst hc
-            left
-            simp only [disclosedState, discloseTableValue, Function.update_self, Finset.card_singleton]
-          · simp only [disclosedState, discloseTableValue, Function.update_of_ne hc, Counters.charge_probes]
-            exact hinv c
-      | probe row test =>
-          cases hcache : state.rows row with
-          | some cached =>
-              change (some answer, after) ∈ support (match state.rows row with
-                | some answer => (pure (some answer, readState q state row answer .call) : SPMF _)
-                | none => _) at hafter
-              rw [hcache, mem_support_pure_iff, Prod.mk.injEq] at hafter
-              rw [hafter.2]
-              exact inv_of_same state _ rfl (Counters.charge_probes _ _ _) hinv
-          | none =>
-              have hstep : residualStep aux q (.inr (.probe row test)) state =
-                  observe (lazyResponse state.candidates (test.effective state.candidates))
-                    (pure (none, stoppedState state))
-                    (fun answer => pure (some answer, probeState state row (test.effective state.candidates) answer)) := by
-                change (match state.rows row with
-                  | some answer => pure (some answer, readState q state row answer .call)
-                  | none => _) = _
-                rw [hcache]
-              rw [hstep] at hafter
-              rcases observe_support _ _ _ _ hafter with h | ⟨a, ha, h⟩
-              · simp at h
-              · simp only [Prod.mk.injEq] at h
-                rw [h.2]
-                have hne := lazyResponse_nonempty state.candidates _ a ha
-                intro c
-                have hge := card_restrict_ge (test.effective state.candidates) state.candidates a
-                  (effective_admissible state.candidates test) c
-                have hle := restrict_subset_card (test.effective state.candidates) state.candidates a c
-                have hpos := (hne c).card_pos
-                simp only [probeState, Counters.probe]
-                rcases hinv c with h1 | h2
-                · left; omega
-                · right; omega
-theorem residual_potential {Result : Type} (aux : (input : auxSpec.Domain) → PMF (auxSpec.Range input)) (q : Nat)
-    (hq : q ≤ 2 ^ 127) (program : OracleComp (World auxSpec Coord Cell) Result) :
-    Pr[fun result => result.1 = none ∧ result.2.counters.calls ≤ q | lazyRun aux q program initial] +
-      (∑' result, Pr[= result | lazyRun aux q program initial] * (result.2.counters.mass : ENNReal)) / 2 ^ 128 ≤
-      ENNReal.ofReal (2 * ((q : ℝ) / 2 ^ 128) - ((q : ℝ) / 2 ^ 128) ^ 2) := by
-  have h := LargePotential.run_potential_initial (residualStep aux q) charges q hq Inv
-    (fun input state hinv _ answer after hafter => residual_preserve aux q input state hinv answer after hafter)
-    (fun input state hinv _ => residual_step_bound aux q input state hinv) program initial initial_inv rfl rfl
-  rw [run_residual] at h
-  exact h
 end Bound
 end SigGolfCandidate.T3.Security.LargeResidual
 end

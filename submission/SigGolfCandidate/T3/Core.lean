@@ -2,6 +2,7 @@ import SigGolfCandidate.SphincsSecurity.Proof.Scheme.Bytes
 import SigGolfCandidate.SphincsSecurity.Proof.Scheme.HashOutputSplit
 import SigGolfCandidate.T3.Rev
 import SigGolfCandidate.T3.FullCache.MacDefs
+import SigGolfCandidate.ClaudeWCT.Arith.GF128
 
 namespace SigGolfCandidate.T3
 open OracleComp OracleSpec
@@ -19,12 +20,19 @@ abbrev M := OracleComp Spec
 def height (lay : Layer) : Nat := ![12, 7, 6, 6] lay
 def chainCount (lay : Layer) : Nat := ![54, 43, 43, 43] lay
 def dataCount (lay : Layer) : Nat := if lay = 0 then 54 else 42
-def width (lay : Layer) (i : Nat) : Nat := if lay = 0 ∧ 51 ≤ i then 2 else 3
+/-- Bits per chain digit. Campaign T8D (TOP2 NF17): every chain, top included, has at most 8 positions, so 3. -/
+def width (_lay : Layer) (_i : Nat) : Nat := 3
+/-- Largest digit of chain `i`. Campaign T8D (TOP2 NF17): the top WOTS has 51 radix-5 chains and 3 radix-8 chains
+(51..53); every lower chain is radix 8. -/
 def maxDigit (lay : Layer) (i : Nat) : Nat :=
-  if lay = 0 then (if i < 51 then 4 else 3) else 7
-def target (lay : Layer) : Nat := ![129, 198, 198, 199] lay
-def encodedBits (lay : Layer) : Nat := if lay = 0 then 125 else 128
-def capacity (lay : Layer) : Nat := if lay = 0 then 213 else 301
+  if lay = 0 then (if i < 51 then 4 else 7) else 7
+/-- Digit-sum targets (campaign T8E): top 144 (NF17), lower layers 199/199/199. -/
+def target (lay : Layer) : Nat := ![144, 199, 199, 199] lay
+/-- Encoding values are below `2 ^ encodedBits lay`. Campaign T8D: the top encoding uses all 128 bits (the radix-8
+digits of chains 51/52 sit in bits 122..127), so there is no range bound on any layer. -/
+def encodedBits (_lay : Layer) : Nat := 128
+/-- Sum of the largest digits of a layer: top 51·4 + 3·7 = 225, lower 43·7 = 301. -/
+def capacity (lay : Layer) : Nat := if lay = 0 then 225 else 301
 def attemptLimit : Nat := 2 ^ 20
 def counterLimit : Nat := 2 ^ 22
 def coordinates : Nat := 7
@@ -180,6 +188,42 @@ def buildLevels (tag lay tree h : Nat) (leaves : List Digest) : M (List (List Di
   (List.range' 1 h).foldlM (fun levels level => do
     let nodes ← buildLevel tag lay tree h level (levels.getD (level-1) [])
     pure (levels ++ [nodes])) [leaves]
+/-! ### Top WOTS seed family (campaign T8D, TOP2 NF17)
+Each top leaf has 24 GF(2^128) coefficients: coefficient `j` is half `j % 2` (low half first) of the private pair
+`topSeedPair (topCoefOrdinal leaf j / 2)` = `privatePair 0 0 0 (12 * leaf + j / 2) 0`. This is X1 stage B's
+`lowerCoefs` shape at lay 0, tree 0 with 24 coefficients (ordinal `24 * leaf + j` through the packed halves of
+`lowerSeedPair 0 0`); 24 is even, so leaf `leaf` uses exactly the pairs `12 * leaf .. 12 * leaf + 11` and no carry
+crosses a leaf boundary. The seed of chain `i` is `familyEval coefs (i + 1)`. The pre-T8D per-chain top seeds
+(`privatePair 0 0 0 pair leaf`) are retired; `buildLeaf`/`buildTree` remain for the T3 lower layers. -/
+def topCoefCount : Nat := 24
+def topCoefPairs : Nat := 12
+def topCoefOrdinal (leaf j : Nat) : Nat := topCoefCount * leaf + j
+def topSeedPair (pair : Nat) : M (Digest × Digest) := privatePair 0 0 0 pair 0
+def topCoefs (leaf : Nat) : M (List Digest) :=
+  (List.range topCoefPairs).foldlM (fun acc j => do
+    let p ← topSeedPair (topCoefPairs * leaf + j)
+    pure (acc ++ [p.1, p.2])) []
+def topPoint (i : Nat) : Nat := i + 1
+def topSeed (coefs : List Digest) (i : Nat) : Digest := ClaudeWCT.Arith.familyEval coefs (topPoint i)
+/-- Top leaf (tree 0) with family seeds; `signatureOnly` returns only the signature values (`root = 0`). -/
+def buildLeafTop (leaf : Nat) (digits : List Nat) (signatureOnly : Bool := false) : M (Digest × List Digest) := do
+  let coefs ← topCoefs leaf
+  let state ← (List.range (chainCount 0)).foldlM
+    (fun (state : List Digest × List Digest) i => do
+      let digit := digits.getD i 0
+      let value ← chain 0 0 leaf i 0 digit (topSeed coefs i)
+      if signatureOnly then return (state.1, state.2 ++ [value])
+      let last ← chain 0 0 leaf i digit (maxDigit 0 i - digit) value
+      pure (state.1 ++ [last], state.2 ++ [value])) ([], [])
+  if signatureOnly then return (0, state.2)
+  let root ← leafHash 0 0 leaf state.1
+  pure (root, state.2)
+/-- The top tree (keygen): all 4096 top leaves with family seeds, then the 12 node levels. -/
+def buildTopTree : M (List (List Digest)) := do
+  let roots ← (List.range (2 ^ height 0)).foldlM (fun (roots : List Digest) leaf => do
+    let (root, _) ← buildLeafTop leaf []
+    pure (roots ++ [root])) []
+  buildLevels 3 0 0 (height 0) roots
 def buildTree (lay : Layer) (tree selected : Nat) (digits : List Nat) :
     M (List (List Digest) × List Digest) := do
   let state ← (List.range (2 ^ height lay)).foldlM
@@ -198,7 +242,7 @@ def maskedLevel (nodes : List Digest) (level : Nat) : M (List Digest) := do
     pure [nodes.getD (2*pair) 0 ^^^ masks.1, nodes.getD (2*pair+1) 0 ^^^ masks.2]
   pure pairs.flatten
 def keygenPayload : M (Digest × Region) := do
-  let (levels, _) ← buildTree 0 0 0 []
+  let levels ← buildTopTree
   let masked ← (List.range' 0 12).mapM fun level => maskedLevel (levels.getD level []) level
   let raw := (masked.flatten.flatMap (bytesLE 16)).toArray
   pure ((levels.getD 12 []).getD 0 0, fun i => raw.getD i.val 0)
@@ -210,10 +254,13 @@ def lowerShift (i : Nat) : Nat := if i < 21 then 3 * i else 64 + 3 * (i - 21)
 def topMask : Nat := 2 ^ 119 - 1
 def topFlip (value : Digest) : Digest := value ^^^ BitVec.ofNat 128 topMask
 def topCode (value : Digest) : Nat := (topFlip value).toNat
+/-- Bit position of the raw radix-8 digit of top chain `i ∈ {51, 52, 53}` (campaign T8D, NF17): chain 53 at bits
+119..121, chains 51/52 at bits 122..124 / 125..127. -/
+def topRawShift (i : Nat) : Nat := if i = 53 then 119 else 122 + 3 * (i - 51)
 def coreDigit (lay : Layer) (value : Digest) (i : Nat) : Nat :=
   if lay = 0 then
     if i < 51 then (topCode value / 2^(7*(i/3)) % 128) / 5^(i%3) % 5
-    else topCode value / 2^(119+2*(i-51)) % 4
+    else topCode value / 2 ^ topRawShift i % 8
   else value.toNat / 2 ^ lowerShift i % 8
 def topRanksValid (value : Digest) : Bool :=
   (List.range 17).all fun j => decide (topCode value / 2^(7*j) % 128 < 125)
@@ -236,11 +283,13 @@ def decode (lay : Layer) (value : Digest) : Option (List Nat) :=
   else none
 def creditFloor (lay : Layer) : Nat := ![7, 0, 0, 0] lay
 def topCredit (value : Digest) : Nat :=
-  ((List.range 54).map fun i => if coreDigit 0 value i = (if i < 51 then 3 else 2) then 1 else 0).sum
+  ((List.range 54).map fun i => if coreDigit 0 value i = (if i < 51 then 3 else 6) then 1 else 0).sum
 def encCredit (lay : Layer) (value : Digest) : Nat := if lay = 0 then topCredit value else 0
 def searchDecode (lay : Layer) (value : Digest) : Option (List Nat) :=
   if encCredit lay value < creditFloor lay then none else decode lay value
-def dummyTop : List Nat := [4,4,4] ++ List.replicate 39 3 ++ List.replicate 12 0
+/-- Top digits signed when the top counter search is exhausted (campaign T8D, NF17 at target 144): 30 threes,
+21 twos, then 4 on the three radix-8 chains (sum 144, no zero digit). -/
+def dummyTop : List Nat := List.replicate 30 3 ++ List.replicate 21 2 ++ [4,4,4]
 def encodingInput (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : BitVec 32) : HashInput :=
   bytesLE 16 message ++ bytesLE 16 (rowTweak lay tree leaf) ++ bytesLE 4 counter
 def counterSearch (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : Nat) :
@@ -316,7 +365,7 @@ def topPath (cache : Cache) (leaf : Nat) : M (List Digest) :=
     let m ← mask level sibling
     pure (value ^^^ m)
 def signTop (cache : Cache) (leaf : Nat) (digits : List Nat) : M (List Digest × List Digest) := do
-  let (_,values) ← buildLeaf 0 0 leaf digits true
+  let (_,values) ← buildLeafTop leaf digits true
   let path ← topPath cache leaf
   pure (values,path)
 abbrev Pieces := List Digest × List Digest

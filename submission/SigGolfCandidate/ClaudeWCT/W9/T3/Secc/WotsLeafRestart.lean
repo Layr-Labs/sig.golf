@@ -43,9 +43,9 @@ theorem source_bounds {b : ChainAddr} (hb : WotsExtract.SourceChain b) :
 /-! ### Contacts and markers under leaf congruence -/
 
 section Congr
-variable {L : LeafAddr} {T T' : Answers} (hC : LeafCongr L T T') (hL0 : L.lay ≠ 0) (hLleaf : L.leaf < 2 ^ 24)
+variable {L : LeafAddr} {T T' : Answers} (hC : LeafCongr L T T') (hLleaf : L.leaf < 2 ^ 24)
   (hLtree : L.tree < 2 ^ 40)
-include hC hL0 hLleaf
+include hC hLleaf
 
 theorem frontierValue_leafCongr {b : ChainAddr} (hb : WotsExtract.SourceChain b) (hLtree : L.tree < 2 ^ 40) :
     frontierValue T' b = frontierValue T b := by
@@ -63,18 +63,18 @@ theorem frontierValue_leafCongr {b : ChainAddr} (hb : WotsExtract.SourceChain b)
       subst hk
       exact hC.front c hbc
   · unfold frontierValue honestChainValue
-    rw [depth_congr hC hL0 hLleaf b, wotsSeed_out hC.toLeafAgree hL0 hLleaf hbl hal]
+    rw [depth_congr hC hLleaf b, wotsSeed_out hC.toLeafAgree hLleaf hbl hal]
     exact eval_chain_out hC.toLeafAgree (by have := Mask.chainCount_le b.key.lay; have := hb.2; omega)
       (fun h => hal h.1) (by have := Mask.depth_le_seven T b; omega) _
 
 theorem contactAt_leafCongr (hLtree : L.tree < 2 ^ 40) (trace : List Entry) {b : ChainAddr}
     (hb : WotsExtract.SourceChain b) : ContactAt T' trace b ↔ ContactAt T trace b := by
   unfold ContactAt
-  rw [depth_congr hC hL0 hLleaf b, frontierValue_leafCongr hC hL0 hLleaf hb hLtree]
+  rw [depth_congr hC hLleaf b, frontierValue_leafCongr hC hLleaf hb hLtree]
 
 theorem markerAt_leafCongr (trace : List Entry) (b : ChainAddr) : MarkerAt T' trace b ↔ MarkerAt T trace b := by
   unfold MarkerAt referenceInput
-  rw [referenceSearch_congr hC hL0 hLleaf, leafMsg_congr hC hL0 hLleaf, referenceDigits_congr hC hL0 hLleaf]
+  rw [referenceSearch_congr hC hLleaf, leafMsg_congr hC hLleaf, referenceDigits_congr hC hLleaf]
 end Congr
 
 /-! ### The paused reference game as an honest body -/
@@ -117,17 +117,17 @@ theorem restart_real_cost (q : ℕ) (a : ChainAddr) (Stop : Answers → List Ent
 /-! ### Lower chains -/
 
 section Restart
-variable (q : ℕ) {a : ChainAddr} (ha : WotsExtract.SourceChain a) (hl : a.key.lay ≠ 0)
+variable (q : ℕ) {a : ChainAddr} (ha : WotsExtract.SourceChain a)
   (Stop : Answers → List Entry → Prop) (hmask : ∀ T trace, Stop (maskAt T a) trace ↔ Stop T trace)
   (hStopL : ∀ T T', LeafCongr a.key T T' → ∀ trace, Stop T' trace ↔ Stop T trace)
 
-include ha hl in
+include ha in
 theorem fill_congr (R : RefTables adversary) (hd1 : 1 ≤ restDepth a R) (p : PData a.key (restDepth a R))
-    (K K' : Fin 17 → Digest)
+    (K K' : Fin (WCT9.famCount a.key.lay) → Digest)
     (hK : seedsR (ptL a.key) (revSet a.key R) K = seedsR (ptL a.key) (revSet a.key R) K') (e : Digest) :
     LeafCongr a.key (PrefixGame.fillTable a (ovL a.key R (K, progF p.1.1 p.1.2 K)) e)
       (PrefixGame.fillTable a (ovL a.key R (K', progF p.1.1 p.1.2 K')) e) := by
-  refine leafCongr_prog hl (source_bounds ha).2 rfl ha.2 R hd1 p.1.1 p.1.2 K K' (fun c hc => ?_) e
+  refine leafCongr_prog (source_bounds ha).2 rfl ha.2 R hd1 p.1.1 p.1.2 K K' (fun c hc => ?_) e
   have h := congrFun hK c
   unfold seedsR at h
   have hc' : c ∈ revSet a.key R := by
@@ -137,12 +137,12 @@ theorem fill_congr (R : RefTables adversary) (hd1 : 1 ≤ restDepth a R) (p : PD
   simp only [if_pos hc'] at h
   exact h
 
-include ha hl hStopL in
+include ha hStopL in
 theorem GDr_leaf : ∀ T T', LeafCongr a.key T T' → GDr adversary q Stop T' = GDr adversary q Stop T := by
   intro T T' hC
   have hS : Stop T' = Stop T := funext fun trace => propext (hStopL T T' hC trace)
   unfold GDr
-  rw [hS, referenceGame_leaf hC hl (source_bounds ha).2 (source_bounds ha).1 adversary q]
+  rw [hS, referenceGame_leaf hC (source_bounds ha).2 (source_bounds ha).1 adversary q]
 
 /-- The stop-then-contact event of the prefix-game run at depth `d`. -/
 def casD (Stop : Answers → List Entry → Prop) (a : ChainAddr) (d : ℕ) (R : RefTables adversary)
@@ -150,14 +150,14 @@ def casD (Stop : Answers → List Entry → Prop) (a : ChainAddr) (d : ℕ) (R :
   Stop (PrefixGame.fillTable a R z.1) z.2.1.1 ∧ ¬ContactAt (PrefixGame.fillTable a R z.1) z.2.1.1 a ∧
     Contact z.2.2 z.1
 
-include ha hl hmask hStopL in
+include ha hmask hStopL in
 /-- **Contact after the stop: reference ≤ mixture + error** (lower chains). -/
 theorem lower_cas_le_mix :
     Pr[fun s => ContactAfterStop Stop s.answers s.trace a | referenceExperiment adversary q] ≤
       ∑' R, restLaw adversary R * Pr[genCAS Stop a R |
         realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (restartGame adversary q a Stop R)
           (fun _ _ => none)] + errC adversary q a := by
-  have h := ref_le_mix q ha hl (GDr adversary q Stop) Prod.snd (GDr_snd q Stop)
+  have h := ref_le_mix q ha (GDr adversary q Stop) Prod.snd (GDr_snd q Stop)
     (fun s => ContactAfterStop Stop s.answers s.trace a) (casD Stop a)
     (fun R p K K' hK => by
       funext z
@@ -169,9 +169,9 @@ theorem lower_cas_le_mix :
             ContactAt (PrefixGame.fillTable a (ovL a.key R (K', progF p.1.1 p.1.2 K')) z.1) z.2.1.1 a) := by
         intro hc
         obtain ⟨step, hstep, -⟩ := hc
-        have hC := fill_congr ha hl R (by omega) p K K' hK z.1
+        have hC := fill_congr ha R (by omega) p K K' hK z.1
         exact ⟨(hStopL _ _ hC _).symm,
-          (contactAt_leafCongr hC hl (source_bounds ha).2 (source_bounds ha).1 _ ha).symm⟩
+          (contactAt_leafCongr hC (source_bounds ha).2 (source_bounds ha).1 _ ha).symm⟩
       constructor
       · rintro ⟨h1, h2, h3⟩
         obtain ⟨k1, k2⟩ := key h3
@@ -180,19 +180,19 @@ theorem lower_cas_le_mix :
         obtain ⟨k1, k2⟩ := key h3
         exact ⟨k1.mpr h1, fun h => h2 (k2.mp h), h3⟩)
     (fun R z h => by obtain ⟨-, -, step, -⟩ := h; exact step.elim0)
-    (GDr_leaf q ha hl Stop hStopL)
+    (GDr_leaf q ha Stop hStopL)
     (fun R x res hres => cas_coupled q a ha Stop hmask R x res hres)
   simp only [mixLaw_restart] at h
   exact h
 
-include ha hl hmask hStopL in
+include ha hmask hStopL in
 /-- **The stop: mixture ≤ reference + error** (lower chains). -/
 theorem lower_mix_le_stop :
     ∑' R, restLaw adversary R * Pr[fun r => 1 ≤ restDepth a R ∧ genStop Stop a R r |
         realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (restartGame adversary q a Stop R)
           (fun _ _ => none)] ≤
       Pr[fun s => ∃ k, Stop s.answers (s.trace.take k) | referenceExperiment adversary q] + errC adversary q a := by
-  have h := mix_le_ref q ha hl (GDr adversary q Stop) Prod.snd (GDr_snd q Stop)
+  have h := mix_le_ref q ha (GDr adversary q Stop) Prod.snd (GDr_snd q Stop)
     (fun s => (∃ k, Stop s.answers (s.trace.take k)) ∧ 1 ≤ depth s.answers a)
     (fun d R z => 1 ≤ d ∧ Stop (PrefixGame.fillTable a R z.1) z.2.1.1)
     (fun R p K K' hK => by
@@ -200,11 +200,11 @@ theorem lower_mix_le_stop :
       apply propext
       constructor
       · rintro ⟨hd, h1⟩
-        exact ⟨hd, (hStopL _ _ (fill_congr ha hl R hd p K K' hK z.1) _).mpr h1⟩
+        exact ⟨hd, (hStopL _ _ (fill_congr ha R hd p K K' hK z.1) _).mpr h1⟩
       · rintro ⟨hd, h1⟩
-        exact ⟨hd, (hStopL _ _ (fill_congr ha hl R hd p K K' hK z.1) _).mp h1⟩)
+        exact ⟨hd, (hStopL _ _ (fill_congr ha R hd p K K' hK z.1) _).mp h1⟩)
     (fun R z h => by omega)
-    (GDr_leaf q ha hl Stop hStopL)
+    (GDr_leaf q ha Stop hStopL)
     (fun R x res hres => by
       have hdep : depth (restTable (PrefixGame.ov a (restDepth a R) R x)) a = restDepth a R :=
         (restDepth_eq a _).symm.trans (PrefixGame.restDepth_ov a R x)
@@ -215,7 +215,7 @@ theorem lower_mix_le_stop :
   simp only [mixLaw_restart] at h
   exact h.trans (add_le_add (probEvent_mono'' fun s hs => hs.1) le_rfl)
 
-include ha hl hmask hStopL in
+include ha hmask hStopL in
 /-- **Lower chains: contact after the stop, against the stop.** -/
 theorem lower_contactAfterStop_le (hq : q < 2 ^ 128) :
     (1 - (q : ENNReal) / 2 ^ 128) *
@@ -250,7 +250,7 @@ theorem lower_contactAfterStop_le (hq : q < 2 ^ 128) :
           realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (restartGame adversary q a Stop R)
             (fun _ _ => none)] + errC adversary q a)) := by
         gcongr
-        exact lower_cas_le_mix q ha hl Stop hmask hStopL
+        exact lower_cas_le_mix q ha Stop hmask hStopL
     _ = ∑' R, restLaw adversary R * ((1 - (q : ENNReal) / 2 ^ 128) * ((2 ^ 128 : ENNReal) * Pr[genCAS Stop a R |
           realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (restartGame adversary q a Stop R)
             (fun _ _ => none)])) + (1 - (q : ENNReal) / 2 ^ 128) * ((2 ^ 128 : ENNReal) * errC adversary q a) := by
@@ -272,7 +272,7 @@ theorem lower_contactAfterStop_le (hq : q < 2 ^ 128) :
     _ ≤ ((2 * q : ℕ) : ENNReal) * (Pr[fun s => ∃ k, Stop s.answers (s.trace.take k) | referenceExperiment adversary q] +
           errC adversary q a) + (2 ^ 128 : ENNReal) * errC adversary q a := by
         gcongr
-        exact lower_mix_le_stop q ha hl Stop hmask hStopL
+        exact lower_mix_le_stop q ha Stop hmask hStopL
     _ = _ := by ring
 
 /-! ### The charge, by layers -/
@@ -293,14 +293,14 @@ theorem count_coupled (R : RefTables adversary) (x : Hidden (restDepth a R))
       (stopAt Stop a R (evaluate x.1 (PrefixGame.ovSeed a R x.2))) res hres)
   exact congrArg PrefixView.count hview
 
-include ha hl hmask hStopL in
+include ha hmask hStopL in
 theorem lower_mix_layer_le (k : ℕ) :
     ∑' R, restLaw adversary R * Pr[fun r => k < 2 * seedCost a R r.2.1.2 ∧ genStop Stop a R r |
         realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (restartGame adversary q a Stop R)
           (fun _ _ => none)] ≤
       Pr[fun s => k < 2 * prefixCount a s ∧ ∃ k', Stop s.answers (s.trace.take k') | referenceExperiment adversary q] +
         errC adversary q a := by
-  have h := mix_le_ref q ha hl (GDr adversary q Stop) Prod.snd (GDr_snd q Stop)
+  have h := mix_le_ref q ha (GDr adversary q Stop) Prod.snd (GDr_snd q Stop)
     (fun s => k < 2 * prefixCount a s ∧ ∃ k', Stop s.answers (s.trace.take k'))
     (fun d R z => k < 2 * calls (PrefixGame.PrefixQuery a d) z.2.1.2.2 ∧
       Stop (PrefixGame.fillTable a R z.1) z.2.1.1)
@@ -310,15 +310,15 @@ theorem lower_mix_layer_le (k : ℕ) :
       constructor
       · rintro ⟨hk, h1⟩
         have hd := calls_pos_depth (a := a) (by omega : 0 < calls (PrefixGame.PrefixQuery a (restDepth a R)) z.2.1.2.2)
-        exact ⟨hk, (hStopL _ _ (fill_congr ha hl R hd p K K' hK z.1) _).mpr h1⟩
+        exact ⟨hk, (hStopL _ _ (fill_congr ha R hd p K K' hK z.1) _).mpr h1⟩
       · rintro ⟨hk, h1⟩
         have hd := calls_pos_depth (a := a) (by omega : 0 < calls (PrefixGame.PrefixQuery a (restDepth a R)) z.2.1.2.2)
-        exact ⟨hk, (hStopL _ _ (fill_congr ha hl R hd p K K' hK z.1) _).mp h1⟩)
+        exact ⟨hk, (hStopL _ _ (fill_congr ha R hd p K K' hK z.1) _).mp h1⟩)
     (fun R z h => by
       have := h.1
       rw [calls_prefixQuery_zero] at this
       omega)
-    (GDr_leaf q ha hl Stop hStopL)
+    (GDr_leaf q ha Stop hStopL)
     (fun R x res hres => by
       have hc := count_coupled q Stop R x res hres
       have hs := stop_coupled q a ha Stop hmask R x res hres
@@ -333,7 +333,7 @@ theorem lt_ite_iff (k n : ℕ) (P : Prop) [Decidable P] : k < (if P then n else 
   · exact ⟨fun hk => ⟨hk, h⟩, And.left⟩
   · exact ⟨fun hk => absurd hk (Nat.not_lt_zero k), fun hk => absurd hk.2 h⟩
 
-include ha hl hmask hStopL in
+include ha hmask hStopL in
 /-- **The charge: mixture ≤ reference + 2q · error** (lower chains). -/
 theorem lower_mix_charge_le :
     ∑' R, restLaw adversary R * ∑' r,
@@ -387,11 +387,11 @@ theorem lower_mix_charge_le :
     _ ≤ ∑ k ∈ Finset.range (2 * q),
           (Pr[fun s => k < 2 * prefixCount a s ∧ ∃ k', Stop s.answers (s.trace.take k') |
             referenceExperiment adversary q] + errC adversary q a) :=
-        Finset.sum_le_sum fun k _ => lower_mix_layer_le q ha hl Stop hmask hStopL k
+        Finset.sum_le_sum fun k _ => lower_mix_layer_le q ha Stop hmask hStopL k
     _ = _ := by
         rw [Finset.sum_add_distrib, Finset.sum_const, Finset.card_range, nsmul_eq_mul]
 
-include ha hl hmask hStopL in
+include ha hmask hStopL in
 /-- **Lower chains: contact after the stop, against the prefix charge.** -/
 theorem lower_contactAfterStop_charge (hq : q < 2 ^ 128) :
     (1 - (q : ENNReal) / 2 ^ 128) *
@@ -406,7 +406,7 @@ theorem lower_contactAfterStop_charge (hq : q < 2 ^ 128) :
           realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (restartGame adversary q a Stop R)
             (fun _ _ => none)] + errC adversary q a)) := by
         gcongr
-        exact lower_cas_le_mix q ha hl Stop hmask hStopL
+        exact lower_cas_le_mix q ha Stop hmask hStopL
     _ = ∑' R, restLaw adversary R * ((1 - (q : ENNReal) / 2 ^ 128) * ((2 ^ 128 : ENNReal) * Pr[genCAS Stop a R |
           realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (restartGame adversary q a Stop R)
             (fun _ _ => none)])) + (1 - (q : ENNReal) / 2 ^ 128) * ((2 ^ 128 : ENNReal) * errC adversary q a) := by
@@ -423,7 +423,7 @@ theorem lower_contactAfterStop_charge (hq : q < 2 ^ 128) :
           (if ∃ k, Stop s.answers (s.trace.take k) then 1 else 0)) + ((2 * q : ℕ) : ENNReal) * errC adversary q a) +
           1 * ((2 ^ 128 : ENNReal) * errC adversary q a) := by
         gcongr
-        exact lower_mix_charge_le q ha hl Stop hmask hStopL
+        exact lower_mix_charge_le q ha Stop hmask hStopL
     _ = _ := by ring
 end Restart
 
@@ -432,7 +432,7 @@ end Restart
 section Source
 variable (q : ℕ) {a : ChainAddr} (ha : WotsExtract.SourceChain a)
   (Stop : Answers → List Entry → Prop) (hmask : ∀ T trace, Stop (maskAt T a) trace ↔ Stop T trace)
-  (hStopL : a.key.lay ≠ 0 → ∀ T T', LeafCongr a.key T T' → ∀ trace, Stop T' trace ↔ Stop T trace)
+  (hStopL : ∀ T T', LeafCongr a.key T T' → ∀ trace, Stop T' trace ↔ Stop T trace)
 include ha hmask hStopL
 
 /-- **Source chains: contact after the stop, against the stop.** -/
@@ -440,10 +440,8 @@ theorem source_contactAfterStop_le (hq : q < 2 ^ 128) :
     (1 - (q : ENNReal) / 2 ^ 128) *
         ((2 ^ 128 : ENNReal) * Pr[fun s => ContactAfterStop Stop s.answers s.trace a | referenceExperiment adversary q]) ≤
       ((2 * q : ℕ) : ENNReal) * Pr[fun s => ∃ k, Stop s.answers (s.trace.take k) | referenceExperiment adversary q] +
-        ((2 ^ 128 : ENNReal) + ((2 * q : ℕ) : ENNReal)) * errC adversary q a := by
-  by_cases hl : a.key.lay = 0
-  · exact (reference_contactAfterStop_le adversary q hq a ha hl Stop hmask).trans le_self_add
-  · exact lower_contactAfterStop_le q ha hl Stop hmask (hStopL hl) hq
+        ((2 ^ 128 : ENNReal) + ((2 * q : ℕ) : ENNReal)) * errC adversary q a :=
+  lower_contactAfterStop_le q ha Stop hmask hStopL hq
 
 /-- **Source chains: contact after the stop, against the prefix charge.** -/
 theorem source_contactAfterStop_charge (hq : q < 2 ^ 128) :
@@ -451,16 +449,14 @@ theorem source_contactAfterStop_charge (hq : q < 2 ^ 128) :
         ((2 ^ 128 : ENNReal) * Pr[fun s => ContactAfterStop Stop s.answers s.trace a | referenceExperiment adversary q]) ≤
       ∑' s, referenceExperiment adversary q s * (((2 * prefixCount a s : ℕ) : ENNReal) *
         (if ∃ k, Stop s.answers (s.trace.take k) then 1 else 0)) +
-        ((2 ^ 128 : ENNReal) + ((2 * q : ℕ) : ENNReal)) * errC adversary q a := by
-  by_cases hl : a.key.lay = 0
-  · exact (reference_contactAfterStop_charge adversary q hq a ha hl Stop hmask).trans le_self_add
-  · exact lower_contactAfterStop_charge q ha hl Stop hmask (hStopL hl) hq
+        ((2 ^ 128 : ENNReal) + ((2 * q : ℕ) : ENNReal)) * errC adversary q a :=
+  lower_contactAfterStop_charge q ha Stop hmask hStopL hq
 end Source
 
 /-- Markers are invariant under the leaf congruence of their chain's leaf. -/
-theorem markerAt_stopL {a : ChainAddr} (ha : WotsExtract.SourceChain a) (hl : a.key.lay ≠ 0) :
+theorem markerAt_stopL {a : ChainAddr} (ha : WotsExtract.SourceChain a) :
     ∀ T T', LeafCongr a.key T T' → ∀ trace, MarkerAt T' trace a ↔ MarkerAt T trace a :=
-  fun _ _ hC trace => markerAt_leafCongr hC hl (source_bounds ha).2 trace a
+  fun _ _ hC trace => markerAt_leafCongr hC (source_bounds ha).2 trace a
 
 /-- **Source chains: contact after the marker, against the marker.** -/
 theorem source_markerFirst_at_le (q : ℕ) (hq : q < 2 ^ 128) (a : ChainAddr) (ha : WotsExtract.SourceChain a) :
@@ -471,7 +467,7 @@ theorem source_markerFirst_at_le (q : ℕ) (hq : q < 2 ^ 128) (a : ChainAddr) (h
         ((2 ^ 128 : ENNReal) + ((2 * q : ℕ) : ENNReal)) * errC adversary q a := by
   have h := source_contactAfterStop_le (adversary := adversary) q ha (fun T trace => MarkerAt T trace a)
     (fun T trace => markerAt_maskAt T trace a (sourceChain_maskOK a ha))
-    (fun hl => markerAt_stopL ha hl) hq
+    (markerAt_stopL ha) hq
   simpa only [markerAt_take_exists] using h
 
 /-! ### Size of the total seed-test error -/
@@ -497,32 +493,34 @@ theorem card_digest_real : (Fintype.card Digest : ℝ) = 2 ^ 128 := by
   push_cast
   ring
 
-/-- **The total seed-test error is cubic**: `errTot ≤ 0.290 · (q/2^128)^2` for `q ≤ 705 · 2^108`. -/
-theorem errTot_le_small (q : ℕ) (hs : q ≤ 705 * 2 ^ 108) :
-    errTot adversary q ≤ (290 / 1000 : ENNReal) * ((q : ENNReal) / 2 ^ 128) ^ 2 := by
+/-- **The total seed-test error is cubic**: `errTot ≤ 0.351 · (q/2^128)^2` for `q ≤ 2718 · 2^106` (campaign T8D: the
+leaf sum charges up to 54 chains per test query, the top leaves; it was 43 with lower leaves only; campaign T8E: split
+2718 · 2^106, 540 y0 / (1 - y0) = 0.35016). -/
+theorem errTot_le_small (q : ℕ) (hs : q ≤ 2718 * 2 ^ 106) :
+    errTot adversary q ≤ (351 / 1000 : ENNReal) * ((q : ENNReal) / 2 ^ 128) ^ 2 := by
   set t : ℝ := ((2 : ℝ) ^ 128)⁻¹ * q with ht
   have ht0 : 0 ≤ t := by positivity
-  have ht1 : t ≤ 705 / 2 ^ 20 := by
+  have ht1 : t ≤ 2718 / 2 ^ 22 := by
     rw [ht, inv_mul_le_iff₀ (by positivity)]
-    have : (q : ℝ) ≤ 705 * 2 ^ 108 := by exact_mod_cast hs
+    have : (q : ℝ) ≤ 2718 * 2 ^ 106 := by exact_mod_cast hs
     linarith
   have hpos : 0 < 1 - t := by linarith
   have hconst : errConst q = 2 * ((2 : ℝ) ^ 128)⁻¹ ^ 3 * ClaudeWCT.Arith.SideChannel.kconst q / (1 - t) := by
     unfold errConst
     rw [card_digest_real]
   have hc0 : 0 ≤ errConst q := by rw [hconst]; positivity
-  have hreal : errConst q * (43 * q) ≤ 290 / 1000 * ((q : ℝ) / 2 ^ 128) ^ 2 := by
+  have hreal : errConst q * (54 * q) ≤ 351 / 1000 * ((q : ℝ) / 2 ^ 128) ^ 2 := by
     rw [hconst, div_mul_eq_mul_div, div_le_iff₀ hpos]
     have hk := kconst_le q
-    calc 2 * ((2 : ℝ) ^ 128)⁻¹ ^ 3 * (ClaudeWCT.Arith.SideChannel.kconst q : ℝ) * (43 * q)
-        ≤ 2 * ((2 : ℝ) ^ 128)⁻¹ ^ 3 * (5 * (q : ℝ) ^ 2) * (43 * q) := by gcongr
-      _ = 430 * t ^ 3 := by rw [ht]; ring
-      _ ≤ 290 / 1000 * t ^ 2 * (1 - t) := by
-          have h1 : 0 ≤ 290 / 1000 - 430290 / 1000 * t := by
-            have : (430290 / 1000 : ℝ) * (705 / 2 ^ 20) ≤ 290 / 1000 := by norm_num
+    calc 2 * ((2 : ℝ) ^ 128)⁻¹ ^ 3 * (ClaudeWCT.Arith.SideChannel.kconst q : ℝ) * (54 * q)
+        ≤ 2 * ((2 : ℝ) ^ 128)⁻¹ ^ 3 * (5 * (q : ℝ) ^ 2) * (54 * q) := by gcongr
+      _ = 540 * t ^ 3 := by rw [ht]; ring
+      _ ≤ 351 / 1000 * t ^ 2 * (1 - t) := by
+          have h1 : 0 ≤ 351 / 1000 - 540351 / 1000 * t := by
+            have : (540351 / 1000 : ℝ) * (2718 / 2 ^ 22) ≤ 351 / 1000 := by norm_num
             nlinarith
           nlinarith [mul_nonneg (sq_nonneg t) h1]
-      _ = 290 / 1000 * ((q : ℝ) / 2 ^ 128) ^ 2 * (1 - t) := by rw [ht]; ring
+      _ = 351 / 1000 * ((q : ℝ) / 2 ^ 128) ^ 2 * (1 - t) := by rw [ht]; ring
   have hq1 : (Fintype.card Digest : ℝ)⁻¹ * q < 1 := by
     rw [card_digest_real]
     linarith

@@ -75,7 +75,7 @@ theorem enT_testRun_rec {L : LeafAddr} {a : ChainAddr} {R : RefTables adversary}
   rfl
 
 section ErrR
-variable {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.chain < chainCount L.lay) (hL0 : L.lay ≠ 0)
+variable {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.chain < chainCount L.lay)
   (hLleaf : L.leaf < 2 ^ 24) (R : RefTables adversary) (hd1 : 1 ≤ restDepth a R)
   {Res : Type} (G0 : Answers → OracleComp RefWorld Res)
   (hG : ∀ T T', LeafCongr L T T' → recorded (G0 T') = recorded (G0 T))
@@ -86,21 +86,21 @@ variable {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.chain < chain
 noncomputable def tcount (out : (Res × List RefWorld.Domain) × TObs (restDepth a R)) : ℕ :=
   calls (isTestQ L a (restDepth a R) (revSet L R)) out.1.2
 
-include haL hac hL0 hLleaf hd1 hG haF hGq in
+include haL hac hLleaf hd1 hG haF hGq in
 /-- **The error is charged to the expected test count.** -/
 theorem errR_le_count :
     errR (a := a) R (fun T => recorded (G0 T)) aF q * (1 - (Fintype.card Digest : ℝ)⁻¹ * q) ≤
       2 * ((Fintype.card Digest : ℝ)⁻¹) ^ 3 * ClaudeWCT.Arith.SideChannel.kconst q *
-        ∑ p : PData L (restDepth a R), ∑ K : Fin 17 → Digest,
-          (Fintype.card (Fin 17 → Digest) : ℝ)⁻¹ * ((Fintype.card (PData L (restDepth a R)) : ℝ)⁻¹ *
+        ∑ p : PData L (restDepth a R), ∑ K : Fin (WCT9.famCount L.lay) → Digest,
+          (Fintype.card (Fin (WCT9.famCount L.lay) → Digest) : ℝ)⁻¹ * ((Fintype.card (PData L (restDepth a R)) : ℝ)⁻¹ *
             exT (seedsY (ptL L) (revSet L R) K) (fun out => (tcount (L := L) (a := a) R out : ℝ))
               (testRun (fun T => recorded (G0 T)) aF p (seedsR (ptL L) (revSet L R) K))) := by
-  have hRev : (revSet L R).card + 3 ≤ 17 := by have := revSet_card_le hL0 R; omega
+  have hRev : (revSet L R).card + 3 ≤ WCT9.famCount L.lay := revSet_card_le R
   have hpt : Function.Injective (ptL L) := fun c c' h => Fin.ext (by unfold ptL at h; omega)
   have hsmall : ∀ c, ptL L c < 1024 := fun c => by
     unfold ptL; have := c.isLt; have := chainCount_le L.lay; omega
   set C : ℝ := 2 * ((Fintype.card Digest : ℝ)⁻¹) ^ 3 * ClaudeWCT.Arith.SideChannel.kconst q with hC
-  set cK : ℝ := (Fintype.card (Fin 17 → Digest) : ℝ)⁻¹
+  set cK : ℝ := (Fintype.card (Fin (WCT9.famCount L.lay) → Digest) : ℝ)⁻¹
   set cp : ℝ := (Fintype.card (PData L (restDepth a R)) : ℝ)⁻¹
   have hC0 : 0 ≤ C := mul_nonneg (mul_nonneg (by norm_num) (pow_nonneg (inv_nonneg.mpr (Nat.cast_nonneg _)) 3))
     (Nat.cast_nonneg _)
@@ -108,14 +108,14 @@ theorem errR_le_count :
   have hcp : 0 ≤ cp := inv_nonneg.mpr (Nat.cast_nonneg _)
   have e1 : errR (a := a) R (fun T => recorded (G0 T)) aF q =
       ∑ p : PData L (restDepth a R), (C * cK * cp) *
-        ∑ K : Fin 17 → Digest, amLen (testRun (fun T => recorded (G0 T)) aF p (seedsR (ptL L) (revSet L R) K)) := by
+        ∑ K : Fin (WCT9.famCount L.lay) → Digest, amLen (testRun (fun T => recorded (G0 T)) aF p (seedsR (ptL L) (revSet L R) K)) := by
     unfold errR
     simp only [Finset.mul_sum]
     refine Finset.sum_congr rfl fun p _ => Finset.sum_congr rfl fun K _ => by ring
-  have e2 : ∑ p : PData L (restDepth a R), ∑ K : Fin 17 → Digest, cK * (cp *
+  have e2 : ∑ p : PData L (restDepth a R), ∑ K : Fin (WCT9.famCount L.lay) → Digest, cK * (cp *
       exT (seedsY (ptL L) (revSet L R) K) (fun out => (tcount (L := L) (a := a) R out : ℝ))
         (testRun (fun T => recorded (G0 T)) aF p (seedsR (ptL L) (revSet L R) K))) =
-      ∑ p : PData L (restDepth a R), (cK * cp) * ∑ K : Fin 17 → Digest,
+      ∑ p : PData L (restDepth a R), (cK * cp) * ∑ K : Fin (WCT9.famCount L.lay) → Digest,
         enT (seedsY (ptL L) (revSet L R) K) (testRun (fun T => recorded (G0 T)) aF p (seedsR (ptL L) (revSet L R) K)) := by
     simp only [Finset.mul_sum]
     refine Finset.sum_congr rfl fun p _ => Finset.sum_congr rfl fun K _ => ?_
@@ -127,33 +127,33 @@ theorem errR_le_count :
   have hf := ClaudeWCT.Arith.SideChannel.family_amLen_le hpt hsmall hRev
     (fun r => testRun (fun T => recorded (G0 T)) aF p r) q
     (fun r => tdepth_testRun R (fun T => recorded (G0 T)) aF q hGq p r)
-  calc C * cK * cp * (∑ K : Fin 17 → Digest,
+  calc C * cK * cp * (∑ K : Fin (WCT9.famCount L.lay) → Digest,
         amLen (testRun (fun T => recorded (G0 T)) aF p (seedsR (ptL L) (revSet L R) K))) *
         (1 - (Fintype.card Digest : ℝ)⁻¹ * q)
-      = C * cK * cp * ((∑ K : Fin 17 → Digest,
+      = C * cK * cp * ((∑ K : Fin (WCT9.famCount L.lay) → Digest,
           amLen (testRun (fun T => recorded (G0 T)) aF p (seedsR (ptL L) (revSet L R) K))) *
           (1 - (Fintype.card Digest : ℝ)⁻¹ * q)) := by ring
-    _ ≤ C * cK * cp * ∑ K : Fin 17 → Digest,
+    _ ≤ C * cK * cp * ∑ K : Fin (WCT9.famCount L.lay) → Digest,
           enT (seedsY (ptL L) (revSet L R) K) (testRun (fun T => recorded (G0 T)) aF p (seedsR (ptL L) (revSet L R) K)) :=
         mul_le_mul_of_nonneg_left hf (mul_nonneg (mul_nonneg hC0 hcK) hcp)
-    _ = C * ((cK * cp) * ∑ K : Fin 17 → Digest,
+    _ = C * ((cK * cp) * ∑ K : Fin (WCT9.famCount L.lay) → Digest,
           enT (seedsY (ptL L) (revSet L R) K) (testRun (fun T => recorded (G0 T)) aF p (seedsR (ptL L) (revSet L R) K))) := by
         ring
 
-include haL hac hL0 hLleaf hd1 hG haF in
+include haL hac hLleaf hd1 hG haF in
 /-- The expected test count of the decomposed frozen law. -/
 theorem count_frozen :
-    ENNReal.ofReal (∑ p : PData L (restDepth a R), ∑ K : Fin 17 → Digest,
-          (Fintype.card (Fin 17 → Digest) : ℝ)⁻¹ * ((Fintype.card (PData L (restDepth a R)) : ℝ)⁻¹ *
+    ENNReal.ofReal (∑ p : PData L (restDepth a R), ∑ K : Fin (WCT9.famCount L.lay) → Digest,
+          (Fintype.card (Fin (WCT9.famCount L.lay) → Digest) : ℝ)⁻¹ * ((Fintype.card (PData L (restDepth a R)) : ℝ)⁻¹ *
             exT (seedsY (ptL L) (revSet L R) K) (fun out => (tcount (L := L) (a := a) R out : ℝ))
               (testRun (fun T => recorded (G0 T)) aF p (seedsR (ptL L) (revSet L R) K)))) =
       ∑' z, ((PMF.uniformOfFintype (LeafData L)).bind
         (fun y => frozenLaw a (restDepth a R) (ovL L R y) (fun T => recorded (G0 T)))) z *
           (tcount (L := L) (a := a) R z.2 : ℝ≥0∞) := by
-  rw [frozen_decomp haL hac hL0 hLleaf R hd1 (fun T => recorded (G0 T)) hG aF haF]
+  rw [frozen_decomp haL hac hLleaf R hd1 (fun T => recorded (G0 T)) hG aF haF]
   simp only [SphincsSecurity.Concrete.PartialChainEndpoint.expectation_bind,
     SphincsSecurity.Concrete.PartialChainEndpoint.expectation_map]
-  have hx : ∀ (K : Fin 17 → Digest) (p : PData L (restDepth a R)),
+  have hx : ∀ (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (restDepth a R)),
       ∑' out, evalT (seedsY (ptL L) (revSet L R) K)
         (testRun (fun T => recorded (G0 T)) aF p (seedsR (ptL L) (revSet L R) K)) out * (tcount (L := L) (a := a) R out : ℝ≥0∞) =
       ENNReal.ofReal (exT (seedsY (ptL L) (revSet L R) K) (fun out => (tcount (L := L) (a := a) R out : ℝ))
@@ -163,7 +163,7 @@ theorem count_frozen :
     simp only [ENNReal.ofReal_natCast]
   simp only [hx, tsum_fintype, PMF.uniformOfFintype_apply]
   rw [Finset.sum_comm]
-  have hnn : ∀ (K : Fin 17 → Digest) (p : PData L (restDepth a R)), 0 ≤ exT (seedsY (ptL L) (revSet L R) K)
+  have hnn : ∀ (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (restDepth a R)), 0 ≤ exT (seedsY (ptL L) (revSet L R) K)
       (fun out => (tcount (L := L) (a := a) R out : ℝ)) (testRun (fun T => recorded (G0 T)) aF p
         (seedsR (ptL L) (revSet L R) K)) := fun K p =>
     ClaudeWCT.Arith.SideChannel.exT_nonneg _ (fun _ => Nat.cast_nonneg _) _
@@ -246,10 +246,10 @@ theorem isTestQ_iff {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.ch
   · simp [isTestQ]
 
 theorem leafAgree_ov {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.chain < chainCount L.lay)
-    (hL0 : L.lay ≠ 0) (R : RefTables adversary) (x : Hidden (restDepth a R)) :
+    (R : RefTables adversary) (x : Hidden (restDepth a R)) :
     LeafAgree L (restTable R) (restTable (PrefixGame.ov a (restDepth a R) R x)) := by
   have hpriv : ∀ coord, restTable (PrefixGame.ov a (restDepth a R) R x) (.inr coord) = restTable R (.inr coord) :=
-    fun coord => PrefixGame.restTable_ov_private_lower a (by rw [haL]; exact hL0) R x coord
+    fun coord => PrefixGame.restTable_ov_private a R x coord
   refine ⟨fun q hq => ?_, fun o _ _ => ?_⟩
   · rcases q with (n | input) | coord
     · rfl
@@ -261,7 +261,7 @@ theorem leafAgree_ov {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.c
   · rw [eval_lowerSeedPair, eval_lowerSeedPair, hpriv]
 
 theorem NL_mkSample {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.chain < chainCount L.lay)
-    (hL0 : L.lay ≠ 0) (hLleaf : L.leaf < 2 ^ 24) (R : RefTables adversary) (x : Hidden (restDepth a R))
+    (hLleaf : L.leaf < 2 ^ 24) (R : RefTables adversary) (x : Hidden (restDepth a R))
     (run : SeedResult) :
     NL L (mkSample (restTable (PrefixGame.ov a (restDepth a R) R x)) run) =
       calls (isTestQ L a (restDepth a R) (revSet L R)) run.2 := by
@@ -269,20 +269,20 @@ theorem NL_mkSample {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.ch
   simp only
   rw [traceOf_filter_length]
   have hT : ∀ c : Fin (chainCount L.lay), depth (restTable (PrefixGame.ov a (restDepth a R) R x)) ⟨L, c⟩ =
-      depth (restTable R) ⟨L, c⟩ := fun c => depth_lay (leafAgree_ov haL hac hL0 R x) hL0 hLleaf rfl
+      depth (restTable R) ⟨L, c⟩ := fun c => depth_lay (leafAgree_ov haL hac R x) hLleaf rfl
   congr 1
   funext query
   exact propext (isTestQ_iff haL hac R _ hT query).symm
 
-theorem revSet_ovL {L : LeafAddr} (hL0 : L.lay ≠ 0) (hLleaf : L.leaf < 2 ^ 24) (R : RefTables adversary)
+theorem revSet_ovL {L : LeafAddr} (hLleaf : L.leaf < 2 ^ 24) (R : RefTables adversary)
     (y : LeafData L) : revSet L (ovL L R y) = revSet L R := by
   unfold revSet
   congr 1
   funext c
-  rw [depth_lay (leafAgree_ovL hLleaf R y) hL0 hLleaf rfl]
+  rw [depth_lay (leafAgree_ovL hLleaf R y) hLleaf rfl]
 
 section Charge
-variable {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.chain < chainCount L.lay) (hL0 : L.lay ≠ 0)
+variable {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.chain < chainCount L.lay)
   (hLleaf : L.leaf < 2 ^ 24) {Res : Type} (G0 : Answers → OracleComp RefWorld Res)
   (hG : ∀ T T', LeafCongr L T T' → recorded (G0 T') = recorded (G0 T)) (q : ℕ)
   (hGq : ∀ T, OracleComp.IsQueryBoundP (recorded (G0 T)) RefCharged q)
@@ -293,7 +293,7 @@ noncomputable def frozenCount (GD : Answers → OracleComp RefWorld (Res × List
   ∑' R, restLaw adversary R * ∑' z, frozenLaw a (restDepth a R) R GD z *
     (calls (isTestQ L a (restDepth a R) (revSet L R)) z.2.1.2 : ℝ≥0∞)
 
-include haL hac hL0 hLleaf hG hGq hq in
+include haL hac hLleaf hG hGq hq in
 theorem errAR_sum_le :
     ∑' R, restLaw adversary R * errAR a (haL ▸ hac) (fun T => recorded (G0 T)) q R ≤
       ENNReal.ofReal (2 * ((Fintype.card Digest : ℝ)⁻¹) ^ 3 * ClaudeWCT.Arith.SideChannel.kconst q /
@@ -321,17 +321,17 @@ theorem errAR_sum_le :
           (tcount (L := a.key) (a := a) R z.2 : ℝ≥0∞) := by
       intro y
       show Ψd (restDepth a (ovL a.key R y)) (ovL a.key R y) = _
-      rw [restDepth_ovL hL0 hLleaf a rfl R y]
-      simp only [Ψd, revSet_ovL hL0 hLleaf R y]
+      rw [restDepth_ovL hLleaf a rfl R y]
+      simp only [Ψd, revSet_ovL hLleaf R y]
       rfl
     simp only [hy]
     rw [← SphincsSecurity.Concrete.PartialChainEndpoint.expectation_bind,
-      ← count_frozen rfl hac hL0 hLleaf R hd1 G0 hG (selfF hac R hd1) rfl]
+      ← count_frozen rfl hac hLleaf R hd1 G0 hG (selfF hac R hd1) rfl]
     rw [← ENNReal.ofReal_mul (by
       rw [hC']; exact div_nonneg (mul_nonneg (mul_nonneg (by norm_num) (pow_nonneg (inv_nonneg.mpr
         (Nat.cast_nonneg _)) 3)) (Nat.cast_nonneg _)) hpos.le)]
     apply ENNReal.ofReal_le_ofReal
-    have h := errR_le_count rfl hac hL0 hLleaf R hd1 G0 hG (selfF hac R hd1) rfl q hGq
+    have h := errR_le_count rfl hac hLleaf R hd1 G0 hG (selfF hac R hd1) rfl q hGq
     rw [hC', div_mul_eq_mul_div, le_div_iff₀ hpos]
     exact h
   · exact bot_le
@@ -346,13 +346,13 @@ theorem seedGame_eq_gameD (q : ℕ) (a : ChainAddr) (R : RefTables adversary) (e
   rw [seedGame, gameD, GDseed]
 
 theorem reference_map_NL {L : LeafAddr} {a : ChainAddr} (q : ℕ) (ha : WotsExtract.SourceChain a)
-    (haL : a.key = L) (hac : a.chain < chainCount L.lay) (hL0 : L.lay ≠ 0) (hLleaf : L.leaf < 2 ^ 24) :
+    (haL : a.key = L) (hac : a.chain < chainCount L.lay) (hLleaf : L.leaf < 2 ^ 24) :
     (referenceExperiment adversary q).map (NL L) = (restLaw adversary).bind (fun R =>
       (frozenLaw a (restDepth a R) R (GDseed adversary q)).map
         (fun z => calls (isTestQ L a (restDepth a R) (revSet L R)) z.2.1.2)) := by
   rw [reference_map_eq_frozen adversary q a ha (NL L)
     (fun R z => calls (isTestQ L a (restDepth a R) (revSet L R)) z.2.1.2)
-    (fun R x res _ => NL_mkSample haL hac hL0 hLleaf R x res.1)]
+    (fun R x res _ => NL_mkSample haL hac hLleaf R x res.1)]
   congr 1
   funext R
   unfold frozenLaw
@@ -364,13 +364,13 @@ theorem reference_map_NL {L : LeafAddr} {a : ChainAddr} (q : ℕ) (ha : WotsExtr
 
 /-- **The frozen count is the reference count.** -/
 theorem frozenCount_eq {L : LeafAddr} {a : ChainAddr} (q : ℕ) (ha : WotsExtract.SourceChain a) (haL : a.key = L)
-    (hac : a.chain < chainCount L.lay) (hL0 : L.lay ≠ 0) (hLleaf : L.leaf < 2 ^ 24) :
+    (hac : a.chain < chainCount L.lay) (hLleaf : L.leaf < 2 ^ 24) :
     frozenCount (adversary := adversary) (L := L) (a := a) (GDseed adversary q) =
       ∑' s, referenceExperiment adversary q s * (NL L s : ℝ≥0∞) := by
   have e1 : ∑' s, referenceExperiment adversary q s * (NL L s : ℝ≥0∞) =
       ∑' n, ((referenceExperiment adversary q).map (NL L)) n * (n : ℝ≥0∞) := by
     rw [SphincsSecurity.Concrete.PartialChainEndpoint.expectation_map]
-  rw [e1, reference_map_NL q ha haL hac hL0 hLleaf, SphincsSecurity.Concrete.PartialChainEndpoint.expectation_bind]
+  rw [e1, reference_map_NL q ha haL hac hLleaf, SphincsSecurity.Concrete.PartialChainEndpoint.expectation_bind]
   simp only [SphincsSecurity.Concrete.PartialChainEndpoint.expectation_map]
   rfl
 
@@ -392,63 +392,54 @@ theorem stepZero_key_unique {L L' : LeafAddr} (hL : WotsExtract.SourceLeaf L) (h
   have := hal.eq_of_lt (hb L hL).1 (hb L hL).2 (hb L' hL').1 (hb L' hL').2
   exact this
 
-/-- Test count of chain `a` (its leaf's), zero for top chains. -/
-noncomputable def NLa (a : ChainAddr) (s : RefSample) : ℕ := if a.key.lay = 0 then 0 else NL a.key s
+/-- Test count of chain `a` (its leaf's). -/
+noncomputable def NLa (a : ChainAddr) (s : RefSample) : ℕ := NL a.key s
 
-/-- **Per-sample allocation:** every trace entry is a test query of at most one source leaf, whose `43` chains
-each count it. -/
+/-- **Per-sample allocation:** every trace entry is a test query of at most one source leaf, whose (at most `54`)
+chains each count it. -/
 theorem sum_NL_le (s : RefSample) :
-    ∑ a ∈ SigGolfCandidate.T3.Security.Wots.sourceChains, NLa a s ≤ 43 * s.trace.length := by
+    ∑ a ∈ SigGolfCandidate.T3.Security.Wots.sourceChains, NLa a s ≤ 54 * s.trace.length := by
   unfold NLa NL
   have hcount : ∀ e : Entry, ∑ a ∈ SigGolfCandidate.T3.Security.Wots.sourceChains,
-      (if a.key.lay = 0 then 0 else if StepZeroUnrev a.key s.answers e.1 then 1 else 0) ≤ 43 := by
+      (if StepZeroUnrev a.key s.answers e.1 then 1 else 0) ≤ 54 := by
     intro e
-    by_cases hex : ∃ a ∈ SigGolfCandidate.T3.Security.Wots.sourceChains, a.key.lay ≠ 0 ∧
-        StepZeroUnrev a.key s.answers e.1
-    · obtain ⟨a0, ha0, hl0, h0⟩ := hex
+    by_cases hex : ∃ a ∈ SigGolfCandidate.T3.Security.Wots.sourceChains, StepZeroUnrev a.key s.answers e.1
+    · obtain ⟨a0, ha0, h0⟩ := hex
       have hle : ∀ a ∈ SigGolfCandidate.T3.Security.Wots.sourceChains,
-          (if a.key.lay = 0 then 0 else if StepZeroUnrev a.key s.answers e.1 then 1 else 0) =
+          (if StepZeroUnrev a.key s.answers e.1 then 1 else 0) =
             if a ∈ (Finset.range (chainCount a0.key.lay)).image (fun c => (⟨a0.key, c⟩ : ChainAddr)) ∧
-              (a.key.lay ≠ 0 ∧ StepZeroUnrev a.key s.answers e.1) then 1 else 0 := by
+              StepZeroUnrev a.key s.answers e.1 then 1 else 0 := by
         intro a ha
-        by_cases h1 : a.key.lay = 0
-        · rw [if_pos h1, if_neg (fun h => h.2.1 h1)]
-        · rw [if_neg h1]
-          by_cases h2 : StepZeroUnrev a.key s.answers e.1
-          · have hs := (SigGolfCandidate.T3.Security.Wots.mem_sourceChains a).mp ha
-            have hs0 := (SigGolfCandidate.T3.Security.Wots.mem_sourceChains a0).mp ha0
-            have hk := stepZero_key_unique hs.1 hs0.1 h2 h0
-            rw [if_pos h2, if_pos]
-            refine ⟨Finset.mem_image.mpr ⟨a.chain, Finset.mem_range.mpr (hk ▸ hs.2), ?_⟩, h1, h2⟩
-            rw [← hk]
-          · rw [if_neg h2, if_neg (fun h => h2 h.2.2)]
+        by_cases h2 : StepZeroUnrev a.key s.answers e.1
+        · have hs := (SigGolfCandidate.T3.Security.Wots.mem_sourceChains a).mp ha
+          have hs0 := (SigGolfCandidate.T3.Security.Wots.mem_sourceChains a0).mp ha0
+          have hk := stepZero_key_unique hs.1 hs0.1 h2 h0
+          rw [if_pos h2, if_pos]
+          refine ⟨Finset.mem_image.mpr ⟨a.chain, Finset.mem_range.mpr (hk ▸ hs.2), ?_⟩, h2⟩
+          rw [← hk]
+        · rw [if_neg h2, if_neg (fun h => h2 h.2)]
       rw [Finset.sum_congr rfl hle, ← Finset.sum_filter, Finset.sum_const, smul_eq_mul, mul_one]
+      have h54 : chainCount a0.key.lay ≤ 54 := by generalize a0.key.lay = l; fin_cases l <;> decide
       calc (Finset.filter _ _).card
           ≤ ((Finset.range (chainCount a0.key.lay)).image (fun c => (⟨a0.key, c⟩ : ChainAddr))).card :=
             Finset.card_le_card (fun a ha => (Finset.mem_filter.mp ha).2.1)
         _ ≤ (Finset.range (chainCount a0.key.lay)).card := Finset.card_image_le
-        _ = 43 := by rw [Finset.card_range, ClaudeWCT.WCT9.Cost.chainCount_lower hl0]
+        _ ≤ 54 := by rw [Finset.card_range]; exact h54
     · push Not at hex
-      rw [Finset.sum_eq_zero (fun a ha => by
-        by_cases h1 : a.key.lay = 0
-        · rw [if_pos h1]
-        · rw [if_neg h1, if_neg (hex a ha h1)])]
+      rw [Finset.sum_eq_zero (fun a ha => by rw [if_neg (hex a ha)])]
       omega
   have key : ∀ (tr : List Entry), ∑ a ∈ SigGolfCandidate.T3.Security.Wots.sourceChains,
-      (if a.key.lay = 0 then 0 else (tr.filter fun e => decide (StepZeroUnrev a.key s.answers e.1)).length) ≤
-        43 * tr.length := by
+      (tr.filter fun e => decide (StepZeroUnrev a.key s.answers e.1)).length ≤ 54 * tr.length := by
     intro tr
     induction tr with
     | nil => simp
     | cons e tr ih =>
-        have hs : ∀ a : ChainAddr, (if a.key.lay = 0 then 0 else
-            (List.filter (fun e => decide (StepZeroUnrev a.key s.answers e.1)) (e :: tr)).length) =
-            (if a.key.lay = 0 then 0 else if StepZeroUnrev a.key s.answers e.1 then 1 else 0) +
-              (if a.key.lay = 0 then 0 else
-                (List.filter (fun e => decide (StepZeroUnrev a.key s.answers e.1)) tr).length) := by
+        have hs : ∀ a : ChainAddr,
+            (List.filter (fun e => decide (StepZeroUnrev a.key s.answers e.1)) (e :: tr)).length =
+              (if StepZeroUnrev a.key s.answers e.1 then 1 else 0) +
+                (List.filter (fun e => decide (StepZeroUnrev a.key s.answers e.1)) tr).length := by
           intro a
-          split_ifs with h0 h1
-          · rfl
+          split_ifs with h1
           · rw [List.filter_cons_of_pos (by simpa using h1), List.length_cons]
             omega
           · rw [List.filter_cons_of_neg (by simpa using h1), Nat.zero_add]
@@ -486,16 +477,16 @@ theorem ref_trace_length_le (adversary : AdversaryP) (q : Nat) (s : RefSample)
   obtain ⟨x, rfl, -⟩ := hq
   trivial
 
-/-- **The per-chain seed-test error**: zero for top chains. -/
+/-- **The per-chain seed-test error** (every source chain; top leaves are families since campaign T8D). -/
 noncomputable def errC (adversary : AdversaryP) (q : ℕ) (a : ChainAddr) : ℝ≥0∞ :=
-  if h : WotsExtract.SourceChain a ∧ a.key.lay ≠ 0 then
-    ∑' R, restLaw adversary R * errAR a h.1.2 (GDseed adversary q) q R
+  if h : WotsExtract.SourceChain a then
+    ∑' R, restLaw adversary R * errAR a h.2 (GDseed adversary q) q R
   else 0
 
-theorem GDseed_leaf {L : LeafAddr} (hL0 : L.lay ≠ 0) (hLleaf : L.leaf < 2 ^ 24) (hLtree : L.tree < 2 ^ 40)
+theorem GDseed_leaf {L : LeafAddr} (hLleaf : L.leaf < 2 ^ 24) (hLtree : L.tree < 2 ^ 40)
     (q : ℕ) (T T' : Answers) (h : LeafCongr L T T') : GDseed adversary q T' = GDseed adversary q T := by
   unfold GDseed
-  rw [referenceGame_leaf h hL0 hLleaf hLtree]
+  rw [referenceGame_leaf h hLleaf hLtree]
 
 theorem GDseed_queryBound (q : ℕ) (T : Answers) :
     OracleComp.IsQueryBoundP (GDseed adversary q T) RefCharged q :=
@@ -511,24 +502,23 @@ theorem errC_le (q : ℕ) (hq : (Fintype.card Digest : ℝ)⁻¹ * q < 1) (a : C
       ∑' s, referenceExperiment adversary q s * (NLa a s : ℝ≥0∞) := by
   unfold errC
   split_ifs with h
-  · obtain ⟨ha, hl⟩ := h
+  · have ha := h
     have hleaf : a.key.leaf < 2 ^ 24 := by
       have h1 := ha.1.2
       have h2 : 2 ^ height a.key.lay ≤ 2 ^ 24 := Nat.pow_le_pow_right (by norm_num) (by
         have := SigGolfCandidate.T3.Security.Wots.height_le a.key.lay; omega)
       omega
     have htree : a.key.tree < 2 ^ 40 := by have := ha.1.1; omega
-    have hNL : ∀ s, (NLa a s : ℝ≥0∞) = (NL a.key s : ℝ≥0∞) := fun s => by unfold NLa; rw [if_neg hl]
-    simp only [hNL]
-    rw [← frozenCount_eq q ha rfl ha.2 hl hleaf]
-    exact errAR_sum_le rfl ha.2 hl hleaf (fun T => referenceGame T adversary q)
-      (fun T T' h => GDseed_leaf hl hleaf htree q T T' h) q (fun T => GDseed_queryBound q T) hq
+    unfold NLa
+    rw [← frozenCount_eq q ha rfl ha.2 hleaf]
+    exact errAR_sum_le rfl ha.2 hleaf (fun T => referenceGame T adversary q)
+      (fun T T' h => GDseed_leaf hleaf htree q T T' h) q (fun T => GDseed_queryBound q T) hq
   · exact bot_le
 
 /-- **Total seed-test error.** -/
 theorem errC_sum_le (q : ℕ) (hq : (Fintype.card Digest : ℝ)⁻¹ * q < 1) :
     ∑ a ∈ SigGolfCandidate.T3.Security.Wots.sourceChains, errC adversary q a ≤
-      ENNReal.ofReal (errConst q) * (43 * q) := by
+      ENNReal.ofReal (errConst q) * (54 * q) := by
   calc ∑ a ∈ SigGolfCandidate.T3.Security.Wots.sourceChains, errC adversary q a
       ≤ ∑ a ∈ SigGolfCandidate.T3.Security.Wots.sourceChains, ENNReal.ofReal (errConst q) *
           ∑' s, referenceExperiment adversary q s * (NLa a s : ℝ≥0∞) :=
@@ -540,22 +530,22 @@ theorem errC_sum_le (q : ℕ) (hq : (Fintype.card Digest : ℝ)⁻¹ * q < 1) :
         rw [← Summable.tsum_finsetSum (fun _ _ => ENNReal.summable)]
         refine tsum_congr fun s => ?_
         rw [Nat.cast_sum, Finset.mul_sum]
-    _ ≤ ENNReal.ofReal (errConst q) * (43 * q) := by
+    _ ≤ ENNReal.ofReal (errConst q) * (54 * q) := by
         refine mul_le_mul' le_rfl ?_
         calc ∑' s, referenceExperiment adversary q s *
               ((∑ a ∈ SigGolfCandidate.T3.Security.Wots.sourceChains, NLa a s : ℕ) : ℝ≥0∞)
-            ≤ ∑' s, referenceExperiment adversary q s * (43 * q) := by
+            ≤ ∑' s, referenceExperiment adversary q s * (54 * q) := by
               refine ENNReal.tsum_le_tsum fun s => ?_
               by_cases hs : s ∈ (referenceExperiment adversary q).support
               · refine mul_le_mul' le_rfl ?_
                 have h1 := sum_NL_le s
                 have h2 := ref_trace_length_le adversary q s hs
-                have : ∑ a ∈ SigGolfCandidate.T3.Security.Wots.sourceChains, NLa a s ≤ 43 * q := by
-                  calc _ ≤ 43 * s.trace.length := h1
-                    _ ≤ 43 * q := Nat.mul_le_mul_left 43 h2
+                have : ∑ a ∈ SigGolfCandidate.T3.Security.Wots.sourceChains, NLa a s ≤ 54 * q := by
+                  calc _ ≤ 54 * s.trace.length := h1
+                    _ ≤ 54 * q := Nat.mul_le_mul_left 54 h2
                 exact_mod_cast this
               · rw [(PMF.apply_eq_zero_iff _ s).mpr hs, zero_mul, zero_mul]
-          _ = 43 * q := by rw [ENNReal.tsum_mul_right, PMF.tsum_coe, one_mul]
+          _ = 54 * q := by rw [ENNReal.tsum_mul_right, PMF.tsum_coe, one_mul]
 
 end Leaf
 end ClaudeWCT.W9.T3.Security.Wots

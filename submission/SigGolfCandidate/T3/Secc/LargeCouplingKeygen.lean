@@ -105,17 +105,6 @@ theorem Coherent.region (hcoh : Coherent U T vals nv τ a) :
   intro level node hl hl' hn
   rw [hcoh.topValue_eq level node hl hl' hn, hcoh.mask_eq]
   rfl
-theorem rootNode_coord : treeChild 0 0 12 0 = some (.inl (.node (rootNode 0 0))) := by
-  unfold treeChild treeNodeAt
-  rw [if_neg (by decide), dif_pos (by simp [height])]
-  rfl
-theorem Coherent.pk (hcoh : Coherent U T vals nv τ a) :
-    keyValues vals (.inl (.node (rootNode 0 0))) = (evalWithAnswerFn T keygen).1 := by
-  rw [Extract.keygen_pk, honestRoot_label hcoh.agrees 0 ⟨0, by decide⟩]
-  have hmem := treeChild_mem_keygen 12 0 (by decide) le_rfl (by decide) _ rootNode_coord
-  unfold keyValues
-  rw [lookupVal_map vals keygenDisclosed _ hmem]
-  exact (joinLabels_low (fun N => vals (.inl N)) a.high _).symm
 theorem Coherent.published (hcoh : Coherent U T vals nv τ a) :
     (⟨macOf a (Correctness.cacheRegion fun level node =>
         topValue (keyValues vals) level node ^^^ maskOf a level node),

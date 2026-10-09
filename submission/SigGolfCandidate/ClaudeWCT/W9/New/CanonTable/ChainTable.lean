@@ -96,11 +96,11 @@ theorem cell_outer (secrets secrets' : Secrets) (labels labels' : Labels)
     (node : Node) (hnode : ∀ q, node ≠ .wctChain q) :
     cell secrets node labels = cell secrets' node labels' := by
   have hseeds : seedsOf secrets = seedsOf secrets' := by
-    have hf : lowerFamily secrets = lowerFamily secrets' :=
+    have hf : leafFamily secrets = leafFamily secrets' :=
       funext fun lay => funext fun tree => funext fun leaf => funext fun j => hs _
     funext a
     unfold seedsOf
-    rw [hs a, hf]
+    rw [hf]
   have hchain : chainLabels labels = chainLabels labels' :=
     funext fun point => hl _ (fun ⟨a, q, _, he⟩ => Node.noConfusion he)
   cases node with

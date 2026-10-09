@@ -57,18 +57,4 @@ theorem overwrite_bind {ι C A R : Type} [Fintype ι] [Fintype C] [Fintype A] [N
   rw [evalSPMF_unused (ι → A)]
   exact evalSPMF_bind_comm _ _ _
 end Tables
-section Law
-attribute [local instance] Classical.propDecidable
-open SigGolfCandidate.T3.Security.LargeCoupling.Samplers
-theorem others_bind {R : Type} (next : OtherHalves → ProbComp R) :
-    𝒮[($ᵗ OtherHalves : ProbComp _) >>= next] =
-      𝒮[($ᵗ FullGame.FullTable : ProbComp _) >>= fun priv => ($ᵗ (Message → Digest) : ProbComp _) >>= fun nv =>
-        next (nonceOver (privateEquiv priv).2 nv)] := by
-  rw [private_bind (fun priv => ($ᵗ (Message → Digest) : ProbComp _) >>= fun nv =>
-    next (nonceOver (privateEquiv priv).2 nv))]
-  simp only [Equiv.apply_symm_apply]
-  rw [evalSPMF_unused Secrets]
-  unfold nonceOver
-  rw [overwrite_bind nonceHalf nonceHalf_injective next]
-end Law
 end SigGolfCandidate.T3.Security.LargeCoupling

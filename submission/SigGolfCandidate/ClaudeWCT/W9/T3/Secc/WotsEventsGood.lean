@@ -9,8 +9,4 @@ open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open ClaudeWCT.W9.T3M (wrho wdc)
 open SigGolfCandidate.T3.Correctness (Answers)
-def VerifierAllGood (answers : Answers) (publicKey : Digest) (forgery : ForgeryP) : Prop :=
-  ∃ message witness N, PaddedExtraction.WitnessOf answers publicKey forgery message witness ∧
-    evalWithAnswerFn answers (digest (wrho witness) message (wdc witness)) = N ∧
-    (∀ l : Layer, BC.GoodZ answers witness (WCT9.digestIndex N) l) ∧ WctExtract.WctHonest answers N witness
 end ClaudeWCT.W9.T3.Security.Wots

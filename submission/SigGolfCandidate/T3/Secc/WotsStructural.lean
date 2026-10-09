@@ -372,40 +372,8 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-def OtherInput (answers : Answers) (input : HashInput) : Prop :=
-  ∃ position, Extract.posOf input = some position ∧ position.Bounded ∧ WotsExtract.PosSource position ∧
-    StructuralClass answers input position
-def OtherQuery (answers : Answers) : T3.Spec.Domain → Prop
-  | .inl (.inr input) => OtherInput answers input
-  | _ => False
-noncomputable def otherCount (sample : RefSample) : Nat :=
-  (sample.trace.filter fun e => decide (OtherQuery sample.answers (.inl (.inr e.1)))).length
-def TraceInUniverse (adversary : AdversaryP) (q : Nat) : Prop :=
-  ∀ sample ∈ (referenceExperiment adversary q).support, ∀ entry ∈ sample.trace,
-    entry.1 ∈ referenceInputs adversary
-def StructuralHitIn (inputs : Finset HashInput) (answers : Answers) (trace : List Entry) : Prop :=
-  ∃ position input answer, (input, answer) ∈ trace ∧ input ∈ inputs ∧ Extract.posOf input = some position ∧
-    position.Bounded ∧ WotsExtract.PosSource position ∧ StructuralClass answers input position ∧
-    HashHit answers (Extract.honestInput answers position) input
 namespace Structural
 open CanonGraph (Node Labels Secrets OtherHalves cell programmed canonInputs privateEquiv)
-theorem exists_node_of_posSource {p : Extract.Pos} (h : WotsExtract.PosSource p) : ∃ node : Node, node.toPos = p := by
-  apply CanonGraph.exists_toPos
-  cases p with
-  | chain lay tree leaf i step =>
-      obtain ⟨h1, h2, h3, h4⟩ := h
-      have hh : 2 ^ height lay ≤ 2 ^ 12 := Nat.pow_le_pow_right (by decide) (Extract.height_le lay)
-      have hw : 2 ^ width lay i ≤ 2 ^ 3 := Nat.pow_le_pow_right (by decide) (Extract.width_le lay i)
-      have hc := Extract.chainCount_le lay
-      exact ⟨h1, by omega, by omega, by omega⟩
-  | leaf lay tree leaf =>
-      obtain ⟨h1, h2⟩ := h
-      have hh : 2 ^ height lay ≤ 2 ^ 12 := Nat.pow_le_pow_right (by decide) (Extract.height_le lay)
-      exact ⟨h1, by omega⟩
-  | node lay tree level nd => exact h
-  | forest index => exact h
-  | ftsLeaf index coord leaf => exact h
-  | ftsNode index coord level nd => exact h
 section Fixed
 variable (V : Finset HashInput) (hU : canonInputs ⊆ V) (s : Secrets) (o : OtherHalves) (labels : Labels)
 noncomputable def strRows : Finset HashInput :=
@@ -414,58 +382,11 @@ theorem mem_strRows (x : HashInput) :
     x ∈ strRows V s labels ↔ x ∈ V ∧ ∃ node : Node, Extract.posOf x = some node.toPos ∧ x ≠ cell s node labels :=
   Finset.mem_filter
 def strEmbed : strRows V s labels → V := fun x => ⟨x.val, ((mem_strRows V s labels x.val).mp x.property).1⟩
-theorem strEmbed_injective : Function.Injective (strEmbed V s labels) := by
-  intro a b h
-  exact Subtype.ext (congrArg (fun y : V => y.val) h)
 abbrev Rest := SphincsSecurity.Concrete.UniformTableSplit.Outside (strEmbed V s labels) → HashOutput
-noncomputable def strTable (rest : Rest V s labels) (ρ : strRows V s labels → HashOutput) : Answers :=
-  eagerAnswers V (privateEquiv.symm (s, o))
-    (programmed V hU s labels
-      (SphincsSecurity.Concrete.UniformTableSplit.join (strEmbed V s labels) (strEmbed_injective V s labels) ρ rest))
 variable (rest : Rest V s labels)
-theorem strTable_eq_canon (ρ : strRows V s labels → HashOutput) :
-    strTable V hU s o labels rest ρ = CanonGraph.eagerAnswers (privateEquiv.symm (s, o)) V
-      (programmed V hU s labels
-        (SphincsSecurity.Concrete.UniformTableSplit.join (strEmbed V s labels) (strEmbed_injective V s labels) ρ rest)) := by
-  funext query
-  rcases query with (n | x) | c <;> rfl
-theorem secretsOf_strTable (ρ : strRows V s labels → HashOutput) :
-    CanonGraph.secretsOf (strTable V hU s o labels rest ρ) = s := by
-  rw [strTable_eq_canon, CanonGraph.secretsOf_eager, CanonGraph.privateSecrets_symm]
-theorem strTable_public_mem (ρ : strRows V s labels → HashOutput) (x : HashInput) (hx : x ∈ V) :
-    strTable V hU s o labels rest ρ (.inl (.inr x)) =
-      programmed V hU s labels
-        (SphincsSecurity.Concrete.UniformTableSplit.join (strEmbed V s labels) (strEmbed_injective V s labels) ρ rest)
-        ⟨x, hx⟩ :=
-  SphincsSecurity.Concrete.finiteHashAnswer_none ∅ V _ x hx rfl
-def strHit (T0 : Answers) (x : HashInput) (a : HashOutput) : Prop :=
-  x ∈ strRows V s labels ∧ OtherInput T0 x ∧ ∃ node : Node, Extract.posOf x = some node.toPos ∧ low a = low (labels node)
 theorem card_digest : (Fintype.card SphincsSecurity.Digest : ℝ≥0∞) = 2 ^ 128 := by
   simp [SphincsSecurity.digestBits]
   norm_num
-theorem strHit_kernel (T0 : Answers) (x : HashInput) (hx : x ∈ strRows V s labels) :
-    Pr[strHit V s labels T0 x | (liftM (PMF.uniformOfFintype HashOutput) : SPMF HashOutput)] ≤
-      (2 ^ 128 : ℝ≥0∞)⁻¹ * (if OtherInput T0 x then 1 else 0 : ℝ≥0∞) := by
-  by_cases hO : OtherInput T0 x
-  · rw [if_pos hO, mul_one]
-    obtain ⟨-, node₀, hpos₀, -⟩ := (mem_strRows V s labels x).mp hx
-    calc Pr[strHit V s labels T0 x | (liftM (PMF.uniformOfFintype HashOutput) : SPMF HashOutput)]
-        ≤ Pr[fun a : HashOutput => SphincsSecurity.truncateHash a = low (labels node₀) |
-            PMF.uniformOfFintype HashOutput] := by
-          apply probEvent_mono
-          rintro a - ⟨-, -, node, hpos, hlow⟩
-          have hn : node = node₀ :=
-            CanonGraph.toPos_injective (Option.some.inj (hpos.symm.trans hpos₀))
-          subst hn
-          exact hlow
-      _ = (2 ^ 128 : ℝ≥0∞)⁻¹ := by
-          have h := SphincsSecurity.Concrete.HiddenLabelProbe.prob_truncate_eq (low (labels node₀))
-          rw [card_digest] at h
-          exact h
-  · have hz : Pr[strHit V s labels T0 x | (liftM (PMF.uniformOfFintype HashOutput) : SPMF HashOutput)] = 0 :=
-      probEvent_eq_zero fun _ _ h => hO h.2.1
-    rw [hz]
-    exact bot_le
 theorem mem_traceOf {T : Answers} {qs : List RefWorld.Domain} {e : Entry} (he : e ∈ traceOf T qs) :
     e.2 = T (.inl (.inr e.1)) := by
   unfold traceOf at he
@@ -476,31 +397,6 @@ theorem mem_traceOf {T : Answers} {qs : List RefWorld.Domain} {e : Entry} (he : 
     rw [← hq]
   · simp at hq
 end Fixed
-noncomputable def sampleComp (adversary : AdversaryP) (q : Nat) (T : Answers) : ProbComp RefSample :=
-  (fun run => (⟨T, (evalWithAnswerFn T keygen).1, traceOf T run.2⟩ : RefSample)) <$> offlineRun T adversary q
-section Bound
-variable (adversary : AdversaryP) (q : Nat) (V : Finset HashInput) (hU : canonInputs ⊆ V) (s : Secrets)
-  (o : OtherHalves) (labels : Labels) (rest : Rest V s labels)
-theorem recorded_pair (ρ : strRows V s labels → HashOutput) :
-    (fun run => (run.1, traceOf (strTable V hU s o labels rest ρ) run.2)) <$>
-        𝒮[simulateQ (refImpl (strTable V hU s o labels rest ρ))
-          (SphincsSecurity.QueryCap.recorded (referenceGame (strTable V hU s o labels rest (fun _ => 0)) adversary q))] =
-      (fun r => (r.1, r.2.toList)) <$>
-        𝒮[simulateQ (refImpl (strTable V hU s o labels rest ρ))
-          (SphincsSecurity.QueryPause.traced refObs (referenceGame (strTable V hU s o labels rest (fun _ => 0)) adversary q))] := by
-  rw [← evalSPMF_map, ← evalSPMF_map, recorded_traced]
-end Bound
-def BoundOn (V : Finset HashInput) (p : SPMF RefSample) : Prop :=
-  Pr[fun sample => StructuralHitIn V sample.answers sample.trace | p] ≤
-    (2 ^ 128 : ℝ≥0∞)⁻¹ * ∑' sample, Pr[= sample | p] * (otherCount sample : ℝ≥0∞)
-theorem boundOn_bind {X : Type} (V : Finset HashInput) (μ : SPMF X) (K : X → SPMF RefSample)
-    (h : ∀ x, BoundOn V (K x)) : BoundOn V (μ >>= K) := by
-  unfold BoundOn
-  rw [probEvent_bind_eq_tsum, tsum_probOutput_bind_mul]
-  calc (∑' x, Pr[= x | μ] * Pr[fun sample => StructuralHitIn V sample.answers sample.trace | K x])
-      ≤ ∑' x, Pr[= x | μ] * ((2 ^ 128 : ℝ≥0∞)⁻¹ * ∑' sample, Pr[= sample | K x] * (otherCount sample : ℝ≥0∞)) :=
-        ENNReal.tsum_le_tsum fun x => mul_le_mul' le_rfl (h x)
-    _ = _ := by simp only [mul_left_comm _ (2 ^ 128 : ℝ≥0∞)⁻¹, ENNReal.tsum_mul_left]
 theorem uniform_split_bind {Index Cell R : Type} [Fintype Index] [Fintype Cell] [DecidableEq Index]
     [DecidableEq Cell] (embed : Index → Cell) (hinj : Function.Injective embed) (g : (Cell → HashOutput) → SPMF R) :
     ((liftM (PMF.uniformOfFintype (Cell → HashOutput)) : SPMF (Cell → HashOutput)) >>= g) =
@@ -511,21 +407,6 @@ theorem uniform_split_bind {Index Cell R : Type} [Fintype Index] [Fintype Cell] 
   rw [SphincsSecurity.Concrete.UniformTableSplit.uniform_join embed hinj, ← PMF.monad_bind_eq_bind, liftM_bind]
   simp only [← PMF.monad_map_eq_map, liftM_map, bind_assoc, bind_map_left]
   exact SphincsSecurity.Concrete.RetainedObservation.bind_comm _ _ _
-section Assembly
-noncomputable local instance instFintypeCoordinate_wotsStructural : Fintype Coordinate := coordinateFintype
-noncomputable local instance instSampleableTypeFullTable_wotsStructural : SampleableType FullGame.FullTable := Derivation.outputSampler Coordinate
-theorem referenceInputs_canon (adversary : AdversaryP) : canonInputs ⊆ referenceInputs adversary := by
-  unfold referenceInputs
-  exact CanonGraph.canonInputs_subset_publicUniverse.trans Finset.subset_union_left
-theorem referenceComp_spmf (adversary : AdversaryP) (q : Nat) :
-    𝒮[referenceComp adversary q] =
-      ((liftM (PMF.uniformOfFintype FullGame.FullTable) : SPMF _) >>= fun pt =>
-        (liftM (PMF.uniformOfFintype (referenceInputs adversary → HashOutput)) : SPMF _) >>= fun pub =>
-          𝒮[sampleComp adversary q (eagerAnswers (referenceInputs adversary) pt pub)]) := by
-  unfold referenceComp
-  simp only [evalSPMF_bind, evalSPMF_uniformSample]
-  rfl
-end Assembly
 end Structural
 theorem liftM_pmf_apply {α : Type} (p : ProbComp α) (x : α) : (liftM p : PMF α) x = Pr[= x | 𝒮[p]] := by
   rw [← PMF.probOutput_eq_apply]
@@ -539,7 +420,5 @@ theorem mem_support_liftM_pmf {α : Type} (p : ProbComp α) (x : α) (hx : x ∈
   rw [PMF.mem_support_iff, ← PMF.probOutput_eq_apply]
   change Pr[= x | p] ≠ 0
   exact (mem_support_iff _ _).mp hx
-theorem referenceExperiment_eq (adversary : AdversaryP) (q : Nat) :
-    referenceExperiment adversary q = liftM (referenceComp adversary q) := rfl
 end SigGolfCandidate.T3.Security.Wots
 end

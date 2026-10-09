@@ -112,10 +112,10 @@ theorem wordCredit_top (v : Digest) : wordCredit 0 (dataDigits 0 v) = topCredit 
     split_ifs <;> simp_all
   · simp only [maxDigit, h51, if_true, if_false]
     split_ifs <;> simp_all
-theorem decode_top_eq (v : Digest) : decode 0 v = if 2 ^ 125 ≤ v.toNat then none else
+theorem decode_top_eq (v : Digest) : decode 0 v = if 2 ^ 128 ≤ v.toNat then none else
     if topRanksValid v = true ∧ (dataDigits 0 v).sum = target 0 then some (dataDigits 0 v) else none := by
   simp only [decode, encodedBits, if_true]
-  by_cases h1 : 2 ^ 125 ≤ v.toNat
+  by_cases h1 : 2 ^ 128 ≤ v.toNat
   · simp
   · simp only [h1, if_false]
     by_cases h2 : topRanksValid v = true ∧ (dataDigits 0 v).sum = target 0
@@ -130,7 +130,7 @@ theorem producerDecode_top_isSome_iff (v : Digest) :
   rw [decode_top_eq]
   constructor
   · intro h
-    by_cases h1 : 2 ^ 125 ≤ v.toNat
+    by_cases h1 : 2 ^ 128 ≤ v.toNat
     · rw [if_pos h1] at h; simp at h
     · rw [if_neg h1] at h
       by_cases h2 : topRanksValid v = true ∧ (dataDigits 0 v).sum = target 0
@@ -138,7 +138,7 @@ theorem producerDecode_top_isSome_iff (v : Digest) :
         simp only at h
         split_ifs at h with h3
         · obtain ⟨w, hw⟩ := Option.isSome_iff_exists.mp
-            ((SigGolfCandidate.T3.Nonbinary.parse_top_isSome_iff v).mpr ⟨by omega, h2.1⟩)
+            ((SigGolfCandidate.T3.Nonbinary.parse_top_isSome_iff v).mpr h2.1)
           refine ⟨w, hw, ?_, ?_⟩
           · rw [← SigGolfCandidate.T3.Nonbinary.wordDigits_sum, ← SigGolfCandidate.T3.Nonbinary.dataDigits_parse hw]
             exact h2.2
@@ -149,10 +149,10 @@ theorem producerDecode_top_isSome_iff (v : Digest) :
   · rintro ⟨w, hw, hweight, hcredit⟩
     have hp := (SigGolfCandidate.T3.Nonbinary.parse_top_isSome_iff v).mp (by rw [hw]; rfl)
     have h2 : topRanksValid v = true ∧ (dataDigits 0 v).sum = target 0 := by
-      refine ⟨hp.2, ?_⟩
+      refine ⟨hp, ?_⟩
       rw [SigGolfCandidate.T3.Nonbinary.dataDigits_parse hw, SigGolfCandidate.T3.Nonbinary.wordDigits_sum]
       exact hweight
-    rw [if_neg (by omega), if_pos h2]
+    rw [if_neg (Nat.not_le.mpr v.isLt), if_pos h2]
     simp only
     rw [if_pos (by rw [wordCredit_top, SigGolfCandidate.T3.Nonbinary.topCredit_parse hw]; exact hcredit)]
     rfl
@@ -165,14 +165,15 @@ theorem card_producer_top (T f n : ℕ) (hT : target 0 = T) (hf : producerFloor 
   simp only [mem_filter, mem_univ, true_and]
   rw [producerDecode_top_isSome_iff, hT, hf]
   rfl
-def producerCount (lay : Layer) : ℕ := ![V5.topCount129, V5.lowerCount198f5, V5.lowerCount198f5, V5.lowerCount199f4] lay
+def producerCount (lay : Layer) : ℕ :=
+  ![V5.topCount144, V5.lowerCount199f5, V5.lowerCount199f5, V5.lowerCount199f4] lay
 theorem card_producerDecode (lay : Layer) :
     (univ.filter fun v : Digest => (producerDecode lay v).isSome).card = producerCount lay := by
   fin_cases lay
-  · exact card_producer_top 129 9 _ rfl rfl ClaudeWCT.Numerics.TopCredit.credited_card_129_9
-  · exact card_producer_lower 1 (by decide) 198 5 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_198_5
-  · exact card_producer_lower 2 (by decide) 198 5 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_198_5
-  · exact card_producer_lower 3 (by decide) 199 5 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_199_5
+  · exact card_producer_top 144 8 _ rfl rfl ClaudeWCT.Numerics.TopCredit.credited_card_144_8
+  · exact card_producer_lower 1 (by decide) 199 5 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_199_5
+  · exact card_producer_lower 2 (by decide) 199 5 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_199_5
+  · exact card_producer_lower 3 (by decide) 199 4 _ rfl rfl ClaudeWCT.Numerics.LowerCredit.card_lowerAcceptS1_199_4
 theorem producer_uniform_probability (lay : Layer) :
     Pr[fun answer => (producerEncodingDecode lay answer).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] =
       (producerCount lay : ENNReal) / 2 ^ 128 := by
@@ -189,7 +190,7 @@ theorem producer_uniform_probability (lay : Layer) :
 noncomputable def producerRate (lay : Layer) : ℝ := (producerCount lay : ℝ) / 2 ^ 128
 theorem producerRate_bounds (lay : Layer) : 1 / 8192 ≤ producerRate lay ∧ producerRate lay ≤ 1 := by
   fin_cases lay <;>
-    norm_num [producerRate, producerCount, V5.topCount129, V5.lowerCount198f5, V5.lowerCount199f4]
+    norm_num [producerRate, producerCount, V5.topCount144, V5.lowerCount199f5, V5.lowerCount199f4]
 theorem producer_failMass (lay : Layer) :
     failMass (producerEncodingDecode lay) = ENNReal.ofReal (1 - producerRate lay) := by
   rw [SigGolfCandidate.T3.Budgets.failMass_eq_one_sub_accept, producer_uniform_probability,
@@ -203,7 +204,7 @@ theorem producer_failure_power (lay : Layer) :
   fin_cases lay
   · exact (ClaudeWCT.W9.T3.Budgets.V5.top_failure_power _ hp).trans
       (by gcongr <;> norm_num)
-  · exact ClaudeWCT.W9.T3.Budgets.V5.lower198_failure_power _ hp
-  · exact ClaudeWCT.W9.T3.Budgets.V5.lower198_failure_power _ hp
+  · exact ClaudeWCT.W9.T3.Budgets.V5.lower199f5_failure_power _ hp
+  · exact ClaudeWCT.W9.T3.Budgets.V5.lower199f5_failure_power _ hp
   · exact ClaudeWCT.W9.T3.Budgets.V5.lower199f4_failure_power _ hp
 end ClaudeWCT.W9.T3.ProducerV5

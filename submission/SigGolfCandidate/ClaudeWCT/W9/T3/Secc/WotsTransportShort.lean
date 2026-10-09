@@ -13,12 +13,6 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 set_option linter.unnecessarySimpa false
 attribute [local instance] Classical.propDecidable
-theorem forestPk_respects (index : Nat) (pairs : List (Digest × Digest)) (hlen : pairs.length ≤ 100) :
-    ShortRespects (ClaudeWCT.WCT9.forestPk index pairs) :=
-  ClaudeWCT.WCT9.Wots.Ref.forestPk_respects index pairs hlen
-theorem signForest_respects (index : Nat) (output : HashOutput) :
-    ShortRespects (ClaudeWCT.WCT9.signForest index output) :=
-  ClaudeWCT.WCT9.Wots.Ref.signForest_respects index output
 section objects
 variable {A T : Answers} (hAT : ShortAgree A T)
 include hAT
@@ -27,14 +21,11 @@ theorem honestForest_short (index : Nat) : Extract.honestForest A index = Extrac
   exact ClaudeWCT.WCT9.Wots.honestForest_congr (fun _ hq => hAT _ (ClaudeWCT.WCT9.Wots.ftsQuery_short hq))
 theorem wotsSeed_short (lay : Layer) (tree leaf i : Nat) :
     WCT9.wotsSeed A lay tree leaf i = WCT9.wotsSeed T lay tree leaf i := by
-  unfold WCT9.wotsSeed
-  split_ifs
-  · exact leafSeed_short hAT lay tree leaf i
-  · unfold WCT9.lowerSeed
-    congr 2
-    funext j
-    unfold WCT9.lowerCoef WCT9.lowerCoefN WCT9.lowerSeedPair
-    rw [ShortRespects.privatePair 0 lay.val tree _ 0 A T hAT]
+  rw [WCT9.wotsSeed_fam, WCT9.wotsSeed_fam]
+  congr 2
+  funext j
+  unfold WCT9.famCoef WCT9.famCoefN WCT9.lowerSeedPair
+  rw [ShortRespects.privatePair 0 lay.val tree _ 0 A T hAT]
 theorem wotsEnd_short (lay : Layer) (tree leaf i : Nat) :
     WCT9.wotsEnd A lay tree leaf i = WCT9.wotsEnd T lay tree leaf i := by
   unfold WCT9.wotsEnd
@@ -156,32 +147,4 @@ theorem honestInput_length (answers : Answers) (position : Extract.Pos) :
   | wctNode index coord level node =>
       apply short_of_le
       simp [nodeInputP]
-theorem WotsPrimitive.transfer {A T : Answers} {trace : List Entry} (hAT : ShortAgree A T)
-    (htrace : ∀ e ∈ trace, A (.inl (.inr e.1)) = T (.inl (.inr e.1)))
-    (h : WotsPrimitive A trace) : WotsPrimitive T trace := by
-  have hdepth : depth A = depth T := funext (depth_short hAT)
-  have hfront : frontierValue A = frontierValue T := funext (frontierValue_short hAT)
-  have hrefi : referenceInput A = referenceInput T := funext (referenceInput_short hAT)
-  have hrefd : referenceDigits A = referenceDigits T := funext (referenceDigits_short hAT)
-  rcases h with ⟨L, hL⟩ | hS | ⟨a, ha⟩ | ⟨a, b, hab, ha, hb⟩ | ⟨a, ha, hc⟩
-  · refine Or.inl ⟨L, ?_⟩
-    simpa only [EncodingMatchAt, hrefi, hrefd] using hL
-  · refine Or.inr (Or.inl ?_)
-    obtain ⟨position, input, answer, hmem, hpos, hbounded, hclass, hhit⟩ := hS
-    refine ⟨position, input, answer, hmem, hpos, hbounded, ?_, ?_⟩
-    · cases position <;> simpa only [StructuralClass, OtherChainRow, hdepth] using hclass
-    · rw [← honestInput_short hAT position hbounded]
-      obtain ⟨hne, heq⟩ := hhit
-      refine ⟨hne, ?_⟩
-      rw [← htrace (input, answer) hmem,
-        ← hAT.public _ (honestInput_length A position)]
-      exact heq
-  · refine Or.inr (Or.inr (Or.inl ⟨a, ?_⟩))
-    simpa only [TwoEdgeAt, hdepth, hfront] using ha
-  · refine Or.inr (Or.inr (Or.inr (Or.inl ⟨a, b, hab, ?_, ?_⟩)))
-    · simpa only [ContactAt, hdepth, hfront] using ha
-    · simpa only [ContactAt, hdepth, hfront] using hb
-  · refine Or.inr (Or.inr (Or.inr (Or.inr ⟨a, ?_, ?_⟩)))
-    · simpa only [MarkerAt, hrefi, hrefd] using ha
-    · simpa only [ContactAt, hdepth, hfront] using hc
 end ClaudeWCT.W9.T3.Security.Wots.Ref

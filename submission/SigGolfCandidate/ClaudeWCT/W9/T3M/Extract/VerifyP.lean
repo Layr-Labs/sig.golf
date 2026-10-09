@@ -17,7 +17,7 @@ theorem queried_map {α β : Type} (answers : Answers) (f : α → β) (p : M α
 theorem keygen_pk (answers : Answers) : (evalWithAnswerFn answers WCT9.Rev3.keygen).1 = honestRoot answers 0 0 := by
   unfold WCT9.Rev3.keygen WCT9.keygen keygen keygenPayload
   simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-  rw [Correctness.eval_buildTree_levels answers 0 0 0 [] (Cost.validDigits_nil 0)]
+  rw [Correctness.eval_buildTopTree answers]
   unfold honestRoot
   rw [WCT9.wotsTree_top]
   rfl

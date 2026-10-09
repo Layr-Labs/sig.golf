@@ -249,8 +249,6 @@ theorem caseABEv_le_reference (Ev : TraceEvent) (adversary : AdversaryP) (q : Na
   unfold referenceExperiment
   rw [MonitoredPrivate.event_lift]
 end SmallT
-abbrev VerifierWotsSrc (answers : Answers) (publicKey : Digest) (forgery : ForgeryP) : Prop :=
-  SmallT.VerifierEv SmallT.srcEvent answers publicKey forgery
 abbrev CaseABSrc (adversary : AdversaryP) (z : PaddedGame.TraceResult × Answers) : Prop :=
   SmallT.CaseABEv SmallT.srcEvent adversary z
 theorem caseABSrc_le_reference (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :

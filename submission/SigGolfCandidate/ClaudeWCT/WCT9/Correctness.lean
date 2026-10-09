@@ -686,8 +686,53 @@ def lowerCoef (answers : Answers) (lay : Layer) (tree leaf : Nat) (j : Fin 17) :
 /-- Stage B: the lower WOTS seed of chain `i` is the leaf's degree-16 family evaluated at `lowerPoint i`. -/
 def lowerSeed (answers : Answers) (lay : Layer) (tree leaf i : Nat) : Digest :=
   ClaudeWCT.Arith.familyEval (List.ofFn (lowerCoef answers lay tree leaf)) (lowerPoint i)
+/-! ### Campaign T8D: one seed family per leaf at every layer (security-facing view)
+Top leaves (24 coefficients, `Correctness.topCoefN`) and lower leaves (17 coefficients, `lowerCoefN`) are both read
+through the cells `lowerSeedPair lay tree (famOrdinal lay leaf j / 2)`, half `famOrdinal lay leaf j % 2`, and the seed
+of chain `i` is the family evaluated at `i + 1` (`wotsSeed_fam`). -/
+def famCount (lay : Layer) : Nat := if lay = 0 then topCoefCount else lowerCoefCount
+def famOrdinal (lay : Layer) (leaf j : Nat) : Nat := famCount lay * leaf + j
+def famCoefN (answers : Answers) (lay : Layer) (tree leaf j : Nat) : Digest :=
+  seedHalf (evalWithAnswerFn answers (lowerSeedPair lay tree (famOrdinal lay leaf j / 2))) (famOrdinal lay leaf j)
+def famCoef (answers : Answers) (lay : Layer) (tree leaf : Nat) (j : Fin (famCount lay)) : Digest :=
+  famCoefN answers lay tree leaf j.val
+theorem famCount_top : famCount 0 = 24 := rfl
+theorem famCount_lower {lay : Layer} (h : lay ≠ 0) : famCount lay = 17 := by
+  unfold famCount; rw [if_neg h]; rfl
+theorem famCount_ge (lay : Layer) : 17 ≤ famCount lay := by
+  unfold famCount; split_ifs <;> decide
+theorem famCount_le (lay : Layer) : famCount lay ≤ 24 := by
+  unfold famCount; split_ifs <;> decide
+theorem famOrdinal_div_lt {lay : Layer} {leaf j : Nat} (hl : leaf < 2 ^ 24) (hj : j < famCount lay) :
+    famOrdinal lay leaf j / 2 < 2 ^ 32 := by
+  have h24 := famCount_le lay
+  have : famCount lay * leaf ≤ 24 * leaf := Nat.mul_le_mul_right _ h24
+  unfold famOrdinal
+  omega
+theorem famOrdinal_inj {lay : Layer} {l l' j j' : Nat} (hj : j < famCount lay) (hj' : j' < famCount lay)
+    (h : famOrdinal lay l j = famOrdinal lay l' j') : l = l' ∧ j = j' := by
+  unfold famOrdinal at h
+  rcases Nat.lt_or_ge l l' with hlt | hge
+  · exfalso
+    have : famCount lay * l + famCount lay ≤ famCount lay * l' := by
+      rw [← Nat.mul_succ]; exact Nat.mul_le_mul_left _ hlt
+    omega
+  · rcases Nat.lt_or_ge l' l with hlt' | hge'
+    · exfalso
+      have : famCount lay * l' + famCount lay ≤ famCount lay * l := by
+        rw [← Nat.mul_succ]; exact Nat.mul_le_mul_left _ hlt'
+      omega
+    · have hll : l = l' := by omega
+      subst hll
+      exact ⟨rfl, by omega⟩
+/-- The WOTS seed of chain `i` of leaf `(lay, tree, leaf)`: its leaf family evaluated at `i + 1` (campaign T8D: every
+layer; the cells are tree-indexed, `lowerSeedPair lay tree`, so at the top only tree `0` is the keygen tree,
+`wotsSeed_top`). -/
 def wotsSeed (answers : Answers) (lay : Layer) (tree leaf i : Nat) : Digest :=
-  if lay = 0 then leafSeed answers lay tree leaf i else lowerSeed answers lay tree leaf i
+  ClaudeWCT.Arith.familyEval (List.ofFn (famCoef answers lay tree leaf)) (i + 1)
+theorem wotsSeed_fam (answers : Answers) (lay : Layer) (tree leaf i : Nat) :
+    wotsSeed answers lay tree leaf i =
+      ClaudeWCT.Arith.familyEval (List.ofFn (famCoef answers lay tree leaf)) (i + 1) := rfl
 def wotsValue (answers : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat) (i : Nat) : Digest :=
   evalWithAnswerFn answers (SigGolfCandidate.T3.chain lay tree leaf i 0 (digits.getD i 0)
     (wotsSeed answers lay tree leaf i))
@@ -703,26 +748,34 @@ def wotsTree (answers : Answers) (lay : Layer) (tree : Nat) : List (List Digest)
 def wotsPieces (answers : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat) : Pieces :=
   ((List.range (chainCount lay)).map (wotsValue answers lay tree leaf digits),
    (List.range (height lay)).map fun j => treeValue (wotsTree answers lay tree) j (leaf / 2 ^ j ^^^ 1))
-theorem wotsSeed_top (answers : Answers) (tree leaf i : Nat) :
-    wotsSeed answers 0 tree leaf i = leafSeed answers 0 tree leaf i := by
-  unfold wotsSeed; rw [if_pos rfl]
+/-- The keygen top tree (tree `0`): the family seeds of `T3.Correctness.leafSeed` (`topLeafSeed`). -/
+theorem wotsSeed_top (answers : Answers) (leaf i : Nat) :
+    wotsSeed answers 0 0 leaf i = leafSeed answers 0 0 leaf i := by
+  rw [leafSeed_top]
+  rfl
 theorem wotsSeed_lower (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree leaf i : Nat) :
     wotsSeed answers lay tree leaf i = lowerSeed answers lay tree leaf i := by
-  unfold wotsSeed; rw [if_neg hlay]
-theorem wotsValue_top (answers : Answers) (tree leaf : Nat) (digits : List Nat) :
-    wotsValue answers 0 tree leaf digits = leafValue answers 0 tree leaf digits := by
+  unfold wotsSeed lowerSeed lowerPoint
+  have e : List.ofFn (famCoef answers lay tree leaf) = List.ofFn (lowerCoef answers lay tree leaf) := by
+    apply List.ext_getElem (by simp [famCount_lower hlay])
+    intro j h1 h2
+    simp only [List.getElem_ofFn, famCoef, lowerCoef, famCoefN, lowerCoefN, famOrdinal, lowerCoefOrdinal,
+      famCount_lower hlay, lowerCoefCount, Fin.coe_cast]
+  rw [e]
+theorem wotsValue_top (answers : Answers) (leaf : Nat) (digits : List Nat) :
+    wotsValue answers 0 0 leaf digits = leafValue answers 0 0 leaf digits := by
   funext i; unfold wotsValue leafValue; rw [wotsSeed_top]
-theorem wotsEnd_top (answers : Answers) (tree leaf : Nat) :
-    wotsEnd answers 0 tree leaf = leafEnd answers 0 tree leaf := by
+theorem wotsEnd_top (answers : Answers) (leaf : Nat) :
+    wotsEnd answers 0 0 leaf = leafEnd answers 0 0 leaf := by
   funext i; unfold wotsEnd leafEnd; rw [wotsSeed_top]
-theorem wotsRoot_top (answers : Answers) (tree : Nat) :
-    wotsRoot answers 0 tree = leafRoot answers 0 tree := by
+theorem wotsRoot_top (answers : Answers) :
+    wotsRoot answers 0 0 = leafRoot answers 0 0 := by
   funext leaf; unfold wotsRoot leafRoot; rw [wotsEnd_top]
-theorem wotsTree_top (answers : Answers) (tree : Nat) :
-    wotsTree answers 0 tree = builtTree answers 0 tree := by
+theorem wotsTree_top (answers : Answers) :
+    wotsTree answers 0 0 = builtTree answers 0 0 := by
   unfold wotsTree builtTree; rw [wotsRoot_top]
-theorem wotsPieces_top (answers : Answers) (tree leaf : Nat) (digits : List Nat) :
-    wotsPieces answers 0 tree leaf digits = honestPieces answers 0 tree leaf digits := by
+theorem wotsPieces_top (answers : Answers) (leaf : Nat) (digits : List Nat) :
+    wotsPieces answers 0 0 leaf digits = honestPieces answers 0 0 leaf digits := by
   unfold wotsPieces honestPieces; rw [wotsValue_top, wotsTree_top]
 theorem wotsValue_completes (answers : Answers) (lay : Layer) (tree leaf : Nat)
     (digits : List Nat) (hvalid : Cost.ValidDigits lay digits) (i : Nat) (hi : i < chainCount lay) :
@@ -1123,8 +1176,8 @@ theorem signLayersBC_expandLayersBC (answers : Answers) (cache : Cache) (index :
             refine ⟨rfl, ?_⟩
             intro sig hagree
             have hp := hagree 0 (by decide)
-            change (toT3Signature sig).layers 0 = piecesSignature 0
-              (evalWithAnswerFn answers (signTop cache (route index 0).1 digits)) at hp
+            simp only [Fin.val_zero, List.getD_cons_zero] at hp
+            rw [show (Fin.ofNat 4 0 : Layer) = 0 from rfl] at hp
             rw [eval_signTop_honest answers cache _ digits hcache (route_leaf_bound index 0) hvalid] at hp
             have ht : (route index 0).2 = 0 := route_top_tree index hindex
             have hr := recoverLayer_honestPieces answers (toT3Signature sig) index 0 digits hvalid

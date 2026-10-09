@@ -46,6 +46,30 @@ def triple4Equiv : Triple4 ≃ Fin 64 where
   invFun := digits4
   left_inv := digits4_rank4
   right_inv := rank4_digits4
+abbrev Triple8 := Fin 3 → Fin 8
+/-- Campaign T8D (NF17): the raw radix-8 tail of the top encoding. `d k` is the digit of top chain `51 + k`; the
+9-bit tail (bits 119..127 of the top code) holds chain 53 in its low 3 bits, then chain 51, then chain 52. -/
+def rank8 (d : Triple8) : Fin 512 :=
+  ⟨(d 2).val + 8 * (d 0).val + 64 * (d 1).val, by
+    have := (d 0).isLt; have := (d 1).isLt; have := (d 2).isLt; omega⟩
+def digits8 (r : Fin 512) : Triple8 := fun i =>
+  if i=0 then ⟨r.val / 8 % 8, Nat.mod_lt _ (by decide)⟩
+  else if i=1 then ⟨r.val / 64, by have := r.isLt; omega⟩
+  else ⟨r.val % 8, Nat.mod_lt _ (by decide)⟩
+theorem digits8_rank8 (d : Triple8) : digits8 (rank8 d)=d := by
+  funext i; apply Fin.ext
+  have h0 := (d 0).isLt; have h1 := (d 1).isLt; have h2 := (d 2).isLt
+  fin_cases i <;> simp [digits8,rank8] <;> omega
+theorem rank8_digits8 (r : Fin 512) : rank8 (digits8 r)=r := by
+  apply Fin.ext
+  have := r.isLt
+  simp [rank8,digits8]
+  omega
+def triple8Equiv : Triple8 ≃ Fin 512 where
+  toFun := rank8
+  invFun := digits8
+  left_inv := digits8_rank8
+  right_inv := rank8_digits8
 def pack : List Nat → Nat → Nat
   | [], tail => tail
   | d::ds, tail => d+128*pack ds tail
@@ -71,19 +95,20 @@ theorem pack_lt (ds : List Nat) (tail bound : Nat) (ht : tail<bound)
     have hi := ih hr
     simp only [pack,List.length_cons,pow_succ]
     nlinarith
-abbrev Word := (Fin 17 → Triple5) × Triple4
+/-- Campaign T8D (NF17): 17 base-5 triples (chains 0..50) and the radix-8 tail (chains 51..53). -/
+abbrev Word := (Fin 17 → Triple5) × Triple8
 def ranks (w : Word) : List Nat := List.ofFn (fun i => (rank5 (w.1 i)).val)
-def encode (w : Word) : Nat := pack (ranks w) (rank4 w.2).val
+def encode (w : Word) : Nat := pack (ranks w) (rank8 w.2).val
 theorem ranks_lt (w : Word) : ∀ d∈ranks w,d<128 := by
   intro d hd
   obtain ⟨i,hi⟩ := List.mem_ofFn.mp hd
   rw [←hi]
   exact lt_trans (rank5 (w.1 i)).isLt (by decide)
 theorem decode_encode (w : Word) :
-    unpack 17 (encode w)=(ranks w,(rank4 w.2).val) := by
-  simpa [ranks,encode] using unpack_pack (ranks w) (rank4 w.2).val (ranks_lt w)
-theorem encode_bound (w : Word) : encode w<2^125 := by
-  have h := pack_lt (ranks w) (rank4 w.2).val 64 (rank4 w.2).isLt (ranks_lt w)
+    unpack 17 (encode w)=(ranks w,(rank8 w.2).val) := by
+  simpa [ranks,encode] using unpack_pack (ranks w) (rank8 w.2).val (ranks_lt w)
+theorem encode_bound (w : Word) : encode w<2^128 := by
+  have h := pack_lt (ranks w) (rank8 w.2).val 512 (rank8 w.2).isLt (ranks_lt w)
   simpa [encode,ranks] using h
 theorem encode_injective : Function.Injective encode := by
   intro a b hab
@@ -95,7 +120,7 @@ theorem encode_injective : Function.Injective encode := by
       List.ofFn_injective hlist
     funext i
     exact triple5Equiv.injective (Fin.ext (congrFun hf i))
-  have hq : a.2=b.2 := triple4Equiv.injective (Fin.ext (congrArg Prod.snd h))
+  have hq : a.2=b.2 := triple8Equiv.injective (Fin.ext (congrArg Prod.snd h))
   exact Prod.ext ht hq
 theorem constant_sum_antichain {ι : Type} [Fintype ι] (a b : ι → Nat)
     (h : ∀ i,a i≤b i) (hs : ∑ i,a i=∑ i,b i) : a=b := by

@@ -107,11 +107,108 @@ theorem queried_length_topPath (T : Answers) (cache : Cache) (leaf : Nat) :
   exact queried_length_mapM T _ _ (fun _ => 1) (fun level _ => by
     unfold mask pairedMask
     simp only [queried_length_bind, queried_length_privatePair, queried_length_pure])
+/-! ### Top leaves (campaign T8D: family seeds, `buildLeafTop`) -/
+def topChainCount (digits : List Nat) (signatureOnly : Bool) (i : Nat) : Nat :=
+  digits.getD i 0 + (if signatureOnly then 0 else maxDigit 0 i - digits.getD i 0)
+def topLeafCount (digits : List Nat) (signatureOnly : Bool) : Nat :=
+  topCoefPairs + ((List.range (chainCount 0)).map (topChainCount digits signatureOnly)).sum +
+    (if signatureOnly then 0 else 1)
+theorem queried_length_topCoefs (T : Answers) (leaf : Nat) :
+    (SourceReplay.queried T (topCoefs leaf)).length = topCoefPairs := by
+  unfold topCoefs
+  rw [queried_length_foldlM T _ _ (fun _ => 1) (fun j _ acc => by
+    unfold topSeedPair
+    rw [queried_length_bind, queried_length_privatePair, queried_length_pure]), sum_map_one, List.length_range]
+theorem queried_length_topLeafStep (T : Answers) (leaf : Nat) (digits : List Nat) (signatureOnly : Bool)
+    (coefs : List Digest) (state : List Digest × List Digest) (i : Nat) :
+    (SourceReplay.queried T (Correctness.topLeafStep leaf digits signatureOnly coefs state i)).length =
+      topChainCount digits signatureOnly i := by
+  unfold Correctness.topLeafStep topChainCount
+  rw [queried_length_bind, queried_length_chain]
+  cases signatureOnly
+  · simp only [Bool.false_eq_true, ↓reduceIte]
+    rw [queried_length_bind, queried_length_chain, queried_length_pure, Nat.add_zero]
+  · simp only [↓reduceIte]
+    rw [queried_length_pure]
+theorem queried_length_buildLeafTop (T : Answers) (leaf : Nat) (digits : List Nat) (signatureOnly : Bool) :
+    (SourceReplay.queried T (buildLeafTop leaf digits signatureOnly)).length = topLeafCount digits signatureOnly := by
+  rw [Correctness.buildLeafTop_eq, queried_length_bind, queried_length_topCoefs, queried_length_bind,
+    queried_length_foldlM T _ _ (topChainCount digits signatureOnly)
+      (fun i _ s => queried_length_topLeafStep T leaf digits signatureOnly _ s i)]
+  unfold topLeafCount
+  cases signatureOnly
+  · simp only [Bool.false_eq_true, ↓reduceIte]
+    rw [queried_length_bind, queried_length_pure, leafHash, queried_length_shortHash]
+    omega
+  · simp only [↓reduceIte]
+    rw [queried_length_pure]
+    omega
 theorem queried_length_signTop (T : Answers) (cache : Cache) (leaf : Nat) (digits : List Nat) :
-    (SourceReplay.queried T (signTop cache leaf digits)).length = leafCount 0 digits true + topPathCount := by
+    (SourceReplay.queried T (signTop cache leaf digits)).length = topLeafCount digits true + topPathCount := by
   unfold signTop
-  simp only [queried_length_bind, queried_length_buildLeaf, queried_length_topPath, queried_length_pure,
+  simp only [queried_length_bind, queried_length_buildLeafTop, queried_length_topPath, queried_length_pure,
     Nat.add_zero]
+theorem queried_length_buildLevel (T : Answers) (tag lay tree h level : Nat) (nodes : List Digest) :
+    (SourceReplay.queried T (buildLevel tag lay tree h level nodes)).length = nodes.length / 2 := by
+  unfold buildLevel
+  rw [queried_length_mapM T _ _ (fun _ => 1) (fun i _ => by unfold nodeHash; exact queried_length_shortHash _ _),
+    sum_map_one, List.length_range]
+theorem getD_length_of_map {xs ys : List (List Digest)} (h : xs.map List.length = ys.map List.length) (i : Nat) :
+    (xs.getD i []).length = (ys.getD i []).length := by
+  have := congrArg (fun l : List Nat => l.getD i 0) h
+  simp only [List.getD_eq_getElem?_getD, List.getElem?_map] at this ⊢
+  cases hx : xs[i]? <;> cases hy : ys[i]? <;> simp_all
+/-- The query count of `buildLevels` only depends on the length of its leaves. -/
+theorem queried_length_buildLevels_congr (T T' : Answers) (tag lay tree h : Nat) (leaves leaves' : List Digest)
+    (hlen : leaves.length = leaves'.length) :
+    (SourceReplay.queried T (buildLevels tag lay tree h leaves)).length =
+      (SourceReplay.queried T' (buildLevels tag lay tree h leaves')).length := by
+  unfold buildLevels
+  suffices H : ∀ (ls : List Nat) (s s' : List (List Digest)), s.map List.length = s'.map List.length →
+      (SourceReplay.queried T (ls.foldlM (fun levels level => do
+        let nodes ← buildLevel tag lay tree h level (levels.getD (level - 1) [])
+        pure (levels ++ [nodes])) s)).length =
+      (SourceReplay.queried T' (ls.foldlM (fun levels level => do
+        let nodes ← buildLevel tag lay tree h level (levels.getD (level - 1) [])
+        pure (levels ++ [nodes])) s')).length from H _ _ _ (by simp [hlen])
+  intro ls
+  induction ls with
+  | nil => intro s s' _; rfl
+  | cons level ls ih =>
+      intro s s' hs
+      simp only [List.foldlM_cons, queried_length_bind, queried_length_buildLevel, queried_length_pure,
+        Nat.add_zero, getD_length_of_map hs]
+      congr 1
+      apply ih
+      simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure, List.map_append, List.map_cons, List.map_nil,
+        Correctness.eval_buildLevel_length, hs, getD_length_of_map hs]
+theorem eval_topRoots_length (T : Answers) :
+    (evalWithAnswerFn T ((List.range (2 ^ height 0)).foldlM (fun (roots : List Digest) leaf => do
+      let (root, _) ← buildLeafTop leaf []
+      pure (roots ++ [root])) [])).length = 2 ^ height 0 := by
+  have := Correctness.eval_foldlM_range_inv T (2 ^ height 0)
+    (fun (roots : List Digest) leaf => do
+      let (root, _) ← buildLeafTop leaf []
+      pure (roots ++ [root])) (fun i (roots : List Digest) => roots.length = i) [] rfl
+    (fun i _ roots hroots => by
+      simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+      simp [hroots])
+  exact this
+/-- The keygen top tree issues the same number of queries for every table. -/
+theorem queried_length_buildTopTree_congr (T T' : Answers) :
+    (SourceReplay.queried T buildTopTree).length = (SourceReplay.queried T' buildTopTree).length := by
+  unfold buildTopTree
+  rw [queried_length_bind, queried_length_bind]
+  have hrows : ∀ X : Answers, (SourceReplay.queried X ((List.range (2 ^ height 0)).foldlM
+      (fun (roots : List Digest) leaf => do
+        let (root, _) ← buildLeafTop leaf []
+        pure (roots ++ [root])) [])).length =
+      ((List.range (2 ^ height 0)).map fun _ => topLeafCount [] false).sum := fun X =>
+    queried_length_foldlM X _ _ (fun _ => topLeafCount [] false) (fun leaf _ s => by
+      simp only [queried_length_bind, queried_length_buildLeafTop, queried_length_pure, Nat.add_zero]) _
+  rw [hrows, hrows]
+  congr 1
+  exact queried_length_buildLevels_congr T T' 3 0 0 (height 0) _ _ (by simp only [eval_topRoots_length])
 variable (answers : Answers) (a : ChainAddr)
 theorem count_bind_of {T T' : Answers} {α β : Type} {p : M α} {f : α → M β}
     (hp : evalWithAnswerFn T' p = evalWithAnswerFn T p)
@@ -120,22 +217,6 @@ theorem count_bind_of {T T' : Answers} {α β : Type} {p : M α} {f : α → M �
       (SourceReplay.queried T (f (evalWithAnswerFn T p))).length) :
     (SourceReplay.queried T' (p >>= f)).length = (SourceReplay.queried T (p >>= f)).length := by
   rw [queried_length_bind, queried_length_bind, hp, hcp, hf]
-theorem count_maskAt_of_respects {α : Type} {program : M α} (h : Respects (Untouched a) program) :
-    (SourceReplay.queried (maskAt answers a) program).length = (SourceReplay.queried answers program).length := by
-  rw [queried_maskAt_of_respects answers a h]
-theorem count_buildTree_maskAt (lay : Layer) (tree selected : Nat) (digits : List Nat)
-    (hvalid : Cost.ValidDigits lay digits) :
-    (SourceReplay.queried (maskAt answers a) (buildTree lay tree selected digits)).length =
-      (SourceReplay.queried answers (buildTree lay tree selected digits)).length := by
-  rw [Correctness.buildTree_eq, queried_length_bind (maskAt answers a), queried_length_bind answers,
-    queried_length_treeRows, queried_length_treeRows, Correctness.eval_treeRows _ lay tree selected digits hvalid,
-    Correctness.eval_treeRows _ lay tree selected digits hvalid]
-  have hr : Correctness.leafRoot (maskAt answers a) lay tree = Correctness.leafRoot answers lay tree :=
-    funext (leafRoot_maskAt answers a lay tree)
-  rw [hr]
-  dsimp only
-  rw [queried_length_bind, queried_length_bind, queried_length_pure, queried_length_pure,
-    count_maskAt_of_respects answers a (respects_buildLevels a 3 _ _ _ _ (by decide))]
 def maskCount : Nat := ((List.range' 0 12).map fun level => ((List.range (2 ^ (11 - level))).map fun _ => 1).sum).sum
 theorem queried_length_maskedLevel (T : Answers) (nodes : List Digest) (level : Nat) :
     (SourceReplay.queried T (maskedLevel nodes level)).length =
@@ -144,129 +225,23 @@ theorem queried_length_maskedLevel (T : Answers) (nodes : List Digest) (level : 
   rw [queried_length_bind, queried_length_pure, Nat.add_zero]
   exact queried_length_mapM T _ _ (fun _ => 1) (fun pair _ => by
     simp only [queried_length_bind, queried_length_privatePair, queried_length_pure])
-theorem queried_length_cachePayload (T : Answers) (builder : M (List (List Digest) × List Digest)) :
+theorem queried_length_cachePayload (T : Answers) (builder : M (List (List Digest))) :
     (SourceReplay.queried T (Correctness.cachePayloadProgram builder)).length =
       (SourceReplay.queried T builder).length + maskCount := by
   unfold Correctness.cachePayloadProgram
   rw [queried_length_bind]
-  generalize evalWithAnswerFn T builder = x
-  rcases x with ⟨levels, values⟩
-  dsimp only
+  generalize evalWithAnswerFn T builder = levels
   rw [queried_length_bind, queried_length_pure, Nat.add_zero,
     queried_length_mapM _ _ _ (fun level => ((List.range (2 ^ (11 - level))).map fun _ => 1).sum)
       (fun level _ => queried_length_maskedLevel _ _ _)]
   rfl
-theorem count_keygenPayload_maskAt :
-    (SourceReplay.queried (maskAt answers a) keygenPayload).length =
-      (SourceReplay.queried answers keygenPayload).length := by
+/-- Keygen's payload issues the same number of queries for every table (campaign T8D top tree). -/
+theorem queried_length_keygenPayload_congr (T T' : Answers) :
+    (SourceReplay.queried T keygenPayload).length = (SourceReplay.queried T' keygenPayload).length := by
   rw [Correctness.keygenPayload_eq, queried_length_cachePayload, queried_length_cachePayload,
-    count_buildTree_maskAt answers a 0 0 0 [] (Cost.validDigits_nil 0)]
+    queried_length_buildTopTree_congr T T']
 end Mask
-theorem queried_length_maskAt_keygen (answers : Answers) (a : ChainAddr) :
-    (SourceReplay.queried (maskAt answers a) keygen).length = (SourceReplay.queried answers keygen).length := by
-  unfold keygen
-  refine count_bind_of (eval_keygenPayload_maskAt answers a) (count_keygenPayload_maskAt answers a) ?_
-  generalize evalWithAnswerFn answers keygenPayload = payload
-  rcases payload with ⟨publicKey, region⟩
-  exact count_maskAt_of_respects answers a (Respects.bind (respects_privateMac a region) fun _ => Respects.pure' _)
 namespace Mask
 variable (answers : Answers) (a : ChainAddr)
-theorem count_signLayers_maskAt (htree : a.key.tree < 2 ^ 40) (hleaf : a.key.leaf < 2 ^ 32) (cache : Cache)
-    (index : Nat) (hindex : index < 2 ^ 31) :
-    ∀ n, n ≤ 4 → ∀ msg, (∀ m, n = m + 1 → msg = leafMsg answers (routeLeaf index (Fin.ofNat 4 m))) →
-      (SourceReplay.queried (maskAt answers a) (signLayers cache index n msg)).length =
-        (SourceReplay.queried answers (signLayers cache index n msg)).length := by
-  intro n
-  induction n with
-  | zero => intro _ _ _; rfl
-  | succ n ih =>
-      intro hn msg hmsg
-      simp only [signLayers]
-      refine count_bind_of (eval_maskAt_of_respects answers a (respects_counterSearch a _ _ _ _ _ _))
-        (count_maskAt_of_respects answers a (respects_counterSearch a _ _ _ _ _ _)) ?_
-      by_cases hn0 : n = 0
-      · simp only [hn0, ite_true]
-        generalize ((evalWithAnswerFn answers (counterSearch (Fin.ofNat 4 0) (route index (Fin.ofNat 4 0)).2
-          (route index (Fin.ofNat 4 0)).1 msg 0 counterLimit)).map Prod.snd).getD dummyTop = dg
-        rw [queried_length_bind, queried_length_bind, queried_length_signTop, queried_length_signTop]
-        rfl
-      cases hs : evalWithAnswerFn answers (counterSearch (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
-        (route index (Fin.ofNat 4 n)).1 msg 0 counterLimit) with
-      | none => simp only [hn0, ite_false]; rfl
-      | some found =>
-          obtain ⟨counter, digits⟩ := found
-          have hd := (Correctness.counterSearch_some answers _ _ _ msg counterLimit 0 counter digits
-            (by decide) hs).2.2
-          have hvalid := Cost.validDigits_decode hd
-          have hsearch : referenceSearch answers (routeLeaf index (Fin.ofNat 4 n)) = some (counter, digits) := by
-            unfold referenceSearch
-            rw [← hmsg n rfl]
-            exact hs
-          dsimp only
-          simp only [hn0, ite_false]
-          · refine count_bind_of (eval_buildTree_maskAt answers a _ _ _ digits hvalid (route_leaf_bound index _)
-                (fun hal _ => routeLeaf_alias a hindex hsearch htree hleaf hal))
-              (count_buildTree_maskAt answers a _ _ _ digits hvalid) ?_
-            rw [Correctness.eval_buildTree_result answers _ _ _ digits hvalid (route_leaf_bound index _)]
-            dsimp only
-            obtain ⟨m, rfl⟩ : ∃ m, n = m + 1 := ⟨n - 1, by omega⟩
-            have hmsg' : ∀ m', m + 1 = m' + 1 → ((builtTree answers (Fin.ofNat 4 (m + 1))
-                (route index (Fin.ofNat 4 (m + 1))).2).getD (height (Fin.ofNat 4 (m + 1))) []).getD 0 0 =
-                leafMsg answers (routeLeaf index (Fin.ofNat 4 m')) := fun m' hm' => by
-              obtain rfl : m = m' := by omega
-              exact signedMsg_succ answers index m (by omega)
-            refine count_bind_of (eval_signLayers_maskAt answers a htree hleaf cache index hindex (m + 1) (by omega)
-              _ hmsg') (ih (by omega) _ hmsg') ?_
-            cases evalWithAnswerFn answers (signLayers cache index (m + 1) _) <;> rfl
 end Mask
-theorem queried_length_maskAt_signPayload (answers : Answers) (a : ChainAddr) (htree : a.key.tree < 2 ^ 40)
-    (hleaf : a.key.leaf < 2 ^ 32) (cache : Cache) (message : Message) :
-    (SourceReplay.queried (maskAt answers a) (signPayload cache message)).length =
-      (SourceReplay.queried answers (signPayload cache message)).length := by
-  rw [Correctness.signPayload_eq]
-  refine count_bind_of (eval_maskAt_of_respects answers a (respects_privateNonce a message))
-    (count_maskAt_of_respects answers a (respects_privateNonce a message)) ?_
-  generalize evalWithAnswerFn answers (privateNonce message) = rho
-  refine count_bind_of (eval_maskAt_of_respects answers a (respects_digestSearch a _ _ _ _))
-    (count_maskAt_of_respects answers a (respects_digestSearch a _ _ _ _)) ?_
-  generalize evalWithAnswerFn answers (digestSearch rho message 0 attemptLimit) = found
-  rcases found with _ | ⟨counter, output⟩
-  · rfl
-  · dsimp only
-    refine count_bind_of (eval_maskAt_of_respects answers a (respects_signForest a _ _))
-      (count_maskAt_of_respects answers a (respects_signForest a _ _)) ?_
-    rw [Correctness.eval_signForest]
-    dsimp only
-    refine count_bind_of (eval_maskAt_of_respects answers a (respects_forestPk a _ _))
-      (count_maskAt_of_respects answers a (respects_forestPk a _ _)) ?_
-    have hmsg : ∀ m, 4 = m + 1 → evalWithAnswerFn answers (forestPk (output.toNat % 2 ^ 31)
-        (Correctness.forestRoots answers (output.toNat % 2 ^ 31) 7)) =
-        leafMsg answers (routeLeaf (output.toNat % 2 ^ 31) (Fin.ofNat 4 m)) := fun m hm => by
-      obtain rfl : m = 3 := by omega
-      exact signedMsg_top answers _
-    refine count_bind_of (eval_signLayers_maskAt answers a htree hleaf cache _ (Nat.mod_lt _ (by decide)) 4
-      le_rfl _ hmsg) (count_signLayers_maskAt answers a htree hleaf cache _ (Nat.mod_lt _ (by decide)) 4
-      le_rfl _ hmsg) ?_
-    generalize evalWithAnswerFn answers (signLayers cache (output.toNat % 2 ^ 31) 4 _) = pieces
-    rcases pieces with _ | pieces <;> rfl
-theorem queried_length_maskAt_coreSign (answers : Answers) (a : ChainAddr) (htree : a.key.tree < 2 ^ 40)
-    (hleaf : a.key.leaf < 2 ^ 32) (cache : Cache) (message : Message) :
-    (SourceReplay.queried (maskAt answers a) (T3.sign cache message)).length =
-      (SourceReplay.queried answers (T3.sign cache message)).length := by
-  unfold T3.sign
-  refine count_bind_of (eval_maskAt_of_respects answers a (respects_privateMac a _))
-    (count_maskAt_of_respects answers a (respects_privateMac a _)) ?_
-  split
-  · rfl
-  · exact queried_length_maskAt_signPayload answers a htree hleaf cache message
-theorem queried_length_maskAt_sign (answers : Answers) (a : ChainAddr) (htree : a.key.tree < 2 ^ 40)
-    (hleaf : a.key.leaf < 2 ^ 32) (published : T3.Cache) (request : Request) :
-    (SourceReplay.queried (maskAt answers a) (FullGame.authenticatedSign published request)).length =
-      (SourceReplay.queried answers (FullGame.authenticatedSign published request)).length := by
-  unfold FullGame.authenticatedSign
-  refine count_bind_of (eval_maskAt_of_respects answers a (respects_privateMac a _))
-    (count_maskAt_of_respects answers a (respects_privateMac a _)) ?_
-  split
-  · exact queried_length_maskAt_signPayload answers a htree hleaf _ _
-  · rfl
 end SigGolfCandidate.T3.Security.Wots

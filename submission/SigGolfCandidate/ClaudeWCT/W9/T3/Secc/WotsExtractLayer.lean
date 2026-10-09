@@ -20,14 +20,6 @@ def WotsPrimitiveSrc (answers : Answers) (trace : List Entry) : Prop :=
     (∃ a, SourceChain a ∧ TwoEdgeAt answers trace a) ∨
     (∃ a b, SourceChain a ∧ SourceChain b ∧ a ≠ b ∧ ContactAt answers trace a ∧ ContactAt answers trace b) ∨
     (∃ a, SourceChain7 a ∧ MarkerAt answers trace a ∧ ContactAt answers trace a)
-theorem WotsPrimitiveSrc.toPrimitive {answers : Answers} {trace : List Entry} (h : WotsPrimitiveSrc answers trace) :
-    WotsPrimitive answers trace := by
-  rcases h with ⟨L, -, h⟩ | h | ⟨a, -, h⟩ | ⟨a, b, -, -, hab, ha, hb⟩ | ⟨a, -, hm, hc⟩
-  · exact Or.inl ⟨L, h⟩
-  · exact Or.inr (Or.inl h.toStructuralHit)
-  · exact Or.inr (Or.inr (Or.inl ⟨a, h⟩))
-  · exact Or.inr (Or.inr (Or.inr (Or.inl ⟨a, b, hab, ha, hb⟩)))
-  · exact Or.inr (Or.inr (Or.inr (Or.inr ⟨a, hm, hc⟩)))
 section mono
 variable {answers : Answers} {trace trace' : List Entry}
 theorem WotsPrimitiveSrc.mono (h : WotsPrimitiveSrc answers trace) (hsub : ∀ e ∈ trace, e ∈ trace') :

@@ -1,6 +1,4 @@
-import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.JTCheck0
-
-set_option Elab.async false
+import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.JTCheckParts
 
 namespace ClaudeWCT.W9.Machine.Expand
 set_option maxRecDepth 100000

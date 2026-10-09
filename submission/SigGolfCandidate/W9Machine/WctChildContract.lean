@@ -33,7 +33,7 @@ def writes (k : Fin 9) (A : Nat) : Prop :=
 def clobbers : List Reg := [.x3, .x10, .x11, .x12, .x14]
 structure Post (L : Layout) (k : Fin 9) (u : MachineState)
     (pair : V3.RootPair) (t : MachineState) : Prop where
-  pc : t.pc = pcOf (L.returnWord k + 115)
+  pc : t.pc = pcOf (L.returnWord k)
   hashLen : t.getReg .x11 = 64
   left : DigAt t (pairAddress k) pair.left
   right : DigAt t (pairAddress k + 16) pair.right

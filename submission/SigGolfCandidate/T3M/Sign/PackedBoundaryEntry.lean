@@ -115,7 +115,7 @@ theorem blk397_spec (s : MachineState) (hpc : s.pc = pcOf 397) (idx : Nat) (hidx
     (hm : s.getMem (BitVec.ofNat 64 IDXV) = BitVec.ofNat 64 idx) :
     ∃ t, Steps image s 14 14 t ∧ t.pc = pcOf 646 ∧ t.getReg .x1 = pcOf 411 ∧
       t.getReg .x8 = BitVec.ofNat 64 2 ∧ t.getReg .x15 = BitVec.ofNat 64 6 ∧
-      t.getReg .x16 = BitVec.ofNat 64 (SIG + 4048) ∧ t.getReg .x17 = BitVec.ofNat 64 198 ∧
+      t.getReg .x16 = BitVec.ofNat 64 (SIG + 4048) ∧ t.getReg .x17 = BitVec.ofNat 64 199 ∧
       t.getReg .x18 = BitVec.ofNat 64 (idx / 64 % 64) ∧ t.getReg .x14 = BitVec.ofNat 64 (idx / 64 % 64) ∧
       t.getReg .x9 = BitVec.ofNat 64 (idx / 4096) ∧
       RegsExcept s t [.x1, .x6, .x7, .x8, .x9, .x14, .x15, .x16, .x17, .x18, .x28] ∧
@@ -144,7 +144,7 @@ theorem blk412_spec (s : MachineState) (hpc : s.pc = pcOf 412) (idx : Nat) (hidx
     (hm : s.getMem (BitVec.ofNat 64 IDXV) = BitVec.ofNat 64 idx) :
     ∃ t, Steps image s 14 14 t ∧ t.pc = pcOf 646 ∧ t.getReg .x1 = pcOf 426 ∧
       t.getReg .x8 = BitVec.ofNat 64 1 ∧ t.getReg .x15 = BitVec.ofNat 64 7 ∧
-      t.getReg .x16 = BitVec.ofNat 64 (SIG + 3248) ∧ t.getReg .x17 = BitVec.ofNat 64 198 ∧
+      t.getReg .x16 = BitVec.ofNat 64 (SIG + 3248) ∧ t.getReg .x17 = BitVec.ofNat 64 199 ∧
       t.getReg .x18 = BitVec.ofNat 64 (idx / 4096 % 128) ∧ t.getReg .x14 = BitVec.ofNat 64 (idx / 4096 % 128) ∧
       t.getReg .x9 = BitVec.ofNat 64 (idx / 2 ^ 19) ∧
       RegsExcept s t [.x1, .x6, .x7, .x8, .x9, .x14, .x15, .x16, .x17, .x18, .x28] ∧
@@ -171,17 +171,21 @@ theorem blk412_spec (s : MachineState) (hpc : s.pc = pcOf 412) (idx : Nat) (hidx
   · intro A _ _; simp [blk_412.res, rv_simp]
 def L0W (A : Nat) : Prop :=
   ¬ (SIG ≤ A ∧ A < SIG + 2192) ∧ ¬ (SIG + 3248 ≤ A ∧ A < SIG + 5616)
-def L0Cost : Nat := counterLimit * 417 + 200000
+/-- Campaign T8D: the scratch of the top seed routines (COEFGEN/HORN register saves at `0x60000`, the 24 top
+coefficients at `0x61000`). -/
+def TopScr (A : Nat) : Prop := 0x60000 ≤ A ∧ A < 0x61180
+/-- Cycle bound of one signature-only top leaf (prologue, COEFGEN, 54 x (HORN + chain), exit). -/
+def topLeafC : Nat := 224100
+def L0Cost : Nat := counterLimit * 417 + topLeafC + 40000
+/-- Campaign T8D (NF17): the top leaf with family seeds (`T3.buildLeafTop`). -/
 def TopLeafSpec : Prop :=
   ∀ (sk : SecretKey) (A : LeafArgs) (s : MachineState),
-    A.lay = 0 → A.so = true → (∀ i < A.n, A.d i ≤ 7) →
+    A.lay = 0 → A.so = true → A.tree = 0 → (∀ i < A.n, A.d i ≤ 7) →
+    A.valp + 16 * A.n ≤ 0x60000 → A.digp + A.n ≤ 0x60000 → A.dest + 16 ≤ 0x60000 →
     LeafPreS sk s A → s.pc = pcOf (1013 + 27) →
-    (A.tree = 0 ∨ s.getReg .x15 = BitVec.ofNat 64 (T3.height A.lay)) →
-    TBSim image sk s 18839 (buildLeaf A.lay A.tree A.leaf A.digits A.so)
-      (fun r t => t.pc = pcOf A.ret ∧ (A.so = false → DigAt t A.dest r.1) ∧
-        DigsAt t A.valp r.2 ∧ r.2.length = A.n ∧
-        t.getReg .x23 = BitVec.ofNat 64 (A.valp + 16 * A.n) ∧
-        RegsExcept s t leafRegs ∧ Frame s t (LeafW A))
+    TBSim image sk s topLeafC (T3.buildLeafTop A.leaf A.digits A.so)
+      (fun r t => t.pc = pcOf A.ret ∧ DigsAt t A.valp r.2 ∧ r.2.length = A.n ∧
+        RegsExcept s t leafRegs ∧ Frame s t (fun X => LeafW A X ∨ TopScr X))
 end SigGolfCandidate.T3M.Sign.Packed
 section
 namespace SigGolfCandidate.T3M.Sign.Packed.Boundary
@@ -861,7 +865,7 @@ theorem leafPreS_of {s : MachineState} {A : LeafArgs} (hb : Base sk cache s) (hl
       hds := hds
       hdv := by rw [hn]; exact hdv }
 theorem base_leaf {s t : MachineState} {A : LeafArgs} (hb : Base sk cache s) (hlay : A.lay = 0)
-    (hf : Frame s t (LeafW A)) (hr : RegsExcept s t leafRegs)
+    (hf : Frame s t (fun X => LeafW A X ∨ TopScr X)) (hr : RegsExcept s t leafRegs)
     (hvB : A.valp + 16 * 54 ≤ PRIV ∨ LEAFPK + 960 ≤ A.valp) (hvR : A.valp + 16 * 54 ≤ REGION ∨ REGION + 131040 ≤ A.valp)
     (hdB : A.dest + 16 ≤ PRIV) (hdZ : A.dest + 16 ≤ ZDIG ∨ ZDIG + 64 ≤ A.dest)
     (hvZ : A.valp + 16 * 54 ≤ ZDIG ∨ ZDIG + 64 ≤ A.valp)
@@ -870,9 +874,12 @@ theorem base_leaf {s t : MachineState} {A : LeafArgs} (hb : Base sk cache s) (hl
   refine hb.frame hf hr (by decide) (fun X _ hB hW => ?_)
   unfold BaseA NeverW Search.TOP_DATA at hB
   unfold Search.TOP_DATA at hvT
-  unfold LeafW at hW
-  rw [hn, if_pos hlay] at hW
-  packed_sgo
+  rcases hW with hW | hW
+  · unfold LeafW at hW
+    rw [hn, if_pos hlay] at hW
+    packed_sgo
+  · unfold TopScr at hW
+    packed_sgo
 structure TopRegs (leaf : Nat) (s : MachineState) : Prop where
   x8 : s.getReg .x8 = BitVec.ofNat 64 0
   x9 : s.getReg .x9 = BitVec.ofNat 64 0
@@ -894,9 +901,12 @@ theorem frame_l0_trans {s t u : MachineState} (h1 : Frame s t L0W) (h2 : Frame t
 theorem leafW_l0 {A : LeafArgs} (hlay : A.lay = 0)
     (hv : A.valp + 16 * 54 ≤ SIG ∨ (SIG + 2192 ≤ A.valp ∧ A.valp + 16 * 54 ≤ SIG + 3248) ∨ SIG + 5616 ≤ A.valp)
     (hd : A.dest + 16 ≤ SIG ∨ (SIG + 2192 ≤ A.dest ∧ A.dest + 16 ≤ SIG + 3248) ∨ SIG + 5616 ≤ A.dest) :
-    ∀ X, LeafW A X → L0W X := by
+    ∀ X, (LeafW A X ∨ TopScr X) → L0W X := by
   have hn : A.n = 54 := by show chainCount A.lay = 54; rw [hlay]; rfl
   intro X hX
+  rcases hX with hX | hX
+  swap
+  · unfold TopScr at hX; unfold L0W; constructor <;> packed_sgo
   unfold LeafW at hX
   rw [hn, if_pos hlay] at hX
   unfold L0W
@@ -942,19 +952,20 @@ theorem l0Spec_of (hTop : TopLeafSpec) (hK : CounterSearchSpec sk) : L0Spec leaf
       table := h.base.table.frame t1f (fun _ _ h => h)
       cf := h.base.cf.frame t1f (fun _ _ _ h => h) }
   have hc0 : csCost 0 = counterLimit * 417 + 2000 := by unfold csCost Search.BC.csCostS; rw [if_pos rfl]
-  refine TBSim.mono (TBSim.steps st1 (TBSim.bind (W₂ := 50000) (hK t1 0 0 _ root 441 hcs) (fun r u hu => ?_)))
+  refine TBSim.mono (TBSim.steps st1 (TBSim.bind (W₂ := topLeafC + 30006) (hK t1 0 0 _ root 441 hcs) (fun r u hu => ?_)))
     (by rw [hc0]; unfold L0Cost; omega) (fun _ _ h => h)
   have hdum : (List.range 54).all (fun i => decide (T3.dummyTop.getD i 0 ≤ 7)) = true := by decide
   obtain ⟨ds, hds, upc, ux5, hd7, udig, ur, uf, ux25⟩ : ∃ ds : List Nat, (r.map Prod.snd).getD T3.dummyTop = ds ∧
       u.pc = pcOf 441 ∧ u.getReg .x5 = 0 ∧ (∀ i < 54, ds.getD i 0 ≤ 7) ∧
       (∀ i < 54, u.getByte (BitVec.ofNat 64 (DIGITS + i)) = BitVec.ofNat 8 (ds.getD i 0)) ∧
-      RegsExcept t1 u csRegs ∧ Frame t1 u CsW ∧ (u.getReg .x25).toNat ≤ 129 := by
+      RegsExcept t1 u csRegs ∧ Frame t1 u CsW ∧ (u.getReg .x25).toNat ≤ 144 := by
     rcases r with _ | ⟨c, ds⟩
     · change (if (0 : Layer) = 0 then DummyRet t1 441 u else Failed u) at hu
       rw [if_pos rfl] at hu
       obtain ⟨upc, ux5, udig, -, ur, uf, ux25⟩ := hu
       exact ⟨T3.dummyTop, rfl, upc, ux5,
-        fun i hi => of_decide_eq_true ((List.all_eq_true.mp hdum) i (List.mem_range.mpr hi)), udig, ur, uf, ux25⟩
+        fun i hi => of_decide_eq_true ((List.all_eq_true.mp hdum) i (List.mem_range.mpr hi)), udig, ur, uf,
+        le_trans ux25 (by norm_num)⟩
     · obtain ⟨upc, ux5, ⟨v0, hdec⟩, udig, -, ur, uf, ux25⟩ := hu
       obtain ⟨-, hdb⟩ := decode_digits hdec
       refine ⟨ds, rfl, upc, ux5, fun i hi => ?_, fun i hi => udig i hi, ur, uf, ux25⟩
@@ -963,7 +974,7 @@ theorem l0Spec_of (hTop : TopLeafSpec) (hK : CounterSearchSpec sk) : L0Spec leaf
       omega
   dsimp only
   rw [hds]
-  have hx25 : (u.getReg .x25).toNat ≤ 129 := ux25
+  have hx25 : (u.getReg .x25).toNat ≤ 144 := ux25
   set leaf := index / 2 ^ 19 % 4096 with hleaf_def
   set dest0 := (u.getReg .x25).toNat with hdest0
   have gu : ∀ r, r ∉ [.x1, .x6, .x7, .x8, .x9, .x14, .x17, .x18, .x26, .x27, .x28] ++ csRegs →
@@ -999,13 +1010,14 @@ theorem l0Spec_of (hTop : TopLeafSpec) (hK : CounterSearchSpec sk) : L0Spec leaf
       (by change 0 * 2 ^ 12 + leaf < 2 ^ 31; omega)
       (by change leaf < 4096; omega)
       (fun i hi => by have := hd7 i hi; change ds.getD i 0 ≤ 8; omega)
-  have hL0 := hTop sk (tl0 leaf ds dest0) u1 rfl rfl hd7 hp0 u1pc (Or.inl rfl)
+  have hL0 := hTop sk (tl0 leaf ds dest0) u1 rfl rfl rfl hd7 (by show SIG + 2192 + 16 * 54 ≤ 0x60000; packed_sgo)
+    (by show DIGITS + 54 ≤ 0x60000; packed_sgo) (by show dest0 + 16 ≤ 0x60000; omega) hp0 u1pc
   try dsimp only
   rw [signTop, bind_assoc]
   refine TBSim.mono (TBSim.steps su1 (TBSim.bind (W₂ := 30000) hL0 (fun r0 v0 hv0 => ?_)))
-    (by omega) (fun _ _ h => h)
+    (Nat.le_of_eq (by ring)) (fun _ _ h => h)
   obtain ⟨root0, values⟩ := r0
-  obtain ⟨v0pc, -, v0vals, v0len, -, v0r, v0f⟩ := hv0
+  obtain ⟨v0pc, v0vals, v0len, v0r, v0f⟩ := hv0
   have hbv0 : Base sk cache v0 := base_leaf hbu1 rfl v0f v0r (Or.inl (by show SIG + 2192 + 16 * 54 ≤ PRIV; packed_sgo))
     (Or.inl (by show SIG + 2192 + 16 * 54 ≤ REGION; packed_sgo)) (by show dest0 + 16 ≤ PRIV; packed_sgo)
     (Or.inl (by show dest0 + 16 ≤ ZDIG; packed_sgo)) (Or.inl (by show SIG + 2192 + 16 * 54 ≤ ZDIG; packed_sgo))

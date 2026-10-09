@@ -73,21 +73,23 @@ def Node.depth : Node → Nat
   | .forest _ => 11
 /-- Coefficient index of the FTS seed families (campaign X1, stage A): `(index, coord, j)`, `j < 102`. -/
 abbrev WctCoef := Fin (2 ^ 31) × Fin 9 × Fin 102
-/-- Hidden secrets: top WOTS seeds and lower-family coefficients (by address: a lower address with chain `j < 17` is
-coefficient `j` of its leaf, campaign X1 stage B) and FTS family coefficients. Lower and FTS seeds are not secrets
-themselves but evaluations (`seedsOf`, `wctSeedsOf`) of the coefficient families. -/
+/-- Hidden secrets: leaf-family coefficients (by address: an address with chain `j < famCount layer` is coefficient
+`j` of its leaf, campaign X1 stage B for lower leaves, campaign T8D for top leaves) and FTS family coefficients. WOTS and
+FTS seeds are not secrets themselves but evaluations (`seedsOf`, `wctSeedsOf`) of the coefficient families. -/
 abbrev SecretIndex := Address ⊕ WctCoef
 abbrev Secrets := SecretIndex → Digest
 abbrev Labels := Node → HashOutput
 theorem chainCount_lower {lay : Layer} (h : lay ≠ 0) : chainCount lay = 43 := by
   revert h; fin_cases lay <;> decide
-/-- The coefficient family of lower leaf `(lay, tree, leaf)` (stage B): the secrets of its chains `j < 17`. -/
-def lowerFamily (secrets : Secrets) (lay : Layer) (tree : Fin (2 ^ 31)) (leaf : Fin 4096) : Fin 17 → Digest :=
-  fun j => secrets (.inl ⟨lay, tree, leaf, ⟨j.val, by omega⟩⟩)
-/-- WOTS seeds: top seeds are secrets; a lower seed is its leaf family at `lowerPoint chain`. -/
+theorem famCount_lt_58 (lay : Layer) : WCT9.famCount lay < 58 := by
+  have := WCT9.famCount_le lay; omega
+/-- The coefficient family of leaf `(lay, tree, leaf)`: the secrets of its chains `j < famCount lay`. -/
+def leafFamily (secrets : Secrets) (lay : Layer) (tree : Fin (2 ^ 31)) (leaf : Fin 4096) :
+    Fin (WCT9.famCount lay) → Digest :=
+  fun j => secrets (.inl ⟨lay, tree, leaf, ⟨j.val, lt_trans j.isLt (famCount_lt_58 lay)⟩⟩)
+/-- WOTS seeds: the leaf family at `chain + 1` (every layer). -/
 def seedsOf (secrets : Secrets) : Seeds := fun a =>
-  if a.layer = 0 then secrets (.inl a)
-  else ClaudeWCT.Arith.familyEval (List.ofFn (lowerFamily secrets a.layer a.tree a.leaf)) (WCT9.lowerPoint a.chain.val)
+  ClaudeWCT.Arith.familyEval (List.ofFn (leafFamily secrets a.layer a.tree a.leaf)) (a.chain.val + 1)
 /-- The coefficient family of FTS coordinate `(index, coord)`. -/
 def wctFamily (secrets : Secrets) (index : Fin (2 ^ 31)) (coord : Fin 9) : Fin 102 → Digest :=
   fun j => secrets (.inr (index, coord, j))
@@ -200,15 +202,6 @@ theorem toPos_bounded (node : Node) : node.toPos.Bounded := by
   | wctLeaf L => exact ⟨L.index.isLt, L.coord.isLt, L.child.isLt⟩
   | wctNode n => exact ⟨n.1.index.isLt, n.1.coord.isLt, n.1.level.isLt, n.2⟩
   | forest index => have := index.isLt; change index.val < 2 ^ 40; omega
-theorem toPos_source (node : Node) : SourcePos node.toPos := by
-  cases node with
-  | chain p => exact ⟨p.1.tree.isLt, p.1.leaf.isLt, p.1.chain.isLt, p.2.isLt⟩
-  | leaf L => exact ⟨L.2.1, L.2.2⟩
-  | node n => exact ⟨n.2.2.2.1, n.2.1, n.2.2.1, n.2.2.2.2⟩
-  | wctChain p => exact ⟨p.1.1.isLt, p.1.2.1.isLt, p.1.2.2.1.isLt, p.1.2.2.2.isLt, p.2.isLt⟩
-  | wctLeaf L => exact ⟨L.index.isLt, L.coord.isLt, L.child.isLt⟩
-  | wctNode n => exact ⟨n.1.index.isLt, n.1.coord.isLt, n.1.level.isLt, n.2⟩
-  | forest index => exact index.isLt
 theorem toPos_injective : Function.Injective Node.toPos := by
   intro left right h
   cases left with
@@ -445,17 +438,6 @@ theorem cell_congr (secrets : Secrets) (node : Node) (left right : Labels)
           ftsLabel_congr left right index (fin9 coord) 6 1
             (fun other ho => h other (show other.depth < 11 by omega))]
       simp only [cell, hroots]
-noncomputable def posNode (p : Extract.Pos) : Option Node :=
-  if h : SourcePos p then some (Classical.choose (exists_toPos h)) else none
-theorem posNode_toPos (node : Node) : posNode node.toPos = some node := by
-  unfold posNode
-  rw [dif_pos (toPos_source node)]
-  exact congrArg some (toPos_injective (Classical.choose_spec (exists_toPos (toPos_source node))))
-theorem toPos_of_posNode {p : Extract.Pos} {node : Node} (h : posNode p = some node) : node.toPos = p := by
-  unfold posNode at h
-  split_ifs at h with hp
-  cases h
-  exact Classical.choose_spec (exists_toPos hp)
 theorem posOf_cell (secrets : Secrets) (node : Node) (labels : Labels) :
     Extract.posOf (cell secrets node labels) = some node.toPos :=
   Extract.posOf_eq (toPos_bounded node) (hdrBlock_cell secrets node labels)
@@ -502,13 +484,6 @@ theorem treeLabel_root (labels : Labels) :
   unfold treeNodeAt
   rw [dif_pos (by decide)]
   rfl
-theorem treeLabel_lower_root (labels : Labels) {lay : Layer} (h : lay ≠ 0) (tree : Fin (2^31)) (c : Nat) :
-    treeLabel labels lay tree (height lay) c = 0 := by
-  have hpos := height_pos lay
-  unfold treeLabel
-  rw [if_neg (by omega)]
-  unfold treeNodeAt
-  rw [dif_neg (by rintro ⟨-, -, -, h0 | h1⟩ <;> [exact h h0; omega])]
 theorem ftsLabel_top (labels : Labels) (index : Fin (2^31)) (coord : Fin 9) (b : Fin 2) :
     ftsLabel labels index coord 6 b.val = (labels (.wctNode (ftsTopNode index coord b))).extractLsb' 0 128 := by
   unfold ftsLabel
@@ -599,48 +574,6 @@ variable (U : Finset HashInput) (hU : canonInputs ⊆ U)
 noncomputable local instance instSampleableTypeHashOutput_canonGraph : SampleableType HashOutput := SampleableType.ofFintype _
 noncomputable local instance instSampleableTypeLabels : SampleableType Labels := SampleableType.ofFintype _
 noncomputable local instance instSampleableTypeForallSubtypeHashInputMemFinsetHashOutput_canonGraph : SampleableType (U → HashOutput) := SampleableType.ofFintype _
-theorem read_preserves (secrets : Secrets) (table : U → HashOutput) (nodes : List Node) (before : Labels)
-    (node : Node) (hnode : node ∉ nodes) :
-    read (cellIn U hU secrets) advance table nodes before node = before node := by
-  induction nodes generalizing before with
-  | nil => rfl
-  | cons first rest ih =>
-      have hne : node ≠ first := fun h => hnode (by simp [h])
-      have hrest : node ∉ rest := fun h => hnode (List.mem_cons_of_mem _ h)
-      change read (cellIn U hU secrets) advance table rest
-        (Function.update before first (table (cellIn U hU secrets first before))) node = before node
-      rw [ih _ hrest, Function.update_of_ne hne]
-theorem read_consistent (secrets : Secrets) (table : U → HashOutput) (nodes : List Node)
-    (hnodup : nodes.Nodup) (hsorted : nodes.Pairwise (fun left right => left.depth ≤ right.depth))
-    (before : Labels) : ∀ node ∈ nodes,
-    read (cellIn U hU secrets) advance table nodes before node =
-      table (cellIn U hU secrets node (read (cellIn U hU secrets) advance table nodes before)) := by
-  induction nodes generalizing before with
-  | nil => simp
-  | cons first rest ih =>
-      obtain ⟨hfirst, hrest⟩ := List.nodup_cons.mp hnodup
-      obtain ⟨hdepth, hsorted⟩ := List.pairwise_cons.mp hsorted
-      intro node hnode
-      rcases List.mem_cons.mp hnode with hnode | hnode
-      · subst node
-        have hinput : cellIn U hU secrets first (read (cellIn U hU secrets) advance table (first :: rest) before) =
-            cellIn U hU secrets first before := by
-          apply Subtype.ext
-          apply cell_congr
-          intro other hother
-          apply read_preserves
-          intro hmem
-          rcases List.mem_cons.mp hmem with heq | hmem
-          · rw [heq] at hother; omega
-          · have := hdepth _ hmem; omega
-        rw [hinput]
-        change read (cellIn U hU secrets) advance table rest
-          (Function.update before first (table (cellIn U hU secrets first before))) first = _
-        rw [read_preserves _ _ _ _ _ _ _ hfirst, Function.update_self]
-      · exact ih hrest hsorted _ node hnode
-theorem graph_consistent (secrets : Secrets) (table : U → HashOutput) (node : Node) :
-    graph U hU secrets table node = table (cellIn U hU secrets node (graph U hU secrets table)) :=
-  read_consistent U hU secrets table order order_nodup order_sorted _ node (mem_order node)
 theorem programmed_at (secrets : Secrets) (labels : Labels) (residual : U → HashOutput) (node : Node) :
     programmed U hU secrets labels residual (cellIn U hU secrets node labels) = labels node :=
   patch_at _ (cellIn_injective U hU secrets labels) labels residual order node (mem_order node)
@@ -650,42 +583,6 @@ theorem programmed_other (secrets : Secrets) (labels : Labels) (residual : U →
   apply patch_of_forall_ne
   intro node _ heq
   exact hquery node (congrArg Subtype.val heq)
-theorem programmed_residual (secrets : Secrets) (labels : Labels) (residual : U → HashOutput) (query : U)
-    (hquery : ∀ node, Extract.posOf query.val = some node.toPos → query.val ≠ cell secrets node labels) :
-    programmed U hU secrets labels residual query = residual query := by
-  apply programmed_other
-  intro node heq
-  exact hquery node (heq ▸ posOf_cell secrets node labels) heq
-theorem read_programmed (secrets : Secrets) (labels : Labels) (residual : U → HashOutput) (nodes : List Node)
-    (hsorted : nodes.Pairwise (fun left right => left.depth ≤ right.depth))
-    (before : Labels) (hagrees : ∀ node, node ∉ nodes → before node = labels node) :
-    read (cellIn U hU secrets) advance (programmed U hU secrets labels residual) nodes before = labels := by
-  induction nodes generalizing before with
-  | nil => exact funext fun node => hagrees node (by simp)
-  | cons first rest ih =>
-      obtain ⟨hdepth, hsorted⟩ := List.pairwise_cons.mp hsorted
-      have hinput : cellIn U hU secrets first before = cellIn U hU secrets first labels := by
-        apply Subtype.ext
-        apply cell_congr
-        intro other hother
-        apply hagrees
-        intro hmem
-        rcases List.mem_cons.mp hmem with heq | hmem
-        · rw [heq] at hother; omega
-        · have := hdepth _ hmem; omega
-      change read (cellIn U hU secrets) advance (programmed U hU secrets labels residual) rest
-        (Function.update before first (programmed U hU secrets labels residual (cellIn U hU secrets first before))) = _
-      rw [hinput, programmed_at]
-      apply ih hsorted
-      intro node hnode
-      by_cases heq : node = first
-      · subst node; rw [Function.update_self]
-      · rw [Function.update_of_ne heq]
-        exact hagrees node (fun hmem => (List.mem_cons.mp hmem).elim heq hnode)
-theorem graph_programmed (secrets : Secrets) (labels : Labels) (residual : U → HashOutput) :
-    graph U hU secrets (programmed U hU secrets labels residual) = labels :=
-  read_programmed U hU secrets labels residual order order_sorted _
-    (fun node hnode => (hnode (mem_order node)).elim)
 theorem read_eq_plant (secrets : Secrets) (nodes : List Node) (hnodup : nodes.Nodup) (before : Labels) :
     𝒮[do
       let table ← ($ᵗ (U → HashOutput) : ProbComp _)
@@ -768,20 +665,20 @@ def fullHalf (n : Nat) : Fin 2 := ⟨n % 2, Nat.mod_lt _ (by decide)⟩
 /-- Half-cell of FTS coefficient `(index, coord, j)`: half `j % 2` of `ftsSeedPair index coord (j / 2)`. -/
 def wctCoefCoordinate (c : WctCoef) : ChainGraph.HalfCoordinate :=
   (.inl (WCT9.ftsSeedHeader c.2.1.val c.1.val (c.2.2.val / 2)), fullHalf c.2.2.val)
-/-- Half-cell of secret `a`: top seeds as before; lower coefficient `chain < 17` of a leaf is the packed half
-`lowerCoefOrdinal leaf chain` of `lowerSeedPair`; other lower addresses get distinct unused cells. -/
+/-- Half-cell of secret `a`: coefficient `chain < famCount layer` of a leaf is the packed half
+`famOrdinal layer leaf chain` of `lowerSeedPair layer tree`; other addresses get distinct unused cells. -/
 def seedCoordinateP (a : Address) : ChainGraph.HalfCoordinate :=
-  if a.layer = 0 then ChainGraph.seedCoordinate a
-  else if a.chain.val < WCT9.lowerCoefCount then
-    (.inl (WCT9.lowerSeedHeader a.layer a.tree.val (WCT9.lowerCoefOrdinal a.leaf.val a.chain.val / 2)),
-      fullHalf (WCT9.lowerCoefOrdinal a.leaf.val a.chain.val))
+  if a.chain.val < WCT9.famCount a.layer then
+    (.inl (WCT9.lowerSeedHeader a.layer a.tree.val (WCT9.famOrdinal a.layer a.leaf.val a.chain.val / 2)),
+      fullHalf (WCT9.famOrdinal a.layer a.leaf.val a.chain.val))
   else (.inl (header 0 a.layer.val a.tree.val (a.chain.val / 2) (a.leaf.val + 1)), fullHalf a.chain.val)
 def secretCoordinate : SecretIndex → ChainGraph.HalfCoordinate := Sum.elim seedCoordinateP wctCoefCoordinate
 theorem fullHalf_val (n : Nat) : (fullHalf n).val = n % 2 := rfl
-theorem chainCount_le (lay : Layer) : chainCount lay ≤ 54 := by fin_cases lay <;> decide
-theorem lowerOrdinal_pair_lt' (a : Address) : WCT9.lowerCoefOrdinal a.leaf.val a.chain.val / 2 < 2 ^ 32 := by
+theorem famOrdinal_pair_lt' (a : Address) : WCT9.famOrdinal a.layer a.leaf.val a.chain.val / 2 < 2 ^ 32 := by
   have h1 := a.leaf.isLt; have h2 := a.chain.isLt
-  unfold WCT9.lowerCoefOrdinal WCT9.lowerCoefCount
+  have h3 := WCT9.famCount_le a.layer
+  have : WCT9.famCount a.layer * a.leaf.val ≤ 24 * 4096 := Nat.mul_le_mul h3 (by omega)
+  unfold WCT9.famOrdinal
   omega
 theorem wctCoefCoordinate_injective : Function.Injective wctCoefCoordinate := by
   intro left right heq
@@ -802,76 +699,45 @@ theorem seedCoordinateP_injective : Function.Injective seedCoordinateP := by
   have hlt := left.tree.isLt; have hrt := right.tree.isLt
   have hli := left.leaf.isLt; have hri := right.leaf.isLt
   have hlc := left.chain.isLt; have hrc := right.chain.isLt
-  have pl := lowerOrdinal_pair_lt' left; have pr := lowerOrdinal_pair_lt' right
-  by_cases h0 : left.layer = 0 <;> by_cases h0' : right.layer = 0
-  · unfold seedCoordinateP at heq
-    rw [if_pos h0, if_pos h0'] at heq
-    exact ChainGraph.seedCoordinate_injective heq
+  have pl := famOrdinal_pair_lt' left; have pr := famOrdinal_pair_lt' right
+  have hp := congrArg Prod.fst heq
+  have hh := congrArg (fun coordinate : ChainGraph.HalfCoordinate => coordinate.2.val) heq
+  unfold seedCoordinateP at hp hh
+  by_cases hc : left.chain.val < WCT9.famCount left.layer <;>
+    by_cases hc' : right.chain.val < WCT9.famCount right.layer
+  · rw [if_pos hc, if_pos hc'] at hp hh
+    simp only [fullHalf_val, Sum.inl.injEq] at hp hh
+    unfold WCT9.lowerSeedHeader at hp
+    obtain ⟨-, e1, e2, e3, -⟩ := header_injective (by decide) (by omega) (by omega) pl (by omega)
+      (by decide) (by omega) (by omega) pr (by omega) hp
+    have elay : left.layer = right.layer := Fin.ext e1
+    rw [elay] at e3 hh hc
+    have eo : WCT9.famOrdinal right.layer left.leaf.val left.chain.val =
+        WCT9.famOrdinal right.layer right.leaf.val right.chain.val := by omega
+    obtain ⟨e4, e5⟩ := WCT9.famOrdinal_inj hc hc' eo
+    exact ChainGraph.Address.ext elay (Fin.ext e2) (Fin.ext e4) (Fin.ext e5)
   · exfalso
-    have hp := congrArg Prod.fst heq
-    have hl0 : left.layer.val = 0 := by rw [h0]; rfl
-    have hr0 : right.layer.val ≠ 0 := fun h => h0' (Fin.ext h)
-    unfold seedCoordinateP ChainGraph.seedCoordinate at hp
-    rw [if_pos h0, if_neg h0'] at hp
-    split_ifs at hp
-    · dsimp only at hp
-      rw [hl0] at hp
-      exact WCT9.lowerSeedHeader_ne_top right.layer h0' _ _ _ _ _ (Sum.inl.inj hp).symm
-    · dsimp only at hp
-      have := (header_injective (by decide) (by omega) (by omega) (by omega) (by omega)
-        (by decide) (by omega) (by omega) (by omega) (by omega) (Sum.inl.inj hp)).2.1
-      omega
+    rw [if_pos hc, if_neg hc'] at hp
+    simp only [Sum.inl.injEq, WCT9.lowerSeedHeader] at hp
+    have := (header_injective (by decide) (by omega) (by omega) pl (by omega)
+      (by decide) (by omega) (by omega) (by omega) (by omega) hp).2.2.2.2
+    omega
   · exfalso
-    have hp := congrArg Prod.fst heq
-    have hr0 : right.layer.val = 0 := by rw [h0']; rfl
-    have hl0 : left.layer.val ≠ 0 := fun h => h0 (Fin.ext h)
-    unfold seedCoordinateP ChainGraph.seedCoordinate at hp
-    rw [if_neg h0, if_pos h0'] at hp
-    split_ifs at hp
-    · dsimp only at hp
-      rw [hr0] at hp
-      exact WCT9.lowerSeedHeader_ne_top left.layer h0 _ _ _ _ _ (Sum.inl.inj hp)
-    · dsimp only at hp
-      have := (header_injective (by decide) (by omega) (by omega) (by omega) (by omega)
-        (by decide) (by omega) (by omega) (by omega) (by omega) (Sum.inl.inj hp)).2.1
-      omega
-  · have hp := congrArg Prod.fst heq
-    have hh := congrArg (fun coordinate : ChainGraph.HalfCoordinate => coordinate.2.val) heq
-    unfold seedCoordinateP at hp hh
-    rw [if_neg h0, if_neg h0'] at hp hh
-    by_cases hc : left.chain.val < WCT9.lowerCoefCount <;>
-      by_cases hc' : right.chain.val < WCT9.lowerCoefCount
-    · rw [if_pos hc, if_pos hc'] at hp hh
-      simp only [fullHalf_val, Sum.inl.injEq] at hp hh
-      obtain ⟨e1, e2, e3⟩ := WCT9.lowerSeedHeader_injective (by omega) pl (by omega) pr hp
-      unfold WCT9.lowerCoefOrdinal at e3 hh
-      unfold WCT9.lowerCoefCount at e3 hh hc hc'
-      have e4 : left.leaf.val = right.leaf.val ∧ left.chain.val = right.chain.val := by omega
-      exact ChainGraph.Address.ext e1 (Fin.ext e2) (Fin.ext e4.1) (Fin.ext e4.2)
-    · exfalso
-      rw [if_pos hc, if_neg hc'] at hp
-      simp only [Sum.inl.injEq, WCT9.lowerSeedHeader] at hp
-      have := (header_injective (by decide) (by omega) (by omega) pl (by omega)
-        (by decide) (by omega) (by omega) (by omega) (by omega) hp).2.2.2.2
-      omega
-    · exfalso
-      rw [if_neg hc, if_pos hc'] at hp
-      simp only [Sum.inl.injEq, WCT9.lowerSeedHeader] at hp
-      have := (header_injective (by decide) (by omega) (by omega) (by omega) (by omega)
-        (by decide) (by omega) (by omega) pr (by omega) hp).2.2.2.2
-      omega
-    · rw [if_neg hc, if_neg hc'] at hp hh
-      simp only [fullHalf_val, Sum.inl.injEq] at hp hh
-      obtain ⟨-, e1, e2, e3, e4⟩ := header_injective (by decide) (by omega) (by omega) (by omega) (by omega)
-        (by decide) (by omega) (by omega) (by omega) (by omega) hp
-      exact ChainGraph.Address.ext (Fin.ext e1) (Fin.ext e2) (Fin.ext (by omega)) (Fin.ext (by omega))
+    rw [if_neg hc, if_pos hc'] at hp
+    simp only [Sum.inl.injEq, WCT9.lowerSeedHeader] at hp
+    have := (header_injective (by decide) (by omega) (by omega) (by omega) (by omega)
+      (by decide) (by omega) (by omega) pr (by omega) hp).2.2.2.2
+    omega
+  · rw [if_neg hc, if_neg hc'] at hp hh
+    simp only [fullHalf_val, Sum.inl.injEq] at hp hh
+    obtain ⟨-, e1, e2, e3, e4⟩ := header_injective (by decide) (by omega) (by omega) (by omega) (by omega)
+      (by decide) (by omega) (by omega) (by omega) (by omega) hp
+    exact ChainGraph.Address.ext (Fin.ext e1) (Fin.ext e2) (Fin.ext (by omega)) (Fin.ext (by omega))
 theorem seedCoordinateP_ne_wct (a : Address) (g : WctCoef) : seedCoordinateP a ≠ wctCoefCoordinate g := by
   intro heq
   have hp := congrArg Prod.fst heq
   unfold seedCoordinateP wctCoefCoordinate at hp
   split_ifs at hp
-  · unfold ChainGraph.seedCoordinate at hp
-    exact WCT9.ftsSeedHeader_ne_tag _ _ _ 0 _ _ _ _ (by decide) (Sum.inl.inj hp).symm
   · exact WCT9.ftsSeedHeader_ne_lowerSeedHeader _ _ _ _ _ _ (Sum.inl.inj hp).symm
   · exact WCT9.ftsSeedHeader_ne_tag _ _ _ 0 _ _ _ _ (by decide) (Sum.inl.inj hp).symm
 theorem secretCoordinate_injective : Function.Injective secretCoordinate := by
@@ -940,19 +806,6 @@ theorem encInputs_subset_publicUniverse : encInputs ⊆ SeccLaw.publicUniverse :
   rw [encQuery_length]
   unfold SeccLaw.maxInputLength
   omega
-noncomputable def canonUniverse {α : Type} (program : M α) : Finset HashInput :=
-  canonInputs ∪ encInputs ∪ ChainGraph.recordedInputs program
-attribute [irreducible] canonUniverse
-theorem canonInputs_subset_universe {α : Type} (program : M α) : canonInputs ⊆ canonUniverse program := by
-  rw [canonUniverse]
-  exact Finset.subset_union_left.trans Finset.subset_union_left
-theorem encInputs_subset_universe {α : Type} (program : M α) : encInputs ⊆ canonUniverse program := by
-  rw [canonUniverse]
-  exact Finset.subset_union_right.trans Finset.subset_union_left
-theorem recordedInputs_subset_universe {α : Type} (program : M α) :
-    ChainGraph.recordedInputs program ⊆ canonUniverse program := by
-  rw [canonUniverse]
-  exact Finset.subset_union_right
 section PrivateLaws
 noncomputable local instance instFintypeCoordinate_canonGraph : Fintype Coordinate := coordinateFintype
 noncomputable local instance instSampleableTypeFullTable_canonGraph : SampleableType FullGame.FullTable := Derivation.outputSampler Coordinate
@@ -1000,20 +853,6 @@ theorem tables_bind {Result : Type} (U : Finset HashInput) (hU : canonInputs ⊆
   apply evalSPMF_bind_congr_left
   intro other
   exact uniform_bind_programmed U hU secrets (fun table => next (privateEquiv.symm (secrets, other)) table)
-theorem recorded_canon_law {α : Type} (program : M α) :
-    𝒮[FirstHit.record program (∅, ∅)] =
-      𝒮[do
-        let secrets ← ($ᵗ Secrets : ProbComp _)
-        let other ← ($ᵗ OtherHalves : ProbComp _)
-        let labels ← ($ᵗ Labels : ProbComp _)
-        let residual ← ($ᵗ (canonUniverse program → HashOutput) : ProbComp _)
-        ChainGraph.finiteRecorded (privateEquiv.symm (secrets, other)) (canonUniverse program)
-          (programmed (canonUniverse program) (canonInputs_subset_universe program) secrets labels residual)
-          program] := by
-  rw [ChainGraph.recorded_finite_tables program (canonUniverse program) (fun privateTable =>
-    (ChainGraph.program_subset_recordedInputs program privateTable).trans (recordedInputs_subset_universe program))]
-  exact tables_bind (canonUniverse program) (canonInputs_subset_universe program)
-    (fun privateTable publicTable => ChainGraph.finiteRecorded privateTable (canonUniverse program) publicTable program)
 abbrev LowLabels := Node → Digest
 noncomputable def labelPairEquiv : Labels ≃ LowLabels × LowLabels :=
   (Equiv.arrowCongr (Equiv.refl Node) ChainGraph.outputEquiv).trans
@@ -1023,8 +862,6 @@ noncomputable def joinLabels (low high : LowLabels) : Labels :=
 theorem labelPairEquiv_symm (low high : LowLabels) : labelPairEquiv.symm (low, high) = joinLabels low high := rfl
 theorem joinLabels_low (low high : LowLabels) (node : Node) :
     (joinLabels low high node).extractLsb' 0 128 = low node := ChainGraph.joinOutput_low _ _
-theorem joinLabels_high (low high : LowLabels) (node : Node) :
-    (joinLabels low high node).extractLsb' 128 128 = high node := ChainGraph.joinOutput_high _ _
 noncomputable local instance instSampleableTypeLowLabels : SampleableType LowLabels := SampleableType.ofFintype _
 noncomputable local instance instSampleableTypeProdLowLabels : SampleableType (LowLabels × LowLabels) := SampleableType.ofFintype _
 theorem labels_bind {Result : Type} (next : Labels → ProbComp Result) :
@@ -1072,25 +909,6 @@ theorem eager_programmed_agrees (U : Finset HashInput) (hU : canonInputs ⊆ U) 
   apply agrees_of_programmed U hU _ labels residual
   intro x
   rw [secretsOf_eager, privateSecrets_symm, eagerAnswers_mem]
-theorem eager_graph_agrees (privateTable : FullGame.FullTable) (U : Finset HashInput) (hU : canonInputs ⊆ U)
-    (table : U → HashOutput) :
-    Agrees (eagerAnswers privateTable U table) (graph U hU (privateSecrets privateTable) table) := by
-  intro node
-  rw [secretsOf_eager]
-  exact (eagerAnswers_mem privateTable U table _).trans (graph_consistent U hU _ table node).symm
-theorem eager_hpub (U : Finset HashInput) (hU : canonInputs ⊆ U) (secrets : Secrets) (other : OtherHalves)
-    (labels : Labels) (residual : U → HashOutput) (x : U) :
-    eagerAnswers (privateEquiv.symm (secrets, other)) U (programmed U hU secrets labels residual) (.inl (.inr x.val)) =
-      programmed U hU (secretsOf (eagerAnswers (privateEquiv.symm (secrets, other)) U
-        (programmed U hU secrets labels residual))) labels residual x := by
-  rw [secretsOf_eager, privateSecrets_symm, eagerAnswers_mem]
-theorem completeWith_empty (tables : SeccLaw.CompletionTables) :
-    SeccLaw.completeWith (∅, ∅) tables = eagerAnswers tables.1 SeccLaw.publicUniverse tables.2 := by
-  funext input
-  rcases input with (n | input) | coordinate
-  · rfl
-  · rfl
-  · rfl
 theorem agrees_chain {answers : Answers} {labels : Labels} (h : Agrees answers labels) :
     ChainGraph.Agrees answers (seedsOf (secretsOf answers)) (chainLabels labels) :=
   fun point => h (.chain point)
@@ -1110,29 +928,17 @@ theorem secretsOf_wct (answers : Answers) (a : WctAddr) :
     wctSeedsOf (secretsOf answers) a = WCT9.seed answers a.1.val a.2.1.val a.2.2.1.val a.2.2.2 := by
   unfold wctSeedsOf WCT9.seed
   rw [wctFamily_secretsOf]
-theorem secretsOf_top (answers : Answers) (a : Address) (h : a.layer = 0) :
-    secretsOf answers (.inl a) = leafSeed answers a.layer a.tree.val a.leaf.val a.chain.val := by
+/-- A coefficient secret is the packed half `famCoefN` the signer reads (stage B lower, T8D top). -/
+theorem secretsOf_fam (answers : Answers) (a : Address) (hc : a.chain.val < WCT9.famCount a.layer) :
+    secretsOf answers (.inl a) = WCT9.famCoefN answers a.layer a.tree.val a.leaf.val a.chain.val := by
   change halfAnswer answers (seedCoordinateP a) = _
-  unfold seedCoordinateP ChainGraph.seedCoordinate leafSeed
-  rw [if_pos h, halfAnswer_pair]
-/-- A lower coefficient secret is the packed half `lowerCoefN` the signer reads (stage B). -/
-theorem secretsOf_lower (answers : Answers) (a : Address) (h : a.layer ≠ 0) (hc : a.chain.val < WCT9.lowerCoefCount) :
-    secretsOf answers (.inl a) = WCT9.lowerCoefN answers a.layer a.tree.val a.leaf.val a.chain.val := by
-  change halfAnswer answers (seedCoordinateP a) = _
-  unfold seedCoordinateP WCT9.lowerCoefN WCT9.seedHalf WCT9.lowerSeedHeader WCT9.lowerSeedPair
-  rw [if_neg h, if_pos hc, halfAnswer_pair, fullHalf_val]
-theorem lowerFamily_secretsOf (answers : Answers) {lay : Layer} (h : lay ≠ 0) (tree : Fin (2 ^ 31))
-    (leaf : Fin 4096) : lowerFamily (secretsOf answers) lay tree leaf = WCT9.lowerCoef answers lay tree.val leaf.val :=
-  funext fun j => secretsOf_lower answers ⟨lay, tree, leaf, ⟨j.val, by omega⟩⟩ h (by
-    show j.val < WCT9.lowerCoefCount; unfold WCT9.lowerCoefCount; omega)
-theorem secretsOf_wots (answers : Answers) (a : Address) (h : a.layer = 0) :
-    secretsOf answers (.inl a) = WCT9.wotsSeed answers a.layer a.tree.val a.leaf.val a.chain.val := by
-  rw [secretsOf_top answers a h, h, WCT9.wotsSeed_top]
+  unfold seedCoordinateP WCT9.famCoefN WCT9.seedHalf WCT9.lowerSeedHeader WCT9.lowerSeedPair
+  rw [if_pos hc, halfAnswer_pair, fullHalf_val]
+theorem leafFamily_secretsOf (answers : Answers) (lay : Layer) (tree : Fin (2 ^ 31)) (leaf : Fin 4096) :
+    leafFamily (secretsOf answers) lay tree leaf = WCT9.famCoef answers lay tree.val leaf.val :=
+  funext fun j => secretsOf_fam answers ⟨lay, tree, leaf, ⟨j.val, lt_trans j.isLt (famCount_lt_58 lay)⟩⟩ j.isLt
 theorem seedsOf_secretsOf (answers : Answers) (a : Address) :
     seedsOf (secretsOf answers) a = WCT9.wotsSeed answers a.layer a.tree.val a.leaf.val a.chain.val := by
   unfold seedsOf
-  split_ifs with h0
-  · exact secretsOf_wots answers a h0
-  · rw [lowerFamily_secretsOf answers h0, WCT9.wotsSeed_lower answers h0]
-    rfl
+  rw [leafFamily_secretsOf answers, WCT9.wotsSeed_fam]
 end ClaudeWCT.W9.T3.Security.CanonGraph

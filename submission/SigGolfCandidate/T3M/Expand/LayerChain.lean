@@ -150,7 +150,7 @@ def oneRegs : List Reg := [.x6, .x7, .x10, .x11, .x12, .x19, .x20, .x21, .x23, .
 def OneW (lay : T3.Layer) (i W : Nat) (A : Nat) : Prop :=
   StepW A ∨ A = LEAFPK + slotOff lay i ∨ A = LEAFPK + slotOff lay i + 8 ∨ A = W + 48 ∨ A = W + 56
 def endpoint (lay : Layer) (i n4 : Nat) : Nat :=
-  if lay = 0 then (if i < n4 then 4 else 3) else 7
+  if lay = 0 then (if i < n4 then 4 else 7) else 7
 def endpointExtra (lay : Layer) (i n4 : Nat) : Nat :=
   if lay = 0 then (if i < n4 then 5 else 3) else 0
 theorem rl_one (lay : Layer) (tree leaf i d P W n n4 : Nat)
@@ -162,7 +162,7 @@ theorem rl_one (lay : Layer) (tree leaf i d P W n n4 : Nat)
     (h27 : t.getReg .x27 = BitVec.ofNat 64 n4) (h16 : t.getReg .x16 = BitVec.ofNat 64 P)
     (h23 : t.getReg .x23 = BitVec.ofNat 64 W) (hv : DigAt t (P + 16 * i) v)
     (hdig : t.getByte (BitVec.ofNat 64 (DIGITS + i)) = BitVec.ofNat 8 d) :
-    TBSim image sk t 353 (chain lay tree leaf i d ((endpoint lay i n4) - d) v)
+    TBSim image sk t 356 (chain lay tree leaf i d ((endpoint lay i n4) - d) v)
       (fun v' u => u.pc = pcOf 1010 ∧ u.getReg .x19 = BitVec.ofNat 64 (i + 1) ∧
         u.getReg .x23 = BitVec.ofNat 64 (W - 64) ∧ ChainCtx lay.val tree leaf (i + 1) u ∧
         DigAt u (LEAFPK + slotOff lay i) v' ∧ DigAt u (W + 48) v ∧ RegsExcept t u oneRegs ∧ Frame t u (OneW lay i W)) := by
@@ -239,7 +239,7 @@ theorem rl_one (lay : Layer) (tree leaf i d P W n n4 : Nat)
   have hloop := chain_loop (sk := sk) lay tree leaf i d e hr hf hd he7 (by omega) v t5 p5 hc5 x20' x21' hv5
   have hprog : chain lay tree leaf i d (e - d) v = (chain lay tree leaf i d (e - d) v >>= pure) := by rw [bind_pure]
   rw [hprog]
-  have total_cost : (1 + 16 + 1 + 2 + endpointExtra lay i n4) + ((e - d) * 45 + 1 + 17) ≤ 353 := by
+  have total_cost : (1 + 16 + 1 + 2 + endpointExtra lay i n4) + ((e - d) * 45 + 1 + 17) ≤ 356 := by
     rw [he]; unfold endpointExtra endpoint
     split_ifs <;> omega
   refine (TBSim.steps (((((s1.trans s2).trans s3).trans s4).trans s5)) (TBSim.bind (W₂ := 17) hloop

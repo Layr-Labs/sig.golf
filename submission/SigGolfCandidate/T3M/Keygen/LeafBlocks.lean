@@ -2,40 +2,6 @@ import SigGolfCandidate.T3M.Keygen.Chain
 
 namespace SigGolfCandidate.T3M.Keygen
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
-theorem sub27_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)
-    (hpc : s.pc = pcOf (b + 27)) (lay leaf : Nat) (hlay : lay < 256) (hleaf : leaf < 2 ^ 32)
-    (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf) :
-    ∃ t, Steps image s 14 14 t ∧ t.pc = pcOf (b + 41) ∧ t.getReg .x3 = s.getReg .x1 ∧
-      t.getReg .x19 = BitVec.ofNat 64 0 ∧
-      t.getMem (BitVec.ofNat 64 (LEAFPK + 16)) = T3.hyperWord lay leaf ∧
-      t.getMem (BitVec.ofNat 64 (LEAFPK + 24)) = 0 ∧
-      RegsExcept s t [.x3, .x6, .x7, .x19, .x28, .x30] ∧
-      Frame s t (fun A => A = LEAFPK + 16 ∨ A = LEAFPK + 24) := by
-  have hrun := run_27 h.2.1
-  refine ⟨_, symRun_sound hrun (codeAt_sub_27 h) s hpc
-    (by simp [st_27, blk117_27.res, rv_simp, accessValid_iff, MEMORY_BYTES]), ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · simp [pcE_27, Result.toState_pc, E.eval]
-  · simp [st_27, blk117_27.res, rv_simp]
-  · simp [st_27, blk117_27.res, rv_simp]
-  · simp only [Result.toState_getMem, st_27, blk117_27.res, LEAFPK]
-    t3n [h8, h18]
-    rw [show (513#64) = BitVec.ofNat 64 513 from rfl,
-      ofNat_or_disjoint 513 (leaf * 65536) 16 (by decide) (by omega),
-      ofNat_or_disjoint' _ (lay * 281474976710656) 48 (by omega) (by omega),
-      show (13907115649320091648#64) = BitVec.ofNat 64 (193 * 2 ^ 56) from rfl,
-      ofNat_or_disjoint' _ (193 * 2 ^ 56) 56 (by omega) (by omega)]
-    unfold T3.hyperWord
-    congr 1
-    rw [Nat.mod_eq_of_lt hleaf, Nat.mod_eq_of_lt hlay]
-    omega
-  · simp only [Result.toState_getMem, st_27, blk117_27.res, LEAFPK]
-    t3n []
-  · intro r hr; simp at hr; cases r <;> simp_all [st_27, blk117_27.res, rv_simp] <;> rfl
-  · intro A hA hn
-    simp only [LEAFPK] at hn
-    simp only [Result.toState_getMem, st_27, blk117_27.res]
-    t3n []
-    rw [if_neg (by omega), if_neg (by omega)]
 theorem sub41_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)
     (hpc : s.pc = pcOf (b + 41)) (i n : Nat) (hi : i < 2 ^ 63) (hn : n < 2 ^ 63)
     (h19 : s.getReg .x19 = BitVec.ofNat 64 i) (h26 : s.getReg .x26 = BitVec.ofNat 64 n) :
@@ -49,54 +15,6 @@ theorem sub41_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSta
     by_cases hin : i < n <;> simp [hin]
   · intro r hr; cases r <;> simp_all [st_41, blk117_41.res, rv_simp] <;> rfl
   · intro A _ _; simp [st_41, blk117_41.res, rv_simp]
-theorem sub42_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)
-    (hpc : s.pc = pcOf (b + 42)) (i : Nat) (h19 : s.getReg .x19 = BitVec.ofNat 64 i) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = (if i % 2 = 0 then pcOf (b + 44) else pcOf (b + 60)) ∧
-      RegsExcept s t [.x6] ∧ Frame s t (fun _ => False) := by
-  have hrun := run_42 h.2.1
-  refine ⟨_, symRun_sound hrun (codeAt_sub_42 h) s hpc (by simp [st_42, blk117_42.res, rv_simp]),
-    ?_, ?_, ?_⟩
-  · simp only [Result.toState_pc, pcE_42, rebase, blk117_42.res, rv_simp, h19, ofNat_and1]
-    rcases Nat.mod_two_eq_zero_or_one i with h2 | h2 <;> simp [h2]
-  · intro r hr; simp at hr; cases r <;> simp_all [st_42, blk117_42.res, rv_simp] <;> rfl
-  · intro A _ _; simp [st_42, blk117_42.res, rv_simp]
-theorem sub44_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)
-    (hpc : s.pc = pcOf (b + 44)) (lay tree leaf i : Nat) (hlay : lay < 256) (htree : tree < 2 ^ 32)
-    (hleaf : leaf < 2 ^ 32) (hi : i < 2 ^ 32) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay)
-    (h9 : s.getReg .x9 = BitVec.ofNat 64 tree) (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf)
-    (h19 : s.getReg .x19 = BitVec.ofNat 64 i) :
-    ∃ t, Steps image s 15 15 t ∧ t.pc = pcOf (b + 59) ∧
-      t.getReg .x10 = BitVec.ofNat 64 PRIV ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
-      t.getReg .x12 = BitVec.ofNat 64 SEEDS ∧
-      t.getMem (BitVec.ofNat 64 (PRIV + 16)) = BitVec.ofNat 64 (hdr0 0 lay tree (i / 2)) ∧
-      t.getMem (BitVec.ofNat 64 (PRIV + 24)) = BitVec.ofNat 64 (hdr1 tree leaf) ∧
-      RegsExcept s t [.x6, .x7, .x10, .x11, .x12, .x28, .x30] ∧
-      Frame s t (fun A => A = PRIV + 16 ∨ A = PRIV + 24) := by
-  have hrun := run_44 h.2.1
-  refine ⟨_, symRun_sound hrun (codeAt_sub_44 h) s hpc (by simp [st_44, blk117_44.res, rv_simp]),
-    ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · simp [pcE_44, Result.toState_pc, E.eval]
-  · simp [st_44, blk117_44.res, rv_simp]
-  · simp [st_44, blk117_44.res, rv_simp]
-  · simp [st_44, blk117_44.res, rv_simp]
-  · simp only [Result.toState_getMem, st_44, blk117_44.res, PRIV]
-    t3n [h8, h19]
-    rw [ofNat_shr i 1 (by omega), ofNat_shl, Nat.pow_one,
-      ofNat_or_disjoint' (lay * 65536) (i / 2 * 2 ^ 32) 32 (by omega) (by omega),
-      ofNat_or_disjoint 1 _ 16 (by omega) (by omega), hdr0_eq 0 lay tree (i / 2) (by omega) hlay htree
-        (by omega)]
-    congr 1; omega
-  · simp only [Result.toState_getMem, st_44, blk117_44.res, PRIV]
-    t3n [h9, h18]
-    rw [BitVec.or_comm, ofNat_or_disjoint tree (leaf * 4294967296) 32 htree (by omega),
-      hdr1_eq tree leaf htree hleaf]
-    congr 1; ring
-  · intro r hr; simp at hr; cases r <;> simp_all [st_44, blk117_44.res, rv_simp] <;> rfl
-  · intro A hA hn
-    simp only [PRIV] at hn
-    simp only [Result.toState_getMem, st_44, blk117_44.res]
-    t3n []
-    rw [if_neg (by omega), if_neg (by omega)]
 theorem fetch_sub59 {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)
     (hpc : s.pc = pcOf (b + 59)) : fetch image s = some (.base .ECALL) :=
   ((codeAt_sub_59 h).fetch s hpc).trans rfl
@@ -168,16 +86,6 @@ theorem sub73_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSta
   · simp [st_73, blk117_73.res, rv_simp]
   · intro r hr; simp at hr; cases r <;> simp_all [st_73, blk117_73.res, rv_simp] <;> rfl
   · intro A _ _; simp [st_73, blk117_73.res, rv_simp]
-theorem sub75_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)
-    (hpc : s.pc = pcOf (b + 75)) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf (b + 1000) ∧
-      RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
-  have hrun := run_75 h.2.1
-  refine ⟨_, symRun_sound hrun (codeAt_sub_75 h) s hpc (by simp [st_75, blk117_75.res, rv_simp]),
-    ?_, ?_, ?_⟩
-  · simp [pcE_75, Result.toState_pc, E.eval]
-  · intro r hr; cases r <;> simp_all [st_75, blk117_75.res, rv_simp] <;> rfl
-  · intro A _ _; simp [st_75, blk117_75.res, rv_simp]
 theorem maxLow_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)
     (hpc : s.pc = pcOf (b + 1000)) (i n4 : Nat) (hi : i < 2 ^ 63) (hn : n4 < 2 ^ 63)
     (h19 : s.getReg .x19 = BitVec.ofNat 64 i) (h27 : s.getReg .x27 = BitVec.ofNat 64 n4) :

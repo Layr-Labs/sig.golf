@@ -52,4 +52,55 @@ theorem lower_zero_count_le {lay : Layer} (hlay : lay ≠ 0) (htarget : 197 ≤ 
 theorem lower_target_ge (lay : Layer) (hlay : lay ≠ 0) : 197 ≤ target lay := by
   revert hlay; fin_cases lay <;> decide
 
+/-! ### Revealed seeds of a top leaf (campaign T8D, TOP2 NF17)
+
+The top WOTS has 51 radix-5 chains (digits `≤ 4`) and 3 radix-8 chains (digits `≤ 7`), capacity `51·4 + 3·7 = 225`.
+A zero digit loses at least `4` from the capacity, so a top codeword with digit sum `T` has at most `(225 - T)/4`
+zero digits: `≤ 20` for `T ≥ 142` (`top_zero_count_le`). With 24 coefficients per top leaf family every unrevealed
+top seed keeps `24 - 20 ≥ 3` degrees of freedom (`|R| + 3 ≤ 24`). The dummy top codeword has no zero digit. -/
+
+/-- Digits bounded entrywise by `ms`, every bound `≥ 4`: the sum plus `4` per zero digit is at most `ms.sum`. -/
+theorem sum_add_four_zero_le : ∀ (ds ms : List Nat), ds.length = ms.length →
+    (∀ i, ds.getD i 0 ≤ ms.getD i 0) → (∀ m ∈ ms, 4 ≤ m) →
+    ds.sum + 4 * (ds.filter (· = 0)).length ≤ ms.sum
+  | [], [], _, _, _ => by simp
+  | d :: ds, m :: ms, hl, hle, hm => by
+      have ih := sum_add_four_zero_le ds ms (by simpa using hl) (fun i => by simpa using hle (i + 1))
+        (fun x hx => hm x (List.mem_cons_of_mem m hx))
+      have hd : d ≤ m := by simpa using hle 0
+      have h4 : 4 ≤ m := hm m List.mem_cons_self
+      by_cases h0 : d = 0
+      · subst h0; simp only [List.filter_cons, decide_true, if_true, List.length_cons, List.sum_cons]; omega
+      · simp only [List.filter_cons, h0, decide_false, Bool.false_eq_true, if_false, List.sum_cons]; omega
+  | [], _ :: _, hl, _, _ => by simp at hl
+  | _ :: _, [], hl, _, _ => by simp at hl
+
+theorem top_capacity : ((List.range (chainCount 0)).map (maxDigit 0)).sum = 225 := by decide
+
+theorem top_maxDigit_ge (i : Nat) : 4 ≤ maxDigit 0 i := by unfold maxDigit; split_ifs <;> omega
+
+/-- **At most 20 revealed seeds per top leaf** (for top targets `≥ 142`). -/
+theorem top_zero_count_le (htarget : 142 ≤ target 0) {value : Digest} {digits : List Nat}
+    (h : decode 0 value = some digits) : (digits.filter (· = 0)).length ≤ 20 := by
+  obtain ⟨hlen, hsum⟩ := decode_length_sum h
+  have key := sum_add_four_zero_le digits ((List.range (chainCount 0)).map (maxDigit 0)) (by simp [hlen])
+    (fun i => by
+      by_cases hi : i < chainCount 0
+      · have hm : ((List.range (chainCount 0)).map (maxDigit 0)).getD i 0 = maxDigit 0 i := by
+          rw [List.getD_eq_getElem _ _ (by simpa using hi)]; simp
+        rw [hm]; exact decode_digit_max h i hi
+      · rw [List.getD_eq_default _ _ (by omega)]; exact Nat.zero_le _)
+    (by
+      intro m hm
+      obtain ⟨i, -, rfl⟩ := List.mem_map.mp hm
+      exact top_maxDigit_ge i)
+  rw [top_capacity] at key
+  omega
+
+/-- The current top target satisfies the hypothesis of `top_zero_count_le`. -/
+theorem top_target_ge : 142 ≤ target 0 := by decide
+
+/-- The dummy top codeword has no zero digit. -/
+theorem dummyTop_zero : (dummyTop.filter (· = 0)).length = 0 := by decide
+
 end ClaudeWCT.WCT9

@@ -16,11 +16,6 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 noncomputable local instance instDecidableEqCache_largeCouplingCertShort : DecidableEq T3.Cache := Classical.decEq _
-theorem routerStep_world (U : Finset HashInput) (A : Answers) (nv : Message → Digest) (published : T3.Cache)
-    (st : RouterState) (e : FirstHit.QueryEvent) : routerStep U A nv published st (.world e) = routerEvent U st e := rfl
-theorem routerStep_sign (U : Finset HashInput) (A : Answers) (nv : Message → Digest) (published : T3.Cache)
-    (st : RouterState) (request : Security.Request) (out : Option Signature) (events : List FirstHit.QueryEvent) :
-    routerStep U A nv published st (.sign request out events) = signedState A nv published st request := rfl
 section Short
 variable {A T : Answers} (hAT : Wots.Ref.ShortAgree A T)
 include hAT
@@ -30,36 +25,6 @@ theorem honestNonce_short : honestNonce A = honestNonce T := by
   simp only [T3.privateNonce, privateHash, evalWithAnswerFn_bind, evalWithAnswerFn_pure]
   change (A (.inr (.inr (.inl m)))).extractLsb' 0 128 = (T (.inr (.inr (.inl m)))).extractLsb' 0 128
   rw [hAT.priv]
-theorem routeOk_short : RouteOk A = RouteOk T := by
-  funext index
-  apply propext
-  unfold RouteOk
-  simp only [Wots.Ref.referenceSearch_short hAT]
-theorem signedState_short (nv : Message → Digest) (published : T3.Cache) (st : RouterState)
-    (request : Security.Request) :
-    signedState A nv published st request = signedState T nv published st request := by
-  have hd : Wots.referenceDigits A = Wots.referenceDigits T := funext (Wots.Ref.referenceDigits_short hAT)
-  unfold signedState LargeResidual.signItems
-  rw [signDigest_short hAT, hd, routeOk_short hAT]
-theorem routerStep_short (U : Finset HashInput) (published : T3.Cache) (st : RouterState) (s : TaggedStep) :
-    routerStep U A (honestNonce A) published st s = routerStep U T (honestNonce T) published st s := by
-  cases s with
-  | world e => rw [routerStep_world, routerStep_world]
-  | sign request out events =>
-      rw [routerStep_sign, routerStep_sign, honestNonce_short hAT, signedState_short hAT]
-theorem steps_router_short (U : Finset HashInput) (published : T3.Cache) (steps : List TaggedStep) :
-    ∀ st, steps.foldl (routerStep U A (honestNonce A) published) st =
-      steps.foldl (routerStep U T (honestNonce T) published) st := by
-  induction steps with
-  | nil => intro st; rw [List.foldl_nil, List.foldl_nil]
-  | cons s rest ih =>
-      intro st
-      rw [List.foldl_cons, List.foldl_cons, routerStep_short hAT, ih]
-theorem routerFold_short (U : Finset HashInput) (published : T3.Cache) (steps : List TaggedStep)
-    (verdict : List FirstHit.QueryEvent) :
-    routerFold U A published steps verdict = routerFold U T published steps verdict := by
-  unfold routerFold
-  rw [steps_router_short hAT]
 end Short
 end SigGolfCandidate.T3.Security.LargeCoupling
 end
@@ -83,10 +48,6 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 noncomputable local instance instDecidableEqCache_largeCouplingCertInteraction : DecidableEq T3.Cache := Classical.decEq _
-section Interaction
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
-  {τ : Cell U → HashOutput} {a : AuxData} {q : Nat} (initLaw : PMF AuxData)
-end Interaction
 end SigGolfCandidate.T3.Security.LargeCoupling
 end
 section
@@ -102,19 +63,6 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 attribute [local irreducible] keygen
 noncomputable local instance instDecidableEqCache_largeCouplingCertTable : DecidableEq T3.Cache := Classical.decEq _
-noncomputable def verdictCert (U : Finset HashInput) (T : Answers) (q : Nat) (pk : Digest) (mon : Monitor)
-    (st : RouterState) (value : Option ForgeryP × QueryLog Requests) (state : LazyPrivate.State) : Prop :=
-  evalWithAnswerFn T (GameWith.verdict PaddedGame.checker pk value) = true ∧
-  ((Wots.Ref.pureRecord T (GameWith.verdict PaddedGame.checker pk value) state).events.foldl
-    (Monitor.event U T q) mon).contact = false ∧
-  ((Wots.Ref.pureRecord T (GameWith.verdict PaddedGame.checker pk value) state).events.foldl
-    (Monitor.event U T q) mon).calls ≤ q ∧
-  CertGhost ((Wots.Ref.pureRecord T (GameWith.verdict PaddedGame.checker pk value) state).events.foldl
-    (routerEvent U) st)
-theorem honestNonce_coherent {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
-    {τ : Cell U → HashOutput} {a : AuxData} (hcoh : Coherent U T vals nv τ a) : nv = honestNonce T := by
-  funext m
-  exact (hcoh.privateNonce m).symm
 end SigGolfCandidate.T3.Security.LargeCoupling
 end
 section
@@ -142,102 +90,12 @@ theorem pmf_probEvent_mono_support' {α : Type} (p : PMF α) {F G : α → Prop}
       rw [PMF.apply_eq_zero_iff]
       exact hx
     simp [hp]
-def RealCert (adversary : AdversaryP) (q : Nat) (x : FirstHit.Recorded Bool × Answers) : Prop :=
-  CertR adversary q x.1 x.2
 section Lazy
 variable {U : Finset HashInput}
 theorem probEvent_bind_mono_le {α β γ : Type} (m : SPMF α) (f : α → SPMF β) (g : α → SPMF γ) (E : β → Prop)
     (E' : γ → Prop) (h : ∀ x, Pr[E | f x] ≤ Pr[E' | g x]) : Pr[E | m >>= f] ≤ Pr[E' | m >>= g] := by
   rw [probEvent_bind_eq_tsum, probEvent_bind_eq_tsum]
   exact ENNReal.tsum_le_tsum fun x => by gcongr; exact h x
-theorem finish_some_le {R : Type} (X : SPMF (Option R × LargeResidual.State WCoord (Cell U))) (P : R → Prop) :
-    Pr[fun r => ∃ v, r.1 = some v ∧ P v.2.2 | X >>= finish] ≤ Pr[fun r => ∃ v, r.1 = some v ∧ P v | X] := by
-  rw [probEvent_bind_eq_tsum, probEvent_eq_tsum_ite]
-  apply ENNReal.tsum_le_tsum
-  intro r
-  rcases r with ⟨v, st⟩
-  cases v with
-  | none =>
-      have h0 : Pr[fun r => ∃ v, r.1 = some v ∧ P v.2.2 | finish ((none : Option R), st)] = 0 := by
-        simp only [finish, probEvent_pure]
-        rw [if_neg]
-        rintro ⟨v, hv, -⟩
-        cases hv
-      rw [h0, mul_zero]
-      exact zero_le
-  | some v =>
-      by_cases hP : P v
-      · rw [if_pos ⟨v, rfl, hP⟩]
-        exact mul_le_of_le_one_right zero_le probEvent_le_one
-      · have h0 : Pr[fun r => ∃ v, r.1 = some v ∧ P v.2.2 | finish (some v, st)] = 0 := by
-          rw [probEvent_eq_zero_iff]
-          intro x hx hE
-          unfold finish at hx
-          simp only [mem_support_bind_iff, mem_support_pure_iff] at hx
-          obtain ⟨labels, -, table, -, rfl⟩ := hx
-          obtain ⟨v', hv', hP'⟩ := hE
-          simp only [Option.some.injEq] at hv'
-          subst hv'
-          exact hP hP'
-        rw [h0, mul_zero]
-        exact zero_le
-theorem observed_avg_le {R : Type} (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input)) (q : Nat)
-    (program : OracleComp (RWorld U) R) (P : R → Prop) :
-    Pr[fun r => ∃ v, r.1 = some v ∧ P v | 𝒮[($ᵗ (WCoord → LargeResidual.Digest) : ProbComp _)] >>= fun labels =>
-        𝒮[($ᵗ (Cell U → LargeResidual.HashOutput) : ProbComp _)] >>= fun τ =>
-          observedRun aux q labels τ program LargeResidual.initial] ≤
-      Pr[fun r => ∃ v, r.1 = some v ∧ P v | lazyRun aux q program LargeResidual.initial] := by
-  rw [← complete_univ, ← completeRows_none]
-  have hpost := run_posterior aux q program (LargeResidual.initial : LargeResidual.State WCoord (Cell U))
-    (fun _ => Finset.univ_nonempty)
-  refine le_trans (le_of_eq ?_) (finish_some_le (lazyRun aux q program LargeResidual.initial) P)
-  rw [← hpost]
-  apply probEvent_bind_congr_eq
-  intro labels
-  apply probEvent_bind_congr_eq
-  intro τ
-  rw [probEvent_map]
-  congr 1
-  funext r
-  apply propext
-  rcases r with ⟨_ | v, st⟩
-  · simp [retain]
-  · simp [retain]
-theorem certOut_iff (r : Option (Option (Bool × RouterState)) × LargeResidual.State WCoord (Cell U)) :
-    CertOut r ↔ ∃ v, r.1 = some v ∧ ∃ st, v = some (true, st) ∧ CertGhost st := by
-  constructor
-  · rintro ⟨st, h1, h2⟩
-    exact ⟨_, h1, st, rfl, h2⟩
-  · rintro ⟨v, h1, st, rfl, h2⟩
-    exact ⟨st, h1, h2⟩
-theorem router_side_cert (adversary : AdversaryP) (q : Nat) :
-    Pr[CertOut |
-        𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun high =>
-        𝒮[($ᵗ (EncLeaf → Fin (2 ^ 22) → HashOutput) : ProbComp _)] >>= fun rows =>
-        𝒮[($ᵗ FullGame.FullTable : ProbComp _)] >>= fun priv =>
-        𝒮[($ᵗ (WCoord → LargeResidual.Digest) : ProbComp _)] >>= fun lab =>
-        𝒮[($ᵗ (Cell (Wots.referenceInputs adversary) → LargeResidual.HashOutput) : ProbComp _)] >>= fun τ =>
-        observedRun (auxLaw initLaw) q lab τ (routerWith (Wots.referenceInputs adversary) adversary q ⟨high, rows, priv⟩)
-          LargeResidual.initial] ≤
-      Pr[CertOut |
-        lazyRun (auxLaw initLaw) q (router (Wots.referenceInputs adversary) adversary q) LargeResidual.initial] := by
-  have hce : (@CertOut (Wots.referenceInputs adversary)) =
-      fun r => ∃ v, r.1 = some v ∧ ∃ st, v = some (true, st) ∧ CertGhost st :=
-    funext fun r => propext (certOut_iff r)
-  rw [hce]
-  unfold router initReq
-  rw [lazy_aux]
-  change _ ≤ Pr[_ | (liftM initLaw : SPMF AuxData) >>= _]
-  rw [initLaw_spmf]
-  unfold initComp
-  simp only [evalSPMF_bind, evalSPMF_pure, bind_assoc, pure_bind]
-  apply probEvent_bind_mono_le
-  intro high
-  apply probEvent_bind_mono_le
-  intro rows
-  apply probEvent_bind_mono_le
-  intro priv
-  exact observed_avg_le (auxLaw initLaw) q _ _
 end Lazy
 end CertChain
 end SigGolfCandidate.T3.Security.LargeCoupling
@@ -499,7 +357,8 @@ theorem table_cert_le (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) (i
     · have hsub := discLower_steps (Wots.referenceInputs adversary) T nv (evalWithAnswerFn T keygen).2 t.steps
         RouterState.initial L
       rw [discLower_initial, Finset.empty_union] at hsub
-      exact (Finset.card_le_card hsub).trans ((lowerZeros_card T L).trans (by norm_num))
+      have := lowerZeros_card T L
+      exact (Finset.card_le_card hsub).trans (by omega)
   · intro mon st ws state v log hrel _ hf
     obtain ⟨out, ws', hrun, hph⟩ := routeVerdict_observed (auxLaw initLaw) hcoh hq
       (GameWith.verdict PaddedGame.checker (evalWithAnswerFn T keygen).1 (v, log))
@@ -791,20 +650,6 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 noncomputable local instance instDecidableEqCache_largeCouplingBankRun : DecidableEq T3.Cache := Classical.decEq _
-noncomputable def bankPay {U : Finset HashInput} (q : Nat)
-    (r : Option (Option (Bool × RouterState)) × LargeResidual.State WCoord (Cell U)) : ENNReal :=
-  (match r.1 with
-    | some (some (_, st)) => psi q st
-    | _ => 0) + slackT q r.2
-section Run
-variable {U : Finset HashInput} (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input)) (q : Nat)
-theorem bankInv_initial (s : LargeResidual.State WCoord (Cell U)) (hd : DiscFrame U LargeResidual.initial s) :
-    BankInv U s RouterState.initial := by
-  obtain ⟨hr, hc, hn⟩ := hd
-  refine ⟨by rw [hc]; rfl, by rw [hc]; exact le_rfl, le_rfl, fun m _ => by rw [hn m]; rfl,
-    fun X hX _ _ _ => by rw [hr]; rfl, fun X hX _ hs _ => absurd hs (by simp [RouterState.initial]),
-    fun p hp => absurd hp (by simp [RouterState.initial]), fun X hX => absurd hX (by simp [RouterState.initial])⟩
-end Run
 end SigGolfCandidate.T3.Security.LargeCoupling
 end
 section
@@ -816,14 +661,6 @@ open SeccClosing (largeBound excessRate cacheRate largeReserveRate largeReserveA
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
-noncomputable abbrev lazyRouter (adversary : AdversaryP) (q : Nat) :=
-  lazyRun (auxLaw initLaw) q (router (Wots.referenceInputs adversary) adversary q) LargeResidual.initial
-noncomputable def routerMass (adversary : AdversaryP) (q : Nat) : ENNReal :=
-  ∑' r, Pr[= r | lazyRouter adversary q] * (r.2.counters.mass : ENNReal)
-def LargeCertBound (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) : Prop :=
-  Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ¬Contact adversary q z | SeccLaw.completedExperiment adversary q hq] ≤
-    routerMass adversary q / 2 ^ 128 + (q : ENNReal) * excessRate / 2 ^ 128 + (q : ENNReal) * cacheRate / 2 ^ 128 +
-      (q : ENNReal) * largeReserveRate / 2 ^ 128 + largeReserveAbsolute
 end SigGolfCandidate.T3.Security.LargeCoupling
 end
 section
@@ -838,83 +675,6 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-section NoFail
-variable {Coord Cell AuxIndex : Type} {auxSpec : OracleSpec AuxIndex}
-  [Fintype Coord] [DecidableEq Coord] [Fintype Cell] [DecidableEq Cell]
-  (aux : (input : auxSpec.Domain) → PMF (auxSpec.Range input)) (q : Nat)
-theorem observed_noFail (labels : Coord → LargeResidual.Digest) (table : Cell → LargeResidual.HashOutput) {R : Type}
-    (P : OracleComp (World auxSpec Coord Cell) R) :
-    ∀ s, Pr[⊥ | observedRun aux q labels table P s] = 0 := by
-  induction P using OracleComp.inductionOn with
-  | pure v =>
-      intro s
-      rw [observedRun, runWith_pure]
-      simp
-  | query_bind input next ih =>
-      intro s
-      rw [observedRun, runWith_query_bind, probFailure_bind_eq_add_tsum]
-      have h1 : Pr[⊥ | (observedImpl aux q labels table input).run.run s] = 0 := by
-        rcases input with i | req
-        · simp [observedImpl]
-        · cases req with
-          | read row ch => simp [observedImpl]
-          | probe row test =>
-              simp only [observedImpl, OptionT.run_mk, StateT.run_mk]
-              split
-              · simp
-              · split <;> simp
-          | disclose c ch => simp [observedImpl]
-          | tick ch => simp [observedImpl]
-      rw [h1, zero_add]
-      apply ENNReal.tsum_eq_zero.mpr
-      intro r
-      rcases r with ⟨o, s'⟩
-      cases o with
-      | none => simp
-      | some v =>
-          simp only [Option.elim_some]
-          exact mul_eq_zero_of_right _ (ih v s')
-theorem lazy_noFail {R : Type} (P : OracleComp (World auxSpec Coord Cell) R) :
-    Pr[⊥ | lazyRun aux q P (LargeResidual.initial : LargeResidual.State Coord Cell)] = 0 := by
-  have hpost := run_posterior aux q P (LargeResidual.initial : LargeResidual.State Coord Cell)
-    (fun _ => Finset.univ_nonempty)
-  have h1 : Pr[⊥ | lazyRun aux q P (LargeResidual.initial : LargeResidual.State Coord Cell) >>= finish] = 0 := by
-    rw [← hpost]
-    have hc : complete (LargeResidual.initial : LargeResidual.State Coord Cell).candidates =
-        liftM (uniformTable (fun _ : Coord => (Finset.univ : Finset LargeResidual.Digest)) (fun _ => Finset.univ_nonempty)) :=
-      complete_of_nonempty _ _
-    have hr : completeRows (LargeResidual.initial : LargeResidual.State Coord Cell).rows =
-        liftM (PMF.uniformOfFintype (Cell → LargeResidual.HashOutput)) := completeRows_empty
-    rw [hc, hr, probFailure_bind_eq_add_tsum, SPMF.probFailure_liftM, probFailure_eq_zero, zero_add]
-    apply ENNReal.tsum_eq_zero.mpr
-    intro labels
-    rw [probFailure_bind_eq_add_tsum, SPMF.probFailure_liftM, probFailure_eq_zero, zero_add]
-    rw [ENNReal.tsum_eq_zero.mpr, mul_zero]
-    intro table
-    rw [probFailure_map, observed_noFail, mul_zero]
-  have h2 := probFailure_bind_eq_add_tsum
-    (lazyRun aux q P (LargeResidual.initial : LargeResidual.State Coord Cell)) finish
-  rw [h1] at h2
-  exact (add_eq_zero.mp h2.symm).1
-end NoFail
-section Bank
-variable {U : Finset HashInput}
-noncomputable def psiOut (q : Nat) (r : Option (Option (Bool × RouterState)) × LargeResidual.State WCoord (Cell U)) :
-    ENNReal :=
-  match r.1 with
-  | some (some (_, st)) => psi q st
-  | _ => 0
-theorem bankPay_eq (q : Nat) (r : Option (Option (Bool × RouterState)) × LargeResidual.State WCoord (Cell U)) :
-    bankPay q r = psiOut q r + slackT q r.2 := rfl
-theorem certOut_le_psi (q : Nat) (r : Option (Option (Bool × RouterState)) × LargeResidual.State WCoord (Cell U)) :
-    (if CertOut r then (1 : ENNReal) else 0) ≤ psiOut q r := by
-  split_ifs with h
-  · obtain ⟨st, hr, hc⟩ := h
-    unfold psiOut
-    rw [hr]
-    exact psi_cert q st hc
-  · exact zero_le
-end Bank
 end SigGolfCandidate.T3.Security.LargeCoupling
 end
 section
@@ -1080,26 +840,26 @@ attribute [local instance] Classical.propDecidable
 
 theorem message_payment_54 (space probes remaining : ℝ) (hspace : 0 < space)
     (hprobes : 0 ≤ probes) (hremaining : 0 ≤ remaining)
-    (hbudget : 128 * (probes + remaining + 1) ≤ space) :
-    (127 / 64) / space + PrimitiveMessagePotential.value space probes remaining ≤
+    (hbudget : 32 * (probes + remaining + 1) ≤ space) :
+    (15 / 8) / space + PrimitiveMessagePotential.value space probes remaining ≤
       PrimitiveMessagePotential.value space probes (remaining + 1) := by
   have hden : 0 < space - probes := by linarith
-  have hnum : (127 / 64) * space ≤ 2 * (space - probes - remaining) - 1 := by linarith
+  have hnum : (15 / 8) * space ≤ 2 * (space - probes - remaining) - 1 := by linarith
   have hsq : (space - probes) ^ 2 ≤ space ^ 2 := by nlinarith
-  have hpay : (127 / 64) / space ≤ (2 * (space - probes - remaining) - 1) / (space - probes) ^ 2 := by
+  have hpay : (15 / 8) / space ≤ (2 * (space - probes - remaining) - 1) / (space - probes) ^ 2 := by
     calc
-      (127 / 64) / space = ((127 / 64) * space) / space ^ 2 := by field_simp
-      _ ≤ ((127 / 64) * space) / (space - probes) ^ 2 :=
+      (15 / 8) / space = ((15 / 8) * space) / space ^ 2 := by field_simp
+      _ ≤ ((15 / 8) * space) / (space - probes) ^ 2 :=
         div_le_div_of_nonneg_left (by positivity) (sq_pos_of_pos hden) hsq
       _ ≤ _ := (div_le_div_iff_of_pos_right (sq_pos_of_pos hden)).mpr hnum
   rw [← PrimitiveMessagePotential.message_increment space probes remaining (ne_of_gt hden)] at hpay
   linarith
 
-theorem continuation_pay_54 (space q calls probes : Nat) (hspace : 0 < space) (hq : 128 * q ≤ space)
+theorem continuation_pay_54 (space q calls probes : Nat) (hspace : 0 < space) (hq : 32 * q ≤ space)
     (hprobes : probes ≤ calls) (hcall : calls + 1 ≤ q) :
-    continuation space q (calls + 1) probes + (127 / 64 : ENNReal) / space ≤ continuation space q calls probes := by
+    continuation space q (calls + 1) probes + (15 / 8 : ENNReal) / space ≤ continuation space q calls probes := by
   have hs : (0 : ℝ) < space := by exact_mod_cast hspace
-  have hb : 128 * (q : ℝ) ≤ space := by exact_mod_cast hq
+  have hb : 32 * (q : ℝ) ≤ space := by exact_mod_cast hq
   have hp : (probes : ℝ) ≤ calls := by exact_mod_cast hprobes
   have hc : (calls : ℝ) + 1 ≤ q := by exact_mod_cast hcall
   unfold continuation
@@ -1111,7 +871,7 @@ theorem continuation_pay_54 (space q calls probes : Nat) (hspace : 0 < space) (h
   have hv := (PrimitiveMessagePotential.bounds space probes ((q : ℝ) - ((calls + 1 : Nat) : ℝ))
     (by push_cast; linarith) (by push_cast; linarith)).1
   have hfinal := ENNReal.ofReal_le_ofReal hpay
-  have hof54 : ENNReal.ofReal ((127 / 64 : ℝ) / space) = (127 / 64 : ENNReal) / space := by
+  have hof54 : ENNReal.ofReal ((15 / 8 : ℝ) / space) = (15 / 8 : ENNReal) / space := by
     rw [ENNReal.ofReal_div_of_pos hs, ENNReal.ofReal_div_of_pos (by positivity),
       ENNReal.ofReal_ofNat, ENNReal.ofReal_ofNat, ENNReal.ofReal_natCast]
   rw [ENNReal.ofReal_add (by positivity) hv, hof54] at hfinal
@@ -1123,20 +883,20 @@ variable {ι : Type} {spec : OracleSpec ι} {m : Type → Type} [Monad m]
   [EvalDistCompatible m]
 
 noncomputable def potential54 {σ : Type} (ch : Charges σ) (space q : Nat) (state : σ) : ENNReal :=
-  continuation space q (ch.calls state) (ch.probes state) + (127 / 64 : ENNReal) * (ch.mass state : ENNReal) / space
+  continuation space q (ch.calls state) (ch.probes state) + (15 / 8 : ENNReal) * (ch.mass state : ENNReal) / space
 noncomputable def stopValue54 {σ : Type} (ch : Charges σ) (space q : Nat) (state : σ) : ENNReal :=
-  (if ch.calls state ≤ q then 1 else 0) + (127 / 64 : ENNReal) * (ch.mass state : ENNReal) / space
+  (if ch.calls state ≤ q then 1 else 0) + (15 / 8 : ENNReal) * (ch.mass state : ENNReal) / space
 noncomputable def doneValue54 {σ : Type} (ch : Charges σ) (space : Nat) (state : σ) : ENNReal :=
-  (127 / 64 : ENNReal) * (ch.mass state : ENNReal) / space
+  (15 / 8 : ENNReal) * (ch.mass state : ENNReal) / space
 
 theorem terminal54_le_of_over {σ : Type} (ch : Charges σ) (space q : Nat) (state : σ) {β : Type}
     (result : Option β × σ) (hover : q < ch.calls state + 1)
     (hcalls : ch.calls state + 1 ≤ ch.calls result.2) (hmass : ch.mass result.2 ≤ ch.mass state) :
     terminal (stopValue54 ch space q) (potential54 ch space q) result ≤
-      (127 / 64 : ENNReal) * (ch.mass state : ENNReal) / space := by
+      (15 / 8 : ENNReal) * (ch.mass state : ENNReal) / space := by
   have hnot : ¬ch.calls result.2 ≤ q := by omega
-  have hm : (127 / 64 : ENNReal) * (ch.mass result.2 : ENNReal) / space ≤
-      (127 / 64 : ENNReal) * (ch.mass state : ENNReal) / space :=
+  have hm : (15 / 8 : ENNReal) * (ch.mass result.2 : ENNReal) / space ≤
+      (15 / 8 : ENNReal) * (ch.mass state : ENNReal) / space :=
     ENNReal.div_le_div_right (mul_le_mul' le_rfl (by exact_mod_cast hmass)) _
   rcases result with ⟨_ | answer, after⟩
   · simpa [terminal, stopValue54, hnot] using hm
@@ -1144,7 +904,7 @@ theorem terminal54_le_of_over {σ : Type} (ch : Charges σ) (space q : Nat) (sta
 
 theorem payment54_of_stepBound {σ : Type} (step : Step m spec σ) (ch : Charges σ) (space q : Nat)
     (input : spec.Domain) (state : σ) (h : StepBound step ch space q input state)
-    (hspace : 0 < space) (hq8 : 128 * q ≤ space) (hprobes : ch.probes state ≤ ch.calls state) :
+    (hspace : 0 < space) (hq8 : 32 * q ≤ space) (hprobes : ch.probes state ≤ ch.calls state) :
     expectedValue (step input state) (terminal (stopValue54 ch space q) (potential54 ch space q)) ≤
       potential54 ch space q state := by
   have hq : 2 * q ≤ space := by omega
@@ -1172,22 +932,22 @@ theorem payment54_of_stepBound {σ : Type} (step : Step m spec σ) (ch : Charges
       have hcont := continuation_anti space q (ch.calls state + 1) (ch.probes state) (ch.calls after)
         (ch.probes after) hspace hq (by omega) hcalls hp
       have hpay := continuation_pay_54 space q (ch.calls state) (ch.probes state) hspace hq8 hprobes hc
-      have hm : (127 / 64 : ENNReal) * (ch.mass after : ENNReal) / space ≤
-          (127 / 64 : ENNReal) * (ch.mass state : ENNReal) / space + (127 / 64 : ENNReal) / space := by
+      have hm : (15 / 8 : ENNReal) * (ch.mass after : ENNReal) / space ≤
+          (15 / 8 : ENNReal) * (ch.mass state : ENNReal) / space + (15 / 8 : ENNReal) / space := by
         rw [← ENNReal.add_div]
         apply ENNReal.div_le_div_right
         calc
-          (127 / 64 : ENNReal) * (ch.mass after : ENNReal) ≤
-              (127 / 64 : ENNReal) * ((ch.mass state + 1 : Nat) : ENNReal) :=
+          (15 / 8 : ENNReal) * (ch.mass after : ENNReal) ≤
+              (15 / 8 : ENNReal) * ((ch.mass state + 1 : Nat) : ENNReal) :=
             mul_le_mul' le_rfl (by exact_mod_cast hmass)
-          _ = (127 / 64 : ENNReal) * (ch.mass state : ENNReal) + (127 / 64 : ENNReal) := by
+          _ = (15 / 8 : ENNReal) * (ch.mass state : ENNReal) + (15 / 8 : ENNReal) := by
             rw [Nat.cast_add, Nat.cast_one, mul_add, mul_one]
       calc
         _ ≤ continuation space q (ch.calls state + 1) (ch.probes state) +
-            ((127 / 64 : ENNReal) * (ch.mass state : ENNReal) / space + (127 / 64 : ENNReal) / space) :=
+            ((15 / 8 : ENNReal) * (ch.mass state : ENNReal) / space + (15 / 8 : ENNReal) / space) :=
           add_le_add hcont hm
-        _ = (continuation space q (ch.calls state + 1) (ch.probes state) + (127 / 64 : ENNReal) / space) +
-            (127 / 64 : ENNReal) * (ch.mass state : ENNReal) / space := by ring
+        _ = (continuation space q (ch.calls state + 1) (ch.probes state) + (15 / 8 : ENNReal) / space) +
+            (15 / 8 : ENNReal) * (ch.mass state : ENNReal) / space := by ring
         _ ≤ _ := add_le_add hpay le_rfl
     · rw [if_neg hc, add_zero] at hmass
       exact (terminal54_le_of_over ch space q state (answer, after) (by omega) hcalls hmass).trans le_add_self
@@ -1195,11 +955,11 @@ theorem payment54_of_stepBound {σ : Type} (step : Step m spec σ) (ch : Charges
     · have hpoint : ∀ result ∈ support (step input state),
           terminal (stopValue54 ch space q) (potential54 ch space q) result ≤
             (if result.1 = none then 1 else continuation space q (ch.calls state + 1) (ch.probes state)) +
-              (127 / 64 : ENNReal) * (ch.mass state : ENNReal) / space := by
+              (15 / 8 : ENNReal) * (ch.mass state : ENNReal) / space := by
         rintro ⟨answer, after⟩ hresult
         obtain ⟨hcalls, hp, hmass⟩ := h.1 _ hresult
-        have hm : (127 / 64 : ENNReal) * (ch.mass after : ENNReal) / space ≤
-            (127 / 64 : ENNReal) * (ch.mass state : ENNReal) / space :=
+        have hm : (15 / 8 : ENNReal) * (ch.mass after : ENNReal) / space ≤
+            (15 / 8 : ENNReal) * (ch.mass state : ENNReal) / space :=
           ENNReal.div_le_div_right (mul_le_mul' le_rfl (by exact_mod_cast hmass)) _
         rcases answer with _ | answer
         · simp only [terminal, Option.elim_none, stopValue54, if_true]
@@ -1209,14 +969,14 @@ theorem payment54_of_stepBound {σ : Type} (step : Step m spec σ) (ch : Charges
       calc
         _ ≤ expectedValue (step input state) (fun result =>
             (if result.1 = none then 1 else continuation space q (ch.calls state + 1) (ch.probes state)) +
-              (127 / 64 : ENNReal) * (ch.mass state : ENNReal) / space) := expectedValue_mono_of_support hpoint
+              (15 / 8 : ENNReal) * (ch.mass state : ENNReal) / space) := expectedValue_mono_of_support hpoint
         _ ≤ Pr[fun result => result.1 = none | step input state] +
             (1 - Pr[fun result => result.1 = none | step input state]) *
               continuation space q (ch.calls state + 1) (ch.probes state) +
-              (127 / 64 : ENNReal) * (ch.mass state : ENNReal) / space :=
+              (15 / 8 : ENNReal) * (ch.mass state : ENNReal) / space :=
           expected_stop_le _ _ _
         _ ≤ ((space : ENNReal)⁻¹ + continuation space q (ch.calls state + 1) (ch.probes state)) +
-            (127 / 64 : ENNReal) * (ch.mass state : ENNReal) / space := by
+            (15 / 8 : ENNReal) * (ch.mass state : ENNReal) / space := by
           refine add_le_add (add_le_add h.2 ?_) le_rfl
           exact mul_le_of_le_one_left' tsub_le_self
         _ ≤ _ := by
@@ -1230,11 +990,11 @@ theorem payment54_of_stepBound {σ : Type} (step : Step m spec σ) (ch : Charges
     · have hpoint : ∀ result ∈ support (step input state),
           terminal (stopValue54 ch space q) (potential54 ch space q) result ≤
             (if result.1 = none then 1 else continuation space q (ch.calls state + 1) (ch.probes state + 1)) +
-              (127 / 64 : ENNReal) * (ch.mass state : ENNReal) / space := by
+              (15 / 8 : ENNReal) * (ch.mass state : ENNReal) / space := by
         rintro ⟨answer, after⟩ hresult
         obtain ⟨hcalls, hp, hmass⟩ := h.1 _ hresult
-        have hm : (127 / 64 : ENNReal) * (ch.mass after : ENNReal) / space ≤
-            (127 / 64 : ENNReal) * (ch.mass state : ENNReal) / space :=
+        have hm : (15 / 8 : ENNReal) * (ch.mass after : ENNReal) / space ≤
+            (15 / 8 : ENNReal) * (ch.mass state : ENNReal) / space :=
           ENNReal.div_le_div_right (mul_le_mul' le_rfl (by exact_mod_cast hmass)) _
         rcases answer with _ | answer
         · simp only [terminal, Option.elim_none, stopValue54, if_true]
@@ -1244,11 +1004,11 @@ theorem payment54_of_stepBound {σ : Type} (step : Step m spec σ) (ch : Charges
       calc
         _ ≤ expectedValue (step input state) (fun result =>
             (if result.1 = none then 1 else continuation space q (ch.calls state + 1) (ch.probes state + 1)) +
-              (127 / 64 : ENNReal) * (ch.mass state : ENNReal) / space) := expectedValue_mono_of_support hpoint
+              (15 / 8 : ENNReal) * (ch.mass state : ENNReal) / space) := expectedValue_mono_of_support hpoint
         _ ≤ Pr[fun result => result.1 = none | step input state] +
             (1 - Pr[fun result => result.1 = none | step input state]) *
               continuation space q (ch.calls state + 1) (ch.probes state + 1) +
-              (127 / 64 : ENNReal) * (ch.mass state : ENNReal) / space :=
+              (15 / 8 : ENNReal) * (ch.mass state : ENNReal) / space :=
           expected_stop_le _ _ _
         _ ≤ _ := add_le_add (continuation_probe space q _ _ hspace hq hprobes hc _ h.2) le_rfl
     · apply expectedValue_le_of_support
@@ -1258,11 +1018,11 @@ theorem payment54_of_stepBound {σ : Type} (step : Step m spec σ) (ch : Charges
 
 theorem stop_add_mass_eq_54 {β σ : Type} (ch : Charges σ) (space q : Nat) (law : m (Option β × σ)) :
     Pr[fun result => result.1 = none ∧ ch.calls result.2 ≤ q | law] +
-      (127 / 64 : ENNReal) * (∑' result, Pr[= result | law] * (ch.mass result.2 : ENNReal)) / space =
+      (15 / 8 : ENNReal) * (∑' result, Pr[= result | law] * (ch.mass result.2 : ENNReal)) / space =
       expectedValue law (terminal (stopValue54 ch space q) (doneValue54 ch space)) := by
   have hfun : terminal (stopValue54 ch space q) (doneValue54 ch space) = fun result : Option β × σ =>
       (if result.1 = none ∧ ch.calls result.2 ≤ q then 1 else 0) +
-        (127 / 64 : ENNReal) * (ch.mass result.2 : ENNReal) / space := by
+        (15 / 8 : ENNReal) * (ch.mass result.2 : ENNReal) / space := by
     funext result
     rcases result with ⟨_ | answer, after⟩
     · simp [terminal, stopValue54]
@@ -1275,7 +1035,7 @@ theorem stop_add_mass_eq_54 {β σ : Type} (ch : Charges σ) (space q : Nat) (la
   ring
 
 theorem run_potential_initial_54 {α σ : Type} (step : Step m spec σ) (ch : Charges σ) (q : Nat)
-    (hq8 : q ≤ 2 ^ 121) (inv : σ → Prop)
+    (hq8 : q ≤ 2 ^ 123) (inv : σ → Prop)
     (hpreserve : ∀ input state, inv state → ch.probes state ≤ ch.calls state →
       ∀ answer after, (some answer, after) ∈ support (step input state) → inv after)
     (hbound : ∀ input state, inv state → ch.probes state ≤ ch.calls state →
@@ -1283,11 +1043,11 @@ theorem run_potential_initial_54 {α σ : Type} (step : Step m spec σ) (ch : Ch
     (program : OracleComp spec α) (init : σ) (hinit : inv init) (hprobes : ch.probes init = 0)
     (hmass : ch.mass init = 0) :
     Pr[fun result => result.1 = none ∧ ch.calls result.2 ≤ q | LargePotential.run step program init] +
-      (127 / 64 : ENNReal) * (∑' result, Pr[= result | LargePotential.run step program init] *
+      (15 / 8 : ENNReal) * (∑' result, Pr[= result | LargePotential.run step program init] *
         (ch.mass result.2 : ENNReal)) / 2 ^ 128 ≤
       ENNReal.ofReal (2 * ((q : ℝ) / 2 ^ 128) - ((q : ℝ) / 2 ^ 128) ^ 2) := by
   have h : Pr[fun result => result.1 = none ∧ ch.calls result.2 ≤ q | LargePotential.run step program init] +
-      (127 / 64 : ENNReal) * (∑' result, Pr[= result | LargePotential.run step program init] *
+      (15 / 8 : ENNReal) * (∑' result, Pr[= result | LargePotential.run step program init] *
         (ch.mass result.2 : ENNReal)) / ((2 ^ 128 : Nat) : ENNReal) ≤
       potential54 ch (2 ^ 128) q init := by
     rw [stop_add_mass_eq_54]
@@ -1312,36 +1072,14 @@ theorem run_potential_initial_54 {α σ : Type} (step : Step m spec σ) (ch : Ch
   rw [if_pos (Nat.zero_le q), Nat.cast_zero, Nat.cast_pow, Nat.cast_ofNat]
   exact initial_potential q
 
-theorem residual_potential_54 {Coord Cell AuxIndex : Type} {auxSpec : OracleSpec AuxIndex}
-    [Fintype Coord] [DecidableEq Coord] [Fintype Cell] [DecidableEq Cell]
-    {Result : Type} (aux : (input : auxSpec.Domain) → PMF (auxSpec.Range input)) (q : Nat)
-    (hq : q ≤ 2 ^ 121) (program : OracleComp (SigGolfCandidate.T3.Security.LargeResidual.World auxSpec Coord Cell) Result) :
-    Pr[fun result => result.1 = none ∧ result.2.counters.calls ≤ q |
-        SigGolfCandidate.T3.Security.LargeResidual.lazyRun aux q program
-          SigGolfCandidate.T3.Security.LargeResidual.initial] +
-      (127 / 64 : ENNReal) * (∑' result,
-        Pr[= result | SigGolfCandidate.T3.Security.LargeResidual.lazyRun aux q program
-          SigGolfCandidate.T3.Security.LargeResidual.initial] *
-          (result.2.counters.mass : ENNReal)) / 2 ^ 128 ≤
-      ENNReal.ofReal (2 * ((q : ℝ) / 2 ^ 128) - ((q : ℝ) / 2 ^ 128) ^ 2) := by
-  have h := run_potential_initial_54 (SigGolfCandidate.T3.Security.LargeResidual.residualStep aux q)
-    SigGolfCandidate.T3.Security.LargeResidual.charges q hq
-    SigGolfCandidate.T3.Security.LargeResidual.Inv
-    (fun input state hinv _ answer after hafter =>
-      SigGolfCandidate.T3.Security.LargeResidual.residual_preserve aux q input state hinv answer after hafter)
-    (fun input state hinv _ => SigGolfCandidate.T3.Security.LargeResidual.residual_step_bound aux q input state hinv)
-    program SigGolfCandidate.T3.Security.LargeResidual.initial
-    SigGolfCandidate.T3.Security.LargeResidual.initial_inv rfl rfl
-  rw [SigGolfCandidate.T3.Security.LargeResidual.run_residual] at h
-  exact h
 theorem residual_potential_54F {Coord Cell AuxIndex : Type} {auxSpec : OracleSpec AuxIndex}
     [ClaudeWCT.W9.T3.Security.FamResidual.Seeds Coord] [Fintype Coord] [DecidableEq Coord] [Fintype Cell]
     [DecidableEq Cell] {Result : Type} (aux : (input : auxSpec.Domain) → PMF (auxSpec.Range input)) (q : Nat)
-    (hq : q ≤ 2 ^ 121) (program : OracleComp (SigGolfCandidate.T3.Security.LargeResidual.World auxSpec Coord Cell) Result) :
+    (hq : q ≤ 2 ^ 123) (program : OracleComp (SigGolfCandidate.T3.Security.LargeResidual.World auxSpec Coord Cell) Result) :
     Pr[fun result => result.1 = none ∧ result.2.counters.calls ≤ q |
         ClaudeWCT.W9.T3.Security.FamResidual.lazyRun aux q program
           SigGolfCandidate.T3.Security.LargeResidual.initial] +
-      (127 / 64 : ENNReal) * (∑' result,
+      (15 / 8 : ENNReal) * (∑' result,
         Pr[= result | ClaudeWCT.W9.T3.Security.FamResidual.lazyRun aux q program
           SigGolfCandidate.T3.Security.LargeResidual.initial] *
           (result.2.counters.mass : ENNReal)) / 2 ^ 128 ≤
@@ -1379,8 +1117,8 @@ def LargeCertBound (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) : Pro
   Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ¬Contact adversary q z ∧
       NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2 | SeccLaw.completedExperiment adversary q hq] +
       ((2 : ENNReal) ^ 137)⁻¹ ≤
-    (if q ≤ 2 ^ 121 then 127 / 64 else 1) * routerMass adversary q / 2 ^ 128 +
-      (q : ENNReal) * (if q ≤ 2 ^ 121 then excessRate54 else excessRate) / 2 ^ 128 +
+    (if q ≤ 2 ^ 123 then 15 / 8 else 1) * routerMass adversary q / 2 ^ 128 +
+      (q : ENNReal) * (if q ≤ 2 ^ 123 then excessRate54 else excessRate) / 2 ^ 128 +
       (q : ENNReal) * cacheRate / 2 ^ 128 +
       (q : ENNReal) * largeReserveRate / 2 ^ 128 + largeReserveAbsolute
 theorem large_route_of_cert (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
@@ -1419,7 +1157,7 @@ theorem large_route_of_cert (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 1
             NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2 | SeccLaw.completedExperiment adversary q hq]) +
           ((2 : ENNReal) ^ 137)⁻¹ := add_le_add (h2.trans (add_le_add h3 h4)) h5
       _ = _ := by rw [add_assoc]
-  · by_cases h125 : q ≤ 2 ^ 121
+  · by_cases h125 : q ≤ 2 ^ 123
     · rw [if_pos h125]
       exact residual_potential_54F (auxLaw initLaw) q h125 _
     · rw [if_neg h125, one_mul]
@@ -1450,8 +1188,6 @@ noncomputable def psiOut (q : Nat) (r : Option (Option (Bool × RouterState)) ×
   match r.1 with
   | some (some (_, st)) => psi q st
   | _ => 0
-theorem bankPay_eq (q : Nat) (r : Option (Option (Bool × RouterState)) × LargeResidual.State WCoord (Cell U)) :
-    bankPay q r = psiOut q r + slackT q r.2 := rfl
 theorem certOut_le_psi (q : Nat) (r : Option (Option (Bool × RouterState)) × LargeResidual.State WCoord (Cell U)) :
     (if CertOut r then (1 : ENNReal) else 0) ≤ psiOut q r := by
   split_ifs with h
@@ -1462,7 +1198,7 @@ theorem certOut_le_psi (q : Nat) (r : Option (Option (Bool × RouterState)) × L
   · exact zero_le
 theorem bank_cert_le (hUpub : SeccLaw.publicUniverse ⊆ U) (initLaw : PMF AuxData) (adversary : AdversaryP) (q : Nat) :
     Pr[CertOut | lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial] ≤
-      (q : ENNReal) * (if q ≤ 2 ^ 121 then 6678 / 10000000 else 2435 / 1000000) / 2 ^ 128 +
+      (q : ENNReal) * (if q ≤ 2 ^ 123 then 6441 / 10000000 else 451 / 200000) / 2 ^ 128 +
         coeffQ q * (∑' r, Pr[= r | lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial] *
           (r.2.counters.mass : ENNReal)) / 2 ^ 128 := by
   set L := lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial with hL
@@ -1543,16 +1279,16 @@ theorem large_cert_bound (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
   refine (hmain.trans (le_of_eq (add_assoc _ _ _))).trans ((add_le_add le_rfl habs).trans ?_)
   have hrm : (∑' r, Pr[= r | lazyRun (auxLaw initLaw) q (router (Wots.referenceInputs adversary) adversary q)
       LargeResidual.initial] * (r.2.counters.mass : ENNReal)) = routerMass adversary q := rfl
-  have hexc_eq : (if q ≤ 2 ^ 121 then (6678 / 10000000 : ENNReal) else 2435 / 1000000) =
-      (if q ≤ 2 ^ 121 then excessRate54 else excessRate) := by
+  have hexc_eq : (if q ≤ 2 ^ 123 then (6441 / 10000000 : ENNReal) else 451 / 200000) =
+      (if q ≤ 2 ^ 123 then excessRate54 else excessRate) := by
     rw [ClaudeWCT.W9.T3.Security.SeccClosingW9.excessRate54_def,
       ClaudeWCT.W9.T3.Security.SeccClosingW9.excessRate_def]
   rw [hrm, hexc_eq]
   unfold coeffQ
   calc
-    _ = (if q ≤ 2 ^ 121 then 127 / 64 else 1) * routerMass adversary q / 2 ^ 128 +
-        (q : ENNReal) * (if q ≤ 2 ^ 121 then excessRate54 else excessRate) / 2 ^ 128 + largeReserveAbsolute := by
-      rw [add_comm ((q : ENNReal) * (if q ≤ 2 ^ 121 then excessRate54 else excessRate) / 2 ^ 128)]
+    _ = (if q ≤ 2 ^ 123 then 15 / 8 else 1) * routerMass adversary q / 2 ^ 128 +
+        (q : ENNReal) * (if q ≤ 2 ^ 123 then excessRate54 else excessRate) / 2 ^ 128 + largeReserveAbsolute := by
+      rw [add_comm ((q : ENNReal) * (if q ≤ 2 ^ 123 then excessRate54 else excessRate) / 2 ^ 128)]
     _ ≤ _ := add_le_add (le_add_right (le_add_right le_rfl)) le_rfl
 theorem large_route (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
     Pr[QueryRecorded.CleanWin q | PaddedGame.tracedExperiment adversary q hq] ≤ largeBound q :=

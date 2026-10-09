@@ -349,18 +349,6 @@ theorem seen_signed (st : RouterState) (request : Security.Request) :
   split_ifs
   · rw [(finishState_fields _ _ _).2.2.2.1, (startState_fields _ _ _ _).2.2.2]
   · rfl
-theorem seen_steps_mono (steps : List TaggedStep) (st : RouterState) (Y : HashInput) (h : Y ∈ st.seen) :
-    Y ∈ (steps.foldl (routerStep U A (honestNonce A) published) st).seen := by
-  induction steps generalizing st with
-  | nil => exact h
-  | cons s rest ih =>
-      rw [List.foldl_cons]
-      apply ih
-      cases s with
-      | world e => exact seen_event_mono' U st e Y h
-      | sign request out evs =>
-          change Y ∈ (signedState A (honestNonce A) published st request).seen
-          rw [(seen_signed A published st request).1]; exact h
 def BirthInv (X : HashInput) (N : HashOutput) (st : RouterState) : Prop := X ∈ st.seen → (X, N) ∈ st.births
 theorem birthInv_event (X : HashInput) (N : HashOutput) (hXU : X ∈ U) (hXd : IsDigestRow X)
     (st : RouterState) (e : FirstHit.QueryEvent) (hans : ∀ b y, e = ⟨b, .inl (.inr X), y⟩ → y = N)
@@ -468,28 +456,6 @@ set_option synthInstance.maxSize 1024
 attribute [local instance] Classical.propDecidable
 noncomputable local instance instDecidableEqCache_w9largeContactCert : DecidableEq SigGolfCandidate.T3.Cache :=
   Classical.decEq _
-theorem treeChild_inl {lay : Layer} {tree : Fin (2 ^ 31)} {level c : Nat} {x : Coord}
-    (h : treeChild lay tree level c = some x) : ∃ n, x = .inl n := by
-  unfold treeChild at h
-  split_ifs at h
-  · obtain ⟨n, -, rfl⟩ := Option.map_eq_some_iff.mp h
-    exact ⟨_, rfl⟩
-  · obtain ⟨n, -, rfl⟩ := Option.map_eq_some_iff.mp h
-    exact ⟨_, rfl⟩
-theorem ftsChild_inl {index : Fin (2 ^ 31)} {coord : Fin 9} {level c : Nat} {x : Coord}
-    (h : ftsChild index coord level c = some x) : ∃ n, x = .inl n := by
-  unfold ftsChild at h
-  split_ifs at h
-  · exact ⟨_, (Option.some.inj h).symm⟩
-  · obtain ⟨n, -, rfl⟩ := Option.map_eq_some_iff.mp h
-    exact ⟨_, rfl⟩
-theorem not_inr_keygenDisclosed (s : SeedIndex) : (.inr s : Coord) ∉ keygenDisclosed := by
-  unfold keygenDisclosed
-  intro h
-  simp only [List.mem_flatMap, List.mem_filterMap] at h
-  obtain ⟨_, _, _, _, hc⟩ := h
-  obtain ⟨n, hn⟩ := treeChild_inl hc
-  cases hn
 theorem disclosed_steps_mem (U : Finset HashInput) (A : Answers) (q : Nat) (published : SigGolfCandidate.T3.Cache)
     (steps : List TaggedStep) (mon : Monitor) (d : Coord)
     (hd : d ∈ (steps.foldl (Monitor.step U A q published) mon).disclosed) :

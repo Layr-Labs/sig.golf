@@ -12,6 +12,8 @@ abbrev NODE : Nat := 0x20200
 abbrev NOUT : Nat := 0x20240
 abbrev LOUT : Nat := 0x203C0
 abbrev LEAFPK : Nat := 0x20600
+/-- Campaign T8D: the keygen top leaf's coefficient buffer (24 digests, COEFGEN/HORN). -/
+abbrev KCOEF : Nat := 0x21000
 macro "sc_omega" : tactic =>
   `(tactic| ((try simp only [PRIV, SEEDS, CHAIN, NODE, NOUT, LOUT, LEAFPK] at *); omega))
 theorem sub0_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)

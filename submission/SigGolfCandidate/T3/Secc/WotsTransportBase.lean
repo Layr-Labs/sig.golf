@@ -63,8 +63,6 @@ noncomputable def pureRecord {α : Type} (F : Answers) (program : M α) :
       ⟨(next (F input) (FirstHit.advance state input (F input))).value,
         ⟨state, input, F input⟩ :: (next (F input) (FirstHit.advance state input (F input))).events,
         (next (F input) (FirstHit.advance state input (F input))).state⟩) program
-theorem pureRecord_pure {α : Type} (F : Answers) (value : α) (state : LazyPrivate.State) :
-    pureRecord F (pure value : M α) state = ⟨value, [], state⟩ := rfl
 theorem pureRecord_query_bind {α : Type} (F : Answers) (input : T3.Spec.Domain)
     (next : T3.Spec.Range input → M α) (state : LazyPrivate.State) :
     pureRecord F (liftM (T3.Spec.query input) >>= next) state =
@@ -173,8 +171,6 @@ theorem agrees_advance {F : Answers} {state : LazyPrivate.State} (hF : Agrees F 
         exact Option.some.inj h
       · rw [QueryCache.cacheQuery_of_ne _ _ hd] at h
         exact hF _ _ h
-theorem advance_coin (state : LazyPrivate.State) (n : Nat) (answer : Fin (n + 1)) :
-    FirstHit.advance state (.inl (.inl n)) answer = state := rfl
 theorem lazy_query_mem (state : LazyPrivate.State) (input : T3.Spec.Domain) (answer : T3.Spec.Range input)
     (h : ∀ cached, SourceReplay.known state input = some cached → cached = answer) :
     (answer, FirstHit.advance state input answer) ∈ support (LazyPrivate.run (liftM (T3.Spec.query input)) state) := by

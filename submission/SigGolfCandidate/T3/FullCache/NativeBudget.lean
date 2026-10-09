@@ -1706,6 +1706,13 @@ include ht
 @[aesop safe apply] theorem avoids_buildTree_top (tree selected : Nat) (digits : List Nat) :
  Avoids secret target (buildTree 0 tree selected digits) := by
  unfold buildTree; avoids_search
+@[aesop safe apply] theorem avoids_topCoefs (leaf : Nat) : Avoids secret target (topCoefs leaf) := by
+ unfold topCoefs topSeedPair; avoids_search
+@[aesop safe apply] theorem avoids_buildLeafTop (leaf : Nat) (digits : List Nat) (signatureOnly : Bool) :
+ Avoids secret target (buildLeafTop leaf digits signatureOnly) := by
+ unfold buildLeafTop; avoids_search
+@[aesop safe apply] theorem avoids_buildTopTree : Avoids secret target buildTopTree := by
+ unfold buildTopTree; avoids_search
 @[aesop safe apply] theorem avoids_ftsLeaf (index coord leaf : Nat) (value : Digest) :
  Avoids secret target (ftsLeaf index coord leaf value) := by
  unfold ftsLeaf
@@ -1917,6 +1924,11 @@ macro "hashes" : tactic => `(tactic| aesop (config := { maxRuleApplications := 1
  HashOnly (buildLevels tag lay tree h leaves) := by unfold buildLevels; hashes
 @[aesop safe apply] theorem hashOnly_buildTree (lay : Layer) (tree selected : Nat) (digits : List Nat) :
  HashOnly (buildTree lay tree selected digits) := by unfold buildTree; hashes
+@[aesop safe apply] theorem hashOnly_topCoefs (leaf : Nat) : HashOnly (topCoefs leaf) := by
+ unfold topCoefs topSeedPair; hashes
+@[aesop safe apply] theorem hashOnly_buildLeafTop (leaf : Nat) (digits : List Nat) (signatureOnly : Bool) :
+ HashOnly (buildLeafTop leaf digits signatureOnly) := by unfold buildLeafTop; hashes
+@[aesop safe apply] theorem hashOnly_buildTopTree : HashOnly buildTopTree := by unfold buildTopTree; hashes
 @[aesop safe apply] theorem hashOnly_keygenPayload : HashOnly keygenPayload := by
  unfold keygenPayload maskedLevel pairedMask; hashes
 @[aesop safe apply] theorem hashOnly_keygen : HashOnly keygen := by
@@ -2468,7 +2480,9 @@ theorem expandLayers_cost_le (answers : Answers) (cache : Cache) (index : Nat)
             simp only [ite_true,expandLayers,cost_pure,recoveryLayersCost,Nat.add_zero]
             omega
           · simp only [hn0,ite_false,evalWithAnswerFn_bind,
-              eval_buildTree_result answers (Fin.ofNat 4 n) _ _ digits hvalid (route_leaf_bound index _)] at he
+              eval_buildTree_result answers (lay := Fin.ofNat 4 n) (fun h => hn0 (by
+                have h' := congrArg Fin.val h; simp only [Fin.val_ofNat,Fin.val_zero] at h'; omega))
+                _ _ digits hvalid (route_leaf_bound index _)] at he
             cases hp : evalWithAnswerFn answers (signLayers cache index n
               (((builtTree answers (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2).getD
                 (height (Fin.ofNat 4 n)) []).getD 0 0)) with
@@ -2485,7 +2499,9 @@ theorem expandLayers_cost_le (answers : Answers) (cache : Cache) (index : Nat)
                 simp only [treeValue] at hrecover
                 rw [hrecover]
                 simp only [hn0,ite_false,recoveryLayersCost,
-                  eval_buildTree_result answers (Fin.ofNat 4 n) _ _ digits hvalid (route_leaf_bound index _)]
+                  eval_buildTree_result answers (lay := Fin.ofNat 4 n) (fun h => hn0 (by
+                    have h' := congrArg Fin.val h; simp only [Fin.val_ofNat,Fin.val_zero] at h'; omega))
+                    _ _ digits hvalid (route_leaf_bound index _)]
                 omega
 theorem expand_cost_step (answers : Answers) (message : Message) (pk : Digest) (sig : Signature)
     (counter : BitVec 32) (output : HashOutput) (root : Digest)

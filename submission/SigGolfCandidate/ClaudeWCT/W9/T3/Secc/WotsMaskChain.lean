@@ -46,18 +46,22 @@ theorem eval_chain_maskAt (hd : 1 ≤ depth answers a) {count : Nat} (hc : depth
   rw [pad64_chainInput, ← chainRow_eq]
   obtain ⟨hlo, hhi⟩ := List.mem_range'_1.mp hstep
   exact maskAt_row_ge answers a value hlo (by omega)
-def wotsTweak (lay : Layer) (tree leaf i : Nat) : BitVec 128 :=
-  if lay = 0 then header 0 lay.val tree (i / 2) leaf else WCT9.lowerSeedHeader lay tree (WCT9.lowerOrdinal lay leaf i / 2)
-def wotsPar (lay : Layer) (leaf i : Nat) : Nat := if lay = 0 then i % 2 else WCT9.lowerOrdinal lay leaf i % 2
-theorem wotsPar_lt (lay : Layer) (leaf i : Nat) : wotsPar lay leaf i < 2 := by
-  unfold wotsPar; split_ifs <;> omega
-/-- A top seed is a half-cell (lower seeds are family evaluations, `lowerSeed_eq_cells`). -/
-theorem wotsSeed_eq (T : Answers) {lay : Layer} (h : lay = 0) (tree leaf i : Nat) :
-    WCT9.wotsSeed T lay tree leaf i =
-      if wotsPar lay leaf i = 0 then (T (.inr (.inl (wotsTweak lay tree leaf i)))).extractLsb' 0 128
-      else (T (.inr (.inl (wotsTweak lay tree leaf i)))).extractLsb' 128 128 := by
-  subst h
-  rfl
+/-- A WOTS seed only reads the coefficient cells `lowerSeedHeader lay tree p` of its tree (every layer: the seeds
+are leaf-family evaluations, campaign X1 stage B, top leaves since campaign T8D). -/
+theorem wotsSeed_congr_cells {T T' : Answers} {lay : Layer} (tree leaf i : Nat)
+    (h : ∀ p, T (.inr (.inl (WCT9.lowerSeedHeader lay tree p))) = T' (.inr (.inl (WCT9.lowerSeedHeader lay tree p)))) :
+    WCT9.wotsSeed T lay tree leaf i = WCT9.wotsSeed T' lay tree leaf i := by
+  rw [WCT9.wotsSeed_fam, WCT9.wotsSeed_fam]
+  congr 2
+  funext j
+  unfold WCT9.famCoef WCT9.famCoefN WCT9.lowerSeedPair privatePair privateHash
+  simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+  change WCT9.seedHalf ((T (.inr (.inl (header 0 lay.val tree _ 0)))).extractLsb' 0 128,
+      (T (.inr (.inl (header 0 lay.val tree _ 0)))).extractLsb' 128 128) _ =
+    WCT9.seedHalf ((T' (.inr (.inl (header 0 lay.val tree _ 0)))).extractLsb' 0 128,
+      (T' (.inr (.inl (header 0 lay.val tree _ 0)))).extractLsb' 128 128) _
+  rw [show header 0 lay.val tree (WCT9.famOrdinal lay leaf j.val / 2) 0 =
+    WCT9.lowerSeedHeader lay tree (WCT9.famOrdinal lay leaf j.val / 2) from rfl, h]
 /-- A lower seed only reads the coefficient cells `lowerSeedHeader lay tree p` of its tree. -/
 theorem lowerSeed_congr_cells {T T' : Answers} {lay : Layer} (tree leaf i : Nat)
     (h : ∀ p, T (.inr (.inl (WCT9.lowerSeedHeader lay tree p))) = T' (.inr (.inl (WCT9.lowerSeedHeader lay tree p)))) :
@@ -73,24 +77,10 @@ theorem lowerSeed_congr_cells {T T' : Answers} {lay : Layer} (tree leaf i : Nat)
       (T' (.inr (.inl (header 0 lay.val tree _ 0)))).extractLsb' 128 128) _
   rw [show header 0 lay.val tree (WCT9.lowerCoefOrdinal leaf j.val / 2) 0 =
     WCT9.lowerSeedHeader lay tree (WCT9.lowerCoefOrdinal leaf j.val / 2) from rfl, h]
-theorem wotsTweak_self (a : ChainAddr) : wotsTweak a.key.lay a.key.tree a.key.leaf a.chain = seedTweakP a := by
-  unfold wotsTweak seedTweakP seedTweak seedSlot
-  split_ifs <;> rfl
-theorem wotsPar_self (a : ChainAddr) : wotsPar a.key.lay a.key.leaf a.chain = seedSlot a % 2 := by
-  unfold wotsPar seedSlot
-  split_ifs <;> rfl
-theorem wotsTweak_congr {lay : Layer} {tree tree' : Nat} (ht : tree % 2 ^ 40 = tree' % 2 ^ 40) (leaf i : Nat) :
-    wotsTweak lay tree leaf i = wotsTweak lay tree' leaf i := by
-  unfold wotsTweak WCT9.lowerSeedHeader
-  split_ifs
-  · exact header_congr rfl ht rfl
-  · exact header_congr rfl ht rfl
-theorem lowerPair_lt (lay : Layer) {leaf i : Nat} (hl : leaf < 2 ^ 24) (hi : i < chainCount lay) :
-    WCT9.lowerOrdinal lay leaf i / 2 < 2 ^ 32 := by
-  have := chainCount_le lay
-  unfold WCT9.lowerOrdinal
-  have : chainCount lay * leaf ≤ 58 * (2 ^ 24) := Nat.mul_le_mul (by omega) hl.le
-  omega
+/-- A WOTS seed only reads private cells. -/
+theorem wotsSeed_congr_private {T T' : Answers} (h : ∀ c, T (.inr c) = T' (.inr c)) (lay : Layer)
+    (tree leaf i : Nat) : WCT9.wotsSeed T lay tree leaf i = WCT9.wotsSeed T' lay tree leaf i :=
+  wotsSeed_congr_cells tree leaf i fun _ => h _
 def SlotOK (a : ChainAddr) (lay : Layer) (leaf : Nat) : Prop :=
   lay = 0 ∨ a.key.lay = 0 ∨ (leaf < 2 ^ 24 ∧ a.key.leaf < 2 ^ 24)
 def MaskOK (a : ChainAddr) : Prop := a.key.lay = 0 ∨ a.key.leaf < 2 ^ 24
@@ -101,145 +91,41 @@ theorem slotOK_of {a : ChainAddr} {lay : Layer} {leaf : Nat} (h : lay = 0 ∨ Ma
   · exact Or.inr (Or.inl h)
   · exact Or.inr (Or.inr ⟨hl, h⟩)
 theorem maskOK_of_lt {a : ChainAddr} (h : a.key.leaf < 2 ^ 24) : MaskOK a := Or.inr h
-theorem ord_inj {l l' i i' : Nat} (hi : i < 43) (hi' : i' < 43) (h1 : (43 * l + i) / 2 = (43 * l' + i') / 2)
-    (h2 : (43 * l + i) % 2 = (43 * l' + i') % 2) : l = l' ∧ i = i' := by
-  have : 43 * l + i = 43 * l' + i' := by omega
-  omega
-theorem wotsTweak_alias {lay : Layer} {tree leaf i : Nat} (hi : i < chainCount lay) (hb : SlotOK a lay leaf)
-    (hac : a.chain < chainCount a.key.lay)
-    (h : wotsTweak lay tree leaf i = seedTweakP a) (hp : wotsPar lay leaf i = seedSlot a % 2) :
-    LeafAlias lay tree leaf a.key ∧ i = a.chain := by
-  have hi58 := chainCount_le lay
-  have ha58 := chainCount_le a.key.lay
-  unfold wotsTweak seedTweakP at h
-  unfold wotsPar seedSlot at hp
-  by_cases h0 : lay = 0 <;> by_cases h0' : a.key.lay = 0
-  · rw [if_pos h0] at h hp
-    rw [if_pos h0'] at h hp
-    obtain ⟨hal', hpair⟩ := seedTweak_alias (by simp only [Nat.reducePow]; omega)
-      (by simp only [Nat.reducePow]; omega) h
-    exact ⟨hal', by omega⟩
-  · exfalso
-    rw [if_pos h0, if_neg h0'] at h
-    unfold WCT9.lowerSeedHeader at h
-    have := (header_fields h).2.1
-    have e1 : lay.val = 0 := by rw [h0]; rfl
-    have e2 : a.key.lay.val ≠ 0 := fun e => h0' (Fin.ext e)
-    have := a.key.lay.isLt
-    omega
-  · exfalso
-    rw [if_neg h0, if_pos h0'] at h
-    unfold WCT9.lowerSeedHeader seedTweak at h
-    have := (header_fields h).2.1
-    have e1 : a.key.lay.val = 0 := by rw [h0']; rfl
-    have e2 : lay.val ≠ 0 := fun e => h0 (Fin.ext e)
-    have := lay.isLt
-    omega
-  · rw [if_neg h0, if_neg h0'] at h hp
-    obtain ⟨hl, hal⟩ : leaf < 2 ^ 24 ∧ a.key.leaf < 2 ^ 24 := by
-      rcases hb with hb | hb | hb
-      · exact absurd hb h0
-      · exact absurd hb h0'
-      · exact hb
-    unfold WCT9.lowerSeedHeader at h
-    obtain ⟨-, hl', ht, hP, -⟩ := header_fields h
-    have hlay : lay = a.key.lay := by
-      apply Fin.ext
-      have := lay.isLt; have := a.key.lay.isLt
-      omega
-    have hs : seedSlot a = WCT9.lowerOrdinal a.key.lay a.key.leaf a.chain := by
-      unfold seedSlot; rw [if_neg h0']
-    rw [hs] at hP
-    have p1 := lowerPair_lt lay hl hi
-    have p2 := lowerPair_lt a.key.lay hal hac
-    rw [← hlay] at p2 hP hac hp
-    rw [Nat.mod_eq_of_lt p1, Nat.mod_eq_of_lt p2] at hP
-    have cl : chainCount lay = 43 := by revert h0; fin_cases lay <;> decide
-    have e : leaf = a.key.leaf ∧ i = a.chain := by
-      unfold WCT9.lowerOrdinal at hP hp
-      rw [cl] at hP hp hi hac
-      exact ord_inj hi hac hP hp
-    exact ⟨⟨hlay, ht, by rw [e.1]⟩, e.2⟩
-theorem wotsSeed_maskAt (lay : Layer) (tree leaf i : Nat) (hi : i < chainCount lay) (hb : SlotOK a lay leaf)
-    (hna : ¬(LeafAlias lay tree leaf a.key ∧ i = a.chain)) :
-    WCT9.wotsSeed (maskAt answers a) lay tree leaf i = WCT9.wotsSeed answers lay tree leaf i := by
-  by_cases hd : depth answers a = 0
-  · rw [maskAt_of_depth_zero answers a hd]
-  have hac := chain_lt_of_depth answers a (by omega)
-  by_cases hl : lay = 0
-  · rw [wotsSeed_eq _ hl, wotsSeed_eq _ hl]
-    by_cases heq : wotsTweak lay tree leaf i = seedTweakP a
-    · have hpar : wotsPar lay leaf i ≠ seedSlot a % 2 := fun hp => hna (wotsTweak_alias a hi hb hac heq hp)
-      have hp2 := wotsPar_lt lay leaf i
-      have ha0 : a.key.lay = 0 := by
-        by_contra ha0
-        unfold wotsTweak seedTweakP WCT9.lowerSeedHeader seedTweak at heq
-        rw [if_pos hl, if_neg ha0] at heq
-        have := (header_fields heq).2.1
-        have e1 : lay.val = 0 := by rw [hl]; rfl
-        have e2 : a.key.lay.val ≠ 0 := fun e => ha0 (Fin.ext e)
-        have := a.key.lay.isLt
-        omega
-      rw [maskAt_tweak, heq, if_pos (⟨rfl, by omega, ha0⟩ : seedTweakP a = seedTweakP a ∧ 1 ≤ depth answers a ∧
-        a.key.lay = 0)]
-      by_cases h0 : seedSlot a % 2 = 0
-      · have hi1 : ¬wotsPar lay leaf i = 0 := by omega
-        rw [if_neg hi1, if_neg hi1, if_pos h0, ChainGraph.joinOutput_high]
-      · have hi0 : wotsPar lay leaf i = 0 := by omega
-        rw [if_pos hi0, if_pos hi0, if_neg h0, ChainGraph.joinOutput_low]
-    · rw [maskAt_untouched answers a (q := .inr (.inl _)) heq]
-  · rw [WCT9.wotsSeed_lower _ hl, WCT9.wotsSeed_lower _ hl]
-    apply lowerSeed_congr_cells
-    intro p
-    rw [maskAt_tweak, if_neg]
-    rintro ⟨he, -, ha0⟩
-    unfold seedTweakP seedTweak WCT9.lowerSeedHeader at he
-    rw [if_pos ha0] at he
-    have := (header_fields he).2.1
-    have e1 : lay.val ≠ 0 := fun e => hl (Fin.ext e)
-    have e2 : a.key.lay.val = 0 := by rw [ha0]; rfl
-    have := lay.isLt
-    omega
+theorem wotsSeed_maskAt (lay : Layer) (tree leaf i : Nat) :
+    WCT9.wotsSeed (maskAt answers a) lay tree leaf i = WCT9.wotsSeed answers lay tree leaf i :=
+  wotsSeed_congr_private (fun c => maskAt_private answers a c) lay tree leaf i
+/-- Seeds of aliased leaves agree: the coefficient cells only see `tree % 2 ^ 40` and, for the top layer (24
+coefficients, an even count), `leaf % 2 ^ 32`; lower leaves (17 coefficients) need small leaf indices. -/
 theorem wotsSeed_alias (T : Answers) {lay : Layer} {tree leaf : Nat} {L : LeafAddr}
     (h : LeafAlias lay tree leaf L) (hb : lay = 0 ∨ (leaf < 2 ^ 24 ∧ L.leaf < 2 ^ 24)) (i : Nat) :
     WCT9.wotsSeed T lay tree leaf i = WCT9.wotsSeed T L.lay L.tree L.leaf i := by
-  rcases hb with h0 | ⟨hl, hL⟩
-  · have h0' : L.lay = 0 := h.1 ▸ h0
-    rw [show WCT9.wotsSeed T lay tree leaf i = leafSeed T lay tree leaf i by
-        unfold WCT9.wotsSeed; rw [if_pos h0],
-      show WCT9.wotsSeed T L.lay L.tree L.leaf i = leafSeed T L.lay L.tree L.leaf i by
-        unfold WCT9.wotsSeed; rw [if_pos h0']]
-    exact leafSeed_alias T h i
-  have he : leaf = L.leaf := by
-    have := h.2.2
-    rw [Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)] at this
-    exact this
-  obtain ⟨hlay, ht, -⟩ := h
-  subst he
-  rw [← hlay]
-  by_cases h0 : lay = 0
-  · rw [wotsSeed_eq _ h0, wotsSeed_eq _ h0, wotsTweak_congr ht]
-  · rw [WCT9.wotsSeed_lower _ h0, WCT9.wotsSeed_lower _ h0]
-    have hc : ∀ p, WCT9.lowerSeedHeader lay tree p = WCT9.lowerSeedHeader lay L.tree p := fun p => by
-      unfold WCT9.lowerSeedHeader
-      exact header_congr rfl ht rfl
-    have hcoef : WCT9.lowerCoef T lay tree L.leaf = WCT9.lowerCoef T lay L.tree L.leaf := by
-      funext j
-      unfold WCT9.lowerCoef WCT9.lowerCoefN WCT9.lowerSeedPair privatePair
-      rw [show header 0 lay.val tree (WCT9.lowerCoefOrdinal L.leaf j.val / 2) 0 =
-        header 0 lay.val L.tree (WCT9.lowerCoefOrdinal L.leaf j.val / 2) 0 from hc _]
-    unfold WCT9.lowerSeed
-    rw [hcoef]
+  obtain ⟨hlay, ht, hlf⟩ := h
+  subst hlay
+  have hpos : ∀ j : Fin (WCT9.famCount L.lay), (WCT9.famOrdinal L.lay leaf j.val / 2) % 2 ^ 32 =
+      (WCT9.famOrdinal L.lay L.leaf j.val / 2) % 2 ^ 32 ∧
+      WCT9.famOrdinal L.lay leaf j.val % 2 = WCT9.famOrdinal L.lay L.leaf j.val % 2 := by
+    intro j
+    have hj := j.isLt
+    unfold WCT9.famOrdinal
+    generalize j.val = jv at hj ⊢
+    rcases hb with h0 | ⟨hl, hL⟩
+    · have h24 : WCT9.famCount L.lay = 24 := by rw [h0]; rfl
+      rw [h24] at hj ⊢
+      omega
+    · have he : leaf = L.leaf := by
+        rw [Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)] at hlf
+        exact hlf
+      rw [he]
+      exact ⟨rfl, rfl⟩
+  have hc : WCT9.famCoef T L.lay tree leaf = WCT9.famCoef T L.lay L.tree L.leaf := by
+    funext j
+    unfold WCT9.famCoef WCT9.famCoefN WCT9.lowerSeedPair privatePair
+    obtain ⟨hp, hpar⟩ := hpos j
+    rw [header_normal 0 L.lay.val tree, header_normal 0 L.lay.val L.tree, ht, hp]
+    unfold WCT9.seedHalf
+    rw [hpar]
+  rw [WCT9.wotsSeed_fam, WCT9.wotsSeed_fam, hc]
 end Mask
-theorem chain_maskAt (answers : Answers) (a : ChainAddr) (count : Nat) (hcount : depth answers a ≤ count)
-    (hsmall : count ≤ 256) :
-    evalWithAnswerFn (maskAt answers a) (chain a.key.lay a.key.tree a.key.leaf a.chain 0 count
-      (WCT9.wotsSeed (maskAt answers a) a.key.lay a.key.tree a.key.leaf a.chain)) =
-    evalWithAnswerFn answers (chain a.key.lay a.key.tree a.key.leaf a.chain 0 count
-      (WCT9.wotsSeed answers a.key.lay a.key.tree a.key.leaf a.chain)) := by
-  by_cases hd : depth answers a = 0
-  · rw [Mask.maskAt_of_depth_zero answers a hd]
-  · exact Mask.eval_chain_maskAt answers a (by omega) hcount hsmall _
 namespace Mask
 open SigGolfCandidate.T3.Security.Wots.Mask
 variable (answers : Answers) (a : ChainAddr)
@@ -266,7 +152,7 @@ theorem eval_honestChain_maskAt (lay : Layer) (tree leaf i count : Nat) (hi : i 
       · exact Or.inr hb
     rw [chain_alias hal', wotsSeed_alias _ hal' hb', wotsSeed_alias _ hal' hb']
     exact eval_chain_maskAt answers a (by omega) (halias hal' rfl) hc _
-  · rw [wotsSeed_maskAt answers a lay tree leaf i hi hb hal']
+  · rw [wotsSeed_maskAt answers a lay tree leaf i]
     apply eval_maskAt_of_respects
     unfold chain
     refine Respects.foldlM _ _ (fun step hstep value => Respects.shortHash _ ?_) _
@@ -303,16 +189,12 @@ theorem wotsTree_maskAt (lay : Layer) (tree : Nat) (hal : lay = 0 ∨ MaskOK a) 
   rw [List.map_congr_left (fun leaf hleaf => wotsRoot_maskAt answers a lay tree leaf
     (slotOK_of hal (by have := List.mem_range.mp hleaf; have := height_pow_le lay; omega)))]
   exact eval_maskAt_of_respects answers a (respectsP_buildLevels a 3 _ _ _ _ (by decide))
-theorem builtTree_maskAt_top (tree : Nat) :
-    builtTree (maskAt answers a) 0 tree = builtTree answers 0 tree := by
-  rw [← WCT9.wotsTree_top, ← WCT9.wotsTree_top, wotsTree_maskAt answers a 0 tree (Or.inl rfl)]
-theorem leafRoot_maskAt_top (tree leaf : Nat) :
-    Correctness.leafRoot (maskAt answers a) 0 tree leaf = Correctness.leafRoot answers 0 tree leaf := by
-  rw [← WCT9.wotsRoot_top, ← WCT9.wotsRoot_top, wotsRoot_maskAt answers a 0 tree leaf (Or.inl rfl)]
-theorem honestRoot_maskAt (lay : Layer) (tree : Nat) (hal : lay = 0 ∨ MaskOK a) :
-    Extract.honestRoot (maskAt answers a) lay tree = Extract.honestRoot answers lay tree := by
-  unfold Extract.honestRoot
-  rw [wotsTree_maskAt answers a lay tree hal]
+theorem builtTree_maskAt_top :
+    builtTree (maskAt answers a) 0 0 = builtTree answers 0 0 := by
+  rw [← WCT9.wotsTree_top, ← WCT9.wotsTree_top, wotsTree_maskAt answers a 0 0 (Or.inl rfl)]
+theorem leafRoot_maskAt_top (leaf : Nat) :
+    Correctness.leafRoot (maskAt answers a) 0 0 leaf = Correctness.leafRoot answers 0 0 leaf := by
+  rw [← WCT9.wotsRoot_top, ← WCT9.wotsRoot_top, wotsRoot_maskAt answers a 0 0 leaf (Or.inl rfl)]
 theorem honestPair_maskAt (lay : Layer) (tree : Nat) (hal : lay = 0 ∨ MaskOK a) :
     Extract.honestPair (maskAt answers a) lay tree = Extract.honestPair answers lay tree := by
   unfold Extract.honestPair
@@ -350,14 +232,6 @@ theorem depth_maskAt_all (answers : Answers) (a b : ChainAddr) (hal : Mask.MaskO
     depth (maskAt answers a) b = depth answers b := by
   unfold depth
   rw [referenceDigits_maskAt answers a hal]
-theorem depth_maskAt (answers : Answers) (a : ChainAddr) (hal : Mask.MaskOK a) :
-    depth (maskAt answers a) a = depth answers a :=
-  depth_maskAt_all answers a a hal
-theorem frontierValue_maskAt (answers : Answers) (a : ChainAddr) (hal : Mask.MaskOK a) :
-    frontierValue (maskAt answers a) a = frontierValue answers a := by
-  unfold frontierValue honestChainValue
-  rw [depth_maskAt answers a hal]
-  exact chain_maskAt answers a _ le_rfl (by have := Mask.depth_le_seven answers a; omega)
 theorem frontierValue_maskAt_other (answers : Answers) (a b : ChainAddr) (hb : b.chain < chainCount b.key.lay)
     (hbl : b.key.leaf < 2 ^ 24) (hal : Mask.MaskOK a)
     (halias : Mask.LeafAlias b.key.lay b.key.tree b.key.leaf a.key → b.chain = a.chain → depth answers a ≤ depth answers b) :

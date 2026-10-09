@@ -154,12 +154,12 @@ theorem topDigits_sum (v : Digest) : (topDigits (T3.topFlip v)).sum =
       (v.toNat / 5192296858534827628530496329220096 % 128) / 1 % 5 +
       (v.toNat / 5192296858534827628530496329220096 % 128) / 5 % 5 +
       (v.toNat / 5192296858534827628530496329220096 % 128) / 25 % 5 +
-      v.toNat / 664613997892457936451903530140172288 % 4 +
-      v.toNat / 2658455991569831745807614120560689152 % 4 +
-      v.toNat / 10633823966279326983230456482242756608 % 4 := by
+      v.toNat / 5316911983139663491615228241121378304 % 8 +
+      v.toNat / 42535295865117307932921825928971026432 % 8 +
+      v.toNat / 664613997892457936451903530140172288 % 8 := by
   simp only [topDigits, List.range_succ, List.range_zero, List.nil_append, List.map_append, List.map_cons,
     List.map_nil, List.sum_append, List.sum_cons, List.sum_nil]
-  norm_num [T3.coreDigit, T3.topCode_topFlip]
+  norm_num [T3.coreDigit, T3.topCode_topFlip, T3.topRawShift]
 theorem decode_low (lay : Layer) (h : lay ≠ 0) (v : Digest) :
     T3.decode lay v =
       if T3.lowerSpare v ∧ (lowDigits v).sum ≤ T3.target lay ∧ T3.target lay - (lowDigits v).sum < 8
@@ -169,10 +169,12 @@ theorem decode_low (lay : Layer) (h : lay ≠ 0) (v : Digest) :
   unfold T3.decode
   rw [if_neg hb, dataDigits_low lay h]
   simp only [h, if_false]
+/-- Campaign T8D (NF17): no range bound on the top value; target 144. -/
 theorem decode_top (v : Digest) :
-    T3.decode 0 v = if v.toNat < 2 ^ 125 ∧ T3.topRanksValid v = true ∧ (topDigits v).sum = 129
+    T3.decode 0 v = if T3.topRanksValid v = true ∧ (topDigits v).sum = 144
       then some (topDigits v) else none := by
   unfold T3.decode
-  simp only [T3.encodedBits, if_true, dataDigits_top, T3.target, Bool.and_eq_true, decide_eq_true_eq]
-  split_ifs <;> simp_all <;> omega
+  rw [if_neg (show ¬ v.toNat ≥ 2 ^ T3.encodedBits 0 from Nat.not_le.mpr v.isLt)]
+  simp only [if_true, dataDigits_top, T3.target, Bool.and_eq_true, decide_eq_true_eq]
+  split_ifs <;> simp_all
 end SigGolfCandidate.T3M.Search

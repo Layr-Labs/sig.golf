@@ -175,47 +175,57 @@ open SigGolfCandidate.T3 (Digest)
 set_option maxRecDepth 8192
 set_option maxHeartbeats 600000
 set_option linter.unusedSimpArgs false
-theorem topWindow_tail (v : Digest) (hv : v.toNat < 2 ^ 125) :
-    topWindow v 17 = BitVec.ofNat 64 (v.toNat / 2 ^ 119) := by
+/-- The cross window after the 17 rank steps holds bits 119..126 of the top value (bit 127 is shifted out). -/
+theorem topWindow_tail8 (v : Digest) :
+    topWindow v 17 = BitVec.ofNat 64 (v.toNat / 2 ^ 119 % 256) := by
   apply BitVec.eq_of_toNat_eq
   simp only [topWindow, Nat.reduceLT, ↓reduceIte, Nat.reduceSub, Nat.reduceMul,
     BitVec.toNat_ushiftRight, BitVec.extractLsb'_toNat, BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow]
-  have h1 : v.toNat / 2 ^ 63 < 2 ^ 64 := by omega
-  have h2 : v.toNat / 2 ^ 119 < 2 ^ 64 := by omega
-  rw [Nat.mod_eq_of_lt h1, Nat.mod_eq_of_lt h2, Nat.div_div_eq_div_mul]
-  rfl
-theorem tailWeight_le (v : Digest) : tailWeight v ≤ 9 := by unfold tailWeight; omega
-theorem topTail_sum (v : Digest) (hv : v.toNat < 2 ^ 125) (sum : Nat) :
-    BitVec.ofNat 64 sum + (topWindow v 17 &&& 3#64) +
-      (topWindow v 17 >>> 2 &&& 3#64) + (topWindow v 17 >>> 4) =
+  rw [Nat.mod_eq_of_lt (show v.toNat / 2 ^ 119 % 256 < 2 ^ 64 by omega),
+    show (2 : Nat) ^ 64 = 2 ^ 56 * 256 by norm_num, Nat.mod_mul_right_div_self, Nat.div_div_eq_div_mul]
+  norm_num
+theorem ext64_shr61 (v : Digest) :
+    v.extractLsb' 64 64 >>> 61 = BitVec.ofNat 64 (v.toNat / 2 ^ 125 % 8) := by
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_ushiftRight, BitVec.extractLsb'_toNat, BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow]
+  have := v.isLt
+  rw [Nat.mod_eq_of_lt (show v.toNat / 2 ^ 125 % 8 < 2 ^ 64 by omega),
+    Nat.mod_eq_of_lt (show v.toNat / 2 ^ 64 < 2 ^ 64 by omega), Nat.div_div_eq_div_mul,
+    Nat.mod_eq_of_lt (show v.toNat / 2 ^ 125 < 8 by omega)]
+  norm_num
+theorem tailWeight_le (v : Digest) : tailWeight v ≤ 21 := by unfold tailWeight; omega
+/-- Campaign T8D (NF17): the tail adds the raw radix-8 digits of chains 53 (window bits 0..2), 51 (window bits
+3..5) and 52 (`t2 >> 61`, bits 125..127). -/
+theorem topTail_sum (v : Digest) (sum : Nat) :
+    BitVec.ofNat 64 sum + (topWindow v 17 &&& 7#64) +
+      (topWindow v 17 >>> 3 &&& 7#64) + (v.extractLsb' 64 64 >>> 61) =
       BitVec.ofNat 64 (sum + tailWeight v) := by
-  rw [topWindow_tail v hv]
-  have h : v.toNat / 2 ^ 119 < 2 ^ 64 := by omega
-  rw [ofNat_shr _ _ h, ofNat_shr _ _ h, ofNat_and3, ofNat_and3,
-    ofNat_add_ofNat, ofNat_add_ofNat, ofNat_add_ofNat]
+  rw [topWindow_tail8 v, ext64_shr61]
+  have h : v.toNat / 2 ^ 119 % 256 < 2 ^ 64 := by omega
+  rw [ofNat_shr _ _ h, ofNat_and7, ofNat_and7, ofNat_add_ofNat, ofNat_add_ofNat, ofNat_add_ofNat]
   congr 1
   simp only [tailWeight, Nat.div_div_eq_div_mul]
   norm_num
   omega
 theorem topTail_spec {image : Image} {b : Nat} (hK : KernAt image b)
     (s : MachineState) (v : Digest) (sum : Nat) (hsum : sum ≤ 4335)
-    (hv : v.toNat < 2 ^ 125) (hpc : s.pc = pcOf (b + 353))
-    (h28 : s.getReg .x28 = topWindow v 17)
-    (h25 : s.getReg .x25 = BitVec.ofNat 64 sum) (h17 : s.getReg .x17 = 129#64) :
+    (hpc : s.pc = pcOf (b + 353))
+    (h28 : s.getReg .x28 = topWindow v 17) (h7 : s.getReg .x7 = v.extractLsb' 64 64)
+    (h25 : s.getReg .x25 = BitVec.ofNat 64 sum) (h17 : s.getReg .x17 = 144#64) :
     ∃ t, Steps image s 9 9 t ∧
-      t.pc = (if sum + tailWeight v = 129 then pcOf (b + 362) else pcOf (b + 468)) ∧
+      t.pc = (if sum + tailWeight v = 144 then pcOf (b + 362) else pcOf (b + 468)) ∧
       t.getReg .x25 = BitVec.ofNat 64 (sum + tailWeight v) ∧
       RegsExcept s t [.x25,.x29] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_top353 hK.2.1) (codeAt_top353 hK) s hpc
     (by simp [topState353, tb354_353.res, rv_simp]), ?_, ?_, ?_, ?_⟩
   · simp only [Result.toState_pc, topEnd353, rebase, tb354_353.res,
-      E.eval, CmpOp.eval, BinOp.eval, h28, h25, h17,
-      BitVec.toNat_ofNat, Nat.reduceMod, topTail_sum v hv sum]
+      E.eval, CmpOp.eval, BinOp.eval, h28, h25, h17, h7,
+      BitVec.toNat_ofNat, Nat.reduceMod, topTail_sum v sum]
     have hh : sum + tailWeight v < 2 ^ 64 := by have := tailWeight_le v; omega
-    simp only [bne_iff_ne, ne_eq, BitVec.sub_eq_iff_eq_add, BitVec.zero_add, ofNat_inj hh (by decide : 129 < 2 ^ 64)]
+    simp only [bne_iff_ne, ne_eq, BitVec.sub_eq_iff_eq_add, BitVec.zero_add, ofNat_inj hh (by decide : 144 < 2 ^ 64)]
     split_ifs <;> first | rfl | omega
   · simpa only [Result.toState_getReg, topState353, tb354_353.res, rv_simp,
-      h28, h25, BitVec.toNat_ofNat, Nat.reduceMod] using topTail_sum v hv sum
+      h28, h25, h7, BitVec.toNat_ofNat, Nat.reduceMod] using topTail_sum v sum
   · intro r hr; cases r <;> simp at hr <;> simp [topState353, tb354_353.res, rv_simp] <;> rfl
   · intro A _ _; simp [topState353, tb354_353.res, rv_simp]
 end SigGolfCandidate.T3M.Search
@@ -564,18 +574,18 @@ theorem rankPartial_le (v : Digest) (n : Nat) : rankPartial v n ≤ 255 * n := b
     have := rankLookup_le (topRank v n)
     omega
 theorem topCheck_spec {image : Image} {b : Nat} (hK : KernAt image b)
-    (s : MachineState) (v : Digest) (hv : v.toNat < 2 ^ 125)
+    (s : MachineState) (v : Digest)
     (hpc : s.pc = pcOf (b + 265))
     (h6 : s.getReg .x6 = v.extractLsb' 0 64) (h7 : s.getReg .x7 = v.extractLsb' 64 64)
-    (h17 : s.getReg .x17 = 129#64) (ht : SumTableOK s) :
+    (h17 : s.getReg .x17 = 144#64) (ht : SumTableOK s) :
     ∃ t, Steps image s 97 97 t ∧
-      t.pc = (if topLookupSum v = 129 then pcOf (b + 362) else pcOf (b + 468)) ∧
+      t.pc = (if topLookupSum v = 144 then pcOf (b + 362) else pcOf (b + 468)) ∧
       t.getReg .x25 = BitVec.ofNat 64 (topLookupSum v) ∧
       t.getReg .x30 = BitVec.ofNat 64 TOP_DATA ∧
       RegsExcept s t foldRegs ∧ Frame s t (fun _ => False) := by
   obtain ⟨t1, e1, p1, w1, a1, x301, r1, f1⟩ := topFold_spec hK s v hpc h6 h7 ht
   obtain ⟨t2, e2, p2, a2, r2, f2⟩ := topTail_spec hK t1 v (rankPartial v 17)
-    (rankPartial_le v 17) hv p1 w1 a1 (by rw [r1.get (by decide), h17])
+    (rankPartial_le v 17) p1 w1 (by rw [r1.get (by decide), h7]) a1 (by rw [r1.get (by decide), h17])
   have he : rankPartial v 17 + tailWeight v = topLookupSum v := by
     rw [rankPartial_seventeen]; rfl
   refine ⟨t2, e1.trans e2, ?_, ?_, ?_, (r1.trans r2).mono (by decide),

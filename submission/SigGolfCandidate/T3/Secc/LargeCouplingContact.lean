@@ -25,28 +25,6 @@ theorem evalSPMF_uniform_inst {α : Type} [Fintype α] [Nonempty α] (s1 s2 : Sa
   apply evalSPMF_ext
   intro x
   rw [probOutput_uniformSample, probOutput_uniformSample]
-def RealContact (adversary : AdversaryP) (q : Nat) (x : FirstHit.Recorded Bool × Answers) : Prop :=
-  ContactR adversary q x.1 x.2
-noncomputable def fixedNext (adversary : AdversaryP) (T : Answers) : ProbComp (FirstHit.Recorded Bool × Answers) :=
-  (fun r => (r, T)) <$> Wots.Ref.fixedRecord T (GameWith.idealGame PaddedGame.checker adversary) (∅, ∅)
-def worldEquiv : Secrets × ((Message → Digest) × LowLabels) ≃ (WCoord → LargeResidual.Digest) where
-  toFun p := Sum.elim (Sum.elim p.2.2 p.1) p.2.1
-  invFun lab := (fun s => lab (.inl (.inr s)), fun m => lab (.inr m), fun N => lab (.inl (.inl N)))
-  left_inv p := rfl
-  right_inv lab := by
-    funext c
-    rcases c with (N | s) | m <;> rfl
-theorem world_split {R : Type} (K : Secrets → (Message → Digest) → LowLabels → ProbComp R) :
-    𝒮[($ᵗ Secrets : ProbComp _) >>= fun sec => ($ᵗ (Message → Digest) : ProbComp _) >>= fun nv =>
-        ($ᵗ LowLabels : ProbComp _) >>= fun low => K sec nv low] =
-      𝒮[($ᵗ (WCoord → LargeResidual.Digest) : ProbComp _) >>= fun lab =>
-        K (fun s => lab (.inl (.inr s))) (fun m => lab (.inr m)) (fun N => lab (.inl (.inl N)))] := by
-  let _ : SampleableType ((Message → Digest) × LowLabels) := SampleableType.ofFintype _
-  let _ : SampleableType (Secrets × ((Message → Digest) × LowLabels)) := SampleableType.ofFintype _
-  rw [uniform_equiv_bind worldEquiv, uniform_prod_bind]
-  refine evalSPMF_bind_congr' _ fun sec => ?_
-  rw [uniform_prod_bind]
-  rfl
 theorem weight_self {α : Type} (mx : ProbComp α) (x : α) : Pr[= x | mx] = Pr[= x | 𝒮[mx]] := rfl
 end Contact
 end SigGolfCandidate.T3.Security.LargeCoupling

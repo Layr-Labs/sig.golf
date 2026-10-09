@@ -17,16 +17,50 @@ variable (answers : Answers) (a : ChainAddr)
 theorem eval_mask_maskAt (level index : Nat) :
     evalWithAnswerFn (maskAt answers a) (mask level index) = evalWithAnswerFn answers (mask level index) :=
   eval_maskAt_of_respects answers a (respectsP_mask a level index)
-theorem eval_nodeHash3_maskAt (lay tree heap : Nat) (left right : Digest) :
-    evalWithAnswerFn (maskAt answers a) (nodeHash 3 lay tree heap left right) =
-      evalWithAnswerFn answers (nodeHash 3 lay tree heap left right) :=
-  eval_maskAt_of_respects answers a (respectsP_nodeHash a 3 lay tree heap left right (by decide))
+/-- The keygen payload after the top tree (campaign T8D: masks over the given levels). -/
+def keygenRest (levels : List (List Digest)) : M (Digest × Region) := Correctness.cachePayloadProgram (pure levels)
+/-- Campaign T8D: the keygen payload is computed from the honest top tree with family seeds. -/
+theorem eval_cachePayload_pure (T : Answers) (builder : M (List (List Digest))) :
+    evalWithAnswerFn T (Correctness.cachePayloadProgram builder) =
+      evalWithAnswerFn T (Correctness.cachePayloadProgram (pure (evalWithAnswerFn T builder))) := by
+  unfold Correctness.cachePayloadProgram
+  simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+theorem eval_keygenPayload_wots (T : Answers) :
+    evalWithAnswerFn T keygenPayload = evalWithAnswerFn T (keygenRest (WCT9.wotsTree T 0 0)) := by
+  have hb : evalWithAnswerFn T buildTopTree = WCT9.wotsTree T 0 0 :=
+    (Correctness.eval_buildTopTree T).trans (WCT9.wotsTree_top T).symm
+  have h := eval_cachePayload_pure T buildTopTree
+  rw [hb] at h
+  rw [Correctness.keygenPayload_eq]
+  exact h
+theorem respects_keygenRest (c : ChainAddr) (levels : List (List Digest)) :
+    Respects (Untouched c) (keygenRest levels) := by
+  unfold keygenRest Correctness.cachePayloadProgram
+  refine Respects.bind (Respects.pure' _) fun levels => ?_
+  refine Respects.bind (Respects.mapM _ _ fun level _ => ?_) fun _ => Respects.pure' _
+  unfold maskedLevel pairedMask
+  exact Respects.bind (Respects.mapM _ _ fun pair _ => Respects.bind
+    (Respects.privatePair _ _ _ _ _ (untouched_privatePair c (by decide) _ _ _ _)) fun _ => Respects.pure' _)
+    fun _ => Respects.pure' _
+theorem eval_buildLeafTop_sig (T : Answers) (leaf : Nat) (digits : List Nat) (hvalid : Cost.ValidDigits 0 digits) :
+    evalWithAnswerFn T (buildLeafTop leaf digits true) =
+      (0, (List.range (chainCount 0)).map (WCT9.wotsValue T 0 0 leaf digits)) := by
+  have h2 := Correctness.eval_buildLeafTop_values T leaf digits hvalid true
+  rw [← WCT9.wotsValue_top] at h2
+  have h1 : (evalWithAnswerFn T (buildLeafTop leaf digits true)).1 = 0 := by
+    rw [Correctness.buildLeafTop_eq]
+    simp only [evalWithAnswerFn_bind, ↓reduceIte, evalWithAnswerFn_pure]
+  exact Prod.ext h1 h2
+/-- Campaign T8D: the top signature values are the family-seeded honest values. -/
+theorem eval_signTop_wots (T : Answers) (cache : Cache) (leaf : Nat) (digits : List Nat)
+    (hvalid : Cost.ValidDigits 0 digits) :
+    evalWithAnswerFn T (signTop cache leaf digits) =
+      ((List.range (chainCount 0)).map (WCT9.wotsValue T 0 0 leaf digits), evalWithAnswerFn T (topPath cache leaf)) := by
+  simp only [signTop, evalWithAnswerFn_bind, eval_buildLeafTop_sig T leaf digits hvalid, evalWithAnswerFn_pure]
 theorem eval_keygenPayload_maskAt :
     evalWithAnswerFn (maskAt answers a) keygenPayload = evalWithAnswerFn answers keygenPayload := by
-  rw [Correctness.keygenPayload_eq, Correctness.eval_cachePayloadProgram, Correctness.eval_cachePayloadProgram,
-    Correctness.eval_buildTree_levels (maskAt answers a) 0 0 0 [] (Cost.validDigits_nil 0),
-    Correctness.eval_buildTree_levels answers 0 0 0 [] (Cost.validDigits_nil 0), builtTree_maskAt_top]
-  simp only [eval_mask_maskAt]
+  rw [eval_keygenPayload_wots, eval_keygenPayload_wots, wotsTree_maskAt answers a 0 0 (Or.inl rfl)]
+  exact eval_maskAt_of_respects answers a (Respects.untouchedP (fun c => respects_keygenRest c _) a)
 end Mask
 theorem eval_maskAt_keygen (answers : Answers) (a : ChainAddr) :
     evalWithAnswerFn (maskAt answers a) keygen = evalWithAnswerFn answers keygen := by
@@ -56,17 +90,16 @@ theorem wotsValues_maskAt (lay : Layer) (tree leaf : Nat) (digits : List Nat) (h
     exact halias hal hi'
 theorem eval_topPath_maskAt (cache : Cache) (leaf : Nat) :
     evalWithAnswerFn (maskAt answers a) (topPath cache leaf) = evalWithAnswerFn answers (topPath cache leaf) := by
-  simp only [topPath, evalWithAnswerFn_bind, Correctness.eval_mapM, evalWithAnswerFn_pure,
-    Correctness.eval_buildLeaf_root _ 0 0 _ [] (Cost.validDigits_nil 0), leafRoot_maskAt_top, eval_nodeHash3_maskAt,
-    eval_mask_maskAt]
+  apply eval_maskAt_of_respects
+  unfold topPath
+  exact Respects.mapM _ _ fun level _ => Respects.bind (respectsP_mask a _ _) fun _ => Respects.pure' _
 theorem eval_signTop_maskAt (cache : Cache) (leaf : Nat) (digits : List Nat) (hvalid : Cost.ValidDigits 0 digits)
     (halias : LeafAlias 0 0 leaf a.key → a.chain < chainCount 0 → depth answers a ≤ digits.getD a.chain 0) :
     evalWithAnswerFn (maskAt answers a) (signTop cache leaf digits) =
       evalWithAnswerFn answers (signTop cache leaf digits) := by
   have hv := wotsValues_maskAt answers a 0 0 leaf digits hvalid (Or.inl rfl) halias
-  rw [WCT9.wotsValue_top, WCT9.wotsValue_top] at hv
-  simp only [signTop, evalWithAnswerFn_bind, eval_buildLeaf_sig _ 0 0 leaf digits hvalid, evalWithAnswerFn_pure,
-    eval_topPath_maskAt answers a, hv]
+  rw [eval_signTop_wots _ cache leaf digits hvalid, eval_signTop_wots _ cache leaf digits hvalid, hv,
+    eval_topPath_maskAt answers a]
 theorem eval_buildTreeP_maskAt (lay : Layer) (hlay : lay ≠ 0) (tree selected : Nat) (digits : List Nat)
     (hvalid : Cost.ValidDigits lay digits) (hsel : selected < 2 ^ height lay) (hm : MaskOK a)
     (halias : LeafAlias lay tree selected a.key → a.chain < chainCount lay → depth answers a ≤ digits.getD a.chain 0) :
@@ -194,14 +227,6 @@ theorem eval_maskAt_signPayload (answers : Answers) (a : ChainAddr) (htree : a.k
       exact Mask.signedMsg_top answers _ (WCT9.digestIndex_lt _)
     · generalize evalWithAnswerFn answers (WCT9.signLayersBC cache (WCT9.digestIndex output) 4 _) = pieces
       rcases pieces with _ | pieces <;> rfl
-theorem eval_maskAt_coreSign (answers : Answers) (a : ChainAddr) (htree : a.key.tree < 2 ^ 40)
-    (hleaf : a.key.leaf < 2 ^ 24) (cache : Cache) (message : Message) :
-    evalWithAnswerFn (maskAt answers a) (sign cache message) = evalWithAnswerFn answers (sign cache message) := by
-  rw [ClaudeWCT.W9.T3.Security.sign_eq]
-  refine Mask.eval_bind_of (Mask.eval_maskAt_of_respects answers a (Mask.respectsP_privateMac a _)) ?_
-  split
-  · rfl
-  · exact eval_maskAt_signPayload answers a htree hleaf cache message
 theorem eval_maskAt_sign (answers : Answers) (a : ChainAddr) (htree : a.key.tree < 2 ^ 40)
     (hleaf : a.key.leaf < 2 ^ 24) (published : SigGolfCandidate.T3.Cache) (request : Request) :
     evalWithAnswerFn (maskAt answers a) (FullGame.authenticatedSign published request) =
@@ -215,11 +240,7 @@ theorem maskAt_congr (answers answers' : Answers) (a : ChainAddr)
     (hrows : ∀ input, prefixStep answers a input = none →
       answers (.inl (.inr input)) = answers' (.inl (.inr input)))
     (hcoins : ∀ coin, answers (.inl (.inl coin)) = answers' (.inl (.inl coin)))
-    (hprivate : ∀ coordinate, coordinate ≠ .inl (seedTweakP a) →
-      answers (.inr coordinate) = answers' (.inr coordinate))
-    (hsibling : siblingHalfP a (answers (.inr (.inl (seedTweakP a)))) =
-      siblingHalfP a (answers' (.inr (.inl (seedTweakP a)))))
-    (hlower : a.key.lay ≠ 0 → answers (.inr (.inl (seedTweakP a))) = answers' (.inr (.inl (seedTweakP a))))
+    (hprivate : ∀ coordinate, answers (.inr coordinate) = answers' (.inr coordinate))
     (hdepth : depth answers a = depth answers' a)
     (hfrontier : frontierValue answers a = frontierValue answers' a) :
     maskAt answers a = maskAt answers' a := by
@@ -227,104 +248,12 @@ theorem maskAt_congr (answers answers' : Answers) (a : ChainAddr)
     funext input
     unfold prefixStep
     simp only [hdepth]
-  have hpar := parAddr_chain_mod a
   funext q
-  rcases q with (coin | input) | (tweak | other)
+  rcases q with (coin | input) | c
   · exact hcoins coin
   · rw [Mask.maskAt_public, Mask.maskAt_public, ← hstep, hdepth, hfrontier]
     cases hp : prefixStep answers a input with
     | none => exact hrows input hp
     | some step => rfl
-  · rw [Mask.maskAt_tweak, Mask.maskAt_tweak, hdepth]
-    by_cases ht : tweak = seedTweakP a
-    · subst ht
-      by_cases hl0 : a.key.lay = 0
-      swap
-      · rw [if_neg (fun h => hl0 h.2.2), if_neg (fun h => hl0 h.2.2)]
-        exact hlower hl0
-      by_cases hd : 1 ≤ depth answers' a
-      · have hc : seedTweakP a = seedTweakP a ∧ 1 ≤ depth answers' a ∧ a.key.lay = 0 := ⟨rfl, hd, hl0⟩
-        rw [if_pos hc, if_pos hc]
-        by_cases h0 : seedSlot a % 2 = 0
-        · have e : (answers (.inr (.inl (seedTweakP a)))).extractLsb' 128 128 =
-              (answers' (.inr (.inl (seedTweakP a)))).extractLsb' 128 128 := by
-            simpa only [siblingHalfP, siblingHalf, hpar, if_pos h0] using hsibling
-          rw [if_pos h0, if_pos h0, e]
-        · have e : (answers (.inr (.inl (seedTweakP a)))).extractLsb' 0 128 =
-              (answers' (.inr (.inl (seedTweakP a)))).extractLsb' 0 128 := by
-            simpa only [siblingHalfP, siblingHalf, hpar, if_neg h0] using hsibling
-          rw [if_neg h0, if_neg h0, e]
-      · have hc : ¬(seedTweakP a = seedTweakP a ∧ 1 ≤ depth answers' a ∧ a.key.lay = 0) := fun h => hd h.2.1
-        rw [if_neg hc, if_neg hc]
-        have h0 : depth answers a = 0 := by omega
-        have h0' : depth answers' a = 0 := by omega
-        have hseed : ∀ T : Answers, depth T a = 0 → frontierValue T a =
-            (if seedSlot a % 2 = 0 then (T (.inr (.inl (seedTweakP a)))).extractLsb' 0 128
-             else (T (.inr (.inl (seedTweakP a)))).extractLsb' 128 128) := by
-          intro T hT
-          unfold frontierValue honestChainValue
-          rw [hT]
-          change WCT9.wotsSeed T a.key.lay a.key.tree a.key.leaf a.chain = _
-          rw [Mask.wotsSeed_eq _ hl0, Mask.wotsTweak_self, Mask.wotsPar_self]
-        rw [hseed answers h0, hseed answers' h0'] at hfrontier
-        rw [← ChainGraph.joinOutput_parts (answers (.inr (.inl (seedTweakP a)))),
-          ← ChainGraph.joinOutput_parts (answers' (.inr (.inl (seedTweakP a))))]
-        by_cases h2 : seedSlot a % 2 = 0
-        · have e1 : (answers (.inr (.inl (seedTweakP a)))).extractLsb' 0 128 =
-              (answers' (.inr (.inl (seedTweakP a)))).extractLsb' 0 128 := by
-            simpa only [if_pos h2] using hfrontier
-          have e2 : (answers (.inr (.inl (seedTweakP a)))).extractLsb' 128 128 =
-              (answers' (.inr (.inl (seedTweakP a)))).extractLsb' 128 128 := by
-            simpa only [siblingHalfP, siblingHalf, hpar, if_pos h2] using hsibling
-          rw [e1, e2]
-        · have e1 : (answers (.inr (.inl (seedTweakP a)))).extractLsb' 128 128 =
-              (answers' (.inr (.inl (seedTweakP a)))).extractLsb' 128 128 := by
-            simpa only [if_neg h2] using hfrontier
-          have e2 : (answers (.inr (.inl (seedTweakP a)))).extractLsb' 0 128 =
-              (answers' (.inr (.inl (seedTweakP a)))).extractLsb' 0 128 := by
-            simpa only [siblingHalfP, siblingHalf, hpar, if_neg h2] using hsibling
-          rw [e1, e2]
-    · rw [if_neg (fun h => ht h.1), if_neg (fun h => ht h.1)]
-      exact hprivate (.inl tweak) (fun h => ht (Sum.inl.inj h))
-  · exact hprivate (.inr other) (fun h => by cases h)
-theorem maskAt_idem (answers : Answers) (a : ChainAddr) (hm : Mask.MaskOK a) :
-    maskAt (maskAt answers a) a = maskAt answers a := by
-  have hstep : prefixStep (maskAt answers a) a = prefixStep answers a := by
-    funext input
-    unfold prefixStep
-    simp only [depth_maskAt answers a hm]
-  have hpar := parAddr_chain_mod a
-  apply maskAt_congr
-  · intro input hp
-    rw [hstep] at hp
-    rw [Mask.maskAt_public, hp]
-  · intro coin
-    rfl
-  · intro coordinate hc
-    rcases coordinate with tweak | other
-    · exact Mask.maskAt_untouched answers a (q := .inr (.inl tweak)) (fun h => hc (congrArg Sum.inl h))
-    · rfl
-  · rw [Mask.maskAt_tweak]
-    by_cases hd : 1 ≤ depth answers a ∧ a.key.lay = 0
-    · rw [if_pos (⟨rfl, hd⟩ : seedTweakP a = seedTweakP a ∧ 1 ≤ depth answers a ∧ a.key.lay = 0)]
-      unfold siblingHalfP siblingHalf
-      rw [hpar]
-      by_cases h0 : seedSlot a % 2 = 0
-      · rw [if_pos h0, if_pos h0, ChainGraph.joinOutput_high, if_pos h0]
-      · rw [if_neg h0, if_neg h0, ChainGraph.joinOutput_low, if_neg h0]
-    · rw [if_neg (fun h => hd h.2)]
-  · intro hl0
-    rw [Mask.maskAt_tweak, if_neg (fun h => hl0 h.2.2)]
-  · exact depth_maskAt answers a hm
-  · exact frontierValue_maskAt answers a hm
-theorem eval_keygen_of_maskAt_eq (answers answers' : Answers) (a : ChainAddr)
-    (h : maskAt answers a = maskAt answers' a) :
-    evalWithAnswerFn answers keygen = evalWithAnswerFn answers' keygen := by
-  rw [← eval_maskAt_keygen answers a, h, eval_maskAt_keygen]
-theorem eval_sign_of_maskAt_eq (answers answers' : Answers) (a : ChainAddr) (htree : a.key.tree < 2 ^ 40)
-    (hleaf : a.key.leaf < 2 ^ 24) (h : maskAt answers a = maskAt answers' a) (published : SigGolfCandidate.T3.Cache)
-    (request : Request) :
-    evalWithAnswerFn answers (FullGame.authenticatedSign published request) =
-      evalWithAnswerFn answers' (FullGame.authenticatedSign published request) := by
-  rw [← eval_maskAt_sign answers a htree hleaf, h, eval_maskAt_sign answers' a htree hleaf]
+  · exact hprivate c
 end ClaudeWCT.W9.T3.Security.Wots

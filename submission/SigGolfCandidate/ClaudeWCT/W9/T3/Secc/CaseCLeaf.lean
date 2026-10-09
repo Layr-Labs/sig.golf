@@ -77,9 +77,6 @@ theorem verdict_accepting (pk : Digest) (interaction : Option ForgeryP × QueryL
   rw [hand.2] at hw
   obtain ⟨-, message, witness, hof, hv, hsub⟩ := PaddedExtraction.check_accepting answers pk interaction.2 forgery hw
   exact ⟨check, hcheck, hevents.symm, hstate.symm, message, witness, hof, hv, hsub⟩
-theorem chainValue_eq_wctValue (answers : Correctness.Answers) (a : Guess.ChainAddr) (p : Nat) :
-    Guess.chainValue answers a p =
-      ClaudeWCT.W9.T3M.Extract.wctValue answers a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p := rfl
 theorem honestProbe_slot (answers : Correctness.Answers) (N : HashOutput) (k : WCT9.Coord) (t : Fin 6)
     (p : Fin 4) :
     Guess.honestProbe answers (Guess.chainOf N k t, p) =

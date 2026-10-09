@@ -31,23 +31,23 @@ noncomputable def auxLaw (initLaw : PMF AuxData) : (input : AuxSpec.Domain) → 
   | .coin n => PMF.uniformOfFintype (Fin (n + 1))
   | .init => initLaw
 abbrev WCoord := Coord ⊕ Message
-/-- Top-layer WOTS seed addresses (plain secrets). -/
-abbrev WTopAddr := {a : ChainGraph.Address // a.layer = 0}
-/-- Lower WOTS leaves `(layer, tree, leaf)`, `layer ≠ 0` (stage B: one degree-16 seed family per leaf). -/
-abbrev LowerLeaf := {L : Layer × Fin (2 ^ 31) × Fin 4096 // L.1 ≠ 0}
-/-- Lower secret cells that are not coefficients (`chain ≥ 17`): unused, not observable (stage B). -/
-abbrev WJunk := {a : ChainGraph.Address // a.layer ≠ 0 ∧ 17 ≤ a.chain.val}
-/-- Plain (independently uniform) world coordinates: nodes, top WOTS seeds, nonces. -/
+/-- Top-layer WOTS seed addresses as plain secrets: none since campaign T8D (top seeds are leaf-family evaluations);
+the empty type keeps the shape of the plain coordinates. -/
+abbrev WTopAddr := {_a : ChainGraph.Address // False}
+/-- WOTS leaves `(layer, tree, leaf)` with a seed family: every leaf (stage B lower leaves, 17 coefficients; campaign
+T8D top leaves, 24 coefficients). The name is kept from stage B. -/
+abbrev LowerLeaf := {_L : Layer × Fin (2 ^ 31) × Fin 4096 // True}
+/-- Secret cells that are not coefficients (`chain ≥ famCount layer`): unused, not observable. -/
+abbrev WJunk := {a : ChainGraph.Address // WCT9.famCount a.layer ≤ a.chain.val}
+/-- Plain (independently uniform) world coordinates: nodes, (no) top WOTS seeds, nonces. -/
 abbrev WPlain := (CanonGraph.Node ⊕ WTopAddr) ⊕ Message
-/-- Seed families: lower WOTS leaves (17 coefficients) and FTS coordinates `(index, coord)` (102 coefficients). -/
+/-- Seed families: WOTS leaves (`famCount` coefficients) and FTS coordinates `(index, coord)` (102 coefficients). -/
 abbrev WFam := LowerLeaf ⊕ (Fin (2 ^ 31) × Fin 9)
-/-- Split of the world coordinates: lower WOTS seeds are their leaf family at `lowerPoint chain`, FTS seeds are
+/-- Split of the world coordinates: WOTS seeds are their leaf family at `lowerPoint chain = chain + 1`, FTS seeds are
 evaluations of their family `(index, coord)` at `ftsPoint`. -/
 def wsplit : WCoord → WPlain ⊕ (WFam × ℕ)
   | .inl (.inl N) => .inl (.inl (.inl N))
-  | .inl (.inr (.inl a)) =>
-      if h : a.layer = 0 then .inl (.inl (.inr ⟨a, h⟩))
-      else .inr (.inl ⟨(a.layer, a.tree, a.leaf), h⟩, WCT9.lowerPoint a.chain.val)
+  | .inl (.inr (.inl a)) => .inr (.inl ⟨(a.layer, a.tree, a.leaf), trivial⟩, WCT9.lowerPoint a.chain.val)
   | .inl (.inr (.inr w)) => .inr (.inr (w.1, w.2.1), WCT9.ftsPoint w.2.2.1.val w.2.2.2.val)
   | .inr m => .inl (.inr m)
 /-- Embedding of the plain coordinates. -/
@@ -56,27 +56,24 @@ def wembed : WPlain → WCoord
   | .inl (.inr a) => .inl (.inr (.inl a.1))
   | .inr m => .inr m
 theorem wsplit_addr (a : ChainGraph.Address) :
-    wsplit (.inl (.inr (.inl a))) = if h : a.layer = 0 then .inl (.inl (.inr ⟨a, h⟩))
-      else .inr (.inl ⟨(a.layer, a.tree, a.leaf), h⟩, WCT9.lowerPoint a.chain.val) := rfl
-theorem wsplit_lower_eq {a a' : ChainGraph.Address} (h : a.layer ≠ 0) (h' : a'.layer ≠ 0)
-    (he : (⟨(a.layer, a.tree, a.leaf), h⟩ : LowerLeaf) = ⟨(a'.layer, a'.tree, a'.leaf), h'⟩)
+    wsplit (.inl (.inr (.inl a))) = .inr (.inl ⟨(a.layer, a.tree, a.leaf), trivial⟩, WCT9.lowerPoint a.chain.val) :=
+  rfl
+theorem wsplit_lower_eq {a a' : ChainGraph.Address}
+    (he : (⟨(a.layer, a.tree, a.leaf), trivial⟩ : LowerLeaf) = ⟨(a'.layer, a'.tree, a'.leaf), trivial⟩)
     (hp : WCT9.lowerPoint a.chain.val = WCT9.lowerPoint a'.chain.val) : a = a' := by
   have h1 := congrArg Subtype.val he
   simp only [Prod.mk.injEq] at h1
   unfold WCT9.lowerPoint at hp
   exact ChainGraph.Address.ext h1.1 h1.2.1 h1.2.2 (Fin.ext (by omega))
 theorem wsplit_inr {c : WCoord} {fp : WFam × ℕ} (h : wsplit c = .inr fp) :
-    (∃ (a : ChainGraph.Address) (ha : a.layer ≠ 0), c = .inl (.inr (.inl a)) ∧
-      fp = (.inl ⟨(a.layer, a.tree, a.leaf), ha⟩, WCT9.lowerPoint a.chain.val)) ∨
+    (∃ (a : ChainGraph.Address) (_ha : True), c = .inl (.inr (.inl a)) ∧
+      fp = (.inl ⟨(a.layer, a.tree, a.leaf), trivial⟩, WCT9.lowerPoint a.chain.val)) ∨
     (∃ w : WctAddr, c = .inl (.inr (.inr w)) ∧
       fp = (.inr (w.1, w.2.1), WCT9.ftsPoint w.2.2.1.val w.2.2.2.val)) := by
   rcases c with (N | a | w) | m
   · simp only [wsplit, reduceCtorEq] at h
-  · rw [wsplit_addr] at h
-    by_cases ha : a.layer = 0
-    · rw [dif_pos ha] at h; cases h
-    · rw [dif_neg ha, Sum.inr.injEq] at h
-      exact Or.inl ⟨a, ha, rfl, h.symm⟩
+  · rw [wsplit_addr, Sum.inr.injEq] at h
+    exact Or.inl ⟨a, trivial, rfl, h.symm⟩
   · simp only [wsplit, Sum.inr.injEq] at h
     exact Or.inr ⟨w, rfl, h.symm⟩
   · simp only [wsplit, reduceCtorEq] at h
@@ -85,34 +82,28 @@ noncomputable instance instSeedsWCoord : ClaudeWCT.W9.T3.Security.FamResidual.Se
   Fam := WFam
   plainDec := Classical.decEq _
   famDec := Classical.decEq _
-  deg := Sum.elim (fun _ => 16) (fun _ => 101)
+  deg := Sum.elim (fun L => WCT9.famCount L.1.1 - 1) (fun _ => 101)
   split := wsplit
   embed := wembed
   split_embed p := by
     rcases p with (N | ⟨a, ha⟩) | m
     · rfl
-    · simp only [wembed, wsplit, dif_pos ha]
+    · exact ha.elim
     · rfl
   embed_of_split c p h := by
     rcases c with (N | a | w) | m
     · simp only [wsplit, Sum.inl.injEq] at h; subst h; rfl
-    · rw [wsplit_addr] at h
-      by_cases ha : a.layer = 0
-      · rw [dif_pos ha, Sum.inl.injEq] at h; subst h; rfl
-      · rw [dif_neg ha] at h; cases h
+    · rw [wsplit_addr] at h; cases h
     · simp only [wsplit, reduceCtorEq] at h
     · simp only [wsplit, Sum.inl.injEq] at h; subst h; rfl
   point_lt c f pt h := by
     rcases c with (N | a | w) | m
     · simp only [wsplit, reduceCtorEq] at h
-    · rw [wsplit_addr] at h
-      by_cases ha : a.layer = 0
-      · rw [dif_pos ha] at h; cases h
-      · rw [dif_neg ha, Sum.inr.injEq, Prod.mk.injEq] at h
-        rw [← h.2]
-        have := a.chain.isLt
-        unfold WCT9.lowerPoint
-        omega
+    · rw [wsplit_addr, Sum.inr.injEq, Prod.mk.injEq] at h
+      rw [← h.2]
+      have := a.chain.isLt
+      unfold WCT9.lowerPoint
+      omega
     · simp only [wsplit, Sum.inr.injEq, Prod.mk.injEq] at h
       rw [← h.2]
       have := w.2.2.1.isLt; have := w.2.2.2.isLt
@@ -123,7 +114,7 @@ noncomputable instance instSeedsWCoord : ClaudeWCT.W9.T3.Security.FamResidual.Se
     rcases wsplit_inr h with ⟨a, ha, rfl, rfl⟩ | ⟨w, rfl, rfl⟩ <;>
       rcases wsplit_inr h' with ⟨a', ha', rfl, he⟩ | ⟨w', rfl, he⟩
     · simp only [Prod.mk.injEq, Sum.inl.injEq] at he
-      rw [wsplit_lower_eq ha ha' he.1 he.2]
+      rw [wsplit_lower_eq he.1 he.2]
     · simp only [Prod.mk.injEq, reduceCtorEq, false_and] at he
     · simp only [Prod.mk.injEq, reduceCtorEq, false_and] at he
     · simp only [Prod.mk.injEq, Sum.inr.injEq] at he
@@ -134,9 +125,6 @@ noncomputable instance instSeedsWCoord : ClaudeWCT.W9.T3.Security.FamResidual.Se
       have h5 : w.2.2.2 = w'.2.2.2 := Fin.ext (by omega)
       have : w = w' := Prod.ext h1 (Prod.ext h2 (Prod.ext h4 h5))
       rw [this]
-theorem wsplit_seed (w : WctAddr) :
-    ClaudeWCT.W9.T3.Security.FamResidual.Seeds.split (.inl (.inr (.inr w)) : WCoord) =
-      .inr (.inr (w.1, w.2.1), WCT9.ftsPoint w.2.2.1.val w.2.2.2.val) := rfl
 abbrev RWorld (U : Finset HashInput) := World AuxSpec WCoord (Cell U)
 section Requests
 variable (U : Finset HashInput)

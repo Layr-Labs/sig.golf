@@ -116,7 +116,7 @@ theorem evalT_prefAns (y : Free Rev → Digest) (p : Fin d × Digest) :
   · rw [evalT_map, ClaudeWCT.Arith.SideChannel.evalT_testQ, PMF.pure_map, ite_decide_update]
   · rfl
 
-theorem evalT_pubAns (y : Free Rev → Digest) (K : Fin 17 → Digest) (input : HashInput) :
+theorem evalT_pubAns (y : Free Rev → Digest) (K : Fin (WCT9.famCount L.lay) → Digest) (input : HashInput) :
     evalT y (pubAns L d R Rev P input) = PMF.pure (restTable (ovL L R (K, fY L d Rev P y)) (.inl (.inr input))) := by
   unfold pubAns
   cases hz : zeroOf L input with
@@ -134,7 +134,7 @@ theorem evalT_pubAns (y : Free Rev → Digest) (K : Fin 17 → Digest) (input : 
       · rw [evalT_map, ClaudeWCT.Arith.SideChannel.evalT_testQ, PMF.pure_map, ite_decide_update]
 
 /-- Per-query identification of the test program, run against `y`, with the programmed prefix-game world. -/
-theorem testImpl_bridge (y : Free Rev → Digest) (K : Fin 17 → Digest) (q : RefWorld.Domain) :
+theorem testImpl_bridge (y : Free Rev → Digest) (K : Fin (WCT9.famCount L.lay) → Digest) (q : RefWorld.Domain) :
     (StateT.mk fun s => evalT y ((testImpl L a d R Rev aF P q).run s) : StateT (TObs d) PMF _) =
       simulateQ (observedImpl SphincsSecurity.Concrete.OtsPrefix.uniformImpl (tY L d P (y aF)))
         (PrefixGame.routeImpl a d (ovL L R (K, fY L d Rev P y)) q) := by
@@ -166,7 +166,7 @@ theorem testImpl_bridge (y : Free Rev → Digest) (K : Fin 17 → Digest) (q : R
     rfl
 
 /-- **Bridge.** The test program run against `y` is the prefix-game run in the world programmed at `y`. -/
-theorem evalT_testRun (y : Free Rev → Digest) (K : Fin 17 → Digest) {α : Type} (G : OracleComp RefWorld α)
+theorem evalT_testRun (y : Free Rev → Digest) (K : Fin (WCT9.famCount L.lay) → Digest) {α : Type} (G : OracleComp RefWorld α)
     (obs : TObs d) :
     evalT y ((simulateQ (testImpl L a d R Rev aF P) G).run obs) =
       observedRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl (tY L d P (y aF))

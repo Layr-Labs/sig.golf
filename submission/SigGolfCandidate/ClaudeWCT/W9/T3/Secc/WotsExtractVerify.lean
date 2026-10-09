@@ -239,15 +239,4 @@ open ClaudeWCT.W9.T3M (wrho wdc)
 open ClaudeWCT.W9.T3.Security.WotsExtract
 open SigGolfCandidate.T3.Security.Wots (entriesOf)
 open SigGolfCandidate.T3.Correctness (Answers)
-theorem verifyP_wots_cases (answers : Answers) (m : Message) (pk : Digest) (w : WBytes)
-    (hpk : pk = Extract.honestRoot answers 0 0)
-    (hv : evalWithAnswerFn answers (verifyP m pk w) = true) :
-    ∃ N : HashOutput, (wdc w).toNat < WCT9.digestVerifyWindow ∧
-      evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N ∧
-      (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
-      Shaped N w ∧
-      (WotsPrimitive answers (entriesOf answers (queried answers (verifyP m pk w))) ∨
-       ((∀ l : Layer, BC.GoodZ answers w (WCT9.digestIndex N) l) ∧ WctExtract.WctHonest answers N w)) := by
-  obtain ⟨N, hdc, hN, hdq, hS, hcase⟩ := verifyP_wots_cases_src answers m pk w hpk hv
-  exact ⟨N, hdc, hN, hdq, hS, hcase.imp_left WotsPrimitiveSrc.toPrimitive⟩
 end ClaudeWCT.W9.T3.Security.Wots

@@ -1118,6 +1118,16 @@ theorem avoids_buildTree (lay : Layer) (tree selected : Nat) (digits : List Nat)
     Avoids protectedMessage (buildTree lay tree selected digits) := by
   unfold buildTree; nonce_safe
 attribute [local aesop safe apply] avoids_buildTree
+theorem avoids_topCoefs (leaf : Nat) : Avoids protectedMessage (topCoefs leaf) := by
+  unfold topCoefs topSeedPair; nonce_safe
+attribute [local aesop safe apply] avoids_topCoefs
+theorem avoids_buildLeafTop (leaf : Nat) (digits : List Nat) (signatureOnly : Bool) :
+    Avoids protectedMessage (buildLeafTop leaf digits signatureOnly) := by
+  unfold buildLeafTop; nonce_safe
+attribute [local aesop safe apply] avoids_buildLeafTop
+theorem avoids_buildTopTree : Avoids protectedMessage buildTopTree := by
+  unfold buildTopTree; nonce_safe
+attribute [local aesop safe apply] avoids_buildTopTree
 theorem avoids_keygenPayload : Avoids protectedMessage keygenPayload := by
   unfold keygenPayload maskedLevel pairedMask; nonce_safe
 attribute [local aesop safe apply] avoids_keygenPayload
@@ -1356,6 +1366,16 @@ theorem buildTree_allowed (lay : Layer) (tree selected : Nat) (digits : List Nat
     AllQueriesSatisfy (buildTree lay tree selected digits) P := by
   unfold buildTree; source_queries
 attribute [local aesop safe apply] buildTree_allowed
+theorem topCoefs_allowed (leaf : Nat) : AllQueriesSatisfy (topCoefs leaf) P := by
+  unfold topCoefs topSeedPair; source_queries
+attribute [local aesop safe apply] topCoefs_allowed
+theorem buildLeafTop_allowed (leaf : Nat) (digits : List Nat) (signatureOnly : Bool) :
+    AllQueriesSatisfy (buildLeafTop leaf digits signatureOnly) P := by
+  unfold buildLeafTop; source_queries
+attribute [local aesop safe apply] buildLeafTop_allowed
+theorem buildTopTree_allowed : AllQueriesSatisfy buildTopTree P := by
+  unfold buildTopTree; source_queries
+attribute [local aesop safe apply] buildTopTree_allowed
 theorem keygenPayload_allowed : AllQueriesSatisfy keygenPayload P := by
   unfold keygenPayload maskedLevel pairedMask; source_queries
 theorem counterSearch_allowed (lay : Layer) (tree leaf : Nat) (message : Digest) (counter fuel : Nat) :

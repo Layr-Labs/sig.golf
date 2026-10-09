@@ -37,13 +37,20 @@ def qB (c : NCtx) (i : Nat) : Nat := gB (i/3) (c.kOf (i/3))
 def qC (c : NCtx) (i : Nat) : Nat := gC (i/3) (c.kOf (i/3))
 def qX (c : NCtx) (i : Nat) : Nat := gX (i/3) (c.kOf (i/3))
 def entPc (c : NCtx) (q : Nat) : Nat := entW q (c.kOf q)
+/-- Slot index of group 17 (campaign T8D): the top field `d51 + 8 d52` (bits 122..127). -/
+def k17 (c : NCtx) : Nat := c.dig 51 + 8 * c.dig 52
+/-- Start of the group-17 chain code (chains 51/52 in `BLOCK[k17]`, chain 53 in `SUFFIX[d53]`). -/
+def r8Start (c : NCtx) (i : Nat) : Nat :=
+  if i = 51 then blkW c.k17 else if i = 52 then blkW c.k17 + partLen 17 (c.dig 51) else sufW (c.dig 53)
 def startPc (c : NCtx) (i : Nat) : Nat :=
-  if i%3=0 then leadPc (i/3) (c.kOf (i/3)) else if i%3=1 then c.qB i else c.qC i
+  if i < 51 then (if i%3=0 then leadPc (i/3) (c.kOf (i/3)) else if i%3=1 then c.qB i else c.qC i)
+  else c.r8Start i
 def rungPc (c : NCtx) (i m : Nat) : Nat :=
-  if i%3=0 then c.qb i+2*m
+  if i%3=0 ∧ i < 51 then c.qb i+2*m
   else c.startPc i + (if c.dig i = last i then 2 else 3) + 2*(m-c.dig i)
 def endPc (c : NCtx) (i : Nat) : Nat :=
-  if i%3=0 then c.qB i else if i%3=1 then c.qC i else c.qX i
+  if i < 51 then (if i%3=0 then c.qB i else if i%3=1 then c.qC i else c.qX i)
+  else c.r8Start i + partLen 17 (c.dig i)
 def Wr (c : NCtx) (i : Nat) (A : Nat) : Prop :=
   (0x220 ≤ A ∧ A < 0x5D0) ∨ (c.S3 - 1664 + 64 * (54 - i) ≤ A ∧ A < c.blk 0 + 80)
 def WrIn (c : NCtx) (i : Nat) (A : Nat) : Prop :=
@@ -170,9 +177,13 @@ theorem val_at {c : NCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 s0) {i
   rw [show c.blk i + 8 * 7 = c.blk i + 48 + 8 by ring] at o7
   have := DigAt_origW o6 o7 (by omega)
   rwa [show c.blk i + 48 - 0x800 = c.blk i - 0x800 + 48 by omega] at this
-theorem topMax_bounds (i : Nat) : 3 ≤ topMax i ∧ topMax i ≤ 4 := by
+theorem topMax_bounds (i : Nat) : 3 ≤ topMax i ∧ topMax i ≤ 7 := by
   unfold topMax mx; split <;> omega
-theorem last_bounds (i : Nat) : 2 ≤ last i ∧ last i ≤ 3 := by
+theorem topMax_hi (i : Nat) (hi : 51 ≤ i) : topMax i = 7 := by
+  unfold topMax mx; rw [if_neg (by omega)]
+theorem topMax_lo (i : Nat) (hi : i < 51) : topMax i = 4 := by
+  unfold topMax mx; rw [if_pos (by omega)]
+theorem last_bounds (i : Nat) : 2 ≤ last i ∧ last i ≤ 6 := by
   have := topMax_bounds i; unfold last; omega
 theorem rungPc_succ (c : NCtx) (i m : Nat) (hd : c.dig i ≤ m) :
     c.rungPc i (m+1) = c.rungPc i m+2 := by
@@ -211,24 +222,37 @@ theorem kdig_kOf (c : NCtx) (hd : c.DigitsOk) (q : Nat) (hq : q<18) :
 theorem rungPc_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i < 54) (hd : c.dig i < topMax i) :
     c.rungPc i (last i) + 3 = c.endPc i := by
   have hm := topMax_bounds i
-  obtain ⟨-,k2,k3⟩ := c.kdig_kOf hds (i/3) (by omega)
-  have e1 : i%3=1 → c.dig (3*(i/3)+1)=c.dig i := fun h => by rw [show 3*(i/3)+1=i by omega]
-  have e2 : i%3=2 → c.dig (3*(i/3)+2)=c.dig i := fun h => by rw [show 3*(i/3)+2=i by omega]
-  unfold rungPc endPc startPc qb qB qC qX gX gC gB partLen
-  rw [k2,k3]
-  unfold last topMax at *
-  split_ifs <;> omega
+  by_cases h51 : i < 51
+  · obtain ⟨-,k2,k3⟩ := c.kdig_kOf hds (i/3) (by omega)
+    have e1 : i%3=1 → c.dig (3*(i/3)+1)=c.dig i := fun h => by rw [show 3*(i/3)+1=i by omega]
+    have e2 : i%3=2 → c.dig (3*(i/3)+2)=c.dig i := fun h => by rw [show 3*(i/3)+2=i by omega]
+    unfold rungPc endPc startPc qb qB qC qX gX gC gB partLen
+    simp only [h51, and_true, if_true]
+    rw [k2,k3]
+    unfold last topMax at *
+    split_ifs <;> omega
+  · have h7 := topMax_hi i (by omega)
+    unfold rungPc endPc last
+    simp only [h51, and_false, if_false, if_neg (show ¬ i < 51 by omega)]
+    have hs : c.startPc i = c.r8Start i := by unfold startPc; rw [if_neg h51]
+    rw [hs, h7] at *
+    unfold partLen mx
+    simp only [show ¬ (17:Nat) < 17 by decide, if_false]
+    split_ifs <;> omega
 theorem posE_eval (c : NCtx) {s0 s : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (hR : ∀ x ∉ chainRegs, s.getReg x = s0.getReg x) (i m : Nat) (hm : m ≤ last i) :
     (posE m).eval s = BitVec.ofNat 64 m := by
   have kr : ∀ r v, (r, v) ∈ c.known → r ∉ chainRegs → s.getReg r = v := fun r v hm hn =>
     (hR r hn).trans (hk _ hm)
-  have hm3 : m ≤ 3 := by have := last_bounds i; omega
+  have hm3 : m ≤ 6 := by have := last_bounds i; omega
   interval_cases m
   · rfl
   · exact kr .x7 1 (by simp [known]) (by decide +kernel)
   · exact kr .x13 2 (by simp [known]) (by decide +kernel)
   · exact kr .x19 3 (by simp [known]) (by decide +kernel)
+  · exact kr .x20 4 (by simp [known]) (by decide +kernel)
+  · exact kr .x21 5 (by simp [known]) (by decide +kernel)
+  · exact kr .x26 6 (by simp [known]) (by decide +kernel)
 theorem w0_low (c : NCtx) (i m : Nat) (hi : i < 54) (hm : m < 256) :
     (BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * m)).toNat % 2 ^ 8 = 128 + i ∧
       (BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * m)).toNat / 2 ^ 16 = c.prefix / 2 ^ 16 := by

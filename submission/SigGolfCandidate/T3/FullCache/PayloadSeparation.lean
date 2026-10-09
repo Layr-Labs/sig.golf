@@ -148,6 +148,16 @@ theorem buildTree_allowed (lay : Layer) (tree selected : Nat) (digits : List Nat
     AllQueriesSatisfy (buildTree lay tree selected digits) NonMac := by
   unfold buildTree; source_queries
 attribute [local aesop safe apply] buildTree_allowed
+theorem topCoefs_allowed (leaf : Nat) : AllQueriesSatisfy (topCoefs leaf) NonMac := by
+  unfold topCoefs topSeedPair; source_queries
+attribute [local aesop safe apply] topCoefs_allowed
+theorem buildLeafTop_allowed (leaf : Nat) (digits : List Nat) (signatureOnly : Bool) :
+    AllQueriesSatisfy (buildLeafTop leaf digits signatureOnly) NonMac := by
+  unfold buildLeafTop; source_queries
+attribute [local aesop safe apply] buildLeafTop_allowed
+theorem buildTopTree_allowed : AllQueriesSatisfy buildTopTree NonMac := by
+  unfold buildTopTree; source_queries
+attribute [local aesop safe apply] buildTopTree_allowed
 theorem keygenPayload_allowed : AllQueriesSatisfy keygenPayload NonMac := by
   unfold keygenPayload maskedLevel pairedMask; source_queries
 theorem counterSearch_allowed (lay : Layer) (tree leaf : Nat) (message : Digest) (counter fuel : Nat) :

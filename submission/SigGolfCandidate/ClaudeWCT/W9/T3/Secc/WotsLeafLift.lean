@@ -30,13 +30,6 @@ theorem prob_bind {α β : Type} (P : PMF α) (Q : α → PMF β) (E : β → Pr
   rw [← PMF.monad_bind_eq_bind, probEvent_bind_eq_tsum]
   simp only [PMF.probOutput_eq_apply]
 
-theorem prob_map_decide {α : Type} (P : PMF α) (E : α → Prop) :
-    Pr[E | P] = Pr[fun b => b = true | P.map (fun z => decide (E z))] := by
-  rw [prob_pmf_map]
-  congr 1
-  funext z
-  simp
-
 /-- The chain `a` as an unrevealed coordinate of its leaf (depth `≥ 1`). -/
 def selfF {a : ChainAddr} (hac : a.chain < chainCount a.key.lay) (R : RefTables adversary)
     (hd1 : 1 ≤ restDepth a R) : Free (revSet a.key R) :=
@@ -68,17 +61,17 @@ theorem restLaw_resampleL_tsum {L : LeafAddr} (hL : L.leaf < 2 ^ 24) (Φ : RefTa
     SphincsSecurity.Concrete.PartialChainEndpoint.expectation_map]
 
 section Lift
-variable {a : ChainAddr} (hac : a.chain < chainCount a.key.lay) (hL0 : a.key.lay ≠ 0) (hLleaf : a.key.leaf < 2 ^ 24)
+variable {a : ChainAddr} (hac : a.chain < chainCount a.key.lay) (hLleaf : a.key.leaf < 2 ^ 24)
   {Res : Type} (GD : Answers → OracleComp RefWorld Res) (hG : ∀ T T', LeafCongr a.key T T' → GD T' = GD T)
   (q : ℕ) (hGq : ∀ T, OracleComp.IsQueryBoundP (GD T) RefCharged q)
   (F : (d : ℕ) → RefTables adversary → Digest × (Res × TObs d) → Prop)
-  (hF : ∀ (R : RefTables adversary) (p : PData a.key (restDepth a R)) (K K' : Fin 17 → Digest),
+  (hF : ∀ (R : RefTables adversary) (p : PData a.key (restDepth a R)) (K K' : Fin (WCT9.famCount a.key.lay) → Digest),
     seedsR (ptL a.key) (revSet a.key R) K = seedsR (ptL a.key) (revSet a.key R) K' →
       F (restDepth a R) (ovL a.key R (K, progF p.1.1 p.1.2 K)) =
         F (restDepth a R) (ovL a.key R (K', progF p.1.1 p.1.2 K')))
   (hF0 : ∀ R z, ¬F 0 R z)
 
-include hL0 hLleaf in
+include hLleaf in
 /-- Resampling the leaf data, the event and the law at the resampled table. -/
 theorem resample_ind (Law : (d : ℕ) → RefTables adversary → PMF (Digest × (Res × TObs d))) :
     ∑' R, restLaw adversary R * Pr[F (restDepth a R) R | Law (restDepth a R) R] =
@@ -91,7 +84,7 @@ theorem resample_ind (Law : (d : ℕ) → RefTables adversary → PMF (Digest ×
   rw [prob_bind]
   refine tsum_congr fun y => ?_
   congr 1
-  rw [prob_pmf_map, restDepth_ovL hL0 hLleaf a rfl R y]
+  rw [prob_pmf_map, restDepth_ovL hLleaf a rfl R y]
   rfl
 
 theorem prob_zero_of_depth {R : RefTables adversary} (h0 : restDepth a R = 0) {Ω : Type}
@@ -101,22 +94,22 @@ theorem prob_zero_of_depth {R : RefTables adversary} (h0 : restDepth a R = 0) {�
   rw [probEvent_eq_tsum_ite]
   exact ENNReal.tsum_eq_zero.mpr fun w => if_neg (hG0 w)
 
-include hac hL0 hLleaf hG hGq hF hF0
+include hac hLleaf hG hGq hF hF0
 
 /-- **Frozen ≤ mixture + error.** -/
 theorem frozen_le_mix :
     ∑' R, restLaw adversary R * Pr[F (restDepth a R) R | frozenLaw a (restDepth a R) R GD] ≤
       ∑' R, restLaw adversary R * Pr[F (restDepth a R) R | mixLaw a (restDepth a R) R GD] +
         ∑' R, restLaw adversary R * errAR a hac GD q R := by
-  rw [resample_ind hL0 hLleaf F (fun d R => frozenLaw a d R GD),
-    resample_ind hL0 hLleaf F (fun d R => mixLaw a d R GD), ← ENNReal.tsum_add]
+  rw [resample_ind hLleaf F (fun d R => frozenLaw a d R GD),
+    resample_ind hLleaf F (fun d R => mixLaw a d R GD), ← ENNReal.tsum_add]
   refine ENNReal.tsum_le_tsum fun R => ?_
   rw [← mul_add]
   refine mul_le_mul' le_rfl ?_
   by_cases hd1 : 1 ≤ restDepth a R
   · unfold errAR
     rw [dif_pos hd1]
-    exact frozen_le_mix_R rfl hac hL0 hLleaf R hd1 GD hG (selfF hac R hd1) rfl q hGq
+    exact frozen_le_mix_R rfl hac hLleaf R hd1 GD hG (selfF hac R hd1) rfl q hGq
       (fun y z => F (restDepth a R) (ovL a.key R y) z) (fun p K K' h => hF R p K K' h)
   · have h0 : restDepth a R = 0 := by omega
     have hF0' : ∀ (d : ℕ), d = 0 → ∀ (R' : RefTables adversary) (z : Digest × (Res × TObs d)), ¬F d R' z := by
@@ -131,15 +124,15 @@ theorem mix_le_frozen :
     ∑' R, restLaw adversary R * Pr[F (restDepth a R) R | mixLaw a (restDepth a R) R GD] ≤
       ∑' R, restLaw adversary R * Pr[F (restDepth a R) R | frozenLaw a (restDepth a R) R GD] +
         ∑' R, restLaw adversary R * errAR a hac GD q R := by
-  rw [resample_ind hL0 hLleaf F (fun d R => frozenLaw a d R GD),
-    resample_ind hL0 hLleaf F (fun d R => mixLaw a d R GD), ← ENNReal.tsum_add]
+  rw [resample_ind hLleaf F (fun d R => frozenLaw a d R GD),
+    resample_ind hLleaf F (fun d R => mixLaw a d R GD), ← ENNReal.tsum_add]
   refine ENNReal.tsum_le_tsum fun R => ?_
   rw [← mul_add]
   refine mul_le_mul' le_rfl ?_
   by_cases hd1 : 1 ≤ restDepth a R
   · unfold errAR
     rw [dif_pos hd1]
-    exact mix_le_frozen_R rfl hac hL0 hLleaf R hd1 GD hG (selfF hac R hd1) rfl q hGq
+    exact mix_le_frozen_R rfl hac hLleaf R hd1 GD hG (selfF hac R hd1) rfl q hGq
       (fun y z => F (restDepth a R) (ovL a.key R y) z) (fun p K K' h => hF R p K K' h)
   · have h0 : restDepth a R = 0 := by omega
     have hF0' : ∀ (d : ℕ), d = 0 → ∀ (R' : RefTables adversary) (z : Digest × (Res × TObs d)), ¬F d R' z := by

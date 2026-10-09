@@ -3,7 +3,6 @@ import SigGolfCandidate.ClaudeWCT.WCT9.Limits
 import SigGolfCandidate.ClaudeWCT.WCT9.TopDecode
 
 section
-def ClaudeWCT.WCT9.digestVerifyWindow : Nat := 2 ^ 32
 namespace ClaudeWCT.W9.T3M
 open SigGolfCandidate.T3
 open SigGolfCandidate.T3M (sibOff)
@@ -301,7 +300,7 @@ def verifyPadsTail (pk : Digest) (output : HashOutput) (w : WCT9.Witness) (pads 
   let some root ← verifyLayersBCP w pads index 4 (.forest root) | pure false
   pure (root == pk)
 def verifyPads (m : Message) (pk : Digest) (w : WCT9.Witness) (pads : Pads) : M Bool := do
-  if w.digestCounter.toNat ≥ WCT9.digestVerifyLimit then return false
+  if w.digestCounter.toNat ≥ WCT9.digestAttemptLimit then return false
   let output ← digest w.signature.rho m w.digestCounter
   verifyPadsTail pk output w pads
 end ClaudeWCT.W9.T3M

@@ -55,27 +55,6 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 variable {P : Type} [Fintype P] [SampleableType P] (S : FtsBankSpec P)
   (pay : SigGolfCandidate.T3.Cache → Digest → HashOutput → M (Option Signature))
-def RecordMatches : Prop :=
-  ∀ published request, Prod.fst <$> S.authenticatedRecord pay published request =
-    FullGame.authenticatedSign published request
-theorem source_eq (hrecord : RecordMatches S pay) (published : SigGolfCandidate.T3.Cache) :
-    S.source pay published = MonitoredPrivate.interactionSource published := by
-  funext input
-  cases input with
-  | inl input => rfl
-  | inr request => exact hrecord published request
-theorem recordedExperiment_eq (hrecord : RecordMatches S pay) (adversary : AdversaryP) (budget : Nat)
-    (hbudget : budget ≤ 2 ^ 127) :
-    (fun r : PaddedGame.TraceResult => (r.1, r.2.2)) <$> PaddedGame.tracedExperiment adversary budget hbudget =
-      S.recordedExperiment pay (CreationGame.rest adversary) := by
-  rw [CreationGame.padded_trace_eq, FtsBankSpec.recordedExperiment, map_bind]
-  apply bind_congr
-  intro generated
-  have ht := (QueryRecorded.proposalModel generated.1.2 budget hbudget).traced_erasure
-    (CreationGame.rest adversary generated.1.1 generated.1.2) ([], generated.2)
-  rw [QueryRecorded.proposal_execution_erasure] at ht
-  rw [source_eq S pay hrecord]
-  exact ht
 theorem birthWeight_eq (budget : Nat) (input : LazyPrivate.Interaction.Domain)
     (state : MonitoredPrivate.History × QueryRecorded.State) :
     birthWeight (Sig := Signature) budget input state.2 =
@@ -91,32 +70,6 @@ theorem birthWeight_eq (budget : Nat) (input : LazyPrivate.Interaction.Domain)
         fun h' => h ⟨h'.2.1, h'.2.2, h'.1⟩
       rw [if_neg h, if_neg h', Nat.cast_zero]
   · simp [birthWeight, CreationGame.classWeight]
-theorem expectedBirths_eq (hrecord : RecordMatches S pay) (adversary : AdversaryP) (budget : Nat)
-    (hbudget : budget ≤ 2 ^ 127) :
-    S.expectedBirths pay (CreationGame.rest adversary) budget =
-      CreationGame.expectedBirths CaseC.IsDigestInput adversary budget hbudget := by
-  unfold FtsBankSpec.expectedBirths CreationGame.expectedBirths
-  congr 1
-  funext generated
-  have ht := BPORS.Adaptive.Creation.expectedCharges_project
-    (QueryRecorded.proposalModel generated.1.2 budget hbudget).traced
-    (S.recordedImpl pay generated.1.2) Prod.snd
-    (fun input st => by
-      rw [(QueryRecorded.proposalModel generated.1.2 budget hbudget).traced_query_erasure,
-        QueryRecorded.proposal_query_erasure, ← source_eq S pay hrecord]
-      rfl)
-    (birthWeight budget) (CreationGame.rest adversary generated.1.1 generated.1.2) ([], generated.2)
-  rw [← ht]
-  congr 1
-  funext input state
-  exact birthWeight_eq budget input state
-theorem expectedBirths_le_shared (hrecord : RecordMatches S pay) (adversary : AdversaryP) (budget : Nat)
-    (hbudget : budget ≤ 2 ^ 127) :
-    S.expectedBirths pay (CreationGame.rest adversary) budget ≤
-      SeccLaw.expectedCharge adversary budget hbudget
-        (fun _ => SigGolfCandidate.T3.Security.CreationGame.publicClass CaseC.IsDigestInput) := by
-  rw [expectedBirths_eq S pay hrecord adversary budget hbudget]
-  exact CreationGame.expectedBirths_le_shared CaseC.IsDigestInput adversary budget hbudget
 end ClaudeWCT.W9.T3.Security.BankLink
 end
 section
@@ -173,13 +126,6 @@ theorem expectedBirths_eq (hrecord : RecordMatches S pay) (adversary : Adversary
   congr 1
   funext input state
   exact BankLink.birthWeight_eq budget input state
-theorem expectedBirths_le_shared (hrecord : RecordMatches S pay) (adversary : AdversaryP) (budget : Nat)
-    (hbudget : budget ≤ 2 ^ 127) :
-    S.expectedBirths pay (CreationGame.rest adversary) budget ≤
-      SeccLaw.expectedCharge adversary budget hbudget
-        (fun _ => SigGolfCandidate.T3.Security.CreationGame.publicClass CaseC.IsDigestInput) := by
-  rw [expectedBirths_eq S pay hrecord adversary budget hbudget]
-  exact CreationGame.expectedBirths_le_shared CaseC.IsDigestInput adversary budget hbudget
 end generic
 variable (horizon : Nat) (rate : ENNReal) (hexc : ExcessBound horizon rate)
 theorem wct_recordMatches : RecordMatches (wctSpecL horizon rate hexc) payAfterDigest :=
@@ -195,11 +141,6 @@ theorem wct_expectedBirths_eq (adversary : AdversaryP) (budget : Nat) (hbudget :
     (wctSpecL horizon rate hexc).expectedBirths payAfterDigest (CreationGame.rest adversary) budget =
       CreationGame.expectedBirths CaseC.IsDigestInput adversary budget hbudget :=
   expectedBirths_eq _ _ (wct_recordMatches horizon rate hexc) adversary budget hbudget
-theorem wct_expectedBirths_le_shared (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2 ^ 127) :
-    (wctSpecL horizon rate hexc).expectedBirths payAfterDigest (CreationGame.rest adversary) budget ≤
-      SeccLaw.expectedCharge adversary budget hbudget
-        (fun _ => SigGolfCandidate.T3.Security.CreationGame.publicClass CaseC.IsDigestInput) :=
-  expectedBirths_le_shared _ _ (wct_recordMatches horizon rate hexc) adversary budget hbudget
 end ClaudeWCT.W9.T3.Security.BankLinkL
 end
 section
@@ -220,7 +161,6 @@ theorem excessBound_top : ExcessBound horizon ⊤ := le_top
 noncomputable def bankSpec : FtsBankSpecL WProposal := wctSpecL horizon ⊤ excessBound_top
 @[simp] theorem bankSpec_horizon : bankSpec.horizon = horizon := rfl
 @[simp] theorem bankSpec_limit : bankSpec.limit = WCT9.digestAttemptLimit := rfl
-theorem bankSpec_admissible : bankSpec.admissible = WCT9.admissible := rfl
 abbrev BankState := ClaudeWCT.Bank.BankState Signature
 noncomputable def bankImpl (published : SigGolfCandidate.T3.Cache) (budget : Nat) :
     QueryImpl (Interaction' Signature) (StateT BankState PMF) :=

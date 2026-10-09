@@ -17,21 +17,6 @@ theorem nonce_not_secret (m : Message) :
   have hp := congrArg Prod.fst hs
   cases s <;> cases hp
 def nonceHalf (m : Message) : OtherHalf := ⟨((.inr (.inl m) : Coordinate), 0), nonce_not_secret m⟩
-theorem nonceHalf_injective : Function.Injective nonceHalf := by
-  intro m m' h
-  have h1 := congrArg (fun x : OtherHalf => x.val.1) h
-  simp only [nonceHalf] at h1
-  exact Sum.inl.inj (Sum.inr.inj h1)
-noncomputable def nonceOver (o : OtherHalves) (nvv : Message → Digest) : OtherHalves :=
-  SphincsSecurity.Concrete.UniformTableSplit.overwrite nonceHalf nonceHalf_injective nvv o
-noncomputable def privPsi (s : Secrets) (nvv : Message → Digest) (priv : FullGame.FullTable) : FullGame.FullTable :=
-  privateEquiv.symm (s, nonceOver (privateEquiv priv).2 nvv)
-section Public
-variable (U : Finset HashInput) (hU : canonInputs ⊆ U) (hE : encInputs ⊆ U)
-end Public
-section Coherence
-variable (U : Finset HashInput) (hU : canonInputs ⊆ U) (hE : encInputs ⊆ U)
-end Coherence
 end SigGolfCandidate.T3.Security.LargeCoupling
 end
 section

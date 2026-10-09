@@ -22,57 +22,10 @@ theorem eval_nonce (ω : Omega U) (fts : FtsCoord → Digest) (m : Message) :
   change (CanonGraph.privateEquiv.symm (ω.secrets fts, ω.other) (.inr (.inl m))).extractLsb' 0 128 = _
   rw [privateEquiv_symm_apply, ChainGraph.joinOutput_low]
   exact splitEquiv_symm_other _ _ (nonceHalf m) (nonceHalf_not_secret m)
-theorem signerRho_eq (ω : Omega U) (request : Request) : signerRho hU ω request = nonceOf ω request.message :=
-  eval_nonce hU ω _ request.message
 end Table
 section Inline
 variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U)
 noncomputable local instance instDecidableEqCache_pairGuessLazyCouple : DecidableEq T3.Cache := Classical.decEq _
-noncomputable def inlineWith (D : digestInputs → HashOutput) (Nn : Message → Digest) : QueryImpl WSpecL (OracleComp WSpec)
-  | .inl (.coin n) => (liftM (WSpec.query (.inl n)) : OracleComp WSpec (Fin (n + 1)))
-  | .inl (.birth x) => pure (rowVal D x)
-  | .inl (.trial x) => pure (rowVal D x)
-  | .inl (.nonce m) => pure (Nn m)
-  | .inl (.expose _) => pure ()
-  | .inr q => liftM (WSpec.query (.inr q))
-noncomputable def inlineAux (ω : Omega U) : QueryImpl WSpecL (OracleComp WSpec) := inlineWith (digestOf ω) (nonceOf ω)
-theorem eval_digestSearch_succ (A : Answers) (rho : Digest) (m : Message) (counter fuel : Nat) :
-    evalWithAnswerFn A (digestSearch rho m counter (fuel + 1)) =
-      if digestAdmissible (A (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 counter)))))) = true then
-        some (BitVec.ofNat 32 counter, A (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 counter))))))
-      else evalWithAnswerFn A (digestSearch rho m (counter + 1) fuel) := by
-  rw [digestSearch, evalWithAnswerFn_bind]
-  rw [show evalWithAnswerFn A (digest rho m (BitVec.ofNat 32 counter)) =
-    A (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 counter))))) from eval_query' A _]
-  by_cases h : digestAdmissible (A (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 counter)))))) = true
-  · simp only [h, ↓reduceIte]
-    rfl
-  · simp only [h, ↓reduceIte, Bool.false_eq_true]
-theorem inline_disclosures (ω : Omega U) (positions : List FtsCoord) :
-    simulateQ (inlineAux ω) (positions.mapM discloseReq) =
-      positions.mapM fun f => (liftM (WSpec.query (.inr (.inr f))) : OracleComp WSpec Digest) := by
-  induction positions with
-  | nil => rfl
-  | cons first rest ih =>
-      rw [List.mapM_cons, List.mapM_cons, simulateQ_bind]
-      simp only [discloseReq, simulateQ_spec_query, simulateQ_bind, ih, simulateQ_pure]
-      simp only [inlineAux, inlineWith]
-theorem interactionL_pure (ω : Omega U) (published : T3.Cache) {α : Type} (value : α) :
-    interactionL hU ω published (pure value : OracleComp LazyPrivate.Interaction α) = pure (value, [], []) := rfl
-theorem interactionL_coin (ω : Omega U) (published : T3.Cache) {α : Type} (n : Nat)
-    (next : Fin (n + 1) → OracleComp LazyPrivate.Interaction α) :
-    interactionL hU ω published (liftM (LazyPrivate.Interaction.query (.inl (.inl n))) >>= next) =
-      (coinReqL n >>= fun coin => interactionL hU ω published (next coin)) := rfl
-theorem interactionL_public (ω : Omega U) (published : T3.Cache) {α : Type} (x : HashInput)
-    (next : HashOutput → OracleComp LazyPrivate.Interaction α) :
-    interactionL hU ω published (liftM (LazyPrivate.Interaction.query (.inl (.inr x))) >>= next) =
-      (hashL hU ω x >>= fun answer => interactionL hU ω published (next answer) >>= fun rest =>
-        pure (rest.1, rest.2.1, (x, answer) :: rest.2.2)) := rfl
-theorem interactionL_request (ω : Omega U) (published : T3.Cache) {α : Type} (request : Request)
-    (next : Option Signature → OracleComp LazyPrivate.Interaction α) :
-    interactionL hU ω published (liftM (LazyPrivate.Interaction.query (.inr request)) >>= next) =
-      (signL hU ω published request >>= fun signature => interactionL hU ω published (next signature) >>= fun rest =>
-        pure (rest.1, ⟨request, signature⟩ :: rest.2.1, rest.2.2)) := rfl
 theorem programL_pure (ω : Omega U) {β : Type} (value : β) : programL hU ω (pure value : M β) = pure (value, []) := rfl
 theorem programL_coin (ω : Omega U) {β : Type} (n : Nat) (next : Fin (n + 1) → M β) :
     programL hU ω (liftM (T3.Spec.query (.inl (.inl n))) >>= next) =
@@ -83,11 +36,9 @@ theorem programL_public (ω : Omega U) {β : Type} (x : HashInput) (next : HashO
         pure (rest.1, (x, answer) :: rest.2)) := rfl
 theorem programL_private (ω : Omega U) {β : Type} (c : Coordinate) (next : HashOutput → M β) :
     programL hU ω (liftM (T3.Spec.query (.inr c)) >>= next) = programL hU ω (next 0) := rfl
-noncomputable abbrev worldGameL (ω : Omega U) (adversary : AdversaryP) := worldGameCore hU ω adversary
 end Inline
 section Run
 open SecretGuessObservation (fixedRun fixedImpl runWith)
-def forget (s : WStateL) : WState := ⟨s.allowed, s.retired, s.guesses, s.probes, PUnit.unit⟩
 def Consistent (D : digestInputs → HashOutput) (Nn : Message → Digest) (mem : LazyMem) : Prop :=
   (∀ x a, mem.rows x = some a → a = rowVal D x) ∧ ∀ m v, mem.nonces m = some v → v = Nn m
 theorem consistent_empty (D : digestInputs → HashOutput) (Nn : Message → Digest) : Consistent D Nn LazyMem.empty :=
@@ -144,8 +95,6 @@ theorem nonceStep_eager (D : digestInputs → HashOutput) (Nn : Message → Dige
         exact (Option.some.inj hv).symm
       · rw [Function.update_of_ne hmm] at hv
         exact hm.2 m' v hv
-theorem coin_spmf (n : Nat) : (liftM (liftM (coinImpl n) : PMF (Fin (n + 1))) : SPMF (Fin (n + 1))) =
-    (liftM (PMF.uniformOfFintype (Fin (n + 1))) : SPMF _) := evalSPMF_query (spec := unifSpec) n
 theorem fixed_aux_pure {α : Type} (D : digestInputs → HashOutput) (Nn : Message → Digest) (fts : FtsCoord → Digest)
     (s : WStateL) (input : AuxL) (v : AuxSpecL.Range input) (mem' : LazyMem)
     (h : (envE D Nn).auxiliary s input = pure (v, mem'))
@@ -156,92 +105,7 @@ theorem fixed_aux_pure {α : Type} (D : digestInputs → HashOutput) (Nn : Messa
   change ((fun result => (result.1, { s with memory := result.2 })) <$>
     (liftM ((envE D Nn).auxiliary s input) : SPMF _)) >>= _ = _
   rw [h, liftM_pure, map_pure, pure_bind]
-theorem fixed_inline {α : Type} (D : digestInputs → HashOutput) (Nn : Message → Digest) (fts : FtsCoord → Digest)
-    (W : OracleComp WSpecL α) (s : WStateL) (hs : Consistent D Nn s.memory) :
-    (fun r => (r.1, forget r.2)) <$> fixedRun (envE D Nn) fts W s =
-      fixedRun env fts (simulateQ (inlineWith D Nn) W) (forget s) := by
-  induction W using OracleComp.inductionOn generalizing s with
-  | pure a => simp only [fixedRun, SecretGuessObservation.runWith_pure, simulateQ_pure, map_pure]
-  | query_bind input next ih =>
-      rcases input with input | (⟨f, c⟩ | f)
-      · cases input with
-        | coin n =>
-            rw [fixedRun, SecretGuessObservation.runWith_query_bind, map_bind, simulateQ_bind, simulateQ_spec_query]
-            change ((fun result => (result.1, { s with memory := result.2 })) <$>
-              (liftM ((fun c => (c, s.memory)) <$> PMF.uniformOfFintype (Fin (n + 1))) : SPMF _)) >>= _ =
-              fixedRun env fts ((liftM (WSpec.query (.inl n)) : OracleComp WSpec _) >>= fun c =>
-                simulateQ (inlineWith D Nn) (next c)) (forget s)
-            rw [fixedRun, SecretGuessObservation.runWith_query_bind]
-            change _ = ((fun result => (result.1, { forget s with memory := result.2 })) <$>
-              (liftM ((fun a => (a, PUnit.unit)) <$> (liftM (coinImpl n) : PMF _)) : SPMF _)) >>= _
-            have hL : ((fun result => (result.1, { s with memory := result.2 })) <$>
-                (liftM ((fun c => (c, s.memory)) <$> PMF.uniformOfFintype (Fin (n + 1))) : SPMF _)) =
-                (fun c => (c, s)) <$> (liftM (PMF.uniformOfFintype (Fin (n + 1))) : SPMF _) := by
-              rw [liftM_map, Functor.map_map]
-            have hR : ((fun result => (result.1, { forget s with memory := result.2 })) <$>
-                (liftM ((fun a => (a, PUnit.unit)) <$> (liftM (coinImpl n) : PMF _)) : SPMF _)) =
-                (fun c => (c, forget s)) <$> (liftM (PMF.uniformOfFintype (Fin (n + 1))) : SPMF _) := by
-              rw [liftM_map, coin_spmf, Functor.map_map]
-            rw [hL, hR]
-            exact (bind_map_left _ _ _).trans ((bind_congr fun c => ih c s hs).trans
-              (bind_map_left (fun c => (c, forget s)) _ (fun result =>
-                runWith (fixedImpl env fts) (simulateQ (inlineWith D Nn) (next result.1)) result.2)).symm)
-        | birth x =>
-            obtain ⟨mem', hc, h⟩ := rowStep_eager D Nn s.memory hs x true
-            rw [fixedRun, fixed_aux_pure D Nn fts s (.birth x) (rowVal D x) mem' h, simulateQ_bind, simulateQ_spec_query]
-            change _ = fixedRun env fts (pure (rowVal D x) >>= fun u => simulateQ (inlineWith D Nn) (next u)) (forget s)
-            rw [pure_bind]
-            exact ih _ _ hc
-        | trial x =>
-            obtain ⟨mem', hc, h⟩ := rowStep_eager D Nn s.memory hs x false
-            rw [fixedRun, fixed_aux_pure D Nn fts s (.trial x) (rowVal D x) mem' h, simulateQ_bind, simulateQ_spec_query]
-            change _ = fixedRun env fts (pure (rowVal D x) >>= fun u => simulateQ (inlineWith D Nn) (next u)) (forget s)
-            rw [pure_bind]
-            exact ih _ _ hc
-        | nonce m =>
-            obtain ⟨mem', hc, h⟩ := nonceStep_eager D Nn s.memory hs m
-            rw [fixedRun, fixed_aux_pure D Nn fts s (.nonce m) (Nn m) mem' h, simulateQ_bind, simulateQ_spec_query]
-            change _ = fixedRun env fts (pure (Nn m) >>= fun u => simulateQ (inlineWith D Nn) (next u)) (forget s)
-            rw [pure_bind]
-            exact ih _ _ hc
-        | expose o =>
-            rw [fixedRun, fixed_aux_pure D Nn fts s (.expose o) () (s.memory.expose o) rfl, simulateQ_bind, simulateQ_spec_query]
-            change _ = fixedRun env fts (pure () >>= fun u => simulateQ (inlineWith D Nn) (next u)) (forget s)
-            rw [pure_bind]
-            exact ih _ _ ⟨hs.1, hs.2⟩
-      · rw [fixedRun, SecretGuessObservation.runWith_query_bind, map_bind, simulateQ_bind, simulateQ_spec_query]
-        change (pure (decide (fts f = c), SecretGuessObservation.afterTrial (envE D Nn) s f c (decide (fts f = c))) >>= _) =
-          fixedRun env fts ((liftM (WSpec.query (.inr (.inl (f, c)))) : OracleComp WSpec Bool) >>= fun u =>
-            simulateQ (inlineWith D Nn) (next u)) (forget s)
-        rw [pure_bind, fixedRun, SecretGuessObservation.runWith_query_bind]
-        change _ = (pure (decide (fts f = c), SecretGuessObservation.afterTrial env (forget s) f c (decide (fts f = c))) >>= _)
-        rw [pure_bind]
-        exact ih _ _ hs
-      · rw [fixedRun, SecretGuessObservation.runWith_query_bind, map_bind, simulateQ_bind, simulateQ_spec_query]
-        change (pure (fts f, SecretGuessObservation.afterDisclosure (envE D Nn) s f (fts f)) >>= _) =
-          fixedRun env fts ((liftM (WSpec.query (.inr (.inr f)))  : OracleComp WSpec Digest) >>= fun u =>
-            simulateQ (inlineWith D Nn) (next u)) (forget s)
-        rw [pure_bind, fixedRun, SecretGuessObservation.runWith_query_bind]
-        change _ = (pure (fts f, SecretGuessObservation.afterDisclosure env (forget s) f (fts f)) >>= _)
-        rw [pure_bind]
-        exact ih _ _ hs
-theorem fixed_inline_nonzero {α : Type} (D : digestInputs → HashOutput) (Nn : Message → Digest)
-    (fts : FtsCoord → Digest) (W : OracleComp WSpecL α) (s : WStateL) (hs : Consistent D Nn s.memory)
-    (r : α × WStateL) (hr : fixedRun (envE D Nn) fts W s r ≠ 0) :
-    fixedRun env fts (simulateQ (inlineWith D Nn) W) (forget s) (r.1, forget r.2) ≠ 0 := by
-  rw [← fixed_inline D Nn fts W s hs]
-  have hm : r ∈ support (fixedRun (envE D Nn) fts W s) := by
-    simpa only [mem_support_iff, SPMF.probOutput_eq_apply] using hr
-  have h : (r.1, forget r.2) ∈ support ((fun r => (r.1, forget r.2)) <$> fixedRun (envE D Nn) fts W s) := by
-    rw [support_map]
-    exact ⟨r, hm, rfl⟩
-  simpa only [mem_support_iff, SPMF.probOutput_eq_apply] using h
 end Run
-section LazyCouple
-variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : Omega U)
-open SecretGuessObservation (fixedRun)
-theorem forget_initL : forget initL = init := rfl
-end LazyCouple
 end SigGolfCandidate.T3.Security.BPair
 end
 section
@@ -459,88 +323,6 @@ theorem run_good {α : Type} (D : digestInputs → HashOutput) (Nn : Message →
         rw [pure_bind] at hr
         exact ih _ (SecretGuessObservation.afterDisclosure (envE D Nn) s f (fts f)) hs hr
 end Ghost
-section WorldGhost
-open SecretGuessObservation (fixedRun fixedImpl runWith)
-variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : Omega U)
-noncomputable local instance instDecidableEqCache_pairGuessLazyGhost : DecidableEq T3.Cache := Classical.decEq _
-theorem hashL_ghost (fts : FtsCoord → Digest) (x : HashInput) (s : WStateL)
-    (hs : Good (digestOf ω) (nonceOf ω) s.memory) (r : HashOutput × WStateL)
-    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) fts (hashL hU ω x) s r ≠ 0) (hx : x ∈ digestInputs) :
-    r.2.memory.rows x = some r.1 := by
-  have hd : decodeProbe x = none := by
-    cases hd : decodeProbe x with
-    | none => rfl
-    | some p =>
-        have hpx := eq_of_decodeProbe hd
-        rw [hpx] at hx
-        exact absurd hx (probeInput_not_digest p.1 p.2)
-  unfold hashL at hr
-  rw [hd] at hr
-  dsimp only at hr
-  rw [if_pos hx] at hr
-  obtain ⟨mem', heq, -, -, hrow⟩ := rowStep_ghost (digestOf ω) (nonceOf ω) s.memory hs x true
-  rw [birthReq, fixed_aux_single (digestOf ω) (nonceOf ω) fts s (.birth x) _ mem' heq] at hr
-  simp only [ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] at hr
-  subst hr
-  exact hrow hx
-theorem finishL_some (fts : FtsCoord → Digest) (request : Request) (rho : Digest)
-    (found : Option (BitVec 32 × HashOutput)) (s : WStateL) (r : Option Signature × WStateL)
-    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) fts (finishL hU ω request rho found) s r ≠ 0)
-    (σ : Signature) (hσ : r.1 = some σ) : ∃ c out, found = some (c, out) ∧ σ.rho = rho := by
-  cases found with
-  | none =>
-      rw [runL_pure_nonzero _ fts _ s r hr] at hσ
-      cases hσ
-  | some found =>
-      obtain ⟨c, out⟩ := found
-      refine ⟨c, out, rfl, ?_⟩
-      change fixedRun (envE (digestOf ω) (nonceOf ω)) fts (match signerLayers hU ω request out with
-        | none => pure none
-        | some pieces => do
-            let values ← (openedPositions out).mapM discloseReq
-            pure (some (Correctness.assembledSignature rho
-              (openedValues (overwrite (openedPositions out) values) out,
-                (signerForest hU ω out).2.1, (signerForest hU ω out).2.2) pieces))) s r ≠ 0 at hr
-      cases hl : signerLayers hU ω request out with
-      | none =>
-          rw [hl] at hr
-          rw [runL_pure_nonzero _ fts _ s r hr] at hσ
-          cases hσ
-      | some pieces =>
-          rw [hl] at hr
-          obtain ⟨mid, -, hr⟩ := runL_bind_nonzero _ fts _ _ s r hr
-          rw [runL_pure_nonzero _ fts _ _ r hr] at hσ
-          cases hσ
-          exact Correctness.assembledSignature_rho _ _ _
-theorem programL_ghost (fts : FtsCoord → Digest) {β : Type} (program : M β) (s : WStateL)
-    (hs : Good (digestOf ω) (nonceOf ω) s.memory) (r : (β × List Wots.Entry) × WStateL)
-    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) fts (programL hU ω program) s r ≠ 0) :
-    ∀ x a, (x, a) ∈ r.1.2 → x ∈ digestInputs → r.2.memory.rows x = some a := by
-  induction program using OracleComp.inductionOn generalizing s r with
-  | pure value =>
-      rw [programL_pure] at hr
-      rw [runL_pure_nonzero _ fts _ s r hr]
-      exact fun _ _ h => (by simp at h)
-  | query_bind input next ih =>
-      rcases input with (n | x) | c
-      · rw [programL_coin] at hr
-        obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ fts _ _ s r hr
-        exact ih m1.1 m1.2 (run_good _ _ fts _ s hs m1 h1).1 r hr
-      · rw [programL_public] at hr
-        obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ fts _ _ s r hr
-        obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ fts _ _ m1.2 r hr
-        rw [runL_pure_nonzero _ fts _ _ r hr]
-        have g1 := run_good _ _ fts _ s hs m1 h1
-        have g2 := run_good _ _ fts _ m1.2 g1.1 m2 h2
-        have i2 := ih m1.1 m1.2 g1.1 m2 h2
-        intro y a hy hdy
-        rcases List.mem_cons.mp hy with he | hy
-        · obtain ⟨rfl, rfl⟩ := Prod.mk.inj he
-          exact g2.2.rows _ _ (hashL_ghost hU ω fts y s hs m1 h1 hdy)
-        · exact i2 y a hy hdy
-      · rw [programL_private] at hr
-        exact ih (0 : HashOutput) s hs r hr
-end WorldGhost
 end SigGolfCandidate.T3.Security.BPair
 end
 end
@@ -653,84 +435,7 @@ variable {U : Finset HashInput} (hsub : digestInputs ⊆ U)
 def digestEmb : digestInputs → U := fun x => ⟨x.1, hsub x.2⟩
 theorem digestEmb_injective : Function.Injective (digestEmb hsub) :=
   fun x y h => Subtype.ext (by have h' := congrArg Subtype.val h; exact h')
-theorem nonceOther_injective : Function.Injective nonceOther := by
-  intro m m' h
-  have h1 := congrArg (fun o : CanonGraph.OtherHalf => o.1.1) h
-  change (Sum.inr (Sum.inl m) : Coordinate) = Sum.inr (Sum.inl m') at h1
-  exact Sum.inl.inj (Sum.inr.inj h1)
-noncomputable def patchOmega (ω : Omega U) (D : digestInputs → HashOutput) (Nn : Message → Digest) : Omega U :=
-  ⟨ω.seeds, patch nonceOther ω.other Nn, ω.labels, patch (digestEmb hsub) ω.residual D⟩
-theorem digestOf_patch (ω : Omega U) (D : digestInputs → HashOutput) (Nn : Message → Digest) :
-    digestOf (patchOmega hsub ω D Nn) = D := by
-  funext x
-  change finiteHashAnswer ∅ U (patch (digestEmb hsub) ω.residual D) x.1 = D x
-  rw [finiteHashAnswer_none ∅ U _ _ (hsub x.2) rfl]
-  exact patch_e (digestEmb_injective hsub) _ _ x
-theorem nonceOf_patch (ω : Omega U) (D : digestInputs → HashOutput) (Nn : Message → Digest) :
-    nonceOf (patchOmega hsub ω D Nn) = Nn :=
-  funext fun m => patch_e nonceOther_injective ω.other Nn m
-theorem sameRest_patch (ω : Omega U) (D : digestInputs → HashOutput) (Nn : Message → Digest) :
-    SameRest ω (patchOmega hsub ω D Nn) := by
-  refine ⟨rfl, rfl, fun x hx => (patch_of (digestEmb hsub) ω.residual D x ?_).symm,
-    fun h hh => (patch_of nonceOther ω.other Nn h ?_).symm⟩
-  · intro y hy
-    apply hx
-    rw [← hy]
-    exact y.2
-  · intro m hm
-    exact hh m hm.symm
 end OmegaPatch
-section OmegaLaw
-attribute [local instance] instSampleableTypeSeeds_pairGuessFinal instSampleableTypeForallFtsCoordDigest_pairGuessFinal
-  CanonGraph.instSampleableTypeSecrets CanonGraph.instSampleableTypeOtherHalves CanonGraph.instSampleableTypeLabels_1
-theorem digest_subset (adversary : AdversaryP) : digestInputs ⊆ Wots.referenceInputs adversary :=
-  digestInputs_subset_publicUniverse.trans (referenceInputs_universe' adversary)
-theorem omegaLaw_patch (adversary : AdversaryP) {γ : Type} (k : Omega (Wots.referenceInputs adversary) → SPMF γ) :
-    (𝒮[omegaLaw adversary] >>= fun ω => 𝒮[($ᵗ (digestInputs → HashOutput) : ProbComp _)] >>= fun D =>
-      𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn => k (patchOmega (digest_subset adversary) ω D Nn)) =
-      𝒮[omegaLaw adversary] >>= k := by
-  unfold omegaLaw
-  simp only [evalSPMF_bind, evalSPMF_pure, bind_assoc, pure_bind]
-  refine bind_congr fun seeds => ?_
-  have step1 : ∀ (other : CanonGraph.OtherHalves) (labels : CanonGraph.Labels),
-      (𝒮[(@uniformSample (Wots.referenceInputs adversary → HashOutput)
-        (CanonGraph.instSampleableTypeForallSubtypeHashInputMemFinsetHashOutput_canonGraph_1 _) : ProbComp _)] >>=
-        fun residual => 𝒮[($ᵗ (digestInputs → HashOutput) : ProbComp _)] >>= fun D =>
-        𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
-          k (patchOmega (digest_subset adversary) ⟨seeds, other, labels, residual⟩ D Nn)) =
-      (𝒮[(@uniformSample (Wots.referenceInputs adversary → HashOutput)
-        (CanonGraph.instSampleableTypeForallSubtypeHashInputMemFinsetHashOutput_canonGraph_1 _) : ProbComp _)] >>=
-        fun residual => 𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
-          k ⟨seeds, patch nonceOther other Nn, labels, residual⟩) := by
-    intro other labels
-    exact patch_uniform (digestEmb_injective (digest_subset adversary)) _ _
-      (fun residual => 𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
-        k ⟨seeds, patch nonceOther other Nn, labels, residual⟩)
-  simp only [step1]
-  have step2 : ∀ other : CanonGraph.OtherHalves,
-      (𝒮[($ᵗ CanonGraph.Labels : ProbComp _)] >>= fun labels =>
-        𝒮[(@uniformSample (Wots.referenceInputs adversary → HashOutput)
-          (CanonGraph.instSampleableTypeForallSubtypeHashInputMemFinsetHashOutput_canonGraph_1 _) : ProbComp _)] >>=
-        fun residual => 𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
-          k ⟨seeds, patch nonceOther other Nn, labels, residual⟩) =
-      (𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn => 𝒮[($ᵗ CanonGraph.Labels : ProbComp _)] >>= fun labels =>
-        𝒮[(@uniformSample (Wots.referenceInputs adversary → HashOutput)
-          (CanonGraph.instSampleableTypeForallSubtypeHashInputMemFinsetHashOutput_canonGraph_1 _) : ProbComp _)] >>=
-        fun residual => k ⟨seeds, patch nonceOther other Nn, labels, residual⟩) := by
-    intro other
-    calc _ = (𝒮[($ᵗ CanonGraph.Labels : ProbComp _)] >>= fun labels =>
-          𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
-          𝒮[(@uniformSample (Wots.referenceInputs adversary → HashOutput)
-            (CanonGraph.instSampleableTypeForallSubtypeHashInputMemFinsetHashOutput_canonGraph_1 _) : ProbComp _)] >>=
-          fun residual => k ⟨seeds, patch nonceOther other Nn, labels, residual⟩) :=
-          bind_congr fun labels => RetainedObservation.bind_comm _ _ _
-      _ = _ := RetainedObservation.bind_comm _ _ _
-  simp only [step2]
-  exact patch_uniform nonceOther_injective _ _ (fun other => 𝒮[($ᵗ CanonGraph.Labels : ProbComp _)] >>= fun labels =>
-    𝒮[(@uniformSample (Wots.referenceInputs adversary → HashOutput)
-      (CanonGraph.instSampleableTypeForallSubtypeHashInputMemFinsetHashOutput_canonGraph_1 _) : ProbComp _)] >>=
-    fun residual => k ⟨seeds, other, labels, residual⟩)
-end OmegaLaw
 section Steps
 open SecretGuessObservation (forcedRun forcedImpl lazyImpl runWith afterTrial afterDisclosure forcedTrial)
 variable (slot : Nat)
@@ -1072,10 +777,5 @@ theorem eager_lazy {α : Type} (W : OracleComp WSpecL α) (slot : Nat) (s : WSta
   rw [evalSPMF_uniform, evalSPMF_uniform]
   exact eager_lazy_core slot W s
 end EagerLazy
-section Avg
-open SecretGuessObservation (forcedRun)
-attribute [local instance] instSampleableTypeSeeds_pairGuessFinal instSampleableTypeForallFtsCoordDigest_pairGuessFinal
-  CanonGraph.instSampleableTypeSecrets CanonGraph.instSampleableTypeOtherHalves CanonGraph.instSampleableTypeLabels_1
-end Avg
 end SigGolfCandidate.T3.Security.BPair
 end

@@ -7,7 +7,7 @@ open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput)
 open W9Machine
-def dispatchPc (n : Nat) : Nat := [246,370,498,626,753,881,1009,1136,1263,1391].getD n 1391
+def dispatchPc (n : Nat) : Nat := [32836,32845,32858,32871,32883,32896,32909,32921,32933,32946].getD n 32946
 def cachedWord (n : Nat) : Nat := [0,0,1,1,1,2,2,2,2,2].getD n 2
 def pairBase : Nat := 0xffbe10
 structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (n : Nat)

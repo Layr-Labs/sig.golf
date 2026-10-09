@@ -54,47 +54,39 @@ theorem contactAt_iff_sample (adversary : AdversaryP) (q : Nat) (a : ChainAddr) 
   intro s hs
   obtain ⟨qs, hqs⟩ := reference_support_trace adversary q s hs
   exact contactAt_iff_view a s qs hqs
-/-- Per chain, with the seed-test error of lower chains. -/
+/-- Per chain, with the seed-test error (every source chain; top leaves are families since T8D). -/
 theorem contactAt_cost_le (adversary : AdversaryP) (q : Nat) (hq : q < 2 ^ 128) (a : ChainAddr)
     (ha : WotsExtract.SourceChain a) :
     (1 - (q : ENNReal) / 2 ^ 128) *
         Pr[fun s => ContactAt s.answers s.trace a | referenceExperiment adversary q] ≤
       (2 / 2 ^ 128) * ∑' s, referenceExperiment adversary q s * (prefixCount a s : ENNReal) +
         (1 + (2 / 2 ^ 128) * q) * Leaf.errC adversary q a := by
-  by_cases hl : a.key.lay = 0
-  · refine le_trans ?_ le_self_add
-    rw [reference_contactAt_eq adversary q a ha hl, reference_prefixCount_eq adversary q a ha hl,
-      ← ENNReal.tsum_mul_left, ← ENNReal.tsum_mul_left]
+  have hv := Leaf.view_prob_le (adversary := adversary) q ha PrefixView.Contact (fun z h => by
+    have := h.1; simp [Leaf.runViewD] at this)
+  have hc := Leaf.view_count_le (adversary := adversary) q ha
+  simp only [runView_contact] at hv
+  rw [contactAt_iff_sample]
+  set M := ∑' R, restLaw adversary R * Pr[fun r => Contact r.2.2 r.1 |
+      realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (seedGame adversary q a R)
+        (fun _ _ => none)]
+  set C := ∑' R, restLaw adversary R * ∑' r,
+      realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (seedGame adversary q a R)
+        (fun _ _ => none) r * (seedCost a R r.2.1 : ℝ≥0∞)
+  have hMC : (1 - (q : ENNReal) / 2 ^ 128) * M ≤ (2 / 2 ^ 128) * C := by
+    rw [← ENNReal.tsum_mul_left, ← ENNReal.tsum_mul_left]
     apply ENNReal.tsum_le_tsum
     intro R
     rw [mul_left_comm, mul_left_comm (2 / 2 ^ 128 : ENNReal)]
     exact mul_le_mul' le_rfl (contact_mix_R adversary q hq a R)
-  · have hv := Leaf.view_prob_le (adversary := adversary) q ha hl PrefixView.Contact (fun z h => by
-      have := h.1; simp [Leaf.runViewD] at this)
-    have hc := Leaf.view_count_le (adversary := adversary) q ha hl
-    simp only [runView_contact] at hv
-    rw [contactAt_iff_sample]
-    set M := ∑' R, restLaw adversary R * Pr[fun r => Contact r.2.2 r.1 |
-        realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (seedGame adversary q a R)
-          (fun _ _ => none)]
-    set C := ∑' R, restLaw adversary R * ∑' r,
-        realRun (fun _ => SphincsSecurity.Concrete.OtsPrefix.uniformImpl) (seedGame adversary q a R)
-          (fun _ _ => none) r * (seedCost a R r.2.1 : ℝ≥0∞)
-    have hMC : (1 - (q : ENNReal) / 2 ^ 128) * M ≤ (2 / 2 ^ 128) * C := by
-      rw [← ENNReal.tsum_mul_left, ← ENNReal.tsum_mul_left]
-      apply ENNReal.tsum_le_tsum
-      intro R
-      rw [mul_left_comm, mul_left_comm (2 / 2 ^ 128 : ENNReal)]
-      exact mul_le_mul' le_rfl (contact_mix_R adversary q hq a R)
-    have hx1 : (1 - (q : ENNReal) / 2 ^ 128) ≤ 1 := tsub_le_self
-    calc (1 - (q : ENNReal) / 2 ^ 128) * Pr[fun s => (sampleView a s).Contact | referenceExperiment adversary q]
-        ≤ (1 - (q : ENNReal) / 2 ^ 128) * (M + Leaf.errC adversary q a) := mul_le_mul' le_rfl hv
-      _ ≤ (1 - (q : ENNReal) / 2 ^ 128) * M + Leaf.errC adversary q a := by
-          rw [mul_add]; exact add_le_add le_rfl (mul_le_of_le_one_left bot_le hx1)
-      _ ≤ (2 / 2 ^ 128) * C + Leaf.errC adversary q a := add_le_add hMC le_rfl
-      _ ≤ (2 / 2 ^ 128) * (∑' s, referenceExperiment adversary q s * (prefixCount a s : ENNReal) +
-            q * Leaf.errC adversary q a) + Leaf.errC adversary q a := add_le_add (mul_le_mul' le_rfl hc) le_rfl
-      _ = _ := by ring
+  have hx1 : (1 - (q : ENNReal) / 2 ^ 128) ≤ 1 := tsub_le_self
+  calc (1 - (q : ENNReal) / 2 ^ 128) * Pr[fun s => (sampleView a s).Contact | referenceExperiment adversary q]
+      ≤ (1 - (q : ENNReal) / 2 ^ 128) * (M + Leaf.errC adversary q a) := mul_le_mul' le_rfl hv
+    _ ≤ (1 - (q : ENNReal) / 2 ^ 128) * M + Leaf.errC adversary q a := by
+        rw [mul_add]; exact add_le_add le_rfl (mul_le_of_le_one_left bot_le hx1)
+    _ ≤ (2 / 2 ^ 128) * C + Leaf.errC adversary q a := add_le_add hMC le_rfl
+    _ ≤ (2 / 2 ^ 128) * (∑' s, referenceExperiment adversary q s * (prefixCount a s : ENNReal) +
+          q * Leaf.errC adversary q a) + Leaf.errC adversary q a := add_le_add (mul_le_mul' le_rfl hc) le_rfl
+    _ = _ := by ring
 noncomputable def contactCount (s : RefSample) : Nat :=
   (sourceChains.filter fun a => ContactAt s.answers s.trace a).card
 theorem expected_contactCount (adversary : AdversaryP) (q : Nat) :

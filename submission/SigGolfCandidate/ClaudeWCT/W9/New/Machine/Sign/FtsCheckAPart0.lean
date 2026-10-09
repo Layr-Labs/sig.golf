@@ -1,7 +1,4 @@
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Sign.FtsRuns
-import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.JTCheck1
-
-set_option Elab.async false
 
 namespace ClaudeWCT.W9.Machine.Sign
 set_option maxRecDepth 100000

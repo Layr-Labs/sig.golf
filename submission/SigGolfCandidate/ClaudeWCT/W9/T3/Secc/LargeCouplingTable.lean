@@ -143,14 +143,6 @@ theorem logSeeds_card (T : Answers) (log : QueryLog Requests) (hno : LogNoOverfl
   calc _ ≤ ∑ N ∈ S, 2 := Finset.sum_le_sum fun N _ => Finset.card_image_le.trans (digitThree_card _)
     _ = 2 * S.card := by rw [Finset.sum_const, smul_eq_mul, mul_comm]
     _ ≤ 2 * 50 := Nat.mul_le_mul_left _ (hno f.1)
-theorem logSeeds_cons (T : Answers) (e : QueryLog Requests) (log : QueryLog Requests) (f : Fin (2 ^ 31) × Fin 9) :
-    logSeeds T log f ⊆ logSeeds T (e ++ log) f := by
-  intro w hw
-  obtain ⟨hf, N, hN, h⟩ := (mem_logSeeds T log f w).mp hw
-  refine (mem_logSeeds T _ f w).mpr ⟨hf, N, ?_, h⟩
-  rw [WPair.mem_loggedOutputs] at hN ⊢
-  obtain ⟨entry, he, hrest⟩ := hN
-  exact ⟨entry, List.mem_append_right _ he, hrest⟩
 variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData}
 /-- The seeds a sign step discloses are opened by the logged signature of that step. -/
@@ -270,27 +262,38 @@ theorem idx_zero_card (l : List ℕ) :
       by_cases hx : x = 0
       · simp [List.filter_cons, hx]
       · simp [List.filter_cons, hx]
-/-- Lower seeds of leaf `L` revealed by its reference digits (digit `0`), stage B. -/
+/-- WOTS seeds of leaf `L` revealed by its reference digits (digit `0`). -/
 @[irreducible] noncomputable def lowerZeros (T : Answers) (L : LowerLeaf) : Finset ChainGraph.Address :=
-  Finset.univ.filter fun a => (a.layer, a.tree, a.leaf) = L.1 ∧ a.chain.val < 43 ∧ Wots.depth T (SigGolfCandidate.T3.Security.LargeCoupling.wotsAddr a) = 0
+  Finset.univ.filter fun a => (a.layer, a.tree, a.leaf) = L.1 ∧ a.chain.val < chainCount a.layer ∧
+    Wots.depth T (SigGolfCandidate.T3.Security.LargeCoupling.wotsAddr a) = 0
 theorem mem_lowerZeros (T : Answers) (L : LowerLeaf) (a : ChainGraph.Address) :
-    a ∈ lowerZeros T L ↔ (a.layer, a.tree, a.leaf) = L.1 ∧ a.chain.val < 43 ∧ Wots.depth T (SigGolfCandidate.T3.Security.LargeCoupling.wotsAddr a) = 0 := by
+    a ∈ lowerZeros T L ↔ (a.layer, a.tree, a.leaf) = L.1 ∧ a.chain.val < chainCount a.layer ∧
+      Wots.depth T (SigGolfCandidate.T3.Security.LargeCoupling.wotsAddr a) = 0 := by
   unfold lowerZeros
   simp only [Finset.mem_filter, Finset.mem_univ, true_and]
-/-- At most 14 revealed seeds per lower leaf (`lower_zero_count_le`). -/
-theorem lowerZeros_card (T : Answers) (L : LowerLeaf) : (lowerZeros T L).card ≤ 14 := by
+/-- At most `famCount − 3` revealed seeds per leaf (14 lower, `lower_zero_count_le`; 20 top, `top_zero_count_le`). -/
+theorem lowerZeros_card (T : Answers) (L : LowerLeaf) : (lowerZeros T L).card + 3 ≤ WCT9.famCount L.1.1 := by
   set K : Wots.LeafAddr := ⟨L.1.1, L.1.2.1.val, L.1.2.2.val⟩ with hK
   set ds := Wots.referenceDigits T K with hds
   obtain ⟨value, hdec⟩ := WotsExtract.referenceDigits_decode T K
-  have hlen : ds.length = 43 := by
-    rw [(SigGolfCandidate.T3.decode_length_sum hdec).1]
-    exact CanonGraph.chainCount_lower L.2
-  have hzero := ClaudeWCT.WCT9.lower_zero_count_le L.2 (ClaudeWCT.WCT9.lower_target_ge _ L.2) hdec
-  refine le_trans (Finset.card_le_card_of_injOn (t := (Finset.range ds.length).filter fun i => ds.getD i 0 = 0)
-    (fun a => a.chain.val) ?_ ?_) ?_
+  rw [← hds] at hdec
+  have hlen : ds.length = chainCount L.1.1 := (SigGolfCandidate.T3.decode_length_sum hdec).1
+  have hzero : (ds.filter (· = 0)).length + 3 ≤ WCT9.famCount L.1.1 := by
+    by_cases h0 : L.1.1 = 0
+    · have h0' : K.lay = 0 := h0
+      rw [h0'] at hdec
+      have := ClaudeWCT.WCT9.top_zero_count_le ClaudeWCT.WCT9.top_target_ge hdec
+      rw [h0, WCT9.famCount_top]
+      omega
+    · have := ClaudeWCT.WCT9.lower_zero_count_le h0 (ClaudeWCT.WCT9.lower_target_ge _ h0) hdec
+      rw [WCT9.famCount_lower h0]
+      omega
+  refine le_trans (Nat.add_le_add_right (Finset.card_le_card_of_injOn
+    (t := (Finset.range ds.length).filter fun i => ds.getD i 0 = 0) (fun a => a.chain.val) ?_ ?_) 3) ?_
   · intro a ha
     obtain ⟨hL, hc, hd⟩ := (mem_lowerZeros T L a).mp (Finset.mem_coe.mp ha)
-    refine Finset.mem_coe.mpr (Finset.mem_filter.mpr ⟨Finset.mem_range.mpr (by rw [hlen]; exact hc), ?_⟩)
+    have hl : a.layer = L.1.1 := by rw [← hL]
+    refine Finset.mem_coe.mpr (Finset.mem_filter.mpr ⟨Finset.mem_range.mpr (by rw [hlen, ← hl]; exact hc), ?_⟩)
     have hk : (SigGolfCandidate.T3.Security.LargeCoupling.wotsAddr a).key = K := by
       rw [hK, ← hL]; rfl
     have : Wots.depth T (SigGolfCandidate.T3.Security.LargeCoupling.wotsAddr a) = ds.getD a.chain.val 0 := by
@@ -328,10 +331,6 @@ theorem layerItems_seed_lt (digitsOf : Wots.LeafAddr → List Nat) (index : Fin 
 theorem signDisclosed_lowerZeros (A : Answers) (published : SigGolfCandidate.T3.Cache) (request : Security.Request)
     (L : LowerLeaf) (a : ChainGraph.Address) (hL : (a.layer, a.tree, a.leaf) = L.1)
     (h : (.inr (.inl a) : Coord) ∈ signDisclosed A published request) : a ∈ lowerZeros A L := by
-  have hlay : a.layer ≠ 0 := by
-    have := congrArg Prod.fst hL
-    simp only at this
-    rw [this]; exact L.2
   have hd := (signDisclosed_chain A published request _ h).2 a rfl
   have hlt : a.chain.val < chainCount a.layer := by
     unfold signDisclosed at h
@@ -345,7 +344,6 @@ theorem signDisclosed_lowerZeros (A : Answers) (published : SigGolfCandidate.T3.
         · cases h
       · cases h
     · cases h
-  rw [CanonGraph.chainCount_lower hlay] at hlt
   exact (mem_lowerZeros A L a).mpr ⟨hL, hlt, hd⟩
 theorem discLower_initial (L : LowerLeaf) : DiscLower RouterState.initial L = ∅ := by
   ext w
@@ -416,7 +414,8 @@ theorem table_contact_le (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
     · have hsub := discLower_steps (Wots.referenceInputs adversary) T nv (evalWithAnswerFn T keygen).2 t.steps
         RouterState.initial L
       rw [discLower_initial, Finset.empty_union] at hsub
-      exact (Finset.card_le_card hsub).trans ((lowerZeros_card T L).trans (by norm_num))
+      have := lowerZeros_card T L
+      exact (Finset.card_le_card hsub).trans (by omega)
   · intro mon st ws state v log hrel _ hf
     obtain ⟨out, ws', hrun, hph⟩ := routeVerdict_observed (auxLaw initLaw) hcoh hq
       (GameWith.verdict PaddedGame.checker (evalWithAnswerFn T keygen).1 (v, log))
