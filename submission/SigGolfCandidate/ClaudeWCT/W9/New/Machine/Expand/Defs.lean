@@ -1,7 +1,6 @@
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.Fetch
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.WitV5
-import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Honest
-import SigGolfCandidate.ClaudeWCT.W9.T3M.SigCodecC
+import SigGolfCandidate.ClaudeWCT.W9.T3M.SigCodec
 import SigGolfCandidate.T3M.Expand.LayersBlocks
 import SigGolfCandidate.T3M.Search.DigestSearch
 
@@ -39,7 +38,7 @@ structure Pre30 (m : Message) (sig : WCT9.Signature) (s : MachineState) : Prop w
   x19 : s.getReg .x19 = BitVec.ofNat 64 0
   rho : DigAt s DIG sig.rho
   msg : ∀ k, k < 4 → s.getMem (BitVec.ofNat 64 (DIG + 32 + 8 * k)) = m.extractLsb' (64 * k) 64
-  sigAt : ∀ k, k < 341 → DigAt s (0x7000 + 16 * k) ((ClaudeWCT.W9.T3M.sigDigests sig).getD k 0)
+  sigAt : ∀ k, k < 332 → DigAt s (0x7000 + 16 * k) ((ClaudeWCT.W9.T3M.sigDigests sig).getD k 0)
   zeroW : ∀ A, 0x840 ≤ A → A < 0x2c48 → s.getMem (BitVec.ofNat 64 A) = 0
   bank : HdrBankOK s
   cost : ExpCostAt s
@@ -58,7 +57,7 @@ structure Post249 (sig : WCT9.Signature) (s0 : MachineState) (counter : BitVec 3
   dc : (t.getMem (BitVec.ofNat 64 0x810)).extractLsb' 0 32 = counter
   placed : Placed N sig t
   gap : ∀ A, 0x2c40 ≤ A → A < 0x2c48 → t.getMem (BitVec.ofNat 64 A) = 0
-  layers : ∀ i, i < 214 → DigAt t (0x7000 + 2192 + 16 * i) ((ClaudeWCT.W9.T3M.sigDigests sig).getD (127 + i) 0)
+  layers : ∀ i, i < 214 → DigAt t (0x7000 + 2192 + 16 * i) ((ClaudeWCT.W9.T3M.sigDigests sig).getD (118 + i) 0)
   dig : SigGolfCandidate.T3M.Search.OutAt t 0x60 N
   frame : Frame s0 t NewW
 def NewPost (sig : WCT9.Signature) (s0 : MachineState) :
@@ -71,10 +70,10 @@ def NewCodeSpec (im : Image) : Prop :=
   ∀ (sk : BitVec 256) (m : Message) (sig : WCT9.Signature) (s : MachineState), Pre30 m sig s →
     TBSim im sk s newCost (newProg m sig) (NewPost sig s)
 def w9Sub (imgs : Phase → Image) : Submission where
-  sizes := ⟨5454, 21484, 131072⟩
-  layout := ⟨0x5BF0, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩
+  sizes := ⟨5312, 20912, 131072⟩
+  layout := ⟨0x59B0, 0x80, 0xA0, 0x80000, 0x7000, 0x800⟩
   image := imgs
-def zeroBlk : List (BitVec 32) := [28343,0xbe0eb823,0xbe0ebc23,0xc00eb023,0xc00eb423,2451,0xce4d606f]
+def zeroBlk : List (BitVec 32) := [28343,0x9a0eb823,0x9a0ebc23,0x9c0eb023,0x9c0eb423,2451,0xce4d606f]
 def FrontAt (im : Image) : Prop :=
   CodeAt im (pcOf 0) (SigGolfCandidate.T3M.Expand.seg_0 ++ [hookWord]) ∧ CodeAt im (pcOf 42719) zeroBlk
 def compactJal : BitVec 32 := 0x4d52706f
@@ -83,12 +82,12 @@ def compareCode : List (BitVec 32) :=
 def ExpandDataOK (im : Image) : Prop :=
   im.data = lplanBytes ++ planBytes ++ expCostBytes ++ hdrBankBytes ++ SigGolfCandidate.T3M.Images.expandLegacyData
 def ExpandRefinesW (imgs : Phase → Image) : Prop :=
-  ∀ (m : Message) (pk : PublicKey) (s : Bytes 5454),
+  ∀ (m : Message) (pk : PublicKey) (s : Bytes 5312),
     (fun r => (r.value, r.hashCalls, r.hashCompressions)) <$> (w9Sub imgs).run .expand (m, pk, s) =
       (fun p => (p.1.map (fun x => ClaudeWCT.W9.T3M.witEnc x.1 x.2), p.2.1, p.2.2)) <$>
-        countBoth (mrealize 0 (ClaudeWCT.W9.T3M.expandN m pk (ClaudeWCT.W9.T3M.sigDecC s)))
+        countBoth (mrealize 0 (ClaudeWCT.W9.T3M.expandN m pk (ClaudeWCT.W9.T3M.sigDec s)))
 def ExpandTerminatesW (imgs : Phase → Image) : Prop :=
-  ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5454),
+  ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5312),
     ((w9Sub imgs).runWith hash .expand (m, pk, s)).finished = true ∧
       ((w9Sub imgs).runWith hash .expand (m, pk, s)).cycles < CYCLE_LIMIT
 end ClaudeWCT.W9.Machine.Expand

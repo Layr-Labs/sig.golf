@@ -42,7 +42,7 @@ def PairGuessBound (pairTerm : Nat → ENNReal) : Prop :=
     Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ PairGuess adversary z | SeccLaw.completedExperiment adversary q hq] ≤
       pairTerm q
 theorem slotDisclosed_iff (answers : Correctness.Answers) (log : QueryLog Requests) (N : HashOutput)
-    (k : WCT9.Coord) (t : Fin 7) :
+    (k : WCT9.Coord) (t : Fin 6) :
     CaseC.SlotDisclosed answers log N k t ↔ Guess.SlotCovered (loggedOutputs answers log) N k t := by
   constructor
   · rintro ⟨entry, he, signature, out, hs, ho, h1, h2, h3⟩
@@ -51,8 +51,8 @@ theorem slotDisclosed_iff (answers : Correctness.Answers) (log : QueryLog Reques
     obtain ⟨entry, he, signature, hs, ho⟩ := mem_loggedOutputs.mp hout
     exact ⟨entry, he, signature, out, hs, ho, Fin.ext h1, h2, h3⟩
 theorem slotDisclosed_iff_disclosed (answers : Correctness.Answers) (log : QueryLog Requests) (N : HashOutput)
-    (k : WCT9.Coord) (t : Fin 7) :
-    CaseC.SlotDisclosed answers log N k t ↔ Disclosed answers log (Guess.chainOf N k t) (3 - Guess.deficit N k t) := by
+    (k : WCT9.Coord) (t : Fin 6) :
+    CaseC.SlotDisclosed answers log N k t ↔ Disclosed answers log (Guess.chainOf N k t) (4 - Guess.deficit N k t) := by
   rw [slotDisclosed_iff, Guess.slotCovered_iff_chainCovered]
   rfl
 theorem Disclosed.mono_pos {answers : Correctness.Answers} {log : QueryLog Requests} {a : Guess.ChainAddr}
@@ -121,15 +121,15 @@ theorem pinned_of_caseC {adversary : AdversaryP} {z : PaddedGame.TraceResult × 
   exact ⟨g, i, c, hs, hpk, hlen, f, hf, hfr, m, w, hof, hsd, hC, trivial⟩
 def NearQ (answers : Correctness.Answers) (log : QueryLog Requests) (message : Message) (witness : WBytes)
     (events : List FirstHit.QueryEvent) : Prop :=
-  ∃ (k : WCT9.Coord) (t : Fin 7) (c : Guess.GCoord),
+  ∃ (k : WCT9.Coord) (t : Fin 6) (c : Guess.GCoord),
     c.1 = Guess.chainOf (evalWithAnswerFn answers (digest (wrho witness) message (wdc witness))) k t ∧
-    c.2.val = 3 - Guess.deficit (evalWithAnswerFn answers (digest (wrho witness) message (wdc witness))) k t ∧
+    c.2.val = 4 - Guess.deficit (evalWithAnswerFn answers (digest (wrho witness) message (wdc witness))) k t ∧
     WPair.GuessedIn answers log (BPair.publicEntries events) c ∧
     ∀ k' t', (k', t') ≠ (k, t) →
       SlotDisclosed answers log (evalWithAnswerFn answers (digest (wrho witness) message (wdc witness))) k' t'
 theorem NearQ.slot {answers : Correctness.Answers} {log : QueryLog Requests} {message : Message} {witness : WBytes}
     {events : List FirstHit.QueryEvent} (h : NearQ answers log message witness events) :
-    ∃ (k : WCT9.Coord) (t : Fin 7),
+    ∃ (k : WCT9.Coord) (t : Fin 6),
       1 ≤ Guess.deficit (evalWithAnswerFn answers (digest (wrho witness) message (wdc witness))) k t ∧
       ¬SlotDisclosed answers log (evalWithAnswerFn answers (digest (wrho witness) message (wdc witness))) k t := by
   obtain ⟨k, t, ⟨a, p⟩, h1, h2, ⟨hnd, -⟩, -⟩ := h
@@ -149,8 +149,8 @@ theorem split_events_unique (adversary : AdversaryP) (result : FirstHit.Recorded
   simp only at h1 h2
   rw [h1] at h2
   exact (List.append_cancel_left (List.append_cancel_left h2)).symm
-def slotCoord (N : HashOutput) (k : WCT9.Coord) (t : Fin 7) (hu : 1 ≤ Guess.deficit N k t) : Guess.GCoord :=
-  (Guess.chainOf N k t, ⟨3 - Guess.deficit N k t, by omega⟩)
+def slotCoord (N : HashOutput) (k : WCT9.Coord) (t : Fin 6) (hu : 1 ≤ Guess.deficit N k t) : Guess.GCoord :=
+  (Guess.chainOf N k t, ⟨4 - Guess.deficit N k t, by omega⟩)
 theorem wct_caseC_three_way (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
     (z : PaddedGame.TraceResult × Correctness.Answers) (hz : z ∈ (SeccLaw.completedExperiment adversary q hq).support)
     (hclean : QueryRecorded.CleanWin q z.1) (hC : CaseCFreshPinned adversary z) :
@@ -167,8 +167,8 @@ theorem wct_caseC_three_way (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 1
     (fun input answer hk => hagree input answer (by rw [← hstate]; exact hk)) hvalue f hf m w hof
     (by rw [hN]; exact hH)
   rw [hN] at hprobe
-  have hguess : ∀ (k : WCT9.Coord) (t : Fin 7) (hu : 1 ≤ Guess.deficit N k t),
-      ¬Guess.ChainCovered (WPair.loggedOutputs z.2 i.value.2) (Guess.chainOf N k t) (3 - Guess.deficit N k t) →
+  have hguess : ∀ (k : WCT9.Coord) (t : Fin 6) (hu : 1 ≤ Guess.deficit N k t),
+      ¬Guess.ChainCovered (WPair.loggedOutputs z.2 i.value.2) (Guess.chainOf N k t) (4 - Guess.deficit N k t) →
       WPair.GuessedIn z.2 i.value.2 (BPair.publicEntries c.events) (slotCoord N k t hu) :=
     fun k t hu hnc => ⟨hnc, hprobe k t (slotCoord N k t hu) rfl rfl⟩
   rcases Guess.caseC_slots (WPair.loggedOutputs z.2 i.value.2) N with
@@ -186,12 +186,9 @@ theorem wct_caseC_three_way (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 1
     obtain ⟨rfl, rfl, hce⟩ := split_events_unique adversary _ g i c g' i' c' hs hs'
     rw [hce]
     exact ⟨slotCoord N k t hu, slotCoord N k' t' hu', Guess.chainOf_ne hne, hguess k t hu hnc, hguess k' t' hu' hnc'⟩
-noncomputable def caseCSplitInterface (pairTerm : Nat → ENNReal) (hpair : WPair.PairGuessBound pairTerm) :
-    CaseCSplitInterface caseCExtraction where
+noncomputable def caseCSplitInterface : CaseCSplitInterface caseCExtraction where
   CaseCFreshPinned := CaseCFreshPinned
   NearQ := NearQ
   PairGuess := WPair.PairGuess
-  pairTerm := pairTerm
   three_way := wct_caseC_three_way
-  pair_guess_bound := hpair
 end ClaudeWCT.W9.T3.Security.CaseC

@@ -259,7 +259,7 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 noncomputable local instance instDecidableEqCache_w9largeContactChain : DecidableEq SigGolfCandidate.T3.Cache :=
   Classical.decEq _
-theorem known_secret {D : Coord → Prop} {s : CanonGraph.SecretIndex} (h : Known D (.inr s)) : D (.inr s) := by
+theorem known_secret {D : Coord → Prop} {s : SeedIndex} (h : Known D (.inr s)) : D (.inr s) := by
   cases h with
   | base h => exact h
 theorem known_chain_aux {D : Coord → Prop} {c : Coord} (h : Known D c) :
@@ -291,20 +291,20 @@ theorem known_chain {D : Coord → Prop} {p : ChainGraph.Point} (h : Known D (.i
     (∃ s : Fin 7, s.val ≤ p.2.val ∧ D (.inl (.chain (p.1, s)))) ∨ D (.inr (.inl (CanonGraph.seedIdx p.1))) :=
   known_chain_aux h p rfl
 theorem wctItem_zero (a : CanonGraph.WctAddr) : wctItem a 0 = .inr (.inr a) := rfl
-theorem wctItem_succ (a : CanonGraph.WctAddr) (s : Fin 3) :
+theorem wctItem_succ (a : CanonGraph.WctAddr) (s : Fin 4) :
     wctItem a (s.val + 1) = .inl (.wctChain (a, s)) := by
-  have h : (⟨(s.val + 1 - 1) % 3, Nat.mod_lt _ (by decide)⟩ : Fin 3) = s :=
+  have h : (⟨(s.val + 1 - 1) % 4, Nat.mod_lt _ (by decide)⟩ : Fin 4) = s :=
     Fin.ext (by rw [Nat.add_sub_cancel]; exact Nat.mod_eq_of_lt s.isLt)
   unfold wctItem
   rw [if_neg (Nat.succ_ne_zero _), h]
-theorem wctItem_pos (a : CanonGraph.WctAddr) (p : Nat) (h0 : p ≠ 0) (hp : p ≤ 3) :
+theorem wctItem_pos (a : CanonGraph.WctAddr) (p : Nat) (h0 : p ≠ 0) (hp : p ≤ 4) :
     wctItem a p = .inl (.wctChain (a, ⟨p - 1, by omega⟩)) := by
-  have h : (⟨(p - 1) % 3, Nat.mod_lt _ (by decide)⟩ : Fin 3) = ⟨p - 1, by omega⟩ :=
+  have h : (⟨(p - 1) % 4, Nat.mod_lt _ (by decide)⟩ : Fin 4) = ⟨p - 1, by omega⟩ :=
     Fin.ext (Nat.mod_eq_of_lt (by omega))
   unfold wctItem
   rw [if_neg h0, h]
 theorem known_wct_aux {D : Coord → Prop} {c : Coord} (h : Known D c) :
-    ∀ (a : CanonGraph.WctAddr) (s : Fin 3), c = .inl (.wctChain (a, s)) →
+    ∀ (a : CanonGraph.WctAddr) (s : Fin 4), c = .inl (.wctChain (a, s)) →
       ∃ p' ≤ s.val + 1, D (wctItem a p') := by
   induction h with
   | base hc =>
@@ -323,22 +323,22 @@ theorem known_wct_aux {D : Coord → Prop} {c : Coord} (h : Known D c) :
         refine ⟨0, Nat.zero_le _, ?_⟩
         rw [wctItem_zero]
         exact known_secret hk
-      · have hs1 : s.val - 1 < 3 := by omega
+      · have hs1 : s.val - 1 < 4 := by omega
         have he := wctItem_pos a s.val h0 (by omega)
         obtain ⟨p', hp', hd⟩ := hih a ⟨s.val - 1, hs1⟩ he
         exact ⟨p', by simp only at hp'; omega, hd⟩
-theorem known_wctItem {D : Coord → Prop} {a : CanonGraph.WctAddr} {p : Nat} (hp : p ≤ 3)
+theorem known_wctItem {D : Coord → Prop} {a : CanonGraph.WctAddr} {p : Nat} (hp : p ≤ 4)
     (h : Known D (wctItem a p)) : ∃ p' ≤ p, D (wctItem a p') := by
   by_cases h0 : p = 0
   · subst h0
     rw [wctItem_zero] at h
     exact ⟨0, le_rfl, by rw [wctItem_zero]; exact known_secret h⟩
-  · have hs : p - 1 < 3 := by omega
+  · have hs : p - 1 < 4 := by omega
     have he := wctItem_pos a p h0 hp
     rw [he] at h
     obtain ⟨p', hp', hd⟩ := known_wct_aux h a ⟨p - 1, hs⟩ rfl
     exact ⟨p', by simp only at hp'; omega, hd⟩
-theorem wctItem_injective {a b : CanonGraph.WctAddr} {p q : Nat} (hp : p ≤ 3) (hq : q ≤ 3)
+theorem wctItem_injective {a b : CanonGraph.WctAddr} {p q : Nat} (hp : p ≤ 4) (hq : q ≤ 4)
     (h : wctItem a p = wctItem b q) : a = b ∧ p = q := by
   unfold wctItem at h
   by_cases hp0 : p = 0 <;> by_cases hq0 : q = 0
@@ -562,15 +562,15 @@ theorem layerItems_not_wct (digitsOf : Wots.LeafAddr → List Nat) (index : Fin 
       exact treeChild_ne_wctItem hj a p rfl
     · cases hc
 theorem wctItem_mem_signItemsWith (digitsOf : Wots.LeafAddr → List Nat) (N : HashOutput) (a : CanonGraph.WctAddr)
-    (p : Nat) (hp : p ≤ 3) (h : wctItem a p ∈ signItemsWith digitsOf N) :
-    a.1 = digestIndex N ∧ a.2.2.1 = WCT9.child N a.2.1 ∧ p = 3 - WCT9.wordDigit (WCT9.rank N a.2.1) a.2.2.2 := by
+    (p : Nat) (hp : p ≤ 4) (h : wctItem a p ∈ signItemsWith digitsOf N) :
+    a.1 = digestIndex N ∧ a.2.2.1 = WCT9.child N a.2.1 ∧ p = 4 - WCT9.wordDigit (WCT9.rank N a.2.1) a.2.2.2 := by
   unfold signItemsWith at h
   rcases List.mem_append.mp h with h | h
   · unfold ftsItems wctOpened wctPath at h
     simp only [List.mem_flatMap, List.mem_finRange, true_and, List.mem_append, List.mem_ofFn,
       List.mem_filterMap, List.mem_range] at h
     obtain ⟨k, ⟨t, ht⟩ | ⟨l, _, hl⟩⟩ := h
-    · have hle : 3 - WCT9.wordDigit (WCT9.rank N k) t ≤ 3 := Nat.sub_le _ _
+    · have hle : 4 - WCT9.wordDigit (WCT9.rank N k) t ≤ 4 := Nat.sub_le _ _
       obtain ⟨hab, hpq⟩ := wctItem_injective hle hp ht
       subst hab
       exact ⟨rfl, rfl, hpq.symm⟩
@@ -703,16 +703,16 @@ theorem wotsPrimitiveRoute_false (A : Answers) (published : SigGolfCandidate.T3.
     exact contactAt_false A published qs a ha ⟨by omega, middle, hrow⟩ hclear
   · exact contactAt_false A published qs a ha h hclear
   · exact contactAt_false A published qs a ha h hclear
-theorem posOf_honest_wctChain (A : Answers) (a : CanonGraph.WctAddr) (s : Fin 3) :
+theorem posOf_honest_wctChain (A : Answers) (a : CanonGraph.WctAddr) (s : Fin 4) :
     Extract.posOf (Extract.honestInput A (CanonGraph.Node.wctChain (a, s)).toPos) =
       some (CanonGraph.Node.wctChain (a, s)).toPos :=
   Extract.posOf_eq (CanonGraph.toPos_bounded _) (Extract.hdrBlock_honestInput A _)
-theorem honestValue_wctItem (A : Answers) (a : CanonGraph.WctAddr) (p : Nat) (hp : p ≤ 3) :
+theorem honestValue_wctItem (A : Answers) (a : CanonGraph.WctAddr) (p : Nat) (hp : p ≤ 4) :
     honestValue A (wctItem a p) = Extract.wctValue A a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p := by
   by_cases h0 : p = 0
   · subst h0
     rw [wctItem_zero]
-    change CanonGraph.secretsOf A (.inr a) = _
+    change CanonGraph.wctSeedsOf (CanonGraph.secretsOf A) a = _
     rw [← CanonGraph.wctSeed_secrets]
     simp [Extract.wctValue, WCT9.chain]
   · rw [wctItem_pos a p h0 hp]
@@ -721,7 +721,7 @@ theorem honestValue_wctItem (A : Answers) (a : CanonGraph.WctAddr) (p : Nat) (hp
       (s + 1 - 1)))))).extractLsb' 0 128 = _
     rw [← WctExtract.wctValue_succ, eval_shortHash, Extract.pad64_wctChainInput, WctExtract.honestInput_wctChain]
     rfl
-theorem slotValue_honest_wctChain (A : Answers) (a : CanonGraph.WctAddr) (s : Fin 3) :
+theorem slotValue_honest_wctChain (A : Answers) (a : CanonGraph.WctAddr) (s : Fin 4) :
     slotValue (Extract.honestInput A (CanonGraph.Node.wctChain (a, s)).toPos) 3 = honestValue A (wctItem a s.val) := by
   rw [honestValue_wctItem A a s.val (by omega)]
   change slotValue (Extract.honestInput A (.wctChain a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val s.val)) 3 = _

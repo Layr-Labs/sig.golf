@@ -103,18 +103,19 @@ def cOff : Nat → Nat
   | 0 => 0
   | c + 1 => cOff c + fLen c + 182
 def lOff (c l : Nat) : Nat := cOff c + fLen c + 98 + 12 * l
-def sigBlk (c : Nat) : Nat := 0x7010 + 224 * c
+/-- Signature digests of coordinate `c` (T8: 6 values + 7 path digests = 208 bytes). -/
+def sigBlk (c : Nat) : Nat := 0x7010 + 208 * c
 def fcWrites (c : Nat) : List (Nat × Option Nat) :=
-  (List.range 7).flatMap fun t =>
-    [(regBase c + 880 - 64 * t, some (sigBlk c + 16 * t)), (regBase c + 880 - 64 * t + 8, some (sigBlk c + 16 * t + 8)),
-      (regBase c + (if t = 0 then 880 else 896 + 16 * t), some (sigBlk c + 16 * t)),
-      (regBase c + (if t = 0 then 880 else 896 + 16 * t) + 8, some (sigBlk c + 16 * t + 8))]
+  (List.range 6).flatMap fun t =>
+    [(regBase c + 816 - 64 * t, some (sigBlk c + 16 * t)), (regBase c + 816 - 64 * t + 8, some (sigBlk c + 16 * t + 8)),
+      (regBase c + (if t = 0 then 816 else 848 + 16 * t), some (sigBlk c + 16 * t)),
+      (regBase c + (if t = 0 then 816 else 848 + 16 * t) + 8, some (sigBlk c + 16 * t + 8))]
 def pushW (L : List (Nat × Option Nat)) (p : Nat × Option Nat) : List (Nat × Option Nat) :=
   p :: L.filter fun q => q.1 != p.1
 def fcList (c : Nat) : List (Nat × Option Nat) := (fcWrites c).foldl pushW []
 def sibOff (l : Nat) (d : Bool) : Nat := 64 * (6 - l) + (if d then 0 else 48)
 def levList (c l : Nat) (d : Bool) : List (Nat × Option Nat) :=
-  [(regBase c + sibOff l d + 8, some (sigBlk c + 112 + 16 * l + 8)), (regBase c + sibOff l d, some (sigBlk c + 112 + 16 * l))]
+  [(regBase c + sibOff l d + 8, some (sigBlk c + 96 + 16 * l + 8)), (regBase c + sibOff l d, some (sigBlk c + 96 + 16 * l))]
 def childE (c : Nat) : E :=
   if fHas c then
     (if c = 3 ∨ c = 6 then
@@ -134,15 +135,17 @@ def levCheck (P c l : Nat) (d : Bool) : Bool :=
   | none => false
 def placeOK (P : Nat) : Bool :=
   (List.range 9).all fun c => fcCheck P c && (List.range 7).all fun l => levCheck P c l true && levCheck P c l false
+/-- Source (offset in the coordinate's signature block) of word `i` of a placed V5 region (T8 layout): merkle
+siblings at 96 + 16 l, chain values 5..1 at 448 + 64 (5 - t) + 48, value 0 at 816, leaf slots t = 1..5 at 848 + 16 t. -/
 def wSrc (j i : Nat) : Option Nat :=
   if i / 2 < 28 then
     if (j / 2 ^ (6 - i / 8) % 2 = 1 ∧ i / 2 % 4 = 0) ∨ (j / 2 ^ (6 - i / 8) % 2 = 0 ∧ i / 2 % 4 = 3) then
-      some (112 + 16 * (6 - i / 8) + 8 * (i % 2))
+      some (96 + 16 * (6 - i / 8) + 8 * (i % 2))
     else none
-  else if i / 2 < 52 then
-    if (i / 2 - 28) % 4 = 3 then some (16 * (6 - (i / 2 - 28) / 4) + 8 * (i % 2)) else none
-  else if i / 2 = 55 then some (8 * (i % 2))
-  else if 57 ≤ i / 2 ∧ i / 2 < 63 then some (16 * (i / 2 - 56) + 8 * (i % 2))
+  else if i / 2 < 48 then
+    if (i / 2 - 28) % 4 = 3 then some (16 * (5 - (i / 2 - 28) / 4) + 8 * (i % 2)) else none
+  else if i / 2 = 51 then some (8 * (i % 2))
+  else if 54 ≤ i / 2 ∧ i / 2 < 59 then some (16 * (i / 2 - 53) + 8 * (i % 2))
   else none
 def plSt (j L i : Nat) : Option Nat := if 56 ≤ i ∨ 6 - i / 8 < L then wSrc j i else none
 end ClaudeWCT.W9.Machine.Expand

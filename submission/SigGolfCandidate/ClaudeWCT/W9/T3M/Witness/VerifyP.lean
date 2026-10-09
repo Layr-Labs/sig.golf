@@ -3,15 +3,14 @@ import SigGolfCandidate.ClaudeWCT.WCT9.Limits
 import SigGolfCandidate.ClaudeWCT.WCT9.TopDecode
 
 section
-def ClaudeWCT.WCT9.digestVerifyWindow : Nat := 2 ^ 32
 namespace ClaudeWCT.W9.T3M
 open SigGolfCandidate.T3
 open SigGolfCandidate.T3M (sibOff)
-def regionBase (k : Nat) : Nat := 64 + 880 * (8 - k)
-def wctEnd : Nat := 8000
-def wctChainBlock (k t : Nat) : Nat := regionBase k + (704 - 64 * t)
-def wctLeafBlock (k : Nat) : Nat := regionBase k + 752
-def wctLeafSlot (k t : Nat) : Nat := regionBase k + (if t = 0 then 752 else 768 + 16 * t)
+def regionBase (k : Nat) : Nat := 64 + 816 * (8 - k)
+def wctEnd : Nat := 7424
+def wctChainBlock (k t : Nat) : Nat := regionBase k + (640 - 64 * t)
+def wctLeafBlock (k : Nat) : Nat := regionBase k + 688
+def wctLeafSlot (k t : Nat) : Nat := regionBase k + (if t = 0 then 688 else 720 + 16 * t)
 def authPlans : List (List Nat × Nat) :=
   [([0,32,64,96,128,160], 224),
    ([0,48,80,112,144,176], 240),
@@ -90,6 +89,9 @@ def wcpads (w : WBytes) (k t : Nat) : Digest × Digest :=
 def wsib (w : WBytes) (k child l : Nat) : Digest := wdig w (regionBase k + authSibOff child l)
 def wmpad (w : WBytes) (k child l : Nat) : Digest := wdig w (regionBase k + authPadOff child l)
 def wcHeaderPad (w : WBytes) (k t : Nat) : BitVec 64 := (wdig w (wctChainBlock k t + 16)).extractLsb' 64 64
+/-- FTS leaf pad (campaign T8): the 16-byte slot after the leaf header (`regionBase k + 720`); the verifier never
+writes it, the honest witness holds 0. -/
+def wleafPad (w : WBytes) (k : Nat) : Digest := wdig w (wctLeafBlock k + 32)
 def upLayer (lay : Layer) : Layer := Fin.ofNat 4 (lay.val + 1)
 def rowBlock (index : Nat) (lay : Layer) : Nat :=
   if lay.val = 3 then 0 else merkleBlock (upLayer lay) (route index (upLayer lay)).1 (height (upLayer lay) - 1)
@@ -120,15 +122,15 @@ def wctNodeHashP (coord index heap : Nat) (left pad right : Digest) : M Digest :
   nodeHashP 3 (WCT9.nodeLayer coord) index heap left pad right
 def digestP (m : Message) (w : WBytes) : M (Option HashOutput) :=
   if (wdc w).toNat ≥ WCT9.digestVerifyWindow then pure none else some <$> digest (wrho w) m (wdc w)
-def gateOk (N : HashOutput) : Bool := decide (N.toNat / 2 ^ 235 % 2 ^ 21 < WCT9.gateLimit)
+def gateOk (N : HashOutput) : Bool := decide (N.toNat / 2 ^ 242 % 2 ^ 14 < WCT9.gateLimit)
 def fieldOk (N : HashOutput) (coord : WCT9.Coord) : Bool := decide (WCT9.field N coord < WCT9.fieldLimit)
 def wctCoordP (w : WBytes) (index : Nat) (coord : WCT9.Coord) (child : WCT9.Child) (word : WCT9.Rank) :
     M (Digest × Digest) := do
-  let ends ← (List.finRange 7).mapM fun t =>
-    wctChainP index coord.val child.val t.val (3 - WCT9.wordDigit word t) (WCT9.wordDigit word t)
+  let ends ← (List.finRange 6).mapM fun t =>
+    wctChainP index coord.val child.val t.val (4 - WCT9.wordDigit word t) (WCT9.wordDigit word t)
       (wcpads w coord.val t.val).1 (wcHeaderPad w coord.val t.val) (wcpads w coord.val t.val).2
       (wreveal w coord.val t.val (WCT9.wordDigit word t))
-  let leaf ← WCT9.leafHash index coord.val child.val ends
+  let leaf ← WCT9.leafHashP index coord.val child.val (wleafPad w coord.val) ends
   let top ← (List.finRange 6).foldlM (fun value level => do
     let other := wsib w coord.val child.val level.val
     let pair := if child.val / 2 ^ level.val % 2 = 0 then (value, other) else (other, value)
@@ -217,27 +219,29 @@ def verifyPPrepass (m : Message) (pk : Digest) (w : WBytes) : M Bool := do
   let some root ← layersBCPrepass w index 4 (.forest root) | pure false
   pure (root == pk)
 structure Pads where
-  wctChain : WCT9.Coord → Fin 7 → Digest × Digest
-  wctChainHigh : WCT9.Coord → Fin 7 → BitVec 64
+  wctChain : WCT9.Coord → Fin 6 → Digest × Digest
+  wctChainHigh : WCT9.Coord → Fin 6 → BitVec 64
   wctMerkle : WCT9.Coord → Fin 7 → Digest
+  /-- FTS leaf pad (campaign T8; honest 0). -/
+  wctLeaf : WCT9.Coord → Digest
   chain : (lay : Layer) → Fin (chainCount lay) → Digest × Digest
   merkle : (lay : Layer) → Fin (height lay) → Digest
   chainHeader : (lay : Layer) → Fin (chainCount lay) → BitVec 64
   bc : Layer → BitVec 96
   bcRight : Digest
 instance : Zero Pads :=
-  ⟨⟨fun _ _ => (0, 0), fun _ _ => 0, fun _ _ => 0, fun _ _ => (0, 0), fun _ _ => 0, fun _ _ => 0, fun _ => 0, 0⟩⟩
+  ⟨⟨fun _ _ => (0, 0), fun _ _ => 0, fun _ _ => 0, fun _ => 0, fun _ _ => (0, 0), fun _ _ => 0, fun _ _ => 0, fun _ => 0, 0⟩⟩
 def Pads.toT3 (pads : Pads) : SigGolfCandidate.T3M.Pads :=
   ⟨fun _ => 0, fun _ => 0, pads.chain, pads.merkle, pads.chainHeader⟩
 def recoverCoordinateP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (output : HashOutput)
     (coord : WCT9.Coord) : M (Digest × Digest) := do
   let selected := WCT9.child output coord
   let word := WCT9.rank output coord
-  let ends ← (List.finRange 7).mapM fun i =>
-    wctChainP index coord.val selected.val i.val (3 - WCT9.wordDigit word i) (WCT9.wordDigit word i)
+  let ends ← (List.finRange 6).mapM fun i =>
+    wctChainP index coord.val selected.val i.val (4 - WCT9.wordDigit word i) (WCT9.wordDigit word i)
       (pads.wctChain coord i).1 (pads.wctChainHigh coord i) (pads.wctChain coord i).2
       ((sig.openings coord).values i)
-  let root ← WCT9.leafHash index coord.val selected.val ends
+  let root ← WCT9.leafHashP index coord.val selected.val (pads.wctLeaf coord) ends
   let top ← (List.finRange 6).foldlM (fun value level => do
     let other := (sig.openings coord).path level.castSucc
     let pair := if selected.val / 2 ^ level.val % 2 = 0 then (value, other) else (other, value)
@@ -296,7 +300,7 @@ def verifyPadsTail (pk : Digest) (output : HashOutput) (w : WCT9.Witness) (pads 
   let some root ← verifyLayersBCP w pads index 4 (.forest root) | pure false
   pure (root == pk)
 def verifyPads (m : Message) (pk : Digest) (w : WCT9.Witness) (pads : Pads) : M Bool := do
-  if w.digestCounter.toNat ≥ WCT9.digestVerifyLimit then return false
+  if w.digestCounter.toNat ≥ WCT9.digestAttemptLimit then return false
   let output ← digest w.signature.rho m w.digestCounter
   verifyPadsTail pk output w pads
 end ClaudeWCT.W9.T3M

@@ -150,10 +150,10 @@ noncomputable def residualPsi (labels : Labels) (rows : EncLeaf → Fin (2 ^ 22)
     U → HashOutput :=
   SphincsSecurity.Concrete.UniformTableSplit.overwrite (encCell U hE labels) (encCell_injective U hE labels)
     (mix rowPrefix (Function.uncurry rows) (fun x => τ (encCell U hE labels x))) τ
-noncomputable def tablePsi (vals : Coord → Digest) (nv : Message → Digest) (τ : U → HashOutput) (a : AuxData) :
-    Answers :=
-  Wots.eagerAnswers U (privPsi (fun s => vals (.inr s)) nv a.priv)
-    (programmed U hU (fun s => vals (.inr s)) (routerLabels vals a) (residualPsi U hE (routerLabels vals a) a.rows τ))
+noncomputable def tablePsi (sec : Secrets) (vals : Coord → Digest) (nv : Message → Digest) (τ : U → HashOutput)
+    (a : AuxData) : Answers :=
+  Wots.eagerAnswers U (privPsi sec nv a.priv)
+    (programmed U hU sec (routerLabels vals a) (residualPsi U hE (routerLabels vals a) a.rows τ))
 theorem eagerAnswers_eq (priv : FullGame.FullTable) (pub : U → HashOutput) :
     Wots.eagerAnswers U priv pub = CanonGraph.eagerAnswers priv U pub := by
   funext q
@@ -192,25 +192,26 @@ theorem rowPrefix_iff (a : AuxData) (L : EncLeaf) (c : Fin (2 ^ 22)) :
 end Public
 section Coherence
 variable (U : Finset HashInput) (hU : canonInputs ⊆ U) (hE : encInputs ⊆ U)
-theorem coherent_psi (vals : Coord → Digest) (nv : Message → Digest) (τ : U → HashOutput) (a : AuxData) :
-    Coherent U (tablePsi U hU hE vals nv τ a) vals nv τ a := by
-  set s : Secrets := fun x => vals (.inr x) with hs
+theorem coherent_psi (sec : Secrets) (vals : Coord → Digest) (nv : Message → Digest) (τ : U → HashOutput)
+    (a : AuxData) (hv : seedView sec = fun x => vals (.inr x)) :
+    Coherent U (tablePsi U hU hE sec vals nv τ a) vals nv τ a := by
+  set s : Secrets := sec with hs
   set labels := routerLabels vals a with hlabels
   set res := residualPsi U hE labels a.rows τ with hres
   set o := nonceOver (privateEquiv a.priv).2 nv with ho
-  have hT : tablePsi U hU hE vals nv τ a = CanonGraph.eagerAnswers (privateEquiv.symm (s, o)) U
+  have hT : tablePsi U hU hE sec vals nv τ a = CanonGraph.eagerAnswers (privateEquiv.symm (s, o)) U
       (programmed U hU s labels res) := by
     unfold tablePsi
     rw [eagerAnswers_eq]
     rfl
-  have hsec : secretsOf (tablePsi U hU hE vals nv τ a) = s := by
+  have hsec : secretsOf (tablePsi U hU hE sec vals nv τ a) = s := by
     rw [hT, secretsOf_eager, privateSecrets_symm]
-  have hpubX : ∀ (X : HashInput) (hX : X ∈ U), tablePsi U hU hE vals nv τ a (.inl (.inr X)) =
+  have hpubX : ∀ (X : HashInput) (hX : X ∈ U), tablePsi U hU hE sec vals nv τ a (.inl (.inr X)) =
       programmed U hU s labels res ⟨X, hX⟩ := by
     intro X hX
     rw [hT]
     exact eagerAnswers_mem _ U _ ⟨X, hX⟩
-  refine ⟨?_, hsec, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, by rw [hsec]; exact hv, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · rw [hT]
     exact eager_programmed_agrees U hU s o labels res
   ·
@@ -253,8 +254,8 @@ theorem coherent_psi (vals : Coord → Digest) (nv : Message → Digest) (τ : U
     rfl
   ·
     intro L
-    have hpub : ∀ x : U, tablePsi U hU hE vals nv τ a (.inl (.inr x.val)) =
-        programmed U hU (secretsOf (tablePsi U hU hE vals nv τ a)) labels res x := by
+    have hpub : ∀ x : U, tablePsi U hU hE sec vals nv τ a (.inl (.inr x.val)) =
+        programmed U hU (secretsOf (tablePsi U hU hE sec vals nv τ a)) labels res x := by
       intro x
       rw [hsec]
       exact hpubX x.val x.property
@@ -310,6 +311,8 @@ noncomputable scoped instance (priority := high) samplerLow : SampleableType Low
 noncomputable scoped instance (priority := high) samplerVals : SampleableType (Coord → Digest) :=
   SampleableType.ofFintype _
 noncomputable scoped instance (priority := high) samplerWorld : SampleableType (WCoord → LargeResidual.Digest) :=
+  SampleableType.ofFintype _
+noncomputable scoped instance (priority := high) samplerHid : SampleableType (ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord) :=
   SampleableType.ofFintype _
 noncomputable scoped instance (priority := high) samplerRows :
     SampleableType (EncLeaf → Fin (2 ^ 22) → HashOutput) := SampleableType.ofFintype _
@@ -437,8 +440,8 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers)
 open ClaudeWCT.W9.T3.Security.LargeResidual
-open SigGolfCandidate.T3.Security.LargeResidual (State Cell AuxQuery lazyRun finish observedRun run_posterior retain
-  runWith_query_bind lazyImpl)
+open SigGolfCandidate.T3.Security.LargeResidual (State Cell AuxQuery retain runWith_query_bind)
+open ClaudeWCT.W9.T3.Security.FamResidual (lazyRun finish observedRun run_posterior lazyImpl lazy_aux' view supp)
 open SigGolfCandidate.T3.Security.LargeCoupling (completeRows_none_apply completeRows_none probEvent_bind_congr_eq)
 open ClaudeWCT.W9.T3.Security.CanonGraph
 open ClaudeWCT.W9.T3.Security.CanonEncoding
@@ -455,27 +458,23 @@ noncomputable def initComp : ProbComp AuxData :=
     ($ᵗ (EncLeaf → Fin (2 ^ 22) → HashOutput) : ProbComp _) >>= fun rows =>
       ($ᵗ FullGame.FullTable : ProbComp _) >>= fun priv => pure ⟨high, rows, priv⟩
 noncomputable def initLaw : PMF AuxData := liftM initComp
-theorem complete_univ_apply (labels : WCoord → LargeResidual.Digest) :
-    SphincsSecurity.Concrete.UniformTableCompletion.complete (fun _ : WCoord => (Finset.univ : Finset LargeResidual.Digest)) labels =
-      Pr[= labels | ($ᵗ (WCoord → LargeResidual.Digest) : ProbComp _)] := by
-  rw [SphincsSecurity.Concrete.UniformTableCompletion.complete_apply, if_pos (fun _ => Finset.mem_univ _),
-    probOutput_uniformSample, Fintype.card_fun, Finset.prod_const, Finset.card_univ, Finset.card_univ]
-theorem complete_univ :
-    SphincsSecurity.Concrete.UniformTableCompletion.complete (fun _ : WCoord => (Finset.univ : Finset LargeResidual.Digest)) =
-      𝒮[($ᵗ (WCoord → LargeResidual.Digest) : ProbComp _)] := by
+theorem cell_univ :
+    SphincsSecurity.Concrete.UniformTableCompletion.cell
+        (supp (fun _ : WCoord => (Finset.univ : Finset LargeResidual.Digest))) =
+      𝒮[($ᵗ (ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord) : ProbComp _)] := by
+  rw [ClaudeWCT.W9.T3.Security.FamResidual.supp_univ]
   apply SPMF.ext
-  intro labels
-  rw [complete_univ_apply]
-  rfl
+  intro x
+  change _ = Pr[= x | ($ᵗ (ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord) : ProbComp _)]
+  rw [SphincsSecurity.Concrete.UniformTableCompletion.cell_apply, if_pos (Finset.mem_univ _), probOutput_uniformSample,
+    Finset.card_univ]
 section Lazy
 variable {U : Finset HashInput}
 theorem lazy_aux {β : Type} (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input)) (q : Nat)
     (i : AuxQuery) (k : AuxSpec.Range i → OracleComp (RWorld U) β) (s : LargeResidual.State WCoord (Cell U)) :
     lazyRun aux q (liftM ((RWorld U).query (.inl i)) >>= k) s =
       ((liftM (aux i) : SPMF _) >>= fun v => lazyRun aux q (k v) s) := by
-  rw [lazyRun, runWith_query_bind]
-  simp only [lazyImpl, OptionT.run_mk, StateT.run_mk, bind_assoc, pure_bind, Option.elim_some]
-  rfl
+  exact lazy_aux' aux q i k s
 theorem finish_stop {R : Type} (X : SPMF (Option R × LargeResidual.State WCoord (Cell U)))
     (P : LargeResidual.State WCoord (Cell U) → Prop) :
     Pr[fun r => r.1 = none ∧ P r.2 | X >>= finish] = Pr[fun r => r.1 = none ∧ P r.2 | X] := by
@@ -494,13 +493,14 @@ theorem finish_stop {R : Type} (X : SPMF (Option R × LargeResidual.State WCoord
       simp only [probEvent_bind_eq_tsum, probEvent_pure, reduceCtorEq, false_and, if_false, mul_zero, tsum_zero]
 theorem observed_avg {R : Type} (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input)) (q : Nat)
     (program : OracleComp (RWorld U) R) (P : LargeResidual.State WCoord (Cell U) → Prop) :
-    Pr[fun r => r.1 = none ∧ P r.2 | 𝒮[($ᵗ (WCoord → LargeResidual.Digest) : ProbComp _)] >>= fun labels =>
+    Pr[fun r => r.1 = none ∧ P r.2 | 𝒮[($ᵗ (ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord) : ProbComp _)] >>= fun x =>
         𝒮[($ᵗ (Cell U → LargeResidual.HashOutput) : ProbComp _)] >>= fun τ =>
-          observedRun aux q labels τ program LargeResidual.initial] =
+          observedRun aux q (view x) τ program LargeResidual.initial] =
       Pr[fun r => r.1 = none ∧ P r.2 | lazyRun aux q program LargeResidual.initial] := by
-  rw [← complete_univ, ← completeRows_none]
+  rw [← cell_univ, ← completeRows_none]
   have hpost := run_posterior aux q program (LargeResidual.initial : LargeResidual.State WCoord (Cell U))
-    (fun _ => Finset.univ_nonempty)
+    (by change (supp (fun _ : WCoord => (Finset.univ : Finset LargeResidual.Digest))).Nonempty
+        rw [ClaudeWCT.W9.T3.Security.FamResidual.supp_univ]; exact Finset.univ_nonempty)
   rw [← finish_stop (lazyRun aux q program LargeResidual.initial) P, ← hpost]
   apply probEvent_bind_congr_eq
   intro labels
@@ -523,9 +523,9 @@ theorem router_side (adversary : AdversaryP) (q : Nat) :
         𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun high =>
         𝒮[($ᵗ (EncLeaf → Fin (2 ^ 22) → HashOutput) : ProbComp _)] >>= fun rows =>
         𝒮[($ᵗ FullGame.FullTable : ProbComp _)] >>= fun priv =>
-        𝒮[($ᵗ (WCoord → LargeResidual.Digest) : ProbComp _)] >>= fun lab =>
+        𝒮[($ᵗ (ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord) : ProbComp _)] >>= fun x =>
         𝒮[($ᵗ (Cell (Wots.referenceInputs adversary) → LargeResidual.HashOutput) : ProbComp _)] >>= fun τ =>
-        observedRun (auxLaw initLaw) q lab τ (routerWith (Wots.referenceInputs adversary) adversary q ⟨high, rows, priv⟩)
+        observedRun (auxLaw initLaw) q (view x) τ (routerWith (Wots.referenceInputs adversary) adversary q ⟨high, rows, priv⟩)
           LargeResidual.initial] := by
   unfold router initReq
   rw [lazy_aux]
@@ -551,8 +551,8 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers)
 open ClaudeWCT.W9.T3.Security.LargeResidual
-open SigGolfCandidate.T3.Security.LargeResidual (State Cell AuxQuery lazyRun finish observedRun run_posterior retain
-  runWith_query_bind lazyImpl)
+open SigGolfCandidate.T3.Security.LargeResidual (State Cell AuxQuery retain runWith_query_bind)
+open ClaudeWCT.W9.T3.Security.FamResidual (lazyRun finish observedRun run_posterior lazyImpl lazy_aux' view supp)
 open SigGolfCandidate.T3.Security.LargeCoupling (probEvent_bind_le_of uniform_weight weight_self evalSPMF_uniform_inst
   uniform_equiv_bind uniform_prod_bind)
 open ClaudeWCT.W9.T3.Security.CanonGraph
@@ -566,47 +566,79 @@ section Contact
 attribute [local instance] Classical.propDecidable
 open ClaudeWCT.W9.T3.Security.LargeCoupling.Samplers SigGolfCandidate.T3.Security.LargeCoupling.Samplers
 def RealContact (adversary : AdversaryP) (q : Nat) (x : FirstHit.Recorded Bool × Answers) : Prop :=
-  ContactR adversary q x.1 x.2
+  ContactR adversary q x.1 x.2 ∧ NoOvR adversary x.1 x.2
+theorem loggedOutputs_short {A T : Answers} (hAT : Wots.Ref.ShortAgree A T) (log : QueryLog Requests) :
+    WPair.loggedOutputs A log = WPair.loggedOutputs T log := by
+  unfold WPair.loggedOutputs CaseC.signedOutput
+  congr 1
+  funext entry
+  congr 1
+  funext σ
+  rw [digestSearch_short hAT]
+theorem noOvR_short {A T : Answers} (hAT : Wots.Ref.ShortAgree A T) (adversary : AdversaryP)
+    (rec : FirstHit.Recorded Bool) : NoOvR adversary rec A ↔ NoOvR adversary rec T := by
+  unfold NoOvR LogNoOverflow
+  simp only [loggedOutputs_short hAT]
+/-- The contact event with the FTS no-overflow side condition (on the recorded trace). -/
+def ContactNO (adversary : AdversaryP) (q : Nat) (z : PaddedGame.TraceResult × Answers) : Prop :=
+  Contact adversary q z ∧ NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2
 noncomputable def fixedNext (adversary : AdversaryP) (T : Answers) : ProbComp (FirstHit.Recorded Bool × Answers) :=
   (fun r => (r, T)) <$> Wots.Ref.fixedRecord T (GameWith.idealGame PaddedGame.checker adversary) (∅, ∅)
 theorem contact_real_side (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
-    Pr[Contact adversary q | SeccLaw.completedExperiment adversary q hq] =
+    Pr[ContactNO adversary q | SeccLaw.completedExperiment adversary q hq] =
       Pr[RealContact adversary q |
         ($ᵗ FullGame.FullTable : ProbComp _) >>= fun priv =>
           ($ᵗ (Wots.referenceInputs adversary → HashOutput) : ProbComp _) >>= fun pub =>
             fixedNext adversary (Wots.eagerAnswers (Wots.referenceInputs adversary) priv pub)] := by
-  have h1 := Wots.completed_eager_cut adversary q hq (ContactR adversary q)
-  rw [show (Contact adversary q) = fun z => ContactR adversary q (QueryRecorded.recordedTrace z.1) z.2 from rfl, h1]
-  have h2 : (fun x : FirstHit.Recorded Bool × Answers => ContactR adversary q x.1 (Wots.Ref.cut x.1.state x.2)) =
-      RealContact adversary q := by
+  have h1 := Wots.completed_eager_cut adversary q hq (fun rec A => ContactR adversary q rec A ∧ NoOvR adversary rec A)
+  rw [show (ContactNO adversary q) = fun z => ContactR adversary q (QueryRecorded.recordedTrace z.1) z.2 ∧
+    NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2 from rfl, h1]
+  have h2 : (fun x : FirstHit.Recorded Bool × Answers => ContactR adversary q x.1 (Wots.Ref.cut x.1.state x.2) ∧
+      NoOvR adversary x.1 (Wots.Ref.cut x.1.state x.2)) = RealContact adversary q := by
     funext x
-    exact propext (contactR_short (Wots.Ref.cut_shortAgree _ _) adversary q x.1)
+    exact propext (and_congr (contactR_short (Wots.Ref.cut_shortAgree _ _) adversary q x.1)
+      (noOvR_short (Wots.Ref.cut_shortAgree _ _) adversary x.1))
   rw [h2]
   unfold Wots.eagerRecorded
   rw [MonitoredPrivate.event_lift]
   apply probEvent_congr' (fun _ _ => Iff.rfl)
   rw [evalSPMF_bind, evalSPMF_bind, evalSPMF_uniform_inst _ samplerFull]
   congr 1
-def worldEquiv : Secrets × ((Message → Digest) × LowLabels) ≃ (WCoord → LargeResidual.Digest) where
-  toFun p := Sum.elim (Sum.elim p.2.2 p.1) p.2.1
-  invFun lab := (fun s => lab (.inl (.inr s)), fun m => lab (.inr m), fun N => lab (.inl (.inl N)))
-  left_inv p := rfl
-  right_inv lab := by
+/-- The FTS-coefficient secrets of a hidden object. -/
+def secOf (x : ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord) : Secrets :=
+  Sum.elim (fun a => x.1 (.inl (.inr a))) (fun c => x.2 (c.1, c.2.1) c.2.2)
+def worldEquiv : Secrets × ((Message → Digest) × LowLabels) ≃ ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord where
+  toFun p := ((Sum.elim (Sum.elim p.2.2 (fun a => p.1 (.inl a))) p.2.1 : WPlain → LargeResidual.Digest),
+    fun f j => p.1 (.inr (f.1, f.2, j)))
+  invFun x := (secOf x, fun m => x.1 (.inr m), fun N => x.1 (.inl (.inl N)))
+  left_inv p := by
+    obtain ⟨sec, nv, low⟩ := p
+    refine Prod.ext ?_ rfl
     funext c
-    rcases c with (N | s) | m <;> rfl
+    rcases c with a | ⟨i, k, j⟩ <;> rfl
+  right_inv x := by
+    obtain ⟨L, K⟩ := x
+    refine Prod.ext ?_ rfl
+    funext c
+    rcases c with (N | a) | m <;> rfl
 theorem world_split {R : Type} (K : Secrets → (Message → Digest) → LowLabels → ProbComp R) :
     𝒮[($ᵗ Secrets : ProbComp _) >>= fun sec => ($ᵗ (Message → Digest) : ProbComp _) >>= fun nv =>
         ($ᵗ LowLabels : ProbComp _) >>= fun low => K sec nv low] =
-      𝒮[($ᵗ (WCoord → LargeResidual.Digest) : ProbComp _) >>= fun lab =>
-        K (fun s => lab (.inl (.inr s))) (fun m => lab (.inr m)) (fun N => lab (.inl (.inl N)))] := by
+      𝒮[($ᵗ (ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord) : ProbComp _) >>= fun x =>
+        K (secOf x) (fun m => x.1 (.inr m)) (fun N => x.1 (.inl (.inl N)))] := by
   let _ : SampleableType ((Message → Digest) × LowLabels) := SampleableType.ofFintype _
   let _ : SampleableType (Secrets × ((Message → Digest) × LowLabels)) := SampleableType.ofFintype _
-  rw [uniform_equiv_bind worldEquiv, uniform_prod_bind]
-  refine evalSPMF_bind_congr' _ fun sec => ?_
-  rw [uniform_prod_bind]
-  rfl
+  calc _ = 𝒮[($ᵗ (Secrets × ((Message → Digest) × LowLabels)) : ProbComp _) >>= fun p => K p.1 p.2.1 p.2.2] := by
+        rw [uniform_prod_bind]
+        refine evalSPMF_bind_congr' _ fun sec => ?_
+        rw [uniform_prod_bind]
+    _ = _ := uniform_equiv_bind worldEquiv.symm _
+theorem seedView_secOf (x : ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord) :
+    seedView (secOf x) = fun s => view x (.inl (.inr s)) := by
+  funext s
+  rcases s with a | w <;> rfl
 theorem contact_le_lazy (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
-    Pr[Contact adversary q | SeccLaw.completedExperiment adversary q hq] ≤
+    Pr[ContactNO adversary q | SeccLaw.completedExperiment adversary q hq] ≤
       Pr[fun r => r.1 = none ∧ r.2.counters.calls ≤ q |
         lazyRun (auxLaw initLaw) q (router (Wots.referenceInputs adversary) adversary q) LargeResidual.initial] := by
   have hU : canonInputs ⊆ Wots.referenceInputs adversary :=
@@ -619,7 +651,7 @@ theorem contact_le_lazy (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) 
   refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun rows => ?_
   refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun priv => ?_
   rw [probEvent_congr' (fun _ _ => Iff.rfl) (world_split _)]
-  refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun lab => ?_
+  refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun x => ?_
   have hτ : ∀ (k : (Wots.referenceInputs adversary → HashOutput) → ProbComp (FirstHit.Recorded Bool × Answers)),
       𝒮[(@uniformSample (Wots.referenceInputs adversary → HashOutput) (samplerPublic _) : ProbComp _) >>= k] =
         𝒮[(@uniformSample (Wots.referenceInputs adversary → HashOutput) (samplerCell _) : ProbComp _) >>= k] := by
@@ -627,12 +659,12 @@ theorem contact_le_lazy (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) 
     rw [evalSPMF_bind]
   rw [probEvent_congr' (fun _ _ => Iff.rfl) (hτ _)]
   refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun τ => ?_
-  · have hT : CanonGraph.eagerAnswers (privateEquiv.symm ((fun s => lab (.inl (.inr s))),
-          nonceOver (privateEquiv priv).2 (fun m => lab (.inr m)))) (Wots.referenceInputs adversary)
-          (programmed (Wots.referenceInputs adversary) hU (fun s => lab (.inl (.inr s)))
-            (joinLabels (fun N => lab (.inl (.inl N))) high)
-            (residualPsi (Wots.referenceInputs adversary) hE (joinLabels (fun N => lab (.inl (.inl N))) high) rows τ)) =
-        tablePsi (Wots.referenceInputs adversary) hU hE (fun c => lab (.inl c)) (fun m => lab (.inr m)) τ
+  · have hT : CanonGraph.eagerAnswers (privateEquiv.symm (secOf x,
+          nonceOver (privateEquiv priv).2 (fun m => x.1 (.inr m)))) (Wots.referenceInputs adversary)
+          (programmed (Wots.referenceInputs adversary) hU (secOf x)
+            (joinLabels (fun N => x.1 (.inl (.inl N))) high)
+            (residualPsi (Wots.referenceInputs adversary) hE (joinLabels (fun N => x.1 (.inl (.inl N))) high) rows τ)) =
+        tablePsi (Wots.referenceInputs adversary) hU hE (secOf x) (fun c => view x (.inl c)) (fun m => view x (.inr m)) τ
           ⟨high, rows, priv⟩ := by
       unfold tablePsi
       rw [eagerAnswers_eq]
@@ -641,9 +673,9 @@ theorem contact_le_lazy (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) 
     unfold fixedNext RealContact
     rw [probEvent_map]
     have h := table_contact_le adversary q hq initLaw
-      (coherent_psi (Wots.referenceInputs adversary) hU hE (fun c => lab (.inl c)) (fun m => lab (.inr m)) τ
-        ⟨high, rows, priv⟩)
-    have hlab : Sum.elim (fun c => lab (.inl c)) (fun m => lab (.inr m)) = lab := by
+      (coherent_psi (Wots.referenceInputs adversary) hU hE (secOf x) (fun c => view x (.inl c))
+        (fun m => view x (.inr m)) τ ⟨high, rows, priv⟩ (seedView_secOf x))
+    have hlab : Sum.elim (fun c => view x (.inl c)) (fun m => view x (.inr m)) = view x := by
       funext c
       rcases c with c | m <;> rfl
     rw [hlab] at h

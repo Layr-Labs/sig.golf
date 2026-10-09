@@ -13,13 +13,13 @@ attribute [local instance] Classical.propDecidable
 abbrev WProposal := Fin (2 ^ 31) × (Coord → Child × Rank)
 def outIdx (x : HashOutput) : Fin (2 ^ 31) := ⟨WCT9.digestIndex x, WCT9.digestIndex_lt x⟩
 def proposal (x : HashOutput) : WProposal := (outIdx x, fun k => (child x k, rank x k))
-def SlotCovered (X : List HashOutput) (N : HashOutput) (k : Coord) (t : Fin 7) : Prop :=
+def SlotCovered (X : List HashOutput) (N : HashOutput) (k : Coord) (t : Fin 6) : Prop :=
   ∃ x ∈ X, outIdx x = outIdx N ∧ child x k = child N k ∧ wordDigit (rank N k) t ≤ wordDigit (rank x k) t
 def Covered (X : List HashOutput) (N : HashOutput) : Prop := ∀ k t, SlotCovered X N k t
-def SlotCoveredP (W : List WProposal) (N : HashOutput) (k : Coord) (t : Fin 7) : Prop :=
+def SlotCoveredP (W : List WProposal) (N : HashOutput) (k : Coord) (t : Fin 6) : Prop :=
   ∃ p ∈ W, p.1 = outIdx N ∧ (p.2 k).1 = child N k ∧ wordDigit (rank N k) t ≤ wordDigit (p.2 k).2 t
 def CoveredP (W : List WProposal) (N : HashOutput) : Prop := ∀ k t, SlotCoveredP W N k t
-theorem slotCovered_iff (X : List HashOutput) (N : HashOutput) (k : Coord) (t : Fin 7) :
+theorem slotCovered_iff (X : List HashOutput) (N : HashOutput) (k : Coord) (t : Fin 6) :
     SlotCovered X N k t ↔ SlotCoveredP (X.map proposal) N k t := by
   constructor
   · rintro ⟨x, hx, h1, h2, h3⟩

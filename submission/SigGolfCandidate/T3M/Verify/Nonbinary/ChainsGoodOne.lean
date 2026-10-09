@@ -693,11 +693,11 @@ theorem partLen_le (q d : Nat) : partLen q d≤14 := by
 theorem kdig_le (q k j : Nat) : kdig q k j ≤ mx q := by
   have := mx_bounds q
   unfold kdig; have := Nat.mod_lt (k/(mx q+1)^j) (show 0< mx q+1 by omega); omega
-theorem inl_q (q : Nat) (h : inl q=true) : 13 ≤ q ∧ q ≤ 17 := by simp [inl] at h; omega
+theorem inl_q (q : Nat) (h : inl q=true) : 13 ≤ q ∧ q ≤ 16 := by simp [inl] at h; omega
 theorem leadPc_le (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) (hk' : q<17 → k<125) :
     leadPc q k ≤ 210425 := by
   unfold leadPc leadOff entW cellW entOff mx at *
-  split_ifs at * <;> (try norm_num at *) <;> omega
+  split_ifs at * <;> omega
 theorem group_bounds (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) (hk' : q<17 → k<125) :
     gbase q k+2*mx q+2<251927 ∧ gX q k+4<251927 ∧ leadPc q k<251927 ∧
       (inl q=true → gbase q k+5 ≤ leadPc q k+8) := by
@@ -712,9 +712,10 @@ theorem group_bounds (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) (hk' : q<17 →
     simp only [gbase,hn,Bool.false_eq_true,if_false]
     refine ⟨by omega,by omega,by omega,fun h => absurd h (by simp)⟩
   · have hq' := inl_q q hn
-    have hl2 : leadPc q k ≤ 210425 ∧ 89 ≤ leadPc q k := ⟨hl, by
-      unfold leadPc leadOff entW cellW entOff
-      split_ifs <;> omega⟩
+    have hl2 : leadPc q k ≤ 256*124+211+1 ∧ 89 ≤ leadPc q k := by
+      have := hk' (by omega)
+      unfold leadPc leadOff entW cellW entOff at *
+      split_ifs at * <;> omega
     simp only [gbase,hn,if_true]
     refine ⟨?_,?_,by omega,fun _ => ?_⟩ <;> split_ifs <;> omega
 namespace NCtx

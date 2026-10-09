@@ -258,7 +258,7 @@ noncomputable def signedOutput (answers : Correctness.Answers) (message : Messag
     Option HashOutput :=
   (evalWithAnswerFn answers (WCT9.digestSearch signature.rho message 0 WCT9.digestAttemptLimit)).map Prod.snd
 def SlotDisclosed (answers : Correctness.Answers) (log : QueryLog Requests) (N : HashOutput) (k : WCT9.Coord)
-    (t : Fin 7) : Prop :=
+    (t : Fin 6) : Prop :=
   ∃ entry ∈ log, ∃ signature output, entry.2 = some signature ∧
     signedOutput answers entry.1.message signature = some output ∧
     outIdx output = outIdx N ∧ WCT9.child output k = WCT9.child N k ∧

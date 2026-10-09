@@ -7,8 +7,7 @@ open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final
 open Correctness (Answers)
 def Fresh (log : QueryLog Requests) : ForgeryP → Prop
   | .witness message _ => ¬∃ entry ∈ log, entry.1.message = message ∧ entry.2.isSome = true
-  | .signature message signature => ¬∃ entry ∈ log, entry.1.message = message ∧
-      entry.2.map ClaudeWCT.WCT9.proj = some (ClaudeWCT.WCT9.proj signature)
+  | .signature message signature => ¬∃ entry ∈ log, entry.1.message = message ∧ entry.2 = some signature
 def WitnessOf (answers : Answers) (publicKey : Digest) : ForgeryP → Message → WBytes → Prop
   | .witness message witness, m, w => m = message ∧ w = witness
   | .signature message signature, m, w =>

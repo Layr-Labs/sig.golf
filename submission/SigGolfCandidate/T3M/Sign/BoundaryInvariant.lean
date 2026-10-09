@@ -664,7 +664,7 @@ def Inv (sk : SecretKey) (cache : Bytes 131072) (t : MachineState) : Prop :=
     t.getMem (BitVec.ofNat 64 (ENC + 48)) = 0 ∧ t.getMem (BitVec.ofNat 64 (ENC + 56)) = 0
 def NewWrites (A : Nat) : Prop :=
   (A = DIG + 16 ∨ A = DIG + 24 ∨ (NBUF ≤ A ∧ A < NBUF + 32) ∨ A = IDXV) ∨
-  (0x50000 ≤ A ∧ A < 0x52010) ∨ (SIG + 16 ≤ A ∧ A < SIG + 2032) ∨
+  (0x50000 ≤ A ∧ A < 0x52010) ∨ (SIG + 16 ≤ A ∧ A < SIG + 1888) ∨
   (FOUT ≤ A ∧ A < FOUT + 32)
 theorem NoncePost.inv {sk : SecretKey} {cache : Bytes 131072} {m : Message}
     {rho : SigGolfCandidate.T3.Digest} {t : MachineState}

@@ -4,9 +4,10 @@ import SigGolfCandidate.T3.Secc.LargeCouplingObserved
 namespace ClaudeWCT.W9.T3.Security.LargeResidual
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open SigGolfCandidate.T3.Security.LargeResidual (State Charge Probe Cell observedRun readState probeState stoppedState
-  disclosedState tickState observed_aux observed_read observed_probe_cached observed_probe_fresh observed_disclose
-  observed_tick)
+open SigGolfCandidate.T3.Security.LargeResidual (State Charge Probe Cell readState probeState stoppedState
+  disclosedState tickState)
+open ClaudeWCT.W9.T3.Security.FamResidual (observedRun observed_aux observed_read observed_probe_cached
+  observed_probe_fresh observed_disclose observed_tick)
 attribute [local instance] Classical.propDecidable
 set_option backward.isDefEq.respectTransparency false
 set_option synthInstance.maxSize 1024
@@ -35,8 +36,8 @@ theorem observed_probeReq_cached {β : Type} (row : Cell U) (test : Probe WCoord
 theorem observed_probeReq_fresh {β : Type} (row : Cell U) (test : Probe WCoord)
     (k : HashOutput → OracleComp (RWorld U) β) (s : State WCoord (Cell U)) (h : s.rows row = none) :
     observedRun aux q labels table (probeReq U row test >>= k) s =
-      if (test.effective s.candidates).keep labels (table row) then
-        observedRun aux q labels table (k (table row)) (probeState s row (test.effective s.candidates) (table row))
+      if (test.effF s.candidates).keep labels (table row) then
+        observedRun aux q labels table (k (table row)) (probeState s row (test.effF s.candidates) (table row))
       else pure (none, stoppedState s) :=
   observed_probe_fresh aux q labels table row test k s h
 theorem observed_discloseReq {β : Type} (c : WCoord) (ch : Charge) (k : Digest → OracleComp (RWorld U) β)

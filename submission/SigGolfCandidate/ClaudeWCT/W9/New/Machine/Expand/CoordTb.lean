@@ -3,15 +3,13 @@ import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.RoutineCheck1
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.RoutineCheck2
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.JTCheck0
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.JTCheck1
-import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.JTCheck2
-import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.JTCheck3
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.Drv
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.FtsSrc
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.Region
 
 section
 namespace ClaudeWCT.W9.Machine.Expand
-theorem routineOK_all (x : Nat) (hx : x < 728) : routineOK x = true := by
+theorem routineOK_all (x : Nat) (hx : x < 563) : routineOK x = true := by
   have key : ∀ lo n, (List.range' lo n).all routineOK = true → lo ≤ x → x < lo + n → routineOK x = true :=
     fun lo n h h1 h2 => List.all_eq_true.mp h x (List.mem_range'_1.mpr ⟨h1, h2⟩)
   by_cases h0 : x < 64; · exact key 0 64 routineOK_0 (by omega) h0
@@ -22,29 +20,19 @@ theorem routineOK_all (x : Nat) (hx : x < 728) : routineOK x = true := by
   by_cases h320 : x < 384; · exact key 320 64 routineOK_320 (by omega) h320
   by_cases h384 : x < 448; · exact key 384 64 routineOK_384 (by omega) h384
   by_cases h448 : x < 512; · exact key 448 64 routineOK_448 (by omega) h448
-  by_cases h512 : x < 576; · exact key 512 64 routineOK_512 (by omega) h512
-  by_cases h576 : x < 640; · exact key 576 64 routineOK_576 (by omega) h576
-  by_cases h640 : x < 704; · exact key 640 64 routineOK_640 (by omega) h640
-  exact key 704 24 routineOK_704 (by omega) (by omega)
-theorem jtOK_all (x : Nat) (hx : x < 16200) : jtOK x = true := by
+  exact key 512 51 routineOK_512 (by omega) (by omega)
+theorem jtOK_all (x : Nat) (hx : x < 563) : jtOK x = true := by
   have key : ∀ lo n, (List.range' lo n).all jtOK = true → lo ≤ x → x < lo + n → jtOK x = true :=
     fun lo n h h1 h2 => List.all_eq_true.mp h x (List.mem_range'_1.mpr ⟨h1, h2⟩)
-  by_cases h0 : x < 1024; · exact key 0 1024 jtOK_0 (by omega) h0
-  by_cases h1024 : x < 2048; · exact key 1024 1024 jtOK_1024 (by omega) h1024
-  by_cases h2048 : x < 3072; · exact key 2048 1024 jtOK_2048 (by omega) h2048
-  by_cases h3072 : x < 4096; · exact key 3072 1024 jtOK_3072 (by omega) h3072
-  by_cases h4096 : x < 5120; · exact key 4096 1024 jtOK_4096 (by omega) h4096
-  by_cases h5120 : x < 6144; · exact key 5120 1024 jtOK_5120 (by omega) h5120
-  by_cases h6144 : x < 7168; · exact key 6144 1024 jtOK_6144 (by omega) h6144
-  by_cases h7168 : x < 8192; · exact key 7168 1024 jtOK_7168 (by omega) h7168
-  by_cases h8192 : x < 9216; · exact key 8192 1024 jtOK_8192 (by omega) h8192
-  by_cases h9216 : x < 10240; · exact key 9216 1024 jtOK_9216 (by omega) h9216
-  by_cases h10240 : x < 11264; · exact key 10240 1024 jtOK_10240 (by omega) h10240
-  by_cases h11264 : x < 12288; · exact key 11264 1024 jtOK_11264 (by omega) h11264
-  by_cases h12288 : x < 13312; · exact key 12288 1024 jtOK_12288 (by omega) h12288
-  by_cases h13312 : x < 14336; · exact key 13312 1024 jtOK_13312 (by omega) h13312
-  by_cases h14336 : x < 15360; · exact key 14336 1024 jtOK_14336 (by omega) h14336
-  exact key 15360 840 jtOK_15360 (by omega) (by omega)
+  by_cases h0 : x < 64; · exact key 0 64 jtOK_0 (by omega) h0
+  by_cases h64 : x < 128; · exact key 64 64 jtOK_64 (by omega) h64
+  by_cases h128 : x < 192; · exact key 128 64 jtOK_128 (by omega) h128
+  by_cases h192 : x < 256; · exact key 192 64 jtOK_192 (by omega) h192
+  by_cases h256 : x < 320; · exact key 256 64 jtOK_256 (by omega) h256
+  by_cases h320 : x < 384; · exact key 320 64 jtOK_320 (by omega) h320
+  by_cases h384 : x < 448; · exact key 384 64 jtOK_384 (by omega) h384
+  by_cases h448 : x < 512; · exact key 448 64 jtOK_448 (by omega) h448
+  exact key 512 51 jtOK_512 (by omega) (by omega)
 end ClaudeWCT.W9.Machine.Expand
 end
 section
@@ -55,7 +43,7 @@ open SigGolfCandidate.T3 (Digest HashOutput M)
 open ClaudeWCT.W9.Machine.Expand.Driver
 set_option linter.unusedSimpArgs false
 set_option linter.unnecessarySeqFocus false
-theorem jt_step {im : Image} (hc : NewCodeAt im) (f : Nat) (hf : f < 16200) (s : MachineState)
+theorem jt_step {im : Image} (hc : NewCodeAt im) (f : Nat) (hf : f < 563) (s : MachineState)
     (hpc : s.pc = pcOf (jt0 + f)) :
     Steps im s 1 1 (s.setPC (pcOf (jtTarget f))) := by
   have h := jtOK_all f hf
@@ -87,9 +75,10 @@ def coordCost : Nat := 420
 theorem region_facts {sig : WCT9.Signature} {N : HashOutput} {sF t : MachineState} (hin : FtsIn sig N sF)
     (k : Nat) (hk : k < 9)
     (hfr : ∀ o, o < 1024 → t.getMem (BitVec.ofNat 64 (regBase k + o)) = sF.getMem (BitVec.ofNat 64 (regBase k + o))) :
-    (∀ i (h : i < 7), DigAt t (regBase k + offC i + 48) ((sig.openings ⟨k, hk⟩).values ⟨i, h⟩)) ∧
-    (∀ i (h : i < 7), DigAt t (regBase k + slotC i) ((sig.openings ⟨k, hk⟩).values ⟨i, h⟩)) ∧
-    (∀ i, i < 7 → PadsZ (regBase k) i t) ∧
+    (∀ i (h : i < 6), DigAt t (regBase k + offC i + 48) ((sig.openings ⟨k, hk⟩).values ⟨i, h⟩)) ∧
+    (∀ i (h : i < 6), DigAt t (regBase k + slotC i) ((sig.openings ⟨k, hk⟩).values ⟨i, h⟩)) ∧
+    (∀ i, i < 6 → PadsZ (regBase k) i t) ∧
+    DigAt t (regBase k + 848) 0 ∧
     (∀ l, l < 7 → DigAt t (regBase k + Merkle.padO l) 0) ∧
     (∀ l (h : l < 7), DigAt t (regBase k + Merkle.sibO l (WCT9.child N ⟨k, hk⟩).val)
       ((sig.openings ⟨k, hk⟩).path ⟨l, h⟩)) := by
@@ -98,7 +87,9 @@ theorem region_facts {sig : WCT9.Signature} {N : HashOutput} {sF t : MachineStat
       rw [show regBase k + o + 8 = regBase k + (o + 8) by omega, hfr (o + 8) (by omega),
         ← show regBase k + o + 8 = regBase k + (o + 8) by omega]; exact hd.2⟩
   have pd := fun o (h8 : o % 8 = 0) (h16 : o + 16 ≤ 1024) d hw => placed_digAt hin.placed k hk o h8 h16 d hw
-  refine ⟨fun i h => ?_, fun i h => ?_, fun i h => ?_, fun l h => ?_, fun l h => ?_⟩
+  refine ⟨fun i h => ?_, fun i h => ?_, fun i h => ?_,
+    tr _ _ (by omega) (by omega) (pd 848 (by omega) (by omega) 0 (by rw [win_leafPad, zeros16])),
+    fun l h => ?_, fun l h => ?_⟩
   · have hb := offC_bounds i h
     rw [Nat.add_assoc]
     exact tr _ _ (by omega) (by omega) (pd _ (by omega) (by omega) _ (win_chainVal _ _ ⟨i, h⟩))
@@ -139,15 +130,15 @@ set_option linter.unusedSimpArgs false
 set_option linter.unnecessarySeqFocus false
 set_option maxHeartbeats 1000000
 theorem field_lt_of_adm (N : HashOutput) (k : Nat) (hk : k < 9) (hadm : WCT9.admissible N = true) :
-    WCT9.field N ⟨k, hk⟩ < 16200 := by
+    WCT9.field N ⟨k, hk⟩ < 563 := by
   have := ((admissible_iff N).mp hadm).2 k (Nat.zero_le _) hk
   exact this
-theorem codewordL_le3 (r : Nat) (hr : r < 728) (t : Nat) (ht : t < 7) : (codewordL r).getD t 0 ≤ 3 := by
-  have := WCT9.digit_le_three ⟨r, hr⟩ ⟨t, ht⟩
+theorem codewordL_le4 (r : Nat) (hr : r < 563) (t : Nat) (ht : t < 6) : (codewordL r).getD t 0 ≤ 4 := by
+  have := WCT9.wordDigit_le_four ⟨r, hr⟩ ⟨t, ht⟩
   rwa [codewordL_eq] at this
 theorem regBase_bounds (k : Nat) (hk : k < 9) : regBase k % 64 = 0 ∧ 0x840 ≤ regBase k ∧ regBase k + 1024 ≤ 0x2c40 := by
   unfold regBase; omega
-theorem chainsWr_range {B : Nat} {z : List Nat} {A : Nat} (h : chainsWr B z 7 A) : B + 464 ≤ A ∧ A < B + 1024 := by
+theorem chainsWr_range {B : Nat} {z : List Nat} {A : Nat} (h : chainsWr B z 6 A) : B + 464 ≤ A ∧ A < B + 1024 := by
   obtain ⟨t', ht', _, hw⟩ := h
   unfold chainWr offC slotC at hw
   split_ifs at hw <;> omega
@@ -163,9 +154,9 @@ theorem hdr0_node_lt (k : Nat) : hdr0 3 (4 + k) 0 0 < 2 ^ 32 := by
   simp only [Nat.zero_div, Nat.zero_mod, Nat.zero_mul, Nat.add_zero]
   omega
 theorem leafHdr_digAt {w : MachineState} {B k index j : Nat} (hk : k < 9) (hidx : index < 2 ^ 31) (hj : j < 128)
-    (h0 : w.getMem (BitVec.ofNat 64 (B + 896)) = BitVec.ofNat 64 (qQ k index j + 1537))
-    (h1 : w.getMem (BitVec.ofNat 64 (B + 904)) = 0) :
-    DigAt w (B + 896) (ClaudeWCT.WCT9.ftsLeafHeader index k j) := by
+    (h0 : w.getMem (BitVec.ofNat 64 (B + 832)) = BitVec.ofNat 64 (qQ k index j + 1537))
+    (h1 : w.getMem (BitVec.ofNat 64 (B + 840)) = 0) :
+    DigAt w (B + 832) (ClaudeWCT.WCT9.ftsLeafHeader index k j) := by
   unfold ClaudeWCT.WCT9.ftsLeafHeader
   constructor
   · rw [h0, SigGolfCandidate.T3.append64_low]
@@ -173,7 +164,7 @@ theorem leafHdr_digAt {w : MachineState} {B k index j : Nat} (hk : k < 9) (hidx 
     congr 1
     rw [Nat.mod_eq_of_lt (show k < 16 by omega), Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hidx]
     ring
-  · rw [show B + 896 + 8 = B + 904 by omega, h1]
+  · rw [show B + 832 + 8 = B + 840 by omega, h1]
     apply BitVec.eq_of_toNat_eq
     rw [BitVec.extractLsb'_toNat, SigGolfCandidate.T3.append64_toNat]
     have := (BitVec.ofNat 64 (ClaudeWCT.WCT9.ftsLeafLow index k j)).isLt
@@ -184,10 +175,10 @@ theorem pc_child (j : Nat) : (BitVec.ofNat 64 (17572 + 256 * j)) &&& 18446744073
   have : BitVec.ofNat 64 (17572 + 256 * j) = pcOf (cbE j) := by
     unfold pcOf cbE cb0; congr 1; ring
   rw [this, not1_eq, pcOf_and_not1]
-theorem jtTarget_field (N : HashOutput) (c : WCT9.Coord) :
-    jtTarget (WCT9.field N c) = routineEntry.getD (WCT9.embed (WCT9.rank N c)).val 0 := by
-  unfold jtTarget WCT9.embed WCT9.rank
-  rw [List.getD_eq_getElem WCT9.codeRanks 0 (by rw [WCT9.codeRanks_length]; exact Nat.mod_lt _ (by decide))]
+theorem jtTarget_field (N : HashOutput) (c : WCT9.Coord) (h : WCT9.field N c < 563) :
+    jtTarget (WCT9.field N c) = routineEntry.getD (WCT9.rank N c).val 0 := by
+  unfold jtTarget
+  rw [WCT9.rank_val, Nat.mod_eq_of_lt h]
 def coordRegs : List Reg :=
   [.x1, .x3, .x4, .x8, .x9, .x10, .x11, .x12, .x14, .x15, .x16, .x23, .x25, .x27, .x28, .x31]
 theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.Signature} {N : HashOutput}
@@ -197,10 +188,10 @@ theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.
       (fun pr u => DrvInv sig N sF (k + 1) (pairs ++ [pr]) u) := by
   have hidx : WCT9.digestIndex N < 2 ^ 31 := WCT9.digestIndex_lt N
   have hj : (WCT9.child N ⟨k, hk⟩).val < 128 := (WCT9.child N ⟨k, hk⟩).isLt
-  have hf : WCT9.field N ⟨k, hk⟩ < 16200 := field_lt_of_adm N k hk hin.adm
-  have hr : (WCT9.embed (WCT9.rank N ⟨k, hk⟩)).val < 728 := (WCT9.embed (WCT9.rank N ⟨k, hk⟩)).isLt
-  have hjt : jtTarget (WCT9.field N ⟨k, hk⟩) = routineEntry.getD (WCT9.embed (WCT9.rank N ⟨k, hk⟩)).val 0 :=
-    jtTarget_field N ⟨k, hk⟩
+  have hf : WCT9.field N ⟨k, hk⟩ < 563 := field_lt_of_adm N k hk hin.adm
+  have hr : (WCT9.rank N ⟨k, hk⟩).val < 563 := (WCT9.rank N ⟨k, hk⟩).isLt
+  have hjt : jtTarget (WCT9.field N ⟨k, hk⟩) = routineEntry.getD (WCT9.rank N ⟨k, hk⟩).val 0 :=
+    jtTarget_field N ⟨k, hk⟩ hf
   have hrb := regBase_bounds k hk
   have hps := pslot_bounds k hk
   set index := WCT9.digestIndex N with hindex
@@ -218,7 +209,7 @@ theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.
       hI.x16 hI.x8 hI.x28 hout
   have s2 := jt_step hc _ hf t1 p1
   rw [hjt] at s2
-  set t2 := t1.setPC (pcOf (routineEntry.getD (WCT9.embed (WCT9.rank N ⟨k, hk⟩)).val 0)) with ht2
+  set t2 := t1.setPC (pcOf (routineEntry.getD (WCT9.rank N ⟨k, hk⟩).val 0)) with ht2
   have m21 : ∀ A, t2.getMem A = t.getMem A := fun A => by
     rw [show t2.getMem A = t1.getMem A from rfl]
     have := f1 A.toNat A.isLt (fun h => h)
@@ -231,26 +222,27 @@ theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.
     rw [r21, keep1 r h1 h3 h4 h8 h9 h14 h15 h16 h23 h27 h28 h31]
   have hro := routineOK_all _ hr
   unfold routineOK at hro
-  obtain ⟨c, hw, hc300⟩ : ∃ c, walk (codewordL ((WCT9.embed (WCT9.rank N ⟨k, hk⟩)).val)) 64 0
-      (routineEntry.getD ((WCT9.embed (WCT9.rank N ⟨k, hk⟩)).val) 0) = some c ∧ c ≤ routineCost := by
+  obtain ⟨c, hw, hc300⟩ : ∃ c, walk (codewordL ((WCT9.rank N ⟨k, hk⟩).val)) 64 0
+      (routineEntry.getD ((WCT9.rank N ⟨k, hk⟩).val) 0) = some c ∧ c ≤ routineCost := by
     revert hro
-    cases walk (codewordL ((WCT9.embed (WCT9.rank N ⟨k, hk⟩)).val)) 64 0 (routineEntry.getD ((WCT9.embed (WCT9.rank N ⟨k, hk⟩)).val) 0) with
+    cases walk (codewordL ((WCT9.rank N ⟨k, hk⟩).val)) 64 0 (routineEntry.getD ((WCT9.rank N ⟨k, hk⟩).val) 0) with
     | none => simp
     | some c => intro h; exact ⟨c, rfl, by simpa using h⟩
   have hreg2 : ∀ o, o < 1024 → t2.getMem (BitVec.ofNat 64 (regBase k + o)) =
       sF.getMem (BitVec.ofNat 64 (regBase k + o)) := fun o ho => (m21 _).trans (hregk o ho)
-  obtain ⟨rv, rl, rp, rmp, rs⟩ := region_facts hin k hk hreg2
-  have hpre : RPre (regBase k) (HB0 + 2048 + 512 * k) k index j (codewordL ((WCT9.embed (WCT9.rank N ⟨k, hk⟩)).val))
-      (fun t => if h : t < 7 then (sig.openings ⟨k, hk⟩).values ⟨t, h⟩ else 0) t2 := by
+  obtain ⟨rv, rl, rp, rpad, rmp, rs⟩ := region_facts hin k hk hreg2
+  have hpre : RPre (regBase k) (HB0 + 2048 + 512 * k) k index j (codewordL ((WCT9.rank N ⟨k, hk⟩).val))
+      (fun t => if h : t < 6 then (sig.openings ⟨k, hk⟩).values ⟨t, h⟩ else 0) t2 := by
     refine ⟨⟨by omega, by omega, by unfold HB0; omega, by unfold HB0; omega, by unfold HB0; omega⟩,
-      by unfold HB0; omega, hk, hidx, hj, ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
-      fun t' ht => rp t' ht, fun t' ht => ?_, fun t' ht _ => ?_, fun t' ht => codewordL_le3 _ hr t' ht⟩
+      by unfold HB0; omega, hk, hidx, hj, ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
+      fun t' ht => rp t' ht, fun t' ht => ?_, fun t' ht _ => ?_, fun t' ht => codewordL_le4 _ hr t' ht⟩
     · rw [r21, x8_1]
     · rw [r21, x28_1]
     · rw [r21, x4_1]
     · rw [r21, x31_1]; rfl
     · rw [k21 _ (by decide)]; exact hI.regs.x7
     · rw [k21 _ (by decide)]; exact hI.regs.heaps 2 (by decide) (by decide)
+    · rw [k21 _ (by decide)]; exact hI.regs.heaps 3 (by decide) (by decide)
     · rw [k21 _ (by decide)]; exact hI.regs.x5
     · rw [r21, keep1 _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by decide)
         (by decide) (by decide) (by decide) (by decide) (by decide)]; exact hI.regs.x11
@@ -305,13 +297,26 @@ theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.
       unfold Merkle.leafFields Merkle.leafO
       by_cases h0 : i = 0
       · subst h0; simp only [if_true, Nat.mul_zero, Nat.add_zero]
-        have := hw'.ends 0 (by decide); rwa [show slotC 0 = 880 from rfl] at this
+        have := hw'.ends 0 (by decide); rwa [show slotC 0 = 816 from rfl] at this
       · by_cases h1 : i = 1
         · subst h1; simp only [show (1 : Nat) ≠ 0 by decide, if_false, if_true]
           exact leafHdr_digAt hk hidx hj hw'.h0 hw'.h1
-        · simp only [h0, h1, if_false]
-          have := hw'.ends (i - 1) (by omega)
-          rwa [show slotC (i - 1) = 880 + 16 * i by unfold slotC; split <;> omega, ← Nat.add_assoc] at this
+        · by_cases h2 : i = 2
+          · subst h2; simp only [show (2 : Nat) ≠ 0 by decide, show (2 : Nat) ≠ 1 by decide, if_false, if_true]
+            have hnw : ∀ o, o < 16 → ¬ (chainsWr (regBase k) (codewordL (WCT9.rank N ⟨k, hk⟩).val) 6
+                (regBase k + 848 + o) ∨ regBase k + 848 + o = regBase k + 832 ∨
+                regBase k + 848 + o = regBase k + 840) := by
+              rintro o ho (⟨t', ht', _, hc⟩ | h | h)
+              · exact leafPad_free ht' o ho hc
+              · omega
+              · omega
+            have e0 := hw'.frame (regBase k + 848) (by omega) (by simpa using hnw 0 (by omega))
+            have e8 := hw'.frame (regBase k + 848 + 8) (by omega) (hnw 8 (by omega))
+            rw [show regBase k + 816 + 16 * 2 = regBase k + 848 by omega]
+            exact ⟨e0.trans rpad.1, e8.trans rpad.2⟩
+          · simp only [h0, h1, h2, if_false]
+            have := hw'.ends (i - 2) (by omega)
+            rwa [show slotC (i - 2) = 816 + 16 * i by unfold slotC; split <;> omega, ← Nat.add_assoc] at this
     · intro l hl
       have hm := rmp l (by omega)
       have hb : Merkle.padO l + 16 ≤ 464 := by unfold Merkle.padO Merkle.blkO; omega

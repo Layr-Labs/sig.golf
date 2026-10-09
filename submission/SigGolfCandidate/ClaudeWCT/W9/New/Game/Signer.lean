@@ -91,7 +91,7 @@ theorem sign_eq (cache : SigGolfCandidate.T3.Cache) (message : Message) : sign c
     if tag ≠ cache.tag then return none
     signPayload cache message) := rfl
 namespace Signer
-open ClaudeWCT.WCT9 (Coord Child Rank child rank Opening buildChild buildCoordinate)
+open ClaudeWCT.WCT9 (Coord Child Rank child rank Opening)
 open SigGolfCandidate.T3.Security
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
@@ -121,22 +121,19 @@ theorem leafHash_allowed (index coord selected : Nat) (ends : List Digest) :
   unfold WCT9.leafHash
   exact shortHash_allowed P hpublic _
 include hseed in
-theorem packedSecret_allowed (index coord q : Nat) (carry : Digest) :
-    AllQueriesSatisfy (WCT9.packedSecret (WCT9.ftsSeedPair index coord) q carry) P := by
-  unfold WCT9.packedSecret
-  split
-  · exact SourceQueries.bind_allowed P (by unfold WCT9.ftsSeedPair; exact seed_allowed P hseed _ _ _ _)
-      fun _ => SourceQueries.pure_allowed P _
-  · exact SourceQueries.pure_allowed P _
-include hpublic hseed in
-theorem buildChild_allowed (index coord selected : Nat) (word : Rank) (carry : Digest) :
-    AllQueriesSatisfy (buildChild index coord selected word carry) P := by
-  unfold buildChild
+theorem ftsCoefs_allowed (index coord : Nat) : AllQueriesSatisfy (WCT9.ftsCoefs index coord) P := by
+  unfold WCT9.ftsCoefs
+  apply SourceQueries.foldlM_allowed P
+  intro acc j
+  exact SourceQueries.bind_allowed P (by unfold WCT9.ftsSeedPair; exact seed_allowed P hseed _ _ _ _)
+    fun _ => SourceQueries.pure_allowed P _
+include hpublic in
+theorem buildChildF_allowed (index coord selected : Nat) (word : Rank) (coefs : List Digest) :
+    AllQueriesSatisfy (WCT9.buildChildF index coord selected word coefs) P := by
+  unfold WCT9.buildChildF
   apply SourceQueries.bind_allowed P
   · apply SourceQueries.foldlM_allowed P
     intro state i
-    apply SourceQueries.bind_allowed P (packedSecret_allowed P hseed _ _ _ _)
-    rintro ⟨secret, carry'⟩
     apply SourceQueries.bind_allowed P (chain_allowed P hpublic _ _ _ _ _ _ _)
     intro value
     apply SourceQueries.bind_allowed P (chain_allowed P hpublic _ _ _ _ _ _ _)
@@ -159,14 +156,16 @@ theorem heapBuild_allowed (index coord : Nat) (leaves : List Digest) :
   exact SourceQueries.bind_allowed P (by unfold WCT9.wctNodeHash; exact nodeHash_allowed P hpublic _ _ _ _ _ _)
     fun _ => SourceQueries.pure_allowed P _
 include hpublic hseed in
-theorem buildCoordinate_allowed (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
-    AllQueriesSatisfy (buildCoordinate index coord selected word) P := by
-  unfold buildCoordinate
+theorem buildCoordinateF_allowed (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
+    AllQueriesSatisfy (WCT9.buildCoordinateF index coord selected word) P := by
+  unfold WCT9.buildCoordinateF
+  apply SourceQueries.bind_allowed P (ftsCoefs_allowed P hseed _ _)
+  intro coefs
   apply SourceQueries.bind_allowed P
   · apply SourceQueries.foldlM_allowed P
     intro state j
-    apply SourceQueries.bind_allowed P (buildChild_allowed P hpublic hseed _ _ _ _ _)
-    rintro ⟨⟨root, values⟩, carry⟩
+    apply SourceQueries.bind_allowed P (buildChildF_allowed P hpublic _ _ _ _ _)
+    rintro ⟨root, values⟩
     exact SourceQueries.pure_allowed P _
   · intro state
     exact SourceQueries.bind_allowed P (heapBuild_allowed P hpublic _ _ _)
@@ -251,7 +250,7 @@ theorem signPayloadWith_allowed (limit : Nat) (cache : SigGolfCandidate.T3.Cache
   · apply SourceQueries.bind_allowed P
     · apply SourceQueries.foldlM_allowed P
       intro state coord
-      exact SourceQueries.bind_allowed P (buildCoordinate_allowed P hpublic hseed _ _ _ _)
+      exact SourceQueries.bind_allowed P (buildCoordinateF_allowed P hpublic hseed _ _ _ _)
         fun _ => SourceQueries.pure_allowed P _
     · intro state
       apply SourceQueries.bind_allowed P (forestPk_allowed P hpublic _ _)

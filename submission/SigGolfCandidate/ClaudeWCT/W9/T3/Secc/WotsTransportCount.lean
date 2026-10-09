@@ -13,7 +13,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-attribute [local irreducible] keygen verifyP expandB buildTree ClaudeWCT.WCT9.Rev3.signPayload ClaudeWCT.WCT9.signPayloadWith ClaudeWCT.WCT9.buildCoordinate GameWith.idealGame
+attribute [local irreducible] keygen verifyP expandB buildTree ClaudeWCT.WCT9.Rev3.signPayload ClaudeWCT.WCT9.signPayloadWith ClaudeWCT.WCT9.buildCoordinateF GameWith.idealGame
 noncomputable local instance instFintypeCoordinate_wotsTransportCount : Fintype Coordinate := coordinateFintype
 noncomputable local instance instSampleableTypeFullTable_wotsTransportCount : SampleableType FullGame.FullTable := Derivation.outputSampler Coordinate
 attribute [local instance] FiniteRowSplit.instSampleableTypeForallSubtypeHashInputMemFinsetHashOutput

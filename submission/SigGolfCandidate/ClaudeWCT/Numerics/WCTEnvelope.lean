@@ -12,12 +12,12 @@ open ClaudeWCT.WCT9 (wordDigit Coord Child Rank)
 theorem codeWords_eq : ClaudeWCT.WCT9.codeWords = N600.words := by decide +kernel
 set_option maxRecDepth 100000 in
 theorem ofFn_wordDigit_list :
-    List.ofFn (fun r : Fin 600 => List.ofFn (wordDigit r)) = N600.words := by
+    List.ofFn (fun r : Fin 563 => List.ofFn (wordDigit r)) = N600.words := by
   rw [← codeWords_eq]
   apply List.ext_getElem
   · exact (List.length_ofFn).trans ClaudeWCT.WCT9.codeWords_length.symm
   · intro i hi hj
-    have hi' : i < 600 := by rwa [List.length_ofFn] at hi
+    have hi' : i < 563 := by rwa [List.length_ofFn] at hi
     rw [List.getElem_ofFn]
     have h := ClaudeWCT.WCT9.ofFn_wordDigit ⟨i, hi'⟩
     rw [ClaudeWCT.WCT9.codeword_embed] at h
@@ -26,12 +26,12 @@ theorem wordsOf_wordDigit : N600.WordsOf wordDigit := by
   unfold N600.WordsOf
   rw [Fin.univ_val_map, ofFn_wordDigit_list]
 theorem w1Table_wordDigit : N600.W1Table wordDigit :=
-  fun p => N600.w1_table wordsOf_wordDigit ClaudeWCT.WCT9.wordDigit_le_three p
+  fun p => N600.w1_table wordsOf_wordDigit ClaudeWCT.WCT9.wordDigit_le_four p
 theorem w2Table_wordDigit : N600.W2Table wordDigit :=
-  fun p => N600.w2_table wordsOf_wordDigit ClaudeWCT.WCT9.wordDigit_le_three p
-theorem wfTable_wordDigit (i : Fin 7) : N600.WFTable wordDigit i :=
-  fun p => N600.wf_table wordsOf_wordDigit ClaudeWCT.WCT9.wordDigit_le_three i p
-theorem card_rank : Fintype.card Rank = 600 := Fintype.card_fin 600
+  fun p => N600.w2_table wordsOf_wordDigit ClaudeWCT.WCT9.wordDigit_le_four p
+theorem wfTable_wordDigit (i : Fin 6) : N600.WFTable wordDigit i :=
+  fun p => N600.wf_table wordsOf_wordDigit ClaudeWCT.WCT9.wordDigit_le_four i p
+theorem card_rank : Fintype.card Rank = 563 := Fintype.card_fin 563
 theorem card_child : Fintype.card Child = 128 := Fintype.card_fin 128
 abbrev Coords := Coord → Child × Rank
 theorem card_coords : Fintype.card Coords = N600.Q ^ 9 :=
@@ -61,7 +61,7 @@ theorem coveredP_iff (W : List WProposal) (N : SigGolfCandidate.T3.HashOutput) :
   · rintro ⟨e, he, h2, h3⟩
     exact ⟨(outIdx N, e), (mem_atIndex _ _ _).mp he, rfl, h2, h3⟩
 theorem price_scale :
-    (2 : ENNReal) ^ 128 * ((27 ^ 9 * 2364 * 2 ^ 15 : ℕ) : ENNReal) * ((N600.Q ^ 9 : ℕ) : ENNReal) *
+    (2 : ENNReal) ^ 128 * ((1131 * 2 ^ 58 : ℕ) : ENNReal) * ((N600.Q ^ 9 : ℕ) : ENNReal) *
         ((2 ^ 256 : ℕ) : ENNReal)⁻¹ = N600.priceScale := by
   rw [← div_eq_mul_inv]
   apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by unfold N600.priceScale; finiteness)).mp

@@ -9,7 +9,8 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers treeValue builtTree)
 open ClaudeWCT.W9.T3.Security.LargeResidual
-open SigGolfCandidate.T3.Security.LargeResidual (State Cell observedRun runWith_bind)
+open SigGolfCandidate.T3.Security.LargeResidual (State Cell runWith_bind)
+open ClaudeWCT.W9.T3.Security.FamResidual (observedRun)
 open SigGolfCandidate.T3.Security.LargeCoupling (cacheRegion_congr)
 open ClaudeWCT.W9.T3.Security.CanonGraph
 open ClaudeWCT.W9.T3.Security.CanonEncoding
@@ -172,7 +173,7 @@ theorem honestValue_short : LargeResidual.honestValue A = LargeResidual.honestVa
       rw [Wots.Ref.honestInput_short hAT _ (toPos_bounded N),
         hAT.public _ (Wots.Ref.honestInput_length T N.toPos)]
   | inr s =>
-      change secretsOf A s = secretsOf T s
+      change seedView (secretsOf A) s = seedView (secretsOf T) s
       rw [secretsOf_short hAT]
 theorem contactTest_short (K : Coord → Prop) (X : HashInput) (y : HashOutput) :
     ContactTest A K X y ↔ ContactTest T K X y := by

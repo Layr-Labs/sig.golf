@@ -27,7 +27,7 @@ theorem prefix_spec (s : MachineState) (v : Digest) (a d p : Nat) (ha : a ∈ aV
     ∃ t, Steps Verify.image s 8 8 t ∧ t.pc = prefixTarget v ∧
       t.getReg .x16 = v.extractLsb' 0 64 ∧ t.getReg .x17 = v.extractLsb' 64 64 ∧
       t.getReg .x29 = BitVec.ofNat 64 (v.toNat / 2 ^ 119) ∧
-      t.getReg .x8 = 12480#64 ∧ t.getReg .x6 = 130048#64 ∧
+      t.getReg .x8 = 11904#64 ∧ t.getReg .x6 = 130048#64 ∧
       RegsExcept s t [.x16,.x17,.x29,.x6,.x8,.x14] ∧ Frame s t (fun _ => False) := by
   have hm : s.getMem (s.getReg .x9 + 232#64) = 130048#64 := by
     rw [hra]; exact hmask
@@ -40,7 +40,7 @@ theorem prefix_spec (s : MachineState) (v : Digest) (a d p : Nat) (ha : a ∈ aV
     rcases ho with rfl | rfl | rfl
     all_goals simp [Oblig.holds, rv_simp, accessValid_iff, MEMORY_BYTES, hra, h12, TOPB9]
     all_goals omega
-  have hal : 14272 ≤ a ∧ a ≤ 14528 := by
+  have hal : 13696 ≤ a ∧ a ≤ 13952 := by
     simp only [aVals, List.mem_cons, List.not_mem_nil, or_false] at ha; omega
   refine ⟨_, symRun_sound (prefix_run a ha (pcOf p)) hcode s hpc ((Oblig.all_iff _ _).mpr hobl),
     ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
@@ -156,7 +156,7 @@ structure TopEntry (u : MachineState) (v : Digest) (p : Nat) (s : MachineState) 
   lo : s.getReg .x16 = v.extractLsb' 0 64
   hi : s.getReg .x17 = v.extractLsb' 64 64
   tail : s.getReg .x29 = BitVec.ofNat 64 (v.toNat / 2 ^ 119)
-  s3 : s.getReg .x8 = 12480#64
+  s3 : s.getReg .x8 = 11904#64
   mask : s.getReg .x6 = 130048#64
   table : s.getReg .x2 = 0x3fe00#64
   regs : RegsExcept u s topEntryRegs
@@ -187,7 +187,7 @@ theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
       TopEntry (writeHash t a) (a.extractLsb' 0 128) (trPc 0 c) s := by
   have hc' : c < 128 := by have := BC.nCopy_eq; omega
   have ha := topRowA_mem c hc'
-  have hal : 14272 ≤ topRowA c ∧ topRowA c ≤ 14528 ∧ topRowA c % 16 = 0 := by
+  have hal : 13696 ≤ topRowA c ∧ topRowA c ≤ 13952 ∧ topRowA c % 16 = 0 := by
     simp only [Nonbinary.aVals, List.mem_cons, List.not_mem_nil, or_false] at ha; omega
   obtain ⟨d, h12, hd⟩ := ht.dst (by decide +kernel)
   change d = topRowA c ∨ d = topRowA c + 48 at hd
@@ -229,7 +229,7 @@ open Nonbinary (NCtx)
 set_option maxHeartbeats 800000
 set_option linter.unusedSimpArgs false
 def nctxOf (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (v : Digest) (p : Nat) : NCtx :=
-  ⟨w, (route index 0).2, (route index 0).1, 12480, coreDigit 0 v, p + 8⟩
+  ⟨w, (route index 0).2, (route index 0).1, 11904, coreDigit 0 v, p + 8⟩
 theorem nctx_ok (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (v : Digest) (c : Nat) (hidx : index < 2 ^ 31) :
     (nctxOf w index v (trPc 0 c)).ok := by
   have hp := trPc_lt 0 c
@@ -264,23 +264,23 @@ theorem topEntry_orig (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
     (t s : MachineState) (a : BitVec 256)
     (ht : BC.EncPre w pk index 0 c t)
     (he : TopEntry (writeHash t a) (a.extractLsb' 0 128) (trPc 0 c) s) :
-    Verify.Orig w (fun o => 8000 ≤ o ∧ o < layerEnd 0) s := by
+    Verify.Orig w (fun o => 7424 ≤ o ∧ o < layerEnd 0) s := by
   have hc' : c < 128 := by have := BC.nCopy_eq; omega
   have ha := topRowA_mem c hc'
-  have hal : 14272 ≤ topRowA c ∧ topRowA c ≤ 14528 := by
+  have hal : 13696 ≤ topRowA c ∧ topRowA c ≤ 13952 := by
     simp only [Nonbinary.aVals, List.mem_cons, List.not_mem_nil, or_false] at ha; omega
   obtain ⟨d, h12, hd⟩ := ht.dst (by decide +kernel)
   change d = topRowA c ∨ d = topRowA c + 48 at hd
   have ho := Orig_writeHash ht.orig a d h12 (by omega)
-  have hu : Verify.Orig w (fun o => 8000 ≤ o ∧ o < layerEnd 0) (writeHash t a) :=
+  have hu : Verify.Orig w (fun o => 7424 ≤ o ∧ o < layerEnd 0) (writeHash t a) :=
     fun j hj hp => ho j hj ⟨hp, Or.inl (by
       have hp2 := hp.2
-      have hle : layerEnd 0 = 12224 := rfl
+      have hle : layerEnd 0 = 11648 := rfl
       rw [hle] at hp2
       unfold WIT; omega)⟩
   exact hu.frame (fun j hj hp => he.frame.get (by unfold WIT WX at *; omega) (by simp))
 theorem nctx_orig (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (v : Digest) (p : Nat) (s : MachineState)
-    (ho : Verify.Orig w (fun o => 8000 ≤ o ∧ o < layerEnd 0) s) (hD : DataOK s) :
+    (ho : Verify.Orig w (fun o => 7424 ≤ o ∧ o < layerEnd 0) s) (hD : DataOK s) :
     (nctxOf w index v p).Orig0 s := by
   refine ⟨fun i hi k hk => ?_, hD⟩
   clear hD

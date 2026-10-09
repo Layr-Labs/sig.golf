@@ -8,7 +8,8 @@ open SigGolfCandidate.T3M
 open SigGolfCandidate.T3 (Digest HashOutput readDigest readLE)
 open SigGolfCandidate.T3M (window window_append_left window_append_right window_full window_zeros zeros)
 open SphincsSecurity (bytesLE bytesLE_length)
-open ClaudeWCT.W9.T3M (chainBytes leafBytes chainBytes_window leafBytes_window_zero leafBytes_window_succ)
+open ClaudeWCT.W9.T3M (chainBytes leafBytes chainBytes_window leafBytes_window_zero leafBytes_window_succ
+  leafBytes_window_pad)
 set_option linter.unusedSimpArgs false
 theorem wordsOf_getD (L : List UInt8) (m : Nat) (hL : L.length = 8 * m) (i : Nat) (hi : i < m) :
     (wordsOf L).getD i 0 = BitVec.ofNat 64 (readLE (window L (8 * i) 8)) := by
@@ -57,33 +58,36 @@ theorem words_of_window16 (L : List UInt8) (hL : L.length = 1024) (o : Nat) (ho 
     omega
 section windows
 variable (c : Nat) (op : WCT9.Opening)
-theorem win_chainVal (t : Fin 7) : window (regionBytesV5 c op) (offC t.val + 48) 16 = bytesLE 16 (op.values t) := by
+theorem win_chainVal (t : Fin 6) : window (regionBytesV5 c op) (offC t.val + 48) 16 = bytesLE 16 (op.values t) := by
   rcases t with ⟨_ | i, ht⟩
-  · rw [show offC 0 + 48 = 880 by rfl, region_leafV5 _ _ _ _ le_rfl (by omega), Nat.sub_self, leafBytes_window_zero]
+  · rw [show offC 0 + 48 = 816 by rfl, region_leafV5 _ _ _ _ le_rfl (by omega), Nat.sub_self, leafBytes_window_zero]
     rfl
-  · have hi : i < 6 := by omega
-    rw [show offC (i + 1) + 48 = 448 + (64 * (5 - i) + 48) by unfold offC; omega,
+  · have hi : i < 5 := by omega
+    rw [show offC (i + 1) + 48 = 448 + (64 * (4 - i) + 48) by unfold offC; omega,
       region_chainV5 _ _ _ _ (by omega) (by omega),
-      show 448 + (64 * (5 - i) + 48) - 448 = 64 * (5 - (⟨i, hi⟩ : Fin 6).val) + 48 by simp,
+      show 448 + (64 * (4 - i) + 48) - 448 = 64 * (4 - (⟨i, hi⟩ : Fin 5).val) + 48 by simp,
       chainBytes_window _ _ _ (by omega), window_append_right _ _ _ _ (by simp [zeros]),
       show 48 - (zeros 48).length = 0 by simp [zeros], window_full _ _ (bytesLE_length _ _)]
     rfl
-theorem win_leafSlot (t : Fin 7) : window (regionBytesV5 c op) (slotC t.val) 16 = bytesLE 16 (op.values t) := by
+theorem win_leafSlot (t : Fin 6) : window (regionBytesV5 c op) (slotC t.val) 16 = bytesLE 16 (op.values t) := by
   rcases t with ⟨_ | i, ht⟩
   · exact win_chainVal c op ⟨0, ht⟩
-  · have hi : i < 6 := by omega
-    rw [show slotC (i + 1) = 880 + (32 + 16 * i) by unfold slotC; simp; omega,
+  · have hi : i < 5 := by omega
+    rw [show slotC (i + 1) = 816 + (48 + 16 * i) by unfold slotC; simp; omega,
       region_leafV5 _ _ _ _ (by omega) (by omega),
-      show 880 + (32 + 16 * i) - 880 = 32 + 16 * (⟨i, hi⟩ : Fin 6).val by simp, leafBytes_window_succ]
+      show 816 + (48 + 16 * i) - 816 = 48 + 16 * (⟨i, hi⟩ : Fin 5).val by simp, leafBytes_window_succ]
     rfl
-theorem win_chainPad (t : Nat) (ht : t < 7) (o : Nat) (ho : o = 0 ∨ o = 16 ∨ o = 32) :
+/-- The leaf pad slot (848) of a placed region is zero. -/
+theorem win_leafPad : window (regionBytesV5 c op) 848 16 = zeros 16 := by
+  rw [region_leafV5 _ _ _ _ (by omega) (by omega), show 848 - 816 = 32 by rfl, leafBytes_window_pad]
+theorem win_chainPad (t : Nat) (ht : t < 6) (o : Nat) (ho : o = 0 ∨ o = 16 ∨ o = 32) :
     window (regionBytesV5 c op) (offC t + o) 16 = zeros 16 := by
   rcases t with _ | i
-  · rw [show offC 0 + o = 832 + o by rfl, region_prefixV5 _ _ _ _ (by omega) (by omega)]
-  · have hi : i < 6 := by omega
-    rw [show offC (i + 1) + o = 448 + (64 * (5 - i) + o) by unfold offC; omega,
+  · rw [show offC 0 + o = 768 + o by rfl, region_prefixV5 _ _ _ _ (by omega) (by omega)]
+  · have hi : i < 5 := by omega
+    rw [show offC (i + 1) + o = 448 + (64 * (4 - i) + o) by unfold offC; omega,
       region_chainV5 _ _ _ _ (by omega) (by omega),
-      show 448 + (64 * (5 - i) + o) - 448 = 64 * (5 - (⟨i, hi⟩ : Fin 6).val) + o by simp,
+      show 448 + (64 * (4 - i) + o) - 448 = 64 * (4 - (⟨i, hi⟩ : Fin 5).val) + o by simp,
       chainBytes_window _ _ _ (by omega), window_append_left _ _ _ _ (by simp [zeros]; omega),
       window_zeros _ _ _ (by omega)]
 theorem win_sib (l : Fin 7) :

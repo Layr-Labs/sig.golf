@@ -15,7 +15,7 @@ def blkO (j l : Nat) : Nat := ClaudeWCT.W9.T3M.authBase j l
 def curO (l j : Nat) : Nat := blkO j l + 48 * bitAt j l
 def sibO (l j : Nat) : Nat := if l < 6 then blkO j l + 48 * (1 - bitAt j l) else ClaudeWCT.W9.T3M.authRoot j
 def padO (j l : Nat) : Nat := blkO j l + 32
-def leafO : Nat := 752
+def leafO : Nat := 688
 def heapOf (l j : Nat) : Nat := 2 ^ (6 - l) + j / 2 ^ (l + 1)
 def w0n (k index : Nat) : Nat := W9Machine.V3.nodeLow k index
 def heapReg (h : Nat) : Reg :=
@@ -47,7 +47,7 @@ def childTmpl (j : Nat) : List (BitVec 32) :=
     [encLoad 3 8 (sibO 6 j),
      encLoad 14 8 (sibO 6 j + 8),
      encS 3 3 (16 * (1 - bitAt j 6)) 9, encS 3 14 (16 * (1 - bitAt j 6) + 8) 9,
-     0x1cc08067] ++ List.replicate (21 + childSaveC j) 0x00000013
+     0x00008067] ++ List.replicate (21 + childSaveC j) 0x00000013
 def childWords (j : Nat) : List (BitVec 32) := childTmpl j
 def childLook (j n : Nat) : Option (BitVec 32) :=
   if childBase j ≤ n then (childWords j)[n - childBase j]? else none
@@ -77,7 +77,7 @@ def lvlRes (j l : Nat) : PRes :=
   ⟨⟨lvlRegs j l, lvlMem j l, lvlObl j l⟩, pcOf (childBase j + ecIdx j (l + 1)), true, lvlSt j l, lvlSt j l, [], none⟩
 def otherDest (j : Nat) : Nat := 16 * (1 - bitAt j 6)
 def aX9 (off : Nat) : Addr := ⟨some (.reg .x9), BitVec.ofNat 64 off⟩
-def retE : E := .bin .and (addC (.reg .x1) 460) (.c (~~~1#64))
+def retE : E := .bin .and (.reg .x1) (.c (~~~1#64))
 def p7Res (j : Nat) : PRes :=
   ⟨⟨(RegFile.init.set .x3 (.ld (eX8 (sibO 6 j)))).set .x14 (.ld (eX8 (sibO 6 j + 8))),
     [(aX9 (otherDest j + 8), .ld (eX8 (sibO 6 j + 8))),
@@ -647,7 +647,7 @@ namespace W9Drv.ChildProof
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify W9Machine
 open SigGolfCandidate.T3 (Digest HashOutput M shortHash pad64)
-def prefixWrites (B A : Nat) : Prop := B ≤ A ∧ A < B + 896
+def prefixWrites (B A : Nat) : Prop := B ≤ A ∧ A < B + 832
 theorem stagesW_prefix {j off B : Nat} (hj : j < 128) (h : off ∈ stagesW j 6) : prefixWrites B (B + off) := by
   have hb := stagesW_bound hj (by decide) h
   unfold prefixWrites at *
@@ -704,7 +704,7 @@ theorem copy_pair {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im 
     (hP8 : P % 8 = 0) (hPhi : P + 48 ≤ MEMORY_BYTES)
     (hpc : s.pc = pcOf (childBase j + ecIdx j 6 + 1))
     (hv : DigAt s (P + 16 * bitAt j 6) v) (ho : DigAt s (B + sibO 6 j) other) :
-    ∃ t, Steps im s 5 5 t ∧ t.pc = (s.getReg .x1 + 460) &&& ~~~1#64 ∧
+    ∃ t, Steps im s 5 5 t ∧ t.pc = s.getReg .x1 &&& ~~~1#64 ∧
       DigAt t P (V3.orderPair j v other).left ∧ DigAt t (P + 16) (V3.orderPair j v other).right ∧
       (∀ r : Reg, r ≠ .x3 → r ≠ .x14 → t.getReg r = s.getReg r) ∧
       Frame s t (fun A => A = P + otherDest j ∨ A = P + otherDest j + 8) := by
@@ -756,7 +756,7 @@ theorem copy_pair {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im 
   · intro A hA hn
     rw [hmem A hA, if_neg (by tauto), if_neg (by tauto)]
 structure PairPost (B P : Nat) (u : MachineState) (pair : V3.RootPair) (t : MachineState) : Prop where
-  pc : t.pc = (u.getReg .x1 + 460) &&& ~~~1#64
+  pc : t.pc = u.getReg .x1 &&& ~~~1#64
   a1 : t.getReg .x11 = 64
   left : DigAt t P pair.left
   right : DigAt t (P + 16) pair.right
@@ -855,7 +855,7 @@ theorem source_level (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9) (j 
   split_ifs <;> rfl
 theorem childProgram_split (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9) (j : Fin 128) (ends : List Digest) :
     V3.childProgram w index k j ends =
-      (shortHash (leafBytes (V3.leafFields k.val index j.val ends)) >>= fun v =>
+      (shortHash (leafBytes (V3.leafFields k.val index j.val (V3.leafPad w k.val) ends)) >>= fun v =>
         (List.range 5).foldlM (childLevelP k.val index j.val (V3.nodePad w k.val j.val) (V3.sibling w k.val j.val)) v >>=
         fun v5 => childLevelP k.val index j.val (V3.nodePad w k.val j.val) (V3.sibling w k.val j.val) v5 5 >>=
         fun computed => pure (V3.orderPair j.val computed (V3.sibling w k.val j.val 6))) := by
@@ -896,7 +896,7 @@ theorem sibO_auth (j l : Nat) (hl : l < 7) : sibO l j = ClaudeWCT.W9.T3M.authSib
   split_ifs <;> omega
 theorem child_pre (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9) (j : Fin 128) (ends : List Digest)
     (u : MachineState) (hu : Child.Pre Frozen.layout w index k j ends u) :
-    ChildPre j.val (coordinateBase k) k.val index (V3.leafFields k.val index j.val ends)
+    ChildPre j.val (coordinateBase k) k.val index (V3.leafFields k.val index j.val (V3.leafPad w k.val) ends)
       (V3.nodePad w k.val j.val) (V3.sibling w k.val j.val) u := by
   refine ⟨hu.pc, ?_, ?_, hu.hashMode, hu.baseReg, hu.hashInput, hu.hashLen, hu.nodeWord, hu.childIdx,
     ?_, hu.leafAt, hu.padAt, ?_⟩
@@ -926,7 +926,7 @@ theorem child_good : ChildGood := by
     rw [sibO_auth j.val 6 (by decide)]
     exact hu.sibAt 6 (by decide)
   have hg := child_prefix_good Frozen.image j.val j.isLt hcode (coordinateBase k) k.val index
-    (V3.leafFields k.val index j.val ends) (V3.nodePad w k.val j.val) (V3.sibling w k.val j.val) u
+    (V3.leafFields k.val index j.val (V3.leafPad w k.val) ends) (V3.nodePad w k.val j.val) (V3.sibling w k.val j.val) u
     (N + 10) (C + 17) (A + 17) Q
     (fun v => ccM (childLevelP k.val index j.val (V3.nodePad w k.val j.val) (V3.sibling w k.val j.val) v 5 >>=
       fun computed => pure (V3.orderPair j.val computed (V3.sibling w k.val j.val 6))) K)

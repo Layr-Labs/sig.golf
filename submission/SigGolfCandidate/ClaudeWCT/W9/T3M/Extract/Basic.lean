@@ -13,13 +13,14 @@ noncomputable def honestRoot (answers : Answers) (lay : Layer) (tree : Nat) : Di
   treeValue (wotsTree answers lay tree) (height lay) 0
 noncomputable def honestPair (answers : Answers) (lay : Layer) (tree : Nat) : Digest × Digest :=
   (treeValue (wotsTree answers lay tree) (height lay - 1) 0, treeValue (wotsTree answers lay tree) (height lay - 1) 1)
+/-- FTS seed of `(index, coord, child, chain)`: the stage-A seed family of `(index, coord)` at `ftsPoint child chain`
+(agrees with `WCT9.seed` by `rfl`). -/
 def wctSeed (answers : Answers) (index coord child chain : Nat) : Digest :=
-  WCT9.seedHalf (evalWithAnswerFn answers (WCT9.ftsSeedPair index coord (WCT9.ftsOrdinal child chain / 2)))
-    (WCT9.ftsOrdinal child chain)
+  ClaudeWCT.Arith.familyEval (List.ofFn (WCT9.ftsCoef answers index coord)) (WCT9.ftsPoint child chain)
 def wctValue (answers : Answers) (index coord child chain step : Nat) : Digest :=
   evalWithAnswerFn answers (WCT9.chain index coord child chain 0 step (wctSeed answers index coord child chain))
 def wctEnds (answers : Answers) (index coord child : Nat) : List Digest :=
-  List.ofFn fun t : Fin 7 => wctValue answers index coord child t.val 3
+  List.ofFn fun t : Fin 6 => wctValue answers index coord child t.val 4
 def ftsLeaves (answers : Answers) (index coord : Nat) : List Digest :=
   List.ofFn fun j : Fin 128 => evalWithAnswerFn answers (WCT9.leafHash index coord j.val (wctEnds answers index coord j.val))
 def ftsNodes (answers : Answers) (index coord : Nat) : Array Digest :=
@@ -34,8 +35,15 @@ def listInput (first : Digest) (hdr : BitVec 128) (rest : List Digest) : HashInp
   bytesLE 16 first ++ bytesLE 16 hdr ++ rest.flatMap (bytesLE 16)
 def leafInput (lay : Layer) (tree leaf : Nat) (ends : List Digest) : HashInput :=
   SigGolfCandidate.T3.leafInput lay tree leaf ends
+/-- Honest FTS leaf input (campaign T8): `end0 | header | zero pad | end1..end5`, i.e. the pad slot is the first
+digest of the list part. -/
 def wctLeafInput (index coord child : Nat) (ends : List Digest) : HashInput :=
-  listInput (ends.getD 0 0) (WCT9.ftsLeafHeader index coord child) (ends.drop 1)
+  listInput (ends.getD 0 0) (WCT9.ftsLeafHeader index coord child) (0 :: ends.drop 1)
+/-- Padded FTS leaf input (campaign T8): the leaf pad `pad` in the slot after the header. -/
+def wctLeafInputP (index coord child : Nat) (pad : Digest) (ends : List Digest) : HashInput :=
+  listInput (ends.getD 0 0) (WCT9.ftsLeafHeader index coord child) (pad :: ends.drop 1)
+theorem wctLeafInputP_zero (index coord child : Nat) (ends : List Digest) :
+    wctLeafInputP index coord child 0 ends = wctLeafInput index coord child ends := rfl
 abbrev forestInput (index : Nat) (pairs : List (Digest × Digest)) : HashInput := WCT9.forestInput index pairs
 def honestForest (answers : Answers) (index : Nat) : Digest :=
   evalWithAnswerFn answers (WCT9.forestPk index (ftsPairsHonest answers index))
@@ -81,7 +89,7 @@ def Pos.Bounded : Pos → Prop
   | .node lay tree level nd => tree < 2 ^ 32 ∧ level < height lay ∧ (lay = 0 ∨ level + 1 < height lay) ∧
       (lay = 0 → tree = 0) ∧ nd < 2 ^ (height lay - level - 1)
   | .forest index => index < 2 ^ 40
-  | .wctChain index coord child t step => index < 2 ^ 31 ∧ coord < 9 ∧ child < 128 ∧ t < 7 ∧ step < 3
+  | .wctChain index coord child t step => index < 2 ^ 31 ∧ coord < 9 ∧ child < 128 ∧ t < 6 ∧ step < 4
   | .wctLeaf index coord child => index < 2 ^ 31 ∧ coord < 9 ∧ child < 128
   | .wctNode index coord level nd => index < 2 ^ 31 ∧ coord < 9 ∧ level < 6 ∧ nd < 2 ^ (7 - level - 1)
 def hdrBlock (input : HashInput) : HashInput := (input.drop 16).take 16
@@ -103,6 +111,6 @@ theorem HitIn.append_right {answers : Answers} {qs' : List Spec.Domain} (qs : Li
 theorem ftsPairsHonest_length (answers : Answers) (index : Nat) : (ftsPairsHonest answers index).length = 9 := by
   simp [ftsPairsHonest]
 theorem wctEnds_length (answers : Answers) (index coord child : Nat) :
-    (wctEnds answers index coord child).length = 7 := by
+    (wctEnds answers index coord child).length = 6 := by
   simp [wctEnds]
 end ClaudeWCT.W9.T3M.Extract

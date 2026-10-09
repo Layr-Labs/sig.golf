@@ -409,32 +409,36 @@ open SphincsSecurity.Concrete
 open SphincsSecurity.Concrete.SecretGuessObservation
 set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
-structure ChainTable where
-  answers : (GCoord → Digest) → Correctness.Answers
-  step : ChainAddr → Fin 3 → Digest → HashOutput
+/-- A chain-probe world with hidden parameter `h : H`: answers, the table `view h` it exposes on chain probes, and
+the public step/top/miss answers (campaign X1: `H` carries the FTS seed-family coefficients and the step labels). -/
+structure ChainTable (H : Type) where
+  answers : H → Correctness.Answers
+  view : H → GCoord → Digest
+  base : H
+  step : ChainAddr → Fin 4 → Digest → HashOutput
   top : ChainAddr → HashOutput
   miss : HashInput → HashOutput
-  answers_probe : ∀ g a p c, answers g (.inl (.inr (probeInput a p c))) =
-    probeAnswer step top (miss (probeInput a p c)) g a p c
-  answers_public : ∀ g g' x, decodeProbe x = none → answers g (.inl (.inr x)) = answers g' (.inl (.inr x))
+  answers_probe : ∀ h a p c, answers h (.inl (.inr (probeInput a p c))) =
+    probeAnswer step top (miss (probeInput a p c)) (view h) a p c
+  answers_public : ∀ h h' x, decodeProbe x = none → answers h (.inl (.inr x)) = answers h' (.inl (.inr x))
   step_low : ∀ a p v, (step a p v).extractLsb' 0 128 = v
-  seed : ∀ g a, seedOf (answers g) a = g (a, 0)
+  seed : ∀ h a, seedOf (answers h) a = view h (a, 0)
 namespace ChainTable
-variable (T : ChainTable)
-noncomputable def walkVal (g : GCoord → Digest) (a : ChainAddr) (p : Nat) : Digest :=
-  if h : p < 3 then g (a, ⟨p, h⟩) else (T.top a).extractLsb' 0 128
-theorem walk_step (g : GCoord → Digest) (a : ChainAddr) (p : Nat) (hp : p < 3) :
-    (T.answers g (.inl (.inr (WCT9.chainInput a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p
-      (T.walkVal g a p))))).extractLsb' 0 128 = T.walkVal g a (p + 1) := by
-  have hq := T.answers_probe g a ⟨p, hp⟩ (T.walkVal g a p)
+variable {H : Type} (T : ChainTable H)
+noncomputable def walkVal (h : H) (a : ChainAddr) (p : Nat) : Digest :=
+  if hp : p < 4 then T.view h (a, ⟨p, hp⟩) else (T.top a).extractLsb' 0 128
+theorem walk_step (h : H) (a : ChainAddr) (p : Nat) (hp : p < 4) :
+    (T.answers h (.inl (.inr (WCT9.chainInput a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p
+      (T.walkVal h a p))))).extractLsb' 0 128 = T.walkVal h a (p + 1) := by
+  have hq := T.answers_probe h a ⟨p, hp⟩ (T.walkVal h a p)
   unfold probeInput at hq
   simp only at hq
   rw [hq]
-  have hv : g (a, ⟨p, hp⟩) = T.walkVal g a p := by simp [walkVal, hp]
+  have hv : T.view h (a, ⟨p, hp⟩) = T.walkVal h a p := by simp [walkVal, hp]
   unfold probeAnswer
   rw [if_pos hv]
   unfold succPos
-  by_cases h1 : p + 1 < 3
+  by_cases h1 : p + 1 < 4
   · rw [dif_pos h1]
     simp only
     rw [T.step_low]
@@ -442,59 +446,59 @@ theorem walk_step (g : GCoord → Digest) (a : ChainAddr) (p : Nat) (hp : p < 3)
   · rw [dif_neg h1]
     simp only
     simp [walkVal, h1]
-theorem chainValue_answers (g : GCoord → Digest) (a : ChainAddr) (p : Nat) (hp : p ≤ 3) :
-    chainValue (T.answers g) a p = T.walkVal g a p := by
-  have h0 : seedOf (T.answers g) a = T.walkVal g a 0 := by rw [T.seed]; simp [walkVal]
+theorem chainValue_answers (h : H) (a : ChainAddr) (p : Nat) (hp : p ≤ 4) :
+    chainValue (T.answers h) a p = T.walkVal h a p := by
+  have h0 : seedOf (T.answers h) a = T.walkVal h a 0 := by rw [T.seed]; simp [walkVal]
   unfold chainValue
   rw [h0]
-  have := eval_chain_walk (T.answers g) a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val (T.walkVal g a) 0 p
-    (fun q _ hq => T.walk_step g a q (by omega))
+  have := eval_chain_walk (T.answers h) a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val (T.walkVal h a) 0 p
+    (fun q _ hq => T.walk_step h a q (by omega))
   simpa using this
-theorem chainValue_answers_fin (g : GCoord → Digest) (c : GCoord) :
-    chainValue (T.answers g) c.1 c.2.val = g c := by
-  rw [T.chainValue_answers g c.1 c.2.val (by omega)]
+theorem chainValue_answers_fin (h : H) (c : GCoord) :
+    chainValue (T.answers h) c.1 c.2.val = T.view h c := by
+  rw [T.chainValue_answers h c.1 c.2.val (by omega)]
   simp [walkVal, c.2.isLt]
-theorem honestProbe_answers (g : GCoord → Digest) (c : GCoord) :
-    honestProbe (T.answers g) c = probeInput c.1 c.2 (g c) := by
+theorem honestProbe_answers (h : H) (c : GCoord) :
+    honestProbe (T.answers h) c = probeInput c.1 c.2 (T.view h c) := by
   unfold honestProbe
   rw [T.chainValue_answers_fin]
 variable {AuxIndex : Type} {auxSpec : OracleSpec AuxIndex}
 noncomputable def hashW (x : HashInput) : OracleComp (World auxSpec GCoord Digest) HashOutput :=
   match decodeProbe x with
-  | none => pure (T.answers (fun _ => 0) (.inl (.inr x)))
+  | none => pure (T.answers T.base (.inl (.inr x)))
   | some q => probeW (auxSpec := auxSpec) T.step T.top (T.miss x) q.1.1 q.1.2 q.2
-theorem fixed_hashW (auxiliary : QueryImpl auxSpec ProbComp) (g : GCoord → Digest) (x : HashInput) :
-    simulateQ (fixedAnswers auxiliary g) (T.hashW (auxSpec := auxSpec) x) =
-      pure (T.answers g (.inl (.inr x))) := by
+theorem fixed_hashW (auxiliary : QueryImpl auxSpec ProbComp) (h : H) (x : HashInput) :
+    simulateQ (fixedAnswers auxiliary (T.view h)) (T.hashW (auxSpec := auxSpec) x) =
+      pure (T.answers h (.inl (.inr x))) := by
   unfold hashW
   cases hd : decodeProbe x with
   | none =>
       simp only [simulateQ_pure]
-      rw [T.answers_public g (fun _ => 0) x hd]
+      rw [T.answers_public h T.base x hd]
   | some q =>
       simp only
       rw [fixed_probeW, eq_of_decodeProbe hd, T.answers_probe]
 theorem fixedRun_hashW {Memory : Type} (environment : Environment auxSpec GCoord Digest Memory)
-    (g : GCoord → Digest) (x : HashInput) (state : State GCoord Digest Memory)
+    (h : H) (x : HashInput) (state : State GCoord Digest Memory)
     (result : HashOutput × State GCoord Digest Memory)
-    (hr : fixedRun environment g (T.hashW (auxSpec := auxSpec) x) state result ≠ 0) :
-    result.1 = T.answers g (.inl (.inr x)) ∧
+    (hr : fixedRun environment (T.view h) (T.hashW (auxSpec := auxSpec) x) state result ≠ 0) :
+    result.1 = T.answers h (.inl (.inr x)) ∧
       PrefixTracks (fun _ _ => False) state result.2 ∧
       result.2.probes ≤ state.probes + 1 ∧
-      (∀ c : GCoord, x = honestProbe (T.answers g) c → c ∈ result.2.retired) := by
+      (∀ c : GCoord, x = honestProbe (T.answers h) c → c ∈ result.2.retired) := by
   unfold hashW at hr
   cases hd : decodeProbe x with
   | none =>
       rw [hd] at hr
-      have h := fixedRun_pure_nonzero' environment g _ state result hr
-      subst h
-      refine ⟨T.answers_public _ g x hd, PrefixTracks.refl _ _, Nat.le_succ _, ?_⟩
+      have hh := fixedRun_pure_nonzero' environment (T.view h) _ state result hr
+      subst hh
+      refine ⟨T.answers_public _ h x hd, PrefixTracks.refl _ _, Nat.le_succ _, ?_⟩
       intro c hc
       rw [hc, honestProbe, decodeProbe_probeInput] at hd
       cases hd
   | some q =>
       rw [hd] at hr
-      obtain ⟨h1, h2, h3, -, h5⟩ := fixedRun_probeW environment g T.step T.top (T.miss x) q.1.1 q.1.2 q.2
+      obtain ⟨h1, h2, h3, -, h5⟩ := fixedRun_probeW environment (T.view h) T.step T.top (T.miss x) q.1.1 q.1.2 q.2
         state result hr
       have hx := eq_of_decodeProbe hd
       refine ⟨?_, h2, h3.le, ?_⟩

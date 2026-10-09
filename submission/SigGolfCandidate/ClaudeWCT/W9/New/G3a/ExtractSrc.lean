@@ -15,7 +15,7 @@ def PosSource : Extract.Pos → Prop
   | .node lay tree level node => tree < 2 ^ Extract.treeBits lay ∧ level < height lay ∧
       node < 2 ^ (height lay - level - 1) ∧ (lay = 0 ∨ level + 1 < height lay)
   | .forest index => index < 2 ^ 31
-  | .wctChain index coord child t step => index < 2 ^ 31 ∧ coord < 9 ∧ child < 128 ∧ t < 7 ∧ step < 3
+  | .wctChain index coord child t step => index < 2 ^ 31 ∧ coord < 9 ∧ child < 128 ∧ t < 6 ∧ step < 4
   | .wctLeaf index coord child => index < 2 ^ 31 ∧ coord < 9 ∧ child < 128
   | .wctNode index coord level nd => index < 2 ^ 31 ∧ coord < 9 ∧ level < 6 ∧ nd < 2 ^ (7 - level - 1)
 def StructuralHitSrc (answers : Answers) (trace : List Entry) : Prop :=

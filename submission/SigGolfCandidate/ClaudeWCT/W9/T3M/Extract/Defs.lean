@@ -6,21 +6,24 @@ open OracleComp OracleSpec SigGolfCandidate.T3
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open Correctness (Answers treeValue)
 def HonestQ (answers : Answers) (N : HashOutput) (c : WCT9.Coord) (q : Spec.Domain) : Prop :=
-  (∃ t : Fin 7, ∃ s, 3 - WCT9.wordDigit (WCT9.rank N c) t ≤ s ∧ s < 3 ∧
+  (∃ t : Fin 6, ∃ s, 4 - WCT9.wordDigit (WCT9.rank N c) t ≤ s ∧ s < 4 ∧
       q = .inl (.inr (Extract.honestInput answers
         (.wctChain (WCT9.digestIndex N) c.val (WCT9.child N c).val t.val s)))) ∨
     q = .inl (.inr (Extract.honestInput answers (.wctLeaf (WCT9.digestIndex N) c.val (WCT9.child N c).val))) ∨
     ∃ l, l < 6 ∧ q = .inl (.inr (Extract.honestInput answers
       (.wctNode (WCT9.digestIndex N) c.val l ((WCT9.child N c).val / 2 ^ (l + 1)))))
+/-- Honest coordinate: revealed values, chain pads, Merkle siblings/pads and (campaign T8) the leaf pad are the
+honest ones. -/
 def CoordHonest (answers : Answers) (N : HashOutput) (w : WBytes) (c : WCT9.Coord) : Prop :=
-  (∀ t : Fin 7, wreveal w c.val t.val (WCT9.wordDigit (WCT9.rank N c) t) =
+  (∀ t : Fin 6, wreveal w c.val t.val (WCT9.wordDigit (WCT9.rank N c) t) =
       Extract.wctValue answers (WCT9.digestIndex N) c.val (WCT9.child N c).val t.val
-        (3 - WCT9.wordDigit (WCT9.rank N c) t) ∧
+        (4 - WCT9.wordDigit (WCT9.rank N c) t) ∧
     (0 < WCT9.wordDigit (WCT9.rank N c) t →
       wcpads w c.val t.val = (0, 0) ∧ wcHeaderPad w c.val t.val = 0)) ∧
   (∀ l, l < 7 → wsib w c.val (WCT9.child N c).val l =
       treeValue (Extract.ftsLevels answers (WCT9.digestIndex N) c.val) l ((WCT9.child N c).val / 2 ^ l ^^^ 1) ∧
-    (l < 6 → wmpad w c.val (WCT9.child N c).val l = 0))
+    (l < 6 → wmpad w c.val (WCT9.child N c).val l = 0)) ∧
+  wleafPad w c.val = 0
 def WctHonest (answers : Answers) (N : HashOutput) (w : WBytes) : Prop :=
   (∀ q ∈ queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N),
       q = .inl (.inr (Extract.honestInput answers (.forest (WCT9.digestIndex N)))) ∨

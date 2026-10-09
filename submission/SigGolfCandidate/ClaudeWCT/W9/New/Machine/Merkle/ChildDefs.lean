@@ -12,7 +12,7 @@ def blkO (l : Nat) : Nat := 64 * (6 - l)
 def curO (l j : Nat) : Nat := blkO l + 48 * bitAt j l
 def sibO (l j : Nat) : Nat := blkO l + 48 * (1 - bitAt j l)
 def padO (l : Nat) : Nat := blkO l + 32
-def leafO : Nat := 880
+def leafO : Nat := 816
 def heapOf (l j : Nat) : Nat := 2 ^ (6 - l) + j / 2 ^ (l + 1)
 def nodeLo (k index : Nat) : Nat := 1537 + 65536 * k + 2 ^ 27 * index
 def heapReg (h : Nat) : Reg :=
@@ -31,8 +31,10 @@ def stageW (j l : Nat) : List Nat :=
   [curO l j, curO l j + 8, curO l j + 16, curO l j + 24, blkO l + 16, blkO l + 24]
 def stagesW (j n : Nat) : List Nat := (List.range n).flatMap (stageW j)
 def childWrites (j : Nat) : List Nat := stagesW j 6
+/-- The 8 leaf digests (T8): `end0 | header | pad (honest 0) | end1..end5`. -/
 def leafFields (k index j : Nat) (ends : List Digest) (i : Nat) : Digest :=
-  if i = 0 then ends.getD 0 0 else if i = 1 then ClaudeWCT.WCT9.ftsLeafHeader index k j else ends.getD (i - 1) 0
+  if i = 0 then ends.getD 0 0 else if i = 1 then ClaudeWCT.WCT9.ftsLeafHeader index k j
+  else if i = 2 then 0 else ends.getD (i - 2) 0
 def sixLevels (k index j : Nat) (path : Nat → Digest) (root : Digest) : M Digest :=
   (List.range 6).foldlM (fun value l =>
     let other := path l

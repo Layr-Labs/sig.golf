@@ -10,9 +10,9 @@ open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
 set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
 attribute [local irreducible] ClaudeWCT.WCT9.heapBuild
-theorem wctValue_three (answers : Answers) (index coord child : Nat) (t : Fin 7) :
-    wctValue answers index coord child t.val 3 = WCT9.chainEnd answers index coord child t := rfl
-theorem wctSeed_eq (answers : Answers) (index coord child : Nat) (t : Fin 7) :
+theorem wctValue_three (answers : Answers) (index coord child : Nat) (t : Fin 6) :
+    wctValue answers index coord child t.val 4 = WCT9.chainEnd answers index coord child t := rfl
+theorem wctSeed_eq (answers : Answers) (index coord child : Nat) (t : Fin 6) :
     wctSeed answers index coord child t.val = WCT9.seed answers index coord child t := rfl
 theorem ftsLeaves_eq (answers : Answers) (index : Nat) (coord : WCT9.Coord) :
     ftsLeaves answers index coord.val = WCT9.coordLeaves answers index coord := rfl
@@ -56,7 +56,8 @@ theorem honestInput_ofFts (T : Answers) (index : Nat) (p : WCT9.Wots.FtsPos) (hp
   cases p with
   | chain coord child t step => rfl
   | leaf coord child =>
-      simp only [Pos.ofFts, honestInput, WCT9.Wots.ftsHonestInput, wctLeafInput, listInput, WCT9.leafInput]
+      simp only [Pos.ofFts, honestInput, WCT9.Wots.ftsHonestInput, wctLeafInput, listInput, WCT9.leafInput,
+        List.flatMap_cons, WCT9.bytesLE_zero16, List.append_assoc]
       rfl
   | node coord heap =>
       obtain ⟨h1, h2, h3⟩ := heap_decomp hp.1 hp.2

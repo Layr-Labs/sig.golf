@@ -30,27 +30,27 @@ theorem extract_hi (x : BitVec 256) :
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, Nat.pow_zero, Nat.div_one]
   rw [show (2 : Nat) ^ 128 = 2 ^ 64 * 2 ^ 64 by norm_num, Nat.mod_mul_right_div_self, Nat.mod_mod]
-theorem orig_word {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 728}
+theorem orig_word {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 666}
     {u : MachineState} (hu : Pre L w index k j rank u) (as : List (BitVec 256)) (off : Nat)
-    (ho : off < 880) (ha : off % 8 = 0) :
+    (ho : off < 816) (ha : off % 8 = 0) :
     chainValue (originalValue u index k j) as (.original off) =
       w.extractLsb' (8 * (V3.regionOffset k.val + off)) 64 := by
   exact hu.witness off ho ha
-theorem orig_block {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 728}
+theorem orig_block {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 666}
     {u : MachineState} (hu : Pre L w index k j rank u) (as : List (BitVec 256)) (t c : Nat)
-    (ht : t < 7) (hc : c < 64) (ha : c % 8 = 0) :
-    chainValue (originalValue u index k j) as (.original (704 - 64 * t + c)) =
+    (ht : t < 6) (hc : c < 64) (ha : c % 8 = 0) :
+    chainValue (originalValue u index k j) as (.original (640 - 64 * t + c)) =
       w.extractLsb' (8 * (V3.chainOffset k.val t + c)) 64 := by
   rw [orig_word hu as _ (by omega) (by omega)]
   unfold V3.chainOffset
   rw [Nat.add_assoc]
-theorem query_bytes {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 728}
+theorem query_bytes {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 666}
     {u : MachineState} (hu : Pre L w index k j rank u) (digits : List Nat) (t s : Nat)
-    (ht : t < 7) (hs : s < digits.getD t 0) (as : List (BitVec 256)) (v : Digest)
+    (ht : t < 6) (hs : s < digits.getD t 0) (as : List (BitVec 256)) (v : Digest)
     (hv : v = if s = 0 then V3.reveal w k.val t (digits.getD t 0)
       else (as.getD ((digits.take t).sum + s - 1) 0).extractLsb' 0 128) :
     wordBytes ((chainQueryWords digits t s).map (chainValue (originalValue u index k j) as)) =
-      V3.chainInput index k.val j.val t (3 - digits.getD t 0 + s)
+      V3.chainInput index k.val j.val t (4 - digits.getD t 0 + s)
         (V3.chainPadA w k.val t) (V3.chainPadB w k.val t) (V3.chainPadC w k.val t) v := by
   rw [← wordBytes_wordsOf (V3.chainInput _ _ _ _ _ _ _ _ _) 8
     (chainInput_length _ _ _ _ _ _ _ _ _), wordsOf_chainInput]
@@ -80,8 +80,8 @@ theorem sum_take_mono (l : List Nat) (a c : Nat) : (l.take a).sum ≤ (l.take (a
   induction c with
   | zero => exact le_refl _
   | succ c ih => rw [← Nat.add_assoc, sum_take_succ]; omega
-theorem chain_cps {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 728}
-    {u : MachineState} (hu : Pre L w index k j rank u) (digits : List Nat) (t : Nat) (ht : t < 7)
+theorem chain_cps {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 666}
+    {u : MachineState} (hu : Pre L w index k j rank u) (digits : List Nat) (t : Nat) (ht : t < 6)
     {β : Type} (r : Nat) : ∀ (s : Nat) (as : List (BitVec 256)) (v : Digest)
       (K : List (BitVec 256) → M β) (Kv : Digest → M β),
     s + r = digits.getD t 0 → as.length = (digits.take t).sum + s →
@@ -91,7 +91,7 @@ theorem chain_cps {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 1
       K (as ++ new) = Kv (if r = 0 then v else (new.getD (r - 1) 0).extractLsb' 0 128)) →
     (traceProgram (originalValue u index k j) ((List.range' s r).map (chainQueryWords digits t)) as
         >>= K) =
-      ((List.range' (3 - digits.getD t 0 + s) r).foldlM
+      ((List.range' (4 - digits.getD t 0 + s) r).foldlM
         (fun value step => shortHash (V3.chainInput index k.val j.val t step
           (V3.chainPadA w k.val t) (V3.chainPadB w k.val t) (V3.chainPadC w k.val t) value)) v
         >>= Kv) := by
@@ -107,7 +107,7 @@ theorem chain_cps {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 1
     rw [query_bytes hu digits t s ht (by omega) as v hv, shortHash_def, bind_assoc]
     simp only [pure_bind]
     refine congrArg (publicHash _ >>= ·) (funext fun ans => ?_)
-    rw [show 3 - digits.getD t 0 + s + 1 = 3 - digits.getD t 0 + (s + 1) by omega]
+    rw [show 4 - digits.getD t 0 + s + 1 = 4 - digits.getD t 0 + (s + 1) by omega]
     refine ih (s + 1) (as ++ [ans]) _ K Kv (by omega) (by simp [hlen]; omega) ?_ ?_
     · rw [if_neg (by omega), show (digits.take t).sum + (s + 1) - 1 = as.length by omega,
         List.getD_append_right _ _ _ _ (le_refl _), Nat.sub_self]
@@ -124,18 +124,18 @@ def endOf (w : WBytes) (k : Fin 9) (digits : List Nat) (as : List (BitVec 256)) 
   else (as.getD ((digits.take (t + 1)).sum - 1) 0).extractLsb' 0 128
 def chainProg (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128) (digits : List Nat) (t : Nat) :
     M Digest :=
-  V3.chainP index k.val j.val t (3 - digits.getD t 0) (digits.getD t 0)
+  V3.chainP index k.val j.val t (4 - digits.getD t 0) (digits.getD t 0)
     (V3.chainPadA w k.val t) (V3.chainPadB w k.val t) (V3.chainPadC w k.val t)
     (V3.reveal w k.val t (digits.getD t 0))
 def chainQs (digits : List Nat) (t : Nat) : List (List ChainWord) :=
   (List.range (digits.getD t 0)).map (chainQueryWords digits t)
-theorem outer_cps {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 728}
+theorem outer_cps {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 666}
     {u : MachineState} (hu : Pre L w index k j rank u) (digits : List Nat) (m : Nat) :
     ∀ (t : Nat) (as : List (BitVec 256)) (acc : List Digest),
-    t + m = 7 → as.length = (digits.take t).sum → acc.length = t →
+    t + m = 6 → as.length = (digits.take t).sum → acc.length = t →
     (∀ i, i < t → acc.getD i 0 = endOf w k digits as i) →
     (traceProgram (originalValue u index k j) ((List.range' t m).flatMap (chainQs digits)) as
-        >>= fun as' => pure ((List.finRange 7).map fun i => endOf w k digits as' i.val)) =
+        >>= fun as' => pure ((List.finRange 6).map fun i => endOf w k digits as' i.val)) =
       ((List.range' t m).mapM (chainProg w index k j digits) >>= fun vs => pure (acc ++ vs)) := by
   induction m with
   | zero =>
@@ -186,14 +186,14 @@ theorem outer_cps {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 1
       rfl
 theorem sourceEquivalent : W9Machine.Chain.SourceEquivalent := by
   intro L w index k j rank u hu
-  have h := outer_cps hu (ClaudeWCT.WCT9.codeword rank) 7 0 [] [] rfl rfl rfl
+  have h := outer_cps hu (ClaudeWCT.WCT9.codeword rank) 6 0 [] [] rfl rfl rfl
     (fun i hi => absurd hi (Nat.not_lt_zero i))
   have hq : expectedQueries (ClaudeWCT.WCT9.codeword rank) =
-      (List.range' 0 7).flatMap (chainQs (ClaudeWCT.WCT9.codeword rank)) := by
+      (List.range' 0 6).flatMap (chainQs (ClaudeWCT.WCT9.codeword rank)) := by
     rw [expectedQueries, List.range_eq_range']
     rfl
   have hp : program w index k j rank =
-      (List.range' 0 7).mapM (chainProg w index k j (ClaudeWCT.WCT9.codeword rank)) := rfl
+      (List.range' 0 6).mapM (chainProg w index k j (ClaudeWCT.WCT9.codeword rank)) := rfl
   rw [hq, hp]
   refine h.trans ?_
   simp only [List.nil_append, bind_pure]

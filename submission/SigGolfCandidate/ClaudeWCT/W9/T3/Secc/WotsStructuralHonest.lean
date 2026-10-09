@@ -469,16 +469,16 @@ theorem honestQuery_of_fts (T : Answers) {index : Nat} (hindex : index < 2 ^ 31)
     exact Or.inr ⟨pos, hb, hx⟩
   · trivial
   · trivial
-theorem sat_buildChild (T : Answers) (index : Nat) (hindex : index < 2 ^ 31) (coord : ClaudeWCT.WCT9.Coord)
-    (child : ClaudeWCT.WCT9.Child) (word : ClaudeWCT.WCT9.Rank) (carry : Digest)
-    (hcarry : WCT9.CarryOk T (WCT9.ftsSeedPair index coord.val) (WCT9.ftsOrdinal child.val 0) carry) :
-    QueriesSat T (HonestQuery T) (ClaudeWCT.WCT9.buildChild index coord.val child.val word carry) :=
-  (ClaudeWCT.WCT9.Wots.Structural.sat_buildChild T index coord child word carry hcarry).mono fun _ hq =>
+theorem sat_buildChildF (T : Answers) (index : Nat) (hindex : index < 2 ^ 31) (coord : ClaudeWCT.WCT9.Coord)
+    (child : ClaudeWCT.WCT9.Child) (word : ClaudeWCT.WCT9.Rank) :
+    QueriesSat T (HonestQuery T) (ClaudeWCT.WCT9.buildChildF index coord.val child.val word
+      (List.ofFn (WCT9.ftsCoef T index coord.val))) :=
+  (ClaudeWCT.WCT9.Wots.Structural.sat_buildChildF T index coord child word).mono fun _ hq =>
     honestQuery_of_fts T hindex hq
-theorem sat_buildCoordinate (T : Answers) (index : Nat) (hindex : index < 2 ^ 31) (coord : ClaudeWCT.WCT9.Coord)
+theorem sat_buildCoordinateF (T : Answers) (index : Nat) (hindex : index < 2 ^ 31) (coord : ClaudeWCT.WCT9.Coord)
     (selected : ClaudeWCT.WCT9.Child) (word : ClaudeWCT.WCT9.Rank) :
-    QueriesSat T (HonestQuery T) (ClaudeWCT.WCT9.buildCoordinate index coord selected word) :=
-  (ClaudeWCT.WCT9.Wots.Structural.sat_buildCoordinate T index coord selected word).mono fun _ hq =>
+    QueriesSat T (HonestQuery T) (ClaudeWCT.WCT9.buildCoordinateF index coord selected word) :=
+  (ClaudeWCT.WCT9.Wots.Structural.sat_buildCoordinateF T index coord selected word).mono fun _ hq =>
     honestQuery_of_fts T hindex hq
 theorem sat_forestRows (T : Answers) (index : Nat) (hindex : index < 2 ^ 31) (output : HashOutput) :
     QueriesSat T (HonestQuery T) (ClaudeWCT.WCT9.forestRows index output) :=

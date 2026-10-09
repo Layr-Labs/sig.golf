@@ -51,7 +51,7 @@ theorem l249_spec (hpc : s.pc = pcOf 249) (index : Nat) (hi : index < 2 ^ 31)
     ∃ t, Steps image s 13 13 t ∧ t.pc = pcOf 457 ∧ t.getReg .x1 = pcOf 262 ∧
       t.getReg .x8 = BitVec.ofNat 64 3 ∧ t.getReg .x15 = BitVec.ofNat 64 6 ∧
       t.getReg .x26 = BitVec.ofNat 64 43 ∧ t.getReg .x27 = BitVec.ofNat 64 0 ∧
-      t.getReg .x17 = BitVec.ofNat 64 198 ∧
+      t.getReg .x17 = BitVec.ofNat 64 197 ∧
       t.getReg .x18 = BitVec.ofNat 64 (index / 2 ^ 0 % 2 ^ 6) ∧ t.getReg .x9 = BitVec.ofNat 64 (index / 2 ^ 6) ∧
       RegsExcept s t [.x1, .x6, .x7, .x8, .x9, .x15, .x17, .x18, .x26, .x27, .x28] ∧
       Frame s t (fun _ => False) := by
@@ -80,7 +80,7 @@ theorem l272_spec (hpc : s.pc = pcOf 272) (index : Nat) (hi : index < 2 ^ 31)
     ∃ t, Steps image s 13 13 t ∧ t.pc = pcOf 457 ∧ t.getReg .x1 = pcOf 285 ∧
       t.getReg .x8 = BitVec.ofNat 64 2 ∧ t.getReg .x15 = BitVec.ofNat 64 6 ∧
       t.getReg .x26 = BitVec.ofNat 64 43 ∧ t.getReg .x27 = BitVec.ofNat 64 0 ∧
-      t.getReg .x17 = BitVec.ofNat 64 198 ∧
+      t.getReg .x17 = BitVec.ofNat 64 196 ∧
       t.getReg .x18 = BitVec.ofNat 64 (index / 2 ^ 6 % 2 ^ 6) ∧ t.getReg .x9 = BitVec.ofNat 64 (index / 2 ^ 12) ∧
       RegsExcept s t [.x1, .x6, .x7, .x8, .x9, .x15, .x17, .x18, .x26, .x27, .x28] ∧
       Frame s t (fun _ => False) := by
@@ -109,7 +109,7 @@ theorem l295_spec (hpc : s.pc = pcOf 295) (index : Nat) (hi : index < 2 ^ 31)
     ∃ t, Steps image s 13 13 t ∧ t.pc = pcOf 457 ∧ t.getReg .x1 = pcOf 308 ∧
       t.getReg .x8 = BitVec.ofNat 64 1 ∧ t.getReg .x15 = BitVec.ofNat 64 7 ∧
       t.getReg .x26 = BitVec.ofNat 64 43 ∧ t.getReg .x27 = BitVec.ofNat 64 0 ∧
-      t.getReg .x17 = BitVec.ofNat 64 198 ∧
+      t.getReg .x17 = BitVec.ofNat 64 197 ∧
       t.getReg .x18 = BitVec.ofNat 64 (index / 2 ^ 12 % 2 ^ 7) ∧ t.getReg .x9 = BitVec.ofNat 64 (index / 2 ^ 19) ∧
       RegsExcept s t [.x1, .x6, .x7, .x8, .x9, .x15, .x17, .x18, .x26, .x27, .x28] ∧
       Frame s t (fun _ => False) := by
@@ -246,7 +246,19 @@ theorem l332_spec (hpc : s.pc = pcOf 332) (c : Nat) (h19 : s.getReg .x19 = BitVe
     simp only [Result.toState_getMem, eblk_332.res]
     t3n []
     rw [if_neg (by omega)]
--- [h2 lane] removed c342_spec: a fact about the record's original expand word 0 / 342, which H2 replaces
+theorem c342_spec (hpc : s.pc = pcOf 342) :
+    ∃ t, Steps image s 6 6 t ∧
+      t.pc = (if s.getMem (BitVec.ofNat 64 ENC) = s.getMem (BitVec.ofNat 64 0xA0) then pcOf 348 else pcOf 354) ∧
+      t.getReg .x28 = BitVec.ofNat 64 ENC ∧ t.getReg .x29 = BitVec.ofNat 64 0xA0 ∧
+      RegsExcept s t [.x6, .x7, .x28, .x29] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_, symRun_sound eblk_342 codeAt_342 s hpc (by simp [eblk_342.res, rv_simp, accessValid_iff, MEMORY_BYTES]),
+    ?_, ?_, ?_, ?_, ?_⟩
+  · simp only [Result.toState_pc, eblk_342.res, E.eval, CmpOp.eval, rebase, rv_simp, ENC]
+    split_ifs with h1 h2 h2 <;> simp_all
+  · simp [eblk_342.res, rv_simp]
+  · simp [eblk_342.res, rv_simp]
+  · ex_regs eblk_342.res
+  · intro A _ _; simp [eblk_342.res, rv_simp]
 theorem c348_spec (hpc : s.pc = pcOf 348) (h28 : s.getReg .x28 = BitVec.ofNat 64 ENC)
     (h29 : s.getReg .x29 = BitVec.ofNat 64 0xA0) :
     ∃ t, Steps image s 3 3 t ∧

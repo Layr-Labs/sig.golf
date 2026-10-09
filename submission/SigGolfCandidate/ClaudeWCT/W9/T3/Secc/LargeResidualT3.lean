@@ -16,34 +16,42 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 noncomputable local instance instDecidableEqCache_w9largeResidualT3 : DecidableEq SigGolfCandidate.T3.Cache := Classical.decEq _
 def digestIndex (N : HashOutput) : Fin (2^31) := ⟨WCT9.digestIndex N, WCT9.digestIndex_lt N⟩
-abbrev Coord := CanonGraph.Node ⊕ CanonGraph.SecretIndex
+/-- Observable secret-side coordinates: WOTS seeds and FTS seeds (the latter are family evaluations, see
+`FamResidual`; the hidden FTS coefficients are not observables). -/
+abbrev SeedIndex := ChainGraph.Address ⊕ WctAddr
+/-- The observable seeds of a secret table. -/
+def seedView (secrets : CanonGraph.Secrets) : SeedIndex → Digest :=
+  Sum.elim (fun a => secrets (.inl a)) (wctSeedsOf secrets)
+abbrev Coord := CanonGraph.Node ⊕ SeedIndex
 def chainChild (p : ChainGraph.Point) : Coord :=
   if p.2.val = 0 then .inr (.inl (CanonGraph.seedIdx p.1)) else .inl (.chain (ChainGraph.predecessor p))
 def treeChild (lay : Layer) (tree : Fin (2^31)) (level c : Nat) : Option Coord :=
   if level = 0 then (leafAt lay tree c).map fun L => .inl (.leaf L)
   else (treeNodeAt lay tree (level - 1) c).map fun n => .inl (.node n)
 def wctItem (a : WctAddr) (p : Nat) : Coord :=
-  if p = 0 then .inr (.inr a) else .inl (.wctChain (a, ⟨(p - 1) % 3, Nat.mod_lt _ (by decide)⟩))
+  if p = 0 then .inr (.inr a) else .inl (.wctChain (a, ⟨(p - 1) % 4, Nat.mod_lt _ (by decide)⟩))
 def ftsChild (index : Fin (2^31)) (coord : Fin 9) (level c : Nat) : Option Coord :=
   if level = 0 then (if h : c < 128 then some (.inl (.wctLeaf ⟨index, coord, ⟨c, h⟩⟩)) else none)
   else (ftsNodeAt index coord (level - 1) c).map fun n => .inl (.wctNode n)
 def endPoint (L : LeafPos) (i : Nat) : ChainGraph.Point :=
   (⟨L.lay, L.tree, L.leaf, fin58 i⟩, ⟨(maxDigit L.lay i - 1) % 7, Nat.mod_lt _ (by decide)⟩)
 def leafBlock (lay : Layer) (i : Nat) : Nat := if lay = 0 then i + 2 else listBlock i
+/-- Block of FTS end `t` in the padded FTS leaf `end0 | hdr | pad | end1..end5` (campaign T8). -/
+def ftsLeafSlot (t : Nat) : Nat := if t = 0 then 0 else t + 2
 def childSlots : CanonGraph.Node → List (Coord × Nat)
   | .chain p => [(chainChild p, 3)]
   | .leaf L => (List.range (chainCount L.1.lay)).map fun i => (.inl (.chain (endPoint L.1 i)), leafBlock L.1.lay i)
   | .node n => ((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val)).map (·, 0)).toList ++
       ((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val + 1)).map (·, 3)).toList
   | .wctChain p => [(wctItem p.1 p.2.val, 3)]
-  | .wctLeaf L => List.ofFn fun t : Fin 7 => (wctItem (L.index, L.coord, L.child, t) 3, listBlock t.val)
+  | .wctLeaf L => List.ofFn fun t : Fin 6 => (wctItem (L.index, L.coord, L.child, t) 4, ftsLeafSlot t.val)
   | .wctNode n => ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val)).map (·, 0)).toList ++
       ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)).map (·, 3)).toList
   | .forest index => (List.range 9).flatMap fun c =>
       [(.inl (.wctNode (ftsTopNode index (fin9 c) 0)), 2 + 2 * c), (.inl (.wctNode (ftsTopNode index (fin9 c) 1)), 3 + 2 * c)]
 noncomputable def honestValue (A : Answers) : Coord → Digest
   | .inl N => (A (.inl (.inr (Extract.honestInput A N.toPos)))).extractLsb' 0 128
-  | .inr s => secretsOf A s
+  | .inr s => seedView (secretsOf A) s
 inductive Known (D : Coord → Prop) : Coord → Prop
   | base {c : Coord} : D c → Known D c
   | node {N : CanonGraph.Node} : (∀ cs ∈ childSlots N, Known D cs.1) → Known D (.inl N)
@@ -56,7 +64,7 @@ def chainItem (L : LeafPos) (i d : Nat) : Coord :=
   if d = 0 then .inr (.inl (CanonGraph.seedIdx ⟨L.lay, L.tree, L.leaf, fin58 i⟩))
   else .inl (.chain (⟨L.lay, L.tree, L.leaf, fin58 i⟩, ⟨(d - 1) % 7, Nat.mod_lt _ (by decide)⟩))
 def wctOpened (index : Fin (2^31)) (k : Fin 9) (N : HashOutput) : List Coord :=
-  List.ofFn fun t : Fin 7 => wctItem (index, k, WCT9.child N k, t) (3 - WCT9.wordDigit (WCT9.rank N k) t)
+  List.ofFn fun t : Fin 6 => wctItem (index, k, WCT9.child N k, t) (4 - WCT9.wordDigit (WCT9.rank N k) t)
 def wctPath (index : Fin (2^31)) (k : Fin 9) (N : HashOutput) : List Coord :=
   (List.range 7).filterMap fun l => ftsChild index k l ((WCT9.child N k).val / 2 ^ l ^^^ 1)
 def ftsItems (index : Fin (2^31)) (N : HashOutput) : List Coord :=

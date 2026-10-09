@@ -200,7 +200,7 @@ def TopOut (c : NCtx) (s0 : MachineState) (acc : List Digest) (s : MachineState)
   (∀ x, x ∉ chainRegs → x ≠ .x15 → x ≠ .x24 → s.getReg x=s0.getReg x) ∧
   Frame s0 s (c.Wr 54) ∧ acc.length=54 ∧
   (∀ j < acc.length, DigAt s (slot j) (acc.getD j 0)) ∧
-  (∃ k, k < 64 ∧ s.pc = pcOf (gX 17 k)) ∧ s.getReg .x2 = 0x3fe00#64 ∧
+  (∃ dB dC, dB < 4 ∧ dC < 4 ∧ s.pc = pcOf (pcX 17 dB dC)) ∧ s.getReg .x2 = 0x3fe00#64 ∧
   s.getReg .x24=c.s8v 17
 theorem end_return (c : NCtx) (hds : c.DigitsOk) {s0 b : MachineState}
     (hb : s0.getReg .x2 = 0x3fe00#64)
@@ -208,15 +208,22 @@ theorem end_return (c : NCtx) (hds : c.DigitsOk) {s0 b : MachineState}
     (hs : c.EndInv (set24 (tailInitial (set24 s0 (c.s8v 16)) b) (c.s8v 17)) 53 acc s) :
     c.TopOut s0 acc s := by
   obtain ⟨⟨hR,hF,hS⟩,hlen,hpc⟩ := hs
+  have hB := c.dig_group_le hds 17 1 (by decide +kernel) (by decide +kernel)
+  have hC := c.dig_group_le hds 17 2 (by decide +kernel) (by decide +kernel)
   have hreg : ∀ x, x ∉ chainRegs → x ≠ .x15 → x ≠ .x24 → s.getReg x=s0.getReg x := by
     intro x hx h15 h24
     rw [hR x hx,set24_regs _ _ _ h24,tailInitial_regs _ _ _ h15,set24_regs _ _ _ h24]
   refine ⟨hreg,?_,hlen,fun j hj => hS j hj,?_,?_,?_⟩
   · intro A hA hn
     exact (hF A hA hn).trans (by rw [set24_mem,tailInitial_mem,set24_mem])
-  · refine ⟨c.kOf 17, ?_, ?_⟩
-    · simpa [mx] using c.kOf_lt hds 17 (by decide +kernel)
-    · rw [hpc]; simp [endPc, qX]
+  · refine ⟨c.dig 52, c.dig 53, ?_, ?_, ?_⟩
+    · simpa [mx] using Nat.lt_succ_of_le hB
+    · simpa [mx] using Nat.lt_succ_of_le hC
+    · rw [hpc]
+      have eB := c.gB_noninl hds 17 (by decide +kernel) (by decide +kernel)
+      have eC : gC 17 (c.kOf 17) = pcC 17 (c.dig 52) (c.dig 53) := by rw [c.gC_eq hds 17 (by decide +kernel), eB]; rfl
+      have eE : c.endPc 53 = gX 17 (c.kOf 17) := by simp [endPc, qX]
+      rw [eE, c.gX_eq hds 17 (by decide +kernel), eC]; rfl
   · rw [hR .x2 (by decide +kernel),set24_regs _ _ _ (by decide +kernel),tailInitial_regs _ _ _ (by decide +kernel),set24_regs _ _ _ (by decide +kernel),hb]
   · rw [hR .x24 (by decide +kernel),set24_24]
 theorem top_full (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}

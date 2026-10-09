@@ -11,29 +11,29 @@ def heapReg : Nat → Reg
 structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
     (ends : List Digest) (u : MachineState) : Prop where
   indexBound : index < 2 ^ 31
-  length : ends.length = 7
+  length : ends.length = 6
   pc : u.pc = pcOf (L.childWord j + 1)
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (coordinateBase k)
   hashMode : u.getReg .x5 = 0
-  hashInput : u.getReg .x10 = BitVec.ofNat 64 (coordinateBase k + 752)
+  hashInput : u.getReg .x10 = BitVec.ofNat 64 (coordinateBase k + 688)
   hashLen : u.getReg .x11 = 128
   nodeWord : u.getReg .x15 = BitVec.ofNat 64 (V3.nodeLow k.val index)
   childIdx : u.getReg .x4 = BitVec.ofNat 64 j.val
   forestPointer : u.getReg .x9 = BitVec.ofNat 64 (pairAddress k)
   returnPC : u.getReg .x1 = pcOf (L.returnWord k)
   heaps : ∀ h, 2 ≤ h → h ≤ 7 → u.getReg (heapReg h) = BitVec.ofNat 64 h
-  leafAt : ∀ i, i < 8 → DigAt u (coordinateBase k + 752 + 16 * i)
-    (V3.leafFields k.val index j.val ends i)
+  leafAt : ∀ i, i < 8 → DigAt u (coordinateBase k + 688 + 16 * i)
+    (V3.leafFields k.val index j.val (V3.leafPad w k.val) ends i)
   padAt : ∀ l, l < 6 → DigAt u (coordinateBase k + ClaudeWCT.W9.T3M.authPadOff j.val l)
     (V3.nodePad w k.val j.val l)
   sibAt : ∀ l, l < 7 → DigAt u (coordinateBase k + ClaudeWCT.W9.T3M.authSibOff j.val l)
     (V3.sibling w k.val j.val l)
 def writes (k : Fin 9) (A : Nat) : Prop :=
-  (coordinateBase k ≤ A ∧ A < coordinateBase k + 896) ∨ (pairAddress k ≤ A ∧ A < pairAddress k + 48)
+  (coordinateBase k ≤ A ∧ A < coordinateBase k + 832) ∨ (pairAddress k ≤ A ∧ A < pairAddress k + 48)
 def clobbers : List Reg := [.x3, .x10, .x11, .x12, .x14]
 structure Post (L : Layout) (k : Fin 9) (u : MachineState)
     (pair : V3.RootPair) (t : MachineState) : Prop where
-  pc : t.pc = pcOf (L.returnWord k + 115)
+  pc : t.pc = pcOf (L.returnWord k)
   hashLen : t.getReg .x11 = 64
   left : DigAt t (pairAddress k) pair.left
   right : DigAt t (pairAddress k + 16) pair.right

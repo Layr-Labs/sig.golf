@@ -67,82 +67,57 @@ open ClaudeWCT.W9.T3.Security.CanonGraph
 open Correctness (Answers)
 set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
-def splitHidden (g : WctPoint → Digest) : (WctAddr → Digest) × (WctAddr × Fin 2 → Digest) :=
-  (fun a => g (a, 0), fun c => g (shiftCoord c))
-def joinHidden (p : (WctAddr → Digest) × (WctAddr × Fin 2 → Digest)) : WctPoint → Digest :=
-  fun q => if h : q.2.val = 0 then p.1 q.1 else p.2 (q.1, ⟨q.2.val - 1, by omega⟩)
-def hiddenEquiv : (WctPoint → Digest) ≃ (WctAddr → Digest) × (WctAddr × Fin 2 → Digest) where
-  toFun := splitHidden
-  invFun := joinHidden
-  left_inv g := by
-    funext ⟨a, ⟨s, hs⟩⟩
-    unfold joinHidden splitHidden shiftCoord
-    simp only
-    split_ifs with h
-    · subst h; rfl
-    · congr 2
-      apply Fin.ext
-      simp only
-      omega
-  right_inv p := by
-    obtain ⟨p0, p12⟩ := p
-    refine Prod.ext ?_ ?_
-    · funext a
-      simp [splitHidden, joinHidden]
-    · funext ⟨a, ⟨q, hq⟩⟩
-      simp [splitHidden, joinHidden, shiftCoord]
-theorem hiddenEquiv_symm_apply (p : (WctAddr → Digest) × (WctAddr × Fin 2 → Digest)) :
-    hiddenEquiv.symm p = joinHidden p := rfl
-theorem joinHidden_hiddenEquiv (g : WctPoint → Digest) : joinHidden (hiddenEquiv g) = g :=
-  hiddenEquiv.symm_apply_apply g
 variable {U : Finset HashInput} (hU : canonInputs ⊆ U)
-theorem worldAnswers_join (ω : Omega U) (g0 : WctAddr → Digest) (g12 : WctAddr × Fin 2 → Digest) :
-    worldAnswers hU ω (joinHidden (g0, g12)) =
+/-- Coefficient vectors per family ↔ coefficient secrets (currying). -/
+def coefEquiv : (Guess.Fam.FamIdx → Guess.Fam.Coefs) ≃ (WctCoef → Digest) where
+  toFun := coefOf
+  invFun g0 f j := g0 (f.1, f.2, j)
+  left_inv _ := rfl
+  right_inv _ := rfl
+/-- The hidden values of the family world, split into coefficient secrets and step labels. -/
+def hiddenEquiv : HiddenF ≃ (WctCoef → Digest) × (Guess.Fam.LabelIdx → Digest) :=
+  coefEquiv.prodCongr (Equiv.refl _)
+theorem worldAnswers_join (ω : Omega U) (g0 : WctCoef → Digest) (g12 : Guess.Fam.LabelIdx → Digest) :
+    worldAnswers hU ω (hiddenEquiv.symm (g0, g12)) =
       eagerAnswers (privateEquiv.symm (Function.extend Sum.inr g0 ω.secrets, ω.other)) U
         (programmed U hU (Function.extend Sum.inr g0 ω.secrets)
-          (joinLabels (Function.extend stepNode g12 ω.low) ω.high) ω.residual) := by
-  have h0 : (fun a => joinHidden (g0, g12) (a, 0)) = g0 := by
-    funext a; simp [joinHidden]
-  have h12 : (fun c => joinHidden (g0, g12) (shiftCoord c)) = g12 := by
-    funext ⟨a, ⟨q, hq⟩⟩; simp [joinHidden, shiftCoord]
-  unfold worldAnswers worldLabels worldSecrets worldLow
-  rw [h0, h12]
+          (joinLabels (Function.extend stepNode g12 ω.low) ω.high) ω.residual) := rfl
 section Law
 attribute [local instance] instFintypeCoordinate_canonGraph instSampleableTypeFullTable_canonGraph
   instSampleableTypeHashOutput_canonGraph_1 instSampleableTypeLabels_1 instSampleableTypeSecrets
   instSampleableTypeOtherHalves instFintypeSecrets_canonGraph instFintypeOtherHalves_canonGraph
   instSampleableTypeProdSecretsOtherHalves instSampleableTypeForallSubtypeHashInputMemFinsetHashOutput_canonGraph_1
   instSampleableTypeLowLabels instSampleableTypeProdLowLabels
-noncomputable local instance instSampleableTypeHidden : SampleableType (WctPoint → Digest) :=
+noncomputable local instance instSampleableTypeHidden : SampleableType HiddenF :=
   SampleableType.ofFintype _
-noncomputable local instance instSampleableTypeSeedHidden : SampleableType (WctAddr → Digest) :=
+noncomputable local instance instSampleableTypeSeedHidden : SampleableType (WctCoef → Digest) :=
   SampleableType.ofFintype _
-noncomputable local instance instSampleableTypeStepHidden : SampleableType (WctAddr × Fin 2 → Digest) :=
+noncomputable local instance instSampleableTypeStepHidden : SampleableType (Guess.Fam.LabelIdx → Digest) :=
   SampleableType.ofFintype _
 noncomputable local instance instSampleableTypeProdHidden :
-    SampleableType ((WctAddr → Digest) × (WctAddr × Fin 2 → Digest)) := SampleableType.ofFintype _
+    SampleableType ((WctCoef → Digest) × (Guess.Fam.LabelIdx → Digest)) := SampleableType.ofFintype _
 noncomputable local instance instSampleableTypeProdSecretsSeed :
-    SampleableType (Secrets × (WctAddr → Digest)) := SampleableType.ofFintype _
+    SampleableType (Secrets × (WctCoef → Digest)) := SampleableType.ofFintype _
 noncomputable local instance instSampleableTypeProdLowStep :
-    SampleableType (LowLabels × (WctAddr × Fin 2 → Digest)) := SampleableType.ofFintype _
-theorem hidden_bind {Result : Type} (next : (WctPoint → Digest) → ProbComp Result) :
-    𝒮[do let g ← ($ᵗ (WctPoint → Digest) : ProbComp _); next g] =
+    SampleableType (LowLabels × (Guess.Fam.LabelIdx → Digest)) := SampleableType.ofFintype _
+theorem hidden_bind {Result : Type} (next : HiddenF → ProbComp Result) :
+    𝒮[do let g ← ($ᵗ HiddenF : ProbComp _); next g] =
       𝒮[do
-        let g0 ← ($ᵗ (WctAddr → Digest) : ProbComp _)
-        let g12 ← ($ᵗ (WctAddr × Fin 2 → Digest) : ProbComp _)
-        next (joinHidden (g0, g12))] := by
-  have hsplit : 𝒮[hiddenEquiv <$> ($ᵗ (WctPoint → Digest) : ProbComp _)] =
+        let g0 ← ($ᵗ (WctCoef → Digest) : ProbComp _)
+        let g12 ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
+        next (hiddenEquiv.symm (g0, g12))] := by
+  have hsplit : 𝒮[hiddenEquiv <$> ($ᵗ HiddenF : ProbComp _)] =
       𝒮[do
-        let g0 ← ($ᵗ (WctAddr → Digest) : ProbComp _)
-        let g12 ← ($ᵗ (WctAddr × Fin 2 → Digest) : ProbComp _)
+        let g0 ← ($ᵗ (WctCoef → Digest) : ProbComp _)
+        let g12 ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
         pure (g0, g12)] :=
-    (evalSPMF_map_bijective_uniform_cross (α := WctPoint → Digest)
-      (β := (WctAddr → Digest) × (WctAddr × Fin 2 → Digest)) hiddenEquiv hiddenEquiv.bijective).trans
-      (FullGame.uniform_product (A := WctAddr → Digest) (B := WctAddr × Fin 2 → Digest)).symm
-  have h := congrArg (fun law : SPMF ((WctAddr → Digest) × (WctAddr × Fin 2 → Digest)) =>
+    (evalSPMF_map_bijective_uniform_cross (α := HiddenF)
+      (β := (WctCoef → Digest) × (Guess.Fam.LabelIdx → Digest)) hiddenEquiv hiddenEquiv.bijective).trans
+      (FullGame.uniform_product (A := WctCoef → Digest) (B := Guess.Fam.LabelIdx → Digest)).symm
+  have h := congrArg (fun law : SPMF ((WctCoef → Digest) × (Guess.Fam.LabelIdx → Digest)) =>
     law >>= fun result => 𝒮[next (hiddenEquiv.symm result)]) hsplit
   simpa only [evalSPMF_map, evalSPMF_bind, bind_map_left, evalSPMF_pure, bind_assoc, pure_bind,
-    Equiv.symm_apply_apply, hiddenEquiv_symm_apply, joinHidden_hiddenEquiv] using h
+    Equiv.symm_apply_apply] using h
 theorem world_tables_bind {Result : Type} (next : Answers → ProbComp Result) :
     𝒮[do
       let privateTable ← ($ᵗ FullGame.FullTable : ProbComp _)
@@ -154,7 +129,7 @@ theorem world_tables_bind {Result : Type} (next : Answers → ProbComp Result) :
         let low ← ($ᵗ LowLabels : ProbComp _)
         let high ← ($ᵗ LowLabels : ProbComp _)
         let residual ← ($ᵗ (U → HashOutput) : ProbComp _)
-        let g ← ($ᵗ (WctPoint → Digest) : ProbComp _)
+        let g ← ($ᵗ HiddenF : ProbComp _)
         next (worldAnswers hU ⟨secrets, other, low, high, residual⟩ g)] := by
   let K : Secrets → OtherHalves → LowLabels → LowLabels → (U → HashOutput) → Answers :=
     fun s o l h r => eagerAnswers (privateEquiv.symm (s, o)) U (programmed U hU s (joinLabels l h) r)
@@ -183,7 +158,7 @@ theorem world_tables_bind {Result : Type} (next : Answers → ProbComp Result) :
         let l ← ($ᵗ LowLabels : ProbComp _)
         let h ← ($ᵗ LowLabels : ProbComp _)
         let r ← ($ᵗ (U → HashOutput) : ProbComp _)
-        let g ← ($ᵗ (WctPoint → Digest) : ProbComp _)
+        let g ← ($ᵗ HiddenF : ProbComp _)
         next (worldAnswers hU ⟨s, o, l, h, r⟩ g)] =
       𝒮[do
         let s ← ($ᵗ Secrets : ProbComp _)
@@ -191,8 +166,8 @@ theorem world_tables_bind {Result : Type} (next : Answers → ProbComp Result) :
         let l ← ($ᵗ LowLabels : ProbComp _)
         let h ← ($ᵗ LowLabels : ProbComp _)
         let r ← ($ᵗ (U → HashOutput) : ProbComp _)
-        let g0 ← ($ᵗ (WctAddr → Digest) : ProbComp _)
-        let g12 ← ($ᵗ (WctAddr × Fin 2 → Digest) : ProbComp _)
+        let g0 ← ($ᵗ (WctCoef → Digest) : ProbComp _)
+        let g12 ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
         next (K (Function.extend Sum.inr g0 s) o (Function.extend stepNode g12 l) h r)] := by
     apply evalSPMF_bind_congr_left; intro s
     apply evalSPMF_bind_congr_left; intro o
@@ -210,91 +185,91 @@ theorem world_tables_bind {Result : Type} (next : Answers → ProbComp Result) :
         let l ← ($ᵗ LowLabels : ProbComp _)
         let h ← ($ᵗ LowLabels : ProbComp _)
         let r ← ($ᵗ (U → HashOutput) : ProbComp _)
-        let g0 ← ($ᵗ (WctAddr → Digest) : ProbComp _)
-        let g12 ← ($ᵗ (WctAddr × Fin 2 → Digest) : ProbComp _)
+        let g0 ← ($ᵗ (WctCoef → Digest) : ProbComp _)
+        let g12 ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
         next (K (Function.extend Sum.inr g0 s) o (Function.extend stepNode g12 l) h r)] =
       𝒮[do
         let s ← ($ᵗ Secrets : ProbComp _)
-        let g0 ← ($ᵗ (WctAddr → Digest) : ProbComp _)
+        let g0 ← ($ᵗ (WctCoef → Digest) : ProbComp _)
         let o ← ($ᵗ OtherHalves : ProbComp _)
         let l ← ($ᵗ LowLabels : ProbComp _)
-        let g12 ← ($ᵗ (WctAddr × Fin 2 → Digest) : ProbComp _)
+        let g12 ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
         let h ← ($ᵗ LowLabels : ProbComp _)
         let r ← ($ᵗ (U → HashOutput) : ProbComp _)
         next (K (Function.extend Sum.inr g0 s) o (Function.extend stepNode g12 l) h r)] := by
     apply evalSPMF_bind_congr_left; intro s
     have e1 : ∀ o l h, 𝒮[do
           let r ← ($ᵗ (U → HashOutput) : ProbComp _)
-          let g0 ← ($ᵗ (WctAddr → Digest) : ProbComp _)
-          let g12 ← ($ᵗ (WctAddr × Fin 2 → Digest) : ProbComp _)
+          let g0 ← ($ᵗ (WctCoef → Digest) : ProbComp _)
+          let g12 ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
           next (K (Function.extend Sum.inr g0 s) o (Function.extend stepNode g12 l) h r)] =
         𝒮[do
-          let g0 ← ($ᵗ (WctAddr → Digest) : ProbComp _)
+          let g0 ← ($ᵗ (WctCoef → Digest) : ProbComp _)
           let r ← ($ᵗ (U → HashOutput) : ProbComp _)
-          let g12 ← ($ᵗ (WctAddr × Fin 2 → Digest) : ProbComp _)
+          let g12 ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
           next (K (Function.extend Sum.inr g0 s) o (Function.extend stepNode g12 l) h r)] :=
       fun o l h => evalSPMF_bind_bind_swap _ _ _
     have e2 : ∀ o l, 𝒮[do
           let h ← ($ᵗ LowLabels : ProbComp _)
-          let g0 ← ($ᵗ (WctAddr → Digest) : ProbComp _)
+          let g0 ← ($ᵗ (WctCoef → Digest) : ProbComp _)
           let r ← ($ᵗ (U → HashOutput) : ProbComp _)
-          let g12 ← ($ᵗ (WctAddr × Fin 2 → Digest) : ProbComp _)
+          let g12 ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
           next (K (Function.extend Sum.inr g0 s) o (Function.extend stepNode g12 l) h r)] =
         𝒮[do
-          let g0 ← ($ᵗ (WctAddr → Digest) : ProbComp _)
+          let g0 ← ($ᵗ (WctCoef → Digest) : ProbComp _)
           let h ← ($ᵗ LowLabels : ProbComp _)
           let r ← ($ᵗ (U → HashOutput) : ProbComp _)
-          let g12 ← ($ᵗ (WctAddr × Fin 2 → Digest) : ProbComp _)
+          let g12 ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
           next (K (Function.extend Sum.inr g0 s) o (Function.extend stepNode g12 l) h r)] :=
       fun o l => evalSPMF_bind_bind_swap _ _ _
     have e3 : ∀ o, 𝒮[do
           let l ← ($ᵗ LowLabels : ProbComp _)
-          let g0 ← ($ᵗ (WctAddr → Digest) : ProbComp _)
+          let g0 ← ($ᵗ (WctCoef → Digest) : ProbComp _)
           let h ← ($ᵗ LowLabels : ProbComp _)
           let r ← ($ᵗ (U → HashOutput) : ProbComp _)
-          let g12 ← ($ᵗ (WctAddr × Fin 2 → Digest) : ProbComp _)
+          let g12 ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
           next (K (Function.extend Sum.inr g0 s) o (Function.extend stepNode g12 l) h r)] =
         𝒮[do
-          let g0 ← ($ᵗ (WctAddr → Digest) : ProbComp _)
+          let g0 ← ($ᵗ (WctCoef → Digest) : ProbComp _)
           let l ← ($ᵗ LowLabels : ProbComp _)
           let h ← ($ᵗ LowLabels : ProbComp _)
           let r ← ($ᵗ (U → HashOutput) : ProbComp _)
-          let g12 ← ($ᵗ (WctAddr × Fin 2 → Digest) : ProbComp _)
+          let g12 ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
           next (K (Function.extend Sum.inr g0 s) o (Function.extend stepNode g12 l) h r)] :=
       fun o => evalSPMF_bind_bind_swap _ _ _
     have e4 : 𝒮[do
           let o ← ($ᵗ OtherHalves : ProbComp _)
-          let g0 ← ($ᵗ (WctAddr → Digest) : ProbComp _)
+          let g0 ← ($ᵗ (WctCoef → Digest) : ProbComp _)
           let l ← ($ᵗ LowLabels : ProbComp _)
           let h ← ($ᵗ LowLabels : ProbComp _)
           let r ← ($ᵗ (U → HashOutput) : ProbComp _)
-          let g12 ← ($ᵗ (WctAddr × Fin 2 → Digest) : ProbComp _)
+          let g12 ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
           next (K (Function.extend Sum.inr g0 s) o (Function.extend stepNode g12 l) h r)] =
         𝒮[do
-          let g0 ← ($ᵗ (WctAddr → Digest) : ProbComp _)
+          let g0 ← ($ᵗ (WctCoef → Digest) : ProbComp _)
           let o ← ($ᵗ OtherHalves : ProbComp _)
           let l ← ($ᵗ LowLabels : ProbComp _)
           let h ← ($ᵗ LowLabels : ProbComp _)
           let r ← ($ᵗ (U → HashOutput) : ProbComp _)
-          let g12 ← ($ᵗ (WctAddr × Fin 2 → Digest) : ProbComp _)
+          let g12 ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
           next (K (Function.extend Sum.inr g0 s) o (Function.extend stepNode g12 l) h r)] :=
       evalSPMF_bind_bind_swap _ _ _
     have f1 : ∀ g0 o l h, 𝒮[do
           let r ← ($ᵗ (U → HashOutput) : ProbComp _)
-          let g12 ← ($ᵗ (WctAddr × Fin 2 → Digest) : ProbComp _)
+          let g12 ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
           next (K (Function.extend Sum.inr g0 s) o (Function.extend stepNode g12 l) h r)] =
         𝒮[do
-          let g12 ← ($ᵗ (WctAddr × Fin 2 → Digest) : ProbComp _)
+          let g12 ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
           let r ← ($ᵗ (U → HashOutput) : ProbComp _)
           next (K (Function.extend Sum.inr g0 s) o (Function.extend stepNode g12 l) h r)] :=
       fun g0 o l h => evalSPMF_bind_bind_swap _ _ _
     have f2 : ∀ g0 o l, 𝒮[do
           let h ← ($ᵗ LowLabels : ProbComp _)
-          let g12 ← ($ᵗ (WctAddr × Fin 2 → Digest) : ProbComp _)
+          let g12 ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
           let r ← ($ᵗ (U → HashOutput) : ProbComp _)
           next (K (Function.extend Sum.inr g0 s) o (Function.extend stepNode g12 l) h r)] =
         𝒮[do
-          let g12 ← ($ᵗ (WctAddr × Fin 2 → Digest) : ProbComp _)
+          let g12 ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
           let h ← ($ᵗ LowLabels : ProbComp _)
           let r ← ($ᵗ (U → HashOutput) : ProbComp _)
           next (K (Function.extend Sum.inr g0 s) o (Function.extend stepNode g12 l) h r)] :=
@@ -303,9 +278,9 @@ theorem world_tables_bind {Result : Type} (next : Answers → ProbComp Result) :
           let o ← ($ᵗ OtherHalves : ProbComp _)
           let l ← ($ᵗ LowLabels : ProbComp _)
           let h ← ($ᵗ LowLabels : ProbComp _)
-          let g0 ← ($ᵗ (WctAddr → Digest) : ProbComp _)
+          let g0 ← ($ᵗ (WctCoef → Digest) : ProbComp _)
           let r ← ($ᵗ (U → HashOutput) : ProbComp _)
-          let g12 ← ($ᵗ (WctAddr × Fin 2 → Digest) : ProbComp _)
+          let g12 ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
           next (K (Function.extend Sum.inr g0 s) o (Function.extend stepNode g12 l) h r)] := by
           apply evalSPMF_bind_congr_left; intro o
           apply evalSPMF_bind_congr_left; intro l
@@ -314,21 +289,21 @@ theorem world_tables_bind {Result : Type} (next : Answers → ProbComp Result) :
       _ = 𝒮[do
           let o ← ($ᵗ OtherHalves : ProbComp _)
           let l ← ($ᵗ LowLabels : ProbComp _)
-          let g0 ← ($ᵗ (WctAddr → Digest) : ProbComp _)
+          let g0 ← ($ᵗ (WctCoef → Digest) : ProbComp _)
           let h ← ($ᵗ LowLabels : ProbComp _)
           let r ← ($ᵗ (U → HashOutput) : ProbComp _)
-          let g12 ← ($ᵗ (WctAddr × Fin 2 → Digest) : ProbComp _)
+          let g12 ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
           next (K (Function.extend Sum.inr g0 s) o (Function.extend stepNode g12 l) h r)] := by
           apply evalSPMF_bind_congr_left; intro o
           apply evalSPMF_bind_congr_left; intro l
           exact e2 o l
       _ = 𝒮[do
           let o ← ($ᵗ OtherHalves : ProbComp _)
-          let g0 ← ($ᵗ (WctAddr → Digest) : ProbComp _)
+          let g0 ← ($ᵗ (WctCoef → Digest) : ProbComp _)
           let l ← ($ᵗ LowLabels : ProbComp _)
           let h ← ($ᵗ LowLabels : ProbComp _)
           let r ← ($ᵗ (U → HashOutput) : ProbComp _)
-          let g12 ← ($ᵗ (WctAddr × Fin 2 → Digest) : ProbComp _)
+          let g12 ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
           next (K (Function.extend Sum.inr g0 s) o (Function.extend stepNode g12 l) h r)] := by
           apply evalSPMF_bind_congr_left; intro o
           exact e3 o
@@ -338,26 +313,26 @@ theorem world_tables_bind {Result : Type} (next : Answers → ProbComp Result) :
     apply evalSPMF_bind_congr_left; intro l
     calc _ = 𝒮[do
           let h ← ($ᵗ LowLabels : ProbComp _)
-          let g12 ← ($ᵗ (WctAddr × Fin 2 → Digest) : ProbComp _)
+          let g12 ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
           let r ← ($ᵗ (U → HashOutput) : ProbComp _)
           next (K (Function.extend Sum.inr g0 s) o (Function.extend stepNode g12 l) h r)] := by
           apply evalSPMF_bind_congr_left; intro h
           exact f1 g0 o l h
       _ = _ := f2 g0 o l
   rw [hR2]
-  have hX1 := @Guess.extend_bind SecretIndex WctAddr Digest _ _ _ instSampleableTypeSecrets
+  have hX1 := @Guess.extend_bind SecretIndex WctCoef Digest _ _ _ instSampleableTypeSecrets
     instSampleableTypeSeedHidden instSampleableTypeProdSecretsSeed Sum.inr Sum.inr_injective Result
     (fun s' => do
       let o ← ($ᵗ OtherHalves : ProbComp _)
       let l ← ($ᵗ LowLabels : ProbComp _)
-      let g12 ← ($ᵗ (WctAddr × Fin 2 → Digest) : ProbComp _)
+      let g12 ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
       let h ← ($ᵗ LowLabels : ProbComp _)
       let r ← ($ᵗ (U → HashOutput) : ProbComp _)
       next (K s' o (Function.extend stepNode g12 l) h r))
   refine hX1.trans ?_
   apply evalSPMF_bind_congr_left; intro s
   apply evalSPMF_bind_congr_left; intro o
-  exact @Guess.extend_bind Node (WctAddr × Fin 2) Digest _ _ _ instSampleableTypeLowLabels
+  exact @Guess.extend_bind Node Guess.Fam.LabelIdx Digest _ _ _ instSampleableTypeLowLabels
     instSampleableTypeStepHidden instSampleableTypeProdLowStep stepNode stepNode_injective Result
     (fun l' => do
       let h ← ($ᵗ LowLabels : ProbComp _)
@@ -383,20 +358,54 @@ noncomputable abbrev guessTerm (q : Nat) : ENNReal := SigGolfCandidate.T3.Securi
 def OneGuessIn (answers : Answers) (log : QueryLog Requests) (entries : List Wots.Entry) : Prop :=
   ∃ c, GuessedIn answers log entries c
 section WorldBound
-open SecretGuessObservation (fixedRun lazyRun)
+open SecretGuessObservation (fixedRun lazyRun withRun)
 variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : CanonTable.Omega U)
-noncomputable def secretsLaw : SPMF (Guess.GCoord → Digest) := UniformTableCompletion.complete init.allowed
+noncomputable local instance instSampleableTypeHiddenF : SampleableType CanonTable.HiddenF :=
+  SampleableType.ofFintype _
+noncomputable local instance instSampleableTypeCoefsF : SampleableType (Guess.Fam.FamIdx → Guess.Fam.Coefs) :=
+  SampleableType.ofFintype _
+noncomputable local instance instSampleableTypeLabelsF : SampleableType (Guess.Fam.LabelIdx → Digest) :=
+  SampleableType.ofFintype _
+/-- The eager family world: uniform coefficient vectors and step labels, then the pair run. -/
 noncomputable def ftsRun (adversary : AdversaryP) :
-    SPMF ((Guess.GCoord → Digest) × (Bool × QueryLog Requests × List Wots.Entry)) :=
-  secretsLaw >>= fun g => (fun run => (g, run)) <$> 𝒮[pairRun (wA hU ω g) adversary]
+    SPMF (CanonTable.HiddenF × (Bool × QueryLog Requests × List Wots.Entry)) :=
+  𝒮[($ᵗ CanonTable.HiddenF : ProbComp _)] >>= fun g => (fun run => (g, run)) <$> 𝒮[pairRun (wA hU ω g) adversary]
+theorem complete_univ {C V : Type} [Fintype C] [DecidableEq C] [Fintype V] [DecidableEq V] [Nonempty V]
+    [SampleableType (C → V)] :
+    UniformTableCompletion.complete (fun _ : C => (Finset.univ : Finset V)) = 𝒮[($ᵗ (C → V) : ProbComp _)] := by
+  apply SPMF.ext
+  intro labels
+  rw [UniformTableCompletion.complete_apply, if_pos (fun _ => Finset.mem_univ _), ← SPMF.probOutput_eq_apply,
+    probOutput_evalSPMF, probOutput_uniformSample]
+  congr 1
+  rw [Finset.prod_const, Finset.card_univ, Finset.card_univ, Fintype.card_fun]
+theorem hiddenLaw_univ_bind {Result : Type} (F : (Guess.GCoord → Digest) → SPMF Result) :
+    (Guess.Fam.hiddenLaw (fun _ => Finset.univ) >>= F) =
+      (𝒮[($ᵗ CanonTable.HiddenF : ProbComp _)] >>= fun g => F (Guess.Fam.phi g.1 g.2)) := by
+  have hF : Guess.Fam.famPostA (fun _ : Guess.GCoord => (Finset.univ : Finset Digest)) = fun _ => Finset.univ :=
+    funext Guess.Fam.famPostA_univ
+  have hL : Guess.Fam.labelAllowed (fun _ : Guess.GCoord => (Finset.univ : Finset Digest)) = fun _ => Finset.univ :=
+    rfl
+  have hprod : 𝒮[do
+      let a ← ($ᵗ (Guess.Fam.FamIdx → Guess.Fam.Coefs) : ProbComp _)
+      let b ← ($ᵗ (Guess.Fam.LabelIdx → Digest) : ProbComp _)
+      pure (a, b)] = 𝒮[($ᵗ CanonTable.HiddenF : ProbComp _)] :=
+    SigGolfCandidate.T3.Security.FullGame.uniform_product
+  unfold Guess.Fam.hiddenLaw
+  rw [hF, hL, complete_univ, complete_univ, ← hprod]
+  simp only [evalSPMF_bind, evalSPMF_pure, bind_assoc, pure_bind]
 theorem fts_event_le_world (adversary : AdversaryP)
-    (event : (Guess.GCoord → Digest) → (Bool × QueryLog Requests × List Wots.Entry) → Prop)
+    (event : CanonTable.HiddenF → (Bool × QueryLog Requests × List Wots.Entry) → Prop)
     (wevent : (Bool × QueryLog Requests × List Wots.Entry) × WState → Prop)
-    (himp : ∀ g result, fixedRun env g (worldGame hU ω adversary) init result ≠ 0 → event g result.1 →
-      wevent result) :
-    Pr[fun x => event x.1 x.2 | ftsRun hU ω adversary] ≤ Pr[wevent | lazyRun env (worldGame hU ω adversary) init] := by
-  rw [← SecretGuessObservation.run_erasure env (worldGame hU ω adversary) init (fun _ => Finset.univ_nonempty)]
-  unfold ftsRun secretsLaw
+    (himp : ∀ g result, fixedRun env (Guess.Fam.phi g.1 g.2) (worldGame hU ω adversary) init result ≠ 0 →
+      event g result.1 → wevent result) :
+    Pr[fun x => event x.1 x.2 | ftsRun hU ω adversary] ≤
+      Pr[wevent | withRun env (Guess.Fam.sampler PUnit) (worldGame hU ω adversary) init] := by
+  rw [← Guess.Fam.fam_erasure env (worldGame hU ω adversary) init (Guess.Fam.inv_initial PUnit.unit)]
+  change _ ≤ Pr[wevent | Guess.Fam.hiddenLaw (fun _ => Finset.univ) >>= fun g =>
+    fixedRun env g (worldGame hU ω adversary) init]
+  rw [hiddenLaw_univ_bind]
+  unfold ftsRun
   rw [probEvent_bind_eq_tsum, probEvent_bind_eq_tsum]
   apply ENNReal.tsum_le_tsum
   intro g
@@ -406,31 +415,17 @@ theorem fts_event_le_world (adversary : AdversaryP)
   intro result hr he
   exact himp g result (by simpa only [mem_support_iff, SPMF.probOutput_eq_apply] using hr) he
 theorem fts_pair_le (adversary : AdversaryP) (q : Nat) :
-    Pr[fun x => x.2.2.2.length ≤ q ∧ PairGuessIn (wA hU ω x.1) x.2.2.1 x.2.2.2 | ftsRun hU ω adversary] ≤
-      pairTerm q := by
+    Pr[fun x => x.2.2.2.length ≤ q ∧ PairGuessIn (wA hU ω x.1) x.2.2.1 x.2.2.2 ∧
+        ¬OverflowIn (wA hU ω x.1) x.2.2.1 | ftsRun hU ω adversary] ≤ pairTerm q := by
   refine (fts_event_le_world hU ω adversary
-    (fun g run => run.2.2.length ≤ q ∧ PairGuessIn (wA hU ω g) run.2.1 run.2.2)
-    (fun result => 2 ≤ result.2.guesses.card ∧ result.2.probes ≤ q)
+    (fun g run => run.2.2.length ≤ q ∧ PairGuessIn (wA hU ω g) run.2.1 run.2.2 ∧ ¬OverflowIn (wA hU ω g) run.2.1)
+    (fun result => 2 ≤ result.2.guesses.card ∧ result.2.probes ≤ q ∧ ¬Guess.Fam.Bad result.2)
     ?_).trans ?_
-  · rintro g result hr ⟨hlen, c, c', hcc, hc, hc'⟩
+  · rintro g result hr ⟨hlen, ⟨c, c', hcc, hc, hc'⟩, hno⟩
     obtain ⟨hp, hgs⟩ := worldGame_tracking hU ω g adversary result hr
-    exact ⟨Guess.two_le_card_of_prefixIn hcc (hgs c hc) (hgs c' hc'), hp.trans hlen⟩
-  · have h := SigGolfCandidate.T3.Security.BPair.lazyRun_pair_le env (worldGame hU ω adversary) PUnit.unit q
-    rw [card_digest] at h
-    exact h
-theorem fts_one_le (adversary : AdversaryP) (q : Nat) :
-    Pr[fun x => x.2.2.2.length ≤ q ∧ OneGuessIn (wA hU ω x.1) x.2.2.1 x.2.2.2 | ftsRun hU ω adversary] ≤
-      guessTerm q := by
-  refine (fts_event_le_world hU ω adversary
-    (fun g run => run.2.2.length ≤ q ∧ OneGuessIn (wA hU ω g) run.2.1 run.2.2)
-    (fun result => result.2.guesses.Nonempty ∧ result.2.probes ≤ q)
-    ?_).trans ?_
-  · rintro g result hr ⟨hlen, c, hc⟩
-    obtain ⟨hp, hgs⟩ := worldGame_tracking hU ω g adversary result hr
-    exact ⟨Guess.nonempty_of_prefixIn (hgs c hc), hp.trans hlen⟩
-  · have h := SigGolfCandidate.T3.Security.BPair.lazyRun_guess_le env (worldGame hU ω adversary) PUnit.unit q
-    rw [card_digest] at h
-    exact h
+    exact ⟨Guess.two_le_card_of_prefixIn hcc (hgs c hc) (hgs c' hc'), hp.trans hlen,
+      worldGame_noBad hU ω g adversary result hr hno⟩
+  · exact Guess.Fam.fam_pair_le env (worldGame hU ω adversary) PUnit.unit q
 end WorldBound
 end ClaudeWCT.W9.T3.Security.WPair
 end
@@ -666,16 +661,6 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-theorem uniform_secretsLaw (I : SampleableType (Guess.GCoord → Digest)) (g : Guess.GCoord → Digest) :
-    Pr[= g | (@uniformSample (Guess.GCoord → Digest) I : ProbComp _)] = Pr[= g | secretsLaw] := by
-  rw [@probOutput_uniformSample _ I _ g, secretsLaw, SPMF.probOutput_eq_apply,
-    SphincsSecurity.Concrete.UniformTableCompletion.complete_apply]
-  have hmem : ∀ coordinate, g coordinate ∈ init.allowed coordinate := fun _ => Finset.mem_univ _
-  rw [if_pos hmem]
-  have hcard : (∏ coordinate, (init.allowed coordinate).card) = Fintype.card (Guess.GCoord → Digest) := by
-    change (∏ _coordinate : Guess.GCoord, (Finset.univ : Finset Digest).card) = _
-    rw [Finset.prod_const, Finset.card_univ, Finset.card_univ, Fintype.card_fun]
-  rw [hcard]
 theorem canon_subset (adversary : AdversaryP) : canonInputs ⊆ Wots.referenceInputs adversary :=
   canonInputs_subset_publicUniverse.trans (Wots.Ref.referenceInputs_universe adversary)
 theorem eagerAnswers_eq (U : Finset HashInput) (privateTable : FullGame.FullTable) (publicTable : U → HashOutput) :
@@ -683,9 +668,9 @@ theorem eagerAnswers_eq (U : Finset HashInput) (privateTable : FullGame.FullTabl
   funext query
   rcases query with (n | x) | c <;> rfl
 theorem inner_fts_eq {U : Finset HashInput} (hU : canonInputs ⊆ U) (ω : CanonTable.Omega U) (adversary : AdversaryP)
-    (I : SampleableType (Guess.GCoord → Digest))
+    (I : SampleableType CanonTable.HiddenF)
     (E : Answers × QueryLog Requests × List Wots.Entry → Prop) :
-    Pr[E | (@uniformSample (Guess.GCoord → Digest) I : ProbComp _) >>= fun g =>
+    Pr[E | (@uniformSample CanonTable.HiddenF I : ProbComp _) >>= fun g =>
         (fun (run : Bool × QueryLog Requests × List Wots.Entry) => (wA hU ω g, run.2.1, run.2.2)) <$>
           pairRun (wA hU ω g) adversary] =
       Pr[fun x => E (wA hU ω x.1, x.2.2.1, x.2.2.2) | ftsRun hU ω adversary] := by
@@ -693,7 +678,7 @@ theorem inner_fts_eq {U : Finset HashInput} (hU : canonInputs ⊆ U) (ω : Canon
   rw [probEvent_bind_eq_tsum, probEvent_bind_eq_tsum]
   apply tsum_congr
   intro g
-  rw [uniform_secretsLaw, probEvent_map, probEvent_map]
+  rw [@probOutput_uniformSample _ I _ g, probOutput_evalSPMF, probOutput_uniformSample, probEvent_map, probEvent_map]
   rfl
 section Chain
 attribute [local instance] instFintypeCoordinate_canonGraph instSampleableTypeFullTable_canonGraph
@@ -709,7 +694,7 @@ theorem pairExperiment_eq (adversary : AdversaryP) :
         let low ← ($ᵗ LowLabels : ProbComp _)
         let high ← ($ᵗ LowLabels : ProbComp _)
         let residual ← ($ᵗ (Wots.referenceInputs adversary → HashOutput) : ProbComp _)
-        let g ← ($ᵗ (WctPoint → Digest) : ProbComp _)
+        let g ← ($ᵗ CanonTable.HiddenF : ProbComp _)
         (fun (run : Bool × QueryLog Requests × List Wots.Entry) =>
             (wA (canon_subset adversary) ⟨secrets, other, low, high, residual⟩ g, run.2.1, run.2.2)) <$>
           pairRun (wA (canon_subset adversary) ⟨secrets, other, low, high, residual⟩ g) adversary] := by
@@ -750,11 +735,9 @@ theorem pairExperiment_event_le (adversary : AdversaryP) (E : Answers × QueryLo
   rw [inner_fts_eq]
   exact h ⟨secrets, other, low, high, residual⟩
 theorem pairExperiment_pair (adversary : AdversaryP) (q : Nat) :
-    Pr[fun s => s.2.2.length ≤ q ∧ PairGuessIn s.1 s.2.1 s.2.2 | pairExperiment adversary] ≤ pairTerm q :=
+    Pr[fun s => s.2.2.length ≤ q ∧ PairGuessIn s.1 s.2.1 s.2.2 ∧ ¬OverflowIn s.1 s.2.1 | pairExperiment adversary] ≤
+      pairTerm q :=
   pairExperiment_event_le adversary _ _ fun ω => fts_pair_le (canon_subset adversary) ω adversary q
-theorem pairExperiment_one (adversary : AdversaryP) (q : Nat) :
-    Pr[fun s => s.2.2.length ≤ q ∧ OneGuessIn s.1 s.2.1 s.2.2 | pairExperiment adversary] ≤ guessTerm q :=
-  pairExperiment_event_le adversary _ _ fun ω => fts_one_le (canon_subset adversary) ω adversary q
 end Chain
 section Short
 open SourceQueries
@@ -802,12 +785,12 @@ theorem chainValue_short {A T : Answers} (h : Wots.Ref.ShortAgree A T) (a : Gues
     Guess.chainValue A a p = Guess.chainValue T a p := by
   have hseed : Guess.seedOf A a = Guess.seedOf T a := by
     unfold Guess.seedOf
-    have hp : evalWithAnswerFn A (WCT9.ftsSeedPair a.1.val a.2.1.val
-          (WCT9.ftsOrdinal a.2.2.1.val a.2.2.2.val / 2)) =
-        evalWithAnswerFn T (WCT9.ftsSeedPair a.1.val a.2.1.val (WCT9.ftsOrdinal a.2.2.1.val a.2.2.2.val / 2)) := by
-      apply eval_congr_allowed _ h
-      unfold WCT9.ftsSeedPair privatePair privateHash
-      exact bind_allowed _ ((allQueriesSatisfy_query_iff _ _).mpr trivial) fun _ => pure_allowed _ _
+    have hp : WCT9.ftsCoef A a.1.val a.2.1.val = WCT9.ftsCoef T a.1.val a.2.1.val := by
+      funext j
+      unfold WCT9.ftsCoef
+      rw [eval_congr_allowed (by
+        unfold WCT9.ftsSeedPair privatePair privateHash
+        exact bind_allowed _ ((allQueriesSatisfy_query_iff _ _).mpr trivial) fun _ => pure_allowed _ _) h]
     rw [hp]
   unfold Guess.chainValue
   rw [hseed]
@@ -826,13 +809,61 @@ theorem guessedIn_mono (A : Answers) (log : QueryLog Requests) (entries entries'
     GuessedIn A log entries' c :=
   ⟨hg.1, hg.2.elim fun answer he => ⟨answer, hsub _ he⟩⟩
 end Short
-theorem pair_guess_bound : PairGuessBound pairTerm := by
+theorem overflowIn_short {A T : Answers} (h : Wots.Ref.ShortAgree A T) (log : QueryLog Requests)
+    (ho : OverflowIn A log) : OverflowIn T log := by
+  unfold OverflowIn at ho ⊢
+  rw [← loggedOutputs_short h]
+  exact ho
+/-- No FTS overflow in the signing log of the game split (campaign X1, stage A). -/
+def NoOverflow (adversary : AdversaryP) (z : PaddedGame.TraceResult × Answers) : Prop :=
+  ∀ generated interaction checked,
+    CaseC.GameSplit adversary (QueryRecorded.recordedTrace z.1) generated interaction checked →
+      ¬OverflowIn z.2 interaction.value.2
+/-- Bridge from A6's `LogNoOverflow` (stated unfolded here: `FtsOverflow` imports this tree). -/
+theorem not_overflowIn_of_outIdx (A : Answers) (log : QueryLog Requests)
+    (h : ∀ j : Fin (2 ^ 31),
+      ((loggedOutputs A log).toFinset.filter fun out => ClaudeWCT.Bank.WCT.outIdx out = j).card ≤ 50) :
+    ¬OverflowIn A log := by
+  rintro ⟨i, hi⟩
+  by_cases hlt : i < 2 ^ 31
+  · have heq : ((loggedOutputs A log).toFinset.filter fun out => ClaudeWCT.Bank.WCT.outIdx out = ⟨i, hlt⟩) =
+        ((loggedOutputs A log).toFinset.filter fun out => WCT9.digestIndex out = i) := by
+      apply Finset.filter_congr
+      intro out _
+      simp [ClaudeWCT.Bank.WCT.outIdx, Fin.ext_iff]
+    have hj := h ⟨i, hlt⟩
+    rw [heq] at hj
+    omega
+  · have hempty : ((loggedOutputs A log).toFinset.filter fun out => WCT9.digestIndex out = i) = ∅ := by
+      apply Finset.filter_false_of_mem
+      intro out _ he
+      exact hlt (he ▸ WCT9.digestIndex_lt out)
+    rw [hempty] at hi
+    simp at hi
+/-- `NoOverflow` from the A6 consumer form (`logNoOverflow_of_not_ftsOverflow`, unfolded). -/
+theorem noOverflow_of_outIdx (adversary : AdversaryP) (z : PaddedGame.TraceResult × Answers)
+    (h : ∀ generated interaction checked,
+      CaseC.GameSplit adversary (QueryRecorded.recordedTrace z.1) generated interaction checked →
+        ∀ j : Fin (2 ^ 31), ((loggedOutputs z.2 interaction.value.2).toFinset.filter
+          fun out => ClaudeWCT.Bank.WCT.outIdx out = j).card ≤ 50) :
+    NoOverflow adversary z :=
+  fun g i c hs => not_overflowIn_of_outIdx _ _ (h g i c hs)
+/-- `PairGuessBound` restricted to runs without FTS overflow (same right-hand side). -/
+def PairGuessBoundNO (pairTerm : Nat → ENNReal) : Prop :=
+  ∀ (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127),
+    Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ PairGuess adversary z ∧ NoOverflow adversary z |
+      SeccLaw.completedExperiment adversary q hq] ≤ pairTerm q
+/-- The pair bound of case C for FTS seed families: unchanged right-hand side, given no FTS overflow. -/
+theorem pair_guess_bound : PairGuessBoundNO pairTerm := by
   intro adversary q hq
-  refine (shared_le_pair adversary q hq PairGuessIn ?_ ?_).trans (pairExperiment_pair adversary q)
-  · rintro A T log entries h ⟨c, c', hcc, hc, hc'⟩
-    exact ⟨c, c', hcc, guessedIn_short h log entries c hc, guessedIn_short h log entries c' hc'⟩
-  · rintro A log entries entries' hsub ⟨c, c', hcc, hc, hc'⟩
-    exact ⟨c, c', hcc, guessedIn_mono A log entries entries' hsub c hc,
-      guessedIn_mono A log entries entries' hsub c' hc'⟩
+  refine le_trans (CaseC.pmf_probEvent_mono _ fun z h => ⟨h.1, fun g i c hs => ⟨h.2.1 g i c hs, h.2.2 g i c hs⟩⟩)
+    ((shared_le_pair adversary q hq (fun A log entries => PairGuessIn A log entries ∧ ¬OverflowIn A log) ?_ ?_).trans
+      (pairExperiment_pair adversary q))
+  · rintro A T log entries h ⟨⟨c, c', hcc, hc, hc'⟩, hno⟩
+    exact ⟨⟨c, c', hcc, guessedIn_short h log entries c hc, guessedIn_short h log entries c' hc'⟩,
+      fun ho => hno (overflowIn_short h.symm log ho)⟩
+  · rintro A log entries entries' hsub ⟨⟨c, c', hcc, hc, hc'⟩, hno⟩
+    exact ⟨⟨c, c', hcc, guessedIn_mono A log entries entries' hsub c hc,
+      guessedIn_mono A log entries entries' hsub c' hc'⟩, hno⟩
 end ClaudeWCT.W9.T3.Security.WPair
 end

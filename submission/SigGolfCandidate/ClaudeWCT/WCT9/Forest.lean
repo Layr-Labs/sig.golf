@@ -10,7 +10,7 @@ set_option backward.isDefEq.respectTransparency false
 def openingStep (index : Nat) (output : HashOutput) (state : List Opening × List (Digest × Digest))
     (coord : Coord) : M (List Opening × List (Digest × Digest)) := do
   let selected := child output coord
-  let (levels, values) ← buildCoordinate index coord selected (rank output coord)
+  let (levels, values) ← buildCoordinateF index coord selected (rank output coord)
   let path := (List.range 7).map fun level =>
     (levels.getD level []).getD (selected.val / 2 ^ level ^^^ 1) 0
   let opening : Opening := ⟨fun i => values.getD i.val 0, fun i => path.getD i.val 0⟩
@@ -34,7 +34,7 @@ theorem eval_openingStep (answers : Answers) (index : Nat) (output : HashOutput)
   unfold openingStep expectedOpening
   simp only [evalWithAnswerFn_bind]
   generalize evalWithAnswerFn answers
-    (buildCoordinate index coord (child output coord) (rank output coord)) = built at hroot ⊢
+    (buildCoordinateF index coord (child output coord) (rank output coord)) = built at hroot ⊢
   obtain ⟨levels, values⟩ := built
   simp only [evalWithAnswerFn_pure] at hroot ⊢
   rw [← hroot]
@@ -380,14 +380,35 @@ theorem verifyWith_inadmissible (limit : Nat) (answers : Answers) (message : Mes
   · exact verifyWith_counter_ge limit answers message pk w hc
   · simp only [verifyWith, ge_iff_le, hc, ite_false, evalWithAnswerFn_bind, h, Bool.not_false, ite_true,
       evalWithAnswerFn_pure]
-/-- Raising only the verifier cutoff preserves every previously accepting witness. -/
-theorem verifyWith_mono (small large : Nat) (hsl : small ≤ large)
-    (answers : Answers) (message : Message) (pk : Digest) (w : Witness)
-    (hv : evalWithAnswerFn answers (verifyWith small message pk w) = true) :
-    evalWithAnswerFn answers (verifyWith large message pk w) = true := by
-  by_cases hs : w.digestCounter.toNat ≥ small
-  · simp only [verifyWith, hs, ite_true, evalWithAnswerFn_pure, Bool.false_eq_true] at hv
-  · have hl : ¬ w.digestCounter.toNat ≥ large := by omega
-    simpa only [verifyWith, hs, hl, ite_false] using hv
+namespace Rev3
+theorem expand_implies_verify (answers : Answers) (message : Message) (pk : Digest)
+    (sig : Signature) (w : Witness) (he : evalWithAnswerFn answers (expand message pk sig) = some w) :
+    evalWithAnswerFn answers (verify message pk w) = true :=
+  expandWith_implies_verifyWith digestAttemptLimit digestAttemptLimit_le answers message pk sig w he
+def SigningCorrect (answers : Answers) (keys : Digest × Cache) : Prop :=
+  ∀ (message : Message) (sig : Signature),
+    evalWithAnswerFn answers (sign keys.2 message) = some sig →
+    ∃ w : Witness, evalWithAnswerFn answers (expand message keys.1 sig) = some w ∧
+      evalWithAnswerFn answers (verify message keys.1 w) = true
+theorem signing_success_valid (answers : Answers) (keys : Digest × Cache)
+    (hkeys : KeygenCorrect answers keys) (htop : TopSearchesSucceedBC answers) : SigningCorrect answers keys :=
+  fun message sig hsign =>
+    signingWith_success_valid digestAttemptLimit digestAttemptLimit_le answers keys hkeys htop message sig hsign
+theorem honest_signing_success_valid (answers : Answers) (htop : TopSearchesSucceedBC answers) :
+    SigningCorrect answers (evalWithAnswerFn answers keygen) :=
+  signing_success_valid answers _ (ClaudeWCT.WCT9.keygen_correct answers) htop
+def RealizedSigningCorrect (answers : QueryImpl SphincsSecurity.OracleWorld Id)
+    (secret : BitVec 256) (keys : Digest × Cache) : Prop :=
+  ∀ (message : Message) (sig : Signature),
+    evalWithAnswerFn answers (realize secret (sign keys.2 message)) = some sig →
+    ∃ w : Witness, evalWithAnswerFn answers (realize secret (expand message keys.1 sig)) = some w ∧
+      evalWithAnswerFn answers (realize secret (verify message keys.1 w)) = true
+theorem realized_honest_signing_success_valid (answers : QueryImpl SphincsSecurity.OracleWorld Id)
+    (secret : BitVec 256) (htop : TopSearchesSucceedBC (answers.compose (realHandler secret))) :
+    RealizedSigningCorrect answers secret (evalWithAnswerFn answers (realize secret keygen)) := by
+  unfold RealizedSigningCorrect
+  simp only [realize_eval]
+  exact honest_signing_success_valid (answers.compose (realHandler secret)) htop
+end Rev3
 end ClaudeWCT.WCT9
 end

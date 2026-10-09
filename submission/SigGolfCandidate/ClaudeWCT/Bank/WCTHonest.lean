@@ -17,7 +17,7 @@ theorem producerAdmissible_eq (x : HashOutput) :
   rw [capOk_eq_capOkC]
 theorem sum_producer (g : WProposal → ENNReal) :
     (∑ x : HashOutput, if WCT9.producerAdmissible x = true then g (proposal x) else 0) =
-      ((27 ^ 9 * WCT9.gateLimit * 2 ^ 15 : Nat) : ENNReal) * ∑ p : WProposal, if capOkC p.2 = true then g p else 0 := by
+      ((WCT9.gateLimit * 2 ^ 58 : Nat) : ENNReal) * ∑ p : WProposal, if capOkC p.2 = true then g p else 0 := by
   rw [← sum_admissible (fun p => if capOkC p.2 = true then g p else 0)]
   apply Finset.sum_congr rfl
   intro x _
@@ -25,7 +25,7 @@ theorem sum_producer (g : WProposal → ENNReal) :
   cases WCT9.admissible x <;> cases capOkC (proposal x).2 <;> rfl
 theorem capSet_mem (c : Coords) : c ∈ capSet ↔ capOkC c = true := by
   simp [capSet]
-theorem routineCost_zero : WCT9.routineCost 0 = 67 := rfl
+theorem routineCost_zero : WCT9.routineCost 0 = 76 := rfl
 theorem childExtra_zero : WCT9.childExtra 0 = 2 := rfl
 theorem capOkC_zero : capOkC (fun _ => ((0 : Child), (0 : Rank))) = true := by
   unfold capOkC
@@ -77,7 +77,7 @@ theorem sum_capOkC_prod_one :
   simp only [sum_capOkC_one, Finset.sum_const, nsmul_eq_mul, Finset.card_univ, Fintype.card_fin]
 theorem producer_acceptance_eq :
     Pr[fun x : HashOutput => WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      ((27 ^ 9 * WCT9.gateLimit * 2 ^ 15 : Nat) : ENNReal) * (((2 ^ 31 : Nat) : ENNReal) * (capSet.card : ENNReal)) /
+      ((WCT9.gateLimit * 2 ^ 58 : Nat) : ENNReal) * (((2 ^ 31 : Nat) : ENNReal) * (capSet.card : ENNReal)) /
         (Fintype.card HashOutput : ENNReal) := by
   rw [← expectedValue_ite_one, BPORS.expected_uniform_eq_finiteAverage]
   unfold SigGolfResearch.Gate6.Moments.finiteAverage
@@ -94,8 +94,8 @@ theorem acceptedProposalHonest : AcceptedProposalHonest := by
   set K := ((2 ^ 31 : Nat) : ENNReal) * (capSet.card : ENNReal)
   set S := ∑ p : WProposal, if capOkC p.2 = true then g p else 0
   simp only [div_eq_mul_inv]
-  calc ((27 ^ 9 * WCT9.gateLimit * 2 ^ 15 : Nat) : ENNReal) * S * (Fintype.card HashOutput : ENNReal)⁻¹
-      = ((27 ^ 9 * WCT9.gateLimit * 2 ^ 15 : Nat) : ENNReal) * S * (Fintype.card HashOutput : ENNReal)⁻¹ * (K⁻¹ * K) := by
+  calc ((WCT9.gateLimit * 2 ^ 58 : Nat) : ENNReal) * S * (Fintype.card HashOutput : ENNReal)⁻¹
+      = ((WCT9.gateLimit * 2 ^ 58 : Nat) : ENNReal) * S * (Fintype.card HashOutput : ENNReal)⁻¹ * (K⁻¹ * K) := by
         rw [ENNReal.inv_mul_cancel hK hK', mul_one]
     _ = _ := by ring
 theorem producer_le_admissible :

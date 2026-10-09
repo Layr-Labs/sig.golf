@@ -135,7 +135,7 @@ theorem tail_dispatch_step {p : Nat} (hp : p<251927)
   refine ⟨tailDispatchR.toState s,piece_steps45 hrun hp s hpc
     (by simp [tailDispatchR,TailDispatch.dispatchR]),?_,?_,?_,?_⟩
   · simp only [Result.toState_pc,tailDispatchR,TailDispatch.dispatchR,E.eval,BinOp.eval,h29]
-    change ((((BitVec.ofNat 64 k + 320#64) <<< 9) + 256#64) &&& ~~~1#64) = _
+    change (((BitVec.ofNat 64 k + 5#64) <<< 10) &&& ~~~1#64) = _
     have he : entW 17 k=TailDispatch.armPC k := by unfold entW cellW TailDispatch.armPC; simp
     rw [he]
     exact TailDispatch.dispatch_target k hk

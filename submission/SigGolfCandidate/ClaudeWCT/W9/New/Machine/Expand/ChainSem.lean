@@ -3,264 +3,282 @@ import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.ChainCode
 section
 namespace ClaudeWCT.W9.Machine.Expand
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
-theorem run_head_0_0_880 (p : Word) : symRun cfgE (headW 0 0 880) p 5 = some (headR 0 0 880 p) := by krfl
-theorem run_head_0_1_880 (p : Word) : symRun cfgE (headW 0 1 880) p 5 = some (headR 0 1 880 p) := by krfl
-theorem run_head_0_2_880 (p : Word) : symRun cfgE (headW 0 2 880) p 5 = some (headR 0 2 880 p) := by krfl
-theorem run_head_1_0_816 (p : Word) : symRun cfgE (headW 1 0 816) p 5 = some (headR 1 0 816 p) := by krfl
-theorem run_head_1_0_912 (p : Word) : symRun cfgE (headW 1 0 912) p 5 = some (headR 1 0 912 p) := by krfl
-theorem run_head_1_1_816 (p : Word) : symRun cfgE (headW 1 1 816) p 5 = some (headR 1 1 816 p) := by krfl
-theorem run_head_1_1_912 (p : Word) : symRun cfgE (headW 1 1 912) p 5 = some (headR 1 1 912 p) := by krfl
-theorem run_head_1_2_816 (p : Word) : symRun cfgE (headW 1 2 816) p 5 = some (headR 1 2 816 p) := by krfl
-theorem run_head_1_2_912 (p : Word) : symRun cfgE (headW 1 2 912) p 5 = some (headR 1 2 912 p) := by krfl
-theorem run_head_2_0_752 (p : Word) : symRun cfgE (headW 2 0 752) p 5 = some (headR 2 0 752 p) := by krfl
-theorem run_head_2_0_928 (p : Word) : symRun cfgE (headW 2 0 928) p 5 = some (headR 2 0 928 p) := by krfl
-theorem run_head_2_1_752 (p : Word) : symRun cfgE (headW 2 1 752) p 5 = some (headR 2 1 752 p) := by krfl
-theorem run_head_2_1_928 (p : Word) : symRun cfgE (headW 2 1 928) p 5 = some (headR 2 1 928 p) := by krfl
-theorem run_head_2_2_752 (p : Word) : symRun cfgE (headW 2 2 752) p 5 = some (headR 2 2 752 p) := by krfl
-theorem run_head_2_2_928 (p : Word) : symRun cfgE (headW 2 2 928) p 5 = some (headR 2 2 928 p) := by krfl
-theorem run_head_3_0_688 (p : Word) : symRun cfgE (headW 3 0 688) p 5 = some (headR 3 0 688 p) := by krfl
-theorem run_head_3_0_944 (p : Word) : symRun cfgE (headW 3 0 944) p 5 = some (headR 3 0 944 p) := by krfl
-theorem run_head_3_1_688 (p : Word) : symRun cfgE (headW 3 1 688) p 5 = some (headR 3 1 688 p) := by krfl
-theorem run_head_3_1_944 (p : Word) : symRun cfgE (headW 3 1 944) p 5 = some (headR 3 1 944 p) := by krfl
-theorem run_head_3_2_688 (p : Word) : symRun cfgE (headW 3 2 688) p 5 = some (headR 3 2 688 p) := by krfl
-theorem run_head_3_2_944 (p : Word) : symRun cfgE (headW 3 2 944) p 5 = some (headR 3 2 944 p) := by krfl
-theorem run_head_4_0_624 (p : Word) : symRun cfgE (headW 4 0 624) p 5 = some (headR 4 0 624 p) := by krfl
-theorem run_head_4_0_960 (p : Word) : symRun cfgE (headW 4 0 960) p 5 = some (headR 4 0 960 p) := by krfl
-theorem run_head_4_1_624 (p : Word) : symRun cfgE (headW 4 1 624) p 5 = some (headR 4 1 624 p) := by krfl
-theorem run_head_4_1_960 (p : Word) : symRun cfgE (headW 4 1 960) p 5 = some (headR 4 1 960 p) := by krfl
-theorem run_head_4_2_624 (p : Word) : symRun cfgE (headW 4 2 624) p 5 = some (headR 4 2 624 p) := by krfl
-theorem run_head_4_2_960 (p : Word) : symRun cfgE (headW 4 2 960) p 5 = some (headR 4 2 960 p) := by krfl
-theorem run_head_5_0_560 (p : Word) : symRun cfgE (headW 5 0 560) p 5 = some (headR 5 0 560 p) := by krfl
-theorem run_head_5_0_976 (p : Word) : symRun cfgE (headW 5 0 976) p 5 = some (headR 5 0 976 p) := by krfl
-theorem run_head_5_1_560 (p : Word) : symRun cfgE (headW 5 1 560) p 5 = some (headR 5 1 560 p) := by krfl
-theorem run_head_5_1_976 (p : Word) : symRun cfgE (headW 5 1 976) p 5 = some (headR 5 1 976 p) := by krfl
-theorem run_head_5_2_560 (p : Word) : symRun cfgE (headW 5 2 560) p 5 = some (headR 5 2 560 p) := by krfl
-theorem run_head_5_2_976 (p : Word) : symRun cfgE (headW 5 2 976) p 5 = some (headR 5 2 976 p) := by krfl
-theorem run_head_6_0_496 (p : Word) : symRun cfgE (headW 6 0 496) p 5 = some (headR 6 0 496 p) := by krfl
-theorem run_head_6_0_992 (p : Word) : symRun cfgE (headW 6 0 992) p 5 = some (headR 6 0 992 p) := by krfl
-theorem run_head_6_1_496 (p : Word) : symRun cfgE (headW 6 1 496) p 5 = some (headR 6 1 496 p) := by krfl
-theorem run_head_6_1_992 (p : Word) : symRun cfgE (headW 6 1 992) p 5 = some (headR 6 1 992 p) := by krfl
-theorem run_head_6_2_496 (p : Word) : symRun cfgE (headW 6 2 496) p 5 = some (headR 6 2 496 p) := by krfl
-theorem run_head_6_2_992 (p : Word) : symRun cfgE (headW 6 2 992) p 5 = some (headR 6 2 992 p) := by krfl
+theorem run_head_0_0_816 (p : Word) : symRun cfgE (headW 0 0 816) p 5 = some (headR 0 0 816 p) := by krfl
+theorem run_head_0_1_816 (p : Word) : symRun cfgE (headW 0 1 816) p 5 = some (headR 0 1 816 p) := by krfl
+theorem run_head_0_2_816 (p : Word) : symRun cfgE (headW 0 2 816) p 5 = some (headR 0 2 816 p) := by krfl
+theorem run_head_0_3_816 (p : Word) : symRun cfgE (headW 0 3 816) p 5 = some (headR 0 3 816 p) := by krfl
+theorem run_head_1_0_752 (p : Word) : symRun cfgE (headW 1 0 752) p 5 = some (headR 1 0 752 p) := by krfl
+theorem run_head_1_0_864 (p : Word) : symRun cfgE (headW 1 0 864) p 5 = some (headR 1 0 864 p) := by krfl
+theorem run_head_1_1_752 (p : Word) : symRun cfgE (headW 1 1 752) p 5 = some (headR 1 1 752 p) := by krfl
+theorem run_head_1_1_864 (p : Word) : symRun cfgE (headW 1 1 864) p 5 = some (headR 1 1 864 p) := by krfl
+theorem run_head_1_2_752 (p : Word) : symRun cfgE (headW 1 2 752) p 5 = some (headR 1 2 752 p) := by krfl
+theorem run_head_1_2_864 (p : Word) : symRun cfgE (headW 1 2 864) p 5 = some (headR 1 2 864 p) := by krfl
+theorem run_head_1_3_752 (p : Word) : symRun cfgE (headW 1 3 752) p 5 = some (headR 1 3 752 p) := by krfl
+theorem run_head_1_3_864 (p : Word) : symRun cfgE (headW 1 3 864) p 5 = some (headR 1 3 864 p) := by krfl
+theorem run_head_2_0_688 (p : Word) : symRun cfgE (headW 2 0 688) p 5 = some (headR 2 0 688 p) := by krfl
+theorem run_head_2_0_880 (p : Word) : symRun cfgE (headW 2 0 880) p 5 = some (headR 2 0 880 p) := by krfl
+theorem run_head_2_1_688 (p : Word) : symRun cfgE (headW 2 1 688) p 5 = some (headR 2 1 688 p) := by krfl
+theorem run_head_2_1_880 (p : Word) : symRun cfgE (headW 2 1 880) p 5 = some (headR 2 1 880 p) := by krfl
+theorem run_head_2_2_688 (p : Word) : symRun cfgE (headW 2 2 688) p 5 = some (headR 2 2 688 p) := by krfl
+theorem run_head_2_2_880 (p : Word) : symRun cfgE (headW 2 2 880) p 5 = some (headR 2 2 880 p) := by krfl
+theorem run_head_2_3_688 (p : Word) : symRun cfgE (headW 2 3 688) p 5 = some (headR 2 3 688 p) := by krfl
+theorem run_head_2_3_880 (p : Word) : symRun cfgE (headW 2 3 880) p 5 = some (headR 2 3 880 p) := by krfl
+theorem run_head_3_0_624 (p : Word) : symRun cfgE (headW 3 0 624) p 5 = some (headR 3 0 624 p) := by krfl
+theorem run_head_3_0_896 (p : Word) : symRun cfgE (headW 3 0 896) p 5 = some (headR 3 0 896 p) := by krfl
+theorem run_head_3_1_624 (p : Word) : symRun cfgE (headW 3 1 624) p 5 = some (headR 3 1 624 p) := by krfl
+theorem run_head_3_1_896 (p : Word) : symRun cfgE (headW 3 1 896) p 5 = some (headR 3 1 896 p) := by krfl
+theorem run_head_3_2_624 (p : Word) : symRun cfgE (headW 3 2 624) p 5 = some (headR 3 2 624 p) := by krfl
+theorem run_head_3_2_896 (p : Word) : symRun cfgE (headW 3 2 896) p 5 = some (headR 3 2 896 p) := by krfl
+theorem run_head_3_3_624 (p : Word) : symRun cfgE (headW 3 3 624) p 5 = some (headR 3 3 624 p) := by krfl
+theorem run_head_3_3_896 (p : Word) : symRun cfgE (headW 3 3 896) p 5 = some (headR 3 3 896 p) := by krfl
+theorem run_head_4_0_560 (p : Word) : symRun cfgE (headW 4 0 560) p 5 = some (headR 4 0 560 p) := by krfl
+theorem run_head_4_0_912 (p : Word) : symRun cfgE (headW 4 0 912) p 5 = some (headR 4 0 912 p) := by krfl
+theorem run_head_4_1_560 (p : Word) : symRun cfgE (headW 4 1 560) p 5 = some (headR 4 1 560 p) := by krfl
+theorem run_head_4_1_912 (p : Word) : symRun cfgE (headW 4 1 912) p 5 = some (headR 4 1 912 p) := by krfl
+theorem run_head_4_2_560 (p : Word) : symRun cfgE (headW 4 2 560) p 5 = some (headR 4 2 560 p) := by krfl
+theorem run_head_4_2_912 (p : Word) : symRun cfgE (headW 4 2 912) p 5 = some (headR 4 2 912 p) := by krfl
+theorem run_head_4_3_560 (p : Word) : symRun cfgE (headW 4 3 560) p 5 = some (headR 4 3 560 p) := by krfl
+theorem run_head_4_3_912 (p : Word) : symRun cfgE (headW 4 3 912) p 5 = some (headR 4 3 912 p) := by krfl
+theorem run_head_5_0_496 (p : Word) : symRun cfgE (headW 5 0 496) p 5 = some (headR 5 0 496 p) := by krfl
+theorem run_head_5_0_928 (p : Word) : symRun cfgE (headW 5 0 928) p 5 = some (headR 5 0 928 p) := by krfl
+theorem run_head_5_1_496 (p : Word) : symRun cfgE (headW 5 1 496) p 5 = some (headR 5 1 496 p) := by krfl
+theorem run_head_5_1_928 (p : Word) : symRun cfgE (headW 5 1 928) p 5 = some (headR 5 1 928 p) := by krfl
+theorem run_head_5_2_496 (p : Word) : symRun cfgE (headW 5 2 496) p 5 = some (headR 5 2 496 p) := by krfl
+theorem run_head_5_2_928 (p : Word) : symRun cfgE (headW 5 2 928) p 5 = some (headR 5 2 928 p) := by krfl
+theorem run_head_5_3_496 (p : Word) : symRun cfgE (headW 5 3 496) p 5 = some (headR 5 3 496 p) := by krfl
+theorem run_head_5_3_928 (p : Word) : symRun cfgE (headW 5 3 928) p 5 = some (headR 5 3 928 p) := by krfl
 theorem run_head_0_0 (a2 : Nat) (ha : a2 = offC 0 + 48 ∨ a2 = slotC 0) (p : Word) :
     symRun cfgE (headW 0 0 a2) p 5 = some (headR 0 0 a2 p) := by
-  have h : a2 = 880 := by simp only [offC, slotC] at ha; norm_num at ha; omega
-  subst h; exact run_head_0_0_880 p
+  have h : a2 = 816 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  subst h; exact run_head_0_0_816 p
 theorem run_head_0_1 (a2 : Nat) (ha : a2 = offC 0 + 48 ∨ a2 = slotC 0) (p : Word) :
     symRun cfgE (headW 0 1 a2) p 5 = some (headR 0 1 a2 p) := by
-  have h : a2 = 880 := by simp only [offC, slotC] at ha; norm_num at ha; omega
-  subst h; exact run_head_0_1_880 p
+  have h : a2 = 816 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  subst h; exact run_head_0_1_816 p
 theorem run_head_0_2 (a2 : Nat) (ha : a2 = offC 0 + 48 ∨ a2 = slotC 0) (p : Word) :
     symRun cfgE (headW 0 2 a2) p 5 = some (headR 0 2 a2 p) := by
-  have h : a2 = 880 := by simp only [offC, slotC] at ha; norm_num at ha; omega
-  subst h; exact run_head_0_2_880 p
-theorem run_head_0 (st a2 : Nat) (hst : st < 3) (ha : a2 = offC 0 + 48 ∨ a2 = slotC 0) (p : Word) :
+  have h : a2 = 816 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  subst h; exact run_head_0_2_816 p
+theorem run_head_0_3 (a2 : Nat) (ha : a2 = offC 0 + 48 ∨ a2 = slotC 0) (p : Word) :
+    symRun cfgE (headW 0 3 a2) p 5 = some (headR 0 3 a2 p) := by
+  have h : a2 = 816 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  subst h; exact run_head_0_3_816 p
+theorem run_head_0 (st a2 : Nat) (hst : st < 4) (ha : a2 = offC 0 + 48 ∨ a2 = slotC 0) (p : Word) :
     symRun cfgE (headW 0 st a2) p 5 = some (headR 0 st a2 p) := by
-  have h : st = 0 ∨ st = 1 ∨ st = 2 := by omega
-  rcases h with rfl | rfl | rfl
+  have h : st = 0 ∨ st = 1 ∨ st = 2 ∨ st = 3 := by omega
+  rcases h with rfl | rfl | rfl | rfl
   · exact run_head_0_0 a2 ha p
   · exact run_head_0_1 a2 ha p
   · exact run_head_0_2 a2 ha p
+  · exact run_head_0_3 a2 ha p
 theorem run_head_1_0 (a2 : Nat) (ha : a2 = offC 1 + 48 ∨ a2 = slotC 1) (p : Word) :
     symRun cfgE (headW 1 0 a2) p 5 = some (headR 1 0 a2 p) := by
-  have h : a2 = 816 ∨ a2 = 912 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  have h : a2 = 752 ∨ a2 = 864 := by simp only [offC, slotC] at ha; norm_num at ha; omega
   rcases h with rfl | rfl
-  · exact run_head_1_0_816 p
-  · exact run_head_1_0_912 p
+  · exact run_head_1_0_752 p
+  · exact run_head_1_0_864 p
 theorem run_head_1_1 (a2 : Nat) (ha : a2 = offC 1 + 48 ∨ a2 = slotC 1) (p : Word) :
     symRun cfgE (headW 1 1 a2) p 5 = some (headR 1 1 a2 p) := by
-  have h : a2 = 816 ∨ a2 = 912 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  have h : a2 = 752 ∨ a2 = 864 := by simp only [offC, slotC] at ha; norm_num at ha; omega
   rcases h with rfl | rfl
-  · exact run_head_1_1_816 p
-  · exact run_head_1_1_912 p
+  · exact run_head_1_1_752 p
+  · exact run_head_1_1_864 p
 theorem run_head_1_2 (a2 : Nat) (ha : a2 = offC 1 + 48 ∨ a2 = slotC 1) (p : Word) :
     symRun cfgE (headW 1 2 a2) p 5 = some (headR 1 2 a2 p) := by
-  have h : a2 = 816 ∨ a2 = 912 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  have h : a2 = 752 ∨ a2 = 864 := by simp only [offC, slotC] at ha; norm_num at ha; omega
   rcases h with rfl | rfl
-  · exact run_head_1_2_816 p
-  · exact run_head_1_2_912 p
-theorem run_head_1 (st a2 : Nat) (hst : st < 3) (ha : a2 = offC 1 + 48 ∨ a2 = slotC 1) (p : Word) :
+  · exact run_head_1_2_752 p
+  · exact run_head_1_2_864 p
+theorem run_head_1_3 (a2 : Nat) (ha : a2 = offC 1 + 48 ∨ a2 = slotC 1) (p : Word) :
+    symRun cfgE (headW 1 3 a2) p 5 = some (headR 1 3 a2 p) := by
+  have h : a2 = 752 ∨ a2 = 864 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  rcases h with rfl | rfl
+  · exact run_head_1_3_752 p
+  · exact run_head_1_3_864 p
+theorem run_head_1 (st a2 : Nat) (hst : st < 4) (ha : a2 = offC 1 + 48 ∨ a2 = slotC 1) (p : Word) :
     symRun cfgE (headW 1 st a2) p 5 = some (headR 1 st a2 p) := by
-  have h : st = 0 ∨ st = 1 ∨ st = 2 := by omega
-  rcases h with rfl | rfl | rfl
+  have h : st = 0 ∨ st = 1 ∨ st = 2 ∨ st = 3 := by omega
+  rcases h with rfl | rfl | rfl | rfl
   · exact run_head_1_0 a2 ha p
   · exact run_head_1_1 a2 ha p
   · exact run_head_1_2 a2 ha p
+  · exact run_head_1_3 a2 ha p
 theorem run_head_2_0 (a2 : Nat) (ha : a2 = offC 2 + 48 ∨ a2 = slotC 2) (p : Word) :
     symRun cfgE (headW 2 0 a2) p 5 = some (headR 2 0 a2 p) := by
-  have h : a2 = 752 ∨ a2 = 928 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  have h : a2 = 688 ∨ a2 = 880 := by simp only [offC, slotC] at ha; norm_num at ha; omega
   rcases h with rfl | rfl
-  · exact run_head_2_0_752 p
-  · exact run_head_2_0_928 p
+  · exact run_head_2_0_688 p
+  · exact run_head_2_0_880 p
 theorem run_head_2_1 (a2 : Nat) (ha : a2 = offC 2 + 48 ∨ a2 = slotC 2) (p : Word) :
     symRun cfgE (headW 2 1 a2) p 5 = some (headR 2 1 a2 p) := by
-  have h : a2 = 752 ∨ a2 = 928 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  have h : a2 = 688 ∨ a2 = 880 := by simp only [offC, slotC] at ha; norm_num at ha; omega
   rcases h with rfl | rfl
-  · exact run_head_2_1_752 p
-  · exact run_head_2_1_928 p
+  · exact run_head_2_1_688 p
+  · exact run_head_2_1_880 p
 theorem run_head_2_2 (a2 : Nat) (ha : a2 = offC 2 + 48 ∨ a2 = slotC 2) (p : Word) :
     symRun cfgE (headW 2 2 a2) p 5 = some (headR 2 2 a2 p) := by
-  have h : a2 = 752 ∨ a2 = 928 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  have h : a2 = 688 ∨ a2 = 880 := by simp only [offC, slotC] at ha; norm_num at ha; omega
   rcases h with rfl | rfl
-  · exact run_head_2_2_752 p
-  · exact run_head_2_2_928 p
-theorem run_head_2 (st a2 : Nat) (hst : st < 3) (ha : a2 = offC 2 + 48 ∨ a2 = slotC 2) (p : Word) :
+  · exact run_head_2_2_688 p
+  · exact run_head_2_2_880 p
+theorem run_head_2_3 (a2 : Nat) (ha : a2 = offC 2 + 48 ∨ a2 = slotC 2) (p : Word) :
+    symRun cfgE (headW 2 3 a2) p 5 = some (headR 2 3 a2 p) := by
+  have h : a2 = 688 ∨ a2 = 880 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  rcases h with rfl | rfl
+  · exact run_head_2_3_688 p
+  · exact run_head_2_3_880 p
+theorem run_head_2 (st a2 : Nat) (hst : st < 4) (ha : a2 = offC 2 + 48 ∨ a2 = slotC 2) (p : Word) :
     symRun cfgE (headW 2 st a2) p 5 = some (headR 2 st a2 p) := by
-  have h : st = 0 ∨ st = 1 ∨ st = 2 := by omega
-  rcases h with rfl | rfl | rfl
+  have h : st = 0 ∨ st = 1 ∨ st = 2 ∨ st = 3 := by omega
+  rcases h with rfl | rfl | rfl | rfl
   · exact run_head_2_0 a2 ha p
   · exact run_head_2_1 a2 ha p
   · exact run_head_2_2 a2 ha p
+  · exact run_head_2_3 a2 ha p
 theorem run_head_3_0 (a2 : Nat) (ha : a2 = offC 3 + 48 ∨ a2 = slotC 3) (p : Word) :
     symRun cfgE (headW 3 0 a2) p 5 = some (headR 3 0 a2 p) := by
-  have h : a2 = 688 ∨ a2 = 944 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  have h : a2 = 624 ∨ a2 = 896 := by simp only [offC, slotC] at ha; norm_num at ha; omega
   rcases h with rfl | rfl
-  · exact run_head_3_0_688 p
-  · exact run_head_3_0_944 p
+  · exact run_head_3_0_624 p
+  · exact run_head_3_0_896 p
 theorem run_head_3_1 (a2 : Nat) (ha : a2 = offC 3 + 48 ∨ a2 = slotC 3) (p : Word) :
     symRun cfgE (headW 3 1 a2) p 5 = some (headR 3 1 a2 p) := by
-  have h : a2 = 688 ∨ a2 = 944 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  have h : a2 = 624 ∨ a2 = 896 := by simp only [offC, slotC] at ha; norm_num at ha; omega
   rcases h with rfl | rfl
-  · exact run_head_3_1_688 p
-  · exact run_head_3_1_944 p
+  · exact run_head_3_1_624 p
+  · exact run_head_3_1_896 p
 theorem run_head_3_2 (a2 : Nat) (ha : a2 = offC 3 + 48 ∨ a2 = slotC 3) (p : Word) :
     symRun cfgE (headW 3 2 a2) p 5 = some (headR 3 2 a2 p) := by
-  have h : a2 = 688 ∨ a2 = 944 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  have h : a2 = 624 ∨ a2 = 896 := by simp only [offC, slotC] at ha; norm_num at ha; omega
   rcases h with rfl | rfl
-  · exact run_head_3_2_688 p
-  · exact run_head_3_2_944 p
-theorem run_head_3 (st a2 : Nat) (hst : st < 3) (ha : a2 = offC 3 + 48 ∨ a2 = slotC 3) (p : Word) :
+  · exact run_head_3_2_624 p
+  · exact run_head_3_2_896 p
+theorem run_head_3_3 (a2 : Nat) (ha : a2 = offC 3 + 48 ∨ a2 = slotC 3) (p : Word) :
+    symRun cfgE (headW 3 3 a2) p 5 = some (headR 3 3 a2 p) := by
+  have h : a2 = 624 ∨ a2 = 896 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  rcases h with rfl | rfl
+  · exact run_head_3_3_624 p
+  · exact run_head_3_3_896 p
+theorem run_head_3 (st a2 : Nat) (hst : st < 4) (ha : a2 = offC 3 + 48 ∨ a2 = slotC 3) (p : Word) :
     symRun cfgE (headW 3 st a2) p 5 = some (headR 3 st a2 p) := by
-  have h : st = 0 ∨ st = 1 ∨ st = 2 := by omega
-  rcases h with rfl | rfl | rfl
+  have h : st = 0 ∨ st = 1 ∨ st = 2 ∨ st = 3 := by omega
+  rcases h with rfl | rfl | rfl | rfl
   · exact run_head_3_0 a2 ha p
   · exact run_head_3_1 a2 ha p
   · exact run_head_3_2 a2 ha p
+  · exact run_head_3_3 a2 ha p
 theorem run_head_4_0 (a2 : Nat) (ha : a2 = offC 4 + 48 ∨ a2 = slotC 4) (p : Word) :
     symRun cfgE (headW 4 0 a2) p 5 = some (headR 4 0 a2 p) := by
-  have h : a2 = 624 ∨ a2 = 960 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  have h : a2 = 560 ∨ a2 = 912 := by simp only [offC, slotC] at ha; norm_num at ha; omega
   rcases h with rfl | rfl
-  · exact run_head_4_0_624 p
-  · exact run_head_4_0_960 p
+  · exact run_head_4_0_560 p
+  · exact run_head_4_0_912 p
 theorem run_head_4_1 (a2 : Nat) (ha : a2 = offC 4 + 48 ∨ a2 = slotC 4) (p : Word) :
     symRun cfgE (headW 4 1 a2) p 5 = some (headR 4 1 a2 p) := by
-  have h : a2 = 624 ∨ a2 = 960 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  have h : a2 = 560 ∨ a2 = 912 := by simp only [offC, slotC] at ha; norm_num at ha; omega
   rcases h with rfl | rfl
-  · exact run_head_4_1_624 p
-  · exact run_head_4_1_960 p
+  · exact run_head_4_1_560 p
+  · exact run_head_4_1_912 p
 theorem run_head_4_2 (a2 : Nat) (ha : a2 = offC 4 + 48 ∨ a2 = slotC 4) (p : Word) :
     symRun cfgE (headW 4 2 a2) p 5 = some (headR 4 2 a2 p) := by
-  have h : a2 = 624 ∨ a2 = 960 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  have h : a2 = 560 ∨ a2 = 912 := by simp only [offC, slotC] at ha; norm_num at ha; omega
   rcases h with rfl | rfl
-  · exact run_head_4_2_624 p
-  · exact run_head_4_2_960 p
-theorem run_head_4 (st a2 : Nat) (hst : st < 3) (ha : a2 = offC 4 + 48 ∨ a2 = slotC 4) (p : Word) :
+  · exact run_head_4_2_560 p
+  · exact run_head_4_2_912 p
+theorem run_head_4_3 (a2 : Nat) (ha : a2 = offC 4 + 48 ∨ a2 = slotC 4) (p : Word) :
+    symRun cfgE (headW 4 3 a2) p 5 = some (headR 4 3 a2 p) := by
+  have h : a2 = 560 ∨ a2 = 912 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  rcases h with rfl | rfl
+  · exact run_head_4_3_560 p
+  · exact run_head_4_3_912 p
+theorem run_head_4 (st a2 : Nat) (hst : st < 4) (ha : a2 = offC 4 + 48 ∨ a2 = slotC 4) (p : Word) :
     symRun cfgE (headW 4 st a2) p 5 = some (headR 4 st a2 p) := by
-  have h : st = 0 ∨ st = 1 ∨ st = 2 := by omega
-  rcases h with rfl | rfl | rfl
+  have h : st = 0 ∨ st = 1 ∨ st = 2 ∨ st = 3 := by omega
+  rcases h with rfl | rfl | rfl | rfl
   · exact run_head_4_0 a2 ha p
   · exact run_head_4_1 a2 ha p
   · exact run_head_4_2 a2 ha p
+  · exact run_head_4_3 a2 ha p
 theorem run_head_5_0 (a2 : Nat) (ha : a2 = offC 5 + 48 ∨ a2 = slotC 5) (p : Word) :
     symRun cfgE (headW 5 0 a2) p 5 = some (headR 5 0 a2 p) := by
-  have h : a2 = 560 ∨ a2 = 976 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  have h : a2 = 496 ∨ a2 = 928 := by simp only [offC, slotC] at ha; norm_num at ha; omega
   rcases h with rfl | rfl
-  · exact run_head_5_0_560 p
-  · exact run_head_5_0_976 p
+  · exact run_head_5_0_496 p
+  · exact run_head_5_0_928 p
 theorem run_head_5_1 (a2 : Nat) (ha : a2 = offC 5 + 48 ∨ a2 = slotC 5) (p : Word) :
     symRun cfgE (headW 5 1 a2) p 5 = some (headR 5 1 a2 p) := by
-  have h : a2 = 560 ∨ a2 = 976 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  have h : a2 = 496 ∨ a2 = 928 := by simp only [offC, slotC] at ha; norm_num at ha; omega
   rcases h with rfl | rfl
-  · exact run_head_5_1_560 p
-  · exact run_head_5_1_976 p
+  · exact run_head_5_1_496 p
+  · exact run_head_5_1_928 p
 theorem run_head_5_2 (a2 : Nat) (ha : a2 = offC 5 + 48 ∨ a2 = slotC 5) (p : Word) :
     symRun cfgE (headW 5 2 a2) p 5 = some (headR 5 2 a2 p) := by
-  have h : a2 = 560 ∨ a2 = 976 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  have h : a2 = 496 ∨ a2 = 928 := by simp only [offC, slotC] at ha; norm_num at ha; omega
   rcases h with rfl | rfl
-  · exact run_head_5_2_560 p
-  · exact run_head_5_2_976 p
-theorem run_head_5 (st a2 : Nat) (hst : st < 3) (ha : a2 = offC 5 + 48 ∨ a2 = slotC 5) (p : Word) :
+  · exact run_head_5_2_496 p
+  · exact run_head_5_2_928 p
+theorem run_head_5_3 (a2 : Nat) (ha : a2 = offC 5 + 48 ∨ a2 = slotC 5) (p : Word) :
+    symRun cfgE (headW 5 3 a2) p 5 = some (headR 5 3 a2 p) := by
+  have h : a2 = 496 ∨ a2 = 928 := by simp only [offC, slotC] at ha; norm_num at ha; omega
+  rcases h with rfl | rfl
+  · exact run_head_5_3_496 p
+  · exact run_head_5_3_928 p
+theorem run_head_5 (st a2 : Nat) (hst : st < 4) (ha : a2 = offC 5 + 48 ∨ a2 = slotC 5) (p : Word) :
     symRun cfgE (headW 5 st a2) p 5 = some (headR 5 st a2 p) := by
-  have h : st = 0 ∨ st = 1 ∨ st = 2 := by omega
-  rcases h with rfl | rfl | rfl
+  have h : st = 0 ∨ st = 1 ∨ st = 2 ∨ st = 3 := by omega
+  rcases h with rfl | rfl | rfl | rfl
   · exact run_head_5_0 a2 ha p
   · exact run_head_5_1 a2 ha p
   · exact run_head_5_2 a2 ha p
-theorem run_head_6_0 (a2 : Nat) (ha : a2 = offC 6 + 48 ∨ a2 = slotC 6) (p : Word) :
-    symRun cfgE (headW 6 0 a2) p 5 = some (headR 6 0 a2 p) := by
-  have h : a2 = 496 ∨ a2 = 992 := by simp only [offC, slotC] at ha; norm_num at ha; omega
-  rcases h with rfl | rfl
-  · exact run_head_6_0_496 p
-  · exact run_head_6_0_992 p
-theorem run_head_6_1 (a2 : Nat) (ha : a2 = offC 6 + 48 ∨ a2 = slotC 6) (p : Word) :
-    symRun cfgE (headW 6 1 a2) p 5 = some (headR 6 1 a2 p) := by
-  have h : a2 = 496 ∨ a2 = 992 := by simp only [offC, slotC] at ha; norm_num at ha; omega
-  rcases h with rfl | rfl
-  · exact run_head_6_1_496 p
-  · exact run_head_6_1_992 p
-theorem run_head_6_2 (a2 : Nat) (ha : a2 = offC 6 + 48 ∨ a2 = slotC 6) (p : Word) :
-    symRun cfgE (headW 6 2 a2) p 5 = some (headR 6 2 a2 p) := by
-  have h : a2 = 496 ∨ a2 = 992 := by simp only [offC, slotC] at ha; norm_num at ha; omega
-  rcases h with rfl | rfl
-  · exact run_head_6_2_496 p
-  · exact run_head_6_2_992 p
-theorem run_head_6 (st a2 : Nat) (hst : st < 3) (ha : a2 = offC 6 + 48 ∨ a2 = slotC 6) (p : Word) :
-    symRun cfgE (headW 6 st a2) p 5 = some (headR 6 st a2 p) := by
-  have h : st = 0 ∨ st = 1 ∨ st = 2 := by omega
-  rcases h with rfl | rfl | rfl
-  · exact run_head_6_0 a2 ha p
-  · exact run_head_6_1 a2 ha p
-  · exact run_head_6_2 a2 ha p
-theorem run_head (t st a2 : Nat) (ht : t < 7) (hst : st < 3) (ha : a2 = offC t + 48 ∨ a2 = slotC t) (p : Word) :
+  · exact run_head_5_3 a2 ha p
+theorem run_head (t st a2 : Nat) (ht : t < 6) (hst : st < 4) (ha : a2 = offC t + 48 ∨ a2 = slotC t) (p : Word) :
     symRun cfgE (headW t st a2) p 5 = some (headR t st a2 p) := by
-  have h : t = 0 ∨ t = 1 ∨ t = 2 ∨ t = 3 ∨ t = 4 ∨ t = 5 ∨ t = 6 := by omega
-  rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl
+  have h : t = 0 ∨ t = 1 ∨ t = 2 ∨ t = 3 ∨ t = 4 ∨ t = 5 := by omega
+  rcases h with rfl | rfl | rfl | rfl | rfl | rfl
   · exact run_head_0 st a2 hst ha p
   · exact run_head_1 st a2 hst ha p
   · exact run_head_2 st a2 hst ha p
   · exact run_head_3 st a2 hst ha p
   · exact run_head_4 st a2 hst ha p
   · exact run_head_5 st a2 hst ha p
-  · exact run_head_6 st a2 hst ha p
 theorem run_rung_1_n (p : Word) : symRun cfgE (rungW 1 none) p 3 = some (rungR 1 none p) := by krfl
 theorem run_rung_2_n (p : Word) : symRun cfgE (rungW 2 none) p 3 = some (rungR 2 none p) := by krfl
-theorem run_rung_2_912 (p : Word) : symRun cfgE (rungW 2 (some 912)) p 3 = some (rungR 2 (some 912) p) := by krfl
-theorem run_rung_2_928 (p : Word) : symRun cfgE (rungW 2 (some 928)) p 3 = some (rungR 2 (some 928) p) := by krfl
-theorem run_rung_2_944 (p : Word) : symRun cfgE (rungW 2 (some 944)) p 3 = some (rungR 2 (some 944) p) := by krfl
-theorem run_rung_2_960 (p : Word) : symRun cfgE (rungW 2 (some 960)) p 3 = some (rungR 2 (some 960) p) := by krfl
-theorem run_rung_2_976 (p : Word) : symRun cfgE (rungW 2 (some 976)) p 3 = some (rungR 2 (some 976) p) := by krfl
-theorem run_rung_2_992 (p : Word) : symRun cfgE (rungW 2 (some 992)) p 3 = some (rungR 2 (some 992) p) := by krfl
-theorem run_rung (t step : Nat) (own : Bool) (ht : t < 7) (hs : step = 1 ∨ step = 2) (p : Word) :
+theorem run_rung_3_n (p : Word) : symRun cfgE (rungW 3 none) p 3 = some (rungR 3 none p) := by krfl
+theorem run_rung_3_864 (p : Word) : symRun cfgE (rungW 3 (some 864)) p 3 = some (rungR 3 (some 864) p) := by krfl
+theorem run_rung_3_880 (p : Word) : symRun cfgE (rungW 3 (some 880)) p 3 = some (rungR 3 (some 880) p) := by krfl
+theorem run_rung_3_896 (p : Word) : symRun cfgE (rungW 3 (some 896)) p 3 = some (rungR 3 (some 896) p) := by krfl
+theorem run_rung_3_912 (p : Word) : symRun cfgE (rungW 3 (some 912)) p 3 = some (rungR 3 (some 912) p) := by krfl
+theorem run_rung_3_928 (p : Word) : symRun cfgE (rungW 3 (some 928)) p 3 = some (rungR 3 (some 928) p) := by krfl
+theorem run_rung (t step : Nat) (own : Bool) (ht : t < 6) (hs : step = 1 ∨ step = 2 ∨ step = 3) (p : Word) :
     symRun cfgE (rungW step (rungDst t step own)) p 3 = some (rungR step (rungDst t step own) p) := by
-  rcases hs with rfl | rfl
+  rcases hs with rfl | rfl | rfl
   · have e : rungDst t 1 own = none := by simp [rungDst]
     rw [e]; exact run_rung_1_n p
+  · have e : rungDst t 2 own = none := by simp [rungDst]
+    rw [e]; exact run_rung_2_n p
   · by_cases h : own = false ∧ t ≠ 0
-    · have e : rungDst t 2 own = some (slotC t) := by simp [rungDst, h.1, h.2]
+    · have e : rungDst t 3 own = some (slotC t) := by simp [rungDst, h.1, h.2]
       rw [e]
-      have h7 : t = 1 ∨ t = 2 ∨ t = 3 ∨ t = 4 ∨ t = 5 ∨ t = 6 := by omega
-      rcases h7 with rfl | rfl | rfl | rfl | rfl | rfl
-      · exact run_rung_2_912 p
-      · exact run_rung_2_928 p
-      · exact run_rung_2_944 p
-      · exact run_rung_2_960 p
-      · exact run_rung_2_976 p
-      · exact run_rung_2_992 p
-    · have e : rungDst t 2 own = none := by
+      have h7 : t = 1 ∨ t = 2 ∨ t = 3 ∨ t = 4 ∨ t = 5 := by omega
+      rcases h7 with rfl | rfl | rfl | rfl | rfl
+      · exact run_rung_3_864 p
+      · exact run_rung_3_880 p
+      · exact run_rung_3_896 p
+      · exact run_rung_3_912 p
+      · exact run_rung_3_928 p
+    · have e : rungDst t 3 own = none := by
         simp only [rungDst]; rw [if_neg (by tauto)]
-      rw [e]; exact run_rung_2_n p
+      rw [e]; exact run_rung_3_n p
 theorem run_copy_1 (p : Word) : symRun cfgE (copyW 1) p 4 = some (copyR 1 p) := by krfl
 theorem run_copy_2 (p : Word) : symRun cfgE (copyW 2) p 4 = some (copyR 2 p) := by krfl
 theorem run_copy_3 (p : Word) : symRun cfgE (copyW 3) p 4 = some (copyR 3 p) := by krfl
 theorem run_copy_4 (p : Word) : symRun cfgE (copyW 4) p 4 = some (copyR 4 p) := by krfl
-theorem run_copy_5 (p : Word) : symRun cfgE (copyW 5) p 4 = some (copyR 5 p) := by krfl
-theorem run_copy (t : Nat) (h1 : 0 < t) (h5 : t < 6) (p : Word) : symRun cfgE (copyW t) p 4 = some (copyR t p) := by
+theorem run_copy (t : Nat) (h1 : 0 < t) (h5 : t < 5) (p : Word) : symRun cfgE (copyW t) p 4 = some (copyR t p) := by
   interval_cases t
   · exact run_copy_1 p
   · exact run_copy_2 p
   · exact run_copy_3 p
   · exact run_copy_4 p
-  · exact run_copy_5 p
 theorem run_leaf (p : Word) : symRun cfgE leafW p 6 = some leafR := by krfl
 end ClaudeWCT.W9.Machine.Expand
 end
@@ -298,7 +316,7 @@ theorem pcOf_add_fours (p : Nat) :
   · apply BitVec.eq_of_toNat_eq
     simp only [pcOf, BitVec.toNat_add, BitVec.toNat_ofNat, show (4 : Word).toNat = 4 from rfl]
     omega
-theorem head_spec {im : Image} {p t st a2 B Q : Nat} (ht : t < 7) (hst : st < 3)
+theorem head_spec {im : Image} {p t st a2 B Q : Nat} (ht : t < 6) (hst : st < 4)
     (ha : a2 = offC t + 48 ∨ a2 = slotC t) (hc : CodeAt im (pcOf p) (headW t st a2)) (s : MachineState)
     (hpc : s.pc = pcOf p) (hB : s.getReg .x8 = BitVec.ofNat 64 B) (h31 : s.getReg .x31 = BitVec.ofNat 64 Q)
     (hb8 : B % 64 = 0) (hbhi : B + 1024 ≤ 2 ^ 24) :
@@ -329,7 +347,7 @@ theorem head_spec {im : Image} {p t st a2 B Q : Nat} (ht : t < 7) (hst : st < 3)
   · intro A hA hn
     simp only [Result.toState_getMem, headR, headSt, memEval_cons, memEval_nil, aX_eval hB]
     rw [if_neg (by rw [ofNat_eq_iff]; omega)]
-theorem rung_spec {im : Image} {p t step B A0 : Nat} (own : Bool) (ht : t < 7) (hs : step = 1 ∨ step = 2)
+theorem rung_spec {im : Image} {p t step B A0 : Nat} (own : Bool) (ht : t < 6) (hs : step = 1 ∨ step = 2 ∨ step = 3)
     (hc : CodeAt im (pcOf p) (rungW step (rungDst t step own))) (s : MachineState) (hpc : s.pc = pcOf p)
     (hB : s.getReg .x8 = BitVec.ofNat 64 B) (hA : s.getReg .x10 = BitVec.ofNat 64 A0) (hA8 : A0 % 8 = 0)
     (hAhi : A0 + 64 ≤ 2 ^ 24) :
@@ -340,7 +358,7 @@ theorem rung_spec {im : Image} {p t step B A0 : Nat} (own : Bool) (ht : t < 7) (
         | none => s.getReg .x12) ∧
       (∀ r, r ≠ .x12 → u.getReg r = s.getReg r) ∧
       u.getMem (BitVec.ofNat 64 (A0 + 16)) = replaceByte (s.getMem (BitVec.ofNat 64 (A0 + 16))) 1
-        ((s.getReg (if step = 1 then .x7 else .x13)).truncate 8) ∧
+        ((s.getReg (if step = 1 then .x7 else if step = 2 then .x13 else .x19)).truncate 8) ∧
       Frame s u (fun A => A = A0 + 16) := by
   have hrun := run_rung t step own ht hs (pcOf p)
   have hobl : (rungR step (rungDst t step own) (pcOf p)).obligs s := by
@@ -351,7 +369,7 @@ theorem rung_spec {im : Image} {p t step B A0 : Nat} (own : Bool) (ht : t < 7) (
   have hec := symRun_ecall hrun hc s hobl (by cases rungDst t step own <;> rfl)
   have hmem : ∀ A, A < 2 ^ 64 → (Result.toState (rungR step (rungDst t step own) (pcOf p)) s).getMem
       (BitVec.ofNat 64 A) = if A = A0 + 16 then replaceByte (s.getMem (BitVec.ofNat 64 (A0 + 16))) 1
-        ((s.getReg (if step = 1 then .x7 else .x13)).truncate 8) else s.getMem (BitVec.ofNat 64 A) := by
+        ((s.getReg (if step = 1 then .x7 else if step = 2 then .x13 else .x19)).truncate 8) else s.getMem (BitVec.ofNat 64 A) := by
     intro A hA'
     cases h : rungDst t step own <;>
     · simp only [Result.toState_getMem, rungR, rungSt, memEval_cons, memEval_nil, aX_eval hA, E.eval,
@@ -380,7 +398,7 @@ theorem rung_spec {im : Image} {p t step B A0 : Nat} (own : Bool) (ht : t < 7) (
       rw [RegFile.get_set_ne _ _ hr, RegFile.init_get_eval]
     · have := hmem (A0 + 16) (by omega); simp only [rungR, h, if_true] at this ⊢; exact this
     · intro A hA' hn; have := hmem A hA'; simp only [rungR, h, if_neg hn] at this ⊢; exact this
-theorem copy_spec {im : Image} {p t B : Nat} (h1 : 0 < t) (h5 : t < 6) (hc : CodeAt im (pcOf p) (copyW t))
+theorem copy_spec {im : Image} {p t B : Nat} (h1 : 0 < t) (h5 : t < 5) (hc : CodeAt im (pcOf p) (copyW t))
     (s : MachineState) (hpc : s.pc = pcOf p) (hB : s.getReg .x8 = BitVec.ofNat 64 B) (hb8 : B % 8 = 0)
     (hbhi : B + 1024 ≤ 2 ^ 24) :
     ∃ u, Steps im s 4 4 u ∧ u.pc = pcOf (p + 4) ∧
@@ -411,11 +429,11 @@ theorem copy_spec {im : Image} {p t B : Nat} (h1 : 0 < t) (h5 : t < 6) (hc : Cod
 theorem leaf_spec {im : Image} {p B H : Nat} (hc : CodeAt im (pcOf p) leafW) (s : MachineState) (hpc : s.pc = pcOf p)
     (hB : s.getReg .x8 = BitVec.ofNat 64 B) (hH : s.getReg .x28 = BitVec.ofNat 64 H) (hb : Bnd B H) :
     ∃ u, Steps im s 6 6 u ∧ u.pc = s.getReg .x23 &&& 0xfffffffffffffffe#64 ∧
-      u.getReg .x10 = BitVec.ofNat 64 (B + 880) ∧ u.getReg .x11 = BitVec.ofNat 64 128 ∧
+      u.getReg .x10 = BitVec.ofNat 64 (B + 816) ∧ u.getReg .x11 = BitVec.ofNat 64 128 ∧
       (∀ r, r ≠ .x10 → r ≠ .x11 → r ≠ .x25 → u.getReg r = s.getReg r) ∧
-      u.getMem (BitVec.ofNat 64 (B + 896)) = s.getReg .x31 + 0x601#64 ∧
-      u.getMem (BitVec.ofNat 64 (B + 904)) = 0 ∧
-      Frame s u (fun A => A = B + 896 ∨ A = B + 904) := by
+      u.getMem (BitVec.ofNat 64 (B + 832)) = s.getReg .x31 + 0x601#64 ∧
+      u.getMem (BitVec.ofNat 64 (B + 840)) = 0 ∧
+      Frame s u (fun A => A = B + 832 ∨ A = B + 840) := by
   have hrun := run_leaf (pcOf p)
   have hobl : leafR.obligs s := by
     simp only [Result.obligs, leafR, leafSt, Oblig.all, Oblig.holds, aX_eval hB]

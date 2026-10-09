@@ -23,9 +23,9 @@ theorem wctChainP_first_queried (answers : Correctness.Answers) (index coord chi
   rw [List.range'_succ, List.foldlM_cons, queried_bind, queried_shortHash]
   exact List.mem_append_left _ (List.mem_singleton_self _)
 theorem recoverFtsP_chain_queried (answers : Correctness.Answers) (N : HashOutput) (w : WBytes) (k : WCT9.Coord)
-    (t : Fin 7) (hu : 1 ≤ WCT9.wordDigit (WCT9.rank N k) t) :
+    (t : Fin 6) (hu : 1 ≤ WCT9.wordDigit (WCT9.rank N k) t) :
     (.inl (.inr (pad64 (wctChainInputP (WCT9.digestIndex N) k.val (WCT9.child N k).val t.val
-        (3 - WCT9.wordDigit (WCT9.rank N k) t) (wcpads w k.val t.val).1 (wcHeaderPad w k.val t.val)
+        (4 - WCT9.wordDigit (WCT9.rank N k) t) (wcpads w k.val t.val).1 (wcHeaderPad w k.val t.val)
         (wcpads w k.val t.val).2 (wreveal w k.val t.val (WCT9.wordDigit (WCT9.rank N k) t))))) : Spec.Domain) ∈
       queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N) := by
   unfold recoverFtsP
@@ -80,8 +80,8 @@ theorem verdict_accepting (pk : Digest) (interaction : Option ForgeryP × QueryL
 theorem chainValue_eq_wctValue (answers : Correctness.Answers) (a : Guess.ChainAddr) (p : Nat) :
     Guess.chainValue answers a p =
       ClaudeWCT.W9.T3M.Extract.wctValue answers a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p := rfl
-theorem honestProbe_slot (answers : Correctness.Answers) (N : HashOutput) (k : WCT9.Coord) (t : Fin 7)
-    (p : Fin 3) :
+theorem honestProbe_slot (answers : Correctness.Answers) (N : HashOutput) (k : WCT9.Coord) (t : Fin 6)
+    (p : Fin 4) :
     Guess.honestProbe answers (Guess.chainOf N k t, p) =
       pad64 (wctChainInputP (WCT9.digestIndex N) k.val (WCT9.child N k).val t.val p.val 0 0 0
         (ClaudeWCT.W9.T3M.Extract.wctValue answers (WCT9.digestIndex N) k.val (WCT9.child N k).val t.val p.val)) := by
@@ -95,9 +95,9 @@ theorem verdict_chain_entries (pk : Digest) (interaction : Option ForgeryP × Qu
     (hwin : checked.value = true) (forgery : ForgeryP) (hf : interaction.1 = some forgery)
     (m : Message) (w : WBytes) (hof : PaddedExtraction.WitnessOf answers pk forgery m w)
     (hH : ClaudeWCT.W9.T3M.WctExtract.WctHonest answers (evalWithAnswerFn answers (digest (wrho w) m (wdc w))) w) :
-    ∀ (k : WCT9.Coord) (t : Fin 7) (c : Guess.GCoord),
+    ∀ (k : WCT9.Coord) (t : Fin 6) (c : Guess.GCoord),
       c.1 = Guess.chainOf (evalWithAnswerFn answers (digest (wrho w) m (wdc w))) k t →
-      c.2.val = 3 - Guess.deficit (evalWithAnswerFn answers (digest (wrho w) m (wdc w))) k t →
+      c.2.val = 4 - Guess.deficit (evalWithAnswerFn answers (digest (wrho w) m (wdc w))) k t →
       ∃ answer, (Guess.honestProbe answers c, answer) ∈ BPair.publicEntries checked.events := by
   obtain ⟨check, hcheck, hev, hst, m', w', hof', hv, hsub⟩ :=
     verdict_accepting pk interaction before checked hr answers ha hwin forgery hf
@@ -117,7 +117,7 @@ theorem verdict_chain_entries (pk : Digest) (interaction : Option ForgeryP × Qu
   have hq := recoverFtsP_chain_queried answers N w k t hu
   obtain ⟨hval, hpad⟩ := (hH.2 k).1 t
   rw [hval, (hpad hu).1, (hpad hu).2] at hq
-  have hp : 3 - WCT9.wordDigit (WCT9.rank N k) t = p.val := by
+  have hp : 4 - WCT9.wordDigit (WCT9.rank N k) t = p.val := by
     unfold Guess.deficit at hc2
     omega
   rw [hp] at hq

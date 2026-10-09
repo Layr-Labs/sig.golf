@@ -264,7 +264,8 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers)
 open ClaudeWCT.W9.T3.Security.LargeResidual
-open SigGolfCandidate.T3.Security.LargeResidual (State Cell observedRun runWith_bind)
+open SigGolfCandidate.T3.Security.LargeResidual (State Cell runWith_bind)
+open ClaudeWCT.W9.T3.Security.FamResidual (observedRun)
 open ClaudeWCT.W9.T3.Security.CanonGraph
 open ClaudeWCT.W9.T3.Security.CanonEncoding
 set_option maxHeartbeats 1000000
@@ -288,6 +289,7 @@ theorem interaction_le' (hcoh : Coherent U T vals nv τ a) (hq : q ≤ 2 ^ 127) 
       (∀ m s v σ, Final m s v σ → m.contact = true ∨ m.calls ≤ q) →
       (∀ ws' : LargeResidual.State WCoord (Cell U), ws'.counters.calls ≤ q →
         F (none, ws') ∨ ∀ m s v σ, Final m s v σ → m.contact = false) →
+      (∀ m s v σ, Final m s v σ → FamOK s) →
       ∀ (mon : Monitor) (st : RouterState) (ws : LargeResidual.State WCoord (Cell U)) (state : LazyPrivate.State),
         Rel U T vals nv τ a q mon st ws → MemoOk T st →
         Pr[fun t => Final (t.steps.foldl (Monitor.step U T q published) mon)
@@ -297,13 +299,13 @@ theorem interaction_le' (hcoh : Coherent U T vals nv τ a) (hq : q ≤ 2 ^ 127) 
             (routeInteraction U a published q program st >>= K) ws] := by
   induction program using OracleComp.inductionOn with
   | pure v =>
-      intro β Final K F hleaf habort hstop mon st ws state hrel hmemo
+      intro β Final K F hleaf habort hstop hfin mon st ws state hrel hmemo
       rw [taggedFixed_pure, routeInteraction_pure, pure_bind, probEvent_pure]
       split_ifs with hf
       · exact hleaf mon st ws state v [] hrel hmemo hf
       · exact zero_le
   | query_bind input next ih =>
-      intro β Final K F hleaf habort hstop mon st ws state hrel hmemo
+      intro β Final K F hleaf habort hstop hfin mon st ws state hrel hmemo
       rcases input with (n | X) | request
       ·
         rw [taggedFixed_world, routeInteraction_coin, bind_assoc, observed_coinReq]
@@ -317,7 +319,7 @@ theorem interaction_le' (hcoh : Coherent U T vals nv τ a) (hq : q ≤ 2 ^ 127) 
         rw [hc]
         gcongr
         rw [probEvent_map]
-        exact ih c Final K F hleaf habort hstop mon st ws _ hrel hmemo
+        exact ih c Final K F hleaf habort hstop hfin mon st ws _ hrel hmemo
       ·
         rw [taggedFixed_world, Wots.Ref.fixedWorld_public, pure_bind, probEvent_map, routeInteraction_hash]
         by_cases hb : q ≤ st.calls
@@ -344,9 +346,22 @@ theorem interaction_le' (hcoh : Coherent U T vals nv τ a) (hq : q ≤ 2 ^ 127) 
               omega
           rw [hzero]
           exact zero_le
-        · rw [if_neg hb, bind_assoc]
+        · by_cases hok : FamOK st
+          swap
+          · have hzero : Pr[(fun t => Final (t.steps.foldl (Monitor.step U T q published) mon)
+                  (t.steps.foldl (routerStep U T nv published) st) t.value t.state) ∘
+                (fun last => (⟨last.value, .world ⟨state, .inl (.inr X), T (.inl (.inr X))⟩ :: last.steps,
+                  last.state⟩ : Tagged α)) |
+                taggedFixed T published (next (T (.inl (.inr X))))
+                  (FirstHit.advance state (.inl (.inr X)) (T (.inl (.inr X))))] = 0 := by
+              refine le_antisymm ((probEvent_mono'' (q := fun _ => False) ?_).trans (by simp)) (zero_le)
+              intro t ht
+              exact hok (famOK_mono (steps_disclosed_mono U T nv published _ _) (hfin _ _ _ _ ht))
+            rw [hzero]
+            exact zero_le
+          rw [if_neg hb, bind_assoc]
           have hlt : st.calls < q := by omega
-          obtain ⟨ws1, hout⟩ := routeQuery_observed (auxLaw initLaw) hcoh hrel hlt hq X
+          obtain ⟨ws1, hout⟩ := routeQuery_observed (auxLaw initLaw) hcoh hrel hlt hq hok X
           rcases hout with ⟨hc, hrun, -, hcalls⟩ | ⟨hc, hrun, hrel1⟩
           ·
             rw [observedRun, runWith_bind, ← observedRun, hrun, pure_bind]
@@ -378,7 +393,7 @@ theorem interaction_le' (hcoh : Coherent U T vals nv τ a) (hq : q ≤ 2 ^ 127) 
               apply hmemo m f
               unfold RouterState.next at hf
               split_ifs at hf <;> exact hf
-            exact ih (T (.inl (.inr X))) Final K F hleaf habort hstop _ _ ws1 _ hrel1 hmemo1
+            exact ih (T (.inl (.inr X))) Final K F hleaf habort hstop hfin _ _ ws1 _ hrel1 hmemo1
       ·
         rw [taggedFixed_request, Wots.Ref.fixedRecord_hashOnly T _ (Wots.Ref.authenticatedSign_hashOnly _ _),
           pure_bind, probEvent_map, routeInteraction_request, bind_assoc]
@@ -405,7 +420,7 @@ theorem interaction_le' (hcoh : Coherent U T vals nv τ a) (hq : q ≤ 2 ^ 127) 
           rcases hstop ws' hws with h | h
           · exact Or.inl h
           · exact Or.inr fun m s v σ hf => h _ _ _ _ hf
-        exact ih out Final' K' F hleaf' habort' hstop' _ _ wsF _ hrelF
+        exact ih out Final' K' F hleaf' habort' hstop' (fun m s v σ hf => hfin _ _ _ _ hf) _ _ wsF _ hrelF
           (signedState_memo T nv published st request hmemo)
 end Interaction
 end ClaudeWCT.W9.T3.Security.LargeCoupling
@@ -417,7 +432,8 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers)
 open ClaudeWCT.W9.T3.Security.LargeResidual
-open SigGolfCandidate.T3.Security.LargeResidual (State Cell observedRun runWith_bind)
+open SigGolfCandidate.T3.Security.LargeResidual (State Cell runWith_bind)
+open ClaudeWCT.W9.T3.Security.FamResidual (observedRun)
 open SigGolfCandidate.T3.Security.LargeCoupling (honestNonce)
 open ClaudeWCT.W9.T3.Security.CanonGraph
 open ClaudeWCT.W9.T3.Security.CanonEncoding
@@ -446,7 +462,7 @@ theorem table_cert_le (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) (i
     {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
     {τ : Cell (Wots.referenceInputs adversary) → HashOutput} {a : AuxData}
     (hcoh : Coherent (Wots.referenceInputs adversary) T vals nv τ a) :
-    Pr[fun rec => CertR adversary q rec T |
+    Pr[fun rec => CertR adversary q rec T ∧ NoOvR adversary rec T |
         Wots.Ref.fixedRecord T (GameWith.idealGame PaddedGame.checker adversary) (∅, ∅)] ≤
       Pr[CertOut |
         observedRun (auxLaw initLaw) q (Sum.elim vals nv) τ (routerWith (Wots.referenceInputs adversary) adversary q a)
@@ -460,30 +476,35 @@ theorem table_cert_le (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) (i
   refine (probEvent_mono ?_).trans (interaction_le' initLaw hcoh hq hUpub (evalWithAnswerFn T keygen).2 hpub
     (adversary (evalWithAnswerFn T keygen).1 (evalWithAnswerFn T keygen).2)
     (fun mon st value state => verdictCert (Wots.referenceInputs adversary) T q (evalWithAnswerFn T keygen).1 mon st
-      value state)
+      value state ∧ FamOK st)
     (verdictCont (Wots.referenceInputs adversary) a q (evalWithAnswerFn T keygen).1) CertOut
-    ?_ ?_ ?_ Monitor.initial RouterState.initial (keyState (Wots.referenceInputs adversary) q vals nv) _ rel_initial
+    ?_ ?_ ?_ (fun _ _ _ _ h => h.2) Monitor.initial RouterState.initial
+    (keyState (Wots.referenceInputs adversary) q vals nv) _ rel_initial
     (fun _ _ h => by simp [RouterState.initial] at h))
   · intro t ht hc
     have hsplit := canonical_split adversary T t ht
-    obtain ⟨h1, h2, h3, h4⟩ := hc _ _ _ hsplit
+    obtain ⟨h1, h2, h3, h4⟩ := hc.1 _ _ _ hsplit
     rw [Wots.Ref.pureRecord_value] at h2 h3 h4
     have hv : (Wots.Ref.verdictRecord T t.untag).value =
         evalWithAnswerFn T (GameWith.verdict PaddedGame.checker (evalWithAnswerFn T keygen).1 t.value) :=
       Wots.Ref.pureRecord_value _ _ _
-    refine ⟨hv ▸ h1, h2, h3, ?_⟩
-    unfold routerFold at h4
-    rw [hnv]
-    exact h4
+    refine ⟨⟨hv ▸ h1, h2, h3, ?_⟩, fun f => ?_⟩
+    · unfold routerFold at h4
+      rw [hnv]
+      exact h4
+    · have hno : LogNoOverflow T t.value.2 := hc.2 _ _ _ hsplit.untag
+      have hsub := discSeeds_steps hcoh (evalWithAnswerFn T keygen).2 hpub _ _ t ht RouterState.initial f
+      rw [discSeeds_initial, Finset.empty_union] at hsub
+      exact (Finset.card_le_card hsub).trans ((logSeeds_card T _ hno f).trans (by norm_num))
   · intro mon st ws state v log hrel _ hf
     obtain ⟨out, ws', hrun, hph⟩ := routeVerdict_observed (auxLaw initLaw) hcoh hq
       (GameWith.verdict PaddedGame.checker (evalWithAnswerFn T keygen).1 (v, log))
-      (PaddedGame.verdict_public _ _) mon st ws state hrel
+      (PaddedGame.verdict_public _ _) mon st ws state hrel hf.2
     change 1 ≤ Pr[_ | observedRun (auxLaw initLaw) q (Sum.elim vals nv) τ
       (routeVerdict (Wots.referenceInputs adversary) a q
         (GameWith.verdict PaddedGame.checker (evalWithAnswerFn T keygen).1 (v, log)) st) ws]
     rw [hrun, probEvent_pure]
-    obtain ⟨hval, hnc, hcalls, hcert⟩ := hf
+    obtain ⟨⟨hval, hnc, hcalls, hcert⟩, -⟩ := hf
     rcases hph with ⟨-, h2, -⟩ | ⟨-, h2, h3⟩ | ⟨h1, -⟩
     · rw [hnc] at h2; cases h2
     · omega
@@ -494,14 +515,14 @@ theorem table_cert_le (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) (i
     have hc : m.contact = false := by simpa using hcon.1
     have h := events_over (Wots.referenceInputs adversary) T q m hc (by omega) (Wots.Ref.pureRecord T
       (GameWith.verdict PaddedGame.checker (evalWithAnswerFn T keygen).1 v) σ).events
-    have := hf.2.2.1
+    have := hf.1.2.2.1
     omega
   · intro ws' _
     right
     intro m s v σ hf
     by_contra hcon
     have hc : m.contact = true := by simpa using hcon
-    have h := hf.2.1
+    have h := hf.1.2.1
     rw [events_frozen (Wots.referenceInputs adversary) T q m hc] at h
     rw [hc] at h
     cases h
@@ -574,8 +595,8 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers)
 open ClaudeWCT.W9.T3.Security.LargeResidual
-open SigGolfCandidate.T3.Security.LargeResidual (State Cell AuxQuery lazyRun finish observedRun run_posterior retain
-  runWith_query_bind lazyImpl)
+open SigGolfCandidate.T3.Security.LargeResidual (State Cell AuxQuery retain runWith_query_bind)
+open ClaudeWCT.W9.T3.Security.FamResidual (lazyRun finish observedRun run_posterior lazyImpl view supp)
 open SigGolfCandidate.T3.Security.LargeCoupling (pmf_probEvent_mono_support' probEvent_bind_mono_le probEvent_bind_le_of
   weight_self evalSPMF_uniform_inst probEvent_bind_congr_eq completeRows_none)
 open ClaudeWCT.W9.T3.Security.CanonGraph
@@ -589,19 +610,21 @@ section CertChain
 attribute [local instance] Classical.propDecidable
 open ClaudeWCT.W9.T3.Security.LargeCoupling.Samplers SigGolfCandidate.T3.Security.LargeCoupling.Samplers
 def RealCert (adversary : AdversaryP) (q : Nat) (x : FirstHit.Recorded Bool × Answers) : Prop :=
-  CertR adversary q x.1 x.2
+  CertR adversary q x.1 x.2 ∧ NoOvR adversary x.1 x.2
 theorem cert_real_side (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
-    Pr[fun z => CertR adversary q (QueryRecorded.recordedTrace z.1) z.2 | SeccLaw.completedExperiment adversary q hq] =
+    Pr[fun z => CertR adversary q (QueryRecorded.recordedTrace z.1) z.2 ∧
+        NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2 | SeccLaw.completedExperiment adversary q hq] =
       Pr[RealCert adversary q |
         ($ᵗ FullGame.FullTable : ProbComp _) >>= fun priv =>
           ($ᵗ (Wots.referenceInputs adversary → HashOutput) : ProbComp _) >>= fun pub =>
             fixedNext adversary (Wots.eagerAnswers (Wots.referenceInputs adversary) priv pub)] := by
-  have h1 := Wots.completed_eager_cut adversary q hq (CertR adversary q)
+  have h1 := Wots.completed_eager_cut adversary q hq (fun rec A => CertR adversary q rec A ∧ NoOvR adversary rec A)
   rw [h1]
-  have h2 : (fun x : FirstHit.Recorded Bool × Answers => CertR adversary q x.1 (Wots.Ref.cut x.1.state x.2)) =
-      RealCert adversary q := by
+  have h2 : (fun x : FirstHit.Recorded Bool × Answers => CertR adversary q x.1 (Wots.Ref.cut x.1.state x.2) ∧
+      NoOvR adversary x.1 (Wots.Ref.cut x.1.state x.2)) = RealCert adversary q := by
     funext x
-    exact propext (certR_short (Wots.Ref.cut_shortAgree _ _) adversary q x.1)
+    exact propext (and_congr (certR_short (Wots.Ref.cut_shortAgree _ _) adversary q x.1)
+      (noOvR_short (Wots.Ref.cut_shortAgree _ _) adversary x.1))
   rw [h2]
   unfold Wots.eagerRecorded
   rw [MonitoredPrivate.event_lift]
@@ -643,13 +666,14 @@ theorem finish_some_le {R : Type} (X : SPMF (Option R × LargeResidual.State WCo
         exact zero_le
 theorem observed_avg_le {R : Type} (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input)) (q : Nat)
     (program : OracleComp (RWorld U) R) (P : R → Prop) :
-    Pr[fun r => ∃ v, r.1 = some v ∧ P v | 𝒮[($ᵗ (WCoord → LargeResidual.Digest) : ProbComp _)] >>= fun labels =>
-        𝒮[($ᵗ (Cell U → LargeResidual.HashOutput) : ProbComp _)] >>= fun τ =>
-          observedRun aux q labels τ program LargeResidual.initial] ≤
+    Pr[fun r => ∃ v, r.1 = some v ∧ P v | 𝒮[($ᵗ (ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord) : ProbComp _)] >>=
+        fun x => 𝒮[($ᵗ (Cell U → LargeResidual.HashOutput) : ProbComp _)] >>= fun τ =>
+          observedRun aux q (view x) τ program LargeResidual.initial] ≤
       Pr[fun r => ∃ v, r.1 = some v ∧ P v | lazyRun aux q program LargeResidual.initial] := by
-  rw [← complete_univ, ← completeRows_none]
+  rw [← cell_univ, ← completeRows_none]
   have hpost := run_posterior aux q program (LargeResidual.initial : LargeResidual.State WCoord (Cell U))
-    (fun _ => Finset.univ_nonempty)
+    (by change (supp (fun _ : WCoord => (Finset.univ : Finset LargeResidual.Digest))).Nonempty
+        rw [ClaudeWCT.W9.T3.Security.FamResidual.supp_univ]; exact Finset.univ_nonempty)
   refine le_trans (le_of_eq ?_) (finish_some_le (lazyRun aux q program LargeResidual.initial) P)
   rw [← hpost]
   apply probEvent_bind_congr_eq
@@ -675,10 +699,10 @@ theorem router_side_cert (adversary : AdversaryP) (q : Nat) :
         𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun high =>
         𝒮[($ᵗ (EncLeaf → Fin (2 ^ 22) → HashOutput) : ProbComp _)] >>= fun rows =>
         𝒮[($ᵗ FullGame.FullTable : ProbComp _)] >>= fun priv =>
-        𝒮[($ᵗ (WCoord → LargeResidual.Digest) : ProbComp _)] >>= fun lab =>
+        𝒮[($ᵗ (ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord) : ProbComp _)] >>= fun x =>
         𝒮[($ᵗ (Cell (Wots.referenceInputs adversary) → LargeResidual.HashOutput) : ProbComp _)] >>= fun τ =>
-        observedRun (auxLaw initLaw) q lab τ (routerWith (Wots.referenceInputs adversary) adversary q ⟨high, rows, priv⟩)
-          LargeResidual.initial] ≤
+        observedRun (auxLaw initLaw) q (view x) τ
+          (routerWith (Wots.referenceInputs adversary) adversary q ⟨high, rows, priv⟩) LargeResidual.initial] ≤
       Pr[CertOut |
         lazyRun (auxLaw initLaw) q (router (Wots.referenceInputs adversary) adversary q) LargeResidual.initial] := by
   have hce : (@CertOut (Wots.referenceInputs adversary)) =
@@ -700,15 +724,17 @@ theorem router_side_cert (adversary : AdversaryP) (q : Nat) :
   exact observed_avg_le (auxLaw initLaw) q _ _
 end Lazy
 theorem cert_le_lazy (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
-    Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ¬Contact adversary q z ∧ BPB.SignerComplete z.2 |
-      SeccLaw.completedExperiment adversary q hq] ≤
+    Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ¬Contact adversary q z ∧ BPB.SignerComplete z.2 ∧
+        NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2 | SeccLaw.completedExperiment adversary q hq] ≤
       Pr[CertOut | lazyRun (auxLaw initLaw) q (router (Wots.referenceInputs adversary) adversary q)
         LargeResidual.initial] := by
   have hU : canonInputs ⊆ Wots.referenceInputs adversary :=
     canonInputs_subset_publicUniverse.trans (Wots.Ref.referenceInputs_universe adversary)
   have hE : encInputs ⊆ Wots.referenceInputs adversary :=
     encInputs_subset_publicUniverse.trans (Wots.Ref.referenceInputs_universe adversary)
-  refine le_trans (pmf_probEvent_mono_support' _ fun z hz h => cert_of_clean adversary q hq z hz h.1 h.2.1 h.2.2) ?_
+  refine le_trans (pmf_probEvent_mono_support' (G := fun z => CertR adversary q (QueryRecorded.recordedTrace z.1) z.2 ∧
+      NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2) _ fun z hz h =>
+    ⟨cert_of_clean adversary q hq z hz h.1 h.2.1 h.2.2.1, h.2.2.2⟩) ?_
   rw [cert_real_side]
   refine le_trans ?_ (router_side_cert adversary q)
   rw [probEvent_congr' (fun _ _ => Iff.rfl) (law_target (Wots.referenceInputs adversary) hU hE (fixedNext adversary))]
@@ -716,7 +742,7 @@ theorem cert_le_lazy (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
   refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun rows => ?_
   refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun priv => ?_
   rw [probEvent_congr' (fun _ _ => Iff.rfl) (world_split _)]
-  refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun lab => ?_
+  refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun x => ?_
   have hτ : ∀ (k : (Wots.referenceInputs adversary → HashOutput) → ProbComp (FirstHit.Recorded Bool × Answers)),
       𝒮[(@uniformSample (Wots.referenceInputs adversary → HashOutput) (samplerPublic _) : ProbComp _) >>= k] =
         𝒮[(@uniformSample (Wots.referenceInputs adversary → HashOutput) (samplerCell _) : ProbComp _) >>= k] := by
@@ -724,12 +750,12 @@ theorem cert_le_lazy (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
     rw [evalSPMF_bind]
   rw [probEvent_congr' (fun _ _ => Iff.rfl) (hτ _)]
   refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun τ => ?_
-  · have hT : CanonGraph.eagerAnswers (privateEquiv.symm ((fun s => lab (.inl (.inr s))),
-          nonceOver (privateEquiv priv).2 (fun m => lab (.inr m)))) (Wots.referenceInputs adversary)
-          (programmed (Wots.referenceInputs adversary) hU (fun s => lab (.inl (.inr s)))
-            (joinLabels (fun N => lab (.inl (.inl N))) high)
-            (residualPsi (Wots.referenceInputs adversary) hE (joinLabels (fun N => lab (.inl (.inl N))) high) rows τ)) =
-        tablePsi (Wots.referenceInputs adversary) hU hE (fun c => lab (.inl c)) (fun m => lab (.inr m)) τ
+  · have hT : CanonGraph.eagerAnswers (privateEquiv.symm (secOf x,
+          nonceOver (privateEquiv priv).2 (fun m => x.1 (.inr m)))) (Wots.referenceInputs adversary)
+          (programmed (Wots.referenceInputs adversary) hU (secOf x)
+            (joinLabels (fun N => x.1 (.inl (.inl N))) high)
+            (residualPsi (Wots.referenceInputs adversary) hE (joinLabels (fun N => x.1 (.inl (.inl N))) high) rows τ)) =
+        tablePsi (Wots.referenceInputs adversary) hU hE (secOf x) (fun c => view x (.inl c)) (fun m => view x (.inr m)) τ
           ⟨high, rows, priv⟩ := by
       unfold tablePsi
       rw [eagerAnswers_eq]
@@ -738,9 +764,9 @@ theorem cert_le_lazy (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
     unfold fixedNext RealCert
     rw [probEvent_map]
     have h := table_cert_le adversary q hq initLaw
-      (coherent_psi (Wots.referenceInputs adversary) hU hE (fun c => lab (.inl c)) (fun m => lab (.inr m)) τ
-        ⟨high, rows, priv⟩)
-    have hlab : Sum.elim (fun c => lab (.inl c)) (fun m => lab (.inr m)) = lab := by
+      (coherent_psi (Wots.referenceInputs adversary) hU hE (secOf x) (fun c => view x (.inl c))
+        (fun m => view x (.inr m)) τ ⟨high, rows, priv⟩ (seedView_secOf x))
+    have hlab : Sum.elim (fun c => view x (.inl c)) (fun m => view x (.inr m)) = view x := by
       funext c
       rcases c with c | m <;> rfl
     rw [hlab] at h
@@ -893,8 +919,9 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final
 open SigGolfCandidate.T3.Correctness (Answers)
 open ClaudeWCT.W9.T3.Security.LargeResidual
-open SigGolfCandidate.T3.Security.LargeResidual (State Cell lazyRun)
-open SigGolfCandidate.T3.Security.LargeCoupling (ev_bind_le lazy_pure ev_runWith_bind)
+open SigGolfCandidate.T3.Security.LargeResidual (State Cell)
+open ClaudeWCT.W9.T3.Security.FamResidual (lazyRun lazy_pure)
+open SigGolfCandidate.T3.Security.LargeCoupling (ev_bind_le ev_runWith_bind)
 open SphincsSecurity.Concrete UniformTableCompletion ResidualTableCompletion RetainedObservation
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
@@ -1302,6 +1329,28 @@ theorem residual_potential_54 {Coord Cell AuxIndex : Type} {auxSpec : OracleSpec
     SigGolfCandidate.T3.Security.LargeResidual.initial_inv rfl rfl
   rw [SigGolfCandidate.T3.Security.LargeResidual.run_residual] at h
   exact h
+theorem residual_potential_54F {Coord Cell AuxIndex : Type} {auxSpec : OracleSpec AuxIndex}
+    [ClaudeWCT.W9.T3.Security.FamResidual.Seeds Coord] [Fintype Coord] [DecidableEq Coord] [Fintype Cell]
+    [DecidableEq Cell] {Result : Type} (aux : (input : auxSpec.Domain) → PMF (auxSpec.Range input)) (q : Nat)
+    (hq : q ≤ 2 ^ 123) (program : OracleComp (SigGolfCandidate.T3.Security.LargeResidual.World auxSpec Coord Cell) Result) :
+    Pr[fun result => result.1 = none ∧ result.2.counters.calls ≤ q |
+        ClaudeWCT.W9.T3.Security.FamResidual.lazyRun aux q program
+          SigGolfCandidate.T3.Security.LargeResidual.initial] +
+      (15 / 8 : ENNReal) * (∑' result,
+        Pr[= result | ClaudeWCT.W9.T3.Security.FamResidual.lazyRun aux q program
+          SigGolfCandidate.T3.Security.LargeResidual.initial] *
+          (result.2.counters.mass : ENNReal)) / 2 ^ 128 ≤
+      ENNReal.ofReal (2 * ((q : ℝ) / 2 ^ 128) - ((q : ℝ) / 2 ^ 128) ^ 2) := by
+  have h := run_potential_initial_54 (ClaudeWCT.W9.T3.Security.FamResidual.residualStep aux q)
+    SigGolfCandidate.T3.Security.LargeResidual.charges q hq
+    ClaudeWCT.W9.T3.Security.FamResidual.Inv
+    (fun input state hinv _ answer after hafter =>
+      ClaudeWCT.W9.T3.Security.FamResidual.residual_preserve aux q input state hinv answer after hafter)
+    (fun input state hinv _ => ClaudeWCT.W9.T3.Security.FamResidual.residual_step_bound aux q input state hinv)
+    program SigGolfCandidate.T3.Security.LargeResidual.initial
+    ClaudeWCT.W9.T3.Security.FamResidual.initial_inv rfl rfl
+  rw [ClaudeWCT.W9.T3.Security.FamResidual.run_residual] at h
+  exact h
 end ClaudeWCT.W9.T3.Security.LargeCoupling
 end
 section
@@ -1310,7 +1359,7 @@ open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final
 open ClaudeWCT.W9.T3.Security.LargeResidual
-open SigGolfCandidate.T3.Security.LargeResidual (residual_potential lazyRun)
+open ClaudeWCT.W9.T3.Security.FamResidual (residual_potential lazyRun)
 open ClaudeWCT.W9.T3.Security.SeccClosingW9 (largeBound excessRate excessRate54 cacheRate largeReserveRate largeReserveAbsolute)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
@@ -1320,8 +1369,11 @@ noncomputable abbrev lazyRouter (adversary : AdversaryP) (q : Nat) :=
   lazyRun (auxLaw initLaw) q (router (Wots.referenceInputs adversary) adversary q) LargeResidual.initial
 noncomputable def routerMass (adversary : AdversaryP) (q : Nat) : ENNReal :=
   ∑' r, Pr[= r | lazyRouter adversary q] * (r.2.counters.mass : ENNReal)
+/-- The certificate branch of the large route, together with the FTS overflow term `2^-137` (A6, A5). -/
 def LargeCertBound (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) : Prop :=
-  Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ¬Contact adversary q z | SeccLaw.completedExperiment adversary q hq] ≤
+  Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ¬Contact adversary q z ∧
+      NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2 | SeccLaw.completedExperiment adversary q hq] +
+      ((2 : ENNReal) ^ 137)⁻¹ ≤
     (if q ≤ 2 ^ 123 then 15 / 8 else 1) * routerMass adversary q / 2 ^ 128 +
       (q : ENNReal) * (if q ≤ 2 ^ 123 then excessRate54 else excessRate) / 2 ^ 128 +
       (q : ENNReal) * cacheRate / 2 ^ 128 +
@@ -1332,14 +1384,39 @@ theorem large_route_of_cert (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 1
   rw [← SeccLaw.completed_trace_event adversary q hq (QueryRecorded.CleanWin q)]
   apply ClaudeWCT.W9.T3.Security.SeccClosingW9.largeBound_of_parts q _
     (Pr[fun r => r.1 = none ∧ r.2.counters.calls ≤ q | lazyRouter adversary q]) _ (routerMass adversary q)
-  · refine (ClaudeWCT.W9.T3.Security.SeccClosingW9.probEvent_le_contact_add _ (fun z => QueryRecorded.CleanWin q z.1) (Contact adversary q)
-      (fun _ => True) (fun _ _ => trivial)).trans ?_
-    gcongr
-    refine le_trans (probEvent_mono'' fun z hz => hz.2) ?_
-    exact contact_le_lazy adversary q hq
+  · have hno := ClaudeWCT.W9.T3.Security.cleanWin_logOverflow_le adversary q hq
+    have h1 : Pr[fun z => QueryRecorded.CleanWin q z.1 | SeccLaw.completedExperiment adversary q hq] ≤
+        Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2 |
+          SeccLaw.completedExperiment adversary q hq] +
+        Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ¬NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2 |
+          SeccLaw.completedExperiment adversary q hq] := by
+      refine le_trans (Wots.Ref.pmf_probEvent_mono _ fun z _ h => ?_) (probEvent_or_le _ _ _)
+      by_cases hn : NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2
+      · exact Or.inl ⟨h, hn⟩
+      · exact Or.inr ⟨h, hn⟩
+    have h2 := ClaudeWCT.W9.T3.Security.SeccClosingW9.probEvent_le_contact_add (SeccLaw.completedExperiment adversary q hq)
+      (fun z => QueryRecorded.CleanWin q z.1 ∧ NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2)
+      (Contact adversary q) (fun z => NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2) (fun _ h => h.2)
+    have h3 : Pr[fun z => NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2 ∧ Contact adversary q z |
+        SeccLaw.completedExperiment adversary q hq] ≤
+        Pr[fun r => r.1 = none ∧ r.2.counters.calls ≤ q | lazyRouter adversary q] :=
+      le_trans (probEvent_mono'' fun z hz => ⟨hz.2, hz.1⟩) (contact_le_lazy adversary q hq)
+    have h4 : Pr[fun z => (QueryRecorded.CleanWin q z.1 ∧ NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2) ∧
+        ¬Contact adversary q z | SeccLaw.completedExperiment adversary q hq] ≤
+        Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ¬Contact adversary q z ∧
+          NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2 | SeccLaw.completedExperiment adversary q hq] :=
+      probEvent_mono'' fun z hz => ⟨hz.1.1, hz.2, hz.1.2⟩
+    have h5 : Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ¬NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2 |
+        SeccLaw.completedExperiment adversary q hq] ≤ ((2 : ENNReal) ^ 137)⁻¹ := hno
+    calc _ ≤ _ := h1
+      _ ≤ (Pr[fun r => r.1 = none ∧ r.2.counters.calls ≤ q | lazyRouter adversary q] +
+          Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ¬Contact adversary q z ∧
+            NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2 | SeccLaw.completedExperiment adversary q hq]) +
+          ((2 : ENNReal) ^ 137)⁻¹ := add_le_add (h2.trans (add_le_add h3 h4)) h5
+      _ = _ := by rw [add_assoc]
   · by_cases h125 : q ≤ 2 ^ 123
     · rw [if_pos h125]
-      exact residual_potential_54 (auxLaw initLaw) q h125 _
+      exact residual_potential_54F (auxLaw initLaw) q h125 _
     · rw [if_neg h125, one_mul]
       exact residual_potential (auxLaw initLaw) q hq _
   · exact hcert
@@ -1352,8 +1429,8 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final
 open SigGolfCandidate.T3.Correctness (Answers)
 open ClaudeWCT.W9.T3.Security.LargeResidual
-open SigGolfCandidate.T3.Security.LargeResidual (Cell lazyRun)
-open SigGolfCandidate.T3.Security.LargeCoupling (lazy_noFail)
+open SigGolfCandidate.T3.Security.LargeResidual (Cell)
+open ClaudeWCT.W9.T3.Security.FamResidual (lazyRun lazy_noFail)
 open SphincsSecurity.Concrete UniformTableCompletion ResidualTableCompletion RetainedObservation
 open ClaudeWCT.W9.T3.Security.SeccClosingW9 (largeBound excessRate excessRate54 cacheRate largeReserveRate largeReserveAbsolute)
 set_option maxHeartbeats 1000000
@@ -1380,7 +1457,7 @@ theorem certOut_le_psi (q : Nat) (r : Option (Option (Bool × RouterState)) × L
   · exact zero_le
 theorem bank_cert_le (hUpub : SeccLaw.publicUniverse ⊆ U) (initLaw : PMF AuxData) (adversary : AdversaryP) (q : Nat) :
     Pr[CertOut | lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial] ≤
-      (q : ENNReal) * (if q ≤ 2 ^ 123 then 5344 / 10000000 else 2933 / 1000000) / 2 ^ 128 +
+      (q : ENNReal) * (if q ≤ 2 ^ 123 then 5911 / 10000000 else 2933 / 1000000) / 2 ^ 128 +
         coeffQ q * (∑' r, Pr[= r | lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial] *
           (r.2.counters.mass : ENNReal)) / 2 ^ 128 := by
   set L := lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial with hL
@@ -1435,24 +1512,33 @@ theorem bank_cert_le (hUpub : SeccLaw.publicUniverse ⊆ U) (initLaw : PMF AuxDa
 end Bank
 theorem large_cert_bound (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) : LargeCertBound adversary q hq := by
   unfold LargeCertBound
-  have hsplit : Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ¬Contact adversary q z |
-      SeccLaw.completedExperiment adversary q hq] ≤
-      Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ¬Contact adversary q z ∧ BPB.SignerComplete z.2 |
-        SeccLaw.completedExperiment adversary q hq] +
+  have hsplit : Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ¬Contact adversary q z ∧
+      NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2 | SeccLaw.completedExperiment adversary q hq] ≤
+      Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ¬Contact adversary q z ∧ BPB.SignerComplete z.2 ∧
+        NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2 | SeccLaw.completedExperiment adversary q hq] +
       Pr[fun z => ¬BPB.SignerComplete z.2 | SeccLaw.completedExperiment adversary q hq] := by
     refine le_trans (Wots.Ref.pmf_probEvent_mono _ fun z _ h => ?_) (probEvent_or_le _ _ _)
     by_cases hcomp : BPB.SignerComplete z.2
-    · exact Or.inl ⟨h.1, h.2, hcomp⟩
+    · exact Or.inl ⟨h.1, h.2.1, hcomp, h.2.2⟩
     · exact Or.inr hcomp
-  have habs : 1 / (2 : ENNReal) ^ 698 ≤ largeReserveAbsolute := by
-    rw [ClaudeWCT.W9.T3.Security.SeccClosingW9.largeReserveAbsolute_def, one_div]
-    exact ENNReal.inv_le_inv.mpr (pow_le_pow_right₀ one_le_two (by norm_num))
-  refine hsplit.trans ((add_le_add ((cert_le_lazy adversary q hq).trans
-    (bank_cert_le (Wots.Ref.referenceInputs_universe adversary) initLaw adversary q))
-    ((BPB.signerIncomplete_le adversary q hq).trans habs)).trans ?_)
+  have hsi : Pr[fun z => ¬BPB.SignerComplete z.2 | SeccLaw.completedExperiment adversary q hq] ≤
+      ((2 : ENNReal) ^ 137)⁻¹ :=
+    (BPB.signerIncomplete_le adversary q hq).trans
+      (by rw [one_div]; exact ENNReal.inv_le_inv.mpr (pow_le_pow_right₀ one_le_two (by norm_num)))
+  have habs : ((2 : ENNReal) ^ 137)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹ ≤ largeReserveAbsolute := by
+    rw [ClaudeWCT.W9.T3.Security.SeccClosingW9.largeReserveAbsolute_def]
+    calc ((2 : ENNReal) ^ 137)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹ = ((2 : ENNReal) ^ 136)⁻¹ := by
+          rw [← two_mul, show (2 : ENNReal) ^ 137 = 2 * 2 ^ 136 by rw [← pow_succ']]
+          rw [ENNReal.mul_inv (Or.inl (by norm_num)) (Or.inl (by norm_num)), ← mul_assoc,
+            ENNReal.mul_inv_cancel (by norm_num) (by norm_num), one_mul]
+      _ ≤ _ := ENNReal.inv_le_inv.mpr (pow_le_pow_right₀ one_le_two (by norm_num))
+  have hmain := add_le_add (hsplit.trans (add_le_add ((cert_le_lazy adversary q hq).trans
+    (bank_cert_le (Wots.Ref.referenceInputs_universe adversary) initLaw adversary q)) hsi))
+    (le_refl (((2 : ENNReal) ^ 137)⁻¹))
+  refine (hmain.trans (le_of_eq (add_assoc _ _ _))).trans ((add_le_add le_rfl habs).trans ?_)
   have hrm : (∑' r, Pr[= r | lazyRun (auxLaw initLaw) q (router (Wots.referenceInputs adversary) adversary q)
       LargeResidual.initial] * (r.2.counters.mass : ENNReal)) = routerMass adversary q := rfl
-  have hexc_eq : (if q ≤ 2 ^ 123 then (5344 / 10000000 : ENNReal) else 2933 / 1000000) =
+  have hexc_eq : (if q ≤ 2 ^ 123 then (5911 / 10000000 : ENNReal) else 2933 / 1000000) =
       (if q ≤ 2 ^ 123 then excessRate54 else excessRate) := by
     rw [ClaudeWCT.W9.T3.Security.SeccClosingW9.excessRate54_def,
       ClaudeWCT.W9.T3.Security.SeccClosingW9.excessRate_def]

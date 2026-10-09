@@ -60,17 +60,17 @@ theorem rOK_eq {o : Option Result} {r : Result} (h : rOK o r = true) : o = some 
   cases o with
   | none => simp [rOK] at h
   | some r' => simp only [rOK] at h; rw [resBeq_eq h]
-def dispatchWords : List (BitVec 32) := [0x140e8713, 0x00971713, 0x10070067]
-def armPC (rank : Nat) : Nat := 40000 + 128 * rank
+def dispatchWords : List (BitVec 32) := [6194963,0xa71713,458855]
+def armPC (rank : Nat) : Nat := 256 * (rank + 1)
 def dispatchR : Result :=
-  let ptr := .bin .sll (.bin .add (.reg .x29) (.c 320)) (.c 9)
+  let ptr := .bin .sll (.bin .add (.reg .x29) (.c 5)) (.c 10)
   ⟨⟨RegFile.init.set .x14 ptr, [], []⟩,
-    .bin .and (.bin .add ptr (.c 256)) (.c (~~~1#64)), .jump, 3, 3⟩
+    .bin .and ptr (.c (~~~1#64)), .jump, 3, 3⟩
 theorem dispatch_run (pc : Word) : symRun {} dispatchWords pc 3 = some dispatchR := by
   rfl
 def pcOf (p : Nat) : Word := BitVec.ofNat 64 (0x1000 + 4 * p)
 theorem dispatch_target (k : Nat) (hk : k < 64) :
-    ((((BitVec.ofNat 64 k + 320#64) <<< 9) + 256#64) &&& ~~~1#64) =
+    (((BitVec.ofNat 64 k + 5#64) <<< 10) &&& ~~~1#64) =
       pcOf (armPC k) := by
   interval_cases k <;> decide +kernel
 theorem dispatch_steps {image : Image} (pc : Word) (hc : CodeAt image pc dispatchWords)
@@ -82,7 +82,7 @@ theorem dispatch_steps {image : Image} (pc : Word) (hc : CodeAt image pc dispatc
   let t := dispatchR.toState s
   have st : Steps image s 3 3 t := symRun_sound (dispatch_run pc) hc s hp (by simp [dispatchR, Result.obligs, Oblig.all])
   refine ⟨t, st, ?_, ?_, ?_, ?_⟩
-  · change ((((s.getReg .x29 + 320#64) <<< 9) + 256#64) &&& ~~~1#64) = _
+  · change (((s.getReg .x29 + 5#64) <<< 10) &&& ~~~1#64) = _
     rw [hr]
     exact dispatch_target k hk
   · intro r hn
@@ -115,9 +115,9 @@ def pcB (q dB dC : Nat) : Nat := base q dB dC+2*mx q+1
 def pcC (q dB dC : Nat) : Nat := pcB q dB dC+partLen q dB
 def pcX (q dB dC : Nat) : Nat := pcC q dB dC+partLen q dC
 def entOff (q : Nat) : Nat := if q=0 then 8 else if q≤9 then 9+6*q else if q≤13 then 10+6*q else if q=14 then 129 else if q=15 then 170 else 211
-def cellW (q k : Nat) : Nat := if q<17 then 256*(124-k)+entOff q else 40000+128*k
+def cellW (q k : Nat) : Nat := if q<17 then 256*(124-k)+entOff q else 256*(k+1)
 def entW (q k : Nat) : Nat := cellW q k + (if q=9 ∧ k%2=0 then 1 else 0)
-def inl (q : Nat) : Bool := decide (13 ≤ q ∧ q ≤ 17)
+def inl (q : Nat) : Bool := decide (13 ≤ q ∧ q ≤ 16)
 def leadOff (q : Nat) : Nat := if q=0 then 2 else 1
 def leadPc (q k : Nat) : Nat := entW q k+leadOff q
 def kdig (q k j : Nat) : Nat := k/(mx q+1)^j%(mx q+1)
@@ -218,7 +218,7 @@ def inlineCheck (q k : Nat) : Bool :=
       (tailR (if dA+1=mx q then some (slot (3*q)) else none) (gbase q k+2*dA+1)) &&
     rungsOK q (dA+1) (slot (3*q)) (gbase q k+2*(dA+1))) &&
   partOK q (3*q+1) (kdig q k 1) (gB q k) && partOK q (3*q+2) (kdig q k 2) (gC q k) &&
-  (if q<17 then rOK (vrun (gX q k) 5) (if q<16 then dispatchR (q+1) else tailDispatchR) else true)
+  rOK (vrun (gX q k) 5) (if q<16 then dispatchR (q+1) else tailDispatchR)
 def inlineGroupCheck (q lo n : Nat) : Bool := (List.range' lo n).all fun k => inlineCheck q k
 def rejCheck : Bool :=
   (List.range 125).all fun k => rOK (vrun (guardW k) 1) rejJ

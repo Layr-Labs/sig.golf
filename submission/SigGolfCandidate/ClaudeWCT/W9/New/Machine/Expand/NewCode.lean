@@ -45,19 +45,20 @@ def srchdM : SymMem :=
 def srchdCheck : Bool :=
   optCheck (pathAux pcfg expLook [pcOf 1435] 30 (pcOf 1421) [] (σK []) []) fun r =>
     runM r 1435 srchdM [.x6, .x7, .x28, .x29] && r.brs.isEmpty && decide (r.cycles ≤ 14)
-def mvA (k : Nat) : Nat := 0x8540 - 16 * k
+/-- Mover source (T8): the 214 layer digests start at signature digest 118 (0x7760). -/
+def mvA (k : Nat) : Nat := 0x84b0 - 16 * k
 def mvB (k : Nat) : Nat := 0x85e0 - 16 * k
 def mvInitCheck : Bool :=
   optCheck (pathAux pcfg expLook [pcOf 3157] 10 (pcOf 3151) [] (σK []) []) fun r =>
     runB r 3157 [] [.x28, .x29, .x30] && regIsB r .x28 (BitVec.ofNat 64 (mvA 0)) &&
-      regIsB r .x29 (BitVec.ofNat 64 (mvB 0)) && regIsB r .x30 (BitVec.ofNat 64 0x77f0) && r.brs.isEmpty &&
+      regIsB r .x29 (BitVec.ofNat 64 (mvB 0)) && regIsB r .x30 (BitVec.ofNat 64 0x7760) && r.brs.isEmpty &&
       decide (r.cycles ≤ 6)
 def mvCheck (k : Nat) : Bool :=
   optCheck (pathAux pcfg expLook [pcOf 3157, pcOf 3164] 20 (pcOf 3157) []
-      (σK [(.x28, BitVec.ofNat 64 (mvA k)), (.x29, BitVec.ofNat 64 (mvB k)), (.x30, BitVec.ofNat 64 0x77f0)]) []) fun r =>
+      (σK [(.x28, BitVec.ofNat 64 (mvA k)), (.x29, BitVec.ofNat 64 (mvB k)), (.x30, BitVec.ofNat 64 0x7760)]) []) fun r =>
     runB r (if k < 213 then 3157 else 3164) [(mvB k + 8, some (mvA k + 8)), (mvB k, some (mvA k))]
       [.x6, .x7, .x28, .x29, .x30] && regIsB r .x28 (BitVec.ofNat 64 (mvA (k + 1))) &&
-      regIsB r .x29 (BitVec.ofNat 64 (mvB (k + 1))) && regIsB r .x30 (BitVec.ofNat 64 0x77f0) && r.brs.isEmpty &&
+      regIsB r .x29 (BitVec.ofNat 64 (mvB (k + 1))) && regIsB r .x30 (BitVec.ofNat 64 0x7760) && r.brs.isEmpty &&
       decide (r.cycles ≤ 7)
 def mvOK : Bool := (List.range 214).all mvCheck
 def sufCheck : Bool :=
@@ -183,7 +184,7 @@ theorem srchd_spec {im : Image} (hc : NewCodeAt im) (s : MachineState) (hpc : s.
       if_neg (fun h => hn (Or.inr (by omega)))]
 theorem mvInit_spec {im : Image} (hc : NewCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 3151) :
     ∃ t k cy, Steps im s k cy t ∧ cy ≤ 6 ∧ t.pc = pcOf 3157 ∧ t.getReg .x28 = BitVec.ofNat 64 (mvA 0) ∧
-      t.getReg .x29 = BitVec.ofNat 64 (mvB 0) ∧ t.getReg .x30 = BitVec.ofNat 64 0x77f0 ∧
+      t.getReg .x29 = BitVec.ofNat 64 (mvB 0) ∧ t.getReg .x30 = BitVec.ofNat 64 0x7760 ∧
       RegsExcept s t [.x28, .x29, .x30] ∧ Frame s t (fun _ => False) := by
   obtain ⟨r, hr, hb⟩ := optCheck_some mvInitCheck_ok
   simp only [Bool.and_eq_true, List.isEmpty_iff, decide_eq_true_eq] at hb
@@ -195,7 +196,7 @@ structure MvInv (s0 : MachineState) (k : Nat) (t : MachineState) : Prop where
   pc : t.pc = pcOf (if k < 214 then 3157 else 3164)
   x28 : t.getReg .x28 = BitVec.ofNat 64 (mvA k)
   x29 : t.getReg .x29 = BitVec.ofNat 64 (mvB k)
-  x30 : t.getReg .x30 = BitVec.ofNat 64 0x77f0
+  x30 : t.getReg .x30 = BitVec.ofNat 64 0x7760
   regs : RegsExcept s0 t [.x6, .x7, .x28, .x29, .x30]
   moved : ∀ i, i < k → t.getMem (BitVec.ofNat 64 (mvB i)) = s0.getMem (BitVec.ofNat 64 (mvA i)) ∧
     t.getMem (BitVec.ofNat 64 (mvB i + 8)) = s0.getMem (BitVec.ofNat 64 (mvA i + 8))
@@ -428,7 +429,7 @@ theorem fts_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.Si
     TBSim im sk sF ftsCost (WCT9.recoverFts sig (WCT9.digestIndex N) N)
       (fun root t => t.pc = pcOf 39142 ∧ t.getReg .x5 = 0 ∧ DigAt t 0x100 root ∧ Frame sF t FtsW) := by
   have hidx : WCT9.digestIndex N < 2 ^ 31 := WCT9.digestIndex_lt N
-  have hg : N.toNat / 2 ^ 235 % 2 ^ 21 < 2364 := ((admissible_iff N).mp hin.adm).1
+  have hg : N.toNat / 2 ^ 242 % 2 ^ 14 < 1131 := ((admissible_iff N).mp hin.adm).1
   obtain ⟨t0, s0, p0, r0, x8_0, x28_0, x15_0, f0⟩ := drv_entry hc N sF hpc h5 hin.out hg
   have hI0 : DrvInv sig N sF 0 [] t0 := drvInv_zero (by rw [p0]) r0 x8_0 x28_0 x15_0 f0
   unfold WCT9.recoverFts
@@ -517,28 +518,21 @@ open SigGolfCandidate.T3M
 open SigGolfCandidate.T3 (Digest HashOutput readDigest readLE)
 open SigGolfCandidate.T3M (window window_append_left window_append_right window_full window_zeros zeros)
 open SphincsSecurity (bytesLE bytesLE_length)
-open ClaudeWCT.W9.T3M (chainBytes leafBytes chainBytes_window leafBytes_window_zero leafBytes_window_succ
+open ClaudeWCT.W9.T3M (chainBytes leafBytes chainBytes_window leafBytes_window_zero leafBytes_window_succ leafBytes_window_pad
   openingList sigDigests sigDigests_opening)
 set_option linter.unusedSimpArgs false
 def cellD (j : Nat) (op : WCT9.Opening) (m : Nat) : Digest :=
   match wSrc j (2 * m) with
   | some o => (openingList op).getD (o / 16) 0
   | none => 0
-theorem openingList_val (op : WCT9.Opening) (t : Nat) (ht : t < 7) : (openingList op).getD t 0 = op.values ⟨t, ht⟩ := by
+theorem openingList_val (op : WCT9.Opening) (t : Nat) (ht : t < 6) : (openingList op).getD t 0 = op.values ⟨t, ht⟩ := by
   unfold openingList
   rw [List.getD_eq_getElem _ _ (by simp; omega), List.getElem_append_left (by simp; omega), List.getElem_ofFn]
 theorem openingList_path (op : WCT9.Opening) (l : Nat) (hl : l < 7) :
-    (openingList op).getD (7 + l) 0 = op.path ⟨l, hl⟩ := by
+    (openingList op).getD (6 + l) 0 = op.path ⟨l, hl⟩ := by
   unfold openingList
   rw [List.getD_eq_getElem _ _ (by simp; omega), List.getElem_append_right (by simp)]
   simp only [List.length_ofFn, Nat.add_sub_cancel_left, List.getElem_ofFn]
-theorem region_guard (c : Nat) (op : WCT9.Opening) : window (regionBytesV5 c op) 1008 16 = zeros 16 := by
-  unfold regionBytesV5
-  rw [window_append_right _ _ _ _ (by simp [merkleBytesV5_length, ClaudeWCT.W9.T3M.chainBytes_length,
-    ClaudeWCT.W9.T3M.leafBytes_length, zeros])]
-  simp only [List.length_append, merkleBytesV5_length, ClaudeWCT.W9.T3M.chainBytes_length,
-    ClaudeWCT.W9.T3M.leafBytes_length, zeros, List.length_replicate]
-  exact window_zeros _ _ _ (by omega)
 theorem zeros_eq : zeros 16 = bytesLE 16 (0 : Digest) := zeros16
 theorem cell_window (j : Nat) (op : WCT9.Opening) (m : Nat) (hm : m < 64) :
     window (regionBytesV5 j op) (16 * m) 16 = bytesLE 16 (cellD j op m) := by
@@ -563,7 +557,7 @@ theorem cell_window (j : Nat) (op : WCT9.Opening) (m : Nat) (hm : m < 64) :
       · rw [if_pos (Or.inl ⟨hbit, hq0⟩), hq0, Nat.mul_zero, window_append_left _ _ _ _ (by simp [bytesLE_length]),
           window_full _ _ (bytesLE_length _ _)]
         dsimp only
-        rw [show (112 + 16 * (6 - m / 4)) / 16 = 7 + (6 - m / 4) by omega,
+        rw [show (96 + 16 * (6 - m / 4)) / 16 = 6 + (6 - m / 4) by omega,
           openingList_path op _ (by omega)]
       · rw [if_neg (by omega), window_append_right _ _ _ _ (by simp [bytesLE_length]; omega), window_zeros _ _ _
           (by simp [bytesLE_length]; omega), zeros_eq]
@@ -573,52 +567,53 @@ theorem cell_window (j : Nat) (op : WCT9.Opening) (m : Nat) (hm : m < 64) :
       · rw [if_pos (Or.inr ⟨hbit0, hq3⟩), hq3, window_append_right _ _ _ _ (by simp [zeros]),
           show 16 * 3 - (zeros 48).length = 0 by simp [zeros], window_full _ _ (bytesLE_length _ _)]
         dsimp only
-        rw [show (112 + 16 * (6 - m / 4)) / 16 = 7 + (6 - m / 4) by omega, openingList_path op _ (by omega)]
+        rw [show (96 + 16 * (6 - m / 4)) / 16 = 6 + (6 - m / 4) by omega, openingList_path op _ (by omega)]
       · rw [if_neg (by omega), window_append_left _ _ _ _ (by simp [zeros]; omega), window_zeros _ _ _ (by omega),
           zeros_eq]
   rw [if_neg hA]
-  by_cases hB : m < 52
+  by_cases hB : m < 48
   ·
     rw [if_pos hB]
-    set i : Fin 6 := ⟨5 - (m - 28) / 4, by omega⟩ with hi
-    have ho : 16 * m - 448 = 64 * (5 - i.val) + 16 * ((m - 28) % 4) := by simp only [hi]; omega
+    set i : Fin 5 := ⟨4 - (m - 28) / 4, by omega⟩ with hi
+    have ho : 16 * m - 448 = 64 * (4 - i.val) + 16 * ((m - 28) % 4) := by simp only [hi]; omega
     rw [region_chainV5 _ _ _ _ (by omega) (by omega), ho, chainBytes_window _ i _ (by omega)]
     by_cases hq3 : (m - 28) % 4 = 3
     · rw [if_pos hq3, hq3, window_append_right _ _ _ _ (by simp [zeros]),
         show 16 * 3 - (zeros 48).length = 0 by simp [zeros], window_full _ _ (bytesLE_length _ _)]
       dsimp only
-      rw [show 16 * (6 - (m - 28) / 4) / 16 = 6 - (m - 28) / 4 by omega, openingList_val op _ (by omega)]
-      have e : i.succ = ⟨6 - (m - 28) / 4, by omega⟩ := by ext; simp [hi]; omega
+      rw [show 16 * (5 - (m - 28) / 4) / 16 = 5 - (m - 28) / 4 by omega, openingList_val op _ (by omega)]
+      have e : i.succ = ⟨5 - (m - 28) / 4, by omega⟩ := by ext; simp [hi]; omega
       rw [e]
     · rw [if_neg hq3, window_append_left _ _ _ _ (by simp [zeros]; omega), window_zeros _ _ _ (by omega), zeros_eq]
   rw [if_neg hB]
-  by_cases hC : m = 55
+  by_cases hC : m = 51
   · subst hC
-    rw [if_pos rfl, region_leafV5 _ _ _ _ (by omega) (by omega), show 16 * 55 - 880 = 0 by rfl, leafBytes_window_zero]
+    rw [if_pos rfl, region_leafV5 _ _ _ _ (by omega) (by omega), show 16 * 51 - 816 = 0 by rfl, leafBytes_window_zero]
     dsimp only
     rw [show 0 / 16 = 0 from rfl, openingList_val op 0 (by omega)]
     rfl
   rw [if_neg hC]
-  by_cases hD : 57 ≤ m ∧ m < 63
+  by_cases hD : 54 ≤ m ∧ m < 59
   · rw [if_pos hD, region_leafV5 _ _ _ _ (by omega) (by omega),
-      show 16 * m - 880 = 32 + 16 * (⟨m - 57, by omega⟩ : Fin 6).val by simp; omega, leafBytes_window_succ]
+      show 16 * m - 816 = 48 + 16 * (⟨m - 54, by omega⟩ : Fin 5).val by simp; omega, leafBytes_window_succ]
     dsimp only
-    rw [show 16 * (m - 56) / 16 = m - 56 by omega, openingList_val op _ (by omega)]
+    rw [show 16 * (m - 53) / 16 = m - 53 by omega, openingList_val op _ (by omega)]
     congr 2
     ext; simp; omega
   rw [if_neg hD]
-  by_cases hE : m < 55
+  by_cases hE : m < 51
   · rw [region_prefixV5 _ _ _ _ (by omega) (by omega), zeros_eq]
-  by_cases hF : m = 56
+  by_cases hF : m = 52
   · subst hF
-    rw [region_leafV5 _ _ _ _ (by omega) (by omega), show 16 * 56 - 880 = 16 by rfl]
+    rw [region_leafV5 _ _ _ _ (by omega) (by omega), show 16 * 52 - 816 = 16 by rfl]
     unfold ClaudeWCT.W9.T3M.leafBytes
     rw [window_append_left _ _ _ _ (by simp [bytesLE_length, zeros]),
       window_append_right _ _ _ _ (by simp [bytesLE_length]), show 16 - (bytesLE 16 (op.values 0)).length = 0 by
         simp [bytesLE_length], window_zeros _ _ _ (by omega), zeros_eq]
-  have : m = 63 := by omega
-  subst this
-  rw [show 16 * 63 = 1008 by rfl, region_guard, zeros_eq]
+  by_cases hG : m = 53
+  · subst hG
+    rw [region_leafV5 _ _ _ _ (by omega) (by omega), show 16 * 53 - 816 = 32 by rfl, leafBytes_window_pad, zeros_eq]
+  rw [region_tailV5 _ _ _ _ (by omega) (by omega), zeros_eq]
 theorem wSrc_split (j i : Nat) : wSrc j i = (wSrc j (2 * (i / 2))).map (· + 8 * (i % 2)) := by
   unfold wSrc
   have h2 : 2 * (i / 2) / 2 = i / 2 := by omega
@@ -626,7 +621,7 @@ theorem wSrc_split (j i : Nat) : wSrc j i = (wSrc j (2 * (i / 2))).map (· + 8 *
   have h1 : 2 * (i / 2) % 2 = 0 := by omega
   simp only [h2, h8, h1, Nat.mul_zero, Nat.add_zero]
   split_ifs <;> simp
-theorem wSrc_even (j m o : Nat) (h : wSrc j (2 * m) = some o) : o % 16 = 0 ∧ o < 224 := by
+theorem wSrc_even (j m o : Nat) (h : wSrc j (2 * m) = some o) : o % 16 = 0 ∧ o < 208 := by
   unfold wSrc at h
   have h2 : 2 * m / 2 = m := by omega
   have h8 : 2 * m / 8 = m / 4 := by omega
@@ -634,7 +629,7 @@ theorem wSrc_even (j m o : Nat) (h : wSrc j (2 * m) = some o) : o % 16 = 0 ∧ o
   simp only [h2, h8, h1, Nat.mul_zero, Nat.add_zero] at h
   split_ifs at h <;> (simp only [Option.some.injEq] at h; omega)
 theorem placed_of {N : HashOutput} {sig : WCT9.Signature} {s0 t : MachineState}
-    (hsig : ∀ n, n < 127 → DigAt s0 (0x7000 + 16 * n) ((sigDigests sig).getD n 0))
+    (hsig : ∀ n, n < 118 → DigAt s0 (0x7000 + 16 * n) ((sigDigests sig).getD n 0))
     (hdone : ∀ k i, (hk : k < 9) → i < 128 → t.getMem (BitVec.ofNat 64 (regBase k + 8 * i)) =
       match wSrc (WCT9.child N ⟨k, hk⟩).val i with
       | some o => s0.getMem (BitVec.ofNat 64 (sigBlk k + o))
@@ -661,17 +656,17 @@ theorem placed_of {N : HashOutput} {sig : WCT9.Signature} {s0 t : MachineState}
   | some o =>
     simp only [Option.map_some]
     obtain ⟨h16, h224⟩ := wSrc_even j (i / 2) o hs
-    have hd := hsig (1 + 14 * k + o / 16) (by omega)
+    have hd := hsig (1 + 13 * k + o / 16) (by omega)
     have hop := sigDigests_opening sig ⟨k, hk⟩ (o / 16) (by omega)
     simp only at hop
     rw [hop] at hd
     split
     · rename_i h0
-      rw [h0, Nat.mul_zero, Nat.add_zero, show sigBlk k + o = 0x7000 + 16 * (1 + 14 * k + o / 16) by
+      rw [h0, Nat.mul_zero, Nat.add_zero, show sigBlk k + o = 0x7000 + 16 * (1 + 13 * k + o / 16) by
         unfold sigBlk; omega]
       exact hd.1
     · rename_i h0
-      rw [show i % 2 = 1 by omega, show sigBlk k + (o + 8 * 1) = 0x7000 + 16 * (1 + 14 * k + o / 16) + 8 by
+      rw [show i % 2 = 1 by omega, show sigBlk k + (o + 8 * 1) = 0x7000 + 16 * (1 + 13 * k + o / 16) + 8 by
         unfold sigBlk; omega]
       exact hd.2
 end ClaudeWCT.W9.Machine.Expand
@@ -747,7 +742,7 @@ theorem newCode_tb {im : Image} (hc : NewCodeAt im) (hh : HookAt im) (sk : BitVe
       t5.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A) := by
     intro A hA h1 h2 h3 h4 h5 h6 h7
     rw [f5 A hA (by omega), hI4.frame A hA (by unfold regBase; omega), g3 A hA h1 h2 h3 h4 h5]
-  have hsig3 : ∀ n, n < 127 → DigAt t3 (0x7000 + 16 * n) ((ClaudeWCT.W9.T3M.sigDigests sig).getD n 0) := by
+  have hsig3 : ∀ n, n < 118 → DigAt t3 (0x7000 + 16 * n) ((ClaudeWCT.W9.T3M.sigDigests sig).getD n 0) := by
     intro n hn
     have := hpre.sigAt n (by omega)
     exact ⟨(g3 _ (by omega) (by omega) (by omega) (by omega) (by omega) (by omega)).trans this.1,
@@ -840,10 +835,10 @@ theorem newCode_tb {im : Image} (hc : NewCodeAt im) (hh : HookAt im) (sk : BitVe
         f5 _ (by decide +kernel) (by decide +kernel), hI4.frame _ (by decide +kernel) (by unfold regBase; decide)]
     rw [this]; exact dc3
   ·
-    have hsig8 : ∀ n, n < 127 → DigAt t8 (0x7000 + 16 * n) ((ClaudeWCT.W9.T3M.sigDigests sig).getD n 0) := by
+    have hsig8 : ∀ n, n < 118 → DigAt t8 (0x7000 + 16 * n) ((ClaudeWCT.W9.T3M.sigDigests sig).getD n 0) := by
       intro n hn
       have h3 := hsig3 n hn
-      have e : ∀ A, 0x7000 ≤ A → A < 0x77f0 → t8.getMem (BitVec.ofNat 64 A) = t3.getMem (BitVec.ofNat 64 A) := by
+      have e : ∀ A, 0x7000 ≤ A → A < 0x7760 → t8.getMem (BitVec.ofNat 64 A) = t3.getMem (BitVec.ofNat 64 A) := by
         intro A h1 h2
         rw [g8 _ (by omega) (by omega), g7 _ (by omega) (by omega) (by omega) (by omega) (by omega) (by omega),
           f5 _ (by omega) (by omega), hI4.frame _ (by omega) (by unfold regBase; omega)]
@@ -863,10 +858,10 @@ theorem newCode_tb {im : Image} (hc : NewCodeAt im) (hh : HookAt im) (sk : BitVe
     intro i hi
     have hm := mv5 (213 - i) (by omega)
     have eB : mvB (213 - i) = 0x7000 + 2192 + 16 * i := by unfold mvB; omega
-    have eA : mvA (213 - i) = 0x7000 + 16 * (127 + i) := by unfold mvA; omega
+    have eA : mvA (213 - i) = 0x7000 + 16 * (118 + i) := by unfold mvA; omega
     rw [eB, eA] at hm
-    have hd := hpre.sigAt (127 + i) (by omega)
-    have e4 : ∀ A, 0x77f0 ≤ A → A < 0x7000 + 5456 → t4.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A) := by
+    have hd := hpre.sigAt (118 + i) (by omega)
+    have e4 : ∀ A, 0x7760 ≤ A → A < 0x7000 + 5312 → t4.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A) := by
       intro A h1 h2
       rw [hI4.frame _ (by omega) (by unfold regBase; omega), g3 _ (by omega) (by omega) (by omega) (by omega)
         (by omega) (by omega)]

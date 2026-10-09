@@ -44,7 +44,7 @@ theorem producerDecode_eq_none_or (lay : Layer) (answer : Digest) :
       · exact Or.inr rfl
       · exact Or.inl rfl
 theorem producerFloor_values :
-    producerFloor 0 = 8 ∧ producerFloor 1 = 4 ∧ producerFloor 2 = 4 ∧ producerFloor 3 = 4 :=
+    producerFloor 0 = 8 ∧ producerFloor 1 = 5 ∧ producerFloor 2 = 5 ∧ producerFloor 3 = 4 :=
   ⟨rfl, rfl, rfl, rfl⟩
 theorem searchLimit_top : searchLimit 0 = counterLimit := rfl
 theorem searchLimit_lower {lay : Layer} (h : lay ≠ 0) : searchLimit lay = lowerSearchLimit := by
@@ -268,9 +268,9 @@ theorem eval_verifyTop_none (answers : QueryImpl Spec Id) (sig : WCT9.Signature)
   obtain ⟨leaf, tree⟩ := p
   dsimp only
   exact eval_topDecodeRun_none answers h
-def dummyLowData : List Nat := List.replicate 4 6 ++ List.replicate 15 5 ++ List.replicate 23 4
-def dummyLowDigits (lay : Layer) : List Nat := dummyLowData ++ [target lay - 191]
-def dummyLowDigest : Digest := 267364716866451649868053510310480764342
+def dummyLowData : List Nat := List.replicate 5 6 ++ List.replicate 15 5 ++ List.replicate 22 4
+def dummyLowDigits (lay : Layer) : List Nat := dummyLowData ++ [target lay - 193]
+def dummyLowDigest : Digest := 267364716866451649868197625498556624310
 theorem producerDecode_dummyLow (lay : Layer) (h : lay ≠ 0) :
     producerDecode lay dummyLowDigest = some (dummyLowDigits lay) := by
   fin_cases lay

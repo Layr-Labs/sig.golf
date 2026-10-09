@@ -58,7 +58,7 @@ noncomputable def omegaLaw (adversary : AdversaryP) : ProbComp (CanonTable.Omega
       pure ⟨secrets, other, low, high, residual⟩
 noncomputable def ftsPart (adversary : AdversaryP) (ω : CanonTable.Omega (Wots.referenceInputs adversary)) :
     ProbComp (Answers × QueryLog Requests × List Wots.Entry) :=
-  ($ᵗ (WctPoint → Digest) : ProbComp _) >>= fun g =>
+  ($ᵗ CanonTable.HiddenF : ProbComp _) >>= fun g =>
     (fun (run : Bool × QueryLog Requests × List Wots.Entry) => (wA (canon_subset adversary) ω g, run.2.1, run.2.2)) <$>
       pairRun (wA (canon_subset adversary) ω g) adversary
 theorem pairExperiment_omega (adversary : AdversaryP) :
@@ -124,45 +124,45 @@ theorem omegaLaw_patch (adversary : AdversaryP) {γ : Type}
       fun residual => k ⟨secrets, other, low, high, residual⟩)
 end OmegaLaw
 section Steps
-open SecretGuessObservation (forcedRun forcedImpl lazyImpl runWith afterTrial afterDisclosure forcedTrial)
+open SecretGuessObservation (forcedWithRun forcedWithImpl forcedTrialWith withImpl lazyImpl runWith afterTrial afterDisclosure)
 variable (slot : Nat) (rs : HashInput → PMF HashOutput) (ns : Message → PMF Digest)
 theorem step_aux (s : WStateL) (input : AuxL) :
-    (forcedImpl (envWith rs ns) slot (.inl input)).run s =
+    (forcedWithImpl (envWith rs ns) samplerL slot (.inl input)).run s =
       (fun result => (result.1, { s with memory := result.2 })) <$>
         (liftM (auxWith rs ns s input) : SPMF (AuxSpecL.Range input × LazyMem)) := rfl
 theorem step_coin (s : WStateL) (n : Nat) :
-    (forcedImpl (envWith rs ns) slot (.inl (.coin n))).run s =
+    (forcedWithImpl (envWith rs ns) samplerL slot (.inl (.coin n))).run s =
       (fun c => (c, s)) <$> (liftM (PMF.uniformOfFintype (Fin (n + 1))) : SPMF _) := by
   rw [step_aux]
   change (fun result => (result.1, { s with memory := result.2 })) <$>
     (liftM ((fun c => (c, s.memory)) <$> PMF.uniformOfFintype (Fin (n + 1))) : SPMF _) = _
   rw [liftM_map, Functor.map_map]
 theorem step_expose (s : WStateL) (o : Option HashOutput) :
-    (forcedImpl (envWith rs ns) slot (.inl (.expose o))).run s = pure ((), { s with memory := s.memory.expose o }) := by
+    (forcedWithImpl (envWith rs ns) samplerL slot (.inl (.expose o))).run s = pure ((), { s with memory := s.memory.expose o }) := by
   rw [step_aux]
   change (fun result => (result.1, { s with memory := result.2 })) <$>
     (liftM (pure ((), s.memory.expose o) : PMF _) : SPMF _) = _
   rw [liftM_pure, map_pure]
 theorem step_birth (s : WStateL) (x : HashInput) :
-    (forcedImpl (envWith rs ns) slot (.inl (.birth x))).run s =
+    (forcedWithImpl (envWith rs ns) samplerL slot (.inl (.birth x))).run s =
       (fun result => (result.1, { s with memory := result.2 })) <$>
         (liftM (rowStep s.memory x true (rs x)) : SPMF (HashOutput × LazyMem)) := rfl
 theorem step_trial (s : WStateL) (x : HashInput) :
-    (forcedImpl (envWith rs ns) slot (.inl (.trial x))).run s =
+    (forcedWithImpl (envWith rs ns) samplerL slot (.inl (.trial x))).run s =
       (fun result => (result.1, { s with memory := result.2 })) <$>
         (liftM (rowStep s.memory x false (rs x)) : SPMF (HashOutput × LazyMem)) := rfl
 theorem step_nonce (s : WStateL) (m : Message) :
-    (forcedImpl (envWith rs ns) slot (.inl (.nonce m))).run s =
+    (forcedWithImpl (envWith rs ns) samplerL slot (.inl (.nonce m))).run s =
       (fun result => (result.1, { s with memory := result.2 })) <$>
         (liftM (nonceStep s.memory m (ns m)) : SPMF (Digest × LazyMem)) := rfl
 theorem step_guess (s : WStateL) (f : Guess.GCoord) (c : Digest) :
-    (forcedImpl (envWith rs ns) slot (.inr (.inl (f, c)))).run s =
+    (forcedWithImpl (envWith rs ns) samplerL slot (.inr (.inl (f, c)))).run s =
       (fun hit => (hit, { afterTrial (envWith rs ns) s f c hit with memory := s.memory })) <$>
-        forcedTrial slot s f c := rfl
+        forcedTrialWith samplerL slot s f c := rfl
 theorem step_disclose (s : WStateL) (f : Guess.GCoord) :
-    (forcedImpl (envWith rs ns) slot (.inr (.inr f))).run s =
+    (forcedWithImpl (envWith rs ns) samplerL slot (.inr (.inr f))).run s =
       (fun v => (v, { afterDisclosure (envWith rs ns) s f v with memory := s.memory })) <$>
-        UniformTableCompletion.cell (s.allowed f) := rfl
+        samplerL.discloseLaw s f := rfl
 theorem afterTrial_sources (rs' : HashInput → PMF HashOutput) (ns' : Message → PMF Digest) (s : WStateL)
     (f : Guess.GCoord) (c : Digest) (hit : Bool) :
     afterTrial (envWith rs ns) s f c hit = afterTrial (envWith rs' ns') s f c hit := rfl
@@ -171,7 +171,7 @@ theorem afterDisclosure_sources (rs' : HashInput → PMF HashOutput) (ns' : Mess
     afterDisclosure (envWith rs ns) s f v = afterDisclosure (envWith rs' ns') s f v := rfl
 end Steps
 section Congr
-open SecretGuessObservation (forcedRun forcedImpl runWith)
+open SecretGuessObservation (forcedWithRun forcedWithImpl runWith)
 def Agree (D D' : digestInputs → HashOutput) (Nn Nn' : Message → Digest) (mem : LazyMem) : Prop :=
   (∀ y : digestInputs, mem.rows y.1 = none → D y = D' y) ∧ ∀ m, mem.nonces m = none → Nn m = Nn' m
 theorem rowVal_agree {D D' : digestInputs → HashOutput} {Nn Nn' : Message → Digest} {mem : LazyMem}
@@ -214,11 +214,11 @@ theorem agree_draw {D D' : digestInputs → HashOutput} {Nn Nn' : Message → Di
     exact h.2 m' hm'
 theorem forced_congr {α : Type} (D D' : digestInputs → HashOutput) (Nn Nn' : Message → Digest) (slot : Nat)
     (W : OracleComp WSpecL α) (s : WStateL) (h : Agree D D' Nn Nn' s.memory) :
-    forcedRun (envE D Nn) slot W s = forcedRun (envE D' Nn') slot W s := by
+    forcedWithRun (envE D Nn) samplerL slot W s = forcedWithRun (envE D' Nn') samplerL slot W s := by
   induction W using OracleComp.inductionOn generalizing s with
   | pure a => rfl
   | query_bind input next ih =>
-      simp only [forcedRun, SecretGuessObservation.runWith_query_bind]
+      simp only [forcedWithRun, SecretGuessObservation.runWith_query_bind]
       rcases input with input | (⟨f, c⟩ | f)
       · cases input with
         | coin n =>
@@ -275,35 +275,35 @@ theorem forced_congr {α : Type} (D D' : digestInputs → HashOutput) (Nn Nn' : 
         exact ih v _ h
 end Congr
 section EagerLazy
-open SecretGuessObservation (forcedRun forcedImpl runWith)
+open SecretGuessObservation (forcedWithRun forcedWithImpl runWith)
 theorem avg_indep {α : Type} (slot : Nat) (input : WSpecL.Domain) (next : WSpecL.Range input → OracleComp WSpecL α)
     (s : WStateL)
-    (ih : ∀ u s', (rowsLaw >>= fun D => noncesLaw >>= fun Nn => forcedRun (envE D Nn) slot (next u) s') =
-      forcedRun envL slot (next u) s')
-    (X : SPMF (WSpecL.Range input × WStateL)) (hE : ∀ D Nn, (forcedImpl (envE D Nn) slot input).run s = X)
-    (hL : (forcedImpl envL slot input).run s = X) :
-    (rowsLaw >>= fun D => noncesLaw >>= fun Nn => (forcedImpl (envE D Nn) slot input).run s >>= fun mid =>
-        runWith (forcedImpl (envE D Nn) slot) (next mid.1) mid.2) =
-      ((forcedImpl envL slot input).run s >>= fun mid => runWith (forcedImpl envL slot) (next mid.1) mid.2) := by
+    (ih : ∀ u s', (rowsLaw >>= fun D => noncesLaw >>= fun Nn => forcedWithRun (envE D Nn) samplerL slot (next u) s') =
+      forcedWithRun envL samplerL slot (next u) s')
+    (X : SPMF (WSpecL.Range input × WStateL)) (hE : ∀ D Nn, (forcedWithImpl (envE D Nn) samplerL slot input).run s = X)
+    (hL : (forcedWithImpl envL samplerL slot input).run s = X) :
+    (rowsLaw >>= fun D => noncesLaw >>= fun Nn => (forcedWithImpl (envE D Nn) samplerL slot input).run s >>= fun mid =>
+        runWith (forcedWithImpl (envE D Nn) samplerL slot) (next mid.1) mid.2) =
+      ((forcedWithImpl envL samplerL slot input).run s >>= fun mid => runWith (forcedWithImpl envL samplerL slot) (next mid.1) mid.2) := by
   simp only [hE, hL]
   calc _ = (rowsLaw >>= fun D => X >>= fun mid => noncesLaw >>= fun Nn =>
-        runWith (forcedImpl (envE D Nn) slot) (next mid.1) mid.2) :=
+        runWith (forcedWithImpl (envE D Nn) samplerL slot) (next mid.1) mid.2) :=
         bind_congr fun D => RetainedObservation.bind_comm _ _ _
     _ = (X >>= fun mid => rowsLaw >>= fun D => noncesLaw >>= fun Nn =>
-        runWith (forcedImpl (envE D Nn) slot) (next mid.1) mid.2) := RetainedObservation.bind_comm _ _ _
+        runWith (forcedWithImpl (envE D Nn) samplerL slot) (next mid.1) mid.2) := RetainedObservation.bind_comm _ _ _
     _ = _ := bind_congr fun mid => ih mid.1 mid.2
 theorem avg_fresh_row {α : Type} (slot : Nat) (x : HashInput) (hx : x ∈ digestInputs) (s : WStateL) (b : Bool)
     (next : HashOutput → OracleComp WSpecL α)
-    (ih : ∀ u s', (rowsLaw >>= fun D => noncesLaw >>= fun Nn => forcedRun (envE D Nn) slot (next u) s') =
-      forcedRun envL slot (next u) s') :
-    (rowsLaw >>= fun D => noncesLaw >>= fun Nn => forcedRun (envE D Nn) slot (next (rowVal D x))
+    (ih : ∀ u s', (rowsLaw >>= fun D => noncesLaw >>= fun Nn => forcedWithRun (envE D Nn) samplerL slot (next u) s') =
+      forcedWithRun envL samplerL slot (next u) s') :
+    (rowsLaw >>= fun D => noncesLaw >>= fun Nn => forcedWithRun (envE D Nn) samplerL slot (next (rowVal D x))
         { s with memory := s.memory.readRow x (rowVal D x) b }) =
       ((liftM (PMF.uniformOfFintype HashOutput) : SPMF HashOutput) >>= fun a =>
-        forcedRun envL slot (next a) { s with memory := s.memory.readRow x a b }) := by
+        forcedWithRun envL samplerL slot (next a) { s with memory := s.memory.readRow x a b }) := by
   have hrv : ∀ D : digestInputs → HashOutput, rowVal D x = D ⟨x, hx⟩ := fun D => by rw [rowVal, dif_pos hx]
   simp only [hrv]
   rw [rowsLaw, uniform_update (⟨x, hx⟩ : digestInputs) (fun a D => noncesLaw >>= fun Nn =>
-    forcedRun (envE D Nn) slot (next a) { s with memory := s.memory.readRow x a b })]
+    forcedWithRun (envE D Nn) samplerL slot (next a) { s with memory := s.memory.readRow x a b })]
   · refine bind_congr fun a => ?_
     rw [← rowsLaw]
     exact ih a _
@@ -323,20 +323,20 @@ theorem avg_fresh_row {α : Type} (slot : Nat) (x : HashInput) (hx : x ∈ diges
     exact Function.update_of_ne hyx _ _
 theorem avg_fresh_nonce {α : Type} (slot : Nat) (m : Message) (s : WStateL)
     (next : Digest → OracleComp WSpecL α)
-    (ih : ∀ u s', (rowsLaw >>= fun D => noncesLaw >>= fun Nn => forcedRun (envE D Nn) slot (next u) s') =
-      forcedRun envL slot (next u) s') :
-    (rowsLaw >>= fun D => noncesLaw >>= fun Nn => forcedRun (envE D Nn) slot (next (Nn m))
+    (ih : ∀ u s', (rowsLaw >>= fun D => noncesLaw >>= fun Nn => forcedWithRun (envE D Nn) samplerL slot (next u) s') =
+      forcedWithRun envL samplerL slot (next u) s') :
+    (rowsLaw >>= fun D => noncesLaw >>= fun Nn => forcedWithRun (envE D Nn) samplerL slot (next (Nn m))
         { s with memory := s.memory.drawNonce m (Nn m) }) =
       ((liftM (PMF.uniformOfFintype Digest) : SPMF Digest) >>= fun v =>
-        forcedRun envL slot (next v) { s with memory := s.memory.drawNonce m v }) := by
+        forcedWithRun envL samplerL slot (next v) { s with memory := s.memory.drawNonce m v }) := by
   have step : ∀ D : digestInputs → HashOutput,
-      (noncesLaw >>= fun Nn => forcedRun (envE D Nn) slot (next (Nn m))
+      (noncesLaw >>= fun Nn => forcedWithRun (envE D Nn) samplerL slot (next (Nn m))
         { s with memory := s.memory.drawNonce m (Nn m) }) =
       ((liftM (PMF.uniformOfFintype Digest) : SPMF Digest) >>= fun v => noncesLaw >>= fun Nn =>
-        forcedRun (envE D Nn) slot (next v) { s with memory := s.memory.drawNonce m v }) := by
+        forcedWithRun (envE D Nn) samplerL slot (next v) { s with memory := s.memory.drawNonce m v }) := by
     intro D
     rw [noncesLaw]
-    refine uniform_update m (fun v Nn => forcedRun (envE D Nn) slot (next v) { s with memory := s.memory.drawNonce m v })
+    refine uniform_update m (fun v Nn => forcedWithRun (envE D Nn) samplerL slot (next v) { s with memory := s.memory.drawNonce m v })
       fun v T c => forced_congr _ _ _ _ slot _ _ ⟨fun _ _ => rfl, fun m' hm' => ?_⟩
     have hmm : m' ≠ m := by
       rintro rfl
@@ -348,13 +348,13 @@ theorem avg_fresh_nonce {α : Type} (slot : Nat) (m : Message) (s : WStateL)
   rw [RetainedObservation.bind_comm]
   exact bind_congr fun v => ih v _
 theorem eager_lazy_core {α : Type} (slot : Nat) (W : OracleComp WSpecL α) (s : WStateL) :
-    (rowsLaw >>= fun D => noncesLaw >>= fun Nn => forcedRun (envE D Nn) slot W s) = forcedRun envL slot W s := by
+    (rowsLaw >>= fun D => noncesLaw >>= fun Nn => forcedWithRun (envE D Nn) samplerL slot W s) = forcedWithRun envL samplerL slot W s := by
   induction W using OracleComp.inductionOn generalizing s with
   | pure a =>
-      simp only [forcedRun, SecretGuessObservation.runWith_pure, rowsLaw, noncesLaw,
+      simp only [forcedWithRun, SecretGuessObservation.runWith_pure, rowsLaw, noncesLaw,
         RetainedObservation.lift_bind_const]
   | query_bind input next ih =>
-      simp only [forcedRun, SecretGuessObservation.runWith_query_bind]
+      simp only [forcedWithRun, SecretGuessObservation.runWith_query_bind]
       rcases input with input | (⟨f, c⟩ | f)
       · cases input with
         | coin n =>
@@ -369,10 +369,10 @@ theorem eager_lazy_core {α : Type} (slot : Nat) (W : OracleComp WSpecL α) (s :
                   (by rw [envL, step_birth, rowStep_some _ _ _ _ a hc, liftM_pure, map_pure])
             | none =>
                 by_cases hx : x ∈ digestInputs
-                · have hE : ∀ D Nn, (forcedImpl (envE D Nn) slot (.inl (.birth x))).run s =
+                · have hE : ∀ D Nn, (forcedWithImpl (envE D Nn) samplerL slot (.inl (.birth x))).run s =
                       pure (rowVal D x, { s with memory := s.memory.readRow x (rowVal D x) true }) := fun D Nn => by
                     rw [envE, step_birth, rowStep_in _ _ _ _ hc hx, liftM_map, liftM_pure, map_pure, map_pure]
-                  have hL : (forcedImpl envL slot (.inl (.birth x))).run s =
+                  have hL : (forcedWithImpl envL samplerL slot (.inl (.birth x))).run s =
                       (fun a => (a, { s with memory := s.memory.readRow x a true })) <$>
                         (liftM (PMF.uniformOfFintype HashOutput) : SPMF HashOutput) := by
                     rw [envL, step_birth, rowStep_in _ _ _ _ hc hx, liftM_map, Functor.map_map]
@@ -390,10 +390,10 @@ theorem eager_lazy_core {α : Type} (slot : Nat) (W : OracleComp WSpecL α) (s :
                   (by rw [envL, step_trial, rowStep_some _ _ _ _ a hc, liftM_pure, map_pure])
             | none =>
                 by_cases hx : x ∈ digestInputs
-                · have hE : ∀ D Nn, (forcedImpl (envE D Nn) slot (.inl (.trial x))).run s =
+                · have hE : ∀ D Nn, (forcedWithImpl (envE D Nn) samplerL slot (.inl (.trial x))).run s =
                       pure (rowVal D x, { s with memory := s.memory.readRow x (rowVal D x) false }) := fun D Nn => by
                     rw [envE, step_trial, rowStep_in _ _ _ _ hc hx, liftM_map, liftM_pure, map_pure, map_pure]
-                  have hL : (forcedImpl envL slot (.inl (.trial x))).run s =
+                  have hL : (forcedWithImpl envL samplerL slot (.inl (.trial x))).run s =
                       (fun a => (a, { s with memory := s.memory.readRow x a false })) <$>
                         (liftM (PMF.uniformOfFintype HashOutput) : SPMF HashOutput) := by
                     rw [envL, step_trial, rowStep_in _ _ _ _ hc hx, liftM_map, Functor.map_map]
@@ -410,10 +410,10 @@ theorem eager_lazy_core {α : Type} (slot : Nat) (W : OracleComp WSpecL α) (s :
                   (fun D Nn => by rw [envE, step_nonce, nonceStep_some _ _ _ v hc, liftM_pure, map_pure])
                   (by rw [envL, step_nonce, nonceStep_some _ _ _ v hc, liftM_pure, map_pure])
             | none =>
-                have hE : ∀ D Nn, (forcedImpl (envE D Nn) slot (.inl (.nonce m))).run s =
+                have hE : ∀ D Nn, (forcedWithImpl (envE D Nn) samplerL slot (.inl (.nonce m))).run s =
                     pure (Nn m, { s with memory := s.memory.drawNonce m (Nn m) }) := fun D Nn => by
                   rw [envE, step_nonce, nonceStep_none _ _ _ hc, liftM_map, liftM_pure, map_pure, map_pure]
-                have hL : (forcedImpl envL slot (.inl (.nonce m))).run s =
+                have hL : (forcedWithImpl envL samplerL slot (.inl (.nonce m))).run s =
                     (fun v => (v, { s with memory := s.memory.drawNonce m v })) <$>
                       (liftM (PMF.uniformOfFintype Digest) : SPMF Digest) := by
                   rw [envL, step_nonce, nonceStep_none _ _ _ hc, liftM_map, Functor.map_map]
@@ -443,42 +443,42 @@ theorem eager_lazy_core {α : Type} (slot : Nat) (W : OracleComp WSpecL α) (s :
         rw [hfun]
 theorem eager_lazy {α : Type} (W : OracleComp WSpecL α) (slot : Nat) (s : WStateL) :
     (𝒮[($ᵗ (digestInputs → HashOutput) : ProbComp _)] >>= fun D => 𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
-      forcedRun (envE D Nn) slot W s) = forcedRun envL slot W s := by
+      forcedWithRun (envE D Nn) samplerL slot W s) = forcedWithRun envL samplerL slot W s := by
   rw [evalSPMF_uniform, evalSPMF_uniform]
   exact eager_lazy_core slot W s
 end EagerLazy
 section Avg
-open SecretGuessObservation (forcedRun)
+open SecretGuessObservation (forcedWithRun)
 theorem forced_avg_law (adversary : AdversaryP) (slot : Nat) :
-    (𝒮[omegaLaw adversary] >>= fun ω => forcedRun (envE (digestOf ω) (nonceOf ω)) slot
+    (𝒮[omegaLaw adversary] >>= fun ω => forcedWithRun (envE (digestOf ω) (nonceOf ω)) samplerL slot
         (worldGameL (canon_subset adversary) ω adversary) initL) =
       (𝒮[omegaLaw adversary] >>= fun ω =>
-        forcedRun envL slot (worldGameL (canon_subset adversary) ω adversary) initL) := by
+        forcedWithRun envL samplerL slot (worldGameL (canon_subset adversary) ω adversary) initL) := by
   symm
   calc (𝒮[omegaLaw adversary] >>= fun ω =>
-        forcedRun envL slot (worldGameL (canon_subset adversary) ω adversary) initL)
+        forcedWithRun envL samplerL slot (worldGameL (canon_subset adversary) ω adversary) initL)
       = (𝒮[omegaLaw adversary] >>= fun ω => 𝒮[($ᵗ (digestInputs → HashOutput) : ProbComp _)] >>= fun D =>
           𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
-          forcedRun (envE D Nn) slot (worldGameL (canon_subset adversary) ω adversary) initL) :=
+          forcedWithRun (envE D Nn) samplerL slot (worldGameL (canon_subset adversary) ω adversary) initL) :=
         bind_congr fun ω => (eager_lazy _ slot initL).symm
     _ = (𝒮[omegaLaw adversary] >>= fun ω => 𝒮[($ᵗ (digestInputs → HashOutput) : ProbComp _)] >>= fun D =>
           𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
           (fun ω' : CanonTable.Omega (Wots.referenceInputs adversary) =>
-            forcedRun (envE (digestOf ω') (nonceOf ω')) slot
+            forcedWithRun (envE (digestOf ω') (nonceOf ω')) samplerL slot
               (worldGameL (canon_subset adversary) ω' adversary) initL)
             (patchOmega (digest_subset adversary) ω D Nn)) := by
         refine bind_congr fun ω => bind_congr fun D => bind_congr fun Nn => ?_
         dsimp only
         rw [digestOf_patch, nonceOf_patch]
-        exact congrArg (fun W => forcedRun (envE D Nn) slot W initL)
+        exact congrArg (fun W => forcedWithRun (envE D Nn) samplerL slot W initL)
           (worldGameL_congr (canon_subset adversary) (sameRest_patch (digest_subset adversary) ω D Nn) adversary)
-    _ = _ := omegaLaw_patch adversary (fun ω' => forcedRun (envE (digestOf ω') (nonceOf ω')) slot
+    _ = _ := omegaLaw_patch adversary (fun ω' => forcedWithRun (envE (digestOf ω') (nonceOf ω')) samplerL slot
           (worldGameL (canon_subset adversary) ω' adversary) initL)
 theorem forced_avg_eq_lazy (adversary : AdversaryP) (slot : Nat)
     (payoff : (Bool × QueryLog Requests × List Wots.Entry) × WStateL → ENNReal) :
-    ∑' ω, Pr[= ω | omegaLaw adversary] * ∑' r, Pr[= r | forcedRun (envE (digestOf ω) (nonceOf ω)) slot
+    ∑' ω, Pr[= ω | omegaLaw adversary] * ∑' r, Pr[= r | forcedWithRun (envE (digestOf ω) (nonceOf ω)) samplerL slot
         (worldGameL (canon_subset adversary) ω adversary) initL] * payoff r =
-      ∑' ω, Pr[= ω | omegaLaw adversary] * ∑' r, Pr[= r | forcedRun envL slot
+      ∑' ω, Pr[= ω | omegaLaw adversary] * ∑' r, Pr[= r | forcedWithRun envL samplerL slot
         (worldGameL (canon_subset adversary) ω adversary) initL] * payoff r := by
   have h := congrArg (fun X => expectedValue X payoff) (forced_avg_law adversary slot)
   rw [expectedValue_bind, expectedValue_bind] at h

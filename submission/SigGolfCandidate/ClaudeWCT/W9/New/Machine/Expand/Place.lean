@@ -17,8 +17,8 @@ theorem plSt0B_ok : plSt0B = true := by decide +kernel
 def plStepB : Bool :=
   (List.range 128).all fun j => (List.range 7).all fun L => (List.range 128).all fun i =>
     decide (plSt j (L + 1) i =
-      if 8 * i = sibOff L (j / 2 ^ L % 2 = 1) then some (112 + 16 * L)
-      else if 8 * i = sibOff L (j / 2 ^ L % 2 = 1) + 8 then some (112 + 16 * L + 8)
+      if 8 * i = sibOff L (j / 2 ^ L % 2 = 1) then some (96 + 16 * L)
+      else if 8 * i = sibOff L (j / 2 ^ L % 2 = 1) + 8 then some (96 + 16 * L + 8)
       else plSt j L i)
 theorem plStepB_ok : plStepB = true := by decide +kernel
 end ClaudeWCT.W9.Machine.Expand
@@ -62,8 +62,8 @@ theorem plSt0 {j i : Nat} (hj : j < 128) (hi : i < 128) : plSt j 0 i = plSt 0 0 
   simpa using this
 theorem plStep {j L i : Nat} (hj : j < 128) (hL : L < 7) (hi : i < 128) :
     plSt j (L + 1) i =
-      if 8 * i = sibOff L (j / 2 ^ L % 2 = 1) then some (112 + 16 * L)
-      else if 8 * i = sibOff L (j / 2 ^ L % 2 = 1) + 8 then some (112 + 16 * L + 8)
+      if 8 * i = sibOff L (j / 2 ^ L % 2 = 1) then some (96 + 16 * L)
+      else if 8 * i = sibOff L (j / 2 ^ L % 2 = 1) + 8 then some (96 + 16 * L + 8)
       else plSt j L i := by
   have := List.all_eq_true.mp plStepB_ok j (List.mem_range.mpr hj)
   have := List.all_eq_true.mp this L (List.mem_range.mpr hL)
@@ -170,15 +170,15 @@ structure LvInv (P : Nat) (N : HashOutput) (s0 t : MachineState) (c : Nat) (hc :
     | some o => s0.getMem (BitVec.ofNat 64 (sigBlk c + o))
     | none => 0
   frame : Frame t u (fun A => regBase c ≤ A ∧ A < regBase c + 1024)
-theorem sigBlk_lt (c : Nat) (hc : c < 9) (o : Nat) (ho : o < 224) : sigBlk c + o < 0x7000 + 16 + 2016 := by
+theorem sigBlk_lt (c : Nat) (hc : c < 9) (o : Nat) (ho : o < 208) : sigBlk c + o < 0x7000 + 16 + 1872 := by
   unfold sigBlk; omega
 def RegZero (c : Nat) (t : MachineState) : Prop :=
   ∀ i, i < 128 → t.getMem (BitVec.ofNat 64 (regBase c + 8 * i)) = 0
-theorem wSrc_lt (j i : Nat) : ∀ o, wSrc j i = some o → o < 224 := by
+theorem wSrc_lt (j i : Nat) : ∀ o, wSrc j i = some o → o < 208 := by
   intro o h
   unfold wSrc at h
   split_ifs at h <;> (simp only [Option.some.injEq] at h; omega)
-theorem plSt_lt (j L i : Nat) : ∀ o, plSt j L i = some o → o < 224 := by
+theorem plSt_lt (j L i : Nat) : ∀ o, plSt j L i = some o → o < 208 := by
   intro o h
   unfold plSt at h
   split_ifs at h
@@ -186,7 +186,7 @@ theorem plSt_lt (j L i : Nat) : ∀ o, plSt j L i = some o → o < 224 := by
 theorem fc_spec {im : Image} (hc : NewCodeAt im) {P : Nat} (hP : placeOK P = true) {N : HashOutput}
     {s0 : MachineState} (c : Nat) (hc9 : c < 9) (t : MachineState) (hpc : t.pc = pcOf (P + cOff c))
     (hN : OutAt t NBUF N) (hz : RegZero c t)
-    (hsig : ∀ o, o < 224 → t.getMem (BitVec.ofNat 64 (sigBlk c + o)) = s0.getMem (BitVec.ofNat 64 (sigBlk c + o))) :
+    (hsig : ∀ o, o < 208 → t.getMem (BitVec.ofNat 64 (sigBlk c + o)) = s0.getMem (BitVec.ofNat 64 (sigBlk c + o))) :
     ∃ u k cy, Steps im t k cy u ∧ cy ≤ 120 ∧ LvInv P N s0 t c hc9 0 u := by
   obtain ⟨r, hr, hb⟩ := check_some (placeOK_fc hP hc9)
   simp only [Bool.and_eq_true, List.isEmpty_iff, decide_eq_true_eq] at hb
@@ -217,7 +217,7 @@ theorem fc_spec {im : Image} (hc : NewCodeAt im) {P : Nat} (hP : placeOK P = tru
 theorem lev_spec {im : Image} (hc : NewCodeAt im) {P : Nat} (hP : placeOK P = true) {N : HashOutput}
     {s0 t : MachineState} (c : Nat) (hc9 : c < 9) (L : Nat) (hL : L < 7) (u : MachineState)
     (hI : LvInv P N s0 t c hc9 L u)
-    (hsig : ∀ o, o < 224 → t.getMem (BitVec.ofNat 64 (sigBlk c + o)) = s0.getMem (BitVec.ofNat 64 (sigBlk c + o))) :
+    (hsig : ∀ o, o < 208 → t.getMem (BitVec.ofNat 64 (sigBlk c + o)) = s0.getMem (BitVec.ofNat 64 (sigBlk c + o))) :
     ∃ v k cy, Steps im u k cy v ∧ cy ≤ 12 ∧ LvInv P N s0 t c hc9 (L + 1) v := by
   set j := (WCT9.child N ⟨c, hc9⟩).val with hjdef
   have hj : j < 128 := (WCT9.child N ⟨c, hc9⟩).isLt
@@ -228,7 +228,7 @@ theorem lev_spec {im : Image} (hc : NewCodeAt im) {P : Nat} (hP : placeOK P = tr
   obtain ⟨st, p, rg, mm⟩ := runB_spec hc hr hrun u hI.pc (by simp) (by
     rw [hbr']; intro b hb; simp only [List.mem_singleton] at hb; subst hb
     exact bit_holds j L hj hL u hI.x24)
-  have hsrc : ∀ o, o < 224 → u.getMem (BitVec.ofNat 64 (sigBlk c + o)) = s0.getMem (BitVec.ofNat 64 (sigBlk c + o)) := by
+  have hsrc : ∀ o, o < 208 → u.getMem (BitVec.ofNat 64 (sigBlk c + o)) = s0.getMem (BitVec.ofNat 64 (sigBlk c + o)) := by
     intro o ho
     rw [hI.frame _ (by unfold sigBlk; omega) (by unfold sigBlk regBase; omega), hsig o ho]
   have hlu : lOff c L + 12 = lOff c (L + 1) := by unfold lOff; ring
@@ -240,24 +240,24 @@ theorem lev_spec {im : Image} (hc : NewCodeAt im) {P : Nat} (hP : placeOK P = tr
     unfold levList
     by_cases h1 : 8 * i = sibOff L (decide (j / 2 ^ L % 2 = 1))
     · rw [if_pos h1]
-      have : lookW [(regBase c + sibOff L (decide (j / 2 ^ L % 2 = 1)) + 8, some (sigBlk c + 112 + 16 * L + 8)),
-          (regBase c + sibOff L (decide (j / 2 ^ L % 2 = 1)), some (sigBlk c + 112 + 16 * L))] (regBase c + 8 * i) =
-          some (some (sigBlk c + 112 + 16 * L)) := by
+      have : lookW [(regBase c + sibOff L (decide (j / 2 ^ L % 2 = 1)) + 8, some (sigBlk c + 96 + 16 * L + 8)),
+          (regBase c + sibOff L (decide (j / 2 ^ L % 2 = 1)), some (sigBlk c + 96 + 16 * L))] (regBase c + 8 * i) =
+          some (some (sigBlk c + 96 + 16 * L)) := by
         rw [lookW_cons, if_neg (by omega), lookW_cons, if_pos (by omega)]
-      rw [effMem_some this, show sigBlk c + 112 + 16 * L = sigBlk c + (112 + 16 * L) by ring]
+      rw [effMem_some this, show sigBlk c + 96 + 16 * L = sigBlk c + (96 + 16 * L) by ring]
       exact hsrc _ (by omega)
     · rw [if_neg h1]
       by_cases h2 : 8 * i = sibOff L (decide (j / 2 ^ L % 2 = 1)) + 8
       · rw [if_pos h2]
-        have : lookW [(regBase c + sibOff L (decide (j / 2 ^ L % 2 = 1)) + 8, some (sigBlk c + 112 + 16 * L + 8)),
-            (regBase c + sibOff L (decide (j / 2 ^ L % 2 = 1)), some (sigBlk c + 112 + 16 * L))] (regBase c + 8 * i) =
-            some (some (sigBlk c + 112 + 16 * L + 8)) := by
+        have : lookW [(regBase c + sibOff L (decide (j / 2 ^ L % 2 = 1)) + 8, some (sigBlk c + 96 + 16 * L + 8)),
+            (regBase c + sibOff L (decide (j / 2 ^ L % 2 = 1)), some (sigBlk c + 96 + 16 * L))] (regBase c + 8 * i) =
+            some (some (sigBlk c + 96 + 16 * L + 8)) := by
           rw [lookW_cons, if_pos (by omega)]
-        rw [effMem_some this, show sigBlk c + 112 + 16 * L + 8 = sigBlk c + (112 + 16 * L + 8) by ring]
+        rw [effMem_some this, show sigBlk c + 96 + 16 * L + 8 = sigBlk c + (96 + 16 * L + 8) by ring]
         exact hsrc _ (by omega)
       · rw [if_neg h2]
-        have : lookW [(regBase c + sibOff L (decide (j / 2 ^ L % 2 = 1)) + 8, some (sigBlk c + 112 + 16 * L + 8)),
-            (regBase c + sibOff L (decide (j / 2 ^ L % 2 = 1)), some (sigBlk c + 112 + 16 * L))] (regBase c + 8 * i) =
+        have : lookW [(regBase c + sibOff L (decide (j / 2 ^ L % 2 = 1)) + 8, some (sigBlk c + 96 + 16 * L + 8)),
+            (regBase c + sibOff L (decide (j / 2 ^ L % 2 = 1)), some (sigBlk c + 96 + 16 * L))] (regBase c + 8 * i) =
             none := by
           rw [lookW_cons, if_neg (by omega), lookW_cons, if_neg (by omega)]; rfl
         rw [effMem_none this]
@@ -274,7 +274,7 @@ theorem lev_spec {im : Image} (hc : NewCodeAt im) {P : Nat} (hP : placeOK P = tr
     exact (hI.frame.trans F).mono (fun A _ h => by rcases h with h | h <;> exact h)
 theorem levs_spec {im : Image} (hc : NewCodeAt im) {P : Nat} (hP : placeOK P = true) {N : HashOutput}
     {s0 t : MachineState} (c : Nat) (hc9 : c < 9)
-    (hsig : ∀ o, o < 224 → t.getMem (BitVec.ofNat 64 (sigBlk c + o)) = s0.getMem (BitVec.ofNat 64 (sigBlk c + o))) :
+    (hsig : ∀ o, o < 208 → t.getMem (BitVec.ofNat 64 (sigBlk c + o)) = s0.getMem (BitVec.ofNat 64 (sigBlk c + o))) :
     ∀ L, L ≤ 7 → ∀ u, LvInv P N s0 t c hc9 0 u → ∃ v k cy, Steps im u k cy v ∧ cy ≤ 12 * L ∧ LvInv P N s0 t c hc9 L v := by
   intro L
   induction L with
@@ -294,7 +294,7 @@ theorem coordPl_spec {im : Image} (hc : NewCodeAt im) {P : Nat} (hP : placeOK P 
   have hzt : RegZero c t := fun i hi => by
     rw [hI.frame _ (by unfold regBase; omega) (by unfold regBase; omega)]
     exact hz c i hc9 hi
-  have hsig : ∀ o, o < 224 → t.getMem (BitVec.ofNat 64 (sigBlk c + o)) = s0.getMem (BitVec.ofNat 64 (sigBlk c + o)) :=
+  have hsig : ∀ o, o < 208 → t.getMem (BitVec.ofNat 64 (sigBlk c + o)) = s0.getMem (BitVec.ofNat 64 (sigBlk c + o)) :=
     fun o ho => hI.frame _ (by unfold sigBlk; omega) (by unfold sigBlk regBase; omega)
   obtain ⟨u0, k0, c0, s0', hc0, h0⟩ := fc_spec hc hP c hc9 t hI.pc hNt hzt hsig
   obtain ⟨u7, k7, c7, s7, hc7, h7⟩ := levs_spec hc hP c hc9 hsig 7 le_rfl u0 h0

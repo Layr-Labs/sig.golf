@@ -46,11 +46,11 @@ def copyCheck (lay c : Nat) : Bool :=
   setupCheck lay c &&
   (if lay = 0 then true else
     specB [] [] baseK (runAt (bKB lay c) [] (trPc lay c + stepsA lay + 1)
-      [.br (decide (lay = 3)), .br false, .jmp]) (specBl lay (trPc lay c)) oblB (postBlC lay (trPc lay c)) (keepB lay) &&
+      [.br false, .br false, .jmp]) (specBl lay (trPc lay c)) oblB (postBlC lay (trPc lay c)) keepB &&
     specB [] [] [] (runAt (bKB lay c) [] (trPc lay c + stepsA lay + 1)
-      [.br (decide (lay = 3)), .br true]) (rejCk lay) oblB [] [] &&
+      [.br false, .br true]) (rejCk lay) oblB [] [] &&
     specB [] [] [] (runAt (bKB lay c) [] (trPc lay c + stepsA lay + 1)
-      [.br (decide (lay ≠ 3))]) (rejSpare lay) oblB [] [])
+      [.br true]) rejSpare oblB [] [])
 def layerCheck (lay lo n : Nat) : Bool :=
   (List.range' lo n).all fun c => copyCheck lay c
 end SigGolfCandidate.T3M.BC
