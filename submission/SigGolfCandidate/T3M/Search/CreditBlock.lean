@@ -12,7 +12,7 @@ def setupCode : List (BitVec 32) := [197907,230803,1555,17828371]
 def preCode : List (BitVec 32) := [0x7f57e13,3022355,32378419]
 def loadCode : List (BitVec 32) := [0x83e4e03]
 def postCode : List (BitVec 32) := [29754931,7689491,60136979,29713715,7722387,0xfffa0a13,0xfc0a1ce3]
-def tailCode : List (BitVec 32) := [3505683,0xffee0e13,1981971,29754931,2446611,3505683,0xffee0e13,1981971,29754931,2446611,0xffe50e13,1981971,29754931,9846291,0xa0e1e63]
+def tailCode : List (BitVec 32) := [3505683,0xffee0e13,1981971,29754931,2446611,3505683,0xffee0e13,1981971,29754931,2446611,0xffe50e13,1981971,29754931,8797715,0xa0e1e63]
 def okCode : List (BitVec 32) := [2579,0xf11ff06f]
 def h0Code : List (BitVec 32) := [0x960410e3]
 def luiCode : List (BitVec 32) := [0xffff37]
@@ -393,7 +393,7 @@ theorem tail_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b
     (hX : X < 64) (hC : C < 64) (h10 : s.getReg .x10 = BitVec.ofNat 64 X)
     (h12 : s.getReg .x12 = BitVec.ofNat 64 C) :
     ∃ t, Steps image s 15 15 t ∧
-      t.pc = (if C + tailCredit X < 9 then pcOf (b + 468) else pcOf (b + 422)) ∧
+      t.pc = (if C + tailCredit X < 8 then pcOf (b + 468) else pcOf (b + 422)) ∧
       t.getReg .x12 = BitVec.ofNat 64 (C + tailCredit X) ∧
       RegsExcept s t [.x10, .x12, .x28] ∧ Frame s t (fun _ => False) := by
   have e0 : (BitVec.ofNat 64 X &&& 3#64) = BitVec.ofNat 64 (X % 4) := ofNat_and_mask X 2 (by decide)
@@ -407,12 +407,12 @@ theorem tail_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b
     have ht : C + (if X % 4 = 2 then 1 else 0) + (if X / 4 % 4 = 2 then 1 else 0) + (if X / 16 = 2 then 1 else 0) =
         C + tailCredit X := by unfold tailCredit; omega
     rw [ht]
-    have hlt : (BitVec.ofNat 64 (C + tailCredit X)).ult 9#64 = decide (C + tailCredit X < 9) := by
+    have hlt : (BitVec.ofNat 64 (C + tailCredit X)).ult 8#64 = decide (C + tailCredit X < 8) := by
       have : tailCredit X ≤ 3 := by unfold tailCredit; split_ifs <;> omega
       simp only [BitVec.ult, BitVec.toNat_ofNat]
       rw [Nat.mod_eq_of_lt (by omega)]
     rw [hlt]
-    by_cases h : C + tailCredit X < 9 <;> simp [h]
+    by_cases h : C + tailCredit X < 8 <;> simp [h]
   · simp [ct354.res, rv_simp, h10, h12]
     rw [e1, e2, eq2_ofNat _ (by omega), eq2_ofNat _ (by omega), eq2_ofNat _ (by omega), ofNat_add_ofNat,
       ofNat_add_ofNat, ofNat_add_ofNat]
@@ -570,9 +570,9 @@ theorem credit_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf 
     (hv : v.toNat < 2 ^ 125) (hvalid : T3.topRanksValid (T3.topFlip v) = true) (ht : TableOK s)
     (h6 : s.getReg .x6 = v.extractLsb' 0 64) (h7 : s.getReg .x7 = v.extractLsb' 64 64)
     (h30 : s.getReg .x30 = BitVec.ofNat 64 TOP_DATA) :
-    ∃ t, Steps image s (if T3.topCredit (T3.topFlip v) < 9 then 206 else 208) (if T3.topCredit (T3.topFlip v) < 9 then 206 else 208) t ∧
-      t.pc = (if T3.topCredit (T3.topFlip v) < 9 then pcOf (b + 468) else pcOf (b + 363)) ∧
-      (¬ T3.topCredit (T3.topFlip v) < 9 → t.getReg .x20 = 0) ∧
+    ∃ t, Steps image s (if T3.topCredit (T3.topFlip v) < 8 then 206 else 208) (if T3.topCredit (T3.topFlip v) < 8 then 206 else 208) t ∧
+      t.pc = (if T3.topCredit (T3.topFlip v) < 8 then pcOf (b + 468) else pcOf (b + 363)) ∧
+      (¬ T3.topCredit (T3.topFlip v) < 8 → t.getReg .x20 = 0) ∧
       RegsExcept s t Changed ∧ Frame s t (fun _ => False) := by
   have h6' : s.getReg .x6 = BitVec.ofNat 64 v.toNat := by
     rw [h6]; apply BitVec.eq_of_toNat_eq; simp
@@ -592,7 +592,7 @@ theorem credit_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf 
   obtain ⟨t1, s1, p1, g12', r1, f1⟩ := tail_spec hK m pm (v.toNat / 2 ^ 119) (creditSum v 17) hX
     (by have := creditSum_le v 17; omega) (by simpa using hm.lo) hm.acc
   rw [← topCredit_split v hv] at p1
-  by_cases hc : T3.topCredit (T3.topFlip v) < 9
+  by_cases hc : T3.topCredit (T3.topFlip v) < 8
   · rw [if_pos hc] at p1
     refine ⟨t1, ?_, by rw [if_pos hc, p1], fun h => absurd hc h, ?_, ?_⟩
     · rw [if_pos hc]; exact (s0'.trans (sm.trans s1)).of_eq (by norm_num) (by norm_num)

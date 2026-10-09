@@ -759,8 +759,8 @@ open ClaudeWCT.WCT9 (Signature Witness)
 open ClaudeWCT.WCT9.Rev3 (sign expand verify)
 open SigGolfCandidate.T3M (mrealize countBoth countCalls cacheB cacheDec isHash)
 open ClaudeWCT.W9.T3M (Images submission)
-def verifyCycleBound : Nat := 7287
-def claimedC : Nat := 7369
+def verifyCycleBound : Nat := 7283
+def claimedC : Nat := 7365
 def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 20908) : Prop :=
   ∀ N, evalWithAnswerFn hash (mrealize 0 (digestP m w)) = some N → WCT9.capOk N = true
 variable (I : Images)
