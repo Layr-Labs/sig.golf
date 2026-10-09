@@ -497,32 +497,32 @@ theorem card_digest_real : (Fintype.card Digest : ℝ) = 2 ^ 128 := by
   push_cast
   ring
 
-/-- **The total seed-test error is cubic**: `errTot ≤ 0.257 · (q/2^128)^2` for `q ≤ 624 · 2^108`. -/
-theorem errTot_le_small (q : ℕ) (hs : q ≤ 624 * 2 ^ 108) :
-    errTot adversary q ≤ (257 / 1000 : ENNReal) * ((q : ENNReal) / 2 ^ 128) ^ 2 := by
+/-- **The total seed-test error is cubic**: `errTot ≤ 0.268 · (q/2^128)^2` for `q ≤ 653 · 2^108`. -/
+theorem errTot_le_small (q : ℕ) (hs : q ≤ 653 * 2 ^ 108) :
+    errTot adversary q ≤ (268 / 1000 : ENNReal) * ((q : ENNReal) / 2 ^ 128) ^ 2 := by
   set t : ℝ := ((2 : ℝ) ^ 128)⁻¹ * q with ht
   have ht0 : 0 ≤ t := by positivity
-  have ht1 : t ≤ 624 / 2 ^ 20 := by
+  have ht1 : t ≤ 653 / 2 ^ 20 := by
     rw [ht, inv_mul_le_iff₀ (by positivity)]
-    have : (q : ℝ) ≤ 624 * 2 ^ 108 := by exact_mod_cast hs
+    have : (q : ℝ) ≤ 653 * 2 ^ 108 := by exact_mod_cast hs
     linarith
   have hpos : 0 < 1 - t := by linarith
   have hconst : errConst q = 2 * ((2 : ℝ) ^ 128)⁻¹ ^ 3 * ClaudeWCT.Arith.SideChannel.kconst q / (1 - t) := by
     unfold errConst
     rw [card_digest_real]
   have hc0 : 0 ≤ errConst q := by rw [hconst]; positivity
-  have hreal : errConst q * (43 * q) ≤ 257 / 1000 * ((q : ℝ) / 2 ^ 128) ^ 2 := by
+  have hreal : errConst q * (43 * q) ≤ 268 / 1000 * ((q : ℝ) / 2 ^ 128) ^ 2 := by
     rw [hconst, div_mul_eq_mul_div, div_le_iff₀ hpos]
     have hk := kconst_le q
     calc 2 * ((2 : ℝ) ^ 128)⁻¹ ^ 3 * (ClaudeWCT.Arith.SideChannel.kconst q : ℝ) * (43 * q)
         ≤ 2 * ((2 : ℝ) ^ 128)⁻¹ ^ 3 * (5 * (q : ℝ) ^ 2) * (43 * q) := by gcongr
       _ = 430 * t ^ 3 := by rw [ht]; ring
-      _ ≤ 257 / 1000 * t ^ 2 * (1 - t) := by
-          have h1 : 0 ≤ 257 / 1000 - 430257 / 1000 * t := by
-            have : (430257 / 1000 : ℝ) * (624 / 2 ^ 20) ≤ 257 / 1000 := by norm_num
+      _ ≤ 268 / 1000 * t ^ 2 * (1 - t) := by
+          have h1 : 0 ≤ 268 / 1000 - 430268 / 1000 * t := by
+            have : (430268 / 1000 : ℝ) * (653 / 2 ^ 20) ≤ 268 / 1000 := by norm_num
             nlinarith
           nlinarith [mul_nonneg (sq_nonneg t) h1]
-      _ = 257 / 1000 * ((q : ℝ) / 2 ^ 128) ^ 2 * (1 - t) := by rw [ht]; ring
+      _ = 268 / 1000 * ((q : ℝ) / 2 ^ 128) ^ 2 * (1 - t) := by rw [ht]; ring
   have hq1 : (Fintype.card Digest : ℝ)⁻¹ * q < 1 := by
     rw [card_digest_real]
     linarith

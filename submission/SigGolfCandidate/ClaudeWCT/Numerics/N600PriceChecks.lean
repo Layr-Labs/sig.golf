@@ -26,13 +26,13 @@ def poissonCheckQ (Qv un ud ln ld : Nat) (f : Nat → Nat) (dbase sn sd Mn Md R 
   Md * sn * (S * ld * (R + 1) + ln ^ (R + 1) * ud * dbase * Qv ^ (9 * R)) ≤
     Mn * sd * ud * dbase * ld ^ (R + 1) * fact (R + 1) * Qv ^ (9 * R)
 def A : Nat := 1131 * 2 ^ 24 * 563 ^ 9
-def LN : Nat := 200169543
+def LN : Nat := 201639071
 def LD : Nat := 100000000
-def MN : Nat := 562
+def MN : Nat := 602
 def MD : Nat := 1000
-def DN : Nat := 3102
+def DN : Nat := 3417
 def DD : Nat := 1000000
-def NN : Nat := 240
+def NN : Nat := 259
 def ND : Nat := 1
 def meanCheck : Bool := poissonCheckQ Q 13533529 100000000 LN LD (fun r => xNum r ^ 9) (Nn ^ 9) A 1 MN MD 80
 def diagCheck : Bool :=

@@ -682,23 +682,23 @@ def MarkerSumBound (adversary : AdversaryP) (q : Nat) : Prop :=
         MarkerAt s.answers s.trace ⟨⟨a.1.lay, a.1.tree.val, a.1.leaf.val⟩, a.2.val⟩ | referenceExperiment adversary q] ≤
     (2865 / 2 ^ 128 : ENNReal) * refExpect adversary q encodingCount
 noncomputable def prefixCoeffW9 (q : Nat) : ENNReal :=
-  (260 / 1000 : ENNReal) *
+  (250 / 1000 : ENNReal) *
     (((3 / 2 : ENNReal) + 4 * ((q : ENNReal) / 2 ^ 128) + 2 * ((q : ENNReal) / 2 ^ 128) ^ 2) /
         (1 - (q : ENNReal) / 2 ^ 128) +
       4 * ((q : ENNReal) / 2 ^ 128) / (1 - (q : ENNReal) / 2 ^ 128) ^ 2 +
       2 * 57 * ((q : ENNReal) / 2 ^ 128) / (1 - (q : ENNReal) / 2 ^ 128)) +
-    (740 / 1000 : ENNReal) * 2 / (1 - (q : ENNReal) / 2 ^ 128)
+    (750 / 1000 : ENNReal) * 2 / (1 - (q : ENNReal) / 2 ^ 128)
 noncomputable def encodingCoeffW9 (q : Nat) : ENNReal :=
-  1 + (260 / 1000 : ENNReal) * 2 * 2865 * ((q : ENNReal) / 2 ^ 128) / (1 - (q : ENNReal) / 2 ^ 128)
+  1 + (250 / 1000 : ENNReal) * 2 * 2865 * ((q : ENNReal) / 2 ^ 128) / (1 - (q : ENNReal) / 2 ^ 128)
 /-- Coefficient of the total seed-test error `Leaf.errTot` in the small-route primitive bound (campaign X1 B3). -/
 noncomputable def errCoeffW9 (q : Nat) : ENNReal :=
-  (260 / 1000 : ENNReal) *
+  (250 / 1000 : ENNReal) *
     ((1 + twoEdgeRate q * q) / (1 - (q : ENNReal) / 2 ^ 128) +
       (2 * ((q : ENNReal) / 2 ^ 128) * (1 + 2 * ((q : ENNReal) / 2 ^ 128)) / (1 - (q : ENNReal) / 2 ^ 128) ^ 2 +
         (1 + 2 * ((q : ENNReal) / 2 ^ 128)) / (1 - (q : ENNReal) / 2 ^ 128)) +
       (1 + 2 * ((q : ENNReal) / 2 ^ 128)) / (1 - (q : ENNReal) / 2 ^ 128) +
       57 * ((q : ENNReal) / 2 ^ 128) * ((1 + (2 / 2 ^ 128) * q) / (1 - (q : ENNReal) / 2 ^ 128))) +
-    (740 / 1000 : ENNReal) * ((1 + (2 / 2 ^ 128) * q) / (1 - (q : ENNReal) / 2 ^ 128))
+    (750 / 1000 : ENNReal) * ((1 + (2 / 2 ^ 128) * q) / (1 - (q : ENNReal) / 2 ^ 128))
 theorem chainOf_injective : Function.Injective SmallP.chainOf := by
   rintro ⟨⟨l, t, f⟩, c⟩ ⟨⟨l', t', f'⟩, c'⟩ h
   simp only [SmallP.chainOf, ChainAddr.mk.injEq, LeafAddr.mk.injEq] at h
@@ -828,13 +828,13 @@ theorem reference_primitive_le (adversary : AdversaryP) (q : Nat) (hq : q < 2 ^ 
       prefixCoeffW9 q / 2 ^ 128 * refExpect adversary q prefixClassCount +
         encodingCoeffW9 q / 2 ^ 128 * refExpect adversary q encodingCount +
         (2 ^ 128 : ENNReal)⁻¹ * refExpect adversary q otherCount + errCoeffW9 q * Leaf.errTot adversary q := by
-  have hab : (260 / 1000 : ENNReal) + 740 / 1000 = 1 :=
+  have hab : (250 / 1000 : ENNReal) + 750 / 1000 = 1 :=
     (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp (by
       simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_div, ENNReal.toReal_ofNat,
         ENNReal.toReal_one]
       norm_num)
   refine (SigGolfCandidate.T3.Security.Wots.SmallP.probEvent_le_six_split _ _ _ _ _ _ _ _ (fun s h => SmallP.primitive_cases s.answers s.trace h)
-    (260 / 1000) (740 / 1000) hab).trans ?_
+    (250 / 1000) (750 / 1000) hab).trans ?_
   have h1 := reference_encodingMatch_le adversary q
   have h2 := reference_structural_src_le adversary q
   have h3 := reference_twoEdge_le adversary q hq
@@ -843,7 +843,7 @@ theorem reference_primitive_le (adversary : AdversaryP) (q : Nat) (hq : q < 2 ^ 
   have h6 := reference_contactFirst_cost_le adversary q hq hCF
   calc _ ≤ (2 ^ 128 : ENNReal)⁻¹ * refExpect adversary q encodingCount +
         (2 ^ 128 : ENNReal)⁻¹ * refExpect adversary q otherCount +
-        ((260 / 1000 : ENNReal) *
+        ((250 / 1000 : ENNReal) *
           ((twoEdgeRate q * refExpect adversary q prefixClassCount + (1 + twoEdgeRate q * q) * Leaf.errTot adversary q) /
               (1 - (q : ENNReal) / 2 ^ 128) +
             ((4 * ((q : ENNReal) / 2 ^ 128) / 2 ^ 128) * refExpect adversary q prefixClassCount /
@@ -856,7 +856,7 @@ theorem reference_primitive_le (adversary : AdversaryP) (q : Nat) (hq : q < 2 ^ 
             57 * ((q : ENNReal) / 2 ^ 128) *
               (((2 / 2 ^ 128) * refExpect adversary q prefixClassCount + (1 + (2 / 2 ^ 128) * q) * Leaf.errTot adversary q) /
                 (1 - (q : ENNReal) / 2 ^ 128))) +
-          (740 / 1000 : ENNReal) * (((2 / 2 ^ 128) * refExpect adversary q prefixClassCount +
+          (750 / 1000 : ENNReal) * (((2 / 2 ^ 128) * refExpect adversary q prefixClassCount +
             (1 + (2 / 2 ^ 128) * q) * Leaf.errTot adversary q) / (1 - (q : ENNReal) / 2 ^ 128))) := by
         gcongr
         · exact h1
@@ -883,12 +883,12 @@ set_option linter.unusedSimpArgs false
 attribute [local instance low] Classical.propDecidable
 attribute [local irreducible] referenceGame offlineGame
 namespace SmallR
-noncomputable def classRateW9 : ENNReal := 1891 / 1000
+noncomputable def classRateW9 : ENNReal := 1896 / 1000
 theorem inv_one_sub_leW9 (q : Nat) (hs : q ≤ SeccClosingW9.budgetSplit) :
-    (1 - (q : ENNReal) / 2 ^ 128)⁻¹ ≤ 1048576 / 1047952 := by
-  calc (1 - (q : ENNReal) / 2 ^ 128)⁻¹ ≤ (1047952 / 1048576 : ENNReal)⁻¹ :=
+    (1 - (q : ENNReal) / 2 ^ 128)⁻¹ ≤ 1048576 / 1047923 := by
+  calc (1 - (q : ENNReal) / 2 ^ 128)⁻¹ ≤ (1047923 / 1048576 : ENNReal)⁻¹ :=
         ENNReal.inv_le_inv.mpr (SeccClosingW9.one_sub_x_ge_of_small q hs)
-    _ = 1048576 / 1047952 := ENNReal.inv_div (Or.inl (by simp)) (Or.inl (by simp))
+    _ = 1048576 / 1047923 := ENNReal.inv_div (Or.inl (by simp)) (Or.inl (by simp))
 theorem prefixCoeffW9_le (q : Nat) (hs : q ≤ SeccClosingW9.budgetSplit) : prefixCoeffW9 q ≤ classRateW9 := by
   have hx := SeccClosingW9.x_le_of_small q hs
   have hu := inv_one_sub_leW9 q hs
@@ -897,14 +897,14 @@ theorem prefixCoeffW9_le (q : Nat) (hs : q ≤ SeccClosingW9.budgetSplit) : pref
   rw [div_eq_mul_inv _ (1 - x), div_eq_mul_inv _ ((1 - x) ^ 2), div_eq_mul_inv _ (1 - x), div_eq_mul_inv _ (1 - x),
     ENNReal.inv_pow]
   generalize (1 - x)⁻¹ = u at hu ⊢
-  calc (260 / 1000 : ENNReal) * (((3 / 2 : ENNReal) + 4 * x + 2 * x ^ 2) * u + 4 * x * u ^ 2 + 2 * 57 * x * u) +
-        (740 / 1000 : ENNReal) * 2 * u
-      ≤ (260 / 1000 : ENNReal) *
-          (((3 / 2 : ENNReal) + 4 * (624 / 1048576 : ENNReal) + 2 * ((624 / 1048576 : ENNReal))^2) * (1048576/1047952) +
-            4 * (624 / 1048576 : ENNReal) * (1048576/1047952)^2 + 2 * 57 * (624 / 1048576 : ENNReal) * (1048576/1047952)) +
-          (740 / 1000 : ENNReal) * 2 * (1048576/1047952) := by
+  calc (250 / 1000 : ENNReal) * (((3 / 2 : ENNReal) + 4 * x + 2 * x ^ 2) * u + 4 * x * u ^ 2 + 2 * 57 * x * u) +
+        (750 / 1000 : ENNReal) * 2 * u
+      ≤ (250 / 1000 : ENNReal) *
+          (((3 / 2 : ENNReal) + 4 * (653 / 1048576 : ENNReal) + 2 * ((653 / 1048576 : ENNReal))^2) * (1048576/1047923) +
+            4 * (653 / 1048576 : ENNReal) * (1048576/1047923)^2 + 2 * 57 * (653 / 1048576 : ENNReal) * (1048576/1047923)) +
+          (750 / 1000 : ENNReal) * 2 * (1048576/1047923) := by
         gcongr
-    _ ≤ 1891 / 1000 := by
+    _ ≤ 1896 / 1000 := by
         apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
         simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_div,
           ENNReal.toReal_inv, ENNReal.toReal_pow, ENNReal.toReal_ofNat]
@@ -916,9 +916,9 @@ theorem encodingCoeffW9_le (q : Nat) (hs : q ≤ SeccClosingW9.budgetSplit) : en
   generalize (q : ENNReal) / 2 ^ 128 = x at hx hu ⊢
   rw [div_eq_mul_inv _ (1 - x)]
   generalize (1 - x)⁻¹ = u at hu ⊢
-  calc (1 : ENNReal) + (260 / 1000 : ENNReal) * 2 * 2865 * x * u
-      ≤ 1 + (260 / 1000 : ENNReal) * 2 * 2865 * (624 / 1048576 : ENNReal) * (1048576/1047952) := by gcongr
-    _ ≤ 1891 / 1000 := by
+  calc (1 : ENNReal) + (250 / 1000 : ENNReal) * 2 * 2865 * x * u
+      ≤ 1 + (250 / 1000 : ENNReal) * 2 * 2865 * (653 / 1048576 : ENNReal) * (1048576/1047923) := by gcongr
+    _ ≤ 1896 / 1000 := by
         apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
         simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_div,
           ENNReal.toReal_inv, ENNReal.toReal_pow, ENNReal.toReal_ofNat, ENNReal.toReal_one]
@@ -939,17 +939,17 @@ theorem errCoeffW9_le (q : Nat) (hs : q ≤ SeccClosingW9.budgetSplit) : errCoef
   generalize (q : ENNReal) / 2 ^ 128 = x at hx hu ⊢
   simp only [div_eq_mul_inv _ (1 - x), div_eq_mul_inv _ ((1 - x) ^ 2), ENNReal.inv_pow]
   generalize (1 - x)⁻¹ = u at hu ⊢
-  calc (260 / 1000 : ENNReal) * ((1 + (3 / 2 + 4 * x + 2 * x ^ 2) * x) * u +
+  calc (250 / 1000 : ENNReal) * ((1 + (3 / 2 + 4 * x + 2 * x ^ 2) * x) * u +
         (2 * x * (1 + 2 * x) * u ^ 2 + (1 + 2 * x) * u) + (1 + 2 * x) * u + 57 * x * ((1 + 2 * x) * u)) +
-        740 / 1000 * ((1 + 2 * x) * u)
-      ≤ (260 / 1000 : ENNReal) *
-          ((1 + (3 / 2 + 4 * (624 / 1048576 : ENNReal) + 2 * (624 / 1048576 : ENNReal) ^ 2) * (624 / 1048576 : ENNReal)) *
-              (1048576 / 1047952) +
-            (2 * (624 / 1048576 : ENNReal) * (1 + 2 * (624 / 1048576 : ENNReal)) * (1048576 / 1047952) ^ 2 +
-              (1 + 2 * (624 / 1048576 : ENNReal)) * (1048576 / 1047952)) +
-            (1 + 2 * (624 / 1048576 : ENNReal)) * (1048576 / 1047952) +
-            57 * (624 / 1048576 : ENNReal) * ((1 + 2 * (624 / 1048576 : ENNReal)) * (1048576 / 1047952))) +
-          740 / 1000 * ((1 + 2 * (624 / 1048576 : ENNReal)) * (1048576 / 1047952)) := by
+        750 / 1000 * ((1 + 2 * x) * u)
+      ≤ (250 / 1000 : ENNReal) *
+          ((1 + (3 / 2 + 4 * (653 / 1048576 : ENNReal) + 2 * (653 / 1048576 : ENNReal) ^ 2) * (653 / 1048576 : ENNReal)) *
+              (1048576 / 1047923) +
+            (2 * (653 / 1048576 : ENNReal) * (1 + 2 * (653 / 1048576 : ENNReal)) * (1048576 / 1047923) ^ 2 +
+              (1 + 2 * (653 / 1048576 : ENNReal)) * (1048576 / 1047923)) +
+            (1 + 2 * (653 / 1048576 : ENNReal)) * (1048576 / 1047923) +
+            57 * (653 / 1048576 : ENNReal) * ((1 + 2 * (653 / 1048576 : ENNReal)) * (1048576 / 1047923))) +
+          750 / 1000 * ((1 + 2 * (653 / 1048576 : ENNReal)) * (1048576 / 1047923)) := by
         gcongr
     _ ≤ 2 := by
         apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
@@ -957,13 +957,13 @@ theorem errCoeffW9_le (q : Nat) (hs : q ≤ SeccClosingW9.budgetSplit) : errCoef
           ENNReal.toReal_inv, ENNReal.toReal_pow, ENNReal.toReal_ofNat, ENNReal.toReal_one]
         norm_num
 theorem errTerm_le (adversary : AdversaryP) (q : Nat) (hs : q ≤ SeccClosingW9.budgetSplit) :
-    errCoeffW9 q * Leaf.errTot adversary q ≤ (514 / 1000 : ENNReal) * ((q : ENNReal) / 2 ^ 128) ^ 2 := by
-  have hs' : q ≤ 624 * 2 ^ 108 := by rw [SeccClosingW9.budgetSplit_def] at hs; exact hs
+    errCoeffW9 q * Leaf.errTot adversary q ≤ (536 / 1000 : ENNReal) * ((q : ENNReal) / 2 ^ 128) ^ 2 := by
+  have hs' : q ≤ 653 * 2 ^ 108 := by rw [SeccClosingW9.budgetSplit_def] at hs; exact hs
   calc errCoeffW9 q * Leaf.errTot adversary q
-      ≤ 2 * ((257 / 1000 : ENNReal) * ((q : ENNReal) / 2 ^ 128) ^ 2) :=
+      ≤ 2 * ((268 / 1000 : ENNReal) * ((q : ENNReal) / 2 ^ 128) ^ 2) :=
         mul_le_mul' (errCoeffW9_le q hs) (Leaf.errTot_le_small q hs')
-    _ = (2 * (257 / 1000 : ENNReal)) * ((q : ENNReal) / 2 ^ 128) ^ 2 := by ring
-    _ = (514 / 1000 : ENNReal) * ((q : ENNReal) / 2 ^ 128) ^ 2 := by
+    _ = (2 * (268 / 1000 : ENNReal)) * ((q : ENNReal) / 2 ^ 128) ^ 2 := by ring
+    _ = (536 / 1000 : ENNReal) * ((q : ENNReal) / 2 ^ 128) ^ 2 := by
         congr 1
         apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
         simp (disch := finiteness) only [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_ofNat]
@@ -1000,10 +1000,10 @@ theorem nearTerm_le (q : Nat) (hs : q ≤ SeccClosingW9.budgetSplit) :
   generalize (q : ENNReal) / 2 ^ 128 = x at hg ⊢
   generalize (q : ENNReal) / ((2 ^ 128 - q : ℕ) : ENNReal) = g at hg ⊢
   calc g * ((150 + 63 * 201 * ((2 : ENNReal) ^ 25)⁻¹) * x + 63 * (2 : ENNReal)⁻¹ ^ 700)
-      ≤ (1048576 / 1047952 * x) * ((150 + 63 * 201 * ((2 : ENNReal) ^ 25)⁻¹) * x + 63 * (2 : ENNReal)⁻¹ ^ 700) := by
+      ≤ (1048576 / 1047923 * x) * ((150 + 63 * 201 * ((2 : ENNReal) ^ 25)⁻¹) * x + 63 * (2 : ENNReal)⁻¹ ^ 700) := by
         gcongr
-    _ = (1048576 / 1047952 * (150 + 63 * 201 * ((2 : ENNReal) ^ 25)⁻¹)) * x ^ 2 +
-          (1048576 / 1047952 * (63 * (2 : ENNReal)⁻¹ ^ 700)) * x := by ring
+    _ = (1048576 / 1047923 * (150 + 63 * 201 * ((2 : ENNReal) ^ 25)⁻¹)) * x ^ 2 +
+          (1048576 / 1047923 * (63 * (2 : ENNReal)⁻¹ ^ 700)) * x := by ring
     _ ≤ (1501 / 10) * x ^ 2 + (1 / 100000) * x := by
         gcongr
         · apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
@@ -1029,8 +1029,8 @@ theorem pairTerm_leW9 (q : Nat) (hs : q ≤ SeccClosingW9.budgetSplit) :
   calc (q.choose 2 : ENNReal) * ((2 ^ 128 - q : ℕ) : ENNReal)⁻¹ ^ 2
       ≤ ((1 / 2 : ENNReal) * ((q : ENNReal) * q)) * ((2 ^ 128 - q : ℕ) : ENNReal)⁻¹ ^ 2 := by gcongr
     _ = (1 / 2 : ENNReal) * ((q : ENNReal) / ((2 ^ 128 - q : ℕ) : ENNReal)) ^ 2 := by simp only [div_eq_mul_inv, mul_pow]; ring
-    _ ≤ (1 / 2 : ENNReal) * (1048576 / 1047952 * ((q : ENNReal) / 2 ^ 128)) ^ 2 := by gcongr
-    _ = ((1 / 2 : ENNReal) * (1048576 / 1047952 : ENNReal) ^ 2) * ((q : ENNReal) / 2 ^ 128) ^ 2 := by
+    _ ≤ (1 / 2 : ENNReal) * (1048576 / 1047923 * ((q : ENNReal) / 2 ^ 128)) ^ 2 := by gcongr
+    _ = ((1 / 2 : ENNReal) * (1048576 / 1047923 : ENNReal) ^ 2) * ((q : ENNReal) / 2 ^ 128) ^ 2 := by
         rw [mul_pow]; ring
     _ ≤ (6 / 10) * ((q : ENNReal) / 2 ^ 128) ^ 2 := by
         gcongr
@@ -1100,7 +1100,7 @@ theorem small_route (hC : CaseCSmallBound) :
       exact ENNReal.inv_le_inv.mpr (pow_le_pow_right₀ one_le_two (by norm_num)))
   have hov := ClaudeWCT.W9.T3.Security.fts_overflow_le adversary q hq
   have herr := SmallR.errTerm_le adversary q hs
-  apply SeccClosingW9.smallBound_of_le q _ (SmallR.classRateW9 + 2933 / 1000000 + 1 / 100000) (15122 / 100)
+  apply SeccClosingW9.smallBound_of_le q _ (SmallR.classRateW9 + 2933 / 1000000 + 1 / 100000) (15124 / 100)
     ((2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹)
   · rw [SeccClosingW9.smallCoefficient_def]
     unfold SmallR.classRateW9
@@ -1135,20 +1135,20 @@ theorem small_route (hC : CaseCSmallBound) :
             (2 : ENNReal)⁻¹ ^ 700) + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹ :=
         add_le_add (add_le_add (add_le_add hab hc) hinc) hov
     _ ≤ (SmallR.classRateW9 / 2 ^ 128 * EP + SmallR.classRateW9 / 2 ^ 128 * EE + SmallR.classRateW9 / 2 ^ 128 * EO +
-            (514 / 1000) * x ^ 2) +
+            (536 / 1000) * x ^ 2) +
           (SmallR.classRateW9 / 2 ^ 128 * EM + 2933 / 1000000 * x + ((1501 / 10) * x ^ 2 + 1 / 100000 * x) + (6 / 10) * x ^ 2 +
             (2 : ENNReal)⁻¹ ^ 700) + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹ := by gcongr
     _ = SmallR.classRateW9 / 2 ^ 128 * (EP + EE + EO + EM) +
-          (2933 / 1000000 * x + ((1501 / 10) * x ^ 2 + 1 / 100000 * x) + (6 / 10) * x ^ 2 + (514 / 1000) * x ^ 2 +
+          (2933 / 1000000 * x + ((1501 / 10) * x ^ 2 + 1 / 100000 * x) + (6 / 10) * x ^ 2 + (536 / 1000) * x ^ 2 +
             ((2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹)) := by
         ring
     _ ≤ SmallR.classRateW9 * x + (2933 / 1000000 * x + ((1501 / 10) * x ^ 2 + 1 / 100000 * x) + (6 / 10) * x ^ 2 +
-          (514 / 1000) * x ^ 2 + ((2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹)) := by
+          (536 / 1000) * x ^ 2 + ((2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹)) := by
         gcongr
-    _ = (SmallR.classRateW9 + 2933 / 1000000 + 1 / 100000) * x + ((1501 / 10 : ENNReal) + 6 / 10 + 514 / 1000) * x ^ 2 +
+    _ = (SmallR.classRateW9 + 2933 / 1000000 + 1 / 100000) * x + ((1501 / 10 : ENNReal) + 6 / 10 + 536 / 1000) * x ^ 2 +
           ((2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹) := by
         ring
-    _ ≤ (SmallR.classRateW9 + 2933 / 1000000 + 1 / 100000) * x + (15122 / 100) * x ^ 2 +
+    _ ≤ (SmallR.classRateW9 + 2933 / 1000000 + 1 / 100000) * x + (15124 / 100) * x ^ 2 +
           ((2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹) := by
         gcongr
         apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp

@@ -24,7 +24,7 @@ def C1JointCostEq : Prop :=
     JointCost (ClaudeWCT.WCT9.rank a) (ClaudeWCT.WCT9.child a) = ClaudeWCT.WCT9.jointCost a
 def C1ProducerCapEq : Prop :=
   ∀ a : SigGolfCandidate.T3.HashOutput,
-    ProducerCostOK (ClaudeWCT.WCT9.rank a) (ClaudeWCT.WCT9.child a) ↔ ClaudeWCT.WCT9.capOk a = true
+    JointCost (ClaudeWCT.WCT9.rank a) (ClaudeWCT.WCT9.child a) ≤ 784 ↔ ClaudeWCT.WCT9.capOk a = true
 end W9Machine.N600
 end
 
@@ -59,7 +59,7 @@ theorem jointCost_eq_c1 : C1JointCostEq := by
   rw [rankCost_eq_c1, ← List.sum_map_add]
 theorem producerCostOK_iff_c1 : C1ProducerCapEq := by
   intro a
-  unfold ProducerCostOK ClaudeWCT.WCT9.capOk
+  unfold ClaudeWCT.WCT9.capOk
   rw [jointCost_eq_c1 a, decide_eq_true_iff]
   rfl
 end W9Machine.N600
