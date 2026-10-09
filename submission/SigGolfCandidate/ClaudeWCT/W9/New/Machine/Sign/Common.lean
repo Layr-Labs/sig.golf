@@ -154,7 +154,7 @@ def NewW (A : Nat) : Prop := SearchW A ∨ FtsW A
 def InvStable (Inv : MachineState → Prop) : Prop :=
   ∀ t u, Inv t → Frame t u NewW → RegsExcept t u newRegs → Inv u
 def wsub (imgs : Phase → Image) : Submission :=
-  ⟨⟨5310, 20912, 131072⟩, ⟨0x59b0, 0x80, 0xa0, 0x80000, 0x7000, 0x800⟩, imgs⟩
+  ⟨⟨5310, 20908, 131072⟩, ⟨0x59b0, 0x80, 0xa0, 0x80000, 0x7000, 0x800⟩, imgs⟩
 structure Unchanged (imgs : Phase → Image) (Inv : BitVec 256 → Bytes 131072 → Message → MachineState → Prop) :
     Prop where
   front : ∀ sk cache m, ∃ s0, initialState (wsub imgs) .sign (sk, cache, m) = some s0 ∧

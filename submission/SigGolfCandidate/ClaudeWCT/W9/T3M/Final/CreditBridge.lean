@@ -334,7 +334,7 @@ attribute [local reducible] SphincsSecurity.hashOutputBits ClaudeWCT.W9.T3M.subm
   SigGolfCandidate.Legacy.Output SigGolfCandidate.Legacy.Input
 set_option maxRecDepth 100000 in
 theorem expand_witness (P : Pending I) (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5310)
-    (w : Bytes 20912) (he : ((ClaudeWCT.W9.T3M.submission I).runWith hash .expand (m, pk, s)).value = some w) :
+    (w : Bytes 20908) (he : ((ClaudeWCT.W9.T3M.submission I).runWith hash .expand (m, pk, s)).value = some w) :
     ∃ σ' N wt, evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.W9.T3M.expandN0 m pk σ') = some (N, wt) ∧
       w = ClaudeWCT.W9.T3M.witEnc N wt := by
   have h := congrArg (evalWithAnswerFn hash) (expand_value P m pk s)
@@ -350,7 +350,7 @@ theorem expand_witness (P : Pending I) (hash : Hash) (m : Message) (pk : PublicK
       obtain ⟨c, -, -, h0⟩ := ClaudeWCT.W9.T3M.expandN_completion _ m pk _ N wt hx
       exact ⟨_, N, wt, h0, (Option.some.inj he).symm⟩
 set_option maxRecDepth 100000 in
-theorem verify_run_ok (P : Pending I) (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 20912)
+theorem verify_run_ok (P : Pending I) (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 20908)
     (hagree : Agree hash (okHash hash) (mrealize 0 (ClaudeWCT.W9.T3M.verifyP m pk w))) :
     (ClaudeWCT.W9.T3M.submission I).runWith hash .verify (m, pk, w) =
       (ClaudeWCT.W9.T3M.submission I).runWith (okHash hash) .verify (m, pk, w) := by
