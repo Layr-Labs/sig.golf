@@ -9,13 +9,13 @@ open W9Machine
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 def gJumpWords : List (BitVec 32) := [41943151]
-def gCheckWords : List (BitVec 32) := [35150611,0x1803883,0x328d193,0x5571b393,0xa039263]
+def gCheckWords : List (BitVec 32) := [35150611,0x1803883,0x328d193,0x5491b393,0xa039263]
 def gSetupWords : List (BitVec 32) :=
   [29038483,0x60178793,66359,2098835,3148179,4196883,5245587,6294803,7343891,486618115,385957507,394345475,50398355,0xffd90113]
 def gRejectWords : List (BitVec 32) := [1049235,1049875,115]
 def gateE : E := .bin .sltu
   (.bin .srl (.ld (.c (BitVec.ofNat 64 24)))
-    (.c (BitVec.ofNat 64 50))) (.c (BitVec.ofNat 64 1367))
+    (.c (BitVec.ofNat 64 50))) (.c (BitVec.ofNat 64 1353))
 def gJump : Result := ⟨SymState.init, .c (pcOf 32792), .jump, 1, 1⟩
 def gCheck : Result :=
   ⟨⟨(((RegFile.init.set .x3
@@ -90,12 +90,12 @@ theorem heap_val (i h : Nat) (hi : i < 2 ^ 31) :
   rw [ofNat_or_disjoint i (2 ^ 32 * h) 32 (by omega) (by simp), Nat.add_comm]
 theorem gateE_eval (s : MachineState) (a : BitVec 256)
     (hw : s.getMem (BitVec.ofNat 64 24) = a.extractLsb' 192 64) :
-    gateE.eval s = if decide (a.toNat / 2 ^ 242 % 2 ^ 14 < 1367) then 1 else 0 := by
+    gateE.eval s = if decide (a.toNat / 2 ^ 242 % 2 ^ 14 < 1353) then 1 else 0 := by
   change (if BitVec.ult (s.getMem (BitVec.ofNat 64 24) >>> 50)
-    (BitVec.ofNat 64 1367) then (1 : BitVec 64) else 0) = _
+    (BitVec.ofNat 64 1353) then (1 : BitVec 64) else 0) = _
   rw [hw]
   simp only [BitVec.ult, SigGolfCandidate.Research.V7Composed198Gate.gate_shift50_toNat,
-    show (BitVec.ofNat 64 1367).toNat = 1367 from rfl]
+    show (BitVec.ofNat 64 1353).toNat = 1353 from rfl]
 
 theorem word0_toNat (a : HashOutput) : (a.extractLsb' 0 64).toNat = a.toNat % 2 ^ 64 := by
   rw [BitVec.extractLsb'_toNat, Nat.shiftRight_zero]

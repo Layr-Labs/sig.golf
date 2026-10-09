@@ -4,11 +4,11 @@ namespace ClaudeWCT.W9.T3.BaseAudit.V5
 open SigGolfCandidate.T3.BaseAudit (zU)
 set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
-def J : ℕ := 51830372797018490545585430547555363659334656
-/-- Density-aware digest acceptance: gate 1367/2^14, fields 563/1024 (rank = field), cap fraction J(783) / 72064^9:
-`1367 * 563^9 * J / (2^104 * 72064^9) = 1367 * J / 2^167`. -/
-def p0 : ℚ := 1367 * J / 2 ^ 167
-def b0 : ℚ := 1014160502207165799 / 1000000000000000000
+def J : ℕ := 51560838624306633002850832035711699557452288
+/-- Density-aware digest acceptance: gate 1353/2^14, fields 563/1024 (rank = field), cap fraction J(783) / 72064^9:
+`1353 * 563^9 * J / (2^104 * 72064^9) = 1353 * J / 2^167`. -/
+def p0 : ℚ := 1353 * J / 2 ^ 167
+def b0 : ℚ := 1014384999801306513 / 1000000000000000000
 theorem step_0 : zU * ((1 - p0) * b0 + p0) ≤ b0 := by norm_num [zU, p0, b0, J]
 theorem probability_floor : 1 / 5026 ≤ p0 ∧ p0 ≤ 1 / 2471 := by norm_num [p0, J]
 theorem p0_ge_5026 : 1 / 5026 ≤ p0 := by norm_num [p0, J]

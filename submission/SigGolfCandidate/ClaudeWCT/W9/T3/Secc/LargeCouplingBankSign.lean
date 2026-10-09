@@ -125,30 +125,30 @@ noncomputable abbrev S0 : FtsBankSpec WProposal :=
   (wctSpecL horizon ⊤ (by unfold ExcessBound; exact le_top)).toFtsBankSpec
 noncomputable def excessForecast54 (R : Nat) (X : List HashOutput) : ENNReal :=
   ClaudeWCT.Numerics.Law.lawAvg (S0 horizon).law R
-    (fun W => (S0 horizon).price ((S0 horizon).proposals X ++ W) - 1919 / 1024)
+    (fun W => (S0 horizon).price ((S0 horizon).proposals X ++ W) - 2031 / 1024)
 theorem excessForecast54_step (R : Nat) (X : List HashOutput) :
     expectedValue (S0 horizon).accepted (fun A => excessForecast54 horizon R (X ++ [A])) =
       excessForecast54 horizon (R + 1) X := by
   unfold excessForecast54
   rw [ClaudeWCT.Numerics.Law.lawAvg_succ]
   have hA (A : HashOutput) : ClaudeWCT.Numerics.Law.lawAvg (S0 horizon).law R
-      (fun W => (S0 horizon).price ((S0 horizon).proposals (X ++ [A]) ++ W) - 1919 / 1024) =
+      (fun W => (S0 horizon).price ((S0 horizon).proposals (X ++ [A]) ++ W) - 2031 / 1024) =
       (fun p : WProposal => ClaudeWCT.Numerics.Law.lawAvg (S0 horizon).law R
-        (fun W => (S0 horizon).price ((S0 horizon).proposals X ++ p :: W) - 1919 / 1024))
+        (fun W => (S0 horizon).price ((S0 horizon).proposals X ++ p :: W) - 2031 / 1024))
         ((S0 horizon).proposal A) := by
     simp [FtsBankSpec.proposals, List.map_append, List.append_assoc]
   simp_rw [hA]
   exact (S0 horizon).expected_accepted_proposal (fun p => ClaudeWCT.Numerics.Law.lawAvg (S0 horizon).law R
-    (fun W => (S0 horizon).price ((S0 horizon).proposals X ++ p :: W) - 1919 / 1024))
+    (fun W => (S0 horizon).price ((S0 horizon).proposals X ++ p :: W) - 2031 / 1024))
 theorem average_forecast_le_54 (R : Nat) (X : List HashOutput) :
     BPORS.finiteAverage (fun N : HashOutput => (S0 horizon).forecast R X N) ≤
-      ((1919 / 1024 : ENNReal) + excessForecast54 horizon R X) / 2 ^ 128 := by
+      ((2031 / 1024 : ENNReal) + excessForecast54 horizon R X) / 2 ^ 128 := by
   rw [(S0 horizon).average_forecast]
   apply ENNReal.div_le_div_right
   unfold excessForecast54
   calc
     _ ≤ ClaudeWCT.Numerics.Law.lawAvg (S0 horizon).law R
-          (fun W => (1919 / 1024 : ENNReal) + ((S0 horizon).price ((S0 horizon).proposals X ++ W) - 1919 / 1024)) :=
+          (fun W => (2031 / 1024 : ENNReal) + ((S0 horizon).price ((S0 horizon).proposals X ++ W) - 2031 / 1024)) :=
       ClaudeWCT.Numerics.Law.lawAvg_mono (S0 horizon).law R fun W => le_add_tsub
     _ = _ := by
       rw [ClaudeWCT.Numerics.Law.lawAvg_add, ClaudeWCT.Numerics.Law.lawAvg_const (S0 horizon).law (S0 horizon).law_sum]
@@ -161,9 +161,9 @@ theorem ledger54_slack_succ (R : Nat) (targets X : List HashOutput) (slack : Nat
   rw [Nat.cast_add, Nat.cast_one, add_mul, one_mul, ENNReal.add_div, add_assoc]
 theorem ledger54_birth (R : Nat) (targets X : List HashOutput) (slack : Nat) :
     expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun a => ledger54 horizon R (targets ++ [a]) X slack) ≤
-      ledger54 horizon R targets X (slack + 1) + (1919 / 1024 : ENNReal) / 2 ^ 128 := by
+      ledger54 horizon R targets X (slack + 1) + (2031 / 1024 : ENNReal) / 2 ^ 128 := by
   have hfa : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun a => (S0 horizon).forecast R X a) ≤
-      ((1919 / 1024 : ENNReal) + excessForecast54 horizon R X) / 2 ^ 128 := by
+      ((2031 / 1024 : ENNReal) + excessForecast54 horizon R X) / 2 ^ 128 := by
     rw [BPORS.expected_uniform_eq_finiteAverage]
     exact average_forecast_le_54 horizon R X
   have hsplit : ∀ a, ledger54 horizon R (targets ++ [a]) X slack =
@@ -221,18 +221,18 @@ theorem wct_core_birth_54 (b : BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : 
     (hC : ∀ N, C' N ≤ b.reuse + (S0 horizon).admInd N / 2 ^ 128) :
     expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
         (fun N => corePotential54 horizon { b with targets := b.targets ++ [N], slack := s, reuse := C' N }) ≤
-      corePotential54 horizon b + (15 / 8 : ENNReal) / 2 ^ 128 := by
+      corePotential54 horizon b + (127 / 64 : ENNReal) / 2 ^ 128 := by
   have hadm : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun N => (S0 horizon).admInd N / 2 ^ 128) ≤
       (S0 horizon).admBound / 2 ^ 128 := by
     simp only [div_eq_mul_inv]
     rw [expectedValue_mul_const]
     exact mul_le_mul' (by simpa [div_eq_mul_inv] using (S0 horizon).expected_admInd_tight) le_rfl
-  have h54_adm : (S0 horizon).admBound ≤ 15 / 8 := by
-    change (1 / 1024 : ENNReal) ≤ 15 / 8
+  have h54_adm : (S0 horizon).admBound ≤ 127 / 64 := by
+    change (1 / 1024 : ENNReal) ≤ 127 / 64
     apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
     norm_num [ENNReal.toReal_div]
-  have h54_sum : (1919 / 1024 : ENNReal) + (S0 horizon).admBound ≤ 15 / 8 := by
-    change (1919 / 1024 : ENNReal) + 1 / 1024 ≤ 15 / 8
+  have h54_sum : (2031 / 1024 : ENNReal) + (S0 horizon).admBound ≤ 127 / 64 := by
+    change (2031 / 1024 : ENNReal) + 1 / 1024 ≤ 127 / 64
     apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
     simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_div, ENNReal.toReal_inv,
       ENNReal.toReal_ofNat, ENNReal.toReal_one]
@@ -263,16 +263,16 @@ theorem wct_core_birth_54 (b : BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : 
       _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
           (fun N => ledger54 horizon R (b.targets ++ [N]) b.exposures s + (S0 horizon).admInd N / 2 ^ 128) + b.reuse :=
         CaseC.expectedValue_add_const_le _ _ _
-      _ ≤ (ledger54 horizon R b.targets b.exposures (s + 1) + (1919 / 1024 : ENNReal) / 2 ^ 128 +
+      _ ≤ (ledger54 horizon R b.targets b.exposures (s + 1) + (2031 / 1024 : ENNReal) / 2 ^ 128 +
             (S0 horizon).admBound / 2 ^ 128) + b.reuse := by
         rw [expectedValue_add]
         exact add_le_add (add_le_add (ledger54_birth horizon R b.targets b.exposures s) hadm) le_rfl
       _ ≤ _ := by
         rw [← hs, add_assoc (ledger54 _ _ _ _ _), ← ENNReal.add_div,
           show ledger54 horizon R b.targets b.exposures b.slack +
-            ((1919 / 1024 : ENNReal) + (S0 horizon).admBound) / 2 ^ 128 + b.reuse =
+            ((2031 / 1024 : ENNReal) + (S0 horizon).admBound) / 2 ^ 128 + b.reuse =
             (ledger54 horizon R b.targets b.exposures b.slack + b.reuse) +
-            ((1919 / 1024 : ENNReal) + (S0 horizon).admBound) / 2 ^ 128 by ring]
+            ((2031 / 1024 : ENNReal) + (S0 horizon).admBound) / 2 ^ 128 by ring]
         exact add_le_add le_rfl (ENNReal.div_le_div_right h54_sum _)
 theorem wct_core_sign_54 (b : BankCore) (cache : Sampling.RCache) (m : Message) (C' : ENNReal)
     (hC : C' + (S0 horizon).reuseMass cache m ≤ b.reuse) (secret : BitVec 256) (fuel : Nat)
@@ -394,14 +394,14 @@ theorem wct_core_win_54 (b : BankCore) (halive : ¬horizon < b.exposures.length)
     exact (ledger54_win horizon _ _ _ _ N hN hadm hcov).trans le_self_add
 theorem wct_core_initial_54 (budget : Nat) :
     corePotential54 (2 ^ 32) ⟨[], [], false, 0, budget⟩ ≤
-      (budget : ENNReal) * (6441 / 10000000) / 2 ^ 128 := by
+      (budget : ENNReal) * (6117 / 10000000) / 2 ^ 128 := by
   unfold corePotential54 ledger54 excessForecast54
   simp only [List.length_nil, Nat.not_lt_zero, if_false, Bool.false_eq_true, Nat.sub_zero, add_zero,
     List.map_nil, List.sum_nil, zero_add]
   apply ENNReal.div_le_div_right
   apply mul_le_mul' le_rfl
   change ClaudeWCT.Numerics.Law.lawAvg honestLaw (2 ^ 32)
-    (fun W : List WProposal => price W - 1919 / 1024) ≤ 6441 / 10000000
+    (fun W : List WProposal => price W - 2031 / 1024) ≤ 6117 / 10000000
   rw [honestLaw_eq_n4]
   exact ClaudeWCT.Numerics.WCTPrice.wct_excess_honest_2_32_54
 end ClaudeWCT.Bank.WCT
@@ -425,9 +425,9 @@ noncomputable def reuseC (st : RouterState) : ENNReal :=
   ∑' m : Message, if (st.memo.lookup m).isSome then 0 else CaseC.bankSpec.reuseMass st.cache m
 noncomputable def bankOf (q : Nat) (st : RouterState) : CaseC.BankCore :=
   ⟨(st.births.map Prod.snd).reverse, st.exposures, st.reused, reuseC st, q - st.births.length⟩
-noncomputable def coeffQ (q : Nat) : ENNReal := if q ≤ 2 ^ 123 then 15 / 8 else 1
+noncomputable def coeffQ (q : Nat) : ENNReal := if q ≤ 2 ^ 121 then 127 / 64 else 1
 noncomputable def psi (q : Nat) (st : RouterState) : ENNReal :=
-  if q ≤ 2 ^ 123 then ClaudeWCT.Bank.WCT.corePotential54 CaseC.horizon (bankOf q st)
+  if q ≤ 2 ^ 121 then ClaudeWCT.Bank.WCT.corePotential54 CaseC.horizon (bankOf q st)
   else CaseC.bankSpec.corePotential (bankOf q st)
 noncomputable def slackT {U : Finset HashInput} (q : Nat) (ws : LargeResidual.State WCoord (Cell U)) : ENNReal :=
   coeffQ q * ((q - ws.counters.mass : Nat) : ENNReal) / 2 ^ 128
@@ -528,7 +528,7 @@ theorem psi_birth_le (q : Nat) (st : RouterState) (X : HashInput) (hX : st.cache
     simp only [bankOf, RouterState.born, List.map_cons, List.reverse_cons, List.length_cons]
     rfl
   unfold psi coeffQ
-  by_cases h125 : q ≤ 2 ^ 123
+  by_cases h125 : q ≤ 2 ^ 121
   · simp only [if_pos h125]
     have h := ClaudeWCT.Bank.WCT.wct_core_birth_54 CaseC.horizon (bankOf q st) _ hs
       (fun y => reuseC (st.born X y))
@@ -562,7 +562,7 @@ theorem psi_cert (q : Nat) (st : RouterState) (h : CertGhost st) : 1 ≤ psi q s
   · exact ClaudeWCT.Bank.WCT.wct_core_win CaseC.horizon ⊤ CaseC.excessBound_top (bankOf q st) (not_lt.mpr h.1) hcov
 theorem psi_initial (q : Nat) :
     psi q RouterState.initial ≤
-      (q : ENNReal) * (if q ≤ 2 ^ 123 then 6441 / 10000000 else 451 / 200000) / 2 ^ 128 := by
+      (q : ENNReal) * (if q ≤ 2 ^ 121 then 6117 / 10000000 else 247 / 100000) / 2 ^ 128 := by
   have h0 : reuseC RouterState.initial = 0 := by
     unfold reuseC
     apply ENNReal.tsum_eq_zero.mpr
@@ -576,9 +576,9 @@ theorem psi_initial (q : Nat) :
   rw [h0]
   split_ifs with h125
   · exact ClaudeWCT.Bank.WCT.wct_core_initial_54 q
-  · have hinit := ClaudeWCT.Bank.WCT.wct_core_initial CaseC.horizon (451 / 200000)
+  · have hinit := ClaudeWCT.Bank.WCT.wct_core_initial CaseC.horizon (247 / 100000)
       ClaudeWCT.Numerics.WCTPrice.wct_excessBound_2_32 q
-    rw [ClaudeWCT.Bank.WCT.wct_corePotential_rate CaseC.horizon (451 / 200000)
+    rw [ClaudeWCT.Bank.WCT.wct_corePotential_rate CaseC.horizon (247 / 100000)
       ClaudeWCT.Numerics.WCTPrice.wct_excessBound_2_32 ⊤ CaseC.excessBound_top] at hinit
     exact hinit
 end ClaudeWCT.W9.T3.Security.LargeCoupling
@@ -1146,7 +1146,7 @@ theorem reuseC_signed_eq (st : RouterState) (rho rho' : Digest) (m : Message)
   · have hb2 : (m' == m) = false := by simpa using h
     simp only [List.lookup_cons, hb2]
 noncomputable def corePotentialQ (q : Nat) (b : CaseC.BankCore) : ENNReal :=
-  if q ≤ 2 ^ 123 then ClaudeWCT.Bank.WCT.corePotential54 CaseC.horizon b
+  if q ≤ 2 ^ 121 then ClaudeWCT.Bank.WCT.corePotential54 CaseC.horizon b
   else CaseC.bankSpec.corePotential b
 theorem psi_eq_corePotentialQ (q : Nat) (st : RouterState) :
     psi q st = corePotentialQ q (bankOf q st) := rfl
@@ -1160,7 +1160,7 @@ theorem wct_core_sign_q (q : Nat) (b : CaseC.BankCore) (cache : Sampling.RCache)
         (fun result => corePotentialQ q (b.expose C' (result.1.map Prod.snd)))) ≤
       corePotentialQ q b := by
   unfold corePotentialQ
-  by_cases h125 : q ≤ 2 ^ 123
+  by_cases h125 : q ≤ 2 ^ 121
   · simp only [if_pos h125]
     exact ClaudeWCT.Bank.WCT.wct_core_sign_54 CaseC.horizon b cache m C' hC secret fuel hfuel
   · simp only [if_neg h125]

@@ -13,7 +13,7 @@ set_option maxRecDepth 10000
 set_option exponentiation.threshold 1024
 
 theorem small_closing_real (y : ℝ) (hlow : 1 / 2 ^ 128 ≤ y) (hhigh : y ≤ 2718 / 4194304) :
-    19017 / 10000 * y + (75701 / 500) * y ^ 2 + 1 / 2 ^ 136 +
+    190185 / 100000 * y + (75701 / 500) * y ^ 2 + 1 / 2 ^ 136 +
       (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
   -- T8E: the quadratic is charged on the whole window [2^-128, y0] through (y - 2^-128) (y0 - y) ≥ 0 (convexity of
   -- the closing in y); the T8D shortcut 2^-136 ≤ y / 2^8 costs 2^-8 and no longer fits the 1.8e-4 slack at y0.
@@ -21,7 +21,7 @@ theorem small_closing_real (y : ℝ) (hlow : 1 / 2 ^ 128 ≤ y) (hhigh : y ≤ 2
   have hP := mul_nonneg (sub_nonneg.2 hlow) (sub_nonneg.2 hhigh)
   nlinarith [hP, hn]
 theorem large_closing_real (y : ℝ) (hlow : 2718 / 4194304 ≤ y) :
-    (2 * y - y ^ 2) + y * (6441 / 10000000) + y * (1 / 2 ^ 25) + y * (1 / 2 ^ 50) + 1 / 2 ^ 131 +
+    (2 * y - y ^ 2) + y * (6117 / 10000000) + y * (1 / 2 ^ 25) + y * (1 / 2 ^ 50) + 1 / 2 ^ 131 +
       (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
   have hn : 0 ≤ y := le_trans (by norm_num) hlow
   have hsq : y * (2718 / 4194304) ≤ y ^ 2 := by nlinarith [mul_le_mul_of_nonneg_left hlow hn]
@@ -38,11 +38,11 @@ theorem large_closing_real (y : ℝ) (hlow : 2718 / 4194304 ≤ y) :
     norm_num at h ⊢
     linarith
   nlinarith
-theorem large_closing_real_high (y : ℝ) (hlow : 1 / 32 ≤ y) :
-    (2 * y - y ^ 2) + y * (451 / 200000) + y * (1 / 2 ^ 25) + y * (1 / 2 ^ 50) + 1 / 2 ^ 131 +
+theorem large_closing_real_high (y : ℝ) (hlow : 1 / 128 ≤ y) :
+    (2 * y - y ^ 2) + y * (247 / 100000) + y * (1 / 2 ^ 25) + y * (1 / 2 ^ 50) + 1 / 2 ^ 131 +
       (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
   have hn : 0 ≤ y := le_trans (by norm_num) hlow
-  have hsq : y * (1 / 32) ≤ y ^ 2 := by nlinarith [mul_le_mul_of_nonneg_left hlow hn]
+  have hsq : y * (1 / 128) ≤ y ^ 2 := by nlinarith [mul_le_mul_of_nonneg_left hlow hn]
   have habs : (1 : ℝ) / 2 ^ 131 ≤ y / 2 ^ 109 := by
     have h := div_le_div_of_nonneg_right hlow (show (0:ℝ) ≤ 2 ^ 109 by positivity)
     norm_num at h ⊢
