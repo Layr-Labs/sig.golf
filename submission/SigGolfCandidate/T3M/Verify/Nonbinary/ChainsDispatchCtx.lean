@@ -594,7 +594,7 @@ theorem genDisp_value (v : Digest) :
 theorem disp53_step (c : NCtx) (hds : c.DigitsOk) {b : MachineState} {v : Digest}
     (he : Encoded v b) (hf : c.Fit v) (h24 : b.getReg .x24=c.s8w 53)
     (acc : List Digest) (s : MachineState) (hs : c.EndInv b 52 acc s) :
-    ∃t,Steps vimage s 6 6 t ∧ c.ChainIn (set24 b (c.s8v 17)) 53 acc t := by
+    ∃t,Steps vimage s 5 5 t ∧ c.ChainIn (set24 b (c.s8v 17)) 53 acc t := by
   obtain ⟨⟨hR,hF,hS⟩,hlen,hpc⟩ := hs
   obtain ⟨-,-,-,hrun⟩ := c.r8Blk_facts hds
   obtain ⟨hrun2,-⟩ := c.r8Suf_facts hds
@@ -617,31 +617,31 @@ theorem disp53_step (c : NCtx) (hds : c.DigitsOk) {b : MachineState} {v : Digest
   rw [topMax_hi 53 (by decide +kernel)] at hy
   have hfin := finW_lt (c.dig 53) (by omega)
   have hsl : r8SlotW (c.dig 53)<253807 := by unfold r8SlotW; omega
-  have hst2 := piece_steps45 hrun2 hsl (r1.toState s) hpc1 (by simp [jR])
-  set r2 := jR (c.dig 53) (sufW (c.dig 53)) with hr2
+  have hst2 := piece_steps45 hrun2 hsl (r1.toState s) hpc1 (by simp [s8R])
+  set r2 := s8R (c.dig 53) (r8SlotW (c.dig 53)) with hr2
   have hfr1 : Frame s (r1.toState s) (fun _ => False) := fun A _ _ => by
     rw [Result.toState_getMem]; simp [hr1,genDispR,memEval_nil]
   have hfr2 : Frame (r1.toState s) (r2.toState (r1.toState s)) (fun _ => False) := fun A _ _ => by
-    rw [Result.toState_getMem]; simp [hr2,jR,memEval_nil]
+    rw [Result.toState_getMem]; simp [hr2,s8R,memEval_nil]
   have hreg1 : ∀ x, x ≠ .x14 → (r1.toState s).getReg x=s.getReg x := by
     intro x hx
     rw [Result.toState_getReg]; simp only [hr1,genDispR]
     rw [RegFile.get_set_ne _ _ hx,RegFile.init_get_eval]
   have h24s : (r1.toState s).getReg .x24=c.s8w 53 :=
     (hreg1 .x24 (by decide +kernel)).trans ((hR .x24 (by decide +kernel)).trans h24)
-  refine ⟨r2.toState (r1.toState s),(hst1.trans hst2).of_eq (by simp [hr1,genDispR,hr2,jR]) (by simp [hr1,genDispR,hr2,jR]),
+  refine ⟨r2.toState (r1.toState s),(hst1.trans hst2).of_eq (by simp [hr1,genDispR,hr2,s8R]) (by simp [hr1,genDispR,hr2,s8R]),
     ⟨⟨fun x hxc => ?_,fun A hA hn => ?_,fun j hj => ?_⟩,hlen,?_⟩⟩
   · rw [Result.toState_getReg]
     by_cases hx : x=.x24
     · subst x
-      simp only [hr2,jR]
+      simp only [hr2,s8R]
       rw [RegFile.get_set_self _ _ (by decide +kernel),addC_eval,set24_24]
       simp only [E.eval,h24s,s8v_eq]
       have := c.s8w_add 53 1
       simp only [List.range'_succ, List.range'_zero, List.map_cons, List.map_nil, List.sum_cons,
         List.sum_nil, Nat.add_zero] at this
       exact this
-    · simp only [hr2,jR]
+    · simp only [hr2,s8R]
       have h14 : x ≠ .x14 := by rintro rfl; exact hxc (by decide +kernel)
       rw [RegFile.get_set_ne _ _ hx,RegFile.init_get_eval,set24_regs _ _ _ hx,hreg1 x h14]
       exact hR x hxc
@@ -650,6 +650,6 @@ theorem disp53_step (c : NCtx) (hds : c.DigitsOk) {b : MachineState} {v : Digest
   · exact ((hS j hj).frame hfr1 (by have := slot_props j (by omega);omega) (by simp) (by simp)).frame hfr2
       (by have := slot_props j (by omega);omega) (by simp) (by simp)
   · rw [Result.toState_pc]
-    simp [hr2,jR,startPc,r8Start,E.eval]
+    simp [hr2,s8R,startPc,r8Start,sufW,E.eval]
 end SigGolfCandidate.T3M.Nonbinary.NCtx
 end
