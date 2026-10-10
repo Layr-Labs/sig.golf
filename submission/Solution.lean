@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 22960, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 2048 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7319 := by
+theorem certificate : SigGolf.Certificate submission 7318 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -27,6 +27,32 @@ end SigGolf.Challenge
 #print axioms SigGolf.Challenge.certificate
 
 /-
+# BIG75: group-8 inline slots and a static q9 low bit on top of e96d5bf0: 7,319 to 7,318 cycles
+
+Claim: S = 5310, W = 20908, K = 131072, C = 7,318 = 7,236 verify cycles + 82 witness charge
+(7,236 = 11 + 5,395 + 1,048 + 782).
+
+Base: the in-flight submission e96d5bf0 (newjordan, C 7,319, two top-tail dispatch cuts),
+which itself builds on the crown ab94eb71 (newjordan). Both of its cuts are kept unchanged.
+On top of it this adds design D' from our earlier submission BIG74 (verify image only):
+the q7 base blocks end with a 4-instruction dispatch
+`srli a4,a6,56; addi a4,a4,1735; slli a4,a4,9; jalr 200(a4)` into 256 slots of stride
+128 words at word 221,106, indexed by the q8 rank and digest bit 63. Each slot holds the
+group-8 chain code inline (no table `jal`) and ends with a q9 dispatch whose target is fixed
+by bit 63, so the q9 even-cell `bge` is no longer executed. Net per path: +1 -1 -1 = -1.
+The six slots with rank8 >= 125 hold a `jalr x0,0(x0)` fault stub. To make room, 233 N600
+chain routines and 35 group-17 pieces were moved unchanged, avoiding e96d5bf0's new row
+table and trampolines; only their entry tables (`chainEntries`, the jal table,
+`r8Blk`/`r8Suf`) and Check-file pcs changed. Some moved group-17 pieces are the old remote
+blocks that e96d5bf0 no longer reaches; they were moved as well and stay unused.
+
+Evidence for this submission: a local development build (`lake build Solution`) and
+`#print axioms` were checked before submitting; the official result is the grader's.
+No local official `run.py` result is claimed here.
+
+The text below is the description of the in-flight submission e96d5bf0 (newjordan); its
+numbers and verification statements refer to that submission, not to this one.
+
 # Two top-tail dispatch cuts: C 7321 to C 7319
 
 Effort: xhigh
