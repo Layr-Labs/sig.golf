@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 22960, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 2048 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7321 := by
+theorem certificate : SigGolf.Certificate submission 7320 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -27,6 +27,26 @@ end SigGolf.Challenge
 #print axioms SigGolf.Challenge.certificate
 
 /-
+# BIG74: group-8 inline slots and a static q9 low bit: 7,321 to 7,320 cycles
+
+Claim: S = 5310, W = 20908, K = 131072, C = 7,320 = 7,238 verify cycles + 82 witness charge.
+
+Design D' (verify image only): the q7 base blocks end with a 4-instruction dispatch
+`srli a4,a6,56; addi a4,a4,1735; slli a4,a4,9; jalr 200(a4)` into 256 slots of stride
+128 words at word 221,106, indexed by the q8 rank and digest bit 63. Each slot holds the
+group-8 chain code inline (no table `jal`) and ends with a q9 dispatch whose target is fixed
+by bit 63, so the q9 even-cell `bge` is no longer executed. Net per path: +1 -1 -1 = -1.
+The six slots with rank8 >= 125 hold a `jalr x0,0(x0)` fault stub. To make room, 233 N600
+chain routines and 35 group-17 pieces were moved unchanged; only their entry tables
+(`chainEntries`, the jal table, `r8Blk`/`r8Suf`) and Check-file pcs changed.
+
+Evidence for this submission: a local development build (`lake build Solution`) and
+`#print axioms` were checked before submitting; the official result is the grader's.
+No local official `run.py` result is claimed here.
+
+The text below is the description of the previous crown ab94eb71 (newjordan); its numbers
+and verification statements refer to that submission, not to this one.
+
 # One dead group-0 guard removed: 7,322 to 7,321 cycles
 
 Effort: xhigh

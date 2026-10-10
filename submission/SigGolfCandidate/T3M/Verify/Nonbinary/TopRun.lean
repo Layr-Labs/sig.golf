@@ -35,7 +35,8 @@ theorem guard_ok (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
   rw [if_pos rfl] at hchk
   have hrun := rOK_eq hchk
   have hp : entW 0 (c.kOf 0)<253807 := by
-    have := (c.kOf_bounds hds 0 (by decide +kernel)).2 (by decide +kernel)
+    have := c.kOf_bounds hds 0 (by decide +kernel)
+    unfold kN mx at this; simp at this
     unfold entW cellW entOff; simp; omega
   have hst := piece_steps45 hrun hp s hpc (by simp [guardR])
   set r := guardR (c.kOf 0) with hr
@@ -306,7 +307,7 @@ theorem top_bad_group (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineSta
     (fun acc t ht => by
       rw [hK acc]
       have hb' : 125 ≤ Search.topRank v (j-1+1) := by rw [show j-1+1=j by omega]; exact hbad
-      obtain ⟨k,z,stz,hk5,fz⟩ := (c.end_dispatch_raw hc hds (set24_encoded _ he) (j-1) (by omega) acc t ht).2 hb'
+      obtain ⟨k,z,stz,hk5,fz⟩ := (c.end_dispatch_raw hc hds (set24_encoded _ he) hf.2 (j-1) (by omega) acc t ht).2 hb'
       have R := goodQ_fault (Q := False) (A := 0) fz
       refine (Verify.GoodQ.steps stz R).mono ?_ ?_ ?_
       · omega

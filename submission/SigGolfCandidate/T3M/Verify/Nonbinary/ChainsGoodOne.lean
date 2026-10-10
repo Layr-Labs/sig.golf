@@ -693,40 +693,42 @@ theorem partLen_le (q d : Nat) : partLen q d≤18 := by
 theorem kdig_le (q k j : Nat) : kdig q k j ≤ mx q := by
   have := mx_bounds q
   unfold kdig; have := Nat.mod_lt (k/(mx q+1)^j) (show 0< mx q+1 by omega); omega
-theorem inl_q (q : Nat) (h : inl q=true) : 13 ≤ q ∧ q ≤ 16 := by simp [inl] at h; omega
-theorem leadPc_le (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) (hk' : q<17 → k<125) :
-    leadPc q k ≤ 210425 := by
-  unfold leadPc leadOff entW cellW entOff mx at *
+theorem inl_q (q : Nat) (h : inl q=true) : q=8 ∨ (13 ≤ q ∧ q ≤ 16) := by simp [inl] at h; omega
+theorem kN_inl (q : Nat) (h : inl q=true) : kN q = if q=8 then 250 else 125 := by
+  have := inl_q q h
+  unfold kN mx; split_ifs <;> first | rfl | omega
+theorem leadPc_le (q k : Nat) (hq : q<18) (hk : k<kN q) :
+    leadPc q k ≤ 253747 := by
+  unfold leadPc leadOff entW cellW slot8W entOff kN mx at *
   split_ifs at * <;> omega
-theorem group_bounds (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) (hk' : q<17 → k<125) :
+theorem group_bounds (q k : Nat) (hq : q<18) (hk : k<kN q) :
     gbase q k+2*mx q+2<253807 ∧ gX q k+4<253807 ∧ leadPc q k<253807 ∧
       (inl q=true → gbase q k+5 ≤ leadPc q k+8) := by
   have hm := mx_bounds q
   have h1 := partLen_le q (kdig q k 1)
   have h2 := partLen_le q (kdig q k 2)
   have hk0 := kdig_le q k 0
-  have hl := leadPc_le q k hq hk hk'
+  have hl := leadPc_le q k hq hk
   unfold gX gC gB
   cases hn : inl q
   · have hb := base_lt q (kdig q k 1) (kdig q k 2)
     simp only [gbase,hn,Bool.false_eq_true,if_false]
     refine ⟨by omega,by omega,by omega,fun h => absurd h (by simp)⟩
   · have hq' := inl_q q hn
-    have hl2 : leadPc q k ≤ 256*124+211+1 ∧ 89 ≤ leadPc q k := by
-      have := hk' (by omega)
-      unfold leadPc leadOff entW cellW entOff at *
+    have hm4 : mx q = 4 := by unfold mx; rw [if_pos (by omega)]
+    have hl2 : 89 ≤ leadPc q k := by
+      have hk2 := kN_inl q hn
+      rw [hk2] at hk
+      unfold leadPc leadOff entW cellW slot8W entOff at *
       split_ifs at * <;> omega
     simp only [gbase,hn,if_true]
     refine ⟨?_,?_,by omega,fun _ => ?_⟩ <;> split_ifs <;> omega
 namespace NCtx
 theorem kOf_bounds (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<18) :
-    c.kOf q<(mx q+1)^3 ∧ (q<17 → c.kOf q<125) := by
-  refine ⟨c.kOf_lt hds q hq,fun h => ?_⟩
-  have := c.kOf_lt hds q hq
-  unfold mx at this; rw [if_pos h] at this; norm_num at this; omega
+    c.kOf q<kN q := c.kOf_lt hds q hq
 theorem qX_lt (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54) : c.qX i+4<253807 := by
-  obtain ⟨h1,h2⟩ := c.kOf_bounds hds (i/3) (by omega)
-  exact (group_bounds _ _ (by omega) h1 h2).2.1
+  have h1 := c.kOf_bounds hds (i/3) (by omega)
+  exact (group_bounds _ _ (by omega) h1).2.1
 theorem r8_end_lt (c : NCtx) (hds : c.DigitsOk) (i : Nat) (h51 : 51 ≤ i) (hi : i<54) :
     c.r8Start i+partLen 17 (c.dig i)+5<253807 := by
   have hb := blkW_lt c.k17 (c.k17_lt hds)
@@ -740,8 +742,8 @@ theorem r8_end_lt (c : NCtx) (hds : c.DigitsOk) (i : Nat) (h51 : 51 ≤ i) (hi :
   rcases (show i=51 ∨ i=52 ∨ i=53 by omega) with rfl|rfl|rfl <;> simp <;> omega
 theorem startPc_lt (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54) : c.startPc i<253807 := by
   by_cases h51 : i<51
-  · obtain ⟨h1,h2⟩ := c.kOf_bounds hds (i/3) (by omega)
-    obtain ⟨b1,b2,b3,-⟩ := group_bounds _ _ (by omega) h1 h2
+  · have h1 := c.kOf_bounds hds (i/3) (by omega)
+    obtain ⟨b1,b2,b3,-⟩ := group_bounds _ _ (by omega) h1
     unfold gX gC at b2
     unfold startPc qB qC gC
     rw [if_pos h51]
@@ -762,8 +764,8 @@ theorem rungPc_lt (c : NCtx) (hds : c.DigitsOk) (i m : Nat) (hi : i<54) (hm : m�
     unfold partLen mx at he
     simp only [show ¬ (17:Nat)<17 by decide, if_false] at he
     split_ifs at he ⊢ <;> omega
-  obtain ⟨h1,h2⟩ := c.kOf_bounds hds (i/3) (by omega)
-  obtain ⟨b1,b2,b3,-⟩ := group_bounds _ _ (by omega) h1 h2
+  have h1 := c.kOf_bounds hds (i/3) (by omega)
+  obtain ⟨b1,b2,b3,-⟩ := group_bounds _ _ (by omega) h1
   obtain ⟨-,k2,k3⟩ := c.kdig_kOf hds (i/3) (by omega)
   have hmx := mx_bounds (i/3)
   have hl := last_bounds i
@@ -817,7 +819,6 @@ theorem lead_copy_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54) (h0 : 
   have e0 : c.dig (3*(i/3))=c.dig i := by rw [show 3*(i/3)=i by omega]
   have hm := mx_bounds (i/3)
   have hl := leadPc_le (i/3) (c.kOf (i/3)) (by omega) (c.kOf_lt hds _ (by omega))
-    (fun h => (c.kOf_bounds hds _ (by omega)).2 h)
   have hs : c.startPc i=leadPc (i/3) (c.kOf (i/3)) := by simp [startPc,h0,h51]
   have he : c.endPc i=gB (i/3) (c.kOf (i/3)) := by simp [endPc,qB,h0,h51]
   have hdm : kdig (i/3) (c.kOf (i/3)) 0=mx (i/3) := by rw [k1,e0]; exact hd
@@ -825,7 +826,7 @@ theorem lead_copy_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54) (h0 : 
     simp [gbase,hn,hdm]
   have hlo : 89 ≤ leadPc (i/3) (c.kOf (i/3)) := by
     have := inl_q _ hn
-    unfold leadPc leadOff entW cellW entOff; split_ifs <;> omega
+    unfold leadPc leadOff entW cellW slot8W entOff; split_ifs <;> omega
   rw [hs,he]
   unfold gB
   rw [hg]
