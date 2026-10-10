@@ -147,7 +147,7 @@ theorem stub_at (k : Nat) (hk : k<125) : vrun (guardW k) 1=some rejJ := by
   simp only [rejCheck] at h
   exact rOK_eq (List.all_eq_true.mp h k (List.mem_range.mpr hk))
 theorem s8Run_at (q k : Nat) (hq : q<17) (hk : k<(mx q+1)^3) :
-    (if q=0 then rOK (vrun (entW 0 k) 3) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k)))=true := by
+    (if q=0 then rOK (vrun (entW 0 k) 1) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k)))=true := by
   have h := s8Check_at q k hq hk
   simp only [s8Check,Bool.and_eq_true] at h
   exact h.1

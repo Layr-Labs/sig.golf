@@ -18,7 +18,7 @@ theorem tail_field (v : Digest) : (v.extractLsb' 64 64 >>> 58) = BitVec.ofNat 64
   have hv := v.isLt
   simp only [BitVec.toNat_ushiftRight, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, BitVec.toNat_ofNat]
   omega
-def prefixTarget (v : Digest) : Word := BitVec.ofNat 64 (1024 * (v.toNat % 128) + 1056)
+def prefixTarget (v : Digest) : Word := BitVec.ofNat 64 (1024 * (v.toNat % 128) + 1060)
 theorem prefix_spec (s : MachineState) (v : Digest) (a d p : Nat) (ha : a ∈ aVals)
     (hpc : s.pc = pcOf p) (hcode : CodeAt Verify.image (pcOf p) (prefixWordsOf a))
     (h12 : s.getReg .x12 = BitVec.ofNat 64 d) (hd : d % 8 = 0 ∧ 0x1000 ≤ d ∧ d + 16 ≤ 0x7000)
@@ -100,7 +100,7 @@ theorem flip_low7 (v : Digest) : (T3.topFlip v).toNat % 128 = 127 - v.toNat % 12
   generalize v.toNat % 2 ^ 7 = y at hl ⊢
   interval_cases y <;> rfl
 theorem prefixTarget_flip (v : Digest) :
-    prefixTarget v = BitVec.ofNat 64 (1024 * (127 - (T3.topFlip v).toNat % 128) + 1056) := by
+    prefixTarget v = BitVec.ofNat 64 (1024 * (127 - (T3.topFlip v).toNat % 128) + 1060) := by
   unfold prefixTarget
   rw [flip_low7]
   congr 2

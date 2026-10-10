@@ -118,9 +118,9 @@ def pcC (q dB dC : Nat) : Nat := pcB q dB dC+partLen q dB
 def pcX (q dB dC : Nat) : Nat := pcC q dB dC+partLen q dC
 def entOff (q : Nat) : Nat := if q=0 then 8 else if q≤9 then 9+6*q else if q≤13 then 10+6*q else if q=14 then 129 else if q=15 then 170 else 211
 def cellW (q k : Nat) : Nat := if q<17 then 256*(124-k)+entOff q else 256*(k+1)
-def entW (q k : Nat) : Nat := cellW q k + (if q=9 ∧ k%2=0 then 1 else 0)
+def entW (q k : Nat) : Nat := cellW q k + (if q=0 ∨ (q=9 ∧ k%2=0) then 1 else 0)
 def inl (q : Nat) : Bool := decide (13 ≤ q ∧ q ≤ 16)
-def leadOff (q : Nat) : Nat := if q=0 then 2 else 1
+def leadOff (q : Nat) : Nat := 1
 def leadPc (q k : Nat) : Nat := entW q k+leadOff q
 def kdig (q k j : Nat) : Nat := k/(mx q+1)^j%(mx q+1)
 def gbase (q k : Nat) : Nat :=
@@ -150,7 +150,7 @@ def s8R (n p : Nat) : Result :=
 def guardW (k : Nat) : Nat := 256*(124-k)+255
 def guardR (k : Nat) : Result :=
   ⟨⟨RegFile.init.set .x24 (.c (BitVec.ofNat 64 (kss 0 k)-144#64)),[],[]⟩,
-    .ite .geu (.reg .x29) (.reg .x11) (.c (pcOf (guardW k))) (.c (pcOf (cellW 0 k+2))),.branch,2,2⟩
+    .c (pcOf (cellW 0 k+2)),.fuel,1,1⟩
 def rejJ : Result := ⟨SymState.init,.c (pcOf 129638),.jump,1,1⟩
 def bge9R (p : Nat) : Result :=
   ⟨SymState.init,.ite .ge (.reg .x16) (.c 0) (.c (BitVec.ofNat 64 (0x1000+4*p-1024))) (.c (pcOf (p+1))),.branch,1,1⟩
@@ -195,7 +195,7 @@ def entCheck (q k : Nat) : Bool :=
     (if dA+1=mx q then headJDTerm .x8 (off (3*q)) (gbase q k+2*dA+1) (3*q) dA
      else headJD .x8 (off (3*q)) (gbase q k+2*dA+1) (3*q) dA)
 def s8Check (q k : Nat) : Bool :=
-  (if q=0 then rOK (vrun (entW 0 k) 3) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k))) &&
+  (if q=0 then rOK (vrun (entW 0 k) 1) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k))) &&
   (if q=9 ∧ k%2=0 then rOK (vrun (cellW 9 k) 1) (bge9R (cellW 9 k)) else true)
 def dispatchOK (q dB dC : Nat) : Bool :=
   if q<17 then rOK (vrun (pcX q dB dC) 5) (if q=8 then dispatch9R else if q<16 then dispatchR (q+1) else tailDispatchR)

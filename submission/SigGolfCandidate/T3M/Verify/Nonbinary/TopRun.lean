@@ -29,7 +29,7 @@ theorem guard_cond (v : Digest) :
 theorem guard_ok (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     (hk : ∀p∈c.known,s0.getReg p.1=p.2) {v : Digest} (he : Encoded v s0)
     (acc : List Digest) (s : MachineState) (hs : c.GroupIn s0 0 acc s) :
-    ∃t,Steps vimage s 2 2 t ∧ c.ChainIn (set24 s0 (c.s8v 0)) 0 acc t := by
+    ∃t,Steps vimage s 1 1 t ∧ c.ChainIn (set24 s0 (c.s8v 0)) 0 acc t := by
   obtain ⟨⟨hR,hF,hS⟩,hlen,hpc⟩ := hs
   have hchk := s8Run_at 0 (c.kOf 0) (by decide +kernel) (c.kOf_lt hds 0 (by decide +kernel))
   rw [if_pos rfl] at hchk
@@ -62,7 +62,7 @@ theorem guard_ok (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
   · rw [set24_mem]; exact (hfr A hA (by simp)).trans (hF A hA hn)
   · exact (hS j hj).frame hfr (by have := slot_props j (by omega);omega) (by simp) (by simp)
   · rw [Result.toState_pc]
-    simp only [hr,guardR,E.eval,h29,h11,hcond]
+    simp only [hr,guardR,E.eval]
     unfold startPc leadPc leadOff entW
     simp
 theorem goodQ_fault {s : MachineState} {Q : Prop} {A : Nat} (hf : fetch vimage s=none) :
@@ -137,7 +137,7 @@ theorem groups_zero (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
     (hK : ∀ acc t,c.EndInv (set24 s0 (c.s8v (n-1))) (3*(n-1)+2) acc t → Verify.GoodQ t N C Q A (K acc))
     (s : MachineState) (hs : c.GroupIn s0 0 [] s) :
-    Verify.GoodQ s (N+126*n) (C+c.chainsCost 0 (3*n)+1+ov 0 n) Q (A+c.chainsCost 0 (3*n)+1+ov 0 n)
+    Verify.GoodQ s (N+126*n) (C+c.chainsCost 0 (3*n)+ov 0 n) Q (A+c.chainsCost 0 (3*n)+ov 0 n)
       (Verify.ccM ((List.range' 0 (3*n)).foldlM c.chainF []) K) := by
   obtain ⟨t,hst,hin⟩ := c.guard_ok hc hds hk he [] s hs
   have hkB := set24_known c (c.s8v 0) hk
@@ -255,7 +255,7 @@ theorem top_full (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
     (hK : ∀ acc t,c.TopOut s0 acc t → Verify.GoodQ t N C Q A (K acc))
     (s : MachineState) (hs : c.GroupIn s0 0 [] s) :
-    Verify.GoodQ s (N+2274) (C+c.chainsCost 0 54+80) Q (A+c.chainsCost 0 54+80) (Verify.ccM c.topP K) := by
+    Verify.GoodQ s (N+2274) (C+c.chainsCost 0 54+79) Q (A+c.chainsCost 0 54+79) (Verify.ccM c.topP K) := by
   unfold topP
   rw [show (54:Nat)=3*17+3 from rfl,← List.range'_append_1,List.foldlM_append,Verify.ccM_bind]
   have ec := c.chainsCost_add' 0 (3*17) 3
@@ -299,9 +299,9 @@ theorem top_bad_group (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineSta
     (hbad : 125 ≤ Search.topRank v j) (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs)
     (hK : ∀ acc, K acc=pure (false,0)) (Q : Prop) (A : Nat)
     (s : MachineState) (hs : c.GroupIn s0 0 [] s) :
-    Verify.GoodQ s (126*j+6) (c.chainsCost 0 (3*j)+1+ov 0 j+5) Q A
+    Verify.GoodQ s (126*j+6) (c.chainsCost 0 (3*j)+ov 0 j+5) Q A
       (Verify.ccM ((List.range' 0 (3*j)).foldlM c.chainF []) K) := by
-  refine goodQ_vacuous (A := 0+c.chainsCost 0 (3*j)+1+ov 0 j) ?_ Q A
+  refine goodQ_vacuous (A := 0+c.chainsCost 0 (3*j)+ov 0 j) ?_ Q A
   have H := c.groups_zero hc hds hk h0 he hf j (by omega) hj1 hval K 6 5 0 False
     (fun acc t ht => by
       rw [hK acc]

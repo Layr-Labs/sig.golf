@@ -93,8 +93,11 @@ theorem g9_cell (u : Nat) (hu : u ≤ 62) : BitVec.ofNat 64 (2048*(63-u)+2300)=p
   unfold pcOf cellW entOff; norm_num; congr 1; omega
 theorem g9_fault : (BitVec.ofNat 64 (2048*(63-63)+2300)).toNat<0x1000 := by decide +kernel
 theorem prologue_value (W : Word) :
-    (((W <<< (BitVec.ofNat 64 10).toNat) &&& 130048#64)+BitVec.ofNat 64 1056) &&& ~~~1#64 =
-      BitVec.ofNat 64 (1024*(W.toNat%128)+1056) := by
-  have h := dispatch_value W 0 0 (by decide +kernel) (by decide +kernel)
-  simpa [shiftWord10, entOff, Nat.mod_mod_of_dvd _ (show 128∣2^64 by decide +kernel)] using h
+    (((W <<< (BitVec.ofNat 64 10).toNat) &&& 130048#64)+BitVec.ofNat 64 1060) &&& ~~~1#64 =
+      BitVec.ofNat 64 (1024*(W.toNat%128)+1060) := by
+  have hm := word_mask10 W 0 (by decide +kernel)
+  simp only [shiftWord10, show (0 : Nat) < 10 from by omega, if_true,
+    Nat.sub_zero, Nat.pow_zero, Nat.div_one] at hm
+  change ((W <<< 10 &&& 130048#64) + 1060#64) &&& ~~~1#64 = _
+  rw [hm, ofNat_add_ofNat, even_andNot1' _ (by omega)]
 end SigGolfCandidate.T3M.Nonbinary
