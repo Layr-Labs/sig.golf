@@ -245,3 +245,234 @@ theorem family_side_channel_am (hpt : Function.Injective pt) (hsmall : ∀ c, pt
 
 end Family
 end ClaudeWCT.Arith.SideChannel
+
+/-!
+# Adjacent-leaf sharing research (not wired into the submitted scheme)
+
+Two B4 leaves reveal at most five step-zero seeds each. Assign their 86
+chains distinct points 1..86 and use a common 13-coefficient family. The
+union of disclosures has at most ten elements, so the existing 3-wise
+posterior and equality-test bounds apply to the JOINT family, not merely
+separately to each leaf. This does not prove a new full security game:
+its table/router and machine refinements still require implementation.
+-/
+namespace ClaudeWCT.Arith.SideChannel.AdjacentLeafResearch
+open SigGolfCandidate.T3 (Digest)
+
+abbrev JointChain := Fin 2 × Fin 43
+
+def jointPoint (c : JointChain) : Nat := 43 * c.1.val + c.2.val + 1
+
+theorem jointPoint_small (c : JointChain) : jointPoint c < 1024 := by
+  have h0 := c.1.isLt
+  have h1 := c.2.isLt
+  unfold jointPoint
+  omega
+
+theorem jointPoint_injective : Function.Injective jointPoint := by
+  intro a b h
+  have ha := a.2.isLt
+  have hb := b.2.isLt
+  have h0 : a.1.val = b.1.val := by unfold jointPoint at h; omega
+  have h1 : a.2.val = b.2.val := by unfold jointPoint at h; omega
+  exact Prod.ext (Fin.ext h0) (Fin.ext h1)
+
+theorem joint_disclosure_bound (R0 R1 : Finset JointChain)
+    (h0 : R0.card ≤ 5) (h1 : R1.card ≤ 5) :
+    (R0 ∪ R1).card + 3 ≤ 13 := by
+  have := Finset.card_union_le R0 R1
+  omega
+
+theorem joint_realLaw_kwise (R0 R1 : Finset JointChain)
+    (h0 : R0.card ≤ 5) (h1 : R1.card ≤ 5) (r : JointChain → Digest) :
+    KWise (realLaw 13 jointPoint (R0 ∪ R1) r) 3 :=
+  realLaw_kwise jointPoint_injective jointPoint_small (joint_disclosure_bound R0 R1 h0 h1)
+
+theorem joint_hybLaw_kwise (R0 R1 : Finset JointChain)
+    (h0 : R0.card ≤ 5) (h1 : R1.card ≤ 5) (r : JointChain → Digest)
+    (a : Free (R0 ∪ R1)) :
+    KWise (hybLaw 13 jointPoint (R0 ∪ R1) r a) 3 :=
+  hybLaw_kwise jointPoint_injective jointPoint_small a (joint_disclosure_bound R0 R1 h0 h1)
+
+theorem joint_side_channel (R0 R1 : Finset JointChain)
+    (h0 : R0.card ≤ 5) (h1 : R1.card ≤ 5) (r : JointChain → Digest)
+    (a : Free (R0 ∪ R1)) {α : Type} (T : Tree (Free (R0 ∪ R1)) Digest α) (A : α → Prop) :
+    mass (realLaw 13 jointPoint (R0 ∪ R1) r) (fun y => A (T.run y)) ≤
+      mass (hybLaw 13 jointPoint (R0 ∪ R1) r a) (fun y => A (T.run y)) +
+      2 * ((Fintype.card Digest : ℝ)⁻¹) ^ 3 * ((2 * T.depth).choose 3 : ℝ) :=
+  family_side_channel jointPoint_injective jointPoint_small a (joint_disclosure_bound R0 R1 h0 h1) T A
+
+/-- 128,64,64 leaves: paired 14-coefficient families save 128 private hashes. -/
+theorem fourteen_coefficient_pair_savings :
+    (128 + 64 + 64) * 4 - ((128 + 64 + 64) / 2) * 7 = 128 := by decide
+
+/-- With 13 coefficients, packing across an even number of families uses
+832 private pairs rather than 1024. Padding each family to 14 loses 64. -/
+theorem thirteen_coefficient_packed_savings :
+    (128 + 64 + 64) * 4 - ((128 + 64 + 64) / 2) * 13 / 2 = 192 := by decide
+
+theorem savings_exceed_floor_ten_threshold : 122 ≤ 128 ∧ 122 ≤ 192 := by decide
+
+#print axioms joint_side_channel
+#print axioms thirteen_coefficient_packed_savings
+
+/-- General grouped-family candidate: at most five disclosures per leaf. -/
+abbrev GroupChain (g : Nat) := Fin g × Fin 43
+
+def groupPoint {g : Nat} (c : GroupChain g) : Nat := 43 * c.1.val + c.2.val + 1
+
+theorem groupPoint_injective (g : Nat) : Function.Injective (@groupPoint g) := by
+  intro a b h
+  have ha := a.2.isLt
+  have hb := b.2.isLt
+  have h0 : a.1.val = b.1.val := by unfold groupPoint at h; omega
+  have h1 : a.2.val = b.2.val := by unfold groupPoint at h; omega
+  exact Prod.ext (Fin.ext h0) (Fin.ext h1)
+
+theorem groupPoint_small {g : Nat} (hg : g ≤ 23) (c : GroupChain g) :
+    groupPoint c < 1024 := by
+  have h0 := c.1.isLt
+  have h1 := c.2.isLt
+  unfold groupPoint
+  omega
+
+/-- The actual representation also reserves 58 chain addresses per leaf;
+use stride 58 rather than 43 when replacing the full security router. -/
+def routedGroupPoint {g : Nat} (c : Fin g × Fin 58) : Nat :=
+  58 * c.1.val + c.2.val + 1
+
+theorem routedGroupPoint_small {g : Nat} (hg : g ≤ 17) (c : Fin g × Fin 58) :
+    routedGroupPoint c < 1024 := by
+  have h0 := c.1.isLt
+  have h1 := c.2.isLt
+  unfold routedGroupPoint
+  omega
+
+/-- Stride 43 is NOT injective on the full Fin-58 security address space. -/
+theorem stride43_router_collision :
+    groupPoint ((0 : Fin 2), (0 : Fin 43)) = 1 ∧
+    43 * (0 : Nat) + 43 + 1 = 43 * (1 : Nat) + 0 + 1 := by decide
+
+/-- The biUnion bounds joint disclosures, including every sibling's set. -/
+theorem group_disclosure_bound (g : Nat) (R : Fin g → Finset (GroupChain g))
+    (hR : ∀ i, (R i).card ≤ 5) :
+    (Finset.univ.biUnion R).card + 3 ≤ 5 * g + 3 := by
+  have hc := Finset.card_biUnion_le_card_mul (Finset.univ : Finset (Fin g)) R 5 (by
+    intro i _; exact hR i)
+  simp only [Finset.card_univ, Fintype.card_fin] at hc
+  omega
+
+theorem group_side_channel (g : Nat) (hg : g ≤ 23)
+    (R : Fin g → Finset (GroupChain g)) (hR : ∀ i, (R i).card ≤ 5)
+    (r : GroupChain g → Digest) (a : Free (Finset.univ.biUnion R))
+    {α : Type} (T : Tree (Free (Finset.univ.biUnion R)) Digest α) (A : α → Prop) :
+    mass (realLaw (5*g+3) groupPoint (Finset.univ.biUnion R) r) (fun y => A (T.run y)) ≤
+      mass (hybLaw (5*g+3) groupPoint (Finset.univ.biUnion R) r a) (fun y => A (T.run y)) +
+      2 * ((Fintype.card Digest : ℝ)⁻¹) ^ 3 * ((2 * T.depth).choose 3 : ℝ) :=
+  family_side_channel (groupPoint_injective g) (groupPoint_small hg) a
+    (group_disclosure_bound g R hR) T A
+
+/-- GROUP16 has 83 coefficients, 688 real points, saves 360 with packed
+halves or 352 with 84-coefficient padding; these are HASH counts only. -/
+theorem group16_savings :
+    5*16+3 = 83 ∧ 43*16 = 688 ∧
+    1024 - (256/16)*83/2 = 360 ∧ 1024 - (256/16)*42 = 352 := by decide
+
+/-- The inherited lower COEF/spill separation is 288 bytes. 13/14
+coefficients fit, but GROUP4 and GROUP16 do not. -/
+theorem inherited_buffer_boundary :
+    16*14 ≤ 288 ∧ ¬ (16*(5*4+3) ≤ 288) ∧ ¬ (16*83 ≤ 288) := by decide
+
+/-- The full canonical security coefficient index is Fin 58: GROUP16
+cannot be installed merely by changing famCount. -/
+theorem inherited_coefficient_index_boundary : 5*8+3 < 58 ∧ ¬ (5*16+3 < 58) := by decide
+
+/-- Per-target seed-test accounting must be regrouped too: at most 86
+rather than the present 54 chains count a single lower-group test. -/
+theorem regrouped_test_multiplicity : 54 < 2*43 ∧ 2*43 = 86 := by decide
+
+/-- Extra conservative Horner bound from replacing 8 coefficients by 13:
+159 cycles/coefficient * 5 * 43 chains * 256 leaves = 8,751,360.
+This is NOT an accepting-run profile or a termination certificate. -/
+theorem pair_horner_bound_delta :
+    (6 + (14*10+1) + 12) * (13-8) * 43 * 256 = 8751360 := by decide
+
+#print axioms group_side_channel
+#print axioms inherited_buffer_boundary
+
+/-!
+Implementation map / remaining obligations:
+* WCT9.Core.lowerCoefs, lowerCoefOrdinal, lowerFamilySeed, buildTreeP:
+  generate once per group and reuse; lowering privatePair counts alone is unsound.
+* WCT9.Correctness.lowerCoef/famOrdinal and Secc.CanonGraph.leafFamily:
+  map coefficients to grouped leaves. `famOrdinal_inj` is leaf-injective today.
+* LargeResidualRouter.wsplit/Seeds instance: group identity and injective
+  stride-58 address points, top/FTS unchanged. CanonGraph has Fin58 coefficients.
+* LargeCouplingQuery.DiscLower/FamOK and LargeCouplingTable.discLower_steps:
+  union the fixed reference-zero sets of all siblings.
+* WotsLeafCore/Defs and WotsLeafSum.sum_NL_le: grouping changes the frozen
+  leaf decomposition and the seed-test allocation factor 54 -> 86 for pairs.
+  Existing final security pricing MUST NOT be blindly transported.
+* Machine.Sign.PackedLeaf.coef_phase and LowerRuns.lower_seed: preserve the
+  shared coefficient buffer at sibling entry, return carry across 13-coefficient
+  groups, update ordinals/point mapping and full-cycle/termination bounds.
+* Producer floor 10 and all numerical/finite-machine acceptance proofs must
+  then be installed together; these declarations do none of that wiring.
+-/
+
+
+/-- Full reserved chain-address routing for an adjacent pair. The family
+is leaf/2 and the point encodes leaf%2 and all 58 possible chain addresses. -/
+def pairRoute (leaf : Fin 4096) (chain : Fin 58) : Nat × Nat :=
+  (leaf.val / 2, 58 * (leaf.val % 2) + chain.val + 1)
+
+theorem pairRoute_injective (leaf leaf' : Fin 4096) (chain chain' : Fin 58)
+    (h : pairRoute leaf chain = pairRoute leaf' chain') : leaf = leaf' ∧ chain = chain' := by
+  have hf := congrArg Prod.fst h
+  have hp := congrArg Prod.snd h
+  have hc := chain.isLt
+  have hc' := chain'.isLt
+  have hm := Nat.mod_lt leaf.val (by decide : 0 < 2)
+  have hm' := Nat.mod_lt leaf'.val (by decide : 0 < 2)
+  simp only [pairRoute] at hf hp
+  constructor
+  · apply Fin.ext
+    omega
+  · apply Fin.ext
+    omega
+
+theorem pairRoute_point_small (leaf : Fin 4096) (chain : Fin 58) :
+    (pairRoute leaf chain).2 ≤ 116 ∧ (pairRoute leaf chain).2 < 1024 := by
+  have hc := chain.isLt
+  have hm := Nat.mod_lt leaf.val (by decide : 0 < 2)
+  simp only [pairRoute]
+  omega
+
+/-- Groups of 13 coefficients can use one continuous packed-secret stream.
+Each group uses 6 or 7 fresh pair queries depending on its parity, and a
+complete even-length stream costs 13 pairs per two groups. -/
+def coefficientOrdinal (group j : Nat) : Nat := 13*group+j
+
+theorem coefficientOrdinal_injective {group group' j j' : Nat}
+    (hj : j < 13) (hj' : j' < 13)
+    (h : coefficientOrdinal group j = coefficientOrdinal group' j') :
+    group = group' ∧ j = j' := by
+  unfold coefficientOrdinal at h
+  constructor <;> omega
+
+theorem paired_coefficient_hash_counts (group : Nat) :
+    ((List.range 13).map fun j => if coefficientOrdinal (2*group) j % 2 = 0 then 1 else 0).sum = 7 ∧
+    ((List.range 13).map fun j => if coefficientOrdinal (2*group+1) j % 2 = 0 then 1 else 0).sum = 6 := by
+  have he (j : Nat) : coefficientOrdinal (2*group) j % 2 = j % 2 := by
+    unfold coefficientOrdinal
+    omega
+  have ho (j : Nat) : coefficientOrdinal (2*group+1) j % 2 = (j+1) % 2 := by
+    unfold coefficientOrdinal
+    omega
+  simp only [he, ho]
+  decide
+
+#print axioms pairRoute_injective
+#print axioms paired_coefficient_hash_counts
+
+end ClaudeWCT.Arith.SideChannel.AdjacentLeafResearch

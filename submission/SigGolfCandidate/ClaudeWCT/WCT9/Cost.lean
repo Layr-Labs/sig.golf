@@ -495,3 +495,153 @@ theorem verify_compression_bound (secret : BitVec 256) (message : Message) (pk :
   rw [World.countBlocks, ← realize_count] at hr
   exact (bound_verify message pk w).count_support result (realize_support_subset secret _ hr) |>.2
 end ClaudeWCT.WCT9.Cost
+
+/-!
+# Executable source-level prototype of adjacent lower-leaf sharing
+
+This standalone prototype materializes 14 coefficients (7 private pairs)
+once per two leaves, then evaluates them at disjoint stride-58 points. It
+is not the sign image and is not installed in the candidate certificate.
+The compression bound below is for the actual OracleComp program, not a
+numerical relabeling of the current independent-leaf program.
+-/
+namespace ClaudeWCT.WCT9.Cost.AdjacentLeafResearch
+open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Cost
+
+/-- Padded pair family: avoids carry reuse between 13-coefficient groups. -/
+def pairCoefs (lay : Layer) (tree group : Nat) : M (List Digest) :=
+  (List.range 7).foldlM (fun cs j => do
+    let p ← privatePair 0 lay.val tree (7*group+j) 0
+    pure (cs ++ [p.1,p.2])) []
+
+theorem bound_pairCoefs (lay : Layer) (tree group : Nat) :
+    CBound (fun cs => cs.length = 14) 7 (pairCoefs lay tree group) := by
+  unfold pairCoefs
+  refine Bound.foldlM_range_le 7 _ (fun i (cs : List Digest) => cs.length = 2*i)
+    (fun _ => 1) [] rfl (fun j _ cs hcs => ?_) (fun cs hcs => hcs) (by norm_num)
+  refine (bound_privatePair 0 lay.val tree (7*group+j) 0).bind' (l := 0)
+    (fun p _ => .pure _ 0 (by simp only [List.length_append, List.length_cons, List.length_nil]; omega))
+    (by omega)
+
+/-- Both leaves use the same coefficients, but no same-seed aliases. -/
+def sharedLeaf (lay : Layer) (tree leaf : Nat) (digits : List Nat) (coefs : List Digest) :
+    M (Digest × List Digest) := do
+  let state ← (List.range (chainCount lay)).foldlM
+    (fun (state : List Digest × List Digest) i => do
+      let digit := digits.getD i 0
+      let seed := ClaudeWCT.Arith.familyEval coefs (58*(leaf%2)+i+1)
+      let value ← SigGolfCandidate.T3.chain lay tree leaf i 0 digit seed
+      let last ← SigGolfCandidate.T3.chain lay tree leaf i digit (maxDigit lay i-digit) value
+      pure (state.1 ++ [last], state.2 ++ [value])) ([],[])
+  let root ← SigGolfCandidate.T3.leafHash lay tree leaf state.1
+  pure (root,state.2)
+
+theorem bound_sharedLeaf (lay : Layer) (tree leaf : Nat) (digits : List Nat)
+    (hd : ValidDigits lay digits) (coefs : List Digest) :
+    CBound (fun result => result.2.length = chainCount lay)
+      (digitTotal lay+leafHashCost lay) (sharedLeaf lay tree leaf digits coefs) := by
+  unfold sharedLeaf
+  refine Bound.bind' (l := leafHashCost lay) (Bound.foldlM_range (chainCount lay) _
+    (fun i (state : List Digest × List Digest) => state.1.length = i ∧ state.2.length = i)
+    (fun i => maxDigit lay i) ([],[]) ⟨rfl,rfl⟩
+    (fun i hi state hstate => ?_)) (fun state hstate => ?_) ?_
+  · have hc := hd i hi
+    refine (bound_chain lay tree leaf i 0 (digits.getD i 0) _).bind'
+      (l := maxDigit lay i-digits.getD i 0) (fun value _ => ?_) (by omega)
+    refine (bound_chain lay tree leaf i (digits.getD i 0) (maxDigit lay i-digits.getD i 0) value).bind'
+      (l := 0) (fun last _ => ?_) (by omega)
+    exact .pure _ 0 ⟨by simp only [List.length_append,List.length_singleton]; omega,
+      by simp only [List.length_append,List.length_singleton]; omega⟩
+  · refine (bound_leafHash lay tree leaf state.1 hstate.1).bind' (l := 0)
+      (fun root _ => .pure _ 0 hstate.2) (by omega)
+  · unfold digitTotal
+    exact le_refl _
+
+/-- A real pair of leaf roots and their selected signature values. -/
+def sharedPair (lay : Layer) (tree group : Nat) (digits0 digits1 : List Nat) :
+    M ((Digest × List Digest) × (Digest × List Digest)) := do
+  let cs ← pairCoefs lay tree group
+  let p0 ← sharedLeaf lay tree (2*group) digits0 cs
+  let p1 ← sharedLeaf lay tree (2*group+1) digits1 cs
+  pure (p0,p1)
+
+theorem bound_sharedPair (lay : Layer) (hlay : lay ≠ 0) (tree group : Nat)
+    (digits0 digits1 : List Nat) (h0 : ValidDigits lay digits0) (h1 : ValidDigits lay digits1) :
+    CBound (fun result => result.1.2.length = 43 ∧ result.2.2.length = 43)
+      631 (sharedPair lay tree group digits0 digits1) := by
+  have hd : digitTotal lay = 301 := digitTotal_lower hlay
+  have hl : leafHashCost lay = 11 := by simp [leafHashCost,hlay]
+  have hc : chainCount lay = 43 := chainCount_lower hlay
+  unfold sharedPair
+  refine (bound_pairCoefs lay tree group).bind' (l := 624) (fun cs _ => ?_) (by omega)
+  refine (bound_sharedLeaf lay tree (2*group) digits0 h0 cs).bind' (l := 312)
+    (fun p0 hp0 => ?_) (by simp only [hd,hl]; omega)
+  refine (bound_sharedLeaf lay tree (2*group+1) digits1 h1 cs).bind' (l := 0)
+    (fun p1 hp1 => .pure _ 0 (by simpa only [hc] using And.intro hp0 hp1))
+    (by simp only [hd,hl]; omega)
+
+/-- Independent B4 leaf bound 316+316 versus actual sharedPair bound 631. -/
+theorem pair_saves_one_compression : 316+316-631 = 1 := by decide
+
+/-- Leaves+Merkle-node cost of the proposed three paired lower trees. -/
+theorem paired_tree_costs :
+    (128/2*631+(128-2)) = 40510 ∧
+    (64/2*631+(64-2)) = 20254 ∧
+    (128*316+(128-2)) + 2*(64*316+(64-2)) -
+      ((128/2*631+(128-2))+2*(64/2*631+(64-2))) = 128 := by decide
+
+#print axioms bound_sharedPair
+#print axioms paired_tree_costs
+
+/-- Complete source-level paired lower tree, including selected-leaf
+signature values and all Merkle levels. This still is not the sign image. -/
+def sharedTree (lay : Layer) (tree selected : Nat) (digits : List Nat) :
+    M (List (List Digest) × List Digest) := do
+  let state ← (List.range (2^height lay/2)).foldlM
+    (fun (state : List Digest × List Digest) group => do
+      let p ← sharedPair lay tree group
+        (if 2*group = selected then digits else [])
+        (if 2*group+1 = selected then digits else [])
+      pure (state.1 ++ [p.1.1,p.2.1],
+        if 2*group = selected then p.1.2 else if 2*group+1 = selected then p.2.2 else state.2)) ([],[])
+  let levels ← buildLevelsBelow 3 lay.val tree (height lay) state.1
+  pure (levels,state.2)
+
+def sharedTreeCost (lay : Layer) : Nat := (2^height lay/2)*631+(2^height lay-2)
+
+/-- Compression bound for the complete actual OracleComp tree prototype. -/
+theorem bound_sharedTree (lay : Layer) (hlay : lay ≠ 0) (tree selected : Nat) (digits : List Nat)
+    (hd : ValidDigits lay digits) :
+    CBound (fun result => LevelShape (height lay) (height lay-1) result.1)
+      (sharedTreeCost lay) (sharedTree lay tree selected digits) := by
+  have he : 2*(2^height lay/2) = 2^height lay := by
+    fin_cases lay <;> decide
+  unfold sharedTree sharedTreeCost
+  refine Bound.bind' (l := 2^height lay-2) (Bound.foldlM_range_le (2^height lay/2) _
+    (fun i (state : List Digest × List Digest) => state.1.length = 2*i)
+    (fun _ => 631) ([],[]) rfl (fun group _ state hs => ?_)
+    (fun state hs => hs) (by simp)) (fun state hs => ?_) le_rfl
+  · have hd0 : ValidDigits lay (if 2*group=selected then digits else []) := by
+      split <;> first | exact hd | exact validDigits_nil lay
+    have hd1 : ValidDigits lay (if 2*group+1=selected then digits else []) := by
+      split <;> first | exact hd | exact validDigits_nil lay
+    refine (bound_sharedPair lay hlay tree group _ _ hd0 hd1).bind' (l := 0)
+      (fun p _ => .pure _ 0 (by simp only [List.length_append,List.length_cons,List.length_nil]; omega))
+      (by omega)
+  · have hlen : state.1.length = 2^height lay := hs.trans he
+    refine (bound_buildLevelsBelow 3 lay.val tree (height lay) state.1 hlen
+      (by fin_cases lay <;> decide)).bind' (l := 0)
+      (fun levels hlevels => .pure (levels,state.2) 0 hlevels) (by omega)
+
+/-- Source compression saving versus the present per-leaf tree bounds. -/
+theorem sharedTree_savings :
+    treeCostP 1 - sharedTreeCost 1 = 64 ∧
+    treeCostP 2 - sharedTreeCost 2 = 32 ∧
+    treeCostP 3 - sharedTreeCost 3 = 32 := by
+  rw [treeCostP_lower_eq (by decide),treeCostP_lower_eq (by decide),treeCostP_lower_eq (by decide)]
+  decide
+
+#print axioms bound_sharedTree
+#print axioms sharedTree_savings
+
+end ClaudeWCT.WCT9.Cost.AdjacentLeafResearch

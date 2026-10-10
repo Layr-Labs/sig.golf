@@ -12,8 +12,6 @@ structure NCtx where
   S3 : Nat
   digits : Nat → Nat
   ret : Nat
-  /-- BIG74: bit 63 of the (flipped) top digest; selects the group-8 inline slot. -/
-  b63 : Nat
 namespace NCtx
 def blk (c : NCtx) (i : Nat) : Nat := c.S3 - 1664 + 64 * (53 - i)
 def dig (c : NCtx) (i : Nat) : Nat := c.digits i
@@ -33,7 +31,7 @@ def known (c : NCtx) : List (Reg × Word) :=
   [(.x5, 0), (.x11, 64), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
    (.x28, BitVec.ofNat 64 (c.prefix + 385)), (.x8, BitVec.ofNat 64 c.S3), (.x9, BitVec.ofNat 64 0xffbf10)]
 def kOf (c : NCtx) (q : Nat) : Nat :=
-  c.dig (3*q) + (mx q+1)*c.dig (3*q+1) + (mx q+1)^2*c.dig (3*q+2) + (if q=8 then 125*(c.b63%2) else 0)
+  c.dig (3*q) + (mx q+1)*c.dig (3*q+1) + (mx q+1)^2*c.dig (3*q+2)
 def qb (c : NCtx) (i : Nat) : Nat := gbase (i/3) (c.kOf (i/3))
 def qB (c : NCtx) (i : Nat) : Nat := gB (i/3) (c.kOf (i/3))
 def qC (c : NCtx) (i : Nat) : Nat := gC (i/3) (c.kOf (i/3))
@@ -196,40 +194,31 @@ theorem dig_group_le (c : NCtx) (hd : c.DigitsOk) (q k : Nat) (hq : q<18) (hk : 
   have h := hd (3*q+k) (by omega)
   simpa only [topMax,show (3*q+k)/3=q by omega] using h
 theorem kOf_lt (c : NCtx) (hd : c.DigitsOk) (q : Nat) (hq : q<18) :
-    c.kOf q < kN q := by
+    c.kOf q < (mx q+1)^3 := by
   have h0 := c.dig_group_le hd q 0 hq (by decide +kernel)
   have h1 := c.dig_group_le hd q 1 hq (by decide +kernel)
   have h2 := c.dig_group_le hd q 2 hq (by decide +kernel)
-  have hb := Nat.mod_lt c.b63 (show 0 < 2 by decide)
   simp only [Nat.add_zero] at h0
-  unfold kOf kN mx at *
+  unfold kOf mx at *
   split_ifs at * <;> omega
 theorem kOf_digits (c : NCtx) (hd : c.DigitsOk) (q : Nat) (hq : q<18) :
     c.kOf q%(mx q+1)=c.dig (3*q) ∧
     c.kOf q/(mx q+1)%(mx q+1)=c.dig (3*q+1) ∧
-    c.kOf q/(mx q+1)^2%(mx q+1)=c.dig (3*q+2) := by
+    c.kOf q/(mx q+1)^2=c.dig (3*q+2) := by
   have h0 := c.dig_group_le hd q 0 hq (by decide +kernel)
   have h1 := c.dig_group_le hd q 1 hq (by decide +kernel)
   have h2 := c.dig_group_le hd q 2 hq (by decide +kernel)
-  have hb := Nat.mod_lt c.b63 (show 0 < 2 by decide)
   simp only [Nat.add_zero] at h0
   unfold kOf mx at *
   split_ifs at * <;> exact ⟨by omega,by omega,by omega⟩
 theorem kdig_kOf (c : NCtx) (hd : c.DigitsOk) (q : Nat) (hq : q<18) :
     kdig q (c.kOf q) 0=c.dig (3*q) ∧ kdig q (c.kOf q) 1=c.dig (3*q+1) ∧ kdig q (c.kOf q) 2=c.dig (3*q+2) := by
   obtain ⟨k1,k2,k3⟩ := c.kOf_digits hd q hq
+  have h2 := c.dig_group_le hd q 2 hq (by decide +kernel)
   unfold kdig
   simp only [pow_zero,Nat.div_one,pow_one]
-  exact ⟨k1,k2,k3⟩
-/-- BIG74: the group-8 entry index is `rank8 + 125 b63` and `kOf 8 / 125 = b63`. -/
-theorem kOf8_div (c : NCtx) (hd : c.DigitsOk) : c.kOf 8/125=c.b63%2 ∧ c.kOf 8%125<125 := by
-  have h0 := c.dig_group_le hd 8 0 (by decide) (by decide +kernel)
-  have h1 := c.dig_group_le hd 8 1 (by decide) (by decide +kernel)
-  have h2 := c.dig_group_le hd 8 2 (by decide) (by decide +kernel)
-  have hb := Nat.mod_lt c.b63 (show 0 < 2 by decide)
-  simp only [Nat.add_zero] at h0
-  unfold kOf mx at *
-  split_ifs at * <;> exact ⟨by omega,by omega⟩
+  refine ⟨k1,k2,?_⟩
+  rw [k3]; exact Nat.mod_eq_of_lt (by omega)
 theorem rungPc_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i < 54) (hd : c.dig i < topMax i) :
     c.rungPc i (last i) + 3 = c.endPc i := by
   have hm := topMax_bounds i

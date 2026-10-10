@@ -438,3 +438,70 @@ theorem table_contact_le (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
   · intro ws' hws
     exact ⟨rfl, hws⟩
 end ClaudeWCT.W9.T3.Security.LargeCoupling
+
+/-! Adjacent-leaf sharing research: bound the ACTUAL reference-zero sets
+and the accumulated disclosures after any finite list of tagged steps.
+The live router still uses independent leaf families. -/
+namespace ClaudeWCT.W9.T3.Security.LargeCoupling.AdjacentLeafResearch
+open SigGolfCandidate.T3
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.T3.Security
+open ClaudeWCT.W9.T3.Security.LargeResidual
+open ClaudeWCT.W9.T3.Security.CanonGraph
+
+/-- The two real lower leaves of a prospective pair family. -/
+def pairLeaf (lay : Layer) (tree : Fin (2^31)) (group : Fin 2048) (side : Fin 2) : LowerLeaf :=
+  ⟨(lay, tree, ⟨2*group.val+side.val, by have := group.isLt; have := side.isLt; omega⟩), trivial⟩
+
+theorem lowerZeros_card_five (T : Answers) (lay : Layer) (hlay : lay ≠ 0)
+    (tree : Fin (2^31)) (group : Fin 2048) (side : Fin 2) :
+    (lowerZeros T (pairLeaf lay tree group side)).card ≤ 5 := by
+  have hc := lowerZeros_card T (pairLeaf lay tree group side)
+  have hn : ClaudeWCT.WCT9.famCount lay = 8 := by
+    simpa [ClaudeWCT.WCT9.lowerCoefCount] using ClaudeWCT.WCT9.famCount_lower hlay
+  change (lowerZeros T (pairLeaf lay tree group side)).card + 3 ≤
+    ClaudeWCT.WCT9.famCount lay at hc
+  rw [hn] at hc
+  omega
+
+noncomputable def pairLowerZeros (T : Answers) (lay : Layer) (tree : Fin (2^31)) (group : Fin 2048) :
+    Finset ChainGraph.Address :=
+  lowerZeros T (pairLeaf lay tree group 0) ∪ lowerZeros T (pairLeaf lay tree group 1)
+
+theorem pairLowerZeros_card (T : Answers) (lay : Layer) (hlay : lay ≠ 0)
+    (tree : Fin (2^31)) (group : Fin 2048) :
+    (pairLowerZeros T lay tree group).card + 3 ≤ 13 := by
+  have h0 := lowerZeros_card_five T lay hlay tree group 0
+  have h1 := lowerZeros_card_five T lay hlay tree group 1
+  have hu := Finset.card_union_le (lowerZeros T (pairLeaf lay tree group 0))
+    (lowerZeros T (pairLeaf lay tree group 1))
+  unfold pairLowerZeros
+  omega
+
+noncomputable def pairDiscLower (st : RouterState) (lay : Layer) (tree : Fin (2^31)) (group : Fin 2048) :
+    Finset ChainGraph.Address :=
+  DiscLower st (pairLeaf lay tree group 0) ∪ DiscLower st (pairLeaf lay tree group 1)
+
+/-- Arbitrarily many signing requests do not multiply the zero-cap: their
+accumulated disclosures stay in the fixed reference-zero sets. -/
+theorem pairDiscLower_steps_subset (U : Finset HashInput) (T : Answers) (nv : Message → Digest)
+    (published : SigGolfCandidate.T3.Cache) (steps : List TaggedStep)
+    (lay : Layer) (tree : Fin (2^31)) (group : Fin 2048) :
+    pairDiscLower (steps.foldl (routerStep U T nv published) RouterState.initial) lay tree group ⊆
+      pairLowerZeros T lay tree group := by
+  have h0 := discLower_steps U T nv published steps RouterState.initial (pairLeaf lay tree group 0)
+  have h1 := discLower_steps U T nv published steps RouterState.initial (pairLeaf lay tree group 1)
+  rw [discLower_initial, Finset.empty_union] at h0 h1
+  exact Finset.union_subset_union h0 h1
+
+theorem pairDiscLower_steps_card (U : Finset HashInput) (T : Answers) (nv : Message → Digest)
+    (published : SigGolfCandidate.T3.Cache) (steps : List TaggedStep)
+    (lay : Layer) (hlay : lay ≠ 0) (tree : Fin (2^31)) (group : Fin 2048) :
+    (pairDiscLower (steps.foldl (routerStep U T nv published) RouterState.initial) lay tree group).card + 3 ≤ 13 := by
+  have hs := Finset.card_le_card (pairDiscLower_steps_subset U T nv published steps lay tree group)
+  have hc := pairLowerZeros_card T lay hlay tree group
+  omega
+
+#print axioms pairLowerZeros_card
+#print axioms pairDiscLower_steps_card
+end ClaudeWCT.W9.T3.Security.LargeCoupling.AdjacentLeafResearch

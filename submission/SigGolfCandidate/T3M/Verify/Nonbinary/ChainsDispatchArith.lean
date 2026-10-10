@@ -66,9 +66,9 @@ theorem dispatch_value (W : Word) (b q : Nat) (hb : b<64) (hq : q<17) :
   have he := entOff_le q hq
   rw [word_mask10 W b hb,ofNat_add_ofNat,even_andNot1' _ (by omega)]
   congr 1; omega
-theorem cell_value (q k : Nat) (hq : q<17) (h8 : q≠8) (hk : k ≤ 124) :
+theorem cell_value (q k : Nat) (hq : q<17) (hk : k ≤ 124) :
     BitVec.ofNat 64 (1024*(127-k)+1024+4*entOff q)=pcOf (cellW q k) := by
-  unfold pcOf cellW; rw [if_neg h8, if_pos hq]; congr 1; omega
+  unfold pcOf cellW; rw [if_pos hq]; congr 1; omega
 theorem fault_value (q k : Nat) (hq : q<17) (hk : 125 ≤ k) (hk' : k<128) :
     (BitVec.ofNat 64 (1024*(127-k)+1024+4*entOff q)).toNat<0x1000 := by
   have he := entOff_le q hq
@@ -89,42 +89,6 @@ theorem g9_value (W : Word) :
       omega
     rw [this]; ring
   rw [hm, ofNat_add_ofNat, even_andNot1' _ (by omega)]
-/-- BIG74: `g9_value` with the jalr constant of a group-8 inline slot (2304 or 1276). -/
-theorem g9_valueC (W : Word) (C : Nat) (hC : C%2=0) :
-    (((W <<< (BitVec.ofNat 64 11).toNat) &&& 130048#64)+BitVec.ofNat 64 C) &&& ~~~1#64 =
-      BitVec.ofNat 64 (2048*(W.toNat%64)+C) := by
-  have hm : ((W <<< (BitVec.ofNat 64 11).toNat) &&& 130048#64) = BitVec.ofNat 64 (2048*(W.toNat%64)) := by
-    apply BitVec.eq_of_toNat_eq
-    rw [BitVec.toNat_and,show (130048#64).toNat=1024*(2^7-1) by rfl,land_mask10 _ _ (by decide +kernel)]
-    simp only [BitVec.toNat_shiftLeft, BitVec.toNat_ofNat, Nat.shiftLeft_eq]
-    have hw := W.isLt
-    rw [show (11 : Nat) % 2^64 = 11 by rfl]
-    rw [Nat.mod_eq_of_lt (show 2048*(W.toNat%64) < 2^64 by omega)]
-    have : W.toNat*2^11%2^64/1024%2^7 = 2*(W.toNat%64) := by
-      rw [show (2:Nat)^64 = 2^11*2^53 by norm_num, Nat.mul_comm, Nat.mul_mod_mul_left,
-        show (2:Nat)^11*(W.toNat%2^53) = 1024*(2*(W.toNat%2^53)) by ring, Nat.mul_div_cancel_left _ (by norm_num)]
-      omega
-    rw [this]; ring
-  rw [hm, ofNat_add_ofNat, even_andNot1' _ (by omega)]
-/-- BIG74: the q8 -> q9 targets: b63 = 0 lands after the `bge` of the even cell, b63 = 1 on the odd cell. -/
-theorem g9_even (u : Nat) (hu : u ≤ 62) : BitVec.ofNat 64 (2048*(63-u)+2304)=pcOf (cellW 9 (2*u)+1) := by
-  unfold pcOf cellW entOff; norm_num; congr 1; omega
-theorem g9_odd (u : Nat) (hu : u ≤ 61) : BitVec.ofNat 64 (2048*(63-u)+1276)=pcOf (cellW 9 (1+2*u)) := by
-  unfold pcOf cellW entOff; norm_num; congr 1; omega
-/-- BIG74: the q7 -> q8 dispatch `srli a4,a6,56; addi a4,a4,1735; slli a4,a4,9; jalr 200(a4)` on `a6 = ~X`. -/
-theorem disp8_value (X : Word) :
-    (((((~~~X) >>> ((BitVec.ofNat 64 56 : Word).toNat % 64))+BitVec.ofNat 64 1735) <<<
-      ((BitVec.ofNat 64 9 : Word).toNat % 64))+BitVec.ofNat 64 200) &&& ~~~1#64 =
-      BitVec.ofNat 64 (512*(255-X.toNat/2^56)+888520) := by
-  rw [show (BitVec.ofNat 64 56 : Word).toNat % 64 = 56 from rfl, show (BitVec.ofNat 64 9 : Word).toNat % 64 = 9 from rfl]
-  have hx := X.isLt
-  have h1 : (~~~X) >>> 56 = BitVec.ofNat 64 (255-X.toNat/2^56) := by
-    apply BitVec.eq_of_toNat_eq
-    rw [BitVec.toNat_ushiftRight, BitVec.toNat_not, Nat.shiftRight_eq_div_pow, BitVec.toNat_ofNat]
-    omega
-  rw [h1, ofNat_add_ofNat, ofNat_shl, ofNat_add_ofNat, even_andNot1' _ (by omega)]
-  congr 1
-  omega
 theorem g9_cell (u : Nat) (hu : u ≤ 62) : BitVec.ofNat 64 (2048*(63-u)+2300)=pcOf (cellW 9 (2*u)) := by
   unfold pcOf cellW entOff; norm_num; congr 1; omega
 theorem g9_fault : (BitVec.ofNat 64 (2048*(63-63)+2300)).toNat<0x1000 := by decide +kernel

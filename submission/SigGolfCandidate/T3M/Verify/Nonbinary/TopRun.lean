@@ -35,8 +35,7 @@ theorem guard_ok (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
   rw [if_pos rfl] at hchk
   have hrun := rOK_eq hchk
   have hp : entW 0 (c.kOf 0)<253807 := by
-    have := c.kOf_bounds hds 0 (by decide +kernel)
-    unfold kN mx at this; simp at this
+    have := (c.kOf_bounds hds 0 (by decide +kernel)).2 (by decide +kernel)
     unfold entW cellW entOff; simp; omega
   have hst := piece_steps45 hrun hp s hpc (by simp [guardR])
   set r := guardR (c.kOf 0) with hr
@@ -199,15 +198,15 @@ theorem end_return (c : NCtx) (hds : c.DigitsOk) {s0 b : MachineState}
   · rw [hpc]; simp [endPc, r8Start, finW]
   · rw [hR .x2 (by decide +kernel),set24_regs _ _ _ (by decide +kernel),tailInitial_regs _ _ _ (by decide +kernel),set24_regs _ _ _ (by decide +kernel),hb]
   · rw [hR .x24 (by decide +kernel),set24_24]
-/-- Group 17 (campaign T8D): slot `addi s8; j BLOCK`, chains 51 and 52, the general-field dispatch and slot,
-chain 53; 9 overhead cycles (2 + 5 + 2) beyond the chain routines. -/
+/-- Group 17 (campaign T8D): slot `addi s8`, falling through to BLOCK, chains 51 and 52, the general-field dispatch and slot,
+chain 53; 7 overhead cycles (1 + 4 + 2) beyond the chain routines. -/
 theorem tail_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     (hk : ∀p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0) {v : Digest} (he : Encoded v s0) (hf : c.Fit v)
     (h24 : s0.getReg .x24=c.s8v 16)
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
     (hK : ∀ ends t,c.EndInv (set24 s0 (c.s8v 17)) 53 ends t → Verify.GoodQ t N C Q A (K ends))
     (acc : List Digest) (s : MachineState) (hs : c.R8In s0 acc s) :
-    Verify.GoodQ s (N+129) (C+c.chainsCost 51 3+9) Q (A+c.chainsCost 51 3+9)
+    Verify.GoodQ s (N+129) (C+c.chainsCost 51 3+7) Q (A+c.chainsCost 51 3+7)
       (Verify.ccM ((List.range' 51 3).foldlM c.chainF acc) K) := by
   obtain ⟨u2,st2,hu2⟩ := c.slot17_step hds h24 acc s hs
   have hk1 := set24_known c (c.s8w 53) hk
@@ -228,14 +227,14 @@ theorem tail_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
   simp only [chainF,bind_assoc,pure_bind,Verify.ccM_bind]
   have H := c.chain_good hc hds hk1 h01 51 (by decide +kernel) acc
     (fun ends => Verify.ccM ((List.range' 52 2).foldlM c.chainF ends) K)
-    (N+87) (C+c.chainsCost 52 2+7) (A+c.chainsCost 52 2+7) Q
+    (N+87) (C+c.chainsCost 52 2+6) (A+c.chainsCost 52 2+6) Q
     (fun v1 t1 ht1 => by
       have hin52 := c.next_51 _ _ t1 ht1
       rw [List.range'_succ,List.foldlM_cons]
       simp only [chainF,bind_assoc,pure_bind,Verify.ccM_bind]
       have H2 := c.chain_good hc hds hk1 h01 52 (by decide +kernel) (acc++[v1])
         (fun ends => Verify.ccM ((List.range' 53 1).foldlM c.chainF ends) K)
-        (N+47) (C+c.chainsCost 53 1+7) (A+c.chainsCost 53 1+7) Q
+        (N+47) (C+c.chainsCost 53 1+6) (A+c.chainsCost 53 1+6) Q
         (fun v2 t2 ht2 => by
           obtain ⟨t3,st3,hin53⟩ := c.disp53_step hds he1 hf (set24_24 _ _) _ t2 ht2
           rw [set24_set24] at hin53
@@ -256,14 +255,14 @@ theorem top_full (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
     (hK : ∀ acc t,c.TopOut s0 acc t → Verify.GoodQ t N C Q A (K acc))
     (s : MachineState) (hs : c.GroupIn s0 0 [] s) :
-    Verify.GoodQ s (N+2274) (C+c.chainsCost 0 54+79) Q (A+c.chainsCost 0 54+79) (Verify.ccM c.topP K) := by
+    Verify.GoodQ s (N+2274) (C+c.chainsCost 0 54+77) Q (A+c.chainsCost 0 54+77) (Verify.ccM c.topP K) := by
   unfold topP
   rw [show (54:Nat)=3*17+3 from rfl,← List.range'_append_1,List.foldlM_append,Verify.ccM_bind]
   have ec := c.chainsCost_add' 0 (3*17) 3
   have hov : ov 0 17=67 := by decide +kernel
   have H := c.groups_zero hc hds hk h0 he hf 17 (le_refl _) (by decide +kernel) hval
     (fun ends => Verify.ccM ((List.range' (0+3*17) 3).foldlM c.chainF ends) K)
-    (N+132) (C+c.chainsCost 51 3+12) (A+c.chainsCost 51 3+12) Q
+    (N+132) (C+c.chainsCost 51 3+10) (A+c.chainsCost 51 3+10) Q
     (fun acc t ht => by
       obtain ⟨u,st,hu,hu15⟩ := c.end_tail hc hds (set24_encoded _ he) hf acc t (by simpa using ht)
       have h24 : (tailInitial (set24 s0 (c.s8v 16)) u).getReg .x24=c.s8v 16 := by
@@ -307,7 +306,7 @@ theorem top_bad_group (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineSta
     (fun acc t ht => by
       rw [hK acc]
       have hb' : 125 ≤ Search.topRank v (j-1+1) := by rw [show j-1+1=j by omega]; exact hbad
-      obtain ⟨k,z,stz,hk5,fz⟩ := (c.end_dispatch_raw hc hds (set24_encoded _ he) hf.2 (j-1) (by omega) acc t ht).2 hb'
+      obtain ⟨k,z,stz,hk5,fz⟩ := (c.end_dispatch_raw hc hds (set24_encoded _ he) (j-1) (by omega) acc t ht).2 hb'
       have R := goodQ_fault (Q := False) (A := 0) fz
       refine (Verify.GoodQ.steps stz R).mono ?_ ?_ ?_
       · omega

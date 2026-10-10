@@ -84,8 +84,8 @@ theorem tripleCheck_at (q : Nat) (hq : q<17) (hn : inl q=false) : tripleCheck q=
   interval_cases q
   all_goals first | (simp [inl] at hn) | skip
   exacts [tripleCheck_0, tripleCheck_1, tripleCheck_2, tripleCheck_3, tripleCheck_4, tripleCheck_5,
-    tripleCheck_6, tripleCheck_7, tripleCheck_9, tripleCheck_10, tripleCheck_11, tripleCheck_12]
-theorem inlineGroupCheck_at (q : Nat) (hq : inl q=true) (h8 : q≠8) :
+    tripleCheck_6, tripleCheck_7, tripleCheck_8, tripleCheck_9, tripleCheck_10, tripleCheck_11, tripleCheck_12]
+theorem inlineGroupCheck_at (q : Nat) (hq : inl q=true) :
     inlineGroupCheck q 0 25=true ∧ inlineGroupCheck q 25 25=true ∧ inlineGroupCheck q 50 25=true ∧
       inlineGroupCheck q 75 25=true ∧ inlineGroupCheck q 100 25=true := by
   have h : q=13 ∨ q=14 ∨ q=15 ∨ q=16 := by simp [inl] at hq; omega
@@ -97,36 +97,11 @@ theorem inlineGroupCheck_at (q : Nat) (hq : inl q=true) (h8 : q≠8) :
       inlineGroupCheck_15_100⟩
   · exact ⟨inlineGroupCheck_16_0,inlineGroupCheck_16_25,inlineGroupCheck_16_50,inlineGroupCheck_16_75,
       inlineGroupCheck_16_100⟩
-theorem inlineCheck_at (q k : Nat) (hq : inl q=true) (hk : k<kN q) : inlineCheck q k=true := by
+theorem inlineCheck_at (q k : Nat) (hq : inl q=true) (hk : k<125) : inlineCheck q k=true := by
+  obtain ⟨h0,h1,h2,h3,h4⟩ := inlineGroupCheck_at q hq
   have pick : ∀ lo, inlineGroupCheck q lo 25=true → lo ≤ k → k<lo+25 → inlineCheck q k=true := by
     intro lo h hl hh
     exact List.all_eq_true.mp h k (List.mem_range'_1.mpr ⟨hl,by omega⟩)
-  by_cases h8 : q=8
-  · subst h8
-    have hk' : k<250 := by simpa [kN] using hk
-    by_cases a : k<25
-    · exact pick 0 inlineGroupCheck_8_0 (by omega) (by omega)
-    by_cases b : k<50
-    · exact pick 25 inlineGroupCheck_8_25 (by omega) (by omega)
-    by_cases d : k<75
-    · exact pick 50 inlineGroupCheck_8_50 (by omega) (by omega)
-    by_cases e : k<100
-    · exact pick 75 inlineGroupCheck_8_75 (by omega) (by omega)
-    by_cases f : k<125
-    · exact pick 100 inlineGroupCheck_8_100 (by omega) (by omega)
-    by_cases g : k<150
-    · exact pick 125 inlineGroupCheck_8_125 (by omega) (by omega)
-    by_cases g2 : k<175
-    · exact pick 150 inlineGroupCheck_8_150 (by omega) (by omega)
-    by_cases g3 : k<200
-    · exact pick 175 inlineGroupCheck_8_175 (by omega) (by omega)
-    by_cases g4 : k<225
-    · exact pick 200 inlineGroupCheck_8_200 (by omega) (by omega)
-    · exact pick 225 inlineGroupCheck_8_225 (by omega) (by omega)
-  have hk : k<125 := by
-    have hq' : 13 ≤ q ∧ q ≤ 16 := by simp [inl] at hq; omega
-    unfold kN mx at hk; rw [if_neg h8, if_pos (by omega)] at hk; norm_num at hk; omega
-  obtain ⟨h0,h1,h2,h3,h4⟩ := inlineGroupCheck_at q hq h8
   by_cases a : k<25
   · exact pick 0 h0 (by omega) (by omega)
   by_cases b : k<50
@@ -142,15 +117,14 @@ theorem entCheck_at (q k : Nat) (hq : q<17) (hn : inl q=false) (hk : k<(mx q+1)^
   exact (Bool.and_eq_true _ _ |>.mp (List.all_eq_true.mp h.1 k (List.mem_range.mpr hk))).1
 theorem mx_inl (q : Nat) (hq : inl q=true) : mx q=4 := by
   simp [inl] at hq; unfold mx; rw [if_pos (by omega)]
-theorem kN_noninl (q : Nat) (hn : inl q=false) : kN q=(mx q+1)^3 := by
-  unfold kN; rw [if_neg (by rintro rfl; simp [inl] at hn)]
-theorem s8Check_at (q k : Nat) (hq : q<17) (hk : k<kN q) : s8Check q k=true := by
+theorem s8Check_at (q k : Nat) (hq : q<17) (hk : k<(mx q+1)^3) : s8Check q k=true := by
   cases hn : inl q
-  · rw [kN_noninl q hn] at hk
-    have h := tripleCheck_at q hq hn
+  · have h := tripleCheck_at q hq hn
     simp only [tripleCheck,Bool.and_eq_true] at h
     exact (Bool.and_eq_true _ _ |>.mp (List.all_eq_true.mp h.1 k (List.mem_range.mpr hk))).2
-  · have h := inlineCheck_at q k hn hk
+  · have hm := mx_inl q hn
+    rw [hm] at hk
+    have h := inlineCheck_at q k hn (by norm_num at hk; omega)
     simp only [inlineCheck,Bool.and_eq_true] at h
     exact h.1.1.1.1
 theorem blockCheck_at (q dB dC : Nat) (hq : q<17) (hn : inl q=false) (hB : dB ≤ mx q) (hC : dC ≤ mx q) :
@@ -172,13 +146,13 @@ theorem stub_at (k : Nat) (hk : k<125) : vrun (guardW k) 1=some rejJ := by
   have h := rejCheck_ok
   simp only [rejCheck] at h
   exact rOK_eq (List.all_eq_true.mp h k (List.mem_range.mpr hk))
-theorem s8Run_at (q k : Nat) (hq : q<17) (hk : k<kN q) :
+theorem s8Run_at (q k : Nat) (hq : q<17) (hk : k<(mx q+1)^3) :
     (if q=0 then rOK (vrun (entW 0 k) 1) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k)))=true := by
   have h := s8Check_at q k hq hk
   simp only [s8Check,Bool.and_eq_true] at h
   exact h.1
 theorem bge9_at (k : Nat) (hk : k<125) (he : k%2=0) : vrun (cellW 9 k) 1=some (bge9R (cellW 9 k)) := by
-  have h := s8Check_at 9 k (by decide +kernel) (by unfold kN mx; norm_num; omega)
+  have h := s8Check_at 9 k (by decide +kernel) (by unfold mx; norm_num; omega)
   simp only [s8Check,Bool.and_eq_true] at h
   have h2 := h.2
   rw [if_pos (by simp [he])] at h2

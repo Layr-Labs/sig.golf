@@ -51,8 +51,7 @@ structure GroupFacts (c : NCtx) (q : Nat) : Prop where
   rungs : rungsOK q (c.dig (3*q)+1) (slot (3*q)) (gbase q (c.kOf q)+2*(c.dig (3*q)+1))=true
   partB : partOK q (3*q+1) (c.dig (3*q+1)) (gB q (c.kOf q))=true
   partC : partOK q (3*q+2) (c.dig (3*q+2)) (gC q (c.kOf q))=true
-  disp : q<17 → vrun (gX q (c.kOf q)) 5=
-    some (if q=7 then dispatch8D else if q=8 then disp9D (c.kOf q/125) else if q<16 then dispatchR (q+1) else tailDispatchR)
+  disp : q<17 → vrun (gX q (c.kOf q)) 5=some (if q=8 then dispatch9R else if q<16 then dispatchR (q+1) else tailDispatchR)
   s8 : s8Check q (c.kOf q)=true
 theorem mx_bounds' (q : Nat) : 3≤ mx q ∧ mx q≤7 := by unfold mx;split <;> omega
 theorem rungsOK_mono (q d0 d1 sl b : Nat) (h : d0 ≤ d1) (hk : rungsOK q d0 sl (b+2*d0)=true) :
@@ -72,8 +71,7 @@ theorem groupFacts (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<17) : c.Group
   have hC := c.dig_group_le hds q 2 (by omega) (by decide +kernel)
   have hm := mx_bounds' q
   cases hn : inl q
-  · have h8 : q≠8 := by rintro rfl; simp [inl] at hn
-    have he := entCheck_at q (c.kOf q) hq hn (by rw [← kN_noninl q hn]; exact hk)
+  · have he := entCheck_at q (c.kOf q) hq hn hk
     have hb := blockCheck_at q _ _ hq hn hB hC
     simp only [entCheck,k1] at he
     simp only [blockCheck,dispatchOK,Bool.and_eq_true] at hb
@@ -94,10 +92,11 @@ theorem groupFacts (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<17) : c.Group
       exact rungsOK_mono q 0 _ _ _ (by omega) h0
     · rw [eB]; exact hpB
     · rw [eC]; exact hpC
-    · intro hq17; rw [eX]; rw [if_pos hq17] at hdisp; rw [if_neg h8] at hdisp ⊢; exact rOK_eq hdisp
+    · intro hq17; rw [eX]; rw [if_pos hq17] at hdisp; exact rOK_eq hdisp
   · have hm4 := mx_inl q hn
-    have he := inlineCheck_at q (c.kOf q) hn hk
-    have hq16 : q=8 ∨ (13 ≤ q ∧ q ≤ 16) := by simp [inl] at hn; omega
+    rw [hm4] at hk
+    have he := inlineCheck_at q (c.kOf q) hn (by norm_num at hk; omega)
+    have hq16 : 13 ≤ q ∧ q ≤ 16 := by simp [inl] at hn; omega
     simp only [inlineCheck,k1,k2,k3] at he
     by_cases hd : c.dig (3*q)=mx q
     · rw [if_pos hd] at he
@@ -105,14 +104,14 @@ theorem groupFacts (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<17) : c.Group
       obtain ⟨⟨⟨⟨hs8,hcopy⟩,hpB⟩,hpC⟩,hdisp⟩ := he
       refine ⟨fun h => by simp [hn] at h,fun h => by simp [hn] at h,fun h => by simp [hn] at h,
         fun _ _ => rOK_eq hcopy,fun _ h => absurd h (by omega),fun _ h => absurd h (by omega),
-        fun h => absurd h (by omega),?_,hpB,hpC,fun _ => by rw [if_neg (show q≠7 by omega)]; exact rOK_eq hdisp,hs8⟩
+        fun h => absurd h (by omega),?_,hpB,hpC,fun _ => by rw [if_neg (show q≠8 by omega)]; exact rOK_eq hdisp,hs8⟩
       unfold rungsOK; rw [List.all_eq_true]; intro m hm'; rw [List.mem_range'_1] at hm'; omega
     · rw [if_neg hd] at he
       simp only [Bool.and_eq_true] at he
       obtain ⟨⟨⟨⟨hs8,⟨⟨hhead,htail⟩,hrungs⟩⟩,hpB⟩,hpC⟩,hdisp⟩ := he
       refine ⟨fun h => by simp [hn] at h,fun h => by simp [hn] at h,fun h => by simp [hn] at h,
         fun _ h => absurd h hd,fun _ h => ?_,fun _ h => ?_,fun _ => rOK_eq htail,hrungs,hpB,hpC,
-        fun _ => by rw [if_neg (show q≠7 by omega)]; exact rOK_eq hdisp,hs8⟩
+        fun _ => by rw [if_neg (show q≠8 by omega)]; exact rOK_eq hdisp,hs8⟩
       · rw [if_neg (by omega)] at hhead; simpa only [if_neg (show ¬ c.dig (3*q)+1=mx q by omega)] using rOK_eq hhead
       · rw [if_pos h] at hhead; simpa only [if_pos h] using rOK_eq hhead
 theorem kOf_eq_lead (c : NCtx) (i : Nat) (h0 : i%3=0) : 3*(i/3)=i := by omega
@@ -188,10 +187,10 @@ theorem k17_digits (c : NCtx) (hds : c.DigitsOk) : c.k17%8=c.dig 51 ∧ c.k17/8=
   rw [topMax_hi 51 (by decide +kernel)] at h1
   unfold k17; constructor <;> omega
 theorem r8Blk_facts (c : NCtx) (hds : c.DigitsOk) :
-    vrun (256*(c.k17+1)) 2=some (jR (c.dig 51+c.dig 52) (blkW c.k17)) ∧
+    vrun (TailDispatch.armPC c.k17) 1=some (s8R (c.dig 51+c.dig 52) (TailDispatch.armPC c.k17)) ∧
     partOK 17 51 (c.dig 51) (blkW c.k17)=true ∧
     partOK 17 52 (c.dig 52) (blkW c.k17+partLen 17 (c.dig 51))=true ∧
-    vrun (blkW c.k17+partLen 17 (c.dig 51)+partLen 17 (c.dig 52)) 5=some genDispR := by
+    vrun (blkW c.k17+partLen 17 (c.dig 51)+partLen 17 (c.dig 52)) 4=some genDispR := by
   have h := r8BlkCheck_at c.k17 (c.k17_lt hds)
   obtain ⟨d1,d2⟩ := c.k17_digits hds
   simp only [r8BlkCheck,Bool.and_eq_true,d1,d2] at h

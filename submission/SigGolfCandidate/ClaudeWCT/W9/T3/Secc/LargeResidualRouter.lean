@@ -353,3 +353,129 @@ noncomputable def router (adversary : Final.AdversaryP) (q : Nat) : OracleComp (
   initReq U >>= routerWith U adversary q
 end Route
 end ClaudeWCT.W9.T3.Security.LargeResidual
+
+/-!
+# Paired-family residual engine prototype
+
+The installed WCoord instance above is unchanged. A distinct wrapper type
+below gets a fully proved Seeds instance grouping lower leaves by leaf/2,
+with 14 coefficients and stride-58 points. This makes the existing generic
+residual posterior engine applicable to this address model. It does NOT
+establish that the sign image or old large-coupling proof implements it.
+-/
+namespace ClaudeWCT.W9.T3.Security.LargeResidual.AdjacentLeafResearch
+open OracleComp OracleSpec ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
+open ClaudeWCT.W9.T3.Security.CanonGraph
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+attribute [local instance] Classical.propDecidable
+
+/-- Distinct type: never silently replace the installed WCoord instance. -/
+structure PairedCoord where
+  value : WCoord
+  deriving DecidableEq, Fintype
+
+/-- The top family keeps its original identity; lower families share
+identity between adjacent leaves. -/
+def groupedLeaf (a : ChainGraph.Address) : LowerLeaf :=
+  ⟨(a.layer,a.tree,
+    if a.layer=0 then a.leaf else ⟨a.leaf.val/2, by have := a.leaf.isLt; omega⟩),trivial⟩
+
+def groupedPoint (a : ChainGraph.Address) : Nat :=
+  if a.layer=0 then a.chain.val+1 else 58*(a.leaf.val%2)+a.chain.val+1
+
+/-- Inversion includes all reserved Fin58 addresses, not just 43 real chains. -/
+theorem grouped_address_injective {a a' : ChainGraph.Address}
+    (hf : groupedLeaf a = groupedLeaf a') (hp : groupedPoint a = groupedPoint a') : a=a' := by
+  have hv := congrArg Subtype.val hf
+  have hl : a.layer=a'.layer := congrArg Prod.fst hv
+  have ht : a.tree=a'.tree := congrArg (fun p => p.2.1) hv
+  have hc := a.chain.isLt
+  have hc' := a'.chain.isLt
+  have hm := Nat.mod_lt a.leaf.val (by decide : 0<2)
+  have hm' := Nat.mod_lt a'.leaf.val (by decide : 0<2)
+  have hleaf := congrArg (fun p => p.2.2.val) hv
+  by_cases h0 : a.layer=0
+  · have h0' : a'.layer=0 := hl ▸ h0
+    simp only [groupedLeaf,groupedPoint,if_pos h0,if_pos h0'] at hleaf hp
+    exact ChainGraph.Address.ext hl ht (Fin.ext hleaf) (Fin.ext (by omega))
+  · have h0' : a'.layer≠0 := hl ▸ h0
+    simp only [groupedLeaf,groupedPoint,if_neg h0,if_neg h0'] at hleaf hp
+    exact ChainGraph.Address.ext hl ht (Fin.ext (by omega)) (Fin.ext (by omega))
+
+theorem groupedPoint_small (a : ChainGraph.Address) : groupedPoint a < 1024 := by
+  have hc := a.chain.isLt
+  have hm := Nat.mod_lt a.leaf.val (by decide : 0<2)
+  unfold groupedPoint
+  split <;> omega
+
+def pairedSplit : PairedCoord → WPlain ⊕ (WFam × Nat)
+  | ⟨.inl (.inl N)⟩ => .inl (.inl (.inl N))
+  | ⟨.inl (.inr (.inl a))⟩ => .inr (.inl (groupedLeaf a),groupedPoint a)
+  | ⟨.inl (.inr (.inr w))⟩ => .inr (.inr (w.1,w.2.1),WCT9.ftsPoint w.2.2.1.val w.2.2.2.val)
+  | ⟨.inr m⟩ => .inl (.inr m)
+
+def pairedEmbed (p : WPlain) : PairedCoord := ⟨wembed p⟩
+
+/-- Top degree23, lower-pair degree13, FTS degree53. -/
+def pairedDegree : WFam → Nat
+  | .inl L => if L.1.1=0 then 23 else 13
+  | .inr _ => 53
+
+noncomputable instance instPairedSeeds : FamResidual.Seeds PairedCoord where
+  Plain := WPlain
+  Fam := WFam
+  plainDec := Classical.decEq _
+  famDec := Classical.decEq _
+  deg := pairedDegree
+  split := pairedSplit
+  embed := pairedEmbed
+  split_embed p := by
+    rcases p with (N | ⟨a,ha⟩) | m
+    · rfl
+    · exact ha.elim
+    · rfl
+  embed_of_split c p h := by
+    rcases c with ⟨(N | a | w) | m⟩
+    · simp only [pairedSplit,Sum.inl.injEq] at h; subst h; rfl
+    · simp only [pairedSplit,reduceCtorEq] at h
+    · simp only [pairedSplit,reduceCtorEq] at h
+    · simp only [pairedSplit,Sum.inl.injEq] at h; subst h; rfl
+  point_lt c f pt h := by
+    rcases c with ⟨(N | a | w) | m⟩
+    · simp only [pairedSplit,reduceCtorEq] at h
+    · simp only [pairedSplit,Sum.inr.injEq,Prod.mk.injEq] at h
+      rw [← h.2]
+      exact groupedPoint_small a
+    · simp only [pairedSplit,Sum.inr.injEq,Prod.mk.injEq] at h
+      rw [← h.2]
+      have := w.2.2.1.isLt; have := w.2.2.2.isLt
+      unfold WCT9.ftsPoint WCT9.ftsOrdinal
+      omega
+    · simp only [pairedSplit,reduceCtorEq] at h
+  seed_inj c c' fp h h' := by
+    have he : pairedSplit c = pairedSplit c' := h.trans h'.symm
+    rcases c with ⟨(N | a | w) | m⟩ <;> rcases c' with ⟨(N' | a' | w') | m'⟩ <;>
+      simp only [pairedSplit,Sum.inl.injEq,Sum.inr.injEq,Prod.mk.injEq,reduceCtorEq,false_and] at he h
+    · have haa := grouped_address_injective he.1 he.2
+      subst a'
+      rfl
+    · obtain ⟨⟨h1,h2⟩,h3⟩ := he
+      unfold WCT9.ftsPoint WCT9.ftsOrdinal at h3
+      have := w.2.2.2.isLt; have := w'.2.2.2.isLt
+      have h4 : w.2.2.1=w'.2.2.1 := Fin.ext (by omega)
+      have h5 : w.2.2.2=w'.2.2.2 := Fin.ext (by omega)
+      have hw : w=w' := Prod.ext h1 (Prod.ext h2 (Prod.ext h4 h5))
+      subst w'
+      rfl
+
+/-- The generic residual engine now sees the proposed shared seed family. -/
+theorem paired_view_seed (x : FamResidual.Hid PairedCoord) (a : ChainGraph.Address) :
+    FamResidual.view x ⟨.inl (.inr (.inl a))⟩ =
+      ClaudeWCT.Arith.familyEval (List.ofFn (x.2 (.inl (groupedLeaf a)))) (groupedPoint a) := rfl
+
+#print axioms grouped_address_injective
+#print axioms instPairedSeeds
+#print axioms paired_view_seed
+end ClaudeWCT.W9.T3.Security.LargeResidual.AdjacentLeafResearch

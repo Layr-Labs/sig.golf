@@ -532,3 +532,63 @@ theorem errTot_le_small (q : ℕ) (hs : q ≤ 2718 * 2 ^ 106) :
 
 end Leaf
 end ClaudeWCT.W9.T3.Security.Wots
+
+/-!
+# Regrouped seed-test scalar budget
+
+A pair family has 86 real chains rather than the current maximum 54. The
+existing 0.351 quadratic bound cannot simply be kept for this new charge.
+These are scalar bounds on the proposed charge, not a proof that the
+unchanged reference experiment or errTot has been correctly regrouped.
+-/
+namespace ClaudeWCT.W9.T3.Security.Wots.AdjacentLeafResearch
+open OracleComp OracleSpec ENNReal
+open SigGolfCandidate.T3
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option exponentiation.threshold 1024
+
+/-- Bound the actual existing side-channel error constant against an 86q
+charge, on a slightly smaller small-route window. -/
+theorem regrouped_seed_charge_le (q : ℕ) (hs : q ≤ 2710 * 2 ^ 106) :
+    ENNReal.ofReal (Leaf.errConst q) * (86 * q) ≤
+      (557 / 1000 : ENNReal) * ((q : ENNReal) / 2 ^ 128) ^ 2 := by
+  set t : ℝ := ((2 : ℝ) ^ 128)⁻¹ * q with ht
+  have ht0 : 0 ≤ t := by positivity
+  have ht1 : t ≤ 2710 / 2 ^ 22 := by
+    rw [ht, inv_mul_le_iff₀ (by positivity)]
+    have : (q : ℝ) ≤ 2710 * 2 ^ 106 := by exact_mod_cast hs
+    linarith
+  have hpos : 0 < 1-t := by linarith
+  have hconst : Leaf.errConst q =
+      2 * ((2 : ℝ) ^ 128)⁻¹ ^ 3 * ClaudeWCT.Arith.SideChannel.kconst q / (1-t) := by
+    unfold Leaf.errConst
+    rw [Leaf.card_digest_real]
+  have hc0 : 0 ≤ Leaf.errConst q := by rw [hconst]; positivity
+  have hr : Leaf.errConst q * (86*q) ≤ 557/1000 * ((q : ℝ)/2^128)^2 := by
+    rw [hconst,div_mul_eq_mul_div,div_le_iff₀ hpos]
+    have hk := Leaf.kconst_le q
+    calc 2 * ((2 : ℝ)^128)⁻¹^3 * (ClaudeWCT.Arith.SideChannel.kconst q : ℝ) * (86*q)
+        ≤ 2 * ((2 : ℝ)^128)⁻¹^3 * (5*(q : ℝ)^2) * (86*q) := by gcongr
+      _ = 860*t^3 := by rw [ht]; ring
+      _ ≤ 557/1000*t^2*(1-t) := by
+        have h1 : 0 ≤ 557/1000-860557/1000*t := by
+          have : (860557/1000 : ℝ)*(2710/2^22) ≤ 557/1000 := by norm_num
+          nlinarith
+        nlinarith [mul_nonneg (sq_nonneg t) h1]
+      _ = 557/1000*((q : ℝ)/2^128)^2*(1-t) := by rw [ht]; ring
+  apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+  simp (disch := finiteness) only [ENNReal.toReal_mul,ENNReal.toReal_ofReal hc0,ENNReal.toReal_div,
+    ENNReal.toReal_pow,ENNReal.toReal_natCast,ENNReal.toReal_ofNat]
+  exact hr
+
+/-- Direct conditional use: the regrouped errTot must first be proved
+bounded by this 86q charge. No such hypothesis is asserted for old errTot. -/
+theorem regrouped_seed_error_le {err : ENNReal} (q : ℕ) (hs : q ≤ 2710*2^106)
+    (hcharge : err ≤ ENNReal.ofReal (Leaf.errConst q) * (86*q)) :
+    err ≤ (557/1000 : ENNReal)*((q : ENNReal)/2^128)^2 :=
+  hcharge.trans (regrouped_seed_charge_le q hs)
+
+#print axioms regrouped_seed_charge_le
+#print axioms regrouped_seed_error_le
+end ClaudeWCT.W9.T3.Security.Wots.AdjacentLeafResearch

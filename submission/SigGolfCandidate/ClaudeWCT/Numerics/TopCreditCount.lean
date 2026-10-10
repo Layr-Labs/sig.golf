@@ -71,3 +71,30 @@ theorem card_parse_filter (P : Word → Prop) [DecidablePred P] :
   simp only [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (hlt a), Nat.mod_eq_of_lt (hlt b)] at h'
   exact h'
 end ClaudeWCT.Numerics.TopCredit
+
+/-! Local research: a stricter producer filter must be counted rather than inferred
+from the existing floor-nine certificate. These declarations do not change the
+producer, machine images, or submitted cycle bound. -/
+namespace ClaudeWCT.Numerics.TopCredit.FloorTenResearch
+open Finset
+open SigGolfResearch.NonbinaryTop.Codec (Word)
+open SigGolfResearch.NonbinaryTop.Counting (weight radix)
+open SigGolfResearch.NonbinaryTop.CreditCounting (credit packed)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 100000
+set_option exponentiation.threshold 20000
+
+def count144 : ℕ := 106604407169019379465023907866097170
+
+theorem exact_packed_144_10 :
+    (packed % radix ^ 9280) % (radix - 1) -
+      (packed % radix ^ (9216 + 10)) % (radix - 1) = count144 := by
+  decide +kernel
+
+theorem credited_card_144_10 :
+    (univ.filter fun w : Word => weight w = 144 ∧ 10 ≤ credit w).card = count144 :=
+  ClaudeWCT.Numerics.TopCredit.credited_card_of 144 10 _
+    (by norm_num) (by norm_num) exact_packed_144_10
+
+#print axioms credited_card_144_10
+end ClaudeWCT.Numerics.TopCredit.FloorTenResearch

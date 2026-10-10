@@ -101,3 +101,202 @@ theorem completeness_union :
   set_option exponentiation.threshold 2048 in norm_num
 theorem expandFixed_le : 140 + 466 ≤ 622 := by norm_num
 end ClaudeWCT.W9.T3.BaseAudit.V5
+
+/-! Local research only: floor ten cannot reuse the present signing-envelope
+certificate unchanged. This rational obstruction concerns this proof route;
+it is not an impossibility theorem for the signature scheme. -/
+namespace ClaudeWCT.W9.T3.BaseAudit.V5.FloorTenResearch
+open SigGolfCandidate.T3.BaseAudit (zU)
+set_option maxHeartbeats 1000000
+
+def pTen : ℚ := 106604407169019379465023907866097170 / 2 ^ 128
+def minB : ℚ := zU * pTen / (1 - zU * (1 - pTen))
+def bLower : ℚ := 1017170123383518813 / 1000000000000000000
+
+theorem denominator_pos : 0 < 1 - zU * (1 - pTen) := by
+  norm_num [zU, pTen]
+
+theorem step_requires_minB (b : ℚ)
+    (h : zU * ((1 - pTen) * b + pTen) ≤ b) : minB ≤ b := by
+  rw [minB, div_le_iff₀ denominator_pos]
+  nlinarith
+
+theorem minB_gt_lower : bLower < minB := by
+  norm_num [bLower, minB, zU, pTen]
+
+theorem floor_ten_exceeds_current_cubic_certificate :
+    1 + 0.6931471803 * (18420 / 131072 : ℚ) +
+      (0.6931471803 * (18420 / 131072 : ℚ)) ^ 2 / 2 +
+      (0.6931471803 * (18420 / 131072 : ℚ)) ^ 3 / 6 <
+      b0 * bLower * b2 * b3 * b4 := by
+  norm_num [b0, bLower, b2, b3, b4]
+
+/-- Even the actual real exponential allowance is below a necessary top
+geometric factor times the other four unchanged factors. The cubic comparison
+above is not being used as an upper bound on the exponential. -/
+theorem floor_ten_exceeds_real_allowance :
+    (2 : ℝ) ^ (18420 / 131072 : ℝ) <
+      (b0 : ℝ) * (bLower : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ) := by
+  have hx : 0 ≤ (0.6931471808 * (18420 / 131072 : ℝ)) := by norm_num
+  have hx1 : (0.6931471808 * (18420 / 131072 : ℝ)) ≤ 1 := by norm_num
+  have hp : (2 : ℝ) ^ (18420 / 131072 : ℝ) ≤
+      Real.exp (0.6931471808 * (18420 / 131072 : ℝ)) := by
+    rw [Real.rpow_def_of_pos (by norm_num)]
+    exact Real.exp_le_exp.mpr
+      (mul_le_mul_of_nonneg_right Real.log_two_lt_d9.le (by norm_num))
+  have he := Real.exp_bound' hx hx1 (n := 4) (by norm_num)
+  have hn :
+      (∑ m ∈ Finset.range 4,
+        (0.6931471808 * (18420 / 131072 : ℝ)) ^ m / m.factorial) +
+      (0.6931471808 * (18420 / 131072 : ℝ)) ^ 4 * (4 + 1) / ((Nat.factorial 4 : ℝ) * 4) <
+      (b0 : ℝ) * (bLower : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ) := by
+    norm_num [Finset.sum_range_succ, Nat.factorial, b0, bLower, b2, b3, b4]
+  exact lt_of_le_of_lt (hp.trans he) hn
+
+/-- No replacement top factor satisfying the same geometric step can close the
+present real signing-envelope inequality, while all other factors stay fixed. -/
+theorem no_top_factor_for_current_signing_envelope (b : ℚ)
+    (hstep : zU * ((1 - pTen) * b + pTen) ≤ b) :
+    ¬ (2 : ℝ) ^ (112652 / 131072 : ℝ) *
+      ((b0 : ℝ) * (b : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤ 2 := by
+  have hb : (bLower : ℝ) < (b : ℝ) := by
+    exact_mod_cast lt_of_lt_of_le minB_gt_lower (step_requires_minB b hstep)
+  have ht : (2 : ℝ) ^ (18420 / 131072 : ℝ) <
+      (b0 : ℝ) * (b : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ) := by
+    apply lt_trans floor_ten_exceeds_real_allowance
+    have h0 : (0 : ℝ) < (b0 : ℝ) := by norm_num [b0]
+    have h2 : (0 : ℝ) < (b2 : ℝ) := by norm_num [b2]
+    have h3 : (0 : ℝ) < (b3 : ℝ) := by norm_num [b3]
+    have h4 : (0 : ℝ) < (b4 : ℝ) := by norm_num [b4]
+    gcongr
+  have hs : (2 : ℝ) ^ (112652 / 131072 : ℝ) *
+      (2 : ℝ) ^ (18420 / 131072 : ℝ) = 2 := by
+    rw [← Real.rpow_add (by norm_num)]
+    norm_num
+  intro h
+  have hp : (0 : ℝ) < (2 : ℝ) ^ (112652 / 131072 : ℝ) := by positivity
+  have hm := mul_lt_mul_of_pos_left ht hp
+  rw [hs] at hm
+  exact (not_lt_of_ge h) hm
+
+#print axioms step_requires_minB
+#print axioms floor_ten_exceeds_current_cubic_certificate
+#print axioms no_top_factor_for_current_signing_envelope
+
+/-- Saving only 121 fixed compressions is still insufficient for floor ten
+through the present geometric-envelope route. -/
+theorem floor_ten_needs_more_than_121_fixed_savings :
+    (2 : ℝ) ^ (18541 / 131072 : ℝ) <
+      (b0 : ℝ) * (bLower : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ) := by
+  have hx : 0 ≤ (0.6931471808 * (18541 / 131072 : ℝ)) := by norm_num
+  have hx1 : (0.6931471808 * (18541 / 131072 : ℝ)) ≤ 1 := by norm_num
+  have hp : (2 : ℝ) ^ (18541 / 131072 : ℝ) ≤
+      Real.exp (0.6931471808 * (18541 / 131072 : ℝ)) := by
+    rw [Real.rpow_def_of_pos (by norm_num)]
+    exact Real.exp_le_exp.mpr
+      (mul_le_mul_of_nonneg_right Real.log_two_lt_d9.le (by norm_num))
+  have he := Real.exp_bound' hx hx1 (n := 6) (by norm_num)
+  have hn :
+      (∑ m ∈ Finset.range 6,
+        (0.6931471808 * (18541 / 131072 : ℝ)) ^ m / m.factorial) +
+      (0.6931471808 * (18541 / 131072 : ℝ)) ^ 6 * (6 + 1) /
+        ((Nat.factorial 6 : ℝ) * 6) <
+      (b0 : ℝ) * (bLower : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ) := by
+    norm_num [Finset.sum_range_succ, Nat.factorial, b0, bLower, b2, b3, b4]
+  exact lt_of_le_of_lt (hp.trans he) hn
+
+/-- Any fixed cost at least 112531 is incompatible with the same factors and
+the floor-ten step. The present fixed cost is 112652: at least 122 fixed
+compressions must be saved before this particular certificate route can work. -/
+theorem no_top_factor_above_fixed_threshold (fixed : ℕ) (hfixed : 112531 ≤ fixed)
+    (b : ℚ) (hstep : zU * ((1 - pTen) * b + pTen) ≤ b) :
+    ¬ (2 : ℝ) ^ ((fixed : ℝ) / 131072) *
+      ((b0 : ℝ) * (b : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤ 2 := by
+  have hb : (bLower : ℝ) < (b : ℝ) := by
+    exact_mod_cast lt_of_lt_of_le minB_gt_lower (step_requires_minB b hstep)
+  have ht : (2 : ℝ) ^ (18541 / 131072 : ℝ) <
+      (b0 : ℝ) * (b : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ) := by
+    apply lt_trans floor_ten_needs_more_than_121_fixed_savings
+    have h0 : (0 : ℝ) < (b0 : ℝ) := by norm_num [b0]
+    have h2 : (0 : ℝ) < (b2 : ℝ) := by norm_num [b2]
+    have h3 : (0 : ℝ) < (b3 : ℝ) := by norm_num [b3]
+    have h4 : (0 : ℝ) < (b4 : ℝ) := by norm_num [b4]
+    gcongr
+  have hs : (2 : ℝ) ^ (112531 / 131072 : ℝ) *
+      (2 : ℝ) ^ (18541 / 131072 : ℝ) = 2 := by
+    rw [← Real.rpow_add (by norm_num)]
+    norm_num
+  have hfr : (112531 : ℝ) ≤ fixed := by exact_mod_cast hfixed
+  have hf : (2 : ℝ) ^ (112531 / 131072 : ℝ) ≤
+      (2 : ℝ) ^ ((fixed : ℝ) / 131072) :=
+    Real.rpow_le_rpow_of_exponent_le (by norm_num)
+      (div_le_div_of_nonneg_right hfr (by norm_num))
+  have hbpos : 0 ≤ (b0 : ℝ) * (b : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ) := by
+    have hp : (0 : ℝ) < (2 : ℝ) ^ (18541 / 131072 : ℝ) := by positivity
+    linarith
+  intro h
+  have hsmall := (mul_le_mul_of_nonneg_right hf hbpos).trans h
+  have hp : (0 : ℝ) < (2 : ℝ) ^ (112531 / 131072 : ℝ) := by positivity
+  have hm := mul_lt_mul_of_pos_left ht hp
+  rw [hs] at hm
+  exact (not_lt_of_ge hsmall) hm
+
+#print axioms no_top_factor_above_fixed_threshold
+
+def bUpper : ℚ := 1017170123383518814 / 1000000000000000000
+
+theorem floor_ten_step_upper : zU * ((1 - pTen) * bUpper + pTen) ≤ bUpper := by
+  norm_num [zU, pTen, bUpper]
+
+/-- Conversely, 122 saved fixed compressions suffice for this numerical
+envelope, using one more Taylor term than the existing cubic certificate.
+This does not establish a machine implementation saving those compressions. -/
+theorem floor_ten_envelope_after_122_fixed_savings :
+    (2 : ℝ) ^ (112530 / 131072 : ℝ) *
+      ((b0 : ℝ) * (bUpper : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤ 2 := by
+  have hx : 0 ≤ (0.6931471803 * (18542 / 131072 : ℝ)) := by norm_num
+  have hp : Real.exp (0.6931471803 * (18542 / 131072 : ℝ)) ≤
+      (2 : ℝ) ^ (18542 / 131072 : ℝ) := by
+    rw [Real.rpow_def_of_pos (by norm_num)]
+    exact Real.exp_le_exp.mpr
+      (mul_le_mul_of_nonneg_right Real.log_two_gt_d9.le (by norm_num))
+  have he := Real.sum_le_exp_of_nonneg hx 5
+  have hn : (b0 : ℝ) * (bUpper : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ) ≤
+      ∑ m ∈ Finset.range 5,
+        (0.6931471803 * (18542 / 131072 : ℝ)) ^ m / m.factorial := by
+    norm_num [Finset.sum_range_succ, Nat.factorial, b0, bUpper, b2, b3, b4]
+  have hb := hn.trans (he.trans hp)
+  have hs : (2 : ℝ) ^ (112530 / 131072 : ℝ) *
+      (2 : ℝ) ^ (18542 / 131072 : ℝ) = 2 := by
+    rw [← Real.rpow_add (by norm_num)]
+    norm_num
+  have hm := mul_le_mul_of_nonneg_left hb
+    (show (0 : ℝ) ≤ (2 : ℝ) ^ (112530 / 131072 : ℝ) by positivity)
+  rwa [hs] at hm
+
+#print axioms floor_ten_envelope_after_122_fixed_savings
+end ClaudeWCT.W9.T3.BaseAudit.V5.FloorTenResearch
+
+/-! Consequences of the adjacent-pair private-hash savings; conditional
+numerical bounds only, not a changed producer or compression certificate. -/
+namespace ClaudeWCT.W9.T3.BaseAudit.V5.FloorTenResearch
+
+theorem floor_ten_envelope_after_128_fixed_savings :
+    (2 : ℝ) ^ (112524 / 131072 : ℝ) *
+      ((b0 : ℝ) * (bUpper : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤ 2 := by
+  have hb := floor_ten_envelope_after_122_fixed_savings
+  have he : (2 : ℝ) ^ (112524 / 131072 : ℝ) ≤ (2 : ℝ) ^ (112530 / 131072 : ℝ) := by
+    exact Real.rpow_le_rpow_of_exponent_le (by norm_num) (by norm_num)
+  exact (mul_le_mul_of_nonneg_right he (by norm_num [b0, bUpper, b2, b3, b4])).trans hb
+
+theorem floor_ten_envelope_after_192_fixed_savings :
+    (2 : ℝ) ^ (112460 / 131072 : ℝ) *
+      ((b0 : ℝ) * (bUpper : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤ 2 := by
+  have hb := floor_ten_envelope_after_122_fixed_savings
+  have he : (2 : ℝ) ^ (112460 / 131072 : ℝ) ≤ (2 : ℝ) ^ (112530 / 131072 : ℝ) := by
+    exact Real.rpow_le_rpow_of_exponent_le (by norm_num) (by norm_num)
+  exact (mul_le_mul_of_nonneg_right he (by norm_num [b0, bUpper, b2, b3, b4])).trans hb
+
+#print axioms floor_ten_envelope_after_128_fixed_savings
+#print axioms floor_ten_envelope_after_192_fixed_savings
+end ClaudeWCT.W9.T3.BaseAudit.V5.FloorTenResearch
