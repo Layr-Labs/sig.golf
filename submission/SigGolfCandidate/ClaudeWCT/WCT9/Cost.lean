@@ -11,17 +11,17 @@ theorem bound_buildChildF (index coord selected : Nat) (word : Rank) (coefs : Li
       (buildChildF index coord selected word coefs) :=
   cbound_of_ftsBound (ftsBound_buildChildF index coord selected word coefs hcoord hsel)
 theorem bound_buildCoordinateF (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
-    CBound (fun _ => True) 3505 (buildCoordinateF index coord selected word) :=
+    CBound (fun _ => True) 3481 (buildCoordinateF index coord selected word) :=
   cbound_of_ftsBound (ftsBound_buildCoordinateF index coord selected word)
 theorem bound_forestPk (index : Nat) (pairs : List (Digest × Digest)) (hlen : pairs.length = 9) :
     CBound (fun _ => True) 5 (WCT9.forestPk index pairs) :=
   cbound_of_ftsBound (ftsBound_forestPk index pairs hlen)
 theorem bound_forestRows (index : Nat) (output : HashOutput) :
-    CBound (fun state : List Opening × List (Digest × Digest) => state.1.length = 9 ∧ state.2.length = 9) 31545
+    CBound (fun state : List Opening × List (Digest × Digest) => state.1.length = 9 ∧ state.2.length = 9) 31329
       (forestRows index output) :=
   cbound_of_ftsBound (ftsBound_forestRows index output)
 theorem bound_signForest (index : Nat) (output : HashOutput) :
-    CBound (fun result : List Opening × Digest => result.1.length = 9) 31550 (signForest index output) :=
+    CBound (fun result : List Opening × Digest => result.1.length = 9) 31334 (signForest index output) :=
   cbound_of_ftsBound (ftsBound_signForest index output)
 theorem bound_recoverCoordinate (sig : Signature) (index : Nat) (output : HashOutput) (coord : Coord) :
     CBound (fun _ => True) 15 (recoverCoordinate sig index output coord) :=
@@ -31,7 +31,7 @@ theorem bound_recoverFts (sig : Signature) (index : Nat) (output : HashOutput) :
   cbound_of_ftsBound (ftsBound_recoverFts index sig output)
 /-- Stage-A FTS signing (T8 child code): per coordinate 51 coefficient pairs, 128 children of 24 chain steps + a
 2-block leaf, and 126 heap nodes; then the 5-block forest key. -/
-theorem signForest_blocks : 9 * (51 + 128 * (24 + 2) + 126) + 5 = 31550 := by norm_num
+theorem signForest_blocks : 9 * (27 + 128 * (24 + 2) + 126) + 5 = 31334 := by norm_num
 theorem verifyFts_blocks : 9 * (7 + 2 + 6) + 5 + 1 = 141 := by norm_num
 def DigestResult (out : Option (BitVec 32 × HashOutput)) : Prop :=
   ∀ counter output, out = some (counter, output) → producerAdmissible output = true
@@ -183,38 +183,25 @@ theorem chainCount_lower {lay : Layer} (hlay : lay ≠ 0) : chainCount lay = 43 
 theorem maxDigit_lower {lay : Layer} (hlay : lay ≠ 0) (i : Nat) : maxDigit lay i = 7 := by
   unfold maxDigit; rw [if_neg hlay]
 theorem leafSeedsP_lower {lay : Layer} (_hlay : lay ≠ 0) (leaf : Nat) :
-    leafSeedsP lay leaf = if leaf % 2 = 0 then 9 else 8 := by
+    leafSeedsP lay leaf = 4 := by
   unfold leafSeedsP lowerCoefOrdinal lowerCoefCount
-  split <;> omega
+  omega
 theorem digitTotal_lower {lay : Layer} (hlay : lay ≠ 0) : digitTotal lay = 301 := by
   unfold digitTotal
   rw [chainCount_lower hlay]
   simp only [maxDigit_lower hlay, Finset.sum_const, Finset.card_range, smul_eq_mul]
 theorem leafCostP_lower {lay : Layer} (hlay : lay ≠ 0) (leaf : Nat) :
-    leafCostP lay leaf = (if leaf % 2 = 0 then 9 else 8) + 312 := by
+    leafCostP lay leaf = 316 := by
   unfold leafCostP
   rw [leafSeedsP_lower hlay, digitTotal_lower hlay]
-  simp only [leafHashCost, if_neg hlay]
-theorem parity_sum (m : Nat) :
-    (∑ leaf ∈ Finset.range (2 * m), ((if leaf % 2 = 0 then 9 else 8) + 312)) = m * 641 := by
-  induction m with
-  | zero => simp
-  | succ m ih =>
-      rw [show 2 * (m + 1) = 2 * m + 1 + 1 by ring, Finset.sum_range_succ, Finset.sum_range_succ, ih]
-      have h1 : (2 * m) % 2 = 0 := by omega
-      have h2 : (2 * m + 1) % 2 = 1 := by omega
-      simp only [h1, h2, if_true, show (1 : Nat) ≠ 0 by decide, if_false]
-      ring
+  simp [leafHashCost, hlay]
 theorem treeCostP_lower_eq {lay : Layer} (hlay : lay ≠ 0) :
-    treeCostP lay = 2 ^ height lay / 2 * 641 + (2 ^ height lay - 2) := by
+    treeCostP lay = 2 ^ height lay * 316 + (2 ^ height lay - 2) := by
   unfold treeCostP
-  have hh : 2 ^ height lay = 2 * (2 ^ height lay / 2) := by
-    fin_cases lay <;> first | exact absurd rfl hlay | decide
   rw [Finset.sum_congr rfl (fun leaf _ => leafCostP_lower hlay leaf)]
-  conv_lhs => rw [hh]
-  rw [parity_sum, ← hh]
+  simp only [Finset.sum_const, Finset.card_range, smul_eq_mul]
 theorem treeCostP_lower :
-    treeCostP 1 + 1729 = treeCost 1 ∧ treeCostP 2 + 865 = treeCost 2 ∧ treeCostP 3 + 865 = treeCost 3 := by
+    treeCostP 1 + 2305 = treeCost 1 ∧ treeCostP 2 + 1153 = treeCost 2 ∧ treeCostP 3 + 1153 = treeCost 3 := by
   rw [treeCostP_lower_eq (by decide), treeCostP_lower_eq (by decide), treeCostP_lower_eq (by decide)]
   decide
 def layerFixedCostP : Nat → Nat
@@ -227,7 +214,7 @@ theorem layerFixedCostP_succ_succ (n : Nat) :
     layerFixedCostP (n + 2) = treeCostP (Fin.ofNat 4 (n + 1)) + layerFixedCostP (n + 1) := rfl
 theorem layerFixedCost_succ_succ (n : Nat) :
     layerFixedCost (n + 2) = treeCost (Fin.ofNat 4 (n + 1)) + layerFixedCost (n + 1) := rfl
-theorem layerFixedCostP_four : layerFixedCostP 4 + 3459 = layerFixedCost 4 := by
+theorem layerFixedCostP_four : layerFixedCostP 4 + 4611 = layerFixedCost 4 := by
   obtain ⟨h1, h2, h3⟩ := treeCostP_lower
   have e3 : (Fin.ofNat 4 3 : Layer) = 3 := rfl
   have e2 : (Fin.ofNat 4 2 : Layer) = 2 := rfl
@@ -419,8 +406,8 @@ theorem bound_expandLayersBC (sig : Signature) (index : Nat) :
               (by simp only [recoveryLayersCostBC, hn, ite_false]; omega)
             refine (ih _).bind' (l := 0) (fun result _ => ?_) (by omega)
             cases result <;> exact .pure _ 0 trivial
-def signPayloadFixed : Nat := 2 + 31550 + layerFixedCostP 4
-theorem signPayloadFixed_eq : signPayloadFixed + 4035 = 2 + 32126 + layerFixedCost 4 := by
+def signPayloadFixed : Nat := 2 + 31334 + layerFixedCostP 4
+theorem signPayloadFixed_eq : signPayloadFixed + 5187 = 2 + 31910 + layerFixedCost 4 := by
   have h := layerFixedCostP_four
   unfold signPayloadFixed
   omega

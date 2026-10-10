@@ -1,6 +1,7 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsLeafTest
 import SigGolfCandidate.ClaudeWCT.Arith.FamilyTest
 import SigGolfCandidate.ClaudeWCT.WCT9.LowerReveal
+import SigGolfCandidate.ClaudeWCT.W9.New.G3b.Shared
 
 /-! # The per-chain seed-test reduction (campaign X1 stage B, step B3)
 
@@ -404,9 +405,9 @@ theorem card_filter_getD_zero' (n : ℕ) (l : List ℕ) (hl : l.length = n) :
 theorem dummyDigits_zero (lay : Layer) : ((dummyDigits lay).filter (· = 0)).length = 0 := by
   fin_cases lay <;> decide
 
-/-- **Revealed chains per leaf**: at most `famCount − 3` (campaign T8D: ≤ 20 of the 54 top chains with 24 top
-coefficients, `top_zero_count_le`; ≤ 14 of the 43 lower chains with 17 coefficients, `lower_zero_count_le`), so every
-unrevealed seed keeps 3 degrees of freedom. -/
+/-- **Revealed chains per leaf**: at most `famCount − 3` (top: ≤ 20 of the 54 chains with 24
+coefficients; B4 lower producer, including checksum and dummy fallback: ≤ 5 of the 43 chains with
+8 coefficients), so every unrevealed seed keeps 3 degrees of freedom. The broad decoder is not narrowed. -/
 theorem revSet_card_le {L : LeafAddr} (R : RefTables adversary) :
     (revSet L R).card + 3 ≤ WCT9.famCount L.lay := by
   unfold revSet
@@ -414,23 +415,17 @@ theorem revSet_card_le {L : LeafAddr} (R : RefTables adversary) :
   have e : (Finset.univ.filter fun c : Fin (chainCount L.lay) => depth (restTable R) ⟨L, c⟩ = 0) =
       Finset.univ.filter fun c : Fin (chainCount L.lay) => (referenceDigits (restTable R) L).getD c 0 = 0 := rfl
   rw [e, card_filter_getD_zero' _ _ hspec]
-  have hN := WCT9.famCount_ge L.lay
-  unfold referenceDigits
-  cases h : referenceSearch (restTable R) L with
-  | none => simp only [Option.map_none, Option.getD_none]; rw [dummyDigits_zero]; omega
-  | some found =>
-      obtain ⟨counter, digits⟩ := found
-      simp only [Option.map_some, Option.getD_some]
-      have hd := (WCT9.layerCounterSearch_some (restTable R) L.lay L.tree L.leaf (leafMsg (restTable R) L)
-        (WCT9.searchLimit L.lay) 0 counter digits (ClaudeWCT.W9.T3.Security.Wots.searchLimit_fits _) h).2.2
-      by_cases h0 : L.lay = 0
-      · rw [h0] at hd
-        have := ClaudeWCT.WCT9.top_zero_count_le ClaudeWCT.WCT9.top_target_ge hd
-        rw [show WCT9.famCount L.lay = 24 by rw [h0]; rfl]
-        omega
-      · have := ClaudeWCT.WCT9.lower_zero_count_le h0 (ClaudeWCT.WCT9.lower_target_ge _ h0) hd
-        rw [show WCT9.famCount L.lay = 17 by unfold WCT9.famCount; rw [if_neg h0]; rfl]
-        omega
+  obtain ⟨value, hp⟩ := ClaudeWCT.W9.T3.Security.WotsExtract.referenceDigits_producerDecode (restTable R) L
+  by_cases h0 : L.lay = 0
+  · have hd := WCT9.producerDecode_decode hp
+    rw [h0] at hd
+    have := WCT9.top_zero_count_le WCT9.top_target_ge hd
+    rw [h0, WCT9.famCount_top]
+    omega
+  · have := WCT9.lower_zero_count_le_producer h0 hp
+    rw [WCT9.famCount_lower h0]
+    omega
+#print axioms revSet_card_le
 
 /-! ### Probability bookkeeping -/
 

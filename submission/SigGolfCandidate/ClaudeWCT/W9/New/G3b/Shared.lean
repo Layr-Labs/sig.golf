@@ -34,10 +34,14 @@ theorem referenceDigits_decode (answers : Answers) (L : LeafAddr) :
 theorem dummyDigits_credit (lay : Layer) :
     WCT9.producerFloor lay ≤ WCT9.wordCredit lay (SigGolfCandidate.T3.Security.Wots.dummyDigits lay) := by
   fin_cases lay <;> decide +kernel
+theorem dummyDigits_zeroBound (lay : Layer) :
+    WCT9.producerZeroBound lay (SigGolfCandidate.T3.Security.Wots.dummyDigits lay) := by
+  fin_cases lay <;> decide +kernel
 theorem dummyDigest_producerDecode (lay : Layer) :
     WCT9.producerDecode lay (SigGolfCandidate.T3.Security.WotsExtract.dummyDigest lay) =
       some (SigGolfCandidate.T3.Security.Wots.dummyDigits lay) :=
-  WCT9.producerDecode_of (SigGolfCandidate.T3.Security.WotsExtract.dummyDigest_decode lay) (dummyDigits_credit lay)
+  WCT9.producerDecode_of (SigGolfCandidate.T3.Security.WotsExtract.dummyDigest_decode lay)
+    (dummyDigits_credit lay) (dummyDigits_zeroBound lay)
 theorem referenceDigits_producerDecode (answers : Answers) (L : LeafAddr) :
     ∃ value : Digest, WCT9.producerDecode L.lay value = some (referenceDigits answers L) := by
   unfold referenceDigits
@@ -53,11 +57,15 @@ theorem referenceDigits_credit (answers : Answers) (L : LeafAddr) :
 theorem producerDecode_canonical {lay : Layer} {a b : Digest} {ds : List Nat}
     (ha : WCT9.producerDecode lay a = some ds) (hb : decode lay b = some ds) :
     WCT9.producerDecode lay b = some ds :=
-  WCT9.producerDecode_of hb (WCT9.producerDecode_credit ha)
+  WCT9.producerDecode_of hb (WCT9.producerDecode_credit ha) (WCT9.producerDecode_zeroBound ha)
 theorem producerDecode_of_reference (answers : Answers) (L : LeafAddr) {v : Digest}
     (h : decode L.lay v = some (referenceDigits answers L)) :
-    WCT9.producerDecode L.lay v = some (referenceDigits answers L) :=
-  WCT9.producerDecode_of h (referenceDigits_credit answers L)
+    WCT9.producerDecode L.lay v = some (referenceDigits answers L) := by
+  obtain ⟨value, hp⟩ := referenceDigits_producerDecode answers L
+  exact producerDecode_canonical hp h
+#print axioms dummyDigest_producerDecode
+#print axioms referenceDigits_producerDecode
+#print axioms producerDecode_of_reference
 theorem depth_le (answers : Answers) (a : ChainAddr) (ha : a.chain < chainCount a.key.lay) :
     depth answers a ≤ maxDigit a.key.lay a.chain := by
   obtain ⟨value, hv⟩ := referenceDigits_decode answers a.key

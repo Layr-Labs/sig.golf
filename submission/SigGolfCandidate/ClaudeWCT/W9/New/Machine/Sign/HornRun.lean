@@ -4,7 +4,7 @@ import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Sign.GfMul
 /-!
 # The shared GF(2^128) Horner routine HORN of the stage-A sign image
 
-HORN (entry `hornI`, return through `x1`) evaluates `familyEval coefs d` for the 102 coefficients stored at
+HORN (entry `hornI`, return through `x1`) evaluates `familyEval coefs d` for the 54 coefficients stored at
 `COEF + 16 k` and the point `d = x6 < 1024`, and stores the result at `CHAINW + 48`. Horner loop `HK`: `x7` walks
 down the coefficients, `(x10, x11)` hold the accumulator; bit loop `HB`: `(x10, x11, x12)` hold `acc * 2^k`,
 `(x13, x14, x15)` hold `clmulSmall acc d k`, `x16 = d >> k`; `HF` folds once with 0x87 and adds the coefficient.
@@ -22,10 +22,10 @@ open Gf ClaudeWCT.Arith
 def hornRegs : List Reg := [.x7, .x10, .x11, .x12, .x13, .x14, .x15, .x16, .x17, .x28, .x29]
 /-- The coefficient buffer. -/
 def CoefAt (t : MachineState) (coefs : List Digest) : Prop :=
-  ∀ k < 102, DigAt t (COEF + 16 * k) (coefs.getD k 0)
+  ∀ k < 54, DigAt t (COEF + 16 * k) (coefs.getD k 0)
 
 theorem CoefAt.frame {s t : MachineState} {coefs : List Digest} {W : Nat → Prop} (h : CoefAt s coefs)
-    (hf : Frame s t W) (hW : ∀ A, COEF ≤ A → A < COEF + 1632 → ¬ W A) : CoefAt t coefs :=
+    (hf : Frame s t W) (hW : ∀ A, COEF ≤ A → A < COEF + 864 → ¬ W A) : CoefAt t coefs :=
   fun k hk => (h k hk).frame hf (by unfold COEF; omega) (hW _ (by omega) (by omega)) (hW _ (by omega) (by omega))
 
 section steps
@@ -34,7 +34,7 @@ variable {im : Image}
 theorem horn_look (hcode : NewCodeAt im) : LookOK im (coordLook 0) := coordLook_ok hcode (by norm_num)
 
 theorem step_H0 (hcode : NewCodeAt im) (s : MachineState) (hpc : s.pc = pcOf hornI) :
-    ∃ t, Steps im s 6 6 t ∧ t.pc = pcOf hkI ∧ t.getReg .x7 = BitVec.ofNat 64 (COEF + 16 * 102) ∧
+    ∃ t, Steps im s 6 6 t ∧ t.pc = pcOf hkI ∧ t.getReg .x7 = BitVec.ofNat 64 (COEF + 16 * 54) ∧
       t.getReg .x10 = BitVec.ofNat 64 0 ∧ t.getReg .x11 = BitVec.ofNat 64 0 ∧
       t.getReg .x28 = BitVec.ofNat 64 COEF ∧ RegsExcept s t [.x7, .x10, .x11, .x28] ∧
       Frame s t (fun _ => False) := by
@@ -319,17 +319,17 @@ theorem horner_mul (hcode : NewCodeAt im) {s0 : MachineState} {d : Nat} {coefs :
 def CoefAtN (n : Nat) (t : MachineState) (coefs : List Digest) : Prop :=
   ∀ k < n, DigAt t (COEF + 16 * k) (coefs.getD k 0)
 
-theorem coef_limbs {N : Nat} (hN : N ≤ 102) {s0 u : MachineState} {coefs : List Digest}
+theorem coef_limbs {N : Nat} (hN : N ≤ 54) {s0 u : MachineState} {coefs : List Digest}
     (hcoef : CoefAtN N s0 coefs) (hf : Frame s0 u (fun _ => False)) {m : Nat} (hm : m < N) :
     lim2 (u.getMem (BitVec.ofNat 64 (COEF + 16 * m))) (u.getMem (BitVec.ofNat 64 (COEF + 16 * m + 8))) =
       (coefs.getD m 0).toNat := by
   have h := hcoef m hm
   rw [hf.get (by unfold COEF; omega) id, hf.get (by unfold COEF; omega) id, h.1, h.2, lim2_toNat]
 
-/-- The Horner loop over the first `n ≤ 102` coefficients of the buffer (102: HORN of stage A; 17: the lower
+/-- The Horner loop over the first `n ≤ 54` coefficients of the buffer (54: HORN of stage A; 17: the lower
 seeds of stage B, entered at `HK` with `x7 = COEF + 16 * 17`). -/
 theorem horner_loop (hcode : NewCodeAt im) {s0 : MachineState} {d : Nat} {coefs : List Digest} {N : Nat}
-    (hN : N ≤ 102) (hd : d < 2 ^ 10) (hlen : coefs.length = N) (hcoef : CoefAtN N s0 coefs) :
+    (hN : N ≤ 54) (hd : d < 2 ^ 10) (hlen : coefs.length = N) (hcoef : CoefAtN N s0 coefs) :
     ∀ m, m < N → ∀ t, HkSt s0 d coefs (m + 1) t →
       ∃ u n c, Steps im t n c u ∧ c ≤ hornStepC * (m + 1) + 5 ∧
         u.pc = s0.getReg .x1 &&& BitVec.ofNat 64 (2 ^ 64 - 2) ∧ DigAt u (CHAINW + 48) (familyEval coefs d) ∧
@@ -370,20 +370,20 @@ theorem horner_loop (hcode : NewCodeAt im) {s0 : MachineState} {d : Nat} {coefs 
     omega
 
 /-- Cycle bound of HORN. -/
-def hornC : Nat := 6 + (hornStepC * 102 + 5)
+def hornC : Nat := 6 + (hornStepC * 54 + 5)
 
 theorem horn_run (hcode : NewCodeAt im) (s : MachineState) (hpc : s.pc = pcOf hornI) {d : Nat} (hd : d < 2 ^ 10)
-    (h6 : s.getReg .x6 = BitVec.ofNat 64 d) {coefs : List Digest} (hlen : coefs.length = 102)
+    (h6 : s.getReg .x6 = BitVec.ofNat 64 d) {coefs : List Digest} (hlen : coefs.length = 54)
     (hcoef : CoefAt s coefs) :
     ∃ u n c, Steps im s n c u ∧ c ≤ hornC ∧ u.pc = s.getReg .x1 &&& BitVec.ofNat 64 (2 ^ 64 - 2) ∧
       DigAt u (CHAINW + 48) (familyEval coefs d) ∧ RegsExcept s u hornRegs ∧
       Frame s u (fun A => A = CHAINW + 48 ∨ A = CHAINW + 56) := by
   obtain ⟨t, st, tpc, t7, t10, t11, t28, tregs, tframe⟩ := step_H0 hcode s hpc
-  have ht : HkSt s d coefs (101 + 1) t := by
+  have ht : HkSt s d coefs (53 + 1) t := by
     refine ⟨tpc, by rw [tregs.get (by simp)]; exact h6, t7, t28, ?_, tregs.mono (by simp [hornRegs]), tframe⟩
     rw [t10, t11, List.drop_eq_nil_of_le (by omega)]
     rfl
-  obtain ⟨u, n, c, su, hc, upc, ud, uregs, uframe⟩ := horner_loop hcode (le_refl 102) hd hlen hcoef 101 (by norm_num) t ht
+  obtain ⟨u, n, c, su, hc, upc, ud, uregs, uframe⟩ := horner_loop hcode (le_refl 54) hd hlen hcoef 53 (by norm_num) t ht
   exact ⟨u, _, _, st.trans su, by unfold hornC; omega, upc, ud, uregs, uframe⟩
 
 end loops

@@ -20,7 +20,7 @@ structure GlobSt (sk : BitVec 256) (N : BitVec 256) (t : MachineState) : Prop wh
   zero : ∀ A, ScrZero A → t.getMem (BitVec.ofNat 64 A) = 0
 def coordW (c : Nat) (A : Nat) : Prop :=
   loopW c A ∨ treeW A ∨ (FORW + forOff c ≤ A ∧ A < FORW + forOff c + 32) ∨ (slotP c 0 ≤ A ∧ A < slotP c 7) ∨
-    (COEF ≤ A ∧ A < COEF + 1632)
+    (COEF ≤ A ∧ A < COEF + 864)
 theorem GlobSt.frame {sk N : BitVec 256} {s t : MachineState} {c : Nat} {l : List Reg} (hc : c < 9)
     (h : GlobSt sk N s) (hr : RegsExcept s t l) (hl : .x5 ∉ l ∧ .x22 ∉ l) (hf : Frame s t (coordW c)) :
     GlobSt sk N t := by
@@ -53,9 +53,9 @@ theorem coordW_other {c c' A : Nat} (hc : c < 9) (hc' : c' < 9) (hne : c ≠ c')
   aoh
 def coefStepC : Nat := 8 + 10
 def coordC (c : Nat) : Nat :=
-  fk c + (1 + (14 + (51 * coefStepC + (128 * loopStepC + (126 * treeC + (12 + 7 * 13))))))
+  fk c + (1 + (14 + (27 * coefStepC + (128 * loopStepC + (126 * treeC + (12 + 7 * 13))))))
 theorem coordC_le (c : Nat) :
-    coordC c ≤ 13 + (1 + (14 + (51 * coefStepC + (128 * loopStepC + (126 * treeC + (12 + 7 * 13)))))) := by
+    coordC c ≤ 13 + (1 + (14 + (27 * coefStepC + (128 * loopStepC + (126 * treeC + (12 + 7 * 13)))))) := by
   unfold coordC fk; split_ifs <;> omega
 theorem field_lt563 {N : BitVec 256} (hadm : WCT9.admissible N = true) {c : Nat} (hc : c < 9) :
     N.toNat / 2 ^ WCT9.fieldBase c % 2 ^ 10 < 563 :=
@@ -63,15 +63,15 @@ theorem field_lt563 {N : BitVec 256} (hadm : WCT9.admissible N = true) {c : Nat}
 theorem pcI_seven (c : Nat) (hc : c < 9) : pcI c 7 = if c < 8 then cbase (c + 1) else 20715 := by
   interval_cases c <;> decide
 def coefRegs : List Reg := [.x6, .x7, .x10, .x11, .x12, .x18, .x29]
-def coefW (A : Nat) : Prop := A = PRIVW + 16 ∨ A = PRIVW + 24 ∨ (COEF ≤ A ∧ A < COEF + 1632)
+def coefW (A : Nat) : Prop := A = PRIVW + 16 ∨ A = PRIVW + 24 ∨ (COEF ≤ A ∧ A < COEF + 864)
 structure CoefInv (im : Image) (c index : Nat) (s0 : MachineState) (j : Nat) (acc : List Digest)
     (t : MachineState) : Prop where
-  pc : t.pc = pcOf (if j < 51 then ecI c else leafI c)
-  run : j < 51 → fetch im t = some (.base .ECALL) ∧ t.getReg .x7 = BitVec.ofNat 64 j ∧
+  pc : t.pc = pcOf (if j < 27 then ecI c else leafI c)
+  run : j < 27 → fetch im t = some (.base .ECALL) ∧ t.getReg .x7 = BitVec.ofNat 64 j ∧
     t.getReg .x10 = BitVec.ofNat 64 PRIVW ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
     t.getReg .x12 = BitVec.ofNat 64 (COEF + 32 * j) ∧
     t.getMem (BitVec.ofNat 64 (PRIVW + 24)) = BitVec.ofNat 64 (index + 2 ^ 32 * j)
-  done : 51 ≤ j → t.getReg .x18 = BitVec.ofNat 64 0
+  done : 27 ≤ j → t.getReg .x18 = BitVec.ofNat 64 0
   p16 : t.getMem (BitVec.ofNat 64 (PRIVW + 16)) = BitVec.ofNat 64 (hdr8 c)
   len : acc.length = 2 * j
   coef : ∀ k < 2 * j, DigAt t (COEF + 16 * k) (acc.getD k 0)
@@ -96,7 +96,7 @@ theorem coef_step (hcode : NewCodeAt im) {c index : Nat} (hc : c < 9) (hidx : in
     (p32 : s0.getMem (BitVec.ofNat 64 (PRIVW + 32)) = sk.extractLsb' 128 64)
     (p40 : s0.getMem (BitVec.ofNat 64 (PRIVW + 40)) = sk.extractLsb' 192 64)
     (p48 : s0.getMem (BitVec.ofNat 64 (PRIVW + 48)) = 0) (p56 : s0.getMem (BitVec.ofNat 64 (PRIVW + 56)) = 0)
-    (j : Nat) (hj : j < 51) (acc : List Digest) (t : MachineState) (h : CoefInv im c index s0 j acc t) :
+    (j : Nat) (hj : j < 27) (acc : List Digest) (t : MachineState) (h : CoefInv im c index s0 j acc t) :
     TBSim im sk t coefStepC (coefStep index c acc (0 + j)) (CoefInv im c index s0 (j + 1)) := by
   obtain ⟨ec, x7, x10, x11, x12, m24⟩ := h.run hj
   have gm : ∀ A, A < 2 ^ 64 → ¬ coefW A → t.getMem (BitVec.ofNat 64 A) = s0.getMem (BitVec.ofNat 64 A) :=
@@ -142,7 +142,7 @@ theorem coef_step (hcode : NewCodeAt im) {c index : Nat} (hc : c < 9) (hidx : in
     rcases hA with hA | hA
     · exact hA
     · unfold coefW; right; right; simp only [COEF] at *; omega)
-  by_cases hj1 : j + 1 < 51
+  by_cases hj1 : j + 1 < 27
   · obtain ⟨v, sv, ev, vpc, v7, v10, v11, v12, v24, vregs, vframe⟩ := step_CLc hcode hc u upc
       (by rw [hu, getReg_writeHash]; exact x7) hj1 (by rw [hu, getReg_writeHash]; exact x12)
       (by rw [hu, getReg_writeHash]; exact t22) (by omega)
@@ -246,7 +246,7 @@ theorem coord_unit (hcode : NewCodeAt im) {c : Nat} (hc : c < 9) {N : BitVec 256
   simp only [buildCoordinateF_factor, ftsCoefs_eq, bind_assoc, pure_bind]
   refine (TBSim.steps ((s1.trans s2).trans s3)
     (TBSim.bind (W₂ := 128 * loopStepC + (126 * treeC + (12 + 7 * 13)))
-      (TBSim.foldlM_range' 0 51 (coefStep (WCT9.digestIndex N) c) [] (CoefInv im c (WCT9.digestIndex N) t2)
+      (TBSim.foldlM_range' 0 27 (coefStep (WCT9.digestIndex N) c) [] (CoefInv im c (WCT9.digestIndex N) t2)
         coefStepC (fun j hj acc t ht => coef_step hcode hc hidx (by rw [r12.get (by simp)]; exact hg.x5) h22
           (by rw [g2 _ (by ao)]; exact hg.p0) (by rw [g2 _ (by ao)]; exact hg.p8)
           (by rw [g2 _ (by ao)]; exact hg.p32) (by rw [g2 _ (by ao)]; exact hg.p40)
@@ -274,7 +274,7 @@ theorem coord_unit (hcode : NewCodeAt im) {c : Nat} (hc : c < 9) {N : BitVec 256
       hz _ (by simp [ScrZero]), hz _ (by simp [ScrZero]), hz _ (by simp [ScrZero]), hz _ (by simp [ScrZero])⟩
   have hp3 : t3'.pc = pcOf (leafI c) := by have := h3.pc; rwa [if_neg (by norm_num)] at this
   have hcf : CoefAt t3' coefs := fun k hk => h3.coef k (by omega)
-  have hlen : coefs.length = 102 := h3.len
+  have hlen : coefs.length = 54 := h3.len
   refine TBSim.bind (W₂ := 126 * treeC + (12 + 7 * 13))
     (child_loop (word := WCT9.rank N ⟨c, hc⟩) hcode hc hsel128 hidx hw64 hword hlen hcf
       (LoopInv.init hp3 hb3)) (fun rows t4 h4 => ?_)
@@ -370,7 +370,7 @@ namespace ClaudeWCT.W9.Machine.Sign
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (M Digest header pad64 shortHash)
-def coordCmax : Nat := 13 + (1 + (14 + (51 * coefStepC + (128 * loopStepC + (126 * treeC + (12 + 7 * 13))))))
+def coordCmax : Nat := 13 + (1 + (14 + (27 * coefStepC + (128 * loopStepC + (126 * treeC + (12 + 7 * 13))))))
 def ftsW' (A : Nat) : Prop := (PRIVW ≤ A ∧ A < SCREND) ∨ (SIG + 16 ≤ A ∧ A < SIG + 1888)
 structure FtsInv (sk N : BitVec 256) (s0 : MachineState) (k : Nat)
     (st : List WCT9.Opening × List (Digest × Digest)) (t : MachineState) : Prop where
@@ -741,7 +741,7 @@ def FinalQ : Option WCT9.Signature → MachineState → Prop
       ∀ k < 332, DigAt t (SIG + 16 * k) ((W9.T3M.sigDigests sig).getD (W9.T3M.cIdx k) 0)
 def restC : Nat := searchC + (ftsC + (layC + compactK))
 def signCW : Nat := frontC + restC
-theorem signCW_eq : signCW = 3595085194 := by
+theorem signCW_eq : signCW = 4249360718 := by
   norm_num [signCW, restC, frontC, searchC, trialC, WCT9.digestAttemptLimit, ftsC, layC, compactK]
 theorem signCW_lt : signCW + 1 < CYCLE_LIMIT := by
   rw [signCW_eq]; norm_num [CYCLE_LIMIT]

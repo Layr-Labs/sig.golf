@@ -51,7 +51,7 @@ theorem blk370_spec (s : MachineState) (hpc : s.pc = pcOf 370) (idx : Nat) (hidx
       t.getReg .x2 = BitVec.ofNat 64 LOW ∧ t.getReg .x31 = BitVec.ofNat 64 0 ∧
       t.getReg .x26 = BitVec.ofNat 64 43 ∧ t.getReg .x27 = BitVec.ofNat 64 0 ∧
       t.getReg .x8 = BitVec.ofNat 64 3 ∧ t.getReg .x15 = BitVec.ofNat 64 6 ∧
-      t.getReg .x16 = BitVec.ofNat 64 (SIG + 4832) ∧ t.getReg .x17 = BitVec.ofNat 64 199 ∧
+      t.getReg .x16 = BitVec.ofNat 64 (SIG + 4832) ∧ t.getReg .x17 = BitVec.ofNat 64 200 ∧
       t.getReg .x18 = BitVec.ofNat 64 (idx % 64) ∧ t.getReg .x14 = BitVec.ofNat 64 (idx % 64) ∧
       t.getReg .x9 = BitVec.ofNat 64 (idx / 64) ∧
       RegsExcept s t [.x1, .x2, .x6, .x7, .x8, .x9, .x14, .x15, .x16, .x17, .x18, .x26, .x27, .x28, .x29, .x30,

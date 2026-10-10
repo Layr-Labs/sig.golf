@@ -133,11 +133,11 @@ def buildCoordinate (index : Nat) (coord : Coord) (selected : Child) (word : Ran
       pure (state.1 ++ [root], (if j = selected.val then values else state.2.1), carry)) ([], [], 0)
   let nodes ← heapBuild index coord.val state.1
   pure (heapLevels nodes, state.2.1)
-/-! ### Arithmetic seeds (campaign X1, stage A): FTS seeds from a degree-101 GF(2^128) family per coordinate.
-The 102 coefficients are the halves of `ftsSeedPair index coord j`, `j < 51`, low half first; the seed of chain
+/-! ### Arithmetic seeds (stage3 F8): FTS seeds from a degree-53 GF(2^128) family per coordinate.
+The 54 coefficients are the halves of `ftsSeedPair index coord j`, `j < 27`, low half first; the seed of chain
 `chain` of child `child` is `familyEval coefs (ftsPoint child chain)`. Used by `signPayload` and by `Rev3.sign`
 (through `signPayloadWith`). -/
-def ftsCoefPairs : Nat := 51
+def ftsCoefPairs : Nat := 27
 def ftsCoefs (index coord : Nat) : M (List Digest) :=
   (List.range ftsCoefPairs).foldlM (fun acc j => do
     let p ← ftsSeedPair index coord j
@@ -181,12 +181,17 @@ def pairEncodingInputP (up : Layer) (tree leaf : Nat) (left right : Digest) (cou
 def layerEncodingInput (lay : Layer) (tree leaf : Nat) : LayerMsg → BitVec 32 → HashInput
   | .forest root, counter => encodingInput lay tree leaf root counter
   | .pair left right, counter => pairEncodingInputP lay tree leaf left right counter 0
-def producerFloor (lay : Layer) : Nat := ![9, 4, 4, 4] lay
+def producerFloor (lay : Layer) : Nat := ![9, 5, 5, 4] lay
 def wordCredit (lay : Layer) (digits : List Nat) : Nat :=
   ((List.range (chainCount lay)).filter fun i => digits.getD i 0 + 1 = maxDigit lay i).length
+/-- Producer-only restriction; includes the checksum and leaves the broad decoder unchanged. -/
+def producerZeroBound (lay : Layer) (digits : List Nat) : Prop :=
+  lay = 0 ∨ (digits.filter (· = 0)).length ≤ 5
+instance (lay : Layer) (digits : List Nat) : Decidable (producerZeroBound lay digits) := by
+  unfold producerZeroBound; infer_instance
 def producerDecode (lay : Layer) (answer : Digest) : Option (List Nat) :=
   match decode lay answer with
-  | some digits => if producerFloor lay ≤ wordCredit lay digits then some digits else none
+  | some digits => if producerFloor lay ≤ wordCredit lay digits ∧ producerZeroBound lay digits then some digits else none
   | none => none
 def lowerSearchLimit : Nat := 2 ^ 21
 def searchLimit (lay : Layer) : Nat := if lay = 0 then counterLimit else lowerSearchLimit
@@ -221,11 +226,11 @@ def buildLevelsBelow (tag lay tree h : Nat) (leaves : List Digest) : M (List (Li
   (List.range' 1 (h - 1)).foldlM (fun levels level => do
     let nodes ← buildLevel tag lay tree h level (levels.getD (level - 1) [])
     pure (levels ++ [nodes])) [leaves]
-/-! ### Arithmetic seeds (campaign X1, stage B): lower WOTS seeds from a degree-16 GF(2^128) family per leaf.
-Leaf `leaf` of tree `tree` in layer `lay ≥ 1` has 17 coefficients; coefficient `j` is the packed half with ordinal
-`17 * leaf + j` of `lowerSeedPair lay tree` (the same carry packing as `buildLeafP`, so a tree costs
-`⌈17 · 2^height / 2⌉` private pairs). The seed of chain `i` is `familyEval coefs (lowerPoint i)`, `lowerPoint i = i + 1`. -/
-def lowerCoefCount : Nat := 17
+/-! ### B4 lower arithmetic seeds: a degree-7 GF(2^128) family per leaf.
+Coefficient `j` of leaf `leaf` has ordinal `8 * leaf + j`; the even coefficient count
+uses four private pairs per leaf without a carry. The producer reveals at most five seeds.
+The seed of chain `i` is `familyEval coefs (lowerPoint i)`, `lowerPoint i = i + 1`. -/
+def lowerCoefCount : Nat := 8
 def lowerCoefOrdinal (leaf j : Nat) : Nat := lowerCoefCount * leaf + j
 def lowerPoint (chain : Nat) : Nat := chain + 1
 def lowerCoefs (lay : Layer) (tree leaf : Nat) (carry : Digest) : M (List Digest × Digest) :=

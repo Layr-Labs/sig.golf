@@ -357,3 +357,26 @@ theorem padded_backward_hit {Input : Type} (hash : Input → Value)
         exact hcollision.trans (honest_step (start + count)).symm
 end Walk
 end ClaudeWCT.WCT9
+
+
+/-! The two security routes count raw seed disclosures by the same digit-4 predicate.
+This is a codebook fact, independent of the index distribution or overflow event. -/
+namespace ClaudeWCT.WCT9
+
+theorem f8_seedDisclosures_card_le (r : Fin 563) :
+    (Finset.univ.filter fun t : Fin 6 => wordDigit r t = 4).card ≤ 1 := by
+  have hsum := wordStep_count r
+  have h1 : 4 * (Finset.univ.filter fun t : Fin 6 => wordDigit r t = 4).card ≤
+      ∑ t : Fin 6, wordDigit r t := by
+    calc 4 * (Finset.univ.filter fun t : Fin 6 => wordDigit r t = 4).card
+        = ∑ t ∈ Finset.univ.filter (fun t : Fin 6 => wordDigit r t = 4), wordDigit r t := by
+          rw [Finset.sum_congr rfl (fun t ht => (Finset.mem_filter.mp ht).2),
+            Finset.sum_const, smul_eq_mul, mul_comm]
+      _ ≤ _ := Finset.sum_le_sum_of_subset (Finset.filter_subset _ _)
+  omega
+
+/-- 51 honest disclosures, one prior guess and one fresh evaluation fit in 54 coefficients.
+The 51-output premise must be supplied by the M2 occupancy transport, not by degree alone. -/
+theorem f8_m2_family_margin : 51 + 1 + 1 < 54 := by norm_num
+
+end ClaudeWCT.WCT9

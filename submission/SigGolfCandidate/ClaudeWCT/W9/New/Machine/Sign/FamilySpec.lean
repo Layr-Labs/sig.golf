@@ -51,7 +51,7 @@ def coefStep (index coord : Nat) (acc : List Digest) (j : Nat) : M (List Digest)
   pure (acc ++ [p.1, p.2])
 
 theorem ftsCoefs_eq (index coord : Nat) :
-    WCT9.ftsCoefs index coord = (List.range' 0 51).foldlM (coefStep index coord) [] := by
+    WCT9.ftsCoefs index coord = (List.range' 0 27).foldlM (coefStep index coord) [] := by
   unfold WCT9.ftsCoefs WCT9.ftsCoefPairs
   rw [List.range_eq_range']
   rfl

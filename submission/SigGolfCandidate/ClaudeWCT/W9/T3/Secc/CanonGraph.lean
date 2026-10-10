@@ -71,8 +71,8 @@ def Node.depth : Node → Nat
   | .wctLeaf _ => 4
   | .wctNode n => 5 + n.1.level.val
   | .forest _ => 11
-/-- Coefficient index of the FTS seed families (campaign X1, stage A): `(index, coord, j)`, `j < 102`. -/
-abbrev WctCoef := Fin (2 ^ 31) × Fin 9 × Fin 102
+/-- Coefficient index of the FTS seed families (campaign X1, stage A): `(index, coord, j)`, `j < 54`. -/
+abbrev WctCoef := Fin (2 ^ 31) × Fin 9 × Fin 54
 /-- Hidden secrets: leaf-family coefficients (by address: an address with chain `j < famCount layer` is coefficient
 `j` of its leaf, campaign X1 stage B for lower leaves, campaign T8D for top leaves) and FTS family coefficients. WOTS and
 FTS seeds are not secrets themselves but evaluations (`seedsOf`, `wctSeedsOf`) of the coefficient families. -/
@@ -91,7 +91,7 @@ def leafFamily (secrets : Secrets) (lay : Layer) (tree : Fin (2 ^ 31)) (leaf : F
 def seedsOf (secrets : Secrets) : Seeds := fun a =>
   ClaudeWCT.Arith.familyEval (List.ofFn (leafFamily secrets a.layer a.tree a.leaf)) (a.chain.val + 1)
 /-- The coefficient family of FTS coordinate `(index, coord)`. -/
-def wctFamily (secrets : Secrets) (index : Fin (2 ^ 31)) (coord : Fin 9) : Fin 102 → Digest :=
+def wctFamily (secrets : Secrets) (index : Fin (2 ^ 31)) (coord : Fin 9) : Fin 54 → Digest :=
   fun j => secrets (.inr (index, coord, j))
 /-- FTS seed of chain `a`: its family evaluated at `ftsPoint child chain` in GF(2^128). -/
 def wctSeedsOf (secrets : Secrets) : WctAddr → Digest := fun a =>

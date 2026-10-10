@@ -52,10 +52,18 @@ theorem lower199f4_failure_power {β : Type} (decoder : HashOutput → Option β
     (hacc : Pr[fun answer => (decoder answer).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] =
       (V5.lowerCount199f4 : ENNReal) / 2 ^ 128) :
     failMass decoder ^ (2 ^ 21) ≤ 1 / (2 : ENNReal) ^ 600 :=
-  failure_power_of_rate decoder V5.p4 (2 ^ 21) 600 (by norm_num [V5.p4, V5.lowerCount199f4])
-    (by norm_num [V5.p4, V5.lowerCount199f4])
+  failure_power_of_rate decoder (V5.lowerCount199f4 / 2 ^ 128) (2 ^ 21) 600
+    (by norm_num [V5.lowerCount199f4]) (by norm_num [V5.lowerCount199f4])
+    (by rw [hacc, ofReal_count_div])
+    (by norm_num [V5.lowerCount199f4])
+theorem lower200f4_failure_power {β : Type} (decoder : HashOutput → Option β)
+    (hacc : Pr[fun answer => (decoder answer).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] =
+      (V5.lowerCount200f4 : ENNReal) / 2 ^ 128) :
+    failMass decoder ^ (2 ^ 21) ≤ 1 / (2 : ENNReal) ^ 600 :=
+  failure_power_of_rate decoder V5.p4 (2 ^ 21) 600 (by norm_num [V5.p4, V5.lowerCount200f4])
+    (by norm_num [V5.p4, V5.lowerCount200f4])
     (by rw [hacc, V5.p4, ofReal_count_div])
-    (by exact_mod_cast V5.rate_lower199f4_600)
+    (by exact_mod_cast V5.rate_lower200f4_600)
 theorem digest_failure_power_900_of {β : Type} (decoder : HashOutput → Option β)
     (hacc : Pr[fun answer => (decoder answer).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] =
       ENNReal.ofReal (V5.p0 : ℝ)) :

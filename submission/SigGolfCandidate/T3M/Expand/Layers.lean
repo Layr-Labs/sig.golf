@@ -468,7 +468,7 @@ def layCost (lay : Layer) : Nat :=
 def lcost : Nat → Nat
   | 0 => 0
   | n + 1 => layCost (Fin.ofNat 4 n) + lcost n
-theorem lcost_four_eq : lcost 4 = 3007388365 := by decide +kernel
+theorem lcost_four_eq : lcost 4 = 3661699789 := by decide +kernel
 theorem ltable (lay : Layer) :
     0x7000 ≤ lP lay ∧ lP lay + 16 * (chainCount lay + height lay) ≤ 0x7000 + 5616 ∧ lP lay % 8 = 0 ∧
     lWC lay % 8 = 0 ∧ lWM lay % 8 = 0 ∧ 0x800 + 64 * (height lay - 1) ≤ lWM lay ∧

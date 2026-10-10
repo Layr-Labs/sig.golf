@@ -134,7 +134,7 @@ theorem eval_pairWE (s : MachineState) {j index : Nat} (h7 : s.getReg .x7 = BitV
   rw [eval_x7p1 s h7, binop_sll _ _ (by norm_num), ofNat_shl, h22]
   exact ofNat_or_hi index (j + 1) hidx
 theorem step_CLc (hcode : NewCodeAt im) {c : Nat} (hc : c < 9) (s : MachineState) (hpc : s.pc = pcOf (paI c))
-    {j index B : Nat} (h7 : s.getReg .x7 = BitVec.ofNat 64 j) (hj : j + 1 < 51)
+    {j index B : Nat} (h7 : s.getReg .x7 = BitVec.ofNat 64 j) (hj : j + 1 < 27)
     (h12 : s.getReg .x12 = BitVec.ofNat 64 B) (h22 : s.getReg .x22 = BitVec.ofNat 64 index)
     (hidx : index < 2 ^ 32) :
     ∃ t, Steps im s 10 10 t ∧ fetch im t = some (.base .ECALL) ∧ t.pc = pcOf (ecI c) ∧
@@ -157,7 +157,7 @@ theorem step_CLc (hcode : NewCodeAt im) {c : Nat} (hc : c < 9) (s : MachineState
     simp only [expCL, if_true, pres, List.mem_cons, List.not_mem_nil, or_false] at hq
     subst hq; exact ⟨rfl, by rw [off_mwc _ _ (by ao)]⟩
 theorem step_CLx (hcode : NewCodeAt im) {c : Nat} (hc : c < 9) (s : MachineState) (hpc : s.pc = pcOf (paI c))
-    {j : Nat} (h7 : s.getReg .x7 = BitVec.ofNat 64 j) (hj : j + 1 = 51) :
+    {j : Nat} (h7 : s.getReg .x7 = BitVec.ofNat 64 j) (hj : j + 1 = 27) :
     ∃ t, Steps im s 6 6 t ∧ t.pc = pcOf (leafI c) ∧ t.getReg .x18 = BitVec.ofNat 64 0 ∧
       RegsExcept s t [.x6, .x7, .x12, .x18] ∧ Frame s t (fun _ => False) := by
   have hb : ∀ b ∈ (expCL c false).brs, b.holds s := by

@@ -77,8 +77,8 @@ def a_6 (b : Nat) : List (BitVec 32) := if b = 354 then a_6e else a_6s
 def a_7 : List (BitVec 32) := [0xffae0e13,1981971,66985491,0xfff00a13,1726995,7342739,56252979,1269395,2318099,32439987,0xfff34f13,32439987,21954227,31354419,1302163,2350867,32439987,0xfff3cf13,32439987,21954227,2006675,31354419,0xfffe0e93,31358515,0xffd40f13,1635]
 def a_33 : List (BitVec 32) := [0xfffe0e93,31358515]
 def a_35 : List (BitVec 32) := [0xfffe0e93,31358515,0xfffe0e93,31358515,918627]
-def a_40s : List (BitVec 32) := [0xa15ec06f]
-def a_40e : List (BitVec 32) := [0xa05d806f]
+def a_40s : List (BitVec 32) := [88080495]
+def a_40e : List (BitVec 32) := [835719279]
 def a_40 (b : Nat) : List (BitVec 32) := if b = 354 then a_40e else a_40s
 def a_41s : List (BitVec 32) := [0xa9dec06f]
 def a_41e : List (BitVec 32) := [0xa8dd806f]
@@ -95,9 +95,28 @@ def tcBase (b : Nat) : Nat := if b = 354 then 1272 else 1523
 def c_0s : List (BitVec 32) := [0xfff34313,0xfff00e13,0x9e5e13,29606835,0xcbcff06f]
 def c_0e : List (BitVec 32) := [0xfff34313,0xfff00e13,0x9e5e13,29606835,0xdb4ff06f]
 def c_0 (b : Nat) : List (BitVec 32) := if b = 354 then c_0e else c_0s
+def zBase (b : Nat) : Nat := if b = 354 then 42841 else 20832
+def z_0 : List (BitVec 32) := [4292087571,985187]
+def z_2 : List (BitVec 32) := [4294839955,31358515,135135843]
+def z_5 : List (BitVec 32) := [4293921299,1726995,7342739,56252979,1269395,7270067,2318099,32435891,4294889107,21954227,1302035,8285747,2350867,32402995,4294856211,21921331,2707]
+def z_22 : List (BitVec 32) := [952931]
+def z_23 : List (BitVec 32) := [4294872851,32439987,1739411,4280283247]
+def z_27 : List (BitVec 32) := [920163]
+def z_28 : List (BitVec 32) := [4294840083,32407091,1739411,4280283247]
+def z_32 : List (BitVec 32) := [26776675]
+def z_33 : List (BitVec 32) := [1739411]
+def z_34 : List (BitVec 32) := [6995731,984163]
+def z_36 (b : Nat) : List (BitVec 32) := if b = 354 then [3852296303] else [2468266095]
+def z_37 (b : Nat) : List (BitVec 32) := if b = 354 then [3994902639] else [2610872431]
+def zeroL (b : Nat) : Rv.Layout := [(0,z_0),(2,z_2),(5,z_5),(22,z_22),(23,z_23),(27,z_27),
+  (28,z_28),(32,z_32),(33,z_33),(34,z_34),(36,z_36 b),(37,z_37 b)]
+def zeroCode (b : Nat) : List (BitVec 32) := layoutCode (zeroL b)
+theorem zeroL_ok {b : Nat} (hb : b = 354 ∨ b = 543) : layoutOk 0 (zeroL b) = true := by
+  rcases hb with rfl | rfl <;> decide +kernel
 def KernAt (image : Image) (b : Nat) : Prop :=
   (CodeAt image (pcOf b) (kernCode b) ∧ CodeAt image (pcOf (capBase b)) (appCode b)) ∧ (b = 354 ∨ b = 543) ∧
-    CodeAt image (pcOf (prxBase b)) (p_0 b) ∧ CodeAt image (pcOf (tcBase b)) (c_0 b)
+    CodeAt image (pcOf (prxBase b)) (p_0 b) ∧ CodeAt image (pcOf (tcBase b)) (c_0 b) ∧
+    CodeAt image (pcOf (zBase b)) (zeroCode b)
 theorem codeAt_k_0 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 0)) k_0 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 0) rfl
@@ -260,7 +279,10 @@ theorem codeAt_a_41 {image : Image} {b : Nat} (h : KernAt image b) :
 theorem codeAt_p_0 {image : Image} {b : Nat} (h : KernAt image b) : CodeAt image (pcOf (prxBase b)) (p_0 b) :=
   h.2.2.1
 theorem codeAt_c_0 {image : Image} {b : Nat} (h : KernAt image b) : CodeAt image (pcOf (tcBase b)) (c_0 b) :=
-  h.2.2.2
+  h.2.2.2.1
+theorem codeAt_zero {image : Image} {b : Nat} (h : KernAt image b) (i o : Nat) (seg : List (BitVec 32))
+    (hs : (zeroL b)[i]? = some (o, seg)) : CodeAt image (pcOf (zBase b + o)) seg :=
+  codeAt_sublayout h.2.2.2.2 (zeroL_ok h.2.1) hs
 private theorem foldl_chunks (cs : List (List (BitVec 32))) (acc : List (BitVec 32)) :
     cs.foldl (· ++ ·) acc = acc ++ cs.flatten := by
   induction cs generalizing acc with
@@ -290,12 +312,20 @@ theorem prxCode_sign : (Images.signImage.code.drop 1508).take (p_0 543).length =
 theorem tcCode_sign : (Images.signImage.code.drop 1523).take (c_0 543).length = c_0 543 := by
   change (Images.signCode.drop 1523).take _ = _
   rw [Images.signCode, foldl_chunks, List.nil_append]; decide +kernel
+theorem zeroCode_expand : (Images.expandImage.code.drop 42841).take (zeroCode 354).length = zeroCode 354 := by
+  change (Images.expandCode.drop 42841).take _ = _
+  rw [Images.expandCode, foldl_chunks, List.nil_append]; decide +kernel
+theorem zeroCode_sign : (Images.signImage.code.drop 20832).take (zeroCode 543).length = zeroCode 543 := by
+  change (Images.signCode.drop 20832).take _ = _
+  rw [Images.signCode, foldl_chunks, List.nil_append]; decide +kernel
 theorem kernAt_expand : KernAt Images.expandImage 354 :=
   ⟨⟨codeAt_slice (by decide +kernel) kernCode_expand, codeAt_slice (by decide +kernel) appCode_expand⟩, Or.inl rfl,
-    codeAt_slice (by decide +kernel) prxCode_expand, codeAt_slice (by decide +kernel) tcCode_expand⟩
+    codeAt_slice (by decide +kernel) prxCode_expand, codeAt_slice (by decide +kernel) tcCode_expand,
+    codeAt_slice (by decide +kernel) zeroCode_expand⟩
 theorem kernAt_sign : KernAt Images.signImage 543 :=
   ⟨⟨codeAt_slice (by decide +kernel) kernCode_sign, codeAt_slice (by decide +kernel) appCode_sign⟩, Or.inr rfl,
-    codeAt_slice (by decide +kernel) prxCode_sign, codeAt_slice (by decide +kernel) tcCode_sign⟩
+    codeAt_slice (by decide +kernel) prxCode_sign, codeAt_slice (by decide +kernel) tcCode_sign,
+    codeAt_slice (by decide +kernel) zeroCode_sign⟩
 sym_block blk354_0 := symRun { noAlias := true } k_0 (pcOf (354 + 0)) 200
 sym_block blk543_0 := symRun { noAlias := true } k_0 (pcOf (543 + 0)) 200
 sym_block blk354_3 := symRun { noAlias := true } k_3 (pcOf (354 + 3)) 200
@@ -803,7 +833,7 @@ theorem runa_35 {b : Nat} (hb : b = 354 ∨ b = 543) :
 sym_block blkA354_40 := symRun { noAlias := true } a_40e (pcOf (41066 + 40)) 200
 sym_block blkA543_40 := symRun { noAlias := true } a_40s (pcOf (20771 + 40)) 200
 def sta_40 : SymState := blkA354_40.res.st
-def pcEa_40 (b : Nat) : E := .c (pcOf (b + 433))
+def pcEa_40 (b : Nat) : E := .c (pcOf (zBase b))
 theorem runa_40 {b : Nat} (hb : b = 354 ∨ b = 543) :
     symRun { noAlias := true } (a_40 b) (pcOf (capBase b + 40)) 200 =
       some ⟨sta_40, pcEa_40 b, blkA354_40.res.stop, blkA354_40.res.steps, blkA354_40.res.cycles⟩ := by

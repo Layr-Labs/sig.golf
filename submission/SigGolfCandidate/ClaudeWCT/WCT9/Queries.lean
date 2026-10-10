@@ -229,7 +229,7 @@ theorem ftsBound_heapBuild (coord : Nat) (hcoord : coord < 9) (leaves : List Dig
     (fun _ _ => .pure _ 0 trivial) (by omega)
 /-- Per coordinate: 51 coefficient pairs, 128 children of 26, 126 heap nodes. -/
 theorem ftsBound_buildCoordinateF (coord : Coord) (selected : Child) (word : Rank) :
-    Bound (FtsQuery index) (fun _ => True) 3505 (buildCoordinateF index coord selected word) := by
+    Bound (FtsQuery index) (fun _ => True) 3481 (buildCoordinateF index coord selected word) := by
   rw [buildCoordinateF_factor]
   refine (ftsBound_ftsCoefs index coord.val coord.isLt).bind' (l := 3454) (fun coefs _ => ?_)
     (by simp [ftsCoefPairs])
@@ -239,17 +239,17 @@ theorem ftsBound_buildCoordinateF (coord : Coord) (selected : Child) (word : Ran
 theorem ftsBound_forestRows (output : HashOutput) :
     Bound (FtsQuery index)
       (fun state : List Opening × List (Digest × Digest) => state.1.length = 9 ∧ state.2.length = 9)
-      31545 (forestRows index output) := by
+      31329 (forestRows index output) := by
   unfold forestRows
   refine ((Bound.foldlM_list (P := FtsQuery index) (List.finRange 9) _
     (fun i (state : List Opening × List (Digest × Digest)) => state.1.length = i ∧ state.2.length = i)
-    (fun _ => 3505) ([], []) ⟨rfl, rfl⟩ (fun i hi state hstate => ?_)).mono (fun _ h => h)
+    (fun _ => 3481) ([], []) ⟨rfl, rfl⟩ (fun i hi state hstate => ?_)).mono (fun _ h => h)
     (fun state h => by simpa using h)).mono_k (by simp)
   unfold openingStep
   exact (ftsBound_buildCoordinateF index _ _ _).bind' (l := 0)
     (fun result _ => .pure _ 0 ⟨by simp [hstate.1], by simp [hstate.2]⟩) (by decide)
 theorem ftsBound_signForest (output : HashOutput) :
-    Bound (FtsQuery index) (fun result : List Opening × Digest => result.1.length = 9) 31550
+    Bound (FtsQuery index) (fun result : List Opening × Digest => result.1.length = 9) 31334
       (signForest index output) := by
   unfold signForest
   refine (ftsBound_forestRows index output).bind' (l := 5) (fun state hstate => ?_) (by decide)

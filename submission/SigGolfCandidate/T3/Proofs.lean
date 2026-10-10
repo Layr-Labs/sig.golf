@@ -2518,8 +2518,8 @@ theorem bound_recoverLayer (sig : Signature) (index : Nat) (lay : Layer) (digits
 def recoveryLayersCost : Nat → Nat
   | 0 => 0
   | n+1 => recoverLayerCost (Fin.ofNat 4 n)+recoveryLayersCost n
-/-- Campaign T8E: 107 (top, 225 - 144 + 14 + 12) + 120 + 119 + 119 (lower targets 199/199/199). -/
-theorem recoveryLayersCost_four : recoveryLayersCost 4=465 := by decide +kernel
+/-- B4 recovery: 107 (top, 225 - 144 + 14 + 12) + 120 + 119 + 118 (lower targets 199/199/200). -/
+theorem recoveryLayersCost_four : recoveryLayersCost 4=464 := by decide +kernel
 theorem bound_verifyLayers (w : Witness) (index : Nat) :
     ∀ n root,CBound (fun _ => True) (n+recoveryLayersCost n) (verifyLayers w index n root) := by
   intro n

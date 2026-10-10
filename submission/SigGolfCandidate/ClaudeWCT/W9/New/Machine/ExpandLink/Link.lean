@@ -403,8 +403,8 @@ def ExpQW : Option (HashOutput × WCT9.Witness) → MachineState → Prop
       t.readWords (BitVec.ofNat 64 0x800) 2614 = wordsOf (ClaudeWCT.W9.T3M.witList N w)
 /-- [h2 lane] prologue 1199 + front 29 + zero block 7, then the layers, the 2^16 search and the compaction. -/
 def expCostW : Nat := 1235 + newCost + (lcost 4 + (65535 * 30 + 111 + compactC))
-theorem lcost_four : lcost 4 ≤ 3011803496 := by decide
-theorem expCostW_le : expCostW ≤ 3433368017 := by
+theorem lcost_four : lcost 4 ≤ 3661699789 := by decide
+theorem expCostW_le : expCostW ≤ 4083263590 := by
   have h := lcost_four
   unfold expCostW newCost compactC
   generalize lcost 4 = L at h ⊢
@@ -977,8 +977,9 @@ private theorem chunks_ok : (chunks.dropLast.all fun c => c.length == 256) = tru
   decide +kernel
 private theorem chunks_length : chunks.length = 168 := by rfl
 private theorem chunks_new : expChunks = chunks.drop 4 := rfl
-private theorem code_chunks : Images.expandCode = chunks.flatten := by
-  change chunks.foldl (· ++ ·) [] = chunks.flatten
+set_option maxHeartbeats 1000000 in
+private theorem code_chunks : Images.expandCode = chunks.flatten ++ Images.expandZeroCap := by
+  change chunks.foldl (· ++ ·) [] ++ Images.expandZeroCap = chunks.flatten ++ Images.expandZeroCap
   rw [ClaudeWCT.W9.Machine.VLib.foldl_append_flatten, List.nil_append]
 theorem wct_chunk_prefix {α : Type} (cs : List (List α)) (k : Nat) :
     cs.getD k [] <+: (cs.drop k).flatten := by
@@ -992,11 +993,14 @@ theorem wct_newCodeAt : NewCodeAt Images.expandImage := by
   intro c hc
   have hlen := expChunks_len_le c hc
   have hp : expChunks.getD c [] <+: Images.expandCode.drop (256 * (c + 4)) := by
-    rw [code_chunks, ClaudeWCT.W9.Machine.VLib.drop_chunks 256 chunks (c + 4) chunks_ok (by rw [chunks_length]; omega)]
-    have hh := wct_chunk_prefix (chunks.drop 4) c
-    rw [List.drop_drop] at hh
-    rw [chunks_new]
-    simpa [Nat.add_comm] using hh
+    have hp0 : expChunks.getD c [] <+: chunks.flatten.drop (256 * (c + 4)) := by
+      rw [ClaudeWCT.W9.Machine.VLib.drop_chunks 256 chunks (c + 4) chunks_ok (by rw [chunks_length]; omega)]
+      have hh := wct_chunk_prefix (chunks.drop 4) c
+      rw [List.drop_drop] at hh
+      rw [chunks_new]
+      simpa [Nat.add_comm] using hh
+    have hbase : chunks.flatten <+: Images.expandCode := ⟨Images.expandZeroCap, code_chunks.symm⟩
+    exact hp0.trans (hbase.drop (256 * (c + 4)))
   apply codeAt_slice (by omega)
   change List.take (expChunks.getD c []).length (Images.expandCode.drop (256 * (c + 4))) = _
   obtain ⟨rest, hrest⟩ := hp

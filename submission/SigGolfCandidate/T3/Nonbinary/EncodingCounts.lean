@@ -79,11 +79,11 @@ def rawAcceptedCount (lay : Layer) : Nat :=
   ![114690553285359954664897085539254262,
     92776203686822587555841720857213728,
     92776203686822587555841720857213728,
-    92776203686822587555841720857213728] lay
+    74038643496215425512291306229204252] lay
 def AcceptSum (lay : Layer) (total : Nat) : Prop :=
-  if lay=0 then total=129 else 192≤total ∧ total<200
+  if lay=0 then total=129 else target lay - 7 ≤ total ∧ total < target lay + 1
 instance (lay : Layer) (total : Nat) : Decidable (AcceptSum lay total) :=
-  inferInstanceAs (Decidable (if lay=0 then total=129 else 192≤total ∧ total<200))
+  inferInstanceAs (Decidable (if lay=0 then total=129 else target lay - 7 ≤ total ∧ total < target lay + 1))
 def wordBits (lay : Layer) : Nat := if lay=0 then 125 else 126
 theorem usedBits_fields (lay : Layer) : usedBits (fields lay)=wordBits lay := by
   fin_cases lay <;> decide
@@ -149,7 +149,8 @@ theorem truncated_count (lay : Layer) (cut : Nat) (hc : 0<cut) :
 def intervalCount (packed lo hi : Nat) : Nat :=
   (packed%radix^hi)%(radix-1) - (packed%radix^lo)%(radix-1)
 theorem top_exact : intervalCount topPacked 129 130=rawAcceptedCount 0 := by decide +kernel
-theorem lower_last_exact : intervalCount lowerPacked 192 200=rawAcceptedCount 3 := by decide +kernel
+theorem lower_199_exact : intervalCount lowerPacked 192 200=rawAcceptedCount 1 := by decide +kernel
+theorem lower_last_exact : intervalCount lowerPacked 193 201=rawAcceptedCount 3 := by decide +kernel
 theorem interval_words_count (lay : Layer) (lo hi : Nat) (hl : 0<lo) (hh : lo≤hi) :
     Fintype.card {n : Fin (2^usedBits (fields lay)) //
       lo≤wordSum (fields lay) n.val ∧ wordSum (fields lay) n.val<hi} =
@@ -169,14 +170,14 @@ theorem accepted_words_count (lay : Layer) :
     have he (s : Nat) : (129 ≤ s ∧ s < 130) ↔ s = 129 := by omega
     simpa [he,AcceptSum] using h
   · have h := interval_words_count 1 192 200 (by decide) (by decide)
-    rw [lower_weighted 1 (by decide),lower_last_exact] at h
-    simpa [AcceptSum,rawAcceptedCount] using h
+    rw [lower_weighted 1 (by decide),lower_199_exact] at h
+    simpa [AcceptSum,rawAcceptedCount,target] using h
   · have h := interval_words_count 2 192 200 (by decide) (by decide)
-    rw [lower_weighted 2 (by decide),lower_last_exact] at h
-    simpa [AcceptSum,rawAcceptedCount] using h
-  · have h := interval_words_count 3 192 200 (by decide) (by decide)
+    rw [lower_weighted 2 (by decide),lower_199_exact] at h
+    simpa [AcceptSum,rawAcceptedCount,target] using h
+  · have h := interval_words_count 3 193 201 (by decide) (by decide)
     rw [lower_weighted 3 (by decide),lower_last_exact] at h
-    simpa [AcceptSum] using h
+    simpa [AcceptSum,target] using h
 theorem decode_isSome_iff (lay : Layer) (value : Digest) (hl : lay≠0) :
     (decode lay value).isSome ↔ lowerSpare value ∧
       AcceptSum lay (wordSum (fields lay) (lowerWord value)) := by
@@ -218,7 +219,7 @@ def acceptedCount (lay : Layer) : Nat :=
   ![119055472510971231422674926968209380,
     92776203686822587555841720857213728,
     92776203686822587555841720857213728,
-    92776203686822587555841720857213728] lay
+    74038643496215425512291306229204252] lay
 theorem decoder_acceptance_count (lay : Layer) :
     Fintype.card {value : Digest // (searchDecode lay value).isSome} = acceptedCount lay := by
   classical

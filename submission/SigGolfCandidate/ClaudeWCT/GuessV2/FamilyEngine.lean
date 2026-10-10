@@ -5,7 +5,7 @@ import SigGolfCandidate.ClaudeWCT.Arith.Family
 /-!
 # The FTS seed-family world (campaign X1, stage A)
 
-Hidden values of the case-C world: one coefficient vector `K f : Fin 102 → Digest` per FTS family
+Hidden values of the case-C world: one coefficient vector `K f : Fin 54 → Digest` per FTS family
 `f = (index, coord)` and the step-1..3 labels `g12`. The world's table `GCoord → Digest` is `phi K g12`: the seed
 `(a, 0)` is `familyEval (K (famOf a)) (ptOf a)`, the steps are `g12`. The lazy engine keeps today's `State` (its
 `allowed` sets record every trial and disclosure); the posterior of family `f` is `famPostA allowed f`, the vectors
@@ -13,7 +13,7 @@ whose seeds lie in the allowed sets, and the step labels stay a product table (`
 
 * `sampler`: trial and disclosure laws (`trialBy` / `discloseBy` on the two tables).
 * `fam_posterior`, `fam_erasure`: the eager world (`hiddenLaw`, then `fixedRun` on `phi K g12`) is the lazy run.
-* `Inv`, `Bad`, `hazard`: per-family posteriors are `famPost` with at most 101 known points while at most 100
+* `Inv`, `Bad`, `hazard`: per-family posteriors are `famPost` with at most 53 known points while at most 51
   seeds per family are retired without a guess (`¬Bad`) and at most one guess was made; then a trial at a fresh seed
   hits with probability at most `(2^128 - budget)⁻¹` (A1's `fam_hazard_prob`), labels as today.
 -/
@@ -27,7 +27,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
 abbrev FamIdx := Fin (2 ^ 31) × Fin 9
-abbrev Coefs := Fin 102 → Digest
+abbrev Coefs := Fin 54 → Digest
 abbrev LabelIdx := ChainAddr × Fin 3
 /-- The family of chain `a`. -/
 def famOf (a : ChainAddr) : FamIdx := (a.1, a.2.1)
@@ -395,8 +395,8 @@ theorem mem_freeRetired (state : State GCoord Digest Memory) (f : FamIdx) (p : F
     p ∈ freeRetired state f ↔
       ((member f p.1 p.2, 0) : GCoord) ∈ state.retired ∧ ((member f p.1 p.2, 0) : GCoord) ∉ state.guesses := by
   simp [freeRetired, retiredSeeds]
-/-- FTS overflow in the engine: some family has more than 100 seeds retired without a guess. -/
-def Bad (state : State GCoord Digest Memory) : Prop := ∃ f, 100 < (freeRetired state f).card
+/-- FTS overflow in the engine: some family has more than 51 seeds retired without a guess. -/
+def Bad (state : State GCoord Digest Memory) : Prop := ∃ f, 51 < (freeRetired state f).card
 /-- Values excluded from the fresh seeds of family `f` (one per failed guess). -/
 noncomputable def missCount (state : State GCoord Digest Memory) (f : FamIdx) : Nat :=
   ∑ p : Fin 128 × Fin 6, if ((member f p.1 p.2, 0) : GCoord) ∈ state.retired then 0
@@ -437,7 +437,7 @@ theorem seedK_member (K : Coefs) (f : FamIdx) (j : Fin 128) (t : Fin 6) :
     seedK K (member f j t) = ClaudeWCT.Arith.familyEval (List.ofFn K) (WCT9.ftsPoint j.val t.val) := rfl
 set_option linter.constructorNameAsVariable false in
 theorem famPostA_eq (state : State GCoord Digest Memory) (hs : Inv state) (f : FamIdx) :
-    famPostA state.allowed f = ClaudeWCT.Arith.famPost (m := 101) (knownOf state f) (missesOf state f) := by
+    famPostA state.allowed f = ClaudeWCT.Arith.famPost (m := 53) (knownOf state f) (missesOf state f) := by
   ext K
   rw [mem_famPostA]
   simp only [ClaudeWCT.Arith.famPost, ClaudeWCT.Arith.famAffine, Finset.mem_filter, Finset.mem_univ, true_and,
@@ -522,10 +522,10 @@ theorem hazard_seed (state : State GCoord Digest Memory) (hs : Inv state) (hbad 
     trialBy (famPostA state.allowed) (famOf a) (fun K => decide (seedK K a = v)) true ≤
       ((2 ^ 128 - budget : Nat) : ℝ≥0∞)⁻¹ := by
   rw [trialBy_true_eq _ _ _ hs.fam]
-  have hfree : (freeRetired state (famOf a)).card ≤ 100 := by
+  have hfree : (freeRetired state (famOf a)).card ≤ 51 := by
     by_contra h
     exact hbad ⟨famOf a, by omega⟩
-  have hknown : (knownOf state (famOf a)).card ≤ 101 :=
+  have hknown : (knownOf state (famOf a)).card ≤ 53 :=
     (knownOf_card_le state hs _).trans ((retiredSeeds_card_le state _).trans (by omega))
   have hpts : ∀ p ∈ knownOf state (famOf a), p.1 < 1024 := by
     intro p hp
@@ -538,7 +538,7 @@ theorem hazard_seed (state : State GCoord Digest Memory) (hs : Inv state) (hbad 
     obtain ⟨⟨j, t⟩, -, v, -, rfl⟩ := hp
     exact ftsPoint_lt j t
   have hb : ptOf a < 1024 := ftsPoint_lt a.2.2.1 a.2.2.2
-  have h := ClaudeWCT.Arith.fam_hazard_prob (m := 101) hknown hpts hmpts hb (notMem_known state a ha) v
+  have h := ClaudeWCT.Arith.fam_hazard_prob (m := 53) hknown hpts hmpts hb (notMem_known state a ha) v
     ((missesOf_card_le state hs _).trans hp.le)
   rw [← famPostA_eq state hs] at h
   have hf : ((famPostA state.allowed (famOf a)).filter fun K => true = decide (seedK K a = v)) =

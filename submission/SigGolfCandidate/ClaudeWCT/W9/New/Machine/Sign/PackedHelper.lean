@@ -8,7 +8,7 @@ open RiscvZkvm.Rv64 SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 def seedHookCode : List (BitVec 32) := [985739375]
 theorem codeAt_seedHookCode : CodeAt image (pcOf 1055) seedHookCode := by
   exact codeAt_sign_slice (by decide +kernel) (by decide +kernel)
-def packedSeedCode : List (BitVec 32) := [67374691,623715,0xb91f706f,335543,0x800e8e93,1667987,233059,134711,84817155,93205891,11448355,12497955,17731219,17826579,40436531,7537459,1266451,33755923,17044755,10707763,1270547,0xf69f606f,19,0xbd0ed06f,0xbf9ec06f]
+def packedSeedCode : List (BitVec 32) := [67374691,623715,0xb91f706f,335543,0x800e8e93,619411,233059,134711,84817155,93205891,11448355,12497955,17731219,8389395,40436531,7537459,1266451,33755923,17044755,10707763,1270547,0xf69f606f,19,0xbd0ed06f,0xbf9ec06f]
 theorem codeAt_packedSeedCode : CodeAt image (pcOf 20746) packedSeedCode := by
   exact codeAt_sign_slice (by decide +kernel) (by decide +kernel)
 end SigGolfCandidate.T3M.Sign

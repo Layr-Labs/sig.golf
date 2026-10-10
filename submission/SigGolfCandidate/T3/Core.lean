@@ -26,8 +26,8 @@ def width (_lay : Layer) (_i : Nat) : Nat := 3
 (51..53); every lower chain is radix 8. -/
 def maxDigit (lay : Layer) (i : Nat) : Nat :=
   if lay = 0 then (if i < 51 then 4 else 7) else 7
-/-- Digit-sum targets (campaign T8E): top 144 (NF17), lower layers 199/199/199. -/
-def target (lay : Layer) : Nat := ![144, 199, 199, 199] lay
+/-- Digit-sum targets (B4): top 144 (NF17), lower layers 199/199/200. -/
+def target (lay : Layer) : Nat := ![144, 199, 199, 200] lay
 /-- Encoding values are below `2 ^ encodedBits lay`. Campaign T8D: the top encoding uses all 128 bits (the radix-8
 digits of chains 51/52 sit in bits 122..127), so there is no range bound on any layer. -/
 def encodedBits (_lay : Layer) : Nat := 128

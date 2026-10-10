@@ -1,4 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeCouplingShort
+import SigGolfCandidate.ClaudeWCT.WCT9.Codebook
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeContactCase
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.FtsOverflow
 import SigGolfCandidate.ClaudeWCT.WCT9.LowerReveal
@@ -115,18 +116,10 @@ theorem mem_logSeeds (T : Answers) (log : QueryLog Requests) (f : Fin (2 ^ 31) �
       WCT9.child N w.2.1 = w.2.2.1 ∧ WCT9.wordDigit (WCT9.rank N w.2.1) w.2.2.2 = 4 := by
   unfold logSeeds
   simp only [Finset.mem_filter, Finset.mem_univ, true_and]
-theorem digitThree_card (r : WCT9.Rank) : (Finset.univ.filter fun t : Fin 6 => WCT9.wordDigit r t = 4).card ≤ 2 := by
-  have hsum := WCT9.wordStep_count r
-  have h1 : 4 * (Finset.univ.filter fun t : Fin 6 => WCT9.wordDigit r t = 4).card ≤
-      ∑ t : Fin 6, WCT9.wordDigit r t := by
-    calc 4 * (Finset.univ.filter fun t : Fin 6 => WCT9.wordDigit r t = 4).card
-        = ∑ t ∈ Finset.univ.filter (fun t : Fin 6 => WCT9.wordDigit r t = 4), WCT9.wordDigit r t := by
-          rw [Finset.sum_congr rfl (fun t ht => (Finset.mem_filter.mp ht).2), Finset.sum_const, smul_eq_mul,
-            mul_comm]
-      _ ≤ _ := Finset.sum_le_sum_of_subset (Finset.filter_subset _ _)
-  omega
+theorem digitThree_card (r : WCT9.Rank) : (Finset.univ.filter fun t : Fin 6 => WCT9.wordDigit r t = 4).card ≤ 1 :=
+  WCT9.f8_seedDisclosures_card_le _
 theorem logSeeds_card (T : Answers) (log : QueryLog Requests) (hno : LogNoOverflow T log)
-    (f : Fin (2 ^ 31) × Fin 9) : (logSeeds T log f).card ≤ 100 := by
+    (f : Fin (2 ^ 31) × Fin 9) : (logSeeds T log f).card ≤ 50 := by
   set S := (WPair.loggedOutputs T log).toFinset.filter fun out => ClaudeWCT.Bank.WCT.outIdx out = f.1
   have hsub : logSeeds T log f ⊆ S.biUnion fun N =>
       (Finset.univ.filter fun t : Fin 6 => WCT9.wordDigit (WCT9.rank N f.2) t = 4).image
@@ -140,9 +133,9 @@ theorem logSeeds_card (T : Answers) (log : QueryLog Requests) (hno : LogNoOverfl
     · refine Finset.mem_image.mpr ⟨w.2.2.2, Finset.mem_filter.mpr ⟨Finset.mem_univ _, by rw [← h2]; exact hdig⟩, ?_⟩
       rw [← h2, hch, ← h1]
   refine (Finset.card_le_card hsub).trans (Finset.card_biUnion_le.trans ?_)
-  calc _ ≤ ∑ N ∈ S, 2 := Finset.sum_le_sum fun N _ => Finset.card_image_le.trans (digitThree_card _)
-    _ = 2 * S.card := by rw [Finset.sum_const, smul_eq_mul, mul_comm]
-    _ ≤ 2 * 50 := Nat.mul_le_mul_left _ (hno f.1)
+  calc _ ≤ ∑ N ∈ S, 1 := Finset.sum_le_sum fun N _ => Finset.card_image_le.trans (digitThree_card _)
+    _ = 1 * S.card := by rw [Finset.sum_const, smul_eq_mul, mul_comm]
+    _ ≤ 1 * 50 := Nat.mul_le_mul_left _ (hno f.1)
 variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData}
 /-- The seeds a sign step discloses are opened by the logged signature of that step. -/
@@ -275,8 +268,9 @@ theorem mem_lowerZeros (T : Answers) (L : LowerLeaf) (a : ChainGraph.Address) :
 theorem lowerZeros_card (T : Answers) (L : LowerLeaf) : (lowerZeros T L).card + 3 ≤ WCT9.famCount L.1.1 := by
   set K : Wots.LeafAddr := ⟨L.1.1, L.1.2.1.val, L.1.2.2.val⟩ with hK
   set ds := Wots.referenceDigits T K with hds
-  obtain ⟨value, hdec⟩ := WotsExtract.referenceDigits_decode T K
-  rw [← hds] at hdec
+  obtain ⟨value, hp⟩ := WotsExtract.referenceDigits_producerDecode T K
+  rw [← hds] at hp
+  have hdec := WCT9.producerDecode_decode hp
   have hlen : ds.length = chainCount L.1.1 := (SigGolfCandidate.T3.decode_length_sum hdec).1
   have hzero : (ds.filter (· = 0)).length + 3 ≤ WCT9.famCount L.1.1 := by
     by_cases h0 : L.1.1 = 0
@@ -285,7 +279,7 @@ theorem lowerZeros_card (T : Answers) (L : LowerLeaf) : (lowerZeros T L).card + 
       have := ClaudeWCT.WCT9.top_zero_count_le ClaudeWCT.WCT9.top_target_ge hdec
       rw [h0, WCT9.famCount_top]
       omega
-    · have := ClaudeWCT.WCT9.lower_zero_count_le h0 (ClaudeWCT.WCT9.lower_target_ge _ h0) hdec
+    · have := WCT9.lower_zero_count_le_producer h0 hp
       rw [WCT9.famCount_lower h0]
       omega
   refine le_trans (Nat.add_le_add_right (Finset.card_le_card_of_injOn

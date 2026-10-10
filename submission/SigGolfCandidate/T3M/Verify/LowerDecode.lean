@@ -12,10 +12,10 @@ def decodeV5Lower (lay : Layer) (n : Nat) : Option (List Nat) :=
   let total := digits.sum
   if total ≤ target lay ∧ target lay - total < 8 then some (digits ++ [target lay - total]) else none
 def producerDecodeV5Lower (lay : Layer) (n : Nat) : Option (List Nat) :=
-  (decodeV5Lower lay n).bind fun digits => if producerFloor lay ≤ wordCredit lay digits then some digits else none
+  (decodeV5Lower lay n).bind fun digits => if producerFloor lay ≤ wordCredit lay digits ∧ producerZeroBound lay digits then some digits else none
 theorem producerDecode_eq_bind (lay : Layer) (v : Digest) :
     producerDecode lay v =
-      (decode lay v).bind fun digits => if producerFloor lay ≤ wordCredit lay digits then some digits else none := by
+      (decode lay v).bind fun digits => if producerFloor lay ≤ wordCredit lay digits ∧ producerZeroBound lay digits then some digits else none := by
   unfold producerDecode
   generalize decode lay v = x
   cases x <;> rfl

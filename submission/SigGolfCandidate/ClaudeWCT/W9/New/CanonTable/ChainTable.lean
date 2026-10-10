@@ -44,7 +44,7 @@ theorem decodeProbe_none {x : HashInput} (h : Guess.decodeProbe x = none) (a : W
   rw [hx, decodeProbe_probe] at h
   cases h
 theorem probeInput_mem (a : WctAddr) (p : Fin 4) (c : Digest) : Guess.probeInput a p c ∈ canonInputs := by
-  obtain ⟨K, hK⟩ := ClaudeWCT.Arith.familyEval_surjective (n := 102) (t := 1) (by decide)
+  obtain ⟨K, hK⟩ := ClaudeWCT.Arith.familyEval_surjective (n := 54) (t := 1) (by decide)
     (fun _ => WCT9.ftsPoint a.2.2.1.val a.2.2.2.val) (fun i j _ => Subsingleton.elim i j)
     (fun _ => Guess.Fam.ftsPoint_lt a.2.2.1 a.2.2.2) (fun _ => c)
   have hK0 := congrFun hK 0

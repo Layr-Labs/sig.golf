@@ -142,7 +142,7 @@ theorem chainW_other {c i i' : Nat} (hc : c < 9) (hi : i < 6) (hi' : i' < 6) (hn
   have h3 := leafOff_ne i' i hi' hi hne
   unfold chainW slotV
   refine ⟨?_, ?_, ?_, ?_⟩ <;> aoh
-theorem coef_not_bodyW {c A : Nat} (hc : c < 9) (h1 : COEF ≤ A) (h2 : A < COEF + 1632) : ¬ bodyW c A := by
+theorem coef_not_bodyW {c A : Nat} (hc : c < 9) (h1 : COEF ≤ A) (h2 : A < COEF + 864) : ¬ bodyW c A := by
   intro h; unfold bodyW slotV at h; simp only [PRIVW, PAIRW, CHAINW, LEAFW, SIG, COEF] at *; omega
 theorem pcOf_ret (n : Nat) : pcOf n &&& BitVec.ofNat 64 (2 ^ 64 - 2) = pcOf n := pcOf_and_max n
 def stepC : Nat := 5 + (hornC + (15 + (11 + 28 * 4 + 8)))
@@ -150,7 +150,7 @@ section step
 variable {im : Image} {sk : BitVec 256}
 theorem step_unit (hcode : NewCodeAt im) {c i j index sel w : Nat} {word : WCT9.Rank} {coefs : List Digest}
     (hc : c < 9) (hi : i < 6) (hj : j < 128) (hsel : sel < 128) (hidx : index < 2 ^ 31) (hw : w < 2 ^ 64)
-    (hword : ∀ i : Fin 6, w / 8 ^ i.val % 8 = WCT9.wordDigit word i) (hlen : coefs.length = 102)
+    (hword : ∀ i : Fin 6, w / 8 ^ i.val % 8 = WCT9.wordDigit word i) (hlen : coefs.length = 54)
     {rows : List Digest × List Digest} {s : MachineState} (hpc : s.pc = pcOf (qI c i))
     (hb : BodySt sk j index sel w s) (hr : RowsAt c j sel i rows s) (hcoef : CoefAt s coefs) :
     TBSim im sk s stepC (fChildStep index c j word coefs rows ⟨i, hi⟩) (fun rows' t =>
@@ -294,7 +294,7 @@ section child
 variable {im : Image} {sk : BitVec 256}
 theorem child_unit (hcode : NewCodeAt im) {c j index sel w : Nat} {word : WCT9.Rank} {coefs : List Digest}
     (hc : c < 9) (hj : j < 128) (hsel : sel < 128) (hidx : index < 2 ^ 31) (hw : w < 2 ^ 64)
-    (hword : ∀ i : Fin 6, w / 8 ^ i.val % 8 = WCT9.wordDigit word i) (hlen : coefs.length = 102) {s : MachineState}
+    (hword : ∀ i : Fin 6, w / 8 ^ i.val % 8 = WCT9.wordDigit word i) (hlen : coefs.length = 54) {s : MachineState}
     (hpc : s.pc = pcOf (leafI c)) (hb : BodySt sk j index sel w s) (hcoef : CoefAt s coefs) :
     TBSim im sk s childC (WCT9.buildChildF index c j word coefs) (fun rv t =>
       t.pc = pcOf (tI c) ∧ BodySt sk j index sel w t ∧ DigAt t (HEAPW + 16 * (128 + j)) rv.1 ∧
@@ -394,13 +394,13 @@ theorem BodySt.with18 {sk : BitVec 256} {j j' index sel w : Nat} {u v : MachineS
     by rw [g _ (by ao)]; exact h.z40⟩
 section loop
 variable {im : Image} {sk : BitVec 256}
-theorem coef_not_loopW {c A : Nat} (hc : c < 9) (h1 : COEF ≤ A) (h2 : A < COEF + 1632) : ¬ loopW c A := by
+theorem coef_not_loopW {c A : Nat} (hc : c < 9) (h1 : COEF ≤ A) (h2 : A < COEF + 864) : ¬ loopW c A := by
   intro h; rcases h with h | h
   · exact coef_not_bodyW hc h1 h2 h
   · simp only [HEAPW, SCREND, COEF] at *; omega
 theorem child_step (hcode : NewCodeAt im) {c index sel w : Nat} {word : WCT9.Rank} {coefs : List Digest}
     (hc : c < 9) (hsel : sel < 128) (hidx : index < 2 ^ 31) (hw : w < 2 ^ 64)
-    (hword : ∀ i : Fin 6, w / 8 ^ i.val % 8 = WCT9.wordDigit word i) (hlen : coefs.length = 102)
+    (hword : ∀ i : Fin 6, w / 8 ^ i.val % 8 = WCT9.wordDigit word i) (hlen : coefs.length = 54)
     {s0 : MachineState} (hcoef : CoefAt s0 coefs) (j : Nat) (hj : j < 128) (acc : List Digest × List Digest)
     (t : MachineState) (h : LoopInv sk c index sel w s0 j acc t) :
     TBSim im sk t loopStepC (do
@@ -469,7 +469,7 @@ theorem LoopInv.init {c index sel w : Nat} {s0 : MachineState} (hpc : s0.pc = pc
     fun _ _ _ _ _ => rfl, RegsExcept.refl _ _, Frame.refl _ _⟩
 theorem child_loop (hcode : NewCodeAt im) {c index sel w : Nat} {word : WCT9.Rank} {coefs : List Digest}
     (hc : c < 9) (hsel : sel < 128) (hidx : index < 2 ^ 31) (hw : w < 2 ^ 64)
-    (hword : ∀ i : Fin 6, w / 8 ^ i.val % 8 = WCT9.wordDigit word i) (hlen : coefs.length = 102)
+    (hword : ∀ i : Fin 6, w / 8 ^ i.val % 8 = WCT9.wordDigit word i) (hlen : coefs.length = 54)
     {s0 : MachineState} (hcoef : CoefAt s0 coefs) (h0 : LoopInv sk c index sel w s0 0 ([], []) s0) :
     TBSim im sk s0 (128 * loopStepC) (fCoordRows index ⟨c, hc⟩ ⟨sel, hsel⟩ word coefs)
       (LoopInv sk c index sel w s0 128) := by

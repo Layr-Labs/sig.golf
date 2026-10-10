@@ -20,35 +20,37 @@ def lowerCount197 : ℕ := 140610462347261096978771217394878840
 def lowerCount198 : ℕ := 113470737483767875195512089978341656
 def lowerCount199 : ℕ := 87860897096037675585104420890976996
 def lowerCount200 : ℕ := 72766719968968561634032082840784641
-/-- Campaigns T8D/T8E: accepted lower encodings at target 199 with credit floor 5 (layers 1 and 2 in T8E). -/
-def lowerCount199f5 : ℕ := 87860897096037675585104420890976996
-/-- T8B accepted lower encodings at target 199 with credit floor 4 (layer 3). -/
-def lowerCount199f4 : ℕ := 91101791054941032223577582479356176
+/-- B4 accepted lower199/f5/z5 encodings, including checksum. -/
+def lowerCount199f5 : ℕ := 87421058181341847220388848563308770
+/-- B4 accepted lower199/f4/z5 encodings, including checksum. -/
+def lowerCount199f4 : ℕ := 90649243438620156062228389214105950
+/-- B4 accepted lower200/f4/z5 encodings, including checksum. -/
+def lowerCount200f4 : ℕ := 72459682149134130685732695915636483
 def p1 : ℚ := topCount144 / 2 ^ 128
 def b1 : ℚ := 1016160613718328085 / 1000000000000000000
 theorem step_1 : zU * ((1 - p1) * b1 + p1) ≤ b1 := by norm_num [zU, p1, b1, topCount144]
-def p2 : ℚ := lowerCount199f4 / 2 ^ 128
-def b2 : ℚ := 1020150806935365360 / 1000000000000000000
-theorem step_2 : zU * ((1 - p2) * b2 + p2) ≤ b2 := by norm_num [zU, p2, b2, lowerCount199f4]
-def p3 : ℚ := lowerCount199f4 / 2 ^ 128
-def b3 : ℚ := 1020150806935365360 / 1000000000000000000
-theorem step_3 : zU * ((1 - p3) * b3 + p3) ≤ b3 := by norm_num [zU, p3, b3, lowerCount199f4]
-def p4 : ℚ := lowerCount199f4 / 2 ^ 128
-def b4 : ℚ := 1020150806935365360 / 1000000000000000000
-theorem step_4 : zU * ((1 - p4) * b4 + p4) ≤ b4 := by norm_num [zU, p4, b4, lowerCount199f4]
+def p2 : ℚ := lowerCount199f5 / 2 ^ 128
+def b2 : ℚ := 1021017057799314038 / 1000000000000000000
+theorem step_2 : zU * ((1 - p2) * b2 + p2) ≤ b2 := by norm_num [zU, p2, b2, lowerCount199f5]
+def p3 : ℚ := lowerCount199f5 / 2 ^ 128
+def b3 : ℚ := 1021017057799314038 / 1000000000000000000
+theorem step_3 : zU * ((1 - p3) * b3 + p3) ≤ b3 := by norm_num [zU, p3, b3, lowerCount199f5]
+def p4 : ℚ := lowerCount200f4 / 2 ^ 128
+def b4 : ℚ := 1025467147693740505 / 1000000000000000000
+theorem step_4 : zU * ((1 - p4) * b4 + p4) ≤ b4 := by norm_num [zU, p4, b4, lowerCount200f4]
 theorem zU_nonneg : (0 : ℚ) ≤ zU := by norm_num [zU]
 theorem step_mono {p q b : ℚ} (hb : 1 ≤ b) (hpq : p ≤ q) (h : zU * ((1 - p) * b + p) ≤ b) :
     zU * ((1 - q) * b + q) ≤ b := by
   refine le_trans ?_ h
   apply mul_le_mul_of_nonneg_left _ zU_nonneg
   nlinarith [mul_nonneg (sub_nonneg.mpr hpq) (sub_nonneg.mpr hb)]
-/-- T8 FTS signing compressions (family seeds, 6 chains of 4 steps): `9 * (51 + 128 * (24 + 2) + 126) + 5`. -/
-def ftsSign : ℕ := 31550
-theorem ftsSign_eq : ftsSign = 9 * (51 + 128 * (24 + 2) + 126) + 5 := by norm_num [ftsSign]
-/-- Stage-B lower layers (`WCT9.layerFixedCostP 4`: 17 coefficient halves per leaf). -/
-def layerFixed : ℕ := 82466
-theorem layerFixed_eq : layerFixed + 3459 = 85925 := by norm_num [layerFixed]
-def fixedSign : ℕ := 114020
+/-- T8 FTS signing compressions (family seeds, 6 chains of 4 steps): `9 * (27 + 128 * (24 + 2) + 126) + 5`. -/
+def ftsSign : ℕ := 31334
+theorem ftsSign_eq : ftsSign = 9 * (27 + 128 * (24 + 2) + 126) + 5 := by norm_num [ftsSign]
+/-- B4 lower layers: eight coefficients packed into four halves per leaf. -/
+def layerFixed : ℕ := 81314
+theorem layerFixed_eq : layerFixed + 4611 = 85925 := by norm_num [layerFixed]
+def fixedSign : ℕ := 112652
 theorem fixedSign_eq : fixedSign = 2 + 2 + ftsSign + layerFixed := by norm_num [fixedSign, ftsSign, layerFixed]
 theorem rpow_two_ge_cubic (y : ℝ) (hy : 0 ≤ y) :
     1 + 0.6931471803 * y + (0.6931471803 * y) ^ 2 / 2 + (0.6931471803 * y) ^ 3 / 6 ≤ (2 : ℝ) ^ y := by
@@ -69,30 +71,31 @@ theorem rpow_two_ge_cubic (y : ℝ) (hy : 0 ≤ y) :
   have h3 : (0.6931471803 * y) ^ 3 ≤ (Real.log 2 * y) ^ 3 := pow_le_pow_left₀ ht0 hts 3
   linarith
 theorem signing_envelope_le :
-    (2 : ℝ) ^ ((114020 : ℝ) / 131072) * ((b0 : ℝ) * (b1 : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤
+    (2 : ℝ) ^ ((112652 : ℝ) / 131072) * ((b0 : ℝ) * (b1 : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤
       2 := by
-  have hsplit : (2 : ℝ) ^ ((114020 : ℝ) / 131072) = 2 / (2 : ℝ) ^ ((17052 : ℝ) / 131072) := by
+  have hsplit : (2 : ℝ) ^ ((112652 : ℝ) / 131072) = 2 / (2 : ℝ) ^ ((18420 : ℝ) / 131072) := by
     rw [_root_.eq_div_iff (by positivity), ← Real.rpow_add (by norm_num)]
     norm_num
-  have hlo := rpow_two_ge_cubic (17052 / 131072) (by norm_num)
+  have hlo := rpow_two_ge_cubic (18420 / 131072) (by norm_num)
   have hn : 2 * ((b0 : ℝ) * (b1 : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤
-      2 * (1 + 0.6931471803 * (17052 / 131072) + (0.6931471803 * (17052 / 131072)) ^ 2 / 2 +
-        (0.6931471803 * (17052 / 131072)) ^ 3 / 6) := by
+      2 * (1 + 0.6931471803 * (18420 / 131072) + (0.6931471803 * (18420 / 131072)) ^ 2 / 2 +
+        (0.6931471803 * (18420 / 131072)) ^ 3 / 6) := by
     norm_num [b0, b1, b2, b3, b4]
   rw [hsplit, div_mul_eq_mul_div, div_le_iff₀ (by positivity)]
   exact hn.trans (mul_le_mul_of_nonneg_left hlo (by norm_num))
 theorem signing_envelope :
-    (2 : ℝ) ^ ((114020 : ℝ) / 131072) * ((b0 : ℝ) * (b1 : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤ 2 :=
+    (2 : ℝ) ^ ((112652 : ℝ) / 131072) * ((b0 : ℝ) * (b1 : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤ 2 :=
   signing_envelope_le.trans (by norm_num)
 theorem rate_top_1000 : (1000 : ℚ) * 0.6931471808 ≤ 2 ^ 22 * p1 := by norm_num [p1, topCount144]
 /-- Lower searches (about 3.9k / 3.7k trials per hit at (target, floor) = (199, 5) / (199, 4)) with fuel 2^21 fail
 with probability at most 2^-600 each. -/
-theorem rate_lower199f5_600 : (600 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p3 := by norm_num [p3, lowerCount199f4]
-theorem rate_lower199f4_600 : (600 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p4 := by norm_num [p4, lowerCount199f4]
+theorem rate_lower199f5_600 : (600 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p3 := by norm_num [p3, lowerCount199f5]
+theorem rate_lower199f4_600 : (600 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p2 := by norm_num [p2, lowerCount199f5]
+theorem rate_lower200f4_600 : (600 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p4 := by norm_num [p4, lowerCount200f4]
 /-- Digest search (about 2472 trials per hit) with fuel 2^21: failure at most 2^-900 (2^21 p0 ≈ 848). -/
 theorem rate_digest_900 : (900 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p0 := by norm_num [p0, J]
 theorem rates_ge_8192 : 1 / 8192 ≤ p1 ∧ 1 / 8192 ≤ p2 ∧ 1 / 8192 ≤ p3 ∧ 1 / 8192 ≤ p4 := by
-  norm_num [p1, p2, p3, p4, topCount144, lowerCount199f5, lowerCount199f4]
+  norm_num [p1, p2, p3, p4, topCount144, lowerCount199f5, lowerCount199f5, lowerCount200f4]
 theorem completeness_union :
     (2 : ℝ) ^ 256 * (1 / 2 ^ 450) + 2 ^ 301 * (1 / 2 ^ 600) ≤ 1 / 2 ^ 193 := by
   set_option exponentiation.threshold 2048 in norm_num

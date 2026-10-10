@@ -1,4 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.New.CanonTable.ChainTable
+import SigGolfCandidate.ClaudeWCT.WCT9.Codebook
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CaseCSplit
 
 section
@@ -565,11 +566,11 @@ theorem ftsPoint_child_injective (j : Fin 128) : Function.Injective fun t : Fin 
   fun t t' h => (Guess.Fam.ftsPoint_inj (j := j) (j' := j) h).2
 /-- Coefficients whose seeds at the 6 chains of child `j` are `v` (the name is kept from the 7-chain code). -/
 noncomputable def interp7 (v : Fin 6 → Digest) (j : Fin 128) : Guess.Fam.Coefs :=
-  Classical.choose (ClaudeWCT.Arith.familyEval_surjective (n := 102) (t := 6) (by decide)
+  Classical.choose (ClaudeWCT.Arith.familyEval_surjective (n := 54) (t := 6) (by decide)
     (fun t => WCT9.ftsPoint j.val t.val) (ftsPoint_child_injective j) (fun t => Guess.Fam.ftsPoint_lt j t) v)
 theorem interp7_spec (v : Fin 6 → Digest) (j : Fin 128) (t : Fin 6) :
     ClaudeWCT.Arith.familyEval (List.ofFn (interp7 v j)) (WCT9.ftsPoint j.val t.val) = v t :=
-  congrFun (Classical.choose_spec (ClaudeWCT.Arith.familyEval_surjective (n := 102) (t := 6) (by decide)
+  congrFun (Classical.choose_spec (ClaudeWCT.Arith.familyEval_surjective (n := 54) (t := 6) (by decide)
     (fun t => WCT9.ftsPoint j.val t.val) (ftsPoint_child_injective j) (fun t => Guess.Fam.ftsPoint_lt j t) v)) t
 /-- A hidden value whose table agrees with `v` on the coordinates revealed by `output`. -/
 noncomputable def liftH (v : Guess.GCoord → Digest) (output : HashOutput) : CanonTable.HiddenF :=
@@ -1040,13 +1041,8 @@ theorem worldGame_tracking (g : CanonTable.HiddenF) (adversary : AdversaryP)
 def OverflowIn (A : Answers) (log : QueryLog Requests) : Prop :=
   ∃ i : Nat, 50 < ((loggedOutputs A log).toFinset.filter fun out => WCT9.digestIndex out = i).card
 theorem rank_three_card_le (w : WCT9.Rank) :
-    ((Finset.univ : Finset (Fin 6)).filter fun t => WCT9.wordDigit w t = 4).card ≤ 2 := by
-  have hsum : (∑ t ∈ (Finset.univ : Finset (Fin 6)).filter (fun t => WCT9.wordDigit w t = 4), WCT9.wordDigit w t) ≤
-      ∑ t : Fin 6, WCT9.wordDigit w t :=
-    Finset.sum_le_sum_of_subset (Finset.filter_subset _ _)
-  rw [WCT9.wordStep_count, Finset.sum_congr rfl (fun t ht => (Finset.mem_filter.mp ht).2), Finset.sum_const,
-    smul_eq_mul] at hsum
-  omega
+    ((Finset.univ : Finset (Fin 6)).filter fun t => WCT9.wordDigit w t = 4).card ≤ 1 :=
+  WCT9.f8_seedDisclosures_card_le _
 /-- Without overflow in the log, the engine never flags `Bad`: retired-but-unguessed seeds were disclosed by at most
 50 signatures per index, at most two seeds per signature and family (campaign T8: at most one, the digit-4 chain). -/
 theorem worldGame_noBad (g : CanonTable.HiddenF) (adversary : AdversaryP)
@@ -1062,7 +1058,7 @@ theorem worldGame_noBad (g : CanonTable.HiddenF) (adversary : AdversaryP)
     (programW_tracks hU ω g _ (PaddedGame.verdict_public _ _) _ verdict hv)
   rw [List.append_nil] at t
   rintro ⟨f, hf⟩
-  have hf' : 100 < (Guess.Fam.freeRetired verdict.2 f).card := hf
+  have hf' : 51 < (Guess.Fam.freeRetired verdict.2 f).card := hf
   have hno' : ¬OverflowIn (wA hU ω g) interaction.1.2.1 := hno
   set X := loggedOutputs (wA hU ω g) interaction.1.2.1
   have hcount : ((X.toFinset.filter fun out => WCT9.digestIndex out = f.1.val)).card ≤ 50 := by
@@ -1089,14 +1085,14 @@ theorem worldGame_noBad (g : CanonTable.HiddenF) (adversary : AdversaryP)
       · change 4 - WCT9.wordDigit (WCT9.rank out f.2) p.2 ≤ 0 at h3
         omega
       · exact Prod.ext h2 rfl
-  have hS : S.card ≤ 100 := by
+  have hS : S.card ≤ 50 := by
     refine Finset.card_biUnion_le.trans ?_
     calc (∑ out ∈ X.toFinset.filter (fun out => WCT9.digestIndex out = f.1.val),
           (((Finset.univ : Finset (Fin 6)).filter fun t => WCT9.wordDigit (WCT9.rank out f.2) t = 4).image
             fun t => (WCT9.child out f.2, t)).card)
-        ≤ ∑ out ∈ X.toFinset.filter (fun out => WCT9.digestIndex out = f.1.val), 2 :=
+        ≤ ∑ out ∈ X.toFinset.filter (fun out => WCT9.digestIndex out = f.1.val), 1 :=
           Finset.sum_le_sum fun out _ => Finset.card_image_le.trans (rank_three_card_le _)
-      _ ≤ 100 := by rw [Finset.sum_const, smul_eq_mul]; omega
+      _ ≤ 50 := by rw [Finset.sum_const, smul_eq_mul]; omega
   have := Finset.card_le_card hsub
   omega
 end Tracking

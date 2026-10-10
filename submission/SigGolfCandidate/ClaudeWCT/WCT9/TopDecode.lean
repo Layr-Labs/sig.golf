@@ -23,16 +23,32 @@ theorem producerDecode_credit {lay : Layer} {answer : Digest} {digits : List Nat
       simp only [hd] at h
       split_ifs at h with hc
       cases h
-      exact hc
+      exact hc.1
+theorem producerDecode_zeroBound {lay : Layer} {answer : Digest} {digits : List Nat}
+    (h : producerDecode lay answer = some digits) : producerZeroBound lay digits := by
+  unfold producerDecode at h
+  cases hd : decode lay answer with
+  | none => simp [hd] at h
+  | some ds =>
+      simp only [hd] at h
+      split_ifs at h with hc
+      cases h
+      exact hc.2
+/-- Only producer-selected lower words, not all broad-decoder words, satisfy the B4 cap. -/
+theorem lower_zero_count_le_producer {lay : Layer} (hlay : lay ≠ 0)
+    {value : Digest} {digits : List Nat} (h : producerDecode lay value = some digits) :
+    (digits.filter (· = 0)).length ≤ 5 :=
+  (producerDecode_zeroBound h).resolve_left hlay
 theorem producerDecode_of {lay : Layer} {answer : Digest} {digits : List Nat}
-    (hd : decode lay answer = some digits) (hc : producerFloor lay ≤ wordCredit lay digits) :
-    producerDecode lay answer = some digits := by
+    (hd : decode lay answer = some digits) (hc : producerFloor lay ≤ wordCredit lay digits)
+    (hz : producerZeroBound lay digits) : producerDecode lay answer = some digits := by
   unfold producerDecode
-  simp only [hd, hc, ↓reduceIte]
+  simp only [hd, hc, hz, and_self, ↓reduceIte]
 theorem producerDecode_eq_some_iff (lay : Layer) (answer : Digest) (digits : List Nat) :
     producerDecode lay answer = some digits ↔
-      decode lay answer = some digits ∧ producerFloor lay ≤ wordCredit lay digits :=
-  ⟨fun h => ⟨producerDecode_decode h, producerDecode_credit h⟩, fun h => producerDecode_of h.1 h.2⟩
+      decode lay answer = some digits ∧ producerFloor lay ≤ wordCredit lay digits ∧ producerZeroBound lay digits :=
+  ⟨fun h => ⟨producerDecode_decode h, producerDecode_credit h, producerDecode_zeroBound h⟩,
+    fun h => producerDecode_of h.1 h.2.1 h.2.2⟩
 theorem producerDecode_eq_none_or (lay : Layer) (answer : Digest) :
     producerDecode lay answer = none ∨ producerDecode lay answer = decode lay answer := by
   unfold producerDecode
@@ -44,7 +60,7 @@ theorem producerDecode_eq_none_or (lay : Layer) (answer : Digest) :
       · exact Or.inr rfl
       · exact Or.inl rfl
 theorem producerFloor_values :
-    producerFloor 0 = 9 ∧ producerFloor 1 = 4 ∧ producerFloor 2 = 4 ∧ producerFloor 3 = 4 :=
+    producerFloor 0 = 9 ∧ producerFloor 1 = 5 ∧ producerFloor 2 = 5 ∧ producerFloor 3 = 4 :=
   ⟨rfl, rfl, rfl, rfl⟩
 theorem searchLimit_top : searchLimit 0 = counterLimit := rfl
 theorem searchLimit_lower {lay : Layer} (h : lay ≠ 0) : searchLimit lay = lowerSearchLimit := by

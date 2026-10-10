@@ -153,10 +153,10 @@ def expZ (c : Nat) : PRes :=
 def expCL (c : Nat) (b : Bool) : PRes :=
   if b then
     pres [(.x6, pairWE), (.x7, x7p1), (.x10, cE PRIVW), (.x11, cE 64), (.x12, .bin .add (.reg .x12) (cE 32)),
-      (.x29, cE PRIVW)] [mwc (PRIVW + 24) pairWE] [] (ecI c) true 10 [⟨.ne, x7p1, cE 51, true⟩]
+      (.x29, cE PRIVW)] [mwc (PRIVW + 24) pairWE] [] (ecI c) true 10 [⟨.ne, x7p1, cE 27, true⟩]
   else
-    pres [(.x6, cE 51), (.x7, x7p1), (.x12, .bin .add (.reg .x12) (cE 32)), (.x18, cE 0)] [] [] (leafI c) false 6
-      [⟨.ne, x7p1, cE 51, false⟩]
+    pres [(.x6, cE 27), (.x7, x7p1), (.x12, .bin .add (.reg .x12) (cE 32)), (.x18, cE 0)] [] [] (leafI c) false 6
+      [⟨.ne, x7p1, cE 27, false⟩]
 def ptE (i : Nat) : E :=
   .bin .add (.bin .sll (.bin .add (.bin .sll (.reg .x18) (cE 1)) (.reg .x18)) (cE 1)) (cE (i + 1))
 def retW (c i : Nat) : Nat := 0x1000 + 4 * (qI c i + 5)
@@ -164,7 +164,7 @@ def expQ (c i : Nat) : PRes := pres [(.x1, cE (retW c i)), (.x6, ptE i)] [] [] h
 def expS (c i : Nat) : PRes :=
   pres [(.x6, cE 4), (.x7, cE (chainK c i)), (.x26, dE i), (.x29, cE CHAINW)]
     [mwc (CHAINW + 24) (cE 0), mwc (CHAINW + 16) (qE c i)] [] (chkI c i 0) false (if c = 0 then 14 else 15) []
-def expH0 : PRes := pres [(.x7, cE (COEF + 1632)), (.x10, cE 0), (.x11, cE 0), (.x28, cE COEF)] [] [] hkI false 6 []
+def expH0 : PRes := pres [(.x7, cE (COEF + 864)), (.x10, cE 0), (.x11, cE 0), (.x28, cE COEF)] [] [] hkI false 6 []
 def expHK : PRes :=
   pres [(.x7, .bin .add (.reg .x7) (cE (2 ^ 64 - 16))), (.x12, cE 0), (.x13, cE 0), (.x14, cE 0), (.x15, cE 0),
     (.x16, .reg .x6)] [] [] hbI false 6 []

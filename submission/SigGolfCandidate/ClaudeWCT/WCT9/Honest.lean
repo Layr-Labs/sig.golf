@@ -228,7 +228,7 @@ include hTT
 theorem eval_congr {α : Type} {p : M α} (hp : AllQueriesSatisfy p (FtsQuery index)) :
     evalWithAnswerFn T p = evalWithAnswerFn T' p :=
   (respects_of_allQueriesSatisfy hp T T' hTT).1
-theorem ftsCoef_congr (coord : Coord) (j : Fin 102) : ftsCoef T index coord.val j = ftsCoef T' index coord.val j := by
+theorem ftsCoef_congr (coord : Coord) (j : Fin 54) : ftsCoef T index coord.val j = ftsCoef T' index coord.val j := by
   unfold ftsCoef
   rw [eval_congr hTT (allQueriesSatisfy_of_bound (ftsBound_seedPair index coord.val _ coord.isLt
     (by have := j.isLt; unfold ftsCoefPairs; omega)))]

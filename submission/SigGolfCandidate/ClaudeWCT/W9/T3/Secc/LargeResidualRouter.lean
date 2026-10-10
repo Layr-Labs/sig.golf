@@ -41,7 +41,7 @@ abbrev LowerLeaf := {_L : Layer × Fin (2 ^ 31) × Fin 4096 // True}
 abbrev WJunk := {a : ChainGraph.Address // WCT9.famCount a.layer ≤ a.chain.val}
 /-- Plain (independently uniform) world coordinates: nodes, (no) top WOTS seeds, nonces. -/
 abbrev WPlain := (CanonGraph.Node ⊕ WTopAddr) ⊕ Message
-/-- Seed families: WOTS leaves (`famCount` coefficients) and FTS coordinates `(index, coord)` (102 coefficients). -/
+/-- Seed families: WOTS leaves (`famCount` coefficients) and FTS coordinates `(index, coord)` (54 coefficients). -/
 abbrev WFam := LowerLeaf ⊕ (Fin (2 ^ 31) × Fin 9)
 /-- Split of the world coordinates: WOTS seeds are their leaf family at `lowerPoint chain = chain + 1`, FTS seeds are
 evaluations of their family `(index, coord)` at `ftsPoint`. -/
@@ -82,7 +82,7 @@ noncomputable instance instSeedsWCoord : ClaudeWCT.W9.T3.Security.FamResidual.Se
   Fam := WFam
   plainDec := Classical.decEq _
   famDec := Classical.decEq _
-  deg := Sum.elim (fun L => WCT9.famCount L.1.1 - 1) (fun _ => 101)
+  deg := Sum.elim (fun L => WCT9.famCount L.1.1 - 1) (fun _ => 53)
   split := wsplit
   embed := wembed
   split_embed p := by

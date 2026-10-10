@@ -681,7 +681,7 @@ theorem expandLayersBC_verified (answers : Answers) (sig : Signature) (index : N
 `lowerSeedPair lay tree`. -/
 def lowerCoefN (answers : Answers) (lay : Layer) (tree leaf j : Nat) : Digest :=
   seedHalf (evalWithAnswerFn answers (lowerSeedPair lay tree (lowerCoefOrdinal leaf j / 2))) (lowerCoefOrdinal leaf j)
-def lowerCoef (answers : Answers) (lay : Layer) (tree leaf : Nat) (j : Fin 17) : Digest :=
+def lowerCoef (answers : Answers) (lay : Layer) (tree leaf : Nat) (j : Fin lowerCoefCount) : Digest :=
   lowerCoefN answers lay tree leaf j.val
 /-- Stage B: the lower WOTS seed of chain `i` is the leaf's degree-16 family evaluated at `lowerPoint i`. -/
 def lowerSeed (answers : Answers) (lay : Layer) (tree leaf i : Nat) : Digest :=
@@ -697,9 +697,9 @@ def famCoefN (answers : Answers) (lay : Layer) (tree leaf j : Nat) : Digest :=
 def famCoef (answers : Answers) (lay : Layer) (tree leaf : Nat) (j : Fin (famCount lay)) : Digest :=
   famCoefN answers lay tree leaf j.val
 theorem famCount_top : famCount 0 = 24 := rfl
-theorem famCount_lower {lay : Layer} (h : lay ≠ 0) : famCount lay = 17 := by
+theorem famCount_lower {lay : Layer} (h : lay ≠ 0) : famCount lay = 8 := by
   unfold famCount; rw [if_neg h]; rfl
-theorem famCount_ge (lay : Layer) : 17 ≤ famCount lay := by
+theorem famCount_ge (lay : Layer) : 8 ≤ famCount lay := by
   unfold famCount; split_ifs <;> decide
 theorem famCount_le (lay : Layer) : famCount lay ≤ 24 := by
   unfold famCount; split_ifs <;> decide
