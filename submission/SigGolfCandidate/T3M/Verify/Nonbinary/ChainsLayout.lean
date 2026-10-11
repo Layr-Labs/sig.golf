@@ -152,10 +152,10 @@ def headJDF (rb : Reg) (o : Word) (tgt i d : Nat) : Result :=
 def headJDTermF (rb : Reg) (o : Word) (tgt i d : Nat) : Result :=
   {headJDTerm rb o tgt i d with stop:=.fuel,steps:=3,cycles:=3}
 def s8R (n p : Nat) : Result :=
-  ⟨⟨RegFile.init.set .x24 (addC (.reg .x24) (BitVec.ofNat 64 n)),[],[]⟩,.c (pcOf (p+1)),.fuel,1,1⟩
+  ⟨⟨RegFile.init.set .x24 (addC (.reg .x24) (-BitVec.ofNat 64 n)),[],[]⟩,.c (pcOf (p+1)),.fuel,1,1⟩
 def guardW (k : Nat) : Nat := if k=0 then 32032 else 256*(124-k)+255
 def guardR (k : Nat) : Result :=
-  ⟨⟨RegFile.init.set .x24 (.c (BitVec.ofNat 64 (kss 0 k)-144#64)),[],[]⟩,
+  ⟨⟨RegFile.init.set .x24 (.c (144#64-BitVec.ofNat 64 (kss 0 k))),[],[]⟩,
     .c (pcOf (cellW 0 k+2)),.fuel,1,1⟩
 def rejJ : Result := ⟨SymState.init,.c (pcOf 129638),.jump,1,1⟩
 def bge9R (p : Nat) : Result :=
@@ -249,10 +249,11 @@ def rejCheck : Bool :=
   (List.range 125).all fun k => rOK (vrun (guardW k) 1) rejJ
 /-! ### Group 17 (campaign T8D, TOP2 NF17): the radix-8 chains 51..53
 The tail dispatch of group 16 jumps to the slot `33512 + 64*k` with `k = d51 + 8 d52` (the top field, bits 122..127):
-`addi s8,s8,d51+d52`, falling directly into `BLOCK[k]`. `BLOCK[k]` = chain 51 code, chain 52 code (main's top chain code with largest digit
+`addi s8,s8,-(d51+d52)`, falling directly into `BLOCK[k]`. `BLOCK[k]` = chain 51 code, chain 52 code (main's top chain code with largest digit
 7: copy / terminal head / head + rungs, `partOK 17`), then the general-field dispatch `srli a4,a7,47;
-andi a4,a4,1792; add a4,a4,t1; jalr 2028(a4)` into the padding slot `r8SlotW y = 31995+64*y`
-(`y = d53`, bits 119..121): `addi s8,s8,y`, then fallthrough to the complete copied chain-53 suffix.
+andi a4,a4,1792; add a4,a4,t1; jalr 2032(a4)` directly into the complete copied chain-53 suffix
+(`y = d53`, bits 119..121), bypassing the dead padding slot `r8SlotW y = 31995+64*y`.
+The reverse checksum remains `144 - sum (digits 0..52)` throughout chain 53.
 `SUFFIX[y]` = chain 53 code, then main's final tail at `finW y` (its `bne`
 goes to a local `j REJ` stub). -/
 def r8Blk : List Nat := [242896,36027,252016,149212,241894,252121,252152,252180,36289,252246,252283,241926,35145,252382,252411,252437,144604,149340,252534,35593,222277,252627,252654,252678,149468,241993,252769,252800,6885,145,661,252903,252924,38230,222791,253017,253044,253069,919,1467,223252,253162,253191,186,1426,702,253287,253305,253322,104,443,253400,253422,253442,253460,253475,7909,402,253541,253564,253585,1218,1642,1683]
@@ -261,13 +262,13 @@ def blkW (k : Nat) : Nat := TailDispatch.armPC k + 1
 def r8SlotW (y : Nat) : Nat := 31995+64*y
 def sufW (y : Nat) : Nat := r8SlotW y+1
 def finW (y : Nat) : Nat := sufW y+partLen 17 y
-/-- Two-instruction slot `addi s8,s8,n; j tgt`. -/
+/-- Two-instruction slot `addi s8,s8,-n; j tgt`. -/
 def jR (n tgt : Nat) : Result :=
-  ⟨⟨RegFile.init.set .x24 (addC (.reg .x24) (BitVec.ofNat 64 n)),[],[]⟩,.c (pcOf tgt),.jump,2,2⟩
+  ⟨⟨RegFile.init.set .x24 (addC (.reg .x24) (-BitVec.ofNat 64 n)),[],[]⟩,.c (pcOf tgt),.jump,2,2⟩
 def genDispE : E := .bin .add (.bin .and (.bin .srl (.reg .x17) (.c 47#64)) (.c 1792#64)) (.reg .x6)
-/-- The general-field dispatch `srli a4,a7,47; andi a4,a4,1792; add a4,a4,t1; jalr 2028(a4)`. -/
+/-- The general-field dispatch `srli a4,a7,47; andi a4,a4,1792; add a4,a4,t1; jalr 2032(a4)`. -/
 def genDispR : Result :=
-  ⟨⟨RegFile.init.set .x14 genDispE,[],[]⟩,.bin .and (.bin .add genDispE (.c 2028#64)) (.c (~~~1#64)),.jump,4,4⟩
+  ⟨⟨RegFile.init.set .x14 genDispE,[],[]⟩,.bin .and (.bin .add genDispE (.c 2032#64)) (.c (~~~1#64)),.jump,4,4⟩
 theorem r8Blk_lt_all : (List.range 64).all (fun k => decide (blkW k+41<253807))=true := by decide +kernel
 theorem r8Suf_lt_all : (List.range 8).all (fun y => decide (finW y+8<253807))=true := by decide +kernel
 theorem blkW_lt (k : Nat) (hk : k<64) : blkW k+41<253807 := by
@@ -281,7 +282,7 @@ def r8BlkCheck (k : Nat) : Bool :=
   partOK 17 51 (k%8) (blkW k) && partOK 17 52 (k/8) (blkW k+partLen 17 (k%8)) &&
   rOK (vrun (blkW k+partLen 17 (k%8)+partLen 17 (k/8)) 4) genDispR
 def r8SufCheck (y : Nat) : Bool :=
-  rOK (vrun (r8SlotW y) 1) (s8R y (r8SlotW y)) && partOK 17 53 y (sufW y)
+  partOK 17 53 y (sufW y)
 theorem piece_steps45 {p f : Nat} {r : Result} (h : vrun p f=some r)
     (hp : p<253807) (s : MachineState) (hpc : s.pc=pcOf p)
     (ho : ∀o∈r.st.obl,o.holds s) :

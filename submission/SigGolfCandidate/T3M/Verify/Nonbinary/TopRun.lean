@@ -180,12 +180,12 @@ def TopOut (c : NCtx) (s0 : MachineState) (acc : List Digest) (s : MachineState)
   (∀ x, x ∉ chainRegs → x ≠ .x15 → x ≠ .x24 → s.getReg x=s0.getReg x) ∧
   Frame s0 s (c.Wr 54) ∧ acc.length=54 ∧
   (∀ j < acc.length, DigAt s (slot j) (acc.getD j 0)) ∧
-  (∃ y, y < 8 ∧ s.pc = pcOf (finW y)) ∧ s.getReg .x2 = 0x3fe00#64 ∧
-  s.getReg .x24=c.s8v 17
+  s.pc = pcOf (finW (c.dig 53)) ∧ s.getReg .x2 = 0x3fe00#64 ∧
+  s.getReg .x24=c.s8w 53
 theorem end_return (c : NCtx) (hds : c.DigitsOk) {s0 b : MachineState}
     (hb : s0.getReg .x2 = 0x3fe00#64)
     (acc : List Digest) (s : MachineState)
-    (hs : c.EndInv (set24 (tailInitial (set24 s0 (c.s8v 16)) b) (c.s8v 17)) 53 acc s) :
+    (hs : c.EndInv (set24 (tailInitial (set24 s0 (c.s8v 16)) b) (c.s8w 53)) 53 acc s) :
     c.TopOut s0 acc s := by
   obtain ⟨⟨hR,hF,hS⟩,hlen,hpc⟩ := hs
   have hy := hds 53 (by decide +kernel)
@@ -193,28 +193,27 @@ theorem end_return (c : NCtx) (hds : c.DigitsOk) {s0 b : MachineState}
   have hreg : ∀ x, x ∉ chainRegs → x ≠ .x15 → x ≠ .x24 → s.getReg x=s0.getReg x := by
     intro x hx h15 h24
     rw [hR x hx,set24_regs _ _ _ h24,tailInitial_regs _ _ _ h15,set24_regs _ _ _ h24]
-  refine ⟨hreg,?_,hlen,fun j hj => hS j hj,⟨c.dig 53,by omega,?_⟩,?_,?_⟩
+  refine ⟨hreg,?_,hlen,fun j hj => hS j hj,?_,?_,?_⟩
   · intro A hA hn
     exact (hF A hA hn).trans (by rw [set24_mem,tailInitial_mem,set24_mem])
   · rw [hpc]; simp [endPc, r8Start, finW]
   · rw [hR .x2 (by decide +kernel),set24_regs _ _ _ (by decide +kernel),tailInitial_regs _ _ _ (by decide +kernel),set24_regs _ _ _ (by decide +kernel),hb]
   · rw [hR .x24 (by decide +kernel),set24_24]
-/-- Group 17 (campaign T8D): slot `addi s8`, falling through to BLOCK, chains 51 and 52, the general-field dispatch and slot,
-chain 53; 6 overhead cycles (1 + 4 + 1) beyond the chain routines. -/
+/-- Group 17 (campaign T8D): slot `addi s8`, falling through to BLOCK, chains 51 and 52, the general-field dispatch,
+chain 53; 5 overhead cycles (1 + 4) beyond the chain routines. -/
 theorem tail_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     (hk : ∀p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0) {v : Digest} (he : Encoded v s0) (hf : c.Fit v)
     (h24 : s0.getReg .x24=c.s8v 16)
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
-    (hK : ∀ ends t,c.EndInv (set24 s0 (c.s8v 17)) 53 ends t → Verify.GoodQ t N C Q A (K ends))
+    (hK : ∀ ends t,c.EndInv (set24 s0 (c.s8w 53)) 53 ends t → Verify.GoodQ t N C Q A (K ends))
     (acc : List Digest) (s : MachineState) (hs : c.R8In s0 acc s) :
-    Verify.GoodQ s (N+129) (C+c.chainsCost 51 3+6) Q (A+c.chainsCost 51 3+6)
+    Verify.GoodQ s (N+129) (C+c.chainsCost 51 3+5) Q (A+c.chainsCost 51 3+5)
       (Verify.ccM ((List.range' 51 3).foldlM c.chainF acc) K) := by
   obtain ⟨u2,st2,hu2⟩ := c.slot17_step hds h24 acc s hs
   have hk1 := set24_known c (c.s8w 53) hk
   have h01 := set24_orig c (c.s8w 53) h0
   have he1 := set24_encoded (c.s8w 53) he
-  have hk3 := set24_known c (c.s8v 17) hk
-  have h03 := set24_orig c (c.s8v 17) h0
+
   have e1 : c.chainsCost 53 1=chainCost 53 (c.dig 53) := by
     simp only [chainsCost,List.range'_succ,List.range'_zero,List.map_cons,List.map_nil,List.sum_cons,
       List.sum_nil,Nat.reduceAdd]; omega
@@ -228,20 +227,20 @@ theorem tail_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
   simp only [chainF,bind_assoc,pure_bind,Verify.ccM_bind]
   have H := c.chain_good hc hds hk1 h01 51 (by decide +kernel) acc
     (fun ends => Verify.ccM ((List.range' 52 2).foldlM c.chainF ends) K)
-    (N+87) (C+c.chainsCost 52 2+5) (A+c.chainsCost 52 2+5) Q
+    (N+87) (C+c.chainsCost 52 2+4) (A+c.chainsCost 52 2+4) Q
     (fun v1 t1 ht1 => by
       have hin52 := c.next_51 _ _ t1 ht1
       rw [List.range'_succ,List.foldlM_cons]
       simp only [chainF,bind_assoc,pure_bind,Verify.ccM_bind]
       have H2 := c.chain_good hc hds hk1 h01 52 (by decide +kernel) (acc++[v1])
         (fun ends => Verify.ccM ((List.range' 53 1).foldlM c.chainF ends) K)
-        (N+47) (C+c.chainsCost 53 1+5) (A+c.chainsCost 53 1+5) Q
+        (N+47) (C+c.chainsCost 53 1+4) (A+c.chainsCost 53 1+4) Q
         (fun v2 t2 ht2 => by
           obtain ⟨t3,st3,hin53⟩ := c.disp53_step hds he1 hf (set24_24 _ _) _ t2 ht2
           rw [set24_set24] at hin53
           rw [List.range'_succ,List.foldlM_cons]
           simp only [chainF,bind_assoc,pure_bind,Verify.ccM_bind,List.range'_zero,List.foldlM_nil,Verify.ccM_pure]
-          have H3 := c.chain_good hc hds hk3 h03 53 (by decide +kernel) _ K N C A Q
+          have H3 := c.chain_good hc hds hk1 h01 53 (by decide +kernel) _ K N C A Q
             (fun v3 t4 ht4 => hK _ t4 ht4) t3 hin53
           have H4 := Verify.GoodQ.steps st3 H3
           refine H4.mono ?_ ?_ (fun h => ⟨h,?_⟩) <;> omega)
@@ -256,14 +255,14 @@ theorem top_full (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
     (hK : ∀ acc t,c.TopOut s0 acc t → Verify.GoodQ t N C Q A (K acc))
     (s : MachineState) (hs : c.GroupIn s0 0 [] s) :
-    Verify.GoodQ s (N+2274) (C+c.chainsCost 0 54+76) Q (A+c.chainsCost 0 54+76) (Verify.ccM c.topP K) := by
+    Verify.GoodQ s (N+2274) (C+c.chainsCost 0 54+75) Q (A+c.chainsCost 0 54+75) (Verify.ccM c.topP K) := by
   unfold topP
   rw [show (54:Nat)=3*17+3 from rfl,← List.range'_append_1,List.foldlM_append,Verify.ccM_bind]
   have ec := c.chainsCost_add' 0 (3*17) 3
   have hov : ov 0 17=67 := by decide +kernel
   have H := c.groups_zero hc hds hk h0 he hf 17 (le_refl _) (by decide +kernel) hval
     (fun ends => Verify.ccM ((List.range' (0+3*17) 3).foldlM c.chainF ends) K)
-    (N+132) (C+c.chainsCost 51 3+9) (A+c.chainsCost 51 3+9) Q
+    (N+132) (C+c.chainsCost 51 3+8) (A+c.chainsCost 51 3+8) Q
     (fun acc t ht => by
       obtain ⟨u,st,hu,hu15⟩ := c.end_tail hc hds (set24_encoded _ he) hf acc t (by simpa using ht)
       have h24 : (tailInitial (set24 s0 (c.s8v 16)) u).getReg .x24=c.s8v 16 := by
