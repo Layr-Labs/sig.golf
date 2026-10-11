@@ -106,11 +106,9 @@ set_option linter.unusedSimpArgs false
 /-- Largest digit of the chains of top group `q`: the 17 base-5 triples (q < 17) have 4; group 17 (chains 51..53,
 campaign T8D / TOP2 NF17) holds the three radix-8 chains, largest digit 7. -/
 def mx (q : Nat) : Nat := if q<17 then 4 else 7
-/-- BIG74: number of entry indices of group `q` (group 8 carries the q9 low bit b63 as `k / 125`). -/
-def kN (q : Nat) : Nat := if q=8 then 250 else (mx q+1)^3
 def off (i : Nat) : Word := BitVec.ofNat 64 (64*(53-i))-BitVec.ofNat 64 1664
 def slot (i : Nat) : Nat := 544+16*i
-def baseTab : List Nat := [184791,184832,184871,184908,184942,184974,185013,185050,185085,185117,185147,185184,185219,185252,185282,185310,185344,185376,185406,185433,185458,185490,185520,185548,185573,185596,185637,185676,185713,185747,185779,185818,185855,185890,185922,185952,185989,186024,186057,186087,186115,186149,186181,186211,186238,186263,186295,186325,186353,186378,186401,186442,186481,186518,186552,186584,186623,186660,186695,186727,186757,186794,186829,186862,186892,186920,186954,186986,187016,187043,187068,187100,187130,187158,187183,187206,187247,187286,187323,187357,187389,187428,187465,187500,187532,187562,187599,187634,187667,187697,187725,187759,187791,187821,187848,187873,187905,187935,187963,187988,188011,188052,188091,188128,188162,188194,188233,188270,188305,188337,188367,188404,188439,188472,188502,188530,188564,188596,188626,188653,188678,188710,188740,188768,188793,188816,188857,188896,188933,188967,188999,189038,189075,189110,189142,189172,189209,189244,189277,189307,189335,189369,189401,189431,189458,189483,189515,189545,189573,189598,189621,189662,189701,189738,189772,189804,189843,189880,189915,189947,189977,190014,190049,190082,190112,190140,190174,190206,190236,190263,190288,190320,190350,190378,190403,190426,190467,190506,190543,190577,190609,190648,190685,190720,190752,190782,190819,190854,190887,190917,190945,190979,191011,191041,191068,191093,191125,191155,191183,191208,191231,191272,191311,191348,191382,191414,191453,191490,191525,191557,191587,191624,191659,191692,191722,191750,191784,191816,191846,191873,191898,191930,191960,191988,192013,192036,192077,192116,192153,192187,192219,192258,192295,192330,192362,192392,192429,192464,192497,192527,192555,192589,192621,192651,192678,192703,192735,192765,192793,192818,192841,192882,192921,192958,192992,193024,193063,193100,193135,193167,193197,193234,193269,193302,193332,193360,193394,193426,193456,193483,193508,193540,193570,193598,193623,193646,193687,193726,193763,193797,193829,193868,193905,193940,193972,194002,194039,194074,194107,194137,194165,194199,194231,194261,194288,194313,194345,194375,194403,194428,194451,194492,194531,194568,194602,194634,194673,194710,194745,194777,194807,194844,194879,194912,194942,194970,195004,195036,195066,195093,195118,195150,195180,195208,195233,195256,195297,195336,195373,195407,195439,195478,195515,195550,195582,195612,195649,195684,195717,195747,195775,195809,195841,195871,195898,195923,195955,195985,196013,196038,196061,196102,196141,196178,196212,196244,196283,196320,196355,196387,196417,196454,196489,196522,196552,196580,196614,196646,196676,196703,196728,196760,196790,196818,196843,196866,196907,196946,196983,197017,197049,197088,197125,197160,197192,197222,197259,197294,197327,197357,197385,197419,197451,197481,197508,197533,197565,197595,197623,197648,197671,197712,197751,197788,197822,197854,197893,197930,197965,197997,198027,198064,198099,198132,198162,198190,198224,198256,198286,198313,198338,198370,198400,198428,198453,251343,251383,251421,251456,251490,251528,251564,251597,251629,251664,251697,251727,251756,251790,251822,251851]
+def baseTab : List Nat := [184791,184832,184871,184908,184942,184974,185013,185050,185085,185117,185147,185184,185219,185252,185282,185310,185344,185376,185406,185433,185458,185490,185520,185548,185573,185596,185637,185676,185713,185747,185779,185818,185855,185890,185922,185952,185989,186024,186057,186087,186115,186149,186181,186211,186238,186263,186295,186325,186353,186378,186401,186442,186481,186518,186552,186584,186623,186660,186695,186727,186757,186794,186829,186862,186892,186920,186954,186986,187016,187043,187068,187100,187130,187158,187183,187206,187247,187286,187323,187357,187389,187428,187465,187500,187532,187562,187599,187634,187667,187697,187725,187759,187791,187821,187848,187873,187905,187935,187963,187988,188011,188052,188091,188128,188162,188194,188233,188270,188305,188337,188367,188404,188439,188472,188502,188530,188564,188596,188626,188653,188678,188710,188740,188768,188793,188816,188857,188896,188933,188967,188999,189038,189075,189110,189142,189172,189209,189244,189277,189307,189335,189369,189401,189431,189458,189483,189515,189545,189573,189598,189621,189662,189701,189738,189772,189804,189843,189880,189915,189947,189977,190014,190049,190082,190112,190140,190174,190206,190236,190263,190288,190320,190350,190378,190403,190426,190467,190506,190543,190577,190609,190648,190685,190720,190752,190782,190819,190854,190887,190917,190945,190979,191011,191041,191068,191093,191125,191155,191183,191208,191231,191272,191311,191348,191382,191414,191453,191490,191525,191557,191587,191624,191659,191692,191722,191750,191784,191816,191846,191873,191898,191930,191960,191988,192013,192036,192077,192116,192153,192187,192219,192258,192295,192330,192362,192392,192429,192464,192497,192527,192555,192589,192621,192651,192678,192703,192735,192765,192793,192818,192841,192882,192921,192958,192992,193024,193063,193100,193135,193167,193197,193234,193269,193302,193332,193360,193394,193426,193456,193483,193508,193540,193570,193598,193623,193646,193687,193726,193763,193797,193829,193868,193905,193940,193972,194002,194039,194074,194107,194137,194165,194199,194231,194261,194288,194313,194345,194375,194403,194428,194451,194492,194531,194568,194602,194634,194673,194710,194745,194777,194807,194844,194879,194912,194942,194970,195004,195036,195066,195093,195118,195150,195180,195208,195233,195256,195297,195336,195373,195407,195439,195478,195515,195550,195582,195612,195649,195684,195717,195747,195775,195809,195841,195871,195898,195923,195955,195985,196013,196038,196061,196102,196141,196178,196212,196244,196283,196320,196355,196387,196417,196454,196489,196522,196552,196580,196614,196646,196676,196703,196728,196760,196790,196818,196843,196866,196907,196946,196983,197017,197049,197088,197125,197160,197192,197222,197259,197294,197327,197357,197385,197419,197451,197481,197508,197533,197565,197595,197623,197648,197671,197712,197751,197788,197822,197854,197893,197930,197965,197997,198027,198064,198099,198132,198162,198190,198224,198256,198286,198313,198338,198370,198400,198428,198453,218624,218664,218702,218737,218771,218809,218845,218878,218910,218945,218978,219008,219037,219071,219103,219132]
 def base (q dB dC : Nat) : Nat :=
   baseTab.getD (if q<17 then 25*q+5*dB+dC else 425+4*dB+dC) 0
 def partLen (q d : Nat) : Nat :=
@@ -119,13 +117,9 @@ def pcB (q dB dC : Nat) : Nat := base q dB dC+2*mx q+1
 def pcC (q dB dC : Nat) : Nat := pcB q dB dC+partLen q dB
 def pcX (q dB dC : Nat) : Nat := pcC q dB dC+partLen q dC
 def entOff (q : Nat) : Nat := if q=0 then 8 else if q≤9 then 9+6*q else if q≤13 then 10+6*q else if q=14 then 129 else if q=15 then 170 else 211
-/-- Campaign BIG74 (design D'): group 8 is inlined in 256 slots of stride 128 words at `221106`; the slot of
-`k = rank8 + 125 * b63` (`k < 250`) is `221106 + 128 (255 - u)` with `u = rank8 + 128 b63`. -/
-def slot8W (k : Nat) : Nat := 221106+128*(255-(k%125+128*(k/125)))
-def slot9W (k : Nat) : Nat := 39982+128*(63-k/2)+41*(k%2)
-def cellW (q k : Nat) : Nat := if q=8 then slot8W k else if q=9 then slot9W k else if q<17 then 256*(124-k)+entOff q else TailDispatch.armPC k
-def entW (q k : Nat) : Nat := cellW q k + (if q=0 then 1 else 0)
-def inl (q : Nat) : Bool := decide (q=8 ∨ q=9 ∨ (13 ≤ q ∧ q ≤ 16))
+def cellW (q k : Nat) : Nat := if q<17 then 256*(124-k)+entOff q else TailDispatch.armPC k
+def entW (q k : Nat) : Nat := cellW q k + (if q=0 ∨ (q=9 ∧ k%2=0) then 1 else 0)
+def inl (q : Nat) : Bool := decide (13 ≤ q ∧ q ≤ 16)
 def leadOff (q : Nat) : Nat := 1
 def leadPc (q k : Nat) : Nat := entW q k+leadOff q
 def kdig (q k j : Nat) : Nat := k/(mx q+1)^j%(mx q+1)
@@ -152,10 +146,10 @@ def headJDF (rb : Reg) (o : Word) (tgt i d : Nat) : Result :=
 def headJDTermF (rb : Reg) (o : Word) (tgt i d : Nat) : Result :=
   {headJDTerm rb o tgt i d with stop:=.fuel,steps:=3,cycles:=3}
 def s8R (n p : Nat) : Result :=
-  ⟨⟨RegFile.init.set .x24 (addC (.reg .x24) (-BitVec.ofNat 64 n)),[],[]⟩,.c (pcOf (p+1)),.fuel,1,1⟩
-def guardW (k : Nat) : Nat := if k=0 then 32032 else 256*(124-k)+255
+  ⟨⟨RegFile.init.set .x24 (addC (.reg .x24) (BitVec.ofNat 64 n)),[],[]⟩,.c (pcOf (p+1)),.fuel,1,1⟩
+def guardW (k : Nat) : Nat := 256*(124-k)+255
 def guardR (k : Nat) : Result :=
-  ⟨⟨RegFile.init.set .x24 (.c (144#64-BitVec.ofNat 64 (kss 0 k))),[],[]⟩,
+  ⟨⟨RegFile.init.set .x24 (.c (BitVec.ofNat 64 (kss 0 k)-144#64)),[],[]⟩,
     .c (pcOf (cellW 0 k+2)),.fuel,1,1⟩
 def rejJ : Result := ⟨SymState.init,.c (pcOf 129638),.jump,1,1⟩
 def bge9R (p : Nat) : Result :=
@@ -180,22 +174,6 @@ def dispatch9R : Result :=
   ⟨⟨RegFile.init.set .x14 (.bin .add a (.c 1536)),[],[]⟩,
     .bin .and (.bin .add a (.c 2300)) (.c (~~~1#64)),.jump,4,4⟩
 def tailDispatchR : Result := TailDispatch.dispatchR
-/-- BIG74: end of a group-8 inline slot `k` (`k / 125 = b63`): `slli a4,a7,11; and a4,a4,t1; addi a4,a4,1536;
-jalr imm(a4)`, imm = 768 (b63 = 0, the even q9 cell after its `bge`) or -260 (b63 = 1, the `bge`-taken target). -/
-def stubR : Result := ⟨SymState.init,.c 0,.jump,1,1⟩
-def disp9E : E := .bin .sll (.bin .add (.bin .and (.reg .x17) (.c 63)) (.c 320)) (.c (BitVec.ofNat 64 9))
-def disp9D (b : Nat) : Result :=
-  ⟨⟨RegFile.init.set .x14 disp9E,[],[]⟩,
-    .bin .and (.bin .add disp9E (.c (BitVec.ofNat 64 (if b%2=0 then 184 else 348)))) (.c (~~~1#64)),.jump,4,4⟩
-def stub9Check : Bool :=
-  (List.range 128).all fun k => decide (k<125) || rOK (vrun (slot9W k) 1) stubR
-/-- BIG74: the q7 -> q8 dispatch `srli a4,a6,56; addi a4,a4,1735; slli a4,a4,9; jalr 200(a4)`. -/
-def disp8E : E := .bin .sll (.bin .add (.bin .srl (.reg .x16) (.c (BitVec.ofNat 64 56))) (.c 1735)) (.c (BitVec.ofNat 64 9))
-def dispatch8D : Result :=
-  ⟨⟨RegFile.init.set .x14 disp8E,[],[]⟩,.bin .and (.bin .add disp8E (.c 200)) (.c (~~~1#64)),.jump,4,4⟩
-/-- BIG74: the fault stub `jalr x0,0(x0)` of the six group-8 slots with `rank8 ≥ 125`. -/
-def stub8Check : Bool :=
-  (List.range 256).all fun u => decide (u%128<125) || rOK (vrun (221106+128*(255-u)) 1) stubR
 def rungsOK (q d0 sl p : Nat) : Bool :=
   (List.range' d0 (mx q-d0)).all fun m =>
     rOK (vrun (p+2*(m-d0)) 3)
@@ -218,10 +196,9 @@ def entCheck (q k : Nat) : Bool :=
      else headJD .x8 (off (3*q)) (gbase q k+2*dA+1) (3*q) dA)
 def s8Check (q k : Nat) : Bool :=
   (if q=0 then rOK (vrun (entW 0 k) 1) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k))) &&
-  true
+  (if q=9 ∧ k%2=0 then rOK (vrun (cellW 9 k) 1) (bge9R (cellW 9 k)) else true)
 def dispatchOK (q dB dC : Nat) : Bool :=
-  if q<17 then rOK (vrun (pcX q dB dC) 5)
-    (if q=7 then dispatch8D else if q=8 then dispatch9R else if q<16 then dispatchR (q+1) else tailDispatchR)
+  if q<17 then rOK (vrun (pcX q dB dC) 5) (if q=8 then dispatch9R else if q<16 then dispatchR (q+1) else tailDispatchR)
   else true
 def blockCheck (q dB dC : Nat) : Bool :=
   tailsOK q (slot (3*q)) (base q dB dC) &&
@@ -243,38 +220,36 @@ def inlineCheck (q k : Nat) : Bool :=
       (tailR (if dA+1=mx q then some (slot (3*q)) else none) (gbase q k+2*dA+1)) &&
     rungsOK q (dA+1) (slot (3*q)) (gbase q k+2*(dA+1))) &&
   partOK q (3*q+1) (kdig q k 1) (gB q k) && partOK q (3*q+2) (kdig q k 2) (gC q k) &&
-  rOK (vrun (gX q k) 5) (if q=8 then disp9D (k/125) else if q<16 then dispatchR (q+1) else tailDispatchR)
+  rOK (vrun (gX q k) 5) (if q<16 then dispatchR (q+1) else tailDispatchR)
 def inlineGroupCheck (q lo n : Nat) : Bool := (List.range' lo n).all fun k => inlineCheck q k
 def rejCheck : Bool :=
   (List.range 125).all fun k => rOK (vrun (guardW k) 1) rejJ
 /-! ### Group 17 (campaign T8D, TOP2 NF17): the radix-8 chains 51..53
 The tail dispatch of group 16 jumps to the slot `33512 + 64*k` with `k = d51 + 8 d52` (the top field, bits 122..127):
-`addi s8,s8,-(d51+d52)`, falling directly into `BLOCK[k]`. `BLOCK[k]` = chain 51 code, chain 52 code (main's top chain code with largest digit
+`addi s8,s8,d51+d52`, falling directly into `BLOCK[k]`. `BLOCK[k]` = chain 51 code, chain 52 code (main's top chain code with largest digit
 7: copy / terminal head / head + rungs, `partOK 17`), then the general-field dispatch `srli a4,a7,47;
-andi a4,a4,1792; add a4,a4,t1; jalr 2032(a4)` directly into the complete copied chain-53 suffix
-(`y = d53`, bits 119..121), bypassing the dead padding slot `r8SlotW y = 31995+64*y`.
-The reverse checksum remains `144 - sum (digits 0..52)` throughout chain 53.
-`SUFFIX[y]` = chain 53 code, then main's final tail at `finW y` (its `bne`
+andi a4,a4,1792; add a4,a4,t1; jalr 2028(a4)` into the padding slot `r8SlotW y = 31995+64*y`
+(`y = d53`, bits 119..121): `addi s8,s8,y; j SUFFIX[y]`. `SUFFIX[y]` = chain 53 code, then main's final tail at `finW y` (its `bne`
 goes to a local `j REJ` stub). -/
-def r8Blk : List Nat := [242896,36027,252016,149212,241894,252121,252152,252180,36289,252246,252283,241926,35145,252382,252411,252437,144604,149340,252534,35593,222277,252627,252654,252678,149468,241993,252769,252800,6885,145,661,252903,252924,38230,222791,253017,253044,253069,919,1467,223252,253162,253191,186,1426,702,253287,253305,253322,104,443,253400,253422,253442,253460,253475,7909,402,253541,253564,253585,1218,1642,1683]
-def r8Suf : List Nat := [6628,253675,253700,253723,960,1177,484,253794]
+def r8Blk : List Nat := [219217,219258,219297,219334,219369,219402,219433,219461,219488,219527,219564,219599,219632,219663,219692,219718,219743,219780,219815,219848,219879,219908,219935,219959,219982,220017,220050,220081,220110,220137,220162,220184,220205,220238,220269,220298,220325,220350,220373,220393,220412,220443,220472,220499,220524,220547,220568,220586,220603,220631,220657,220681,220703,220723,220741,220756,220770,220797,220822,220845,220866,220885,220902,220916]
+def r8Suf : List Nat := [220929,220956,220981,221004,221025,221044,221061,221075]
 def blkW (k : Nat) : Nat := TailDispatch.armPC k + 1
+def sufW (y : Nat) : Nat := r8Suf.getD y 0
 def r8SlotW (y : Nat) : Nat := 31995+64*y
-def sufW (y : Nat) : Nat := r8SlotW y+1
 def finW (y : Nat) : Nat := sufW y+partLen 17 y
-/-- Two-instruction slot `addi s8,s8,-n; j tgt`. -/
+/-- Two-instruction slot `addi s8,s8,n; j tgt`. -/
 def jR (n tgt : Nat) : Result :=
-  ⟨⟨RegFile.init.set .x24 (addC (.reg .x24) (-BitVec.ofNat 64 n)),[],[]⟩,.c (pcOf tgt),.jump,2,2⟩
+  ⟨⟨RegFile.init.set .x24 (addC (.reg .x24) (BitVec.ofNat 64 n)),[],[]⟩,.c (pcOf tgt),.jump,2,2⟩
 def genDispE : E := .bin .add (.bin .and (.bin .srl (.reg .x17) (.c 47#64)) (.c 1792#64)) (.reg .x6)
-/-- The general-field dispatch `srli a4,a7,47; andi a4,a4,1792; add a4,a4,t1; jalr 2032(a4)`. -/
+/-- The general-field dispatch `srli a4,a7,47; andi a4,a4,1792; add a4,a4,t1; jalr 2028(a4)`. -/
 def genDispR : Result :=
-  ⟨⟨RegFile.init.set .x14 genDispE,[],[]⟩,.bin .and (.bin .add genDispE (.c 2032#64)) (.c (~~~1#64)),.jump,4,4⟩
-theorem r8Blk_lt_all : (List.range 64).all (fun k => decide (blkW k+41<253807))=true := by decide +kernel
-theorem r8Suf_lt_all : (List.range 8).all (fun y => decide (finW y+8<253807))=true := by decide +kernel
-theorem blkW_lt (k : Nat) (hk : k<64) : blkW k+41<253807 := by
+  ⟨⟨RegFile.init.set .x14 genDispE,[],[]⟩,.bin .and (.bin .add genDispE (.c 2028#64)) (.c (~~~1#64)),.jump,4,4⟩
+theorem r8Blk_lt_all : (List.range 64).all (fun k => decide (blkW k+41<257181))=true := by decide +kernel
+theorem r8Suf_lt_all : (List.range 8).all (fun y => decide (finW y+8<257181))=true := by decide +kernel
+theorem blkW_lt (k : Nat) (hk : k<64) : blkW k+41<257181 := by
   have h := List.all_eq_true.mp r8Blk_lt_all k (List.mem_range.mpr hk)
   simpa using h
-theorem finW_lt (y : Nat) (hy : y<8) : finW y+8<253807 := by
+theorem finW_lt (y : Nat) (hy : y<8) : finW y+8<257181 := by
   have h := List.all_eq_true.mp r8Suf_lt_all y (List.mem_range.mpr hy)
   simpa using h
 def r8BlkCheck (k : Nat) : Bool :=
@@ -282,14 +257,14 @@ def r8BlkCheck (k : Nat) : Bool :=
   partOK 17 51 (k%8) (blkW k) && partOK 17 52 (k/8) (blkW k+partLen 17 (k%8)) &&
   rOK (vrun (blkW k+partLen 17 (k%8)+partLen 17 (k/8)) 4) genDispR
 def r8SufCheck (y : Nat) : Bool :=
-  partOK 17 53 y (sufW y)
+  rOK (vrun (r8SlotW y) 2) (jR y (sufW y)) && partOK 17 53 y (sufW y)
 theorem piece_steps45 {p f : Nat} {r : Result} (h : vrun p f=some r)
-    (hp : p<253807) (s : MachineState) (hpc : s.pc=pcOf p)
+    (hp : p<257181) (s : MachineState) (hpc : s.pc=pcOf p)
     (ho : ∀o∈r.st.obl,o.holds s) :
     Steps Images.verifyImage s r.steps r.cycles (r.toState s) := by
   exact symRun_sound h (lcodeAt p (by omega)) s hpc ((Oblig.all_iff _ _).mpr ho)
 theorem piece_ecall45 {p f : Nat} {r : Result} (h : vrun p f=some r)
-    (hp : p<253807) (s : MachineState) (ho : ∀o∈r.st.obl,o.holds s)
+    (hp : p<257181) (s : MachineState) (ho : ∀o∈r.st.obl,o.holds s)
     (hst : r.stop=.ecall) :
     fetch Images.verifyImage (r.toState s)=some (.base .ECALL) := by
   exact symRun_ecall h (lcodeAt p (by omega)) s ((Oblig.all_iff _ _).mpr ho) hst

@@ -65,7 +65,7 @@ theorem submission_verify_valid :
   rw [submission_verify, submission_sizes, submission_layout]
   rw [Riscv.Image.Valid]
   rw [Riscv.Image.byteSize,
-    show Images.verifyImage.code.length = 253807 from Images.verifyCode_length,
+    show Images.verifyImage.code.length = 257181 from Images.verifyCode_length,
     show Images.verifyImage.data.length = 16928 from Images.verifyData_length]
   rw [layoutValid_of_data_length _ _ _ 16928 Images.verifyData_length]
   decide +kernel

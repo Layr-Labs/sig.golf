@@ -28,8 +28,8 @@ structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   nodeReg : u.getReg .x15 = BitVec.ofNat 64 (idxOf a * 2^27 + 1537 + 65536 * (n-1))
   cached3 : u.getReg .x17 = a.extractLsb' 192 64
   cached : u.getReg .x16 = a.extractLsb' (64 * cachedWord n) 64
-  mask : u.getReg .x2 = BitVec.ofNat 64 0xffc
-  jt : u.getReg .x24 = BitVec.ofNat 64 0xd6800
+  mask : u.getReg .x2 = BitVec.ofNat 64 0x3ff00
+  jt : u.getReg .x24 = BitVec.ofNat 64 0xd9000
   childBlock : u.getReg .x29 = BitVec.ofNat 64 0xce800
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (8640 - 816 * (n-1))
   pairPtr : u.getReg .x9 = BitVec.ofNat 64 (pairBase + 32 * (n-1))
