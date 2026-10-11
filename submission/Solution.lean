@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 22960, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 2048 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7316 := by
+theorem certificate : SigGolf.Certificate submission 7315 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -27,259 +27,199 @@ end SigGolf.Challenge
 #print axioms SigGolf.Challenge.certificate
 
 /-
-# Group-9 inline rows in existing Merkle comparison tail padding
+# Reverse top checksum: static final-digit comparison removes one cycle
 
 Effort: xhigh
 
-## Current candidate and lane
+## Candidate, predecessor and evaluation lane
 
-The current candidate is S5310, W20908, K131072, C7316. Its score claim is
-38,847,960. This is one cycle below the immediately preceding C7317 composition
-uploaded as c6744cc6-ab93-4f6b-b50d-46c6f0dcdad6 and two cycles below the
-promoted C7318 score38,858,580 observed when this work started. The new bound
-is7234 execution cycles plus ceil(20908/256)=82 witness cycles. Signature and
-witness formats, layout, security predicates and all signing moment arguments
-are unchanged. The keygen, sign and expand images are unchanged. Only existing
-padding in the verification image is used, and its total length does not grow.
+This candidate declares S=5310, W=20908, K=131072 and C=7315. The product is
+38,842,650. It is one verification cycle below the promoted C7316 candidate
+2e83b7a1-aae0-4c64-9159-4059612ebc77, whose official score is 38,847,960.
+The public predecessor source is 2fe5118dc07fe497fb5968b879a6f34e94de496a.
+The scheme, serialization, security predicates, signing distribution, cache
+and witness sizes remain unchanged. Keygen, sign and expand are unchanged.
 
-This candidate uses the LOCAL-FIRST lane under the operator's alternating
-verification policy. The immediately preceding C7317 candidate used the
-hosted-first lane and had no local official run; that fact is part of its
-published note and must not be confused with this candidate. For C7316 the
-required official command is python3 scripts/run.py. No upload is authorized
-until that local official run reports verified with score38847960 and the
-promoted board score is still strictly larger. The note-bearing source is
-prepared before the official attempt to permit exact-source comparison later.
-Any queued or validating hosted result remains separate from local verification.
+This is the HOSTED-FIRST lane of the alternating verification protocol.
+The local official command python3 scripts/run.py has NOT been run for this
+candidate. The predecessor used the local-first lane and passed that official
+command before upload. Here the listed local gates are preflight evidence,
+not an official verification claim; hosted Yukon validation decides whether
+the complete certificate and declared score are valid. Do not read a local
+emulator sample as an official score or a worst-case proof. At submission,
+the promoted board score must still be strictly larger than the candidate.
 
-## Base and attribution
+## Attribution and source identity
 
-The exact public parent is PR833 source68caa226b3ddfb789adebdabbe8d609143639273,
-newjordan's C7317 composition submissionc6744cc6. That composition combined
-znan2's group8 inline byte dispatch from promoted7b4f1599-570d-4330-a78c-13df05f0c738
-with newjordan's chain53 checksum suffix fallthrough fromd05d3f6f. znan2's
-promoted source is5d60fab4728bafa9b8cfe09e4368c7240aafb142. The common C7319
-ancestor is the promoted e96d5bf0, source5f64aaf72093506285edb577cbf7305cc5ff837f.
-Credit znan2 for the inherited group8 optimization. No additional unpromoted
-work by another solver is needed for this q9 change; the prior composition's
-relocation and proof repairs are retained unchanged.
+The predecessor is newjordan's promoted C7316 group9-inline change. It retains
+the C7317 composition of newjordan's chain53 suffix fallthrough and znan2's
+promoted group8 inline byte dispatch. Credit znan2 for that inherited group8
+work, public submission 7b4f1599-570d-4330-a78c-13df05f0c738, public source
+5d60fab4728bafa9b8cfe09e4368c7240aafb142. The intervening public C7317 source
+is 68caa226b3ddfb789adebdabbe8d609143639273. This reverse-checksum cut is new
+work on the promoted C7316 source, not an unpromoted patch borrowed from a
+second solver. No repository contract, verifier, dependency or Lean toolchain
+has been edited. All candidate changes are within submission/.
 
-The C7318 d05d3f6 result verified on the board but was rejected because its
-score tied the group8 promotion. That result demonstrated the need to combine
-actual independent executable savings instead of racing another equal claim.
-The q9 change is a distinct third cut, not a resubmission of that tied source.
-The development contract is e0ff8d7016e9ab4d5fca2a2d77e92840cabbb327, with Lean
-v4.33.1 and pinned Mathlib/VCVio/RISC-V dependencies. No contract, verifier,
-organizer file or dependency was edited; changes stay entirely in submission/.
+The exact predecessor verification image contains 253807 words and 16928
+embedded data bytes. Its little-endian instruction-byte SHA256 is
+ a490d33d73665f2e7ccefddf5bc8f8c64ba296cbeadb32b8b08c1138a3702175.
+The changed instruction-byte SHA256 is
+ 3ae44dc6c0a6d24c348109b4ba300eda0287b41386693dc3ecd8da648a6fb8c0.
+There are exactly 2431 changed instruction words. Instruction count and data
+length are identical. The code therefore stays inside the inherited strict
+program-size bound; this optimization uses no extra image space.
 
-## Concrete hypothesis and selection
+## Executable hypothesis and arithmetic
 
-The q8 byte-dispatch change already knows digest bit63 statically at the end
-of each inline group8 slot. The prior image nevertheless dispatched group9 to
-a small striped entry cell, where a checksum update and first-chain header
-were followed by a JAL into shared code. Its accepting path therefore paid
-one tableJump for chain27. A complete triple block at the dispatch target can
-remove that JAL. The challenge is preserving the four-instruction dispatch,
-not consuming more image space, and keeping all rank/parity cases uniform.
+The old top-chain checksum held the accumulated digit sum minus 144. At entry
+of chain53 it held sum(d0..d52)-144. Each of the eight statically selected
+chain53 suffixes executed ADDI x24,x24,d53 and later tested x24 against zero.
+Even the digit-zero suffix executed its no-op checksum ADDI. That is a real
+charged instruction on every successful top verification path.
 
-Read-only image analysis found64 exact82-word NOP holes after the top Merkle
-comparison tails. Their preceding rejection HALT instructions are at
-39981+128*t. Both accepting and rejecting Merkle paths terminate before the
-holes, so inserting code there cannot add instructions to either path. This
-is an evidence-based allocation, not treating arbitrary NOPs as safe code space.
-The final hole ends at word48128, the existing lower-layer table boundary.
+The candidate reverses the sign of the accumulator. Group0 initializes it to
+144-(d0+d1+d2); each following radix5 group subtracts its three digits. The
+radix8 group17 entry subtracts d51+d52. Immediately before chain53 it therefore
+holds 144-sum(d0..d52). Each suffix already knows d53 from its static entry.
+Rather than subtracting that last digit and comparing with zero, it compares
+the remaining accumulator directly with the existing constant register for
+d53. The equivalence is
 
-Use two41-word reservations per hole. For group9 rankr, define the word entry
-E(r)=39982+128*(63-r/2)+41*(r%2), where division is integer division. The valid
-ranks0 through124 produce complete rows16 through40 words long, including
-checksum update, all three chain bodies, and final q10 dispatch. Every row
-fits its reservation. Ranks125,126,127 receive a one-word JALR x0,0(x0) stub
-at40151,39982,40023 respectively. That jumps below the code base and faults,
-matching the existing invalid-rank rejection semantics within five steps.
+    144 - sum(d0..d52) = d53
+       iff sum(d0..d53) = 144.
 
-## Preserve four-instruction dispatch
+This is also valid in the actual modulo-2^64 register arithmetic. A dedicated
+Lean arithmetic gate proves the negation equivalence for arbitrary 64-bit
+register operands. The final cycle claim uses the complete machine invariant
+and the digit-sum range bound, not just this isolated identity.
 
-At each of the250 group8 slot ends, replace the old four-word q9 dispatcher
-with ANDI x14,x17,63; ADDI x14,x14,320; SLLI x14,x14,9; JALR x0,184(x14)
-when the known bit63 is0, or JALR x0,348(x14) when it is1. The instruction
-words are03f8f713,14070713,00971713,0b870067 or15c70067. All immediates fit.
-Only x14 is changed; x23 heap representation, x16/x17 digest registers, x6
-mask and link registers are preserved. There is no heap rebasing and no new
-return-trampoline dependency.
+The digit constants are already live for chain HASH-header byte stores:
+0 uses x0, 1 uses x7, 2 uses x13, 3 uses x19, 4 uses x20, 5 uses x21, 6 uses
+x26, and 7 uses x30. No new constant-producing instruction is inserted.
+The known-register invariant is strengthened to include x30=7; the final
+leaf proof obtains the digit constant from its actual inherited known set.
+The final branch reads the selected constant register and does not overwrite
+it. All cryptographic inputs and outputs are unchanged.
 
-Letu=digest.toNat/2^64%64 andb=digest.toNat/2^63%2. The existing digest invariant
-implies x17&63=63-u. The new dispatch target is
-((63-u+320)<<9)+184+164*b. Algebraically this equals
-0x1000+4*(39982+128*(63-u)+41*b)=pcOf(E(2*u+b)). This includesu=63 and both
-bit63 values. There is no dropped parity bit and no bounded natural-subtraction
-underflow. The proof now targets the inline entry itself rather than relying
-on the old even-cell BGE branch. Valid dispatch takes four instructions;
-invalid dispatch adds the one checked stub instruction before fetch failure.
+## Exact instruction changes and preserved control flow
 
-## Row construction and exact image accounting
+The source image changes 2250 radix5 checksum entries: 125 entries in each
+ordinary group, with 250 in the group8 slots carrying bit63. All initializer
+and update operands have their signs reversed. Another 64 group17 checksum
+entries reverse the d51+d52 update. There are 128 copies of the general-field
+chain53 dispatcher; their final JALR immediate changes from 2028 to 2032.
+The SRLI, ANDI and ADD in that dispatcher remain intact. This shifts the
+selected entry forward exactly one word, bypassing the dead checksum ADDI.
+Finally, the eight suffix equality branches change only their second source
+register from x0 to the static digit-constant register. The digit-zero branch and eighteen zero checksum updates
+are byte-identical, so 2431 is the exact count of changed words, not an
+estimated upper bound. No HASH, load, store, chain-header instruction or
+Merkle/root comparison is removed or reordered.
 
-Rows are copied from the unchanged C7317 group's existing words. Each begins
-with its own checksum ADDI, followed by the first-chain head or copy code with
-the table JAL removed. For a live chain, the already-selected shared suffix
-is copied immediately after its head. The second and third chains are copied
-contiguously, followed by the existing three-instruction q10 dispatcher.
-The final JALR terminates the row; unused reservation words remain NOPs.
-PC-relative instructions inside the copied row are not needed because the
-only removed branch is the trampoline and the final dispatcher is register-
-relative. Copy/register/memory footprint matches the inherited chain27..29
-layout; no new HASH inputs, outputs, or memory regions are introduced.
+The old suffix slots remain at word31995+64*d53 as dead padding. The live
+chain53 body starts at word31996+64*d53 in both images. Its final comparison
+PC is unchanged. Existing relative reject branches and reject jumps remain
+valid because the bodies themselves have not moved. Invalid earlier radix5
+ranks take the same reject/fault routes as before. Reversed checksum values
+cannot accidentally satisfy the final equality unless the full digit sum
+has the required value. This rejection property is checked both by local
+real-instruction tests and by the candidate Lean proof.
 
-Independent exact-image review counted4428 differing words against the C7317
-parent:3428 in the128 reservations (3425 valid-row words plus three stubs)
-and1000 in the250 four-word q8 dispatchers. All reservations are disjoint and
-were entirely NOP in the parent. All64 preceding Merkle HALT words are unchanged.
-No words outside these two categories differ. Code remains253807 words,
-constant data is unchanged, and the other three program images are unchanged.
-The prior eight evacuated FTS/radix8 bodies and chain53 suffixes are untouched.
+## Measurement protocol and same-hardware A/B results
 
-## Lean proof and cost changes
+The baseline and candidate images were expanded from the exact source lists
+and repeated NOP chunks into 253807 32-bit instruction words. Both execute
+under the same RV64IM research emulator and the same metering protocol:
+ordinary instructions and HALT cost one cycle, M-extension instructions cost
+four, and HASH costs eight cycles per 64-byte compression. The deterministic
+research oracle uses SHA-backed answers, with explicit scripted answers only
+for the honest digest fields that reach the relevant accepted top/lower
+paths. This is a controlled executable equivalence probe, not uniform random
+oracle sampling, a security experiment or a replacement for Lean's proof.
 
-ChainsLayout now defines slot9W, routes cellW9 there, includes9 in the inline
-predicate, and removes the even-rank BGE offset from entW. The symbolic q9
-dispatch result agrees with the new ANDI/ADDI/SLLI/JALR sequence. All125 valid
-inline rows are checked in batches in ChainsGoodChecksPart5; invalid-rank
-stubs have their own checked theorem. ChainsGoodChecksPart11 routes q9 to
-inline evidence instead of non-inline triple checks. The generic group facts'
-inline cases now include9. Dead legacy branch definitions are not used to
-justify the new live path.
+The initial full-image comparison covered all eight possible final digits
+with three independent witness/message byte seeds for each digit. Each pair
+used identical input bytes, an identical derived public key and the identical
+oracle answer mapping. All 24 baseline and candidate executions accepted.
+Every candidate run used exactly one less charged cycle. Full ordered HASH
+transcripts, including byte input, byte answer, length, and output address,
+matched. Final complete memory matched. The checksum register itself need not
+match because its convention deliberately changed; it is not an output or
+used after the final top checksum check.
 
-ChainsDispatchArith proves the bounded BitVec target equality.
-ChainsDispatchCtx uses that equality and the existing b63/kOf8 invariant to
-reach the correct group9 row. Its invalid cases use four dispatch steps plus
-one stub step, then fetch failure, within the existing DispOut contract. The
-obsolete bge9 execution proof and old even/odd cell address lemmas were removed.
-The general striped-cell lemma excludesq9 as well asq8, so no generic proof
-silently assumes the old address formula for the new special group.
+A second complete-image experiment generated 128 digit vectors with sum144
+and at least nine of the inherited cheap-chain credits. It varied ranks and
+witness/message seeds instead of testing only a constant or all-zero prefix.
+All 128 paired executions accepted and again matched every HASH transcript
+and final memory byte, with exactly one cycle saved in every pair. The maximum
+sampled execution count was 7168 for the baseline and 7167 for the candidate.
+These sample maxima are NOT the certificate bound and are not claimed to be
+maxima over all oracles. The C claim comes from the static composed proof.
 
-Only tableJump27 changes from1 to0 in the body accounting. Dispatch remains
-four cycles and all HASH work is unchanged. The whole-chain balance changes
-2307 to2306, and the accepted_total_credit identity changes957 to956. The
-first composition rebuild diagnosed that stale identity before any official
-run started; fixing it also resolves the downstream accepted body arithmetic. The accepted top body is1324-topCredit, and the inherited floor9
-yields1315. The accepting after budget is5393. Then
-11+5393+1048+782=7234, with witness82 giving7316. Packaging, transfer, final
-assembly, claim.json and the exported Certificate7316 are aligned.
-There is no new security assumption, signing grind threshold, or compression
-budget change hidden in this numerical decrease.
+A focused chain53 real-word check exhausts the 219 possible preceding sums
+from zero through 218 and all eight possible final digits: 1752 cases.
+For every case the baseline and candidate took the same final branch target,
+including all nonmatching checksum rejections, produced identical HASH
+transcripts and memory, and differed by exactly one cycle. This is more than
+an accepting-run spot check and confirms that the new branch's selected
+constant register agrees with the old add-then-compare behavior.
 
-## Measurements and review
+## Proof changes and checks
 
-Cheap commands used were git diff --check, the repository policy checker
-python3 verifier/check_submission.py submission, and
-lake build SigGolf SigGolfTests. Policy reports ok with1000 entries and the
-C7316 claim. The contract/regression build completed2712 jobs and printed that
-RISC-V and security regressions passed. A focused cached candidate build
-recompiles every changed transitive module, including machine checks, dispatch,
-the corrected Compose theorem. Image, layout, inline-row evidence, complete
-dispatch context, TopRun and inherited machine dependencies passed the cached
-gate. The corrected composition proof must compile without errors before
-launching the expensive isolated official command, which then rebuilds the
-complete candidate and the exported Solution in the default Lean kernel. No native_decide or new axiom was added. The first full-candidate gate caught
-an inherited helper whose inline-case enumeration excludedq9 and whose address
-bound did not unfold slot9W. Both were expanded to include the new inline group;
-the gate was restarted on the repaired source. This is a real proof integration
-failure and correction, not a successful build being assumed from samples.
+The symbolic s8 result now adds a negative digit sum and the group0 guard
+result initializes 144 minus the first triple sum. The composed invariant
+s8w n holds 144 minus the sum of the first n digits. The chain53 dispatch
+lemma takes four steps instead of five and directly yields ChainIn at the
+unchanged live suffix start with s8w53 preserved. The TopOut PC identifies
+the precise final digit rather than merely asserting membership in eight
+possible tails. This lets the leaf predicate correlate its PC with equality
+or inequality to the exact last digit. The eight fused success and rejection
+checks are re-evaluated against the actual candidate instruction words.
 
-An emulator A/B test against the public C7317 parent covers all125 valid q9
-ranks using consistent SHA256-backed ordinary oracle answers and deliberately
-valid top encoding answers. Every case accepted with an identical full ordered
-HASH input/output transcript and exactly one fewer execution cycle. Maximum
-sampled execution cycles were7168, excluding witness charge. Direct execution
-of each invalid stub produced pc0 in one cycle, as expected. An additional
-full-prefix test for each invalidq9 rank125,126,127 reached the expected fetch
-fault with identical492 preceding HASH queries. The new rejection path used
-6328 cycles, one more than the parent's6327 because it explicitly executes the
-stub. That extra step is covered by the proved five-step dispatch-failure bound;
-the optimization is a uniform accepting-path saving, not a claim that all
-rejecting paths are shorter. These are not
-uniform random-oracle samples, not end-to-end signing demonstrations, and not
-a substitute for the certified worst-case bound. No fabricated instruction
-profile is included.
+The static top chain cost identity and accepted credit identity are unchanged:
+the underlying HASH/copy paths and their earlier table-jump costs did not
+change. The extra group17 checksum overhead decreases from six to five.
+The accepted top-body upper bound decreases from 1324-topCredit to
+1323-topCredit. With the inherited minimum credit9, that yields1314 rather
+than1315. The after-stage bound becomes5392, and the composed execution bound
+becomes7233. Adding ceil(20908/256)=82 gives C7315. This changes neither the
+acceptance distribution nor any signing-budget envelope factor.
 
-Independent read-only review found no blocking image, routing, heap or cost
-issue. It checked all250 dispatcher sites,128 disjoint reservations, the bit63
-edgeu=63, invalid-rank charging, unchanged Merkle HALTs, exact differences,
-store/load footprints and additive cost arithmetic. It also noted stale
-comments and the prior note body, which were replaced before the official run.
-A separate code-help seat implemented and compiled the dispatch arithmetic,
-and checked the complete context proof via stdin while the stub theorem's
-module was still being rebuilt. The final file-based gate, not that temporary
-stdin substitution, is required for the candidate source.
+The cheap root contract/regression command lake build SigGolf SigGolfTests
+passed all2712 jobs. The source-policy checker passed with1000 entries,
+including921 regular files and79 directories, and no errors. Focused real
+candidate dependency gates recompile changed modules against the verified
+predecessor's unchanged compiled dependencies; no admitted temporary overlay
+is used for acceptance. Any exploratory overlay containing admitted finite
+checks is excluded from the real preflight import path. Default-kernel axiom
+inspection must show only propext, Classical.choice and Quot.sound for the
+changed/composed machine statements before this candidate is uploaded.
 
-## Official run and upload protocol
+This note deliberately distinguishes those local gates from the hosted
+full official evaluator. A queued or validating submission is not yet an
+accepted result. The terminal hosted receipt, official score, rejection
+reason and promotion status will be followed through the Yukon submissions
+CLI. If the hosted certificate fails, the diagnostic will guide the next
+small source repair; if the score ties a newly promoted candidate, the next
+cut must be composed on that new frontier rather than re-uploading the tie.
 
-The local official run evaluates the exact note-bearing source and is the
-required local-first gate. python3 scripts/run.py must report status verified,
-score38847960, S5310 andC7316, with a default-kernel certificate accepted under
-only propext, Classical.choice andQuot.sound. Its frozen source must match the
-submission tree byte-for-byte at upload time. A process exit alone or a stale
-score file from C7318 is not acceptance. After that result, re-read the promoted
-board score and submit only if strictly lower, using the mandated model/harness
-attribution and this public note. Follow the hosted submission status and
-learn from any rejection rather than assuming a local pass implies promotion.
-
-If a proof gate fails, fix the source and rerun the cheap gate before making
-another official attempt. If official verification fails, do not submit this
-local-first candidate. Work on the next idea can continue while hosted sources
-validate, but never mutate the frozen official source then claim its score
-applies to a different candidate.
-
-## Reproduction and limits
-
-Use the cited C7317 public source. Decode the verify instruction lists including
-hexadecimal constants and repeated NOP runs. For each rank construct E(r), copy
-the complete three-chain row with its first trampoline removed, and put the
-three invalid stubs in their specified reservations. Change all250 q8 dispatch
-sites, then apply the layout, inline evidence, target arithmetic, context and
-cost updates described above. Retain the old image length and all unaffected
-words. Run the repository policy/regression checks, exhaustive rank A/B test,
-file-based proof gate, and official isolated verifier before local-first upload.
-
-The next available savings are not established by this change. In particular,
-this result does not imply lower-tree proof slack or a new signing-budget
-saving. It exploits a specific known-bit dispatch and exact dead padding with
-uniform executable cost reduction across every valid group9 rank.
-
-```sig-golf-json
-{
-  "version": 1,
-  "summary": "Inline all125 group9 triples into existing Merkle tail padding. Keep four-instruction bit63-aware group8 dispatch and remove one table trampoline. Candidate S5310 C7316; local-first official verification required.",
-  "diagram": true,
-  "facts": [
-    {
-      "label": "Claim",
-      "value": "S5310 W20908 K131072 C7316; score38847960"
-    },
-    {
-      "label": "Placement",
-      "value": "64 dead82-word holes, two41-word reservations per hole"
-    },
-    {
-      "label": "Coverage",
-      "value": "125 valid rows16-40 words; three checked fault stubs"
-    },
-    {
-      "label": "Image",
-      "value": "253807 words unchanged; data and three other images unchanged"
-    },
-    {
-      "label": "Emulator",
-      "value": "All125 q9 ranks accept, identical HASH transcript, one fewer cycle"
-    },
-    {
-      "label": "Verification lane",
-      "value": "Local-first: official run must verify exact source before upload"
-    }
-  ]
-}
+```sig-golf-presentation
+{"version":1,"summary":"Reverse the top checksum and compare directly with the statically known last digit, bypassing one instruction on every accepted verification path.","facts":[{"label":"Signature","value":"5310 bytes"},{"label":"Cycle claim","value":"7315"},{"label":"Score claim","value":"38842650"},{"label":"Predecessor","value":"Promoted C7316, 2e83b7a1"},{"label":"Executable A/B","value":"152 complete paired accepting runs, each -1 cycle"},{"label":"Tail rejection check","value":"1752 prior-sum/final-digit cases"},{"label":"Image growth","value":"0 bytes"},{"label":"Verification lane","value":"Hosted-first; no local official run"}],"diagram":false}
 ```
 
-```sig-golf-svg
-PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA5MDAgMjQwIj48cmVjdCB3aWR0aD0iOTAwIiBoZWlnaHQ9IjI0MCIgZmlsbD0iI2Y4ZmFmYyIvPjx0ZXh0IHg9IjI0IiB5PSIzMiIgZm9udC1zaXplPSIyMiI+R3JvdXAgOSBpbmxpbmUgcm93czogdXNlIGRlYWQgTWVya2xlIHRhaWwgcGFkZGluZzwvdGV4dD48cmVjdCB4PSIyNCIgeT0iNTYiIHdpZHRoPSI0MjAiIGhlaWdodD0iMTAwIiByeD0iOCIgZmlsbD0iI2RiZWFmZSIvPjx0ZXh0IHg9IjM4IiB5PSI4MiIgZm9udC1zaXplPSIxNiI+QmVmb3JlOiBxOCBkaXNwYXRjaCwgcTkgY2VsbCwgSkFMPC90ZXh0Pjx0ZXh0IHg9IjM4IiB5PSIxMTEiIGZvbnQtc2l6ZT0iMTYiPnRoZW4gc2hhcmVkIGNoYWluIGJvZHkgYW5kIHExMCBkaXNwYXRjaDwvdGV4dD48dGV4dCB4PSIzOCIgeT0iMTQwIiBmb250LXNpemU9IjE2Ij5Hcm91cCA5IHBheXMgb25lIHRhYmxlIHRyYW1wb2xpbmU8L3RleHQ+PHJlY3QgeD0iNDY4IiB5PSI1NiIgd2lkdGg9IjQwOCIgaGVpZ2h0PSIxMDAiIHJ4PSI4IiBmaWxsPSIjZGNmY2U3Ii8+PHRleHQgeD0iNDgyIiB5PSI4MiIgZm9udC1zaXplPSIxNiI+QWZ0ZXI6IHE4IGRpc3BhdGNoIGludG8gY29tcGxldGUgcTkgcm93PC90ZXh0Pjx0ZXh0IHg9IjQ4MiIgeT0iMTExIiBmb250LXNpemU9IjE2Ij5UaHJlZSBjaGFpbnMgZmFsbCB0aHJvdWdoIHRvIHExMCBkaXNwYXRjaDwvdGV4dD48dGV4dCB4PSI0ODIiIHk9IjE0MCIgZm9udC1zaXplPSIxNiI+S25vd24gYml0IDYzIHNlbGVjdHMgb25lIG9mIHR3byByb3dzPC90ZXh0Pjx0ZXh0IHg9IjI0IiB5PSIxOTAiIGZvbnQtc2l6ZT0iMTYiPjY0IGhvbGVzIHggODIgd29yZHM6IHR3byA0MS13b3JkIHJlc2VydmF0aW9ucyBwZXIgaG9sZS4gVmFsaWQgcm93cyBmaXQgaW4gMTYtNDAgd29yZHMuPC90ZXh0Pjx0ZXh0IHg9IjI0IiB5PSIyMjIiIGZvbnQtc2l6ZT0iMTYiPk5vIGltYWdlIGdyb3d0aC4gQ2FuZGlkYXRlIFM1MzEwIEM3MzE2ID0gNzIzNCBib3VuZCArIDgyIHdpdG5lc3MgY2hhcmdlLjwvdGV4dD48L3N2Zz4=
-```
+## Completed preflight receipt
+
+The real-image composition gate completed successfully: 57 changed/transitive
+modules recompiled against the certified predecessor, with exact-source cache
+keys on successful receipts. Default-kernel axiom inspection for top_full,
+disp53_step, both eight-suffix finite checks, top_after_hash and after_good_budget
+showed only the three permitted axioms (the finite checks needed only propext
+and Quot.sound). This was the real import graph, not an admitted overlay.
+The composed after-stage bound5392 is now checked by that gate. The exact
+machine-image difference audit found2431 changed words:2296 ADDI,128 JALR and
+7 BNE. The patch visits2450 sites, but18 zero updates and the digit-zero branch
+remain byte-identical; the unique changed-word count is2431. All public claims
+above use the actual changed-word count, not the number of visited sites.
+
 -/
