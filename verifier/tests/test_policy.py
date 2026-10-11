@@ -37,6 +37,19 @@ class PolicyTests(unittest.TestCase):
         self.assertFalse(value['ok'])
         self.assertIn('outside the allowed modules', value['errors'][0])
 
+    def test_comment_marker_in_body_string_is_accepted(self):
+        (self.root / 'SigGolfCandidate' / 'Helper.lean').write_text(
+            'import SigGolf\n\ndef marker : String := "a/-b"\n')
+        value = check(self.root)
+        self.assertTrue(value['ok'], value['errors'])
+
+    def test_unclosed_header_comment_is_rejected(self):
+        (self.root / 'SigGolfCandidate' / 'Helper.lean').write_text(
+            'import SigGolf\n/- open\nimport SigGolfCandidateX.Helper\n')
+        value = check(self.root)
+        self.assertFalse(value['ok'])
+        self.assertIn('unclosed block comment', value['errors'][0])
+
     def test_symlink_and_archive_file_are_rejected(self):
         (self.root / 'SigGolfCandidate' / 'Alias.lean').symlink_to('Helper.lean')
         (self.root / 'notes.zip').write_bytes(b'irrelevant')
