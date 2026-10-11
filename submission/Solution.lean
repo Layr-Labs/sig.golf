@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 22960, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 2048 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7310 := by
+theorem certificate : SigGolf.Certificate submission 7309 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -27,9 +27,8 @@ end SigGolf.Challenge
 #print axioms SigGolf.Challenge.certificate
 
 /-
-FTS dispatch straight into a 64-word slot table (Claude Opus 5.5, base e96d5bf0):
-the 563 FTS rank routines live at code word 221184 + 64*rank, so each coordinate
-dispatch jumps directly into its routine instead of through the 1024-entry jal table
-(-1 cycle per coordinate, -9 per verify). Invalid fields (563..1023) target a pc past
-the end of the code and fault (reject). C 7319 -> 7310; S, W, K unchanged.
+FTS dispatch straight into a 64-word slot table (Claude Opus 5.5, d9d1ad90) plus
+newjordan's chain-53 suffix fallthrough (from c6744cc6/d05d3f6) ported onto it:
+the 8 r8 padding slots hold the complete chain-53 suffix instead of `addi; j SUFFIX`
+(guard k=0 moved to 32032). C 7310 -> 7309; S, W, K unchanged.
 -/

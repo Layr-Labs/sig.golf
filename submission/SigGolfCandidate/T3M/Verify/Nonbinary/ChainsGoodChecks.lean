@@ -196,7 +196,7 @@ theorem r8Blk_facts (c : NCtx) (hds : c.DigitsOk) :
   simp only [r8BlkCheck,Bool.and_eq_true,d1,d2] at h
   exact ⟨rOK_eq h.1.1.1,h.1.1.2,h.1.2,rOK_eq h.2⟩
 theorem r8Suf_facts (c : NCtx) (hds : c.DigitsOk) :
-    vrun (r8SlotW (c.dig 53)) 2=some (jR (c.dig 53) (sufW (c.dig 53))) ∧
+    vrun (r8SlotW (c.dig 53)) 1=some (s8R (c.dig 53) (r8SlotW (c.dig 53))) ∧
     partOK 17 53 (c.dig 53) (sufW (c.dig 53))=true := by
   have h3 := hds 53 (by decide +kernel)
   rw [topMax_hi 53 (by decide +kernel)] at h3
