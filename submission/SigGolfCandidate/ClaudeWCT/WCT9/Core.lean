@@ -189,9 +189,16 @@ def producerZeroBound (lay : Layer) (digits : List Nat) : Prop :=
   lay = 0 ∨ (digits.filter (· = 0)).length ≤ 5
 instance (lay : Layer) (digits : List Nat) : Decidable (producerZeroBound lay digits) := by
   unfold producerZeroBound; infer_instance
+/-- Two stride-512 columns need rank five; the other stride-1024 columns need rank three. -/
+def producerRankFloor (i : Nat) : Nat := if i = 1 ∨ i = 8 then 5 else 3
+/-- Producer-only table-address safety for the mixed-stride dispatch. -/
+def producerRankBound (lay : Layer) (answer : Digest) : Prop :=
+  lay = 0 ∨ ∀ i : Fin 14, producerRankFloor i.val ≤ lowerWord answer / 2^(9*i.val) % 512
+instance (lay : Layer) (answer : Digest) : Decidable (producerRankBound lay answer) := by
+  unfold producerRankBound; infer_instance
 def producerDecode (lay : Layer) (answer : Digest) : Option (List Nat) :=
   match decode lay answer with
-  | some digits => if producerFloor lay ≤ wordCredit lay digits ∧ producerZeroBound lay digits then some digits else none
+  | some digits => if producerFloor lay ≤ wordCredit lay digits ∧ producerZeroBound lay digits ∧ producerRankBound lay answer then some digits else none
   | none => none
 def lowerSearchLimit : Nat := 2 ^ 21
 def searchLimit (lay : Layer) : Nat := if lay = 0 then counterLimit else lowerSearchLimit
@@ -309,6 +316,27 @@ def recoverLayerPair (sig : Signature) (index : Nat) (lay : Layer) (digits : Lis
     nodeHash 3 lay.val tree (2 ^ (height lay - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1 pair.2) value
   let other := (sig.layers lay).path (topLevel lay)
   pure (if leaf / 2 ^ (height lay - 1) % 2 = 0 then (top, other) else (other, top))
+/-- Lower dispatch is defined only at ranks allocated in the absolute-address table. -/
+def lowerRankGood (answer : Digest) : Prop :=
+  ∀ i : Fin 14, producerRankFloor i.val ≤ lowerWord answer / 2 ^ (9 * i.val) % 512
+instance (answer : Digest) : Decidable (lowerRankGood answer) := by
+  unfold lowerRankGood
+  infer_instance
+def lowerFirstBad (answer : Digest) : Nat :=
+  ((List.range 14).find? (fun i => decide
+    (lowerWord answer / 2 ^ (9 * i) % 512 < producerRankFloor i))).getD 14
+def lowerGuardedRun {α : Type} (run : Nat → M Digest) (finish : M α) (answer : Digest) : M (Option α) :=
+  if lowerRankGood answer then some <$> finish
+  else do
+    let _ ← (List.range (3 * lowerFirstBad answer)).mapM run
+    pure none
+def recoverLayerPairGuard (sig : Signature) (index : Nat) (lay : Layer) (answer : Digest)
+    (digits : List Nat) : M (Option (Digest × Digest)) :=
+  lowerGuardedRun
+    (fun i => SigGolfCandidate.T3.chain lay (route index lay).2 (route index lay).1 i
+      (digits.getD i 0) (maxDigit lay i - digits.getD i 0) ((sig.layers lay).values ⟨i % chainCount lay,
+        Nat.mod_lt _ (by fin_cases lay <;> decide)⟩))
+    (recoverLayerPair sig index lay digits) answer
 def topGroupBad (answer : Digest) (i : Nat) : Bool :=
   decide (i % 3 = 0 ∧ i < 51 ∧ 125 ≤ topCode answer / 2 ^ (7 * (i / 3)) % 128)
 def topDecodeStep (run : Fin (chainCount 0) → Nat → M Digest) (answer : Digest)
@@ -362,7 +390,7 @@ def verifyLayersBC (w : Witness) (index : Nat) : Nat → LayerMsg → M (Option 
       if n = 0 then verifyTop w.signature index answer
       else do
         let some digits := decode lay answer | pure none
-        let pair ← recoverLayerPair w.signature index lay digits
+        let some pair ← recoverLayerPairGuard w.signature index lay answer digits | pure none
         verifyLayersBC w index n (.pair pair.1 pair.2)
 def signPayload (cache : Cache) (message : Message) : M (Option Signature) := do
   let rho ← privateNonce message

@@ -322,9 +322,18 @@ noncomputable def Envelopes.v5 : Envelopes where
   ge_one := by intro lay; fin_cases lay <;> norm_num [V5.b1, V5.b2, V5.b3, V5.b4]
   step := by
     intro lay
-    fin_cases lay <;> norm_num [producerRate, ClaudeWCT.W9.T3.ProducerV5.producerCount, V5.topCount144,
-      V5.lowerCount199f5, V5.lowerCount199f4, V5.lowerCount200f4, SigGolfCandidate.T3.BaseAudit.zU, V5.b1, V5.b2,
-      V5.b3, V5.b4]
+    have hp := ClaudeWCT.W9.T3.ProducerV5.producerRate_ge lay
+    let b : ℝ := (![V5.b1, V5.b2, V5.b3, V5.b4] lay : ℚ)
+    have hb : 1 ≤ b := by fin_cases lay <;> norm_num [b, V5.b1, V5.b2, V5.b3, V5.b4]
+    have hs : (SigGolfCandidate.T3.BaseAudit.zU : ℝ) *
+        ((1 - (ClaudeWCT.W9.T3.ProducerV5.producerCountLower lay : ℝ) / 2^128) * b +
+          (ClaudeWCT.W9.T3.ProducerV5.producerCountLower lay : ℝ) / 2^128) ≤ b := by
+      fin_cases lay <;> norm_num [b, ClaudeWCT.W9.T3.ProducerV5.producerCountLower,
+        SigGolfCandidate.T3.BaseAudit.zU, V5.b1, V5.b2, V5.b3, V5.b4]
+    change (SigGolfCandidate.T3.BaseAudit.zU : ℝ) * ((1 - producerRate lay) * b + producerRate lay) ≤ b
+    refine le_trans ?_ hs
+    apply mul_le_mul_of_nonneg_left _ (by norm_num [SigGolfCandidate.T3.BaseAudit.zU])
+    nlinarith [mul_nonneg (sub_nonneg.mpr hp) (sub_nonneg.mpr hb)]
 end ClaudeWCT.W9.T3.LayerBudget
 end
 section

@@ -37,11 +37,14 @@ theorem dummyDigits_credit (lay : Layer) :
 theorem dummyDigits_zeroBound (lay : Layer) :
     WCT9.producerZeroBound lay (SigGolfCandidate.T3.Security.Wots.dummyDigits lay) := by
   fin_cases lay <;> decide +kernel
+theorem dummyDigest_rankBound (lay : Layer) :
+    WCT9.producerRankBound lay (SigGolfCandidate.T3.Security.WotsExtract.dummyDigest lay) := by
+  fin_cases lay <;> decide +kernel
 theorem dummyDigest_producerDecode (lay : Layer) :
     WCT9.producerDecode lay (SigGolfCandidate.T3.Security.WotsExtract.dummyDigest lay) =
       some (SigGolfCandidate.T3.Security.Wots.dummyDigits lay) :=
   WCT9.producerDecode_of (SigGolfCandidate.T3.Security.WotsExtract.dummyDigest_decode lay)
-    (dummyDigits_credit lay) (dummyDigits_zeroBound lay)
+    (dummyDigits_credit lay) (dummyDigits_zeroBound lay) (dummyDigest_rankBound lay)
 theorem referenceDigits_producerDecode (answers : Answers) (L : LeafAddr) :
     ∃ value : Digest, WCT9.producerDecode L.lay value = some (referenceDigits answers L) := by
   unfold referenceDigits
@@ -56,8 +59,10 @@ theorem referenceDigits_credit (answers : Answers) (L : LeafAddr) :
   exact WCT9.producerDecode_credit hu
 theorem producerDecode_canonical {lay : Layer} {a b : Digest} {ds : List Nat}
     (ha : WCT9.producerDecode lay a = some ds) (hb : decode lay b = some ds) :
-    WCT9.producerDecode lay b = some ds :=
-  WCT9.producerDecode_of hb (WCT9.producerDecode_credit ha) (WCT9.producerDecode_zeroBound ha)
+    WCT9.producerDecode lay b = some ds := by
+  have hab := decode_some_injective (WCT9.producerDecode_decode ha) hb
+  subst b
+  exact ha
 theorem producerDecode_of_reference (answers : Answers) (L : LeafAddr) {v : Digest}
     (h : decode L.lay v = some (referenceDigits answers L)) :
     WCT9.producerDecode L.lay v = some (referenceDigits answers L) := by

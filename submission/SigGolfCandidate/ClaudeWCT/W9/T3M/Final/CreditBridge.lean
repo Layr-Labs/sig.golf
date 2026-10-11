@@ -219,6 +219,7 @@ theorem agree_layers (hash : Hash) (sig : ClaudeWCT.WCT9.Signature) (index : Nat
           have hnot : ¬counter.toNat ≥ ClaudeWCT.WCT9.verifyWindow := ClaudeWCT.WCT9.ctr_not_ge_verifyWindow counter
           have hlay := ClaudeWCT.WCT9.ofNat_layer_val n (by omega)
           simp only [hs] at he
+          have hproducerRaw := hsd
           rw [eval_shortHash] at hsd
           have hq := okHash_producer hash _ _ _ msg counter hsd
           by_cases hn0 : n = 0
@@ -256,7 +257,10 @@ theorem agree_layers (hash : Hash) (sig : ClaudeWCT.WCT9.Signature) (index : Nat
                 · rw [mrealize_shortHash, agree_map_iff]
                   exact ⟨hq, trivial⟩
                 · rw [hdecode]
-                  simp only [hn0, if_false]
+                  have hgood := ClaudeWCT.WCT9.producerDecode_lowerRankGood
+                    (lay := Fin.ofNat 4 n) (by intro h; have := congrArg Fin.val h; rw [hlay] at this; exact hn0 this) hproducerRaw
+                  simp only [hn0, if_false,
+                    ClaudeWCT.WCT9.recoverLayerPairGuard_of_good _ _ _ _ _ hgood, bind_map_left]
                   refine (agree_mrealize_bind _ _).mpr
                     ⟨agree_mrealize (notEnc_recoverLayerPair _ _ _ _) (hfg_ok hash), ?_⟩
                   rw [hw]

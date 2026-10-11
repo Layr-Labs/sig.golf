@@ -218,10 +218,10 @@ def lfBlocks (lay : Nat) : Nat := if lay = 0 then 14 else 11
 def lfSlot (lay j : Nat) : Nat := if lay = 0 then slotT j else slotL j
 def stabBits (lay : Nat) : Nat := if lay = 1 then 7 else 6
 def lfKeepK (lay : Nat) : List (Reg × Word) :=
-  [(.x2, 0x3fe00), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
+  [(.x2, 0x7fc00), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
    (.x30, 7), (if lay = 0 then (.x8, BitVec.ofNat 64 s3v) else (.x22, BitVec.ofNat 64 (s6v lay))),
    (.x9, BitVec.ofNat 64 TOPB9)] ++
-  (if lay = 0 then [] else [(.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x6, 0x10000)])
+  (if lay = 0 then [] else [(.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x6, 0x10000), (.x27, 0x3fe00)])
 theorem creg_value (t : MachineState) (hk : KnownOK (lfKeepK 0) t) (y : Nat) (hy : y < 8) :
     t.getReg (creg y) = BitVec.ofNat 64 y := by
   interval_cases y
@@ -299,8 +299,8 @@ theorem stabMask_eq (lay : Nat) : stabMask lay = 4 * (2 ^ stabBits lay - 1) := b
 theorem tgtLf0_eval (t : MachineState) (leaf : Nat) (hl : leaf < 4096)
     (h31 : t.getReg .x31 = BitVec.ofNat 64 leaf) :
     (tgtLf 0).eval t = pcOf (stabW 0 (leaf % 2 ^ stabBits 0)) := by
-  change (((t.getReg .x31 &&& BitVec.ofNat 64 63) + BitVec.ofNat 64 2042) <<< ((BitVec.ofNat 64 8).toNat % 64)) &&&
-      ~~~(1#64) = BitVec.ofNat 64 (0x1000 + 4 * (129664 + 64 * (leaf % 64)))
+  change ((((t.getReg .x31 &&& BitVec.ofNat 64 63) + BitVec.ofNat 64 1) <<< ((BitVec.ofNat 64 12).toNat % 64)) +
+      BitVec.ofNat 64 1108) &&& ~~~(1#64) = BitVec.ofNat 64 (0x1000 + 4 * (277 + 1024 * (leaf % 64)))
   have hm : (t.getReg .x31 &&& BitVec.ofNat 64 63) = BitVec.ofNat 64 (leaf % 64) := by
     rw [h31]
     apply BitVec.eq_of_toNat_eq
@@ -309,10 +309,10 @@ theorem tgtLf0_eval (t : MachineState) (leaf : Nat) (hl : leaf < 4096)
     rw [hmod, show (63 : Nat) = 2 ^ 6 - 1 by norm_num, Nat.and_two_pow_sub_one_eq_mod]
     omega
   rw [hm, ofNat_add_ofNat]
-  have hs : (BitVec.ofNat 64 (leaf % 64 + 2042) <<< ((BitVec.ofNat 64 8).toNat % 64)) =
-      BitVec.ofNat 64 (0x1000 + 4 * (129664 + 64 * (leaf % 64))) := by
+  have hs : (BitVec.ofNat 64 (leaf % 64 + 1) <<< ((BitVec.ofNat 64 12).toNat % 64)) + BitVec.ofNat 64 1108 =
+      BitVec.ofNat 64 (0x1000 + 4 * (277 + 1024 * (leaf % 64))) := by
     apply BitVec.eq_of_toNat_eq
-    rw [toNat_sll _ 8 (by norm_num), BitVec.toNat_ofNat, BitVec.toNat_ofNat]
+    rw [BitVec.toNat_add, toNat_sll _ 12 (by norm_num), BitVec.toNat_ofNat, BitVec.toNat_ofNat, BitVec.toNat_ofNat]
     omega
   rw [hs, even_andNot1' _ (by omega)]
 theorem stabBits_le (lay : Layer) : stabBits lay.val ≤ hL lay.val := by fin_cases lay <;> decide +kernel

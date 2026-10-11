@@ -176,7 +176,7 @@ coefficients at `0x61000`). -/
 def TopScr (A : Nat) : Prop := 0x60000 ≤ A ∧ A < 0x61180
 /-- Cycle bound of one signature-only top leaf (prologue, COEFGEN, 54 x (HORN + chain), exit). -/
 def topLeafC : Nat := 224100
-def L0Cost : Nat := counterLimit * 417 + topLeafC + 40000
+def L0Cost : Nat := counterLimit * 400 + topLeafC + 40000
 /-- Campaign T8D (NF17): the top leaf with family seeds (`T3.buildLeafTop`). -/
 def TopLeafSpec : Prop :=
   ∀ (sk : SecretKey) (A : LeafArgs) (s : MachineState),
@@ -951,7 +951,7 @@ theorem l0Spec_of (hTop : TopLeafSpec) (hK : CounterSearchSpec sk) : L0Spec leaf
       r56 := by rw [t1f.get (by decide) (fun h => h)]; exact h.right.2
       table := h.base.table.frame t1f (fun _ _ h => h)
       cf := h.base.cf.frame t1f (fun _ _ _ h => h) }
-  have hc0 : csCost 0 = counterLimit * 417 + 2000 := by unfold csCost Search.BC.csCostS; rw [if_pos rfl]
+  have hc0 : csCost 0 = counterLimit * 400 + 2000 := by unfold csCost Search.BC.csCostS; rw [if_pos rfl]
   refine TBSim.mono (TBSim.steps st1 (TBSim.bind (W₂ := topLeafC + 30006) (hK t1 0 0 _ root 441 hcs) (fun r u hu => ?_)))
     (by rw [hc0]; unfold L0Cost; omega) (fun _ _ h => h)
   have hdum : (List.range 54).all (fun i => decide (T3.dummyTop.getD i 0 ≤ 7)) = true := by decide

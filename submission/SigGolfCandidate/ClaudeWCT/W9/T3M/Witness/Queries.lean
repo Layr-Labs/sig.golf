@@ -1,4 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Honest
+import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.VerifyP
 
 namespace ClaudeWCT.W9.T3M
 open OracleComp OracleSpec SigGolfCandidate.T3
@@ -43,6 +44,12 @@ theorem pubGood_layerPairP (w : WBytes) (index : Nat) (lay : Layer) (digits : Li
   exact allQ_bind (allQ_mapM _ _ fun _ => pubGood_chainP _ _ _ _ _ _ _ _ _ _) fun _ =>
     allQ_bind (SigGolfCandidate.T3M.pubGood_leafHash _ _ _ _) fun _ =>
       allQ_bind (allQ_foldlM _ _ (fun _ _ => pubGood_nodeHashP _ _ _ _ _ _ _) _) fun _ => allQ_pure _
+theorem pubGood_layerGuardedPairP (w : WBytes) (index : Nat) (lay : Layer)
+    (answer : Digest) (digits : List Nat) :
+    AllQueriesSatisfy (layerGuardedPairP w index lay answer digits) PubGood := by
+  unfold layerGuardedPairP
+  exact allQ_lowerGuardedRun _ _ _ (fun _ => pubGood_chainP _ _ _ _ _ _ _ _ _ _)
+    (pubGood_layerPairP _ _ _ _)
 theorem allQ_topDecodeRun {P : Spec.Domain → Prop} (run : Fin (chainCount 0) → Nat → M Digest)
     (finish : List Digest → M Digest) (answer : Digest) (hrun : ∀ i digit, AllQueriesSatisfy (run i digit) P)
     (hfinish : ∀ ends, AllQueriesSatisfy (finish ends) P) :
@@ -89,7 +96,10 @@ theorem pubGood_layersBC (w : WBytes) (index : Nat) : ∀ n msg,
       refine allQ_ite _ (pubGood_topLayerP _ _ _) ?_
       rcases decode (Fin.ofNat 4 n) ans with _ | digits
       · exact allQ_pure _
-      · exact allQ_bind (pubGood_layerPairP _ _ _ _) fun _ => ih _
+      · refine allQ_bind (pubGood_layerGuardedPairP _ _ _ _ _) fun pair => ?_
+        cases pair with
+        | none => exact allQ_pure _
+        | some pair => exact ih _
 theorem pubGood_layersBCPrepass (w : WBytes) (index : Nat) : ∀ n msg,
     AllQueriesSatisfy (layersBCPrepass w index n msg) PubGood := by
   intro n
@@ -188,6 +198,12 @@ theorem pubGood_recoverLayerPair (sig : WCT9.Signature) (index : Nat) (lay : Lay
   exact allQ_bind (allQ_mapM _ _ fun _ => SigGolfCandidate.T3M.pubGood_chain _ _ _ _ _ _ _) fun _ =>
     allQ_bind (SigGolfCandidate.T3M.pubGood_leafHash _ _ _ _) fun _ =>
       allQ_bind (allQ_foldlM _ _ (fun _ _ => pubGood_nodeHash _ _ _ _ _ _) _) fun _ => allQ_pure _
+theorem pubGood_recoverLayerPairGuard (sig : WCT9.Signature) (index : Nat) (lay : Layer)
+    (answer : Digest) (digits : List Nat) :
+    AllQueriesSatisfy (WCT9.recoverLayerPairGuard sig index lay answer digits) PubGood := by
+  unfold WCT9.recoverLayerPairGuard
+  exact allQ_lowerGuardedRun _ _ _ (fun _ => SigGolfCandidate.T3M.pubGood_chain _ _ _ _ _ _ _)
+    (pubGood_recoverLayerPair _ _ _ _)
 theorem pubGood_verifyLayersBC (w : WCT9.Witness) (index : Nat) : ∀ n msg,
     AllQueriesSatisfy (WCT9.verifyLayersBC w index n msg) PubGood := by
   intro n
@@ -200,7 +216,10 @@ theorem pubGood_verifyLayersBC (w : WCT9.Witness) (index : Nat) : ∀ n msg,
       refine allQ_ite _ (pubGood_verifyTop _ _ _) ?_
       rcases decode (Fin.ofNat 4 n) ans with _ | digits
       · exact allQ_pure _
-      · exact allQ_bind (pubGood_recoverLayerPair _ _ _ _) fun _ => ih _
+      · refine allQ_bind (pubGood_recoverLayerPairGuard _ _ _ _ _) fun pair => ?_
+        cases pair with
+        | none => exact allQ_pure _
+        | some pair => exact ih _
 theorem pubGood_expandLayersBC (sig : WCT9.Signature) (index : Nat) : ∀ n msg,
     AllQueriesSatisfy (WCT9.expandLayersBC sig index n msg) PubGood := by
   intro n

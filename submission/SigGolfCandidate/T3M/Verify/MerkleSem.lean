@@ -572,10 +572,10 @@ theorem dispTgt_eval (leaf : Nat) (hleaf : leaf < 4096) (s : MachineState)
   rw [hsh0, hsh1]
   unfold mkDispTgt
   simp only [E.eval, BinOp.eval, addC_eval, h23, show hL 0 = 12 from rfl, mkTabW, Nat.reduceEqDiff, and_self, if_true, pcOf]
-  have hm : BitVec.ofNat 64 (16 * (2 ^ 12 + leaf)) + BitVec.ofNat 64 (1008 - 16 * (leaf % 64)) =
-      BitVec.ofNat 64 (0x1000 + 4 * (15612 + 256 * (leaf / 64))) := by
+  have hm : BitVec.ofNat 64 (16 * (2 ^ 12 + leaf)) + (BitVec.ofNat 64 588 - BitVec.ofNat 64 (16 * (leaf % 64))) =
+      BitVec.ofNat 64 (0x1000 + 4 * (15507 + 256 * (leaf / 64))) := by
     apply BitVec.eq_of_toNat_eq
-    rw [BitVec.toNat_add, BitVec.toNat_ofNat, BitVec.toNat_ofNat, BitVec.toNat_ofNat]
+    rw [BitVec.toNat_add, BitVec.toNat_sub, BitVec.toNat_ofNat, BitVec.toNat_ofNat, BitVec.toNat_ofNat, BitVec.toNat_ofNat]
     omega
   rw [hm, even_andNot1' _ (by omega)]
 theorem lfK_mkK (lay : Nat) : ∀ p ∈ mkK lay, p ∈ lfK lay := by
@@ -590,7 +590,7 @@ theorem lfK_mkK (lay : Nat) : ∀ p ∈ mkK lay, p ∈ lfK lay := by
     all_goals simp [lfK, postLf, leafK, lfKeepK, h0, baseK]
 theorem lvl_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer) (u : MachineState) (hidx : index < 2 ^ 31)
     (hs7 : lay.val = 0 → u.getReg .x23 = BitVec.ofNat 64 (dispatchHeap lay.val (route index lay).1))
-    (hx6 : lay.val = 0 → u.getReg .x6 = 130048)
+    (hx6 : lay.val = 0 → u.getReg .x6 = 520192)
     (ht5 : lay.val ≠ 0 → u.getReg .x31 = BitVec.ofNat 64 (route index lay).2)
     (k : Nat) (hk : k < hL lay.val) (hlive : k < hL lay.val - (if lay.val = 0 then 0 else 1)) (v : Digest) (s : MachineState)
     (hs : MAfter w pk lay.val (route index lay).1 u k v s) :
@@ -817,7 +817,7 @@ def mkFuelR (lay : Nat) : Nat → Nat → Nat
   | k, n + 1 => mkLvlSt lay k + 1 + mkFuelR lay (k + 1) n
 theorem merkle_rest (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer) (u : MachineState) (hidx : index < 2 ^ 31)
     (hs7 : lay.val = 0 → u.getReg .x23 = BitVec.ofNat 64 (dispatchHeap lay.val (route index lay).1))
-    (hx6 : lay.val = 0 → u.getReg .x6 = 130048)
+    (hx6 : lay.val = 0 → u.getReg .x6 = 520192)
     (ht5 : lay.val ≠ 0 → u.getReg .x31 = BitVec.ofNat 64 (route index lay).2)
     (K : Digest → OracleComp HashSpec Obs) (N C A : Nat) (Q : Prop)
     (hK : ∀ root t, MkStop w pk lay.val (route index lay).1 u root t → GoodQ t N C Q A (K root)) :
@@ -940,9 +940,9 @@ theorem merkle_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (l
     have hs7 : lay.val = 0 → u.getReg .x23 = BitVec.ofNat 64 (dispatchHeap lay.val (route index lay).1) := by
       intro h
       rw [hu.s7 (Fin.ext h), h]
-    have hx6 : lay.val = 0 → u.getReg .x6 = 130048 := by
+    have hx6 : lay.val = 0 → u.getReg .x6 = 520192 := by
       intro h
-      exact hkU (.x6, 130048) (by simp [lfK, postLf, leafK, h])
+      exact hkU (.x6, 520192) (by simp [lfK, postLf, leafK, h])
     exact merkle_rest w pk index lay u hidx hs7 hx6 hu.t5 K N C A Q hK (mkStop lay.val) 0 _ _ (by omega) hhL hA
   have h5 : t.getReg .x5 = 0 := hkt (.x5, 0) (by simp [mkEntPost, mkKc, baseK])
   have hg := GoodQ.shortHash_bind (f := merklePrefix w index lay) (K := K) (ht.ecall rfl) h5 hv hin H
@@ -997,11 +997,15 @@ theorem layerLoop_succ (w : ClaudeWCT.W9.T3M.WBytes) (index n : Nat) (hn : n < 4
     cases T3.decode (Fin.ofNat 4 n) answer with
     | none => rfl
     | some digits =>
-      have hv : (Fin.ofNat 4 n : Layer).val ≠ 0 := by simpa [Fin.val_ofNat, Nat.mod_eq_of_lt hn] using hn0
-      have h := congrArg (fun p => p >>= BC.layerLoop w index n) (layerPairP_eq w index (Fin.ofNat 4 n) hv digits)
-      cases n with
-      | zero => contradiction
-      | succ m => simpa only [bind_assoc, pure_bind, BC.layerLoop] using h
+      unfold guardedChainsP ClaudeWCT.W9.T3M.layerGuardedPairP ClaudeWCT.WCT9.lowerGuardedRun
+      by_cases hgood : ClaudeWCT.WCT9.lowerRankGood answer
+      · simp only [if_pos hgood, map_eq_bind_pure_comp, bind_assoc, pure_bind, Function.comp_apply]
+        have hv : (Fin.ofNat 4 n : Layer).val ≠ 0 := by simpa [Fin.val_ofNat, Nat.mod_eq_of_lt hn] using hn0
+        have h := congrArg (fun p => p >>= BC.layerLoop w index n) (layerPairP_eq w index (Fin.ofNat 4 n) hv digits)
+        cases n with
+        | zero => contradiction
+        | succ m => simpa only [bind_assoc, pure_bind, BC.layerLoop] using h
+      · simp only [if_neg hgood, bind_assoc, pure_bind]
 theorem layerLoop_one (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (msg : LayerMsg) :
     BC.layerLoop w index 1 msg =
       if (ClaudeWCT.W9.T3M.wbcCtr w index 0).toNat ≥ ClaudeWCT.WCT9.verifyWindow then pure none else

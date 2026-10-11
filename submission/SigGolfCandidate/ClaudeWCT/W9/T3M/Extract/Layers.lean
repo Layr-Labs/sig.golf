@@ -1,4 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Layer
+import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.VerifyP
 
 namespace ClaudeWCT.W9.T3M.Extract
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3M
@@ -49,8 +50,10 @@ theorem layersBC_succ_eq (w : WBytes) (index n : Nat) (msg : WCT9.LayerMsg) :
           (route index (Fin.ofNat 4 n)).1 msg (wbcCtr w index (Fin.ofNat 4 n)) (wbcPad w index (Fin.ofNat 4 n)) (wbcRight w)) >>= fun answer =>
         if n = 0 then topLayerP w index answer
         else match decode (Fin.ofNat 4 n) answer with
-          | some digits => layerPairP w index (Fin.ofNat 4 n) digits >>= fun pair =>
-              layersBC w index n (.pair pair.1 pair.2)
+          | some digits => layerGuardedPairP w index (Fin.ofNat 4 n) answer digits >>= fun pair =>
+              match pair with
+              | some pair => layersBC w index n (.pair pair.1 pair.2)
+              | _ => pure none
           | _ => pure none) := by
   conv_lhs => unfold layersBC
   rfl
@@ -102,6 +105,14 @@ theorem layersBC_succ_split (answers : Answers) (w : WBytes) (index n : Nat) (ms
     rw [queried_map_l]; exact hq
   · intro hn0
     simp only [hn0, if_false, hd] at h ⊢
+    have hgood : WCT9.lowerRankGood answer := by
+      rw [evalWithAnswerFn_bind] at h
+      cases hp : evalWithAnswerFn answers (layerGuardedPairP w index (Fin.ofNat 4 n) answer digits) with
+      | none => rw [hp] at h; simp at h
+      | some pair => exact layerGuardedPairP_good_of_some answers w index (Fin.ofNat 4 n) answer digits pair hp
+    rw [layerGuardedPairP_of_good w index (Fin.ofNat 4 n) answer digits hgood, bind_map_left] at h ⊢
+    change evalWithAnswerFn answers (layerPairP w index (Fin.ofNat 4 n) digits >>= fun pair =>
+      layersBC w index n (.pair pair.1 pair.2)) = some out at h
     rw [evalWithAnswerFn_bind] at h
     refine ⟨h, fun q hq => ?_, fun q hq => ?_⟩
     · apply List.mem_append_right

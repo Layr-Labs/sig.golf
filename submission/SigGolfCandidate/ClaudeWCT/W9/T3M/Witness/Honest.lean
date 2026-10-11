@@ -73,6 +73,30 @@ theorem recoverLayerPairP_zero (sig : WCT9.Signature) (index : Nat) (lay : Layer
     recoverLayerPairP sig 0 index lay digits = WCT9.recoverLayerPair sig index lay digits := by
   simp only [recoverLayerPairP, WCT9.recoverLayerPair, Pads.zero_chain', Pads.zero_chainHeader,
     chainP_zero_route _ _ _ _ _ hindex, Pads.zero_merkle', nodeHashP_zero]
+private theorem mapM_congr_guard {α β : Type} {f g : α → M β} :
+    ∀ (l : List α), (∀ x ∈ l, f x = g x) → l.mapM f = l.mapM g
+  | [], _ => rfl
+  | x :: l, h => by
+      rw [List.mapM_cons, List.mapM_cons, h x (by simp),
+        mapM_congr_guard l (fun y hy => h y (by simp [hy]))]
+theorem recoverLayerPairGuardP_zero (sig : WCT9.Signature) (index : Nat) (lay : Layer)
+    (answer : Digest) (digits : List Nat) (hindex : index < 2 ^ 31) :
+    recoverLayerPairGuardP sig 0 index lay answer digits =
+      WCT9.recoverLayerPairGuard sig index lay answer digits := by
+  simp only [recoverLayerPairGuardP, WCT9.recoverLayerPairGuard, Pads.zero_chain', Pads.zero_chainHeader,
+    recoverLayerPairP_zero _ _ _ _ hindex]
+  unfold WCT9.lowerGuardedRun
+  split_ifs
+  · rfl
+  · apply congrArg (fun p : M (List Digest) => p >>= fun _ => pure none)
+    apply mapM_congr_guard
+    intro i hi
+    have hi' : i < chainCount lay := by
+      have hb := WCT9.lowerFirstBad_le answer
+      have := List.mem_range.mp hi
+      have hc : 43 ≤ chainCount lay := by fin_cases lay <;> decide
+      omega
+    exact chainP_zero_route index lay ⟨i, hi'⟩ _ _ hindex
 theorem verifyTopP_zero (sig : WCT9.Signature) (index : Nat) (answer : Digest) (hindex : index < 2 ^ 31) :
     verifyTopP sig 0 index answer = WCT9.verifyTop sig index answer := by
   simp only [verifyTopP, WCT9.verifyTop, Pads.zero_chain', Pads.zero_chainHeader,
@@ -85,7 +109,7 @@ theorem verifyLayersBCP_zero (w : WCT9.Witness) (index : Nat) (hindex : index < 
   | succ n ih =>
       intro msg
       simp only [verifyLayersBCP, WCT9.verifyLayersBC, Pads.zero_bc, Pads.zero_bcRight,
-        shortHash_layerEncodingInputP_zero, verifyTopP_zero _ _ _ hindex, recoverLayerPairP_zero _ _ _ _ hindex, ih]
+        shortHash_layerEncodingInputP_zero, verifyTopP_zero _ _ _ hindex, recoverLayerPairGuardP_zero _ _ _ _ _ hindex, ih]
       rfl
 theorem verifyPads_zero (m : Message) (pk : Digest) (w : WCT9.Witness) :
     verifyPads m pk w 0 = WCT9.Rev3.verify m pk w := by
@@ -111,6 +135,13 @@ theorem layerPairP_dec (N : HashOutput) (w : WBytes) (lay : Layer) (digits : Lis
     rw [if_pos (Or.inl (by omega))]
   simp only [hm]
   rfl
+theorem layerGuardedPairP_dec (N : HashOutput) (w : WBytes) (lay : Layer) (answer : Digest)
+    (digits : List Nat) :
+    layerGuardedPairP w (WCT9.digestIndex N) lay answer digits =
+      recoverLayerPairGuardP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) lay answer digits := by
+  unfold layerGuardedPairP recoverLayerPairGuardP layerChainP
+  rw [layerPairP_dec N w]
+  rfl
 theorem topLayerP_dec (N : HashOutput) (w : WBytes) (answer : Digest) :
     topLayerP w (WCT9.digestIndex N) answer =
       verifyTopP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) answer := by
@@ -129,7 +160,7 @@ theorem layersBC_dec (N : HashOutput) (w : WBytes) : ∀ n msg,
       · subst n
         simp only [if_true, topLayerP_dec N w]
         rfl
-      · simp only [hn, if_false, layerPairP_dec N w, ih]
+      · simp only [hn, if_false, layerGuardedPairP_dec N w, ih]
         rfl
 theorem wctStep_none (w : WBytes) (N : HashOutput) (coord : WCT9.Coord) : wctStep w N none coord = pure none := rfl
 theorem foldlM_wctStep_none (w : WBytes) (N : HashOutput) :

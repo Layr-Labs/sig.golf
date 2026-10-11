@@ -294,6 +294,34 @@ theorem bound_recoverLayerPair (sig : Signature) (index : Nat) (lay : Layer) (di
       remaining_steps lay digits hd hlen hsum]
     simp only [recoverLayerPairCost]
     omega
+theorem bound_recoverLayerPairGuard (sig : Signature) (index : Nat) (lay : Layer) (answer : Digest)
+    (digits : List Nat) (hd : ValidDigits lay digits) (hlen : digits.length = chainCount lay)
+    (hsum : digits.sum = target lay) :
+    CBound (fun _ => True) (recoverLayerPairCost lay) (recoverLayerPairGuard sig index lay answer digits) := by
+  unfold recoverLayerPairGuard lowerGuardedRun
+  split_ifs
+  · exact Bound.map _ (bound_recoverLayerPair sig index lay digits hd hlen hsum) (fun _ _ => trivial)
+  · refine (Bound.mapM_list (P := GoodQuery) (List.range (3 * lowerFirstBad answer)) _
+      (fun i => maxDigit lay i - digits.getD i 0) (fun i _ => bound_chain _ _ _ _ _ _ _)).bind'
+      (l := 0) (fun _ _ => .pure _ 0 trivial) ?_
+    have hn : 3 * lowerFirstBad answer ≤ chainCount lay := by
+      have := lowerFirstBad_le answer
+      have hc : 43 ≤ chainCount lay := by fin_cases lay <;> decide
+      omega
+    have hsplit := congrArg (fun xs : List Nat => (xs.map (fun i => maxDigit lay i - digits.getD i 0)).sum)
+      (List.range_add (n := 3 * lowerFirstBad answer) (m := chainCount lay - 3 * lowerFirstBad answer))
+    rw [Nat.add_sub_of_le hn] at hsplit
+    simp only [List.map_append, List.sum_append] at hsplit
+    have htotal : ((List.range (chainCount lay)).map
+        (fun i => maxDigit lay i - digits.getD i 0)).sum = capacity lay - target lay := by
+      rw [← List.sum_toFinset _ (List.nodup_range)]
+      have he : (List.range (chainCount lay)).toFinset = Finset.range (chainCount lay) := by
+        ext i
+        simp
+      rw [he]
+      exact remaining_steps lay digits hd hlen hsum
+    simp only [recoverLayerPairCost]
+    omega
 def recoveryLayersCostBC : Nat → Nat
   | 0 => 0
   | n + 1 => (if n = 0 then recoverLayerCost (Fin.ofNat 4 n) else recoverLayerPairCost (Fin.ofNat 4 n)) +
@@ -372,10 +400,13 @@ theorem bound_verifyLayersBC (w : Witness) (index : Nat) :
           | none => exact .pure _ _ trivial
           | some digits =>
               dsimp only
-              exact (bound_recoverLayerPair w.signature index (Fin.ofNat 4 n) digits
+              refine (bound_recoverLayerPairGuard w.signature index (Fin.ofNat 4 n) answer digits
                 (validDigits_decode hd) (decode_length_sum hd).1 (decode_length_sum hd).2).bind'
-                (l := n + verifyLayersCostBC n) (fun pair _ => ih _)
+                (l := n + verifyLayersCostBC n) (fun pair _ => ?_)
                 (by simp only [verifyLayersCostBC, hn, ite_false]; omega)
+              cases pair
+              · exact .pure _ _ trivial
+              · exact ih _
 theorem bound_expandLayersBC (sig : Signature) (index : Nat) :
     ∀ n msg, CBound (fun _ => True) (n * counterLimit + recoveryLayersCostBC n) (expandLayersBC sig index n msg) := by
   intro n

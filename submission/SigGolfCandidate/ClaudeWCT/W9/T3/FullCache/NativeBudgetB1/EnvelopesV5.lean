@@ -8,7 +8,7 @@ def J : ℕ := 51792680012373050545731493589501895617795072
 /-- Density-aware digest acceptance: gate 1353/2^14, fields 563/1024 (rank = field), cap fraction J(786) / 72064^9:
 `1353 * 563^9 * J / (2^104 * 72064^9) = 1353 * J / 2^167`. -/
 def p0 : ℚ := 1353 * J / 2 ^ 167
-def b0 : ℚ := 1014384999801306513 / 1000000000000000000
+def b0 : ℚ := 1014319685648402128 / 1000000000000000000
 theorem step_0 : zU * ((1 - p0) * b0 + p0) ≤ b0 := by norm_num [zU, p0, b0, J]
 theorem probability_floor : 1 / 5026 ≤ p0 ∧ p0 ≤ 1 / 2471 := by norm_num [p0, J]
 theorem p0_ge_5026 : 1 / 5026 ≤ p0 := by norm_num [p0, J]
@@ -20,23 +20,23 @@ def lowerCount197 : ℕ := 140610462347261096978771217394878840
 def lowerCount198 : ℕ := 113470737483767875195512089978341656
 def lowerCount199 : ℕ := 87860897096037675585104420890976996
 def lowerCount200 : ℕ := 72766719968968561634032082840784641
-/-- B4 accepted lower199/f5/z5 encodings, including checksum. -/
-def lowerCount199f5 : ℕ := 87421058181341847220388848563308770
+/-- Lower bound for mixed-stride dispatch: floor five in columns 1 and 8, floor three elsewhere. -/
+def lowerCount199f5 : ℕ := 86924063528333136971354894108426834
 /-- B4 accepted lower199/f4/z5 encodings, including checksum. -/
 def lowerCount199f4 : ℕ := 90649243438620156062228389214105950
-/-- B4 accepted lower200/f4/z5 encodings, including checksum. -/
-def lowerCount200f4 : ℕ := 72459682149134130685732695915636483
+/-- Lower bound for mixed-stride dispatch: floor five in columns 1 and 8, floor three elsewhere. -/
+def lowerCount200f4 : ℕ := 72090332289016918256778319009782683
 def p1 : ℚ := topCount144 / 2 ^ 128
 def b1 : ℚ := 1016160613718328085 / 1000000000000000000
 theorem step_1 : zU * ((1 - p1) * b1 + p1) ≤ b1 := by norm_num [zU, p1, b1, topCount144]
 def p2 : ℚ := lowerCount199f5 / 2 ^ 128
-def b2 : ℚ := 1021017057799314038 / 1000000000000000000
+def b2 : ℚ := 1021139764648032423 / 1000000000000000000
 theorem step_2 : zU * ((1 - p2) * b2 + p2) ≤ b2 := by norm_num [zU, p2, b2, lowerCount199f5]
 def p3 : ℚ := lowerCount199f5 / 2 ^ 128
-def b3 : ℚ := 1021017057799314038 / 1000000000000000000
+def b3 : ℚ := 1021139764648032423 / 1000000000000000000
 theorem step_3 : zU * ((1 - p3) * b3 + p3) ≤ b3 := by norm_num [zU, p3, b3, lowerCount199f5]
 def p4 : ℚ := lowerCount200f4 / 2 ^ 128
-def b4 : ℚ := 1025467147693740505 / 1000000000000000000
+def b4 : ℚ := 1025600967266889389 / 1000000000000000000
 theorem step_4 : zU * ((1 - p4) * b4 + p4) ≤ b4 := by norm_num [zU, p4, b4, lowerCount200f4]
 theorem zU_nonneg : (0 : ℚ) ≤ zU := by norm_num [zU]
 theorem step_mono {p q b : ℚ} (hb : 1 ≤ b) (hpq : p ≤ q) (h : zU * ((1 - p) * b + p) ≤ b) :
@@ -106,6 +106,11 @@ end ClaudeWCT.W9.T3.BaseAudit.V5
 certificate unchanged. This rational obstruction concerns this proof route;
 it is not an impossibility theorem for the signature scheme. -/
 namespace ClaudeWCT.W9.T3.BaseAudit.V5.FloorTenResearch
+/-- These historical research certificates retain the baseline factors before the rank restriction. -/
+private def b0 : ℚ := 1014384999801306513 / 1000000000000000000
+private def b2 : ℚ := 1021017057799314038 / 1000000000000000000
+private def b3 : ℚ := 1021017057799314038 / 1000000000000000000
+private def b4 : ℚ := 1025467147693740505 / 1000000000000000000
 open SigGolfCandidate.T3.BaseAudit (zU)
 set_option maxHeartbeats 1000000
 
