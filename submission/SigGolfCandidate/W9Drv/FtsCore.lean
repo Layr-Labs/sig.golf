@@ -879,12 +879,12 @@ def fPrepA : Addr := ⟨some (.reg .x9), BitVec.ofNat 64 (2 ^ 64 - 264)⟩
 def fPrep : Result :=
   ⟨⟨((RegFile.init.set .x10 (.bin .add (.reg .x9) (.c (BitVec.ofNat 64 (2 ^ 64 - 288))))).set
       .x11 (.c 320)).set .x12 a2E,
-    [(fPrepA, .reg .x22)], [.valid fPrepA 8]⟩, .c (pcOf 1395), .ecall, 4, 4⟩
-def fTail : Result := ⟨SymState.init, .c (pcOf 1396), .fuel, 0, 0⟩
-theorem fPrep_checked : rOK (symRun {} fPrepWords (pcOf 1391) 5) fPrep = true := by decide +kernel
-theorem fPrep_linked : sliceChecked 1391 fPrepWords = true := by decide +kernel
-theorem fTail_checked : rOK (symRun {} fTailWords (pcOf 1396) 0) fTail = true := by decide +kernel
-theorem fTail_linked : sliceChecked 1396 fTailWords = true := by decide +kernel
+    [(fPrepA, .reg .x22)], [.valid fPrepA 8]⟩, .c (pcOf 5504), .ecall, 4, 4⟩
+def fTail : Result := ⟨SymState.init, .c (pcOf 5505), .fuel, 0, 0⟩
+theorem fPrep_checked : rOK (symRun {} fPrepWords (pcOf 5500) 5) fPrep = true := by decide +kernel
+theorem fPrep_linked : sliceChecked 5500 fPrepWords = true := by decide +kernel
+theorem fTail_checked : rOK (symRun {} fTailWords (pcOf 5505) 0) fTail = true := by decide +kernel
+theorem fTail_linked : sliceChecked 5505 fTailWords = true := by decide +kernel
 end W9Drv
 end
 section
@@ -1064,10 +1064,10 @@ theorem forest_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
       (ccM (pure (ans.extractLsb' 0 128) : M Digest) K) := by
     intro ans
     rw [ccM_pure]
-    have hpc : (writeHash s1 ans).pc = pcOf 1396 := by
+    have hpc : (writeHash s1 ans).pc = pcOf 5505 := by
       rw [writeHash_pc]
-      show pcOf 1395 + 4 = pcOf 1396
-      exact SigGolfCandidate.T3M.pcOf_add4 1395
+      show pcOf 5504 + 4 = pcOf 5505
+      exact SigGolfCandidate.T3M.pcOf_add4 5504
     have st2 := block_steps fTail_checked fTail_linked rfl (writeHash s1 ans) hpc
     have st2' : Steps Frozen.image (writeHash s1 ans) 0 0 (fTail.toState (writeHash s1 ans)) := st2
     set t := fTail.toState (writeHash s1 ans) with ht

@@ -403,8 +403,8 @@ def ExpQW : Option (HashOutput × WCT9.Witness) → MachineState → Prop
       t.readWords (BitVec.ofNat 64 0x800) 2614 = wordsOf (ClaudeWCT.W9.T3M.witList N w)
 /-- [h2 lane] prologue 1199 + front 29 + zero block 7, then the layers, the 2^16 search and the compaction. -/
 def expCostW : Nat := 1235 + newCost + (lcost 4 + (65535 * 30 + 111 + compactC))
-theorem lcost_four : lcost 4 ≤ 3661699789 := by decide
-theorem expCostW_le : expCostW ≤ 4083263590 := by
+theorem lcost_four : lcost 4 ≤ 3684768461 := by decide
+theorem expCostW_le : expCostW ≤ 4106332262 := by
   have h := lcost_four
   unfold expCostW newCost compactC
   generalize lcost 4 = L at h ⊢

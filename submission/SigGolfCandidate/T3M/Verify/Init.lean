@@ -146,7 +146,7 @@ theorem verifyData_length : (submission.image .verify).data.length = 16928 := Im
 theorem dataBase_verify : dataBase (submission.image .verify) = VERIFY_DATA := by
   unfold dataBase; rw [verifyData_length]; decide +kernel
 theorem verifyData_mask :
-    bytesToWordLE ((((submission.image .verify).data).drop 536).take 8) = 130048#64 := by
+    bytesToWordLE ((((submission.image .verify).data).drop 536).take 8) = 520192#64 := by
   decide +kernel
 theorem verifyData_header (lay : Nat) (hl : lay < 4) :
     bytesToWordLE ((((submission.image .verify).data).drop (424 + 8 * ((lay + 1) % 4))).take 8) =

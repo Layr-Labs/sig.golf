@@ -641,9 +641,10 @@ theorem expandLayersBC_verified (answers : Answers) (sig : Signature) (index : N
       | some found =>
           obtain ⟨counter, digits⟩ := found
           have hlim := searchLimit_le (Fin.ofNat 4 n)
-          obtain ⟨_, hbound, hdecode⟩ := layerCounterSearch_some answers (Fin.ofNat 4 n)
+          obtain ⟨_, hbound, hproducer⟩ := layerCounterSearch_some_search answers (Fin.ofNat 4 n)
             (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg
             (searchLimit (Fin.ofNat 4 n)) 0 counter digits (by unfold counterLimit at hlim; omega) hs
+          have hdecode := producerDecode_decode hproducer
           have hnot : ¬counter.toNat ≥ verifyWindow := ctr_not_ge_verifyWindow counter
           have hlay := ofNat_layer_val n (by omega)
           simp only [hs] at he
@@ -673,7 +674,10 @@ theorem expandLayersBC_verified (answers : Answers) (sig : Signature) (index : N
                   rw [hc _ (by rw [hlay]; omega), hlay,
                     List.getD_append_right previousCounters [counter] 0 n (by omega), hlen]
                   simp
-                simp only [verifyLayersBC, hcounter, hnot, ite_false, evalWithAnswerFn_bind, hdecode, hn0, hw]
+                have hgood := producerDecode_lowerRankGood
+                  (lay := Fin.ofNat 4 n) (by intro h; have := congrArg Fin.val h; rw [hlay] at this; exact hn0 this) hproducer
+                simp only [verifyLayersBC, hcounter, hnot, ite_false, evalWithAnswerFn_bind, hdecode, hn0, hw,
+                  recoverLayerPairGuard_of_good _ _ _ _ _ hgood, evalWithAnswerFn_map]
                 apply hverify w hw
                 intro lay hsmall
                 rw [hc lay (by omega), List.getD_append previousCounters [counter] 0 lay.val (by omega)]

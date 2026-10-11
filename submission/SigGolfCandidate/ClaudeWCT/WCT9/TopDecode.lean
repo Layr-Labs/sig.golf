@@ -33,7 +33,64 @@ theorem producerDecode_zeroBound {lay : Layer} {answer : Digest} {digits : List 
       simp only [hd] at h
       split_ifs at h with hc
       cases h
-      exact hc.2
+      exact hc.2.1
+theorem producerDecode_rankBound {lay : Layer} {answer : Digest} {digits : List Nat}
+    (h : producerDecode lay answer = some digits) : producerRankBound lay answer := by
+  unfold producerDecode at h
+  cases hd : decode lay answer with
+  | none => simp [hd] at h
+  | some ds =>
+      simp only [hd] at h
+      split_ifs at h with hc
+      cases h
+      exact hc.2.2
+theorem producerDecode_lowerRankGood {lay : Layer} (hlay : lay ≠ 0)
+    {answer : Digest} {digits : List Nat} (h : producerDecode lay answer = some digits) :
+    lowerRankGood answer := (producerDecode_rankBound h).resolve_left hlay
+theorem lowerFirstBad_le (answer : Digest) : lowerFirstBad answer ≤ 14 := by
+  unfold lowerFirstBad
+  cases h : (List.range 14).find? (fun i => decide
+      (lowerWord answer / 2 ^ (9 * i) % 512 < producerRankFloor i)) with
+  | none => simp
+  | some i =>
+      have hi := List.mem_of_find?_eq_some h
+      simp only [List.mem_range] at hi
+      simp only [Option.getD_some]
+      omega
+theorem lowerFirstBad_find (answer : Digest) (h : ¬lowerRankGood answer) :
+    (List.range 14).find? (fun i => decide
+      (lowerWord answer / 2 ^ (9 * i) % 512 < producerRankFloor i)) = some (lowerFirstBad answer) := by
+  unfold lowerFirstBad
+  cases he : (List.range 14).find? (fun i => decide
+      (lowerWord answer / 2 ^ (9 * i) % 512 < producerRankFloor i)) with
+  | some i => rfl
+  | none =>
+      exfalso
+      apply h
+      intro i
+      have hi := List.find?_eq_none.mp he i.val (List.mem_range.mpr i.isLt)
+      simp only [decide_eq_true_eq, not_lt] at hi
+      exact hi
+theorem lowerFirstBad_lt (answer : Digest) (h : ¬lowerRankGood answer) : lowerFirstBad answer < 14 := by
+  exact List.mem_range.mp (List.mem_of_find?_eq_some (lowerFirstBad_find answer h))
+theorem lowerFirstBad_bad (answer : Digest) (h : ¬lowerRankGood answer) :
+    lowerWord answer / 2 ^ (9 * lowerFirstBad answer) % 512 < producerRankFloor (lowerFirstBad answer) := by
+  have hb := List.find?_some (lowerFirstBad_find answer h)
+  exact of_decide_eq_true hb
+theorem lowerFirstBad_before (answer : Digest) (h : ¬lowerRankGood answer) (i : Nat)
+    (hi : i < lowerFirstBad answer) : producerRankFloor i ≤ lowerWord answer / 2 ^ (9 * i) % 512 := by
+  obtain ⟨_, j, hj, hjeq, hbefore⟩ := List.find?_eq_some_iff_getElem.mp (lowerFirstBad_find answer h)
+  simp only [List.getElem_range] at hjeq
+  subst j
+  have hb := hbefore i hi
+  simpa only [List.getElem_range, Bool.not_eq_true', decide_eq_false_iff_not, not_lt] using hb
+theorem lowerGuardedRun_of_good {α : Type} (run : Nat → M Digest) (finish : M α) (answer : Digest)
+    (h : lowerRankGood answer) : lowerGuardedRun run finish answer = some <$> finish := by
+  simp only [lowerGuardedRun, if_pos h]
+theorem recoverLayerPairGuard_of_good (sig : Signature) (index : Nat) (lay : Layer) (answer : Digest)
+    (digits : List Nat) (h : lowerRankGood answer) :
+    recoverLayerPairGuard sig index lay answer digits = some <$> recoverLayerPair sig index lay digits :=
+  lowerGuardedRun_of_good _ _ _ h
 /-- Only producer-selected lower words, not all broad-decoder words, satisfy the B4 cap. -/
 theorem lower_zero_count_le_producer {lay : Layer} (hlay : lay ≠ 0)
     {value : Digest} {digits : List Nat} (h : producerDecode lay value = some digits) :
@@ -41,14 +98,14 @@ theorem lower_zero_count_le_producer {lay : Layer} (hlay : lay ≠ 0)
   (producerDecode_zeroBound h).resolve_left hlay
 theorem producerDecode_of {lay : Layer} {answer : Digest} {digits : List Nat}
     (hd : decode lay answer = some digits) (hc : producerFloor lay ≤ wordCredit lay digits)
-    (hz : producerZeroBound lay digits) : producerDecode lay answer = some digits := by
+    (hz : producerZeroBound lay digits) (hr : producerRankBound lay answer) : producerDecode lay answer = some digits := by
   unfold producerDecode
-  simp only [hd, hc, hz, and_self, ↓reduceIte]
+  simp only [hd, hc, hz, hr, and_self, ↓reduceIte]
 theorem producerDecode_eq_some_iff (lay : Layer) (answer : Digest) (digits : List Nat) :
     producerDecode lay answer = some digits ↔
-      decode lay answer = some digits ∧ producerFloor lay ≤ wordCredit lay digits ∧ producerZeroBound lay digits :=
-  ⟨fun h => ⟨producerDecode_decode h, producerDecode_credit h, producerDecode_zeroBound h⟩,
-    fun h => producerDecode_of h.1 h.2.1 h.2.2⟩
+      decode lay answer = some digits ∧ producerFloor lay ≤ wordCredit lay digits ∧ producerZeroBound lay digits ∧ producerRankBound lay answer :=
+  ⟨fun h => ⟨producerDecode_decode h, producerDecode_credit h, producerDecode_zeroBound h, producerDecode_rankBound h⟩,
+    fun h => producerDecode_of h.1 h.2.1 h.2.2.1 h.2.2.2⟩
 theorem producerDecode_eq_none_or (lay : Layer) (answer : Digest) :
     producerDecode lay answer = none ∨ producerDecode lay answer = decode lay answer := by
   unfold producerDecode

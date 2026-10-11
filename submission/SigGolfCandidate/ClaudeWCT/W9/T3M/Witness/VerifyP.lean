@@ -1,6 +1,7 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Layout
 import SigGolfCandidate.ClaudeWCT.WCT9.Limits
 import SigGolfCandidate.ClaudeWCT.WCT9.TopDecode
+import SigGolfCandidate.T3M.Witness.Queries
 
 section
 namespace ClaudeWCT.W9.T3M
@@ -169,6 +170,14 @@ def layerPairP (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) : M 
       (wmerklePad w lay leaf j.val) pair.2) value
   let other := wpath w lay leaf (height lay - 1)
   pure (if leaf / 2 ^ (height lay - 1) % 2 = 0 then (top, other) else (other, top))
+def layerChainP (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) (i : Nat) : M Digest :=
+  chainP lay (route index lay).2 (route index lay).1 i (digits.getD i 0)
+    (maxDigit lay i - digits.getD i 0) (wchainPads w lay (i % chainCount lay)).1
+    (wchainPads w lay (i % chainCount lay)).2 (wchainHeaderPad w lay (i % chainCount lay))
+    (wvalue w lay (i % chainCount lay))
+def layerGuardedPairP (w : WBytes) (index : Nat) (lay : Layer) (answer : Digest) (digits : List Nat) :
+    M (Option (Digest × Digest)) :=
+  WCT9.lowerGuardedRun (layerChainP w index lay digits) (layerPairP w index lay digits) answer
 def topChainP (w : WBytes) (tree leaf : Nat) (i : Fin (chainCount 0)) (digit : Nat) : M Digest :=
   chainP 0 tree leaf i.val digit (maxDigit 0 i.val - digit) (wchainPads w 0 i.val).1 (wchainPads w 0 i.val).2
     (wchainHeaderPad w 0 i.val) (wvalue w 0 i.val)
@@ -193,7 +202,7 @@ def layersBC (w : WBytes) (index : Nat) : Nat → WCT9.LayerMsg → M (Option Di
       if n = 0 then topLayerP w index answer
       else do
         let some digits := decode lay answer | pure none
-        let pair ← layerPairP w index lay digits
+        let some pair ← layerGuardedPairP w index lay answer digits | pure none
         layersBC w index n (.pair pair.1 pair.2)
 def verifyP (m : Message) (pk : Digest) (w : WBytes) : M Bool := do
   let some N ← digestP m w | pure false
@@ -273,6 +282,14 @@ def recoverLayerPairP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (lay : 
       (pads.merkle lay (Fin.castLE (Nat.sub_le _ _) j)) pair.2) value
   let other := (sig.layers lay).path (WCT9.topLevel lay)
   pure (if leaf / 2 ^ (height lay - 1) % 2 = 0 then (top, other) else (other, top))
+def recoverLayerPairGuardP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (lay : Layer)
+    (answer : Digest) (digits : List Nat) : M (Option (Digest × Digest)) :=
+  WCT9.lowerGuardedRun
+    (fun i => let j : Fin (chainCount lay) := ⟨i % chainCount lay, Nat.mod_lt _ (by fin_cases lay <;> decide)⟩
+      chainP lay (route index lay).2 (route index lay).1 i (digits.getD i 0)
+        (maxDigit lay i - digits.getD i 0) (pads.chain lay j).1 (pads.chain lay j).2
+        (pads.chainHeader lay j) ((sig.layers lay).values j))
+    (recoverLayerPairP sig pads index lay digits) answer
 def verifyTopP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (answer : Digest) : M (Option Digest) :=
   let leaf := (route index 0).1
   let tree := (route index 0).2
@@ -298,7 +315,7 @@ def verifyLayersBCP (w : WCT9.Witness) (pads : Pads) (index : Nat) : Nat → WCT
       if n = 0 then verifyTopP w.signature pads index answer
       else do
         let some digits := decode lay answer | pure none
-        let pair ← recoverLayerPairP w.signature pads index lay digits
+        let some pair ← recoverLayerPairGuardP w.signature pads index lay answer digits | pure none
         verifyLayersBCP w pads index n (.pair pair.1 pair.2)
 def verifyPadsTail (pk : Digest) (output : HashOutput) (w : WCT9.Witness) (pads : Pads) : M Bool := do
   if !WCT9.admissible output then return false
@@ -310,5 +327,41 @@ def verifyPads (m : Message) (pk : Digest) (w : WCT9.Witness) (pads : Pads) : M 
   if w.digestCounter.toNat ≥ WCT9.digestAttemptLimit then return false
   let output ← digest w.signature.rho m w.digestCounter
   verifyPadsTail pk output w pads
+end ClaudeWCT.W9.T3M
+end
+
+section
+namespace ClaudeWCT.W9.T3M
+open OracleComp OracleSpec SigGolfCandidate.T3
+open SigGolfCandidate.T3M (allQ_pure allQ_bind allQ_map allQ_ite allQ_mapM)
+
+theorem allQ_lowerGuardedRun {α : Type} {P : Spec.Domain → Prop}
+    (run : Nat → M Digest) (finish : M α) (answer : Digest)
+    (hrun : ∀ i, AllQueriesSatisfy (run i) P) (hfinish : AllQueriesSatisfy finish P) :
+    AllQueriesSatisfy (WCT9.lowerGuardedRun run finish answer) P := by
+  unfold WCT9.lowerGuardedRun
+  exact allQ_ite _ (allQ_map _ hfinish)
+    (allQ_bind (allQ_mapM _ _ hrun) fun _ => allQ_pure _)
+
+theorem eval_lowerGuardedRun_none {α : Type} (answers : QueryImpl Spec Id)
+    (run : Nat → M Digest) (finish : M α) (answer : Digest) (h : ¬ WCT9.lowerRankGood answer) :
+    evalWithAnswerFn answers (WCT9.lowerGuardedRun run finish answer) = none := by
+  simp [WCT9.lowerGuardedRun, h, evalWithAnswerFn_bind]
+
+theorem layerGuardedPairP_of_good (w : WBytes) (index : Nat) (lay : Layer)
+    (answer : Digest) (digits : List Nat) (h : WCT9.lowerRankGood answer) :
+    layerGuardedPairP w index lay answer digits = some <$> layerPairP w index lay digits := by
+  simp [layerGuardedPairP, WCT9.lowerGuardedRun, h]
+
+theorem layerGuardedPairP_good_of_some (answers : QueryImpl Spec Id) (w : WBytes)
+    (index : Nat) (lay : Layer) (answer : Digest) (digits : List Nat) (pair : Digest × Digest)
+    (h : evalWithAnswerFn answers (layerGuardedPairP w index lay answer digits) = some pair) :
+    WCT9.lowerRankGood answer := by
+  by_contra hn
+  have hz := eval_lowerGuardedRun_none answers (layerChainP w index lay digits)
+    (layerPairP w index lay digits) answer hn
+  change evalWithAnswerFn answers (layerGuardedPairP w index lay answer digits) = none at hz
+  rw [hz] at h
+  cases h
 end ClaudeWCT.W9.T3M
 end

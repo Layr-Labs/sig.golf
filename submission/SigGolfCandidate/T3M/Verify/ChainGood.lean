@@ -6,6 +6,7 @@ namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3
 namespace LCtx
+def headOK (c : LCtx) (i : Nat) : Prop := i % 3 = 0 → i ≠ 42 → rankFloor (i/3) ≤ c.kOf (i/3)
 theorem kOf_digits (c : LCtx) (t : Nat) (ht : t < 14) :
     c.kOf t % 8 = c.dig (3 * t) ∧ c.kOf t / 8 % 8 = c.dig (3 * t + 1) ∧ c.kOf t / 64 = c.dig (3 * t + 2) := by
   unfold kOf
@@ -17,7 +18,7 @@ theorem dig_lt8 (c : LCtx) (i : Nat) (hi : i < 42) : c.dig i < 8 := by unfold di
 theorem blk_at (c : LCtx) (i : Nat) (hi : i < 42) :
     blkCheck (i / 3) (c.dig (3 * (i / 3) + 1)) (c.dig (3 * (i / 3) + 2)) = true :=
   blkCheck_at _ _ _ (by omega) (c.dig_lt8 _ (by omega)) (c.dig_lt8 _ (by omega))
-theorem chk_headJ (c : LCtx) (i : Nat) (hi : i < 42) (h0 : i % 3 = 0) (hd : c.dig i < 7) :
+theorem chk_headJ (c : LCtx) (i : Nat) (hi : i < 42) (h0 : i % 3 = 0) (hd : c.dig i < 7) (hRank : c.headOK i) :
     vrun (c.startPc i) 7 = some (headJH .x22 (offL i) (c.rungPc i (c.dig i) + landOff (c.dig i)) i (c.dig i)
       (hSlot i (c.dig i))) ∧
     vrun (c.rungPc i (c.dig i) + landOff (c.dig i)) 1 = some (ecallR (c.rungPc i (c.dig i) + landOff (c.dig i))) := by
@@ -25,7 +26,9 @@ theorem chk_headJ (c : LCtx) (i : Nat) (hi : i < 42) (h0 : i % 3 = 0) (hd : c.di
   have et : 3 * t / 3 = t := by omega
   have he := entCheck_at t (c.kOf t) (by omega) (c.kOf_lt t (by omega))
   obtain ⟨k1, k2, k3⟩ := c.kOf_digits t (by omega)
+  have hRank' : rankFloor t ≤ c.kOf t := by simpa [et] using hRank h0 (by omega)
   unfold entCheck at he
+  rw [if_neg (by omega : ¬ c.kOf t < rankFloor t)] at he
   rw [k1, k2, k3, if_neg (by omega), Bool.and_eq_true] at he
   have hs : c.startPc (3 * t) = entW t (c.kOf t) := by
     unfold startPc; rw [if_neg (by omega), if_pos h0, et]
@@ -33,13 +36,15 @@ theorem chk_headJ (c : LCtx) (i : Nat) (hi : i < 42) (h0 : i % 3 = 0) (hd : c.di
     unfold rungPc tb; rw [if_pos ⟨h0, by omega⟩, et]
   rw [hs, hr]
   exact ⟨rOK_eq he.1, rOK_eq he.2⟩
-theorem chk_copyJ (c : LCtx) (i : Nat) (hi : i < 42) (h0 : i % 3 = 0) (hd : c.dig i = 7) :
+theorem chk_copyJ (c : LCtx) (i : Nat) (hi : i < 42) (h0 : i % 3 = 0) (hd : c.dig i = 7) (hRank : c.headOK i) :
     vrun (c.startPc i) 7 = some (copyN .x22 (offL i) (slotL i) (c.endPc i)) := by
   obtain ⟨t, rfl⟩ : ∃ t, i = 3 * t := ⟨i / 3, by omega⟩
   have et : 3 * t / 3 = t := by omega
   have he := entCheck_at t (c.kOf t) (by omega) (c.kOf_lt t (by omega))
   obtain ⟨k1, k2, k3⟩ := c.kOf_digits t (by omega)
+  have hRank' : rankFloor t ≤ c.kOf t := by simpa [et] using hRank h0 (by omega)
   unfold entCheck at he
+  rw [if_neg (by omega : ¬ c.kOf t < rankFloor t)] at he
   rw [k1, k2, k3, if_pos hd] at he
   have hs : c.startPc (3 * t) = entW t (c.kOf t) := by
     unfold startPc; rw [if_neg (by omega), if_pos h0, et]
@@ -157,11 +162,11 @@ theorem tX_lt (c : LCtx) (i : Nat) : c.tX i < 200100 := by
   have := triBase_lt (i / 3) (c.dig (3 * (i / 3) + 1)) (c.dig (3 * (i / 3) + 2))
   have := partLen_le (c.dig (3 * (i / 3) + 1)); have := partLen_le (c.dig (3 * (i / 3) + 2))
   unfold tX pcX pcC pcB; omega
-theorem startPc_lt (c : LCtx) (i : Nat) (hi : i ≤ 42) (hck : c.ck ≤ 8) : c.startPc i < 209920 := by
+theorem startPc_lt (c : LCtx) (i : Nat) (hi : i ≤ 42) (hck : c.ck ≤ 8) (hRank : c.headOK i) : c.startPc i < 209920 := by
   unfold startPc
   split_ifs with h1 h2 h3
   · unfold ckSlot; omega
-  · have := c.kOf_lt (i / 3) (by omega); unfold entW ttabIdx; omega
+  · have := entW_valid (i/3) (c.kOf (i/3)) (by omega) (c.kOf_lt _ (by omega)) (hRank h2 h1); omega
   · have := triBase_lt (i / 3) (c.dig (3 * (i / 3) + 1)) (c.dig (3 * (i / 3) + 2))
     unfold tB pcB; omega
   · have := triBase_lt (i / 3) (c.dig (3 * (i / 3) + 1)) (c.dig (3 * (i / 3) + 2))
@@ -171,7 +176,7 @@ theorem rungPc_land_lt (c : LCtx) (i m : Nat) (hm : m ≤ 6) (hck : c.ck ≤ 8) 
   have := triBase_lt (i / 3) (c.dig (3 * (i / 3) + 1)) (c.dig (3 * (i / 3) + 2))
   have := partLen_le (c.dig (3 * (i / 3) + 1))
   have := c.kOf_lt (i / 3)
-  unfold rungPc startPc tb tB tC pcC pcB landOff ckSlot entW ttabIdx
+  unfold rungPc startPc tb tB tC pcC pcB landOff ckSlot entW
   split_ifs <;> omega
 theorem rungPc_lt (c : LCtx) (i m : Nat) (hm : m ≤ 6) (hck : c.ck ≤ 8) : c.rungPc i m < 209920 := by
   have := c.rungPc_land_lt i m hm hck
@@ -179,7 +184,7 @@ theorem rungPc_lt (c : LCtx) (i m : Nat) (hm : m ≤ 6) (hck : c.ck ≤ 8) : c.r
 def ChainNext (c : LCtx) (s0 : MachineState) (j : Nat) (acc : List Digest) (s : MachineState) : Prop :=
   if j ≤ 42 then c.ChainIn s0 j acc s else c.ChainOut s0 43 acc s
 def xCost (i : Nat) : Nat :=
-  if i = 42 then 0 else if i % 3 = 2 then (if i = 41 ∨ i = 2 ∨ i = 23 ∨ i = 17 ∨ i = 38 then 3 else 4) else 0
+  if i = 42 then 0 else if i % 3 = 2 then (if i = 2 ∨ i = 23 then 2 else 3) else 0
 theorem xCost_le (i : Nat) : xCost i ≤ 4 := by unfold xCost; split_ifs <;> omega
 theorem end_next (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2) (i : Nat)
     (hi : c.i0 ≤ i ∧ i ≤ 42) (hck : i = 42 → c.ck < 8) (acc : List Digest) (s : MachineState)
@@ -223,7 +228,7 @@ theorem end_next (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.kn
           unfold tX; rw [show (3 * t + 2) / 3 = t by omega]
         rw [← htx] at hrun
         obtain ⟨u, hst, hu⟩ := c.x_step hc hk t (by omega) hi.1 (by have := c.tX_lt (3 * t + 2); omega) hrun acc s hs
-        have he : (9 * ((t + 1) % 7) = 9) ↔ (3 * t + 2 = 2 ∨ 3 * t + 2 = 23 ∨ 3 * t + 2 = 17 ∨ 3 * t + 2 = 38) := by
+        have he : (9 * ((t + 1) % 7) = 9) ↔ (3 * t + 2 = 2 ∨ 3 * t + 2 = 23) := by
           omega
         refine ⟨u, by simpa [xCost, h42, h41, he] using hst, ?_⟩
         unfold ChainNext; rw [if_pos (by omega), show 3 * t + 2 + 1 = 3 * t + 3 by ring]; exact hu
@@ -302,7 +307,7 @@ def chainCost (i d : Nat) : Nat :=
   (if i % 3 = 0 ∧ i ≠ 42 then (if d = 7 then 5 else 68 - 9 * d)
    else (if d = 7 then 4 else 67 - 9 * d)) - zc i d + xCost i
 theorem chain_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
-    (h0 : c.Orig0 s0) (hko : c.i0 = 0 → c.koff = 0) (i : Nat) (hi : c.i0 ≤ i ∧ i ≤ 42) (hck : i = 42 → c.ck < 8)
+    (h0 : c.Orig0 s0) (hko : c.i0 = 0 → c.koff = 0) (i : Nat) (hi : c.i0 ≤ i ∧ i ≤ 42) (hck : i = 42 → c.ck < 8) (hRank : c.headOK i)
     (acc : List Digest) (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
     (hK : ∀ v t, c.ChainNext s0 (i + 1) (acc ++ [v]) t → Verify.GoodQ t N C Q A (K (acc ++ [v])))
     (s : MachineState) (hs : c.ChainIn s0 i acc s) :
@@ -314,7 +319,7 @@ theorem chain_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     by_cases h42 : i = 42
     · subst h42; rw [dig42]; exact hck rfl
     · exact c.dig_lt8 i (by omega)
-  have hsp := c.startPc_lt i hi.2 hc.2.2.2.2.2.2.1
+  have hsp := c.startPc_lt i hi.2 hc.2.2.2.2.2.2.1 hRank
   by_cases h7 : c.dig i = 7
   ·
     rw [h7, show 7 - 7 = 0 from rfl]
@@ -322,7 +327,7 @@ theorem chain_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     rw [hspec, Verify.ccM_pure]
     by_cases hl : i % 3 = 0 ∧ i ≠ 42
     · obtain ⟨h0', h42⟩ := hl
-      have hrun := c.chk_copyJ i (by omega) h0' h7
+      have hrun := c.chk_copyJ i (by omega) h0' h7 hRank
       obtain ⟨t, hst, hE⟩ := c.copyJ_step hc hk h0 i ⟨hi.1, by omega⟩ (i / 3 == 0)
         (fun h => by
           have : i = 0 := by simp at h; omega
@@ -358,7 +363,7 @@ theorem chain_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     have hrp := c.rungPc_lt i (c.dig i) (by omega) hc.2.2.2.2.2.2.1
     by_cases hl : i % 3 = 0 ∧ i ≠ 42
     · obtain ⟨h0', h42⟩ := hl
-      have hruns := c.chk_headJ i (by omega) h0' hd
+      have hruns := c.chk_headJ i (by omega) h0' hd hRank
       obtain ⟨t, hst, hP⟩ := c.headJ_step hc hk h0 i hi hd hsp
         (c.rungPc_land_lt i (c.dig i) (by omega) hc.2.2.2.2.2.2.1) hruns.1 hruns.2 acc s hs
       refine Verify.GoodQ.steps' hst (hsteps _ _ hP) (by omega) ?_ (fun hq => ⟨hq, ?_⟩)
@@ -386,22 +391,23 @@ def chainF (c : LCtx) (ends : List Digest) (i : Nat) : M (List Digest) := do
   pure (ends ++ [v])
 def chainsCost (c : LCtx) (i k : Nat) : Nat := ((List.range' i k).map fun j => chainCost j (c.dig j)).sum
 theorem chains_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
-    (h0 : c.Orig0 s0) (hko : c.i0 = 0 → c.koff = 0) (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs)
-    (N C A : Nat) (Q : Prop) (hK : ∀ ends t, c.ChainIn s0 42 ends t → Verify.GoodQ t N C Q A (K ends)) :
-    ∀ k i, i + k = 42 → c.i0 ≤ i → ∀ acc s, c.ChainIn s0 i acc s →
+    (h0 : c.Orig0 s0) (hko : c.i0 = 0 → c.koff = 0) (last : Nat) (hLast : last ≤ 42)
+    (hRanks : ∀ j, c.i0 ≤ j → j < last → c.headOK j) (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs)
+    (N C A : Nat) (Q : Prop) (hK : ∀ ends t, c.ChainIn s0 last ends t → Verify.GoodQ t N C Q A (K ends)) :
+    ∀ k i, i + k = last → c.i0 ≤ i → ∀ acc s, c.ChainIn s0 i acc s →
       Verify.GoodQ s (N + 40 * k) (C + c.chainsCost i k) Q (A + c.chainsCost i k)
         (Verify.ccM ((List.range' i k).foldlM c.chainF acc) K) := by
   intro k
   induction k with
   | zero =>
     intro i hik _ acc s hs
-    obtain rfl : i = 42 := by omega
+    obtain rfl : i = last := by omega
     simpa [chainsCost] using hK acc s hs
   | succ k ih =>
     intro i hik hi0 acc s hs
     rw [List.range'_succ, List.foldlM_cons]
     simp only [chainF, bind_assoc, pure_bind, Verify.ccM_bind]
-    have := c.chain_good hc hk h0 hko i ⟨hi0, by omega⟩ (fun h => absurd h (by omega)) acc
+    have := c.chain_good hc hk h0 hko i ⟨hi0, by omega⟩ (fun h => absurd h (by omega)) (hRanks i hi0 (by omega)) acc
       (fun ends => Verify.ccM ((List.range' (i + 1) k).foldlM c.chainF ends) K)
       (N + 40 * k) (C + c.chainsCost (i + 1) k) (A + c.chainsCost (i + 1) k) Q
       (fun v t ht => by
@@ -411,6 +417,36 @@ theorem chains_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c
     refine this.mono (by omega) ?_ (fun hq => ⟨hq, ?_⟩)
     · simp only [chainsCost, List.range'_succ, List.map_cons, List.sum_cons]; omega
     · simp only [chainsCost, List.range'_succ, List.map_cons, List.sum_cons]; omega
+theorem chains_prefix_fault (c : LCtx) (hc : c.ok) (hi0 : c.i0=0) (hko : c.koff=0)
+    {s0 : MachineState} (hk : ∀ p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0)
+    (j : Nat) (hj : j<14) (hBad : c.kOf j<rankFloor j)
+    (hRanks : ∀i,i<3*j→c.headOK i) (s : MachineState) (hs : c.ChainIn s0 0 [] s) :
+    Verify.GoodQ s (1+40*(3*j)) (c.chainsCost 0 (3*j)) False (c.chainsCost 0 (3*j))
+      (Verify.ccM ((List.range' 0 (3*j)).foldlM c.chainF []) (fun _ => pure (false, 0))) := by
+  have hK : ∀ ends t, c.ChainIn s0 (3*j) ends t → Verify.GoodQ t 1 0 False 0 (pure (false, 0)) := by
+    intro ends t ht
+    have hpc := ht.2.2.2
+    have hp : t.pc.toNat<0x1000 := by
+      rw [hpc]
+      simp only [startPc,show ¬3*j=42 by omega,if_false,show 3*j%3=0 by omega,if_true,show 3*j/3=j by omega]
+      exact entW_fault_address j (c.kOf j) hj hBad
+    have hf : fetch vimage t=none := by unfold fetch; simp [hp]
+    intro F hF
+    have he : F=(F-1)+1 := by omega
+    refine ⟨?_,fun hash=>?_⟩
+    · rw [he,execute_fetch_none (F-1) hf,map_pure]; rfl
+    · have hx : evalWithAnswerFn hash (Riscv.execute (F-1+1) vimage t)=⟨.failure,t,0,0,0⟩ := by
+        rw [execute_fetch_none (F-1) hf]; rfl
+      rw [he,hx]
+      exact ⟨by simp,Nat.zero_le _,fun h _ => by simp at h⟩
+  have H := c.chains_good hc hk h0 (fun _ => hko) (3*j) (by omega) (fun i _ hi=>hRanks i hi)
+    (fun _ => pure (false, 0)) 1 0 0 False hK (3*j) 0 (by omega) (by omega) [] s hs
+  simpa using H
+theorem chainsCost_prefix_le (c : LCtx) (n : Nat) (hn : n≤42) : c.chainsCost 0 n≤c.chainsCost 0 42 := by
+  have he : 42=n+(42-n) := by omega
+  unfold chainsCost
+  conv_rhs => rw [he,←List.range'_append,List.map_append,List.sum_append]
+  omega
 theorem ck_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (h0 : c.Orig0 s0) (hko : c.i0 = 0 → c.koff = 0) (hck : c.ck < 8)
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
@@ -418,7 +454,7 @@ theorem ck_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.kno
     (acc : List Digest) (s : MachineState) (hs : c.ChainIn s0 42 acc s) :
     Verify.GoodQ s (N + 40) (C + chainCost 42 c.ck) Q (A + chainCost 42 c.ck)
       (Verify.ccM (c.chainF acc 42) K) := by
-  have := c.chain_good hc hk h0 hko 42 ⟨hc.2.2.2.2.2.2.2.2.1, le_refl _⟩ (fun _ => hck) acc K N C A Q
+  have := c.chain_good hc hk h0 hko 42 ⟨hc.2.2.2.2.2.2.2.2.1, le_refl _⟩ (fun _ => hck) (by intro _ h; exact (h rfl).elim) acc K N C A Q
     (fun v t ht => by
       have ht' : c.ChainOut s0 43 (acc ++ [v]) t := by unfold ChainNext at ht; rwa [if_neg (by omega)] at ht
       exact hK _ t ht') s hs
@@ -451,11 +487,11 @@ theorem chainsCost_add (c : LCtx) (hck : c.ck < 8) : ∀ k i, i + k ≤ 43 →
     have := chainCost_add i (c.dig i) hd
     simp only [chainsCost, List.range'_succ, List.map_cons, List.sum_cons] at h ⊢
     omega
-theorem cbase_sum43 : ((List.range' 0 43).map cbase).sum = 2946 := by decide +kernel
-theorem cbase_sum_top : ((List.range' 33 9).map cbase).sum = 616 := by decide +kernel
+theorem cbase_sum43 : ((List.range' 0 43).map cbase).sum = 2935 := by decide +kernel
+theorem cbase_sum_top : ((List.range' 33 9).map cbase).sum = 615 := by decide +kernel
 def zSum (c : LCtx) (i k : Nat) : Nat := ((List.range' i k).map fun j => zc j (c.dig j)).sum
 theorem chainsCost_lower (c : LCtx) (hck : c.ck < 8) (T : Nat) (hT : ((List.range' 0 43).map c.dig).sum = T) :
-    c.chainsCost 0 42 + chainCost 42 c.ck + 9 * T + c.zSum 0 43 = 2946 := by
+    c.chainsCost 0 42 + chainCost 42 c.ck + 9 * T + c.zSum 0 43 = 2935 := by
   have h := c.chainsCost_add hck 43 0 (le_refl _)
   rw [hT, cbase_sum43] at h
   have e : c.chainsCost 0 43 = c.chainsCost 0 42 + chainCost 42 c.ck := by
@@ -465,7 +501,7 @@ theorem chainsCost_lower (c : LCtx) (hck : c.ck < 8) (T : Nat) (hT : ((List.rang
   unfold zSum
   omega
 theorem chainsCost_top (c : LCtx) (hck : c.ck < 8) (S : Nat) (hS : ((List.range' 33 9).map c.dig).sum = S) :
-    c.chainsCost 33 9 + 9 * S + c.zSum 33 9 = 616 := by
+    c.chainsCost 33 9 + 9 * S + c.zSum 33 9 = 615 := by
   have h := c.chainsCost_add hck 9 33 (by omega)
   rw [hS, cbase_sum_top] at h
   unfold zSum

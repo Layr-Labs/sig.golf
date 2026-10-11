@@ -161,6 +161,11 @@ theorem hashOnly_packedSecret (pairQuery : Nat → M (Digest × Digest)) (h : �
     (fun _ _ => SigGolfCandidate.T3.SourceReplay.hashOnly_chain _ _ _ _ _ _ _) fun _ =>
       hashOnly_bind (SigGolfCandidate.T3.SourceReplay.hashOnly_leafHash _ _ _ _) fun _ =>
         hashOnly_foldlM _ _ (fun _ _ => hashOnly_nodeHash _ _ _ _ _ _) _
+@[aesop safe apply] theorem hashOnly_recoverLayerPairGuard (sig : Signature) (index : Nat) (lay : Layer)
+    (answer : Digest) (digits : List Nat) :
+    HashOnly (ClaudeWCT.WCT9.recoverLayerPairGuard sig index lay answer digits) := by
+  unfold ClaudeWCT.WCT9.recoverLayerPairGuard ClaudeWCT.WCT9.lowerGuardedRun
+  hashes
 @[aesop safe apply] theorem hashOnly_verifyLayersBC (w : Witness) (index n : Nat)
     (msg : ClaudeWCT.WCT9.LayerMsg) : HashOnly (ClaudeWCT.WCT9.verifyLayersBC w index n msg) := by
   induction n generalizing msg with
@@ -762,8 +767,8 @@ open ClaudeWCT.WCT9 (Signature Witness)
 open ClaudeWCT.WCT9.Rev3 (sign expand verify)
 open SigGolfCandidate.T3M (mrealize countBoth countCalls cacheB cacheDec isHash)
 open ClaudeWCT.W9.T3M (Images submission)
-def verifyCycleBound : Nat := 7211
-def claimedC : Nat := 7293
+def verifyCycleBound : Nat := 7174
+def claimedC : Nat := 7256
 def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 20908) : Prop :=
   ∀ N, evalWithAnswerFn hash (mrealize 0 (digestP m w)) = some N → WCT9.capOk N = true
 variable (I : Images)

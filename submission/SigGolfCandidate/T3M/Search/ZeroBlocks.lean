@@ -1,4 +1,5 @@
 import SigGolfCandidate.T3M.Search.CounterSearch
+import SigGolfCandidate.T3.Nonbinary.LowerLayout
 
 namespace SigGolfCandidate.T3M.Search.Zero
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
@@ -115,7 +116,7 @@ theorem run34 {b : Nat} (hb : b = 354 ∨ b = 543) :
 
 theorem run36 {b : Nat} (hb : b = 354 ∨ b = 543) :
     symRun {noAlias := true} (z_36 b) (pcOf (zBase b + 36)) 200 =
-      some ⟨z354_36.res.st, .c (pcOf (b + 433)), z354_36.res.stop, 1, 1⟩ := by
+      some ⟨z354_36.res.st, .c (pcOf (zBase b + 38)), z354_36.res.stop, 1, 1⟩ := by
   rcases hb with rfl | rfl
   · exact z354_36.trans (congrArg some (by kernel_rfl))
   · exact z543_36.trans (congrArg some (by kernel_rfl))
@@ -243,7 +244,7 @@ theorem limit_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (
 
 theorem exit_spec (hK : KernAt image b) (s : MachineState) (o : Nat) (ho : o = 36 ∨ o = 37)
     (hpc : s.pc = pcOf (zBase b + o)) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf (b + (if o = 36 then 433 else 468)) ∧
+    ∃ t, Steps image s 1 1 t ∧ t.pc = (if o = 36 then pcOf (zBase b + 38) else pcOf (b + 468)) ∧
       RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
   rcases ho with rfl | rfl
   · refine ⟨_, symRun_sound (run36 hK.2.1) (codeAt_zero hK 10 36 (z_36 b) (by rfl)) s hpc
@@ -256,3 +257,148 @@ theorem exit_spec (hK : KernAt image b) (s : MachineState) (o : Nat) (ho : o = 3
     · intro A _ _; simp [z354_37.res, rv_simp]
 
 end SigGolfCandidate.T3M.Search.Zero
+
+section
+namespace SigGolfCandidate.T3M.Search.Rank
+open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
+open SigGolfCandidate.T3 (Digest lowerWord)
+set_option maxRecDepth 8192
+set_option maxHeartbeats 1000000
+set_option linter.unusedSimpArgs false
+
+def bad (x : BitVec 64) (i limit : Nat) : BitVec 64 :=
+  if ((x >>> (9*i)) &&& 511#64).ult (BitVec.ofNat 64 limit) then 1#64 else 0#64
+
+def flags (lo hi : BitVec 64) : BitVec 64 :=
+  0#64 ||| bad lo 0 3 ||| bad lo 1 5 ||| bad lo 2 3 ||| bad lo 3 3 ||| bad lo 4 3 ||| bad lo 5 3 ||| bad lo 6 3 |||
+    bad hi 0 3 ||| bad hi 1 5 ||| bad hi 2 3 ||| bad hi 3 3 ||| bad hi 4 3 ||| bad hi 5 3 ||| bad hi 6 3
+
+def rankFloor (i : Nat) : Nat := if i=1 ∨ i=8 then 5 else 3
+def rankOK (v : Digest) : Prop := ∀ i : Fin 14, rankFloor i.val ≤ lowerWord v / 2^(9*i.val) % 512
+instance (v : Digest) : Decidable (rankOK v) := by unfold rankOK; infer_instance
+
+theorem rank_field (v : Digest) (i : Fin 14) :
+    v.toNat / 2 ^ (if i.val < 7 then 9*i.val else 64+9*(i.val-7)) % 512 =
+      lowerWord v / 2 ^ (9*i.val) % 512 := by
+  apply Nat.eq_of_testBit_eq
+  intro j
+  rw [show (512 : Nat) = 2^9 from rfl, Nat.testBit_mod_two_pow, Nat.testBit_mod_two_pow,
+    Nat.testBit_div_two_pow, Nat.testBit_div_two_pow, T3.testBit_lowerWord]
+  by_cases hj : j < 9
+  · simp only [hj, decide_true, Bool.true_and]
+    by_cases hi : i.val < 7
+    · rw [if_pos hi, if_pos (by omega)]
+    · rw [if_neg hi, if_neg (by omega)]
+      simp only [show j+9*i.val < 126 by omega, decide_true, Bool.true_and]
+      congr 1
+      omega
+  · simp [hj]
+
+theorem bad_zero (x : BitVec 64) (i limit : Nat) (hl : limit < 2^64) :
+    bad x i limit = 0#64 ↔ limit ≤ x.toNat / 2^(9*i) % 512 := by
+  unfold bad
+  have hmask : ((x >>> (9*i)) &&& 511#64).toNat = x.toNat / 2^(9*i) % 512 := by
+    rw [BitVec.toNat_and, BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow]
+    change (x.toNat / 2^(9*i)) &&& (2^9-1) = _
+    exact Nat.and_two_pow_sub_one_eq_mod _ _
+  simp only [BitVec.ult, hmask, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hl]
+  by_cases h : x.toNat / 2^(9*i) % 512 < limit
+  · simp [h] <;> omega
+  · simp [h] <;> omega
+
+theorem flags_zero (v : Digest) :
+    flags (v.extractLsb' 0 64) (v.extractLsb' 64 64) = 0#64 ↔ rankOK v := by
+  have field (i : Fin 14) :
+      (if i.val < 7 then v.extractLsb' 0 64 else v.extractLsb' 64 64).toNat /
+        2^(9*(i.val%7)) % 512 = lowerWord v / 2^(9*i.val) % 512 := by
+    rw [← rank_field v i]
+    fin_cases i <;>
+      simp only [Fin.val_zero, Fin.val_succ, Nat.reduceAdd, Nat.reduceLT, Nat.reduceMod,
+        Nat.reduceMul, Nat.reduceSub, if_true, if_false, BitVec.extractLsb'_toNat,
+        Nat.shiftRight_eq_div_pow, Nat.reducePow, Nat.div_one] <;> omega
+  have hb (i : Fin 14) :
+      bad (if i.val < 7 then v.extractLsb' 0 64 else v.extractLsb' 64 64) (i.val%7) (rankFloor i.val) = 0#64 ↔
+        rankFloor i.val ≤ lowerWord v / 2^(9*i.val) % 512 := by
+    rw [bad_zero _ _ _ (by unfold rankFloor; split <;> decide), field]
+  have h := forall_congr' hb
+  simpa [flags, rankOK, rankFloor, BitVec.or_eq_zero_iff, Fin.forall_fin_succ, and_assoc] using h
+
+sym_block r354 := symRun {noAlias := true} (rankCode 354) (pcOf 42879) 200
+sym_block r543 := symRun {noAlias := true} (rankCode 543) (pcOf 20870) 200
+
+def rankEnd (b : Nat) : E :=
+  rebase r354.res.pc (pcOf (zBase b+97)) (pcOf (zBase b+96))
+
+theorem run_rank {b : Nat} (hb : b=354 ∨ b=543) :
+    symRun {noAlias := true} (rankCode b) (pcOf (zBase b+38)) 200 =
+      some ⟨r354.res.st, rankEnd b, r354.res.stop, r354.res.steps, r354.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact r354.trans (congrArg some (by kernel_rfl))
+  · exact r543.trans (congrArg some (by kernel_rfl))
+
+def exitCode (b o : Nat) : List (BitVec 32) := ((rankCode b).drop o).take 1
+def rankLayout (b : Nat) : Rv.Layout :=
+  [(0,(rankCode b).take 58),(58,exitCode b 58),(59,exitCode b 59)]
+theorem rankLayout_ok {b : Nat} (hb : b=354 ∨ b=543) : layoutOk 0 (rankLayout b) = true := by
+  rcases hb with rfl | rfl <;> decide +kernel
+theorem rankLayout_code {b : Nat} (hb : b=354 ∨ b=543) : layoutCode (rankLayout b) = rankCode b := by
+  rcases hb with rfl | rfl <;> decide +kernel
+
+sym_block re354_58 := symRun {noAlias := true} (exitCode 354 58) (pcOf (42841+96)) 200
+sym_block re543_58 := symRun {noAlias := true} (exitCode 543 58) (pcOf (20832+96)) 200
+sym_block re354_59 := symRun {noAlias := true} (exitCode 354 59) (pcOf (42841+97)) 200
+sym_block re543_59 := symRun {noAlias := true} (exitCode 543 59) (pcOf (20832+97)) 200
+
+theorem code_rank {image : Image} {b : Nat} (hK : KernAt image b) :
+    CodeAt image (pcOf (zBase b+38)) (rankCode b) :=
+  codeAt_zero hK 12 38 (rankCode b) (by rfl)
+
+theorem run_exit {b o : Nat} (hb : b=354 ∨ b=543) (ho : o=58 ∨ o=59) :
+    symRun {noAlias := true} (exitCode b o) (pcOf (zBase b+38+o)) 200 =
+      some ⟨re354_58.res.st, .c (pcOf (b+(if o=58 then 433 else 468))), .jump, 1, 1⟩ := by
+  rcases hb with rfl | rfl <;> rcases ho with rfl | rfl
+  · exact re354_58.trans (congrArg some (by kernel_rfl))
+  · exact re354_59.trans (congrArg some (by kernel_rfl))
+  · exact re543_58.trans (congrArg some (by kernel_rfl))
+  · exact re543_59.trans (congrArg some (by kernel_rfl))
+
+theorem exit_spec {image : Image} {b : Nat} (hK : KernAt image b) (s : MachineState)
+    (o : Nat) (ho : o=58 ∨ o=59) (hp : s.pc=pcOf (zBase b+38+o)) :
+    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf (b+(if o=58 then 433 else 468)) ∧
+      RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
+  have hc : CodeAt image (pcOf (zBase b+38+o)) (exitCode b o) := by
+    have h := code_rank hK
+    rw [← rankLayout_code hK.2.1] at h
+    rcases ho with rfl | rfl
+    · exact codeAt_sublayout h (rankLayout_ok hK.2.1) (i:=1) (o:=58) (by rfl)
+    · exact codeAt_sublayout h (rankLayout_ok hK.2.1) (i:=2) (o:=59) (by rfl)
+  refine ⟨_,symRun_sound (run_exit hK.2.1 ho) hc s hp (by simp [re354_58.res,rv_simp]),rfl,?_,?_⟩
+  · intro r hr; cases r <;> simp [re354_58.res,rv_simp] <;> rfl
+  · intro A _ _; simp [re354_58.res,rv_simp]
+
+theorem spec {image : Image} {b : Nat} (hK : KernAt image b) (s : MachineState)
+    (hp : s.pc=pcOf (zBase b+38)) (v : Digest)
+    (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64) :
+    ∃ t, Steps image s 59 59 t ∧ t.pc=pcOf (b+(if rankOK v then 433 else 468)) ∧
+      RegsExcept s t [.x21,.x28] ∧ Frame s t (fun _ => False) := by
+  have first := symRun_sound (run_rank hK.2.1) (code_rank hK) s hp (by simp [r354.res,rv_simp])
+  have pp : (Result.toState ⟨r354.res.st,rankEnd b,r354.res.stop,r354.res.steps,r354.res.cycles⟩ s).pc =
+      pcOf (zBase b+38+(if rankOK v then 58 else 59)) := by
+    simp only [Result.toState_pc,rankEnd,rebase,r354.res,rv_simp,h6,h7]
+    change (if (flags (v.extractLsb' 0 64) (v.extractLsb' 64 64) != 0#64) = true then _ else _) = _
+    simp only [bne_iff_ne, ne_eq, flags_zero]
+    by_cases h : rankOK v <;> simp [h, Nat.add_assoc]
+  obtain ⟨t,st,pt,rt,ft⟩ := exit_spec hK _ (if rankOK v then 58 else 59) (by split <;> simp) pp
+  refine ⟨t,first.trans st,?_,?_,?_⟩
+  · by_cases h : rankOK v <;> simpa [h] using pt
+  · have rfirst : RegsExcept s
+        (Result.toState ⟨r354.res.st,rankEnd b,r354.res.stop,r354.res.steps,r354.res.cycles⟩ s) [.x21,.x28] := by
+      intro r hr; cases r <;> simp_all [r354.res,rv_simp] <;> rfl
+    exact (rfirst.trans rt).mono (by simp)
+  · have ffirst : Frame s
+        (Result.toState ⟨r354.res.st,rankEnd b,r354.res.stop,r354.res.steps,r354.res.cycles⟩ s) (fun _ => False) := by
+      intro A _ _; simp [r354.res,rv_simp]
+    exact (ffirst.trans ft).mono (fun _ _ h => by simp at h)
+
+end SigGolfCandidate.T3M.Search.Rank
+end

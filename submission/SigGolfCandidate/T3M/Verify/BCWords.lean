@@ -59,7 +59,7 @@ section
 namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M.Verify
-def keepLfL : List Reg := [.x1, .x2, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23, .x6, .x25,
+def keepLfL : List Reg := [.x27, .x1, .x2, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23, .x6, .x25,
   .x26, .x29, .x31, .x30, .x28, .x14]
 def lfSlotCheck (lay c : Nat) : Bool :=
   specB [] [] baseK (runAt (leafK lay) [] (ckSlot c + partLen c) (lfDirs lay)) (specLf lay) [] (postLf lay) keepLfL

@@ -60,29 +60,29 @@ theorem rOK_eq {o : Option Result} {r : Result} (h : rOK o r = true) : o = some 
   cases o with
   | none => simp [rOK] at h
   | some r' => simp only [rOK] at h; rw [resBeq_eq h]
-def dispatchWords : List (BitVec 32) := [0x21be8713,0x00871713,0x0a070067]
-def armPC (rank : Nat) : Nat := 33512 + 64 * rank
+def dispatchWords : List (BitVec 32) := [0x002e8713,0x00c71713,0x19c70067]
+def armPC (rank : Nat) : Nat := 1127 + 1024 * rank
 def dispatchR : Result :=
-  let ptr := .bin .sll (.bin .add (.reg .x29) (.c 539)) (.c 8)
+  let ptr := .bin .sll (.bin .add (.reg .x29) (.c 2)) (.c 12)
   ⟨⟨RegFile.init.set .x14 ptr, [], []⟩,
-    .bin .and (.bin .add ptr (.c 160)) (.c (~~~1#64)), .jump, 3, 3⟩
+    .bin .and (.bin .add ptr (.c (412#64))) (.c (~~~1#64)), .jump, 3, 3⟩
 theorem dispatch_run (pc : Word) : symRun {} dispatchWords pc 3 = some dispatchR := by
   rfl
 def pcOf (p : Nat) : Word := BitVec.ofNat 64 (0x1000 + 4 * p)
 theorem dispatch_target (k : Nat) (hk : k < 64) :
-    ((((BitVec.ofNat 64 k + 539#64) <<< 8) + 160#64) &&& ~~~1#64) =
+    ((((BitVec.ofNat 64 k + 2#64) <<< 12) + 412#64) &&& ~~~1#64) =
       pcOf (armPC k) := by
   interval_cases k <;> decide +kernel
 theorem dispatch_steps {image : Image} (pc : Word) (hc : CodeAt image pc dispatchWords)
     (s : MachineState) (hp : s.pc = pc) (k : Nat) (hk : k < 64)
-    (hr : s.getReg .x29 = BitVec.ofNat 64 k) (hb : s.getReg .x2 = 0x3fe00#64) :
+    (hr : s.getReg .x29 = BitVec.ofNat 64 k) (hb : s.getReg .x2 = 0x7fc00#64) :
     ∃ t, Steps image s 3 3 t ∧ t.pc = pcOf (armPC k) ∧
       (∀ r, r ≠ .x14 → t.getReg r = s.getReg r) ∧
-      (∀ a, t.getMem a = s.getMem a) ∧ t.getReg .x2 = 0x3fe00#64 := by
+      (∀ a, t.getMem a = s.getMem a) ∧ t.getReg .x2 = 0x7fc00#64 := by
   let t := dispatchR.toState s
   have st : Steps image s 3 3 t := symRun_sound (dispatch_run pc) hc s hp (by simp [dispatchR, Result.obligs, Oblig.all])
   refine ⟨t, st, ?_, ?_, ?_, ?_⟩
-  · change ((((s.getReg .x29 + 539#64) <<< 8) + 160#64) &&& ~~~1#64) = _
+  · change ((((s.getReg .x29 + 2#64) <<< 12) + 412#64) &&& ~~~1#64) = _
     rw [hr]
     exact dispatch_target k hk
   · intro r hn
@@ -116,10 +116,13 @@ def partLen (q d : Nat) : Nat :=
 def pcB (q dB dC : Nat) : Nat := base q dB dC+2*mx q+1
 def pcC (q dB dC : Nat) : Nat := pcB q dB dC+partLen q dB
 def pcX (q dB dC : Nat) : Nat := pcC q dB dC+partLen q dC
-def entOff (q : Nat) : Nat := if q=0 then 8 else if q≤9 then 9+6*q else if q≤13 then 10+6*q else if q=14 then 129 else if q=15 then 170 else 211
-def cellW (q k : Nat) : Nat := if q<17 then 256*(124-k)+entOff q else TailDispatch.armPC k
+def entOff (q : Nat) : Nat :=
+  if q=0 then 529 else if q≤8 then 530+6*q else if q=9 then 487
+  else if q≤12 then 524+6*q else if q=13 then 743 else if q=14 then 784
+  else if q=15 then 871 else 615
+def cellW (q k : Nat) : Nat := if q<17 then 1024*(125-k)+entOff q else TailDispatch.armPC (k%64)
 def entW (q k : Nat) : Nat := cellW q k + (if q=0 ∨ (q=9 ∧ k%2=0) then 1 else 0)
-def inl (q : Nat) : Bool := decide (13 ≤ q ∧ q ≤ 16)
+def inl (q : Nat) : Bool := decide (q=9 ∨ (13 ≤ q ∧ q ≤ 16))
 def leadOff (q : Nat) : Nat := 1
 def leadPc (q k : Nat) : Nat := entW q k+leadOff q
 def kdig (q k j : Nat) : Nat := k/(mx q+1)^j%(mx q+1)
@@ -147,13 +150,11 @@ def headJDTermF (rb : Reg) (o : Word) (tgt i d : Nat) : Result :=
   {headJDTerm rb o tgt i d with stop:=.fuel,steps:=3,cycles:=3}
 def s8R (n p : Nat) : Result :=
   ⟨⟨RegFile.init.set .x24 (addC (.reg .x24) (-BitVec.ofNat 64 n)),[],[]⟩,.c (pcOf (p+1)),.fuel,1,1⟩
-def guardW (k : Nat) : Nat := if k=0 then 32032 else 256*(124-k)+255
 def guardR (k : Nat) : Result :=
   ⟨⟨RegFile.init.set .x24 (.c (144#64-BitVec.ofNat 64 (kss 0 k))),[],[]⟩,
     .c (pcOf (cellW 0 k+2)),.fuel,1,1⟩
-def rejJ : Result := ⟨SymState.init,.c (pcOf 129638),.jump,1,1⟩
 def bge9R (p : Nat) : Result :=
-  ⟨SymState.init,.ite .ge (.reg .x16) (.c 0) (.c (BitVec.ofNat 64 (0x1000+4*p-1024))) (.c (pcOf (p+1))),.branch,1,1⟩
+  ⟨SymState.init,.ite .ge (.reg .x16) (.c 0) (.c (BitVec.ofNat 64 (0x1000+4*p-4096))) (.c (pcOf (p+1))),.branch,1,1⟩
 def tailR (slot : Option Nat) (p : Nat) : Result :=
   let n := if slot.isSome then 1 else 0
   ⟨⟨(match slot with
@@ -161,18 +162,18 @@ def tailR (slot : Option Nat) (p : Nat) : Result :=
       | none => RegFile.init), [], []⟩, .c (pcOf (p + n)), .ecall, n, n⟩
 def headRHT (rb : Reg) (o : Word) (d sl p i : Nat) : Result :=
   {headRH rb o d (some sl) p i with pc:=.c (pcOf (p+4)),steps:=4,cycles:=4}
-def shift10 (w : Reg) (b : Nat) : E :=
-  if b<10 then .bin .sll (.reg w) (.c (BitVec.ofNat 64 (10-b)))
-  else .bin .srl (.reg w) (.c (BitVec.ofNat 64 (b-10)))
+def shift12 (w : Reg) (b : Nat) : E :=
+  if b<12 then .bin .sll (.reg w) (.c (BitVec.ofNat 64 (12-b)))
+  else .bin .srl (.reg w) (.c (BitVec.ofNat 64 (b-12)))
 def dispatchR (q : Nat) : Result :=
-  let sh := shift10 (if q<9 then .x16 else .x17) (if q<9 then 7*q else 7*q-64)
+  let sh := shift12 (if q<9 then .x16 else .x17) (if q<9 then 7*q else 7*q-64)
   let a := .bin .and sh (.reg .x6)
   ⟨⟨RegFile.init.set .x14 a,[],[]⟩,
-    .bin .and (.bin .add a (.c (BitVec.ofNat 64 (1024+4*entOff q)))) (.c (~~~1#64)),.jump,3,3⟩
+    .bin .and (.bin .add a (.c (BitVec.ofNat 64 (2^64+4*entOff q-4096)))) (.c (~~~1#64)),.jump,3,3⟩
 def dispatch9R : Result :=
-  let a := .bin .and (.bin .sll (.reg .x17) (.c (BitVec.ofNat 64 11))) (.reg .x6)
-  ⟨⟨RegFile.init.set .x14 (.bin .add a (.c 1536)),[],[]⟩,
-    .bin .and (.bin .add a (.c 2300)) (.c (~~~1#64)),.jump,4,4⟩
+  let a := .bin .and (.bin .sll (.reg .x17) (.c (BitVec.ofNat 64 13))) (.reg .x6)
+  ⟨⟨RegFile.init.set .x14 a,[],[]⟩,
+    .bin .and (.bin .add a (.c 1948)) (.c (~~~1#64)),.jump,3,3⟩
 def tailDispatchR : Result := TailDispatch.dispatchR
 def rungsOK (q d0 sl p : Nat) : Bool :=
   (List.range' d0 (mx q-d0)).all fun m =>
@@ -222,27 +223,25 @@ def inlineCheck (q k : Nat) : Bool :=
   partOK q (3*q+1) (kdig q k 1) (gB q k) && partOK q (3*q+2) (kdig q k 2) (gC q k) &&
   rOK (vrun (gX q k) 5) (if q<16 then dispatchR (q+1) else tailDispatchR)
 def inlineGroupCheck (q lo n : Nat) : Bool := (List.range' lo n).all fun k => inlineCheck q k
-def rejCheck : Bool :=
-  (List.range 125).all fun k => rOK (vrun (guardW k) 1) rejJ
 /-! ### Group 17 (campaign T8D, TOP2 NF17): the radix-8 chains 51..53
 The tail dispatch of group 16 jumps to the slot `33512 + 64*k` with `k = d51 + 8 d52` (the top field, bits 122..127):
 `addi s8,s8,-(d51+d52)`, falling directly into `BLOCK[k]`. `BLOCK[k]` = chain 51 code, chain 52 code (main's top chain code with largest digit
 7: copy / terminal head / head + rungs, `partOK 17`), then the general-field dispatch `srli a4,a7,47;
 andi a4,a4,1792; add a4,a4,t1; jalr 2032(a4)` directly into the complete copied chain-53 suffix
-(`y = d53`, bits 119..121), bypassing the dead padding slot `r8SlotW y = 31995+64*y`.
+(`y = d53`, bits 119..121), bypassing the dead padding slot `r8SlotW y = 130299+64*y`.
 The reverse checksum remains `144 - sum (digits 0..52)` throughout chain 53.
 `SUFFIX[y]` = chain 53 code, then main's final tail at `finW y` (its `bne`
 goes to a local `j REJ` stub). -/
 def r8Blk : List Nat := [219217,219258,219297,219334,219369,219402,219433,219461,219488,219527,219564,219599,219632,219663,219692,219718,219743,219780,219815,219848,219879,219908,219935,219959,219982,220017,220050,220081,220110,220137,220162,220184,220205,220238,220269,220298,220325,220350,220373,220393,220412,220443,220472,220499,220524,220547,220568,220586,220603,220631,220657,220681,220703,220723,220741,220756,220770,220797,220822,220845,220866,220885,220902,220916]
 def r8Suf : List Nat := [220929,220956,220981,221004,221025,221044,221061,221075]
 def blkW (k : Nat) : Nat := TailDispatch.armPC k + 1
-def r8SlotW (y : Nat) : Nat := 31995+64*y
+def r8SlotW (y : Nat) : Nat := 130299+64*y
 def sufW (y : Nat) : Nat := r8SlotW y+1
 def finW (y : Nat) : Nat := sufW y+partLen 17 y
 /-- Two-instruction slot `addi s8,s8,-n; j tgt`. -/
 def jR (n tgt : Nat) : Result :=
   ⟨⟨RegFile.init.set .x24 (addC (.reg .x24) (-BitVec.ofNat 64 n)),[],[]⟩,.c (pcOf tgt),.jump,2,2⟩
-def genDispE : E := .bin .add (.bin .and (.bin .srl (.reg .x17) (.c 47#64)) (.c 1792#64)) (.reg .x6)
+def genDispE : E := .bin .add (.bin .and (.bin .srl (.reg .x17) (.c 47#64)) (.c 1792#64)) (.reg .x2)
 /-- The general-field dispatch `srli a4,a7,47; andi a4,a4,1792; add a4,a4,t1; jalr 2032(a4)`. -/
 def genDispR : Result :=
   ⟨⟨RegFile.init.set .x14 genDispE,[],[]⟩,.bin .and (.bin .add genDispE (.c 2032#64)) (.c (~~~1#64)),.jump,4,4⟩
