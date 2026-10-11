@@ -179,10 +179,10 @@ def TopOut (c : NCtx) (s0 : MachineState) (acc : List Digest) (s : MachineState)
   (∀ x, x ∉ chainRegs → x ≠ .x15 → x ≠ .x24 → s.getReg x=s0.getReg x) ∧
   Frame s0 s (c.Wr 54) ∧ acc.length=54 ∧
   (∀ j < acc.length, DigAt s (slot j) (acc.getD j 0)) ∧
-  s.pc = pcOf (finW (c.dig 53)) ∧ s.getReg .x2 = 0x3fe00#64 ∧
+  s.pc = pcOf (finW (c.dig 53)) ∧ s.getReg .x2 = 0x7fc00#64 ∧
   s.getReg .x24=c.s8w 53
 theorem end_return (c : NCtx) (hds : c.DigitsOk) {s0 b : MachineState}
-    (hb : s0.getReg .x2 = 0x3fe00#64)
+    (hb : s0.getReg .x2 = 0x7fc00#64)
     (acc : List Digest) (s : MachineState)
     (hs : c.EndInv (set24 (tailInitial (set24 s0 (c.s8v 16)) b) (c.s8w 53)) 53 acc s) :
     c.TopOut s0 acc s := by
@@ -254,11 +254,11 @@ theorem top_full (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
     (hK : ∀ acc t,c.TopOut s0 acc t → Verify.GoodQ t N C Q A (K acc))
     (s : MachineState) (hs : c.GroupIn s0 0 [] s) :
-    Verify.GoodQ s (N+2274) (C+c.chainsCost 0 54+75) Q (A+c.chainsCost 0 54+75) (Verify.ccM c.topP K) := by
+    Verify.GoodQ s (N+2274) (C+c.chainsCost 0 54+74) Q (A+c.chainsCost 0 54+74) (Verify.ccM c.topP K) := by
   unfold topP
   rw [show (54:Nat)=3*17+3 from rfl,← List.range'_append_1,List.foldlM_append,Verify.ccM_bind]
   have ec := c.chainsCost_add' 0 (3*17) 3
-  have hov : ov 0 17=67 := by decide +kernel
+  have hov : ov 0 17=66 := by decide +kernel
   have H := c.groups_zero hc hds hk h0 he hf 17 (le_refl _) (by decide +kernel) hval
     (fun ends => Verify.ccM ((List.range' (0+3*17) 3).foldlM c.chainF ends) K)
     (N+132) (C+c.chainsCost 51 3+8) (A+c.chainsCost 51 3+8) Q

@@ -469,7 +469,7 @@ theorem zero_count_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = p
     (h17 : s.getReg .x17 = BitVec.ofNat 64 T) (h25 : s.getReg .x25 = BitVec.ofNat 64 S) :
     ∃ k c u, Steps image s k c u ∧
       k ≤ 5 * (lowDigits v).count 0 + 28 ∧ c ≤ 5 * (lowDigits v).count 0 + 28 ∧
-      u.pc = pcOf (b + (if (lowDigits v ++ [T - S]).count 0 ≤ 5 then 433 else 468)) ∧
+      u.pc = (if (lowDigits v ++ [T - S]).count 0 ≤ 5 then pcOf (zBase b+38) else pcOf (b+468)) ∧
       RegsExcept s u [.x20, .x21, .x28, .x29, .x30] ∧ Frame s u (fun _ => False) := by
   let xl := Zero.lanes0 (v.extractLsb' 0 64)
   let xh := Zero.lanes0 (v.extractLsb' 64 64)
@@ -724,16 +724,16 @@ theorem scan_base_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pc
     · rw [r2.get (by decide), x1]; rfl
 
 /-- Shared base scan, layer-2-only fifth-credit check, then checksum-inclusive zero cap. -/
-theorem scan_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (capBase b + 7)) (lay : Nat)
+theorem scan_pre_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (capBase b + 7)) (lay : Nat)
     (hl : lay < 4) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (v : Digest) (c : Nat)
     (hc : c < 8) (h28 : s.getReg .x28 = BitVec.ofNat 64 c) (h6 : s.getReg .x6 = v.extractLsb' 0 64)
     (h7 : s.getReg .x7 = v.extractLsb' 64 64) (T : Nat) (hT : T < 256)
     (hSum : (lowDigits v).sum ≤ T) (hcT : c = T - (lowDigits v).sum)
     (h17 : s.getReg .x17 = BitVec.ofNat 64 T) (h25 : s.getReg .x25 = BitVec.ofNat 64 (lowDigits v).sum)
     (hZeros : (lowDigits v).count 0 ≤ 14) :
-    ∃ k n t, Steps image s k n t ∧ n ≤ 140 ∧
+    ∃ k n t, Steps image s k n t ∧ n ≤ 70 + 5 * (lowDigits v).count 0 ∧
       t.pc = (if producerScanFloor lay ≤ scanCredit v c ∧ (lowDigits v ++ [c]).count 0 ≤ 5
-        then pcOf (b + 433) else pcOf (b + 468)) ∧
+        then pcOf (zBase b+38) else pcOf (b + 468)) ∧
       RegsExcept s t [.x20, .x21, .x28, .x29, .x30] ∧ Frame s t (fun _ => False) := by
   obtain ⟨t0, st0, p0, gx0, r0, f0⟩ := scan_base_spec hK s hpc lay hl h8 v c hc h28 h6 h7
   by_cases hb : 4 ≤ scanCredit v c
@@ -781,6 +781,40 @@ theorem scan_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (c
     have hp : ¬ producerScanFloor lay ≤ scanCredit v c := by
       unfold producerScanFloor; split <;> omega
     exact ⟨32, 35, t0, st0, by omega, by simpa [hp] using p0, r0, f0⟩
+theorem scan_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (capBase b + 7)) (lay : Nat)
+    (hl : lay < 4) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (v : Digest) (c : Nat)
+    (hc : c < 8) (h28 : s.getReg .x28 = BitVec.ofNat 64 c) (h6 : s.getReg .x6 = v.extractLsb' 0 64)
+    (h7 : s.getReg .x7 = v.extractLsb' 64 64) (T : Nat) (hT : T < 256)
+    (hSum : (lowDigits v).sum ≤ T) (hcT : c = T - (lowDigits v).sum)
+    (h17 : s.getReg .x17 = BitVec.ofNat 64 T) (h25 : s.getReg .x25 = BitVec.ofNat 64 (lowDigits v).sum)
+    (hZeros : (lowDigits v).count 0 ≤ 14) :
+    ∃ k n t, Steps image s k n t ∧ n ≤ 154 ∧
+      t.pc = (if producerScanFloor lay ≤ scanCredit v c ∧ (lowDigits v ++ [c]).count 0 ≤ 5 ∧ Rank.rankOK v
+        then pcOf (b+433) else pcOf (b + 468)) ∧
+      RegsExcept s t [.x20, .x21, .x28, .x29, .x30] ∧ Frame s t (fun _ => False) := by
+  obtain ⟨k,n,t,st,bn,pt,rt,ft⟩ := scan_pre_spec hK s hpc lay hl h8 v c hc h28 h6 h7 T hT hSum hcT h17 h25 hZeros
+  by_cases h : producerScanFloor lay ≤ scanCredit v c ∧ (lowDigits v ++ [c]).count 0 ≤ 5
+  · rw [if_pos h] at pt
+    obtain ⟨u,su,pu,ru,fu⟩ := Rank.spec hK t pt v
+      ((rt.get (by decide)).trans h6) ((rt.get (by decide)).trans h7)
+    have hz : (lowDigits v).count 0 ≤ 5 := by
+      have hh := h.2
+      rw [List.count_append] at hh
+      omega
+    refine ⟨k+59,n+59,u,st.trans su,by omega,?_,(rt.trans ru).mono (by simp),
+      (ft.trans fu).mono (fun _ _ h => by simp at h)⟩
+    simp only [h.1,h.2,true_and]
+    by_cases hr : Rank.rankOK v
+    · rw [if_pos hr]
+      simpa only [if_pos hr] using pu
+    · rw [if_neg hr]
+      simpa only [if_neg hr] using pu
+  · rw [if_neg h] at pt
+    refine ⟨k,n,t,st,by omega,?_,rt,ft⟩
+    have h' : ¬ (producerScanFloor lay ≤ scanCredit v c ∧ (lowDigits v ++ [c]).count 0 ≤ 5 ∧ Rank.rankOK v) :=
+      fun h' => h ⟨h'.1,h'.2.1⟩
+    simpa only [if_neg h'] using pt
+
 #print axioms zero_count_spec
 #print axioms scan_spec
 end blocks
@@ -859,7 +893,7 @@ structure CsArgs where
   leaf : Nat
   msg : WCT9.LayerMsg
   ret : Nat
-def csT (lay : Layer) : Nat := if lay = 0 then 417 else 304
+def csT (lay : Layer) : Nat := if lay = 0 then 400 else 319
 def csOk (lay : Layer) : Nat := if lay = 0 then 1525 else 971
 theorem capLimit_le (n : Nat) : capLimit n ≤ 2 ^ 22 := by unfold capLimit; split_ifs <;> omega
 theorem capLimit_eq (lay : Layer) : capLimit lay.val = WCT9.searchLimit lay := by
@@ -879,14 +913,14 @@ theorem producerDecode_top (v : Digest) :
   | some ds =>
     simp only
     rw [WCT9.wordCredit_top hd, show WCT9.producerFloor 0 = 9 from rfl]
-    simp only [WCT9.producerZeroBound, true_or, and_true]
+    simp only [WCT9.producerZeroBound, WCT9.producerRankBound, true_or, and_true]
     by_cases h : T3.topCredit v < 9
     · rw [if_neg (by omega), if_pos h]
     · rw [if_pos (by omega), if_neg h]
 theorem producerDecode_lower {lay : Layer} (hlz : lay ≠ 0) (v : Digest) (c : Nat) {ds : List Nat}
     (hdec : T3.decode lay v = some ds) (hds : ds = lowDigits v ++ [c]) :
     WCT9.producerDecode lay v =
-      if producerScanFloor lay.val ≤ scanCredit v c ∧ (lowDigits v ++ [c]).count 0 ≤ 5 then some ds else none := by
+      if producerScanFloor lay.val ≤ scanCredit v c ∧ (lowDigits v ++ [c]).count 0 ≤ 5 ∧ Rank.rankOK v then some ds else none := by
   unfold WCT9.producerDecode
   rw [hdec]
   simp only
@@ -908,7 +942,7 @@ theorem producerDecode_lower {lay : Layer} (hlz : lay ≠ 0) (v : Digest) (c : N
       funext i; congr 1; apply propext; omega]
     exact length_filter_range 43 _
   rw [hfl, hcr]
-  simp only [WCT9.producerZeroBound, hlz, false_or, hds, filter_zero_count]
+  simp only [WCT9.producerZeroBound, WCT9.producerRankBound, Rank.rankOK, Rank.rankFloor, WCT9.producerRankFloor, hlz, false_or, hds, filter_zero_count]
 def cfFlag (b : Nat) : Nat := if b = 543 then 1 else 0
 abbrev csRegs : List Reg := [.x6, .x7, .x10, .x11, .x12, .x19, .x20, .x21, .x25, .x28, .x29, .x30]
 def CsW (A : Nat) : Prop :=
@@ -1324,7 +1358,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
               omega))
           have hT8 := hT7.step r8 (by decide) f8
           by_cases hok : producerScanFloor A.lay.val ≤ scanCredit v (T3.target A.lay - (lowDigits v).sum) ∧
-              (lowDigits v ++ [T3.target A.lay - (lowDigits v).sum]).count 0 ≤ 5
+              (lowDigits v ++ [T3.target A.lay - (lowDigits v).sum]).count 0 ≤ 5 ∧ Rank.rankOK v
           · rw [if_pos hok] at p8 ⊢
             refine (TBSim.steps ((((s4.trans s5).trans s6).trans s7).trans s8) (cs_success hK hpre hT8 p8 hi22 hlz v hr _ _
               hd' rfl hs.1
@@ -1408,7 +1442,7 @@ def CsPostS (b : Nat) (s : MachineState) (lay : Layer) (ret : Nat) :
       (∀ i < T3.chainCount lay, t.getByte (BitVec.ofNat 64 (DIGITS + i)) = BitVec.ofNat 8 (ds.getD i 0)) ∧
       (t.getMem (BitVec.ofNat 64 (ENC + 32))).toNat < 2 ^ 32 ∧ RegsExcept s t csRegs ∧ Frame s t CsW ∧
       (t.getReg .x25).toNat ≤ T3.target lay
-def csCostS (lay : Layer) : Nat := (if lay = 0 then T3.counterLimit * 417 else WCT9.lowerSearchLimit * 304) + 2000
+def csCostS (lay : Layer) : Nat := (if lay = 0 then T3.counterLimit * 400 else WCT9.lowerSearchLimit * 319) + 2000
 theorem CsPreS.toCsPre {b : Nat} {s : MachineState} {lay : Layer} {tree leaf : Nat} {msg : WCT9.LayerMsg} {ret : Nat}
     (h : CsPreS b s lay tree leaf msg ret) : CsPre b ⟨lay, tree, leaf, msg, ret⟩ s :=
   ⟨h.pc, h.x1, h.x5, h.x8, h.x9, h.x18, h.x17, h.x26, h.x27, h.htree, h.hleaf, h.hroute, h.x15, h.msg.1, h.msg.2,
@@ -1420,7 +1454,7 @@ theorem counterSearch_spec {image : Image} {b : Nat} {sk : BitVec 256} (hK : Ker
       (CsPostS b s lay ret) := by
   refine (counterSearch_tbsim (sk := sk) hK h.toCsPre).mono ?_ (fun r t ht => ?_)
   · show 18 + capLimit lay.val * csT lay + csOk lay ≤
-      (if lay = 0 then T3.counterLimit * 417 else WCT9.lowerSearchLimit * 304) + 2000
+      (if lay = 0 then T3.counterLimit * 400 else WCT9.lowerSearchLimit * 319) + 2000
     have hl0 : (lay.val = 0) ↔ lay = 0 := ⟨fun h => Fin.ext h, fun h => by rw [h]; rfl⟩
     unfold capLimit csT csOk T3.counterLimit WCT9.lowerSearchLimit
     by_cases h : lay = 0

@@ -2,6 +2,7 @@ import SigGolfCandidate.T3M.Verify.BCWords
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.VerifyP
 import SigGolfCandidate.T3M.Verify.ChainGood
 import SigGolfCandidate.T3M.Verify.LowerDecode
+import SigGolfCandidate.T3M.Verify.ChainSem
 
 section
 namespace SigGolfCandidate.T3M.Verify
@@ -607,8 +608,8 @@ theorem ofNat64_add_zero_bridge (v : Word) (n : Nat) (h : v = BitVec.ofNat 64 n)
     v = BitVec.ofNat 64 (n + 0) := by simpa only [Nat.add_zero] using h
 theorem ofNat64_add_zero_bridge385 (v : Word) (n : Nat) (h : v = BitVec.ofNat 64 (n + 385)) :
     v = BitVec.ofNat 64 (n + 0 + 385) := by simpa only [Nat.add_zero] using h
-theorem knownOK_fifteen (s : MachineState)
-    {p0 p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 p12 p13 p14 : Reg × Word}
+theorem knownOK_sixteen (s : MachineState)
+    {p0 p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 p12 p13 p14 p15 : Reg × Word}
     (h0 : s.getReg p0.1 = p0.2) (h1 : s.getReg p1.1 = p1.2)
     (h2 : s.getReg p2.1 = p2.2) (h3 : s.getReg p3.1 = p3.2)
     (h4 : s.getReg p4.1 = p4.2) (h5 : s.getReg p5.1 = p5.2)
@@ -616,9 +617,9 @@ theorem knownOK_fifteen (s : MachineState)
     (h8 : s.getReg p8.1 = p8.2) (h9 : s.getReg p9.1 = p9.2)
     (h10 : s.getReg p10.1 = p10.2) (h11 : s.getReg p11.1 = p11.2)
     (h12 : s.getReg p12.1 = p12.2) (h13 : s.getReg p13.1 = p13.2)
-    (h14 : s.getReg p14.1 = p14.2) :
-    KnownOK [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14] s := by
-  iterate 15
+    (h14 : s.getReg p14.1 = p14.2) (h15 : s.getReg p15.1 = p15.2) :
+    KnownOK [p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15] s := by
+  iterate 16
     refine knownOK_cons _ _ _ ?_ ?_
     rotate_left
   · intro q hq; cases hq
@@ -652,7 +653,7 @@ theorem lctxOf_known (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (
     (h29 : s.getReg .x29 = 7#64 - BitVec.ofNat 64 (ckOf lay a)) :
     KnownOK (lctxOf w index lay a).known s := by
   unfold LCtx.known
-  refine knownOK_fifteen s ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+  refine knownOK_sixteen s ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · exact knownOK_at _ s 0 (.x5, 0) hk rfl
   · exact knownOK_at _ s 6 (.x11, 64) hk rfl
   · exact knownOK_at _ s 7 (.x7, 1) hk rfl
@@ -662,9 +663,10 @@ theorem lctxOf_known (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (
   · exact knownOK_at _ s 11 (.x21, 5) hk rfl
   · exact knownOK_at _ s 12 (.x26, 6) hk rfl
   · exact h28
-  · exact knownOK_at _ s 3 (.x2, 0x3fe00) hk rfl
+  · exact knownOK_at _ s 3 (.x2, 0x7fc00) hk rfl
+  · exact knownOK_at _ s 15 (.x27, 0x3fe00) hk rfl
   · exact knownOK_at _ s 14 (.x5, 0) hk rfl
-  · exact knownOK_at _ s 15 (.x22, BitVec.ofNat 64 (s6v lay.val)) hk rfl
+  · exact knownOK_at _ s 16 (.x22, BitVec.ofNat 64 (s6v lay.val)) hk rfl
   · exact h16
   · exact h17
   · exact h29
@@ -758,7 +760,7 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
         (by omega) (Or.inr (by unfold TOPLOAD; omega))]
       exact ((ht.hdr3 h3).2.2 0 (by decide +kernel)).trans (by decide +kernel)
     · simp only [M2E, if_neg h3, E.eval, kw]
-  have hmask : (maskE lay.val).eval u = BitVec.ofNat 64 0x3fe00 := by
+  have hmask : (maskE lay.val).eval u = BitVec.ofNat 64 0x7fc00 := by
     by_cases h3 : lay.val = 3
     · simp only [maskE, if_pos h3, E.eval, kw]
       have hd3 : d = 2048 := by rw [if_pos h3] at hdc; exact hdc
@@ -820,9 +822,14 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
         have e1 : s0.getReg .x1 = BitVec.ofNat 64 M1c := by
           rw [hs0.regs (.x1, .ld (kw (TOPLOAD + 8))) (by simp [specBl, h3])]
           simpa only [M1E, if_pos h3] using hm1
-        have e2 : s0.getReg .x2 = BitVec.ofNat 64 0x3fe00 := by
+        have e2 : s0.getReg .x2 = BitVec.ofNat 64 0x7fc00 := by
           rw [hs0.regs (.x2, .ld (kw (TOPLOAD + 24))) (by simp [specBl, h3])]
           simpa only [maskE, if_pos h3] using hmask
+        have e27 : s0.getReg .x27 = BitVec.ofNat 64 0x3fe00 := by
+          rw [hs0.regs (.x27, .bin .srl (maskE 3) (kw 1)) (by simp [specBl, h3])]
+          simp only [E.eval, BinOp.eval, kw]
+          rw [show (maskE 3).eval u = BitVec.ofNat 64 0x7fc00 by rwa [← h3]]
+          rfl
         intro q hq
         simp only [postBl, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hq
         rcases hq with hq | rfl | rfl | rfl
@@ -830,14 +837,16 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
           · subst hq24; exact e24
           by_cases hq1 : q = (.x1, BitVec.ofNat 64 M1c)
           · subst hq1; exact e1
-          by_cases hq2 : q = (.x2, 0x3fe00)
+          by_cases hq2 : q = (.x2, 0x7fc00)
           · subst hq2; exact e2
+          by_cases hq27 : q = (.x27, 0x3fe00)
+          · subst hq27; exact e27
           apply hk0 q
           apply List.mem_append_left
           rw [List.mem_filter]
           refine ⟨hq, ?_⟩
           simp only [chainK, baseK, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hq
-          rcases hq with (rfl | rfl) | (rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl)
+          rcases hq with (rfl | rfl) | (rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl)
           all_goals first | contradiction | decide
         · exact e22
         · exact hk0 _ (by simp)
@@ -890,28 +899,23 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
         rw [L.kOf_eq 0 (by norm_num), if_pos (by norm_num)]
         show (a.extractLsb' 0 64).toNat / 2 ^ (9 * (0 % 7)) % 512 = _
         rw [show 9 * (0 % 7) = 0 from rfl, pow_zero, Nat.div_one]
-      have hm : ((a.extractLsb' 0 64) <<< ((BitVec.ofNat 64 9).toNat % 64) &&& BitVec.ofNat 64 0x3fe00) =
-          BitVec.ofNat 64 (512 * L.kOf 0) := by
+      have hm : ((a.extractLsb' 0 64) <<< ((BitVec.ofNat 64 10).toNat % 64) &&& BitVec.ofNat 64 0x7fc00) =
+          BitVec.ofNat 64 (1024 * L.kOf 0) := by
         apply BitVec.eq_of_toNat_eq
-        rw [toNat_andc _ _ (by norm_num), toNat_sll _ 9 (by norm_num), show (0x3fe00 : Nat) = 512 * (2 ^ 9 - 1) by norm_num,
-          land_mask _ _ (le_refl _), field_shl _ _ _ (le_refl _) (le_refl _), hk0, BitVec.toNat_ofNat,
-          Nat.mod_eq_of_lt (show 512 * ((a.extractLsb' 0 64).toNat % 512) < 2 ^ 64 by omega)]
+        rw [toNat_andc _ _ (by norm_num), toNat_sll _ 10 (by norm_num),
+          show (0x7fc00 : Nat) = 2^10 * (2^9-1) by norm_num,
+          land_mask_pow, field_shl_pow _ _ _ _ (le_refl _) (by norm_num), hk0,
+          BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show 1024 * ((a.extractLsb' 0 64).toNat % 512) < 2 ^ 64 by omega)]
         rw [Nat.sub_self, pow_zero, Nat.div_one]
         rfl
       have hadd : (tgtl lay.val).eval u =
-          (BitVec.ofNat 64 (512 * L.kOf 0) + BitVec.ofNat 64 260384) &&& ~~~1#64 := by
-        by_cases h3 : lay.val = 3
-        · have hm3 : (maskE 3).eval u = BitVec.ofNat 64 0x3fe00 := by rwa [← h3]
-          simp only [tgtl, if_pos h3, x14l, E.eval, BinOp.eval, a6E_eval hans, hm3, kw, hm]
-          rw [BitVec.add_assoc, show BitVec.ofNat 64 0x3fe00 + BitVec.ofNat 64 (2 ^ 64 - 1248) =
-            BitVec.ofNat 64 260384 by decide +kernel]
-        · simp only [tgtl, if_neg h3, E.eval, BinOp.eval, a6E_eval hans, kw, hm]
-      rw [hadd]
-      have e2 : BitVec.ofNat 64 (512 * L.kOf 0) + BitVec.ofNat 64 260384 =
-          BitVec.ofNat 64 (0x1000 + 4 * entW 0 (L.kOf 0)) := by
-        rw [ofNat_add_ofNat]; congr 1; unfold entW ttabIdx; omega
-      rw [e2, even_andNot1' _ (by omega)]
-      unfold LCtx.startPc; simp
+          (BitVec.ofNat 64 (1024 * L.kOf 0) + BitVec.ofNat 64 1628) &&& ~~~1#64 := by
+        simp only [tgtl, x14l, E.eval, BinOp.eval, a6E_eval hans, kw, hmask, hm]
+      rw [hadd, ofNat_add_ofNat, even_andNot1' _ (by omega)]
+      unfold LCtx.startPc
+      simp only [Nat.reduceEqDiff, if_false, Nat.zero_div, Nat.zero_mod, ite_true]
+      rw [entW_address 0 (L.kOf 0) (by norm_num) (by rw [hk0]; omega)]
+      rfl
     have hkL : ∀ q ∈ chainK lay.val, s0.getReg q.1 = q.2 := fun q hq => hko q (by simp [postBl, hq])
     refine ⟨s0, hs0.steps, hLok, ?_, ?_, ⟨⟨fun _ _ => rfl, Frame.refl _ _, fun j hj => by simp at hj⟩, rfl,
       hGs0.2.2.2.2.2, hpc0⟩, ⟨hkL, hGs0.2.1, hGs0.2.2.1, hGs0.2.2.2.1, hGs0.2.2.2.2⟩, hOs0, ?_, ?_, ?_⟩

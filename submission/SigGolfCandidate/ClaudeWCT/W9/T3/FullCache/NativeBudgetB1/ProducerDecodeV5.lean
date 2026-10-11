@@ -8,7 +8,7 @@ open OracleComp OracleSpec ENNReal Finset
 open SphincsSecurity.Completeness (failMass)
 open SigGolfCandidate.T3 hiding digestSearch admissible
 open SigGolfResearch.NonbinaryTop
-open ClaudeWCT.WCT9 (producerDecode producerFloor wordCredit searchLimit producerZeroBound)
+open ClaudeWCT.WCT9 (producerDecode producerFloor wordCredit searchLimit producerZeroBound producerRankBound)
 open ClaudeWCT.W9.T3.BaseAudit
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
@@ -48,9 +48,12 @@ theorem filter_zero_count (l : List ℕ) : (l.filter (· = 0)).length = l.count 
       by_cases ha : a = 0
       · subst a; simp [ih]
       · simp [ha, ih]
+theorem lowerWord_eq_ofS1 (v : Digest) : lowerWord v = ClaudeWCT.Numerics.LowerCredit.ofS1 v.toNat := by
+  unfold lowerWord ClaudeWCT.Numerics.LowerCredit.ofS1
+  ring
 theorem producerDecode_lower_isSome_iff (lay : Layer) (hl : lay ≠ 0) (v : Digest) :
     (producerDecode lay v).isSome ↔
-      ClaudeWCT.Numerics.LowerZeroCredit.LowerAcceptS1Z (target lay) (producerFloor lay) v.toNat := by
+      ClaudeWCT.Numerics.LowerRank.LowerAcceptS1Rank (target lay) (producerFloor lay) v.toNat := by
   set L := ClaudeWCT.Numerics.LowerCredit.lowerDigitsS1 v.toNat with hL
   have hlen : (L ++ [target lay - L.sum]).length = 43 := by
     simp [hL, ClaudeWCT.Numerics.LowerCredit.lowerDigitsS1]
@@ -60,43 +63,42 @@ theorem producerDecode_lower_isSome_iff (lay : Layer) (hl : lay ≠ 0) (v : Dige
       simp only [encodedBits, hl, if_false, not_le]; exact v.isLt
     simp only [decode, hb, if_false, hl, dataDigits_lower lay hl, hL]
     rfl
-  unfold producerDecode ClaudeWCT.Numerics.LowerZeroCredit.LowerAcceptS1Z
+  unfold producerDecode ClaudeWCT.Numerics.LowerRank.LowerAcceptS1Rank
+    ClaudeWCT.Numerics.LowerZeroCredit.LowerAcceptS1Z
     ClaudeWCT.Numerics.LowerCredit.LowerAcceptS1
   rw [hdec, ← hL]
   by_cases h2 : ClaudeWCT.Numerics.LowerCredit.SpareS1 v.toNat ∧ L.sum ≤ target lay ∧ target lay - L.sum < 8
   · rw [if_pos h2]
     simp only
     rw [wordCredit_lower lay hl _ hlen]
-    simp only [ClaudeWCT.WCT9.producerZeroBound, hl, false_or, filter_zero_count]
+    simp only [ClaudeWCT.WCT9.producerZeroBound, producerRankBound, hl, false_or, filter_zero_count,
+      lowerWord_eq_ofS1, ClaudeWCT.Numerics.LowerRank.RankGood]
     constructor
     · intro h
       split_ifs at h with h3
-      · exact ⟨⟨v.isLt, h2.1, h2.2.1, h2.2.2, h3.1⟩, h3.2⟩
+      · exact ⟨⟨⟨v.isLt, h2.1, h2.2.1, h2.2.2, h3.1⟩, h3.2.1⟩, h3.2.2⟩
       · simp at h
     · intro h
-      rw [if_pos ⟨h.1.2.2.2.2, h.2⟩]
+      rw [if_pos ⟨h.1.1.2.2.2.2, h.1.2, h.2⟩]
       rfl
   · rw [if_neg h2]
     simp only [Option.isSome_none, Bool.false_eq_true, false_iff]
-    rintro ⟨⟨-, h1, h3, h4, -⟩, -⟩
+    rintro ⟨⟨⟨-, h1, h3, h4, -⟩, -⟩, -⟩
     exact h2 ⟨h1, h3, h4⟩
-theorem lowerWord_eq_ofS1 (v : Digest) : lowerWord v = ClaudeWCT.Numerics.LowerCredit.ofS1 v.toNat := by
-  unfold lowerWord ClaudeWCT.Numerics.LowerCredit.ofS1
-  ring
 theorem producerDecode_lower_isSome_iff_word (lay : Layer) (hl : lay ≠ 0) (v : Digest) :
     (producerDecode lay v).isSome ↔
-      lowerSpare v ∧ ClaudeWCT.Numerics.LowerZeroCredit.LowerAcceptZ (target lay) (producerFloor lay) (lowerWord v) := by
+      lowerSpare v ∧ ClaudeWCT.Numerics.LowerRank.LowerAcceptRank (target lay) (producerFloor lay) (lowerWord v) := by
   rw [producerDecode_lower_isSome_iff lay hl, lowerWord_eq_ofS1]
   constructor
   · intro h
-    exact ⟨h.1.2.1, (ClaudeWCT.Numerics.LowerZeroCredit.lowerAcceptS1Z_iff v.isLt h.1.2.1 _ _).mp h⟩
+    exact ⟨h.1.1.2.1, (ClaudeWCT.Numerics.LowerRank.lowerAcceptS1Rank_iff v.isLt h.1.1.2.1 _ _).mp h⟩
   · intro h
-    exact (ClaudeWCT.Numerics.LowerZeroCredit.lowerAcceptS1Z_iff v.isLt h.1 _ _).mpr h.2
+    exact (ClaudeWCT.Numerics.LowerRank.lowerAcceptS1Rank_iff v.isLt h.1 _ _).mpr h.2
 theorem card_producer_lower (lay : Layer) (hl : lay ≠ 0) (T f n : ℕ) (hT : target lay = T)
     (hf : producerFloor lay = f)
-    (hn : (univ.filter fun v : BitVec 128 => ClaudeWCT.Numerics.LowerZeroCredit.LowerAcceptS1Z T f v.toNat).card = n) :
-    (univ.filter fun v : Digest => (producerDecode lay v).isSome).card = n := by
-  rw [← hn]
+    (hn : n ≤ (univ.filter fun v : BitVec 128 => ClaudeWCT.Numerics.LowerRank.LowerAcceptS1Rank T f v.toNat).card) :
+    n ≤ (univ.filter fun v : Digest => (producerDecode lay v).isSome).card := by
+  convert hn using 1
   exact congrArg Finset.card (filter_congr fun v _ => by rw [producerDecode_lower_isSome_iff lay hl, hT, hf])
 theorem filter_length_eq_sum (l : List ℕ) (p : ℕ → Bool) :
     (l.filter p).length = (l.map fun i => if p i then 1 else 0).sum := by
@@ -137,7 +139,7 @@ theorem producerDecode_top_isSome_iff (v : Digest) :
       Counting.weight w = target 0 ∧ producerFloor 0 ≤ CreditCounting.credit w := by
   unfold producerDecode
   rw [decode_top_eq]
-  simp only [producerZeroBound, eq_self_iff_true, true_or, and_true]
+  simp only [producerZeroBound, producerRankBound, eq_self_iff_true, true_or, and_true]
   constructor
   · intro h
     by_cases h1 : 2 ^ 128 ≤ v.toNat
@@ -175,15 +177,41 @@ theorem card_producer_top (T f n : ℕ) (hT : target 0 = T) (hf : producerFloor 
   simp only [mem_filter, mem_univ, true_and]
   rw [producerDecode_top_isSome_iff, hT, hf]
   rfl
-def producerCount (lay : Layer) : ℕ :=
-  ![V5.topCount144, V5.lowerCount199f5, V5.lowerCount199f5, V5.lowerCount200f4] lay
+noncomputable def producerCount (lay : Layer) : ℕ :=
+  (univ.filter fun v : Digest => (producerDecode lay v).isSome).card
+/-- Proven producer acceptance floor; the actual count can be larger. -/
+def producerCountLower (lay : Layer) : ℕ :=
+  ![113151284379417370579638218549543970,
+    86924063528333136971354894108426834,
+    86924063528333136971354894108426834,
+    72090332289016918256778319009782683] lay
+def producerCountUpper (lay : Layer) : ℕ :=
+  ![113151284379417370579638218549543970,
+    87421058181341847220388848563308770,
+    87421058181341847220388848563308770,
+    72459682149134130685732695915636483] lay
 theorem card_producerDecode (lay : Layer) :
-    (univ.filter fun v : Digest => (producerDecode lay v).isSome).card = producerCount lay := by
+    (univ.filter fun v : Digest => (producerDecode lay v).isSome).card = producerCount lay := rfl
+
+theorem producerCount_ge (lay : Layer) : producerCountLower lay ≤ producerCount lay := by
   fin_cases lay
-  · exact card_producer_top 144 9 _ rfl rfl ClaudeWCT.Numerics.TopCredit.credited_card_144_9
-  · exact card_producer_lower 1 (by decide) 199 5 _ rfl rfl ClaudeWCT.Numerics.LowerZeroCredit.card_lowerAcceptS1Z_199_5
-  · exact card_producer_lower 2 (by decide) 199 5 _ rfl rfl ClaudeWCT.Numerics.LowerZeroCredit.card_lowerAcceptS1Z_199_5
-  · exact card_producer_lower 3 (by decide) 200 4 _ rfl rfl ClaudeWCT.Numerics.LowerZeroCredit.card_lowerAcceptS1Z_200_4
+  · exact le_of_eq (card_producer_top 144 9 _ rfl rfl ClaudeWCT.Numerics.TopCredit.credited_card_144_9).symm
+  · exact card_producer_lower 1 (by decide) 199 5 _ rfl rfl ClaudeWCT.Numerics.LowerRank.card_lowerAcceptS1Rank_199_5
+  · exact card_producer_lower 2 (by decide) 199 5 _ rfl rfl ClaudeWCT.Numerics.LowerRank.card_lowerAcceptS1Rank_199_5
+  · exact card_producer_lower 3 (by decide) 200 4 _ rfl rfl ClaudeWCT.Numerics.LowerRank.card_lowerAcceptS1Rank_200_4
+
+theorem producerCount_le_upper (lay : Layer) : producerCount lay ≤ producerCountUpper lay := by
+  have lower (l : Layer) (hl : l ≠ 0) : producerCount l ≤
+      (univ.filter fun v : Digest => ClaudeWCT.Numerics.LowerZeroCredit.LowerAcceptS1Z (target l) (producerFloor l) v.toNat).card := by
+    apply card_le_card
+    intro v hv
+    simp only [mem_filter, mem_univ, true_and] at hv ⊢
+    exact ((producerDecode_lower_isSome_iff l hl v).mp hv).1
+  fin_cases lay
+  · exact le_of_eq (card_producer_top 144 9 _ rfl rfl ClaudeWCT.Numerics.TopCredit.credited_card_144_9)
+  · exact (lower 1 (by decide)).trans_eq ClaudeWCT.Numerics.LowerZeroCredit.card_lowerAcceptS1Z_199_5
+  · exact (lower 2 (by decide)).trans_eq ClaudeWCT.Numerics.LowerZeroCredit.card_lowerAcceptS1Z_199_5
+  · exact (lower 3 (by decide)).trans_eq ClaudeWCT.Numerics.LowerZeroCredit.card_lowerAcceptS1Z_200_4
 theorem producer_uniform_probability (lay : Layer) :
     Pr[fun answer => (producerEncodingDecode lay answer).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] =
       (producerCount lay : ENNReal) / 2 ^ 128 := by
@@ -198,9 +226,15 @@ theorem producer_uniform_probability (lay : Layer) :
   rw [show (2 : ENNReal) ^ 256 = 2 ^ 128 * 2 ^ 128 by rw [← pow_add]]
   exact ENNReal.mul_div_mul_right _ _ (by simp) (by simp)
 noncomputable def producerRate (lay : Layer) : ℝ := (producerCount lay : ℝ) / 2 ^ 128
+theorem producerRate_ge (lay : Layer) : (producerCountLower lay : ℝ) / 2^128 ≤ producerRate lay := by
+  unfold producerRate
+  exact div_le_div_of_nonneg_right (by exact_mod_cast producerCount_ge lay) (by positivity)
 theorem producerRate_bounds (lay : Layer) : 1 / 8192 ≤ producerRate lay ∧ producerRate lay ≤ 1 := by
-  fin_cases lay <;>
-    norm_num [producerRate, producerCount, V5.topCount144, V5.lowerCount199f5, V5.lowerCount199f4, V5.lowerCount200f4]
+  have hlo := producerRate_ge lay
+  have hhi : producerRate lay ≤ (producerCountUpper lay : ℝ) / 2^128 := by
+    unfold producerRate
+    exact div_le_div_of_nonneg_right (by exact_mod_cast producerCount_le_upper lay) (by positivity)
+  fin_cases lay <;> norm_num [producerCountLower, producerCountUpper] at hlo hhi ⊢ <;> constructor <;> linarith
 theorem producer_failMass (lay : Layer) :
     failMass (producerEncodingDecode lay) = ENNReal.ofReal (1 - producerRate lay) := by
   rw [SigGolfCandidate.T3.Budgets.failMass_eq_one_sub_accept, producer_uniform_probability,
@@ -208,13 +242,17 @@ theorem producer_failMass (lay : Layer) :
   congr 1
   rw [producerRate, ENNReal.ofReal_div_of_pos (by positivity), ENNReal.ofReal_natCast,
     ENNReal.ofReal_pow (by norm_num), ENNReal.ofReal_ofNat]
+theorem producer_uniform_probability_lower (lay : Layer) :
+    (producerCountLower lay : ENNReal) / 2^128 ≤
+      Pr[fun answer => (producerEncodingDecode lay answer).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] := by
+  rw [producer_uniform_probability]
+  exact ENNReal.div_le_div_right (by exact_mod_cast producerCount_ge lay) _
 theorem producer_failure_power (lay : Layer) :
     failMass (producerEncodingDecode lay) ^ searchLimit lay ≤ 1 / (2 : ENNReal) ^ 600 := by
-  have hp := producer_uniform_probability lay
-  fin_cases lay
-  · exact (ClaudeWCT.W9.T3.Budgets.V5.top_failure_power _ hp).trans
-      (by gcongr <;> norm_num)
-  · exact ClaudeWCT.W9.T3.Budgets.V5.lower199f5_failure_power _ hp
-  · exact ClaudeWCT.W9.T3.Budgets.V5.lower199f5_failure_power _ hp
-  · exact ClaudeWCT.W9.T3.Budgets.V5.lower200f4_failure_power _ hp
+  apply ClaudeWCT.W9.T3.Budgets.V5.failure_power_of_rate _ ((producerCountLower lay : ℚ) / 2^128)
+  · positivity
+  · fin_cases lay <;> norm_num [producerCountLower]
+  · rw [ClaudeWCT.W9.T3.Budgets.V5.ofReal_count_div]
+    exact producer_uniform_probability_lower lay
+  · fin_cases lay <;> norm_num [producerCountLower, searchLimit, ClaudeWCT.WCT9.lowerSearchLimit, counterLimit]
 end ClaudeWCT.W9.T3.ProducerV5

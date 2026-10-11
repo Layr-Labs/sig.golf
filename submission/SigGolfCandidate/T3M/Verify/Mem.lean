@@ -135,12 +135,12 @@ def PHalf (s : MachineState) : Prop := (s.getMem (BitVec.ofNat 64 CTRW)).toNat /
 def WitHdr (w : ClaudeWCT.W9.T3M.WBytes) (s : MachineState) : Prop :=
   ∀ j, 4 ≤ j → j < 8 → s.getMem (BitVec.ofNat 64 (WIT + 8 * j)) = wword w j
 def dataWords : List Nat :=
-  [2 ^ 40, 17311559823019733055, 8198552921648689607, 0x30401, 0x3fe00, 2256, 11736, 0xa01, 0x901, 7072, 15264, 0]
+  [2 ^ 40, 17311559823019733055, 8198552921648689607, 0x30401, 0x7fc00, 2256, 11736, 0xa01, 0x901, 7072, 15264, 0]
 def TOPLOAD : Nat := 0xffbf68
 def TOPBASE : Nat := 0xffc000
 def TOPB9 : Nat := 0xffbf10
 def topWords : List Nat :=
-  [17311559823019733055, 8198552921648689607, 0x30401, 0x3fe00, 0x201 + 193 * 2 ^ 56 + 3 * 2 ^ 48]
+  [17311559823019733055, 8198552921648689607, 0x30401, 0x7fc00, 0x201 + 193 * 2 ^ 56 + 3 * 2 ^ 48]
 def DATA : Nat := 16777120
 def TAB : Nat := 16709632
 def HDATA : Nat := 0xffbf90
@@ -148,7 +148,7 @@ def headerBank (lay koff : Nat) : Nat := TOPBASE + 4096 * lay + 64 * koff
 def hyperBase (lay : Nat) : Nat := 0x201 + lay * 2 ^ 48 + 193 * 2 ^ 56
 def hdrAddr (lay : Nat) : Nat := TOPBASE - 120 + 8 * ((lay + 1) % 4)
 structure DataOK (s : MachineState) : Prop where
-  mask : s.getMem (BitVec.ofNat 64 (TOPBASE - 8)) = 130048#64
+  mask : s.getMem (BitVec.ofNat 64 (TOPBASE - 8)) = 520192#64
   header : ∀ lay, lay < 4 →
     s.getMem (BitVec.ofNat 64 (hdrAddr lay)) = BitVec.ofNat 64 (hyperBase lay)
 theorem DataOK.prefix {s : MachineState} (h : DataOK s) (lay : Nat) (hl : lay < 4) :

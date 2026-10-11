@@ -301,3 +301,311 @@ theorem card_lowerAcceptS1Z_200_4 :
 #print axioms card_lowerAcceptS1Z_199_5
 #print axioms card_lowerAcceptS1Z_200_4
 end ClaudeWCT.Numerics.LowerZeroCredit
+
+section
+namespace ClaudeWCT.Numerics.LowerRank
+open Finset Polynomial LowerCredit LowerZeroCredit
+set_option maxRecDepth 10000
+set_option maxHeartbeats 2000000
+set_option Elab.async false
+
+def rankFloor (i : ℕ) : ℕ := if i = 1 ∨ i = 8 then 5 else 3
+
+def slot (i : Fin 14) (j : Fin 3) : Fin 42 := ⟨3 * i.val + j.val, by omega⟩
+def special (i : Fin 14) (j : Fin 42) : Prop := j = slot i 0 ∨ j = slot i 1 ∨ j = slot i 2
+instance (i : Fin 14) (j : Fin 42) : Decidable (special i j) := by unfold special; infer_instance
+def allowed (i : Fin 14) (j : Fin 42) : Finset (Fin 8) :=
+  if j = slot i 0 then univ.filter (fun a => a.val < rankFloor i.val)
+  else if j = slot i 1 ∨ j = slot i 2 then {0} else univ
+noncomputable def badWords (i : Fin 14) : Finset (Fin 42 → Fin 8) := Fintype.piFinset (allowed i)
+noncomputable def P : ℕ[X] := ∑ a : Fin 8, X ^ a.val
+noncomputable def Q (i : Fin 14) : ℕ[X] := ∑ a ∈ (univ.filter (fun a : Fin 8 => a.val < rankFloor i.val)), X ^ a.val
+
+theorem Q_eq (i : Fin 14) : Q i = if i.val = 1 ∨ i.val = 8 then
+    1 + X + X^2 + X^3 + X^4 else 1 + X + X^2 := by
+  unfold Q rankFloor
+  split_ifs <;> norm_num [Fin.sum_univ_succ, Finset.sum_filter] <;> ring
+
+theorem special_card (i : Fin 14) : #{j : Fin 42 | ¬ special i j} = 39 := by
+  revert i
+  decide +kernel
+
+theorem restricted_poly (i : Fin 14) :
+    (∏ j : Fin 42, ∑ a ∈ allowed i j, (X : ℕ[X]) ^ a.val) = P ^ 39 * Q i := by
+  have hfactor (j : Fin 42) :
+      (∑ a ∈ allowed i j, (X : ℕ[X]) ^ a.val) =
+        (if j = slot i 0 then Q i else 1) * (if special i j then 1 else P) := by
+    by_cases h0 : j = slot i 0
+    · simp [allowed, h0, special, Q]
+    · by_cases h12 : j = slot i 1 ∨ j = slot i 2
+      · simp [allowed, h0, h12, special]
+      · simp [allowed, h0, h12, special, P]
+  simp_rw [hfactor]
+  rw [Finset.prod_mul_distrib]
+  have hQ : (∏ j : Fin 42, if j = slot i 0 then Q i else 1) = Q i := by simp
+  rw [hQ]
+  have hP : (∏ j : Fin 42, if special i j then (1 : ℕ[X]) else P) = P ^ 39 := by
+    rw [Finset.prod_ite]
+    simp only [prod_const_one, one_mul, prod_const, special_card]
+  rw [hP, mul_comm]
+
+def sumDigits (d : Fin 42 → Fin 8) : ℕ := ∑ i, (d i).val
+
+theorem card_bad_sum (i : Fin 14) (E : ℕ) :
+    #{d ∈ badWords i | sumDigits d = E} = (P ^ 39 * Q i).coeff E := by
+  have h := ClaudeWCT.Numerics.card_pi_sum_eq_coeff (allowed i) (fun b : Fin 8 => b.val) E
+  rw [restricted_poly] at h
+  exact h
+
+def evalP (B : ℕ) : ℕ := 1+B+B^2+B^3+B^4+B^5+B^6+B^7
+def evalQ (i : Fin 14) (B : ℕ) : ℕ := if i.val = 1 ∨ i.val = 8 then 1+B+B^2+B^3+B^4 else 1+B+B^2
+
+theorem eval_P (B : ℕ) : P.eval B = evalP B := by
+  simp [P, evalP, Fin.sum_univ_succ]
+  ring
+
+theorem eval_Q (i : Fin 14) (B : ℕ) : (Q i).eval B = evalQ i B := by
+  rw [Q_eq]
+  split_ifs <;> simp_all [evalQ]
+
+theorem coeff_lt (i : Fin 14) (E : ℕ) : (P^39*Q i).coeff E < 2^128 := by
+  refine lt_of_le_of_lt (ClaudeWCT.Numerics.coeff_le_eval_one _ E) ?_
+  rw [eval_mul, eval_pow, eval_P, eval_Q]
+  unfold evalQ
+  split <;> norm_num [evalP]
+
+theorem coeff_eq (i : Fin 14) (E : ℕ) :
+    (P^39*Q i).coeff E = (evalP (2^128)^39*evalQ i (2^128)) / (2^128)^E % 2^128 := by
+  rw [← ClaudeWCT.Numerics.eval_div_pow_mod (by positivity) E _ (coeff_lt i),
+    eval_mul, eval_pow, eval_P, eval_Q]
+
+def badCount (T : ℕ) (i : Fin 14) : ℕ :=
+  (List.range 8).foldr (fun j a =>
+    ((evalP (2^128)^39*evalQ i (2^128)) / (2^128)^(T-7+j) % 2^128) + a) 0
+
+#time theorem badCount_199 (i : Fin 14) : badCount 199 i =
+    if i.val = 1 ∨ i.val = 8 then 69955568807611825867574762043688 else 29756959616123883108233744232880 := by
+  fin_cases i <;> decide +kernel
+#time theorem badCount_200 (i : Fin 14) : badCount 200 i =
+    if i.val = 1 ∨ i.val = 8 then 52300309978308840623335998836060 else 22062436680049562308975409015140 := by
+  fin_cases i <;> decide +kernel
+
+#print axioms restricted_poly
+#print axioms card_bad_sum
+
+
+theorem mem_badWords (i : Fin 14) (d : Fin 42 → Fin 8) :
+    d ∈ badWords i ↔ (d (slot i 0)).val < rankFloor i.val ∧ d (slot i 1) = 0 ∧ d (slot i 2) = 0 := by
+  have h01 : slot i 0 ≠ slot i 1 := by intro h; have := congrArg Fin.val h; simp [slot] at this
+  have h02 : slot i 0 ≠ slot i 2 := by intro h; have := congrArg Fin.val h; simp [slot] at this
+  have h12 : slot i 1 ≠ slot i 2 := by intro h; have := congrArg Fin.val h; simp [slot] at this
+  simp only [badWords, Fintype.mem_piFinset]
+  constructor
+  · intro h
+    have h0 := h (slot i 0)
+    have h1 := h (slot i 1)
+    have h2 := h (slot i 2)
+    simpa [allowed, h01, h02, h12, Ne.symm h01, Ne.symm h02, Ne.symm h12] using And.intro h0 (And.intro h1 h2)
+  · rintro ⟨h0,h1,h2⟩ j
+    by_cases hj0 : j = slot i 0
+    · subst j; simpa [allowed] using h0
+    · by_cases hj1 : j = slot i 1
+      · subst j; simp [allowed, hj0, h1]
+      · by_cases hj2 : j = slot i 2
+        · subst j; simp [allowed, hj0, h2]
+        · simp [allowed, hj0, hj1, hj2]
+
+def RankGood (n : ℕ) : Prop := ∀ i : Fin 14, rankFloor i.val ≤ n / 2^(9*i.val) % 512
+instance (n : ℕ) : Decidable (RankGood n) := by unfold RankGood; infer_instance
+
+theorem rank_bad_iff (d : Fin 42 → Fin 8) (i : Fin 14) :
+    ¬ rankFloor i.val ≤ (finFunctionFinEquiv d).val / 2^(9*i.val) % 512 ↔ d ∈ badWords i := by
+  rw [mem_badWords]
+  have h0 := finFunctionFinEquiv_symm_apply_val (finFunctionFinEquiv d) (slot i 0)
+  have h1 := finFunctionFinEquiv_symm_apply_val (finFunctionFinEquiv d) (slot i 1)
+  have h2 := finFunctionFinEquiv_symm_apply_val (finFunctionFinEquiv d) (slot i 2)
+  simp only [Equiv.symm_apply_apply, slot, Fin.val_mk] at h0 h1 h2
+  norm_num only [Fin.val_zero, Fin.val_one, Fin.val_ofNat, Nat.add_zero] at h0 h1 h2
+  rw [pow_add] at h1 h2
+  have hp : (8:ℕ)^(3*i.val) = 2^(9*i.val) := by
+    calc (8:ℕ)^(3*i.val) = (2^3)^(3*i.val) := by norm_num
+      _ = 2^(9*i.val) := by rw [← pow_mul]; congr 1; omega
+  rw [hp] at h0 h1 h2
+  rw [← Nat.div_div_eq_div_mul] at h1 h2
+  have h1' : d (slot i 1) = 0 ↔ (d (slot i 1)).val = 0 := by simp
+  have h2' : d (slot i 2) = 0 ↔ (d (slot i 2)).val = 0 := by simp
+  rw [h1', h2']
+  change (d (slot i 0)).val = _ at h0
+  change (d (slot i 1)).val = (finFunctionFinEquiv d).val / 2^(9*i.val) / 8 % 8 at h1
+  change (d (slot i 2)).val = (finFunctionFinEquiv d).val / 2^(9*i.val) / 64 % 8 at h2
+  rw [h0,h1,h2]
+  unfold rankFloor
+  split <;> omega
+
+theorem sumDigits_eq (d : Fin 42 → Fin 8) : sumDigits d = (lowerDigits (finFunctionFinEquiv d)).sum := by
+  rw [lowerDigits_equiv, List.sum_ofFn]
+  rfl
+
+theorem card_bad_window (i : Fin 14) (T : ℕ) :
+    #{d ∈ badWords i | sumDigits d ∈ Ico (T-7) (T-7+8)} = badCount T i := by
+  rw [card_eq_sum_card_fiberwise (f := sumDigits) (t := Ico (T-7) (T-7+8))]
+  · have hfib (E : ℕ) (hE : E ∈ Ico (T-7) (T-7+8)) :
+      #{d ∈ {d ∈ badWords i | sumDigits d ∈ Ico (T-7) (T-7+8)} | sumDigits d = E} =
+        #{d ∈ badWords i | sumDigits d = E} := by
+      apply congrArg Finset.card
+      ext d
+      simp only [mem_filter]
+      constructor
+      · intro h; exact ⟨h.1.1,h.2⟩
+      · intro h; exact ⟨⟨h.1,h.2 ▸ hE⟩,h.2⟩
+    rw [sum_congr rfl hfib]
+    simp_rw [card_bad_sum, coeff_eq]
+    unfold badCount
+    rw [range_foldr_eq_sum, sum_Ico_eq_sum_range]
+    simp only [Nat.add_sub_cancel_left]
+  · intro d hd
+    exact (mem_filter.mp hd).2
+
+theorem card_bad_accepted_le (T f : ℕ) (i : Fin 14) :
+    #{d : Fin 42 → Fin 8 | accZ T f (statZ d) = true ∧ d ∈ badWords i} ≤ badCount T i := by
+  rw [← card_bad_window i T]
+  apply card_le_card
+  intro d hd
+  simp only [mem_filter, mem_univ, true_and] at hd ⊢
+  refine ⟨hd.2, ?_⟩
+  have ha := (accept_iffZ T f d).mpr hd.1
+  unfold LowerAcceptZ LowerAccept at ha
+  rw [sumDigits_eq, mem_Ico]
+  exact ⟨by omega, by omega⟩
+
+
+
+theorem card_good_ge (T f : ℕ) :
+    #{d : Fin 42 → Fin 8 | accZ T f (statZ d) = true} - (∑ i : Fin 14, badCount T i) ≤
+      #{d : Fin 42 → Fin 8 | accZ T f (statZ d) = true ∧ RankGood (finFunctionFinEquiv d)} := by
+  classical
+  let A : Finset (Fin 42 → Fin 8) := univ.filter fun d => accZ T f (statZ d) = true
+  let B : Finset (Fin 42 → Fin 8) := univ.biUnion fun i : Fin 14 => A.filter fun d => d ∈ badWords i
+  have hBA : B ⊆ A := by
+    intro d hd
+    obtain ⟨i,-,hi⟩ := mem_biUnion.mp hd
+    exact (mem_filter.mp hi).1
+  have hBc : B.card ≤ ∑ i : Fin 14, badCount T i := by
+    calc B.card ≤ ∑ i : Fin 14, (A.filter fun d => d ∈ badWords i).card := card_biUnion_le
+      _ ≤ ∑ i : Fin 14, badCount T i := by
+        apply sum_le_sum
+        intro i _
+        simpa only [A, filter_filter] using card_bad_accepted_le T f i
+  have hgood : (univ.filter fun d : Fin 42 → Fin 8 => accZ T f (statZ d) = true ∧ RankGood (finFunctionFinEquiv d)) = A \ B := by
+    ext d
+    simp only [mem_filter, mem_univ, true_and, mem_sdiff, mem_biUnion, A, B, exists_true_left]
+    constructor
+    · rintro ⟨ha,hg⟩
+      refine ⟨ha, ?_⟩
+      rintro ⟨i,-,hbad⟩
+      exact ((rank_bad_iff d i).mpr hbad) (hg i)
+    · rintro ⟨ha,hb⟩
+      refine ⟨ha, ?_⟩
+      intro i
+      by_contra hi
+      exact hb ⟨i,ha,(rank_bad_iff d i).mp hi⟩
+  rw [hgood, card_sdiff_of_subset hBA]
+  exact Nat.sub_le_sub_left hBc A.card
+
+def LowerAcceptRank (T f n : ℕ) : Prop := LowerAcceptZ T f n ∧ RankGood n
+instance (T f n : ℕ) : Decidable (LowerAcceptRank T f n) := by unfold LowerAcceptRank; infer_instance
+
+theorem card_bitVec_eqRank (T f : ℕ) :
+    (univ.filter fun v : BitVec 128 => LowerAcceptRank T f v.toNat).card =
+      #{d : Fin 42 → Fin 8 | accZ T f (statZ d) = true ∧ RankGood (finFunctionFinEquiv d)} := by
+  refine Finset.card_nbij' (fun v => finFunctionFinEquiv.symm ⟨v.toNat % 8 ^ 42, Nat.mod_lt _ (by positivity)⟩)
+    (fun d => BitVec.ofNat 128 (finFunctionFinEquiv d)) ?_ ?_ ?_ ?_
+  · intro v hv
+    simp only [coe_filter, mem_univ, true_and, Set.mem_ofPred_eq] at hv ⊢
+    have hv' : v.toNat % 8 ^ 42 = v.toNat := Nat.mod_eq_of_lt (lt_of_lt_of_eq hv.1.1.1 (by norm_num))
+    rw [← accept_iffZ, Equiv.apply_symm_apply]
+    simpa only [hv', LowerAcceptRank] using hv
+  · intro d hd
+    simp only [coe_filter, mem_univ, true_and, Set.mem_ofPred_eq] at hd ⊢
+    rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt ((equiv_lt d).trans (by norm_num))]
+    exact ⟨(accept_iffZ T f d).mpr hd.1,hd.2⟩
+  · intro v hv
+    simp only [coe_filter, mem_univ, true_and, Set.mem_ofPred_eq] at hv
+    have hv' : v.toNat % 8 ^ 42 = v.toNat := Nat.mod_eq_of_lt (lt_of_lt_of_eq hv.1.1.1 (by norm_num))
+    simp only [Equiv.apply_symm_apply, hv']
+    exact BitVec.ofNat_toNat ..
+  · intro d _
+    simp only
+    apply finFunctionFinEquiv.symm_apply_eq.mpr
+    apply Fin.ext
+    simp only [BitVec.toNat_ofNat]
+    rw [Nat.mod_eq_of_lt ((equiv_lt d).trans (by norm_num)), Nat.mod_eq_of_lt (finFunctionFinEquiv d).isLt]
+
+theorem card_lowerAcceptRank_ge (T f : ℕ) :
+    (univ.filter fun v : BitVec 128 => LowerAcceptZ T f v.toNat).card - (∑ i : Fin 14, badCount T i) ≤
+      (univ.filter fun v : BitVec 128 => LowerAcceptRank T f v.toNat).card := by
+  rw [card_bitVec_eqZ,card_bitVec_eqRank]
+  exact card_good_ge T f
+
+
+
+def LowerAcceptS1Rank (T f n : ℕ) : Prop := LowerAcceptS1Z T f n ∧ RankGood (ofS1 n)
+instance (T f n : ℕ) : Decidable (LowerAcceptS1Rank T f n) := by unfold LowerAcceptS1Rank; infer_instance
+
+theorem lowerAcceptS1Rank_iff {m : ℕ} (hm : m < 2 ^ 128) (hs : SpareS1 m) (T f : ℕ) :
+    LowerAcceptS1Rank T f m ↔ LowerAcceptRank T f (ofS1 m) := by
+  unfold LowerAcceptS1Rank LowerAcceptRank
+  rw [lowerAcceptS1Z_iff hm hs]
+
+theorem card_lowerAcceptS1Rank (T f : ℕ) :
+    (univ.filter fun v : BitVec 128 => LowerAcceptS1Rank T f v.toNat).card =
+      (univ.filter fun v : BitVec 128 => LowerAcceptRank T f v.toNat).card := by
+  refine Finset.card_nbij' (fun v => BitVec.ofNat 128 (ofS1 v.toNat)) (fun v => BitVec.ofNat 128 (toS1 v.toNat))
+    ?_ ?_ ?_ ?_
+  · intro v hv
+    simp only [coe_filter, mem_univ, true_and, Set.mem_ofPred_eq] at hv ⊢
+    rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt ((ofS1_lt _).trans (by norm_num))]
+    exact (lowerAcceptS1Rank_iff v.isLt hv.1.1.2.1 T f).mp hv
+  · intro v hv
+    simp only [coe_filter, mem_univ, true_and, Set.mem_ofPred_eq] at hv ⊢
+    rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (toS1_lt hv.1.1.1)]
+    exact ⟨lowerAcceptS1Z_toS1 T f hv.1, by simpa only [ofS1_toS1 hv.1.1.1] using hv.2⟩
+  · intro v hv
+    simp only [coe_filter, mem_univ, true_and, Set.mem_ofPred_eq] at hv
+    apply BitVec.eq_of_toNat_eq
+    rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt ((ofS1_lt _).trans (by norm_num)),
+      Nat.mod_eq_of_lt (toS1_lt (ofS1_lt _)), toS1_ofS1 v.isLt hv.1.1.2.1]
+  · intro v hv
+    simp only [coe_filter, mem_univ, true_and, Set.mem_ofPred_eq] at hv
+    apply BitVec.eq_of_toNat_eq
+    rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (toS1_lt hv.1.1.1),
+      Nat.mod_eq_of_lt ((ofS1_lt _).trans (by norm_num)), ofS1_toS1 hv.1.1.1]
+
+theorem card_lowerAcceptS1Rank_ge (T f : ℕ) :
+    (univ.filter fun v : BitVec 128 => LowerAcceptS1Z T f v.toNat).card - (∑ i : Fin 14, badCount T i) ≤
+      (univ.filter fun v : BitVec 128 => LowerAcceptS1Rank T f v.toNat).card := by
+  rw [card_lowerAcceptS1Z,card_lowerAcceptS1Rank]
+  exact card_lowerAcceptRank_ge T f
+
+theorem card_lowerAcceptS1Rank_199_5 :
+    86924063528333136971354894108426834 ≤
+      (univ.filter fun v : BitVec 128 => LowerAcceptS1Rank 199 5 v.toNat).card := by
+  have h := card_lowerAcceptS1Rank_ge 199 5
+  rw [card_lowerAcceptS1Z_199_5] at h
+  simp only [badCount_199] at h
+  norm_num [Fin.sum_univ_succ] at h
+  exact h
+
+theorem card_lowerAcceptS1Rank_200_4 :
+    72090332289016918256778319009782683 ≤
+      (univ.filter fun v : BitVec 128 => LowerAcceptS1Rank 200 4 v.toNat).card := by
+  have h := card_lowerAcceptS1Rank_ge 200 4
+  rw [card_lowerAcceptS1Z_200_4] at h
+  simp only [badCount_200] at h
+  norm_num [Fin.sum_univ_succ] at h
+  exact h
+
+#print axioms card_lowerAcceptS1Rank_199_5
+#print axioms card_lowerAcceptS1Rank_200_4
+end ClaudeWCT.Numerics.LowerRank
+end
