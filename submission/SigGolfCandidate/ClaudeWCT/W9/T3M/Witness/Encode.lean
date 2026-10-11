@@ -71,6 +71,7 @@ def padDecP (N : HashOutput) (w : WBytes) : Pads where
   wctChain k t := wcpads w k.val t.val
   wctChainHigh k t := wcHeaderPad w k.val t.val
   wctMerkle k l := if l.val < 6 then wmpad w k.val (WCT9.child N k).val l.val else 0
+  wctMerkleHigh k l := wmhpad w k.val (WCT9.child N k).val l.val
   wctLeaf k := wleafPad w k.val
   chain lay i := wchainPads w lay i.val
   merkle lay j := if j.val + 1 < height lay ∨ lay.val = 0 then

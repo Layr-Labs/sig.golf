@@ -9,6 +9,9 @@ def cE (n : Nat) : E := .c (BitVec.ofNat 64 n)
 def ldc (a : Nat) : E := .ld (cE a)
 def mwc (a : Nat) (e : E) : Addr × E := (⟨none, BitVec.ofNat 64 a⟩, e)
 def regsOf (l : List (Reg × E)) : RegFile := l.foldl (fun rf p => rf.set p.1 p.2) RegFile.init
+def pres2 (regs : List (Reg × E)) (mem : SymMem) (obl : List Oblig) (pc : Nat) (ecall : Bool) (k cyc : Nat)
+    (brs : List Br) : PRes :=
+  ⟨⟨regsOf regs, mem, obl⟩, pcOf pc, ecall, k, cyc, brs, none⟩
 def pres (regs : List (Reg × E)) (mem : SymMem) (obl : List Oblig) (pc : Nat) (ecall : Bool) (k : Nat)
     (brs : List Br) : PRes :=
   ⟨⟨regsOf regs, mem, obl⟩, pcOf pc, ecall, k, k, brs, none⟩
@@ -88,16 +91,20 @@ def expT (c : Nat) (back : Bool) : PRes :=
 def nodeLd (off : Nat) : E := .ld (.bin .add sh5 (cE (HEAPW + off)))
 def nodeAddr (off : Nat) : Addr := ⟨some sh5, BitVec.ofNat 64 (HEAPW + off)⟩
 def nodeX7 (c : Nat) : E := if c = 0 then nodeLd 24 else cE (65536 * c)
+/-- Packed node tweak (heaps `8..127`): high word `[h < 8] * h`, low word `nodeLo7 + [h < 8] * h - h`. -/
+def nodeHiE : E := .bin .mul (.bin .sltu (.reg .x18) (cE 8)) (.reg .x18)
+def nodeDE : E := .bin .sub nodeHiE (.reg .x18)
+def nodeLoNE (c : Nat) : E := .bin .add (nodeLoE c) nodeDE
 def expN (c : Nat) : PRes :=
-  pres [(.x6, nodeLoE c), (.x7, nodeX7 c), (.x10, cE NODEW), (.x11, cE 64), (.x12, cE NOUTW),
-    (.x28, .bin .add sh5 (cE HEAPW)), (.x29, cE NODEW)]
-    [mwc (NODEW + 24) (.reg .x18), mwc (NODEW + 16) (nodeLoE c), mwc (NODEW + 56) (nodeLd 24),
+  pres2 [(.x6, nodeLoNE c), (.x7, nodeDE), (.x10, cE NODEW), (.x11, cE 64), (.x12, cE NOUTW),
+    (.x28, .bin .add sh5 (cE HEAPW)), (.x29, nodeHiE)]
+    [mwc (NODEW + 24) nodeHiE, mwc (NODEW + 16) (nodeLoNE c), mwc (NODEW + 56) (nodeLd 24),
       mwc (NODEW + 48) (nodeLd 16), mwc (NODEW + 8) (nodeLd 8), mwc NODEW (nodeLd 0)]
     [.ne (nodeAddr 24) ⟨none, BitVec.ofNat 64 NODEW⟩, .ne (nodeAddr 24) ⟨none, BitVec.ofNat 64 (NODEW + 8)⟩,
       .valid (nodeAddr 24) 8, .ne (nodeAddr 16) ⟨none, BitVec.ofNat 64 NODEW⟩,
       .ne (nodeAddr 16) ⟨none, BitVec.ofNat 64 (NODEW + 8)⟩, .valid (nodeAddr 16) 8, .valid (nodeAddr 8) 8,
       .valid (nodeAddr 0) 8]
-    (ntI c - 1) true 25 []
+    (ntI c - 1) true 25 28 []
 def heapAddr (off : Nat) : Addr := ⟨some sh4, BitVec.ofNat 64 (HEAPW + off)⟩
 def expNT (c : Nat) (back : Bool) : PRes :=
   pres [(.x6, cE 1), (.x7, ldc (NOUTW + 8)), (.x18, x18m1), (.x28, cE NOUTW),

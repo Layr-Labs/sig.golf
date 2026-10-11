@@ -1608,7 +1608,10 @@ theorem nodeTweak_not_search (tag lay tree heap : Nat) (htag : tag % 256 ≠ 2)
  · by_cases hf : tag = 3 ∧ lay < 13
    · obtain ⟨rfl, h13⟩ := hf
      unfold SearchHdr RowHdr
-     rw [nodeTweak_fts_marker (by omega) h13, nodeTweak_fts_tag (by omega) h13]; omega
+     rw [nodeTweak_fts_marker (by omega) h13, nodeTweak_fts_tag (by omega) h13]
+     by_cases hn : FtsNew heap
+     · rw [if_pos hn, if_pos hn]; obtain ⟨_, _⟩ := hn; omega
+     · rw [if_neg hn, if_neg hn]; omega
    · rw [nodeTweak_other hf]; exact header_not_search _ _ _ _ _ htag
 @[simp] theorem rowQ_encoding (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : Nat) :
  RowQ (encodingTrial lay tree leaf message counter) :=

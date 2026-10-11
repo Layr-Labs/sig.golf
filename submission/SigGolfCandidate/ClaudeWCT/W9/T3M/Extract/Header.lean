@@ -40,7 +40,7 @@ def Pos.cls : Pos → Nat
   | .node lay .. => if lay = 0 then 1 else 3
   | .leaf .. => 2
   | .wctLeaf .. => 4
-  | .wctNode .. => 5
+  | .wctNode _ _ level _ => if level < 4 then 0 else 5
   | .forest .. => 6
 theorem heap_lt {e x : Nat} (hx : x < 2 ^ e) (he : e ≤ 12) : 2 ^ e + x < 2 ^ 32 := by
   have : 2 ^ e ≤ 2 ^ 12 := Nat.pow_le_pow_right (by decide) he
@@ -76,12 +76,16 @@ private theorem ftsLeafHeader_tweakHigh (index coord selected : Nat) :
   unfold tweakHigh
   rw [WCT9.ftsLeafHeader_toNat]
   exact Nat.div_eq_of_lt (lt_trans (WCT9.ftsLeafLow_lt _ _ _) (by norm_num))
-private theorem wctNodeHeader_tweakHigh {coord : Nat} (hk : coord < 9) (index heap : Nat) :
-    tweakHigh (WCT9.wctNodeHeader coord index heap) = heap % 2 ^ 64 := by
+private theorem wctNodeHeader_tweakHigh {coord : Nat} (hk : coord < 9) (index : Nat) {heap : Nat}
+    (hn : ¬ FtsNew heap) : tweakHigh (WCT9.wctNodeHeader coord index heap) = heap % 2 ^ 64 := by
   unfold tweakHigh
-  rw [WCT9.wctNodeHeader_toNat hk]
+  rw [WCT9.wctNodeHeader_toNat hk, if_neg hn]
   have := lt_trans (WCT9.ftsLeafLow_lt index coord 0) (show 2 ^ 58 < 2 ^ 64 by norm_num)
   omega
+theorem ftsNew_wctNode {level nd : Nat} (hl : level < 6) (hnd : nd < 2 ^ (7 - level - 1)) :
+    FtsNew (2 ^ (7 - level - 1) + nd) ↔ level < 4 := by
+  unfold FtsNew
+  interval_cases level <;> simp at hnd ⊢ <;> omega
 theorem Pos.hdrClass_eq {p : Pos} (hb : p.Bounded) : hdrClass p.hdr = p.cls := by
   cases p with
   | chain lay tree lf i step => exact hdrClass_packed (chainHeader_firstByte lay tree lf i step)
@@ -112,9 +116,18 @@ theorem Pos.hdrClass_eq {p : Pos} (hb : p.Bounded) : hdrClass p.hdr = p.cls := b
       obtain ⟨-, hk, hlev, hnd⟩ := hb
       have hheap := heap_lt64 hnd (show 7 - level - 1 ≤ 12 by omega)
       have : 0 < 2 ^ (7 - level - 1) := pow_pos (by decide) _
+      have hiff := ftsNew_wctNode hlev hnd
       simp only [Pos.hdr, Pos.cls]
-      rw [hdrClass_one (WCT9.wctNodeHeader_tweakMarker _ _ _), WCT9.wctNodeHeader_tweakTag hk,
-        wctNodeHeader_tweakHigh hk, Nat.mod_eq_of_lt hheap, if_neg (by decide), if_pos rfl, if_neg (by omega)]
+      by_cases hl4 : level < 4
+      · have hn := hiff.mpr hl4
+        rw [if_pos hl4]
+        apply hdrClass_packed
+        rw [WCT9.wctNodeHeader_tweakMarker, if_pos ⟨hk, hn⟩]
+        obtain ⟨h8, h128⟩ := hn; omega
+      · have hn : ¬ FtsNew (2 ^ (7 - level - 1) + nd) := fun h => hl4 (hiff.mp h)
+        rw [if_neg hl4, hdrClass_one (by rw [WCT9.wctNodeHeader_tweakMarker, if_neg (fun h => hn h.2)]),
+          WCT9.wctNodeHeader_tweakTag hk, if_neg hn, wctNodeHeader_tweakHigh hk _ hn, Nat.mod_eq_of_lt hheap,
+          if_neg (by decide), if_pos rfl, if_neg (by omega)]
   | forest index =>
       simp only [Pos.hdr, Pos.cls]
       rw [hdrClass_one (header_marker _ _ _ _ _), header_tag]; rfl
@@ -139,6 +152,8 @@ theorem Pos.hdr_injective {p p' : Pos} (hb : p.Bounded) (hb' : p'.Bounded)
     case wctChain index coord child t step' =>
       exact False.elim (WCT9.ftsChainHeaderP_low_ne_chainHeader _ _ _ _ _ _ _ _ _ _ _
         (congrArg (BitVec.extractLsb' 0 64) h.symm))
+    case wctNode index coord level nd =>
+      exact False.elim (WCT9.wctNodeHeader_ne_chainHeader _ _ _ _ _ _ _ _ h.symm)
     all_goals (simp only [Pos.cls] at hc; (try split_ifs at hc) <;> omega)
   case wctChain index coord child t step =>
     obtain ⟨hi, hc9, hj, ht, hs⟩ := hb
@@ -151,6 +166,8 @@ theorem Pos.hdr_injective {p p' : Pos} (hb : p.Bounded) (hb' : p'.Bounded)
       obtain ⟨e1, e2, e3, e4, e5, -⟩ := WCT9.ftsChainHeaderP_injective hi (by omega) hj (by omega)
         (by omega) hi' (by omega) hj' (by omega) (by omega) h
       subst_vars; rfl
+    case wctNode index' coord' level' nd' =>
+      exact False.elim (WCT9.wctNodeHeader_ne_ftsChainHeaderP _ _ _ _ _ _ _ _ 0 h.symm)
     all_goals (simp only [Pos.cls] at hc; (try split_ifs at hc) <;> omega)
   case leaf lay tree lf =>
     cases p'
@@ -203,6 +220,10 @@ theorem Pos.hdr_injective {p p' : Pos} (hb : p.Bounded) (hb' : p'.Bounded)
       have : level = level' := by omega
       subst this x
       rfl
+    case chain lay tree lf i step =>
+      exact False.elim (WCT9.wctNodeHeader_ne_chainHeader _ _ _ _ _ _ _ _ h)
+    case wctChain index' coord' child t step =>
+      exact False.elim (WCT9.wctNodeHeader_ne_ftsChainHeaderP _ _ _ _ _ _ _ _ 0 h)
     all_goals (simp only [Pos.cls] at hc; (try split_ifs at hc) <;> omega)
 theorem rowTweak_ne_hdr (lay : Layer) (tree leaf : Nat) {p : Pos} (hb : p.Bounded) : rowTweak lay tree leaf ≠ p.hdr := by
   intro h
@@ -222,6 +243,7 @@ theorem rowTweak_ne_hdr (lay : Layer) (tree leaf : Nat) {p : Pos} (hb : p.Bounde
         · exact h0 h0'
         · have : 2 ^ 1 ≤ 2 ^ (height lay' - level - 1) := Nat.pow_le_pow_right (by decide) (by omega)
           omega
+  | wctNode _ _ level _ => simp only [Pos.cls] at hc; split_ifs at hc <;> omega
   | _ => simp [Pos.cls] at hc
 theorem Pos.hdr_firstByte_chain (lay : Layer) (tree leaf i step : Nat) :
     128 ≤ (Pos.chain lay tree leaf i step).hdr.toNat % 256 :=
@@ -246,7 +268,14 @@ theorem Pos.canonicalHeader_eq {p : Pos} (hb : p.Bounded) :
   | node lay => exact canonicalHeader_marker_ne _ (Pos.hdr_marker_lt hb (by simp only [Pos.cls]; split <;> omega))
   | forest => exact canonicalHeader_marker_ne _ (Pos.hdr_marker_lt hb (by simp [Pos.cls]))
   | wctLeaf => exact canonicalHeader_marker_ne _ (Pos.hdr_marker_lt hb (by simp [Pos.cls]))
-  | wctNode => exact canonicalHeader_marker_ne _ (Pos.hdr_marker_lt hb (by simp [Pos.cls]))
+  | wctNode index coord level nd =>
+      by_cases hl4 : level < 4
+      · apply canonicalHeader_high_zero
+        obtain ⟨-, hk, hlev, hnd⟩ := hb
+        simp only [Pos.hdr]
+        rw [WCT9.wctNodeHeader_high hk, if_pos ((ftsNew_wctNode hlev hnd).mpr hl4)]
+        rfl
+      · exact canonicalHeader_marker_ne _ (Pos.hdr_marker_lt hb (by simp [Pos.cls, hl4]))
 noncomputable def posOf (input : HashInput) : Option Pos := by
   classical
   exact if h : ∃ p : Pos, p.Bounded ∧ canonicalHeader (hdrBlock input) = bytesLE 16 p.hdr

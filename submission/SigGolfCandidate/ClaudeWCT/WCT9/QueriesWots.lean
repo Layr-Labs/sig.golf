@@ -120,7 +120,7 @@ theorem ftsQuery_notDigest {index : Nat} {q : Query} (h : FtsQuery index q) : BP
         ftsChainHeaderP_firstByte]
       omega
     · rw [BPB.hdrMarker_eq hblock]; unfold tweakMarker; rw [ftsLeafHeader_firstByte]; decide
-    · rw [BPB.hdrMarker_eq hblock]; unfold tweakMarker; rw [wctNodeHeader_firstByte]; decide
+    · rw [BPB.hdrMarker_eq hblock]; exact wctNodeHeader_tweakMarker_ne_zero _ _ _
     · rw [BPB.hdrMarker_eq hblock, header_marker]; decide
   · trivial
   · trivial

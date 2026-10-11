@@ -23,8 +23,9 @@ theorem pubGood_leafHashP (index coord child : Nat) (pad : Digest) (ends : List 
 theorem pubGood_forestPk (index : Nat) (pairs : List (Digest × Digest)) :
     AllQueriesSatisfy (WCT9.forestPk index pairs) PubGood :=
   pubGood_shortHash _ (by simp [WCT9.forestInput, bytesLE_length, zero16])
-theorem pubGood_wctNodeHashP (coord index heap : Nat) (l p r : Digest) :
-    AllQueriesSatisfy (wctNodeHashP coord index heap l p r) PubGood := pubGood_nodeHashP _ _ _ _ _ _ _
+theorem pubGood_wctNodeHashP (coord index heap : Nat) (l : Digest) (hp : BitVec 64) (p r : Digest) :
+    AllQueriesSatisfy (wctNodeHashP coord index heap l hp p r) PubGood :=
+  pubGood_shortHash _ (by simp [SigGolfCandidate.T3M.SecurityInputs.nodeInputPH])
 theorem pubGood_wctNodeHash (coord index heap : Nat) (l r : Digest) :
     AllQueriesSatisfy (WCT9.wctNodeHash coord index heap l r) PubGood := pubGood_nodeHash _ _ _ _ _ _
 theorem pubGood_layerEncodingInputP (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (c : BitVec 32)
@@ -107,7 +108,7 @@ theorem pubGood_wctCoordP (w : WBytes) (index : Nat) (coord : WCT9.Coord) (child
   unfold wctCoordP
   exact allQ_bind (allQ_mapM _ _ fun _ => pubGood_wctChainP _ _ _ _ _ _ _ _ _ _) fun _ =>
     allQ_bind (pubGood_leafHashP _ _ _ _ _) fun _ =>
-      allQ_bind (allQ_foldlM _ _ (fun _ _ => pubGood_wctNodeHashP _ _ _ _ _ _) _) fun _ => allQ_pure _
+      allQ_bind (allQ_foldlM _ _ (fun _ _ => pubGood_wctNodeHashP _ _ _ _ _ _ _) _) fun _ => allQ_pure _
 theorem pubGood_wctStep (w : WBytes) (N : HashOutput) (st : Option (List (Digest × Digest))) (coord : WCT9.Coord) :
     AllQueriesSatisfy (wctStep w N st coord) PubGood := by
   unfold wctStep
@@ -168,7 +169,7 @@ theorem pubGood_recoverCoordinateP (sig : WCT9.Signature) (pads : Pads) (index :
   unfold recoverCoordinateP
   exact allQ_bind (allQ_mapM _ _ fun _ => pubGood_wctChainP _ _ _ _ _ _ _ _ _ _) fun _ =>
     allQ_bind (pubGood_leafHashP _ _ _ _ _) fun _ =>
-      allQ_bind (allQ_foldlM _ _ (fun _ _ => pubGood_wctNodeHashP _ _ _ _ _ _) _) fun _ => allQ_pure _
+      allQ_bind (allQ_foldlM _ _ (fun _ _ => pubGood_wctNodeHashP _ _ _ _ _ _ _) _) fun _ => allQ_pure _
 theorem pubGood_layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) : ∀ fuel counter,
     AllQueriesSatisfy (WCT9.layerCounterSearch lay tree leaf msg counter fuel) PubGood := by
   intro fuel

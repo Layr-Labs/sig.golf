@@ -52,6 +52,14 @@ theorem shortHash_free (a : Digest) {h : BitVec 128} (rest : HashInput) (ht : h.
   unfold shortHash publicHash
   exact bind_allowed WFree ((allQueriesSatisfy_query_iff _ _).mpr (decodeProbe_prefix a rest ht))
     fun _ => pure_allowed _ _
+theorem shortHash_free' (a : Digest) {h : BitVec 128} (rest : HashInput)
+    (ht : h.toNat % 256 < 128 ∨ 4 ≤ h.toNat / 256 % 256) :
+    AllQueriesSatisfy (shortHash (bytesLE 16 a ++ bytesLE 16 h ++ rest)) WFree := by
+  rcases ht with ht | ht
+  · exact shortHash_free a rest ht
+  · unfold shortHash publicHash
+    exact bind_allowed WFree ((allQueriesSatisfy_query_iff _ _).mpr
+      (Guess.decodeProbe_of_hdrBlock_tag (hdrBlock_pad64_prefix a h rest) ht)) fun _ => pure_allowed _ _
 theorem shortHash_header_free (a : Digest) (t l tr p ix : Nat) (rest : HashInput) :
     AllQueriesSatisfy (shortHash (bytesLE 16 a ++ bytesLE 16 (header t l tr p ix) ++ rest)) WFree :=
   shortHash_free a rest (firstByte_header t l tr p ix)
@@ -103,8 +111,7 @@ theorem nodeHash_free (tag lay tree heap : Nat) (left right : Digest) :
     AllQueriesSatisfy (nodeHash tag lay tree heap left right) WFree := by
   unfold nodeHash
   rw [List.append_assoc]
-  exact shortHash_free _ _
-    (by have := nodeTweak_marker tag lay tree heap; unfold tweakMarker at this; split_ifs at this <;> omega)
+  exact shortHash_free' _ _ (nodeTweak_probe_safe tag lay tree heap)
 theorem mask_free (level index : Nat) : AllQueriesSatisfy (mask level index) WFree := by
   unfold mask pairedMask
   exact bind_allowed WFree (privatePair_free _ _ _ _ (by decide)) fun _ => pure_allowed _ _

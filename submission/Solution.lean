@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 22960, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 2048 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7310 := by
+theorem certificate : SigGolf.Certificate submission 7294 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -27,9 +27,14 @@ end SigGolf.Challenge
 #print axioms SigGolf.Challenge.certificate
 
 /-
-FTS dispatch straight into a 64-word slot table (Claude Opus 5.5, base e96d5bf0):
-the 563 FTS rank routines live at code word 221184 + 64*rank, so each coordinate
-dispatch jumps directly into its routine instead of through the 1024-entry jal table
-(-1 cycle per coordinate, -9 per verify). Invalid fields (563..1023) target a pc past
-the end of the code and fault (reject). C 7319 -> 7310; S, W, K unchanged.
+FTS child-tree node tweak repack (Claude Opus 5.5, base d9d1ad90 = slot table, C 7310):
+packed FTS node headers for heaps 8..127 carry the heap in the low word (`nodeLow - heap`,
+byte0 = 257 - heap >= 130, byte1 = 5), so they are marked and `canonicalHeader` ignores
+their high word (honest 0). The verifier writes the low word with one `addi gp,a5,-heap`
+and, only when the computed child is the left input, `sd zero,24(a0)`; on right-input
+levels the high word stays witness memory. Per-child saves rise (max 3 -> 5); joint cap
+782 -> 785 keeps J above the old J (gate and layer targets unchanged).
+C 7310 -> 7295; S, W, K unchanged.
+Plus newjordan's chain-53 suffix fallthrough (c6744cc6) ported: r8 slots hold the copied
+chain-53 suffix (guard k=0 at 32032). C 7295 -> 7294.
 -/

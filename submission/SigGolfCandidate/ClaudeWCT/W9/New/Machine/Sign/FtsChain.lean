@@ -22,6 +22,13 @@ theorem runA_pres {im : Image} {look : Nat → Option (BitVec 32)} (hl : LookOK 
       (ec = true → fetch im ((pres regs mem obl pc ec k brs).toState s) = some (.base .ECALL)) :=
   pathRun_sound (known := []) h hl s hpc (by intro p hp; cases hp) hobl hbr
 theorem no_obl (s : MachineState) : ∀ o ∈ ([] : List Oblig), o.holds s := by intro o ho; cases ho
+theorem runA_pres2 {im : Image} {look : Nat → Option (BitVec 32)} (hl : LookOK im look) {stops : List Nat}
+    {n : Nat} {dirs : List Dir} {regs : List (Reg × E)} {mem : SymMem} {obl : List Oblig} {pc : Nat} {ec : Bool}
+    {k cyc : Nat} {brs : List Br} (h : runA look stops n dirs = some (pres2 regs mem obl pc ec k cyc brs))
+    (s : MachineState) (hpc : s.pc = pcOf n) (hobl : ∀ o ∈ obl, o.holds s) (hbr : ∀ b ∈ brs, b.holds s) :
+    Steps im s k cyc ((pres2 regs mem obl pc ec k cyc brs).toState s) ∧
+      (ec = true → fetch im ((pres2 regs mem obl pc ec k cyc brs).toState s) = some (.base .ECALL)) :=
+  pathRun_sound (known := []) h hl s hpc (by intro p hp; cases hp) hobl hbr
 theorem no_br (s : MachineState) : ∀ b ∈ ([] : List Br), b.holds s := by intro b hb; cases hb
 theorem valid_ofNat {s : MachineState} {b : E} {B off w : Nat} (hb : b.eval s = BitVec.ofNat 64 B)
     (hal : (B + off) % w = 0) (hhi : B + off + w ≤ MEMORY_BYTES) :
@@ -355,20 +362,20 @@ theorem eval_nodeLd (s : MachineState) {h : Nat} (h18 : s.getReg .x18 = BitVec.o
 theorem step_N (hcode : NewCodeAt im) {c h index : Nat} (hc : c < 9) (hh1 : 1 ≤ h) (hh : h < 128)
     (s : MachineState) (hpc : s.pc = pcOf (nodeI c)) (h18 : s.getReg .x18 = BitVec.ofNat 64 h)
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (hidx : index < 2 ^ 31) :
-    ∃ t, Steps im s 25 25 t ∧ fetch im t = some (.base .ECALL) ∧ t.pc = pcOf (ntI c - 1) ∧
+    ∃ t, Steps im s 25 28 t ∧ fetch im t = some (.base .ECALL) ∧ t.pc = pcOf (ntI c - 1) ∧
       t.getReg .x10 = BitVec.ofNat 64 NODEW ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 NOUTW ∧
       t.getMem (BitVec.ofNat 64 NODEW) = s.getMem (BitVec.ofNat 64 (HEAPW + 32 * h)) ∧
       t.getMem (BitVec.ofNat 64 (NODEW + 8)) = s.getMem (BitVec.ofNat 64 (HEAPW + 32 * h + 8)) ∧
       t.getMem (BitVec.ofNat 64 (NODEW + 48)) = s.getMem (BitVec.ofNat 64 (HEAPW + 32 * h + 16)) ∧
       t.getMem (BitVec.ofNat 64 (NODEW + 56)) = s.getMem (BitVec.ofNat 64 (HEAPW + 32 * h + 24)) ∧
-      t.getMem (BitVec.ofNat 64 (NODEW + 16)) = BitVec.ofNat 64 (nodeLo7 c index) ∧
-      t.getMem (BitVec.ofNat 64 (NODEW + 24)) = BitVec.ofNat 64 h ∧
+      t.getMem (BitVec.ofNat 64 (NODEW + 16)) = BitVec.ofNat 64 (nodeLoN c index h) ∧
+      t.getMem (BitVec.ofNat 64 (NODEW + 24)) = BitVec.ofNat 64 (if 8 ≤ h then 0 else h) ∧
       RegsExcept s t [.x6, .x7, .x10, .x11, .x12, .x28, .x29] ∧
       Frame s t (fun A => A = NODEW + 24 ∨ A = NODEW + 16 ∨ A = NODEW + 56 ∨ A = NODEW + 48 ∨ A = NODEW + 8 ∨
         A = NODEW) := by
   have hb := eval_sh5 s h18
-  obtain ⟨hst', hec⟩ := runA_pres (coordLook_ok hcode hc) (runN_eq hc) s hpc (by
+  obtain ⟨hst', hec⟩ := runA_pres2 (coordLook_ok hcode hc) (runN_eq hc) s hpc (by
     intro o ho
     simp only [List.mem_cons, List.not_mem_nil, or_false] at ho
     rcases ho with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
@@ -382,28 +389,28 @@ theorem step_N (hcode : NewCodeAt im) {c h index : Nat} (hc : c < 9) (hh1 : 1 �
     · exact valid_ofNat hb (by ao) (by unfold MEMORY_BYTES; ao)) (no_br s)
   have m : ∀ A, A < 2 ^ 64 → ((expN c).toState s).getMem (BitVec.ofNat 64 A) =
       memEval s (expN c).st.mem (BitVec.ofNat 64 A) := fun A _ => rfl
-  refine ⟨_, hst', hec rfl, rfl, rfl, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, pres_regsExcept _ _ _ _ _ _ _ s, ?_⟩
-  · rw [pres_getMem]; simp only [memEval_mwc_ne _ _ _ (show NODEW < 2 ^ 64 by ao) (show NODEW + 24 < 2 ^ 64 by ao)
+  refine ⟨_, hst', hec rfl, rfl, rfl, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, pres2_regsExcept _ _ _ _ _ _ _ _ s, ?_⟩
+  · rw [pres2_getMem]; simp only [memEval_mwc_ne _ _ _ (show NODEW < 2 ^ 64 by ao) (show NODEW + 24 < 2 ^ 64 by ao)
       (by ao), memEval_mwc_ne _ _ _ (show NODEW < 2 ^ 64 by ao) (show NODEW + 16 < 2 ^ 64 by ao) (by ao),
       memEval_mwc_ne _ _ _ (show NODEW < 2 ^ 64 by ao) (show NODEW + 56 < 2 ^ 64 by ao) (by ao),
       memEval_mwc_ne _ _ _ (show NODEW < 2 ^ 64 by ao) (show NODEW + 48 < 2 ^ 64 by ao) (by ao),
       memEval_mwc_ne _ _ _ (show NODEW < 2 ^ 64 by ao) (show NODEW + 8 < 2 ^ 64 by ao) (by ao)]
     rw [memEval_mwc_self _ _ _ _ (by ao), eval_nodeLd s h18, Nat.add_zero]
-  · rw [pres_getMem]
+  · rw [pres2_getMem]
     rw [memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao),
       memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao),
       memEval_mwc_self _ _ _ _ (by ao), eval_nodeLd s h18]
-  · rw [pres_getMem]
+  · rw [pres2_getMem]
     rw [memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao),
       memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_self _ _ _ _ (by ao), eval_nodeLd s h18]
-  · rw [pres_getMem]
+  · rw [pres2_getMem]
     rw [memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao),
       memEval_mwc_self _ _ _ _ (by ao), eval_nodeLd s h18]
-  · rw [pres_getMem, memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_self _ _ _ _ (by ao)]
-    exact eval_nodeLoE s h22 hc hidx
-  · rw [pres_getMem, memEval_mwc_self _ _ _ _ (by ao)]; exact h18
+  · rw [pres2_getMem, memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_self _ _ _ _ (by ao)]
+    exact eval_nodeLoNE s h22 h18 hc hidx hh
+  · rw [pres2_getMem, memEval_mwc_self _ _ _ _ (by ao)]; exact eval_nodeHiE s h18 hh
   · refine frame_of_memEval (fun a => rfl) _ (fun q hq => ?_)
-    simp only [expN, pres, List.mem_cons, List.not_mem_nil, or_false] at hq
+    simp only [expN, pres2, List.mem_cons, List.not_mem_nil, or_false] at hq
     rcases hq with rfl | rfl | rfl | rfl | rfl | rfl <;> refine ⟨rfl, ?_⟩ <;> rw [off_mwc _ _ (by ao)] <;> ao
 theorem step_NT (hcode : NewCodeAt im) {c h : Nat} (hc : c < 9) (hh1 : 2 ≤ h) (hh : h < 128) (s : MachineState)
     (hpc : s.pc = pcOf (ntI c)) (h18 : s.getReg .x18 = BitVec.ofNat 64 h) :
@@ -640,25 +647,27 @@ theorem hdr0_node (c index : Nat) (hc : c < 9) (hidx : index < 2 ^ 32) :
   rw [Nat.mod_eq_of_lt (show 3 < 256 by norm_num), Nat.mod_eq_of_lt (show 4 + c < 256 by omega),
     Nat.div_eq_of_lt hidx, Nat.mod_eq_of_lt hidx]
   ring
-theorem wordsOf_node (c index h : Nat) (L R : Digest) (hc : c < 9) (hidx : index < 2 ^ 31) (hh : h < 2 ^ 32) :
+theorem wordsOf_node (c index h : Nat) (L R : Digest) (hc : c < 9) (hidx : index < 2 ^ 31) (hh : h < 128) :
     wordsOf (pad64 (nodeIn c index h L R)) =
-      [L.extractLsb' 0 64, L.extractLsb' 64 64, BitVec.ofNat 64 (nodeLo7 c index), BitVec.ofNat 64 h, 0, 0,
-        R.extractLsb' 0 64, R.extractLsb' 64 64] := by
-  have hlo : (WCT9.wctNodeHeader c index h).extractLsb' 0 64 = BitVec.ofNat 64 (nodeLo7 c index) := by
-    unfold WCT9.wctNodeHeader WCT9.nodeLayer
-    rw [SigGolfCandidate.T3.nodeTweak_fts (by omega) (by omega), SigGolfCandidate.T3.append64_low]
-    unfold SigGolfCandidate.T3.ftsNodeWord nodeLo7
-    congr 1
-    rw [show 4 + c - 4 = c by omega, Nat.mod_eq_of_lt (show c < 16 by omega), Nat.mod_eq_of_lt hidx]
-    ring
-  have hhi : (WCT9.wctNodeHeader c index h).extractLsb' 64 64 = BitVec.ofNat 64 h := by
-    unfold WCT9.wctNodeHeader WCT9.nodeLayer
-    rw [SigGolfCandidate.T3.nodeTweak_fts (by omega) (by omega)]
-    apply BitVec.eq_of_toNat_eq
-    rw [BitVec.extractLsb'_toNat, SigGolfCandidate.T3.append64_toNat]
-    have := (SigGolfCandidate.T3.ftsNodeWord (4 + c - 4) index).isLt
-    simp only [BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow]
-    omega
+      [L.extractLsb' 0 64, L.extractLsb' 64 64, BitVec.ofNat 64 (nodeLoN c index h),
+        BitVec.ofNat 64 (if 8 ≤ h then 0 else h), 0, 0, R.extractLsb' 0 64, R.extractLsb' 64 64] := by
+  have hlo : (WCT9.wctNodeHeader c index h).extractLsb' 0 64 = BitVec.ofNat 64 (nodeLoN c index h) := by
+    rw [WCT9.wctNodeHeader_low hc]
+    unfold nodeLoN
+    by_cases h8 : 8 ≤ h
+    · rw [if_pos (show SigGolfCandidate.T3.FtsNew h from ⟨h8, hh⟩), if_pos h8]
+      unfold nodeLo7 WCT9.ftsNodeLowN
+      rw [Nat.mod_eq_of_lt (show c < 16 by omega), Nat.mod_eq_of_lt hidx]
+      congr 1; omega
+    · rw [if_neg (show ¬ SigGolfCandidate.T3.FtsNew h from fun h' => h8 h'.1), if_neg h8]
+      unfold nodeLo7 WCT9.ftsLeafLow
+      rw [Nat.mod_eq_of_lt (show c < 16 by omega), Nat.mod_eq_of_lt hidx]
+      congr 1; omega
+  have hhi : (WCT9.wctNodeHeader c index h).extractLsb' 64 64 = BitVec.ofNat 64 (if 8 ≤ h then 0 else h) := by
+    rw [WCT9.wctNodeHeader_high hc]
+    by_cases h8 : 8 ≤ h
+    · rw [if_pos (show SigGolfCandidate.T3.FtsNew h from ⟨h8, hh⟩), if_pos h8]
+    · rw [if_neg (show ¬ SigGolfCandidate.T3.FtsNew h from fun h' => h8 h'.1), if_neg h8]
   rw [pad64_of_aligned _ (by rw [nodeIn_len]), nodeIn,
     wordsOf_append _ _ (by simp [zero16, bytesLE_length]), wordsOf_append _ _ (by simp [zero16, bytesLE_length]),
     wordsOf_append _ _ (by simp [zero16, bytesLE_length]), wordsOf_zero16, wordsOf_bytesLE16, wordsOf_bytesLE16,

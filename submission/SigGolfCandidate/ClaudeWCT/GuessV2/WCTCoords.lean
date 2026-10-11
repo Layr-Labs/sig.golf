@@ -214,6 +214,25 @@ theorem decodeProbe_of_hdrBlock {x : HashInput} {h : BitVec 128} (hx : hdrBlock 
   have hb := ftsChainHeader_byte0 a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p.val
   rw [this] at hb
   omega
+theorem ftsChainHeader_byte1 (index coord selected i step : Nat) :
+    (ftsChainHeader index coord selected i step).toNat / 256 % 256 < 4 := by
+  rw [ftsChainHeader_toNat]
+  unfold ftsChainLow
+  have := Nat.mod_lt i (show 0 < 8 by decide)
+  have := Nat.mod_lt step (show 0 < 4 by decide)
+  have := Nat.mod_lt coord (show 0 < 16 by decide)
+  have := Nat.mod_lt selected (show 0 < 128 by decide)
+  omega
+/-- Headers whose tag byte is at least 4 are never chain probes (FTS chain headers carry the step `< 4` there). -/
+theorem decodeProbe_of_hdrBlock_tag {x : HashInput} {h : BitVec 128} (hx : hdrBlock x = bytesLE 16 h)
+    (ht : 4 ≤ h.toNat / 256 % 256) : decodeProbe x = none := by
+  rw [decodeProbe_eq_none]
+  intro a p c he
+  rw [he, probeInput, hdrBlock_wctChainInput] at hx
+  have := bytesLE_injective hx
+  have hb := ftsChainHeader_byte1 a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p.val
+  rw [this] at hb
+  omega
 /-- FTS seed of chain `a` (stage-A family seed; agrees with `WCT9.seed` by `rfl`). -/
 def seedOf (A : Correctness.Answers) (a : ChainAddr) : Digest :=
   ClaudeWCT.Arith.familyEval (List.ofFn (WCT9.ftsCoef A a.1.val a.2.1.val)) (WCT9.ftsPoint a.2.2.1.val a.2.2.2.val)
