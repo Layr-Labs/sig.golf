@@ -66,9 +66,9 @@ theorem dispatch_value (W : Word) (b q : Nat) (hb : b<64) (hq : q<17) :
   have he := entOff_le q hq
   rw [word_mask10 W b hb,ofNat_add_ofNat,even_andNot1' _ (by omega)]
   congr 1; omega
-theorem cell_value (q k : Nat) (hq : q<17) (h8 : q≠8) (hk : k ≤ 124) :
+theorem cell_value (q k : Nat) (hq : q<17) (h8 : q≠8) (h9 : q≠9) (hk : k ≤ 124) :
     BitVec.ofNat 64 (1024*(127-k)+1024+4*entOff q)=pcOf (cellW q k) := by
-  unfold pcOf cellW; rw [if_neg h8, if_pos hq]; congr 1; omega
+  unfold pcOf cellW; rw [if_neg h8, if_neg h9, if_pos hq]; congr 1; omega
 theorem fault_value (q k : Nat) (hq : q<17) (hk : 125 ≤ k) (hk' : k<128) :
     (BitVec.ofNat 64 (1024*(127-k)+1024+4*entOff q)).toNat<0x1000 := by
   have he := entOff_le q hq
@@ -106,11 +106,29 @@ theorem g9_valueC (W : Word) (C : Nat) (hC : C%2=0) :
       omega
     rw [this]; ring
   rw [hm, ofNat_add_ofNat, even_andNot1' _ (by omega)]
-/-- BIG74: the q8 -> q9 targets: b63 = 0 lands after the `bge` of the even cell, b63 = 1 on the odd cell. -/
-theorem g9_even (u : Nat) (hu : u ≤ 62) : BitVec.ofNat 64 (2048*(63-u)+2304)=pcOf (cellW 9 (2*u)+1) := by
-  unfold pcOf cellW entOff; norm_num; congr 1; omega
-theorem g9_odd (u : Nat) (hu : u ≤ 61) : BitVec.ofNat 64 (2048*(63-u)+1276)=pcOf (cellW 9 (1+2*u)) := by
-  unfold pcOf cellW entOff; norm_num; congr 1; omega
+/-- Inline q9 dispatch selects the complemented six-bit high field before scaling. -/
+theorem disp9_valueC (W : Word) (C : Nat) (hC : C%2=0) :
+    ((((W &&& 63#64)+320#64) <<< ((9#64 : Word).toNat % 64))+
+      BitVec.ofNat 64 C) &&& ~~~1#64 =
+      BitVec.ofNat 64 (512*(W.toNat%64+320)+C) := by
+  have hm : W &&& 63#64 = BitVec.ofNat 64 (W.toNat%64) := by
+    apply BitVec.eq_of_toNat_eq
+    rw [BitVec.toNat_and, show (63#64).toNat=2^6-1 from rfl,
+      Nat.and_two_pow_sub_one_eq_mod, BitVec.toNat_ofNat]
+    change W.toNat%64=(W.toNat%64)%2^64
+    exact (Nat.mod_eq_of_lt (by have := Nat.mod_lt W.toNat (show 0<64 by decide); omega)).symm
+  rw [hm, show (320#64 : Word)=BitVec.ofNat 64 320 from rfl,
+    show (9#64 : Word).toNat % 64=9 from rfl,
+    ofNat_add_ofNat, ofNat_shl, ofNat_add_ofNat, even_andNot1' _ (by omega)]
+  congr 1; omega
+/-- Both valid q9 ranks and invalid ranks 125..127 land at their inline slots. -/
+theorem disp9_cell (u b : Nat) (hu : u<64) (hb : b<2) :
+    BitVec.ofNat 64 (512*(63-u+320)+184+164*b)=pcOf (slot9W (2*u+b)) := by
+  have hd : (2*u+b)/2=u := by omega
+  have hm : (2*u+b)%2=b := by omega
+  unfold pcOf slot9W
+  rw [hd,hm]
+  congr 1; omega
 /-- BIG74: the q7 -> q8 dispatch `srli a4,a6,56; addi a4,a4,1735; slli a4,a4,9; jalr 200(a4)` on `a6 = ~X`. -/
 theorem disp8_value (X : Word) :
     (((((~~~X) >>> ((BitVec.ofNat 64 56 : Word).toNat % 64))+BitVec.ofNat 64 1735) <<<
@@ -125,8 +143,6 @@ theorem disp8_value (X : Word) :
   rw [h1, ofNat_add_ofNat, ofNat_shl, ofNat_add_ofNat, even_andNot1' _ (by omega)]
   congr 1
   omega
-theorem g9_cell (u : Nat) (hu : u ≤ 62) : BitVec.ofNat 64 (2048*(63-u)+2300)=pcOf (cellW 9 (2*u)) := by
-  unfold pcOf cellW entOff; norm_num; congr 1; omega
 theorem g9_fault : (BitVec.ofNat 64 (2048*(63-63)+2300)).toNat<0x1000 := by decide +kernel
 theorem prologue_value (W : Word) :
     (((W <<< (BitVec.ofNat 64 10).toNat) &&& 130048#64)+BitVec.ofNat 64 1060) &&& ~~~1#64 =

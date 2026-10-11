@@ -693,13 +693,13 @@ theorem partLen_le (q d : Nat) : partLen q d≤18 := by
 theorem kdig_le (q k j : Nat) : kdig q k j ≤ mx q := by
   have := mx_bounds q
   unfold kdig; have := Nat.mod_lt (k/(mx q+1)^j) (show 0< mx q+1 by omega); omega
-theorem inl_q (q : Nat) (h : inl q=true) : q=8 ∨ (13 ≤ q ∧ q ≤ 16) := by simp [inl] at h; omega
+theorem inl_q (q : Nat) (h : inl q=true) : q=8 ∨ q=9 ∨ (13 ≤ q ∧ q ≤ 16) := by simp [inl] at h; omega
 theorem kN_inl (q : Nat) (h : inl q=true) : kN q = if q=8 then 250 else 125 := by
   have := inl_q q h
   unfold kN mx; split_ifs <;> first | rfl | omega
 theorem leadPc_le (q k : Nat) (hq : q<18) (hk : k<kN q) :
     leadPc q k ≤ 253747 := by
-  unfold leadPc leadOff entW cellW slot8W entOff kN mx TailDispatch.armPC at *
+  unfold leadPc leadOff entW cellW slot8W slot9W entOff kN mx TailDispatch.armPC at *
   split_ifs at * <;> omega
 theorem group_bounds (q k : Nat) (hq : q<18) (hk : k<kN q) :
     gbase q k+2*mx q+2<253807 ∧ gX q k+4<253807 ∧ leadPc q k<253807 ∧
@@ -719,7 +719,7 @@ theorem group_bounds (q k : Nat) (hq : q<18) (hk : k<kN q) :
     have hl2 : 89 ≤ leadPc q k := by
       have hk2 := kN_inl q hn
       rw [hk2] at hk
-      unfold leadPc leadOff entW cellW slot8W entOff at *
+      unfold leadPc leadOff entW cellW slot8W slot9W entOff at *
       split_ifs at * <;> omega
     simp only [gbase,hn,if_true]
     refine ⟨?_,?_,by omega,fun _ => ?_⟩ <;> split_ifs <;> omega
@@ -826,7 +826,7 @@ theorem lead_copy_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54) (h0 : 
     simp [gbase,hn,hdm]
   have hlo : 89 ≤ leadPc (i/3) (c.kOf (i/3)) := by
     have := inl_q _ hn
-    unfold leadPc leadOff entW cellW slot8W entOff; split_ifs <;> omega
+    unfold leadPc leadOff entW cellW slot8W slot9W entOff; split_ifs <;> omega
   rw [hs,he]
   unfold gB
   rw [hg]

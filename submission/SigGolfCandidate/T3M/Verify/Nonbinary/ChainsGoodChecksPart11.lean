@@ -84,12 +84,13 @@ theorem tripleCheck_at (q : Nat) (hq : q<17) (hn : inl q=false) : tripleCheck q=
   interval_cases q
   all_goals first | (simp [inl] at hn) | skip
   exacts [tripleCheck_0, tripleCheck_1, tripleCheck_2, tripleCheck_3, tripleCheck_4, tripleCheck_5,
-    tripleCheck_6, tripleCheck_7, tripleCheck_9, tripleCheck_10, tripleCheck_11, tripleCheck_12]
+    tripleCheck_6, tripleCheck_7, tripleCheck_10, tripleCheck_11, tripleCheck_12]
 theorem inlineGroupCheck_at (q : Nat) (hq : inl q=true) (h8 : q≠8) :
     inlineGroupCheck q 0 25=true ∧ inlineGroupCheck q 25 25=true ∧ inlineGroupCheck q 50 25=true ∧
       inlineGroupCheck q 75 25=true ∧ inlineGroupCheck q 100 25=true := by
-  have h : q=13 ∨ q=14 ∨ q=15 ∨ q=16 := by simp [inl] at hq; omega
-  rcases h with rfl|rfl|rfl|rfl
+  have h : q=9 ∨ q=13 ∨ q=14 ∨ q=15 ∨ q=16 := by simp [inl] at hq; omega
+  rcases h with rfl|rfl|rfl|rfl|rfl
+  · exact ⟨inlineGroupCheck_9_0,inlineGroupCheck_9_25,inlineGroupCheck_9_50,inlineGroupCheck_9_75,inlineGroupCheck_9_100⟩
   · exact ⟨inlineGroupCheck_13_0,inlineGroupCheck_13_25,inlineGroupCheck_13_50,inlineGroupCheck_13_75,inlineGroupCheck_13_100⟩
   · exact ⟨inlineGroupCheck_14_0,inlineGroupCheck_14_25,inlineGroupCheck_14_50,inlineGroupCheck_14_75,
       inlineGroupCheck_14_100⟩
@@ -124,7 +125,7 @@ theorem inlineCheck_at (q k : Nat) (hq : inl q=true) (hk : k<kN q) : inlineCheck
     · exact pick 200 inlineGroupCheck_8_200 (by omega) (by omega)
     · exact pick 225 inlineGroupCheck_8_225 (by omega) (by omega)
   have hk : k<125 := by
-    have hq' : 13 ≤ q ∧ q ≤ 16 := by simp [inl] at hq; omega
+    have hq' : q=9 ∨ (13 ≤ q ∧ q ≤ 16) := by simp [inl] at hq; omega
     unfold kN mx at hk; rw [if_neg h8, if_pos (by omega)] at hk; norm_num at hk; omega
   obtain ⟨h0,h1,h2,h3,h4⟩ := inlineGroupCheck_at q hq h8
   by_cases a : k<25
@@ -177,12 +178,6 @@ theorem s8Run_at (q k : Nat) (hq : q<17) (hk : k<kN q) :
   have h := s8Check_at q k hq hk
   simp only [s8Check,Bool.and_eq_true] at h
   exact h.1
-theorem bge9_at (k : Nat) (hk : k<125) (he : k%2=0) : vrun (cellW 9 k) 1=some (bge9R (cellW 9 k)) := by
-  have h := s8Check_at 9 k (by decide +kernel) (by unfold kN mx; norm_num; omega)
-  simp only [s8Check,Bool.and_eq_true] at h
-  have h2 := h.2
-  rw [if_pos (by simp [he])] at h2
-  exact rOK_eq h2
 end SigGolfCandidate.T3M.Nonbinary
 end
 end

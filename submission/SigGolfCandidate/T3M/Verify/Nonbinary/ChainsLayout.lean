@@ -122,9 +122,10 @@ def entOff (q : Nat) : Nat := if q=0 then 8 else if q≤9 then 9+6*q else if q�
 /-- Campaign BIG74 (design D'): group 8 is inlined in 256 slots of stride 128 words at `221106`; the slot of
 `k = rank8 + 125 * b63` (`k < 250`) is `221106 + 128 (255 - u)` with `u = rank8 + 128 b63`. -/
 def slot8W (k : Nat) : Nat := 221106+128*(255-(k%125+128*(k/125)))
-def cellW (q k : Nat) : Nat := if q=8 then slot8W k else if q<17 then 256*(124-k)+entOff q else TailDispatch.armPC k
-def entW (q k : Nat) : Nat := cellW q k + (if q=0 ∨ (q=9 ∧ k%2=0) then 1 else 0)
-def inl (q : Nat) : Bool := decide (q=8 ∨ (13 ≤ q ∧ q ≤ 16))
+def slot9W (k : Nat) : Nat := 39982+128*(63-k/2)+41*(k%2)
+def cellW (q k : Nat) : Nat := if q=8 then slot8W k else if q=9 then slot9W k else if q<17 then 256*(124-k)+entOff q else TailDispatch.armPC k
+def entW (q k : Nat) : Nat := cellW q k + (if q=0 then 1 else 0)
+def inl (q : Nat) : Bool := decide (q=8 ∨ q=9 ∨ (13 ≤ q ∧ q ≤ 16))
 def leadOff (q : Nat) : Nat := 1
 def leadPc (q k : Nat) : Nat := entW q k+leadOff q
 def kdig (q k j : Nat) : Nat := k/(mx q+1)^j%(mx q+1)
@@ -181,16 +182,18 @@ def dispatch9R : Result :=
 def tailDispatchR : Result := TailDispatch.dispatchR
 /-- BIG74: end of a group-8 inline slot `k` (`k / 125 = b63`): `slli a4,a7,11; and a4,a4,t1; addi a4,a4,1536;
 jalr imm(a4)`, imm = 768 (b63 = 0, the even q9 cell after its `bge`) or -260 (b63 = 1, the `bge`-taken target). -/
+def stubR : Result := ⟨SymState.init,.c 0,.jump,1,1⟩
+def disp9E : E := .bin .sll (.bin .add (.bin .and (.reg .x17) (.c 63)) (.c 320)) (.c (BitVec.ofNat 64 9))
 def disp9D (b : Nat) : Result :=
-  let a := .bin .and (.bin .sll (.reg .x17) (.c (BitVec.ofNat 64 11))) (.reg .x6)
-  ⟨⟨RegFile.init.set .x14 (.bin .add a (.c 1536)),[],[]⟩,
-    .bin .and (.bin .add a (.c (BitVec.ofNat 64 (if b%2=0 then 2304 else 1276)))) (.c (~~~1#64)),.jump,4,4⟩
+  ⟨⟨RegFile.init.set .x14 disp9E,[],[]⟩,
+    .bin .and (.bin .add disp9E (.c (BitVec.ofNat 64 (if b%2=0 then 184 else 348)))) (.c (~~~1#64)),.jump,4,4⟩
+def stub9Check : Bool :=
+  (List.range 128).all fun k => decide (k<125) || rOK (vrun (slot9W k) 1) stubR
 /-- BIG74: the q7 -> q8 dispatch `srli a4,a6,56; addi a4,a4,1735; slli a4,a4,9; jalr 200(a4)`. -/
 def disp8E : E := .bin .sll (.bin .add (.bin .srl (.reg .x16) (.c (BitVec.ofNat 64 56))) (.c 1735)) (.c (BitVec.ofNat 64 9))
 def dispatch8D : Result :=
   ⟨⟨RegFile.init.set .x14 disp8E,[],[]⟩,.bin .and (.bin .add disp8E (.c 200)) (.c (~~~1#64)),.jump,4,4⟩
 /-- BIG74: the fault stub `jalr x0,0(x0)` of the six group-8 slots with `rank8 ≥ 125`. -/
-def stubR : Result := ⟨SymState.init,.c 0,.jump,1,1⟩
 def stub8Check : Bool :=
   (List.range 256).all fun u => decide (u%128<125) || rOK (vrun (221106+128*(255-u)) 1) stubR
 def rungsOK (q d0 sl p : Nat) : Bool :=
@@ -215,7 +218,7 @@ def entCheck (q k : Nat) : Bool :=
      else headJD .x8 (off (3*q)) (gbase q k+2*dA+1) (3*q) dA)
 def s8Check (q k : Nat) : Bool :=
   (if q=0 then rOK (vrun (entW 0 k) 1) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k))) &&
-  (if q=9 ∧ k%2=0 then rOK (vrun (cellW 9 k) 1) (bge9R (cellW 9 k)) else true)
+  true
 def dispatchOK (q dB dC : Nat) : Bool :=
   if q<17 then rOK (vrun (pcX q dB dC) 5)
     (if q=7 then dispatch8D else if q=8 then dispatch9R else if q<16 then dispatchR (q+1) else tailDispatchR)
