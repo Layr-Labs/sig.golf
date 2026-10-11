@@ -12,6 +12,7 @@ set_option linter.unusedSimpArgs false
 @[simp] theorem Pads.zero_wctChain (k : WCT9.Coord) (t : Fin 6) : (0 : Pads).wctChain k t = (0, 0) := rfl
 @[simp] theorem Pads.zero_wctChainHigh (k : WCT9.Coord) (t : Fin 6) : (0 : Pads).wctChainHigh k t = 0 := rfl
 @[simp] theorem Pads.zero_wctMerkle (k : WCT9.Coord) (l : Fin 7) : (0 : Pads).wctMerkle k l = 0 := rfl
+@[simp] theorem Pads.zero_wctMerkleHigh (k : WCT9.Coord) (l : Fin 7) : (0 : Pads).wctMerkleHigh k l = 0 := rfl
 @[simp] theorem Pads.zero_wctLeaf (k : WCT9.Coord) : (0 : Pads).wctLeaf k = 0 := rfl
 @[simp] theorem Pads.zero_chain' (lay : Layer) (i : Fin (chainCount lay)) : (0 : Pads).chain lay i = (0, 0) := rfl
 @[simp] theorem Pads.zero_merkle' (lay : Layer) (j : Fin (height lay)) : (0 : Pads).merkle lay j = 0 := rfl
@@ -27,12 +28,14 @@ theorem wctChainInputP_zero (index coord child t step : Nat) (value : Digest) :
     wctChainP index coord child t start count 0 0 0 value = WCT9.chain index coord child t start count value := by
   simp only [wctChainP, WCT9.chain, wctChainInputP_zero]
 @[simp] theorem wctNodeHashP_zero (coord index heap : Nat) (left right : Digest) :
-    wctNodeHashP coord index heap left 0 right = WCT9.wctNodeHash coord index heap left right := by
-  simp only [wctNodeHashP, WCT9.wctNodeHash, nodeHashP_zero]
+    wctNodeHashP coord index heap left 0 0 right = WCT9.wctNodeHash coord index heap left right := by
+  simp only [wctNodeHashP, SigGolfCandidate.T3M.SecurityInputs.nodeInputPH_zero, WCT9.wctNodeHash,
+    ← SigGolfCandidate.T3M.SecurityInputs.nodeHashP_eq_shortHash, nodeHashP_zero]
 theorem recoverCoordinateP_zero (sig : WCT9.Signature) (index : Nat) (output : HashOutput) (coord : WCT9.Coord) :
     recoverCoordinateP sig 0 index output coord = WCT9.recoverCoordinate sig index output coord := by
   simp only [recoverCoordinateP, WCT9.recoverCoordinate, Pads.zero_wctChain, Pads.zero_wctChainHigh,
-    Pads.zero_wctMerkle, Pads.zero_wctLeaf, WCT9.leafHashP_zero, wctChainP_zero, wctNodeHashP_zero]
+    Pads.zero_wctMerkle, Pads.zero_wctMerkleHigh, Pads.zero_wctLeaf, WCT9.leafHashP_zero, wctChainP_zero,
+    wctNodeHashP_zero]
 theorem recoverFtsP_zero (sig : WCT9.Signature) (index : Nat) (output : HashOutput) :
     recoverFtsP sig 0 index output = WCT9.recoverFts sig index output := by
   unfold recoverFtsP WCT9.recoverFts
@@ -142,7 +145,11 @@ theorem wctCoordP_dec (N : HashOutput) (w : WBytes) (index : Nat) (coord : WCT9.
     intro level
     simp only [padDecP, Fin.val_castSucc]
     rw [if_pos level.isLt]
-  simp only [hm]
+  have hh : ∀ level : Fin 6,
+      (padDecP N w).wctMerkleHigh coord level.castSucc = wmhpad w coord.val (WCT9.child N coord).val level.val := by
+    intro level
+    simp only [padDecP, Fin.val_castSucc]
+  simp only [hm, hh]
   rfl
 theorem foldlM_wctStep_ok (w : WBytes) (N : HashOutput) (hok : ∀ k, fieldOk N k = true) :
     ∀ (l : List WCT9.Coord) (acc : List (Digest × Digest)),
@@ -824,6 +831,19 @@ theorem merkleBytes_pad {c : Nat} (hc : c < 128) (op : WCT9.Opening) {l : Nat} (
       have := List.mem_range.mp hi
       omega))]
   simp [zeros, List.map_const']
+theorem auth_tw_bound : ∀ c < 128, ∀ l < 4, c / 2 ^ l % 2 = 1 → authBase c l + 16 + 16 ≤ 320 := by decide
+theorem auth_tw_disjoint : ∀ c < 128, ∀ l < 4, c / 2 ^ l % 2 = 1 → ∀ l' < 7,
+    authBase c l + 16 + 16 ≤ authSibOff c l' ∨ authSibOff c l' + 16 ≤ authBase c l + 16 := by decide
+theorem merkleBytes_tw {c : Nat} (hc : c < 128) (op : WCT9.Opening) {l : Nat} (hl : l < 4) (hbit : c / 2 ^ l % 2 = 1)
+    (hb : authBase c l + 16 + 16 ≤ 320) :
+    window (merkleBytes c op) (authBase c l + 16) 16 = zeros 16 := by
+  unfold merkleBytes
+  rw [window_map_range _ _ _ _ hb,
+    List.map_congr_left (fun i hi => authByte_none op (fun l' => by
+      have := auth_tw_disjoint c hc l hl hbit l'.val l'.isLt
+      have := List.mem_range.mp hi
+      omega))]
+  simp [zeros, List.map_const']
 section region
 variable (c : Nat) (op : WCT9.Opening)
 theorem region_merkle (o n : Nat) (h : o + n ≤ 320) :
@@ -973,6 +993,16 @@ theorem wmpad_witEnc (k : WCT9.Coord) (l : Nat) (hl : l < 6) : wmpad (witEnc N w
     unfold wmpad
     rw [wdig_region N w k _ (by omega),
       region_merkle _ _ _ _ hb, merkleBytes_pad hc _ hl hb, readDigest_zeros]
+theorem wmhpad_witEnc (k : WCT9.Coord) (l : Nat) : wmhpad (witEnc N w) k.val (WCT9.child N k).val l = 0 := by
+  have hc := (WCT9.child N k).isLt
+  unfold wmhpad
+  split
+  · rename_i hl
+    have hb := auth_tw_bound _ hc l hl.1 hl.2
+    rw [Nat.add_assoc, wdig_region N w k _ (by omega), region_merkle _ _ _ _ hb, merkleBytes_tw hc _ hl.1 hl.2 hb,
+      readDigest_zeros]
+    rfl
+  · rfl
 theorem wleafPad_witEnc (k : WCT9.Coord) : wleafPad (witEnc N w) k.val = 0 := by
   unfold wleafPad wctLeafBlock
   rw [show regionBase k.val + 688 + 32 = regionBase k.val + 720 by omega, wdig_region N w k _ (by omega),
@@ -996,13 +1026,14 @@ theorem witDecP_witEnc (N : HashOutput) (w : WCT9.Witness) : witDecP N (witEnc N
       (funext fun j => wpath_witEnc N _ lay j)
 theorem padDecP_witEnc (N : HashOutput) (w : WCT9.Witness) : padDecP N (witEnc N w) = 0 := by
   unfold padDecP
-  show Pads.mk _ _ _ _ _ _ _ _ _ = Pads.mk _ _ _ _ _ _ _ _ _
+  show Pads.mk _ _ _ _ _ _ _ _ _ _ = Pads.mk _ _ _ _ _ _ _ _ _ _
   congr 1
   · funext k t; exact wcpads_witEnc N w k t
   · funext k t; exact wcHeaderPad_witEnc N w k t
   · funext k l; split
     · rename_i hl; exact wmpad_witEnc N w k l.val hl
     · rfl
+  · funext k l; exact wmhpad_witEnc N w k l.val
   · funext k; exact wleafPad_witEnc N w k
   · funext lay i; exact wchainPads_witEnc N w lay i
   · funext lay j; split

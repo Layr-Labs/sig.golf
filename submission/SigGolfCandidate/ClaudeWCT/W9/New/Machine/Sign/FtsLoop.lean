@@ -507,11 +507,11 @@ structure TreeInv (c index : Nat) (s0 : MachineState) (k : Nat) (nodes : Array D
   z40 : t.getMem (BitVec.ofNat 64 (NODEW + 40)) = 0
   regs : RegsExcept s0 t (.x18 :: treeRegs)
   frame : Frame s0 t treeW
-def treeC : Nat := 25 + (8 + 13)
+def treeC : Nat := 28 + (8 + 13)
 theorem hashInput_node (t : MachineState) {c index h : Nat} {L R : Digest} (hc : c < 9) (hidx : index < 2 ^ 31)
-    (hh : h < 2 ^ 32) (h10 : t.getReg .x10 = BitVec.ofNat 64 NODEW) (h11 : t.getReg .x11 = BitVec.ofNat 64 64)
-    (hL : DigAt t NODEW L) (m16 : t.getMem (BitVec.ofNat 64 (NODEW + 16)) = BitVec.ofNat 64 (nodeLo7 c index))
-    (m24 : t.getMem (BitVec.ofNat 64 (NODEW + 24)) = BitVec.ofNat 64 h)
+    (hh : h < 128) (h10 : t.getReg .x10 = BitVec.ofNat 64 NODEW) (h11 : t.getReg .x11 = BitVec.ofNat 64 64)
+    (hL : DigAt t NODEW L) (m16 : t.getMem (BitVec.ofNat 64 (NODEW + 16)) = BitVec.ofNat 64 (nodeLoN c index h))
+    (m24 : t.getMem (BitVec.ofNat 64 (NODEW + 24)) = BitVec.ofNat 64 (if 8 ≤ h then 0 else h))
     (z32 : t.getMem (BitVec.ofNat 64 (NODEW + 32)) = 0) (z40 : t.getMem (BitVec.ofNat 64 (NODEW + 40)) = 0)
     (hR : DigAt t (NODEW + 48) R) : hashInput t = toQ (pad64 (nodeIn c index h L R)) := by
   refine hashInput_of_words t _ 0 NODEW (by rw [pad64_of_aligned _ (by rw [nodeIn_len]), nodeIn_len]) h10 (by ao)
@@ -546,7 +546,7 @@ theorem tree_step (hcode : NewCodeAt im) {c index : Nat} (hc : c < 9) (hidx : in
         show HEAPW + 32 * (127 - k) + 24 = HEAPW + 16 * (2 * (127 - k) + 1) + 8 by ring]; exact this.2⟩
   have hz32 : t1.getMem (BitVec.ofNat 64 (NODEW + 32)) = 0 := by rw [f1.get (by ao) (by intro h'; aoh)]; exact h.z32
   have hz40 : t1.getMem (BitVec.ofNat 64 (NODEW + 40)) = 0 := by rw [f1.get (by ao) (by intro h'; aoh)]; exact h.z40
-  have hq := hashInput_node t1 hc hidx (by omega : 127 - k < 2 ^ 32) x10 x11 hL n16 n24 hz32 hz40 hR
+  have hq := hashInput_node t1 hc hidx (by omega : 127 - k < 128) x10 x11 hL n16 n24 hz32 hz40 hR
   have hx5 : t1.getReg .x5 = 0 := by rw [r1.get (by simp)]; exact h.x5
   unfold treeStep
   rw [nodeHash_eq]

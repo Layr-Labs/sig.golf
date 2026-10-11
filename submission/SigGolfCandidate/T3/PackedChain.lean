@@ -263,9 +263,16 @@ theorem chainHeader_ne_rowTweak (lay : Layer) (tree leaf i step : Nat) (lay' : L
 theorem chainHeader_ne_nodeTweak (lay : Layer) (tree leaf i step : Nat) (tag lay' tree' heap : Nat) :
     chainHeader lay tree leaf i step ≠ nodeTweak tag lay' tree' heap := by
   intro h
-  have hc := chainHeader_tweakMarker lay tree leaf i step
-  rw [h, nodeTweak_marker] at hc
-  split_ifs at hc <;> omega
+  by_cases hf : tag = 3 ∧ 4 ≤ lay' ∧ lay' < 13 ∧ FtsNew heap
+  · obtain ⟨rfl, h4, h13, hn⟩ := hf
+    have hw := congrArg (fun x : BitVec 128 => (x.extractLsb' 0 64).toNat) h
+    simp only [chainHeader_low, chainHeaderFlaggedLow_toNat, nodeTweak_ftsN h4 h13 _ hn, append64_low] at hw
+    have hb := chainHeaderLow_band lay tree leaf i step
+    have := ftsNodeWordH_lt (lay' - 4) tree' heap
+    split_ifs at hw <;> omega
+  · have hc := chainHeader_tweakMarker lay tree leaf i step
+    rw [h, nodeTweak_marker] at hc
+    split_ifs at hc <;> first | omega | (exfalso; exact hf ‹_›)
 theorem header_marker_lt_nonpacked (tag lay tree position index : Nat)
     (hn : packedNodeTag tag = false) (hp : position < 2^31) :
     (header tag lay tree position index).toNat / 2^56 % 256 < 128 := by

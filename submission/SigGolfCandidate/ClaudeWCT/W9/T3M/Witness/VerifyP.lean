@@ -88,6 +88,10 @@ def wcpads (w : WBytes) (k t : Nat) : Digest × Digest :=
   (wdig w (wctChainBlock k t), wdig w (wctChainBlock k t + 32))
 def wsib (w : WBytes) (k child l : Nat) : Digest := wdig w (regionBase k + authSibOff child l)
 def wmpad (w : WBytes) (k child l : Nat) : Digest := wdig w (regionBase k + authPadOff child l)
+/-- High tweak word of a packed FTS node (levels `< 4`) whose computed child is the right input: the verifier
+writes only the low tweak word there, the high word stays witness memory (honest 0). Elsewhere it is 0. -/
+def wmhpad (w : WBytes) (k child l : Nat) : BitVec 64 :=
+  if l < 4 ∧ child / 2 ^ l % 2 = 1 then (wdig w (regionBase k + authBase child l + 16)).extractLsb' 64 64 else 0
 def wcHeaderPad (w : WBytes) (k t : Nat) : BitVec 64 := (wdig w (wctChainBlock k t + 16)).extractLsb' 64 64
 /-- FTS leaf pad (campaign T8): the 16-byte slot after the leaf header (`regionBase k + 720`); the verifier never
 writes it, the honest witness holds 0. -/
@@ -118,8 +122,8 @@ def wctChainP (index coord child t start count : Nat) (padA : Digest) (padB : Bi
     M Digest :=
   (List.range' start count).foldlM
     (fun value step => shortHash (wctChainInputP index coord child t step padA padB padC value)) value
-def wctNodeHashP (coord index heap : Nat) (left pad right : Digest) : M Digest :=
-  nodeHashP 3 (WCT9.nodeLayer coord) index heap left pad right
+def wctNodeHashP (coord index heap : Nat) (left : Digest) (hp : BitVec 64) (pad right : Digest) : M Digest :=
+  shortHash (SigGolfCandidate.T3M.SecurityInputs.nodeInputPH 3 (WCT9.nodeLayer coord) index heap left hp pad right)
 def digestP (m : Message) (w : WBytes) : M (Option HashOutput) :=
   if (wdc w).toNat ≥ WCT9.digestVerifyWindow then pure none else some <$> digest (wrho w) m (wdc w)
 def gateOk (N : HashOutput) : Bool := decide (N.toNat / 2 ^ 242 % 2 ^ 14 < WCT9.gateLimit)
@@ -135,7 +139,7 @@ def wctCoordP (w : WBytes) (index : Nat) (coord : WCT9.Coord) (child : WCT9.Chil
     let other := wsib w coord.val child.val level.val
     let pair := if child.val / 2 ^ level.val % 2 = 0 then (value, other) else (other, value)
     wctNodeHashP coord.val index (2 ^ (6 - level.val) + child.val / 2 ^ (level.val + 1)) pair.1
-      (wmpad w coord.val child.val level.val) pair.2) leaf
+      (wmhpad w coord.val child.val level.val) (wmpad w coord.val child.val level.val) pair.2) leaf
   let other := wsib w coord.val child.val 6
   pure (if child.val / 2 ^ 6 % 2 = 0 then (top, other) else (other, top))
 def wctStep (w : WBytes) (N : HashOutput) (state : Option (List (Digest × Digest))) (coord : WCT9.Coord) :
@@ -222,6 +226,8 @@ structure Pads where
   wctChain : WCT9.Coord → Fin 6 → Digest × Digest
   wctChainHigh : WCT9.Coord → Fin 6 → BitVec 64
   wctMerkle : WCT9.Coord → Fin 7 → Digest
+  /-- High tweak words of the packed FTS nodes (honest 0). -/
+  wctMerkleHigh : WCT9.Coord → Fin 7 → BitVec 64
   /-- FTS leaf pad (campaign T8; honest 0). -/
   wctLeaf : WCT9.Coord → Digest
   chain : (lay : Layer) → Fin (chainCount lay) → Digest × Digest
@@ -230,7 +236,8 @@ structure Pads where
   bc : Layer → BitVec 96
   bcRight : Digest
 instance : Zero Pads :=
-  ⟨⟨fun _ _ => (0, 0), fun _ _ => 0, fun _ _ => 0, fun _ => 0, fun _ _ => (0, 0), fun _ _ => 0, fun _ _ => 0, fun _ => 0, 0⟩⟩
+  ⟨⟨fun _ _ => (0, 0), fun _ _ => 0, fun _ _ => 0, fun _ _ => 0, fun _ => 0, fun _ _ => (0, 0), fun _ _ => 0, fun _ _ => 0,
+    fun _ => 0, 0⟩⟩
 def Pads.toT3 (pads : Pads) : SigGolfCandidate.T3M.Pads :=
   ⟨fun _ => 0, fun _ => 0, pads.chain, pads.merkle, pads.chainHeader⟩
 def recoverCoordinateP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (output : HashOutput)
@@ -246,7 +253,7 @@ def recoverCoordinateP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (outpu
     let other := (sig.openings coord).path level.castSucc
     let pair := if selected.val / 2 ^ level.val % 2 = 0 then (value, other) else (other, value)
     wctNodeHashP coord.val index (2 ^ (6 - level.val) + selected.val / 2 ^ (level.val + 1)) pair.1
-      (pads.wctMerkle coord level.castSucc) pair.2) root
+      (pads.wctMerkleHigh coord level.castSucc) (pads.wctMerkle coord level.castSucc) pair.2) root
   let other := (sig.openings coord).path 6
   pure (if selected.val / 2 ^ 6 % 2 = 0 then (top, other) else (other, top))
 def recoverFtsP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (output : HashOutput) : M Digest := do

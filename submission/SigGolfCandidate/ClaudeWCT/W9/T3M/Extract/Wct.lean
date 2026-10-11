@@ -309,27 +309,55 @@ theorem hdrBlock_merkleInput (path pads : Nat → Digest) (step : Nat) (value : 
   unfold merkleInput
   dsimp only
   split <;> rw [Extract.hdrBlock_nodeInputP]
-theorem merkle_extract (hidx : index < 2 ^ 31) (hj : j < 128) (path pads : Nat → Digest) (leaf : Digest)
-    (reaches : evalWithAnswerFn answers (hashPath (merkleInput 3 (WCT9.nodeLayer c.val) index 7 j path pads) 6
+theorem hdrBlock_merkleInputH (path pads : Nat → Digest) (hpads : Nat → BitVec 64) (step : Nat) (value : Digest) :
+    Extract.hdrBlock (pad64 (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 j path pads hpads step value)) =
+      bytesLE 16 (withHigh (nodeTweak 3 (WCT9.nodeLayer c.val) index (2 ^ (7 - step - 1) + j / 2 ^ (step + 1)))
+        (hpads step)) := by
+  unfold merkleInputH nodeInputPH
+  dsimp only
+  split <;> rw [pad64_block4, hdrBlock_block4W]
+theorem canonicalHeader_withHigh (t : BitVec 128) (hp : BitVec 64) :
+    Extract.canonicalHeader (bytesLE 16 (withHigh t hp)) = Extract.canonicalHeader (bytesLE 16 t) := by
+  unfold withHigh
+  split
+  · rename_i hm
+    have ht : t = t.extractLsb' 64 64 ++ t.extractLsb' 0 64 := by
+      have h := (BitVec.extractLsb'_append_extractLsb' (w := 64) (len := 64) (x := t)).symm
+      exact h
+    conv_rhs => rw [ht]
+    apply SigGolfCandidate.T3M.Extract.canonicalHeader_high_irrelevant
+    rw [BitVec.extractLsb'_toNat]
+    simp only [Nat.shiftRight_zero]
+    have : t.toNat % 2 ^ 64 % 256 = t.toNat % 256 := by
+      rw [Nat.mod_mod_of_dvd _ (by norm_num)]
+    rw [show (2 : Nat) ^ 64 = 2 ^ 64 from rfl]
+    omega
+  · rfl
+theorem merkle_extract (hidx : index < 2 ^ 31) (hj : j < 128) (path pads : Nat → Digest)
+    (hpads : Nat → BitVec 64) (leaf : Digest)
+    (reaches : evalWithAnswerFn answers (hashPath (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 j path pads hpads) 6
       leaf) = mTarget answers index c j 6) :
     (leaf = WCT9.childRoot answers index c.val j ∧
       (∀ l, l < 6 → path l = mPath answers index c j l ∧ pads l = 0) ∧
-      ∀ q ∈ queried answers (hashPath (merkleInput 3 (WCT9.nodeLayer c.val) index 7 j path pads) 6 leaf),
+      ∀ q ∈ queried answers (hashPath (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 j path pads hpads) 6 leaf),
         ∃ l, l < 6 ∧ q = .inl (.inr (Extract.honestInput answers (.wctNode index c.val l (j / 2 ^ (l + 1)))))) ∨
     Extract.HitIn answers (queried answers
-      (hashPath (merkleInput 3 (WCT9.nodeLayer c.val) index 7 j path pads) 6 leaf)) := by
+      (hashPath (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 j path pads hpads) 6 leaf)) := by
   have hR := merkle_reference answers index c j hj
-  have h := merklePath_extract answers 3 (WCT9.nodeLayer c.val) index 7 j 6 path pads (mPath answers index c j)
-    (mTarget answers index c j) leaf hR reaches
+  have h := merkleHPath_extract answers 3 (WCT9.nodeLayer c.val) index 7 j 6 path pads (mPath answers index c j)
+    (mTarget answers index c j) hpads leaf hR reaches
   rcases h with ⟨h0, hall⟩ | ⟨step, hstep, hq, hhit⟩
   · left
-    refine ⟨by rw [h0, mTarget_zero answers index c j hj], hall, fun q hq => ?_⟩
+    refine ⟨by rw [h0, mTarget_zero answers index c j hj], fun l hl => ⟨(hall l hl).1, (hall l hl).2.1⟩,
+      fun q hq => ?_⟩
     obtain ⟨step, hs, rfl⟩ := queried_hashPath_honest answers
-      (merkleInput 3 (WCT9.nodeLayer c.val) index 7 j path pads)
+      (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 j path pads hpads)
       (fun step => merkleInput 3 (WCT9.nodeLayer c.val) index 7 j (mPath answers index c j) (fun _ => 0) step
         (mTarget answers index c j step))
       (mTarget answers index c j) leaf 6 hR
-      (fun step hs => by unfold merkleInput; rw [(hall step hs).1, (hall step hs).2]) h0 q hq
+      (fun step hs => by
+        rw [merkleInputH_ok _ _ _ _ _ _ _ _ _ _ (hall step hs).2.2]
+        unfold merkleInput; rw [(hall step hs).1, (hall step hs).2.1]) h0 q hq
     exact ⟨step, hs, by rw [merkle_honestInput]⟩
   · right
     have hn : j / 2 ^ (step + 1) < 2 ^ (7 - step - 1) := by
@@ -339,7 +367,7 @@ theorem merkle_extract (hidx : index < 2 ^ 31) (hj : j < 128) (path pads : Nat �
     refine ⟨.wctNode index c.val step (j / 2 ^ (step + 1)), _, ⟨hidx, c.isLt, hstep, hn⟩, hq, ?_, ?_⟩
     · rw [← merkle_honestInput]; exact hhit
     · unfold Extract.SameHeader
-      rw [Extract.hdrBlock_honestInput, pathInput, hdrBlock_merkleInput]
+      rw [Extract.hdrBlock_honestInput, pathInput, hdrBlock_merkleInputH, canonicalHeader_withHigh]
       rfl
 end merkle
 theorem recoverCoordinateP_dec (N : HashOutput) (w : WBytes) (index : Nat) (c : WCT9.Coord) :
@@ -349,8 +377,9 @@ theorem recoverCoordinateP_dec (N : HashOutput) (w : WBytes) (index : Nat) (c : 
           (wcpads w c.val t.val).1 (wcHeaderPad w c.val t.val) (wcpads w c.val t.val).2
           (wreveal w c.val t.val (WCT9.wordDigit (WCT9.rank N c) t))) >>= fun ends =>
         WCT9.leafHashP index c.val (WCT9.child N c).val (wleafPad w c.val) ends >>= fun leaf =>
-          hashPath (merkleInput 3 (WCT9.nodeLayer c.val) index 7 (WCT9.child N c).val
-            (wsib w c.val (WCT9.child N c).val) (wmpad w c.val (WCT9.child N c).val)) 6 leaf >>= fun top =>
+          hashPath (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 (WCT9.child N c).val
+            (wsib w c.val (WCT9.child N c).val) (wmpad w c.val (WCT9.child N c).val)
+            (wmhpad w c.val (WCT9.child N c).val)) 6 leaf >>= fun top =>
           pure (if (WCT9.child N c).val / 2 ^ 6 % 2 = 0 then (top, wsib w c.val (WCT9.child N c).val 6)
             else (wsib w c.val (WCT9.child N c).val 6, top))) := by
   unfold recoverCoordinateP
@@ -385,11 +414,12 @@ theorem coord_extract (answers : Answers) (N : HashOutput) (w : WBytes) (c : WCT
       (wreveal w c.val t.val (WCT9.wordDigit (WCT9.rank N c) t)))) = ends at reaches ⊢
   generalize hL : evalWithAnswerFn answers (WCT9.leafHashP (WCT9.digestIndex N) c.val (WCT9.child N c).val
     (wleafPad w c.val) ends) = leaf at reaches ⊢
-  generalize hT : evalWithAnswerFn answers (hashPath (merkleInput 3 (WCT9.nodeLayer c.val) (WCT9.digestIndex N) 7
-    (WCT9.child N c).val (wsib w c.val (WCT9.child N c).val) (wmpad w c.val (WCT9.child N c).val)) 6 leaf) = top at reaches
+  generalize hT : evalWithAnswerFn answers (hashPath (merkleInputH 3 (WCT9.nodeLayer c.val) (WCT9.digestIndex N) 7
+    (WCT9.child N c).val (wsib w c.val (WCT9.child N c).val) (wmpad w c.val (WCT9.child N c).val)
+    (wmhpad w c.val (WCT9.child N c).val)) 6 leaf) = top at reaches
   obtain ⟨htop, hsib6⟩ := pair_parse (Extract.ftsLevels answers (WCT9.digestIndex N) c.val) (WCT9.child N c).val hj
     top _ reaches
-  rcases merkle_extract answers (WCT9.digestIndex N) c (WCT9.child N c).val hidx hj _ _ leaf
+  rcases merkle_extract answers (WCT9.digestIndex N) c (WCT9.child N c).val hidx hj _ _ _ leaf
       (by rw [hT, htop]; rfl) with ⟨hleaf, hsib, hqM⟩ | hhit
   swap
   · exact Or.inr (hhit.mono fun q hq => List.mem_append_right _ (List.mem_append_right _ hq))

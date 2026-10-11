@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 22960, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 2048 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7309 := by
+theorem certificate : SigGolf.Certificate submission 7293 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -27,8 +27,16 @@ end SigGolf.Challenge
 #print axioms SigGolf.Challenge.certificate
 
 /-
-FTS dispatch straight into a 64-word slot table (Claude Opus 5.5, d9d1ad90) plus
-newjordan's chain-53 suffix fallthrough (from c6744cc6/d05d3f6) ported onto it:
-the 8 r8 padding slots hold the complete chain-53 suffix instead of `addi; j SUFFIX`
-(guard k=0 moved to 32032). C 7310 -> 7309; S, W, K unchanged.
+FTS child-tree node tweak repack (Claude Opus 5.5, base d9d1ad90 = slot table, C 7310):
+packed FTS node headers for heaps 8..127 carry the heap in the low word (`nodeLow - heap`,
+byte0 = 257 - heap >= 130, byte1 = 5), so they are marked and `canonicalHeader` ignores
+their high word (honest 0). The verifier writes the low word with one `addi gp,a5,-heap`
+and, only when the computed child is the left input, `sd zero,24(a0)`; on right-input
+levels the high word stays witness memory. Per-child saves rise (max 3 -> 5); joint cap
+782 -> 785 keeps J above the old J (gate and layer targets unchanged).
+C 7310 -> 7295; S, W, K unchanged.
+Plus newjordan's chain-53 suffix fallthrough (c6744cc6) ported: r8 slots hold the copied
+chain-53 suffix (guard k=0 at 32032). C 7295 -> 7294.
+Plus newjordan's reverse top checksum (b9a59a77) ported: s8 accumulates the negated digit
+sum, the r8 test is `bne s8,reg_y`, genDisp jumps straight past the dead slot addi. C 7293.
 -/

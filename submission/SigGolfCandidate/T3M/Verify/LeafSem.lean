@@ -14,17 +14,22 @@ def keepLfAll (lay : Nat) : List Reg :=
     .x25, .x26, .x28, .x29, .x31, .x30]
   else [.x1, .x2, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23,
     .x6, .x26, .x29, .x31, .x30] ++ (if lay = 1 then [] else [.x25, .x28])
-def tailRejBr (d : Bool) : Br := ⟨.ne, .reg .x24, kw 0, d⟩
+/-- Registers holding the eight possible final digits. -/
+def creg (y : Nat) : Reg :=
+  [.x0, .x7, .x13, .x19, .x20, .x21, .x26, .x30].getD y .x0
+/-- Keep nonzero digit registers symbolic; `init.get x0` normalizes to zero. -/
+def tailRejBr (y : Nat) (d : Bool) : Br :=
+  ⟨.ne, .reg .x24, RegFile.init.get (creg y), d⟩
 def lfDirsT : List Dir := [.br false, .jmp]
-def specLfT : Spec := { specLf 0 with steps := 8, brs := [tailRejBr false], cycles := 8 }
+def specLfT (y : Nat) : Spec := { specLf 0 with steps := 8, brs := [tailRejBr y false], cycles := 8 }
 /-- Campaign T8D: the final tail's `bne s8` goes to a local `j REJ` stub (one more jump than main's tail). -/
-def specRejT : Spec :=
-  ⟨[(.x5, kw 1), (.x10, kw 1)], (specLf 0).mem, rejEcall, true, 9, [tailRejBr true], none, 9⟩
+def specRejT (y : Nat) : Spec :=
+  ⟨[(.x5, kw 1), (.x10, kw 1)], (specLf 0).mem, rejEcall, true, 9, [tailRejBr y true], none, 9⟩
 /-- Campaign T8D: the 8 final tails at `finW y` (after chain 53 with digit `y`). -/
 def fusedLeafCheck (y : Nat) : Bool :=
-  specB [] [] baseK (runAt (leafK 0) [] (Nonbinary.finW y) lfDirsT) specLfT [] (postLf 0) (keepLfAll 0)
+  specB [] [] baseK (runAt (leafK 0) [] (Nonbinary.finW y) lfDirsT) (specLfT y) [] (postLf 0) (keepLfAll 0)
 def tailRejCheck (y : Nat) : Bool :=
-  specB [] [] [] (runAt (leafK 0) [] (Nonbinary.finW y) [.br true]) specRejT [] [] []
+  specB [] [] [] (runAt (leafK 0) [] (Nonbinary.finW y) [.br true]) (specRejT y) [] [] []
 theorem fusedLeafChecks : ((List.range 8).all fun y => fusedLeafCheck y) = true := by
   decide +kernel
 theorem tailRejChecks : ((List.range 8).all fun y => tailRejCheck y) = true := by
@@ -217,6 +222,17 @@ def lfKeepK (lay : Nat) : List (Reg × Word) :=
    (.x30, 7), (if lay = 0 then (.x8, BitVec.ofNat 64 s3v) else (.x22, BitVec.ofNat 64 (s6v lay))),
    (.x9, BitVec.ofNat 64 TOPB9)] ++
   (if lay = 0 then [] else [(.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x6, 0x10000)])
+theorem creg_value (t : MachineState) (hk : KnownOK (lfKeepK 0) t) (y : Nat) (hy : y < 8) :
+    t.getReg (creg y) = BitVec.ofNat 64 y := by
+  interval_cases y
+  · simp [creg, MachineState.getReg]
+  · exact hk (.x7, 1) (by simp [lfKeepK])
+  · exact hk (.x13, 2) (by simp [lfKeepK])
+  · exact hk (.x19, 3) (by simp [lfKeepK])
+  · exact hk (.x20, 4) (by simp [lfKeepK])
+  · exact hk (.x21, 5) (by simp [lfKeepK])
+  · exact hk (.x26, 6) (by simp [lfKeepK])
+  · exact hk (.x30, 7) (by simp [lfKeepK])
 def lfK (lay : Nat) : List (Reg × Word) := postLf lay ++ lfKeepK lay
 structure LeafOut (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer) (ends : List Digest)
     (u : MachineState) : Prop where
@@ -305,7 +321,7 @@ theorem stabIdx_lt (lay : Nat) : stabIdx lay < 2 ^ 32 := by
   rcases lay with _ | _ | _ | _ | n <;> simp
 structure TopLeafReady (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (ends : List Digest)
     (t : MachineState) : Prop where
-  pc : ∃ y, y < 8 ∧ t.pc = pcOf (Nonbinary.finW y)
+  pc : ∃ y, y < 8 ∧ t.pc = pcOf (Nonbinary.finW y) ∧ t.getReg .x24 = BitVec.ofNat 64 y
   glob : Glob (leafK 0) w pk t
   keep : KnownOK (lfKeepK 0) t
   s7 : t.getReg .x23 = BitVec.ofNat 64 (dispatchHeap 0 (route index 0).1)
@@ -315,20 +331,20 @@ structure TopLeafReady (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Na
   ends : ∀ j < 54, DigAt t (slotT j) (ends.getD j 0)
   orig : Verify.Orig w (fun o => 7424 ≤ o ∧
     o < ClaudeWCT.W9.T3M.layerBase 0 + 16 * ClaudeWCT.W9.T3M.pathSlots 0) t
-  s8 : t.getReg .x24 = 0
 theorem lfKeepK_keep : (lfKeepK 0).all (fun p => decide (p.1 ∈ keepLfAll 0)) = true := by decide +kernel
 theorem leafT_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0) (hidx : index < 2 ^ 31)
     (ends : List Digest) (t : MachineState) (ht : TopLeafReady w pk index c ends t) :
     ∃ u, Steps image t 8 8 u ∧ LeafOut w pk index 0 ends u := by
-  obtain ⟨y, hy, hp⟩ := ht.pc
+  obtain ⟨y, hy, hp, h24⟩ := ht.pc
+  have hcreg := creg_value t ht.keep y hy
   obtain ⟨u, hu⟩ := spec_run (fusedLeafCheck_at y hy) t hp ht.glob.1
     (by
       intro b hb
       simp only [specLfT, List.mem_singleton] at hb
       subst hb
-      simp [Br.holds, tailRejBr, CmpOp.eval, E.eval, kw, ht.s8]) (by simp)
+      simp [Br.holds, tailRejBr, CmpOp.eval, E.eval, RegFile.init_get_eval, hcreg, h24]) (by simp)
   have hst := hu.steps
-  rw [show specLfT.steps = 8 from rfl, show specLfT.cycles = 8 from rfl] at hst
+  rw [show (specLfT y).steps = 8 from rfl, show (specLfT y).cycles = 8 from rfl] at hst
   refine ⟨u, hst, ?_⟩
   have hku : KnownOK (postLf 0) u := hu.known
   have hkeep := hu.keep
@@ -373,19 +389,17 @@ theorem leafT_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (
   · rw [show lfBase (0 : Layer).val + 24 = 536 from rfl, hfr 536 (by norm_num) (by norm_num)]
     exact ht.glob.2.2.2.1 536 (by simp [pSlots])
   · exact (hu.orig_const ht.orig).mono (fun o ho => ⟨ho, by simp⟩)
-theorem leafT_reject (t : MachineState)
-    (hp : ∃ y, y < 8 ∧ t.pc = pcOf (Nonbinary.finW y))
-    (hk : KnownOK (leafK 0) t) (h24 : t.getReg .x24 ≠ 0) :
+theorem leafT_reject (t : MachineState) (y : Nat) (hy : y < 8)
+    (hpc : t.pc = pcOf (Nonbinary.finW y)) (hk : KnownOK (leafK 0) t)
+    (hcreg : t.getReg (creg y) = BitVec.ofNat 64 y) (h24 : t.getReg .x24 ≠ BitVec.ofNat 64 y) :
     ∃ u, Steps image t 9 9 u ∧ fetch image u = some (.base .ECALL) ∧
       u.getReg .x5 = 1 ∧ u.getReg .x10 = 1 := by
-  obtain ⟨y, hy, hpc⟩ := hp
   obtain ⟨u, hu⟩ := spec_run (tailRejCheck_at y hy) t hpc hk
     (by
       intro b hb
       simp only [specRejT, List.mem_singleton] at hb
       subst hb
-      simp [Br.holds, tailRejBr, CmpOp.eval, E.eval, kw]
-      exact h24) (by simp)
+      simpa [Br.holds, tailRejBr, CmpOp.eval, E.eval, RegFile.init_get_eval, hcreg] using h24) (by simp)
   refine ⟨u, hu.steps, hu.ecall rfl, ?_, ?_⟩
   · exact hu.regs (.x5, kw 1) (by simp [specRejT])
   · exact hu.regs (.x10, kw 1) (by simp [specRejT])

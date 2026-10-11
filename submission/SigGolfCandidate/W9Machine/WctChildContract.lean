@@ -28,6 +28,8 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
     (V3.nodePad w k.val j.val l)
   sibAt : ∀ l, l < 7 → DigAt u (coordinateBase k + ClaudeWCT.W9.T3M.authSibOff j.val l)
     (V3.sibling w k.val j.val l)
+  twAt : ∀ l, l < 6 → DigAt u (coordinateBase k + ClaudeWCT.W9.T3M.authBase j.val l + 16)
+    (V3.nodeTw w k.val j.val l)
 def writes (k : Fin 9) (A : Nat) : Prop :=
   (coordinateBase k ≤ A ∧ A < coordinateBase k + 832) ∨ (pairAddress k ≤ A ∧ A < pairAddress k + 48)
 def clobbers : List Reg := [.x3, .x10, .x11, .x12, .x14]

@@ -38,10 +38,18 @@ def chainProgram (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
       (chainPadC w k.val t.val) (reveal w k.val t.val d)
 def leafLow (index coord child : Nat) : Nat := ClaudeWCT.WCT9.ftsLeafLow index coord child
 def nodeLow (coord index : Nat) : Nat := ClaudeWCT.WCT9.ftsLeafLow index coord 0
-def nodeInput (coord index heap : Nat) (left pad right : Digest) : HashInput :=
-  bytesLE 16 left ++ bytesLE 8 (nodeLow coord index) ++ bytesLE 8 heap ++
-    bytesLE 16 pad ++ bytesLE 16 right
+/-- Node tweak as the verifier writes it: packed heaps (`8..127`) carry `nodeLow - heap` and a witness high
+word `hp`; the other heaps carry `nodeLow` and the heap. -/
+def nodeHdr (coord index heap : Nat) (hp : BitVec 64) : Digest :=
+  if 8 ≤ heap ∧ heap < 128 then hp ++ BitVec.ofNat 64 (nodeLow coord index - heap)
+  else BitVec.ofNat 64 heap ++ BitVec.ofNat 64 (nodeLow coord index)
+def nodeInput (coord index heap : Nat) (left : Digest) (hp : BitVec 64) (pad right : Digest) : HashInput :=
+  bytesLE 16 left ++ bytesLE 16 (nodeHdr coord index heap hp) ++ bytesLE 16 pad ++ bytesLE 16 right
 def nodePad (w : WBytes) (coord child level : Nat) : Digest := ClaudeWCT.W9.T3M.wmpad w coord child level
+/-- The 16-byte tweak slot of a child level in the witness (`authBase + 16`). -/
+def nodeTw (w : WBytes) (coord child level : Nat) : Digest :=
+  wdig w (ClaudeWCT.W9.T3M.regionBase coord + ClaudeWCT.W9.T3M.authBase child level + 16)
+def nodeHPad (w : WBytes) (coord child level : Nat) : BitVec 64 := ClaudeWCT.W9.T3M.wmhpad w coord child level
 def sibling (w : WBytes) (coord child level : Nat) : Digest := ClaudeWCT.W9.T3M.wsib w coord child level
 /-- FTS leaf pad (campaign T8): the witness slot after the leaf header (`regionOffset coord + 720`). -/
 def leafPad (w : WBytes) (coord : Nat) : Digest := ClaudeWCT.W9.T3M.wleafPad w coord
@@ -65,6 +73,6 @@ def childProgram (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
     let left := if j.val / 2 ^ level % 2 = 0 then value else other
     let right := if j.val / 2 ^ level % 2 = 0 then other else value
     shortHash (nodeInput k.val index ((128 + j.val) / 2 ^ (level + 1))
-      left (nodePad w k.val j.val level) right)) leaf
+      left (nodeHPad w k.val j.val level) (nodePad w k.val j.val level) right)) leaf
   pure (orderPair j.val computed (sibling w k.val j.val 6))
 end W9Machine.V3

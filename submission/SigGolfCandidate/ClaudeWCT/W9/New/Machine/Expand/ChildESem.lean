@@ -19,14 +19,17 @@ def aX9 (off : Nat) : Addr := ⟨some (.reg .x9), BitVec.ofNat 64 off⟩
 def p0E (j : Nat) : PRes :=
   ⟨⟨RegFile.init.set .x12 (eX8 (curO 0 j)), [], []⟩, pcOf (cbE j + 1), true, 1, 1, [], none⟩
 def a2E (j l : Nat) : E := if l < 5 then eX8 (curO (l + 1) j) else eX9 (16 * bitAt j 6)
+/-- Packed tweak low word of levels `≤ 3`: `addi gp,s11,-heap` (`s11 = nodeLo`). -/
+def lowE (j l : Nat) : E := addC (.reg .x27) (BitVec.ofNat 64 (2 ^ 64 - heapOf l j))
 def lvlRegs (j l : Nat) : RegFile :=
   let rf := if l = 0 then RegFile.init.set .x11 (.c 64) else RegFile.init
   let rf := rf.set .x10 (eX8 (blkO l))
-  let rf := if l ≤ 3 then rf.set .x3 (.c (BitVec.ofNat 64 (heapOf l j))) else rf
+  let rf := if l ≤ 3 then rf.set .x3 (lowE j l) else rf
   rf.set .x12 (a2E j l)
 def hdr1E (j l : Nat) : E :=
-  if l ≤ 3 then .c (BitVec.ofNat 64 (heapOf l j)) else .reg (heapReg (heapOf l j))
-def lvlMem (j l : Nat) : SymMem := [(aX8 (blkO l + 24), hdr1E j l), (aX8 (blkO l + 16), .reg .x27)]
+  if l ≤ 3 then .c 0 else .reg (heapReg (heapOf l j))
+def lo1E (j l : Nat) : E := if l ≤ 3 then lowE j l else .reg .x27
+def lvlMem (j l : Nat) : SymMem := [(aX8 (blkO l + 24), hdr1E j l), (aX8 (blkO l + 16), lo1E j l)]
 def lvlObl (l : Nat) : List Oblig := [.valid (aX8 (blkO l + 24)) 8, .valid (aX8 (blkO l + 16)) 8]
 def lvlE (j l : Nat) : PRes :=
   ⟨⟨lvlRegs j l, lvlMem j l, lvlObl l⟩, pcOf (cbE j + ecIdx (l + 1)), true, lvlSt l, lvlSt l, [], none⟩
@@ -163,22 +166,23 @@ theorem childWrites_bound {j off : Nat} (h : off ∈ childWrites j) : off % 8 = 
   unfold curO at ho; unfold blkO at ho
   rcases ho with rfl | rfl | rfl | rfl | rfl | rfl <;> omega
 theorem nodeHdr_lo (k index heap : Nat) (hk : k < 9) (hidx : index < 2 ^ 31) :
-    (ClaudeWCT.WCT9.wctNodeHeader k index heap).extractLsb' 0 64 = BitVec.ofNat 64 (Merkle.nodeLo k index) := by
-  unfold ClaudeWCT.WCT9.wctNodeHeader ClaudeWCT.WCT9.nodeLayer
-  rw [SigGolfCandidate.T3.nodeTweak_fts (by omega) (by omega), SigGolfCandidate.T3.append64_low]
-  unfold SigGolfCandidate.T3.ftsNodeWord Merkle.nodeLo
+    (ClaudeWCT.WCT9.wctNodeHeader k index heap).extractLsb' 0 64 =
+      BitVec.ofNat 64 (if 8 ≤ heap ∧ heap < 128 then Merkle.nodeLo k index - heap else Merkle.nodeLo k index) := by
+  rw [ClaudeWCT.WCT9.wctNodeHeader_low hk]
   congr 1
-  rw [show 4 + k - 4 = k by omega, Nat.mod_eq_of_lt (show k < 16 by omega), Nat.mod_eq_of_lt hidx]
-  ring
-theorem nodeHdr_hi (k index heap : Nat) (hk : k < 9) (hh : heap < 2 ^ 32) :
-    (ClaudeWCT.WCT9.wctNodeHeader k index heap).extractLsb' 64 64 = BitVec.ofNat 64 heap := by
-  unfold ClaudeWCT.WCT9.wctNodeHeader ClaudeWCT.WCT9.nodeLayer
-  rw [SigGolfCandidate.T3.nodeTweak_fts (by omega) (by omega)]
-  apply BitVec.eq_of_toNat_eq
-  rw [BitVec.extractLsb'_toNat, SigGolfCandidate.T3.append64_toNat]
-  have := (SigGolfCandidate.T3.ftsNodeWord (4 + k - 4) index).isLt
-  simp only [BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow]
-  omega
+  by_cases h : 8 ≤ heap ∧ heap < 128
+  · rw [if_pos (show SigGolfCandidate.T3.FtsNew heap from h), if_pos h]
+    unfold ClaudeWCT.WCT9.ftsNodeLowN Merkle.nodeLo
+    rw [Nat.mod_eq_of_lt (show k < 16 by omega), Nat.mod_eq_of_lt hidx]
+    omega
+  · rw [if_neg (show ¬ SigGolfCandidate.T3.FtsNew heap from h), if_neg h]
+    unfold ClaudeWCT.WCT9.ftsLeafLow Merkle.nodeLo
+    rw [Nat.mod_eq_of_lt (show k < 16 by omega), Nat.mod_eq_of_lt hidx]
+    omega
+theorem nodeHdr_hi (k index heap : Nat) (hk : k < 9) :
+    (ClaudeWCT.WCT9.wctNodeHeader k index heap).extractLsb' 64 64 =
+      BitVec.ofNat 64 (if 8 ≤ heap ∧ heap < 128 then 0 else heap) := by
+  rw [ClaudeWCT.WCT9.wctNodeHeader_high hk]; rfl
 def nodeInC (k index j : Nat) (sibs : Nat → Digest) (v : Digest) (l : Nat) : List UInt8 :=
   let pair := if bitAt j l = 0 then (v, sibs l) else (sibs l, v)
   blk4 pair.1 (ClaudeWCT.WCT9.wctNodeHeader k index (heapOf l j)) 0 pair.2
@@ -223,7 +227,7 @@ theorem lvlMem_get {s : MachineState} {B : Nat} (hB : s.getReg .x8 = BitVec.ofNa
     (hb : B + 1024 < 2 ^ 64) (j l A : Nat) (hl : l ≤ 6) (hA : A < 2 ^ 64) :
     memEval s (lvlMem j l) (BitVec.ofNat 64 A) =
       if A = B + blkO l + 24 then (hdr1E j l).eval s
-      else if A = B + blkO l + 16 then s.getReg .x27 else s.getMem (BitVec.ofNat 64 A) := by
+      else if A = B + blkO l + 16 then (lo1E j l).eval s else s.getMem (BitVec.ofNat 64 A) := by
   have hbl : blkO l ≤ 384 := by unfold blkO; omega
   unfold lvlMem
   rw [memEval_cons, memEval_cons, memEval_nil, aX8_eval hB, aX8_eval hB]
@@ -233,18 +237,42 @@ theorem lvlMem_get {s : MachineState} {B : Nat} (hB : s.getReg .x8 = BitVec.ofNa
 theorem heapOf_le (j l : Nat) (hj : j < 128) (hl : l < 6) : heapOf l j < 128 := by
   unfold heapOf
   interval_cases l <;> simp <;> omega
+theorem heapOf_packed (j l : Nat) (hj : j < 128) (hl : l < 6) : (8 ≤ heapOf l j ∧ heapOf l j < 128) ↔ l ≤ 3 := by
+  unfold heapOf; interval_cases l <;> simp <;> omega
 theorem hdr1E_eval {s : MachineState} {j l : Nat} (hj : j < 128) (hl : l < 6)
     (hheap : ∀ h, 2 ≤ h → h ≤ 7 → s.getReg (heapReg h) = BitVec.ofNat 64 h) :
-    (hdr1E j l).eval s = BitVec.ofNat 64 (heapOf l j) := by
+    (hdr1E j l).eval s = BitVec.ofNat 64 (if 8 ≤ heapOf l j ∧ heapOf l j < 128 then 0 else heapOf l j) := by
+  have hp := heapOf_packed j l hj hl
   unfold hdr1E
-  split_ifs with h3
-  · rfl
-  · have hb : 2 ≤ heapOf l j ∧ heapOf l j ≤ 7 := by
+  by_cases h3 : l ≤ 3
+  · rw [if_pos h3, if_pos (hp.mpr h3)]; rfl
+  · rw [if_neg h3, if_neg (fun h => h3 (hp.mp h))]
+    have hb : 2 ≤ heapOf l j ∧ heapOf l j ≤ 7 := by
       unfold heapOf
       have : l = 4 ∨ l = 5 := by omega
       rcases this with rfl | rfl <;> simp <;> omega
     simp only [E.eval]
     exact hheap _ hb.1 hb.2
+theorem lo1E_eval {s : MachineState} {j l k index : Nat} (hj : j < 128) (hl : l < 6)
+    (hw : s.getReg .x27 = BitVec.ofNat 64 (nodeLo k index)) (hlt : nodeLo k index < 2 ^ 64) :
+    (lo1E j l).eval s = BitVec.ofNat 64
+      (if 8 ≤ heapOf l j ∧ heapOf l j < 128 then nodeLo k index - heapOf l j else nodeLo k index) := by
+  have hn : 1537 ≤ nodeLo k index := by unfold nodeLo; omega
+  have hp := heapOf_packed j l hj hl
+  unfold lo1E lowE
+  by_cases h3 : l ≤ 3
+  · rw [if_pos h3, if_pos (hp.mpr h3)]
+    have hh := hp.mpr h3
+    rw [addC_eval]
+    simp only [E.eval]
+    rw [hw]
+    apply BitVec.eq_of_toNat_eq
+    rw [BitVec.toNat_add, BitVec.toNat_ofNat, BitVec.toNat_ofNat, BitVec.toNat_ofNat]
+    rw [Nat.mod_eq_of_lt (show 2 ^ 64 - heapOf l j < 2 ^ 64 by omega), Nat.mod_eq_of_lt hlt,
+      Nat.mod_eq_of_lt (show nodeLo k index - heapOf l j < 2 ^ 64 by omega)]
+    omega
+  · rw [if_neg h3, if_neg (fun h => h3 (hp.mp h))]
+    simp only [E.eval]; exact hw
 structure ChildPreE (j B k index P : Nat) (leaf sibs : Nat → Digest) (u : MachineState) : Prop where
   pc : u.pc = pcOf (cbE j)
   base8 : B % 8 = 0
@@ -305,7 +333,7 @@ theorem lvl_piece {im : Image} {j : Nat} (hj : j < 128) (hcode : NewCodeAt im)
     fun x => PRes.toState_getReg _ _ _
   have hmem : ∀ A, A < 2 ^ 64 → ((lvlE j l).toState s).getMem (BitVec.ofNat 64 A) =
       if A = B + blkO l + 24 then (hdr1E j l).eval s
-      else if A = B + blkO l + 16 then s.getReg .x27 else s.getMem (BitVec.ofNat 64 A) :=
+      else if A = B + blkO l + 16 then (lo1E j l).eval s else s.getMem (BitVec.ofNat 64 A) :=
     fun A hA => (PRes.toState_getMem _ _ _).trans (lvlMem_get hx8 (by omega) j l A (by omega) hA)
   have hpcT : ((lvlE j l).toState s).pc = pcOf (cbE j + ecIdx (l + 1)) := PRes.toState_pc (lvlE j l) s rfl
   generalize ht : (lvlE j l).toState s = t at hst hec hreg hmem hpcT
@@ -359,10 +387,11 @@ theorem lvl_piece {im : Image} {j : Nat} (hj : j < 128) (hcode : NewCodeAt im)
   have hheap := heapOf_le j l hj hl
   have hhdr : DigAt t (B + blkO l + 16) (ClaudeWCT.WCT9.wctNodeHeader k index (heapOf l j)) := by
     constructor
-    · rw [hmem _ (by omega), if_neg (by omega), if_pos rfl, nodeHdr_lo k index _ hu.hk hu.hidx,
-        hkeep .x27 (by decide) (by decide) (by decide) (by decide), hu.w0]
+    · rw [hmem _ (by omega), if_neg (by omega), if_pos rfl, nodeHdr_lo k index _ hu.hk hu.hidx]
+      exact lo1E_eval hj hl ((hkeep .x27 (by decide) (by decide) (by decide) (by decide)).trans hu.w0)
+        (by have := hu.hk; have := hu.hidx; unfold nodeLo; omega)
     · rw [show B + blkO l + 16 + 8 = B + blkO l + 24 by omega, hmem _ (by omega), if_pos rfl,
-        nodeHdr_hi k index _ hu.hk (by omega)]
+        nodeHdr_hi k index _ hu.hk]
       apply hdr1E_eval hj hl
       intro h h1 h7
       obtain ⟨n3, n10, n11, n12, -⟩ := heapReg_ne h

@@ -122,3 +122,23 @@ theorem paired_split_le_old : 2710*2^106 ≤ 2718*2^106 := by norm_num
 #print axioms paired_large_closing_real
 #print axioms old_split_fails_regrouped_closing
 end SigGolfCandidate.Research.V7Composed198Closing.AdjacentLeafResearch
+
+/-! Reverse-checksum research: a static chain-53 suffix knows its own digit,
+so the last checksum addition can be replaced by comparison against that
+existing digit constant. This is a local arithmetic gate, not a certificate
+for a changed verification image. -/
+namespace SigGolfCandidate.Research.V7Composed198Closing.ReverseChecksum
+open BitVec
+/-- Forward equality after adding the last digit equals reverse equality
+before subtracting it, including modulo-2^64 arithmetic. -/
+theorem final_comparison (a d : BitVec 64) :
+    a + d = 0#64 ↔ -a = d := by
+  constructor
+  · intro h
+    calc -a = -a + 0#64 := by rw [BitVec.add_zero]
+         _ = -a + (a+d) := by rw [h]
+         _ = d := by rw [← BitVec.add_assoc, BitVec.add_left_neg, BitVec.zero_add]
+  · intro h
+    rw [← h, BitVec.add_right_neg]
+#print axioms final_comparison
+end SigGolfCandidate.Research.V7Composed198Closing.ReverseChecksum

@@ -196,13 +196,10 @@ theorem r8Blk_facts (c : NCtx) (hds : c.DigitsOk) :
   simp only [r8BlkCheck,Bool.and_eq_true,d1,d2] at h
   exact ⟨rOK_eq h.1.1.1,h.1.1.2,h.1.2,rOK_eq h.2⟩
 theorem r8Suf_facts (c : NCtx) (hds : c.DigitsOk) :
-    vrun (r8SlotW (c.dig 53)) 1=some (s8R (c.dig 53) (r8SlotW (c.dig 53))) ∧
-    partOK 17 53 (c.dig 53) (sufW (c.dig 53))=true := by
+    partOK 17 53 (c.dig 53) (sufW (c.dig 53)) = true := by
   have h3 := hds 53 (by decide +kernel)
   rw [topMax_hi 53 (by decide +kernel)] at h3
-  have h := r8SufCheck_at (c.dig 53) (by omega)
-  simp only [r8SufCheck,Bool.and_eq_true] at h
-  exact ⟨rOK_eq h.1,h.2⟩
+  exact r8SufCheck_at (c.dig 53) (by omega)
 theorem part_at (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54) (h0 : ¬ (i%3=0 ∧ i<51)) :
     partOK (i/3) i (c.dig i) (c.startPc i)=true := by
   by_cases h51 : i<51
@@ -217,7 +214,7 @@ theorem part_at (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<54) (h0 : ¬ (i%
   · have hs : c.startPc i=c.r8Start i := by unfold startPc; rw [if_neg h51]
     rw [hs, show i/3=17 by omega]
     obtain ⟨-,p1,p2,-⟩ := c.r8Blk_facts hds
-    obtain ⟨-,p3⟩ := c.r8Suf_facts hds
+    have p3 := c.r8Suf_facts hds
     rcases (show i=51 ∨ i=52 ∨ i=53 by omega) with rfl|rfl|rfl
     · simpa [r8Start] using p1
     · simpa [r8Start] using p2

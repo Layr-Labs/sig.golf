@@ -38,7 +38,7 @@ theorem ftsQuery_dn {index : Nat} {q : SigGolfCandidate.T3.Spec.Domain} (h : WCT
       ⟨coord, selected, t, step, hx⟩ | ⟨coord, selected, -, -, hx⟩ | ⟨coord, heap, -, -, -, hx⟩ | hx
     · exact not_digest_of_packed hx (by rw [WCT9.ftsChainHeader, WCT9.ftsChainHeaderP_firstByte]; omega)
     · exact not_digest_of_marker hx (by rw [WCT9.ftsLeafHeader_firstByte]; decide)
-    · exact not_digest_of_marker hx (by rw [WCT9.wctNodeHeader_firstByte]; decide)
+    · exact not_digest_of_marker hx (WCT9.wctNodeHeader_firstByte_ne_zero _ _ _)
     · exact not_digest_of_marker hx (by rw [header_firstByte]; decide)
   · trivial
   · exact h.elim
@@ -134,7 +134,7 @@ theorem cell_not_digest (s : CanonGraph.Secrets) (node : CanonGraph.Node) (label
       exact not_digest_of_packed h (by rw [WCT9.ftsChainHeader, WCT9.ftsChainHeaderP_firstByte]; omega)
   | wctNode n =>
       simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr] at h
-      exact not_digest_of_marker h (by rw [WCT9.wctNodeHeader_firstByte]; decide)
+      exact not_digest_of_marker h (WCT9.wctNodeHeader_firstByte_ne_zero _ _ _)
   | wctLeaf L =>
       simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr] at h
       exact not_digest_of_marker h (by rw [WCT9.ftsLeafHeader_firstByte]; decide)

@@ -254,7 +254,7 @@ theorem nctx_known (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (
     exact hyperWord_top_prefix w index _ _
   intro p hp
   simp only [NCtx.known, List.mem_cons, List.not_mem_nil, or_false] at hp
-  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   all_goals try exact he.s3
   all_goals try exact he.ra
   all_goals try exact hprefix

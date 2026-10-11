@@ -4,8 +4,8 @@ namespace ClaudeWCT.W9.T3.BaseAudit.V5
 open SigGolfCandidate.T3.BaseAudit (zU)
 set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
-def J : ℕ := 51560838624306633002850832035711699557452288
-/-- Density-aware digest acceptance: gate 1353/2^14, fields 563/1024 (rank = field), cap fraction J(783) / 72064^9:
+def J : ℕ := 51792680012373050545731493589501895617795072
+/-- Density-aware digest acceptance: gate 1353/2^14, fields 563/1024 (rank = field), cap fraction J(786) / 72064^9:
 `1353 * 563^9 * J / (2^104 * 72064^9) = 1353 * J / 2^167`. -/
 def p0 : ℚ := 1353 * J / 2 ^ 167
 def b0 : ℚ := 1014384999801306513 / 1000000000000000000

@@ -571,7 +571,10 @@ theorem ftsLeaf_not_search (index coord selected : Nat) :
 theorem ftsNode_not_search {coord : Nat} (hk : coord < 9) (index heap : Nat) :
     ¬ SearchHdr (ClaudeWCT.WCT9.wctNodeHeader coord index heap) := by
   unfold SearchHdr RowHdr
-  rw [ClaudeWCT.WCT9.wctNodeHeader_tweakMarker, ClaudeWCT.WCT9.wctNodeHeader_tweakTag hk]; omega
+  rw [ClaudeWCT.WCT9.wctNodeHeader_tweakMarker, ClaudeWCT.WCT9.wctNodeHeader_tweakTag hk]
+  by_cases hn : SigGolfCandidate.T3.FtsNew heap
+  · rw [if_pos ⟨hk, hn⟩, if_pos hn]; obtain ⟨_, _⟩ := hn; omega
+  · rw [if_neg (fun h => hn h.2), if_neg hn]; omega
 theorem avoidsQuery_of_fts (secret : BitVec 256) (target : HashInput)
     (ht : SearchQ target) (index : Nat) (q : Spec.Domain)
     (hq : FtsQuery index q) : avoidsQuery secret target q := by
@@ -759,8 +762,8 @@ open ClaudeWCT.WCT9 (Signature Witness)
 open ClaudeWCT.WCT9.Rev3 (sign expand verify)
 open SigGolfCandidate.T3M (mrealize countBoth countCalls cacheB cacheDec isHash)
 open ClaudeWCT.W9.T3M (Images submission)
-def verifyCycleBound : Nat := 7227
-def claimedC : Nat := 7309
+def verifyCycleBound : Nat := 7211
+def claimedC : Nat := 7293
 def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 20908) : Prop :=
   ∀ N, evalWithAnswerFn hash (mrealize 0 (digestP m w)) = some N → WCT9.capOk N = true
 variable (I : Images)

@@ -152,10 +152,17 @@ def rowTweak (lay : Layer) (tree leaf : Nat) : BitVec 128 :=
   1#64 ++ hyperWord lay.val (tree * 2 ^ height lay + leaf)
 def ftsNodeWord (coord index : Nat) : BitVec 64 :=
   BitVec.ofNat 64 (1 + 6 * 2 ^ 8 + coord % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27)
+/-- Packed FTS node word (heaps `8..127`, the four lower child levels): the heap is folded into the low word
+(`ftsNodeWord - heap`, byte0 `257 - heap >= 130`, byte1 `5`), so the header is marked and its high word is
+ignored by `canonicalHeader` (honest value 0). -/
+def ftsNodeWordH (coord index heap : Nat) : BitVec 64 :=
+  BitVec.ofNat 64 (1537 - heap + coord % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27)
 def nodeTweak (tag lay tree heap : Nat) : BitVec 128 :=
   if tag = 3 ∧ lay < 4 then
     BitVec.ofNat 64 heap ++ (if lay = 0 then 64#64 else hyperWord (lay - 1) tree)
-  else if tag = 3 ∧ lay < 13 then BitVec.ofNat 64 heap ++ ftsNodeWord (lay - 4) tree
+  else if tag = 3 ∧ lay < 13 then
+    (if 8 ≤ heap ∧ heap < 128 then 0#64 ++ ftsNodeWordH (lay - 4) tree heap
+     else BitVec.ofNat 64 heap ++ ftsNodeWord (lay - 4) tree)
   else header tag lay tree 0 heap
 def leafInput (lay : Layer) (tree leaf : Nat) (ends : List Digest) : HashInput :=
   if lay = 0 then zero16 ++ bytesLE 16 (leafTweak lay tree leaf) ++ ends.flatMap (bytesLE 16)

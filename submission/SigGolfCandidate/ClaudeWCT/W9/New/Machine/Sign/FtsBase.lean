@@ -16,6 +16,10 @@ theorem pres_cycles : (pres regs mem obl pc ec k brs).cycles = k := rfl
 theorem pres_ecall : (pres regs mem obl pc ec k brs).ecall = ec := rfl
 theorem pres_obl : (pres regs mem obl pc ec k brs).st.obl = obl := rfl
 theorem pres_brs : (pres regs mem obl pc ec k brs).brs = brs := rfl
+theorem pres2_getMem (cyc : Nat) (a : Word) : ((pres2 regs mem obl pc ec k cyc brs).toState s).getMem a = memEval s mem a := rfl
+theorem pres2_getReg (cyc : Nat) (x : Reg) :
+    ((pres2 regs mem obl pc ec k cyc brs).toState s).getReg x = ((regsOf regs).get x).eval s :=
+  SymState.toState_getReg _ _ _ _
 end pres
 theorem foldl_set_get_ne (l : List (Reg × E)) (x : Reg) (h : ∀ p ∈ l, p.1 ≠ x) :
     ∀ rf : RegFile, (l.foldl (fun rf p => rf.set p.1 p.2) rf).get x = rf.get x := by
@@ -32,6 +36,11 @@ theorem pres_regsExcept (regs : List (Reg × E)) (mem : SymMem) (obl : List Obli
     RegsExcept s ((pres regs mem obl pc ec k brs).toState s) (regs.map Prod.fst) := by
   intro x hx
   rw [pres_getReg, regsOf_get_ne _ _ (fun p hp he => hx (List.mem_map.mpr ⟨p, hp, he⟩)), RegFile.init_get_eval]
+theorem pres2_regsExcept (regs : List (Reg × E)) (mem : SymMem) (obl : List Oblig) (pc : Nat) (ec : Bool)
+    (k cyc : Nat) (brs : List Br) (s : MachineState) :
+    RegsExcept s ((pres2 regs mem obl pc ec k cyc brs).toState s) (regs.map Prod.fst) := by
+  intro x hx
+  rw [pres2_getReg, regsOf_get_ne _ _ (fun p hp he => hx (List.mem_map.mpr ⟨p, hp, he⟩)), RegFile.init_get_eval]
 theorem memEval_mwc (s : MachineState) (a A : Nat) (e : E) (ws : SymMem) (hA : A < 2 ^ 64) (ha : a < 2 ^ 64) :
     memEval s (mwc a e :: ws) (BitVec.ofNat 64 A) = if A = a then e.eval s else memEval s ws (BitVec.ofNat 64 A) :=
   memEval_cons_ofNat s a A e ws hA ha
@@ -129,6 +138,20 @@ theorem eval_qE (s : MachineState) {c i j index : Nat} (h18 : s.getReg .x18 = Bi
     show index * 2 ^ 27 + j * 2 ^ 20 = (index * 2 ^ 7 + j) * 2 ^ 20 by ring,
     ofNat_or_add (chainK c i) (index * 2 ^ 7 + j) 20 hk]
 theorem nodeK_lt (c : Nat) (hc : c < 9) : nodeK c < 2 ^ 32 := by unfold nodeK; omega
+theorem eval_nodeHiE (s : MachineState) {h : Nat} (h18 : s.getReg .x18 = BitVec.ofNat 64 h) (hh : h < 128) :
+    nodeHiE.eval s = BitVec.ofNat 64 (if 8 ≤ h then 0 else h) := by
+  show BinOp.eval .mul (BinOp.eval .sltu (s.getReg .x18) (BitVec.ofNat 64 8)) (s.getReg .x18) = _
+  rw [h18]
+  simp only [BinOp.eval]
+  have hu : BitVec.ult (BitVec.ofNat 64 h) (BitVec.ofNat 64 8) = decide (h < 8) := by
+    simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show h < 2 ^ 64 by omega),
+      Nat.mod_eq_of_lt (show 8 < 2 ^ 64 by norm_num)]
+  rw [hu]
+  by_cases h8 : h < 8
+  · have : ¬ 8 ≤ h := by omega
+    simp [h8, this]
+  · have : 8 ≤ h := by omega
+    simp [h8, this]
 theorem eval_nodeLoE (s : MachineState) {c index : Nat} (h22 : s.getReg .x22 = BitVec.ofNat 64 index)
     (hc : c < 9) (_hidx : index < 2 ^ 31) :
     (nodeLoE c).eval s = BitVec.ofNat 64 (nodeLo7 c index) := by
@@ -149,6 +172,25 @@ theorem eval_nodeLoE (s : MachineState) {c index : Nat} (h22 : s.getReg .x22 = B
     rw [ofNat_or_disjoint (65536 * c) (index * 2 ^ 27) 27 (by omega) (by omega),
       ofNat_or_disjoint 1537 (index * 2 ^ 27 + 65536 * c) 16 (by norm_num) (by omega)]
     congr 1; ring
+/-- Packed FTS node low word: `nodeLo7 - h` for heaps `8..127`, `nodeLo7` below. -/
+def nodeLoN (c index h : Nat) : Nat := if 8 ≤ h then nodeLo7 c index - h else nodeLo7 c index
+theorem eval_nodeLoNE (s : MachineState) {c index h : Nat} (h22 : s.getReg .x22 = BitVec.ofNat 64 index)
+    (h18 : s.getReg .x18 = BitVec.ofNat 64 h) (hc : c < 9) (hidx : index < 2 ^ 31) (hh : h < 128) :
+    (nodeLoNE c).eval s = BitVec.ofNat 64 (nodeLoN c index h) := by
+  show BinOp.eval .add ((nodeLoE c).eval s) (BinOp.eval .sub (nodeHiE.eval s) (s.getReg .x18)) = _
+  rw [eval_nodeLoE s h22 hc hidx, eval_nodeHiE s h18 hh, h18]
+  simp only [BinOp.eval]
+  have hlo : 1537 ≤ nodeLo7 c index ∧ nodeLo7 c index < 2 ^ 64 := by unfold nodeLo7; omega
+  unfold nodeLoN
+  apply BitVec.eq_of_toNat_eq
+  by_cases h8 : 8 ≤ h
+  · rw [if_pos h8, if_pos h8]
+    simp only [BitVec.toNat_add, BitVec.toNat_sub, BitVec.toNat_ofNat]
+    rw [Nat.mod_eq_of_lt hlo.2, Nat.mod_eq_of_lt (show h < 2 ^ 64 by omega),
+      Nat.mod_eq_of_lt (show nodeLo7 c index - h < 2 ^ 64 by omega)]
+    omega
+  · rw [if_neg h8, if_neg h8]
+    simp only [BitVec.sub_self, BitVec.add_zero]
 theorem eval_leafLoE (s : MachineState) {c index j : Nat} (h22 : s.getReg .x22 = BitVec.ofNat 64 index)
     (h18 : s.getReg .x18 = BitVec.ofNat 64 j) (hc : c < 9) (hj : j < 128) :
     (leafLoE c).eval s = BitVec.ofNat 64 (leafLo7 c index j) := by

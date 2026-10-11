@@ -339,6 +339,34 @@ def nodeInputP (tag lay tree heap : Nat) (left pad right : Digest) : HashInput :
   block4 left (nodeTweak tag lay tree heap) pad right
 theorem ftsLeafP_eq_shortHash (index coord leaf : Nat) (pad0 secret pad1 : Digest) :
     ftsLeafP index coord leaf pad0 secret pad1 = shortHash (ftsLeafInputP index coord leaf pad0 secret pad1) := rfl
+/-- Replace the high word of a marked (byte0 >= 128) tweak by `hp`; unmarked tweaks are kept. For marked tweaks the
+high word is ignored by `canonicalHeader`, so the verifier may leave it to the witness. -/
+def withHigh (t : BitVec 128) (hp : BitVec 64) : BitVec 128 :=
+  if 128 ≤ t.toNat % 256 then hp ++ t.extractLsb' 0 64 else t
+theorem withHigh_nodeTweak_zero (tag lay tree heap : Nat) :
+    withHigh (nodeTweak tag lay tree heap) 0 = nodeTweak tag lay tree heap := by
+  unfold withHigh
+  split
+  · rename_i hm
+    have hk := nodeTweak_marker tag lay tree heap
+    unfold tweakMarker at hk
+    rw [hk] at hm
+    split_ifs at hm with h0 hf
+    · omega
+    · obtain ⟨rfl, h4, h13, hn⟩ := hf
+      rw [nodeTweak_ftsN h4 h13 tree hn, append64_low]
+      rfl
+    · omega
+  · rfl
+/-- FTS node input with a witness-supplied high tweak word (ignored for marked tweaks). -/
+def nodeInputPH (tag lay tree heap : Nat) (left : Digest) (hp : BitVec 64) (pad right : Digest) : HashInput :=
+  block4 left (withHigh (nodeTweak tag lay tree heap) hp) pad right
+theorem nodeInputPH_zero (tag lay tree heap : Nat) (left pad right : Digest) :
+    nodeInputPH tag lay tree heap left 0 pad right = nodeInputP tag lay tree heap left pad right := by
+  unfold nodeInputPH nodeInputP; rw [withHigh_nodeTweak_zero]
+@[simp] theorem pad64_nodeInputPH (tag lay tree heap : Nat) (left : Digest) (hp : BitVec 64) (pad right : Digest) :
+    pad64 (nodeInputPH tag lay tree heap left hp pad right) = nodeInputPH tag lay tree heap left hp pad right :=
+  pad64_block4 _ _ _ _
 theorem nodeHashP_eq_shortHash (tag lay tree heap : Nat) (left pad right : Digest) :
     nodeHashP tag lay tree heap left pad right = shortHash (nodeInputP tag lay tree heap left pad right) := rfl
 theorem ftsLeaf_eq_shortHash (index coord leaf : Nat) (secret : Digest) :
@@ -743,6 +771,57 @@ theorem merklePath_extract (answers : Answers) (tag lay tree height leaf count :
           (pad64 (pathInput answers (merkleInput tag lay tree height leaf path pads) value step)) :=
   hashPath_extract answers _ _ target _ value count reference
     (fun step _ current => merkleInput_parse tag lay tree height leaf step path pads honestPath current (target step)) reaches
+def merkleInputH (tag lay tree height leaf : Nat) (path pads : Nat → Digest) (hpads : Nat → BitVec 64)
+    (step : Nat) (value : Digest) : HashInput :=
+  let pair := if leaf / 2^step % 2 = 0 then (value, path step) else (path step, value)
+  nodeInputPH tag lay tree (2^(height-step-1) + leaf/2^(step+1)) pair.1 (hpads step) (pads step) pair.2
+/-- The witness high word at `step` is harmless: it is ignored (unmarked tweak) or equal to the honest 0. -/
+def HighOK (tag lay tree height leaf : Nat) (hpads : Nat → BitVec 64) (step : Nat) : Prop :=
+  withHigh (nodeTweak tag lay tree (2^(height-step-1) + leaf/2^(step+1))) (hpads step) =
+    nodeTweak tag lay tree (2^(height-step-1) + leaf/2^(step+1))
+theorem merkleInputH_ok (tag lay tree height leaf : Nat) (path pads : Nat → Digest) (hpads : Nat → BitVec 64)
+    (step : Nat) (value : Digest) (h : HighOK tag lay tree height leaf hpads step) :
+    merkleInputH tag lay tree height leaf path pads hpads step value =
+      merkleInput tag lay tree height leaf path pads step value := by
+  unfold merkleInputH merkleInput nodeInputPH nodeInputP
+  unfold HighOK at h
+  dsimp only
+  rw [h]
+theorem merkleInputH_zero (tag lay tree height leaf : Nat) (path pads : Nat → Digest) :
+    merkleInputH tag lay tree height leaf path pads (fun _ => 0) =
+      merkleInput tag lay tree height leaf path pads := by
+  funext step value
+  exact merkleInputH_ok _ _ _ _ _ _ _ _ _ _ (withHigh_nodeTweak_zero _ _ _ _)
+theorem merkleInputH_parse (tag lay tree height leaf step : Nat)
+    (path pads honestPath : Nat → Digest) (hpads : Nat → BitVec 64) (current target : Digest)
+    (heq : pad64 (merkleInputH tag lay tree height leaf path pads hpads step current) =
+      pad64 (merkleInput tag lay tree height leaf honestPath (fun _ => 0) step target)) :
+    current = target ∧ path step = honestPath step ∧ pads step = 0 ∧ HighOK tag lay tree height leaf hpads step := by
+  unfold merkleInputH merkleInput at heq
+  unfold HighOK
+  split at heq <;> simp only [pad64_nodeInputPH, pad64_nodeInputP, nodeInputPH, nodeInputP, pad64_block4] at heq
+  · obtain ⟨hc, hh, hp, hs⟩ := block4_injective heq
+    exact ⟨hc, hs, hp, hh⟩
+  · obtain ⟨hs, hh, hp, hc⟩ := block4_injective heq
+    exact ⟨hc, hs, hp, hh⟩
+theorem merkleHPath_extract (answers : Answers) (tag lay tree height leaf count : Nat)
+    (path pads honestPath target : Nat → Digest) (hpads : Nat → BitVec 64) (value : Digest)
+    (reference : ∀ step, step < count →
+      evalWithAnswerFn answers (shortHash
+        (merkleInput tag lay tree height leaf honestPath (fun _ => 0) step (target step))) =
+          target (step + 1))
+    (reaches : pathValue answers (merkleInputH tag lay tree height leaf path pads hpads) value count = target count) :
+    (value = target 0 ∧ ∀ step, step < count → path step = honestPath step ∧ pads step = 0 ∧
+        HighOK tag lay tree height leaf hpads step) ∨
+      ∃ step, step < count ∧
+        .inl (.inr (pad64 (pathInput answers (merkleInputH tag lay tree height leaf path pads hpads) value step))) ∈
+          queried answers (hashPath (merkleInputH tag lay tree height leaf path pads hpads) count value) ∧
+        HashHit answers
+          (pad64 (merkleInput tag lay tree height leaf honestPath (fun _ => 0) step (target step)))
+          (pad64 (pathInput answers (merkleInputH tag lay tree height leaf path pads hpads) value step)) :=
+  hashPath_extract answers _ _ target _ value count reference
+    (fun step _ current => merkleInputH_parse tag lay tree height leaf step path pads honestPath hpads current
+      (target step)) reaches
 def layerLeafP (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) : M Digest := do
   let (leaf, tree) := route index lay
   let ends ← (List.finRange (chainCount lay)).mapM fun i =>
