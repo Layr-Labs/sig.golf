@@ -207,7 +207,7 @@ theorem prefix_sub_at (c : Nat) (hc : c < 128) (pre seg post : List (BitVec 32))
       0x1000 + 4 * (trPc 0 c + 9 + pre.length) by ring] at h'
 theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0)
     (t : MachineState) (ht : BC.EncPre w pk index 0 c t) (a : BitVec 256) :
-    ∃ n s, Steps image (writeHash t a) n n s ∧ n ≤ 12 ∧
+    ∃ n s, Steps image (writeHash t a) n n s ∧ n ≤ 11 ∧
       TopEntry (writeHash t a) (T3.TopDualHalf.select a) (trPc 0 c) s := by
   have hc' : c < 128 := by have := BC.nCopy_eq; omega
   have ha := topRowA_mem c hc'
@@ -238,20 +238,20 @@ theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
   obtain ⟨n,u,eu,hn,pu,lu,hu,ru,fu⟩ := Verify.Nonbinary.prefix_select_spec
     (writeHash t a) a d (trPc 0 c + 9) hpc
     (by simpa [Nonbinary.prefixHead] using (prefix_sub_at c hc' [] Nonbinary.prefixHead
-      (Nonbinary.prefixHigh ++ Nonbinary.prefixLow ++ Nonbinary.prefixTailWordsOf (topRowA c))
+      (Nonbinary.prefixLow ++ Nonbinary.prefixHigh ++ Nonbinary.prefixTailWordsOf (topRowA c))
       (by simp [Nonbinary.prefixWordsOf,List.append_assoc])))
     (by simpa [Nonbinary.prefixHead,Nat.add_assoc] using (prefix_sub_at c hc' Nonbinary.prefixHead
-      Nonbinary.prefixHigh (Nonbinary.prefixLow ++ Nonbinary.prefixTailWordsOf (topRowA c))
+      Nonbinary.prefixLow (Nonbinary.prefixHigh ++ Nonbinary.prefixTailWordsOf (topRowA c))
       (by simp [Nonbinary.prefixWordsOf,List.append_assoc])))
-    (by simpa [Nonbinary.prefixHead,Nonbinary.prefixHigh,Nat.add_assoc] using (prefix_sub_at c hc'
-      (Nonbinary.prefixHead ++ Nonbinary.prefixHigh) Nonbinary.prefixLow
+    (by simpa [Nonbinary.prefixHead,Nonbinary.prefixLow,Nat.add_assoc] using (prefix_sub_at c hc'
+      (Nonbinary.prefixHead ++ Nonbinary.prefixLow) Nonbinary.prefixHigh
       (Nonbinary.prefixTailWordsOf (topRowA c)) (by simp [Nonbinary.prefixWordsOf,List.append_assoc])))
     h12s hdA hv hhi
   obtain ⟨z, ez, pz, lo, hi, tl, s3, mask, rz, fz, hz⟩ :=
     Verify.Nonbinary.prefix_tail_spec u (T3.TopDualHalf.select a) (topRowA c) d (trPc 0 c + 15) ha
       (by simpa [Nat.add_assoc] using pu)
-      (by simpa [Nonbinary.prefixHead,Nonbinary.prefixHigh,Nonbinary.prefixLow,Nat.add_assoc] using
-        (prefix_sub_at c hc' (Nonbinary.prefixHead ++ Nonbinary.prefixHigh ++ Nonbinary.prefixLow)
+      (by simpa [Nonbinary.prefixHead,Nonbinary.prefixLow,Nonbinary.prefixHigh,Nat.add_assoc] using
+        (prefix_sub_at c hc' (Nonbinary.prefixHead ++ Nonbinary.prefixLow ++ Nonbinary.prefixHigh)
           (Nonbinary.prefixTailWordsOf (topRowA c)) [] (by simp [Nonbinary.prefixWordsOf,List.append_assoc])))
       ((ru.get (by decide)).trans h12s) (by omega) lu hu
       ((ru.get (by decide)).trans hra)
