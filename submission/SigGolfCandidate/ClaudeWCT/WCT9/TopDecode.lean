@@ -15,7 +15,7 @@ theorem producerDecode_decode {lay : Layer} {answer : Digest} {digits : List Nat
       cases h
       rfl
 theorem producerDecode_credit {lay : Layer} {answer : Digest} {digits : List Nat}
-    (h : producerDecode lay answer = some digits) : producerFloor lay ≤ wordCredit lay digits := by
+    (h : producerDecode lay answer = some digits) : producerFloor lay + dispatchPenalty lay digits ≤ wordCredit lay digits + 4 * savedCopies lay digits := by
   unfold producerDecode at h
   cases hd : decode lay answer with
   | none => simp [hd] at h
@@ -97,13 +97,13 @@ theorem lower_zero_count_le_producer {lay : Layer} (hlay : lay ≠ 0)
     (digits.filter (· = 0)).length ≤ 5 :=
   (producerDecode_zeroBound h).resolve_left hlay
 theorem producerDecode_of {lay : Layer} {answer : Digest} {digits : List Nat}
-    (hd : decode lay answer = some digits) (hc : producerFloor lay ≤ wordCredit lay digits)
+    (hd : decode lay answer = some digits) (hc : producerFloor lay + dispatchPenalty lay digits ≤ wordCredit lay digits + 4 * savedCopies lay digits)
     (hz : producerZeroBound lay digits) (hr : producerRankBound lay answer) : producerDecode lay answer = some digits := by
   unfold producerDecode
   simp only [hd, hc, hz, hr, and_self, ↓reduceIte]
 theorem producerDecode_eq_some_iff (lay : Layer) (answer : Digest) (digits : List Nat) :
     producerDecode lay answer = some digits ↔
-      decode lay answer = some digits ∧ producerFloor lay ≤ wordCredit lay digits ∧ producerZeroBound lay digits ∧ producerRankBound lay answer :=
+      decode lay answer = some digits ∧ producerFloor lay + dispatchPenalty lay digits ≤ wordCredit lay digits + 4 * savedCopies lay digits ∧ producerZeroBound lay digits ∧ producerRankBound lay answer :=
   ⟨fun h => ⟨producerDecode_decode h, producerDecode_credit h, producerDecode_zeroBound h, producerDecode_rankBound h⟩,
     fun h => producerDecode_of h.1 h.2.1 h.2.2.1 h.2.2.2⟩
 theorem producerDecode_eq_none_or (lay : Layer) (answer : Digest) :
@@ -117,7 +117,7 @@ theorem producerDecode_eq_none_or (lay : Layer) (answer : Digest) :
       · exact Or.inr rfl
       · exact Or.inl rfl
 theorem producerFloor_values :
-    producerFloor 0 = 9 ∧ producerFloor 1 = 5 ∧ producerFloor 2 = 5 ∧ producerFloor 3 = 4 :=
+    producerFloor 0 = 21 ∧ producerFloor 1 = 10 ∧ producerFloor 2 = 9 ∧ producerFloor 3 = 9 :=
   ⟨rfl, rfl, rfl, rfl⟩
 theorem searchLimit_top : searchLimit 0 = counterLimit := rfl
 theorem searchLimit_lower {lay : Layer} (h : lay ≠ 0) : searchLimit lay = lowerSearchLimit := by
@@ -341,9 +341,9 @@ theorem eval_verifyTop_none (answers : QueryImpl Spec Id) (sig : WCT9.Signature)
   obtain ⟨leaf, tree⟩ := p
   dsimp only
   exact eval_topDecodeRun_none answers h
-def dummyLowData : List Nat := List.replicate 5 6 ++ List.replicate 16 5 ++ List.replicate 21 4
-def dummyLowDigits (lay : Layer) : List Nat := dummyLowData ++ [target lay - 194]
-def dummyLowDigest : Digest := 267364716866451649869350547003163471286
+def dummyLowData : List Nat := List.replicate 10 6 ++ List.replicate 3 7 ++ List.replicate 29 4
+def dummyLowDigits (lay : Layer) : List Nat := dummyLowData ++ [target lay - 197]
+def dummyLowDigest : Digest := 267364716866451649868032922661926170038
 theorem producerDecode_dummyLow (lay : Layer) (h : lay ≠ 0) :
     producerDecode lay dummyLowDigest = some (dummyLowDigits lay) := by
   fin_cases lay

@@ -528,7 +528,7 @@ theorem good_short {A T : Correctness.Answers} (h : SigGolfCandidate.T3.Security
   obtain ⟨digits, ⟨hctr, hdec⟩, hpath, hchain⟩ := hg
   refine ⟨digits, ⟨hctr, ?_⟩, ?_, ?_⟩
   · rw [← honestMsg_short h]
-    rw [← SigGolfCandidate.T3.Security.Wots.Ref.ShortRespects.shortHash _
+    rw [← ClaudeWCT.W9.T3.Security.Wots.Ref.shortRespects_encodingHash lay _
       (by rw [ClaudeWCT.W9.T3M.BC.layerEncodingRow_length]; unfold SeccLaw.maxInputLength; omega) A T h]
     exact hdec
   · intro j hj

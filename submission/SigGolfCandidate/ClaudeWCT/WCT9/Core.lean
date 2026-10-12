@@ -1,4 +1,5 @@
 import SigGolfCandidate.T3.Core
+import SigGolfCandidate.T3.Nonbinary.LowerLayout
 import SigGolfCandidate.ClaudeWCT.WCT9.Codebook
 import SigGolfCandidate.ClaudeWCT.Arith.GF128
 
@@ -181,7 +182,37 @@ def pairEncodingInputP (up : Layer) (tree leaf : Nat) (left right : Digest) (cou
 def layerEncodingInput (lay : Layer) (tree leaf : Nat) : LayerMsg → BitVec 32 → HashInput
   | .forest root, counter => encodingInput lay tree leaf root counter
   | .pair left right, counter => pairEncodingInputP lay tree leaf left right counter 0
-def producerFloor (lay : Layer) : Nat := ![9, 5, 5, 4] lay
+/-- A zero-step chain whose leaf slot survives earlier 32-byte HASH writes. -/
+def safeZeroCopy (lay : Layer) (digits : List Nat) (i : Nat) : Prop :=
+  digits.getD i 0 = maxDigit lay i ∧
+    (i = 0 ∨ (lay ≠ 0 ∧ i = 1) ∨
+      (0 < i ∧ i % 3 ≠ 0 ∧ digits.getD (i-1) 0 = maxDigit lay (i-1)))
+instance (lay : Layer) (digits : List Nat) (i : Nat) : Decidable (safeZeroCopy lay digits i) := by
+  unfold safeZeroCopy
+  infer_instance
+
+def savedCopies (lay : Layer) (digits : List Nat) : Nat :=
+  ((List.range (chainCount lay)).filter fun i => decide (safeZeroCopy lay digits i)).length
+
+def topDispatchPenalty (digits : List Nat) : Nat :=
+  ((List.range 17).filter fun q => decide
+    (q ≠ 9 ∧ q < 13 ∧ digits.getD (3*q) 0 + digits.getD (3*q+1) 0 + digits.getD (3*q+2) 0 < 3)).length
+
+def dispatchPenalty (lay : Layer) (digits : List Nat) : Nat :=
+  if lay = 0 then topDispatchPenalty digits else 0
+
+theorem safeZeroCopy_digit {lay : Layer} {digits : List Nat} {i : Nat}
+    (h : safeZeroCopy lay digits i) : digits.getD i 0 = maxDigit lay i := h.1
+
+theorem safeZeroCopy_first (lay : Layer) (digits : List Nat) :
+    safeZeroCopy lay digits 0 ↔ digits.getD 0 0 = maxDigit lay 0 := by
+  simp [safeZeroCopy]
+
+theorem safeZeroCopy_second_lower {lay : Layer} (hl : lay ≠ 0) (digits : List Nat) :
+    safeZeroCopy lay digits 1 ↔ digits.getD 1 0 = maxDigit lay 1 := by
+  simp [safeZeroCopy, hl]
+
+def producerFloor (lay : Layer) : Nat := ![21, 10, 9, 9] lay
 def wordCredit (lay : Layer) (digits : List Nat) : Nat :=
   ((List.range (chainCount lay)).filter fun i => digits.getD i 0 + 1 = maxDigit lay i).length
 /-- Producer-only restriction; includes the checksum and leaves the broad decoder unchanged. -/
@@ -198,7 +229,7 @@ instance (lay : Layer) (answer : Digest) : Decidable (producerRankBound lay answ
   unfold producerRankBound; infer_instance
 def producerDecode (lay : Layer) (answer : Digest) : Option (List Nat) :=
   match decode lay answer with
-  | some digits => if producerFloor lay ≤ wordCredit lay digits ∧ producerZeroBound lay digits ∧ producerRankBound lay answer then some digits else none
+  | some digits => if producerFloor lay + dispatchPenalty lay digits ≤ wordCredit lay digits + 4 * savedCopies lay digits ∧ producerZeroBound lay digits ∧ producerRankBound lay answer then some digits else none
   | none => none
 def lowerSearchLimit : Nat := 2 ^ 21
 def searchLimit (lay : Layer) : Nat := if lay = 0 then counterLimit else lowerSearchLimit
@@ -207,11 +238,41 @@ never rejects. The signer still searches `searchLimit`. -/
 def verifyWindow : Nat := 2 ^ 32
 theorem ctr_not_ge_verifyWindow (c : BitVec 32) : ¬c.toNat ≥ verifyWindow := by
   unfold verifyWindow; exact Nat.not_le.mpr c.isLt
+/-- The top layer uses the low half. Lower layers select the low half when its
+reserved bits are set, and otherwise select the high half. Selection is deterministic. -/
+def encodingAnswer (lay : Layer) (answer : HashOutput) : Digest :=
+  if lay = 0 then answer.extractLsb' 0 128 else DualHalf.select answer
+
+def encodingHash (lay : Layer) (input : HashInput) : M Digest :=
+  encodingAnswer lay <$> publicHash input
+
+theorem encodingHash_top (input : HashInput) : encodingHash 0 input = shortHash input := rfl
+
+theorem encodingAnswer_lower_low (lay : Layer) (hl : lay ≠ 0) (answer : HashOutput)
+    (hspare : lowerSpare (answer.extractLsb' 0 128)) :
+    encodingAnswer lay answer = answer.extractLsb' 0 128 := by
+  simp [encodingAnswer, hl, DualHalf.select, DualHalf.selectPair, hspare]
+
+theorem encodingAnswer_lower_high (lay : Layer) (hl : lay ≠ 0) (answer : HashOutput)
+    (hspare : ¬lowerSpare (answer.extractLsb' 0 128)) :
+    encodingAnswer lay answer = answer.extractLsb' 128 128 := by
+  simp [encodingAnswer, hl, DualHalf.select, DualHalf.selectPair, hspare]
+
+theorem encodingHash_congr (lay : Layer) {x y : HashInput} (h : pad64 x = pad64 y) :
+    encodingHash lay x = encodingHash lay y := by
+  unfold encodingHash publicHash
+  rw [h]
+
+theorem encodingHash_bind {β : Type} (lay : Layer) (input : HashInput) (f : Digest → M β) :
+    encodingHash lay input >>= f = publicHash input >>= fun a => f (encodingAnswer lay a) := by
+  unfold encodingHash
+  simp only [map_eq_bind_pure_comp, bind_assoc, pure_bind, Function.comp_apply]
+
 def layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) (counter : Nat) :
     Nat → M (Option (BitVec 32 × List Nat))
   | 0 => pure none
   | fuel + 1 => do
-      let answer ← shortHash (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter))
+      let answer ← ClaudeWCT.WCT9.encodingHash lay (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter))
       match producerDecode lay answer with
       | none => layerCounterSearch lay tree leaf msg (counter + 1) fuel
       | some digits => pure (some (BitVec.ofNat 32 counter, digits))
@@ -386,7 +447,7 @@ def verifyLayersBC (w : Witness) (index : Nat) : Nat → LayerMsg → M (Option 
       let counter := w.counters lay
       if counter.toNat ≥ verifyWindow then return none
       let (leaf, tree) := route index lay
-      let answer ← shortHash (layerEncodingInput lay tree leaf msg counter)
+      let answer ← ClaudeWCT.WCT9.encodingHash lay (layerEncodingInput lay tree leaf msg counter)
       if n = 0 then verifyTop w.signature index answer
       else do
         let some digits := decode lay answer | pure none

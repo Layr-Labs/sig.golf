@@ -107,7 +107,7 @@ theorem hdrBlock_pairEncodingInputP (lay : Layer) (tree leaf : Nat) (left right 
   rw [List.append_assoc, List.append_assoc]
   exact SigGolfCandidate.T3M.Extract.hdrBlock_prefix _ _ _
 theorem layerEncoding_ok (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (counter : BitVec 32) :
-    AllQueriesSatisfy (shortHash (WCT9.layerEncodingInput lay tree leaf msg counter))
+    AllQueriesSatisfy (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg counter))
       SigGolfCandidate.T3.Security.BPB.NotDigestQ := by
   cases msg with
   | forest root => exact SigGolfCandidate.T3.Security.BPB.encoding_ok lay tree leaf root counter

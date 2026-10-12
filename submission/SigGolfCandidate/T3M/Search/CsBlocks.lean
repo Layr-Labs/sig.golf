@@ -5,6 +5,7 @@ namespace SigGolfCandidate.T3M.Search
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 set_option linter.unusedSimpArgs false
 set_option linter.unnecessarySeqFocus false
+set_option Elab.async false
 set_option maxRecDepth 8192
 set_option linter.unusedTactic false
 set_option linter.unreachableTactic false
@@ -220,16 +221,13 @@ theorem spare_msb (v : BitVec 128) :
   unfold T3.lowerSpare
   simp only [BitVec.getLsbD, Nat.testBit, Nat.shiftRight_eq_div_pow, Nat.one_and_eq_mod_two]
   by_cases h1 : v.toNat / 2 ^ 63 % 2 = 1 <;> by_cases h2 : v.toNat / 2 ^ 127 % 2 = 1 <;> simp_all
-theorem cs130_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 130)) (v : BitVec 128)
-    (h6 : s.getReg .x6 = v.extractLsb' 0 64) (h7 : s.getReg .x7 = v.extractLsb' 64 64) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = (if T3.lowerSpare v then pcOf (b + 132) else pcOf (b + 468)) ∧
-      RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
+theorem cs130_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 130)) :
+    ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf (selectorBase b) ∧
+      RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_130 hK.2.1) (codeAt_k_130 hK) s hpc (by simp [st_130, blk354_130.res, rv_simp]),
     ?_, ?_, ?_⟩
-  · simp only [Result.toState_pc, pcE_130, rebase, blk354_130.res, E.eval, CmpOp.eval, BinOp.eval, h6, h7]
-    rw [BitVec.slt_zero_eq_msb, spare_msb]
-    by_cases h : T3.lowerSpare v <;> simp [h]
-  · intro r hr; simp at hr; cases r <;> simp_all [st_130, blk354_130.res, rv_simp] <;> rfl
+  · simp [pcE_130, E.eval]
+  · intro r hr; cases r <;> simp_all [st_130, blk354_130.res, rv_simp] <;> rfl
   · intro A _ _; simp [st_130, blk354_130.res, rv_simp]
 /-- Campaign T8D (NF17): the former 2^125 range check at `b + 263` is two NOPs. -/
 theorem cs263_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 263)) :
@@ -275,7 +273,7 @@ theorem cs132_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (
   · intro r hr; simp at hr; cases r <;> simp_all [st_132, blk354_132.res, rv_simp] <;> rfl
   · intro A _ _; simp [st_132, blk354_132.res, rv_simp]
 theorem cs259_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 259)) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf (capBase b + 7) ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
+    ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf (zBase b + 5) ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_259 hK.2.1) (codeAt_k_259 hK) s hpc (by simp [st_259, blk354_259.res, rv_simp]),
     ?_, ?_, ?_⟩
   · simp [pcE_259, blk354_259.res, E.eval]

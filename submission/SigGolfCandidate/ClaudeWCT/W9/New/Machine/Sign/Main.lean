@@ -210,6 +210,7 @@ theorem toArray_getD_high (leaves : List Digest) (m : Nat) (hm : 128 ≤ m) :
     ((List.replicate 128 (0 : Digest) ++ leaves).toArray).getD m 0 = leaves.getD (m - 128) 0 := by
   rw [Array.getD_eq_getD_getElem?, List.getElem?_toArray, List.getElem?_append_right (by simp; omega)]
   simp [List.getD_eq_getElem?_getD]
+set_option maxHeartbeats 800000 in
 theorem coord_unit (hcode : NewCodeAt im) {c : Nat} (hc : c < 9) {N : BitVec 256}
     (hadm : WCT9.admissible N = true) {s : MachineState} (hpc : s.pc = pcOf (cbase c)) (hg : GlobSt sk N s)
     (state : List WCT9.Opening × List (Digest × Digest)) :
@@ -741,7 +742,7 @@ def FinalQ : Option WCT9.Signature → MachineState → Prop
       ∀ k < 332, DigAt t (SIG + 16 * k) ((W9.T3M.sigDigests sig).getD (W9.T3M.cIdx k) 0)
 def restC : Nat := searchC + (ftsC + (layC + compactK))
 def signCW : Nat := frontC + restC
-theorem signCW_eq : signCW = 4272429390 := by
+theorem signCW_eq : signCW = 4110967262 := by
   norm_num [signCW, restC, frontC, searchC, trialC, WCT9.digestAttemptLimit, ftsC, layC, compactK]
 theorem signCW_lt : signCW + 1 < CYCLE_LIMIT := by
   rw [signCW_eq]; norm_num [CYCLE_LIMIT]

@@ -14,8 +14,8 @@ theorem probability_floor : 1 / 5026 ≤ p0 ∧ p0 ≤ 1 / 2471 := by norm_num [
 theorem p0_ge_5026 : 1 / 5026 ≤ p0 := by norm_num [p0, J]
 theorem p0_nonneg : 0 ≤ p0 := by norm_num [p0, J]
 theorem p0_le_one : p0 ≤ 1 := by norm_num [p0, J]
-/-- Campaign T8D (NF17, 51 r5 + 3 r8): accepted top encodings at target 144 with credit floor 8 (about 1/2907). -/
-def topCount144 : ℕ := 113151284379417370579638218549543970
+/-- Campaign T8D (NF17, 51 r5 + 3 r8): accepted top encodings at target 144 with the copy reward and dispatch penalty. -/
+def topCount144 : ℕ := 108748758769815106304379195138950542
 def lowerCount197 : ℕ := 140610462347261096978771217394878840
 def lowerCount198 : ℕ := 113470737483767875195512089978341656
 def lowerCount199 : ℕ := 87860897096037675585104420890976996
@@ -26,18 +26,22 @@ def lowerCount199f5 : ℕ := 86924063528333136971354894108426834
 def lowerCount199f4 : ℕ := 90649243438620156062228389214105950
 /-- Lower bound for mixed-stride dispatch: floor five in columns 1 and 8, floor three elsewhere. -/
 def lowerCount200f4 : ℕ := 72090332289016918256778319009782683
+/-- Accepted lower encodings under the current reward thresholds. -/
+def lowerCount201f10 : ℕ := 54408112790925688753987891000775297
+def lowerCount202f9 : ℕ := 44444210514614632453013305786840214
 def p1 : ℚ := topCount144 / 2 ^ 128
-def b1 : ℚ := 1016160613718328085 / 1000000000000000000
+def b1 : ℚ := 1016825859323626372 / 1000000000000000000
 theorem step_1 : zU * ((1 - p1) * b1 + p1) ≤ b1 := by norm_num [zU, p1, b1, topCount144]
-def p2 : ℚ := lowerCount199f5 / 2 ^ 128
-def b2 : ℚ := 1021139764648032423 / 1000000000000000000
-theorem step_2 : zU * ((1 - p2) * b2 + p2) ≤ b2 := by norm_num [zU, p2, b2, lowerCount199f5]
-def p3 : ℚ := lowerCount199f5 / 2 ^ 128
-def b3 : ℚ := 1021139764648032423 / 1000000000000000000
-theorem step_3 : zU * ((1 - p3) * b3 + p3) ≤ b3 := by norm_num [zU, p3, b3, lowerCount199f5]
-def p4 : ℚ := lowerCount200f4 / 2 ^ 128
-def b4 : ℚ := 1025600967266889389 / 1000000000000000000
-theorem step_4 : zU * ((1 - p4) * b4 + p4) ≤ b4 := by norm_num [zU, p4, b4, lowerCount200f4]
+/-- Low-half preference and the disjoint high-half fallback multiply the lower density by 7/4. -/
+def p2 : ℚ := 7 * lowerCount201f10 / (4 * 2 ^ 128)
+def b2 : ℚ := 1019263705442767283 / 1000000000000000000
+theorem step_2 : zU * ((1 - p2) * b2 + p2) ≤ b2 := by norm_num [zU, p2, b2, lowerCount201f10]
+def p3 : ℚ := 7 * lowerCount202f9 / (4 * 2 ^ 128)
+def b3 : ℚ := 1023684703317316839 / 1000000000000000000
+theorem step_3 : zU * ((1 - p3) * b3 + p3) ≤ b3 := by norm_num [zU, p3, b3, lowerCount202f9]
+def p4 : ℚ := 7 * lowerCount202f9 / (4 * 2 ^ 128)
+def b4 : ℚ := 1023684703317316839 / 1000000000000000000
+theorem step_4 : zU * ((1 - p4) * b4 + p4) ≤ b4 := by norm_num [zU, p4, b4, lowerCount202f9]
 theorem zU_nonneg : (0 : ℚ) ≤ zU := by norm_num [zU]
 theorem step_mono {p q b : ℚ} (hb : 1 ≤ b) (hpq : p ≤ q) (h : zU * ((1 - p) * b + p) ≤ b) :
     zU * ((1 - q) * b + q) ≤ b := by
@@ -87,15 +91,15 @@ theorem signing_envelope :
     (2 : ℝ) ^ ((112652 : ℝ) / 131072) * ((b0 : ℝ) * (b1 : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤ 2 :=
   signing_envelope_le.trans (by norm_num)
 theorem rate_top_1000 : (1000 : ℚ) * 0.6931471808 ≤ 2 ^ 22 * p1 := by norm_num [p1, topCount144]
-/-- Lower searches (about 3.9k / 3.7k trials per hit at (target, floor) = (199, 5) / (199, 4)) with fuel 2^21 fail
-with probability at most 2^-600 each. -/
-theorem rate_lower199f5_600 : (600 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p3 := by norm_num [p3, lowerCount199f5]
-theorem rate_lower199f4_600 : (600 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p2 := by norm_num [p2, lowerCount199f5]
-theorem rate_lower200f4_600 : (600 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p4 := by norm_num [p4, lowerCount200f4]
+/-- The selected-half lower searches with fuel 2^21 fail with probability at most 2^-600 each.
+Legacy theorem names are retained for their existing callers. -/
+theorem rate_lower199f5_600 : (600 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p3 := by norm_num [p3, lowerCount202f9]
+theorem rate_lower199f4_600 : (600 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p2 := by norm_num [p2, lowerCount201f10]
+theorem rate_lower200f4_600 : (600 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p4 := by norm_num [p4, lowerCount202f9]
 /-- Digest search (about 2472 trials per hit) with fuel 2^21: failure at most 2^-900 (2^21 p0 ≈ 848). -/
 theorem rate_digest_900 : (900 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p0 := by norm_num [p0, J]
 theorem rates_ge_8192 : 1 / 8192 ≤ p1 ∧ 1 / 8192 ≤ p2 ∧ 1 / 8192 ≤ p3 ∧ 1 / 8192 ≤ p4 := by
-  norm_num [p1, p2, p3, p4, topCount144, lowerCount199f5, lowerCount199f5, lowerCount200f4]
+  norm_num [p1, p2, p3, p4, topCount144, lowerCount201f10, lowerCount202f9]
 theorem completeness_union :
     (2 : ℝ) ^ 256 * (1 / 2 ^ 450) + 2 ^ 301 * (1 / 2 ^ 600) ≤ 1 / 2 ^ 193 := by
   set_option exponentiation.threshold 2048 in norm_num

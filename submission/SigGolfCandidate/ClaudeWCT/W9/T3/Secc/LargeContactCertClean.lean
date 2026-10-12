@@ -1,6 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeCouplingCertDefs
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeContactCase
-import SigGolfCandidate.T3.Secc.LargeContactCertClean
 
 section
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling

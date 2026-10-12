@@ -57,6 +57,16 @@ structure Monitor where
 def Monitor.initial : Monitor := ⟨[], [], 0, 0, false⟩
 def Monitor.known (monitor : Monitor) : Coord → Prop :=
   Known fun c => c ∈ keygenDisclosed ∨ c ∈ monitor.disclosed
+theorem Monitor.msgSlot_known (monitor : Monitor) (L : CanonEncoding.EncLeaf) (cs : Coord × Nat)
+    (hc : cs ∈ msgSlots L) : monitor.known cs.1 :=
+  Known.base (Or.inl (msgSlot_mem_keygen hc))
+
+theorem Monitor.firstUnknownMsg_none (monitor : Monitor) (L : CanonEncoding.EncLeaf) :
+    firstUnknownMsg monitor.known L = none := by
+  apply List.find?_eq_none.mpr
+  intro cs hc
+  simpa using monitor.msgSlot_known L cs hc
+
 noncomputable def Monitor.query (U : Finset HashInput) (A : Answers) (q : Nat) (monitor : Monitor)
     (input : HashInput) (answer : HashOutput) : Monitor :=
   if monitor.contact then monitor

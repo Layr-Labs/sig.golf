@@ -115,10 +115,11 @@ theorem layerCounterSearch_public (lay : Layer) (tree leaf : Nat) (msg : LayerMs
       rw [ClaudeWCT.WCT9.layerCounterSearch, SphincsSecurity.Completeness.searchLoop]
       simp only [publicProgram, simulateQ_bind, simulateQ_spec_query,
         SphincsSecurity.Concrete.oracleHash, HasQuery.query, SigGolfCandidate.T3.Sampling.publicHandler,
-        shortHash, publicHash, bind_assoc, pure_bind, layerTrial, producerEncodingDecode]
+        ClaudeWCT.WCT9.encodingHash, shortHash, publicHash, map_eq_bind_pure_comp, Function.comp_apply,
+        bind_assoc, pure_bind, layerTrial, producerEncodingDecode]
       apply bind_congr
       intro answer
-      cases hd : ClaudeWCT.WCT9.producerDecode lay (answer.extractLsb' 0 128) <;>
+      cases hd : ClaudeWCT.WCT9.producerDecode lay (ClaudeWCT.WCT9.encodingAnswer lay answer) <;>
         simp only [simulateQ_map, simulateQ_pure, map_pure, ih, publicProgram]
 theorem V_layerCounterSearch (secret : BitVec 256) (z b : ENNReal) (hb : 1 ≤ b)
     (lay : Layer) (tree leaf : Nat) (msg : LayerMsg)
@@ -154,7 +155,7 @@ theorem bound_layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : LayerMsg
   | succ fuel ih =>
       intro counter
       unfold ClaudeWCT.WCT9.layerCounterSearch
-      refine (Cost.bound_shortHash (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter)) 1
+      refine (ClaudeWCT.WCT9.Cost.bound_encodingHash lay (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter)) 1
         (by cases msg <;> simp [layerEncodingInput, encodingInput, pairEncodingInputP, bytesLE_length])
         (by rw [show pad64 (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter)) =
               layerTrial lay tree leaf msg counter from rfl, layerTrial_length])).bind'
@@ -172,7 +173,7 @@ theorem layerCounterSearch_none_iff (answers : Correctness.Answers) (lay : Layer
     ∀ fuel counter,
       evalWithAnswerFn answers (layerCounterSearch lay tree leaf msg counter fuel) = none ↔
       ∀ offset, offset < fuel → ClaudeWCT.WCT9.producerDecode lay (evalWithAnswerFn answers
-        (shortHash (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 (counter + offset))))) = none := by
+        (ClaudeWCT.WCT9.encodingHash lay (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 (counter + offset))))) = none := by
   intro fuel
   induction fuel with
   | zero => intro counter; simp [ClaudeWCT.WCT9.layerCounterSearch]
@@ -180,7 +181,7 @@ theorem layerCounterSearch_none_iff (answers : Correctness.Answers) (lay : Layer
       intro counter
       simp only [ClaudeWCT.WCT9.layerCounterSearch, evalWithAnswerFn_bind]
       cases hd : ClaudeWCT.WCT9.producerDecode lay (evalWithAnswerFn answers
-        (shortHash (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter)))) with
+        (ClaudeWCT.WCT9.encodingHash lay (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter)))) with
       | none =>
           simp only [hd, ih]
           constructor
@@ -198,9 +199,10 @@ theorem layerCounterSearch_none_iff (answers : Correctness.Answers) (lay : Layer
           simp only [Nat.add_zero, hd, reduceCtorEq] at this
 theorem eval_shortHash_layer (answers : Correctness.Answers) (lay : Layer) (tree leaf : Nat) (msg : LayerMsg)
     (counter : Nat) :
-    evalWithAnswerFn answers (shortHash (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter))) =
-      (answers (.inl (.inr (pairTrial lay tree leaf (msgLeft msg) (msgRight msg) counter)))).extractLsb' 0 128 := by
-  rw [SigGolfCandidate.T3.Presampling.eval_shortHash, ← layerTrial_eq]
+    evalWithAnswerFn answers (ClaudeWCT.WCT9.encodingHash lay (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter))) =
+      ClaudeWCT.WCT9.encodingAnswer lay
+        (answers (.inl (.inr (pairTrial lay tree leaf (msgLeft msg) (msgRight msg) counter)))) := by
+  rw [ClaudeWCT.WCT9.eval_encodingHash, ← layerTrial_eq]
   rfl
 theorem layerCounterSearch_forest_eval (answers : Correctness.Answers) (lay : Layer) (tree leaf : Nat)
     (root : Digest) : ∀ fuel counter,
@@ -211,14 +213,14 @@ theorem layerCounterSearch_forest_eval (answers : Correctness.Answers) (lay : La
   | zero => intro counter; rfl
   | succ fuel ih =>
       intro counter
-      have hs : evalWithAnswerFn answers (shortHash (layerEncodingInput lay tree leaf (.forest root)
+      have hs : evalWithAnswerFn answers (ClaudeWCT.WCT9.encodingHash lay (layerEncodingInput lay tree leaf (.forest root)
             (BitVec.ofNat 32 counter))) =
-          evalWithAnswerFn answers (shortHash (layerEncodingInput lay tree leaf (.pair root 0)
+          evalWithAnswerFn answers (ClaudeWCT.WCT9.encodingHash lay (layerEncodingInput lay tree leaf (.pair root 0)
             (BitVec.ofNat 32 counter))) := by
         rw [eval_shortHash_layer, eval_shortHash_layer]
         rfl
       simp only [ClaudeWCT.WCT9.layerCounterSearch, evalWithAnswerFn_bind, hs]
-      cases hd : ClaudeWCT.WCT9.producerDecode lay (evalWithAnswerFn answers (shortHash (layerEncodingInput lay tree leaf
+      cases hd : ClaudeWCT.WCT9.producerDecode lay (evalWithAnswerFn answers (ClaudeWCT.WCT9.encodingHash lay (layerEncodingInput lay tree leaf
         (.pair root 0) (BitVec.ofNat 32 counter)))) <;> simp only [hd, ih]
 def PairFreshBelow (n : Nat) (cache : RCache) : Prop :=
   ∀ lay : Layer, lay.val < n → ∀ tree leaf left right c, c < 2 ^ 32 →

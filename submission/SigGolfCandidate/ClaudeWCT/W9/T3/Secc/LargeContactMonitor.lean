@@ -25,7 +25,7 @@ def Clear (A : Answers) (K : Coord → Prop) (X : HashInput) (y : HashOutput) : 
   (∀ (L : CanonEncoding.EncLeaf) (m : WCT9.LayerMsg) (ctr : BitVec 32) (pad : Wots.RowPad),
       Extract.msgFits L.1.lay m → X = Wots.encRow L.toWots m ctr pad →
       ¬(Wots.referenceInput A L.toWots ≠ some X ∧
-        decode L.1.lay (y.extractLsb' 0 128) = some (Wots.referenceDigits A L.toWots)))
+        decode L.1.lay (WCT9.encodingAnswer L.1.lay y) = some (Wots.referenceDigits A L.toWots)))
 theorem firstUnknown_single (K : Coord → Prop) (N : CanonGraph.Node) (c : Coord) (b : Nat)
     (h : childSlots N = [(c, b)]) (hk : ¬K c) : firstUnknown K N = some (c, b) := by
   unfold firstUnknown

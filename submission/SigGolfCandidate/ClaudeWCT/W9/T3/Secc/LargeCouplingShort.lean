@@ -43,7 +43,8 @@ theorem treeChild_top_some (level node : Nat) (hl : 0 ≤ level) (hl' : level �
   exact ⟨_, rfl⟩
 theorem treeChild_mem_keygen (level node : Nat) (hl : 0 ≤ level) (hl' : level ≤ 12) (hn : node < 2 ^ (12 - level))
     (c : Coord) (hc : treeChild 0 0 level node = some c) : c ∈ keygenDisclosed := by
-  unfold keygenDisclosed
+  apply List.mem_append_left encodingDisclosed
+  unfold keygenCacheDisclosed
   simp only [List.mem_flatMap, List.mem_range'_1, List.mem_filterMap, List.mem_range]
   exact ⟨level, ⟨by omega, by omega⟩, node, hn, hc⟩
 section Keygen

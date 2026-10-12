@@ -287,7 +287,8 @@ theorem signTop_free (cache : SigGolfCandidate.T3.Cache) (leaf : Nat) (digits : 
   exact bind_allowed WFree (buildLeafTop_free _ _ _) fun _ =>
     bind_allowed WFree (topPath_free _ _) fun _ => pure_allowed _ _
 theorem layerEncoding_free (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (counter : BitVec 32) :
-    AllQueriesSatisfy (shortHash (WCT9.layerEncodingInput lay tree leaf msg counter)) WFree := by
+    AllQueriesSatisfy (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg counter)) WFree := by
+  rw [ClaudeWCT.WCT9.allQueries_encodingHash_iff]
   unfold shortHash publicHash
   apply bind_allowed WFree
   · apply (allQueriesSatisfy_query_iff _ _).mpr

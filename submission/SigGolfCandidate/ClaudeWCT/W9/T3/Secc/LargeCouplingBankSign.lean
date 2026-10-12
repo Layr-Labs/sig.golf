@@ -394,14 +394,14 @@ theorem wct_core_win_54 (b : BankCore) (halive : ¬horizon < b.exposures.length)
     exact (ledger54_win horizon _ _ _ _ N hN hadm hcov).trans le_self_add
 theorem wct_core_initial_54 (budget : Nat) :
     corePotential54 (2 ^ 32) ⟨[], [], false, 0, budget⟩ ≤
-      (budget : ENNReal) * (6117 / 10000000) / 2 ^ 128 := by
+      (budget : ENNReal) * (23 / 100000) / 2 ^ 128 := by
   unfold corePotential54 ledger54 excessForecast54
   simp only [List.length_nil, Nat.not_lt_zero, if_false, Bool.false_eq_true, Nat.sub_zero, add_zero,
     List.map_nil, List.sum_nil, zero_add]
   apply ENNReal.div_le_div_right
   apply mul_le_mul' le_rfl
   change ClaudeWCT.Numerics.Law.lawAvg honestLaw (2 ^ 32)
-    (fun W : List WProposal => price W - 2031 / 1024) ≤ 6117 / 10000000
+    (fun W : List WProposal => price W - 2031 / 1024) ≤ 23 / 100000
   rw [honestLaw_eq_n4]
   exact ClaudeWCT.Numerics.WCTPrice.wct_excess_honest_2_32_54
 end ClaudeWCT.Bank.WCT
@@ -562,7 +562,7 @@ theorem psi_cert (q : Nat) (st : RouterState) (h : CertGhost st) : 1 ≤ psi q s
   · exact ClaudeWCT.Bank.WCT.wct_core_win CaseC.horizon ⊤ CaseC.excessBound_top (bankOf q st) (not_lt.mpr h.1) hcov
 theorem psi_initial (q : Nat) :
     psi q RouterState.initial ≤
-      (q : ENNReal) * (if q ≤ 2 ^ 121 then 6117 / 10000000 else 247 / 100000) / 2 ^ 128 := by
+      (q : ENNReal) * (if q ≤ 2 ^ 121 then 23 / 100000 else 247 / 100000) / 2 ^ 128 := by
   have h0 : reuseC RouterState.initial = 0 := by
     unfold reuseC
     apply ENNReal.tsum_eq_zero.mpr
@@ -622,9 +622,10 @@ theorem restrict_inr (test : Probe WCoord) (htest : InlTest test) (cand : WCoord
     | none => rfl
     | some g =>
         have hmem : g ∈ test.guess := by
-          have : (test.effF cand).guess = test.guess.filter _ := rfl
-          rw [this] at hgs
-          exact (Option.filter_eq_some_iff.mp hgs).1
+          by_cases hsel : test.hit.isSelected = true
+          · simp [LargeResidual.Probe.effF, hsel] at hgs
+          · simp only [LargeResidual.Probe.effF, hsel, if_false] at hgs
+            exact (Option.filter_eq_some_iff.mp hgs).1
         obtain ⟨c, hc⟩ := htest.1 g hmem
         simp only [eraseTableValue]
         rw [Function.update_of_ne (by rw [hc]; simp)]
@@ -637,6 +638,10 @@ theorem restrict_inr (test : Probe WCoord) (htest : InlTest test) (cand : WCoord
       simp only [LargeResidual.Hit.restrict, eraseTableValue]
       rw [Function.update_of_ne (by rw [hc]; simp), hg]
   | target t =>
+      rw [hh, hhit]
+      simp only [LargeResidual.Hit.restrict]
+      exact hg
+  | selectedTarget t pickLow =>
       rw [hh, hhit]
       simp only [LargeResidual.Hit.restrict]
       exact hg
@@ -826,6 +831,10 @@ theorem hit_label_inl (c : Coord) : ∀ p, (LargeResidual.Hit.label (Sum.inl c) 
   fun p hp => ⟨c, by cases hp; rfl⟩
 theorem hit_target (t : Digest) : ∀ p, (LargeResidual.Hit.target t : Hit WCoord) = .label p → ∃ c' : Coord, p = .inl c' :=
   fun p hp => by cases hp
+theorem hit_encodingHit (lay : Layer) (t : Digest) :
+    ∀ p, (encodingHit lay t : Hit WCoord) = .label p → ∃ c' : Coord, p = .inl c' := by
+  intro p hp
+  simp [encodingHit] at hp
 variable (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input)) (q : Nat)
 theorem bank_routeQuery (a : AuxData) (st : RouterState) (ws : LargeResidual.State WCoord (Cell U)) (X : HashInput)
     (hinv : BankInv U ws st) (hlt : st.calls < q)
@@ -888,7 +897,7 @@ theorem bank_routeQuery (a : AuxData) (st : RouterState) (ws : LargeResidual.Sta
             apply ((hnd hndX).of_disc U hd).1
             exact ⟨fun row hr => rfl, rfl, rfl, fun m => rfl⟩
           · rw [ev_lazy_map]
-            exact ev_testReq_le U aux q _ ⟨X, hX⟩ _ (inlTest_none _ (hit_target _))
+            exact ev_testReq_le U aux q _ ⟨X, hX⟩ _ (inlTest_none _ (hit_encodingHit _ _))
               s1 _ _ (((hnd hndX).of_disc U hd).map U _)
       · rw [dif_neg he]
         by_cases hd : IsDigestRow X

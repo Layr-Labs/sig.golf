@@ -57,7 +57,7 @@ inductive Known (D : Coord → Prop) : Coord → Prop
   | node {N : CanonGraph.Node} : (∀ cs ∈ childSlots N, Known D cs.1) → Known D (.inl N)
 noncomputable def firstUnknown (K : Coord → Prop) (N : CanonGraph.Node) : Option (Coord × Nat) :=
   (childSlots N).find? fun cs => decide (¬K cs.1)
-def keygenDisclosed : List Coord :=
+def keygenCacheDisclosed : List Coord :=
   (List.range' 0 13).flatMap fun level =>
     (List.range (2 ^ (12 - level))).filterMap fun node => treeChild 0 0 level node
 def chainItem (L : LeafPos) (i d : Nat) : Coord :=
@@ -103,6 +103,35 @@ def msgSlots (L : EncLeaf) : List (Coord × Nat) :=
     [(.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 0)), 0),
       (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 1)), 3)]
   else [(.inl (.forest (childIndex L)), 0)]
+/-- The large-game simulator may reveal internal message roots for free. These
+coordinates contain neither WOTS chain values nor FTS chain values or seeds. -/
+noncomputable def encodingDisclosed : List Coord :=
+  (Finset.univ : Finset EncLeaf).toList.flatMap fun L => (msgSlots L).map Prod.fst
+
+noncomputable def keygenDisclosed : List Coord :=
+  keygenCacheDisclosed ++ encodingDisclosed
+
+attribute [local irreducible] Finset.univ
+
+theorem msgSlot_mem_keygen {L : EncLeaf} {cs : Coord × Nat} (hc : cs ∈ msgSlots L) :
+    cs.1 ∈ keygenDisclosed := by
+  apply List.mem_append_right keygenCacheDisclosed
+  exact List.mem_flatMap.mpr ⟨L, Finset.mem_toList.mpr (Finset.mem_univ _),
+    List.mem_map.mpr ⟨cs, hc, rfl⟩⟩
+
+theorem encodingDisclosed_shape {c : Coord} (hc : c ∈ encodingDisclosed) :
+    (∃ n, c = .inl (.node n)) ∨ ∃ i, c = .inl (.forest i) := by
+  unfold encodingDisclosed at hc
+  obtain ⟨L, _, hc⟩ := List.mem_flatMap.mp hc
+  obtain ⟨cs, hcs, rfl⟩ := List.mem_map.mp hc
+  unfold msgSlots at hcs
+  split_ifs at hcs
+  · simp only [List.mem_cons, List.not_mem_nil, or_false] at hcs
+    rcases hcs with rfl | rfl <;> exact Or.inl ⟨_, rfl⟩
+  · simp only [List.mem_cons, List.not_mem_nil, or_false] at hcs
+    subst hcs
+    exact Or.inr ⟨_, rfl⟩
+
 def msgVals (vals : Coord → Digest) (L : EncLeaf) : WCT9.LayerMsg :=
   if h : L.1.lay.val < 3 then
     .pair (vals (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 0))))
@@ -119,7 +148,7 @@ def EncodingContact (A : Answers) (K : Coord → Prop) (input : HashInput) (answ
     input = Wots.encRow L.toWots m ctr pad ∧
     ((∃ cs, firstUnknownMsg K L = some cs ∧ slotValue input cs.2 = honestValue A cs.1) ∨
       (Wots.referenceInput A L.toWots ≠ some input ∧
-        decode L.1.lay (answer.extractLsb' 0 128) = some (Wots.referenceDigits A L.toWots)))
+        decode L.1.lay (WCT9.encodingAnswer L.1.lay answer) = some (Wots.referenceDigits A L.toWots)))
 def ContactTest (A : Answers) (K : Coord → Prop) (input : HashInput) (answer : HashOutput) : Prop :=
   StructuralContact A K input answer ∨ EncodingContact A K input answer
 end ClaudeWCT.W9.T3.Security.LargeResidual

@@ -1,6 +1,7 @@
 import SigGolfCandidate.T3M.Verify.Exec
 import SigGolfCandidate.T3M.Images.Verify
 
+set_option Elab.async false
 set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
 namespace SigGolfCandidate.T3M.Verify

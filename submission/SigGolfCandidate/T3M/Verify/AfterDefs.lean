@@ -23,7 +23,7 @@ end FCtx
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
-def layerPc : Nat := 5505
+def layerPc : Nat := 855
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
@@ -33,7 +33,7 @@ structure FtsOut (F : FCtx) (root : Digest) (u : MachineState) : Prop where
   idx : u.getReg .x22 = BitVec.ofNat 64 F.idx
   pc : u.pc = pcOf layerPc
   root : DigAt u WIT root
-  wit : Orig F.w (fun o => (32 ≤ o ∧ o < 64) ∨ (7424 ≤ o ∧ o < 20896)) u
+  wit : Orig F.w (fun o => (32 ≤ o ∧ o < 64) ∨ (7424 ≤ o ∧ o < 24000)) u
   a2 : u.getReg .x12 = BitVec.ofNat 64 WIT
   s10 : u.getReg .x26 = 6
   heapOne : u.getReg .x7 = 1

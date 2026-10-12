@@ -40,7 +40,13 @@ theorem layer_of_shaped (answers : Answers) (N : HashOutput) (wit : WCT9.Witness
       (route (WCT9.digestIndex N) lay).2 (route (WCT9.digestIndex N) lay).1 digits) := by
   apply SigGolfCandidate.T3M.LayerSignature.ext'
   · funext i
-    rw [← ClaudeWCT.W9.T3M.wvalue_witEnc N wit lay i, (hs.2 i.val i.isLt).1]
+    have hv : ClaudeWCT.W9.T3M.wvalueFor (witEnc N wit) lay digits i.val =
+        (wit.signature.layers lay).values i := by
+      unfold ClaudeWCT.W9.T3M.wvalueFor
+      split
+      · exact ClaudeWCT.W9.T3M.wbuffer_witEnc N wit lay i
+      · exact ClaudeWCT.W9.T3M.wvalue_witEnc N wit lay i
+    rw [← hv, (hs.2 i.val i.isLt).1]
     simp [piecesSignature, WCT9.wotsPieces]
   · funext j
     rw [← ClaudeWCT.W9.T3M.wpath_witEnc N wit lay j, (hs.1 j.val j.isLt).1]
@@ -104,7 +110,7 @@ theorem layers_payload (answers : Answers) (published : SigGolfCandidate.T3.Cach
           obtain ⟨digitsG, ⟨_, hdec⟩, hshape⟩ := hgood (Fin.ofNat 4 n)
           have hright : ClaudeWCT.W9.T3M.wbcRight (witEnc N wit) = 0 := ClaudeWCT.W9.T3M.wright3_witEnc N wit
           rw [ClaudeWCT.W9.T3M.wbcCtr_witEnc, ClaudeWCT.W9.T3M.wbcPad_witEnc, hright, hcounter, ← hmsg,
-            ClaudeWCT.W9.T3M.shortHash_layerEncodingInputP_zero] at hdec
+            ClaudeWCT.W9.T3M.encodingHash_layerEncodingInputP_zero] at hdec
           rw [hsome.2.2, Option.some.injEq] at hdec
           subst hdec
           rename' digits => digitsG

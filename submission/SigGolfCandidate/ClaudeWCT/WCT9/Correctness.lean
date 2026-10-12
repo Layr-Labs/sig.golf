@@ -589,7 +589,7 @@ theorem layerCounterSearch_some_search (answers : Answers) (lay : Layer) (tree l
     ∀ fuel counter found digits, counter + fuel ≤ 2 ^ 32 →
       evalWithAnswerFn answers (layerCounterSearch lay tree leaf msg counter fuel) = some (found, digits) →
       counter ≤ found.toNat ∧ found.toNat < counter + fuel ∧
-        producerDecode lay (evalWithAnswerFn answers (shortHash (layerEncodingInput lay tree leaf msg found))) =
+        producerDecode lay (evalWithAnswerFn answers (ClaudeWCT.WCT9.encodingHash lay (layerEncodingInput lay tree leaf msg found))) =
           some digits := by
   intro fuel
   induction fuel with
@@ -600,7 +600,7 @@ theorem layerCounterSearch_some_search (answers : Answers) (lay : Layer) (tree l
       intro counter found digits hlimit he
       simp only [layerCounterSearch, evalWithAnswerFn_bind] at he
       cases hd : producerDecode lay (evalWithAnswerFn answers
-        (shortHash (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter)))) with
+        (ClaudeWCT.WCT9.encodingHash lay (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter)))) with
       | none =>
           simp only [hd] at he
           obtain ⟨hlo, hhi, hgood⟩ := ih (counter + 1) found digits (by omega) he
@@ -615,7 +615,7 @@ theorem layerCounterSearch_some (answers : Answers) (lay : Layer) (tree leaf : N
     ∀ fuel counter found digits, counter + fuel ≤ 2 ^ 32 →
       evalWithAnswerFn answers (layerCounterSearch lay tree leaf msg counter fuel) = some (found, digits) →
       counter ≤ found.toNat ∧ found.toNat < counter + fuel ∧
-        decode lay (evalWithAnswerFn answers (shortHash (layerEncodingInput lay tree leaf msg found))) =
+        decode lay (evalWithAnswerFn answers (ClaudeWCT.WCT9.encodingHash lay (layerEncodingInput lay tree leaf msg found))) =
           some digits := by
   intro fuel counter found digits hlimit he
   obtain ⟨h1, h2, h3⟩ := layerCounterSearch_some_search answers lay tree leaf msg fuel counter found digits hlimit he

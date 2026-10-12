@@ -460,4 +460,39 @@ theorem admissible_of_producer {output : HashOutput} (h : producerAdmissible out
 private pair `ftsSeedPair index coord (j / 2)`. -/
 def ftsCoef (answers : SigGolfCandidate.T3.Correctness.Answers) (index coord : Nat) (j : Fin 54) : Digest :=
   seedHalf (evalWithAnswerFn answers (ftsSeedPair index coord (j.val / 2))) j.val
+theorem eval_encodingHash (answers : SigGolfCandidate.T3.Correctness.Answers) (lay : Layer) (input : HashInput) :
+    evalWithAnswerFn answers (encodingHash lay input) =
+      encodingAnswer lay (answers (.inl (.inr (pad64 input)))) := rfl
+
+theorem allQueries_encodingHash_iff (lay : Layer) (input : HashInput) (P : Spec.Domain → Prop) :
+    AllQueriesSatisfy (encodingHash lay input) P ↔ AllQueriesSatisfy (shortHash input) P := by
+  change AllQueriesSatisfy ((encodingAnswer lay) <$> publicHash input) P ↔
+    AllQueriesSatisfy ((fun a : HashOutput => a.extractLsb' 0 128) <$> publicHash input) P
+  simp only [AllQueriesSatisfy, isQueryBound_map_iff]
+
+namespace Cost
+open SigGolfCandidate.T3.Cost
+set_option backward.isDefEq.respectTransparency false in
+theorem bound_encodingHash (lay : Layer) (input : HashInput) (k : Nat)
+    (hpos : 0 < input.length) (hlen : (pad64 input).length / 64 ≤ k) :
+    CBound (fun _ => True) k (encodingHash lay input) := by
+  change CBound (fun _ => True) k (publicHash input >>= fun a => pure (encodingAnswer lay a))
+  unfold publicHash
+  apply Bound.qry_bind (k := 0) ⟨pad64_positive input hpos, pad64_aligned input⟩
+    (fun _ => .pure _ 0 trivial)
+  simpa only [weight, Nat.add_zero] using hlen
+end Cost
+open ENNReal in
+theorem probability_lower_encoding (p : Digest → Prop) [DecidablePred p]
+    (hp : ∀ d, p d → lowerSpare d) :
+    Pr[p ∘ DualHalf.select | ($ᵗ HashOutput : ProbComp HashOutput)] =
+      ((Finset.univ.filter p).card : ENNReal) * (7 / ((4 : ENNReal) * 2^128)) := by
+  rw [probEvent_uniformSample]
+  change ((Finset.univ.filter fun a : HashOutput => p (DualHalf.select a)).card : ENNReal) /
+    (Fintype.card HashOutput : ENNReal) = _
+  rw [DualHalf.card_select_pred p hp, Fintype.card_bitVec, Nat.cast_mul, mul_div_assoc]
+  congr 1
+  apply (ENNReal.div_eq_div_iff (by norm_num) (by finiteness) (by norm_num) (by finiteness)).2
+  norm_num
+
 end ClaudeWCT.WCT9

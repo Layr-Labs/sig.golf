@@ -10,7 +10,7 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open SigGolfCandidate.T3.Security.Wots (LeafAddr ChainAddr Entry low entriesOf word_cases)
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3.Security.Wots
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
-open ClaudeWCT.W9.T3M (wrho wdc layerP wchainPads wchainHeaderPad wmerklePad wpath wvalue wbcCtr wbcPad wbcRight)
+open ClaudeWCT.W9.T3M (wrho wdc layerP wchainPads wchainHeaderPad wmerklePad wpath wvalueFor wbcCtr wbcPad wbcRight)
 open SigGolfCandidate.T3.Security.WotsExtract (SourceLeaf SourceChain entriesOf_mono mem_entriesOf routeLeaf
   routeLeaf_source)
 open SigGolfCandidate.T3.Correctness (Answers treeValue builtTree leafSeed leafEnd leafValue)
@@ -41,7 +41,7 @@ theorem frame_wots_route (answers : Answers) (w : WBytes) (index : Nat) (lay : L
         (j + 1 < height lay ∨ lay.val = 0 → wmerklePad w lay (route index lay).1 j = 0))
     (hchains : ∀ i, i < chainCount lay →
       (depth answers ⟨routeLeaf index lay, i⟩ ≤ digits.getD i 0 →
-        wvalue w lay i = WCT9.wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
+        wvalueFor w lay digits i = WCT9.wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
           (digits.getD i 0 < maxDigit lay i →
             wchainPads w lay i = (0, 0) ∧ wchainHeaderPad w lay i = 0)) ∧
       (digits.getD i 0 < depth answers ⟨routeLeaf index lay, i⟩ →
@@ -52,7 +52,7 @@ theorem frame_wots_route (answers : Answers) (w : WBytes) (index : Nat) (lay : L
       (msg = Extract.honestMsg answers index lay ∧ BC.GoodZ answers w index lay) := by
   classical
   have hdec : decode (routeLeaf index lay).lay
-      (low (answers (.inl (.inr (encRow (routeLeaf index lay) msg (wbcCtr w index lay) (wbcPad w index lay, wbcRight w)))))) = some digits :=
+      (WCT9.encodingAnswer (routeLeaf index lay).lay (answers (.inl (.inr (encRow (routeLeaf index lay) msg (wbcCtr w index lay) (wbcPad w index lay, wbcRight w)))))) = some digits :=
     hframe.2
   have hfit' : Extract.msgFits (routeLeaf index lay).lay msg := hfit
   have hencE : (encRow (routeLeaf index lay) msg (wbcCtr w index lay) (wbcPad w index lay, wbcRight w),
@@ -412,10 +412,13 @@ theorem ftsItems_not_chain (index : Fin (2^31)) (N : HashOutput) (c : Coord)
     exact wctItem_not_chain _ _
   · exact ftsChild_not_chain hl
 theorem keygen_not_chain (c : Coord) (hc : c ∈ keygenDisclosed) : NotChain c := by
-  unfold keygenDisclosed at hc
-  simp only [List.mem_flatMap, List.mem_filterMap] at hc
-  obtain ⟨_, _, _, _, h⟩ := hc
-  exact treeChild_not_chain h
+  rcases List.mem_append.mp hc with hc | hc
+  · unfold keygenCacheDisclosed at hc
+    simp only [List.mem_flatMap, List.mem_filterMap] at hc
+    obtain ⟨_, _, _, _, h⟩ := hc
+    exact treeChild_not_chain h
+  · rcases encodingDisclosed_shape hc with ⟨n, rfl⟩ | ⟨i, rfl⟩
+    all_goals exact ⟨fun p => by simp, fun a => by simp⟩
 theorem layerItems_chain (A : Answers) (index : Fin (2^31)) (c : Coord)
     (hc : c ∈ layerItems (Wots.referenceDigits A) index) :
     (∀ p, c = .inl (.chain p) → p.2.val + 1 = Wots.depth A (wotsAddr p.1)) ∧
@@ -520,11 +523,14 @@ theorem ftsChild_ne_wctItem {index : Fin (2^31)} {coord : Fin 9} {level n : Nat}
     obtain ⟨m, _, rfl⟩ := hd
     split_ifs <;> simp
 theorem keygen_not_wct (a : CanonGraph.WctAddr) (p : Nat) : wctItem a p ∉ keygenDisclosed := by
-  unfold keygenDisclosed
   intro hc
-  simp only [List.mem_flatMap, List.mem_filterMap] at hc
-  obtain ⟨_, _, _, _, h⟩ := hc
-  exact treeChild_ne_wctItem h a p rfl
+  rcases List.mem_append.mp hc with hc | hc
+  · unfold keygenCacheDisclosed at hc
+    simp only [List.mem_flatMap, List.mem_filterMap] at hc
+    obtain ⟨_, _, _, _, h⟩ := hc
+    exact treeChild_ne_wctItem h a p rfl
+  · rcases encodingDisclosed_shape hc with ⟨n, h⟩ | ⟨i, h⟩
+    all_goals unfold wctItem at h; split_ifs at h <;> simp at h
 theorem layerItems_not_wct (digitsOf : Wots.LeafAddr → List Nat) (index : Fin (2^31)) (a : CanonGraph.WctAddr)
     (p : Nat) : wctItem a p ∉ layerItems digitsOf index := by
   intro hc

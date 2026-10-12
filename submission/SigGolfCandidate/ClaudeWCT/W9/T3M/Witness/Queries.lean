@@ -31,11 +31,13 @@ theorem pubGood_wctNodeHash (coord index heap : Nat) (l r : Digest) :
     AllQueriesSatisfy (WCT9.wctNodeHash coord index heap l r) PubGood := pubGood_nodeHash _ _ _ _ _ _
 theorem pubGood_layerEncodingInputP (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (c : BitVec 32)
     (pad : BitVec 96) (padR : Digest) :
-    AllQueriesSatisfy (shortHash (layerEncodingInputP lay tree leaf msg c pad padR)) PubGood := by
+    AllQueriesSatisfy (ClaudeWCT.WCT9.encodingHash lay (layerEncodingInputP lay tree leaf msg c pad padR)) PubGood := by
+  apply (WCT9.allQueries_encodingHash_iff _ _ _).mpr
   apply pubGood_shortHash
   cases msg <;> simp [layerEncodingInputP, encodingInput, WCT9.pairEncodingInputP, bytesLE_length]
 theorem pubGood_layerEncodingInput (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (c : BitVec 32) :
-    AllQueriesSatisfy (shortHash (WCT9.layerEncodingInput lay tree leaf msg c)) PubGood := by
+    AllQueriesSatisfy (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg c)) PubGood := by
+  apply (WCT9.allQueries_encodingHash_iff _ _ _).mpr
   apply pubGood_shortHash
   cases msg <;> simp [WCT9.layerEncodingInput, encodingInput, WCT9.pairEncodingInputP, bytesLE_length]
 theorem pubGood_layerPairP (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) :

@@ -55,7 +55,8 @@ theorem dn_of_fts {index : Nat} {α : Type} {program : M α} (h : AllQueriesSati
 theorem signForest_dn (index : Nat) (output : HashOutput) : AllQueriesSatisfy (WCT9.signForest index output) NotDN :=
   dn_of_fts (WCT9.signForest_queries index output)
 theorem layerEncoding_dn (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (counter : BitVec 32) :
-    AllQueriesSatisfy (shortHash (WCT9.layerEncodingInput lay tree leaf msg counter)) NotDN := by
+    AllQueriesSatisfy (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg counter)) NotDN := by
+  rw [ClaudeWCT.WCT9.allQueries_encodingHash_iff]
   unfold shortHash publicHash
   apply SourceQueries.bind_allowed NotDN
   · apply (allQueriesSatisfy_query_iff _ _).mpr

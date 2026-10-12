@@ -1,4 +1,4 @@
-import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecksPart6
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsCheckParts
 
 section
 

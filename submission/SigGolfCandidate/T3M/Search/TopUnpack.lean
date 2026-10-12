@@ -5,6 +5,7 @@ section
 namespace SigGolfCandidate.T3M.Search.TopUnpack
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)
+set_option Elab.async false
 set_option maxRecDepth 8192
 set_option maxHeartbeats 600000
 set_option linter.unusedSimpArgs false
@@ -114,45 +115,48 @@ end
 section
 namespace SigGolfCandidate.T3M.Search.TopUnpack
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
+set_option Elab.async false
 set_option maxRecDepth 8192
 set_option maxHeartbeats 800000
 set_option linter.unusedSimpArgs false
-def jumpCode : List (BitVec 32) := [0x780006f]
+def jumpCode (b : Nat) : List (BitVec 32) := if b=354 then [0x2312906f] else [0x7591306f]
 def initCode : List (BitVec 32) := [133815,0x420a8a93,0x80f0f13]
 def ptrCode : List (BitVec 32) := [0x7f37e13,3022355,32378419]
-def initLayout : Rv.Layout := [(0,jumpCode),(1,initCode),(4,ptrCode)]
-theorem initLayout_ok : layoutOk 0 initLayout=true := by decide +kernel
-theorem initLayout_code : topSeg362=layoutCode initLayout := by decide +kernel
+def initLayout (b : Nat) : Rv.Layout := [(0,jumpCode b),(1,initCode),(4,ptrCode)]
+theorem initLayout_ok (b : Nat) : layoutOk 0 (initLayout b)=true := by
+  by_cases hb : b=354 <;> simp [initLayout,jumpCode,hb] <;> decide +kernel
+theorem initLayout_code (b : Nat) : topSeg362 b=layoutCode (initLayout b) := by
+  by_cases hb : b=354 <;> simp [topSeg362,initLayout,jumpCode,hb] <;> decide +kernel
 theorem code_jump {image : Image} {b : Nat} (hK : KernAt image b) :
-    CodeAt image (pcOf (b+362)) jumpCode := by
+    CodeAt image (pcOf (b+362)) (jumpCode b) := by
   have hc := codeAt_top362 hK
   rw [initLayout_code] at hc
-  have h := codeAt_sublayout hc initLayout_ok (i:=0) (o:=0) (seg:=jumpCode) (by kernel_rfl)
+  have h := codeAt_sublayout hc (initLayout_ok b) (i:=0) (o:=0) (seg:=jumpCode b) (by rfl)
   simpa only [Nat.add_zero] using h
 theorem code_init {image : Image} {b : Nat} (hK : KernAt image b) :
     CodeAt image (pcOf (b+363)) initCode := by
   have hc := codeAt_top362 hK
   rw [initLayout_code] at hc
-  have h := codeAt_sublayout hc initLayout_ok (i:=1) (o:=1) (seg:=initCode) (by kernel_rfl)
+  have h := codeAt_sublayout hc (initLayout_ok b) (i:=1) (o:=1) (seg:=initCode) (by rfl)
   simpa only [Nat.add_assoc,Nat.reduceAdd] using h
 theorem code_ptr {image : Image} {b : Nat} (hK : KernAt image b) :
     CodeAt image (pcOf (b+366)) ptrCode := by
   have hc := codeAt_top362 hK
   rw [initLayout_code] at hc
-  have h := codeAt_sublayout hc initLayout_ok (i:=2) (o:=4) (seg:=ptrCode) (by kernel_rfl)
+  have h := codeAt_sublayout hc (initLayout_ok b) (i:=2) (o:=4) (seg:=ptrCode) (by rfl)
   simpa only [Nat.add_assoc,Nat.reduceAdd] using h
-sym_block uj354 := symRun {noAlias:=true} jumpCode (pcOf (354+362)) 200
-sym_block uj543 := symRun {noAlias:=true} jumpCode (pcOf (543+362)) 200
+sym_block uj354 := symRun {noAlias:=true} (jumpCode 354) (pcOf (354+362)) 200
+sym_block uj543 := symRun {noAlias:=true} (jumpCode 543) (pcOf (543+362)) 200
 def jumpState : SymState := uj354.res.st
 theorem run_jump {b : Nat} (hb : b=354 ∨ b=543) :
-    symRun {noAlias:=true} jumpCode (pcOf (b+362)) 200=
-      some ⟨jumpState,.c (pcOf (b+392)),uj354.res.stop,uj354.res.steps,uj354.res.cycles⟩ := by
+    symRun {noAlias:=true} (jumpCode b) (pcOf (b+362)) 200=
+      some ⟨jumpState,.c (pcOf (Reward.base b true)),uj354.res.stop,uj354.res.steps,uj354.res.cycles⟩ := by
   rcases hb with rfl | rfl
   · exact uj354.trans (congrArg some (by kernel_rfl))
   · exact uj543.trans (congrArg some (by kernel_rfl))
 theorem jump_spec {image : Image} {b : Nat} (hK : KernAt image b)
     (s : MachineState) (hpc : s.pc=pcOf (b+362)) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf (b+392) ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
+    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf (Reward.base b true) ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
   refine ⟨_,symRun_sound (run_jump hK.2.1) (code_jump hK) s hpc
     (by simp [jumpState,uj354.res,rv_simp]),?_,?_,?_⟩
   · rfl
@@ -248,6 +252,7 @@ end
 section
 namespace SigGolfCandidate.T3M.Search.TopUnpack
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
+set_option Elab.async false
 set_option maxRecDepth 8192
 set_option maxHeartbeats 1000000
 set_option linter.unusedSimpArgs false
@@ -305,6 +310,7 @@ section
 namespace SigGolfCandidate.T3M.Search.TopUnpack
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)
+set_option Elab.async false
 set_option maxRecDepth 8192
 set_option maxHeartbeats 100000
 set_option Elab.async false
@@ -398,6 +404,7 @@ end
 section
 namespace SigGolfCandidate.T3M.Search.TopUnpack
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
+set_option Elab.async false
 set_option maxRecDepth 8192
 set_option maxHeartbeats 800000
 set_option linter.unusedSimpArgs false
@@ -434,12 +441,12 @@ theorem tail388_spec {image : Image} {b : Nat} (hK : KernAt image b)
   · intro r hr; simp at hr; cases r <;> simp_all [topState388,tb354_388.res,rv_simp] <;> rfl
   · intro A _ _; simp [topState388,tb354_388.res,rv_simp]
 theorem tail391_spec {image : Image} {b : Nat} (hK : KernAt image b)
-    (s : MachineState) (hpc : s.pc=pcOf (b+391)) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc=s.getReg .x1 &&& ~~~1#64 ∧
+    (s : MachineState) (hpc : s.pc=pcOf (b+391)) (ret : Nat) (h1 : s.getReg .x1=pcOf ret) :
+    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf ret ∧
       RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
   refine ⟨_,symRun_sound (run_top391 hK.2.1) (codeAt_top391 hK) s hpc
     (by simp [topState391,tb354_391.res,rv_simp]),?_,?_,?_⟩
-  · simp [topState391,topEnd391,tb354_391.res,rv_simp]
+  · simp [topState391,topEnd391,tb354_391.res,rv_simp,h1]
   · intro r hr; simp at hr; cases r <;> simp_all [topState391,tb354_391.res,rv_simp] <;> rfl
   · intro A _ _; simp [topState391,tb354_391.res,rv_simp]
 end SigGolfCandidate.T3M.Search.TopUnpack
@@ -447,6 +454,7 @@ end
 section
 namespace SigGolfCandidate.T3M.Search.TopUnpack
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
+set_option Elab.async false
 set_option maxRecDepth 8192
 set_option maxHeartbeats 1000000
 set_option linter.unusedSimpArgs false
@@ -460,8 +468,8 @@ theorem mask_byte (X : Nat) :
 theorem tail_spec {image : Image} {b : Nat} (hK : KernAt image b)
     (s : MachineState) (hpc : s.pc=pcOf (b+383)) (X : Nat) (hX : X<512)
     (h6 : s.getReg .x6=BitVec.ofNat 64 X)
-    (h21 : s.getReg .x21=BitVec.ofNat 64 (DIGITS+51)) :
-    ∃ t, Steps image s 9 9 t ∧ t.pc=s.getReg .x1 &&& ~~~1#64 ∧
+    (h21 : s.getReg .x21=BitVec.ofNat 64 (DIGITS+51)) (ret : Nat) (h1 : s.getReg .x1=pcOf ret) :
+    ∃ t, Steps image s 9 9 t ∧ t.pc=pcOf ret ∧
       (∀ B, B<2^64 → t.getByte (BitVec.ofNat 64 B)=
         if B=DIGITS+52 then BitVec.ofNat 8 (X/64%8)
         else if B=DIGITS+51 then BitVec.ofNat 8 (X/8%8)
@@ -496,9 +504,9 @@ theorem tail_spec {image : Image} {b : Nat} (hK : KernAt image b)
     (by rw [r5.get (by decide),r4.get (by decide),r3.get (by decide),r2.get (by decide),r1.get (by decide),h21]
         exact ofNat_add_ofNat _ 1) (by rw [h28b',mask_byte]) (by omega)
   have p6' : t6.pc=pcOf (b+391) := by simpa only [pcOf_add4,Nat.add_assoc,Nat.reduceAdd] using p6
-  obtain ⟨t7,s7,p7,r7,f7⟩ := tail391_spec hK t6 p6'
+  obtain ⟨t7,s7,p7,r7,f7⟩ := tail391_spec hK t6 p6' ret (by rw [r6.get (by decide),r5.get (by decide),r4.get (by decide),r3.get (by decide),r2.get (by decide),r1.get (by decide),h1])
   refine ⟨t7,((((((s1.trans s2).trans s3).trans s4).trans s5).trans s6).trans s7),?_,?_,?_,?_⟩
-  · rw [p7,r6.get (by decide),r5.get (by decide),r4.get (by decide),r3.get (by decide),r2.get (by decide),r1.get (by decide)]
+  · exact p7
   · intro B hB
     rw [f7.getByte hB (by simp),g6 B hB,f5.getByte hB (by simp),g4 B hB,
       f3.getByte hB (by simp),g2 B hB,f1.getByte hB (by simp)]
@@ -510,6 +518,7 @@ section
 namespace SigGolfCandidate.T3M.Search.TopUnpack
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)
+set_option Elab.async false
 set_option maxRecDepth 8192
 set_option maxHeartbeats 1000000
 set_option linter.unusedSimpArgs false
@@ -546,6 +555,7 @@ section
 namespace SigGolfCandidate.T3M.Search
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)
+set_option Elab.async false
 set_option maxRecDepth 8192
 set_option maxHeartbeats 1000000
 set_option linter.unusedSimpArgs false
@@ -564,8 +574,9 @@ theorem topUnpack_spec {image : Image} {b : Nat} (hK : KernAt image b)
     (hpc : s.pc=pcOf (b+363))
     (h6 : s.getReg .x6=v.extractLsb' 0 64)
     (h7 : s.getReg .x7=v.extractLsb' 64 64)
-    (h30 : s.getReg .x30=BitVec.ofNat 64 TOP_DATA) (h20 : s.getReg .x20=0) :
-    ∃ t, Steps image s 301 301 t ∧ t.pc=s.getReg .x1 &&& ~~~1#64 ∧
+    (h30 : s.getReg .x30=BitVec.ofNat 64 TOP_DATA) (h20 : s.getReg .x20=0)
+    (ret : Nat) (h1 : s.getReg .x1=pcOf ret) :
+    ∃ t, Steps image s 301 301 t ∧ t.pc=pcOf ret ∧
       (∀ j, j<54 → t.getByte (BitVec.ofNat 64 (DIGITS+j))=BitVec.ofNat 8 (T3.coreDigit 0 (T3.topFlip v) j)) ∧
       RegsExcept s t TopUnpack.Changed ∧ Frame s t TopUnpack.Writes := by
   have h6' : s.getReg .x6=BitVec.ofNat 64 v.toNat := by
@@ -580,9 +591,9 @@ theorem topUnpack_spec {image : Image} {b : Nat} (hK : KernAt image b)
   obtain ⟨m,sm,hm⟩ := TopUnpack.iter hK ht v hvalid ha 17 (by decide)
   have hx : v.toNat/2^119<512 := by have := v.isLt; omega
   obtain ⟨t,st,pt,gt,rt,ft⟩ := TopUnpack.tail_spec hK m (by simpa using hm.pc)
-    (v.toNat/2^119) hx (by simpa using hm.lo) (by simpa using hm.ptr)
+    (v.toNat/2^119) hx (by simpa using hm.lo) (by simpa using hm.ptr) ret (by rw [hm.regs.get (by decide), h1])
   refine ⟨t,(sa.trans sm).trans st,?_,?_,?_,?_⟩
-  · rw [pt,hm.regs.get (by decide)]
+  · exact pt
   · intro j hj
     rw [gt _ (by unfold DIGITS;omega)]
     by_cases h52 : j=52

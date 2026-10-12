@@ -7,13 +7,15 @@ theorem topLayerP_of_decode (w : WBytes) (index : Nat) {answer : Digest} {digits
     (h : decode 0 answer = some digits) : topLayerP w index answer = some <$> layerP w index 0 digits := by
   unfold topLayerP
   rw [WCT9.topDecodeRun_of_decode h]
+  have hd := (WCT9.decode_top_some h).2.2.2
+  rw [← hd]
   unfold layerP topChainP topFinishP
   generalize route index 0 = p
   obtain ⟨leaf, tree⟩ := p
   rfl
 theorem topLayerP_of_decode_none (w : WBytes) (index : Nat) {answer : Digest} (h : decode 0 answer = none) :
     topLayerP w index answer =
-      (fun _ => none) <$> WCT9.topRejectChains (topChainP w (route index 0).2 (route index 0).1) answer := by
+      (fun _ => none) <$> WCT9.topRejectChains (topChainP w (route index 0).2 (route index 0).1 (dataDigits 0 answer)) answer := by
   unfold topLayerP
   exact WCT9.topDecodeRun_of_decode_none h
 theorem eval_topLayerP_none (answers : QueryImpl Spec Id) (w : WBytes) (index : Nat) {answer : Digest}
@@ -25,9 +27,11 @@ theorem decode_of_eval_topLayerP (answers : QueryImpl Spec Id) (w : WBytes) (ind
   WCT9.decode_of_eval_topDecodeRun answers h
 theorem verifyTopP_of_decode (sig : WCT9.Signature) (pads : Pads) (index : Nat) {answer : Digest}
     {digits : List Nat} (h : decode 0 answer = some digits) :
-    verifyTopP sig pads index answer = some <$> recoverLayerP (WCT9.toT3Signature sig) pads.toT3 index 0 digits := by
+    verifyTopP sig pads index answer = some <$> recoverLayerP (WCT9.toT3Signature (effectiveSignature sig pads digits)) pads.toT3 index 0 digits := by
   unfold verifyTopP
   rw [WCT9.topDecodeRun_of_decode h]
+  have hd := (WCT9.decode_top_some h).2.2.2
+  rw [← hd]
   unfold recoverLayerP
   generalize route index 0 = p
   obtain ⟨leaf, tree⟩ := p

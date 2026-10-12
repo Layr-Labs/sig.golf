@@ -79,7 +79,7 @@ theorem encInput_hdr (e : EncIndex) :
     Extract.hdrBlock (encInput e) = bytesLE 16 (rowTweak e.1.1.lay e.1.1.tree.val e.1.1.leaf.val) :=
   ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP _ _ _ _ _ _ _
 noncomputable def rowDec (T A : Answers) (L : CanonGraph.LeafPos) (c : Nat) : Option (List Nat) :=
-  WCT9.producerDecode (leafOf L).lay (low (A (.inl (.inr (encRow (leafOf L) (leafMsg T (leafOf L))
+  WCT9.producerDecode (leafOf L).lay (WCT9.encodingAnswer (leafOf L).lay (A (.inl (.inr (encRow (leafOf L) (leafMsg T (leafOf L))
     (BitVec.ofNat 32 c) 0)))))
 theorem rowDec_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') {L : CanonGraph.LeafPos} (hs : L.Source)
     (c : Nat) (hc : c < WCT9.searchLimit (leafOf L).lay) (hprev : ∀ c' < c, rowDec T T L c' = none) :
@@ -204,14 +204,14 @@ theorem public_resample (iX : ∀ k : Set EncIndex, Fintype (k → HashOutput))
     (fun pub => freeSet (eagerAnswers U privateTable pub)) (fun k pub y => ov k pub y) (fun k pub => rd hU k pub)
     (fun pub y => rd_ov hU _ pub y) (fun pub y => ov_ov_rd hU _ pub y) (fun pub y => free_ov U privateTable pub y) F
 def Rej (T : Answers) (e : EncIndex) : Prop :=
-  Reached T (leafOf e.1.1) (encInput e) ∧ WCT9.producerDecode e.1.1.lay (low (T (.inl (.inr (encInput e))))) = none
+  Reached T (leafOf e.1.1) (encInput e) ∧ WCT9.producerDecode e.1.1.lay (WCT9.encodingAnswer e.1.1.lay (T (.inl (.inr (encInput e))))) = none
 def cellSet (T : Answers) : Set EncIndex := {e | Free T e ∨ Rej T e}
 noncomputable def rejAnswers (lay : Layer) : Finset HashOutput :=
-  Finset.univ.filter fun a => WCT9.producerDecode lay (low a) = none
+  Finset.univ.filter fun a => WCT9.producerDecode lay (WCT9.encodingAnswer lay a) = none
 theorem mem_rejAnswers (lay : Layer) (a : HashOutput) :
-    a ∈ rejAnswers lay ↔ WCT9.producerDecode lay (low a) = none := by
+    a ∈ rejAnswers lay ↔ WCT9.producerDecode lay (WCT9.encodingAnswer lay a) = none := by
   simp only [rejAnswers, Finset.mem_filter, Finset.mem_univ, true_and]
-theorem producerDecode_allOnes (lay : Layer) : WCT9.producerDecode lay (low (BitVec.allOnes 256)) = none := by
+theorem producerDecode_allOnes (lay : Layer) : WCT9.producerDecode lay (WCT9.encodingAnswer lay (BitVec.allOnes 256)) = none := by
   fin_cases lay <;> decide +kernel
 theorem rejAnswers_nonempty (lay : Layer) : (rejAnswers lay).Nonempty :=
   ⟨BitVec.allOnes 256, (mem_rejAnswers lay _).mpr (producerDecode_allOnes lay)⟩

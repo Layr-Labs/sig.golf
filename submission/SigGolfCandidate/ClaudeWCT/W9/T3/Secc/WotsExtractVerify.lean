@@ -1,4 +1,3 @@
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEventsGood
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsExtractLayer
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.VerifyP
 

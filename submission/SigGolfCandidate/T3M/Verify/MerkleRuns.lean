@@ -15,11 +15,11 @@ def mkSpecB (allow : List Nat) (rel : List Reg) (gk known : List (Reg × Word))
 def mkNch (lay : Nat) : Nat := if lay = 0 then 2 else 1
 def mkLo (lay ci : Nat) : Nat := if lay = 0 ∧ ci = 1 then 6 else 0
 def mkBits (lay ci : Nat) : Nat := if lay = 0 then 6 else hL lay
-def mkTab (lay ci : Nat) : Nat := if lay = 0 ∧ ci = 1 then 231 else stabIdx lay
-def mkTabW (lay ci sh : Nat) : Nat := if lay = 0 ∧ ci = 1 then 15507 + 256 * sh else stabW lay sh
+def mkTab (lay ci : Nat) : Nat := if lay = 0 ∧ ci = 1 then 133840 else stabIdx lay
+def mkTabW (lay ci sh : Nat) : Nat := if lay = 0 ∧ ci = 1 then 15718 + 256 * sh else stabW lay sh
 def mkShp (lay ci sh : Nat) : Nat :=
   if lay = 3 then 133760 + 128 * sh else if lay = 2 then 141952 + 128 * sh
-  else if lay = 1 then 1024 + 1024 * sh else if ci = 0 then 277 + 1024 * sh else 231 + 1024 * sh
+  else if lay = 1 then 1024 + 1024 * sh else if ci = 0 then 142032 + 128 * sh else 133840 + 128 * sh
 def mkReg (lay l : Nat) : Bool := decide (hL lay ≤ l + 3)
 def mkWords (lay l : Nat) : Nat := (if l = 0 then (if lay = 0 then 6 else 9) else 5) + (if mkReg lay l then 0 else 1)
 def mkOff (lay ci : Nat) : Nat → Nat
@@ -38,7 +38,7 @@ def mkK (lay : Nat) : List (Reg × Word) :=
 def mkKc (lay : Nat) : List (Reg × Word) :=
   baseK ++ [(if lay = 0 then (.x8, BitVec.ofNat 64 s3v) else (.x22, BitVec.ofNat 64 (s6v lay))), (.x7, 1), (.x13, 2),
     (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x30, 7), (.x5, 0)]
-def mkKeep : List Reg := [.x1, .x2, .x16, .x17, .x8, .x9, .x24, .x23, .x6, .x25, .x27, .x29, .x31]
+def mkKeep : List Reg := [.x4, .x1, .x2, .x16, .x17, .x8, .x9, .x24, .x23, .x6, .x25, .x27, .x29, .x31]
 def mkEntSpec (lay ci sh : Nat) : Spec := let st := if lay = 0 ∧ ci = 1 then 2 else 1; ⟨[], [], mkShp lay ci sh + 1, true, st, [], none, st⟩
 def mkEntPost (lay ci sh : Nat) : List (Reg × Word) :=
   mkKc lay ++ [(.x12, BitVec.ofNat 64 (mkCur lay sh (mkLo lay ci) (sh % 2)))]
@@ -58,7 +58,7 @@ def mkLvlRegs (lay l : Nat) : List (Reg × E) := if l = 0 ∧ lay ≠ 0 then [(.
 def mkLvlKeep (lay l : Nat) : List Reg := if l = 0 ∧ lay ≠ 0 then [] else [.x28]
 def mkLvlAllow (lay sh l : Nat) : List Nat := [mkBlk lay sh l + 16, mkBlk lay sh l + 24]
 def mkDispTgt (sh : Nat) : E :=
-  .bin .and (addC (.reg .x23) (BitVec.ofNat 64 588 - BitVec.ofNat 64 (16 * sh))) (.c (~~~1#64))
+  .bin .and (addC (.reg .x23) (BitVec.ofNat 64 1432 - BitVec.ofNat 64 (16 * sh))) (.c (~~~1#64))
 def mkBody (lay l : Nat) : Nat := (if l = 0 then (if lay = 0 then 3 else 6) else 2) + (if mkReg lay l then 1 else 2)
 def mkIsDisp (lay ci kk : Nat) : Bool := decide (lay = 0 ∧ ci = 0 ∧ kk + 1 = mkBits lay ci)
 def mkNextA2 (lay ci sh kk : Nat) : Nat :=
@@ -96,7 +96,7 @@ def mkLvlCheck (lay ci sh kk : Nat) : Bool :=
 def mkBlockCheck (lay ci sh : Nat) : Bool :=
   mkEntCheck lay ci sh && (List.range (mkBits lay ci)).all (mkLvlCheck lay ci sh)
 def mkChunkCheck (lay ci lo n : Nat) : Bool := (List.range' lo n).all (mkBlockCheck lay ci)
-def cmpPc (c : Nat) : Nat := 265 + 1024 * c
+def cmpPc (c : Nat) : Nat := 133874 + 128 * c
 def cmpDst (c : Nat) : Nat := 9472 + 48 * (c / 32 % 2)
 def cmpK (c : Nat) : List (Reg × Word) := baseK ++ [(.x12, BitVec.ofNat 64 (cmpDst c))]
 def cmpBr1 (c : Nat) (d : Bool) : Br := ⟨.ne, .ld (kw (cmpDst c)), .ld (kw 160), d⟩

@@ -55,8 +55,8 @@ theorem bound_digestSearch (rho : Digest) (message : Message) :
         exact hgood
       · exact ih (counter + 1)
 theorem bound_layerEncoding (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) (counter : BitVec 32) :
-    CBound (fun _ => True) 1 (shortHash (layerEncodingInput lay tree leaf msg counter)) := by
-  cases msg <;> apply bound_shortHash <;>
+    CBound (fun _ => True) 1 (ClaudeWCT.WCT9.encodingHash lay (layerEncodingInput lay tree leaf msg counter)) := by
+  cases msg <;> apply bound_encodingHash <;>
     simp [layerEncodingInput, encodingInput, pairEncodingInputP, pad64_length, SphincsSecurity.bytesLE_length]
 theorem bound_layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) :
     ∀ fuel counter, CBound (CounterResult lay) fuel (layerCounterSearch lay tree leaf msg counter fuel) := by

@@ -1,3 +1,13 @@
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecksPart0
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecksPart1
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecksPart2
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecksPart3
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecksPart4
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecksPart5
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecksPart6
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecksPart7
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecksPart8
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecksPart9
 import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecksPart10
 
 section
@@ -51,9 +61,13 @@ section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem fault_top_word (q : Nat) (hq : q<17) : (lcode (entOff q)).head?=some 0 := by
-  interval_cases q <;> decide +kernel
+theorem fault_top_word (q : Nat) (hq : q<17) (h0 : q≠0) : (lcode (entOff q)).head?=some 0 := by
+  interval_cases q <;> first | contradiction | decide +kernel
 theorem fault_prefix_word : (lcode (entOff 0+1)).head?=some 0 := by decide +kernel
+theorem fault_top126_word (q : Nat) (hq : q<17) (h0 : q≠0) (he : 1024≤entOff q) :
+    (lcode (entOff q-1024)).head?=some 0 := by
+  interval_cases q <;> first | contradiction | (norm_num [entOff] at he; done) | decide +kernel
+theorem fault_prefix126_word : (lcode (entOff 0+1-1024)).head?=some 0 := by decide +kernel
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
@@ -79,7 +93,7 @@ theorem inlineGroupCheck_at (q : Nat) (hq : inl q=true) :
       inlineGroupCheck_15_100⟩
   · exact ⟨inlineGroupCheck_16_0,inlineGroupCheck_16_25,inlineGroupCheck_16_50,inlineGroupCheck_16_75,
       inlineGroupCheck_16_100⟩
-theorem inlineCheck_at (q k : Nat) (hq : inl q=true) (hk : k<125) : inlineCheck q k=true := by
+theorem inlineCheck_static_at (q k : Nat) (hq : inl q=true) (hk : k<125) : inlineCheck q k=true := by
   obtain ⟨h0,h1,h2,h3,h4⟩ := inlineGroupCheck_at q hq
   have pick : ∀ lo, inlineGroupCheck q lo 25=true → lo ≤ k → k<lo+25 → inlineCheck q k=true := by
     intro lo h hl hh
@@ -97,8 +111,22 @@ theorem entCheck_at (q k : Nat) (hq : q<17) (hn : inl q=false) (hk : k<(mx q+1)^
   have h := tripleCheck_at q hq hn
   simp only [tripleCheck,Bool.and_eq_true] at h
   exact (Bool.and_eq_true _ _ |>.mp (List.all_eq_true.mp h.1 k (List.mem_range.mpr hk))).1
+theorem static_false_of_row_false (q k : Nat) (h : rowInl q k=false) : inl q=false := by
+  simp [rowInl, Bool.or_eq_false_iff] at h
+  exact h.1
+theorem rowInl_lt (q k : Nat) (h : rowInl q k=true) : q<17 := by
+  simp [rowInl, inl] at h
+  omega
+theorem inlineCheck_at (q k : Nat) (hq : rowInl q k=true) (hk : k<125) : inlineCheck q k=true := by
+  cases hn : inl q
+  · have hq17 := rowInl_lt q k hq
+    have h := entCheck_at q k hq17 hn (by simp [mx,hq17]; omega)
+    simpa only [entCheck,hq,if_true] using h
+  · exact inlineCheck_static_at q k hn hk
 theorem mx_inl (q : Nat) (hq : inl q=true) : mx q=4 := by
   simp [inl] at hq; unfold mx; rw [if_pos (by omega)]
+theorem mx_rowInl (q k : Nat) (hq : rowInl q k=true) : mx q=4 := by
+  exact if_pos (rowInl_lt q k hq)
 theorem s8Check_at (q k : Nat) (hq : q<17) (hk : k<(mx q+1)^3) : s8Check q k=true := by
   cases hn : inl q
   · have h := tripleCheck_at q hq hn
@@ -106,7 +134,7 @@ theorem s8Check_at (q k : Nat) (hq : q<17) (hk : k<(mx q+1)^3) : s8Check q k=tru
     exact (Bool.and_eq_true _ _ |>.mp (List.all_eq_true.mp h.1 k (List.mem_range.mpr hk))).2
   · have hm := mx_inl q hn
     rw [hm] at hk
-    have h := inlineCheck_at q k hn (by norm_num at hk; omega)
+    have h := inlineCheck_static_at q k hn (by norm_num at hk; omega)
     simp only [inlineCheck,Bool.and_eq_true] at h
     exact h.1.1.1.1
 theorem blockCheck_at (q dB dC : Nat) (hq : q<17) (hn : inl q=false) (hB : dB ≤ mx q) (hC : dC ≤ mx q) :

@@ -87,7 +87,7 @@ theorem reference_cells_le [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncInd
 theorem reference_matchInd_le [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, DecidableEq k]
     (iX : ∀ k : Set EncIndex, Fintype (k → HashOutput)) :
     ∑' s, referenceExperiment adversary q s * matchInd s ≤
-      (2 ^ 128 : ENNReal)⁻¹ * ∑' s, referenceExperiment adversary q s * (encodingCount s : ENNReal) :=
+      (7 / ((4 : ENNReal) * 2^128)) * ∑' s, referenceExperiment adversary q s * (encodingCount s : ENNReal) :=
   reference_free_le adversary q iX matchInd (fun s => (encodingCount s : ENNReal)) _
     (fun privateTable pub => free_match_le adversary q iX (referenceInputs adversary)
       (publicUniverse_sub adversary) privateTable pub)
@@ -97,7 +97,7 @@ open Enc in
 theorem reference_encodingMatch_le (adversary : AdversaryP) (q : Nat) :
     Pr[fun s => ∃ L, WotsExtract.SourceLeaf7 L ∧ EncodingMatchAt s.answers s.trace L |
         referenceExperiment adversary q] ≤
-      (2 ^ 128 : ENNReal)⁻¹ * ∑' s, referenceExperiment adversary q s * (encodingCount s : ENNReal) := by
+      (7 / ((4 : ENNReal) * 2^128)) * ∑' s, referenceExperiment adversary q s * (encodingCount s : ENNReal) := by
   let _ : ∀ k : Set Enc.EncIndex, Fintype k := fun k => Fintype.ofFinite k
   let _ : ∀ k : Set Enc.EncIndex, DecidableEq k := fun k => Classical.decEq k
   refine le_trans ?_ (Enc.reference_matchInd_le adversary q (fun k => Pi.instFintype))
