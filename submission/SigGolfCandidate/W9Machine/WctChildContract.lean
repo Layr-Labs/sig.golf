@@ -18,7 +18,7 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   hashInput : u.getReg .x10 = BitVec.ofNat 64 (coordinateBase k + 688)
   hashLen : u.getReg .x11 = 128
   nodeWord : u.getReg .x15 = BitVec.ofNat 64 (V3.nodeLow k.val index)
-  childIdx : u.getReg .x4 = BitVec.ofNat 64 j.val
+  childIdx : u.getReg .x4 = BitVec.ofNat 64 (([none, none, some 20, none, none, some 20, none, none, some 20].getD k.val none).elim j.val (j.val <<< ·))
   forestPointer : u.getReg .x9 = BitVec.ofNat 64 (pairAddress k)
   returnPC : u.getReg .x1 = pcOf (L.returnWord k)
   heaps : ∀ h, 2 ≤ h → h ≤ 7 → u.getReg (heapReg h) = BitVec.ofNat 64 h

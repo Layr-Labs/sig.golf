@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26080, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 2048 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7174 := by
+theorem certificate : SigGolf.Certificate submission 7173 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -51,5 +51,5 @@ hash half when bit 127 is set and the high half otherwise. Its exact selected-ha
 counts support target 145 instead of 144 with the same copy-credit floor 21 and FTS
 joint cap 785. One fewer chain hash saves 9 cycles; the selector costs at most 3.
 Legacy jumps into moved prefix instructions retain their previous state behavior.
-S = 5310, W = 24028, K = 131072, C = 7174; score 38093940.
+S = 5310, W = 24028, K = 131072, C = 7173; score 38083320.
 -/
