@@ -117,12 +117,13 @@ def pcB (q dB dC : Nat) : Nat := base q dB dC+2*mx q+1
 def pcC (q dB dC : Nat) : Nat := pcB q dB dC+partLen q dB
 def pcX (q dB dC : Nat) : Nat := pcC q dB dC+partLen q dC
 def entOff (q : Nat) : Nat :=
-  if q=0 then 529 else if q≤8 then 530+6*q else if q=9 then 487
-  else if q≤12 then 524+6*q else if q=13 then 743 else if q=14 then 784
+  if q=0 then 529 else if q=1 then 570 else if q=2 then 825 else if q=3 then 1339
+  else if q≤7 then 999+6*(q-4) else if q=8 then 1092 else if q=9 then 487
+  else if q≤12 then 1098+6*(q-10) else if q=13 then 743 else if q=14 then 784
   else if q=15 then 871 else 615
 def cellW (q k : Nat) : Nat := if q<17 then 1024*(125-k)+entOff q else TailDispatch.armPC (k%64)
 def entW (q k : Nat) : Nat := cellW q k + (if q=0 ∨ (q=9 ∧ k%2=0) then 1 else 0)
-def inl (q : Nat) : Bool := decide (q=9 ∨ (13 ≤ q ∧ q ≤ 16))
+def inl (q : Nat) : Bool := decide (q ≤ 3 ∨ q=9 ∨ (13 ≤ q ∧ q ≤ 16))
 def leadOff (q : Nat) : Nat := 1
 def leadPc (q k : Nat) : Nat := entW q k+leadOff q
 def kdig (q k j : Nat) : Nat := k/(mx q+1)^j%(mx q+1)

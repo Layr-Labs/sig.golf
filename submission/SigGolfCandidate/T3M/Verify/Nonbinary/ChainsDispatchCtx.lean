@@ -137,6 +137,17 @@ theorem fault_top_fetch (q : Nat) (hq : q<17) (s : MachineState)
     subst w
     rw [he] at hc
     exact hc.fetch s hpc
+theorem fault_top_low_fetch (q : Nat) (hq : q<17) (hge : 1024 ≤ entOff q) (s : MachineState)
+    (hpc : s.pc=pcOf (entOff q - 1024)) : fetch vimage s=none := by
+  have hw := fault_top_low_word q hq hge
+  have hc := lcodeAt (entOff q - 1024) (by have := entOff_le q hq; omega)
+  cases he : lcode (entOff q - 1024) with
+  | nil => simp [he] at hw
+  | cons w ws =>
+    simp only [he, List.head?_cons, Option.some.injEq] at hw
+    subst w
+    rw [he] at hc
+    exact hc.fetch s hpc
 theorem fault_prefix_fetch (s : MachineState)
     (hpc : s.pc=pcOf (entOff 0+1)) : fetch vimage s=none := by
   have hw := fault_prefix_word
@@ -417,9 +428,13 @@ theorem end_dispatch_raw (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : Machine
       · apply fault_top_fetch (q+1) (by omega) t
         rw [pt,h125]
         exact fault125_value _ (by omega)
-      · apply fetch_outside t
-        rw [pt]
-        exact fault_value _ _ (by omega) (by omega) hk
+      · by_cases h126 : Search.topRank v (q+1)=126 ∧ 1024 ≤ entOff (q+1)
+        · apply fault_top_low_fetch (q+1) (by omega) h126.2 t
+          rw [pt,h126.1]
+          exact fault126_high_value _ (by omega) h126.2
+        · apply fetch_outside t
+          rw [pt]
+          exact fault_value _ _ (by omega) (by omega) hk (by omega)
 theorem end_dispatch (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState} {v : Digest}
     (he : Encoded v s0) (hf : c.Fit v) (q : Nat) (hq : q<16) (hv : Search.topRank v (q+1)<125)
     (acc : List Digest) (s : MachineState) (hs : c.EndInv s0 (3*q+2) acc s) :

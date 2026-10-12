@@ -59,7 +59,7 @@ theorem not_field (X : Word) (b : Nat) (hb : b+7 ≤ 64) :
   by_cases hj : j<7
   · simp [hj, show j+b<64 by omega]
   · simp [hj]
-theorem entOff_le (q : Nat) (hq : q<17) : entOff q ≤ 871 := by unfold entOff; split_ifs <;> omega
+theorem entOff_le (q : Nat) (hq : q<17) : entOff q ≤ 1339 := by unfold entOff; split_ifs <;> omega
 theorem entOff_ge (q : Nat) : 487 ≤ entOff q := by unfold entOff; split_ifs <;> omega
 theorem dispatch_value (W : Word) (b q : Nat) (hb : b<64) (hq : q<17) :
     ((shiftWord12 W b &&& 520192#64)+BitVec.ofNat 64 (2^64+4*entOff q-4096)) &&& ~~~1#64 =
@@ -81,7 +81,14 @@ theorem fault125_value (q : Nat) (hq : q<17) :
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_ofNat]
   omega
-theorem fault_value (q k : Nat) (hq : q<17) (hk : 126 ≤ k) (hk' : k<128) :
+theorem fault126_high_value (q : Nat) (hq : q<17) (hge : 1024 ≤ entOff q) :
+    BitVec.ofNat 64 (4096*(127-126)+2^64+4*entOff q-4096)=pcOf (entOff q - 1024) := by
+  have he := entOff_le q hq
+  unfold pcOf
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_ofNat]
+  omega
+theorem fault_value (q k : Nat) (hq : q<17) (hk : 126 ≤ k) (hk' : k<128) (h : k=127 ∨ entOff q < 1024) :
     (BitVec.ofNat 64 (4096*(127-k)+2^64+4*entOff q-4096)).toNat<0x1000 ∨
       0x1000+4*257280 ≤ (BitVec.ofNat 64 (4096*(127-k)+2^64+4*entOff q-4096)).toNat := by
   have he := entOff_le q hq

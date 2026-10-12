@@ -53,6 +53,8 @@ set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
 theorem fault_top_word (q : Nat) (hq : q<17) : (lcode (entOff q)).head?=some 0 := by
   interval_cases q <;> decide +kernel
+theorem fault_top_low_word (q : Nat) (hq : q<17) (hge : 1024 ≤ entOff q) : (lcode (entOff q - 1024)).head?=some 0 := by
+  interval_cases q <;> first | (exfalso; revert hge; decide +kernel) | decide +kernel
 theorem fault_prefix_word : (lcode (entOff 0+1)).head?=some 0 := by decide +kernel
 end SigGolfCandidate.T3M.Nonbinary
 end
@@ -64,13 +66,17 @@ set_option maxHeartbeats 1000000
 theorem tripleCheck_at (q : Nat) (hq : q<17) (hn : inl q=false) : tripleCheck q=true := by
   interval_cases q
   all_goals first | (simp [inl] at hn) | skip
-  exacts [tripleCheck_0, tripleCheck_1, tripleCheck_2, tripleCheck_3, tripleCheck_4, tripleCheck_5,
+  exacts [tripleCheck_4, tripleCheck_5,
     tripleCheck_6, tripleCheck_7, tripleCheck_8, tripleCheck_10, tripleCheck_11, tripleCheck_12]
 theorem inlineGroupCheck_at (q : Nat) (hq : inl q=true) :
     inlineGroupCheck q 0 25=true ∧ inlineGroupCheck q 25 25=true ∧ inlineGroupCheck q 50 25=true ∧
       inlineGroupCheck q 75 25=true ∧ inlineGroupCheck q 100 25=true := by
-  have h : q=9 ∨ q=13 ∨ q=14 ∨ q=15 ∨ q=16 := by simp [inl] at hq; omega
-  rcases h with rfl|rfl|rfl|rfl|rfl
+  have h : q=0 ∨ q=1 ∨ q=2 ∨ q=3 ∨ q=9 ∨ q=13 ∨ q=14 ∨ q=15 ∨ q=16 := by simp [inl] at hq; omega
+  rcases h with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl
+  · exact ⟨inlineGroupCheck_0_0,inlineGroupCheck_0_25,inlineGroupCheck_0_50,inlineGroupCheck_0_75,inlineGroupCheck_0_100⟩
+  · exact ⟨inlineGroupCheck_1_0,inlineGroupCheck_1_25,inlineGroupCheck_1_50,inlineGroupCheck_1_75,inlineGroupCheck_1_100⟩
+  · exact ⟨inlineGroupCheck_2_0,inlineGroupCheck_2_25,inlineGroupCheck_2_50,inlineGroupCheck_2_75,inlineGroupCheck_2_100⟩
+  · exact ⟨inlineGroupCheck_3_0,inlineGroupCheck_3_25,inlineGroupCheck_3_50,inlineGroupCheck_3_75,inlineGroupCheck_3_100⟩
   · exact ⟨inlineGroupCheck_9_0,inlineGroupCheck_9_25,inlineGroupCheck_9_50,inlineGroupCheck_9_75,inlineGroupCheck_9_100⟩
   · exact ⟨inlineGroupCheck_13_0,inlineGroupCheck_13_25,inlineGroupCheck_13_50,inlineGroupCheck_13_75,inlineGroupCheck_13_100⟩
   · exact ⟨inlineGroupCheck_14_0,inlineGroupCheck_14_25,inlineGroupCheck_14_50,inlineGroupCheck_14_75,

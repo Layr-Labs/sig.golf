@@ -693,11 +693,20 @@ theorem partLen_le (q d : Nat) : partLen q d≤18 := by
 theorem kdig_le (q k j : Nat) : kdig q k j ≤ mx q := by
   have := mx_bounds q
   unfold kdig; have := Nat.mod_lt (k/(mx q+1)^j) (show 0< mx q+1 by omega); omega
-theorem inl_q (q : Nat) (h : inl q=true) : q=9 ∨ (13 ≤ q ∧ q ≤ 16) := by simp [inl] at h; omega
-theorem leadPc_le (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) (hk' : q<17 → k<125) :
+theorem inl_q (q : Nat) (h : inl q=true) : q ≤ 3 ∨ q=9 ∨ (13 ≤ q ∧ q ≤ 16) := by simp [inl] at h; omega
+theorem entOff_bounds (q : Nat) : 487 ≤ entOff q ∧ entOff q ≤ 1339 := by unfold entOff; split_ifs <;> omega
+theorem leadPc_le (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) (_hk' : q<17 → k<125) :
     leadPc q k ≤ 210425 := by
-  unfold leadPc leadOff entW cellW entOff mx at *
-  split_ifs at * <;> (try simp only [TailDispatch.armPC] at *) <;> norm_num at hk <;> omega
+  by_cases h17 : q < 17
+  · have heo := entOff_bounds q
+    have hk125 := _hk' h17
+    unfold leadPc leadOff entW cellW
+    rw [if_pos h17]
+    split_ifs <;> omega
+  · have hq17 : q = 17 := by omega
+    subst hq17
+    unfold leadPc leadOff entW cellW TailDispatch.armPC
+    split_ifs <;> omega
 theorem group_bounds (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) (hk' : q<17 → k<125) :
     gbase q k+2*mx q+2<257181 ∧ gX q k+4<257181 ∧ leadPc q k<257181 ∧
       (inl q=true → gbase q k+5 ≤ leadPc q k+8) := by
@@ -712,10 +721,12 @@ theorem group_bounds (q k : Nat) (hq : q<18) (hk : k<(mx q+1)^3) (hk' : q<17 →
     simp only [gbase,hn,Bool.false_eq_true,if_false]
     refine ⟨by omega,by omega,by omega,fun h => absurd h (by simp)⟩
   · have hq' := inl_q q hn
-    have hl2 : leadPc q k ≤ 129000 ∧ 89 ≤ leadPc q k := by
-      have := hk' (by omega)
-      unfold leadPc leadOff entW cellW entOff at *
-      split_ifs at * <;> omega
+    have hk125 := hk' (by omega)
+    have heo := entOff_bounds q
+    have hl2 : leadPc q k ≤ 129500 ∧ 89 ≤ leadPc q k := by
+      unfold leadPc leadOff entW cellW
+      rw [if_pos (by omega)]
+      split_ifs <;> omega
     simp only [gbase,hn,if_true]
     refine ⟨?_,?_,by omega,fun _ => ?_⟩ <;> split_ifs <;> omega
 namespace NCtx

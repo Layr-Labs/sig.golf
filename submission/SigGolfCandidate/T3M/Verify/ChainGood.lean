@@ -150,15 +150,15 @@ theorem chainInputP_pad (lay : Layer) (tree leaf i step : Nat) (p0 p1 : Digest) 
 theorem chainInputP_blocks (lay : Layer) (tree leaf i step : Nat) (p0 p1 : Digest) (headerPad : Word) (v : Digest) :
     (toQ (chainInputP lay tree leaf i step p0 p1 headerPad v)).blocks = 1 := by
   rw [blocks_toQ ⟨by rw [chainInputP_length]; omega, by rw [chainInputP_length]⟩, chainInputP_length]
-theorem triBaseTab_all : (triBaseTab.all fun x => decide (x < 200000)) = true := by decide +kernel
-theorem triBase_lt (t dB dC : Nat) : triBase t dB dC < 200000 := by
+theorem triBaseTab_all : (triBaseTab.all fun x => decide (x < 204000)) = true := by decide +kernel
+theorem triBase_lt (t dB dC : Nat) : triBase t dB dC < 204000 := by
   unfold triBase
   rw [List.getD_eq_getElem?_getD]
   cases hn : triBaseTab[64 * t + 8 * dB + dC]? with
   | none => simp
   | some x => simpa using List.all_eq_true.mp triBaseTab_all x (List.mem_of_getElem? hn)
 theorem partLen_le (d : Nat) : partLen d ≤ 20 := by unfold partLen; split_ifs <;> omega
-theorem tX_lt (c : LCtx) (i : Nat) : c.tX i < 200100 := by
+theorem tX_lt (c : LCtx) (i : Nat) : c.tX i < 204100 := by
   have := triBase_lt (i / 3) (c.dig (3 * (i / 3) + 1)) (c.dig (3 * (i / 3) + 2))
   have := partLen_le (c.dig (3 * (i / 3) + 1)); have := partLen_le (c.dig (3 * (i / 3) + 2))
   unfold tX pcX pcC pcB; omega

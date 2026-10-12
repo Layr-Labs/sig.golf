@@ -96,7 +96,7 @@ theorem groupFacts (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<17) : c.Group
   · have hm4 := mx_inl q hn
     rw [hm4] at hk
     have he := inlineCheck_at q (c.kOf q) hn (by norm_num at hk; omega)
-    have hq16 : q=9 ∨ (13 ≤ q ∧ q ≤ 16) := by simp [inl] at hn; omega
+    have hq16 : q ≤ 3 ∨ q=9 ∨ (13 ≤ q ∧ q ≤ 16) := by simp [inl] at hn; omega
     simp only [inlineCheck,k1,k2,k3] at he
     by_cases hd : c.dig (3*q)=mx q
     · rw [if_pos hd] at he
