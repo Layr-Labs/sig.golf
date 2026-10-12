@@ -26,8 +26,8 @@ def width (_lay : Layer) (_i : Nat) : Nat := 3
 (51..53); every lower chain is radix 8. -/
 def maxDigit (lay : Layer) (i : Nat) : Nat :=
   if lay = 0 then (if i < 51 then 4 else 7) else 7
-/-- Digit-sum targets: top 144 (NF17), lower layers 201/202/202. -/
-def target (lay : Layer) : Nat := ![144, 201, 202, 202] lay
+/-- Digit-sum targets: top 145 (NF17), lower layers 201/202/202. -/
+def target (lay : Layer) : Nat := ![145, 201, 202, 202] lay
 /-- Encoding values are below `2 ^ encodedBits lay`. Campaign T8D: the top encoding uses all 128 bits (the radix-8
 digits of chains 51/52 sit in bits 122..127), so there is no range bound on any layer. -/
 def encodedBits (_lay : Layer) : Nat := 128
@@ -294,9 +294,9 @@ def topCredit (value : Digest) : Nat :=
 def encCredit (lay : Layer) (value : Digest) : Nat := if lay = 0 then topCredit value else 0
 def searchDecode (lay : Layer) (value : Digest) : Option (List Nat) :=
   if encCredit lay value < creditFloor lay then none else decode lay value
-/-- Top digits signed when the top counter search is exhausted (campaign T8D, NF17 at target 144): 30 threes,
-21 twos, then 4 on the three radix-8 chains (sum 144, no zero digit). -/
-def dummyTop : List Nat := List.replicate 30 3 ++ List.replicate 21 2 ++ [4,4,4]
+/-- Top digits signed when the top counter search is exhausted (campaign T8D, NF17 at target 145): 30 threes,
+21 twos, then radix-8 digits 4, 4, 5 (sum 145, no zero digit). -/
+def dummyTop : List Nat := List.replicate 30 3 ++ List.replicate 21 2 ++ [4,4,5]
 def encodingInput (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : BitVec 32) : HashInput :=
   bytesLE 16 message ++ bytesLE 16 (rowTweak lay tree leaf) ++ bytesLE 4 counter
 def counterSearch (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : Nat) :

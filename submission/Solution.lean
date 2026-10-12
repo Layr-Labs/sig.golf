@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26080, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 2048 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7182 := by
+theorem certificate : SigGolf.Certificate submission 7176 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -46,9 +46,10 @@ requires rank >= 3, or >= 5 in those two columns. Failed verification ranks stop
 at the corresponding fetch fault; the source models the exact preceding queries.
 The upper table uses 4096-byte strides and inlines group 9. C 7293 -> 7182.
 
-Current submission compared with accepted cfc0c669 (C 7256): lower-layer digest-half
-selection and copy-credit thresholds support the denser absolute-address dispatch.
-A lookup-table precheck rejects impossible producer candidates before full unpacking;
-the exact sign/expand cycle bounds and selected-half security bounds are certified.
-S = 5310, W = 24028, K = 131072, C = 7182; score 38136420.
+Current change builds on accepted PR #848 (C 7182). Top-layer encoding selects the low
+hash half when bit 127 is set and the high half otherwise. Its exact selected-half
+counts support target 145 instead of 144 with the same copy-credit floor 21 and FTS
+joint cap 785. One fewer chain hash saves 9 cycles; the selector costs at most 3.
+Legacy jumps into moved prefix instructions retain their previous state behavior.
+S = 5310, W = 24028, K = 131072, C = 7176; score 38104560.
 -/

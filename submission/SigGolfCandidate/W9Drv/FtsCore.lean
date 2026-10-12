@@ -634,9 +634,9 @@ theorem codeAt_single (pc : Nat) (words : List (BitVec 32))
     simp [List.head?_drop, hi]
   have ht := hs.trans hpre
   simpa [hp, hpi, List.drop_drop, Nat.add_comm] using ht
-theorem fetch_past (s : MachineState) (p : Nat) (hp : s.pc = pcOf p) (hL : 257214 ≤ p)
+theorem fetch_past (s : MachineState) (p : Nat) (hp : s.pc = pcOf p) (hL : 257258 ≤ p)
     (hb : p < 2 ^ 40) : fetch Frozen.image s = none := by
-  have hlen : Frozen.image.code.length = 257214 := by
+  have hlen : Frozen.image.code.length = 257258 := by
     rw [Frozen.image_code_eq]; exact SigGolfCandidate.T3M.Images.verifyCode_length
   have ht : s.pc.toNat = 0x1000 + 4 * p := by
     rw [hp]; simp only [pcOf, BitVec.toNat_ofNat]; omega
@@ -648,6 +648,16 @@ set_option maxHeartbeats 0 in
 theorem invalid_slot_checked :
     ((List.range' 563 400).all fun r => sliceChecked (slotStart + 64*r) [0]) = true := by
   decide +kernel
+theorem fetch_invalid_last (s : MachineState) (hp : s.pc = pcOf 257216) :
+    fetch Frozen.image s = none := by
+  have hz : Frozen.image.code[257216]? = some (0 : BitVec 32) := by
+    rw [Frozen.image_code_eq]
+    exact SigGolfCandidate.T3M.Verify.vlook_ok 257216 0 (by decide +kernel)
+  unfold fetch
+  rw [hp]
+  change (Frozen.image.code[257216]? >>= decodeInstruction) = none
+  rw [hz]
+  rfl
 theorem fetch_invalid_slot (s : MachineState) (r : Nat)
     (hp : s.pc = pcOf (slotStart + 64*r)) (hlo : 563 ≤ r) (hhi : r < 1024) :
     fetch Frozen.image s = none := by
@@ -655,7 +665,10 @@ theorem fetch_invalid_slot (s : MachineState) (r : Nat)
   · have hc : sliceChecked (slotStart + 64*r) [0] = true :=
       List.all_eq_true.mp invalid_slot_checked r (List.mem_range'_1.mpr ⟨hlo, by omega⟩)
     exact (slice_at _ _ hc).fetch s hp
-  · exact fetch_past s _ hp (by unfold slotStart; omega) (by unfold slotStart; omega)
+  · by_cases he : r = 963
+    · subst r
+      exact fetch_invalid_last s hp
+    · exact fetch_past s _ hp (by unfold slotStart; omega) (by unfold slotStart; omega)
 theorem goodQFor_fault {s : MachineState} {Q : Prop} {A : Nat} (hf : fetch Frozen.image s = none) :
     GoodQFor Frozen.image s 1 0 Q A (pure (false, 0)) := by
   intro F hF
