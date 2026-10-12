@@ -40,7 +40,7 @@ theorem fts_x5 : FtsGoodByCost W9Drv.GatePre FtsOutV (ftsAcceptCost 1016) := by
   have h := W9Drv.fts_good W9Machine.Chain.allGood pk w a u N C A Q K hu hK
     (fun root t ht => goodQ_frozen.mpr (hnext root t ht))
   exact goodQ_frozen.mp h
-theorem after_x6 : AfterGoodBudget FtsOutV 5276 :=
+theorem after_x6 : AfterGoodBudget FtsOutV 5275 :=
   fun pk w Q hQ a root u h => SigGolfCandidate.T3M.after_good_budget pk w Q hQ a root u h
 theorem verify_final_closed :
     ClaudeWCT.W9.T3M.Final.VerifyRefines I0 ∧ ClaudeWCT.W9.T3M.Final.VerifyTerminates I0 ∧
