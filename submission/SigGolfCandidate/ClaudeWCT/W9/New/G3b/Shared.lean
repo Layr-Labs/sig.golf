@@ -13,7 +13,7 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 theorem referenceSearch_producerDecode (answers : Answers) (L : LeafAddr) {c : BitVec 32} {digits : List Nat}
     (h : referenceSearch answers L = some (c, digits)) :
-    WCT9.producerDecode L.lay (low (answers (.inl (.inr (encRow L (leafMsg answers L) c 0))))) = some digits := by
+    WCT9.producerDecode L.lay (WCT9.encodingAnswer L.lay (answers (.inl (.inr (encRow L (leafMsg answers L) c 0))))) = some digits := by
   have hs := (WCT9.layerCounterSearch_some_search answers L.lay L.tree L.leaf (leafMsg answers L)
     (WCT9.searchLimit L.lay) 0 c digits
     (by have := WCT9.searchLimit_le L.lay; unfold counterLimit at this; omega) h).2.2
@@ -21,7 +21,7 @@ theorem referenceSearch_producerDecode (answers : Answers) (L : LeafAddr) {c : B
   exact hs
 theorem referenceSearch_decode (answers : Answers) (L : LeafAddr) {c : BitVec 32} {digits : List Nat}
     (h : referenceSearch answers L = some (c, digits)) :
-    decode L.lay (low (answers (.inl (.inr (encRow L (leafMsg answers L) c 0))))) = some digits :=
+    decode L.lay (WCT9.encodingAnswer L.lay (answers (.inl (.inr (encRow L (leafMsg answers L) c 0))))) = some digits :=
   WCT9.producerDecode_decode (referenceSearch_producerDecode answers L h)
 theorem referenceDigits_decode (answers : Answers) (L : LeafAddr) :
     ∃ value : Digest, decode L.lay value = some (referenceDigits answers L) := by
@@ -32,7 +32,9 @@ theorem referenceDigits_decode (answers : Answers) (L : LeafAddr) :
       obtain ⟨c, digits⟩ := s
       exact ⟨_, referenceSearch_decode answers L hs⟩
 theorem dummyDigits_credit (lay : Layer) :
-    WCT9.producerFloor lay ≤ WCT9.wordCredit lay (SigGolfCandidate.T3.Security.Wots.dummyDigits lay) := by
+    WCT9.producerFloor lay + WCT9.dispatchPenalty lay (SigGolfCandidate.T3.Security.Wots.dummyDigits lay) ≤
+      WCT9.wordCredit lay (SigGolfCandidate.T3.Security.Wots.dummyDigits lay) +
+        4 * WCT9.savedCopies lay (SigGolfCandidate.T3.Security.Wots.dummyDigits lay) := by
   fin_cases lay <;> decide +kernel
 theorem dummyDigits_zeroBound (lay : Layer) :
     WCT9.producerZeroBound lay (SigGolfCandidate.T3.Security.Wots.dummyDigits lay) := by
@@ -54,7 +56,8 @@ theorem referenceDigits_producerDecode (answers : Answers) (L : LeafAddr) :
       obtain ⟨c, digits⟩ := s
       exact ⟨_, referenceSearch_producerDecode answers L hs⟩
 theorem referenceDigits_credit (answers : Answers) (L : LeafAddr) :
-    WCT9.producerFloor L.lay ≤ WCT9.wordCredit L.lay (referenceDigits answers L) := by
+    WCT9.producerFloor L.lay + WCT9.dispatchPenalty L.lay (referenceDigits answers L) ≤
+      WCT9.wordCredit L.lay (referenceDigits answers L) + 4 * WCT9.savedCopies L.lay (referenceDigits answers L) := by
   obtain ⟨u, hu⟩ := referenceDigits_producerDecode answers L
   exact WCT9.producerDecode_credit hu
 theorem producerDecode_canonical {lay : Layer} {a b : Digest} {ds : List Nat}

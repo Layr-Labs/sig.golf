@@ -1,3 +1,4 @@
+import Mathlib.Analysis.Convex.SpecificFunctions.Basic
 import SigGolfCandidate.ClaudeWCT.Numerics.N600PriceChecks
 import SigGolfCandidate.ClaudeWCT.Numerics.N600Data
 import Mathlib.Algebra.BigOperators.Ring.List
@@ -5,6 +6,7 @@ import SigGolfCandidate.ClaudeWCT.Numerics.PoissonReflect
 import SigGolfCandidate.ClaudeWCT.Numerics.LawAverage
 
 
+set_option maxRecDepth 100000
 section
 
 
@@ -751,3 +753,1515 @@ end Uniform
 end Law
 end ClaudeWCT.Numerics.N600
 end
+
+namespace ClaudeWCT.Numerics.Winsor
+open ENNReal Finset
+open ClaudeWCT.Numerics.Law
+
+/-- The rational constant is a convenient upper bound on `1 / exp 1`. -/
+theorem linear_le_exp (x : ℝ) : x ≤ (3 / 8) * Real.exp x := by
+  have hx : x ≤ Real.exp (x - 1) := by simpa using Real.add_one_le_exp (x - 1)
+  have he : (8 / 3 : ℝ) ≤ Real.exp 1 := by linarith [Real.exp_one_gt_d9]
+  have hmul : Real.exp (x - 1) * Real.exp 1 = Real.exp x := by rw [← Real.exp_add]; congr 1; ring
+  have hnonneg := (Real.exp_pos (x - 1)).le
+  nlinarith [mul_le_mul_of_nonneg_left he hnonneg]
+
+theorem cap_exp_majorant (c : ENNReal) (hc : c ≠ ⊤) :
+    c ≤ 2031 / 1024 + (3 / 64) * ENNReal.ofReal (Real.exp (-(2031 / 128))) *
+      ENNReal.ofReal (Real.exp (8 * c.toReal)) := by
+  apply (ENNReal.toReal_le_toReal hc (by finiteness)).mp
+  simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_div,
+    ENNReal.toReal_ofNat, ENNReal.toReal_ofReal (Real.exp_nonneg _)]
+  have h := linear_le_exp (8 * c.toReal - 2031 / 128)
+  have hexp : Real.exp (8 * c.toReal - 2031 / 128) =
+      Real.exp (-(2031 / 128)) * Real.exp (8 * c.toReal) := by
+    rw [← Real.exp_add]; congr 1; ring
+  rw [hexp] at h
+  nlinarith
+
+theorem tail_constant_le :
+    (3 / 64 : ENNReal) * ENNReal.ofReal (Real.exp (-(2031 / 128))) *
+      ENNReal.ofReal (Real.exp 8) ≤ 3 / 100000 := by
+  have hlow : (3125 / 2 : ℝ) ≤ Real.exp (1007 / 128) := by
+    refine le_trans ?_ (Real.sum_le_exp_of_nonneg (by norm_num : (0 : ℝ) ≤ 1007 / 128) 16)
+    norm_num [Finset.sum_range_succ, Nat.factorial]
+  have he : Real.exp (-(2031 / 128)) * Real.exp 8 = (Real.exp (1007 / 128))⁻¹ := by
+    rw [← Real.exp_add, ← Real.exp_neg]; congr 1; ring
+  apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+  simp only [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_ofNat,
+    ENNReal.toReal_ofReal (Real.exp_nonneg _)]
+  rw [mul_assoc, he]
+  have hinv : (Real.exp (1007 / 128))⁻¹ ≤ 2 / 3125 := by
+    have h := (inv_le_inv₀ (Real.exp_pos (1007 / 128)) (by norm_num : (0 : ℝ) < 3125 / 2)).2 hlow
+    norm_num at h
+    exact h
+  nlinarith
+
+/-- A capped exponential moment and the discarded first moment suffice for the
+FTS stop-loss estimate.  This statement is independent of the coverage counting. -/
+theorem excess_le_of_capped_exp {β : Type} [Fintype β] (v : β → ENNReal) (T : ℕ)
+    (price capped residual : List β → ENNReal)
+    (hcapped : ∀ W, capped W ≠ ⊤)
+    (hsplit : ∀ W, price W ≤ capped W + residual W)
+    (hexp : lawAvg v T (fun W => ENNReal.ofReal (Real.exp (8 * (capped W).toReal))) ≤
+      ENNReal.ofReal (Real.exp 8))
+    (hres : lawAvg v T residual ≤ 1 / 5000) :
+    lawAvg v T (fun W => price W - 2031 / 1024) ≤ 23 / 100000 := by
+  let a : ENNReal := (3 / 64) * ENNReal.ofReal (Real.exp (-(2031 / 128)))
+  have hpoint : ∀ W, price W - 2031 / 1024 ≤
+      a * ENNReal.ofReal (Real.exp (8 * (capped W).toReal)) + residual W := by
+    intro W
+    apply (tsub_le_iff_right).2
+    calc
+      price W ≤ capped W + residual W := hsplit W
+      _ ≤ (2031 / 1024 + a * ENNReal.ofReal (Real.exp (8 * (capped W).toReal))) + residual W :=
+        add_le_add (cap_exp_majorant (capped W) (hcapped W)) le_rfl
+      _ = _ := by ac_rfl
+  calc
+    lawAvg v T (fun W => price W - 2031 / 1024)
+        ≤ lawAvg v T (fun W => a * ENNReal.ofReal (Real.exp (8 * (capped W).toReal)) + residual W) :=
+      lawAvg_mono v T hpoint
+    _ = a * lawAvg v T (fun W => ENNReal.ofReal (Real.exp (8 * (capped W).toReal))) +
+        lawAvg v T residual := by rw [lawAvg_add, lawAvg_mul_left]
+    _ ≤ a * ENNReal.ofReal (Real.exp 8) + 1 / 5000 :=
+      add_le_add (mul_le_mul' le_rfl hexp) hres
+    _ ≤ 3 / 100000 + 1 / 5000 := add_le_add tail_constant_le le_rfl
+    _ = 23 / 100000 := by
+      apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
+      simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_div,
+        ENNReal.toReal_ofNat, ENNReal.toReal_inv]
+      norm_num
+
+end ClaudeWCT.Numerics.Winsor
+
+namespace ClaudeWCT.Numerics.N600
+open ENNReal Finset
+open ClaudeWCT.Numerics.Law
+open ClaudeWCT.Numerics.Thinning (env ListCov)
+open SigGolfCandidate.T3.BPORS.History (atIndex)
+
+section WinsorInterface
+variable {β : Type} [Fintype β] {C : Type} [Fintype C] [DecidableEq C]
+
+noncomputable def bucketPrice (val : β → Fin 6 → ℕ) (L : List (Fin 9 → C × β)) : ENNReal :=
+  priceScale * env val L
+noncomputable def bucketCapped (val : β → Fin 6 → ℕ) (L : List (Fin 9 → C × β)) : ENNReal :=
+  min (bucketPrice val L) 1
+noncomputable def bucketResidual (val : β → Fin 6 → ℕ) (L : List (Fin 9 → C × β)) : ENNReal :=
+  bucketPrice val L - 1
+noncomputable def bucketExpIncrement (val : β → Fin 6 → ℕ) (L : List (Fin 9 → C × β)) : ENNReal :=
+  ENNReal.ofReal (Real.exp (8 * (bucketCapped val L).toReal)) - 1
+
+theorem env_insert_le (val : β → Fin 6 → ℕ) (L R : List (Fin 9 → C × β)) (b : Fin 9 → C × β) :
+    env val (L ++ R) ≤ env val (L ++ b :: R) := by
+  unfold env SigGolfResearch.Gate6.Moments.finiteAverage
+  refine ENNReal.div_le_div_right (Finset.sum_le_sum fun t _ => ?_) _
+  split_ifs with h₁ h₂
+  · exact le_rfl
+  · apply absurd ?_ h₂
+    intro k i
+    obtain ⟨e, he, h'⟩ := h₁ k i
+    refine ⟨e, ?_, h'⟩
+    rcases List.mem_append.mp he with he | he
+    · exact List.mem_append.mpr (Or.inl he)
+    · exact List.mem_append.mpr (Or.inr (List.mem_cons_of_mem b he))
+  · exact zero_le_one
+  · exact le_rfl
+
+/-- The complete analytic FTS tail theorem, parameterized only by two one-bucket
+numerical bounds.  Finite coverage counting supplies these hypotheses. -/
+theorem law_price_excess_le_winsor (val : β → Fin 6 → ℕ)
+    {vc : (Fin 9 → C × β) → ENNReal} {κ : ENNReal} (hlaw : LawOK vc κ) (T : ℕ)
+    (hmgf : (2 ^ 31 : ENNReal) * coordAverage (2 ^ 31 : ENNReal)⁻¹ vc T
+      (bucketExpIncrement val) ≤ 8)
+    (hres : (2 ^ 31 : ENNReal) * coordAverage (2 ^ 31 : ENNReal)⁻¹ vc T
+      (bucketResidual val) ≤ 1 / 5000) :
+    lawAvg (marked (α := Fin (2 ^ 31)) vc) T (fun W => priceN val W - 2031 / 1024) ≤
+      23 / 100000 := by
+  let cap : List (Fin (2 ^ 31) × (Fin 9 → C × β)) → ENNReal :=
+    fun W => ∑ i : Fin (2 ^ 31), bucketCapped val (atIndex i W)
+  let res : List (Fin (2 ^ 31) × (Fin 9 → C × β)) → ENNReal :=
+    fun W => ∑ i : Fin (2 ^ 31), bucketResidual val (atIndex i W)
+  apply ClaudeWCT.Numerics.Winsor.excess_le_of_capped_exp
+    (marked (α := Fin (2 ^ 31)) vc) T (priceN val) cap res
+  · intro W
+    exact ENNReal.sum_ne_top.mpr fun i _ => ne_top_of_le_ne_top ENNReal.one_ne_top (min_le_right _ _)
+  · intro W
+    change priceScale * (∑ i : Fin (2 ^ 31), env val (atIndex i W)) ≤ _
+    rw [Finset.mul_sum]
+    change (∑ i : Fin (2 ^ 31), bucketPrice val (atIndex i W)) ≤ _
+    change _ ≤ (∑ i : Fin (2 ^ 31), bucketCapped val (atIndex i W)) +
+      ∑ i : Fin (2 ^ 31), bucketResidual val (atIndex i W)
+    rw [← Finset.sum_add_distrib]
+    apply Finset.sum_le_sum
+    intro i _
+    exact le_of_eq (by rw [bucketCapped, bucketResidual, add_comm, tsub_add_min])
+  · apply law_marked_exp_sum_le vc hlaw.sum_one T (fun _ L => bucketCapped val L)
+    · intro i L; exact min_le_right _ _
+    · intro i L b R
+      exact min_le_min (mul_le_mul' le_rfl (env_insert_le val L R b)) le_rfl
+    · change (2 ^ 31 : ENNReal) * coordAverage (2 ^ 31 : ENNReal)⁻¹ vc T
+        (fun L => ENNReal.ofReal (Real.exp (8 * (bucketCapped val L).toReal)) - 1) ≤ 8 at hmgf
+      simpa only [Fintype.card_fin, Nat.cast_pow, Nat.cast_ofNat, Finset.sum_const,
+        Finset.card_univ, nsmul_eq_mul] using hmgf
+  · change lawAvg (marked (α := Fin (2 ^ 31)) vc) T
+      (fun W => ∑ i : Fin (2 ^ 31), bucketResidual val (atIndex i W)) ≤ _
+    rw [lawAvg_sum]
+    simp_rw [law_marked_atIndex vc hlaw.sum_one]
+    simpa only [Fintype.card_fin, Nat.cast_pow, Nat.cast_ofNat, Finset.sum_const,
+      Finset.card_univ, nsmul_eq_mul, coordAverage] using hres
+
+end WinsorInterface
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.Winsor
+open Finset
+/-- A retained subdistribution pays its bin-specific bound; omitted mass pays `M`. -/
+theorem finite_retained_payoff_le {α β : Type*} [Fintype α] [Fintype β]
+    [DecidableEq β] (label : α → β) (weight fee : α → ℝ) (retained pay : β → ℝ) (M : ℝ)
+    (hfee : ∀ a, fee a ≤ weight a * pay (label a))
+    (hpay : ∀ b, pay b ≤ M)
+    (hret : ∀ b, retained b ≤ ∑ a, if label a = b then weight a else 0) :
+    ∑ a, fee a ≤ ∑ b, retained b * pay b + M * ((∑ a, weight a) - ∑ b, retained b) := by
+  classical
+  have hdisc : (∑ b, retained b * (M-pay b)) ≤
+      ∑ a, weight a * (M-pay (label a)) := by
+    calc
+      _ ≤ ∑ b, (∑ a, if label a=b then weight a else 0) * (M-pay b) :=
+        sum_le_sum fun b _ => mul_le_mul_of_nonneg_right (hret b) (sub_nonneg.mpr (hpay b))
+      _ = _ := by
+        simp_rw [sum_mul]
+        rw [sum_comm]
+        apply sum_congr rfl
+        intro a _
+        simp
+  calc
+    _ ≤ ∑ a, weight a * pay (label a) := sum_le_sum fun a _ => hfee a
+    _ = M * (∑ a, weight a) - ∑ a, weight a * (M-pay (label a)) := by
+      rw [mul_sum, ← sum_sub_distrib]
+      apply sum_congr rfl
+      intro a _
+      ring
+    _ ≤ M * (∑ a, weight a) - ∑ b, retained b * (M-pay b) := by linarith
+    _ = _ := by
+      simp_rw [mul_sub]
+      rw [sum_sub_distrib, ← sum_mul]
+      ring
+end ClaudeWCT.Numerics.Winsor
+
+namespace ClaudeWCT.Numerics.Winsor
+open Finset
+/-- Independent coordinates preserve a retained weighted counting bound. -/
+theorem tensor_retained_le {ι α β : Type*} [Fintype ι] [DecidableEq ι] [Fintype α] [DecidableEq β]
+    (label : α → β) (weight : α → ℕ) (retained : β → ℕ)
+    (hret : ∀ b, retained b ≤ ∑ a, if label a=b then weight a else 0) (bs : ι → β) :
+    (∏ i, retained (bs i)) ≤
+      ∑ xs : ι → α, if (fun i => label (xs i)) = bs then ∏ i, weight (xs i) else 0 := by
+  classical
+  calc
+    _ ≤ ∏ i, ∑ a, if label a=bs i then weight a else 0 :=
+      prod_le_prod' fun i _ => hret (bs i)
+    _ = _ := by
+      rw [Fintype.prod_sum]
+      apply sum_congr rfl
+      intro xs _
+      by_cases h : (fun i => label (xs i)) = bs
+      · rw [if_pos h]
+        apply prod_congr rfl
+        intro i _
+        simp [congrFun h i]
+      · rw [if_neg h]
+        have he : ∃ i, label (xs i) ≠ bs i := by simpa only [funext_iff, not_forall] using h
+        obtain ⟨i, hi⟩ := he
+        exact prod_eq_zero (mem_univ i) (if_neg hi)
+/-- Combining bins preserves domination of a finite retained measure. -/
+theorem retained_pushforward_le {α β γ : Type*} [Fintype α] [Fintype β]
+    [DecidableEq β] [DecidableEq γ] (label : α → β) (group : β → γ)
+    (weight : α → ℕ) (retained : β → ℕ)
+    (hret : ∀ b, retained b ≤ ∑ a, if label a=b then weight a else 0) (c : γ) :
+    (∑ b, if group b=c then retained b else 0) ≤
+      ∑ a, if group (label a)=c then weight a else 0 := by
+  classical
+  calc
+    _ ≤ ∑ b, if group b=c then ∑ a, if label a=b then weight a else 0 else 0 := by
+      apply sum_le_sum
+      intro b _
+      split_ifs <;> first | exact hret b | exact le_rfl
+    _ = _ := by
+      simp_rw [ite_sum_zero]
+      rw [sum_comm]
+      apply sum_congr rfl
+      intro a _
+      have hh : ∀ b, (if group b=c then if label a=b then weight a else 0 else 0) =
+          (if label a=b then if group b=c then weight a else 0 else 0) := by
+        intro b
+        split_ifs <;> rfl
+      simp_rw [hh]
+      simp
+end ClaudeWCT.Numerics.Winsor
+
+namespace ClaudeWCT.Numerics.N600
+open Finset Polynomial
+/-- Radix extraction is exact because the retained polynomial's total mass fits. -/
+theorem coverageRetainedCoeff_eq (r c : ℕ) (hm : coverageRetainedPack 1 r < 2^512) :
+    coverageRetainedCoeff r c = (retainedCoveragePoly r).coeff c := by
+  unfold coverageRetainedCoeff
+  rw [← retainedCoveragePoly_eval r (2^512)]
+  apply ClaudeWCT.Numerics.eval_div_pow_mod (by positivity)
+  intro a
+  exact (ClaudeWCT.Numerics.coeff_le_eval_one _ a).trans_lt
+    ((retainedCoveragePoly_eval r 1).trans_lt hm)
+noncomputable def coverageBinnedPoly (r : ℕ) : ℕ[X] :=
+  ∑ c ∈ range 4096, C ((retainedCoveragePoly r).coeff c) * X ^ coverageBin c
+/-- Shift extraction is used only as an efficient form of the proved radix identity. -/
+theorem coverageBinnedPoly_eval (r b : ℕ) (hm : coverageRetainedPack 1 r < 2^512) :
+    (coverageBinnedPoly r).eval b = coverageBinnedPack b r := by
+  unfold coverageBinnedPoly coverageBinnedPack
+  dsimp only
+  have hs (n v a : ℕ) : (if n=0 then a else n*v+a) = n*v+a := by
+    split_ifs with h
+    · simp [h]
+    · rfl
+  simp only [hs]
+  rw [ClaudeWCT.Numerics.PoissonReflect.range_foldr_eq_sum]
+  simp only [eval_finsetSum, eval_mul, eval_C, eval_pow, eval_X]
+  apply sum_congr rfl
+  intro c _
+  have hc : ((coverageRetainedPack (2^512) r >>> (512*c)) % (2^512)) =
+      (retainedCoveragePoly r).coeff c := by
+    rw [Nat.shiftRight_eq_div_pow, pow_mul]
+    exact coverageRetainedCoeff_eq r c hm
+  rw [hc]
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.N600
+set_option maxHeartbeats 4000000 in
+theorem coveragePrepared_eq (b : ℕ) : coveragePrepared b =
+    coverageProfiles.map (fun ms => (ms, coverageProfilePack b ms)) := by
+  simp [coveragePrepared, coverageProfiles, coverageProfilePackWith, coverageProfilePack,
+    List.range_succ, List.zipIdx]
+theorem coverageOtherPrepared_eq (b n : ℕ) :
+    coverageOtherPrepared b (coveragePrepared b) n = coverageOtherPack b n := by
+  rw [coveragePrepared_eq]
+  simp [coverageOtherPrepared, coverageOtherPack, List.foldr_map]
+theorem coverageRetainedFastPack_eq (b r : ℕ) :
+    coverageRetainedFastPack b r = coverageRetainedPack b r := by
+  simp only [coverageRetainedFastPack, coverageOtherPrepared_eq, coverageRetainedPack]
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.N600
+theorem coverageFastBinnedPack_eq (b r : ℕ) : coverageFastBinnedPack b r = coverageBinnedPack b r := by
+  simp only [coverageFastBinnedPack, coverageRetainedFastPack_eq, coverageBinnedPack]
+theorem coverageFastProductPack_eq (r : ℕ) : coverageFastProductPack r = coverageProductPack r := by
+  simp only [coverageFastProductPack, coverageFastBinnedPack_eq, coverageProductPack]
+open Finset Polynomial
+variable {β C : Type} [Fintype β] [Fintype C] [DecidableEq C]
+theorem fullCoverage_card_product {r n : ℕ} (val : β → Fin 6 → ℕ) (E : Fin r → Fin n → C × β) :
+    #{t : Fin n → C × β | ClaudeWCT.Numerics.Thinning.FullCov val t E} =
+      ∏ k, coordinateCoverage val (fun j => E j k) := by
+  classical
+  simp only [coordinateCoverage, card_filter]
+  rw [Fintype.prod_sum]
+  apply sum_congr rfl
+  intro t _
+  simp only [Fintype.prod_ite_zero, prod_const_one, ClaudeWCT.Numerics.Thinning.FullCov]
+  exact congrArg (fun d : Decidable (∀ k, ClaudeWCT.Numerics.Thinning.CovAt val
+    (t k).1 (val (t k).2) (fun m => E m k)) => @ite ℕ _ d 1 0) (Subsingleton.elim _ _)
+theorem bucketPrice_ofFn {r : ℕ} (val : β → Fin 6 → ℕ)
+    (hβ : Fintype.card β=563) (hC : Fintype.card C=128) (E : Fin r → Fin 9 → C × β) :
+    bucketPrice val (List.ofFn E) = (1353 / 2^70 : ENNReal) *
+      ((∏ k, coordinateCoverage val (fun j => E j k) : ℕ) : ENNReal) := by
+  classical
+  unfold bucketPrice ClaudeWCT.Numerics.Thinning.env SigGolfResearch.Gate6.Moments.finiteAverage
+  simp_rw [ClaudeWCT.Numerics.Thinning.listCov_ofFn]
+  rw [← Finset.natCast_card_filter, fullCoverage_card_product]
+  rw [Fintype.card_fun, Fintype.card_fin, Fintype.card_prod, hC, hβ]
+  apply (ENNReal.toReal_eq_toReal_iff' (by unfold priceScale; finiteness) (by finiteness)).mp
+  simp only [priceScale, ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_pow,
+    ENNReal.toReal_natCast, ENNReal.toReal_ofNat]
+  norm_num
+  ring
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.Winsor
+open Finset
+noncomputable def taylor16 (x : ℝ) : ℝ :=
+  (∑ i ∈ range 16, x^i / (i.factorial : ℝ)) + 17*x^16 / ((16:ℕ).factorial*16)
+theorem exp8_le_taylor16 (x : ℝ) (h0 : 0≤x) (h1 : x≤1) : Real.exp (8*x) ≤ taylor16 x ^ 8 := by
+  have h := Real.exp_bound' h0 h1 (n:=16) (by norm_num)
+  have he : Real.exp x ≤ taylor16 x := by
+    norm_num only [Nat.cast_ofNat, Nat.reduceAdd] at h
+    convert h using 1 <;> norm_num [taylor16, mul_comm]
+  rw [show (8:ℝ)*x=(8:ℕ)*x by norm_num, Real.exp_nat_mul]
+  exact pow_le_pow_left₀ (Real.exp_nonneg x) he 8
+theorem exp8_le_3001 : Real.exp 8 ≤ 3001 := by
+  have h := exp8_le_taylor16 1 (by norm_num) (by norm_num)
+  norm_num [taylor16, Finset.sum_range_succ, Nat.factorial] at h ⊢
+  exact h.trans (by norm_num)
+end ClaudeWCT.Numerics.Winsor
+
+namespace ClaudeWCT.Numerics.N600
+theorem coverageHPackBits_eq (bits j : ℕ) : coverageHPackBits bits j = coverageHPack (2^bits) j := by
+  simp only [coverageHPackBits, coverageHPack, Nat.shiftLeft_eq, pow_mul]
+theorem coverageMarkedPackBits_eq (bits j : ℕ) :
+    coverageMarkedPackBits bits j = coverageMarkedPack (2^bits) j := by
+  simp only [coverageMarkedPackBits, coverageMarkedPack, Nat.shiftLeft_eq, pow_mul]
+theorem coveragePreparedBits_eq (bits : ℕ) : coveragePreparedBits bits = coveragePrepared (2^bits) := by
+  have hh : coverageHPackBits bits = coverageHPack (2^bits) := funext (coverageHPackBits_eq bits)
+  simp only [coveragePreparedBits, coveragePrepared, hh]
+theorem coverageOtherBits_eq (bits n : ℕ) (prepared : List (List ℕ × ℕ)) :
+    coverageOtherBits bits prepared n = coverageOtherPrepared (2^bits) prepared n := by
+  unfold coverageOtherBits coverageOtherPrepared
+  congr 1
+  funext e acc
+  split_ifs
+  · rw [Nat.shiftLeft_eq, pow_mul]
+    ring
+  · rfl
+theorem coverageRetainedBits_eq (bits r : ℕ) :
+    coverageRetainedBits bits r = coverageRetainedPack (2^bits) r := by
+  simp only [coverageRetainedBits, coveragePreparedBits_eq, coverageMarkedPackBits_eq,
+    coverageOtherBits_eq, coverageOtherPrepared_eq, coverageRetainedPack]
+theorem coverageBinnedBits_eq (bits r : ℕ) :
+    coverageBinnedBits bits r = coverageBinnedPack (2^bits) r := by
+  simp only [coverageBinnedBits, coverageRetainedBits_eq, coverageBinnedPack, Nat.shiftLeft_eq, pow_mul]
+theorem coverageProductBits_eq (r : ℕ) : coverageProductBits r = coverageProductPack r := by
+  simp only [coverageProductBits, coverageBinnedBits_eq, coverageProductPack]
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.Winsor
+theorem cappedExp_le_linear (x : ℝ) (hx : 0 ≤ x) :
+    Real.exp (8 * min x 1) - 1 ≤ 3000*x := by
+  by_cases h : x ≤ 1
+  · rw [min_eq_left h]
+    have hc := convexOn_exp.2 (Set.mem_univ (0:ℝ)) (Set.mem_univ (8:ℝ))
+      (show 0 ≤ 1-x by linarith) hx (show (1-x)+x=1 by ring)
+    simp only [smul_eq_mul, mul_zero, zero_add, Real.exp_zero, mul_one] at hc
+    rw [mul_comm x 8] at hc
+    have h1 := mul_le_mul_of_nonneg_left exp8_le_3001 hx
+    nlinarith
+  · rw [min_eq_right (le_of_not_ge h)]
+    norm_num only [mul_one]
+    nlinarith [exp8_le_3001]
+
+theorem cappedExp_le_of_interval (x L U p : ℝ)
+    (hxL : L ≤ x) (hxU : x ≤ U) (hp : 0 ≤ p)
+    (hpay : Real.exp (8*min U 1)-1 ≤ L*p) :
+    Real.exp (8*min x 1)-1 ≤ x*p := by
+  have h := Real.exp_le_exp.mpr (mul_le_mul_of_nonneg_left
+    (min_le_min_right 1 hxU) (by norm_num : (0:ℝ)≤8))
+  exact (sub_le_sub_right h 1).trans (hpay.trans (mul_le_mul_of_nonneg_right hxL hp))
+
+theorem residual_le_of_interval (x L U p : ℝ)
+    (hx : 0 ≤ x) (hxL : L ≤ x) (hxU : x ≤ U) (hp : 0 ≤ p)
+    (hpay : max (U-1) 0 ≤ L*p) : max (x-1) 0 ≤ x*p := by
+  exact (max_le_max_right 0 (sub_le_sub_right hxU 1)).trans
+    (hpay.trans (mul_le_mul_of_nonneg_right hxL hp))
+end ClaudeWCT.Numerics.Winsor
+
+namespace ClaudeWCT.Numerics.N600
+open ClaudeWCT.Numerics.Winsor
+open Finset
+
+theorem winsorCeil_mul_le (n d : ℕ) (hd : 0 < d) : n ≤ winsorCeil n d * d := by
+  have he := Nat.mod_add_div (n+d-1) d
+  have hr := Nat.mod_lt (n+d-1) hd
+  unfold winsorCeil
+  rw [Nat.mul_comm d] at he
+  omega
+
+theorem winsorCeil_ratio_le (n d : ℕ) (hd : 0 < d) :
+    (n:ℝ)/(d:ℝ) ≤ (winsorCeil n d : ℝ) := by
+  apply (div_le_iff₀ (by exact_mod_cast hd)).2
+  exact_mod_cast winsorCeil_mul_le n d hd
+
+def taylorNumN (S u : ℕ) : ℕ :=
+  16 * (List.range 16).foldr (fun i acc =>
+    (ClaudeWCT.Numerics.Kernel.fact 16 / ClaudeWCT.Numerics.Kernel.fact i) * u ^ i * S ^ (16-i) + acc) 0 + 17 * u ^ 16
+def taylorDenN (S : ℕ) : ℕ := ClaudeWCT.Numerics.Kernel.fact 16 * 16 * S ^ 16
+set_option maxHeartbeats 1000000 in
+theorem taylorNumN_ratio (S u : ℕ) (hS : (S:ℝ) ≠ 0) :
+    (taylorNumN S u : ℝ) / (taylorDenN S : ℝ) = taylor16 ((u:ℝ) / (S:ℝ)) := by
+  norm_num [taylorNumN, taylorDenN, ClaudeWCT.Numerics.Kernel.fact,
+    List.range_succ, List.foldr_append, taylor16, Finset.sum_range_succ, Nat.factorial]
+  field_simp
+  ring
+
+theorem winsorExp_ratio (u : ℕ) :
+    (winsorExpNum u : ℝ) / (winsorExpDen : ℝ) = taylor16 ((u:ℝ) / (winsorScale:ℝ)) :=
+  taylorNumN_ratio winsorScale u (by norm_num [winsorScale])
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.N600
+set_option maxRecDepth 10000
+open ClaudeWCT.Numerics.Winsor
+open Finset
+
+theorem taylorNumN_ge_den (S u : ℕ) : taylorDenN S ≤ taylorNumN S u := by
+  unfold taylorNumN taylorDenN
+  rw [List.range_succ_eq_map]
+  simp only [List.foldr_cons, Kernel.fact, Nat.div_one, pow_zero, mul_one, Nat.sub_zero]
+  rw [Nat.mul_add]
+  omega
+
+theorem winsorExpNum_ge_den (u : ℕ) : winsorExpDen ≤ winsorExpNum u :=
+  taylorNumN_ge_den winsorScale u
+
+theorem winsorRound_le (un ud : ℕ) (hud : 0 < ud) :
+    min ((un:ℝ)/(ud:ℝ)) 1 ≤
+      ((min winsorScale (winsorCeil (winsorScale*un) ud) : ℕ) : ℝ) / (winsorScale:ℝ) := by
+  have hS : (0:ℝ) < winsorScale := by norm_num [winsorScale]
+  have hc := winsorCeil_ratio_le (winsorScale*un) ud hud
+  have hratio : (un:ℝ)/(ud:ℝ) ≤ (winsorCeil (winsorScale*un) ud:ℝ)/(winsorScale:ℝ) := by
+    apply (le_div_iff₀ hS).2
+    push_cast at hc
+    calc
+      _ = (winsorScale:ℝ)*(un:ℝ)/(ud:ℝ) := by ring
+      _ ≤ _ := hc
+  rw [Nat.cast_min, ← min_div_div_right (le_of_lt hS), div_self (ne_of_gt hS)]
+  exact (min_le_min_right 1 hratio).trans_eq (min_comm _ _)
+
+theorem payRatio_le (S D p a b m : ℝ) (hS : 0<S) (hD : 0<D) (hb : 0<b)
+    (hh : S*(p^8-D^8)*b*51^9 ≤ m*D^8*a*50^9) :
+    (p/D)^8-1 ≤ a/b*(50/51:ℝ)^9*(m/S) := by
+  field_simp
+  nlinarith
+
+theorem winsorMGF_cross_pay (un ud m : ℕ) (hun : 0 < un) (hud : 0 < ud)
+    (hpay : winsorScale * (winsorExpNum (min winsorScale (winsorCeil (winsorScale*un) ud)) ^ 8 - winsorExpDen ^ 8) * ud * 51^9 ≤
+      m * winsorExpDen ^ 8 * un * 50^9) :
+    Real.exp (8*min ((un:ℝ)/(ud:ℝ)) 1)-1 ≤
+      ((un:ℝ)/(ud:ℝ)) * (50/51:ℝ)^9 * ((m:ℝ)/(winsorScale:ℝ)) := by
+  let u := min winsorScale (winsorCeil (winsorScale*un) ud)
+  have hS : (0:ℝ) < winsorScale := by norm_num [winsorScale]
+  have hD : (0:ℝ) < winsorExpDen := by norm_num [winsorExpDen, winsorScale, Kernel.fact]
+  have hudR : (0:ℝ)<ud := by exact_mod_cast hud
+  have hu : (u:ℝ)/(winsorScale:ℝ) ≤ 1 := by
+    apply (div_le_iff₀ hS).2
+    norm_num only [one_mul]
+    exact_mod_cast min_le_left winsorScale (winsorCeil (winsorScale*un) ud)
+  have hmono : Real.exp (8*min ((un:ℝ)/(ud:ℝ)) 1) ≤
+      ((winsorExpNum u:ℝ)/(winsorExpDen:ℝ))^8 := by
+    rw [winsorExp_ratio]
+    exact (Real.exp_le_exp.mpr (mul_le_mul_of_nonneg_left
+      (winsorRound_le un ud hud) (by norm_num))).trans
+      (exp8_le_taylor16 _ (by positivity) hu)
+  have hge : winsorExpDen^8 ≤ winsorExpNum u^8 := Nat.pow_le_pow_left (winsorExpNum_ge_den u) 8
+  have hn : ((winsorExpNum u^8-winsorExpDen^8:ℕ):ℝ) =
+      (winsorExpNum u:ℝ)^8-(winsorExpDen:ℝ)^8 := by
+    rw [Nat.cast_sub hge, Nat.cast_pow, Nat.cast_pow]
+  have hh : (winsorScale:ℝ) * ((winsorExpNum u:ℝ)^8-(winsorExpDen:ℝ)^8) * (ud:ℝ) * 51^9 ≤
+      (m:ℝ) * (winsorExpDen:ℝ)^8 * (un:ℝ) * 50^9 := by
+    have hc : (winsorScale:ℝ) * ((winsorExpNum u^8-winsorExpDen^8:ℕ):ℝ) * (ud:ℝ) * 51^9 ≤
+        (m:ℝ) * (winsorExpDen:ℝ)^8 * (un:ℝ) * 50^9 := by exact_mod_cast hpay
+    rwa [hn] at hc
+  refine (sub_le_sub_right hmono 1).trans ?_
+  exact payRatio_le _ _ _ _ _ _ hS hD hudR hh
+theorem residualRatio_le (S a b t : ℝ) (hS : 0<S) (hb : 0<b)
+    (hh : S*(a-b)*51^9 ≤ t*a*50^9) :
+    a/b-1 ≤ a/b*(50/51:ℝ)^9*(t/S) := by
+  field_simp
+  nlinarith
+
+theorem winsorResidual_cross_pay (un ud t : ℕ) (hud : 0 < ud)
+    (hpay : winsorScale * (un-ud) * 51^9 ≤ t*un*50^9) :
+    max ((un:ℝ)/(ud:ℝ)-1) 0 ≤
+      ((un:ℝ)/(ud:ℝ)) * (50/51:ℝ)^9 * ((t:ℝ)/(winsorScale:ℝ)) := by
+  by_cases h : un ≤ ud
+  · have hr : (un:ℝ)/(ud:ℝ) ≤ 1 := (div_le_one (by positivity)).2 (by exact_mod_cast h)
+    rw [max_eq_right (by linarith)]
+    positivity
+  · have hdu : ud ≤ un := by omega
+    have hn : ((un-ud:ℕ):ℝ)=(un:ℝ)-(ud:ℝ) := Nat.cast_sub hdu
+    have hh : (winsorScale:ℝ)*((un:ℝ)-(ud:ℝ))*51^9 ≤ (t:ℝ)*(un:ℝ)*50^9 := by
+      have hc : (winsorScale:ℝ)*((un-ud:ℕ):ℝ)*51^9 ≤ (t:ℝ)*(un:ℝ)*50^9 := by exact_mod_cast hpay
+      rwa [hn] at hc
+    have hr : 1 ≤ (un:ℝ)/(ud:ℝ) := (one_le_div (by positivity)).2 (by exact_mod_cast hdu)
+    rw [max_eq_left (by linarith)]
+    exact residualRatio_le _ _ _ _ (by norm_num [winsorScale]) (by positivity) hh
+
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.N600
+open ClaudeWCT.Numerics.Winsor
+set_option maxRecDepth 10000
+
+theorem winsorMGF_pay (un ud m : ℕ) (hud : 0 < ud) (x : ℝ) (hx : 0 ≤ x)
+    (hlo : (un:ℝ)/(ud:ℝ)*(50/51:ℝ)^9 ≤ x) (hhi : x ≤ (un:ℝ)/(ud:ℝ))
+    (hpay : m = 3000*winsorScale ∨
+      winsorScale * (winsorExpNum (min winsorScale (winsorCeil (winsorScale*un) ud)) ^ 8 - winsorExpDen ^ 8) * ud * 51^9 ≤
+        m * winsorExpDen ^ 8 * un * 50^9) :
+    Real.exp (8*min x 1)-1 ≤ x*((m:ℝ)/(winsorScale:ℝ)) := by
+  rcases hpay with hm|hm
+  · rw [hm]
+    norm_num [winsorScale]
+    simpa [mul_comm] using cappedExp_le_linear x hx
+  · by_cases hun : 0 < un
+    · apply cappedExp_le_of_interval x ((un:ℝ)/(ud:ℝ)*(50/51:ℝ)^9) ((un:ℝ)/(ud:ℝ))
+        ((m:ℝ)/(winsorScale:ℝ)) hlo hhi (by positivity)
+      exact winsorMGF_cross_pay un ud m hun hud hm
+    · have hu : un=0 := by omega
+      rw [hu] at hhi
+      norm_num at hhi
+      have hzero : x=0 := le_antisymm hhi hx
+      simp [hzero]
+
+theorem winsorResidual_pay (un ud t : ℕ) (hud : 0 < ud) (x : ℝ) (hx : 0 ≤ x)
+    (hlo : (un:ℝ)/(ud:ℝ)*(50/51:ℝ)^9 ≤ x) (hhi : x ≤ (un:ℝ)/(ud:ℝ))
+    (hpay : t = winsorScale ∨ winsorScale*(un-ud)*51^9 ≤ t*un*50^9) :
+    max (x-1) 0 ≤ x*((t:ℝ)/(winsorScale:ℝ)) := by
+  rcases hpay with ht|ht
+  · rw [ht, div_self (by norm_num [winsorScale]), mul_one]
+    exact max_le (by linarith) hx
+  · apply residual_le_of_interval x ((un:ℝ)/(ud:ℝ)*(50/51:ℝ)^9) ((un:ℝ)/(ud:ℝ))
+      ((t:ℝ)/(winsorScale:ℝ)) hx hlo hhi (by positivity)
+    exact winsorResidual_cross_pay un ud t hud ht
+
+theorem winsorPayChecks_entry (h : winsorPayChecks = true) (m t b : ℕ)
+    (he : ((m,t),b) ∈ (winsorMGFPayData.zip winsorResidualPayData).zipIdx) :
+    (m = 3000*winsorScale ∨
+      winsorScale * (winsorExpNum (min winsorScale (winsorCeil (winsorScale*(1353*51^b)) (2^70*50^b))) ^ 8 - winsorExpDen ^ 8) * (2^70*50^b) * 51^9 ≤
+        m * winsorExpDen ^ 8 * (1353*51^b) * 50^9) ∧
+    (t = winsorScale ∨ winsorScale*((1353*51^b)-(2^70*50^b))*51^9 ≤ t*(1353*51^b)*50^9) := by
+  unfold winsorPayChecks at h
+  have hh := List.all_eq_true.mp h ((m,t),b) he
+  simpa only [Bool.and_eq_true, Bool.or_eq_true, beq_iff_eq, decide_eq_true_eq] using hh
+end ClaudeWCT.Numerics.N600
+
+open Finset Polynomial
+namespace ClaudeWCT.Numerics.N600
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 100000
+
+def coveragePackedPairDots : List (ℕ × ℕ) → ℕ → ℕ × ℕ × ℕ
+  | (m,t) :: ds, p =>
+    let n := p % (2^4608)
+    let v := coveragePackedPairDots ds (p / (2^4608))
+    (n+v.1,n*m+v.2.1,n*t+v.2.2)
+  | [], _ => (0,0,0)
+
+theorem winsorPackedSums_eq_zip (m t : List ℕ) (p : ℕ) :
+    winsorPackedSums m t p = coveragePackedPairDots (m.zip t) p := by
+  induction m generalizing t p with
+  | nil => simp [winsorPackedSums, coveragePackedPairDots]
+  | cons m ms ih =>
+    cases t with
+    | nil => simp [winsorPackedSums, coveragePackedPairDots]
+    | cons t ts => simp [winsorPackedSums, coveragePackedPairDots, ih]
+
+noncomputable def coverageCoefficientDots (P : ℕ[X]) (ds : List (ℕ × ℕ)) (k : ℕ) : ℕ × ℕ × ℕ :=
+  (ds.zipIdx k).foldr (fun e v =>
+    (P.coeff e.2 + v.1, P.coeff e.2 * e.1.1 + v.2.1,
+      P.coeff e.2 * e.1.2 + v.2.2)) (0,0,0)
+
+theorem coveragePackedPairDots_eq (P : ℕ[X]) (hP : ∀ a, P.coeff a < 2^4608)
+    (ds : List (ℕ × ℕ)) (k : ℕ) :
+    coveragePackedPairDots ds (P.eval (2^4608) / (2^4608)^k) =
+      coverageCoefficientDots P ds k := by
+  induction ds generalizing k with
+  | nil => simp [coveragePackedPairDots, coverageCoefficientDots]
+  | cons e ds ih =>
+    have hc := ClaudeWCT.Numerics.eval_div_pow_mod (B := 2^4608) (by positivity) k P hP
+    have hd : P.eval (2^4608) / (2^4608)^k / 2^4608 = P.eval (2^4608) / (2^4608)^(k+1) := by
+      rw [Nat.div_div_eq_div_mul, pow_succ (2^4608) k]
+    simp only [coveragePackedPairDots, hc, hd, ih, coverageCoefficientDots,
+      List.zipIdx_cons, List.foldr_cons]
+
+theorem winsorPackedSums_eq_coefficients (P : ℕ[X]) (hP : ∀ a, P.coeff a < 2^4608)
+    (m t : List ℕ) :
+    winsorPackedSums m t (P.eval (2^4608)) = coverageCoefficientDots P (m.zip t) 0 := by
+  rw [winsorPackedSums_eq_zip]
+  simpa using coveragePackedPairDots_eq P hP (m.zip t) 0
+
+theorem sum_coeff_le_eval_one (P : ℕ[X]) (s : Finset ℕ) :
+    (∑ a ∈ s, P.coeff a) ≤ P.eval 1 := by
+  rw [Polynomial.eval_eq_sum, Polynomial.sum_def]
+  simp only [one_pow, mul_one]
+  exact Finset.sum_le_sum_of_ne_zero (fun a _ ha => Polynomial.mem_support_iff.mpr ha)
+
+theorem binnedPower_coeff_lt (P : ℕ[X]) (s : Finset ℕ) (bin : ℕ → ℕ) (M : ℕ)
+    (hP : P.eval 1 ≤ M) (hM : M < 2^512) (a : ℕ) :
+    ((∑ c ∈ s, Polynomial.C (P.coeff c) * X ^ bin c : ℕ[X]) ^ 9).coeff a < 2^4608 := by
+  let G : ℕ[X] := ∑ c ∈ s, Polynomial.C (P.coeff c) * X ^ bin c
+  have hg : G.eval 1 ≤ M := by
+    calc
+      G.eval 1 = ∑ c ∈ s, P.coeff c := by simp only [G, Polynomial.eval_finsetSum, Polynomial.eval_mul, Polynomial.eval_C, Polynomial.eval_pow, Polynomial.eval_X, one_pow, mul_one]
+      _ ≤ P.eval 1 := sum_coeff_le_eval_one P s
+      _ ≤ M := hP
+  have hc := ClaudeWCT.Numerics.coeff_le_eval_one (G^9) a
+  rw [Polynomial.eval_pow] at hc
+  calc
+    (G^9).coeff a ≤ (G.eval 1)^9 := hc
+    _ ≤ M^9 := Nat.pow_le_pow_left hg 9
+    _ < (2^512)^9 := Nat.pow_lt_pow_left hM (by decide)
+    _ = 2^4608 := by rw [← pow_mul]
+end ClaudeWCT.Numerics.N600
+
+open Finset
+namespace ClaudeWCT.Numerics.N600
+
+theorem geometricBin_interval (c b : ℕ) (hc : 1 ≤ c) (hzero : c = 1 → b = 0)
+    (hu : c*50^b ≤ 51^b) (hl : c ≤ 1 ∨ 51^(b-1) < c*50^(b-1)) :
+    (51/50 : ℝ)^b * (50/51) ≤ (c : ℝ) ∧ (c : ℝ) ≤ (51/50 : ℝ)^b := by
+  have hcR : (1:ℝ) ≤ c := by exact_mod_cast hc
+  constructor
+  · by_cases hb : b = 0
+    · simp only [hb, pow_zero, one_mul]
+      linarith
+    · have hcl : ¬ c ≤ 1 := by
+        intro h
+        exact hb (hzero (by omega))
+      have hL : (51 : ℝ)^(b-1) ≤ c*(50:ℝ)^(b-1) := by
+        exact_mod_cast (hl.resolve_left hcl).le
+      have hdiv : (51/50 : ℝ)^(b-1) ≤ c := by
+        rw [div_pow]
+        exact (div_le_iff₀ (by positivity)).2 hL
+      have he : (51/50 : ℝ)^b * (50/51) = (51/50 : ℝ)^(b-1) := by
+        conv_lhs => lhs; rw [show b = (b-1)+1 by omega, pow_succ]
+        ring
+      rw [he]
+      exact hdiv
+  · rw [div_pow]
+    apply (le_div_iff₀ (by positivity)).2
+    exact_mod_cast hu
+
+theorem geometricBin_product_interval (c bins : Fin 9 → ℕ)
+    (hs : ∀ k, (51/50 : ℝ)^(bins k)*(50/51) ≤ c k ∧
+      (c k : ℝ) ≤ (51/50 : ℝ)^(bins k)) :
+    let b := ∑ k, bins k
+    let U := ((1353*51^b : ℕ):ℝ) / ((2^70*50^b : ℕ):ℝ)
+    let x := (1353/2^70 : ℝ) * ∏ k, (c k : ℝ)
+    U*(50/51 : ℝ)^9 ≤ x ∧ x ≤ U := by
+  dsimp only
+  have hlo : (∏ k, (51/50 : ℝ)^(bins k)*(50/51)) ≤ ∏ k, (c k : ℝ) := by
+    exact Finset.prod_le_prod (fun _ _ => by positivity) (fun k _ => (hs k).1)
+  have hhi : (∏ k, (c k : ℝ)) ≤ ∏ k, (51/50 : ℝ)^(bins k) := by
+    exact Finset.prod_le_prod (fun _ _ => by positivity) (fun k _ => (hs k).2)
+  rw [Finset.prod_mul_distrib, Finset.prod_pow_eq_pow_sum, Fin.prod_const] at hlo
+  rw [Finset.prod_pow_eq_pow_sum] at hhi
+  have hU : ((1353*51^(∑ k, bins k) : ℕ):ℝ) / ((2^70*50^(∑ k, bins k) : ℕ):ℝ) =
+      (1353/2^70 : ℝ)*(51/50 : ℝ)^(∑ k, bins k) := by
+    push_cast
+    rw [div_pow]
+    ring
+  rw [hU]
+  constructor
+  · simpa only [mul_assoc] using mul_le_mul_of_nonneg_left hlo (show 0 ≤ (1353/2^70:ℝ) by positivity)
+  · exact mul_le_mul_of_nonneg_left hhi (by positivity)
+theorem coverageBin_one : coverageBin 1 = 0 := by decide +kernel
+
+theorem coverageBin_interval_of_check (c : ℕ) (hc : 1 ≤ c) (hB : c < 4096)
+    (hcheck : (List.range 4096).all (fun c =>
+      c * 50 ^ coverageBin c ≤ 51 ^ coverageBin c &&
+        (c ≤ 1 || 51 ^ (coverageBin c - 1) < c * 50 ^ (coverageBin c - 1))) = true) :
+    (51/50 : ℝ)^(coverageBin c)*(50/51) ≤ (c:ℝ) ∧
+      (c:ℝ) ≤ (51/50 : ℝ)^(coverageBin c) := by
+  have hh := List.all_eq_true.mp hcheck c (List.mem_range.mpr hB)
+  simp only [Bool.and_eq_true, Bool.or_eq_true, decide_eq_true_eq] at hh
+  apply geometricBin_interval c (coverageBin c) hc
+  · intro h
+    subst c
+    exact coverageBin_one
+  · exact hh.1
+  · exact hh.2
+
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.Winsor
+open Finset
+set_option maxHeartbeats 1000000
+
+theorem finite_bounded_payoff_le {α : Type*} [Fintype α]
+    (weight fee : α → ℝ) (good : α → Prop) [DecidablePred good]
+    (bin : α → ℕ) (retained pay : ℕ → ℝ) (M : ℝ) (B : ℕ)
+    (hfee : ∀ a, fee a ≤ weight a * (if good a ∧ bin a < B then pay (bin a) else M))
+    (hpay : ∀ b < B, pay b ≤ M)
+    (hret : ∀ b < B, retained b ≤ ∑ a, if good a ∧ bin a = b then weight a else 0) :
+    ∑ a, fee a ≤ (∑ b ∈ range B, retained b * pay b) +
+      M * ((∑ a, weight a) - ∑ b ∈ range B, retained b) := by
+  classical
+  let discount (a : α) : ℝ := if good a ∧ bin a < B then weight a * (M-pay (bin a)) else 0
+  have hd (a : α) : (∑ b ∈ range B, if good a ∧ bin a = b then weight a*(M-pay b) else 0) = discount a := by
+    by_cases ha : good a ∧ bin a < B
+    · rw [Finset.sum_eq_single (bin a)]
+      · simp [discount, ha.1, ha.2]
+      · intro b hb hne
+        simp [Ne.symm hne]
+      · simp [ha.2]
+    · have hn (b : ℕ) (hb : b∈range B) : ¬(good a ∧ bin a=b) := by
+        rintro ⟨hg,he⟩
+        exact ha ⟨hg,he ▸ mem_range.mp hb⟩
+      simp only [discount, if_neg ha]
+      exact sum_eq_zero fun b hb => if_neg (hn b hb)
+  have hdisc : (∑ b ∈ range B, retained b*(M-pay b)) ≤ ∑ a, discount a := by
+    calc
+      _ ≤ ∑ b ∈ range B, (∑ a, if good a ∧ bin a=b then weight a else 0)*(M-pay b) :=
+        sum_le_sum fun b hb => mul_le_mul_of_nonneg_right (hret b (mem_range.mp hb))
+          (sub_nonneg.mpr (hpay b (mem_range.mp hb)))
+      _ = ∑ a, discount a := by
+        simp_rw [sum_mul, ite_mul, zero_mul]
+        rw [sum_comm]
+        exact sum_congr rfl fun a _ => hd a
+  have hp (a : α) : fee a ≤ M*weight a-discount a := by
+    have h := hfee a
+    by_cases ha : good a ∧ bin a < B
+    · rw [if_pos ha] at h
+      simp only [discount, if_pos ha]
+      nlinarith
+    · rw [if_neg ha] at h
+      simpa [discount, ha, mul_comm] using h
+  calc
+    _ ≤ ∑ a, (M*weight a-discount a) := sum_le_sum fun a _ => hp a
+    _ = M*(∑ a, weight a) - ∑ a, discount a := by rw [sum_sub_distrib, mul_sum]
+    _ ≤ M*(∑ a, weight a) - ∑ b ∈ range B, retained b*(M-pay b) := by linarith
+    _ = _ := by simp_rw [mul_sub]; rw [sum_sub_distrib, ← sum_mul]; ring
+end ClaudeWCT.Numerics.Winsor
+
+namespace ClaudeWCT.Numerics.N600
+open Finset Polynomial
+theorem finiteMonomialPower_coeff (D : ℕ → ℕ) (bin : ℕ → ℕ) (B n b : ℕ) :
+    ((∑ c : Fin B, Polynomial.C (D c.val) * X ^ bin c.val : ℕ[X]) ^ n).coeff b =
+      ∑ cs : Fin n → Fin B, if (∑ i, bin (cs i).val) = b then ∏ i, D (cs i).val else 0 := by
+  classical
+  have hp : (∑ c : Fin B, Polynomial.C (D c.val) * X ^ bin c.val : ℕ[X]) ^ n =
+      ∑ cs : Fin n → Fin B, Polynomial.C (∏ i, D (cs i).val) * X ^ (∑ i, bin (cs i).val) := by
+    rw [← Fin.prod_const, Fintype.prod_sum]
+    apply Finset.sum_congr rfl
+    intro cs hcs
+    rw [Finset.prod_mul_distrib, ← map_prod, Finset.prod_pow_eq_pow_sum]
+  rw [hp]
+  simp only [Polynomial.finsetSum_coeff, Polynomial.coeff_C_mul_X_pow, eq_comm]
+
+theorem coverageBinnedPower_coeff (r b : ℕ) :
+    ((coverageBinnedPoly r)^9).coeff b =
+      ∑ cs : Fin 9 → Fin 4096,
+        if (∑ i, coverageBin (cs i).val) = b then ∏ i, (retainedCoveragePoly r).coeff (cs i).val else 0 := by
+  unfold coverageBinnedPoly
+  rw [← Fin.sum_univ_eq_sum_range]
+  exact finiteMonomialPower_coeff _ _ _ _ _
+
+theorem bounded_fiber_group_sum {A : Type*} [Fintype A]
+    (cc : A → ℕ) (weight : (Fin 9 → A) → ℕ) (bin : ℕ → ℕ) (B b : ℕ) :
+    (∑ cs : Fin 9 → Fin B, if (∑ i, bin (cs i).val) = b then
+      ∑ xs : Fin 9 → A, if (fun i => cc (xs i)) = (fun i => (cs i).val) then weight xs else 0 else 0) =
+    ∑ xs : Fin 9 → A, if (∀ i, cc (xs i) < B) ∧ (∑ i, bin (cc (xs i))) = b then weight xs else 0 := by
+  classical
+  simp_rw [ite_sum_zero]
+  rw [Finset.sum_comm]
+  apply Finset.sum_congr rfl
+  intro xs hxs
+  by_cases hB : ∀ i, cc (xs i) < B
+  · let cs0 : Fin 9 → Fin B := fun i => ⟨cc (xs i), hB i⟩
+    rw [Finset.sum_eq_single cs0]
+    · simp [cs0, hB]
+    · intro cs hcs hne
+      have he : (fun i => cc (xs i)) ≠ (fun i => (cs i).val) := by
+        intro heq
+        apply hne
+        funext i
+        apply Fin.ext
+        exact (congrFun heq i).symm
+      simp [he]
+    · simp
+  · have he (cs : Fin 9 → Fin B) : (fun i => cc (xs i)) ≠ (fun i => (cs i).val) := by
+      intro heq
+      apply hB
+      intro i
+      rw [congrFun heq i]
+      exact (cs i).isLt
+    simp [he, hB]
+
+theorem coverageBinned_count_bound {β : Type*} [Fintype β]
+    (val : β → Fin 6 → ℕ) (r b : ℕ)
+    (hret : ∀ c, 128 * (retainedCoveragePoly r).coeff c ≤
+      c * #{E : Fin r → Fin 128 × β | coordinateCoverage val E = c}) :
+    128^9 * ((coverageBinnedPoly r)^9).coeff b ≤
+      ∑ xs : Fin 9 → (Fin r → Fin 128 × β),
+        if (∀ i, coordinateCoverage val (xs i) < 4096) ∧
+            (∑ i, coverageBin (coordinateCoverage val (xs i))) = b
+          then ∏ i, coordinateCoverage val (xs i) else 0 := by
+  classical
+  let cc : (Fin r → Fin 128 × β) → ℕ := coordinateCoverage val
+  have hret' (c : ℕ) : 128 * (retainedCoveragePoly r).coeff c ≤
+      ∑ E : Fin r → Fin 128 × β, if cc E = c then cc E else 0 := by
+    convert hret c using 1
+    rw [Finset.card_filter, mul_sum]
+    apply Finset.sum_congr rfl
+    intro E hE
+    by_cases hc : cc E = c <;> simp [cc] at hc ⊢ <;> simp [hc]
+  have ht (cs : Fin 9 → Fin 4096) := ClaudeWCT.Numerics.Winsor.tensor_retained_le
+    cc cc (fun c => 128 * (retainedCoveragePoly r).coeff c) hret' (fun i => (cs i).val)
+  rw [coverageBinnedPower_coeff, mul_sum]
+  rw [← bounded_fiber_group_sum cc (fun xs => ∏ i, cc (xs i)) coverageBin 4096 b]
+  apply Finset.sum_le_sum
+  intro cs hcs
+  by_cases hb : (∑ i, coverageBin (cs i).val) = b
+  · rw [if_pos hb, if_pos hb]
+    simpa only [Finset.prod_mul_distrib, Fin.prod_const] using ht cs
+  · simp [hb]
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.N600
+open Finset Polynomial
+theorem coverageCoefficientDots_mass (P : ℕ[X]) (ds : List (ℕ × ℕ)) (k : ℕ) :
+    (coverageCoefficientDots P ds k).1 = ∑ i ∈ range ds.length, P.coeff (k+i) := by
+  induction ds generalizing k with
+  | nil => simp [coverageCoefficientDots]
+  | cons e ds ih =>
+    change P.coeff k + (coverageCoefficientDots P ds (k+1)).1 = _
+    rw [ih, List.length_cons, Finset.sum_range_succ']
+    simp only [Nat.add_zero, Nat.add_assoc, Nat.add_comm 1]
+    exact Nat.add_comm _ _
+
+theorem coverageCoefficientDots_mass_le (P : ℕ[X]) (ds : List (ℕ × ℕ)) :
+    (coverageCoefficientDots P ds 0).1 ≤ P.eval 1 := by
+  rw [coverageCoefficientDots_mass]
+  simp only [Nat.zero_add]
+  exact sum_coeff_le_eval_one P (range ds.length)
+
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.Winsor
+open Finset
+set_option maxHeartbeats 1000000
+
+theorem finite_nat_payoff_le {α : Type*} [Fintype α]
+    (weight : α → ℕ) (fee : α → ℝ) (good : α → Prop) [DecidablePred good]
+    (coeff pay : ℕ → ℕ) (label : α → ℕ) (M B S D X : ℕ) (a : ℝ)
+    (ha : 0 ≤ a) (hS : 0 < S)
+    (hmass : ∑ z, weight z = D*X)
+    (hcoeff : ∑ b ∈ range B, coeff b ≤ X)
+    (hfee : ∀ z, fee z ≤ a*(weight z:ℝ) *
+      (if good z ∧ label z < B then (pay (label z):ℝ)/S else M))
+    (hpay : ∀ b < B, pay b ≤ M*S)
+    (hret : ∀ b < B, D*coeff b ≤ ∑ z, if good z ∧ label z=b then weight z else 0) :
+    ∑ z, fee z ≤ a*D/S *
+      ((∑ b ∈ range B, coeff b*pay b) + M*S*(X-∑ b ∈ range B, coeff b) : ℕ) := by
+  have h := finite_bounded_payoff_le (fun z => a*(weight z:ℝ)) fee good label
+    (fun b => a*D*(coeff b:ℝ)) (fun b => (pay b:ℝ)/S) (M:ℝ) B hfee
+    (fun b hb => (div_le_iff₀ (by exact_mod_cast hS)).2 (by exact_mod_cast hpay b hb))
+    (fun b hb => ?_)
+  · refine h.trans_eq ?_
+    have hm : (∑ z, (weight z:ℝ)) = (D:ℝ)*X := by exact_mod_cast hmass
+    have hs : (∑ b ∈ range B, a*(D:ℝ)*(coeff b:ℝ)*((pay b:ℝ)/(S:ℝ))) =
+        a*D/S*(∑ b ∈ range B, (coeff b:ℝ)*(pay b:ℝ)) := by
+      rw [mul_sum]
+      apply sum_congr rfl
+      intro b hb
+      ring
+    rw [hs]
+    simp only [← mul_sum, hm]
+    rw [Nat.cast_add, Nat.cast_mul, Nat.cast_mul, Nat.cast_sub hcoeff]
+    push_cast
+    field_simp
+  · have hr : (D:ℝ)*(coeff b:ℝ) ≤ ∑ z, if good z ∧ label z=b then (weight z:ℝ) else 0 := by exact_mod_cast hret b hb
+    simpa only [mul_assoc, mul_sum, mul_ite, mul_zero] using mul_le_mul_of_nonneg_left hr ha
+end ClaudeWCT.Numerics.Winsor
+
+namespace ClaudeWCT.Numerics.N600
+open Finset
+open ClaudeWCT.Numerics.Thinning
+open SphincsSecurity.Concrete
+open SigGolfResearch.Gate6.Moments
+set_option maxRecDepth 100000
+set_option maxHeartbeats 1000000
+
+ theorem coverage_sum_xNum {β : Type} [Fintype β] (val : β → Fin 6 → ℕ)
+    (hβ : Fintype.card β = 563) (h₁ : W1Table val) (r : ℕ) :
+    ∑ E : Fin r → Fin 128 × β, coordinateCoverage val E = 128*xNum r := by
+  classical
+  have h := coord_first_xNum (C:=Fin 128) val hβ (by simp) h₁ r
+  rw [Finset.card_filter, Fintype.sum_prod_type, Finset.sum_comm] at h
+  simpa only [coordinateCoverage, Finset.card_filter, Kc] using h
+
+ theorem coverage_product_sum_xNum {β : Type} [Fintype β] (val : β → Fin 6 → ℕ)
+    (hβ : Fintype.card β = 563) (h₁ : W1Table val) (r : ℕ) :
+    ∑ xs : Fin 9 → (Fin r → Fin 128 × β), ∏ k, coordinateCoverage val (xs k) = 128^9*xNum r^9 := by
+  rw [← Fintype.prod_sum]
+  simp only [coverage_sum_xNum val hβ h₁ r, Fin.prod_const, mul_pow]
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.N600
+theorem zipIdx_eq_map_range (xs : List ℕ) :
+    xs.zipIdx = (List.range xs.length).map (fun c => (xs[c]?.getD 0,c)) := by
+  apply List.ext_getElem
+  · simp
+  · intro i hi hj
+    have h : i < xs.length := by simpa using hi
+    simp only [List.getElem_zipIdx, List.getElem_map, List.getElem_range, Nat.zero_add,
+      List.getElem?_eq_getElem h, Option.getD_some]
+
+theorem coverageBinnedLinear_eq (bits r : ℕ) : coverageBinnedLinear bits r = coverageBinnedBits bits r := by
+  unfold coverageBinnedLinear coverageBinnedBits
+  rw [zipIdx_eq_map_range, List.foldr_map]
+  have hl : coverageBinData.toList.length=4096 := by decide +kernel
+  rw [hl]
+  simp only [Array.getElem?_toList, coverageBin]
+
+theorem coverageProductLinear_eq (r : ℕ) : coverageProductLinear r = coverageProductBits r := by
+  simp only [coverageProductLinear, coverageBinnedLinear_eq, coverageProductBits]
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.N600
+open Finset
+set_option maxRecDepth 100000
+set_option maxHeartbeats 1000000
+
+def winsorPayPair (b : ℕ) : ℕ × ℕ := (winsorMGFPayData.zip winsorResidualPayData)[b]?.getD (0,0)
+theorem winsorPayPair_mem (b : ℕ) (hb : b < 2201)
+    (hm : winsorMGFPayData.length=2201) (ht : winsorResidualPayData.length=2201) :
+    (winsorPayPair b,b) ∈ (winsorMGFPayData.zip winsorResidualPayData).zipIdx := by
+  have hl : b < (winsorMGFPayData.zip winsorResidualPayData).length := by simpa [List.length_zip,hm,ht] using hb
+  have he := List.getElem_mem (l := (winsorMGFPayData.zip winsorResidualPayData).zipIdx) (n:=b) (by simpa using hl)
+  simpa only [List.getElem_zipIdx, Nat.zero_add, winsorPayPair, List.getElem?_eq_getElem hl, Option.getD_some] using he
+
+ theorem uniformWordAverage_coord_sum {β : Type} [Fintype β]
+    [SampleableType (Fin 9 → Fin 128 × β)] (hβ : Fintype.card β=563)
+    (r : ℕ) (fee : List (Fin 9 → Fin 128 × β) → ENNReal) :
+    SphincsSecurity.Concrete.uniformWordAverage r fee =
+      (∑ xs : Fin 9 → (Fin r → Fin 128 × β), fee (List.ofFn (fun j k => xs k j))) /
+        ((Q^(9*r):ℕ):ENNReal) := by
+  rw [SigGolfResearch.Gate6.Moments.word_array_average, SigGolfResearch.Gate6.Moments.finiteAverage]
+  have hcard : Fintype.card (Fin r → Fin 9 → Fin 128 × β) = Q^(9*r) := by
+    simp only [Fintype.card_fun, Fintype.card_prod, Fintype.card_fin, hβ, ← pow_mul]
+    rfl
+  rw [hcard]
+  congr 1
+  exact (Equiv.sum_comp (Equiv.piComm (fun _ : Fin 9 => fun _ : Fin r => Fin 128 × β))
+    (fun E => fee (List.ofFn E))).symm
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.N600
+open Finset
+set_option maxRecDepth 100000
+set_option maxHeartbeats 1000000
+
+ theorem winsorPayPair_bound (b : ℕ) (hb : b < 2201)
+    (hm : winsorMGFPayData.length=2201) (ht : winsorResidualPayData.length=2201)
+    (hbound : (winsorMGFPayData.zip winsorResidualPayData).all (fun e =>
+      e.1≤3000*winsorScale && e.2≤winsorScale)=true) :
+    (winsorPayPair b).1≤3000*winsorScale ∧ (winsorPayPair b).2≤winsorScale := by
+  have he := winsorPayPair_mem b hb hm ht
+  have hv := (List.mem_zipIdx he).2.2
+  have hl : b < (winsorMGFPayData.zip winsorResidualPayData).length := by simpa [List.length_zip,hm,ht] using hb
+  have hg : winsorPayPair b ∈ winsorMGFPayData.zip winsorResidualPayData := by
+    simpa only [Nat.sub_zero] using hv ▸ List.getElem_mem hl
+  have h := List.all_eq_true.mp hbound _ hg
+  simpa only [Bool.and_eq_true, decide_eq_true_eq] using h
+
+ theorem winsor_product_pay (c : Fin 9 → ℕ) (hc : ∀ k, c k < 4096)
+    (hb : (∑ k, coverageBin (c k)) < 2201)
+    (hm : winsorMGFPayData.length=2201) (ht : winsorResidualPayData.length=2201)
+    (hbin : (List.range 4096).all (fun c =>
+      c*50^coverageBin c ≤ 51^coverageBin c &&
+      (c≤1 || 51^(coverageBin c-1)<c*50^(coverageBin c-1)))=true)
+    (hpay : winsorPayChecks=true) :
+    let x := (1353/2^70 : ℝ)*∏ k,(c k:ℝ)
+    let p := winsorPayPair (∑ k,coverageBin (c k))
+    (Real.exp (8*min x 1)-1 ≤ x*((p.1:ℝ)/winsorScale)) ∧
+      max (x-1) 0 ≤ x*((p.2:ℝ)/winsorScale) := by
+  dsimp only
+  by_cases hz : ∃ k, c k=0
+  · obtain ⟨k,hk⟩ := hz
+    have hp : ∏ j,(c j:ℝ)=0 := prod_eq_zero (mem_univ k) (by simp [hk])
+    simp [hp]
+  · have hc1 (k) : 1≤c k := by have h:=not_exists.mp hz k; omega
+    let b := ∑ k,coverageBin (c k)
+    have hint := geometricBin_product_interval c (fun k=>coverageBin (c k))
+      (fun k=> coverageBin_interval_of_check (c k) (hc1 k) (hc k) hbin)
+    have he := winsorPayChecks_entry hpay (winsorPayPair b).1 (winsorPayPair b).2 b
+      (by simpa using winsorPayPair_mem b hb hm ht)
+    exact ⟨winsorMGF_pay _ _ _ (by positivity) _ (by positivity) hint.1 hint.2 he.1,
+      winsorResidual_pay _ _ _ (by positivity) _ (by positivity) hint.1 hint.2 he.2⟩
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.N600
+open Finset Polynomial
+set_option maxRecDepth 100000
+set_option maxHeartbeats 1000000
+
+theorem coverageCoefficientDots_mgf (P : ℕ[X]) (ds : List (ℕ × ℕ)) (k : ℕ) :
+    (coverageCoefficientDots P ds k).2.1 =
+      ∑ i ∈ range ds.length, P.coeff (k+i)*(ds[i]?.getD (0,0)).1 := by
+  induction ds generalizing k with
+  | nil => simp [coverageCoefficientDots]
+  | cons e ds ih =>
+    change P.coeff k*e.1+(coverageCoefficientDots P ds (k+1)).2.1 = _
+    rw [ih, List.length_cons, Finset.sum_range_succ']
+    simp only [Nat.add_zero, Nat.add_assoc, Nat.add_comm 1, List.getElem?_cons_zero,
+      List.getElem?_cons_succ, Option.getD_some]
+    exact Nat.add_comm _ _
+
+theorem coverageCoefficientDots_residual (P : ℕ[X]) (ds : List (ℕ × ℕ)) (k : ℕ) :
+    (coverageCoefficientDots P ds k).2.2 =
+      ∑ i ∈ range ds.length, P.coeff (k+i)*(ds[i]?.getD (0,0)).2 := by
+  induction ds generalizing k with
+  | nil => simp [coverageCoefficientDots]
+  | cons e ds ih =>
+    change P.coeff k*e.2+(coverageCoefficientDots P ds (k+1)).2.2 = _
+    rw [ih, List.length_cons, Finset.sum_range_succ']
+    simp only [Nat.add_zero, Nat.add_assoc, Nat.add_comm 1, List.getElem?_cons_zero,
+      List.getElem?_cons_succ, Option.getD_some]
+    exact Nat.add_comm _ _
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.N600
+open Finset Polynomial
+open ClaudeWCT.Numerics.Winsor
+set_option maxRecDepth 100000
+set_option maxHeartbeats 1000000
+
+ theorem coverageBinned_mass_le (r : ℕ) (hm : (retainedCoveragePoly r).eval 1 ≤ xNum r) :
+    ((coverageBinnedPoly r)^9).eval 1 ≤ xNum r^9 := by
+  rw [Polynomial.eval_pow]
+  apply Nat.pow_le_pow_left
+  calc
+    (coverageBinnedPoly r).eval 1 = ∑ c ∈ range 4096, (retainedCoveragePoly r).coeff c := by
+      simp only [coverageBinnedPoly, Polynomial.eval_finsetSum, Polynomial.eval_mul, Polynomial.eval_C, Polynomial.eval_pow, Polynomial.eval_X, one_pow, mul_one]
+    _ ≤ (retainedCoveragePoly r).eval 1 := sum_coeff_le_eval_one _ _
+    _ ≤ xNum r := hm
+
+theorem winsorScale_pos : 0 < winsorScale := by norm_num [winsorScale]
+
+attribute [local irreducible] coverageBinnedPoly retainedCoveragePoly xNum winsorScale winsorMGFPayData winsorResidualPayData coordinateCoverage coverageBin
+
+ theorem raw_winsor_mgf_bound {β : Type} [Fintype β] (val : β → Fin 6 → ℕ)
+    (hβ : Fintype.card β=563) (h₁ : W1Table val) (r : ℕ)
+    (hret : ∀ c, 128*(retainedCoveragePoly r).coeff c ≤ c*#{E : Fin r → Fin 128 × β | coordinateCoverage val E=c})
+    (hmass : (retainedCoveragePoly r).eval 1 ≤ xNum r)
+    (hlenm : winsorMGFPayData.length=2201) (hlent : winsorResidualPayData.length=2201)
+    (hbound : (winsorMGFPayData.zip winsorResidualPayData).all (fun e =>
+      e.1≤3000*winsorScale && e.2≤winsorScale)=true)
+    (hbin : (List.range 4096).all (fun c =>
+      c*50^coverageBin c ≤ 51^coverageBin c &&
+      (c≤1 || 51^(coverageBin c-1)<c*50^(coverageBin c-1)))=true)
+    (hpay : winsorPayChecks=true) :
+    let P := (coverageBinnedPoly r)^9
+    let price := fun xs : Fin 9 → (Fin r → Fin 128 × β) =>
+      (1353/2^70:ℝ)*(∏ k,coordinateCoverage val (xs k):ℕ)
+    (∑ xs, (Real.exp (8*min (price xs) 1)-1)) ≤
+      (1353/2^7:ℝ)/winsorScale *
+        ((∑ b ∈ range 2201, P.coeff b*(winsorPayPair b).1) +
+          3000*winsorScale*(xNum r^9-∑ b ∈ range 2201, P.coeff b):ℕ) := by
+  classical
+  dsimp only
+  let cc := fun E : Fin r → Fin 128 × β => coordinateCoverage val E
+  let good := fun xs : Fin 9 → (Fin r → Fin 128 × β) => ∀ k, cc (xs k)<4096
+  let label := fun xs : Fin 9 → (Fin r → Fin 128 × β) => ∑ k, coverageBin (cc (xs k))
+  apply (finite_nat_payoff_le (fun xs => ∏ k, cc (xs k))
+    (fun xs => Real.exp (8*min ((1353/2^70:ℝ)*(∏ k,cc (xs k):ℕ)) 1)-1) good
+    ((coverageBinnedPoly r)^9).coeff (fun b => (winsorPayPair b).1) label
+    3000 2201 winsorScale (128^9) (xNum r^9) (1353/2^70) (by positivity)
+    winsorScale_pos (coverage_product_sum_xNum val hβ h₁ r)
+    ((sum_coeff_le_eval_one _ _).trans (coverageBinned_mass_le r hmass)) ?_ ?_ ?_).trans_eq
+  · have hs : (1353/2^70:ℝ)*(128^9:ℕ)/winsorScale = (1353/2^7:ℝ)/winsorScale := by
+      congr 1
+      norm_num
+    rw [hs]
+  · intro xs
+    by_cases h : good xs ∧ label xs<2201
+    · rw [if_pos h]
+      have hp := (winsor_product_pay (fun k=>cc (xs k)) h.1 h.2 hlenm hlent hbin hpay).1
+      simpa only [Nat.cast_prod] using hp
+    · rw [if_neg h]
+      simpa only [mul_comm, Nat.cast_ofNat] using cappedExp_le_linear ((1353/2^70:ℝ)*(∏ k,cc (xs k):ℕ)) (by positivity)
+  · intro b hb
+    exact (winsorPayPair_bound b hb hlenm hlent hbound).1
+  · intro b hb
+    exact coverageBinned_count_bound val r b hret
+ theorem raw_winsor_residual_bound {β : Type} [Fintype β] (val : β → Fin 6 → ℕ)
+    (hβ : Fintype.card β=563) (h₁ : W1Table val) (r : ℕ)
+    (hret : ∀ c, 128*(retainedCoveragePoly r).coeff c ≤ c*#{E : Fin r → Fin 128 × β | coordinateCoverage val E=c})
+    (hmass : (retainedCoveragePoly r).eval 1 ≤ xNum r)
+    (hlenm : winsorMGFPayData.length=2201) (hlent : winsorResidualPayData.length=2201)
+    (hbound : (winsorMGFPayData.zip winsorResidualPayData).all (fun e =>
+      e.1≤3000*winsorScale && e.2≤winsorScale)=true)
+    (hbin : (List.range 4096).all (fun c =>
+      c*50^coverageBin c ≤ 51^coverageBin c &&
+      (c≤1 || 51^(coverageBin c-1)<c*50^(coverageBin c-1)))=true)
+    (hpay : winsorPayChecks=true) :
+    let P := (coverageBinnedPoly r)^9
+    let price := fun xs : Fin 9 → (Fin r → Fin 128 × β) =>
+      (1353/2^70:ℝ)*(∏ k,coordinateCoverage val (xs k):ℕ)
+    (∑ xs, max (price xs-1) 0) ≤
+      (1353/2^7:ℝ)/winsorScale *
+        ((∑ b ∈ range 2201, P.coeff b*(winsorPayPair b).2) +
+          winsorScale*(xNum r^9-∑ b ∈ range 2201, P.coeff b):ℕ) := by
+  classical
+  dsimp only
+  let cc := fun E : Fin r → Fin 128 × β => coordinateCoverage val E
+  let good := fun xs : Fin 9 → (Fin r → Fin 128 × β) => ∀ k, cc (xs k)<4096
+  let label := fun xs : Fin 9 → (Fin r → Fin 128 × β) => ∑ k, coverageBin (cc (xs k))
+  apply (finite_nat_payoff_le (fun xs => ∏ k, cc (xs k))
+    (fun xs => max ((1353/2^70:ℝ)*(∏ k,cc (xs k):ℕ)-1) 0) good
+    ((coverageBinnedPoly r)^9).coeff (fun b => (winsorPayPair b).2) label
+    1 2201 winsorScale (128^9) (xNum r^9) (1353/2^70) (by positivity)
+    winsorScale_pos (coverage_product_sum_xNum val hβ h₁ r)
+    ((sum_coeff_le_eval_one _ _).trans (coverageBinned_mass_le r hmass)) ?_ ?_ ?_).trans_eq
+  · simp only [Nat.one_mul]
+    have hs : (1353/2^70:ℝ)*(128^9:ℕ)/winsorScale = (1353/2^7:ℝ)/winsorScale := by
+      congr 1
+      norm_num
+    rw [hs]
+  · intro xs
+    by_cases h : good xs ∧ label xs<2201
+    · rw [if_pos h]
+      have hp := (winsor_product_pay (fun k=>cc (xs k)) h.1 h.2 hlenm hlent hbin hpay).2
+      simpa only [Nat.cast_prod] using hp
+    · rw [if_neg h]
+      simp only [Nat.cast_one, mul_one]
+      exact max_le (by linarith) (by positivity)
+  · intro b hb
+    simpa using (winsorPayPair_bound b hb hlenm hlent hbound).2
+  · intro b hb
+    exact coverageBinned_count_bound val r b hret
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.N600
+open Finset
+set_option maxRecDepth 100000
+set_option maxHeartbeats 1000000
+section
+variable {β C : Type} [Fintype β] [Fintype C] [DecidableEq C]
+
+theorem bucketPrice_ne_top (val : β → Fin 6 → ℕ) (L : List (Fin 9 → C × β)) :
+    bucketPrice val L ≠ ⊤ := by
+  exact ENNReal.mul_ne_top priceScale_ne_top
+    (ne_top_of_le_ne_top ENNReal.one_ne_top (ClaudeWCT.Numerics.Thinning.env_le_one val L))
+
+theorem bucketExpIncrement_real (val : β → Fin 6 → ℕ) (L : List (Fin 9 → C × β)) :
+    bucketExpIncrement val L = ENNReal.ofReal
+      (Real.exp (8*min (bucketPrice val L).toReal 1)-1) := by
+  rw [bucketExpIncrement, bucketCapped, ENNReal.toReal_min (bucketPrice_ne_top val L) ENNReal.one_ne_top,
+    ENNReal.toReal_one, ENNReal.ofReal_sub _ (by norm_num), ENNReal.ofReal_one]
+
+theorem bucketResidual_real (val : β → Fin 6 → ℕ) (L : List (Fin 9 → C × β)) :
+    bucketResidual val L = ENNReal.ofReal (max ((bucketPrice val L).toReal-1) 0) := by
+  rw [ENNReal.ofReal_max, ENNReal.ofReal_zero, max_eq_left (by positivity),
+    ENNReal.ofReal_sub _ (by norm_num), ENNReal.ofReal_toReal (bucketPrice_ne_top val L), ENNReal.ofReal_one]
+  rfl
+
+theorem bucketExpIncrement_ne_top (val : β → Fin 6 → ℕ) (L : List (Fin 9 → C × β)) :
+    bucketExpIncrement val L ≠ ⊤ := by rw [bucketExpIncrement_real]; exact ENNReal.ofReal_ne_top
+
+theorem bucketResidual_ne_top (val : β → Fin 6 → ℕ) (L : List (Fin 9 → C × β)) :
+    bucketResidual val L ≠ ⊤ := by rw [bucketResidual_real]; exact ENNReal.ofReal_ne_top
+
+theorem bucketPrice_ofFn_real {r : ℕ} (val : β → Fin 6 → ℕ)
+    (hβ : Fintype.card β=563) (hC : Fintype.card C=128) (E : Fin r → Fin 9 → C × β) :
+    (bucketPrice val (List.ofFn E)).toReal =
+      (1353/2^70:ℝ)*(∏ k,coordinateCoverage val (fun j=>E j k):ℕ) := by
+  rw [bucketPrice_ofFn val hβ hC]
+  simp only [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_pow,
+    ENNReal.toReal_ofNat, ENNReal.toReal_natCast]
+end
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.N600
+open Finset Polynomial
+set_option maxRecDepth 100000
+set_option maxHeartbeats 1000000
+
+theorem coverageBinnedPower_packed (r : ℕ)
+    (hm : (retainedCoveragePoly r).eval 1 ≤ xNum r) (hx : xNum r<2^512) :
+    winsorPackedSums winsorMGFPayData winsorResidualPayData (coverageProductBits r) =
+      coverageCoefficientDots ((coverageBinnedPoly r)^9) (winsorMGFPayData.zip winsorResidualPayData) 0 := by
+  have hm' : coverageRetainedPack 1 r < 2^512 := by
+    rw [← retainedCoveragePoly_eval]
+    exact hm.trans_lt hx
+  rw [coverageProductBits_eq, coverageProductPack, ← coverageBinnedPoly_eval r (2^4608) hm', ← Polynomial.eval_pow]
+  apply winsorPackedSums_eq_coefficients
+  exact binnedPower_coeff_lt (retainedCoveragePoly r) (range 4096) coverageBin (xNum r) hm hx
+
+theorem winsorRowDots_model (r : ℕ) (hr : r≤20)
+    (hm : (retainedCoveragePoly r).eval 1 ≤ xNum r) (hx : xNum r<2^512)
+    (hlenm : winsorMGFPayData.length=2201) (hlent : winsorResidualPayData.length=2201) :
+    let P := (coverageBinnedPoly r)^9
+    winsorRowDots r =
+      ((∑ b ∈ range 2201, P.coeff b*(winsorPayPair b).1) +
+          3000*winsorScale*(xNum r^9-∑ b ∈ range 2201, P.coeff b),
+       (∑ b ∈ range 2201, P.coeff b*(winsorPayPair b).2) +
+          winsorScale*(xNum r^9-∑ b ∈ range 2201, P.coeff b)) := by
+  simp only [winsorRowDots, if_pos hr, coverageProductLinear_eq]
+  rw [coverageBinnedPower_packed r hm hx]
+  simp only [coverageCoefficientDots_mass, coverageCoefficientDots_mgf, coverageCoefficientDots_residual,
+    Nat.zero_add, List.length_zip, hlenm, hlent, Nat.min_self, winsorPayPair]
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.N600
+open Finset
+set_option maxRecDepth 100000
+set_option maxHeartbeats 1000000
+
+theorem uniform_raw_bound {β : Type} [Fintype β] [SampleableType (Fin 9 → Fin 128 × β)]
+    (hβ : Fintype.card β=563) (r d : ℕ)
+    (fee : List (Fin 9 → Fin 128 × β) → ENNReal)
+    (raw : (Fin 9 → (Fin r → Fin 128 × β)) → ℝ)
+    (hnn : ∀ xs, 0≤raw xs)
+    (heq : ∀ xs, fee (List.ofFn (fun j k=>xs k j))=ENNReal.ofReal (raw xs))
+    (hraw : (∑ xs, raw xs) ≤ (1353/2^7:ℝ)/winsorScale*(d:ℝ)) :
+    SphincsSecurity.Concrete.uniformWordAverage r fee ≤
+      (1353/2^7:ENNReal)/winsorScale*(d:ENNReal)/((Q^(9*r):ℕ):ENNReal) := by
+  have hS : (winsorScale:ENNReal)≠0 := by norm_num [winsorScale]
+  have hQ : ((Q^(9*r):ℕ):ENNReal)≠0 := by exact_mod_cast (pow_ne_zero _ (by norm_num [Q] : Q≠0))
+  rw [uniformWordAverage_coord_sum hβ]
+  apply (ENNReal.toReal_le_toReal ?_ ?_).mp
+  · rw [ENNReal.toReal_div, ENNReal.toReal_sum]
+    · simp_rw [heq, ENNReal.toReal_ofReal (hnn _)]
+      simpa only [ENNReal.toReal_div, ENNReal.toReal_mul, ENNReal.toReal_pow,
+        ENNReal.toReal_ofNat, ENNReal.toReal_natCast] using
+        div_le_div_of_nonneg_right hraw (show (0:ℝ)≤(Q^(9*r):ℕ) by positivity)
+    · intro xs hxs
+      rw [heq]
+      exact ENNReal.ofReal_ne_top
+  · apply ENNReal.div_ne_top
+    · exact ENNReal.sum_ne_top.mpr fun xs _=> by rw [heq]; exact ENNReal.ofReal_ne_top
+    · exact_mod_cast (pow_ne_zero _ (by norm_num [Q] : Q≠0))
+  · finiteness
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.N600
+open Finset
+set_option maxRecDepth 100000
+set_option maxHeartbeats 1000000
+attribute [local irreducible] coverageBinnedPoly retainedCoveragePoly xNum winsorScale winsorMGFPayData winsorResidualPayData coordinateCoverage coverageBin
+ theorem uniform_winsor_rows {β : Type} [Fintype β] [SampleableType (Fin 9 → Fin 128 × β)]
+    (val : β → Fin 6 → ℕ) (hβ : Fintype.card β=563) (h₁ : W1Table val) (r : ℕ) (hr : r≤20)
+    (hret : ∀ c, 128*(retainedCoveragePoly r).coeff c ≤ c*#{E : Fin r → Fin 128 × β | coordinateCoverage val E=c})
+    (hmass : (retainedCoveragePoly r).eval 1 ≤ xNum r) (hx : xNum r<2^512)
+    (hlenm : winsorMGFPayData.length=2201) (hlent : winsorResidualPayData.length=2201)
+    (hbound : (winsorMGFPayData.zip winsorResidualPayData).all (fun e =>
+      e.1≤3000*winsorScale && e.2≤winsorScale)=true)
+    (hbin : (List.range 4096).all (fun c =>
+      c*50^coverageBin c ≤ 51^coverageBin c &&
+      (c≤1 || 51^(coverageBin c-1)<c*50^(coverageBin c-1)))=true)
+    (hpay : winsorPayChecks=true) :
+    SphincsSecurity.Concrete.uniformWordAverage r (bucketExpIncrement (C:=Fin 128) val) ≤
+      (1353/2^7:ENNReal)/winsorScale*((winsorRowDots r).1:ENNReal)/((Q^(9*r):ℕ):ENNReal) ∧
+    SphincsSecurity.Concrete.uniformWordAverage r (bucketResidual (C:=Fin 128) val) ≤
+      (1353/2^7:ENNReal)/winsorScale*((winsorRowDots r).2:ENNReal)/((Q^(9*r):ℕ):ENNReal) := by
+  classical
+  have hd := winsorRowDots_model r hr hmass hx hlenm hlent
+  constructor
+  · apply uniform_raw_bound hβ r (winsorRowDots r).1 (bucketExpIncrement (C:=Fin 128) val)
+      (fun xs => Real.exp (8*min ((1353/2^70:ℝ)*(∏ k,coordinateCoverage val (xs k):ℕ)) 1)-1)
+    · intro xs
+      exact sub_nonneg.mpr (Real.one_le_exp_iff.mpr (by positivity))
+    · intro xs
+      rw [bucketExpIncrement_real, bucketPrice_ofFn_real val hβ (by simp)]
+    · rw [hd]
+      exact raw_winsor_mgf_bound val hβ h₁ r hret hmass hlenm hlent hbound hbin hpay
+  · apply uniform_raw_bound hβ r (winsorRowDots r).2 (bucketResidual (C:=Fin 128) val)
+      (fun xs => max ((1353/2^70:ℝ)*(∏ k,coordinateCoverage val (xs k):ℕ)-1) 0)
+    · intro xs; exact le_max_right _ _
+    · intro xs
+      rw [bucketResidual_real, bucketPrice_ofFn_real val hβ (by simp)]
+    · rw [hd]
+      exact raw_winsor_residual_bound val hβ h₁ r hret hmass hlenm hlent hbound hbin hpay
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.N600
+open Finset ENNReal
+open ClaudeWCT.Numerics.Law
+open ClaudeWCT.Numerics.Thinning
+open ClaudeWCT.Numerics.Winsor
+set_option maxRecDepth 100000
+set_option maxHeartbeats 1000000
+section
+variable {β C : Type} [Fintype β] [Fintype C] [DecidableEq C]
+
+theorem bucketExpIncrement_le_price (val : β → Fin 6 → ℕ) (L : List (Fin 9 → C × β)) :
+    bucketExpIncrement val L ≤ 3000*bucketPrice val L := by
+  rw [bucketExpIncrement_real]
+  calc
+    _ ≤ ENNReal.ofReal (3000*(bucketPrice val L).toReal) :=
+      ENNReal.ofReal_le_ofReal (cappedExp_le_linear _ ENNReal.toReal_nonneg)
+    _ = _ := by rw [ENNReal.ofReal_mul (by norm_num), ENNReal.ofReal_toReal (bucketPrice_ne_top val L)]; norm_num
+
+theorem bucketResidual_le_price (val : β → Fin 6 → ℕ) (L : List (Fin 9 → C × β)) :
+    bucketResidual val L ≤ bucketPrice val L := tsub_le_self
+
+ theorem priceScale_pos : 0 < priceScale := by norm_num [priceScale]
+ theorem feeScale_ne_zero (M : ℕ) (hM : 0<M) : (M:ENNReal)*priceScale≠0 := by
+  exact mul_ne_zero (by exact_mod_cast hM.ne') (ne_of_gt priceScale_pos)
+ theorem feeScale_ne_top (M : ℕ) : (M:ENNReal)*priceScale≠⊤ := ENNReal.mul_ne_top (by simp) priceScale_ne_top
+
+ theorem law_fee_norm_le_env (val : β → Fin 6 → ℕ)
+    (fee : List (Fin 9 → C × β) → ENNReal) (M : ℕ) (hM : 0<M)
+    (hfee : ∀ L, fee L ≤ (M:ENNReal)*priceScale*env val L)
+    (vc : (Fin 9 → C × β) → ENNReal) (r : ℕ) :
+    lawAvg vc r fee / ((M:ENNReal)*priceScale) ≤ lawAvg vc r (env val) := by
+  have h := lawAvg_mono vc r hfee
+  rw [lawAvg_mul_left] at h
+  calc
+    _ ≤ ((M:ENNReal)*priceScale)*lawAvg vc r (env val) / ((M:ENNReal)*priceScale) := by simpa only [div_eq_mul_inv] using mul_le_mul' h le_rfl
+    _ = _ := by rw [mul_comm ((M:ENNReal)*priceScale), ENNReal.mul_div_cancel_right (feeScale_ne_zero M hM) (feeScale_ne_top M)]
+end
+
+theorem row_scale_normalize (M r d : ℕ) (hM : 0<M) :
+    ((1353/2^7:ENNReal)/winsorScale*(d:ENNReal)/((Q^(9*r):ℕ):ENNReal)) /
+      ((M:ENNReal)*priceScale) =
+    (d:ENNReal)/((M*winsorScale*Nn^9*Q^(9*r):ℕ):ENNReal) := by
+  have hS : (winsorScale:ENNReal)≠0 := by norm_num [winsorScale]
+  have hQ : ((Q^(9*r):ℕ):ENNReal)≠0 := by exact_mod_cast (pow_ne_zero _ (by norm_num [Q] : Q≠0))
+  have hM0 : (M:ENNReal)≠0 := by exact_mod_cast hM.ne'
+  have hF := feeScale_ne_zero M hM
+  have hN : (Nn:ENNReal)≠0 := by norm_num [Nn]
+  have hDen : ((M*winsorScale*Nn^9*Q^(9*r):ℕ):ENNReal)≠0 := by
+    rw [Nat.cast_mul, Nat.cast_mul, Nat.cast_mul]
+    exact mul_ne_zero (mul_ne_zero (mul_ne_zero hM0 hS)
+      (by simpa only [Nat.cast_pow] using pow_ne_zero 9 hN)) hQ
+  apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
+  simp only [ENNReal.toReal_div, ENNReal.toReal_mul, ENNReal.toReal_pow,
+    ENNReal.toReal_ofNat, ENNReal.toReal_natCast, priceScale, Nat.cast_mul, Nat.cast_pow]
+  norm_num only [ENNReal.toReal_div, ENNReal.toReal_mul, ENNReal.toReal_pow,
+    ENNReal.toReal_natCast, ENNReal.toReal_ofNat, Nn]
+  have hmr : (M:ℝ)≠0 := by exact_mod_cast hM.ne'
+  have hsr : (winsorScale:ℝ)≠0 := by norm_num [winsorScale]
+  have hqr : ((Q^(9*r):ℕ):ℝ)≠0 := by exact_mod_cast (pow_ne_zero _ (by norm_num [Q] : Q≠0))
+  push_cast
+  field_simp
+  <;> ring
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.N600
+open Finset ENNReal
+open ClaudeWCT.Numerics.Law
+open ClaudeWCT.Numerics.Thinning
+open SphincsSecurity.Concrete
+open ClaudeWCT.Numerics.PoissonReflect
+set_option maxRecDepth 100000
+set_option maxHeartbeats 1000000
+section
+variable {β C : Type} [Fintype β] [Fintype C] [DecidableEq C]
+variable [SampleableType (Fin 9 → C × β)]
+
+theorem law_normalized_uniform_row (fee : List (Fin 9 → C × β) → ENNReal)
+    {vc : (Fin 9 → C × β) → ENNReal} {κ : ENNReal} (hlaw : LawOK vc κ)
+    (M r d : ℕ) (hM : 0<M)
+    (hu : uniformWordAverage r fee ≤ (1353/2^7:ENNReal)/winsorScale*(d:ENNReal)/((Q^(9*r):ℕ):ENNReal)) :
+    lawAvg vc r fee/((M:ENNReal)*priceScale) ≤
+      κ^r*((d:ENNReal)/((M*winsorScale*Nn^9*Q^(9*r):ℕ):ENNReal)) := by
+  have h := (lawAvg_le_uniform vc κ hlaw.density r fee).trans (mul_le_mul' le_rfl hu)
+  calc
+    _ ≤ (κ^r*((1353/2^7:ENNReal)/winsorScale*(d:ENNReal)/((Q^(9*r):ℕ):ENNReal)))/((M:ENNReal)*priceScale) := by
+      simpa only [div_eq_mul_inv] using mul_le_mul' h le_rfl
+    _ = _ := by rw [mul_div_assoc, row_scale_normalize M r d hM]
+
+theorem full_row_normalize (M r : ℕ) (hM : 0<M) :
+    ((M*winsorScale*xNum r^9:ℕ):ENNReal)/((M*winsorScale*Nn^9*Q^(9*r):ℕ):ENNReal) =
+      ((xNum r^9:ℕ):ENNReal)/((Nn^9*Q^(9*r):ℕ):ENNReal) := by
+  have h := ENNReal.mul_div_mul_left (c:=((M*winsorScale:ℕ):ENNReal))
+    ((xNum r^9:ℕ):ENNReal) ((Nn^9*Q^(9*r):ℕ):ENNReal)
+    (by exact_mod_cast Nat.mul_ne_zero hM.ne' (by norm_num [winsorScale])) (by finiteness)
+  simpa only [Nat.cast_mul, mul_assoc] using h
+
+
+theorem law_coord_bound_of_rows (val : β → Fin 6 → ℕ)
+    (fee : List (Fin 9 → C × β) → ENNReal) (M Mn Md : ℕ) (hM : 0<M) (hMd : 0<Md)
+    {vc : (Fin 9 → C × β) → ENNReal} {κ : ENNReal} (hlaw : LawOK vc κ)
+    (T : ℕ) (hT1 : 2^32≤T) (hT2 : T≤2^32) (f : ℕ→ℕ)
+    (hfee : ∀ L, fee L ≤ (M:ENNReal)*priceScale*env val L)
+    (hcheck : poissonCheckQ Q 13533529 100000000 LN LD f (M*winsorScale*Nn^9) (M*A) 1 Mn Md 80=true)
+    (hrow : ∀ r≤80, lawAvg vc r fee/((M:ENNReal)*priceScale) ≤
+      κ^r*((f r:ENNReal)/((M*winsorScale*Nn^9*Q^(9*r):ℕ):ENNReal))) :
+    (2^31:ENNReal)*coordAverage (2^31:ENNReal)⁻¹ vc T fee ≤ (Mn:ENNReal)/Md := by
+  have h := poissonCheckQ_sound_tilt (Qv:=Q) (f:=f) (dbase:=M*winsorScale*Nn^9)
+    (sn:=M*A) (sd:=1) (Mn:=Mn) (Md:=Md) hcheck (by norm_num [Q])
+    (by norm_num) (by norm_num [LD]) (Nat.mul_pos (Nat.mul_pos hM (by norm_num [winsorScale])) (by norm_num [Nn])) (by norm_num) hMd
+    rate_le_one κ hlaw.one_le (rate_window hlaw hT2) (rejection_window_sharp T hT1)
+    (fun r=>lawAvg vc r fee/((M:ENNReal)*priceScale)) hrow
+    (fun r _ => (law_fee_norm_le_env val fee M hM hfee vc r).trans (law_env_le_one val hlaw r))
+  simp only [Nat.cast_one, div_one] at h
+  have he : ((M*A:ℕ):ENNReal)*binomialAverage (2^31:ENNReal)⁻¹ T
+      (fun r=>lawAvg vc r fee/((M:ENNReal)*priceScale)) =
+      (2^31:ENNReal)*coordAverage (2^31:ENNReal)⁻¹ vc T fee := by
+    unfold coordAverage
+    simp_rw [div_eq_mul_inv, mul_comm (lawAvg vc _ fee), binomialAverage_mul_left]
+    rw [← mul_assoc]
+    congr 1
+    rw [Nat.cast_mul, ← priceScale_mul]
+    simp only [Nat.cast_pow, Nat.cast_ofNat]
+    rw [show (M:ENNReal)*(priceScale*2^31)*((M:ENNReal)*priceScale)⁻¹ =
+      2^31*(((M:ENNReal)*priceScale)*((M:ENNReal)*priceScale)⁻¹) by ring,
+      ENNReal.mul_inv_cancel (feeScale_ne_zero M hM) (feeScale_ne_top M), mul_one]
+  rwa [he] at h
+end
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.N600
+open Finset ENNReal
+open ClaudeWCT.Numerics.Law
+open ClaudeWCT.Numerics.Thinning
+set_option maxRecDepth 100000
+set_option maxHeartbeats 1000000
+attribute [local irreducible] coverageBinnedPoly retainedCoveragePoly xNum winsorScale winsorMGFPayData winsorResidualPayData coordinateCoverage coverageBin
+
+ theorem law_price_excess_winsor_of_checks {β : Type} [Fintype β]
+    [SampleableType (Fin 9 → Fin 128 × β)]
+    (val : β → Fin 6 → ℕ) (hW : WordsOf val) (h4 : ∀ x i, val x i≤4)
+    (hβ : Fintype.card β=563) (h₁ : W1Table val)
+    {vc : (Fin 9 → Fin 128 × β) → ENNReal} {κ : ENNReal} (hlaw : LawOK vc κ)
+    (T : ℕ) (hT1 : 2^32≤T) (hT2 : T≤2^32)
+    (hlenm : winsorMGFPayData.length=2201) (hlent : winsorResidualPayData.length=2201)
+    (hbound : (winsorMGFPayData.zip winsorResidualPayData).all (fun e =>
+      e.1≤3000*winsorScale && e.2≤winsorScale)=true)
+    (hbin : winsorBinCheck=true) (hpay : winsorPayChecks=true)
+    (hmasses : (List.range 31).all winsorMassCheck=true)
+    (hmgfcheck : poissonCheckQ Q 13533529 100000000 LN LD (fun r=>(winsorRowDots r).1)
+      (3000*winsorScale*Nn^9) (3000*A) 1 8 1 80=true)
+    (hrescheck : poissonCheckQ Q 13533529 100000000 LN LD (fun r=>(winsorRowDots r).2)
+      (winsorScale*Nn^9) A 1 1 5000 80=true) :
+    lawAvg (marked (α:=Fin (2^31)) vc) T (fun W=>priceN val W-2031/1024) ≤ 23/100000 := by
+  have hmgfpoint (L : List (Fin 9 → Fin 128 × β)) :
+      bucketExpIncrement val L ≤ (3000:ENNReal)*priceScale*env val L := by
+    simpa only [bucketPrice, mul_assoc] using bucketExpIncrement_le_price val L
+  have hrespoint (L : List (Fin 9 → Fin 128 × β)) :
+      bucketResidual val L ≤ ((1:ℕ):ENNReal)*priceScale*env val L := by
+    simpa only [Nat.cast_one, one_mul, bucketPrice] using bucketResidual_le_price val L
+  have hrows (r : ℕ) (hr : r≤20) := by
+    have hmass := List.all_eq_true.mp hmasses r (List.mem_range.mpr (by omega : r<31))
+    simp only [winsorMassCheck, Bool.and_eq_true, decide_eq_true_eq] at hmass
+    have hm : (retainedCoveragePoly r).eval 1 ≤ xNum r := by
+      rw [retainedCoveragePoly_eval, ← coverageRetainedFastPack_eq]
+      exact hmass.1
+    have hret (c : ℕ) : 128*(retainedCoveragePoly r).coeff c ≤
+        c*#{E : Fin r → Fin 128 × β | coordinateCoverage val E=c} :=
+      retainedCoverage_count_bound_of_packed val hW h4 hβ coverageH_packed ⟨r,by omega⟩ c
+    exact uniform_winsor_rows val hβ h₁ r hr hret hm hmass.2 hlenm hlent hbound hbin hpay
+  have hmgf := law_coord_bound_of_rows val (bucketExpIncrement val) 3000 8 1
+    (by norm_num) (by norm_num) hlaw T hT1 hT2 (fun r=>(winsorRowDots r).1) hmgfpoint hmgfcheck
+    (fun r hr => by
+      by_cases hcut : r≤20
+      · exact law_normalized_uniform_row _ hlaw 3000 r _ (by norm_num) (hrows r hcut).1
+      · simp only [winsorRowDots, if_neg hcut]
+        rw [full_row_normalize 3000 r (by norm_num)]
+        exact (law_fee_norm_le_env val _ 3000 (by norm_num) hmgfpoint vc r).trans
+          (law_env_le val hβ (by simp) h₁ hlaw r))
+  have hres := law_coord_bound_of_rows val (bucketResidual val) 1 1 5000
+    (by norm_num) (by norm_num) hlaw T hT1 hT2 (fun r=>(winsorRowDots r).2) hrespoint
+    (by simpa only [Nat.one_mul] using hrescheck)
+    (fun r hr => by
+      by_cases hcut : r≤20
+      · exact law_normalized_uniform_row _ hlaw 1 r _ (by norm_num) (hrows r hcut).2
+      · simp only [winsorRowDots, if_neg hcut]
+        rw [show winsorScale*xNum r^9=1*winsorScale*xNum r^9 by simp, full_row_normalize 1 r (by norm_num)]
+        exact (law_fee_norm_le_env val _ 1 (by norm_num) hrespoint vc r).trans
+          (law_env_le val hβ (by simp) h₁ hlaw r))
+  exact law_price_excess_le_winsor val hlaw T (by simpa using hmgf) (by simpa using hres)
+end ClaudeWCT.Numerics.N600
+
+namespace ClaudeWCT.Numerics.N600
+open ClaudeWCT.Numerics.Law
+/-- The finite kernel checks certify the winsorized excess bound. -/
+theorem law_price_excess_winsor {β : Type} [Fintype β]
+    [SampleableType (Fin 9 → Fin 128 × β)]
+    (val : β → Fin 6 → ℕ) (hW : WordsOf val) (h4 : ∀ x i, val x i ≤ 4)
+    (hβ : Fintype.card β = 563) (h₁ : W1Table val)
+    {vc : (Fin 9 → Fin 128 × β) → ENNReal} {κ : ENNReal} (hlaw : LawOK vc κ)
+    (T : ℕ) (hT1 : 2^32 ≤ T) (hT2 : T ≤ 2^32) :
+    lawAvg (marked (α := Fin (2^31)) vc) T (fun W => priceN val W - 2031/1024) ≤ 23/100000 := by
+  exact law_price_excess_winsor_of_checks val hW h4 hβ h₁ hlaw T hT1 hT2
+    winsor_mgf_length winsor_residual_length winsor_pay_bounds winsor_bins_ok
+    winsor_pay_ok winsor_masses_ok winsor_mgf_ok winsor_residual_ok
+end ClaudeWCT.Numerics.N600

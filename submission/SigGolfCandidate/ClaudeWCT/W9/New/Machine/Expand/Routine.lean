@@ -569,7 +569,7 @@ theorem leafPad_free {B t : Nat} {own : Bool} (ht : t < 6) (o : Nat) (ho : o < 1
     ¬ chainWr B t own (B + 848 + o) := by
   unfold chainWr offC slotC
   split_ifs <;> omega
-theorem expLook_lt {m : Nat} {w : BitVec 32} (h : expLook m = some w) : 1024 ≤ m ∧ m < 168 * 256 := by
+theorem expLook_lt {m : Nat} {w : BitVec 32} (h : expLook m = some w) : 1024 ≤ m ∧ m < 173 * 256 := by
   unfold expLook at h
   split at h
   · rename_i hm
@@ -579,7 +579,7 @@ theorem expLook_lt {m : Nat} {w : BitVec 32} (h : expLook m = some w) : 1024 ≤
     simp at h
   · cases h
 theorem window_bound {n : Nat} {ws : List (BitVec 32)} (h : windowOK n ws = true) (hne : ws ≠ []) :
-    n + ws.length ≤ 168 * 256 := by
+    n + ws.length ≤ 173 * 256 := by
   unfold windowOK at h
   have hl : 0 < ws.length := List.length_pos_of_ne_nil hne
   have := List.all_eq_true.mp h (ws.length - 1) (List.mem_range.mpr (by omega))

@@ -8,13 +8,16 @@ abbrev idxOf (a : HashOutput) : Nat := ClaudeWCT.WCT9.digestIndex a
 def DigestAt (a : HashOutput) (u : MachineState) : Prop :=
   ∀ k, k < 4 → u.getMem (BitVec.ofNat 64 (8 * k)) = a.extractLsb' (64 * k) 64
 def dataBase7 : Nat := 0xffbde0
+def stackBase7 : Nat := dataBase7
+def rankPad : Word := 0x006000c000060000
 structure HeaderBank (u : MachineState) : Prop where
   top : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
     BitVec.ofNat 64 (topWords.getD k 0)
   top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21200
 structure SetupMask (u : MachineState) : Prop where
-  child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xce800
-  jt : u.getMem (BitVec.ofNat 64 (dataBase7 + 376)) = BitVec.ofNat 64 0x3ff00
+  rankPadAt : u.getMem (BitVec.ofNat 64 (stackBase7 + 48)) = rankPad
+  child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xf1b00
+  jt : u.getMem (BitVec.ofNat 64 (dataBase7 + 376)) = BitVec.ofNat 64 0xfff00
   coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 8640
   gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 0x1524000000000000
   d0 : u.getMem (BitVec.ofNat 64 dataBase7) = BitVec.ofNat 64 0xfff
@@ -29,7 +32,7 @@ structure GatePre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (
   forest : ForestData u
   digest : DigestAt a u
   bank : HeaderBank u
-  wit : Orig w (fun o => o ≠ 20896) u
+  wit : Orig w (fun o => o ≠ 24016) u
   setupMask : SetupMask u
-  sp : u.getReg .x2 = BitVec.ofNat 64 dataBase7
+  sp : u.getReg .x2 = BitVec.ofNat 64 stackBase7
 end W9Drv

@@ -94,9 +94,17 @@ theorem recoverFtsP_built_extract (answers : Answers) (sig : Signature) (pads : 
   rcases h with ⟨hq, hl⟩ | hhit
   · exact Or.inl ⟨hq, fun c hc' => leavesHonest_selOk sig pads (builtSecret answers index c) c _ (hc c hc') (hl c hc')⟩
   · exact Or.inr hhit
+private theorem ftsRootsHonest_built (answers : Answers) (index : Nat) :
+    Extract.ftsRootsHonest answers index =
+      (List.range 7).map (fun c => treeValue (evalWithAnswerFn answers (buildFts index c)).1 11 0) := by
+  unfold Extract.ftsRootsHonest
+  apply congrArg (fun f => (List.range 7).map f)
+  funext c
+  rw [Extract.ftsRoot, Extract.ftsLevels]
 theorem honestInput_forest (answers : Answers) (index : Nat) :
     Extract.honestInput answers (.forest index) = pad64 (Extract.forestInput index
-      ((List.range 7).map fun c => treeValue (evalWithAnswerFn answers (buildFts index c)).1 11 0)) := rfl
+      ((List.range 7).map fun c => treeValue (evalWithAnswerFn answers (buildFts index c)).1 11 0)) := by
+  rw [Extract.honestInput, ftsRootsHonest_built]
 theorem honestInput_ftsLeaf (answers : Answers) (index coord leaf : Nat) :
     Extract.honestInput answers (.ftsLeaf index coord leaf) =
       honInputL answers index coord (builtSecret answers index coord) 0 leaf := by
@@ -107,7 +115,8 @@ theorem honestInput_ftsNode (answers : Answers) (index coord level node : Nat) (
       honInputL answers index coord (builtSecret answers index coord) (level + 1) node := by
   rw [show builtSecret answers index coord = fun g => (evalWithAnswerFn answers (buildFts index coord)).2.getD g 0 from rfl,
     honInputL_built answers index coord level node hl hn]
-  simp only [Extract.honestInput, pad64_nodeInputP, Nat.sub_sub]; rfl
+  rw [Extract.honestInput, pad64_nodeInputP, Extract.ftsLevels]
+  simp only [Nat.sub_sub]
 theorem honInputL_pos (answers : Answers) (index coord l n : Nat) (hl : l ≤ 11) (hn : n < 2 ^ (11 - l)) :
     (n < 2048 ∧ honInputL answers index coord (builtSecret answers index coord) l n =
         Extract.honestInput answers (.ftsLeaf index coord n) ∧ l = 0) ∨
@@ -134,7 +143,8 @@ theorem ftsExtractSpecN_holds (answers : Answers) (N : HashOutput) (w : WBytes) 
         (recoverFtsP (witDecP N w).signature (padDecP N w) (N.toNat % 2 ^ 31) (selections N))) ∨
       FtsShaped answers N w := by
   have h := recoverFtsP_built_extract answers (witDecP N w).signature (padDecP N w) (N.toNat % 2 ^ 31)
-    (selections N) _ (chosenOk_of N hS.1) hrun rfl
+    (selections N) _ (chosenOk_of N hS.1) hrun (by
+      rw [Extract.honestForest, ftsRootsHonest_built])
   rcases h with ⟨hq, hl⟩ | ⟨actual, hmem, ⟨hh, hsh⟩ | ⟨c, hc, l, n, hl, hn, hh, hsh⟩⟩
   · right
     refine ⟨fun q hq' => ?_, fun c hc j hj => ?_⟩

@@ -125,6 +125,24 @@ noncomputable instance instSeedsWCoord : ClaudeWCT.W9.T3.Security.FamResidual.Se
       have h5 : w.2.2.2 = w'.2.2.2 := Fin.ext (by omega)
       have : w = w' := Prod.ext h1 (Prod.ext h2 (Prod.ext h4 h5))
       rw [this]
+/-- Encoding rows compare the same half selected by the actual encoding oracle. -/
+noncomputable def encodingHit (lay : Layer) (target : Digest) : Hit WCoord :=
+  .selectedTarget target (fun answer => decide (lay = 0 ∨ lowerSpare (answer.extractLsb' 0 128)))
+
+theorem encodingHit_answerValue (lay : Layer) (target : Digest) (answer : HashOutput) :
+    (encodingHit lay target).answerValue answer = WCT9.encodingAnswer lay answer := by
+  have hlow : SigGolfCandidate.T3.Security.LargeResidual.low answer = answer.extractLsb' 0 128 := rfl
+  by_cases hl : lay = 0
+  · simp [hlow, encodingHit, Hit.answerValue, WCT9.encodingAnswer, hl]
+  · simp [hlow, encodingHit, Hit.answerValue, WCT9.encodingAnswer, hl, DualHalf.select, DualHalf.selectPair]
+
+theorem keep_encodingHit (labels : WCoord → Digest) (lay : Layer) (target : Digest) (answer : HashOutput) :
+    (⟨none, encodingHit lay target⟩ : Probe WCoord).keep labels answer ↔
+      target ≠ WCT9.encodingAnswer lay answer := by
+  unfold Probe.keep
+  rw [encodingHit_answerValue]
+  simp [Probe.guessMiss, encodingHit, Hit.miss]
+
 abbrev RWorld (U : Finset HashInput) := World AuxSpec WCoord (Cell U)
 section Requests
 variable (U : Finset HashInput)
@@ -164,6 +182,16 @@ noncomputable def RouterState.next (U : Finset HashInput) (st : RouterState) (X 
   if X ∈ U ∧ IsDigestRow X ∧ st.Fresh X then { st.after X with births := (X, y) :: st.births } else st.after X
 def RouterState.known (st : RouterState) : Coord → Prop :=
   Known fun c => c ∈ keygenDisclosed ∨ c ∈ st.disclosed
+theorem RouterState.msgSlot_known (st : RouterState) (L : EncLeaf) (cs : Coord × Nat)
+    (hc : cs ∈ msgSlots L) : st.known cs.1 :=
+  Known.base (Or.inl (msgSlot_mem_keygen hc))
+
+theorem RouterState.firstUnknownMsg_none (st : RouterState) (L : EncLeaf) :
+    firstUnknownMsg st.known L = none := by
+  apply List.find?_eq_none.mpr
+  intro cs hc
+  simpa using st.msgSlot_known L cs hc
+
 def cellValues : CanonGraph.Node → (Coord → Digest) → HashInput
   | .chain p, v => ChainGraph.row p (v (chainChild p))
   | .leaf L, v => pad64 (Extract.leafInput L.1.lay L.1.tree.val L.1.leaf.val
@@ -243,7 +271,7 @@ noncomputable def routeQuery (a : AuxData) (st : RouterState) (X : HashInput) :
           if X = Wots.encRow L.toWots (msgVals (lookupVal pairs) L) ctr 0 ∧ PrefixRow a L ctr then do
             tickReq U .call
             pure (prefixValue a L ctr, st')
-          else (fun y => (y, st')) <$> testReq U first ⟨X, h⟩ ⟨none, .target (refDigest a L)⟩
+          else (fun y => (y, st')) <$> testReq U first ⟨X, h⟩ ⟨none, encodingHit L.1.lay (refDigest a L)⟩
     else if IsDigestRow X then
       (fun y => (y, if st.Fresh X then { st' with births := (X, y) :: st.births } else st')) <$> readReq U ⟨X, h⟩ .mass
     else (fun y => (y, st')) <$> readReq U ⟨X, h⟩ .call

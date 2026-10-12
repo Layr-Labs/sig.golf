@@ -96,9 +96,9 @@ theorem encCell_injective (U : Finset HashInput) (hE : encInputs ⊆ U) (labels 
   subst e4'
   rfl
 def decodeAt (L : EncLeaf) (answer : HashOutput) : Option Digest :=
-  if (WCT9.producerDecode L.1.lay (answer.extractLsb' 0 128)).isSome then some (answer.extractLsb' 0 128) else none
+  if (WCT9.producerDecode L.1.lay (WCT9.encodingAnswer L.1.lay answer)).isSome then some (WCT9.encodingAnswer L.1.lay answer) else none
 theorem decodeAt_eq_some (L : EncLeaf) (answer : HashOutput) (d : Digest) :
-    decodeAt L answer = some d ↔ answer.extractLsb' 0 128 = d ∧ (WCT9.producerDecode L.1.lay d).isSome := by
+    decodeAt L answer = some d ↔ WCT9.encodingAnswer L.1.lay answer = d ∧ (WCT9.producerDecode L.1.lay d).isSome := by
   unfold decodeAt
   split_ifs with hs
   · constructor
@@ -108,13 +108,13 @@ theorem decodeAt_eq_some (L : EncLeaf) (answer : HashOutput) (d : Digest) :
     · intro he; cases he
     · rintro ⟨rfl, h⟩; exact absurd h hs
 theorem decodeAt_eq_none (L : EncLeaf) (answer : HashOutput) :
-    decodeAt L answer = none ↔ WCT9.producerDecode L.1.lay (answer.extractLsb' 0 128) = none := by
+    decodeAt L answer = none ↔ WCT9.producerDecode L.1.lay (WCT9.encodingAnswer L.1.lay answer) = none := by
   unfold decodeAt
   split_ifs with hs
   · simp only [false_iff]
     intro hn; rw [hn] at hs; exact absurd hs (by decide)
   · simp only [true_iff]
-    cases hd : WCT9.producerDecode L.1.lay (answer.extractLsb' 0 128) with
+    cases hd : WCT9.producerDecode L.1.lay (WCT9.encodingAnswer L.1.lay answer) with
     | none => rfl
     | some w => rw [hd] at hs; exact absurd rfl hs
 abbrev Selection := Option (Fin (2^22) × Digest)
@@ -148,7 +148,7 @@ noncomputable def selectionsOf (U : Finset HashInput) (hE : encInputs ⊆ U) (la
 theorem counterSearch_select (answers : Answers) (lay : Layer) (tree leaf : Nat) (message : WCT9.LayerMsg)
     (decodeLay : HashOutput → Option Digest)
     (hdecode : ∀ answer, decodeLay answer =
-      if (WCT9.producerDecode lay (answer.extractLsb' 0 128)).isSome then some (answer.extractLsb' 0 128) else none) :
+      if (WCT9.producerDecode lay (WCT9.encodingAnswer lay answer)).isSome then some (WCT9.encodingAnswer lay answer) else none) :
     ∀ fuel start, evalWithAnswerFn answers (WCT9.layerCounterSearch lay tree leaf message start fuel) =
       (FirstSuccessTable.select decodeLay (fun i : Fin fuel =>
           answers (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf message
@@ -159,7 +159,7 @@ theorem counterSearch_select (answers : Answers) (lay : Layer) (tree leaf : Nat)
   | zero => intro start; rfl
   | succ fuel ih =>
       intro start
-      simp only [WCT9.layerCounterSearch, evalWithAnswerFn_bind, eval_shortHash]
+      simp only [WCT9.layerCounterSearch, evalWithAnswerFn_bind, WCT9.eval_encodingHash]
       rw [FirstSuccessTable.select]
       have h0 : answers (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf message
           (BitVec.ofNat 32 (start + (0 : Fin (fuel + 1)).val)))))) =
@@ -168,7 +168,7 @@ theorem counterSearch_select (answers : Answers) (lay : Layer) (tree leaf : Nat)
       rw [h0, hdecode]
       generalize answers (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf message
         (BitVec.ofNat 32 start))))) = A
-      cases hd : WCT9.producerDecode lay (A.extractLsb' 0 128) with
+      cases hd : WCT9.producerDecode lay (WCT9.encodingAnswer lay A) with
       | some digits =>
           simp only [hd, Option.isSome_some, if_true, evalWithAnswerFn_pure, Option.bind_some, Option.map_some,
             Fin.val_zero, Nat.add_zero]

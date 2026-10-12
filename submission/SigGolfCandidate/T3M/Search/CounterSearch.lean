@@ -2,6 +2,7 @@ import SigGolfCandidate.T3M.Search.CsBlocks
 import SigGolfCandidate.T3M.Search.Params
 import SigGolfCandidate.T3M.Search.TopUnpack
 import SigGolfCandidate.T3.Nonbinary.LowerLayout
+import SigGolfCandidate.ClaudeWCT.WCT9.Core
 
 section
 
@@ -893,6 +894,21 @@ theorem TBSim.shortHash_bind {β : Type} {image : Image} {sk : BitVec 256} {s : 
     (h : ∀ a : BitVec 256, TBSim image sk (writeHash s a) W (f (a.extractLsb' 0 128)) Q) :
     TBSim image sk s (8 * (toQ (T3.pad64 input)).blocks + W) (T3.shortHash input >>= f) Q := by
   unfold TBSim; rw [mrealize_bind, mrealize_shortHash, map_eq_bind_pure_comp, bind_assoc]
+  refine Sim.query_bind hf ht0 hv hq (fun a => ?_)
+  have := h a
+  unfold TBSim at this
+  simpa only [Function.comp, pure_bind] using this
+theorem TBSim.encodingHash_bind {β : Type} {image : Image} {sk : BitVec 256} {s : MachineState}
+    {lay : Layer} {input : List UInt8} {W : Nat} {f : Digest → T3.M β} {Q : β → MachineState → Prop}
+    (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
+    (hv : hashArgumentsValid s = true) (hq : hashInput s = toQ (T3.pad64 input))
+    (h : ∀ a : BitVec 256, TBSim image sk (writeHash s a) W (f (ClaudeWCT.WCT9.encodingAnswer lay a)) Q) :
+    TBSim image sk s (8 * (toQ (T3.pad64 input)).blocks + W)
+      (ClaudeWCT.WCT9.encodingHash lay input >>= f) Q := by
+  unfold ClaudeWCT.WCT9.encodingHash
+  rw [map_eq_bind_pure_comp, bind_assoc]
+  unfold TBSim
+  rw [mrealize_bind, mrealize_publicHash]
   refine Sim.query_bind hf ht0 hv hq (fun a => ?_)
   have := h a
   unfold TBSim at this

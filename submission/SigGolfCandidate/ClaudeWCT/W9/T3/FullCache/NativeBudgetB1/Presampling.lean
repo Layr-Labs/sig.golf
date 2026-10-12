@@ -104,9 +104,9 @@ theorem layerCounterSearch_none_table_le (L : ℕ) (hL : L ≤ 2 ^ 22) (outputs 
   rw [layerCounterSearch_none_iff]
   have hv (c : Nat) (hc : c < L) :
       evalWithAnswerFn (tableAnswers outputs fallback)
-        (shortHash (ClaudeWCT.WCT9.layerEncodingInput lay (routedTree lay r) (routedLeaf lay r) msg
+        (ClaudeWCT.WCT9.encodingHash lay (ClaudeWCT.WCT9.layerEncodingInput lay (routedTree lay r) (routedLeaf lay r) msg
           (BitVec.ofNat 32 (0 + c)))) =
-        (outputs (.inl ((lay, r, msgLeft msg, msgRight msg), Fin.castLE hL ⟨c, hc⟩))).extractLsb' 0 128 := by
+        ClaudeWCT.WCT9.encodingAnswer lay (outputs (.inl ((lay, r, msgLeft msg, msgRight msg), Fin.castLE hL ⟨c, hc⟩))) := by
     rw [Nat.zero_add, eval_shortHash_layer]
     have hinput : PairRows.pairTrial lay (routedTree lay r) (routedLeaf lay r) (msgLeft msg) (msgRight msg) c =
         searchQuery (.inl ((lay, r, msgLeft msg, msgRight msg), Fin.castLE hL ⟨c, hc⟩)) := rfl

@@ -31,10 +31,10 @@ namespace Enc
 open SigGolfCandidate.T3.Security.Wots.Enc
 theorem layerCounterSearch_first (T : Answers) (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) :
     ∀ fuel start k digits, k < fuel →
-      (∀ i < k, WCT9.producerDecode lay ((T (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg
-        (BitVec.ofNat 32 (start + i))))))).extractLsb' 0 128) = none) →
-      WCT9.producerDecode lay ((T (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg
-        (BitVec.ofNat 32 (start + k))))))).extractLsb' 0 128) = some digits →
+      (∀ i < k, WCT9.producerDecode lay (WCT9.encodingAnswer lay (T (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg
+        (BitVec.ofNat 32 (start + i)))))))) = none) →
+      WCT9.producerDecode lay (WCT9.encodingAnswer lay (T (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg
+        (BitVec.ofNat 32 (start + k)))))))) = some digits →
       evalWithAnswerFn T (WCT9.layerCounterSearch lay tree leaf msg start fuel) =
         some (BitVec.ofNat 32 (start + k), digits) := by
   intro fuel
@@ -42,7 +42,7 @@ theorem layerCounterSearch_first (T : Answers) (lay : Layer) (tree leaf : Nat) (
   | zero => intro _ k _ hk; omega
   | succ fuel ih =>
       intro start k digits hk hprev hvalid
-      simp only [WCT9.layerCounterSearch, evalWithAnswerFn_bind, eval_shortHash]
+      simp only [WCT9.layerCounterSearch, evalWithAnswerFn_bind, WCT9.eval_encodingHash]
       rcases k with _ | k
       · simp only [Nat.add_zero] at hvalid ⊢
         rw [hvalid]
@@ -56,7 +56,7 @@ theorem layerCounterSearch_first (T : Answers) (lay : Layer) (tree leaf : Nat) (
         rw [show start + (k + 1) = start + 1 + k by omega]
         exact this
 theorem reached_valid_reference {T : Answers} {L : LeafAddr} {input : HashInput} (hr : Reached T L input)
-    {w : List Nat} (hw : WCT9.producerDecode L.lay (low (T (.inl (.inr input)))) = some w) :
+    {w : List Nat} (hw : WCT9.producerDecode L.lay (WCT9.encodingAnswer L.lay (T (.inl (.inr input)))) = some w) :
     referenceInput T L = some input := by
   obtain ⟨c, hc, rfl, hprev⟩ := hr
   have hs : referenceSearch T L = some (BitVec.ofNat 32 c, w) := by
@@ -73,7 +73,7 @@ def MatchEntry (T : Answers) (entry : Entry) : Prop :=
   ∃ (L : CanonGraph.LeafPos) (message : WCT9.LayerMsg) (counter : BitVec 32) (pad : RowPad), L.Source ∧
     Extract.msgFits L.lay message ∧ entry.1 = encRow (leafOf L) message counter pad ∧
       referenceInput T (leafOf L) ≠ some (encRow (leafOf L) message counter pad) ∧
-      decode L.lay (low entry.2) = some (referenceDigits T (leafOf L))
+      decode L.lay (WCT9.encodingAnswer L.lay entry.2) = some (referenceDigits T (leafOf L))
 theorem matchAt_iff (T : Answers) (trace : List Entry) :
     (∃ L : CanonGraph.LeafPos, L.Source ∧ EncodingMatchAt T trace (leafOf L)) ↔
       ∃ entry ∈ trace, MatchEntry T entry := by
@@ -94,7 +94,7 @@ theorem encInput_leaf {e : EncIndex} {L : CanonGraph.LeafPos} {message : WCT9.La
   subst e2 e3
   rfl
 theorem matchEntry_cell_le (T : Answers) (e : EncIndex) :
-    Pr[fun ans => MatchEntry T (encInput e, ans) | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ (2 ^ 128 : ENNReal)⁻¹ := by
+    Pr[fun ans => MatchEntry T (encInput e, ans) | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ (7 / ((4 : ENNReal) * 2^128)) := by
   classical
   let targets : Finset Digest :=
     Finset.univ.filter fun d => decode e.1.1.lay d = some (referenceDigits T (leafOf e.1.1))
@@ -102,15 +102,32 @@ theorem matchEntry_cell_le (T : Answers) (e : EncIndex) :
     apply Finset.card_le_one.mpr
     intro a ha b hb
     exact decode_some_injective (Finset.mem_filter.mp ha).2 (Finset.mem_filter.mp hb).2
-  calc _ ≤ Pr[fun output => output.extractLsb' 0 128 ∈ targets | ($ᵗ HashOutput : ProbComp HashOutput)] := by
+  calc _ ≤ Pr[fun output => WCT9.encodingAnswer e.1.1.lay output ∈ targets |
+        ($ᵗ HashOutput : ProbComp HashOutput)] := by
         apply probEvent_mono
         rintro ans - ⟨L, message, counter, pad, hLs, -, he, -, hdec⟩
         have hL : e.1.1 = L := encInput_leaf hLs he
         subst hL
         exact Finset.mem_filter.mpr ⟨Finset.mem_univ _, hdec⟩
-    _ = targets.card / (2 : ENNReal) ^ 128 := FirstHit.uniform_low_mem targets
-    _ ≤ 1 / (2 : ENNReal) ^ 128 := ENNReal.div_le_div_right (by exact_mod_cast hcard) _
-    _ = (2 ^ 128 : ENNReal)⁻¹ := one_div _
+    _ ≤ 7 / ((4 : ENNReal) * 2^128) := by
+      by_cases hl : e.1.1.lay = 0
+      · simp only [WCT9.encodingAnswer, if_pos hl]
+        rw [FirstHit.uniform_low_mem]
+        have hc : (targets.card : ENNReal) ≤ 1 := by exact_mod_cast hcard
+        refine (ENNReal.div_le_div_right hc _).trans ?_
+        apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+        simp only [ENNReal.toReal_div, ENNReal.toReal_mul, ENNReal.toReal_pow, ENNReal.toReal_ofNat, ENNReal.toReal_one]
+        norm_num
+      · have hp : ∀ d, d ∈ targets → lowerSpare d := fun d hd =>
+          decode_lowerSpare hl (Finset.mem_filter.mp hd).2
+        have hprob := WCT9.probability_lower_encoding (fun d => d ∈ targets) hp
+        simp only [Function.comp_def, Finset.filter_mem_eq_inter, Finset.univ_inter] at hprob
+        simp only [WCT9.encodingAnswer, if_neg hl]
+        rw [hprob]
+        have hc : (targets.card : ENNReal) ≤ 1 := by exact_mod_cast hcard
+        simpa only [one_mul] using mul_le_mul' hc
+          (le_refl (7 / ((4 : ENNReal) * 2^128)))
+
 theorem matchEntry_other (U : Finset HashInput) (privateTable : FullGame.FullTable) (pub : U → HashOutput)
     (x : HashInput) (hx : ¬ Lazy.IsCell encInput (freeSet (eagerAnswers U privateTable pub)) x) :
     ¬ MatchEntry (eagerAnswers U privateTable pub) (x, eagerAnswers U privateTable pub (.inl (.inr x))) := by
@@ -280,7 +297,7 @@ theorem free_match_le [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, D
         ∑' r, (liftM (offlineRun (eagerAnswers U privateTable (ov (freeSet (eagerAnswers U privateTable pub)) pub y))
           adversary q) : PMF SeedResult) r *
           matchInd (mkSample (eagerAnswers U privateTable (ov (freeSet (eagerAnswers U privateTable pub)) pub y)) r) ≤
-      (2 ^ 128 : ENNReal)⁻¹ * ∑' y, @PMF.uniformOfFintype (freeSet (eagerAnswers U privateTable pub) → HashOutput) (iX _) _ y *
+      (7 / ((4 : ENNReal) * 2^128)) * ∑' y, @PMF.uniformOfFintype (freeSet (eagerAnswers U privateTable pub) → HashOutput) (iX _) _ y *
         ∑' r, (liftM (offlineRun (eagerAnswers U privateTable (ov (freeSet (eagerAnswers U privateTable pub)) pub y))
           adversary q) : PMF SeedResult) r *
           (encodingCount (mkSample (eagerAnswers U privateTable

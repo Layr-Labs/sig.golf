@@ -5,6 +5,9 @@ import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.H2Search
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Submission
 import SigGolfCandidate.T3M.Submission
 
+set_option Elab.async false
+set_option maxRecDepth 100000
+
 section
 
 
@@ -269,12 +272,12 @@ structure CompactPre (N : HashOutput) (w : WCT9.Witness) (s : MachineState) : Pr
   dig : OutAt s 0x60 N
   plan : PlanAt s
   lplan : Compact2.LPlanAt s
-def compactC : Nat := 66005
+def compactC : Nat := 68673
 def CompactGood (im : Image) : Prop :=
   NewCodeAt im → CodeAt im (pcOf 351) [compactJal] → ∀ N w s, CompactPre N w s →
-    ∃ t, Steps im s compactC compactC t ∧ t.pc = pcOf 42718 ∧ t.getReg .x5 = BitVec.ofNat 64 1 ∧
+    ∃ t, Steps im s compactC compactC t ∧ t.pc = pcOf 44045 ∧ t.getReg .x5 = BitVec.ofNat 64 1 ∧
       t.getReg .x10 = BitVec.ofNat 64 0 ∧
-      t.readWords (BitVec.ofNat 64 0x800) 2614 = wordsOf (ClaudeWCT.W9.T3M.witList N w)
+      t.readWords (BitVec.ofNat 64 0x800) 3004 = wordsOf (ClaudeWCT.W9.T3M.witList N w)
 namespace Compact
 sym_block cJal := symRun { noAlias := true } [compactJal] (pcOf 351) 10
 theorem jal_spec {im : Image} (hJ : CodeAt im (pcOf 351) [compactJal]) (s : MachineState) (hpc : s.pc = pcOf 351) :
@@ -320,9 +323,7 @@ theorem compactGood_holds (im : Image) : CompactGood im := by
   have hlv : Compact2.LPlanAt v := fun k hk => by
     rw [fv _ (by omega) (Or.inr (by omega)), fu _ (by omega) (fun h => h)]
     exact hpre.lplan k hk
-  obtain ⟨t, st, pt, t5, t10, mt⟩ := Compact2.run2_spec hc v pv (WCT9.digestIndex N) (WCT9.digestIndex_lt N) hix hlv
-  refine ⟨t, ((su.trans sv).trans st).of_eq (by unfold compactC; norm_num) (by unfold compactC; norm_num), pt, t5,
-    t10, ?_⟩
+  obtain ⟨t, st, pt, mt⟩ := Compact2.run2_spec hc v pv (WCT9.digestIndex N) (WCT9.digestIndex_lt N) hix hlv
   have hW5 : ∀ i' < 2873, s.getMem (BitVec.ofNat 64 (0x800 + 8 * i')) = (wordsOf (witListV5 N w)).getD i' 0 := by
     intro i' hi'
     rw [← hpre.wit, VLib.readWords_ofNat s 0x800 2873 (by norm_num)]
@@ -337,14 +338,25 @@ theorem compactGood_holds (im : Image) : CompactGood im := by
       Compact.compact_words N w i (by omega)]
     apply Compact.finalWord_congr _ _ _ (fun i' hi' => ?_) i (by omega)
     rw [fu _ (by omega) (fun h => h), hW5 i' hi', show (0x800 + 8 * i' - 0x800) / 8 = i' by omega]
-  have hl : (wordsOf (ClaudeWCT.W9.T3M.witList N w)).length = 2614 :=
-    length_wordsOf 2614 _ (by rw [ClaudeWCT.W9.T3M.witList_length_eq])
+  have hpreWords : ∀ i < 2614, t.getMem (BitVec.ofNat 64 (0x800 + 8 * i)) =
+      (wordsOf (Compact2.preBufferWitList N w)).getD i 0 := by
+    intro i hi
+    rw [mt _ (by omega), show 0x800 + 8 * i = Compact2.WIT + 8 * i from rfl,
+      Compact2.run2_zone _ _ _ (by omega) (by omega), Compact2.compact2_words N w i hi]
+    exact Compact2.out2_congr _ _ hv6 _ _ (by omega)
+  obtain ⟨q, sq, pq, q5, q10, mq⟩ := Compact2.Buffer.buffer_spec hc t pt
+  refine ⟨q, (((su.trans sv).trans st).trans sq).of_eq (by unfold compactC; norm_num)
+    (by unfold compactC; norm_num), pq, q5, q10, ?_⟩
+  have hl : (wordsOf (ClaudeWCT.W9.T3M.witList N w)).length = 3004 :=
+    length_wordsOf 3004 _ (by rw [ClaudeWCT.W9.T3M.witList_length_eq])
   rw [← hl]
-  refine readWords_ext t _ 0x800 (fun i hi => ?_)
+  refine readWords_ext q _ 0x800 (fun i hi => ?_)
   rw [hl] at hi
-  rw [mt _ (by omega), show 0x800 + 8 * i = Compact2.WIT + 8 * i from rfl,
-    Compact2.run2_zone _ _ _ (by omega) (by omega), Compact2.compact2_words N w i hi]
-  exact Compact2.out2_congr _ _ hv6 _ _ (by omega)
+  have hmq := mq (2048 + 8 * i) (by omega)
+  dsimp only at hmq
+  rw [hmq]
+  exact Compact2.bufferMem_words N w (fun A => t.getMem (BitVec.ofNat 64 A)) hpreWords i hi
+
 end ClaudeWCT.W9.Machine.Expand
 end
 
@@ -399,12 +411,12 @@ theorem dword_of_halves (w : BitVec 64) :
   omega
 def ExpQW : Option (HashOutput × WCT9.Witness) → MachineState → Prop
   | none, t => FailedAt 354 t ∨ FailedAt 41062 t
-  | some (N, w), t => t.pc = pcOf 42718 ∧ t.getReg .x5 = BitVec.ofNat 64 1 ∧ t.getReg .x10 = BitVec.ofNat 64 0 ∧
-      t.readWords (BitVec.ofNat 64 0x800) 2614 = wordsOf (ClaudeWCT.W9.T3M.witList N w)
+  | some (N, w), t => t.pc = pcOf 44045 ∧ t.getReg .x5 = BitVec.ofNat 64 1 ∧ t.getReg .x10 = BitVec.ofNat 64 0 ∧
+      t.readWords (BitVec.ofNat 64 0x800) 3004 = wordsOf (ClaudeWCT.W9.T3M.witList N w)
 /-- [h2 lane] prologue 1199 + front 29 + zero block 7, then the layers, the 2^16 search and the compaction. -/
 def expCostW : Nat := 1235 + newCost + (lcost 4 + (65535 * 30 + 111 + compactC))
-theorem lcost_four : lcost 4 ≤ 3684768461 := by decide
-theorem expCostW_le : expCostW ≤ 4106332262 := by
+theorem lcost_four : lcost 4 ≤ 3523299703 := by decide
+theorem expCostW_le : expCostW ≤ 3944866172 := by
   have h := lcost_four
   unfold expCostW newCost compactC
   generalize lcost 4 = L at h ⊢
@@ -469,13 +481,13 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hP : P
   obtain ⟨t1, st1, hpre, hmz, w800, w808, f1⟩ := front_pre30' hF hP hd m pk σ u pu
     (by rw [ru]; exact w9init_regs0 hd m pk b .x5 (by decide)) humem
   have hz0 : ∀ A, A < Compact2.LPLAN → (A < 0x7000 ∨ 0x7000 + 5312 ≤ A) → (A < 0xA0 ∨ 0xB0 ≤ A) →
-      (A < 0x59B0 ∨ 0x59D0 ≤ A) → s0.getMem (BitVec.ofNat 64 A) = 0 := fun A hA h1 h2 h3 =>
+      (A < 0x65E0 ∨ 0x6600 ≤ A) → s0.getMem (BitVec.ofNat 64 A) = 0 := fun A hA h1 h2 h3 =>
     w9init_zero hd m pk σ A hA ⟨h1, h2, by omega⟩
   have hz0' : ∀ A, A < Compact2.LPLAN → (A < 0x7000 ∨ 0x7000 + 5312 ≤ A) → (A < 0xA0 ∨ 0xB0 ≤ A) →
-      ¬ (0x59B0 ≤ A ∧ A < 0x59D0 ∧ (A - 0x59B0) % 8 = 0) → s0.getMem (BitVec.ofNat 64 A) = 0 :=
+      ¬ (0x65E0 ≤ A ∧ A < 0x6600 ∧ (A - 0x65E0) % 8 = 0) → s0.getMem (BitVec.ofNat 64 A) = 0 :=
     fun A hA h1 h2 h3 => w9init_zero hd m pk σ A hA ⟨h1, h2, h3⟩
   unfold Compact2.LPLAN at hz0 hz0'
-  have hCC : compactC = 66005 := rfl
+  have hCC : compactC = 68673 := rfl
   have hPL : PLAN = 0xff9a00 := rfl
   refine (TBSim.steps (stu.trans st1) (TBSim.bind (W₂ := lcost 4 + (65535 * 30 + 111 + compactC))
     (newCode_tb hc (hookAt_of_front hF) sk m sig t1 hpre) (fun r t7 h7 => ?_))).mono
@@ -497,14 +509,14 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hP : P
       (A < NBUF ∨ NBUF + 32 ≤ A) → A ≠ IDXV → A ≠ ENC → A ≠ ENC + 8 → ¬ NewW A := by
     intro A h1 h2 h3 h4 h5 h6 h7 h8 h9 h10 h11 h
     unfold NewW at h; simp only [DIG, NBUF, IDXV, ENC] at h h7 h8 h9 h10 h11; omega
-  have z7 : ∀ A, A < 0x7000 → (A < 0x60 ∨ 0x80 ≤ A) → (A < 0x100 ∨ 0x120 ≤ A) → (A < 0x400 ∨ 0x550 ≤ A) →
+  have z7 : ∀ A, A < 0x65E0 → (A < 0x60 ∨ 0x80 ≤ A) → (A < 0x100 ∨ 0x120 ≤ A) → (A < 0x400 ∨ 0x550 ≤ A) →
       (A < 0x800 ∨ 0x818 ≤ A) → (A < 0x840 ∨ 0x2c48 ≤ A) → (A < 0xA0 ∨ 0xB0 ≤ A) → (A < 0x59B0 ∨ 0x59D0 ≤ A) →
       t7.getMem (BitVec.ofNat 64 A) = 0 := by
     intro A h0 h1 h2 h3 h4 h4' h5 h6
     rw [g7 A (by omega) (nFW _ (by omega) (by simp only [DIG]; omega) h6)
       (nNW _ (by omega) h1 h2 h3 h4' (by omega) (by simp only [DIG]; omega) (by simp only [NBUF]; omega)
         (by simp only [IDXV]; omega) (by simp only [ENC]; omega) (by simp only [ENC]; omega)),
-      hz0 _ (by omega) (by omega) h5 h6]
+      hz0 _ (by omega) (by omega) h5 (by omega)]
   have z7h : ∀ A, 0x20000 ≤ A → A < 0x30000 → A ≠ ENC → A ≠ ENC + 8 → (A < DIG ∨ DIG + 64 ≤ A) →
       (A < NBUF ∨ NBUF + 32 ≤ A) → A ≠ IDXV → t7.getMem (BitVec.ofNat 64 A) = 0 := by
     intro A h0 h1 h2 h3 h4 h5 h6
@@ -514,7 +526,7 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hP : P
       hz0 _ (by omega) (by omega) (by omega) (by omega)]
   have hL : LInv sig index 4 (.forest root) t7 := by
     refine ⟨by rw [P.pc]; rfl, le_refl _, P.x5, hi, P.idx, P.enc, fun _ => ?_, fun h => absurd h (by decide),
-      ⟨0, by norm_num, ?_⟩, ?_, ?_, ?_, ?_⟩
+      ⟨0, by norm_num, ?_⟩, ?_, ?_, ?_, ?_, ?_⟩
     · simp only [SigGolfCandidate.T3M.Search.BC.right]
       refine ⟨?_, ?_⟩
       · rw [z7h _ (by simp only [ENC]; omega) (by simp only [ENC]; omega) (by simp only [ENC]; omega)
@@ -554,6 +566,11 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hP : P
       · unfold FrontW at h; simp only [TOP_DATA, DIG] at h; omega
       · unfold NewW at h; simp only [TOP_DATA, DIG, NBUF, IDXV, ENC] at h; omega
     · apply (w9init_cf hd m pk σ).frame F7
+      intro i hi hi' h
+      rcases h with h | h
+      · unfold FrontW at h; simp only [TOP_DATA, DIG] at h; omega
+      · unfold NewW at h; simp only [TOP_DATA, DIG, NBUF, IDXV, ENC] at h; omega
+    · apply (w9init_reward hd m pk σ).frame F7
       intro i hi hi' h
       rcases h with h | h
       · unfold FrontW at h; simp only [TOP_DATA, DIG] at h; omega
@@ -675,7 +692,7 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hP : P
         (nNW _ (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by simp only [DIG]; omega)
           (by simp only [NBUF]; omega) (by simp only [IDXV]; omega) (by simp only [ENC]; omega)
           (by simp only [ENC]; omega))]
-      exact hz0' _ (by omega) (by omega) (by omega) hm
+      exact hz0' _ (by omega) (by omega) (by omega) (by omega)
   have hlay : ∀ lay : Layer, t8.readWords (BitVec.ofNat 64 (lBase lay)) (8 * (height lay + chainCount lay)) =
       wordsOf (layerRegionV6 N w lay) := by
     intro lay
@@ -892,20 +909,20 @@ theorem readBuffer_trunc (t : MachineState) (A n m : Nat) (h : n ≤ m) :
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_ofNat]
   rw [Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by omega : 8 * n ≤ 8 * m)), readBuffer_foldl_mod t A n m h]
-/-- Expand still writes 2614 whole words; the 20908-byte witness is their prefix (the 4 bytes
+/-- Expand still writes 3004 whole words; the 24028-byte witness is their prefix (the 4 bytes
 after the 32-bit digest counter are zero and lie outside the witness). -/
 theorem expqW_output {imgs : Phase → Image} {N : HashOutput} {w : WCT9.Witness} {t : MachineState}
-    (h : t.readWords (BitVec.ofNat 64 0x800) 2614 = wordsOf (ClaudeWCT.W9.T3M.witList N w)) :
+    (h : t.readWords (BitVec.ofNat 64 0x800) 3004 = wordsOf (ClaudeWCT.W9.T3M.witList N w)) :
     readOutput (w9Sub imgs).sizes (w9Sub imgs).layout .expand t = ClaudeWCT.W9.T3M.witEnc N w := by
-  show readBuffer t 0x800 20908 =
-    BitVec.ofNat (8 * 20908) (SigGolfCandidate.T3.readLE (ClaudeWCT.W9.T3M.witList N w))
-  rw [readBuffer_trunc t 0x800 20908 (8 * 2614) (by omega),
-    readBuffer_of_words t 0x800 2614 (ClaudeWCT.W9.T3M.witList N w) (by decide) (by decide)
+  show readBuffer t 0x800 24028 =
+    BitVec.ofNat (8 * 24028) (SigGolfCandidate.T3.readLE (ClaudeWCT.W9.T3M.witList N w))
+  rw [readBuffer_trunc t 0x800 24028 (8 * 3004) (by omega),
+    readBuffer_of_words t 0x800 3004 (ClaudeWCT.W9.T3M.witList N w) (by decide) (by decide)
       (ClaudeWCT.W9.T3M.witList_length_eq N w) h]
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_ofNat]
   exact Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by omega))
-theorem codeAt_42718 {im : Image} (hc : NewCodeAt im) : CodeAt im (pcOf 42718) [0x00000073] :=
+theorem codeAt_44045 {im : Image} (hc : NewCodeAt im) : CodeAt im (pcOf 44045) [0x00000073] :=
   codeAt_of_window hc (by decide) (by decide +kernel)
 theorem expqW_halt (imgs : Phase → Image) (hc : NewCodeAt (imgs .expand)) (hB : BackSpec (imgs .expand))
     (a : Option (HashOutput × WCT9.Witness)) (t : MachineState) (h : ExpQW a t) :
@@ -919,7 +936,7 @@ theorem expqW_halt (imgs : Phase → Image) (hc : NewCodeAt (imgs .expand)) (hB 
     · refine ⟨((codeAt_41064 hc).fetch t p).trans rfl, x5, ?_⟩
       rw [x10]; rfl
   · obtain ⟨p, x5, x10, hw⟩ := h
-    refine ⟨((codeAt_42718 hc).fetch t p).trans rfl, x5, ?_⟩
+    refine ⟨((codeAt_44045 hc).fetch t p).trans rfl, x5, ?_⟩
     rw [x10, if_pos (show (0#64 : BitVec 64) = 0 from rfl), expqW_output hw]; rfl
 set_option maxRecDepth 10000 in
 theorem expandComposeSpec_holds : ExpandComposeSpec := by
@@ -971,16 +988,14 @@ namespace SigGolfCandidate.T3M.Expand
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open ClaudeWCT.W9.Machine.Expand (NewCodeAt expChunks expChunks_len_le)
 set_option maxRecDepth 100000
-private def chunks : List (List (BitVec 32)) :=
-  [Images.expandCode_0, Images.expandCode_1, Images.expandCode_2, Images.expandCode_3, Images.expandCode_4, Images.expandCode_5, Images.expandCode_6, Images.expandCode_7, Images.expandCode_8, Images.expandCode_9, Images.expandCode_10, Images.expandCode_11, Images.expandCode_12, Images.expandCode_13, Images.expandCode_14, Images.expandCode_15, Images.expandCode_16, Images.expandCode_17, Images.expandCode_18, Images.expandCode_19, Images.expandCode_20, Images.expandCode_21, Images.expandCode_22, Images.expandCode_23, Images.expandCode_24, Images.expandCode_25, Images.expandCode_26, Images.expandCode_27, Images.expandCode_28, Images.expandCode_29, Images.expandCode_30, Images.expandCode_31, Images.expandCode_32, Images.expandCode_33, Images.expandCode_34, Images.expandCode_35, Images.expandCode_36, Images.expandCode_37, Images.expandCode_38, Images.expandCode_39, Images.expandCode_40, Images.expandCode_41, Images.expandCode_42, Images.expandCode_43, Images.expandCode_44, Images.expandCode_45, Images.expandCode_46, Images.expandCode_47, Images.expandCode_48, Images.expandCode_49, Images.expandCode_50, Images.expandCode_51, Images.expandCode_52, Images.expandCode_53, Images.expandCode_54, Images.expandCode_55, Images.expandCode_56, Images.expandCode_57, Images.expandCode_58, Images.expandCode_59, Images.expandCode_60, Images.expandCode_61, Images.expandCode_62, Images.expandCode_63, Images.expandCode_64, Images.expandCode_65, Images.expandCode_66, Images.expandCode_67, Images.expandCode_68, Images.expandCode_69, Images.expandCode_70, Images.expandCode_71, Images.expandCode_72, Images.expandCode_73, Images.expandCode_74, Images.expandCode_75, Images.expandCode_76, Images.expandCode_77, Images.expandCode_78, Images.expandCode_79, Images.expandCode_80, Images.expandCode_81, Images.expandCode_82, Images.expandCode_83, Images.expandCode_84, Images.expandCode_85, Images.expandCode_86, Images.expandCode_87, Images.expandCode_88, Images.expandCode_89, Images.expandCode_90, Images.expandCode_91, Images.expandCode_92, Images.expandCode_93, Images.expandCode_94, Images.expandCode_95, Images.expandCode_96, Images.expandCode_97, Images.expandCode_98, Images.expandCode_99, Images.expandCode_100, Images.expandCode_101, Images.expandCode_102, Images.expandCode_103, Images.expandCode_104, Images.expandCode_105, Images.expandCode_106, Images.expandCode_107, Images.expandCode_108, Images.expandCode_109, Images.expandCode_110, Images.expandCode_111, Images.expandCode_112, Images.expandCode_113, Images.expandCode_114, Images.expandCode_115, Images.expandCode_116, Images.expandCode_117, Images.expandCode_118, Images.expandCode_119, Images.expandCode_120, Images.expandCode_121, Images.expandCode_122, Images.expandCode_123, Images.expandCode_124, Images.expandCode_125, Images.expandCode_126, Images.expandCode_127, Images.expandCode_128, Images.expandCode_129, Images.expandCode_130, Images.expandCode_131, Images.expandCode_132, Images.expandCode_133, Images.expandCode_134, Images.expandCode_135, Images.expandCode_136, Images.expandCode_137, Images.expandCode_138, Images.expandCode_139, Images.expandCode_140, Images.expandCode_141, Images.expandCode_142, Images.expandCode_143, Images.expandCode_144, Images.expandCode_145, Images.expandCode_146, Images.expandCode_147, Images.expandCode_148, Images.expandCode_149, Images.expandCode_150, Images.expandCode_151, Images.expandCode_152, Images.expandCode_153, Images.expandCode_154, Images.expandCode_155, Images.expandCode_156, Images.expandCode_157, Images.expandCode_158, Images.expandCode_159, Images.expandCode_160, Images.expandCode_161, Images.expandCode_162, Images.expandCode_163, Images.expandCode_164, Images.expandCode_165, Images.expandCode_166, Images.expandCode_167]
+private def chunks : List (List (BitVec 32)) := expandCodeChunks
 private theorem chunks_ok : (chunks.dropLast.all fun c => c.length == 256) = true := by
   decide +kernel
-private theorem chunks_length : chunks.length = 168 := by rfl
+private theorem chunks_length : chunks.length = 173 := by rfl
 private theorem chunks_new : expChunks = chunks.drop 4 := rfl
 set_option maxHeartbeats 1000000 in
-private theorem code_chunks : Images.expandCode = chunks.flatten ++ Images.expandZeroCap := by
-  change chunks.foldl (· ++ ·) [] ++ Images.expandZeroCap = chunks.flatten ++ Images.expandZeroCap
-  rw [ClaudeWCT.W9.Machine.VLib.foldl_append_flatten, List.nil_append]
+private theorem code_chunks : Images.expandCode = chunks.flatten := by
+  exact expandCode_flatten
 theorem wct_chunk_prefix {α : Type} (cs : List (List α)) (k : Nat) :
     cs.getD k [] <+: (cs.drop k).flatten := by
   induction cs generalizing k with
@@ -999,14 +1014,14 @@ theorem wct_newCodeAt : NewCodeAt Images.expandImage := by
       rw [List.drop_drop] at hh
       rw [chunks_new]
       simpa [Nat.add_comm] using hh
-    have hbase : chunks.flatten <+: Images.expandCode := ⟨Images.expandZeroCap, code_chunks.symm⟩
+    have hbase : chunks.flatten <+: Images.expandCode := ⟨[], by simpa using code_chunks.symm⟩
     exact hp0.trans (hbase.drop (256 * (c + 4)))
   apply codeAt_slice (by omega)
   change List.take (expChunks.getD c []).length (Images.expandCode.drop (256 * (c + 4))) = _
   obtain ⟨rest, hrest⟩ := hp
   rw [← hrest, List.take_append_of_le_length (Nat.le_refl _), List.take_length]
 /-- [h2 lane] the H2 prologue and search words are in the record's expand image (tail words through the chunk
-windows, as `codeAt_42718`). -/
+windows, as `codeAt_44045`). -/
 theorem wct_proAt : ClaudeWCT.W9.Machine.Expand.ProAt Images.expandImage := by
   refine ⟨?_, ClaudeWCT.W9.Machine.Expand.codeAt_of_window wct_newCodeAt (by decide) (by decide +kernel), ?_⟩
   · apply codeAt_slice
@@ -1029,9 +1044,9 @@ section
 namespace ClaudeWCT.W9.Machine.Expand
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
 set_option maxRecDepth 100000 in
-theorem expChunks_full : ∀ c, c < 163 → (expChunks.getD c []).length = 256 := by decide +kernel
+theorem expChunks_full : ∀ c, c < 168 → (expChunks.getD c []).length = 256 := by decide +kernel
 set_option maxRecDepth 100000 in
-theorem expChunks_flatten_length : expChunks.flatten.length = 41817 := by decide +kernel
+theorem expChunks_flatten_length : expChunks.flatten.length = 43022 := by decide +kernel
 theorem drop_flatten_chunks : ∀ (L : List (List (BitVec 32))) (c : Nat), (∀ i, i < c → (L.getD i []).length = 256) →
     c ≤ L.length → L.flatten.drop (256 * c) = (L.drop c).flatten
   | L, 0, _, _ => by simp
@@ -1059,13 +1074,19 @@ section
 namespace ClaudeWCT.W9.Machine.ExpandLink
 open SigGolfCandidate.T3M
 def I0 : ClaudeWCT.W9.T3M.Images := ⟨Images.signImage, Images.expandImage, Images.verifyImage⟩
-theorem v7_valid : I0.expand.Valid (ClaudeWCT.W9.T3M.submission I0).sizes (ClaudeWCT.W9.T3M.submission I0).layout :=
-  submission_expand_valid
+theorem v7_valid : I0.expand.Valid (ClaudeWCT.W9.T3M.submission I0).sizes (ClaudeWCT.W9.T3M.submission I0).layout := by
+  rw [ClaudeWCT.W9.T3M.submission_sizes, ClaudeWCT.W9.T3M.submission_layout]
+  have h := submission_expand_valid
+  rw [SigGolfCandidate.T3M.submission_expand, SigGolfCandidate.T3M.submission_sizes,
+    SigGolfCandidate.T3M.submission_layout] at h
+  dsimp only [I0]
+  exact h
 theorem v7_dataOK : ClaudeWCT.W9.Machine.Expand.ExpandDataOK I0.expand := Expand.wct_expandData
 theorem expand_W_v7 :
     ClaudeWCT.W9.Machine.Expand.ExpandRefinesW (ClaudeWCT.W9.T3M.submission I0).image ∧
-      ClaudeWCT.W9.Machine.Expand.ExpandTerminatesW (ClaudeWCT.W9.T3M.submission I0).image :=
-  ClaudeWCT.W9.Machine.Expand.expandComposeSpec_holds _ v7_valid Expand.wct_newCodeAt Expand.wct_frontAt
+      ClaudeWCT.W9.Machine.Expand.ExpandTerminatesW (ClaudeWCT.W9.T3M.submission I0).image := by
+  dsimp only [ClaudeWCT.W9.T3M.submission, I0]
+  exact ClaudeWCT.W9.Machine.Expand.expandComposeSpec_holds _ v7_valid Expand.wct_newCodeAt Expand.wct_frontAt
     Expand.wct_proAt Expand.wct_srchAt v7_dataOK Expand.wct_backSpec
 end ClaudeWCT.W9.Machine.ExpandLink
 end

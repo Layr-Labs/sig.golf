@@ -1,9 +1,10 @@
+import SigGolfCandidate.ClaudeWCT.WCT9.Core
 import SigGolfCandidate.T3M.Verify.Code
 import SigGolfCandidate.T3M.Verify.HashOk
 
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
-open SigGolfCandidate.T3 (M publicHash shortHash pad64 HashOutput Digest)
+open SigGolfCandidate.T3 (M publicHash shortHash pad64 HashOutput Digest Layer)
 abbrev Obs := Bool × Nat
 def obs (e : Execution) : Obs := (decide (e.exit = .success), e.hashCalls)
 def Good (s : MachineState) (N C : Nat) (X : OracleComp HashSpec Obs) : Prop :=
@@ -320,4 +321,30 @@ theorem GoodQP.shortHash_bind_pre {P : Hash → Prop} {β : Type} {s : MachineSt
   have := GoodQP.query_pre (K := fun a => ccM (f (a.extractLsb' 0 128)) K) hf ht0 hv hin h
   rw [cc_query] at this
   rwa [ccM_shortHash_bind]
+theorem GoodQP.publicHash_bind_pre {P : Hash → Prop} {β : Type} {s : MachineState}
+    {N C A : Nat} {Q : Prop}
+    {input : List UInt8} {f : HashOutput → M β} {K : β → OracleComp HashSpec Obs}
+    (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
+    (hv : hashArgumentsValid s = true) (hin : hashInput s = toQ (pad64 input))
+    (h : ∀ a : BitVec 256, GoodQP (fun hash => hash (toQ (pad64 input)) = a ∧ P hash)
+      (writeHash s a) N C Q A (ccM (f a) K)) :
+    GoodQP P s (N + 1) (C + 8 * (toQ (pad64 input)).blocks) Q
+      (A + 8 * (toQ (pad64 input)).blocks) (ccM (publicHash input >>= f) K) := by
+  have := GoodQP.query_pre (K := fun a => ccM (f a) K) hf ht0 hv hin h
+  rw [cc_query] at this
+  rwa [ccM_publicHash_bind]
+
+theorem GoodQP.encodingHash_bind_pre {P : Hash → Prop} {β : Type} {s : MachineState}
+    {N C A : Nat} {Q : Prop} {lay : Layer}
+    {input : List UInt8} {f : Digest → M β} {K : β → OracleComp HashSpec Obs}
+    (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
+    (hv : hashArgumentsValid s = true) (hin : hashInput s = toQ (pad64 input))
+    (h : ∀ a : BitVec 256, GoodQP (fun hash => hash (toQ (pad64 input)) = a ∧ P hash)
+      (writeHash s a) N C Q A (ccM (f (ClaudeWCT.WCT9.encodingAnswer lay a)) K)) :
+    GoodQP P s (N + 1) (C + 8 * (toQ (pad64 input)).blocks) Q
+      (A + 8 * (toQ (pad64 input)).blocks) (ccM (ClaudeWCT.WCT9.encodingHash lay input >>= f) K) := by
+  change GoodQP P s (N + 1) (C + 8 * (toQ (pad64 input)).blocks) Q
+    (A + 8 * (toQ (pad64 input)).blocks)
+    (ccM (publicHash input >>= fun a => f (ClaudeWCT.WCT9.encodingAnswer lay a)) K)
+  exact GoodQP.publicHash_bind_pre hf ht0 hv hin h
 end SigGolfCandidate.T3M.Verify

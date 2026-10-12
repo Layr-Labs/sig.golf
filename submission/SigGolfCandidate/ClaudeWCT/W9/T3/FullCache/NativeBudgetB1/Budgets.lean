@@ -2,7 +2,6 @@ import SigGolfCandidate.ClaudeWCT.Bank.WCTAccept
 import SigGolfCandidate.ClaudeWCT.WCT9.Omit
 import SigGolfCandidate.ClaudeWCT.Numerics.N600CapCount
 import SigGolfCandidate.ClaudeWCT.W9.T3.FullCache.NativeBudgetB1.Presampling
-import SigGolfCandidate.ClaudeWCT.W9.T3.Gate6.SourceBudget
 
 section
 
@@ -383,10 +382,10 @@ theorem layerCounterSearch_none_agreement (outputs : SearchKey → HashOutput)
   rw [layerCounterSearch_none_iff]
   have hv (c : Nat) (hc : c < ClaudeWCT.WCT9.searchLimit lay) :
       evalWithAnswerFn answers
-        (shortHash (ClaudeWCT.WCT9.layerEncodingInput lay (routedTree lay r) (routedLeaf lay r) msg
+        (ClaudeWCT.WCT9.encodingHash lay (ClaudeWCT.WCT9.layerEncodingInput lay (routedTree lay r) (routedLeaf lay r) msg
           (BitVec.ofNat 32 (0 + c)))) =
-        (outputs (.inl ((lay, r, msgLeft msg, msgRight msg),
-          Fin.castLE (Presampling.searchLimit_le_rows lay) ⟨c, hc⟩))).extractLsb' 0 128 := by
+        ClaudeWCT.WCT9.encodingAnswer lay (outputs (.inl ((lay, r, msgLeft msg, msgRight msg),
+          Fin.castLE (Presampling.searchLimit_le_rows lay) ⟨c, hc⟩))) := by
     rw [Nat.zero_add, eval_shortHash_layer]
     have hinput : pairTrial lay (routedTree lay r) (routedLeaf lay r) (msgLeft msg) (msgRight msg) c =
         searchQuery (.inl ((lay, r, msgLeft msg, msgRight msg),

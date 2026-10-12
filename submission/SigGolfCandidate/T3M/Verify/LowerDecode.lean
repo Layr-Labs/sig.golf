@@ -13,13 +13,15 @@ def decodeV5Lower (lay : Layer) (n : Nat) : Option (List Nat) :=
   if total ≤ target lay ∧ target lay - total < 8 then some (digits ++ [target lay - total]) else none
 def producerDecodeV5Lower (lay : Layer) (n : Nat) : Option (List Nat) :=
   (decodeV5Lower lay n).bind fun digits =>
-    if producerFloor lay ≤ wordCredit lay digits ∧ producerZeroBound lay digits ∧
+    if producerFloor lay + dispatchPenalty lay digits ≤ wordCredit lay digits + 4 * savedCopies lay digits ∧
+        producerZeroBound lay digits ∧
         producerRankBound lay (lowerPack n)
     then some digits else none
 theorem producerDecode_eq_bind (lay : Layer) (v : Digest) :
     producerDecode lay v =
       (decode lay v).bind fun digits =>
-        if producerFloor lay ≤ wordCredit lay digits ∧ producerZeroBound lay digits ∧ producerRankBound lay v
+        if producerFloor lay + dispatchPenalty lay digits ≤ wordCredit lay digits + 4 * savedCopies lay digits ∧
+        producerZeroBound lay digits ∧ producerRankBound lay v
         then some digits else none := by
   unfold producerDecode
   generalize decode lay v = x
@@ -387,7 +389,7 @@ theorem lowSum_eq (V : Nat) (h : V / 2 ^ 64 < 2 ^ 62) :
   have := lowDigits_sum (V % 2 ^ 64) (V / 2 ^ 64) (Nat.mod_lt _ (by norm_num))
   rw [← hV] at this
   exact this.symm
-theorem target_le (lay : Layer) : target lay ≤ 201 := by
+theorem target_le (lay : Layer) : target lay ≤ 202 := by
   fin_cases lay <;> decide
 def lowSumS1 (v : Digest) : Nat := lowSwar (v.toNat % 2 ^ 63) (v.toNat / 2 ^ 64 % 2 ^ 63)
 theorem lowSumS1_lt (v : Digest) : lowSumS1 v < 4095 := Nat.mod_lt _ (by norm_num)

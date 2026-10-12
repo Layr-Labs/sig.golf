@@ -10,7 +10,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 def dummyDigest0 : Digest := BitVec.ofNat 128 194407444155172597201995464558563070242
-def dummyDigestLow : Digest := BitVec.ofNat 128 267364716866451649869350547003163471286
+def dummyDigestLow : Digest := BitVec.ofNat 128 267364716866451649887797291077026409910
 def dummyDigest (lay : Layer) : Digest := if lay.val = 0 then dummyDigest0 else dummyDigestLow
 theorem dummyDigest_decode (lay : Layer) : decode lay (dummyDigest lay) = some (dummyDigits lay) := by
   fin_cases lay

@@ -59,8 +59,17 @@ theorem not_field (X : Word) (b : Nat) (hb : b+7 ≤ 64) :
   by_cases hj : j<7
   · simp [hj, show j+b<64 by omega]
   · simp [hj]
-theorem entOff_le (q : Nat) (hq : q<17) : entOff q ≤ 871 := by unfold entOff; split_ifs <;> omega
-theorem entOff_ge (q : Nat) : 487 ≤ entOff q := by unfold entOff; split_ifs <;> omega
+theorem entOff_le (q : Nat) (hq : q<17) : entOff q ≤ 1532 := by interval_cases q <;> decide +kernel
+theorem entOff_ge (q : Nat) : 64 ≤ entOff q := by
+  by_cases h : q<17
+  · interval_cases q <;> decide +kernel
+  · simp only [entOff, if_neg (show q≠0 by omega), if_neg (show q≠1 by omega),
+      if_neg (show q≠2 by omega), if_neg (show q≠3 by omega), if_neg (show q≠4 by omega),
+      if_neg (show q≠5 by omega), if_neg (show q≠6 by omega), if_neg (show q≠7 by omega),
+      if_neg (show q≠8 by omega), if_neg (show q≠9 by omega), if_neg (show q≠10 by omega),
+      if_neg (show q≠11 by omega), if_neg (show q≠12 by omega), if_neg (show q≠13 by omega),
+      if_neg (show q≠14 by omega), if_neg (show q≠15 by omega)]
+    decide +kernel
 theorem dispatch_value (W : Word) (b q : Nat) (hb : b<64) (hq : q<17) :
     ((shiftWord12 W b &&& 520192#64)+BitVec.ofNat 64 (2^64+4*entOff q-4096)) &&& ~~~1#64 =
       BitVec.ofNat 64 (4096*(W.toNat/2^b%128)+2^64+4*entOff q-4096) := by
@@ -81,16 +90,27 @@ theorem fault125_value (q : Nat) (hq : q<17) :
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_ofNat]
   omega
-theorem fault_value (q k : Nat) (hq : q<17) (hk : 126 ≤ k) (hk' : k<128) :
+theorem fault_value (q k : Nat) (hq : q<17) (hk : 127 ≤ k) (hk' : k<128) :
     (BitVec.ofNat 64 (4096*(127-k)+2^64+4*entOff q-4096)).toNat<0x1000 ∨
       0x1000+4*257280 ≤ (BitVec.ofNat 64 (4096*(127-k)+2^64+4*entOff q-4096)).toNat := by
   have he := entOff_le q hq
   have hl := entOff_ge q
   simp only [BitVec.toNat_ofNat]
   omega
+theorem fault126_value (q : Nat) (hq : q<17) (he : 1024≤entOff q) :
+    BitVec.ofNat 64 (4096*(127-126)+2^64+4*entOff q-4096)=pcOf (entOff q-1024) := by
+  have hu := entOff_le q hq
+  unfold pcOf
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_ofNat]
+  omega
+theorem fault126_low (q : Nat) (he : entOff q<1024) :
+    (BitVec.ofNat 64 (4096*(127-126)+2^64+4*entOff q-4096)).toNat<0x1000 := by
+  simp only [BitVec.toNat_ofNat]
+  omega
 theorem g9_value (W : Word) :
-    (((W <<< (BitVec.ofNat 64 13).toNat) &&& 520192#64)+1948#64) &&& ~~~1#64 =
-      BitVec.ofNat 64 (8192*(W.toNat%64)+1948) := by
+    (((W <<< (BitVec.ofNat 64 13).toNat) &&& 520192#64)+256#64) &&& ~~~1#64 =
+      BitVec.ofNat 64 (8192*(W.toNat%64)+256) := by
   have hm : ((W <<< (BitVec.ofNat 64 13).toNat) &&& 520192#64) = BitVec.ofNat 64 (8192*(W.toNat%64)) := by
     apply BitVec.eq_of_toNat_eq
     rw [BitVec.toNat_and,show (520192#64).toNat=4096*(2^7-1) by rfl,land_mask12 _ _ (by decide +kernel)]
@@ -104,16 +124,15 @@ theorem g9_value (W : Word) :
       omega
     rw [this]; ring
   rw [hm, ofNat_add_ofNat, even_andNot1' _ (by omega)]
-theorem g9_cell (u : Nat) (hu : u ≤ 62) : BitVec.ofNat 64 (8192*(63-u)+1948)=pcOf (cellW 9 (2*u)) := by
+theorem g9_cell (u : Nat) (hu : u ≤ 62) : BitVec.ofNat 64 (8192*(63-u)+256)=pcOf (cellW 9 (2*u)) := by
   unfold pcOf cellW entOff; norm_num; congr 1; omega
-theorem g9_fault : (BitVec.ofNat 64 (8192*(63-63)+1948)).toNat<0x1000 := by decide +kernel
+theorem g9_fault : (BitVec.ofNat 64 (8192*(63-63)+256)).toNat<0x1000 := by decide +kernel
 theorem prologue_value (W : Word) :
-    (((W <<< (BitVec.ofNat 64 12).toNat) &&& 520192#64)+BitVec.ofNat 64 (2^64-1976)) &&& ~~~1#64 =
-      BitVec.ofNat 64 (4096*(W.toNat%128)+2^64-1976) := by
+    (((W <<< (BitVec.ofNat 64 12).toNat) &&& 520192#64)+BitVec.ofNat 64 (1168)) &&& ~~~1#64 =
+      BitVec.ofNat 64 (4096*(W.toNat%128)+1168) := by
   have hm := word_mask12 W 0 (by decide +kernel)
   simp only [shiftWord12, show (0 : Nat) < 12 from by omega, if_true,
     Nat.sub_zero, Nat.pow_zero, Nat.div_one] at hm
-  change ((W <<< 12 &&& 520192#64) + BitVec.ofNat 64 (2^64-1976)) &&& ~~~1#64 = _
+  change ((W <<< 12 &&& 520192#64) + BitVec.ofNat 64 (1168)) &&& ~~~1#64 = _
   rw [hm, ofNat_add_ofNat, even_andNot1' _ (by omega)]
-  apply congrArg (BitVec.ofNat 64); omega
 end SigGolfCandidate.T3M.Nonbinary

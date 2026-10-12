@@ -35,4 +35,14 @@ theorem blkCheck_at (t dB dC : Nat) (ht : t < 14) (hB : dB < 8) (hC : dC < 8) :
   · have := List.all_eq_true.mp h1.2 (8 * dB + dC) (List.mem_range'_1.mpr ⟨by omega, by omega⟩)
     rwa [e1, e2] at this
 theorem ckCheck_ok : ckCheck = true := by decide +kernel
+set_option maxRecDepth 100000 in
+private theorem lower_pc_bounds_checked :
+    (List.range 14).all (fun t => (List.range 8).all (fun b => (List.range 8).all (fun c =>
+      decide (triBase t b c < 257214 ∧ pcX t b c < 257214)))) = true := by decide +kernel
+
+theorem lower_pc_bounds (t b c : Nat) (ht : t < 14) (hb : b < 8) (hc : c < 8) :
+    triBase t b c < 257214 ∧ pcX t b c < 257214 := by
+  have h := List.all_eq_true.mp lower_pc_bounds_checked t (List.mem_range.mpr ht)
+  have h := List.all_eq_true.mp h b (List.mem_range.mpr hb)
+  exact of_decide_eq_true (List.all_eq_true.mp h c (List.mem_range.mpr hc))
 end SigGolfCandidate.T3M

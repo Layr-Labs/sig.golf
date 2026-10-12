@@ -1,6 +1,8 @@
 import SigGolfCandidate.T3M.Verify.Common
 import SigGolfCandidate.T3M.Submission
 
+set_option Elab.async false
+
 set_option linter.unusedSimpArgs false
 set_option maxRecDepth 65536
 set_option maxHeartbeats 1600000
@@ -132,7 +134,7 @@ def k0 : List (Reg × Word) :=
    (.x21, 0), (.x22, 0), (.x23, 0), (.x24, 0), (.x25, 0), (.x26, 0), (.x27, 0), (.x28, 0), (.x29, 0),
    (.x30, 0), (.x31, 0)]
 def VERIFY_DATA : Nat := 0xffbde0
-def MSGADDR : Nat := 22960
+def MSGADDR : Nat := 26080
 structure InitOK (m : T3.Message) (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (s : MachineState) : Prop where
   known : KnownOK k0 s
   pc : s.pc = pcOf 0
@@ -152,11 +154,14 @@ theorem verifyData_header (lay : Nat) (hl : lay < 4) :
     bytesToWordLE ((((submission.image .verify).data).drop (424 + 8 * ((lay + 1) % 4))).take 8) =
       BitVec.ofNat 64 (hyperBase lay) := by
   interval_cases lay <;> decide +kernel
+theorem verifyData_buffer3 :
+    bytesToWordLE ((((submission.image .verify).data).drop 360).take 8) = 22160#64 := by
+  decide +kernel
 theorem verifyData_initialMask :
     bytesToWordLE ((((submission.image .verify).data).take 8)) = 0xfff#64 := by
   decide +kernel
 set_option maxRecDepth 200000 in
-theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 20908) (s : MachineState)
+theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 24028) (s : MachineState)
     (h : initialState submission .verify (m, pk, w) = some s) : InitOK m pk w s := by
   unfold initialState at h
   simp only [submission_admissible.2 .verify, if_true, Option.some.injEq] at h
@@ -167,7 +172,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 20908) (s : Mac
   simp only [List.foldl_cons, List.foldl_nil]
   have lm : (bytes m).length = 32 := length_bytes m
   have lp : (bytes pk).length = 16 := length_bytes pk
-  have lw : (bytes w).length = 20908 := length_bytes w
+  have lw : (bytes w).length = 24028 := length_bytes w
   have lD := verifyData_length
   have eD := dataBase_verify
   set blank : MachineState := { regs := fun _ => 0, mem := fun _ => 0, pc := 0x1000 }
@@ -198,7 +203,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 20908) (s : Mac
     intro A hA
     rw [getMem_writeBytesAsWords _ s1 0xA0 A (by rw [lp]; omega) hA, lp]
   have g3 : ∀ A, A < 2 ^ 64 → s3.getMem (BitVec.ofNat 64 A) =
-      if 0x800 ≤ A ∧ A < 0x800 + 8 * ((20908 + 7) / 8) ∧ (A - 0x800) % 8 = 0 then
+      if 0x800 ≤ A ∧ A < 0x800 + 8 * ((24028 + 7) / 8) ∧ (A - 0x800) % 8 = 0 then
         bytesToWordLE (((bytes w).drop (A - 0x800)).take 8) else s2.getMem (BitVec.ofNat 64 A) := by
     intro A hA
     rw [getMem_writeBytesAsWords _ s2 0x800 A (by rw [lw]; omega) hA, lw]
@@ -256,7 +261,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 20908) (s : Mac
   · intro k hk
     unfold MSGADDR
     rw [gm, g3 _ (by omega), if_neg (by omega), g2 _ (by omega), if_neg (by omega), g1 _ (by omega),
-      if_pos (by unfold MSGADDR; omega), show 22960 + 8 * k - MSGADDR = 8 * k by unfold MSGADDR; omega,
+      if_pos (by unfold MSGADDR; omega), show 26080 + 8 * k - MSGADDR = 8 * k by unfold MSGADDR; omega,
       bytes_word m k (by omega)]
   · refine ⟨?_, ?_⟩
     · show (s3.setReg .x2 _).getMem (BitVec.ofNat 64 0xA0) = _
@@ -274,7 +279,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 20908) (s : Mac
     unfold WIT at hA
     rw [gm, g3 _ (by omega), if_neg (by omega), g2 _ (by omega), if_neg (by omega), g1 _ (by omega),
       if_neg (by unfold MSGADDR; omega), g0z A (by unfold VERIFY_DATA; omega)]
-  · refine ⟨?_, ?_⟩
+  · refine ⟨?_, ?_, ?_⟩
     · rw [gm, g3 _ (by unfold TOPBASE; omega), if_neg (by unfold TOPBASE; omega),
         g2 _ (by unfold TOPBASE; omega), if_neg (by unfold TOPBASE; omega),
         g1 _ (by unfold TOPBASE; omega), if_neg (by unfold TOPBASE MSGADDR; omega),
@@ -290,6 +295,12 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 20908) (s : Mac
         g0 _ (by omega), if_pos (by unfold hdrAddr TOPBASE VERIFY_DATA; omega),
         show hdrAddr lay - VERIFY_DATA = 424 + 8 * ((lay + 1) % 4) by unfold hdrAddr TOPBASE VERIFY_DATA; omega,
         verifyData_header lay hl]
+    · rw [gm, g3 _ (by unfold TOPB9; omega), if_neg (by unfold TOPB9; omega),
+        g2 _ (by unfold TOPB9; omega), if_neg (by unfold TOPB9; omega),
+        g1 _ (by unfold TOPB9; omega), if_neg (by unfold TOPB9 MSGADDR; omega),
+        g0 _ (by unfold TOPB9; omega), if_pos (by unfold TOPB9 VERIFY_DATA; omega),
+        show TOPB9 + 56 - VERIFY_DATA = 360 by unfold TOPB9 VERIFY_DATA; omega,
+        verifyData_buffer3]
   · simp [MachineState.setReg, MachineState.getReg]
     exact congrArg (BitVec.ofNat 64) eD
 end SigGolfCandidate.T3M.Verify

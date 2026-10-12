@@ -14,7 +14,7 @@ def layerChains (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) : M
   (List.finRange (chainCount lay)).mapM fun i =>
     chainP lay (route index lay).2 (route index lay).1 i.val (digits.getD i.val 0)
       (maxDigit lay i.val - digits.getD i.val 0) (wchainPads w lay i.val).1 (wchainPads w lay i.val).2
-      (wchainHeaderPad w lay i.val) (wvalue w lay i.val)
+      (wchainHeaderPad w lay i.val) (wvalueFor w lay digits i.val)
 theorem layerLeafP_eq (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) :
     layerLeafP w index lay digits =
       (layerChains w index lay digits >>= leafHash lay (route index lay).2 (route index lay).1) := rfl
@@ -60,14 +60,14 @@ theorem layerChains_queried (answers : Answers) (w : WBytes) (index : Nat) (lay 
     (i : Nat) (hi : i < chainCount lay) :
     ∀ q ∈ queried answers (chainP lay tree leaf i (digits.getD i 0)
         (maxDigit lay i - digits.getD i 0) (wchainPads w lay i).1 (wchainPads w lay i).2
-          (wchainHeaderPad w lay i) (wvalue w lay i)),
+          (wchainHeaderPad w lay i) (wvalueFor w lay digits i)),
       q ∈ queried answers (layerChains w index lay digits) := by
   subst hleaf htree
   unfold layerChains
   exact queried_mapM_mem answers (fun i : Fin (chainCount lay) =>
     chainP lay (route index lay).2 (route index lay).1 i.val (digits.getD i.val 0)
       (maxDigit lay i.val - digits.getD i.val 0) (wchainPads w lay i.val).1 (wchainPads w lay i.val).2
-      (wchainHeaderPad w lay i.val) (wvalue w lay i.val))
+      (wchainHeaderPad w lay i.val) (wvalueFor w lay digits i.val))
         (List.finRange (chainCount lay)) ⟨i, hi⟩ (List.mem_finRange _)
 theorem map_finRange_val {β : Type} (n : Nat) (g : Nat → β) :
     (List.finRange n).map (fun i => g i.val) = (List.range n).map g := by
@@ -93,7 +93,7 @@ theorem layerLeaf_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : 
       wotsRoot answers lay (route index lay).2 (route index lay).1) :
     HitIn answers (queried answers (layerLeafP w index lay digits)) ∨
       ∀ i, i < chainCount lay →
-        wvalue w lay i = wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
+        wvalueFor w lay digits i = wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
           (digits.getD i 0 < maxDigit lay i →
             wchainPads w lay i = (0, 0) ∧ wchainHeaderPad w lay i = 0) := by
   classical
@@ -122,12 +122,12 @@ theorem layerLeaf_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : 
       (List.range (chainCount lay)).map (fun i => evalWithAnswerFn answers
         (chainP lay tree leaf i (digits.getD i 0) (maxDigit lay i - digits.getD i 0)
           (wchainPads w lay i).1 (wchainPads w lay i).2
-          (wchainHeaderPad w lay i) (wvalue w lay i))) := by
+          (wchainHeaderPad w lay i) (wvalueFor w lay digits i))) := by
     rw [layerChains, Correctness.eval_mapM, hleaf, htree]
     exact map_finRange_val _ (fun i => evalWithAnswerFn answers
         (chainP lay tree leaf i (digits.getD i 0) (maxDigit lay i - digits.getD i 0)
           (wchainPads w lay i).1 (wchainPads w lay i).2
-          (wchainHeaderPad w lay i) (wvalue w lay i)))
+          (wchainHeaderPad w lay i) (wvalueFor w lay digits i)))
   rcases leafHash_extract answers lay tree leaf (evalWithAnswerFn answers (layerChains w index lay digits))
       ((List.range (chainCount lay)).map (wotsEnd answers lay tree leaf))
       (by rw [hends]; simp) (by simpa using chainCount_pos lay) hv0 with hE | ⟨hhit, hsame, hq⟩
@@ -145,7 +145,7 @@ theorem layerLeaf_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : 
   have hreach : evalWithAnswerFn answers
       (chainP lay tree leaf i (digits.getD i 0) (maxDigit lay i - digits.getD i 0)
         (wchainPads w lay i).1 (wchainPads w lay i).2
-        (wchainHeaderPad w lay i) (wvalue w lay i)) =
+        (wchainHeaderPad w lay i) (wvalueFor w lay digits i)) =
       honestChainValue answers lay tree leaf i (wotsSeed answers lay tree leaf i)
         (digits.getD i 0 + (maxDigit lay i - digits.getD i 0)) := by
     rw [hci, Nat.add_sub_cancel' hd]; rfl
@@ -321,12 +321,12 @@ set_option backward.isDefEq.respectTransparency false
 theorem layerP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes) (lay : Layer) (digits : List Nat)
     (hlay : lay.val = 0) (hs : LayerShaped answers w (WCT9.digestIndex N) lay digits) :
     layerP w (WCT9.digestIndex N) lay digits =
-      recoverLayer (WCT9.toT3Signature (witDecP N w).signature) (WCT9.digestIndex N) lay digits := by
-  have hpath : ∀ j : Fin (height lay), ((WCT9.toT3Signature (witDecP N w).signature).layers lay).path j =
+      recoverLayer (WCT9.toT3Signature (effectiveSignature (witDecP N w).signature (padDecP N w) digits)) (WCT9.digestIndex N) lay digits := by
+  have hpath : ∀ j : Fin (height lay), ((WCT9.toT3Signature (effectiveSignature (witDecP N w).signature (padDecP N w) digits)).layers lay).path j =
       wpath w lay (route (WCT9.digestIndex N) lay).1 j.val := fun _ => rfl
   have hvals : ∀ i : Fin (chainCount lay),
-      ((WCT9.toT3Signature (witDecP N w).signature).layers lay).values i = wvalue w lay i.val :=
-    fun _ => rfl
+      ((WCT9.toT3Signature (effectiveSignature (witDecP N w).signature (padDecP N w) digits)).layers lay).values i = wvalueFor w lay digits i.val :=
+    fun i => valueP_dec N w lay digits i
   have hzero := chainP_zero_route (WCT9.digestIndex N) lay
   have hindex : WCT9.digestIndex N < 2 ^ 31 := WCT9.digestIndex_lt N
   unfold layerP recoverLayer
@@ -339,10 +339,10 @@ theorem layerP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes) (la
   have hchains : ((List.finRange (chainCount lay)).mapM fun i =>
       chainP lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
         (wchainPads w lay i.val).1 (wchainPads w lay i.val).2
-        (wchainHeaderPad w lay i.val) (wvalue w lay i.val)) =
+        (wchainHeaderPad w lay i.val) (wvalueFor w lay digits i.val)) =
       ((List.finRange (chainCount lay)).mapM fun i =>
       chain lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
-        (wvalue w lay i.val)) := by
+        (wvalueFor w lay digits i.val)) := by
     congr 1
     funext i
     by_cases hd : digits.getD i.val 0 < maxDigit lay i.val
@@ -362,13 +362,13 @@ theorem layerP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes) (la
 theorem layerPairP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes) (lay : Layer) (digits : List Nat)
     (hs : LayerShaped answers w (WCT9.digestIndex N) lay digits) :
     layerPairP w (WCT9.digestIndex N) lay digits =
-      WCT9.recoverLayerPair (witDecP N w).signature (WCT9.digestIndex N) lay digits := by
+      WCT9.recoverLayerPair (effectiveSignature (witDecP N w).signature (padDecP N w) digits) (WCT9.digestIndex N) lay digits := by
   have hzero := chainP_zero_route (WCT9.digestIndex N) lay
   have hindex : WCT9.digestIndex N < 2 ^ 31 := WCT9.digestIndex_lt N
-  have hpath : ∀ j : Fin (height lay), ((witDecP N w).signature.layers lay).path j =
+  have hpath : ∀ j : Fin (height lay), ((effectiveSignature (witDecP N w).signature (padDecP N w) digits).layers lay).path j =
       wpath w lay (route (WCT9.digestIndex N) lay).1 j.val := fun _ => rfl
-  have hvals : ∀ i : Fin (chainCount lay), ((witDecP N w).signature.layers lay).values i = wvalue w lay i.val :=
-    fun _ => rfl
+  have hvals : ∀ i : Fin (chainCount lay), ((effectiveSignature (witDecP N w).signature (padDecP N w) digits).layers lay).values i = wvalueFor w lay digits i.val :=
+    fun i => valueP_dec N w lay digits i
   unfold layerPairP WCT9.recoverLayerPair
   simp only [hpath, hvals, Fin.val_castLE, WCT9.topLevel]
   have hmz : ∀ j : Fin (height lay - 1), wmerklePad w lay (route (WCT9.digestIndex N) lay).1 j.val = 0 :=
@@ -379,10 +379,10 @@ theorem layerPairP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes)
   have hchains : ((List.finRange (chainCount lay)).mapM fun i =>
       chainP lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
         (wchainPads w lay i.val).1 (wchainPads w lay i.val).2
-        (wchainHeaderPad w lay i.val) (wvalue w lay i.val)) =
+        (wchainHeaderPad w lay i.val) (wvalueFor w lay digits i.val)) =
       ((List.finRange (chainCount lay)).mapM fun i =>
       chain lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
-        (wvalue w lay i.val)) := by
+        (wvalueFor w lay digits i.val)) := by
     congr 1
     funext i
     by_cases hd : digits.getD i.val 0 < maxDigit lay i.val

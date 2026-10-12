@@ -18,8 +18,8 @@ theorem untouched_layerEncodingP (a : ChainAddr) (lay : Layer) (tree leaf : Nat)
     (fun _ _ _ _ _ => Ne.symm (chainHeader_ne_rowTweak _ _ _ _ _ _ _ _))
 theorem respects_layerEncoding (a : ChainAddr) (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg)
     (counter : BitVec 32) :
-    Respects (Untouched a) (shortHash (WCT9.layerEncodingInput lay tree leaf msg counter)) :=
-  Respects.shortHash _ (untouched_layerEncoding a lay tree leaf msg counter)
+    Respects (Untouched a) (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg counter)) :=
+  Respects.map (WCT9.encodingAnswer lay) (Respects.publicHash _ (untouched_layerEncoding a lay tree leaf msg counter))
 theorem respects_layerCounterSearch (a : ChainAddr) (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) :
     ∀ fuel counter, Respects (Untouched a) (WCT9.layerCounterSearch lay tree leaf msg counter fuel) := by
   intro fuel
@@ -40,13 +40,17 @@ end ClaudeWCT.W9.T3.Security.Wots.Mask
 namespace ClaudeWCT.W9.T3.Security.Wots.Ref
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
 open SigGolfCandidate.T3.Security.Wots.Ref
+theorem shortRespects_encodingHash (lay : Layer) (input : HashInput)
+    (h : (pad64 input).length ≤ SeccLaw.maxInputLength) : ShortRespects (WCT9.encodingHash lay input) := by
+  intro A T hAT
+  rw [WCT9.eval_encodingHash, WCT9.eval_encodingHash, hAT.public _ h]
 theorem layerCounterSearch_respects (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (counter fuel : Nat) :
     ShortRespects (WCT9.layerCounterSearch lay tree leaf msg counter fuel) := by
   induction fuel generalizing counter with
   | zero => exact ShortRespects.pure' _
   | succ fuel ih =>
       unfold WCT9.layerCounterSearch
-      refine ShortRespects.bind (ShortRespects.shortHash _ ?_) fun answer => ?_
+      refine ShortRespects.bind (shortRespects_encodingHash lay _ ?_) fun answer => ?_
       · rw [← ClaudeWCT.W9.T3M.BC.pad64_layerEncodingInputP_zero, ClaudeWCT.W9.T3M.BC.layerEncodingRow_length]
         unfold SeccLaw.maxInputLength
         omega

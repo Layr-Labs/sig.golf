@@ -10,29 +10,29 @@ abbrev ENC : Nat := 0x20260
 abbrev NODE : Nat := 0x20200
 def hookCode : List (BitVec 32) := [0x5392606f]
 theorem hookCode_at : CodeAt image (pcOf 1117) hookCode :=
-  codeAt_expand_slice (by decide +kernel) (by decide +kernel)
+  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block hookCodeBlock := symRun { noAlias := true } hookCode (pcOf 1117) 30
 def testCode : List (BitVec 32) := [0x41478e33,0xfffe0e13]
 theorem testCode_at : CodeAt image (pcOf 40875) testCode :=
-  codeAt_expand_slice (by decide +kernel) (by decide +kernel)
+  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block testCodeBlock := symRun { noAlias := true } testCode (pcOf 40875) 30
 def branch1Code : List (BitVec 32) := [34479715]
 theorem branch1Code_at : CodeAt image (pcOf 40877) branch1Code :=
-  codeAt_expand_slice (by decide +kernel) (by decide +kernel)
+  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 def branch2Code : List (BitVec 32) := [33819747]
 theorem branch2Code_at : CodeAt image (pcOf 40878) branch2Code :=
-  codeAt_expand_slice (by decide +kernel) (by decide +kernel)
+  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 def pairCode : List (BitVec 32) := [134967,638521107,134839,537824915,963331,9352067,7286819,8336419,51294979,59683715,40843299,41892899,32871]
 theorem pairCode_at : CodeAt image (pcOf 40879) pairCode :=
-  codeAt_expand_slice (by decide +kernel) (by decide +kernel)
+  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block pairCodeBlock := symRun { noAlias := true } pairCode (pcOf 40879) 30
 def backCode : List (BitVec 32) := [0xa8cd906f]
 theorem backCode_at : CodeAt image (pcOf 40892) backCode :=
-  codeAt_expand_slice (by decide +kernel) (by decide +kernel)
+  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block backCodeBlock := symRun { noAlias := true } backCode (pcOf 40892) 30
 def selectCode : List (BitVec 32) := testCode ++ branch1Code
 theorem selectCode_at : CodeAt image (pcOf 40875) selectCode :=
-  codeAt_expand_slice (by decide +kernel) (by decide +kernel)
+  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block selectBlock := symRun { noAlias := true } selectCode (pcOf 40875) 30
 sym_block layerBranch := symRun { noAlias := true } branch2Code (pcOf 40878) 30
 theorem pair_spec (s : MachineState) (hpc : s.pc = pcOf 40879) (ret : Nat)
@@ -170,59 +170,59 @@ theorem ex_beq (a b : Nat) (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) :
     simp [this, h]
 def e_hdrA : List (BitVec 32) := [1050259,29791923,1707539,29974067,29787827,710049903]
 theorem e_hdrA_at : CodeAt image (pcOf 1119) e_hdrA :=
-  codeAt_expand_slice (by decide +kernel) (by decide +kernel)
+  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block eb_hdrA := symRun { noAlias := true } e_hdrA (pcOf 1119) 30
 def e_hdrB : List (BitVec 32) := [426899,67109651,33817187]
 theorem e_hdrB_at : CodeAt image (pcOf 42765) e_hdrB :=
-  codeAt_expand_slice (by decide +kernel) (by decide +kernel)
+  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block eb_hdrB := symRun { noAlias := true } e_hdrB (pcOf 42765) 30
 def e_hdrC : List (BitVec 32) := [17077011,538141459,0xfff40f13,51322643,31679283,0xc100f13,59711251,31679283,0xd44d706f]
 theorem e_hdrC_at : CodeAt image (pcOf 42768) e_hdrC :=
-  codeAt_expand_slice (by decide +kernel) (by decide +kernel)
+  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block eb_hdrC := symRun { noAlias := true } e_hdrC (pcOf 42768) 30
 def e_hdrD : List (BitVec 32) := [0xd44d706f]
 theorem e_hdrD_at : CodeAt image (pcOf 42776) e_hdrD :=
-  codeAt_expand_slice (by decide +kernel) (by decide +kernel)
+  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block eb_hdrD := symRun { noAlias := true } e_hdrD (pcOf 42776) 30
 def e_hdrE : List (BitVec 32) := [134711,537792019,7223331,8272931,132407,537199891,67110291,132663,604374547]
 theorem e_hdrE_at : CodeAt image (pcOf 1129) e_hdrE :=
-  codeAt_expand_slice (by decide +kernel) (by decide +kernel)
+  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block eb_hdrE := symRun { noAlias := true } e_hdrE (pcOf 1129) 30
 def e_hpA : List (BitVec 32) := [0xf49333,19071795,16978707,538141459,50601747,31679283,0xc100f13,59711251,31679283,134711,0x600e0e13,7223331,932899,267875]
 theorem e_hpA_at : CodeAt image (pcOf 42741) e_hpA :=
-  codeAt_expand_slice (by decide +kernel) (by decide +kernel)
+  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block eb_hpA := symRun { noAlias := true } e_hpA (pcOf 42741) 30
 def e_hpZ : List (BitVec 32) := [929827,930851,0xbb0d706f]
 theorem e_hpZ_at : CodeAt image (pcOf 42755) e_hpZ :=
-  codeAt_expand_slice (by decide +kernel) (by decide +kernel)
+  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block eb_hpZ := symRun { noAlias := true } e_hpZ (pcOf 42755) 30
 def e_hpJ : List (BitVec 32) := [0xbb0d706f]
 theorem e_hpJ_at : CodeAt image (pcOf 42757) e_hpJ :=
-  codeAt_expand_slice (by decide +kernel) (by decide +kernel)
+  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block eb_hpJ := symRun { noAlias := true } e_hpJ (pcOf 42757) 30
 def e_w1009 : List (BitVec 32) := [2451]
 theorem e_w1009_at : CodeAt image (pcOf 1009) e_w1009 :=
-  codeAt_expand_slice (by decide +kernel) (by decide +kernel)
+  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block eb_w1009 := symRun { noAlias := true } e_w1009 (pcOf 1009) 30
 def e_slA : List (BitVec 32) := [4824595,264291]
 theorem e_slA_at : CodeAt image (pcOf 42758) e_slA :=
-  codeAt_expand_slice (by decide +kernel) (by decide +kernel)
+  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block eb_slA := symRun { noAlias := true } e_slA (pcOf 42758) 30
 def e_slB : List (BitVec 32) := [624739]
 theorem e_slB_at : CodeAt image (pcOf 42760) e_slB :=
-  codeAt_expand_slice (by decide +kernel) (by decide +kernel)
+  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block eb_slB := symRun { noAlias := true } e_slB (pcOf 42760) 30
 def e_slN : List (BitVec 32) := [17698323,0xc48d706f]
 theorem e_slN_at : CodeAt image (pcOf 42761) e_slN :=
-  codeAt_expand_slice (by decide +kernel) (by decide +kernel)
+  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block eb_slN := symRun { noAlias := true } e_slN (pcOf 42761) 30
 def e_slT : List (BitVec 32) := [34475539,0xc40d706f]
 theorem e_slT_at : CodeAt image (pcOf 42763) e_slT :=
-  codeAt_expand_slice (by decide +kernel) (by decide +kernel)
+  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block eb_slT := symRun { noAlias := true } e_slT (pcOf 42763) 30
 def e_slZ : List (BitVec 32) := [0xc40d706f]
 theorem e_slZ_at : CodeAt image (pcOf 42764) e_slZ :=
-  codeAt_expand_slice (by decide +kernel) (by decide +kernel)
+  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block eb_slZ := symRun { noAlias := true } e_slZ (pcOf 42764) 30
 def slotOff (lay : T3.Layer) (c : Nat) : Nat := if lay = 0 then 16 * c + 32 else if c = 0 then 0 else 16 * c + 16
 def hpK (lay : T3.Layer) : Nat := if lay = 0 then 19 else 17

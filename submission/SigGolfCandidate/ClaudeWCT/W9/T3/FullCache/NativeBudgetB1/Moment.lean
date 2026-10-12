@@ -326,8 +326,8 @@ noncomputable def Envelopes.v5 : Envelopes where
     let b : ℝ := (![V5.b1, V5.b2, V5.b3, V5.b4] lay : ℚ)
     have hb : 1 ≤ b := by fin_cases lay <;> norm_num [b, V5.b1, V5.b2, V5.b3, V5.b4]
     have hs : (SigGolfCandidate.T3.BaseAudit.zU : ℝ) *
-        ((1 - (ClaudeWCT.W9.T3.ProducerV5.producerCountLower lay : ℝ) / 2^128) * b +
-          (ClaudeWCT.W9.T3.ProducerV5.producerCountLower lay : ℝ) / 2^128) ≤ b := by
+        ((1 - (ClaudeWCT.W9.T3.ProducerV5.producerCountLower lay : ℝ) * (if lay = 0 then 2^128 else 7*2^126) / 2^256) * b +
+          (ClaudeWCT.W9.T3.ProducerV5.producerCountLower lay : ℝ) * (if lay = 0 then 2^128 else 7*2^126) / 2^256) ≤ b := by
       fin_cases lay <;> norm_num [b, ClaudeWCT.W9.T3.ProducerV5.producerCountLower,
         SigGolfCandidate.T3.BaseAudit.zU, V5.b1, V5.b2, V5.b3, V5.b4]
     change (SigGolfCandidate.T3.BaseAudit.zU : ℝ) * ((1 - producerRate lay) * b + producerRate lay) ≤ b

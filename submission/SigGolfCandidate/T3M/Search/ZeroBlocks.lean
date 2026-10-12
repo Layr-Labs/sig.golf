@@ -355,7 +355,7 @@ theorem code_rank {image : Image} {b : Nat} (hK : KernAt image b) :
 
 theorem run_exit {b o : Nat} (hb : b=354 ∨ b=543) (ho : o=58 ∨ o=59) :
     symRun {noAlias := true} (exitCode b o) (pcOf (zBase b+38+o)) 200 =
-      some ⟨re354_58.res.st, .c (pcOf (b+(if o=58 then 433 else 468))), .jump, 1, 1⟩ := by
+      some ⟨re354_58.res.st, .c ((if o=58 then pcOf (Reward.base b false) else pcOf (b+468))), .jump, 1, 1⟩ := by
   rcases hb with rfl | rfl <;> rcases ho with rfl | rfl
   · exact re354_58.trans (congrArg some (by kernel_rfl))
   · exact re354_59.trans (congrArg some (by kernel_rfl))
@@ -364,7 +364,7 @@ theorem run_exit {b o : Nat} (hb : b=354 ∨ b=543) (ho : o=58 ∨ o=59) :
 
 theorem exit_spec {image : Image} {b : Nat} (hK : KernAt image b) (s : MachineState)
     (o : Nat) (ho : o=58 ∨ o=59) (hp : s.pc=pcOf (zBase b+38+o)) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf (b+(if o=58 then 433 else 468)) ∧
+    ∃ t, Steps image s 1 1 t ∧ t.pc=(if o=58 then pcOf (Reward.base b false) else pcOf (b+468)) ∧
       RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
   have hc : CodeAt image (pcOf (zBase b+38+o)) (exitCode b o) := by
     have h := code_rank hK
@@ -379,7 +379,7 @@ theorem exit_spec {image : Image} {b : Nat} (hK : KernAt image b) (s : MachineSt
 theorem spec {image : Image} {b : Nat} (hK : KernAt image b) (s : MachineState)
     (hp : s.pc=pcOf (zBase b+38)) (v : Digest)
     (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64) :
-    ∃ t, Steps image s 59 59 t ∧ t.pc=pcOf (b+(if rankOK v then 433 else 468)) ∧
+    ∃ t, Steps image s 59 59 t ∧ t.pc=(if rankOK v then pcOf (Reward.base b false) else pcOf (b+468)) ∧
       RegsExcept s t [.x21,.x28] ∧ Frame s t (fun _ => False) := by
   have first := symRun_sound (run_rank hK.2.1) (code_rank hK) s hp (by simp [r354.res,rv_simp])
   have pp : (Result.toState ⟨r354.res.st,rankEnd b,r354.res.stop,r354.res.steps,r354.res.cycles⟩ s).pc =

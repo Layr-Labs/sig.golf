@@ -25,11 +25,11 @@ def pad1 (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0
 def padHeader (c : NCtx) (i : Nat) : Word := (ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x800 + 16)).extractLsb' 64 64
 def val (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x800 + 48)
 def ok (c : NCtx) : Prop :=
-  c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ 0x800 + 7424 + 1664 ≤ c.S3 ∧ c.S3 + 2064 ≤ 0x7000 ∧
+  c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ 0x800 + 7424 + 1664 ≤ c.S3 ∧ c.S3 + 2064 ≤ 0x5000 ∧
     c.ret < 209920
 def known (c : NCtx) : List (Reg × Word) :=
   [(.x5, 0), (.x11, 64), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
-   (.x30, 7), (.x28, BitVec.ofNat 64 (c.prefix + 385)), (.x8, BitVec.ofNat 64 c.S3), (.x9, BitVec.ofNat 64 0xffbf10)]
+   (.x30, 7), (.x28, BitVec.ofNat 64 (c.prefix + 385)), (.x8, BitVec.ofNat 64 c.S3), (.x9, BitVec.ofNat 64 0xffbf10), (.x4, 24624)]
 def kOf (c : NCtx) (q : Nat) : Nat :=
   c.dig (3*q) + (mx q+1)*c.dig (3*q+1) + (mx q+1)^2*c.dig (3*q+2)
 def qb (c : NCtx) (i : Nat) : Nat := gbase (i/3) (c.kOf (i/3))
@@ -40,8 +40,19 @@ def entPc (c : NCtx) (q : Nat) : Nat := entW q (c.kOf q)
 /-- Slot index of group 17 (campaign T8D): the top field `d51 + 8 d52` (bits 122..127). -/
 def k17 (c : NCtx) : Nat := c.dig 51 + 8 * c.dig 52
 /-- Start of the group-17 chain code (chains 51/52 in `BLOCK[k17]`, chain 53 in `SUFFIX[d53]`). -/
+def bufferSafe (c : NCtx) (i : Nat) : Prop :=
+  c.dig i = topMax i ∧
+    (i = 0 ∨ (0 < i ∧ i % 3 ≠ 0 ∧ c.dig (i-1) = topMax (i-1)))
+instance (c : NCtx) (i : Nat) : Decidable (c.bufferSafe i) := by
+  unfold bufferSafe; infer_instance
+def bufferEnd (c : NCtx) (i : Nat) : Nat :=
+  slot i + (if i = 0 ∨ c.dig (i-1) = topMax (i-1) then 0 else 16)
+def bufferOrig (c : NCtx) (s0 : MachineState) : Prop :=
+  ∀ i, i < 54 → ∀ k < 2, OrigW c.w s0 (slot i + 8*k)
+def bufferVal (c : NCtx) (i : Nat) : Digest :=
+  if c.bufferSafe i then ClaudeWCT.W9.T3M.wdig c.w (slot i - 0x800) else c.val i
 def r8Start (c : NCtx) (i : Nat) : Nat :=
-  if i = 51 then blkW c.k17 else if i = 52 then blkW c.k17 + partLen 17 (c.dig 51) else sufW (c.dig 53)
+  if i = 51 then blkW c.k17 else if i = 52 then blkW c.k17 + partLen 17 (c.dig 51) else sufW (c.dig 53) (decide (c.dig 52=7))
 def startPc (c : NCtx) (i : Nat) : Nat :=
   if i < 51 then (if i%3=0 then leadPc (i/3) (c.kOf (i/3)) else if i%3=1 then c.qB i else c.qC i)
   else c.r8Start i
@@ -50,13 +61,13 @@ def rungPc (c : NCtx) (i m : Nat) : Nat :=
   else c.startPc i + (if c.dig i = last i then 2 else 3) + 2*(m-c.dig i)
 def endPc (c : NCtx) (i : Nat) : Nat :=
   if i < 51 then (if i%3=0 then c.qB i else if i%3=1 then c.qC i else c.qX i)
-  else c.r8Start i + partLen 17 (c.dig i)
+  else c.r8Start i + partLen 17 (c.dig i)-(if c.bufferSafe i then 4 else 0)
 def Wr (c : NCtx) (i : Nat) (A : Nat) : Prop :=
-  (0x220 ≤ A ∧ A < 0x5D0) ∨ (c.S3 - 1664 + 64 * (54 - i) ≤ A ∧ A < c.blk 0 + 80)
+  (slot 0 ≤ A ∧ A < c.bufferEnd i) ∨ (c.S3 - 1664 + 64 * (54 - i) ≤ A ∧ A < c.blk 0 + 80)
 def WrIn (c : NCtx) (i : Nat) (A : Nat) : Prop :=
   c.Wr i A ∨ (c.blk i + 16 ≤ A ∧ A < c.blk i + 32) ∨ (c.blk i + 48 ≤ A ∧ A < c.blk i + 80)
 def Orig0 (c : NCtx) (s0 : MachineState) : Prop :=
-  (∀ i, i < 54 → ∀ k < 8, OrigW c.w s0 (c.blk i + 8 * k)) ∧ Verify.DataOK s0
+  ((∀ i, i < 54 → ∀ k < 8, OrigW c.w s0 (c.blk i + 8 * k)) ∧ c.bufferOrig s0) ∧ Verify.DataOK s0
 def Base (c : NCtx) (s0 : MachineState) (W : Nat → Prop) (acc : List Digest) (s : MachineState) : Prop :=
   (∀ x, x ∉ chainRegs → s.getReg x = s0.getReg x) ∧ Frame s0 s W ∧
     (∀ j < acc.length, DigAt s (slot j) (acc.getD j 0))
@@ -82,13 +93,13 @@ def PreHash (c : NCtx) (s0 : MachineState) (i : Nat) (acc : List Digest) (m : Na
 def EndInv (c : NCtx) (s0 : MachineState) (i : Nat) (acc : List Digest) (s : MachineState) : Prop :=
   c.Base s0 (c.Wr (i + 1)) acc s ∧ acc.length = i + 1 ∧ s.pc = pcOf (c.endPc i)
 theorem blk_props (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 54) :
-    c.blk i % 8 = 0 ∧ 0x800 + 7424 ≤ c.blk i ∧ c.blk i + 80 ≤ 0x7000 := by
+    c.blk i % 8 = 0 ∧ 0x800 + 7424 ≤ c.blk i ∧ c.blk i + 80 ≤ 0x5000 := by
   obtain ⟨-, -, h64, hlo, hhi, -⟩ := hc
   unfold blk; refine ⟨?_, ?_, ?_⟩ <;> omega
 theorem blk_le (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 54) : c.blk i + 64 * i = c.blk 0 := by
   obtain ⟨-, -, -, hlo, -⟩ := hc
   unfold blk; omega
-theorem slot_props (i : Nat) (hi : i < 54) : slot i % 16 = 0 ∧ 0x220 ≤ slot i ∧ slot i + 32 ≤ 0x5A0 := by
+theorem slot_props (i : Nat) (hi : i < 54) : slot i % 16 = 0 ∧ 25168 ≤ slot i ∧ slot i + 32 ≤ 26048 := by
   unfold slot; omega
 theorem base_off (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 54) (k : Nat) (hk : k ≤ 80) :
     BitVec.ofNat 64 c.S3 + (off i + BitVec.ofNat 64 k) = BitVec.ofNat 64 (c.blk i + k) := by
@@ -141,7 +152,7 @@ theorem orig_frame {c : NCtx} {s0 t : MachineState} {W : Nat → Prop} (hF : Fra
   have := c.blk_props hc i hi
   unfold OrigW
   rw [hF _ (by omega) hW]
-  exact h0.1 i hi k hk
+  exact h0.1.1 i hi k hk
 theorem pads_at {c : NCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 s0) {i : Nat}
     (hi : i < 54) (hF : Frame s0 t (c.WrIn i)) :
     DigAt t (c.blk i) (c.pad0 i) ∧ DigAt t (c.blk i + 32) (c.pad1 i) := by
@@ -150,7 +161,8 @@ theorem pads_at {c : NCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 s0) {
     intro k hk hw
     have := c.blk_le hc i hi
     have hlo := hc.2.2.2.1
-    unfold WrIn Wr blk at *
+    have hhi := hc.2.2.2.2.1
+    unfold WrIn Wr blk slot at *
     omega
   have o0 := orig_frame hF h0 hc hi (k := 0) (by omega) (nW 0 (by omega))
   have o1 := orig_frame hF h0 hc hi (k := 1) (by omega) (nW 1 (by omega))
@@ -169,7 +181,8 @@ theorem val_at {c : NCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 s0) {i
     intro k hk hw
     have := c.blk_le hc i hi
     have hlo := hc.2.2.2.1
-    unfold Wr blk at *
+    have hhi := hc.2.2.2.2.1
+    unfold Wr blk slot at *
     omega
   have o6 := orig_frame hF h0 hc hi (k := 6) (by omega) (nW 6 (by omega))
   have o7 := orig_frame hF h0 hc hi (k := 7) (by omega) (nW 7 (by omega))
@@ -219,25 +232,141 @@ theorem kdig_kOf (c : NCtx) (hd : c.DigitsOk) (q : Nat) (hq : q<18) :
   simp only [pow_zero,Nat.div_one,pow_one]
   refine ⟨k1,k2,?_⟩
   rw [k3]; exact Nat.mod_eq_of_lt (by omega)
+theorem bufferEnd_bounds (c : NCtx) (i : Nat) :
+    slot i ≤ c.bufferEnd i ∧ c.bufferEnd i ≤ slot i + 16 := by
+  unfold bufferEnd; split <;> omega
+
+theorem bufferEnd_mono (c : NCtx) (i : Nat) : c.bufferEnd i ≤ c.bufferEnd (i+1) := by
+  have h := c.bufferEnd_bounds i
+  have h' := c.bufferEnd_bounds (i+1)
+  unfold slot at *; omega
+
+theorem Wr_mono (c : NCtx) (i : Nat) :
+    ∀ A, c.Wr i A → c.Wr (i+1) A := by
+  intro A h
+  have hm := c.bufferEnd_mono i
+  unfold Wr at *
+  rcases h with h | h
+  · left; omega
+  · right; omega
+
+theorem Wr_copy (c : NCtx) (i A : Nat)
+    (hlo : slot i ≤ A) (hhi : A < slot i + 16) : c.Wr (i+1) A := by
+  have h := c.bufferEnd_bounds (i+1)
+  unfold Wr slot at *
+  left; omega
+
+theorem Wr_hash (c : NCtx) (i A : Nat) (hn : c.dig i ≠ topMax i)
+    (hlo : slot i ≤ A) (hhi : A < slot i + 32) : c.Wr (i+1) A := by
+  have he : c.bufferEnd (i+1) = slot (i+1)+16 := by
+    simp [bufferEnd, hn]
+  unfold Wr slot at *
+  left; omega
+
+theorem bufferSafe_end (c : NCtx) (i : Nat) (hs : c.bufferSafe i) :
+    c.bufferEnd i = slot i := by
+  rcases hs.2 with h | h
+  · simp [bufferEnd, h]
+  · simp [bufferEnd, h.2.2]
+
+theorem bufferSafe_protected (c : NCtx) (i A : Nat) (hs : c.bufferSafe i)
+    (hb : c.blk 0 + 80 ≤ slot 0) (ha : slot i ≤ A) : ¬ c.Wr i A := by
+  rw [Wr, c.bufferSafe_end i hs]
+  unfold slot at *
+  omega
+
+theorem bufferVal_at {c : NCtx} {s0 t : MachineState} (h0 : c.bufferOrig s0)
+    {i : Nat} (hi : i < 54) (hs : c.bufferSafe i)
+    (hb : c.blk 0 + 80 ≤ slot 0) (hF : Frame s0 t (c.Wr i)) :
+    DigAt t (slot i) (c.bufferVal i) := by
+  have hp := slot_props i hi
+  have o0 := h0 i hi 0 (by omega)
+  have o1 := h0 i hi 1 (by omega)
+  simp only [Nat.mul_zero, Nat.add_zero, Nat.mul_one] at o0 o1
+  have f0 := hF (slot i) (by omega) (c.bufferSafe_protected i _ hs hb (by omega))
+  have f1 := hF (slot i+8) (by omega) (c.bufferSafe_protected i _ hs hb (by omega))
+  have t0 : OrigW c.w t (slot i) := by unfold OrigW at *; rw [f0]; exact o0
+  have t1 : OrigW c.w t (slot i+8) := by unfold OrigW at *; rw [f1]; exact o1
+  rw [bufferVal, if_pos hs]
+  exact DigAt_origW t0 t1 (by omega)
+
+
+theorem bufferSafe_source (c : NCtx) (digits : List Nat)
+    (hd : ∀ j, j < 54 → digits.getD j 0 = c.dig j)
+    (i : Nat) (hi : i < 54) : c.bufferSafe i ↔ ClaudeWCT.WCT9.safeZeroCopy 0 digits i := by
+  have hm : ∀ j, maxDigit 0 j = topMax j := by
+    intro j
+    unfold maxDigit topMax mx
+    simp only [ite_true]
+    split_ifs <;> omega
+  unfold bufferSafe ClaudeWCT.WCT9.safeZeroCopy
+  rw [hd i hi, hm]
+  by_cases hz : i = 0
+  · simp [hz]
+  · rw [hd (i-1) (by omega), hm]
+    simp
+
+theorem bufferSlot_source (i : Nat) :
+    slot i - 0x800 = ClaudeWCT.W9.T3M.leafBufferSlot 0 i := by
+  simp [slot, ClaudeWCT.W9.T3M.leafBufferSlot, ClaudeWCT.W9.T3M.leafBufferBase]
+  omega
+
+theorem bufferVal_source (c : NCtx) (digits : List Nat)
+    (hd : ∀ j, j < 54 → digits.getD j 0 = c.dig j)
+    (hS : c.S3 = 11904) (i : Nat) (hi : i < 54) :
+    c.bufferVal i = ClaudeWCT.W9.T3M.wvalueFor c.w 0 digits i := by
+  unfold bufferVal ClaudeWCT.W9.T3M.wvalueFor
+  simp only [← c.bufferSafe_source digits hd i hi, bufferSlot_source]
+  split
+  · rfl
+  · unfold val ClaudeWCT.W9.T3M.wvalue
+    apply congrArg (ClaudeWCT.W9.T3M.wdig c.w)
+    simp only [blk, hS, ClaudeWCT.W9.T3M.chainBlock, ClaudeWCT.W9.T3M.layerBase,
+      ClaudeWCT.W9.T3M.pathSlots, chainCount, Matrix.cons_val_zero]
+    omega
+
+theorem bufferVal_nonmax (c : NCtx) (i : Nat) (h : c.dig i ≠ topMax i) :
+    c.bufferVal i = c.val i := by simp [bufferVal, bufferSafe, h]
+
 theorem rungPc_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i < 54) (hd : c.dig i < topMax i) :
     c.rungPc i (last i) + 3 = c.endPc i := by
   have hm := topMax_bounds i
+  have hl : last i+1=topMax i := by unfold last; omega
+  have hlq : last i+1=mx (i/3) := hl
   by_cases h51 : i < 51
-  · obtain ⟨-,k2,k3⟩ := c.kdig_kOf hds (i/3) (by omega)
-    have e1 : i%3=1 → c.dig (3*(i/3)+1)=c.dig i := fun h => by rw [show 3*(i/3)+1=i by omega]
-    have e2 : i%3=2 → c.dig (3*(i/3)+2)=c.dig i := fun h => by rw [show 3*(i/3)+2=i by omega]
-    unfold rungPc endPc startPc qb qB qC qX gX gC gB partLen
-    simp only [h51, and_true, if_true]
-    rw [k2,k3]
-    unfold last topMax at *
-    split_ifs <;> omega
+  · obtain ⟨k1,k2,k3⟩ := c.kdig_kOf hds (i/3) (by omega)
+    have hdq : c.dig i < mx (i/3) := hd
+    by_cases h0 : i%3=0
+    · have ei : 3*(i/3)=i := by omega
+      have hskip : skipA (i/3) (c.kOf (i/3))=false := by
+        simp [skipA,k1,ei,Nat.ne_of_lt hdq]
+      simp only [rungPc,endPc,qb,qB,h0,h51,true_and,if_true,gB,hskip,Bool.false_eq_true,if_false,Nat.sub_zero]
+      unfold last topMax at *
+      omega
+    · by_cases h1 : i%3=1
+      · have ei : 3*(i/3)+1=i := by omega
+        have hskip : skipB (i/3) (c.kOf (i/3))=false := by
+          simp [skipB,k2,ei,Nat.ne_of_lt hdq]
+        simp only [rungPc,endPc,startPc,h0,h1,h51,false_and,if_true,if_false,qC,gC,hskip,Bool.false_eq_true,Nat.sub_zero,k2,ei]
+        change c.qB i + (if c.dig i=last i then 2 else 3) + 2*(last i-c.dig i)+3 = c.qB i+partLen (i/3) (c.dig i)
+        unfold partLen
+        rw [if_neg (Nat.ne_of_lt hdq)]
+        split_ifs <;> omega
+      · have ei : 3*(i/3)+2=i := by omega
+        have hskip : skipC (i/3) (c.kOf (i/3))=false := by
+          simp [skipC,k3,ei,Nat.ne_of_lt hdq]
+        simp only [rungPc,endPc,startPc,h0,h1,h51,false_and,if_true,if_false,qX,gX,hskip,Bool.false_eq_true,Nat.sub_zero,k3,ei]
+        change c.qC i + (if c.dig i=last i then 2 else 3) + 2*(last i-c.dig i)+3 = c.qC i+partLen (i/3) (c.dig i)
+        unfold partLen
+        rw [if_neg (Nat.ne_of_lt hdq)]
+        split_ifs <;> omega
   · have h7 := topMax_hi i (by omega)
-    unfold rungPc endPc last
-    simp only [h51, and_false, if_false, if_neg (show ¬ i < 51 by omega)]
-    have hs : c.startPc i = c.r8Start i := by unfold startPc; rw [if_neg h51]
-    rw [hs, h7] at *
-    unfold partLen mx
-    simp only [show ¬ (17:Nat) < 17 by decide, if_false]
+    have hn : ¬ c.bufferSafe i := fun h => Nat.ne_of_lt hd h.1
+    simp only [rungPc,endPc,startPc,h51,and_false,if_false,hn,Nat.sub_zero]
+    unfold partLen
+    simp only [mx,show ¬ (17:Nat)<17 by decide,if_false]
+    have hd7 : c.dig i < 7 := by omega
+    simp only [if_neg (Nat.ne_of_lt hd7)]
     split_ifs <;> omega
 theorem posE_eval (c : NCtx) {s0 s : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (hR : ∀ x ∉ chainRegs, s.getReg x = s0.getReg x) (i m : Nat) (hm : m ≤ last i) :
@@ -264,5 +393,11 @@ theorem w0_low0 (c : NCtx) (i : Nat) (hi : i < 54) :
       (BitVec.ofNat 64 (c.w0 i)).toNat / 2 ^ 16 = c.prefix / 2 ^ 16 := by
   have := w0_low c i 0 hi (by omega)
   rwa [Nat.mul_zero, Nat.add_zero] at this
+def tableJump (c : NCtx) (i : Nat) : Nat := if (i%3=0 ∧ i<51) ∧ rowInl (i/3) (c.kOf (i/3))=false then 1 else 0
+def chainCost (c : NCtx) (i d : Nat) : Nat :=
+  if d=topMax i then (if c.bufferSafe i then 0 else 4+c.tableJump i)
+  else 4+c.tableJump i+9*(topMax i-d)-(if d+1=topMax i then 1 else 0)
+def chainsCost (c : NCtx) (i k : Nat) : Nat :=
+  ((List.range' i k).map fun j => c.chainCost j (c.dig j)).sum
 end NCtx
 end SigGolfCandidate.T3M.Nonbinary

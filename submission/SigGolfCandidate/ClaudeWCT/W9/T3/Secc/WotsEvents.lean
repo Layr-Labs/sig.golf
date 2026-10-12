@@ -50,12 +50,12 @@ noncomputable def referenceInput (answers : Answers) (L : LeafAddr) : Option Has
 def EncodingMatchAt (answers : Answers) (trace : List Entry) (L : LeafAddr) : Prop :=
   ∃ message counter pad answer, Extract.msgFits L.lay message ∧ (encRow L message counter pad, answer) ∈ trace ∧
     referenceInput answers L ≠ some (encRow L message counter pad) ∧
-    decode L.lay (low answer) = some (referenceDigits answers L)
+    decode L.lay (WCT9.encodingAnswer L.lay answer) = some (referenceDigits answers L)
 def MarkerAt (answers : Answers) (trace : List Entry) (a : ChainAddr) : Prop :=
   ∃ message counter pad answer digits, Extract.msgFits a.key.lay message ∧
     (encRow a.key message counter pad, answer) ∈ trace ∧
     referenceInput answers a.key ≠ some (encRow a.key message counter pad) ∧
-    decode a.key.lay (low answer) = some digits ∧
+    decode a.key.lay (WCT9.encodingAnswer a.key.lay answer) = some digits ∧
     digits.getD a.chain 0 + 1 = (referenceDigits answers a.key).getD a.chain 0 ∧
     ∀ i, i ≠ a.chain → (referenceDigits answers a.key).getD i 0 ≤ digits.getD i 0
 def OtherChainRow (answers : Answers) (input : HashInput) : Prop :=

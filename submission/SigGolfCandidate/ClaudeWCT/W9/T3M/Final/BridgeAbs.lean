@@ -12,25 +12,39 @@ open SigGolfCandidate.T3M.Final (hrealize mrealize_eq_relabel hrealize_map)
 open ClaudeWCT.W9.T3M (Images submission)
 set_option allowUnsafeReducibility true in
 attribute [local reducible] SphincsSecurity.hashOutputBits
-set_option maxHeartbeats 1000000 in
-structure QFacts : Prop where
-  hashOnly_keygen : AllQueriesSatisfy keygen isHash
-  hashOnly_sign : ∀ (c : Cache) (m : SigGolfCandidate.T3.Message), AllQueriesSatisfy (sign c m) isHash
-  hashOnly_expandB : ∀ (m : SigGolfCandidate.T3.Message) (pk : Digest) (σ : Signature),
-    AllQueriesSatisfy (expandB m pk σ) isHash
-  hashOnly_verifyP : ∀ (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WBytes),
-    AllQueriesSatisfy (verifyP m pk w) isHash
-  public_expandB : ∀ (m : SigGolfCandidate.T3.Message) (pk : Digest) (σ : Signature),
-    AllQueriesSatisfy (expandB m pk σ) isPublic
-  public_verifyP : ∀ (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WBytes),
-    AllQueriesSatisfy (verifyP m pk w) isPublic
-  good_keygen : AllQueriesSatisfy keygen SigGolfCandidate.T3.Cost.GoodQuery
-  good_sign : ∀ (c : Cache) (m : SigGolfCandidate.T3.Message),
-    AllQueriesSatisfy (sign c m) SigGolfCandidate.T3.Cost.GoodQuery
-  good_expandB : ∀ (m : SigGolfCandidate.T3.Message) (pk : Digest) (σ : Signature),
-    AllQueriesSatisfy (expandB m pk σ) SigGolfCandidate.T3.Cost.GoodQuery
-  good_verifyP : ∀ (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WBytes),
-    AllQueriesSatisfy (verifyP m pk w) SigGolfCandidate.T3.Cost.GoodQuery
+-- Keep the record generic so its kernel-generated eliminators do not reduce programs.
+structure QueryFactsData
+    (p0 p1 p2 p3 p4 p5 p6 p7 p8 p9 : Prop) : Prop where
+  hashOnly_keygen : p0
+  hashOnly_sign : p1
+  hashOnly_expandB : p2
+  hashOnly_verifyP : p3
+  public_expandB : p4
+  public_verifyP : p5
+  good_keygen : p6
+  good_sign : p7
+  good_expandB : p8
+  good_verifyP : p9
+abbrev QFacts : Prop :=
+  QueryFactsData
+    (AllQueriesSatisfy keygen isHash)
+    (∀ (c : Cache) (m : SigGolfCandidate.T3.Message), AllQueriesSatisfy (sign c m) isHash)
+    (∀ (m : SigGolfCandidate.T3.Message) (pk : Digest) (σ : Signature),
+      AllQueriesSatisfy (expandB m pk σ) isHash)
+    (∀ (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WBytes),
+      AllQueriesSatisfy (verifyP m pk w) isHash)
+    (∀ (m : SigGolfCandidate.T3.Message) (pk : Digest) (σ : Signature),
+      AllQueriesSatisfy (expandB m pk σ) isPublic)
+    (∀ (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WBytes),
+      AllQueriesSatisfy (verifyP m pk w) isPublic)
+    (AllQueriesSatisfy keygen SigGolfCandidate.T3.Cost.GoodQuery)
+    (∀ (c : Cache) (m : SigGolfCandidate.T3.Message),
+      AllQueriesSatisfy (sign c m) SigGolfCandidate.T3.Cost.GoodQuery)
+    (∀ (m : SigGolfCandidate.T3.Message) (pk : Digest) (σ : Signature),
+      AllQueriesSatisfy (expandB m pk σ) SigGolfCandidate.T3.Cost.GoodQuery)
+    (∀ (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WBytes),
+      AllQueriesSatisfy (verifyP m pk w) SigGolfCandidate.T3.Cost.GoodQuery)
+
 section eqs
 variable {I : Images}
 set_option maxRecDepth 100000 in
@@ -63,7 +77,7 @@ theorem expand_eq (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5310
   unfold SigGolfCandidate.Bridge.countCalls
   rw [countFrom_map]
 set_option maxRecDepth 100000 in
-theorem verify_eq (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 20908) :
+theorem verify_eq (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 24028) :
     (fun r => (r.value, r.hashCalls)) <$> (submission I).run .verify (m, pk, w) =
       (fun p => (if p.1 then some () else none, p.2)) <$>
         SigGolfCandidate.Bridge.countCalls (relabel toQ (hrealize 0 (verifyP m pk w))) := by

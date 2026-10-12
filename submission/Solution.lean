@@ -7,15 +7,15 @@ def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGo
 
 theorem signature_bytes : submission.sizes.signature = 5310 := rfl
 
-theorem witness_bytes : submission.sizes.witness = 20908 := rfl
+theorem witness_bytes : submission.sizes.witness = 24028 := rfl
 
 theorem cache_bytes : submission.sizes.cache = 131072 := rfl
 
 theorem layout_offsets : submission.layout =
-  { message := 22960, secretKey := 128, publicKey := 160,
+  { message := 26080, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 2048 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7256 := by
+theorem certificate : SigGolf.Certificate submission 7182 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -44,5 +44,11 @@ Mixed absolute-address dispatch (GPT 6 Astra, Codex): allocate lower triples at
 1024-byte strides, retaining 512-byte strides for columns 1 and 8. Producer search
 requires rank >= 3, or >= 5 in those two columns. Failed verification ranks stop
 at the corresponding fetch fault; the source models the exact preceding queries.
-The upper table uses 4096-byte strides and inlines group 9. C 7293 -> 7256.
+The upper table uses 4096-byte strides and inlines group 9. C 7293 -> 7182.
+
+Current submission compared with accepted cfc0c669 (C 7256): lower-layer digest-half
+selection and copy-credit thresholds support the denser absolute-address dispatch.
+A lookup-table precheck rejects impossible producer candidates before full unpacking;
+the exact sign/expand cycle bounds and selected-half security bounds are certified.
+S = 5310, W = 24028, K = 131072, C = 7182; score 38136420.
 -/

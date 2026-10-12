@@ -6,10 +6,10 @@ namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)
 def WIT : Nat := 0x800
-def WSZ : Nat := 20908
-/-- Byte bound of the 2614 loaded witness words; the last word is the 4-byte digest counter
-zero-padded by the loader, since the witness itself is `WSZ = 20908` bytes. -/
-def WX : Nat := 20912
+def WSZ : Nat := 24028
+/-- Byte bound of the 3004 loaded witness words; the last word is the 4-byte digest counter
+zero-padded by the loader, since the witness itself is `WSZ = 24028` bytes. -/
+def WX : Nat := 24032
 def WLO : Nat := WIT + 64
 theorem ofNat_eq_iff {a b : Nat} (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) :
     (BitVec.ofNat 64 a = BitVec.ofNat 64 b) ↔ a = b := by
@@ -151,21 +151,24 @@ structure DataOK (s : MachineState) : Prop where
   mask : s.getMem (BitVec.ofNat 64 (TOPBASE - 8)) = 520192#64
   header : ∀ lay, lay < 4 →
     s.getMem (BitVec.ofNat 64 (hdrAddr lay)) = BitVec.ofNat 64 (hyperBase lay)
+  buffer3 : s.getMem (BitVec.ofNat 64 (TOPB9 + 56)) = 22160#64
 theorem DataOK.prefix {s : MachineState} (h : DataOK s) (lay : Nat) (hl : lay < 4) :
     s.getMem (BitVec.ofNat 64 (hdrAddr lay)) = BitVec.ofNat 64 (hyperBase lay) :=
   h.header lay hl
 theorem hdrAddr_bounds (lay : Nat) : TOPBASE - 120 ≤ hdrAddr lay ∧ hdrAddr lay + 8 ≤ TOPBASE - 88 := by
   unfold hdrAddr TOPBASE; constructor <;> omega
 theorem DataOK.congr_top {s t : MachineState} (h : DataOK s)
-    (hm : ∀ A, TOPBASE - 120 ≤ A → A < TOPBASE →
+    (hm : ∀ A, TOPBASE - 240 ≤ A → A < TOPBASE →
       t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)) : DataOK t := by
   constructor
   · rw [hm _ (by unfold TOPBASE; omega) (by unfold TOPBASE; omega)]
     exact h.mask
   · intro lay hl
     have hb := hdrAddr_bounds lay
-    rw [hm _ hb.1 (by unfold TOPBASE at *; omega)]
+    rw [hm _ (by unfold TOPBASE at *; omega) (by unfold TOPBASE at *; omega)]
     exact h.header lay hl
+  · rw [hm _ (by unfold TOPBASE TOPB9; omega) (by unfold TOPBASE TOPB9; omega)]
+    exact h.buffer3
 theorem DataOK.congr {s t : MachineState} (h : DataOK s)
     (hm : ∀ A, TAB ≤ A → A + 8 ≤ 2 ^ 24 →
       t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)) : DataOK t := by
@@ -176,6 +179,8 @@ theorem DataOK.congr {s t : MachineState} (h : DataOK s)
     have hb := hdrAddr_bounds lay
     rw [hm _ (by unfold TOPBASE TAB at *; omega) (by unfold TOPBASE at *; omega)]
     exact h.header lay hl
+  · rw [hm _ (by unfold TOPB9 TAB; omega) (by unfold TOPB9; omega)]
+    exact h.buffer3
 def Glob (gk : List (Reg × Word)) (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (s : MachineState) : Prop :=
   (∀ p ∈ gk, s.getReg p.1 = p.2) ∧ WitHdr w s ∧ PkOK pk s ∧ PZero s ∧ PHalf s ∧ DataOK s
 def WitAll (w : ClaudeWCT.W9.T3M.WBytes) (s : MachineState) : Prop :=

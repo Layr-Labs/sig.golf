@@ -173,12 +173,20 @@ theorem eval_shortHash (hash : Hash) (y : HashInput) :
     evalWithAnswerFn (machineAnswers hash 0) (shortHash y) =
       (hash (toQ (pad64 y))).extractLsb' 0 128 := by
   rw [← eval_mrealize, mrealize_shortHash, evalWithAnswerFn_map, eval_liftQ]
+theorem mrealize_encodingHash (lay : Layer) (y : HashInput) :
+    mrealize 0 (ClaudeWCT.WCT9.encodingHash lay y) =
+      ClaudeWCT.WCT9.encodingAnswer lay <$> (liftM (HashSpec.query (toQ (pad64 y))) : OracleComp HashSpec _) := by
+  rw [ClaudeWCT.WCT9.encodingHash, mrealize_map, SigGolfCandidate.T3M.mrealize_publicHash]
+theorem eval_encodingHash (hash : Hash) (lay : Layer) (y : HashInput) :
+    evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.WCT9.encodingHash lay y) =
+      ClaudeWCT.WCT9.encodingAnswer lay (hash (toQ (pad64 y))) := by
+  rw [← eval_mrealize, mrealize_encodingHash, evalWithAnswerFn_map, eval_liftQ]
 theorem hfg_ok (hash : Hash) : ∀ q, (∀ lay : Layer, ¬ EncQ lay.val q) → hash q = okHash hash q :=
   fun _ h => (okHash_eq_of_not_enc hash h).symm
 theorem okHash_producer (hash : Hash) (lay : Layer) (tree leaf : Nat) (msg : ClaudeWCT.WCT9.LayerMsg)
     (c : BitVec 32) {digits : List Nat}
     (hp : ClaudeWCT.WCT9.producerDecode lay
-      ((hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c)))).extractLsb' 0 128) =
+      (ClaudeWCT.WCT9.encodingAnswer lay (hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c))))) =
         some digits) :
     hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c))) =
       okHash hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c))) := by
@@ -220,7 +228,7 @@ theorem agree_layers (hash : Hash) (sig : ClaudeWCT.WCT9.Signature) (index : Nat
           have hlay := ClaudeWCT.WCT9.ofNat_layer_val n (by omega)
           simp only [hs] at he
           have hproducerRaw := hsd
-          rw [eval_shortHash] at hsd
+          rw [eval_encodingHash] at hsd
           have hq := okHash_producer hash _ _ _ msg counter hsd
           by_cases hn0 : n = 0
           · subst hn0
@@ -231,7 +239,7 @@ theorem agree_layers (hash : Hash) (sig : ClaudeWCT.WCT9.Signature) (index : Nat
               rw [hc _ (by rw [hlay]; omega), hlay]; rfl
             simp only [ClaudeWCT.WCT9.verifyLayersBC, hcounter, hnot, ite_false]
             refine (agree_mrealize_bind _ _).mpr ⟨?_, ?_⟩
-            · rw [mrealize_shortHash, agree_map_iff]
+            · rw [mrealize_encodingHash, agree_map_iff]
               exact ⟨hq, trivial⟩
             · simp only [if_true, ↓reduceIte]
               rw [ClaudeWCT.WCT9.verifyTop_of_decode _ _ hdecode, mrealize_map, agree_map_iff]
@@ -254,7 +262,7 @@ theorem agree_layers (hash : Hash) (sig : ClaudeWCT.WCT9.Signature) (index : Nat
                   simp
                 simp only [ClaudeWCT.WCT9.verifyLayersBC, hcounter, hnot, ite_false]
                 refine (agree_mrealize_bind _ _).mpr ⟨?_, ?_⟩
-                · rw [mrealize_shortHash, agree_map_iff]
+                · rw [mrealize_encodingHash, agree_map_iff]
                   exact ⟨hq, trivial⟩
                 · rw [hdecode]
                   have hgood := ClaudeWCT.WCT9.producerDecode_lowerRankGood
@@ -338,7 +346,7 @@ attribute [local reducible] SphincsSecurity.hashOutputBits ClaudeWCT.W9.T3M.subm
   SigGolfCandidate.Legacy.Output SigGolfCandidate.Legacy.Input
 set_option maxRecDepth 100000 in
 theorem expand_witness (P : Pending I) (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5310)
-    (w : Bytes 20908) (he : ((ClaudeWCT.W9.T3M.submission I).runWith hash .expand (m, pk, s)).value = some w) :
+    (w : Bytes 24028) (he : ((ClaudeWCT.W9.T3M.submission I).runWith hash .expand (m, pk, s)).value = some w) :
     ∃ σ' N wt, evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.W9.T3M.expandN0 m pk σ') = some (N, wt) ∧
       w = ClaudeWCT.W9.T3M.witEnc N wt := by
   have h := congrArg (evalWithAnswerFn hash) (expand_value P m pk s)
@@ -354,7 +362,7 @@ theorem expand_witness (P : Pending I) (hash : Hash) (m : Message) (pk : PublicK
       obtain ⟨c, -, -, h0⟩ := ClaudeWCT.W9.T3M.expandN_completion _ m pk _ N wt hx
       exact ⟨_, N, wt, h0, (Option.some.inj he).symm⟩
 set_option maxRecDepth 100000 in
-theorem verify_run_ok (P : Pending I) (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 20908)
+theorem verify_run_ok (P : Pending I) (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24028)
     (hagree : Agree hash (okHash hash) (mrealize 0 (ClaudeWCT.W9.T3M.verifyP m pk w))) :
     (ClaudeWCT.W9.T3M.submission I).runWith hash .verify (m, pk, w) =
       (ClaudeWCT.W9.T3M.submission I).runWith (okHash hash) .verify (m, pk, w) := by

@@ -284,7 +284,7 @@ theorem contactTest_enc {A : Answers} {K : Coord → Prop} {y : HashOutput} {L :
       (∃ cs, firstUnknownMsg K L = some cs ∧
           slotValue (Wots.encRow L.toWots m c pad) cs.2 = LargeResidual.honestValue A cs.1) ∨
         (Wots.referenceInput A L.toWots ≠ some (Wots.encRow L.toWots m c pad) ∧
-          decode L.1.lay (y.extractLsb' 0 128) = some (Wots.referenceDigits A L.toWots)) := by
+          decode L.1.lay (WCT9.encodingAnswer L.1.lay y) = some (Wots.referenceDigits A L.toWots)) := by
   constructor
   · rintro (⟨N', hN', -⟩ | ⟨L', m', c', pad', -, hX, h⟩)
     · rw [encodingRow_parsed_none] at hN'
@@ -351,16 +351,16 @@ theorem Coherent.decode_ref (h : Coherent U T vals nv τ a) (L : EncLeaf) (d : D
       · rintro rfl
         exact hw
 theorem Coherent.prefix_ref (h : Coherent U T vals nv τ a) (L : EncLeaf) (ctr : BitVec 32) (hp : PrefixRow a L ctr)
-    (hd : decode L.1.lay ((prefixValue a L ctr).extractLsb' 0 128) = some (Wots.referenceDigits T L.toWots)) :
+    (hd : decode L.1.lay (WCT9.encodingAnswer L.1.lay (prefixValue a L ctr)) = some (Wots.referenceDigits T L.toWots)) :
     Wots.referenceInput T L.toWots = some (Wots.encRow L.toWots (msgVals vals L) ctr 0) := by
   obtain ⟨hcap, hle⟩ := hp
   have hlt : ctr.toNat < 2 ^ 22 := lt_of_lt_of_le hcap (WCT9.searchLimit_le L.1.lay)
   have hpv : prefixValue a L ctr = a.rows L ⟨ctr.toNat, hlt⟩ := by unfold prefixValue; rw [dif_pos hlt]
   rw [hpv] at hd
-  have hd' : WCT9.producerDecode L.1.lay ((a.rows L ⟨ctr.toNat, hlt⟩).extractLsb' 0 128) =
+  have hd' : WCT9.producerDecode L.1.lay (WCT9.encodingAnswer L.1.lay (a.rows L ⟨ctr.toNat, hlt⟩)) =
       some (Wots.referenceDigits T L.toWots) := WotsExtract.producerDecode_of_reference T L.toWots hd
   have hrej : ∀ c : Fin (2 ^ 22), ∀ r', SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt L) (a.rows L) =
-      some r' → c < r'.1 → WCT9.producerDecode L.1.lay ((a.rows L c).extractLsb' 0 128) = none := by
+      some r' → c < r'.1 → WCT9.producerDecode L.1.lay (WCT9.encodingAnswer L.1.lay (a.rows L c)) = none := by
     intro c r' hr' hc
     have hn := ((SphincsSecurity.Concrete.FirstSuccessTable.select_some_iff _ _ r'.1 r'.2).mp hr').2 c hc
     exact (decodeAt_eq_none L _).mp hn
@@ -701,7 +701,8 @@ theorem continue_probe (hrel : Rel U T vals nv τ a q mon st ws) (hlt : st.calls
       rcases test with ⟨g, hit⟩
       cases hit with
       | label p => exact hk.2
-      | target t => trivial⟩
+      | target t => trivial
+      | selectedTarget t pickLow => trivial⟩
   · intro c hc
     have h1 := hrel.hidden c hc
     have h2 := card_restrict_ge test ws.candidates (τ ⟨X, hX⟩) hadm (.inl c)
@@ -754,13 +755,15 @@ theorem known_seed_base {D : Coord → Prop} {s : SeedIndex} (h : Known D (.inr 
   cases h with
   | base h => exact h
 theorem keygen_inl {c : Coord} (hc : c ∈ keygenDisclosed) : ∃ N, c = .inl N := by
-  unfold keygenDisclosed at hc
-  simp only [List.mem_flatMap, List.mem_filterMap] at hc
-  obtain ⟨level, _, node, _, h⟩ := hc
-  unfold treeChild at h
-  split_ifs at h
-  · obtain ⟨L, _, rfl⟩ := Option.map_eq_some_iff.mp h; exact ⟨_, rfl⟩
-  · obtain ⟨n, _, rfl⟩ := Option.map_eq_some_iff.mp h; exact ⟨_, rfl⟩
+  rcases List.mem_append.mp hc with hc | hc
+  · unfold keygenCacheDisclosed at hc
+    simp only [List.mem_flatMap, List.mem_filterMap] at hc
+    obtain ⟨level, _, node, _, h⟩ := hc
+    unfold treeChild at h
+    split_ifs at h
+    · obtain ⟨L, _, rfl⟩ := Option.map_eq_some_iff.mp h; exact ⟨_, rfl⟩
+    · obtain ⟨n, _, rfl⟩ := Option.map_eq_some_iff.mp h; exact ⟨_, rfl⟩
+  · rcases encodingDisclosed_shape hc with ⟨n, rfl⟩ | ⟨i, rfl⟩ <;> exact ⟨_, rfl⟩
 theorem known_seed_disc (h : Rel U T vals nv τ a q mon st ws) (hlt : st.calls < q) (hq : q ≤ 2 ^ 127)
     (s : SeedIndex) (hc1 : (ws.candidates (.inl (.inr s))).card = 1) : (.inr s : Coord) ∈ st.disclosed := by
   have hk : st.known (.inr s) := by
@@ -824,7 +827,7 @@ theorem case_unknownChild (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T val
     exact fun h => childSlots_ne N cs hcsm (Sum.inl.inj h)
   have heff : (⟨some (.inl cs.1, slotValue X cs.2), .label (.inl (.inl N))⟩ : Probe WCoord).effF ws.candidates =
       ⟨some (.inl cs.1, slotValue X cs.2), .label (.inl (.inl N))⟩ := by
-    apply effF_self
+    refine effF_self _ _ ?_ (Or.inl rfl)
     intro g hg
     simp only [Option.mem_def, Option.some.injEq] at hg
     subst hg
@@ -1098,7 +1101,7 @@ theorem case_enc_known (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals n
         tickReq U .call
         pure (prefixValue a L ctr, st.after X)
       else (fun y => (y, st.after X)) <$>
-        testReq U (decide (X ∉ st.seen)) ⟨X, hX⟩ ⟨none, .target (refDigest a L)⟩) ws) := by
+        testReq U (decide (X ∉ st.seen)) ⟨X, hX⟩ ⟨none, encodingHit L.1.lay (refDigest a L)⟩) ws) := by
   have hall := firstUnknownMsg_none hkm
   have hnp : ¬Parsed X := by rw [hXe]; exact not_parsed_of_encRow ⟨L, m, ctr, pad, hfit, rfl⟩
   have hnd : ¬IsDigestRow X := by rw [hXe]; exact encRow_not_digest L m ctr pad
@@ -1115,11 +1118,10 @@ theorem case_enc_known (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals n
       lookupVal_map (fun c => Sum.elim vals nv (.inl c)) _ cs.1 (List.mem_map.mpr ⟨cs, hcs, rfl⟩))
   rw [hmv]
   have hct : ∀ y : HashOutput, ContactTest T st.known X y ↔
-      Wots.referenceInput T L.toWots ≠ some X ∧ low y = refDigest a L := by
+      Wots.referenceInput T L.toWots ≠ some X ∧ WCT9.encodingAnswer L.1.lay y = refDigest a L := by
     intro y
-    rw [hXe, contactTest_enc hfit, hcoh.honestValue, hcoh.decode_ref, ← hXe, hkm]
-    simp only [reduceCtorEq, false_and, exists_false, false_or]
-    rfl
+    rw [hXe, contactTest_enc hfit, hcoh.honestValue, hcoh.decode_ref, ← hXe, hkm] <;>
+      simp only [reduceCtorEq, false_and, exists_false, false_or]
   have hcell : ∀ N' : CanonGraph.Node, X = cellValues N' vals → ∀ cs ∈ childSlots N', st.known cs.1 :=
     fun N' hN' => absurd hN' (not_cell_unparsed hcoh hnp N')
   have henc : ∀ (L' : EncLeaf) (ctr' : BitVec 32), X = Wots.encRow L'.toWots (msgVals vals L') ctr' 0 →
@@ -1170,26 +1172,26 @@ theorem case_enc_known (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals n
     have hfresh := hrel1.fresh X hX hnd
     have hcomp := observed_testReq (U := U) (q := q) (vals := vals) (nv := nv) (τ := τ) (st := st)
       (ws := discloseStates U q (Sum.elim vals nv) ws ((msgSlots L).map Prod.fst)) aux
-      (st.after X) X hX ⟨none, .target (refDigest a L)⟩ hfresh
+      (st.after X) X hX ⟨none, encodingHit L.1.lay (refDigest a L)⟩ hfresh
     refine queryOutcome_congr hcomp ?_
     rw [effF_self _ _ (by intro g hg; cases hg)]
-    have hadm : ∀ g ∈ (⟨none, .target (refDigest a L)⟩ : Probe WCoord).guess, ∀ parent,
-        (⟨none, .target (refDigest a L)⟩ : Probe WCoord).hit = Hit.label parent → g.1 ≠ parent := by
+    have hadm : ∀ g ∈ (⟨none, encodingHit L.1.lay (refDigest a L)⟩ : Probe WCoord).guess, ∀ parent,
+        (⟨none, encodingHit L.1.lay (refDigest a L)⟩ : Probe WCoord).hit = Hit.label parent → g.1 ≠ parent := by
       intro g hg; cases hg
     by_cases hs : X ∈ st.seen
     · rw [if_neg (not_not.mpr hs)]
       exact continue_read_call hrel1 hlt X hX hnd hTX (fun h => h.1 hs) hcell henc
     · rw [if_pos hs]
-      by_cases hk : (⟨none, .target (refDigest a L)⟩ : Probe WCoord).keep (Sum.elim vals nv) (τ ⟨X, hX⟩)
+      by_cases hk : (⟨none, encodingHit L.1.lay (refDigest a L)⟩ : Probe WCoord).keep (Sum.elim vals nv) (τ ⟨X, hX⟩)
       · rw [if_pos hk]
         have hnc : ¬(X ∉ st.seen ∧ X ∈ U ∧ ContactTest T st.known X (T (.inl (.inr X)))) := by
           rintro ⟨-, -, hc⟩
           rw [hct, hTX] at hc
-          exact ((keep_target (Sum.elim vals nv) _ _).mp hk) hc.2.symm
+          exact ((keep_encodingHit (Sum.elim vals nv) _ _ _).mp hk) hc.2.symm
         exact continue_probe hrel1 hlt X hX _ hk hadm hTX hnd hnc hcell henc
       · rw [if_neg hk]
         refine outcome_stop hrel1 hlt X _ ⟨hs, hX, (hct _).mpr ⟨hri, ?_⟩⟩ rfl
-        rw [keep_target, not_not] at hk
+        rw [keep_encodingHit, not_not] at hk
         rw [hTX]
         exact hk.symm
 theorem case_enc_unknown (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals nv τ a q mon st ws)
@@ -1199,89 +1201,8 @@ theorem case_enc_unknown (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals
     QueryOutcome U T vals nv τ a q mon st ws X (observedRun aux q (Sum.elim vals nv) τ
       ((fun y => (y, st.after X)) <$>
         testReq U (decide (X ∉ st.seen)) ⟨X, hX⟩ ⟨some (.inl cs.1, slotValue X cs.2), .target (refDigest a L)⟩) ws) := by
-  obtain ⟨hcsm, hcsk⟩ := firstUnknownMsg_some hfu
-  have hnp : ¬Parsed X := by rw [hXe]; exact not_parsed_of_encRow ⟨L, m, ctr, pad, hfit, rfl⟩
-  have hnd : ¬IsDigestRow X := by rw [hXe]; exact encRow_not_digest L m ctr pad
-  have hct : ∀ y : HashOutput, ContactTest T st.known X y ↔
-      slotValue X cs.2 = vals cs.1 ∨ (Wots.referenceInput T L.toWots ≠ some X ∧ low y = refDigest a L) := by
-    intro y
-    rw [hXe, contactTest_enc hfit, hcoh.honestValue, hcoh.decode_ref, ← hXe, hfu]
-    constructor
-    · rintro (⟨cs', hcs', h⟩ | h)
-      · cases hcs'
-        exact Or.inl h
-      · exact Or.inr h
-    · rintro (h | h)
-      · exact Or.inl ⟨cs, rfl, h⟩
-      · exact Or.inr h
-  have hcell : ∀ N' : CanonGraph.Node, X = cellValues N' vals → ∀ cs ∈ childSlots N', st.known cs.1 :=
-    fun N' hN' => absurd hN' (not_cell_unparsed hcoh hnp N')
-  have hadm : ∀ g ∈ (⟨some (.inl cs.1, slotValue X cs.2), .target (refDigest a L)⟩ : Probe WCoord).guess, ∀ parent,
-      (⟨some (.inl cs.1, slotValue X cs.2), .target (refDigest a L)⟩ : Probe WCoord).hit = Hit.label parent →
-        g.1 ≠ parent := by
-    intro g hg parent hpar
-    cases hpar
-  have heff : (⟨some (.inl cs.1, slotValue X cs.2), .target (refDigest a L)⟩ : Probe WCoord).effF ws.candidates =
-      ⟨some (.inl cs.1, slotValue X cs.2), .target (refDigest a L)⟩ := by
-    apply effF_self
-    intro g hg
-    simp only [Option.mem_def, Option.some.injEq] at hg
-    subst hg
-    exact hrel.adm hlt hq hok _ hcsk _ _ fun parent hpar => by cases hpar
-  have hcomp := observed_testReq (U := U) (q := q) (vals := vals) (nv := nv) (τ := τ) (st := st) (ws := ws) aux
-    (st.after X) X hX ⟨some (.inl cs.1, slotValue X cs.2), .target (refDigest a L)⟩ (hrel.fresh X hX hnd)
-  refine queryOutcome_congr hcomp ?_
-  rw [heff]
-  have hres : X ≠ Wots.encRow L.toWots (msgVals vals L) ctr 0 → T (.inl (.inr X)) = τ ⟨X, hX⟩ := fun hh =>
-    hcoh.residual X hX (fun N' => by rw [hcoh.cell]; exact not_cell_unparsed hcoh hnp N')
-      (by rw [hXe, honestPrefix_iff, ← hXe]; exact fun h => hh h.1)
-  have hri : X ≠ Wots.encRow L.toWots (msgVals vals L) ctr 0 → Wots.referenceInput T L.toWots ≠ some X :=
-    fun hh h => by
-      rw [hXe] at h
-      exact hh (by rw [hXe]; exact (hcoh.referenceInput_eq h).1)
-  have henc : X ≠ Wots.encRow L.toWots (msgVals vals L) ctr 0 → ∀ (L' : EncLeaf) (ctr' : BitVec 32),
-      X = Wots.encRow L'.toWots (msgVals vals L') ctr' 0 → ∀ cs' ∈ msgSlots L', st.known cs'.1 := by
-    intro hh L' ctr' hL'
-    have hL'' := hL'
-    rw [hXe] at hL''
-    obtain ⟨rfl, rfl⟩ := encRow_encLeaf hL''
-    exact absurd hL' hh
-  have hguess : slotValue X cs.2 ≠ vals cs.1 → X ≠ Wots.encRow L.toWots (msgVals vals L) ctr 0 := fun hg hh =>
-    hg (by rw [hh]; exact slot_msgVals L vals ctr 0 cs hcsm)
-  by_cases hs : X ∈ st.seen
-  · rw [if_neg (not_not.mpr hs)]
-    have hh : X ≠ Wots.encRow L.toWots (msgVals vals L) ctr 0 := fun hh =>
-      hcsk (hrel.seenEnc X hs hX L ctr hh cs hcsm)
-    exact continue_read_call hrel hlt X hX hnd (hres hh) (fun h => h.1 hs) hcell (henc hh)
-  · rw [if_pos hs]
-    by_cases hg : slotValue X cs.2 = vals cs.1
-    · have hkeep : ¬(⟨some (.inl cs.1, slotValue X cs.2), .target (refDigest a L)⟩ : Probe WCoord).keep
-          (Sum.elim vals nv) (τ ⟨X, hX⟩) := by
-        rw [keep_guess_target]
-        intro h
-        exact h.1 hg.symm
-      rw [if_neg hkeep]
-      exact outcome_stop hrel hlt X _ ⟨hs, hX, (hct _).mpr (Or.inl hg)⟩ rfl
-    · have hh := hguess hg
-      have hTX := hres hh
-      by_cases hk : (⟨some (.inl cs.1, slotValue X cs.2), .target (refDigest a L)⟩ : Probe WCoord).keep
-          (Sum.elim vals nv) (τ ⟨X, hX⟩)
-      · rw [if_pos hk]
-        have hk' := (keep_guess_target (Sum.elim vals nv) _ _ _ _).mp hk
-        have hnc : ¬(X ∉ st.seen ∧ X ∈ U ∧ ContactTest T st.known X (T (.inl (.inr X)))) := by
-          rintro ⟨-, -, hc⟩
-          rw [hct, hTX] at hc
-          rcases hc with h | h
-          · exact hg h
-          · exact hk'.2 h.2.symm
-        exact continue_probe hrel hlt X hX _ hk hadm hTX hnd hnc hcell (henc hh)
-      · rw [if_neg hk]
-        refine outcome_stop hrel hlt X _ ⟨hs, hX, (hct _).mpr (Or.inr ⟨hri hh, ?_⟩)⟩ rfl
-        rw [keep_guess_target, not_and_or, not_not, not_not] at hk
-        rcases hk with h | h
-        · exact absurd h.symm hg
-        · rw [hTX]
-          exact h.symm
+  rw [st.firstUnknownMsg_none L] at hfu
+  cases hfu
 theorem case_digest (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals nv τ a q mon st ws)
     (hlt : st.calls < q) (X : HashInput) (hX : X ∈ U) (hd : IsDigestRow X) :
     QueryOutcome U T vals nv τ a q mon st ws X (observedRun aux q (Sum.elim vals nv) τ

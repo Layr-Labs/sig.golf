@@ -50,10 +50,17 @@ def layerRegion (N : HashOutput) (w : WCT9.Witness) (lay : Layer) : List UInt8 :
   else lowerPathBytes lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)
       (w.counters (Fin.ofNat 4 (lay.val - 1))) ++
     (layerBytes lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)).drop (64 * height lay)
+def endpointBytes (sig : WCT9.Signature) (lay : Layer) : List UInt8 :=
+  (List.finRange (chainCount lay)).flatMap fun i => bytesLE 16 ((sig.layers lay).values i)
+def leafBufferBytes (sig : WCT9.Signature) (lay : Layer) : List UInt8 :=
+  if lay = 0 then zeros 32 ++ endpointBytes sig lay ++ zeros 16
+  else (endpointBytes sig lay).take 16 ++ zeros 16 ++ (endpointBytes sig lay).drop 16 ++ zeros 32
+def leafBuffersBytes (sig : WCT9.Signature) : List UInt8 :=
+  (List.finRange 4).reverse.flatMap (leafBufferBytes sig)
 def tailBytes (w : WCT9.Witness) : List UInt8 :=
   bytesLE 16 w.signature.rho ++ zeros 8 ++ bytesLE 4 w.digestCounter ++ zeros 4
 def witList (N : HashOutput) (w : WCT9.Witness) : List UInt8 :=
-  headerBytes w ++ wctBytes N w.signature ++ (List.finRange 4).flatMap (layerRegion N w) ++ tailBytes w
+  headerBytes w ++ wctBytes N w.signature ++ (List.finRange 4).flatMap (layerRegion N w) ++ leafBuffersBytes w.signature ++ tailBytes w
 def witEnc (N : HashOutput) (w : WCT9.Witness) : WBytes := BitVec.ofNat _ (readLE (witList N w))
 def expandB (message : Message) (pk : Digest) (sig : WCT9.Signature) : M (Option WBytes) :=
   (Option.map fun x => witEnc x.1 x.2) <$> expandN message pk sig
@@ -79,6 +86,11 @@ def padDecP (N : HashOutput) (w : WBytes) : Pads where
   chainHeader lay i := wchainHeaderPad w lay i.val
   bc lay := wbcPad w (WCT9.digestIndex N) lay
   bcRight := wbcRight w
+  endpointMask lay i := wvalue w lay i.val ^^^ wdig w (leafBufferSlot lay i.val)
+@[simp] theorem valueP_dec (N : HashOutput) (w : WBytes) (lay : Layer) (digits : List Nat)
+    (i : Fin (chainCount lay)) :
+    valueP (witDecP N w).signature (padDecP N w) lay digits i = wvalueFor w lay digits i.val := by
+  simp [valueP, witDecP, padDecP, wvalueFor, BitVec.xor_assoc]
 def Shaped (N : HashOutput) (_w : WBytes) : Prop := WCT9.admissible N = true
 instance (N : HashOutput) (w : WBytes) : Decidable (Shaped N w) := by
   unfold Shaped; infer_instance

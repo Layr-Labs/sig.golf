@@ -46,7 +46,7 @@ private theorem queried_map_l {α β : Type} (answers : Answers) (f : α → β)
 theorem layersBC_succ_eq (w : WBytes) (index n : Nat) (msg : WCT9.LayerMsg) :
     layersBC w index (n + 1) msg =
       if (wbcCtr w index (Fin.ofNat 4 n)).toNat ≥ WCT9.verifyWindow then pure none else
-      (shortHash (layerEncodingInputP (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
+      (ClaudeWCT.WCT9.encodingHash (Fin.ofNat 4 n) (layerEncodingInputP (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
           (route index (Fin.ofNat 4 n)).1 msg (wbcCtr w index (Fin.ofNat 4 n)) (wbcPad w index (Fin.ofNat 4 n)) (wbcRight w)) >>= fun answer =>
         if n = 0 then topLayerP w index answer
         else match decode (Fin.ofNat 4 n) answer with
@@ -80,7 +80,7 @@ theorem layersBC_succ_split (answers : Answers) (w : WBytes) (index n : Nat) (ms
   rw [if_neg hc] at h ⊢
   rw [evalWithAnswerFn_bind] at h
   rw [queried_bind]
-  generalize hans : evalWithAnswerFn answers (shortHash (layerEncodingInputP (Fin.ofNat 4 n)
+  generalize hans : evalWithAnswerFn answers (ClaudeWCT.WCT9.encodingHash (Fin.ofNat 4 n) (layerEncodingInputP (Fin.ofNat 4 n)
     (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg (wbcCtr w index (Fin.ofNat 4 n))
     (wbcPad w index (Fin.ofNat 4 n)) (wbcRight w))) = answer at h ⊢
   have hdig : ∃ digits, decode (Fin.ofNat 4 n) answer = some digits := by
@@ -95,7 +95,8 @@ theorem layersBC_succ_split (answers : Answers) (w : WBytes) (index n : Nat) (ms
   obtain ⟨digits, hd⟩ := hdig
   refine ⟨digits, ⟨by omega, by rw [hans]; exact hd⟩, ?_, ?_, ?_⟩
   · apply List.mem_append_left
-    rw [queried_shortHash]; exact List.mem_singleton_self _
+    change encodingQuery w index (Fin.ofNat 4 n) msg ∈ [encodingQuery w index (Fin.ofNat 4 n) msg]
+    exact List.mem_singleton_self _
   · intro hn0
     subst hn0
     simp only [if_true] at h ⊢

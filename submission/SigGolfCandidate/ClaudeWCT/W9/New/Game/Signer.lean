@@ -189,7 +189,7 @@ theorem forestPk_allowed (index : Nat) (pairs : List (Digest × Digest)) :
   exact shortHash_allowed P hpublic _
 omit hseed in
 theorem layerCounterSearch_allowed'
-    (henc : ∀ lay tree leaf msg counter, AllQueriesSatisfy (shortHash (WCT9.layerEncodingInput lay tree leaf msg counter)) P)
+    (henc : ∀ lay tree leaf msg counter, AllQueriesSatisfy (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg counter)) P)
     (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (counter fuel : Nat) :
     AllQueriesSatisfy (WCT9.layerCounterSearch lay tree leaf msg counter fuel) P := by
   induction fuel generalizing counter with
@@ -207,7 +207,7 @@ theorem layerCounterSearch_allowed (lay : Layer) (tree leaf : Nat) (msg : WCT9.L
   layerCounterSearch_allowed' P (fun _ _ _ _ _ => shortHash_allowed P hpublic _) lay tree leaf msg counter fuel
 omit hseed in
 theorem signLayersBC_allowed' (cache : SigGolfCandidate.T3.Cache)
-    (henc : ∀ lay tree leaf msg counter, AllQueriesSatisfy (shortHash (WCT9.layerEncodingInput lay tree leaf msg counter)) P)
+    (henc : ∀ lay tree leaf msg counter, AllQueriesSatisfy (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg counter)) P)
     (hbuild : ∀ lay tree selected digits, AllQueriesSatisfy (WCT9.buildTreeP lay tree selected digits) P)
     (htop : ∀ leaf digits, AllQueriesSatisfy (signTop cache leaf digits) P) (index n : Nat) (msg : WCT9.LayerMsg) :
     AllQueriesSatisfy (WCT9.signLayersBC cache index n msg) P := by

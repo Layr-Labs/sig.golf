@@ -8,7 +8,7 @@ open SigGolfCandidate.T3.Security.Wots (LeafAddr ChainAddr Entry low entriesOf w
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3.Security.Wots
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3M (chainP)
-open ClaudeWCT.W9.T3M (layerP wchainPads wchainHeaderPad wmerklePad wpath wvalue wbcCtr wbcPad wbcRight)
+open ClaudeWCT.W9.T3M (layerP wchainPads wchainHeaderPad wmerklePad wpath wvalueFor wbcCtr wbcPad wbcRight)
 open SigGolfCandidate.T3.Security.WotsExtract (SourceLeaf SourceChain seenRow_mono entriesOf_mono mem_entriesOf routeLeaf
   routeLeaf_source)
 open SigGolfCandidate.T3.Correctness (Answers treeValue builtTree leafSeed leafEnd leafValue)
@@ -39,7 +39,7 @@ theorem leaf_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (
     StructuralHitSrc answers (entriesOf answers qs) ∨
     ∀ i, i < chainCount lay →
       (depth answers ⟨routeLeaf index lay, i⟩ ≤ digits.getD i 0 →
-        wvalue w lay i = WCT9.wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
+        wvalueFor w lay digits i = WCT9.wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
           (digits.getD i 0 < maxDigit lay i →
             wchainPads w lay i = (0, 0) ∧ wchainHeaderPad w lay i = 0)) ∧
       (digits.getD i 0 < depth answers ⟨routeLeaf index lay, i⟩ →
@@ -64,12 +64,12 @@ theorem leaf_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (
       (List.range (chainCount lay)).map (fun i => evalWithAnswerFn answers
         (chainP lay (route index lay).2 (route index lay).1 i (digits.getD i 0)
           (maxDigit lay i - digits.getD i 0) (wchainPads w lay i).1 (wchainPads w lay i).2
-          (wchainHeaderPad w lay i) (wvalue w lay i))) := by
+          (wchainHeaderPad w lay i) (wvalueFor w lay digits i))) := by
     rw [Extract.layerChains, Correctness.eval_mapM]
     exact Extract.map_finRange_val _ (fun i => evalWithAnswerFn answers
         (chainP lay (route index lay).2 (route index lay).1 i (digits.getD i 0)
           (maxDigit lay i - digits.getD i 0) (wchainPads w lay i).1 (wchainPads w lay i).2
-          (wchainHeaderPad w lay i) (wvalue w lay i)))
+          (wchainHeaderPad w lay i) (wvalueFor w lay digits i)))
   rcases Extract.leafHash_extract answers lay (route index lay).2 (route index lay).1
       (evalWithAnswerFn answers (Extract.layerChains w index lay digits))
       ((List.range (chainCount lay)).map (WCT9.wotsEnd answers lay (route index lay).2 (route index lay).1))
@@ -92,7 +92,7 @@ theorem leaf_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (
   have hc := Extract.chainCount_le lay
   have hreach : evalWithAnswerFn answers
       (chainP lay (route index lay).2 (route index lay).1 i (digits.getD i 0) (maxDigit lay i - digits.getD i 0)
-        (wchainPads w lay i).1 (wchainPads w lay i).2 (wchainHeaderPad w lay i) (wvalue w lay i)) =
+        (wchainPads w lay i).1 (wchainPads w lay i).2 (wchainHeaderPad w lay i) (wvalueFor w lay digits i)) =
       honestChainValue answers lay (route index lay).2 (route index lay).1 i
         (WCT9.wotsSeed answers lay (route index lay).2 (route index lay).1 i)
         (digits.getD i 0 + (maxDigit lay i - digits.getD i 0)) := by
@@ -103,7 +103,7 @@ theorem leaf_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (
     have hm := Nonbinary.maxDigit_lt_pow_width lay i
     omega
   rcases chain_cases answers ⟨routeLeaf index lay, i⟩ (digits.getD i 0) (maxDigit lay i - digits.getD i 0)
-      (wchainPads w lay i).1 (wchainPads w lay i).2 (wchainHeaderPad w lay i) (wvalue w lay i) qs
+      (wchainPads w lay i).1 (wchainPads w lay i).2 (wchainHeaderPad w lay i) (wvalueFor w lay digits i) qs
       (fun q hq => hqC q (Extract.layerChains_queried answers w index lay digits (route index lay).1
         (route index lay).2 rfl rfl i hi q hq))
       hsrcC (Extract.route_tree_treeBits index hidx lay) hcount (by omega) hreach with
@@ -125,7 +125,7 @@ theorem layerP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer)
         wmerklePad w lay (route index lay).1 j = 0) ∧
       ∀ i, i < chainCount lay →
         (depth answers ⟨routeLeaf index lay, i⟩ ≤ digits.getD i 0 →
-          wvalue w lay i = WCT9.wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
+          wvalueFor w lay digits i = WCT9.wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
             (digits.getD i 0 < maxDigit lay i →
               wchainPads w lay i = (0, 0) ∧ wchainHeaderPad w lay i = 0)) ∧
         (digits.getD i 0 < depth answers ⟨routeLeaf index lay, i⟩ →
@@ -192,7 +192,7 @@ theorem layerPairP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : La
         (j + 1 < height lay → wmerklePad w lay (route index lay).1 j = 0)) ∧
       ∀ i, i < chainCount lay →
         (depth answers ⟨routeLeaf index lay, i⟩ ≤ digits.getD i 0 →
-          wvalue w lay i = WCT9.wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
+          wvalueFor w lay digits i = WCT9.wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
             (digits.getD i 0 < maxDigit lay i →
               wchainPads w lay i = (0, 0) ∧ wchainHeaderPad w lay i = 0)) ∧
         (digits.getD i 0 < depth answers ⟨routeLeaf index lay, i⟩ →
@@ -289,7 +289,7 @@ theorem frame_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) 
         (j + 1 < height lay ∨ lay.val = 0 → wmerklePad w lay (route index lay).1 j = 0))
     (hchains : ∀ i, i < chainCount lay →
       (depth answers ⟨routeLeaf index lay, i⟩ ≤ digits.getD i 0 →
-        wvalue w lay i = WCT9.wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
+        wvalueFor w lay digits i = WCT9.wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
           (digits.getD i 0 < maxDigit lay i →
             wchainPads w lay i = (0, 0) ∧ wchainHeaderPad w lay i = 0)) ∧
       (digits.getD i 0 < depth answers ⟨routeLeaf index lay, i⟩ →
@@ -300,7 +300,7 @@ theorem frame_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) 
       (msg = Extract.honestMsg answers index lay ∧ BC.GoodZ answers w index lay) := by
   classical
   have hdec : decode (routeLeaf index lay).lay
-      (low (answers (.inl (.inr (encRow (routeLeaf index lay) msg (wbcCtr w index lay) (wbcPad w index lay, wbcRight w)))))) = some digits :=
+      (WCT9.encodingAnswer (routeLeaf index lay).lay (answers (.inl (.inr (encRow (routeLeaf index lay) msg (wbcCtr w index lay) (wbcPad w index lay, wbcRight w)))))) = some digits :=
     hframe.2
   have hfit' : Extract.msgFits (routeLeaf index lay).lay msg := hfit
   have hencE : (encRow (routeLeaf index lay) msg (wbcCtr w index lay) (wbcPad w index lay, wbcRight w),

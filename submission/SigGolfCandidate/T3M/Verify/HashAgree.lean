@@ -46,8 +46,9 @@ theorem agree_of_allQ {α : Type} {oa : OracleComp HashSpec α} (h : AllQueriesS
     rw [allQueriesSatisfy_query_bind_iff] at h
     exact ⟨h.1, ih _ (h.2 _)⟩
 def BadAns (lay : T3.Layer) (a : BitVec 256) : Prop :=
-  (∃ ds, T3.decode lay (a.extractLsb' 0 128) = some ds ∧
-    ClaudeWCT.WCT9.wordCredit lay ds < ClaudeWCT.WCT9.producerFloor lay)
+  (∃ ds, T3.decode lay (ClaudeWCT.WCT9.encodingAnswer lay a) = some ds ∧
+    ClaudeWCT.WCT9.wordCredit lay ds + 4 * ClaudeWCT.WCT9.savedCopies lay ds <
+      ClaudeWCT.WCT9.producerFloor lay + ClaudeWCT.WCT9.dispatchPenalty lay ds)
 open Classical in
 noncomputable def okHash (hash : Hash) : Hash :=
   fun q => if ∃ lay : T3.Layer, EncQ lay.val q ∧ BadAns lay (hash q) then BitVec.allOnes 256 else hash q
@@ -58,7 +59,7 @@ theorem okHash_eq (hash : Hash) {q : Query} (h : ¬ ∃ lay : T3.Layer, EncQ lay
 theorem okHash_eq_of_not_enc (hash : Hash) {q : Query} (h : ∀ lay : T3.Layer, ¬ EncQ lay.val q) :
     okHash hash q = hash q :=
   okHash_eq hash (fun ⟨lay, h', _⟩ => h lay h')
-theorem decode_allOnes (lay : T3.Layer) : T3.decode lay ((BitVec.allOnes 256).extractLsb' 0 128) = none := by
+theorem decode_allOnes (lay : T3.Layer) : T3.decode lay (ClaudeWCT.WCT9.encodingAnswer lay (BitVec.allOnes 256)) = none := by
   revert lay
   decide +kernel
 theorem hashOk_okHash (hash : Hash) : HashOk (okHash hash) := by

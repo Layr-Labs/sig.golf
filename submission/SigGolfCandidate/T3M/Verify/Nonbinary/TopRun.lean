@@ -179,10 +179,10 @@ def TopOut (c : NCtx) (s0 : MachineState) (acc : List Digest) (s : MachineState)
   (∀ x, x ∉ chainRegs → x ≠ .x15 → x ≠ .x24 → s.getReg x=s0.getReg x) ∧
   Frame s0 s (c.Wr 54) ∧ acc.length=54 ∧
   (∀ j < acc.length, DigAt s (slot j) (acc.getD j 0)) ∧
-  s.pc = pcOf (finW (c.dig 53)) ∧ s.getReg .x2 = 0x7fc00#64 ∧
+  s.pc = pcOf (finW (c.dig 53) (decide (c.dig 52=7))) ∧ s.getReg .x2 = 0x7fc80#64 ∧
   s.getReg .x24=c.s8w 53
 theorem end_return (c : NCtx) (hds : c.DigitsOk) {s0 b : MachineState}
-    (hb : s0.getReg .x2 = 0x7fc00#64)
+    (hb : s0.getReg .x2 = 0x7fc80#64)
     (acc : List Digest) (s : MachineState)
     (hs : c.EndInv (set24 (tailInitial (set24 s0 (c.s8v 16)) b) (c.s8w 53)) 53 acc s) :
     c.TopOut s0 acc s := by
@@ -195,7 +195,7 @@ theorem end_return (c : NCtx) (hds : c.DigitsOk) {s0 b : MachineState}
   refine ⟨hreg,?_,hlen,fun j hj => hS j hj,?_,?_,?_⟩
   · intro A hA hn
     exact (hF A hA hn).trans (by rw [set24_mem,tailInitial_mem,set24_mem])
-  · rw [hpc]; simp [endPc, r8Start, finW]
+  · rw [hpc]; simp [endPc,r8Start,finW,c.bufferSafe_53]
   · rw [hR .x2 (by decide +kernel),set24_regs _ _ _ (by decide +kernel),tailInitial_regs _ _ _ (by decide +kernel),set24_regs _ _ _ (by decide +kernel),hb]
   · rw [hR .x24 (by decide +kernel),set24_24]
 /-- Group 17 (campaign T8D): slot `addi s8`, falling through to BLOCK, chains 51 and 52, the general-field dispatch,
@@ -213,13 +213,13 @@ theorem tail_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
   have h01 := set24_orig c (c.s8w 53) h0
   have he1 := set24_encoded (c.s8w 53) he
 
-  have e1 : c.chainsCost 53 1=chainCost 53 (c.dig 53) := by
+  have e1 : c.chainsCost 53 1=c.chainCost 53 (c.dig 53) := by
     simp only [chainsCost,List.range'_succ,List.range'_zero,List.map_cons,List.map_nil,List.sum_cons,
       List.sum_nil,Nat.reduceAdd]; omega
-  have e2 : c.chainsCost 52 2=chainCost 52 (c.dig 52)+chainCost 53 (c.dig 53) := by
+  have e2 : c.chainsCost 52 2=c.chainCost 52 (c.dig 52)+c.chainCost 53 (c.dig 53) := by
     simp only [chainsCost,List.range'_succ,List.range'_zero,List.map_cons,List.map_nil,List.sum_cons,
       List.sum_nil,Nat.reduceAdd]; omega
-  have e3 : c.chainsCost 51 3=chainCost 51 (c.dig 51)+chainCost 52 (c.dig 52)+chainCost 53 (c.dig 53) := by
+  have e3 : c.chainsCost 51 3=c.chainCost 51 (c.dig 51)+c.chainCost 52 (c.dig 52)+c.chainCost 53 (c.dig 53) := by
     simp only [chainsCost,List.range'_succ,List.range'_zero,List.map_cons,List.map_nil,List.sum_cons,
       List.sum_nil,Nat.reduceAdd]; omega
   rw [List.range'_succ,List.foldlM_cons]

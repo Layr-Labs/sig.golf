@@ -9,7 +9,7 @@ open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify W9Machine
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
-def childBase (j : Nat) : Nat := 210432 + 64 * j
+def childBase (j : Nat) : Nat := 246464 + 64 * j
 def bitAt (j l : Nat) : Nat := j / 2 ^ l % 2
 def blkO (j l : Nat) : Nat := ClaudeWCT.W9.T3M.authBase j l
 def curO (l j : Nat) : Nat := blkO j l + 48 * bitAt j l
@@ -42,11 +42,11 @@ def ChildGood : Prop := ∀ j : Fin 128, Child.Good Frozen.layout ⟨42, 99, 99 
 def encLoad (rd rs imm : Nat) : BitVec 32 :=
   BitVec.ofNat 32 (imm * 2 ^ 20 + rs * 2 ^ 15 + 3 * 2 ^ 12 + rd * 2 ^ 7 + 3)
 def childTmpl (j : Nat) : List (BitVec 32) :=
-  [encS 2 4 780 8, encI 12 8 (curO 0 j), 0x00000073, encI 11 0 64] ++ (List.range 6).flatMap (lvlTmpl j) ++
+  [0, encI 12 8 (curO 0 j), 0x00000073, encI 11 0 64] ++ (List.range 6).flatMap (lvlTmpl j) ++
     [encLoad 3 8 (sibO 6 j),
      encLoad 14 8 (sibO 6 j + 8),
      encS 3 3 (16 * (1 - bitAt j 6)) 9, encS 3 14 (16 * (1 - bitAt j 6) + 8) 9,
-     0x7c808067] ++ List.replicate (21 + childSaveC j) 0x00000013
+     0x12408067] ++ List.replicate (21 + childSaveC j) 0x00000013
 def childWords (j : Nat) : List (BitVec 32) := childTmpl j
 def childLook (j n : Nat) : Option (BitVec 32) :=
   if childBase j ≤ n then (childWords j)[n - childBase j]? else none
@@ -76,7 +76,7 @@ def lvlRes (j l : Nat) : PRes :=
   ⟨⟨lvlRegs j l, lvlMem j l, lvlObl j l⟩, pcOf (childBase j + ecIdx j (l + 1)), true, lvlSt j l, lvlSt j l, [], none⟩
 def otherDest (j : Nat) : Nat := 16 * (1 - bitAt j 6)
 def aX9 (off : Nat) : Addr := ⟨some (.reg .x9), BitVec.ofNat 64 off⟩
-def retE : E := .bin .and (addC (.reg .x1) 1992) (.c (~~~1#64))
+def retE : E := .bin .and (addC (.reg .x1) 292) (.c (~~~1#64))
 def p7Res (j : Nat) : PRes :=
   ⟨⟨(RegFile.init.set .x3 (.ld (eX8 (sibO 6 j)))).set .x14 (.ld (eX8 (sibO 6 j + 8))),
     [(aX9 (otherDest j + 8), .ld (eX8 (sibO 6 j + 8))),
@@ -787,7 +787,7 @@ theorem copy_pair {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im 
     (hP8 : P % 8 = 0) (hPhi : P + 48 ≤ MEMORY_BYTES)
     (hpc : s.pc = pcOf (childBase j + ecIdx j 6 + 1))
     (hv : DigAt s (P + 16 * bitAt j 6) v) (ho : DigAt s (B + sibO 6 j) other) :
-    ∃ t, Steps im s 5 5 t ∧ t.pc = (s.getReg .x1 + 1992) &&& ~~~1#64 ∧
+    ∃ t, Steps im s 5 5 t ∧ t.pc = (s.getReg .x1 + 292) &&& ~~~1#64 ∧
       DigAt t P (V3.orderPair j v other).left ∧ DigAt t (P + 16) (V3.orderPair j v other).right ∧
       (∀ r : Reg, r ≠ .x3 → r ≠ .x14 → t.getReg r = s.getReg r) ∧
       Frame s t (fun A => A = P + otherDest j ∨ A = P + otherDest j + 8) := by
@@ -839,7 +839,7 @@ theorem copy_pair {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im 
   · intro A hA hn
     rw [hmem A hA, if_neg (by tauto), if_neg (by tauto)]
 structure PairPost (B P : Nat) (u : MachineState) (pair : V3.RootPair) (t : MachineState) : Prop where
-  pc : t.pc = (u.getReg .x1 + 1992) &&& ~~~1#64
+  pc : t.pc = (u.getReg .x1 + 292) &&& ~~~1#64
   a1 : t.getReg .x11 = 64
   left : DigAt t P pair.left
   right : DigAt t (P + 16) pair.right

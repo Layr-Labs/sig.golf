@@ -14,7 +14,7 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 theorem referenceInput_ne (answers : Answers) (L : LeafAddr) (msg : WCT9.LayerMsg) (ctr : BitVec 32) (pad : RowPad)
     (hfit : Extract.msgFits L.lay msg)
-    {digits : List Nat} (hd : decode L.lay (low (answers (.inl (.inr (encRow L msg ctr pad))))) = some digits)
+    {digits : List Nat} (hd : decode L.lay (WCT9.encodingAnswer L.lay (answers (.inl (.inr (encRow L msg ctr pad))))) = some digits)
     (hne : msg ≠ leafMsg answers L ∨ digits ≠ referenceDigits answers L) :
     referenceInput answers L ≠ some (encRow L msg ctr pad) := by
   intro h

@@ -82,7 +82,7 @@ theorem codeAt_appR {im : Image} {n : Nat} {a b : List (BitVec 32)} (h : CodeAt 
   rw [← ht, List.append_assoc, List.drop_left]
 def w9init (im : Image) (m : Message) (pk : PublicKey) {n : Nat} (σ : Bytes n) : MachineState :=
   (((((({ regs := fun _ => 0, mem := fun _ => 0, pc := 0x1000 } : MachineState).writeBytesAsWords
-    (BitVec.ofNat 64 (dataBase im)) im.data).writeBytesAsWords (BitVec.ofNat 64 0x59B0) (bytes m)).writeBytesAsWords
+    (BitVec.ofNat 64 (dataBase im)) im.data).writeBytesAsWords (BitVec.ofNat 64 0x65E0) (bytes m)).writeBytesAsWords
     (BitVec.ofNat 64 0xA0) (bytes pk)).writeBytesAsWords (BitVec.ofNat 64 0x7000) (bytes σ))).setReg .x2
     (BitVec.ofNat 64 (dataBase im))
 set_option maxRecDepth 100000 in
@@ -135,22 +135,22 @@ theorem w9init_getMem (A : Nat) (hA : A < 2 ^ 64) :
       if 0x7000 ≤ A ∧ A < 0x7000 + 5312 ∧ (A - 0x7000) % 8 = 0 then
         bytesToWordLE (((bytes σ).drop (A - 0x7000)).take 8)
       else if 0xA0 ≤ A ∧ A < 0xB0 ∧ (A - 0xA0) % 8 = 0 then bytesToWordLE (((bytes pk).drop (A - 0xA0)).take 8)
-      else if 0x59B0 ≤ A ∧ A < 0x59D0 ∧ (A - 0x59B0) % 8 = 0 then
-        bytesToWordLE (((bytes m).drop (A - 0x59B0)).take 8)
+      else if 0x65E0 ≤ A ∧ A < 0x6600 ∧ (A - 0x65E0) % 8 = 0 then
+        bytesToWordLE (((bytes m).drop (A - 0x65E0)).take 8)
       else if Compact2.LPLAN ≤ A ∧ A < Compact2.LPLAN + 27648 ∧ (A - Compact2.LPLAN) % 8 = 0 then
         bytesToWordLE ((im.data.drop (A - Compact2.LPLAN)).take 8)
       else 0 := by
   unfold w9init
   rw [MachineState.getMem_setReg, getMem_writeBytesAsWords _ _ 0x7000 A (by rw [bytes_length_e]; decide) hA,
     getMem_writeBytesAsWords _ _ 0xA0 A (by rw [bytes_length_e]; decide) hA,
-    getMem_writeBytesAsWords _ _ 0x59B0 A (by rw [bytes_length_e]; decide) hA, dataBase_eq hd,
+    getMem_writeBytesAsWords _ _ 0x65E0 A (by rw [bytes_length_e]; decide) hA, dataBase_eq hd,
     getMem_writeBytesAsWords _ _ Compact2.LPLAN A (by rw [data_length hd]; decide) hA, bytes_length_e, bytes_length_e,
     bytes_length_e, data_length hd]
   rfl
 theorem w9init_msg (j : Nat) (hj : j < 4) :
-    (w9init im m pk σ).getMem (BitVec.ofNat 64 (0x59B0 + 8 * j)) = m.extractLsb' (64 * j) 64 := by
+    (w9init im m pk σ).getMem (BitVec.ofNat 64 (0x65E0 + 8 * j)) = m.extractLsb' (64 * j) 64 := by
   rw [w9init_getMem hd _ _ _ _ (by omega), if_neg (by omega), if_neg (by omega), if_pos (by omega),
-    show 0x59B0 + 8 * j - 0x59B0 = 8 * j by omega, bytesToWordLE_bytes_e m j (by omega)]
+    show 0x65E0 + 8 * j - 0x65E0 = 8 * j by omega, bytesToWordLE_bytes_e m j (by omega)]
 theorem w9init_pk (j : Nat) (hj : j < 2) :
     (w9init im m pk σ).getMem (BitVec.ofNat 64 (0xA0 + 8 * j)) = pk.extractLsb' (64 * j) 64 := by
   rw [w9init_getMem hd _ _ _ _ (by omega), if_neg (by omega), if_pos (by omega),
@@ -169,7 +169,7 @@ theorem w9init_sig (k : Nat) (hk : k < 332) : DigAt (w9init im m pk σ) (0x7000 
     simp [ClaudeWCT.W9.T3M.sigDig, BitVec.getLsbD_extractLsb', hi, show 64 + i < 128 by omega]; ring_nf
 theorem w9init_zero (A : Nat) (hA : A < Compact2.LPLAN)
     (h : (A < 0x7000 ∨ 0x7000 + 5312 ≤ A) ∧ (A < 0xA0 ∨ 0xB0 ≤ A) ∧
-      ¬ (0x59B0 ≤ A ∧ A < 0x59D0 ∧ (A - 0x59B0) % 8 = 0)) :
+      ¬ (0x65E0 ≤ A ∧ A < 0x6600 ∧ (A - 0x65E0) % 8 = 0)) :
     (w9init im m pk σ).getMem (BitVec.ofNat 64 A) = 0 := by
   unfold Compact2.LPLAN at hA
   rw [w9init_getMem hd _ _ _ _ (by omega), if_neg (by omega), if_neg (by omega), if_neg h.2.2,
@@ -286,6 +286,22 @@ theorem w9init_cf {im : Image} (hd : ExpandDataOK im) (m : Message) (pk : Public
   have hidx : (TOP_DATA + i) / 8 * 8 - TOP_DATA + (TOP_DATA + i) % 8 = i := by unfold TOP_DATA; omega
   rw [hidx]
   exact Search.expandLegacyData_cf i hi hi'
+theorem w9init_reward {im : Image} (hd : ExpandDataOK im) (m : Message) (pk : PublicKey) (σ : Bytes 5312) :
+    SigGolfCandidate.T3M.Search.Reward.RewardTablesOK (w9init im m pk σ) := by
+  intro i hi hi'
+  have hT : TOP_DATA = HB0 + 4608 := rfl
+  rw [getByte_eq_word _ _ (by unfold TOP_DATA; omega),
+    w9init_data hd _ _ _ _ (by unfold TOP_DATA Compact2.LPLAN; omega) (by unfold TOP_DATA Compact2.LPLAN; omega)
+      (by unfold TOP_DATA Compact2.LPLAN; omega),
+    extractByte_bytesToWordLE_e _ _ (Nat.mod_lt _ (by decide))]
+  have e : (TOP_DATA + i) / 8 * 8 - Compact2.LPLAN = 23552 + ((TOP_DATA + i) / 8 * 8 - TOP_DATA) := by
+    unfold TOP_DATA Compact2.LPLAN; omega
+  rw [e, ← List.drop_drop, data_drop_legacy hd]
+  simp only [List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
+    if_pos (Nat.mod_lt (TOP_DATA + i) (show 0 < 8 by decide))]
+  have hidx : (TOP_DATA + i) / 8 * 8 - TOP_DATA + (TOP_DATA + i) % 8 = i := by unfold TOP_DATA; omega
+  rw [hidx]
+  exact Search.expandLegacyData_reward i hi hi'
 -- [h2 lane] removed front_spec: a fact about the record's original expand word 0 / 342, which H2 replaces
 -- [h2 lane] removed front_pre30: a fact about the record's original expand word 0 / 342, which H2 replaces
 sym_block zblk := symRun { noAlias := true } zeroBlk (pcOf 42719) 20
