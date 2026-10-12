@@ -8,8 +8,8 @@ def nCopy (lay : Nat) : Nat := (xtrTab.getD lay []).length
 def trPc (lay c : Nat) : Nat := (xtrTab.getD lay []).getD c 0
 def kw (k : Nat) : E := .c (BitVec.ofNat 64 k)
 def hL (lay : Nat) : Nat := [12,7,6,6].getD lay 0
-def stepsA (lay : Nat) : Nat := if lay = 0 then 9 else if lay = 3 then 7 else 8
-def retOff (lay : Nat) : Nat := if lay = 0 then 11 else if lay = 3 then 42 else 41
+def stepsA (lay : Nat) : Nat := if lay = 3 then 7 else 8
+def retOff (lay : Nat) : Nat := if lay = 0 then 10 else if lay = 3 then 42 else 41
 def s6v (lay : Nat) : Nat := [11904,15088,18144,21200].getD lay 0
 def s3v : Nat := 11904
 def tgtL (lay : Nat) : Nat := [145,201,202,202].getD lay 0
@@ -42,7 +42,7 @@ def layK (lay : Nat) : List (Reg × Word) :=
   baseK ++ [(.x6, 0x10000), (.x11, 64),
     (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x30, 7),
     (.x9, BitVec.ofNat 64 TOPB9)] ++
-    (if lay = 3 then [] else [(.x2, if lay=0 then 0x7fc80 else 0x7fc00), (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x5, 0), (.x27, 0x3fe00), (.x4, BitVec.ofNat 64 (bufferBias lay))])
+    (if lay = 3 then [] else [(.x2, 0x7fc00), (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x5, 0), (.x27, 0x3fe00), (.x4, BitVec.ofNat 64 (bufferBias lay))])
 def chainK (lay : Nat) : List (Reg × Word) :=
   baseK ++ [(.x6, 0x10000), (.x2, 0x7fc00),
     (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x11, 64),

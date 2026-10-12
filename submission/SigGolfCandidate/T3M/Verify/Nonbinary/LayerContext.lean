@@ -168,25 +168,25 @@ structure TopEntry (u : MachineState) (v : Digest) (p : Nat) (s : MachineState) 
   tail : s.getReg .x29 = BitVec.ofNat 64 (v.toNat / 2 ^ 122)
   s3 : s.getReg .x8 = 11904#64
   mask : s.getReg .x6 = 520192#64
-  table : s.getReg .x2 = 0x7fc80#64
+  table : s.getReg .x2 = 0x7fc00#64
   regs : RegsExcept u s topEntryRegs
   frame : Frame u s (fun A => A = 25160)
   zeroHdr : s.getMem 25160#64 = 0
 def topRowA (c : Nat) : Nat := rowA 0 c
 theorem prefix_slots : (List.range 128).all (fun c => decide (topRowA c ∈ Nonbinary.aVals) &&
-    (Nonbinary.prefixWordsOf (topRowA c)).isPrefixOf (codeFrom (trPc 0 c + 10))) = true := by
+    (Nonbinary.prefixWordsOf (topRowA c)).isPrefixOf (codeFrom (trPc 0 c + 9))) = true := by
   decide +kernel
 theorem topRowA_mem (c : Nat) (hc : c < 128) : topRowA c ∈ Nonbinary.aVals := by
   have h := List.all_eq_true.mp prefix_slots c (List.mem_range.mpr hc)
   simp only [Bool.and_eq_true, decide_eq_true_eq] at h
   exact h.1
 theorem prefix_at (c : Nat) (hc : c < 128) :
-    CodeAt image (pcOf (trPc 0 c + 10)) (Nonbinary.prefixWordsOf (topRowA c)) := by
+    CodeAt image (pcOf (trPc 0 c + 9)) (Nonbinary.prefixWordsOf (topRowA c)) := by
   have hp := trPc_lt 0 c
-  have h := codeAt_from (trPc 0 c + 10) (by omega)
+  have h := codeAt_from (trPc 0 c + 9) (by omega)
   have h2 := List.all_eq_true.mp prefix_slots c (List.mem_range.mpr hc)
   simp only [Bool.and_eq_true, decide_eq_true_eq] at h2
-  have hpre : Nonbinary.prefixWordsOf (topRowA c) <+: codeFrom (trPc 0 c + 10) :=
+  have hpre : Nonbinary.prefixWordsOf (topRowA c) <+: codeFrom (trPc 0 c + 9) :=
     List.isPrefixOf_iff_prefix.mp h2.2
   refine ⟨?_, ?_, ?_, hpre.trans h.2.2.2⟩
   · unfold pcOf; simp only [BitVec.toNat_ofNat]; omega
@@ -198,13 +198,13 @@ theorem prefix_at (c : Nat) (hc : c < 128) :
     omega
 theorem prefix_sub_at (c : Nat) (hc : c < 128) (pre seg post : List (BitVec 32))
     (he : Nonbinary.prefixWordsOf (topRowA c) = pre ++ seg ++ post) :
-    CodeAt image (pcOf (trPc 0 c + 10 + pre.length)) seg := by
+    CodeAt image (pcOf (trPc 0 c + 9 + pre.length)) seg := by
   have h := prefix_at c hc
   rw [he] at h
   have h' := CodeAt.drop_prefix (pre := pre) (seg := seg) (post := post) h
   rwa [pcOf, ofNat_add_ofNat,
-    show 0x1000 + 4 * (trPc 0 c + 10) + 4 * pre.length =
-      0x1000 + 4 * (trPc 0 c + 10 + pre.length) by ring] at h'
+    show 0x1000 + 4 * (trPc 0 c + 9) + 4 * pre.length =
+      0x1000 + 4 * (trPc 0 c + 9 + pre.length) by ring] at h'
 theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0)
     (t : MachineState) (ht : BC.EncPre w pk index 0 c t) (a : BitVec 256) :
     ∃ n s, Steps image (writeHash t a) n n s ∧ n ≤ 12 ∧
@@ -217,10 +217,10 @@ theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
   change d = topRowA c ∨ d = topRowA c + 48 at hd
   have hdA : d % 8 = 0 ∧ 0x1000 ≤ d ∧ d + 32 ≤ 0x7000 := by omega
   have hk : KnownOK (BC.bK 0 c) (writeHash t a) := fun p hp => by rw [writeHash_getReg]; exact ht.glob.1 p hp
-  have hpc : (writeHash t a).pc = pcOf (trPc 0 c + 10) := by
+  have hpc : (writeHash t a).pc = pcOf (trPc 0 c + 9) := by
     rw [writeHash_pc, ht.pc]
-    change pcOf (trPc 0 c + 9) + 4 = pcOf (trPc 0 c + 10)
-    simpa only [Nat.add_assoc] using pcOf_add4 (trPc 0 c + 9)
+    change pcOf (trPc 0 c + 8) + 4 = pcOf (trPc 0 c + 9)
+    simpa only [Nat.add_assoc] using pcOf_add4 (trPc 0 c + 8)
   have hglob := Glob_writeHash ht.glob a d h12 (safeDest_hi d (by unfold WLO WIT; omega) hdA.1 (by omega))
   have hv := DigAt.writeHash_lo t a d h12 (by omega)
   have h12s : (writeHash t a).getReg .x12 = BitVec.ofNat 64 d := by rw [writeHash_getReg]; exact h12
@@ -229,14 +229,14 @@ theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
     hk (.x10, BitVec.ofNat 64 (rowA 0 c)) (by simp [BC.bK])
   have hra : (writeHash t a).getReg .x9 = BitVec.ofNat 64 TOPB9 :=
     hk (.x9, BitVec.ofNat 64 TOPB9) (by simp [BC.bK, T3M.bK, layK])
-  have h15 : (writeHash t a).getReg .x2 = 0x7fc80#64 :=
-    hk (.x2, 0x7fc80#64) (by simp [BC.bK, T3M.bK, layK])
+  have h15 : (writeHash t a).getReg .x2 = 0x7fc00#64 :=
+    hk (.x2, 0x7fc00#64) (by simp [BC.bK, T3M.bK, layK])
   have h4 : (writeHash t a).getReg .x4 = 24624#64 :=
     hk (.x4, 24624#64) (by simp [BC.bK, T3M.bK, layK, bufferBias])
   have hmask : (writeHash t a).getMem 0xffbff8#64 = 520192#64 := hD.mask
   have hhi := DigAt.writeHash_hi t a d h12 (by omega)
   obtain ⟨n,u,eu,hn,pu,lu,hu,ru,fu⟩ := Verify.Nonbinary.prefix_select_spec
-    (writeHash t a) a d (trPc 0 c + 10) hpc
+    (writeHash t a) a d (trPc 0 c + 9) hpc
     (by simpa [Nonbinary.prefixHead] using (prefix_sub_at c hc' [] Nonbinary.prefixHead
       (Nonbinary.prefixHigh ++ Nonbinary.prefixLow ++ Nonbinary.prefixTailWordsOf (topRowA c))
       (by simp [Nonbinary.prefixWordsOf,List.append_assoc])))
@@ -248,7 +248,7 @@ theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
       (Nonbinary.prefixTailWordsOf (topRowA c)) (by simp [Nonbinary.prefixWordsOf,List.append_assoc])))
     h12s hdA hv hhi
   obtain ⟨z, ez, pz, lo, hi, tl, s3, mask, rz, fz, hz⟩ :=
-    Verify.Nonbinary.prefix_tail_spec u (T3.TopDualHalf.select a) (topRowA c) d (trPc 0 c + 16) ha
+    Verify.Nonbinary.prefix_tail_spec u (T3.TopDualHalf.select a) (topRowA c) d (trPc 0 c + 15) ha
       (by simpa [Nat.add_assoc] using pu)
       (by simpa [Nonbinary.prefixHead,Nonbinary.prefixHigh,Nonbinary.prefixLow,Nat.add_assoc] using
         (prefix_sub_at c hc' (Nonbinary.prefixHead ++ Nonbinary.prefixHigh ++ Nonbinary.prefixLow)

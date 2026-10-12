@@ -253,8 +253,8 @@ goes to a local `j REJ` stub). -/
 def r8Blk : List Nat := [219217,219258,219297,219334,219369,219402,219433,219461,219488,219527,219564,219599,219632,219663,219692,219718,219743,219780,219815,219848,219879,219908,219935,219959,219982,220017,220050,220081,220110,220137,220162,220184,220205,220238,220269,220298,220325,220350,220373,220393,220412,220443,220472,220499,220524,220547,220568,220586,220603,220631,220657,220681,220703,220723,220741,220756,220770,220797,220822,220845,220866,220885,220902,220916]
 def r8Suf : List Nat := [220929,220956,220981,221004,221025,221044,221061,221075]
 def blkW (k : Nat) : Nat := TailDispatch.armPC k + 1
-def r8SlotW (y : Nat) : Nat := 130299+64*y
-def sufW (y : Nat) (alt : Bool := false) : Nat := r8SlotW y+1+(if alt then 32 else 0)
+def r8SlotW (y : Nat) : Nat := 130262+64*y
+def sufW (y : Nat) (alt : Bool := false) : Nat := r8SlotW y+1+(if alt then 37 else 0)
 def finW (y : Nat) (alt : Bool := false) : Nat := sufW y alt+partLen 17 y-(if alt && decide (y=7) then 4 else 0)
 /-- Two-instruction slot `addi s8,s8,-n; j tgt`. -/
 def jR (n tgt : Nat) : Result :=
@@ -262,7 +262,7 @@ def jR (n tgt : Nat) : Result :=
 def genDispE : E := .bin .add (.bin .and (.bin .srl (.reg .x17) (.c 47#64)) (.c 1792#64)) (.reg .x2)
 /-- The general-field dispatch `srli a4,a7,47; andi a4,a4,1792; add a4,a4,t1; jalr 2032(a4)`. -/
 def genDispR (alt : Bool := false) : Result :=
-  ⟨⟨RegFile.init.set .x14 genDispE,[],[]⟩,.bin .and (.bin .add genDispE (.c (if alt then 2032#64 else 1904#64))) (.c (~~~1#64)),.jump,4,4⟩
+  ⟨⟨RegFile.init.set .x14 genDispE,[],[]⟩,.bin .and (.bin .add genDispE (.c (if alt then 2032#64 else 1884#64))) (.c (~~~1#64)),.jump,4,4⟩
 theorem r8Blk_lt_all : (List.range 64).all (fun k => decide (blkW k+41<257181))=true := by decide +kernel
 theorem r8Suf_lt_all : (List.range 8).all (fun y => decide (finW y+8<257181))=true := by decide +kernel
 theorem blkW_lt (k : Nat) (hk : k<64) : blkW k+41<257181 := by
