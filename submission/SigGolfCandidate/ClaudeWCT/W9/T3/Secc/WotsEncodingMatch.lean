@@ -111,13 +111,12 @@ theorem matchEntry_cell_le (T : Answers) (e : EncIndex) :
         exact Finset.mem_filter.mpr ⟨Finset.mem_univ _, hdec⟩
     _ ≤ 7 / ((4 : ENNReal) * 2^128) := by
       by_cases hl : e.1.1.lay = 0
-      · simp only [WCT9.encodingAnswer, if_pos hl]
-        rw [FirstHit.uniform_low_mem]
+      · have hprob := WCT9.probability_top_encoding_le (fun d => d ∈ targets)
+        simp only [Function.comp_def, Finset.filter_mem_eq_inter, Finset.univ_inter] at hprob
+        simp only [WCT9.encodingAnswer, if_pos hl]
         have hc : (targets.card : ENNReal) ≤ 1 := by exact_mod_cast hcard
-        refine (ENNReal.div_le_div_right hc _).trans ?_
-        apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
-        simp only [ENNReal.toReal_div, ENNReal.toReal_mul, ENNReal.toReal_pow, ENNReal.toReal_ofNat, ENNReal.toReal_one]
-        norm_num
+        have hmul := mul_le_mul' hc (le_refl (7 / ((4 : ENNReal) * 2^128)))
+        exact hprob.trans (by simpa only [one_mul] using hmul)
       · have hp : ∀ d, d ∈ targets → lowerSpare d := fun d hd =>
           decode_lowerSpare hl (Finset.mem_filter.mp hd).2
         have hprob := WCT9.probability_lower_encoding (fun d => d ∈ targets) hp

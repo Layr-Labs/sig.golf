@@ -259,15 +259,16 @@ never rejects. The signer still searches `searchLimit`. -/
 def verifyWindow : Nat := 2 ^ 32
 theorem ctr_not_ge_verifyWindow (c : BitVec 32) : ¬c.toNat ≥ verifyWindow := by
   unfold verifyWindow; exact Nat.not_le.mpr c.isLt
-/-- The top layer uses the low half. Lower layers select the low half when its
-reserved bits are set, and otherwise select the high half. Selection is deterministic. -/
+/-- The top layer selects the low half when its high bit is set. Lower layers
+select it when both reserved bits are set; otherwise the high half is selected. -/
 def encodingAnswer (lay : Layer) (answer : HashOutput) : Digest :=
-  if lay = 0 then answer.extractLsb' 0 128 else DualHalf.select answer
+  if lay = 0 then TopDualHalf.select answer else DualHalf.select answer
 
 def encodingHash (lay : Layer) (input : HashInput) : M Digest :=
   encodingAnswer lay <$> publicHash input
 
-theorem encodingHash_top (input : HashInput) : encodingHash 0 input = shortHash input := rfl
+theorem encodingHash_top (input : HashInput) :
+    encodingHash 0 input = TopDualHalf.select <$> publicHash input := rfl
 
 theorem encodingAnswer_lower_low (lay : Layer) (hl : lay ≠ 0) (answer : HashOutput)
     (hspare : lowerSpare (answer.extractLsb' 0 128)) :

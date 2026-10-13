@@ -179,10 +179,10 @@ def TopOut (c : NCtx) (s0 : MachineState) (acc : List Digest) (s : MachineState)
   (∀ x, x ∉ chainRegs → x ≠ .x15 → x ≠ .x24 → s.getReg x=s0.getReg x) ∧
   Frame s0 s (c.Wr 54) ∧ acc.length=54 ∧
   (∀ j < acc.length, DigAt s (slot j) (acc.getD j 0)) ∧
-  s.pc = pcOf (finW (c.dig 53) (decide (c.dig 52=7))) ∧ s.getReg .x2 = 0x7fc80#64 ∧
+  s.pc = pcOf (finW (c.dig 53) (decide (c.dig 52=7))) ∧ s.getReg .x2 = 0x7fc00#64 ∧
   s.getReg .x24=c.s8w 53
 theorem end_return (c : NCtx) (hds : c.DigitsOk) {s0 b : MachineState}
-    (hb : s0.getReg .x2 = 0x7fc80#64)
+    (hb : s0.getReg .x2 = 0x7fc00#64)
     (acc : List Digest) (s : MachineState)
     (hs : c.EndInv (set24 (tailInitial (set24 s0 (c.s8v 16)) b) (c.s8w 53)) 53 acc s) :
     c.TopOut s0 acc s := by

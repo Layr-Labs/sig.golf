@@ -1,5 +1,6 @@
 import SigGolfCandidate.T3.Core
 
+
 namespace SigGolfCandidate.T3
 theorem lowerWord_lt (v : Digest) : lowerWord v < 2 ^ 126 := by
   unfold lowerWord
@@ -213,3 +214,90 @@ theorem card_select_pred (p : Digest → Prop) [DecidablePred p]
   ring
 
 end SigGolfCandidate.T3.DualHalf
+
+
+namespace SigGolfCandidate.T3.TopDualHalf
+open SigGolfCandidate.T3 Finset
+set_option maxHeartbeats 100000
+set_option maxRecDepth 1000
+
+/-- Prefer the low hash half when its most significant bit is set. -/
+def gate (v : Digest) : Prop := 2 ^ 127 ≤ v.toNat
+instance (v : Digest) : Decidable (gate v) := inferInstanceAs (Decidable (2 ^ 127 ≤ v.toNat))
+theorem gate_iff_getLsbD (v : Digest) : gate v ↔ v.getLsbD 127 = true := by
+  have h : v.getLsbD 127 = decide (2 ^ 127 ≤ v.toNat) := BitVec.getLsbD_last v
+  rw [h]
+  simp only [gate, decide_eq_true_eq]
+def selectPair (p : Digest × Digest) : Digest := if gate p.1 then p.1 else p.2
+def select (a : HashOutput) : Digest :=
+  selectPair (a.extractLsb' 0 128, a.extractLsb' 128 128)
+
+def gateWord (v : Digest) : Nat := v.toNat % 2 ^ 127
+def gatePack (n : Nat) : Digest := BitVec.ofNat 128 (n % 2 ^ 127 + 2 ^ 127)
+theorem gateWord_lt (v : Digest) : gateWord v < 2 ^ 127 := Nat.mod_lt _ (by decide)
+theorem gatePack_toNat (n : Nat) : (gatePack n).toNat = n % 2 ^ 127 + 2 ^ 127 := by
+  unfold gatePack
+  rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt]
+  norm_num
+  omega
+theorem gate_gatePack (n : Nat) : gate (gatePack n) := by
+  unfold gate
+  rw [gatePack_toNat]
+  omega
+theorem gateWord_gatePack {n : Nat} (hn : n < 2 ^ 127) : gateWord (gatePack n) = n := by
+  unfold gateWord
+  rw [gatePack_toNat]
+  norm_num at *
+  omega
+theorem gatePack_gateWord {v : Digest} (hv : gate v) : gatePack (gateWord v) = v := by
+  apply BitVec.eq_of_toNat_eq
+  rw [gatePack_toNat]
+  unfold gateWord
+  unfold gate at hv
+  have := v.isLt
+  norm_num at *
+  omega
+def gateEquiv : {v : Digest // gate v} ≃ Fin (2 ^ 127) where
+  toFun v := ⟨gateWord v.val, gateWord_lt v.val⟩
+  invFun n := ⟨gatePack n.val, gate_gatePack n.val⟩
+  left_inv v := Subtype.ext (gatePack_gateWord v.property)
+  right_inv n := Fin.ext (gateWord_gatePack n.isLt)
+theorem card_gate : (univ.filter gate).card = 2 ^ 127 := by
+  rw [← Fintype.card_subtype]
+  exact (Fintype.card_congr gateEquiv).trans (Fintype.card_fin _)
+theorem card_not_gate : (univ.filter fun v : Digest => ¬gate v).card = 2 ^ 127 := by
+  calc
+    _ = Fintype.card Digest - (univ.filter gate).card := DualHalf.card_compl_generic gate
+    _ = 2^128 - 2^127 := congrArg₂ (fun x y : Nat => x - y) (Fintype.card_bitVec 128) card_gate
+    _ = _ := by norm_num
+
+/-- Exact selected-half count; accepted low words with their high bit set get preference. -/
+theorem card_select_pred (p : Digest → Prop) [DecidablePred p] :
+    (univ.filter fun a : HashOutput => p (select a)).card =
+      (univ.filter fun d => p d ∧ gate d).card * 2 ^ 128 +
+        2 ^ 127 * (univ.filter p).card := by
+  have he : (univ.filter fun a : HashOutput => p (select a)).card =
+      (univ.filter fun x : Digest × Digest => if gate x.1 then p x.1 ∧ gate x.1 else p x.2).card := by
+    refine Finset.card_equiv (SphincsSecurity.splitHashOutputEquiv 128 (by decide)) fun a => ?_
+    simp only [mem_filter, mem_univ, true_and]
+    change p (if gate (a.extractLsb' 0 128) then a.extractLsb' 0 128 else a.extractLsb' 128 128) ↔
+      (if gate (a.extractLsb' 0 128) then p (a.extractLsb' 0 128) ∧ gate (a.extractLsb' 0 128) else p (a.extractLsb' 128 128))
+    by_cases h : gate (a.extractLsb' 0 128)
+    · rw [if_pos h, if_pos h]
+      exact ⟨fun hp => ⟨hp, h⟩, fun hp => hp.1⟩
+    · rw [if_neg h, if_neg h]
+  rw [he, DualHalf.card_mode gate (fun d => p d ∧ gate d) p (fun _ h => h.2),
+    card_not_gate, Fintype.card_bitVec]
+
+theorem card_select_pred_le (p : Digest → Prop) [DecidablePred p] :
+    (univ.filter fun a : HashOutput => p (select a)).card ≤
+      (univ.filter p).card * (7 * 2 ^ 126) := by
+  rw [card_select_pred]
+  have hc : (univ.filter fun d => p d ∧ gate d).card ≤ (univ.filter p).card := by
+    apply Finset.card_le_card
+    intro d hd
+    exact Finset.mem_filter.mpr ⟨Finset.mem_univ _, (Finset.mem_filter.mp hd).2.1⟩
+  calc _ ≤ (univ.filter p).card * 2 ^ 128 + 2 ^ 127 * (univ.filter p).card := by omega
+    _ ≤ _ := by omega
+
+end SigGolfCandidate.T3.TopDualHalf
