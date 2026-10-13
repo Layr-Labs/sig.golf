@@ -171,7 +171,7 @@ theorem cs115_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (
     rw [if_neg (by omega)]
 theorem cs124_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 124)) (lay : Nat)
     (hl : lay < 4) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) :
-    ∃ t, Steps image s 6 6 t ∧ t.pc = (if lay = 0 then pcOf (tcBase b) else pcOf (b + 130)) ∧
+    ∃ t, Steps image s 6 6 t ∧ t.pc = (if lay = 0 then pcOf (tcEntry b) else pcOf (b + 130)) ∧
       t.getReg .x6 = s.getMem (BitVec.ofNat 64 EOUT) ∧ t.getReg .x7 = s.getMem (BitVec.ofNat 64 (EOUT + 8)) ∧
       t.getReg .x25 = BitVec.ofNat 64 0 ∧
       RegsExcept s t [.x6, .x7, .x25, .x28] ∧ Frame s t (fun _ => False) := by

@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26080, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7104 := by
+theorem certificate : SigGolf.Certificate submission 7098 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -62,9 +62,11 @@ the witness starts at 1216 (W 24028 -> 24860, charge 94 -> 98). Joint cap 785 ->
 Verify bound 7088 -> 7008; C 7182 -> 7106.
 S = 5310, W = 24860, K = 131072, C = 7106; score 37732860.
 
-L3 a2 elision (Claude Opus 5.5, base 98e4cee, C 7106): the nested FTS already leaves `a2` at coordinate 8's
-last heap output (`regionAddr 9 + 704 = 1200` or `+ 848 = 1344`, both 8-aligned scratch that nothing reads
-after the L3 encoding), so the L3 entry drops `addi a2,s0,-176` and the L3 encoding hash writes there.
-Verify bound 7008 -> 7007; C 7106 -> 7105.
-S = 5310, W = 24860, K = 131072, C = 7104; score 37722240.
+Stacked top-layer savings (Claude Opus 5.5, base nested FTS commitment, C 7106): ports the
+accepted top-layer chain onto the nested FTS commitment. The top-layer encoding selects the
+low hash half when bit 127 is set and the high half otherwise (0658b2b), so the top target
+rises 144 -> 145 with the same copy-credit floor 21 and FTS joint cap 789; the top layer keeps
+sp at 0x7fc00, dropping one entry instruction (0664e59); the selector branch is balanced at
+4 cycles (9033aab). After-FTS budget 5280 -> 5272; verify bound 7008 -> 7000; C 7106 -> 7098.
+S = 5310, W = 24860, K = 131072, C = 7098; score 37690380.
 -/

@@ -8,7 +8,7 @@ open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput)
 open W9Machine
-def dispatchPc (n : Nat) : Nat := [89, 171, 257, 342, 426, 512, 597, 681, 766, 850].getD n 850
+def dispatchPc (n : Nat) : Nat := [89, 171, 257, 342, 426, 512, 597, 681, 766, 851].getD n 851
 def cachedWord (n : Nat) : Nat := [0,0,1,1,1,2,2,2,2,2].getD n 2
 def pairBase : Nat := 0xffbe10
 /-- Nested FTS: coordinate 0's pads are the witness slots of region 0 (honest 0). -/
@@ -35,7 +35,6 @@ structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   cached3 : u.getReg .x17 = if n < 8 then a.extractLsb' 192 64 else a.extractLsb' 192 64 ||| rankPad
   cached : u.getReg .x16 = a.extractLsb' (64 * cachedWord n) 64 ||| rankPad
   mask : u.getReg .x2 = BitVec.ofNat 64 0xfff00
-  childMask : n ≥ 3 → u.getReg .x27 = BitVec.ofNat 64 0x7f00000
   jt : u.getReg .x24 = rankPad
   childBlock : u.getReg .x29 = BitVec.ofNat 64 0xf1b00
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (8560 - 896 * (n-1))

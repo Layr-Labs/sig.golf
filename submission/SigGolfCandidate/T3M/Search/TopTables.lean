@@ -19,8 +19,8 @@ def tableByte (i : Nat) : BitVec 8 := BitVec.ofNat 8 <|
   else if i < 628 then if (i - 128) % 4 < 3 then rankDigit ((i - 128) / 4) ((i - 128) % 4)
     else rankCredit ((i - 128) / 4)
   else 0
-/-- Campaign T8D: the flipped code of `T3.dummyTop` (30 threes, 21 twos, [4,4,4]) stored at TOP_DATA + 632. -/
-def dummyDigestNat : Nat := 194391744611915295622368100573437718237
+/-- Campaign T8D: the flipped code of `T3.dummyTop` (30 threes, 21 twos, [4,4,5]) stored at TOP_DATA + 632. -/
+def dummyDigestNat : Nat := 195056358609807753558820004103577890525
 def cfByte (flag : Nat) (i : Nat) : BitVec 8 := BitVec.ofNat 8 <|
   if i = 631 then flag
   else if 632 ≤ i ∧ i < 648 then dummyDigestNat / 256 ^ (i - 632) % 256
@@ -84,7 +84,7 @@ theorem topLookupSum_good (v : Digest) (h : T3.topRanksValid (T3.topFlip v) = tr
   intro r hr
   simp [rankLookup, (topRanksValid_iff v).mp h r hr]
 theorem topLookupSum_eq_iff (v : Digest) :
-    topLookupSum v = 144 ↔ T3.topRanksValid (T3.topFlip v) = true ∧ (topDigits (T3.topFlip v)).sum = 144 := by
+    topLookupSum v = 145 ↔ T3.topRanksValid (T3.topFlip v) = true ∧ (topDigits (T3.topFlip v)).sum = 145 := by
   constructor
   · intro h
     have hv : T3.topRanksValid (T3.topFlip v) = true := by
@@ -99,7 +99,7 @@ theorem topLookupSum_eq_iff (v : Digest) :
   · rintro ⟨hv, hsum⟩
     exact (topLookupSum_good v hv).trans hsum
 theorem decode_top_lookup (v : Digest) :
-    T3.decode 0 (T3.topFlip v) = if topLookupSum v = 144
+    T3.decode 0 (T3.topFlip v) = if topLookupSum v = 145
       then some (topDigits (T3.topFlip v)) else none := by
   simp only [decode_top, topLookupSum_eq_iff]
 end SigGolfCandidate.T3M.Search

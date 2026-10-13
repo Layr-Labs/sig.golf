@@ -18,8 +18,8 @@ def topChainRegs : List Reg := [.x10,.x12,.x25,.x3,.x14,.x15,.x24]
 def topChainWrites (A : Nat) : Prop := (25168 ≤ A ∧ A < 26048) ∨ (10240 ≤ A ∧ A < 13712)
 theorem topLeafK_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (t s0 s : MachineState)
     (a : BitVec 256) (ht : BC.EncPre w pk index 0 c t)
-    (he : TopEntry (writeHash t a) (a.extractLsb' 0 128) (trPc 0 c) s0)
-    (hr : RegsExcept s0 s topChainRegs) (h15 : s.getReg .x2 = 0x7fc80#64) : KnownOK (leafK 0) s := by
+    (he : TopEntry (writeHash t a) (T3.TopDualHalf.select a) (trPc 0 c) s0)
+    (hr : RegsExcept s0 s topChainRegs) (h15 : s.getReg .x2 = 0x7fc00#64) : KnownOK (leafK 0) s := by
   intro p hp
   simp [leafK,baseK] at hp
   rcases hp with rfl | rfl | rfl | rfl | rfl
@@ -31,7 +31,7 @@ theorem topLeafK_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) 
 /-- Digit constants and leaf globals survive both the top entry and all chains. -/
 theorem topLeafKeepK_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat)
     (t s0 s : MachineState) (a : BitVec 256) (ht : BC.EncPre w pk index 0 c t)
-    (he : TopEntry (writeHash t a) (a.extractLsb' 0 128) (trPc 0 c) s0)
+    (he : TopEntry (writeHash t a) (T3.TopDualHalf.select a) (trPc 0 c) s0)
     (hr : RegsExcept s0 s topChainRegs) : KnownOK (lfKeepK 0) s := by
   intro p hp
   simp [lfKeepK] at hp
@@ -44,11 +44,11 @@ theorem topLeafKeepK_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : N
   all_goals exact ht.glob.1 _ (by simp [BC.bK, T3M.bK, layK, baseK])
 theorem topLeafReady_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0)
     (t s0 s : MachineState) (a : BitVec 256) (ends : List Digest) (ht : BC.EncPre w pk index 0 c t)
-    (he : TopEntry (writeHash t a) (a.extractLsb' 0 128) (trPc 0 c) s0)
-    (hp : s.pc = pcOf (Nonbinary.finW ((nctxOf w index (a.extractLsb' 0 128) (trPc 0 c)).dig 53)
-      (decide ((nctxOf w index (a.extractLsb' 0 128) (trPc 0 c)).dig 52 = 7))))
-    (hr : RegsExcept s0 s topChainRegs) (hf : Frame s0 s topChainWrites) (h15 : s.getReg .x2 = 0x7fc80#64)
-    (h24 : s.getReg .x24 = BitVec.ofNat 64 ((nctxOf w index (a.extractLsb' 0 128) (trPc 0 c)).dig 53))
+    (he : TopEntry (writeHash t a) (T3.TopDualHalf.select a) (trPc 0 c) s0)
+    (hp : s.pc = pcOf (Nonbinary.finW ((nctxOf w index (T3.TopDualHalf.select a) (trPc 0 c)).dig 53)
+      (decide ((nctxOf w index (T3.TopDualHalf.select a) (trPc 0 c)).dig 52 = 7))))
+    (hr : RegsExcept s0 s topChainRegs) (hf : Frame s0 s topChainWrites) (h15 : s.getReg .x2 = 0x7fc00#64)
+    (h24 : s.getReg .x24 = BitVec.ofNat 64 ((nctxOf w index (T3.TopDualHalf.select a) (trPc 0 c)).dig 53))
     (hlen : ends.length = 54) (hend : ∀j<54, DigAt s (slotT j) (ends.getD j 0)) :
     TopLeafReady w pk index c ends s := by
   have hk := topLeafK_of w pk index c t s0 s a ht he hr h15
@@ -67,8 +67,8 @@ theorem topLeafReady_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : N
     rcases h with h | h | h <;> omega) hk
   have hreg : ∀ r, r ∉ topChainRegs → r ∉ topEntryRegs → s.getReg r = t.getReg r := fun r h1 h2 => by
     rw [hr.get h1, he.regs.get h2, writeHash_getReg]
-  have hy : (nctxOf w index (a.extractLsb' 0 128) (trPc 0 c)).dig 53 < 8 := by
-    have hd := SigGolfCandidate.T3.Nonbinary.coreDigit_le (0 : Layer) (a.extractLsb' 0 128) 53
+  have hy : (nctxOf w index (T3.TopDualHalf.select a) (trPc 0 c)).dig 53 < 8 := by
+    have hd := SigGolfCandidate.T3.Nonbinary.coreDigit_le (0 : Layer) (T3.TopDualHalf.select a) 53
     norm_num [SigGolfCandidate.T3.maxDigit] at hd
     exact Nat.lt_succ_of_le hd
   refine ⟨⟨_,_,hy,hp,h24⟩,hglob,?_,?_,?_,?_,hlen,hend,?_,?_⟩
@@ -78,7 +78,7 @@ theorem topLeafReady_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : N
   · rw [hreg .x31 (by decide +kernel) (by decide +kernel)]
     exact (ht.t5 0 rfl).2 rfl
   · rw [hreg .x28 (by decide +kernel) (by decide +kernel), ht.word]
-    exact hyperWord_top_prefix w index (a.extractLsb' 0 128) (trPc 0 c) |>.trans (by
+    exact hyperWord_top_prefix w index (T3.TopDualHalf.select a) (trPc 0 c) |>.trans (by
       congr 1
       simp only [Nonbinary.NCtx.prefix, nctxOf, show T3.height 0 = 12 from rfl, Fin.val_zero]
       omega)
@@ -346,7 +346,7 @@ theorem chainsCost_mono (c : NCtx) (m : Nat) (hm : m ≤ 54) : c.chainsCost 0 m 
 /-- The reverse accumulator omits digit 53, which the final branch compares directly. -/
 theorem s8v_top (c : NCtx) :
     c.s8w 53 - BitVec.ofNat 64 (c.dig 53) =
-      144#64 - BitVec.ofNat 64 (((List.range 54).map c.dig).sum) := by
+      145#64 - BitVec.ofNat 64 (((List.range 54).map c.dig).sum) := by
   have hsum : ((List.range 54).map c.dig).sum =
       ((List.range 53).map c.dig).sum + c.dig 53 := by
     rw [show 54 = 53 + 1 from rfl, List.range_succ, List.map_append, List.sum_append]
@@ -356,7 +356,7 @@ theorem s8v_top (c : NCtx) :
   bv_omega
 /-- Equality to the final digit is equivalent to the full top checksum. -/
 theorem s8v_zero_iff (c : NCtx) (hds : c.DigitsOk) :
-    c.s8w 53 = BitVec.ofNat 64 (c.dig 53) ↔ ((List.range 54).map c.dig).sum = 144 := by
+    c.s8w 53 = BitVec.ofNat 64 (c.dig 53) ↔ ((List.range 54).map c.dig).sum = 145 := by
   have hb : ((List.range 54).map c.dig).sum ≤ 54*7 := by
     have : ∀ l : List Nat, (∀ i ∈ l, i<54) → (l.map c.dig).sum ≤ 7*l.length := by
       intro l hl
@@ -370,13 +370,13 @@ theorem s8v_zero_iff (c : NCtx) (hds : c.DigitsOk) :
         omega
     simpa using this (List.range 54) (fun i hi => List.mem_range.mp hi)
   have heq : c.s8w 53 = BitVec.ofNat 64 (c.dig 53) ↔
-      144#64 - BitVec.ofNat 64 (((List.range 54).map c.dig).sum) = 0 := by
+      145#64 - BitVec.ofNat 64 (((List.range 54).map c.dig).sum) = 0 := by
     rw [← s8v_top]
     exact (sub_eq_zero (a := c.s8w 53) (b := BitVec.ofNat 64 (c.dig 53))).symm
   rw [heq]
   constructor
   · intro h
-    have h' : BitVec.ofNat 64 (((List.range 54).map c.dig).sum) = 144#64 := by
+    have h' : BitVec.ofNat 64 (((List.range 54).map c.dig).sum) = 145#64 := by
       have := congrArg (· + BitVec.ofNat 64 (((List.range 54).map c.dig).sum)) h
       simpa using this.symm
     have := congrArg BitVec.toNat h'
@@ -386,10 +386,10 @@ theorem s8v_zero_iff (c : NCtx) (hds : c.DigitsOk) :
 theorem top_after_hash (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0) (hidx : index < 2 ^ 31)
     (t : MachineState) (hpre : BC.EncPre w pk index 0 c t) (Q : Prop) (hQ : Q) (q : Query) (hq : EncQ 0 q)
     (a : BitVec 256) :
-    GoodQP (fun hash => hash q = a ∧ HashOk hash) (writeHash t a) 2380 2626 Q 1291
-      (ccM (ClaudeWCT.W9.T3M.topLayerP w index (a.extractLsb' 0 128)) (kFin pk)) := by
-  set v := a.extractLsb' 0 128 with hvdef
-  obtain ⟨s0, st0, he⟩ := topTransition w pk index c hc t hpre a
+    GoodQP (fun hash => hash q = a ∧ HashOk hash) (writeHash t a) 2382 2628 Q 1284
+      (ccM (ClaudeWCT.W9.T3M.topLayerP w index (T3.TopDualHalf.select a)) (kFin pk)) := by
+  set v := T3.TopDualHalf.select a with hvdef
+  obtain ⟨n0, s0, st0, hn0, he⟩ := topTransition w pk index c hc t hpre a
   set L := nctxOf w index v (trPc 0 c) with hLdef
   have hLok : L.ok := nctx_ok w index v c hidx
   have hkn : ∀ p ∈ L.known, s0.getReg p.1 = p.2 := nctx_known w pk index c t s0 a hpre he
@@ -426,9 +426,9 @@ theorem top_after_hash (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Na
     have hg0 := nctx_group0 w index v (trPc 0 c) _ s0 he (hval 0 (by decide +kernel))
     have hs8 : L.s8w 53 = BitVec.ofNat 64 (L.dig 53) := by
       rw [s8v_zero_iff L hds, show L.dig = coreDigit 0 v from funext hdig]
-      have : (dataDigits 0 v).sum = 144 := hsum
+      have : (dataDigits 0 v).sum = 145 := hsum
       simpa [dataDigits, T3.dataCount] using this
-    have body : GoodQ (writeHash t a) 2380 2626 Q (L.chainsCost 0 54 + 367)
+    have body : GoodQ (writeHash t a) 2382 2628 Q (L.chainsCost 0 54 + 369)
         (ccM ((List.range' 0 54).foldlM L.chainF [])
           (fun ends => ccM (T3.leafHash 0 (route index 0).2 (route index 0).1 ends >>= merkleP w index 0)
             (fun r => kFin pk (some r)))) := by
@@ -459,7 +459,7 @@ theorem top_after_hash (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Na
         s0 hg0
       have H2 := GoodQ.steps st0 H
       refine H2.mono ?_ ?_ (fun h => ⟨h, ?_⟩) <;> omega
-    by_cases hcr : L.chainsCost 0 54 ≤ 924
+    by_cases hcr : L.chainsCost 0 54 ≤ 915
     · exact (body.mono (le_refl _) (le_refl _) (fun h => ⟨h, by omega⟩)).toP.pre_mono (fun _ h => h.2)
     · refine GoodQP.of_false body ?_
       rintro hash ⟨hea, hok⟩
@@ -470,7 +470,7 @@ theorem top_after_hash (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Na
       exact hcr (by omega)
   | none =>
     refine GoodQP.pre_mono (P := HashOk) ?_ (fun _ h => h.2)
-    refine Nonbinary.NCtx.goodQ_vacuous (A := 0) ?_ Q 1291
+    refine Nonbinary.NCtx.goodQ_vacuous (A := 0) ?_ Q 1284
     rw [ClaudeWCT.W9.T3M.topLayerP_of_decode_none w index hdec, ccM_map]
     simp only [kFin_none]
     have reject_from : ∀ z : MachineState, z.pc = pcOf 9147 → GoodQ z 4 4 False 0 (pure (false, 0)) := by
@@ -489,7 +489,7 @@ theorem top_after_hash (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Na
     have hv' : v.toNat < 2 ^ 128 := v.isLt
     · by_cases hall : ∀ j, j < 17 → Search.topRank (T3.topFlip v) j < 125
       ·
-        have hs : (dataDigits 0 v).sum ≠ 144 := by
+        have hs : (dataDigits 0 v).sum ≠ 145 := by
           intro hs
           have hr : T3.topRanksValid v = true := by
             unfold T3.topRanksValid
@@ -570,15 +570,15 @@ open SigGolfCandidate.T3 (Digest HashOutput Layer route leafHash)
 open ClaudeWCT.WCT9 (LayerMsg)
 set_option maxHeartbeats 1000000
 set_option linter.unusedSimpArgs false
-def topFuel : Nat := 9 + 1 + 2380
-def topCyc : Nat := 9 + 8 + 2626
-def topCycA : Nat := 9 + 8 + 1291
+def topFuel : Nat := 8 + 1 + 2382
+def topCyc : Nat := 8 + 8 + 2628
+def topCycA : Nat := 8 + 8 + 1284
 theorem top_layer_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^ 31) (Q : Prop) (hQ : Q)
     (M : LayerMsg) (s : MachineState) (hs : LayerIn w pk index 0 M s) :
     GoodQ s topFuel topCyc Q topCycA (ccM (BC.layerLoop w index 1 M) (kFin pk)) := by
   rw [layerLoop_one]
   have hA := BC.encoding_setup w pk index 0 M s hs
-  have hsA : stepsA (0 : Layer).val = 9 := rfl
+  have hsA : stepsA (0 : Layer).val = 8 := rfl
   by_cases hctr : (ClaudeWCT.W9.T3M.wbcCtr w index 0).toNat ≥ ClaudeWCT.WCT9.verifyWindow
   · exact absurd hctr (ClaudeWCT.WCT9.ctr_not_ge_verifyWindow _)
   · rw [if_neg hctr]
@@ -595,7 +595,7 @@ theorem top_layer_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
     have hblk := BC.encoding_blocks w index 0 (route index 0).2 (route index 0).1 M
     have hq := encQ_layer 0 (route index 0).2 (route index 0).1 M (ClaudeWCT.W9.T3M.wbcCtr w index 0)
       (ClaudeWCT.W9.T3M.wbcPad w index 0) (ClaudeWCT.W9.T3M.wbcRight w)
-    have := GoodQP.shortHash_bind_pre (f := ClaudeWCT.W9.T3M.topLayerP w index) hf h5 hv hin
+    have := GoodQP.encodingHash_bind_pre (lay := 0) (f := ClaudeWCT.W9.T3M.topLayerP w index) hf h5 hv hin
       (fun a => top_after_hash w pk index c hc hidx t hpre Q hQ _ hq a)
     rw [hblk] at this
     exact (GoodQP.steps' hst this (by simp [topFuel]) (by simp [topCyc]) (by simp [topCycA])).toGoodQ
@@ -611,9 +611,9 @@ def lFuel : Nat → Nat
   | 0 => 9
   | 1 => topFuel
   | n + 2 => layerFuel (n + 1) + mkFuel (n + 1) + lFuel (n + 1)
-theorem lCyc_4 : lCyc 4 = 6642 := by decide +kernel
-theorem lCycA_4 : lCycA 4 = 5279 := by decide +kernel
-theorem lFuel_4 : lFuel 4 = 7786 := by decide +kernel
+theorem lCyc_4 : lCyc 4 = 6644 := by decide +kernel
+theorem lCycA_4 : lCycA 4 = 5272 := by decide +kernel
+theorem lFuel_4 : lFuel 4 = 7788 := by decide +kernel
 theorem layers_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^ 31) (Q : Prop) (hQ : Q) :
     ∀ n, n ≤ 4 → ∀ msg s, RestIn w pk index n msg s →
       GoodQ s (lFuel n) (lCyc n) Q (lCycA n) (ccM (BC.layerLoop w index n msg) (kFin pk)) := by
@@ -657,10 +657,10 @@ theorem layers_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (h
 theorem after_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (Q : Prop) (hQ : Q) (a : HashOutput)
     (top : Digest × Digest) (u : MachineState)
     (h : FtsOut ⟨pk, w, a⟩ top u) :
-    GoodQ u 8050 8050 Q 5279 (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb) := by
+    GoodQ u 8050 8050 Q 5272 (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb) := by
   have hidx : ClaudeWCT.WCT9.digestIndex a < 2 ^ 31 := ClaudeWCT.WCT9.digestIndex_lt a
   obtain ⟨t, hst, hL3⟩ := layerIn_of_fts w pk _ top.1 top.2 u hidx h.glob h.idx h.pc h.left h.right h.wit h.base h.a1
-    h.s10 h.heapOne h.heapTwo h.heapSeven h.heapThree h.heapFour h.heapFive h.coordStep h.topBase h.top h.top8 h.a2
+    h.s10 h.heapOne h.heapTwo h.heapSeven h.heapThree h.heapFour h.heapFive h.coordStep h.topBase h.top h.top8
   have hg := layers_good w pk _ hidx Q hQ 4 le_rfl (.pair top.1 top.2) t (by simpa [RestIn] using hL3)
   have e : ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb =
       ccM (BC.layerLoop w (ClaudeWCT.WCT9.digestIndex a) 4 (.pair top.1 top.2)) (kFin pk) := by
@@ -670,7 +670,7 @@ theorem after_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (Q : Prop) (hQ : 
   rw [e]
   rw [lFuel_4, lCyc_4, lCycA_4] at hg
   exact GoodQ.steps' hst hg (by omega) (by omega) (fun q => ⟨q, by omega⟩)
-theorem after_good_budget : AfterGoodBudget 5279 :=
+theorem after_good_budget : AfterGoodBudget 5272 :=
   fun pk w Q hQ a top u h => after_good pk w Q hQ a top u h
 end SigGolfCandidate.T3M
 end
