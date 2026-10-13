@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26080, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7105 := by
+theorem certificate : SigGolf.Certificate submission 7104 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -66,5 +66,5 @@ L3 a2 elision (Claude Opus 5.5, base 98e4cee, C 7106): the nested FTS already le
 last heap output (`regionAddr 9 + 704 = 1200` or `+ 848 = 1344`, both 8-aligned scratch that nothing reads
 after the L3 encoding), so the L3 entry drops `addi a2,s0,-176` and the L3 encoding hash writes there.
 Verify bound 7008 -> 7007; C 7106 -> 7105.
-S = 5310, W = 24860, K = 131072, C = 7105; score 37727550.
+S = 5310, W = 24860, K = 131072, C = 7104; score 37722240.
 -/
