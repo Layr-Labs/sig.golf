@@ -127,13 +127,13 @@ noncomputable instance instSeedsWCoord : ClaudeWCT.W9.T3.Security.FamResidual.Se
       rw [this]
 /-- Encoding rows compare the same half selected by the actual encoding oracle. -/
 noncomputable def encodingHit (lay : Layer) (target : Digest) : Hit WCoord :=
-  .selectedTarget target (fun answer => decide (if lay = 0 then TopDualHalf.gate (answer.extractLsb' 0 128) else lowerSpare (answer.extractLsb' 0 128)))
+  .selectedTarget target (fun answer => decide (lay = 0 ∨ lowerSpare (answer.extractLsb' 0 128)))
 
 theorem encodingHit_answerValue (lay : Layer) (target : Digest) (answer : HashOutput) :
     (encodingHit lay target).answerValue answer = WCT9.encodingAnswer lay answer := by
   have hlow : SigGolfCandidate.T3.Security.LargeResidual.low answer = answer.extractLsb' 0 128 := rfl
   by_cases hl : lay = 0
-  · simp [hlow, encodingHit, Hit.answerValue, WCT9.encodingAnswer, hl, TopDualHalf.select, TopDualHalf.selectPair]
+  · simp [hlow, encodingHit, Hit.answerValue, WCT9.encodingAnswer, hl]
   · simp [hlow, encodingHit, Hit.answerValue, WCT9.encodingAnswer, hl, DualHalf.select, DualHalf.selectPair]
 
 theorem keep_encodingHit (labels : WCoord → Digest) (lay : Layer) (target : Digest) (answer : HashOutput) :
@@ -192,6 +192,10 @@ theorem RouterState.firstUnknownMsg_none (st : RouterState) (L : EncLeaf) :
   intro cs hc
   simpa using st.msgSlot_known L cs hc
 
+/-- Pads of FTS coordinate `coord` read from coordinate values (nested FTS r1-1): the previous coordinate's top
+values, `(0, 0)` for coordinate 0. -/
+def prevVals (v : Coord → Digest) (index : Fin (2^31)) (coord : Fin 9) : Digest × Digest :=
+  (((prevTop index coord 0).map v).getD 0, ((prevTop index coord 1).map v).getD 0)
 def cellValues : CanonGraph.Node → (Coord → Digest) → HashInput
   | .chain p, v => ChainGraph.row p (v (chainChild p))
   | .leaf L, v => pad64 (Extract.leafInput L.1.lay L.1.tree.val L.1.leaf.val
@@ -202,11 +206,12 @@ def cellValues : CanonGraph.Node → (Coord → Digest) → HashInput
       (((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val + 1)).map v).getD 0))
   | .wctChain p, v => WCT9.chainInput p.1.1.val p.1.2.1.val p.1.2.2.1.val p.1.2.2.2.val p.2.val
       (v (wctItem p.1 p.2.val))
-  | .wctLeaf L, v => pad64 (Extract.wctLeafInput L.index.val L.coord.val L.child.val
+  | .wctLeaf L, v => pad64 (Extract.wctLeafInputP L.index.val L.coord.val L.child.val (prevVals v L.index L.coord).1
       (List.ofFn fun t : Fin 6 => v (wctItem (L.index, L.coord, L.child, t) 4)))
   | .wctNode n, v => pad64 (nodeInputP 3 (WCT9.nodeLayer n.1.coord.val) n.1.index.val
       (2 ^ (7 - n.1.level.val - 1) + n.1.idx.val)
-      (((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val)).map v).getD 0) 0
+      (((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val)).map v).getD 0)
+      (if n.1.level.val = 5 then (prevVals v n.1.index n.1.coord).2 else 0)
       (((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)).map v).getD 0))
   | .forest index, v => pad64 (Extract.forestInput index.val
       ((List.range 9).map fun c => (v (.inl (.wctNode (ftsTopNode index (fin9 c) 0))),
@@ -240,6 +245,10 @@ def EncRow (X : HashInput) : Prop :=
   ∃ (L : EncLeaf) (m : WCT9.LayerMsg) (ctr : BitVec 32) (pad : Wots.RowPad), Extract.msgFits L.1.lay m ∧
     X = Wots.encRow L.toWots m ctr pad
 def Parsed (X : HashInput) : Prop := ∃ N : CanonGraph.Node, Extract.posOf X = some N.toPos
+/-- How the router presents a sampled answer for row `X` (nested FTS r1-1): with the halves swapped when `X` parses
+as a top FTS node, so that the sampled low half lands in the half the node's parents read. -/
+noncomputable def rowPresent (X : HashInput) : HashOutput ≃ HashOutput :=
+  if hp : Parsed X then CanonGraph.presentEquiv (Classical.choose hp) else Equiv.refl _
 section Route
 variable (U : Finset HashInput)
 def testReq (first : Bool) (row : Cell U) (test : Probe WCoord) : OracleComp (RWorld U) HashOutput :=
@@ -252,14 +261,14 @@ noncomputable def routeQuery (a : AuxData) (st : RouterState) (X : HashInput) :
     if hp : Parsed X then
       let N := Classical.choose hp
       match firstUnknown st.known N with
-      | some cs => (fun y => (y, st')) <$>
+      | some cs => (fun y => (rowPresent X y, st')) <$>
           testReq U first ⟨X, h⟩ ⟨some (.inl cs.1, slotValue X cs.2), .label (.inl (.inl N))⟩
       | none => do
           let pairs ← discloseAll U ((childSlots N).map Prod.fst)
           if X = cellFrom N (lookupVal pairs) then do
             let v ← discloseReq U (.inl (.inl N)) .call
-            pure (ChainGraph.joinOutput v (a.high N), st')
-          else (fun y => (y, st')) <$> testReq U first ⟨X, h⟩ ⟨none, .label (.inl (.inl N))⟩
+            pure (CanonGraph.presentEquiv N (ChainGraph.joinOutput v (a.high N)), st')
+          else (fun y => (rowPresent X y, st')) <$> testReq U first ⟨X, h⟩ ⟨none, .label (.inl (.inl N))⟩
     else if he : EncRow X then
       let L := Classical.choose he
       let ctr := Classical.choose (Classical.choose_spec (Classical.choose_spec he))

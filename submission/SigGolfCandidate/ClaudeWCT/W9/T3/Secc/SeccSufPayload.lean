@@ -12,7 +12,8 @@ theorem expandN_unfold (answers : Answers) (m : Message) (pk : Digest) (σ : WCT
     ∃ counter cs,
       evalWithAnswerFn answers (WCT9.digestSearch σ.rho m 0 WCT9.digestAttemptLimit) = some (counter, N) ∧
       evalWithAnswerFn answers (WCT9.expandLayersBC σ (WCT9.digestIndex N) 4
-        (.forest (evalWithAnswerFn answers (WCT9.recoverFts σ (WCT9.digestIndex N) N)))) = some (pk, cs) ∧
+        (.pair (evalWithAnswerFn answers (WCT9.recoverFts σ (WCT9.digestIndex N) N)).1
+          (evalWithAnswerFn answers (WCT9.recoverFts σ (WCT9.digestIndex N) N)).2)) = some (pk, cs) ∧
       wit = ⟨σ, counter, fun lay => cs.getD lay.val 0⟩ := by
   simp only [expandN0, evalWithAnswerFn_bind] at he
   cases hd : evalWithAnswerFn answers (WCT9.digestSearch σ.rho m 0 WCT9.digestAttemptLimit) with
@@ -21,7 +22,8 @@ theorem expandN_unfold (answers : Answers) (m : Message) (pk : Digest) (σ : WCT
       obtain ⟨counter, output⟩ := found
       simp only [hd, evalWithAnswerFn_bind] at he
       cases hl : evalWithAnswerFn answers (WCT9.expandLayersBC σ (WCT9.digestIndex output) 4
-          (.forest (evalWithAnswerFn answers (WCT9.recoverFts σ (WCT9.digestIndex output) output)))) with
+          (.pair (evalWithAnswerFn answers (WCT9.recoverFts σ (WCT9.digestIndex output) output)).1
+            (evalWithAnswerFn answers (WCT9.recoverFts σ (WCT9.digestIndex output) output)).2)) with
       | none => simp only [hl, evalWithAnswerFn_pure, reduceCtorEq] at he
       | some layers =>
           obtain ⟨root, cs⟩ := layers
@@ -198,7 +200,7 @@ theorem opening_ext {a b : WCT9.Opening} (hv : ∀ t, a.values t = b.values t) (
 theorem openings_of_honest (answers : Answers) (N : HashOutput) (wit : WCT9.Witness)
     (hH : ClaudeWCT.W9.T3M.WctExtract.WctHonest answers N (witEnc N wit)) (k : WCT9.Coord) :
     wit.signature.openings k = WCT9.expectedOpening answers (WCT9.digestIndex N) N k := by
-  obtain ⟨hval, hsib, -⟩ := hH.2 k
+  obtain ⟨hval, hsib⟩ := hH.2.1 k
   apply opening_ext
   · intro t
     rw [← wreveal_witEnc N wit k t (WCT9.wordDigit (WCT9.rank N k) t), (hval t).1]
@@ -229,10 +231,10 @@ theorem caseC_expansion_is_payload (answers : Answers) (published : SigGolfCandi
     rw [← F.sig]
     exact openings_of_honest answers N wit hfts coord
   have hrf : evalWithAnswerFn answers (WCT9.recoverFts signature (WCT9.digestIndex N) N) =
-      WCT9.honestForest answers (WCT9.digestIndex N) :=
+      WCT9.honestTop answers (WCT9.digestIndex N) :=
     WCT9.recoverFts_honest answers signature _ N hopen
   obtain ⟨pieces, hpieces, -, hpagree⟩ := layers_payload answers published hcache N wit hgood 4 le_rfl
-    (.forest (WCT9.honestForest answers (WCT9.digestIndex N))) pk cs
+    (.pair (WCT9.honestTop answers (WCT9.digestIndex N)).1 (WCT9.honestTop answers (WCT9.digestIndex N)).2) pk cs
     (fun k hk => by
       obtain rfl : k = 3 := by omega
       exact (ClaudeWCT.W9.T3.Security.BPB.honestMsg_three answers _).symm)

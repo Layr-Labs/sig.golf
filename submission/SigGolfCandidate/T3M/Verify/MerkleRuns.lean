@@ -26,7 +26,7 @@ def mkOff (lay ci : Nat) : Nat → Nat
   | 0 => 0
   | kk + 1 => mkOff lay ci kk + mkWords lay (mkLo lay ci + kk)
 def mkBo (lay sh l : Nat) : Nat := mkBase lay + (if lay = 0 then 64 * (hL lay - 1 - l) else 16 * plan lay sh l)
-def mkBlk (lay sh l : Nat) : Nat := 0x800 + mkBo lay sh l
+def mkBlk (lay sh l : Nat) : Nat := 0x4c0 + mkBo lay sh l
 def mkCur (lay sh l b : Nat) : Nat := mkBlk lay sh l + 48 * b
 def mkDst (lay leaf : Nat) : Nat := if lay = 0 then 9472 + 48 * (leaf / 2048 % 2) else 256
 def mkMove (lay level : Nat) : Nat := if lay = 0 ∧ level = 11 then 0 else 1

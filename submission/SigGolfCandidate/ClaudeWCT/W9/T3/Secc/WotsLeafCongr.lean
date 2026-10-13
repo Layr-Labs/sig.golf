@@ -225,9 +225,9 @@ theorem wotsTree_lay {lay : Layer} (hl : lay ≠ L.lay) (tree : Nat) :
   rw [List.map_congr_left (fun leaf hleaf => wotsRoot_out hC hLleaf
     (by have := List.mem_range.mp hleaf; have := height_pow_le lay; omega) (fun h => hl h.1))]
   exact eval_out hC (respectsL_buildLevels L 3 _ _ _ _ (by decide))
-theorem honestForest_out (index : Nat) : Extract.honestForest T' index = Extract.honestForest T index := by
-  rw [Extract.honestForest_eq_wct9, Extract.honestForest_eq_wct9]
-  exact ClaudeWCT.WCT9.Wots.honestForest_congr (fun _ hq => hC.out _ (leafOut_ftsQuery L hq))
+theorem honestForest_out (index : Nat) : Extract.honestTop T' index = Extract.honestTop T index := by
+  rw [Extract.honestTop_eq_wct9, Extract.honestTop_eq_wct9]
+  exact ClaudeWCT.WCT9.Wots.honestTop_congr (fun _ hq => hC.out _ (leafOut_ftsQuery L hq))
 include hLleaf in
 /-- Messages of leaves on `L`'s layer come from the layer above (or the forest), which `L` does not touch. -/
 theorem leafMsg_lay {K : LeafAddr} (hK : K.lay = L.lay) : leafMsg T' K = leafMsg T K := by
@@ -515,7 +515,7 @@ theorem eval_signPayload_leaf (hLtree : L.tree < 2 ^ 40) (cache : Cache) (messag
     refine eval_bind_of (eval_signLayers_leaf hC hLleaf hLtree cache _ (WCT9.digestIndex_lt _) 4
       le_rfl _ (fun m hm => ?_)) ?_
     · obtain rfl : m = 3 := by omega
-      rw [← Extract.honestForest_eq_wct9]
+      rw [← Extract.honestTop_eq_wct9]
       exact ClaudeWCT.W9.T3.Security.Wots.Mask.signedMsg_top T _ (WCT9.digestIndex_lt _)
     · generalize evalWithAnswerFn T (WCT9.signLayersBC cache (WCT9.digestIndex output) 4 _) = pieces
       rcases pieces with _ | pieces <;> rfl
@@ -539,10 +539,10 @@ theorem count_signPayload_leaf (hLtree : L.tree < 2 ^ 40) (cache : Cache) (messa
       (by rw [queried_out hC.toLeafAgree (respectsL_signForest L _ _)]) ?_
     rw [ClaudeWCT.WCT9.eval_signForest]
     dsimp only
-    have hmsg : ∀ m, 4 = m + 1 → WCT9.LayerMsg.forest (ClaudeWCT.WCT9.honestForest T (WCT9.digestIndex output)) =
+    have hmsg : ∀ m, 4 = m + 1 → WCT9.LayerMsg.pair (ClaudeWCT.WCT9.honestTop T (WCT9.digestIndex output)).1 (ClaudeWCT.WCT9.honestTop T (WCT9.digestIndex output)).2 =
         leafMsg T (routeLeaf (WCT9.digestIndex output) (Fin.ofNat 4 m)) := fun m hm => by
       obtain rfl : m = 3 := by omega
-      rw [← Extract.honestForest_eq_wct9]
+      rw [← Extract.honestTop_eq_wct9]
       exact ClaudeWCT.W9.T3.Security.Wots.Mask.signedMsg_top T _ (WCT9.digestIndex_lt _)
     refine count_bind_of (eval_signLayers_leaf hC hLleaf hLtree cache _ (WCT9.digestIndex_lt _)
       4 le_rfl _ hmsg) (count_signLayers_leaf hC hLleaf hLtree cache _ (WCT9.digestIndex_lt _) 4

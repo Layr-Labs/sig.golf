@@ -7,8 +7,17 @@ namespace ClaudeWCT.W9.Machine.Expand.Compact2
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
 open ClaudeWCT.W9.Machine.Expand.Compact (cfgC)
 def cSnap : List (BitVec 32) := [5431,0x80050513,3147191,361875,5687,0xaa960613,0xfb9ff0ef]
-def cZero2 : List (BitVec 32) := [5559,0x80058593,5687,0xa3660613,0xfc1ff0ef]
-def cHdr : List (BitVec 32) := [3147063,328979,5559,0x80058593,1591,8783379,0xf89ff0ef]
+def cZero2 : List (BitVec 32) := [1463,1275430291,5687,2632320531,4229951727]  -- nested FTS: zero 2718 words from 1216
+/-- Nested FTS (r1-1): the header copy is replaced by `jal zero,P_final` (P_final at words 33117..33284). -/
+def cHdr : List (BitVec 32) := [2899275887]
+def cCtr : List (BitVec 32) := [3147063,33883411,1308624275,2098707,1280344303]
+def cPRegs : List (List (BitVec 32)) := [[3147063,67437843,9655,386237843,117442067,1255178479],[3147063,1006961939,9655,3741681043,117442067,1230012655],[3147063,1946486035,9655,2802156947,117442067,1204846831],[3151159,2886010131,5559,1862632851,117442067,1179681007],[3151159,3825534227,5559,923108755,117442067,1154515183],[3151159,470091027,5559,4278551955,117442067,1129349359],[3151159,1409615123,5559,3339027859,117442067,1104183535],[3155255,2349139219,5559,2399503763,117442067,1079017711],[3155255,3288663315,1463,1459979667,117442067,1053851887]]
+def cHolds : List (List (BitVec 32)) := [[3673655,17710979,933507,9322243,8361619,5218195,32933555,9015,201523987,6719155,30847011,31896611],[3673655,51265411,34487939,42876675,8361619,5218195,32933555,9015,3556967187,6719155,30847011,31896611],[3673655,84819843,68042371,76431107,8361619,5218195,32933555,9015,2617443091,6719155,30847011,31896611],[3673655,118374275,101596803,109985539,8361619,5218195,32933555,4919,1677918995,6719155,30847011,31896611],[3673655,151928707,135151235,143539971,8361619,5218195,32933555,4919,738394899,6719155,30847011,31896611],[3673655,185483139,168705667,177094403,8361619,5218195,32933555,4919,4093838099,6719155,30847011,31896611],[3673655,219037571,202260099,210648835,8361619,5218195,32933555,4919,3154314003,6719155,30847011,31896611],[3673655,252592003,235814531,244203267,8361619,5218195,32933555,4919,2214789907,6719155,30847011,31896611],[3673655,286146435,269368963,277757699,8361619,5218195,32933555,823,1275265811,6719155,30847011,31896611]]
+def cPEnd : List (BitVec 32) := [990937199]
+def cPReg (c : Nat) : List (BitVec 32) := cPRegs.getD c []
+def cHold (c : Nat) : List (BitVec 32) := cHolds.getD c []
+def pregAt (c : Nat) : Nat := 33122 + 6 * c
+def holdPc (c : Nat) : Nat := 33176 + 12 * c
 def cReg8 : List (BitVec 32) := [3155255,0xc4050513,5559,0x84058593,1591,109446675,0xf6dff0ef]
 def cReg7 : List (BitVec 32) := [3155255,0x8c050513,5559,0xb7058593,1591,109446675,0xf51ff0ef]
 def cReg6 : List (BitVec 32) := [3151159,0x54050513,5559,0xea058593,1591,109446675,0xf35ff0ef]
@@ -60,6 +69,12 @@ theorem code_cSnap : CodeAt im (pcOf 42142) cSnap := codeAt_of_window hc (by dec
 theorem code_cZero2 : CodeAt im (pcOf 42149) cZero2 := codeAt_of_window hc (by decide) (by decide +kernel)
 theorem code_cHdr : CodeAt im (pcOf 42154) cHdr := codeAt_of_window hc (by decide) (by decide +kernel)
 theorem code_cTop : CodeAt im (pcOf 42224) cTop := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cCtr : CodeAt im (pcOf 33117) cCtr := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cPEnd : CodeAt im (pcOf 33284) cPEnd := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cPReg (c : Nat) (hc9 : c < 9) : CodeAt im (pcOf (pregAt c)) (cPReg c) := by
+  interval_cases c <;> exact codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cHold (c : Nat) (hc9 : c < 9) : CodeAt im (pcOf (holdPc c)) (cHold c) := by
+  interval_cases c <;> exact codeAt_of_window hc (by decide) (by decide +kernel)
 theorem code_cIdx : CodeAt im (pcOf 42231) cIdx := codeAt_of_window hc (by decide) (by decide +kernel)
 theorem code_cCh1 : CodeAt im (pcOf 42235) cCh1 := codeAt_of_window hc (by decide) (by decide +kernel)
 theorem code_cRow1 : CodeAt im (pcOf 42242) cRow1 := codeAt_of_window hc (by decide) (by decide +kernel)

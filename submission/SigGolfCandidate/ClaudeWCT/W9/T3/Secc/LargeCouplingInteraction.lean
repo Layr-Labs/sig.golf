@@ -93,7 +93,7 @@ theorem Coherent.digestRow (hcoh : Coherent U T vals nv τ a) (hUpub : SeccLaw.p
     T (.inl (.inr (pad64 (digestInput rho m c)))) = τ ⟨_, digestRow_mem hUpub rho m c⟩ := by
   have hd := digestRow_isDigest rho m c
   have hnp := not_parsed_of_digest hd
-  apply hcoh.residual _ _ (fun N' => by rw [hcoh.cell]; exact not_cell_unparsed hcoh hnp N')
+  apply hcoh.residual_unparsed _ _ hnp (fun N' => by rw [hcoh.cell]; exact not_cell_unparsed hcoh hnp N')
   rintro ⟨L, ctr, hX, -⟩
   exact encRow_not_digest L _ ctr 0 (hX ▸ hd)
 theorem Coherent.privateNonce (hcoh : Coherent U T vals nv τ a) (m : Message) :

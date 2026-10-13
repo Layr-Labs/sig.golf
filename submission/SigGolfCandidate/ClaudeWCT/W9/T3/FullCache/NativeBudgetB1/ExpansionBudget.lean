@@ -29,6 +29,13 @@ theorem leafHash_cost_ge (answers : SigGolfCandidate.T3.Correctness.Answers) (in
   refine le_trans (by norm_num) (Nat.div_le_div_right (c := 64) (pad64_length_ge _ ?_))
   simp only [List.length_append, SphincsSecurity.bytesLE_length]
   omega
+theorem leafHashP_cost_ge (answers : SigGolfCandidate.T3.Correctness.Answers) (index coord selected : Nat)
+    (pad : Digest) (ends : List Digest) : 1 ≤ cost answers (ClaudeWCT.WCT9.leafHashP index coord selected pad ends) := by
+  unfold ClaudeWCT.WCT9.leafHashP ClaudeWCT.WCT9.leafInputP
+  rw [shortHash_cost]
+  refine le_trans (by norm_num) (Nat.div_le_div_right (c := 64) (pad64_length_ge _ ?_))
+  simp only [List.length_append, SphincsSecurity.bytesLE_length]
+  omega
 theorem chain_cost_ge (answers : SigGolfCandidate.T3.Correctness.Answers) (index coord selected i start count : Nat)
     (value : Digest) : count ≤ cost answers (ClaudeWCT.WCT9.chain index coord selected i start count value) := by
   unfold ClaudeWCT.WCT9.chain
@@ -40,24 +47,25 @@ theorem chain_cost_ge (answers : SigGolfCandidate.T3.Correctness.Answers) (index
   have := pad64_length_ge _ hpos
   omega
 theorem buildChildF_cost_ge (answers : SigGolfCandidate.T3.Correctness.Answers) (index coord selected : Nat)
-    (word : ClaudeWCT.WCT9.Rank) (coefs : List Digest) :
-    25 ≤ cost answers (ClaudeWCT.WCT9.buildChildF index coord selected word coefs) := by
+    (word : ClaudeWCT.WCT9.Rank) (coefs : List Digest) (padL : Digest) :
+    25 ≤ cost answers (ClaudeWCT.WCT9.buildChildF index coord selected word coefs padL) := by
   unfold ClaudeWCT.WCT9.buildChildF
   rw [cost_bind, cost_bind, cost_pure, Nat.add_zero]
   refine le_trans (by norm_num) (Nat.add_le_add (foldlM_cost_ge answers _ 4 (fun state i => ?_) (List.finRange 6) _)
-    (leafHash_cost_ge answers index coord selected _))
+    (leafHashP_cost_ge answers index coord selected padL _))
   simp only [cost_bind, cost_pure, Nat.add_zero]
   exact le_trans (by omega) (Nat.add_le_add (chain_cost_ge answers _ _ _ _ _ _ _) (chain_cost_ge answers _ _ _ _ _ _ _))
 theorem buildCoordinateF_cost_ge (answers : SigGolfCandidate.T3.Correctness.Answers) (index : Nat)
-    (coord : ClaudeWCT.WCT9.Coord) (selected : ClaudeWCT.WCT9.Child) (word : ClaudeWCT.WCT9.Rank) :
-    3200 ≤ cost answers (ClaudeWCT.WCT9.buildCoordinateF index coord selected word) := by
+    (coord : ClaudeWCT.WCT9.Coord) (selected : ClaudeWCT.WCT9.Child) (word : ClaudeWCT.WCT9.Rank)
+    (prev : Digest × Digest) :
+    3200 ≤ cost answers (ClaudeWCT.WCT9.buildCoordinateF index coord selected word prev) := by
   unfold ClaudeWCT.WCT9.buildCoordinateF
   rw [cost_bind, cost_bind]
   refine le_trans ?_ (Nat.le_add_left _ _)
   refine le_trans ?_ (Nat.le_add_right _ _)
   refine le_trans (by simp) (foldlM_cost_ge answers _ 25 (fun state j => ?_) (List.range 128) _)
   rw [cost_bind]
-  exact le_trans (buildChildF_cost_ge answers index coord.val j word _) (Nat.le_add_right _ _)
+  exact le_trans (buildChildF_cost_ge answers index coord.val j word _ _) (Nat.le_add_right _ _)
 theorem forestRows_cost_ge (answers : SigGolfCandidate.T3.Correctness.Answers) (index : Nat)
     (output : HashOutput) :
     28800 ≤ cost answers (ClaudeWCT.WCT9.forestRows index output) := by
@@ -67,7 +75,7 @@ theorem forestRows_cost_ge (answers : SigGolfCandidate.T3.Correctness.Answers) (
   intro state coord
   unfold ClaudeWCT.WCT9.openingStep
   simp only [cost_bind, cost_pure, Nat.add_zero]
-  exact buildCoordinateF_cost_ge answers index coord _ _
+  exact buildCoordinateF_cost_ge answers index coord _ _ _
 theorem signForest_cost_ge (answers : SigGolfCandidate.T3.Correctness.Answers) (index : Nat)
     (output : HashOutput) :
     28800 ≤ cost answers (ClaudeWCT.WCT9.signForest index output) := by
@@ -95,7 +103,7 @@ end
 section
 namespace ClaudeWCT.W9.T3.ExpansionBudget
 open OracleComp OracleSpec
-open ClaudeWCT.WCT9 (Signature Witness digestAttemptLimit assembledSignature honestForest
+open ClaudeWCT.WCT9 (Signature Witness digestAttemptLimit assembledSignature honestTop
   signForest_root assembled_forest_recovery toT3Signature)
 open ClaudeWCT.WCT9.Rev3 (sign expand verify signPayload)
 open SigGolfCandidate.T3 hiding Signature Witness sign expand verify signPayload digestSearch admissible
@@ -220,7 +228,7 @@ theorem expand_cost_step (answers : Answers) (message : Message) (pk : Digest) (
       cost answers (ClaudeWCT.WCT9.digestSearch sig.rho message 0 digestAttemptLimit) +
       cost answers (ClaudeWCT.WCT9.recoverFts sig (ClaudeWCT.WCT9.digestIndex output) output) +
       cost answers (ClaudeWCT.WCT9.expandLayersBC sig (ClaudeWCT.WCT9.digestIndex output) 4
-        (.forest (evalWithAnswerFn answers (ClaudeWCT.WCT9.recoverFts sig (ClaudeWCT.WCT9.digestIndex output) output)))) := by
+        (.pair (evalWithAnswerFn answers (ClaudeWCT.WCT9.recoverFts sig (ClaudeWCT.WCT9.digestIndex output) output)).1 (evalWithAnswerFn answers (ClaudeWCT.WCT9.recoverFts sig (ClaudeWCT.WCT9.digestIndex output) output)).2)) := by
   simp only [ClaudeWCT.WCT9.expandWith, cost_bind, hd]
   split
   · split <;> simp only [cost_pure, Nat.add_zero, Nat.add_assoc]
@@ -236,7 +244,7 @@ theorem signPayload_cost_step (answers : Answers) (cache : Cache) (message : Mes
         digestAttemptLimit) +
       cost answers (ClaudeWCT.WCT9.signForest (ClaudeWCT.WCT9.digestIndex output) output) +
       cost answers (ClaudeWCT.WCT9.signLayersBC cache (ClaudeWCT.WCT9.digestIndex output) 4
-        (.forest (evalWithAnswerFn answers (ClaudeWCT.WCT9.signForest (ClaudeWCT.WCT9.digestIndex output) output)).2)) := by
+        (.pair (evalWithAnswerFn answers (ClaudeWCT.WCT9.signForest (ClaudeWCT.WCT9.digestIndex output) output)).2.1 (evalWithAnswerFn answers (ClaudeWCT.WCT9.signForest (ClaudeWCT.WCT9.digestIndex output) output)).2.2)) := by
   rw [ClaudeWCT.WCT9.Rev3.signPayload_eq]
   simp only [cost_bind, hd]
   split <;> simp only [cost_pure, Nat.add_zero, Nat.add_assoc]
@@ -260,7 +268,7 @@ theorem expandWith_cost_le_payload_add_of (ftsRec : Nat)
       simp only [hd, evalWithAnswerFn_bind] at he
       cases hl : evalWithAnswerFn answers
         (ClaudeWCT.WCT9.signLayersBC cache (ClaudeWCT.WCT9.digestIndex output) 4
-          (.forest (evalWithAnswerFn answers (ClaudeWCT.WCT9.signForest (ClaudeWCT.WCT9.digestIndex output) output)).2)) with
+          (.pair (evalWithAnswerFn answers (ClaudeWCT.WCT9.signForest (ClaudeWCT.WCT9.digestIndex output) output)).2.1 (evalWithAnswerFn answers (ClaudeWCT.WCT9.signForest (ClaudeWCT.WCT9.digestIndex output) output)).2.2)) with
       | none => simp only [hl, evalWithAnswerFn_pure, reduceCtorEq] at he
       | some pieces =>
           simp only [hl, evalWithAnswerFn_pure, Option.some.injEq] at he
@@ -342,10 +350,10 @@ theorem expandS_cost_le (answers : Answers) (message : Message) (pk : Digest) (s
     obtain ⟨counter, output⟩ := found
     rw [expand_cost_step answers message pk sig counter output hd]
     have hC : cost answers (ClaudeWCT.WCT9.expandLayersBC sig (ClaudeWCT.WCT9.digestIndex output) 4
-        (.forest (evalWithAnswerFn answers (ClaudeWCT.WCT9.recoverFts sig (ClaudeWCT.WCT9.digestIndex output) output)))) =
+        (.pair (evalWithAnswerFn answers (ClaudeWCT.WCT9.recoverFts sig (ClaudeWCT.WCT9.digestIndex output) output)).1 (evalWithAnswerFn answers (ClaudeWCT.WCT9.recoverFts sig (ClaudeWCT.WCT9.digestIndex output) output)).2)) =
         cost answers (ClaudeWCT.WCT9.expandLayersT (ClaudeWCT.WCT9.proj sig) (ClaudeWCT.WCT9.digestIndex output)
           (ClaudeWCT.WCT9.topSib (ClaudeWCT.WCT9.proj sig)) 4
-          (.forest (evalWithAnswerFn answers (ClaudeWCT.WCT9.recoverFts sig (ClaudeWCT.WCT9.digestIndex output) output)))) := by
+          (.pair (evalWithAnswerFn answers (ClaudeWCT.WCT9.recoverFts sig (ClaudeWCT.WCT9.digestIndex output) output)).1 (evalWithAnswerFn answers (ClaudeWCT.WCT9.recoverFts sig (ClaudeWCT.WCT9.digestIndex output) output)).2)) := by
       rw [ClaudeWCT.WCT9.expandLayersBC_eq_T sig _ 4 le_rfl, cost_map',
         cost_expandLayersT_other answers _ _ (ClaudeWCT.WCT9.topSib sig) (ClaudeWCT.WCT9.topSib (ClaudeWCT.WCT9.proj sig))]
     unfold ClaudeWCT.WCT9.expandS
@@ -353,13 +361,13 @@ theorem expandS_cost_le (answers : Answers) (message : Message) (pk : Digest) (s
     refine le_trans (cost_bind_le answers _ _ (cost answers (ClaudeWCT.WCT9.recoverFts sig (ClaudeWCT.WCT9.digestIndex output) output) +
       cost answers (ClaudeWCT.WCT9.expandLayersT (ClaudeWCT.WCT9.proj sig) (ClaudeWCT.WCT9.digestIndex output)
           (ClaudeWCT.WCT9.topSib (ClaudeWCT.WCT9.proj sig)) 4
-          (.forest (evalWithAnswerFn answers (ClaudeWCT.WCT9.recoverFts sig (ClaudeWCT.WCT9.digestIndex output) output)))) +
+          (.pair (evalWithAnswerFn answers (ClaudeWCT.WCT9.recoverFts sig (ClaudeWCT.WCT9.digestIndex output) output)).1 (evalWithAnswerFn answers (ClaudeWCT.WCT9.recoverFts sig (ClaudeWCT.WCT9.digestIndex output) output)).2)) +
       ClaudeWCT.WCT9.searchFuel) ?_) (by omega)
     simp only [hd, hfts]
     refine le_trans (cost_bind_le answers _ _ (
       cost answers (ClaudeWCT.WCT9.expandLayersT (ClaudeWCT.WCT9.proj sig) (ClaudeWCT.WCT9.digestIndex output)
           (ClaudeWCT.WCT9.topSib (ClaudeWCT.WCT9.proj sig)) 4
-          (.forest (evalWithAnswerFn answers (ClaudeWCT.WCT9.recoverFts sig (ClaudeWCT.WCT9.digestIndex output) output)))) +
+          (.pair (evalWithAnswerFn answers (ClaudeWCT.WCT9.recoverFts sig (ClaudeWCT.WCT9.digestIndex output) output)).1 (evalWithAnswerFn answers (ClaudeWCT.WCT9.recoverFts sig (ClaudeWCT.WCT9.digestIndex output) output)).2)) +
       ClaudeWCT.WCT9.searchFuel) ?_) (by omega)
     refine le_trans (cost_bind_le answers _ _ ClaudeWCT.WCT9.searchFuel ?_) (by omega)
     try dsimp only

@@ -322,10 +322,10 @@ theorem queried_mapM_mem {α β : Type} (A : Correctness.Answers) (f : α → M 
         rw [Security.SourceReplay.queried_bind]
         exact List.mem_append_left _ (ih hx)
 theorem recoverCoordinate_probe (A : Correctness.Answers) (sig : WCT9.Signature) (index : Nat) (output : HashOutput)
-    (coord : WCT9.Coord) (t : Fin 6) (hu : 1 ≤ wordDigit (rank output coord) t) :
+    (coord : WCT9.Coord) (prev : Digest × Digest) (t : Fin 6) (hu : 1 ≤ wordDigit (rank output coord) t) :
     (.inl (.inr (WCT9.chainInput index coord.val (child output coord).val t.val (4 - wordDigit (rank output coord) t)
         ((sig.openings coord).values t))) : Spec.Domain) ∈
-      Security.SourceReplay.queried A (WCT9.recoverCoordinate sig index output coord) := by
+      Security.SourceReplay.queried A (WCT9.recoverCoordinate sig index output coord prev) := by
   unfold WCT9.recoverCoordinate
   rw [Security.SourceReplay.queried_bind]
   apply List.mem_append_left

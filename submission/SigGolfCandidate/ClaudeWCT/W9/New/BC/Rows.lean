@@ -100,18 +100,13 @@ theorem layerEncodingRow_injective {lay lay' : Layer} {tree leaf tree' leaf' : N
   obtain ⟨rfl, rfl, rfl, hL, hR, rfl, rfl⟩ := WCT9.pairEncodingInputP_injective hl hr hl' hr' h
   refine ⟨rfl, rfl, rfl, ?_, rfl, rfl, ?_⟩
   · cases msg with
-    | forest root =>
-        cases msg' with
-        | forest root' => simp only [rowLeft] at hL; rw [hL]
-        | pair l r => change lay.val = 3 at hf; change lay.val < 3 at hf'; omega
+    | forest root => exact hf.elim
     | pair l r =>
         cases msg' with
-        | forest root' => change lay.val < 3 at hf; change lay.val = 3 at hf'; omega
+        | forest root' => exact hf'.elim
         | pair l' r' => simp only [rowLeft, rowRight] at hL hR; rw [hL, hR]
   · rintro root rfl
-    cases msg' with
-    | forest root' => simpa only [rowRight] using hR
-    | pair l r => change lay.val = 3 at hf; change lay.val < 3 at hf'; omega
+    exact hf.elim
 theorem layerEncodingRow_injective_leaf {lay : Layer} {tree leaf : Nat} {msg msg' : WCT9.LayerMsg}
     {c c' : BitVec 32} {pad pad' : BitVec 96} {padR padR' : Digest}
     (hf : Extract.msgFits lay msg) (hf' : Extract.msgFits lay msg')
@@ -128,20 +123,17 @@ theorem layerEncodingRow_injective_leaf {lay : Layer} {tree leaf : Nat} {msg msg
   have hR := bytesLE_injective hr
   refine ⟨?_, bytesLE_injective hc, bytesLE_injective hp, ?_⟩
   · cases msg with
-    | forest root =>
-        cases msg' with
-        | forest root' => simp only [rowLeft] at hL; rw [hL]
-        | pair l r => change lay.val = 3 at hf; change lay.val < 3 at hf'; omega
+    | forest root => exact hf.elim
     | pair l r =>
         cases msg' with
-        | forest root' => change lay.val < 3 at hf; change lay.val = 3 at hf'; omega
+        | forest root' => exact hf'.elim
         | pair l' r' => simp only [rowLeft, rowRight] at hL hR; rw [hL, hR]
   · rintro root rfl
-    cases msg' with
-    | forest root' => simpa only [rowRight] using hR
-    | pair l r => change lay.val = 3 at hf; change lay.val < 3 at hf'; omega
+    exact hf.elim
+/-- Honest layer frame with a zero 12-byte row pad. (Nested FTS r1-1: the L3 row is a pair row, so the old
+`wbcRight` slot is no longer read and carries no condition.) -/
 def GoodZ (answers : SigGolfCandidate.T3.Correctness.Answers) (w : WBytes) (index : Nat) (lay : Layer) : Prop :=
-  Extract.Good answers w index lay ∧ wbcPad w index lay = 0 ∧ (lay.val = 3 → wbcRight w = 0)
+  Extract.Good answers w index lay ∧ wbcPad w index lay = 0
 theorem GoodZ.good {answers : SigGolfCandidate.T3.Correctness.Answers} {w : WBytes} {index : Nat} {lay : Layer}
     (h : GoodZ answers w index lay) : Extract.Good answers w index lay := h.1
 end ClaudeWCT.W9.T3M.BC

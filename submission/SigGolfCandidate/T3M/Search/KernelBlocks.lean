@@ -98,18 +98,10 @@ def prxBase (b : Nat) : Nat := if b = 354 then 42726 else 1508
 def p_0s : List (BitVec 32) := [0xf49333,19071795,16978707,538141459,50601747,31679283,0xc100f13,59711251,31679283,134711,638455315,7223331,1049491,8272931,0xa74ff06f]
 def p_0e : List (BitVec 32) := [0xf49333,19071795,16978707,538141459,50601747,31679283,0xc100f13,59711251,31679283,134711,638455315,7223331,1049491,8272931,0xb79d606f]
 def p_0 (b : Nat) : List (BitVec 32) := if b = 354 then p_0e else p_0s
-def tcEntry (b : Nat) : Nat := if b = 354 then 1272 else 1523
-def topSelectBase (b : Nat) : Nat := if b = 354 then 43032 else 21024
-def tcBase (b : Nat) : Nat := topSelectBase b + 3
-def c_0s : List (BitVec 32) := [0xfff34313,0xfff00e13,0x9e5e13,29606835,0xbfcec06f]
-def c_0e : List (BitVec 32) := [0xfff34313,0xfff00e13,0x9e5e13,29606835,0x929d606f]
+def tcBase (b : Nat) : Nat := if b = 354 then 1272 else 1523
+def c_0s : List (BitVec 32) := [0xfff34313,0xfff00e13,0x9e5e13,29606835,0xcbcff06f]
+def c_0e : List (BitVec 32) := [0xfff34313,0xfff00e13,0x9e5e13,29606835,0xdb4ff06f]
 def c_0 (b : Nat) : List (BitVec 32) := if b = 354 then c_0e else c_0s
-def topEntryCode (b : Nat) : List (BitVec 32) := if b = 354 then [0x4812806f] else [0xb41306f]
-def topSelect0 : List (BitVec 32) := [0x3c663]
-def topSelect1 : List (BitVec 32) := [0x1063303,0x1863383]
-def topSelectL : Rv.Layout := [(0,topSelect0),(1,topSelect1)]
-def topSelectCode : List (BitVec 32) := layoutCode topSelectL
-theorem topSelectL_ok : layoutOk 0 topSelectL = true := by decide +kernel
 def zBase (b : Nat) : Nat := if b = 354 then 42841 else 20832
 def z_0 : List (BitVec 32) := [4292087571,985187]
 def z_2 : List (BitVec 32) := [4294839955,31358515,135135843]
@@ -140,9 +132,7 @@ theorem selectorL_ok {b : Nat} (hb : b=354 ∨ b=543) : layoutOk 0 (selectorL b)
   rcases hb with rfl | rfl <;> decide +kernel
 def KernAt (image : Image) (b : Nat) : Prop :=
   (CodeAt image (pcOf b) (kernCode b) ∧ CodeAt image (pcOf (capBase b)) (appCode b)) ∧ (b = 354 ∨ b = 543) ∧
-    CodeAt image (pcOf (prxBase b)) (p_0 b) ∧
-    (CodeAt image (pcOf (tcBase b)) (c_0 b) ∧ CodeAt image (pcOf (tcEntry b)) (topEntryCode b) ∧
-      CodeAt image (pcOf (topSelectBase b)) topSelectCode) ∧
+    CodeAt image (pcOf (prxBase b)) (p_0 b) ∧ CodeAt image (pcOf (tcBase b)) (c_0 b) ∧
     CodeAt image (pcOf (zBase b)) (zeroCode b) ∧
     CodeAt image (pcOf (selectorBase b)) (selectorCode b) ∧ Reward.RewardAt image b
 theorem codeAt_k_0 {image : Image} {b : Nat} (h : KernAt image b) :
@@ -307,12 +297,7 @@ theorem codeAt_a_41 {image : Image} {b : Nat} (h : KernAt image b) :
 theorem codeAt_p_0 {image : Image} {b : Nat} (h : KernAt image b) : CodeAt image (pcOf (prxBase b)) (p_0 b) :=
   h.2.2.1
 theorem codeAt_c_0 {image : Image} {b : Nat} (h : KernAt image b) : CodeAt image (pcOf (tcBase b)) (c_0 b) :=
-  h.2.2.2.1.1
-theorem codeAt_topEntry {image : Image} {b : Nat} (h : KernAt image b) :
-    CodeAt image (pcOf (tcEntry b)) (topEntryCode b) := h.2.2.2.1.2.1
-theorem codeAt_topSelect {image : Image} {b : Nat} (h : KernAt image b) (i o : Nat) (seg : List (BitVec 32))
-    (hs : topSelectL[i]? = some (o,seg)) : CodeAt image (pcOf (topSelectBase b+o)) seg :=
-  codeAt_sublayout h.2.2.2.1.2.2 topSelectL_ok hs
+  h.2.2.2.1
 theorem codeAt_zero {image : Image} {b : Nat} (h : KernAt image b) (i o : Nat) (seg : List (BitVec 32))
     (hs : (zeroL b)[i]? = some (o, seg)) : CodeAt image (pcOf (zBase b + o)) seg :=
   codeAt_sublayout h.2.2.2.2.1 (zeroL_ok h.2.1) hs
@@ -336,17 +321,17 @@ theorem prxCode_expand : (Images.expandImage.code.drop 42726).take (p_0 354).len
   change (Images.expandCode.drop 42726).take _ = _
   rw [Images.Slices.expandCode_drop_eq 42726 (by decide)]
   decide +kernel
-theorem tcCode_expand : (Images.expandImage.code.drop 43035).take (c_0 354).length = c_0 354 := by
-  change (Images.expandCode.drop 43035).take _ = _
-  rw [Images.Slices.expandCode_drop_eq 43035 (by decide)]
+theorem tcCode_expand : (Images.expandImage.code.drop 1272).take (c_0 354).length = c_0 354 := by
+  change (Images.expandCode.drop 1272).take _ = _
+  rw [Images.Slices.expandCode_drop_eq 1272 (by decide)]
   decide +kernel
 theorem prxCode_sign : (Images.signImage.code.drop 1508).take (p_0 543).length = p_0 543 := by
   change (Images.signCode.drop 1508).take _ = _
   rw [Images.Slices.signCode_drop_eq 1508 (by decide)]
   decide +kernel
-theorem tcCode_sign : (Images.signImage.code.drop 21027).take (c_0 543).length = c_0 543 := by
-  change (Images.signCode.drop 21027).take _ = _
-  rw [Images.Slices.signCode_drop_eq 21027 (by decide)]
+theorem tcCode_sign : (Images.signImage.code.drop 1523).take (c_0 543).length = c_0 543 := by
+  change (Images.signCode.drop 1523).take _ = _
+  rw [Images.Slices.signCode_drop_eq 1523 (by decide)]
   decide +kernel
 theorem zeroCode_expand : (Images.expandImage.code.drop 42841).take (zeroCode 354).length = zeroCode 354 := by
   change (Images.expandCode.drop 42841).take _ = _
@@ -367,34 +352,14 @@ theorem selectorCode_sign : (Images.signImage.code.drop 20930).take (selectorCod
 theorem codeAt_selector {image : Image} {b : Nat} (h : KernAt image b) (i o : Nat) (seg : List (BitVec 32))
     (hs : (selectorL b)[i]? = some (o,seg)) : CodeAt image (pcOf (selectorBase b+o)) seg :=
   codeAt_sublayout h.2.2.2.2.2.1 (selectorL_ok h.2.1) hs
-theorem topEntry_expand : (Images.expandImage.code.drop 1272).take (topEntryCode 354).length = (topEntryCode 354) := by
-  change (Images.expandCode.drop 1272).take _ = _
-  rw [Images.Slices.expandCode_drop_eq 1272 (by decide)]
-  decide +kernel
-theorem topSelect_expand : (Images.expandImage.code.drop 43032).take topSelectCode.length = topSelectCode := by
-  change (Images.expandCode.drop 43032).take _ = _
-  rw [Images.Slices.expandCode_drop_eq 43032 (by decide)]
-  decide +kernel
-theorem topEntry_sign : (Images.signImage.code.drop 1523).take (topEntryCode 543).length = (topEntryCode 543) := by
-  change (Images.signCode.drop 1523).take _ = _
-  rw [Images.Slices.signCode_drop_eq 1523 (by decide)]
-  decide +kernel
-theorem topSelect_sign : (Images.signImage.code.drop 21024).take topSelectCode.length = topSelectCode := by
-  change (Images.signCode.drop 21024).take _ = _
-  rw [Images.Slices.signCode_drop_eq 21024 (by decide)]
-  decide +kernel
 theorem kernAt_expand : KernAt Images.expandImage 354 :=
   ⟨⟨codeAt_slice (by decide +kernel) kernCode_expand, codeAt_slice (by decide +kernel) appCode_expand⟩, Or.inl rfl,
-    codeAt_slice (by decide +kernel) prxCode_expand,
-    ⟨codeAt_slice (by decide +kernel) tcCode_expand, codeAt_slice (by decide +kernel) topEntry_expand,
-      codeAt_slice (by decide +kernel) topSelect_expand⟩,
+    codeAt_slice (by decide +kernel) prxCode_expand, codeAt_slice (by decide +kernel) tcCode_expand,
     codeAt_slice (by decide +kernel) zeroCode_expand,
     codeAt_slice (by decide +kernel) selectorCode_expand, Reward.at_expand⟩
 theorem kernAt_sign : KernAt Images.signImage 543 :=
   ⟨⟨codeAt_slice (by decide +kernel) kernCode_sign, codeAt_slice (by decide +kernel) appCode_sign⟩, Or.inr rfl,
-    codeAt_slice (by decide +kernel) prxCode_sign,
-    ⟨codeAt_slice (by decide +kernel) tcCode_sign, codeAt_slice (by decide +kernel) topEntry_sign,
-      codeAt_slice (by decide +kernel) topSelect_sign⟩,
+    codeAt_slice (by decide +kernel) prxCode_sign, codeAt_slice (by decide +kernel) tcCode_sign,
     codeAt_slice (by decide +kernel) zeroCode_sign,
     codeAt_slice (by decide +kernel) selectorCode_sign, Reward.at_sign⟩
 sym_block blk354_0 := symRun { noAlias := true } k_0 (pcOf (354 + 0)) 200
@@ -634,7 +599,7 @@ theorem run_115 {b : Nat} (hb : b = 354 ∨ b = 543) :
   · exact blk354_115.trans (congrArg some (by kernel_rfl))
   · exact blk543_115.trans (congrArg some (by kernel_rfl))
 def st_124 : SymState := blk354_124.res.st
-def pcE_124 (b : Nat) : E := rebase blk354_124.res.pc (pcOf (tcEntry b)) (pcOf (b + 130))
+def pcE_124 (b : Nat) : E := rebase blk354_124.res.pc (pcOf (tcBase b)) (pcOf (b + 130))
 theorem run_124 {b : Nat} (hb : b = 354 ∨ b = 543) :
     symRun { noAlias := true } (k_124 b) (pcOf (b + 124)) 200 =
       some ⟨st_124, pcE_124 b, blk354_124.res.stop, blk354_124.res.steps, blk354_124.res.cycles⟩ := by
@@ -935,8 +900,8 @@ theorem runp_0 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact blkP354_0.trans (congrArg some (by kernel_rfl))
   · exact blkP543_0.trans (congrArg some (by kernel_rfl))
-sym_block blkC354_0 := symRun { noAlias := true } c_0e (pcOf 43035) 200
-sym_block blkC543_0 := symRun { noAlias := true } c_0s (pcOf 21027) 200
+sym_block blkC354_0 := symRun { noAlias := true } c_0e (pcOf 1272) 200
+sym_block blkC543_0 := symRun { noAlias := true } c_0s (pcOf 1523) 200
 def stc_0 : SymState := blkC354_0.res.st
 def pcEc_0 (b : Nat) : E := .c (pcOf (b + 263))
 theorem runc_0 {b : Nat} (hb : b = 354 ∨ b = 543) :

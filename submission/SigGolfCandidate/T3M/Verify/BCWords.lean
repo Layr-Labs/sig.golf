@@ -40,7 +40,7 @@ def bKB (lay c : Nat) : List (Reg × Word) := (bK lay c).filter (fun p => p.1 !=
 def oblB : List Oblig := [.valid ⟨some (.reg .x12), 8⟩ 8, .valid ⟨some (.reg .x12), 0⟩ 8]
 def oblBHi : List Oblig := [.valid ⟨some (.reg .x12), 24⟩ 8, .valid ⟨some (.reg .x12), 16⟩ 8] ++ oblB
 def allowed (lay c : Nat) : List Nat :=
-  if lay = 3 then [2064, 2072] else [rowA lay c + 16, rowA lay c + 24] ++ (if lay=0 then [25136,25144] else [])
+  if lay = 3 then [1232, 1240, 1264, 1272] else [rowA lay c + 16, rowA lay c + 24] ++ (if lay=0 then [25136,25144] else [])
 def setupCheck (lay c : Nat) : Bool :=
   specB (allowed lay c) [] baseK (runAt (preK lay) [] (setupPc lay (trPc lay c)) [])
     (specA lay c) [] (bK lay c) (keepA lay)

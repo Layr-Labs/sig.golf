@@ -53,25 +53,30 @@ theorem runLc_eq {c i : Nat} (hc : c < 9) (hi : i < 6) : runLc c i = some (expLc
 theorem okTail_parts {c : Nat} (hc : c < 9) :
     optBeq (runL c) (expL c) = true ∧ optBeq (runT c true) (expT c true) = true ∧
       optBeq (runT c false) (expT c false) = true ∧ optBeq (runN c) (expN c) = true ∧
-      optBeq (runNT c true) (expNT c true) = true ∧ optBeq (runNT c false) (expNT c false) = true ∧
+      optBeq (runNT c 0 true) (expNT c 0 true) = true ∧
+      optBeq (runNT c (if c = 0 then 0 else 2) false) (expNT c (if c = 0 then 0 else 2) false) = true ∧
+      optBeq (runNT c 1 true) (expNT c 1 true) = true ∧
       optBeq (runR0 c) (expR0 c) = true ∧ ((List.range 7).all fun l => optBeq (runPC c l) (expPC c l)) = true := by
   have h := (okCoord_parts hc).2.2.2.2.2.2.2
   simp only [okTail, Bool.and_eq_true] at h
-  obtain ⟨⟨⟨⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩, h7⟩, h8⟩ := h
-  exact ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩, h7⟩, h8⟩, h9⟩ := h
+  exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9⟩
 theorem runL_eq {c : Nat} (hc : c < 9) : runL c = some (expL c) := optBeq_eq (okTail_parts hc).1
 theorem runT_eq {c : Nat} (hc : c < 9) (b : Bool) : runT c b = some (expT c b) := by
   cases b
   · exact optBeq_eq (okTail_parts hc).2.2.1
   · exact optBeq_eq (okTail_parts hc).2.1
 theorem runN_eq {c : Nat} (hc : c < 9) : runN c = some (expN c) := optBeq_eq (okTail_parts hc).2.2.2.1
-theorem runNT_eq {c : Nat} (hc : c < 9) (b : Bool) : runNT c b = some (expNT c b) := by
-  cases b
-  · exact optBeq_eq (okTail_parts hc).2.2.2.2.2.1
-  · exact optBeq_eq (okTail_parts hc).2.2.2.2.1
-theorem runR0_eq {c : Nat} (hc : c < 9) : runR0 c = some (expR0 c) := optBeq_eq (okTail_parts hc).2.2.2.2.2.2.1
+theorem runNT_eq0 {c : Nat} (hc : c < 9) : runNT c 0 true = some (expNT c 0 true) :=
+  optBeq_eq (okTail_parts hc).2.2.2.2.1
+theorem runNT_eqX {c : Nat} (hc : c < 9) :
+    runNT c (if c = 0 then 0 else 2) false = some (expNT c (if c = 0 then 0 else 2) false) :=
+  optBeq_eq (okTail_parts hc).2.2.2.2.2.1
+theorem runNT_eq1 {c : Nat} (hc : c < 9) : runNT c 1 true = some (expNT c 1 true) :=
+  optBeq_eq (okTail_parts hc).2.2.2.2.2.2.1
+theorem runR0_eq {c : Nat} (hc : c < 9) : runR0 c = some (expR0 c) := optBeq_eq (okTail_parts hc).2.2.2.2.2.2.2.1
 theorem runPC_eq {c l : Nat} (hc : c < 9) (hl : l < 7) : runPC c l = some (expPC c l) :=
-  optBeq_eq (List.all_eq_true.mp (okTail_parts hc).2.2.2.2.2.2.2 l (List.mem_range.mpr hl))
+  optBeq_eq (List.all_eq_true.mp (okTail_parts hc).2.2.2.2.2.2.2.2 l (List.mem_range.mpr hl))
 theorem okGlobal_parts : optBeq runSK expSK = true ∧ optBeq runFor expFor = true ∧ optBeq runJ expJ = true ∧
     okHorn = true := by
   have h := okGlobal_ok

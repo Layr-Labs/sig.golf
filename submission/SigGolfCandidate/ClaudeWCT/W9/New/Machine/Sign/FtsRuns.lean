@@ -80,11 +80,15 @@ def expLc (c i : Nat) : PRes :=
   pres [(.x6, ldc (CHAINW + 48)), (.x7, ldc (CHAINW + 56)), (.x28, cE CHAINW), (.x29, cE LEAFW)]
     [mwc (LEAFW + leafOff i + 8) (ldc (CHAINW + 56)), mwc (LEAFW + leafOff i) (ldc (CHAINW + 48))] []
     (lcEnd c i) false 8 []
+/-- Nested FTS (r1-1): the leaf pad word `off` of coordinate `c`, i.e. `L_{c-1}` from the previous forest pair. -/
+def padE (c off : Nat) : E := if c = 0 then cE 0 else ldc (FORW + forOff (c - 1) + off)
 def expL (c : Nat) : PRes :=
   pres [(.x6, heapLeafE), (.x7, leafX7 c), (.x10, cE LEAFW), (.x11, cE 128), (.x12, .bin .add heapLeafE (cE HEAPW))]
-    [(x29A 24, cE 0), (x29A 16, leafLoE c), (x29A 40, cE 0), (x29A 32, cE 0)]
-    [.valid (x29A 24) 8, .valid (x29A 16) 8, .valid (x29A 40) 8, .valid (x29A 32) 8] (tI c - 1) true
-    (if c = 0 then 17 else 18) []
+    [(x29A 24, cE 0), (x29A 16, leafLoE c), (x29A 40, padE c 8), (x29A 32, padE c 0)]
+    ([.valid (x29A 24) 8, .valid (x29A 16) 8, .valid (x29A 40) 8] ++
+      (if c = 0 then [] else [.ne ⟨none, BitVec.ofNat 64 (FORW + forOff (c - 1) + 8)⟩ (x29A 32)]) ++
+      [.valid (x29A 32) 8]) (tI c - 1) true
+    (if c = 0 then 17 else 23) []
 def expT (c : Nat) (back : Bool) : PRes :=
   if back then pres [(.x6, cE 128), (.x18, x18p1)] [] [] (leafI c) false 3 [⟨.ltu, x18p1, cE 128, true⟩]
   else pres [(.x6, cE 128), (.x18, cE 127)] [] [] (nodeI c) false 4 [⟨.ltu, x18p1, cE 128, false⟩]
@@ -106,11 +110,35 @@ def expN (c : Nat) : PRes :=
       .valid (nodeAddr 0) 8]
     (ntI c - 1) true 25 28 []
 def heapAddr (off : Nat) : Addr := ⟨some sh4, BitVec.ofNat 64 (HEAPW + off)⟩
-def expNT (c : Nat) (back : Bool) : PRes :=
-  pres [(.x6, cE 1), (.x7, ldc (NOUTW + 8)), (.x18, x18m1), (.x28, cE NOUTW),
+/-- Nested FTS (r1-1): the fold output half, `16 * [heap < 4]` (heaps 2 and 3 keep the HIGH half). -/
+def hiSelE : E := .bin .sll (.bin .sltu (.reg .x18) (cE 4)) (cE 4)
+def outE : E := .bin .add hiSelE (cE NOUTW)
+def outAddr (off : Nat) : Addr := ⟨some hiSelE, BitVec.ofNat 64 (NOUTW + off)⟩
+def outLd (off : Nat) : E := .ld (.bin .add hiSelE (cE (NOUTW + off)))
+/-- Fold post-hash kind for `c >= 1`: 0 = heap other than 4 and 2, 1 = heap 4 (pad := R_{c-1}), 2 = heap 2 (pad := 0). -/
+def ntDirs (c kd : Nat) (back : Bool) : List Dir :=
+  if c = 0 then [.br back] else if kd = 1 then [.br false, .br back] else if kd = 2 then [.br true, .br false, .br back]
+  else [.br true, .br true, .br back]
+def ntPadMem (c kd : Nat) : SymMem :=
+  if c = 0 then [] else if kd = 1 then
+    [mwc (NODEW + 40) (ldc (FORW + forOff (c - 1) + 24)), mwc (NODEW + 32) (ldc (FORW + forOff (c - 1) + 16))]
+  else if kd = 2 then [mwc (NODEW + 40) (cE 0), mwc (NODEW + 32) (cE 0)] else []
+def ntOutObl (c kd : Nat) : List Oblig :=
+  if c = 0 ∨ kd = 0 then [.valid (outAddr 8) 8, .valid (outAddr 0) 8]
+  else [.ne (outAddr 8) ⟨none, BitVec.ofNat 64 (NODEW + 32)⟩, .ne (outAddr 8) ⟨none, BitVec.ofNat 64 (NODEW + 40)⟩,
+    .valid (outAddr 8) 8, .ne (outAddr 0) ⟨none, BitVec.ofNat 64 (NODEW + 32)⟩,
+    .ne (outAddr 0) ⟨none, BitVec.ofNat 64 (NODEW + 40)⟩, .valid (outAddr 0) 8]
+def ntBrs (c kd : Nat) : List Br :=
+  if c = 0 then [] else if kd = 1 then [⟨.ne, .reg .x18, cE 4, false⟩]
+  else if kd = 2 then [⟨.ne, .reg .x18, cE 2, false⟩, ⟨.ne, .reg .x18, cE 4, true⟩]
+  else [⟨.ne, .reg .x18, cE 2, true⟩, ⟨.ne, .reg .x18, cE 4, true⟩]
+def expNT (c kd : Nat) (back : Bool) : PRes :=
+  pres [(.x6, cE 1), (.x7, outLd 8), (.x18, x18m1), (.x28, outE),
     (.x29, .bin .add sh4 (cE HEAPW))]
-    [(heapAddr 8, ldc (NOUTW + 8)), (heapAddr 0, ldc NOUTW)] [.valid (heapAddr 8) 8, .valid (heapAddr 0) 8]
-    (if back then nodeI c else rI c) false 13 [⟨.ne, x18m1, cE 1, back⟩]
+    ([(heapAddr 8, outLd 8), (heapAddr 0, outLd 0)] ++ ntPadMem c kd)
+    ([.valid (heapAddr 8) 8, .valid (heapAddr 0) 8] ++ ntOutObl c kd)
+    (if back then nodeI c else rI c) false (if c = 0 then 18 else if kd = 0 then 22 else 25)
+    (⟨.ne, x18m1, cE 1, back⟩ :: ntBrs c kd)
 def expR0 (c : Nat) : PRes :=
   pres [(.x6, ldc (HEAPW + 48)), (.x7, ldc (HEAPW + 56)), (.x28, cE (HEAPW + 32)), (.x29, cE (FORW + forOff c))]
     [mwc (FORW + forOff c + 24) (ldc (HEAPW + 56)), mwc (FORW + forOff c + 16) (ldc (HEAPW + 48)),
@@ -125,23 +153,25 @@ def expSK : PRes :=
   pres [(.x6, ldc 0x90), (.x7, ldc 0x98), (.x28, cE 0x80), (.x29, cE PRIVW)]
     [mwc (PRIVW + 40) (ldc 0x98), mwc (PRIVW + 32) (ldc 0x90), mwc (PRIVW + 8) (ldc 0x88), mwc PRIVW (ldc 0x80)] []
     (fieldIdx.getD 0 0) false 11 []
+/-- Nested FTS (r1-1): the forest hash is replaced by copying `(L8, R8)` to `FOUT` and the encoding R slot. -/
 def expFor : PRes :=
-  pres [(.x6, cE 3841), (.x10, cE FORW), (.x11, cE 320), (.x12, cE FOUT), (.x28, cE FORW)]
-    [mwc (FORW + 8) (cE 0), mwc FORW (cE 0), mwc (FORW + 24) (.reg .x22), mwc (FORW + 16) (cE 3841)] [] 20728 true 13 []
+  pres [(.x6, ldc (FORW + forOff 8 + 16)), (.x7, ldc (FORW + forOff 8 + 24)), (.x28, cE PRIVW), (.x29, cE 0x20000)]
+    [mwc (0x20290 + 8) (ldc (FORW + forOff 8 + 24)), mwc 0x20290 (ldc (FORW + forOff 8 + 16)),
+      mwc (FOUT + 8) (ldc (FORW + forOff 8 + 8)), mwc FOUT (ldc (FORW + forOff 8))] [] 370 false 12 []
 def expJ : PRes := pres [] [] [] 370 false 1 []
 def runF (c : Nat) : Option PRes := run (coordLook c) [lwuI c] (cbase c) []
 def chkDirs (v : Nat) : List Dir := if v = 0 then [.br true] else if v = 1 then [.br false, .br true] else [.br false, .br false]
 def runChk (c i s v : Nat) : Option PRes := run (coordLook c) [skipI c i s] (chkI c i s) (chkDirs v)
 def runStp (c i s : Nat) : Option PRes := run (coordLook c) [] (skipI c i (s - 1)) []
 def runLc (c i : Nat) : Option PRes := run (coordLook c) [lcEnd c i] (skipI c i 4) []
-def runL (c : Nat) : Option PRes := run (coordLook c) [] (lI c) []
+def runL (c : Nat) : Option PRes := runA (coordLook c) [] (lI c) []
 def runT (c : Nat) (back : Bool) : Option PRes := run (coordLook c) [leafI c, nodeI c] (tI c) [.br back]
 def runN (c : Nat) : Option PRes := runA (coordLook c) [] (nodeI c) []
-def runNT (c : Nat) (back : Bool) : Option PRes := run (coordLook c) [nodeI c, rI c] (ntI c) [.br back]
+def runNT (c kd : Nat) (back : Bool) : Option PRes := runA (coordLook c) [nodeI c, rI c] (ntI c) (ntDirs c kd back)
 def runR0 (c : Nat) : Option PRes := run (coordLook c) [pcI c 0] (rI c) []
 def runPC (c l : Nat) : Option PRes := run (coordLook c) [pcI c (l + 1)] (pcI c l) []
 def runSK : Option PRes := run headLook [fieldIdx.getD 0 0] 11175 []
-def runFor : Option PRes := run tailLook [370] 20715 []
+def runFor : Option PRes := run forLook [370] 20715 []
 def runJ : Option PRes := run tailLook [370] 20729 []
 /-! ### Stage A (campaign X1): coefficient prologue, call sites and the shared GF(2^128) Horner routine HORN -/
 def paIdx : List Nat := [11962,13021,14081,15141,16200,17260,18320,19379,20439]
@@ -222,7 +252,9 @@ def okStp (c : Nat) : Bool :=
 def okLc (c : Nat) : Bool := (List.range 6).all fun i => optBeq (runLc c i) (expLc c i)
 def okTail (c : Nat) : Bool :=
   optBeq (runL c) (expL c) && optBeq (runT c true) (expT c true) && optBeq (runT c false) (expT c false) &&
-    optBeq (runN c) (expN c) && optBeq (runNT c true) (expNT c true) && optBeq (runNT c false) (expNT c false) &&
+    optBeq (runN c) (expN c) && optBeq (runNT c 0 true) (expNT c 0 true) &&
+    optBeq (runNT c (if c = 0 then 0 else 2) false) (expNT c (if c = 0 then 0 else 2) false) &&
+    optBeq (runNT c 1 true) (expNT c 1 true) &&
     optBeq (runR0 c) (expR0 c) && (List.range 7).all fun l => optBeq (runPC c l) (expPC c l)
 def okCoord (c : Nat) : Bool := okF c && okC c && okQ c && okS c && okChk c && okStp c && okLc c && okTail c
 def okGlobal : Bool := optBeq runSK expSK && optBeq runFor expFor && optBeq runJ expJ && okHorn

@@ -16,7 +16,7 @@ namespace Enc
 open SigGolfCandidate.T3.Security.Wots.Enc
 open SigGolfCandidate.T3.Security.Wots.Enc (tsum_uniform_coe)
 def EncOk (lay : Layer) (msg : WCT9.LayerMsg) (pad : RowPad) : Prop :=
-  Extract.msgFits lay msg ∧ (lay.val < 3 → pad.2 = 0)
+  Extract.msgFits lay msg ∧ pad.2 = 0
 abbrev EncIndex :=
   {e : CanonGraph.LeafPos × WCT9.LayerMsg × BitVec 32 × RowPad // e.1.Source ∧ EncOk e.1.lay e.2.1 e.2.2.2}
 instance encIndex_finite : Finite EncIndex := by
@@ -25,19 +25,15 @@ instance encIndex_finite : Finite EncIndex := by
 def encInput (e : EncIndex) : HashInput := encRow (leafOf e.1.1) e.1.2.1 e.1.2.2.1 e.1.2.2.2
 def encIdx (L : CanonGraph.LeafPos) (hs : L.Source) (msg : WCT9.LayerMsg) (counter : BitVec 32) (pad : RowPad)
     (hfit : Extract.msgFits L.lay msg) : EncIndex :=
-  ⟨(L, msg, counter, if L.lay.val < 3 then (pad.1, 0) else pad), hs, hfit, fun h => by simp only [if_pos h]⟩
+  ⟨(L, msg, counter, (pad.1, 0)), hs, hfit, rfl⟩
 theorem encInput_encIdx (L : CanonGraph.LeafPos) (hs : L.Source) (msg : WCT9.LayerMsg) (counter : BitVec 32)
     (pad : RowPad) (hfit : Extract.msgFits L.lay msg) :
     encInput (encIdx L hs msg counter pad hfit) = encRow (leafOf L) msg counter pad := by
   unfold encInput encIdx
   dsimp only
-  split_ifs with h3
-  · cases msg with
-    | forest root =>
-        change L.lay.val = 3 at hfit
-        omega
-    | pair l r => rfl
-  · rfl
+  cases msg with
+  | forest root => exact absurd hfit id
+  | pair l r => rfl
 theorem encInput_length (e : EncIndex) : (encInput e).length = 64 :=
   ClaudeWCT.W9.T3M.BC.layerEncodingRow_length _ _ _ _ _ _ _
 theorem encInput_injective : Function.Injective encInput := by
@@ -53,11 +49,7 @@ theorem encInput_injective : Function.Injective encInput := by
   subst tree leaf
   have hpp : p = p' := by
     obtain ⟨h6, h7⟩ := h6
-    cases m with
-    | forest root => exact Prod.ext h6 (h7 root rfl)
-    | pair l r =>
-        change lay.val < 3 at hf
-        exact Prod.ext h6 ((hp hf).trans (hp' hf).symm)
+    exact Prod.ext h6 (hp.trans hp'.symm)
   subst hpp
   rfl
 theorem encInput_short (e : EncIndex) : encInput e ∈ SeccLaw.publicUniverse :=
@@ -67,7 +59,7 @@ theorem encInput_encHeader (e : EncIndex) : EncHeader (encInput e) :=
 theorem reached_encInput {T : Answers} {L : CanonGraph.LeafPos} (hs : L.Source) {input : HashInput}
     (h : Reached T (leafOf L) input) :
     ∃ c : BitVec 32,
-      input = encInput ⟨(L, leafMsg T (leafOf L), c, 0), hs, msgFits_leafMsg T (leafOf L), fun _ => rfl⟩ := by
+      input = encInput ⟨(L, leafMsg T (leafOf L), c, 0), hs, msgFits_leafMsg T (leafOf L), rfl⟩ := by
   obtain ⟨c, -, rfl, -⟩ := h
   exact ⟨_, rfl⟩
 def Free (T : Answers) (e : EncIndex) : Prop := ¬ Reached T (leafOf e.1.1) (encInput e)

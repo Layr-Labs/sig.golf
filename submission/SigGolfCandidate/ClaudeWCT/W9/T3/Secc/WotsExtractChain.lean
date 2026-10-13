@@ -33,10 +33,11 @@ theorem structuralHit_intro {answers : Answers} {qs : List Spec.Domain} (pos : E
     (hb : pos.Bounded) (hsrc : PosSource pos) (hq : (.inl (.inr actual) : Spec.Domain) ∈ qs)
     (hhit : HashHit answers (Extract.honestInput answers pos) actual)
     (hsame : Extract.SameHeader actual (Extract.honestInput answers pos))
-    (hclass : StructuralClass answers actual pos) : StructuralHitSrc answers (entriesOf answers qs) :=
+    (hclass : StructuralClass answers actual pos) (hp : pos.proj = fun a => a.extractLsb' 0 128) :
+    StructuralHitSrc answers (entriesOf answers qs) :=
   ⟨pos, actual, _, mem_entriesOf hq,
     Extract.posOf_key_eq hb (by rw [hsame, Extract.hdrBlock_honestInput, Extract.Pos.canonicalHeader_eq hb]),
-    hb, hsrc, hclass, hhit⟩
+    hb, hsrc, hclass, Extract.hashHitAt_of_low hp hhit⟩
 theorem chain_bounded {a : ChainAddr} {step : Nat} (hsrc : SourceChain a)
     (hstep : step + 1 < 2 ^ width a.key.lay a.chain) :
     (Extract.Pos.chain a.key.lay a.key.tree a.key.leaf a.chain step).Bounded := by
@@ -62,7 +63,7 @@ theorem structuralHit_chain {answers : Answers} {qs : List Spec.Domain} (a : Cha
     exact Extract.Pos.canonicalHeader_eq
       (p := .chain a.key.lay a.key.tree a.key.leaf a.chain step) hb
   have hpos := Extract.posOf_key_eq (p := .chain a.key.lay a.key.tree a.key.leaf a.chain step) hb hhdr
-  refine ⟨_, _, _, mem_entriesOf hq, hpos, hb, ⟨htb, hsrc.1.2, hsrc.2, hstep⟩, ?_, hhit⟩
+  refine ⟨_, _, _, mem_entriesOf hq, hpos, hb, ⟨htb, hsrc.1.2, hsrc.2, hstep⟩, ?_, Extract.hashHitAt_of_low rfl hhit⟩
   refine otherChainRow_intro hpos ?_
   rcases hclass with hpad | hdepth
   · refine Or.inl fun value he => hpad ?_

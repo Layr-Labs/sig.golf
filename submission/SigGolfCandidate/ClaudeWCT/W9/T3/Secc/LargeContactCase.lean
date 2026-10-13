@@ -73,13 +73,9 @@ theorem frame_wots_route (answers : Answers) (w : WBytes) (index : Nat) (lay : L
         rw [heq]
       exact (hchains i hi).1 (le_of_eq hdi)
     by_cases hm : msg = Extract.honestMsg answers index lay
-    · by_cases hp : wbcPad w index lay = 0 ∧ (lay.val = 3 → wbcRight w = 0)
+    · by_cases hp : wbcPad w index lay = 0
       · exact Or.inr ⟨hm, ⟨digits, hm ▸ hframe, hshape⟩, hp⟩
-      · have hpad : (wbcPad w index lay, wbcRight w).1 ≠ 0 ∨
-            ((routeLeaf index lay).lay.val = 3 ∧ (wbcPad w index lay, wbcRight w).2 ≠ 0) := by
-          by_cases h1 : wbcPad w index lay = 0
-          · exact Or.inr (by_contra fun hr => hp ⟨h1, fun h3 => by_contra fun hne => hr ⟨h3, hne⟩⟩)
-          · exact Or.inl h1
+      · have hpad : (wbcPad w index lay, wbcRight w).1 ≠ 0 := hp
         refine Or.inl (Or.inl ⟨lay, msg, wbcCtr w index lay, (wbcPad w index lay, wbcRight w), _, hfit', hencE,
           ?_, ?_⟩)
         · exact referenceInput_ne_pad answers _ msg _ _ hfit' hpad
@@ -183,9 +179,7 @@ theorem layersBC_wots_walk_route (answers : Answers) (w : WBytes) (index : Nat) 
       · obtain ⟨hrest, hqP, hqR⟩ := hlow hn0
         have hfit' : Extract.msgFits (Fin.ofNat 4 (n - 1))
             (.pair (evalWithAnswerFn answers (layerPairP w index (Fin.ofNat 4 n) digits)).1
-              (evalWithAnswerFn answers (layerPairP w index (Fin.ofNat 4 n) digits)).2) := by
-          show (Fin.ofNat 4 (n - 1) : Layer).val < 3
-          rw [Extract.ofNat_val _ (by omega)]; omega
+              (evalWithAnswerFn answers (layerPairP w index (Fin.ofNat 4 n) digits)).2) := trivial
         rcases layersBC_wots_walk_route answers w index hidx n (by omega) (by omega) _ hfit' hrest with
           hprim | ⟨hgood, hmsg⟩
         · exact Or.inl (hprim.mono (entriesOf_mono hqR))
@@ -207,21 +201,22 @@ theorem verifyP_walk_wots_route (answers : Answers) (m : Message) (pk : Digest) 
        ((∀ l : Layer, BC.GoodZ answers w (WCT9.digestIndex N) l) ∧
           evalWithAnswerFn answers
               (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N) =
-            Extract.honestForest answers (WCT9.digestIndex N) ∧
+            Extract.honestTop answers (WCT9.digestIndex N) ∧
           ∀ q ∈ queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N),
             q ∈ queried answers (verifyP m pk w))) := by
   classical
   obtain ⟨N, hdc, hN, hdq, hS, hlay, hqF, hqL⟩ := WctExtract.verifyP_walk_wct answers m pk w hv
   refine ⟨N, hdc, hN, hdq, hS, ?_⟩
   have hidx : WCT9.digestIndex N < 2 ^ 31 := Nat.mod_lt _ (by norm_num)
-  rcases layersBC_wots_walk_route answers w (WCT9.digestIndex N) hidx 4 (by decide) le_rfl (.forest _)
-      (show (Fin.ofNat 4 (4 - 1) : Layer).val = 3 from rfl) (by rw [hlay, hpk]) with
+  rcases layersBC_wots_walk_route answers w (WCT9.digestIndex N) hidx 4 (by decide) le_rfl (.pair _ _) trivial
+      (hpk ▸ hlay) with
     hprim | ⟨hgood, hroot⟩
   · exact Or.inl (hprim.mono (entriesOf_mono hqL))
   · right
     refine ⟨fun l => hgood l l.isLt, ?_, hqF⟩
     rw [show (4 - 1 : Nat) = 3 from rfl, Extract.honestMsg_three] at hroot
-    simpa using hroot
+    simp only [WCT9.LayerMsg.pair.injEq] at hroot
+    exact Prod.ext hroot.1 hroot.2
 theorem verifyP_wots_cases_route (answers : Answers) (m : Message) (pk : Digest) (w : WBytes)
     (hpk : pk = Extract.honestRoot answers 0 0)
     (hv : evalWithAnswerFn answers (verifyP m pk w) = true) :

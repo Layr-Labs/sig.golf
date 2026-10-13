@@ -521,7 +521,7 @@ theorem honestMsg_short {A T : Correctness.Answers} (h : SigGolfCandidate.T3.Sec
   split_ifs
   · unfold ClaudeWCT.W9.T3M.Extract.honestPair
     rw [ClaudeWCT.W9.T3.Security.Wots.Ref.wotsTree_short h]
-  · rw [ClaudeWCT.W9.T3.Security.Wots.Ref.honestForest_short h _]
+  · rw [ClaudeWCT.W9.T3.Security.Wots.Ref.honestTop_short h _]
 theorem good_short {A T : Correctness.Answers} (h : SigGolfCandidate.T3.Security.Wots.Ref.ShortAgree A T) (w : WBytes)
     (index : Nat) (lay : Layer) (hg : ClaudeWCT.W9.T3M.Extract.Good A w index lay) :
     ClaudeWCT.W9.T3M.Extract.Good T w index lay := by

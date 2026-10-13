@@ -48,11 +48,10 @@ theorem honestMsg_lower (answers : Correctness.Answers) (index n : Nat) (hn : n 
   have hl : (⟨n + 1, by omega⟩ : Layer) = Fin.ofNat 4 (n + 1) := Fin.ext (by simp; omega)
   simp only [ClaudeWCT.W9.T3M.Extract.honestMsg, hv, dif_pos (show n < 3 by omega), hl]
 theorem honestMsg_three (answers : Correctness.Answers) (index : Nat) :
-    ClaudeWCT.W9.T3M.Extract.honestMsg answers index (Fin.ofNat 4 3) = .forest (WCT9.honestForest answers index) := by
+    ClaudeWCT.W9.T3M.Extract.honestMsg answers index (Fin.ofNat 4 3) = .pair (WCT9.honestTop answers index).1 (WCT9.honestTop answers index).2 := by
   rw [show (Fin.ofNat 4 3 : Layer) = 3 from rfl]
   simp only [ClaudeWCT.W9.T3M.Extract.honestMsg, show ¬((3 : Layer).val < 3) by decide, dite_false,
-    ClaudeWCT.W9.T3M.Extract.honestForest_eq_recover]
-  rfl
+    ClaudeWCT.W9.T3M.Extract.honestTop_eq_wct9]
 theorem route_tree_lower (index : Nat) (hindex : index < 2 ^ 31) (lay : Layer) :
     (route index lay).2 < 2 ^ 25 := by
   fin_cases lay <;> simp [route, height] <;> omega
@@ -92,7 +91,7 @@ theorem payload_succeeds_of_complete (answers : Correctness.Answers) (hcomp : Si
     ∃ sig, evalWithAnswerFn answers (payloadForNonce cache rho m) = some sig ∧ sig.rho = rho := by
   obtain ⟨⟨counter, N⟩, hds⟩ := Option.isSome_iff_exists.mp (hcomp.1 rho m)
   obtain ⟨pieces, hp⟩ := signLayers_complete answers hcomp cache (WCT9.digestIndex N) (WCT9.digestIndex_lt _)
-    4 le_rfl (.forest (WCT9.honestForest answers (WCT9.digestIndex N)))
+    4 le_rfl (.pair (WCT9.honestTop answers (WCT9.digestIndex N)).1 (WCT9.honestTop answers (WCT9.digestIndex N)).2)
   unfold payloadForNonce
   simp only [evalWithAnswerFn_bind, hds, WCT9.eval_signForest, hp, evalWithAnswerFn_pure]
   exact ⟨_, rfl, rfl⟩
@@ -117,7 +116,7 @@ theorem layerEncoding_ok (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (
 theorem afterDigest_ok (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (output : HashOutput) :
     AllQueriesSatisfy (do
       let forest ← WCT9.signForest (WCT9.digestIndex output) output
-      let some pieces ← WCT9.signLayersBC cache (WCT9.digestIndex output) 4 (.forest forest.2) | pure none
+      let some pieces ← WCT9.signLayersBC cache (WCT9.digestIndex output) 4 (.pair forest.2.1 forest.2.2) | pure none
       pure (some (WCT9.assembledSignature rho forest.1 pieces)) : M (Option Signature))
       SigGolfCandidate.T3.Security.BPB.NotDigestQ := by
   apply SourceQueries.bind_allowed _ (ClaudeWCT.WCT9.Wots.BPB.signForest_ok _ output)

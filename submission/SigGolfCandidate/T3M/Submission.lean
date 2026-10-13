@@ -19,15 +19,15 @@ set_option maxRecDepth 10000
 namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy
 def submission : Submission where
-  sizes := ⟨5310, 24028, 131072⟩
-  layout := ⟨0x65e0, 0x80, 0xa0, 0x80000, 0x7000, 0x800⟩
+  sizes := ⟨5310, 24860, 131072⟩
+  layout := ⟨0x65e0, 0x80, 0xa0, 0x80000, 0x7000, 0x4c0⟩
   image
     | .keygen => Images.keygenImage
     | .sign => Images.signImage
     | .expand => Images.expandImage
     | .verify => Images.verifyImage
-@[simp] theorem submission_sizes : submission.sizes = ⟨5310, 24028, 131072⟩ := rfl
-@[simp] theorem submission_layout : submission.layout = ⟨0x65e0, 0x80, 0xa0, 0x80000, 0x7000, 0x800⟩ := rfl
+@[simp] theorem submission_sizes : submission.sizes = ⟨5310, 24860, 131072⟩ := rfl
+@[simp] theorem submission_layout : submission.layout = ⟨0x65e0, 0x80, 0xa0, 0x80000, 0x7000, 0x4c0⟩ := rfl
 @[simp] theorem submission_keygen : submission.image .keygen = Images.keygenImage := rfl
 @[simp] theorem submission_sign : submission.image .sign = Images.signImage := rfl
 @[simp] theorem submission_expand : submission.image .expand = Images.expandImage := rfl
@@ -65,7 +65,7 @@ theorem submission_verify_valid :
   rw [submission_verify, submission_sizes, submission_layout]
   rw [Riscv.Image.Valid]
   rw [Riscv.Image.byteSize,
-    show Images.verifyImage.code.length = 257258 from Images.verifyCode_length,
+    show Images.verifyImage.code.length = 257214 from Images.verifyCode_length,
     show Images.verifyImage.data.length = 16928 from Images.verifyData_length]
   rw [layoutValid_of_data_length _ _ _ 16928 Images.verifyData_length]
   decide +kernel

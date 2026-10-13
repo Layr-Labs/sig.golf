@@ -9,6 +9,14 @@ set_option maxHeartbeats 1000000
 def aliasRejectSpec (n : Nat) : Spec :=
   ⟨[(.x5,.c 1),(.x10,.c 1)],[],3431,true,n,[],none,n⟩
 
+/-- Restore the two original words relevant to this failure path. -/
+def oldAliasLook (n : Nat) : Option (BitVec 32) :=
+  if n = 245834 then some 0xfc17f06f else if n = 114746 then some 0x13 else vlook n
+
+theorem oldAlias_reject_check :
+    specB [] [] [] (pathAux cfg0 oldAliasLook [] 2000 (pcOf 245834) [] (σK []) [])
+      (aliasRejectSpec 9) [] [] [] = true := by decide +kernel
+
 theorem alias_reject_check :
     specB [] [] [] (runAt [] [] 245834 []) (aliasRejectSpec 8) [] [] [] = true := by decide +kernel
 

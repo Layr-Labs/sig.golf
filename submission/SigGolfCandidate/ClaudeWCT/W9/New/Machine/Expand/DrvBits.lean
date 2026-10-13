@@ -239,8 +239,10 @@ def seg_122 : List (BitVec 32) := [22565267,0x7f1f193,33657363,23224883,6784947,
 def seg_140 : List (BitVec 32) := [60314003,0x7f1f193,33657363,23224883,6784947,21077907,0xffefb3,8493971,31165363,0x40040413,537792019,0x60178d93,19,43538195,2586419,25626419,0x4e000493,458983]
 def seg_158 : List (BitVec 32) := [0x7803803,0x7f87193,33657363,23224883,6784947,21077907,0xffefb3,8493971,31165363,0x40040413,537792019,0x60178d93,19,5789459,2586419,25626419,0x50000493,458983]
 def seg_176 : List (BitVec 32) := [22565267,0x7f1f193,33657363,23224883,6784947,21077907,0xffefb3,8493971,31165363,0x40040413,537792019,0x60178d93,19,27809555,2586419,25626419,0x52000493,458983]
-def seg_194 : List (BitVec 32) := [4535,0xf0118193,0x40303823,0x41603c23,0x40003023,0x40003423,0x40000513,335545747,268437011]
-def seg_203 : List (BitVec 32) := [115]
+/-- Nested FTS (r1-1): the forest hash is replaced by copying `(L8, R8)` from the forest-buffer pair 8 (`0x520`) to
+`0x100` (copied to the L3 encoding block by 39142) and to the encoding R slot `0x20290`; 203 is now a NOP. -/
+def seg_194 : List (BitVec 32) := [1375744387,1384134403,271593507,283128867,1392521603,1400911619,134711,675166243,686701603]
+def seg_203 : List (BitVec 32) := [19]
 def seg_204 : List (BitVec 32) := [0x6f92206f]
 def layout : SigGolfCandidate.Rv.Layout := [(0, seg_0), (1, seg_1), (4, seg_4), (9, seg_9), (10, seg_10), (34, seg_34), (50, seg_50), (68, seg_68), (86, seg_86), (104, seg_104), (122, seg_122), (140, seg_140), (158, seg_158), (176, seg_176), (194, seg_194), (203, seg_203), (204, seg_204)]
 def code : List (BitVec 32) := layoutCode layout
@@ -297,6 +299,7 @@ sym_block blk_140 := symRun { noAlias := true } seg_140 (pcOf (base + 140)) 200
 sym_block blk_158 := symRun { noAlias := true } seg_158 (pcOf (base + 158)) 200
 sym_block blk_176 := symRun { noAlias := true } seg_176 (pcOf (base + 176)) 200
 sym_block blk_194 := symRun { noAlias := true } seg_194 (pcOf (base + 194)) 200
+sym_block blk_203 := symRun { noAlias := true } seg_203 (pcOf (base + 203)) 200
 sym_block blk_204 := symRun { noAlias := true } seg_204 (pcOf (base + 204)) 200
 end ClaudeWCT.W9.Machine.Expand.Driver
 end

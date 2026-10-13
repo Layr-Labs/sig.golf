@@ -10,7 +10,7 @@ set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 def gJumpWords : List (BitVec 32) := [0x4f00306f]
 def gCheckWords : List (BitVec 32) := [0x1803883,0x16013e83,0x11d8e063]
-def gSetupWords : List (BitVec 32) := [0x13903,0x3803,0x2185b13,0x100393,0x1bb1793,0x60178793,0x10337,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x1d013403,0x17013e83,0x3013c03,0x1886833,0x3010493,0x17813103]
+def gSetupWords : List (BitVec 32) := [0x13903,0x3803,0x2185b13,0x100393,0x1bb1793,0x60178793,0x10337,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x1d013403,0x17013e83,0x3013c03,0x1886833,0x13010493,0x17813103]
 def gRejectWords : List (BitVec 32) := [0x100293,0x100513,0x73]
 def gJump : Result := ⟨SymState.init, .c (pcOf 3395), .jump, 1, 1⟩
 def gCheck : Result :=
@@ -18,7 +18,7 @@ def gCheck : Result :=
     .x29 (.ld (addC (.reg .x2) 352)), [], [.valid ⟨some (.reg .x2), 352⟩ 8]⟩,
     .ite .ltu (.ld (.c (BitVec.ofNat 64 24))) (.ld (addC (.reg .x2) 352)) (.c (pcOf 70)) (.c (pcOf 7)), .branch, 3, 3⟩
 def gSetup : Result :=
-  ⟨⟨(((((((((((((((((RegFile.init.set .x2 (.ld (addC (.reg .x2) 376))).set .x6 (.c 65536)).set .x7 (.c 1)).set .x8 (.ld (addC (.reg .x2) 464))).set .x9 (addC (.reg .x2) 48)).set .x13 (.c 2)).set .x15 (.bin .add (.bin .sll (.bin .srl (.ld (.c 0)) (.c 33)) (.c 27)) (.c 1537))).set .x16 (.bin .or (.ld (.c 0)) (.ld (addC (.reg .x2) 48)))).set .x18 (.ld (addC (.reg .x2) 0))).set .x19 (.c 3)).set .x20 (.c 4)).set .x21 (.c 5)).set .x22 (.bin .srl (.ld (.c 0)) (.c 33))).set .x24 (.ld (addC (.reg .x2) 48))).set .x26 (.c 6)).set .x29 (.ld (addC (.reg .x2) 368))).set .x30 (.c 7)), [],
+  ⟨⟨(((((((((((((((((RegFile.init.set .x2 (.ld (addC (.reg .x2) 376))).set .x6 (.c 65536)).set .x7 (.c 1)).set .x8 (.ld (addC (.reg .x2) 464))).set .x9 (addC (.reg .x2) 304)).set .x13 (.c 2)).set .x15 (.bin .add (.bin .sll (.bin .srl (.ld (.c 0)) (.c 33)) (.c 27)) (.c 1537))).set .x16 (.bin .or (.ld (.c 0)) (.ld (addC (.reg .x2) 48)))).set .x18 (.ld (addC (.reg .x2) 0))).set .x19 (.c 3)).set .x20 (.c 4)).set .x21 (.c 5)).set .x22 (.bin .srl (.ld (.c 0)) (.c 33))).set .x24 (.ld (addC (.reg .x2) 48))).set .x26 (.c 6)).set .x29 (.ld (addC (.reg .x2) 368))).set .x30 (.c 7)), [],
     [.valid ⟨some (.reg .x2), 376⟩ 8, .valid ⟨some (.reg .x2), 48⟩ 8, .valid ⟨some (.reg .x2), 368⟩ 8, .valid ⟨some (.reg .x2), 464⟩ 8, .valid ⟨some (.reg .x2), 0⟩ 8]⟩,
     .c (pcOf 89), .fuel, 19, 19⟩
 def gReject : Result :=
@@ -87,6 +87,33 @@ theorem setup_load (s : MachineState) (hsp : s.getReg .x2 = BitVec.ofNat 64 stac
   rw [addC_eval]
   change s.getMem (s.getReg .x2 + BitVec.ofNat 64 k) = _
   rw [hsp, ofNat_add_ofNat]
+set_option maxRecDepth 100000 in
+theorem gate_orig (w : ClaudeWCT.W9.T3M.WBytes) {u s3 : MachineState} (hw : Orig w (fun o => o ≠ 24848) u)
+    (e3 : ∀ A, s3.getMem A = u.getMem A) (m : Nat) (hm9 : m ≤ 9) (off : Nat) (hoff : off < 896) (h8 : off % 8 = 0)
+    (hv : m = 9 → 720 ≤ off) : W9Machine.OrigW w s3 (regionAddr m + off) := by
+  unfold W9Machine.OrigW
+  rw [e3]
+  have hlo : WIT ≤ regionAddr m + off := by
+    unfold WIT regionAddr
+    rcases Nat.lt_or_ge m 9 with h | h
+    · omega
+    · have := hv (by omega); omega
+  have hj := hw ((regionAddr m + off - WIT) / 8) (by unfold WX regionAddr WIT at *; omega)
+    (by unfold regionAddr WIT at *; omega)
+  rw [show WIT + 8 * ((regionAddr m + off - WIT) / 8) = regionAddr m + off by
+    unfold regionAddr WIT at *; omega] at hj
+  rw [hj, wword]
+  congr 1
+  unfold regionAddr WIT at *
+  omega
+set_option maxRecDepth 100000 in
+theorem gate_slot (w : ClaudeWCT.W9.T3M.WBytes) {u s3 : MachineState} (hw : Orig w (fun o => o ≠ 24848) u)
+    (e3 : ∀ A, s3.getMem A = u.getMem A) (o : Nat) (ho : o = 720 ∨ o = 864) :
+    DigAt s3 (regionAddr 0 + o) (wdig w (V3.regionOffset 0 + o)) := by
+  have h0 := gate_orig w hw e3 0 (by decide) o (by omega) (by omega) (fun h => absurd h (by decide))
+  have h1 := gate_orig w hw e3 0 (by decide) (o + 8) (by omega) (by omega) (fun h => absurd h (by decide))
+  have hd := DigAt_origW h0 (by simpa only [Nat.add_assoc] using h1) (by unfold regionAddr; omega)
+  rwa [show regionAddr 0 + o - 0x4c0 = V3.regionOffset 0 + o by unfold regionAddr V3.regionOffset; omega] at hd
 theorem gate_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
     (u : MachineState) (N C A : Nat) (Q : Prop)
     (K : Bool → OracleComp HashSpec Obs)
@@ -157,7 +184,7 @@ theorem gate_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
       change s2.getMem ((addC (.reg .x2) (BitVec.ofNat 64 48)).eval s2) = _
       rw [setup_load s2 hsp2, m2']
       exact hu.setupMask.rankPadAt
-    have hbase : s3.getReg .x8 = BitVec.ofNat 64 8640 := by
+    have hbase : s3.getReg .x8 = BitVec.ofNat 64 8560 := by
       rw [hs3, Result.toState_getReg]
       change s2.getMem ((addC (.reg .x2) (BitVec.ofNat 64 464)).eval s2) = _
       rw [setup_load s2 hsp2, m2']
@@ -191,8 +218,8 @@ theorem gate_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
         digest := ?_, bank := ?_, forest := ?_, index := hidx, heaps := ?_,
         stepOne := rfl, stepTwo := rfl, hashLen := ?_, coordStep := rfl,
         nodeReg := ?_, cached3 := ?_, cached := ?_,
-        mask := ?_, childMask := fun h => absurd h (by decide), jt := hjt, childBlock := hchild, baseReg := hbase, pairPtr := ?_,
-        pairs := fun i hi => absurd hi (Nat.not_lt_zero _), coords := ?_, layer := ?_ }
+        mask := ?_, jt := hjt, childBlock := hchild, baseReg := hbase, pairPtr := ?_,
+        prevL := ?_, prevR := ?_, a2 := fun h => absurd h (Nat.lt_irrefl 0), coords := ?_, layer := ?_ }
       · intro k hk; rw [e3]; exact hu.digest k hk
       · exact ⟨fun k hk => (e3 _).trans (hu.bank.top k hk), (e3 _).trans hu.bank.top8⟩
       · exact ⟨(e3 _).trans hu.forest.zero0, (e3 _).trans hu.forest.zero1, (e3 _).trans hu.forest.header⟩
@@ -226,18 +253,12 @@ theorem gate_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
         rw [setup_load s2 hsp2, m2']
         exact hu.setupMask.jt
       · rw [hs3, Result.toState_getReg]
-        change s2.getReg .x2 + BitVec.ofNat 64 48 = _
+        change s2.getReg .x2 + BitVec.ofNat 64 304 = _
         rw [hsp2, ofNat_add_ofNat]; rfl
-      · intro k _ off hoff h8
-        unfold W9Machine.OrigW
-        rw [e3]
-        have hw := hu.wit ((64 + 816 * (8 - k.val) + off) / 8) (by unfold WX; have := k.isLt; omega)
-          (by have := k.isLt; omega)
-        rw [show WIT + 8 * ((64 + 816 * (8 - k.val) + off) / 8) = coordinateBase k + off by
-          unfold WIT coordinateBase; omega] at hw
-        have e : 8 * (coordinateBase k + off - 0x800) = 64 * ((64 + 816 * (8 - k.val) + off) / 8) := by
-          unfold coordinateBase; omega
-        rw [hw, wword, e]
+      · exact gate_slot w hu.wit e3 720 (by decide)
+      · exact gate_slot w hu.wit e3 864 (by decide)
+      · intro m _ hm9 off hoff h8 hv _
+        exact gate_orig w hu.wit e3 m hm9 off hoff h8 hv
       · exact (hu.wit.mono (fun o ho => by omega)).frame (fun j _ _ => e3 _)
     have := (((hnext s3 hpre).steps st3').steps st2')
     exact this.mono (by omega) (by omega) (fun hq => ⟨hq, by omega⟩)

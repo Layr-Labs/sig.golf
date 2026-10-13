@@ -756,7 +756,7 @@ theorem cert_of_clean (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
     set a : CanonGraph.WctAddr := (digestIndex N, k, WCT9.child N k, tt) with ha
     set s : Fin 4 := ⟨4 - WCT9.wordDigit (WCT9.rank N k) tt, by omega⟩ with hs
     have hq0 := CaseC.recoverFtsP_chain_queried z.2 N w k tt hu1
-    obtain ⟨hval, hpad⟩ := (hfts.2 k).1 tt
+    obtain ⟨hval, hpad⟩ := (hfts.2.1 k).1 tt
     rw [hval, (hpad hu1).1, (hpad hu1).2] at hq0
     have hX : (.inl (.inr (pad64 (wctChainInputP (WCT9.digestIndex N) k.val (WCT9.child N k).val tt.val
         (4 - WCT9.wordDigit (WCT9.rank N k) tt) ((0, 0) : Digest × Digest).1 0 ((0, 0) : Digest × Digest).2

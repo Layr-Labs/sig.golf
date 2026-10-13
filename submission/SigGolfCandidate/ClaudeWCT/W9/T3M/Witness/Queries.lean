@@ -27,6 +27,9 @@ theorem pubGood_forestPk (index : Nat) (pairs : List (Digest × Digest)) :
 theorem pubGood_wctNodeHashP (coord index heap : Nat) (l : Digest) (hp : BitVec 64) (p r : Digest) :
     AllQueriesSatisfy (wctNodeHashP coord index heap l hp p r) PubGood :=
   pubGood_shortHash _ (by simp [SigGolfCandidate.T3M.SecurityInputs.nodeInputPH])
+theorem pubGood_wctTopHash (coord index heap : Nat) (l p r : Digest) :
+    AllQueriesSatisfy (WCT9.wctTopHash coord index heap l p r) PubGood :=
+  WCT9.allQ_highHash_of_shortHash _ (pubGood_shortHash _ (by simp [WCT9.wctTopInput, bytesLE_length]))
 theorem pubGood_wctNodeHash (coord index heap : Nat) (l r : Digest) :
     AllQueriesSatisfy (WCT9.wctNodeHash coord index heap l r) PubGood := pubGood_nodeHash _ _ _ _ _ _
 theorem pubGood_layerEncodingInputP (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (c : BitVec 32)
@@ -116,23 +119,24 @@ theorem pubGood_layersBCPrepass (w : WBytes) (index : Nat) : ∀ n msg,
       · exact allQ_ite _ (allQ_map _ (pubGood_layerP _ _ _ _))
           (allQ_bind (pubGood_layerPairP _ _ _ _) fun _ => ih _)
 theorem pubGood_wctCoordP (w : WBytes) (index : Nat) (coord : WCT9.Coord) (child : WCT9.Child)
-    (word : WCT9.Rank) : AllQueriesSatisfy (wctCoordP w index coord child word) PubGood := by
+    (word : WCT9.Rank) (prev : Digest × Digest) : AllQueriesSatisfy (wctCoordP w index coord child word prev) PubGood := by
   unfold wctCoordP
   exact allQ_bind (allQ_mapM _ _ fun _ => pubGood_wctChainP _ _ _ _ _ _ _ _ _ _) fun _ =>
     allQ_bind (pubGood_leafHashP _ _ _ _ _) fun _ =>
-      allQ_bind (allQ_foldlM _ _ (fun _ _ => pubGood_wctNodeHashP _ _ _ _ _ _ _) _) fun _ => allQ_pure _
+      allQ_bind (allQ_foldlM _ _ (fun _ _ => pubGood_wctNodeHashP _ _ _ _ _ _ _) _) fun _ =>
+        allQ_bind (pubGood_wctTopHash _ _ _ _ _ _) fun _ => allQ_pure _
 theorem pubGood_wctStep (w : WBytes) (N : HashOutput) (st : Option (List (Digest × Digest))) (coord : WCT9.Coord) :
     AllQueriesSatisfy (wctStep w N st coord) PubGood := by
   unfold wctStep
   rcases st with _ | roots
   · exact allQ_pure _
-  · exact allQ_ite _ (allQ_pure _) (allQ_bind (pubGood_wctCoordP _ _ _ _ _) fun _ => allQ_pure _)
+  · exact allQ_ite _ (allQ_pure _) (allQ_bind (pubGood_wctCoordP _ _ _ _ _ _) fun _ => allQ_pure _)
 theorem pubGood_wctP (w : WBytes) (N : HashOutput) : AllQueriesSatisfy (wctP w N) PubGood := by
   unfold wctP
   refine allQ_bind (allQ_foldlM _ _ (pubGood_wctStep w N) _) fun r => ?_
   rcases r with _ | roots
   · exact allQ_pure _
-  · exact allQ_map _ (pubGood_forestPk _ _)
+  · exact allQ_pure _
 theorem pubGood_verifyP (m : Message) (pk : Digest) (w : WBytes) : AllQueriesSatisfy (verifyP m pk w) PubGood := by
   rw [verifyP_eq_tail]
   refine allQ_bind ?_ fun r => ?_
@@ -166,22 +170,27 @@ theorem pubGood_digestSearch (rho : Digest) (m : Message) : ∀ fuel counter,
       intro counter
       unfold WCT9.digestSearch
       exact allQ_bind (pubGood_digest _ _ _) fun _ => allQ_ite _ (allQ_pure _) (ih _)
-theorem pubGood_recoverCoordinate (sig : WCT9.Signature) (index : Nat) (output : HashOutput) (coord : WCT9.Coord) :
-    AllQueriesSatisfy (WCT9.recoverCoordinate sig index output coord) PubGood := by
+theorem pubGood_recoverCoordinate (sig : WCT9.Signature) (index : Nat) (output : HashOutput) (coord : WCT9.Coord)
+    (prev : Digest × Digest) :
+    AllQueriesSatisfy (WCT9.recoverCoordinate sig index output coord prev) PubGood := by
   unfold WCT9.recoverCoordinate
   exact allQ_bind (allQ_mapM _ _ fun _ => pubGood_chain _ _ _ _ _ _ _) fun _ =>
-    allQ_bind (pubGood_leafHash _ _ _ _) fun _ =>
-      allQ_bind (allQ_foldlM _ _ (fun _ _ => pubGood_wctNodeHash _ _ _ _ _) _) fun _ => allQ_pure _
+    allQ_bind (pubGood_leafHashP _ _ _ _ _) fun _ =>
+      allQ_bind (allQ_foldlM _ _ (fun _ _ => pubGood_wctNodeHash _ _ _ _ _) _) fun _ =>
+        allQ_bind (pubGood_wctTopHash _ _ _ _ _ _) fun _ => allQ_pure _
 theorem pubGood_recoverFts (sig : WCT9.Signature) (index : Nat) (output : HashOutput) :
     AllQueriesSatisfy (WCT9.recoverFts sig index output) PubGood := by
-  unfold WCT9.recoverFts
-  exact allQ_bind (allQ_mapM _ _ fun _ => pubGood_recoverCoordinate _ _ _ _) fun _ => pubGood_forestPk _ _
+  unfold WCT9.recoverFts WCT9.recoverFtsFrom
+  exact allQ_bind (allQ_foldlM _ _ (fun _ _ => allQ_bind (pubGood_recoverCoordinate _ _ _ _ _) fun _ => allQ_pure _) _)
+    fun _ => allQ_pure _
 theorem pubGood_recoverCoordinateP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (output : HashOutput)
-    (coord : WCT9.Coord) : AllQueriesSatisfy (recoverCoordinateP sig pads index output coord) PubGood := by
+    (coord : WCT9.Coord) (prev : Digest × Digest) :
+    AllQueriesSatisfy (recoverCoordinateP sig pads index output coord prev) PubGood := by
   unfold recoverCoordinateP
   exact allQ_bind (allQ_mapM _ _ fun _ => pubGood_wctChainP _ _ _ _ _ _ _ _ _ _) fun _ =>
     allQ_bind (pubGood_leafHashP _ _ _ _ _) fun _ =>
-      allQ_bind (allQ_foldlM _ _ (fun _ _ => pubGood_wctNodeHashP _ _ _ _ _ _ _) _) fun _ => allQ_pure _
+      allQ_bind (allQ_foldlM _ _ (fun _ _ => pubGood_wctNodeHashP _ _ _ _ _ _ _) _) fun _ =>
+        allQ_bind (pubGood_wctTopHash _ _ _ _ _ _) fun _ => allQ_pure _
 theorem pubGood_layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) : ∀ fuel counter,
     AllQueriesSatisfy (WCT9.layerCounterSearch lay tree leaf msg counter fuel) PubGood := by
   intro fuel
@@ -239,7 +248,8 @@ theorem pubGood_expandLayersBC (sig : WCT9.Signature) (index : Nat) : ∀ n msg,
 theorem pubGood_recoverFtsP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (output : HashOutput) :
     AllQueriesSatisfy (recoverFtsP sig pads index output) PubGood := by
   unfold recoverFtsP
-  exact allQ_bind (allQ_mapM _ _ fun _ => pubGood_recoverCoordinateP _ _ _ _ _) fun _ => pubGood_forestPk _ _
+  exact allQ_bind (allQ_foldlM _ _ (fun _ _ => allQ_bind (pubGood_recoverCoordinateP _ _ _ _ _ _) fun _ => allQ_pure _) _)
+    fun _ => allQ_pure _
 theorem pubGood_expandN0 (m : Message) (pk : Digest) (σ : WCT9.Signature) :
     AllQueriesSatisfy (expandN0 m pk σ) PubGood := by
   unfold expandN0

@@ -15,16 +15,15 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (base k)
   leafWord : u.getReg .x31 = BitVec.ofNat 64 (V3.leafLow index k.val j.val)
   nodeWord : u.getReg .x15 = BitVec.ofNat 64 (V3.nodeLow k.val index)
-  childIdx : u.getReg .x4 = BitVec.ofNat 64 (([none, none, some 20, none, none, some 20, none, none, some 20].getD k.val none).elim j.val (j.val <<< ·))
+  childIdx : u.getReg .x4 = BitVec.ofNat 64 j.val
   hashMode : u.getReg .x5 = 0
   stepOne : u.getReg .x7 = 1
   stepTwo : u.getReg .x13 = 2
   hashLen : u.getReg .x11 = 64
   childPC : u.getReg .x23 = pcOf (L.childWord j)
   returnPC : u.getReg .x1 = pcOf (L.returnWord k)
-  forestPointer : u.getReg .x9 = BitVec.ofNat 64 (pairAddress k)
   heaps : ∀ h, 2 ≤ h → h ≤ 7 → u.getReg (Child.heapReg h) = BitVec.ofNat 64 h
-  witness : ∀ off, off < 816 → off % 8 = 0 →
+  witness : ∀ off, off < 896 → off % 8 = 0 →
     u.getMem (BitVec.ofNat 64 (base k + off)) =
       w.extractLsb' (8 * (V3.regionOffset k.val + off)) 64
 def writes (k : Fin 9) (A : Nat) : Prop := base k + 336 ≤ A ∧ A < base k + 832

@@ -38,19 +38,25 @@ def endPoint (L : LeafPos) (i : Nat) : ChainGraph.Point :=
 def leafBlock (lay : Layer) (i : Nat) : Nat := if lay = 0 then i + 2 else listBlock i
 /-- Block of FTS end `t` in the padded FTS leaf `end0 | hdr | pad | end1..end5` (campaign T8). -/
 def ftsLeafSlot (t : Nat) : Nat := if t = 0 then 0 else t + 2
+/-- Pad source of FTS coordinate `coord` (nested FTS r1-1): top node `b` of coordinate `coord - 1`; none for
+coordinate 0, whose pads are the constant `ftsStart`. -/
+def prevTop (index : Fin (2^31)) (coord : Fin 9) (b : Fin 2) : Option Coord :=
+  if h : coord.val = 0 then none else some (.inl (.wctNode (ftsTopNode index ⟨coord.val - 1, by omega⟩ b)))
 def childSlots : CanonGraph.Node → List (Coord × Nat)
   | .chain p => [(chainChild p, 3)]
   | .leaf L => (List.range (chainCount L.1.lay)).map fun i => (.inl (.chain (endPoint L.1 i)), leafBlock L.1.lay i)
   | .node n => ((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val)).map (·, 0)).toList ++
       ((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val + 1)).map (·, 3)).toList
   | .wctChain p => [(wctItem p.1 p.2.val, 3)]
-  | .wctLeaf L => List.ofFn fun t : Fin 6 => (wctItem (L.index, L.coord, L.child, t) 4, ftsLeafSlot t.val)
+  | .wctLeaf L => (List.ofFn fun t : Fin 6 => (wctItem (L.index, L.coord, L.child, t) 4, ftsLeafSlot t.val)) ++
+      ((prevTop L.index L.coord 0).map (·, 2)).toList
   | .wctNode n => ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val)).map (·, 0)).toList ++
-      ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)).map (·, 3)).toList
+      ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)).map (·, 3)).toList ++
+      (if n.1.level.val = 5 then ((prevTop n.1.index n.1.coord 1).map (·, 2)).toList else [])
   | .forest index => (List.range 9).flatMap fun c =>
       [(.inl (.wctNode (ftsTopNode index (fin9 c) 0)), 2 + 2 * c), (.inl (.wctNode (ftsTopNode index (fin9 c) 1)), 3 + 2 * c)]
 noncomputable def honestValue (A : Answers) : Coord → Digest
-  | .inl N => (A (.inl (.inr (Extract.honestInput A N.toPos)))).extractLsb' 0 128
+  | .inl N => N.toPos.proj (A (.inl (.inr (Extract.honestInput A N.toPos))))
   | .inr s => seedView (secretsOf A) s
 inductive Known (D : Coord → Prop) : Coord → Prop
   | base {c : Coord} : D c → Known D c
@@ -102,7 +108,7 @@ def msgSlots (L : EncLeaf) : List (Coord × Nat) :=
   if h : L.1.lay.val < 3 then
     [(.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 0)), 0),
       (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 1)), 3)]
-  else [(.inl (.forest (childIndex L)), 0)]
+  else [(.inl (.wctNode (ftsTopNode (childIndex L) 8 0)), 0), (.inl (.wctNode (ftsTopNode (childIndex L) 8 1)), 3)]
 /-- The large-game simulator may reveal internal message roots for free. These
 coordinates contain neither WOTS chain values nor FTS chain values or seeds. -/
 noncomputable def encodingDisclosed : List Coord :=
@@ -120,7 +126,7 @@ theorem msgSlot_mem_keygen {L : EncLeaf} {cs : Coord × Nat} (hc : cs ∈ msgSlo
     List.mem_map.mpr ⟨cs, hc, rfl⟩⟩
 
 theorem encodingDisclosed_shape {c : Coord} (hc : c ∈ encodingDisclosed) :
-    (∃ n, c = .inl (.node n)) ∨ ∃ i, c = .inl (.forest i) := by
+    (∃ n, c = .inl (.node n)) ∨ ∃ n, c = .inl (.wctNode n) := by
   unfold encodingDisclosed at hc
   obtain ⟨L, _, hc⟩ := List.mem_flatMap.mp hc
   obtain ⟨cs, hcs, rfl⟩ := List.mem_map.mp hc
@@ -129,20 +135,20 @@ theorem encodingDisclosed_shape {c : Coord} (hc : c ∈ encodingDisclosed) :
   · simp only [List.mem_cons, List.not_mem_nil, or_false] at hcs
     rcases hcs with rfl | rfl <;> exact Or.inl ⟨_, rfl⟩
   · simp only [List.mem_cons, List.not_mem_nil, or_false] at hcs
-    subst hcs
-    exact Or.inr ⟨_, rfl⟩
+    rcases hcs with rfl | rfl <;> exact Or.inr ⟨_, rfl⟩
 
 def msgVals (vals : Coord → Digest) (L : EncLeaf) : WCT9.LayerMsg :=
   if h : L.1.lay.val < 3 then
     .pair (vals (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 0))))
       (vals (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 1))))
-  else .forest (vals (.inl (.forest (childIndex L))))
+  else .pair (vals (.inl (.wctNode (ftsTopNode (childIndex L) 8 0))))
+    (vals (.inl (.wctNode (ftsTopNode (childIndex L) 8 1))))
 noncomputable def firstUnknownMsg (K : Coord → Prop) (L : EncLeaf) : Option (Coord × Nat) :=
   (msgSlots L).find? fun cs => decide (¬K cs.1)
 def StructuralContact (A : Answers) (K : Coord → Prop) (input : HashInput) (answer : HashOutput) : Prop :=
   ∃ N : CanonGraph.Node, Extract.posOf input = some N.toPos ∧
     ((∃ cs, firstUnknown K N = some cs ∧ slotValue input cs.2 = honestValue A cs.1) ∨
-      (input ≠ Extract.honestInput A N.toPos ∧ answer.extractLsb' 0 128 = honestValue A (.inl N)))
+      (input ≠ Extract.honestInput A N.toPos ∧ N.toPos.proj answer = honestValue A (.inl N)))
 def EncodingContact (A : Answers) (K : Coord → Prop) (input : HashInput) (answer : HashOutput) : Prop :=
   ∃ (L : EncLeaf) (m : WCT9.LayerMsg) (ctr : BitVec 32) (pad : Wots.RowPad), Extract.msgFits L.1.lay m ∧
     input = Wots.encRow L.toWots m ctr pad ∧

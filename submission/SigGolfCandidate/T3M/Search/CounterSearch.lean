@@ -212,9 +212,9 @@ theorem topTail_spec {image : Image} {b : Nat} (hK : KernAt image b)
     (s : MachineState) (v : Digest) (sum : Nat) (hsum : sum ≤ 4335)
     (hpc : s.pc = pcOf (b + 353))
     (h28 : s.getReg .x28 = topWindow v 17) (h7 : s.getReg .x7 = v.extractLsb' 64 64)
-    (h25 : s.getReg .x25 = BitVec.ofNat 64 sum) (h17 : s.getReg .x17 = 145#64) :
+    (h25 : s.getReg .x25 = BitVec.ofNat 64 sum) (h17 : s.getReg .x17 = 144#64) :
     ∃ t, Steps image s 9 9 t ∧
-      t.pc = (if sum + tailWeight v = 145 then pcOf (b + 362) else pcOf (b + 468)) ∧
+      t.pc = (if sum + tailWeight v = 144 then pcOf (b + 362) else pcOf (b + 468)) ∧
       t.getReg .x25 = BitVec.ofNat 64 (sum + tailWeight v) ∧
       RegsExcept s t [.x25,.x29] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_top353 hK.2.1) (codeAt_top353 hK) s hpc
@@ -223,7 +223,7 @@ theorem topTail_spec {image : Image} {b : Nat} (hK : KernAt image b)
       E.eval, CmpOp.eval, BinOp.eval, h28, h25, h17, h7,
       BitVec.toNat_ofNat, Nat.reduceMod, topTail_sum v sum]
     have hh : sum + tailWeight v < 2 ^ 64 := by have := tailWeight_le v; omega
-    simp only [bne_iff_ne, ne_eq, BitVec.sub_eq_iff_eq_add, BitVec.zero_add, ofNat_inj hh (by decide : 145 < 2 ^ 64)]
+    simp only [bne_iff_ne, ne_eq, BitVec.sub_eq_iff_eq_add, BitVec.zero_add, ofNat_inj hh (by decide : 144 < 2 ^ 64)]
     split_ifs <;> first | rfl | omega
   · simpa only [Result.toState_getReg, topState353, tb354_353.res, rv_simp,
       h28, h25, h7, BitVec.toNat_ofNat, Nat.reduceMod] using topTail_sum v sum
@@ -578,9 +578,9 @@ theorem topCheck_spec {image : Image} {b : Nat} (hK : KernAt image b)
     (s : MachineState) (v : Digest)
     (hpc : s.pc = pcOf (b + 265))
     (h6 : s.getReg .x6 = v.extractLsb' 0 64) (h7 : s.getReg .x7 = v.extractLsb' 64 64)
-    (h17 : s.getReg .x17 = 145#64) (ht : SumTableOK s) :
+    (h17 : s.getReg .x17 = 144#64) (ht : SumTableOK s) :
     ∃ t, Steps image s 97 97 t ∧
-      t.pc = (if topLookupSum v = 145 then pcOf (b + 362) else pcOf (b + 468)) ∧
+      t.pc = (if topLookupSum v = 144 then pcOf (b + 362) else pcOf (b + 468)) ∧
       t.getReg .x25 = BitVec.ofNat 64 (topLookupSum v) ∧
       t.getReg .x30 = BitVec.ofNat 64 TOP_DATA ∧
       RegsExcept s t foldRegs ∧ Frame s t (fun _ => False) := by

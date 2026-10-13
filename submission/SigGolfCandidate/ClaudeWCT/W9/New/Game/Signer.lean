@@ -116,6 +116,11 @@ theorem shortHash_allowed (input : HashInput) : AllQueriesSatisfy (shortHash inp
   unfold shortHash publicHash
   exact SourceQueries.bind_allowed P ((allQueriesSatisfy_query_iff _ _).mpr (hpublic _))
     fun _ => SourceQueries.pure_allowed P _
+include hpublic in
+theorem highHash_allowed (input : HashInput) : AllQueriesSatisfy (WCT9.highHash input) P := by
+  unfold WCT9.highHash publicHash
+  exact SourceQueries.bind_allowed P ((allQueriesSatisfy_query_iff _ _).mpr (hpublic _))
+    fun _ => SourceQueries.pure_allowed P _
 include hseed in
 theorem seed_allowed (lay tree position index : Nat) :
     AllQueriesSatisfy (privatePair 8 lay tree position index) P := by
@@ -140,8 +145,8 @@ theorem ftsCoefs_allowed (index coord : Nat) : AllQueriesSatisfy (WCT9.ftsCoefs 
   exact SourceQueries.bind_allowed P (by unfold WCT9.ftsSeedPair; exact seed_allowed P hseed _ _ _ _)
     fun _ => SourceQueries.pure_allowed P _
 include hpublic in
-theorem buildChildF_allowed (index coord selected : Nat) (word : Rank) (coefs : List Digest) :
-    AllQueriesSatisfy (WCT9.buildChildF index coord selected word coefs) P := by
+theorem buildChildF_allowed (index coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest) :
+    AllQueriesSatisfy (WCT9.buildChildF index coord selected word coefs pad) P := by
   unfold WCT9.buildChildF
   apply SourceQueries.bind_allowed P
   · apply SourceQueries.foldlM_allowed P
@@ -152,7 +157,7 @@ theorem buildChildF_allowed (index coord selected : Nat) (word : Rank) (coefs : 
     intro _
     exact SourceQueries.pure_allowed P _
   · intro state
-    exact SourceQueries.bind_allowed P (leafHash_allowed P hpublic _ _ _ _)
+    exact SourceQueries.bind_allowed P (by unfold WCT9.leafHashP; exact shortHash_allowed P hpublic _)
       fun _ => SourceQueries.pure_allowed P _
 include hpublic in
 theorem nodeHash_allowed (tag lay tree heap : Nat) (left right : Digest) :
@@ -160,27 +165,31 @@ theorem nodeHash_allowed (tag lay tree heap : Nat) (left right : Digest) :
   unfold nodeHash
   exact shortHash_allowed P hpublic _
 include hpublic in
-theorem heapBuild_allowed (index coord : Nat) (leaves : List Digest) :
-    AllQueriesSatisfy (WCT9.heapBuild index coord leaves) P := by
+theorem heapBuild_allowed (index coord : Nat) (padR : Digest) (leaves : List Digest) :
+    AllQueriesSatisfy (WCT9.heapBuild index coord padR leaves) P := by
   unfold WCT9.heapBuild
   apply SourceQueries.foldlM_allowed P
   intro nodes heap
-  exact SourceQueries.bind_allowed P (by unfold WCT9.wctNodeHash; exact nodeHash_allowed P hpublic _ _ _ _ _ _)
-    fun _ => SourceQueries.pure_allowed P _
+  refine SourceQueries.bind_allowed P ?_ fun _ => SourceQueries.pure_allowed P _
+  unfold WCT9.wctHeapNode
+  split
+  · unfold WCT9.wctTopHash; exact highHash_allowed P hpublic _
+  · unfold WCT9.wctNodeHash; exact nodeHash_allowed P hpublic _ _ _ _ _ _
 include hpublic hseed in
-theorem buildCoordinateF_allowed (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
-    AllQueriesSatisfy (WCT9.buildCoordinateF index coord selected word) P := by
+theorem buildCoordinateF_allowed (index : Nat) (coord : Coord) (selected : Child) (word : Rank)
+    (prev : Digest × Digest) :
+    AllQueriesSatisfy (WCT9.buildCoordinateF index coord selected word prev) P := by
   unfold WCT9.buildCoordinateF
   apply SourceQueries.bind_allowed P (ftsCoefs_allowed P hseed _ _)
   intro coefs
   apply SourceQueries.bind_allowed P
   · apply SourceQueries.foldlM_allowed P
     intro state j
-    apply SourceQueries.bind_allowed P (buildChildF_allowed P hpublic _ _ _ _ _)
+    apply SourceQueries.bind_allowed P (buildChildF_allowed P hpublic _ _ _ _ _ _)
     rintro ⟨root, values⟩
     exact SourceQueries.pure_allowed P _
   · intro state
-    exact SourceQueries.bind_allowed P (heapBuild_allowed P hpublic _ _ _)
+    exact SourceQueries.bind_allowed P (heapBuild_allowed P hpublic _ _ _ _)
       fun _ => SourceQueries.pure_allowed P _
 include hpublic in
 theorem forestPk_allowed (index : Nat) (pairs : List (Digest × Digest)) :
@@ -262,11 +271,9 @@ theorem signPayloadWith_allowed (limit : Nat) (cache : SigGolfCandidate.T3.Cache
   · apply SourceQueries.bind_allowed P
     · apply SourceQueries.foldlM_allowed P
       intro state coord
-      exact SourceQueries.bind_allowed P (buildCoordinateF_allowed P hpublic hseed _ _ _ _)
+      exact SourceQueries.bind_allowed P (buildCoordinateF_allowed P hpublic hseed _ _ _ _ _)
         fun _ => SourceQueries.pure_allowed P _
     · intro state
-      apply SourceQueries.bind_allowed P (forestPk_allowed P hpublic _ _)
-      intro root
       apply SourceQueries.bind_allowed P (hlayers _ _ _)
       intro layers
       split

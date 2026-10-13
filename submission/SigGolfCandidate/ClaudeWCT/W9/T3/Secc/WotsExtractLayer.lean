@@ -79,7 +79,7 @@ theorem leaf_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (
     apply hS
     refine structuralHit_intro (.leaf lay (route index lay).2 (route index lay).1) _
       ⟨hleafB, Extract.route_routed_bound index lay hidx⟩
-      ⟨Extract.route_tree_treeBits index hidx lay, hleafB⟩ ?_ hhit hsame trivial
+      ⟨Extract.route_tree_treeBits index hidx lay, hleafB⟩ ?_ hhit hsame trivial rfl
     apply hsubL
     rw [Extract.layerLeafP_eq, queried_bind]
     exact List.mem_append_right _ hq
@@ -166,7 +166,7 @@ theorem layerP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer)
         (merkleInput 3 lay.val (route index lay).2 (height lay) (route index lay).1 (wpath w lay (route index lay).1)
           (wmerklePad w lay (route index lay).1)) (evalWithAnswerFn answers (layerLeafP w index lay digits)) step))
       ⟨htreeB, hstep, Or.inl hlay0, Extract.tree_zero_of_treeBits (Extract.route_tree_treeBits index hidx lay), ?_⟩
-      ⟨Extract.route_tree_treeBits index hidx lay, hstep, ?_, Or.inl hlay0⟩ ?_ ?_ ?_ trivial
+      ⟨Extract.route_tree_treeBits index hidx lay, hstep, ?_, Or.inl hlay0⟩ ?_ ?_ ?_ trivial rfl
     · simpa only [Nat.sub_sub, Nat.zero_add] using Correctness.div_pow_bound (start := 0) (level := step + 1)
         (node := (route index lay).1) (height := height lay) (by omega) (by simpa using hleafB)
     · simpa only [Nat.sub_sub, Nat.zero_add] using Correctness.div_pow_bound (start := 0) (level := step + 1)
@@ -261,7 +261,7 @@ theorem layerPairP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : La
           (wmerklePad w lay (route index lay).1)) (evalWithAnswerFn answers (layerLeafP w index lay digits)) step))
       ⟨htreeB, by omega, Or.inr (by omega), Extract.tree_zero_of_treeBits (Extract.route_tree_treeBits index hidx lay), ?_⟩
       ⟨Extract.route_tree_treeBits index hidx lay, by omega, ?_, Or.inr (by omega)⟩
-      (hqM _ hq) ?_ ?_ trivial
+      (hqM _ hq) ?_ ?_ trivial rfl
     · simpa only [Nat.sub_sub, Nat.zero_add] using Correctness.div_pow_bound (start := 0) (level := step + 1)
         (node := (route index lay).1) (height := height lay) (by omega) (by simpa using hleafB)
     · simpa only [Nat.sub_sub, Nat.zero_add] using Correctness.div_pow_bound (start := 0) (level := step + 1)
@@ -323,13 +323,9 @@ theorem frame_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) 
         rw [heq]
       exact (hchains i hi).1 (le_of_eq hdi)
     by_cases hm : msg = Extract.honestMsg answers index lay
-    · by_cases hp : wbcPad w index lay = 0 ∧ (lay.val = 3 → wbcRight w = 0)
+    · by_cases hp : wbcPad w index lay = 0
       · exact Or.inr ⟨hm, ⟨digits, hm ▸ hframe, hshape⟩, hp⟩
-      · have hpad : (wbcPad w index lay, wbcRight w).1 ≠ 0 ∨
-            ((routeLeaf index lay).lay.val = 3 ∧ (wbcPad w index lay, wbcRight w).2 ≠ 0) := by
-          by_cases h1 : wbcPad w index lay = 0
-          · exact Or.inr (by_contra fun hr => hp ⟨h1, fun h3 => by_contra fun hne => hr ⟨h3, hne⟩⟩)
-          · exact Or.inl h1
+      · have hpad : (wbcPad w index lay, wbcRight w).1 ≠ 0 := hp
         refine Or.inl (Or.inl ⟨routeLeaf index lay, hsrc, msg, wbcCtr w index lay, (wbcPad w index lay, wbcRight w),
           _, hfit', hencE, ?_, ?_⟩)
         · exact referenceInput_ne_pad answers _ msg _ _ hfit' hpad

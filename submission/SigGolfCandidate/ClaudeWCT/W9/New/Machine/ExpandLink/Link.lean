@@ -15,12 +15,15 @@ section
 namespace ClaudeWCT.W9.Machine.Expand.Compact
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (HashOutput readLE)
-open SigGolfCandidate.T3M (window window_append_left window_append_right window_flatMap_const window_full zeros wordsOf)
+open SigGolfCandidate.T3M (window window_append_left window_append_right window_flatMap_const window_full window_zeros
+  zeros wordsOf)
 open SphincsSecurity (bytesLE bytesLE_length)
-open ClaudeWCT.W9.T3M (headerBytes regionBytes merkleBytes authSibOff authByte headerBytes_length
-  regionBytes_length merkleBytes_length region_merkle merkleBytes_sib authByte_none window_map_range)
-open ClaudeWCT.W9.Machine.Expand (witListV6 wctBytesV6 wctBytesV6_length witListV6_length witListV5 wctBytesV5 regionBytesV5 merkleBytesV5 merkleBytesV5_length regionBytesV6 regionBytesV6_length
-  regionBytesV5_length wctBytesV5_length witListV5_length region_merkleV5 merkleBytesV5_window wordsOf_getD)
+open ClaudeWCT.W9.T3M (regionBytes merkleBytes chainBytes leafBytes topBlockBytes authSibOff merkleBytes_length
+  chainBytes_length region_merkle region_top merkleBytes_sib topBlock_sib authByte5_none window_map_range zeros_len)
+open ClaudeWCT.W9.Machine.Expand (witListV6 wctBytesV6 wctBytesV6_length witListV6_length witListV5 wctBytesV5
+  regionBytesV5 merkleBytesV5 merkleBytesV5_length regionBytesV6 regionBytesV6_length regionBytesV5_length
+  wctBytesV5_length witListV5_length region_merkleV5 region_tailV5 merkleBytesV5_window wordsOf_getD headerBytesV5
+  headerBytesV5_length)
 set_option linter.unusedSimpArgs false
 theorem window_window (L : List UInt8) (o m a n : Nat) (h : a + n ≤ m) :
     window (window L o m) a n = window L (o + a) n := by
@@ -31,14 +34,14 @@ variable (N : HashOutput) (w : WCT9.Witness)
 theorem witList_head (o : Nat) (h : o + 8 ≤ 64) : window (witListV6 N w) o 8 = window (witListV5 N w) o 8 := by
   unfold witListV6 witListV5
   simp only [List.append_assoc]
-  rw [window_append_left _ _ _ _ (by rw [headerBytes_length]; omega),
-    window_append_left _ _ _ _ (by rw [headerBytes_length]; omega)]
+  rw [window_append_left _ _ _ _ (by rw [headerBytesV5_length]; omega),
+    window_append_left _ _ _ _ (by rw [headerBytesV5_length]; omega)]
 theorem witList_tail (o : Nat) (h : 8128 ≤ o) :
     window (witListV6 N w) o 8 = window (witListV5 N w) (o + 1152) 8 := by
   unfold witListV6 witListV5
   simp only [List.append_assoc]
-  rw [window_append_right (headerBytes w) _ _ _ (by rw [headerBytes_length]; omega),
-    window_append_right (headerBytes w) _ _ _ (by rw [headerBytes_length]; omega), headerBytes_length,
+  rw [window_append_right (headerBytesV5 w) _ _ _ (by rw [headerBytesV5_length]; omega),
+    window_append_right (headerBytesV5 w) _ _ _ (by rw [headerBytesV5_length]; omega), headerBytesV5_length,
     window_append_right (wctBytesV6 N w.signature) _ _ _ (by rw [wctBytesV6_length]; omega),
     window_append_right (wctBytesV5 N w.signature) _ _ _ (by rw [wctBytesV5_length]; omega), wctBytesV6_length,
     wctBytesV5_length,
@@ -48,7 +51,7 @@ theorem witList_region (k : Nat) (hk : k < 9) (j : Nat) (hj : j + 8 ≤ 896) :
       window (regionBytesV6 (WCT9.child N ⟨k, hk⟩).val (w.signature.openings ⟨k, hk⟩)) j 8 := by
   unfold witListV6
   simp only [List.append_assoc]
-  rw [window_append_right _ _ _ _ (by rw [headerBytes_length]; omega), headerBytes_length,
+  rw [window_append_right _ _ _ _ (by rw [headerBytesV5_length]; omega), headerBytesV5_length,
     window_append_left _ _ _ _ (by rw [wctBytesV6_length]; omega),
     show 64 + 896 * k + j - 64 = 896 * k + j by omega]
   unfold wctBytesV6
@@ -59,7 +62,7 @@ theorem witListV5_region (k : Nat) (hk : k < 9) (j : Nat) (hj : j + 8 ≤ 1024) 
       window (regionBytesV5 (WCT9.child N ⟨k, hk⟩).val (w.signature.openings ⟨k, hk⟩)) j 8 := by
   unfold witListV5
   simp only [List.append_assoc]
-  rw [window_append_right _ _ _ _ (by rw [headerBytes_length]; omega), headerBytes_length,
+  rw [window_append_right _ _ _ _ (by rw [headerBytesV5_length]; omega), headerBytesV5_length,
     window_append_left _ _ _ _ (by rw [wctBytesV5_length]; omega),
     show 64 + 1024 * k + j - 64 = 1024 * k + j by omega]
   unfold wctBytesV5
@@ -68,19 +71,33 @@ theorem witListV5_region (k : Nat) (hk : k < 9) (j : Nat) (hj : j + 8 ≤ 1024) 
 end
 section
 variable (c : Nat) (op : WCT9.Opening)
-theorem region_tail (o : Nat) (h0 : 320 ≤ o) (h : o + 8 ≤ 896) :
+/-- The staging region and the scratch region share the chain/leaf block (512 bytes). -/
+def midBlock : List UInt8 := chainBytes op ++ zeros 48 ++ leafBytes op (zeros 16) ++ zeros 16
+theorem midBlock_length : (midBlock op).length = 512 := by
+  unfold midBlock
+  rw [List.length_append, List.length_append, List.length_append, chainBytes_length,
+    ClaudeWCT.W9.T3M.leafBytes_length _ _ (zeros_len 16), zeros_len, zeros_len]
+theorem v6_mid : regionBytesV6 c op = merkleBytes c op ++ (midBlock op ++ topBlockBytes c op (zeros 16)) := by
+  simp only [regionBytesV6, regionBytes, midBlock, List.append_assoc]
+theorem v5_mid : regionBytesV5 c op = merkleBytesV5 c op ++ (midBlock op ++ zeros 64) := by
+  simp only [regionBytesV5, midBlock, List.append_assoc]
+  congr 4
+theorem region_tail (o : Nat) (h0 : 320 ≤ o) (h : o + 8 ≤ 832) :
     window (regionBytesV6 c op) o 8 = window (regionBytesV5 c op) (o + 128) 8 := by
-  unfold regionBytesV6 regionBytes regionBytesV5
-  simp only [List.append_assoc]
-  rw [window_append_right (merkleBytes c op) _ _ _ (by rw [merkleBytes_length]; omega),
-    window_append_right (merkleBytesV5 c op) _ _ _ (by rw [merkleBytesV5_length]; omega), merkleBytes_length,
-    merkleBytesV5_length,
-    show o + 128 - 448 = o - 320 by omega, zeros, zeros, zeros, List.replicate_append_replicate]
-  rfl
-theorem region_v6_left (o : Nat) (h : o + 8 ≤ 832) :
-    window (regionBytesV6 c op) o 8 = window (regionBytes c op) o 8 := by
+  rw [v6_mid, v5_mid, window_append_right (merkleBytes c op) _ _ _ (by rw [merkleBytes_length]; omega),
+    merkleBytes_length,
+    window_append_right (merkleBytesV5 c op) _ _ _ (by rw [merkleBytesV5_length]; omega), merkleBytesV5_length,
+    window_append_left (midBlock op) (topBlockBytes c op (zeros 16)) _ _ (by rw [midBlock_length]; omega),
+    window_append_left (midBlock op) (zeros 64) _ _ (by rw [midBlock_length]; omega),
+    show o + 128 - 448 = o - 320 by omega]
+theorem region_merkle6 (o : Nat) (h : o + 8 ≤ 320) :
+    window (regionBytesV6 c op) o 8 = window (merkleBytes c op) o 8 := by
   unfold regionBytesV6
-  rw [window_append_left _ _ _ _ (by rw [regionBytes_length]; omega)]
+  exact region_merkle _ _ _ _ o 8 h
+theorem region_top6 (o : Nat) (h0 : 832 ≤ o) :
+    window (regionBytesV6 c op) o 8 = window (topBlockBytes c op (zeros 16)) (o - 832) 8 := by
+  unfold regionBytesV6
+  exact region_top _ _ _ _ (zeros_len 16) o 8 h0
 theorem merkleV5_sib (l : Fin 7) : window (merkleBytesV5 c op) (srcOff c l.val) 16 = bytesLE 16 (op.path l) := by
   unfold srcOff
   have hb : c / 2 ^ l.val % 2 < 2 := Nat.mod_lt _ (by norm_num)
@@ -91,13 +108,20 @@ theorem merkleV5_sib (l : Fin 7) : window (merkleBytesV5 c op) (srcOff c l.val) 
   · rw [if_neg h1, show 48 * (1 - c / 2 ^ l.val % 2) = 48 by omega,
       window_append_right _ _ _ _ (by simp [zeros]), show 48 - (zeros 48).length = 0 by simp [zeros],
       window_full _ _ (bytesLE_length _ _)]
-theorem sib_window (hc : c < 128) (l : Nat) (hl : l < 7) (a : Nat) (ha : a + 8 ≤ 16) :
+theorem sib_window (hc : c < 128) (l : Nat) (hl : l < 5) (a : Nat) (ha : a + 8 ≤ 16) :
     window (merkleBytes c op) (authSibOff c l + a) 8 = window (merkleBytesV5 c op) (srcOff c l + a) 8 := by
   rw [← window_window _ _ 16 _ _ ha, ← window_window _ _ 16 _ _ ha,
-    merkleBytes_sib hc op ⟨l, hl⟩, merkleV5_sib c op ⟨l, hl⟩]
+    merkleBytes_sib hc op ⟨l, hl⟩, merkleV5_sib c op ⟨l, by omega⟩]
+  rfl
+theorem sib5_window (a : Nat) (ha : a + 8 ≤ 16) :
+    window (topBlockBytes c op (zeros 16)) (SigGolfCandidate.T3M.sibOff (c / 2 ^ 5 % 2) + a) 8 =
+      window (merkleBytesV5 c op) (srcOff c 5 + a) 8 := by
+  rw [← window_window _ _ 16 _ _ ha, ← window_window _ _ 16 _ _ ha,
+    topBlock_sib _ _ _ (zeros_len 16), merkleV5_sib c op ⟨5, by omega⟩]
+  rfl
 theorem merkle_none (hc : c < 128) (j : Nat) (hj : j < 40) (h : sibSrc c j = none) :
     window (merkleBytes c op) (8 * j) 8 = zeros 8 := by
-  have hn : ∀ l < 7, authSibOff c l ≠ 8 * j ∧ authSibOff c l + 8 ≠ 8 * j := by
+  have hn : ∀ l < 6, authSibOff c l ≠ 8 * j ∧ authSibOff c l + 8 ≠ 8 * j := by
     intro l hl
     unfold sibSrc sibLev at h
     rw [Option.map_eq_none_iff] at h
@@ -106,12 +130,28 @@ theorem merkle_none (hc : c < 128) (j : Nat) (hj : j < 40) (h : sibSrc c j = non
     exact this
   unfold merkleBytes
   rw [window_map_range _ _ _ _ (by omega)]
-  rw [List.map_congr_left (fun i hi => authByte_none op (fun l => by
+  rw [List.map_congr_left (fun i hi => authByte5_none op (fun l => by
     have hi' := List.mem_range.mp hi
     have h16 := authSibOff_ok c hc l.val l.isLt
-    have := hn l.val l.isLt
+    have := hn l.val (by omega)
     omega))]
   simp [zeros, List.map_const']
+/-- Top-block words of the staging region that are not the level-5 sibling are zero. -/
+theorem top_zero (o : Nat) (h0 : 832 ≤ o) (h1 : o + 8 ≤ 896) (h8 : o % 8 = 0)
+    (hn : o ≠ authSibOff c 5 ∧ o ≠ authSibOff c 5 + 8) : window (regionBytesV6 c op) o 8 = zeros 8 := by
+  rw [region_top6 c op o h0]
+  rw [authSibOff_five c] at hn
+  have hb : c / 2 ^ 5 % 2 < 2 := Nat.mod_lt _ (by norm_num)
+  unfold topBlockBytes
+  rcases (show c / 2 ^ 5 % 2 = 0 ∨ c / 2 ^ 5 % 2 = 1 by omega) with hb | hb
+  · rw [if_neg (show ¬ c / 2 ^ 5 % 2 = 1 by omega), if_pos hb,
+      window_append_left _ _ _ _ (by simp only [List.length_append, zeros_len]; omega)]
+    simp only [zeros, List.replicate_append_replicate]
+    exact window_zeros _ _ _ (by omega)
+  · rw [if_pos hb, if_neg (show ¬ c / 2 ^ 5 % 2 = 0 by omega), List.append_assoc, List.append_assoc,
+      window_append_right _ _ _ _ (by rw [bytesLE_length]; omega), bytesLE_length]
+    simp only [zeros, List.replicate_append_replicate]
+    exact window_zeros _ _ _ (by omega)
 end
 theorem compact_words (N : HashOutput) (w : WCT9.Witness) (i : Nat) (hi : i < 2729) :
     (wordsOf (witListV6 N w)).getD i 0 =
@@ -142,45 +182,82 @@ theorem compact_words (N : HashOutput) (w : WCT9.Witness) (i : Nat) (hi : i < 27
     show 8 * (8 + 112 * k + j) = 64 + 896 * k + 8 * j by ring, witList_region N w k hk (8 * j) (by omega)]
   have hcv : (WCT9.child N ⟨k, hk⟩).val = N.toNat / 2 ^ WCT9.childBase k % 128 := rfl
   rw [hcv]
-  by_cases hj40 : j < 40
-  · rw [if_pos hj40, region_v6_left _ _ _ (by omega), region_merkle _ _ _ _ (by omega)]
-    cases h : sibSrc (N.toNat / 2 ^ WCT9.childBase k % 128) j with
-    | none =>
-      rw [merkle_none _ _ hcl j hj40 h]
-      rfl
-    | some o =>
-      have ho := sibSrc_lt h
-      simp only
-      rw [show (0x840 + 1024 * k + o - 0x800) / 8 = 8 + 128 * k + o / 8 by omega,
-        wordsOf_getD _ 2873 (by omega) _ (by omega),
-        show 8 * (8 + 128 * k + o / 8) = 64 + 1024 * k + o by omega, witListV5_region N w k hk o (by omega), hcv,
-        region_merkleV5 _ _ _ _ (by omega)]
-      unfold sibSrc at h
-      cases hl : sibLev (N.toNat / 2 ^ WCT9.childBase k % 128) j with
-      | none => rw [hl] at h; simp at h
-      | some l =>
-        rw [hl] at h
-        simp only [Option.map_some, Option.some.injEq] at h
-        unfold sibLev at hl
-        obtain ⟨hl7, hp⟩ := find_some hl
-        simp only [decide_eq_true_eq] at hp
+  cases h : sibSrc (N.toNat / 2 ^ WCT9.childBase k % 128) j with
+  | some o =>
+    have ho := sibSrc_lt h
+    simp only
+    rw [show (0x840 + 1024 * k + o - 0x800) / 8 = 8 + 128 * k + o / 8 by omega,
+      wordsOf_getD _ 2873 (by omega) _ (by omega),
+      show 8 * (8 + 128 * k + o / 8) = 64 + 1024 * k + o by omega, witListV5_region N w k hk o (by omega), hcv,
+      region_merkleV5 _ _ _ _ (by omega)]
+    unfold sibSrc at h
+    cases hl : sibLev (N.toNat / 2 ^ WCT9.childBase k % 128) j with
+    | none => rw [hl] at h; simp at h
+    | some l =>
+      rw [hl] at h
+      simp only [Option.map_some, Option.some.injEq] at h
+      unfold sibLev at hl
+      obtain ⟨hl6, hp⟩ := find_some hl
+      simp only [decide_eq_true_eq] at hp
+      by_cases h5 : l < 5
+      · have hb := authSibOff_ok _ hcl l h5
+        rw [region_merkle6 _ _ _ (by omega)]
         by_cases h0 : authSibOff (N.toNat / 2 ^ WCT9.childBase k % 128) l = 8 * j
         · rw [if_pos h0] at h
           subst h
-          have := sib_window _ (w.signature.openings ⟨k, hk⟩) hcl l hl7 0 (by norm_num)
+          have := sib_window _ (w.signature.openings ⟨k, hk⟩) hcl l h5 0 (by norm_num)
           rw [Nat.add_zero, Nat.add_zero, h0] at this
           rw [this]
         · rw [if_neg h0] at h
           subst h
-          have := sib_window _ (w.signature.openings ⟨k, hk⟩) hcl l hl7 8 (by norm_num)
+          have := sib_window _ (w.signature.openings ⟨k, hk⟩) hcl l h5 8 (by norm_num)
           rw [show authSibOff (N.toNat / 2 ^ WCT9.childBase k % 128) l + 8 = 8 * j by omega] at this
           rw [this]
-  · rw [if_neg hj40, region_tail _ _ _ (by omega) (by omega)]
+      · obtain rfl : l = 5 := by omega
+        have h5' := authSibOff_five (N.toNat / 2 ^ WCT9.childBase k % 128)
+        have hso : SigGolfCandidate.T3M.sibOff ((N.toNat / 2 ^ WCT9.childBase k % 128) / 2 ^ 5 % 2) =
+            48 * (1 - (N.toNat / 2 ^ WCT9.childBase k % 128) / 2 ^ 5 % 2) := by
+          unfold SigGolfCandidate.T3M.sibOff
+          have : (N.toNat / 2 ^ WCT9.childBase k % 128) / 2 ^ 5 % 2 < 2 := Nat.mod_lt _ (by norm_num)
+          split <;> omega
+        rw [region_top6 _ _ _ (by omega)]
+        by_cases h0 : authSibOff (N.toNat / 2 ^ WCT9.childBase k % 128) 5 = 8 * j
+        · rw [if_pos h0] at h
+          subst h
+          have := sib5_window (N.toNat / 2 ^ WCT9.childBase k % 128) (w.signature.openings ⟨k, hk⟩) 0 (by norm_num)
+          rw [Nat.add_zero, Nat.add_zero, hso, show 48 * (1 - (N.toNat / 2 ^ WCT9.childBase k % 128) / 2 ^ 5 % 2) =
+            8 * j - 832 by omega] at this
+          rw [this]
+        · rw [if_neg h0] at h
+          subst h
+          have := sib5_window (N.toNat / 2 ^ WCT9.childBase k % 128) (w.signature.openings ⟨k, hk⟩) 8 (by norm_num)
+          rw [hso, show 48 * (1 - (N.toNat / 2 ^ WCT9.childBase k % 128) / 2 ^ 5 % 2) + 8 = 8 * j - 832 by omega]
+            at this
+          rw [this]
+  | none =>
+    simp only
+    by_cases hj40 : j < 40
+    · rw [if_pos hj40, region_merkle6 _ _ _ (by omega), merkle_none _ _ hcl j hj40 h]
+      rfl
+    rw [if_neg hj40]
     beta_reduce
     rw [show (0x840 + 1024 * k + 448 + 8 * (j - 40) - 0x800) / 8 = 8 + 128 * k + (j + 16) by omega,
       wordsOf_getD _ 2873 (by omega) _ (by omega),
       show 8 * (8 + 128 * k + (j + 16)) = 64 + 1024 * k + (8 * j + 128) by ring,
       witListV5_region N w k hk _ (by omega), hcv]
+    by_cases h104 : j < 104
+    · rw [region_tail _ _ _ (by omega) (by omega)]
+    · have hn : ∀ l < 6, authSibOff (N.toNat / 2 ^ WCT9.childBase k % 128) l ≠ 8 * j ∧
+          authSibOff (N.toNat / 2 ^ WCT9.childBase k % 128) l + 8 ≠ 8 * j := by
+        intro l hl
+        unfold sibSrc sibLev at h
+        rw [Option.map_eq_none_iff] at h
+        have := find_none h l hl
+        simp only [decide_eq_false_iff_not, not_or] at this
+        exact this
+      have h5 := hn 5 (by omega)
+      rw [top_zero _ _ (8 * j) (by omega) (by omega) (by omega) ⟨fun e => h5.1 e.symm, fun e => h5.2 e.symm⟩,
+        region_tailV5 _ _ _ _ (by omega) (by omega)]
 end ClaudeWCT.W9.Machine.Expand.Compact
 end
 
@@ -204,8 +281,8 @@ theorem pathOut_congr (M M' : Nat → Word) (lay r p : Nat)
   · rename_i j hj
     exact h j (List.mem_range.mp (List.mem_of_find?_eq_some hj))
   · rfl
-theorem out2_congr (M M' : Nat → Word) (h : ∀ x < 8 * 2729, x % 8 = 0 → M (WIT + x) = M' (WIT + x))
-    (idx o : Nat) (ho : o % 8 = 0) : out2 M idx o = out2 M' idx o := by
+theorem out2old_congr (M M' : Nat → Word) (h : ∀ x < 8 * 2729, x % 8 = 0 → M (WIT + x) = M' (WIT + x))
+    (idx o : Nat) (ho : o % 8 = 0) : out2old M idx o = out2old M' idx o := by
   have hW : WIT = 0x800 := rfl
   have hS : SNAP2 = 0x300000 := rfl
   have e : ∀ A, WIT ≤ A → A - WIT < 8 * 2729 → (A - WIT) % 8 = 0 → M A = M' A := fun A h1 h2 h3 => by
@@ -226,7 +303,7 @@ theorem out2_congr (M M' : Nat → Word) (h : ∀ x < 8 * 2729, x % 8 = 0 → M 
   have hdl : (lvDst (zoneLay o) - WIT) % 8 = 0 := by
     rcases hz with ⟨hz, _⟩ | ⟨hz, _, _⟩ | ⟨hz, _⟩ <;> rw [hz] <;> omega
   have hcs : SNAP2 ≤ chSrc (zoneLay o) := by unfold chSrc; omega
-  unfold out2
+  unfold out2old
   split_ifs with h1 h2 h3 h4 h5 h6 h7 h8 h9
   · exact e _ (by omega) (by omega) (by omega)
   · rcases Nat.le_total ((o - 64) / 816) 8 with hq | hq
@@ -244,6 +321,39 @@ theorem out2_congr (M M' : Nat → Word) (h : ∀ x < 8 * 2729, x % 8 = 0 → M 
   · exact e _ (by omega) (by omega) (by omega)
   · rfl
   · rw [e _ (by omega) (by omega) (by omega)]
+theorem plMem_congr (R R' : Nat → Word) (Q : Nat) (A : Nat) (hA : R A = R' A)
+    (hH : ∀ c < Q, R (Compact.holdAt c) = R' (Compact.holdAt c) ∧
+      R (Compact.holdAt c + 8) = R' (Compact.holdAt c + 8) ∧ R (Compact.holdAt c + 16) = R' (Compact.holdAt c + 16)) :
+    plMem R Q A = plMem R' Q A := by
+  induction Q with
+  | zero => exact hA
+  | succ Q ih =>
+    obtain ⟨h0, h8, h16⟩ := hH Q (by omega)
+    have hs : hslot R Q = hslot R' Q := by unfold hslot; rw [h16]
+    simp only [plMem]
+    rw [hs, h0, h8, ih (fun c hc => hH c (by omega))]
+/-- The final assembly below offset 8256 reads its input only at the staging words and the hold words. -/
+theorem stMem_congr (M M' : Nat → Word) (h : ∀ x < 8 * 2729, x % 8 = 0 → M (WIT + x) = M' (WIT + x))
+    (hH : ∀ c < 9, ∀ j < 3, M (Compact.holdAt c + 8 * j) = M' (Compact.holdAt c + 8 * j))
+    (o : Nat) (ho : o < 8256) (h8 : o % 8 = 0) : stMem M (WOUT + o) = stMem M' (WOUT + o) := by
+  have hW : WIT = 0x800 := rfl
+  have hWO : WOUT = 0x4c0 := rfl
+  unfold stMem
+  apply plMem_congr
+  · rw [R_eval M _ (by omega) (by omega) (by omega), R_eval M' _ (by omega) (by omega) (by omega)]
+    split_ifs
+    · exact h _ (by omega) (by omega)
+    · exact h _ (by omega) (by omega)
+    · rfl
+  · intro c hc
+    refine ⟨?_, ?_, ?_⟩
+    · rw [show Compact.holdAt c = Compact.holdAt c + 0 from rfl, R_hold M c hc 0 (by omega),
+        R_hold M' c hc 0 (by omega)]
+      exact hH c hc 0 (by omega)
+    · rw [R_hold M c hc 8 (by omega), R_hold M' c hc 8 (by omega)]
+      exact hH c hc 1 (by omega)
+    · rw [R_hold M c hc 16 (by omega), R_hold M' c hc 16 (by omega)]
+      exact hH c hc 2 (by omega)
 theorem index_shr (N : SigGolfCandidate.T3.HashOutput) :
     N.extractLsb' 0 64 >>> 33 = BitVec.ofNat 64 (WCT9.digestIndex N) := by
   apply BitVec.eq_of_toNat_eq
@@ -272,12 +382,13 @@ structure CompactPre (N : HashOutput) (w : WCT9.Witness) (s : MachineState) : Pr
   dig : OutAt s 0x60 N
   plan : PlanAt s
   lplan : Compact2.LPlanAt s
-def compactC : Nat := 68673
+/-- Nested FTS (r1-1): jump 1 + staging 23576 + final assembly 42523 + leaf buffers 2670. -/
+def compactC : Nat := 68770
 def CompactGood (im : Image) : Prop :=
   NewCodeAt im → CodeAt im (pcOf 351) [compactJal] → ∀ N w s, CompactPre N w s →
     ∃ t, Steps im s compactC compactC t ∧ t.pc = pcOf 44045 ∧ t.getReg .x5 = BitVec.ofNat 64 1 ∧
       t.getReg .x10 = BitVec.ofNat 64 0 ∧
-      t.readWords (BitVec.ofNat 64 0x800) 3004 = wordsOf (ClaudeWCT.W9.T3M.witList N w)
+      t.readWords (BitVec.ofNat 64 0x4c0) 3108 = wordsOf (ClaudeWCT.W9.T3M.witList N w)
 namespace Compact
 sym_block cJal := symRun { noAlias := true } [compactJal] (pcOf 351) 10
 theorem jal_spec {im : Image} (hJ : CodeAt im (pcOf 351) [compactJal]) (s : MachineState) (hpc : s.pc = pcOf 351) :
@@ -293,17 +404,19 @@ theorem finalWord_congr (M M' : Nat → Word) (cs : Nat → Nat)
   split
   · exact h i (by omega)
   · split
-    · split
-      · cases hs : sibSrc (cs ((i - 8) / 112)) ((i - 8) % 112) with
-        | none => rfl
-        | some o =>
-          have := sibSrc_lt hs
-          simp only
-          rw [show 0x840 + 1024 * ((i - 8) / 112) + o = 0x800 + 8 * (8 + 128 * ((i - 8) / 112) + o / 8) by omega]
-          exact h _ (by omega)
-      · rw [show 0x840 + 1024 * ((i - 8) / 112) + 448 + 8 * ((i - 8) % 112 - 40) =
-          0x800 + 8 * (8 + 128 * ((i - 8) / 112) + 56 + ((i - 8) % 112 - 40)) by omega]
+    · cases hs : sibSrc (cs ((i - 8) / 112)) ((i - 8) % 112) with
+      | some o =>
+        have := sibSrc_lt hs
+        simp only
+        rw [show 0x840 + 1024 * ((i - 8) / 112) + o = 0x800 + 8 * (8 + 128 * ((i - 8) / 112) + o / 8) by omega]
         exact h _ (by omega)
+      | none =>
+        simp only
+        split
+        · rfl
+        · rw [show 0x840 + 1024 * ((i - 8) / 112) + 448 + 8 * ((i - 8) % 112 - 40) =
+            0x800 + 8 * (8 + 128 * ((i - 8) / 112) + 56 + ((i - 8) % 112 - 40)) by omega]
+          exact h _ (by omega)
     · exact h _ (by omega)
 end Compact
 theorem compactGood_holds (im : Image) : CompactGood im := by
@@ -313,21 +426,65 @@ theorem compactGood_holds (im : Image) : CompactGood im := by
   obtain ⟨u, su, pu, ru, fu⟩ := Compact.jal_spec hJ s hpre.pc
   have hNu : OutAt u 0x60 N := fun j hj => by rw [fu _ (by omega) (fun h => h)]; exact hpre.dig j hj
   have hpu : PlanAt u := fun j hj => by rw [fu _ (by omega) (fun h => h)]; exact hpre.plan j hj
-  obtain ⟨v, sv, pv, rv, mv, fv⟩ := Compact.run_spec hc N u pu hNu hpu
+  obtain ⟨v, sv, pv, rv, mv, mhv, fv⟩ := Compact.run_spec hc N u pu hNu hpu
   have hix : v.getMem (BitVec.ofNat 64 0x60) >>> 33 = BitVec.ofNat 64 (WCT9.digestIndex N) := by
-    rw [fv 0x60 (by norm_num) (Or.inl (by norm_num))]
+    rw [fv 0x60 (by norm_num) (Or.inl (by norm_num)) (by unfold Compact.InHold; omega)]
     have h0 := hNu 0 (by norm_num)
     rw [show (0x60 : Nat) + 8 * 0 = 0x60 from rfl] at h0
     rw [h0]
     exact Compact2.index_shr N
   have hlv : Compact2.LPlanAt v := fun k hk => by
-    rw [fv _ (by omega) (Or.inr (by omega)), fu _ (by omega) (fun h => h)]
+    rw [fv _ (by omega) (Or.inr (by omega)) (by unfold Compact.InHold; omega), fu _ (by omega) (fun h => h)]
     exact hpre.lplan k hk
-  obtain ⟨t, st, pt, mt⟩ := Compact2.run2_spec hc v pv (WCT9.digestIndex N) (WCT9.digestIndex_lt N) hix hlv
   have hW5 : ∀ i' < 2873, s.getMem (BitVec.ofNat 64 (0x800 + 8 * i')) = (wordsOf (witListV5 N w)).getD i' 0 := by
     intro i' hi'
     rw [← hpre.wit, VLib.readWords_ofNat s 0x800 2873 (by norm_num)]
     simp [List.getD_eq_getElem?_getD, hi']
+  -- the hold words: coordinate c's top sibling (from its scratch region) and the flag 1 - bit6
+  have hvH : ∀ c < 9, ∀ j < 3, v.getMem (BitVec.ofNat 64 (Compact.holdAt c + 8 * j)) =
+      Compact2.vM N w (Compact.holdAt c + 8 * j) := by
+    intro c hc9 j hj
+    rw [mhv c hc9 j hj, Compact2.vM_hold N w c hc9 j hj]
+    unfold Compact.holdVal Compact2.holdModel
+    rw [dif_pos hc9]
+    have hcv : (WCT9.child N ⟨c, hc9⟩).val = N.toNat / 2 ^ WCT9.childBase c % 128 := rfl
+    have hso := Compact.srcOff_bound (N.toNat / 2 ^ WCT9.childBase c % 128) 6
+    have hsib : ∀ a, (a = 0 ∨ a = 8) → u.getMem (BitVec.ofNat 64
+        (0x840 + 1024 * c + Compact.srcOff (N.toNat / 2 ^ WCT9.childBase c % 128) 6 + a)) =
+        BitVec.ofNat 64 (SigGolfCandidate.T3.readLE (window (SphincsSecurity.bytesLE 16
+          ((w.signature.openings ⟨c, hc9⟩).path 6)) a 8)) := by
+      intro a ha8
+      have ha : a + 8 ≤ 16 := by omega
+      have hal : (Compact.srcOff (N.toNat / 2 ^ WCT9.childBase c % 128) 6 + a) % 8 = 0 := by
+        rcases ha8 with rfl | rfl <;> omega
+      rw [fu _ (by omega) (fun h => h),
+        show 0x840 + 1024 * c + Compact.srcOff (N.toNat / 2 ^ WCT9.childBase c % 128) 6 + a =
+          0x800 + 8 * (8 + 128 * c + (Compact.srcOff (N.toNat / 2 ^ WCT9.childBase c % 128) 6 + a) / 8) by omega,
+        hW5 _ (by omega), wordsOf_getD _ 2873 (by rw [witListV5_length]) _ (by omega),
+        show 8 * (8 + 128 * c + (Compact.srcOff (N.toNat / 2 ^ WCT9.childBase c % 128) 6 + a) / 8) =
+          64 + 1024 * c + (Compact.srcOff (N.toNat / 2 ^ WCT9.childBase c % 128) 6 + a) by omega,
+        Compact.witListV5_region N w c hc9 _ (by omega), hcv, region_merkleV5 _ _ _ _ (by omega),
+        ← Compact.window_window _ _ 16 _ _ ha, Compact.merkleV5_sib _ _ ⟨6, by omega⟩]
+      rfl
+    rcases (show j = 0 ∨ j = 1 ∨ j = 2 by omega) with rfl | rfl | rfl
+    · rw [if_pos rfl, if_pos rfl]
+      beta_reduce
+      have := hsib 0 (Or.inl rfl)
+      rw [Nat.add_zero] at this
+      exact this
+    · rw [if_neg (show ¬ (1 : Nat) = 0 by decide), if_pos rfl, if_neg (show ¬ (1 : Nat) = 0 by decide), if_pos rfl]
+      beta_reduce
+      exact hsib 8 (Or.inr rfl)
+    · rw [if_neg (show ¬ (2 : Nat) = 0 by decide), if_neg (show ¬ (2 : Nat) = 1 by decide),
+        if_neg (show ¬ (2 : Nat) = 0 by decide), if_neg (show ¬ (2 : Nat) = 1 by decide), hcv]
+  have hfl : ∀ c < 9, ∃ f < 2, v.getMem (BitVec.ofNat 64 (Compact.holdAt c + 16)) = BitVec.ofNat 64 f := by
+    intro c hc9
+    refine ⟨1 - (WCT9.child N ⟨c, hc9⟩).val / 2 ^ 6 % 2, by omega, ?_⟩
+    rw [show Compact.holdAt c + 16 = Compact.holdAt c + 8 * 2 by omega, hvH c hc9 2 (by omega),
+      Compact2.vM_hold N w c hc9 2 (by omega)]
+    unfold Compact2.holdModel
+    rw [dif_pos hc9, if_neg (show ¬ (2 : Nat) = 0 by decide), if_neg (show ¬ (2 : Nat) = 1 by decide)]
+  obtain ⟨t, st, pt, mt⟩ := Compact2.run2_spec hc v pv (WCT9.digestIndex N) (WCT9.digestIndex_lt N) hix hlv hfl
   have hv6 : ∀ x < 8 * 2729, x % 8 = 0 →
       v.getMem (BitVec.ofNat 64 (Compact2.WIT + x)) = Compact2.v6M N w (Compact2.WIT + x) := by
     intro x hx h8
@@ -338,21 +495,29 @@ theorem compactGood_holds (im : Image) : CompactGood im := by
       Compact.compact_words N w i (by omega)]
     apply Compact.finalWord_congr _ _ _ (fun i' hi' => ?_) i (by omega)
     rw [fu _ (by omega) (fun h => h), hW5 i' hi', show (0x800 + 8 * i' - 0x800) / 8 = i' by omega]
-  have hpreWords : ∀ i < 2614, t.getMem (BitVec.ofNat 64 (0x800 + 8 * i)) =
+  have hvM : ∀ x < 8 * 2729, x % 8 = 0 →
+      v.getMem (BitVec.ofNat 64 (Compact2.WIT + x)) = Compact2.vM N w (Compact2.WIT + x) := fun x hx h8 => by
+    rw [hv6 x hx h8, Compact2.vM_wit N w x hx]
+  have hpreWords : ∀ i < 2718, t.getMem (BitVec.ofNat 64 (1216 + 8 * i)) =
       (wordsOf (Compact2.preBufferWitList N w)).getD i 0 := by
     intro i hi
-    rw [mt _ (by omega), show 0x800 + 8 * i = Compact2.WIT + 8 * i from rfl,
+    rw [mt _ (by omega), show 1216 + 8 * i = Compact2.WOUT + 8 * i from rfl,
       Compact2.run2_zone _ _ _ (by omega) (by omega), Compact2.compact2_words N w i hi]
-    exact Compact2.out2_congr _ _ hv6 _ _ (by omega)
+    unfold Compact2.out2
+    by_cases hl : 8 * i < 8256
+    · rw [if_pos hl, if_pos hl]
+      exact Compact2.stMem_congr _ _ hvM hvH _ hl (by omega)
+    · rw [if_neg hl, if_neg hl]
+      exact Compact2.out2old_congr _ _ hv6 _ _ (by omega)
   obtain ⟨q, sq, pq, q5, q10, mq⟩ := Compact2.Buffer.buffer_spec hc t pt
   refine ⟨q, (((su.trans sv).trans st).trans sq).of_eq (by unfold compactC; norm_num)
     (by unfold compactC; norm_num), pq, q5, q10, ?_⟩
-  have hl : (wordsOf (ClaudeWCT.W9.T3M.witList N w)).length = 3004 :=
-    length_wordsOf 3004 _ (by rw [ClaudeWCT.W9.T3M.witList_length_eq])
+  have hl : (wordsOf (ClaudeWCT.W9.T3M.witList N w)).length = 3108 :=
+    length_wordsOf 3108 _ (by rw [ClaudeWCT.W9.T3M.witList_length_eq])
   rw [← hl]
-  refine readWords_ext q _ 0x800 (fun i hi => ?_)
+  refine readWords_ext q _ 0x4c0 (fun i hi => ?_)
   rw [hl] at hi
-  have hmq := mq (2048 + 8 * i) (by omega)
+  have hmq := mq (1216 + 8 * i) (by omega)
   dsimp only at hmq
   rw [hmq]
   exact Compact2.bufferMem_words N w (fun A => t.getMem (BitVec.ofNat 64 A)) hpreWords i hi
@@ -379,9 +544,9 @@ open SigGolfCandidate.T3 (Digest HashOutput M)
 open SigGolfCandidate.T3M.Search (KernAt)
 open SigGolfCandidate.T3M.Expand (LInv LPost lcost)
 def BackSpec (im : Image) : Prop :=
-  (∀ (sk : BitVec 256) (sig : WCT9.Signature) (index : Nat) (root : Digest) (s : MachineState),
-    LInv sig index 4 (.forest root) s →
-      TBSim im sk s (lcost 4) (WCT9.expandLayersT sig index (WCT9.topSib sig) 4 (.forest root))
+  (∀ (sk : BitVec 256) (sig : WCT9.Signature) (index : Nat) (L R : Digest) (s : MachineState),
+    LInv sig index 4 (.pair L R) s →
+      TBSim im sk s (lcost 4) (WCT9.expandLayersT sig index (WCT9.topSib sig) 4 (.pair L R))
         (LPost s sig index 4 0)) ∧
   CodeAt im (pcOf 342) compareCode ∧ KernAt im 354
 def ExpandComposeSpec : Prop :=
@@ -412,11 +577,11 @@ theorem dword_of_halves (w : BitVec 64) :
 def ExpQW : Option (HashOutput × WCT9.Witness) → MachineState → Prop
   | none, t => FailedAt 354 t ∨ FailedAt 41062 t
   | some (N, w), t => t.pc = pcOf 44045 ∧ t.getReg .x5 = BitVec.ofNat 64 1 ∧ t.getReg .x10 = BitVec.ofNat 64 0 ∧
-      t.readWords (BitVec.ofNat 64 0x800) 3004 = wordsOf (ClaudeWCT.W9.T3M.witList N w)
+      t.readWords (BitVec.ofNat 64 0x4c0) 3108 = wordsOf (ClaudeWCT.W9.T3M.witList N w)
 /-- [h2 lane] prologue 1199 + front 29 + zero block 7, then the layers, the 2^16 search and the compaction. -/
 def expCostW : Nat := 1235 + newCost + (lcost 4 + (65535 * 30 + 111 + compactC))
 theorem lcost_four : lcost 4 ≤ 3523299703 := by decide
-theorem expCostW_le : expCostW ≤ 3944866172 := by
+theorem expCostW_le : expCostW ≤ 3944866269 := by
   have h := lcost_four
   unfold expCostW newCost compactC
   generalize lcost 4 = L at h ⊢
@@ -487,7 +652,7 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hP : P
       ¬ (0x65E0 ≤ A ∧ A < 0x6600 ∧ (A - 0x65E0) % 8 = 0) → s0.getMem (BitVec.ofNat 64 A) = 0 :=
     fun A hA h1 h2 h3 => w9init_zero hd m pk σ A hA ⟨h1, h2, h3⟩
   unfold Compact2.LPLAN at hz0 hz0'
-  have hCC : compactC = 68673 := rfl
+  have hCC : compactC = 68770 := rfl
   have hPL : PLAN = 0xff9a00 := rfl
   refine (TBSim.steps (stu.trans st1) (TBSim.bind (W₂ := lcost 4 + (65535 * 30 + 111 + compactC))
     (newCode_tb hc (hookAt_of_front hF) sk m sig t1 hpre) (fun r t7 h7 => ?_))).mono
@@ -506,38 +671,32 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hP : P
     intro A h1 h2 h3 h; unfold FrontW at h; simp only [DIG] at h h2; omega
   have nNW : ∀ A, A ≠ 0x810 → (A < 0x60 ∨ 0x80 ≤ A) → (A < 0x100 ∨ 0x120 ≤ A) → (A < 0x400 ∨ 0x550 ≤ A) →
       (A < 0x840 ∨ 0x2c48 ≤ A) → (A < 0x7890 ∨ 0x85f0 ≤ A) → (A < DIG + 16 ∨ DIG + 32 ≤ A) →
-      (A < NBUF ∨ NBUF + 32 ≤ A) → A ≠ IDXV → A ≠ ENC → A ≠ ENC + 8 → ¬ NewW A := by
-    intro A h1 h2 h3 h4 h5 h6 h7 h8 h9 h10 h11 h
-    unfold NewW at h; simp only [DIG, NBUF, IDXV, ENC] at h h7 h8 h9 h10 h11; omega
+      (A < NBUF ∨ NBUF + 32 ≤ A) → A ≠ IDXV → A ≠ ENC → A ≠ ENC + 8 → (A < ENC + 48 ∨ ENC + 64 ≤ A) →
+      ¬ NewW A := by
+    intro A h1 h2 h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h
+    unfold NewW at h; simp only [DIG, NBUF, IDXV, ENC] at h h7 h8 h9 h10 h11 h12; omega
   have z7 : ∀ A, A < 0x65E0 → (A < 0x60 ∨ 0x80 ≤ A) → (A < 0x100 ∨ 0x120 ≤ A) → (A < 0x400 ∨ 0x550 ≤ A) →
       (A < 0x800 ∨ 0x818 ≤ A) → (A < 0x840 ∨ 0x2c48 ≤ A) → (A < 0xA0 ∨ 0xB0 ≤ A) → (A < 0x59B0 ∨ 0x59D0 ≤ A) →
       t7.getMem (BitVec.ofNat 64 A) = 0 := by
     intro A h0 h1 h2 h3 h4 h4' h5 h6
     rw [g7 A (by omega) (nFW _ (by omega) (by simp only [DIG]; omega) h6)
       (nNW _ (by omega) h1 h2 h3 h4' (by omega) (by simp only [DIG]; omega) (by simp only [NBUF]; omega)
-        (by simp only [IDXV]; omega) (by simp only [ENC]; omega) (by simp only [ENC]; omega)),
+        (by simp only [IDXV]; omega) (by simp only [ENC]; omega) (by simp only [ENC]; omega)
+        (by simp only [ENC]; omega)),
       hz0 _ (by omega) (by omega) h5 (by omega)]
   have z7h : ∀ A, 0x20000 ≤ A → A < 0x30000 → A ≠ ENC → A ≠ ENC + 8 → (A < DIG ∨ DIG + 64 ≤ A) →
-      (A < NBUF ∨ NBUF + 32 ≤ A) → A ≠ IDXV → t7.getMem (BitVec.ofNat 64 A) = 0 := by
-    intro A h0 h1 h2 h3 h4 h5 h6
+      (A < NBUF ∨ NBUF + 32 ≤ A) → A ≠ IDXV → (A < ENC + 48 ∨ ENC + 64 ≤ A) → t7.getMem (BitVec.ofNat 64 A) = 0 := by
+    intro A h0 h1 h2 h3 h4 h5 h6 h7
     rw [g7 A (by omega) (nFW _ (by omega) h4 (by omega))
       (nNW _ (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by simp only [DIG] at h4 ⊢; omega)
-        h5 h6 h2 h3),
+        h5 h6 h2 h3 h7),
       hz0 _ (by omega) (by omega) (by omega) (by omega)]
-  have hL : LInv sig index 4 (.forest root) t7 := by
-    refine ⟨by rw [P.pc]; rfl, le_refl _, P.x5, hi, P.idx, P.enc, fun _ => ?_, fun h => absurd h (by decide),
+  have hL : LInv sig index 4 (.pair root.1 root.2) t7 := by
+    refine ⟨by rw [P.pc]; rfl, le_refl _, P.x5, hi, P.idx, P.enc, fun _ => P.right, fun h => absurd h (by decide),
       ⟨0, by norm_num, ?_⟩, ?_, ?_, ?_, ?_, ?_⟩
-    · simp only [SigGolfCandidate.T3M.Search.BC.right]
-      refine ⟨?_, ?_⟩
-      · rw [z7h _ (by simp only [ENC]; omega) (by simp only [ENC]; omega) (by simp only [ENC]; omega)
-          (by simp only [ENC]; omega) (by simp only [DIG, ENC]; omega) (by simp only [NBUF, ENC]; omega)
-          (by simp only [IDXV, ENC]; omega)]; decide
-      · rw [z7h _ (by simp only [ENC]; omega) (by simp only [ENC]; omega) (by simp only [ENC]; omega)
-          (by simp only [ENC]; omega) (by simp only [DIG, ENC]; omega) (by simp only [NBUF, ENC]; omega)
-          (by simp only [IDXV, ENC]; omega)]; decide
     · rw [z7h _ (by simp only [ENC]; omega) (by simp only [ENC]; omega) (by simp only [ENC]; omega)
         (by simp only [ENC]; omega) (by simp only [DIG, ENC]; omega) (by simp only [NBUF, ENC]; omega)
-        (by simp only [IDXV, ENC]; omega)]; rfl
+        (by simp only [IDXV, ENC]; omega) (by simp only [ENC]; omega)]; rfl
     · intro lay
       obtain ⟨hP, h127, hlen⟩ := lP_eq lay
       refine ⟨fun i hi' => ?_, fun j hj => ?_⟩
@@ -559,7 +718,8 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hP : P
           (by simp only [CHAIN, Search.NODE, LEAFPK, ENC]; omega)
           (by simp only [CHAIN, Search.NODE, LEAFPK, ENC, DIG]; omega)
           (by simp only [CHAIN, Search.NODE, LEAFPK, ENC, NBUF]; omega)
-          (by simp only [CHAIN, Search.NODE, LEAFPK, ENC, IDXV]; omega)]
+          (by simp only [CHAIN, Search.NODE, LEAFPK, ENC, IDXV]; omega)
+          (by simp only [CHAIN, Search.NODE, LEAFPK, ENC]; omega)]
     · apply (w9init_table hd m pk σ).frame F7
       intro i hi h
       rcases h with h | h
@@ -576,7 +736,7 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hP : P
       · unfold FrontW at h; simp only [TOP_DATA, DIG] at h; omega
       · unfold NewW at h; simp only [TOP_DATA, DIG, NBUF, IDXV, ENC] at h; omega
   simp only [tailProgS]
-  refine (TBSim.bind (W₂ := 65535 * 30 + 111 + compactC) (hB.1 sk sig index root t7 hL) (fun r8 t8 h8 => ?_)).mono
+  refine (TBSim.bind (W₂ := 65535 * 30 + 111 + compactC) (hB.1 sk sig index root.1 root.2 t7 hL) (fun r8 t8 h8 => ?_)).mono
     (by omega) (fun _ _ h => h)
   rcases r8 with _ | ⟨v, root', counters⟩
   · exact (TBSim.pure (Q := ExpQW) (a := none) (Or.inl h8)).mono (by omega) (fun _ _ h => h)
@@ -597,7 +757,7 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hP : P
       (nFW _ (by omega) (by simp only [DIG]; omega) (by omega))
       (nNW _ (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by simp only [DIG]; omega)
         (by simp only [NBUF]; omega) (by simp only [IDXV]; omega) (by simp only [ENC]; omega)
-        (by simp only [ENC]; omega))]
+        (by simp only [ENC]; omega) (by simp only [ENC]; omega))]
     exact w9init_pk hd m pk σ j hj
   -- [h2 lane] after the layers: the search from word 342, then the witness at the halt
   have nLWX : ¬ LW index 4 0x20550 := by
@@ -666,7 +826,7 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hP : P
     intro A h1 h2
     rw [g87 A (by omega) (nLW A (by omega) (by omega))]
     exact z7 _ (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by omega)
-  have hh : t8.readWords (BitVec.ofNat 64 0x800) 8 = wordsOf (ClaudeWCT.W9.T3M.headerBytes w) := by
+  have hh : t8.readWords (BitVec.ofNat 64 0x800) 8 = wordsOf (headerBytesV5 w) := by
     rw [headerW_words, readWords_eight, r0, show 0x800 + 8 = 0x808 from rfl, r8',
       show 0x800 + 16 = 0x810 from rfl, c810, show 0x800 + 24 = 0x818 from rfl, c818,
       show 0x800 + 32 = 0x820 from rfl, c820, hz8 (0x800 + 40) (by decide) (by decide),
@@ -691,7 +851,7 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hP : P
     · rw [g7 A (by omega) (by unfold FrontW; simp only [DIG]; omega)
         (nNW _ (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by simp only [DIG]; omega)
           (by simp only [NBUF]; omega) (by simp only [IDXV]; omega) (by simp only [ENC]; omega)
-          (by simp only [ENC]; omega))]
+          (by simp only [ENC]; omega) (by simp only [ENC]; omega))]
       exact hz0' _ (by omega) (by omega) (by omega) (by omega)
   have hlay : ∀ lay : Layer, t8.readWords (BitVec.ofNat 64 (lBase lay)) (8 * (height lay + chainCount lay)) =
       wordsOf (layerRegionV6 N w lay) := by
@@ -909,15 +1069,15 @@ theorem readBuffer_trunc (t : MachineState) (A n m : Nat) (h : n ≤ m) :
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_ofNat]
   rw [Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by omega : 8 * n ≤ 8 * m)), readBuffer_foldl_mod t A n m h]
-/-- Expand still writes 3004 whole words; the 24028-byte witness is their prefix (the 4 bytes
+/-- Expand writes 3108 whole words from 0x4c0; the 24860-byte witness is their prefix (the 4 bytes
 after the 32-bit digest counter are zero and lie outside the witness). -/
 theorem expqW_output {imgs : Phase → Image} {N : HashOutput} {w : WCT9.Witness} {t : MachineState}
-    (h : t.readWords (BitVec.ofNat 64 0x800) 3004 = wordsOf (ClaudeWCT.W9.T3M.witList N w)) :
+    (h : t.readWords (BitVec.ofNat 64 0x4c0) 3108 = wordsOf (ClaudeWCT.W9.T3M.witList N w)) :
     readOutput (w9Sub imgs).sizes (w9Sub imgs).layout .expand t = ClaudeWCT.W9.T3M.witEnc N w := by
-  show readBuffer t 0x800 24028 =
-    BitVec.ofNat (8 * 24028) (SigGolfCandidate.T3.readLE (ClaudeWCT.W9.T3M.witList N w))
-  rw [readBuffer_trunc t 0x800 24028 (8 * 3004) (by omega),
-    readBuffer_of_words t 0x800 3004 (ClaudeWCT.W9.T3M.witList N w) (by decide) (by decide)
+  show readBuffer t 0x4c0 24860 =
+    BitVec.ofNat (8 * 24860) (SigGolfCandidate.T3.readLE (ClaudeWCT.W9.T3M.witList N w))
+  rw [readBuffer_trunc t 0x4c0 24860 (8 * 3108) (by omega),
+    readBuffer_of_words t 0x4c0 3108 (ClaudeWCT.W9.T3M.witList N w) (by decide) (by decide)
       (ClaudeWCT.W9.T3M.witList_length_eq N w) h]
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_ofNat]
@@ -962,7 +1122,7 @@ theorem wct_compareCode : CodeAt image (pcOf 342) compareCode := by
   · decide +kernel
   · decide +kernel
 theorem wct_backSpec : BackSpec Images.expandImage := by
-  exact ⟨fun sk sig index value s h => layers_tbsim 4 (.forest value) 0 s h, wct_compareCode, Search.kernAt_expand⟩
+  exact ⟨fun sk sig index L R s h => layers_tbsim 4 (.pair L R) 0 s h, wct_compareCode, Search.kernAt_expand⟩
 set_option maxRecDepth 100000 in
 theorem wct_prefixData : Images.expandPrefixData =
     ClaudeWCT.W9.Machine.Expand.lplanBytes ++ ClaudeWCT.W9.Machine.Expand.planBytes ++

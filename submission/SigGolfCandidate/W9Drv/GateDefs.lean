@@ -18,7 +18,7 @@ structure SetupMask (u : MachineState) : Prop where
   rankPadAt : u.getMem (BitVec.ofNat 64 (stackBase7 + 48)) = rankPad
   child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xf1b00
   jt : u.getMem (BitVec.ofNat 64 (dataBase7 + 376)) = BitVec.ofNat 64 0xfff00
-  coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 8640
+  coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 8560
   gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 0x1524000000000000
   d0 : u.getMem (BitVec.ofNat 64 dataBase7) = BitVec.ofNat 64 0xfff
 structure ForestData (u : MachineState) : Prop where
@@ -32,7 +32,7 @@ structure GatePre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (
   forest : ForestData u
   digest : DigestAt a u
   bank : HeaderBank u
-  wit : Orig w (fun o => o ≠ 24016) u
+  wit : Orig w (fun o => o ≠ 24848) u
   setupMask : SetupMask u
   sp : u.getReg .x2 = BitVec.ofNat 64 stackBase7
 end W9Drv

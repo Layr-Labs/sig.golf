@@ -198,10 +198,10 @@ theorem leafHashP_eq_shortHash (index coord child : Nat) (pad : Digest) (ends : 
   unfold WCT9.leafHashP WCT9.leafInputP Extract.wctLeafInputP Extract.listInput
   simp only [List.flatMap_cons, List.append_assoc]
 theorem childRoot_eq_out (answers : Answers) (index coord child : Nat) :
-    WCT9.childRoot answers index coord child =
+    WCT9.childRoot answers index coord child (Extract.ftsPrev answers index coord).1 =
       (answers (.inl (.inr (Extract.honestInput answers (.wctLeaf index coord child))))).extractLsb' 0 128 := by
   unfold WCT9.childRoot
-  rw [leafHash_eq_shortHash, eval_shortHash]
+  rw [leafHashP_eq_shortHash, eval_shortHash]
   rfl
 theorem wctEnds_length (answers : Answers) (index coord child : Nat) :
     (Extract.wctEnds answers index coord child).length = 6 := by
@@ -230,8 +230,8 @@ chain and Merkle pads. -/
 theorem leaf_extract (answers : Answers) (index coord child : Nat) (pad : Digest) (ends : List Digest)
     (hlen : ends.length = 6) (hb : index < 2 ^ 31 ∧ coord < 9 ∧ child < 128)
     (reaches : evalWithAnswerFn answers (WCT9.leafHashP index coord child pad ends) =
-      WCT9.childRoot answers index coord child) :
-    (ends = Extract.wctEnds answers index coord child ∧ pad = 0 ∧
+      WCT9.childRoot answers index coord child (Extract.ftsPrev answers index coord).1) :
+    (ends = Extract.wctEnds answers index coord child ∧ pad = (Extract.ftsPrev answers index coord).1 ∧
       queried answers (WCT9.leafHashP index coord child pad ends) =
         [.inl (.inr (Extract.honestInput answers (.wctLeaf index coord child)))]) ∨
     Extract.HitIn answers (queried answers (WCT9.leafHashP index coord child pad ends)) := by
@@ -241,12 +241,13 @@ theorem leaf_extract (answers : Answers) (index coord child : Nat) (pad : Digest
       Extract.honestInput answers (.wctLeaf index coord child)
   · left
     have hw : Extract.honestInput answers (.wctLeaf index coord child) =
-        pad64 (Extract.wctLeafInputP index coord child 0 (Extract.wctEnds answers index coord child)) := rfl
+        pad64 (Extract.wctLeafInputP index coord child (Extract.ftsPrev answers index coord).1
+          (Extract.wctEnds answers index coord child)) := rfl
     obtain ⟨h0, hr⟩ := listInput_inj (by simp [hlen, wctEnds_length]) (heq.trans hw)
     obtain ⟨hpad, hrest⟩ := List.cons.inj hr
     exact ⟨eq_of_getD_drop (by rw [hlen, wctEnds_length]) (by omega) h0 hrest, hpad, by rw [heq]⟩
   · right
-    refine ⟨.wctLeaf index coord child, _, hb, List.mem_singleton_self _, ⟨heq, ?_⟩, ?_⟩
+    refine ⟨.wctLeaf index coord child, _, hb, List.mem_singleton_self _, Extract.hashHitAt_of_low rfl ⟨heq, ?_⟩, ?_⟩
     · rw [eval_shortHash] at reaches
       rw [reaches, childRoot_eq_out]
     · unfold Extract.SameHeader
@@ -275,34 +276,44 @@ variable (answers : Answers) (index : Nat) (c : WCT9.Coord) (j : Nat)
 def mTarget (step : Nat) : Digest := treeValue (Extract.ftsLevels answers index c.val) step (j / 2 ^ step)
 def mPath (l : Nat) : Digest := treeValue (Extract.ftsLevels answers index c.val) l (j / 2 ^ l ^^^ 1)
 theorem ftsLevels_treeLevels :
-    TreeLevels answers 3 (WCT9.nodeLayer c.val) index 7 (WCT9.coordLeaves answers index c) 6
-      (Extract.ftsLevels answers index c.val) :=
+    TreeLevels answers 3 (WCT9.nodeLayer c.val) index 7 (WCT9.coordLeaves answers index c) 5
+      ((Extract.ftsLevels answers index c.val).take 6) :=
   WCT9.coordinate_treeLevels answers index c
-theorem merkle_reference (hj : j < 128) : ∀ step, step < 6 →
+theorem merkle_reference (hj : j < 128) : ∀ step, step < 5 →
     evalWithAnswerFn answers (shortHash (merkleInput 3 (WCT9.nodeLayer c.val) index 7 j (mPath answers index c j)
-      (fun _ => 0) step (mTarget answers index c j step))) = mTarget answers index c j (step + 1) :=
-  fun step hstep => merkleInput_tree_reference_le answers 3 (WCT9.nodeLayer c.val) index 7 6 j _ _
+      (fun _ => 0) step (mTarget answers index c j step))) = mTarget answers index c j (step + 1) := by
+  intro step hstep
+  have h := merkleInput_tree_reference_le answers 3 (WCT9.nodeLayer c.val) index 7 5 j _ _
     (ftsLevels_treeLevels answers index c) (by norm_num; omega) step hstep (by decide)
+  have e1 : ∀ x, treeValue ((Extract.ftsLevels answers index c.val).take 6) step x =
+      treeValue (Extract.ftsLevels answers index c.val) step x := fun x => WCT9.treeValue_take_lt _ (by omega) x
+  have e2 : ∀ x, treeValue ((Extract.ftsLevels answers index c.val).take 6) (step + 1) x =
+      treeValue (Extract.ftsLevels answers index c.val) (step + 1) x := fun x => WCT9.treeValue_take_lt _ (by omega) x
+  unfold merkleInput at h ⊢
+  simp only [e1, e2] at h
+  exact h
 theorem ftsLevels_leaf (hj : j < 128) :
-    treeValue (Extract.ftsLevels answers index c.val) 0 j = WCT9.childRoot answers index c.val j := by
+    treeValue (Extract.ftsLevels answers index c.val) 0 j =
+      WCT9.childRoot answers index c.val j (Extract.ftsPrev answers index c.val).1 := by
   unfold Extract.ftsLevels
   rw [WCT9.heapLevels_value _ 0 j (by omega) (by simpa using hj)]
   have hg := (WCT9.coordNodes_graph answers index c).2.1 (2 ^ (7 - 0) + j) (by norm_num) (by norm_num; omega)
   rw [show Extract.ftsNodes answers index c.val = WCT9.coordNodes answers index c from rfl, hg,
     show 2 ^ (7 - 0) + j - 128 = j by norm_num]
-  unfold WCT9.coordLeaves
+  unfold WCT9.coordLeaves WCT9.coordLeavesWith
   rw [List.getD_eq_getElem _ _ (by simpa using hj), List.getElem_ofFn]
-theorem mTarget_zero (hj : j < 128) : mTarget answers index c j 0 = WCT9.childRoot answers index c.val j := by
+theorem mTarget_zero (hj : j < 128) :
+    mTarget answers index c j 0 = WCT9.childRoot answers index c.val j (Extract.ftsPrev answers index c.val).1 := by
   unfold mTarget
   rw [pow_zero, Nat.div_one, ftsLevels_leaf answers index c j hj]
-theorem merkle_honestInput (step : Nat) :
+theorem merkle_honestInput (step : Nat) (hs : step < 5) :
     pad64 (merkleInput 3 (WCT9.nodeLayer c.val) index 7 j (mPath answers index c j) (fun _ => 0) step
       (mTarget answers index c j step)) =
       Extract.honestInput answers (.wctNode index c.val step (j / 2 ^ (step + 1))) := by
   unfold merkleInput mPath mTarget
   dsimp only
   rw [Correctness.sibling_pair, Correctness.div_pow_succ]
-  rfl
+  simp only [Extract.honestInput, if_neg (show step ≠ 5 by omega)]
 theorem hdrBlock_merkleInput (path pads : Nat → Digest) (step : Nat) (value : Digest) :
     Extract.hdrBlock (pad64 (merkleInput 3 (WCT9.nodeLayer c.val) index 7 j path pads step value)) =
       bytesLE 16 (nodeTweak 3 (WCT9.nodeLayer c.val) index (2 ^ (7 - step - 1) + j / 2 ^ (step + 1))) := by
@@ -333,18 +344,19 @@ theorem canonicalHeader_withHigh (t : BitVec 128) (hp : BitVec 64) :
     rw [show (2 : Nat) ^ 64 = 2 ^ 64 from rfl]
     omega
   · rfl
+
 theorem merkle_extract (hidx : index < 2 ^ 31) (hj : j < 128) (path pads : Nat → Digest)
     (hpads : Nat → BitVec 64) (leaf : Digest)
-    (reaches : evalWithAnswerFn answers (hashPath (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 j path pads hpads) 6
-      leaf) = mTarget answers index c j 6) :
-    (leaf = WCT9.childRoot answers index c.val j ∧
-      (∀ l, l < 6 → path l = mPath answers index c j l ∧ pads l = 0) ∧
-      ∀ q ∈ queried answers (hashPath (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 j path pads hpads) 6 leaf),
-        ∃ l, l < 6 ∧ q = .inl (.inr (Extract.honestInput answers (.wctNode index c.val l (j / 2 ^ (l + 1)))))) ∨
+    (reaches : evalWithAnswerFn answers (hashPath (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 j path pads hpads) 5
+      leaf) = mTarget answers index c j 5) :
+    (leaf = WCT9.childRoot answers index c.val j (Extract.ftsPrev answers index c.val).1 ∧
+      (∀ l, l < 5 → path l = mPath answers index c j l ∧ pads l = 0) ∧
+      ∀ q ∈ queried answers (hashPath (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 j path pads hpads) 5 leaf),
+        ∃ l, l < 5 ∧ q = .inl (.inr (Extract.honestInput answers (.wctNode index c.val l (j / 2 ^ (l + 1)))))) ∨
     Extract.HitIn answers (queried answers
-      (hashPath (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 j path pads hpads) 6 leaf)) := by
+      (hashPath (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 j path pads hpads) 5 leaf)) := by
   have hR := merkle_reference answers index c j hj
-  have h := merkleHPath_extract answers 3 (WCT9.nodeLayer c.val) index 7 j 6 path pads (mPath answers index c j)
+  have h := merkleHPath_extract answers 3 (WCT9.nodeLayer c.val) index 7 j 5 path pads (mPath answers index c j)
     (mTarget answers index c j) hpads leaf hR reaches
   rcases h with ⟨h0, hall⟩ | ⟨step, hstep, hq, hhit⟩
   · left
@@ -354,32 +366,102 @@ theorem merkle_extract (hidx : index < 2 ^ 31) (hj : j < 128) (path pads : Nat �
       (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 j path pads hpads)
       (fun step => merkleInput 3 (WCT9.nodeLayer c.val) index 7 j (mPath answers index c j) (fun _ => 0) step
         (mTarget answers index c j step))
-      (mTarget answers index c j) leaf 6 hR
+      (mTarget answers index c j) leaf 5 hR
       (fun step hs => by
         rw [merkleInputH_ok _ _ _ _ _ _ _ _ _ _ (hall step hs).2.2]
         unfold merkleInput; rw [(hall step hs).1, (hall step hs).2.1]) h0 q hq
-    exact ⟨step, hs, by rw [merkle_honestInput]⟩
+    exact ⟨step, hs, by rw [merkle_honestInput answers index c j step hs]⟩
   · right
     have hn : j / 2 ^ (step + 1) < 2 ^ (7 - step - 1) := by
       have := Correctness.div_pow_bound (node := j) (height := 7) (start := 0) (level := step + 1) (by omega)
         (by norm_num; omega)
       simpa [Nat.sub_sub] using this
-    refine ⟨.wctNode index c.val step (j / 2 ^ (step + 1)), _, ⟨hidx, c.isLt, hstep, hn⟩, hq, ?_, ?_⟩
-    · rw [← merkle_honestInput]; exact hhit
+    refine ⟨.wctNode index c.val step (j / 2 ^ (step + 1)), _, ⟨hidx, c.isLt, by omega, hn⟩, hq, ?_, ?_⟩
+    · apply Extract.hashHitAt_of_low (by simp only [Extract.Pos.proj, if_neg (show step ≠ 5 by omega)])
+      rw [← merkle_honestInput answers index c j step hstep]; exact hhit
     · unfold Extract.SameHeader
       rw [Extract.hdrBlock_honestInput, pathInput, hdrBlock_merkleInputH, canonicalHeader_withHigh]
       rfl
+theorem top_lt (hj : j < 128) : j / 2 ^ 6 < 2 := by
+  apply (Nat.div_lt_iff_lt_mul (by positivity)).mpr; norm_num; omega
+theorem top_reference (hj : j < 128) :
+    evalWithAnswerFn answers (WCT9.wctTopHash c.val index (2 + j / 2 ^ 6)
+      (treeValue (Extract.ftsLevels answers index c.val) 5 (2 * (j / 2 ^ 6))) (Extract.ftsPrev answers index c.val).2
+      (treeValue (Extract.ftsLevels answers index c.val) 5 (2 * (j / 2 ^ 6) + 1))) = mTarget answers index c j 6 :=
+  (WCT9.coordinate_top answers index c (j / 2 ^ 6) (top_lt j hj)).symm
+theorem top_honestInput :
+    pad64 (WCT9.wctTopInput c.val index (2 + j / 2 ^ 6)
+      (treeValue (Extract.ftsLevels answers index c.val) 5 (2 * (j / 2 ^ 6))) (Extract.ftsPrev answers index c.val).2
+      (treeValue (Extract.ftsLevels answers index c.val) 5 (2 * (j / 2 ^ 6) + 1))) =
+      Extract.honestInput answers (.wctNode index c.val 5 (j / 2 ^ 6)) := by
+  simp only [Extract.honestInput, if_pos rfl]
+  rfl
+theorem wctTopInput_block4 (coord index heap : Nat) (l p r : Digest) :
+    WCT9.wctTopInput coord index heap l p r = block4 l (nodeTweak 3 (WCT9.nodeLayer coord) index heap) p r := rfl
+/-- The top node of a coordinate (nested FTS r1-1): a high-half hash with the previous right top as pad. Either its
+input is the honest one (honest level-5 value, honest sibling, honest previous right top) or it is a high-half hit. -/
+theorem top_extract (hidx : index < 2 ^ 31) (hj : j < 128) (v other z : Digest)
+    (reaches : evalWithAnswerFn answers (WCT9.wctTopHash c.val index (2 + j / 2 ^ 6)
+      (if j / 2 ^ 5 % 2 = 0 then (v, other) else (other, v)).1 z
+      (if j / 2 ^ 5 % 2 = 0 then (v, other) else (other, v)).2) = mTarget answers index c j 6) :
+    (v = mTarget answers index c j 5 ∧ other = mPath answers index c j 5 ∧ z = (Extract.ftsPrev answers index c.val).2 ∧
+      queried answers (WCT9.wctTopHash c.val index (2 + j / 2 ^ 6)
+        (if j / 2 ^ 5 % 2 = 0 then (v, other) else (other, v)).1 z
+        (if j / 2 ^ 5 % 2 = 0 then (v, other) else (other, v)).2) =
+        [.inl (.inr (Extract.honestInput answers (.wctNode index c.val 5 (j / 2 ^ 6))))]) ∨
+    Extract.HitIn answers (queried answers (WCT9.wctTopHash c.val index (2 + j / 2 ^ 6)
+      (if j / 2 ^ 5 % 2 = 0 then (v, other) else (other, v)).1 z
+      (if j / 2 ^ 5 % 2 = 0 then (v, other) else (other, v)).2)) := by
+  generalize hP : (if j / 2 ^ 5 % 2 = 0 then (v, other) else (other, v)) = P at reaches ⊢
+  have hqry : queried answers (WCT9.wctTopHash c.val index (2 + j / 2 ^ 6) P.1 z P.2) =
+      [.inl (.inr (pad64 (WCT9.wctTopInput c.val index (2 + j / 2 ^ 6) P.1 z P.2)))] := rfl
+  rw [hqry]
+  by_cases heq : pad64 (WCT9.wctTopInput c.val index (2 + j / 2 ^ 6) P.1 z P.2) =
+      Extract.honestInput answers (.wctNode index c.val 5 (j / 2 ^ 6))
+  · left
+    have heq' := heq
+    rw [← top_honestInput answers index c j, wctTopInput_block4, wctTopInput_block4, pad64_block4,
+      pad64_block4] at heq'
+    obtain ⟨h1, -, hz, h2⟩ := block4_injective heq'
+    have hs := Correctness.sibling_pair (fun n => treeValue (Extract.ftsLevels answers index c.val) 5 n) (j / 2 ^ 5)
+    rw [Correctness.div_pow_succ] at hs
+    have hPeq : (if j / 2 ^ 5 % 2 = 0 then (v, other) else (other, v)) =
+        (if j / 2 ^ 5 % 2 = 0 then (mTarget answers index c j 5, mPath answers index c j 5)
+          else (mPath answers index c j 5, mTarget answers index c j 5)) := by
+      rw [hP]
+      exact (Prod.ext h1 h2).trans hs.symm
+    refine ⟨?_, ?_, hz, by rw [heq]⟩
+    · by_cases hb : j / 2 ^ 5 % 2 = 0
+      · simp only [hb, if_true, Prod.mk.injEq] at hPeq; exact hPeq.1
+      · simp only [hb, if_false, Prod.mk.injEq] at hPeq; exact hPeq.2
+    · by_cases hb : j / 2 ^ 5 % 2 = 0
+      · simp only [hb, if_true, Prod.mk.injEq] at hPeq; exact hPeq.2
+      · simp only [hb, if_false, Prod.mk.injEq] at hPeq; exact hPeq.1
+  · right
+    refine ⟨.wctNode index c.val 5 (j / 2 ^ 6), _, ⟨hidx, c.isLt, by norm_num, by have := top_lt j hj; norm_num at this ⊢; omega⟩,
+      List.mem_singleton_self _, ⟨heq, ?_⟩, ?_⟩
+    · simp only [Extract.Pos.proj, if_pos rfl]
+      rw [← top_honestInput answers index c j]
+      exact reaches.trans (top_reference answers index c j hj).symm
+    · unfold Extract.SameHeader
+      rw [Extract.hdrBlock_honestInput, wctTopInput_block4, pad64_block4, hdrBlock_block4W]
+      rfl
 end merkle
-theorem recoverCoordinateP_dec (N : HashOutput) (w : WBytes) (index : Nat) (c : WCT9.Coord) :
-    recoverCoordinateP (witDecP N w).signature (padDecP N w) index N c =
+theorem recoverCoordinateP_dec (N : HashOutput) (w : WBytes) (index : Nat) (c : WCT9.Coord) (prev : Digest × Digest) :
+    recoverCoordinateP (witDecP N w).signature (padDecP N w) index N c prev =
       ((List.finRange 6).mapM (fun t => wctChainP index c.val (WCT9.child N c).val t.val
           (4 - WCT9.wordDigit (WCT9.rank N c) t) (WCT9.wordDigit (WCT9.rank N c) t)
           (wcpads w c.val t.val).1 (wcHeaderPad w c.val t.val) (wcpads w c.val t.val).2
           (wreveal w c.val t.val (WCT9.wordDigit (WCT9.rank N c) t))) >>= fun ends =>
-        WCT9.leafHashP index c.val (WCT9.child N c).val (wleafPad w c.val) ends >>= fun leaf =>
+        WCT9.leafHashP index c.val (WCT9.child N c).val prev.1 ends >>= fun leaf =>
           hashPath (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 (WCT9.child N c).val
             (wsib w c.val (WCT9.child N c).val) (wmpad w c.val (WCT9.child N c).val)
-            (wmhpad w c.val (WCT9.child N c).val)) 6 leaf >>= fun top =>
+            (wmhpad w c.val (WCT9.child N c).val)) 5 leaf >>= fun v =>
+          WCT9.wctTopHash c.val index (2 + (WCT9.child N c).val / 2 ^ 6)
+            (if (WCT9.child N c).val / 2 ^ 5 % 2 = 0 then (v, wsib w c.val (WCT9.child N c).val 5)
+              else (wsib w c.val (WCT9.child N c).val 5, v)).1 prev.2
+            (if (WCT9.child N c).val / 2 ^ 5 % 2 = 0 then (v, wsib w c.val (WCT9.child N c).val 5)
+              else (wsib w c.val (WCT9.child N c).val 5, v)).2 >>= fun top =>
           pure (if (WCT9.child N c).val / 2 ^ 6 % 2 = 0 then (top, wsib w c.val (WCT9.child N c).val 6)
             else (wsib w c.val (WCT9.child N c).val 6, top))) := by
   unfold recoverCoordinateP
@@ -394,37 +476,50 @@ theorem pair_parse (levels : List (List Digest)) (j : Nat) (hj : j < 128) (top o
   rcases (show j / 2 ^ 6 = 0 ∨ j / 2 ^ 6 = 1 by omega) with h0 | h0 <;> rw [h0] at h ⊢ <;>
     simp only [Nat.zero_mod, Nat.one_mod, if_true, if_false, one_ne_zero, Prod.mk.injEq] at h <;>
     exact ⟨by first | exact h.1 | exact h.2, by first | exact h.2 | exact h.1⟩
-theorem coord_extract (answers : Answers) (N : HashOutput) (w : WBytes) (c : WCT9.Coord)
+/-- One nested FTS coordinate: reaching the honest top pair forces the honest openings, pads and siblings and the
+honest previous top pair `prev`, unless a query hits an honest position. -/
+theorem coord_extract (answers : Answers) (N : HashOutput) (w : WBytes) (c : WCT9.Coord) (prev : Digest × Digest)
     (reaches : evalWithAnswerFn answers
-        (recoverCoordinateP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N c) =
+        (recoverCoordinateP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N c prev) =
       Extract.ftsPair answers (WCT9.digestIndex N) c.val) :
-    ((∀ q ∈ queried answers (recoverCoordinateP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N c),
-        HonestQ answers N c q) ∧ CoordHonest answers N w c) ∨
+    ((∀ q ∈ queried answers (recoverCoordinateP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N c prev),
+        HonestQ answers N c q) ∧ CoordHonest answers N w c ∧
+        prev = Extract.ftsPrev answers (WCT9.digestIndex N) c.val) ∨
     Extract.HitIn answers
-      (queried answers (recoverCoordinateP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N c)) := by
+      (queried answers (recoverCoordinateP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N c prev)) := by
   have hidx : WCT9.digestIndex N < 2 ^ 31 := WCT9.digestIndex_lt N
   have hj := (WCT9.child N c).isLt
   rw [recoverCoordinateP_dec] at reaches ⊢
-  rw [queried_bind, queried_bind, queried_bind]
-  rw [evalWithAnswerFn_bind, evalWithAnswerFn_bind, evalWithAnswerFn_bind, evalWithAnswerFn_pure] at reaches
+  rw [queried_bind, queried_bind, queried_bind, queried_bind]
+  rw [evalWithAnswerFn_bind, evalWithAnswerFn_bind, evalWithAnswerFn_bind, evalWithAnswerFn_bind,
+    evalWithAnswerFn_pure] at reaches
   simp only [queried_pure, List.append_nil]
   generalize hE : evalWithAnswerFn answers ((List.finRange 6).mapM (fun t => wctChainP (WCT9.digestIndex N) c.val
       (WCT9.child N c).val t.val (4 - WCT9.wordDigit (WCT9.rank N c) t) (WCT9.wordDigit (WCT9.rank N c) t)
       (wcpads w c.val t.val).1 (wcHeaderPad w c.val t.val) (wcpads w c.val t.val).2
       (wreveal w c.val t.val (WCT9.wordDigit (WCT9.rank N c) t)))) = ends at reaches ⊢
   generalize hL : evalWithAnswerFn answers (WCT9.leafHashP (WCT9.digestIndex N) c.val (WCT9.child N c).val
-    (wleafPad w c.val) ends) = leaf at reaches ⊢
-  generalize hT : evalWithAnswerFn answers (hashPath (merkleInputH 3 (WCT9.nodeLayer c.val) (WCT9.digestIndex N) 7
+    prev.1 ends) = leaf at reaches ⊢
+  generalize hV : evalWithAnswerFn answers (hashPath (merkleInputH 3 (WCT9.nodeLayer c.val) (WCT9.digestIndex N) 7
     (WCT9.child N c).val (wsib w c.val (WCT9.child N c).val) (wmpad w c.val (WCT9.child N c).val)
-    (wmhpad w c.val (WCT9.child N c).val)) 6 leaf) = top at reaches
+    (wmhpad w c.val (WCT9.child N c).val)) 5 leaf) = v at reaches ⊢
+  generalize hT : evalWithAnswerFn answers (WCT9.wctTopHash c.val (WCT9.digestIndex N) (2 + (WCT9.child N c).val / 2 ^ 6)
+    (if (WCT9.child N c).val / 2 ^ 5 % 2 = 0 then (v, wsib w c.val (WCT9.child N c).val 5)
+      else (wsib w c.val (WCT9.child N c).val 5, v)).1 prev.2
+    (if (WCT9.child N c).val / 2 ^ 5 % 2 = 0 then (v, wsib w c.val (WCT9.child N c).val 5)
+      else (wsib w c.val (WCT9.child N c).val 5, v)).2) = top at reaches
   obtain ⟨htop, hsib6⟩ := pair_parse (Extract.ftsLevels answers (WCT9.digestIndex N) c.val) (WCT9.child N c).val hj
     top _ reaches
-  rcases merkle_extract answers (WCT9.digestIndex N) c (WCT9.child N c).val hidx hj _ _ _ leaf
-      (by rw [hT, htop]; rfl) with ⟨hleaf, hsib, hqM⟩ | hhit
+  rcases top_extract answers (WCT9.digestIndex N) c (WCT9.child N c).val hidx hj v _ prev.2
+      (by rw [hT, htop]; rfl) with ⟨hv5, hother5, hz, hqT⟩ | hhit
   swap
-  · exact Or.inr (hhit.mono fun q hq => List.mem_append_right _ (List.mem_append_right _ hq))
+  · exact Or.inr (hhit.mono fun q hq => List.mem_append_right _ (List.mem_append_right _ (List.mem_append_right _ hq)))
+  rcases merkle_extract answers (WCT9.digestIndex N) c (WCT9.child N c).val hidx hj _ _ _ leaf
+      (by rw [hV, hv5]) with ⟨hleaf, hsib, hqM⟩ | hhit
+  swap
+  · exact Or.inr (hhit.mono fun q hq => List.mem_append_right _ (List.mem_append_right _ (List.mem_append_left _ hq)))
   have hlen : ends.length = 6 := by rw [← hE, Correctness.eval_mapM]; simp
-  rcases leaf_extract answers (WCT9.digestIndex N) c.val (WCT9.child N c).val (wleafPad w c.val) ends hlen
+  rcases leaf_extract answers (WCT9.digestIndex N) c.val (WCT9.child N c).val prev.1 ends hlen
     ⟨hidx, c.isLt, hj⟩ (hL.trans hleaf) with ⟨hends, hpad, hqL⟩ | hhit
   swap
   · exact Or.inr (hhit.mono fun q hq => List.mem_append_right _ (List.mem_append_left _ hq))
@@ -451,7 +546,7 @@ theorem coord_extract (answers : Answers) (N : HashOutput) (w : WBytes) (c : WCT
   · push Not at hhit
     have hgood := fun t => (hch t).resolve_right (hhit t)
     left
-    refine ⟨fun q hq => ?_, ⟨fun t => ⟨(hgood t).1, fun hd => ?_⟩, fun l hl => ?_, hpad⟩⟩
+    refine ⟨fun q hq => ?_, ⟨fun t => ⟨(hgood t).1, fun hd => ?_⟩, fun l hl => ?_⟩, Prod.ext hpad hz⟩
     · rcases List.mem_append.mp hq with hq | hq
       · rw [queried_mapM] at hq
         obtain ⟨t, -, hq⟩ := List.mem_flatMap.mp hq
@@ -461,84 +556,164 @@ theorem coord_extract (answers : Answers) (N : HashOutput) (w : WBytes) (c : WCT
       · rw [hqL] at hq
         rw [List.mem_singleton.mp hq]
         exact Or.inr (Or.inl rfl)
+      rcases List.mem_append.mp hq with hq | hq
       · obtain ⟨l, hl, rfl⟩ := hqM q hq
-        exact Or.inr (Or.inr ⟨l, hl, rfl⟩)
+        exact Or.inr (Or.inr ⟨l, by omega, rfl⟩)
+      · rw [hqT] at hq
+        rw [List.mem_singleton.mp hq]
+        exact Or.inr (Or.inr ⟨5, by omega, rfl⟩)
     · obtain ⟨h0, hB, h1⟩ := (hgood t).2.1 hd
       exact ⟨Prod.ext h0 h1, hB⟩
-    · by_cases hl6 : l < 6
-      · exact ⟨(hsib l hl6).1, fun _ => (hsib l hl6).2⟩
-      · have hl6' : l = 6 := by omega
-        subst hl6'
-        exact ⟨hsib6, fun h => absurd h (by decide)⟩
-theorem forestPk_eq_shortHash (index : Nat) (pairs : List (Digest × Digest)) :
-    WCT9.forestPk index pairs = shortHash (Extract.forestInput index pairs) := rfl
-theorem forest_pairs_injective {index : Nat} {ps qs : List (Digest × Digest)} (hl : ps.length = qs.length)
-    (h : pad64 (Extract.forestInput index ps) = pad64 (Extract.forestInput index qs)) : ps = qs := by
-  have hlen : (Extract.forestInput index ps).length = (Extract.forestInput index qs).length := by
-    simp only [Extract.forestInput, WCT9.forestInput, zero16, List.length_append, List.length_replicate,
-      bytesLE_length, WCT9.pairs_bytes_length, hl]
-  have h := pad64_injective_of_length hlen h
-  unfold Extract.forestInput WCT9.forestInput at h
-  obtain ⟨-, hp⟩ := List.append_inj h (by simp only [zero16, List.length_append, List.length_replicate,
-    bytesLE_length])
-  exact WCT9.pairs_bytes_injective hl hp
+    · by_cases hl5 : l < 5
+      · exact ⟨(hsib l hl5).1, fun _ => (hsib l hl5).2⟩
+      · by_cases hl6 : l = 5
+        · subst hl6
+          exact ⟨hother5, fun h => absurd h (by decide)⟩
+        · have hl6' : l = 6 := by omega
+          subst hl6'
+          exact ⟨hsib6, fun h => absurd h (by decide)⟩
+/-! ### The nested coordinate fold -/
+section fold
+variable (answers : Answers) (start : Digest × Digest) (G : WCT9.Coord → Digest × Digest → M (Digest × Digest))
+def nstep (pairs : List (Digest × Digest)) (coord : WCT9.Coord) : M (List (Digest × Digest)) := do
+  let pair ← G coord (WCT9.prevPair start pairs)
+  pure (pairs ++ [pair])
+def npairs : Nat → List (Digest × Digest)
+  | 0 => []
+  | n + 1 => npairs n ++ [evalWithAnswerFn answers (G (Fin.ofNat 9 n) (WCT9.prevPair start (npairs n)))]
+theorem npairs_length : ∀ n, (npairs answers start G n).length = n
+  | 0 => rfl
+  | n + 1 => by simp [npairs, npairs_length n]
+theorem finRange_take_succ (n : Nat) (hn : n < 9) :
+    (List.finRange 9).take (n + 1) = (List.finRange 9).take n ++ [Fin.ofNat 9 n] := by
+  rw [List.take_add_one, List.getElem?_eq_getElem (by simpa using hn)]
+  simp only [List.getElem_finRange, Option.toList_some]
+  congr 2
+  ext; simp [Nat.mod_eq_of_lt hn]
+theorem eval_nfold : ∀ n, n ≤ 9 →
+    evalWithAnswerFn answers (((List.finRange 9).take n).foldlM (nstep start G) []) = npairs answers start G n
+  | 0, _ => rfl
+  | n + 1, hn => by
+    rw [finRange_take_succ n (by omega), List.foldlM_append, evalWithAnswerFn_bind, eval_nfold n (by omega)]
+    simp only [List.foldlM_cons, List.foldlM_nil, nstep, evalWithAnswerFn_bind, evalWithAnswerFn_pure, bind_pure]
+    rfl
+theorem queried_nfold : ∀ n, n ≤ 9 → ∀ q ∈ queried answers (((List.finRange 9).take n).foldlM (nstep start G) []),
+    ∃ c : WCT9.Coord, c.val < n ∧ q ∈ queried answers (G c (WCT9.prevPair start (npairs answers start G c.val)))
+  | 0, _, q, hq => by simp at hq
+  | n + 1, hn, q, hq => by
+    rw [finRange_take_succ n (by omega), List.foldlM_append, queried_bind, eval_nfold answers start G n (by omega)] at hq
+    rcases List.mem_append.mp hq with hq | hq
+    · obtain ⟨c, hc, hq⟩ := queried_nfold n (by omega) q hq
+      exact ⟨c, by omega, hq⟩
+    · simp only [List.foldlM_cons, List.foldlM_nil, nstep, bind_pure, queried_bind, queried_pure,
+        List.append_nil] at hq
+      refine ⟨Fin.ofNat 9 n, by simp [Nat.mod_eq_of_lt (show n < 9 by omega)], ?_⟩
+      simpa [Nat.mod_eq_of_lt (show n < 9 by omega)] using hq
+theorem queried_nfold_sub : ∀ n, n ≤ 9 → ∀ c : WCT9.Coord, c.val < n →
+    ∀ q ∈ queried answers (G c (WCT9.prevPair start (npairs answers start G c.val))),
+      q ∈ queried answers (((List.finRange 9).take n).foldlM (nstep start G) [])
+  | 0, _, c, hc, _, _ => absurd hc (by omega)
+  | n + 1, hn, c, hc, q, hq => by
+    rw [finRange_take_succ n (by omega), List.foldlM_append, queried_bind, eval_nfold answers start G n (by omega)]
+    by_cases hcn : c.val < n
+    · exact List.mem_append_left _ (queried_nfold_sub n (by omega) c hcn q hq)
+    · have hce : c = Fin.ofNat 9 n := Fin.ext (by simp [Nat.mod_eq_of_lt (show n < 9 by omega)]; omega)
+      subst hce
+      apply List.mem_append_right
+      simp only [List.foldlM_cons, List.foldlM_nil, nstep, bind_pure, queried_bind, queried_pure,
+        List.append_nil]
+      simpa [Nat.mod_eq_of_lt (show n < 9 by omega)] using hq
+theorem npairs_prev_zero : WCT9.prevPair start (npairs answers start G 0) = start := rfl
+theorem npairs_prev_succ (n : Nat) :
+    WCT9.prevPair start (npairs answers start G (n + 1)) =
+      evalWithAnswerFn answers (G (Fin.ofNat 9 n) (WCT9.prevPair start (npairs answers start G n))) := by
+  show (npairs answers start G n ++
+    [evalWithAnswerFn answers (G (Fin.ofNat 9 n) (WCT9.prevPair start (npairs answers start G n)))]).getLastD start = _
+  simp
+end fold
+theorem recoverFtsP_nfold (sig : WCT9.Signature) (pads : Pads) (index : Nat) (N : HashOutput) :
+    recoverFtsP sig pads index N =
+      ((List.finRange 9).take 9).foldlM (nstep pads.start (recoverCoordinateP sig pads index N)) [] >>=
+        fun ps => pure (WCT9.prevPair pads.start ps) := by
+  rw [List.take_of_length_le (by simp)]
+  rfl
+theorem ftsPair_eq_prev (answers : Answers) (index c : Nat) :
+    Extract.ftsPair answers index c = WCT9.ftsPrev answers index (c + 1) := by
+  unfold Extract.ftsPair Extract.ftsLevels
+  rw [WCT9.heapLevels_value _ 6 0 (by decide) (by decide), WCT9.heapLevels_value _ 6 1 (by decide) (by decide)]
+  rfl
+/-- Nested FTS extraction (r1-1): if the FTS output is the honest L3 message (coordinate 8's top pair), then by
+descending induction every coordinate is honest and coordinate 0's pads are zero, unless a query hits. -/
 theorem wct_extract (answers : Answers) (N : HashOutput) (w : WBytes) (_hS : Shaped N w)
     (hrun : evalWithAnswerFn answers
         (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N) =
-      Extract.honestForest answers (WCT9.digestIndex N)) :
+      Extract.honestTop answers (WCT9.digestIndex N)) :
     Extract.HitIn answers (queried answers
         (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N)) ∨
       WctHonest answers N w := by
-  have hidx : WCT9.digestIndex N < 2 ^ 31 := WCT9.digestIndex_lt N
-  unfold WctHonest
-  unfold recoverFtsP at hrun ⊢
-  rw [queried_bind]
-  rw [evalWithAnswerFn_bind] at hrun
-  rw [Correctness.eval_mapM] at hrun ⊢
-  rw [forestPk_eq_shortHash, queried_shortHash]
-  rw [forestPk_eq_shortHash, eval_shortHash] at hrun
-  generalize hR : (List.finRange 9).map (fun c => evalWithAnswerFn answers
-    (recoverCoordinateP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N c)) = pairs at hrun ⊢
-  have hlen : pairs.length = 9 := by rw [← hR]; simp
-  by_cases heq : pad64 (Extract.forestInput (WCT9.digestIndex N) pairs) =
-      Extract.honestInput answers (.forest (WCT9.digestIndex N))
-  · have hpairs : pairs = Extract.ftsPairsHonest answers (WCT9.digestIndex N) :=
-      forest_pairs_injective (by rw [hlen, Extract.ftsPairsHonest_length]) heq
-    have hc : ∀ c : WCT9.Coord, evalWithAnswerFn answers
-        (recoverCoordinateP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N c) =
-        Extract.ftsPair answers (WCT9.digestIndex N) c.val := by
-      intro c
-      have := congrArg (fun l => l.getD c.val (0, 0)) (hR.trans hpairs)
-      simpa [Extract.ftsPairsHonest, List.getD_eq_getElem?_getD] using this
-    by_cases hhit : ∃ c : WCT9.Coord, Extract.HitIn answers
-        (queried answers (recoverCoordinateP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N c))
-    · obtain ⟨c, hcq⟩ := hhit
-      exact Or.inl (hcq.mono fun q hq => List.mem_append_left _
-        (by rw [queried_mapM]; exact List.mem_flatMap.mpr ⟨c, List.mem_finRange c, hq⟩))
-    · push Not at hhit
-      have hgood := fun c => (coord_extract answers N w c (hc c)).resolve_right (hhit c)
-      right
-      refine ⟨fun q hq => ?_, fun c => (hgood c).2⟩
-      rcases List.mem_append.mp hq with hq | hq
-      · rw [queried_mapM] at hq
-        obtain ⟨c, -, hq⟩ := List.mem_flatMap.mp hq
-        exact Or.inr ⟨c, (hgood c).1 q hq⟩
-      · rw [List.mem_singleton.mp hq, heq]
-        exact Or.inl rfl
-  · left
-    refine ⟨.forest (WCT9.digestIndex N), _, lt_trans hidx (by norm_num), List.mem_append_right _
-      (List.mem_singleton_self _), ⟨heq, ?_⟩, ?_⟩
-    · rw [hrun]
-      unfold Extract.honestForest
-      rw [forestPk_eq_shortHash, eval_shortHash]
-      rfl
-    · unfold Extract.SameHeader
-      rw [Extract.hdrBlock_honestInput, Extract.hdrBlock_forestInput]
-      rfl
+  set idx := WCT9.digestIndex N with hidxDef
+  set G := recoverCoordinateP (witDecP N w).signature (padDecP N w) idx N with hG
+  set start := (padDecP N w).start with hstart
+  have hrec := recoverFtsP_nfold (witDecP N w).signature (padDecP N w) idx N
+  have hsub : ∀ c : WCT9.Coord, ∀ q ∈ queried answers (G c (WCT9.prevPair start (npairs answers start G c.val))),
+      q ∈ queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) idx N) := by
+    intro c q hq
+    rw [hrec, queried_bind]
+    exact List.mem_append_left _ (queried_nfold_sub answers start G 9 le_rfl c c.isLt q hq)
+  -- descending claim, stated upward on c
+  have claim : ∀ c (hc : c < 9), evalWithAnswerFn answers (G ⟨c, hc⟩
+        (WCT9.prevPair start (npairs answers start G c))) = Extract.ftsPair answers idx c →
+      Extract.HitIn answers (queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) idx N)) ∨
+        ((∀ c' : WCT9.Coord, c'.val ≤ c →
+          (∀ q ∈ queried answers (G c' (WCT9.prevPair start (npairs answers start G c'.val))), HonestQ answers N c' q) ∧
+            CoordHonest answers N w c') ∧ start = (0, 0)) := by
+    intro c
+    induction c with
+    | zero =>
+      intro hc hreach
+      rcases coord_extract answers N w ⟨0, hc⟩ _ hreach with ⟨hq, hcoh, hprev⟩ | hhit
+      · right
+        refine ⟨fun c' hc' => ?_, ?_⟩
+        · have : c' = ⟨0, hc⟩ := Fin.ext (by show c'.val = 0; omega)
+          subst this; exact ⟨hq, hcoh⟩
+        · exact hprev
+      · exact Or.inl (hhit.mono (hsub ⟨0, hc⟩))
+    | succ c ih =>
+      intro hc hreach
+      rcases coord_extract answers N w ⟨c + 1, hc⟩ _ hreach with ⟨hq, hcoh, hprev⟩ | hhit
+      · have hprev' : evalWithAnswerFn answers (G ⟨c, by omega⟩ (WCT9.prevPair start (npairs answers start G c))) =
+            Extract.ftsPair answers idx c := by
+          rw [ftsPair_eq_prev, ← show (Fin.ofNat 9 c : WCT9.Coord) = ⟨c, by omega⟩ from
+            Fin.ext (by simp [Nat.mod_eq_of_lt (show c < 9 by omega)]), ← npairs_prev_succ]
+          exact hprev
+        rcases ih (by omega) hprev' with hhit | ⟨hall, hst⟩
+        · exact Or.inl hhit
+        · right
+          refine ⟨fun c' hc' => ?_, hst⟩
+          by_cases hle : c'.val ≤ c
+          · exact hall c' hle
+          · have : c' = ⟨c + 1, hc⟩ := Fin.ext (by show c'.val = c + 1; omega)
+            subst this; exact ⟨hq, hcoh⟩
+      · exact Or.inl (hhit.mono (hsub ⟨c + 1, hc⟩))
+  have h8 : evalWithAnswerFn answers (G ⟨8, by decide⟩ (WCT9.prevPair start (npairs answers start G 8))) =
+      Extract.ftsPair answers idx 8 := by
+    have hn := npairs_prev_succ answers start G 8
+    have := hrun
+    rw [hrec, evalWithAnswerFn_bind, eval_nfold answers start G 9 le_rfl, evalWithAnswerFn_pure, hn] at this
+    exact this
+  rcases claim 8 (by decide) h8 with hhit | ⟨hall, hst⟩
+  · exact Or.inl hhit
+  · right
+    refine ⟨fun q hq => ?_, fun c => (hall c (by omega)).2, by rw [← padDecP_start]; exact hst⟩
+    rw [hrec, queried_bind] at hq
+    rcases List.mem_append.mp hq with hq | hq
+    · obtain ⟨c, -, hq⟩ := queried_nfold answers start G 9 le_rfl q hq
+      exact ⟨c, (hall c (by omega)).1 q hq⟩
+    · simp at hq
 def WctExtractSpecN (WctShaped : Answers → HashOutput → WBytes → Prop) : Prop :=
   ∀ (answers : Answers) (N : HashOutput) (w : WBytes), Shaped N w →
     evalWithAnswerFn answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N) =
-      Extract.honestForest answers (WCT9.digestIndex N) →
+      Extract.honestTop answers (WCT9.digestIndex N) →
     Extract.HitIn answers (queried answers
         (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N)) ∨
       WctShaped answers N w
@@ -567,12 +742,14 @@ theorem verifyP_walk_wct (answers : Answers) (m : Message) (pk : Digest) (w : WB
       evalWithAnswerFn answers (digest (wrho w) m (wdc w)) = N ∧
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
-      evalWithAnswerFn answers (layersBC w (WCT9.digestIndex N) 4 (.forest (evalWithAnswerFn answers
-        (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N)))) = some pk ∧
+      evalWithAnswerFn answers (layersBC w (WCT9.digestIndex N) 4 (.pair (evalWithAnswerFn answers
+        (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N)).1 (evalWithAnswerFn answers
+        (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N)).2)) = some pk ∧
       (∀ q ∈ queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N),
         q ∈ queried answers (verifyP m pk w)) ∧
-      (∀ q ∈ queried answers (layersBC w (WCT9.digestIndex N) 4 (.forest (evalWithAnswerFn answers
-          (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N)))),
+      (∀ q ∈ queried answers (layersBC w (WCT9.digestIndex N) 4 (.pair (evalWithAnswerFn answers
+          (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N)).1 (evalWithAnswerFn answers
+          (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N)).2)),
         q ∈ queried answers (verifyP m pk w)) := by
   classical
   obtain ⟨hdcW, hS⟩ := shaped_of_verifyP answers m pk w hv
@@ -601,7 +778,7 @@ theorem verifyP_walk_wct (answers : Answers) (m : Message) (pk : Digest) (w : WB
   dsimp only at hv ⊢
   rw [evalWithAnswerFn_bind] at hv
   rw [queried_bind]
-  generalize hL : evalWithAnswerFn answers (layersBC w (WCT9.digestIndex N) 4 (.forest root)) = ll at hv ⊢
+  generalize hL : evalWithAnswerFn answers (layersBC w (WCT9.digestIndex N) 4 (.pair root.1 root.2)) = ll at hv ⊢
   rcases ll with _ | root'
   · simp at hv
   simp only [evalWithAnswerFn_pure, beq_iff_eq] at hv
@@ -615,7 +792,7 @@ theorem verifyP_wct_extract (answers : Answers) (m : Message) (pk : Digest) (w :
       (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : Spec.Domain) ∈ queried answers (verifyP m pk w) ∧
       Shaped N w ∧
       (evalWithAnswerFn answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N) =
-          Extract.honestForest answers (WCT9.digestIndex N) →
+          Extract.honestTop answers (WCT9.digestIndex N) →
         Extract.HitIn answers (queried answers (verifyP m pk w)) ∨ WctHonest answers N w) := by
   obtain ⟨N, hdc, hN, hdq, hS, -, hqF, -⟩ := verifyP_walk_wct answers m pk w hv
   refine ⟨N, hdc, hN, hdq, hS, fun hroot => ?_⟩
@@ -624,10 +801,10 @@ theorem verifyP_wct_extract (answers : Answers) (m : Message) (pk : Digest) (w :
   · exact Or.inr hhon
 def LayersWalkSpec (LayerEvent : Answers → WBytes → Nat → List Spec.Domain → Prop)
     (LayersGood : Answers → WBytes → Nat → Prop) : Prop :=
-  ∀ (answers : Answers) (w : WBytes) (index : Nat) (root : Digest) (qs : List Spec.Domain), index < 2 ^ 31 →
-    (∀ q ∈ queried answers (layersBC w index 4 (.forest root)), q ∈ qs) →
-    evalWithAnswerFn answers (layersBC w index 4 (.forest root)) = some (Extract.honestRoot answers 0 0) →
-    LayerEvent answers w index qs ∨ (LayersGood answers w index ∧ root = Extract.honestForest answers index)
+  ∀ (answers : Answers) (w : WBytes) (index : Nat) (root : Digest × Digest) (qs : List Spec.Domain), index < 2 ^ 31 →
+    (∀ q ∈ queried answers (layersBC w index 4 (.pair root.1 root.2)), q ∈ qs) →
+    evalWithAnswerFn answers (layersBC w index 4 (.pair root.1 root.2)) = some (Extract.honestRoot answers 0 0) →
+    LayerEvent answers w index qs ∨ (LayersGood answers w index ∧ root = Extract.honestTop answers index)
 theorem verifyP_extract {LayerEvent : Answers → WBytes → Nat → List Spec.Domain → Prop}
     {LayersGood : Answers → WBytes → Nat → Prop} (hL : LayersWalkSpec LayerEvent LayersGood)
     (answers : Answers) (m : Message) (pk : Digest) (w : WBytes) (hpk : pk = Extract.honestRoot answers 0 0)

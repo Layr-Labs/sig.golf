@@ -300,7 +300,7 @@ def expandWithN (limit : Nat) (message : Message) (pk : Digest) (sig : Signature
   let some (counter, output) ← digestSearch sig.rho message 0 limit | pure none
   let index := digestIndex output
   let root ← recoverFts sig index output
-  let some (root, counters) ← expandLayersBC sig index 4 (.forest root) | pure none
+  let some (root, counters) ← expandLayersBC sig index 4 (.pair root.1 root.2) | pure none
   if root ≠ pk then return none
   pure (some (output, ⟨sig, counter, fun lay => counters.getD lay.val 0⟩))
 
@@ -328,7 +328,7 @@ theorem eval_expandWithN_fill (answers : Answers) (limit : Nat) (m : Message) (p
       | none => none
       | some (counter, output) =>
         match (evalWithAnswerFn answers (expandLayersT (proj σ) (digestIndex output) (topSib (proj σ)) 4
-            (.forest (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output))))).map
+            (.pair (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)).1 (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)).2))).map
             (fun x => (x.1, evalWithAnswerFn answers (topNode (digestIndex output) x.1 (setTop (topSib σ) c)),
               x.2.2)) with
         | none => none
@@ -344,7 +344,7 @@ theorem eval_expandWithN_fill (answers : Answers) (limit : Nat) (m : Message) (p
     rw [expandLayersBC_eq_T (fillTop σ c) _ 4 le_rfl, evalWithAnswerFn_map, proj_fillTop, topSib_fillTop,
       eval_expandLayersT_other answers (proj σ) _ (topSib (proj σ)) (setTop (topSib σ) c), Option.map_map]
     cases evalWithAnswerFn answers (expandLayersT (proj σ) (digestIndex output) (topSib (proj σ)) 4
-        (.forest (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)))) with
+        (.pair (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)).1 (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)).2)) with
     | none => rfl
     | some x =>
       obtain ⟨v, root, counters⟩ := x
@@ -373,7 +373,7 @@ theorem eval_expandS (answers : Answers) (limit : Nat) (m : Message) (pk : Diges
       recoverFts_fillTop σ 0 _ _
     rw [hfts] at h
     cases hl : evalWithAnswerFn answers (expandLayersT (proj σ) (digestIndex output) (topSib (proj σ)) 4
-        (.forest (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)))) with
+        (.pair (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)).1 (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)).2)) with
     | none => rw [hl] at h; simp at h
     | some x =>
       obtain ⟨v, root, counters⟩ := x
@@ -381,7 +381,7 @@ theorem eval_expandS (answers : Answers) (limit : Nat) (m : Message) (pk : Diges
       simp only at h
       have hroot : evalWithAnswerFn answers (topNode (digestIndex output) v (topSib (proj σ))) = root := by
         have := eval_expandLayersT_other answers (proj σ) (digestIndex output) (topSib (proj σ))
-          (topSib (proj σ)) 4 (.forest (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)))
+          (topSib (proj σ)) 4 (.pair (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)).1 (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)).2)
         rw [hl] at this
         simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at this
         exact this.2.1.symm
@@ -433,7 +433,7 @@ theorem expandS_complete (answers : Answers) (limit : Nat) (m : Message) (pk : D
     simp only [evalWithAnswerFn_bind]
     rw [show recoverFts (proj σ) = recoverFts σ from rfl]
     cases hl : evalWithAnswerFn answers (expandLayersT (proj σ) (digestIndex output) (topSib (proj σ)) 4
-        (.forest (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)))) with
+        (.pair (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)).1 (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)).2)) with
     | none => rw [hl] at h; simp at h
     | some y =>
       obtain ⟨v, root, counters⟩ := y
@@ -449,7 +449,7 @@ theorem expandS_complete (answers : Answers) (limit : Nat) (m : Message) (pk : D
       · rename_i hne
         have hroot : evalWithAnswerFn answers (topNode (digestIndex output) v (topSib (proj σ))) = root := by
           have := eval_expandLayersT_other answers (proj σ) (digestIndex output) (topSib (proj σ))
-            (topSib (proj σ)) 4 (.forest (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)))
+            (topSib (proj σ)) 4 (.pair (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)).1 (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)).2)
           rw [hl] at this
           simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at this
           exact this.2.1.symm
@@ -618,7 +618,7 @@ theorem bound_expandS (limit : Nat) (message : Message) (pk : Digest) (sig : Sig
       dsimp only
       refine (bound_recoverFts (proj sig) _ output).bind' (l := 4 * counterLimit + 481 + searchFuel)
         (fun root _ => ?_) (by omega)
-      refine (bound_expandLayersT (proj sig) _ (topSib (proj sig)) 4 (.forest root)).bind' (l := searchFuel)
+      refine (bound_expandLayersT (proj sig) _ (topSib (proj sig)) 4 (.pair root.1 root.2)).bind' (l := searchFuel)
         (fun layers _ => ?_) (by have := recoveryLayersCostBC_four_le; omega)
       cases layers with
       | none => exact .pure _ _ trivial

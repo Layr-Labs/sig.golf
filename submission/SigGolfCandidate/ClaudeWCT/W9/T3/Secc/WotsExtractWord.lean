@@ -35,7 +35,7 @@ theorem referenceInput_ne (answers : Answers) (L : LeafAddr) (msg : WCT9.LayerMs
       · exact hne rfl
       · exact hne (hdw.trans hw.symm)
 theorem referenceInput_ne_pad (answers : Answers) (L : LeafAddr) (msg : WCT9.LayerMsg) (ctr : BitVec 32) (pad : RowPad)
-    (hfit : Extract.msgFits L.lay msg) (hpad : pad.1 ≠ 0 ∨ (L.lay.val = 3 ∧ pad.2 ≠ 0)) :
+    (hfit : Extract.msgFits L.lay msg) (hpad : pad.1 ≠ 0) :
     referenceInput answers L ≠ some (encRow L msg ctr pad) := by
   intro h
   unfold referenceInput at h
@@ -44,13 +44,8 @@ theorem referenceInput_ne_pad (answers : Answers) (L : LeafAddr) (msg : WCT9.Lay
   | some s =>
       rw [hs] at h
       simp only [Option.map_some, Option.some.injEq] at h
-      obtain ⟨-, -, hp, hR⟩ := BC.layerEncodingRow_injective_leaf (msgFits_leafMsg answers L) hfit h
-      rcases hpad with h1 | ⟨h3, h2⟩
-      · exact h1 hp.symm
-      · have hm : ∃ root, leafMsg answers L = .forest root := by
-          unfold leafMsg; rw [dif_neg (by omega)]; exact ⟨_, rfl⟩
-        obtain ⟨root, hroot⟩ := hm
-        exact h2 (hR root hroot).symm
+      obtain ⟨-, -, hp, -⟩ := BC.layerEncodingRow_injective_leaf (msgFits_leafMsg answers L) hfit h
+      exact hpad hp.symm
 theorem leafMsg_route (answers : Answers) (index : Nat) (lay : Layer) (hindex : index < 2 ^ 31) :
     leafMsg answers (routeLeaf index lay) = Extract.honestMsg answers index lay := by
   unfold leafMsg Extract.honestMsg

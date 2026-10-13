@@ -34,13 +34,14 @@ def payAfterDigest (cache : T3.Cache) (rho : Digest) (output : HashOutput) : M (
     (fun (state : List Opening × List (Digest × Digest)) coord => do
       let selected := child output coord
       let (levels, values) ← buildCoordinateF index coord selected (rank output coord)
+        (WCT9.prevPair WCT9.ftsStart state.2)
       let path := (List.range 7).map fun level =>
         (levels.getD level []).getD (selected.val / 2 ^ level ^^^ 1) 0
       let opening : Opening := ⟨fun i => values.getD i.val 0, fun i => path.getD i.val 0⟩
       pure (state.1 ++ [opening],
         state.2 ++ [((levels.getD 6 []).getD 0 0, (levels.getD 6 []).getD 1 0)])) ([], [])
-  let root ← WCT9.forestPk index state.2
-  let some layers ← WCT9.signLayersBC cache index 4 (.forest root) | pure none
+  let top := WCT9.prevPair WCT9.ftsStart state.2
+  let some layers ← WCT9.signLayersBC cache index 4 (.pair top.1 top.2) | pure none
   pure (some ⟨rho, fun coord => state.1.getD coord.val ⟨fun _ => 0, fun _ => 0⟩,
     fun lay => piecesSignature lay (layers.getD lay.val ([], []))⟩)
 theorem signPayload_factor (cache : T3.Cache) (message : Message) :
@@ -85,30 +86,17 @@ theorem avoids_forestPk (index : Nat) (roots : List (Digest × Digest)) :
     NonceFreshness.Avoids m (WCT9.forestPk index roots) := by
   unfold WCT9.forestPk
   exact NonceFreshness.avoids_shortHash m _
-theorem avoids_buildChildF (index coord selected : Nat) (word : Rank) (coefs : List Digest) :
-    NonceFreshness.Avoids m (buildChildF index coord selected word coefs) :=
+theorem avoids_buildChildF (index coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest) :
+    NonceFreshness.Avoids m (buildChildF index coord selected word coefs pad) :=
   W9.T3.Security.Signer.buildChildF_allowed _ (fun _ => by simp [NonceFreshness.nonceQuery])
-    index coord selected word coefs
+    index coord selected word coefs pad
 theorem avoids_ftsCoefs (index coord : Nat) : NonceFreshness.Avoids m (WCT9.ftsCoefs index coord) :=
   W9.T3.Security.Signer.ftsCoefs_allowed _ (fun _ _ _ _ => by simp [NonceFreshness.nonceQuery]) index coord
-theorem avoids_buildCoordinateF (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
-    NonceFreshness.Avoids m (buildCoordinateF index coord selected word) := by
-  unfold buildCoordinateF
-  apply NonceFreshness.avoids_bind m (avoids_ftsCoefs m _ _)
-  intro coefs
-  apply NonceFreshness.avoids_bind m
-  · apply NonceFreshness.avoids_foldlM m
-    intro state j
-    exact NonceFreshness.avoids_bind m (avoids_buildChildF m _ _ _ _ _) fun _ => NonceFreshness.avoids_pure m _
-  · intro state
-    apply NonceFreshness.avoids_bind m
-    · unfold WCT9.heapBuild
-      apply NonceFreshness.avoids_foldlM m
-      intro nodes heap
-      exact NonceFreshness.avoids_bind m (NonceFreshness.avoids_nodeHash m _ _ _ _ _ _)
-        fun _ => NonceFreshness.avoids_pure m _
-    · intro _
-      exact NonceFreshness.avoids_pure m _
+theorem avoids_buildCoordinateF (index : Nat) (coord : Coord) (selected : Child) (word : Rank)
+    (prev : Digest × Digest) :
+    NonceFreshness.Avoids m (buildCoordinateF index coord selected word prev) :=
+  W9.T3.Security.Signer.buildCoordinateF_allowed _ (fun _ => by simp [NonceFreshness.nonceQuery])
+    (fun _ _ _ _ => by simp [NonceFreshness.nonceQuery]) index coord selected word prev
 theorem avoids_signLayersBC (cache : T3.Cache) (index n : Nat) (msg : WCT9.LayerMsg) :
     NonceFreshness.Avoids m (WCT9.signLayersBC cache index n msg) :=
   W9.T3.Security.Signer.signLayersBC_allowed _ (fun _ => by simp [NonceFreshness.nonceQuery]) cache
@@ -122,10 +110,8 @@ theorem wct_payAvoids : PayAvoids payAfterDigest := by
   apply NonceFreshness.avoids_bind m
   · apply NonceFreshness.avoids_foldlM m
     intro state coord
-    exact NonceFreshness.avoids_bind m (avoids_buildCoordinateF m _ _ _ _) fun _ => NonceFreshness.avoids_pure m _
+    exact NonceFreshness.avoids_bind m (avoids_buildCoordinateF m _ _ _ _ _) fun _ => NonceFreshness.avoids_pure m _
   · intro state
-    apply NonceFreshness.avoids_bind m (avoids_forestPk m _ _)
-    intro root
     apply NonceFreshness.avoids_bind m (avoids_signLayersBC m _ _ _ _)
     intro layers
     split
@@ -216,6 +202,27 @@ theorem leafHash_ok (index coord selected : Nat) (ends : List Digest) :
       WCT9.ftsLeafHeader_firstByte]
     decide
   · intro _; exact SourceQueries.pure_allowed _ _
+theorem leafHashP_ok (index coord selected : Nat) (pad : Digest) (ends : List Digest) :
+    AllQueriesSatisfy (WCT9.leafHashP index coord selected pad ends) BPB.NotDigestQ := by
+  unfold WCT9.leafHashP WCT9.leafInputP shortHash publicHash
+  apply SourceQueries.bind_allowed
+  · apply (allQueriesSatisfy_query_iff _ _).mpr
+    show BPB.hdrMarker (pad64 (bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (WCT9.ftsLeafHeader index coord selected) ++
+      bytesLE 16 pad ++ (ends.drop 1).flatMap (bytesLE 16))) ≠ 0
+    unfold BPB.hdrMarker
+    rw [List.append_assoc (bytesLE 16 _ ++ bytesLE 16 _), hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _) (bytesLE_length _ _), bytesLE16_first_toNat,
+      WCT9.ftsLeafHeader_firstByte]
+    decide
+  · intro _; exact SourceQueries.pure_allowed _ _
+theorem topHash_ok (coord index heap : Nat) (left pad right : Digest) :
+    AllQueriesSatisfy (WCT9.wctTopHash coord index heap left pad right) BPB.NotDigestQ :=
+  WCT9.allQ_highHash_of_shortHash _ (BPB.shortHash_ok_marker
+    (show T3M.Extract.hdrBlock (pad64 (WCT9.wctTopInput coord index heap left pad right)) =
+        SphincsSecurity.bytesLE 16 (nodeTweak 3 (WCT9.nodeLayer coord) index heap) by
+      change T3M.Extract.hdrBlock (pad64 (T3M.SecurityInputs.nodeInputP 3 (WCT9.nodeLayer coord) index heap
+        left pad right)) = _
+      rw [T3M.SecurityInputs.pad64_nodeInputP]; exact BSuf.hdrBlock_nodeInputP _ _ _ _ _ _ _)
+    (nodeTweak_marker_ne_zero _ _ _ _))
 theorem forest_header_plain (index : Nat) : header 15 0 index 0 0 = wctHeader 15 0 index 0 0 := by
   unfold wctHeader header
   rw [if_neg (by decide)]
@@ -242,8 +249,8 @@ theorem layerEncoding_ok (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (
   | pair left right =>
       exact BPB.shortHash_ok_marker (hdrBlock_pairEncodingInputP lay tree leaf left right counter 0)
         (by rw [rowTweak_marker]; decide)
-theorem buildChildF_ok (index coord selected : Nat) (word : Rank) (coefs : List Digest) :
-    AllQueriesSatisfy (buildChildF index coord selected word coefs) BPB.NotDigestQ := by
+theorem buildChildF_ok (index coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest) :
+    AllQueriesSatisfy (buildChildF index coord selected word coefs pad) BPB.NotDigestQ := by
   unfold buildChildF
   apply SourceQueries.bind_allowed
   · apply SourceQueries.foldlM_allowed
@@ -254,28 +261,31 @@ theorem buildChildF_ok (index coord selected : Nat) (word : Rank) (coefs : List 
     intro _
     exact SourceQueries.pure_allowed _ _
   · intro state
-    exact SourceQueries.bind_allowed _ (leafHash_ok _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
+    exact SourceQueries.bind_allowed _ (leafHashP_ok _ _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
 theorem ftsCoefs_ok (index coord : Nat) : AllQueriesSatisfy (WCT9.ftsCoefs index coord) BPB.NotDigestQ := by
   unfold WCT9.ftsCoefs
   apply SourceQueries.foldlM_allowed
   intro acc j
   exact SourceQueries.bind_allowed _ (BPB.privatePair_ok _ _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
-theorem buildCoordinateF_ok (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
-    AllQueriesSatisfy (buildCoordinateF index coord selected word) BPB.NotDigestQ := by
+theorem buildCoordinateF_ok (index : Nat) (coord : Coord) (selected : Child) (word : Rank) (prev : Digest × Digest) :
+    AllQueriesSatisfy (buildCoordinateF index coord selected word prev) BPB.NotDigestQ := by
   unfold buildCoordinateF
   apply SourceQueries.bind_allowed _ (ftsCoefs_ok _ _)
   intro coefs
   apply SourceQueries.bind_allowed
   · apply SourceQueries.foldlM_allowed
     intro state j
-    exact SourceQueries.bind_allowed _ (buildChildF_ok _ _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
+    exact SourceQueries.bind_allowed _ (buildChildF_ok _ _ _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
   · intro state
     apply SourceQueries.bind_allowed
     · unfold WCT9.heapBuild
       apply SourceQueries.foldlM_allowed
       intro nodes heap
-      exact SourceQueries.bind_allowed _ (BPB.nodeHash_ok 3 _ _ _ _ _ (by decide))
-        fun _ => SourceQueries.pure_allowed _ _
+      refine SourceQueries.bind_allowed _ ?_ fun _ => SourceQueries.pure_allowed _ _
+      unfold WCT9.wctHeapNode
+      split
+      · exact topHash_ok _ _ _ _ _ _
+      · exact BPB.nodeHash_ok 3 _ _ _ _ _ (by decide)
     · intro _
       exact SourceQueries.pure_allowed _ _
 theorem wct_payNotDigest : PayNotDigest payAfterDigest := by
@@ -284,10 +294,8 @@ theorem wct_payNotDigest : PayNotDigest payAfterDigest := by
   apply SourceQueries.bind_allowed
   · apply SourceQueries.foldlM_allowed
     intro state coord
-    exact SourceQueries.bind_allowed _ (buildCoordinateF_ok _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
+    exact SourceQueries.bind_allowed _ (buildCoordinateF_ok _ _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
   · intro state
-    apply SourceQueries.bind_allowed _ (forestPk_ok _ _)
-    intro root
     apply SourceQueries.bind_allowed _ (W9.T3.Security.Signer.signLayersBC_allowed' _ _ layerEncoding_ok
       (W9.T3.Security.Signer.buildTreeP_allowed' _ BPB.chain_ok BPB.leafHash_ok
         (fun _ _ _ _ _ => BPB.buildLevel_ok _ _ _ _ _ _ (by decide))
@@ -628,30 +636,14 @@ theorem chain_allowed (index coord selected i start count : Nat) (value : Digest
   unfold WCT9.chain
   exact SourceQueries.foldlM_allowed Q _ _ (fun _ _ => SourceQueries.shortHash_allowed Q hpublic _) _
 include hpublic in
-theorem buildChildF_allowed (index coord selected : Nat) (word : Rank) (coefs : List Digest) :
-    AllQueriesSatisfy (buildChildF index coord selected word coefs) Q :=
-  W9.T3.Security.Signer.buildChildF_allowed Q hpublic index coord selected word coefs
-include hpublic hpair hnonce in
-theorem buildCoordinateF_allowed (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
-    AllQueriesSatisfy (buildCoordinateF index coord selected word) Q := by
-  unfold buildCoordinateF
-  apply SourceQueries.bind_allowed _
-    (W9.T3.Security.Signer.ftsCoefs_allowed Q (fun _ _ _ _ => hpair _) _ _)
-  intro coefs
-  apply SourceQueries.bind_allowed
-  · apply SourceQueries.foldlM_allowed
-    intro state j
-    exact SourceQueries.bind_allowed _ (buildChildF_allowed Q hpublic _ _ _ _ _)
-      fun _ => SourceQueries.pure_allowed _ _
-  · intro state
-    apply SourceQueries.bind_allowed
-    · unfold WCT9.heapBuild
-      apply SourceQueries.foldlM_allowed
-      intro nodes heap
-      exact SourceQueries.bind_allowed _ (SourceQueries.nodeHash_allowed Q hpublic hpair hnonce _ _ _ _ _ _)
-        fun _ => SourceQueries.pure_allowed _ _
-    · intro _
-      exact SourceQueries.pure_allowed _ _
+theorem buildChildF_allowed (index coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest) :
+    AllQueriesSatisfy (buildChildF index coord selected word coefs pad) Q :=
+  W9.T3.Security.Signer.buildChildF_allowed Q hpublic index coord selected word coefs pad
+include hpublic hpair in
+theorem buildCoordinateF_allowed (index : Nat) (coord : Coord) (selected : Child) (word : Rank)
+    (prev : Digest × Digest) :
+    AllQueriesSatisfy (buildCoordinateF index coord selected word prev) Q :=
+  W9.T3.Security.Signer.buildCoordinateF_allowed Q hpublic (fun _ _ _ _ => hpair _) index coord selected word prev
 include hpublic hpair hnonce in
 theorem payAfterDigest_allowed (cache : T3.Cache) (rho : Digest) (output : HashOutput) :
     AllQueriesSatisfy (payAfterDigest cache rho output) Q := by
@@ -659,12 +651,9 @@ theorem payAfterDigest_allowed (cache : T3.Cache) (rho : Digest) (output : HashO
   apply SourceQueries.bind_allowed
   · apply SourceQueries.foldlM_allowed
     intro state coord
-    exact SourceQueries.bind_allowed _ (buildCoordinateF_allowed Q hpublic hpair hnonce _ _ _ _)
+    exact SourceQueries.bind_allowed _ (buildCoordinateF_allowed Q hpublic hpair _ _ _ _ _)
       fun _ => SourceQueries.pure_allowed _ _
   · intro state
-    unfold WCT9.forestPk
-    apply SourceQueries.bind_allowed _ (SourceQueries.shortHash_allowed Q hpublic _)
-    intro root
     apply SourceQueries.bind_allowed _ (W9.T3.Security.Signer.signLayersBC_allowed Q hpublic _
       (W9.T3.Security.Signer.buildTreeP_allowed Q hpublic (fun _ _ _ => hpair _))
       (SourceQueries.signTop_allowed Q hpublic hpair hnonce _) _ _ _)

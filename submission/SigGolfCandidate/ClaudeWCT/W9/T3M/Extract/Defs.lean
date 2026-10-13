@@ -12,8 +12,9 @@ def HonestQ (answers : Answers) (N : HashOutput) (c : WCT9.Coord) (q : Spec.Doma
     q = .inl (.inr (Extract.honestInput answers (.wctLeaf (WCT9.digestIndex N) c.val (WCT9.child N c).val))) ∨
     ∃ l, l < 6 ∧ q = .inl (.inr (Extract.honestInput answers
       (.wctNode (WCT9.digestIndex N) c.val l ((WCT9.child N c).val / 2 ^ (l + 1)))))
-/-- Honest coordinate: revealed values, chain pads, Merkle siblings/pads and (campaign T8) the leaf pad are the
-honest ones. -/
+/-- Honest coordinate (nested FTS r1-1): revealed values, chain pads, the Merkle siblings (including the supplied
+top sibling) and the pads of the five low fold levels are honest. The leaf pad and the top fold's pad are not
+witness data for coordinates 1..8: they are the previous coordinate's top pair (`WctHonest` pins coordinate 0's). -/
 def CoordHonest (answers : Answers) (N : HashOutput) (w : WBytes) (c : WCT9.Coord) : Prop :=
   (∀ t : Fin 6, wreveal w c.val t.val (WCT9.wordDigit (WCT9.rank N c) t) =
       Extract.wctValue answers (WCT9.digestIndex N) c.val (WCT9.child N c).val t.val
@@ -22,13 +23,11 @@ def CoordHonest (answers : Answers) (N : HashOutput) (w : WBytes) (c : WCT9.Coor
       wcpads w c.val t.val = (0, 0) ∧ wcHeaderPad w c.val t.val = 0)) ∧
   (∀ l, l < 7 → wsib w c.val (WCT9.child N c).val l =
       treeValue (Extract.ftsLevels answers (WCT9.digestIndex N) c.val) l ((WCT9.child N c).val / 2 ^ l ^^^ 1) ∧
-    (l < 6 → wmpad w c.val (WCT9.child N c).val l = 0)) ∧
-  wleafPad w c.val = 0
+    (l < 5 → wmpad w c.val (WCT9.child N c).val l = 0))
 def WctHonest (answers : Answers) (N : HashOutput) (w : WBytes) : Prop :=
   (∀ q ∈ queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N),
-      q = .inl (.inr (Extract.honestInput answers (.forest (WCT9.digestIndex N)))) ∨
       ∃ c : WCT9.Coord, HonestQ answers N c q) ∧
-    ∀ c : WCT9.Coord, CoordHonest answers N w c
+    (∀ c : WCT9.Coord, CoordHonest answers N w c) ∧ wctStart w = (0, 0)
 end ClaudeWCT.W9.T3M.WctExtract
 namespace ClaudeWCT.W9.T3M.Extract
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3M
@@ -36,8 +35,8 @@ open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open Correctness (Answers treeValue)
 open ClaudeWCT.WCT9 (wotsTree wotsValue)
 def msgFits (lay : Layer) : WCT9.LayerMsg → Prop
-  | .forest _ => lay.val = 3
-  | .pair _ _ => lay.val < 3
+  | .forest _ => False
+  | .pair _ _ => True
 def LayerShaped (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) : Prop :=
   (∀ j, j < height lay →
     wpath w lay (route index lay).1 j =

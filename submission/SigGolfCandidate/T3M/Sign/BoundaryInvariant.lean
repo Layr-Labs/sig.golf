@@ -663,34 +663,29 @@ end
 section
 namespace SigGolfCandidate.T3M.Sign.Boundary
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
+/-- Nested FTS (r1-1): the encoding R slot `ENC + 48` now carries `R8` (written by the FTS phase), so it is no
+longer part of the invariant. -/
 def Inv (sk : SecretKey) (cache : Bytes 131072) (t : MachineState) : Prop :=
-  Base sk cache t ∧ t.getMem (BitVec.ofNat 64 (ENC + 32)) = 0 ∧
-    t.getMem (BitVec.ofNat 64 (ENC + 48)) = 0 ∧ t.getMem (BitVec.ofNat 64 (ENC + 56)) = 0
+  Base sk cache t ∧ t.getMem (BitVec.ofNat 64 (ENC + 32)) = 0
 def NewWrites (A : Nat) : Prop :=
   (A = DIG + 16 ∨ A = DIG + 24 ∨ (NBUF ≤ A ∧ A < NBUF + 32) ∨ A = IDXV) ∨
   (0x50000 ≤ A ∧ A < 0x52010) ∨ (SIG + 16 ≤ A ∧ A < SIG + 1888) ∨
-  (FOUT ≤ A ∧ A < FOUT + 32)
+  (FOUT ≤ A ∧ A < FOUT + 32) ∨ (ENC + 48 ≤ A ∧ A < ENC + 64)
 theorem NoncePost.inv {sk : SecretKey} {cache : Bytes 131072} {m : Message}
     {rho : SigGolfCandidate.T3.Digest} {t : MachineState}
     (h : NoncePost sk cache m rho t) : Inv sk cache t := by
-  refine ⟨h.base, ?_, ?_, ?_⟩ <;>
-    rw [h.frame.get (by sg_omega) (by unfold FrontW; sg_omega)]
-  · exact sinit_zero sk cache m (ENC + 32) (by unfold SIGN_DATA; sg_omega) (by sg_omega)
-  · exact sinit_zero sk cache m (ENC + 48) (by unfold SIGN_DATA; sg_omega) (by sg_omega)
-  · exact sinit_zero sk cache m (ENC + 56) (by unfold SIGN_DATA; sg_omega) (by sg_omega)
+  refine ⟨h.base, ?_⟩
+  rw [h.frame.get (by sg_omega) (by unfold FrontW; sg_omega)]
+  exact sinit_zero sk cache m (ENC + 32) (by unfold SIGN_DATA; sg_omega) (by sg_omega)
 theorem Inv.stable {sk : SecretKey} {cache : Bytes 131072} {t u : MachineState}
     {regs : List Reg} (h : Inv sk cache t) (hf : Frame t u NewWrites)
     (hr : RegsExcept t u regs) (h5 : Reg.x5 ∉ regs) : Inv sk cache u := by
-  refine ⟨h.1.frame hf hr h5 ?_, ?_, ?_, ?_⟩
+  refine ⟨h.1.frame hf hr h5 ?_, ?_⟩
   · intro A hA hb hw
     unfold BaseA NeverW Search.TOP_DATA at hb
     unfold NewWrites at hw
     sg_omega
   · rw [hf.get (by sg_omega) (by unfold NewWrites; sg_omega)]
-    exact h.2.1
-  · rw [hf.get (by sg_omega) (by unfold NewWrites; sg_omega)]
-    exact h.2.2.1
-  · rw [hf.get (by sg_omega) (by unfold NewWrites; sg_omega)]
-    exact h.2.2.2
+    exact h.2
 end SigGolfCandidate.T3M.Sign.Boundary
 end

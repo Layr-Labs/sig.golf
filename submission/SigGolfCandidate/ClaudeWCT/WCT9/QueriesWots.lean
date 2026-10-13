@@ -149,14 +149,14 @@ theorem respects_wctNodeHash (coord heap : Nat) (left right : Digest) :
     Wots.Mask.Respects (Wots.Mask.Untouched a) (WCT9.wctNodeHash coord index heap left right) := by
   unfold WCT9.wctNodeHash
   exact Wots.Mask.respects_nodeHash a 3 _ _ _ _ _ (by decide)
-theorem respects_buildChildF (coord selected : Nat) (word : Rank) (coefs : List Digest) (hcoord : coord < 9)
+theorem respects_buildChildF (coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest) (hcoord : coord < 9)
     (hsel : selected < 128) :
-    Wots.Mask.Respects (Wots.Mask.Untouched a) (buildChildF index coord selected word coefs) :=
-  respects_of_allQueriesSatisfy (allQueriesSatisfy_mono (buildChildF_queries index coord selected word coefs hcoord hsel)
+    Wots.Mask.Respects (Wots.Mask.Untouched a) (buildChildF index coord selected word coefs pad) :=
+  respects_of_allQueriesSatisfy (allQueriesSatisfy_mono (buildChildF_queries index coord selected word coefs pad hcoord hsel)
     fun _ => ftsQuery_untouched a)
-theorem respects_buildCoordinateF (coord : Coord) (selected : Child) (word : Rank) :
-    Wots.Mask.Respects (Wots.Mask.Untouched a) (buildCoordinateF index coord selected word) :=
-  respects_of_allQueriesSatisfy (allQueriesSatisfy_mono (buildCoordinateF_queries index coord selected word)
+theorem respects_buildCoordinateF (coord : Coord) (selected : Child) (word : Rank) (prev : Digest × Digest) :
+    Wots.Mask.Respects (Wots.Mask.Untouched a) (buildCoordinateF index coord selected word prev) :=
+  respects_of_allQueriesSatisfy (allQueriesSatisfy_mono (buildCoordinateF_queries index coord selected word prev)
     fun _ => ftsQuery_untouched a)
 theorem respects_forestRows (output : HashOutput) :
     Wots.Mask.Respects (Wots.Mask.Untouched a) (forestRows index output) :=
@@ -166,9 +166,9 @@ theorem respects_signForest (output : HashOutput) :
     Wots.Mask.Respects (Wots.Mask.Untouched a) (signForest index output) :=
   respects_of_allQueriesSatisfy (allQueriesSatisfy_mono (signForest_queries index output)
     fun _ => ftsQuery_untouched a)
-theorem respects_recoverCoordinate (sig : Signature) (output : HashOutput) (coord : Coord) :
-    Wots.Mask.Respects (Wots.Mask.Untouched a) (recoverCoordinate sig index output coord) :=
-  respects_of_allQueriesSatisfy (allQueriesSatisfy_mono (recoverCoordinate_queries index sig output coord)
+theorem respects_recoverCoordinate (sig : Signature) (output : HashOutput) (coord : Coord) (prev : Digest × Digest) :
+    Wots.Mask.Respects (Wots.Mask.Untouched a) (recoverCoordinate sig index output coord prev) :=
+  respects_of_allQueriesSatisfy (allQueriesSatisfy_mono (recoverCoordinate_queries index sig output coord prev)
     fun _ => ftsQuery_untouched a)
 theorem respects_recoverFts (sig : Signature) (output : HashOutput) :
     Wots.Mask.Respects (Wots.Mask.Untouched a) (recoverFts sig index output) :=
@@ -197,14 +197,14 @@ theorem respects_forestPk (pairs : List (Digest × Digest)) :
   unfold WCT9.forestPk forestInput
   rw [show zero16 = bytesLE 16 (0 : Digest) by decide]
   exact Wots.Mask.Respects.shortHash _ (Wots.Enc.nonEnc_prefixed _ _ (by decide) _ _ _ _)
-theorem respects_buildChildF (coord selected : Nat) (word : Rank) (coefs : List Digest) (hcoord : coord < 9)
+theorem respects_buildChildF (coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest) (hcoord : coord < 9)
     (hsel : selected < 128) :
-    Wots.Mask.Respects Wots.Enc.NonEnc (buildChildF index coord selected word coefs) :=
-  respects_of_allQueriesSatisfy (allQueriesSatisfy_mono (buildChildF_queries index coord selected word coefs hcoord hsel)
+    Wots.Mask.Respects Wots.Enc.NonEnc (buildChildF index coord selected word coefs pad) :=
+  respects_of_allQueriesSatisfy (allQueriesSatisfy_mono (buildChildF_queries index coord selected word coefs pad hcoord hsel)
     fun _ => ftsQuery_nonEnc)
-theorem respects_buildCoordinateF (coord : Coord) (selected : Child) (word : Rank) :
-    Wots.Mask.Respects Wots.Enc.NonEnc (buildCoordinateF index coord selected word) :=
-  respects_of_allQueriesSatisfy (allQueriesSatisfy_mono (buildCoordinateF_queries index coord selected word)
+theorem respects_buildCoordinateF (coord : Coord) (selected : Child) (word : Rank) (prev : Digest × Digest) :
+    Wots.Mask.Respects Wots.Enc.NonEnc (buildCoordinateF index coord selected word prev) :=
+  respects_of_allQueriesSatisfy (allQueriesSatisfy_mono (buildCoordinateF_queries index coord selected word prev)
     fun _ => ftsQuery_nonEnc)
 theorem respects_forestRows (output : HashOutput) :
     Wots.Mask.Respects Wots.Enc.NonEnc (forestRows index output) :=
@@ -238,15 +238,15 @@ theorem forestPk_respects (pairs : List (Digest × Digest)) (hlen : pairs.length
   apply Wots.Ref.short_of_le
   simp only [forestInput, zero16, List.length_append, List.length_replicate, bytesLE_length, pairs_bytes_length]
   omega
-theorem buildChildF_respects (coord selected : Nat) (word : Rank) (coefs : List Digest) (hcoord : coord < 9)
+theorem buildChildF_respects (coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest) (hcoord : coord < 9)
     (hsel : selected < 128) :
-    Wots.Ref.ShortRespects (buildChildF index coord selected word coefs) :=
+    Wots.Ref.ShortRespects (buildChildF index coord selected word coefs pad) :=
   shortRespects_of_allQueriesSatisfy (allQueriesSatisfy_mono
-    (buildChildF_queries index coord selected word coefs hcoord hsel) fun _ => ftsQuery_short)
-theorem buildCoordinateF_respects (coord : Coord) (selected : Child) (word : Rank) :
-    Wots.Ref.ShortRespects (buildCoordinateF index coord selected word) :=
+    (buildChildF_queries index coord selected word coefs pad hcoord hsel) fun _ => ftsQuery_short)
+theorem buildCoordinateF_respects (coord : Coord) (selected : Child) (word : Rank) (prev : Digest × Digest) :
+    Wots.Ref.ShortRespects (buildCoordinateF index coord selected word prev) :=
   shortRespects_of_allQueriesSatisfy (allQueriesSatisfy_mono
-    (buildCoordinateF_queries index coord selected word) fun _ => ftsQuery_short)
+    (buildCoordinateF_queries index coord selected word prev) fun _ => ftsQuery_short)
 theorem forestRows_respects (output : HashOutput) : Wots.Ref.ShortRespects (forestRows index output) :=
   shortRespects_of_allQueriesSatisfy (allQueriesSatisfy_mono (forestRows_queries index output)
     fun _ => ftsQuery_short)
@@ -257,8 +257,8 @@ theorem recoverFts_respects (sig : Signature) (output : HashOutput) :
     Wots.Ref.ShortRespects (recoverFts sig index output) :=
   shortRespects_of_allQueriesSatisfy (allQueriesSatisfy_mono (recoverFts_queries index sig output)
     fun _ => ftsQuery_short)
-theorem honestForest_short {A T : Answers} (hAT : Wots.Ref.ShortAgree A T) (output : HashOutput) :
-    honestForest A index = honestForest T index := by
+theorem honestTop_short {A T : Answers} (hAT : Wots.Ref.ShortAgree A T) (output : HashOutput) :
+    honestTop A index = honestTop T index := by
   rw [← signForest_root A index output, ← signForest_root T index output,
     signForest_respects index output A T hAT]
 end Ref

@@ -13,14 +13,11 @@ noncomputable def leafMsg (answers : Answers) (L : LeafAddr) : WCT9.LayerMsg :=
   if h : L.lay.val < 3 then
     .pair (Extract.honestPair answers ⟨L.lay.val + 1, by omega⟩ (L.tree * 2 ^ height L.lay + L.leaf)).1
       (Extract.honestPair answers ⟨L.lay.val + 1, by omega⟩ (L.tree * 2 ^ height L.lay + L.leaf)).2
-  else .forest (Extract.honestForest answers ((L.tree * 2 ^ height L.lay + L.leaf) % 2 ^ 31))
+  else .pair (Extract.honestTop answers ((L.tree * 2 ^ height L.lay + L.leaf) % 2 ^ 31)).1
+    (Extract.honestTop answers ((L.tree * 2 ^ height L.lay + L.leaf) % 2 ^ 31)).2
 theorem msgFits_leafMsg (answers : Answers) (L : LeafAddr) : Extract.msgFits L.lay (leafMsg answers L) := by
   unfold leafMsg
-  split_ifs with h
-  · exact h
-  · show L.lay.val = 3
-    have := L.lay.isLt
-    omega
+  split_ifs <;> trivial
 abbrev RowPad := BitVec 96 × Digest
 def encRow (L : LeafAddr) (msg : WCT9.LayerMsg) (counter : BitVec 32) (pad : RowPad) : HashInput :=
   pad64 (layerEncodingInputP L.lay L.tree L.leaf msg counter pad.1 pad.2)

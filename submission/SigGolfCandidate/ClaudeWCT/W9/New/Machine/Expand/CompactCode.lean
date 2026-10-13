@@ -3,6 +3,8 @@ import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.Base
 namespace ClaudeWCT.W9.Machine.Expand.Compact
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
 def cfgC : Config := { noAlias := true }
+/-- Nested FTS (r1-1): hold slot of coordinate `k` (top sibling, flag `1 - bit6`), written by the staging pass. -/
+def holdAt (k : Nat) : Nat := 0x380000 + 32 * k
 def coordAt (k : Nat) : Nat := 41121 + 111 * k
 def sibAt (k l : Nat) : Nat := coordAt k + 13 + 14 * l
 def sibLen (l : Nat) : Nat := if l < 6 then 14 else 12
@@ -18,7 +20,7 @@ def cHeads : List (List (BitVec 32)) :=[[0x6003303,217875,0x7f37993,296339,41944
 def cHead (k : Nat) : List (BitVec 32) := cHeads.getD k []
 def cMids : List (List (BitVec 32)) :=[[470025491,335840659,75499027,0x7a1000ef],[470025491,335840659,75499027,0x5e5000ef],[470025491,335840659,75499027,0x429000ef],[470025491,335840659,75499027,651165935],[470025491,335840659,75499027,0xb1000ef],[470025491,335840659,75499027,0x6f4000ef],[470025491,335840659,75499027,0x538000ef],[470025491,335840659,75499027,935330031],[470025491,335840659,75499027,469762287]]
 def cMid (k : Nat) : List (BitVec 32) := cMids.getD k []
-def cSibs : List (List (BitVec 32)) :=[[679427,29658675,647059,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,403095171,411483907,31338531,32388131],[2776579,29658675,1695635,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,335986307,344375043,31338531,32388131],[4873731,29658675,2744211,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,268877443,277266179,31338531,32388131],[6970883,29658675,3792787,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,0xc06be83,0xc86bf03,31338531,32388131],[9068035,29658675,4841363,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,0x806be83,0x886bf03,31338531,32388131],[0xaa5e03,29658675,5889939,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,67550851,75939587,31338531,32388131],[0xca5e03,29658675,6938515,2084755,6264467,5218195,0xdf8fb3,32769715,441987,8830723,31338531,32388131]]
+def cSibs : List (List (BitVec 32)) :=[[679427,29658675,647059,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,403095171,411483907,31338531,32388131],[2776579,29658675,1695635,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,335986307,344375043,31338531,32388131],[4873731,29658675,2744211,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,268877443,277266179,31338531,32388131],[6970883,29658675,3792787,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,0xc06be83,0xc86bf03,31338531,32388131],[9068035,29658675,4841363,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,0x806be83,0x886bf03,31338531,32388131],[872418835,29658675,5889939,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,67550851,75939587,31338531,32388131],[0xca5e03,29658675,6938515,2084755,6264467,5218195,0xdf8fb3,32769715,441987,8830723,31338531,32388131]]
 def cSib (l : Nat) : List (BitVec 32) := cSibs.getD l []
 section code
 variable {im : Image} (hc : NewCodeAt im)
@@ -39,7 +41,9 @@ theorem code_cRow (k : Nat) (hk : k < 9) : CodeAt im (pcOf (coordAt k + 10)) cRo
   interval_cases k <;> exact codeAt_of_window hc (by decide) (by decide +kernel)
 theorem code_cStep (k : Nat) (hk : k < 9) : CodeAt im (pcOf (coordAt k + 109)) cStep := by
   interval_cases k <;> exact codeAt_of_window hc (by decide) (by decide +kernel)
-theorem code_cSib (k l : Nat) (hk : k < 9) (hl : l < 7) : CodeAt im (pcOf (sibAt k l)) (cSib l) := by
+/-- Nested FTS (r1-1): levels 0..5 run in place (level 5 now writes to the fixed staging block at +832); level 6
+jumps to a per-coordinate trampoline (`sib6_spec`). -/
+theorem code_cSib (k l : Nat) (hk : k < 9) (hl : l < 6) : CodeAt im (pcOf (sibAt k l)) (cSib l) := by
   interval_cases k <;> interval_cases l <;> exact codeAt_of_window hc (by decide) (by decide +kernel)
 end code
 sym_block RStart := symRun cfgC cStart (pcOf 41108) 40
@@ -76,9 +80,8 @@ sym_block RSib2 := symRun cfgC (cSib 2) (pcOf (sibAt 0 2)) 40
 sym_block RSib3 := symRun cfgC (cSib 3) (pcOf (sibAt 0 3)) 40
 sym_block RSib4 := symRun cfgC (cSib 4) (pcOf (sibAt 0 4)) 40
 sym_block RSib5 := symRun cfgC (cSib 5) (pcOf (sibAt 0 5)) 40
-sym_block RSib6 := symRun cfgC (cSib 6) (pcOf (sibAt 0 6)) 40
-def rSib (l : Nat) : Result := [RSib0.res, RSib1.res, RSib2.res, RSib3.res, RSib4.res, RSib5.res, RSib6.res].getD l RSib0.res
-theorem run_sib (k l : Nat) (hk : k < 9) (hl : l < 7) : symRun cfgC (cSib l) (pcOf (sibAt k l)) 40 =
+def rSib (l : Nat) : Result := [RSib0.res, RSib1.res, RSib2.res, RSib3.res, RSib4.res, RSib5.res].getD l RSib0.res
+theorem run_sib (k l : Nat) (hk : k < 9) (hl : l < 6) : symRun cfgC (cSib l) (pcOf (sibAt k l)) 40 =
     some ⟨(rSib l).st, .c (pcOf (sibAt k l + sibLen l)), .endOfCode, sibLen l, sibLen l⟩ := by
   interval_cases k <;> interval_cases l <;> kernel_rfl
 theorem run_row (k : Nat) (hk : k < 9) : symRun cfgC cRow (pcOf (coordAt k + 10)) 40 =

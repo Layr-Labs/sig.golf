@@ -74,7 +74,7 @@ theorem bound_topPart (cache : Cache) (leaf : Nat) (out : Option (BitVec 32 × L
     ∃ post, SigGolfCandidate.T3.Cost.CBound post (layerFixedCost 1)
       (signTop cache leaf ((out.map Prod.snd).getD dummyTop)) := by
   have hdig : ((out.map Prod.snd).getD dummyTop).length = 54 ∧
-      ((out.map Prod.snd).getD dummyTop).sum ≤ 145 := by
+      ((out.map Prod.snd).getD dummyTop).sum ≤ 144 := by
     cases out with
     | none => exact ⟨by decide, by decide⟩
     | some pair =>
@@ -326,8 +326,8 @@ noncomputable def Envelopes.v5 : Envelopes where
     let b : ℝ := (![V5.b1, V5.b2, V5.b3, V5.b4] lay : ℚ)
     have hb : 1 ≤ b := by fin_cases lay <;> norm_num [b, V5.b1, V5.b2, V5.b3, V5.b4]
     have hs : (SigGolfCandidate.T3.BaseAudit.zU : ℝ) *
-        ((1 - (ClaudeWCT.W9.T3.ProducerV5.producerCountLower lay : ℝ) * (if lay = 0 then 2^127 else 7*2^126) / 2^256) * b +
-          (ClaudeWCT.W9.T3.ProducerV5.producerCountLower lay : ℝ) * (if lay = 0 then 2^127 else 7*2^126) / 2^256) ≤ b := by
+        ((1 - (ClaudeWCT.W9.T3.ProducerV5.producerCountLower lay : ℝ) * (if lay = 0 then 2^128 else 7*2^126) / 2^256) * b +
+          (ClaudeWCT.W9.T3.ProducerV5.producerCountLower lay : ℝ) * (if lay = 0 then 2^128 else 7*2^126) / 2^256) ≤ b := by
       fin_cases lay <;> norm_num [b, ClaudeWCT.W9.T3.ProducerV5.producerCountLower,
         SigGolfCandidate.T3.BaseAudit.zU, V5.b1, V5.b2, V5.b3, V5.b4]
     change (SigGolfCandidate.T3.BaseAudit.zU : ℝ) * ((1 - producerRate lay) * b + producerRate lay) ≤ b
@@ -461,7 +461,7 @@ theorem V_signPayload_of_freshness_for (secret : BitVec 256) (hf : SourceFreshne
       have hforestFresh := hf.forest _ _ found.2 hdFresh forest hforestRun
       refine V_bind_bounded secret signingZ _ _ forest.2 _ 1
         (layerEnvelopes.V_signLayersBC secret cache (ClaudeWCT.WCT9.digestIndex output) 4 (by decide)
-          (.forest forest.1.2) forest.2 hforestFresh) ?_ |>.trans_eq (mul_one _)
+          (.pair forest.1.2.1 forest.1.2.2) forest.2 hforestFresh) ?_ |>.trans_eq (mul_one _)
       intro pieces _
       cases pieces.1 <;> rw [V_pure]
 theorem V_sign_of_freshness_for (secret : BitVec 256) (hf : SourceFreshness secret) (fts : ℕ)
@@ -506,7 +506,7 @@ theorem envelope_product_eq : digestEnvelope * layerEnvelopes.envelope 0 * layer
     ← ENNReal.ofReal_mul (show 0 ≤ (BaseAudit.V5.b0 : ℝ) * (BaseAudit.V5.b1 : ℝ) * (BaseAudit.V5.b2 : ℝ) *
       (BaseAudit.V5.b3 : ℝ) by
       norm_num [BaseAudit.V5.b0, BaseAudit.V5.b1, BaseAudit.V5.b2, BaseAudit.V5.b3])]
-theorem fixed_le_112868 {fts : ℕ} (h : fts ≤ 31334) : 4 + fts + ClaudeWCT.WCT9.Cost.layerFixedCostP 4 ≤ 112653 := by
+theorem fixed_le_112868 {fts : ℕ} (h : fts ≤ 31334) : 4 + fts + ClaudeWCT.WCT9.Cost.layerFixedCostP 4 ≤ 112652 := by
   have h1 := ClaudeWCT.WCT9.Cost.layerFixedCostP_four
   have h2 := SigGolfCandidate.T3.Cost.layerFixedCost_four
   omega
@@ -515,13 +515,13 @@ theorem signingMomentFor_le_two_of_le {fts : ℕ} (h : fts ≤ 31334) : signingM
   calc signingZ ^ (4 + fts + ClaudeWCT.WCT9.Cost.layerFixedCostP 4) *
         (digestEnvelope * layerEnvelopes.envelope 0 * layerEnvelopes.envelope 1 * layerEnvelopes.envelope 2 *
           layerEnvelopes.envelope 3)
-      ≤ signingZ ^ 112653 * (digestEnvelope * layerEnvelopes.envelope 0 * layerEnvelopes.envelope 1 *
+      ≤ signingZ ^ 112652 * (digestEnvelope * layerEnvelopes.envelope 0 * layerEnvelopes.envelope 1 *
           layerEnvelopes.envelope 2 * layerEnvelopes.envelope 3) :=
         mul_le_mul' (pow_le_pow_right₀ (SigGolfCandidate.Budget.one_le_zOf _) (fixed_le_112868 h)) le_rfl
     _ ≤ 2 := by
         rw [SigGolfCandidate.Budget.zOf_pow, envelope_product_eq]
         have hcast := ENNReal.ofReal_le_ofReal BaseAudit.V5.signing_envelope
-        rw [ENNReal.ofReal_mul (show 0 ≤ (2 : ℝ) ^ ((112653 : ℝ) / 131072) by positivity)] at hcast
+        rw [ENNReal.ofReal_mul (show 0 ≤ (2 : ℝ) ^ ((112652 : ℝ) / 131072) by positivity)] at hcast
         norm_num only [ENNReal.ofReal_ofNat] at hcast
         convert hcast using 1
         norm_num

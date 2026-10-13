@@ -295,7 +295,7 @@ theorem posOf_eq {input : HashInput} {p : Pos} (hb : p.Bounded)
   rw [h, Pos.canonicalHeader_eq hb]
 theorem hitIn_posOf {answers : Answers} {qs : List Spec.Domain} (h : HitIn answers qs) :
     ∃ pos actual, pos.Bounded ∧ .inl (.inr actual) ∈ qs ∧ posOf actual = some pos ∧
-      HashHit answers (honestInput answers pos) actual := by
+      HashHitAt answers pos (honestInput answers pos) actual := by
   obtain ⟨pos, actual, hb, hq, hh, hs⟩ := h
   refine ⟨pos, actual, hb, hq, posOf_key_eq hb ?_, hh⟩
   rw [hs, hdrBlock_honestInput, Pos.canonicalHeader_eq hb]

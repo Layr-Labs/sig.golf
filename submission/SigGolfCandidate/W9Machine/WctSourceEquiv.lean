@@ -35,7 +35,7 @@ theorem orig_word {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 1
     (ho : off < 816) (ha : off % 8 = 0) :
     chainValue (originalValue u index k j) as (.original off) =
       w.extractLsb' (8 * (V3.regionOffset k.val + off)) 64 := by
-  exact hu.witness off ho ha
+  exact hu.witness off (by omega) ha
 theorem orig_block {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 666}
     {u : MachineState} (hu : Pre L w index k j rank u) (as : List (BitVec 256)) (t c : Nat)
     (ht : t < 6) (hc : c < 64) (ha : c % 8 = 0) :

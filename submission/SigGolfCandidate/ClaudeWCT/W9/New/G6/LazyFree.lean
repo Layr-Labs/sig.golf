@@ -286,7 +286,7 @@ theorem hashL_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω
       · simp only [if_neg hx]
         exact congrArg _ (answers_sameRest hU h 0 (.inl (.inr x)) hx)
 theorem honestForest_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : CanonTable.HiddenF)
-    (index : Nat) : WCT9.honestForest (wA hU ω₁ g) index = WCT9.honestForest (wA hU ω₂ g) index := by
+    (index : Nat) : WCT9.honestTop (wA hU ω₁ g) index = WCT9.honestTop (wA hU ω₂ g) index := by
   rw [← WCT9.signForest_root _ index 0, ← WCT9.signForest_root _ index 0,
     eval_sameRest hU h g (signForest_dn _ _)]
 theorem expectedOpening_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : CanonTable.HiddenF)

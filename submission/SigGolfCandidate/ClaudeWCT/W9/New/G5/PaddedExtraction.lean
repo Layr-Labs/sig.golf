@@ -25,7 +25,7 @@ def ActualHit (answers : Answers) (events : List FirstHit.QueryEvent) : Prop :=
   ∃ (position : ClaudeWCT.W9.T3M.Extract.Pos) (actual : HashInput) (prior : LazyPrivate.State),
     position.Bounded ∧ ClaudeWCT.W9.T3M.Extract.posOf actual = some position ∧
     (⟨prior, .inl (.inr actual), answers (.inl (.inr actual))⟩ : FirstHit.QueryEvent) ∈ events ∧
-    SigGolfCandidate.T3M.SecurityExtraction.HashHit answers
+    ClaudeWCT.W9.T3M.Extract.HashHitAt answers position
       (ClaudeWCT.W9.T3M.Extract.honestInput answers position) actual
 theorem hit_recorded {α : Type} (program : M α) (hp : Security.SourceReplay.HashOnly program)
     (before : LazyPrivate.State) (result : FirstHit.Recorded α)
@@ -39,7 +39,7 @@ theorem hit_recorded {α : Type} (program : M α) (hp : Security.SourceReplay.Ha
   exact ⟨position, actual, prior, hbounded, hpos, hevent, hhit⟩
 def PadAt (answers : Answers) (witness : WBytes) (index : Nat) : Prop :=
   ∃ lay : Layer, ClaudeWCT.W9.T3M.Extract.Good answers witness index lay ∧
-    (ClaudeWCT.W9.T3M.wbcPad witness index lay ≠ 0 ∨ (lay.val = 3 ∧ ClaudeWCT.W9.T3M.wbcRight witness ≠ 0))
+    ClaudeWCT.W9.T3M.wbcPad witness index lay ≠ 0
 def Conclusion (answers : Answers) (message : Message) (witness : WBytes)
     (events : List FirstHit.QueryEvent) : Prop :=
   ∃ digestAnswer : HashOutput, (wdc witness).toNat < WCT9.digestVerifyWindow ∧
@@ -77,14 +77,10 @@ theorem verifyP_extracted_in {α : Type} (program : M α) (hp : Security.SourceR
     rw [FirstHit.recorded_inputs program hp before result hr answers ha,
       SigGolfCandidate.T3.Security.PaddedExtraction.queried_eq]
     exact hsub _ hin
-  · by_cases hz : ∀ lay : Layer, ClaudeWCT.W9.T3M.wbcPad witness (WCT9.digestIndex N) lay = 0 ∧
-        (lay.val = 3 → ClaudeWCT.W9.T3M.wbcRight witness = 0)
+  · by_cases hz : ∀ lay : Layer, ClaudeWCT.W9.T3M.wbcPad witness (WCT9.digestIndex N) lay = 0
     · exact Or.inr (Or.inr (Or.inr ⟨fun lay => ⟨hgood lay, hz lay⟩, hfts⟩))
     · obtain ⟨lay, hlay⟩ := not_forall.mp hz
-      refine Or.inr (Or.inr (Or.inl ⟨lay, hgood lay, ?_⟩))
-      by_cases hp : ClaudeWCT.W9.T3M.wbcPad witness (WCT9.digestIndex N) lay = 0
-      · exact Or.inr (by_contra fun hr => hlay ⟨hp, fun h3 => by_contra fun hne => hr ⟨h3, hne⟩⟩)
-      · exact Or.inl hp
+      exact Or.inr (Or.inr (Or.inl ⟨lay, hgood lay, hlay⟩))
 theorem verifyP_recorded (message : Message) (publicKey : Digest) (witness : WBytes)
     (before : LazyPrivate.State) (result : FirstHit.Recorded Bool)
     (hr : result ∈ support (FirstHit.record (verifyP message publicKey witness) before))
@@ -103,15 +99,6 @@ theorem reference_of_pos (state : LazyPrivate.State) (input : HashInput) (positi
     (hpos : ClaudeWCT.W9.T3M.Extract.posOf input = some position) :
     reference state input = some (ClaudeWCT.W9.T3M.Extract.honestInput (SourceReplay.answers state) position) := by
   simp only [reference, hpos, Option.map_some]
-def UnresolvedHit (answers : Answers) (events : List FirstHit.QueryEvent) : Prop :=
-  ∃ (position : ClaudeWCT.W9.T3M.Extract.Pos) (actual : HashInput) (prior : LazyPrivate.State), position.Bounded ∧
-    ClaudeWCT.W9.T3M.Extract.posOf actual = some position ∧
-    (⟨prior, .inl (.inr actual), answers (.inl (.inr actual))⟩ : FirstHit.QueryEvent) ∈ events ∧
-    prior.2 actual = none ∧
-    SigGolfCandidate.T3M.SecurityExtraction.HashHit answers
-      (ClaudeWCT.W9.T3M.Extract.honestInput answers position) actual ∧
-    (reference prior actual ≠ some (ClaudeWCT.W9.T3M.Extract.honestInput answers position) ∨
-      prior.2 (ClaudeWCT.W9.T3M.Extract.honestInput answers position) = none)
 theorem ActualHit.mono {answers : Answers} {events events' : List FirstHit.QueryEvent}
     (hit : ActualHit answers events) (hsub : ∀ event ∈ events, event ∈ events') :
     ActualHit answers events' := by
@@ -130,26 +117,6 @@ theorem Conclusion.mono {answers : Answers} {message : Message} {witness : WByte
     exact List.mem_map.mpr ⟨event, hsub _ hevent, rfl⟩
   · exact Or.inr (Or.inr (Or.inl hpad))
   · exact Or.inr (Or.inr (Or.inr hgood))
-theorem actualHit_known_or_unresolved {α : Type} (program : M α) (result : FirstHit.Recorded α)
-    (hr : result ∈ support (FirstHit.record program (∅, ∅))) (answers : Answers)
-    (ha : ∀ input answer, SourceReplay.known result.state input = some answer → answers input = answer)
-    (hit : ActualHit answers result.events) :
-    FirstHit.KnownPublicHit reference result ∨ UnresolvedHit answers result.events := by
-  obtain ⟨position, actual, prior, hbounded, hpos, hevent, hhit⟩ := hit
-  obtain ⟨first, hfirst, hfresh⟩ := FirstHit.first_public_occurrence program result hr prior actual _ hevent
-  by_cases href : reference first actual = some (ClaudeWCT.W9.T3M.Extract.honestInput answers position)
-  · cases hout : first.2 (ClaudeWCT.W9.T3M.Extract.honestInput answers position) with
-    | none => exact Or.inr ⟨position, actual, first, hbounded, hpos, hfirst, hfresh, hhit, Or.inr hout⟩
-    | some output =>
-        have hx := (FirstHit.recorded_public_known program (∅, ∅) result hr first actual _ hfirst).2
-        have hk := SourceReplay.known_mono first result.state hx
-          (show SourceReplay.known first (.inl (.inr (ClaudeWCT.W9.T3M.Extract.honestInput answers position))) =
-            some output from hout)
-        have heq := ha _ _ hk
-        exact Or.inl ⟨first, actual, answers (.inl (.inr actual)),
-          ClaudeWCT.W9.T3M.Extract.honestInput answers position, output,
-          hfirst, hfresh, href, hout, by simpa only [heq] using hhit.2⟩
-  · exact Or.inr ⟨position, actual, first, hbounded, hpos, hfirst, hfresh, hhit, Or.inl href⟩
 theorem padded_known_bound (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
     Pr[fun result => result.2.2.base.source.1 ≤ q ∧
       FirstHit.KnownPublicHit reference (QueryRecorded.recordedTrace result) |
@@ -258,13 +225,4 @@ theorem traced_game (adversary : AdversaryP) (budget : Nat) (hbudget : budget �
     (ha : ∀ input answer, SourceReplay.known result.2.2.base.source.2 input = some answer → answers input = answer)
     (hwin : result.1 = true) : GameConclusion adversary answers (QueryRecorded.recordedTrace result) :=
   game_recorded adversary _ (traced_record_support adversary budget hbudget result hr) answers ha hwin
-theorem traced_hit_split (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2 ^ 127)
-    (result : PaddedGame.TraceResult)
-    (hr : result ∈ (PaddedGame.tracedExperiment adversary budget hbudget).support)
-    (answers : Answers)
-    (ha : ∀ input answer, SourceReplay.known result.2.2.base.source.2 input = some answer → answers input = answer)
-    (hit : ActualHit answers (QueryRecorded.recordedTrace result).events) :
-    FirstHit.KnownPublicHit reference (QueryRecorded.recordedTrace result) ∨
-      UnresolvedHit answers (QueryRecorded.recordedTrace result).events :=
-  actualHit_known_or_unresolved _ _ (traced_record_support adversary budget hbudget result hr) answers ha hit
 end ClaudeWCT.W9.T3.Security.PaddedExtraction

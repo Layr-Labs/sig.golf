@@ -50,9 +50,9 @@ theorem wotsTree_congr_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree : Nat
     funext (wotsRoot_congr_of_lay a hT hl tree)
   rw [hr]
   exact (respectsP_buildLevels a 3 _ _ _ _ (by decide)).eval_eq hT
-theorem honestForest_congr (index : Nat) : Extract.honestForest T index = Extract.honestForest T' index := by
-  rw [Extract.honestForest_eq_wct9, Extract.honestForest_eq_wct9]
-  exact ClaudeWCT.WCT9.Wots.honestForest_congr (fun _ hq => hT _ (ftsQuery_untouchedP a hq))
+theorem honestTop_congr (index : Nat) : Extract.honestTop T index = Extract.honestTop T' index := by
+  rw [Extract.honestTop_eq_wct9, Extract.honestTop_eq_wct9]
+  exact ClaudeWCT.WCT9.Wots.honestTop_congr (fun _ hq => hT _ (ftsQuery_untouchedP a hq))
 theorem leafMsg_congr : leafMsg T a.key = leafMsg T' a.key := by
   unfold leafMsg
   split
@@ -62,7 +62,7 @@ theorem leafMsg_congr : leafMsg T a.key = leafMsg T' a.key := by
       have := congrArg Fin.val he
       simp only at this
       omega)]
-  · rw [honestForest_congr a hT _]
+  · rw [honestTop_congr a hT _]
 theorem referenceSearch_congr : referenceSearch T a.key = referenceSearch T' a.key := by
   unfold referenceSearch
   rw [leafMsg_congr a hT]

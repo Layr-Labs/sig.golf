@@ -4,18 +4,18 @@ namespace ClaudeWCT.W9.T3.BaseAudit.V5
 open SigGolfCandidate.T3.BaseAudit (zU)
 set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
-def J : ℕ := 51792680012373050545731493589501895617795072
-/-- Density-aware digest acceptance: gate 1353/2^14, fields 563/1024 (rank = field), cap fraction J(786) / 72064^9:
+def J : ℕ := 51758331623566378875032754303375722573332992
+/-- Density-aware digest acceptance: gate 1353/2^14, fields 563/1024 (rank = field), cap fraction J(cap 789, nested FTS child table) / 72064^9:
 `1353 * 563^9 * J / (2^104 * 72064^9) = 1353 * J / 2^167`. -/
 def p0 : ℚ := 1353 * J / 2 ^ 167
-def b0 : ℚ := 1014319685648402128 / 1000000000000000000
+def b0 : ℚ := 1014329324794593512 / 1000000000000000000
 theorem step_0 : zU * ((1 - p0) * b0 + p0) ≤ b0 := by norm_num [zU, p0, b0, J]
 theorem probability_floor : 1 / 5026 ≤ p0 ∧ p0 ≤ 1 / 2471 := by norm_num [p0, J]
 theorem p0_ge_5026 : 1 / 5026 ≤ p0 := by norm_num [p0, J]
 theorem p0_nonneg : 0 ≤ p0 := by norm_num [p0, J]
 theorem p0_le_one : p0 ≤ 1 := by norm_num [p0, J]
-/-- Selected top density numerator at target 145: the raw accepted count plus twice the count whose high bit is set. The corresponding denominator is `2 * 2^128`. -/
-def topCount144 : ℕ := 210281445478427825137652285090230379
+/-- Campaign T8D (NF17, 51 r5 + 3 r8): accepted top encodings at target 144 with the copy reward and dispatch penalty. -/
+def topCount144 : ℕ := 108748758769815106304379195138950542
 def lowerCount197 : ℕ := 140610462347261096978771217394878840
 def lowerCount198 : ℕ := 113470737483767875195512089978341656
 def lowerCount199 : ℕ := 87860897096037675585104420890976996
@@ -29,8 +29,8 @@ def lowerCount200f4 : ℕ := 72090332289016918256778319009782683
 /-- Accepted lower encodings under the current reward thresholds. -/
 def lowerCount201f10 : ℕ := 54408112790925688753987891000775297
 def lowerCount202f9 : ℕ := 44444210514614632453013305786840214
-def p1 : ℚ := topCount144 / (2 * 2 ^ 128)
-def b1 : ℚ := 1017413314287797250 / 1000000000000000000
+def p1 : ℚ := topCount144 / 2 ^ 128
+def b1 : ℚ := 1016825859323626372 / 1000000000000000000
 theorem step_1 : zU * ((1 - p1) * b1 + p1) ≤ b1 := by norm_num [zU, p1, b1, topCount144]
 /-- Low-half preference and the disjoint high-half fallback multiply the lower density by 7/4. -/
 def p2 : ℚ := 7 * lowerCount201f10 / (4 * 2 ^ 128)
@@ -52,9 +52,9 @@ theorem step_mono {p q b : ℚ} (hb : 1 ≤ b) (hpq : p ≤ q) (h : zU * ((1 - p
 def ftsSign : ℕ := 31334
 theorem ftsSign_eq : ftsSign = 9 * (27 + 128 * (24 + 2) + 126) + 5 := by norm_num [ftsSign]
 /-- B4 lower layers: eight coefficients packed into four halves per leaf. -/
-def layerFixed : ℕ := 81315
-theorem layerFixed_eq : layerFixed + 4611 = 85926 := by norm_num [layerFixed]
-def fixedSign : ℕ := 112653
+def layerFixed : ℕ := 81314
+theorem layerFixed_eq : layerFixed + 4611 = 85925 := by norm_num [layerFixed]
+def fixedSign : ℕ := 112652
 theorem fixedSign_eq : fixedSign = 2 + 2 + ftsSign + layerFixed := by norm_num [fixedSign, ftsSign, layerFixed]
 theorem rpow_two_ge_cubic (y : ℝ) (hy : 0 ≤ y) :
     1 + 0.6931471803 * y + (0.6931471803 * y) ^ 2 / 2 + (0.6931471803 * y) ^ 3 / 6 ≤ (2 : ℝ) ^ y := by
@@ -75,20 +75,20 @@ theorem rpow_two_ge_cubic (y : ℝ) (hy : 0 ≤ y) :
   have h3 : (0.6931471803 * y) ^ 3 ≤ (Real.log 2 * y) ^ 3 := pow_le_pow_left₀ ht0 hts 3
   linarith
 theorem signing_envelope_le :
-    (2 : ℝ) ^ ((112653 : ℝ) / 131072) * ((b0 : ℝ) * (b1 : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤
+    (2 : ℝ) ^ ((112652 : ℝ) / 131072) * ((b0 : ℝ) * (b1 : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤
       2 := by
-  have hsplit : (2 : ℝ) ^ ((112653 : ℝ) / 131072) = 2 / (2 : ℝ) ^ ((18419 : ℝ) / 131072) := by
+  have hsplit : (2 : ℝ) ^ ((112652 : ℝ) / 131072) = 2 / (2 : ℝ) ^ ((18420 : ℝ) / 131072) := by
     rw [_root_.eq_div_iff (by positivity), ← Real.rpow_add (by norm_num)]
     norm_num
-  have hlo := rpow_two_ge_cubic (18419 / 131072) (by norm_num)
+  have hlo := rpow_two_ge_cubic (18420 / 131072) (by norm_num)
   have hn : 2 * ((b0 : ℝ) * (b1 : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤
-      2 * (1 + 0.6931471803 * (18419 / 131072) + (0.6931471803 * (18419 / 131072)) ^ 2 / 2 +
-        (0.6931471803 * (18419 / 131072)) ^ 3 / 6) := by
+      2 * (1 + 0.6931471803 * (18420 / 131072) + (0.6931471803 * (18420 / 131072)) ^ 2 / 2 +
+        (0.6931471803 * (18420 / 131072)) ^ 3 / 6) := by
     norm_num [b0, b1, b2, b3, b4]
   rw [hsplit, div_mul_eq_mul_div, div_le_iff₀ (by positivity)]
   exact hn.trans (mul_le_mul_of_nonneg_left hlo (by norm_num))
 theorem signing_envelope :
-    (2 : ℝ) ^ ((112653 : ℝ) / 131072) * ((b0 : ℝ) * (b1 : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤ 2 :=
+    (2 : ℝ) ^ ((112652 : ℝ) / 131072) * ((b0 : ℝ) * (b1 : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤ 2 :=
   signing_envelope_le.trans (by norm_num)
 theorem rate_top_1000 : (1000 : ℚ) * 0.6931471808 ≤ 2 ^ 22 * p1 := by norm_num [p1, topCount144]
 /-- The selected-half lower searches with fuel 2^21 fail with probability at most 2^-600 each.
@@ -134,9 +134,9 @@ theorem minB_gt_lower : bLower < minB := by
   norm_num [bLower, minB, zU, pTen]
 
 theorem floor_ten_exceeds_current_cubic_certificate :
-    1 + 0.6931471803 * (18419 / 131072 : ℚ) +
-      (0.6931471803 * (18419 / 131072 : ℚ)) ^ 2 / 2 +
-      (0.6931471803 * (18419 / 131072 : ℚ)) ^ 3 / 6 <
+    1 + 0.6931471803 * (18420 / 131072 : ℚ) +
+      (0.6931471803 * (18420 / 131072 : ℚ)) ^ 2 / 2 +
+      (0.6931471803 * (18420 / 131072 : ℚ)) ^ 3 / 6 <
       b0 * bLower * b2 * b3 * b4 := by
   norm_num [b0, bLower, b2, b3, b4]
 
@@ -144,20 +144,20 @@ theorem floor_ten_exceeds_current_cubic_certificate :
 geometric factor times the other four unchanged factors. The cubic comparison
 above is not being used as an upper bound on the exponential. -/
 theorem floor_ten_exceeds_real_allowance :
-    (2 : ℝ) ^ (18419 / 131072 : ℝ) <
+    (2 : ℝ) ^ (18420 / 131072 : ℝ) <
       (b0 : ℝ) * (bLower : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ) := by
-  have hx : 0 ≤ (0.6931471808 * (18419 / 131072 : ℝ)) := by norm_num
-  have hx1 : (0.6931471808 * (18419 / 131072 : ℝ)) ≤ 1 := by norm_num
-  have hp : (2 : ℝ) ^ (18419 / 131072 : ℝ) ≤
-      Real.exp (0.6931471808 * (18419 / 131072 : ℝ)) := by
+  have hx : 0 ≤ (0.6931471808 * (18420 / 131072 : ℝ)) := by norm_num
+  have hx1 : (0.6931471808 * (18420 / 131072 : ℝ)) ≤ 1 := by norm_num
+  have hp : (2 : ℝ) ^ (18420 / 131072 : ℝ) ≤
+      Real.exp (0.6931471808 * (18420 / 131072 : ℝ)) := by
     rw [Real.rpow_def_of_pos (by norm_num)]
     exact Real.exp_le_exp.mpr
       (mul_le_mul_of_nonneg_right Real.log_two_lt_d9.le (by norm_num))
   have he := Real.exp_bound' hx hx1 (n := 4) (by norm_num)
   have hn :
       (∑ m ∈ Finset.range 4,
-        (0.6931471808 * (18419 / 131072 : ℝ)) ^ m / m.factorial) +
-      (0.6931471808 * (18419 / 131072 : ℝ)) ^ 4 * (4 + 1) / ((Nat.factorial 4 : ℝ) * 4) <
+        (0.6931471808 * (18420 / 131072 : ℝ)) ^ m / m.factorial) +
+      (0.6931471808 * (18420 / 131072 : ℝ)) ^ 4 * (4 + 1) / ((Nat.factorial 4 : ℝ) * 4) <
       (b0 : ℝ) * (bLower : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ) := by
     norm_num [Finset.sum_range_succ, Nat.factorial, b0, bLower, b2, b3, b4]
   exact lt_of_le_of_lt (hp.trans he) hn
@@ -166,11 +166,11 @@ theorem floor_ten_exceeds_real_allowance :
 present real signing-envelope inequality, while all other factors stay fixed. -/
 theorem no_top_factor_for_current_signing_envelope (b : ℚ)
     (hstep : zU * ((1 - pTen) * b + pTen) ≤ b) :
-    ¬ (2 : ℝ) ^ (112653 / 131072 : ℝ) *
+    ¬ (2 : ℝ) ^ (112652 / 131072 : ℝ) *
       ((b0 : ℝ) * (b : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ)) ≤ 2 := by
   have hb : (bLower : ℝ) < (b : ℝ) := by
     exact_mod_cast lt_of_lt_of_le minB_gt_lower (step_requires_minB b hstep)
-  have ht : (2 : ℝ) ^ (18419 / 131072 : ℝ) <
+  have ht : (2 : ℝ) ^ (18420 / 131072 : ℝ) <
       (b0 : ℝ) * (b : ℝ) * (b2 : ℝ) * (b3 : ℝ) * (b4 : ℝ) := by
     apply lt_trans floor_ten_exceeds_real_allowance
     have h0 : (0 : ℝ) < (b0 : ℝ) := by norm_num [b0]
@@ -178,12 +178,12 @@ theorem no_top_factor_for_current_signing_envelope (b : ℚ)
     have h3 : (0 : ℝ) < (b3 : ℝ) := by norm_num [b3]
     have h4 : (0 : ℝ) < (b4 : ℝ) := by norm_num [b4]
     gcongr
-  have hs : (2 : ℝ) ^ (112653 / 131072 : ℝ) *
-      (2 : ℝ) ^ (18419 / 131072 : ℝ) = 2 := by
+  have hs : (2 : ℝ) ^ (112652 / 131072 : ℝ) *
+      (2 : ℝ) ^ (18420 / 131072 : ℝ) = 2 := by
     rw [← Real.rpow_add (by norm_num)]
     norm_num
   intro h
-  have hp : (0 : ℝ) < (2 : ℝ) ^ (112653 / 131072 : ℝ) := by positivity
+  have hp : (0 : ℝ) < (2 : ℝ) ^ (112652 / 131072 : ℝ) := by positivity
   have hm := mul_lt_mul_of_pos_left ht hp
   rw [hs] at hm
   exact (not_lt_of_ge h) hm
@@ -215,7 +215,7 @@ theorem floor_ten_needs_more_than_121_fixed_savings :
   exact lt_of_le_of_lt (hp.trans he) hn
 
 /-- Any fixed cost at least 112531 is incompatible with the same factors and
-the floor-ten step. The present fixed cost is 112653: at least 122 fixed
+the floor-ten step. The present fixed cost is 112652: at least 122 fixed
 compressions must be saved before this particular certificate route can work. -/
 theorem no_top_factor_above_fixed_threshold (fixed : ℕ) (hfixed : 112531 ≤ fixed)
     (b : ℚ) (hstep : zU * ((1 - pTen) * b + pTen) ≤ b) :

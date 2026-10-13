@@ -960,7 +960,7 @@ theorem l0Spec_of (hTop : TopLeafSpec) (hK : CounterSearchSpec sk) : L0Spec leaf
   obtain ⟨ds, hds, upc, ux5, hd7, udig, ur, uf, ux25⟩ : ∃ ds : List Nat, (r.map Prod.snd).getD T3.dummyTop = ds ∧
       u.pc = pcOf 441 ∧ u.getReg .x5 = 0 ∧ (∀ i < 54, ds.getD i 0 ≤ 7) ∧
       (∀ i < 54, u.getByte (BitVec.ofNat 64 (DIGITS + i)) = BitVec.ofNat 8 (ds.getD i 0)) ∧
-      RegsExcept t1 u csRegs ∧ Frame t1 u CsW ∧ (u.getReg .x25).toNat ≤ 145 := by
+      RegsExcept t1 u csRegs ∧ Frame t1 u CsW ∧ (u.getReg .x25).toNat ≤ 144 := by
     rcases r with _ | ⟨c, ds⟩
     · change (if (0 : Layer) = 0 then DummyRet t1 441 u else Failed u) at hu
       rw [if_pos rfl] at hu
@@ -976,7 +976,7 @@ theorem l0Spec_of (hTop : TopLeafSpec) (hK : CounterSearchSpec sk) : L0Spec leaf
       omega
   dsimp only
   rw [hds]
-  have hx25 : (u.getReg .x25).toNat ≤ 145 := ux25
+  have hx25 : (u.getReg .x25).toNat ≤ 144 := ux25
   set leaf := index / 2 ^ 19 % 4096 with hleaf_def
   set dest0 := (u.getReg .x25).toNat with hdest0
   have gu : ∀ r, r ∉ [.x1, .x6, .x7, .x8, .x9, .x14, .x17, .x18, .x26, .x27, .x28] ++ csRegs →
@@ -1098,14 +1098,16 @@ variable {leafFn : LeafFn}
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)
 open ClaudeWCT
+/-- Nested FTS (r1-1): the L3 message is the pair `(L8, R8)`: `L8` at `FOUT` (copied to the encoding block), `R8`
+already in the encoding R slot `ENC + 48`. -/
 theorem entry370 {sk : SecretKey} {cache : Bytes 131072} {index : Nat}
-    {root : Digest} {s : MachineState} (hp : s.pc = pcOf 370)
+    {root right : Digest} {s : MachineState} (hp : s.pc = pcOf 370)
     (hb : Base sk cache s) (hi : index < 2 ^ 31)
     (hx : s.getMem (BitVec.ofNat 64 IDXV) = BitVec.ofNat 64 index)
     (hr : DigAt s FOUT root)
     (hc : (s.getMem (BitVec.ofNat 64 (ENC + 32))).toNat < 2 ^ 32)
-    (hz : DigAt s (ENC + 48) 0) :
-    ∃ t, Steps image s 26 26 t ∧ LayEntry sk cache 3 index (.forest root) t ∧
+    (hz : DigAt s (ENC + 48) right) :
+    ∃ t, Steps image s 26 26 t ∧ LayEntry sk cache 3 index (.pair root right) t ∧
       Frame s t (fun A => A = ENC ∨ A = ENC + 8) := by
   obtain ⟨t, st, tp, t1, m0, m8, t2, t31, t26, t27, t8, t15, t16, t17, t18, t14, t9, tr, tf⟩ := blk370_spec s hp index hi hx
   refine ⟨t, st, ?_, tf⟩
@@ -1132,14 +1134,14 @@ theorem entry370 {sk : SecretKey} {cache : Bytes 131072} {index : Nat}
           right := hz.frame tf (by sg_omega) (by intro h; sg_omega) (by intro h; sg_omega)
           c32 := by rw [tf.get (by sg_omega) (by sg_omega)]; exact hc }
 theorem layers_from370 (hPacked : PackedLeafSpec leafFn) (hTop : TopLeafSpec) {sk : SecretKey} {cache : Bytes 131072} {index : Nat}
-    {root : Digest} {s : MachineState} (hp : s.pc = pcOf 370)
+    {root right : Digest} {s : MachineState} (hp : s.pc = pcOf 370)
     (hb : Base sk cache s) (hi : index < 2 ^ 31)
     (hx : s.getMem (BitVec.ofNat 64 IDXV) = BitVec.ofNat 64 index)
     (hr : DigAt s FOUT root)
     (hc : (s.getMem (BitVec.ofNat 64 (ENC + 32))).toNat < 2 ^ 32)
-    (hz : DigAt s (ENC + 48) 0) :
+    (hz : DigAt s (ENC + 48) right) :
     TBSim image sk s (26 + layersC)
-      (signLayersP leafFn (cacheDec cache) index 4 (.forest root)) (SLPost s 4) := by
+      (signLayersP leafFn (cacheDec cache) index 4 (.pair root right)) (SLPost s 4) := by
   obtain ⟨t, st, ht, hf⟩ := entry370 hp hb hi hx hr hc hz
   refine TBSim.steps st (TBSim.mono (layers_checked hPacked hTop ht) le_rfl (fun r u hu => ?_))
   cases r with

@@ -126,7 +126,8 @@ theorem signedMsg_succ (T : Answers) (index m : Nat) (hm : m < 3) :
   rw [hlay, ← route_tree_succ index m hm]
   rfl
 theorem signedMsg_top (T : Answers) (index : Nat) (hindex : index < 2 ^ 31) :
-    WCT9.LayerMsg.forest (Extract.honestForest T index) = leafMsg T (routeLeaf index 3) := by
+    WCT9.LayerMsg.pair (Extract.honestTop T index).1 (Extract.honestTop T index).2 =
+      leafMsg T (routeLeaf index 3) := by
   unfold leafMsg routeLeaf
   simp only [show ¬((3 : Layer).val < 3) by decide, dite_false]
   rw [route_top_index, Nat.mod_eq_of_lt hindex]
@@ -223,7 +224,7 @@ theorem eval_maskAt_signPayload (answers : Answers) (a : ChainAddr) (htree : a.k
     refine Mask.eval_bind_of (Mask.eval_signLayers_maskAt answers a htree hleaf cache _ (WCT9.digestIndex_lt _) 4
       le_rfl _ (fun m hm => ?_)) ?_
     · obtain rfl : m = 3 := by omega
-      rw [← Extract.honestForest_eq_wct9]
+      rw [← Extract.honestTop_eq_wct9]
       exact Mask.signedMsg_top answers _ (WCT9.digestIndex_lt _)
     · generalize evalWithAnswerFn answers (WCT9.signLayersBC cache (WCT9.digestIndex output) 4 _) = pieces
       rcases pieces with _ | pieces <;> rfl

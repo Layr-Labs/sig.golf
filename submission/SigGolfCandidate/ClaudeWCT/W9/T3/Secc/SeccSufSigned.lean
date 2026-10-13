@@ -76,7 +76,7 @@ def payloadForNonce (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (message 
     M (Option Signature) := do
   let some (_, output) ← WCT9.digestSearch rho message 0 WCT9.digestAttemptLimit | pure none
   let forest ← WCT9.signForest (WCT9.digestIndex output) output
-  let some pieces ← WCT9.signLayersBC cache (WCT9.digestIndex output) 4 (.forest forest.2) | pure none
+  let some pieces ← WCT9.signLayersBC cache (WCT9.digestIndex output) 4 (.pair forest.2.1 forest.2.2) | pure none
   pure (some (WCT9.assembledSignature rho forest.1 pieces))
 theorem signPayload_nonce (cache : SigGolfCandidate.T3.Cache) (message : Message) :
     WCT9.Rev3.signPayload cache message =
@@ -114,7 +114,8 @@ theorem authenticatedSign_payload (answers : Correctness.Answers) (published : S
       · simp at h
       · simp only [evalWithAnswerFn_bind] at h
         generalize evalWithAnswerFn answers (WCT9.signLayersBC published (WCT9.digestIndex output) 4
-          (.forest (evalWithAnswerFn answers (WCT9.signForest (WCT9.digestIndex output) output)).2)) = layers at h
+          (.pair (evalWithAnswerFn answers (WCT9.signForest (WCT9.digestIndex output) output)).2.1
+            (evalWithAnswerFn answers (WCT9.signForest (WCT9.digestIndex output) output)).2.2)) = layers at h
         rcases layers with _ | pieces
         · simp at h
         · simp only [evalWithAnswerFn_pure, Option.some.injEq] at h

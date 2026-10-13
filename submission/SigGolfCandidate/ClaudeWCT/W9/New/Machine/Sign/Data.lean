@@ -67,6 +67,8 @@ def tailCode_0 : List (BitVec 32) := [(SigGolfCandidate.T3M.Images.signCode_80).
 def tailCode : List (BitVec 32) := tailCode_0
 def fieldIdx : List Nat := [11186,12238,13297,14357,15417,16476,17536,18596,19655]
 def coordCodes : List (List (BitVec 32)) := [coordCode0, coordCode1, coordCode2, coordCode3, coordCode4, coordCode5, coordCode6, coordCode7, coordCode8]
+/-- Nested FTS (r1-1): the sign trampolines at words 21450..21666 (leaf pad, fold post-hash, forest replacement). -/
+def signTramp : List (BitVec 32) := [(SigGolfCandidate.T3M.Images.signCode_83).drop 202,(SigGolfCandidate.T3M.Images.signCode_84).take 163].flatten
 def signNew : List (BitVec 32) := headCode ++ (coordCode0 ++ (coordCode1 ++ (coordCode2 ++ (coordCode3 ++ (coordCode4 ++ (coordCode5 ++ (coordCode6 ++ (coordCode7 ++ (coordCode8 ++ tailCode)))))))))
 def leafIdx : List Nat := [11201,12252,13312,14372,15431,16491,17551,18610,19670]
 def qIdx : List Nat := [11201,11349,11494,11639,11784,11929,12252,12407,12552,12697,12842,12987,13312,13467,13612,13757,13902,14047,14372,14527,14672,14817,14962,15107,15431,15586,15731,15876,16021,16166,16491,16646,16791,16936,17081,17226,17551,17706,17851,17996,18141,18286,18610,18765,18910,19055,19200,19345,19670,19825,19970,20115,20260,20405]

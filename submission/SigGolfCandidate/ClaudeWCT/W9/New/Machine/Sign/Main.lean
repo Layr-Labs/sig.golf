@@ -22,11 +22,12 @@ def coordW (c : Nat) (A : Nat) : Prop :=
   loopW c A ∨ treeW A ∨ (FORW + forOff c ≤ A ∧ A < FORW + forOff c + 32) ∨ (slotP c 0 ≤ A ∧ A < slotP c 7) ∨
     (COEF ≤ A ∧ A < COEF + 864)
 theorem GlobSt.frame {sk N : BitVec 256} {s t : MachineState} {c : Nat} {l : List Reg} (hc : c < 9)
-    (h : GlobSt sk N s) (hr : RegsExcept s t l) (hl : .x5 ∉ l ∧ .x22 ∉ l) (hf : Frame s t (coordW c)) :
+    (h : GlobSt sk N s) (hr : RegsExcept s t l) (hl : .x5 ∉ l ∧ .x22 ∉ l) (hf : Frame s t (coordW c))
+    (hz : DigAt t (NODEW + 32) 0) :
     GlobSt sk N t := by
   have hfo : forOff c ≤ 288 := by unfold forOff; omega
   have nw : ∀ A, (NBUF ≤ A ∧ A < NBUF + 32 ∨ TBL ≤ A ∧ A < TBL + 65536 ∨ A = PRIVW ∨ A = PRIVW + 8 ∨
-      A = PRIVW + 32 ∨ A = PRIVW + 40 ∨ ScrZero A) → ¬ coordW c A := by
+      A = PRIVW + 32 ∨ A = PRIVW + 40 ∨ (ScrZero A ∧ A ≠ NODEW + 32 ∧ A ≠ NODEW + 40)) → ¬ coordW c A := by
     intro A hA hw
     unfold coordW loopW bodyW treeW slotV slotP ScrZero at *
     simp only [COEF] at *
@@ -40,7 +41,11 @@ theorem GlobSt.frame {sk N : BitVec 256} {s t : MachineState} {c : Nat} {l : Lis
   · rw [hf.get (by ao) (nw _ (by simp))]; exact h.p32
   · rw [hf.get (by ao) (nw _ (by simp))]; exact h.p40
   · have hA' : A < 2 ^ 64 := by unfold ScrZero at hA; aoh
-    rw [hf.get hA' (nw _ (by simp [hA]))]; exact h.zero A hA
+    by_cases h32 : A = NODEW + 32
+    · subst h32; exact hz.1.trans (by decide)
+    by_cases h40 : A = NODEW + 40
+    · subst h40; exact hz.2.trans (by decide)
+    rw [hf.get hA' (nw _ (by simp [hA, h32, h40]))]; exact h.zero A hA
 theorem coordW_other {c c' A : Nat} (hc : c < 9) (hc' : c' < 9) (hne : c ≠ c')
     (hA : (SIG + 16 + 208 * c' ≤ A ∧ A < SIG + 16 + 208 * (c' + 1)) ∨
       (FORW + forOff c' ≤ A ∧ A < FORW + forOff c' + 32)) : ¬ coordW c A := by
@@ -213,7 +218,9 @@ theorem toArray_getD_high (leaves : List Digest) (m : Nat) (hm : 128 ≤ m) :
 set_option maxHeartbeats 800000 in
 theorem coord_unit (hcode : NewCodeAt im) {c : Nat} (hc : c < 9) {N : BitVec 256}
     (hadm : WCT9.admissible N = true) {s : MachineState} (hpc : s.pc = pcOf (cbase c)) (hg : GlobSt sk N s)
-    (state : List WCT9.Opening × List (Digest × Digest)) :
+    (state : List WCT9.Opening × List (Digest × Digest))
+    (hpL : PadAt c 0 (WCT9.prevPair WCT9.ftsStart state.2).1 s)
+    (hpR : PadAt c 16 (WCT9.prevPair WCT9.ftsStart state.2).2 s) :
     TBSim im sk s (coordC c) (WCT9.openingStep (WCT9.digestIndex N) N state ⟨c, hc⟩) (fun st t =>
       t.pc = pcOf (pcI c 7) ∧ GlobSt sk N t ∧
         (∃ op pr, st = (state.1 ++ [op], state.2 ++ [pr]) ∧ OpeningAt t c op ∧ DigAt t (FORW + forOff c) pr.1 ∧
@@ -242,7 +249,9 @@ theorem coord_unit (hcode : NewCodeAt im) {c : Nat} (hc : c < 9) {N : BitVec 256
       WCT9.wordDigit (WCT9.rank N ⟨c, hc⟩) i := fun i => by rw [hrank]; exact pkAt_digit _ hf i
   have hw64 : pkAt (N.toNat / 2 ^ WCT9.fieldBase c % 2 ^ 10) < 2 ^ 64 := by
     have := pkAt_lt (N.toNat / 2 ^ WCT9.fieldBase c % 2 ^ 10); omega
+  generalize hprev : WCT9.prevPair WCT9.ftsStart state.2 = prev at hpL hpR
   unfold WCT9.openingStep
+  rw [hprev]
   dsimp only
   simp only [buildCoordinateF_factor, ftsCoefs_eq, bind_assoc, pure_bind]
   refine (TBSim.steps ((s1.trans s2).trans s3)
@@ -276,24 +285,36 @@ theorem coord_unit (hcode : NewCodeAt im) {c : Nat} (hc : c < 9) {N : BitVec 256
   have hp3 : t3'.pc = pcOf (leafI c) := by have := h3.pc; rwa [if_neg (by norm_num)] at this
   have hcf : CoefAt t3' coefs := fun k hk => h3.coef k (by omega)
   have hlen : coefs.length = 54 := h3.len
+  have hpL3 : PadAt c 0 prev.1 t3' := hpL.of_eq hc (by norm_num) (fun A h1 h2 => g3 A (by aoh) (by
+    unfold coefW; simp only [PRIVW, COEF, FORW] at *; omega))
+  have hpR3 : PadAt c 16 prev.2 t3' := hpR.of_eq hc (by norm_num) (fun A h1 h2 => g3 A (by aoh) (by
+    unfold coefW; simp only [PRIVW, COEF, FORW] at *; omega))
   refine TBSim.bind (W₂ := 126 * treeC + (12 + 7 * 13))
-    (child_loop (word := WCT9.rank N ⟨c, hc⟩) hcode hc hsel128 hidx hw64 hword hlen hcf
+    (child_loop (word := WCT9.rank N ⟨c, hc⟩) hcode hc hsel128 hidx hw64 hword hlen hcf hpL3
       (LoopInv.init hp3 hb3)) (fun rows t4 h4 => ?_)
   have h4pc : t4.pc = pcOf (nodeI c) := by have := h4.pc; rwa [if_neg (by norm_num)] at this
   have h4b := h4.body
   rw [if_neg (by norm_num)] at h4b
   have g4 : ∀ A, A < 2 ^ 64 → ¬ loopW c A → t4.getMem (BitVec.ofNat 64 A) = t3'.getMem (BitVec.ofNat 64 A) :=
     fun A hA hn => h4.frame.get hA hn
-  have h0 : TreeInv c (WCT9.digestIndex N) t4 0 ((List.replicate 128 (0 : Digest) ++ rows.1).toArray) t4 :=
+  have hpad0 : DigAt t4 (NODEW + 32) (treePad 0 prev.2) := by
+    rw [show treePad 0 prev.2 = 0 by unfold treePad; rw [if_neg (by omega)]]
+    have e0 : t4.getMem (BitVec.ofNat 64 (NODEW + 32)) = 0 := by
+      rw [g4 _ (by ao) (by unfold loopW bodyW slotV; intro h; aoh)]; exact hz _ (by simp [ScrZero])
+    have e8 : t4.getMem (BitVec.ofNat 64 (NODEW + 32 + 8)) = 0 := by
+      rw [g4 _ (by ao) (by unfold loopW bodyW slotV; intro h; aoh)]; exact hz _ (by simp [ScrZero])
+    exact ⟨e0.trans (by decide), e8.trans (by decide)⟩
+  have h0 : TreeInv c (WCT9.digestIndex N) prev.2 t4 0 ((List.replicate 128 (0 : Digest) ++ rows.1).toArray) t4 :=
     ⟨by rw [if_pos (by norm_num)]; exact h4pc, h4b.x5, h4b.x18, h4b.x22, by simp [h4.len],
       fun m hm1 hm2 => by
         rw [toArray_getD_high _ _ (by omega)]
         have := h4.leaves (m - 128) (by omega)
         rwa [show 128 + (m - 128) = m by omega] at this,
-      by rw [g4 _ (by ao) (by unfold loopW bodyW slotV; intro h; aoh)]; exact hz _ (by simp [ScrZero]),
-      by rw [g4 _ (by ao) (by unfold loopW bodyW slotV; intro h; aoh)]; exact hz _ (by simp [ScrZero]),
-      RegsExcept.refl _ _, Frame.refl _ _⟩
-  refine TBSim.bind (W₂ := 12 + 7 * 13) (tree_loop hcode hc hidx h0) (fun heap t5 h5 => ?_)
+      hpad0, RegsExcept.refl _ _, Frame.refl _ _⟩
+  have hpR4 : PadAt c 16 prev.2 t4 := hpR3.frame hc (by norm_num) h4.frame (fun A h1 h2 hw => by
+    unfold loopW bodyW slotV at hw; aoh)
+  have hc0 : c = 0 → prev.2 = 0 := fun c0 => by subst c0; exact hpR.zero
+  refine TBSim.bind (W₂ := 12 + 7 * 13) (tree_loop hcode hc hidx hc0 hpR4 h0) (fun heap t5 h5 => ?_)
   have h5pc : t5.pc = pcOf (rI c) := by have := h5.pc; rwa [if_neg (by norm_num)] at this
   obtain ⟨t6, s6, p6, q0, q8, q16, q24, r6, f6⟩ := step_R0 hcode hc t5 h5pc
   have h24 : t6.getReg .x24 = BitVec.ofNat 64 (N.toNat / 2 ^ WCT9.childBase c % 128) := by
@@ -327,7 +348,13 @@ theorem coord_unit (hcode : NewCodeAt im) {c : Nat} (hc : c < 9) {N : BitVec 256
     unfold slotV at h1
     refine ((h1.frame h5.frame (by ao) ?_ ?_).frame f6 (by ao) ?_ ?_).frame f7 (by ao) ?_ ?_ <;>
       (intro h; (try simp only [treeW, slotP] at h); have := i.isLt; aoh)
-  refine TBSim.pure_steps' (s6.trans s7) ⟨p7, GlobSt.frame hc hg hregs (by simp [ftsRegs]) hframe,
+  have hz7 : DigAt t7 (NODEW + 32) 0 := by
+    have := h5.pad
+    rw [show treePad 126 prev.2 = 0 by unfold treePad; rw [if_neg (by omega)]] at this
+    exact (this.frame f6 (by ao) (by intro h; rcases h with h | h | h | h <;> aoh)
+      (by intro h; rcases h with h | h | h | h <;> aoh)).frame f7 (by ao) (by intro h; unfold slotP at h; aoh)
+      (by intro h; unfold slotP at h; aoh)
+  refine TBSim.pure_steps' (s6.trans s7) ⟨p7, GlobSt.frame hc hg hregs (by simp [ftsRegs]) hframe hz7,
     ⟨_, _, rfl, ⟨fun i => hval i, fun l => ?_⟩, ?_, ?_⟩, hregs, hframe⟩
   · have hx : N.toNat / 2 ^ WCT9.childBase c % 128 / 2 ^ l.val ^^^ 1 < 2 ^ (7 - l.val) := by
       have := pathHeap_lt _ l.val hsel128 l.isLt
@@ -403,6 +430,23 @@ theorem getD_snoc {α : Type} (l : List α) (x d : α) (n : Nat) :
   · rw [List.getElem?_append_left h1]
   · subst h2; simp
   · rw [List.getElem?_eq_none (by simp; omega)]; simp
+theorem prevPair_last (start : Digest × Digest) (l : List (Digest × Digest)) (d : Digest × Digest) (k : Nat)
+    (hl : l.length = k)
+    (hk : 1 ≤ k) : WCT9.prevPair start l = l.getD (k - 1) d := by
+  unfold WCT9.prevPair
+  rw [List.getLastD_eq_getLast?, List.getLast?_eq_getElem?, hl, List.getD_eq_getElem?_getD,
+    List.getElem?_eq_getElem (by omega), Option.getD_some, Option.getD_some]
+theorem FtsInv.pads {sk N : BitVec 256} {s0 : MachineState} {k : Nat} {st : List WCT9.Opening × List (Digest × Digest)}
+    {t : MachineState} (hk : k < 9) (h : FtsInv sk N s0 k st t) :
+    PadAt k 0 (WCT9.prevPair WCT9.ftsStart st.2).1 t ∧ PadAt k 16 (WCT9.prevPair WCT9.ftsStart st.2).2 t := by
+  unfold PadAt
+  by_cases k0 : k = 0
+  · subst k0
+    rw [List.length_eq_zero_iff.mp h.len2]
+    exact ⟨by rw [if_pos rfl]; rfl, by rw [if_pos rfl]; rfl⟩
+  · rw [if_neg k0, if_neg k0, prevPair_last _ _ (0, 0) k h.len2 (by omega)]
+    obtain ⟨-, o2, o3⟩ := h.outs (k - 1) (by omega)
+    exact ⟨by rw [Nat.add_zero]; exact o2, o3⟩
 section fts
 variable {im : Image} {sk : BitVec 256}
 theorem fts_step (hcode : NewCodeAt im) {N : BitVec 256} (hadm : WCT9.admissible N = true) {s0 : MachineState}
@@ -413,7 +457,7 @@ theorem fts_step (hcode : NewCodeAt im) {N : BitVec 256} (hadm : WCT9.admissible
       (FtsInv sk N s0 (k + 1)) := by
   simp only [Nat.zero_add, dif_pos hk]
   have hpc : t.pc = pcOf (cbase k) := by rw [h.pc, if_pos hk]
-  refine (coord_unit hcode hk hadm hpc h.glob st).mono (coordC_le k) (fun st' u hu => ?_)
+  refine (coord_unit hcode hk hadm hpc h.glob st (h.pads hk).1 (h.pads hk).2).mono (coordC_le k) (fun st' u hu => ?_)
   obtain ⟨upc, ug, ⟨op, pr, rfl, hop, hpr1, hpr2⟩, uregs, uframe⟩ := hu
   have hfo : forOff k ≤ 288 := by unfold forOff; omega
   refine ⟨?_, ug, by simp [h.len1], by simp [h.len2], fun c hc => ?_, (h.regs.trans uregs).mono (by simp),
@@ -494,7 +538,7 @@ theorem hashInput_forest (t : MachineState) {index : Nat} (pairs : List (Digest 
     · simp only [show ¬ (2 : Nat) < 2 from by norm_num, if_false, show 2 % 2 = 0 from rfl, Nat.mul_zero, Nat.add_zero]
       exact d2.1
     · simp only [show ¬ (3 : Nat) < 2 from by norm_num, if_false, show 3 % 2 = 1 from rfl, Nat.mul_one]; exact d2.2
-theorem ftsC_bound : 11 + (9 * coordCmax + (13 + (8 * 5 + (1 + 0)))) ≤ ftsC := by
+theorem ftsC_bound : 11 + (9 * coordCmax + (12 + 0)) ≤ ftsC := by
   unfold coordCmax loopStepC childC stepC hornC hornStepC coefStepC treeC ftsC; norm_num
 section fts2
 variable {im : Image}
@@ -526,50 +570,37 @@ theorem ftsGood (im : Image) : FtsGood im := by
       r0.mono (by simp [ftsRegs]), f0.mono (fun A _ hA => by unfold ftsW'; left; rcases hA with h | h | h | h <;> aoh)⟩
   unfold WCT9.signForest WCT9.forestRows
   rw [foldlM_finRange9]
-  refine (TBSim.steps s0' (TBSim.bind (W₂ := 13 + (8 * 5 + (1 + 0)))
+  refine (TBSim.steps s0' (TBSim.bind (W₂ := 12 + 0)
     (TBSim.foldlM_range' 0 9 _ _ (FtsInv sk N s) coordCmax (fun k hk st t ht => fts_step hcode hpre.adm k hk st t ht)
       hinv0) (fun st t9 h9 => ?_))).mono ftsC_bound (fun _ _ h => h)
   have h9pc : t9.pc = pcOf 20715 := by have := h9.pc; rwa [if_neg (by norm_num)] at this
-  obtain ⟨t1, s1, e1, p1, x10, x11, x12, m0, m8, m16, m24, r1, f1⟩ := step_For hcode t9 h9pc h9.glob.x22
-  have hq : hashInput t1 = toQ (pad64 (WCT9.forestInput (WCT9.digestIndex N) st.2)) := by
-    refine hashInput_forest t1 st.2 h9.len2 (by omega) x10 x11 (fun c hc => ?_) m0 m8 m16 m24
-    have hfo : forOff c ≤ 288 := by unfold forOff; omega
-    have hfo' : 32 ≤ forOff c := by unfold forOff; omega
-    obtain ⟨-, o2, o3⟩ := h9.outs c hc
-    exact ⟨o2.frame f1 (by ao) (by intro h; rcases h with h | h | h | h <;> omega)
-        (by intro h; rcases h with h | h | h | h <;> omega),
-      o3.frame f1 (by ao) (by intro h; rcases h with h | h | h | h <;> omega)
-        (by intro h; rcases h with h | h | h | h <;> omega)⟩
-  have hx5 : t1.getReg .x5 = 0 := by rw [r1.get (by simp)]; exact h9.glob.x5
-  have hbl : (toQ (pad64 (WCT9.forestInput (WCT9.digestIndex N) st.2))).blocks = 5 := by
-    rw [pad64_of_aligned _ (by rw [forestIn_len _ _ h9.len2]), blocks_toQ ⟨by rw [forestIn_len _ _ h9.len2]; norm_num,
-      by rw [forestIn_len _ _ h9.len2]⟩, forestIn_len _ _ h9.len2]
-  rw [forestPk_eq]
-  refine (TBSim.steps s1 (TBSim.shortHash_bind' (W := 1 + 0) (f := fun root => pure (st.1, root)) e1 hx5
-    (hashArgs_const t1 FORW 320 FOUT x10 x11 x12 (by ao) (by norm_num) (by ao) (by ao) (by ao)) hq
-    (fun a => ?_))).mono (by rw [hbl]) (fun _ _ h => h)
-  have fh := Frame.writeHash t1 a FOUT x12 (by ao)
-  obtain ⟨t2, s2, p2, r2, f2⟩ := step_J hcode (writeHash t1 a) (by rw [pc_writeHash, p1, pcOf_add4])
-  have hroot := DigAt.writeHash_lo t1 a FOUT x12 (by ao)
-  refine TBSim.pure_steps' s2 ⟨p2, ?_, ?_, h9.len1, fun k hk => ?_, ?_, ?_⟩
-  · rw [r2.get (by simp), getReg_writeHash]; exact hx5
-  · exact hroot.frame f2 (by ao) id id
-  · refine (((h9.outs k hk).1.frame hk f1 (fun A h1 h2 => ?_)).frame hk fh (fun A h1 h2 => ?_)).frame hk f2
-      (fun A _ _ h => h)
-    · intro h; rcases h with h | h | h | h <;> aoh
-    · intro h; aoh
-  · exact (h9.regs.trans ((r1.trans (fun x _ => getReg_writeHash t1 a x : RegsExcept t1 (writeHash t1 a) [])).trans
-      r2)).mono (by simp [ftsRegs])
-  · refine (((h9.frame.trans f1).trans fh).trans f2).mono (fun A _ hA => ?_)
+  -- nested FTS (r1-1): no forest hash; the last top pair goes to FOUT and the encoding R slot
+  obtain ⟨t1, s1, p1, m0, m8, m16, m24, r1, f1⟩ := step_For hcode t9 h9pc
+  have htop : WCT9.prevPair WCT9.ftsStart st.2 = st.2.getD 8 (0, 0) :=
+    prevPair_last _ _ (0, 0) 9 h9.len2 (by norm_num)
+  obtain ⟨-, o2, o3⟩ := h9.outs 8 (by norm_num)
+  refine TBSim.pure_steps' s1 ⟨p1, ?_, ?_, ?_, h9.len1, fun k hk => ?_, ?_, ?_⟩
+  · rw [r1.get (by simp)]; exact h9.glob.x5
+  · show DigAt t1 FOUT (WCT9.prevPair WCT9.ftsStart st.2).1
+    rw [htop]
+    exact ⟨by rw [m0]; exact o2.1, by rw [m8]; exact o2.2⟩
+  · show DigAt t1 0x20290 (WCT9.prevPair WCT9.ftsStart st.2).2
+    rw [htop]
+    refine ⟨by rw [m16]; exact o3.1, by rw [m24]; have := o3.2; rwa [show FORW + forOff 8 + 16 + 8 = FORW + forOff 8 + 24
+      by omega] at this⟩
+  · refine ((h9.outs k hk).1.frame hk f1 (fun A h1 h2 => ?_))
+    intro h; rcases h with h | h | h | h <;> aoh
+  · exact (h9.regs.trans r1).mono (by simp [ftsRegs])
+  · refine (h9.frame.trans f1).mono (fun A _ hA => ?_)
     unfold FtsW
     unfold ftsW' at hA
-    rcases hA with ((hA | hA) | hA) | hA
-    · rcases hA with hA | hA
-      · left; exact hA
-      · right; left; exact hA
-    · left; rcases hA with h | h | h | h <;> constructor <;> aoh
-    · right; right; exact hA
-    · exact hA.elim
+    rcases hA with (hA | hA) | (h | h | h | h)
+    · left; exact hA
+    · right; left; exact hA
+    · right; right; right; constructor <;> omega
+    · right; right; right; constructor <;> omega
+    · right; right; left; constructor <;> aoh
+    · right; right; left; constructor <;> aoh
 end fts2
 end ClaudeWCT.W9.Machine.Sign
 end
@@ -728,7 +759,8 @@ local macro "so" : tactic =>
 def Kw (cache : Bytes 131072) (m : Message) (rho : Digest) : M (Option WCT9.Signature) := do
   let some (_, output) ← WCT9.digestSearch rho m 0 WCT9.digestAttemptLimit | pure none
   let forest ← WCT9.signForest (WCT9.digestIndex output) output
-  let some pieces ← WCT9.signLayersBC (cacheDec cache) (WCT9.digestIndex output) 4 (.forest forest.2) | pure none
+  let some pieces ← WCT9.signLayersBC (cacheDec cache) (WCT9.digestIndex output) 4 (.pair forest.2.1 forest.2.2)
+    | pure none
   pure (some (WCT9.assembledSignature rho forest.1 pieces))
 theorem rev3_sign_eq (cache : Bytes 131072) (m : Message) :
     WCT9.Rev3.sign (cacheDec cache) m = (do
@@ -771,13 +803,13 @@ theorem rest_tbsim (hcode : SignCodeAt im) (hS : SearchGood im) (hF : FtsGood im
         rw [gu _ (by unfold ScrZero at hA; so) (by unfold ScrZero at hA; so)]; exact hp.zero A hA
       table := fun k hk => by rw [gu _ (by so) (by so)]; exact hp.table k hk }
   refine TBSim.bind (hF hnew sk N u hpre) (fun fr v hv => ?_)
-  obtain ⟨ops, root⟩ := fr
-  obtain ⟨vpc, v5, vroot, -, vops, vr, vf⟩ := hv
-  have hlp : LayPre (WCT9.digestIndex N) root v :=
-    ⟨vpc, v5, Nat.mod_lt _ (by norm_num), by rw [vf.get (by so) (by so)]; exact uidx, vroot⟩
+  obtain ⟨ops, top⟩ := fr
+  obtain ⟨vpc, v5, vroot, vright, -, vops, vr, vf⟩ := hv
+  have hlp : LayPre (WCT9.digestIndex N) top v :=
+    ⟨vpc, v5, Nat.mod_lt _ (by norm_num), by rw [vf.get (by so) (by so)]; exact uidx, vroot, vright⟩
   have hinv' : Inv v := hstab t v hinv ((uf.trans vf).mono (fun A _ h => h))
     ((ur.trans vr).mono (by decide))
-  refine TBSim.bind (hlay _ root v hlp hinv') (fun r w hw => ?_)
+  refine TBSim.bind (hlay _ top v hlp hinv') (fun r w hw => ?_)
   rcases r with _ | ps
   · exact TBSim.mono (TBSim.pure (Or.inl hw)) (Nat.zero_le _) (fun _ _ h => h)
   obtain ⟨wpc, -, wpieces, wf⟩ := hw
@@ -1164,7 +1196,8 @@ theorem sign_refines_w (imgs : Phase → Image) (Inv : BitVec 256 → Bytes 1310
 theorem sign_terminates_w (imgs : Phase → Image) (Inv : BitVec 256 → Bytes 131072 → Message → MachineState → Prop)
     (hcode : SignCodeAt (imgs .sign)) (hU : Unchanged imgs Inv) : SignTerminatesW imgs :=
   (signMain imgs Inv hcode hU).2
-theorem newCodeAt_of_drop {im : Image} (h : im.code.drop 11003 = signNew) : NewCodeAt im := by
-  rw [NewCodeAt, h]
+theorem newCodeAt_of_drop {im : Image} (h : im.code.drop 11003 = signNew)
+    (h2 : signTramp <+: im.code.drop 21450) : NewCodeAt im := by
+  rw [NewCodeAt, h]; exact ⟨List.prefix_refl _, h2⟩
 end ClaudeWCT.W9.Machine.Sign
 end

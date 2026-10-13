@@ -28,11 +28,9 @@ theorem recoverFtsP_chain_queried (answers : Correctness.Answers) (N : HashOutpu
         (4 - WCT9.wordDigit (WCT9.rank N k) t) (wcpads w k.val t.val).1 (wcHeaderPad w k.val t.val)
         (wcpads w k.val t.val).2 (wreveal w k.val t.val (WCT9.wordDigit (WCT9.rank N k) t))))) : Spec.Domain) ∈
       queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N) := by
-  unfold recoverFtsP
-  rw [queried_bind]
+  rw [ClaudeWCT.W9.T3M.WctExtract.recoverFtsP_nfold, queried_bind]
   apply List.mem_append_left
-  rw [ClaudeWCT.W9.T3M.WctExtract.queried_mapM]
-  refine List.mem_flatMap.mpr ⟨k, List.mem_finRange k, ?_⟩
+  refine ClaudeWCT.W9.T3M.WctExtract.queried_nfold_sub answers _ _ 9 le_rfl k k.isLt _ ?_
   rw [ClaudeWCT.W9.T3M.WctExtract.recoverCoordinateP_dec, queried_bind]
   apply List.mem_append_left
   rw [ClaudeWCT.W9.T3M.WctExtract.queried_mapM]
@@ -112,7 +110,7 @@ theorem verdict_chain_entries (pk : Digest) (interaction : Option ForgeryP × Qu
     unfold Guess.deficit at hc2
     omega
   have hq := recoverFtsP_chain_queried answers N w k t hu
-  obtain ⟨hval, hpad⟩ := (hH.2 k).1 t
+  obtain ⟨hval, hpad⟩ := (hH.2.1 k).1 t
   rw [hval, (hpad hu).1, (hpad hu).2] at hq
   have hp : 4 - WCT9.wordDigit (WCT9.rank N k) t = p.val := by
     unfold Guess.deficit at hc2

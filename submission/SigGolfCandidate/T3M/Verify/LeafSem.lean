@@ -225,7 +225,7 @@ def lfBlocks (lay : Nat) : Nat := if lay = 0 then 14 else 11
 def lfSlot (lay j : Nat) : Nat := if lay = 0 then slotT j else bufferBias lay + slotL j
 def stabBits (lay : Nat) : Nat := if lay = 1 then 7 else 6
 def lfKeepK (lay : Nat) : List (Reg × Word) :=
-  [(.x2, 0x7fc00), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
+  [(.x2, if lay = 0 then 0x7fc80 else 0x7fc00), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
    (.x30, 7), (if lay = 0 then (.x8, BitVec.ofNat 64 s3v) else (.x22, BitVec.ofNat 64 (s6v lay))),
    (.x9, BitVec.ofNat 64 TOPB9)] ++
   (if lay = 0 then [] else [(.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x6, 0x10000), (.x27, 0x3fe00)])
@@ -252,10 +252,10 @@ structure LeafOut (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
   T0 : u.getMem (BitVec.ofNat 64 (lfBase lay.val + 16)) =
     T3.hyperWord lay.val ((route index lay).2 * 2 ^ height lay + (route index lay).1)
   T1 : u.getMem (BitVec.ofNat 64 (lfBase lay.val + 24)) = 0
-  orig : Verify.Orig w (fun o => 7424 ≤ o ∧
+  orig : Verify.Orig w (fun o => 8256 ≤ o ∧
     o < ClaudeWCT.W9.T3M.layerBase lay + 16 * ClaudeWCT.W9.T3M.pathSlots lay) u
   topZero : lay = 0 → ∀ A ∈ [25136,25144,25160], u.getMem (BitVec.ofNat 64 A) = 0
-  bufferOrig : lay ≠ 0 → Verify.Orig w (fun o => BC.bufferStart (lay.val-1) ≤ o ∧ o < 24000) u
+  bufferOrig : lay ≠ 0 → Verify.Orig w (fun o => BC.bufferStart (lay.val-1) ≤ o ∧ o < 24832) u
 theorem LeafOut.hashInput {w : ClaudeWCT.W9.T3M.WBytes} {pk : Digest} {index : Nat} {lay : Layer} {ends : List Digest}
     {u : MachineState} (h : LeafOut w pk index lay ends u) :
     hashInput u = toQ (pad64 (T3.leafInput lay (route index lay).2 (route index lay).1 ends)) ∧
@@ -283,7 +283,7 @@ theorem LeafOut.hashInput {w : ClaudeWCT.W9.T3M.WBytes} {pk : Digest} {index : N
     exact lowLeaf_hashInput u lay h0 _ _ ends (bufferBias lay.val) hm hbd hn h10 h11 hS hT0 hT1
 theorem glob_frame {gk gk' : List (Reg × Word)} {w : ClaudeWCT.W9.T3M.WBytes} {pk : Digest} {s t : MachineState}
     {W : Nat → Prop} (hG : Glob gk w pk s) (hf : Frame s t W)
-    (hW : ∀ A, W A → 544 ≤ A ∧ (A < 0x800 ∨ 0x840 ≤ A) ∧ A < 2 ^ 23) (hk : ∀ p ∈ gk', t.getReg p.1 = p.2) :
+    (hW : ∀ A, W A → 544 ≤ A ∧ (A < 0x4c0 ∨ 0x500 ≤ A) ∧ A < 2 ^ 23) (hk : ∀ p ∈ gk', t.getReg p.1 = p.2) :
     Glob gk' w pk t := by
   obtain ⟨-, hH, hP, hZ, hh, hD⟩ := hG
   have hn : ∀ A, A < 544 → ¬ W A := fun A hA h => by have := hW A h; omega
@@ -343,7 +343,7 @@ structure TopLeafReady (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Na
   word : t.getReg .x28 = leafWord 0 (route index 0).2 (route index 0).1
   len : ends.length = 54
   ends : ∀ j < 54, DigAt t (slotT j) (ends.getD j 0)
-  orig : Verify.Orig w (fun o => 7424 ≤ o ∧
+  orig : Verify.Orig w (fun o => 8256 ≤ o ∧
     o < ClaudeWCT.W9.T3M.layerBase 0 + 16 * ClaudeWCT.W9.T3M.pathSlots 0) t
   topZero : ∀ A ∈ [25136,25144,25160], t.getMem (BitVec.ofNat 64 A) = 0
 theorem lfKeepK_keep : (lfKeepK 0).all (fun p => decide (p.1 ∈ keepLfAll 0)) = true := by decide +kernel
@@ -404,7 +404,7 @@ theorem leafT_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (
   · rw [show lfBase (0 : Layer).val + 24 = 25160 from rfl, hfr 25160 (by norm_num) (by norm_num)]
     exact ht.topZero 25160 (by simp)
   · exact (hu.orig_const ht.orig).mono (fun o ho => ⟨ho, by
-      have hhi : o < 8192 := ho.2
+      have hhi : o < 9024 := ho.2
       simp only [lfAllowed, bufferBase, List.getD_cons_zero, List.mem_cons,
         List.not_mem_nil, or_false, not_or]
       unfold WIT

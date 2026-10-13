@@ -534,50 +534,52 @@ open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest)
 theorem merkleField_of_frame {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9}
     {j : Fin 128} {rank : Fin 666} {u s : MachineState} (hu : Pre L w index k j rank u)
-    (hf : Frame u s (writes k)) (off : Nat) (ha : off % 8 = 0) (ho : off + 16 ≤ 336) :
+    (hf : Frame u s (writes k)) (off : Nat) (ha : off % 8 = 0)
+    (ho : off + 16 ≤ 336 ∨ (832 ≤ off ∧ off + 16 ≤ 896)) :
     DigAt s (base k + off) (wdig w (V3.regionOffset k.val + off)) := by
   have hk := k.isLt
   have h0 := hu.origW off (by omega) ha
   have h1 : OrigW w u (base k + off + 8) := by
     simpa only [Nat.add_assoc] using hu.origW (off + 8) (by omega) (by omega)
   have hdig := DigAt_origW h0 h1 (by unfold base coordinateBase; omega)
-  have he : base k + off - 0x800 = V3.regionOffset k.val + off := by
+  have he : base k + off - 0x4c0 = V3.regionOffset k.val + off := by
     unfold base coordinateBase V3.regionOffset
     omega
   rw [he] at hdig
   exact hdig.frame hf (by unfold base coordinateBase; omega)
     (by unfold writes; omega) (by unfold writes; omega)
-theorem auth_bounds : ∀ j : Fin 128, ∀ l : Fin 7,
-    ClaudeWCT.W9.T3M.authSibOff j.val l.val % 8 = 0 ∧ ClaudeWCT.W9.T3M.authSibOff j.val l.val + 16 ≤ 320 ∧
-    ClaudeWCT.W9.T3M.authPadOff j.val l.val % 8 = 0 ∧ ClaudeWCT.W9.T3M.authPadOff j.val l.val + 16 ≤ 336 := by
+/-- Nested FTS child fields: levels 0..4 below the chain window, level 5 in the fixed block `832..896`. -/
+theorem v3_field_bounds : ∀ j : Fin 128, ∀ l : Fin 6,
+    V3.sibOff j.val l.val % 8 = 0 ∧
+      (V3.sibOff j.val l.val + 16 ≤ 336 ∨ (832 ≤ V3.sibOff j.val l.val ∧ V3.sibOff j.val l.val + 16 ≤ 896)) ∧
+    V3.padOff j.val l.val % 8 = 0 ∧
+      (V3.padOff j.val l.val + 16 ≤ 336 ∨ (832 ≤ V3.padOff j.val l.val ∧ V3.padOff j.val l.val + 16 ≤ 896)) ∧
+    (V3.blkOff j.val l.val + 16) % 8 = 0 ∧
+      (V3.blkOff j.val l.val + 16 + 16 ≤ 336 ∨
+        (832 ≤ V3.blkOff j.val l.val + 16 ∧ V3.blkOff j.val l.val + 16 + 16 ≤ 896)) := by
   decide +kernel
 theorem merklePad_of_frame {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9}
     {j : Fin 128} {rank : Fin 666} {u s : MachineState} (hu : Pre L w index k j rank u)
-    (hf : Frame u s (writes k)) (l : Nat) (hl : l < 7) :
-    DigAt s (base k + ClaudeWCT.W9.T3M.authPadOff j.val l) (V3.nodePad w k.val j.val l) := by
-  have hb := auth_bounds j ⟨l, hl⟩
-  have h := merkleField_of_frame hu hf (ClaudeWCT.W9.T3M.authPadOff j.val l) hb.2.2.1 hb.2.2.2
-  simpa only [V3.nodePad, ClaudeWCT.W9.T3M.wmpad, ClaudeWCT.W9.T3M.regionBase, V3.regionOffset, wdig]
-    using h
+    (hf : Frame u s (writes k)) (l : Nat) (hl : l < 6) :
+    DigAt s (base k + V3.padOff j.val l) (V3.nodePad w k.val j.val l) := by
+  have hb := v3_field_bounds j ⟨l, hl⟩
+  have h := merkleField_of_frame hu hf (V3.padOff j.val l) hb.2.2.1 hb.2.2.2.1
+  simpa only [V3.nodePad, wdig] using h
 theorem merkleSibling_of_frame {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9}
     {j : Fin 128} {rank : Fin 666} {u s : MachineState} (hu : Pre L w index k j rank u)
-    (hf : Frame u s (writes k)) (l : Nat) (hl : l < 7) :
-    DigAt s (base k + ClaudeWCT.W9.T3M.authSibOff j.val l) (V3.sibling w k.val j.val l) := by
-  have hb := auth_bounds j ⟨l, hl⟩
-  have h := merkleField_of_frame hu hf (ClaudeWCT.W9.T3M.authSibOff j.val l) hb.1 (le_trans hb.2.1 (by decide : 320 ≤ 336))
-  simpa only [V3.sibling, ClaudeWCT.W9.T3M.wsib, ClaudeWCT.W9.T3M.regionBase, V3.regionOffset, wdig]
-    using h
-theorem auth_tw_bounds : ∀ j : Fin 128, ∀ l : Fin 6,
-    (ClaudeWCT.W9.T3M.authBase j.val l.val + 16) % 8 = 0 ∧ ClaudeWCT.W9.T3M.authBase j.val l.val + 16 + 16 ≤ 336 := by
-  decide +kernel
+    (hf : Frame u s (writes k)) (l : Nat) (hl : l < 6) :
+    DigAt s (base k + V3.sibOff j.val l) (V3.sibling w k.val j.val l) := by
+  have hb := v3_field_bounds j ⟨l, hl⟩
+  have h := merkleField_of_frame hu hf (V3.sibOff j.val l) hb.1 hb.2.1
+  simpa only [V3.sibling, wdig] using h
 theorem merkleTw_of_frame {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9}
     {j : Fin 128} {rank : Fin 666} {u s : MachineState} (hu : Pre L w index k j rank u)
     (hf : Frame u s (writes k)) (l : Nat) (hl : l < 6) :
-    DigAt s (base k + ClaudeWCT.W9.T3M.authBase j.val l + 16) (V3.nodeTw w k.val j.val l) := by
-  have hb := auth_tw_bounds j ⟨l, hl⟩
-  have h := merkleField_of_frame hu hf (ClaudeWCT.W9.T3M.authBase j.val l + 16) hb.1 hb.2
+    DigAt s (base k + V3.blkOff j.val l + 16) (V3.nodeTw w k.val j.val l) := by
+  have hb := v3_field_bounds j ⟨l, hl⟩
+  have h := merkleField_of_frame hu hf (V3.blkOff j.val l + 16) hb.2.2.2.2.1 hb.2.2.2.2.2
   rw [← Nat.add_assoc] at h
-  simpa only [V3.nodeTw, ClaudeWCT.W9.T3M.regionBase, V3.regionOffset, wdig, Nat.add_assoc] using h
+  simpa only [V3.nodeTw, wdig, Nat.add_assoc] using h
 theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128}
     {rank : Fin 666} {u s : MachineState} {tr : ChainTrace} {answers : List (BitVec 256)}
     (hu : Pre L w index k j rank u) (hs : Inv u index k j tr answers s)
@@ -625,7 +627,7 @@ theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
     have hw1 : OrigW w u (base k + 720 + 8) := by
       simpa only [Nat.add_assoc] using hu.origW 728 (by decide) (by decide)
     have hdig := DigAt_origW hw0 hw1 (by unfold base coordinateBase; omega)
-    have he : base k + 720 - 0x800 = V3.regionOffset k.val + 720 := by
+    have he : base k + 720 - 0x4c0 = V3.regionOffset k.val + 720 := by
       unfold base coordinateBase V3.regionOffset
       omega
     rw [he] at hdig
@@ -652,10 +654,9 @@ theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
     hashInput := hp.1, hashLen := hp.2.1,
     nodeWord := (hkeep .x15 (by decide)).trans hu.nodeWord,
     childIdx := (hkeep .x4 (by decide)).trans hu.childIdx,
-    forestPointer := (hkeep .x9 (by decide)).trans hu.forestPointer,
     returnPC := (hkeep .x1 (by decide)).trans hu.returnPC,
     heaps := ?_, leafAt := ?_,
-    padAt := fun l hl => merklePad_of_frame hu hf l (by omega),
+    padAt := fun l hl => merklePad_of_frame hu hf l hl,
     sibAt := fun l hl => merkleSibling_of_frame hu hf l hl,
     twAt := fun l hl => merkleTw_of_frame hu hf l hl }
   · rw [hp.2.2, hs.keep .x23 (by decide), hu.childPC, SigGolfCandidate.T3M.pcOf_add4, pcOf_and_not1]

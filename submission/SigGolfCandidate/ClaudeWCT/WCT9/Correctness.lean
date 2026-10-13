@@ -157,10 +157,10 @@ def childStep (index coord selected : Nat) (word : Rank) (coefs : List Digest) (
 def childRows (index coord selected : Nat) (word : Rank) (coefs : List Digest) :
     M (List Digest × List Digest) :=
   (List.finRange 6).foldlM (childStep index coord selected word coefs) ([], [])
-theorem buildChildF_factor (index coord selected : Nat) (word : Rank) (coefs : List Digest) :
-    buildChildF index coord selected word coefs = (do
+theorem buildChildF_factor (index coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest) :
+    buildChildF index coord selected word coefs pad = (do
       let rows ← childRows index coord selected word coefs
-      let root ← leafHash index coord selected rows.1
+      let root ← leafHashP index coord selected pad rows.1
       pure (root, rows.2)) := by
   rfl
 theorem rows_step (answers : Answers) (index coord selected : Nat) (word : Rank)
@@ -206,12 +206,13 @@ theorem eval_childRows (answers : Answers) (index coord selected : Nat) (word : 
       exact rows_step answers index coord selected word ⟨i, hi7⟩ rows hrows)
   simp only [List.length_finRange] at key
   exact key
-def childRoot (answers : Answers) (index coord selected : Nat) : Digest :=
-  evalWithAnswerFn answers (leafHash index coord selected
+/-- Honest FTS leaf of child `selected`, with leaf pad `pad` (nested FTS r1-1: the previous coordinate's left top). -/
+def childRoot (answers : Answers) (index coord selected : Nat) (pad : Digest) : Digest :=
+  evalWithAnswerFn answers (leafHashP index coord selected pad
     (List.ofFn (fun i : Fin 6 => chainEnd answers index coord selected i)))
-theorem buildChildF_result (answers : Answers) (index coord selected : Nat) (word : Rank) :
-    evalWithAnswerFn answers (buildChildF index coord selected word (List.ofFn (ftsCoef answers index coord))) =
-      (childRoot answers index coord selected,
+theorem buildChildF_result (answers : Answers) (index coord selected : Nat) (word : Rank) (pad : Digest) :
+    evalWithAnswerFn answers (buildChildF index coord selected word (List.ofFn (ftsCoef answers index coord)) pad) =
+      (childRoot answers index coord selected pad,
         List.ofFn (fun i : Fin 6 => chainValue answers index coord selected word i)) := by
   let rows := evalWithAnswerFn answers (childRows index coord selected word
     (List.ofFn (ftsCoef answers index coord)))
@@ -229,20 +230,34 @@ theorem buildChildF_result (answers : Answers) (index coord selected : Nat) (wor
     simpa only [List.getD_eq_getElem _ _ hi, List.getElem_ofFn] using
       hval ⟨i, by omega⟩ (by omega)
   rw [buildChildF_factor, evalWithAnswerFn_bind]
-  change (evalWithAnswerFn answers (leafHash index coord selected rows.1), rows.2) = _
+  change (evalWithAnswerFn answers (leafHashP index coord selected pad rows.1), rows.2) = _
   rw [hends, hvals]
   rfl
-theorem childRoot_word_independent (answers : Answers) (index coord selected : Nat) (left right : Rank) :
-    (evalWithAnswerFn answers (buildChildF index coord selected left (List.ofFn (ftsCoef answers index coord)))).1 =
+theorem childRoot_word_independent (answers : Answers) (index coord selected : Nat) (left right : Rank)
+    (pad : Digest) :
+    (evalWithAnswerFn answers (buildChildF index coord selected left (List.ofFn (ftsCoef answers index coord)) pad)).1 =
       (evalWithAnswerFn answers (buildChildF index coord selected right
-        (List.ofFn (ftsCoef answers index coord)))).1 := by
+        (List.ofFn (ftsCoef answers index coord)) pad)).1 := by
   rw [buildChildF_result, buildChildF_result]
-def HeapInv (answers : Answers) (index coord : Nat) (leaves : List Digest)
+theorem getD_take_lt {α : Type} (L : List α) {n j : Nat} (hj : j < n) (d : α) :
+    (L.take n).getD j d = L.getD j d := by
+  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_take_of_lt hj]
+theorem treeValue_take_lt (L : List (List Digest)) {n j : Nat} (hj : j < n) (x : Nat) :
+    treeValue (L.take n) j x = treeValue L j x := by
+  unfold treeValue
+  rw [getD_take_lt L hj]
+theorem wctHeapNode_low {coord index heap : Nat} (h : 4 ≤ heap) (padR left right : Digest) :
+    wctHeapNode coord index heap padR left right = wctNodeHash coord index heap left right := by
+  simp only [wctHeapNode, if_neg (show ¬heap < 4 by omega)]
+theorem wctHeapNode_top {coord index heap : Nat} (h : heap < 4) (padR left right : Digest) :
+    wctHeapNode coord index heap padR left right = wctTopHash coord index heap left padR right := by
+  simp only [wctHeapNode, if_pos h]
+def HeapInv (answers : Answers) (index coord : Nat) (padR : Digest) (leaves : List Digest)
     (done : Nat) (nodes : Array Digest) : Prop :=
   nodes.size = 256 ∧
     (∀ i, 128 ≤ i → i < 256 → nodes.getD i 0 = leaves.getD (i - 128) 0) ∧
     (∀ i, 2 ≤ i → i < 128 → 128 - done ≤ i → nodes.getD i 0 =
-      evalWithAnswerFn answers (wctNodeHash coord index i
+      evalWithAnswerFn answers (wctHeapNode coord index i padR
         (nodes.getD (2 * i) 0) (nodes.getD (2 * i + 1) 0)))
 theorem getD_set_self (nodes : Array Digest) (i : Nat) (v : Digest) (hi : i < nodes.size) :
     (nodes.set! i v).getD i 0 = v := by
@@ -257,9 +272,9 @@ theorem heap_order (i : Nat) (hi : i < 126) :
   rw [List.getElem_reverse]
   simp only [List.length_range', List.getElem_range', Nat.one_mul]
   omega
-theorem heap_initial (answers : Answers) (index coord : Nat) (leaves : List Digest)
+theorem heap_initial (answers : Answers) (index coord : Nat) (padR : Digest) (leaves : List Digest)
     (hlen : leaves.length = 128) :
-    HeapInv answers index coord leaves 0 ((List.replicate 128 (0 : Digest) ++ leaves).toArray) := by
+    HeapInv answers index coord padR leaves 0 ((List.replicate 128 (0 : Digest) ++ leaves).toArray) := by
   refine ⟨by simp [hlen], ?_, ?_⟩
   · intro i hlo hhi
     simp only [Array.getD_eq_getD_getElem?, List.getElem?_toArray,
@@ -268,16 +283,16 @@ theorem heap_initial (answers : Answers) (index coord : Nat) (leaves : List Dige
     simp only [List.length_replicate]
   · intro i _ hi hlo
     omega
-theorem heap_step (answers : Answers) (index coord : Nat) (leaves : List Digest) (done : Nat)
+theorem heap_step (answers : Answers) (index coord : Nat) (padR : Digest) (leaves : List Digest) (done : Nat)
     (hdone : done < 126) (nodes : Array Digest)
-    (hinv : HeapInv answers index coord leaves done nodes) :
-    HeapInv answers index coord leaves (done + 1)
-      (nodes.set! (127 - done) (evalWithAnswerFn answers (wctNodeHash coord index (127 - done)
+    (hinv : HeapInv answers index coord padR leaves done nodes) :
+    HeapInv answers index coord padR leaves (done + 1)
+      (nodes.set! (127 - done) (evalWithAnswerFn answers (wctHeapNode coord index (127 - done) padR
         (nodes.getD (2 * (127 - done)) 0) (nodes.getD (2 * (127 - done) + 1) 0)))) := by
   let heap := 127 - done
-  let v := evalWithAnswerFn answers (wctNodeHash coord index heap
+  let v := evalWithAnswerFn answers (wctHeapNode coord index heap padR
     (nodes.getD (2 * heap) 0) (nodes.getD (2 * heap + 1) 0))
-  change HeapInv answers index coord leaves (done + 1) (nodes.set! heap v)
+  change HeapInv answers index coord padR leaves (done + 1) (nodes.set! heap v)
   rcases hinv with ⟨hsize, hleaf, hnode⟩
   have hh : 2 ≤ heap ∧ heap < 128 := by dsimp only [heap]; omega
   refine ⟨by rw [Array.size_set!, hsize], ?_, ?_⟩
@@ -296,40 +311,53 @@ theorem heap_step (answers : Answers) (index coord : Nat) (leaves : List Digest)
       rw [getD_set_self nodes heap v (by omega)]
     · rw [getD_set_other nodes heap i v (Ne.symm he)]
       exact hnode i hlo hhi (by dsimp only [heap] at he hheap; omega)
-theorem heap_complete (answers : Answers) (index coord : Nat) (leaves : List Digest)
+theorem heap_complete (answers : Answers) (index coord : Nat) (padR : Digest) (leaves : List Digest)
     (hlen : leaves.length = 128) :
-    HeapInv answers index coord leaves 126 (evalWithAnswerFn answers (heapBuild index coord leaves)) := by
+    HeapInv answers index coord padR leaves 126 (evalWithAnswerFn answers (heapBuild index coord padR leaves)) := by
   unfold heapBuild
   refine eval_foldlM_list_inv answers (List.range' 2 126).reverse _
-    (HeapInv answers index coord leaves) _ (heap_initial answers index coord leaves hlen) ?_
+    (HeapInv answers index coord padR leaves) _ (heap_initial answers index coord padR leaves hlen) ?_
   intro done hdone nodes hinv
   have hd : done < 126 := by simpa only [List.length_reverse, List.length_range'] using hdone
   rw [heap_order done hd]
   simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-  exact heap_step answers index coord leaves done hd nodes hinv
-def coordRows (index : Nat) (coord : Coord) (selected : Child) (word : Rank) (coefs : List Digest) :
+  exact heap_step answers index coord padR leaves done hd nodes hinv
+def coordRows (index : Nat) (coord : Coord) (selected : Child) (word : Rank) (coefs : List Digest) (pad : Digest) :
     M (List Digest × List Digest) :=
   (List.range 128).foldlM (fun (state : List Digest × List Digest) j => do
-    let (root, values) ← buildChildF index coord.val j word coefs
+    let (root, values) ← buildChildF index coord.val j word coefs pad
     pure (state.1 ++ [root], (if j = selected.val then values else state.2))) ([], [])
 def CoordRows (answers : Answers) (index : Nat) (coord : Coord) (selected : Child)
-    (word : Rank) (done : Nat) (rows : List Digest × List Digest) : Prop :=
+    (word : Rank) (pad : Digest) (done : Nat) (rows : List Digest × List Digest) : Prop :=
   rows.1.length = done ∧
-    (∀ j, j < done → rows.1.getD j 0 = childRoot answers index coord.val j) ∧
+    (∀ j, j < done → rows.1.getD j 0 = childRoot answers index coord.val j pad) ∧
     rows.2 = (if selected.val < done then
       List.ofFn (fun i : Fin 6 => chainValue answers index coord.val selected.val word i)
       else [])
+/-! ### Nested FTS (r1-1) honest values: coordinate `c` is built with pads `ftsPrev c`, the top pair of `c - 1`. -/
+def coordLeavesWith (answers : Answers) (index coord : Nat) (padL : Digest) : List Digest :=
+  List.ofFn (fun j : Fin 128 => childRoot answers index coord j.val padL)
+def coordNodesWith (answers : Answers) (index coord : Nat) (prev : Digest × Digest) : Array Digest :=
+  evalWithAnswerFn answers (heapBuild index coord prev.2 (coordLeavesWith answers index coord prev.1))
+def coordPairWith (answers : Answers) (index coord : Nat) (prev : Digest × Digest) : Digest × Digest :=
+  ((coordNodesWith answers index coord prev).getD 2 0, (coordNodesWith answers index coord prev).getD 3 0)
+/-- Honest pads of coordinate `c`: `ftsStart` for `c = 0`, else the honest top pair of coordinate `c - 1`. -/
+def ftsPrev (answers : Answers) (index : Nat) : Nat → Digest × Digest
+  | 0 => ftsStart
+  | c + 1 => coordPairWith answers index c (ftsPrev answers index c)
 def coordLeaves (answers : Answers) (index : Nat) (coord : Coord) : List Digest :=
-  List.ofFn (fun j : Fin 128 => childRoot answers index coord.val j.val)
+  coordLeavesWith answers index coord.val (ftsPrev answers index coord.val).1
 def coordNodes (answers : Answers) (index : Nat) (coord : Coord) : Array Digest :=
-  evalWithAnswerFn answers (heapBuild index coord.val (coordLeaves answers index coord))
+  coordNodesWith answers index coord.val (ftsPrev answers index coord.val)
 def coordinatePair (answers : Answers) (index : Nat) (coord : Coord) : Digest × Digest :=
   ((coordNodes answers index coord).getD 2 0, (coordNodes answers index coord).getD 3 0)
+theorem ftsPrev_succ (answers : Answers) (index : Nat) (coord : Coord) :
+    ftsPrev answers index (coord.val + 1) = coordinatePair answers index coord := rfl
 theorem coordRows_step (answers : Answers) (index : Nat) (coord : Coord)
-    (selected : Child) (word : Rank) (done : Nat) (rows : List Digest × List Digest)
-    (hrows : CoordRows answers index coord selected word done rows) :
-    CoordRows answers index coord selected word (done + 1)
-      (rows.1 ++ [childRoot answers index coord.val done],
+    (selected : Child) (word : Rank) (pad : Digest) (done : Nat) (rows : List Digest × List Digest)
+    (hrows : CoordRows answers index coord selected word pad done rows) :
+    CoordRows answers index coord selected word pad (done + 1)
+      (rows.1 ++ [childRoot answers index coord.val done pad],
        (if done = selected.val then
          List.ofFn (fun i : Fin 6 => chainValue answers index coord.val done word i)
        else rows.2)) := by
@@ -347,49 +375,60 @@ theorem coordRows_step (answers : Answers) (index : Nat) (coord : Coord)
     · have hs' : selected.val < done + 1 ↔ selected.val < done := by omega
       simp only [if_neg hs, hvalues, hs']
 theorem eval_coordRows (answers : Answers) (index : Nat) (coord : Coord)
-    (selected : Child) (word : Rank) :
-    CoordRows answers index coord selected word 128
+    (selected : Child) (word : Rank) (pad : Digest) :
+    CoordRows answers index coord selected word pad 128
       (evalWithAnswerFn answers (coordRows index coord selected word
-        (List.ofFn (ftsCoef answers index coord.val)))) := by
+        (List.ofFn (ftsCoef answers index coord.val)) pad)) := by
   unfold coordRows
-  refine eval_foldlM_range_inv answers 128 _ (CoordRows answers index coord selected word)
+  refine eval_foldlM_range_inv answers 128 _ (CoordRows answers index coord selected word pad)
     ([], []) ?_ ?_
   · simp [CoordRows]
   · intro done _ rows hrows
     simp only [evalWithAnswerFn_bind, buildChildF_result, evalWithAnswerFn_pure]
-    exact coordRows_step answers index coord selected word done rows hrows
-theorem buildCoordinateF_factor (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
-    buildCoordinateF index coord selected word = (do
+    exact coordRows_step answers index coord selected word pad done rows hrows
+theorem buildCoordinateF_factor (index : Nat) (coord : Coord) (selected : Child) (word : Rank)
+    (prev : Digest × Digest) :
+    buildCoordinateF index coord selected word prev = (do
       let coefs ← ftsCoefs index coord.val
-      let rows ← coordRows index coord selected word coefs
-      let heap ← heapBuild index coord.val rows.1
+      let rows ← coordRows index coord selected word coefs prev.1
+      let heap ← heapBuild index coord.val prev.2 rows.1
       pure (heapLevels heap, rows.2)) := by
   rfl
-theorem buildCoordinateF_result (answers : Answers) (index : Nat) (coord : Coord)
-    (selected : Child) (word : Rank) :
-    evalWithAnswerFn answers (buildCoordinateF index coord selected word) =
-      (heapLevels (coordNodes answers index coord),
+theorem buildCoordinateF_resultWith (answers : Answers) (index : Nat) (coord : Coord)
+    (selected : Child) (word : Rank) (prev : Digest × Digest) :
+    evalWithAnswerFn answers (buildCoordinateF index coord selected word prev) =
+      (heapLevels (coordNodesWith answers index coord.val prev),
        List.ofFn (fun i : Fin 6 => chainValue answers index coord.val selected.val word i)) := by
   let rows := evalWithAnswerFn answers (coordRows index coord selected word
-    (List.ofFn (ftsCoef answers index coord.val)))
-  have hr : CoordRows answers index coord selected word 128 rows :=
-    eval_coordRows answers index coord selected word
+    (List.ofFn (ftsCoef answers index coord.val)) prev.1)
+  have hr : CoordRows answers index coord selected word prev.1 128 rows :=
+    eval_coordRows answers index coord selected word prev.1
   rcases hr with ⟨hlen, hroot, hvalues⟩
-  have hroots : rows.1 = coordLeaves answers index coord := by
-    apply List.ext_getElem (by simpa only [coordLeaves, List.length_ofFn] using hlen)
+  have hroots : rows.1 = coordLeavesWith answers index coord.val prev.1 := by
+    apply List.ext_getElem (by simpa only [coordLeavesWith, List.length_ofFn] using hlen)
     intro j hj hk
-    simpa only [coordLeaves, List.getD_eq_getElem _ _ hj, List.getElem_ofFn] using
+    simpa only [coordLeavesWith, List.getD_eq_getElem _ _ hj, List.getElem_ofFn] using
       hroot j (by omega)
   rw [if_pos selected.isLt] at hvalues
   rw [buildCoordinateF_factor, evalWithAnswerFn_bind, eval_ftsCoefs]
   simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-  change (heapLevels (evalWithAnswerFn answers (heapBuild index coord.val rows.1)), rows.2) = _
+  change (heapLevels (evalWithAnswerFn answers (heapBuild index coord.val prev.2 rows.1)), rows.2) = _
   rw [hroots, hvalues]
   rfl
+theorem buildCoordinateF_result (answers : Answers) (index : Nat) (coord : Coord)
+    (selected : Child) (word : Rank) :
+    evalWithAnswerFn answers (buildCoordinateF index coord selected word (ftsPrev answers index coord.val)) =
+      (heapLevels (coordNodes answers index coord),
+       List.ofFn (fun i : Fin 6 => chainValue answers index coord.val selected.val word i)) :=
+  buildCoordinateF_resultWith answers index coord selected word _
+theorem coordNodesWith_graph (answers : Answers) (index coord : Nat) (prev : Digest × Digest) :
+    HeapInv answers index coord prev.2 (coordLeavesWith answers index coord prev.1) 126
+      (coordNodesWith answers index coord prev) :=
+  heap_complete answers index coord prev.2 _ (by simp [coordLeavesWith])
 theorem coordNodes_graph (answers : Answers) (index : Nat) (coord : Coord) :
-    HeapInv answers index coord.val (coordLeaves answers index coord) 126
+    HeapInv answers index coord.val (ftsPrev answers index coord.val).2 (coordLeaves answers index coord) 126
       (coordNodes answers index coord) :=
-  heap_complete answers index coord.val _ (by simp [coordLeaves])
+  coordNodesWith_graph answers index coord.val _
 theorem heapLevels_value (heap : Array Digest) (level j : Nat) (hl : level < 7)
     (hj : j < 2 ^ (7 - level)) :
     treeValue (heapLevels heap) level j = heap.getD (2 ^ (7 - level) + j) 0 := by
@@ -399,30 +438,33 @@ theorem heapLevels_value (heap : Array Digest) (level j : Nat) (hl : level < 7)
   rw [List.getD_eq_getElem _ _ (by simp only [List.length_map, List.length_range]; exact hj)]
   simp only [List.getElem_map, List.getElem_range]
 theorem coordinate_treeLevels (answers : Answers) (index : Nat) (coord : Coord) :
-    TreeLevels answers 3 (nodeLayer coord.val) index 7 (coordLeaves answers index coord) 6
-      (heapLevels (coordNodes answers index coord)) := by
+    TreeLevels answers 3 (nodeLayer coord.val) index 7 (coordLeaves answers index coord) 5
+      ((heapLevels (coordNodes answers index coord)).take 6) := by
   have hg := coordNodes_graph answers index coord
-  refine ⟨⟨by simp only [heapLevels, List.length_map, List.length_range], ?_⟩, ?_, ?_⟩
+  refine ⟨⟨by simp only [heapLevels, List.length_take, List.length_map, List.length_range]; rfl, ?_⟩, ?_, ?_⟩
   · intro j hj
+    rw [getD_take_lt _ (by omega)]
     unfold heapLevels
     rw [List.getD_eq_getElem _ [] (by simp only [List.length_map, List.length_range]; omega)]
     simp only [List.getElem_map, List.getElem_range, List.length_map, List.length_range]
-  · have h0 : (heapLevels (coordNodes answers index coord)).getD 0 [] =
+  · rw [getD_take_lt _ (by decide)]
+    have h0 : (heapLevels (coordNodes answers index coord)).getD 0 [] =
         (List.range 128).map (fun i => (coordNodes answers index coord).getD (128 + i) 0) := rfl
     rw [h0]
     apply List.ext_getElem
-    · simp only [List.length_map, List.length_range, coordLeaves, List.length_ofFn]
+    · simp only [List.length_map, List.length_range, coordLeaves, coordLeavesWith, List.length_ofFn]
     · intro i hi hj
       have hi' : i < 128 := by simpa only [List.length_map, List.length_range] using hi
-      simp only [List.getElem_map, List.getElem_range, coordLeaves, List.getElem_ofFn]
-      rw [hg.2.1 (128 + i) (by omega) (by omega), Nat.add_sub_cancel_left, coordLeaves,
+      simp only [List.getElem_map, List.getElem_range, coordLeaves, coordLeavesWith, List.getElem_ofFn]
+      rw [hg.2.1 (128 + i) (by omega) (by omega), Nat.add_sub_cancel_left, coordLeaves, coordLeavesWith,
         List.getD_eq_getElem _ _ (by simp only [List.length_ofFn]; exact hi'), List.getElem_ofFn]
   · intro level hlevel node hnode
+    rw [getD_take_lt _ (by omega : level + 1 < 6), getD_take_lt _ (by omega : level < 6)]
     have hpow : 2 ^ (7 - level) = 2 * 2 ^ (7 - (level + 1)) := by
       rw [show 7 - level = 7 - (level + 1) + 1 by omega, pow_succ]
       omega
-    have hpos : 2 ≤ 2 ^ (7 - (level + 1)) := by
-      calc 2 = 2 ^ 1 := by norm_num
+    have hpos : 4 ≤ 2 ^ (7 - (level + 1)) := by
+      calc 4 = 2 ^ 2 := by norm_num
         _ ≤ 2 ^ (7 - (level + 1)) := Nat.pow_le_pow_right (by decide) (by omega)
     have hle : 2 ^ (7 - (level + 1)) ≤ 64 :=
       Nat.pow_le_pow_right (by decide) (by omega : 7 - (level + 1) ≤ 6) |>.trans (by decide)
@@ -436,14 +478,28 @@ theorem coordinate_treeLevels (answers : Answers) (index : Nat) (coord : Coord) 
     unfold treeValue at hl hr
     rw [hl, hr]
     have hn := hg.2.2 (2 ^ (7 - (level + 1)) + node) (by omega) (by omega) (by omega)
-    rw [hn]
+    rw [hn, wctHeapNode_low (by omega)]
     have e1 : 2 * (2 ^ (7 - (level + 1)) + node) = 2 ^ (7 - level) + 2 * node := by omega
     simp only [e1, Nat.add_assoc]
     rfl
+/-- Nested FTS (r1-1): the two top values of a coordinate are high-half hashes with the previous right top as pad. -/
+theorem coordinate_top (answers : Answers) (index : Nat) (coord : Coord) (j : Nat) (hj : j < 2) :
+    treeValue (heapLevels (coordNodes answers index coord)) 6 j =
+      evalWithAnswerFn answers (wctTopHash coord.val index (2 + j)
+        (treeValue (heapLevels (coordNodes answers index coord)) 5 (2 * j)) (ftsPrev answers index coord.val).2
+        (treeValue (heapLevels (coordNodes answers index coord)) 5 (2 * j + 1))) := by
+  have hg := coordNodes_graph answers index coord
+  rw [heapLevels_value _ 6 j (by decide) (by norm_num; omega), heapLevels_value _ 5 (2 * j) (by decide)
+    (by norm_num; omega), heapLevels_value _ 5 (2 * j + 1) (by decide) (by norm_num; omega)]
+  rw [hg.2.2 (2 ^ (7 - 6) + j) (by norm_num) (by norm_num; omega) (by norm_num),
+    wctHeapNode_top (by norm_num; omega)]
+  have e1 : 2 * (2 ^ (7 - 6) + j) = 2 ^ (7 - 5) + 2 * j := by norm_num; omega
+  have e2 : 2 ^ (7 - 6) + j = 2 + j := by norm_num
+  rw [e1, e2, Nat.add_assoc]
 theorem built_pair (answers : Answers) (index : Nat) (coord : Coord) (selected : Child)
     (word : Rank) :
-    (((evalWithAnswerFn answers (buildCoordinateF index coord selected word)).1.getD 6 []).getD 0 0,
-      ((evalWithAnswerFn answers (buildCoordinateF index coord selected word)).1.getD 6 []).getD 1 0) =
+    (((evalWithAnswerFn answers (buildCoordinateF index coord selected word (ftsPrev answers index coord.val))).1.getD 6 []).getD 0 0,
+      ((evalWithAnswerFn answers (buildCoordinateF index coord selected word (ftsPrev answers index coord.val))).1.getD 6 []).getD 1 0) =
       coordinatePair answers index coord := by
   rw [buildCoordinateF_result]
   have h0 := heapLevels_value (coordNodes answers index coord) 6 0 (by decide) (by decide)
@@ -483,7 +539,8 @@ def honestOpening (built : List (List Digest) × List Digest) (selected : Child)
 def expectedOpening (answers : Answers) (index : Nat) (output : HashOutput) (coord : Coord) :
     Opening :=
   honestOpening (evalWithAnswerFn answers
-    (buildCoordinateF index coord (child output coord) (rank output coord))) (child output coord)
+    (buildCoordinateF index coord (child output coord) (rank output coord) (ftsPrev answers index coord.val)))
+    (child output coord)
 theorem order_pair (levels : List (List Digest)) (selected : Nat) (hs : selected < 128) :
     (if selected / 2 ^ 6 % 2 = 0 then (treeValue levels 6 (selected / 2 ^ 6), treeValue levels 6 (selected / 2 ^ 6 ^^^ 1))
       else (treeValue levels 6 (selected / 2 ^ 6 ^^^ 1), treeValue levels 6 (selected / 2 ^ 6))) =
@@ -495,7 +552,7 @@ theorem order_pair (levels : List (List Digest)) (selected : Nat) (hs : selected
 theorem recoverCoordinate_honest (answers : Answers) (sig : Signature) (index : Nat)
     (output : HashOutput) (coord : Coord)
     (hopen : sig.openings coord = expectedOpening answers index output coord) :
-    evalWithAnswerFn answers (recoverCoordinate sig index output coord) =
+    evalWithAnswerFn answers (recoverCoordinate sig index output coord (ftsPrev answers index coord.val)) =
       coordinatePair answers index coord := by
   let selected := child output coord
   let word := rank output coord
@@ -506,7 +563,8 @@ theorem recoverCoordinate_honest (answers : Answers) (sig : Signature) (index : 
     intro i
     rw [hopen]
     simp only [expectedOpening, honestOpening]
-    change (evalWithAnswerFn answers (buildCoordinateF index coord selected word)).2.getD i.val 0 = _
+    change (evalWithAnswerFn answers (buildCoordinateF index coord selected word
+      (ftsPrev answers index coord.val))).2.getD i.val 0 = _
     rw [hbuilt]
     change (List.ofFn _).getD i.val 0 = _
     rw [List.getD_eq_getElem _ _ (by simp only [List.length_ofFn]; exact i.isLt), List.getElem_ofFn]
@@ -516,15 +574,16 @@ theorem recoverCoordinate_honest (answers : Answers) (sig : Signature) (index : 
     rw [hopen]
     simp only [expectedOpening, honestOpening]
     change ((List.range 7).map fun level =>
-      ((evalWithAnswerFn answers (buildCoordinateF index coord selected word)).1.getD level []).getD
+      ((evalWithAnswerFn answers (buildCoordinateF index coord selected word
+        (ftsPrev answers index coord.val))).1.getD level []).getD
         (selected.val / 2 ^ level ^^^ 1) 0).getD j.val 0 = _
     rw [hbuilt]
     rw [List.getD_eq_getElem _ _ (by simp)]
     simp [treeValue, levels]
-  have hpath : ∀ j : Fin 6, (sig.openings coord).path j.castSucc =
-      treeValue levels (0 + j.val) (selected.val / 2 ^ j.val ^^^ 1) := by
+  have hpath : ∀ j : Fin 5, (sig.openings coord).path (Fin.castLE (by decide) j) =
+      treeValue (levels.take 6) (0 + j.val) (selected.val / 2 ^ j.val ^^^ 1) := by
     intro j
-    rw [hpath7, Nat.zero_add]
+    rw [hpath7, Nat.zero_add, treeValue_take_lt _ (by omega)]
     rfl
   have hends : (List.finRange 6).map (fun i => evalWithAnswerFn answers
       (chain index coord.val selected.val i.val (4 - wordDigit word i) (wordDigit word i)
@@ -532,57 +591,81 @@ theorem recoverCoordinate_honest (answers : Answers) (sig : Signature) (index : 
       List.ofFn (fun i : Fin 6 => chainEnd answers index coord.val selected.val i) := by
     simp_rw [hvalues, value_completes]
     exact List.ofFn_eq_map.symm
-  have hleaf : childRoot answers index coord.val selected.val = treeValue levels 0 selected.val := by
+  have hleaf : childRoot answers index coord.val selected.val (ftsPrev answers index coord.val).1 =
+      treeValue (levels.take 6) 0 selected.val := by
     have ht := (coordinate_treeLevels answers index coord).2.1
     unfold treeValue
-    change _ = ((heapLevels (coordNodes answers index coord)).getD 0 []).getD selected.val 0
+    change _ = (((heapLevels (coordNodes answers index coord)).take 6).getD 0 []).getD selected.val 0
     rw [ht]
-    unfold coordLeaves
+    unfold coordLeaves coordLeavesWith
     rw [List.getD_eq_getElem _ _ (by simp only [List.length_ofFn]; exact selected.isLt),
       List.getElem_ofFn]
-  have hmerkle := eval_merklePath_le answers 3 (nodeLayer coord.val) index 7 6 0 6 selected.val levels
+  have hmerkle := eval_merklePath_le answers 3 (nodeLayer coord.val) index 7 5 0 5 selected.val (levels.take 6)
     (coordLeaves answers index coord) (coordinate_treeLevels answers index coord)
     (by decide) (by decide) (by simp only [Nat.sub_zero]; exact selected.isLt)
-    (fun j => (sig.openings coord).path j.castSucc) hpath
-  have hfun : (fun (value : Digest) (level : Fin 6) => do
-      let other := (sig.openings coord).path level.castSucc
-      let pair := if selected.val / 2 ^ level.val % 2 = 0 then (value, other) else (other, value)
-      wctNodeHash coord.val index (2 ^ (6 - level.val) + selected.val / 2 ^ (level.val + 1))
-        pair.1 pair.2) =
-      (fun value j => do
-      let other := (fun j : Fin 6 => (sig.openings coord).path j.castSucc) j
-      let pair := if selected.val / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
-      nodeHash 3 (nodeLayer coord.val) index (2 ^ (7 - (0 + j.val + 1)) + selected.val / 2 ^ (j.val + 1))
-        pair.1 pair.2) := by
-    funext value j
-    have hj : 7 - (0 + j.val + 1) = 6 - j.val := by omega
-    rw [hj]
-    rfl
+    (fun j => (sig.openings coord).path (Fin.castLE (by decide) j)) hpath
   have hother : (sig.openings coord).path 6 = treeValue levels 6 (selected.val / 2 ^ 6 ^^^ 1) := hpath7 6
-  have hroot : evalWithAnswerFn answers (leafHash index coord.val selected.val
+  have hother5 : (sig.openings coord).path 5 = treeValue levels 5 (selected.val / 2 ^ 5 ^^^ 1) := hpath7 5
+  have hroot : evalWithAnswerFn answers (leafHashP index coord.val selected.val (ftsPrev answers index coord.val).1
       (List.ofFn fun i : Fin 6 => chainEnd answers index coord.val selected.val i)) =
-      treeValue levels 0 selected.val := hleaf
+      treeValue (levels.take 6) 0 selected.val := hleaf
   simp only [Nat.zero_add, show ∀ j : Nat, 7 - (j + 1) = 6 - j from fun j => by omega] at hmerkle
+  rw [treeValue_take_lt _ (by decide)] at hmerkle
+  have hq : selected.val / 2 ^ 6 < 2 := by
+    apply (Nat.div_lt_iff_lt_mul (by positivity)).mpr
+    have := selected.isLt; norm_num
+  have hpair5 : (if selected.val / 2 ^ 5 % 2 = 0 then
+      (treeValue levels 5 (selected.val / 2 ^ 5), treeValue levels 5 (selected.val / 2 ^ 5 ^^^ 1))
+      else (treeValue levels 5 (selected.val / 2 ^ 5 ^^^ 1), treeValue levels 5 (selected.val / 2 ^ 5))) =
+      (treeValue levels 5 (2 * (selected.val / 2 ^ 6)), treeValue levels 5 (2 * (selected.val / 2 ^ 6) + 1)) := by
+    rw [sibling_pair (fun n => treeValue levels 5 n), div_pow_succ]
+  have htop := coordinate_top answers index coord (selected.val / 2 ^ 6) hq
   unfold recoverCoordinate
   simp only [evalWithAnswerFn_bind, eval_mapM, evalWithAnswerFn_pure, wctNodeHash]
-  rw [hends, hroot, hmerkle, hother, order_pair levels selected.val selected.isLt]
+  rw [hends, hroot]
+  erw [hmerkle]
+  erw [hother5, hpair5, ← htop, hother, order_pair levels selected.val selected.isLt]
   have h0 := heapLevels_value (coordNodes answers index coord) 6 0 (by decide) (by decide)
   have h1 := heapLevels_value (coordNodes answers index coord) 6 1 (by decide) (by decide)
   rw [h0, h1]
   rfl
+/-- The nested coordinate fold reproduces the honest pairs coordinate by coordinate. -/
+theorem recoverFts_pairs (answers : Answers) (sig : Signature) (index : Nat)
+    (output : HashOutput)
+    (hopen : ∀ coord, sig.openings coord = expectedOpening answers index output coord) (n : Nat) (hn : n ≤ 9) :
+    evalWithAnswerFn answers (((List.finRange 9).take n).foldlM (fun (pairs : List (Digest × Digest)) coord => do
+      let pair ← recoverCoordinate sig index output coord (prevPair ftsStart pairs)
+      pure (pairs ++ [pair])) []) = (List.range n).map (fun c => ftsPrev answers index (c + 1)) := by
+  induction n with
+  | zero => rfl
+  | succ n ih =>
+    have hlt : n < 9 := by omega
+    rw [show (List.finRange 9).take (n + 1) = (List.finRange 9).take n ++ [⟨n, hlt⟩] by
+      rw [List.take_add_one, List.getElem?_eq_getElem (by simpa using hlt)]; simp]
+    rw [List.foldlM_append, evalWithAnswerFn_bind, ih (by omega)]
+    simp only [List.foldlM_cons, List.foldlM_nil, evalWithAnswerFn_bind, evalWithAnswerFn_pure, bind_pure]
+    have hprev : prevPair ftsStart ((List.range n).map (fun c => ftsPrev answers index (c + 1))) =
+        ftsPrev answers index n := by
+      cases n with
+      | zero => rfl
+      | succ m =>
+        unfold prevPair
+        rw [List.getLastD_eq_getLast?, List.getLast?_eq_getElem?]
+        simp
+    rw [hprev, recoverCoordinate_honest answers sig index output ⟨n, hlt⟩ (hopen _), List.range_succ, List.map_append]
+    rfl
 theorem recoverFts_honest (answers : Answers) (sig : Signature) (index : Nat)
     (output : HashOutput)
     (hopen : ∀ coord, sig.openings coord = expectedOpening answers index output coord) :
-    evalWithAnswerFn answers (recoverFts sig index output) =
-      evalWithAnswerFn answers (forestPk index (List.ofFn (coordinatePair answers index))) := by
-  unfold recoverFts
-  simp only [evalWithAnswerFn_bind, eval_mapM]
-  have hpairs : (List.finRange 9).map
-      (fun coord => evalWithAnswerFn answers (recoverCoordinate sig index output coord)) =
-      List.ofFn (coordinatePair answers index) := by
-    simp_rw [fun coord => recoverCoordinate_honest answers sig index output coord (hopen coord)]
-    exact List.ofFn_eq_map.symm
-  rw [hpairs]
+    evalWithAnswerFn answers (recoverFts sig index output) = ftsPrev answers index 9 := by
+  unfold recoverFts recoverFtsFrom
+  rw [evalWithAnswerFn_bind]
+  have h := recoverFts_pairs answers sig index output hopen 9 le_rfl
+  rw [List.take_of_length_le (by simp)] at h
+  rw [h, evalWithAnswerFn_pure]
+  unfold prevPair
+  rw [List.getLastD_eq_getLast?, List.getLast?_eq_getElem?]
+  simp
 theorem layerEncodingInput_forest (lay : Layer) (tree leaf : Nat) (root : Digest) (counter : BitVec 32) :
     layerEncodingInput lay tree leaf (.forest root) counter = encodingInput lay tree leaf root counter := rfl
 theorem layerCounterSearch_some_search (answers : Answers) (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) :
@@ -1261,7 +1344,8 @@ theorem expand_implies_verify (answers : Answers) (message : Message) (pk : Dige
       obtain ⟨counter, output⟩ := found
       simp only [hd, evalWithAnswerFn_bind] at he
       cases hl : evalWithAnswerFn answers (expandLayersBC sig (digestIndex output) 4
-          (.forest (evalWithAnswerFn answers (recoverFts sig (digestIndex output) output)))) with
+          (.pair (evalWithAnswerFn answers (recoverFts sig (digestIndex output) output)).1
+            (evalWithAnswerFn answers (recoverFts sig (digestIndex output) output)).2)) with
       | none => simp only [hl, evalWithAnswerFn_pure, reduceCtorEq] at he
       | some layers =>
           obtain ⟨root, counters⟩ := layers

@@ -5,14 +5,15 @@ open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Cost
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
-theorem bound_buildChildF (index coord selected : Nat) (word : Rank) (coefs : List Digest) (hcoord : coord < 9)
-    (hsel : selected < 128) :
+theorem bound_buildChildF (index coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest)
+    (hcoord : coord < 9) (hsel : selected < 128) :
     CBound (fun result : Digest × List Digest => result.2.length = 6) childCost
-      (buildChildF index coord selected word coefs) :=
-  cbound_of_ftsBound (ftsBound_buildChildF index coord selected word coefs hcoord hsel)
-theorem bound_buildCoordinateF (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
-    CBound (fun _ => True) 3481 (buildCoordinateF index coord selected word) :=
-  cbound_of_ftsBound (ftsBound_buildCoordinateF index coord selected word)
+      (buildChildF index coord selected word coefs pad) :=
+  cbound_of_ftsBound (ftsBound_buildChildF index coord selected word coefs pad hcoord hsel)
+theorem bound_buildCoordinateF (index : Nat) (coord : Coord) (selected : Child) (word : Rank)
+    (prev : Digest × Digest) :
+    CBound (fun _ => True) 3481 (buildCoordinateF index coord selected word prev) :=
+  cbound_of_ftsBound (ftsBound_buildCoordinateF index coord selected word prev)
 theorem bound_forestPk (index : Nat) (pairs : List (Digest × Digest)) (hlen : pairs.length = 9) :
     CBound (fun _ => True) 5 (WCT9.forestPk index pairs) :=
   cbound_of_ftsBound (ftsBound_forestPk index pairs hlen)
@@ -21,11 +22,12 @@ theorem bound_forestRows (index : Nat) (output : HashOutput) :
       (forestRows index output) :=
   cbound_of_ftsBound (ftsBound_forestRows index output)
 theorem bound_signForest (index : Nat) (output : HashOutput) :
-    CBound (fun result : List Opening × Digest => result.1.length = 9) 31334 (signForest index output) :=
+    CBound (fun result : List Opening × (Digest × Digest) => result.1.length = 9) 31334 (signForest index output) :=
   cbound_of_ftsBound (ftsBound_signForest index output)
-theorem bound_recoverCoordinate (sig : Signature) (index : Nat) (output : HashOutput) (coord : Coord) :
-    CBound (fun _ => True) 15 (recoverCoordinate sig index output coord) :=
-  cbound_of_ftsBound (ftsBound_recoverCoordinate index sig output coord)
+theorem bound_recoverCoordinate (sig : Signature) (index : Nat) (output : HashOutput) (coord : Coord)
+    (prev : Digest × Digest) :
+    CBound (fun _ => True) 15 (recoverCoordinate sig index output coord prev) :=
+  cbound_of_ftsBound (ftsBound_recoverCoordinate index sig output coord prev)
 theorem bound_recoverFts (sig : Signature) (index : Nat) (output : HashOutput) :
     CBound (fun _ => True) 140 (recoverFts sig index output) :=
   cbound_of_ftsBound (ftsBound_recoverFts index sig output)
@@ -456,7 +458,7 @@ theorem bound_signPayloadWith (limit : Nat) (cache : Cache) (message : Message) 
       dsimp only
       refine (bound_signForest _ output).bind' (l := layerFixedCostP 4 + 4 * counterLimit)
         (fun forest _ => ?_) (by unfold signPayloadFixed; omega)
-      refine (bound_signLayersBC cache _ 4 (.forest forest.2)).bind' (l := 0) (fun layers _ => ?_)
+      refine (bound_signLayersBC cache _ 4 (.pair forest.2.1 forest.2.2)).bind' (l := 0) (fun layers _ => ?_)
         (by omega)
       cases layers <;> exact .pure _ 0 trivial
 theorem bound_signWith (limit : Nat) (cache : Cache) (message : Message) :
@@ -478,7 +480,7 @@ theorem bound_verifyWith (limit : Nat) (message : Message) (pk : Digest) (w : Wi
     split
     · exact .pure _ _ trivial
     · refine (bound_recoverFts w.signature _ output).bind' (l := 585) (fun root _ => ?_) (by decide)
-      refine (bound_verifyLayersBC w _ 4 (.forest root)).bind' (l := 0) (fun r _ => ?_)
+      refine (bound_verifyLayersBC w _ 4 (.pair root.1 root.2)).bind' (l := 0) (fun r _ => ?_)
         (by have := verifyLayersCostBC_four_le; omega)
       cases r <;> exact .pure _ 0 trivial
 theorem bound_expandWith (limit : Nat) (message : Message) (pk : Digest) (sig : Signature) :
@@ -493,7 +495,7 @@ theorem bound_expandWith (limit : Nat) (message : Message) (pk : Digest) (sig : 
       dsimp only
       refine (bound_recoverFts sig _ output).bind' (l := 4 * counterLimit + 481)
         (fun root _ => ?_) (by omega)
-      refine (bound_expandLayersBC sig _ 4 (.forest root)).bind' (l := 0)
+      refine (bound_expandLayersBC sig _ 4 (.pair root.1 root.2)).bind' (l := 0)
         (fun layers _ => ?_) (by have := recoveryLayersCostBC_four_le; omega)
       cases layers with
       | none => exact .pure _ 0 trivial

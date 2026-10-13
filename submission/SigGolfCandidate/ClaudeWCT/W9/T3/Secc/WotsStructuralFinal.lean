@@ -106,8 +106,8 @@ theorem honestPair_variant (hv : Variant labels T T') (lay : Layer) (tree : Nat)
   unfold Extract.honestPair
   rw [key, key]
 theorem honestForest_variant (hv : Variant labels T T') (index : Nat) (hindex : index < 2 ^ 31) :
-    Extract.honestForest T index = Extract.honestForest T' index := by
-  rw [Extract.honestForest_eq_wct9, Extract.honestForest_eq_wct9,
+    Extract.honestTop T index = Extract.honestTop T' index := by
+  rw [Extract.honestTop_eq_wct9, Extract.honestTop_eq_wct9,
     ← ClaudeWCT.WCT9.signForest_root T index 0, ← ClaudeWCT.WCT9.signForest_root T' index 0,
     (hv.congr (sat_signForest T index hindex 0)).1]
 theorem leafMsg_variant (hv : Variant labels T T') (L : LeafAddr) (htree : L.tree < 2 ^ Extract.treeBits L.lay)
@@ -159,7 +159,35 @@ def TraceInUniverse (adversary : AdversaryP) (q : Nat) : Prop :=
 def StructuralHitIn (inputs : Finset HashInput) (answers : Answers) (trace : List Entry) : Prop :=
   ∃ position input answer, (input, answer) ∈ trace ∧ input ∈ inputs ∧ Extract.posOf input = some position ∧
     position.Bounded ∧ WotsExtract.PosSource position ∧ StructuralClass answers input position ∧
-    HashHit answers (Extract.honestInput answers position) input
+    Extract.HashHitAt answers position (Extract.honestInput answers position) input
+/-- The two 128-bit halves of an output, swapped. -/
+noncomputable def swapHalves : SphincsSecurity.HashOutput ≃ SphincsSecurity.HashOutput :=
+  ((SphincsSecurity.splitHashOutputEquiv 128 (by decide)).trans (Equiv.prodComm _ _)).trans
+    (SphincsSecurity.splitHashOutputEquiv 128 (by decide)).symm
+theorem truncate_swapHalves (a : SphincsSecurity.HashOutput) : SphincsSecurity.truncateHash (swapHalves a) = a.extractLsb' 128 128 := by
+  have h := Equiv.apply_symm_apply (SphincsSecurity.splitHashOutputEquiv 128 (by decide))
+    ((Equiv.prodComm _ _) (SphincsSecurity.splitHashOutputEquiv 128 (by decide) a))
+  exact congrArg Prod.fst h
+/-- The high half of a uniform output is uniform (nested FTS r1-1: the top FTS values are high halves). -/
+theorem prob_high_eq (target : SphincsSecurity.Digest) :
+    Pr[fun answer : HashOutput => answer.extractLsb' 128 128 = target | PMF.uniformOfFintype HashOutput] =
+      (Fintype.card SphincsSecurity.Digest : ℝ≥0∞)⁻¹ := by
+  rw [← SphincsSecurity.Concrete.HiddenLabelProbe.prob_truncate_eq target]
+  simp only [probEvent_eq_tsum_ite, PMF.probOutput_eq_apply, PMF.uniformOfFintype_apply]
+  conv_rhs => rw [← swapHalves.tsum_eq]
+  simp only [truncate_swapHalves]
+  rfl
+/-- The used half of a uniform output is uniform at every position. -/
+theorem prob_proj_eq (p : Extract.Pos) (target : SphincsSecurity.Digest) :
+    Pr[fun answer : HashOutput => p.proj answer = target | PMF.uniformOfFintype HashOutput] =
+      (Fintype.card SphincsSecurity.Digest : ℝ≥0∞)⁻¹ := by
+  cases p with
+  | wctNode i c l n =>
+      by_cases hl : l = 5
+      · simp only [Extract.Pos.proj, if_pos hl]; exact prob_high_eq target
+      · simp only [Extract.Pos.proj, if_neg hl]
+        exact SphincsSecurity.Concrete.HiddenLabelProbe.prob_truncate_eq target
+  | _ => exact SphincsSecurity.Concrete.HiddenLabelProbe.prob_truncate_eq target
 namespace Structural
 open SigGolfCandidate.T3.Security.Wots.Structural
 open ClaudeWCT.W9.T3.Security.CanonGraph (Node Labels Secrets OtherHalves cell programmed canonInputs privateEquiv)
@@ -295,7 +323,8 @@ theorem strTable_variant (ρ ρ' : strRows V s labels → HashOutput) :
     rw [secretsOf_strTable] at this
     exact hne this
 def strHit (T0 : Answers) (x : HashInput) (a : HashOutput) : Prop :=
-  x ∈ strRows V s labels ∧ OtherInput T0 x ∧ ∃ node : Node, Extract.posOf x = some node.toPos ∧ low a = low (labels node)
+  x ∈ strRows V s labels ∧ OtherInput T0 x ∧ ∃ node : Node, Extract.posOf x = some node.toPos ∧
+    node.toPos.proj a = node.toPos.proj (labels node)
 theorem strHit_kernel (T0 : Answers) (x : HashInput) (hx : x ∈ strRows V s labels) :
     Pr[strHit V s labels T0 x | (liftM (PMF.uniformOfFintype HashOutput) : SPMF HashOutput)] ≤
       (2 ^ 128 : ℝ≥0∞)⁻¹ * (if OtherInput T0 x then 1 else 0 : ℝ≥0∞) := by
@@ -303,7 +332,7 @@ theorem strHit_kernel (T0 : Answers) (x : HashInput) (hx : x ∈ strRows V s lab
   · rw [if_pos hO, mul_one]
     obtain ⟨-, node₀, hpos₀, -⟩ := (mem_strRows V s labels x).mp hx
     calc Pr[strHit V s labels T0 x | (liftM (PMF.uniformOfFintype HashOutput) : SPMF HashOutput)]
-        ≤ Pr[fun a : HashOutput => SphincsSecurity.truncateHash a = low (labels node₀) |
+        ≤ Pr[fun a : HashOutput => node₀.toPos.proj a = node₀.toPos.proj (labels node₀) |
             PMF.uniformOfFintype HashOutput] := by
           apply probEvent_mono
           rintro a - ⟨-, -, node, hpos, hlow⟩
@@ -312,7 +341,7 @@ theorem strHit_kernel (T0 : Answers) (x : HashInput) (hx : x ∈ strRows V s lab
           subst hn
           exact hlow
       _ = (2 ^ 128 : ℝ≥0∞)⁻¹ := by
-          have h := SphincsSecurity.Concrete.HiddenLabelProbe.prob_truncate_eq (low (labels node₀))
+          have h := prob_proj_eq node₀.toPos (node₀.toPos.proj (labels node₀))
           rw [card_digest] at h
           exact h
   · have hz : Pr[strHit V s labels T0 x | (liftM (PMF.uniformOfFintype HashOutput) : SPMF HashOutput)] = 0 :=
@@ -334,7 +363,7 @@ theorem hit_bridge (ρ : strRows V s labels → HashOutput) (qs : List RefWorld.
     refine ⟨node, hpos, ?_⟩
     have ha : a = strTable V hU s o labels rest ρ (.inl (.inr x)) := mem_traceOf hmem
     rw [CanonGraph.honest_answer (strTable_agrees V hU s o labels rest ρ)] at hlow
-    change low a = low (labels node)
+    change node.toPos.proj a = node.toPos.proj (labels node)
     rw [ha]
     exact hlow
 theorem count_bridge (ρ : strRows V s labels → HashOutput) (pk : Digest) (trace : List Entry) :

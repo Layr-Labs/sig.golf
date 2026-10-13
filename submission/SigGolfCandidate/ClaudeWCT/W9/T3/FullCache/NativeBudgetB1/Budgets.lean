@@ -73,7 +73,7 @@ section
 section
 namespace ClaudeWCT.W9.T3.Correctness
 open OracleComp OracleSpec
-open ClaudeWCT.WCT9 (Signature Witness digestAttemptLimit honestForest eval_signForest)
+open ClaudeWCT.WCT9 (Signature Witness digestAttemptLimit honestTop eval_signForest)
 open ClaudeWCT.WCT9.Rev3 (sign expand verify signPayload)
 open SigGolfCandidate.T3 hiding Signature Witness sign expand verify signPayload digestSearch admissible
 open SigGolfCandidate.T3.Correctness (Answers DigestFamily KeygenCorrect)
@@ -156,7 +156,8 @@ theorem signPayload_succeeds (answers : Answers) (cache : Cache) (message : Mess
   rw [ClaudeWCT.WCT9.Rev3.signPayload_eq]
   simp only [evalWithAnswerFn_bind, hd, eval_signForest]
   obtain ⟨pieces, hp⟩ := signLayersBC_succeeds answers cache (ClaudeWCT.WCT9.digestIndex output)
-    (ClaudeWCT.WCT9.digestIndex_lt output) hgood.2 4 (.forest (honestForest answers (ClaudeWCT.WCT9.digestIndex output)))
+    (ClaudeWCT.WCT9.digestIndex_lt output) hgood.2 4 (.pair (honestTop answers (ClaudeWCT.WCT9.digestIndex output)).1
+      (honestTop answers (ClaudeWCT.WCT9.digestIndex output)).2)
   simp only [hp, evalWithAnswerFn_pure]
   exact ⟨_, rfl⟩
 def SigningComplete (answers : Answers) (keys : Digest × Cache) : Prop :=
@@ -211,7 +212,8 @@ theorem signPayload_succeedsFor (answers : Answers) (cache : Cache) (message : M
   rw [ClaudeWCT.WCT9.Rev3.signPayload_eq]
   simp only [evalWithAnswerFn_bind, hd, eval_signForest]
   obtain ⟨pieces, hp⟩ := signLayersBC_succeeds answers cache (ClaudeWCT.WCT9.digestIndex output)
-    (ClaudeWCT.WCT9.digestIndex_lt output) hgood.2 4 (.forest (honestForest answers (ClaudeWCT.WCT9.digestIndex output)))
+    (ClaudeWCT.WCT9.digestIndex_lt output) hgood.2 4 (.pair (honestTop answers (ClaudeWCT.WCT9.digestIndex output)).1
+      (honestTop answers (ClaudeWCT.WCT9.digestIndex output)).2)
   simp only [hp, evalWithAnswerFn_pure]
   exact ⟨_, rfl⟩
 theorem signing_complete_for_of_searches (answers : Answers) (keys : Digest × Cache)
@@ -234,7 +236,8 @@ theorem signPayload_succeedsSelected (answers : Answers) (cache : Cache) (messag
   rw [ClaudeWCT.WCT9.Rev3.signPayload_eq]
   simp only [evalWithAnswerFn_bind, hd, eval_signForest]
   obtain ⟨pieces, hp⟩ := signLayersBC_succeeds answers cache (ClaudeWCT.WCT9.digestIndex output)
-    (ClaudeWCT.WCT9.digestIndex_lt output) hgood.2 4 (.forest (honestForest answers (ClaudeWCT.WCT9.digestIndex output)))
+    (ClaudeWCT.WCT9.digestIndex_lt output) hgood.2 4 (.pair (honestTop answers (ClaudeWCT.WCT9.digestIndex output)).1
+      (honestTop answers (ClaudeWCT.WCT9.digestIndex output)).2)
   simp only [hp, evalWithAnswerFn_pure]
   exact ⟨_, rfl⟩
 theorem signing_complete_of_selected_searches (answers : Answers) (keys : Digest × Cache)

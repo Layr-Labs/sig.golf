@@ -495,22 +495,4 @@ theorem probability_lower_encoding (p : Digest → Prop) [DecidablePred p]
   apply (ENNReal.div_eq_div_iff (by norm_num) (by finiteness) (by norm_num) (by finiteness)).2
   norm_num
 
-open ENNReal in
-theorem probability_top_encoding_le (p : Digest → Prop) [DecidablePred p] :
-    Pr[p ∘ TopDualHalf.select | ($ᵗ HashOutput : ProbComp HashOutput)] ≤
-      ((Finset.univ.filter p).card : ENNReal) * (7 / ((4 : ENNReal) * 2^128)) := by
-  rw [probEvent_uniformSample]
-  change ((Finset.univ.filter fun a : HashOutput => p (TopDualHalf.select a)).card : ENNReal) /
-    (Fintype.card HashOutput : ENNReal) ≤ _
-  have hc : ((Finset.univ.filter fun a : HashOutput => p (TopDualHalf.select a)).card : ENNReal) ≤
-      ((Finset.univ.filter p).card * (7 * 2^126) : Nat) := by
-    exact_mod_cast TopDualHalf.card_select_pred_le p
-  calc _ ≤ ((Finset.univ.filter p).card * (7 * 2^126) : Nat) / (Fintype.card HashOutput : ENNReal) :=
-      ENNReal.div_le_div_right hc _
-    _ = _ := by
-      rw [Fintype.card_bitVec, Nat.cast_mul, mul_div_assoc]
-      congr 1
-      apply (ENNReal.div_eq_div_iff (by norm_num) (by finiteness) (by norm_num) (by finiteness)).2
-      norm_num
-
 end ClaudeWCT.WCT9

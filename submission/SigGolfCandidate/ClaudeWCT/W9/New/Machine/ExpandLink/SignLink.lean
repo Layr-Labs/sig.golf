@@ -73,7 +73,7 @@ theorem wct_unchanged_v7 :
   · intro sk cache m index root s hp hi
     have hs := Sign.Packed.layers_from370_canonical ClaudeWCT.W9.Machine.Sign.PackedLeaf.packedLeafSpecV
       ClaudeWCT.W9.Machine.Sign.TopLeafP.topLeafSpec
-      hp.pc hi.1 hp.hidx hp.idx hp.root (by rw [hi.2.1]; decide) (by exact ⟨hi.2.2.1, hi.2.2.2⟩)
+      hp.pc hi.1 hp.hidx hp.idx hp.root (by rw [hi.2]; decide) hp.right
     refine TBSim.mono hs (by rw [Sign.Packed.layers_entry_cost]; decide) (fun r u hu => ?_)
     cases r with
     | none => exact ⟨hu.pc, hu.x5, hu.x10⟩
@@ -85,8 +85,7 @@ theorem signCode_drop_v7 : Images.signImage.code.drop 11003 = signNew ++ Images.
   decide +kernel
 set_option maxHeartbeats 0 in
 theorem wct_signCodeAt_v7 : SignCodeAt Images.signImage := by
-  refine ⟨?_, ?_⟩
-  · exact ⟨_, signCode_drop_v7.symm⟩
+  refine ⟨⟨⟨_, signCode_drop_v7.symm⟩, ⟨Images.signImage.code.drop 21667, by decide +kernel⟩⟩, ?_⟩
   · -- [h2 lane] the fourth hook: the sign prepass tail at 20813
     exact ⟨by decide +kernel, by decide +kernel, by decide +kernel, ⟨Images.signImage.code.drop 20832, by decide +kernel⟩⟩
 theorem wct_sign_certified_v7 :

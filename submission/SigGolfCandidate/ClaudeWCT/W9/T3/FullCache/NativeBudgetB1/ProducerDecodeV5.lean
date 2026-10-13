@@ -100,13 +100,13 @@ theorem truncated_card (cut : Nat) (hc : 0 < cut) :
     Nat.mod_eq_of_lt ((Finset.card_filter_le _ _).trans_lt (by simpa using word_card_small))]
 
 theorem card_model_of_check (n : Nat)
-    (h : (packed % radix ^ 37376) % (radix - 1) -
-      (packed % radix ^ 37153) % (radix - 1) = n) :
-    (univ.filter fun w : Codec.Word => weight w = 145 ∧ 33 ≤ score w).card = n := by
+    (h : (packed % radix ^ 37120) % (radix - 1) -
+      (packed % radix ^ 36897) % (radix - 1) = n) :
+    (univ.filter fun w : Codec.Word => weight w = 144 ∧ 33 ≤ score w).card = n := by
   classical
-  have hs : (univ.filter fun w : Codec.Word => weight w = 145 ∧ 33 ≤ score w) =
-      (univ.filter fun w : Codec.Word => stat w < 37376) \
-        (univ.filter fun w : Codec.Word => stat w < 37153) := by
+  have hs : (univ.filter fun w : Codec.Word => weight w = 144 ∧ 33 ≤ score w) =
+      (univ.filter fun w : Codec.Word => stat w < 37120) \
+        (univ.filter fun w : Codec.Word => stat w < 36897) := by
     ext w
     have hc := score_le w
     have he := stat_eq w
@@ -127,103 +127,16 @@ set_option exponentiation.threshold 100000
 set_option Elab.async false
 set_option linter.constructorNameAsVariable false
 
-def count : Nat := 83400240069434534984140569709320435
+def count : Nat := 108748758769815106304379195138950542
 
 theorem exact_packed_count :
-    (packed % radix ^ 37376) % (radix - 1) -
-      (packed % radix ^ 37153) % (radix - 1) = count := by
+    (packed % radix ^ 37120) % (radix - 1) -
+      (packed % radix ^ 36897) % (radix - 1) = count := by
   decide +kernel
 
 theorem card_model :
-    (univ.filter fun w : Codec.Word => weight w = 145 ∧ 33 ≤ score w).card = count :=
+    (univ.filter fun w : Codec.Word => weight w = 144 ∧ 33 ≤ score w).card = count :=
   card_model_of_check count exact_packed_count
-
-
-/-- The half gate is the high bit of top chain 52. -/
-def gateWord (w : Codec.Word) : Prop := 4 ≤ (w.2 1).val
-instance (w : Codec.Word) : Decidable (gateWord w) := inferInstanceAs (Decidable (4 ≤ (w.2 1).val))
-def gateStat8 (d : Triple8) : Nat := stat8 d + 65536 * if 4 ≤ (d 1).val then 1 else 0
-def gateStat (w : Codec.Word) : Nat :=
-  (∑ q : Fin 17, stat5 (decide (q.val = 0)) (hasPenalty q) (w.1 q)) + gateStat8 w.2
-
-theorem gateStat_eq (w : Codec.Word) :
-    gateStat w = 256 * weight w + score w + 65536 * if gateWord w then 1 else 0 := by
-  have h := stat_eq w
-  by_cases hg : gateWord w
-  · have hg' : 4 ≤ (w.2 1).val := hg
-    simp only [gateStat, gateStat8, if_pos hg', if_pos hg]
-    simpa only [stat, Nat.add_assoc] using congrArg (fun n : Nat => n + 65536) h
-  · have hg' : ¬4 ≤ (w.2 1).val := hg
-    simp only [gateStat, gateStat8, if_neg hg', if_neg hg, Nat.mul_zero, Nat.add_zero]
-    exact h
-
-theorem weight_le_225 (w : Codec.Word) : weight w ≤ 225 := by
-  have h5 (d : Triple5) : tripleSum5 d ≤ 12 := by revert d; decide +kernel
-  have h8 (d : Triple8) : tripleSum8 d ≤ 21 := by revert d; decide +kernel
-  have hs := Finset.sum_le_sum (fun q (_ : q ∈ (Finset.univ : Finset (Fin 17))) => h5 (w.1 q))
-  have ht := h8 w.2
-  simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, smul_eq_mul] at hs
-  unfold weight
-  omega
-
-def gateGroup8 (y : Nat) : Nat := ∑ d : Triple8, y ^ gateStat8 d
-def gatePacked : Nat := group5 radix true true * group5 radix false true ^ 11 *
-  group5 radix false false ^ 5 * gateGroup8 radix
-
-theorem gate_weighted_words (y : Nat) :
-    (∑ w : Codec.Word, y ^ gateStat w) =
-      group5 y true true * group5 y false true ^ 11 * group5 y false false ^ 5 * gateGroup8 y := by
-  rw [Fintype.sum_prod_type]
-  simp only [gateStat, pow_add]
-  rw [← Finset.sum_mul_sum]
-  have h : (∑ f : Fin 17 → Triple5,
-      y ^ (∑ q : Fin 17, stat5 (decide (q.val = 0)) (hasPenalty q) (f q))) =
-      ∏ q : Fin 17, group5 y (decide (q.val = 0)) (hasPenalty q) := by
-    simpa only [group5, ← Finset.prod_pow_eq_pow_sum] using
-      (Fintype.prod_sum fun (q : Fin 17) (d : Triple5) =>
-        y ^ stat5 (decide (q.val = 0)) (hasPenalty q) d).symm
-  rw [h]
-  change (∏ q : Fin 17, group5 y (decide (q.val = 0)) (hasPenalty q)) * gateGroup8 y = _
-  norm_num [Fin.prod_univ_succ, hasPenalty]
-  ring_nf
-  simp
-
-theorem gate_truncated_card (cut : Nat) (hc : 0 < cut) :
-    (univ.filter fun w : Codec.Word => gateStat w < cut).card =
-      (gatePacked % radix ^ cut) % (radix - 1) := by
-  classical
-  unfold gatePacked
-  rw [← gate_weighted_words radix]
-  symm
-  rw [SigGolfResearch.Gate6.mod_pow_sum_generic hc _ gateStat
-      (by simpa only [Finset.card_univ] using Nat.lt_of_lt_of_le word_card_small (Nat.sub_le _ _)),
-    SigGolfResearch.Gate6.sum_pow_mod_pred_generic (by norm_num [radix]),
-    Nat.mod_eq_of_lt ((Finset.card_filter_le _ _).trans_lt (by simpa using word_card_small))]
-
-def gateCount : Nat := 63440602704496645076755857690454972
-
-theorem gate_exact_packed_count :
-    (gatePacked % radix ^ 102912) % (radix - 1) -
-      (gatePacked % radix ^ 102689) % (radix - 1) = gateCount := by
-  decide +kernel
-
-theorem gate_card_model :
-    (univ.filter fun w : Codec.Word => weight w = 145 ∧ 33 ≤ score w ∧ gateWord w).card = gateCount := by
-  classical
-  have hs : (univ.filter fun w : Codec.Word => weight w = 145 ∧ 33 ≤ score w ∧ gateWord w) =
-      (univ.filter fun w : Codec.Word => gateStat w < 102912) \
-        (univ.filter fun w : Codec.Word => gateStat w < 102689) := by
-    ext w
-    have hc := score_le w
-    have hw := weight_le_225 w
-    have he := gateStat_eq w
-    simp only [mem_filter, mem_univ, true_and, mem_sdiff]
-    by_cases hg : gateWord w <;> simp [hg] at he ⊢ <;> omega
-  rw [hs, card_sdiff_of_subset]
-  · rw [gate_truncated_card _ (by decide), gate_truncated_card _ (by decide), gate_exact_packed_count]
-  · intro w hw
-    simp only [mem_filter, mem_univ, true_and] at hw ⊢
-    omega
 
 end SigGolfResearch.NonbinaryTop.EffectiveCounting
 
@@ -621,7 +534,7 @@ noncomputable def producerCount (lay : Layer) : ℕ :=
   (univ.filter fun v : Digest => (producerDecode lay v).isSome).card
 
 def producerCountUpper (lay : Layer) : ℕ :=
-  ![91088036708222302737139366458447855,
+  ![120395144243333064396508109237386055,
     58782472808233403853217196834292020,
     46428947739236900406585478288441112,
     46428947739236900406585478288441112] lay
@@ -640,7 +553,7 @@ theorem producerCount_le_upper (lay : Layer) : producerCount lay ≤ producerCou
     exact Option.isSome_iff_exists.mpr ⟨ds, ClaudeWCT.WCT9.producerDecode_decode hd⟩
   fin_cases lay
   · change (univ.filter fun v : Digest => (producerDecode 0 v).isSome).card ≤ Counting.count
-    rw [card_producer_top 145 21 _ rfl rfl rfl]
+    rw [card_producer_top 144 21 _ rfl rfl rfl]
     rw [← Counting.accepted_card]
     apply Finset.card_le_card
     intro w hw
@@ -655,120 +568,32 @@ theorem producerDecode_lowerSpare (lay : Layer) (hl : lay ≠ 0) (v : Digest)
   obtain ⟨ds, hd⟩ := Option.isSome_iff_exists.mp hv
   exact decode_lowerSpare hl (ClaudeWCT.WCT9.producerDecode_decode hd)
 
-noncomputable def producerGateCount (lay : Layer) : ℕ :=
-  (univ.filter fun v : Digest => (producerDecode lay v).isSome ∧ TopDualHalf.gate v).card
-
-/-- Top selected density numerator; lower numerators retain their original meaning. -/
-noncomputable def producerSelectedCount (lay : Layer) : ℕ :=
-  if lay = 0 then producerCount lay + 2 * producerGateCount lay else producerCount lay
-
-section SelectedCardinality
-attribute [local irreducible] producerCount producerGateCount producerSelectedCount
-
-theorem producer_top_answer_card :
-    (univ.filter fun a : HashOutput => (producerEncodingDecode 0 a).isSome).card =
-      (univ.filter fun a : HashOutput => (producerDecode 0 (TopDualHalf.select a)).isSome).card := by
-  apply congrArg Finset.card
-  ext a
-  simp only [mem_filter, mem_univ, true_and, producerEncodingDecode,
-    ClaudeWCT.WCT9.encodingAnswer, if_pos rfl, if_true]
-
-theorem producer_lower_answer_card (lay : Layer) (hl : lay ≠ 0) :
-    (univ.filter fun a : HashOutput => (producerEncodingDecode lay a).isSome).card =
-      (univ.filter fun a : HashOutput => (producerDecode lay (DualHalf.select a)).isSome).card := by
-  apply congrArg Finset.card
-  ext a
-  simp only [mem_filter, mem_univ, true_and, producerEncodingDecode,
-    ClaudeWCT.WCT9.encodingAnswer, if_neg hl]
-
-theorem producer_gate_card (lay : Layer) :
-    (univ.filter fun value : Digest =>
-      (producerDecode lay value).isSome ∧ TopDualHalf.gate value).card = producerGateCount lay := by
-  unfold producerGateCount
-  apply congrArg Finset.card
-  ext value
-  simp only [mem_filter, mem_univ, true_and]
-
-theorem producer_raw_card (lay : Layer) :
-    (univ.filter fun value : Digest =>
-      (producerDecode lay value).isSome).card = producerCount lay := by
-  unfold producerCount
-  apply congrArg Finset.card
-  ext value
-  simp only [mem_filter, mem_univ, true_and]
-
-theorem selected_top_arithmetic (n g : Nat) :
-    g * 2^128 + 2^127 * n = (n + 2 * g) * 2^127 := by
-  rw [show (2 : ℕ)^128 = 2 * 2^127 by norm_num]
-  ring
-
-theorem selected_top_count_transport (p : Digest → Prop) [DecidablePred p]
-    (n g : Nat) (hn : (univ.filter p).card = n)
-    (hg : (univ.filter fun d => p d ∧ TopDualHalf.gate d).card = g) :
-    (univ.filter fun a : HashOutput => p (TopDualHalf.select a)).card = (n + 2*g)*2^127 := by
-  have hc := TopDualHalf.card_select_pred p
-  have hcounts := congrArg₂ (fun g n : Nat => g * 2^128 + 2^127 * n) hg hn
-  exact (hc.trans hcounts).trans (selected_top_arithmetic n g)
-
-theorem selected_lower_count_transport (p : Digest → Prop) [DecidablePred p]
-    (n : Nat) (hn : (univ.filter p).card = n) (hp : ∀ d, p d → lowerSpare d) :
-    (univ.filter fun a : HashOutput => p (DualHalf.select a)).card = n * (7*2^126) := by
-  have hc := DualHalf.card_select_pred p hp
-  exact hc.trans (congrArg (fun n : Nat => n * (7 * 2^126)) hn)
-
-theorem producer_top_selected_card :
-    (univ.filter fun a : HashOutput => (producerDecode 0 (TopDualHalf.select a)).isSome).card =
-      (producerCount 0 + 2 * producerGateCount 0) * 2^127 := by
-  exact selected_top_count_transport (fun value => (producerDecode 0 value).isSome)
-    (producerCount 0) (producerGateCount 0) (producer_raw_card 0) (producer_gate_card 0)
-
-theorem producer_lower_selected_card (lay : Layer) (hl : lay ≠ 0) :
-    (univ.filter fun a : HashOutput => (producerDecode lay (DualHalf.select a)).isSome).card =
-      producerCount lay * (7 * 2^126) := by
-  exact selected_lower_count_transport (fun value => (producerDecode lay value).isSome)
-    (producerCount lay) (producer_raw_card lay) (producerDecode_lowerSpare lay hl)
-
-theorem producerSelectedCount_eq (lay : Layer) :
-    producerSelectedCount lay =
-      if lay = 0 then producerCount lay + 2 * producerGateCount lay else producerCount lay := by
-  unfold producerSelectedCount
-  rfl
-
-theorem producerSelectedCount_lower (lay : Layer) (hl : lay ≠ 0) :
-    producerSelectedCount lay = producerCount lay :=
-  (producerSelectedCount_eq lay).trans (if_neg hl)
-
-theorem selected_count_cases (c n g s : Layer → Nat)
-    (hs : ∀ lay, s lay = if lay = 0 then n lay + 2 * g lay else n lay)
-    (h0 : c 0 = (n 0 + 2 * g 0) * 2^127)
-    (hlo : ∀ lay, lay ≠ 0 → c lay = n lay * (7 * 2^126)) (lay : Layer) :
-    c lay = s lay * (if lay = 0 then 2^127 else 7 * 2^126) := by
-  rw [hs]
-  by_cases hl : lay = 0
-  · subst lay
-    simpa only [if_pos rfl, if_true] using h0
-  · simpa only [if_neg hl] using hlo lay hl
-
 theorem card_producerEncodingDecode (lay : Layer) :
     (univ.filter fun a : HashOutput => (producerEncodingDecode lay a).isSome).card =
-      producerSelectedCount lay * (if lay = 0 then 2^127 else 7*2^126) := by
-  exact selected_count_cases
-    (fun lay => (univ.filter fun a : HashOutput => (producerEncodingDecode lay a).isSome).card)
-    producerCount producerGateCount producerSelectedCount producerSelectedCount_eq
-    (producer_top_answer_card.trans producer_top_selected_card)
-    (fun l hl => (producer_lower_answer_card l hl).trans (producer_lower_selected_card l hl)) lay
-
-end SelectedCardinality
+      producerCount lay * (if lay = 0 then 2^128 else 7*2^126) := by
+  classical
+  by_cases hl : lay = 0
+  · have he : producerEncodingDecode lay = fun a => producerDecode lay (a.extractLsb' 0 128) := by
+      funext a
+      simp only [producerEncodingDecode, ClaudeWCT.WCT9.encodingAnswer, if_pos hl]
+    rw [he, if_pos hl]
+    unfold producerCount
+    exact SphincsSecurity.Completeness.card_filter_low (n := 256) (w := 128) (by decide)
+      (fun value => (producerDecode lay value).isSome)
+  · have hc := DualHalf.card_select_pred (fun value => (producerDecode lay value).isSome)
+      (producerDecode_lowerSpare lay hl)
+    simpa only [producerEncodingDecode, ClaudeWCT.WCT9.encodingAnswer,
+      if_neg hl, producerCount] using hc
 
 theorem producer_uniform_probability (lay : Layer) :
     Pr[fun answer => (producerEncodingDecode lay answer).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      (producerSelectedCount lay : ENNReal) * (if lay = 0 then 2^127 else 7*2^126) / 2^256 := by
+      (producerCount lay : ENNReal) * (if lay = 0 then 2^128 else 7*2^126) / 2^256 := by
   classical
   rw [probEvent_uniformSample, card_producerEncodingDecode]
   simp only [Fintype.card_bitVec, Nat.cast_mul, Nat.cast_pow, Nat.cast_ofNat, Nat.cast_ite]
 
 noncomputable def producerRate (lay : Layer) : ℝ :=
-  (producerSelectedCount lay : ℝ) * (if lay = 0 then 2^127 else 7*2^126) / 2^256
+  (producerCount lay : ℝ) * (if lay = 0 then 2^128 else 7*2^126) / 2^256
 
 theorem producerRate_nonneg (lay : Layer) : 0 ≤ producerRate lay := by
   unfold producerRate
@@ -875,47 +700,12 @@ theorem top_effective_score_iff (w : Codec.Word) :
   have h := top_score_add_penalty w
   omega
 
-theorem producerCount_top_exact : producerCount 0 = 83400240069434534984140569709320435 := by
+theorem producerCount_top_exact : producerCount 0 = 108748758769815106304379195138950542 := by
   change (univ.filter fun v : Digest => (producerDecode 0 v).isSome).card = _
-  apply card_producer_top 145 21 _ rfl rfl
+  apply card_producer_top 144 21 _ rfl rfl
   convert EffectiveCounting.card_model using 1
   · exact congrArg Finset.card (filter_congr fun w _ => by rw [top_effective_score_iff])
   · rfl
-
-
-theorem gate_of_top_parse {v : Digest} {w : Codec.Word}
-    (hw : Decoder.parse 17 (topFlip v).toNat = some w) :
-    TopDualHalf.gate v ↔ EffectiveCounting.gateWord w := by
-  have hd := SigGolfCandidate.T3.Nonbinary.coreDigit_parse8 hw (1 : Fin 3)
-  change topCode v / 2 ^ 125 % 8 = (w.2 1).val at hd
-  rw [topCode_div_high v 125 (by decide)] at hd
-  have hv := v.isLt
-  unfold TopDualHalf.gate EffectiveCounting.gateWord
-  norm_num at hd hv ⊢
-  omega
-
-theorem producerGateCount_top_exact :
-    producerGateCount 0 = 63440602704496645076755857690454972 := by
-  classical
-  rw [show (63440602704496645076755857690454972 : Nat) = EffectiveCounting.gateCount from rfl,
-    ← EffectiveCounting.gate_card_model, ← ClaudeWCT.Numerics.TopCredit.card_parse_filter]
-  unfold producerGateCount
-  refine Finset.card_equiv topFlipEquiv fun v => ?_
-  simp only [mem_filter, mem_univ, true_and]
-  change ((producerDecode 0 v).isSome ∧ TopDualHalf.gate v) ↔
-    ∃ w, Decoder.parse 17 (topFlip v).toNat = some w ∧
-      Counting.weight w = 145 ∧ 33 ≤ EffectiveCounting.score w ∧ EffectiveCounting.gateWord w
-  rw [producerDecode_top_isSome_iff]
-  constructor
-  · rintro ⟨⟨w, hw, ht, hc⟩, hg⟩
-    exact ⟨w, hw, ht, (top_effective_score_iff w).mpr hc, (gate_of_top_parse hw).mp hg⟩
-  · rintro ⟨w, hw, ht, hc, hg⟩
-    exact ⟨⟨w, hw, ht, (top_effective_score_iff w).mp hc⟩, (gate_of_top_parse hw).mpr hg⟩
-
-theorem producerSelectedCount_top_exact :
-    producerSelectedCount 0 = 210281445478427825137652285090230379 := by
-  simp only [producerSelectedCount, if_pos rfl, producerCount_top_exact, producerGateCount_top_exact]
-  norm_num
 
 end ClaudeWCT.W9.T3.ProducerV5
 
@@ -1135,46 +925,34 @@ open ClaudeWCT.WCT9 (searchLimit)
 set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
 def producerCountLower (lay : Layer) : Nat :=
-  ![210281445478427825137652285090230379,
+  ![108748758769815106304379195138950542,
     54408112790925688753987891000775297,
     44444210514614632453013305786840214,
     44444210514614632453013305786840214] lay
 
-theorem producerCount_lower_model (l : Layer) (hl : l ≠ 0) :
-    SigGolfResearch.LowerEffectiveCounting.count (target l) (ClaudeWCT.WCT9.producerFloor l) ≤
-      producerCount l :=
-  card_producer_lower l hl _ (SigGolfResearch.LowerEffectiveCounting.card_lowerProducerAccept_model l hl)
-
-section SelectedLowerBounds
-attribute [local irreducible] producerCount producerGateCount producerSelectedCount
-
-/-- Lower bounds for the selected-density numerators; the top includes its gated low-half contribution. -/
-theorem producerCount_ge (lay : Layer) : producerCountLower lay ≤ producerSelectedCount lay := by
+/-- Accepted 128-bit words, before the selected-half preimage multiplier. -/
+theorem producerCount_ge (lay : Layer) : producerCountLower lay ≤ producerCount lay := by
+  have hlo (l : Layer) (hl : l ≠ 0) :
+      SigGolfResearch.LowerEffectiveCounting.count (target l) (ClaudeWCT.WCT9.producerFloor l) ≤
+        producerCount l :=
+    card_producer_lower l hl _ (SigGolfResearch.LowerEffectiveCounting.card_lowerProducerAccept_model l hl)
   fin_cases lay
-  · exact le_of_eq producerSelectedCount_top_exact.symm
-  · change producerCountLower (1 : Layer) ≤ producerSelectedCount (1 : Layer)
-    have h := producerCount_lower_model 1 (by decide)
+  · exact le_of_eq producerCount_top_exact.symm
+  · have h := hlo 1 (by decide)
     change SigGolfResearch.LowerEffectiveCounting.count 201 10 ≤ _ at h
     rw [SigGolfResearch.LowerEffectiveCounting.exact_201] at h
-    rw [producerSelectedCount_lower (1 : Layer) (by decide)]
     exact h
-  · change producerCountLower (2 : Layer) ≤ producerSelectedCount (2 : Layer)
-    have h := producerCount_lower_model 2 (by decide)
+  · have h := hlo 2 (by decide)
     change SigGolfResearch.LowerEffectiveCounting.count 202 9 ≤ _ at h
     rw [SigGolfResearch.LowerEffectiveCounting.exact_202] at h
-    rw [producerSelectedCount_lower (2 : Layer) (by decide)]
     exact h
-  · change producerCountLower (3 : Layer) ≤ producerSelectedCount (3 : Layer)
-    have h := producerCount_lower_model 3 (by decide)
+  · have h := hlo 3 (by decide)
     change SigGolfResearch.LowerEffectiveCounting.count 202 9 ≤ _ at h
     rw [SigGolfResearch.LowerEffectiveCounting.exact_202] at h
-    rw [producerSelectedCount_lower (3 : Layer) (by decide)]
     exact h
-
-end SelectedLowerBounds
 
 theorem producerRate_ge (lay : Layer) :
-    (producerCountLower lay : ℝ) * (if lay = 0 then 2^127 else 7*2^126) / 2^256 ≤ producerRate lay := by
+    (producerCountLower lay : ℝ) * (if lay = 0 then 2^128 else 7*2^126) / 2^256 ≤ producerRate lay := by
   unfold producerRate
   apply div_le_div_of_nonneg_right _ (by positivity)
   apply mul_le_mul_of_nonneg_right (by exact_mod_cast producerCount_ge lay)
@@ -1186,7 +964,7 @@ theorem producerRate_bounds (lay : Layer) : 1 / 8192 ≤ producerRate lay ∧ pr
   fin_cases lay <;> norm_num [producerCountLower] at h ⊢ <;> linarith
 
 theorem producer_uniform_probability_lower (lay : Layer) :
-    (producerCountLower lay : ENNReal) * (if lay = 0 then 2^127 else 7*2^126) / 2^256 ≤
+    (producerCountLower lay : ENNReal) * (if lay = 0 then 2^128 else 7*2^126) / 2^256 ≤
       Pr[fun answer => (producerEncodingDecode lay answer).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] := by
   rw [producer_uniform_probability]
   apply ENNReal.div_le_div_right
@@ -1201,14 +979,14 @@ theorem ofReal_sample_count (n k : Nat) :
 
 theorem producer_failure_power_of_rate (lay : Layer) (fuel bits : Nat)
     (hrate : (bits : ℚ) * 0.6931471808 ≤ fuel *
-      ((producerCountLower lay : ℚ) * (if lay = 0 then 2^127 else 7*2^126) / 2^256)) :
+      ((producerCountLower lay : ℚ) * (if lay = 0 then 2^128 else 7*2^126) / 2^256)) :
     failMass (producerEncodingDecode lay) ^ fuel ≤ 1 / (2 : ENNReal) ^ bits := by
   apply ClaudeWCT.W9.T3.Budgets.V5.failure_power_of_rate _
-    ((producerCountLower lay : ℚ) * (if lay = 0 then 2^127 else 7*2^126) / 2^256)
+    ((producerCountLower lay : ℚ) * (if lay = 0 then 2^128 else 7*2^126) / 2^256)
   · split_ifs <;> positivity
   · fin_cases lay <;> norm_num [producerCountLower]
   · have hcast := ofReal_sample_count (producerCountLower lay)
-      (if lay = 0 then 2^127 else 7*2^126)
+      (if lay = 0 then 2^128 else 7*2^126)
     simp only [Nat.cast_ite, Nat.cast_pow, Nat.cast_mul, Nat.cast_ofNat] at hcast
     rw [hcast]
     exact producer_uniform_probability_lower lay

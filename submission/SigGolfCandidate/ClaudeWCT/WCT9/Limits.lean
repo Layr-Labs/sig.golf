@@ -21,14 +21,14 @@ def signPayloadWith (limit : Nat) (cache : Cache) (message : Message) : M (Optio
   let state ← (List.finRange 9).foldlM
     (fun (state : List Opening × List (Digest × Digest)) coord => do
       let selected := child output coord
-      let (levels, values) ← buildCoordinateF index coord selected (rank output coord)
+      let (levels, values) ← buildCoordinateF index coord selected (rank output coord) (prevPair ftsStart state.2)
       let path := (List.range 7).map fun level =>
         (levels.getD level []).getD (selected.val / 2 ^ level ^^^ 1) 0
       let opening : Opening := ⟨fun i => values.getD i.val 0, fun i => path.getD i.val 0⟩
       pure (state.1 ++ [opening],
         state.2 ++ [((levels.getD 6 []).getD 0 0, (levels.getD 6 []).getD 1 0)])) ([], [])
-  let root ← forestPk index state.2
-  let some layers ← signLayersBC cache index 4 (.forest root) | pure none
+  let top := prevPair ftsStart state.2
+  let some layers ← signLayersBC cache index 4 (.pair top.1 top.2) | pure none
   pure (some ⟨rho, fun coord => state.1.getD coord.val ⟨fun _ => 0, fun _ => 0⟩,
     fun lay => piecesSignature lay (layers.getD lay.val ([], []))⟩)
 def signWith (limit : Nat) (cache : Cache) (message : Message) : M (Option Signature) := do
@@ -39,8 +39,8 @@ def expandWith (limit : Nat) (message : Message) (pk : Digest) (sig : Signature)
     M (Option Witness) := do
   let some (counter, output) ← digestSearch sig.rho message 0 limit | pure none
   let index := digestIndex output
-  let root ← recoverFts sig index output
-  let some (root, counters) ← expandLayersBC sig index 4 (.forest root) | pure none
+  let top ← recoverFts sig index output
+  let some (root, counters) ← expandLayersBC sig index 4 (.pair top.1 top.2) | pure none
   if root ≠ pk then return none
   pure (some ⟨sig, counter, fun lay => counters.getD lay.val 0⟩)
 def verifyWith (limit : Nat) (message : Message) (pk : Digest) (w : Witness) : M Bool := do
@@ -48,8 +48,8 @@ def verifyWith (limit : Nat) (message : Message) (pk : Digest) (w : Witness) : M
   let output ← digest w.signature.rho message w.digestCounter
   if !admissible output then return false
   let index := digestIndex output
-  let root ← recoverFts w.signature index output
-  let some root ← verifyLayersBC w index 4 (.forest root) | pure false
+  let top ← recoverFts w.signature index output
+  let some root ← verifyLayersBC w index 4 (.pair top.1 top.2) | pure false
   pure (root == pk)
 theorem signPayloadWith_attemptLimit :
     signPayloadWith SigGolfCandidate.T3.attemptLimit = signPayload := rfl
@@ -114,8 +114,8 @@ def expandS (limit : Nat) (message : Message) (pk : Digest) (sig : Signature) :
   let sig0 := proj sig
   let some (counter, output) ← digestSearch sig0.rho message 0 limit | pure none
   let index := digestIndex output
-  let root ← recoverFts sig0 index output
-  let some (v, root, counters) ← expandLayersT sig0 index (topSib sig0) 4 (.forest root) | pure none
+  let top ← recoverFts sig0 index output
+  let some (v, root, counters) ← expandLayersT sig0 index (topSib sig0) 4 (.pair top.1 top.2) | pure none
   if root = pk then return some (output, ⟨sig0, counter, fun lay => counters.getD lay.val 0⟩)
   let some c ← searchTop index v (topSib sig0) pk searchFuel 1 | pure none
   pure (some (output, ⟨fillTop sig0 c, counter, fun lay => counters.getD lay.val 0⟩))

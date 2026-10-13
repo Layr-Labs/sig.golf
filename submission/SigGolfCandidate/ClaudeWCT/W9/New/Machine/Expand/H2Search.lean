@@ -677,10 +677,11 @@ theorem topBlk_get (sig : WCT9.Signature) (index : Nat) (v : Digest) (t : Machin
 
 /-- After the front: the layers (with the top sibling read as given), then candidate 0 or the search. -/
 def tailProgS (pk : PublicKey) (sig : WCT9.Signature) :
-    Option (BitVec 32 × HashOutput × Digest) → M (Option (HashOutput × WCT9.Witness))
+    Option (BitVec 32 × HashOutput × (Digest × Digest)) → M (Option (HashOutput × WCT9.Witness))
   | none => pure none
-  | some (counter, N, root) => do
-    let some (v, root', counters) ← WCT9.expandLayersT sig (WCT9.digestIndex N) (WCT9.topSib sig) 4 (.forest root)
+  | some (counter, N, top) => do
+    let some (v, root', counters) ← WCT9.expandLayersT sig (WCT9.digestIndex N) (WCT9.topSib sig) 4
+        (.pair top.1 top.2)
       | pure none
     let oc ← if root' = pk then pure (some 0) else
       WCT9.searchTop (WCT9.digestIndex N) v (WCT9.topSib sig) pk WCT9.searchFuel 1

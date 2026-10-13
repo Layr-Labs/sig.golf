@@ -171,10 +171,10 @@ theorem queried_length_maskAt_signPayload (answers : Answers) (a : ChainAddr) (h
       (Mask.count_maskAt_of_respects answers a (Mask.respectsP_signForest a _ _)) ?_
     rw [ClaudeWCT.WCT9.eval_signForest]
     dsimp only
-    have hmsg : ∀ m, 4 = m + 1 → WCT9.LayerMsg.forest (ClaudeWCT.WCT9.honestForest answers (WCT9.digestIndex output)) =
+    have hmsg : ∀ m, 4 = m + 1 → WCT9.LayerMsg.pair (ClaudeWCT.WCT9.honestTop answers (WCT9.digestIndex output)).1 (ClaudeWCT.WCT9.honestTop answers (WCT9.digestIndex output)).2 =
         leafMsg answers (Mask.routeLeaf (WCT9.digestIndex output) (Fin.ofNat 4 m)) := fun m hm => by
       obtain rfl : m = 3 := by omega
-      rw [← Extract.honestForest_eq_wct9]
+      rw [← Extract.honestTop_eq_wct9]
       exact Mask.signedMsg_top answers _ (WCT9.digestIndex_lt _)
     refine Mask.count_bind_of (Mask.eval_signLayers_maskAt answers a htree hleaf cache _ (WCT9.digestIndex_lt _)
       4 le_rfl _ hmsg) (Mask.count_signLayers_maskAt answers a htree hleaf cache _ (WCT9.digestIndex_lt _) 4

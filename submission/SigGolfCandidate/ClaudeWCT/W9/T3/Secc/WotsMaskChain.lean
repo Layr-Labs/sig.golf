@@ -203,10 +203,10 @@ theorem ftsQuery_untouchedP {index : Nat} {q : SigGolfCandidate.T3.Spec.Domain} 
     UntouchedP a q :=
   untouchedP_of_untouched a ⟨ClaudeWCT.WCT9.Wots.ftsQuery_untouched a h,
     ClaudeWCT.WCT9.Wots.ftsQuery_untouched (slotAddr a) h⟩
-theorem honestForest_maskAt (index : Nat) :
-    Extract.honestForest (maskAt answers a) index = Extract.honestForest answers index := by
-  rw [Extract.honestForest_eq_wct9, Extract.honestForest_eq_wct9]
-  exact ClaudeWCT.WCT9.Wots.honestForest_congr
+theorem honestTop_maskAt (index : Nat) :
+    Extract.honestTop (maskAt answers a) index = Extract.honestTop answers index := by
+  rw [Extract.honestTop_eq_wct9, Extract.honestTop_eq_wct9]
+  exact ClaudeWCT.WCT9.Wots.honestTop_congr
     (fun _ hq => maskAt_untouched answers a (ftsQuery_untouchedP a hq))
 end Mask
 theorem leafMsg_maskAt (answers : Answers) (a : ChainAddr) (hal : Mask.MaskOK a) (L : LeafAddr) :
@@ -214,7 +214,7 @@ theorem leafMsg_maskAt (answers : Answers) (a : ChainAddr) (hal : Mask.MaskOK a)
   unfold leafMsg
   split
   · rw [Mask.honestPair_maskAt answers a _ _ (Or.inr hal)]
-  · rw [Mask.honestForest_maskAt]
+  · rw [Mask.honestTop_maskAt]
 theorem referenceSearch_maskAt (answers : Answers) (a : ChainAddr) (hal : Mask.MaskOK a) (L : LeafAddr) :
     referenceSearch (maskAt answers a) L = referenceSearch answers L := by
   unfold referenceSearch

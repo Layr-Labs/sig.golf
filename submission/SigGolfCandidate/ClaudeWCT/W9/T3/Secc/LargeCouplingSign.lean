@@ -20,8 +20,12 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 def coordVal (s : Secrets) (L : Labels) : Coord → Digest
-  | .inl M => (L M).extractLsb' 0 128
+  | .inl M => M.toPos.proj (L M)
   | .inr x => seedView s x
+theorem coordVal_top (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin 9) (b : Fin 2) :
+    coordVal s L (.inl (.wctNode (ftsTopNode index coord b))) =
+      (L (.wctNode (ftsTopNode index coord b))).extractLsb' 128 128 := by
+  simp only [coordVal]; rw [proj_toPos]; rfl
 theorem treeLabel_eq (s : Secrets) (L : Labels) (lay : Layer) (tree : Fin (2^31)) (level c : Nat) :
     treeLabel L lay tree level c = ((treeChild lay tree level c).map (coordVal s L)).getD 0 := by
   unfold treeLabel treeChild
@@ -39,7 +43,29 @@ theorem ftsLabel_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin
     · rw [dif_pos hc, dif_pos hc]; rfl
     · rw [dif_neg hc, dif_neg hc]; rfl
   · rw [if_neg h0, if_neg h0]
-    cases ftsNodeAt index coord (level - 1) c <;> rfl
+    cases hn : ftsNodeAt index coord (level - 1) c with
+    | none => rfl
+    | some n =>
+        have hl : n.1.level.val = level - 1 := by
+          unfold ftsNodeAt at hn
+          split_ifs at hn
+          cases hn
+          rfl
+        simp only [Option.map_some, Option.getD_some, coordVal]
+        rw [proj_toPos]
+        simp only [Node.isTop, hl, beq_iff_eq]
+        by_cases h6 : level = 6
+        · rw [if_pos h6, if_pos (by omega)]
+        · rw [if_neg h6, if_neg (by omega)]
+theorem ftsPrevLabel_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin 9) :
+    ftsPrevLabel L index coord = prevVals (coordVal s L) index coord := by
+  unfold ftsPrevLabel prevVals prevTop
+  by_cases h : coord.val = 0
+  · rw [dif_pos h, dif_pos h, dif_pos h]; rfl
+  · rw [dif_neg h, dif_neg h, dif_neg h]
+    simp only [Option.map_some, Option.getD_some]
+    exact Prod.ext ((ftsLabel_top L index _ 0).trans (coordVal_top s L index _ 0).symm)
+      ((ftsLabel_top L index _ 1).trans (coordVal_top s L index _ 1).symm)
 theorem coordVal_wctItem (s : Secrets) (L : Labels) (a : WctAddr) (p : Nat) :
     coordVal s L (wctItem a p) = wctValueL s L a p := by
   unfold wctItem wctValueL
@@ -67,6 +93,7 @@ theorem cell_eq_cellValues (s : Secrets) (L : Labels) (N : CanonGraph.Node) :
         split_ifs <;> decide
       rw [if_neg (by omega)]
       simp only [coordVal, endPoint, chainLabels]
+      rfl
   | node n =>
       change pad64 (nodeInputP 3 _ _ _ (treeLabel L _ _ _ _) 0 (treeLabel L _ _ _ _)) = _
       rw [treeLabel_eq s, treeLabel_eq s]
@@ -76,12 +103,14 @@ theorem cell_eq_cellValues (s : Secrets) (L : Labels) (N : CanonGraph.Node) :
       rw [← coordVal_wctItem]
       rfl
   | wctLeaf Lf =>
-      change pad64 (Extract.wctLeafInput _ _ _
+      change pad64 (Extract.wctLeafInputP _ _ _ (ftsPrevLabel L Lf.index Lf.coord).1
         (List.ofFn fun t : Fin 6 => wctEndLabel L (Lf.index, Lf.coord, Lf.child, t))) = _
+      rw [ftsPrevLabel_eq s L]
       simp only [cellValues, coordVal_wctItem, wctValueL_three]
   | wctNode n =>
-      change pad64 (nodeInputP 3 _ _ _ (ftsLabel L _ _ _ _) 0 (ftsLabel L _ _ _ _)) = _
-      rw [ftsLabel_eq s, ftsLabel_eq s]
+      change pad64 (nodeInputP 3 _ _ _ (ftsLabel L _ _ _ _)
+        (if n.1.level.val = 5 then (ftsPrevLabel L n.1.index n.1.coord).2 else 0) (ftsLabel L _ _ _ _)) = _
+      rw [ftsLabel_eq s, ftsLabel_eq s, ftsPrevLabel_eq s L]
       rfl
   | forest index =>
       change pad64 (Extract.forestInput _ ((List.range 9).map fun c =>
@@ -90,9 +119,9 @@ theorem cell_eq_cellValues (s : Secrets) (L : Labels) (N : CanonGraph.Node) :
           (coordVal s L (.inl (.wctNode (ftsTopNode index (fin9 c) 0))),
             coordVal s L (.inl (.wctNode (ftsTopNode index (fin9 c) 1))))))
       have h0 : ∀ c, ftsLabel L index (fin9 c) 6 0 = coordVal s L (.inl (.wctNode (ftsTopNode index (fin9 c) 0))) :=
-        fun c => ftsLabel_top L index (fin9 c) 0
+        fun c => (ftsLabel_top L index (fin9 c) 0).trans (coordVal_top s L index (fin9 c) 0).symm
       have h1 : ∀ c, ftsLabel L index (fin9 c) 6 1 = coordVal s L (.inl (.wctNode (ftsTopNode index (fin9 c) 1))) :=
-        fun c => ftsLabel_top L index (fin9 c) 1
+        fun c => (ftsLabel_top L index (fin9 c) 1).trans (coordVal_top s L index (fin9 c) 1).symm
       simp only [h0, h1]
 theorem cellFrom_eq (N : CanonGraph.Node) (v : Coord → Digest) : cellFrom N v = cellValues N v := rfl
 theorem cellValues_congr (N : CanonGraph.Node) (v v' : Coord → Digest)
@@ -131,9 +160,15 @@ theorem cellValues_congr (N : CanonGraph.Node) (v v' : Coord → Digest)
         funext t
         exact h (wctItem (L.index, L.coord, L.child, t) 4, ftsLeafSlot t.val) (by
           simp only [childSlots]
-          exact List.mem_ofFn.mpr ⟨t, rfl⟩)
-      simp only [cellValues]
-      rw [hfg]
+          exact List.mem_append_left _ (List.mem_ofFn.mpr ⟨t, rfl⟩))
+      have hp : ((prevTop L.index L.coord 0).map v).getD 0 = ((prevTop L.index L.coord 0).map v').getD 0 := by
+        cases hc : prevTop L.index L.coord 0 with
+        | none => rfl
+        | some c =>
+            have := h (c, 2) (by simp [childSlots, hc])
+            simp [this]
+      simp only [cellValues, prevVals]
+      rw [hfg, hp]
   | wctNode n =>
       simp only [cellValues]
       have h1 : ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val)).map v).getD 0 =
@@ -150,7 +185,17 @@ theorem cellValues_congr (N : CanonGraph.Node) (v v' : Coord → Digest)
         | some c =>
             have := h (c, 3) (by simp [childSlots, hc])
             simp [this]
-      rw [h1, h2]
+      have h3 : (if n.1.level.val = 5 then (prevVals v n.1.index n.1.coord).2 else 0) =
+          (if n.1.level.val = 5 then (prevVals v' n.1.index n.1.coord).2 else 0) := by
+        split_ifs with hl
+        · unfold prevVals
+          cases hc : prevTop n.1.index n.1.coord 1 with
+          | none => rfl
+          | some c =>
+              have := h (c, 2) (by simp [childSlots, hc, hl])
+              simp [this]
+        · rfl
+      rw [h1, h2, h3]
   | forest index =>
       simp only [cellValues]
       congr 2
@@ -190,6 +235,25 @@ theorem slotValue_ftsLeaf (hdr : BitVec 128) (values : List Digest) (i : Nat) (h
       rcases i with _ | i
       · rfl
       · simp only [List.getD_cons_succ, List.drop_succ_cons, List.drop_zero, if_neg (Nat.succ_ne_zero _)]
+theorem slotValue_ftsLeafP (hdr : BitVec 128) (p : Digest) (values : List Digest) (i : Nat)
+    (hi : i < values.length) :
+    slotValue (pad64 (Extract.listInput (values.getD 0 0) hdr (p :: values.drop 1))) (ftsLeafSlot i) =
+      values.getD i 0 := by
+  have key := slotValue_listInput (values.getD 0 0) hdr (p :: values.drop 1) (if i = 0 then 0 else i + 1)
+    (by split <;> simp <;> omega)
+  have hb : listBlock (if i = 0 then 0 else i + 1) = ftsLeafSlot i := by
+    unfold listBlock ftsLeafSlot; split <;> simp_all
+  rw [hb] at key
+  refine key.trans ?_
+  cases values with
+  | nil => simp at hi
+  | cons x xs =>
+      rcases i with _ | i
+      · rfl
+      · simp only [List.getD_cons_succ, List.drop_succ_cons, List.drop_zero, if_neg (Nat.succ_ne_zero _)]
+theorem slotValue_ftsLeaf_pad (hdr : BitVec 128) (p : Digest) (values : List Digest) :
+    slotValue (pad64 (Extract.listInput (values.getD 0 0) hdr (p :: values.drop 1))) 2 = p :=
+  slotValue_listInput (values.getD 0 0) hdr (p :: values.drop 1) 1 (by simp)
 theorem slotValue_leafInput (lay : Layer) (tree leaf : Nat) (values : List Digest) (i : Nat) (hi : i < values.length) :
     slotValue (pad64 (Extract.leafInput lay tree leaf values)) (leafBlock lay i) = values.getD i 0 := by
   unfold Extract.leafInput SigGolfCandidate.T3.leafInput leafBlock
@@ -278,19 +342,37 @@ theorem slot_cellValues (N : CanonGraph.Node) (v : Coord → Digest) :
       simp only [cellValues, Extract.wctChainInput_block4]
       exact (slotValue_block4 _ _ _ _).2.2
   | wctLeaf L =>
-      simp only [childSlots] at hcs
-      obtain ⟨t, rfl⟩ := List.mem_ofFn.mp hcs
-      simp only [cellValues, Extract.wctLeafInput]
-      rw [slotValue_ftsLeaf _ _ _ (by simp)]
-      rw [List.getD_eq_getElem _ _ (by simp), List.getElem_ofFn]
+      simp only [childSlots, List.mem_append] at hcs
+      rcases hcs with hcs | hcs
+      · obtain ⟨t, rfl⟩ := List.mem_ofFn.mp hcs
+        simp only [cellValues, Extract.wctLeafInputP]
+        rw [slotValue_ftsLeafP _ _ _ _ (by simp)]
+        rw [List.getD_eq_getElem _ _ (by simp), List.getElem_ofFn]
+      · simp only [Option.mem_toList, Option.map_eq_some_iff] at hcs
+        obtain ⟨c, hc, rfl⟩ := hcs
+        simp only [cellValues, Extract.wctLeafInputP]
+        rw [slotValue_ftsLeaf_pad]
+        unfold prevVals; rw [hc]; rfl
   | wctNode n =>
-      simp only [childSlots, List.mem_append, Option.mem_toList, Option.map_eq_some_iff] at hcs
-      simp only [cellValues, nodeInputP, pad64_block4]
-      rcases hcs with ⟨c, hc, rfl⟩ | ⟨c, hc, rfl⟩
-      · refine ((slotValue_block4 _ _ _ _).1).trans ?_
+      simp only [childSlots, List.mem_append] at hcs
+      rcases hcs with (hcs | hcs) | hcs
+      · simp only [Option.mem_toList, Option.map_eq_some_iff] at hcs
+        obtain ⟨c, hc, rfl⟩ := hcs
+        simp only [cellValues, nodeInputP, pad64_block4]
+        refine ((slotValue_block4 _ _ _ _).1).trans ?_
         rw [hc]; rfl
-      · refine ((slotValue_block4 _ _ _ _).2.2).trans ?_
+      · simp only [Option.mem_toList, Option.map_eq_some_iff] at hcs
+        obtain ⟨c, hc, rfl⟩ := hcs
+        simp only [cellValues, nodeInputP, pad64_block4]
+        refine ((slotValue_block4 _ _ _ _).2.2).trans ?_
         rw [hc]; rfl
+      · split_ifs at hcs with hl
+        · simp only [Option.mem_toList, Option.map_eq_some_iff] at hcs
+          obtain ⟨c, hc, rfl⟩ := hcs
+          simp only [cellValues, nodeInputP, pad64_block4, if_pos hl]
+          refine ((slotValue_block4 _ _ _ _).2.1).trans ?_
+          unfold prevVals; rw [hc]; rfl
+        · simp at hcs
   | forest index =>
       simp only [childSlots, List.mem_flatMap, List.mem_range] at hcs
       obtain ⟨c, hc, hmem⟩ := hcs
@@ -328,7 +410,7 @@ theorem honestValue_eq (h : Agrees T labels) : honestValue T = coordVal (secrets
   funext c
   cases c with
   | inl M =>
-      change (T (.inl (.inr (Extract.honestInput T M.toPos)))).extractLsb' 0 128 = _
+      change M.toPos.proj (T (.inl (.inr (Extract.honestInput T M.toPos)))) = _
       rw [honest_answer h M]
       rfl
   | inr x => rfl
@@ -538,9 +620,8 @@ theorem signLayers_eq (T : Answers) (cache : SigGolfCandidate.T3.Cache)
 end Layers
 section Payload
 theorem honestMsg_top (T : Answers) (index : Nat) :
-    Extract.honestMsg T index (Fin.ofNat 4 3) = .forest (WCT9.honestForest T index) := by
-  rw [Extract.honestMsg_three, Extract.honestForest_eq_recover]
-  rfl
+    Extract.honestMsg T index (Fin.ofNat 4 3) = .pair (WCT9.honestTop T index).1 (WCT9.honestTop T index).2 := by
+  rw [Extract.honestMsg_three, Extract.honestTop_eq_wct9]
 theorem routeOk_iff (T : Answers) (index : Nat) :
     (∀ l, l < 4 → l ≠ 0 → (Wots.referenceSearch T (routeAddr index (Fin.ofNat 4 l))).isSome) ↔ RouteOk T index := by
   constructor

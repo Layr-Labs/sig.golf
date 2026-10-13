@@ -308,11 +308,36 @@ theorem wctForestPk_free (index : Nat) (pairs : List (Digest × Digest)) :
   unfold WCT9.forestPk WCT9.forestInput
   rw [zero16_eq]
   exact shortHash_header_free _ _ _ _ _ _ _
-theorem heapBuild_free (index coord : Nat) (leaves : List Digest) :
-    AllQueriesSatisfy (WCT9.heapBuild index coord leaves) WFree := by
+theorem wctLeafHashP_free (index coord selected : Nat) (pad : Digest) (ends : List Digest) :
+    AllQueriesSatisfy (WCT9.leafHashP index coord selected pad ends) WFree := by
+  unfold WCT9.leafHashP WCT9.leafInputP
+  rw [List.append_assoc (bytesLE 16 _ ++ bytesLE 16 _) (bytesLE 16 pad)]
+  exact shortHash_free _ _ (by rw [WCT9.ftsLeafHeader_firstByte]; decide)
+theorem highHash_free' (a : Digest) {h : BitVec 128} (rest : HashInput)
+    (ht : h.toNat % 256 < 128 ∨ 4 ≤ h.toNat / 256 % 256) :
+    AllQueriesSatisfy (WCT9.highHash (bytesLE 16 a ++ bytesLE 16 h ++ rest)) WFree := by
+  unfold WCT9.highHash publicHash
+  rcases ht with ht | ht
+  · exact bind_allowed WFree ((allQueriesSatisfy_query_iff _ _).mpr (decodeProbe_prefix a rest ht))
+      fun _ => pure_allowed _ _
+  · exact bind_allowed WFree ((allQueriesSatisfy_query_iff _ _).mpr
+      (Guess.decodeProbe_of_hdrBlock_tag (hdrBlock_pad64_prefix a h rest) ht)) fun _ => pure_allowed _ _
+theorem wctTopHash_free (coord index heap : Nat) (left pad right : Digest) :
+    AllQueriesSatisfy (WCT9.wctTopHash coord index heap left pad right) WFree := by
+  unfold WCT9.wctTopHash WCT9.wctTopInput WCT9.wctNodeHeader
+  rw [List.append_assoc (bytesLE 16 left ++ bytesLE 16 _) (bytesLE 16 pad)]
+  exact highHash_free' _ _ (nodeTweak_probe_safe 3 _ index heap)
+theorem wctHeapNode_free (coord index heap : Nat) (padR left right : Digest) :
+    AllQueriesSatisfy (WCT9.wctHeapNode coord index heap padR left right) WFree := by
+  unfold WCT9.wctHeapNode
+  split
+  · exact wctTopHash_free _ _ _ _ _ _
+  · exact nodeHash_free _ _ _ _ _ _
+theorem heapBuild_free (index coord : Nat) (padR : Digest) (leaves : List Digest) :
+    AllQueriesSatisfy (WCT9.heapBuild index coord padR leaves) WFree := by
   unfold WCT9.heapBuild
   exact foldlM_allowed WFree _ _ (fun nodes heap =>
-    bind_allowed WFree (nodeHash_free _ _ _ _ _ _) fun _ => pure_allowed _ _) _
+    bind_allowed WFree (wctHeapNode_free _ _ _ _ _ _) fun _ => pure_allowed _ _) _
 end Free
 section Table
 variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : CanonTable.Omega U)
@@ -423,34 +448,50 @@ theorem chainEnd_world (g g' : CanonTable.HiddenF) (index : Nat) (hindex : index
   rw [chainEnd_eq _ index hindex, chainEnd_eq _ index hindex, chainValue_world hU ω g _ 4 le_rfl,
     chainValue_world hU ω g' _ 4 le_rfl, walkVal_three]
 theorem childRoot_world (g g' : CanonTable.HiddenF) (index : Nat) (hindex : index < 2 ^ 31) (k : Fin 9)
-    (j : Nat) (hj : j < 128) :
-    WCT9.childRoot (wA hU ω g) index k.val j = WCT9.childRoot (wA hU ω g') index k.val j := by
+    (j : Nat) (hj : j < 128) (pad : Digest) :
+    WCT9.childRoot (wA hU ω g) index k.val j pad = WCT9.childRoot (wA hU ω g') index k.val j pad := by
   unfold WCT9.childRoot
   have he : (fun t : Fin 6 => WCT9.chainEnd (wA hU ω g) index k.val j t) =
       (fun t : Fin 6 => WCT9.chainEnd (wA hU ω g') index k.val j t) := by
     funext t
     exact chainEnd_world hU ω g g' index hindex k ⟨j, hj⟩ t
   rw [he]
-  exact eval_free hU ω g g' (wctLeafHash_free _ _ _ _)
-theorem coordLeaves_world (g g' : CanonTable.HiddenF) (index : Nat) (hindex : index < 2 ^ 31) (k : Fin 9) :
-    WCT9.coordLeaves (wA hU ω g) index k = WCT9.coordLeaves (wA hU ω g') index k := by
-  unfold WCT9.coordLeaves
-  exact congrArg List.ofFn (funext fun j : Fin 128 => childRoot_world hU ω g g' index hindex k j.val j.isLt)
+  exact eval_free hU ω g g' (wctLeafHashP_free _ _ _ _ _)
+theorem coordLeavesWith_world (g g' : CanonTable.HiddenF) (index : Nat) (hindex : index < 2 ^ 31) (k : Fin 9)
+    (pad : Digest) :
+    WCT9.coordLeavesWith (wA hU ω g) index k.val pad = WCT9.coordLeavesWith (wA hU ω g') index k.val pad := by
+  unfold WCT9.coordLeavesWith
+  exact congrArg List.ofFn (funext fun j : Fin 128 => childRoot_world hU ω g g' index hindex k j.val j.isLt pad)
+theorem coordNodesWith_world (g g' : CanonTable.HiddenF) (index : Nat) (hindex : index < 2 ^ 31) (k : Fin 9)
+    (prev : Digest × Digest) :
+    WCT9.coordNodesWith (wA hU ω g) index k.val prev = WCT9.coordNodesWith (wA hU ω g') index k.val prev := by
+  unfold WCT9.coordNodesWith
+  rw [coordLeavesWith_world hU ω g g' index hindex k]
+  exact eval_free hU ω g g' (heapBuild_free _ _ _ _)
+theorem ftsPrev_world (g g' : CanonTable.HiddenF) (index : Nat) (hindex : index < 2 ^ 31) (c : Nat) (hc : c ≤ 9) :
+    WCT9.ftsPrev (wA hU ω g) index c = WCT9.ftsPrev (wA hU ω g') index c := by
+  induction c with
+  | zero => rfl
+  | succ c ih =>
+    show WCT9.coordPairWith (wA hU ω g) index c (WCT9.ftsPrev (wA hU ω g) index c) =
+      WCT9.coordPairWith (wA hU ω g') index c (WCT9.ftsPrev (wA hU ω g') index c)
+    rw [ih (by omega)]
+    unfold WCT9.coordPairWith
+    rw [coordNodesWith_world hU ω g g' index hindex ⟨c, by omega⟩]
 theorem coordNodes_world (g g' : CanonTable.HiddenF) (index : Nat) (hindex : index < 2 ^ 31) (k : Fin 9) :
     WCT9.coordNodes (wA hU ω g) index k = WCT9.coordNodes (wA hU ω g') index k := by
   unfold WCT9.coordNodes
-  rw [coordLeaves_world hU ω g g' index hindex k]
-  exact eval_free hU ω g g' (heapBuild_free _ _ _)
+  rw [ftsPrev_world hU ω g g' index hindex k.val (by omega)]
+  exact coordNodesWith_world hU ω g g' index hindex k _
 theorem coordinatePair_world (g g' : CanonTable.HiddenF) (index : Nat) (hindex : index < 2 ^ 31) :
     WCT9.coordinatePair (wA hU ω g) index = WCT9.coordinatePair (wA hU ω g') index := by
   funext k
   unfold WCT9.coordinatePair
   rw [coordNodes_world hU ω g g' index hindex k]
 theorem honestForest_world (g g' : CanonTable.HiddenF) (index : Nat) (hindex : index < 2 ^ 31) :
-    WCT9.honestForest (wA hU ω g) index = WCT9.honestForest (wA hU ω g') index := by
-  unfold WCT9.honestForest
-  rw [coordinatePair_world hU ω g g' index hindex]
-  exact eval_free hU ω g g' (wctForestPk_free _ _)
+    WCT9.honestTop (wA hU ω g) index = WCT9.honestTop (wA hU ω g') index := by
+  unfold WCT9.honestTop
+  exact ftsPrev_world hU ω g g' index hindex 9 le_rfl
 theorem outIndex_lt (output : HashOutput) : outIndex output < 2 ^ 31 := Nat.mod_lt _ (by positivity)
 theorem chainOf_eq_addrOf (output : HashOutput) (k : Fin 9) (t : Fin 6) :
     Guess.chainOf output k t = addrOf (outIndex output) (outIndex_lt output) k (WCT9.child output k) t := rfl
@@ -482,7 +523,7 @@ noncomputable def signerCore (published : SigGolfCandidate.T3.Cache) (request : 
     | none => none
     | some (_, output) =>
         match evalWithAnswerFn (wA hU ω 0) (WCT9.signLayersBC request.cache (WCT9.digestIndex output) 4
-            (.forest (WCT9.honestForest (wA hU ω 0) (WCT9.digestIndex output)))) with
+            (.pair (WCT9.honestTop (wA hU ω 0) (WCT9.digestIndex output)).1 (WCT9.honestTop (wA hU ω 0) (WCT9.digestIndex output)).2)) with
         | none => none
         | some pieces => some (evalWithAnswerFn (wA hU ω 0) (privateNonce request.message), output, pieces)
   else none
@@ -512,7 +553,7 @@ theorem sign_answers (g : CanonTable.HiddenF) (published : SigGolfCandidate.T3.C
         rw [honestForest_world hU ω g 0 (WCT9.digestIndex output) (outIndex_lt output),
           eval_free hU ω g 0 (signLayersBC_free _ _ _ _)]
         cases evalWithAnswerFn (wA hU ω 0) (WCT9.signLayersBC request.cache (WCT9.digestIndex output) 4
-          (.forest (WCT9.honestForest (wA hU ω 0) (WCT9.digestIndex output)))) with
+          (.pair (WCT9.honestTop (wA hU ω 0) (WCT9.digestIndex output)).1 (WCT9.honestTop (wA hU ω 0) (WCT9.digestIndex output)).2)) with
         | none => rfl
         | some pieces => rfl
   · rw [if_neg hc, if_neg hc]

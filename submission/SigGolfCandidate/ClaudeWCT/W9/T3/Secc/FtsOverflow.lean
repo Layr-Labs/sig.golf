@@ -1304,7 +1304,7 @@ def payloadCont (cache : SigGolfCandidate.T3.Cache) (rho : Digest) :
     Option (BitVec 32 × HashOutput) → M (Option ClaudeWCT.W9.T3.Security.Signature)
   | some (_, output) => do
       let forest ← WCT9.signForest (WCT9.digestIndex output) output
-      let some pieces ← WCT9.signLayersBC cache (WCT9.digestIndex output) 4 (.forest forest.2) | pure none
+      let some pieces ← WCT9.signLayersBC cache (WCT9.digestIndex output) 4 (.pair forest.2.1 forest.2.2) | pure none
       pure (some (WCT9.assembledSignature rho forest.1 pieces))
   | none => pure none
 
@@ -1333,12 +1333,11 @@ theorem payloadCont_notNonce (cache : SigGolfCandidate.T3.Cache) (rho : Digest) 
         intro state coord
         unfold WCT9.openingStep
         refine SourceQueries.bind_allowed NotNonce (ClaudeWCT.W9.T3.Security.Signer.buildCoordinateF_allowed NotNonce
-          notNonce_public (fun _ _ _ _ => notNonce_pair _) _ _ _ _) fun x => ?_
+          notNonce_public (fun _ _ _ _ => notNonce_pair _) _ _ _ _ _) fun x => ?_
         rcases x with ⟨levels, values⟩
         exact SourceQueries.pure_allowed _ _
       · intro state
-        exact SourceQueries.bind_allowed NotNonce (ClaudeWCT.W9.T3.Security.Signer.forestPk_allowed NotNonce
-          notNonce_public _ _) fun _ => SourceQueries.pure_allowed _ _
+        exact SourceQueries.pure_allowed _ _
     · intro forest
       refine SourceQueries.bind_allowed NotNonce (ClaudeWCT.W9.T3.Security.Signer.signLayersBC_allowed NotNonce
         notNonce_public cache

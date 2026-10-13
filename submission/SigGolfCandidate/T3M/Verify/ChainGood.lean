@@ -652,19 +652,19 @@ theorem bufferSafe_iff (c : LCtx) (hlay : c.lay ≠ 0) (D : List Nat)
   simp only [bufferSafe, ClaudeWCT.WCT9.safeZeroCopy, maxDigit, if_neg hlay,
     hD i hi, hD (i-1) (by omega), ne_eq, hlay, not_false_eq_true, true_and, if_false]
 theorem bufferSlot_eq (c : LCtx) (hlay : c.lay ≠ 0) (i : Nat) :
-    c.bufferSlot i = 0x800 + ClaudeWCT.W9.T3M.leafBufferSlot c.lay i := by
+    c.bufferSlot i = 0x4c0 + ClaudeWCT.W9.T3M.leafBufferSlot c.lay i := by
   unfold bufferSlot bufferOffset slotL ClaudeWCT.W9.T3M.leafBufferSlot
   rw [if_neg hlay]
   split_ifs <;> omega
 theorem bufferVal_eq (c : LCtx) (hlay : c.lay ≠ 0) (D : List Nat)
     (hD : ∀ i < 43, c.dig i = D.getD i 0)
-    (hS6 : c.S6 = 0x800 + ClaudeWCT.W9.T3M.chainBlock c.lay 42 + 1024)
+    (hS6 : c.S6 = 0x4c0 + ClaudeWCT.W9.T3M.chainBlock c.lay 42 + 1024)
     (i : Nat) (hi : i < 43) :
     c.bufferVal i = ClaudeWCT.W9.T3M.wvalueFor c.w c.lay D i := by
   have hn : chainCount c.lay = 43 := by
     have H : ∀ l : Layer, l ≠ 0 → chainCount l = 43 := by decide +kernel
     exact H c.lay hlay
-  have hb : c.blk i - 0x800 = ClaudeWCT.W9.T3M.chainBlock c.lay i := by
+  have hb : c.blk i - 0x4c0 = ClaudeWCT.W9.T3M.chainBlock c.lay i := by
     unfold blk ClaudeWCT.W9.T3M.chainBlock at *
     rw [hS6]; rw [hn] at *; simp only at *; omega
   unfold bufferVal ClaudeWCT.W9.T3M.wvalueFor

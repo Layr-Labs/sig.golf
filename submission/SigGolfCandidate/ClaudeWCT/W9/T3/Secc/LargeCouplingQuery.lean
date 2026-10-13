@@ -50,7 +50,7 @@ structure Coherent (U : Finset HashInput) (T : Answers) (vals : Coord → Digest
   agrees : Agrees T (routerLabels vals a)
   secrets : seedView (secretsOf T) = fun s => vals (.inr s)
   residual : ∀ (X : HashInput) (hX : X ∈ U), (∀ N : CanonGraph.Node, X ≠ cell (secretsOf T) N (routerLabels vals a)) →
-    ¬HonestPrefix vals a X → T (.inl (.inr X)) = τ ⟨X, hX⟩
+    ¬HonestPrefix vals a X → T (.inl (.inr X)) = rowPresent X (τ ⟨X, hX⟩)
   prefixRow : ∀ (L : EncLeaf) (ctr : BitVec 32), PrefixRow a L ctr →
     T (.inl (.inr (Wots.encRow L.toWots (msgVals vals L) ctr 0))) = prefixValue a L ctr
   search : ∀ L : EncLeaf, Wots.referenceSearch T L.toWots =
@@ -59,13 +59,30 @@ structure Coherent (U : Finset HashInput) (T : Answers) (vals : Coord → Digest
     T (.inr c) = a.priv c
   outside : ∀ X, X ∉ U → T (.inl (.inr X)) = (0 : HashOutput)
   nonce : ∀ m : Message, (T (.inr (.inr (.inl m)))).extractLsb' 0 128 = nv m
+theorem rowPresent_parsed {X : HashInput} {N : CanonGraph.Node} (hN : Extract.posOf X = some N.toPos) :
+    rowPresent X = CanonGraph.presentEquiv N := by
+  have hp : Parsed X := ⟨N, hN⟩
+  unfold rowPresent
+  rw [dif_pos hp]
+  have hc : Extract.posOf X = some (Classical.choose hp).toPos := Classical.choose_spec hp
+  have he : Classical.choose hp = N := CanonGraph.toPos_injective (Option.some.inj (hc.symm.trans hN))
+  rw [he]
+theorem proj_rowPresent {X : HashInput} {N : CanonGraph.Node} (hN : Extract.posOf X = some N.toPos)
+    (y : HashOutput) : N.toPos.proj (rowPresent X y) = y.extractLsb' 0 128 := by
+  rw [rowPresent_parsed hN]; exact CanonGraph.proj_presentEquiv N y
+theorem rowPresent_unparsed {X : HashInput} (hp : ¬Parsed X) (y : HashOutput) : rowPresent X y = y := by
+  unfold rowPresent; rw [dif_neg hp]; rfl
 section Coherent
 variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest} {τ : Cell U → HashOutput} {a : AuxData}
+theorem Coherent.residual_unparsed (h : Coherent U T vals nv τ a) (X : HashInput) (hX : X ∈ U) (hnp : ¬Parsed X)
+    (hcell : ∀ N : CanonGraph.Node, X ≠ cell (secretsOf T) N (routerLabels vals a)) (hpre : ¬HonestPrefix vals a X) :
+    T (.inl (.inr X)) = τ ⟨X, hX⟩ :=
+  (h.residual X hX hcell hpre).trans (rowPresent_unparsed hnp _)
 theorem Coherent.honestValue (h : Coherent U T vals nv τ a) : LargeResidual.honestValue T = vals := by
   rw [honestValue_eq h.agrees]
   funext c
   cases c with
-  | inl N => exact joinLabels_low _ _ N
+  | inl N => exact joinLabels_val _ _ N
   | inr s => exact congrFun h.secrets s
 theorem Coherent.honestInput (h : Coherent U T vals nv τ a) (N : CanonGraph.Node) :
     Extract.honestInput T N.toPos = cellValues N vals := by
@@ -73,7 +90,7 @@ theorem Coherent.honestInput (h : Coherent U T vals nv τ a) (N : CanonGraph.Nod
   congr 1
   funext c
   cases c with
-  | inl M => exact joinLabels_low _ _ M
+  | inl M => exact joinLabels_val _ _ M
   | inr s => exact congrFun h.secrets s
 theorem Coherent.cell (h : Coherent U T vals nv τ a) (N : CanonGraph.Node) :
     cell (secretsOf T) N (routerLabels vals a) = cellValues N vals := by
@@ -89,10 +106,12 @@ theorem Coherent.leafMsg (h : Coherent U T vals nv τ a) (L : EncLeaf) :
   by_cases hl : L.1.lay.val < 3
   · rw [dif_pos hl, dif_pos hl]
     congr 1
-    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 0).trans (joinLabels_low _ _ _)
-    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 1).trans (joinLabels_low _ _ _)
+    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 0).trans (joinLabels_low rfl)
+    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 1).trans (joinLabels_low rfl)
   · rw [dif_neg hl, dif_neg hl]
-    exact congrArg WCT9.LayerMsg.forest (joinLabels_low _ _ _)
+    congr 1
+    · exact (ftsLabel_top _ _ _ 0).trans ((proj_top _ _ _ _).symm.trans (joinLabels_val _ _ _))
+    · exact (ftsLabel_top _ _ _ 1).trans ((proj_top _ _ _ _).symm.trans (joinLabels_val _ _ _))
 end Coherent
 theorem encodingRow_parsed_none (L : Wots.LeafAddr) (m : WCT9.LayerMsg) (c : BitVec 32) (pad : Wots.RowPad) :
     Extract.posOf (Wots.encRow L m c pad) = none :=
@@ -123,11 +142,7 @@ theorem encRow_encLeaf {L L' : EncLeaf} {m m' : WCT9.LayerMsg} {c c' : BitVec 32
   rfl
 theorem msgFits_msgVals (v : Coord → Digest) (L : EncLeaf) : Extract.msgFits L.1.lay (msgVals v L) := by
   unfold msgVals
-  split_ifs with h
-  · exact h
-  · show L.1.lay.val = 3
-    have := L.1.lay.isLt
-    omega
+  split_ifs <;> trivial
 theorem msgVals_congr (v w : Coord → Digest) (L : EncLeaf) (h : ∀ cs ∈ msgSlots L, v cs.1 = w cs.1) :
     msgVals v L = msgVals w L := by
   unfold msgVals
@@ -136,7 +151,7 @@ theorem msgVals_congr (v w : Coord → Digest) (L : EncLeaf) (h : ∀ cs ∈ msg
   · rw [dif_pos hl] at h
     rw [h _ List.mem_cons_self, h _ (List.mem_cons_of_mem _ List.mem_cons_self)]
   · rw [dif_neg hl] at h
-    rw [h _ List.mem_cons_self]
+    rw [h _ List.mem_cons_self, h _ (List.mem_cons_of_mem _ List.mem_cons_self)]
 theorem slotValue_three (A B C E : HashInput) (hA : A.length = 16) (hB : B.length = 16) (hC : C.length = 16)
     (x : Digest) : slotValue (A ++ (B ++ (C ++ (bytesLE 16 x ++ E)))) 3 = x := by
   rw [show (3 : Nat) = 2 + 1 from rfl, SigGolfCandidate.T3.Security.LargeResidual.slotValue_shift _ _ _ hA,
@@ -160,12 +175,16 @@ theorem slot_msgVals (L : EncLeaf) (v : Coord → Digest) (c : BitVec 32) (pad :
         intro A B C D E; simp only [List.append_assoc, List.append_nil]
       rw [e]
       exact slotValue_three _ _ _ [] (hl16 _) (hl16 _) (by simp only [List.length_append, bytesLE_length]) _
-  · simp only [List.mem_cons, List.mem_nil_iff, or_false] at hcs
-    subst hcs
-    rw [ClaudeWCT.W9.T3M.BC.layerEncodingInputP_forest, ClaudeWCT.W9.T3M.BC.pad64_pairEncodingInputP]
+  · rw [ClaudeWCT.W9.T3M.BC.layerEncodingInputP_pair, ClaudeWCT.W9.T3M.BC.pad64_pairEncodingInputP]
     unfold WCT9.pairEncodingInputP
-    simp only [List.append_assoc]
-    exact SigGolfCandidate.T3.Security.LargeResidual.slotValue_bytes_cons _ _
+    simp only [List.mem_cons, List.mem_nil_iff, or_false] at hcs
+    rcases hcs with rfl | rfl
+    · simp only [List.append_assoc]
+      exact SigGolfCandidate.T3.Security.LargeResidual.slotValue_bytes_cons _ _
+    · have e : ∀ (A B C D E : HashInput), A ++ B ++ C ++ D ++ E = A ++ (B ++ ((C ++ D) ++ (E ++ []))) := by
+        intro A B C D E; simp only [List.append_assoc, List.append_nil]
+      rw [e]
+      exact slotValue_three _ _ _ [] (hl16 _) (hl16 _) (by simp only [List.length_append, bytesLE_length]) _
 theorem firstUnknownMsg_some {K : Coord → Prop} {L : EncLeaf} {cs : Coord × Nat}
     (h : firstUnknownMsg K L = some cs) : cs ∈ msgSlots L ∧ ¬K cs.1 := by
   unfold firstUnknownMsg at h
@@ -225,12 +244,35 @@ theorem childSlots_ne (N : CanonGraph.Node) : ∀ cs ∈ childSlots N, cs.1 ≠ 
         have := p.2.isLt
         omega
   | wctLeaf L =>
-      simp only [childSlots] at hcs
-      obtain ⟨t, rfl⟩ := List.mem_ofFn.mp hcs
-      simp [wctItem]
+      simp only [childSlots, List.mem_append] at hcs
+      rcases hcs with hcs | hcs
+      · obtain ⟨t, rfl⟩ := List.mem_ofFn.mp hcs
+        simp [wctItem]
+      · simp only [Option.mem_toList, Option.map_eq_some_iff] at hcs
+        obtain ⟨c, hc, rfl⟩ := hcs
+        unfold prevTop at hc
+        split_ifs at hc
+        cases hc
+        simp
   | wctNode n =>
-      simp only [childSlots, List.mem_append, Option.mem_toList, Option.map_eq_some_iff] at hcs
-      rcases hcs with ⟨c, hc, rfl⟩ | ⟨c, hc, rfl⟩ <;>
+      simp only [childSlots, List.mem_append] at hcs
+      rcases hcs with (hcs | hcs) | hcs
+      rotate_left 2
+      · split_ifs at hcs with hl5
+        · simp only [Option.mem_toList, Option.map_eq_some_iff] at hcs
+          obtain ⟨c, hc, rfl⟩ := hcs
+          unfold prevTop at hc
+          split_ifs at hc with h0
+          cases hc
+          intro heq
+          simp only [Sum.inl.injEq, CanonGraph.Node.wctNode.injEq] at heq
+          have := congrArg (fun m : WctNodePos => m.1.coord.val) heq
+          simp only [ftsTopNode] at this
+          omega
+        · simp at hcs
+      all_goals simp only [Option.mem_toList, Option.map_eq_some_iff] at hcs
+      all_goals obtain ⟨c, hc, rfl⟩ := hcs
+      all_goals
       · unfold ftsChild at hc
         split_ifs at hc with hl
         · obtain ⟨⟩ := hc
@@ -267,7 +309,7 @@ theorem contactTest_parsed {A : Answers} {K : Coord → Prop} {X : HashInput} {y
     (hN : Extract.posOf X = some N.toPos) :
     ContactTest A K X y ↔
       (∃ cs, firstUnknown K N = some cs ∧ slotValue X cs.2 = LargeResidual.honestValue A cs.1) ∨
-        (X ≠ Extract.honestInput A N.toPos ∧ y.extractLsb' 0 128 = LargeResidual.honestValue A (.inl N)) := by
+        (X ≠ Extract.honestInput A N.toPos ∧ N.toPos.proj y = LargeResidual.honestValue A (.inl N)) := by
   constructor
   · rintro (⟨N', hN', h⟩ | ⟨L, m, c, pad, -, hX, -⟩)
     · rw [hN] at hN'
@@ -523,6 +565,28 @@ theorem observed_testReq (st' : RouterState) (X : HashInput) (hX : X ∈ U) (tes
     split_ifs
     · rw [observed_pure, map_pure]; rfl
     · rw [map_pure]; rfl
+theorem observed_testReqP (g : HashOutput → HashOutput) (st' : RouterState) (X : HashInput) (hX : X ∈ U)
+    (test : Probe WCoord) (hfresh : X ∉ st.seen → ws.rows ⟨X, hX⟩ = none) :
+    observedRun aux q (Sum.elim vals nv) τ ((fun y => (g y, st')) <$> testReq U (decide (X ∉ st.seen)) ⟨X, hX⟩ test) ws =
+      if X ∉ st.seen then
+        (if (test.effF ws.candidates).keep (Sum.elim vals nv) (τ ⟨X, hX⟩) then
+          pure (some (g (τ ⟨X, hX⟩), st'), probeState ws ⟨X, hX⟩ (test.effF ws.candidates) (τ ⟨X, hX⟩))
+        else pure (none, stoppedState ws))
+      else pure (some (g (τ ⟨X, hX⟩), st'), readState q ws ⟨X, hX⟩ (τ ⟨X, hX⟩) .call) := by
+  rw [observed_map]
+  by_cases hs : X ∈ st.seen
+  · have hd : decide (X ∉ st.seen) = false := by simp [hs]
+    rw [hd, if_neg (not_not.mpr hs)]
+    simp only [testReq, Bool.false_eq_true, if_false]
+    rw [← bind_pure (readReq U ⟨X, hX⟩ .call), observed_readReq, observed_pure, map_pure]
+    rfl
+  · have hd : decide (X ∉ st.seen) = true := by simp [hs]
+    rw [hd, if_pos hs]
+    simp only [testReq, if_true]
+    rw [← bind_pure (probeReq U ⟨X, hX⟩ test), observed_probeReq_fresh U aux q (Sum.elim vals nv) τ _ _ _ _ (hfresh hs)]
+    split_ifs
+    · rw [observed_pure, map_pure]; rfl
+    · rw [map_pure]; rfl
 end Query
 section Cases
 variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest} {τ : Cell U → HashOutput} {a : AuxData}
@@ -712,6 +776,64 @@ theorem continue_probe (hrel : Rel U T vals nv τ a q mon st ws) (hlt : st.calls
   · exact rows_update_seen hrel X hX
   · exact fun _ => hcell
   · exact fun _ => henc
+theorem continue_read_callP (g : HashOutput → HashOutput) (hrel : Rel U T vals nv τ a q mon st ws) (hlt : st.calls < q)
+    (X : HashInput) (hX : X ∈ U) (hnd : ¬IsDigestRow X) (hTX : T (.inl (.inr X)) = g (τ ⟨X, hX⟩))
+    (hnc : ¬(X ∉ st.seen ∧ X ∈ U ∧ ContactTest T st.known X (T (.inl (.inr X)))))
+    (hcell : ∀ N : CanonGraph.Node, X = cellValues N vals → ∀ cs ∈ childSlots N, st.known cs.1)
+    (henc : ∀ (L : EncLeaf) (ctr : BitVec 32), X = Wots.encRow L.toWots (msgVals vals L) ctr 0 →
+      ∀ cs ∈ msgSlots L, st.known cs.1) :
+    QueryOutcome U T vals nv τ a q mon st ws X
+      (pure (some (g (τ ⟨X, hX⟩), st.after X), readState q ws ⟨X, hX⟩ (τ ⟨X, hX⟩) .call)) := by
+  apply outcome_continue hrel hlt X _ hnc (readState q ws ⟨X, hX⟩ (τ ⟨X, hX⟩) .call)
+  · rw [hTX, RouterState.next_of_not U st X _ (fun h' => hnd h'.2)]
+  · show ws.counters.calls + 1 = st.calls + 1
+    rw [hrel.wcalls]
+  · show ws.counters.mass = ws.counters.mass + _
+    rw [if_neg (fun h => hnd h.2), Nat.add_zero]
+  · have := hrel.probes
+    show ws.counters.probes ≤ ws.counters.calls + 1
+    omega
+  · exact hrel.mem
+  · exact hrel.hidden
+  · exact rows_update_eq hrel _
+  · exact rows_update_seen hrel X hX
+  · exact fun _ => hcell
+  · exact fun _ => henc
+theorem continue_probeP (g : HashOutput → HashOutput) (hrel : Rel U T vals nv τ a q mon st ws) (hlt : st.calls < q)
+    (X : HashInput) (hX : X ∈ U)
+    (test : Probe WCoord) (hk : test.keep (Sum.elim vals nv) (τ ⟨X, hX⟩))
+    (hadm : ∀ g ∈ test.guess, ∀ parent, test.hit = Hit.label parent → g.1 ≠ parent)
+    (hTX : T (.inl (.inr X)) = g (τ ⟨X, hX⟩)) (hnd : ¬IsDigestRow X)
+    (hnc : ¬(X ∉ st.seen ∧ X ∈ U ∧ ContactTest T st.known X (T (.inl (.inr X)))))
+    (hcell : ∀ N : CanonGraph.Node, X = cellValues N vals → ∀ cs ∈ childSlots N, st.known cs.1)
+    (henc : ∀ (L : EncLeaf) (ctr : BitVec 32), X = Wots.encRow L.toWots (msgVals vals L) ctr 0 →
+      ∀ cs ∈ msgSlots L, st.known cs.1) :
+    QueryOutcome U T vals nv τ a q mon st ws X
+      (pure (some (g (τ ⟨X, hX⟩), st.after X),
+        probeState ws ⟨X, hX⟩ test (τ ⟨X, hX⟩))) := by
+  apply outcome_continue hrel hlt X _ hnc (probeState ws ⟨X, hX⟩ test (τ ⟨X, hX⟩))
+  · rw [hTX, RouterState.next_of_not U st X _ (fun h' => hnd h'.2)]
+  · show ws.counters.calls + 1 = st.calls + 1
+    rw [hrel.wcalls]
+  · show ws.counters.mass = ws.counters.mass + _
+    rw [if_neg (fun h => hnd h.2), Nat.add_zero]
+  · show ws.counters.probes + 1 ≤ ws.counters.calls + 1
+    have := hrel.probes; omega
+  · exact (mem_restrict test ws.candidates (τ ⟨X, hX⟩) (Sum.elim vals nv)).mpr ⟨hrel.mem, hk.1, by
+      rcases test with ⟨g, hit⟩
+      cases hit with
+      | label p => exact hk.2
+      | target t => trivial
+      | selectedTarget t pickLow => trivial⟩
+  · intro c hc
+    have h1 := hrel.hidden c hc
+    have h2 := card_restrict_ge test ws.candidates (τ ⟨X, hX⟩) hadm (.inl c)
+    show 2 ^ 128 - (ws.counters.probes + 1) ≤ (test.restrict ws.candidates (τ ⟨X, hX⟩) (.inl c)).card
+    omega
+  · exact rows_update_eq hrel _
+  · exact rows_update_seen hrel X hX
+  · exact fun _ => hcell
+  · exact fun _ => henc
 /-- FTS seeds of family `f` disclosed by the router so far. -/
 @[irreducible] noncomputable def DiscSeeds (st : RouterState) (f : Fin (2 ^ 31) × Fin 9) : Finset CanonGraph.WctAddr :=
   Finset.univ.filter fun w => (w.1, w.2.1) = f ∧ (.inr (.inr w) : Coord) ∈ st.disclosed
@@ -812,7 +934,7 @@ theorem case_unknownChild (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T val
     (hlt : st.calls < q) (hq : q ≤ 2 ^ 127) (hok : FamOK st) (X : HashInput) (hX : X ∈ U) (N : CanonGraph.Node)
     (hN : Extract.posOf X = some N.toPos) (cs : Coord × Nat) (hfu : firstUnknown st.known N = some cs) :
     QueryOutcome U T vals nv τ a q mon st ws X (observedRun aux q (Sum.elim vals nv) τ
-      ((fun y => (y, st.after X)) <$>
+      ((fun y => (rowPresent X y, st.after X)) <$>
         testReq U (decide (X ∉ st.seen)) ⟨X, hX⟩ ⟨some (.inl cs.1, slotValue X cs.2), .label (.inl (.inl N))⟩) ws) := by
   obtain ⟨hcsm, hcsk⟩ := firstUnknown_some hfu
   have hp : Parsed X := ⟨N, hN⟩
@@ -833,13 +955,13 @@ theorem case_unknownChild (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T val
     subst hg
     exact hrel.adm hlt hq hok cs.1 hcsk _ _ fun parent hpar =>
       ⟨hadm _ rfl parent hpar, ⟨N, by simp only [Hit.label.injEq] at hpar; exact hpar.symm⟩⟩
-  have hcomp := observed_testReq (U := U) (q := q) (vals := vals) (nv := nv) (τ := τ) (st := st) (ws := ws) aux
-    (st.after X) X hX ⟨some (.inl cs.1, slotValue X cs.2), .label (.inl (.inl N))⟩
+  have hcomp := observed_testReqP (U := U) (q := q) (vals := vals) (nv := nv) (τ := τ) (st := st) (ws := ws) aux
+    (rowPresent X) (st.after X) X hX ⟨some (.inl cs.1, slotValue X cs.2), .label (.inl (.inl N))⟩
     (hrel.fresh X hX hnd)
   refine (congrArg (QueryOutcome U T vals nv τ a q mon st ws X) hcomp).mpr ?_
   rw [heff]
   have hct : ∀ y : HashOutput, ContactTest T st.known X y ↔
-      slotValue X cs.2 = vals cs.1 ∨ (X ≠ cellValues N vals ∧ low y = vals (.inl N)) := by
+      slotValue X cs.2 = vals cs.1 ∨ (X ≠ cellValues N vals ∧ N.toPos.proj y = vals (.inl N)) := by
     intro y
     rw [contactTest_parsed hN, hcoh.honestValue, hcoh.honestInput]
     constructor
@@ -851,7 +973,7 @@ theorem case_unknownChild (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T val
     · rintro (h | h)
       · exact Or.inl ⟨cs, hfu, h⟩
       · exact Or.inr h
-  have hres : X ≠ cellValues N vals → T (.inl (.inr X)) = τ ⟨X, hX⟩ := fun hXc =>
+  have hres : X ≠ cellValues N vals → T (.inl (.inr X)) = rowPresent X (τ ⟨X, hX⟩) := fun hXc =>
     hcoh.residual X hX (fun N' => by rw [hcoh.cell]; exact hcoh.not_cell_parsed hN hXc N') (not_prefix_parsed hp)
   have hcell : X ≠ cellValues N vals → ∀ N' : CanonGraph.Node, X = cellValues N' vals →
       ∀ cs ∈ childSlots N', st.known cs.1 := fun hXc N' hN' => absurd hN' (hcoh.not_cell_parsed hN hXc N')
@@ -860,7 +982,7 @@ theorem case_unknownChild (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T val
   by_cases hs : X ∈ st.seen
   · rw [if_neg (not_not.mpr hs)]
     have hXc : X ≠ cellValues N vals := fun heq => hcsk (hrel.seenCells X hs hX N heq cs hcsm)
-    exact continue_read_call hrel hlt X hX hnd (hres hXc) (fun h => h.1 hs) (hcell hXc) henc
+    exact continue_read_callP (rowPresent X) hrel hlt X hX hnd (hres hXc) (fun h => h.1 hs) (hcell hXc) henc
   · rw [if_pos hs]
     by_cases hXc : X = cellValues N vals
     · have hslot : slotValue X cs.2 = vals cs.1 := by
@@ -878,17 +1000,17 @@ theorem case_unknownChild (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T val
         have hk' := (keep_guess_label (Sum.elim vals nv) (.inl cs.1) (.inl (.inl N)) (slotValue X cs.2) _).mp hk
         have hnc : ¬(X ∉ st.seen ∧ X ∈ U ∧ ContactTest T st.known X (T (.inl (.inr X)))) := by
           rintro ⟨-, -, hc⟩
-          rw [hct, hTX] at hc
+          rw [hct, hTX, proj_rowPresent hN] at hc
           rcases hc with h | h
           · exact hk'.1 h.symm
           · exact hk'.2 h.2.symm
-        exact continue_probe hrel hlt X hX _ hk hadm hTX hnd hnc (hcell hXc) henc
+        exact continue_probeP (rowPresent X) hrel hlt X hX _ hk hadm hTX hnd hnc (hcell hXc) henc
       · rw [if_neg hk]
         refine outcome_stop hrel hlt X _ ⟨hs, hX, (hct _).mpr ?_⟩ rfl
         rw [keep_guess_label, not_and_or, not_not, not_not] at hk
         rcases hk with h | h
         · exact Or.inl h.symm
-        · exact Or.inr ⟨hXc, by rw [hTX]; exact h.symm⟩
+        · exact Or.inr ⟨hXc, by rw [hTX, proj_rowPresent hN]; exact h.symm⟩
 theorem queryOutcome_congr {X : HashInput}
     {out out' : SPMF (Option (HashOutput × RouterState) × LargeResidual.State WCoord (Cell U))} (h : out = out')
     (h' : QueryOutcome U T vals nv τ a q mon st ws X out') : QueryOutcome U T vals nv τ a q mon st ws X out := h ▸ h'
@@ -959,8 +1081,8 @@ theorem case_knownChildren (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T va
       let pairs ← discloseAll U ((childSlots N).map Prod.fst)
       if X = cellFrom N (lookupVal pairs) then do
         let v ← discloseReq U (.inl (.inl N)) .call
-        pure (ChainGraph.joinOutput v (a.high N), st.after X)
-      else (fun y => (y, st.after X)) <$>
+        pure (CanonGraph.presentEquiv N (ChainGraph.joinOutput v (a.high N)), st.after X)
+      else (fun y => (rowPresent X y, st.after X)) <$>
         testReq U (decide (X ∉ st.seen)) ⟨X, hX⟩ ⟨none, .label (.inl (.inl N))⟩) ws) := by
   have hall := firstUnknown_none hfu
   have hp : Parsed X := ⟨N, hN⟩
@@ -979,11 +1101,10 @@ theorem case_knownChildren (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T va
     intro cs hcs
     exact lookupVal_map (fun c => Sum.elim vals nv (.inl c)) _ cs.1 (List.mem_map.mpr ⟨cs, hcs, rfl⟩)
   rw [hcf]
-  have hct : ∀ y : HashOutput, ContactTest T st.known X y ↔ X ≠ cellValues N vals ∧ low y = vals (.inl N) := by
+  have hct : ∀ y : HashOutput, ContactTest T st.known X y ↔ X ≠ cellValues N vals ∧ N.toPos.proj y = vals (.inl N) := by
     intro y
     rw [contactTest_parsed hN, hcoh.honestValue, hcoh.honestInput, hfu]
     simp only [reduceCtorEq, false_and, exists_false, false_or]
-    rfl
   have henc : ∀ (L : EncLeaf) (ctr : BitVec 32), X = Wots.encRow L.toWots (msgVals vals L) ctr 0 →
       ∀ cs ∈ msgSlots L, st.known cs.1 := fun L ctr hL => absurd hL (not_enc_parsed hp L _ ctr 0 (msgFits_msgVals vals L))
   by_cases hXc : X = cellValues N vals
@@ -1028,15 +1149,15 @@ theorem case_knownChildren (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T va
       exact hall
     · exact fun _ => henc
   · rw [if_neg hXc]
-    have hTX : T (.inl (.inr X)) = τ ⟨X, hX⟩ :=
+    have hTX : T (.inl (.inr X)) = rowPresent X (τ ⟨X, hX⟩) :=
       hcoh.residual X hX (fun N' => by rw [hcoh.cell]; exact hcoh.not_cell_parsed hN hXc N') (not_prefix_parsed hp)
     have hcell : ∀ N' : CanonGraph.Node, X = cellValues N' vals → ∀ cs ∈ childSlots N', st.known cs.1 :=
       fun N' hN' => absurd hN' (hcoh.not_cell_parsed hN hXc N')
     have hfresh : X ∉ st.seen → (discloseStates U q (Sum.elim vals nv) ws ((childSlots N).map Prod.fst)).rows ⟨X, hX⟩ = none :=
       hrel1.fresh X hX hnd
-    have hcomp := observed_testReq (U := U) (q := q) (vals := vals) (nv := nv) (τ := τ) (st := st)
+    have hcomp := observed_testReqP (U := U) (q := q) (vals := vals) (nv := nv) (τ := τ) (st := st)
       (ws := discloseStates U q (Sum.elim vals nv) ws ((childSlots N).map Prod.fst)) aux
-      (st.after X) X hX ⟨none, .label (.inl (.inl N))⟩ hfresh
+      (rowPresent X) (st.after X) X hX ⟨none, .label (.inl (.inl N))⟩ hfresh
     refine queryOutcome_congr hcomp ?_
     rw [effF_self _ _ (by intro g hg; cases hg)]
     have hadm : ∀ g ∈ (⟨none, .label (.inl (.inl N))⟩ : Probe WCoord).guess, ∀ parent,
@@ -1044,20 +1165,20 @@ theorem case_knownChildren (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T va
       intro g hg; cases hg
     by_cases hs : X ∈ st.seen
     · rw [if_neg (not_not.mpr hs)]
-      have h := continue_read_call hrel1 hlt X hX hnd hTX (fun h => h.1 hs) hcell henc
+      have h := continue_read_callP (rowPresent X) hrel1 hlt X hX hnd hTX (fun h => h.1 hs) hcell henc
       exact h
     · rw [if_pos hs]
       by_cases hk : (⟨none, .label (.inl (.inl N))⟩ : Probe WCoord).keep (Sum.elim vals nv) (τ ⟨X, hX⟩)
       · rw [if_pos hk]
         have hnc : ¬(X ∉ st.seen ∧ X ∈ U ∧ ContactTest T st.known X (T (.inl (.inr X)))) := by
           rintro ⟨-, -, hc⟩
-          rw [hct, hTX] at hc
+          rw [hct, hTX, proj_rowPresent hN] at hc
           exact ((keep_label (Sum.elim vals nv) _ _).mp hk) hc.2.symm
-        exact continue_probe hrel1 hlt X hX _ hk hadm hTX hnd hnc hcell henc
+        exact continue_probeP (rowPresent X) hrel1 hlt X hX _ hk hadm hTX hnd hnc hcell henc
       · rw [if_neg hk]
         refine outcome_stop hrel1 hlt X _ ⟨hs, hX, (hct _).mpr ⟨hXc, ?_⟩⟩ rfl
         rw [keep_label, not_not] at hk
-        rw [hTX]
+        rw [hTX, proj_rowPresent hN]
         exact hk.symm
 theorem honestPrefix_iff {L : EncLeaf} {m : WCT9.LayerMsg} {ctr : BitVec 32} {pad : Wots.RowPad} :
     HonestPrefix vals a (Wots.encRow L.toWots m ctr pad) ↔
@@ -1163,7 +1284,7 @@ theorem case_enc_known (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals n
     · exact fun _ => henc
   · rw [if_neg hpre]
     have hTX : T (.inl (.inr X)) = τ ⟨X, hX⟩ :=
-      hcoh.residual X hX (fun N' => by rw [hcoh.cell]; exact not_cell_unparsed hcoh hnp N')
+      hcoh.residual_unparsed X hX hnp (fun N' => by rw [hcoh.cell]; exact not_cell_unparsed hcoh hnp N')
         (by rw [hXe, honestPrefix_iff, ← hXe]; exact hpre)
     have hri : Wots.referenceInput T L.toWots ≠ some X := by
       rw [hXe]
@@ -1213,7 +1334,7 @@ theorem case_digest (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals nv �
     rintro ⟨L, m, ctr, pad, -, rfl⟩
     exact encRow_not_digest L m ctr pad hd
   have hTX : T (.inl (.inr X)) = τ ⟨X, hX⟩ :=
-    hcoh.residual X hX (fun N' => by rw [hcoh.cell]; exact not_cell_unparsed hcoh hnp N') (not_prefix_enc hne)
+    hcoh.residual_unparsed X hX hnp (fun N' => by rw [hcoh.cell]; exact not_cell_unparsed hcoh hnp N') (not_prefix_enc hne)
   rw [observed_map, ← bind_pure (readReq U ⟨X, hX⟩ .mass), observed_readReq, observed_pure, map_pure]
   have h := continue_read hrel hlt X hX .mass (Or.inr ⟨rfl, hd⟩) hTX
     (fun h => contactTest_other hnp hne h.2.2)
@@ -1232,7 +1353,7 @@ theorem case_other (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals nv τ
     QueryOutcome U T vals nv τ a q mon st ws X (observedRun aux q (Sum.elim vals nv) τ
       ((fun y => (y, st.after X)) <$> readReq U ⟨X, hX⟩ .call) ws) := by
   have hTX : T (.inl (.inr X)) = τ ⟨X, hX⟩ :=
-    hcoh.residual X hX (fun N' => by rw [hcoh.cell]; exact not_cell_unparsed hcoh hnp N') (not_prefix_enc hne)
+    hcoh.residual_unparsed X hX hnp (fun N' => by rw [hcoh.cell]; exact not_cell_unparsed hcoh hnp N') (not_prefix_enc hne)
   rw [observed_map, ← bind_pure (readReq U ⟨X, hX⟩ .call), observed_readReq, observed_pure, map_pure]
   exact continue_read_call hrel hlt X hX hnd hTX (fun h => contactTest_other hnp hne h.2.2)
     (fun N' hN' => absurd hN' (not_cell_unparsed hcoh hnp N'))

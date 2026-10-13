@@ -325,7 +325,7 @@ theorem respAt_signPayload (T : Answers) (cache : T3.Cache) (message : Message) 
     refine RespAt.bind (RespAt.of_respects (respects_signForest _ _) fun _ h => honestQ_of_nonEnc h) ?_
     refine RespAt.bind (respAt_signLayers T cache _ (WCT9.digestIndex_lt _) 4 le_rfl _ (fun m hm => ?_)) ?_
     · obtain rfl : m = 3 := by omega
-      rw [ClaudeWCT.WCT9.signForest_root, ← Extract.honestForest_eq_wct9]
+      rw [ClaudeWCT.WCT9.signForest_root, ← Extract.honestTop_eq_wct9]
       exact Mask.signedMsg_top T _ (WCT9.digestIndex_lt _)
     · generalize evalWithAnswerFn T (WCT9.signLayersBC cache (WCT9.digestIndex output) 4 _) = pieces
       rcases pieces with _ | pieces <;> exact RespAt.pure' _
@@ -365,10 +365,10 @@ theorem referenceGame_congr_honest {T T' : Answers} (h : AgreeOn (HonestQ T) T T
     (adversary : Final.AdversaryP) (q : Nat) : referenceGame T' adversary q = referenceGame T adversary q := by
   unfold referenceGame
   rw [offlineGame_congr h]
-theorem honestForest_congr_nonEnc {T T' : Answers} (h : ∀ q, Enc.NonEnc q → T' q = T q) (index : Nat) :
-    Extract.honestForest T' index = Extract.honestForest T index := by
-  rw [Extract.honestForest_eq_wct9, Extract.honestForest_eq_wct9]
-  exact ClaudeWCT.WCT9.Wots.Enc.honestForest_congr h index
+theorem honestTop_congr_nonEnc {T T' : Answers} (h : ∀ q, Enc.NonEnc q → T' q = T q) (index : Nat) :
+    Extract.honestTop T' index = Extract.honestTop T index := by
+  rw [Extract.honestTop_eq_wct9, Extract.honestTop_eq_wct9]
+  exact ClaudeWCT.WCT9.Wots.Enc.honestTop_congr h index
 theorem wotsTree_take_congr_nonEnc {T T' : Answers} (h : ∀ q, Enc.NonEnc q → T' q = T q) (lay : Layer)
     (tree : Nat) :
     (WCT9.wotsTree T' lay tree).take (height lay) = (WCT9.wotsTree T lay tree).take (height lay) := by
@@ -408,7 +408,7 @@ theorem leafMsg_congr_nonEnc {T T' : Answers} (h : ∀ q, Enc.NonEnc q → T' q 
   unfold leafMsg
   split
   · rw [honestPair_congr_nonEnc h]
-  · rw [honestForest_congr_nonEnc h _]
+  · rw [honestTop_congr_nonEnc h _]
 theorem nonEnc_of_honest {T T' : Answers} (h : AgreeOn (HonestQ T) T T') : ∀ q, Enc.NonEnc q → T' q = T q :=
   h.nonEnc fun _ hq => honestQ_of_nonEnc hq
 theorem referenceSearch_congr_honest {T T' : Answers} (h : AgreeOn (HonestQ T) T T')

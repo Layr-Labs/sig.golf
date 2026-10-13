@@ -18,9 +18,7 @@ theorem Diverge.mono {answers : Answers} {w : WBytes} {index : Nat} {lay : Layer
 theorem msgFits_honestMsg (answers : Answers) (index : Nat) (lay : Layer) :
     msgFits lay (honestMsg answers index lay) := by
   unfold honestMsg
-  split
-  · rename_i h; exact h
-  · rename_i h; show lay.val = 3; omega
+  split <;> trivial
 theorem ofNat_val (n : Nat) (hn : n < 4) : (Fin.ofNat 4 n : Layer).val = n := Nat.mod_eq_of_lt hn
 theorem honestMsg_lower (answers : Answers) (index n : Nat) (h1 : 1 ≤ n) (h3 : n ≤ 3) :
     honestMsg answers index (Fin.ofNat 4 (n - 1)) =
@@ -36,7 +34,7 @@ theorem honestMsg_lower (answers : Answers) (index n : Nat) (h1 : 1 ≤ n) (h3 :
   rw [dif_pos (by rw [hv]; omega)]
   simp only [hl]
 theorem honestMsg_three (answers : Answers) (index : Nat) :
-    honestMsg answers index (Fin.ofNat 4 3) = .forest (honestForest answers index) := by
+    honestMsg answers index (Fin.ofNat 4 3) = .pair (honestTop answers index).1 (honestTop answers index).2 := by
   unfold honestMsg
   rw [dif_neg (by decide)]
 private theorem queried_map_l {α β : Type} (answers : Answers) (f : α → β) (p : M α) :
@@ -171,8 +169,7 @@ theorem layersBC_walk_n (answers : Answers) (w : WBytes) (index : Nat) (hidx : i
         have hfit' : msgFits (Fin.ofNat 4 (n - 1))
             (.pair (evalWithAnswerFn answers (layerPairP w index (Fin.ofNat 4 n) digits)).1
               (evalWithAnswerFn answers (layerPairP w index (Fin.ofNat 4 n) digits)).2) := by
-          show (Fin.ofNat 4 (n - 1) : Layer).val < 3
-          rw [ofNat_val _ (by omega)]; omega
+          trivial
         rcases layersBC_walk_n answers w index hidx n (by omega) (by omega) _ hfit' hrest with
           hhit | ⟨lay, hlay, hdiv, hgood⟩ | ⟨hgood, hmsg⟩
         · exact Or.inl (hhit.mono hqR)
@@ -187,17 +184,18 @@ theorem layersBC_walk_n (answers : Answers) (w : WBytes) (index : Nat) (hidx : i
               hpair with hhit | hshape
           · exact Or.inl (hhit.mono hqP)
           · exact Or.inr hshape
-theorem layersBC_walk (answers : Answers) (w : WBytes) (index : Nat) (root : Digest) (hidx : index < 2 ^ 31)
-    (h : evalWithAnswerFn answers (layersBC w index 4 (.forest root)) = some (honestRoot answers 0 0)) :
-    HitIn answers (queried answers (layersBC w index 4 (.forest root))) ∨
-      (∃ lay : Layer, Diverge answers w index lay (queried answers (layersBC w index 4 (.forest root))) ∧
+theorem layersBC_walk (answers : Answers) (w : WBytes) (index : Nat) (root : Digest × Digest) (hidx : index < 2 ^ 31)
+    (h : evalWithAnswerFn answers (layersBC w index 4 (.pair root.1 root.2)) = some (honestRoot answers 0 0)) :
+    HitIn answers (queried answers (layersBC w index 4 (.pair root.1 root.2))) ∨
+      (∃ lay : Layer, Diverge answers w index lay (queried answers (layersBC w index 4 (.pair root.1 root.2))) ∧
         ∀ l : Layer, l.val < lay.val → Good answers w index l) ∨
-      ((∀ l : Layer, Good answers w index l) ∧ root = honestForest answers index) := by
-  rcases layersBC_walk_n answers w index hidx 4 (by decide) le_rfl (.forest root) rfl h with
+      ((∀ l : Layer, Good answers w index l) ∧ root = honestTop answers index) := by
+  rcases layersBC_walk_n answers w index hidx 4 (by decide) le_rfl (.pair root.1 root.2) trivial h with
     hhit | ⟨lay, _, hdiv, hgood⟩ | ⟨hgood, hmsg⟩
   · exact Or.inl hhit
   · exact Or.inr (Or.inl ⟨lay, hdiv, hgood⟩)
   · refine Or.inr (Or.inr ⟨fun l => hgood l l.isLt, ?_⟩)
     rw [show (4 - 1 : Nat) = 3 from rfl, honestMsg_three] at hmsg
-    simpa using hmsg
+    simp only [WCT9.LayerMsg.pair.injEq] at hmsg
+    exact Prod.ext hmsg.1 hmsg.2
 end ClaudeWCT.W9.T3M.Extract

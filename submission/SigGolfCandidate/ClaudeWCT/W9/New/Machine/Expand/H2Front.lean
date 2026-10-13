@@ -454,7 +454,7 @@ theorem front_pre30' {im : Image} (hF : FrontAt im) (hP : ProAt im) (hd : Expand
   refine ⟨t, st0.trans st1, ⟨p, by rw [r1.get (by decide), x5_0], x19,
       ⟨(g _ (by decide) (by simp only [DIG]; omega)).trans (d0.trans hrho.1),
         (g _ (by decide) (by simp only [DIG]; omega)).trans (d8.trans hrho.2)⟩, fun k hk => ?_, hsd,
-      fun A h1 h2 => ?_,
+      fun A h1 h2 => ?_, fun A h1 h2 => ?_,
       hdrBank_frame (w9init_bank hd m pk σ) f (fun A h1 h2 h => by simp only [DIG] at h; unfold HB0 at h1; omega),
       fun k hk => (f _ (by unfold ECOST; omega) (by simp only [DIG]; unfold ECOST; omega)).trans
         (w9init_cost hd m pk σ k hk),
@@ -470,6 +470,8 @@ theorem front_pre30' {im : Image} (hF : FrontAt im) (hP : ProAt im) (hd : Expand
       · rw [show DIG + 32 + 8 * 2 = DIG + 48 by rfl, d48]; simpa using w9init_msg hd m pk σ 2 (by decide)
       · rw [show DIG + 32 + 8 * 3 = DIG + 56 by rfl, d56]; simpa using w9init_msg hd m pk σ 3 (by decide)
     exact hm k hk
+  · rw [f A (by omega) (by simp only [DIG]; omega)]
+    exact w9init_zero hd m pk σ A (by unfold Compact2.LPLAN; omega) ⟨by omega, by omega, by omega⟩
   · rw [f A (by omega) (by simp only [DIG]; omega)]
     exact w9init_zero hd m pk σ A (by unfold Compact2.LPLAN; omega) ⟨by omega, by omega, by omega⟩
 

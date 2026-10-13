@@ -144,10 +144,19 @@ theorem rowPrefix_determined : PrefixDetermined rowPrefix := by
   rw [hsel]
 section Public
 variable (U : Finset HashInput) (hU : canonInputs ⊆ U) (hE : encInputs ⊆ U)
-noncomputable def residualPsi (labels : Labels) (rows : EncLeaf → Fin (2 ^ 22) → HashOutput) (τ : U → HashOutput) :
+noncomputable def residualPsi0 (labels : Labels) (rows : EncLeaf → Fin (2 ^ 22) → HashOutput) (τ : U → HashOutput) :
     U → HashOutput :=
   SphincsSecurity.Concrete.UniformTableSplit.overwrite (encCell U hE labels) (encCell_injective U hE labels)
     (mix rowPrefix (Function.uncurry rows) (fun x => τ (encCell U hE labels x))) τ
+/-- The residual table as the router presents it (nested FTS r1-1): rows that parse as top FTS nodes have their
+halves swapped (`rowPresent`). -/
+noncomputable def presentTable (τ : U → HashOutput) : U → HashOutput := fun x => rowPresent x.val (τ x)
+noncomputable def presentTableEquiv : (U → HashOutput) ≃ (U → HashOutput) :=
+  Equiv.piCongrRight fun x : U => rowPresent x.val
+noncomputable def residualPsi (labels : Labels) (rows : EncLeaf → Fin (2 ^ 22) → HashOutput) (τ : U → HashOutput) :
+    U → HashOutput :=
+  SphincsSecurity.Concrete.UniformTableSplit.overwrite (encCell U hE labels) (encCell_injective U hE labels)
+    (mix rowPrefix (Function.uncurry rows) (fun x => presentTable U τ (encCell U hE labels x))) (presentTable U τ)
 noncomputable def tablePsi (sec : Secrets) (vals : Coord → Digest) (nv : Message → Digest) (τ : U → HashOutput)
     (a : AuxData) : Answers :=
   Wots.eagerAnswers U (privPsi sec nv a.priv)
@@ -166,10 +175,12 @@ theorem msgLabel_router (vals : Coord → Digest) (a : AuxData) (L : EncLeaf) :
   by_cases hl : L.1.lay.val < 3
   · rw [dif_pos hl, dif_pos hl]
     congr 1
-    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 0).trans (joinLabels_low _ _ _)
-    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 1).trans (joinLabels_low _ _ _)
+    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 0).trans (joinLabels_low rfl)
+    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 1).trans (joinLabels_low rfl)
   · rw [dif_neg hl, dif_neg hl]
-    exact congrArg WCT9.LayerMsg.forest (joinLabels_low _ _ _)
+    congr 1
+    · exact (ftsLabel_top _ _ _ 0).trans ((proj_top _ _ _ _).symm.trans (joinLabels_val _ _ _))
+    · exact (ftsLabel_top _ _ _ 1).trans ((proj_top _ _ _ _).symm.trans (joinLabels_val _ _ _))
 theorem sel_psi (a : AuxData) (labels : Labels) (τ : U → HashOutput) (L : EncLeaf) :
     selectionsOf U hE labels (residualPsi U hE labels a.rows τ) L = a.sel L := by
   unfold selectionsOf rawSelectionsOf AuxData.sel
@@ -223,6 +234,8 @@ theorem coherent_psi (sec : Secrets) (vals : Coord → Digest) (nv : Message →
       rw [hres, residualPsi, ← hx, SphincsSecurity.Concrete.UniformTableSplit.overwrite_embed]
       unfold mix
       rw [if_neg]
+      · show rowPresent (encCell U hE labels x).val (τ (encCell U hE labels x)) = _
+        rw [show (encCell U hE labels x).val = X from congrArg Subtype.val hx]
       intro hpx
       apply hpre
       obtain ⟨L, c⟩ := x
@@ -231,6 +244,7 @@ theorem coherent_psi (sec : Secrets) (vals : Coord → Digest) (nv : Message →
       rw [encCell_val, msgLabel_router] at hv
       exact hv.symm
     · rw [hres, residualPsi, SphincsSecurity.Concrete.UniformTableSplit.overwrite_outside _ _ _ _ _ hr]
+      rfl
   ·
     intro L ctr hp
     have hp1 : ctr.toNat < 2 ^ 22 := lt_of_lt_of_le hp.1 (WCT9.searchLimit_le L.1.lay)
@@ -359,25 +373,25 @@ theorem others_bind {R : Type} (next : OtherHalves → ProbComp R) :
   rw [evalSPMF_unused Secrets]
   unfold nonceOver
   rw [overwrite_bind nonceHalf nonceHalf_injective next]
-theorem residual_bind (U : Finset HashInput) (hE : encInputs ⊆ U) (labels : Labels) {R : Type}
+theorem residual_bind0 (U : Finset HashInput) (hE : encInputs ⊆ U) (labels : Labels) {R : Type}
     (next : (U → HashOutput) → ProbComp R) :
     𝒮[($ᵗ (U → HashOutput) : ProbComp _) >>= next] =
       𝒮[($ᵗ (EncLeaf → Fin (2 ^ 22) → HashOutput) : ProbComp _) >>= fun rows =>
-        ($ᵗ (U → HashOutput) : ProbComp _) >>= fun τ => next (residualPsi U hE labels rows τ)] := by
+        ($ᵗ (U → HashOutput) : ProbComp _) >>= fun τ => next (residualPsi0 U hE labels rows τ)] := by
   have hj : ∀ (rows : EncLeaf → Fin (2 ^ 22) → HashOutput) (g : EncLeaf × Fin (2 ^ 22) → HashOutput)
       (out : SphincsSecurity.Concrete.UniformTableSplit.Outside (encCell U hE labels) → HashOutput),
-      residualPsi U hE labels rows
+      residualPsi0 U hE labels rows
         (SphincsSecurity.Concrete.UniformTableSplit.join (encCell U hE labels) (encCell_injective U hE labels) g out) =
       SphincsSecurity.Concrete.UniformTableSplit.join (encCell U hE labels) (encCell_injective U hE labels)
         (mix rowPrefix (Function.uncurry rows) g) out := by
     intro rows g out
-    unfold residualPsi
+    unfold residualPsi0
     have hg : (fun x => SphincsSecurity.Concrete.UniformTableSplit.join (encCell U hE labels)
         (encCell_injective U hE labels) g out (encCell U hE labels x)) = g :=
       funext fun x => SphincsSecurity.Concrete.UniformTableSplit.join_embed _ _ _ _ x
     rw [hg, SphincsSecurity.Concrete.UniformTableSplit.overwrite_join]
   rw [evalSPMF_bind_congr' _ (fun rows => uniform_join_bind (encCell U hE labels) (encCell_injective U hE labels)
-    (fun τ => next (residualPsi U hE labels rows τ)))]
+    (fun τ => next (residualPsi0 U hE labels rows τ)))]
   simp only [hj]
   rw [uniform_equiv_bind (Equiv.curry (EncLeaf) (Fin (2 ^ 22)) HashOutput).symm.symm]
   simp only [Equiv.symm_symm, Equiv.curry_apply, Function.uncurry_curry]
@@ -386,6 +400,14 @@ theorem residual_bind (U : Finset HashInput) (hE : encInputs ⊆ U) (labels : La
       fun out => next (SphincsSecurity.Concrete.UniformTableSplit.join (encCell U hE labels)
         (encCell_injective U hE labels) R out))]
   rw [uniform_join_bind (encCell U hE labels) (encCell_injective U hE labels) next]
+theorem residual_bind (U : Finset HashInput) (hE : encInputs ⊆ U) (labels : Labels) {R : Type}
+    (next : (U → HashOutput) → ProbComp R) :
+    𝒮[($ᵗ (U → HashOutput) : ProbComp _) >>= next] =
+      𝒮[($ᵗ (EncLeaf → Fin (2 ^ 22) → HashOutput) : ProbComp _) >>= fun rows =>
+        ($ᵗ (U → HashOutput) : ProbComp _) >>= fun τ => next (residualPsi U hE labels rows τ)] := by
+  rw [residual_bind0 U hE labels next]
+  refine evalSPMF_bind_congr' _ fun rows => ?_
+  exact uniform_equiv_bind (presentTableEquiv U) (fun τ => next (residualPsi0 U hE labels rows τ))
 theorem law_derived (U : Finset HashInput) (hU : canonInputs ⊆ U) (hE : encInputs ⊆ U) {R : Type}
     (next : Answers → ProbComp R) :
     𝒮[($ᵗ FullGame.FullTable : ProbComp _) >>= fun priv => ($ᵗ (U → HashOutput) : ProbComp _) >>= fun pub =>

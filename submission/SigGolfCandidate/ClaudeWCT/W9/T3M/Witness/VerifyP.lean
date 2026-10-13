@@ -7,77 +7,82 @@ section
 namespace ClaudeWCT.W9.T3M
 open SigGolfCandidate.T3
 open SigGolfCandidate.T3M (sibOff)
-def regionBase (k : Nat) : Nat := 64 + 816 * (8 - k)
-def wctEnd : Nat := 7424
+/-- Nested FTS (r1-1): region stride 896; coordinate `k`'s region starts at `176 + 896 (8 - k)` (absolute
+`1392 + 896 (8 - k)`). -/
+def regionBase (k : Nat) : Nat := 176 + 896 * (8 - k)
+def wctEnd : Nat := 8256
 def wctChainBlock (k t : Nat) : Nat := regionBase k + (640 - 64 * t)
 def wctLeafBlock (k : Nat) : Nat := regionBase k + 688
 def wctLeafSlot (k t : Nat) : Nat := regionBase k + (if t = 0 then 688 else 720 + 16 * t)
 def authPlans : List (List Nat × Nat) :=
-  [([0,32,64,96,128,160], 224),
-   ([0,48,80,112,144,176], 240),
-   ([48,0,80,112,144,176], 240),
-   ([32,112,160,192,224,256], 0),
-   ([48,80,144,192,224,256], 0),
-   ([32,80,144,192,224,256], 0),
-   ([80,32,144,192,224,256], 0),
-   ([64,16,144,192,224,256], 0),
-   ([48,80,112,176,224,256], 0),
-   ([32,80,112,176,224,256], 0),
-   ([80,32,112,176,224,256], 0),
-   ([272,16,64,160,208,96], 0),
-   ([80,112,32,176,224,256], 0),
-   ([64,112,16,176,224,256], 0),
-   ([112,64,16,176,224,256], 0),
-   ([256,208,160,0,48,80], 144),
-   ([48,80,112,144,208,256], 0),
-   ([32,80,112,144,208,256], 0),
-   ([80,32,112,144,208,256], 0),
-   ([272,16,64,176,128,208], 0),
-   ([80,112,32,144,208,256], 0),
-   ([64,112,16,144,208,256], 0),
-   ([112,64,16,144,208,256], 0),
-   ([288,240,16,64,128,176], 0),
-   ([80,112,144,32,208,256], 0),
-   ([64,112,144,16,208,256], 0),
-   ([112,64,144,16,208,256], 0),
-   ([288,112,160,240,0,48], 224),
-   ([112,144,64,16,208,256], 0),
-   ([128,176,288,240,0,48], 112),
-   ([176,128,288,240,0,48], 112),
-   ([272,224,176,128,0,48], 112),
-   ([48,80,112,144,256,208], 0),
-   ([32,80,112,144,256,208], 0),
-   ([80,32,112,144,256,208], 0),
-   ([272,16,64,96,208,160], 0),
-   ([80,112,32,144,256,208], 0),
-   ([64,112,16,144,256,208], 0),
-   ([112,64,16,144,256,208], 0),
-   ([288,240,16,64,176,128], 0),
-   ([80,112,144,32,256,208], 0),
-   ([64,112,144,16,256,208], 0),
-   ([112,64,144,16,256,208], 0),
-   ([288,112,160,0,48,240], 224),
-   ([112,144,64,16,256,208], 0),
-   ([128,176,288,16,64,240], 0),
-   ([176,128,288,16,64,240], 0),
-   ([272,224,176,48,96,0], 160),
-   ([80,112,144,256,208,16], 0),
-   ([64,112,144,256,208,16], 0),
-   ([112,64,144,256,208,16], 0),
-   ([288,112,160,48,0,240], 224),
-   ([112,144,64,256,208,16], 0),
-   ([128,176,16,64,288,240], 0),
-   ([176,128,16,64,288,240], 0),
-   ([272,224,96,144,48,0], 208),
-   ([112,144,256,208,64,16], 0),
-   ([128,176,64,16,288,240], 0),
-   ([176,128,64,16,288,240], 0),
-   ([272,144,192,96,48,0], 256),
-   ([176,112,64,16,288,240], 0),
-   ([192,240,144,96,48,0], 304),
-   ([240,192,144,96,48,0], 304),
-   ([256,208,160,112,64,16], 0)]
+  [([0,32,64,96,128,832], 224),
+   ([0,48,80,112,144,832], 240),
+   ([48,0,80,112,144,832], 240),
+   ([32,112,160,192,224,832], 0),
+   ([48,80,144,192,224,832], 0),
+   ([32,80,144,192,224,832], 0),
+   ([80,32,144,192,224,832], 0),
+   ([64,16,144,192,224,832], 0),
+   ([48,80,112,176,224,832], 0),
+   ([32,80,112,176,224,832], 0),
+   ([80,32,112,176,224,832], 0),
+   ([272,16,64,160,208,832], 0),
+   ([80,112,32,176,224,832], 0),
+   ([64,112,16,176,224,832], 0),
+   ([112,64,16,176,224,832], 0),
+   ([256,208,160,0,48,832], 144),
+   ([48,80,112,144,208,832], 0),
+   ([32,80,112,144,208,832], 0),
+   ([80,32,112,144,208,832], 0),
+   ([272,16,64,176,128,832], 0),
+   ([80,112,32,144,208,832], 0),
+   ([64,112,16,144,208,832], 0),
+   ([112,64,16,144,208,832], 0),
+   ([288,240,16,64,128,832], 0),
+   ([80,112,144,32,208,832], 0),
+   ([64,112,144,16,208,832], 0),
+   ([112,64,144,16,208,832], 0),
+   ([288,112,160,240,0,832], 224),
+   ([112,144,64,16,208,832], 0),
+   ([128,176,288,240,0,832], 112),
+   ([176,128,288,240,0,832], 112),
+   ([272,224,176,128,0,832], 112),
+   ([48,80,112,144,256,832], 0),
+   ([32,80,112,144,256,832], 0),
+   ([80,32,112,144,256,832], 0),
+   ([272,16,64,96,208,832], 0),
+   ([80,112,32,144,256,832], 0),
+   ([64,112,16,144,256,832], 0),
+   ([112,64,16,144,256,832], 0),
+   ([288,240,16,64,176,832], 0),
+   ([80,112,144,32,256,832], 0),
+   ([64,112,144,16,256,832], 0),
+   ([112,64,144,16,256,832], 0),
+   ([288,112,160,0,48,832], 224),
+   ([112,144,64,16,256,832], 0),
+   ([128,176,288,16,64,832], 0),
+   ([176,128,288,16,64,832], 0),
+   ([272,224,176,48,96,832], 160),
+   ([80,112,144,256,208,832], 0),
+   ([64,112,144,256,208,832], 0),
+   ([112,64,144,256,208,832], 0),
+   ([288,112,160,48,0,832], 224),
+   ([112,144,64,256,208,832], 0),
+   ([128,176,16,64,288,832], 0),
+   ([176,128,16,64,288,832], 0),
+   ([272,224,96,144,48,832], 208),
+   ([112,144,256,208,64,832], 0),
+   ([128,176,64,16,288,832], 0),
+   ([176,128,64,16,288,832], 0),
+   ([272,144,192,96,48,832], 256),
+   ([176,112,64,16,288,832], 0),
+   ([192,240,144,96,48,832], 304),
+   ([240,192,144,96,48,832], 304),
+   ([256,208,160,112,64,832], 0)]
 def authBase (child l : Nat) : Nat := ((authPlans.getD (child % 64) ([], 0)).1).getD l 0
+theorem authBase_five (child : Nat) : authBase child 5 = 832 := by
+  have h : ∀ c < 64, ((authPlans.getD c ([], 0)).1).getD 5 0 = 832 := by decide
+  exact h (child % 64) (Nat.mod_lt _ (by decide))
 def authRoot (child : Nat) : Nat := (authPlans.getD (child % 64) ([], 0)).2
 def authSibOff (child l : Nat) : Nat :=
   if l < 6 then authBase child l + sibOff (child / 2 ^ l % 2) else authRoot child
@@ -87,7 +92,12 @@ def wleaf (w : WBytes) (k t : Nat) : Digest := wdig w (wctLeafSlot k t)
 def wreveal (w : WBytes) (k t d : Nat) : Digest := if d = 0 then wleaf w k t else wopen w k t
 def wcpads (w : WBytes) (k t : Nat) : Digest × Digest :=
   (wdig w (wctChainBlock k t), wdig w (wctChainBlock k t + 32))
-def wsib (w : WBytes) (k child l : Nat) : Digest := wdig w (regionBase k + authSibOff child l)
+/-- Nested FTS (r1-1): the supplied top sibling of coordinate `k` sits in coordinate `k + 1`'s region: its leaf pad
+slot (`regionBase k - 176`) when the computed top is the right one (bit 6 set), else its level-6 pad slot
+(`regionBase k - 32`). For `k = 8` these are the L3 block's left slot (offset 0) and the R9 slot (offset 144). -/
+def topSlot (k child : Nat) : Nat := regionBase k - (if child / 2 ^ 6 % 2 = 0 then 32 else 176)
+def wsib (w : WBytes) (k child l : Nat) : Digest :=
+  if l < 6 then wdig w (regionBase k + authSibOff child l) else wdig w (topSlot k child)
 def wmpad (w : WBytes) (k child l : Nat) : Digest := wdig w (regionBase k + authPadOff child l)
 /-- High tweak word of a packed FTS node (levels `< 4`) whose computed child is the right input: the verifier
 writes only the low tweak word there, the high word stays witness memory (honest 0). Elsewhere it is 0. -/
@@ -129,29 +139,38 @@ def digestP (m : Message) (w : WBytes) : M (Option HashOutput) :=
   if (wdc w).toNat ≥ WCT9.digestVerifyWindow then pure none else some <$> digest (wrho w) m (wdc w)
 def gateOk (N : HashOutput) : Bool := decide (N.toNat / 2 ^ 242 % 2 ^ 14 < WCT9.gateLimit)
 def fieldOk (N : HashOutput) (coord : WCT9.Coord) : Bool := decide (WCT9.field N coord < WCT9.fieldLimit)
-def wctCoordP (w : WBytes) (index : Nat) (coord : WCT9.Coord) (child : WCT9.Child) (word : WCT9.Rank) :
-    M (Digest × Digest) := do
+/-- One FTS coordinate of the padded verifier (nested FTS r1-1): `prev` is the previous coordinate's top pair; its
+left value is this coordinate's leaf pad and its right value the pad of the top node hash (high half). -/
+def wctCoordP (w : WBytes) (index : Nat) (coord : WCT9.Coord) (child : WCT9.Child) (word : WCT9.Rank)
+    (prev : Digest × Digest) : M (Digest × Digest) := do
   let ends ← (List.finRange 6).mapM fun t =>
     wctChainP index coord.val child.val t.val (4 - WCT9.wordDigit word t) (WCT9.wordDigit word t)
       (wcpads w coord.val t.val).1 (wcHeaderPad w coord.val t.val) (wcpads w coord.val t.val).2
       (wreveal w coord.val t.val (WCT9.wordDigit word t))
-  let leaf ← WCT9.leafHashP index coord.val child.val (wleafPad w coord.val) ends
-  let top ← (List.finRange 6).foldlM (fun value level => do
+  let leaf ← WCT9.leafHashP index coord.val child.val prev.1 ends
+  let value ← (List.finRange 5).foldlM (fun value level => do
     let other := wsib w coord.val child.val level.val
     let pair := if child.val / 2 ^ level.val % 2 = 0 then (value, other) else (other, value)
     wctNodeHashP coord.val index (2 ^ (6 - level.val) + child.val / 2 ^ (level.val + 1)) pair.1
       (wmhpad w coord.val child.val level.val) (wmpad w coord.val child.val level.val) pair.2) leaf
+  let other5 := wsib w coord.val child.val 5
+  let pair5 := if child.val / 2 ^ 5 % 2 = 0 then (value, other5) else (other5, value)
+  let top ← WCT9.wctTopHash coord.val index (2 + child.val / 2 ^ 6) pair5.1 prev.2 pair5.2
   let other := wsib w coord.val child.val 6
   pure (if child.val / 2 ^ 6 % 2 = 0 then (top, other) else (other, top))
+/-- Nested FTS (r1-1): coordinate 0's pads are free witness slots (honest 0). -/
+def wctStart (w : WBytes) : Digest × Digest := (wleafPad w 0, wmpad w 0 0 5)
 def wctStep (w : WBytes) (N : HashOutput) (state : Option (List (Digest × Digest))) (coord : WCT9.Coord) :
     M (Option (List (Digest × Digest))) := do
   let some pairs := state | pure none
   if !fieldOk N coord then return none
   let pair ← wctCoordP w (WCT9.digestIndex N) coord (WCT9.child N coord) (WCT9.rank N coord)
+    (WCT9.prevPair (wctStart w) pairs)
   pure (some (pairs ++ [pair]))
-def wctP (w : WBytes) (N : HashOutput) : M (Option Digest) := do
+/-- The FTS phase (nested FTS r1-1): the last coordinate's top pair, the L3 message. -/
+def wctP (w : WBytes) (N : HashOutput) : M (Option (Digest × Digest)) := do
   let some pairs ← (List.finRange 9).foldlM (wctStep w N) (some []) | pure none
-  some <$> WCT9.forestPk (WCT9.digestIndex N) pairs
+  pure (some (WCT9.prevPair (wctStart w) pairs))
 def layerEncodingInputP (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (counter : BitVec 32)
     (pad : BitVec 96) (padR : Digest) : HashInput :=
   match msg with
@@ -208,8 +227,8 @@ def verifyP (m : Message) (pk : Digest) (w : WBytes) : M Bool := do
   let some N ← digestP m w | pure false
   if !gateOk N then return false
   let index := WCT9.digestIndex N
-  let some root ← wctP w N | pure false
-  let some root ← layersBC w index 4 (.forest root) | pure false
+  let some top ← wctP w N | pure false
+  let some root ← layersBC w index 4 (.pair top.1 top.2) | pure false
   pure (root == pk)
 def layersBCPrepass (w : WBytes) (index : Nat) : Nat → WCT9.LayerMsg → M (Option Digest)
   | 0, _ => pure none
@@ -228,8 +247,8 @@ def verifyPPrepass (m : Message) (pk : Digest) (w : WBytes) : M Bool := do
   let some N ← digestP m w | pure false
   if !gateOk N then return false
   let index := WCT9.digestIndex N
-  let some root ← wctP w N | pure false
-  let some root ← layersBCPrepass w index 4 (.forest root) | pure false
+  let some top ← wctP w N | pure false
+  let some root ← layersBCPrepass w index 4 (.pair top.1 top.2) | pure false
   pure (root == pk)
 structure Pads where
   wctChain : WCT9.Coord → Fin 6 → Digest × Digest
@@ -252,24 +271,32 @@ instance : Zero Pads :=
 def Pads.toT3 (pads : Pads) : SigGolfCandidate.T3M.Pads :=
   ⟨fun _ => 0, fun _ => 0, pads.chain, pads.merkle, pads.chainHeader⟩
 def recoverCoordinateP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (output : HashOutput)
-    (coord : WCT9.Coord) : M (Digest × Digest) := do
+    (coord : WCT9.Coord) (prev : Digest × Digest) : M (Digest × Digest) := do
   let selected := WCT9.child output coord
   let word := WCT9.rank output coord
   let ends ← (List.finRange 6).mapM fun i =>
     wctChainP index coord.val selected.val i.val (4 - WCT9.wordDigit word i) (WCT9.wordDigit word i)
       (pads.wctChain coord i).1 (pads.wctChainHigh coord i) (pads.wctChain coord i).2
       ((sig.openings coord).values i)
-  let root ← WCT9.leafHashP index coord.val selected.val (pads.wctLeaf coord) ends
-  let top ← (List.finRange 6).foldlM (fun value level => do
-    let other := (sig.openings coord).path level.castSucc
+  let root ← WCT9.leafHashP index coord.val selected.val prev.1 ends
+  let value ← (List.finRange 5).foldlM (fun value level => do
+    let other := (sig.openings coord).path (Fin.castLE (by decide) level)
     let pair := if selected.val / 2 ^ level.val % 2 = 0 then (value, other) else (other, value)
     wctNodeHashP coord.val index (2 ^ (6 - level.val) + selected.val / 2 ^ (level.val + 1)) pair.1
-      (pads.wctMerkleHigh coord level.castSucc) (pads.wctMerkle coord level.castSucc) pair.2) root
+      (pads.wctMerkleHigh coord (Fin.castLE (by decide) level)) (pads.wctMerkle coord (Fin.castLE (by decide) level))
+      pair.2) root
+  let other5 := (sig.openings coord).path 5
+  let pair5 := if selected.val / 2 ^ 5 % 2 = 0 then (value, other5) else (other5, value)
+  let top ← WCT9.wctTopHash coord.val index (2 + selected.val / 2 ^ 6) pair5.1 prev.2 pair5.2
   let other := (sig.openings coord).path 6
   pure (if selected.val / 2 ^ 6 % 2 = 0 then (top, other) else (other, top))
-def recoverFtsP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (output : HashOutput) : M Digest := do
-  let pairs ← (List.finRange 9).mapM (recoverCoordinateP sig pads index output)
-  WCT9.forestPk index pairs
+/-- Nested FTS (r1-1): coordinate 0's pads in the abstract padded verifier. -/
+def Pads.start (pads : Pads) : Digest × Digest := (pads.wctLeaf 0, pads.wctMerkle 0 5)
+def recoverFtsP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (output : HashOutput) : M (Digest × Digest) := do
+  let pairs ← (List.finRange 9).foldlM (fun (pairs : List (Digest × Digest)) coord => do
+    let pair ← recoverCoordinateP sig pads index output coord (WCT9.prevPair pads.start pairs)
+    pure (pairs ++ [pair])) []
+  pure (WCT9.prevPair pads.start pairs)
 /-- Effective input of a chain, including the endpoint stored in a skipped-copy slot. -/
 def valueP (sig : WCT9.Signature) (pads : Pads) (lay : Layer) (digits : List Nat)
     (i : Fin (chainCount lay)) : Digest :=
@@ -340,8 +367,8 @@ def verifyLayersBCP (w : WCT9.Witness) (pads : Pads) (index : Nat) : Nat → WCT
 def verifyPadsTail (pk : Digest) (output : HashOutput) (w : WCT9.Witness) (pads : Pads) : M Bool := do
   if !WCT9.admissible output then return false
   let index := WCT9.digestIndex output
-  let root ← recoverFtsP w.signature pads index output
-  let some root ← verifyLayersBCP w pads index 4 (.forest root) | pure false
+  let top ← recoverFtsP w.signature pads index output
+  let some root ← verifyLayersBCP w pads index 4 (.pair top.1 top.2) | pure false
   pure (root == pk)
 def verifyPads (m : Message) (pk : Digest) (w : WCT9.Witness) (pads : Pads) : M Bool := do
   if w.digestCounter.toNat ≥ WCT9.digestAttemptLimit then return false

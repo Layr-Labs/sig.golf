@@ -120,7 +120,7 @@ theorem Coherent.pk (hcoh : Coherent U T vals nv τ a) :
   have hmem := treeChild_mem_keygen 12 0 (by decide) le_rfl (by decide) _ rootNode_coord
   unfold keyValues
   rw [lookupVal_map vals keygenDisclosed _ hmem]
-  exact (joinLabels_low (fun N => vals (.inl N)) a.high _).symm
+  exact (joinLabels_low (low := fun N => vals (.inl N)) (high := a.high) rfl).symm
 theorem Coherent.published (hcoh : Coherent U T vals nv τ a) :
     (⟨macOf a (Correctness.cacheRegion fun level node =>
         topValue (keyValues vals) level node ^^^ maskOf a level node),
@@ -167,8 +167,8 @@ theorem honestValue_short : LargeResidual.honestValue A = LargeResidual.honestVa
   funext c
   cases c with
   | inl N =>
-      change (A (.inl (.inr (Extract.honestInput A N.toPos)))).extractLsb' 0 128 =
-        (T (.inl (.inr (Extract.honestInput T N.toPos)))).extractLsb' 0 128
+      change N.toPos.proj (A (.inl (.inr (Extract.honestInput A N.toPos)))) =
+        N.toPos.proj (T (.inl (.inr (Extract.honestInput T N.toPos))))
       rw [Wots.Ref.honestInput_short hAT _ (toPos_bounded N),
         hAT.public _ (Wots.Ref.honestInput_length T N.toPos)]
   | inr s =>

@@ -508,7 +508,7 @@ theorem inline_signL (ω : CanonTable.Omega U) (published : SigGolfCandidate.T3.
     · simp only [finishL]
       unfold signerLayersW
       generalize evalWithAnswerFn (wA hU ω 0) (WCT9.signLayersBC request.cache (WCT9.digestIndex output) 4
-        (.forest (WCT9.honestForest (wA hU ω 0) (WCT9.digestIndex output)))) = L
+        (.pair (WCT9.honestTop (wA hU ω 0) (WCT9.digestIndex output)).1 (WCT9.honestTop (wA hU ω 0) (WCT9.digestIndex output)).2)) = L
       rcases L with _ | pieces
       · simp only [simulateQ_pure, Guess.discloseAll, List.mapM_nil, pure_bind, Option.map_none]
       · simp only [simulateQ_bind, simulateQ_pure]

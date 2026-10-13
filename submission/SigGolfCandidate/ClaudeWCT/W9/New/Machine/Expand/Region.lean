@@ -8,8 +8,7 @@ open SigGolfCandidate.T3M
 open SigGolfCandidate.T3 (Digest HashOutput readDigest readLE)
 open SigGolfCandidate.T3M (window window_append_left window_append_right window_full window_zeros zeros)
 open SphincsSecurity (bytesLE bytesLE_length)
-open ClaudeWCT.W9.T3M (chainBytes leafBytes chainBytes_window leafBytes_window_zero leafBytes_window_succ
-  leafBytes_window_pad)
+open ClaudeWCT.W9.T3M (chainBytes leafBytes chainBytes_window)
 set_option linter.unusedSimpArgs false
 theorem wordsOf_getD (L : List UInt8) (m : Nat) (hL : L.length = 8 * m) (i : Nat) (hi : i < m) :
     (wordsOf L).getD i 0 = BitVec.ofNat 64 (readLE (window L (8 * i) 8)) := by
@@ -60,7 +59,7 @@ section windows
 variable (c : Nat) (op : WCT9.Opening)
 theorem win_chainVal (t : Fin 6) : window (regionBytesV5 c op) (offC t.val + 48) 16 = bytesLE 16 (op.values t) := by
   rcases t with ⟨_ | i, ht⟩
-  · rw [show offC 0 + 48 = 816 by rfl, region_leafV5 _ _ _ _ le_rfl (by omega), Nat.sub_self, leafBytes_window_zero]
+  · rw [show offC 0 + 48 = 816 by rfl, region_leafV5 _ _ _ _ le_rfl (by omega), Nat.sub_self, leafZ_window_zero]
     rfl
   · have hi : i < 5 := by omega
     rw [show offC (i + 1) + 48 = 448 + (64 * (4 - i) + 48) by unfold offC; omega,
@@ -75,11 +74,11 @@ theorem win_leafSlot (t : Fin 6) : window (regionBytesV5 c op) (slotC t.val) 16 
   · have hi : i < 5 := by omega
     rw [show slotC (i + 1) = 816 + (48 + 16 * i) by unfold slotC; simp; omega,
       region_leafV5 _ _ _ _ (by omega) (by omega),
-      show 816 + (48 + 16 * i) - 816 = 48 + 16 * (⟨i, hi⟩ : Fin 5).val by simp, leafBytes_window_succ]
+      show 816 + (48 + 16 * i) - 816 = 48 + 16 * (⟨i, hi⟩ : Fin 5).val by simp, leafZ_window_succ]
     rfl
 /-- The leaf pad slot (848) of a placed region is zero. -/
 theorem win_leafPad : window (regionBytesV5 c op) 848 16 = zeros 16 := by
-  rw [region_leafV5 _ _ _ _ (by omega) (by omega), show 848 - 816 = 32 by rfl, leafBytes_window_pad]
+  rw [region_leafV5 _ _ _ _ (by omega) (by omega), show 848 - 816 = 32 by rfl, leafZ_window_pad]
 theorem win_chainPad (t : Nat) (ht : t < 6) (o : Nat) (ho : o = 0 ∨ o = 16 ∨ o = 32) :
     window (regionBytesV5 c op) (offC t + o) 16 = zeros 16 := by
   rcases t with _ | i

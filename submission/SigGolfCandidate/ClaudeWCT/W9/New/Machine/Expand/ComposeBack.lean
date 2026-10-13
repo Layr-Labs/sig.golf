@@ -518,10 +518,10 @@ theorem ctr_words (c : BitVec 32) (m : Nat) :
       simp [SigGolfCandidate.T3M.zeros, List.replicate_add],
     ← List.append_assoc, wordsOf_append8 _ _ (by simp [bytesLE_length]), hc, wordsOf_replicate_zero]
 theorem headerW_words (w : WCT9.Witness) :
-    wordsOf (ClaudeWCT.W9.T3M.headerBytes w) =
+    wordsOf (headerBytesV5 w) =
       [w.signature.rho.extractLsb' 0 64, w.signature.rho.extractLsb' 64 64, BitVec.ofNat 64 w.digestCounter.toNat,
         0, BitVec.ofNat 64 (w.counters 3).toNat, 0, 0, 0] := by
-  unfold ClaudeWCT.W9.T3M.headerBytes
+  unfold headerBytesV5
   simp only [List.append_assoc]
   rw [show SigGolfCandidate.T3M.zeros 12 = SigGolfCandidate.T3M.zeros (4 + 8 * 1) from rfl,
     show SigGolfCandidate.T3M.zeros 28 = SigGolfCandidate.T3M.zeros (4 + 8 * 3) from rfl]
@@ -731,13 +731,13 @@ theorem placed_words {N : HashOutput} {sig : WCT9.Signature} {t : MachineState} 
   have hk' : (⟨i / 128 % 9, Nat.mod_lt _ (by decide)⟩ : WCT9.Coord) = ⟨i / 128, hk⟩ := Fin.ext (Nat.mod_eq_of_lt hk)
   rw [hk', wordsOf_getD _ 128 (regionBytesV5_length _ _) _ (by omega)]
 theorem witListW_words (t : MachineState) (N : HashOutput) (w : WCT9.Witness)
-    (hh : t.readWords (BitVec.ofNat 64 0x800) 8 = wordsOf (ClaudeWCT.W9.T3M.headerBytes w))
+    (hh : t.readWords (BitVec.ofNat 64 0x800) 8 = wordsOf (headerBytesV5 w))
     (hwct : t.readWords (BitVec.ofNat 64 0x840) 1152 = wordsOf (wctBytesV5 N w.signature))
     (hgap : t.readWords (BitVec.ofNat 64 0x2c40) 1 = List.replicate 1 0)
     (hlay : ∀ lay : Layer, t.readWords (BitVec.ofNat 64 (lBase lay)) (8 * (height lay + chainCount lay)) =
       wordsOf (layerRegionV6 N w lay)) :
     t.readWords (BitVec.ofNat 64 0x800) 2873 = wordsOf (witListV5 N w) := by
-  have l1 : (ClaudeWCT.W9.T3M.headerBytes w).length = 64 := ClaudeWCT.W9.T3M.headerBytes_length w
+  have l1 : (headerBytesV5 w).length = 64 := headerBytesV5_length w
   have hf : (List.finRange 4).flatMap (layerRegionV6 N w) =
       layerRegionV6 N w 0 ++ layerRegionV6 N w 1 ++
       layerRegionV6 N w 2 ++ layerRegionV6 N w 3 := by
@@ -762,10 +762,10 @@ theorem witListW_words (t : MachineState) (N : HashOutput) (w : WCT9.Witness)
     readWords_add, readWords_add, readWords_add, readWords_add]
   rfl
 def tailProg (pk : PublicKey) (sig : WCT9.Signature) :
-    Option (BitVec 32 × HashOutput × Digest) → M (Option (HashOutput × WCT9.Witness))
+    Option (BitVec 32 × HashOutput × (Digest × Digest)) → M (Option (HashOutput × WCT9.Witness))
   | none => pure none
-  | some (counter, N, root) => do
-    let some (root, counters) ← WCT9.expandLayersBC sig (WCT9.digestIndex N) 4 (.forest root) | pure none
+  | some (counter, N, top) => do
+    let some (root, counters) ← WCT9.expandLayersBC sig (WCT9.digestIndex N) 4 (.pair top.1 top.2) | pure none
     if root ≠ pk then return none
     pure (some (N, ⟨sig, counter, fun lay => counters.getD lay.val 0⟩))
 -- [h2 lane] removed expandN_split: with H2, `expandN` is the searching expander; H2Search.expandN_splitS replaces it

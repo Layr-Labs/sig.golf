@@ -48,7 +48,7 @@ def msgLabel (labels : Labels) (L : EncLeaf) : WCT9.LayerMsg :=
   if h : L.1.lay.val < 3 then
     .pair (treeLabel labels ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (height ⟨L.1.lay.val + 1, by omega⟩ - 1) 0)
       (treeLabel labels ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (height ⟨L.1.lay.val + 1, by omega⟩ - 1) 1)
-  else .forest ((labels (.forest (childIndex L))).extractLsb' 0 128)
+  else .pair (ftsLabel labels (childIndex L) 8 6 0) (ftsLabel labels (childIndex L) 8 6 1)
 theorem leafMsg_eq {answers : Answers} {labels : Labels} (h : Agrees answers labels) (L : EncLeaf) :
     Wots.leafMsg answers L.toWots = msgLabel labels L := by
   unfold Wots.leafMsg msgLabel EncLeaf.toWots
@@ -57,7 +57,7 @@ theorem leafMsg_eq {answers : Answers} {labels : Labels} (h : Agrees answers lab
   · rw [show L.1.tree.val * 2 ^ height L.1.lay + L.1.leaf.val = (childIndex L).val from rfl,
       honestPair_eq h ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L hlay)]
   · rw [show L.1.tree.val * 2 ^ height L.1.lay + L.1.leaf.val = (childIndex L).val from rfl,
-      Nat.mod_eq_of_lt (childIndex L).isLt, honestForest_eq h (childIndex L)]
+      Nat.mod_eq_of_lt (childIndex L).isLt, honestTop_eq h (childIndex L)]
 def encKey (labels : Labels) (x : EncLeaf × Fin (2^22)) : EncKey :=
   ((x.1.1.lay, x.1.1.tree, x.1.1.leaf, msgLabel labels x.1), x.2)
 theorem hdrBlock_encQuery (key : EncKey) :
