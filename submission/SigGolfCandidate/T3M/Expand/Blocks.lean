@@ -3,7 +3,7 @@ import SigGolfCandidate.T3M.Search.Blocks
 section
 namespace SigGolfCandidate.T3M
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
-def expandCodeChunks : List (List (BitVec 32)) := [Images.expandCode_0, Images.expandCode_1, Images.expandCode_2, Images.expandCode_3, Images.expandCode_4, Images.expandCode_5, Images.expandCode_6, Images.expandCode_7, Images.expandCode_8, Images.expandCode_9, Images.expandCode_10, Images.expandCode_11, Images.expandCode_12, Images.expandCode_13, Images.expandCode_14, Images.expandCode_15, Images.expandCode_16, Images.expandCode_17, Images.expandCode_18, Images.expandCode_19, Images.expandCode_20, Images.expandCode_21, Images.expandCode_22, Images.expandCode_23, Images.expandCode_24, Images.expandCode_25, Images.expandCode_26, Images.expandCode_27, Images.expandCode_28, Images.expandCode_29, Images.expandCode_30, Images.expandCode_31, Images.expandCode_32, Images.expandCode_33, Images.expandCode_34, Images.expandCode_35, Images.expandCode_36, Images.expandCode_37, Images.expandCode_38, Images.expandCode_39, Images.expandCode_40, Images.expandCode_41, Images.expandCode_42, Images.expandCode_43, Images.expandCode_44, Images.expandCode_45, Images.expandCode_46, Images.expandCode_47, Images.expandCode_48, Images.expandCode_49, Images.expandCode_50, Images.expandCode_51, Images.expandCode_52, Images.expandCode_53, Images.expandCode_54, Images.expandCode_55, Images.expandCode_56, Images.expandCode_57, Images.expandCode_58, Images.expandCode_59, Images.expandCode_60, Images.expandCode_61, Images.expandCode_62, Images.expandCode_63, Images.expandCode_64, Images.expandCode_65, Images.expandCode_66, Images.expandCode_67, Images.expandCode_68, Images.expandCode_69, Images.expandCode_70, Images.expandCode_71, Images.expandCode_72, Images.expandCode_73, Images.expandCode_74, Images.expandCode_75, Images.expandCode_76, Images.expandCode_77, Images.expandCode_78, Images.expandCode_79, Images.expandCode_80, Images.expandCode_81, Images.expandCode_82, Images.expandCode_83, Images.expandCode_84, Images.expandCode_85, Images.expandCode_86, Images.expandCode_87, Images.expandCode_88, Images.expandCode_89, Images.expandCode_90, Images.expandCode_91, Images.expandCode_92, Images.expandCode_93, Images.expandCode_94, Images.expandCode_95, Images.expandCode_96, Images.expandCode_97, Images.expandCode_98, Images.expandCode_99, Images.expandCode_100, Images.expandCode_101, Images.expandCode_102, Images.expandCode_103, Images.expandCode_104, Images.expandCode_105, Images.expandCode_106, Images.expandCode_107, Images.expandCode_108, Images.expandCode_109, Images.expandCode_110, Images.expandCode_111, Images.expandCode_112, Images.expandCode_113, Images.expandCode_114, Images.expandCode_115, Images.expandCode_116, Images.expandCode_117, Images.expandCode_118, Images.expandCode_119, Images.expandCode_120, Images.expandCode_121, Images.expandCode_122, Images.expandCode_123, Images.expandCode_124, Images.expandCode_125, Images.expandCode_126, Images.expandCode_127, Images.expandCode_128, Images.expandCode_129, Images.expandCode_130, Images.expandCode_131, Images.expandCode_132, Images.expandCode_133, Images.expandCode_134, Images.expandCode_135, Images.expandCode_136, Images.expandCode_137, Images.expandCode_138, Images.expandCode_139, Images.expandCode_140, Images.expandCode_141, Images.expandCode_142, Images.expandCode_143, Images.expandCode_144, Images.expandCode_145, Images.expandCode_146, Images.expandCode_147, Images.expandCode_148, Images.expandCode_149, Images.expandCode_150, Images.expandCode_151, Images.expandCode_152, Images.expandCode_153, Images.expandCode_154, Images.expandCode_155, Images.expandCode_156, Images.expandCode_157, Images.expandCode_158, Images.expandCode_159, Images.expandCode_160, Images.expandCode_161, Images.expandCode_162, Images.expandCode_163, Images.expandCode_164, Images.expandCode_165, Images.expandCode_166, Images.expandCode_167, Images.expandCode_168, Images.expandCode_169, Images.expandCode_170, Images.expandCode_171, Images.expandCode_172, Images.expandCode_173]
+def expandCodeChunks : List (List (BitVec 32)) := [Images.expandCode_0, Images.expandCode_1, Images.expandCode_2, Images.expandCode_3, Images.expandCode_4, Images.expandCode_5, Images.expandCode_6, Images.expandCode_7, Images.expandCode_8, Images.expandCode_9, Images.expandCode_10, Images.expandCode_11, Images.expandCode_12, Images.expandCode_13, Images.expandCode_14, Images.expandCode_15, Images.expandCode_16, Images.expandCode_17, Images.expandCode_18, Images.expandCode_19, Images.expandCode_20, Images.expandCode_21, Images.expandCode_22, Images.expandCode_23, Images.expandCode_24, Images.expandCode_25, Images.expandCode_26, Images.expandCode_27, Images.expandCode_28, Images.expandCode_29, Images.expandCode_30, Images.expandCode_31, Images.expandCode_32, Images.expandCode_33, Images.expandCode_34, Images.expandCode_35, Images.expandCode_36, Images.expandCode_37, Images.expandCode_38, Images.expandCode_39, Images.expandCode_40, Images.expandCode_41, Images.expandCode_42, Images.expandCode_43, Images.expandCode_44, Images.expandCode_45, Images.expandCode_46, Images.expandCode_47, Images.expandCode_48, Images.expandCode_49, Images.expandCode_50, Images.expandCode_51, Images.expandCode_52, Images.expandCode_53, Images.expandCode_54, Images.expandCode_55, Images.expandCode_56, Images.expandCode_57, Images.expandCode_58, Images.expandCode_59, Images.expandCode_60, Images.expandCode_61, Images.expandCode_62, Images.expandCode_63, Images.expandCode_64, Images.expandCode_65, Images.expandCode_66, Images.expandCode_67, Images.expandCode_68, Images.expandCode_69, Images.expandCode_70, Images.expandCode_71, Images.expandCode_72, Images.expandCode_73, Images.expandCode_74, Images.expandCode_75, Images.expandCode_76, Images.expandCode_77, Images.expandCode_78, Images.expandCode_79, Images.expandCode_80, Images.expandCode_81, Images.expandCode_82, Images.expandCode_83, Images.expandCode_84, Images.expandCode_85, Images.expandCode_86, Images.expandCode_87, Images.expandCode_88, Images.expandCode_89, Images.expandCode_90, Images.expandCode_91, Images.expandCode_92, Images.expandCode_93, Images.expandCode_94, Images.expandCode_95, Images.expandCode_96, Images.expandCode_97, Images.expandCode_98, Images.expandCode_99, Images.expandCode_100, Images.expandCode_101, Images.expandCode_102, Images.expandCode_103, Images.expandCode_104, Images.expandCode_105, Images.expandCode_106, Images.expandCode_107, Images.expandCode_108, Images.expandCode_109, Images.expandCode_110, Images.expandCode_111, Images.expandCode_112, Images.expandCode_113, Images.expandCode_114, Images.expandCode_115, Images.expandCode_116, Images.expandCode_117, Images.expandCode_118, Images.expandCode_119, Images.expandCode_120, Images.expandCode_121, Images.expandCode_122, Images.expandCode_123, Images.expandCode_124, Images.expandCode_125, Images.expandCode_126, Images.expandCode_127, Images.expandCode_128, Images.expandCode_129, Images.expandCode_130, Images.expandCode_131, Images.expandCode_132, Images.expandCode_133, Images.expandCode_134, Images.expandCode_135, Images.expandCode_136, Images.expandCode_137, Images.expandCode_138, Images.expandCode_139, Images.expandCode_140, Images.expandCode_141, Images.expandCode_142, Images.expandCode_143, Images.expandCode_144, Images.expandCode_145, Images.expandCode_146, Images.expandCode_147, Images.expandCode_148, Images.expandCode_149, Images.expandCode_150, Images.expandCode_151, Images.expandCode_152, Images.expandCode_153, Images.expandCode_154, Images.expandCode_155, Images.expandCode_156, Images.expandCode_157, Images.expandCode_158, Images.expandCode_159, Images.expandCode_160, Images.expandCode_161, Images.expandCode_162, Images.expandCode_163, Images.expandCode_164, Images.expandCode_165, Images.expandCode_166, Images.expandCode_167, Images.expandCode_168, Images.expandCode_169, Images.expandCode_170, Images.expandCode_171, Images.expandCode_172]
 private theorem foldl_chunks (cs : List (List (BitVec 32))) (acc : List (BitVec 32)) :
     cs.foldl (· ++ ·) acc = acc ++ cs.flatten := by
   induction cs generalizing acc with
@@ -27,7 +27,7 @@ set_option maxRecDepth 100000 in
 private theorem expandCodeChunks_ok :
     (expandCodeChunks.dropLast.all fun c => c.length == 256) = true := by
   decide +kernel
-private theorem expandCodeChunks_length : expandCodeChunks.length = 174 := by
+private theorem expandCodeChunks_length : expandCodeChunks.length = 173 := by
   decide +kernel
 private theorem expand_drop_chunks : ∀ (cs : List (List (BitVec 32))) (k : Nat),
     (cs.dropLast.all fun c => c.length == 256) = true → k < cs.length →
@@ -54,7 +54,7 @@ private theorem expand_drop_chunks : ∀ (cs : List (List (BitVec 32))) (k : Nat
         rw [show 256 * (k + 1) = c.length + 256 * k by rw [hlen]; ring, ← List.drop_drop,
           List.drop_left]
         exact this
-theorem expandCodeTail_eq (b : Nat) (hb : b / 256 < 174) :
+theorem expandCodeTail_eq (b : Nat) (hb : b / 256 < 173) :
     expandCodeTail b = expandCodeChunks.flatten.drop b := by
   unfold expandCodeTail
   rw [← expand_drop_chunks expandCodeChunks (b / 256) expandCodeChunks_ok
@@ -62,7 +62,7 @@ theorem expandCodeTail_eq (b : Nat) (hb : b / 256 < 174) :
   congr 1
   omega
 theorem codeAt_expand_chunk {b : Nat} {code : List (BitVec 32)}
-    (hi : b / 256 < 174)
+    (hi : b / 256 < 173)
     (hb : 0x1000 + 4 * b + 4 * code.length < 2 ^ 64)
     (h : (expandCodeTail b).take code.length = code) :
     CodeAt Images.expandImage (pcOf b) code := by
@@ -75,7 +75,7 @@ section
 namespace SigGolfCandidate.T3M.Expand
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 set_option linter.unusedVariables false
-def seg_0 : List (BitVec 32) := [1179816047,32439,7991,2148470547,963331,9352067,7286819,8336419,32439,134967,302976787,963331,9352067,7286819,8336419,28343,134967,336531219,1628353283,1636742019,7286819,8336419,28343,134967,353308435,1645130499,1653519235,7286819,8336419,814911599]
+def seg_0 : List (BitVec 32) := [1179816047,32439,7991,2148470547,963331,9352067,7286819,8336419,32439,134967,302976787,963331,9352067,7286819,8336419,28343,134967,336531219,1578021635,1586410371,7286819,8336419,28343,134967,353308435,1594798851,1603187587,7286819,8336419,814911599]
 def seg_49 : List (BitVec 32) := [134711,370019859,930947,34903187,34919571,134711,1426984467,10367011,7735,2165181971,20848675,139575,2323,6967,3289058067,1043]
 def seg_65 : List (BitVec 32) := [7340819,610556515]
 def seg_67 : List (BitVec 32) := [2451]
@@ -109,7 +109,7 @@ def seg_272 : List (BitVec 32) := [2098195,6293395,45092115,3475,211814547,13471
 def seg_285 : List (BitVec 32) := [24119,1519259155,20848675,34871,4245162003,23479,1418431379,23607,2827750419,802160879]
 def seg_295 : List (BitVec 32) := [1049619,7341971,45092115,3475,210765971,134711,1426984467,930563,12800915,133172755,29620531,20141203,629145839]
 def seg_308 : List (BitVec 32) := [24119,2525892115,20848675,34871,3406301203,23479,2425064339,19511,3834383379,705691887]
-def seg_318 : List (BitVec 32) := [1043,12584851,56626451,53480851,150997139,134711,1426984467,930563,20140947,7735,4294839827,29620531,32724115,528482543]
+def seg_318 : List (BitVec 32) := [1043,12584851,56626451,53480851,152045715,134711,1426984467,930563,20140947,7735,4294839827,29620531,32724115,528482543]
 def seg_332 : List (BitVec 32) := [20023,3465416211,20848675,34871,2299004947,19383,3364588435,15415,4035709971,605028591]
 def seg_342 : List (BitVec 32) := [1967296623,638455315,167775891,930563,963459,7544419]
 def seg_348 : List (BitVec 32) := [9319171,9352067,7542883]
@@ -148,7 +148,7 @@ def seg_1030 : List (BitVec 32) := [536871023]
 def seg_1031 : List (BitVec 32) := [89805923]
 def seg_1032 : List (BitVec 32) := [901775471,21201843,33788691,17047315,31679283,269706003,134711,437128723,7223331,132407,436536595,67110291,132663,486934035]
 def seg_1046 : List (BitVec 32) := [115]
-def seg_1047 : List (BitVec 32) := [0x7dd2906f,4225757295]
+def seg_1047 : List (BitVec 32) := [1706515,4225757295]
 def seg_1049 : List (BitVec 32) := [995262575,19]
 def seg_1051 : List (BitVec 32) := [19]
 def seg_1052 : List (BitVec 32) := [134839,1611566739,31329843,134839,487493267,963331,9352067,7221283,8270883,1673619,4078956655]
@@ -158,8 +158,8 @@ def seg_1073 : List (BitVec 32) := [2579,5053971,29887283]
 def seg_1076 : List (BitVec 32) := [284841571]
 def seg_1077 : List (BitVec 32) := [21585459,1998355,68028515]
 def seg_1080 : List (BitVec 32) := [733955,9122691,7090211,8139811,134967,537857811,733955,9122691,7286819,8336419,134839,604933779,134967,588189459,963331,9352067,7286819,8336419,79691887]
-def seg_1099 : List (BitVec 32) := [733955,9122691,40646691,41696291,134839,621710995,134967,537857811,963331,9352067,7286819,8336419,134967,588189459,733955,9122691,7286819,8336419]
-def seg_1117 : List (BitVec 32) := [1402101871,4294839827,1050259,29791923,1707539,29974067,29787827,710049903,19,19,19,19,134711,537792019,7223331,932899,132407,537199891,67110291,132663,604374547]
+def seg_1099 : List (BitVec 32) := [733955,9122691,40646691,41696291,134839,604933779,134967,537857811,963331,9352067,7286819,8336419,134967,588189459,733955,9122691,7286819,8336419]
+def seg_1117 : List (BitVec 32) := [1402101871,4294839827,1050259,29791923,1707539,29974067,29787827,710049903,19,19,19,19,134711,537792019,7223331,8272931,132407,537199891,67110291,132663,604374547]
 def seg_1138 : List (BitVec 32) := [115]
 def seg_1139 : List (BitVec 32) := [17500947,4228647955,1706515,4020236399]
 def seg_1143 : List (BitVec 32) := [134839,604933779,134967,638521107,963331,9352067,7286819,8336419,32871]

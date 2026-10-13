@@ -223,21 +223,6 @@ theorem ftsChainHeader_byte1 (index coord selected i step : Nat) :
   have := Nat.mod_lt coord (show 0 < 16 by decide)
   have := Nat.mod_lt selected (show 0 < 128 by decide)
   omega
-/-- Campaign S2: a header whose low word is below `2 ^ 16` (top fold labels `heap < 4096`) is never a probe header
-(FTS chain words carry the coordinate nibble `coord + 1 ≥ 1` at bit 16). -/
-theorem decodeProbe_of_hdrBlock_low {x : HashInput} {h : BitVec 128} (hx : hdrBlock x = bytesLE 16 h)
-    (ht : h.toNat % 2 ^ 64 < 2 ^ 16) : decodeProbe x = none := by
-  rw [decodeProbe_eq_none]
-  intro a p c he
-  rw [he, probeInput, hdrBlock_wctChainInput] at hx
-  have := bytesLE_injective hx
-  rw [← this, WCT9.ftsChainHeader_toNat] at ht
-  have hl := WCT9.ftsChainLow_lt a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p.val
-  have hc := a.2.1.isLt
-  rw [Nat.mod_eq_of_lt (lt_trans hl (by norm_num))] at ht
-  unfold WCT9.ftsChainLow at ht
-  rw [Nat.mod_eq_of_lt (show a.2.1.val + 1 < 16 by omega)] at ht
-  omega
 /-- Headers whose tag byte is at least 4 are never chain probes (FTS chain headers carry the step `< 4` there). -/
 theorem decodeProbe_of_hdrBlock_tag {x : HashInput} {h : BitVec 128} (hx : hdrBlock x = bytesLE 16 h)
     (ht : 4 ≤ h.toNat / 256 % 256) : decodeProbe x = none := by

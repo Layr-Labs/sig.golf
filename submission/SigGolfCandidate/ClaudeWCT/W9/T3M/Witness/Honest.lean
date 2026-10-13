@@ -21,14 +21,6 @@ set_option linter.unusedSimpArgs false
 @[simp] theorem Pads.zero_bc (lay : Layer) : (0 : Pads).bc lay = 0 := rfl
 @[simp] theorem Pads.zero_bcRight : (0 : Pads).bcRight = 0 := rfl
 @[simp] theorem Pads.zero_toT3 : (0 : Pads).toT3 = 0 := rfl
-@[simp] theorem Pads.zero_merkleHigh (lay : Layer) (j : Fin (height lay)) : (0 : Pads).merkleHigh lay j = 0 := rfl
-@[simp] theorem Pads.zero_leafHigh (lay : Layer) : (0 : Pads).leafHigh lay = 0 := rfl
-@[simp] theorem Pads.zero_bcHigh (lay : Layer) : (0 : Pads).bcHigh lay = 0 := rfl
-@[simp] theorem nodeHashPH_zero (lay tree heap : Nat) (left right : Digest) :
-    nodeHashPH lay tree heap left 0 0 right = nodeHash 3 lay tree heap left right := by
-  rw [SigGolfCandidate.T3M.SecurityInputs.nodeHash_eq_projHash]
-  unfold nodeHashPH
-  rw [SigGolfCandidate.T3M.SecurityInputs.nodeInputPH_zero]
 theorem wctChainInputP_zero (index coord child t step : Nat) (value : Digest) :
     wctChainInputP index coord child t step 0 0 0 value = WCT9.chainInput index coord child t step value := by
   simp only [wctChainInputP, WCT9.chainInput, WCT9.ftsChainHeader, bytesLE_zero16]
@@ -37,15 +29,14 @@ theorem wctChainInputP_zero (index coord child t step : Nat) (value : Digest) :
   simp only [wctChainP, WCT9.chain, wctChainInputP_zero]
 @[simp] theorem wctNodeHashP_zero (coord index heap : Nat) (left right : Digest) :
     wctNodeHashP coord index heap left 0 0 right = WCT9.wctNodeHash coord index heap left right := by
-  unfold wctNodeHashP WCT9.wctNodeHash WCT9.wctNodeHeader
-  rw [SigGolfCandidate.T3M.SecurityInputs.nodeInputPH_zero]
-  simp only [SigGolfCandidate.T3M.SecurityInputs.nodeInputP, SigGolfCandidate.T3M.SecurityInputs.block4,
-    WCT9.bytesLE_zero16]
+  simp only [wctNodeHashP, SigGolfCandidate.T3M.SecurityInputs.nodeInputPH_zero, WCT9.wctNodeHash,
+    SigGolfCandidate.T3M.SecurityInputs.nodeInputP, SigGolfCandidate.T3M.SecurityInputs.block4, bytesLE_zero16,
+    WCT9.wctNodeHeader]
 theorem recoverCoordinateP_zero (sig : WCT9.Signature) (index : Nat) (output : HashOutput) (coord : WCT9.Coord)
     (prev : Digest × Digest) :
     recoverCoordinateP sig 0 index output coord prev = WCT9.recoverCoordinate sig index output coord prev := by
   simp only [recoverCoordinateP, WCT9.recoverCoordinate, Pads.zero_wctChain, Pads.zero_wctChainHigh,
-    Pads.zero_wctMerkle, Pads.zero_wctMerkleHigh, Pads.zero_wctLeaf, WCT9.leafHashP_zero, wctChainP_zero,
+    Pads.zero_wctMerkle, Pads.zero_wctMerkleHigh, Pads.zero_wctLeaf, wctChainP_zero,
     wctNodeHashP_zero]
 theorem recoverFtsP_zero (sig : WCT9.Signature) (index : Nat) (output : HashOutput) :
     recoverFtsP sig 0 index output = WCT9.recoverFts sig index output := by
@@ -66,25 +57,24 @@ theorem pad64_encodingInput (lay : Layer) (tree leaf : Nat) (root : Digest) (cou
     List.replicate_append_replicate]
 theorem encodingHash_layerEncodingInputP_zero (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg)
     (counter : BitVec 32) :
-    ClaudeWCT.WCT9.encodingHash lay (layerEncodingInputP lay tree leaf msg counter 0 0 0) =
+    ClaudeWCT.WCT9.encodingHash lay (layerEncodingInputP lay tree leaf msg counter 0 0) =
       ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg counter) := by
   cases msg with
   | forest root =>
-      show WCT9.encodingHash lay (WCT9.pairEncodingInputPH lay tree leaf root 0 counter 0 0) =
+      show WCT9.encodingHash lay (WCT9.pairEncodingInputP lay tree leaf root 0 counter 0) =
         WCT9.encodingHash lay (encodingInput lay tree leaf root counter)
       apply WCT9.encodingHash_congr
-      have hlen : (WCT9.pairEncodingInputPH lay tree leaf root 0 counter 0 0).length = 64 := by
-        simp [WCT9.pairEncodingInputPH, SphincsSecurity.bytesLE_length]
-      rw [pad64_encodingInput, ← WCT9.pairEncodingInputPH_zero]
+      have hlen : (WCT9.pairEncodingInputP lay tree leaf root 0 counter 0).length = 64 := by
+        simp [WCT9.pairEncodingInputP, SphincsSecurity.bytesLE_length]
+      rw [pad64_encodingInput]
       simp only [pad64, hlen]
       simp
-  | pair left right => exact congrArg _ (WCT9.pairEncodingInputPH_zero _ _ _ _ _ _ _)
+  | pair left right => rfl
 theorem recoverLayerPairP_zero (sig : WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat)
-    (hindex : index < 2 ^ 31) (hl : lay ≠ 0) :
+    (hindex : index < 2 ^ 31) :
     recoverLayerPairP sig 0 index lay digits = WCT9.recoverLayerPair sig index lay digits := by
   simp only [recoverLayerPairP, WCT9.recoverLayerPair, Pads.zero_chain', Pads.zero_chainHeader, valueP_zero,
-    chainP_zero_route _ _ _ _ _ hindex, Pads.zero_merkle', Pads.zero_merkleHigh, Pads.zero_leafHigh,
-    lowerLeafHashP_zero hl, nodeHashPH_zero]
+    chainP_zero_route _ _ _ _ _ hindex, Pads.zero_merkle', nodeHashP_zero]
 private theorem mapM_congr_guard {α β : Type} {f g : α → M β} :
     ∀ (l : List α), (∀ x ∈ l, f x = g x) → l.mapM f = l.mapM g
   | [], _ => rfl
@@ -92,11 +82,11 @@ private theorem mapM_congr_guard {α β : Type} {f g : α → M β} :
       rw [List.mapM_cons, List.mapM_cons, h x (by simp),
         mapM_congr_guard l (fun y hy => h y (by simp [hy]))]
 theorem recoverLayerPairGuardP_zero (sig : WCT9.Signature) (index : Nat) (lay : Layer)
-    (answer : Digest) (digits : List Nat) (hindex : index < 2 ^ 31) (hl : lay ≠ 0) :
+    (answer : Digest) (digits : List Nat) (hindex : index < 2 ^ 31) :
     recoverLayerPairGuardP sig 0 index lay answer digits =
       WCT9.recoverLayerPairGuard sig index lay answer digits := by
   simp only [recoverLayerPairGuardP, WCT9.recoverLayerPairGuard, Pads.zero_chain', Pads.zero_chainHeader, valueP_zero,
-    recoverLayerPairP_zero _ _ _ _ hindex hl]
+    recoverLayerPairP_zero _ _ _ _ hindex]
   unfold WCT9.lowerGuardedRun
   split_ifs
   · rfl
@@ -112,36 +102,32 @@ theorem recoverLayerPairGuardP_zero (sig : WCT9.Signature) (index : Nat) (lay : 
 theorem verifyTopP_zero (sig : WCT9.Signature) (index : Nat) (answer : Digest) (hindex : index < 2 ^ 31) :
     verifyTopP sig 0 index answer = WCT9.verifyTop sig index answer := by
   simp only [verifyTopP, WCT9.verifyTop, Pads.zero_chain', Pads.zero_chainHeader, valueP_zero,
-    chainP_zero_route _ _ _ _ _ hindex, Pads.zero_merkle', Pads.zero_merkleHigh, nodeHashPH_zero]
-theorem verifyLayersBCP_zero_le (w : WCT9.Witness) (index : Nat) (hindex : index < 2 ^ 31) : ∀ n, n ≤ 4 → ∀ msg,
+    chainP_zero_route _ _ _ _ _ hindex, Pads.zero_merkle', nodeHashP_zero]
+theorem verifyLayersBCP_zero (w : WCT9.Witness) (index : Nat) (hindex : index < 2 ^ 31) : ∀ n msg,
     verifyLayersBCP w 0 index n msg = WCT9.verifyLayersBC w index n msg := by
   intro n
   induction n with
-  | zero => intro _ msg; rfl
+  | zero => intro msg; rfl
   | succ n ih =>
-      intro hn4 msg
-      by_cases hn : n = 0
-      · subst hn
-        simp only [verifyLayersBCP, WCT9.verifyLayersBC, Pads.zero_bc, Pads.zero_bcRight, Pads.zero_bcHigh,
-          encodingHash_layerEncodingInputP_zero, verifyTopP_zero _ _ _ hindex, ↓reduceIte]
-      · have hl : (Fin.ofNat 4 n : Layer) ≠ 0 := by
-          intro h
-          have h' := congrArg Fin.val h
-          simp only [Fin.val_ofNat, Fin.val_zero] at h'
-          omega
-        simp only [verifyLayersBCP, WCT9.verifyLayersBC, Pads.zero_bc, Pads.zero_bcRight, Pads.zero_bcHigh,
-          encodingHash_layerEncodingInputP_zero, recoverLayerPairGuardP_zero _ _ _ _ _ hindex hl,
-          ih (by omega), hn, ↓reduceIte]
-        rfl
-theorem verifyLayersBCP_zero (w : WCT9.Witness) (index : Nat) (hindex : index < 2 ^ 31) : ∀ msg,
-    verifyLayersBCP w 0 index 4 msg = WCT9.verifyLayersBC w index 4 msg :=
-  verifyLayersBCP_zero_le w index hindex 4 le_rfl
+      intro msg
+      simp only [verifyLayersBCP, WCT9.verifyLayersBC, Pads.zero_bc, Pads.zero_bcRight,
+        encodingHash_layerEncodingInputP_zero, verifyTopP_zero _ _ _ hindex, recoverLayerPairGuardP_zero _ _ _ _ _ hindex, ih]
+      rfl
 theorem verifyPads_zero (m : Message) (pk : Digest) (w : WCT9.Witness) :
     verifyPads m pk w 0 = WCT9.Rev3.verify m pk w := by
   unfold verifyPads verifyPadsTail WCT9.Rev3.verify WCT9.verifyWith
   simp only [recoverFtsP_zero, verifyLayersBCP_zero _ _ (WCT9.digestIndex_lt _)]
   rfl
-theorem layerPairP_dec (N : HashOutput) (w : WBytes) (lay : Layer) (digits : List Nat) (hl : lay.val ≠ 0) :
+theorem layerP_dec (N : HashOutput) (w : WBytes) (lay : Layer) (digits : List Nat)
+    (hlay : lay.val = 0) :
+    layerP w (WCT9.digestIndex N) lay digits =
+      recoverLayerP (WCT9.toT3Signature (effectiveSignature (witDecP N w).signature (padDecP N w) digits)) (padDecP N w).toT3 (WCT9.digestIndex N) lay
+        digits := by
+  unfold layerP recoverLayerP
+  simp only [WCT9.toT3Signature, effectiveSignature]
+  simp only [valueP_dec]
+  simp only [Pads.toT3, padDecP, witDecP, hlay, or_true, if_true]
+theorem layerPairP_dec (N : HashOutput) (w : WBytes) (lay : Layer) (digits : List Nat) :
     layerPairP w (WCT9.digestIndex N) lay digits =
       recoverLayerPairP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) lay digits := by
   unfold layerPairP recoverLayerPairP
@@ -151,22 +137,14 @@ theorem layerPairP_dec (N : HashOutput) (w : WBytes) (lay : Layer) (digits : Lis
     intro j
     simp only [padDecP, Fin.val_castLE]
     rw [if_pos (Or.inl (by omega))]
-  have hh : ∀ j : Fin (height lay - 1),
-      (padDecP N w).merkleHigh lay (Fin.castLE (Nat.sub_le _ _) j) =
-        wmerkleHigh w lay (route (WCT9.digestIndex N) lay).1 j.val := by
-    intro j
-    simp only [padDecP, Fin.val_castLE]
-    rw [if_pos (Or.inl (by omega))]
-  have hlf : (padDecP N w).leafHigh lay = wleafHigh w lay := by
-    simp only [padDecP]; rw [if_neg hl]
-  simp only [hm, hh, hlf, valueP_dec]
+  simp only [hm, valueP_dec]
   rfl
 theorem layerGuardedPairP_dec (N : HashOutput) (w : WBytes) (lay : Layer) (answer : Digest)
-    (digits : List Nat) (hl : lay.val ≠ 0) :
+    (digits : List Nat) :
     layerGuardedPairP w (WCT9.digestIndex N) lay answer digits =
       recoverLayerPairGuardP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) lay answer digits := by
   unfold layerGuardedPairP recoverLayerPairGuardP layerChainP
-  rw [layerPairP_dec N w _ _ hl]
+  rw [layerPairP_dec N w]
   simp only [valueP_dec]
   rfl
 theorem topLayerP_dec (N : HashOutput) (w : WBytes) (answer : Digest) :
@@ -175,27 +153,21 @@ theorem topLayerP_dec (N : HashOutput) (w : WBytes) (answer : Digest) :
   unfold topLayerP verifyTopP topChainP topFinishP
   simp only [valueP_dec]
   simp only [padDecP, witDecP, Fin.val_zero, or_true, ↓reduceIte]
-theorem layersBC_dec_le (N : HashOutput) (w : WBytes) : ∀ n, n ≤ 4 → ∀ msg,
+theorem layersBC_dec (N : HashOutput) (w : WBytes) : ∀ n msg,
     layersBC w (WCT9.digestIndex N) n msg =
       verifyLayersBCP (witDecP N w) (padDecP N w) (WCT9.digestIndex N) n msg := by
   intro n
   induction n with
-  | zero => intro _ msg; rfl
+  | zero => intro msg; rfl
   | succ n ih =>
-      intro hn4 msg
+      intro msg
       unfold layersBC verifyLayersBCP
       by_cases hn : n = 0
       · subst n
         simp only [if_true, topLayerP_dec N w]
         rfl
-      · have hl : (Fin.ofNat 4 n : Layer).val ≠ 0 := by
-          simp only [Fin.val_ofNat]; omega
-        simp only [hn, if_false, layerGuardedPairP_dec N w _ _ _ hl, ih (by omega)]
+      · simp only [hn, if_false, layerGuardedPairP_dec N w, ih]
         rfl
-theorem layersBC_dec (N : HashOutput) (w : WBytes) : ∀ msg,
-    layersBC w (WCT9.digestIndex N) 4 msg =
-      verifyLayersBCP (witDecP N w) (padDecP N w) (WCT9.digestIndex N) 4 msg :=
-  layersBC_dec_le N w 4 le_rfl
 theorem wctStep_none (w : WBytes) (N : HashOutput) (coord : WCT9.Coord) : wctStep w N none coord = pure none := rfl
 theorem foldlM_wctStep_none (w : WBytes) (N : HashOutput) :
     ∀ l : List WCT9.Coord, l.foldlM (wctStep w N) none = pure none
@@ -411,11 +383,16 @@ theorem height_pos' (lay : Layer) : 1 ≤ height lay := by fin_cases lay <;> dec
 theorem lowerPathBytes_length (lay : Layer) (leaf : Nat) (ls : LayerSignature lay) (ctr : BitVec 32) :
     (lowerPathBytes lay leaf ls ctr).length = 16 * pathSlots lay := by
   simp [lowerPathBytes]
+theorem top_path_eq : 16 * pathSlots 0 = 64 * height 0 := rfl
 theorem layerRegion_length (N : HashOutput) (w : WCT9.Witness) (lay : Layer) :
     (layerRegion N w lay).length = 16 * pathSlots lay + 64 * chainCount lay := by
-  unfold layerRegion
-  rw [List.length_append, lowerPathBytes_length, List.length_drop, layerBytes_length]
-  omega
+  unfold layerRegion; split
+  · rename_i h
+    have hl : lay = 0 := Fin.ext h
+    subst hl
+    rw [layerBytes_length]; rfl
+  · rw [List.length_append, lowerPathBytes_length, List.length_drop, layerBytes_length]
+    omega
 theorem endpointBytes_length (sig : WCT9.Signature) (lay : Layer) :
     (endpointBytes sig lay).length = 16 * chainCount lay := by
   simp [endpointBytes, List.length_flatMap, bytesLE_length, List.sum_replicate, Nat.mul_comm]
@@ -429,10 +406,10 @@ theorem leafBuffersBytes_length (sig : WCT9.Signature) : (leafBuffersBytes sig).
 theorem tailBytes_length (w : WCT9.Witness) : (tailBytes w).length = 32 := by
   simp [tailBytes, zeros, bytesLE_length]
 theorem layers_length (N : HashOutput) (w : WCT9.Witness) :
-    ((List.finRange 4).flatMap (layerRegion N w)).length = 13504 := by
+    ((List.finRange 4).flatMap (layerRegion N w)).length = 13456 := by
   simp only [List.length_flatMap, layerRegion_length]
   decide
-theorem witList_length_eq (N : HashOutput) (w : WCT9.Witness) : (witList N w).length = 24912 := by
+theorem witList_length_eq (N : HashOutput) (w : WCT9.Witness) : (witList N w).length = 24864 := by
   unfold witList
   simp only [List.length_append, headerBytes_length, wctBytes_length, layers_length, leafBuffersBytes_length,
     tailBytes_length]
@@ -449,15 +426,15 @@ theorem extract_readLE_lt (L : List UInt8) (n : Nat) (hlt : readLE L < 2 ^ (8 * 
   calc readLE ((L.drop off).take k) < 256 ^ ((L.drop off).take k).length := this
     _ ≤ 256 ^ k := Nat.pow_le_pow_right (by norm_num) (by simp)
 /-- The serialized list keeps 4 trailing zero bytes after the 32-bit digest counter (the expand
-machine still writes whole words); the witness is its first `wsize = 24908` bytes. -/
-theorem witList_readLE_lt (N : HashOutput) (w : WCT9.Witness) : readLE (witList N w) < 2 ^ (8 * 24908) := by
+machine still writes whole words); the witness is its first `wsize = 24860` bytes. -/
+theorem witList_readLE_lt (N : HashOutput) (w : WCT9.Witness) : readLE (witList N w) < 2 ^ (8 * 24860) := by
   have hsplit : witList N w = ((headerBytes N w ++ wctBytes N w.signature ++ (List.finRange 4).flatMap (layerRegion N w) ++
       leafBuffersBytes w.signature) ++ (bytesLE 16 w.signature.rho ++ zeros 8 ++ bytesLE 4 w.digestCounter)) ++
       zeros 4 := by
     simp only [witList, tailBytes, List.append_assoc]
   have hlen : ((headerBytes N w ++ wctBytes N w.signature ++ (List.finRange 4).flatMap (layerRegion N w) ++
       leafBuffersBytes w.signature) ++ (bytesLE 16 w.signature.rho ++ zeros 8 ++ bytesLE 4 w.digestCounter)).length =
-      24908 := by
+      24860 := by
     simp only [List.length_append, headerBytes_length, wctBytes_length, layers_length, leafBuffersBytes_length,
       bytesLE_length, zeros, List.length_replicate]
   have hz : readLE (zeros 4) = 0 := by decide
@@ -467,11 +444,11 @@ theorem witList_readLE_lt (N : HashOutput) (w : WCT9.Witness) : readLE (witList 
 theorem wdig_witEnc (N : HashOutput) (w : WCT9.Witness) (off : Nat) :
     wdig (witEnc N w) off = readDigest (window (witList N w) off 16) := by
   unfold wdig witEnc readDigest window
-  exact extract_readLE_lt (witList N w) 24908 (witList_readLE_lt N w) off 16
+  exact extract_readLE_lt (witList N w) 24860 (witList_readLE_lt N w) off 16
 theorem wle32_witEnc (N : HashOutput) (w : WCT9.Witness) (off : Nat) :
     wle32 (witEnc N w) off = BitVec.ofNat 32 (readLE (window (witList N w) off 4)) := by
   unfold wle32 witEnc window
-  exact extract_readLE_lt (witList N w) 24908 (witList_readLE_lt N w) off 4
+  exact extract_readLE_lt (witList N w) 24860 (witList_readLE_lt N w) off 4
 theorem witList_split (N : HashOutput) (w : WCT9.Witness) :
     witList N w = ((headerBytes N w ++ wctBytes N w.signature) ++ (List.finRange 4).flatMap (layerRegion N w)) ++
       (leafBuffersBytes w.signature ++ tailBytes w) := by simp only [witList, List.append_assoc]
@@ -505,7 +482,7 @@ theorem wctr3_witEnc : wle32 (witEnc N w) 32 = w.counters 3 := by
     window_append_left _ _ _ _ (by simp [bytesLE_length, zeros]),
     show 32 - 16 - (zeros 16).length = 0 by simp [zeros], window_full _ _ (bytesLE_length _ _), readLE_bytesLE_32]
 theorem wpad3_witEnc : (witEnc N w).extractLsb' (8 * 36) 96 = 0 := by
-  have h := extract_readLE_lt (witList N w) 24908 (witList_readLE_lt N w) 36 12
+  have h := extract_readLE_lt (witList N w) 24860 (witList_readLE_lt N w) 36 12
   unfold witEnc
   rw [show (96 : Nat) = 8 * 12 from rfl, h, show ((witList N w).drop 36).take 12 = window (witList N w) 36 12 from rfl,
     win_header_mid _ _ _ _ le_rfl (by omega)]
@@ -516,16 +493,16 @@ end header
 section tail
 variable (N : HashOutput) (w : WCT9.Witness)
 theorem win_tail (off n : Nat) (h : off + n ≤ 32) :
-    window (witList N w) (24880 + off) n = window (tailBytes w) off n := by
+    window (witList N w) (24832 + off) n = window (tailBytes w) off n := by
   rw [witList_split, window_append_right _ _ _ _ (by
       simp only [List.length_append, headerBytes_length, wctBytes_length, layers_length]; omega)]
   simp only [List.length_append, headerBytes_length, wctBytes_length, layers_length]
   rw [window_append_right _ _ _ _ (by rw [leafBuffersBytes_length]; omega), leafBuffersBytes_length]
   exact congrArg (fun k : Nat => window (tailBytes w) k n)
-    (show 24880 + off - (176 + 8080 + 13504) - 3120 = off by omega)
+    (show 24832 + off - (176 + 8080 + 13456) - 3120 = off by omega)
 theorem wrho_witEnc : wrho (witEnc N w) = w.signature.rho := by
   unfold wrho rhoOff
-  rw [wdig_witEnc, show (24880 : Nat) = 24880 + 0 from rfl, win_tail _ _ _ _ (by omega)]
+  rw [wdig_witEnc, show (24832 : Nat) = 24832 + 0 from rfl, win_tail _ _ _ _ (by omega)]
   unfold tailBytes
   rw [window_append_left _ _ _ _ (by simp [bytesLE_length, zeros]),
     window_append_left _ _ _ _ (by simp [bytesLE_length, zeros]),
@@ -539,15 +516,15 @@ theorem tail_counter_window : window (tailBytes w) 24 8 = bytesLE 4 w.digestCoun
   exact window_full _ _ (by simp [bytesLE_length, zeros])
 theorem wdc_witEnc : wdc (witEnc N w) = w.digestCounter := by
   unfold wdc dcOff
-  rw [wle32_witEnc, show (24904 : Nat) = 24880 + 24 from rfl, win_tail _ _ _ _ (by omega)]
+  rw [wle32_witEnc, show (24856 : Nat) = 24832 + 24 from rfl, win_tail _ _ _ _ (by omega)]
   have h : window (tailBytes w) 24 4 = window (window (tailBytes w) 24 8) 0 4 := by
     unfold window; rw [List.drop_zero, List.take_take, Nat.min_eq_left (by omega)]
   rw [h, tail_counter_window, window_append_left _ _ _ _ (by simp [bytesLE_length]),
     window_full _ _ (bytesLE_length _ _), readLE_bytesLE_32]
 theorem wdcWord_witEnc : (wdcWord (witEnc N w)).toNat = w.digestCounter.toNat := by
   unfold wdcWord witEnc dcOff
-  rw [show (64 : Nat) = 8 * 8 from rfl, extract_readLE_lt (witList N w) 24908 (witList_readLE_lt N w) 24904 8,
-    show ((witList N w).drop 24904).take 8 = window (witList N w) (24880 + 24) 8 from rfl,
+  rw [show (64 : Nat) = 8 * 8 from rfl, extract_readLE_lt (witList N w) 24860 (witList_readLE_lt N w) 24856 8,
+    show ((witList N w).drop 24856).take 8 = window (witList N w) (24832 + 24) 8 from rfl,
     win_tail _ _ _ _ (by omega), tail_counter_window, readLE_append, bytesLE_length,
     Correctness.readLE_bytesLE]
   have hz : readLE (zeros 4) = 0 := by decide
@@ -556,7 +533,7 @@ theorem wdcWord_witEnc : (wdcWord (witEnc N w)).toNat = w.digestCounter.toNat :=
 end tail
 theorem layerBase_ge (lay : Layer) : 8256 ≤ layerBase lay := by
   fin_cases lay <;> simp [layerBase]
-theorem layerEnd_le (lay : Layer) : layerBase lay + (16 * pathSlots lay + 64 * chainCount lay) ≤ 21760 := by
+theorem layerEnd_le (lay : Layer) : layerBase lay + (16 * pathSlots lay + 64 * chainCount lay) ≤ 21712 := by
   fin_cases lay <;> decide
 theorem layer_prefix (N : HashOutput) (w : WCT9.Witness) (lay : Layer) :
     (((List.finRange 4).take lay.val).map fun l => (layerRegion N w l).length).sum = layerBase lay - 8256 := by
@@ -586,12 +563,18 @@ theorem win_chain (N : HashOutput) (w : WCT9.Witness) (lay : Layer) (i : Fin (ch
       layerBase lay + (16 * pathSlots lay + (64 * (chainCount lay - 1 - i.val) + o)) by omega,
     win_layerRegion _ _ _ _ _ (by omega)]
   unfold layerRegion
-  rw [window_append_right _ _ _ _ (by rw [lowerPathBytes_length]; omega), lowerPathBytes_length,
-    Nat.add_sub_cancel_left]
-  unfold window
-  rw [List.drop_drop, show 64 * height lay + (64 * (chainCount lay - 1 - i.val) + o) =
-    64 * height lay + 64 * (chainCount lay - 1 - i.val) + o by omega]
-  exact layerBytes_chain _ _ _ i o ho
+  split
+  · rename_i h
+    have hl : lay = 0 := Fin.ext h
+    subst hl
+    rw [top_path_eq, ← Nat.add_assoc]
+    exact layerBytes_chain _ _ _ i o ho
+  · rw [window_append_right _ _ _ _ (by rw [lowerPathBytes_length]; omega), lowerPathBytes_length,
+      Nat.add_sub_cancel_left]
+    unfold window
+    rw [List.drop_drop, show 64 * height lay + (64 * (chainCount lay - 1 - i.val) + o) =
+      64 * height lay + 64 * (chainCount lay - 1 - i.val) + o by omega]
+    exact layerBytes_chain _ _ _ i o ho
 section t3
 variable (N : HashOutput) (w : WCT9.Witness)
 theorem wvalue_witEnc (lay : Layer) (i : Fin (chainCount lay)) :
@@ -613,143 +596,51 @@ theorem wchainHeaderPad_witEnc (lay : Layer) (i : Fin (chainCount lay)) :
     window_zeros _ _ _ (by omega), readDigest_zeros]
   rfl
 end t3
-/-! ### Path-area slot facts (campaign S1: all layers, the top two-line plan included)
-Siblings sit at `lowerSibSlot`; no sibling (and no counter) meets bytes 16..48 of any window, except the counter in the
-lower root window's bytes 32..36. -/
-theorem lowerSibSlot_eq (lay : Layer) (leaf j : Nat) :
-    lowerSibSlot lay leaf j = pathOff lay leaf j + sibOff (leaf / 2 ^ j % 2) := rfl
-theorem pathOff_top (leaf j : Nat) : pathOff 0 leaf j = topPlan leaf j := by simp [pathOff]
-theorem pathOff_lower {lay : Layer} (h : lay.val ≠ 0) (leaf j : Nat) :
-    pathOff lay leaf j = 16 * (lowerPlan lay leaf).getD j 0 := by simp [pathOff, h]
-def tA (a j : Nat) : Nat := (topPlanA.getD a []).getD j 0
-def sA (a j : Nat) : Nat := tA a j + sibOff (a / 2 ^ j % 2)
-def tB (b j : Nat) : Nat := (topPlanB.getD b []).getD j 0
-def sB (b j : Nat) : Nat := tB b j + sibOff (b / 2 ^ j % 2)
-theorem topA_bound : ∀ a < 64, ∀ j < 6, 400 ≤ tA a j ∧ tA a j + 64 ≤ 784 := by decide +kernel
-theorem topA_lab : ∀ a < 64, ∀ j < 6, ∀ j' < 6, tA a j + 48 ≤ sA a j' ∨ sA a j' + 16 ≤ tA a j + 16 := by
-  decide +kernel
-theorem topA_sib : ∀ a < 64, ∀ j < 6, ∀ j' < 6, j ≠ j' → sA a j + 16 ≤ sA a j' ∨ sA a j' + 16 ≤ sA a j := by
-  decide +kernel
-theorem topB_bound : ∀ b < 64, ∀ j < 6, tB b j + 64 ≤ 384 := by decide +kernel
-theorem topB_lab : ∀ b < 64, ∀ j < 6, ∀ j' < 6, tB b j + 48 ≤ sB b j' ∨ sB b j' + 16 ≤ tB b j + 16 := by
-  decide +kernel
-theorem topB_sib : ∀ b < 64, ∀ j < 6, ∀ j' < 6, j ≠ j' → sB b j + 16 ≤ sB b j' ∨ sB b j' + 16 ≤ sB b j := by
-  decide +kernel
-theorem top_bit_lo {leaf j : Nat} (hj : j < 6) : leaf / 2 ^ j % 2 = leaf % 64 / 2 ^ j % 2 := by
-  interval_cases j <;> simp only [Nat.reducePow] <;> omega
-theorem top_bit_hi {leaf j : Nat} (hl : leaf < 4096) (hj : 6 ≤ j) (hj' : j < 12) :
-    leaf / 2 ^ j % 2 = leaf / 64 % 64 / 2 ^ (j - 6) % 2 := by
-  interval_cases j <;> simp only [Nat.reducePow, Nat.reduceSub] <;> omega
-/-- All plan facts for one layer. -/
-def PathFacts (lay : Layer) : Prop :=
-  ∀ leaf < 2 ^ height lay, ∀ j < height lay,
-    lowerSibSlot lay leaf j + 16 ≤ 16 * pathSlots lay ∧ pathOff lay leaf j + 48 ≤ 16 * pathSlots lay ∧
-    ∀ j' < height lay,
-      (pathOff lay leaf j + 48 ≤ lowerSibSlot lay leaf j' ∨ lowerSibSlot lay leaf j' + 16 ≤ pathOff lay leaf j + 16) ∧
-      (j ≠ j' → lowerSibSlot lay leaf j + 16 ≤ lowerSibSlot lay leaf j' ∨
-        lowerSibSlot lay leaf j' + 16 ≤ lowerSibSlot lay leaf j)
-theorem sibOff_le (v : Nat) : sibOff v ≤ 48 := by unfold sibOff; split <;> omega
-theorem pathFacts_top : PathFacts 0 := by
-  intro leaf hl j hj
-  change leaf < 4096 at hl
-  change j < 12 at hj
-  have ha : leaf % 64 < 64 := Nat.mod_lt _ (by omega)
-  have hb : leaf / 64 % 64 < 64 := Nat.mod_lt _ (by omega)
-  have hslot : ∀ k, k < 12 → lowerSibSlot 0 leaf k =
-      (if k < 6 then sA (leaf % 64) k else sB (leaf / 64 % 64) (k - 6)) := by
-    intro k hk
-    rw [lowerSibSlot_eq, pathOff_top]
-    unfold topPlan sA sB tA tB
-    split
-    · rename_i h; rw [top_bit_lo h]
-    · rename_i h; rw [top_bit_hi hl (by omega) hk]
-  have hoff : ∀ k, pathOff 0 leaf k = (if k < 6 then tA (leaf % 64) k else tB (leaf / 64 % 64) (k - 6)) := by
-    intro k; rw [pathOff_top]; rfl
-  have hsA : ∀ k, tA (leaf % 64) k ≤ sA (leaf % 64) k ∧ sA (leaf % 64) k ≤ tA (leaf % 64) k + 48 := fun k => by
-    unfold sA; have := sibOff_le (leaf % 64 / 2 ^ k % 2); omega
-  have hsB : ∀ k, tB (leaf / 64 % 64) k ≤ sB (leaf / 64 % 64) k ∧ sB (leaf / 64 % 64) k ≤ tB (leaf / 64 % 64) k + 48 :=
-    fun k => by unfold sB; have := sibOff_le (leaf / 64 % 64 / 2 ^ k % 2); omega
-  have hps : 16 * pathSlots (0 : Layer) = 784 := rfl
-  rw [hslot j hj, hoff j, hps]
-  refine ⟨?_, ?_, fun j' hj' => ?_⟩
-  · split
-    · rename_i h; have := topA_bound _ ha j h; have := hsA j; omega
-    · rename_i h; have := topB_bound _ hb (j - 6) (by omega); have := hsB (j - 6); omega
-  · split
-    · rename_i h; have := topA_bound _ ha j h; omega
-    · rename_i h; have := topB_bound _ hb (j - 6) (by omega); omega
-  · change j' < 12 at hj'
-    rw [hslot j' hj']
-    by_cases h1 : j < 6 <;> by_cases h2 : j' < 6
-    · simp only [h1, h2, if_true]
-      exact ⟨topA_lab _ ha j h1 j' h2, topA_sib _ ha j h1 j' h2⟩
-    · simp only [h1, h2, if_true, if_false]
-      have := topA_bound _ ha j h1; have := topB_bound _ hb (j' - 6) (by omega); have := hsB (j' - 6)
-      exact ⟨Or.inr (by omega), fun _ => Or.inr (by have := hsA j; omega)⟩
-    · simp only [h1, h2, if_true, if_false]
-      have := topA_bound _ ha j' h2; have := topB_bound _ hb (j - 6) (by omega); have := hsB (j - 6)
-      have := hsA j'
-      exact ⟨Or.inl (by omega), fun _ => Or.inl (by omega)⟩
-    · simp only [h1, h2, if_false]
-      exact ⟨topB_lab _ hb (j - 6) (by omega) (j' - 6) (by omega),
-        fun hne => topB_sib _ hb (j - 6) (by omega) (j' - 6) (by omega) (by omega)⟩
-theorem lower_facts_bound (lay : Layer) (hlay : lay.val ≠ 0) : ∀ leaf < 2 ^ height lay, ∀ j < height lay,
-    16 * (lowerPlan lay leaf).getD j 0 + sibOff (leaf / 2 ^ j % 2) + 16 ≤ 16 * pathSlots lay ∧
-      16 * (lowerPlan lay leaf).getD j 0 + 48 ≤ 16 * pathSlots lay := by
+theorem lower_sib_bound (lay : Layer) (hlay : lay.val ≠ 0) :
+    ∀ leaf < 2 ^ height lay, ∀ j < height lay, lowerSibSlot lay leaf j + 16 ≤ 16 * pathSlots lay := by
   fin_cases lay
   · exact absurd rfl hlay
-  all_goals decide +kernel
-theorem lower_facts_lab (lay : Layer) (hlay : lay.val ≠ 0) : ∀ leaf < 2 ^ height lay, ∀ j < height lay,
-    ∀ j' < height lay, 16 * (lowerPlan lay leaf).getD j 0 + 48 ≤
-        16 * (lowerPlan lay leaf).getD j' 0 + sibOff (leaf / 2 ^ j' % 2) ∨
-      16 * (lowerPlan lay leaf).getD j' 0 + sibOff (leaf / 2 ^ j' % 2) + 16 ≤
-        16 * (lowerPlan lay leaf).getD j 0 + 16 := by
+  all_goals decide
+theorem lower_pad_bound (lay : Layer) (hlay : lay.val ≠ 0) :
+    ∀ leaf < 2 ^ height lay, ∀ j < height lay, 16 * (lowerPlan lay leaf).getD j 0 + 48 ≤ 16 * pathSlots lay := by
   fin_cases lay
   · exact absurd rfl hlay
-  all_goals decide +kernel
-theorem lower_facts_sib (lay : Layer) (hlay : lay.val ≠ 0) : ∀ leaf < 2 ^ height lay, ∀ j < height lay,
-    ∀ j' < height lay, j ≠ j' →
-      16 * (lowerPlan lay leaf).getD j 0 + sibOff (leaf / 2 ^ j % 2) + 16 ≤
-          16 * (lowerPlan lay leaf).getD j' 0 + sibOff (leaf / 2 ^ j' % 2) ∨
-        16 * (lowerPlan lay leaf).getD j' 0 + sibOff (leaf / 2 ^ j' % 2) + 16 ≤
-          16 * (lowerPlan lay leaf).getD j 0 + sibOff (leaf / 2 ^ j % 2) := by
-  fin_cases lay
-  · exact absurd rfl hlay
-  all_goals decide +kernel
-theorem pathFacts_lower (lay : Layer) (hlay : lay.val ≠ 0) : PathFacts lay := by
-  intro leaf hl j hj
-  simp only [lowerSibSlot_eq, pathOff_lower hlay]
-  exact ⟨(lower_facts_bound lay hlay leaf hl j hj).1, (lower_facts_bound lay hlay leaf hl j hj).2,
-    fun j' hj' => ⟨lower_facts_lab lay hlay leaf hl j hj j' hj', lower_facts_sib lay hlay leaf hl j hj j' hj'⟩⟩
-theorem pathFacts (lay : Layer) : PathFacts lay := by
-  by_cases h : lay.val = 0
-  · have hl : lay = 0 := Fin.ext h
-    subst hl; exact pathFacts_top
-  · exact pathFacts_lower lay h
-/-- The lower root window's counter (bytes 32..36) is outside bytes 16..48 of every other window. -/
-theorem ctr_disjoint (lay : Layer) (hlay : lay.val ≠ 0) :
-    ∀ leaf < 2 ^ height lay, ∀ j < height lay - 1,
-      pathOff lay leaf j + 48 ≤ lowerCtrSlot lay leaf ∨ lowerCtrSlot lay leaf + 4 ≤ pathOff lay leaf j + 16 := by
-  unfold lowerCtrSlot
-  simp only [pathOff_lower hlay]
-  fin_cases lay
-  · exact absurd rfl hlay
-  all_goals decide +kernel
-theorem lower_sib_bound (lay : Layer) :
-    ∀ leaf < 2 ^ height lay, ∀ j < height lay, lowerSibSlot lay leaf j + 16 ≤ 16 * pathSlots lay :=
-  fun leaf hl j hj => (pathFacts lay leaf hl j hj).1
-theorem lower_win_bound (lay : Layer) :
-    ∀ leaf < 2 ^ height lay, ∀ j < height lay, pathOff lay leaf j + 48 ≤ 16 * pathSlots lay :=
-  fun leaf hl j hj => (pathFacts lay leaf hl j hj).2.1
-theorem lower_sib_disjoint (lay : Layer) :
+  all_goals decide
+theorem lower_sib_disjoint (lay : Layer) (hlay : lay.val ≠ 0) :
     ∀ leaf < 2 ^ height lay, ∀ j < height lay, ∀ j' < height lay, j ≠ j' →
       lowerSibSlot lay leaf j + 16 ≤ lowerSibSlot lay leaf j' ∨
-        lowerSibSlot lay leaf j' + 16 ≤ lowerSibSlot lay leaf j :=
-  fun leaf hl j hj j' hj' => ((pathFacts lay leaf hl j hj).2.2 j' hj').2
-theorem lower_lab_disjoint (lay : Layer) :
+        lowerSibSlot lay leaf j' + 16 ≤ lowerSibSlot lay leaf j := by
+  fin_cases lay
+  · exact absurd rfl hlay
+  all_goals decide
+theorem lower_pad_disjoint (lay : Layer) (hlay : lay.val ≠ 0) :
     ∀ leaf < 2 ^ height lay, ∀ j < height lay, ∀ j' < height lay,
-      pathOff lay leaf j + 48 ≤ lowerSibSlot lay leaf j' ∨ lowerSibSlot lay leaf j' + 16 ≤ pathOff lay leaf j + 16 :=
-  fun leaf hl j hj j' hj' => ((pathFacts lay leaf hl j hj).2.2 j' hj').1
+      16 * (lowerPlan lay leaf).getD j 0 + 32 + 16 ≤ lowerSibSlot lay leaf j' ∨
+        lowerSibSlot lay leaf j' + 16 ≤ 16 * (lowerPlan lay leaf).getD j 0 + 32 := by
+  fin_cases lay
+  · exact absurd rfl hlay
+  all_goals decide
+theorem lower_pad_pad_disjoint (lay : Layer) (hlay : lay.val ≠ 0) :
+    ∀ leaf < 2 ^ height lay, ∀ j < height lay, ∀ j' < height lay, j ≠ j' →
+      16 * (lowerPlan lay leaf).getD j 0 + 48 ≤ 16 * (lowerPlan lay leaf).getD j' 0 + 32 ∨
+        16 * (lowerPlan lay leaf).getD j' 0 + 48 ≤ 16 * (lowerPlan lay leaf).getD j 0 + 32 := by
+  fin_cases lay
+  · exact absurd rfl hlay
+  all_goals decide
+theorem lowerSlots_ok (lay : Layer) (hlay : lay.val ≠ 0) :
+    (∀ leaf < 2 ^ height lay, ∀ j < height lay, lowerSibSlot lay leaf j + 16 ≤ 16 * pathSlots lay) ∧
+    (∀ leaf < 2 ^ height lay, ∀ j < height lay, 16 * (lowerPlan lay leaf).getD j 0 + 48 ≤ 16 * pathSlots lay) ∧
+    (∀ leaf < 2 ^ height lay, ∀ j < height lay, ∀ j' < height lay, j ≠ j' →
+      lowerSibSlot lay leaf j + 16 ≤ lowerSibSlot lay leaf j' ∨
+        lowerSibSlot lay leaf j' + 16 ≤ lowerSibSlot lay leaf j) ∧
+    (∀ leaf < 2 ^ height lay, ∀ j < height lay, ∀ j' < height lay,
+      16 * (lowerPlan lay leaf).getD j 0 + 32 + 16 ≤ lowerSibSlot lay leaf j' ∨
+        lowerSibSlot lay leaf j' + 16 ≤ 16 * (lowerPlan lay leaf).getD j 0 + 32) ∧
+    (∀ leaf < 2 ^ height lay, ∀ j < height lay, ∀ j' < height lay, j ≠ j' →
+      16 * (lowerPlan lay leaf).getD j 0 + 48 ≤ 16 * (lowerPlan lay leaf).getD j' 0 + 32 ∨
+        16 * (lowerPlan lay leaf).getD j' 0 + 48 ≤ 16 * (lowerPlan lay leaf).getD j 0 + 32) :=
+  ⟨lower_sib_bound lay hlay, lower_pad_bound lay hlay, lower_sib_disjoint lay hlay, lower_pad_disjoint lay hlay,
+    lower_pad_pad_disjoint lay hlay⟩
 theorem window_map_range (f : Nat → UInt8) (n off m : Nat) (h : off + m ≤ n) :
     window ((List.range n).map f) off m = (List.range m).map (fun i => f (off + i)) := by
   unfold window
@@ -764,9 +655,9 @@ theorem map_range_getD (L : List UInt8) (n : Nat) (h : L.length = n) :
   · intro i h1 h2
     simp only [List.getElem_map, List.getElem_range, List.getD_eq_getElem _ _ h2]
 section lowerPath
-variable {lay : Layer} {leaf : Nat} (hleaf : leaf < 2 ^ height lay)
+variable {lay : Layer} (hlay : lay.val ≠ 0) {leaf : Nat} (hleaf : leaf < 2 ^ height lay)
   (ls : LayerSignature lay) (ctr : BitVec 32)
-include hleaf
+include hlay hleaf
 theorem lowerPathByte_sib (j : Fin (height lay)) {i : Nat} (hi : i < 16) :
     lowerPathByte lay leaf ls ctr (lowerSibSlot lay leaf j.val + i) = (bytesLE 16 (ls.path j)).getD i 0 := by
   unfold lowerPathByte
@@ -781,14 +672,14 @@ theorem lowerPathByte_sib (j : Fin (height lay)) {i : Nat} (hi : i < 16) :
     simp only [decide_eq_true_eq] at hp
     have hjj : j' = j := by
       by_contra hne
-      have hd := lower_sib_disjoint lay leaf hleaf j'.val j'.isLt j.val j.isLt (fun e => hne (Fin.ext e))
+      have hd := lower_sib_disjoint lay hlay leaf hleaf j'.val j'.isLt j.val j.isLt (fun e => hne (Fin.ext e))
       omega
     subst hjj
     simp only [Nat.add_sub_cancel_left]
-omit hleaf in
+omit hlay hleaf in
 theorem lowerPathByte_free {p : Nat} (hp : ∀ j : Fin (height lay), p < lowerSibSlot lay leaf j.val ∨
     lowerSibSlot lay leaf j.val + 16 ≤ p) :
-    lowerPathByte lay leaf ls ctr p = if lay.val ≠ 0 ∧ lowerCtrSlot lay leaf ≤ p ∧ p < lowerCtrSlot lay leaf + 4 then
+    lowerPathByte lay leaf ls ctr p = if lowerCtrSlot lay leaf ≤ p ∧ p < lowerCtrSlot lay leaf + 4 then
       (bytesLE 4 ctr).getD (p - lowerCtrSlot lay leaf) 0 else 0 := by
   unfold lowerPathByte
   rw [List.find?_eq_none.mpr (fun j _ => by
@@ -798,64 +689,44 @@ theorem lowerPathByte_free {p : Nat} (hp : ∀ j : Fin (height lay), p < lowerSi
 theorem lowerPath_sib (j : Fin (height lay)) :
     window (lowerPathBytes lay leaf ls ctr) (lowerSibSlot lay leaf j.val) 16 = bytesLE 16 (ls.path j) := by
   unfold lowerPathBytes
-  rw [window_map_range _ _ _ _ (lower_sib_bound lay leaf hleaf j.val j.isLt),
-    List.map_congr_left (fun i hi => lowerPathByte_sib hleaf ls ctr j (List.mem_range.mp hi))]
+  rw [window_map_range _ _ _ _ (lower_sib_bound lay hlay leaf hleaf j.val j.isLt),
+    List.map_congr_left (fun i hi => lowerPathByte_sib hlay hleaf ls ctr j (List.mem_range.mp hi))]
   exact map_range_getD _ _ (bytesLE_length _ _)
-/-- Bytes 16..32 of every window (label and one-word high pad) are zero in the honest witness. -/
-theorem lowerPath_lab {j : Nat} (hj : j < height lay) :
-    window (lowerPathBytes lay leaf ls ctr) (pathOff lay leaf j + 16) 16 = zeros 16 := by
-  have hz : ∀ i, i < 16 → lowerPathByte lay leaf ls ctr (pathOff lay leaf j + 16 + i) = 0 := by
+theorem lowerPath_pad {j : Nat} (hj : j + 1 < height lay) :
+    window (lowerPathBytes lay leaf ls ctr) (16 * (lowerPlan lay leaf).getD j 0 + 32) 16 = zeros 16 := by
+  have hz : ∀ i, i < 16 → lowerPathByte lay leaf ls ctr (16 * (lowerPlan lay leaf).getD j 0 + 32 + i) = 0 := by
     intro i hi'
     rw [lowerPathByte_free ls ctr (fun j' => by
-      have := lower_lab_disjoint lay leaf hleaf j hj j'.val j'.isLt
+      have := lower_pad_disjoint lay hlay leaf hleaf j (by omega) j'.val j'.isLt
       omega)]
-    by_cases hl : lay.val = 0
-    · rw [if_neg (by omega)]
-    · by_cases hr : j = height lay - 1
-      · subst hr; unfold lowerCtrSlot; rw [if_neg (by omega)]
-      · have := ctr_disjoint lay hl leaf hleaf j (by omega)
-        rw [if_neg (by omega)]
+    have hd := lower_pad_pad_disjoint lay hlay leaf hleaf j (by omega) (height lay - 1) (by omega) (by omega)
+    unfold lowerCtrSlot
+    rw [if_neg (by omega)]
   unfold lowerPathBytes
-  rw [window_map_range _ _ _ _ (by have := lower_win_bound lay leaf hleaf j hj; omega),
+  rw [window_map_range _ _ _ _ (by have := lower_pad_bound lay hlay leaf hleaf j (by omega); omega),
     List.map_congr_left (fun i hi => hz i (List.mem_range.mp hi))]
   simp [zeros, List.map_const']
-/-- Bytes 32..48 of every non-root window (and of every top window) are zero in the honest witness. -/
-theorem lowerPath_pad {j : Nat} (hj : j < height lay) (hr : j + 1 < height lay ∨ lay.val = 0) :
-    window (lowerPathBytes lay leaf ls ctr) (pathOff lay leaf j + 32) 16 = zeros 16 := by
-  have hz : ∀ i, i < 16 → lowerPathByte lay leaf ls ctr (pathOff lay leaf j + 32 + i) = 0 := by
-    intro i hi'
-    rw [lowerPathByte_free ls ctr (fun j' => by
-      have := lower_lab_disjoint lay leaf hleaf j hj j'.val j'.isLt
-      omega)]
-    by_cases hl : lay.val = 0
-    · rw [if_neg (by omega)]
-    · have := ctr_disjoint lay hl leaf hleaf j (by omega)
-      rw [if_neg (by omega)]
-  unfold lowerPathBytes
-  rw [window_map_range _ _ _ _ (by have := lower_win_bound lay leaf hleaf j hj; omega),
-    List.map_congr_left (fun i hi => hz i (List.mem_range.mp hi))]
-  simp [zeros, List.map_const']
-theorem lowerPath_ctr (hlay : lay.val ≠ 0) :
+theorem lowerPath_ctr :
     window (lowerPathBytes lay leaf ls ctr) (lowerCtrSlot lay leaf) 4 = bytesLE 4 ctr := by
-  have hh := height_pos' lay
-  have hb := lower_win_bound lay leaf hleaf (height lay - 1) (by omega)
+  have hb := lower_pad_bound lay hlay leaf hleaf (height lay - 1) (by have := height_pos' lay; omega)
   have hz : ∀ i, i < 4 → lowerPathByte lay leaf ls ctr (lowerCtrSlot lay leaf + i) = (bytesLE 4 ctr).getD i 0 := by
     intro i hi'
     rw [lowerPathByte_free ls ctr (fun j' => by
-      have := lower_lab_disjoint lay leaf hleaf (height lay - 1) (by omega) j'.val j'.isLt
-      unfold lowerCtrSlot; omega), if_pos ⟨hlay, by omega, by omega⟩, Nat.add_sub_cancel_left]
+      have := lower_pad_disjoint lay hlay leaf hleaf (height lay - 1) (by have := height_pos' lay; omega)
+        j'.val j'.isLt
+      unfold lowerCtrSlot; omega), if_pos (by omega), Nat.add_sub_cancel_left]
   unfold lowerPathBytes
   rw [window_map_range _ _ _ _ (by unfold lowerCtrSlot; omega),
     List.map_congr_left (fun i hi => hz i (List.mem_range.mp hi))]
   exact map_range_getD _ _ (bytesLE_length _ _)
 theorem lowerPath_rowPad :
     window (lowerPathBytes lay leaf ls ctr) (lowerCtrSlot lay leaf + 4) 12 = zeros 12 := by
-  have hh := height_pos' lay
-  have hb := lower_win_bound lay leaf hleaf (height lay - 1) (by omega)
+  have hb := lower_pad_bound lay hlay leaf hleaf (height lay - 1) (by have := height_pos' lay; omega)
   have hz : ∀ i, i < 12 → lowerPathByte lay leaf ls ctr (lowerCtrSlot lay leaf + 4 + i) = 0 := by
     intro i hi'
     rw [lowerPathByte_free ls ctr (fun j' => by
-      have := lower_lab_disjoint lay leaf hleaf (height lay - 1) (by omega) j'.val j'.isLt
+      have := lower_pad_disjoint lay hlay leaf hleaf (height lay - 1) (by have := height_pos' lay; omega)
+        j'.val j'.isLt
       unfold lowerCtrSlot; omega), if_neg (by omega)]
   unfold lowerPathBytes
   rw [window_map_range _ _ _ _ (by unfold lowerCtrSlot; omega),
@@ -864,62 +735,73 @@ theorem lowerPath_rowPad :
 end lowerPath
 theorem route_leaf_lt (index : Nat) (lay : Layer) : (route index lay).1 < 2 ^ height lay := by
   unfold route; exact Nat.mod_lt _ (by positivity)
-theorem win_lowerPath (N : HashOutput) (w : WCT9.Witness) (lay : Layer) (o m : Nat)
+theorem win_lowerPath (N : HashOutput) (w : WCT9.Witness) (lay : Layer) (hlay : lay.val ≠ 0) (o m : Nat)
     (h : o + m ≤ 16 * pathSlots lay) :
     window (witList N w) (layerBase lay + o) m =
       window (lowerPathBytes lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)
         (w.counters (Fin.ofNat 4 (lay.val - 1)))) o m := by
   rw [win_layerRegion N w lay o m (by omega)]
   unfold layerRegion
-  rw [window_append_left _ _ _ _ (by rw [lowerPathBytes_length]; exact h)]
-theorem window_window (L : List UInt8) (o a b n : Nat) (h : a + b ≤ n) :
-    window (window L o n) a b = window L (o + a) b := by
-  unfold window
-  rw [List.drop_take, List.take_take, List.drop_drop, Nat.min_eq_left (by omega)]
-theorem wdig_high (w : WBytes) (off : Nat) : (wdig w off).extractLsb' 64 64 = w.extractLsb' (8 * off + 64) 64 := by
-  unfold wdig
-  ext k hk
-  simp [BitVec.getElem_extractLsb', BitVec.getLsbD_extractLsb', show 64 + k < 128 by omega, Nat.add_assoc]
-theorem wdigHigh_witEnc (N : HashOutput) (w : WCT9.Witness) (off : Nat) :
-    (wdig (witEnc N w) off).extractLsb' 64 64 = BitVec.ofNat 64 (readLE (window (witList N w) (off + 8) 8)) := by
-  rw [wdig_high]
-  unfold witEnc window
-  rw [show 8 * off + 64 = 8 * (off + 8) by ring, show (64 : Nat) = 8 * 8 from rfl]
-  exact extract_readLE_lt (witList N w) 24908 (witList_readLE_lt N w) (off + 8) 8
-theorem readLE_zeros8 : readLE (zeros 8) = 0 := by decide
+  rw [if_neg hlay, window_append_left _ _ _ _ (by rw [lowerPathBytes_length]; exact h)]
+theorem win_topMerkle (N : HashOutput) (w : WCT9.Witness) (j : Fin (height 0)) (o : Nat) (ho : o + 16 ≤ 64) :
+    window (witList N w) (merkleBlock 0 (route (WCT9.digestIndex N) 0).1 j.val + o) 16 =
+      window (if (route (WCT9.digestIndex N) 0).1 / 2 ^ j.val % 2 = 1 then
+          bytesLE 16 ((w.signature.layers 0).path j) ++ zeros 48
+        else zeros 48 ++ bytesLE 16 ((w.signature.layers 0).path j)) o 16 := by
+  have hj := j.isLt
+  unfold merkleBlock
+  rw [if_pos (show (0 : Layer).val = 0 from rfl), Nat.add_assoc, win_layerRegion _ _ _ _ _ (by
+      change 64 * (height 0 - 1 - j.val) + o + 16 ≤ 768 + 3456
+      have : height (0 : Layer) = 12 := rfl
+      omega)]
+  unfold layerRegion
+  rw [if_pos (show (0 : Layer).val = 0 from rfl)]
+  exact layerBytes_merkle _ _ _ j o ho
 section t3b
 variable (N : HashOutput) (w : WCT9.Witness)
 theorem wpath_witEnc (lay : Layer) (j : Fin (height lay)) :
     wpath (witEnc N w) lay (route (WCT9.digestIndex N) lay).1 j.val = (w.signature.layers lay).path j := by
-  have hleaf := route_leaf_lt (WCT9.digestIndex N) lay
-  unfold wpath merkleBlock
-  rw [Nat.add_assoc, ← lowerSibSlot_eq, wdig_witEnc,
-    win_lowerPath _ _ _ _ _ (lower_sib_bound lay _ hleaf j.val j.isLt),
-    lowerPath_sib hleaf, Correctness.readDigest_bytesLE]
+  by_cases hlay : lay.val = 0
+  · have hl : lay = 0 := Fin.ext hlay
+    subst hl
+    unfold wpath
+    rw [wdig_witEnc, win_topMerkle _ _ _ _ (by unfold sibOff; split <;> omega)]
+    unfold sibOff
+    split
+    · rw [window_append_left _ _ _ _ (by simp [bytesLE_length]), window_full _ _ (bytesLE_length _ _),
+        Correctness.readDigest_bytesLE]
+    · rw [window_append_right _ _ _ _ (by simp [zeros]), show 48 - (zeros 48).length = 0 by simp [zeros],
+        window_full _ _ (bytesLE_length _ _), Correctness.readDigest_bytesLE]
+  · have hleaf := route_leaf_lt (WCT9.digestIndex N) lay
+    unfold wpath merkleBlock
+    rw [if_neg hlay, Nat.add_assoc, show 16 * (lowerPlan lay (route (WCT9.digestIndex N) lay).1).getD j.val 0 +
+        sibOff ((route (WCT9.digestIndex N) lay).1 / 2 ^ j.val % 2) =
+        lowerSibSlot lay (route (WCT9.digestIndex N) lay).1 j.val from rfl, wdig_witEnc,
+      win_lowerPath _ _ _ hlay _ _ (lower_sib_bound lay hlay _ hleaf j.val j.isLt),
+      lowerPath_sib hlay hleaf, Correctness.readDigest_bytesLE]
 theorem wmerklePad_witEnc (lay : Layer) (j : Fin (height lay)) (hj : j.val + 1 < height lay ∨ lay.val = 0) :
     wmerklePad (witEnc N w) lay (route (WCT9.digestIndex N) lay).1 j.val = 0 := by
-  have hleaf := route_leaf_lt (WCT9.digestIndex N) lay
-  unfold wmerklePad merkleBlock
-  rw [Nat.add_assoc, wdig_witEnc,
-    win_lowerPath _ _ _ _ _ (by have := lower_win_bound lay _ hleaf j.val j.isLt; omega),
-    lowerPath_pad hleaf _ _ j.isLt hj, readDigest_zeros]
-theorem wmerkleHigh_witEnc (lay : Layer) (j : Fin (height lay)) :
-    wmerkleHigh (witEnc N w) lay (route (WCT9.digestIndex N) lay).1 j.val = 0 := by
-  have hleaf := route_leaf_lt (WCT9.digestIndex N) lay
-  have hb := lower_win_bound lay _ hleaf j.val j.isLt
-  unfold wmerkleHigh merkleBlock
-  rw [wdigHigh_witEnc, show layerBase lay + pathOff lay (route (WCT9.digestIndex N) lay).1 j.val + 16 + 8 =
-      layerBase lay + (pathOff lay (route (WCT9.digestIndex N) lay).1 j.val + 24) by omega,
-    win_lowerPath _ _ _ _ _ (by omega),
-    show pathOff lay (route (WCT9.digestIndex N) lay).1 j.val + 24 =
-      (pathOff lay (route (WCT9.digestIndex N) lay).1 j.val + 16) + 8 by omega,
-    ← window_window _ _ 8 8 16 (by omega), lowerPath_lab hleaf _ _ j.isLt, window_zeros _ _ _ (by omega),
-    readLE_zeros8]
-  rfl
+  by_cases hlay : lay.val = 0
+  · have hl : lay = 0 := Fin.ext hlay
+    subst hl
+    unfold wmerklePad
+    rw [wdig_witEnc, win_topMerkle _ _ _ _ (by omega)]
+    split
+    · rw [window_append_right _ _ _ _ (by simp [bytesLE_length]), window_zeros _ _ _ (by simp [bytesLE_length]),
+        readDigest_zeros]
+    · rw [window_append_left _ _ _ _ (by simp [zeros, bytesLE_length]), window_zeros _ _ _ (by omega),
+        readDigest_zeros]
+  · have hleaf := route_leaf_lt (WCT9.digestIndex N) lay
+    have hj' : j.val + 1 < height lay := hj.resolve_right hlay
+    unfold wmerklePad merkleBlock
+    rw [if_neg hlay, Nat.add_assoc, wdig_witEnc,
+      win_lowerPath _ _ _ hlay _ _ (by have := lower_pad_bound lay hlay _ hleaf j.val j.isLt; omega),
+      lowerPath_pad hlay hleaf _ _ hj', readDigest_zeros]
 theorem rowBlock_upper (index : Nat) (lay : Layer) (h : lay.val < 3) :
     rowBlock index lay + 32 = layerBase (upLayer lay) + lowerCtrSlot (upLayer lay) (route index (upLayer lay)).1 := by
+  have hv : (upLayer lay).val ≠ 0 := by unfold upLayer; simp [Fin.val_ofNat]; omega
   unfold rowBlock merkleBlock lowerCtrSlot
-  rw [if_neg (by omega)]
+  rw [if_neg (by omega), if_neg hv]
   omega
 theorem upLayer_down (lay : Layer) (h : lay.val < 3) : (Fin.ofNat 4 ((upLayer lay).val - 1) : Layer) = lay := by
   apply Fin.ext
@@ -934,12 +816,12 @@ theorem wbcCtr_witEnc (lay : Layer) : wbcCtr (witEnc N w) (WCT9.digestIndex N) l
   · have hlt : lay.val < 3 := by have := lay.isLt; omega
     have hv : (upLayer lay).val ≠ 0 := by unfold upLayer; simp [Fin.val_ofNat]; omega
     have hleaf := route_leaf_lt (WCT9.digestIndex N) (upLayer lay)
-    have hb := lower_win_bound (upLayer lay) _ hleaf (height (upLayer lay) - 1)
+    have hb := lower_pad_bound (upLayer lay) hv _ hleaf (height (upLayer lay) - 1)
       (by have := height_pos' (upLayer lay); omega)
     unfold wbcCtr bcCounterOff
     rw [rowBlock_upper _ _ hlt, wle32_witEnc,
-      win_lowerPath _ _ _ _ _ (by unfold lowerCtrSlot; omega), upLayer_down lay hlt,
-      lowerPath_ctr hleaf _ _ hv, readLE_bytesLE_32]
+      win_lowerPath _ _ _ hv _ _ (by unfold lowerCtrSlot; omega), upLayer_down lay hlt,
+      lowerPath_ctr hv hleaf, readLE_bytesLE_32]
 theorem wbcPad_witEnc (lay : Layer) : wbcPad (witEnc N w) (WCT9.digestIndex N) lay = 0 := by
   by_cases h3 : lay.val = 3
   · have hl : lay = 3 := Fin.ext h3
@@ -948,43 +830,17 @@ theorem wbcPad_witEnc (lay : Layer) : wbcPad (witEnc N w) (WCT9.digestIndex N) l
   · have hlt : lay.val < 3 := by have := lay.isLt; omega
     have hv : (upLayer lay).val ≠ 0 := by unfold upLayer; simp [Fin.val_ofNat]; omega
     have hleaf := route_leaf_lt (WCT9.digestIndex N) (upLayer lay)
-    have hb := lower_win_bound (upLayer lay) _ hleaf (height (upLayer lay) - 1)
+    have hb := lower_pad_bound (upLayer lay) hv _ hleaf (height (upLayer lay) - 1)
       (by have := height_pos' (upLayer lay); omega)
     unfold wbcPad witEnc bcCounterOff
     rw [rowBlock_upper _ _ hlt, show (96 : Nat) = 8 * 12 from rfl,
-      extract_readLE_lt (witList N w) 24908 (witList_readLE_lt N w) _ 12,
+      extract_readLE_lt (witList N w) 24860 (witList_readLE_lt N w) _ 12,
       show ((witList N w).drop (layerBase (upLayer lay) +
           lowerCtrSlot (upLayer lay) (route (WCT9.digestIndex N) (upLayer lay)).1 + 4)).take 12 =
         window (witList N w) (layerBase (upLayer lay) +
           (lowerCtrSlot (upLayer lay) (route (WCT9.digestIndex N) (upLayer lay)).1 + 4)) 12 by
         unfold window; rw [Nat.add_assoc],
-      win_lowerPath _ _ _ _ _ (by unfold lowerCtrSlot; omega), lowerPath_rowPad hleaf]
-    rfl
-theorem wbcHigh_witEnc (lay : Layer) : wbcHigh (witEnc N w) (WCT9.digestIndex N) lay = 0 := by
-  unfold wbcHigh
-  rw [wdigHigh_witEnc]
-  by_cases h3 : lay.val = 3
-  · have hl : lay = 3 := Fin.ext h3
-    subst hl
-    have hr : rowBlock (WCT9.digestIndex N) 3 = 0 := rfl
-    rw [hr, show (0 : Nat) + 16 + 8 = 24 from rfl, win_header _ _ _ _ (by omega), headerBytes_eq,
-      window_append_right _ _ _ _ (by rw [ite_slot_length]; omega), ite_slot_length,
-      window_append_left _ _ _ _ (by simp [zeros]),
-      window_zeros _ _ _ (by simp [zeros]), readLE_zeros8]
-    rfl
-  · have hlt : lay.val < 3 := by have := lay.isLt; omega
-    have hleaf := route_leaf_lt (WCT9.digestIndex N) (upLayer lay)
-    have hj : height (upLayer lay) - 1 < height (upLayer lay) := by have := height_pos' (upLayer lay); omega
-    have hb := lower_win_bound (upLayer lay) _ hleaf (height (upLayer lay) - 1) hj
-    unfold rowBlock
-    rw [if_neg (by omega)]
-    unfold merkleBlock
-    rw [show layerBase (upLayer lay) + pathOff (upLayer lay) (route (WCT9.digestIndex N) (upLayer lay)).1
-          (height (upLayer lay) - 1) + 16 + 8 = layerBase (upLayer lay) + (pathOff (upLayer lay)
-          (route (WCT9.digestIndex N) (upLayer lay)).1 (height (upLayer lay) - 1) + 16 + 8) by omega,
-      win_lowerPath _ _ _ _ _ (by omega),
-      ← window_window _ _ 8 8 16 (by omega), lowerPath_lab hleaf _ _ hj, window_zeros _ _ _ (by omega),
-      readLE_zeros8]
+      win_lowerPath _ _ _ hv _ _ (by unfold lowerCtrSlot; omega), lowerPath_rowPad hv hleaf]
     rfl
 end t3b
 theorem win_region (N : HashOutput) (w : WCT9.Witness) (k : WCT9.Coord) (o n : Nat) (h : o + n ≤ 896) :
@@ -1056,16 +912,16 @@ theorem merkleBytes_pad {c : Nat} (hc : c < 128) (op : WCT9.Opening) {l : Nat} (
       have := List.mem_range.mp hi
       omega))]
   simp [zeros, List.map_const']
-theorem auth_tw_bound : ∀ c < 128, ∀ l < 4, c / 2 ^ l % 2 = 1 → authBase c l + 16 + 16 ≤ 320 := by decide
-theorem auth_tw_disjoint : ∀ c < 128, ∀ l < 4, c / 2 ^ l % 2 = 1 → ∀ l' < 5,
+theorem auth_tw_bound : ∀ c < 128, ∀ l < 4, authBase c l + 16 + 16 ≤ 320 := by decide
+theorem auth_tw_disjoint : ∀ c < 128, ∀ l < 4, ∀ l' < 5,
     authBase c l + 16 + 16 ≤ authSibOff c l' ∨ authSibOff c l' + 16 ≤ authBase c l + 16 := by decide
-theorem merkleBytes_tw {c : Nat} (hc : c < 128) (op : WCT9.Opening) {l : Nat} (hl : l < 4) (hbit : c / 2 ^ l % 2 = 1)
+theorem merkleBytes_tw {c : Nat} (hc : c < 128) (op : WCT9.Opening) {l : Nat} (hl : l < 4)
     (hb : authBase c l + 16 + 16 ≤ 320) :
     window (merkleBytes c op) (authBase c l + 16) 16 = zeros 16 := by
   unfold merkleBytes
   rw [window_map_range _ _ _ _ hb,
     List.map_congr_left (fun i hi => authByte5_none op (fun l' => by
-      have := auth_tw_disjoint c hc l hl hbit l'.val l'.isLt
+      have := auth_tw_disjoint c hc l hl l'.val l'.isLt
       have := List.mem_range.mp hi
       omega))]
   simp [zeros, List.map_const']
@@ -1342,8 +1198,8 @@ theorem wmhpad_witEnc (k : WCT9.Coord) (l : Nat) : wmhpad (witEnc N w) k.val (WC
   unfold wmhpad
   split
   · rename_i hl
-    have hb := auth_tw_bound _ hc l hl.1 hl.2
-    rw [Nat.add_assoc, wdig_region N w k _ (by omega), region_merkle _ _ _ _ _ _ hb, merkleBytes_tw hc _ hl.1 hl.2 hb,
+    have hb := auth_tw_bound _ hc l hl
+    rw [Nat.add_assoc, wdig_region N w k _ (by omega), region_merkle _ _ _ _ _ _ hb, merkleBytes_tw hc _ hl hb,
       readDigest_zeros]
     rfl
   · rfl
@@ -1404,13 +1260,13 @@ theorem win_leafBufferBytes (sig : WCT9.Signature) (lay : Layer) (i : Fin (chain
       exact win_endpointBytes sig lay i
 
 theorem win_leafBuffersBytes (sig : WCT9.Signature) (lay : Layer) (i : Fin (chainCount lay)) :
-    window (leafBuffersBytes sig) (leafBufferSlot lay i.val - 21760) 16 =
+    window (leafBuffersBytes sig) (leafBufferSlot lay i.val - 21712) 16 =
       bytesLE 16 ((sig.layers lay).values i) := by
   have hi := i.isLt
   have hidx : 3 - lay.val < (List.finRange 4).reverse.length := by simp; omega
   have hget : (List.finRange 4).reverse[3 - lay.val]'hidx = lay := by fin_cases lay <;> rfl
   have hp : (((List.finRange 4).reverse.take (3 - lay.val)).map
-      (fun l => (leafBufferBytes sig l).length)).sum = leafBufferBase lay - 21760 := by
+      (fun l => (leafBufferBytes sig l).length)).sum = leafBufferBase lay - 21712 := by
     simp only [leafBufferBytes_length]
     fin_cases lay <;> decide
   let off := if lay = 0 then 32 + 16 * i.val else if i.val = 0 then 0 else 16 + 16 * i.val
@@ -1421,10 +1277,10 @@ theorem win_leafBuffersBytes (sig : WCT9.Signature) (lay : Layer) (i : Fin (chai
   have h := window_flatMap (List.finRange 4).reverse (leafBufferBytes sig)
     (3 - lay.val) hidx off 16 (by simpa only [hget] using hb)
   rw [hp, hget] at h
-  have hbase : 21760 ≤ leafBufferBase lay := by fin_cases lay <;> decide
-  have hoff : leafBufferSlot lay i.val - 21760 = leafBufferBase lay - 21760 + off := by
+  have hbase : 21712 ≤ leafBufferBase lay := by fin_cases lay <;> decide
+  have hoff : leafBufferSlot lay i.val - 21712 = leafBufferBase lay - 21712 + off := by
     unfold leafBufferSlot
-    change leafBufferBase lay + off - 21760 = leafBufferBase lay - 21760 + off
+    change leafBufferBase lay + off - 21712 = leafBufferBase lay - 21712 + off
     omega
   rw [hoff]
   exact h.trans (win_leafBufferBytes sig lay i)
@@ -1437,45 +1293,11 @@ theorem wbuffer_witEnc (N : HashOutput) (w : WCT9.Witness) (lay : Layer)
     omega)]
   simp only [List.length_append, headerBytes_length, wctBytes_length, layers_length]
   rw [window_append_left _ _ _ _ (by rw [leafBuffersBytes_length]; omega)]
-  rw [show 176 + 8080 + 13504 = 21760 by decide,
+  rw [show 176 + 8080 + 13456 = 21712 by decide,
     win_leafBuffersBytes, Correctness.readDigest_bytesLE]
-
-theorem wleafHigh_witEnc (N : HashOutput) (w : WCT9.Witness) (lay : Layer) (hlay : lay ≠ 0) :
-    wleafHigh (witEnc N w) lay = 0 := by
-  have hb := leafBufferBase_bounds lay
-  have hlen : (leafBufferBytes w.signature lay).length = 736 := by
-    rw [leafBufferBytes_length]; unfold leafBufferLen; rw [if_neg hlay]
-  have hidx : 3 - lay.val < (List.finRange 4).reverse.length := by simp; omega
-  have hget : (List.finRange 4).reverse[3 - lay.val]'hidx = lay := by fin_cases lay <;> rfl
-  have hp : (((List.finRange 4).reverse.take (3 - lay.val)).map
-      (fun l => (leafBufferBytes w.signature l).length)).sum = leafBufferBase lay - 21760 := by
-    simp only [leafBufferBytes_length]
-    fin_cases lay <;> decide
-  have h := window_flatMap (List.finRange 4).reverse (leafBufferBytes w.signature)
-    (3 - lay.val) hidx 24 8 (by simp only [hget, hlen]; omega)
-  rw [hp, hget] at h
-  unfold wleafHigh
-  rw [wdigHigh_witEnc, witList_split, window_append_right _ _ _ _ (by
-    simp only [List.length_append, headerBytes_length, wctBytes_length, layers_length]
-    omega)]
-  simp only [List.length_append, headerBytes_length, wctBytes_length, layers_length]
-  rw [window_append_left _ _ _ _ (by rw [leafBuffersBytes_length]; omega),
-    show leafBufferBase lay + 16 + 8 - (176 + 8080 + 13504) = leafBufferBase lay - 21760 + 24 by omega]
-  unfold leafBuffersBytes
-  rw [h]
-  unfold leafBufferBytes
-  rw [if_neg hlay]
-  have h16 : ((endpointBytes w.signature lay).take 16).length = 16 := by
-    rw [List.length_take, endpointBytes_length]; fin_cases lay <;> simp_all [chainCount]
-  rw [window_append_left _ _ _ _ (by simp only [List.length_append, h16, zeros, List.length_replicate,
-      List.length_drop, endpointBytes_length]; fin_cases lay <;> simp_all [chainCount]),
-    window_append_left _ _ _ _ (by simp only [List.length_append, h16, zeros, List.length_replicate]; omega),
-    window_append_right _ _ _ _ (by simp only [h16]; omega), h16, window_zeros _ _ _ (by simp [zeros]),
-    readLE_zeros8]
-  rfl
 theorem padDecP_witEnc (N : HashOutput) (w : WCT9.Witness) : padDecP N (witEnc N w) = 0 := by
   unfold padDecP
-  show Pads.mk _ _ _ _ _ _ _ _ _ _ _ _ _ _ = Pads.mk _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  show Pads.mk _ _ _ _ _ _ _ _ _ _ _ = Pads.mk _ _ _ _ _ _ _ _ _ _ _
   congr 1
   · funext k t; exact wcpads_witEnc N w k t
   · funext k t; exact wcHeaderPad_witEnc N w k t
@@ -1499,13 +1321,6 @@ theorem padDecP_witEnc (N : HashOutput) (w : WCT9.Witness) : padDecP N (witEnc N
   · funext lay i
     rw [wvalue_witEnc, wbuffer_witEnc, BitVec.xor_self]
     rfl
-  · funext lay j; split
-    · exact wmerkleHigh_witEnc N w lay j
-    · rfl
-  · funext lay; split
-    · rfl
-    · rename_i h; exact wleafHigh_witEnc N w lay (fun e => h (by rw [e]; rfl))
-  · funext lay; exact wbcHigh_witEnc N w lay
 end ClaudeWCT.W9.T3M
 end
 section

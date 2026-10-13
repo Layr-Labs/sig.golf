@@ -127,15 +127,16 @@ theorem blk1193_spec (s : MachineState) (hpc : s.pc = pcOf 1193) (lay tree : Nat
     · simp only [Result.toState_getReg, SeedIndependent.blkS_hpm.res]
       t3n [g8, g9]
       unfold Keygen.nodeLo
-      rw [if_neg (by omega), T3.hyperWord_toNat]
+      rw [if_neg (by omega), BitVec.ofNat_toNat, BitVec.setWidth_eq]
       have hl : BitVec.ofNat 64 ((lay + 18446744073709551615) * 281474976710656) =
           BitVec.ofNat 64 ((lay - 1) * 281474976710656) := by
         apply BitVec.eq_of_toNat_eq; simp only [BitVec.toNat_ofNat]; omega
-      rw [hl, show (512#64) = BitVec.ofNat 64 512 from rfl,
-        ofNat_or_disjoint 512 (tree * 65536) 16 (by decide) (by omega),
+      rw [hl, show (513#64) = BitVec.ofNat 64 513 from rfl,
+        ofNat_or_disjoint 513 (tree * 65536) 16 (by decide) (by omega),
         ofNat_or_disjoint' _ ((lay - 1) * 281474976710656) 48 (by omega) (by omega),
         show (13907115649320091648#64) = BitVec.ofNat 64 (193 * 2 ^ 56) from rfl,
         ofNat_or_disjoint' _ (193 * 2 ^ 56) 56 (by omega) (by omega)]
+      unfold T3.hyperWord
       congr 1
       rw [Nat.mod_eq_of_lt htree, Nat.mod_eq_of_lt (by omega : lay - 1 < 256)]
       omega
@@ -795,7 +796,7 @@ theorem bt_tail {sk : SecretKey} {cache : Bytes 131072} {lay : Layer} {tree sel 
         exact ht.roots.frame (t1f.trans t2f) (by rw [ht.len]; packed_sgo) (fun _ _ _ h => by
           rcases h with h | h <;> exact h) }
   have hlev := Seed.buildLevelsBelow_tsim SeedIndependent.seedIndependentAt_sign sk hlp
-    (by show height lay ≤ 7; exact hH7) (by show 2 ≤ height lay; rcases hH with h | h <;> omega) t2pc
+    (by show 2 ≤ height lay; rcases hH with h | h <;> omega) t2pc
   obtain ⟨hlk, hlc⟩ := btLev_costs lay hlay tree
   refine TBSim.mono (TBSim.steps (st1.trans st2) (TBSim.bind (W₂ := 120) (TSim.toTBSim hlev hlk)
     (fun levels u hu => ?_))) (by omega) (fun _ _ h => h)

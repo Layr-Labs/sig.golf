@@ -104,8 +104,7 @@ def PrefixRowAt (answers : Answers) (a : ChainAddr) (input : HashInput) : Prop :
   ∃ step value, step < depth answers a ∧ input = chainRow a step value
 noncomputable def sampleRows (a : ChainAddr) (s : RefSample) (step : Nat) (value : Digest) : Option Digest :=
   if step < depth s.answers a then
-    (s.trace.find? fun e => decide (e.1 = chainRow a step value)).map fun e =>
-      projHalf (chainHigh a.key.lay a.chain step) e.2
+    (s.trace.find? fun e => decide (e.1 = chainRow a step value)).map fun e => low e.2
   else none
 noncomputable def prefixCount (a : ChainAddr) (s : RefSample) : Nat :=
   (s.trace.filter fun e => decide (PrefixRowAt s.answers a e.1)).length
@@ -144,8 +143,7 @@ theorem sampleView_coupled (adversary : AdversaryP) (q : Nat) (a : ChainAddr) (R
       by_cases hm : (.inl (.inr (chainRow a step value)) : RefWorld.Domain) ∈ res.1.2
       · rw [if_pos hm, if_pos hm]
         simp only [Option.map_some]
-        rw [PrefixGame.restTable_ov_prefix a hd R x ⟨step, hs⟩ value]
-        simp only [Fin.val_mk, ChainGraph.projHalf_joinProj]
+        rw [low, PrefixGame.restTable_ov_prefix a hd R x ⟨step, hs⟩ value, ChainGraph.joinOutput_low]
       · rw [if_neg hm, if_neg hm]
         rfl
     · rw [if_neg hs, dif_neg hs]

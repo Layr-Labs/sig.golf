@@ -647,18 +647,6 @@ theorem TSim.shortHash_bind {s : MachineState} {input : List UInt8} {k c n b : N
   have := h a
   unfold TSim at this
   simpa only [Function.comp, pure_bind] using this
-/-- Campaign S1: a projected hash (`projHash high`) followed by `f`; the continuation sees the chosen half. -/
-theorem TSim.projHash_bind {s : MachineState} {input : List UInt8} {high : Bool} {k c n b : Nat}
-    {f : Digest → M β} {Q : β → MachineState → Prop}
-    (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
-    (hv : hashArgumentsValid s = true) (hq : hashInput s = toQ (pad64 input))
-    (h : ∀ a : BitVec 256, TSim image sk (writeHash s a) k c n b (f (T3.projHalf high a)) Q) :
-    TSim image sk s (1 + k) (8 * (toQ (pad64 input)).blocks + c) (1 + n) ((toQ (pad64 input)).blocks + b)
-      (T3.projHash high input >>= f) Q := by
-  have e : T3.projHash high input >>= f = publicHash input >>= fun a => f (T3.projHalf high a) := by
-    unfold T3.projHash; rw [bind_assoc]; simp only [pure_bind]
-  rw [e]
-  exact TSim.publicHash_bind hf ht0 hv hq h
 theorem TSim.privateHash_bind {s : MachineState} {co : Coordinate} {k c n b : Nat}
     {f : HashOutput → M β} {Q : β → MachineState → Prop}
     (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)

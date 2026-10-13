@@ -74,7 +74,7 @@ theorem bound_topPart (cache : Cache) (leaf : Nat) (out : Option (BitVec 32 × L
     ∃ post, SigGolfCandidate.T3.Cost.CBound post (layerFixedCost 1)
       (signTop cache leaf ((out.map Prod.snd).getD dummyTop)) := by
   have hdig : ((out.map Prod.snd).getD dummyTop).length = 54 ∧
-      ((out.map Prod.snd).getD dummyTop).sum ≤ 144 := by
+      ((out.map Prod.snd).getD dummyTop).sum ≤ 145 := by
     cases out with
     | none => exact ⟨by decide, by decide⟩
     | some pair =>
@@ -157,20 +157,12 @@ theorem avoids_packedLowerSecret (lay : Layer) (tree q : Nat) (carry : Digest) :
 theorem avoids_buildLeafP (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
     Avoids secret target (ClaudeWCT.WCT9.buildLeafP lay tree leaf digits carry) := by
   unfold ClaudeWCT.WCT9.buildLeafP
-  refine avoids_bind_support (avoids_foldlM _ _ _ _ (fun state i => ?_) _) fun state hs => ?_
-  · refine avoids_bind (avoids_packedLowerSecret secret target ht _ _ _ _) fun sc => ?_
-    rcases sc with ⟨seed, carry'⟩
-    exact avoids_bind (avoids_chain secret target ht _ _ _ _ _ _ _) fun value =>
-      avoids_bind (avoids_chain secret target ht _ _ _ _ _ _ _) fun _ => avoids_pure _ _ _
-  · have hlen := mem_support_foldlM_inv _ (fun k (s : List Digest × List Digest × Digest) => s.1.length = k)
-      (fun k a b ha a' ha' => by
-        rw [mem_support_bind_iff] at ha'
-        obtain ⟨⟨seed, c⟩, -, ha'⟩ := ha'
-        simp only [mem_support_bind_iff, support_pure, Set.mem_singleton_iff] at ha'
-        obtain ⟨_, -, _, -, rfl⟩ := ha'
-        simp [ha]) _ 0 _ rfl state hs
-    simp only [List.length_range, Nat.zero_add] at hlen
-    exact avoids_bind (avoids_leafHash secret target ht _ _ _ _ hlen) fun _ => avoids_pure _ _ _
+  refine avoids_bind (avoids_foldlM _ _ _ _ (fun state i => ?_) _)
+    (fun state => avoids_bind (avoids_leafHash secret target ht _ _ _ _) fun _ => avoids_pure _ _ _)
+  refine avoids_bind (avoids_packedLowerSecret secret target ht _ _ _ _) fun sc => ?_
+  rcases sc with ⟨seed, carry'⟩
+  exact avoids_bind (avoids_chain secret target ht _ _ _ _ _ _ _) fun value =>
+    avoids_bind (avoids_chain secret target ht _ _ _ _ _ _ _) fun _ => avoids_pure _ _ _
 theorem avoids_buildLeafPF (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
     Avoids secret target (ClaudeWCT.WCT9.buildLeafPF lay tree leaf digits carry) := by
   unfold ClaudeWCT.WCT9.buildLeafPF
@@ -181,35 +173,26 @@ theorem avoids_buildLeafPF (lay : Layer) (tree leaf : Nat) (digits : List Nat) (
     rcases sc with ⟨coef, carry'⟩
     exact avoids_pure _ _ _
   rcases cc with ⟨coefs, carry'⟩
-  refine avoids_bind_support (avoids_foldlM _ _ _ _ (fun state i => ?_) _) fun state hs => ?_
-  · exact avoids_bind (avoids_chain secret target ht _ _ _ _ _ _ _) fun value =>
-      avoids_bind (avoids_chain secret target ht _ _ _ _ _ _ _) fun _ => avoids_pure _ _ _
-  · have hlen := mem_support_foldlM_inv _ (fun k (s : List Digest × List Digest) => s.1.length = k)
-      (fun k a b ha a' ha' => by
-        simp only [mem_support_bind_iff, support_pure, Set.mem_singleton_iff] at ha'
-        obtain ⟨_, -, _, -, rfl⟩ := ha'
-        simp [ha]) _ 0 _ rfl state hs
-    simp only [List.length_range, Nat.zero_add] at hlen
-    exact avoids_bind (avoids_leafHash secret target ht _ _ _ _ hlen) fun _ => avoids_pure _ _ _
-/-- Campaign S1: a lower fold word carries `heap % 128`, so internal lower nodes (levels `≥ 1` of a tree of
-height `≤ 7`, heaps `2..127`) are never the encoding word (heap 1). -/
-theorem avoids_buildLevel_below (lay tree h level : Nat) (nodes : List Digest) (hl1 : 1 ≤ level) (hlev : level < h)
-    (hh : 1 ≤ lay → lay < 4 → h ≤ 7) (hlen : nodes.length / 2 ≤ 2 ^ (h - level)) :
+  refine avoids_bind (avoids_foldlM _ _ _ _ (fun state i => ?_) _)
+    (fun state => avoids_bind (avoids_leafHash secret target ht _ _ _ _) fun _ => avoids_pure _ _ _)
+  exact avoids_bind (avoids_chain secret target ht _ _ _ _ _ _ _) fun value =>
+    avoids_bind (avoids_chain secret target ht _ _ _ _ _ _ _) fun _ => avoids_pure _ _ _
+theorem avoids_buildLevel_below (lay tree h level : Nat) (nodes : List Digest) (hlev : level < h) (hh : h < 64)
+    (hlen : nodes.length / 2 ≤ 2 ^ (h - level)) :
     Avoids secret target (buildLevel 3 lay tree h level nodes) := by
   unfold buildLevel
   refine avoids_mapM_mem _ _ fun i hi => avoids_nodeHash secret target ht _ _ _ _ _ _ (by decide)
-    fun _ h1 h4 => ?_
+    fun _ _ _ => ?_
   have hi : i < nodes.length / 2 := List.mem_range.mp hi
-  have h7 := hh h1 h4
   have h2 : 2 ≤ 2 ^ (h - level) := by
     calc 2 = 2 ^ 1 := rfl
       _ ≤ 2 ^ (h - level) := Nat.pow_le_pow_right (by decide) (by omega)
-  have h64 : 2 ^ (h - level) ≤ 64 := by
-    calc 2 ^ (h - level) ≤ 2 ^ 6 := Nat.pow_le_pow_right (by decide) (by omega)
-      _ = 64 := rfl
+  have h64 : 2 ^ (h - level) + 2 ^ (h - level) ≤ 2 ^ 64 := by
+    rw [← Nat.two_mul, ← Nat.pow_succ']
+    exact Nat.pow_le_pow_right (by decide) (by omega)
   rw [Nat.mod_eq_of_lt (by omega)]
   omega
-theorem avoids_buildLevelsBelow (lay tree h : Nat) (hh : 1 ≤ lay → lay < 4 → h ≤ 7) (leaves : List Digest)
+theorem avoids_buildLevelsBelow (lay tree h : Nat) (hh : h < 64) (leaves : List Digest)
     (hlen : leaves.length ≤ 2 ^ h) :
     Avoids secret target (ClaudeWCT.WCT9.buildLevelsBelow 3 lay tree h leaves) := by
   unfold ClaudeWCT.WCT9.buildLevelsBelow
@@ -219,7 +202,7 @@ theorem avoids_buildLevelsBelow (lay tree h : Nat) (hh : 1 ≤ lay → lay < 4 �
   intro k levels hk hk' ⟨hlk, hshape⟩
   have hnodes := hshape (k - 1) (by omega)
   rw [show h - (k - 1) = h - k + 1 by omega, Nat.pow_succ] at hnodes
-  refine ⟨avoids_bind (avoids_buildLevel_below secret target ht lay tree h k _ (by omega) (by omega) hh (by omega))
+  refine ⟨avoids_bind (avoids_buildLevel_below secret target ht lay tree h k _ (by omega) hh (by omega))
     fun _ => avoids_pure _ _ _, fun b hb => ?_⟩
   rw [mem_support_bind_iff] at hb
   obtain ⟨nodes, hn, hb⟩ := hb
@@ -249,7 +232,7 @@ theorem avoids_buildTreeP (lay : Layer) (tree selected : Nat) (digits : List Nat
         simp only [support_pure, Set.mem_singleton_iff] at ha'
         subst ha'
         simp [ha]) _ 0 _ rfl state hs
-    have hh : 1 ≤ lay.val → lay.val < 4 → height lay ≤ 7 := by fin_cases lay <;> decide
+    have hh : height lay < 64 := by fin_cases lay <;> decide
     refine avoids_bind (avoids_buildLevelsBelow secret target ht _ _ _ hh _ ?_) fun _ => avoids_pure _ _ _
     simp only [List.length_range, Nat.zero_add] at hlen
     omega
@@ -343,8 +326,8 @@ noncomputable def Envelopes.v5 : Envelopes where
     let b : ℝ := (![V5.b1, V5.b2, V5.b3, V5.b4] lay : ℚ)
     have hb : 1 ≤ b := by fin_cases lay <;> norm_num [b, V5.b1, V5.b2, V5.b3, V5.b4]
     have hs : (SigGolfCandidate.T3.BaseAudit.zU : ℝ) *
-        ((1 - (ClaudeWCT.W9.T3.ProducerV5.producerCountLower lay : ℝ) * (if lay = 0 then 2^128 else 7*2^126) / 2^256) * b +
-          (ClaudeWCT.W9.T3.ProducerV5.producerCountLower lay : ℝ) * (if lay = 0 then 2^128 else 7*2^126) / 2^256) ≤ b := by
+        ((1 - (ClaudeWCT.W9.T3.ProducerV5.producerCountLower lay : ℝ) * (if lay = 0 then 2^127 else 7*2^126) / 2^256) * b +
+          (ClaudeWCT.W9.T3.ProducerV5.producerCountLower lay : ℝ) * (if lay = 0 then 2^127 else 7*2^126) / 2^256) ≤ b := by
       fin_cases lay <;> norm_num [b, ClaudeWCT.W9.T3.ProducerV5.producerCountLower,
         SigGolfCandidate.T3.BaseAudit.zU, V5.b1, V5.b2, V5.b3, V5.b4]
     change (SigGolfCandidate.T3.BaseAudit.zU : ℝ) * ((1 - producerRate lay) * b + producerRate lay) ≤ b
@@ -523,7 +506,7 @@ theorem envelope_product_eq : digestEnvelope * layerEnvelopes.envelope 0 * layer
     ← ENNReal.ofReal_mul (show 0 ≤ (BaseAudit.V5.b0 : ℝ) * (BaseAudit.V5.b1 : ℝ) * (BaseAudit.V5.b2 : ℝ) *
       (BaseAudit.V5.b3 : ℝ) by
       norm_num [BaseAudit.V5.b0, BaseAudit.V5.b1, BaseAudit.V5.b2, BaseAudit.V5.b3])]
-theorem fixed_le_112868 {fts : ℕ} (h : fts ≤ 31334) : 4 + fts + ClaudeWCT.WCT9.Cost.layerFixedCostP 4 ≤ 112652 := by
+theorem fixed_le_112868 {fts : ℕ} (h : fts ≤ 31334) : 4 + fts + ClaudeWCT.WCT9.Cost.layerFixedCostP 4 ≤ 112653 := by
   have h1 := ClaudeWCT.WCT9.Cost.layerFixedCostP_four
   have h2 := SigGolfCandidate.T3.Cost.layerFixedCost_four
   omega
@@ -532,13 +515,13 @@ theorem signingMomentFor_le_two_of_le {fts : ℕ} (h : fts ≤ 31334) : signingM
   calc signingZ ^ (4 + fts + ClaudeWCT.WCT9.Cost.layerFixedCostP 4) *
         (digestEnvelope * layerEnvelopes.envelope 0 * layerEnvelopes.envelope 1 * layerEnvelopes.envelope 2 *
           layerEnvelopes.envelope 3)
-      ≤ signingZ ^ 112652 * (digestEnvelope * layerEnvelopes.envelope 0 * layerEnvelopes.envelope 1 *
+      ≤ signingZ ^ 112653 * (digestEnvelope * layerEnvelopes.envelope 0 * layerEnvelopes.envelope 1 *
           layerEnvelopes.envelope 2 * layerEnvelopes.envelope 3) :=
         mul_le_mul' (pow_le_pow_right₀ (SigGolfCandidate.Budget.one_le_zOf _) (fixed_le_112868 h)) le_rfl
     _ ≤ 2 := by
         rw [SigGolfCandidate.Budget.zOf_pow, envelope_product_eq]
         have hcast := ENNReal.ofReal_le_ofReal BaseAudit.V5.signing_envelope
-        rw [ENNReal.ofReal_mul (show 0 ≤ (2 : ℝ) ^ ((112652 : ℝ) / 131072) by positivity)] at hcast
+        rw [ENNReal.ofReal_mul (show 0 ≤ (2 : ℝ) ^ ((112653 : ℝ) / 131072) by positivity)] at hcast
         norm_num only [ENNReal.ofReal_ofNat] at hcast
         convert hcast using 1
         norm_num

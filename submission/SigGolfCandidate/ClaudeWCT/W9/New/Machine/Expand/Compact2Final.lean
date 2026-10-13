@@ -21,9 +21,9 @@ def zeroRegs (dst n ret : Nat) : RegFile :=
 def copyTab : List (Nat × Nat × Nat × Nat) :=
   [(42142, WIT, SNAP2, 2729), (42154, SNAP2, WIT, 8)] ++
   (List.range 9).map (fun q => (42161 + 7 * q, SNAP2 + 64 + 896 * (8 - q), WIT + 64 + 816 * q, 104)) ++
-  [(42224, SNAP2 + 8136 + 768, WIT + 8208, 432), (42235, SNAP2 + 8136 + 64 * 66 + 64 * 7, WIT + 11664 + 16 * 23, 344),
-   (42408, SNAP2 + 8136 + 64 * 116 + 64 * 6, WIT + 14784 + 16 * 20, 344),
-   (42557, SNAP2 + 8136 + 64 * 165 + 64 * 6, WIT + 17856 + 16 * 20, 344)]
+  [(42224, SNAP2 + 8136, WIT + 7424, 528), (42235, SNAP2 + 8136 + 64 * 66 + 64 * 7, WIT + 11648 + 16 * 23, 344),
+   (42408, SNAP2 + 8136 + 64 * 116 + 64 * 6, WIT + 14768 + 16 * 19, 344),
+   (42557, SNAP2 + 8136 + 64 * 165 + 64 * 6, WIT + 17824 + 16 * 19, 344)]
 theorem run_snap : symRun cfgC cSnap (pcOf 42142) 40 =
     some ⟨⟨copyRegs WIT SNAP2 2729 42149, [], []⟩, .c (pcOf 42130), .jump, 7, 7⟩ := by kernel_rfl
 theorem run_zero2 : symRun cfgC cZero2 (pcOf 42149) 40 =
@@ -60,12 +60,11 @@ theorem run_reg (k : Nat) (hk : k < 9) : symRun cfgC (cReg k) (pcOf (regAt k)) 4
       .c (pcOf 42130), .jump, 7, 7⟩ := by
   interval_cases k <;> kernel_rfl
 theorem run_top : symRun cfgC cTop (pcOf 42224) 40 =
-    some ⟨⟨copyRegs (SNAP2 + 8136 + 768) (WIT + 8208) 432 42231, [], []⟩, .c (pcOf 42130), .jump, 7, 7⟩ := by
-  kernel_rfl
+    some ⟨⟨copyRegs (SNAP2 + 8136) (WIT + 7424) 528 42231, [], []⟩, .c (pcOf 42130), .jump, 7, 7⟩ := by kernel_rfl
 def chAt (lay : Nat) : Nat := if lay = 1 then 42235 else if lay = 2 then 42408 else 42557
 def cCh (lay : Nat) : List (BitVec 32) := if lay = 1 then cCh1 else if lay = 2 then cCh2 else cCh3
 def chSrc (lay : Nat) : Nat := SNAP2 + 8136 + 64 * (if lay = 1 then 66 + 7 else if lay = 2 then 116 + 6 else 165 + 6)
-def chDst (lay : Nat) : Nat := lvDst lay + 16 * (if lay = 1 then 23 else 20)
+def chDst (lay : Nat) : Nat := lvDst lay + 16 * (if lay = 1 then 23 else 19)
 theorem run_ch (lay : Nat) (hl : 1 ≤ lay ∧ lay < 4) : symRun cfgC (cCh lay) (pcOf (chAt lay)) 40 =
     some ⟨⟨copyRegs (chSrc lay) (chDst lay) 344 (chAt lay + 7), [], []⟩, .c (pcOf 42130), .jump, 7, 7⟩ := by
   obtain ⟨h1, h4⟩ := hl
@@ -138,6 +137,20 @@ theorem zeroSet_spec {im : Image} (hcode : CodeAt im (pcOf 42149) cZero2) (s : M
   · intro r hr
     simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
     obtain ⟨h1, h11, h12⟩ := hr
+    rw [Result.toState_getReg]
+    cases r <;> first | rfl | (exfalso; simp_all)
+  · intro A _ _; rfl
+theorem idx_spec {im : Image} (hcode : CodeAt im (pcOf 42231) cIdx) (s : MachineState) (hpc : s.pc = pcOf 42231) :
+    ∃ t, Steps im s 4 4 t ∧ t.pc = pcOf 42235 ∧
+      t.getReg .x22 = s.getMem (BitVec.ofNat 64 0x60) >>> 33 ∧ t.getReg .x18 = BitVec.ofNat 64 LPLAN ∧
+      RegsExcept s t [.x18, .x22] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_, symRun_sound RIdx (by exact hcode) s hpc (by simp [RIdx.res, rv_simp]), ?_, ?_, ?_, ?_, ?_⟩
+  · simp [Result.toState_pc, RIdx.res, E.eval]
+  · simp [RIdx.res, rv_simp]
+  · simp [RIdx.res, rv_simp, LPLAN]
+  · intro r hr
+    simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
+    obtain ⟨h18, h22⟩ := hr
     rw [Result.toState_getReg]
     cases r <;> first | rfl | (exfalso; simp_all)
   · intro A _ _; rfl
@@ -334,14 +347,6 @@ def sibS (lay r j : Nat) : Nat := 16 * plan lay r j + 48 * (1 - r / 2 ^ j % 2)
 def padS (lay r j : Nat) : Nat := 16 * plan lay r j + 32
 theorem sibOff_eq (b : Nat) (hb : b < 2) : SigGolfCandidate.T3M.sibOff b = 48 * (1 - b) := by
   unfold SigGolfCandidate.T3M.sibOff; split <;> omega
-/-- Campaign S2: the windows of one lower path are pairwise distinct (so are their pads at bytes 32..48). -/
-theorem lower_pad_pad (lay : SigGolfCandidate.T3.Layer) (hlay : lay.val ≠ 0) :
-    ∀ leaf < 2 ^ SigGolfCandidate.T3.height lay, ∀ j < SigGolfCandidate.T3.height lay,
-      ∀ j' < SigGolfCandidate.T3.height lay, j ≠ j' →
-        (ClaudeWCT.W9.T3M.lowerPlan lay leaf).getD j 0 ≠ (ClaudeWCT.W9.T3M.lowerPlan lay leaf).getD j' 0 := by
-  fin_cases lay
-  · exact absurd rfl hlay
-  all_goals decide +kernel
 theorem lv_disj (lay : Nat) (hl : 1 ≤ lay ∧ lay < 4) (r : Nat) (hr : r < 2 ^ lvH lay) (j j' : Nat)
     (hj : j < lvH lay) (hj' : j' < lvH lay) (hne : j ≠ j') :
     sibS lay r j ≠ sibS lay r j' ∧ sibS lay r j ≠ padS lay r j' ∧ padS lay r j ≠ padS lay r j' := by
@@ -354,12 +359,10 @@ theorem lv_disj (lay : Nat) (hl : 1 ≤ lay ∧ lay < 4) (r : Nat) (hr : r < 2 ^
     have hr' : r < 2 ^ SigGolfCandidate.T3.height L := by rw [hH]; exact hr
     have hj1 : j < SigGolfCandidate.T3.height L := by rw [hH]; exact hj
     have hj2 : j' < SigGolfCandidate.T3.height L := by rw [hH]; exact hj'
-    have d1 := ClaudeWCT.W9.T3M.lower_sib_disjoint L r hr' j hj1 j' hj2 hne
-    have d2 := ClaudeWCT.W9.T3M.lower_lab_disjoint L r hr' j' hj2 j hj1
-    have d3 := lower_pad_pad L hL0 r hr' j hj1 j' hj2 hne
-    rw [ClaudeWCT.W9.T3M.lowerSibSlot_eq, ClaudeWCT.W9.T3M.lowerSibSlot_eq, ClaudeWCT.W9.T3M.pathOff_lower hL0,
-      ClaudeWCT.W9.T3M.pathOff_lower hL0] at d1
-    rw [ClaudeWCT.W9.T3M.lowerSibSlot_eq, ClaudeWCT.W9.T3M.pathOff_lower hL0, ClaudeWCT.W9.T3M.pathOff_lower hL0] at d2
+    have d1 := ClaudeWCT.W9.T3M.lower_sib_disjoint L hL0 r hr' j hj1 j' hj2 hne
+    have d2 := ClaudeWCT.W9.T3M.lower_pad_disjoint L hL0 r hr' j' hj2 j hj1
+    have d3 := ClaudeWCT.W9.T3M.lower_pad_pad_disjoint L hL0 r hr' j hj1 j' hj2 hne
+    unfold ClaudeWCT.W9.T3M.lowerSibSlot at d1 d2
     rw [sibOff_eq _ (hb j), sibOff_eq _ (hb j')] at d1
     rw [sibOff_eq _ (hb j)] at d2
     unfold sibS padS
@@ -442,7 +445,7 @@ theorem lvsMem_succ (M : Nat → Word) (lay : Nat) (hl : 1 ≤ lay ∧ lay < 4) 
               congr 1; unfold padS at q4; omega
             · rw [if_neg q4, if_neg (show ¬ decide (lvHit lay r L (A - lvDst lay)) = true from fun h => by have := of_decide_eq_true h; unfold lvHit at this; omega)]
   · rw [if_neg hA, if_neg hA, if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega)]
-def pathTop (lay : Nat) : Nat := 16 * (if lay = 1 then 23 else 20)
+def pathTop (lay : Nat) : Nat := 16 * (if lay = 1 then 23 else 19)
 theorem sibS_padS_lt (lay r j : Nat) (hl : 1 ≤ lay ∧ lay < 4) (hr : r < 2 ^ lvH lay) (hj : j < lvH lay) :
     sibS lay r j + 16 ≤ pathTop lay ∧ padS lay r j + 16 ≤ pathTop lay := by
   have h := (plan_ok lay r j hl hr hj).2
@@ -476,7 +479,7 @@ theorem lvs_spec (lay : Nat) (hl : 1 ≤ lay ∧ lay < 4) (u : MachineState) (M0
     ∀ L ≤ lvH lay, ∃ t, Steps im u (23 * L) (23 * L) t ∧ t.pc = pcOf (lvAt lay L) ∧
       RegsExcept u t [.x6, .x7, .x10, .x11, .x29, .x30] ∧
       ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) = lvsMem M0 lay r L A := by
-  have hD : 0x800 + 11664 ≤ lvDst lay ∧ lvDst lay + 16 * 23 ≤ 0x800 + 20928 := by
+  have hD : 0x800 + 11648 ≤ lvDst lay ∧ lvDst lay + 16 * 23 ≤ 0x800 + 20880 := by
     unfold lvDst; split_ifs <;> omega
   have hLP : LPLAN = 0xff9400 := rfl
   intro L hL
@@ -639,8 +642,8 @@ theorem layer_spec (lay : Nat) (hl : 1 ≤ lay ∧ lay < 4) (u : MachineState) (
     · exact code_cCh3 hc
   have hsrc : chSrc lay % 8 = 0 ∧ 0x300000 + 8136 ≤ chSrc lay ∧ chSrc lay + 8 * 344 ≤ 0x300000 + 21832 := by
     interval_cases lay <;> decide
-  have hdst : chDst lay % 8 = 0 ∧ chDst lay + 8 * 344 ≤ 0x800 + 20928 ∧
-      lvDst lay % 16 = 0 ∧ 0x800 + 11664 ≤ lvDst lay := by
+  have hdst : chDst lay % 8 = 0 ∧ chDst lay + 8 * 344 ≤ 0x800 + 20880 ∧
+      lvDst lay % 16 = 0 ∧ 0x800 + 11648 ≤ lvDst lay := by
     interval_cases lay <;> decide
   obtain ⟨u1, s1, p1, r1, m1⟩ := copyPhase hc hcode (run_ch lay ⟨h1, h4⟩) u hpc (by norm_num) (by norm_num)
     hsrc.1 (by omega) hdst.1 (by omega) (Or.inl (by omega))
@@ -672,353 +675,11 @@ theorem layer_spec (lay : Nat) (hl : 1 ≤ lay ∧ lay < 4) (u : MachineState) (
     ((r1.trans r2).trans r3).mono (by decide), fun A hA => ?_⟩
   rw [m3 A hA]; rfl
 end
-/-! ### Campaign S2: the top path placement (rows of `TOPA` / `TOPB`, twelve lower-shaped blocks at `tvAt j`) -/
-/-- Row of top level `j` for leaf `leaf`: line A (`j < 6`) by `leaf % 64`, line B by `leaf / 64 % 64`. -/
-def trow (j leaf : Nat) : Nat := if j < 6 then leaf % 64 else leaf / 64 % 64
-def tsibS (j leaf : Nat) : Nat := 16 * tplan j (trow j leaf) + 48 * (1 - trow j leaf / 2 ^ (j % 6) % 2)
-def tpadS (j leaf : Nat) : Nat := 16 * tplan j (trow j leaf) + 32
-def tvHit (leaf j p : Nat) : Prop :=
-  p = tsibS j leaf ∨ p = tsibS j leaf + 8 ∨ p = tpadS j leaf ∨ p = tpadS j leaf + 8
-instance (leaf j p : Nat) : Decidable (tvHit leaf j p) := by unfold tvHit; infer_instance
-/-- Memory after the first `L` top blocks over `M`. -/
-def tvsMem (M : Nat → Word) (leaf L : Nat) (A : Nat) : Word :=
-  if tvDst ≤ A then
-    match (List.range L).find? (fun j => decide (tvHit leaf j (A - tvDst))) with
-    | some j => M (tvSrc j + (A - tvDst - 16 * tplan j (trow j leaf)))
-    | none => M A
-  else M A
-theorem trow_lt (j leaf : Nat) : trow j leaf < 64 := by unfold trow; split <;> omega
-set_option maxRecDepth 100000 in
-/-- Line facts of the two top tables (decided): line A windows in `[400, 784)`, line B windows in `[0, 384)`. -/
-theorem tline_bounds : ∀ r < 64, ∀ j < 12, (j < 6 → 400 ≤ tOff j r) ∧ (6 ≤ j → tOff j r + 64 ≤ 384) := by
-  decide +kernel
-/-- Within one line, sibling and pad slots of distinct levels are distinct (checked over all 64 rows of both tables). -/
-def tlineChk : Bool :=
-  (List.range 64).all fun r => (List.range 6).all fun i => (List.range 6).all fun i' => (List.range 2).all fun e =>
-    i == i' || (16 * tplan (i + 6 * e) r + 48 * (1 - r / 2 ^ i % 2) != 16 * tplan (i' + 6 * e) r + 48 * (1 - r / 2 ^ i' % 2) &&
-      16 * tplan (i + 6 * e) r + 48 * (1 - r / 2 ^ i % 2) != 16 * tplan (i' + 6 * e) r + 32 &&
-      16 * tplan (i + 6 * e) r + 32 != 16 * tplan (i' + 6 * e) r + 32)
-set_option maxRecDepth 100000 in
-theorem tlineChk_ok : tlineChk = true := by decide +kernel
-theorem tline_disj6 (r : Nat) (hr : r < 64) (i : Nat) (hi : i < 6) (i' : Nat) (hi' : i' < 6) (e : Nat) (he : e < 2)
-    (hne : i ≠ i') :
-    16 * tplan (i + 6 * e) r + 48 * (1 - r / 2 ^ i % 2) ≠ 16 * tplan (i' + 6 * e) r + 48 * (1 - r / 2 ^ i' % 2) ∧
-    16 * tplan (i + 6 * e) r + 48 * (1 - r / 2 ^ i % 2) ≠ 16 * tplan (i' + 6 * e) r + 32 ∧
-    16 * tplan (i + 6 * e) r + 32 ≠ 16 * tplan (i' + 6 * e) r + 32 := by
-  have h := tlineChk_ok
-  unfold tlineChk at h
-  have := List.all_eq_true.mp (List.all_eq_true.mp (List.all_eq_true.mp (List.all_eq_true.mp h r
-    (List.mem_range.mpr hr)) i (List.mem_range.mpr hi)) i' (List.mem_range.mpr hi')) e (List.mem_range.mpr he)
-  simp only [Bool.or_eq_true, beq_iff_eq, hne, false_or, Bool.and_eq_true, bne_iff_ne, ne_eq] at this
-  exact ⟨this.1.1, this.1.2, this.2⟩
-theorem tline_disj (r : Nat) (hr : r < 64) (j : Nat) (hj : j < 12) (j' : Nat) (hj' : j' < 12) (hs : (j < 6 ↔ j' < 6))
-    (hne : j ≠ j') :
-    16 * tplan j r + 48 * (1 - r / 2 ^ (j % 6) % 2) ≠ 16 * tplan j' r + 48 * (1 - r / 2 ^ (j' % 6) % 2) ∧
-    16 * tplan j r + 48 * (1 - r / 2 ^ (j % 6) % 2) ≠ 16 * tplan j' r + 32 ∧
-    16 * tplan j r + 32 ≠ 16 * tplan j' r + 32 := by
-  have he : j / 6 = j' / 6 := by by_cases h : j < 6 <;> have := hs.mp <;> have := hs.mpr <;> omega
-  have := tline_disj6 r hr (j % 6) (Nat.mod_lt _ (by norm_num)) (j' % 6) (Nat.mod_lt _ (by norm_num)) (j / 6)
-    (by omega) (by omega)
-  rw [show j % 6 + 6 * (j / 6) = j by omega, show j' % 6 + 6 * (j / 6) = j' by omega] at this
-  exact this
-theorem tsib_bounds (j leaf : Nat) (hj : j < 12) :
-    16 * tplan j (trow j leaf) ≤ tsibS j leaf ∧ tsibS j leaf + 16 ≤ 16 * tplan j (trow j leaf) + 64 ∧
-      tsibS j leaf % 16 = 0 ∧ tpadS j leaf % 16 = 0 ∧ tsibS j leaf ≠ tpadS j leaf ∧
-      16 * tplan j (trow j leaf) + 64 ≤ 784 ∧ (j < 6 → 400 ≤ 16 * tplan j (trow j leaf)) ∧
-      (6 ≤ j → 16 * tplan j (trow j leaf) + 64 ≤ 384) := by
-  have hr := trow_lt j leaf
-  have hp := tplan_ok j (trow j leaf) hj hr
-  have hb := tline_bounds (trow j leaf) hr j hj
-  have : trow j leaf / 2 ^ (j % 6) % 2 < 2 := Nat.mod_lt _ (by norm_num)
-  unfold tsibS tpadS
-  refine ⟨by omega, by omega, by omega, by omega, by omega, by omega, fun h => by have := hb.1 h; omega,
-    fun h => by have := hb.2 h; omega⟩
-theorem tv_disj (leaf j j' : Nat) (hj : j < 12) (hj' : j' < 12) (hne : j ≠ j') :
-    tsibS j leaf ≠ tsibS j' leaf ∧ tsibS j leaf ≠ tpadS j' leaf ∧ tpadS j leaf ≠ tpadS j' leaf := by
-  have b1 := tsib_bounds j leaf hj
-  have b2 := tsib_bounds j' leaf hj'
-  by_cases hs : (j < 6 ↔ j' < 6)
-  · have hrow : trow j' leaf = trow j leaf := by
-      unfold trow
-      by_cases h : j < 6
-      · rw [if_pos (hs.mp h), if_pos h]
-      · rw [if_neg (fun h' => h (hs.mpr h')), if_neg h]
-    have := tline_disj (trow j leaf) (trow_lt j leaf) j hj j' hj' hs hne
-    unfold tsibS tpadS
-    rw [hrow]
-    exact this
-  · unfold tpadS at b1 b2 ⊢
-    by_cases h6 : j < 6
-    · have h6' : ¬ j' < 6 := fun h => hs ⟨fun _ => h, fun _ => h6⟩
-      have := b1.2.2.2.2.2.2.1 h6; have := b2.2.2.2.2.2.2.2 (by omega)
-      refine ⟨by omega, by omega, by omega⟩
-    · have h6' : j' < 6 := by by_contra h; exact hs ⟨fun h' => absurd h' h6, fun h' => absurd h' h⟩
-      have := b1.2.2.2.2.2.2.2 (by omega); have := b2.2.2.2.2.2.2.1 h6'
-      refine ⟨by omega, by omega, by omega⟩
-set_option maxRecDepth 100000 in
-theorem tvsMem_succ (M : Nat → Word) (leaf L : Nat) (hL : L < 12) (A : Nat) :
-    tvsMem M leaf (L + 1) A =
-      if A = tvDst + tsibS L leaf + 8 then M (tvSrc L + 48 * (1 - trow L leaf / 2 ^ (L % 6) % 2) + 8)
-      else if A = tvDst + tsibS L leaf then M (tvSrc L + 48 * (1 - trow L leaf / 2 ^ (L % 6) % 2))
-      else if A = tvDst + tpadS L leaf + 8 then M (tvSrc L + 40)
-      else if A = tvDst + tpadS L leaf then M (tvSrc L + 32)
-      else tvsMem M leaf L A := by
-  have hm := tsib_bounds L leaf hL
-  unfold tvsMem
-  by_cases hA : tvDst ≤ A
-  · rw [if_pos hA, if_pos hA, lvs_find_succ]
-    cases h : (List.range L).find? (fun j => decide (tvHit leaf j (A - tvDst))) with
-    | some l =>
-      obtain ⟨hl', hp⟩ := lvs_find_some h
-      have hp' : tvHit leaf l (A - tvDst) := of_decide_eq_true hp
-      unfold tvHit at hp'
-      have hd := tv_disj leaf l L (by omega) hL (by omega)
-      have hd' := tv_disj leaf L l hL (by omega) (by omega)
-      have hml := tsib_bounds l leaf (by omega)
-      simp only
-      rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega)]
-    | none =>
-      simp only
-      by_cases q1 : A = tvDst + tsibS L leaf + 8
-      · rw [if_pos (decide_eq_true (by unfold tvHit; omega)), if_pos q1]
-        simp only
-        congr 1; unfold tsibS at q1; omega
-      · rw [if_neg q1]
-        by_cases q2 : A = tvDst + tsibS L leaf
-        · rw [if_pos (decide_eq_true (by unfold tvHit; omega)), if_pos q2]
-          simp only
-          congr 1; unfold tsibS at q2; omega
-        · rw [if_neg q2]
-          by_cases q3 : A = tvDst + tpadS L leaf + 8
-          · rw [if_pos (decide_eq_true (by unfold tvHit; omega)), if_pos q3]
-            simp only
-            congr 1; unfold tpadS at q3; omega
-          · rw [if_neg q3]
-            by_cases q4 : A = tvDst + tpadS L leaf
-            · rw [if_pos (decide_eq_true (by unfold tvHit; omega)), if_pos q4]
-              simp only
-              congr 1; unfold tpadS at q4; omega
-            · rw [if_neg q4, if_neg (show ¬ decide (tvHit leaf L (A - tvDst)) = true from fun h => by
-                have := of_decide_eq_true h; unfold tvHit at this; omega)]
-  · rw [if_neg hA, if_neg hA, if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega)]
-theorem tvsMem_out (M : Nat → Word) (leaf L : Nat) (hL : L ≤ 12) (A : Nat) (hA : A < tvDst ∨ tvDst + 784 ≤ A) :
-    tvsMem M leaf L A = M A := by
-  unfold tvsMem
-  split
-  · cases h : (List.range L).find? (fun j => decide (tvHit leaf j (A - tvDst))) with
-    | none => rfl
-    | some l =>
-      obtain ⟨hl', hp⟩ := lvs_find_some h
-      have hp' : tvHit leaf l (A - tvDst) := of_decide_eq_true hp
-      unfold tvHit at hp'
-      have := tsib_bounds l leaf (by omega)
-      unfold tpadS at this hp'
-      omega
-  · rfl
-theorem tvsMem_zero (M : Nat → Word) (leaf A : Nat) : tvsMem M leaf 0 A = M A := by
-  unfold tvsMem; split <;> rfl
-section
-variable {im : Image} (hc : ClaudeWCT.W9.Machine.Expand.NewCodeAt im)
-include hc
-set_option maxRecDepth 20000 in
-/-- Six blocks of one top line (`line = 0`: levels 0..5, `line = 1`: levels 6..11). -/
-theorem tvs_line (line : Nat) (hline : line < 2) (u : MachineState) (M0 : Nat → Word) (leaf : Nat)
-    (hM : ∀ A < 2 ^ 64, u.getMem (BitVec.ofNat 64 A) = tvsMem M0 leaf (6 * line) A)
-    (hpc : u.pc = pcOf (tvAt (6 * line)))
-    (h19 : u.getReg .x19 = BitVec.ofNat 64 (trow (6 * line) leaf))
-    (h20 : u.getReg .x20 = BitVec.ofNat 64 (tTab (6 * line) + 8 * trow (6 * line) leaf)) (hp : TopTabAt u) :
-    ∀ L ≤ 6, ∃ t, Steps im u (23 * L) (23 * L) t ∧ t.pc = pcOf (tvAt (6 * line) + 23 * L) ∧
-      RegsExcept u t [.x6, .x7, .x10, .x11, .x29, .x30] ∧
-      ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) = tvsMem M0 leaf (6 * line + L) A := by
-  have hT : TOPA = 0xfffb80 ∧ TOPB = 0xfffd80 ∧ tvDst = 0x800 + 7424 := ⟨rfl, rfl, rfl⟩
-  intro L hL
-  induction L with
-  | zero => exact ⟨u, Steps.refl u, by simpa using hpc, RegsExcept.refl u _, fun A hA => by rw [hM A hA]; rfl⟩
-  | succ L ih =>
-    obtain ⟨t, st, pt, rt, mt⟩ := ih (by omega)
-    have hj : 6 * line + L < 12 := by omega
-    have hsame : (6 * line + L < 6 ↔ 6 * line < 6) := by omega
-    have hrow : trow (6 * line + L) leaf = trow (6 * line) leaf := by
-      unfold trow
-      by_cases h : 6 * line < 6
-      · rw [if_pos (hsame.mpr h), if_pos h]
-      · rw [if_neg (fun h' => h (hsame.mp h')), if_neg h]
-    have htab : tTab (6 * line + L) = tTab (6 * line) := by
-      unfold tTab
-      by_cases h : 6 * line < 6
-      · rw [if_pos (hsame.mpr h), if_pos h]
-      · rw [if_neg (fun h' => h (hsame.mp h')), if_neg h]
-    have hpt : TopTabAt t := by
-      refine ⟨fun k hk => ?_, fun k hk => ?_⟩
-      · have ho : tvDst + 784 ≤ TOPA + 8 * k := by omega
-        rw [mt _ (by omega), tvsMem_out M0 leaf _ (by omega) _ (Or.inr ho),
-          ← tvsMem_out M0 leaf (6 * line) (by omega) _ (Or.inr ho), ← hM _ (by omega)]
-        exact hp.1 k hk
-      · have ho : tvDst + 784 ≤ TOPB + 8 * k := by omega
-        rw [mt _ (by omega), tvsMem_out M0 leaf _ (by omega) _ (Or.inr ho),
-          ← tvsMem_out M0 leaf (6 * line) (by omega) _ (Or.inr ho), ← hM _ (by omega)]
-        exact hp.2 k hk
-    have hpc' : t.pc = pcOf (tvAt (6 * line + L)) := by
-      rw [pt]; congr 1; unfold tvAt; interval_cases line <;> omega
-    obtain ⟨t', st', pt', rt', mt'⟩ := tv_spec hc (6 * line + L) hj t hpc' (trow (6 * line + L) leaf)
-      (trow_lt _ _) (by rw [rt.get (by decide), h19, hrow]) (by rw [rt.get (by decide), h20, hrow, htab]) hpt
-    have hS : 0x300000 ≤ tvSrc (6 * line + L) ∧ tvSrc (6 * line + L) + 64 ≤ 0x300000 + 21832 := by
-      unfold tvSrc; omega
-    have hb : trow (6 * line + L) leaf / 2 ^ ((6 * line + L) % 6) % 2 < 2 := Nat.mod_lt _ (by norm_num)
-    refine ⟨t', (st.trans st').of_eq (by ring) (by ring), by
-        rw [pt']; congr 1; unfold tvAt; interval_cases line <;> omega,
-      (rt.trans rt').mono (by decide), fun A hA => ?_⟩
-    rw [mt' A hA, show 6 * line + (L + 1) = 6 * line + L + 1 by ring, tvsMem_succ M0 leaf _ hj A]
-    have e1 := mt (tvSrc (6 * line + L) + 48 * (1 - trow (6 * line + L) leaf / 2 ^ ((6 * line + L) % 6) % 2) + 8)
-      (by omega)
-    have e2 := mt (tvSrc (6 * line + L) + 48 * (1 - trow (6 * line + L) leaf / 2 ^ ((6 * line + L) % 6) % 2))
-      (by omega)
-    have e3 := mt (tvSrc (6 * line + L) + 40) (by omega)
-    have e4 := mt (tvSrc (6 * line + L) + 32) (by omega)
-    rw [tvsMem_out M0 leaf _ (by omega) _ (Or.inr (by unfold tvDst; omega))] at e1 e2 e3 e4
-    rw [e1, e2, e3, e4, mt A hA]
-    unfold tsibS tpadS
-    simp only [Nat.add_assoc, Nat.reduceAdd]
-end
-theorem run_jtop : symRun cfgC cJTop (pcOf 42231) 40 =
-    some ⟨⟨RegFile.init, [], []⟩, .c (pcOf 44060), .jump, 1, 1⟩ := by kernel_rfl
-theorem run_tend : symRun cfgC cTEnd (pcOf 44350) 40 =
-    some ⟨⟨RegFile.init, [], []⟩, .c (pcOf 42233), .jump, 1, 1⟩ := by kernel_rfl
-section
-variable {im : Image}
-set_option maxRecDepth 20000 in
-theorem tidx_spec (hcode : CodeAt im (pcOf 44060) cTIdx) (s : MachineState) (hpc : s.pc = pcOf 44060) :
-    ∃ t, Steps im s 2 2 t ∧ t.pc = pcOf 44062 ∧ t.getReg .x22 = s.getMem (BitVec.ofNat 64 0x60) >>> 33 ∧
-      RegsExcept s t [.x22] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound RTIdx (by exact hcode) s hpc (by simp [RTIdx.res, rv_simp]), ?_, ?_, ?_, ?_⟩
-  · simp [Result.toState_pc, RTIdx.res, E.eval]
-  · simp [RTIdx.res, rv_simp]
-  · intro r hr
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rw [Result.toState_getReg]
-    cases r <;> first | rfl | (exfalso; simp_all)
-  · intro A _ _; rfl
-set_option maxRecDepth 20000 in
-theorem s2_spec (hcode : CodeAt im (pcOf 42233) cS2) (s : MachineState) (hpc : s.pc = pcOf 42233) :
-    ∃ t, Steps im s 2 2 t ∧ t.pc = pcOf 42235 ∧ t.getReg .x18 = BitVec.ofNat 64 LPLAN ∧
-      RegsExcept s t [.x18] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound RS2 (by exact hcode) s hpc (by simp [RS2.res, rv_simp]), ?_, ?_, ?_, ?_⟩
-  · simp [Result.toState_pc, RS2.res, E.eval]
-  · simp [RS2.res, rv_simp, LPLAN]
-  · intro r hr
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-    rw [Result.toState_getReg]
-    cases r <;> first | rfl | (exfalso; simp_all)
-  · intro A _ _; rfl
-set_option maxRecDepth 200000 in
-theorem trowA_spec (hcode : CodeAt im (pcOf 44062) cTRowA) (s : MachineState) (hpc : s.pc = pcOf 44062)
-    (idx : Nat) (hidx : idx < 2 ^ 31) (h22 : s.getReg .x22 = BitVec.ofNat 64 idx) :
-    ∃ t, Steps im s 6 6 t ∧ t.pc = pcOf 44068 ∧ t.getReg .x19 = BitVec.ofNat 64 (idx / 2 ^ 19 % 64) ∧
-      t.getReg .x20 = BitVec.ofNat 64 (TOPA + 8 * (idx / 2 ^ 19 % 64)) ∧
-      RegsExcept s t [.x6, .x19, .x20] ∧ Frame s t (fun _ => False) := by
-  have hi : idx < 2 ^ 64 := by omega
-  have e19 : (RTRowA.res.toState s).getReg .x19 = BitVec.ofNat 64 (idx / 2 ^ 19 % 64) := by
-    simp only [Result.toState_getReg, RTRowA.res, RegFile.get, E.eval, BinOp.eval, h22]
-    rw [show (19#64 : Word) = BitVec.ofNat 64 19 from rfl, ofNat_shr', show (63#64 : Word) = BitVec.ofNat 64 (2 ^ 6 - 1) from rfl,
-      and_mask _ 6 (by norm_num), Nat.mod_eq_of_lt hi]
-    norm_num
-  have e20 : (RTRowA.res.toState s).getReg .x20 = BitVec.ofNat 64 (TOPA + 8 * (idx / 2 ^ 19 % 64)) := by
-    have : (RTRowA.res.toState s).getReg .x20 = (BitVec.ofNat 64 (idx / 2 ^ 19 % 64) <<< ((3#64 : Word).toNat % 64)) +
-        BitVec.ofNat 64 TOPA := by
-      rw [← e19]; simp only [Result.toState_getReg, RTRowA.res, RegFile.get, E.eval, BinOp.eval]
-      rfl
-    rw [this, show (3#64 : Word).toNat % 64 = 3 from rfl, ofNat_shl, ofNat_add_ofNat]
-    congr 1; ring
-  refine ⟨_, symRun_sound RTRowA hcode s hpc (by simp [RTRowA.res, rv_simp]), ?_, e19, e20, ?_, ?_⟩
-  · simp [Result.toState_pc, RTRowA.res, E.eval]
-  · intro r hr
-    simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-    obtain ⟨a, b, c⟩ := hr
-    rw [Result.toState_getReg]; cases r <;> first | (exfalso; simp_all; done) | rfl
-  · intro A _ _; rfl
-set_option maxRecDepth 200000 in
-theorem trowB_spec (hcode : CodeAt im (pcOf 44206) cTRowB) (s : MachineState) (hpc : s.pc = pcOf 44206)
-    (idx : Nat) (hidx : idx < 2 ^ 31) (h22 : s.getReg .x22 = BitVec.ofNat 64 idx) :
-    ∃ t, Steps im s 6 6 t ∧ t.pc = pcOf 44212 ∧ t.getReg .x19 = BitVec.ofNat 64 (idx / 2 ^ 25 % 64) ∧
-      t.getReg .x20 = BitVec.ofNat 64 (TOPB + 8 * (idx / 2 ^ 25 % 64)) ∧
-      RegsExcept s t [.x6, .x19, .x20] ∧ Frame s t (fun _ => False) := by
-  have hi : idx < 2 ^ 64 := by omega
-  have e19 : (RTRowB.res.toState s).getReg .x19 = BitVec.ofNat 64 (idx / 2 ^ 25 % 64) := by
-    simp only [Result.toState_getReg, RTRowB.res, RegFile.get, E.eval, BinOp.eval, h22]
-    rw [show (25#64 : Word) = BitVec.ofNat 64 25 from rfl, ofNat_shr', show (63#64 : Word) = BitVec.ofNat 64 (2 ^ 6 - 1) from rfl,
-      and_mask _ 6 (by norm_num), Nat.mod_eq_of_lt hi]
-    norm_num
-  have e20 : (RTRowB.res.toState s).getReg .x20 = BitVec.ofNat 64 (TOPB + 8 * (idx / 2 ^ 25 % 64)) := by
-    have : (RTRowB.res.toState s).getReg .x20 = (BitVec.ofNat 64 (idx / 2 ^ 25 % 64) <<< ((3#64 : Word).toNat % 64)) +
-        BitVec.ofNat 64 TOPB := by
-      rw [← e19]; simp only [Result.toState_getReg, RTRowB.res, RegFile.get, E.eval, BinOp.eval]
-      rfl
-    rw [this, show (3#64 : Word).toNat % 64 = 3 from rfl, ofNat_shl, ofNat_add_ofNat]
-    congr 1; ring
-  refine ⟨_, symRun_sound RTRowB hcode s hpc (by simp [RTRowB.res, rv_simp]), ?_, e19, e20, ?_, ?_⟩
-  · simp [Result.toState_pc, RTRowB.res, E.eval]
-  · intro r hr
-    simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-    obtain ⟨a, b, c⟩ := hr
-    rw [Result.toState_getReg]; cases r <;> first | (exfalso; simp_all; done) | rfl
-  · intro A _ _; rfl
-end
-section
-variable {im : Image} (hc : ClaudeWCT.W9.Machine.Expand.NewCodeAt im)
-include hc
-set_option maxRecDepth 20000 in
-/-- Campaign S2: the top path placement, from the jump at 42231 back to 42235 (with `x18 = LPLAN`). -/
-theorem top_spec (u : MachineState) (M0 : Nat → Word) (hM : ∀ A < 2 ^ 64, u.getMem (BitVec.ofNat 64 A) = M0 A)
-    (hpc : u.pc = pcOf 42231) (idx : Nat) (hidx : idx < 2 ^ 31)
-    (hix : u.getMem (BitVec.ofNat 64 0x60) >>> 33 = BitVec.ofNat 64 idx) (hp : TopTabAt u) :
-    ∃ t, Steps im u 294 294 t ∧ t.pc = pcOf 42235 ∧ t.getReg .x22 = BitVec.ofNat 64 idx ∧
-      t.getReg .x18 = BitVec.ofNat 64 LPLAN ∧
-      ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) = tvsMem M0 (idx / 2 ^ 19 % 4096) 12 A := by
-  have hT : TOPA = 0xfffb80 ∧ TOPB = 0xfffd80 ∧ tvDst = 0x800 + 7424 := ⟨rfl, rfl, rfl⟩
-  set leaf := idx / 2 ^ 19 % 4096 with hleaf
-  obtain ⟨u1, s1, p1, r1, m1⟩ := jump1_spec hc (code_cJTop hc) run_jtop u hpc
-  obtain ⟨u2, s2, p2, x22, r2, f2⟩ := tidx_spec (code_cTIdx hc) u1 p1
-  have x22' : u2.getReg .x22 = BitVec.ofNat 64 idx := by rw [x22, m1, hix]
-  obtain ⟨u3, s3, p3, x19a, x20a, r3, f3⟩ := trowA_spec (code_cTRowA hc) u2 p2 idx hidx x22'
-  have hm3 : ∀ A < 2 ^ 64, u3.getMem (BitVec.ofNat 64 A) = tvsMem M0 leaf (6 * 0) A := fun A hA => by
-    rw [f3 A hA (fun h => h), f2 A hA (fun h => h), m1, hM A hA, tvsMem_zero]
-  have hp3 : TopTabAt u3 := ⟨fun k hk => by rw [f3 _ (by unfold TOPA; omega) (fun h => h),
-      f2 _ (by unfold TOPA; omega) (fun h => h), m1]; exact hp.1 k hk,
-    fun k hk => by rw [f3 _ (by unfold TOPB; omega) (fun h => h),
-      f2 _ (by unfold TOPB; omega) (fun h => h), m1]; exact hp.2 k hk⟩
-  have hrA : trow (6 * 0) leaf = idx / 2 ^ 19 % 64 := by
-    unfold trow; rw [if_pos (by norm_num), hleaf]; omega
-  obtain ⟨u4, s4, p4, r4, m4⟩ := tvs_line hc 0 (by norm_num) u3 M0 leaf hm3 (by rw [p3]; rfl)
-    (by rw [x19a, hrA]) (by rw [x20a, hrA]; rfl) hp3 6 le_rfl
-  have x22b : u4.getReg .x22 = BitVec.ofNat 64 idx := by rw [r4.get (by decide), r3.get (by decide), x22']
-  obtain ⟨u5, s5, p5, x19b, x20b, r5, f5⟩ := trowB_spec (code_cTRowB hc) u4 (by rw [p4]; rfl) idx hidx x22b
-  have hm5 : ∀ A < 2 ^ 64, u5.getMem (BitVec.ofNat 64 A) = tvsMem M0 leaf (6 * 1) A := fun A hA => by
-    rw [f5 A hA (fun h => h), m4 A hA]
-  have hp5 : TopTabAt u5 := by
-    refine ⟨fun k hk => ?_, fun k hk => ?_⟩
-    · rw [f5 _ (by unfold TOPA; omega) (fun h => h), m4 _ (by unfold TOPA; omega),
-        tvsMem_out M0 leaf _ (by omega) _ (Or.inr (by unfold TOPA; omega)), ← hM _ (by unfold TOPA; omega)]
-      exact hp.1 k hk
-    · rw [f5 _ (by unfold TOPB; omega) (fun h => h), m4 _ (by unfold TOPB; omega),
-        tvsMem_out M0 leaf _ (by omega) _ (Or.inr (by unfold TOPB; omega)), ← hM _ (by unfold TOPB; omega)]
-      exact hp.2 k hk
-  have hrB : trow (6 * 1) leaf = idx / 2 ^ 25 % 64 := by
-    unfold trow; rw [if_neg (by norm_num), hleaf]; omega
-  obtain ⟨u6, s6, p6, r6, m6⟩ := tvs_line hc 1 (by norm_num) u5 M0 leaf hm5 (by rw [p5]; rfl)
-    (by rw [x19b, hrB]) (by rw [x20b, hrB]; rfl) hp5 6 le_rfl
-  obtain ⟨u7, s7, p7, r7, m7⟩ := jump1_spec hc (code_cTEnd hc) run_tend u6 (by rw [p6]; rfl)
-  obtain ⟨u8, s8, p8, x18, r8, f8⟩ := s2_spec (code_cS2 hc) u7 p7
-  refine ⟨u8, (((((((s1.trans s2).trans s3).trans s4).trans s5).trans s6).trans s7).trans s8).of_eq
-    (by norm_num) (by norm_num), p8, ?_, x18, fun A hA => ?_⟩
-  · rw [r8.get (by decide), r7.get (by decide), r6.get (by decide), r5.get (by decide), x22b]
-  · rw [f8 A hA (fun h => h), m7, m6 A hA]
-end
-/-- rho / digest counter staged at the L3 leaf buffer (campaign S2: `WIT + 20928`, was `+ 20880`). -/
 def tailMem (M : Nat → Word) (A : Nat) : Word :=
-  if A = WIT + 20952 then LoadKind.wu.fromWord (M (SNAP2 + 16)) 0
-  else if A = WIT + 20944 then 0
-  else if A = WIT + 20936 then M (SNAP2 + 8)
-  else if A = WIT + 20928 then M SNAP2
+  if A = WIT + 20904 then LoadKind.wu.fromWord (M (SNAP2 + 16)) 0
+  else if A = WIT + 20896 then 0
+  else if A = WIT + 20888 then M (SNAP2 + 8)
+  else if A = WIT + 20880 then M SNAP2
   else M A
 set_option maxRecDepth 20000 in
 theorem tail_spec {im : Image} (hcode : CodeAt im (pcOf 42705) cTail) (s : MachineState) (hpc : s.pc = pcOf 42705) :
@@ -1032,7 +693,7 @@ theorem tail_spec {im : Image} (hcode : CodeAt im (pcOf 42705) cTail) (s : Machi
     rw [Result.toState_getReg]; cases r <;> first | rfl | (exfalso; simp_all)
   · have key : ∀ c : Nat, c < 2 ^ 64 → (BitVec.ofNat 64 A = BitVec.ofNat 64 c ↔ A = c) := fun c hc => ofNat_inj hA hc
     simp only [Result.toState_getMem, RTail.res, memEval_cons, memEval_nil, Addr.eval, E.eval, UnOp.eval,
-      key 23000 (by norm_num), key 22992 (by norm_num), key 22984 (by norm_num), key 22976 (by norm_num)]
+      key 22952 (by norm_num), key 22944 (by norm_num), key 22936 (by norm_num), key 22928 (by norm_num)]
     unfold tailMem
     simp only [show WIT = 0x800 from rfl, show SNAP2 = 0x300000 from rfl, Nat.reduceAdd]
     rfl
@@ -1042,18 +703,14 @@ def snapMem (M : Nat → Word) (A : Nat) : Word :=
 and the tail). -/
 def zMem (M : Nat → Word) (A : Nat) : Word :=
   if WOUT ≤ A ∧ A < WOUT + 8 * 2510 ∧ (A - WOUT) % 8 = 0 then 0 else M A
-/-- Campaign S2: the top chains (432 words, stage-1 offset 768) copied to `WIT + 8208`. -/
-def topChMem (M : Nat → Word) (A : Nat) : Word :=
-  if WIT + 8208 ≤ A ∧ A < WIT + 8208 + 8 * 432 ∧ (A - (WIT + 8208)) % 8 = 0 then
-    M (SNAP2 + 8136 + 768 + (A - (WIT + 8208)))
+def topMem (M : Nat → Word) (A : Nat) : Word :=
+  if WIT + 7424 ≤ A ∧ A < WIT + 7424 + 8 * 528 ∧ (A - (WIT + 7424)) % 8 = 0 then M (SNAP2 + 8136 + (A - (WIT + 7424)))
   else M A
-/-- Campaign S2: the top region after the chain copy and the twelve-block path placement. -/
-def topMem (M : Nat → Word) (idx : Nat) (A : Nat) : Word := tvsMem (topChMem M) (idx / 2 ^ 19 % 4096) 12 A
 /-- Nested FTS (r1-1): memory after the zeroing, the L3 counter copy, the nine region copies and the nine hold
 placements of P_final. -/
 def stMem (M : Nat → Word) (A : Nat) : Word := plMem (regsMem (ctrMem (zMem (snapMem M))) 9) 9 A
 def run2Mem (M : Nat → Word) (idx : Nat) (A : Nat) : Word :=
-  tailMem (layMem (layMem (layMem (topMem (stMem M) idx) 1 idx) 2 idx) 3 idx) A
+  tailMem (layMem (layMem (layMem (topMem (stMem M)) 1 idx) 2 idx) 3 idx) A
 theorem stMem_out (M : Nat → Word) (A : Nat) (hA : A < WOUT ∨ SNAP2 + 8 * 2729 ≤ A) : stMem M A = M A := by
   have hW : WOUT = 0x4c0 := rfl
   have hS : SNAP2 = 0x300000 := rfl
@@ -1074,9 +731,9 @@ variable {im : Image} (hc : ClaudeWCT.W9.Machine.Expand.NewCodeAt im)
 include hc
 set_option maxRecDepth 20000 in
 theorem run2_spec (s : MachineState) (hpc : s.pc = pcOf 42142) (idx : Nat) (hidx : idx < 2 ^ 31)
-    (hix : s.getMem (BitVec.ofNat 64 0x60) >>> 33 = BitVec.ofNat 64 idx) (hp : LPlanAt s) (htt : TopTabAt s)
+    (hix : s.getMem (BitVec.ofNat 64 0x60) >>> 33 = BitVec.ofNat 64 idx) (hp : LPlanAt s)
     (hfl : ∀ c < 9, ∃ f < 2, s.getMem (BitVec.ofNat 64 (Compact.holdAt c + 16)) = BitVec.ofNat 64 f) :
-    ∃ t, Steps im s 42237 42237 t ∧ t.pc = pcOf 42716 ∧
+    ∃ t, Steps im s 42523 42523 t ∧ t.pc = pcOf 42716 ∧
       ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) = run2Mem (fun B => s.getMem (BitVec.ofNat 64 B)) idx A := by
   have hM' : MEMORY_BYTES = 16777216 := rfl
   have hW : WIT = 0x800 := rfl
@@ -1119,31 +776,28 @@ theorem run2_spec (s : MachineState) (hpc : s.pc = pcOf 42142) (idx : Nat) (hidx
   obtain ⟨u6a, s6a, p6a, r6a, m6a⟩ := copyPhase hc (code_cTop hc) run_top u5b (by rw [p5b]) (by norm_num)
     (by norm_num) (by omega) (by omega) (by omega) (by omega) (Or.inl (by omega))
   have e5 : ∀ A < 2 ^ 64, u6a.getMem (BitVec.ofNat 64 A) =
-      topChMem (stMem (fun B => s.getMem (BitVec.ofNat 64 B))) A := fun A hA => by
-    rw [m6a A hA]; unfold topChMem; split
+      topMem (stMem (fun B => s.getMem (BitVec.ofNat 64 B))) A := fun A hA => by
+    rw [m6a A hA]; unfold topMem; split
     · rw [m5b, m5 _ (by omega)]; rfl
     · rw [m5b, m5 A hA]; rfl
-  have hix6a : u6a.getMem (BitVec.ofNat 64 0x60) >>> 33 = BitVec.ofNat 64 idx := by
-    rw [e5 _ (by omega)]
-    unfold topChMem
+  obtain ⟨u6, s6, p6, x22, x18, r6, f6⟩ := idx_spec (code_cIdx hc) u6a p6a
+  have hp6 : LPlanAt u6 := fun k hk => by
+    rw [f6 _ (by omega) (fun h => h), e5 _ (by omega)]
+    unfold topMem
+    rw [if_neg (by omega), stMem_out _ _ (Or.inr (by omega))]
+    exact hp k hk
+  have x22' : u6.getReg .x22 = BitVec.ofNat 64 idx := by
+    rw [x22, show (96#64 : Word) = BitVec.ofNat 64 0x60 from rfl, e5 _ (by omega)]
+    unfold topMem
     rw [if_neg (by omega), stMem_out _ _ (Or.inl (by omega))]
     exact hix
-  have htt6a : TopTabAt u6a := by
-    refine ⟨fun k hk => ?_, fun k hk => ?_⟩
-    · rw [e5 _ (by unfold TOPA; omega)]; unfold topChMem
-      rw [if_neg (by unfold TOPA; omega), stMem_out _ _ (Or.inr (by unfold TOPA; omega))]; exact htt.1 k hk
-    · rw [e5 _ (by unfold TOPB; omega)]; unfold topChMem
-      rw [if_neg (by unfold TOPB; omega), stMem_out _ _ (Or.inr (by unfold TOPB; omega))]; exact htt.2 k hk
-  obtain ⟨u6, s6, p6, x22', x18, e6⟩ := top_spec hc u6a _ e5 p6a idx hidx hix6a htt6a
-  have hp6 : LPlanAt u6 := fun k hk => by
-    rw [e6 _ (by unfold LPLAN; omega), tvsMem_out _ _ _ le_rfl _ (Or.inr (by unfold LPLAN tvDst; omega))]
-    unfold topChMem
-    rw [if_neg (by unfold LPLAN; omega), stMem_out _ _ (Or.inr (by unfold LPLAN; omega))]
-    exact hp k hk
+  have e6 : ∀ A < 2 ^ 64, u6.getMem (BitVec.ofNat 64 A) =
+      topMem (stMem (fun B => s.getMem (BitVec.ofNat 64 B))) A := fun A hA => by
+    rw [f6 A hA (fun h => h), e5 A hA]
   obtain ⟨u7, s7, p7, r7, m7⟩ := layer_spec hc 1 (by omega) u6 _ e6 (by rw [p6]; rfl) idx hidx x22' x18 hp6
   have hp7 : LPlanAt u7 := fun k hk => by
-    rw [m7 _ (by unfold LPLAN; omega), layMem_out _ 1 (by omega) idx _ (Or.inr (by unfold chDst lvDst LPLAN; simp; omega)),
-      ← e6 _ (by unfold LPLAN; omega)]
+    rw [m7 _ (by omega), layMem_out _ 1 (by omega) idx _ (Or.inr (by unfold chDst lvDst; simp; omega)),
+      ← e6 _ (by omega)]
     exact hp6 k hk
   obtain ⟨u8, s8, p8, r8, m8⟩ := layer_spec hc 2 (by omega) u7 _ m7 (by rw [p7]; rfl) idx hidx
     (by rw [r7.get (by decide), x22']) (by rw [r7.get (by decide), x18]) hp7
@@ -1161,7 +815,7 @@ theorem run2_spec (s : MachineState) (hpc : s.pc = pcOf 42142) (idx : Nat) (hidx
   unfold run2Mem tailMem
   beta_reduce
   have g : ∀ B < 2 ^ 64, u9.getMem (BitVec.ofNat 64 B) =
-      layMem (layMem (layMem (topMem (stMem (fun B => s.getMem (BitVec.ofNat 64 B))) idx) 1 idx) 2 idx) 3 idx B := m9
+      layMem (layMem (layMem (topMem (stMem (fun B => s.getMem (BitVec.ofNat 64 B)))) 1 idx) 2 idx) 3 idx B := m9
   rw [g _ (by omega), g _ (by omega), g _ (by omega), g A hA]
 end
 end ClaudeWCT.W9.Machine.Expand.Compact2
@@ -1173,13 +827,7 @@ namespace ClaudeWCT.W9.Machine.Expand.Compact2
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
 set_option linter.unusedSimpArgs false
 set_option maxRecDepth 100000
-def zoneLay (o : Nat) : Nat := if o < 14784 then 1 else if o < 17856 then 2 else 3
-/-- Campaign S2: output word of the top path area (offset `p` from `WIT + 7424`): the snapshot word of the top level
-whose sibling or window pad covers `p`, else 0. -/
-def topPathOut (M : Nat → Word) (leaf p : Nat) : Word :=
-  match (List.range 12).find? (fun j => decide (tvHit leaf j p)) with
-  | some j => M (tvSrc j - SNAP2 + WIT + (p - 16 * tplan j (trow j leaf)))
-  | none => 0
+def zoneLay (o : Nat) : Nat := if o < 14768 then 1 else if o < 17824 then 2 else 3
 def pathOut (M : Nat → Word) (lay r p : Nat) : Word :=
   match (List.range (lvH lay)).find? (fun j => decide (lvHit lay r j p)) with
   | some j => M (lvSrc lay j - SNAP2 + WIT + (p - 16 * plan lay r j))
@@ -1188,25 +836,24 @@ def out2old (M : Nat → Word) (idx o : Nat) : Word :=
   if o < 64 then M (WIT + o)
   else if o < 7424 then
     M (WIT + 64 + 896 * (8 - min ((o - 64) / 816) 8) + (o - 64 - 816 * min ((o - 64) / 816) 8))
-  else if o < 8208 then topPathOut M (idx / 2 ^ 19 % 4096) (o - 7424)
-  else if o < 11664 then M (WIT + o + 696)
-  else if o < 20928 then
+  else if o < 11648 then M (WIT + o + 712)
+  else if o < 20880 then
     (if o - (lvDst (zoneLay o) - WIT) < pathTop (zoneLay o) then
       pathOut M (zoneLay o) (lroute (zoneLay o) idx) (o - (lvDst (zoneLay o) - WIT))
     else M (chSrc (zoneLay o) - SNAP2 + WIT + (o - (chDst (zoneLay o) - WIT))))
-  else if o = 20928 then M WIT
-  else if o = 20936 then M (WIT + 8)
-  else if o = 20944 then 0
+  else if o = 20880 then M WIT
+  else if o = 20888 then M (WIT + 8)
+  else if o = 20896 then 0
   else LoadKind.wu.fromWord (M (WIT + 16)) 0
 /-- Nested FTS (r1-1): output word at offset `o` from the final witness base `WOUT`. Below 8256 (header and the
 nine regions) it is the P_final memory; above, the frontier's output shifted by 832. -/
 def out2 (M : Nat → Word) (idx o : Nat) : Word :=
   if o < 8256 then stMem M (WOUT + o) else out2old M idx (o - 832)
-theorem lay_consts : lvDst 1 = 0x800 + 11664 ∧ lvDst 2 = 0x800 + 14784 ∧ lvDst 3 = 0x800 + 17856 ∧
-    chDst 1 = 0x800 + 11664 + 368 ∧ chDst 2 = 0x800 + 14784 + 320 ∧ chDst 3 = 0x800 + 17856 + 320 := by
+theorem lay_consts : lvDst 1 = 0x800 + 11648 ∧ lvDst 2 = 0x800 + 14768 ∧ lvDst 3 = 0x800 + 17824 ∧
+    chDst 1 = 0x800 + 11648 + 368 ∧ chDst 2 = 0x800 + 14768 + 304 ∧ chDst 3 = 0x800 + 17824 + 304 := by
   unfold lvDst chDst; decide
 theorem snap_read (M : Nat → Word) (idx x : Nat) (hx : x < 8 * 2729) (h8 : x % 8 = 0) :
-    (layMem (layMem (layMem (topMem (stMem M) idx) 1 idx) 2 idx) 3 idx) (SNAP2 + x) = M (WIT + x) := by
+    (layMem (layMem (layMem (topMem (stMem M)) 1 idx) 2 idx) 3 idx) (SNAP2 + x) = M (WIT + x) := by
   have hS : SNAP2 = 0x300000 := rfl
   have hW : WIT = 0x800 := rfl
   obtain ⟨d1, d2, d3, c1, c2, c3⟩ := lay_consts
@@ -1214,81 +861,31 @@ theorem snap_read (M : Nat → Word) (idx x : Nat) (hx : x < 8 * 2729) (h8 : x %
     layMem_out _ 2 (by omega) idx (SNAP2 + x) (Or.inr (by omega)),
     layMem_out _ 1 (by omega) idx (SNAP2 + x) (Or.inr (by omega))]
   unfold topMem
-  rw [tvsMem_out _ _ _ le_rfl _ (Or.inr (by unfold tvDst; omega))]
-  unfold topChMem
   rw [if_neg (by omega), stMem_snap M x hx h8]
-theorem lays_low (M : Nat → Word) (idx A : Nat) (hA : A < WIT + 11664) :
+theorem lays_low (M : Nat → Word) (idx A : Nat) (hA : A < WIT + 11648) :
     (layMem (layMem (layMem M 1 idx) 2 idx) 3 idx) A = M A := by
   have hW : WIT = 0x800 := rfl
   obtain ⟨d1, d2, d3, c1, c2, c3⟩ := lay_consts
   rw [layMem_out _ 3 (by omega) idx A (Or.inl (by omega)),
     layMem_out _ 2 (by omega) idx A (Or.inl (by omega)),
     layMem_out _ 1 (by omega) idx A (Or.inl (by omega))]
-theorem pre_low (M : Nat → Word) (idx A : Nat) (hA : WIT + 11664 ≤ A) (hA' : A < WIT + 19248)
-    (h8 : (A - WIT) % 8 = 0) : topMem (stMem M) idx A = 0 := by
+theorem pre_low (M : Nat → Word) (A : Nat) (hA : WIT + 11648 ≤ A) (hA' : A < WIT + 19248) (h8 : (A - WIT) % 8 = 0) :
+    topMem (stMem M) A = 0 := by
   have hW : WIT = 0x800 := rfl
   have hWO : WOUT = 0x4c0 := rfl
   have hS : SNAP2 = 0x300000 := rfl
   unfold topMem
-  rw [tvsMem_out _ _ _ le_rfl _ (Or.inr (by unfold tvDst; omega))]
-  unfold topChMem
   rw [if_neg (by omega)]
   unfold stMem
   rw [plMem_out _ 9 le_rfl A (by omega)]
   unfold regsMem ctrMem zMem
   rw [if_neg (by omega), if_neg (by omega), if_pos (by omega)]
-theorem pre_snap (M : Nat → Word) (idx x : Nat) (hx : x < 8 * 2729) (h8 : x % 8 = 0) :
-    topMem (stMem M) idx (SNAP2 + x) = M (WIT + x) := by
+theorem pre_snap (M : Nat → Word) (x : Nat) (hx : x < 8 * 2729) (h8 : x % 8 = 0) :
+    topMem (stMem M) (SNAP2 + x) = M (WIT + x) := by
   have hW : WIT = 0x800 := rfl
   have hS : SNAP2 = 0x300000 := rfl
   unfold topMem
-  rw [tvsMem_out _ _ _ le_rfl _ (Or.inr (by unfold tvDst; omega))]
-  unfold topChMem
   rw [if_neg (by omega), stMem_snap M x hx h8]
-/-- Campaign S2: the top path area of the final witness. -/
-theorem top_zone (M : Nat → Word) (idx o : Nat) (h1 : 7424 ≤ o) (h2 : o < 8208) (h8 : o % 8 = 0) :
-    topMem (stMem M) idx (WIT + o) = topPathOut M (idx / 2 ^ 19 % 4096) (o - 7424) := by
-  have hW : WIT = 0x800 := rfl
-  have hWO : WOUT = 0x4c0 := rfl
-  have hS : SNAP2 = 0x300000 := rfl
-  have hD : tvDst = WIT + 7424 := rfl
-  unfold topMem tvsMem topPathOut
-  rw [if_pos (by omega), show WIT + o - tvDst = o - 7424 by omega]
-  cases h : (List.range 12).find? (fun j => decide (tvHit (idx / 2 ^ 19 % 4096) j (o - 7424))) with
-  | none =>
-    simp only
-    unfold topChMem
-    rw [if_neg (by omega)]
-    unfold stMem
-    rw [plMem_out _ 9 le_rfl _ (by omega)]
-    unfold regsMem ctrMem zMem
-    rw [if_neg (by omega), if_neg (by omega), if_pos (by omega)]
-  | some j =>
-    simp only
-    obtain ⟨hj, hp'⟩ := lvs_find_some h
-    have hh : tvHit (idx / 2 ^ 19 % 4096) j (o - 7424) := of_decide_eq_true hp'
-    unfold tvHit at hh
-    have hb := tsib_bounds j (idx / 2 ^ 19 % 4096) hj
-    unfold tpadS at hb hh
-    have hsrc : 0x300000 + 8136 ≤ tvSrc j ∧ tvSrc j + 64 ≤ 0x300000 + 8136 + 768 := by unfold tvSrc; omega
-    unfold topChMem
-    rw [if_neg (by omega)]
-    have := stMem_snap M (tvSrc j - SNAP2 + (o - 7424 - 16 * tplan j (trow j (idx / 2 ^ 19 % 4096)))) (by omega)
-      (by unfold tsibS at hh; unfold tvSrc; omega)
-    rw [show SNAP2 + (tvSrc j - SNAP2 + (o - 7424 - 16 * tplan j (trow j (idx / 2 ^ 19 % 4096)))) =
-      tvSrc j + (o - 7424 - 16 * tplan j (trow j (idx / 2 ^ 19 % 4096))) by omega] at this
-    rw [this, show WIT + (tvSrc j - SNAP2 + (o - 7424 - 16 * tplan j (trow j (idx / 2 ^ 19 % 4096)))) =
-      tvSrc j - SNAP2 + WIT + (o - 7424 - 16 * tplan j (trow j (idx / 2 ^ 19 % 4096))) by omega]
-/-- Campaign S2: the top chains of the final witness (stage-1 offset 768 of the top block). -/
-theorem topch_zone (M : Nat → Word) (idx o : Nat) (h1 : 8208 ≤ o) (h2 : o < 11664) (h8 : o % 8 = 0) :
-    topMem (stMem M) idx (WIT + o) = M (WIT + o + 696) := by
-  have hW : WIT = 0x800 := rfl
-  have hS : SNAP2 = 0x300000 := rfl
-  unfold topMem
-  rw [tvsMem_out _ _ _ le_rfl _ (Or.inr (by unfold tvDst; omega))]
-  unfold topChMem
-  rw [if_pos (by omega), show SNAP2 + 8136 + 768 + (WIT + o - (WIT + 8208)) = SNAP2 + (8136 + 768 + (o - 8208)) by omega,
-    stMem_snap M _ (by omega) (by omega), show WIT + (8136 + 768 + (o - 8208)) = WIT + o + 696 by omega]
 theorem layMem_zone (P : Nat → Word) (M : Nat → Word) (lay : Nat) (hl : 1 ≤ lay ∧ lay < 4) (idx : Nat)
     (hP : ∀ x < 8 * 2729, x % 8 = 0 → P (SNAP2 + x) = M (WIT + x))
     (hZ : ∀ A, lvDst lay ≤ A → A < chDst lay → (A - WIT) % 8 = 0 → P A = 0)
@@ -1299,7 +896,7 @@ theorem layMem_zone (P : Nat → Word) (M : Nat → Word) (lay : Nat) (hl : 1 �
   have hW : WIT = 0x800 := rfl
   have hS : SNAP2 = 0x300000 := rfl
   have hce := chDst_eq lay
-  have hD : 0x800 + 11664 ≤ lvDst lay ∧ lvDst lay % 16 = 0 ∧ lvDst lay + pathTop lay + 8 * 344 ≤ 0x800 + 20928 := by
+  have hD : 0x800 + 11648 ≤ lvDst lay ∧ lvDst lay % 16 = 0 ∧ lvDst lay + pathTop lay + 8 * 344 ≤ 0x800 + 20880 := by
     obtain ⟨a, b⟩ := hl; interval_cases lay <;> decide
   have hsrc : 0x300000 + 8136 ≤ chSrc lay ∧ chSrc lay + 8 * 344 ≤ 0x300000 + 21832 ∧ chSrc lay % 8 = 0 := by
     obtain ⟨a, b⟩ := hl; interval_cases lay <;> decide
@@ -1347,68 +944,69 @@ theorem layMem_zone (P : Nat → Word) (M : Nat → Word) (lay : Nat) (hl : 1 �
       at this
     rw [this, show WIT + (chSrc lay - SNAP2 + (WIT + o - chDst lay)) =
       chSrc lay - SNAP2 + WIT + (o - (chDst lay - WIT)) by omega]
-theorem run2_zone_old (M : Nat → Word) (idx o : Nat) (hlo : 7424 ≤ o) (ho : o < 20960) (h8 : o % 8 = 0) :
+theorem run2_zone_old (M : Nat → Word) (idx o : Nat) (hlo : 7424 ≤ o) (ho : o < 20912) (h8 : o % 8 = 0) :
     run2Mem M idx (WIT + o) = out2old M idx o := by
   have hW : WIT = 0x800 := rfl
   have hS : SNAP2 = 0x300000 := rfl
-  have hTs : ∀ x < 8 * 2729, x % 8 = 0 → topMem (stMem M) idx (SNAP2 + x) = M (WIT + x) :=
-    fun x hx h => pre_snap M idx x hx h
+  have hTs : ∀ x < 8 * 2729, x % 8 = 0 → topMem (stMem M) (SNAP2 + x) = M (WIT + x) :=
+    fun x hx h => pre_snap M x hx h
   obtain ⟨d1, d2, d3, c1, c2, c3⟩ := lay_consts
   unfold run2Mem tailMem out2old
-  by_cases ht : 20928 ≤ o
+  by_cases ht : 20880 ≤ o
   · have hs := fun x hx h => snap_read M idx x hx h
-    rcases (show o = 20928 ∨ o = 20936 ∨ o = 20944 ∨ o = 20952 by omega) with rfl | rfl | rfl | rfl
-    · rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_pos rfl, if_neg (by omega), if_neg (by omega),
+    rcases (show o = 20880 ∨ o = 20888 ∨ o = 20896 ∨ o = 20904 by omega) with rfl | rfl | rfl | rfl
+    · rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_pos rfl, if_neg (by omega),
         if_neg (by omega), if_neg (by omega), if_neg (by omega), if_pos rfl]
       have := hs 0 (by omega) (by omega); simpa using this
     · rw [if_neg (by omega), if_neg (by omega), if_pos rfl, if_neg (by omega), if_neg (by omega), if_neg (by omega),
-        if_neg (by omega), if_neg (by omega), if_neg (by omega), if_pos rfl]
+        if_neg (by omega), if_neg (by omega), if_pos rfl]
       exact hs 8 (by omega) (by omega)
     · rw [if_neg (by omega), if_pos rfl, if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
-        if_neg (by omega), if_neg (by omega), if_neg (by omega), if_pos rfl]
+        if_neg (by omega), if_neg (by omega), if_pos rfl]
     · rw [if_pos rfl, if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
-        if_neg (by omega), if_neg (by omega), if_neg (by omega)]
+        if_neg (by omega), if_neg (by omega)]
       rw [hs 16 (by omega) (by omega)]
   · rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega)]
-    by_cases hl : o < 11664
-    · rw [lays_low _ idx (WIT + o) (by omega), if_neg (show ¬ o < 64 by omega), if_neg (show ¬ o < 7424 by omega)]
-      by_cases hp : o < 8208
-      · rw [if_pos hp]; exact top_zone M idx o hlo hp h8
-      · rw [if_neg hp, if_pos hl]; exact topch_zone M idx o (by omega) hl h8
-    · rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), if_pos (by omega)]
+    by_cases hl : o < 11648
+    · rw [lays_low _ idx (WIT + o) (by omega), if_neg (show ¬ o < 64 by omega), if_neg (show ¬ o < 7424 by omega),
+        if_pos (by omega)]
+      unfold topMem
+      rw [if_pos (by omega), show SNAP2 + 8136 + (WIT + o - (WIT + 7424)) = SNAP2 + (8136 + (o - 7424)) by omega,
+        stMem_snap M _ (by omega) (by omega), show WIT + (8136 + (o - 7424)) = WIT + o + 712 by omega]
+    · rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_pos (by omega)]
       have hZ1 : ∀ A, lvDst 1 ≤ A → A < chDst 1 → (A - WIT) % 8 = 0 →
-          topMem (stMem M) idx A = 0 := fun A h1 h2 h3 =>
-        pre_low M idx A (by omega) (by omega) h3
-      by_cases hz1 : o < 14784
+          topMem (stMem M) A = 0 := fun A h1 h2 h3 =>
+        pre_low M A (by omega) (by omega) h3
+      by_cases hz1 : o < 14768
       · have hzl : zoneLay o = 1 := by unfold zoneLay; rw [if_pos hz1]
         rw [hzl, layMem_out _ 3 (by omega) idx (WIT + o) (Or.inl (by omega)),
           layMem_out _ 2 (by omega) idx (WIT + o) (Or.inl (by omega))]
-        exact layMem_zone (topMem (stMem M) idx) M 1 (by omega) idx hTs hZ1 o (by omega)
+        exact layMem_zone (topMem (stMem M)) M 1 (by omega) idx hTs hZ1 o (by omega)
           (by omega) h8
-      · have hP2 : ∀ x < 8 * 2729, x % 8 = 0 → layMem (topMem (stMem M) idx) 1 idx
+      · have hP2 : ∀ x < 8 * 2729, x % 8 = 0 → layMem (topMem (stMem M)) 1 idx
             (SNAP2 + x) = M (WIT + x) := fun x hx h => by
           rw [layMem_out _ 1 (by omega) idx (SNAP2 + x) (Or.inr (by omega))]; exact hTs x hx h
         have hZ2 : ∀ A, lvDst 2 ≤ A → A < chDst 2 → (A - WIT) % 8 = 0 →
-            layMem (topMem (stMem M) idx) 1 idx A = 0 := fun A h1 h2 h3 => by
+            layMem (topMem (stMem M)) 1 idx A = 0 := fun A h1 h2 h3 => by
           rw [layMem_out _ 1 (by omega) idx A (Or.inr (by omega))]
-          exact pre_low M idx A (by omega) (by omega) h3
-        by_cases hz2 : o < 17856
+          exact pre_low M A (by omega) (by omega) h3
+        by_cases hz2 : o < 17824
         · have hzl : zoneLay o = 2 := by unfold zoneLay; rw [if_neg hz1, if_pos hz2]
           rw [hzl, layMem_out _ 3 (by omega) idx (WIT + o) (Or.inl (by omega))]
-          exact layMem_zone (layMem (topMem (stMem M) idx) 1 idx) M 2 (by omega) idx hP2 hZ2 o (by omega)
+          exact layMem_zone (layMem (topMem (stMem M)) 1 idx) M 2 (by omega) idx hP2 hZ2 o (by omega)
             (by omega) h8
         · have hzl : zoneLay o = 3 := by unfold zoneLay; rw [if_neg hz1, if_neg hz2]
-          have hP3 : ∀ x < 8 * 2729, x % 8 = 0 → layMem (layMem (topMem (stMem M) idx)
+          have hP3 : ∀ x < 8 * 2729, x % 8 = 0 → layMem (layMem (topMem (stMem M))
               1 idx) 2 idx (SNAP2 + x) = M (WIT + x) := fun x hx h => by
             rw [layMem_out _ 2 (by omega) idx (SNAP2 + x) (Or.inr (by omega))]; exact hP2 x hx h
           have hZ3 : ∀ A, lvDst 3 ≤ A → A < chDst 3 → (A - WIT) % 8 = 0 →
-              layMem (layMem (topMem (stMem M) idx) 1 idx) 2 idx A = 0 := fun A h1 h2 h3 => by
+              layMem (layMem (topMem (stMem M)) 1 idx) 2 idx A = 0 := fun A h1 h2 h3 => by
             rw [layMem_out _ 2 (by omega) idx A (Or.inr (by omega)), layMem_out _ 1 (by omega) idx A (Or.inr (by omega))]
-            exact pre_low M idx A (by omega) (by omega) h3
+            exact pre_low M A (by omega) (by omega) h3
           rw [hzl]
-          exact layMem_zone (layMem (layMem (topMem (stMem M) idx) 1 idx) 2 idx) M 3 (by omega) idx hP3 hZ3 o
+          exact layMem_zone (layMem (layMem (topMem (stMem M)) 1 idx) 2 idx) M 3 (by omega) idx hP3 hZ3 o
             (by omega) (by omega) h8
-theorem run2_zone (M : Nat → Word) (idx o : Nat) (ho : o < 21792) (h8 : o % 8 = 0) :
+theorem run2_zone (M : Nat → Word) (idx o : Nat) (ho : o < 21744) (h8 : o % 8 = 0) :
     run2Mem M idx (WOUT + o) = out2 M idx o := by
   have hW : WIT = 0x800 := rfl
   have hWO : WOUT = 0x4c0 := rfl
@@ -1418,8 +1016,6 @@ theorem run2_zone (M : Nat → Word) (idx o : Nat) (ho : o < 21792) (h8 : o % 8 
     unfold run2Mem tailMem
     rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), lays_low _ idx _ (by omega)]
     unfold topMem
-    rw [tvsMem_out _ _ _ le_rfl _ (Or.inl (by unfold tvDst; omega))]
-    unfold topChMem
     rw [if_neg (by omega)]
   · rw [if_neg hl, show WOUT + o = WIT + (o - 832) by omega]
     exact run2_zone_old M idx (o - 832) (by omega) (by omega) (by omega)
@@ -1435,12 +1031,12 @@ def lowerWord (M : Nat → Word) (src dst A : Nat) : Word :=
   M (src - 64 * lowerIndex (A - dst) + (A - dst) % 16)
 /-- Physical memory after the appended four-buffer expansion routine. -/
 def bufferMem (M : Nat → Word) (A : Nat) : Word :=
-  if 26096  ≤  A ∧ A < 26128 ∧ A % 8 = 0 then M (A - 3120)
-  else if 22976  ≤  A ∧ A < 26096 ∧ A % 8 = 0 then
-    if 25216  ≤  A ∧ A < 26080 then M (13696 - 64 * ((A - 25216) / 16) + (A - 25216) % 16)
-    else if 24448  ≤  A ∧ A < 25152 ∧ (A < 24464 ∨ 24480  ≤  A) then lowerWord M 16816 24448 A
-    else if 23712  ≤  A ∧ A < 24416 ∧ (A < 23728 ∨ 23744  ≤  A) then lowerWord M 19888 23712 A
-    else if 22976  ≤  A ∧ A < 23680 ∧ (A < 22992 ∨ 23008  ≤  A) then lowerWord M 22960 22976 A
+  if 26048  ≤  A ∧ A < 26080 ∧ A % 8 = 0 then M (A - 3120)
+  else if 22928  ≤  A ∧ A < 26048 ∧ A % 8 = 0 then
+    if 25168  ≤  A ∧ A < 26032 then M (13680 - 64 * ((A - 25168) / 16) + (A - 25168) % 16)
+    else if 24400  ≤  A ∧ A < 25104 ∧ (A < 24416 ∨ 24432  ≤  A) then lowerWord M 16800 24400 A
+    else if 23664  ≤  A ∧ A < 24368 ∧ (A < 23680 ∨ 23696  ≤  A) then lowerWord M 19856 23664 A
+    else if 22928  ≤  A ∧ A < 23632 ∧ (A < 22944 ∨ 22960  ≤  A) then lowerWord M 22912 22928 A
     else 0
   else M A
 
@@ -1449,12 +1045,12 @@ set_option maxRecDepth 100000
 set_option maxHeartbeats 2000000
 open ClaudeWCT.W9.Machine.Expand.Compact (cfgC)
 def cEntry : List (BitVec 32) := [0x34c0106f]
-def cInit : List (BitVec 32) := [25911,0x9c050513,26039,0x5f058593,340739,6664227,8729347,6665251,17117955,6666275,25506563,6667299,25911,0x9c050513,26039,0x5f058593]
+def cInit : List (BitVec 32) := [0x6537,0x99050513,0x65b7,0x5c058593,0x53303,0x65b023,0x853303,0x65b423,0x1053303,0x65b823,0x1853303,0x65bc23,0x6537,0x99050513,0x65b7,0x5c058593]
 def cClear : List (BitVec 32) := [0x53023,0x850513,0xfeb56ce3]
-def cHead3 : List (BitVec 32) := [25911,0x9b050513,26039,0x9c058593,45090323,340739,8729475,6664227,7713827,0xfc050513,33916307,0xfff60613]
-def cHead2 : List (BitVec 32) := [21815,0xdb050513,26039,0xca058593,45090323,340739,8729475,6664227,7713827,0xfc050513,33916307,0xfff60613]
-def cHead1 : List (BitVec 32) := [17719,453313811,26039,0xf8058593,45090323,340739,8729475,6664227,7713827,0xfc050513,33916307,0xfff60613]
-def cHead0 : List (BitVec 32) := [13623,0x58050513,26039,671450515,56624659]
+def cHead3 : List (BitVec 32) := [0x6537,0x98050513,0x65b7,0x99058593,0x2b00613,0x53303,0x853383,0x65b023,0x75b423,0xfc050513,0x2058593,0xfff60613]
+def cHead2 : List (BitVec 32) := [0x5537,0xd9050513,0x65b7,0xc7058593,0x2b00613,0x53303,0x853383,0x65b023,0x75b423,0xfc050513,0x2058593,0xfff60613]
+def cHead1 : List (BitVec 32) := [0x4537,0x1a050513,0x65b7,0xf5058593,0x2b00613,0x53303,0x853383,0x65b023,0x75b423,0xfc050513,0x2058593,0xfff60613]
+def cHead0 : List (BitVec 32) := [0x3537,0x57050513,0x65b7,0x25058593,0x3600613]
 def cPair : List (BitVec 32) := [0x53303,0x853383,0x65b023,0x75b423,0xfc050513,0x1058593,0xfff60613,0xfe0612e3]
 def cFinish : List (BitVec 32) := [0x100293,0x513]
 def pairPc (k : Nat) : Nat := [43982,44002,44022,44035].getD k 0
@@ -1671,14 +1267,14 @@ end
 def putPair (M : Nat → Word) (src dst A : Nat) : Word :=
   if A=dst+8 then M (src+8) else if A=dst then M src else M A
 def footerMem (M : Nat → Word) (A : Nat) : Word :=
-  if A=26120 then M 23000 else if A=26112 then M 22992
-  else if A=26104 then M 22984 else if A=26096 then M 22976 else M A
+  if A=26072 then M 22952 else if A=26064 then M 22944
+  else if A=26056 then M 22936 else if A=26048 then M 22928 else M A
 def expandedMem (M : Nat → Word) : Nat → Word :=
-  let z := clearMem (footerMem M) 22976 390
-  let b3 := pairsMem (putPair z 22960 22976) 22896 23008 42
-  let b2 := pairsMem (putPair b3 19888 23712) 19824 23744 42
-  let b1 := pairsMem (putPair b2 16816 24448) 16752 24480 42
-  pairsMem b1 13696 25216 54
+  let z := clearMem (footerMem M) 22928 390
+  let b3 := pairsMem (putPair z 22912 22928) 22848 22960 42
+  let b2 := pairsMem (putPair b3 19856 23664) 19792 23696 42
+  let b1 := pairsMem (putPair b2 16800 24400) 16736 24432 42
+  pairsMem b1 13680 25168 54
 section
 variable {im : Image} (hc : NewCodeAt im)
 include hc
@@ -1690,7 +1286,7 @@ theorem entry_spec (s : MachineState) (hpc : s.pc=pcOf 42716) :
   · intro A hA; rfl
 theorem init_spec (s : MachineState) (hpc : s.pc=pcOf 43951) :
     ∃ t, Steps im s 16 16 t ∧ t.pc=pcOf 43967 ∧
-      t.getReg .x10=BitVec.ofNat 64 22976 ∧ t.getReg .x11=BitVec.ofNat 64 26096 ∧
+      t.getReg .x10=BitVec.ofNat 64 22928 ∧ t.getReg .x11=BitVec.ofNat 64 26048 ∧
       ∀ A < 2^64, t.getMem (BitVec.ofNat 64 A)=footerMem (fun B=>s.getMem (BitVec.ofNat 64 B)) A := by
   refine ⟨_,symRun_sound RInit (code_cInit hc) s hpc (by simp [RInit.res,rv_simp,accessValid_iff]),?_,?_,?_,?_⟩
   · simp [RInit.res,rv_simp]
@@ -1698,63 +1294,63 @@ theorem init_spec (s : MachineState) (hpc : s.pc=pcOf 43951) :
   · simp [RInit.res,rv_simp]
   · intro A hA
     simp only [RInit.res,rv_simp,Result.toState_getMem,memEval_cons,memEval_nil,Addr.eval,E.eval,BinOp.eval,footerMem]
-    have k0 := ofNat_inj hA (show 26096<2^64 by decide)
-    have k1 := ofNat_inj hA (show 26104<2^64 by decide)
-    have k2 := ofNat_inj hA (show 26112<2^64 by decide)
-    have k3 := ofNat_inj hA (show 26120<2^64 by decide)
+    have k0 := ofNat_inj hA (show 26048<2^64 by decide)
+    have k1 := ofNat_inj hA (show 26056<2^64 by decide)
+    have k2 := ofNat_inj hA (show 26064<2^64 by decide)
+    have k3 := ofNat_inj hA (show 26072<2^64 by decide)
     simpa only [k0,k1,k2,k3]
 
 theorem head3_spec (s : MachineState) (hpc : s.pc=pcOf 43970) :
     ∃ t, Steps im s 12 12 t ∧ t.pc=pcOf 43982 ∧
-      t.getReg .x10=BitVec.ofNat 64 22896 ∧ t.getReg .x11=BitVec.ofNat 64 23008 ∧
+      t.getReg .x10=BitVec.ofNat 64 22848 ∧ t.getReg .x11=BitVec.ofNat 64 22960 ∧
       t.getReg .x12=BitVec.ofNat 64 42 ∧
-      ∀ A < 2^64, t.getMem (BitVec.ofNat 64 A)=putPair (fun B=>s.getMem (BitVec.ofNat 64 B)) 22960 22976 A := by
+      ∀ A < 2^64, t.getMem (BitVec.ofNat 64 A)=putPair (fun B=>s.getMem (BitVec.ofNat 64 B)) 22912 22928 A := by
   refine ⟨_,symRun_sound RHead3 (code_cHead3 hc) s hpc (by simp [RHead3.res,rv_simp,accessValid_iff]),?_,?_,?_,?_,?_⟩
   · simp [RHead3.res,rv_simp]
   · simp [RHead3.res,rv_simp]
   · simp [RHead3.res,rv_simp]
   · simp [RHead3.res,rv_simp]
   · intro A hA
-    have k0 := ofNat_inj hA (show 22976<2^64 by decide)
-    have k1 := ofNat_inj hA (show 22984<2^64 by decide)
+    have k0 := ofNat_inj hA (show 22928<2^64 by decide)
+    have k1 := ofNat_inj hA (show 22936<2^64 by decide)
     simp only [RHead3.res,rv_simp,Result.toState_getMem,memEval_cons,memEval_nil,Addr.eval,E.eval,BinOp.eval,putPair]
     simpa only [k0,k1]
 
 theorem head2_spec (s : MachineState) (hpc : s.pc=pcOf 43990) :
     ∃ t, Steps im s 12 12 t ∧ t.pc=pcOf 44002 ∧
-      t.getReg .x10=BitVec.ofNat 64 19824 ∧ t.getReg .x11=BitVec.ofNat 64 23744 ∧
+      t.getReg .x10=BitVec.ofNat 64 19792 ∧ t.getReg .x11=BitVec.ofNat 64 23696 ∧
       t.getReg .x12=BitVec.ofNat 64 42 ∧
-      ∀ A < 2^64, t.getMem (BitVec.ofNat 64 A)=putPair (fun B=>s.getMem (BitVec.ofNat 64 B)) 19888 23712 A := by
+      ∀ A < 2^64, t.getMem (BitVec.ofNat 64 A)=putPair (fun B=>s.getMem (BitVec.ofNat 64 B)) 19856 23664 A := by
   refine ⟨_,symRun_sound RHead2 (code_cHead2 hc) s hpc (by simp [RHead2.res,rv_simp,accessValid_iff]),?_,?_,?_,?_,?_⟩
   · simp [RHead2.res,rv_simp]
   · simp [RHead2.res,rv_simp]
   · simp [RHead2.res,rv_simp]
   · simp [RHead2.res,rv_simp]
   · intro A hA
-    have k0 := ofNat_inj hA (show 23712<2^64 by decide)
-    have k1 := ofNat_inj hA (show 23720<2^64 by decide)
+    have k0 := ofNat_inj hA (show 23664<2^64 by decide)
+    have k1 := ofNat_inj hA (show 23672<2^64 by decide)
     simp only [RHead2.res,rv_simp,Result.toState_getMem,memEval_cons,memEval_nil,Addr.eval,E.eval,BinOp.eval,putPair]
     simpa only [k0,k1]
 
 theorem head1_spec (s : MachineState) (hpc : s.pc=pcOf 44010) :
     ∃ t, Steps im s 12 12 t ∧ t.pc=pcOf 44022 ∧
-      t.getReg .x10=BitVec.ofNat 64 16752 ∧ t.getReg .x11=BitVec.ofNat 64 24480 ∧
+      t.getReg .x10=BitVec.ofNat 64 16736 ∧ t.getReg .x11=BitVec.ofNat 64 24432 ∧
       t.getReg .x12=BitVec.ofNat 64 42 ∧
-      ∀ A < 2^64, t.getMem (BitVec.ofNat 64 A)=putPair (fun B=>s.getMem (BitVec.ofNat 64 B)) 16816 24448 A := by
+      ∀ A < 2^64, t.getMem (BitVec.ofNat 64 A)=putPair (fun B=>s.getMem (BitVec.ofNat 64 B)) 16800 24400 A := by
   refine ⟨_,symRun_sound RHead1 (code_cHead1 hc) s hpc (by simp [RHead1.res,rv_simp,accessValid_iff]),?_,?_,?_,?_,?_⟩
   · simp [RHead1.res,rv_simp]
   · simp [RHead1.res,rv_simp]
   · simp [RHead1.res,rv_simp]
   · simp [RHead1.res,rv_simp]
   · intro A hA
-    have k0 := ofNat_inj hA (show 24448<2^64 by decide)
-    have k1 := ofNat_inj hA (show 24456<2^64 by decide)
+    have k0 := ofNat_inj hA (show 24400<2^64 by decide)
+    have k1 := ofNat_inj hA (show 24408<2^64 by decide)
     simp only [RHead1.res,rv_simp,Result.toState_getMem,memEval_cons,memEval_nil,Addr.eval,E.eval,BinOp.eval,putPair]
     simpa only [k0,k1]
 
 theorem head0_spec (s : MachineState) (hpc : s.pc=pcOf 44030) :
     ∃ t, Steps im s 5 5 t ∧ t.pc=pcOf 44035 ∧
-      t.getReg .x10=BitVec.ofNat 64 13696 ∧ t.getReg .x11=BitVec.ofNat 64 25216 ∧
+      t.getReg .x10=BitVec.ofNat 64 13680 ∧ t.getReg .x11=BitVec.ofNat 64 25168 ∧
       t.getReg .x12=BitVec.ofNat 64 54 ∧
       ∀ A < 2^64, t.getMem (BitVec.ofNat 64 A)=s.getMem (BitVec.ofNat 64 A) := by
   refine ⟨_,symRun_sound RHead0 (code_cHead0 hc) s hpc (by simp [RHead0.res,rv_simp]),?_,?_,?_,?_,?_⟩
@@ -1801,33 +1397,33 @@ theorem buffer_expanded_spec (s : MachineState) (hpc : s.pc=pcOf 42716) :
   obtain ⟨s2,h2,p2,r210,r211,m2⟩ := init_spec hc s1 p1
   have mm2 : MemEq (fun A=>s2.getMem (BitVec.ofNat 64 A)) (footerMem (fun A=>s.getMem (BitVec.ofNat 64 A))) :=
     fun A hA => (m2 A hA).trans (footerMem_congr m1 A hA)
-  obtain ⟨s3,h3,p3,r310,r311,m3⟩ := clear_loop hc s2 p2 22976 390 r210 r211
+  obtain ⟨s3,h3,p3,r310,r311,m3⟩ := clear_loop hc s2 p2 22928 390 r210 r211
     (by decide) (by decide) (by decide) 390 le_rfl
-  have mm3 := fun A hA => (m3 A hA).trans (clearMem_congr mm2 22976 390 A hA)
+  have mm3 := fun A hA => (m3 A hA).trans (clearMem_congr mm2 22928 390 A hA)
   obtain ⟨s4,h4,p4,r410,r411,r412,m4⟩ := head3_spec hc s3 (by simpa using p3)
-  have mm4 := fun A hA => (m4 A hA).trans (putPair_congr mm3 22960 22976 (by decide) A hA)
-  obtain ⟨s5,h5,p5,r510,r511,r512,m5⟩ := pair_loop hc 0 (by decide) s4 p4 22896 23008 42
+  have mm4 := fun A hA => (m4 A hA).trans (putPair_congr mm3 22912 22928 (by decide) A hA)
+  obtain ⟨s5,h5,p5,r510,r511,r512,m5⟩ := pair_loop hc 0 (by decide) s4 p4 22848 22960 42
     r410 r411 r412 (by decide) (by decide) (by decide) (by decide)
     (by decide) (by decide) (by decide) (by decide) 42 le_rfl
-  have mm5 := fun A hA => (m5 A hA).trans (pairsMem_congr mm4 22896 23008 42 (by decide) A hA)
+  have mm5 := fun A hA => (m5 A hA).trans (pairsMem_congr mm4 22848 22960 42 (by decide) A hA)
   obtain ⟨s6,h6,p6,r610,r611,r612,m6⟩ := head2_spec hc s5 (by simpa [pairPc] using p5)
-  have mm6 := fun A hA => (m6 A hA).trans (putPair_congr mm5 19888 23712 (by decide) A hA)
-  obtain ⟨s7,h7,p7,r710,r711,r712,m7⟩ := pair_loop hc 1 (by decide) s6 p6 19824 23744 42
+  have mm6 := fun A hA => (m6 A hA).trans (putPair_congr mm5 19856 23664 (by decide) A hA)
+  obtain ⟨s7,h7,p7,r710,r711,r712,m7⟩ := pair_loop hc 1 (by decide) s6 p6 19792 23696 42
     r610 r611 r612 (by decide) (by decide) (by decide) (by decide)
     (by decide) (by decide) (by decide) (by decide) 42 le_rfl
-  have mm7 := fun A hA => (m7 A hA).trans (pairsMem_congr mm6 19824 23744 42 (by decide) A hA)
+  have mm7 := fun A hA => (m7 A hA).trans (pairsMem_congr mm6 19792 23696 42 (by decide) A hA)
   obtain ⟨s8,h8,p8,r810,r811,r812,m8⟩ := head1_spec hc s7 (by simpa [pairPc] using p7)
-  have mm8 := fun A hA => (m8 A hA).trans (putPair_congr mm7 16816 24448 (by decide) A hA)
-  obtain ⟨s9,h9,p9,r910,r911,r912,m9⟩ := pair_loop hc 2 (by decide) s8 p8 16752 24480 42
+  have mm8 := fun A hA => (m8 A hA).trans (putPair_congr mm7 16800 24400 (by decide) A hA)
+  obtain ⟨s9,h9,p9,r910,r911,r912,m9⟩ := pair_loop hc 2 (by decide) s8 p8 16736 24432 42
     r810 r811 r812 (by decide) (by decide) (by decide) (by decide)
     (by decide) (by decide) (by decide) (by decide) 42 le_rfl
-  have mm9 := fun A hA => (m9 A hA).trans (pairsMem_congr mm8 16752 24480 42 (by decide) A hA)
+  have mm9 := fun A hA => (m9 A hA).trans (pairsMem_congr mm8 16736 24432 42 (by decide) A hA)
   obtain ⟨s10,h10,p10,r1010,r1011,r1012,m10⟩ := head0_spec hc s9 (by simpa [pairPc] using p9)
   have mm10 := fun A hA => (m10 A hA).trans (mm9 A hA)
-  obtain ⟨s11,h11,p11,r1110,r1111,r1112,m11⟩ := pair_loop hc 3 (by decide) s10 p10 13696 25216 54
+  obtain ⟨s11,h11,p11,r1110,r1111,r1112,m11⟩ := pair_loop hc 3 (by decide) s10 p10 13680 25168 54
     r1010 r1011 r1012 (by decide) (by decide) (by decide) (by decide)
     (by decide) (by decide) (by decide) (by decide) 54 le_rfl
-  have mm11 := fun A hA => (m11 A hA).trans (pairsMem_congr mm10 13696 25216 54 (by decide) A hA)
+  have mm11 := fun A hA => (m11 A hA).trans (pairsMem_congr mm10 13680 25168 54 (by decide) A hA)
   obtain ⟨s12,h12,p12,r125,r1210,m12⟩ := finish_spec hc s11 (by simpa [pairPc] using p11)
   refine ⟨s12,?_,p12,r125,r1210,?_⟩
   · exact (h1.trans (h2.trans (h3.trans (h4.trans (h5.trans (h6.trans
@@ -1837,12 +1433,12 @@ theorem buffer_expanded_spec (s : MachineState) (hpc : s.pc=pcOf 42716) :
 end
 
 theorem bufferMem_outside (M : Nat → Word) (A : Nat)
-    (h : A < 22976 ∨ 26128 ≤ A ∨ A % 8 ≠ 0) : bufferMem M A = M A := by
+    (h : A < 22928 ∨ 26080 ≤ A ∨ A % 8 ≠ 0) : bufferMem M A = M A := by
   unfold bufferMem
   rw [if_neg (by omega), if_neg (by omega)]
 
 theorem expandedMem_outside (M : Nat → Word) (A : Nat)
-    (h : A < 22976 ∨ 26128 ≤ A ∨ A % 8 ≠ 0) : expandedMem M A = M A := by
+    (h : A < 22928 ∨ 26080 ≤ A ∨ A % 8 ≠ 0) : expandedMem M A = M A := by
   unfold expandedMem
   rw [pairsMem, if_neg (by omega)]
   rw [pairsMem, if_neg (by omega)]
@@ -1856,16 +1452,16 @@ theorem expandedMem_outside (M : Nat → Word) (A : Nat)
 
 
 theorem expandedMem_eq_bufferMem_aligned (M : Nat → Word) (q : Nat) (hq : q < 394) :
-    expandedMem M (22976 + 8*q) = bufferMem M (22976 + 8*q) := by
+    expandedMem M (22928 + 8*q) = bufferMem M (22928 + 8*q) := by
   interval_cases q <;> rfl
 
 theorem expandedMem_eq_bufferMem (M : Nat → Word) (A : Nat) :
     expandedMem M A = bufferMem M A := by
-  by_cases hout : A < 22976 ∨ 26128 ≤ A ∨ A % 8 ≠ 0
+  by_cases hout : A < 22928 ∨ 26080 ≤ A ∨ A % 8 ≠ 0
   · rw [expandedMem_outside M A hout, bufferMem_outside M A hout]
-  · have hq : (A - 22976) / 8 < 394 := by omega
-    have he : A = 22976 + 8 * ((A - 22976) / 8) := by omega
-    have h := expandedMem_eq_bufferMem_aligned M ((A - 22976) / 8) hq
+  · have hq : (A - 22928) / 8 < 394 := by omega
+    have he : A = 22928 + 8 * ((A - 22928) / 8) := by omega
+    have h := expandedMem_eq_bufferMem_aligned M ((A - 22928) / 8) hq
     rwa [← he] at h
 
 theorem buffer_spec {im : Image} (hc : NewCodeAt im) (s : MachineState) (hpc : s.pc=pcOf 42716) :

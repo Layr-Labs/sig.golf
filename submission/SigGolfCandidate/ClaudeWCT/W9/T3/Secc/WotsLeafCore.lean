@@ -78,7 +78,7 @@ theorem routeImpl_congr (K K' : Fin (WCT9.famCount L.lay) → Digest) (f f' : Fi
   · simp only [PrefixGame.routeImpl]
   · simp only [PrefixGame.routeImpl]
     cases hp : PrefixGame.rowOf a (restDepth a R) input with
-    | some p => simp only; rw [proj_ovL L R _ hp, proj_ovL L R _ hp]
+    | some p => simp only [high_ovL]
     | none =>
         simp only
         congr 1

@@ -65,11 +65,11 @@ theorem encodeN_parse {n x : Nat} {d : (Fin n → Triple5) × Triple8}
         exact Nat.mod_add_div x 128
     · contradiction
 def decode (d : Fin (2^128)) : Option Word :=
-  (parse 17 d.val).filter fun w => decide (weight w=144)
+  (parse 17 d.val).filter fun w => decide (weight w=145)
 theorem encodeN_word (w : Word) : encodeN w=encode w := rfl
 attribute [local irreducible] encodeN Codec.encode Codec.pack Codec.ranks
 theorem decode_some_iff (d : Fin (2^128)) (w : Word) :
-    decode d=some w ↔ digest w=d ∧ weight w=144 := by
+    decode d=some w ↔ digest w=d ∧ weight w=145 := by
   constructor
   · intro h
     obtain ⟨hparse,hw⟩ := Option.filter_eq_some_iff.mp h
@@ -290,7 +290,7 @@ theorem parse_top_isSome_iff (v : Digest) :
   exact and_iff_right (topFlip v).isLt
 theorem decode_top_eq_map (v : Digest) :
     T3.decode 0 v=(Decoder.decodeBV (topFlip v)).map wordDigits := by
-  change T3.decode 0 v=((Decoder.parse 17 (topFlip v).toNat).filter fun w => decide (Counting.weight w=144)).map wordDigits
+  change T3.decode 0 v=((Decoder.parse 17 (topFlip v).toNat).filter fun w => decide (Counting.weight w=145)).map wordDigits
   have hb : ¬ v.toNat ≥ 2^encodedBits 0 := Nat.not_le.mpr v.isLt
   cases hp : Decoder.parse 17 (topFlip v).toNat with
   | none =>
@@ -302,12 +302,12 @@ theorem decode_top_eq_map (v : Digest) :
   | some w =>
     have hh := (parse_top_isSome_iff v).mp (by simp [hp])
     have hdata := dataDigits_parse hp
-    by_cases hsum : Counting.weight w=144
+    by_cases hsum : Counting.weight w=145
     · simp only [T3.decode,if_neg hb,ite_true,hh,Bool.true_and,
-        hdata,wordDigits_sum,show target 0=144 by rfl,hsum,decide_true,
+        hdata,wordDigits_sum,show target 0=145 by rfl,hsum,decide_true,
         if_true,decide_false,Bool.false_eq_true,if_false,Option.filter_some,Option.map_some,Option.map_none]
     · simp only [T3.decode,if_neg hb,ite_true,hh,Bool.true_and,
-        hdata,wordDigits_sum,show target 0=144 by rfl,hsum,decide_true,
+        hdata,wordDigits_sum,show target 0=145 by rfl,hsum,decide_true,
         if_true,decide_false,Bool.false_eq_true,if_false,Option.filter_some,Option.map_some,Option.map_none]
 theorem decode_top_isSome (v : Digest) :
     (T3.decode 0 v).isSome=(Decoder.decodeBV (topFlip v)).isSome := by

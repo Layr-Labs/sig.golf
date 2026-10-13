@@ -9,13 +9,12 @@ open ClaudeWCT.W9.Machine.VLib
 open SigGolfCandidate.T3 (Digest HashOutput M header shortHash pad64 zero16)
 open SphincsSecurity (bytesLE)
 set_option linter.unusedSimpArgs false
-/-- Chain-word base `t6 = child << 20 | a5` (campaign S2: coordinate nibble `k + 1`). -/
-def qQ (k index j : Nat) : Nat := j * 2 ^ 20 + index * 2 ^ 27 + 65536 * (k + 1)
+def qQ (k index j : Nat) : Nat := j * 2 ^ 20 + index * 2 ^ 27 + 65536 * k
 theorem ftsChainLow_qQ (index k j t st : Nat) (hk : k < 9) (hidx : index < 2 ^ 31) (hj : j < 128) (ht : t < 6)
     (hst : st < 4) : WCT9.ftsChainLow index k j t st = qQ k index j + qK t st := by
   unfold WCT9.ftsChainLow qQ qK
   rw [Nat.mod_eq_of_lt (show t < 8 by omega), Nat.mod_eq_of_lt (show st < 4 by omega),
-    Nat.mod_eq_of_lt (show k + 1 < 16 by omega), Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hidx]
+    Nat.mod_eq_of_lt (show k < 16 by omega), Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hidx]
   ring
 theorem step_byte (Q t st st' : Nat) (hQ : Q % 65536 = 0) (hQb : Q < 2 ^ 63) (ht : t < 6) (hst : st < 4)
     (hst' : st' < 4) :
@@ -570,7 +569,7 @@ theorem leafPad_free {B t : Nat} {own : Bool} (ht : t < 6) (o : Nat) (ho : o < 1
     ¬ chainWr B t own (B + 848 + o) := by
   unfold chainWr offC slotC
   split_ifs <;> omega
-theorem expLook_lt {m : Nat} {w : BitVec 32} (h : expLook m = some w) : 1024 ≤ m ∧ m < 174 * 256 := by
+theorem expLook_lt {m : Nat} {w : BitVec 32} (h : expLook m = some w) : 1024 ≤ m ∧ m < 173 * 256 := by
   unfold expLook at h
   split at h
   · rename_i hm
@@ -580,7 +579,7 @@ theorem expLook_lt {m : Nat} {w : BitVec 32} (h : expLook m = some w) : 1024 ≤
     simp at h
   · cases h
 theorem window_bound {n : Nat} {ws : List (BitVec 32)} (h : windowOK n ws = true) (hne : ws ≠ []) :
-    n + ws.length ≤ 174 * 256 := by
+    n + ws.length ≤ 173 * 256 := by
   unfold windowOK at h
   have hl : 0 < ws.length := List.length_pos_of_ne_nil hne
   have := List.all_eq_true.mp h (ws.length - 1) (List.mem_range.mpr (by omega))

@@ -27,23 +27,20 @@ theorem seedTweak_slotAddr (a : ChainAddr) : seedTweak (slotAddr a) = seedTweakP
     rw [show 2 * (seedSlot a / 2) / 2 = seedSlot a / 2 by omega]
 def parAddr (a : ChainAddr) : ChainAddr := ⟨a.key, seedSlot a % 2⟩
 theorem parAddr_chain_mod (a : ChainAddr) : (parAddr a).chain % 2 = seedSlot a % 2 := Nat.mod_mod _ _
+def siblingHalfP (a : ChainAddr) (output : HashOutput) : Digest := siblingHalf (parAddr a) output
 def UntouchedP (a : ChainAddr) : Spec.Domain → Prop
   | .inl (.inr input) => ∀ step value, step < 256 → input ≠ chainRow a step value
   | .inr (.inl tweak) => tweak ≠ seedTweakP a
   | _ => True
 noncomputable def prefixStep (answers : Answers) (a : ChainAddr) (input : HashInput) : Option Nat :=
   if h : ∃ step value, step < depth answers a ∧ input = chainRow a step value then some (Classical.choose h) else none
-theorem projHalf_zero (high : Bool) : projHalf high (0 : HashOutput) = 0 := by
-  cases high <;> rfl
-/-- Mask of chain `a`: its rows below `depth` answer `0` (the last one answers the frontier, in the half its
-step reads, campaign S1). Seeds are evaluations
+/-- Mask of chain `a`: its rows below `depth` answer `0` (the last one answers the frontier). Seeds are evaluations
 of their leaf family at every layer (campaign X1 stage B, top leaves since campaign T8D), so no private cell is
 blanked. -/
 noncomputable def maskAt (answers : Answers) (a : ChainAddr) : Answers
   | .inl (.inr input) =>
       match prefixStep answers a input with
-      | some step => if step + 1 = depth answers a then
-            ChainGraph.joinProj (chainHigh a.key.lay a.chain step) (frontierValue answers a) 0
+      | some step => if step + 1 = depth answers a then ChainGraph.joinOutput (frontierValue answers a) 0
           else (0 : HashOutput)
       | none => answers (.inl (.inr input))
   | .inl (.inl coin) => answers (.inl (.inl coin))
@@ -149,8 +146,7 @@ theorem prefixStep_untouched {answers : Answers} {a : ChainAddr} {input : HashIn
       exact absurd heq (h step w (by have := depth_le_seven answers a; omega))
 theorem maskAt_public (answers : Answers) (a : ChainAddr) (input : HashInput) :
     maskAt answers a (.inl (.inr input)) = match prefixStep answers a input with
-      | some step => if step + 1 = depth answers a then
-            ChainGraph.joinProj (chainHigh a.key.lay a.chain step) (frontierValue answers a) 0
+      | some step => if step + 1 = depth answers a then ChainGraph.joinOutput (frontierValue answers a) 0
           else (0 : HashOutput)
       | none => answers (.inl (.inr input)) := rfl
 theorem maskAt_private (answers : Answers) (a : ChainAddr) (c : Coordinate) :
@@ -166,8 +162,7 @@ theorem maskAt_untouched (answers : Answers) (a : ChainAddr) {q : Spec.Domain} (
   · rfl
 theorem maskAt_prefix (answers : Answers) (a : ChainAddr) {s : Nat} (v : Digest) (hs : s < depth answers a) :
     maskAt answers a (.inl (.inr (chainRow a s v))) =
-      if s + 1 = depth answers a then ChainGraph.joinProj (chainHigh a.key.lay a.chain s) (frontierValue answers a) 0
-        else 0 := by
+      if s + 1 = depth answers a then ChainGraph.joinOutput (frontierValue answers a) 0 else 0 := by
   have h7 := depth_le_seven answers a
   rw [maskAt_public, prefixStep_chainRow answers a v (by omega), if_pos hs]
   rfl

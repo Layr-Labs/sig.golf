@@ -17,8 +17,8 @@ open SigGolfCandidate.T3.Security.LargeResidual (listBlock slotValue IsDigestRow
   readState probeState stoppedState tickState disclosedState runWith_map mem_restrict card_restrict_ge low)
 open ClaudeWCT.W9.T3.Security.FamResidual (observedRun observed_pure effF_self adm_of_plain Adm famKnown famSeeds
   mem_famSeeds mem_famKnown)
-open SigGolfCandidate.T3.Security.LargeCoupling (low_eq keep_guess_label keep_label
-  dummyDigest_decode')
+open SigGolfCandidate.T3.Security.LargeCoupling (low_eq keep_guess_label keep_label keep_target
+  keep_guess_target dummyDigest_decode')
 open ClaudeWCT.W9.T3.Security.CanonGraph
 open ClaudeWCT.W9.T3.Security.CanonEncoding
 open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
@@ -38,12 +38,9 @@ theorem encRow_ne_digest' (L : Wots.LeafAddr) (m : WCT9.LayerMsg) (c : BitVec 32
   have h2 : ClaudeWCT.W9.T3M.Extract.hdrBlock (pad64 (digestInput rho m' c')) =
       bytesLE 16 (digestHeader c') :=
     SigGolfCandidate.T3.Security.Wots.SmallA.hdrBlock_digest rho m' c'
-  rw [h2, show Wots.encRow L m c pad =
-      pad64 (layerEncodingInputP L.lay L.tree L.leaf m c pad.2.2 pad.1 pad.2.1) from rfl,
+  rw [h2, show Wots.encRow L m c pad = pad64 (layerEncodingInputP L.lay L.tree L.leaf m c pad.1 pad.2) from rfl,
     ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP] at hb
-  have hm := congrArg tweakMarker (bytesLE_injective hb)
-  rw [digestHeader_marker, ClaudeWCT.W9.T3M.BC.rowTweakH, append64_marker, hyperWord_marker] at hm
-  exact absurd hm (by decide)
+  exact (digestHeader_ne_rowTweak _ _ _ _).symm (bytesLE_injective hb)
 noncomputable def routerLabels (vals : Coord → Digest) (a : AuxData) : Labels :=
   joinLabels (fun N => vals (.inl N)) a.high
 def HonestPrefix (vals : Coord → Digest) (a : AuxData) (X : HashInput) : Prop :=
@@ -109,8 +106,8 @@ theorem Coherent.leafMsg (h : Coherent U T vals nv τ a) (L : EncLeaf) :
   by_cases hl : L.1.lay.val < 3
   · rw [dif_pos hl, dif_pos hl]
     congr 1
-    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 0).trans (joinLabels_val _ _ _)
-    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 1).trans (joinLabels_val _ _ _)
+    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 0).trans (joinLabels_low rfl)
+    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 1).trans (joinLabels_low rfl)
   · rw [dif_neg hl, dif_neg hl]
     congr 1
     · exact (ftsLabel_top _ _ _ 0).trans ((proj_top _ _ _ _).symm.trans (joinLabels_val _ _ _))
@@ -118,7 +115,7 @@ theorem Coherent.leafMsg (h : Coherent U T vals nv τ a) (L : EncLeaf) :
 end Coherent
 theorem encodingRow_parsed_none (L : Wots.LeafAddr) (m : WCT9.LayerMsg) (c : BitVec 32) (pad : Wots.RowPad) :
     Extract.posOf (Wots.encRow L m c pad) = none :=
-  Wots.Structural.posOf_layerEncodingP _ _ _ _ _ _ _ _
+  Wots.Structural.posOf_layerEncodingP _ _ _ _ _ _ _
 theorem digestRow_parsed_none {X : HashInput} (h : IsDigestRow X) : Extract.posOf X = none := by
   obtain ⟨rho, m, c, rfl⟩ := h
   exact Wots.Structural.posOf_digest _ _ _
@@ -161,6 +158,33 @@ theorem slotValue_three (A B C E : HashInput) (hA : A.length = 16) (hB : B.lengt
     show (2 : Nat) = 1 + 1 from rfl, SigGolfCandidate.T3.Security.LargeResidual.slotValue_shift _ _ _ hB,
     show (1 : Nat) = 0 + 1 from rfl, SigGolfCandidate.T3.Security.LargeResidual.slotValue_shift _ _ _ hC]
   exact SigGolfCandidate.T3.Security.LargeResidual.slotValue_bytes_cons x E
+theorem slot_msgVals (L : EncLeaf) (v : Coord → Digest) (c : BitVec 32) (pad : Wots.RowPad) :
+    ∀ cs ∈ msgSlots L, slotValue (Wots.encRow L.toWots (msgVals v L) c pad) cs.2 = v cs.1 := by
+  intro cs hcs
+  have hl16 : ∀ x : Digest, (bytesLE 16 x).length = 16 := fun x => bytesLE_length 16 x
+  unfold msgSlots at hcs
+  unfold msgVals Wots.encRow
+  split_ifs at hcs ⊢ with hl
+  · rw [ClaudeWCT.W9.T3M.BC.layerEncodingInputP_pair, ClaudeWCT.W9.T3M.BC.pad64_pairEncodingInputP]
+    unfold WCT9.pairEncodingInputP
+    simp only [List.mem_cons, List.mem_nil_iff, or_false] at hcs
+    rcases hcs with rfl | rfl
+    · simp only [List.append_assoc]
+      exact SigGolfCandidate.T3.Security.LargeResidual.slotValue_bytes_cons _ _
+    · have e : ∀ (A B C D E : HashInput), A ++ B ++ C ++ D ++ E = A ++ (B ++ ((C ++ D) ++ (E ++ []))) := by
+        intro A B C D E; simp only [List.append_assoc, List.append_nil]
+      rw [e]
+      exact slotValue_three _ _ _ [] (hl16 _) (hl16 _) (by simp only [List.length_append, bytesLE_length]) _
+  · rw [ClaudeWCT.W9.T3M.BC.layerEncodingInputP_pair, ClaudeWCT.W9.T3M.BC.pad64_pairEncodingInputP]
+    unfold WCT9.pairEncodingInputP
+    simp only [List.mem_cons, List.mem_nil_iff, or_false] at hcs
+    rcases hcs with rfl | rfl
+    · simp only [List.append_assoc]
+      exact SigGolfCandidate.T3.Security.LargeResidual.slotValue_bytes_cons _ _
+    · have e : ∀ (A B C D E : HashInput), A ++ B ++ C ++ D ++ E = A ++ (B ++ ((C ++ D) ++ (E ++ []))) := by
+        intro A B C D E; simp only [List.append_assoc, List.append_nil]
+      rw [e]
+      exact slotValue_three _ _ _ [] (hl16 _) (hl16 _) (by simp only [List.length_append, bytesLE_length]) _
 theorem firstUnknownMsg_some {K : Coord → Prop} {L : EncLeaf} {cs : Coord × Nat}
     (h : firstUnknownMsg K L = some cs) : cs ∈ msgSlots L ∧ ¬K cs.1 := by
   unfold firstUnknownMsg at h

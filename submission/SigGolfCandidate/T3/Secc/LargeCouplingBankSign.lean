@@ -13,6 +13,7 @@ attribute [local instance] Classical.propDecidable
 noncomputable local instance instDecidableEqCache_largeCouplingBankSign : DecidableEq T3.Cache := Classical.decEq _
 section Sign
 variable {U : Finset HashInput}
+variable (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input)) (q : Nat)
 theorem expectedValue_cell_univ (f : LargeResidual.Digest → ENNReal) :
     expectedValue (cell (Finset.univ : Finset LargeResidual.Digest)) f =
       expectedValue ($ᵗ Digest : ProbComp Digest) (fun rho => f rho) := by

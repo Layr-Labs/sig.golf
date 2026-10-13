@@ -145,7 +145,7 @@ theorem chainW_other {c i i' : Nat} (hc : c < 9) (hi : i < 6) (hi' : i' < 6) (hn
 theorem coef_not_bodyW {c A : Nat} (hc : c < 9) (h1 : COEF ≤ A) (h2 : A < COEF + 864) : ¬ bodyW c A := by
   intro h; unfold bodyW slotV at h; simp only [PRIVW, PAIRW, CHAINW, LEAFW, SIG, COEF] at *; omega
 theorem pcOf_ret (n : Nat) : pcOf n &&& BitVec.ofNat 64 (2 ^ 64 - 2) = pcOf n := pcOf_and_max n
-def stepC : Nat := 5 + (hornC + (17 + (11 + 28 * 4 + 8)))
+def stepC : Nat := 5 + (hornC + (15 + (11 + 28 * 4 + 8)))
 section step
 variable {im : Image} {sk : BitVec 256}
 theorem step_unit (hcode : NewCodeAt im) {c i j index sel w : Nat} {word : WCT9.Rank} {coefs : List Digest}
@@ -201,7 +201,7 @@ theorem step_unit (hcode : NewCodeAt im) {c i j index sel w : Nat} {word : WCT9.
       regs := RegsExcept.refl _ _
       frame := Frame.refl _ _
       nosel := fun _ _ _ _ _ => rfl }
-  have hk3 : (if c = 0 then 17 else 15) ≤ 17 := by split <;> omega
+  have hk3 : (if c = 0 then 14 else 15) ≤ 15 := by split <;> omega
   refine (TBSim.steps ((s1.trans s2).trans s3) (TBSim.bind (W₂ := 0)
     (chain_from hcode hc hi hj hsel hidx hw hd4 4 le_rfl _ t3 hst) (fun r t ht => ?_))).mono
     (by unfold stepC; omega) (fun _ _ h => h)
@@ -332,7 +332,8 @@ theorem child_unit (hcode : NewCodeAt im) {c j index sel w : Nat} {word : WCT9.R
     (hpc : s.pc = pcOf (leafI c)) (hb : BodySt sk j index sel w s) (hcoef : CoefAt s coefs)
     {padL : Digest} (hpad : PadAt c 0 padL s) :
     TBSim im sk s childC (WCT9.buildChildF index c j word coefs padL) (fun rv t =>
-      t.pc = pcOf (tI c) ∧ BodySt sk j index sel w t ∧ DigAt t (HEAPW + 16 * (128 + j)) rv.1 ∧
+      t.pc = pcOf (tI c) ∧ BodySt sk j index sel w t ∧ DigAt t (HEAPW + 16 * (128 + j) + hiOff (128 + j)) rv.1 ∧
+        t.getReg .x12 = BitVec.ofNat 64 (HEAPW + 16 * (128 + j)) ∧
         (j = sel → rv.2.length = 6 ∧ ∀ i < 6, DigAt t (slotV c i) (rv.2.getD i 0)) ∧
         RegsExcept s t bodyRegs ∧ Frame s t (childW c j) ∧
         (j ≠ sel → ∀ A, A < 2 ^ 64 → slotV c 0 ≤ A → A < slotV c 6 →
@@ -378,15 +379,17 @@ theorem child_unit (hcode : NewCodeAt im) {c j index sel w : Nat} {word : WCT9.R
         blocks_toQ ⟨by rw [leafIn_len _ _ _ _ _ hrows.len1]; norm_num, by rw [leafIn_len _ _ _ _ _ hrows.len1]⟩,
         leafIn_len _ _ _ _ _ hrows.len1]
     rw [leafHashP_eq]
-    refine (TBSim.steps s5 (TBSim.shortHash_bind' (W := 0) (f := fun root => pure (root, rows.2)) e5
+    refine (TBSim.steps s5 (TBSim.ftsHash_bind' (W := 0) (f := fun root => pure (root, rows.2)) e5
       hb5.x5 (hashArgs_const t5 LEAFW 128 (HEAPW + 16 * (j + 128)) x10 x11 x12 (by ao) (by norm_num) (by ao) (by ao)
         (by ao)) hq (fun a => TBSim.pure ?_))).mono (by rw [hbl]; split <;> omega) (fun _ _ h => h)
     have fh := Frame.writeHash t5 a (HEAPW + 16 * (j + 128)) x12 (by ao)
-    refine ⟨?_, ?_, ?_, fun hjs => ⟨by rw [hrows.len2], fun i hi => ?_⟩, ?_, ?_, ?_⟩
+    refine ⟨?_, ?_, ?_, ?_, fun hjs => ⟨by rw [hrows.len2], fun i hi => ?_⟩, ?_, ?_, ?_⟩
     · rw [pc_writeHash, p5, pcOf_pred4 _ (tI_pos c hc)]
     · exact hb5.of (fun x _ => getReg_writeHash t5 a x : RegsExcept t5 (writeHash t5 a) []) (by simp) fh
         (by refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> ao)
-    · rw [show 128 + j = j + 128 by omega]; exact DigAt.writeHash_lo t5 a _ x12 (by ao)
+    · rw [show HEAPW + 16 * (128 + j) = HEAPW + 16 * (j + 128) by omega]
+      exact DigAt.writeHash_half t5 a _ _ x12 (by ao)
+    · rw [getReg_writeHash, x12, show j + 128 = 128 + j by omega]
     · exact (hrows.sig hjs i hi).frame fh (by unfold slotV; ao) (by unfold slotV; ao) (by unfold slotV; ao)
     · exact (h4.regs.trans (r5.trans (fun x _ => getReg_writeHash t5 a x : RegsExcept t5 (writeHash t5 a) []))).mono
         (by simp [bodyRegs])
@@ -420,11 +423,14 @@ structure LoopInv (sk : BitVec 256) (c index sel w : Nat) (s0 : MachineState) (j
     t.getMem (BitVec.ofNat 64 A) = s0.getMem (BitVec.ofNat 64 A)
   regs : RegsExcept s0 t (.x18 :: bodyRegs)
   frame : Frame s0 t (loopW c)
-def loopStepC : Nat := childC + 4
-theorem BodySt.with18 {sk : BitVec 256} {j j' index sel w : Nat} {u v : MachineState} (h : BodySt sk j index sel w u)
-    (hr : RegsExcept u v [.x6, .x18]) (hf : Frame u v (fun _ => False)) (h18 : v.getReg .x18 = BitVec.ofNat 64 j') :
+def loopStepC : Nat := childC + 12
+/-- The leaf tail keeps the body state (C1: it may clobber `x7` and rewrite the leaf slot in the heap). -/
+theorem BodySt.with18 {sk : BitVec 256} {j j' index sel w : Nat} {u v : MachineState} {W : Nat → Prop}
+    (h : BodySt sk j index sel w u) (hr : RegsExcept u v [.x6, .x7, .x18]) (hf : Frame u v W)
+    (hW : ∀ A, W A → HEAPW ≤ A) (h18 : v.getReg .x18 = BitVec.ofNat 64 j') :
     BodySt sk j' index sel w v := by
-  have g : ∀ A, A < 2 ^ 64 → v.getMem (BitVec.ofNat 64 A) = u.getMem (BitVec.ofNat 64 A) := fun A hA => hf.get hA id
+  have g : ∀ A, A < HEAPW → v.getMem (BitVec.ofNat 64 A) = u.getMem (BitVec.ofNat 64 A) := fun A hA =>
+    hf.get (by unfold HEAPW at hA; omega) (fun hw => by have := hW A hw; omega)
   exact ⟨by rw [hr.get (by simp)]; exact h.x5, h18, by rw [hr.get (by simp)]; exact h.x22,
     by rw [hr.get (by simp)]; exact h.x24, by rw [hr.get (by simp)]; exact h.x25,
     by rw [g _ (by ao)]; exact h.p0, by rw [g _ (by ao)]; exact h.p8, by rw [g _ (by ao)]; exact h.p32,
@@ -448,28 +454,30 @@ theorem child_step (hcode : NewCodeAt im) {c index sel w : Nat} {word : WCT9.Ran
       (LoopInv sk c index sel w s0 (j + 1)) := by
   have hpc : t.pc = pcOf (leafI c) := by rw [h.pc, if_pos hj]
   have hb : BodySt sk j index sel w t := by have := h.body; rwa [if_pos hj] at this
-  refine (TBSim.bind (W₂ := 4) (child_unit hcode hc hj hsel hidx hw hword hlen hpc hb
+  refine (TBSim.bind (W₂ := 12) (child_unit hcode hc hj hsel hidx hw hword hlen hpc hb
     (hcoef.frame h.frame (fun A h1 h2 => coef_not_loopW hc h1 h2))
     (hpad.frame hc (by norm_num) h.frame (fun A h1 h2 hw => by unfold loopW bodyW slotV at hw; aoh)))
     (fun rv u hu => ?_)).mono
     (by unfold loopStepC; omega) (fun _ _ h => h)
   obtain ⟨root, values⟩ := rv
-  obtain ⟨upc, ub, uroot, usel, uregs, uframe, unos⟩ := hu
-  obtain ⟨v, k, sv, hk, vp1, vp2, vregs, vframe⟩ := step_T hcode hc hj u upc ub.x18
+  obtain ⟨upc, ub, uroot, u12, usel, uregs, uframe, unos⟩ := hu
+  obtain ⟨v, k, sv, hk, vp1, vp2, vlo, vhi, vregs, vframe⟩ := step_T hcode hc hj u upc ub.x18 u12
   refine TBSim.pure_steps' sv ?_ |>.mono hk (fun _ _ h => h)
-  have hheap : ∀ A, A < 2 ^ 64 → v.getMem (BitVec.ofNat 64 A) = u.getMem (BitVec.ofNat 64 A) :=
-    fun A hA => vframe.get hA (fun h => h)
+  have hheap : ∀ A, A < 2 ^ 64 → A < HEAPW → v.getMem (BitVec.ofNat 64 A) = u.getMem (BitVec.ofNat 64 A) :=
+    fun A hA hlt => vframe.get hA (fun h => by rcases h with h | h <;> omega)
+  have hW : ∀ A, (A = HEAPW + 16 * (128 + j) ∨ A = HEAPW + 16 * (128 + j) + 8) → HEAPW ≤ A := fun A hA => by
+    rcases hA with h | h <;> omega
   have fuv : Frame t v (childW c j) := (uframe.trans vframe).mono (fun A _ hA => by
     rcases hA with hA | hA
     · exact hA
-    · exact hA.elim)
+    · right; rcases hA with h | h <;> (constructor <;> omega))
   refine ⟨?_, ?_, ?_, fun j' hj' => ?_, fun hs => ?_, fun hs A hA h1 h2 => ?_, ?_, ?_⟩
   · by_cases h1 : j + 1 < 128
     · rw [if_pos h1]; exact (vp1 h1).1
     · rw [if_neg h1]; exact (vp2 (by omega)).1
   · by_cases h1 : j + 1 < 128
-    · rw [if_pos h1]; exact ub.with18 vregs vframe (vp1 h1).2
-    · rw [if_neg h1]; exact ub.with18 vregs vframe (vp2 (by omega)).2
+    · rw [if_pos h1]; exact ub.with18 vregs vframe hW (vp1 h1).2
+    · rw [if_neg h1]; exact ub.with18 vregs vframe hW (vp2 (by omega)).2
   · simp [h.len]
   · by_cases hlt : j' < j
     · rw [List.getD_eq_getElem?_getD, List.getElem?_append_left (by rw [h.len]; exact hlt),
@@ -478,22 +486,23 @@ theorem child_step (hcode : NewCodeAt im) {c index sel w : Nat} {word : WCT9.Ran
     · have : j' = j := by omega
       subst this
       rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (by rw [h.len]), h.len, Nat.sub_self]
-      exact uroot.frame vframe (by ao) (fun h => h) (fun h => h)
+      exact ⟨by rw [vlo]; exact uroot.1, by rw [vhi]; exact uroot.2⟩
   · by_cases hjs : j = sel
     · subst hjs
       rw [if_pos rfl]
       obtain ⟨hl, hd⟩ := usel rfl
-      exact ⟨hl, fun i hi => (hd i hi).frame vframe (by unfold slotV; ao) (fun h => h) (fun h => h)⟩
+      exact ⟨hl, fun i hi => (hd i hi).frame vframe (by unfold slotV; ao) (fun h => by unfold slotV at h; aoh)
+        (fun h => by unfold slotV at h; aoh)⟩
     · rw [if_neg hjs]
       obtain ⟨hl, hd⟩ := h.vals (by omega)
       refine ⟨hl, fun i hi => ⟨?_, ?_⟩⟩
-      · rw [hheap _ (by unfold slotV; ao), unos hjs _ (by unfold slotV; ao) (by unfold slotV; omega)
-          (by unfold slotV; omega)]
+      · rw [hheap _ (by unfold slotV; ao) (by unfold slotV; ao), unos hjs _ (by unfold slotV; ao)
+          (by unfold slotV; omega) (by unfold slotV; omega)]
         exact (hd i hi).1
-      · rw [hheap _ (by unfold slotV; ao), unos hjs _ (by unfold slotV; ao) (by unfold slotV; omega)
-          (by unfold slotV; omega)]
+      · rw [hheap _ (by unfold slotV; ao) (by unfold slotV; ao), unos hjs _ (by unfold slotV; ao)
+          (by unfold slotV; omega) (by unfold slotV; omega)]
         exact (hd i hi).2
-  · rw [hheap A hA, unos (by omega) A hA h1 h2]; exact h.nosig (by omega) A hA h1 h2
+  · rw [hheap A hA (by unfold slotV at h2; aoh), unos (by omega) A hA h1 h2]; exact h.nosig (by omega) A hA h1 h2
   · exact (h.regs.trans (uregs.trans vregs)).mono (by simp [bodyRegs])
   · refine (h.frame.trans fuv).mono (fun A _ hA => ?_)
     unfold loopW
@@ -553,7 +562,7 @@ structure TreeInv (c index : Nat) (padR : Digest) (s0 : MachineState) (k : Nat) 
   pad : DigAt t (NODEW + 32) (treePad k padR)
   regs : RegsExcept s0 t (.x18 :: treeRegs)
   frame : Frame s0 t treeW
-def treeC : Nat := 32 + (8 + 25)
+def treeC : Nat := 28 + (8 + 32)
 theorem hashInput_node (t : MachineState) {c index h : Nat} {pad L R : Digest} (hc : c < 9) (hidx : index < 2 ^ 31)
     (hh : h < 128) (h10 : t.getReg .x10 = BitVec.ofNat 64 NODEW) (h11 : t.getReg .x11 = BitVec.ofNat 64 64)
     (hL : DigAt t NODEW L) (m16 : t.getMem (BitVec.ofNat 64 (NODEW + 16)) = BitVec.ofNat 64 (nodeLoN c index h))
@@ -573,7 +582,7 @@ theorem hashInput_node (t : MachineState) {c index h : Nat} {pad L R : Digest} (
   · exact hP.2
   · exact hR.1
   · exact hR.2
-theorem ntC_le (c h : Nat) : ntC c h ≤ 25 := by unfold ntC; split_ifs <;> omega
+theorem ntC_le (c h : Nat) : ntC c h ≤ 32 := by unfold ntC; split_ifs <;> omega
 /-- Two memory words holding a digest. -/
 def DigAt' (w0 w1 : Word) (d : Digest) : Prop := w0 = d.extractLsb' 0 64 ∧ w1 = d.extractLsb' 64 64
 theorem treePad_zero (k : Nat) : treePad k (0 : Digest) = 0 := by unfold treePad; split_ifs <;> rfl
@@ -635,7 +644,7 @@ theorem tree_step (hcode : NewCodeAt im) {c index : Nat} (hc : c < 9) (hidx : in
   have hR1 : PadAt c 16 padR t1 := hRt.frame hc (by norm_num) f1 (fun A h1 h2 hw => by aoh)
   -- the post-hash block and the invariant, for either output half
   have tail : ∀ (a : BitVec 256) (v : Digest), DigAt (writeHash t1 a) (NOUTW + hiOff (127 - k)) v →
-      TBSim im sk (writeHash t1 a) 25 (pure (nodes.set! (127 - k) v)) (TreeInv c index padR s0 (k + 1)) := by
+      TBSim im sk (writeHash t1 a) 32 (pure (nodes.set! (127 - k) v)) (TreeInv c index padR s0 (k + 1)) := by
     intro a v hv
     set u := writeHash t1 a with hu
     have fu := Frame.writeHash t1 a NOUTW x12 (by ao)
@@ -691,23 +700,20 @@ theorem tree_step (hcode : NewCodeAt im) {c index : Nat} (hc : c < 9) (hidx : in
     simp only [bind_assoc, pure_bind]
     have hpk : treePad k padR = padR := by unfold treePad; rw [if_pos (by omega)]
     rw [hpk] at hq
-    refine (TBSim.steps s1 (TBSim.publicHash_bind' (W := 25) e1 hx5
+    refine (TBSim.steps s1 (TBSim.publicHash_bind' (W := 32) e1 hx5
       (hashArgs_const t1 NODEW 64 NOUTW x10 x11 x12 (by ao) (by norm_num) (by ao) (by ao) (by ao)) hq
-      (fun a => tail a _ ?_))).mono (by rw [blocks64 _ (nodeIn_len _ _ _ _ _ _)]; unfold treeC; split <;> omega)
+      (fun a => tail a _ ?_))).mono (by rw [blocks64 _ (nodeIn_len _ _ _ _ _ _)]; unfold treeC; omega)
       (fun _ _ h => h)
-    have : hiOff (127 - k) = 16 := by unfold hiOff; rw [if_pos h4]
+    have : hiOff (127 - k) = 16 := by unfold hiOff; rw [if_pos (WCT9.ftsHighHeap_top h4)]
     rw [this]
     exact DigAt.writeHash_hi t1 a NOUTW x12 (by ao)
   · rw [if_neg h4, nodeHash_eq]
     have hpk : treePad k padR = 0 := by unfold treePad; rw [if_neg (by omega)]
     rw [hpk] at hq
-    refine (TBSim.steps s1 (TBSim.shortHash_bind' (W := 25) e1 hx5
+    exact (TBSim.steps s1 (TBSim.ftsHash_bind' (W := 32) e1 hx5
       (hashArgs_const t1 NODEW 64 NOUTW x10 x11 x12 (by ao) (by norm_num) (by ao) (by ao) (by ao)) hq
-      (fun a => tail a _ ?_))).mono (by rw [blocks64 _ (nodeIn_len _ _ _ _ _ _)]; unfold treeC; split <;> omega)
-      (fun _ _ h => h)
-    have : hiOff (127 - k) = 0 := by unfold hiOff; rw [if_neg h4]
-    rw [this, Nat.add_zero]
-    exact DigAt.writeHash_lo t1 a NOUTW x12 (by ao)
+      (fun a => tail a _ (DigAt.writeHash_half t1 a (127 - k) NOUTW x12 (by ao))))).mono
+      (by rw [blocks64 _ (nodeIn_len _ _ _ _ _ _)]; unfold treeC; omega) (fun _ _ h => h)
 theorem tree_loop (hcode : NewCodeAt im) {c index : Nat} (hc : c < 9) (hidx : index < 2 ^ 31) {s0 : MachineState}
     {padR : Digest} (hc0 : c = 0 → padR = 0) (hR0 : PadAt c 16 padR s0)
     {leaves : List Digest} (h0 : TreeInv c index padR s0 0 ((List.replicate 128 (0 : Digest) ++ leaves).toArray) s0) :

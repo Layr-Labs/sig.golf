@@ -14,7 +14,7 @@ def gateBits : Nat := 14
 def gateLimit : Nat := 1353
 def fieldBits : Nat := 10
 def fieldLimit : Nat := 563
-def jointCap : Nat := 789
+def jointCap : Nat := 776
 abbrev Coord := Fin 9
 abbrev Child := Fin 128
 abbrev Rank := Fin 563
@@ -37,15 +37,19 @@ def admissible (output : HashOutput) : Bool :=
   decide (output.toNat / 2 ^ 242 % 2 ^ 14 < 1353) &&
     (List.range 9).all (fun coord =>
       decide (output.toNat / 2 ^ fieldBase coord % 2 ^ 10 < 563))
-/-- Nested FTS (r1-1): one less saved instruction on the 54 children whose level-4 fold reused `a2`. -/
+/-- C1 (FTS Merkle half-swap): `4 + skips`, where `skips` (0, 1 or 2, by `c % 32`) counts the child program's
+elided `a2` loads; the child program costs `27 - skips` instructions. -/
 def childSaveTable : List Nat :=
-  [0,2,2,3,2,4,4,4,2,4,4,5,3,5,5,5,0,2,2,4,1,3,3,4,1,3,3,4,2,4,4,4,0,2,2,3,1,3,3,4,1,3,3,5,2,5,5,5,1,3,3,4,2,4,4,4,2,4,4,4,3,4,4,4,0,2,2,3,2,4,4,4,2,4,4,5,3,5,5,5,0,2,2,4,1,3,3,4,1,3,3,4,2,4,4,4,0,2,2,3,1,3,3,4,1,3,3,5,2,5,5,5,1,3,3,4,2,4,4,4,2,4,4,4,3,4,4,4]
-def maxChildSave : Nat := 5
+  [4,5,5,5,5,6,6,5,5,6,6,6,6,6,6,5,5,6,6,6,5,6,6,5,5,6,6,5,5,5,5,4,4,5,5,5,5,6,6,5,5,6,6,6,6,6,6,5,5,6,6,6,5,6,6,5,5,6,6,5,5,5,5,4,4,5,5,5,5,6,6,5,5,6,6,6,6,6,6,5,5,6,6,6,5,6,6,5,5,6,6,5,5,5,5,4,4,5,5,5,5,6,6,5,5,6,6,6,6,6,6,5,5,6,6,6,5,6,6,5,5,6,6,5,5,5,5,4]
+def maxChildSave : Nat := 6
 def childSave (c : Nat) : Nat := childSaveTable.getD (c % 128) 0
 def childExtra (c : Child) : Nat := maxChildSave - childSave c.val
 theorem childSaveTable_le : ∀ i, i < 128 → childSaveTable.getD i 0 ≤ maxChildSave := by decide
 theorem childSave_le (c : Nat) : childSave c ≤ maxChildSave :=
   childSaveTable_le (c % 128) (Nat.mod_lt _ (by decide))
+theorem childSave_ge (c : Nat) : 4 ≤ childSave c := by
+  have h : ∀ i, i < 128 → 4 ≤ childSaveTable.getD i 0 := by decide
+  exact h (c % 128) (Nat.mod_lt _ (by decide))
 theorem childExtra_add (c : Child) : childExtra c + childSave c.val = maxChildSave := by
   have := childSave_le c.val
   unfold childExtra; omega
@@ -62,10 +66,8 @@ def digestSearch (rho : Digest) (message : Message) (counter : Nat) :
       let output ← digest rho message (BitVec.ofNat 32 counter)
       if producerAdmissible output then return some (BitVec.ofNat 32 counter, output)
       digestSearch rho message (counter + 1) fuel
-/-- FTS chain word. Campaign S2: coordinate nibble `coord + 1`, so every FTS word is `≥ 2 ^ 16` (above all top-tree
-fold words `heap < 4096`). -/
 def ftsChainLow (index coord selected chain step : Nat) : Nat :=
-  0x80 + chain % 8 * 2 ^ 2 + step % 4 * 2 ^ 8 + (coord + 1) % 16 * 2 ^ 16 + selected % 128 * 2 ^ 20 +
+  0x80 + chain % 8 * 2 ^ 2 + step % 4 * 2 ^ 8 + coord % 16 * 2 ^ 16 + selected % 128 * 2 ^ 20 +
     index % 2 ^ 31 * 2 ^ 27
 def ftsChainHeaderP (index coord selected chain step : Nat) (high : BitVec 64) : BitVec 128 :=
   high ++ BitVec.ofNat 64 (ftsChainLow index coord selected chain step)
@@ -77,9 +79,18 @@ def chainInput (index coord selected chain step : Nat) (value : Digest) : HashIn
 def chain (index coord selected i start count : Nat) (value : Digest) : M Digest :=
   (List.range' start count).foldlM
     (fun value step => shortHash (chainInput index coord selected i step value)) value
-/-- FTS leaf word. Campaign S2: coordinate nibble `coord + 1`. -/
+/-- C1 (FTS Merkle half-swap): the FTS heaps whose value is the HIGH 16 bytes of their hash output: the top pair
+(heaps 2 and 3, nested FTS r1-1) and every even heap `16..255`, i.e. the left inputs of the four packed fold windows,
+including the child leaves `128 + c` with `c` even. Every other FTS heap uses the low half. -/
+def ftsHighHeap (heap : Nat) : Bool := decide (heap < 4) || (decide (16 ≤ heap) && decide (heap % 2 = 0))
+/-- C1: the used half of the hash output of FTS heap `heap`. -/
+def ftsHalf (heap : Nat) (output : HashOutput) : Digest :=
+  if ftsHighHeap heap then output.extractLsb' 128 128 else output.extractLsb' 0 128
+/-- C1: the value of FTS heap `heap` hashed from `input`: the high half on `ftsHighHeap` heaps, else the low half. -/
+def ftsHash (heap : Nat) (input : HashInput) : M Digest :=
+  if ftsHighHeap heap then do pure ((← publicHash input).extractLsb' 128 128) else shortHash input
 def ftsLeafLow (index coord selected : Nat) : Nat :=
-  1 + 6 * 2 ^ 8 + (coord + 1) % 16 * 2 ^ 16 + selected % 128 * 2 ^ 20 + index % 2 ^ 31 * 2 ^ 27
+  1 + 6 * 2 ^ 8 + coord % 16 * 2 ^ 16 + selected % 128 * 2 ^ 20 + index % 2 ^ 31 * 2 ^ 27
 def ftsLeafHeader (index coord selected : Nat) : BitVec 128 :=
   0#64 ++ BitVec.ofNat 64 (ftsLeafLow index coord selected)
 /-- FTS child leaf (campaign T8): `end0 | header | zero16 | end1..end5` (128 bytes, two blocks). The zero slot
@@ -87,18 +98,15 @@ after the header is a witness pad in the padded verifier; the honest value is ze
 def leafHash (index coord selected : Nat) (ends : List Digest) : M Digest :=
   shortHash (bytesLE 16 (ends.getD 0 0) ++
     bytesLE 16 (ftsLeafHeader index coord selected) ++ zero16 ++ (ends.drop 1).flatMap (bytesLE 16))
-/-- Padded FTS leaf (campaign T8): the leaf with an arbitrary 16-byte value in the pad slot (the padded verifier's
-witness pad; `leafHashP_zero`: the honest pad 0 gives `leafHash`). -/
+/-- Padded FTS leaf (campaign T8): the leaf with an arbitrary 16-byte value in the pad slot (nested FTS r1-1: the
+previous coordinate's left top value). -/
 def leafInputP (index coord selected : Nat) (pad : Digest) (ends : List Digest) : HashInput :=
   bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (ftsLeafHeader index coord selected) ++ bytesLE 16 pad ++
     (ends.drop 1).flatMap (bytesLE 16)
+/-- C1: the leaf of child `selected` is FTS heap `128 + selected`, so it is the high half when `selected` is even. -/
 def leafHashP (index coord selected : Nat) (pad : Digest) (ends : List Digest) : M Digest :=
-  shortHash (leafInputP index coord selected pad ends)
+  ftsHash (128 + selected) (leafInputP index coord selected pad ends)
 theorem bytesLE_zero16 : bytesLE 16 (0 : Digest) = zero16 := by decide
-theorem leafHashP_zero (index coord selected : Nat) (ends : List Digest) :
-    leafHashP index coord selected 0 ends = leafHash index coord selected ends := by
-  unfold leafHashP leafInputP leafHash
-  rw [bytesLE_zero16]
 def seedHalf (seeds : Digest × Digest) (q : Nat) : Digest := if q % 2 = 0 then seeds.1 else seeds.2
 def packedSecret (pairQuery : Nat → M (Digest × Digest)) (q : Nat) (carry : Digest) : M (Digest × Digest) :=
   if q % 2 = 0 then do
@@ -121,16 +129,9 @@ def buildChild (index coord selected : Nat) (word : Rank) (carry : Digest) :
   pure ((root, state.2.1), state.2.2)
 def nodeLayer (coord : Nat) : Nat := 4 + coord
 def wctNodeHeader (coord index heap : Nat) : BitVec 128 := nodeTweak 3 (nodeLayer coord) index heap
-/-- FTS node hash (low half). Campaign S2: stated directly with `shortHash` (the S2 node projection `nodeHigh` is
-`false` on FTS layers, `wctNodeHash_eq_nodeHash`), so it stays definitionally the low-half hash of `nodeInput`. -/
+/-- FTS node at heap `heap` with a zero pad; C1: the used half follows `ftsHighHeap heap`. -/
 def wctNodeHash (coord index heap : Nat) (left right : Digest) : M Digest :=
-  shortHash (bytesLE 16 left ++ bytesLE 16 (wctNodeHeader coord index heap) ++ zero16 ++ bytesLE 16 right)
-theorem nodeHigh_nodeLayer (coord heap : Nat) : nodeHigh 3 (nodeLayer coord) heap = false := by
-  simp [nodeHigh, leftHigh, nodeLayer]
-theorem wctNodeHash_eq_nodeHash (coord index heap : Nat) (left right : Digest) :
-    wctNodeHash coord index heap left right = nodeHash 3 (nodeLayer coord) index heap left right := by
-  unfold wctNodeHash nodeHash wctNodeHeader
-  rw [nodeHigh_nodeLayer]; rfl
+  ftsHash heap (bytesLE 16 left ++ bytesLE 16 (wctNodeHeader coord index heap) ++ zero16 ++ bytesLE 16 right)
 /-- High half of a public hash. -/
 def highHash (input : HashInput) : M Digest := do
   pure ((← publicHash input).extractLsb' 128 128)
@@ -141,8 +142,33 @@ def wctTopInput (coord index heap : Nat) (left pad right : Digest) : HashInput :
 /-- Nested FTS (r1-1): the top values (heaps 2 and 3) are the HIGH half of their node hash. -/
 def wctTopHash (coord index heap : Nat) (left pad right : Digest) : M Digest :=
   highHash (wctTopInput coord index heap left pad right)
-/-- Heap of an FTS coordinate. Heaps `4..127` are low-half node hashes with a zero pad; heaps 2 and 3 are
-`wctTopHash` with pad `padR` (nested FTS r1-1). -/
+theorem ftsHash_eq (heap : Nat) (input : HashInput) :
+    ftsHash heap input = if ftsHighHeap heap then highHash input else shortHash input := rfl
+theorem ftsHash_of_high {heap : Nat} (h : ftsHighHeap heap = true) (input : HashInput) :
+    ftsHash heap input = highHash input := by
+  rw [ftsHash_eq, if_pos h]
+theorem ftsHash_of_low {heap : Nat} (h : ftsHighHeap heap = false) (input : HashInput) :
+    ftsHash heap input = shortHash input := by
+  rw [ftsHash_eq, if_neg (by simp [h])]
+theorem ftsHalf_of_high {heap : Nat} (h : ftsHighHeap heap = true) (output : HashOutput) :
+    ftsHalf heap output = output.extractLsb' 128 128 := by
+  simp [ftsHalf, h]
+theorem ftsHalf_of_low {heap : Nat} (h : ftsHighHeap heap = false) (output : HashOutput) :
+    ftsHalf heap output = output.extractLsb' 0 128 := by
+  simp [ftsHalf, h]
+theorem ftsHighHeap_top {heap : Nat} (h : heap < 4) : ftsHighHeap heap = true := by
+  simp [ftsHighHeap, h]
+theorem ftsHighHeap_mid {heap : Nat} (h4 : 4 ≤ heap) (h16 : heap < 16) : ftsHighHeap heap = false := by
+  simp [ftsHighHeap]; omega
+theorem ftsHighHeap_odd {heap : Nat} (h4 : 4 ≤ heap) (h : heap % 2 = 1) : ftsHighHeap heap = false := by
+  simp [ftsHighHeap]; omega
+theorem ftsHighHeap_even {heap : Nat} (h16 : 16 ≤ heap) (h : heap % 2 = 0) : ftsHighHeap heap = true := by
+  simp [ftsHighHeap]; omega
+theorem wctTopHash_eq_ftsHash {heap : Nat} (h : heap < 4) (coord index : Nat) (left pad right : Digest) :
+    wctTopHash coord index heap left pad right = ftsHash heap (wctTopInput coord index heap left pad right) :=
+  (ftsHash_of_high (ftsHighHeap_top h) _).symm
+/-- Heap of an FTS coordinate. Heaps `4..127` are node hashes with a zero pad (C1: high half on even heaps `>= 16`,
+low half otherwise); heaps 2 and 3 are `wctTopHash` with pad `padR` (nested FTS r1-1). -/
 def wctHeapNode (coord index heap : Nat) (padR left right : Digest) : M Digest :=
   if heap < 4 then wctTopHash coord index heap left padR right else wctNodeHash coord index heap left right
 def heapBuild (index coord : Nat) (padR : Digest) (leaves : List Digest) : M (Array Digest) :=
@@ -211,16 +237,6 @@ def pairEncodingInputP (up : Layer) (tree leaf : Nat) (left right : Digest) (cou
     (pad : BitVec 96) : HashInput :=
   bytesLE 16 left ++ bytesLE 16 (rowTweak up tree leaf) ++ bytesLE 4 counter ++ bytesLE 12 pad ++
     bytesLE 16 right
-/-- Padded encoding block (campaign S2): the tweak is one word (`t3`, bytes 16..24); its high word `hp` (bytes 24..32)
-is a witness pad like `pad` (bytes 36..48). Honest pads are 0 (`pairEncodingInputPH_zero`). -/
-def pairEncodingInputPH (up : Layer) (tree leaf : Nat) (left right : Digest) (counter : BitVec 32)
-    (hp : BitVec 64) (pad : BitVec 96) : HashInput :=
-  bytesLE 16 left ++ bytesLE 16 (hp ++ hyperWord up.val (tree * 2 ^ height up + leaf)) ++ bytesLE 4 counter ++
-    bytesLE 12 pad ++ bytesLE 16 right
-theorem pairEncodingInputPH_zero (up : Layer) (tree leaf : Nat) (left right : Digest) (counter : BitVec 32)
-    (pad : BitVec 96) :
-    pairEncodingInputPH up tree leaf left right counter 0 pad = pairEncodingInputP up tree leaf left right counter pad :=
-  rfl
 def layerEncodingInput (lay : Layer) (tree leaf : Nat) : LayerMsg → BitVec 32 → HashInput
   | .forest root, counter => encodingInput lay tree leaf root counter
   | .pair left right, counter => pairEncodingInputP lay tree leaf left right counter 0
@@ -280,15 +296,16 @@ never rejects. The signer still searches `searchLimit`. -/
 def verifyWindow : Nat := 2 ^ 32
 theorem ctr_not_ge_verifyWindow (c : BitVec 32) : ¬c.toNat ≥ verifyWindow := by
   unfold verifyWindow; exact Nat.not_le.mpr c.isLt
-/-- The top layer uses the low half. Lower layers select the low half when its
-reserved bits are set, and otherwise select the high half. Selection is deterministic. -/
+/-- The top layer selects the low half when its high bit is set. Lower layers
+select it when both reserved bits are set; otherwise the high half is selected. -/
 def encodingAnswer (lay : Layer) (answer : HashOutput) : Digest :=
-  if lay = 0 then answer.extractLsb' 0 128 else DualHalf.select answer
+  if lay = 0 then TopDualHalf.select answer else DualHalf.select answer
 
 def encodingHash (lay : Layer) (input : HashInput) : M Digest :=
   encodingAnswer lay <$> publicHash input
 
-theorem encodingHash_top (input : HashInput) : encodingHash 0 input = shortHash input := rfl
+theorem encodingHash_top (input : HashInput) :
+    encodingHash 0 input = TopDualHalf.select <$> publicHash input := rfl
 
 theorem encodingAnswer_lower_low (lay : Layer) (hl : lay ≠ 0) (answer : HashOutput)
     (hspare : lowerSpare (answer.extractLsb' 0 128)) :

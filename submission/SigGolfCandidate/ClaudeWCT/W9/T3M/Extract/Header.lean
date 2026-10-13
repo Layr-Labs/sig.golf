@@ -5,7 +5,7 @@ open OracleComp OracleSpec SigGolfCandidate.T3
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open Correctness (Answers)
 open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
-open SigGolfCandidate.T3M.Extract (canonicalHeaderL_high_zero canonicalHeaderL_keep_hdr canonicalHeaderL_words)
+open SigGolfCandidate.T3M.Extract (canonicalHeader_high_zero canonicalHeader_marker_ne)
 set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
 def treeBits (lay : Layer) : Nat := ![0, 12, 19, 25] lay
@@ -28,17 +28,12 @@ theorem tree_zero_of_treeBits {lay : Layer} {tree : Nat} (ht : tree < 2 ^ treeBi
 theorem leaf_bounded_of_treeBits {lay : Layer} {tree leaf : Nat} (ht : tree < 2 ^ treeBits lay)
     (hl : leaf < 2 ^ height lay) : (Pos.leaf lay tree leaf).Bounded :=
   ⟨hl, lt_trans (routed_lt_of_treeBits ht hl) (by norm_num)⟩
-/-- Campaign S1 key class of a position from its input length and (canonical) header: leaves by length (704/896),
-FTS leaf (128), forest (320); 64-byte inputs by the low word `W`: top folds `W < 2 ^ 16`, marked words (chains, FTS
-chains, packed FTS folds) byte0 `≥ 128`, lower folds type byte 193, FTS two-word folds otherwise. -/
-def keyClass (len : Nat) (h : BitVec 128) : Nat :=
-  if len = 896 ∨ len = 704 then 2
-  else if len = 128 then 4
-  else if len = 320 then 6
-  else if tweakLow h < 2 ^ 16 then 1
-  else if 128 ≤ tweakMarker h then 0
-  else if tweakLow h / 2 ^ 56 = 193 then 3
-  else 5
+def hdrClass (h : BitVec 128) : Nat :=
+  if 128 ≤ tweakMarker h then 0
+  else if tweakMarker h = 64 then 1
+  else if tweakTag h = 2 then (if tweakHigh h = 0 then 2 else 3)
+  else if tweakTag h = 6 then (if tweakHigh h = 0 then 4 else 5)
+  else 6
 def Pos.cls : Pos → Nat
   | .chain .. => 0
   | .wctChain .. => 0
@@ -68,169 +63,83 @@ theorem heap_lt64 {e x : Nat} (hx : x < 2 ^ e) (he : e ≤ 12) : 2 ^ e + x < 2 ^
 private theorem node_heap_lt {lay : Layer} {level nd : Nat} (hnd : nd < 2 ^ (height lay - level - 1)) :
     2 ^ (height lay - level - 1) + nd < 2 ^ 64 :=
   heap_lt64 hnd (le_trans (Nat.sub_le _ _) (le_trans (Nat.sub_le _ _) (height_le12 lay)))
-/-- Heap bounds of a bounded tree node: top heaps `< 4096`, lower heaps in `[2, 128)`. -/
-private theorem node_heap_bounds {lay : Layer} {level nd : Nat} (hlev : level < height lay)
-    (hroot : lay = 0 ∨ level + 1 < height lay) (hnd : nd < 2 ^ (height lay - level - 1)) :
-    1 ≤ 2 ^ (height lay - level - 1) + nd ∧ 2 ^ (height lay - level - 1) + nd < 4096 ∧
-      (lay ≠ 0 → 2 ≤ 2 ^ (height lay - level - 1) + nd ∧ 2 ^ (height lay - level - 1) + nd < 128) := by
-  have hp : 1 ≤ 2 ^ (height lay - level - 1) := Nat.one_le_two_pow
-  have h12 : 2 ^ (height lay - level - 1) ≤ 2 ^ 11 := Nat.pow_le_pow_right (by decide) (by
-    have := height_le12 lay; omega)
-  refine ⟨by omega, by norm_num at h12; omega, fun h0 => ?_⟩
-  have hroot' : level + 1 < height lay := hroot.resolve_left h0
-  have h2 : 2 ≤ 2 ^ (height lay - level - 1) := by
-    calc 2 = 2 ^ 1 := by norm_num
-      _ ≤ 2 ^ (height lay - level - 1) := Nat.pow_le_pow_right (by decide) (by omega)
-  have hh7 : height lay ≤ 7 := by
-    obtain ⟨l, hl⟩ := lay
-    interval_cases l <;> simp_all [height]
-  have h6 : 2 ^ (height lay - level - 1) ≤ 2 ^ 6 := Nat.pow_le_pow_right (by decide) (by omega)
-  norm_num at h6
+private theorem hdrClass_packed {x : BitVec 128} (h : 128 ≤ tweakMarker x) : hdrClass x = 0 := by
+  unfold hdrClass; rw [if_pos h]
+private theorem hdrClass_top {x : BitVec 128} (h : tweakMarker x = 64) : hdrClass x = 1 := by
+  unfold hdrClass; rw [if_neg (by omega), if_pos h]
+private theorem hdrClass_one {x : BitVec 128} (h : tweakMarker x = 1) :
+    hdrClass x = if tweakTag x = 2 then (if tweakHigh x = 0 then 2 else 3)
+      else if tweakTag x = 6 then (if tweakHigh x = 0 then 4 else 5) else 6 := by
+  unfold hdrClass; rw [if_neg (by omega), if_neg (by omega)]
+private theorem ftsLeafHeader_tweakHigh (index coord selected : Nat) :
+    tweakHigh (WCT9.ftsLeafHeader index coord selected) = 0 := by
+  unfold tweakHigh
+  rw [WCT9.ftsLeafHeader_toNat]
+  exact Nat.div_eq_of_lt (lt_trans (WCT9.ftsLeafLow_lt _ _ _) (by norm_num))
+private theorem wctNodeHeader_tweakHigh {coord : Nat} (hk : coord < 9) (index : Nat) {heap : Nat}
+    (hn : ¬ FtsNew heap) : tweakHigh (WCT9.wctNodeHeader coord index heap) = heap % 2 ^ 64 := by
+  unfold tweakHigh
+  rw [WCT9.wctNodeHeader_toNat hk, if_neg hn]
+  have := lt_trans (WCT9.ftsLeafLow_lt index coord 0) (show 2 ^ 58 < 2 ^ 64 by norm_num)
   omega
-private theorem ftsChainLow_ge {coord : Nat} (hk : coord < 15) (index selected chain step : Nat) :
-    2 ^ 16 ≤ WCT9.ftsChainLow index coord selected chain step := by
-  unfold WCT9.ftsChainLow; omega
-private theorem ftsLeafLow_ge {coord : Nat} (hk : coord < 15) (index selected : Nat) :
-    2 ^ 16 ≤ WCT9.ftsLeafLow index coord selected := by
-  unfold WCT9.ftsLeafLow; omega
 theorem ftsNew_wctNode {level nd : Nat} (hl : level < 6) (hnd : nd < 2 ^ (7 - level - 1)) :
     FtsNew (2 ^ (7 - level - 1) + nd) ↔ level < 4 := by
   unfold FtsNew
   interval_cases level <;> simp at hnd ⊢ <;> omega
-private theorem tweakLow_chainHeader (lay : Layer) (tree leaf i step : Nat) :
-    tweakLow (chainHeader lay tree leaf i step) = (chainHeaderFlaggedLow lay tree leaf i step).toNat := by
-  have h := chainHeader_low lay tree leaf i step
-  have hn := congrArg BitVec.toNat h
-  rw [BitVec.extractLsb'_toNat, Nat.shiftRight_zero] at hn
-  exact hn
-private theorem chainHeader_low_band (lay : Layer) (tree leaf i step : Nat) :
-    193 * 2 ^ 56 ≤ tweakLow (chainHeader lay tree leaf i step) := by
-  rw [tweakLow_chainHeader, chainHeaderFlaggedLow_toNat]
-  have := chainHeaderLow_band lay tree leaf i step
-  split_ifs <;> omega
-private theorem tweakLow_ftsChainHeaderP (index coord child t step : Nat) (hp : BitVec 64) :
-    tweakLow (WCT9.ftsChainHeaderP index coord child t step hp) = WCT9.ftsChainLow index coord child t step := by
-  unfold tweakLow
-  rw [WCT9.ftsChainHeaderP_toNat]
-  have := WCT9.ftsChainLow_lt index coord child t step
-  omega
-private theorem tweakLow_ftsLeafHeader (index coord child : Nat) :
-    tweakLow (WCT9.ftsLeafHeader index coord child) = WCT9.ftsLeafLow index coord child := by
-  unfold tweakLow
-  rw [WCT9.ftsLeafHeader_toNat]
-  exact Nat.mod_eq_of_lt (lt_trans (WCT9.ftsLeafLow_lt _ _ _) (by norm_num))
-private theorem tweakLow_wctNodeHeader {coord : Nat} (hk : coord < 9) (index heap : Nat) :
-    tweakLow (WCT9.wctNodeHeader coord index heap) =
-      if FtsNew heap then WCT9.ftsNodeLowN index coord heap else WCT9.ftsLeafLow index coord 0 := by
-  unfold tweakLow
-  rw [WCT9.wctNodeHeader_toNat hk]
-  have h1 := WCT9.ftsNodeLowN_lt index coord heap
-  have h2 := WCT9.ftsLeafLow_lt index coord 0
-  split_ifs <;> omega
-theorem Pos.keyClass_eq {p : Pos} (hb : p.Bounded) : keyClass p.len p.hdr = p.cls := by
+theorem Pos.hdrClass_eq {p : Pos} (hb : p.Bounded) : hdrClass p.hdr = p.cls := by
   cases p with
-  | chain lay tree lf i step =>
-      have hb := chainHeader_low_band lay tree lf i step
-      have hm := chainHeader_firstByte lay tree lf i step
-      simp only [keyClass, Pos.len, Pos.hdr, Pos.cls, tweakMarker]
-      split_ifs <;> omega
+  | chain lay tree lf i step => exact hdrClass_packed (chainHeader_firstByte lay tree lf i step)
   | wctChain index coord child t step =>
-      obtain ⟨-, hk, -, -, -⟩ := hb
       have h := WCT9.ftsChainHeaderP_firstByte index coord child t step 0
-      have hge := ftsChainLow_ge (show coord < 15 by omega) index child t step
-      have hlow := tweakLow_ftsChainHeaderP index coord child t step 0
-      simp only [keyClass, Pos.len, Pos.hdr, Pos.cls, WCT9.ftsChainHeader, tweakMarker]
-      split_ifs <;> omega
+      exact hdrClass_packed (show 128 ≤ tweakMarker (WCT9.ftsChainHeaderP index coord child t step 0) by
+        unfold tweakMarker; omega)
   | leaf lay tree lf =>
-      simp only [keyClass, Pos.len, Pos.cls]
-      split_ifs <;> simp_all
+      simp only [Pos.hdr, Pos.cls]
+      rw [hdrClass_one (leafTweak_marker _ _ _), leafTweak_tag, leafTweak_high]; rfl
   | node lay tree level nd =>
-      obtain ⟨-, hlev, hroot, -, hnd⟩ := hb
-      obtain ⟨h1, h4096, hlow⟩ := node_heap_bounds hlev hroot hnd
+      obtain ⟨-, hlev, -, -, hnd⟩ := hb
+      simp only [Pos.hdr, Pos.cls]
       by_cases h0 : lay = 0
       · subst h0
-        have hl := nodeTweak_top_low tree (2 ^ (height (0 : Layer) - level - 1) + nd)
-        have := topNodeWord_lt (2 ^ (height (0 : Layer) - level - 1) + nd)
-        simp only [keyClass, Pos.len, Pos.hdr, Pos.cls, Fin.val_zero, if_true]
-        split_ifs <;> omega
+        rw [if_pos rfl]
+        exact hdrClass_top (nodeTweak_top_marker _ _)
       · have hv : lay.val ≠ 0 := fun h => h0 (Fin.ext h)
         have h4 : lay.val < 4 := lay.isLt
-        obtain ⟨h2, h128⟩ := hlow h0
-        have hl := nodeTweak_lower_low hv h4 tree (2 ^ (height lay - level - 1) + nd)
-        have hm := nodeTweak_lower_marker hv h4 tree (2 ^ (height lay - level - 1) + nd)
-        have hw := lowerNodeWord_toNat (lay.val - 1) tree (2 ^ (height lay - level - 1) + nd)
-        have := Nat.mod_lt tree (show 0 < 2 ^ 32 by decide)
-        simp only [keyClass, Pos.len, Pos.hdr, Pos.cls, if_neg h0]
-        split_ifs <;> omega
+        have : 0 < 2 ^ (height lay - level - 1) := pow_pos (by decide) _
+        rw [if_neg h0, hdrClass_one (nodeTweak_lower_marker hv h4 _ _), nodeTweak_lower_tag hv h4,
+          nodeTweak_hyper_high h4, Nat.mod_eq_of_lt (node_heap_lt hnd), if_pos rfl, if_neg (by omega)]
   | wctLeaf index coord child =>
-      simp [keyClass, Pos.len, Pos.cls]
+      simp only [Pos.hdr, Pos.cls]
+      rw [hdrClass_one (WCT9.ftsLeafHeader_tweakMarker _ _ _), WCT9.ftsLeafHeader_tweakTag,
+        ftsLeafHeader_tweakHigh]; rfl
   | wctNode index coord level nd =>
       obtain ⟨-, hk, hlev, hnd⟩ := hb
+      have hheap := heap_lt64 hnd (show 7 - level - 1 ≤ 12 by omega)
+      have : 0 < 2 ^ (7 - level - 1) := pow_pos (by decide) _
       have hiff := ftsNew_wctNode hlev hnd
-      have hlow := tweakLow_wctNodeHeader hk index (2 ^ (7 - level - 1) + nd)
-      have hm := WCT9.wctNodeHeader_tweakMarker coord index (2 ^ (7 - level - 1) + nd)
-      have hge := ftsLeafLow_ge (show coord < 15 by omega) index 0
-      have hlt := WCT9.ftsLeafLow_lt index coord 0
-      have hgeN : 2 ^ 16 ≤ WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) := by
-        rw [WCT9.ftsNodeLowN_eq]; omega
-      have hltN := WCT9.ftsNodeLowN_lt index coord (2 ^ (7 - level - 1) + nd)
-      simp only [keyClass, Pos.len, Pos.hdr, Pos.cls]
+      simp only [Pos.hdr, Pos.cls]
       by_cases hl4 : level < 4
       · have hn := hiff.mpr hl4
-        rw [if_pos hn] at hlow
-        rw [if_pos ⟨hk, hn⟩] at hm
-        obtain ⟨h8, h128⟩ := hn
-        simp only [if_pos hl4]
-        split_ifs <;> omega
+        rw [if_pos hl4]
+        apply hdrClass_packed
+        rw [WCT9.wctNodeHeader_tweakMarker, if_pos ⟨hk, hn⟩]
+        obtain ⟨h8, h128⟩ := hn; omega
       · have hn : ¬ FtsNew (2 ^ (7 - level - 1) + nd) := fun h => hl4 (hiff.mp h)
-        rw [if_neg hn] at hlow
-        rw [if_neg (fun h => hn h.2)] at hm
-        simp only [if_neg hl4]
-        split_ifs <;> omega
+        rw [if_neg hl4, hdrClass_one (by rw [WCT9.wctNodeHeader_tweakMarker, if_neg (fun h => hn h.2)]),
+          WCT9.wctNodeHeader_tweakTag hk, if_neg hn, wctNodeHeader_tweakHigh hk _ hn, Nat.mod_eq_of_lt hheap,
+          if_neg (by decide), if_pos rfl, if_neg (by omega)]
   | forest index =>
-      simp [keyClass, Pos.len, Pos.cls]
-/-- The class of a key depends on its header only through the low word. -/
-theorem keyClass_of_low_eq (len : Nat) {h h' : BitVec 128} (he : h.extractLsb' 0 64 = h'.extractLsb' 0 64) :
-    keyClass len h = keyClass len h' := by
-  have hv := congrArg BitVec.toNat he
-  simp only [BitVec.extractLsb'_toNat, Nat.shiftRight_zero] at hv
-  have hl : tweakLow h = tweakLow h' := hv
-  have hm : tweakMarker h = tweakMarker h' := by
-    unfold tweakMarker
-    rw [← Nat.mod_mod_of_dvd h.toNat (show 256 ∣ 2 ^ 64 by norm_num),
-      ← Nat.mod_mod_of_dvd h'.toNat (show 256 ∣ 2 ^ 64 by norm_num)]
-    exact congrArg (· % 256) hv
-  unfold keyClass
-  rw [hl, hm]
-theorem keyClass_chainHeader (lay : Layer) (tree leaf i step : Nat) :
-    keyClass 64 (chainHeader lay tree leaf i step) = 0 := by
-  have hb := chainHeader_low_band lay tree leaf i step
-  have hm := chainHeader_firstByte lay tree leaf i step
-  simp only [keyClass, tweakMarker]
-  split_ifs <;> omega
-/-- The low 8 bytes of a canonical header are the low label word (padded or kept). -/
-theorem canonicalHeaderL_take8 (len : Nat) (hdr : BitVec 128) :
-    (canonicalHeaderL len (bytesLE 16 hdr)).take 8 = bytesLE 8 (hdr.extractLsb' 0 64) := by
-  have he : hdr = hdr.extractLsb' 64 64 ++ hdr.extractLsb' 0 64 :=
-    (BitVec.extractLsb'_append_extractLsb' (w := 64) (len := 64) (x := hdr)).symm
-  conv_lhs => rw [he, SigGolfCandidate.T3M.Extract.bytesLE_header_words]
-  unfold canonicalHeaderL
-  split_ifs <;> simp [List.take_append, bytesLE_length]
-theorem bytesLE16_take8 (hdr : BitVec 128) : (bytesLE 16 hdr).take 8 = bytesLE 8 (hdr.extractLsb' 0 64) := by
-  have he : hdr = hdr.extractLsb' 64 64 ++ hdr.extractLsb' 0 64 :=
-    (BitVec.extractLsb'_append_extractLsb' (w := 64) (len := 64) (x := hdr)).symm
-  conv_lhs => rw [he, SigGolfCandidate.T3M.Extract.bytesLE_header_words]
-  simp [List.take_append, bytesLE_length]
+      simp only [Pos.hdr, Pos.cls]
+      rw [hdrClass_one (header_marker _ _ _ _ _), header_tag]; rfl
 private theorem node_level_inj {lay : Layer} {level nd level' nd' : Nat} (hlev : level < height lay)
     (hlev' : level' < height lay) (hnd : nd < 2 ^ (height lay - level - 1))
     (hnd' : nd' < 2 ^ (height lay - level' - 1))
     (h : 2 ^ (height lay - level - 1) + nd = 2 ^ (height lay - level' - 1) + nd') : level = level' ∧ nd = nd' := by
   obtain ⟨e, x⟩ := heap_inj hnd hnd' h
   exact ⟨by omega, x⟩
-/-- Campaign S1: bounded positions are determined by their key (length and header). -/
-theorem Pos.hdr_injective {p p' : Pos} (hb : p.Bounded) (hb' : p'.Bounded) (hlen : p.len = p'.len)
+theorem Pos.hdr_injective {p p' : Pos} (hb : p.Bounded) (hb' : p'.Bounded)
     (h : p.hdr = p'.hdr) : p = p' := by
-  have hc : p.cls = p'.cls := by rw [← Pos.keyClass_eq hb, ← Pos.keyClass_eq hb', hlen, h]
+  have hc : p.cls = p'.cls := by rw [← Pos.hdrClass_eq hb, ← Pos.hdrClass_eq hb', h]
   cases p
   case chain lay tree lf i step =>
     obtain ⟨ht, hf, hi, hs⟩ := hb
@@ -269,17 +178,14 @@ theorem Pos.hdr_injective {p p' : Pos} (hb : p.Bounded) (hb' : p'.Bounded) (hlen
       rfl
     all_goals (simp only [Pos.cls] at hc; (try split_ifs at hc) <;> omega)
   case node lay tree level nd =>
-    obtain ⟨ht, hlev, hroot, h0, hnd⟩ := hb
+    obtain ⟨ht, hlev, -, h0, hnd⟩ := hb
     cases p'
     case node lay' tree' level' nd' =>
-      obtain ⟨ht', hlev', hroot', h0', hnd'⟩ := hb'
+      obtain ⟨ht', hlev', -, h0', hnd'⟩ := hb'
       have h0v : lay.val = 0 → tree = 0 := fun e => h0 (Fin.ext e)
       have h0v' : lay'.val = 0 → tree' = 0 := fun e => h0' (Fin.ext e)
-      obtain ⟨b1, b2, b3⟩ := node_heap_bounds hlev hroot hnd
-      obtain ⟨b1', b2', b3'⟩ := node_heap_bounds hlev' hroot' hnd'
       obtain ⟨hl, htr, hh⟩ := nodeTweak_hyper_injective lay.isLt lay'.isLt ht ht' h0v h0v'
-        ⟨b1, b2, fun hz => (b3 (fun e => hz (congrArg Fin.val e))).2⟩
-        ⟨b1', b2', fun hz => (b3' (fun e => hz (congrArg Fin.val e))).2⟩ h
+        (node_heap_lt hnd) (node_heap_lt hnd') h
       have hlay : lay = lay' := Fin.ext hl
       subst hlay htr
       obtain ⟨rfl, rfl⟩ := node_level_inj hlev hlev' hnd hnd' hh
@@ -319,176 +225,78 @@ theorem Pos.hdr_injective {p p' : Pos} (hb : p.Bounded) (hb' : p'.Bounded) (hlen
     case wctChain index' coord' child t step =>
       exact False.elim (WCT9.wctNodeHeader_ne_ftsChainHeaderP _ _ _ _ _ _ _ _ 0 h)
     all_goals (simp only [Pos.cls] at hc; (try split_ifs at hc) <;> omega)
+theorem rowTweak_ne_hdr (lay : Layer) (tree leaf : Nat) {p : Pos} (hb : p.Bounded) : rowTweak lay tree leaf ≠ p.hdr := by
+  intro h
+  have hc := Pos.hdrClass_eq hb
+  rw [← h, hdrClass_one (rowTweak_marker _ _ _), rowTweak_tag, rowTweak_high] at hc
+  cases p with
+  | node lay' tree' level nd =>
+      obtain ⟨-, hlev, hroot, -, hnd⟩ := hb
+      simp only [Pos.cls] at hc
+      by_cases h0 : lay' = 0
+      · rw [if_pos h0] at hc; simp at hc
+      · have hH := congrArg tweakHigh h
+        rw [rowTweak_high] at hH
+        simp only [Pos.hdr] at hH
+        rw [nodeTweak_hyper_high lay'.isLt, Nat.mod_eq_of_lt (node_heap_lt hnd)] at hH
+        rcases hroot with h0' | hlt
+        · exact h0 h0'
+        · have : 2 ^ 1 ≤ 2 ^ (height lay' - level - 1) := Nat.pow_le_pow_right (by decide) (by omega)
+          omega
+  | wctNode _ _ level _ => simp only [Pos.cls] at hc; split_ifs at hc <;> omega
+  | _ => simp [Pos.cls] at hc
 theorem Pos.hdr_firstByte_chain (lay : Layer) (tree leaf i step : Nat) :
     128 ≤ (Pos.chain lay tree leaf i step).hdr.toNat % 256 :=
   chainHeader_firstByte lay tree leaf i step
 theorem Pos.hdr_firstByte_wctChain (index coord child t step : Nat) :
     (Pos.wctChain index coord child t step).hdr.toNat % 256 = 128 + 4 * (t % 8) :=
   WCT9.ftsChainHeaderP_firstByte index coord child t step 0
-/-- Honest header high words: zero except for the FTS two-word labels (levels 4/5) and the forest header. -/
+theorem Pos.hdr_marker_lt {p : Pos} (hb : p.Bounded) (hn : p.cls ≠ 0) : p.hdr.toNat % 256 < 128 := by
+  have hc := Pos.hdrClass_eq hb
+  unfold hdrClass at hc
+  unfold tweakMarker at hc
+  split_ifs at hc <;> omega
 theorem Pos.canonicalHeader_eq {p : Pos} (hb : p.Bounded) :
-    canonicalHeaderL p.len (bytesLE 16 p.hdr) = bytesLE 16 p.hdr := by
+    canonicalHeader (bytesLE 16 p.hdr) = bytesLE 16 p.hdr := by
   cases p with
   | chain lay tree leaf i step =>
-      exact canonicalHeaderL_high_zero _ _
+      exact canonicalHeader_high_zero _
         (SigGolfCandidate.T3M.chainHeader_high_zero lay tree leaf i step hb.1 hb.2.1 hb.2.2.1 hb.2.2.2)
   | wctChain index coord child t step =>
-      exact canonicalHeaderL_high_zero _ _ (WCT9.ftsChainHeaderP_high index coord child t step 0)
-  | leaf lay tree lf =>
-      exact canonicalHeaderL_high_zero _ _ BitVec.extractLsb'_append_eq_left
-  | node lay tree level nd =>
-      apply canonicalHeaderL_high_zero
-      simp only [Pos.hdr]
-      by_cases h0 : lay.val = 0
-      · rw [show lay = 0 from Fin.ext h0, show ((0 : Layer).val) = 0 from rfl, nodeTweak_top]
-        exact BitVec.extractLsb'_append_eq_left
-      · rw [nodeTweak_lower h0 lay.isLt]
-        exact BitVec.extractLsb'_append_eq_left
-  | forest index =>
-      apply canonicalHeaderL_keep_hdr
-      have hb' : index < 2 ^ 40 := hb
-      simp only [Pos.len, Pos.hdr]
-      rw [header_toNat']
-      have : ¬ packedNodeTag 15 := by decide
-      rw [if_neg this]
-      have hc := Nat.mod_lt (index / 2 ^ 32) (show 0 < 256 by decide)
-      have hi := Nat.mod_lt index (show 0 < 2 ^ 32 by decide)
-      generalize index / 2 ^ 32 % 256 = c at hc ⊢
-      generalize index % 2 ^ 32 = i at hi ⊢
-      have hx : (1 + 15 % 256 * 2 ^ 8 + 0 % 256 * 2 ^ 16 + c * 2 ^ 24 +
-          (0 % 2 ^ 32 * 2 ^ 32 + i * 2 ^ 64 + 0 % 2 ^ 32 * 2 ^ 96)) % 2 ^ 64 = 3841 + c * 2 ^ 24 := by
-        omega
-      rw [hx]
-      unfold padLabel
-      omega
-  | wctLeaf index coord child =>
-      apply canonicalHeaderL_high_zero
-      simp only [Pos.hdr, WCT9.ftsLeafHeader]
-      exact BitVec.extractLsb'_append_eq_left
+      exact canonicalHeader_high_zero _ (WCT9.ftsChainHeaderP_high index coord child t step 0)
+  | leaf => exact canonicalHeader_marker_ne _ (Pos.hdr_marker_lt hb (by simp [Pos.cls]))
+  | node lay => exact canonicalHeader_marker_ne _ (Pos.hdr_marker_lt hb (by simp only [Pos.cls]; split <;> omega))
+  | forest => exact canonicalHeader_marker_ne _ (Pos.hdr_marker_lt hb (by simp [Pos.cls]))
+  | wctLeaf => exact canonicalHeader_marker_ne _ (Pos.hdr_marker_lt hb (by simp [Pos.cls]))
   | wctNode index coord level nd =>
-      obtain ⟨-, hk, hlev, hnd⟩ := hb
       by_cases hl4 : level < 4
-      · apply canonicalHeaderL_high_zero
+      · apply canonicalHeader_high_zero
+        obtain ⟨-, hk, hlev, hnd⟩ := hb
         simp only [Pos.hdr]
         rw [WCT9.wctNodeHeader_high hk, if_pos ((ftsNew_wctNode hlev hnd).mpr hl4)]
         rfl
-      · apply canonicalHeaderL_keep_hdr
-        have hn : ¬ FtsNew (2 ^ (7 - level - 1) + nd) := fun h => hl4 ((ftsNew_wctNode hlev hnd).mp h)
-        simp only [Pos.len, Pos.hdr]
-        have hlow := tweakLow_wctNodeHeader hk index (2 ^ (7 - level - 1) + nd)
-        rw [if_neg hn] at hlow
-        unfold tweakLow at hlow
-        rw [hlow]
-        have hge := ftsLeafLow_ge (show coord < 15 by omega) index 0
-        have hlt := WCT9.ftsLeafLow_lt index coord 0
-        have hb0 := WCT9.ftsLeafLow_byte0 index coord 0
-        unfold padLabel
-        omega
-theorem keyOf_honestInput (answers : Answers) {p : Pos} (hb : p.Bounded) :
-    keyOf (honestInput answers p) = p.key := by
-  unfold keyOf Pos.key
-  rw [length_honestInput, hdrBlock_honestInput, Pos.canonicalHeader_eq hb]
+      · exact canonicalHeader_marker_ne _ (Pos.hdr_marker_lt hb (by simp [Pos.cls, hl4]))
 noncomputable def posOf (input : HashInput) : Option Pos := by
   classical
-  exact if h : ∃ p : Pos, p.Bounded ∧ keyOf input = p.key then some (Classical.choose h) else none
-theorem posOf_key_eq {input : HashInput} {p : Pos} (hb : p.Bounded) (h : keyOf input = p.key) :
+  exact if h : ∃ p : Pos, p.Bounded ∧ canonicalHeader (hdrBlock input) = bytesLE 16 p.hdr
+    then some (Classical.choose h) else none
+theorem posOf_key_eq {input : HashInput} {p : Pos} (hb : p.Bounded)
+    (h : canonicalHeader (hdrBlock input) = bytesLE 16 p.hdr) :
     posOf input = some p := by
   classical
-  have hex : ∃ p : Pos, p.Bounded ∧ keyOf input = p.key := ⟨p, hb, h⟩
+  have hex : ∃ p : Pos, p.Bounded ∧ canonicalHeader (hdrBlock input) = bytesLE 16 p.hdr := ⟨p, hb, h⟩
   unfold posOf
   rw [dif_pos hex]
   have hs := Classical.choose_spec hex
-  have hk : (Classical.choose hex).key = p.key := hs.2.symm.trans h
-  unfold Pos.key at hk
-  exact congrArg some (Pos.hdr_injective hs.1 hb (congrArg Prod.fst hk) (bytesLE_injective (congrArg Prod.snd hk)))
-theorem keyOf_eq {input : HashInput} {p : Pos} (hb : p.Bounded) (hl : input.length = p.len)
-    (h : hdrBlock input = bytesLE 16 p.hdr) : keyOf input = p.key := by
-  unfold keyOf Pos.key
-  rw [hl, h, Pos.canonicalHeader_eq hb]
-theorem posOf_eq {input : HashInput} {p : Pos} (hb : p.Bounded) (hl : input.length = p.len)
-    (h : hdrBlock input = bytesLE 16 p.hdr) : posOf input = some p :=
-  posOf_key_eq hb (keyOf_eq hb hl h)
-theorem posOf_honestInput (answers : Answers) {p : Pos} (hb : p.Bounded) :
-    posOf (honestInput answers p) = some p :=
-  posOf_key_eq hb (keyOf_honestInput answers hb)
-theorem posOf_of_same {answers : Answers} {actual : HashInput} {p : Pos} (hb : p.Bounded)
-    (h : SameHeader actual (honestInput answers p)) : posOf actual = some p :=
-  posOf_key_eq hb (h.trans (keyOf_honestInput answers hb))
+  exact congrArg some (Pos.hdr_injective hs.1 hb (bytesLE_injective (hs.2.symm.trans h)))
+theorem posOf_eq {input : HashInput} {p : Pos} (hb : p.Bounded)
+    (h : hdrBlock input = bytesLE 16 p.hdr) : posOf input = some p := by
+  apply posOf_key_eq hb
+  rw [h, Pos.canonicalHeader_eq hb]
 theorem hitIn_posOf {answers : Answers} {qs : List Spec.Domain} (h : HitIn answers qs) :
     ∃ pos actual, pos.Bounded ∧ .inl (.inr actual) ∈ qs ∧ posOf actual = some pos ∧
       HashHitAt answers pos (honestInput answers pos) actual := by
   obtain ⟨pos, actual, hb, hq, hh, hs⟩ := h
-  exact ⟨pos, actual, hb, hq, posOf_of_same hb hs, hh⟩
-/-- Campaign S1: a 64-byte block whose tweak is a one-word hyper label (`hp ++ hyperWord up routed`: byte0 1, type
-byte 193, any witness high word) is not the input of any position (lower fold words have byte0 = heap ≥ 2; leaves
-and the forest have other lengths). This covers every encoding block. -/
-theorem key_row_ne {x : HashInput} {up routed : Nat} {hp : BitVec 64} (hlen64 : x.length = 64)
-    (hblk : hdrBlock x = bytesLE 16 (hp ++ hyperWord up routed)) {p : Pos} (hb : p.Bounded) :
-    keyOf x ≠ p.key := by
-  intro hk
-  unfold keyOf Pos.key at hk
-  rw [hlen64] at hk
-  have hl := congrArg Prod.fst hk
-  have hh := congrArg Prod.snd hk
-  simp only at hl hh
-  rw [hblk, canonicalHeaderL_words _ _ _ (by unfold padLabel; rw [hyperWord_toNat]; omega)] at hh
-  have hz : bytesLE 8 (hyperWord up routed) ++ List.replicate 8 0 = bytesLE 16 (0#64 ++ hyperWord up routed) := by
-    rw [SigGolfCandidate.T3M.Extract.bytesLE_header_words]
-    congr 1
-  rw [hz] at hh
-  have hhdr := bytesLE_injective hh
-  have hc := Pos.keyClass_eq hb
-  rw [← hl, ← hhdr] at hc
-  have hw := hyperWord_toNat up routed
-  have hl64 : tweakLow (0#64 ++ hyperWord up routed) = (hyperWord up routed).toNat := append64_lowNat _ _
-  have hm : tweakMarker (0#64 ++ hyperWord up routed) = 1 := by
-    rw [append64_marker, hyperWord_marker]
-  unfold keyClass at hc
-  rw [hl64, hm, hw] at hc
-  have := Nat.mod_lt routed (show 0 < 2 ^ 32 by decide)
-  have := Nat.mod_lt up (show 0 < 256 by decide)
-  rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
-    if_pos (by omega)] at hc
-  cases p with
-  | node lay tree' level nd =>
-      obtain ⟨-, hlev, hroot, -, hnd⟩ := hb
-      simp only [Pos.cls] at hc
-      by_cases h0 : lay = 0
-      · rw [if_pos h0] at hc; omega
-      · have hv : lay.val ≠ 0 := fun h => h0 (Fin.ext h)
-        obtain ⟨h2, h128⟩ := (node_heap_bounds hlev hroot hnd).2.2 h0
-        have hm' := congrArg tweakMarker hhdr
-        simp only [Pos.hdr] at hm'
-        rw [append64_marker, hyperWord_marker, nodeTweak_lower_marker hv lay.isLt] at hm'
-        omega
-  | wctNode _ _ level _ => simp only [Pos.cls] at hc; split_ifs at hc <;> omega
-  | _ => simp [Pos.cls] at hc
-theorem posOf_row_none {x : HashInput} {up routed : Nat} {hp : BitVec 64} (hlen64 : x.length = 64)
-    (hblk : hdrBlock x = bytesLE 16 (hp ++ hyperWord up routed)) : posOf x = none := by
-  classical
-  unfold posOf
-  rw [dif_neg]
-  rintro ⟨p, hb, hk⟩
-  exact key_row_ne hlen64 hblk hb hk
-theorem key_pairEncoding_ne (up : Layer) (tree leaf : Nat) (left right : Digest) (counter : BitVec 32)
-    (hp : BitVec 64) (pad : BitVec 96) {p : Pos} (hb : p.Bounded) :
-    keyOf (pad64 (WCT9.pairEncodingInputPH up tree leaf left right counter hp pad)) ≠ p.key := by
-  have hlen64 : (WCT9.pairEncodingInputPH up tree leaf left right counter hp pad).length = 64 := by
-    simp [WCT9.pairEncodingInputPH, bytesLE_length]
-  have hpad : pad64 (WCT9.pairEncodingInputPH up tree leaf left right counter hp pad) =
-      WCT9.pairEncodingInputPH up tree leaf left right counter hp pad := by
-    unfold pad64; rw [hlen64]; simp
-  rw [hpad]
-  refine key_row_ne (up := up.val) (routed := tree * 2 ^ height up + leaf) (hp := hp) hlen64 ?_ hb
-  unfold WCT9.pairEncodingInputPH
-  simp only [List.append_assoc]
-  exact hdrBlock_prefix' _ _ _
-theorem posOf_pairEncoding_none (up : Layer) (tree leaf : Nat) (left right : Digest) (counter : BitVec 32)
-    (hp : BitVec 64) (pad : BitVec 96) :
-    posOf (pad64 (WCT9.pairEncodingInputPH up tree leaf left right counter hp pad)) = none := by
-  classical
-  unfold posOf
-  rw [dif_neg]
-  rintro ⟨p, hb, hk⟩
-  exact key_pairEncoding_ne up tree leaf left right counter hp pad hb hk
+  refine ⟨pos, actual, hb, hq, posOf_key_eq hb ?_, hh⟩
+  rw [hs, hdrBlock_honestInput, Pos.canonicalHeader_eq hb]
 end ClaudeWCT.W9.T3M.Extract

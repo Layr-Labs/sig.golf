@@ -57,14 +57,14 @@ theorem leafEnds_eq (h : Agrees answers labels) (L : LeafPos) :
   intro i hi
   exact leafEnd_eq h L i (lt_of_lt_of_le (List.mem_range.mp hi) (chainCount_bound L.lay))
 theorem leafRoot_eq (h : Agrees answers labels) (L : SrcLeaf) :
-    WCT9.wotsRoot answers L.1.lay L.1.tree.val L.1.leaf.val = projHalf (Node.leaf L).high (labels (.leaf L)) := by
+    WCT9.wotsRoot answers L.1.lay L.1.tree.val L.1.leaf.val = (labels (.leaf L)).extractLsb' 0 128 := by
   unfold WCT9.wotsRoot
   rw [show leafHash L.1.lay L.1.tree.val L.1.leaf.val ((List.range (chainCount L.1.lay)).map
       (WCT9.wotsEnd answers L.1.lay L.1.tree.val L.1.leaf.val)) =
-      projHash (Node.leaf L).high (Extract.leafInput L.1.lay L.1.tree.val L.1.leaf.val
+      shortHash (Extract.leafInput L.1.lay L.1.tree.val L.1.leaf.val
       ((List.range (chainCount L.1.lay)).map (WCT9.wotsEnd answers L.1.lay L.1.tree.val L.1.leaf.val))) from rfl,
-    eval_projHash, leafEnds_eq h L.1]
-  exact congrArg (fun output : HashOutput => projHalf (Node.leaf L).high output) (h (.leaf L))
+    eval_shortHash, leafEnds_eq h L.1]
+  exact congrArg (fun output : HashOutput => output.extractLsb' 0 128) (h (.leaf L))
 theorem treeNodeAt_some (lay : Layer) (tree : Fin (2^31)) (level c : Nat) (hlevel : level < height lay)
     (hc : c < 2 ^ (height lay - level - 1)) (ht : tree.val < 2 ^ treeBits lay)
     (hroot : lay = 0 ∨ level + 1 < height lay) :
@@ -107,7 +107,7 @@ theorem builtTree_eq (h : Agrees answers labels) (lay : Layer) (tree : Fin (2^31
         exact ih (by omega) (by omega) j (by omega)
       obtain ⟨n, hn, hlay, htree, hlev, hidx⟩ := treeNodeAt_some lay tree level c hlt hc1 ht (by omega)
       change ((WCT9.wotsTree answers lay tree.val).getD (level + 1) []).getD c 0 = _
-      rw [hrec, nodeHash_eq_projHash, eval_projHash]
+      rw [hrec, nodeHash_eq_shortHash, eval_shortHash]
       unfold treeLabel
       rw [if_neg (by omega), show level + 1 - 1 = level by omega, hn]
       simp only
@@ -124,14 +124,8 @@ theorem builtTree_eq (h : Agrees answers labels) (lay : Layer) (tree : Fin (2^31
         subst hlay htree
         simp only [cell]
         rw [hlev, hidx, show height nlay - level - 1 = height nlay - (level + 1) by omega]
-      have hhigh : (Node.node n).high = nodeHigh 3 lay.val (2 ^ (height lay - (level + 1)) + c) := by
-        obtain ⟨⟨nlay, ntree, nlevel, nidx⟩, hv⟩ := n
-        simp only at hlay htree hlev hidx
-        subst hlay
-        simp only [Node.high, Node.toPos, Extract.Pos.high]
-        rw [hlev, hidx, show height nlay - level - 1 = height nlay - (level + 1) by omega]
-      rw [← hinput, ← hhigh]
-      exact congrArg (fun output : HashOutput => projHalf (Node.node n).high output) (h (.node n))
+      rw [← hinput]
+      exact congrArg (fun output : HashOutput => output.extractLsb' 0 128) (h (.node n))
 theorem honestRoot_eq (h : Agrees answers labels) :
     Extract.honestRoot answers 0 0 = treeLabel labels 0 0 (height 0) 0 :=
   builtTree_eq h 0 0 (height 0) 0 le_rfl (by simp) (by decide) (Or.inl rfl)
@@ -188,20 +182,20 @@ theorem wctEnds_eq (h : Agrees answers labels) (L : WctLeafPos) :
 theorem childRoot_eq (h : Agrees answers labels) (L : WctLeafPos)
     (hprev : Extract.ftsPrev answers L.index.val L.coord.val = ftsPrevLabel labels L.index L.coord) :
     WCT9.childRoot answers L.index.val L.coord.val L.child.val (Extract.ftsPrev answers L.index.val L.coord.val).1 =
-      (labels (.wctLeaf L)).extractLsb' 0 128 := by
+      WCT9.ftsHalf (128 + L.child.val) (labels (.wctLeaf L)) := by
   have hends : (List.ofFn fun i : Fin 6 => WCT9.chainEnd answers L.index.val L.coord.val L.child.val i) =
       Extract.wctEnds answers L.index.val L.coord.val L.child.val := rfl
   have hleaf : ∀ pad ends, WCT9.leafHashP L.index.val L.coord.val L.child.val pad ends =
-      shortHash (Extract.wctLeafInputP L.index.val L.coord.val L.child.val pad ends) := by
+      WCT9.ftsHash (128 + L.child.val) (Extract.wctLeafInputP L.index.val L.coord.val L.child.val pad ends) := by
     intro pad ends
     unfold WCT9.leafHashP WCT9.leafInputP Extract.wctLeafInputP Extract.listInput
     simp only [List.flatMap_cons, List.append_assoc]
   unfold WCT9.childRoot
-  rw [hleaf, hends, wctEnds_eq h L, hprev]
-  change (answers (.inl (.inr (pad64 (Extract.wctLeafInputP L.index.val L.coord.val L.child.val
-    (ftsPrevLabel labels L.index L.coord).1
-    (List.ofFn fun t : Fin 6 => wctEndLabel labels (L.index, L.coord, L.child, t))))))).extractLsb' 0 128 = _
-  exact congrArg (fun output : HashOutput => output.extractLsb' 0 128) (h (.wctLeaf L))
+  rw [hleaf, hends, wctEnds_eq h L, hprev, WCT9.eval_ftsHash]
+  change WCT9.ftsHalf (128 + L.child.val) (answers (.inl (.inr (pad64 (Extract.wctLeafInputP L.index.val L.coord.val
+    L.child.val (ftsPrevLabel labels L.index L.coord).1
+    (List.ofFn fun t : Fin 6 => wctEndLabel labels (L.index, L.coord, L.child, t))))))) = _
+  exact congrArg (WCT9.ftsHalf (128 + L.child.val)) (h (.wctLeaf L))
 theorem ftsNodeAt_some (index : Fin (2^31)) (coord : Fin 9) (level c : Nat) (hlevel : level < 6)
     (hc : c < 2 ^ (7 - level - 1)) :
     ∃ n : WctNodePos, ftsNodeAt index coord level c = some n ∧ n.1.index = index ∧ n.1.coord = coord ∧
@@ -220,7 +214,7 @@ theorem ftsTree_eqP (h : Agrees answers labels) (index : Fin (2^31)) (coord : Fi
   have hinv := WCT9.heap_complete answers index.val coord.val (Extract.ftsPrev answers index.val coord.val).2
     (Extract.ftsLeaves answers index.val coord.val) (by simp [Extract.ftsLeaves])
   have hleaves : ∀ j (hj : j < 128), (Extract.ftsLeaves answers index.val coord.val).getD j 0 =
-      (labels (.wctLeaf ⟨index, coord, ⟨j, hj⟩⟩)).extractLsb' 0 128 := by
+      WCT9.ftsHalf (128 + j) (labels (.wctLeaf ⟨index, coord, ⟨j, hj⟩⟩)) := by
     intro j hj
     unfold Extract.ftsLeaves
     rw [List.getD_eq_getElem _ _ (by simp only [List.length_ofFn]; exact hj), List.getElem_ofFn]
@@ -255,10 +249,10 @@ theorem ftsTree_eqP (h : Agrees answers labels) (index : Fin (2^31)) (coord : Fi
         intro j hj
         exact ih (by omega) j (by omega)
       obtain ⟨n, hn, hindex, hcoord, hlev, hidx⟩ := ftsNodeAt_some index coord level c hlt hc1
-      have hrhs : ftsLabel labels index coord (level + 1) c = if level + 1 = 6 then
-          (labels (.wctNode n)).extractLsb' 128 128 else (labels (.wctNode n)).extractLsb' 0 128 := by
+      have hrhs : ftsLabel labels index coord (level + 1) c =
+          WCT9.ftsHalf (2 ^ (7 - level - 1) + c) (labels (.wctNode n)) := by
         unfold ftsLabel
-        rw [if_neg (by omega), show level + 1 - 1 = level by omega, hn]
+        rw [if_neg (by omega), show level + 1 - 1 = level by omega, hn, hsub]
       have hinput : cell (secretsOf answers) (.wctNode n) labels =
           pad64 (nodeInputP 3 (WCT9.nodeLayer coord.val) index.val (2 ^ (7 - level - 1) + c)
             (ftsLabel labels index coord level (2 * c))
@@ -278,19 +272,25 @@ theorem ftsTree_eqP (h : Agrees answers labels) (index : Fin (2^31)) (coord : Fi
         hchild (2 * c) (by omega), hchild (2 * c + 1) (by omega)]
       by_cases h5 : level = 5
       · subst h5
-        rw [if_pos rfl, WCT9.wctHeapNode_top (by norm_num at hc1 ⊢; omega), eval_wctTopHash, hprev]
+        rw [WCT9.ftsHalf_of_high (WCT9.ftsHighHeap_top (by norm_num at hc1 ⊢; omega)),
+          WCT9.wctHeapNode_top (by norm_num at hc1 ⊢; omega), eval_wctTopHash, hprev]
         rw [if_pos rfl] at hinput
         rw [← hinput]
         exact congrArg (fun output : HashOutput => output.extractLsb' 128 128) (h (.wctNode n))
-      · rw [if_neg (by omega), WCT9.wctHeapNode_low (by
+      · rw [WCT9.wctHeapNode_low (by
           have : 4 ≤ 2 ^ (7 - level - 1) := by
             calc 4 = 2 ^ 2 := by norm_num
               _ ≤ 2 ^ (7 - level - 1) := Nat.pow_le_pow_right (by decide) (by omega)
-          omega), WCT9.wctNodeHash_eq_nodeHash, SigGolfCandidate.T3M.SecurityInputs.nodeHash_eq_projHash,
-          WCT9.nodeHigh_nodeLayer, projHash_false, eval_shortHash]
+          omega), WCT9.wctNodeHash, WCT9.eval_ftsHash]
         rw [if_neg h5] at hinput
-        rw [← hinput]
-        exact congrArg (fun output : HashOutput => output.extractLsb' 0 128) (h (.wctNode n))
+        have hb : bytesLE 16 (ftsLabel labels index coord level (2 * c)) ++
+            bytesLE 16 (WCT9.wctNodeHeader coord.val index.val (2 ^ (7 - level - 1) + c)) ++ zero16 ++
+            bytesLE 16 (ftsLabel labels index coord level (2 * c + 1)) =
+            nodeInputP 3 (WCT9.nodeLayer coord.val) index.val (2 ^ (7 - level - 1) + c)
+              (ftsLabel labels index coord level (2 * c)) 0 (ftsLabel labels index coord level (2 * c + 1)) := by
+          simp only [nodeInputP, block4, WCT9.bytesLE_zero16, WCT9.wctNodeHeader]
+        rw [hb, ← hinput]
+        exact congrArg (WCT9.ftsHalf (2 ^ (7 - level - 1) + c)) (h (.wctNode n))
 theorem ftsPrev_eq (h : Agrees answers labels) (index : Fin (2^31)) :
     ∀ c (hc : c < 9), Extract.ftsPrev answers index.val c = ftsPrevLabel labels index ⟨c, hc⟩
   | 0, _ => by

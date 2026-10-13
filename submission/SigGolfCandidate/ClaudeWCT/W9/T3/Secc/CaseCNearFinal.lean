@@ -534,8 +534,8 @@ theorem good_short {A T : Correctness.Answers} (h : SigGolfCandidate.T3.Security
   · intro j hj
     obtain ⟨h1, h2⟩ := hpath j hj
     exact ⟨by rw [h1, ClaudeWCT.W9.T3.Security.Wots.Ref.wotsTree_short h], h2⟩
-  · refine ⟨hchain.1, fun i hi => ?_⟩
-    obtain ⟨h1, h2⟩ := hchain.2 i hi
+  · intro i hi
+    obtain ⟨h1, h2⟩ := hchain i hi
     refine ⟨?_, h2⟩
     rw [h1]
     unfold WCT9.wotsValue

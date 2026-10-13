@@ -774,7 +774,7 @@ def FinalQ : Option WCT9.Signature → MachineState → Prop
       ∀ k < 332, DigAt t (SIG + 16 * k) ((W9.T3M.sigDigests sig).getD (W9.T3M.cIdx k) 0)
 def restC : Nat := searchC + (ftsC + (layC + compactK))
 def signCW : Nat := frontC + restC
-theorem signCW_eq : signCW = 4110972262 := by
+theorem signCW_eq : signCW = 4110967262 := by
   norm_num [signCW, restC, frontC, searchC, trialC, WCT9.digestAttemptLimit, ftsC, layC, compactK]
 theorem signCW_lt : signCW + 1 < CYCLE_LIMIT := by
   rw [signCW_eq]; norm_num [CYCLE_LIMIT]
@@ -1197,7 +1197,7 @@ theorem sign_terminates_w (imgs : Phase → Image) (Inv : BitVec 256 → Bytes 1
     (hcode : SignCodeAt (imgs .sign)) (hU : Unchanged imgs Inv) : SignTerminatesW imgs :=
   (signMain imgs Inv hcode hU).2
 theorem newCodeAt_of_drop {im : Image} (h : im.code.drop 11003 = signNew)
-    (h2 : signTramp <+: im.code.drop 21450) (ha : arenaCode <+: im.code.drop 1653) : NewCodeAt im := by
-  rw [NewCodeAt, h]; exact ⟨List.prefix_refl _, h2, ha⟩
+    (h2 : signTramp <+: im.code.drop 21450) : NewCodeAt im := by
+  rw [NewCodeAt, h]; exact ⟨List.prefix_refl _, h2⟩
 end ClaudeWCT.W9.Machine.Sign
 end

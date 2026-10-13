@@ -21,11 +21,10 @@ def bK (lay c : Nat) : List (Reg × Word) :=
 def ctrE (lay c : Nat) : E :=
   if lay = 3 then T3M.ctrE lay else .un (.ld .wu 0) (.ld (kw (rowA lay c + 32)))
 def ctrBr (lay c : Nat) (d : Bool) : Br := ⟨if lay = 3 then .ltu else .geu, ctrE lay c, kw 0x400000, d⟩
-/-- Campaign S1: the root fold (encoding block) writes only the low tweak word (`t3`); for the top encoding the L1
-root block also zeroes the top leaf's first 16 bytes (`sd zero,512/520(tp)`). -/
 def headerWrites (lay c : Nat) : List (Addr × E) :=
-  [(⟨none, BitVec.ofNat 64 (rowA lay c + 16)⟩, .reg .x28)] ++
-  (if lay=0 then [(⟨none,25192⟩,kw 0),(⟨none,25184⟩,kw 0)] else [])
+  [(⟨none, BitVec.ofNat 64 (rowA lay c + 24)⟩, kw 1),
+   (⟨none, BitVec.ofNat 64 (rowA lay c + 16)⟩, .reg .x28)] ++
+  (if lay=0 then [(⟨none,25144⟩,kw 0),(⟨none,25136⟩,kw 0)] else [])
 def specA (lay c : Nat) : Spec :=
   if lay = 3 then T3M.specA lay (trPc lay c) else
   ⟨if lay = 0 then [(.x23, s7E lay), (.x12, .reg .x12)]
@@ -36,19 +35,15 @@ def rejA (lay c : Nat) : Spec :=
   if lay = 3 then T3M.rejA lay (trPc lay c) else
   ⟨[(.x5, kw 1), (.x10, kw 1)], headerWrites lay c,
    rejEcall, true, stepsA lay + 3, [ctrBr lay c true], none, stepsA lay + 3⟩
-def keepA (lay : Nat) : List Reg := if lay = 3 then [.x22, .x12] else if lay = 0 then [.x28, .x31] else [.x28]
+def keepA (lay : Nat) : List Reg := if lay = 3 then [.x22] else if lay = 0 then [.x28, .x31] else [.x28]
 def bKB (lay c : Nat) : List (Reg × Word) := (bK lay c).filter (fun p => p.1 != .x12)
 def oblB : List Oblig := [.valid ⟨some (.reg .x12), 8⟩ 8, .valid ⟨some (.reg .x12), 0⟩ 8]
 def oblBHi : List Oblig := [.valid ⟨some (.reg .x12), 24⟩ 8, .valid ⟨some (.reg .x12), 16⟩ 8] ++ oblB
 def allowed (lay c : Nat) : List Nat :=
-  if lay = 3 then [1232, 1264, 1272] else [rowA lay c + 16] ++ (if lay=0 then [25184,25192] else [])
-/-- The L3 encoding block loads `s2` (`x18`) itself, so its run starts without the global `x18 = 0xFFF` fact and
-re-establishes it from data word 0 (`x18E3`). -/
-def setupGk (lay : Nat) : List (Reg × Word) := if lay = 3 then [(.x5, 0)] else baseK
-def bKS (lay c : Nat) : List (Reg × Word) := if lay = 3 then (bK lay c).filter (fun p => p.1 != .x18) else bK lay c
+  if lay = 3 then [1232, 1240, 1264, 1272] else [rowA lay c + 16, rowA lay c + 24] ++ (if lay=0 then [25136,25144] else [])
 def setupCheck (lay c : Nat) : Bool :=
-  specB (allowed lay c) [] (setupGk lay) (runAt (preK lay) [] (setupPc lay (trPc lay c)) [])
-    (specA lay c) [] (bKS lay c) (keepA lay)
+  specB (allowed lay c) [] baseK (runAt (preK lay) [] (setupPc lay (trPc lay c)) [])
+    (specA lay c) [] (bK lay c) (keepA lay)
 def copyCheck (lay c : Nat) : Bool :=
   setupCheck lay c &&
   (if lay = 0 then true else

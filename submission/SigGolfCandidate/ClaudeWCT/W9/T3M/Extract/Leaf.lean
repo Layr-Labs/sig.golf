@@ -61,8 +61,8 @@ private theorem hdrBlock_forestInput_leaf (index : Nat) (pairs : List (Digest ×
   unfold forestInput WCT9.forestInput
   rw [show zero16 = bytesLE 16 (0 : Digest) by decide]
   exact hdrBlock_prefix 0 _ _
-theorem leafHash_eq_projHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
-    leafHash lay tree leaf ends = projHash (leafHigh leaf) (leafInput lay tree leaf ends) := rfl
+theorem leafHash_eq_shortHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
+    leafHash lay tree leaf ends = shortHash (leafInput lay tree leaf ends) := rfl
 theorem forestPk_eq_shortHash (index : Nat) (pairs : List (Digest × Digest)) :
     WCT9.forestPk index pairs = shortHash (forestInput index pairs) := rfl
 theorem forestInput_pairs_injective {index : Nat} {ps qs : List (Digest × Digest)} (hl : ps.length = qs.length)
@@ -75,64 +75,25 @@ theorem forestInput_pairs_injective {index : Nat} {ps qs : List (Digest × Diges
   obtain ⟨-, hp⟩ := List.append_inj h (by simp only [zero16, List.length_append, List.length_replicate,
     bytesLE_length])
   exact WCT9.pairs_bytes_injective hl hp
-/-- Campaign S1: the padded lower leaf input as a list input (header `hp ++ t3`). -/
-theorem lowerLeafInputP_eq_listInput (lay : Layer) (tree leaf : Nat) (hp : BitVec 64) (ends : List Digest) :
-    lowerLeafInputP lay tree leaf hp ends =
-      listInput (ends.getD 0 0) (hp ++ hyperWord lay.val (tree * 2 ^ height lay + leaf)) (ends.drop 1) := by
-  simp only [lowerLeafInputP, listInput]
-theorem leafInput_lower_eq_listInput {lay : Layer} (hl : lay ≠ 0) (tree leaf : Nat) (ends : List Digest) :
-    leafInput lay tree leaf ends =
-      listInput (ends.getD 0 0) (0#64 ++ hyperWord lay.val (tree * 2 ^ height lay + leaf)) (ends.drop 1) := by
-  simp only [leafInput, SigGolfCandidate.T3.leafInput, hl, if_false, listInput, leafTweak]
-/-- Keys of list inputs with the same low header word and length agree when the low word is a padded label. -/
-theorem sameHeader_listInput {first first' : Digest} {hi hi' lo : BitVec 64} {rest rest' : List Digest}
-    (hlen : rest.length = rest'.length) (hp : padLabel (32 + 16 * rest.length + (64 - (32 + 16 * rest.length) % 64) % 64)
-      lo.toNat) :
-    SameHeader (pad64 (listInput first (hi ++ lo) rest)) (pad64 (listInput first' (hi' ++ lo) rest')) := by
-  unfold SameHeader keyOf
-  have hl1 : (pad64 (listInput first (hi ++ lo) rest)).length =
-      32 + 16 * rest.length + (64 - (32 + 16 * rest.length) % 64) % 64 := by
-    rw [Cost.pad64_length, listInput_length]
-  have hl2 : (pad64 (listInput first' (hi' ++ lo) rest')).length =
-      32 + 16 * rest.length + (64 - (32 + 16 * rest.length) % 64) % 64 := by
-    rw [Cost.pad64_length, listInput_length, hlen]
-  rw [hl1, hl2, hdrBlock_listInput, hdrBlock_listInput,
-    SigGolfCandidate.T3M.Extract.canonicalHeaderL_high_irrelevant _ hi hi' lo hp]
-theorem lowerLeaf_padLabel (lay : Layer) (tree leaf len : Nat) :
-    padLabel len (hyperWord lay.val (tree * 2 ^ height lay + leaf)).toNat := by
-  unfold padLabel
-  right; right
-  rw [hyperWord_toNat]
-  have := Nat.mod_lt (tree * 2 ^ height lay + leaf) (show 0 < 2 ^ 32 by decide)
-  have := Nat.mod_lt lay.val (show 0 < 256 by decide)
-  omega
-/-- Campaign S1 padded lower leaf: either the endpoints and the witness header word are honest, or the query hits
-the honest leaf (on the leaf's half). -/
-theorem lowerLeafHashP_extract (answers : Answers) {lay : Layer} (hl : lay ≠ 0) (tree leaf : Nat) (hp : BitVec 64)
-    (ends honest : List Digest) (hlen : ends.length = honest.length) (hpos : 0 < honest.length)
-    (reaches : evalWithAnswerFn answers (lowerLeafHashP lay tree leaf hp ends) =
-      evalWithAnswerFn answers (leafHash lay tree leaf honest)) :
-    (ends = honest ∧ hp = 0) ∨
-      (HashHitP (leafHigh leaf) answers (pad64 (leafInput lay tree leaf honest))
-          (pad64 (lowerLeafInputP lay tree leaf hp ends)) ∧
-        SameHeader (pad64 (lowerLeafInputP lay tree leaf hp ends)) (pad64 (leafInput lay tree leaf honest)) ∧
-        .inl (.inr (pad64 (lowerLeafInputP lay tree leaf hp ends))) ∈
-          queried answers (lowerLeafHashP lay tree leaf hp ends)) := by
-  rw [lowerLeafInputP_eq_listInput]
-  rw [leafInput_lower_eq_listInput hl]
-  by_cases heq : pad64 (listInput (ends.getD 0 0) (hp ++ hyperWord lay.val (tree * 2 ^ height lay + leaf))
-      (ends.drop 1)) = pad64 (listInput (honest.getD 0 0) (0#64 ++ hyperWord lay.val (tree * 2 ^ height lay + leaf))
-      (honest.drop 1))
-  · obtain ⟨hE, hH⟩ := listInput_lists hlen hpos heq
-    exact Or.inl ⟨hE, (append64_inj hH).1⟩
+theorem listHash_extract (answers : Answers) (hdr : BitVec 128) (xs ys : List Digest)
+    (hlen : xs.length = ys.length) (hpos : 0 < ys.length)
+    (reaches : evalWithAnswerFn answers (shortHash (listInput (xs.getD 0 0) hdr (xs.drop 1))) =
+      evalWithAnswerFn answers (shortHash (listInput (ys.getD 0 0) hdr (ys.drop 1)))) :
+    xs = ys ∨
+      (HashHit answers (pad64 (listInput (ys.getD 0 0) hdr (ys.drop 1)))
+          (pad64 (listInput (xs.getD 0 0) hdr (xs.drop 1))) ∧
+        SameHeader (pad64 (listInput (xs.getD 0 0) hdr (xs.drop 1)))
+          (pad64 (listInput (ys.getD 0 0) hdr (ys.drop 1))) ∧
+        .inl (.inr (pad64 (listInput (xs.getD 0 0) hdr (xs.drop 1)))) ∈
+          queried answers (shortHash (listInput (xs.getD 0 0) hdr (xs.drop 1)))) := by
+  by_cases heq : pad64 (listInput (xs.getD 0 0) hdr (xs.drop 1)) = pad64 (listInput (ys.getD 0 0) hdr (ys.drop 1))
+  · exact Or.inl (listInput_lists hlen hpos heq).1
   · refine Or.inr ⟨⟨heq, ?_⟩, ?_, ?_⟩
-    · unfold lowerLeafHashP at reaches
-      rw [leafHash_eq_projHash, eval_projHash, eval_projHash, lowerLeafInputP_eq_listInput,
-        leafInput_lower_eq_listInput hl] at reaches
+    · rw [eval_shortHash, eval_shortHash] at reaches
       exact reaches
-    · exact sameHeader_listInput (by rw [List.length_drop, List.length_drop, hlen]) (lowerLeaf_padLabel _ _ _ _)
-    · unfold lowerLeafHashP
-      rw [queried_projHash, lowerLeafInputP_eq_listInput]
+    · unfold SameHeader
+      rw [hdrBlock_listInput, hdrBlock_listInput]
+    · rw [queried_shortHash]
       exact List.mem_singleton_self _
 theorem leafInput_lists {lay : Layer} {tree leaf : Nat} {xs ys : List Digest} (hlen : xs.length = ys.length)
     (hpos : 0 < ys.length)
@@ -146,26 +107,22 @@ theorem leafInput_lists {lay : Layer} {tree leaf : Nat} {xs ys : List Digest} (h
     obtain ⟨-, hr⟩ := List.append_inj h' (by simp only [List.length_append, bytesLE_length])
     exact flatMap_bytes_injective hlen hr
   · exact (listInput_lists (hdr := leafTweak lay tree leaf) (hdr' := leafTweak lay tree leaf) hlen hpos h).1
-/-- Top leaf (no pad): the endpoints are honest or the query hits the honest top leaf. -/
 theorem leafHash_extract (answers : Answers) (lay : Layer) (tree leaf : Nat) (ends honest : List Digest)
     (hlen : ends.length = honest.length) (hpos : 0 < honest.length)
     (reaches : evalWithAnswerFn answers (leafHash lay tree leaf ends) =
       evalWithAnswerFn answers (leafHash lay tree leaf honest)) :
     ends = honest ∨
-      (HashHitP (leafHigh leaf) answers (pad64 (leafInput lay tree leaf honest)) (pad64 (leafInput lay tree leaf ends)) ∧
+      (HashHit answers (pad64 (leafInput lay tree leaf honest)) (pad64 (leafInput lay tree leaf ends)) ∧
         SameHeader (pad64 (leafInput lay tree leaf ends)) (pad64 (leafInput lay tree leaf honest)) ∧
         .inl (.inr (pad64 (leafInput lay tree leaf ends))) ∈ queried answers (leafHash lay tree leaf ends)) := by
   by_cases heq : pad64 (leafInput lay tree leaf ends) = pad64 (leafInput lay tree leaf honest)
   · exact Or.inl (leafInput_lists hlen hpos heq)
   · refine Or.inr ⟨⟨heq, ?_⟩, ?_, ?_⟩
-    · rw [leafHash_eq_projHash, leafHash_eq_projHash, eval_projHash, eval_projHash] at reaches
+    · rw [leafHash_eq_shortHash, leafHash_eq_shortHash, eval_shortHash, eval_shortHash] at reaches
       exact reaches
-    · unfold SameHeader keyOf
-      have hl : (pad64 (leafInput lay tree leaf ends)).length = (pad64 (leafInput lay tree leaf honest)).length := by
-        rw [Cost.pad64_length, Cost.pad64_length]
-        simp only [leafInput, SigGolfCandidate.T3.leafInput_length, hlen]
-      rw [hl, hdrBlock_leafInput, hdrBlock_leafInput]
-    · rw [leafHash_eq_projHash, queried_projHash]
+    · unfold SameHeader
+      rw [hdrBlock_leafInput, hdrBlock_leafInput]
+    · rw [leafHash_eq_shortHash, queried_shortHash]
       exact List.mem_singleton_self _
 theorem forestPk_extract (answers : Answers) (index : Nat) (pairs honest : List (Digest × Digest))
     (hlen : pairs.length = honest.length)
@@ -180,11 +137,8 @@ theorem forestPk_extract (answers : Answers) (index : Nat) (pairs honest : List 
   · refine Or.inr ⟨⟨heq, ?_⟩, ?_, ?_⟩
     · rw [forestPk_eq_shortHash, forestPk_eq_shortHash, eval_shortHash, eval_shortHash] at reaches
       exact reaches
-    · unfold SameHeader keyOf
-      have hl : (pad64 (forestInput index pairs)).length = (pad64 (forestInput index honest)).length := by
-        simp only [Cost.pad64_length, forestInput, WCT9.forestInput, zero16, List.length_append,
-          List.length_replicate, bytesLE_length, WCT9.pairs_bytes_length, hlen]
-      rw [hl, hdrBlock_forestInput_leaf, hdrBlock_forestInput_leaf]
+    · unfold SameHeader
+      rw [hdrBlock_forestInput_leaf, hdrBlock_forestInput_leaf]
     · rw [forestPk_eq_shortHash, queried_shortHash]
       exact List.mem_singleton_self _
 theorem forestPk_honest_extract (answers : Answers) (index : Nat) (hidx : index < 2 ^ 40)

@@ -20,8 +20,8 @@ theorem eval_chain_one_maskAt {s : Nat} (hs : s < depth answers a) (v : Digest) 
       if s + 1 = depth answers a then frontierValue answers a else 0 := by
   rw [eval_chain_one, ← chainRow_eq, maskAt_prefix answers a v hs]
   split
-  · exact ChainGraph.projHalf_joinProj _ _ _
-  · exact projHalf_zero _
+  · exact ChainGraph.joinOutput_low _ _
+  · rfl
 theorem eval_chain_prefix_maskAt (hd : 1 ≤ depth answers a) (v : Digest) :
     evalWithAnswerFn (maskAt answers a) (chain a.key.lay a.key.tree a.key.leaf a.chain 0 (depth answers a) v) =
       frontierValue answers a := by
@@ -42,7 +42,7 @@ theorem eval_chain_maskAt (hd : 1 ≤ depth answers a) {count : Nat} (hc : depth
     (frontierValue answers a))
   refine Respects.eval_eq (S := fun q => maskAt answers a q = answers q) ?_ (fun q hq => hq)
   unfold chain
-  refine Respects.foldlM _ _ (fun step hstep value => Respects.projHash _ _ ?_) _
+  refine Respects.foldlM _ _ (fun step hstep value => Respects.shortHash _ ?_) _
   rw [pad64_chainInput, ← chainRow_eq]
   obtain ⟨hlo, hhi⟩ := List.mem_range'_1.mp hstep
   exact maskAt_row_ge answers a value hlo (by omega)
@@ -155,7 +155,7 @@ theorem eval_honestChain_maskAt (lay : Layer) (tree leaf i count : Nat) (hi : i 
   · rw [wotsSeed_maskAt answers a lay tree leaf i]
     apply eval_maskAt_of_respects
     unfold chain
-    refine Respects.foldlM _ _ (fun step hstep value => Respects.projHash _ _ ?_) _
+    refine Respects.foldlM _ _ (fun step hstep value => Respects.shortHash _ ?_) _
     rw [pad64_chainInput]
     intro s' v' hs' heq
     have hstep' : step < 256 := by

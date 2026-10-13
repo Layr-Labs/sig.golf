@@ -1,8 +1,5 @@
 import SigGolfCandidate.T3.Secc.LargePotential
-import SigGolfCandidate.T3.Secc.SeccLaw
-import SigGolfCandidate.T3.Secc.WotsEvents
-import SigGolfCandidate.SphincsSecurity.Proof.Base.FirstSuccessFamily
-import SigGolfCandidate.SphincsSecurity.Proof.Base.UniformTableOverwrite
+import SigGolfCandidate.T3.Secc.CanonEncoding
 
 section
 namespace SigGolfCandidate.T3.Security.LargeResidual
@@ -76,6 +73,17 @@ def Hit.restrict : Hit Coord → (Coord → Finset Digest) → Digest → Coord 
 def Probe.restrict (probe : Probe Coord) (allowed : Coord → Finset Digest) (answer : HashOutput) :
     Coord → Finset Digest :=
   probe.hit.restrict (probe.guessRestrict allowed) (probe.hit.answerValue answer)
+def Probe.Admissible (candidates : Coord → Finset Digest) (hit : Hit Coord) (g : Coord × Digest) : Prop :=
+  2 ≤ (candidates g.1).card ∧ (∀ parent, hit = Hit.label parent → g.1 ≠ parent) ∧
+    hit.isSelected = false
+noncomputable def Probe.effective (candidates : Coord → Finset Digest) (probe : Probe Coord) : Probe Coord :=
+  ⟨probe.guess.filter (fun g => decide (Probe.Admissible candidates probe.hit g)), probe.hit⟩
+omit [DecidableEq Coord] in
+@[simp] theorem Probe.effective_selectedTarget (candidates : Coord → Finset Digest)
+    (guess : Option (Coord × Digest)) (target : Digest) (pickLow : HashOutput → Bool) :
+    (Probe.effective candidates ⟨guess, .selectedTarget target pickLow⟩) =
+      ⟨none, .selectedTarget target pickLow⟩ := by
+  cases guess <;> simp [Probe.effective, Probe.Admissible]
 end Defs
 section Restrict
 variable {Coord : Type} [DecidableEq Coord]
@@ -146,6 +154,8 @@ variable {Coord : Type} [Fintype Coord] [DecidableEq Coord]
 noncomputable def response (labels : Coord → Digest) (probe : Probe Coord) : SPMF HashOutput := do
   let answer ← (liftM (PMF.uniformOfFintype HashOutput) : SPMF HashOutput)
   if probe.keep labels answer then pure answer else failure
+noncomputable def lazyResponse (allowed : Coord → Finset Digest) (probe : Probe Coord) : SPMF HashOutput :=
+  complete allowed >>= fun labels => response labels probe
 omit [Fintype Coord] [DecidableEq Coord] in
 theorem response_apply (labels : Coord → Digest) (probe : Probe Coord) (answer : HashOutput) :
     response labels probe answer =
@@ -157,9 +167,35 @@ theorem response_apply (labels : Coord → Digest) (probe : Probe Coord) (answer
   · intro other hother
     by_cases h : probe.keep labels other <;> simp only [h, if_true, if_false, SPMF.pure_apply,
       if_neg (Ne.symm hother), SPMF.failure_apply, mul_zero]
+theorem Probe.mass (probe : Probe Coord) (allowed : Coord → Finset Digest) (answer : HashOutput)
+    (labels : Coord → Digest) :
+    (if probe.keep labels answer then complete allowed labels else 0) =
+      if probe.hit.answerOk (probe.hit.answerValue answer) then
+        restrictionWeight allowed (probe.restrict allowed answer) * complete (probe.restrict allowed answer) labels
+      else 0 := by
+  by_cases ha : probe.hit.answerOk (probe.hit.answerValue answer)
+  · rw [if_pos ha]
+    have h := restrict_guard allowed (probe.restrict allowed answer) (restrict_subset probe allowed answer)
+      (fun labels => probe.guessMiss labels ∧ probe.hit.labelMiss labels (probe.hit.answerValue answer))
+      (fun labels => mem_restrict probe allowed answer labels) labels
+    have hkeep : probe.keep labels answer ↔ probe.guessMiss labels ∧ probe.hit.labelMiss labels (probe.hit.answerValue answer) := by
+      simp only [Probe.keep, Hit.miss_iff, ha, and_true]
+    by_cases hc : probe.guessMiss labels ∧ probe.hit.labelMiss labels (probe.hit.answerValue answer)
+    · rw [if_pos (hkeep.mpr hc)]
+      rw [if_pos hc] at h
+      exact h
+    · rw [if_neg (fun h' => hc (hkeep.mp h'))]
+      rw [if_neg hc] at h
+      exact h
+  · have hk : ¬probe.keep labels answer := fun h => ha ((Hit.miss_iff _ _ _).mp h.2).2
+    simp only [hk, ha, if_false]
 end Posterior
 section Hazard
 variable {Coord : Type} [Fintype Coord] [DecidableEq Coord]
+noncomputable def law (allowed : Coord → Finset Digest) (ha : ∀ c, (allowed c).Nonempty) :
+    PMF ((Coord → Digest) × HashOutput) :=
+  (uniformTable allowed ha).bind fun labels =>
+    (PMF.uniformOfFintype HashOutput).map fun answer => (labels, answer)
 omit [Fintype Coord] [DecidableEq Coord] in
 theorem response_failure (labels : Coord → Digest) (probe : Probe Coord) :
     (response labels probe).toPMF none =
@@ -307,6 +343,39 @@ def disclosedState (q : Nat) (state : State Coord Cell) (coord : Coord) (value :
   ⟨discloseTableValue state.candidates coord value, state.rows, state.counters.charge q charge⟩
 def tickState (q : Nat) (state : State Coord Cell) (charge : Charge) : State Coord Cell :=
   ⟨state.candidates, state.rows, state.counters.charge q charge⟩
+noncomputable def observedImpl (aux : (input : auxSpec.Domain) → PMF (auxSpec.Range input)) (q : Nat)
+    (labels : Coord → Digest) (table : Cell → HashOutput) :
+    QueryImpl (World auxSpec Coord Cell) (OptionT (StateT (State Coord Cell) SPMF))
+  | .inl input => OptionT.mk <| StateT.mk fun state =>
+      (liftM (aux input) : SPMF _) >>= fun answer => pure (some answer, state)
+  | .inr (.read row charge) => OptionT.mk <| StateT.mk fun state =>
+      pure (some (table row), readState q state row (table row) charge)
+  | .inr (.probe row test) => OptionT.mk <| StateT.mk fun state =>
+      match state.rows row with
+      | some answer => pure (some answer, readState q state row answer .call)
+      | none => if (test.effective state.candidates).keep labels (table row) then
+          pure (some (table row), probeState state row (test.effective state.candidates) (table row))
+        else pure (none, stoppedState state)
+  | .inr (.disclose coord charge) => OptionT.mk <| StateT.mk fun state =>
+      pure (some (labels coord), disclosedState q state coord (labels coord) charge)
+  | .inr (.tick charge) => OptionT.mk <| StateT.mk fun state =>
+      pure (some (), tickState q state charge)
+noncomputable def lazyImpl (aux : (input : auxSpec.Domain) → PMF (auxSpec.Range input)) (q : Nat) :
+    QueryImpl (World auxSpec Coord Cell) (OptionT (StateT (State Coord Cell) SPMF))
+  | .inl input => OptionT.mk <| StateT.mk fun state =>
+      (liftM (aux input) : SPMF _) >>= fun answer => pure (some answer, state)
+  | .inr (.read row charge) => OptionT.mk <| StateT.mk fun state =>
+      reply state.rows row >>= fun answer => pure (some answer, readState q state row answer charge)
+  | .inr (.probe row test) => OptionT.mk <| StateT.mk fun state =>
+      match state.rows row with
+      | some answer => pure (some answer, readState q state row answer .call)
+      | none => observe (lazyResponse state.candidates (test.effective state.candidates))
+          (pure (none, stoppedState state))
+          (fun answer => pure (some answer, probeState state row (test.effective state.candidates) answer))
+  | .inr (.disclose coord charge) => OptionT.mk <| StateT.mk fun state =>
+      cell (state.candidates coord) >>= fun value => pure (some value, disclosedState q state coord value charge)
+  | .inr (.tick charge) => OptionT.mk <| StateT.mk fun state =>
+      pure (some (), tickState q state charge)
 noncomputable def runWith {Result : Type}
     (implementation : QueryImpl (World auxSpec Coord Cell) (OptionT (StateT (State Coord Cell) SPMF)))
     (computation : OracleComp (World auxSpec Coord Cell) Result) (state : State Coord Cell) :
@@ -331,6 +400,13 @@ theorem runWith_query_bind {Result : Type}
   funext result
   rcases result with ⟨answer, state⟩
   cases answer <;> rfl
+noncomputable def observedRun {Result : Type} (aux : (input : auxSpec.Domain) → PMF (auxSpec.Range input)) (q : Nat)
+    (labels : Coord → Digest) (table : Cell → HashOutput)
+    (computation : OracleComp (World auxSpec Coord Cell) Result) (state : State Coord Cell) :=
+  runWith (observedImpl aux q labels table) computation state
+noncomputable def lazyRun {Result : Type} (aux : (input : auxSpec.Domain) → PMF (auxSpec.Range input)) (q : Nat)
+    (computation : OracleComp (World auxSpec Coord Cell) Result) (state : State Coord Cell) :=
+  runWith (lazyImpl aux q) computation state
 def retain {Result : Type} (labels : Coord → Digest) (table : Cell → HashOutput)
     (result : Option Result × State Coord Cell) :
     Option ((Coord → Digest) × (Cell → HashOutput) × Result) × State Coord Cell :=
@@ -350,6 +426,8 @@ variable {Coord Cell AuxIndex : Type} {auxSpec : OracleSpec AuxIndex}
   [Fintype Coord] [DecidableEq Coord] [Fintype Cell] [DecidableEq Cell]
 def charges : Charges (State Coord Cell) :=
   ⟨fun state => state.counters.calls, fun state => state.counters.probes, fun state => state.counters.mass⟩
+def Inv (state : State Coord Cell) : Prop :=
+  ∀ c, (state.candidates c).card = 1 ∨ 2 ^ 128 - state.counters.probes ≤ (state.candidates c).card
 def initial : State Coord Cell := ⟨fun _ => Finset.univ, fun _ => none, ⟨0, 0, 0⟩⟩
 theorem stop_zero_of_shape {X R : Type} (p : SPMF X) (g : X → R) (f : X → State Coord Cell) :
     Pr[fun result : Option R × State Coord Cell => result.1 = none | p >>= fun a => pure (some (g a), f a)] = 0 := by
@@ -479,14 +557,102 @@ namespace SigGolfCandidate.T3.Security.LargeResidual
 open OracleComp OracleSpec ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers)
+open CanonGraph CanonEncoding
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 noncomputable local instance instDecidableEqCache_largeResidualT3 : DecidableEq T3.Cache := Classical.decEq _
+abbrev Coord := CanonGraph.Node ⊕ CanonGraph.SecretIndex
+def chainChild (p : ChainGraph.Point) : Coord :=
+  if p.2.val = 0 then .inr (.inl p.1) else .inl (.chain (ChainGraph.predecessor p))
+def treeChild (lay : Layer) (tree : Fin (2^31)) (level c : Nat) : Option Coord :=
+  if level = 0 then (if h : c < 4096 then some (.inl (.leaf ⟨lay, tree, ⟨c, h⟩⟩)) else none)
+  else (treeNodeAt lay tree (level - 1) c).map fun n => .inl (.node n)
+def ftsChild (index : Fin (2^31)) (coord : Fin 7) (level c : Nat) : Option Coord :=
+  if level = 0 then (if h : c < 2048 then some (.inl (.ftsLeaf ⟨index, coord, ⟨c, h⟩⟩)) else none)
+  else (ftsNodeAt index coord (level - 1) c).map fun n => .inl (.ftsNode n)
+def endPoint (L : LeafPos) (i : Nat) : ChainGraph.Point :=
+  (⟨L.lay, L.tree, L.leaf, fin58 i⟩, ⟨(maxDigit L.lay i - 1) % 7, Nat.mod_lt _ (by decide)⟩)
 def listBlock (i : Nat) : Nat := if i = 0 then 0 else i + 1
+def childSlots : CanonGraph.Node → List (Coord × Nat)
+  | .chain p => [(chainChild p, 3)]
+  | .leaf L => (List.range (chainCount L.lay)).map fun i => (.inl (.chain (endPoint L i)), listBlock i)
+  | .node n => ((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val)).map (·, 0)).toList ++
+      ((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val + 1)).map (·, 3)).toList
+  | .ftsLeaf f => [(.inr (.inr f), 2)]
+  | .ftsNode n => ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val)).map (·, 0)).toList ++
+      ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)).map (·, 3)).toList
+  | .forest index => (List.range 7).map fun c => (.inl (.ftsNode (ftsRootNode index (fin7 c))), listBlock c)
 def slotValue (input : HashInput) (block : Nat) : Digest := readDigest ((input.drop (16 * block)).take 16)
+noncomputable def honestValue (A : Answers) : Coord → Digest
+  | .inl N => (A (.inl (.inr (Extract.honestInput A N.toPos)))).extractLsb' 0 128
+  | .inr s => secretsOf A s
+inductive Known (D : Coord → Prop) : Coord → Prop
+  | base {c : Coord} : D c → Known D c
+  | node {N : CanonGraph.Node} : (∀ cs ∈ childSlots N, Known D cs.1) → Known D (.inl N)
+noncomputable def firstUnknown (K : Coord → Prop) (N : CanonGraph.Node) : Option (Coord × Nat) :=
+  (childSlots N).find? fun cs => decide (¬K cs.1)
+def keygenDisclosed : List Coord :=
+  (List.range' 0 13).flatMap fun level =>
+    (List.range (2 ^ (12 - level))).filterMap fun node => treeChild 0 0 level node
+def chainItem (L : LeafPos) (i d : Nat) : Coord :=
+  if d = 0 then .inr (.inl ⟨L.lay, L.tree, L.leaf, fin58 i⟩)
+  else .inl (.chain (⟨L.lay, L.tree, L.leaf, fin58 i⟩, ⟨(d - 1) % 7, Nat.mod_lt _ (by decide)⟩))
+def ftsOpened (index : Fin (2^31)) (coord : Nat) (sel : Selection) : List Coord :=
+  (sel.leaves.map (fun s => sel.bucket * 128 + s)).filterMap fun leaf =>
+    if h : leaf < 2048 then some (.inr (.inr ⟨index, fin7 coord, ⟨leaf, h⟩⟩)) else none
+def ftsProof (index : Fin (2^31)) (coord : Nat) (sel : Selection) : List Coord :=
+  ((frontier (sel.leaves.map (fun s => sel.bucket * 128 + s)) 7 sel.bucket).filterMap fun p =>
+      ftsChild index (fin7 coord) p.1 p.2) ++
+    ((List.range 4).filterMap fun j => ftsChild index (fin7 coord) (7 + j) (sel.bucket / 2 ^ j ^^^ 1))
+def ftsItems (index : Fin (2^31)) (chosen : List Selection) : List Coord :=
+  (List.range 7).flatMap fun coord =>
+    ftsOpened index coord (chosen.getD coord ⟨0, []⟩) ++ ftsProof index coord (chosen.getD coord ⟨0, []⟩)
 def routeAddr (index : Nat) (lay : Layer) : Wots.LeafAddr := ⟨lay, (route index lay).2, (route index lay).1⟩
+def layerChains (digitsOf : Wots.LeafAddr → List Nat) (index : Fin (2^31)) (lay : Layer) : List Coord :=
+  if h : (route index.val lay).2 < 2 ^ 31 ∧ (route index.val lay).1 < 4096 then
+    (List.range (chainCount lay)).map fun i =>
+      chainItem ⟨lay, ⟨(route index.val lay).2, h.1⟩, ⟨(route index.val lay).1, h.2⟩⟩ i
+        ((digitsOf (routeAddr index.val lay)).getD i 0)
+  else []
+def layerPath (index : Fin (2^31)) (lay : Layer) : List Coord :=
+  if h : (route index.val lay).2 < 2 ^ 31 then
+    (List.range (height lay)).filterMap fun j =>
+      treeChild lay ⟨(route index.val lay).2, h⟩ j ((route index.val lay).1 / 2 ^ j ^^^ 1)
+  else []
+def layerItems (digitsOf : Wots.LeafAddr → List Nat) (index : Fin (2^31)) : List Coord :=
+  (List.finRange 4).flatMap fun lay => layerChains digitsOf index lay ++ layerPath index lay
+def digestIndex (N : HashOutput) : Fin (2^31) := ⟨N.toNat % 2 ^ 31, Nat.mod_lt _ (by positivity)⟩
+def signItemsWith (digitsOf : Wots.LeafAddr → List Nat) (N : HashOutput) : List Coord :=
+  ftsItems (digestIndex N) (selections N) ++ layerItems digitsOf (digestIndex N)
+noncomputable def signItems (A : Answers) (N : HashOutput) : List Coord :=
+  signItemsWith (Wots.referenceDigits A) N
+def RouteOk (A : Answers) (index : Nat) : Prop :=
+  ∀ lay : Layer, lay ≠ 0 → (Wots.referenceSearch A (routeAddr index lay)).isSome
+noncomputable def signDigest (A : Answers) (message : Message) : Option (BitVec 32 × HashOutput) :=
+  evalWithAnswerFn A (digestSearch (evalWithAnswerFn A (privateNonce message)) message 0 attemptLimit)
+noncomputable def signDisclosed (A : Answers) (published : T3.Cache) (request : SigGolfCandidate.T3.Security.Request) :
+    List Coord :=
+  if request.cache = published then
+    match signDigest A request.message with
+    | some (_, N) => if RouteOk A (N.toNat % 2 ^ 31) then signItems A N else []
+    | none => []
+  else []
+def msgCoord (L : EncLeaf) : Coord :=
+  if h : L.1.lay.val < 3 then .inl (.node (rootNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L)))
+  else .inl (.forest (childIndex L))
+def StructuralContact (A : Answers) (K : Coord → Prop) (input : HashInput) (answer : HashOutput) : Prop :=
+  ∃ N : CanonGraph.Node, Extract.posOf input = some N.toPos ∧
+    ((∃ cs, firstUnknown K N = some cs ∧ slotValue input cs.2 = honestValue A cs.1) ∨
+      (input ≠ Extract.honestInput A N.toPos ∧ answer.extractLsb' 0 128 = honestValue A (.inl N)))
+def EncodingContact (A : Answers) (K : Coord → Prop) (input : HashInput) (answer : HashOutput) : Prop :=
+  ∃ (L : EncLeaf) (m : Digest) (ctr : BitVec 32), input = Wots.encodingRow L.toWots m ctr ∧
+    ((¬K (msgCoord L) ∧ m = honestValue A (msgCoord L)) ∨
+      (Wots.referenceInput A L.toWots ≠ some input ∧
+        decode L.1.lay (answer.extractLsb' 0 128) = some (Wots.referenceDigits A L.toWots)))
+def ContactTest (A : Answers) (K : Coord → Prop) (input : HashInput) (answer : HashOutput) : Prop :=
+  StructuralContact A K input answer ∨ EncodingContact A K input answer
 def IsDigestRow (input : HashInput) : Prop :=
   ∃ (rho : Digest) (message : Message) (counter : BitVec 32), input = pad64 (digestInput rho message counter)
 end SigGolfCandidate.T3.Security.LargeResidual

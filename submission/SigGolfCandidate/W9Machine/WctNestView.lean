@@ -196,7 +196,7 @@ theorem nodePad_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8) (j
 theorem nodeHPad_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8) (j : Fin 128) (l : Nat) :
     nodeHPad (viewW w n u) n j.val l = nodeHPad w n j.val l := by
   unfold nodeHPad
-  by_cases hl : l < 4 ∧ j.val / 2 ^ l % 2 = 1
+  by_cases hl : l < 4
   · rw [if_pos hl, if_pos hl]
     have hb := child_low_bounds j ⟨l, by omega⟩
     simp only [Fin.val_mk] at hb

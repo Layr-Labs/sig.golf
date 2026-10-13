@@ -1,8 +1,7 @@
 import SigGolfCandidate.T3.FullCache.NativeGame
 import SigGolfCandidate.T3.Gate6.VerifierGate
+import SigGolfCandidate.T3M.Extract.Main
 import SigGolfCandidate.T3M.Final.SecurityP
-import SigGolfCandidate.T3M.Witness.Queries
-import SigGolfCandidate.T3M.Extract.Leaf
 
 section
 namespace SigGolfCandidate.T3.Security.CountedPrivate
@@ -2532,8 +2531,7 @@ def IsPublicHash : T3.Spec.Domain → Prop
 abbrev Only {α : Type} (program : M α) := AllQueriesSatisfy program IsPublicHash
 attribute [local aesop safe apply] SourceQueries.pure_allowed SourceQueries.bind_allowed
   SourceQueries.map_allowed SourceQueries.foldlM_allowed SourceQueries.mapM_allowed
-  SourceQueries.publicHash_allowed SourceQueries.shortHash_allowed SourceQueries.projHash_allowed
-  SourceQueries.digest_allowed
+  SourceQueries.publicHash_allowed SourceQueries.shortHash_allowed SourceQueries.digest_allowed
 macro "public_verdict_queries" : tactic => `(tactic|
   aesop (config := { maxRuleApplications := 1000 }) (add simp IsPublicHash))
 @[local aesop safe apply] theorem chain_public (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
@@ -3209,98 +3207,6 @@ theorem public_targets_bound {α : Type} (targets : PublicTargets) (maxTargets :
       observe (publicTargetTest targets) program state] ≤
       budget*((maxTargets : ENNReal)/(2 : ENNReal)^128) :=
   observe_hit_bound _ _ (public_target_hazard targets maxTargets hcard) program state budget
-/-! Campaign S1: projected public targets. A query `input` is compared on the half `orient input` of its answer
-(the half that is the honest value at the position named by `input`). A uniform answer has uniform halves. -/
-theorem hashOutput_high_eq_low_swap (output : HashOutput) :
-    output.extractLsb' 128 128 =
-      (output.extractLsb' 0 128 ++ output.extractLsb' 128 128 : BitVec 256).extractLsb' 0 128 := by
-  rw [BitVec.extractLsb'_append_eq_right]
-def swapHalves (output : HashOutput) : HashOutput :=
-  (output.extractLsb' 0 128 ++ output.extractLsb' 128 128 : BitVec 256)
-theorem swapHalves_swapHalves (output : HashOutput) : swapHalves (swapHalves output) = output := by
-  unfold swapHalves
-  rw [BitVec.extractLsb'_append_eq_right, BitVec.extractLsb'_append_eq_left]
-  exact BitVec.extractLsb'_append_extractLsb' (w := 128) (len := 128) (x := output)
-theorem swapHalves_bijective : Function.Bijective swapHalves :=
-  Function.Involutive.bijective swapHalves_swapHalves
-theorem projHalf_eq_low_orient (high : Bool) (output : HashOutput) :
-    projHalf high output = (bif high then swapHalves output else output).extractLsb' 0 128 := by
-  cases high
-  · rfl
-  · simp only [projHalf, cond_true, swapHalves, BitVec.extractLsb'_append_eq_right]
-theorem uniform_proj_mem (high : Bool) (targets : Finset Digest) :
-    Pr[fun output => projHalf high output ∈ targets | ($ᵗ HashOutput : ProbComp HashOutput)]=
-      targets.card/(2 : ENNReal)^128 := by
-  cases high
-  · exact uniform_low_mem targets
-  · have hmap : Pr[fun output => projHalf true output ∈ targets | ($ᵗ HashOutput : ProbComp HashOutput)] =
-        Pr[fun output => output.extractLsb' 0 128 ∈ targets |
-          (swapHalves <$> ($ᵗ HashOutput : ProbComp HashOutput))] := by
-      rw [probEvent_map]
-      congr 1
-      funext output
-      simp only [Function.comp_apply, projHalf_eq_low_orient, cond_true]
-    rw [hmap]
-    have hu : 𝒮[swapHalves <$> ($ᵗ HashOutput : ProbComp HashOutput)] =
-        𝒮[($ᵗ HashOutput : ProbComp HashOutput)] :=
-      evalSPMF_map_bijective_uniform_cross (α := HashOutput) (β := HashOutput) swapHalves swapHalves_bijective
-    rw [probEvent_congr' (fun _ _ => Iff.rfl) hu]
-    exact uniform_low_mem targets
-theorem probEvent_uniform_projHalf_eq (high : Bool) (target : Digest) :
-    Pr[fun output : HashOutput => projHalf high output = target | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      (Fintype.card Digest : ENNReal)⁻¹ := by
-  have h := uniform_proj_mem high {target}
-  simp only [Finset.mem_singleton, Finset.card_singleton, Nat.cast_one] at h
-  rw [h, Fintype.card_bitVec, one_div]
-  norm_num
-/-- Campaign S1: either half of a uniform answer hits a fixed digest with probability `2 ^ -128`. -/
-theorem prob_projHalf_eq (high : Bool) (target : Digest) :
-    Pr[fun answer => projHalf high answer = target | PMF.uniformOfFintype HashOutput] =
-      (Fintype.card Digest : ENNReal)⁻¹ := by
-  simpa only [probEvent_eq_tsum_ite, probOutput_uniformSample, PMF.probOutput_eq_apply,
-    PMF.uniformOfFintype_apply] using probEvent_uniform_projHalf_eq high target
-noncomputable def publicTargetTestP (targets : PublicTargets) (orient : HashInput → Bool) : Test
-  | state,.inl (.inr input),output =>
-      decide (state.2 input=none ∧ projHalf (orient input) output ∈ targets state input)
-  | _,.inl (.inl _),_ => false
-  | _,.inr _,_ => false
-theorem public_target_stepP (targets : PublicTargets) (orient : HashInput → Bool) (state : LazyPrivate.State)
-    (input : HashInput) :
-    Pr[fun result => publicTargetTestP targets orient state (.inl (.inr input)) result.1=true |
-      LazyPrivate.run (liftM (T3.Spec.query (.inl (.inr input)))) state]=
-      if state.2 input=none then (targets state input).card/(2 : ENNReal)^128 else 0 := by
-  change Pr[fun result => publicTargetTestP targets orient state (.inl (.inr input)) result.1=true |
-    LazyPrivate.run (Sampling.publicHandler input) state]=_
-  rw [LazyPrivate.run_publicQuery]
-  by_cases hfresh : state.2 input=none
-  · rw [if_pos hfresh,randomOracle,QueryImpl.withCaching_run_none _ hfresh]
-    simp only [map_eq_bind_pure_comp,bind_assoc,probEvent_bind_eq_expectedValue,
-      probEvent_pure,publicTargetTestP,hfresh,true_and,decide_eq_true_eq,
-      Function.comp_apply,expectedValue_pure]
-    rw [expectedValue_ite_one]
-    exact uniform_proj_mem _ _
-  · rw [if_neg hfresh]
-    apply probEvent_eq_zero
-    intro result _
-    simp only [publicTargetTestP,decide_eq_true_eq,not_and]
-    exact fun h => False.elim (hfresh h)
-theorem public_target_hazardP (targets : PublicTargets) (orient : HashInput → Bool) (maxTargets : Nat)
-    (hcard : ∀ state input,(targets state input).card ≤ maxTargets)
-    (state : LazyPrivate.State) (input : T3.Spec.Domain) :
-    Pr[fun result => publicTargetTestP targets orient state input result.1=true |
-      LazyPrivate.run (liftM (T3.Spec.query input)) state] ≤
-      FullGame.queryCharge input*((maxTargets : ENNReal)/(2 : ENNReal)^128) := by
-  cases input with
-  | inl input =>
-      cases input with
-      | inl n => simp [publicTargetTestP]
-      | inr input =>
-          rw [public_target_stepP]
-          simp only [FullGame.queryCharge,Derivation.charged,if_true,Nat.cast_one,one_mul]
-          split
-          · exact ENNReal.div_le_div_right (by exact_mod_cast hcard state input) _
-          · exact bot_le
-  | inr coordinate => simp [publicTargetTestP]
 noncomputable def onePublicTarget
     (target : LazyPrivate.State → HashInput → Option Digest) : PublicTargets :=
   fun state input => (target state input).toFinset
@@ -3847,72 +3753,6 @@ theorem knownPublicHit_iff (reference : Reference) {α : Type} (result : Recorde
               (known_target_test_iff reference prior input answer).mp ht
             exact ⟨prior,input,answer,honest,output,he,hfresh,href,hknown,heq⟩
     | inr coordinate => simp [publicTargetTest] at ht
-noncomputable def knownTargetP (reference : Reference) (orient : HashInput → Bool) (state : LazyPrivate.State)
-    (input : HashInput) : Option Digest := do
-  let honest ← reference state input
-  let output ← state.2 honest
-  pure (projHalf (orient input) output)
-/-- Campaign S1: a fresh query whose answer agrees, on the half `orient input`, with the (already known) answer of the
-honest input it is compared to. -/
-def KnownPublicHitP (reference : Reference) (orient : HashInput → Bool) {α : Type} (result : Recorded α) : Prop :=
-  ∃ prior input answer honest output,
-    (⟨prior,.inl (.inr input),answer⟩ : QueryEvent) ∈ result.events ∧
-    prior.2 input=none ∧ reference prior input=some honest ∧ prior.2 honest=some output ∧
-    projHalf (orient input) answer=projHalf (orient input) output
-theorem knownTargetP_eq_some (reference : Reference) (orient : HashInput → Bool) (state : LazyPrivate.State)
-    (input : HashInput) (target : Digest) :
-    knownTargetP reference orient state input=some target ↔
-      ∃ honest output,reference state input=some honest ∧ state.2 honest=some output ∧
-        projHalf (orient input) output=target := by
-  unfold knownTargetP
-  cases h : reference state input
-  · simp
-  · rename_i honest
-    cases ho : state.2 honest <;> simp [ho]
-theorem known_target_test_iffP (reference : Reference) (orient : HashInput → Bool) (state : LazyPrivate.State)
-    (input : HashInput) (answer : HashOutput) :
-    publicTargetTestP (onePublicTarget (knownTargetP reference orient)) orient state (.inl (.inr input)) answer=true ↔
-      state.2 input=none ∧ ∃ honest output,
-        reference state input=some honest ∧ state.2 honest=some output ∧
-        projHalf (orient input) answer=projHalf (orient input) output := by
-  simp only [publicTargetTestP,decide_eq_true_eq,onePublicTarget,Option.mem_toFinset,
-    Option.mem_def,knownTargetP_eq_some]
-  constructor
-  · rintro ⟨hfresh,honest,output,hr,ho,he⟩
-    exact ⟨hfresh,honest,output,hr,ho,he.symm⟩
-  · rintro ⟨hfresh,honest,output,hr,ho,he⟩
-    exact ⟨hfresh,honest,output,hr,ho,he.symm⟩
-theorem knownPublicHitP_iff (reference : Reference) (orient : HashInput → Bool) {α : Type} (result : Recorded α) :
-    KnownPublicHitP reference orient result ↔
-      ∃ event ∈ result.events,
-        publicTargetTestP (onePublicTarget (knownTargetP reference orient)) orient event.before event.input
-          event.answer=true := by
-  constructor
-  · rintro ⟨prior,input,answer,honest,output,he,hfresh,href,hknown,heq⟩
-    exact ⟨⟨prior,.inl (.inr input),answer⟩,he,
-      (known_target_test_iffP reference orient prior input answer).mpr
-        ⟨hfresh,honest,output,href,hknown,heq⟩⟩
-  · rintro ⟨⟨prior,query,answer⟩,he,ht⟩
-    cases query with
-    | inl query =>
-        cases query with
-        | inl n => simp [publicTargetTestP] at ht
-        | inr input =>
-            obtain ⟨hfresh,honest,output,href,hknown,heq⟩ :=
-              (known_target_test_iffP reference orient prior input answer).mp ht
-            exact ⟨prior,input,answer,honest,output,he,hfresh,href,hknown,heq⟩
-    | inr coordinate => simp [publicTargetTestP] at ht
-theorem recorded_known_public_hit_boundP {α : Type} (reference : Reference) (orient : HashInput → Bool)
-    (program : M α) (state : LazyPrivate.State) (budget : Nat) :
-    Pr[fun result => (result.events.map (fun event => FullGame.queryCharge event.input)).sum≤budget ∧
-      KnownPublicHitP reference orient result | record program state] ≤ budget/(2 : ENNReal)^128 := by
-  have hcard : ∀ state input,(onePublicTarget (knownTargetP reference orient) state input).card≤1 := by
-    intro state input
-    simp only [onePublicTarget]
-    cases knownTargetP reference orient state input <;> simp
-  have h := recorded_hit_bound _ _
-    (public_target_hazardP (onePublicTarget (knownTargetP reference orient)) orient 1 hcard) program state budget
-  simpa only [Nat.cast_one,mul_one_div,← knownPublicHitP_iff] using h
 theorem recorded_known_public_hit_bound {α : Type} (reference : Reference)
     (program : M α) (state : LazyPrivate.State) (budget : Nat) :
     Pr[fun result => (result.events.map (fun event => FullGame.queryCharge event.input)).sum≤budget ∧
@@ -5593,31 +5433,18 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 attribute [local irreducible] instFintypeAddress order
-/-- Chain value after `step` steps. Campaign S1: the output of step `s` is the half `chainHigh layer chain s` of its
-label (high only for the last step 6 of chain 0 of a lower layer; that output is never a step input). -/
 def value (seeds : Seeds) (labels : Labels) (address : Address) (step : Nat) : Digest :=
   if step=0 then seeds address
-  else projHalf (chainHigh address.layer address.chain.val ((step-1)%7))
-    (labels (address,⟨(step-1)%7,Nat.mod_lt _ (by decide)⟩))
+  else (labels (address,⟨(step-1)%7,Nat.mod_lt _ (by decide)⟩)).extractLsb' 0 128
 theorem value_zero (seeds : Seeds) (labels : Labels) (address : Address) :
     value seeds labels address 0=seeds address := by simp [value]
 theorem value_succ (seeds : Seeds) (labels : Labels) (address : Address) (step : Fin 7) :
-    value seeds labels address (step.val+1)=
-      projHalf (chainHigh address.layer address.chain.val step.val) (labels (address,step)) := by
+    value seeds labels address (step.val+1)=(labels (address,step)).extractLsb' 0 128 := by
   simp [value,Nat.mod_eq_of_lt step.isLt]
-theorem chainHigh_of_lt (lay : Layer) (i : Nat) {step : Nat} (h : step < 6) : chainHigh lay i step = false := by
-  unfold chainHigh
-  have : (step == 6) = false := by simp; omega
-  rw [this]; rfl
 theorem prior_eq_value (seeds : Seeds) (labels : Labels) (point : Point) :
     prior seeds point labels=value seeds labels point.1 point.2.val := by
   have hmod : (point.2.val-1)%7=point.2.val-1 := Nat.mod_eq_of_lt (by have := point.2.isLt;omega)
-  unfold prior value predecessor
-  split_ifs with h0
-  · rfl
-  · rw [chainHigh_of_lt _ _ (by have := point.2.isLt; rw [hmod]; omega)]
-    simp only [hmod]
-    rfl
+  simp only [prior,value,predecessor,hmod]
 theorem row_pad64 (point : Point) (digest : Digest) : pad64 (row point digest)=row point digest := by
   simp [pad64,row_length]
 def Agrees (answers : Answers) (seeds : Seeds) (labels : Labels) : Prop :=
@@ -5631,11 +5458,10 @@ theorem source_step (answers : Answers) (seeds : Seeds) (labels : Labels) (h : A
   have hh := h (address,step)
   rw [hin] at hh
   have hc : chain address.layer address.tree.val address.leaf.val address.chain.val step.val 1
-      (value seeds labels address step.val)=projHash (chainHigh address.layer address.chain.val step.val)
-        (row (address,step) (value seeds labels address step.val)) := by
+      (value seeds labels address step.val)=shortHash (row (address,step) (value seeds labels address step.val)) := by
     simp [chain,List.range'_succ,row]
   rw [hc]
-  change projHalf _ (answers (.inl (.inr (pad64 (row (address,step) (value seeds labels address step.val))))))=_
+  change (answers (.inl (.inr (pad64 (row (address,step) (value seeds labels address step.val)))))).extractLsb' 0 128=_
   rw [row_pad64,hh,value_succ]
 theorem source_chain (answers : Answers) (seeds : Seeds) (labels : Labels) (h : Agrees answers seeds labels)
     (address : Address) (start count : Nat) (hbound : start+count ≤ 7) :
@@ -5819,20 +5645,6 @@ theorem joinOutput_high (low high : Digest) : (joinOutput low high).extractLsb' 
 theorem joinOutput_parts (output : HashOutput) :
     joinOutput (output.extractLsb' 0 128) (output.extractLsb' 128 128)=output :=
   outputEquiv.symm_apply_apply output
-/-- Campaign S1: the answer whose half `high` is `value` and whose other half is `other`. -/
-noncomputable def joinProj (high : Bool) (value other : Digest) : HashOutput :=
-  bif high then joinOutput other value else joinOutput value other
-theorem projHalf_joinProj (high : Bool) (value other : Digest) : projHalf high (joinProj high value other) = value := by
-  cases high
-  · exact joinOutput_low _ _
-  · exact joinOutput_high _ _
-theorem joinProj_false (value other : Digest) : joinProj false value other = joinOutput value other := rfl
-/-- `outputEquiv` with the halves ordered (value half, other half). -/
-noncomputable def outputEquivP (high : Bool) : HashOutput ≃ Digest × Digest :=
-  bif high then outputEquiv.trans (Equiv.prodComm Digest Digest) else outputEquiv
-theorem outputEquivP_symm (high : Bool) (value other : Digest) :
-    (outputEquivP high).symm (value, other) = joinProj high value other := by
-  cases high <;> rfl
 def halves (table : FullGame.FullTable) : HalfTable := fun coordinate =>
   if coordinate.2.val=0 then (table coordinate.1).extractLsb' 0 128
   else (table coordinate.1).extractLsb' 128 128
@@ -6629,6 +6441,309 @@ theorem public_occurrence {α : Type} (program : M α) (hp : SourceReplay.HashOn
   have hknown := (FirstHit.recorded_query_known program hp before result hr _ hevent).1
   have heq := ha _ _ hknown
   exact ⟨prior,by simpa only [heq] using hevent⟩
+def ActualHit (answers : Answers) (events : List FirstHit.QueryEvent) : Prop :=
+  ∃ (position : Extract.Pos) (actual : HashInput) (prior : LazyPrivate.State), position.Bounded ∧ Extract.posOf actual=some position ∧
+    (⟨prior,.inl (.inr actual),answers (.inl (.inr actual))⟩ : FirstHit.QueryEvent) ∈ events ∧
+    SecurityExtraction.HashHit answers (Extract.honestInput answers position) actual
+theorem hit_recorded {α : Type} (program : M α) (hp : SourceReplay.HashOnly program)
+    (before : LazyPrivate.State) (result : FirstHit.Recorded α)
+    (hr : result ∈ support (FirstHit.record program before)) (answers : Answers)
+    (ha : ∀ input answer,SourceReplay.known result.state input=some answer → answers input=answer)
+    (hit : Extract.HitIn answers (SecurityExtraction.queried answers program)) :
+    ActualHit answers result.events := by
+  obtain ⟨position,actual,hbounded,hquery,hpos,hhit⟩ := Extract.hitIn_posOf hit
+  obtain ⟨prior,hevent⟩ := public_occurrence program hp before result hr answers ha actual hquery
+  exact ⟨position,actual,prior,hbounded,hpos,hevent,hhit⟩
+def Conclusion (answers : Answers) (message : Message) (witness : WBytes)
+    (events : List FirstHit.QueryEvent) : Prop :=
+  ∃ digestAnswer : HashOutput, (wdc witness).toNat < attemptLimit ∧
+      evalWithAnswerFn answers (digest (wrho witness) message (wdc witness))=digestAnswer ∧
+      (∃ prior,(⟨prior,.inl (.inr (pad64 (digestInput (wrho witness) message (wdc witness)))),digestAnswer⟩ :
+        FirstHit.QueryEvent) ∈ events) ∧ Shaped digestAnswer witness ∧ digestGate digestAnswer=true ∧
+      (ActualHit answers events ∨
+        (∃ lay : Layer, Extract.Diverge answers witness (digestAnswer.toNat % 2^31) lay
+          (events.map FirstHit.QueryEvent.input) ∧
+          ∀ above : Layer,above.val < lay.val → Extract.Good answers witness (digestAnswer.toNat % 2^31) above) ∨
+        ((∀ lay : Layer,Extract.Good answers witness (digestAnswer.toNat % 2^31) lay) ∧
+          FtsExtract.FtsShaped answers digestAnswer witness))
+theorem verifyP_recorded (message : Message) (publicKey : Digest) (witness : WBytes)
+    (before : LazyPrivate.State) (result : FirstHit.Recorded Bool)
+    (hr : result ∈ support (FirstHit.record (verifyP message publicKey witness) before))
+    (answers : Answers)
+    (ha : ∀ input answer,SourceReplay.known result.state input=some answer → answers input=answer)
+    (hpk : publicKey=Extract.honestRoot answers 0 0) (hwin : result.value=true) :
+    Conclusion answers message witness result.events := by
+  have hp := verifyP_hashOnly message publicKey witness
+  have hv := (SourceReplay.resolves_of_run (verifyP message publicKey witness) hp before
+    (result.value,result.state) (FirstHit.recorded_support _ _ _ hr)).eval answers ha
+  rw [hwin] at hv
+  obtain ⟨digestAnswer,hcounter,hdigest,hquery,hshape,halternatives⟩ :=
+    Extract.verifyP_extract_full answers message publicKey witness hpk hv
+  obtain ⟨prior,hevent⟩ := public_occurrence _ hp before result hr answers ha _ hquery
+  have hanswer : answers (.inl (.inr (pad64 (digestInput (wrho witness) message (wdc witness)))))=digestAnswer :=
+    hdigest
+  refine ⟨digestAnswer,hcounter,hdigest,⟨prior,by simpa only [hanswer] using hevent⟩,hshape,by simpa only [← hdigest] using verifyP_digestGate answers message publicKey witness hv,?_⟩
+  rcases halternatives with hhit | hdiverge | hhonest
+  · exact Or.inl (hit_recorded _ hp before result hr answers ha hhit)
+  · obtain ⟨lay,hdiverge,hgood⟩ := hdiverge
+    refine Or.inr (Or.inl ⟨lay,?_,hgood⟩)
+    rw [FirstHit.recorded_inputs _ hp before result hr answers ha,queried_eq]
+    exact hdiverge
+  · exact Or.inr (Or.inr hhonest)
+end SigGolfCandidate.T3.Security.PaddedExtraction
+end
+section
+namespace SigGolfCandidate.T3.Security.PaddedExtraction
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3M Correctness
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+noncomputable def reference : FirstHit.Reference := fun state input =>
+  (Extract.posOf input).map (Extract.honestInput (SourceReplay.answers state))
+theorem reference_of_pos (state : LazyPrivate.State) (input : HashInput) (position : Extract.Pos)
+    (hpos : Extract.posOf input=some position) :
+    reference state input=some (Extract.honestInput (SourceReplay.answers state) position) := by
+  simp only [reference,hpos,Option.map_some]
+def UnresolvedHit (answers : Answers) (events : List FirstHit.QueryEvent) : Prop :=
+  ∃ (position : Extract.Pos) (actual : HashInput) (prior : LazyPrivate.State), position.Bounded ∧ Extract.posOf actual=some position ∧
+    (⟨prior,.inl (.inr actual),answers (.inl (.inr actual))⟩ : FirstHit.QueryEvent) ∈ events ∧
+    prior.2 actual=none ∧
+    SecurityExtraction.HashHit answers (Extract.honestInput answers position) actual ∧
+    (reference prior actual≠some (Extract.honestInput answers position) ∨
+      prior.2 (Extract.honestInput answers position)=none)
+theorem ActualHit.mono {answers : Answers} {events events' : List FirstHit.QueryEvent}
+    (hit : ActualHit answers events) (hsub : ∀ event ∈ events,event ∈ events') :
+    ActualHit answers events' := by
+  obtain ⟨position,actual,prior,hbounded,hpos,hevent,hhit⟩ := hit
+  exact ⟨position,actual,prior,hbounded,hpos,hsub _ hevent,hhit⟩
+theorem Conclusion.mono {answers : Answers} {message : Message} {witness : WBytes}
+    {events events' : List FirstHit.QueryEvent} (h : Conclusion answers message witness events)
+    (hsub : ∀ event ∈ events,event ∈ events') : Conclusion answers message witness events' := by
+  obtain ⟨N,hcounter,hdigest,⟨prior,hevent⟩,hshape,hgate,halt⟩ := h
+  refine ⟨N,hcounter,hdigest,⟨prior,hsub _ hevent⟩,hshape,hgate,?_⟩
+  rcases halt with hhit | ⟨lay,hdiv,hgood⟩ | hgood
+  · exact Or.inl (hhit.mono hsub)
+  · refine Or.inr (Or.inl ⟨lay,hdiv.mono ?_,hgood⟩)
+    intro input hin
+    obtain ⟨event,hevent,rfl⟩ := List.mem_map.mp hin
+    exact List.mem_map.mpr ⟨event,hsub _ hevent,rfl⟩
+  · exact Or.inr (Or.inr hgood)
+theorem actualHit_known_or_unresolved {α : Type} (program : M α) (result : FirstHit.Recorded α)
+    (hr : result ∈ support (FirstHit.record program (∅,∅))) (answers : Answers)
+    (ha : ∀ input answer,SourceReplay.known result.state input=some answer → answers input=answer)
+    (hit : ActualHit answers result.events) :
+    FirstHit.KnownPublicHit reference result ∨ UnresolvedHit answers result.events := by
+  obtain ⟨position,actual,prior,hbounded,hpos,hevent,hhit⟩ := hit
+  obtain ⟨first,hfirst,hfresh⟩ := FirstHit.first_public_occurrence program result hr prior actual _ hevent
+  by_cases href : reference first actual=some (Extract.honestInput answers position)
+  · cases hout : first.2 (Extract.honestInput answers position) with
+    | none => exact Or.inr ⟨position,actual,first,hbounded,hpos,hfirst,hfresh,hhit,Or.inr hout⟩
+    | some output =>
+        have hx := (FirstHit.recorded_public_known program (∅,∅) result hr first actual _ hfirst).2
+        have hk := SourceReplay.known_mono first result.state hx
+          (show SourceReplay.known first (.inl (.inr (Extract.honestInput answers position)))=some output from hout)
+        have heq := ha _ _ hk
+        exact Or.inl ⟨first,actual,answers (.inl (.inr actual)),Extract.honestInput answers position,output,
+          hfirst,hfresh,href,hout,by simpa only [heq] using hhit.2⟩
+  · exact Or.inr ⟨position,actual,first,hbounded,hpos,hfirst,hfresh,hhit,Or.inl href⟩
+theorem padded_known_bound (adversary : Final.AdversaryP) (q : Nat) (hq : q ≤ 2^127) :
+    Pr[fun result => result.2.2.base.source.1≤q ∧
+      FirstHit.KnownPublicHit reference (QueryRecorded.recordedTrace result) |
+      PaddedGame.tracedExperiment adversary q hq] ≤ q/(2 : ENNReal)^128 :=
+  GameWith.Recorded.known_public_hit_bound PaddedGame.checker reference adversary q hq
+end SigGolfCandidate.T3.Security.PaddedExtraction
+end
+section
+namespace SigGolfCandidate.T3.Security.PaddedExtraction
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3M Correctness Final
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+attribute [local irreducible] keygen verifyP expandB
+def Fresh (log : QueryLog Requests) : ForgeryP → Prop
+  | .witness message _ => ¬∃ entry ∈ log,entry.1.message=message ∧ entry.2.isSome=true
+  | .signature message signature => ¬∃ entry ∈ log,entry.1.message=message ∧ entry.2=some signature
+def WitnessOf (answers : Answers) (publicKey : Digest) : ForgeryP → Message → WBytes → Prop
+  | .witness message witness, m, w => m=message ∧ w=witness
+  | .signature message signature, m, w => m=message ∧ evalWithAnswerFn answers (expandB message publicKey signature)=some w
+theorem check_hashOnly (publicKey : Digest) (log : QueryLog Requests) (forgery : ForgeryP) :
+    SourceReplay.HashOnly (checkForgeryP publicKey log forgery) := by
+  apply allQ_mono (PaddedGame.check_public publicKey log forgery)
+  intro input h
+  rcases input with (coin | input) | coordinate
+  · exact h.elim
+  · trivial
+  · trivial
+theorem check_accepting (answers : Answers) (publicKey : Digest) (log : QueryLog Requests)
+    (forgery : ForgeryP) (hw : evalWithAnswerFn answers (checkForgeryP publicKey log forgery)=true) :
+    Fresh log forgery ∧ ∃ message witness,WitnessOf answers publicKey forgery message witness ∧
+      evalWithAnswerFn answers (verifyP message publicKey witness)=true ∧
+      ∀ input ∈ SecurityExtraction.queried answers (verifyP message publicKey witness),
+        input ∈ SecurityExtraction.queried answers (checkForgeryP publicKey log forgery) := by
+  cases forgery with
+  | witness message witness =>
+      simp only [checkForgeryP,evalWithAnswerFn_bind,evalWithAnswerFn_pure,Bool.and_eq_true,
+        decide_eq_true_eq] at hw
+      refine ⟨hw.1,message,witness,⟨rfl,rfl⟩,hw.2,?_⟩
+      intro input hi
+      simpa only [checkForgeryP,SecurityExtraction.queried_bind,SecurityExtraction.queried_pure,
+        List.append_nil] using hi
+  | signature message signature =>
+      cases he : evalWithAnswerFn answers (expandB message publicKey signature) with
+      | none => simp [checkForgeryP,evalWithAnswerFn_bind,he,evalWithAnswerFn_pure] at hw
+      | some witness =>
+          simp only [checkForgeryP,evalWithAnswerFn_bind,he,evalWithAnswerFn_pure,Bool.and_eq_true,
+            decide_eq_true_eq] at hw
+          refine ⟨hw.1,message,witness,⟨rfl,he⟩,hw.2,?_⟩
+          intro input hi
+          simp only [checkForgeryP,SecurityExtraction.queried_bind,he,SecurityExtraction.queried_pure,
+            List.append_nil]
+          exact List.mem_append_right _ hi
+theorem verifyP_extracted_in {α : Type} (program : M α) (hp : SourceReplay.HashOnly program)
+    (before : LazyPrivate.State) (result : FirstHit.Recorded α)
+    (hr : result ∈ support (FirstHit.record program before)) (answers : Answers)
+    (ha : ∀ input answer,SourceReplay.known result.state input=some answer → answers input=answer)
+    (message : Message) (publicKey : Digest) (witness : WBytes)
+    (hpk : publicKey=Extract.honestRoot answers 0 0)
+    (hv : evalWithAnswerFn answers (verifyP message publicKey witness)=true)
+    (hsub : ∀ input ∈ SecurityExtraction.queried answers (verifyP message publicKey witness),
+      input ∈ SecurityExtraction.queried answers program) : Conclusion answers message witness result.events := by
+  obtain ⟨N,hcounter,hdigest,hquery,hshape,halt⟩ := Extract.verifyP_extract_full answers message publicKey witness hpk hv
+  obtain ⟨prior,hevent⟩ := public_occurrence program hp before result hr answers ha _ (hsub _ hquery)
+  have hans : answers (.inl (.inr (pad64 (digestInput (wrho witness) message (wdc witness)))))=N := hdigest
+  refine ⟨N,hcounter,hdigest,⟨prior,by simpa only [hans] using hevent⟩,hshape,by simpa only [← hdigest] using verifyP_digestGate answers message publicKey witness hv,?_⟩
+  rcases halt with hhit | ⟨lay,hdiv,hgood⟩ | hgood
+  · exact Or.inl (hit_recorded program hp before result hr answers ha (hhit.mono hsub))
+  · refine Or.inr (Or.inl ⟨lay,hdiv.mono ?_,hgood⟩)
+    intro input hin
+    rw [FirstHit.recorded_inputs program hp before result hr answers ha,queried_eq]
+    exact hsub _ hin
+  · exact Or.inr (Or.inr hgood)
+theorem check_recorded (publicKey : Digest) (log : QueryLog Requests) (forgery : ForgeryP)
+    (before : LazyPrivate.State) (result : FirstHit.Recorded Bool)
+    (hr : result ∈ support (FirstHit.record (checkForgeryP publicKey log forgery) before))
+    (answers : Answers)
+    (ha : ∀ input answer,SourceReplay.known result.state input=some answer → answers input=answer)
+    (hpk : publicKey=Extract.honestRoot answers 0 0) (hwin : result.value=true) :
+    Fresh log forgery ∧ ∃ message witness,WitnessOf answers publicKey forgery message witness ∧
+      Conclusion answers message witness result.events := by
+  have hp := check_hashOnly publicKey log forgery
+  have hw := (SourceReplay.resolves_of_run _ hp before (result.value,result.state)
+    (FirstHit.recorded_support _ _ _ hr)).eval answers ha
+  rw [hwin] at hw
+  obtain ⟨hfresh,message,witness,hof,hv,hsub⟩ := check_accepting answers publicKey log forgery hw
+  exact ⟨hfresh,message,witness,hof,verifyP_extracted_in _ hp before result hr answers ha message publicKey witness hpk hv hsub⟩
+theorem verdict_recorded (publicKey : Digest) (interaction : Option ForgeryP × QueryLog Requests)
+    (before : LazyPrivate.State) (result : FirstHit.Recorded Bool)
+    (hr : result ∈ support (FirstHit.record (GameWith.verdict PaddedGame.checker publicKey interaction) before))
+    (answers : Answers)
+    (ha : ∀ input answer,SourceReplay.known result.state input=some answer → answers input=answer)
+    (hpk : publicKey=Extract.honestRoot answers 0 0) (hwin : result.value=true) :
+    interaction.2.length≤2^32 ∧ ∃ forgery,interaction.1=some forgery ∧ Fresh interaction.2 forgery ∧
+      ∃ message witness,WitnessOf answers publicKey forgery message witness ∧
+        Conclusion answers message witness result.events := by
+  cases hf : interaction.1 with
+  | none =>
+      simp only [GameWith.verdict,hf,FirstHit.record_pure,support_pure,Set.mem_singleton_iff] at hr
+      subst result
+      contradiction
+  | some forgery =>
+      simp only [GameWith.verdict,hf,PaddedGame.checker] at hr
+      obtain ⟨checked,hchecked,last,hlast,hvalue,hevents,hstate⟩ := FirstHit.record_bind_support _ _ before result hr
+      rw [FirstHit.record_pure,support_pure,Set.mem_singleton_iff] at hlast
+      subst last
+      simp only [List.append_nil] at hevents
+      have hand : (decide (interaction.2.length≤2^32) && checked.value)=true := hvalue.symm.trans hwin
+      simp only [Bool.and_eq_true,decide_eq_true_eq] at hand
+      obtain ⟨hlength,hcheckedWin⟩ := hand
+      have hcheck := check_recorded publicKey interaction.2 forgery before checked hchecked answers
+        (by simpa only [hstate] using ha) hpk hcheckedWin
+      obtain ⟨hfresh,message,witness,hof,hconclusion⟩ := hcheck
+      exact ⟨hlength,forgery,rfl,hfresh,message,witness,hof,hevents ▸ hconclusion⟩
+end SigGolfCandidate.T3.Security.PaddedExtraction
+end
+section
+namespace SigGolfCandidate.T3.Security.PaddedExtraction
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3M Correctness Final
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+attribute [local irreducible] keygen verifyP expandB
+def GameConclusion (adversary : AdversaryP) (answers : Answers) (result : FirstHit.Recorded Bool) : Prop :=
+  ∃ generated ∈ support (FirstHit.record keygen (∅,∅)),
+    ∃ interaction ∈ support (FirstHit.record
+      (FullGame.loggedWith (FullGame.authenticatedSign generated.value.2)
+        (adversary generated.value.1 generated.value.2)) generated.state),
+      generated.value.1=Extract.honestRoot answers 0 0 ∧
+      interaction.value.2.length≤2^32 ∧
+      ∃ forgery,interaction.value.1=some forgery ∧ Fresh interaction.value.2 forgery ∧
+      ∃ message witness,WitnessOf answers generated.value.1 forgery message witness ∧
+        Conclusion answers message witness result.events
+theorem game_recorded (adversary : AdversaryP) (result : FirstHit.Recorded Bool)
+    (hr : result ∈ support (FirstHit.record (GameWith.idealGame PaddedGame.checker adversary) (∅,∅)))
+    (answers : Answers)
+    (ha : ∀ input answer,SourceReplay.known result.state input=some answer → answers input=answer)
+    (hwin : result.value=true) : GameConclusion adversary answers result := by
+  unfold GameWith.idealGame at hr
+  obtain ⟨generated,hgenerated,rest,hrest,hvalue,hevents,hstate⟩ :=
+    FirstHit.record_bind_support _ _ (∅,∅) result hr
+  obtain ⟨interaction,hinteraction,checked,hchecked,hrestValue,hrestEvents,hrestState⟩ :=
+    FirstHit.record_bind_support _ _ generated.state rest hrest
+  have hgeneratedState : SourceReplay.Extends generated.state result.state := by
+    rw [hstate]
+    exact SourceReplay.run_extends _ generated.state (rest.value,rest.state)
+      (FirstHit.recorded_support _ _ _ hrest)
+  have hgen : evalWithAnswerFn answers keygen=generated.value :=
+    (SourceReplay.resolves_of_run keygen SourceReplay.hashOnly_keygen (∅,∅)
+      (generated.value,generated.state) (FirstHit.recorded_support _ _ _ hgenerated)).eval answers
+        (fun input answer hk => ha input answer
+          (SourceReplay.known_mono generated.state result.state hgeneratedState hk))
+  have hpk : generated.value.1=Extract.honestRoot answers 0 0 := by
+    rw [← hgen]
+    exact Extract.keygen_pk answers
+  have hac : ∀ input answer,SourceReplay.known checked.state input=some answer → answers input=answer := by
+    simpa only [hstate,hrestState] using ha
+  have hw : checked.value=true := hrestValue.symm.trans (hvalue.symm.trans hwin)
+  obtain ⟨hlength,forgery,hforgery,hfresh,message,witness,hof,hconclusion⟩ :=
+    verdict_recorded generated.value.1 interaction.value interaction.state checked hchecked answers hac hpk hw
+  refine ⟨generated,hgenerated,interaction,hinteraction,hpk,hlength,forgery,hforgery,hfresh,message,witness,hof,
+    hconclusion.mono ?_⟩
+  intro event he
+  rw [hevents,hrestEvents]
+  exact List.mem_append_right _ (List.mem_append_right _ he)
+theorem traced_record_support (adversary : AdversaryP) (budget : Nat) (hbudget : budget≤2^127)
+    (result : PaddedGame.TraceResult)
+    (hr : result ∈ (PaddedGame.tracedExperiment adversary budget hbudget).support) :
+    QueryRecorded.recordedTrace result ∈ support
+      (FirstHit.record (GameWith.idealGame PaddedGame.checker adversary) (∅,∅)) := by
+  have hm : QueryRecorded.recordedTrace result ∈
+      (QueryRecorded.recordedTrace <$> PaddedGame.tracedExperiment adversary budget hbudget).support := by
+    rw [PMF.monad_map_eq_map,PMF.support_map]
+    exact ⟨result,hr,rfl⟩
+  rw [PaddedGame.traced_record_erasure,MonitoredPrivate.pmf_support] at hm
+  exact hm
+theorem traced_game (adversary : AdversaryP) (budget : Nat) (hbudget : budget≤2^127)
+    (result : PaddedGame.TraceResult)
+    (hr : result ∈ (PaddedGame.tracedExperiment adversary budget hbudget).support)
+    (answers : Answers)
+    (ha : ∀ input answer,SourceReplay.known result.2.2.base.source.2 input=some answer → answers input=answer)
+    (hwin : result.1=true) : GameConclusion adversary answers (QueryRecorded.recordedTrace result) :=
+  game_recorded adversary _ (traced_record_support adversary budget hbudget result hr) answers ha hwin
+theorem traced_hit_split (adversary : AdversaryP) (budget : Nat) (hbudget : budget≤2^127)
+    (result : PaddedGame.TraceResult)
+    (hr : result ∈ (PaddedGame.tracedExperiment adversary budget hbudget).support)
+    (answers : Answers)
+    (ha : ∀ input answer,SourceReplay.known result.2.2.base.source.2 input=some answer → answers input=answer)
+    (hit : ActualHit answers (QueryRecorded.recordedTrace result).events) :
+    FirstHit.KnownPublicHit reference (QueryRecorded.recordedTrace result) ∨
+      UnresolvedHit answers (QueryRecorded.recordedTrace result).events :=
+  actualHit_known_or_unresolved _ _ (traced_record_support adversary budget hbudget result hr) answers ha hit
 end SigGolfCandidate.T3.Security.PaddedExtraction
 end
 section

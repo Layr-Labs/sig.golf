@@ -60,7 +60,7 @@ theorem auth6_ok (c : Nat) (hc : c < 128) (l : Nat) (hl : l < 6) :
     have : c / 2 ^ 5 % 2 < 2 := Nat.mod_lt _ (by norm_num)
     refine ⟨by omega, by omega, fun h => by omega, fun _ => by omega⟩
 theorem planHW_mod (c l : Nat) : planHW (c % 64) l = planHW c l := by
-  unfold planHW authBase authRoot; rw [Nat.mod_mod]
+  unfold planHW authBase authRoot; rw [Nat.mod_mod_of_dvd _ (by norm_num : 32 ∣ 64)]
 section eval
 variable {s : MachineState} {c : Nat} (h19 : s.getReg .x19 = BitVec.ofNat 64 c) (hc : c < 128)
 include h19 hc

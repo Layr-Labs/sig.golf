@@ -8,7 +8,7 @@ open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open Correctness (Answers treeValue)
 open ClaudeWCT.WCT9 (wotsTree wotsSeed wotsEnd)
 open SphincsSecurity (bytesLE)
-export SigGolfCandidate.T3M.Extract (canonicalHeaderL padLabel)
+export SigGolfCandidate.T3M.Extract (canonicalHeader)
 noncomputable def honestRoot (answers : Answers) (lay : Layer) (tree : Nat) : Digest :=
   treeValue (wotsTree answers lay tree) (height lay) 0
 noncomputable def honestPair (answers : Answers) (lay : Layer) (tree : Nat) : Digest × Digest :=
@@ -99,51 +99,23 @@ def Pos.Bounded : Pos → Prop
   | .wctChain index coord child t step => index < 2 ^ 31 ∧ coord < 9 ∧ child < 128 ∧ t < 6 ∧ step < 4
   | .wctLeaf index coord child => index < 2 ^ 31 ∧ coord < 9 ∧ child < 128
   | .wctNode index coord level nd => index < 2 ^ 31 ∧ coord < 9 ∧ level < 6 ∧ nd < 2 ^ (7 - level - 1)
-/-- Input length of a position (campaign S2: part of the query key; 64-byte folds/chains, 704/896-byte lower/top
-leaves, 128-byte FTS leaves, 320-byte forest). -/
-def Pos.len : Pos → Nat
-  | .chain .. => 64
-  | .leaf lay _ _ => if lay = 0 then 896 else 704
-  | .node .. => 64
-  | .forest _ => 320
-  | .wctChain .. => 64
-  | .wctLeaf .. => 128
-  | .wctNode .. => 64
-/-- The half of the answer that is the honest value at a position (`true` = bytes 16..32): campaign S2 left children
-of the top/lower trees (leaves included) and the last step of lower chain 0; nested FTS r1-1: the top nodes of an
-FTS coordinate (`wctNode` level 5). Everything else uses the low half. -/
-def Pos.high : Pos → Bool
-  | .chain lay _ _ i step => chainHigh lay i step
-  | .leaf _ _ lf => leafHigh lf
-  | .node lay _ level nd => nodeHigh 3 lay.val (2 ^ (height lay - level - 1) + nd)
-  | .forest _ => false
-  | .wctChain .. => false
-  | .wctLeaf .. => false
-  | .wctNode _ _ level _ => level == 5
-/-- The 128-bit half of an output that a position's honest value uses. -/
-def Pos.proj (p : Pos) : HashOutput → Digest := projHalf p.high
-theorem Pos.proj_wctNode_low {index coord level nd : Nat} (h : level ≠ 5) :
-    (Pos.wctNode index coord level nd).proj = fun a => a.extractLsb' 0 128 := by
-  funext a
-  have hb : (level == 5) = false := by simpa using h
-  simp [Pos.proj, Pos.high, projHalf, hb]
-theorem Pos.proj_wctNode_top (index coord nd : Nat) :
-    (Pos.wctNode index coord 5 nd).proj = fun a => a.extractLsb' 128 128 := rfl
+/-- The 128-bit half of an output that a position's honest value uses: for FTS leaves and nodes the half of their
+heap (`WCT9.ftsHalf`: high for the top pair, nested FTS r1-1, and for even heaps `16..255`, C1), the low half
+everywhere else. -/
+def Pos.proj : Pos → HashOutput → Digest
+  | .wctNode _ _ level nd => WCT9.ftsHalf (2 ^ (7 - level - 1) + nd)
+  | .wctLeaf _ _ child => WCT9.ftsHalf (128 + child)
+  | _ => fun a => a.extractLsb' 0 128
 /-- A hit at a position: a different input whose output agrees with the honest one on the used half. -/
 def HashHitAt (answers : Answers) (pos : Pos) (honest actual : HashInput) : Prop :=
   actual ≠ honest ∧ pos.proj (answers (.inl (.inr actual))) = pos.proj (answers (.inl (.inr honest)))
-theorem hashHitAt_iff {answers : Answers} {pos : Pos} {honest actual : HashInput} :
-    HashHitAt answers pos honest actual ↔ HashHitP pos.high answers honest actual := Iff.rfl
 theorem hashHitAt_of_low {answers : Answers} {pos : Pos} {honest actual : HashInput}
     (hp : pos.proj = fun a => a.extractLsb' 0 128) (h : HashHit answers honest actual) :
     HashHitAt answers pos honest actual := by
   unfold HashHitAt; rw [hp]; exact h
 def hdrBlock (input : HashInput) : HashInput := (input.drop 16).take 16
-/-- Campaign S1 query key: the input length and the header block with the witness high word of a one-word label
-erased (`canonicalHeaderL`). -/
-def keyOf (input : HashInput) : Nat × HashInput := (input.length, canonicalHeaderL input.length (hdrBlock input))
-def Pos.key (p : Pos) : Nat × HashInput := (p.len, bytesLE 16 p.hdr)
-def SameHeader (actual honest : HashInput) : Prop := keyOf actual = keyOf honest
+def SameHeader (actual honest : HashInput) : Prop :=
+  canonicalHeader (hdrBlock actual) = canonicalHeader (hdrBlock honest)
 def HitIn (answers : Answers) (qs : List Spec.Domain) : Prop :=
   ∃ pos actual, pos.Bounded ∧ .inl (.inr actual) ∈ qs ∧ HashHitAt answers pos (honestInput answers pos) actual ∧
     SameHeader actual (honestInput answers pos)

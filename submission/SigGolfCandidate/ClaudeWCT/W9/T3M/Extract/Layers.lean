@@ -45,8 +45,7 @@ theorem layersBC_succ_eq (w : WBytes) (index n : Nat) (msg : WCT9.LayerMsg) :
     layersBC w index (n + 1) msg =
       if (wbcCtr w index (Fin.ofNat 4 n)).toNat ≥ WCT9.verifyWindow then pure none else
       (ClaudeWCT.WCT9.encodingHash (Fin.ofNat 4 n) (layerEncodingInputP (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
-          (route index (Fin.ofNat 4 n)).1 msg (wbcCtr w index (Fin.ofNat 4 n)) (wbcHigh w index (Fin.ofNat 4 n))
-          (wbcPad w index (Fin.ofNat 4 n)) (wbcRight w)) >>= fun answer =>
+          (route index (Fin.ofNat 4 n)).1 msg (wbcCtr w index (Fin.ofNat 4 n)) (wbcPad w index (Fin.ofNat 4 n)) (wbcRight w)) >>= fun answer =>
         if n = 0 then topLayerP w index answer
         else match decode (Fin.ofNat 4 n) answer with
           | some digits => layerGuardedPairP w index (Fin.ofNat 4 n) answer digits >>= fun pair =>
@@ -81,7 +80,7 @@ theorem layersBC_succ_split (answers : Answers) (w : WBytes) (index n : Nat) (ms
   rw [queried_bind]
   generalize hans : evalWithAnswerFn answers (ClaudeWCT.WCT9.encodingHash (Fin.ofNat 4 n) (layerEncodingInputP (Fin.ofNat 4 n)
     (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg (wbcCtr w index (Fin.ofNat 4 n))
-    (wbcHigh w index (Fin.ofNat 4 n)) (wbcPad w index (Fin.ofNat 4 n)) (wbcRight w))) = answer at h ⊢
+    (wbcPad w index (Fin.ofNat 4 n)) (wbcRight w))) = answer at h ⊢
   have hdig : ∃ digits, decode (Fin.ofNat 4 n) answer = some digits := by
     by_cases hn0 : n = 0
     · subst hn0

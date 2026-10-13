@@ -204,7 +204,7 @@ theorem step_S (hcode : NewCodeAt im) {c i j index w : Nat} (hc : c < 9) (hi : i
     (hpc : s.pc = pcOf (qI c i + 5)) (h18 : s.getReg .x18 = BitVec.ofNat 64 j)
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (hj : j < 128)
     (h25 : s.getReg .x25 = BitVec.ofNat 64 w) (hw : w < 2 ^ 64) (hd : w / 8 ^ i % 8 ≤ 4) :
-    ∃ t, Steps im s (if c = 0 then 17 else 15) (if c = 0 then 17 else 15) t ∧ t.pc = pcOf (chkI c i 0) ∧
+    ∃ t, Steps im s (if c = 0 then 14 else 15) (if c = 0 then 14 else 15) t ∧ t.pc = pcOf (chkI c i 0) ∧
       t.getReg .x26 = BitVec.ofNat 64 (4 - w / 8 ^ i % 8) ∧
       t.getMem (BitVec.ofNat 64 (CHAINW + 16)) = BitVec.ofNat 64 (chainW0 c i j index 0) ∧
       t.getMem (BitVec.ofNat 64 (CHAINW + 24)) = 0 ∧
@@ -297,7 +297,7 @@ forest pair (`padE`), for `c = 0` it is zero. -/
 theorem step_L (hcode : NewCodeAt im) {c j index : Nat} (hc : c < 9) (s : MachineState) (hpc : s.pc = pcOf (lI c))
     (h18 : s.getReg .x18 = BitVec.ofNat 64 j) (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (hj : j < 128)
     (h29 : s.getReg .x29 = BitVec.ofNat 64 LEAFW) :
-    ∃ t, Steps im s (if c = 0 then 21 else 23) (if c = 0 then 21 else 23) t ∧ fetch im t = some (.base .ECALL) ∧
+    ∃ t, Steps im s (if c = 0 then 17 else 23) (if c = 0 then 17 else 23) t ∧ fetch im t = some (.base .ECALL) ∧
       t.pc = pcOf (tI c - 1) ∧ t.getReg .x10 = BitVec.ofNat 64 LEAFW ∧ t.getReg .x11 = BitVec.ofNat 64 128 ∧
       t.getReg .x12 = BitVec.ofNat 64 (HEAPW + 16 * (j + 128)) ∧
       t.getMem (BitVec.ofNat 64 (LEAFW + 16)) = BitVec.ofNat 64 (leafLo7 c index j) ∧
@@ -352,27 +352,103 @@ theorem step_L (hcode : NewCodeAt im) {c j index : Nat} (hc : c < 9) (s : Machin
   · refine frame_of_memEval ht _ (fun q hq => ?_)
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hq
     rcases hq with rfl | rfl | rfl | rfl <;> refine ⟨rfl, ?_⟩ <;> rw [off_mwc _ _ (by ao)] <;> ao
+/-- The FTS output half offset of heap `h`: 16 (the HIGH half) when `WCT9.ftsHighHeap h` (nested FTS r1-1: heaps 2 and
+3; C1: even heaps `>= 16`, including the leaves of even children), else 0. -/
+def hiOff (h : Nat) : Nat := if WCT9.ftsHighHeap h then 16 else 0
+theorem hiOff_leaf (j : Nat) : hiOff (128 + j) = if j % 2 = 0 then 16 else 0 := by
+  unfold hiOff
+  by_cases hj : j % 2 = 0
+  · rw [if_pos (WCT9.ftsHighHeap_even (by omega) (by omega)), if_pos hj]
+  · rw [if_neg (by rw [WCT9.ftsHighHeap_odd (by omega) (by omega)]; simp), if_neg hj]
+theorem DigAt.writeHash_half (t : MachineState) (a : BitVec 256) (h B : Nat)
+    (h12 : t.getReg .x12 = BitVec.ofNat 64 B) (hB : B + 32 < 2 ^ 64) :
+    DigAt (writeHash t a) (B + hiOff h) (WCT9.ftsHalf h a) := by
+  unfold hiOff WCT9.ftsHalf
+  by_cases hh : WCT9.ftsHighHeap h = true
+  · rw [if_pos hh, if_pos hh]; exact DigAt.writeHash_hi t a B h12 hB
+  · rw [if_neg hh, if_neg hh, Nat.add_zero]; exact DigAt.writeHash_lo t a B h12 hB
+/-- C1: the leaf tail. An even leaf copies the high half (`slot + 16`) onto its slot, then `x18 += 1` and the loop
+test (back to the next leaf, or on to the tree after leaf 127). -/
 theorem step_T (hcode : NewCodeAt im) {c j : Nat} (hc : c < 9) (hj : j < 128) (s : MachineState)
-    (hpc : s.pc = pcOf (tI c)) (h18 : s.getReg .x18 = BitVec.ofNat 64 j) :
-    ∃ t k, Steps im s k k t ∧ k ≤ 4 ∧ (j + 1 < 128 → t.pc = pcOf (leafI c) ∧ t.getReg .x18 = BitVec.ofNat 64 (j + 1)) ∧
+    (hpc : s.pc = pcOf (tI c)) (h18 : s.getReg .x18 = BitVec.ofNat 64 j)
+    (h12 : s.getReg .x12 = BitVec.ofNat 64 (HEAPW + 16 * (128 + j))) :
+    ∃ t k, Steps im s k k t ∧ k ≤ 12 ∧ (j + 1 < 128 → t.pc = pcOf (leafI c) ∧ t.getReg .x18 = BitVec.ofNat 64 (j + 1)) ∧
       (j + 1 = 128 → t.pc = pcOf (nodeI c) ∧ t.getReg .x18 = BitVec.ofNat 64 127) ∧
-      RegsExcept s t [.x6, .x18] ∧ Frame s t (fun _ => False) := by
+      t.getMem (BitVec.ofNat 64 (HEAPW + 16 * (128 + j))) =
+        s.getMem (BitVec.ofNat 64 (HEAPW + 16 * (128 + j) + hiOff (128 + j))) ∧
+      t.getMem (BitVec.ofNat 64 (HEAPW + 16 * (128 + j) + 8)) =
+        s.getMem (BitVec.ofNat 64 (HEAPW + 16 * (128 + j) + hiOff (128 + j) + 8)) ∧
+      RegsExcept s t [.x6, .x7, .x18] ∧
+      Frame s t (fun A => A = HEAPW + 16 * (128 + j) ∨ A = HEAPW + 16 * (128 + j) + 8) := by
   have hl := coordLook_ok hcode hc
-  by_cases hb : j + 1 < 128
-  · obtain ⟨hst', -⟩ := run_pres hl (runT_eq hc true) s hpc (no_obl s) (by
+  have hodd : ∀ d, Br.holds s ⟨.ne, .bin .and (.reg .x18) (cE 1), cE 0, d⟩ ↔ (decide (j % 2 ≠ 0) = d) := fun d => by
+    rw [br_ne_holds]
+    show ((s.getReg .x18 &&& BitVec.ofNat 64 1) != BitVec.ofNat 64 0) = d ↔ _
+    rw [h18, ofNat_and_one j (by omega), ofNat_bne (by omega) (by norm_num)]
+  have hlt : ∀ d, Br.holds s ⟨.ltu, x18p1, cE 128, d⟩ ↔ (decide (j + 1 < 128) = d) := fun d => by
+    rw [br_ltu_holds, eval_x18p1 s h18, eval_cE, ofNat_ult (by omega) (by omega)]
+  have hld : ∀ off, (E.ld (a2E off)).eval s = s.getMem (BitVec.ofNat 64 (HEAPW + 16 * (128 + j) + off)) := by
+    intro off
+    show s.getMem (s.getReg .x12 + BitVec.ofNat 64 off) = _
+    rw [h12, ofNat_add_ofNat]
+  have hea : ∀ off, Addr.eval s (a2A off) = BitVec.ofNat 64 (HEAPW + 16 * (128 + j) + off) := by
+    intro off
+    show s.getReg .x12 + BitVec.ofNat 64 off = _
+    rw [h12, ofNat_add_ofNat]
+  have hrg : ∀ (l : List (Reg × E)), (l.map Prod.fst = [.x6, .x18] ∨ l.map Prod.fst = [.x6, .x7, .x18]) →
+      ∀ r ∈ l.map Prod.fst, r ∈ [.x6, .x7, .x18] := by
+    intro l hl r hr
+    rcases hl with hl | hl <;> rw [hl] at hr <;> simp only [List.mem_cons, List.not_mem_nil, or_false] at hr ⊢ <;> tauto
+  by_cases hj2 : j % 2 = 0
+  · -- even leaf: the copy runs, and `j + 1 < 128` since 127 is odd
+    have hb : j + 1 < 128 := by omega
+    have ho : hiOff (128 + j) = 16 := by rw [hiOff_leaf, if_pos hj2]
+    obtain ⟨hst', -⟩ := run_pres hl (runT_eq hc false true (Or.inr rfl)) s hpc (by
+      intro o ho'
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at ho'
+      rcases ho' with rfl | rfl | rfl | rfl <;>
+        exact valid_ofNat (show (E.reg .x12).eval s = _ from h12) (by ao) (by unfold MEMORY_BYTES; ao)) (by
       intro b hb'
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hb'
-      subst hb'
-      rw [br_ltu_holds, eval_x18p1 s h18, eval_cE, ofNat_ult (by omega) (by omega)]; simp [hb])
-    exact ⟨_, 3, hst', by norm_num, fun _ => ⟨rfl, by rw [pres_getReg]; exact eval_x18p1 s h18⟩,
-      fun h => absurd h (by omega), pres_regsExcept _ _ _ _ _ _ _ s, fun A _ _ => rfl⟩
-  · obtain ⟨hst', -⟩ := run_pres hl (runT_eq hc false) s hpc (no_obl s) (by
+      rcases hb' with rfl | rfl
+      · rw [hlt]; simp [hb]
+      · rw [hodd]; simp [hj2])
+    refine ⟨_, 11, hst', by norm_num, fun _ => ⟨rfl, by rw [pres_getReg]; exact eval_x18p1 s h18⟩,
+      fun h => absurd h (by omega), ?_, ?_,
+      (pres_regsExcept _ _ _ _ _ _ _ s).mono (hrg _ (Or.inr rfl)), ?_⟩
+    · rw [pres_getMem, memEval_cons, memEval_cons, hea, hea, if_neg (by
+        intro he; have := (ofNat_inj (by ao) (by ao)).mp he; omega), if_pos (by rw [Nat.add_zero]), hld, ho]
+    · rw [pres_getMem, memEval_cons, hea, if_pos rfl, hld, ho]
+    · intro A hA hn
+      simp only [not_or] at hn
+      rw [pres_getMem, memEval_cons, memEval_cons, hea, hea,
+        if_neg (fun he => hn.2 ((ofNat_inj hA (by ao)).mp he)),
+        if_neg (fun he => hn.1 (by rw [(ofNat_inj hA (by ao)).mp he, Nat.add_zero]))]
+      rfl
+  · have ho : hiOff (128 + j) = 0 := by rw [hiOff_leaf, if_neg hj2]
+    have hbo : ∀ b ∈ [(⟨.ne, .bin .and (.reg .x18) (cE 1), cE 0, true⟩ : Br)], b.holds s := by
       intro b hb'
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hb'
-      subst hb'
-      rw [br_ltu_holds, eval_x18p1 s h18, eval_cE, ofNat_ult (by omega) (by omega)]; simp [hb])
-    exact ⟨_, 4, hst', le_rfl, fun h => absurd h hb, fun _ => ⟨rfl, rfl⟩, pres_regsExcept _ _ _ _ _ _ _ s,
-      fun A _ _ => rfl⟩
+      subst hb'; rw [hodd]; simp [hj2]
+    by_cases hb : j + 1 < 128
+    · obtain ⟨hst', -⟩ := run_pres hl (runT_eq hc true true (Or.inl rfl)) s hpc (no_obl s) (by
+        intro b hb'
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hb'
+        rcases hb' with rfl | rfl
+        · rw [hlt]; simp [hb]
+        · exact hbo _ (List.mem_singleton_self _))
+      exact ⟨_, 7, hst', by norm_num, fun _ => ⟨rfl, by rw [pres_getReg]; exact eval_x18p1 s h18⟩,
+        fun h => absurd h (by omega), by rw [ho, Nat.add_zero]; rfl, by rw [ho, Nat.add_zero]; rfl,
+        (pres_regsExcept _ _ _ _ _ _ _ s).mono (hrg _ (Or.inl rfl)), fun A _ _ => rfl⟩
+    · obtain ⟨hst', -⟩ := run_pres hl (runT_eq hc true false (Or.inl rfl)) s hpc (no_obl s) (by
+        intro b hb'
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hb'
+        rcases hb' with rfl | rfl
+        · rw [hlt]; simp [hb]
+        · exact hbo _ (List.mem_singleton_self _))
+      exact ⟨_, 8, hst', by norm_num, fun h => absurd h hb, fun _ => ⟨rfl, rfl⟩,
+        by rw [ho, Nat.add_zero]; rfl, by rw [ho, Nat.add_zero]; rfl,
+        (pres_regsExcept _ _ _ _ _ _ _ s).mono (hrg _ (Or.inl rfl)), fun A _ _ => rfl⟩
 theorem eval_nodeLd (s : MachineState) {h : Nat} (h18 : s.getReg .x18 = BitVec.ofNat 64 h) (off : Nat) :
     (nodeLd off).eval s = s.getMem (BitVec.ofNat 64 (HEAPW + 32 * h + off)) := by
   show s.getMem (sh5.eval s + BitVec.ofNat 64 (HEAPW + off)) = _
@@ -380,8 +456,7 @@ theorem eval_nodeLd (s : MachineState) {h : Nat} (h18 : s.getReg .x18 = BitVec.o
 theorem step_N (hcode : NewCodeAt im) {c h index : Nat} (hc : c < 9) (hh1 : 1 ≤ h) (hh : h < 128)
     (s : MachineState) (hpc : s.pc = pcOf (nodeI c)) (h18 : s.getReg .x18 = BitVec.ofNat 64 h)
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (hidx : index < 2 ^ 31) :
-    ∃ t, Steps im s (if c = 0 then 29 else 25) (if c = 0 then 32 else 28) t ∧ fetch im t = some (.base .ECALL) ∧
-      t.pc = pcOf (ntI c - 1) ∧
+    ∃ t, Steps im s 25 28 t ∧ fetch im t = some (.base .ECALL) ∧ t.pc = pcOf (ntI c - 1) ∧
       t.getReg .x10 = BitVec.ofNat 64 NODEW ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 NOUTW ∧
       t.getMem (BitVec.ofNat 64 NODEW) = s.getMem (BitVec.ofNat 64 (HEAPW + 32 * h)) ∧
@@ -431,22 +506,27 @@ theorem step_N (hcode : NewCodeAt im) {c h index : Nat} (hc : c < 9) (hh1 : 1 �
   · refine frame_of_memEval (fun a => rfl) _ (fun q hq => ?_)
     simp only [expN, pres2, List.mem_cons, List.not_mem_nil, or_false] at hq
     rcases hq with rfl | rfl | rfl | rfl | rfl | rfl <;> refine ⟨rfl, ?_⟩ <;> rw [off_mwc _ _ (by ao)] <;> ao
-/-- Nested FTS (r1-1): the fold output half kept for heap `h` (HIGH half for heaps 2 and 3). -/
-def hiOff (h : Nat) : Nat := if h < 4 then 16 else 0
-/-- Cycles of the fold post-hash block (nested FTS r1-1). -/
-def ntC (c h : Nat) : Nat := if c = 0 then 18 else if h = 4 ∨ h = 2 then 25 else 22
+/-- Cycles of the fold post-hash block (nested FTS r1-1; C1: +7 for the half selector `Q_c`). -/
+def ntC (c h : Nat) : Nat := if c = 0 then 25 else if h = 4 ∨ h = 2 then 32 else 29
 /-- The fold pad word `NODEW + 32 + off` after the post-hash block of heap `h` (nested FTS r1-1): `R_{c-1}` after
 heap 4, zero after heap 2 (coordinates `c >= 1`), unchanged otherwise. -/
 def ntPad (c h off : Nat) (s : MachineState) : Word :=
   if 1 ≤ c ∧ h = 4 then s.getMem (BitVec.ofNat 64 (FORW + forOff (c - 1) + 16 + off))
   else if 1 ≤ c ∧ h = 2 then 0 else s.getMem (BitVec.ofNat 64 (NODEW + 32 + off))
+set_option maxRecDepth 100000 in
+theorem hiSel_table : ∀ h, h < 128 →
+    BinOp.eval .sll (BinOp.eval .or (BinOp.eval .sltu (BitVec.ofNat 64 h) (BitVec.ofNat 64 4))
+      (BinOp.eval .xor (BinOp.eval .or (BinOp.eval .and (BitVec.ofNat 64 h) (BitVec.ofNat 64 1))
+        (BinOp.eval .sltu (BitVec.ofNat 64 h) (BitVec.ofNat 64 16))) (BitVec.ofNat 64 1))) (BitVec.ofNat 64 4) =
+      BitVec.ofNat 64 (hiOff h) := by
+  decide +kernel
 theorem eval_hiSelE (s : MachineState) {h : Nat} (h18 : s.getReg .x18 = BitVec.ofNat 64 h) (hh : h < 128) :
     hiSelE.eval s = BitVec.ofNat 64 (hiOff h) := by
-  show BinOp.eval .sll (BinOp.eval .sltu (s.getReg .x18) (BitVec.ofNat 64 4)) (BitVec.ofNat 64 4) = _
+  show BinOp.eval .sll (BinOp.eval .or (BinOp.eval .sltu (s.getReg .x18) (BitVec.ofNat 64 4))
+    (BinOp.eval .xor (BinOp.eval .or (BinOp.eval .and (s.getReg .x18) (BitVec.ofNat 64 1))
+      (BinOp.eval .sltu (s.getReg .x18) (BitVec.ofNat 64 16))) (BitVec.ofNat 64 1))) (BitVec.ofNat 64 4) = _
   rw [h18]
-  unfold hiOff
-  simp only [BinOp.eval, ofNat_ult (show h < 2 ^ 64 by omega) (show 4 < 2 ^ 64 by norm_num)]
-  by_cases h4 : h < 4 <;> simp [h4] <;> rfl
+  exact hiSel_table h hh
 theorem step_NT (hcode : NewCodeAt im) {c h : Nat} (hc : c < 9) (hh1 : 2 ≤ h) (hh : h < 128) (s : MachineState)
     (hpc : s.pc = pcOf (ntI c)) (h18 : s.getReg .x18 = BitVec.ofNat 64 h) :
     ∃ t, Steps im s (ntC c h) (ntC c h) t ∧ (3 ≤ h → t.pc = pcOf (nodeI c)) ∧ (h = 2 → t.pc = pcOf (rI c)) ∧
@@ -475,8 +555,8 @@ theorem step_NT (hcode : NewCodeAt im) {c h : Nat} (hc : c < 9) (hh1 : 2 ≤ h) 
   have post : ∀ (kd : Nat) (b : Bool), (b = true ↔ 3 ≤ h) →
       (1 ≤ c → (kd = 1 ↔ h = 4) ∧ (kd = 2 ↔ h = 2) ∧ kd < 3) →
       runNT c kd b = some (expNT c kd b) →
-      ∃ t, Steps im s (if c = 0 then 18 else if kd = 0 then 22 else 25)
-          (if c = 0 then 18 else if kd = 0 then 22 else 25) t ∧ t.pc = pcOf (if b then nodeI c else rI c) ∧
+      ∃ t, Steps im s (if c = 0 then 25 else if kd = 0 then 29 else 32)
+          (if c = 0 then 25 else if kd = 0 then 29 else 32) t ∧ t.pc = pcOf (if b then nodeI c else rI c) ∧
         t.getReg .x18 = BitVec.ofNat 64 (h - 1) ∧
         t.getMem (BitVec.ofNat 64 (HEAPW + 16 * h)) = s.getMem (BitVec.ofNat 64 (NOUTW + hiOff h)) ∧
         t.getMem (BitVec.ofNat 64 (HEAPW + 16 * h + 8)) = s.getMem (BitVec.ofNat 64 (NOUTW + hiOff h + 8)) ∧
@@ -603,7 +683,7 @@ theorem step_NT (hcode : NewCodeAt im) {c h : Nat} (hc : c < 9) (hh1 : 2 ≤ h) 
       · rw [memEval_mwc_ne _ _ _ hA (by ao) hn.2.2.2, memEval_mwc_ne _ _ _ hA (by ao) hn.2.2.1]; rfl
       · rfl
   have hC : ∀ kd, (1 ≤ c → (kd = 1 ↔ h = 4) ∧ (kd = 2 ↔ h = 2) ∧ kd < 3) →
-      (if c = 0 then 18 else if kd = 0 then 22 else 25) = ntC c h := by
+      (if c = 0 then 25 else if kd = 0 then 29 else 32) = ntC c h := by
     intro kd hk
     unfold ntC
     by_cases c0 : c = 0
@@ -756,7 +836,7 @@ theorem chainInput_len (index c j i st : Nat) (v : Digest) : (WCT9.chainInput in
 theorem ftsChainLow_eq (index c j i st : Nat) (hc : c < 9) (hidx : index < 2 ^ 31) (hst : st < 4) (hi : i < 6)
     (hj : j < 128) : WCT9.ftsChainLow index c j i st = chainW0 c i j index st := by
   unfold WCT9.ftsChainLow chainW0 chainK
-  rw [Nat.mod_eq_of_lt (show i < 8 by omega), Nat.mod_eq_of_lt hst, Nat.mod_eq_of_lt (show c + 1 < 16 by omega),
+  rw [Nat.mod_eq_of_lt (show i < 8 by omega), Nat.mod_eq_of_lt hst, Nat.mod_eq_of_lt (show c < 16 by omega),
     Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hidx]
   ring
 theorem wordsOf_chain (index c j i st : Nat) (v : Digest) (hc : c < 9) (hidx : index < 2 ^ 31) (hst : st < 4)
@@ -774,7 +854,7 @@ def leafIn (index c j : Nat) (pad : Digest) (ends : List Digest) : List UInt8 :=
   bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (WCT9.ftsLeafHeader index c j) ++ bytesLE 16 pad ++
     (ends.drop 1).flatMap (bytesLE 16)
 theorem leafHashP_eq (index c j : Nat) (pad : Digest) (ends : List Digest) :
-    WCT9.leafHashP index c j pad ends = SigGolfCandidate.T3.shortHash (leafIn index c j pad ends) := rfl
+    WCT9.leafHashP index c j pad ends = WCT9.ftsHash (128 + j) (leafIn index c j pad ends) := rfl
 theorem leafIn_len (index c j : Nat) (pad : Digest) (ends : List Digest) (h : ends.length = 6) :
     (leafIn index c j pad ends).length = 128 := by
   have : ((ends.drop 1).flatMap (bytesLE 16)).length = 80 := by
@@ -788,7 +868,7 @@ theorem ftsLeafHeader_words (index c j : Nat) (hc : c < 9) (hidx : index < 2 ^ 3
   congr 1
   · unfold WCT9.ftsLeafLow leafLo7
     congr 1
-    rw [Nat.mod_eq_of_lt (show c + 1 < 16 by omega), Nat.mod_eq_of_lt (show j < 128 from hj), Nat.mod_eq_of_lt hidx]
+    rw [Nat.mod_eq_of_lt (show c < 16 by omega), Nat.mod_eq_of_lt (show j < 128 from hj), Nat.mod_eq_of_lt hidx]
     ring
   · congr 1
     apply BitVec.eq_of_toNat_eq
@@ -811,7 +891,7 @@ theorem wordsOf_leaf (index c j : Nat) (pad : Digest) (ends : List Digest) (h : 
 def nodeIn (c index h : Nat) (pad L R : Digest) : List UInt8 :=
   bytesLE 16 L ++ bytesLE 16 (WCT9.wctNodeHeader c index h) ++ bytesLE 16 pad ++ bytesLE 16 R
 theorem nodeHash_eq (c index h : Nat) (L R : Digest) :
-    WCT9.wctNodeHash c index h L R = SigGolfCandidate.T3.shortHash (nodeIn c index h 0 L R) := by
+    WCT9.wctNodeHash c index h L R = WCT9.ftsHash h (nodeIn c index h 0 L R) := by
   unfold nodeIn; rw [WCT9.bytesLE_zero16]; rfl
 theorem topHash_eq (c index h : Nat) (L pad R : Digest) :
     WCT9.wctTopHash c index h L pad R =
@@ -835,11 +915,11 @@ theorem wordsOf_node (c index h : Nat) (pad L R : Digest) (hc : c < 9) (hidx : i
     by_cases h8 : 8 ≤ h
     · rw [if_pos (show SigGolfCandidate.T3.FtsNew h from ⟨h8, hh⟩), if_pos h8]
       unfold nodeLo7 WCT9.ftsNodeLowN
-      rw [Nat.mod_eq_of_lt (show c + 1 < 16 by omega), Nat.mod_eq_of_lt hidx]
+      rw [Nat.mod_eq_of_lt (show c < 16 by omega), Nat.mod_eq_of_lt hidx]
       congr 1; omega
     · rw [if_neg (show ¬ SigGolfCandidate.T3.FtsNew h from fun h' => h8 h'.1), if_neg h8]
       unfold nodeLo7 WCT9.ftsLeafLow
-      rw [Nat.mod_eq_of_lt (show c + 1 < 16 by omega), Nat.mod_eq_of_lt hidx]
+      rw [Nat.mod_eq_of_lt (show c < 16 by omega), Nat.mod_eq_of_lt hidx]
       congr 1; omega
   have hhi : (WCT9.wctNodeHeader c index h).extractLsb' 64 64 = BitVec.ofNat 64 (if 8 ≤ h then 0 else h) := by
     rw [WCT9.wctNodeHeader_high hc]

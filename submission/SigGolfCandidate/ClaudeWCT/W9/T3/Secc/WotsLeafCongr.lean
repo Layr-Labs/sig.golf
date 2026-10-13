@@ -159,7 +159,7 @@ theorem eval_chain_out {lay : Layer} {tree leaf i : Nat} (hi : i < 2 ^ 24)
     evalWithAnswerFn T' (chain lay tree leaf i start count v) = evalWithAnswerFn T (chain lay tree leaf i start count v) := by
   apply eval_out hC
   unfold chain
-  refine Respects.foldlM _ _ (fun step hstep value => Respects.projHash _ _ ?_) _
+  refine Respects.foldlM _ _ (fun step hstep value => Respects.shortHash _ ?_) _
   have := List.mem_range'_1.mp hstep
   exact leafOut_chainInput L value hi (by omega) hna
 
@@ -269,7 +269,7 @@ theorem eval_chainL {c count : Nat} (hc : c < chainCount L.lay) (hd : depth T �
   rw [hf]
   refine Respects.eval_eq (S := fun q => T' q = T q) ?_ (fun q hq => hq)
   unfold chain
-  refine Respects.foldlM _ _ (fun step hstep value => Respects.projHash _ _ ?_) _
+  refine Respects.foldlM _ _ (fun step hstep value => Respects.shortHash _ ?_) _
   rw [pad64_chainInput]
   obtain ⟨hlo, hhi⟩ := List.mem_range'_1.mp hstep
   exact hC.rows c hc step value hlo (by omega)

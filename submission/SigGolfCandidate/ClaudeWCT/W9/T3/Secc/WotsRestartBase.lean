@@ -186,7 +186,7 @@ theorem route_step_lazy (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTable
           constructor
           · rintro rfl
             refine ⟨_, Or.inr rfl, ?_⟩
-            exact ChainGraph.projHalf_joinProj _ _ _
+            simp only [low, ChainGraph.joinOutput_low]
           · rintro ⟨answer, hm | hm, hl⟩
             ·
               have hold := (hinv i v w).mpr ⟨answer, hm, hl⟩
@@ -194,7 +194,7 @@ theorem route_step_lazy (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTable
               exact hw₀
             · have := congrArg Prod.snd hm
               simp only at this
-              rw [← hl, this, ChainGraph.projHalf_joinProj]
+              rw [← hl, this, low, ChainGraph.joinOutput_low]
         · have hne : chainRow a p.1 p.2 ≠ chainRow a i v := by
             intro he
             obtain ⟨hs, hv⟩ := Mask.chainRow_inj (by have := p.1.isLt; omega) (by have := i.isLt; omega) he

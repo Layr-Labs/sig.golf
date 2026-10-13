@@ -18,8 +18,6 @@ theorem queried_length_pure (T : Answers) {α : Type} (x : α) :
     (SourceReplay.queried T (pure x : M α)).length = 0 := rfl
 theorem queried_length_shortHash (T : Answers) (input : HashInput) :
     (SourceReplay.queried T (shortHash input)).length = 1 := rfl
-theorem queried_length_projHash (T : Answers) (high : Bool) (input : HashInput) :
-    (SourceReplay.queried T (projHash high input)).length = 1 := rfl
 theorem queried_length_privatePair (T : Answers) (tag lay tree position index : Nat) :
     (SourceReplay.queried T (privatePair tag lay tree position index)).length = 1 := rfl
 theorem queried_length_foldlM (T : Answers) {β γ : Type} (l : List β) (f : γ → β → M γ) (c : β → Nat)
@@ -47,7 +45,7 @@ theorem sum_map_one {β : Type} (l : List β) : (l.map fun _ => 1).sum = l.lengt
 theorem queried_length_chain (T : Answers) (lay : Layer) (tree leaf i start count : Nat) (v : Digest) :
     (SourceReplay.queried T (chain lay tree leaf i start count v)).length = count := by
   unfold chain
-  rw [queried_length_foldlM T _ _ (fun _ => 1) (fun _ _ _ => queried_length_projHash _ _ _), sum_map_one,
+  rw [queried_length_foldlM T _ _ (fun _ => 1) (fun _ _ _ => queried_length_shortHash _ _), sum_map_one,
     List.length_range']
 def halfCount (lay : Layer) (digits : List Nat) (signatureOnly : Bool) (i : Nat) : Nat :=
   if chainCount lay ≤ i then 0
@@ -140,7 +138,7 @@ theorem queried_length_buildLeafTop (T : Answers) (leaf : Nat) (digits : List Na
   unfold topLeafCount
   cases signatureOnly
   · simp only [Bool.false_eq_true, ↓reduceIte]
-    rw [queried_length_bind, queried_length_pure, leafHash, queried_length_projHash]
+    rw [queried_length_bind, queried_length_pure, leafHash, queried_length_shortHash]
     omega
   · simp only [↓reduceIte]
     rw [queried_length_pure]
@@ -153,7 +151,7 @@ theorem queried_length_signTop (T : Answers) (cache : Cache) (leaf : Nat) (digit
 theorem queried_length_buildLevel (T : Answers) (tag lay tree h level : Nat) (nodes : List Digest) :
     (SourceReplay.queried T (buildLevel tag lay tree h level nodes)).length = nodes.length / 2 := by
   unfold buildLevel
-  rw [queried_length_mapM T _ _ (fun _ => 1) (fun i _ => by unfold nodeHash; exact queried_length_projHash _ _ _),
+  rw [queried_length_mapM T _ _ (fun _ => 1) (fun i _ => by unfold nodeHash; exact queried_length_shortHash _ _),
     sum_map_one, List.length_range]
 theorem getD_length_of_map {xs ys : List (List Digest)} (h : xs.map List.length = ys.map List.length) (i : Nat) :
     (xs.getD i []).length = (ys.getD i []).length := by

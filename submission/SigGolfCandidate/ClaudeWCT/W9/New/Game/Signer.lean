@@ -8,7 +8,7 @@ section
 namespace ClaudeWCT.WCT9
 open OracleComp OracleSpec SigGolfCandidate.T3
 open SigGolfCandidate.T3M (PubGood allQ_pure allQ_bind allQ_foldlM allQ_mapM allQ_mono pubGood_shortHash
-  pubGood_nodeHash pubGood_projHash)
+  pubGood_nodeHash)
 open SphincsSecurity (bytesLE_length)
 def LowerSeedQ (lay : Layer) (tree : Nat) : SigGolfCandidate.T3.Spec.Domain → Prop
   | .inr (.inl tweak) => ∃ pair, tweak = lowerSeedHeader lay tree pair
@@ -19,7 +19,7 @@ section
 variable (lay : Layer) (tree : Nat)
 theorem lowerQuery_chain (leaf i start count : Nat) (value : Digest) :
     AllQueriesSatisfy (SigGolfCandidate.T3.chain lay tree leaf i start count value) (LowerQuery lay tree) :=
-  allQ_mono (allQ_foldlM _ _ (fun _ _ => pubGood_projHash _ _ (by simp [SigGolfCandidate.T3.chainInput, bytesLE_length, zero16])) _)
+  allQ_mono (allQ_foldlM _ _ (fun _ _ => pubGood_shortHash _ (by simp [SigGolfCandidate.T3.chainInput, bytesLE_length, zero16])) _)
     (fun _ h => Or.inl h)
 theorem lowerQuery_leafHash (leaf : Nat) (ends : List Digest) :
     AllQueriesSatisfy (SigGolfCandidate.T3.leafHash lay tree leaf ends) (LowerQuery lay tree) :=
@@ -121,6 +121,12 @@ theorem highHash_allowed (input : HashInput) : AllQueriesSatisfy (WCT9.highHash 
   unfold WCT9.highHash publicHash
   exact SourceQueries.bind_allowed P ((allQueriesSatisfy_query_iff _ _).mpr (hpublic _))
     fun _ => SourceQueries.pure_allowed P _
+include hpublic in
+theorem ftsHash_allowed (heap : Nat) (input : HashInput) : AllQueriesSatisfy (WCT9.ftsHash heap input) P := by
+  rw [WCT9.ftsHash_eq]
+  split
+  · exact highHash_allowed P hpublic _
+  · exact shortHash_allowed P hpublic _
 include hseed in
 theorem seed_allowed (lay tree position index : Nat) :
     AllQueriesSatisfy (privatePair 8 lay tree position index) P := by
@@ -157,7 +163,7 @@ theorem buildChildF_allowed (index coord selected : Nat) (word : Rank) (coefs : 
     intro _
     exact SourceQueries.pure_allowed P _
   · intro state
-    exact SourceQueries.bind_allowed P (by unfold WCT9.leafHashP; exact shortHash_allowed P hpublic _)
+    exact SourceQueries.bind_allowed P (by unfold WCT9.leafHashP; exact ftsHash_allowed P hpublic _ _)
       fun _ => SourceQueries.pure_allowed P _
 include hpublic in
 theorem nodeHash_allowed (tag lay tree heap : Nat) (left right : Digest) :
@@ -174,7 +180,7 @@ theorem heapBuild_allowed (index coord : Nat) (padR : Digest) (leaves : List Dig
   unfold WCT9.wctHeapNode
   split
   · unfold WCT9.wctTopHash; exact highHash_allowed P hpublic _
-  · unfold WCT9.wctNodeHash; exact nodeHash_allowed P hpublic _ _ _ _ _ _
+  · unfold WCT9.wctNodeHash; exact ftsHash_allowed P hpublic _ _
 include hpublic hseed in
 theorem buildCoordinateF_allowed (index : Nat) (coord : Coord) (selected : Child) (word : Rank)
     (prev : Digest × Digest) :

@@ -997,8 +997,8 @@ include hpre
 theorem leaf_iter71 (hso : A.so = true) {j : Nat} (hj : j < A.n) {st : List Digest × List Digest}
     {t : MachineState} (ht : LeafInv s0 A j st t) (hpc : t.pc = pcOf (1013 + 71)) (seed : Digest)
     (hseed : DigAt t (CHAIN + 48) seed) :
-    TSim Sign.image sk t (11 + selectorExtra A.lay j + (Sign.Seed.rungKS A.lay * A.e j + 10))
-      (11 + selectorExtra A.lay j + (Sign.Seed.rungCS A.lay * A.e j + 10)) (A.e j) (A.e j)
+    TSim Sign.image sk t (11 + selectorExtra A.lay j + (rungK A.lay * A.e j + 10))
+      (11 + selectorExtra A.lay j + (rungC A.lay * A.e j + 10)) (A.e j) (A.e j)
       (halfUpd A st <$> chainProg A j seed)
       (fun st' u => u.pc = pcOf (1013 + 41) ∧ LeafInv s0 A (j + 1) st' u ∧
         Frame t u (fun X => (X = CHAIN + 16 ∨ X = CHAIN + 24) ∨ (CHAIN + 48 ≤ X ∧ X < CHAIN + 80) ∨
@@ -1026,9 +1026,8 @@ theorem leaf_iter71 (hso : A.so = true) {j : Nat} (hj : j < A.n) {st : List Dige
   all_goals (try simp only [hso, if_true])
   all_goals omega
 
-/-- Cycles of one top chain: `b+41`, hook, `20746`, `jal`, HORN, `j`, then the chain from `b + 71` (campaign S2: the
-chain bound includes the 13-step chain-0 fix per rung). -/
-def topChainC : Nat := 5 + hornCT + 1 + 411
+/-- Cycles of one top chain: `b+41`, hook, `20746`, `jal`, HORN, `j`, then the chain from `b + 71`. -/
+def topChainC : Nat := 5 + hornCT + 1 + 320
 
 structure FStT (s0 : MachineState) (A : LeafArgs) (coefs : List Digest) (j : Nat)
     (st : List Digest × List Digest) (u : MachineState) : Prop where
@@ -1085,18 +1084,17 @@ theorem top_chain_step (hlay : A.lay = 0) (hso : A.so = true) (htree : A.tree = 
   have hpre' : LeafPreS sk (hybT s0 w2) A := LeafPreS.transferT hpre hs'.regs hs'.base hdS
   have hseed : DigAt w2 (CHAIN + 48) (familyEval coefs (j + 1)) := wseed.frame w2f (by decide) (by simp) (by simp)
   have hit := leaf_iter71 sk hpre' hso (j := j) (by omega) hinvw (by rw [w2pc]) _ hseed
-  have hk : 11 + selectorExtra A.lay j + (Sign.Seed.rungKS A.lay * A.e j + 10) ≤
-      11 + selectorExtra A.lay j + (Sign.Seed.rungCS A.lay * A.e j + 10) := by
-    have h1 : Sign.Seed.rungKS A.lay ≤ Sign.Seed.rungCS A.lay := by
-      unfold Sign.Seed.rungKS Sign.Seed.rungCS rungK rungC; omega
+  have hk : 11 + selectorExtra A.lay j + (rungK A.lay * A.e j + 10) ≤
+      11 + selectorExtra A.lay j + (rungC A.lay * A.e j + 10) := by
+    have h1 : rungK A.lay ≤ rungC A.lay := by unfold rungK rungC; omega
     have := Nat.mul_le_mul_right (A.e j) h1
     omega
-  have hc : 11 + selectorExtra A.lay j + (Sign.Seed.rungCS A.lay * A.e j + 10) ≤ 411 := by
+  have hc : 11 + selectorExtra A.lay j + (rungC A.lay * A.e j + 10) ≤ 320 := by
     have he : A.e j ≤ 7 := by unfold LeafArgs.e; rw [hso, if_pos rfl]; exact hd7 j (by omega)
     have hsel : selectorExtra A.lay j ≤ 5 := by unfold selectorExtra; split_ifs <;> omega
-    have hr : Sign.Seed.rungCS A.lay = 55 := by rw [hlay]; rfl
+    have hr : rungC A.lay = 42 := by rw [hlay]; rfl
     rw [hr]
-    have := Nat.mul_le_mul_left 55 he
+    have := Nat.mul_le_mul_left 42 he
     omega
   rw [topStep_eq hlay hso htree]
   refine TBSim.mono (TBSim.steps (((((st1.trans st2).trans st3).trans st4).trans sw).trans sw2)

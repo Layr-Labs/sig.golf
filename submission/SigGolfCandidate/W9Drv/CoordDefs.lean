@@ -8,7 +8,7 @@ open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput)
 open W9Machine
-def dispatchPc (n : Nat) : Nat := [89, 171, 257, 342, 426, 512, 597, 681, 766, 851].getD n 851
+def dispatchPc (n : Nat) : Nat := [89, 171, 257, 342, 426, 512, 597, 681, 766, 850].getD n 850
 def cachedWord (n : Nat) : Nat := [0,0,1,1,1,2,2,2,2,2].getD n 2
 def pairBase : Nat := 0xffbe10
 /-- Nested FTS: coordinate 0's pads are the witness slots of region 0 (honest 0). -/
@@ -21,7 +21,7 @@ structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   le : n ≤ 9
   length : pairs.length = n
   pc : u.pc = pcOf (dispatchPc n)
-  glob : Glob [(.x5, 0)] w pk u
+  glob : Glob baseK w pk u
   digest : DigestAt a u
   bank : HeaderBank u
   forest : ForestData u
@@ -31,11 +31,11 @@ structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   stepTwo : u.getReg .x13 = 2
   hashLen : u.getReg .x11 = 64
   coordStep : u.getReg .x6 = 65536
-  nodeReg : u.getReg .x15 = BitVec.ofNat 64 (idxOf a * 2^27 + 67073 + 65536 * (n-1))
-  d0 : u.getMem (BitVec.ofNat 64 dataBase7) = 0xFFF
+  nodeReg : u.getReg .x15 = BitVec.ofNat 64 (idxOf a * 2^27 + 1537 + 65536 * (n-1))
   cached3 : u.getReg .x17 = if n < 8 then a.extractLsb' 192 64 else a.extractLsb' 192 64 ||| rankPad
   cached : u.getReg .x16 = a.extractLsb' (64 * cachedWord n) 64 ||| rankPad
   mask : u.getReg .x2 = BitVec.ofNat 64 0xfff00
+  childMask : n ≥ 3 → u.getReg .x27 = BitVec.ofNat 64 0x7f00000
   jt : u.getReg .x24 = rankPad
   childBlock : u.getReg .x29 = BitVec.ofNat 64 0xf1b00
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (8560 - 896 * (n-1))
@@ -46,5 +46,5 @@ structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
     u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + 848)
   coords : ∀ m, n ≤ m → m ≤ 9 → ∀ off, off < 896 → off % 8 = 0 → (m = 9 → 720 ≤ off) →
     (m = n → ¬ V3.isHand off) → W9Machine.OrigW w u (regionAddr m + off)
-  layer : Orig w (fun o => (24 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24880)) u
+  layer : Orig w (fun o => (32 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24832)) u
 end W9Drv

@@ -14,76 +14,47 @@ def wctEnd : Nat := 8256
 def wctChainBlock (k t : Nat) : Nat := regionBase k + (640 - 64 * t)
 def wctLeafBlock (k : Nat) : Nat := regionBase k + 688
 def wctLeafSlot (k t : Nat) : Nat := regionBase k + (if t = 0 then 688 else 720 + 16 * t)
+/-- C1 (FTS Merkle half-swap): fold-window bases of levels 0..4 by `child % 32` (five 64-byte windows
+`[left | header | pad | right]` in `[0, 320)` of a region), and the level-5 window at 832 (nested FTS r1-1). The second
+component is unused (the top sibling sits at `topSlot`). -/
 def authPlans : List (List Nat × Nat) :=
-  [([0,32,64,96,128,832], 224),
-   ([0,48,80,112,144,832], 240),
-   ([48,0,80,112,144,832], 240),
-   ([32,112,160,192,224,832], 0),
-   ([48,80,144,192,224,832], 0),
-   ([32,80,144,192,224,832], 0),
-   ([80,32,144,192,224,832], 0),
-   ([64,16,144,192,224,832], 0),
-   ([48,80,112,176,224,832], 0),
-   ([32,80,112,176,224,832], 0),
-   ([80,32,112,176,224,832], 0),
-   ([272,16,64,160,208,832], 0),
-   ([80,112,32,176,224,832], 0),
-   ([64,112,16,176,224,832], 0),
-   ([112,64,16,176,224,832], 0),
-   ([256,208,160,0,48,832], 144),
-   ([48,80,112,144,208,832], 0),
-   ([32,80,112,144,208,832], 0),
-   ([80,32,112,144,208,832], 0),
-   ([272,16,64,176,128,832], 0),
-   ([80,112,32,144,208,832], 0),
-   ([64,112,16,144,208,832], 0),
-   ([112,64,16,144,208,832], 0),
-   ([288,240,16,64,128,832], 0),
-   ([80,112,144,32,208,832], 0),
-   ([64,112,144,16,208,832], 0),
-   ([112,64,144,16,208,832], 0),
-   ([288,112,160,240,0,832], 224),
-   ([112,144,64,16,208,832], 0),
-   ([128,176,288,240,0,832], 112),
-   ([176,128,288,240,0,832], 112),
-   ([272,224,176,128,0,832], 112),
-   ([48,80,112,144,256,832], 0),
-   ([32,80,112,144,256,832], 0),
-   ([80,32,112,144,256,832], 0),
-   ([272,16,64,96,208,832], 0),
-   ([80,112,32,144,256,832], 0),
-   ([64,112,16,144,256,832], 0),
-   ([112,64,16,144,256,832], 0),
-   ([288,240,16,64,176,832], 0),
-   ([80,112,144,32,256,832], 0),
-   ([64,112,144,16,256,832], 0),
-   ([112,64,144,16,256,832], 0),
-   ([288,112,160,0,48,832], 224),
-   ([112,144,64,16,256,832], 0),
-   ([128,176,288,16,64,832], 0),
-   ([176,128,288,16,64,832], 0),
-   ([272,224,176,48,96,832], 160),
-   ([80,112,144,256,208,832], 0),
-   ([64,112,144,256,208,832], 0),
-   ([112,64,144,256,208,832], 0),
-   ([288,112,160,48,0,832], 224),
-   ([112,144,64,256,208,832], 0),
-   ([128,176,16,64,288,832], 0),
-   ([176,128,16,64,288,832], 0),
-   ([272,224,96,144,48,832], 208),
-   ([112,144,256,208,64,832], 0),
-   ([128,176,64,16,288,832], 0),
-   ([176,128,64,16,288,832], 0),
-   ([272,144,192,96,48,832], 256),
-   ([176,112,64,16,288,832], 0),
-   ([192,240,144,96,48,832], 304),
-   ([240,192,144,96,48,832], 304),
-   ([256,208,160,112,64,832], 0)]
-def authBase (child l : Nat) : Nat := ((authPlans.getD (child % 64) ([], 0)).1).getD l 0
+  [([16,64,112,160,192,832], 0),
+   ([0,64,112,160,192,832], 0),
+   ([16,80,144,192,224,832], 0),
+   ([0,80,144,192,224,832], 0),
+   ([16,64,128,192,224,832], 0),
+   ([0,64,128,192,224,832], 0),
+   ([64,0,128,192,224,832], 0),
+   ([0,80,160,224,256,832], 0),
+   ([16,64,112,176,224,832], 0),
+   ([0,64,112,176,224,832], 0),
+   ([16,80,144,208,256,832], 0),
+   ([0,80,144,208,256,832], 0),
+   ([16,144,80,208,256,832], 0),
+   ([0,64,128,208,256,832], 0),
+   ([64,0,128,208,256,832], 0),
+   ([0,128,80,208,256,832], 0),
+   ([16,64,112,240,176,832], 0),
+   ([0,64,112,240,176,832], 0),
+   ([64,0,112,240,176,832], 0),
+   ([256,0,64,192,128,832], 0),
+   ([16,64,128,192,256,832], 0),
+   ([0,64,128,192,256,832], 0),
+   ([64,0,128,192,256,832], 0),
+   ([0,256,80,144,208,832], 0),
+   ([16,64,192,128,256,832], 0),
+   ([0,64,192,128,256,832], 0),
+   ([64,0,192,128,256,832], 0),
+   ([0,80,144,256,208,832], 0),
+   ([16,144,80,256,208,832], 0),
+   ([0,64,128,256,208,832], 0),
+   ([64,0,128,256,208,832], 0),
+   ([0,80,256,208,160,832], 0)]
+def authBase (child l : Nat) : Nat := ((authPlans.getD (child % 32) ([], 0)).1).getD l 0
 theorem authBase_five (child : Nat) : authBase child 5 = 832 := by
-  have h : ∀ c < 64, ((authPlans.getD c ([], 0)).1).getD 5 0 = 832 := by decide
-  exact h (child % 64) (Nat.mod_lt _ (by decide))
-def authRoot (child : Nat) : Nat := (authPlans.getD (child % 64) ([], 0)).2
+  have h : ∀ c < 32, ((authPlans.getD c ([], 0)).1).getD 5 0 = 832 := by decide
+  exact h (child % 32) (Nat.mod_lt _ (by decide))
+def authRoot (child : Nat) : Nat := (authPlans.getD (child % 32) ([], 0)).2
 def authSibOff (child l : Nat) : Nat :=
   if l < 6 then authBase child l + sibOff (child / 2 ^ l % 2) else authRoot child
 def authPadOff (child l : Nat) : Nat := authBase child l + 32
@@ -99,10 +70,11 @@ def topSlot (k child : Nat) : Nat := regionBase k - (if child / 2 ^ 6 % 2 = 0 th
 def wsib (w : WBytes) (k child l : Nat) : Digest :=
   if l < 6 then wdig w (regionBase k + authSibOff child l) else wdig w (topSlot k child)
 def wmpad (w : WBytes) (k child l : Nat) : Digest := wdig w (regionBase k + authPadOff child l)
-/-- High tweak word of a packed FTS node (levels `< 4`) whose computed child is the right input: the verifier
-writes only the low tweak word there, the high word stays witness memory (honest 0). Elsewhere it is 0. -/
+/-- High tweak word of a packed FTS node (levels `< 4`): the verifier writes only the low tweak word there, and
+(C1) a left-input fold output is written at `slot - 16`, so the high word is never dirtied and stays witness memory
+(honest 0) for every child. Elsewhere it is 0. -/
 def wmhpad (w : WBytes) (k child l : Nat) : BitVec 64 :=
-  if l < 4 ∧ child / 2 ^ l % 2 = 1 then (wdig w (regionBase k + authBase child l + 16)).extractLsb' 64 64 else 0
+  if l < 4 then (wdig w (regionBase k + authBase child l + 16)).extractLsb' 64 64 else 0
 def wcHeaderPad (w : WBytes) (k t : Nat) : BitVec 64 := (wdig w (wctChainBlock k t + 16)).extractLsb' 64 64
 /-- FTS leaf pad (campaign T8): the 16-byte slot after the leaf header (`regionBase k + 720`); the verifier never
 writes it, the honest witness holds 0. -/
@@ -114,10 +86,6 @@ def bcCounterOff (index : Nat) (lay : Layer) : Nat := rowBlock index lay + 32
 def wbcCtr (w : WBytes) (index : Nat) (lay : Layer) : BitVec 32 := wle32 w (bcCounterOff index lay)
 def wbcPad (w : WBytes) (index : Nat) (lay : Layer) : BitVec 96 := w.extractLsb' (8 * (bcCounterOff index lay + 4)) 96
 def wbcRight (w : WBytes) : Digest := wdig w 48
-/-- Campaign S2: high word of the encoding tweak (bytes 24..32 of the encoding block), a witness pad (honest 0). -/
-def wbcHigh (w : WBytes) (index : Nat) (lay : Layer) : BitVec 64 := (wdig w (rowBlock index lay + 16)).extractLsb' 64 64
-/-- Campaign S2: high word of a lower leaf header (bytes 24..32 of the leaf buffer), a witness pad (honest 0). -/
-def wleafHigh (w : WBytes) (lay : Layer) : BitVec 64 := (wdig w (leafBufferBase lay + 16)).extractLsb' 64 64
 theorem wctLeafSlot_zero (k : Nat) : wctLeafSlot k 0 = wctChainBlock k 0 + 48 := by
   simp [wctLeafSlot, wctChainBlock]
 theorem wleaf_zero (w : WBytes) (k : Nat) : wleaf w k 0 = wopen w k 0 := by
@@ -137,19 +105,9 @@ def wctChainP (index coord child t start count : Nat) (padA : Digest) (padB : Bi
     M Digest :=
   (List.range' start count).foldlM
     (fun value step => shortHash (wctChainInputP index coord child t step padA padB padC value)) value
+/-- Padded FTS node; C1: the used half follows `WCT9.ftsHighHeap heap`. -/
 def wctNodeHashP (coord index heap : Nat) (left : Digest) (hp : BitVec 64) (pad right : Digest) : M Digest :=
-  shortHash (SigGolfCandidate.T3M.SecurityInputs.nodeInputPH 3 (WCT9.nodeLayer coord) index heap left hp pad right)
-/-- Campaign S2 padded lower leaf: `end0 | hp ++ t3 | end1..`, the header high word `hp` is a witness pad. -/
-def lowerLeafInputP (lay : Layer) (tree leaf : Nat) (hp : BitVec 64) (ends : List Digest) : HashInput :=
-  bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (hp ++ hyperWord lay.val (tree * 2 ^ height lay + leaf)) ++
-    (ends.drop 1).flatMap (bytesLE 16)
-def lowerLeafHashP (lay : Layer) (tree leaf : Nat) (hp : BitVec 64) (ends : List Digest) : M Digest :=
-  projHash (leafHigh leaf) (lowerLeafInputP lay tree leaf hp ends)
-theorem lowerLeafHashP_zero {lay : Layer} (hl : lay ≠ 0) (tree leaf : Nat) (ends : List Digest) :
-    lowerLeafHashP lay tree leaf 0 ends = leafHash lay tree leaf ends := by
-  unfold lowerLeafHashP lowerLeafInputP leafHash leafInput
-  rw [if_neg hl]
-  rfl
+  WCT9.ftsHash heap (SigGolfCandidate.T3M.SecurityInputs.nodeInputPH 3 (WCT9.nodeLayer coord) index heap left hp pad right)
 def digestP (m : Message) (w : WBytes) : M (Option HashOutput) :=
   if (wdc w).toNat ≥ WCT9.digestVerifyWindow then pure none else some <$> digest (wrho w) m (wdc w)
 def gateOk (N : HashOutput) : Bool := decide (N.toNat / 2 ^ 242 % 2 ^ 14 < WCT9.gateLimit)
@@ -187,21 +145,21 @@ def wctP (w : WBytes) (N : HashOutput) : M (Option (Digest × Digest)) := do
   let some pairs ← (List.finRange 9).foldlM (wctStep w N) (some []) | pure none
   pure (some (WCT9.prevPair (wctStart w) pairs))
 def layerEncodingInputP (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (counter : BitVec 32)
-    (hp : BitVec 64) (pad : BitVec 96) (padR : Digest) : HashInput :=
+    (pad : BitVec 96) (padR : Digest) : HashInput :=
   match msg with
-  | .forest root => WCT9.pairEncodingInputPH lay tree leaf root padR counter hp pad
-  | .pair left right => WCT9.pairEncodingInputPH lay tree leaf left right counter hp pad
+  | .forest root => WCT9.pairEncodingInputP lay tree leaf root padR counter pad
+  | .pair left right => WCT9.pairEncodingInputP lay tree leaf left right counter pad
 def layerPairP (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) : M (Digest × Digest) := do
   let (leaf, tree) := route index lay
   let ends ← (List.finRange (chainCount lay)).mapM fun i =>
     chainP lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
       (wchainPads w lay i.val).1 (wchainPads w lay i.val).2 (wchainHeaderPad w lay i.val) (wvalueFor w lay digits i.val)
-  let value ← lowerLeafHashP lay tree leaf (wleafHigh w lay) ends
+  let value ← leafHash lay tree leaf ends
   let top ← (List.finRange (height lay - 1)).foldlM (fun value j => do
     let other := wpath w lay leaf j.val
     let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
-    nodeHashPH lay.val tree (2 ^ (height lay - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1
-      (wmerkleHigh w lay leaf j.val) (wmerklePad w lay leaf j.val) pair.2) value
+    nodeHashP 3 lay.val tree (2 ^ (height lay - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1
+      (wmerklePad w lay leaf j.val) pair.2) value
   let other := wpath w lay leaf (height lay - 1)
   pure (if leaf / 2 ^ (height lay - 1) % 2 = 0 then (top, other) else (other, top))
 def layerChainP (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) (i : Nat) : M Digest :=
@@ -220,8 +178,8 @@ def topFinishP (w : WBytes) (tree leaf : Nat) (ends : List Digest) : M Digest :=
   (List.finRange (height 0)).foldlM (fun value j => do
     let other := wpath w 0 leaf j.val
     let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
-    nodeHashPH (0 : Layer).val tree (2 ^ (height 0 - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1
-      (wmerkleHigh w 0 leaf j.val) (wmerklePad w 0 leaf j.val) pair.2) value
+    nodeHashP 3 (0 : Layer).val tree (2 ^ (height 0 - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1
+      (wmerklePad w 0 leaf j.val) pair.2) value
 def topLayerP (w : WBytes) (index : Nat) (answer : Digest) : M (Option Digest) :=
   WCT9.topDecodeRun (topChainP w (route index 0).2 (route index 0).1 (dataDigits 0 answer)) (topFinishP w (route index 0).2 (route index 0).1)
     answer
@@ -232,8 +190,7 @@ def layersBC (w : WBytes) (index : Nat) : Nat → WCT9.LayerMsg → M (Option Di
       let counter := wbcCtr w index lay
       if counter.toNat ≥ WCT9.verifyWindow then return none
       let (leaf, tree) := route index lay
-      let answer ← ClaudeWCT.WCT9.encodingHash lay (layerEncodingInputP lay tree leaf msg counter (wbcHigh w index lay) (wbcPad w index lay)
-        (wbcRight w))
+      let answer ← ClaudeWCT.WCT9.encodingHash lay (layerEncodingInputP lay tree leaf msg counter (wbcPad w index lay) (wbcRight w))
       if n = 0 then topLayerP w index answer
       else do
         let some digits := decode lay answer | pure none
@@ -253,8 +210,7 @@ def layersBCPrepass (w : WBytes) (index : Nat) : Nat → WCT9.LayerMsg → M (Op
       let counter := wbcCtr w index lay
       if counter.toNat ≥ WCT9.verifyWindow then return none
       let (leaf, tree) := route index lay
-      let answer ← ClaudeWCT.WCT9.encodingHash lay (layerEncodingInputP lay tree leaf msg counter (wbcHigh w index lay) (wbcPad w index lay)
-        (wbcRight w))
+      let answer ← ClaudeWCT.WCT9.encodingHash lay (layerEncodingInputP lay tree leaf msg counter (wbcPad w index lay) (wbcRight w))
       let some digits := decode lay answer | pure none
       if n = 0 then some <$> layerP w index lay digits
       else do
@@ -282,15 +238,9 @@ structure Pads where
   bcRight : Digest
   /-- Difference between the prefilled endpoint and its raw chain value. Honest witnesses have zero masks. -/
   endpointMask : (lay : Layer) → Fin (chainCount lay) → Digest
-  /-- Campaign S2: high words of the top/lower one-word fold labels (honest 0). -/
-  merkleHigh : (lay : Layer) → Fin (height lay) → BitVec 64
-  /-- Campaign S2: high word of the lower leaf header (honest 0; unused on the top layer). -/
-  leafHigh : Layer → BitVec 64
-  /-- Campaign S2: high word of the encoding tweak (honest 0). -/
-  bcHigh : Layer → BitVec 64
 instance : Zero Pads :=
   ⟨⟨fun _ _ => (0, 0), fun _ _ => 0, fun _ _ => 0, fun _ _ => 0, fun _ => 0, fun _ _ => (0, 0), fun _ _ => 0, fun _ _ => 0,
-    fun _ => 0, 0, fun _ _ => 0, fun _ _ => 0, fun _ => 0, fun _ => 0⟩⟩
+    fun _ => 0, 0, fun _ _ => 0⟩⟩
 def Pads.toT3 (pads : Pads) : SigGolfCandidate.T3M.Pads :=
   ⟨fun _ => 0, fun _ => 0, pads.chain, pads.merkle, pads.chainHeader⟩
 def recoverCoordinateP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (output : HashOutput)
@@ -344,13 +294,12 @@ def recoverLayerPairP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (lay : 
   let ends ← (List.finRange (chainCount lay)).mapM fun i =>
     chainP lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
       (pads.chain lay i).1 (pads.chain lay i).2 (pads.chainHeader lay i) (valueP sig pads lay digits i)
-  let value ← lowerLeafHashP lay tree leaf (pads.leafHigh lay) ends
+  let value ← leafHash lay tree leaf ends
   let top ← (List.finRange (height lay - 1)).foldlM (fun value j => do
     let other := (sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) j)
     let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
-    nodeHashPH lay.val tree (2 ^ (height lay - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1
-      (pads.merkleHigh lay (Fin.castLE (Nat.sub_le _ _) j)) (pads.merkle lay (Fin.castLE (Nat.sub_le _ _) j)) pair.2)
-    value
+    nodeHashP 3 lay.val tree (2 ^ (height lay - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1
+      (pads.merkle lay (Fin.castLE (Nat.sub_le _ _) j)) pair.2) value
   let other := (sig.layers lay).path (WCT9.topLevel lay)
   pure (if leaf / 2 ^ (height lay - 1) % 2 = 0 then (top, other) else (other, top))
 def recoverLayerPairGuardP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (lay : Layer)
@@ -372,8 +321,8 @@ def verifyTopP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (answer : Dige
       (List.finRange (height 0)).foldlM (fun value j => do
         let other := (sig.layers 0).path j
         let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
-        nodeHashPH (0 : Layer).val tree (2 ^ (height 0 - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1
-          (pads.merkleHigh 0 j) (pads.merkle 0 j) pair.2) value)
+        nodeHashP 3 (0 : Layer).val tree (2 ^ (height 0 - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1
+          (pads.merkle 0 j) pair.2) value)
     answer
 def verifyLayersBCP (w : WCT9.Witness) (pads : Pads) (index : Nat) : Nat → WCT9.LayerMsg → M (Option Digest)
   | 0, _ => pure none
@@ -382,8 +331,7 @@ def verifyLayersBCP (w : WCT9.Witness) (pads : Pads) (index : Nat) : Nat → WCT
       let counter := w.counters lay
       if counter.toNat ≥ WCT9.verifyWindow then return none
       let (leaf, tree) := route index lay
-      let answer ← ClaudeWCT.WCT9.encodingHash lay (layerEncodingInputP lay tree leaf msg counter (pads.bcHigh lay) (pads.bc lay)
-        pads.bcRight)
+      let answer ← ClaudeWCT.WCT9.encodingHash lay (layerEncodingInputP lay tree leaf msg counter (pads.bc lay) pads.bcRight)
       if n = 0 then verifyTopP w.signature pads index answer
       else do
         let some digits := decode lay answer | pure none

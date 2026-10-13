@@ -45,4 +45,45 @@ def TaggedSplit (adversary : AdversaryP) (result : FirstHit.Recorded Bool)
   checked ∈ support (FirstHit.record (GameWith.verdict PaddedGame.checker generated.value.1 tagged.value)
       tagged.state) ∧
   result = ⟨checked.value, generated.events ++ (tagged.events ++ checked.events), checked.state⟩
+structure Monitor where
+  disclosed : List Coord
+  seen : List HashInput
+  calls : Nat
+  digests : Nat
+  contact : Bool
+def Monitor.initial : Monitor := ⟨[], [], 0, 0, false⟩
+def Monitor.known (monitor : Monitor) : Coord → Prop :=
+  Known fun c => c ∈ keygenDisclosed ∨ c ∈ monitor.disclosed
+noncomputable def Monitor.query (U : Finset HashInput) (A : Answers) (q : Nat) (monitor : Monitor)
+    (input : HashInput) (answer : HashOutput) : Monitor :=
+  if monitor.contact then monitor
+  else if input ∉ monitor.seen ∧ input ∈ U ∧ monitor.calls + 1 ≤ q ∧ ContactTest A monitor.known input answer then
+    ⟨monitor.disclosed, input :: monitor.seen, monitor.calls + 1, monitor.digests, true⟩
+  else ⟨monitor.disclosed, input :: monitor.seen, monitor.calls + 1,
+    monitor.digests + (if input ∈ U ∧ IsDigestRow input ∧ monitor.calls + 1 ≤ q then 1 else 0), false⟩
+noncomputable def Monitor.event (U : Finset HashInput) (A : Answers) (q : Nat) (monitor : Monitor)
+    (event : FirstHit.QueryEvent) : Monitor :=
+  match event with
+  | ⟨_, .inl (.inr input), answer⟩ => monitor.query U A q input answer
+  | _ => monitor
+noncomputable def Monitor.sign (A : Answers) (published : T3.Cache) (monitor : Monitor)
+    (request : Security.Request) : Monitor :=
+  if monitor.contact then monitor
+  else ⟨monitor.disclosed ++ signDisclosed A published request, monitor.seen, monitor.calls, monitor.digests, false⟩
+noncomputable def Monitor.step (U : Finset HashInput) (A : Answers) (q : Nat) (published : T3.Cache)
+    (monitor : Monitor) : TaggedStep → Monitor
+  | .world event => monitor.event U A q event
+  | .sign request _ _ => monitor.sign A published request
+noncomputable def monitorRun (U : Finset HashInput) (A : Answers) (q : Nat) (published : T3.Cache)
+    (steps : List TaggedStep) (verdict : List FirstHit.QueryEvent) : Monitor :=
+  verdict.foldl (Monitor.event U A q) (steps.foldl (Monitor.step U A q published) Monitor.initial)
+def Contact (adversary : AdversaryP) (q : Nat) (z : PaddedGame.TraceResult × Answers) : Prop :=
+  ∀ generated tagged checked, TaggedSplit adversary (QueryRecorded.recordedTrace z.1) generated tagged checked →
+    (monitorRun (Wots.referenceInputs adversary) z.2 q generated.value.2 tagged.steps checked.events).contact = true
+noncomputable def digests (adversary : AdversaryP) (q : Nat) (z : PaddedGame.TraceResult × Answers) : Nat :=
+  if h : ∃ generated tagged checked,
+      TaggedSplit adversary (QueryRecorded.recordedTrace z.1) generated tagged checked then
+    (monitorRun (Wots.referenceInputs adversary) z.2 q (Classical.choose h).value.2 (Classical.choose (Classical.choose_spec h)).steps
+      (Classical.choose (Classical.choose_spec (Classical.choose_spec h))).events).digests
+  else 0
 end SigGolfCandidate.T3.Security.LargeCoupling

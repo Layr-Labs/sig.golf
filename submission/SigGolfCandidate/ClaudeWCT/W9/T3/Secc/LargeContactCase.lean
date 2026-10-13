@@ -10,8 +10,7 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open SigGolfCandidate.T3.Security.Wots (LeafAddr ChainAddr Entry low entriesOf word_cases)
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3.Security.Wots
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
-open ClaudeWCT.W9.T3M (wrho wdc layerP wchainPads wchainHeaderPad wmerklePad wpath wvalueFor wbcCtr wbcPad wbcRight
-  wbcHigh wmerkleHigh wleafHigh)
+open ClaudeWCT.W9.T3M (wrho wdc layerP wchainPads wchainHeaderPad wmerklePad wpath wvalueFor wbcCtr wbcPad wbcRight)
 open SigGolfCandidate.T3.Security.WotsExtract (SourceLeaf SourceChain entriesOf_mono mem_entriesOf routeLeaf
   routeLeaf_source)
 open SigGolfCandidate.T3.Correctness (Answers treeValue builtTree leafSeed leafEnd leafValue)
@@ -39,9 +38,7 @@ theorem frame_wots_route (answers : Answers) (w : WBytes) (index : Nat) (lay : L
     (hmerkle : ∀ j, j < height lay →
       wpath w lay (route index lay).1 j =
           treeValue (WCT9.wotsTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1) ∧
-        (j + 1 < height lay ∨ lay.val = 0 →
-          wmerklePad w lay (route index lay).1 j = 0 ∧ wmerkleHigh w lay (route index lay).1 j = 0))
-    (hleaf : lay.val ≠ 0 → wleafHigh w lay = 0)
+        (j + 1 < height lay ∨ lay.val = 0 → wmerklePad w lay (route index lay).1 j = 0))
     (hchains : ∀ i, i < chainCount lay →
       (depth answers ⟨routeLeaf index lay, i⟩ ≤ digits.getD i 0 →
         wvalueFor w lay digits i = WCT9.wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
@@ -55,11 +52,11 @@ theorem frame_wots_route (answers : Answers) (w : WBytes) (index : Nat) (lay : L
       (msg = Extract.honestMsg answers index lay ∧ BC.GoodZ answers w index lay) := by
   classical
   have hdec : decode (routeLeaf index lay).lay
-      (WCT9.encodingAnswer (routeLeaf index lay).lay (answers (.inl (.inr (encRow (routeLeaf index lay) msg (wbcCtr w index lay) (wbcPad w index lay, wbcRight w, wbcHigh w index lay)))))) = some digits :=
+      (WCT9.encodingAnswer (routeLeaf index lay).lay (answers (.inl (.inr (encRow (routeLeaf index lay) msg (wbcCtr w index lay) (wbcPad w index lay, wbcRight w)))))) = some digits :=
     hframe.2
   have hfit' : Extract.msgFits (routeLeaf index lay).lay msg := hfit
-  have hencE : (encRow (routeLeaf index lay) msg (wbcCtr w index lay) (wbcPad w index lay, wbcRight w, wbcHigh w index lay),
-      answers (.inl (.inr (encRow (routeLeaf index lay) msg (wbcCtr w index lay) (wbcPad w index lay, wbcRight w, wbcHigh w index lay))))) ∈
+  have hencE : (encRow (routeLeaf index lay) msg (wbcCtr w index lay) (wbcPad w index lay, wbcRight w),
+      answers (.inl (.inr (encRow (routeLeaf index lay) msg (wbcCtr w index lay) (wbcPad w index lay, wbcRight w))))) ∈
         entriesOf answers qs :=
     mem_entriesOf henc
   have hsrc : SourceLeaf (routeLeaf index lay) := routeLeaf_source index lay hidx
@@ -70,24 +67,20 @@ theorem frame_wots_route (answers : Answers) (w : WBytes) (index : Nat) (lay : L
   obtain ⟨refDigest, hr⟩ := referenceDigits_decode answers (routeLeaf index lay)
   rcases word_cases hr hdec with heq | ⟨i, hu⟩ | ⟨i, h2⟩ | ⟨i, j, hij, hi, hj⟩
   · have hshape : Extract.LayerShaped answers w index lay digits := by
-      refine ⟨hmerkle, hleaf, fun i hi => ?_⟩
+      refine ⟨hmerkle, fun i hi => ?_⟩
       have hdi : depth answers ⟨routeLeaf index lay, i⟩ = digits.getD i 0 := by
         unfold depth
         rw [heq]
       exact (hchains i hi).1 (le_of_eq hdi)
     by_cases hm : msg = Extract.honestMsg answers index lay
-    · by_cases hp : wbcPad w index lay = 0 ∧ wbcHigh w index lay = 0
-      · exact Or.inr ⟨hm, ⟨digits, hm ▸ hframe, hshape⟩, hp.1, hp.2⟩
-      · have hpad : (wbcPad w index lay, wbcRight w, wbcHigh w index lay).1 ≠ 0 ∨
-            (wbcPad w index lay, wbcRight w, wbcHigh w index lay).2.2 ≠ 0 := by
-          by_cases h1 : wbcPad w index lay = 0
-          · exact Or.inr (fun h2 => hp ⟨h1, h2⟩)
-          · exact Or.inl h1
-        refine Or.inl (Or.inl ⟨lay, msg, wbcCtr w index lay, (wbcPad w index lay, wbcRight w, wbcHigh w index lay), _, hfit', hencE,
+    · by_cases hp : wbcPad w index lay = 0
+      · exact Or.inr ⟨hm, ⟨digits, hm ▸ hframe, hshape⟩, hp⟩
+      · have hpad : (wbcPad w index lay, wbcRight w).1 ≠ 0 := hp
+        refine Or.inl (Or.inl ⟨lay, msg, wbcCtr w index lay, (wbcPad w index lay, wbcRight w), _, hfit', hencE,
           ?_, ?_⟩)
         · exact referenceInput_ne_pad answers _ msg _ _ hfit' hpad
         · rw [← heq]; exact hdec
-    · refine Or.inl (Or.inl ⟨lay, msg, wbcCtr w index lay, (wbcPad w index lay, wbcRight w, wbcHigh w index lay), _, hfit', hencE,
+    · refine Or.inl (Or.inl ⟨lay, msg, wbcCtr w index lay, (wbcPad w index lay, wbcRight w), _, hfit', hencE,
         ?_, ?_⟩)
       · exact referenceInput_ne answers _ msg _ _ hfit' hdec (Or.inl (by rw [leafMsg_route _ _ _ hidx]; exact hm))
       · rw [← heq]; exact hdec
@@ -95,7 +88,7 @@ theorem frame_wots_route (answers : Answers) (w : WBytes) (index : Nat) (lay : L
     have hne : digits ≠ referenceDigits answers (routeLeaf index lay) := by
       intro he; rw [he] at hlow; omega
     refine Or.inl (Or.inr (Or.inr (Or.inr (Or.inr ⟨⟨routeLeaf index lay, i.val⟩, hsrcC i.val i.isLt,
-      ⟨msg, wbcCtr w index lay, (wbcPad w index lay, wbcRight w, wbcHigh w index lay), _, digits, hfit', hencE,
+      ⟨msg, wbcCtr w index lay, (wbcPad w index lay, wbcRight w), _, digits, hfit', hencE,
         referenceInput_ne answers _ msg _ _ hfit' hdec (Or.inr hne), hdec, hlow, ?_⟩,
       hcontact i.val i.isLt (by show _ < (referenceDigits answers (routeLeaf index lay)).getD i.val 0; omega)⟩))))
     intro k hk
@@ -128,7 +121,6 @@ theorem layer_wots_route (answers : Answers) (w : WBytes) (index : Nat) (lay : L
   · exact Or.inl (Or.inr (Or.inl (structuralHitSrc_mono hS hmono)))
   exact frame_wots_route answers w index lay msg digits hidx hfit hframe qs henc
     (fun j hj => ⟨(hmerkle j hj).1, fun _ => (hmerkle j hj).2⟩)
-    (fun h => absurd (by rw [hlay0]; rfl) h)
     (fun i hi => ⟨(hchains i hi).1, fun hlt => ⟨contactAt_mono ((hchains i hi).2 hlt).1 hmono,
       fun h2 => twoEdgeAt_mono (((hchains i hi).2 hlt).2 h2) hmono⟩⟩)
 theorem layerPair_wots_route (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (msg : WCT9.LayerMsg)
@@ -142,11 +134,10 @@ theorem layerPair_wots_route (answers : Answers) (w : WBytes) (index : Nat) (lay
       (msg = Extract.honestMsg answers index lay ∧ BC.GoodZ answers w index lay) := by
   have hvalid := Cost.validDigits_decode hframe.2
   have hmono := entriesOf_mono (answers := answers) hsub
-  rcases layerPairP_wots answers w index lay digits hidx hvalid (fun e => hlay (by rw [e]; rfl)) reaches with
-    hS | ⟨hmerkle, hz, hchains⟩
+  rcases layerPairP_wots answers w index lay digits hidx hvalid reaches with hS | ⟨hmerkle, hchains⟩
   · exact Or.inl (Or.inr (Or.inl (structuralHitSrc_mono hS hmono)))
   exact frame_wots_route answers w index lay msg digits hidx hfit hframe qs henc
-    (fun j hj => ⟨(hmerkle j hj).1, fun h => (hmerkle j hj).2 (h.resolve_right hlay)⟩) (fun _ => hz)
+    (fun j hj => ⟨(hmerkle j hj).1, fun h => (hmerkle j hj).2 (h.resolve_right hlay)⟩)
     (fun i hi => ⟨(hchains i hi).1, fun hlt => ⟨contactAt_mono ((hchains i hi).2 hlt).1 hmono,
       fun h2 => twoEdgeAt_mono (((hchains i hi).2 hlt).2 h2) hmono⟩⟩)
 theorem layersBC_wots_walk_route (answers : Answers) (w : WBytes) (index : Nat) (hidx : index < 2 ^ 31) :
@@ -592,11 +583,9 @@ def AllClear (A : Answers) (K : Coord → Prop) (qs : List Spec.Domain) : Prop :
 theorem posOf_chainRow (a : Wots.ChainAddr) (ha : WotsExtract.SourceChain a) (s : Nat) (hs : s < 7) (v : Digest) :
     Extract.posOf (Wots.chainRow a s v) = some (CanonGraph.Node.chain (gAddr a ha, ⟨s, hs⟩)).toPos := by
   apply Extract.posOf_eq (CanonGraph.toPos_bounded _)
-  · show (chainInput _ _ _ _ _ _).length = 64
-    simp [chainInput, zero16, bytesLE_length]
-  · unfold Wots.chainRow
-    rw [Extract.hdrBlock_wotsChainInput]
-    rfl
+  unfold Wots.chainRow
+  rw [Extract.hdrBlock_wotsChainInput]
+  rfl
 theorem honestInput_chainNode (A : Answers) (p : ChainGraph.Point) :
     Extract.honestInput A (CanonGraph.Node.chain p).toPos =
       Wots.chainRow (wotsAddr p.1) p.2.val (honestChainValue A p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val
@@ -607,7 +596,7 @@ theorem honestInput_chainNode (A : Answers) (p : ChainGraph.Point) :
 theorem honestValue_chainNode (A : Answers) (p : ChainGraph.Point) :
     honestValue A (.inl (.chain p)) = honestChainValue A p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val
         (WCT9.wotsSeed A p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val) (p.2.val + 1) := by
-  rw [← honestChainValue_succ]
+  rw [← honestChainValue_succ, eval_shortHash]
   rfl
 theorem honestValue_chainChild (A : Answers) (p : ChainGraph.Point) :
     honestValue A (chainChild p) = honestChainValue A p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val
@@ -649,7 +638,7 @@ theorem contactAt_false (A : Answers) (published : SigGolfCandidate.T3.Cache) (q
       rw [this, honestInput_chainNode, slotValue_chainRow, hcv]
       rfl
     · rw [hans]
-      change projHalf (chainHigh a.key.lay a.chain s) answer = _
+      change Wots.low answer = _
       rw [hlow, honestValue_chainNode]
       unfold Wots.frontierValue
       congr 1
@@ -701,7 +690,7 @@ theorem wotsPrimitiveRoute_false (A : Answers) (published : SigGolfCandidate.T3.
 theorem posOf_honest_wctChain (A : Answers) (a : CanonGraph.WctAddr) (s : Fin 4) :
     Extract.posOf (Extract.honestInput A (CanonGraph.Node.wctChain (a, s)).toPos) =
       some (CanonGraph.Node.wctChain (a, s)).toPos :=
-  Extract.posOf_honestInput A (CanonGraph.toPos_bounded _)
+  Extract.posOf_eq (CanonGraph.toPos_bounded _) (Extract.hdrBlock_honestInput A _)
 theorem honestValue_wctItem (A : Answers) (a : CanonGraph.WctAddr) (p : Nat) (hp : p ≤ 4) :
     honestValue A (wctItem a p) = Extract.wctValue A a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p := by
   by_cases h0 : p = 0
@@ -714,7 +703,7 @@ theorem honestValue_wctItem (A : Answers) (a : CanonGraph.WctAddr) (p : Nat) (hp
     obtain ⟨s, rfl⟩ : ∃ s, p = s + 1 := ⟨p - 1, by omega⟩
     change (A (.inl (.inr (Extract.honestInput A (.wctChain a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val
       (s + 1 - 1)))))).extractLsb' 0 128 = _
-    rw [← WctExtract.wctValue_succ, projHash_false, eval_shortHash, Extract.pad64_wctChainInput, WctExtract.honestInput_wctChain]
+    rw [← WctExtract.wctValue_succ, eval_shortHash, Extract.pad64_wctChainInput, WctExtract.honestInput_wctChain]
     rfl
 theorem slotValue_honest_wctChain (A : Answers) (a : CanonGraph.WctAddr) (s : Fin 4) :
     slotValue (Extract.honestInput A (CanonGraph.Node.wctChain (a, s)).toPos) 3 = honestValue A (wctItem a s.val) := by
