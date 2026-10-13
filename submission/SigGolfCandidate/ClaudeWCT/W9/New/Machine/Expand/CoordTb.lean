@@ -67,7 +67,7 @@ structure DrvInv (sig : WCT9.Signature) (N : HashOutput) (sF : MachineState) (k 
   regs : DRegs (WCT9.digestIndex N) t
   x8 : t.getReg .x8 = BitVec.ofNat 64 (regBase (k - 1))
   x28 : t.getReg .x28 = BitVec.ofNat 64 (HB0 + 2048 + 512 * (k - 1))
-  x15 : t.getReg .x15 = BitVec.ofNat 64 (WCT9.digestIndex N * 2 ^ 27 + 65536 * (k - 1))
+  x15 : t.getReg .x15 = BitVec.ofNat 64 (WCT9.digestIndex N * 2 ^ 27 + 65536 * (k - 1 + 1))
   x16 : 0 < k → t.getReg .x16 = N.extractLsb' (64 * dWord (k - 1)) 64
   len : pairs.length = k
   /-- Nested FTS (r1-1): only the last pair is needed (the next coordinate's pads); it sits just below `pslot k`. -/
@@ -169,7 +169,7 @@ theorem leafHdr_digAt {w : MachineState} {B k index j : Nat} (hk : k < 9) (hidx 
   · rw [h0, SigGolfCandidate.T3.append64_low]
     unfold ClaudeWCT.WCT9.ftsLeafLow qQ
     congr 1
-    rw [Nat.mod_eq_of_lt (show k < 16 by omega), Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hidx]
+    rw [Nat.mod_eq_of_lt (show k + 1 < 16 by omega), Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hidx]
     ring
   · rw [show B + 832 + 8 = B + 840 by omega, h1]
     apply BitVec.eq_of_toNat_eq

@@ -84,37 +84,36 @@ theorem buildLeafP_dn (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry
   · intro state
     exact SourceQueries.bind_allowed NotDN (SigGolfCandidate.T3.Security.BPair.leafHash_dn _ _ _ _) fun _ =>
       SourceQueries.pure_allowed _ _
-/-- C2 (FULL): a lower-tree node hash input is not a digest input (its header word is marked). -/
-theorem lowerNodeHash_dn (lay : Layer) (tree heap : Nat) (left right : Digest) (hh : heap < 2 ^ height lay) :
-    AllQueriesSatisfy (WCT9.lowerNodeHash lay.val tree heap left right) NotDN := by
-  unfold WCT9.lowerNodeHash WCT9.lowerHash
-  apply Signer.halfHash_allowed_of_short
-  have he : WCT9.merkleNodeInput lay.val tree heap left right =
-      SigGolfCandidate.T3M.SecurityInputs.block4 left (WCT9.merkleTweak lay.val tree heap) 0 right := by
-    unfold WCT9.merkleNodeInput SigGolfCandidate.T3M.SecurityInputs.block4
-    rw [show bytesLE 16 (0 : Digest) = zero16 by decide]
-  rw [he]
-  unfold shortHash publicHash
-  refine SourceQueries.bind_allowed NotDN ((allQueriesSatisfy_query_iff _ _).mpr
-    (not_digest_of_marker (h := WCT9.merkleTweak lay.val tree heap) ?_ ?_)) fun _ => SourceQueries.pure_allowed _ _
-  · rw [SigGolfCandidate.T3M.SecurityInputs.pad64_block4]
-    exact ClaudeWCT.W9.T3M.Extract.hdrBlock_block4 _ _ _ _
-  · by_cases h0 : lay.val = 0
-    · rw [h0, WCT9.merkleTweak_top]; exact nodeTweak_marker_ne_zero _ _ _ _
-    · rw [WCT9.merkleTweak_lower h0]
-      have h7 : height lay ≤ 7 := by fin_cases lay <;> simp_all [height]
-      have h128 : heap < 128 := lt_of_lt_of_le hh (le_trans (Nat.pow_le_pow_right (by decide) h7) (by norm_num))
-      have := WCT9.lowerTweak_marker h128 lay.val tree
-      unfold tweakMarker at this
-      omega
+theorem buildLeafPF_dn (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
+    AllQueriesSatisfy (WCT9.buildLeafPF lay tree leaf digits carry) NotDN := by
+  unfold WCT9.buildLeafPF
+  apply SourceQueries.bind_allowed NotDN
+  · unfold WCT9.lowerCoefs
+    apply SourceQueries.foldlM_allowed NotDN
+    intro state j
+    exact SourceQueries.bind_allowed NotDN (packedSecret_dn _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
+  · intro cc
+    apply SourceQueries.bind_allowed NotDN
+    · apply SourceQueries.foldlM_allowed NotDN
+      intro state i
+      exact SourceQueries.bind_allowed NotDN (SigGolfCandidate.T3.Security.BPair.chain_dn _ _ _ _ _ _ _) fun _ =>
+        SourceQueries.bind_allowed NotDN (SigGolfCandidate.T3.Security.BPair.chain_dn _ _ _ _ _ _ _) fun _ =>
+          SourceQueries.pure_allowed _ _
+    · intro state
+      exact SourceQueries.bind_allowed NotDN (SigGolfCandidate.T3.Security.BPair.leafHash_dn _ _ _ _) fun _ =>
+        SourceQueries.pure_allowed _ _
 theorem buildTreeP_dn (lay : Layer) (tree selected : Nat) (digits : List Nat) :
-    AllQueriesSatisfy (WCT9.buildTreeP lay tree selected digits) NotDN :=
-  Signer.buildTreeP_allowed' NotDN SigGolfCandidate.T3.Security.BPair.chain_dn
-    SigGolfCandidate.T3.Security.BPair.leafHash_dn
-    (fun lay tree heap left right hh => lowerNodeHash_dn lay tree heap left right hh)
-    (fun lay tree pair => by
-      unfold WCT9.lowerSeedPair
-      exact SigGolfCandidate.T3.Security.BPair.privatePair_dn _ _ _ _ _) lay tree selected digits
+    AllQueriesSatisfy (WCT9.buildTreeP lay tree selected digits) NotDN := by
+  unfold WCT9.buildTreeP
+  apply SourceQueries.bind_allowed NotDN
+  · exact SourceQueries.foldlM_allowed NotDN _ _ (fun state leaf =>
+      SourceQueries.bind_allowed NotDN (buildLeafPF_dn _ _ _ _ _) fun _ => SourceQueries.pure_allowed _ _) _
+  · intro state
+    refine SourceQueries.bind_allowed NotDN ?_ fun _ => SourceQueries.pure_allowed _ _
+    unfold WCT9.buildLevelsBelow
+    exact SourceQueries.foldlM_allowed NotDN _ _ (fun levels level =>
+      SourceQueries.bind_allowed NotDN (SigGolfCandidate.T3.Security.BPair.buildLevel_dn _ _ _ _ _ (by decide))
+        fun _ => SourceQueries.pure_allowed _ _) _
 theorem signLayersBC_dn (cache : SigGolfCandidate.T3.Cache) (index n : Nat) (msg : WCT9.LayerMsg) :
     AllQueriesSatisfy (WCT9.signLayersBC cache index n msg) NotDN :=
   Signer.signLayersBC_allowed' NotDN cache layerEncoding_dn buildTreeP_dn
@@ -146,11 +145,7 @@ theorem cell_not_digest (s : CanonGraph.Secrets) (node : CanonGraph.Node) (label
         have := leafTweak_marker L.1.lay L.1.tree.val L.1.leaf.val; unfold tweakMarker at this; omega)
   | node n =>
       simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr] at h
-      refine not_digest_of_marker h ?_
-      have hc := ClaudeWCT.W9.T3M.Extract.Pos.hdrClass_eq (CanonGraph.toPos_bounded (.node n))
-      simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr, ClaudeWCT.W9.T3M.Extract.Pos.cls] at hc
-      unfold ClaudeWCT.W9.T3M.Extract.hdrClass tweakMarker at hc
-      split_ifs at hc <;> omega
+      exact SigGolfCandidate.T3.Security.BPair.not_digest_of_low h (nodeTweak_low_ne_zero _ _ _ _)
   | forest index =>
       simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr] at h
       exact not_digest_of_marker h (by rw [header_firstByte]; decide)

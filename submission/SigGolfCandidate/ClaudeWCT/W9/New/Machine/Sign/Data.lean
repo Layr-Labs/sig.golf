@@ -65,6 +65,9 @@ def coordCode8_4 : List (BitVec 32) := ((SigGolfCandidate.T3M.Images.signCode_80
 def coordCode8 : List (BitVec 32) := coordCode8_0 ++ coordCode8_1 ++ coordCode8_2 ++ coordCode8_3 ++ coordCode8_4
 def tailCode_0 : List (BitVec 32) := [(SigGolfCandidate.T3M.Images.signCode_80).drop 235,(SigGolfCandidate.T3M.Images.signCode_81).take 35].flatten
 def tailCode : List (BitVec 32) := tailCode_0
+/-- Campaign S2 arena (words 1653..1692, formerly dead nops): the lower chain-0 final-step projection (1653..1666)
+and the coordinate-0 FTS chain/leaf/node word trampolines (coordinate nibble 1, 1667..1692). -/
+def arenaCode : List (BitVec 32) := ((SigGolfCandidate.T3M.Images.signCode_6).drop 117).take 40
 def fieldIdx : List Nat := [11186,12238,13297,14357,15417,16476,17536,18596,19655]
 def coordCodes : List (List (BitVec 32)) := [coordCode0, coordCode1, coordCode2, coordCode3, coordCode4, coordCode5, coordCode6, coordCode7, coordCode8]
 /-- Nested FTS (r1-1): the sign trampolines at words 21450..21666 (leaf pad, fold post-hash, forest replacement);

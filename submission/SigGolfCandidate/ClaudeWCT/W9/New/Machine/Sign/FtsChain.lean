@@ -204,7 +204,7 @@ theorem step_S (hcode : NewCodeAt im) {c i j index w : Nat} (hc : c < 9) (hi : i
     (hpc : s.pc = pcOf (qI c i + 5)) (h18 : s.getReg .x18 = BitVec.ofNat 64 j)
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (hj : j < 128)
     (h25 : s.getReg .x25 = BitVec.ofNat 64 w) (hw : w < 2 ^ 64) (hd : w / 8 ^ i % 8 ≤ 4) :
-    ∃ t, Steps im s (if c = 0 then 14 else 15) (if c = 0 then 14 else 15) t ∧ t.pc = pcOf (chkI c i 0) ∧
+    ∃ t, Steps im s (if c = 0 then 17 else 15) (if c = 0 then 17 else 15) t ∧ t.pc = pcOf (chkI c i 0) ∧
       t.getReg .x26 = BitVec.ofNat 64 (4 - w / 8 ^ i % 8) ∧
       t.getMem (BitVec.ofNat 64 (CHAINW + 16)) = BitVec.ofNat 64 (chainW0 c i j index 0) ∧
       t.getMem (BitVec.ofNat 64 (CHAINW + 24)) = 0 ∧
@@ -297,7 +297,7 @@ forest pair (`padE`), for `c = 0` it is zero. -/
 theorem step_L (hcode : NewCodeAt im) {c j index : Nat} (hc : c < 9) (s : MachineState) (hpc : s.pc = pcOf (lI c))
     (h18 : s.getReg .x18 = BitVec.ofNat 64 j) (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (hj : j < 128)
     (h29 : s.getReg .x29 = BitVec.ofNat 64 LEAFW) :
-    ∃ t, Steps im s (if c = 0 then 17 else 23) (if c = 0 then 17 else 23) t ∧ fetch im t = some (.base .ECALL) ∧
+    ∃ t, Steps im s (if c = 0 then 21 else 23) (if c = 0 then 21 else 23) t ∧ fetch im t = some (.base .ECALL) ∧
       t.pc = pcOf (tI c - 1) ∧ t.getReg .x10 = BitVec.ofNat 64 LEAFW ∧ t.getReg .x11 = BitVec.ofNat 64 128 ∧
       t.getReg .x12 = BitVec.ofNat 64 (HEAPW + 16 * (j + 128)) ∧
       t.getMem (BitVec.ofNat 64 (LEAFW + 16)) = BitVec.ofNat 64 (leafLo7 c index j) ∧
@@ -456,7 +456,8 @@ theorem eval_nodeLd (s : MachineState) {h : Nat} (h18 : s.getReg .x18 = BitVec.o
 theorem step_N (hcode : NewCodeAt im) {c h index : Nat} (hc : c < 9) (hh1 : 1 ≤ h) (hh : h < 128)
     (s : MachineState) (hpc : s.pc = pcOf (nodeI c)) (h18 : s.getReg .x18 = BitVec.ofNat 64 h)
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (hidx : index < 2 ^ 31) :
-    ∃ t, Steps im s 25 28 t ∧ fetch im t = some (.base .ECALL) ∧ t.pc = pcOf (ntI c - 1) ∧
+    ∃ t, Steps im s (if c = 0 then 29 else 25) (if c = 0 then 32 else 28) t ∧ fetch im t = some (.base .ECALL) ∧
+      t.pc = pcOf (ntI c - 1) ∧
       t.getReg .x10 = BitVec.ofNat 64 NODEW ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 NOUTW ∧
       t.getMem (BitVec.ofNat 64 NODEW) = s.getMem (BitVec.ofNat 64 (HEAPW + 32 * h)) ∧
@@ -836,7 +837,7 @@ theorem chainInput_len (index c j i st : Nat) (v : Digest) : (WCT9.chainInput in
 theorem ftsChainLow_eq (index c j i st : Nat) (hc : c < 9) (hidx : index < 2 ^ 31) (hst : st < 4) (hi : i < 6)
     (hj : j < 128) : WCT9.ftsChainLow index c j i st = chainW0 c i j index st := by
   unfold WCT9.ftsChainLow chainW0 chainK
-  rw [Nat.mod_eq_of_lt (show i < 8 by omega), Nat.mod_eq_of_lt hst, Nat.mod_eq_of_lt (show c < 16 by omega),
+  rw [Nat.mod_eq_of_lt (show i < 8 by omega), Nat.mod_eq_of_lt hst, Nat.mod_eq_of_lt (show c + 1 < 16 by omega),
     Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hidx]
   ring
 theorem wordsOf_chain (index c j i st : Nat) (v : Digest) (hc : c < 9) (hidx : index < 2 ^ 31) (hst : st < 4)
@@ -868,7 +869,7 @@ theorem ftsLeafHeader_words (index c j : Nat) (hc : c < 9) (hidx : index < 2 ^ 3
   congr 1
   · unfold WCT9.ftsLeafLow leafLo7
     congr 1
-    rw [Nat.mod_eq_of_lt (show c < 16 by omega), Nat.mod_eq_of_lt (show j < 128 from hj), Nat.mod_eq_of_lt hidx]
+    rw [Nat.mod_eq_of_lt (show c + 1 < 16 by omega), Nat.mod_eq_of_lt (show j < 128 from hj), Nat.mod_eq_of_lt hidx]
     ring
   · congr 1
     apply BitVec.eq_of_toNat_eq
@@ -915,11 +916,11 @@ theorem wordsOf_node (c index h : Nat) (pad L R : Digest) (hc : c < 9) (hidx : i
     by_cases h8 : 8 ≤ h
     · rw [if_pos (show SigGolfCandidate.T3.FtsNew h from ⟨h8, hh⟩), if_pos h8]
       unfold nodeLo7 WCT9.ftsNodeLowN
-      rw [Nat.mod_eq_of_lt (show c < 16 by omega), Nat.mod_eq_of_lt hidx]
+      rw [Nat.mod_eq_of_lt (show c + 1 < 16 by omega), Nat.mod_eq_of_lt hidx]
       congr 1; omega
     · rw [if_neg (show ¬ SigGolfCandidate.T3.FtsNew h from fun h' => h8 h'.1), if_neg h8]
       unfold nodeLo7 WCT9.ftsLeafLow
-      rw [Nat.mod_eq_of_lt (show c < 16 by omega), Nat.mod_eq_of_lt hidx]
+      rw [Nat.mod_eq_of_lt (show c + 1 < 16 by omega), Nat.mod_eq_of_lt hidx]
       congr 1; omega
   have hhi : (WCT9.wctNodeHeader c index h).extractLsb' 64 64 = BitVec.ofNat 64 (if 8 ≤ h then 0 else h) := by
     rw [WCT9.wctNodeHeader_high hc]

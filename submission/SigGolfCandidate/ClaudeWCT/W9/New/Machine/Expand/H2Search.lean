@@ -253,7 +253,16 @@ def topHdr (index : Nat) : BitVec 128 :=
 def topIn (index : Nat) (v o : Digest) : List UInt8 :=
   let pair := if (route index 0).1 / 2 ^ WCT9.topJ.val % 2 = 0 then (v, o) else (o, v)
   bytesLE 16 pair.1 ++ bytesLE 16 (topHdr index) ++ zero16 ++ bytesLE 16 pair.2
-theorem topNode_eq (index : Nat) (v o : Digest) : WCT9.topNode index v o = shortHash (topIn index v o) := rfl
+/-- Campaign S2: the top root (heap 1) keeps the low half, so `topNode` is a plain `shortHash`. -/
+theorem topNode_eq (index : Nat) (v o : Digest) : WCT9.topNode index v o = shortHash (topIn index v o) := by
+  have hl : (route index 0).1 < 4096 := by
+    unfold route; simp only [height]; exact Nat.mod_lt _ (by norm_num)
+  have h0 : (route index 0).1 / 2 ^ (WCT9.topJ.val + 1) = 0 := Nat.div_eq_of_lt (by simp [WCT9.topJ]; omega)
+  have hh : SigGolfCandidate.T3.nodeHigh 3 (0 : Layer).val
+      (2 ^ (height 0 - WCT9.topJ.val - 1) + (route index 0).1 / 2 ^ (WCT9.topJ.val + 1)) = false := by
+    rw [h0]; decide
+  unfold WCT9.topNode SigGolfCandidate.T3.nodeHash topIn topHdr
+  rw [hh, SigGolfCandidate.T3.projHash_false]
 theorem topIn_length (index : Nat) (v o : Digest) : (topIn index v o).length = 64 := by
   unfold topIn; simp [bytesLE_length, zero16]
 def lo64 (d : Digest) : Word := d.extractLsb' 0 64

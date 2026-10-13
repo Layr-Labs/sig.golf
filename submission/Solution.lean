@@ -7,15 +7,15 @@ def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGo
 
 theorem signature_bytes : submission.sizes.signature = 5310 := rfl
 
-theorem witness_bytes : submission.sizes.witness = 24924 := rfl
+theorem witness_bytes : submission.sizes.witness = 24908 := rfl
 
 theorem cache_bytes : submission.sizes.cache = 131072 := rfl
 
 theorem layout_offsets : submission.layout =
-  { message := 26144, secretKey := 128, publicKey := 160,
+  { message := 26128, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7054 := by
+theorem certificate : SigGolf.Certificate submission 7046 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -62,37 +62,24 @@ the witness starts at 1216 (W 24028 -> 24860, charge 94 -> 98). Joint cap 785 ->
 Verify bound 7088 -> 7008; C 7182 -> 7106.
 S = 5310, W = 24860, K = 131072, C = 7106; score 37732860.
 
-Stacked top-layer savings (Claude Opus 5.5, base nested FTS commitment, C 7106): ports the
-accepted top-layer chain onto the nested FTS commitment. The top-layer encoding selects the
-low hash half when bit 127 is set and the high half otherwise (0658b2b), so the top target
-rises 144 -> 145 with the same copy-credit floor 21 and FTS joint cap 789; the top layer keeps
-sp at 0x7fc00, dropping one entry instruction (0664e59); the selector branch is balanced at
-4 cycles (9033aab). After-FTS budget 5280 -> 5272; verify bound 7008 -> 7000; C 7106 -> 7098.
-S = 5310, W = 24860, K = 131072, C = 7098; score 37690380.
+Spill-down Merkle children (Claude Opus 5.5, base 926c9bce, C 7106): every left child of the lower
+(L1..L3) and top Merkle trees is the high half (bytes 16..32) of its hash answer and is written 16
+bytes lower, so the unused half lands on consumed bytes instead of the parent's label. Each fold keeps
+a single verifier-written label word (lower: t3 + heap - 1, root word t3; top: heap) and the 768 top
+tag stores disappear; lower leaf chain 0 ends on the high half (header `sd zero` gone). FTS words take
+coord+1 so every 64-byte query format stays disjoint for all pads; node projections are position-only,
+so keygen/sign/expand/verify share one canonical tree and the Merkle proofs are projection-generic.
+The L3 encoding header's high word becomes a witness pad and its answer is written where `a2`
+already points (coordinate 8's last heap output; same elision as the parallel 5971a2fb). Net -29.
+W 24860 -> 24908 (charge 98). Verify bound 7008 -> 6979; C 7106 -> 7077.
+S = 5310, W = 24908, K = 131072, C = 7077; score 37578870.
 
-L3 a2 elision (0xFredrik's 5971a2f, ported): the nested FTS already leaves `a2` at coordinate 8's last
-heap output (`1200` or `1344`), so the L3 entry drops `addi a2,s0,-176` and the L3 encoding hash writes
-there. Verify bound 7000 -> 6999; C 7098 -> 7097.
-S = 5310, W = 24860, K = 131072, C = 7097; score 37684070.
+Integrated top-layer bit-127 encoding and prefix changes (GPT 6 Astra / Codex),
+following public ab5c824c and its cited top-layer dependencies: -8 cycles on S2.
+S = 5310, W = 24908, K = 131072, C = 7069; score 37536390.
 
-Shifted child-index masking (Th0rgal's c3c8605, ported): coordinate 2 loads 0x7f00000 into x27, which
-no FTS routine touches, so coordinate 8 extracts the child index already shifted left by 20 with
-`srli x4,dig,1; and x4,x4,x27` and drops one shift. Coordinate 8 shrinks by one word, the L3 entry moves
-to 850..868. FTS accept cost 928 -> 927; verify bound 6999 -> 6998; C 7097 -> 7096.
-S = 5310, W = 24860, K = 131072, C = 7096; score 37679760.
-
-FTS Merkle half-swap (C1): in each FTS tree a node at an even heap 16..255 (a left input of a packed fold
-window, including the even leaves) takes the high 16 bytes of its hash output. A verifier child writes such a
-node's hash at slot - 16, so the junk low half lands on a dead slot and the packed window's high tweak word is
-never dirtied: every `sd zero,24(a0)` goes (new per-child windows in [0,320)). Child cost 27 - skips, child
-saving 4 + skips (max 6), per-coordinate fixed part dispatchLen + 89, joint cap 776. FTS accept cost
-927 -> 918; verify bound 6998 -> 6976; C 7096 -> 7074.
-
-Lower-tree half-swap and witness pads (C2 + C3): in the lower trees (L1..L3) a left child (even heap, leaves
-included) is the HIGH half of its hash and is written 16 bytes below its slot; each fold writes one marked tweak
-word `hyperWord + 1407 + heap` whose high word is a witness pad (honest 0). The top leaf's leading 16 bytes, every
-leaf tweak's high word and every encoding row tweak's high word (honest 1) are witness pads, and lower chain 0's
-last step keeps the high half. W 24860 -> 24924 (message at 26144); after-FTS cost 5271 -> 5251; verify bound
-6976 -> 6956; C 7074 -> 7054 (stacked on C1). Mechanism also certified in b3cc11b (credited dependency).
-S = 5310, W = 24924, K = 131072, C = 7054; score 37456740.
+Combined S2 with public C1 (25d6f18f) FTS Merkle half selection and shifted child mask.
+S2's already-present L3 a2 elision is counted once. Fixed FTS cost 918 and joint cap 776.
+S = 5310, W = 24908, K = 131072, C = 7046; score 37414260.
+Integration: GPT 6 Astra / Codex; source authors and dependencies credited in the public note.
 -/

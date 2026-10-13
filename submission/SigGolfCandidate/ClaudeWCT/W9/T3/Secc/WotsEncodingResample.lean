@@ -15,8 +15,8 @@ set_option backward.isDefEq.respectTransparency false
 namespace Enc
 open SigGolfCandidate.T3.Security.Wots.Enc
 open SigGolfCandidate.T3.Security.Wots.Enc (tsum_uniform_coe)
-/-- Canonical encoding-row index: the (unused since nested FTS) forest right slot is 0; the 12-byte pad and the
-row tweak's high word (`pad.2.2`, C2/C3 FULL) are part of the row. -/
+/-- Canonical encoding-row index: the (unused since nested FTS) right slot is 0; the 12-byte pad and the tweak high
+word `pad.2.2` (campaign S2) are part of the row. -/
 def EncOk (lay : Layer) (msg : WCT9.LayerMsg) (pad : RowPad) : Prop :=
   Extract.msgFits lay msg ∧ pad.2.1 = 0
 abbrev EncIndex :=
@@ -50,17 +50,14 @@ theorem encInput_injective : Function.Injective encInput := by
   have : leaf = leaf' := Fin.ext h3
   subst tree leaf
   have hpp : p = p' := by
-    obtain ⟨h6, -, h7⟩ := h6
-    have h8 : p.2.2 = p'.2.2 := by
-      have := congrArg (fun x : BitVec 64 => x ^^^ 1) h7
-      simpa only [BitVec.xor_assoc, BitVec.xor_self, BitVec.xor_zero] using this
-    exact Prod.ext h6 (Prod.ext (hp.trans hp'.symm) h8)
+    obtain ⟨h6, h7, -⟩ := h6
+    exact Prod.ext h6 (Prod.ext (hp.trans hp'.symm) h7)
   subst hpp
   rfl
 theorem encInput_short (e : EncIndex) : encInput e ∈ SeccLaw.publicUniverse :=
   SeccLaw.mem_publicUniverse _ (by rw [encInput_length]; unfold SeccLaw.maxInputLength; omega)
 theorem encInput_encHeader (e : EncIndex) : EncHeader (encInput e) :=
-  ⟨encInput_length e, e.1.1.lay, e.1.1.tree.val, e.1.1.leaf.val, _,
+  ⟨encInput_length e, e.1.1.lay, e.1.1.tree.val, e.1.1.leaf.val, e.1.2.2.2.2.2,
     ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP _ _ _ _ _ _ _ _⟩
 theorem reached_encInput {T : Answers} {L : CanonGraph.LeafPos} (hs : L.Source) {input : HashInput}
     (h : Reached T (leafOf L) input) :
@@ -71,15 +68,11 @@ theorem reached_encInput {T : Answers} {L : CanonGraph.LeafPos} (hs : L.Source) 
 def Free (T : Answers) (e : EncIndex) : Prop := ¬ Reached T (leafOf e.1.1) (encInput e)
 def freeSet (T : Answers) : Set EncIndex := {e | Free T e}
 theorem encRow_hdr (L : LeafAddr) (msg : WCT9.LayerMsg) (counter : BitVec 32) (pad : RowPad) :
-    Extract.hdrBlock (encRow L msg counter pad) =
-      bytesLE 16 ((pad.2.2 ^^^ 1) ++ hyperWord L.lay.val (L.tree * 2 ^ height L.lay + L.leaf)) :=
+    Extract.hdrBlock (encRow L msg counter pad) = bytesLE 16 (pad.2.2 ++ hyperWord L.lay.val (L.tree * 2 ^ height L.lay + L.leaf)) :=
   ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP _ _ _ _ _ _ _ _
-theorem encRow_length (L : LeafAddr) (msg : WCT9.LayerMsg) (counter : BitVec 32) (pad : RowPad) :
-    (encRow L msg counter pad).length = 64 :=
-  ClaudeWCT.W9.T3M.BC.layerEncodingRow_length _ _ _ _ _ _ _ _
 theorem encInput_hdr (e : EncIndex) :
-    Extract.hdrBlock (encInput e) = bytesLE 16 ((e.1.2.2.2.2.2 ^^^ 1) ++
-      hyperWord e.1.1.lay.val (e.1.1.tree.val * 2 ^ height e.1.1.lay + e.1.1.leaf.val)) :=
+    Extract.hdrBlock (encInput e) =
+      bytesLE 16 (e.1.2.2.2.2.2 ++ hyperWord e.1.1.lay.val (e.1.1.tree.val * 2 ^ height e.1.1.lay + e.1.1.leaf.val)) :=
   ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP _ _ _ _ _ _ _ _
 noncomputable def rowDec (T A : Answers) (L : CanonGraph.LeafPos) (c : Nat) : Option (List Nat) :=
   WCT9.producerDecode (leafOf L).lay (WCT9.encodingAnswer (leafOf L).lay (A (.inl (.inr (encRow (leafOf L) (leafMsg T (leafOf L))

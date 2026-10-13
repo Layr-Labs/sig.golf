@@ -22,7 +22,7 @@ slot (L8), 32 its counter, 48 its right slot (overwritten by the verifier with t
 slot. Coordinate 8's supplied top sibling sits at `topSlot 8 child` (offset 0 or 144). -/
 def headerBytes (N : HashOutput) (w : WCT9.Witness) : List UInt8 :=
   (if (WCT9.child N 8).val / 2 ^ 6 % 2 = 1 then bytesLE 16 ((w.signature.openings 8).path 6) else zeros 16) ++
-    zeros 8 ++ bytesLE 8 (1 : BitVec 64) ++ bytesLE 4 (w.counters 3) ++ zeros 108 ++
+    zeros 16 ++ bytesLE 4 (w.counters 3) ++ zeros 108 ++
     (if (WCT9.child N 8).val / 2 ^ 6 % 2 = 0 then bytesLE 16 ((w.signature.openings 8).path 6) else zeros 16) ++
     zeros 16
 def authByte (child : Nat) (op : WCT9.Opening) (p : Nat) : UInt8 :=
@@ -64,23 +64,23 @@ def wctBytes (N : HashOutput) (sig : WCT9.Signature) : List UInt8 :=
   (List.finRange 9).reverse.flatMap fun k =>
     regionBytes (WCT9.child N k).val (sig.openings k) (prevSibL N sig k.val) (prevSibZ N sig k.val) ++
       (if k.val = 0 then zeros 16 else [])
-def lowerSibSlot (lay : Layer) (leaf j : Nat) : Nat := 16 * (lowerPlan lay leaf).getD j 0 + sibOff (leaf / 2 ^ j % 2)
-def lowerCtrSlot (lay : Layer) (leaf : Nat) : Nat := 16 * (lowerPlan lay leaf).getD (height lay - 1) 0 + 32
-/-- C2/C3 (FULL): the root window's row-tweak high word (honest LE64 1). -/
-def lowerHiSlot (lay : Layer) (leaf : Nat) : Nat := 16 * (lowerPlan lay leaf).getD (height lay - 1) 0 + 24
+/-- Sibling slot of level `j` inside the layer's path area (campaign S1/S2: every layer, the top included, places its
+siblings by its plan; `pathOff`). -/
+def lowerSibSlot (lay : Layer) (leaf j : Nat) : Nat := pathOff lay leaf j + sibOff (leaf / 2 ^ j % 2)
+/-- Counter slot of a lower layer's root window (the fused encoding block of the layer above). -/
+def lowerCtrSlot (lay : Layer) (leaf : Nat) : Nat := pathOff lay leaf (height lay - 1) + 32
 def lowerPathByte (lay : Layer) (leaf : Nat) (ls : LayerSignature lay) (ctr : BitVec 32) (p : Nat) : UInt8 :=
   match (List.finRange (height lay)).find?
       (fun j => decide (lowerSibSlot lay leaf j.val ≤ p ∧ p < lowerSibSlot lay leaf j.val + 16)) with
   | some j => (bytesLE 16 (ls.path j)).getD (p - lowerSibSlot lay leaf j.val) 0
-  | none => if lowerCtrSlot lay leaf ≤ p ∧ p < lowerCtrSlot lay leaf + 4 then
-      (bytesLE 4 ctr).getD (p - lowerCtrSlot lay leaf) 0
-    else if lowerHiSlot lay leaf ≤ p ∧ p < lowerHiSlot lay leaf + 8 then
-      (bytesLE 8 (1 : BitVec 64)).getD (p - lowerHiSlot lay leaf) 0 else 0
+  | none => if lay.val ≠ 0 ∧ lowerCtrSlot lay leaf ≤ p ∧ p < lowerCtrSlot lay leaf + 4 then
+      (bytesLE 4 ctr).getD (p - lowerCtrSlot lay leaf) 0 else 0
 def lowerPathBytes (lay : Layer) (leaf : Nat) (ls : LayerSignature lay) (ctr : BitVec 32) : List UInt8 :=
   (List.range (16 * pathSlots lay)).map (lowerPathByte lay leaf ls ctr)
+/-- Campaign S1/S2: every layer region is its plan-placed path area followed by its chain windows (the top path area
+is 784 bytes, two lines; the top has no counter). -/
 def layerRegion (N : HashOutput) (w : WCT9.Witness) (lay : Layer) : List UInt8 :=
-  if lay.val = 0 then layerBytes lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)
-  else lowerPathBytes lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)
+  lowerPathBytes lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)
       (w.counters (Fin.ofNat 4 (lay.val - 1))) ++
     (layerBytes lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)).drop (64 * height lay)
 def endpointBytes (sig : WCT9.Signature) (lay : Layer) : List UInt8 :=
@@ -120,10 +120,10 @@ def padDecP (N : HashOutput) (w : WBytes) : Pads where
   bc lay := wbcPad w (WCT9.digestIndex N) lay
   bcRight := wbcRight w
   endpointMask lay i := wvalue w lay i.val ^^^ wdig w (leafBufferSlot lay i.val)
-  merkleHigh lay j := if j.val + 1 < height lay then wmerkleHigh w lay (route (WCT9.digestIndex N) lay).1 j.val else 0
-  topLeaf := wtopLeafPad w
-  leafHigh lay := wleafHigh w lay
-  bcHigh lay := wbcHigh w (WCT9.digestIndex N) lay ^^^ 1
+  merkleHigh lay j := if j.val + 1 < height lay ∨ lay.val = 0 then
+    wmerkleHigh w lay (route (WCT9.digestIndex N) lay).1 j.val else 0
+  leafHigh lay := if lay.val = 0 then 0 else wleafHigh w lay
+  bcHigh lay := wbcHigh w (WCT9.digestIndex N) lay
 @[simp] theorem valueP_dec (N : HashOutput) (w : WBytes) (lay : Layer) (digits : List Nat)
     (i : Fin (chainCount lay)) :
     valueP (witDecP N w).signature (padDecP N w) lay digits i = wvalueFor w lay digits i.val := by

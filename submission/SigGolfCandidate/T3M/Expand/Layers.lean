@@ -42,9 +42,8 @@ theorem rl_mk_finish {tc : MachineState} {sig : Signature} {lay : Layer} {tree l
   set M := WM - 64 * j with hMdef
   have h22 : t2.getReg .x22 = BitVec.ofNat 64 P' := by rw [ru2.get (by decide)]; exact hI.x22
   have h24 : t2.getReg .x24 = BitVec.ofNat 64 M := by rw [ru2.get (by decide)]; exact hI.x24
-  have hco := curOff_le lay leaf j
-  have hval2 : DigAt t2 (NOUT + curOff lay leaf j) value :=
-    hI.val.frame fu2 (by simp only [NOUT]; omega) (by simp) (by simp)
+  have hval2 : DigAt t2 (NOUT + vOff (height lay) leaf j) value :=
+    hI.val.frame fu2 (by have := vOff_le (height lay) leaf j; simp only [NOUT]; omega) (by simp) (by simp)
   have hpu2 : DigAt t2 P' (lpath sig lay j) := hpu.frame fu2 (by omega) (by simp) (by simp)
   have hn32 : t2.getMem (BitVec.ofNat 64 (NODE + 32)) = 0 := by
     rw [fu2.get (by decide) (by simp), hI.frame.get (by decide)
@@ -54,7 +53,7 @@ theorem rl_mk_finish {tc : MachineState} {sig : Signature} {lay : Layer} {tree l
     rw [fu2.get (by decide) (by simp), hI.frame.get (by decide)
       (by unfold MkW; simp only [NODE, NOUT]; rintro (h | h | h | h | h | h | h | ⟨j', _, h | h⟩) <;>
         first | omega | (have := sideOff_le leaf j'; omega)), cn40]
-  obtain ⟨t3, k3, s3, hk3, p3, nl, nr, wsib, r3, f3⟩ : ∃ t3 k3, Steps image t2 k3 k3 t3 ∧ k3 ≤ 22 ∧
+  obtain ⟨t3, k3, s3, hk3, p3, nl, nr, wsib, r3, f3⟩ : ∃ t3 k3, Steps image t2 k3 k3 t3 ∧ k3 ≤ 19 ∧
       t3.pc = pcOf 1117 ∧
       DigAt t3 NODE (if leaf / 2 ^ j % 2 = 0 then value else lpath sig lay j) ∧
       DigAt t3 (NODE + 48) (if leaf / 2 ^ j % 2 = 0 then lpath sig lay j else value) ∧
@@ -64,13 +63,13 @@ theorem rl_mk_finish {tc : MachineState} {sig : Signature} {lay : Layer} {tree l
         A = NODE + 48 ∨ A = NODE + 56) := by
     by_cases hb : leaf / 2 ^ j % 2 = 0
     · rw [if_pos hb] at p2
-      obtain ⟨t3, s3, p3, m48, m56, n0, n8, n48, n56, r3, f3⟩ := rl1099_spec t2 p2 lay.val (by omega)
-        (by rw [ru2.get (by decide), g _ (by decide)]; exact c8) P' M (by omega) (by omega)
+      obtain ⟨t3, s3, p3, m48, m56, n0, n8, n48, n56, r3, f3⟩ := rl1099_spec t2 p2 P' M (by omega) (by omega)
         (by omega) (by omega) (by omega) (by omega) h22 h24
       have hso : sideOff leaf j = 48 := by unfold sideOff; rw [if_neg (by omega)]
-      have hc0 := curOff_bit0 lay hb
-      refine ⟨t3, if lay.val = 0 then 21 else 22, s3, by split_ifs <;> omega, p3, ?_, ?_, ?_, r3, ?_⟩
-      · rw [if_pos hb]; rw [hc0] at hval2; exact ⟨n0.trans hval2.1, n8.trans hval2.2⟩
+      have hvo : vOff (height lay) leaf j = 16 := by unfold vOff vHigh; simp [hj, hb]
+      rw [hvo] at hval2
+      refine ⟨t3, 18, s3, by omega, p3, ?_, ?_, ?_, r3, ?_⟩
+      · rw [if_pos hb]; exact ⟨n0.trans hval2.1, n8.trans hval2.2⟩
       · rw [if_pos hb]; exact ⟨n48.trans hpu2.1, n56.trans hpu2.2⟩
       · rw [hso]; exact ⟨m48.trans hpu2.1, by rw [show M + 48 + 8 = M + 56 by omega]; exact m56.trans hpu2.2⟩
       · rw [hso]; exact f3
@@ -78,9 +77,9 @@ theorem rl_mk_finish {tc : MachineState} {sig : Signature} {lay : Layer} {tree l
       obtain ⟨t3, s3, p3, m0, m8, n0, n8, n48, n56, r3, f3⟩ := rl1080_spec t2 p2 P' M (by omega) (by omega)
         (by omega) (by omega) (by omega) (by omega) h22 h24
       have hso : sideOff leaf j = 0 := by unfold sideOff; rw [if_pos (by omega)]
-      have hval2 : DigAt t2 NOUT value := by
-        have := hval2; rwa [curOff_bit1 lay hb, Nat.add_zero] at this
-      refine ⟨t3, 19, s3, by omega, p3, ?_, ?_, ?_, r3, ?_⟩
+      have hvo : vOff (height lay) leaf j = 0 := by unfold vOff vHigh; simp [hb]
+      rw [hvo, Nat.add_zero] at hval2
+      refine ⟨t3, 19, s3, le_refl _, p3, ?_, ?_, ?_, r3, ?_⟩
       · rw [if_neg hb]; exact ⟨n0.trans hpu2.1, n8.trans hpu2.2⟩
       · rw [if_neg hb]; exact ⟨n48.trans hval2.1, n56.trans hval2.2⟩
       · rw [hso]; exact ⟨m0.trans hpu2.1, m8.trans hpu2.2⟩
@@ -149,24 +148,22 @@ def RlPairPost (s0 : MachineState) (sig : Signature) (index : Nat) (lay : Layer)
     (∀ j < height lay, DigAt t (WM - 64 * j + sideOff (route index lay).1 j) (lpath sig lay j)) ∧
     RegsExcept s0 t rlRegs ∧
     Frame s0 t (fun A => (RlScratch A ∨ RlWit lay (route index lay).1 WC WM A) ∨ A = ENC + 48 ∨ A = ENC + 56)
-/-- C2 + C3 (FULL): the lower-layer recovery of the current scheme (S23's `WCT9.recoverLayerPair` body, with
-`chainW`, `lowerLeafHash` and `lowerNodeHash`), unfolded. -/
-def recoverLayerPairN (sig : WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat) :
-    T3.M (Digest × Digest) :=
-  ((List.finRange (chainCount lay)).mapM fun i => ClaudeWCT.WCT9.chainW lay (route index lay).2 (route index lay).1
-      i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0) ((sig.layers lay).values i)) >>=
-    fun ends => ClaudeWCT.WCT9.lowerLeafHash lay (route index lay).2 (route index lay).1 ends >>= fun value =>
-      (List.finRange (height lay - 1)).foldlM (fun value j => do
-        let other := (sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) j)
-        let pair := if (route index lay).1 / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
-        ClaudeWCT.WCT9.lowerNodeHash lay.val (route index lay).2
-          (2 ^ (height lay - j.val - 1) + (route index lay).1 / 2 ^ (j.val + 1)) pair.1 pair.2) value >>= fun top =>
-        pure (if (route index lay).1 / 2 ^ (height lay - 1) % 2 = 0 then
-          (top, (sig.layers lay).path (WCT9.topLevel lay)) else
-          ((sig.layers lay).path (WCT9.topLevel lay), top))
+theorem recoverLayerPair_eq (sig : WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat) :
+    WCT9.recoverLayerPair sig index lay digits =
+      ((List.finRange (chainCount lay)).mapM fun i => chain lay (route index lay).2 (route index lay).1 i.val
+        (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0) ((sig.layers lay).values i)) >>=
+      fun ends => leafHash lay (route index lay).2 (route index lay).1 ends >>= fun value =>
+        (List.finRange (height lay - 1)).foldlM (fun value j => do
+          let other := (sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) j)
+          let pair := if (route index lay).1 / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
+          nodeHash 3 lay.val (route index lay).2 (2 ^ (height lay - j.val - 1) + (route index lay).1 / 2 ^ (j.val + 1))
+            pair.1 pair.2) value >>= fun top =>
+          pure (if (route index lay).1 / 2 ^ (height lay - 1) % 2 = 0 then
+            (top, (sig.layers lay).path (WCT9.topLevel lay)) else
+            ((sig.layers lay).path (WCT9.topLevel lay), top)) := rfl
 theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT9.Signature} {index : Nat} {lay : Layer} {digits : List Nat}
     {P WC WM ret : Nat} (hpre : RlPre s0 (WCT9.toT3Signature wsig) index lay digits P WC WM ret) (hlow : lay ≠ 0) :
-    TBSim image sk s0 (rlCost lay) (recoverLayerPairN wsig index lay digits)
+    TBSim image sk s0 (rlCost lay) (WCT9.recoverLayerPair wsig index lay digits)
       (RlPairPost s0 (WCT9.toT3Signature wsig) index lay WC WM ret) := by
   let sig := WCT9.toT3Signature wsig
   set tree := (route index lay).2 with htree_def
@@ -200,8 +197,8 @@ theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT
     · rw [f1g _ (by decide) (by decide) (by decide) (by decide) (by decide), hpre.c32]
     · rw [f1g _ (by decide) (by decide) (by decide) (by decide) (by decide), hpre.c40]
     · rw [r1.get (by decide), hpre.x23]; simp
-  unfold recoverLayerPairN
-  refine (TBSim.steps st1 (TBSim.bind (W₂ := 10 + 8 * leafBlocks' lay + 13 + height lay * 75)
+  rw [recoverLayerPair_eq]
+  refine (TBSim.steps st1 (TBSim.bind (W₂ := 10 + 8 * leafBlocks' lay + 13 + height lay * 68)
     (rl_chains (sk := sk) hpre r1 f1 hI0) (fun ends u hu => ?_))).mono (by unfold rlCost; omega) (fun _ _ h => h)
   obtain ⟨hlen, hC⟩ := hu
   have hN58 : chainCount lay ≤ 58 := by omega
@@ -258,9 +255,8 @@ theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT
         simp only [LEAFPK] <;> omega) (by decide) (by decide)
   have rs2 : RegsExcept s0 v2 oneRegs := ((r1.trans hC.regs).trans ru2).mono (by decide)
   have h5 : v2.getReg .x5 = 0 := by rw [rs2.get (by decide), hpre.x5]
-  rw [ClaudeWCT.WCT9.lowerLeafHash_eq]
-  unfold ClaudeWCT.WCT9.lowerHash
-  refine (TBSim.steps (sv1.trans sv2) (tb_halfHash_bind' (W := 13 + height lay * 75) _ (fetch_1072 v2 pv2) h5 hv hq
+  unfold leafHash
+  refine (TBSim.steps (sv1.trans sv2) (tb_projHash_bind' (W := 13 + height lay * 68) (fetch_1072 v2 pv2) h5 hv hq
     (fun a => ?_))).mono (by rw [hblk]; omega) (fun _ _ h => h)
   set tc := writeHash v2 a with htc
   have pc3 : tc.pc = pcOf 1073 := by rw [htc, pc_writeHash, pv2, pcOf_add4]
@@ -280,12 +276,12 @@ theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT
     · simp only [NOUT] at h h4; omega
   obtain ⟨v4, sv4, pv4, x20, x22, rv4, fv4⟩ := rl1073_spec tc pc3 P (chainCount lay) (by omega)
     (by rw [rtc.get (by decide), hpre.x16]) (by rw [rtc.get (by decide), hpre.x26])
-  have hM0 : MkInv tc sig lay leaf P WM 0 (ClaudeWCT.WCT9.halfOf (ClaudeWCT.WCT9.lowerHigh lay.val leaf) a) v4 := by
+  have hM0 : MkInv tc sig lay leaf P WM 0 (T3.projHalf (T3.leafHigh leaf) a) v4 := by
     refine ⟨pv4, x20, by rw [x22]; congr 1, ?_, by omega, ?_, fun j hj => absurd hj (by omega), rv4.mono (by decide),
       fv4.mono (fun _ _ h => h.elim)⟩
     · rw [rv4.get (by decide), rtc.get (by decide), hpre.x24]; congr 1
-    · rw [curOff_zero]
-      exact (digAt_half v2 a NOUT h12 (by decide) _).frame fv4 (by split_ifs <;> decide) (by simp) (by simp)
+    · rw [leafHigh_vHigh (show 0 < height lay by fin_cases lay <;> decide)]
+      exact (digAt_projHalf a _ h12).frame fv4 (by split <;> simp only [NOUT] <;> omega) (by simp) (by simp)
   have c5 : tc.getReg .x5 = 0 := by rw [rtc.get (by decide), hpre.x5]
   have c8 : tc.getReg .x8 = BitVec.ofNat 64 lay.val := by rw [rtc.get (by decide), hpre.x8]
   have c9 : tc.getReg .x9 = BitVec.ofNat 64 tree := by rw [rtc.get (by decide), hpre.x9]
@@ -309,9 +305,8 @@ theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT
     (fun value j => do
       let other := (sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) j)
       let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
-      ClaudeWCT.WCT9.lowerNodeHash lay.val tree (2 ^ (height lay - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1 pair.2)
-    (ClaudeWCT.WCT9.halfOf (ClaudeWCT.WCT9.lowerHigh lay.val leaf) a) 75
-    (fun j value w => MkInv tc sig lay leaf P WM j value w)
+      nodeHash 3 lay.val tree (2 ^ (height lay - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1 pair.2)
+    (T3.projHalf (T3.leafHigh leaf) a) 68 (fun j value w => MkInv tc sig lay leaf P WM j value w)
     (fun i acc w hw => (rl_mk_step (by omega) (Or.inl (by omega)) htree hleaf hpre.hP hpre.hP' hpre.hP8 hpre.hWM8 hpre.hWM (by omega)
       c5 c8 c9 c18 c15 (cpath i.val (by omega)) cn32 cn40 hw).mono le_rfl (fun _ _ h => h.1)) hM0
   have hHp : 0 < height lay := by fin_cases lay <;> decide
@@ -363,10 +358,6 @@ section
 namespace SigGolfCandidate.T3M.Expand.BC
 open OracleComp SigGolfCandidate.T3
 open ClaudeWCT
-/-- C2 + C3 (FULL): `WCT9.recoverLayerPair` has the C2 + C3 body (`chainW`, `lowerLeafHash`, `lowerNodeHash`). -/
-theorem recoverLayerPair_eqN (sig : WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat) :
-    WCT9.recoverLayerPair sig index lay digits = SigGolfCandidate.T3M.Expand.recoverLayerPairN sig index lay digits :=
-  rfl
 def recoverMsg (sig : WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat) :
     M (WCT9.LayerMsg × Digest) :=
   if lay = 0 then do
@@ -484,7 +475,7 @@ def layCost (lay : Layer) : Nat :=
 def lcost : Nat → Nat
   | 0 => 0
   | n + 1 => layCost (Fin.ofNat 4 n) + lcost n
-theorem lcost_four_eq : lcost 4 = 3523312730 := by decide +kernel
+theorem lcost_four_eq : lcost 4 = 3523316356 := by decide +kernel
 theorem ltable (lay : Layer) :
     0x7000 ≤ lP lay ∧ lP lay + 16 * (chainCount lay + height lay) ≤ 0x7000 + 5616 ∧ lP lay % 8 = 0 ∧
     lWC lay % 8 = 0 ∧ lWM lay % 8 = 0 ∧ 0x800 + 64 * (height lay - 1) ≤ lWM lay ∧
@@ -579,8 +570,7 @@ theorem recoverMsg_tbsim {sk : BitVec 256} {s0 : MachineState} {sig : WCT9.Signa
     refine TBSim.pure ⟨pc, enc, (fun hn => False.elim (hn rfl)), (fun _ => ⟨r.2, rfl⟩), cv, pv, regs, ?_,
       fun _ => blk⟩
     exact frame.mono (by intro A hA h; rcases h with h | h; exact Or.inl (Or.inl h); exact Or.inr h)
-  · rw [recoverLayerPair_eqN]
-    refine (TBSim.bind (W₂ := 0) (recoverLayerPair_tbsim hpre ht) (fun pair t h => ?_)).mono (by omega) (fun _ _ h => h)
+  · refine (TBSim.bind (W₂ := 0) (recoverLayerPair_tbsim hpre ht) (fun pair t h => ?_)).mono (by omega) (fun _ _ h => h)
     obtain ⟨pc, enc, right, cv, pv, regs, frame⟩ := h
     refine TBSim.pure ⟨pc, enc, (fun _ => right), (fun he => False.elim (ht he)), cv, pv, regs, ?_,
       fun he => False.elim (ht he)⟩

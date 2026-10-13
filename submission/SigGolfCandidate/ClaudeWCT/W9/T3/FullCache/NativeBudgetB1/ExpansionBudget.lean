@@ -19,6 +19,13 @@ theorem shortHash_cost (answers : SigGolfCandidate.T3.Correctness.Answers) (x : 
   unfold publicHash
   rw [cost_query]
   rfl
+theorem projHash_cost (answers : SigGolfCandidate.T3.Correctness.Answers) (high : Bool) (x : HashInput) :
+    cost answers (projHash high x) = (pad64 x).length / 64 := by
+  unfold projHash
+  rw [cost_bind, cost_pure, Nat.add_zero]
+  unfold publicHash
+  rw [cost_query]
+  rfl
 /-- C1: an FTS hash (either half) costs one compression per 64-byte block, like `shortHash`. -/
 theorem ftsHash_cost (answers : SigGolfCandidate.T3.Correctness.Answers) (heap : Nat) (x : HashInput) :
     cost answers (ClaudeWCT.WCT9.ftsHash heap x) = (pad64 x).length / 64 := by
@@ -132,13 +139,13 @@ theorem bound_recoverLayerPair (sig : Signature) (index : Nat) (lay : Layer) (di
   unfold ClaudeWCT.WCT9.recoverLayerPair
   dsimp only
   refine (Bound.mapM_list (P := GoodQuery) (List.finRange (chainCount lay)) _
-    (fun i => maxDigit lay i.val - digits.getD i.val 0) (fun i _ => ClaudeWCT.WCT9.Cost.bound_chainW _ _ _ _ _ _ _)).bind'
+    (fun i => maxDigit lay i.val - digits.getD i.val 0) (fun i _ => bound_chain _ _ _ _ _ _ _)).bind'
     (l := leafHashCost lay + height lay) (fun ends hends => ?_) ?_
-  · refine (ClaudeWCT.WCT9.Cost.bound_lowerLeafHash lay _ _ ends (by simpa using hends)).bind (fun root _ => ?_)
+  · refine (bound_leafHash lay _ _ ends (by simpa using hends)).bind (fun root _ => ?_)
     refine ((Bound.foldlM_list (P := GoodQuery) (List.finRange (height lay - 1)) _
       (fun _ _ => True) (fun _ => 1) root trivial (fun i hi value _ => ?_)).bind
         (fun top _ => .pure _ 0 trivial)).mono_k (by simp)
-    exact ClaudeWCT.WCT9.Cost.bound_lowerNodeHash _ _ _ _ _
+    exact bound_nodeHash _ _ _ _ _ _
   · rw [sum_finRange (chainCount lay) (fun i => maxDigit lay i - digits.getD i 0),
       remaining_steps lay digits hd hlen hsum]
     simp only [recoverLayerCost]
@@ -315,7 +322,7 @@ theorem cost_topNode (answers : Answers) (index : Nat) (v o : Digest) :
     cost answers (ClaudeWCT.WCT9.topNode index v o) = 1 := by
   apply le_antisymm (cost_bound answers (ClaudeWCT.WCT9.Cost.bound_topNode index v o))
   unfold ClaudeWCT.WCT9.topNode nodeHash
-  rw [ClaudeWCT.W9.T3.FullCacheExpansionCost.shortHash_cost]
+  rw [ClaudeWCT.W9.T3.FullCacheExpansionCost.projHash_cost]
   refine le_trans (by norm_num) (Nat.div_le_div_right (c := 64)
     (ClaudeWCT.W9.T3.FullCacheExpansionCost.pad64_length_ge _ ?_))
   simp only [List.length_append, SphincsSecurity.bytesLE_length, zero16, List.length_replicate]

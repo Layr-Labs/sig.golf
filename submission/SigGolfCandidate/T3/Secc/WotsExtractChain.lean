@@ -34,29 +34,33 @@ theorem entriesOf_mono {answers : Answers} {qs qs' : List Spec.Domain} (hsub : �
   exact mem_entriesOf_iff.mpr ⟨hsub _ hq, ha⟩
 theorem seenRow_of_mem {answers : Answers} {qs : List Spec.Domain} {a : ChainAddr} {step : Nat}
     {value out : Digest} (hq : (.inl (.inr (chainRow a step value)) : Spec.Domain) ∈ qs)
-    (hout : low (answers (.inl (.inr (chainRow a step value)))) = out) :
+    (hout : projHalf (chainHigh a.key.lay a.chain step) (answers (.inl (.inr (chainRow a step value)))) = out) :
     SeenRow (entriesOf answers qs) a step value out :=
   ⟨_, mem_entriesOf hq, hout⟩
-theorem hashPath_join_core (answers : Answers) (input : Nat → Digest → HashInput)
+theorem seenRow_mono {trace trace' : List Entry} {a : ChainAddr} {step : Nat} {value out : Digest}
+    (h : SeenRow trace a step value out) (hsub : ∀ e ∈ trace, e ∈ trace') : SeenRow trace' a step value out := by
+  obtain ⟨answer, hm, hl⟩ := h
+  exact ⟨answer, hsub _ hm, hl⟩
+theorem hashPath_join_core (answers : Answers) (high : Nat → Bool) (input : Nat → Digest → HashInput)
     (honestInput : Nat → HashInput) (target : Nat → Digest) (Good : Nat → Prop)
     (initial : Digest) (count : Nat)
     (reference : ∀ step, step < count →
-      evalWithAnswerFn answers (shortHash (honestInput step)) = target (step + 1))
+      evalWithAnswerFn answers (projHash (high step) (honestInput step)) = target (step + 1))
     (parse : ∀ step, step < count → ∀ value,
       pad64 (input step value) = pad64 (honestInput step) → value = target step ∧ Good step)
-    (reaches : pathValue answers input initial count = target count) :
+    (reaches : pathValue answers high input initial count = target count) :
     (initial = target 0 ∧ ∀ step, step < count →
-        Good step ∧ pad64 (pathInput answers input initial step) = pad64 (honestInput step)) ∨
+        Good step ∧ pad64 (pathInput answers high input initial step) = pad64 (honestInput step)) ∨
       ∃ step, step < count ∧
-        .inl (.inr (pad64 (pathInput answers input initial step))) ∈
-          queried answers (hashPath input count initial) ∧
-        HashHit answers (pad64 (honestInput step)) (pad64 (pathInput answers input initial step)) ∧
+        .inl (.inr (pad64 (pathInput answers high input initial step))) ∈
+          queried answers (hashPath high input count initial) ∧
+        HashHitP (high step) answers (pad64 (honestInput step)) (pad64 (pathInput answers high input initial step)) ∧
         ∀ later, step < later → later < count →
-          Good later ∧ pad64 (pathInput answers input initial later) = pad64 (honestInput later) := by
+          Good later ∧ pad64 (pathInput answers high input initial later) = pad64 (honestInput later) := by
   induction count with
   | zero => exact Or.inl ⟨reaches, fun step hstep => by omega⟩
   | succ count ih =>
-      by_cases heq : pad64 (pathInput answers input initial count) = pad64 (honestInput count)
+      by_cases heq : pad64 (pathInput answers high input initial count) = pad64 (honestInput count)
       · obtain ⟨hprev, hgood⟩ := parse count (by omega) _ heq
         rcases ih (fun step hstep => reference step (by omega))
           (fun step hstep => parse step (by omega)) hprev with ⟨hinit, hall⟩ | ⟨step, hstep, _, hhit, hlater⟩
@@ -65,59 +69,61 @@ theorem hashPath_join_core (answers : Answers) (input : Nat → Digest → HashI
           rcases Nat.lt_succ_iff_lt_or_eq.mp hstep with hlt | rfl
           · exact hall step hlt
           · exact ⟨hgood, heq⟩
-        · refine Or.inr ⟨step, by omega, pathInput_queried answers input initial _ _ (by omega), hhit, ?_⟩
+        · refine Or.inr ⟨step, by omega, pathInput_queried answers high input initial _ _ (by omega), hhit, ?_⟩
           intro later h1 h2
           rcases Nat.lt_succ_iff_lt_or_eq.mp h2 with hlt | rfl
           · exact hlater later h1 hlt
           · exact ⟨hgood, heq⟩
       · right
-        refine ⟨count, by omega, pathInput_queried answers input initial _ _ (by omega), ⟨heq, ?_⟩,
+        refine ⟨count, by omega, pathInput_queried answers high input initial _ _ (by omega), ⟨heq, ?_⟩,
           fun later h1 h2 => by omega⟩
         rw [pathValue_succ] at reaches
         exact reaches.trans (reference count (by omega)).symm
-theorem pathValue_succ_of_low (answers : Answers) (input : Nat → Digest → HashInput)
+theorem pathValue_succ_of_low (answers : Answers) (high : Nat → Bool) (input : Nat → Digest → HashInput)
     (honestInput : Nat → HashInput) (initial : Digest) (step : Nat) (next : Digest)
-    (href : evalWithAnswerFn answers (shortHash (honestInput step)) = next)
-    (hlow : (answers (.inl (.inr (pad64 (pathInput answers input initial step))))).extractLsb' 0 128 =
-      (answers (.inl (.inr (pad64 (honestInput step))))).extractLsb' 0 128) :
-    pathValue answers input initial (step + 1) = next := by
-  rw [pathValue_succ, eval_shortHash, hlow]
+    (href : evalWithAnswerFn answers (projHash (high step) (honestInput step)) = next)
+    (hlow : projHalf (high step) (answers (.inl (.inr (pad64 (pathInput answers high input initial step))))) =
+      projHalf (high step) (answers (.inl (.inr (pad64 (honestInput step)))))) :
+    pathValue answers high input initial (step + 1) = next := by
+  rw [pathValue_succ, eval_projHash, hlow]
   exact href
-theorem hashPath_join (answers : Answers) (input : Nat → Digest → HashInput)
+theorem hashPath_join (answers : Answers) (high : Nat → Bool) (input : Nat → Digest → HashInput)
     (honestInput : Nat → HashInput) (target : Nat → Digest) (Good : Nat → Prop)
     (initial : Digest) (count : Nat)
     (reference : ∀ step, step < count →
-      evalWithAnswerFn answers (shortHash (honestInput step)) = target (step + 1))
+      evalWithAnswerFn answers (projHash (high step) (honestInput step)) = target (step + 1))
     (parse : ∀ step, step < count → ∀ value,
       pad64 (input step value) = pad64 (honestInput step) → value = target step ∧ Good step)
-    (reaches : pathValue answers input initial count = target count) :
+    (reaches : pathValue answers high input initial count = target count) :
     (initial = target 0 ∧
-      (∀ step, step < count → Good step ∧ pad64 (pathInput answers input initial step) = pad64 (honestInput step)) ∧
-      ∀ s, s ≤ count → pathValue answers input initial s = target s) ∨
+      (∀ step, step < count → Good step ∧
+        pad64 (pathInput answers high input initial step) = pad64 (honestInput step)) ∧
+      ∀ s, s ≤ count → pathValue answers high input initial s = target s) ∨
     ∃ step, step < count ∧
-      .inl (.inr (pad64 (pathInput answers input initial step))) ∈ queried answers (hashPath input count initial) ∧
-      HashHit answers (pad64 (honestInput step)) (pad64 (pathInput answers input initial step)) ∧
+      .inl (.inr (pad64 (pathInput answers high input initial step))) ∈
+        queried answers (hashPath high input count initial) ∧
+      HashHitP (high step) answers (pad64 (honestInput step)) (pad64 (pathInput answers high input initial step)) ∧
       (∀ later, step < later → later < count →
-        Good later ∧ pad64 (pathInput answers input initial later) = pad64 (honestInput later)) ∧
-      ∀ s, step < s → s ≤ count → pathValue answers input initial s = target s := by
-  rcases hashPath_join_core answers input honestInput target Good initial count reference parse reaches with
+        Good later ∧ pad64 (pathInput answers high input initial later) = pad64 (honestInput later)) ∧
+      ∀ s, step < s → s ≤ count → pathValue answers high input initial s = target s := by
+  rcases hashPath_join_core answers high input honestInput target Good initial count reference parse reaches with
     ⟨hinit, hall⟩ | ⟨step, hstep, hq, hhit, hlater⟩
   · refine Or.inl ⟨hinit, hall, ?_⟩
     intro s hs
     induction s with
     | zero => exact hinit
     | succ s ih =>
-        exact pathValue_succ_of_low answers input honestInput initial s _ (reference s (by omega))
+        exact pathValue_succ_of_low answers high input honestInput initial s _ (reference s (by omega))
           (by rw [(hall s (by omega)).2])
   · refine Or.inr ⟨step, hstep, hq, hhit, hlater, ?_⟩
     intro s hs hsc
     obtain ⟨k, rfl⟩ : ∃ k, s = k + 1 := ⟨s - 1, by omega⟩
     rcases Nat.lt_or_ge step k with hk | hk
-    · exact pathValue_succ_of_low answers input honestInput initial k _ (reference k (by omega))
+    · exact pathValue_succ_of_low answers high input honestInput initial k _ (reference k (by omega))
         (by rw [(hlater k hk (by omega)).2])
     · have hk' : k = step := by omega
       subst hk'
-      exact pathValue_succ_of_low answers input honestInput initial k _ (reference k (by omega)) hhit.2
+      exact pathValue_succ_of_low answers high input honestInput initial k _ (reference k (by omega)) hhit.2
 theorem chainP_join (answers : Answers) (lay : Layer) (tree leaf i start count : Nat)
     (pad0 pad1 : Digest) (headerPad : BitVec 64) (value seed : Digest)
     (ht : tree < 2^31) (hl : leaf < 4096) (hi : i < 64)
@@ -125,29 +131,29 @@ theorem chainP_join (answers : Answers) (lay : Layer) (tree leaf i start count :
     (reaches : evalWithAnswerFn answers (chainP lay tree leaf i start count pad0 pad1 headerPad value) =
       honestChainValue answers lay tree leaf i seed (start + count)) :
     (value = honestChainValue answers lay tree leaf i seed start ∧ (0 < count → pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0) ∧
-      ∀ s, s ≤ count → pathValue answers (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value s =
+      ∀ s, s ≤ count → pathValue answers (chainPathHigh lay i start) (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value s =
         honestChainValue answers lay tree leaf i seed (start + s)) ∨
     ∃ step, step < count ∧
-      .inl (.inr (pad64 (pathInput answers (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value step))) ∈
+      .inl (.inr (pad64 (pathInput answers (chainPathHigh lay i start) (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value step))) ∈
         queried answers (chainP lay tree leaf i start count pad0 pad1 headerPad value) ∧
-      HashHit answers
+      HashHitP (chainHigh lay i (start + step)) answers
         (pad64 (chainInput lay tree leaf i (start + step)
           (honestChainValue answers lay tree leaf i seed (start + step))))
-        (pad64 (pathInput answers (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value step)) ∧
+        (pad64 (pathInput answers (chainPathHigh lay i start) (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value step)) ∧
       (step + 1 < count → pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0) ∧
       (∀ later, step < later → later < count →
-        pathInput answers (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value later =
+        pathInput answers (chainPathHigh lay i start) (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value later =
           chainInput lay tree leaf i (start + later)
             (honestChainValue answers lay tree leaf i seed (start + later))) ∧
-      ∀ s, step < s → s ≤ count → pathValue answers (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value s =
+      ∀ s, step < s → s ≤ count → pathValue answers (chainPathHigh lay i start) (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value s =
         honestChainValue answers lay tree leaf i seed (start + s) := by
   rw [chainP_eq_hashPath] at reaches ⊢
-  have h := hashPath_join answers (chainPathInput lay tree leaf i start pad0 pad1 headerPad)
+  have h := hashPath_join answers (chainPathHigh lay i start) (chainPathInput lay tree leaf i start pad0 pad1 headerPad)
     (fun step => chainInput lay tree leaf i (start + step)
       (honestChainValue answers lay tree leaf i seed (start + step)))
     (fun step => honestChainValue answers lay tree leaf i seed (start + step))
     (fun _ => pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0) value count
-    (fun step _ => by simpa only [Nat.add_assoc] using
+    (fun step _ => by simpa only [Nat.add_assoc, chainPathHigh] using
       honestChainValue_succ answers lay tree leaf i seed (start + step))
     (fun step hstep current heq => by
       have hs : start + step < 8 := by rcases hsteps with hz | hb <;> omega
@@ -170,15 +176,15 @@ theorem chainP_frontier (answers : Answers) (lay : Layer) (tree leaf i start cou
       honestChainValue answers lay tree leaf i seed (start + count))
     (W : Nat) (hW : start < W) (hWc : W ≤ start + count) :
     (∃ step, step < count ∧
-      .inl (.inr (pad64 (pathInput answers (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value step))) ∈
+      .inl (.inr (pad64 (pathInput answers (chainPathHigh lay i start) (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value step))) ∈
         queried answers (chainP lay tree leaf i start count pad0 pad1 headerPad value) ∧
-      HashHit answers
+      HashHitP (chainHigh lay i (start + step)) answers
         (pad64 (chainInput lay tree leaf i (start + step)
           (honestChainValue answers lay tree leaf i seed (start + step))))
-        (pad64 (pathInput answers (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value step)) ∧
+        (pad64 (pathInput answers (chainPathHigh lay i start) (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value step)) ∧
       (¬(pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0) ∨ W ≤ start + step)) ∨
     (pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0 ∧
-      pathValue answers (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value (W - start) =
+      pathValue answers (chainPathHigh lay i start) (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value (W - start) =
         honestChainValue answers lay tree leaf i seed W) := by
   rcases chainP_join answers lay tree leaf i start count pad0 pad1 headerPad value seed ht hl hi hsteps reaches with
     ⟨_, hpads, hvals⟩ | ⟨step, hstep, hq, hhit, _, _, hvals⟩
@@ -195,21 +201,22 @@ theorem chainP_row (answers : Answers) (a : ChainAddr) (start count : Nat) (valu
     (ht : a.key.tree < 2^31) (hl : a.key.leaf < 4096) (hi : a.chain < 64)
     (hsteps : start + count ≤ 8) (hs : s < count) :
     (.inl (.inr (chainRow a (start + s)
-        (pathValue answers (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value s))) :
+        (pathValue answers (chainPathHigh a.key.lay a.chain start) (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value s))) :
         Spec.Domain) ∈
       queried answers (chainP a.key.lay a.key.tree a.key.leaf a.chain start count 0 0 0 value) ∧
-    low (answers (.inl (.inr (chainRow a (start + s)
-        (pathValue answers (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value s))))) =
-      pathValue answers (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value (s + 1) := by
-  have hrow : pad64 (pathInput answers (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value s) =
+    projHalf (chainHigh a.key.lay a.chain (start + s)) (answers (.inl (.inr (chainRow a (start + s)
+        (pathValue answers (chainPathHigh a.key.lay a.chain start) (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value s))))) =
+      pathValue answers (chainPathHigh a.key.lay a.chain start) (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value (s + 1) := by
+  have hrow : pad64 (pathInput answers (chainPathHigh a.key.lay a.chain start) (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value s) =
       chainRow a (start + s)
-        (pathValue answers (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value s) := by
+        (pathValue answers (chainPathHigh a.key.lay a.chain start) (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value s) := by
     simp only [pathInput, chainPathInput, pad64_chainInputP, chainRow]
     exact (chainInput_eq_zero a.key.lay a.key.tree a.key.leaf a.chain (start + s) _ ht hl hi (by omega)).symm
   constructor
   · rw [chainP_eq_hashPath, ← hrow]
-    exact pathInput_queried answers (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value count s hs
-  · rw [pathValue_succ, eval_shortHash, hrow]
+    exact pathInput_queried answers (chainPathHigh a.key.lay a.chain start)
+      (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value count s hs
+  · rw [pathValue_succ, eval_projHash, hrow]
     rfl
 theorem chain_seen (answers : Answers) (a : ChainAddr) (start count : Nat) (value out : Digest)
     (qs : List Spec.Domain)
@@ -217,7 +224,7 @@ theorem chain_seen (answers : Answers) (a : ChainAddr) (start count : Nat) (valu
     (hsteps : start + count ≤ 8)
     (hsub : ∀ q ∈ queried answers (chainP a.key.lay a.key.tree a.key.leaf a.chain start count 0 0 0 value), q ∈ qs)
     (W : Nat) (hW : start < W) (hWc : W ≤ start + count)
-    (hval : pathValue answers (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value (W - start) = out) :
+    (hval : pathValue answers (chainPathHigh a.key.lay a.chain start) (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value (W - start) = out) :
     (∃ x, SeenRow (entriesOf answers qs) a (W - 1) x out) ∧
       (start + 2 ≤ W → ∃ y x, SeenRow (entriesOf answers qs) a (W - 2) y x ∧
         SeenRow (entriesOf answers qs) a (W - 1) x out) := by
@@ -234,25 +241,6 @@ theorem chain_seen (answers : Answers) (a : ChainAddr) (start count : Nat) (valu
   exact ⟨_, _, seenRow_of_mem (hsub _ hprev.1) hprev.2, hcontact⟩
 def SourceLeaf (L : LeafAddr) : Prop := L.tree < 2 ^ 31 ∧ L.leaf < 2 ^ height L.lay
 def SourceChain (a : ChainAddr) : Prop := SourceLeaf a.key ∧ a.chain < chainCount a.key.lay
-def PosSource : Extract.Pos → Prop
-  | .chain lay tree leaf i step => tree < 2 ^ 31 ∧ leaf < 2 ^ height lay ∧ i < chainCount lay ∧ step + 1 < 2 ^ width lay i
-  | .leaf lay tree leaf => tree < 2 ^ 31 ∧ leaf < 2 ^ height lay
-  | .node lay tree level node => tree < 2 ^ 31 ∧ level < height lay ∧ node < 2 ^ (height lay - level - 1)
-  | .forest index => index < 2 ^ 31
-  | .ftsLeaf index coord leaf => index < 2 ^ 31 ∧ coord < 7 ∧ leaf < 2048
-  | .ftsNode index coord level node => index < 2 ^ 31 ∧ coord < 7 ∧ level < 11 ∧ node < 2 ^ (11 - level - 1)
-def StructuralHitSrc (answers : Answers) (trace : List Entry) : Prop :=
-  ∃ position input answer, (input, answer) ∈ trace ∧ Extract.posOf input = some position ∧
-    position.Bounded ∧ PosSource position ∧ StructuralClass answers input position ∧
-    HashHit answers (Extract.honestInput answers position) input
-theorem StructuralHitSrc.toStructuralHit {answers : Answers} {trace : List Entry}
-    (h : StructuralHitSrc answers trace) : StructuralHit answers trace := by
-  obtain ⟨position, input, answer, hm, hpos, hb, -, hc, hh⟩ := h
-  exact ⟨position, input, answer, hm, hpos, hb, hc, hh⟩
-theorem structuralHitSrc_mono {answers : Answers} {trace trace' : List Entry} (h : StructuralHitSrc answers trace)
-    (hsub : ∀ e ∈ trace, e ∈ trace') : StructuralHitSrc answers trace' := by
-  obtain ⟨position, input, answer, hm, hpos, hb, hs, hc, hh⟩ := h
-  exact ⟨position, input, answer, hsub _ hm, hpos, hb, hs, hc, hh⟩
 theorem height_le' (lay : Layer) : height lay ≤ 12 := by fin_cases lay <;> decide
 theorem chainCount_le' (lay : Layer) : chainCount lay ≤ 58 := by fin_cases lay <;> decide
 theorem width_le' (lay : Layer) (i : Nat) : width lay i ≤ 3 := by unfold width; omega

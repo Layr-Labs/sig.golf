@@ -62,7 +62,7 @@ theorem frontierValue_leafCongr {b : ChainAddr} (hb : WotsExtract.SourceChain b)
       simp only at hk hbc
       subst hk
       exact hC.front c hbc
-  · unfold frontierValue honestChainValueW
+  · unfold frontierValue honestChainValue
     rw [depth_congr hC hLleaf b, wotsSeed_out hC.toLeafAgree hLleaf hbl hal]
     exact eval_chain_out hC.toLeafAgree (by have := Mask.chainCount_le b.key.lay; have := hb.2; omega)
       (fun h => hal h.1) (by have := Mask.depth_le_seven T b; omega) _

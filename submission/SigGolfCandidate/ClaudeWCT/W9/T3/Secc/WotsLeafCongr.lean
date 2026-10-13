@@ -23,7 +23,7 @@ open SigGolfCandidate.T3.Security.Wots.Mask ClaudeWCT.W9.T3.Security.Wots.Mask
 
 /-- Queries outside leaf `L`'s chain rows and family coefficient cells (every layer; top leaves since T8D). -/
 def LeafOut (L : LeafAddr) : Spec.Domain → Prop
-  | .inl (.inr input) => ∀ c step value, c < chainCount L.lay → step < 7 → input ≠ chainRow ⟨L, c⟩ step value
+  | .inl (.inr input) => ∀ c step value, c < chainCount L.lay → step < 256 → input ≠ chainRow ⟨L, c⟩ step value
   | .inr (.inl tweak) => ∀ j, j < WCT9.famCount L.lay →
       tweak ≠ WCT9.lowerSeedHeader L.lay L.tree (WCT9.famOrdinal L.lay L.leaf j / 2)
   | _ => True
@@ -47,8 +47,7 @@ theorem leafOut_of_cover {L : LeafAddr} {q : Spec.Domain} (h : ∀ c ∈ coverAd
   rcases q with (coin | input) | (tweak | other)
   · trivial
   · intro c step value hc hs heq
-    exact h ⟨L, c⟩ (List.mem_append_left _ (List.mem_map.mpr ⟨c, List.mem_range.mpr hc, rfl⟩)) step value
-      (by omega) heq
+    exact h ⟨L, c⟩ (List.mem_append_left _ (List.mem_map.mpr ⟨c, List.mem_range.mpr hc, rfl⟩)) step value hs heq
   · intro j hj heq
     apply h ⟨⟨L.lay, L.tree, 0⟩, 2 * (WCT9.famOrdinal L.lay L.leaf j / 2)⟩
       (List.mem_append_right _ (List.mem_map.mpr ⟨j, List.mem_range.mpr hj, rfl⟩))
@@ -90,6 +89,12 @@ theorem respectsL_mask (level index : Nat) : Respects (LeafOut L) (mask level in
 theorem respectsL_buildLevels (tag lay tree h : Nat) (leaves : List Digest) (ht : tag % 256 ≠ 1) :
     Respects (LeafOut L) (buildLevels tag lay tree h leaves) :=
   respects_leafOut (fun c => respects_buildLevels c tag lay tree h leaves ht) L
+theorem respectsL_buildLevelsBelow (tag lay tree h : Nat) (leaves : List Digest) (ht : tag % 256 ≠ 1) :
+    Respects (LeafOut L) (WCT9.buildLevelsBelow tag lay tree h leaves) :=
+  respects_leafOut (fun c => by
+    unfold WCT9.buildLevelsBelow
+    exact Respects.foldlM _ _ (fun level _ levels =>
+      Respects.bind (respects_buildLevel c tag lay tree h level _ ht) fun _ => Respects.pure' _) _) L
 theorem respectsL_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     Respects (LeafOut L) (leafHash lay tree leaf ends) :=
   respects_leafOut (fun c => respects_leafHash c lay tree leaf ends) L
@@ -106,7 +111,7 @@ theorem leafOut_chainInput {lay : Layer} {tree leaf i s : Nat} (v : Digest) (hi 
   intro c step value hc hstep heq
   rw [pad64_chainInput] at heq
   have hc' : c < 2 ^ 24 := by have := chainCount_le L.lay; simp only [Nat.reducePow]; omega
-  obtain ⟨hal, rfl, -, -⟩ := chainInput_eq_chainRow (a := ⟨L, c⟩) hi hc' hs (by omega) heq
+  obtain ⟨hal, rfl, -, -⟩ := chainInput_eq_chainRow (a := ⟨L, c⟩) hi hc' hs hstep heq
   exact hna ⟨hal, hc⟩
 /-- Private cells of other layers or of non-zero tags are outside `L`. -/
 theorem leafOut_header {t l tr p ix : Nat} (h : t % 256 ≠ 0 ∨ l % 256 ≠ L.lay.val) :
@@ -121,38 +126,6 @@ theorem leafOut_header {t l tr p ix : Nat} (h : t % 256 ≠ 0 ∨ l % 256 ≠ L.
 theorem respectsL_topPath (cache : Cache) (leaf : Nat) : Respects (LeafOut L) (topPath cache leaf) := by
   unfold topPath
   exact Respects.mapM _ _ fun level _ => Respects.bind (respectsL_mask L _ _) fun _ => Respects.pure' _
-/-! C2/C3 (FULL): the lower trees and the chain-0 high half. -/
-theorem leafOut_of_hdr (input : HashInput) (h : BitVec 128)
-    (hblock : SigGolfCandidate.T3M.Extract.hdrBlock input = SphincsSecurity.bytesLE 16 h)
-    (htag : ∀ (l : Layer) tr leaf i step, step < 7 → h ≠ chainHeader l tr leaf i step) :
-    LeafOut L (.inl (.inr input)) := by
-  intro c step value _ hs heq
-  have hb : SigGolfCandidate.T3M.Extract.hdrBlock (chainRow ⟨L, c⟩ step value) =
-      SphincsSecurity.bytesLE 16 (chainHeader L.lay L.tree L.leaf c step) :=
-    chainInput_header _ _ _ _ _ _
-  rw [heq, hb] at hblock
-  exact htag _ _ _ _ _ hs (SphincsSecurity.bytesLE_injective hblock).symm
-theorem leafOut_of_length (input : HashInput) (hl : input.length ≠ 64) : LeafOut L (.inl (.inr input)) := by
-  intro c step value _ _ heq
-  apply hl
-  rw [heq, Mask.chainRow_length]
-theorem foldOK_leafOut (lay tree h : Nat) (h7 : lay ≠ 0 → h ≤ 7) : Mask.FoldOK (LeafOut L) lay tree h := by
-  intro level i left right hlev hi
-  refine leafOut_of_hdr L _ _ (SigGolfCandidate.T3M.Extract.hdrBlock_block4 left _ 0 right)
-    fun l tr leaf c step hs => Mask.merkleTweak_ne_chainHeader ?_ l tr leaf c step hs
-  by_cases h0 : lay = 0
-  · exact Or.inl h0
-  · exact Or.inr (Mask.lowerHeap_lt' hlev (h7 h0) hi)
-theorem respectsL_lowerLevels (lay tree h : Nat) (h7 : lay ≠ 0 → h ≤ 7) (leaves : List Digest)
-    (hlen : leaves.length ≤ 2 ^ h) : Respects (LeafOut L) (WCT9.lowerLevels lay tree h leaves) :=
-  Mask.respects_lowerLevels' (foldOK_leafOut L lay tree h h7) leaves hlen
-theorem respectsL_buildLevelsBelowW (tag lay tree h : Nat) (h7 : lay ≠ 0 → h ≤ 7) (leaves : List Digest)
-    (hlen : leaves.length ≤ 2 ^ h) : Respects (LeafOut L) (WCT9.buildLevelsBelow tag lay tree h leaves) :=
-  Mask.respects_buildLevelsBelow' (foldOK_leafOut L lay tree h h7) tag leaves hlen
-theorem respectsL_lowerLeafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) (hlen : 4 ≤ ends.length) :
-    Respects (LeafOut L) (WCT9.lowerLeafHash lay tree leaf ends) :=
-  Mask.respects_lowerLeafHash' _ _ _ _ (leafOut_of_length L _ (Mask.pad64_long_length
-    (SigGolfCandidate.T3.Security.Wots.Enc.leafInput_long lay tree leaf ends hlen)))
 end Programs
 
 /-- `T'` agrees with `T` outside `L` and on the other halves of `L`'s coefficient cells. -/
@@ -183,11 +156,12 @@ theorem queried_out {α : Type} {p : M α} (h : Respects (LeafOut L) p) :
 theorem eval_chain_out {lay : Layer} {tree leaf i : Nat} (hi : i < 2 ^ 24)
     (hna : ¬(LeafAlias lay tree leaf L ∧ i < chainCount L.lay)) {start count : Nat} (hc : start + count ≤ 256)
     (v : Digest) :
-    evalWithAnswerFn T' (WCT9.chainW lay tree leaf i start count v) =
-      evalWithAnswerFn T (WCT9.chainW lay tree leaf i start count v) := by
+    evalWithAnswerFn T' (chain lay tree leaf i start count v) = evalWithAnswerFn T (chain lay tree leaf i start count v) := by
   apply eval_out hC
-  exact Mask.respects_chainW' _ _ _ _ _ _ _ fun step value _ hhi =>
-    leafOut_chainInput L value hi (by omega) hna
+  unfold chain
+  refine Respects.foldlM _ _ (fun step hstep value => Respects.projHash _ _ ?_) _
+  have := List.mem_range'_1.mp hstep
+  exact leafOut_chainInput L value hi (by omega) hna
 
 include hLleaf in
 /-- Seeds of other leaves are unchanged (they read other cells, or the other halves of `L`'s cells). -/
@@ -243,16 +217,14 @@ theorem wotsRoot_out {lay : Layer} {tree leaf : Nat} (hleaf : leaf < 2 ^ 24) (hn
     WCT9.wotsRoot T' lay tree leaf = WCT9.wotsRoot T lay tree leaf := by
   unfold WCT9.wotsRoot
   rw [List.map_congr_left (fun i hi => wotsEnd_out hC hLleaf hleaf hna i (List.mem_range.mp hi))]
-  exact eval_out hC (respectsL_lowerLeafHash L _ _ _ _
-    (by simp only [List.length_map, List.length_range]; exact SigGolfCandidate.T3.Security.Wots.Enc.chainCount_ge4 _))
+  exact eval_out hC (respectsL_leafHash L _ _ _ _)
 include hLleaf in
 theorem wotsTree_lay {lay : Layer} (hl : lay ≠ L.lay) (tree : Nat) :
     WCT9.wotsTree T' lay tree = WCT9.wotsTree T lay tree := by
   unfold WCT9.wotsTree
   rw [List.map_congr_left (fun leaf hleaf => wotsRoot_out hC hLleaf
     (by have := List.mem_range.mp hleaf; have := height_pow_le lay; omega) (fun h => hl h.1))]
-  exact eval_out hC (respectsL_lowerLevels L _ _ _ (by fin_cases lay <;> decide) _
-    (by simp only [List.length_map, List.length_range]; exact le_rfl))
+  exact eval_out hC (respectsL_buildLevels L 3 _ _ _ _ (by decide))
 theorem honestForest_out (index : Nat) : Extract.honestTop T' index = Extract.honestTop T index := by
   rw [Extract.honestTop_eq_wct9, Extract.honestTop_eq_wct9]
   exact ClaudeWCT.WCT9.Wots.honestTop_congr (fun _ hq => hC.out _ (leafOut_ftsQuery L hq))
@@ -285,19 +257,21 @@ include hC
 include hLleaf in
 /-- `L`'s own chains: from the frontier on, the rows agree. -/
 theorem eval_chainL {c count : Nat} (hc : c < chainCount L.lay) (hd : depth T ⟨L, c⟩ ≤ count) (hcount : count ≤ 256) :
-    evalWithAnswerFn T' (WCT9.chainW L.lay L.tree L.leaf c 0 count (WCT9.wotsSeed T' L.lay L.tree L.leaf c)) =
-      evalWithAnswerFn T (WCT9.chainW L.lay L.tree L.leaf c 0 count (WCT9.wotsSeed T L.lay L.tree L.leaf c)) := by
+    evalWithAnswerFn T' (chain L.lay L.tree L.leaf c 0 count (WCT9.wotsSeed T' L.lay L.tree L.leaf c)) =
+      evalWithAnswerFn T (chain L.lay L.tree L.leaf c 0 count (WCT9.wotsSeed T L.lay L.tree L.leaf c)) := by
   obtain ⟨e, rfl⟩ : ∃ e, count = depth T ⟨L, c⟩ + e := ⟨count - depth T ⟨L, c⟩, by omega⟩
   have hd' : depth T' ⟨L, c⟩ = depth T ⟨L, c⟩ := depth_lay hC.toLeafAgree hLleaf rfl
-  rw [eval_chainW_add', eval_chainW_add' T, Nat.zero_add]
+  rw [Correctness.eval_chain_add, Correctness.eval_chain_add T, Nat.zero_add]
   have hf := hC.front c hc
-  unfold frontierValue honestChainValueW at hf
+  unfold frontierValue honestChainValue at hf
   simp only at hf
   rw [hd'] at hf
   rw [hf]
   refine Respects.eval_eq (S := fun q => T' q = T q) ?_ (fun q hq => hq)
-  refine Mask.respects_chainW' _ _ _ _ _ _ _ fun step value hlo hhi => ?_
+  unfold chain
+  refine Respects.foldlM _ _ (fun step hstep value => Respects.projHash _ _ ?_) _
   rw [pad64_chainInput]
+  obtain ⟨hlo, hhi⟩ := List.mem_range'_1.mp hstep
   exact hC.rows c hc step value hlo (by omega)
 include hLleaf in
 theorem wotsEnd_congr {lay : Layer} {tree leaf : Nat} (hleaf : leaf < 2 ^ 24) (i : Nat) (hi : i < chainCount lay) :
@@ -306,10 +280,8 @@ theorem wotsEnd_congr {lay : Layer} {tree leaf : Nat} (hleaf : leaf < 2 ^ 24) (i
   · have hb : lay = 0 ∨ (leaf < 2 ^ 24 ∧ L.leaf < 2 ^ 24) := Or.inr ⟨hleaf, hLleaf⟩
     have hi' : i < chainCount L.lay := hal.1 ▸ hi
     unfold WCT9.wotsEnd
-    rw [Mask.chainW_alias hal, wotsSeed_alias T' hal hb, wotsSeed_alias T hal hb,
-      show maxDigit lay i = maxDigit L.lay i by rw [hal.1]]
-    exact eval_chainL hC hLleaf hi' (ClaudeWCT.W9.T3.Security.Wots.Mask.depth_le_width T ⟨L, i⟩ hi')
-      (by have := width_le L.lay i; omega)
+    rw [chain_alias hal, wotsSeed_alias T' hal hb, wotsSeed_alias T hal hb, hal.1]
+    exact eval_chainL hC hLleaf hi' (depth_le_width T ⟨L, i⟩ hi') (by have := width_le L.lay i; omega)
   · exact wotsEnd_out hC.toLeafAgree hLleaf hleaf hal i hi
 include hLleaf in
 theorem wotsValue_congr {lay : Layer} {tree leaf : Nat} (hleaf : leaf < 2 ^ 24) (digits : List Nat) (i : Nat)
@@ -320,7 +292,7 @@ theorem wotsValue_congr {lay : Layer} {tree leaf : Nat} (hleaf : leaf < 2 ^ 24) 
   · have hb : lay = 0 ∨ (leaf < 2 ^ 24 ∧ L.leaf < 2 ^ 24) := Or.inr ⟨hleaf, hLleaf⟩
     have hi' : i < chainCount L.lay := hal.1 ▸ hi
     unfold WCT9.wotsValue
-    rw [Mask.chainW_alias hal, wotsSeed_alias T' hal hb, wotsSeed_alias T hal hb]
+    rw [chain_alias hal, wotsSeed_alias T' hal hb, wotsSeed_alias T hal hb]
     exact eval_chainL hC hLleaf hi' (halias hal) hdig
   · unfold WCT9.wotsValue
     rw [wotsSeed_out hC.toLeafAgree hLleaf hleaf hal]
@@ -331,15 +303,13 @@ theorem wotsRoot_congr {lay : Layer} {tree leaf : Nat} (hleaf : leaf < 2 ^ 24) :
     WCT9.wotsRoot T' lay tree leaf = WCT9.wotsRoot T lay tree leaf := by
   unfold WCT9.wotsRoot
   rw [List.map_congr_left (fun i hi => wotsEnd_congr hC hLleaf hleaf i (List.mem_range.mp hi))]
-  exact eval_out hC.toLeafAgree (respectsL_lowerLeafHash L _ _ _ _
-    (by simp only [List.length_map, List.length_range]; exact SigGolfCandidate.T3.Security.Wots.Enc.chainCount_ge4 _))
+  exact eval_out hC.toLeafAgree (respectsL_leafHash L _ _ _ _)
 include hLleaf in
 theorem wotsTree_congr (lay : Layer) (tree : Nat) : WCT9.wotsTree T' lay tree = WCT9.wotsTree T lay tree := by
   unfold WCT9.wotsTree
   rw [List.map_congr_left (fun leaf hleaf => wotsRoot_congr hC hLleaf
     (by have := List.mem_range.mp hleaf; have := height_pow_le lay; omega))]
-  exact eval_out hC.toLeafAgree (respectsL_lowerLevels L _ _ _ (by fin_cases lay <;> decide) _
-    (by simp only [List.length_map, List.length_range]; exact le_rfl))
+  exact eval_out hC.toLeafAgree (respectsL_buildLevels L 3 _ _ _ _ (by decide))
 include hLleaf in
 theorem leafMsg_congr (K : LeafAddr) : leafMsg T' K = leafMsg T K := by
   unfold leafMsg
@@ -410,8 +380,7 @@ theorem count_buildTreeP_leaf {lay : Layer} (hlay : lay ≠ 0) (tree selected : 
       (by have := List.mem_range.mp hleaf; have := height_pow_le lay; omega))
   rw [WCT9.buildTreeP_factor]
   simp only [queried_length_bind, queried_length_pure, queried_length_treeRowsP]
-  rw [hroots, hroots, hm', queried_out hC.toLeafAgree (respectsL_buildLevelsBelowW L 3 _ _ _
-    (by fin_cases lay <;> decide) _ (by simp only [List.length_map, List.length_range]; exact le_rfl))]
+  rw [hroots, hroots, hm', queried_out hC.toLeafAgree (respectsL_buildLevelsBelow L 3 _ _ _ _ (by decide))]
 include hLleaf in
 theorem eval_signLayers_leaf (hLtree : L.tree < 2 ^ 40) (cache : Cache) (index : Nat) (hindex : index < 2 ^ 31) :
     ∀ n, n ≤ 4 → ∀ msg, (∀ m, n = m + 1 → msg = leafMsg T (routeLeaf index (Fin.ofNat 4 m))) →

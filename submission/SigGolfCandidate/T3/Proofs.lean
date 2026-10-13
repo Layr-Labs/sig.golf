@@ -1179,6 +1179,11 @@ theorem bound_shortHash (input : HashInput) (k : Nat) (hpos : 0 < input.length)
   unfold shortHash publicHash
   apply Bound.qry_bind (k := 0) ⟨pad64_positive input hpos,pad64_aligned input⟩ (fun _ => .pure _ 0 trivial)
   simpa only [weight,Nat.add_zero] using hlen
+theorem bound_projHash (high : Bool) (input : HashInput) (k : Nat) (hpos : 0 < input.length)
+    (hlen : (pad64 input).length/64 ≤ k) : CBound (fun _ => True) k (projHash high input) := by
+  unfold projHash publicHash
+  apply Bound.qry_bind (k := 0) ⟨pad64_positive input hpos,pad64_aligned input⟩ (fun _ => .pure _ 0 trivial)
+  simpa only [weight,Nat.add_zero] using hlen
 theorem bound_privatePair (tag lay tree position index : Nat) :
     CBound (fun _ => True) 1 (privatePair tag lay tree position index) := by
   unfold privatePair privateHash
@@ -1200,13 +1205,15 @@ theorem bound_chain (lay : Layer) (tree leaf i start count : Nat) (value : Diges
   unfold chain
   refine Bound.foldlM_range'_le start count _ (fun _ _ => True) (fun _ => 1) value trivial
     (fun n _ value _ => ?_) (fun _ _ => trivial) (by simp)
-  apply bound_shortHash <;> simp [chainInput,pad64_length,zero16,SphincsSecurity.bytesLE_length]
+  apply bound_projHash <;> simp [chainInput,pad64_length,zero16,SphincsSecurity.bytesLE_length]
 theorem bound_nodeHash (tag lay tree heap : Nat) (left right : Digest) :
     CBound (fun _ => True) 1 (nodeHash tag lay tree heap left right) := by
-  apply bound_shortHash <;> simp [nodeHash,pad64_length,zero16,SphincsSecurity.bytesLE_length]
+  unfold nodeHash
+  apply bound_projHash <;> simp [pad64_length,zero16,SphincsSecurity.bytesLE_length]
 theorem bound_top_leafHash (tree leaf : Nat) (ends : List Digest) (hlen : ends.length=54) :
     CBound (fun _ => True) 14 (leafHash 0 tree leaf ends) := by
-  apply bound_shortHash <;> simp only [leafHash,pad64_length,leafInput_length,hlen] <;> norm_num
+  unfold leafHash
+  apply bound_projHash <;> simp only [pad64_length,leafInput_length,hlen] <;> norm_num
 /-- Campaign T8D: the 12 private pairs of a top leaf's 24 family coefficients. -/
 theorem bound_topCoefs (leaf : Nat) :
     CBound (fun coefs => coefs.length=topCoefCount) topCoefPairs (topCoefs leaf) := by
@@ -1455,7 +1462,8 @@ def fullLeafCost (lay : Layer) : Nat := if lay=0 then 266 else 334
 theorem bound_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest)
     (hlen : ends.length=chainCount lay) :
     CBound (fun _ => True) (leafHashCost lay) (leafHash lay tree leaf ends) := by
-  apply bound_shortHash <;> simp only [leafHash,pad64_length,leafInput_length,hlen]
+  unfold leafHash
+  apply bound_projHash <;> simp only [pad64_length,leafInput_length,hlen]
   · fin_cases lay <;> decide
   · fin_cases lay <;> decide
 def fullPairCost (lay : Layer) (pair : Nat) : Nat :=

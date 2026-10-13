@@ -145,7 +145,7 @@ theorem chainW_other {c i i' : Nat} (hc : c < 9) (hi : i < 6) (hi' : i' < 6) (hn
 theorem coef_not_bodyW {c A : Nat} (hc : c < 9) (h1 : COEF ≤ A) (h2 : A < COEF + 864) : ¬ bodyW c A := by
   intro h; unfold bodyW slotV at h; simp only [PRIVW, PAIRW, CHAINW, LEAFW, SIG, COEF] at *; omega
 theorem pcOf_ret (n : Nat) : pcOf n &&& BitVec.ofNat 64 (2 ^ 64 - 2) = pcOf n := pcOf_and_max n
-def stepC : Nat := 5 + (hornC + (15 + (11 + 28 * 4 + 8)))
+def stepC : Nat := 5 + (hornC + (17 + (11 + 28 * 4 + 8)))
 section step
 variable {im : Image} {sk : BitVec 256}
 theorem step_unit (hcode : NewCodeAt im) {c i j index sel w : Nat} {word : WCT9.Rank} {coefs : List Digest}
@@ -201,7 +201,7 @@ theorem step_unit (hcode : NewCodeAt im) {c i j index sel w : Nat} {word : WCT9.
       regs := RegsExcept.refl _ _
       frame := Frame.refl _ _
       nosel := fun _ _ _ _ _ => rfl }
-  have hk3 : (if c = 0 then 14 else 15) ≤ 15 := by split <;> omega
+  have hk3 : (if c = 0 then 17 else 15) ≤ 17 := by split <;> omega
   refine (TBSim.steps ((s1.trans s2).trans s3) (TBSim.bind (W₂ := 0)
     (chain_from hcode hc hi hj hsel hidx hw hd4 4 le_rfl _ t3 hst) (fun r t ht => ?_))).mono
     (by unfold stepC; omega) (fun _ _ h => h)
@@ -562,7 +562,7 @@ structure TreeInv (c index : Nat) (padR : Digest) (s0 : MachineState) (k : Nat) 
   pad : DigAt t (NODEW + 32) (treePad k padR)
   regs : RegsExcept s0 t (.x18 :: treeRegs)
   frame : Frame s0 t treeW
-def treeC : Nat := 28 + (8 + 32)
+def treeC : Nat := 32 + (8 + 32)
 theorem hashInput_node (t : MachineState) {c index h : Nat} {pad L R : Digest} (hc : c < 9) (hidx : index < 2 ^ 31)
     (hh : h < 128) (h10 : t.getReg .x10 = BitVec.ofNat 64 NODEW) (h11 : t.getReg .x11 = BitVec.ofNat 64 64)
     (hL : DigAt t NODEW L) (m16 : t.getMem (BitVec.ofNat 64 (NODEW + 16)) = BitVec.ofNat 64 (nodeLoN c index h))
@@ -702,7 +702,7 @@ theorem tree_step (hcode : NewCodeAt im) {c index : Nat} (hc : c < 9) (hidx : in
     rw [hpk] at hq
     refine (TBSim.steps s1 (TBSim.publicHash_bind' (W := 32) e1 hx5
       (hashArgs_const t1 NODEW 64 NOUTW x10 x11 x12 (by ao) (by norm_num) (by ao) (by ao) (by ao)) hq
-      (fun a => tail a _ ?_))).mono (by rw [blocks64 _ (nodeIn_len _ _ _ _ _ _)]; unfold treeC; omega)
+      (fun a => tail a _ ?_))).mono (by rw [blocks64 _ (nodeIn_len _ _ _ _ _ _)]; unfold treeC; split <;> omega)
       (fun _ _ h => h)
     have : hiOff (127 - k) = 16 := by unfold hiOff; rw [if_pos (WCT9.ftsHighHeap_top h4)]
     rw [this]
@@ -713,7 +713,7 @@ theorem tree_step (hcode : NewCodeAt im) {c index : Nat} (hc : c < 9) (hidx : in
     exact (TBSim.steps s1 (TBSim.ftsHash_bind' (W := 32) e1 hx5
       (hashArgs_const t1 NODEW 64 NOUTW x10 x11 x12 (by ao) (by norm_num) (by ao) (by ao) (by ao)) hq
       (fun a => tail a _ (DigAt.writeHash_half t1 a (127 - k) NOUTW x12 (by ao))))).mono
-      (by rw [blocks64 _ (nodeIn_len _ _ _ _ _ _)]; unfold treeC; omega) (fun _ _ h => h)
+      (by rw [blocks64 _ (nodeIn_len _ _ _ _ _ _)]; unfold treeC; split <;> omega) (fun _ _ h => h)
 theorem tree_loop (hcode : NewCodeAt im) {c index : Nat} (hc : c < 9) (hidx : index < 2 ^ 31) {s0 : MachineState}
     {padR : Digest} (hc0 : c = 0 → padR = 0) (hR0 : PadAt c 16 padR s0)
     {leaves : List Digest} (h0 : TreeInv c index padR s0 0 ((List.replicate 128 (0 : Digest) ++ leaves).toArray) s0) :

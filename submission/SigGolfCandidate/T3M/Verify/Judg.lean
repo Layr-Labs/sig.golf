@@ -347,40 +347,35 @@ theorem GoodQP.encodingHash_bind_pre {P : Hash → Prop} {β : Type} {s : Machin
     (A + 8 * (toQ (pad64 input)).blocks)
     (ccM (publicHash input >>= fun a => f (ClaudeWCT.WCT9.encodingAnswer lay a)) K)
   exact GoodQP.publicHash_bind_pre hf ht0 hv hin h
-/-! C2/C3: projected hashes (`vHash high` keeps bytes 0..16 or 16..32 of the answer); `vHash` agrees with the
-spec's `WCT9.halfHash` (bridge in `LayerLower`). Adapted from b3cc11b's `projHash` judgments. -/
-def vHalf (high : Bool) (a : BitVec 256) : Digest := if high then a.extractLsb' 128 128 else a.extractLsb' 0 128
-def vHash (high : Bool) (input : List UInt8) : M Digest := do pure (vHalf high (← publicHash input))
-@[simp] theorem vHalf_false (a : BitVec 256) : vHalf false a = a.extractLsb' 0 128 := rfl
-@[simp] theorem vHalf_true (a : BitVec 256) : vHalf true a = a.extractLsb' 128 128 := rfl
-theorem vHash_false (input : List UInt8) : vHash false input = shortHash input := rfl
-theorem ccM_vHash_bind {β : Type} (high : Bool) (input : List UInt8) (f : Digest → M β)
+/-! Campaign S1: projected hashes (`projHash high` keeps bytes 0..16 or 16..32 of the answer). -/
+theorem ccM_projHash_bind {β : Type} (high : Bool) (input : List UInt8) (f : Digest → M β)
     (K : β → OracleComp HashSpec Obs) :
-    ccM (vHash high input >>= f) K = (do
+    ccM (SigGolfCandidate.T3.projHash high input >>= f) K = (do
       let a ← (liftM (HashSpec.query (toQ (pad64 input))) : OracleComp HashSpec _)
-      (fun r => (r.1, 1 + r.2)) <$> ccM (f (vHalf high a)) K) := by
-  have : vHash high input >>= f = publicHash input >>= fun a => f (vHalf high a) := by
-    unfold vHash; rw [bind_assoc]; simp only [pure_bind]
+      (fun r => (r.1, 1 + r.2)) <$> ccM (f (SigGolfCandidate.T3.projHalf high a)) K) := by
+  have : SigGolfCandidate.T3.projHash high input >>= f =
+      publicHash input >>= fun a => f (SigGolfCandidate.T3.projHalf high a) := by
+    unfold SigGolfCandidate.T3.projHash; rw [bind_assoc]; simp only [pure_bind]
   rw [this, ccM_publicHash_bind]
-theorem GoodQ.vHash_bind {β : Type} {s : MachineState} {N C A : Nat} {Q : Prop} (high : Bool)
+theorem GoodQ.projHash_bind {β : Type} {s : MachineState} {N C A : Nat} {Q : Prop} (high : Bool)
     {input : List UInt8} {f : Digest → M β} {K : β → OracleComp HashSpec Obs}
     (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
     (hv : hashArgumentsValid s = true) (hin : hashInput s = toQ (pad64 input))
-    (h : ∀ a : BitVec 256, GoodQ (writeHash s a) N C Q A (ccM (f (vHalf high a)) K)) :
+    (h : ∀ a : BitVec 256, GoodQ (writeHash s a) N C Q A (ccM (f (SigGolfCandidate.T3.projHalf high a)) K)) :
     GoodQ s (N + 1) (C + 8 * (toQ (pad64 input)).blocks) Q (A + 8 * (toQ (pad64 input)).blocks)
-      (ccM (vHash high input >>= f) K) := by
-  have := GoodQ.query (K := fun a => ccM (f (vHalf high a)) K) hf ht0 hv hin h
+      (ccM (SigGolfCandidate.T3.projHash high input >>= f) K) := by
+  have := GoodQ.query (K := fun a => ccM (f (SigGolfCandidate.T3.projHalf high a)) K) hf ht0 hv hin h
   rw [cc_query] at this
-  rwa [ccM_vHash_bind]
-theorem GoodQP.vHash_bind_pre {P : Hash → Prop} {β : Type} {s : MachineState} {N C A : Nat} {Q : Prop}
+  rwa [ccM_projHash_bind]
+theorem GoodQP.projHash_bind_pre {P : Hash → Prop} {β : Type} {s : MachineState} {N C A : Nat} {Q : Prop}
     (high : Bool) {input : List UInt8} {f : Digest → M β} {K : β → OracleComp HashSpec Obs}
     (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
     (hv : hashArgumentsValid s = true) (hin : hashInput s = toQ (pad64 input))
     (h : ∀ a : BitVec 256, GoodQP (fun hash => hash (toQ (pad64 input)) = a ∧ P hash) (writeHash s a) N C Q A
-      (ccM (f (vHalf high a)) K)) :
+      (ccM (f (SigGolfCandidate.T3.projHalf high a)) K)) :
     GoodQP P s (N + 1) (C + 8 * (toQ (pad64 input)).blocks) Q (A + 8 * (toQ (pad64 input)).blocks)
-      (ccM (vHash high input >>= f) K) := by
-  have := GoodQP.query_pre (K := fun a => ccM (f (vHalf high a)) K) hf ht0 hv hin h
+      (ccM (SigGolfCandidate.T3.projHash high input >>= f) K) := by
+  have := GoodQP.query_pre (K := fun a => ccM (f (SigGolfCandidate.T3.projHalf high a)) K) hf ht0 hv hin h
   rw [cc_query] at this
-  rwa [ccM_vHash_bind]
+  rwa [ccM_projHash_bind]
 end SigGolfCandidate.T3M.Verify

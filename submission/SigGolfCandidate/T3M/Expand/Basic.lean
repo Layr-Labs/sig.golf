@@ -19,6 +19,18 @@ theorem tb_shortHash_bind' {β : Type} {s : MachineState} {input : List UInt8} {
   have := h a
   unfold TBSim at this
   simpa only [Function.comp, pure_bind] using this
+/-- Campaign S1: a projected hash; the continuation sees the half selected by `high`. -/
+theorem tb_projHash_bind' {β : Type} {s : MachineState} {input : List UInt8} {W : Nat} {high : Bool}
+    {f : T3.Digest → T3.M β} {Q : β → MachineState → Prop}
+    (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
+    (hv : hashArgumentsValid s = true) (hq : hashInput s = toQ (T3.pad64 input))
+    (h : ∀ a : BitVec 256, TBSim image sk (writeHash s a) W (f (T3.projHalf high a)) Q) :
+    TBSim image sk s (8 * (toQ (T3.pad64 input)).blocks + W) (T3.projHash high input >>= f) Q := by
+  have e : T3.projHash high input >>= f = T3.publicHash input >>= fun a => f (T3.projHalf high a) := by
+    unfold T3.projHash; rw [bind_assoc]; simp only [pure_bind]
+  rw [e]
+  unfold TBSim; rw [mrealize_bind, mrealize_publicHash]
+  exact Sim.query_bind hf ht0 hv hq (fun a => h a)
 theorem tb_map {α β : Type} {s : MachineState} {W : Nat} {p : T3.M α} (f : α → β) {Q : β → MachineState → Prop}
     (h : TBSim image sk s W p (fun a t => Q (f a) t)) : TBSim image sk s W (f <$> p) Q := by
   rw [map_eq_bind_pure_comp]

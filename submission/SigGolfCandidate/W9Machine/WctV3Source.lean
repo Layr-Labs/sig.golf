@@ -5,8 +5,9 @@ set_option autoImplicit false
 namespace W9Machine.V3
 open OracleComp SigGolfCandidate.T3 SigGolfCandidate.T3M
 open SphincsSecurity (bytesLE)
+/-- Campaign S2 (as S1): the coordinate nibble carries `coord + 1` (every FTS word is `≥ 2^16`). -/
 def chainPrefix (index coord child : Nat) : Nat :=
-  (index <<< 27) ||| (coord <<< 16) ||| (child <<< 20)
+  (index <<< 27) ||| ((coord + 1) <<< 16) ||| (child <<< 20)
 def chainLow (index coord child chain step : Nat) : Nat :=
   0x80 ||| (chain <<< 2) ||| (step <<< 8) ||| chainPrefix index coord child
 abbrev HeaderPad := BitVec 64
