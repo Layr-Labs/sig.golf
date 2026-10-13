@@ -23,12 +23,12 @@ end FCtx
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
-def layerPc : Nat := 851
+def layerPc : Nat := 850
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest HashOutput Selection selections header)
-/-- State after the nested FTS (pc 851, before the R9 copy): tree 8's top pair in the L3 block's left slot (witness
+/-- State after the nested FTS (pc 850, before the R9 copy): tree 8's top pair in the L3 block's left slot (witness
 offset 0) and in the virtual Z slot (offset 144). -/
 structure FtsOut (F : FCtx) (top : Digest × Digest) (u : MachineState) : Prop where
   glob : Glob baseK F.w F.pk u
@@ -51,6 +51,8 @@ structure FtsOut (F : FCtx) (top : Digest × Digest) (u : MachineState) : Prop w
   top : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
     BitVec.ofNat 64 (topWords.getD k 0)
   top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21200
+  /-- `a2` after coordinate 8's last heap hash (`regionAddr 9 + 704` or `+ 848`); the L3 encoding writes there. -/
+  a2 : u.getReg .x12 = BitVec.ofNat 64 1200 ∨ u.getReg .x12 = BitVec.ofNat 64 1344
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp

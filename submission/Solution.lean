@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26080, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7098 := by
+theorem certificate : SigGolf.Certificate submission 7096 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -69,4 +69,15 @@ rises 144 -> 145 with the same copy-credit floor 21 and FTS joint cap 789; the t
 sp at 0x7fc00, dropping one entry instruction (0664e59); the selector branch is balanced at
 4 cycles (9033aab). After-FTS budget 5280 -> 5272; verify bound 7008 -> 7000; C 7106 -> 7098.
 S = 5310, W = 24860, K = 131072, C = 7098; score 37690380.
+
+L3 a2 elision (0xFredrik's 5971a2f, ported): the nested FTS already leaves `a2` at coordinate 8's last
+heap output (`1200` or `1344`), so the L3 entry drops `addi a2,s0,-176` and the L3 encoding hash writes
+there. Verify bound 7000 -> 6999; C 7098 -> 7097.
+S = 5310, W = 24860, K = 131072, C = 7097; score 37684070.
+
+Shifted child-index masking (Th0rgal's c3c8605, ported): coordinate 2 loads 0x7f00000 into x27, which
+no FTS routine touches, so coordinate 8 extracts the child index already shifted left by 20 with
+`srli x4,dig,1; and x4,x4,x27` and drops one shift. Coordinate 8 shrinks by one word, the L3 entry moves
+to 850..868. FTS accept cost 928 -> 927; verify bound 6999 -> 6998; C 7097 -> 7096.
+S = 5310, W = 24860, K = 131072, C = 7096; score 37679760.
 -/

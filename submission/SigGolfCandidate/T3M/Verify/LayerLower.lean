@@ -391,7 +391,7 @@ theorem setup_post : SetupPost := fun w pk index lay msg s hs t ht => by
     (ht.orig_const hs.orig).mono (fun o ho => ⟨ho, by
       intro hm
       have H := setup_writes_bounds lay.val _ lay.isLt (T3M.cpIdx_lt index lay.val lay.isLt) _ hm
-      rcases H.1 with H | H <;> omega⟩), ?_, ?_, ?_, ?_, ?_⟩
+      rcases H.1 with H | H <;> omega⟩), ?_, ?_, ?_, ?_, ?_, ?_⟩
   case refine_1 => fin_cases lay <;> exact ht.pc rfl
   case refine_2 =>
     by_cases h3 : lay.val = 3
@@ -476,6 +476,11 @@ theorem setup_post : SetupPost := fun w pk index lay msg s hs t ht => by
         if_neg (hne 25136 16 (by omega) (by omega) (by omega))]
     · rw [if_neg (hne 25144 24 (by omega) (by omega) (by omega)),
         if_neg (hne 25144 16 (by omega) (by omega) (by omega))]
+  case refine_10 =>
+    intro h3
+    obtain rfl : lay = 3 := Fin.ext h3
+    rw [ht.regs (.x12, .reg .x12) (by simp [specA, T3M.specA])]
+    simpa [E.eval] using hs.dst3 rfl
 def SetupHash : Prop := ∀ (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer)
   (msg : LayerMsg) (s : MachineState), LayerIn w pk index lay.val msg s →
   ∀ t, SpecRes (allowed lay.val (cpIdx index lay.val)) [] baseK (specA lay.val (cpIdx index lay.val))
@@ -496,7 +501,7 @@ theorem setup_hash : SetupHash := fun w pk index lay msg s hs t ht => by
     | pair left right =>
     have hm3 := hs.msg.pair_top
     have h10 : t.getReg .x10 = BitVec.ofNat 64 1216 := ht.known (.x10, _) (by simp [bK, T3M.bK])
-    have h12 : t.getReg .x12 = BitVec.ofNat 64 1216 := ht.known (.x12, _) (by simp [bK, T3M.bK])
+    have h12d : t.getReg .x12 = BitVec.ofNat 64 1200 ∨ t.getReg .x12 = BitVec.ofNat 64 1344 := hpost.dst3 rfl
     have hm (A : Word) : t.getMem A = memEval s (T3M.specA 3 (trPc 3 (cpIdx index 3))).mem A := ht.mem A
     have hf : ∀ A, A < 2 ^ 64 → A ≠ 1232 → A ≠ 1240 → A ≠ 1264 → A ≠ 1272 →
         t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A) := by
@@ -508,8 +513,12 @@ theorem setup_hash : SetupHash := fun w pk index lay msg s hs t ht => by
         List.not_mem_nil, or_false] at hp
       rcases hp with rfl | rfl | rfl | rfl <;> simp <;> omega
     have hH : WitHdr w s := hs.glob.2.1
-    refine ⟨h5, hashArgs_of t 1216 64 1216 h10 h11 h12 (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel)
-      (by decide +kernel), ?_⟩
+    refine ⟨h5, ?_, ?_⟩
+    · rcases h12d with h12 | h12
+      · exact hashArgs_of t 1216 64 1200 h10 h11 h12 (by decide +kernel) (by decide +kernel) (by decide +kernel)
+          (by decide +kernel) (by decide +kernel)
+      · exact hashArgs_of t 1216 64 1344 h10 h11 h12 (by decide +kernel) (by decide +kernel) (by decide +kernel)
+          (by decide +kernel) (by decide +kernel)
     change hashInput t = toQ (pad64 (ClaudeWCT.WCT9.pairEncodingInputP 3 (route index 3).2 (route index 3).1 left
       right (ClaudeWCT.W9.T3M.wbcCtr w index 3) (ClaudeWCT.W9.T3M.wbcPad w index 3)))
     rw [pair_input_block, show ClaudeWCT.W9.T3M.bcCounterOff index 3 = 8 * 4 from rfl]
@@ -698,9 +707,9 @@ theorem layerCostA_low (lay : Layer) (h : lay ≠ 0) :
   fin_cases lay
   · exact absurd rfl h
   all_goals rfl
-theorem layerCost_vals : layerCost 3 0 = 1178 ∧ layerCost 2 0 = 1166 ∧ layerCost 1 0 = 1175 := by decide +kernel
-theorem layerCostA_vals : layerCostA 3 = 1169 ∧ layerCostA 2 = 1157 ∧ layerCostA 1 = 1165 := by decide +kernel
-theorem layerFuel_vals : layerFuel 3 = 1771 ∧ layerFuel 2 = 1759 ∧ layerFuel 1 = 1759 := by decide +kernel
+theorem layerCost_vals : layerCost 3 0 = 1177 ∧ layerCost 2 0 = 1166 ∧ layerCost 1 0 = 1175 := by decide +kernel
+theorem layerCostA_vals : layerCostA 3 = 1168 ∧ layerCostA 2 = 1157 ∧ layerCostA 1 = 1165 := by decide +kernel
+theorem layerFuel_vals : layerFuel 3 = 1770 ∧ layerFuel 2 = 1759 ∧ layerFuel 1 = 1759 := by decide +kernel
 theorem ckOf_lt (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (ds : List Nat)
     (hds : decode lay (ansD a) = some ds) : ckOf lay a < 8 := by
   rw [decode_lower_v6 lay hlay] at hds
@@ -921,7 +930,7 @@ theorem layer_good_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
     exact (GoodQP.steps' hst this (by omega) (by omega) (by omega)).toGoodQ
 theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (left right : Digest) (u : MachineState)
     (hidx : idx < 2 ^ 31) (hglob : Glob baseK w pk u) (hreg : u.getReg .x22 = BitVec.ofNat 64 idx)
-    (hpc : u.pc = pcOf 851) (hleft : DigAt u WIT left) (hright : DigAt u (WIT + 144) right)
+    (hpc : u.pc = pcOf 850) (hleft : DigAt u WIT left) (hright : DigAt u (WIT + 144) right)
     (hwit : Verify.Orig w (fun o => (32 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24832)) u)
     (hbase8 : u.getReg .x8 = BitVec.ofNat 64 (WIT + 176)) (ha1 : u.getReg .x11 = 64)
     (hs10 : u.getReg .x26 = 6) (hOne : u.getReg .x7 = 1) (hTwo : u.getReg .x13 = 2) (hSeven : u.getReg .x30 = 7)
@@ -930,7 +939,8 @@ theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (
     (hbase : u.getReg .x9 = BitVec.ofNat 64 TOPB9)
     (htop : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
       BitVec.ofNat 64 (topWords.getD k 0))
-    (htop8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21200) :
+    (htop8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21200)
+    (ha2 : u.getReg .x12 = BitVec.ofNat 64 1200 ∨ u.getReg .x12 = BitVec.ofNat 64 1344) :
     ∃ t, Steps image u 0 0 t ∧ LayerIn w pk idx 3 (.pair left right) t := by
   have hpk : preK 3 = baseK ++ [(.x8, BitVec.ofNat 64 1392), (.x11, 64), (.x26, 6), (.x7, 1), (.x13, 2), (.x30, 7),
       (.x9, BitVec.ofNat 64 TOPB9), (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0x10000)] := rfl
@@ -952,7 +962,7 @@ theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (
     · exact hFive
     · exact hCoord
   refine ⟨u, Steps.refl u, ⟨by norm_num, hidx, hpc, ⟨hk, hglob.2⟩,
-    ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩⟩
+    ?_, ?_, ?_, ?_, ?_, ?_, ?_, fun _ => ha2⟩⟩
   · rw [show rReg 3 = .x22 from rfl, show BC.below 3 = 0 from rfl, pow_zero, Nat.div_one, hreg]
   · intro h
     exact absurd h (by decide +kernel)
