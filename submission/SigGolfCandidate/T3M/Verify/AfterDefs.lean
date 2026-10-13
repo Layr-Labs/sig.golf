@@ -23,7 +23,7 @@ end FCtx
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
-def layerPc : Nat := 851
+def layerPc : Nat := 849
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
@@ -51,6 +51,8 @@ structure FtsOut (F : FCtx) (top : Digest × Digest) (u : MachineState) : Prop w
   top : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
     BitVec.ofNat 64 (topWords.getD k 0)
   top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21200
+  /-- `a2` after coordinate 8's last heap hash (`regionAddr 9 + 704` or `+ 848`); the L3 encoding writes there. -/
+  a2 : u.getReg .x12 = BitVec.ofNat 64 1200 ∨ u.getReg .x12 = BitVec.ofNat 64 1344
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
