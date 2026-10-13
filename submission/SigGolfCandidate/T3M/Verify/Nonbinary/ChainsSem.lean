@@ -29,7 +29,7 @@ def ok (c : NCtx) : Prop :=
     c.ret < 209920
 def known (c : NCtx) : List (Reg × Word) :=
   [(.x5, 0), (.x11, 64), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
-   (.x30, 7), (.x28, BitVec.ofNat 64 (c.prefix + 385)), (.x8, BitVec.ofNat 64 c.S3), (.x9, BitVec.ofNat 64 0xffbf10), (.x4, 24592)]
+   (.x30, 7), (.x28, BitVec.ofNat 64 (c.prefix + 385)), (.x8, BitVec.ofNat 64 c.S3), (.x9, BitVec.ofNat 64 0xffbf10), (.x4, 24624)]
 def kOf (c : NCtx) (q : Nat) : Nat :=
   c.dig (3*q) + (mx q+1)*c.dig (3*q+1) + (mx q+1)^2*c.dig (3*q+2)
 def qb (c : NCtx) (i : Nat) : Nat := gbase (i/3) (c.kOf (i/3))
@@ -99,7 +99,7 @@ theorem blk_props (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 54) :
 theorem blk_le (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 54) : c.blk i + 64 * i = c.blk 0 := by
   obtain ⟨-, -, -, hlo, -⟩ := hc
   unfold blk; omega
-theorem slot_props (i : Nat) (hi : i < 54) : slot i % 16 = 0 ∧ 25136 ≤ slot i ∧ slot i + 32 ≤ 26016 := by
+theorem slot_props (i : Nat) (hi : i < 54) : slot i % 16 = 0 ∧ 25168 ≤ slot i ∧ slot i + 32 ≤ 26048 := by
   unfold slot; omega
 theorem base_off (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 54) (k : Nat) (hk : k ≤ 80) :
     BitVec.ofNat 64 c.S3 + (off i + BitVec.ofNat 64 k) = BitVec.ofNat 64 (c.blk i + k) := by

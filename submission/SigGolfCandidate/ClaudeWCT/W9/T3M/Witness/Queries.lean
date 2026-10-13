@@ -48,7 +48,7 @@ theorem pubGood_layerPairP (w : WBytes) (index : Nat) (lay : Layer) (digits : Li
     AllQueriesSatisfy (layerPairP w index lay digits) PubGood := by
   unfold layerPairP
   exact allQ_bind (allQ_mapM _ _ fun _ => pubGood_chainP _ _ _ _ _ _ _ _ _ _) fun _ =>
-    allQ_bind (SigGolfCandidate.T3M.pubGood_leafHash _ _ _ _) fun _ =>
+    allQ_bind (pubGood_leafHashPad _ _ _ _ _) fun _ =>
       allQ_bind (allQ_foldlM _ _ (fun _ _ => pubGood_nodeHashP _ _ _ _ _ _ _) _) fun _ => allQ_pure _
 theorem pubGood_layerGuardedPairP (w : WBytes) (index : Nat) (lay : Layer)
     (answer : Digest) (digits : List Nat) :
@@ -78,7 +78,7 @@ theorem pubGood_verifyTopP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (a
     AllQueriesSatisfy (verifyTopP sig pads index answer) PubGood := by
   unfold verifyTopP
   exact allQ_topDecodeRun _ _ _ (fun _ _ => pubGood_chainP _ _ _ _ _ _ _ _ _ _) fun _ =>
-    allQ_bind (SigGolfCandidate.T3M.pubGood_leafHash _ _ _ _) fun _ =>
+    allQ_bind (pubGood_leafHashPad _ _ _ _ _) fun _ =>
       allQ_foldlM _ _ (fun _ _ => pubGood_nodeHashP _ _ _ _ _ _ _) _
 theorem pubGood_topLayerP (w : WBytes) (index : Nat) (answer : Digest) :
     AllQueriesSatisfy (topLayerP w index answer) PubGood := by

@@ -70,7 +70,7 @@ theorem leaf_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (
         (chainP lay (route index lay).2 (route index lay).1 i (digits.getD i 0)
           (maxDigit lay i - digits.getD i 0) (wchainPads w lay i).1 (wchainPads w lay i).2
           (wchainHeaderPad w lay i) (wvalueFor w lay digits i)))
-  rcases Extract.leafHash_extract answers lay (route index lay).2 (route index lay).1
+  rcases Extract.leafHashPad_extract answers (wtopPad w) lay (route index lay).2 (route index lay).1
       (evalWithAnswerFn answers (Extract.layerChains w index lay digits))
       ((List.range (chainCount lay)).map (WCT9.wotsEnd answers lay (route index lay).2 (route index lay).1))
       (by rw [hends]; simp) (by simpa using Extract.chainCount_pos lay) hv0 with hE | ⟨hhit, hsame, hq⟩

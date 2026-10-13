@@ -214,6 +214,7 @@ structure ChildPre (j B k index : Nat) (leaf pads sibs tws : Nat → Digest) (u 
   a0 : u.getReg .x10 = BitVec.ofNat 64 (B + leafO)
   a1 : u.getReg .x11 = BitVec.ofNat 64 128
   w0 : u.getReg .x15 = BitVec.ofNat 64 (w0n k index)
+  tp : u.getReg .x4 = BitVec.ofNat 64 (([none, none, some 20, none, none, none, none, none, some 20].getD k none).elim j (j <<< ·))
   heaps : ∀ h, 2 ≤ h → h ≤ 7 → u.getReg (heapReg h) = BitVec.ofNat 64 h
   leafAt : ∀ i, i < 8 → DigAt u (B + leafO + 16 * i) (leaf i)
   padAt : ∀ l, l < 6 → DigAt u (B + padO j l) (pads l)
@@ -939,7 +940,7 @@ theorem child_pre (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9) (j : F
     (u : MachineState) (hu : Child.Pre Frozen.layout w index k j ends u) :
     ChildPre j.val (coordinateBase k) k.val index (V3.leafFields k.val index j.val (V3.leafPad w k.val) ends)
       (V3.nodePad w k.val j.val) (V3.sibling w k.val j.val) (V3.nodeTw w k.val j.val) u := by
-  refine ⟨hu.pc, ?_, ?_, hu.hashMode, hu.baseReg, hu.hashInput, hu.hashLen, hu.nodeWord,
+  refine ⟨hu.pc, ?_, ?_, hu.hashMode, hu.baseReg, hu.hashInput, hu.hashLen, hu.nodeWord, hu.childIdx,
     ?_, hu.leafAt, hu.padAt, ?_, ?_⟩
   · unfold coordinateBase
     omega

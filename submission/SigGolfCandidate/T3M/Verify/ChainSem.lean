@@ -446,7 +446,7 @@ theorem slotL_props (i : Nat) (hi : i ≤ 42) : slotL i % 16 = 0 ∧ 768 ≤ slo
 theorem bufferSlot_props (c : LCtx) (i : Nat) (hi : i ≤ 42) :
     c.bufferSlot i % 16 = 0 ∧ 22928 ≤ c.bufferSlot i ∧ c.bufferSlot i + 32 ≤ 26688 := by
   have hb : 21712 ≤ ClaudeWCT.W9.T3M.leafBufferBase c.lay ∧
-      ClaudeWCT.W9.T3M.leafBufferBase c.lay ≤ 23888 ∧
+      ClaudeWCT.W9.T3M.leafBufferBase c.lay ≤ 23920 ∧
       ClaudeWCT.W9.T3M.leafBufferBase c.lay % 16 = 0 := by
     generalize c.lay = lay
     fin_cases lay <;> decide +kernel

@@ -17,7 +17,7 @@ def layerChains (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) : M
       (wchainHeaderPad w lay i.val) (wvalueFor w lay digits i.val)
 theorem layerLeafP_eq (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) :
     layerLeafP w index lay digits =
-      (layerChains w index lay digits >>= leafHash lay (route index lay).2 (route index lay).1) := rfl
+      (layerChains w index lay digits >>= leafHashPad (wtopPad w) lay (route index lay).2 (route index lay).1) := rfl
 theorem chainCount_pos (lay : Layer) : 0 < chainCount lay := by fin_cases lay <;> decide
 theorem merkle_honestInput (answers : Answers) (lay : Layer) (tree leaf step : Nat) :
     honestInput answers (.node lay tree step (leaf / 2 ^ (step + 1))) =
@@ -128,7 +128,7 @@ theorem layerLeaf_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : 
         (chainP lay tree leaf i (digits.getD i 0) (maxDigit lay i - digits.getD i 0)
           (wchainPads w lay i).1 (wchainPads w lay i).2
           (wchainHeaderPad w lay i) (wvalueFor w lay digits i)))
-  rcases leafHash_extract answers lay tree leaf (evalWithAnswerFn answers (layerChains w index lay digits))
+  rcases leafHashPad_extract answers (wtopPad w) lay tree leaf (evalWithAnswerFn answers (layerChains w index lay digits))
       ((List.range (chainCount lay)).map (wotsEnd answers lay tree leaf))
       (by rw [hends]; simp) (by simpa using chainCount_pos lay) hv0 with hE | ⟨hhit, hsame, hq⟩
   swap
@@ -318,83 +318,4 @@ open Correctness (Answers treeValue)
 open ClaudeWCT.WCT9 (wotsTree wotsSeed wotsEnd wotsValue wotsRoot)
 set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
-theorem layerP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes) (lay : Layer) (digits : List Nat)
-    (hlay : lay.val = 0) (hs : LayerShaped answers w (WCT9.digestIndex N) lay digits) :
-    layerP w (WCT9.digestIndex N) lay digits =
-      recoverLayer (WCT9.toT3Signature (effectiveSignature (witDecP N w).signature (padDecP N w) digits)) (WCT9.digestIndex N) lay digits := by
-  have hpath : ∀ j : Fin (height lay), ((WCT9.toT3Signature (effectiveSignature (witDecP N w).signature (padDecP N w) digits)).layers lay).path j =
-      wpath w lay (route (WCT9.digestIndex N) lay).1 j.val := fun _ => rfl
-  have hvals : ∀ i : Fin (chainCount lay),
-      ((WCT9.toT3Signature (effectiveSignature (witDecP N w).signature (padDecP N w) digits)).layers lay).values i = wvalueFor w lay digits i.val :=
-    fun i => valueP_dec N w lay digits i
-  have hzero := chainP_zero_route (WCT9.digestIndex N) lay
-  have hindex : WCT9.digestIndex N < 2 ^ 31 := WCT9.digestIndex_lt N
-  unfold layerP recoverLayer
-  simp only [hpath, hvals]
-  have hmz : ∀ j : Fin (height lay), wmerklePad w lay (route (WCT9.digestIndex N) lay).1 j.val = 0 :=
-    fun j => (hs.1 j.val j.isLt).2 (Or.inr hlay)
-  generalize hr : route (WCT9.digestIndex N) lay = r at hs hzero hmz ⊢
-  obtain ⟨leaf, tree⟩ := r
-  dsimp only at hs hzero hmz ⊢
-  have hchains : ((List.finRange (chainCount lay)).mapM fun i =>
-      chainP lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
-        (wchainPads w lay i.val).1 (wchainPads w lay i.val).2
-        (wchainHeaderPad w lay i.val) (wvalueFor w lay digits i.val)) =
-      ((List.finRange (chainCount lay)).mapM fun i =>
-      chain lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
-        (wvalueFor w lay digits i.val)) := by
-    congr 1
-    funext i
-    by_cases hd : digits.getD i.val 0 < maxDigit lay i.val
-    · rw [((hs.2 i.val i.isLt).2 hd).1, ((hs.2 i.val i.isLt).2 hd).2]
-      exact hzero i _ _ hindex
-    · have h0 : maxDigit lay i.val - digits.getD i.val 0 = 0 := by omega
-      rw [h0]
-      rfl
-  rw [hchains]
-  congr 1
-  funext ends
-  congr 1
-  funext value
-  congr 1
-  funext v j
-  rw [hmz j, nodeHashP_zero]
-theorem layerPairP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes) (lay : Layer) (digits : List Nat)
-    (hs : LayerShaped answers w (WCT9.digestIndex N) lay digits) :
-    layerPairP w (WCT9.digestIndex N) lay digits =
-      WCT9.recoverLayerPair (effectiveSignature (witDecP N w).signature (padDecP N w) digits) (WCT9.digestIndex N) lay digits := by
-  have hzero := chainP_zero_route (WCT9.digestIndex N) lay
-  have hindex : WCT9.digestIndex N < 2 ^ 31 := WCT9.digestIndex_lt N
-  have hpath : ∀ j : Fin (height lay), ((effectiveSignature (witDecP N w).signature (padDecP N w) digits).layers lay).path j =
-      wpath w lay (route (WCT9.digestIndex N) lay).1 j.val := fun _ => rfl
-  have hvals : ∀ i : Fin (chainCount lay), ((effectiveSignature (witDecP N w).signature (padDecP N w) digits).layers lay).values i = wvalueFor w lay digits i.val :=
-    fun i => valueP_dec N w lay digits i
-  unfold layerPairP WCT9.recoverLayerPair
-  simp only [hpath, hvals, Fin.val_castLE, WCT9.topLevel]
-  have hmz : ∀ j : Fin (height lay - 1), wmerklePad w lay (route (WCT9.digestIndex N) lay).1 j.val = 0 :=
-    fun j => (hs.1 j.val (by omega)).2 (Or.inl (by omega))
-  generalize hr : route (WCT9.digestIndex N) lay = r at hs hzero hmz ⊢
-  obtain ⟨leaf, tree⟩ := r
-  dsimp only at hs hzero hmz ⊢
-  have hchains : ((List.finRange (chainCount lay)).mapM fun i =>
-      chainP lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
-        (wchainPads w lay i.val).1 (wchainPads w lay i.val).2
-        (wchainHeaderPad w lay i.val) (wvalueFor w lay digits i.val)) =
-      ((List.finRange (chainCount lay)).mapM fun i =>
-      chain lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
-        (wvalueFor w lay digits i.val)) := by
-    congr 1
-    funext i
-    by_cases hd : digits.getD i.val 0 < maxDigit lay i.val
-    · rw [((hs.2 i.val i.isLt).2 hd).1, ((hs.2 i.val i.isLt).2 hd).2]
-      exact hzero i _ _ hindex
-    · have h0 : maxDigit lay i.val - digits.getD i.val 0 = 0 := by omega
-      rw [h0]
-      rfl
-  rw [hchains]
-  congr 1
-  funext ends
-  congr 1
-  funext value
-  simp only [hmz, nodeHashP_zero]
 end ClaudeWCT.W9.T3M.Extract

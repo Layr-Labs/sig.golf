@@ -154,7 +154,7 @@ def layerPairP (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) : M 
   let ends ← (List.finRange (chainCount lay)).mapM fun i =>
     chainP lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
       (wchainPads w lay i.val).1 (wchainPads w lay i.val).2 (wchainHeaderPad w lay i.val) (wvalueFor w lay digits i.val)
-  let value ← leafHash lay tree leaf ends
+  let value ← leafHashPad (wtopPad w) lay tree leaf ends
   let top ← (List.finRange (height lay - 1)).foldlM (fun value j => do
     let other := wpath w lay leaf j.val
     let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
@@ -174,7 +174,7 @@ def topChainP (w : WBytes) (tree leaf : Nat) (digits : List Nat) (i : Fin (chain
   chainP 0 tree leaf i.val digit (maxDigit 0 i.val - digit) (wchainPads w 0 i.val).1 (wchainPads w 0 i.val).2
     (wchainHeaderPad w 0 i.val) (wvalueFor w 0 digits i.val)
 def topFinishP (w : WBytes) (tree leaf : Nat) (ends : List Digest) : M Digest := do
-  let value ← leafHash 0 tree leaf ends
+  let value ← leafHashPad (wtopPad w) 0 tree leaf ends
   (List.finRange (height 0)).foldlM (fun value j => do
     let other := wpath w 0 leaf j.val
     let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
@@ -238,9 +238,11 @@ structure Pads where
   bcRight : Digest
   /-- Difference between the prefilled endpoint and its raw chain value. Honest witnesses have zero masks. -/
   endpointMask : (lay : Layer) → Fin (chainCount lay) → Digest
+  /-- Top-leaf pad: the 16 bytes in front of the top-leaf tweak (honest 0). -/
+  topLeaf : Digest
 instance : Zero Pads :=
   ⟨⟨fun _ _ => (0, 0), fun _ _ => 0, fun _ _ => 0, fun _ _ => 0, fun _ => 0, fun _ _ => (0, 0), fun _ _ => 0, fun _ _ => 0,
-    fun _ => 0, 0, fun _ _ => 0⟩⟩
+    fun _ => 0, 0, fun _ _ => 0, 0⟩⟩
 def Pads.toT3 (pads : Pads) : SigGolfCandidate.T3M.Pads :=
   ⟨fun _ => 0, fun _ => 0, pads.chain, pads.merkle, pads.chainHeader⟩
 def recoverCoordinateP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (output : HashOutput)
@@ -294,7 +296,7 @@ def recoverLayerPairP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (lay : 
   let ends ← (List.finRange (chainCount lay)).mapM fun i =>
     chainP lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
       (pads.chain lay i).1 (pads.chain lay i).2 (pads.chainHeader lay i) (valueP sig pads lay digits i)
-  let value ← leafHash lay tree leaf ends
+  let value ← leafHashPad pads.topLeaf lay tree leaf ends
   let top ← (List.finRange (height lay - 1)).foldlM (fun value j => do
     let other := (sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) j)
     let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
@@ -317,7 +319,7 @@ def verifyTopP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (answer : Dige
     (fun i digit => chainP 0 tree leaf i.val digit (maxDigit 0 i.val - digit) (pads.chain 0 i).1
       (pads.chain 0 i).2 (pads.chainHeader 0 i) (valueP sig pads 0 (dataDigits 0 answer) i))
     (fun ends => do
-      let value ← leafHash 0 tree leaf ends
+      let value ← leafHashPad pads.topLeaf 0 tree leaf ends
       (List.finRange (height 0)).foldlM (fun value j => do
         let other := (sig.layers 0).path j
         let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)

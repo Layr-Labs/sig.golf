@@ -10,6 +10,15 @@ open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
+theorem hdrBlock_leafInputPad (pad : Digest) (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
+    hdrBlock (pad64 (leafInputPad pad lay tree leaf ends)) = bytesLE 16 (leafTweak lay tree leaf) := by
+  by_cases h0 : lay = 0
+  · subst h0
+    rw [leafInputPad_top, hdrBlock_pad64' _ (by simp only [List.length_append, bytesLE_length]; omega),
+      List.append_assoc]
+    exact hdrBlock_prefix' pad _ _
+  · rw [leafInputPad_low pad h0]
+    exact hdrBlock_leafInput lay tree leaf ends
 theorem flatMap_bytes_injective : ∀ {xs ys : List Digest}, xs.length = ys.length →
     xs.flatMap (bytesLE 16) = ys.flatMap (bytesLE 16) → xs = ys
   | [], [], _, _ => rfl
@@ -123,6 +132,45 @@ theorem leafHash_extract (answers : Answers) (lay : Layer) (tree leaf : Nat) (en
     · unfold SameHeader
       rw [hdrBlock_leafInput, hdrBlock_leafInput]
     · rw [leafHash_eq_shortHash, queried_shortHash]
+      exact List.mem_singleton_self _
+theorem leafInputPad_lists {pad : Digest} {lay : Layer} {tree leaf : Nat} {xs ys : List Digest}
+    (hlen : xs.length = ys.length) (hpos : 0 < ys.length)
+    (h : pad64 (leafInputPad pad lay tree leaf xs) = pad64 (leafInput lay tree leaf ys)) : xs = ys := by
+  by_cases h0 : lay = 0
+  · subst h0
+    rw [leafInputPad_top] at h
+    unfold leafInput SigGolfCandidate.T3.leafInput at h
+    rw [if_pos rfl] at h
+    have hl : (bytesLE 16 pad ++ bytesLE 16 (leafTweak 0 tree leaf) ++ xs.flatMap (bytesLE 16)).length =
+        (zero16 ++ bytesLE 16 (leafTweak 0 tree leaf) ++ ys.flatMap (bytesLE 16)).length := by
+      simp only [List.length_append, bytesLE_length, digest_list_bytes_length, hlen, zero16, List.length_replicate]
+    have h' := Sampling.pad64_inj_of_length hl h
+    obtain ⟨-, hr⟩ := List.append_inj h' (by
+      simp only [List.length_append, bytesLE_length, zero16, List.length_replicate])
+    exact flatMap_bytes_injective hlen hr
+  · rw [leafInputPad_low pad h0] at h
+    exact leafInput_lists hlen hpos h
+/-- Top-leaf pad: a padded leaf hash reaching the honest leaf value either has the honest endpoints or is a hit
+(the pad sits outside the header block, so the header is the honest leaf tweak). -/
+theorem leafHashPad_extract (answers : Answers) (pad : Digest) (lay : Layer) (tree leaf : Nat)
+    (ends honest : List Digest) (hlen : ends.length = honest.length) (hpos : 0 < honest.length)
+    (reaches : evalWithAnswerFn answers (leafHashPad pad lay tree leaf ends) =
+      evalWithAnswerFn answers (leafHash lay tree leaf honest)) :
+    ends = honest ∨
+      (HashHit answers (pad64 (leafInput lay tree leaf honest)) (pad64 (leafInputPad pad lay tree leaf ends)) ∧
+        SameHeader (pad64 (leafInputPad pad lay tree leaf ends)) (pad64 (leafInput lay tree leaf honest)) ∧
+        .inl (.inr (pad64 (leafInputPad pad lay tree leaf ends))) ∈
+          queried answers (leafHashPad pad lay tree leaf ends)) := by
+  by_cases heq : pad64 (leafInputPad pad lay tree leaf ends) = pad64 (leafInput lay tree leaf honest)
+  · exact Or.inl (leafInputPad_lists hlen hpos heq)
+  · refine Or.inr ⟨⟨heq, ?_⟩, ?_, ?_⟩
+    · unfold leafHashPad at reaches
+      rw [leafHash_eq_shortHash, eval_shortHash, eval_shortHash] at reaches
+      exact reaches
+    · unfold SameHeader
+      rw [hdrBlock_leafInputPad, hdrBlock_leafInput]
+    · unfold leafHashPad
+      rw [queried_shortHash]
       exact List.mem_singleton_self _
 theorem forestPk_extract (answers : Answers) (index : Nat) (pairs honest : List (Digest × Digest))
     (hlen : pairs.length = honest.length)
