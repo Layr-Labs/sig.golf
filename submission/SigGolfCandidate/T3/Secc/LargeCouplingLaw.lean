@@ -4,7 +4,7 @@ namespace SigGolfCandidate.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final
 open SigGolfCandidate.T3.Correctness (Answers)
-open LargeResidual
+open LargeResidual CanonGraph CanonEncoding
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false

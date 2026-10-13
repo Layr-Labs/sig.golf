@@ -87,7 +87,7 @@ theorem setup_load (s : MachineState) (hsp : s.getReg .x2 = BitVec.ofNat 64 stac
   change s.getMem (s.getReg .x2 + BitVec.ofNat 64 k) = _
   rw [hsp, ofNat_add_ofNat]
 set_option maxRecDepth 100000 in
-theorem gate_orig (w : ClaudeWCT.W9.T3M.WBytes) {u s3 : MachineState} (hw : Orig w (fun o => o ≠ 24896) u)
+theorem gate_orig (w : ClaudeWCT.W9.T3M.WBytes) {u s3 : MachineState} (hw : Orig w (fun o => o ≠ 24912) u)
     (e3 : ∀ A, s3.getMem A = u.getMem A) (m : Nat) (hm9 : m ≤ 9) (off : Nat) (hoff : off < 896) (h8 : off % 8 = 0)
     (hv : m = 9 → 720 ≤ off) : W9Machine.OrigW w s3 (regionAddr m + off) := by
   unfold W9Machine.OrigW
@@ -106,7 +106,7 @@ theorem gate_orig (w : ClaudeWCT.W9.T3M.WBytes) {u s3 : MachineState} (hw : Orig
   unfold regionAddr WIT at *
   omega
 set_option maxRecDepth 100000 in
-theorem gate_slot (w : ClaudeWCT.W9.T3M.WBytes) {u s3 : MachineState} (hw : Orig w (fun o => o ≠ 24896) u)
+theorem gate_slot (w : ClaudeWCT.W9.T3M.WBytes) {u s3 : MachineState} (hw : Orig w (fun o => o ≠ 24912) u)
     (e3 : ∀ A, s3.getMem A = u.getMem A) (o : Nat) (ho : o = 720 ∨ o = 864) :
     DigAt s3 (regionAddr 0 + o) (wdig w (V3.regionOffset 0 + o)) := by
   have h0 := gate_orig w hw e3 0 (by decide) o (by omega) (by omega) (fun h => absurd h (by decide))
@@ -141,7 +141,7 @@ theorem gate_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
   have hw3 : s1.getMem (BitVec.ofNat 64 24) = a.extractLsb' 192 64 := by
     have := hu.digest 3 (by decide +kernel)
     simpa [MachineState.getMem, m1] using this
-  have hgate : s1.getMem ((addC (.reg .x2) 352).eval s1) = 0x1628000000000000#64 := by
+  have hgate : s1.getMem ((addC (.reg .x2) 352).eval s1) = 0x1524000000000000#64 := by
     change s1.getMem ((addC (.reg .x2) (BitVec.ofNat 64 352)).eval s1) = _
     rw [setup_load s1 hu.sp 352]
     exact hu.setupMask.gate

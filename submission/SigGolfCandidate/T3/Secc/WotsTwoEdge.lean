@@ -12,6 +12,9 @@ set_option backward.isDefEq.respectTransparency false
 set_option linter.constructorNameAsVariable false
 attribute [local instance low] Classical.propDecidable
 attribute [local irreducible] referenceGame offlineGame
+def PrefixRow (answers : Answers) : T3.Spec.Domain → Prop
+  | .inl (.inr input) => ∃ a, WotsExtract.SourceChain a ∧ PrefixRowAt answers a input
+  | _ => False
 @[irreducible] noncomputable def sourceChains : Finset ChainAddr :=
   (Finset.univ : Finset Layer).biUnion fun lay => (Finset.range (2 ^ 31)).biUnion fun tree =>
     (Finset.range (2 ^ height lay)).biUnion fun leaf =>

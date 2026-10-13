@@ -101,12 +101,12 @@ theorem truncated_card (cut : Nat) (hc : 0 < cut) :
 
 theorem card_model_of_check (n : Nat)
     (h : (packed % radix ^ 37376) % (radix - 1) -
-      (packed % radix ^ 37154) % (radix - 1) = n) :
-    (univ.filter fun w : Codec.Word => weight w = 145 ∧ 34 ≤ score w).card = n := by
+      (packed % radix ^ 37153) % (radix - 1) = n) :
+    (univ.filter fun w : Codec.Word => weight w = 145 ∧ 33 ≤ score w).card = n := by
   classical
-  have hs : (univ.filter fun w : Codec.Word => weight w = 145 ∧ 34 ≤ score w) =
+  have hs : (univ.filter fun w : Codec.Word => weight w = 145 ∧ 33 ≤ score w) =
       (univ.filter fun w : Codec.Word => stat w < 37376) \
-        (univ.filter fun w : Codec.Word => stat w < 37154) := by
+        (univ.filter fun w : Codec.Word => stat w < 37153) := by
     ext w
     have hc := score_le w
     have he := stat_eq w
@@ -127,15 +127,15 @@ set_option exponentiation.threshold 100000
 set_option Elab.async false
 set_option linter.constructorNameAsVariable false
 
-def count : Nat := 80636862785772130399653430253504154
+def count : Nat := 83400240069434534984140569709320435
 
 theorem exact_packed_count :
     (packed % radix ^ 37376) % (radix - 1) -
-      (packed % radix ^ 37154) % (radix - 1) = count := by
+      (packed % radix ^ 37153) % (radix - 1) = count := by
   decide +kernel
 
 theorem card_model :
-    (univ.filter fun w : Codec.Word => weight w = 145 ∧ 34 ≤ score w).card = count :=
+    (univ.filter fun w : Codec.Word => weight w = 145 ∧ 33 ≤ score w).card = count :=
   card_model_of_check count exact_packed_count
 
 
@@ -200,19 +200,19 @@ theorem gate_truncated_card (cut : Nat) (hc : 0 < cut) :
     SigGolfResearch.Gate6.sum_pow_mod_pred_generic (by norm_num [radix]),
     Nat.mod_eq_of_lt ((Finset.card_filter_le _ _).trans_lt (by simpa using word_card_small))]
 
-def gateCount : Nat := 61241296192788288379308720311226133
+def gateCount : Nat := 63440602704496645076755857690454972
 
 theorem gate_exact_packed_count :
     (gatePacked % radix ^ 102912) % (radix - 1) -
-      (gatePacked % radix ^ 102690) % (radix - 1) = gateCount := by
+      (gatePacked % radix ^ 102689) % (radix - 1) = gateCount := by
   decide +kernel
 
 theorem gate_card_model :
-    (univ.filter fun w : Codec.Word => weight w = 145 ∧ 34 ≤ score w ∧ gateWord w).card = gateCount := by
+    (univ.filter fun w : Codec.Word => weight w = 145 ∧ 33 ≤ score w ∧ gateWord w).card = gateCount := by
   classical
-  have hs : (univ.filter fun w : Codec.Word => weight w = 145 ∧ 34 ≤ score w ∧ gateWord w) =
+  have hs : (univ.filter fun w : Codec.Word => weight w = 145 ∧ 33 ≤ score w ∧ gateWord w) =
       (univ.filter fun w : Codec.Word => gateStat w < 102912) \
-        (univ.filter fun w : Codec.Word => gateStat w < 102690) := by
+        (univ.filter fun w : Codec.Word => gateStat w < 102689) := by
     ext w
     have hc := score_le w
     have hw := weight_le_225 w
@@ -640,7 +640,7 @@ theorem producerCount_le_upper (lay : Layer) : producerCount lay ≤ producerCou
     exact Option.isSome_iff_exists.mpr ⟨ds, ClaudeWCT.WCT9.producerDecode_decode hd⟩
   fin_cases lay
   · change (univ.filter fun v : Digest => (producerDecode 0 v).isSome).card ≤ Counting.count
-    rw [card_producer_top 145 22 _ rfl rfl rfl]
+    rw [card_producer_top 145 21 _ rfl rfl rfl]
     rw [← Counting.accepted_card]
     apply Finset.card_le_card
     intro w hw
@@ -869,15 +869,15 @@ theorem top_score_add_penalty (w : Codec.Word) :
   omega
 
 theorem top_effective_score_iff (w : Codec.Word) :
-    34 ≤ EffectiveCounting.score w ↔
-      22 + ClaudeWCT.WCT9.dispatchPenalty 0 (SigGolfCandidate.T3.Nonbinary.wordDigits w) ≤
+    33 ≤ EffectiveCounting.score w ↔
+      21 + ClaudeWCT.WCT9.dispatchPenalty 0 (SigGolfCandidate.T3.Nonbinary.wordDigits w) ≤
         CreditCounting.credit w + 4 * ClaudeWCT.WCT9.savedCopies 0 (SigGolfCandidate.T3.Nonbinary.wordDigits w) := by
   have h := top_score_add_penalty w
   omega
 
-theorem producerCount_top_exact : producerCount 0 = 80636862785772130399653430253504154 := by
+theorem producerCount_top_exact : producerCount 0 = 83400240069434534984140569709320435 := by
   change (univ.filter fun v : Digest => (producerDecode 0 v).isSome).card = _
-  apply card_producer_top 145 22 _ rfl rfl
+  apply card_producer_top 145 21 _ rfl rfl
   convert EffectiveCounting.card_model using 1
   · exact congrArg Finset.card (filter_congr fun w _ => by rw [top_effective_score_iff])
   · rfl
@@ -895,16 +895,16 @@ theorem gate_of_top_parse {v : Digest} {w : Codec.Word}
   omega
 
 theorem producerGateCount_top_exact :
-    producerGateCount 0 = 61241296192788288379308720311226133 := by
+    producerGateCount 0 = 63440602704496645076755857690454972 := by
   classical
-  rw [show (61241296192788288379308720311226133 : Nat) = EffectiveCounting.gateCount from rfl,
+  rw [show (63440602704496645076755857690454972 : Nat) = EffectiveCounting.gateCount from rfl,
     ← EffectiveCounting.gate_card_model, ← ClaudeWCT.Numerics.TopCredit.card_parse_filter]
   unfold producerGateCount
   refine Finset.card_equiv topFlipEquiv fun v => ?_
   simp only [mem_filter, mem_univ, true_and]
   change ((producerDecode 0 v).isSome ∧ TopDualHalf.gate v) ↔
     ∃ w, Decoder.parse 17 (topFlip v).toNat = some w ∧
-      Counting.weight w = 145 ∧ 34 ≤ EffectiveCounting.score w ∧ EffectiveCounting.gateWord w
+      Counting.weight w = 145 ∧ 33 ≤ EffectiveCounting.score w ∧ EffectiveCounting.gateWord w
   rw [producerDecode_top_isSome_iff]
   constructor
   · rintro ⟨⟨w, hw, ht, hc⟩, hg⟩
@@ -913,7 +913,7 @@ theorem producerGateCount_top_exact :
     exact ⟨⟨w, hw, ht, (top_effective_score_iff w).mp hc⟩, (gate_of_top_parse hw).mpr hg⟩
 
 theorem producerSelectedCount_top_exact :
-    producerSelectedCount 0 = 203119455171348707158270870875956420 := by
+    producerSelectedCount 0 = 210281445478427825137652285090230379 := by
   simp only [producerSelectedCount, if_pos rfl, producerCount_top_exact, producerGateCount_top_exact]
   norm_num
 
@@ -1135,7 +1135,7 @@ open ClaudeWCT.WCT9 (searchLimit)
 set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
 def producerCountLower (lay : Layer) : Nat :=
-  ![203119455171348707158270870875956420,
+  ![210281445478427825137652285090230379,
     54408112790925688753987891000775297,
     44444210514614632453013305786840214,
     44444210514614632453013305786840214] lay

@@ -4,13 +4,18 @@ namespace SigGolfCandidate.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final
 open SigGolfCandidate.T3.Correctness (Answers)
-open LargeResidual
+open LargeResidual CanonGraph CanonEncoding
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 section Chain
 attribute [local instance] Classical.propDecidable
 open SigGolfCandidate.T3.Security.LargeCoupling.Samplers
+noncomputable def initComp : ProbComp AuxData :=
+  ($ᵗ LowLabels : ProbComp _) >>= fun high =>
+    ($ᵗ (EncLeaf → Fin (2 ^ 22) → HashOutput) : ProbComp _) >>= fun rows =>
+      ($ᵗ FullGame.FullTable : ProbComp _) >>= fun priv => pure ⟨high, rows, priv⟩
+noncomputable def initLaw : PMF AuxData := liftM initComp
 theorem completeRows_none_apply (U : Finset HashInput) (table : Cell U → LargeResidual.HashOutput) :
     SphincsSecurity.Concrete.ResidualTableCompletion.completeRows (Cell := Cell U) (fun _ => none) table =
       Pr[= table | ($ᵗ (Cell U → LargeResidual.HashOutput) : ProbComp _)] := by

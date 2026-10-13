@@ -1,5 +1,5 @@
 import SigGolfCandidate.T3.Secc.LargeContactChain
-import SigGolfCandidate.T3.Secc.WotsExtractWord
+import SigGolfCandidate.T3.Secc.LargeContactWalk
 
 namespace SigGolfCandidate.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal

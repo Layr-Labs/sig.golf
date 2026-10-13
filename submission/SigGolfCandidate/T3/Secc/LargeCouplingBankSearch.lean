@@ -10,7 +10,8 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 section Search
-variable {U : Finset HashInput} (rho : Digest) (m : Message)
+variable {U : Finset HashInput} (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input)) (q : Nat)
+  (a : AuxData) (rho : Digest) (m : Message)
 theorem trial_ne {k c : Nat} (hk : k < 2 ^ 32) (hc : c < 2 ^ 32) (hne : k ≠ c) :
     pad64 (digestInput rho m (BitVec.ofNat 32 k)) ≠ pad64 (digestInput rho m (BitVec.ofNat 32 c)) := by
   intro h

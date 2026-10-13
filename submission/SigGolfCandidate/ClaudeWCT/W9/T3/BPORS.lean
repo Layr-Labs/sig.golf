@@ -894,28 +894,6 @@ theorem known_public_hit_bound (checker : Checker Forgery) (reference : FirstHit
       by_contra hn
       exact hr (by simpa only [PMF.mem_support_iff] using hn)
     simp only [PMF.probOutput_eq_apply,hz,ite_self,le_refl]
-theorem known_public_hit_boundP (checker : Checker Forgery) (reference : FirstHit.Reference) (orient : HashInput → Bool) (adversary : AdversaryFor Forgery)
-    (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.2.2.base.source.1≤q ∧ FirstHit.KnownPublicHitP reference orient (recordedTrace result) |
-      tracedExperiment checker adversary q hq] ≤ q/(2 : ENNReal)^128 := by
-  have h := FirstHit.recorded_known_public_hit_boundP reference orient (GameWith.idealGame checker adversary) (∅,∅) q
-  have he := congrArg (fun law => Pr[fun result : FirstHit.Recorded Bool =>
-      (result.events.map (fun event => FullGame.queryCharge event.input)).sum≤q ∧
-      FirstHit.KnownPublicHitP reference orient result | law]) (traced_record_erasure checker adversary q hq)
-  rw [probEvent_map,MonitoredPrivate.event_lift] at he
-  apply le_trans _ (he.le.trans h)
-  simp only [probEvent_eq_tsum_ite]
-  apply ENNReal.tsum_le_tsum
-  intro result
-  by_cases hr : result ∈ (tracedExperiment checker adversary q hq).support
-  · have hc := traced_cost_coherent checker adversary q hq result hr
-    simp only [Function.comp_def,recordedTrace,recorded]
-    rw [show result.2.2.base.source.1=
-      (result.2.2.events.map (fun event => FullGame.queryCharge event.input)).sum from hc]
-  · have hz : (tracedExperiment checker adversary q hq) result=0 := by
-      by_contra hn
-      exact hr (by simpa only [PMF.mem_support_iff] using hn)
-    simp only [PMF.probOutput_eq_apply,hz,ite_self,le_refl]
 theorem real_to_clean_trace (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (q : Nat) (hq : q ≤ 2^127) :
     Pr[fun result => result.1=true ∧ result.2≤q | realExperiment checker adversary] ≤
       Pr[fun result => result.1=true ∧ result.2.2.base.source.1≤q ∧

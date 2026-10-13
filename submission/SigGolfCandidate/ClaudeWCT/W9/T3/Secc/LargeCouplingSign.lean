@@ -40,9 +40,7 @@ theorem ftsLabel_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin
   by_cases h0 : level = 0
   · rw [if_pos h0, if_pos h0]
     by_cases hc : c < 128
-    · rw [dif_pos hc, dif_pos hc]
-      simp only [Option.map_some, Option.getD_some, coordVal, Node.toPos, Extract.Pos.proj,
-        Extract.Pos.high, Extract.projHalf_ftsHalf]
+    · rw [dif_pos hc, dif_pos hc]; rfl
     · rw [dif_neg hc, dif_neg hc]; rfl
   · rw [if_neg h0, if_neg h0]
     cases hn : ftsNodeAt index coord (level - 1) c with
@@ -58,8 +56,8 @@ theorem ftsLabel_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin
           split_ifs at hn
           cases hn
           rfl
-        simp only [Option.map_some, Option.getD_some, coordVal, Node.toPos, Extract.Pos.proj, Extract.Pos.high, Extract.projHalf_ftsHalf, hl, hi]
-        rw [show 7 - (level - 1) - 1 = 7 - level by omega]
+        simp only [Option.map_some, Option.getD_some, coordVal, Node.toPos, Extract.Pos.proj, Extract.Pos.high,
+          WCT9.halfOf, WCT9.ftsHalf, hl, hi, show 7 - (level - 1) - 1 = 7 - level by omega]
 theorem ftsPrevLabel_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin 9) :
     ftsPrevLabel L index coord = prevVals (coordVal s L) index coord := by
   unfold ftsPrevLabel prevVals prevTop
@@ -85,23 +83,14 @@ theorem cell_eq_cellValues (s : Secrets) (L : Labels) (N : CanonGraph.Node) :
       by_cases h0 : p.2.val = 0
       · rw [if_pos h0, if_pos h0]; rfl
       · rw [if_neg h0, if_neg h0]
-        simp only [coordVal, Node.toPos, Extract.Pos.proj, Extract.Pos.high, ChainGraph.predecessor]
-        rw [ChainGraph.chainHigh_of_lt _ _ (by have := p.2.isLt; omega)]
+        simp only [coordVal]
+        rw [proj_chain_of_lt (by simp only [ChainGraph.predecessor]; have := p.2.isLt; omega)]
         rfl
   | leaf Lf =>
       change pad64 (Extract.leafInput _ _ _ ((List.range (chainCount Lf.1.lay)).map (endLabel s L Lf.1))) = _
       congr 3
-      funext i
-      unfold endLabel ChainGraph.value
-      have hw := width_ge Lf.1.lay i
-      have h1 : 1 ≤ maxDigit Lf.1.lay i := by
-        unfold maxDigit
-        split_ifs <;> decide
-      rw [if_neg (by omega)]
-      simp only [coordVal, endPoint, chainLabels]
-      rfl
   | node n =>
-      change pad64 (nodeInputP 3 _ _ _ (treeLabel L _ _ _ _) 0 (treeLabel L _ _ _ _)) = _
+      change pad64 (WCT9.merkleNodeInput _ _ _ (treeLabel L _ _ _ _) (treeLabel L _ _ _ _)) = _
       rw [treeLabel_eq s, treeLabel_eq s]
       rfl
   | wctChain p =>
@@ -336,7 +325,7 @@ theorem slot_cellValues (N : CanonGraph.Node) (v : Coord → Digest) :
       simp [hi]
   | node n =>
       simp only [childSlots, List.mem_append, Option.mem_toList, Option.map_eq_some_iff] at hcs
-      simp only [cellValues, nodeInputP, pad64_block4]
+      simp only [cellValues, ClaudeWCT.W9.T3.Security.Wots.Mask.merkleNodeInput_eq_block4, pad64_block4]
       rcases hcs with ⟨c, hc, rfl⟩ | ⟨c, hc, rfl⟩
       · refine ((slotValue_block4 _ _ _ _).1).trans ?_
         rw [hc]; rfl
@@ -496,7 +485,7 @@ theorem chainItem_value (h : Agrees T labels) (L : LeafPos) (digits : List Nat) 
     (hd : digits.getD i 0 ≤ 7) :
     WCT9.wotsValue T L.lay L.tree.val L.leaf.val digits i = honestValue T (chainItem L i (digits.getD i 0)) := by
   rw [leafValue_eq h L digits i hi hd, honestValue_eq h]
-  unfold chainItem ChainGraph.value
+  unfold chainItem
   by_cases h0 : digits.getD i 0 = 0
   · rw [if_pos h0, if_pos h0]; rfl
   · rw [if_neg h0, if_neg h0]; rfl

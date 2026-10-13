@@ -18,7 +18,7 @@ theorem projHash_nonMac (high : Bool) (input : HashInput) : NonMac (projHash hig
 theorem chain_nonMac (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
     NonMac (chain lay tree leaf i start count value) := by
   unfold chain
-  exact SourceQueries.foldlM_allowed _ _ _ (fun _ _ => projHash_nonMac _ _) _
+  exact SourceQueries.foldlM_allowed _ _ _ (fun _ _ => shortHash_nonMac _) _
 theorem leafHash_nonMac (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     NonMac (leafHash lay tree leaf ends) := projHash_nonMac _ _
 theorem nodeHash_nonMac (tag lay tree heap : Nat) (left right : Digest) :

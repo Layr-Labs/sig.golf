@@ -997,9 +997,9 @@ include hpre
 theorem leaf_iter71 (hso : A.so = true) {j : Nat} (hj : j < A.n) {st : List Digest × List Digest}
     {t : MachineState} (ht : LeafInv s0 A j st t) (hpc : t.pc = pcOf (1013 + 71)) (seed : Digest)
     (hseed : DigAt t (CHAIN + 48) seed) :
-    TSim Sign.image sk t (11 + selectorExtra A.lay j + (Sign.Seed.rungKS A.lay * A.e j + 10))
-      (11 + selectorExtra A.lay j + (Sign.Seed.rungCS A.lay * A.e j + 10)) (A.e j) (A.e j)
-      (halfUpd A st <$> chainProg A j seed)
+    TSim Sign.image sk t (11 + selectorExtra A.lay j + Sign.Seed.chainK A.lay j (A.e j))
+      (11 + selectorExtra A.lay j + Sign.Seed.chainCy A.lay j (A.e j)) (A.e j) (A.e j)
+      (halfUpd A st <$> Sign.Seed.chainProgW A j seed)
       (fun st' u => u.pc = pcOf (1013 + 41) ∧ LeafInv s0 A (j + 1) st' u ∧
         Frame t u (fun X => (X = CHAIN + 16 ∨ X = CHAIN + 24) ∨ (CHAIN + 48 ≤ X ∧ X < CHAIN + 80) ∨
           (slot A.lay j ≤ X ∧ X < slot A.lay j + 16) ∨ (A.valp + 16 * j ≤ X ∧ X < A.valp + 16 * j + 16))) := by
@@ -1009,7 +1009,7 @@ theorem leaf_iter71 (hso : A.so = true) {j : Nat} (hj : j < A.n) {st : List Dige
   rw [map_eq_bind_pure_comp]
   refine (TSim.steps st0 (TSim.bind (k₂ := 4 + (if A.so then 0 else 11 + slotK A.lay j))
     (c₂ := 4 + (if A.so then 0 else 11 + slotK A.lay j)) (n₂ := 0) (b₂ := 0) hch
-    (fun r u hu => ?_))).of_eq (by unfold chainProg; rfl) ?_ ?_ ?_ ?_
+    (fun r u hu => ?_))).of_eq (by unfold Sign.Seed.chainProgW; rfl) ?_ ?_ ?_ ?_
   · obtain ⟨hupc, hv, hl, hur, huf⟩ := hu
     obtain ⟨w, stw, wpc, hw, hfw⟩ := Sign.Seed.leaf_postchainS hsub sk hpre hj ht hupc (u0r.trans hur)
       (u0f.trans huf) r.1 r.2 hv hl
@@ -1026,9 +1026,8 @@ theorem leaf_iter71 (hso : A.so = true) {j : Nat} (hj : j < A.n) {st : List Dige
   all_goals (try simp only [hso, if_true])
   all_goals omega
 
-/-- Cycles of one top chain: `b+41`, hook, `20746`, `jal`, HORN, `j`, then the chain from `b + 71` (campaign S2: the
-chain bound includes the 13-step chain-0 fix per rung). -/
-def topChainC : Nat := 5 + hornCT + 1 + 411
+/-- Cycles of one top chain: `b+41`, hook, `20746`, `jal`, HORN, `j`, then the chain from `b + 71`. -/
+def topChainC : Nat := 5 + hornCT + 1 + 341
 
 structure FStT (s0 : MachineState) (A : LeafArgs) (coefs : List Digest) (j : Nat)
     (st : List Digest × List Digest) (u : MachineState) : Prop where
@@ -1085,20 +1084,21 @@ theorem top_chain_step (hlay : A.lay = 0) (hso : A.so = true) (htree : A.tree = 
   have hpre' : LeafPreS sk (hybT s0 w2) A := LeafPreS.transferT hpre hs'.regs hs'.base hdS
   have hseed : DigAt w2 (CHAIN + 48) (familyEval coefs (j + 1)) := wseed.frame w2f (by decide) (by simp) (by simp)
   have hit := leaf_iter71 sk hpre' hso (j := j) (by omega) hinvw (by rw [w2pc]) _ hseed
-  have hk : 11 + selectorExtra A.lay j + (Sign.Seed.rungKS A.lay * A.e j + 10) ≤
-      11 + selectorExtra A.lay j + (Sign.Seed.rungCS A.lay * A.e j + 10) := by
-    have h1 : Sign.Seed.rungKS A.lay ≤ Sign.Seed.rungCS A.lay := by
-      unfold Sign.Seed.rungKS Sign.Seed.rungCS rungK rungC; omega
-    have := Nat.mul_le_mul_right (A.e j) h1
+  have hk : 11 + selectorExtra A.lay j + Sign.Seed.chainK A.lay j (A.e j) ≤
+      11 + selectorExtra A.lay j + Sign.Seed.chainCy A.lay j (A.e j) := by
+    have := Sign.Seed.chainK_le_chainCy A.lay j (A.e j)
     omega
-  have hc : 11 + selectorExtra A.lay j + (Sign.Seed.rungCS A.lay * A.e j + 10) ≤ 411 := by
+  have hc : 11 + selectorExtra A.lay j + Sign.Seed.chainCy A.lay j (A.e j) ≤ 341 := by
     have he : A.e j ≤ 7 := by unfold LeafArgs.e; rw [hso, if_pos rfl]; exact hd7 j (by omega)
     have hsel : selectorExtra A.lay j ≤ 5 := by unfold selectorExtra; split_ifs <;> omega
-    have hr : Sign.Seed.rungCS A.lay = 55 := by rw [hlay]; rfl
-    rw [hr]
-    have := Nat.mul_le_mul_left 55 he
+    have hcy : Sign.Seed.chainCy A.lay j (A.e j) ≤ 45 * 7 + 10 := by
+      rw [hlay, Sign.Seed.chainCy_top]
+      have h1 := Nat.mul_le_mul_left 45 he
+      have h2 : (42 + (if j = 0 then 3 else 2)) * A.e j ≤ 45 * A.e j :=
+        Nat.mul_le_mul_right _ (by split_ifs <;> omega)
+      omega
     omega
-  rw [topStep_eq hlay hso htree]
+  rw [topStep_eq hlay hso htree, ← Sign.Seed.chainProgW_top hlay]
   refine TBSim.mono (TBSim.steps (((((st1.trans st2).trans st3).trans st4).trans sw).trans sw2)
     ((hit.toTBSim hk).mono hc (fun st' x hx => ?_))) (by unfold topChainC; omega) (fun _ _ h => h)
   obtain ⟨xpc, hxinv, hxf⟩ := hx

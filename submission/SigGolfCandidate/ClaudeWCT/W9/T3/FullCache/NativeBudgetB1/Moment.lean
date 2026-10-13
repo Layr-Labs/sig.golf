@@ -154,23 +154,68 @@ theorem avoids_packedLowerSecret (lay : Layer) (tree q : Nat) (carry : Digest) :
   · exact avoids_bind (avoids_privatePair secret target ht 0 _ _ _ _ (by decide))
       fun _ => avoids_pure _ _ _
   · exact avoids_pure _ _ _
+/-- C2/C3: a half-selecting hash makes the same single query as `shortHash`. -/
+theorem avoids_halfHash_of_ne (high : Bool) (input : HashInput) (hne : pad64 input ≠ target) :
+    Avoids secret target (ClaudeWCT.WCT9.halfHash high input) := by
+  rw [ClaudeWCT.WCT9.halfHash_eq]
+  apply avoids_bind
+  · exact (allQueriesSatisfy_query_iff _ _).mpr hne
+  · intro _; exact avoids_pure _ _ _
+theorem avoids_chainW (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
+    Avoids secret target (ClaudeWCT.WCT9.chainW lay tree leaf i start count value) := by
+  unfold ClaudeWCT.WCT9.chainW
+  apply avoids_foldlM
+  intro value step
+  apply avoids_halfHash_of_ne secret target ht
+  have hh : SigGolfCandidate.T3.QuerySpace.queryHeader
+      (pad64 (SigGolfCandidate.T3.chainInput lay tree leaf i step value)) =
+      SphincsSecurity.bytesLE 16 (chainHeader lay tree leaf i step) := by
+    simpa only [SigGolfCandidate.T3.chainInput, List.append_assoc] using
+      SigGolfCandidate.T3.QuerySpace.queryHeader_padded zero16 (zero16 ++ SphincsSecurity.bytesLE 16 value)
+        (by simp [zero16]) (chainHeader lay tree leaf i step)
+  exact searchQ_ne hh (chainHeader_not_search lay tree leaf i step) ht
+theorem avoids_lowerLeafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
+    Avoids secret target (ClaudeWCT.WCT9.lowerLeafHash lay tree leaf ends) := by
+  rw [ClaudeWCT.WCT9.lowerLeafHash_eq]
+  unfold ClaudeWCT.WCT9.lowerHash
+  apply avoids_halfHash_of_ne secret target ht
+  exact searchQ_ne (SigGolfCandidate.T3.QuerySpace.queryHeader_leafInput ..) (leafTweak_not_search lay tree leaf) ht
+omit ht in
+/-- C2: the packed lower node word has marker `128 + heap` (heap < 128), so it is no search header. -/
+theorem lowerTweak_not_search (lay tree heap : Nat) (hh : heap < 128) :
+    ¬ SearchHdr (ClaudeWCT.WCT9.lowerTweak lay tree heap) := by
+  have hm : tweakMarker (ClaudeWCT.WCT9.lowerTweak lay tree heap) = 128 + heap := by
+    unfold ClaudeWCT.WCT9.lowerTweak ClaudeWCT.WCT9.lowerNodeWord ClaudeWCT.WCT9.lowerK
+    rw [append64_marker, BitVec.toNat_add, BitVec.toNat_ofNat, hyperWord_toNat]
+    omega
+  unfold SearchHdr RowHdr; omega
+theorem avoids_lowerNodeHash (lay tree heap : Nat) (left right : Digest) (hh : lay ≠ 0 → heap < 128) :
+    Avoids secret target (ClaudeWCT.WCT9.lowerNodeHash lay tree heap left right) := by
+  unfold ClaudeWCT.WCT9.lowerNodeHash ClaudeWCT.WCT9.lowerHash
+  apply avoids_halfHash_of_ne secret target ht
+  have hq : SigGolfCandidate.T3.QuerySpace.queryHeader
+      (pad64 (ClaudeWCT.WCT9.merkleNodeInput lay tree heap left right)) =
+      SphincsSecurity.bytesLE 16 (ClaudeWCT.WCT9.merkleTweak lay tree heap) := by
+    simpa only [ClaudeWCT.WCT9.merkleNodeInput, List.append_assoc] using
+      (SigGolfCandidate.T3.QuerySpace.queryHeader_padded (SphincsSecurity.bytesLE 16 left)
+        (zero16 ++ SphincsSecurity.bytesLE 16 right) (SphincsSecurity.bytesLE_length ..)
+        (ClaudeWCT.WCT9.merkleTweak lay tree heap))
+  refine searchQ_ne hq ?_ ht
+  by_cases h0 : lay = 0
+  · subst h0
+    rw [ClaudeWCT.WCT9.merkleTweak_top]
+    exact nodeTweak_not_search 3 0 tree heap (by decide) (fun _ h _ => by omega)
+  · rw [ClaudeWCT.WCT9.merkleTweak_lower h0]
+    exact lowerTweak_not_search lay tree heap (hh h0)
 theorem avoids_buildLeafP (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
     Avoids secret target (ClaudeWCT.WCT9.buildLeafP lay tree leaf digits carry) := by
   unfold ClaudeWCT.WCT9.buildLeafP
-  refine avoids_bind_support (avoids_foldlM _ _ _ _ (fun state i => ?_) _) fun state hs => ?_
-  · refine avoids_bind (avoids_packedLowerSecret secret target ht _ _ _ _) fun sc => ?_
-    rcases sc with ⟨seed, carry'⟩
-    exact avoids_bind (avoids_chain secret target ht _ _ _ _ _ _ _) fun value =>
-      avoids_bind (avoids_chain secret target ht _ _ _ _ _ _ _) fun _ => avoids_pure _ _ _
-  · have hlen := mem_support_foldlM_inv _ (fun k (s : List Digest × List Digest × Digest) => s.1.length = k)
-      (fun k a b ha a' ha' => by
-        rw [mem_support_bind_iff] at ha'
-        obtain ⟨⟨seed, c⟩, -, ha'⟩ := ha'
-        simp only [mem_support_bind_iff, support_pure, Set.mem_singleton_iff] at ha'
-        obtain ⟨_, -, _, -, rfl⟩ := ha'
-        simp [ha]) _ 0 _ rfl state hs
-    simp only [List.length_range, Nat.zero_add] at hlen
-    exact avoids_bind (avoids_leafHash secret target ht _ _ _ _ hlen) fun _ => avoids_pure _ _ _
+  refine avoids_bind (avoids_foldlM _ _ _ _ (fun state i => ?_) _)
+    (fun state => avoids_bind (avoids_leafHash secret target ht _ _ _ _) fun _ => avoids_pure _ _ _)
+  refine avoids_bind (avoids_packedLowerSecret secret target ht _ _ _ _) fun sc => ?_
+  rcases sc with ⟨seed, carry'⟩
+  exact avoids_bind (avoids_chain secret target ht _ _ _ _ _ _ _) fun value =>
+    avoids_bind (avoids_chain secret target ht _ _ _ _ _ _ _) fun _ => avoids_pure _ _ _
 theorem avoids_buildLeafPF (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
     Avoids secret target (ClaudeWCT.WCT9.buildLeafPF lay tree leaf digits carry) := by
   unfold ClaudeWCT.WCT9.buildLeafPF
@@ -181,35 +226,21 @@ theorem avoids_buildLeafPF (lay : Layer) (tree leaf : Nat) (digits : List Nat) (
     rcases sc with ⟨coef, carry'⟩
     exact avoids_pure _ _ _
   rcases cc with ⟨coefs, carry'⟩
-  refine avoids_bind_support (avoids_foldlM _ _ _ _ (fun state i => ?_) _) fun state hs => ?_
-  · exact avoids_bind (avoids_chain secret target ht _ _ _ _ _ _ _) fun value =>
-      avoids_bind (avoids_chain secret target ht _ _ _ _ _ _ _) fun _ => avoids_pure _ _ _
-  · have hlen := mem_support_foldlM_inv _ (fun k (s : List Digest × List Digest) => s.1.length = k)
-      (fun k a b ha a' ha' => by
-        simp only [mem_support_bind_iff, support_pure, Set.mem_singleton_iff] at ha'
-        obtain ⟨_, -, _, -, rfl⟩ := ha'
-        simp [ha]) _ 0 _ rfl state hs
-    simp only [List.length_range, Nat.zero_add] at hlen
-    exact avoids_bind (avoids_leafHash secret target ht _ _ _ _ hlen) fun _ => avoids_pure _ _ _
-/-- Campaign S1: a lower fold word carries `heap % 128`, so internal lower nodes (levels `≥ 1` of a tree of
-height `≤ 7`, heaps `2..127`) are never the encoding word (heap 1). -/
-theorem avoids_buildLevel_below (lay tree h level : Nat) (nodes : List Digest) (hl1 : 1 ≤ level) (hlev : level < h)
-    (hh : 1 ≤ lay → lay < 4 → h ≤ 7) (hlen : nodes.length / 2 ≤ 2 ^ (h - level)) :
-    Avoids secret target (buildLevel 3 lay tree h level nodes) := by
-  unfold buildLevel
-  refine avoids_mapM_mem _ _ fun i hi => avoids_nodeHash secret target ht _ _ _ _ _ _ (by decide)
-    fun _ h1 h4 => ?_
+  refine avoids_bind (avoids_foldlM _ _ _ _ (fun state i => ?_) _)
+    (fun state => avoids_bind (avoids_lowerLeafHash secret target ht _ _ _ _) fun _ => avoids_pure _ _ _)
+  exact avoids_bind (avoids_chainW secret target ht _ _ _ _ _ _ _) fun value =>
+    avoids_bind (avoids_chainW secret target ht _ _ _ _ _ _ _) fun _ => avoids_pure _ _ _
+/-- C2: the lower levels use `lowerLevel` (packed node word, heap < 128 below the root of a height-7 tree). -/
+theorem avoids_buildLevel_below (lay tree h level : Nat) (nodes : List Digest) (hlev : level < h) (h1 : 1 ≤ level)
+    (h7 : lay ≠ 0 → h ≤ 7) (hlen : nodes.length / 2 ≤ 2 ^ (h - level)) :
+    Avoids secret target (ClaudeWCT.WCT9.lowerLevel lay tree h level nodes) := by
+  unfold ClaudeWCT.WCT9.lowerLevel
+  refine avoids_mapM_mem _ _ fun i hi => avoids_lowerNodeHash secret target ht _ _ _ _ _ fun hl => ?_
   have hi : i < nodes.length / 2 := List.mem_range.mp hi
-  have h7 := hh h1 h4
-  have h2 : 2 ≤ 2 ^ (h - level) := by
-    calc 2 = 2 ^ 1 := rfl
-      _ ≤ 2 ^ (h - level) := Nat.pow_le_pow_right (by decide) (by omega)
-  have h64 : 2 ^ (h - level) ≤ 64 := by
-    calc 2 ^ (h - level) ≤ 2 ^ 6 := Nat.pow_le_pow_right (by decide) (by omega)
-      _ = 64 := rfl
-  rw [Nat.mod_eq_of_lt (by omega)]
+  have hp : 2 ^ (h - level) ≤ 2 ^ 6 := Nat.pow_le_pow_right (by decide) (by have := h7 hl; omega)
+  have : (2 : Nat) ^ 6 = 64 := by norm_num
   omega
-theorem avoids_buildLevelsBelow (lay tree h : Nat) (hh : 1 ≤ lay → lay < 4 → h ≤ 7) (leaves : List Digest)
+theorem avoids_buildLevelsBelow (lay tree h : Nat) (hh : lay ≠ 0 → h ≤ 7) (leaves : List Digest)
     (hlen : leaves.length ≤ 2 ^ h) :
     Avoids secret target (ClaudeWCT.WCT9.buildLevelsBelow 3 lay tree h leaves) := by
   unfold ClaudeWCT.WCT9.buildLevelsBelow
@@ -226,7 +257,7 @@ theorem avoids_buildLevelsBelow (lay tree h : Nat) (hh : 1 ≤ lay → lay < 4 �
   simp only [support_pure, Set.mem_singleton_iff] at hb
   subst hb
   have hlenN : nodes.length = (levels.getD (k - 1) []).length / 2 := by
-    unfold buildLevel at hn
+    unfold ClaudeWCT.WCT9.lowerLevel at hn
     rw [length_of_mem_support_mapM _ _ _ hn, List.length_range]
   refine ⟨by simp [hlk], fun j hj => ?_⟩
   by_cases hjk : j < k
@@ -249,7 +280,7 @@ theorem avoids_buildTreeP (lay : Layer) (tree selected : Nat) (digits : List Nat
         simp only [support_pure, Set.mem_singleton_iff] at ha'
         subst ha'
         simp [ha]) _ 0 _ rfl state hs
-    have hh : 1 ≤ lay.val → lay.val < 4 → height lay ≤ 7 := by fin_cases lay <;> decide
+    have hh : lay.val ≠ 0 → height lay ≤ 7 := by fin_cases lay <;> decide
     refine avoids_bind (avoids_buildLevelsBelow secret target ht _ _ _ hh _ ?_) fun _ => avoids_pure _ _ _
     simp only [List.length_range, Nat.zero_add] at hlen
     omega

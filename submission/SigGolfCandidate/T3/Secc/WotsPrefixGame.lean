@@ -201,11 +201,15 @@ theorem traceOf_filter_length (T : Answers) (P : HashInput → Prop) :
         · simp only [Nat.zero_add]
         · rintro ⟨x, hx, -⟩
           cases hx
+def PrefixRowAt (answers : Answers) (a : ChainAddr) (input : HashInput) : Prop :=
+  ∃ step value, step < depth answers a ∧ input = chainRow a step value
 structure PrefixView where
   depth : Nat
   frontier : Digest
   rows : Nat → Digest → Option Digest
   count : Nat
+noncomputable def prefixCount (a : ChainAddr) (s : RefSample) : Nat :=
+  (s.trace.filter fun e => decide (PrefixRowAt s.answers a e.1)).length
 def PrefixView.TwoEdge (v : PrefixView) : Prop :=
   2 ≤ v.depth ∧ ∃ start middle, v.rows (v.depth - 2) start = some middle ∧ v.rows (v.depth - 1) middle = some v.frontier
 def PrefixView.Contact (v : PrefixView) : Prop :=

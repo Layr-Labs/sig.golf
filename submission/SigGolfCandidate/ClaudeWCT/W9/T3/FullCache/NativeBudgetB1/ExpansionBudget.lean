@@ -139,13 +139,13 @@ theorem bound_recoverLayerPair (sig : Signature) (index : Nat) (lay : Layer) (di
   unfold ClaudeWCT.WCT9.recoverLayerPair
   dsimp only
   refine (Bound.mapM_list (P := GoodQuery) (List.finRange (chainCount lay)) _
-    (fun i => maxDigit lay i.val - digits.getD i.val 0) (fun i _ => bound_chain _ _ _ _ _ _ _)).bind'
+    (fun i => maxDigit lay i.val - digits.getD i.val 0) (fun i _ => ClaudeWCT.WCT9.Cost.bound_chainW _ _ _ _ _ _ _)).bind'
     (l := leafHashCost lay + height lay) (fun ends hends => ?_) ?_
-  · refine (bound_leafHash lay _ _ ends (by simpa using hends)).bind (fun root _ => ?_)
+  · refine (ClaudeWCT.WCT9.Cost.bound_lowerLeafHash lay _ _ ends (by simpa using hends)).bind (fun root _ => ?_)
     refine ((Bound.foldlM_list (P := GoodQuery) (List.finRange (height lay - 1)) _
       (fun _ _ => True) (fun _ => 1) root trivial (fun i hi value _ => ?_)).bind
         (fun top _ => .pure _ 0 trivial)).mono_k (by simp)
-    exact bound_nodeHash _ _ _ _ _ _
+    exact ClaudeWCT.WCT9.Cost.bound_lowerNodeHash _ _ _ _ _
   · rw [sum_finRange (chainCount lay) (fun i => maxDigit lay i - digits.getD i 0),
       remaining_steps lay digits hd hlen hsum]
     simp only [recoverLayerCost]

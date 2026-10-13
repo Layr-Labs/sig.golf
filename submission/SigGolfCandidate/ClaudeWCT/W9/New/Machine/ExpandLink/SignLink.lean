@@ -86,7 +86,7 @@ theorem signCode_drop_v7 : Images.signImage.code.drop 11003 = signNew ++ Images.
 set_option maxHeartbeats 0 in
 theorem wct_signCodeAt_v7 : SignCodeAt Images.signImage := by
   refine ⟨⟨⟨_, signCode_drop_v7.symm⟩, ⟨Images.signImage.code.drop 21802, by decide +kernel⟩,
-    ⟨Images.signImage.code.drop 1693, by decide +kernel⟩⟩, ?_⟩
+    ClaudeWCT.W9.Machine.Sign.PackedLeaf.arena_signImage⟩, ?_⟩
   · -- [h2 lane] the fourth hook: the sign prepass tail at 20813
     exact ⟨by decide +kernel, by decide +kernel, by decide +kernel, ⟨Images.signImage.code.drop 20832, by decide +kernel⟩⟩
 theorem wct_sign_certified_v7 :

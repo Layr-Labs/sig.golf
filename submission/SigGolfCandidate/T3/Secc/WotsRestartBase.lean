@@ -298,10 +298,8 @@ theorem lazyRun_bind {d : Nat} {α γ : Type} (first : OracleComp (SeedSpec d) �
       (lazyRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl first observed).bind fun r =>
         lazyRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl (next r.1) r.2 := by
   simp only [lazyRun, simulateQ_bind, StateT.run_bind, PMF.monad_bind_eq_bind]
-/-- Campaign S2: an observed prefix row is the half of its answer that the chain keeps at that step. -/
 def RowsInv (a : ChainAddr) {d : Nat} (memory : List Entry) (observed : Fin d → Digest → Option Digest) : Prop :=
-  ∀ (i : Fin d) (v w : Digest), observed i v = some w ↔
-    ∃ answer, (chainRow a i v, answer) ∈ memory ∧ projHalf (chainHigh a.key.lay a.chain i) answer = w
+  ∀ (i : Fin d) (v w : Digest), observed i v = some w ↔ ∃ answer, (chainRow a i v, answer) ∈ memory ∧ low answer = w
 theorem rowsInv_nil (a : ChainAddr) (d : Nat) : RowsInv a (d := d) [] (fun _ _ => none) := by
   intro i v w
   simp
