@@ -11,10 +11,10 @@ def children : Nat := 128
 def chains : Nat := 6
 def gateShift : Nat := 242
 def gateBits : Nat := 14
-def gateLimit : Nat := 1353
+def gateLimit : Nat := 1360
 def fieldBits : Nat := 10
 def fieldLimit : Nat := 563
-def jointCap : Nat := 776
+def jointCap : Nat := 775
 abbrev Coord := Fin 9
 abbrev Child := Fin 128
 abbrev Rank := Fin 563
@@ -34,7 +34,7 @@ def field (output : HashOutput) (coord : Coord) : Nat :=
 def rank (output : HashOutput) (coord : Coord) : Rank :=
   ⟨field output coord % 563, Nat.mod_lt _ (by decide)⟩
 def admissible (output : HashOutput) : Bool :=
-  decide (output.toNat / 2 ^ 242 % 2 ^ 14 < 1353) &&
+  decide (output.toNat / 2 ^ 242 % 2 ^ 14 < 1360) &&
     (List.range 9).all (fun coord =>
       decide (output.toNat / 2 ^ fieldBase coord % 2 ^ 10 < 563))
 /-- C1 (FTS Merkle half-swap): `4 + skips`, where `skips` (0, 1 or 2, by `c % 32`) counts the child program's

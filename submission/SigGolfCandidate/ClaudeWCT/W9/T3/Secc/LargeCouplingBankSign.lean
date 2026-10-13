@@ -562,7 +562,7 @@ theorem psi_cert (q : Nat) (st : RouterState) (h : CertGhost st) : 1 ≤ psi q s
   · exact ClaudeWCT.Bank.WCT.wct_core_win CaseC.horizon ⊤ CaseC.excessBound_top (bankOf q st) (not_lt.mpr h.1) hcov
 theorem psi_initial (q : Nat) :
     psi q RouterState.initial ≤
-      (q : ENNReal) * (if q ≤ 2 ^ 121 then 23 / 100000 else 247 / 100000) / 2 ^ 128 := by
+      (q : ENNReal) * (if q ≤ 2 ^ 121 then 23 / 100000 else 262 / 100000) / 2 ^ 128 := by
   have h0 : reuseC RouterState.initial = 0 := by
     unfold reuseC
     apply ENNReal.tsum_eq_zero.mpr
@@ -576,9 +576,9 @@ theorem psi_initial (q : Nat) :
   rw [h0]
   split_ifs with h125
   · exact ClaudeWCT.Bank.WCT.wct_core_initial_54 q
-  · have hinit := ClaudeWCT.Bank.WCT.wct_core_initial CaseC.horizon (247 / 100000)
+  · have hinit := ClaudeWCT.Bank.WCT.wct_core_initial CaseC.horizon (262 / 100000)
       ClaudeWCT.Numerics.WCTPrice.wct_excessBound_2_32 q
-    rw [ClaudeWCT.Bank.WCT.wct_corePotential_rate CaseC.horizon (247 / 100000)
+    rw [ClaudeWCT.Bank.WCT.wct_corePotential_rate CaseC.horizon (262 / 100000)
       ClaudeWCT.Numerics.WCTPrice.wct_excessBound_2_32 ⊤ CaseC.excessBound_top] at hinit
     exact hinit
 end ClaudeWCT.W9.T3.Security.LargeCoupling

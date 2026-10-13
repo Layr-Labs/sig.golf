@@ -630,7 +630,7 @@ set_option linter.unusedSimpArgs false
 attribute [local instance low] Classical.propDecidable
 attribute [local irreducible] referenceGame offlineGame
 namespace SmallR
-/-- Together with 248/100000, this rate gives the scalar closing coefficient 196327/100000. -/
+/-- Together with 263/100000, this rate gives the scalar closing coefficient 196342/100000. -/
 noncomputable def classRateW9 : ENNReal := 196079 / 100000
 theorem inv_one_sub_leW9 (q : Nat) (hs : q ≤ SeccClosingW9.budgetSplit) :
     (1 - (q : ENNReal) / 2 ^ 128)⁻¹ ≤ 4194304 / 4193304 := by
@@ -731,7 +731,7 @@ theorem digestRate_leW9 : 1 + SeccClosingW9.cacheRate ≤ classRateW9 := by
     ENNReal.toReal_ofNat, ENNReal.toReal_one]
   norm_num
 theorem excess_leW9 (q : Nat) :
-    (q : ENNReal) * SeccClosingW9.excessRate / 2 ^ 128 ≤ (247 / 100000) * ((q : ENNReal) / 2 ^ 128) := by
+    (q : ENNReal) * SeccClosingW9.excessRate / 2 ^ 128 ≤ (262 / 100000) * ((q : ENNReal) / 2 ^ 128) := by
   rw [SeccClosingW9.excessRate_def]
   simp only [div_eq_mul_inv]
   exact le_of_eq (by ring)
@@ -850,7 +850,7 @@ theorem small_route (hC : CaseCSmallBound) :
       exact ENNReal.inv_le_inv.mpr (pow_le_pow_right₀ one_le_two (by norm_num)))
   have hov := ClaudeWCT.W9.T3.Security.fts_overflow_le adversary q hq
   have herr := SmallR.errTerm_le adversary q hs
-  apply SeccClosingW9.smallBound_of_le q _ (SmallR.classRateW9 + 247 / 100000 + 1 / 100000) (75701 / 500)
+  apply SeccClosingW9.smallBound_of_le q _ (SmallR.classRateW9 + 262 / 100000 + 1 / 100000) (75701 / 500)
     ((2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹)
   · rw [SeccClosingW9.smallCoefficient_def]
     unfold SmallR.classRateW9
@@ -883,19 +883,19 @@ theorem small_route (hC : CaseCSmallBound) :
         add_le_add (add_le_add (add_le_add hab hc) hinc) hov
     _ ≤ (SmallR.classRateW9 / 2 ^ 128 * EP + SmallR.classRateW9 / 2 ^ 128 * EE + SmallR.classRateW9 / 2 ^ 128 * EO +
             (702 / 1000) * x ^ 2) +
-          (SmallR.classRateW9 / 2 ^ 128 * EM + 247 / 100000 * x + ((1501 / 10) * x ^ 2 + 1 / 100000 * x) + (6 / 10) * x ^ 2 +
+          (SmallR.classRateW9 / 2 ^ 128 * EM + 262 / 100000 * x + ((1501 / 10) * x ^ 2 + 1 / 100000 * x) + (6 / 10) * x ^ 2 +
             (2 : ENNReal)⁻¹ ^ 700) + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹ := by gcongr
     _ = SmallR.classRateW9 / 2 ^ 128 * (EP + EE + EO + EM) +
-          (247 / 100000 * x + ((1501 / 10) * x ^ 2 + 1 / 100000 * x) + (6 / 10) * x ^ 2 + (702 / 1000) * x ^ 2 +
+          (262 / 100000 * x + ((1501 / 10) * x ^ 2 + 1 / 100000 * x) + (6 / 10) * x ^ 2 + (702 / 1000) * x ^ 2 +
             ((2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹)) := by
         ring
-    _ ≤ SmallR.classRateW9 * x + (247 / 100000 * x + ((1501 / 10) * x ^ 2 + 1 / 100000 * x) + (6 / 10) * x ^ 2 +
+    _ ≤ SmallR.classRateW9 * x + (262 / 100000 * x + ((1501 / 10) * x ^ 2 + 1 / 100000 * x) + (6 / 10) * x ^ 2 +
           (702 / 1000) * x ^ 2 + ((2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹)) := by
         gcongr
-    _ = (SmallR.classRateW9 + 247 / 100000 + 1 / 100000) * x + ((1501 / 10 : ENNReal) + 6 / 10 + 702 / 1000) * x ^ 2 +
+    _ = (SmallR.classRateW9 + 262 / 100000 + 1 / 100000) * x + ((1501 / 10 : ENNReal) + 6 / 10 + 702 / 1000) * x ^ 2 +
           ((2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹) := by
         ring
-    _ ≤ (SmallR.classRateW9 + 247 / 100000 + 1 / 100000) * x + (75701 / 500) * x ^ 2 +
+    _ ≤ (SmallR.classRateW9 + 262 / 100000 + 1 / 100000) * x + (75701 / 500) * x ^ 2 +
           ((2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹) := by
         gcongr
         apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp

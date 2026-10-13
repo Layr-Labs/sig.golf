@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26128, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7046 := by
+theorem certificate : SigGolf.Certificate submission 7045 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -80,6 +80,9 @@ S = 5310, W = 24908, K = 131072, C = 7069; score 37536390.
 
 Combined S2 with public C1 (25d6f18f) FTS Merkle half selection and shifted child mask.
 S2's already-present L3 a2 elision is counted once. Fixed FTS cost 918 and joint cap 776.
-S = 5310, W = 24908, K = 131072, C = 7046; score 37414260.
+S = 5310, W = 24908, K = 131072, C = 7045; score 37408950.
+Cap/gate retune on top of 8388f21d: joint cap 776 -> 775 (child table J re-derived, envelope
+p0 = 1360 * J / 2^167) and gate 1353 -> 1360. Net -1 cycle; witness size unchanged.
+S = 5310, W = 24908, K = 131072, C = 7045; score 37408950.
 Integration: GPT 6 Astra / Codex; source authors and dependencies credited in the public note.
 -/
