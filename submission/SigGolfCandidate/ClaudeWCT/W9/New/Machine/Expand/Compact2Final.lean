@@ -1031,11 +1031,11 @@ def lowerWord (M : Nat → Word) (src dst A : Nat) : Word :=
   M (src - 64 * lowerIndex (A - dst) + (A - dst) % 16)
 /-- Physical memory after the appended four-buffer expansion routine. -/
 def bufferMem (M : Nat → Word) (A : Nat) : Word :=
-  if 26048  ≤  A ∧ A < 26080 ∧ A % 8 = 0 then M (A - 3120)
-  else if 22928  ≤  A ∧ A < 26048 ∧ A % 8 = 0 then
-    if 25168  ≤  A ∧ A < 26032 then M (13680 - 64 * ((A - 25168) / 16) + (A - 25168) % 16)
-    else if 24400  ≤  A ∧ A < 25104 ∧ (A < 24416 ∨ 24432  ≤  A) then lowerWord M 16800 24400 A
-    else if 23664  ≤  A ∧ A < 24368 ∧ (A < 23680 ∨ 23696  ≤  A) then lowerWord M 19856 23664 A
+  if 26016  ≤  A ∧ A < 26048 ∧ A % 8 = 0 then M (A - 3088)
+  else if 22928  ≤  A ∧ A < 26016 ∧ A % 8 = 0 then
+    if 25136  ≤  A ∧ A < 26000 then M (13680 - 64 * ((A - 25136) / 16) + (A - 25136) % 16)
+    else if 24368  ≤  A ∧ A < 25072 ∧ (A < 24384 ∨ 24400  ≤  A) then lowerWord M 16800 24368 A
+    else if 23648  ≤  A ∧ A < 24352 ∧ (A < 23664 ∨ 23680  ≤  A) then lowerWord M 19856 23648 A
     else if 22928  ≤  A ∧ A < 23632 ∧ (A < 22944 ∨ 22960  ≤  A) then lowerWord M 22912 22928 A
     else 0
   else M A
@@ -1045,12 +1045,12 @@ set_option maxRecDepth 100000
 set_option maxHeartbeats 2000000
 open ClaudeWCT.W9.Machine.Expand.Compact (cfgC)
 def cEntry : List (BitVec 32) := [0x34c0106f]
-def cInit : List (BitVec 32) := [0x6537,0x99050513,0x65b7,0x5c058593,0x53303,0x65b023,0x853303,0x65b423,0x1053303,0x65b823,0x1853303,0x65bc23,0x6537,0x99050513,0x65b7,0x5c058593]
+def cInit : List (BitVec 32) := [0x6537,0x99050513,0x65b7,0x5a058593,0x53303,0x65b023,0x853303,0x65b423,0x1053303,0x65b823,0x1853303,0x65bc23,0x6537,0x99050513,0x65b7,0x5a058593]
 def cClear : List (BitVec 32) := [0x53023,0x850513,0xfeb56ce3]
 def cHead3 : List (BitVec 32) := [0x6537,0x98050513,0x65b7,0x99058593,0x2b00613,0x53303,0x853383,0x65b023,0x75b423,0xfc050513,0x2058593,0xfff60613]
-def cHead2 : List (BitVec 32) := [0x5537,0xd9050513,0x65b7,0xc7058593,0x2b00613,0x53303,0x853383,0x65b023,0x75b423,0xfc050513,0x2058593,0xfff60613]
-def cHead1 : List (BitVec 32) := [0x4537,0x1a050513,0x65b7,0xf5058593,0x2b00613,0x53303,0x853383,0x65b023,0x75b423,0xfc050513,0x2058593,0xfff60613]
-def cHead0 : List (BitVec 32) := [0x3537,0x57050513,0x65b7,0x25058593,0x3600613]
+def cHead2 : List (BitVec 32) := [0x5537,0xd9050513,0x65b7,0xc6058593,0x2b00613,0x53303,0x853383,0x65b023,0x75b423,0xfc050513,0x2058593,0xfff60613]
+def cHead1 : List (BitVec 32) := [0x4537,0x1a050513,0x65b7,0xf3058593,0x2b00613,0x53303,0x853383,0x65b023,0x75b423,0xfc050513,0x2058593,0xfff60613]
+def cHead0 : List (BitVec 32) := [0x3537,0x57050513,0x65b7,0x23058593,0x3600613]
 def cPair : List (BitVec 32) := [0x53303,0x853383,0x65b023,0x75b423,0xfc050513,0x1058593,0xfff60613,0xfe0612e3]
 def cFinish : List (BitVec 32) := [0x100293,0x513]
 def pairPc (k : Nat) : Nat := [43982,44002,44022,44035].getD k 0
@@ -1267,14 +1267,14 @@ end
 def putPair (M : Nat → Word) (src dst A : Nat) : Word :=
   if A=dst+8 then M (src+8) else if A=dst then M src else M A
 def footerMem (M : Nat → Word) (A : Nat) : Word :=
-  if A=26072 then M 22952 else if A=26064 then M 22944
-  else if A=26056 then M 22936 else if A=26048 then M 22928 else M A
+  if A=26040 then M 22952 else if A=26032 then M 22944
+  else if A=26024 then M 22936 else if A=26016 then M 22928 else M A
 def expandedMem (M : Nat → Word) : Nat → Word :=
-  let z := clearMem (footerMem M) 22928 390
+  let z := clearMem (footerMem M) 22928 386
   let b3 := pairsMem (putPair z 22912 22928) 22848 22960 42
-  let b2 := pairsMem (putPair b3 19856 23664) 19792 23696 42
-  let b1 := pairsMem (putPair b2 16800 24400) 16736 24432 42
-  pairsMem b1 13680 25168 54
+  let b2 := pairsMem (putPair b3 19856 23648) 19792 23680 42
+  let b1 := pairsMem (putPair b2 16800 24368) 16736 24400 42
+  pairsMem b1 13680 25136 54
 section
 variable {im : Image} (hc : NewCodeAt im)
 include hc
@@ -1286,7 +1286,7 @@ theorem entry_spec (s : MachineState) (hpc : s.pc=pcOf 42716) :
   · intro A hA; rfl
 theorem init_spec (s : MachineState) (hpc : s.pc=pcOf 43951) :
     ∃ t, Steps im s 16 16 t ∧ t.pc=pcOf 43967 ∧
-      t.getReg .x10=BitVec.ofNat 64 22928 ∧ t.getReg .x11=BitVec.ofNat 64 26048 ∧
+      t.getReg .x10=BitVec.ofNat 64 22928 ∧ t.getReg .x11=BitVec.ofNat 64 26016 ∧
       ∀ A < 2^64, t.getMem (BitVec.ofNat 64 A)=footerMem (fun B=>s.getMem (BitVec.ofNat 64 B)) A := by
   refine ⟨_,symRun_sound RInit (code_cInit hc) s hpc (by simp [RInit.res,rv_simp,accessValid_iff]),?_,?_,?_,?_⟩
   · simp [RInit.res,rv_simp]
@@ -1294,10 +1294,10 @@ theorem init_spec (s : MachineState) (hpc : s.pc=pcOf 43951) :
   · simp [RInit.res,rv_simp]
   · intro A hA
     simp only [RInit.res,rv_simp,Result.toState_getMem,memEval_cons,memEval_nil,Addr.eval,E.eval,BinOp.eval,footerMem]
-    have k0 := ofNat_inj hA (show 26048<2^64 by decide)
-    have k1 := ofNat_inj hA (show 26056<2^64 by decide)
-    have k2 := ofNat_inj hA (show 26064<2^64 by decide)
-    have k3 := ofNat_inj hA (show 26072<2^64 by decide)
+    have k0 := ofNat_inj hA (show 26016<2^64 by decide)
+    have k1 := ofNat_inj hA (show 26024<2^64 by decide)
+    have k2 := ofNat_inj hA (show 26032<2^64 by decide)
+    have k3 := ofNat_inj hA (show 26040<2^64 by decide)
     simpa only [k0,k1,k2,k3]
 
 theorem head3_spec (s : MachineState) (hpc : s.pc=pcOf 43970) :
@@ -1318,39 +1318,39 @@ theorem head3_spec (s : MachineState) (hpc : s.pc=pcOf 43970) :
 
 theorem head2_spec (s : MachineState) (hpc : s.pc=pcOf 43990) :
     ∃ t, Steps im s 12 12 t ∧ t.pc=pcOf 44002 ∧
-      t.getReg .x10=BitVec.ofNat 64 19792 ∧ t.getReg .x11=BitVec.ofNat 64 23696 ∧
+      t.getReg .x10=BitVec.ofNat 64 19792 ∧ t.getReg .x11=BitVec.ofNat 64 23680 ∧
       t.getReg .x12=BitVec.ofNat 64 42 ∧
-      ∀ A < 2^64, t.getMem (BitVec.ofNat 64 A)=putPair (fun B=>s.getMem (BitVec.ofNat 64 B)) 19856 23664 A := by
+      ∀ A < 2^64, t.getMem (BitVec.ofNat 64 A)=putPair (fun B=>s.getMem (BitVec.ofNat 64 B)) 19856 23648 A := by
   refine ⟨_,symRun_sound RHead2 (code_cHead2 hc) s hpc (by simp [RHead2.res,rv_simp,accessValid_iff]),?_,?_,?_,?_,?_⟩
   · simp [RHead2.res,rv_simp]
   · simp [RHead2.res,rv_simp]
   · simp [RHead2.res,rv_simp]
   · simp [RHead2.res,rv_simp]
   · intro A hA
-    have k0 := ofNat_inj hA (show 23664<2^64 by decide)
-    have k1 := ofNat_inj hA (show 23672<2^64 by decide)
+    have k0 := ofNat_inj hA (show 23648<2^64 by decide)
+    have k1 := ofNat_inj hA (show 23656<2^64 by decide)
     simp only [RHead2.res,rv_simp,Result.toState_getMem,memEval_cons,memEval_nil,Addr.eval,E.eval,BinOp.eval,putPair]
     simpa only [k0,k1]
 
 theorem head1_spec (s : MachineState) (hpc : s.pc=pcOf 44010) :
     ∃ t, Steps im s 12 12 t ∧ t.pc=pcOf 44022 ∧
-      t.getReg .x10=BitVec.ofNat 64 16736 ∧ t.getReg .x11=BitVec.ofNat 64 24432 ∧
+      t.getReg .x10=BitVec.ofNat 64 16736 ∧ t.getReg .x11=BitVec.ofNat 64 24400 ∧
       t.getReg .x12=BitVec.ofNat 64 42 ∧
-      ∀ A < 2^64, t.getMem (BitVec.ofNat 64 A)=putPair (fun B=>s.getMem (BitVec.ofNat 64 B)) 16800 24400 A := by
+      ∀ A < 2^64, t.getMem (BitVec.ofNat 64 A)=putPair (fun B=>s.getMem (BitVec.ofNat 64 B)) 16800 24368 A := by
   refine ⟨_,symRun_sound RHead1 (code_cHead1 hc) s hpc (by simp [RHead1.res,rv_simp,accessValid_iff]),?_,?_,?_,?_,?_⟩
   · simp [RHead1.res,rv_simp]
   · simp [RHead1.res,rv_simp]
   · simp [RHead1.res,rv_simp]
   · simp [RHead1.res,rv_simp]
   · intro A hA
-    have k0 := ofNat_inj hA (show 24400<2^64 by decide)
-    have k1 := ofNat_inj hA (show 24408<2^64 by decide)
+    have k0 := ofNat_inj hA (show 24368<2^64 by decide)
+    have k1 := ofNat_inj hA (show 24376<2^64 by decide)
     simp only [RHead1.res,rv_simp,Result.toState_getMem,memEval_cons,memEval_nil,Addr.eval,E.eval,BinOp.eval,putPair]
     simpa only [k0,k1]
 
 theorem head0_spec (s : MachineState) (hpc : s.pc=pcOf 44030) :
     ∃ t, Steps im s 5 5 t ∧ t.pc=pcOf 44035 ∧
-      t.getReg .x10=BitVec.ofNat 64 13680 ∧ t.getReg .x11=BitVec.ofNat 64 25168 ∧
+      t.getReg .x10=BitVec.ofNat 64 13680 ∧ t.getReg .x11=BitVec.ofNat 64 25136 ∧
       t.getReg .x12=BitVec.ofNat 64 54 ∧
       ∀ A < 2^64, t.getMem (BitVec.ofNat 64 A)=s.getMem (BitVec.ofNat 64 A) := by
   refine ⟨_,symRun_sound RHead0 (code_cHead0 hc) s hpc (by simp [RHead0.res,rv_simp]),?_,?_,?_,?_,?_⟩
@@ -1391,15 +1391,15 @@ section
 variable {im : Image} (hc : NewCodeAt im)
 include hc
 theorem buffer_expanded_spec (s : MachineState) (hpc : s.pc=pcOf 42716) :
-    ∃ t, Steps im s 2670 2670 t ∧ t.pc=pcOf 44045 ∧ t.getReg .x5=1 ∧ t.getReg .x10=0 ∧
+    ∃ t, Steps im s 2658 2658 t ∧ t.pc=pcOf 44045 ∧ t.getReg .x5=1 ∧ t.getReg .x10=0 ∧
       MemEq (fun A=>t.getMem (BitVec.ofNat 64 A)) (expandedMem (fun A=>s.getMem (BitVec.ofNat 64 A))) := by
   obtain ⟨s1,h1,p1,m1⟩ := entry_spec hc s hpc
   obtain ⟨s2,h2,p2,r210,r211,m2⟩ := init_spec hc s1 p1
   have mm2 : MemEq (fun A=>s2.getMem (BitVec.ofNat 64 A)) (footerMem (fun A=>s.getMem (BitVec.ofNat 64 A))) :=
     fun A hA => (m2 A hA).trans (footerMem_congr m1 A hA)
-  obtain ⟨s3,h3,p3,r310,r311,m3⟩ := clear_loop hc s2 p2 22928 390 r210 r211
-    (by decide) (by decide) (by decide) 390 le_rfl
-  have mm3 := fun A hA => (m3 A hA).trans (clearMem_congr mm2 22928 390 A hA)
+  obtain ⟨s3,h3,p3,r310,r311,m3⟩ := clear_loop hc s2 p2 22928 386 r210 r211
+    (by decide) (by decide) (by decide) 386 le_rfl
+  have mm3 := fun A hA => (m3 A hA).trans (clearMem_congr mm2 22928 386 A hA)
   obtain ⟨s4,h4,p4,r410,r411,r412,m4⟩ := head3_spec hc s3 (by simpa using p3)
   have mm4 := fun A hA => (m4 A hA).trans (putPair_congr mm3 22912 22928 (by decide) A hA)
   obtain ⟨s5,h5,p5,r510,r511,r512,m5⟩ := pair_loop hc 0 (by decide) s4 p4 22848 22960 42
@@ -1407,23 +1407,23 @@ theorem buffer_expanded_spec (s : MachineState) (hpc : s.pc=pcOf 42716) :
     (by decide) (by decide) (by decide) (by decide) 42 le_rfl
   have mm5 := fun A hA => (m5 A hA).trans (pairsMem_congr mm4 22848 22960 42 (by decide) A hA)
   obtain ⟨s6,h6,p6,r610,r611,r612,m6⟩ := head2_spec hc s5 (by simpa [pairPc] using p5)
-  have mm6 := fun A hA => (m6 A hA).trans (putPair_congr mm5 19856 23664 (by decide) A hA)
-  obtain ⟨s7,h7,p7,r710,r711,r712,m7⟩ := pair_loop hc 1 (by decide) s6 p6 19792 23696 42
+  have mm6 := fun A hA => (m6 A hA).trans (putPair_congr mm5 19856 23648 (by decide) A hA)
+  obtain ⟨s7,h7,p7,r710,r711,r712,m7⟩ := pair_loop hc 1 (by decide) s6 p6 19792 23680 42
     r610 r611 r612 (by decide) (by decide) (by decide) (by decide)
     (by decide) (by decide) (by decide) (by decide) 42 le_rfl
-  have mm7 := fun A hA => (m7 A hA).trans (pairsMem_congr mm6 19792 23696 42 (by decide) A hA)
+  have mm7 := fun A hA => (m7 A hA).trans (pairsMem_congr mm6 19792 23680 42 (by decide) A hA)
   obtain ⟨s8,h8,p8,r810,r811,r812,m8⟩ := head1_spec hc s7 (by simpa [pairPc] using p7)
-  have mm8 := fun A hA => (m8 A hA).trans (putPair_congr mm7 16800 24400 (by decide) A hA)
-  obtain ⟨s9,h9,p9,r910,r911,r912,m9⟩ := pair_loop hc 2 (by decide) s8 p8 16736 24432 42
+  have mm8 := fun A hA => (m8 A hA).trans (putPair_congr mm7 16800 24368 (by decide) A hA)
+  obtain ⟨s9,h9,p9,r910,r911,r912,m9⟩ := pair_loop hc 2 (by decide) s8 p8 16736 24400 42
     r810 r811 r812 (by decide) (by decide) (by decide) (by decide)
     (by decide) (by decide) (by decide) (by decide) 42 le_rfl
-  have mm9 := fun A hA => (m9 A hA).trans (pairsMem_congr mm8 16736 24432 42 (by decide) A hA)
+  have mm9 := fun A hA => (m9 A hA).trans (pairsMem_congr mm8 16736 24400 42 (by decide) A hA)
   obtain ⟨s10,h10,p10,r1010,r1011,r1012,m10⟩ := head0_spec hc s9 (by simpa [pairPc] using p9)
   have mm10 := fun A hA => (m10 A hA).trans (mm9 A hA)
-  obtain ⟨s11,h11,p11,r1110,r1111,r1112,m11⟩ := pair_loop hc 3 (by decide) s10 p10 13680 25168 54
+  obtain ⟨s11,h11,p11,r1110,r1111,r1112,m11⟩ := pair_loop hc 3 (by decide) s10 p10 13680 25136 54
     r1010 r1011 r1012 (by decide) (by decide) (by decide) (by decide)
     (by decide) (by decide) (by decide) (by decide) 54 le_rfl
-  have mm11 := fun A hA => (m11 A hA).trans (pairsMem_congr mm10 13680 25168 54 (by decide) A hA)
+  have mm11 := fun A hA => (m11 A hA).trans (pairsMem_congr mm10 13680 25136 54 (by decide) A hA)
   obtain ⟨s12,h12,p12,r125,r1210,m12⟩ := finish_spec hc s11 (by simpa [pairPc] using p11)
   refine ⟨s12,?_,p12,r125,r1210,?_⟩
   · exact (h1.trans (h2.trans (h3.trans (h4.trans (h5.trans (h6.trans
@@ -1433,12 +1433,12 @@ theorem buffer_expanded_spec (s : MachineState) (hpc : s.pc=pcOf 42716) :
 end
 
 theorem bufferMem_outside (M : Nat → Word) (A : Nat)
-    (h : A < 22928 ∨ 26080 ≤ A ∨ A % 8 ≠ 0) : bufferMem M A = M A := by
+    (h : A < 22928 ∨ 26048 ≤ A ∨ A % 8 ≠ 0) : bufferMem M A = M A := by
   unfold bufferMem
   rw [if_neg (by omega), if_neg (by omega)]
 
 theorem expandedMem_outside (M : Nat → Word) (A : Nat)
-    (h : A < 22928 ∨ 26080 ≤ A ∨ A % 8 ≠ 0) : expandedMem M A = M A := by
+    (h : A < 22928 ∨ 26048 ≤ A ∨ A % 8 ≠ 0) : expandedMem M A = M A := by
   unfold expandedMem
   rw [pairsMem, if_neg (by omega)]
   rw [pairsMem, if_neg (by omega)]
@@ -1451,21 +1451,21 @@ theorem expandedMem_outside (M : Nat → Word) (A : Nat)
   rw [footerMem, if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega)]
 
 
-theorem expandedMem_eq_bufferMem_aligned (M : Nat → Word) (q : Nat) (hq : q < 394) :
+theorem expandedMem_eq_bufferMem_aligned (M : Nat → Word) (q : Nat) (hq : q < 390) :
     expandedMem M (22928 + 8*q) = bufferMem M (22928 + 8*q) := by
   interval_cases q <;> rfl
 
 theorem expandedMem_eq_bufferMem (M : Nat → Word) (A : Nat) :
     expandedMem M A = bufferMem M A := by
-  by_cases hout : A < 22928 ∨ 26080 ≤ A ∨ A % 8 ≠ 0
+  by_cases hout : A < 22928 ∨ 26048 ≤ A ∨ A % 8 ≠ 0
   · rw [expandedMem_outside M A hout, bufferMem_outside M A hout]
-  · have hq : (A - 22928) / 8 < 394 := by omega
+  · have hq : (A - 22928) / 8 < 390 := by omega
     have he : A = 22928 + 8 * ((A - 22928) / 8) := by omega
     have h := expandedMem_eq_bufferMem_aligned M ((A - 22928) / 8) hq
     rwa [← he] at h
 
 theorem buffer_spec {im : Image} (hc : NewCodeAt im) (s : MachineState) (hpc : s.pc=pcOf 42716) :
-    ∃ t, Steps im s 2670 2670 t ∧ t.pc=pcOf 44045 ∧ t.getReg .x5=1 ∧ t.getReg .x10=0 ∧
+    ∃ t, Steps im s 2658 2658 t ∧ t.pc=pcOf 44045 ∧ t.getReg .x5=1 ∧ t.getReg .x10=0 ∧
       MemEq (fun A=>t.getMem (BitVec.ofNat 64 A)) (bufferMem (fun A=>s.getMem (BitVec.ofNat 64 A))) := by
   obtain ⟨t,st,pt,t5,t10,mt⟩ := buffer_expanded_spec hc s hpc
   refine ⟨t,st,pt,t5,t10,?_⟩

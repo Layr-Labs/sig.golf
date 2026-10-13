@@ -653,7 +653,6 @@ theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
     baseReg := (hkeep .x8 (by decide)).trans hu.baseReg,
     hashInput := hp.1, hashLen := hp.2.1,
     nodeWord := (hkeep .x15 (by decide)).trans hu.nodeWord,
-    childIdx := (hkeep .x4 (by decide)).trans hu.childIdx,
     returnPC := (hkeep .x1 (by decide)).trans hu.returnPC,
     heaps := ?_, leafAt := ?_,
     padAt := fun l hl => merklePad_of_frame hu hf l hl,

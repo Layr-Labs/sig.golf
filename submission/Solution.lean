@@ -7,15 +7,15 @@ def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGo
 
 theorem signature_bytes : submission.sizes.signature = 5310 := rfl
 
-theorem witness_bytes : submission.sizes.witness = 24860 := rfl
+theorem witness_bytes : submission.sizes.witness = 24828 := rfl
 
 theorem cache_bytes : submission.sizes.cache = 131072 := rfl
 
 theorem layout_offsets : submission.layout =
-  { message := 26080, secretKey := 128, publicKey := 160,
+  { message := 26048, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7074 := by
+theorem certificate : SigGolf.Certificate submission 7073 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -88,4 +88,11 @@ never dirtied: every `sd zero,24(a0)` goes (new per-child windows in [0,320)). C
 saving 4 + skips (max 6), per-coordinate fixed part dispatchLen + 89, joint cap 776. FTS accept cost
 927 -> 918; verify bound 6998 -> 6976; C 7096 -> 7074.
 S = 5310, W = 24860, K = 131072, C = 7074; score 37562940.
+Compact leaf buffers (Claude Opus 5.5, base 2e294772, C 7098, ported onto the nested-FTS half-swap): the
+layer-3 and layer-2 leaf buffers drop their 16-byte tail pads (stride 736 -> 720; a lower-layer leaf hash
+reads 704 bytes and its last chain hash spills 16), so the layer-1 and top buffers, the tail `rho | 0 | dc`
+and the message move down by 32 bytes (message 26080 -> 26048). The verifier changes only the 128
+lower-layer transition immediates `addi tp,tp,736 -> 720` and the digest-block data word; verify cycles are
+unchanged (bound 6976) and the witness charge drops 98 -> 97.
+S = 5310, W = 24828, K = 131072, C = 7073; score 37557630.
 -/

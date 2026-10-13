@@ -35,16 +35,17 @@ structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   cached3 : u.getReg .x17 = if n < 8 then a.extractLsb' 192 64 else a.extractLsb' 192 64 ||| rankPad
   cached : u.getReg .x16 = a.extractLsb' (64 * cachedWord n) 64 ||| rankPad
   mask : u.getReg .x2 = BitVec.ofNat 64 0xfff00
-  childMask : n ≥ 3 → u.getReg .x27 = BitVec.ofNat 64 0x7f00000
   jt : u.getReg .x24 = rankPad
   childBlock : u.getReg .x29 = BitVec.ofNat 64 0xf1b00
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (8560 - 896 * (n-1))
   pairPtr : u.getReg .x9 = BitVec.ofNat 64 TOPB9
+  /-- From coordinate 3 on, `tp` holds the child-index mask `127 <<< 20` (set by coordinate 2's `lui`). -/
+  tpMask : 3 ≤ n → u.getReg .x4 = 0x7F00000#64
   prevL : DigAt u (regionAddr n + 720) (prevOf w pairs).1
   prevR : DigAt u (regionAddr n + 864) (prevOf w pairs).2
   a2 : 0 < n → u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + 704) ∨
     u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + 848)
   coords : ∀ m, n ≤ m → m ≤ 9 → ∀ off, off < 896 → off % 8 = 0 → (m = 9 → 720 ≤ off) →
     (m = n → ¬ V3.isHand off) → W9Machine.OrigW w u (regionAddr m + off)
-  layer : Orig w (fun o => (32 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24832)) u
+  layer : Orig w (fun o => (32 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24800)) u
 end W9Drv
