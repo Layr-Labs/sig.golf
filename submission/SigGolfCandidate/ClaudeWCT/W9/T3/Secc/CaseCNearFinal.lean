@@ -525,8 +525,8 @@ theorem honestMsg_short {A T : Correctness.Answers} (h : SigGolfCandidate.T3.Sec
 theorem good_short {A T : Correctness.Answers} (h : SigGolfCandidate.T3.Security.Wots.Ref.ShortAgree A T) (w : WBytes)
     (index : Nat) (lay : Layer) (hg : ClaudeWCT.W9.T3M.Extract.Good A w index lay) :
     ClaudeWCT.W9.T3M.Extract.Good T w index lay := by
-  obtain ⟨digits, ⟨hctr, hdec⟩, hpath, hchain⟩ := hg
-  refine ⟨digits, ⟨hctr, ?_⟩, ?_, ?_⟩
+  obtain ⟨digits, ⟨hctr, hdec⟩, hpath, hchain, hleaf⟩ := hg
+  refine ⟨digits, ⟨hctr, ?_⟩, ?_, ?_, hleaf⟩
   · rw [← honestMsg_short h]
     rw [← ClaudeWCT.W9.T3.Security.Wots.Ref.shortRespects_encodingHash lay _
       (by rw [ClaudeWCT.W9.T3M.BC.layerEncodingRow_length]; unfold SeccLaw.maxInputLength; omega) A T h]
@@ -539,7 +539,8 @@ theorem good_short {A T : Correctness.Answers} (h : SigGolfCandidate.T3.Security
     refine ⟨?_, h2⟩
     rw [h1]
     unfold WCT9.wotsValue
-    rw [ClaudeWCT.W9.T3.Security.Wots.Ref.wotsSeed_short h, SigGolfCandidate.T3.Security.Wots.Ref.chainValue_short h]
+    rw [ClaudeWCT.W9.T3.Security.Wots.Ref.wotsSeed_short h]
+    exact ClaudeWCT.W9.T3.Security.Wots.Ref.chainW_respects _ _ _ _ _ _ _ A T h
 theorem goodZ_short {A T : Correctness.Answers} (h : SigGolfCandidate.T3.Security.Wots.Ref.ShortAgree A T)
     (w : WBytes) (index : Nat) (lay : Layer) (hg : ClaudeWCT.W9.T3M.BC.GoodZ A w index lay) :
     ClaudeWCT.W9.T3M.BC.GoodZ T w index lay :=

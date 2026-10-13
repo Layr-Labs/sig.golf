@@ -18,16 +18,22 @@ def mkBits (lay ci : Nat) : Nat := if lay = 0 then 6 else hL lay
 def mkTab (lay ci : Nat) : Nat := if lay = 0 ∧ ci = 1 then 133840 else stabIdx lay
 def mkTabW (lay ci sh : Nat) : Nat := if lay = 0 ∧ ci = 1 then 15718 + 256 * sh else stabW lay sh
 def mkShp (lay ci sh : Nat) : Nat :=
-  if lay = 3 then 133760 + 128 * sh else if lay = 2 then 141952 + 128 * sh
-  else if lay = 1 then 1024 + 1024 * sh else if ci = 0 then 142032 + 128 * sh else 133840 + 128 * sh
-def mkReg (lay l : Nat) : Bool := decide (hL lay ≤ l + 3)
+  if lay = 3 then 133764 + 128 * sh else if lay = 2 then 141956 + 128 * sh
+  else if lay = 1 then 1028 + 1024 * sh else if ci = 0 then 142032 + 128 * sh else 133840 + 128 * sh
+/-- C2: every lower fold writes its packed tweak word from an immediate (`addi gp,t3,K; sd gp,16(a0)`), so it costs
+like the old register-heap levels; the top tree keeps register heaps on its last three levels only. -/
+def mkReg (lay l : Nat) : Bool := decide (lay ≠ 0 ∨ hL lay ≤ l + 3)
 def mkWords (lay l : Nat) : Nat := (if l = 0 then (if lay = 0 then 6 else 9) else 5) + (if mkReg lay l then 0 else 1)
 def mkOff (lay ci : Nat) : Nat → Nat
   | 0 => 0
   | kk + 1 => mkOff lay ci kk + mkWords lay (mkLo lay ci + kk)
 def mkBo (lay sh l : Nat) : Nat := mkBase lay + (if lay = 0 then 64 * (hL lay - 1 - l) else 16 * plan lay sh l)
 def mkBlk (lay sh l : Nat) : Nat := 0x4c0 + mkBo lay sh l
-def mkCur (lay sh l b : Nat) : Nat := mkBlk lay sh l + 48 * b
+/-- Position of the value a level reads as its current input (left slot for bit 0, right slot for bit 1). -/
+def mkVal (lay sh l b : Nat) : Nat := mkBlk lay sh l + 48 * b
+/-- Hash destination (`a2`) feeding level `l`: the value position, except that a lower left child (C2: HIGH half)
+is written 16 bytes earlier so that its high half lands in the left slot. -/
+def mkCur (lay sh l b : Nat) : Nat := if lay = 0 then mkVal lay sh l b else mkVal lay sh l b + 16 * b - 16
 def mkDst (lay leaf : Nat) : Nat := if lay = 0 then 9472 + 48 * (leaf / 2048 % 2) else 256
 def mkMove (lay level : Nat) : Nat := if lay = 0 ∧ level = 11 then 0 else 1
 def mkHeap (lay ci sh l : Nat) : Nat := (2 ^ hL lay + sh * 2 ^ mkLo lay ci) / 2 ^ (l + 1)
@@ -51,9 +57,14 @@ def mkHeapE (lay ci sh l : Nat) : E :=
   if lay = 0 ∧ ci = 0 then .bin .srl (.reg .x23) (kw (l + 5)) else kw (mkHeap lay ci sh l)
 def t3E (l' : Nat) : E := .bin .or (.bin .sll (.reg .x31) (kw 16)) (.ld (kw (hdrA l')))
 def mkHdrE (lay l : Nat) : E := if lay = 0 then kw 64 else if l = 0 then t3E (lay - 1) else .reg .x28
+/-- C2 lower fold constant `K heap = mkK7 + heap` (= `WCT9.lowerK`). -/
+def mkK7 : Nat := 1407
+/-- C2: lower levels write only the packed tweak word `hyperWord + mkK7 + heap`; its high word is witness memory. -/
 def mkLvlMem (lay ci sh l : Nat) : List (Addr × E) :=
+  if lay = 0 then
   [(⟨none, BitVec.ofNat 64 (mkBlk lay sh l + 24)⟩, mkHeapE lay ci sh l),
    (⟨none, BitVec.ofNat 64 (mkBlk lay sh l + 16)⟩, mkHdrE lay l)]
+  else [(⟨none, BitVec.ofNat 64 (mkBlk lay sh l + 16)⟩, addC (mkHdrE lay l) (BitVec.ofNat 64 (mkK7 + mkHeap lay ci sh l)))]
 def mkLvlRegs (lay l : Nat) : List (Reg × E) := if l = 0 ∧ lay ≠ 0 then [(.x28, t3E (lay - 1))] else []
 def mkLvlKeep (lay l : Nat) : List Reg := if l = 0 ∧ lay ≠ 0 then [] else [.x28]
 def mkLvlAllow (lay sh l : Nat) : List Nat := [mkBlk lay sh l + 16, mkBlk lay sh l + 24]

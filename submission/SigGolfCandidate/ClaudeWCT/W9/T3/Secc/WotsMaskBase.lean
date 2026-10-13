@@ -28,19 +28,23 @@ theorem seedTweak_slotAddr (a : ChainAddr) : seedTweak (slotAddr a) = seedTweakP
 def parAddr (a : ChainAddr) : ChainAddr := ⟨a.key, seedSlot a % 2⟩
 theorem parAddr_chain_mod (a : ChainAddr) : (parAddr a).chain % 2 = seedSlot a % 2 := Nat.mod_mod _ _
 def siblingHalfP (a : ChainAddr) (output : HashOutput) : Digest := siblingHalf (parAddr a) output
+/-- Queries that neither are a row of chain `a` at a chain step (`< 7`; C2: a lower Merkle node input can equal a
+row at step 7, which no chain reaches) nor read `a`'s seed cell. -/
 def UntouchedP (a : ChainAddr) : Spec.Domain → Prop
-  | .inl (.inr input) => ∀ step value, step < 256 → input ≠ chainRow a step value
+  | .inl (.inr input) => ∀ step value, step < 7 → input ≠ chainRow a step value
   | .inr (.inl tweak) => tweak ≠ seedTweakP a
   | _ => True
 noncomputable def prefixStep (answers : Answers) (a : ChainAddr) (input : HashInput) : Option Nat :=
   if h : ∃ step value, step < depth answers a ∧ input = chainRow a step value then some (Classical.choose h) else none
-/-- Mask of chain `a`: its rows below `depth` answer `0` (the last one answers the frontier). Seeds are evaluations
+/-- Mask of chain `a`: its rows below `depth` answer `0` (the last one answers the frontier, in the half its step
+reads, C3). Seeds are evaluations
 of their leaf family at every layer (campaign X1 stage B, top leaves since campaign T8D), so no private cell is
 blanked. -/
 noncomputable def maskAt (answers : Answers) (a : ChainAddr) : Answers
   | .inl (.inr input) =>
       match prefixStep answers a input with
-      | some step => if step + 1 = depth answers a then ChainGraph.joinOutput (frontierValue answers a) 0
+      | some step => if step + 1 = depth answers a then
+            joinHalf (WCT9.chainHigh a.key.lay a.chain step) (frontierValue answers a) 0
           else (0 : HashOutput)
       | none => answers (.inl (.inr input))
   | .inl (.inl coin) => answers (.inl (.inl coin))
@@ -66,7 +70,7 @@ theorem untouchedP_of_untouched (a : ChainAddr) {q : Spec.Domain}
       SigGolfCandidate.T3.Security.Wots.Mask.Untouched (slotAddr a) q) : UntouchedP a q := by
   rcases q with (coin | input) | (tweak | other)
   · trivial
-  · exact h.1
+  · exact fun step value hs => h.1 step value (by omega)
   · show tweak ≠ seedTweakP a
     rw [← seedTweak_slotAddr]
     exact h.2
@@ -146,7 +150,8 @@ theorem prefixStep_untouched {answers : Answers} {a : ChainAddr} {input : HashIn
       exact absurd heq (h step w (by have := depth_le_seven answers a; omega))
 theorem maskAt_public (answers : Answers) (a : ChainAddr) (input : HashInput) :
     maskAt answers a (.inl (.inr input)) = match prefixStep answers a input with
-      | some step => if step + 1 = depth answers a then ChainGraph.joinOutput (frontierValue answers a) 0
+      | some step => if step + 1 = depth answers a then
+            joinHalf (WCT9.chainHigh a.key.lay a.chain step) (frontierValue answers a) 0
           else (0 : HashOutput)
       | none => answers (.inl (.inr input)) := rfl
 theorem maskAt_private (answers : Answers) (a : ChainAddr) (c : Coordinate) :
@@ -162,7 +167,8 @@ theorem maskAt_untouched (answers : Answers) (a : ChainAddr) {q : Spec.Domain} (
   · rfl
 theorem maskAt_prefix (answers : Answers) (a : ChainAddr) {s : Nat} (v : Digest) (hs : s < depth answers a) :
     maskAt answers a (.inl (.inr (chainRow a s v))) =
-      if s + 1 = depth answers a then ChainGraph.joinOutput (frontierValue answers a) 0 else 0 := by
+      if s + 1 = depth answers a then joinHalf (WCT9.chainHigh a.key.lay a.chain s) (frontierValue answers a) 0
+        else 0 := by
   have h7 := depth_le_seven answers a
   rw [maskAt_public, prefixStep_chainRow answers a v (by omega), if_pos hs]
   rfl
@@ -217,15 +223,180 @@ theorem respectsP_mask (level index : Nat) : Respects (UntouchedP a) (mask level
 theorem respectsP_buildLevels (tag lay tree h : Nat) (leaves : List Digest) (ht : tag % 256 ≠ 1) :
     Respects (UntouchedP a) (buildLevels tag lay tree h leaves) :=
   Respects.untouchedP (fun c => respects_buildLevels c tag lay tree h leaves ht) a
-theorem respectsP_buildLevelsBelow (tag lay tree h : Nat) (leaves : List Digest) (ht : tag % 256 ≠ 1) :
-    Respects (UntouchedP a) (WCT9.buildLevelsBelow tag lay tree h leaves) :=
-  Respects.untouchedP (fun c => by
-    unfold WCT9.buildLevelsBelow
-    exact Respects.foldlM _ _ (fun level _ levels =>
-      Respects.bind (respects_buildLevel c tag lay tree h level _ ht) fun _ => Respects.pure' _) _) a
 theorem respectsP_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     Respects (UntouchedP a) (leafHash lay tree leaf ends) :=
   Respects.untouchedP (fun c => respects_leafHash c lay tree leaf ends) a
 end Programs
+/-! ### C2/C3 (FULL) programs: halves, the packed lower node tweak, the chain-0 high half -/
+theorem respects_halfHash' {S : Spec.Domain → Prop} (high : Bool) (input : HashInput)
+    (h : S (.inl (.inr (pad64 input)))) : Respects S (WCT9.halfHash high input) := by
+  cases high
+  · unfold WCT9.halfHash; simp only [Bool.false_eq_true, ↓reduceIte]; exact Respects.shortHash input h
+  · unfold WCT9.halfHash WCT9.highHash; simp only [↓reduceIte]
+    exact Respects.bind (Respects.publicHash input h) fun _ => Respects.pure' _
+theorem respects_chainW' {S : Spec.Domain → Prop} (lay : Layer) (tree leaf i start count : Nat) (v : Digest)
+    (h : ∀ step value, start ≤ step → step < start + count → S (.inl (.inr (pad64 (chainInput lay tree leaf i step value))))) :
+    Respects S (WCT9.chainW lay tree leaf i start count v) := by
+  unfold WCT9.chainW
+  exact Respects.foldlM _ _ (fun step hs value => respects_halfHash' _ _ (h step value
+    (List.mem_range'_1.mp hs).1 (List.mem_range'_1.mp hs).2)) v
+theorem merkleNodeInput_eq_block4 (lay tree heap : Nat) (left right : Digest) :
+    WCT9.merkleNodeInput lay tree heap left right = block4 left (WCT9.merkleTweak lay tree heap) 0 right := by
+  unfold WCT9.merkleNodeInput block4
+  rw [show zero16 = bytesLE 16 (0 : Digest) by decide]
+theorem respects_lowerNodeHash' {S : Spec.Domain → Prop} (lay tree heap : Nat) (left right : Digest)
+    (h : S (.inl (.inr (block4 left (WCT9.merkleTweak lay tree heap) 0 right)))) :
+    Respects S (WCT9.lowerNodeHash lay tree heap left right) := by
+  unfold WCT9.lowerNodeHash WCT9.lowerHash
+  refine respects_halfHash' _ _ ?_
+  rw [merkleNodeInput_eq_block4, pad64_block4]
+  exact h
+theorem respects_lowerLevel' {S : Spec.Domain → Prop} (lay tree h level : Nat) (nodes : List Digest)
+    (hS : ∀ i left right, i < nodes.length / 2 →
+      S (.inl (.inr (block4 left (WCT9.merkleTweak lay tree (2 ^ (h - level) + i)) 0 right)))) :
+    Respects S (WCT9.lowerLevel lay tree h level nodes) := by
+  unfold WCT9.lowerLevel
+  exact Respects.mapM _ _ fun i hi => respects_lowerNodeHash' _ _ _ _ _ (hS i _ _ (List.mem_range.mp hi))
+theorem respects_lowerLeafHash' {S : Spec.Domain → Prop} (lay : Layer) (tree leaf : Nat) (ends : List Digest)
+    (h : S (.inl (.inr (pad64 (leafInput lay tree leaf ends))))) :
+    Respects S (WCT9.lowerLeafHash lay tree leaf ends) := by
+  rw [WCT9.lowerLeafHash_eq]
+  unfold WCT9.lowerHash
+  exact respects_halfHash' _ _ h
+theorem respects_bind_inv' {S : Spec.Domain → Prop} {α β : Type} {p : M α} {f : α → M β} (P : α → Prop)
+    (hp : Respects S p) (hP : ∀ T, P (evalWithAnswerFn T p)) (hf : ∀ x, P x → Respects S (f x)) :
+    Respects S (p >>= f) := by
+  intro T T' hT
+  obtain ⟨he, hq⟩ := hp T T' hT
+  obtain ⟨he', hq'⟩ := hf (evalWithAnswerFn T' p) (hP T') T T' hT
+  refine ⟨?_, ?_⟩
+  · rw [evalWithAnswerFn_bind, evalWithAnswerFn_bind, he]
+    exact he'
+  · rw [SourceReplay.queried_bind, SourceReplay.queried_bind, hq, he, hq']
+theorem respects_foldlM_inv' {S : Spec.Domain → Prop} {β γ : Type} (I : γ → Prop) (l : List β) (f : γ → β → M γ)
+    (hpres : ∀ x ∈ l, ∀ s, I s → ∀ T, I (evalWithAnswerFn T (f s x)))
+    (hf : ∀ x ∈ l, ∀ s, I s → Respects S (f s x)) : ∀ init, I init → Respects S (l.foldlM f init) := by
+  induction l with
+  | nil => intro init _; exact Respects.pure' init
+  | cons x xs ih =>
+      intro init hinit
+      rw [List.foldlM_cons]
+      exact respects_bind_inv' I (hf x List.mem_cons_self init hinit) (hpres x List.mem_cons_self init hinit)
+        fun s hs => ih (fun y hy => hpres y (List.mem_cons_of_mem _ hy))
+          (fun y hy => hf y (List.mem_cons_of_mem _ hy)) s hs
+theorem getD_append_length_le' {levels : List (List Digest)} {nodes : List Digest} {B : Nat}
+    (h1 : ∀ j, (levels.getD j []).length ≤ B) (h2 : nodes.length ≤ B) (j : Nat) :
+    ((levels ++ [nodes]).getD j []).length ≤ B := by
+  rcases Nat.lt_or_ge j levels.length with hj | hj
+  · rw [List.getD_append _ _ _ _ hj]; exact h1 j
+  · rw [List.getD_append_right _ _ _ _ hj]
+    rcases Nat.eq_or_lt_of_le hj with he | hlt
+    · rw [← he, Nat.sub_self]; simpa using h2
+    · rw [List.getD_eq_default _ _ (by simp; omega)]; simp
+theorem lowerLevel_length' (answers : Answers) (lay tree h level : Nat) (nodes : List Digest) :
+    (evalWithAnswerFn answers (WCT9.lowerLevel lay tree h level nodes)).length = nodes.length / 2 := by
+  unfold WCT9.lowerLevel
+  rw [Correctness.eval_mapM, List.length_map, List.length_range]
+/-- The fold queries of a lower tree (`lowerLevels`, `buildLevelsBelow`): heaps `2 ^ (h - level) + i` with
+`level ≥ 1` and `i < 2 ^ h / 2`. -/
+def FoldOK (S : Spec.Domain → Prop) (lay tree h : Nat) : Prop :=
+  ∀ level i left right, 1 ≤ level → i < 2 ^ h / 2 →
+    S (.inl (.inr (block4 left (WCT9.merkleTweak lay tree (2 ^ (h - level) + i)) 0 right)))
+theorem respects_lowerFold' {S : Spec.Domain → Prop} {lay tree h : Nat} (hS : FoldOK S lay tree h) (l : List Nat)
+    (hl : ∀ x ∈ l, 1 ≤ x) (leaves : List Digest) (hlen : leaves.length ≤ 2 ^ h) :
+    Respects S (l.foldlM (fun levels level => do
+      let nodes ← WCT9.lowerLevel lay tree h level (levels.getD (level - 1) [])
+      pure (levels ++ [nodes])) [leaves]) := by
+  refine respects_foldlM_inv' (fun levels : List (List Digest) => ∀ j, (levels.getD j []).length ≤ 2 ^ h) _ _
+    ?_ ?_ [leaves] ?_
+  · intro level _ levels hI T
+    simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+    refine getD_append_length_le' hI ?_
+    rw [lowerLevel_length']
+    exact le_trans (Nat.div_le_self _ _) (hI _)
+  · intro level hlv levels hI
+    refine Respects.bind (respects_lowerLevel' _ _ _ _ _ fun i left right hi => hS level i left right (hl level hlv)
+      ?_) fun _ => Respects.pure' _
+    have := hI (level - 1)
+    exact lt_of_lt_of_le hi (Nat.div_le_div_right this)
+  · intro j
+    cases j with
+    | zero => simpa using hlen
+    | succ j => simp
+theorem respects_lowerLevels' {S : Spec.Domain → Prop} {lay tree h : Nat} (hS : FoldOK S lay tree h)
+    (leaves : List Digest) (hlen : leaves.length ≤ 2 ^ h) : Respects S (WCT9.lowerLevels lay tree h leaves) := by
+  unfold WCT9.lowerLevels
+  exact respects_lowerFold' hS _ (fun x hx => (List.mem_range'_1.mp hx).1) leaves hlen
+theorem respects_buildLevelsBelow' {S : Spec.Domain → Prop} {lay tree h : Nat} (hS : FoldOK S lay tree h)
+    (tag : Nat) (leaves : List Digest) (hlen : leaves.length ≤ 2 ^ h) :
+    Respects S (WCT9.buildLevelsBelow tag lay tree h leaves) := by
+  unfold WCT9.buildLevelsBelow
+  exact respects_lowerFold' hS _ (fun x hx => (List.mem_range'_1.mp hx).1) leaves hlen
+theorem lowerHeap_lt' {h level i : Nat} (hlev : 1 ≤ level) (h7 : h ≤ 7) (hi : i < 2 ^ h / 2) :
+    2 ^ (h - level) + i < 128 := by
+  have hA : 2 ^ (h - level) ≤ 2 ^ (h - 1) := Nat.pow_le_pow_right (by decide) (by omega)
+  have hr : 2 ^ h ≤ 2 ^ 7 := Nat.pow_le_pow_right (by decide) h7
+  have h128 : (2 : Nat) ^ 7 = 128 := by norm_num
+  rcases Nat.eq_zero_or_pos h with hz | hpos
+  · subst hz; simp at hi
+  · have hB : 2 ^ h = 2 * 2 ^ (h - 1) := by rw [← pow_succ']; congr 1; omega
+    omega
+theorem chainRow_length (a : ChainAddr) (step : Nat) (value : Digest) : (chainRow a step value).length = 64 := by
+  simp [chainRow, chainInput, zero16, bytesLE_length]
+theorem untouchedP_of_hdr (a : ChainAddr) (input : HashInput) (h : BitVec 128)
+    (hblock : SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 h)
+    (htag : ∀ (l : Layer) tr leaf i step, step < 7 → h ≠ chainHeader l tr leaf i step) :
+    UntouchedP a (.inl (.inr input)) := by
+  intro step value hs heq
+  have hb : SigGolfCandidate.T3M.Extract.hdrBlock (chainRow a step value) =
+      bytesLE 16 (chainHeader a.key.lay a.key.tree a.key.leaf a.chain step) :=
+    chainInput_header _ _ _ _ _ _
+  rw [heq, hb] at hblock
+  exact htag _ _ _ _ _ hs (bytesLE_injective hblock).symm
+theorem untouchedP_of_length (a : ChainAddr) (input : HashInput) (hl : input.length ≠ 64) :
+    UntouchedP a (.inl (.inr input)) := by
+  intro step value _ heq
+  apply hl
+  rw [heq, chainRow_length]
+theorem pad64_long_length {input : HashInput} (hl : 64 < input.length) : (pad64 input).length ≠ 64 := by
+  have : input.length ≤ (pad64 input).length := by
+    simp only [pad64, List.length_append, List.length_replicate]; omega
+  omega
+/-- A Merkle node tweak of the current scheme is no chain header at a chain step (`< 7`): the top node marker is
+64, a lower node word has byte1 `7` while a chain header at step `< 7` has byte1 `≡ step (mod 8)`. -/
+theorem merkleTweak_ne_chainHeader {lay tree heap : Nat} (hh : lay = 0 ∨ heap < 128) (l : Layer)
+    (tr leaf i step : Nat) (hs : step < 7) : WCT9.merkleTweak lay tree heap ≠ chainHeader l tr leaf i step := by
+  unfold WCT9.merkleTweak
+  split_ifs with h0
+  · apply ne_of_tweakMarker
+    rw [nodeTweak_top_marker]
+    unfold tweakMarker
+    have := chainHeader_firstByte l tr leaf i step
+    omega
+  · exact WCT9.lowerTweak_ne_chainHeader (hh.resolve_left h0) _ _ _ _ _ _ _ (by omega)
+section ProgramsW
+variable (a : ChainAddr)
+theorem respectsP_lowerNodeHash (lay tree heap : Nat) (left right : Digest) (hh : lay = 0 ∨ heap < 128) :
+    Respects (UntouchedP a) (WCT9.lowerNodeHash lay tree heap left right) :=
+  respects_lowerNodeHash' _ _ _ _ _ (untouchedP_of_hdr a _ _ (SigGolfCandidate.T3M.Extract.hdrBlock_block4 left _ 0 right)
+    fun l tr leaf i step hs => merkleTweak_ne_chainHeader hh l tr leaf i step hs)
+theorem foldOK_untouchedP (lay tree h : Nat) (h7 : lay ≠ 0 → h ≤ 7) : FoldOK (UntouchedP a) lay tree h := by
+  intro level i left right hlev hi
+  refine untouchedP_of_hdr a _ _ (SigGolfCandidate.T3M.Extract.hdrBlock_block4 left _ 0 right)
+    fun l tr leaf c step hs => merkleTweak_ne_chainHeader ?_ l tr leaf c step hs
+  by_cases h0 : lay = 0
+  · exact Or.inl h0
+  · exact Or.inr (lowerHeap_lt' hlev (h7 h0) hi)
+theorem respectsP_lowerLevels (lay tree h : Nat) (h7 : lay ≠ 0 → h ≤ 7) (leaves : List Digest)
+    (hlen : leaves.length ≤ 2 ^ h) : Respects (UntouchedP a) (WCT9.lowerLevels lay tree h leaves) :=
+  respects_lowerLevels' (foldOK_untouchedP a lay tree h h7) leaves hlen
+theorem respectsP_buildLevelsBelow (tag lay tree h : Nat) (h7 : lay ≠ 0 → h ≤ 7) (leaves : List Digest)
+    (hlen : leaves.length ≤ 2 ^ h) : Respects (UntouchedP a) (WCT9.buildLevelsBelow tag lay tree h leaves) :=
+  respects_buildLevelsBelow' (foldOK_untouchedP a lay tree h h7) tag leaves hlen
+theorem respectsP_lowerLeafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) (hlen : 4 ≤ ends.length) :
+    Respects (UntouchedP a) (WCT9.lowerLeafHash lay tree leaf ends) :=
+  respects_lowerLeafHash' _ _ _ _ (untouchedP_of_length a _ (pad64_long_length
+    (SigGolfCandidate.T3.Security.Wots.Enc.leafInput_long lay tree leaf ends hlen)))
+end ProgramsW
 end Mask
 end ClaudeWCT.W9.T3.Security.Wots

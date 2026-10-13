@@ -306,7 +306,9 @@ theorem chain_extract (d : Nat) (hd : d ≤ 4) (pa : Digest) (pb : BitVec 64) (p
     obtain ⟨hi, hc, hj, ht⟩ := hb
     refine ⟨.wctChain index coord child t (4 - d + step), _, ⟨hi, hc, hj, ht, by omega⟩, hq, ?_, ?_⟩
     · rw [honestInput_wctChain, ← Extract.pad64_wctChainInput]; exact hhit
-    · unfold Extract.SameHeader
+    · refine Extract.SameHeader.of_canonical ?_ (by rw [Extract.honestInput_length]; simp [Extract.Pos.len]) ?_
+      · rw [Extract.honestInput_length, pathInput]
+        simp only [wctChainInputP_block4, pad64_block4, block4_length, Extract.Pos.len]
       rw [Extract.hdrBlock_honestInput, pathInput]
       simp only [wctChainInputP_block4, pad64_block4, hdrBlock_block4W, Extract.Pos.hdr]
       exact canonicalHeader_ftsChainHeaderP index coord child t _ _
@@ -376,9 +378,10 @@ theorem leaf_extract (answers : Answers) (index coord child : Nat) (pad : Digest
     · rw [WCT9.eval_ftsHash] at reaches
       show WCT9.ftsHalf (128 + child) _ = WCT9.ftsHalf (128 + child) _
       rw [reaches, childRoot_eq_out]
-    · unfold Extract.SameHeader
-      rw [Extract.hdrBlock_honestInput, Extract.hdrBlock_wctLeafInputP]
-      rfl
+    · refine Extract.SameHeader.of_hdrBlock ?_ (by rw [Extract.hdrBlock_honestInput, Extract.hdrBlock_wctLeafInputP]; rfl)
+      rw [Extract.honestInput_length]
+      simp [Extract.wctLeafInputP, Extract.listInput, pad64, bytesLE_length, digest_list_bytes_length, hlen,
+        Extract.Pos.len]
 theorem merkleInput_tree_reference_le (answers : Answers) (tag lay tree height completed leaf : Nat)
     (levels : List (List Digest)) (leaves : List Digest)
     (htree : TreeLevels answers tag lay tree height leaves completed levels)
@@ -529,7 +532,10 @@ theorem merkle_extract (hidx : index < 2 ^ 31) (hj : j < 128) (path pads : Nat �
     · refine ⟨by rw [← merkle_honestInput answers index c j step hstep]; exact hne, ?_⟩
       show WCT9.ftsHalf (msel j step) _ = WCT9.ftsHalf (msel j step) _
       rw [← merkle_honestInput answers index c j step hstep]; exact hhit
-    · unfold Extract.SameHeader
+    · refine Extract.SameHeader.of_canonical ?_ (by rw [Extract.honestInput_length]; simp [Extract.Pos.len]) ?_
+      · rw [Extract.honestInput_length, pathInputF]
+        simp only [merkleInputH, pad64_nodeInputPH, SigGolfCandidate.T3M.SecurityInputs.nodeInputPH, pad64_block4,
+          block4_length, Extract.Pos.len]
       rw [Extract.hdrBlock_honestInput, pathInputF, hdrBlock_merkleInputH, canonicalHeader_withHigh]
       rfl
 theorem top_lt (hj : j < 128) : j / 2 ^ 6 < 2 := by
@@ -595,9 +601,10 @@ theorem top_extract (hidx : index < 2 ^ 31) (hj : j < 128) (v other z : Digest)
         WCT9.ftsHalf_of_high (WCT9.ftsHighHeap_top (by have := top_lt j hj; norm_num; omega))]
       rw [← top_honestInput answers index c j]
       exact reaches.trans (top_reference answers index c j hj).symm
-    · unfold Extract.SameHeader
-      rw [Extract.hdrBlock_honestInput, wctTopInput_block4, pad64_block4, hdrBlock_block4W]
-      rfl
+    · refine Extract.SameHeader.of_hdrBlock ?_
+        (by rw [Extract.hdrBlock_honestInput, wctTopInput_block4, pad64_block4, hdrBlock_block4W]; rfl)
+      rw [Extract.honestInput_length, wctTopInput_block4, pad64_block4]
+      simp [block4, bytesLE_length, Extract.Pos.len]
 end merkle
 theorem recoverCoordinateP_dec (N : HashOutput) (w : WBytes) (index : Nat) (c : WCT9.Coord) (prev : Digest × Digest) :
     recoverCoordinateP (witDecP N w).signature (padDecP N w) index N c prev =

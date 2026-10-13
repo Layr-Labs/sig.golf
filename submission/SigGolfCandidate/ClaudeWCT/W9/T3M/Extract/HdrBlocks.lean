@@ -58,6 +58,11 @@ theorem hdrBlock_forestInput (index : Nat) (pairs : List (Digest × Digest)) :
 theorem hdrBlock_nodeInputP (tag lay tree heap : Nat) (left pad right : Digest) :
     hdrBlock (pad64 (nodeInputP tag lay tree heap left pad right)) = bytesLE 16 (nodeTweak tag lay tree heap) := by
   rw [pad64_nodeInputP, nodeInputP, hdrBlock_block4']
+theorem hdrBlock_merkleNodeInput (lay tree heap : Nat) (left right : Digest) :
+    hdrBlock (pad64 (WCT9.merkleNodeInput lay tree heap left right)) = bytesLE 16 (WCT9.merkleTweak lay tree heap) := by
+  unfold WCT9.merkleNodeInput
+  rw [hdrBlock_pad64' _ (by simp [bytesLE_length, zero16]), List.append_assoc]
+  exact hdrBlock_prefix' _ _ _
 theorem hdrBlock_wotsChainInput (lay : Layer) (tree leaf i step : Nat) (value : Digest) :
     hdrBlock (chainInput lay tree leaf i step value) = bytesLE 16 (chainHeader lay tree leaf i step) :=
   chainInput_header lay tree leaf i step value
@@ -80,7 +85,7 @@ theorem hdrBlock_honestInput (answers : Answers) (p : Pos) :
       simp only [honestInput, Pos.hdr, chainInput_padded, hdrBlock, chainInput_header]
   | leaf lay tree lf => simp only [honestInput, Pos.hdr]; rw [hdrBlock_leafInput]
   | node lay tree level nd =>
-      simp only [honestInput, Pos.hdr]; rw [hdrBlock_nodeInputP]
+      simp only [honestInput, Pos.hdr]; rw [hdrBlock_merkleNodeInput]
   | forest index => simp only [honestInput, Pos.hdr]; rw [hdrBlock_forestInput]
   | wctChain index coord child t step =>
       simp only [honestInput, Pos.hdr]; rw [pad64_wctChainInput, hdrBlock_wctChainInput]
@@ -88,3 +93,41 @@ theorem hdrBlock_honestInput (answers : Answers) (p : Pos) :
       simp only [honestInput, Pos.hdr]; rw [hdrBlock_wctLeafInputP]
   | wctNode index coord level nd =>
       simp only [honestInput, Pos.hdr]; rw [hdrBlock_nodeInputP]; rfl
+theorem pad64_length_of_mod {x : HashInput} (h : x.length % 64 = 0) : (pad64 x).length = x.length := by
+  unfold pad64; simp [h]
+theorem honestInput_length (answers : Answers) (p : Pos) : (honestInput answers p).length = p.len := by
+  cases p with
+  | chain lay tree leaf i step =>
+      simp only [honestInput, Pos.len]
+      rw [pad64_length_of_mod] <;> simp [chainInput, zero16, bytesLE_length]
+  | leaf lay tree leaf =>
+      simp only [honestInput, Pos.len, leafInput, SigGolfCandidate.T3.leafInput]
+      split
+      · rename_i h0
+        rw [pad64_length_of_mod] <;>
+          simp only [List.length_append, bytesLE_length, zero16, List.length_replicate, digest_list_bytes_length,
+            List.length_map, List.length_range, h0] <;> decide
+      · rename_i h0
+        have hc' : chainCount lay = 43 := by fin_cases lay <;> simp_all <;> decide
+        rw [pad64_length_of_mod] <;>
+          simp only [List.length_append, bytesLE_length, digest_list_bytes_length, List.length_drop,
+            List.length_map, List.length_range, hc'] <;> decide
+  | node lay tree level nd =>
+      simp only [honestInput, Pos.len]
+      rw [pad64_length_of_mod] <;> simp [WCT9.merkleNodeInput, zero16, bytesLE_length]
+  | forest index =>
+      simp only [honestInput, Pos.len]
+      have hl : (forestInput index (ftsPairsHonest answers index)).length = 320 := by
+        simp only [forestInput, WCT9.forestInput, List.length_append, zero16, List.length_replicate, bytesLE_length,
+          List.length_flatMap, ftsPairsHonest, List.map_map]
+        simp [Function.comp_def]
+      rw [pad64_length_of_mod] <;> rw [hl]
+  | wctChain index coord child t step =>
+      simp only [honestInput, Pos.len]
+      rw [pad64_length_of_mod] <;> simp [WCT9.chainInput, zero16, bytesLE_length]
+  | wctLeaf index coord child =>
+      simp only [honestInput, Pos.len]
+      rw [pad64_length_of_mod] <;> simp [wctLeafInputP, listInput, bytesLE_length, wctEnds]
+  | wctNode index coord level nd =>
+      simp only [honestInput, Pos.len]
+      rw [pad64_length_of_mod] <;> simp [nodeInputP]

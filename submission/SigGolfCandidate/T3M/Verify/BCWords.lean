@@ -22,8 +22,7 @@ def ctrE (lay c : Nat) : E :=
   if lay = 3 then T3M.ctrE lay else .un (.ld .wu 0) (.ld (kw (rowA lay c + 32)))
 def ctrBr (lay c : Nat) (d : Bool) : Br := ⟨if lay = 3 then .ltu else .geu, ctrE lay c, kw 0x400000, d⟩
 def headerWrites (lay c : Nat) : List (Addr × E) :=
-  [(⟨none, BitVec.ofNat 64 (rowA lay c + 24)⟩, kw 1),
-   (⟨none, BitVec.ofNat 64 (rowA lay c + 16)⟩, .reg .x28)]
+  [(⟨none, BitVec.ofNat 64 (rowA lay c + 16)⟩, .reg .x28)]
 def specA (lay c : Nat) : Spec :=
   if lay = 3 then T3M.specA lay (trPc lay c) else
   ⟨if lay = 0 then [(.x23, s7E lay), (.x12, .reg .x12)]
@@ -39,7 +38,7 @@ def bKB (lay c : Nat) : List (Reg × Word) := (bK lay c).filter (fun p => p.1 !=
 def oblB : List Oblig := [.valid ⟨some (.reg .x12), 8⟩ 8, .valid ⟨some (.reg .x12), 0⟩ 8]
 def oblBHi : List Oblig := [.valid ⟨some (.reg .x12), 24⟩ 8, .valid ⟨some (.reg .x12), 16⟩ 8] ++ oblB
 def allowed (lay c : Nat) : List Nat :=
-  if lay = 3 then [1232, 1240, 1264, 1272] else [rowA lay c + 16, rowA lay c + 24]
+  if lay = 3 then [1232, 1264, 1272] else [rowA lay c + 16]
 def setupCheck (lay c : Nat) : Bool :=
   specB (allowed lay c) [] baseK (runAt (preK lay) [] (setupPc lay (trPc lay c)) [])
     (specA lay c) [] (bK lay c) (keepA lay)

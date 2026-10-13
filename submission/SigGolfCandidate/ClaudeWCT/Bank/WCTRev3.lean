@@ -292,6 +292,30 @@ theorem buildCoordinateF_ok (index : Nat) (coord : Coord) (selected : Child) (wo
         exact BPB.nodeHash_ok 3 (WCT9.nodeLayer coord.val) index heap _ _ (by decide)
     · intro _
       exact SourceQueries.pure_allowed _ _
+/-- C2 (FULL): a lower node query of the honest tree shape (heap below `2 ^ height lay`) is no digest query: the
+packed node word's marker is `128 + heap`. -/
+theorem lowerNodeHash_notDigest (lay : Layer) (tree heap : Nat) (left right : Digest) (hh : heap < 2 ^ height lay) :
+    AllQueriesSatisfy (ClaudeWCT.WCT9.lowerNodeHash lay.val tree heap left right)
+      SigGolfCandidate.T3.Security.BPB.NotDigestQ := by
+  by_cases h0 : lay.val = 0
+  · rw [h0, ClaudeWCT.WCT9.lowerNodeHash_top]
+    exact SigGolfCandidate.T3.Security.BPB.nodeHash_ok _ _ _ _ _ _ (by decide)
+  · have h7 : heap < 128 := lt_of_lt_of_le hh
+      ((Nat.pow_le_pow_right (by decide) (ClaudeWCT.W9.T3.Security.Signer.height_le_seven h0)).trans (by norm_num))
+    unfold ClaudeWCT.WCT9.lowerNodeHash ClaudeWCT.WCT9.lowerHash
+    refine ClaudeWCT.W9.T3.Security.Signer.halfHash_allowed_of_short _ _
+      (SigGolfCandidate.T3.Security.BPB.shortHash_ok_marker
+        (hdr := ClaudeWCT.WCT9.merkleTweak lay.val tree heap) ?_ ?_)
+    · unfold ClaudeWCT.WCT9.merkleNodeInput
+      rw [List.append_assoc (SphincsSecurity.bytesLE 16 left ++
+          SphincsSecurity.bytesLE 16 (ClaudeWCT.WCT9.merkleTweak lay.val tree heap)),
+        SigGolfCandidate.T3M.Extract.hdrBlock_pad64 _ (by simp [SphincsSecurity.bytesLE_length, zero16]),
+        SigGolfCandidate.T3M.Extract.hdrBlock_prefix]
+    · rw [ClaudeWCT.WCT9.merkleTweak_lower h0]
+      unfold ClaudeWCT.WCT9.lowerTweak ClaudeWCT.WCT9.lowerNodeWord ClaudeWCT.WCT9.lowerK
+      rw [SigGolfCandidate.T3.append64_marker, BitVec.toNat_add, BitVec.toNat_ofNat,
+        SigGolfCandidate.T3.hyperWord_toNat]
+      omega
 theorem wct_payNotDigest : PayNotDigest payAfterDigest := by
   intro cache rho output
   unfold payAfterDigest
@@ -302,7 +326,7 @@ theorem wct_payNotDigest : PayNotDigest payAfterDigest := by
   · intro state
     apply SourceQueries.bind_allowed _ (W9.T3.Security.Signer.signLayersBC_allowed' _ _ layerEncoding_ok
       (W9.T3.Security.Signer.buildTreeP_allowed' _ BPB.chain_ok BPB.leafHash_ok
-        (fun _ _ _ _ _ => BPB.buildLevel_ok _ _ _ _ _ _ (by decide))
+        (fun lay _ _ _ _ hh => lowerNodeHash_notDigest lay _ _ _ _ hh)
         (fun _ _ _ => BPB.privatePair_ok _ _ _ _ _)) (BPB.signTop_ok _) _ _ _)
     intro layers
     split

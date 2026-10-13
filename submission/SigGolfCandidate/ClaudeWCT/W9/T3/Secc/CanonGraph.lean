@@ -99,8 +99,21 @@ def wctSeedsOf (secrets : Secrets) : WctAddr → Digest := fun a =>
 def chainLabels (labels : Labels) : ChainGraph.Labels := fun point => labels (.chain point)
 def fin58 (i : Nat) : Fin 58 := ⟨i % 58, Nat.mod_lt _ (by decide)⟩
 def fin9 (i : Nat) : Fin 9 := ⟨i % 9, Nat.mod_lt _ (by decide)⟩
-def endLabel (secrets : Secrets) (labels : Labels) (L : LeafPos) (i : Nat) : Digest :=
-  ChainGraph.value (seedsOf secrets) (chainLabels labels) ⟨L.lay, L.tree, L.leaf, fin58 i⟩ (maxDigit L.lay i)
+def Node.toPos : Node → Extract.Pos
+  | .chain p => .chain p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val p.2.val
+  | .leaf L => .leaf L.1.lay L.1.tree.val L.1.leaf.val
+  | .node n => .node n.1.lay n.1.tree.val n.1.level.val n.1.idx.val
+  | .wctChain p => .wctChain p.1.1.val p.1.2.1.val p.1.2.2.1.val p.1.2.2.2.val p.2.val
+  | .wctLeaf L => .wctLeaf L.index.val L.coord.val L.child.val
+  | .wctNode n => .wctNode n.1.index.val n.1.coord.val n.1.level.val n.1.idx.val
+  | .forest index => .forest index.val
+/-- The last chain point of chain `i` of leaf `L` (step `maxDigit - 1`). -/
+def endPt (L : LeafPos) (i : Nat) : Point :=
+  (⟨L.lay, L.tree, L.leaf, fin58 i⟩, ⟨(maxDigit L.lay i - 1) % 7, Nat.mod_lt _ (by decide)⟩)
+/-- The chain end the leaf reads: the used half (`Pos.proj`) of the last step's label (C3: the high half for chain
+0 of a lower layer). -/
+def endLabel (_secrets : Secrets) (labels : Labels) (L : LeafPos) (i : Nat) : Digest :=
+  (Node.chain (endPt L i)).toPos.proj (labels (.chain (endPt L i)))
 def wctValueL (secrets : Secrets) (labels : Labels) (a : WctAddr) (s : Nat) : Digest :=
   if s = 0 then wctSeedsOf secrets a
   else (labels (.wctChain (a, ⟨(s - 1) % 4, Nat.mod_lt _ (by decide)⟩))).extractLsb' 0 128
@@ -126,11 +139,11 @@ def leafAt (lay : Layer) (tree : Fin (2^31)) (c : Nat) : Option SrcLeaf :=
 def treeLabel (labels : Labels) (lay : Layer) (tree : Fin (2^31)) (level c : Nat) : Digest :=
   if level = 0 then
     (match leafAt lay tree c with
-     | some L => (labels (.leaf L)).extractLsb' 0 128
+     | some L => (Node.leaf L).toPos.proj (labels (.leaf L))
      | none => 0)
   else
     match treeNodeAt lay tree (level - 1) c with
-    | some n => (labels (.node n)).extractLsb' 0 128
+    | some n => (Node.node n).toPos.proj (labels (.node n))
     | none => 0
 def ftsNodeAt (index : Fin (2^31)) (coord : Fin 9) (level c : Nat) : Option WctNodePos :=
   if h : level < 6 ∧ c < 2 ^ (7 - level - 1) then
@@ -155,9 +168,9 @@ def cell (secrets : Secrets) : Node → Labels → HashInput
   | .chain p, labels => ChainGraph.input (seedsOf secrets) p (chainLabels labels)
   | .leaf L, labels => pad64 (Extract.leafInput L.1.lay L.1.tree.val L.1.leaf.val
       ((List.range (chainCount L.1.lay)).map (endLabel secrets labels L.1)))
-  | .node n, labels => pad64 (nodeInputP 3 n.1.lay.val n.1.tree.val
+  | .node n, labels => pad64 (WCT9.merkleNodeInput n.1.lay.val n.1.tree.val
       (2 ^ (height n.1.lay - n.1.level.val - 1) + n.1.idx.val)
-      (treeLabel labels n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val)) 0
+      (treeLabel labels n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val))
       (treeLabel labels n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val + 1)))
   | .wctChain p, labels => WCT9.chainInput p.1.1.val p.1.2.1.val p.1.2.2.1.val p.1.2.2.2.val p.2.val
       (wctValueL secrets labels p.1 p.2.val)
@@ -171,14 +184,6 @@ def cell (secrets : Secrets) : Node → Labels → HashInput
       (ftsLabel labels n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)))
   | .forest index, labels => pad64 (Extract.forestInput index.val
       ((List.range 9).map fun coord => (ftsLabel labels index (fin9 coord) 6 0, ftsLabel labels index (fin9 coord) 6 1)))
-def Node.toPos : Node → Extract.Pos
-  | .chain p => .chain p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val p.2.val
-  | .leaf L => .leaf L.1.lay L.1.tree.val L.1.leaf.val
-  | .node n => .node n.1.lay n.1.tree.val n.1.level.val n.1.idx.val
-  | .wctChain p => .wctChain p.1.1.val p.1.2.1.val p.1.2.2.1.val p.1.2.2.2.val p.2.val
-  | .wctLeaf L => .wctLeaf L.index.val L.coord.val L.child.val
-  | .wctNode n => .wctNode n.1.index.val n.1.coord.val n.1.level.val n.1.idx.val
-  | .forest index => .forest index.val
 def SourcePos : Extract.Pos → Prop
   | .chain _ tree leaf i step => tree < 2 ^ 31 ∧ leaf < 4096 ∧ i < 58 ∧ step < 7
   | .leaf lay tree leaf => tree < 2 ^ treeBits lay ∧ leaf < 2 ^ height lay
@@ -306,6 +311,43 @@ theorem exists_toPos {p : Extract.Pos} (hp : SourcePos p) : ∃ node : Node, nod
         calc 2 ^ (7 - level - 1) ≤ 2 ^ 6 := Nat.pow_le_pow_right (by decide) (by omega)
           _ = 64 := by norm_num)
       exact ⟨.wctNode ⟨⟨⟨index, h1⟩, ⟨coord, h2⟩, ⟨level, h3⟩, ⟨nd, hn⟩⟩, h4⟩, rfl⟩
+theorem merkleNodeInput_length (lay tree heap : Nat) (left right : Digest) :
+    (WCT9.merkleNodeInput lay tree heap left right).length = 64 := by
+  simp only [WCT9.merkleNodeInput, zero16, List.length_append, List.length_replicate, bytesLE_length]
+theorem pad64_merkleNodeInput (lay tree heap : Nat) (left right : Digest) :
+    pad64 (WCT9.merkleNodeInput lay tree heap left right) = WCT9.merkleNodeInput lay tree heap left right := by
+  unfold pad64; rw [merkleNodeInput_length]; simp
+/-- Every cell has its position's honest length (length-aware decoding, C3). -/
+theorem cell_length (secrets : Secrets) (node : Node) (labels : Labels) :
+    (cell secrets node labels).length = node.toPos.len := by
+  cases node with
+  | chain p =>
+      change (ChainGraph.row p _).length = _
+      rw [ChainGraph.row_length]; rfl
+  | leaf L =>
+      simp only [cell, Extract.leafInput, Node.toPos, Extract.Pos.len]
+      rw [Cost.pad64_length, SigGolfCandidate.T3.leafInput_length]
+      simp only [List.length_map, List.length_range]
+      by_cases h0 : L.1.lay = 0
+      · rw [if_pos h0, if_pos h0, h0]; decide
+      · rw [if_neg h0, if_neg h0, chainCount_lower h0]
+  | node n =>
+      simp only [cell, Node.toPos, Extract.Pos.len]
+      rw [pad64_merkleNodeInput, merkleNodeInput_length]
+  | wctChain p =>
+      simp only [cell, WCT9.chainInput, zero16, List.length_append, List.length_replicate, bytesLE_length,
+        Node.toPos, Extract.Pos.len]
+  | wctLeaf L =>
+      simp only [cell, Extract.wctLeafInputP, Node.toPos, Extract.Pos.len]
+      rw [Cost.pad64_length, Extract.listInput_length']
+      simp only [List.length_cons, List.length_drop, List.length_ofFn]
+  | wctNode n =>
+      simp only [cell, Node.toPos, Extract.Pos.len]
+      rw [pad64_nodeInputP, nodeInputP, block4]
+      simp only [List.length_append, bytesLE_length]
+  | forest index =>
+      simp only [cell, Extract.forestInput, Node.toPos, Extract.Pos.len]
+      rw [Cost.pad64_length, WCT9.forestInput_length _ _ (by simp)]
 theorem hdrBlock_cell (secrets : Secrets) (node : Node) (labels : Labels) :
     Extract.hdrBlock (cell secrets node labels) = bytesLE 16 node.toPos.hdr := by
   cases node with
@@ -319,7 +361,7 @@ theorem hdrBlock_cell (secrets : Secrets) (node : Node) (labels : Labels) :
       rfl
   | node n =>
       simp only [cell]
-      rw [Extract.hdrBlock_nodeInputP]
+      rw [Extract.hdrBlock_merkleNodeInput]
       rfl
   | wctChain p =>
       simp only [cell]
@@ -421,11 +463,8 @@ theorem cell_congr (secrets : Secrets) (node : Node) (left right : Labels)
           (List.range (chainCount L.1.lay)).map (endLabel secrets right L.1) := by
         apply List.map_congr_left
         intro i _
-        unfold endLabel ChainGraph.value
-        split_ifs
-        · rfl
-        · simp only [chainLabels]
-          rw [h _ (by simp only [Node.depth]; exact Nat.mod_lt _ (by decide))]
+        unfold endLabel
+        rw [h _ (by simp only [Node.depth, endPt]; exact Nat.mod_lt _ (by decide))]
       simp only [cell, hends]
   | node n =>
       have hl := treeLabel_congr left right n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val)
@@ -473,7 +512,7 @@ theorem cell_congr (secrets : Secrets) (node : Node) (left right : Labels)
       simp only [cell, hroots]
 theorem posOf_cell (secrets : Secrets) (node : Node) (labels : Labels) :
     Extract.posOf (cell secrets node labels) = some node.toPos :=
-  Extract.posOf_eq (toPos_bounded node) (hdrBlock_cell secrets node labels)
+  Extract.posOf_eq (toPos_bounded node) (cell_length secrets node labels) (hdrBlock_cell secrets node labels)
 theorem cell_eq_of_posOf {input : HashInput} {node node' : Node} (secrets : Secrets) (labels : Labels)
     (hpos : Extract.posOf input = some node.toPos) (h : input = cell secrets node' labels) : node' = node := by
   subst h
@@ -496,7 +535,8 @@ def topNode (lay : Layer) (tree : Fin (2^31)) (ht : tree.val < 2 ^ treeBits lay)
       have := b.isLt; omega, ht, Or.inr (by have := height_ge_two lay; show height lay - 2 + 1 < height lay; omega)⟩⟩
 theorem treeLabel_top (labels : Labels) (lay : Layer) (tree : Fin (2^31)) (ht : tree.val < 2 ^ treeBits lay)
     (b : Fin 2) :
-    treeLabel labels lay tree (height lay - 1) b.val = (labels (.node (topNode lay tree ht b))).extractLsb' 0 128 := by
+    treeLabel labels lay tree (height lay - 1) b.val =
+      (Node.node (topNode lay tree ht b)).toPos.proj (labels (.node (topNode lay tree ht b))) := by
   have h2 := height_ge_two lay
   unfold treeLabel
   rw [if_neg (by omega)]
@@ -544,8 +584,7 @@ theorem cell_length_le (secrets : Secrets) (node : Node) (labels : Labels) :
       split_ifs <;> omega
   | node n =>
       simp only [cell]
-      rw [pad64_nodeInputP, nodeInputP, block4]
-      simp only [List.length_append, bytesLE_length]; omega
+      rw [pad64_merkleNodeInput, merkleNodeInput_length]; omega
   | wctChain p =>
       simp only [cell, WCT9.chainInput, zero16, List.length_append, List.length_replicate, bytesLE_length]
       omega
@@ -887,19 +926,21 @@ theorem tables_bind {Result : Type} (U : Finset HashInput) (hU : canonInputs ⊆
   intro other
   exact uniform_bind_programmed U hU secrets (fun table => next (privateEquiv.symm (secrets, other)) table)
 abbrev LowLabels := Node → Digest
-/-- The FTS nodes that use the HIGH half of their output (`WCT9.ftsHighHeap` of their heap): the top pair
-(`wctNode` level 5, nested FTS r1-1) and, C1, the even heaps `16..255` (leaves of even children and even nodes of
-levels 0..2). The name is historical. -/
-def Node.isTop : Node → Bool
-  | .wctNode n => WCT9.ftsHighHeap (2 ^ (7 - n.1.level.val - 1) + n.1.idx.val)
-  | .wctLeaf L => WCT9.ftsHighHeap (128 + L.child.val)
-  | _ => false
+/-- The nodes whose used half is the HIGH half of their output (`Pos.high`): the FTS leaves and nodes on
+`WCT9.ftsHighHeap` heaps (the top pair, nested FTS r1-1, and, C1, the even heaps `16..255`), the left children of the
+lower trees (C2) and the last step of lower chain 0 (C3). The name is historical. -/
+def Node.isTop (N : Node) : Bool := N.toPos.high
 theorem proj_toPos (N : Node) (y : HashOutput) :
     N.toPos.proj y = if N.isTop then y.extractLsb' 128 128 else y.extractLsb' 0 128 := by
-  cases N with
-  | wctNode n => simp only [Node.toPos, Node.isTop, Extract.Pos.proj, WCT9.ftsHalf]
-  | wctLeaf L => simp only [Node.toPos, Node.isTop, Extract.Pos.proj, WCT9.ftsHalf]
-  | _ => rfl
+  rw [Extract.Pos.proj_eq]; rfl
+theorem high_chain (q : Point) : (Node.chain q).toPos.high = WCT9.chainHigh q.1.layer q.1.chain.val q.2.val := rfl
+/-- C3: a chain point below the last step uses the low half. -/
+theorem proj_chain_of_lt {q : Point} (h : q.2.val < 6) (y : HashOutput) :
+    (Node.chain q).toPos.proj y = y.extractLsb' 0 128 := by
+  rw [Extract.Pos.proj_of_low (by rw [high_chain]; exact WCT9.chainHigh_eq_false (Or.inr (Or.inr (by omega))))]
+theorem isTop_wctNode (n : WctNodePos) :
+    (Node.wctNode n).isTop = WCT9.ftsHighHeap (2 ^ (7 - n.1.level.val - 1) + n.1.idx.val) := rfl
+theorem isTop_wctLeaf (L : WctLeafPos) : (Node.wctLeaf L).isTop = WCT9.ftsHighHeap (128 + L.child.val) := rfl
 theorem proj_toPos_of_not_top {N : Node} (h : N.isTop = false) (y : HashOutput) :
     N.toPos.proj y = y.extractLsb' 0 128 := by
   rw [proj_toPos, h]; rfl
@@ -909,8 +950,8 @@ noncomputable def swapOut : HashOutput ≃ HashOutput :=
 theorem proj_top (index : Fin (2^31)) (coord : Fin 9) (b : Fin 2) (y : HashOutput) :
     (Node.wctNode (ftsTopNode index coord b)).toPos.proj y = y.extractLsb' 128 128 := by
   rw [proj_toPos, if_pos]
-  simp only [Node.isTop, ftsTopNode]
-  exact WCT9.ftsHighHeap_top (by have := b.isLt; omega)
+  rw [isTop_wctNode]
+  exact WCT9.ftsHighHeap_top (by have := b.isLt; simp only [ftsTopNode]; norm_num; omega)
 theorem swapOut_low (y : HashOutput) : (swapOut y).extractLsb' 0 128 = y.extractLsb' 128 128 :=
   ChainGraph.joinOutput_low _ _
 theorem swapOut_high (y : HashOutput) : (swapOut y).extractLsb' 128 128 = y.extractLsb' 0 128 :=

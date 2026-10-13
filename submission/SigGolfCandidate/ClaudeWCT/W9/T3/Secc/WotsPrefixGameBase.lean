@@ -64,7 +64,8 @@ theorem restTable_private (R : RefTables adversary) (coordinate : Coordinate) :
 noncomputable def ovPub (a : ChainAddr) (d : Nat) (pub : referenceInputs adversary → HashOutput)
     (tables : Fin d → Digest → Digest) : referenceInputs adversary → HashOutput := fun x =>
   match rowOf a d x.val with
-  | some p => ChainGraph.joinOutput (tables p.1 p.2) (high (pub x))
+  | some p => joinHalf (WCT9.chainHigh a.key.lay a.chain p.1.val) (tables p.1 p.2)
+      (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain p.1.val) (pub x))
   | none => pub x
 /-- The seed of chain `a` in `ov a d R x`: its leaf-family evaluation (every layer: campaign X1 stage B, top leaves
 since campaign T8D), unchanged by `ov`; the seed component of `Hidden` is a dummy. -/
@@ -74,11 +75,12 @@ noncomputable def ovSeed (a : ChainAddr) (R : RefTables adversary) (_seed : Dige
 noncomputable def ov (a : ChainAddr) (d : Nat) (R : RefTables adversary) (x : Hidden d) : RefTables adversary :=
   (R.1, ovPub a d R.2 x.1)
 noncomputable def rd (a : ChainAddr) (d : Nat) (R : RefTables adversary) : Hidden d :=
-  (fun i v => low (R.2 ⟨chainRow a i v, chainRow_mem a i v⟩), 0)
+  (fun i v => WCT9.halfOf (WCT9.chainHigh a.key.lay a.chain i.val) (R.2 ⟨chainRow a i v, chainRow_mem a i v⟩), 0)
 theorem ovPub_row (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (pub : referenceInputs adversary → HashOutput)
     (tables : Fin d → Digest → Digest) (i : Fin d) (v : Digest) :
     ovPub a d pub tables ⟨chainRow a i v, chainRow_mem a i v⟩ =
-      ChainGraph.joinOutput (tables i v) (high (pub ⟨chainRow a i v, chainRow_mem a i v⟩)) := by
+      joinHalf (WCT9.chainHigh a.key.lay a.chain i.val) (tables i v)
+        (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain i.val) (pub ⟨chainRow a i v, chainRow_mem a i v⟩)) := by
   unfold ovPub
   rw [rowOf_chainRow a hd i v]
 theorem ovPub_none (a : ChainAddr) {d : Nat} (pub : referenceInputs adversary → HashOutput)
@@ -92,7 +94,7 @@ theorem rd_ov_rows (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables adv
   unfold rd ov
   funext i v
   simp only
-  rw [ovPub_row a hd, low, ChainGraph.joinOutput_low]
+  rw [ovPub_row a hd, halfOf_joinHalf]
 /-- `ov` ignores the seed component. -/
 theorem ov_seed_irrel (a : ChainAddr) {d : Nat} (R : RefTables adversary)
     (t : Fin d → Digest → Digest) (s s' : Digest) : ov a d R (t, s) = ov a d R (t, s') := rfl
@@ -111,8 +113,8 @@ theorem ov_ov_rd (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables adver
         simp only [hp]
         have hy : y = ⟨chainRow a p.1 p.2, chainRow_mem a p.1 p.2⟩ := Subtype.ext (rowOf_some hp)
         subst hy
-        simp only [high, low, ChainGraph.joinOutput_high, ChainGraph.joinOutput_parts]
-theorem restTable_ov_untouched (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables adversary) (x : Hidden d)
+        rw [halfOf_not_joinHalf, joinHalf_halfOf]
+theorem restTable_ov_untouched (a : ChainAddr) {d : Nat} (hd : d ≤ 7) (R : RefTables adversary) (x : Hidden d)
     (query : T3.Spec.Domain) (hq : UntouchedP a query) : restTable (ov a d R x) query = restTable R query := by
   rcases query with (n | input) | (tweak | other)
   · rfl
@@ -130,7 +132,8 @@ theorem restTable_ov_untouched (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : R
 theorem restTable_ov_prefix (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables adversary) (x : Hidden d)
     (i : Fin d) (v : Digest) :
     restTable (ov a d R x) (.inl (.inr (chainRow a i v))) =
-      ChainGraph.joinOutput (x.1 i v) (high (restTable R (.inl (.inr (chainRow a i v))))) := by
+      joinHalf (WCT9.chainHigh a.key.lay a.chain i.val) (x.1 i v)
+        (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain i.val) (restTable R (.inl (.inr (chainRow a i v))))) := by
   rw [restTable_mem _ _ (chainRow_mem a i v), restTable_mem _ _ (chainRow_mem a i v)]
   exact ovPub_row a hd R.2 x.1 i v
 theorem restTable_ov_nonprefix (a : ChainAddr) {d : Nat} (R : RefTables adversary) (x : Hidden d)
@@ -143,7 +146,7 @@ theorem restTable_ov_nonprefix (a : ChainAddr) {d : Nat} (R : RefTables adversar
 /-- `ov` leaves the private table alone. -/
 theorem restTable_ov_private (a : ChainAddr) {d : Nat} (R : RefTables adversary) (x : Hidden d)
     (coordinate : Coordinate) : restTable (ov a d R x) (.inr coordinate) = restTable R (.inr coordinate) := rfl
-theorem depth_ov (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables adversary) (x : Hidden d) (b : ChainAddr)
+theorem depth_ov (a : ChainAddr) {d : Nat} (hd : d ≤ 7) (R : RefTables adversary) (x : Hidden d) (b : ChainAddr)
     (hb : b = a) : depth (restTable (ov a d R x)) b = depth (restTable R) b := by
   subst hb
   exact depth_congr b _ _ (restTable_ov_untouched b hd R x)
@@ -151,7 +154,7 @@ theorem restDepth_le (a : ChainAddr) (R : RefTables adversary) : restDepth a R �
   rw [restDepth_eq]; exact Mask.depth_le_seven _ a
 theorem restDepth_ov (a : ChainAddr) (R : RefTables adversary) (x : Hidden (restDepth a R)) :
     restDepth a (ov a (restDepth a R) R x) = restDepth a R := by
-  have hd : restDepth a R ≤ 256 := by have := restDepth_le a R; omega
+  have hd : restDepth a R ≤ 7 := restDepth_le a R
   calc restDepth a (ov a (restDepth a R) R x) = depth (restTable (ov a (restDepth a R) R x)) a := restDepth_eq _ _
     _ = depth (restTable R) a := depth_ov a hd R x a rfl
     _ = restDepth a R := (restDepth_eq a R).symm
@@ -160,24 +163,25 @@ theorem wotsSeed_ov (a : ChainAddr) {d : Nat} (R : RefTables adversary) (x : Hid
   Mask.wotsSeed_congr_private (fun c => restTable_ov_private a R x c) _ _ _ _
 theorem eval_chain_ov (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables adversary) (x : Hidden d) :
     ∀ (n s : Nat) (hn : s + n ≤ d) (v : Digest),
-      evalWithAnswerFn (restTable (ov a d R x)) (chain a.key.lay a.key.tree a.key.leaf a.chain s n v) =
+      evalWithAnswerFn (restTable (ov a d R x)) (WCT9.chainW a.key.lay a.key.tree a.key.leaf a.chain s n v) =
         SphincsSecurity.Concrete.PartialChainEndpoint.evaluate
           (fun (i : Fin n) => x.1 ⟨s + i.val, by omega⟩) v := by
   intro n
   induction n with
   | zero =>
       intro s hn v
-      simp [chain, SphincsSecurity.Concrete.PartialChainEndpoint.evaluate]
+      simp [WCT9.chainW, SphincsSecurity.Concrete.PartialChainEndpoint.evaluate]
   | succ n ih =>
       intro s hn v
-      have hsplit : evalWithAnswerFn (restTable (ov a d R x)) (chain a.key.lay a.key.tree a.key.leaf a.chain s (n + 1) v) =
-          evalWithAnswerFn (restTable (ov a d R x)) (chain a.key.lay a.key.tree a.key.leaf a.chain (s + 1) n
-            (evalWithAnswerFn (restTable (ov a d R x)) (chain a.key.lay a.key.tree a.key.leaf a.chain s 1 v))) := by
+      have hsplit : evalWithAnswerFn (restTable (ov a d R x)) (WCT9.chainW a.key.lay a.key.tree a.key.leaf a.chain s (n + 1) v) =
+          evalWithAnswerFn (restTable (ov a d R x)) (WCT9.chainW a.key.lay a.key.tree a.key.leaf a.chain (s + 1) n
+            (evalWithAnswerFn (restTable (ov a d R x)) (WCT9.chainW a.key.lay a.key.tree a.key.leaf a.chain s 1 v))) := by
         rw [show n + 1 = 1 + n by omega]
-        exact Correctness.eval_chain_add _ _ _ _ _ _ _ _ _
-      rw [hsplit, eval_chain_one]
+        exact eval_chainW_add' _ _ _ _ _ _ _ _ _
+      rw [hsplit, eval_chainW_one', pad64_chainInput]
       have hrow : chainInput a.key.lay a.key.tree a.key.leaf a.chain s v = chainRow a (⟨s, by omega⟩ : Fin d) v := rfl
-      rw [hrow, restTable_ov_prefix a hd R x, ChainGraph.joinOutput_low, ih (s + 1) (by omega)]
+      rw [hrow, restTable_ov_prefix a hd R x]
+      rw [show (⟨s, by omega⟩ : Fin d).val = s from rfl, halfOf_joinHalf, ih (s + 1) (by omega)]
       simp only [SphincsSecurity.Concrete.PartialChainEndpoint.evaluate]
       congr 1
       · funext i w
@@ -189,7 +193,7 @@ theorem frontierValue_ov (a : ChainAddr) (R : RefTables adversary) (x : Hidden (
   have hd : restDepth a R ≤ 256 := by have := restDepth_le a R; omega
   have hdepth : depth (restTable (ov a (restDepth a R) R x)) a = restDepth a R :=
     (restDepth_eq a (ov a (restDepth a R) R x)).symm.trans (restDepth_ov a R x)
-  unfold frontierValue honestChainValue
+  unfold frontierValue honestChainValueW
   rw [hdepth, wotsSeed_ov]
   rw [eval_chain_ov a hd R x (restDepth a R) 0 (by omega)]
   congr 1

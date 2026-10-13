@@ -107,8 +107,8 @@ set_option linter.unusedSimpArgs false
 campaign T8D / TOP2 NF17) holds the three radix-8 chains, largest digit 7. -/
 def mx (q : Nat) : Nat := if q<17 then 4 else 7
 def off (i : Nat) : Word := BitVec.ofNat 64 (64*(53-i))-BitVec.ofNat 64 1664
-def slot (i : Nat) : Nat := 25168+16*i
-def slotOffset (a : Nat) : Nat := a-24624
+def slot (i : Nat) : Nat := 25232+16*i
+def slotOffset (a : Nat) : Nat := a-24688
 def rungR (d : Nat) (sl : Option Nat) (p : Nat) : Result :=
   T3M.rungRB d (sl.map slotOffset) p
 def copyN (rb : Reg) (o : Word) (sl tgt : Nat) : Result :=

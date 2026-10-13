@@ -149,28 +149,32 @@ open SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest Layer route)
 open ClaudeWCT.WCT9 (LayerMsg)
 def below (lay : Nat) : Nat := [19,12,6,0].getD lay 0
-def bufferStart (lay : Nat) : Nat := [23920,23184,22448,21712].getD lay 0
-def layerEnd (lay : Nat) : Nat := [12480,15600,18656,21712].getD lay 0
+/-- Start of the witness leaf-buffer region still unread at layer `lay` (C3: the top region includes the top leaf's
+pad and tweak high word). -/
+def bufferStart (lay : Nat) : Nat := [23984,23248,22512,21776].getD lay 0
+def layerEnd (lay : Nat) : Nat := [12480,15632,18704,21776].getD lay 0
 def cpIdx (index lay : Nat) : Nat := if lay = 3 then 0 else index / 2 ^ below (lay + 1) % 2 ^ hL (lay + 1)
 def MsgAt (w : ClaudeWCT.W9.T3M.WBytes) (index lay : Nat) (msg : LayerMsg) (s : MachineState) : Prop :=
   match msg with
   | .forest _ => False
-  | .pair left right => if lay = 3 then DigAt s WIT left ∧ DigAt s (WIT + 144) right else
+  | .pair left right => if lay = 3 then DigAt s WIT left ∧ DigAt s (WIT + 144) right ∧
+      s.getMem (BitVec.ofNat 64 (WIT + 24)) = wword w 3 else
       lay < 3 ∧ DigAt s (rowA lay (cpIdx index lay)) left ∧
       DigAt s (rowA lay (cpIdx index lay) + 48) right ∧
-      (∀ j, j = 4 ∨ j = 5 →
+      (∀ j, j = 3 ∨ j = 4 ∨ j = 5 →
         s.getMem (BitVec.ofNat 64 (rowA lay (cpIdx index lay) + 8 * j)) =
           wword w ((rowA lay (cpIdx index lay) - WIT) / 8 + j))
 theorem MsgAt.pair_low {w : ClaudeWCT.W9.T3M.WBytes} {index lay : Nat} {left right : Digest} {s : MachineState}
     (h : MsgAt w index lay (.pair left right) s) (h3 : lay ≠ 3) :
     lay < 3 ∧ DigAt s (rowA lay (cpIdx index lay)) left ∧
       DigAt s (rowA lay (cpIdx index lay) + 48) right ∧
-      (∀ j, j = 4 ∨ j = 5 →
+      (∀ j, j = 3 ∨ j = 4 ∨ j = 5 →
         s.getMem (BitVec.ofNat 64 (rowA lay (cpIdx index lay) + 8 * j)) =
           wword w ((rowA lay (cpIdx index lay) - WIT) / 8 + j)) := by
   simpa only [MsgAt, if_neg h3] using h
 theorem MsgAt.pair_top {w : ClaudeWCT.W9.T3M.WBytes} {index : Nat} {left right : Digest} {s : MachineState}
-    (h : MsgAt w index 3 (.pair left right) s) : DigAt s WIT left ∧ DigAt s (WIT + 144) right := by
+    (h : MsgAt w index 3 (.pair left right) s) : DigAt s WIT left ∧ DigAt s (WIT + 144) right ∧
+      s.getMem (BitVec.ofNat 64 (WIT + 24)) = wword w 3 := by
   simpa only [MsgAt, ↓reduceIte] using h
 structure LayerIn (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index lay : Nat) (msg : LayerMsg)
     (s : MachineState) : Prop where
@@ -183,11 +187,12 @@ structure LayerIn (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index lay : Nat) 
   msg : MsgAt w index lay msg s
   orig : Verify.Orig w (fun o => 8256 ≤ o ∧ o < layerEnd lay) s
   hdr3 : lay = 3 → s.getMem (BitVec.ofNat 64 (TOPLOAD + 32)) = BitVec.ofNat 64 (hyperBase 3) ∧
-    s.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21200 ∧
+    s.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21264 ∧
     (∀ k, k < 5 → s.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) = BitVec.ofNat 64 (topWords.getD k 0))
   dst : lay < 3 → ∃ d, s.getReg .x12 = BitVec.ofNat 64 d ∧
-    (d = rowA lay (cpIdx index lay) ∨ d = rowA lay (cpIdx index lay) + 48)
-  bufferOrig : Verify.Orig w (fun o => bufferStart lay ≤ o ∧ o < 24832) s
+    ((d + 16 = rowA lay (cpIdx index lay) ∧ WIT + layerEnd lay + 16 ≤ rowA lay (cpIdx index lay)) ∨
+      d = rowA lay (cpIdx index lay) + 48)
+  bufferOrig : Verify.Orig w (fun o => bufferStart lay ≤ o ∧ o < 24896) s
   /-- Layer 3: the nested FTS leaves `a2` at one of its two last heap outputs; the L3 encoding writes there. -/
   dst3 : lay = 3 → s.getReg .x12 = BitVec.ofNat 64 1200 ∨ s.getReg .x12 = BitVec.ofNat 64 1344
 structure EncPre (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index lay c : Nat)
@@ -202,13 +207,13 @@ structure EncPre (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index lay c : Nat)
     (lay = 0 → t.getReg .x31 = BitVec.ofNat 64 (route index L).1)
   orig : Verify.Orig w (fun o => 8256 ≤ o ∧ o < layerEnd lay) t
   hdr3 : lay = 3 → t.getMem (BitVec.ofNat 64 (TOPLOAD + 32)) = BitVec.ofNat 64 (hyperBase 3) ∧
-    t.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21200 ∧
+    t.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21264 ∧
     (∀ k, k < 5 → t.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) = BitVec.ofNat 64 (topWords.getD k 0))
   index3 : lay = 3 → t.getReg .x22 = BitVec.ofNat 64 index
-  dst : lay < 3 → ∃ d, t.getReg .x12 = BitVec.ofNat 64 d ∧ (d = rowA lay c ∨ d = rowA lay c + 48)
-  bufferOrig : Verify.Orig w (fun o => bufferStart lay ≤ o ∧ o < 24832) t
-  /-- Top-leaf pad: the 16 bytes in front of the top-leaf tweak are still the witness bytes. -/
-  topPad : lay = 0 → DigAt t 25136 (ClaudeWCT.W9.T3M.wtopPad w)
+  /-- C2: the root window's left child is written 16 bytes low (its HIGH half lands on the window). -/
+  dst : lay < 3 → ∃ d, t.getReg .x12 = BitVec.ofNat 64 d ∧
+    ((d + 16 = rowA lay c ∧ WIT + layerEnd lay + 16 ≤ rowA lay c) ∨ d = rowA lay c + 48)
+  bufferOrig : Verify.Orig w (fun o => bufferStart lay ≤ o ∧ o < 24896) t
   dst3 : lay = 3 → t.getReg .x12 = BitVec.ofNat 64 1200 ∨ t.getReg .x12 = BitVec.ofNat 64 1344
 def rejectSteps (lay : Nat) : Nat := stepsA lay + if lay = 3 then 21 else 3
 def EncodingSetup : Prop :=
@@ -223,7 +228,8 @@ def EncodingSetup : Prop :=
       hashArgumentsValid t = true ∧
       hashInput t = toQ (T3.pad64 (ClaudeWCT.W9.T3M.layerEncodingInputP lay
         (route index lay).2 (route index lay).1 msg
-        (ClaudeWCT.W9.T3M.wbcCtr w index lay) (ClaudeWCT.W9.T3M.wbcPad w index lay) (ClaudeWCT.W9.T3M.wbcRight w))) ∧
+        (ClaudeWCT.W9.T3M.wbcCtr w index lay) (ClaudeWCT.W9.T3M.wbcPad w index lay) (ClaudeWCT.W9.T3M.wbcRight w)
+        (ClaudeWCT.W9.T3M.wbcHigh w index lay))) ∧
       EncPre w pk index lay.val (cpIdx index lay.val) t)
 def layerLoop (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) : Nat → LayerMsg → T3.M (Option Digest)
   | 0, .forest root => pure (some root)
@@ -239,9 +245,9 @@ open SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput Layer route height chainCount counterLimit decode encodingInput target
   dataDigits pad64)
 def below (lay : Nat) : Nat := [19,12,6,0].getD lay 0
-def layerEnd (lay : Nat) : Nat := [12480,15600,18656,21712].getD lay 0
+def layerEnd (lay : Nat) : Nat := [12480,15632,18704,21776].getD lay 0
 theorem hL_eq (lay : Layer) : hL lay.val = height lay := by fin_cases lay <;> rfl
-def slotT (i : Nat) : Nat := 25168 + 16 * i
+def slotT (i : Nat) : Nat := 25232 + 16 * i
 theorem below_eq (lay : Layer) : below lay.val = (![19, 12, 6, 0] : Layer → Nat) lay := by fin_cases lay <;> rfl
 theorem tgtL_eq (lay : Layer) : tgtL lay.val = target lay := by fin_cases lay <;> rfl
 abbrev LayerIn := BC.LayerIn
@@ -825,14 +831,15 @@ theorem encB_step_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) 
         s0.getReg .x23 = BitVec.ofNat 64 (lfS7 lay.val (route index lay).1) ∧
         s0.getReg .x31 = BitVec.ofNat 64 (route index lay).2 ∧
         s0.getReg .x9 = BitVec.ofNat 64 TOPB9 ∧
-        Verify.Orig w (fun o => BC.bufferStart lay.val ≤ o ∧ o < 24832) s0) := by
+        Verify.Orig w (fun o => BC.bufferStart lay.val ≤ o ∧ o < 24896) s0) := by
   set u := writeHash t a with hu
   have h0 : lay.val ≠ 0 := fun h => hlay (Fin.ext h)
   have hcc := copy_parts lay.val c (BC.copyCheck_at lay.val c lay.isLt hc)
   have hB := hcc.2 h0
   have hkt : KnownOK (BC.bK lay.val c) t := ht.glob.1
   obtain ⟨d, h12, hdc⟩ : ∃ d, t.getReg .x12 = BitVec.ofNat 64 d ∧
-      (if lay.val = 3 then (d = 1200 ∨ d = 1344) else (d = rowA lay.val c ∨ d = rowA lay.val c + 48)) := by
+      (if lay.val = 3 then (d = 1200 ∨ d = 1344) else
+        ((d + 16 = rowA lay.val c ∧ WIT + BC.layerEnd lay.val + 16 ≤ rowA lay.val c) ∨ d = rowA lay.val c + 48)) := by
     by_cases h3 : lay.val = 3
     · rcases ht.dst3 h3 with hd | hd
       · exact ⟨1200, hd, by rw [if_pos h3]; exact Or.inl rfl⟩
@@ -846,12 +853,16 @@ theorem encB_step_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) 
         exact ⟨by decide +kernel, by decide +kernel, by decide +kernel, fun h => absurd h3 h⟩
     · rw [if_neg h3] at hdc
       obtain ⟨r16, rlo, rhi, rend⟩ := rowA_facts lay.val c (by have := lay.isLt; omega) hc
-      have hd8 : d % 8 = 0 := by rcases hdc with rfl | rfl <;> omega
-      have hd32 : d + 32 ≤ 2 ^ 23 := by rcases hdc with rfl | rfl <;> omega
-      have hlo : WLO ≤ d := by rcases hdc with rfl | rfl <;> omega
+      have hd8 : d % 8 = 0 := by rcases hdc with ⟨hd1, hd2⟩ | rfl <;> omega
+      have hd32 : d + 32 ≤ 2 ^ 23 := by rcases hdc with ⟨hd1, hd2⟩ | rfl <;> omega
+      have hlo : WLO ≤ d := by
+        have hle : 48 ≤ BC.layerEnd lay.val := by
+          have := lay.isLt; unfold BC.layerEnd
+          rcases (show lay.val = 0 ∨ lay.val = 1 ∨ lay.val = 2 ∨ lay.val = 3 by omega) with h | h | h | h <;> simp [h]
+        rcases hdc with ⟨hd1, hd2⟩ | rfl <;> (have := rlo; unfold WLO at this ⊢; omega)
       refine ⟨hd8, hd32, safeDest_hi d hlo hd8 hd32, fun _ => ?_⟩
       have : layerEnd lay.val = BC.layerEnd lay.val := rfl
-      rcases hdc with rfl | rfl <;> omega
+      rcases hdc with ⟨hd1, hd2⟩ | rfl <;> omega
   obtain ⟨hd8, hd32, hsafe, hdend⟩ := hdf
   have hku : KnownOK (BC.bK lay.val c) u := fun p hp => by rw [hu, writeHash_getReg]; exact hkt p hp
   have hkuB : KnownOK (BC.bKB lay.val c) u := fun p hp => hku p (List.mem_of_mem_filter hp)
@@ -1031,11 +1042,11 @@ theorem encB_step_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) 
       · rw [if_pos h3] at hdc; rcases hdc with rfl | rfl <;> (rw [h3]; decide +kernel)
       · rw [if_neg h3] at hdc
         have H := ht lay.val c (by have := lay.isLt; omega) hc
-        rcases hdc with rfl | rfl <;> omega
-    have hBu : Verify.Orig w (fun o => BC.bufferStart lay.val ≤ o ∧ o < 24832) u := by
+        rcases hdc with ⟨hd1, hd2⟩ | rfl <;> omega
+    have hBu : Verify.Orig w (fun o => BC.bufferStart lay.val ≤ o ∧ o < 24896) u := by
       have H := Orig_writeHash ht.bufferOrig a d h12 (by omega)
       exact H.mono (fun o ho => ⟨ho, Or.inr (by omega)⟩)
-    have hBs0 : Verify.Orig w (fun o => BC.bufferStart lay.val ≤ o ∧ o < 24832) s0 := by
+    have hBs0 : Verify.Orig w (fun o => BC.bufferStart lay.val ≤ o ∧ o < 24896) s0 := by
       exact (hs0.orig_const hBu).mono (fun o ho => ⟨ho, by simp⟩)
     have hpc0 : s0.pc = pcOf (L.startPc 0) := by
       rw [hs0.spc (tgtl lay.val) rfl]
@@ -1143,14 +1154,15 @@ theorem encB_step_hi (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (
         s0.getReg .x23 = BitVec.ofNat 64 (lfS7 lay.val (route index lay).1) ∧
         s0.getReg .x31 = BitVec.ofNat 64 (route index lay).2 ∧
         s0.getReg .x9 = BitVec.ofNat 64 TOPB9 ∧
-        Verify.Orig w (fun o => BC.bufferStart lay.val ≤ o ∧ o < 24832) s0) := by
+        Verify.Orig w (fun o => BC.bufferStart lay.val ≤ o ∧ o < 24896) s0) := by
   let b := highView a
   set u := writeHash t a with hu
   have h0 : lay.val ≠ 0 := fun h => hlay (Fin.ext h)
   have hB := copy_parts_hi lay.val c (BC.copyCheck_at lay.val c lay.isLt hc) h0
   have hkt : KnownOK (BC.bK lay.val c) t := ht.glob.1
   obtain ⟨d, h12, hdc⟩ : ∃ d, t.getReg .x12 = BitVec.ofNat 64 d ∧
-      (if lay.val = 3 then (d = 1200 ∨ d = 1344) else (d = rowA lay.val c ∨ d = rowA lay.val c + 48)) := by
+      (if lay.val = 3 then (d = 1200 ∨ d = 1344) else
+        ((d + 16 = rowA lay.val c ∧ WIT + BC.layerEnd lay.val + 16 ≤ rowA lay.val c) ∨ d = rowA lay.val c + 48)) := by
     by_cases h3 : lay.val = 3
     · rcases ht.dst3 h3 with hd | hd
       · exact ⟨1200, hd, by rw [if_pos h3]; exact Or.inl rfl⟩
@@ -1164,12 +1176,16 @@ theorem encB_step_hi (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (
         exact ⟨by decide +kernel, by decide +kernel, by decide +kernel, fun h => absurd h3 h⟩
     · rw [if_neg h3] at hdc
       obtain ⟨r16, rlo, rhi, rend⟩ := rowA_facts lay.val c (by have := lay.isLt; omega) hc
-      have hd8 : d % 8 = 0 := by rcases hdc with rfl | rfl <;> omega
-      have hd32 : d + 32 ≤ 2 ^ 23 := by rcases hdc with rfl | rfl <;> omega
-      have hlo : WLO ≤ d := by rcases hdc with rfl | rfl <;> omega
+      have hd8 : d % 8 = 0 := by rcases hdc with ⟨hd1, hd2⟩ | rfl <;> omega
+      have hd32 : d + 32 ≤ 2 ^ 23 := by rcases hdc with ⟨hd1, hd2⟩ | rfl <;> omega
+      have hlo : WLO ≤ d := by
+        have hle : 48 ≤ BC.layerEnd lay.val := by
+          have := lay.isLt; unfold BC.layerEnd
+          rcases (show lay.val = 0 ∨ lay.val = 1 ∨ lay.val = 2 ∨ lay.val = 3 by omega) with h | h | h | h <;> simp [h]
+        rcases hdc with ⟨hd1, hd2⟩ | rfl <;> (have := rlo; unfold WLO at this ⊢; omega)
       refine ⟨hd8, hd32, safeDest_hi d hlo hd8 hd32, fun _ => ?_⟩
       have : layerEnd lay.val = BC.layerEnd lay.val := rfl
-      rcases hdc with rfl | rfl <;> omega
+      rcases hdc with ⟨hd1, hd2⟩ | rfl <;> omega
   obtain ⟨hd8, hd32, hsafe, hdend⟩ := hdf
   have hku : KnownOK (BC.bK lay.val c) u := fun p hp => by rw [hu, writeHash_getReg]; exact hkt p hp
   have hkuB : KnownOK (BC.bKB lay.val c) u := fun p hp => hku p (List.mem_of_mem_filter hp)
@@ -1364,11 +1380,11 @@ theorem encB_step_hi (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (
       · rw [if_pos h3] at hdc; rcases hdc with rfl | rfl <;> (rw [h3]; decide +kernel)
       · rw [if_neg h3] at hdc
         have H := ht lay.val c (by have := lay.isLt; omega) hc
-        rcases hdc with rfl | rfl <;> omega
-    have hBu : Verify.Orig w (fun o => BC.bufferStart lay.val ≤ o ∧ o < 24832) u := by
+        rcases hdc with ⟨hd1, hd2⟩ | rfl <;> omega
+    have hBu : Verify.Orig w (fun o => BC.bufferStart lay.val ≤ o ∧ o < 24896) u := by
       have H := Orig_writeHash ht.bufferOrig a d h12 (by omega)
       exact H.mono (fun o ho => ⟨ho, Or.inr (by omega)⟩)
-    have hBs0 : Verify.Orig w (fun o => BC.bufferStart lay.val ≤ o ∧ o < 24832) s0 := by
+    have hBs0 : Verify.Orig w (fun o => BC.bufferStart lay.val ≤ o ∧ o < 24896) s0 := by
       exact (hs0.orig_const hBu).mono (fun o ho => ⟨ho, by simp⟩)
     have hpc0 : s0.pc = pcOf (L.startPc 0) := by
       rw [hs0.spc (tgtHi lay.val) rfl]
@@ -1482,7 +1498,8 @@ theorem encB_step_trap (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
     simpa only [beq_iff_eq] using H
   have hkt : KnownOK (BC.bK lay.val c) t := ht.glob.1
   obtain ⟨d, h12, hdc⟩ : ∃ d, t.getReg .x12 = BitVec.ofNat 64 d ∧
-      (if lay.val = 3 then (d = 1200 ∨ d = 1344) else (d = rowA lay.val c ∨ d = rowA lay.val c + 48)) := by
+      (if lay.val = 3 then (d = 1200 ∨ d = 1344) else
+        ((d + 16 = rowA lay.val c ∧ WIT + BC.layerEnd lay.val + 16 ≤ rowA lay.val c) ∨ d = rowA lay.val c + 48)) := by
     by_cases h3 : lay.val = 3
     · rcases ht.dst3 h3 with hd | hd
       · exact ⟨1200, hd, by rw [if_pos h3]; exact Or.inl rfl⟩
@@ -1496,12 +1513,16 @@ theorem encB_step_trap (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
         exact ⟨by decide +kernel, by decide +kernel, by decide +kernel, fun h => absurd h3 h⟩
     · rw [if_neg h3] at hdc
       obtain ⟨r16, rlo, rhi, rend⟩ := rowA_facts lay.val c (by have := lay.isLt; omega) hc
-      have hd8 : d % 8 = 0 := by rcases hdc with rfl | rfl <;> omega
-      have hd32 : d + 32 ≤ 2 ^ 23 := by rcases hdc with rfl | rfl <;> omega
-      have hlo : WLO ≤ d := by rcases hdc with rfl | rfl <;> omega
+      have hd8 : d % 8 = 0 := by rcases hdc with ⟨hd1, hd2⟩ | rfl <;> omega
+      have hd32 : d + 32 ≤ 2 ^ 23 := by rcases hdc with ⟨hd1, hd2⟩ | rfl <;> omega
+      have hlo : WLO ≤ d := by
+        have hle : 48 ≤ BC.layerEnd lay.val := by
+          have := lay.isLt; unfold BC.layerEnd
+          rcases (show lay.val = 0 ∨ lay.val = 1 ∨ lay.val = 2 ∨ lay.val = 3 by omega) with h | h | h | h <;> simp [h]
+        rcases hdc with ⟨hd1, hd2⟩ | rfl <;> (have := rlo; unfold WLO at this ⊢; omega)
       refine ⟨hd8, hd32, safeDest_hi d hlo hd8 hd32, fun _ => ?_⟩
       have : layerEnd lay.val = BC.layerEnd lay.val := rfl
-      rcases hdc with rfl | rfl <;> omega
+      rcases hdc with ⟨hd1, hd2⟩ | rfl <;> omega
   obtain ⟨hd8, hd32, hsafe, hdend⟩ := hdf
   have hku : KnownOK (BC.bK lay.val c) u := fun p hp => by rw [hu, writeHash_getReg]; exact hkt p hp
   have hkuB : KnownOK (BC.bKB lay.val c) u := fun p hp => hku p (List.mem_of_mem_filter hp)
@@ -1574,7 +1595,7 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
         s0.getReg .x23 = BitVec.ofNat 64 (lfS7 lay.val (route index lay).1) ∧
         s0.getReg .x31 = BitVec.ofNat 64 (route index lay).2 ∧
         s0.getReg .x9 = BitVec.ofNat 64 TOPB9 ∧
-        Verify.Orig w (fun o => BC.bufferStart lay.val ≤ o ∧ o < 24832) s0) := by
+        Verify.Orig w (fun o => BC.bufferStart lay.val ≤ o ∧ o < 24896) s0) := by
   by_cases hlo : lowerSpare (ansD a)
   · simp only [selectedView, if_pos hlo]
     have H := encB_step_low w pk index lay hlay c hc hidx t ht a hlo

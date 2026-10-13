@@ -277,10 +277,12 @@ theorem pathOut_congr (M M' : Nat → Word) (lay r p : Nat)
       M' (lvSrc lay j - SNAP2 + WIT + (p - 16 * plan lay r j))) :
     pathOut M lay r p = pathOut M' lay r p := by
   unfold pathOut
-  split
-  · rename_i j hj
-    exact h j (List.mem_range.mp (List.mem_of_find?_eq_some hj))
+  split_ifs
   · rfl
+  · split
+    · rename_i j hj
+      exact h j (List.mem_range.mp (List.mem_of_find?_eq_some hj))
+    · rfl
 theorem out2old_congr (M M' : Nat → Word) (h : ∀ x < 8 * 2729, x % 8 = 0 → M (WIT + x) = M' (WIT + x))
     (idx o : Nat) (ho : o % 8 = 0) : out2old M idx o = out2old M' idx o := by
   have hW : WIT = 0x800 := rfl
@@ -289,12 +291,12 @@ theorem out2old_congr (M M' : Nat → Word) (h : ∀ x < 8 * 2729, x % 8 = 0 →
     have := h (A - WIT) h2 h3
     rwa [show WIT + (A - WIT) = A by omega] at this
   obtain ⟨d1, d2, d3, c1, c2, c3⟩ := lay_consts
-  have hz : (zoneLay o = 1 ∧ o < 14768) ∨ (zoneLay o = 2 ∧ 14768 ≤ o ∧ o < 17824) ∨
-      (zoneLay o = 3 ∧ 17824 ≤ o) := by
+  have hz : (zoneLay o = 1 ∧ o < 14800) ∨ (zoneLay o = 2 ∧ 14800 ≤ o ∧ o < 17872) ∨
+      (zoneLay o = 3 ∧ 17872 ≤ o) := by
     unfold zoneLay; split_ifs <;> omega
   have hzl : 1 ≤ zoneLay o ∧ zoneLay o < 4 := by omega
-  have hpt : pathTop (zoneLay o) ≤ 368 := by unfold pathTop; split_ifs <;> omega
-  have hch : chSrc (zoneLay o) - SNAP2 + (o - (chDst (zoneLay o) - WIT)) + 8 ≤ 8 * 2729 ∨ ¬ o < 20880 := by
+  have hpt : pathTop (zoneLay o) ≤ 400 := by unfold pathTop; split_ifs <;> omega
+  have hch : chSrc (zoneLay o) - SNAP2 + (o - (chDst (zoneLay o) - WIT)) + 8 ≤ 8 * 2729 ∨ ¬ o < 20944 := by
     unfold chSrc
     rcases hz with ⟨hz, _⟩ | ⟨hz, _, _⟩ | ⟨hz, _⟩ <;> rw [hz] <;> simp only [hz] at * <;> norm_num <;> omega
   have hch8 : (chSrc (zoneLay o) - SNAP2 + (o - (chDst (zoneLay o) - WIT))) % 8 = 0 := by
@@ -382,13 +384,14 @@ structure CompactPre (N : HashOutput) (w : WCT9.Witness) (s : MachineState) : Pr
   dig : OutAt s 0x60 N
   plan : PlanAt s
   lplan : Compact2.LPlanAt s
-/-- Nested FTS (r1-1): jump 1 + staging 23576 + final assembly 42523 + leaf buffers 2670. -/
-def compactC : Nat := 68770
+/-- Nested FTS (r1-1): jump 1 + staging 23576 + final assembly 42535 + leaf buffers 2674 (C2 + C3 FULL: the three
+root-level trampolines add 4 steps each to the final assembly, the E6 footer trampoline 4 to the leaf buffers). -/
+def compactC : Nat := 68786
 def CompactGood (im : Image) : Prop :=
   NewCodeAt im → CodeAt im (pcOf 351) [compactJal] → ∀ N w s, CompactPre N w s →
     ∃ t, Steps im s compactC compactC t ∧ t.pc = pcOf 44045 ∧ t.getReg .x5 = BitVec.ofNat 64 1 ∧
       t.getReg .x10 = BitVec.ofNat 64 0 ∧
-      t.readWords (BitVec.ofNat 64 0x4c0) 3108 = wordsOf (ClaudeWCT.W9.T3M.witList N w)
+      t.readWords (BitVec.ofNat 64 0x4c0) 3116 = wordsOf (ClaudeWCT.W9.T3M.witList N w)
 namespace Compact
 sym_block cJal := symRun { noAlias := true } [compactJal] (pcOf 351) 10
 theorem jal_spec {im : Image} (hJ : CodeAt im (pcOf 351) [compactJal]) (s : MachineState) (hpc : s.pc = pcOf 351) :
@@ -498,7 +501,7 @@ theorem compactGood_holds (im : Image) : CompactGood im := by
   have hvM : ∀ x < 8 * 2729, x % 8 = 0 →
       v.getMem (BitVec.ofNat 64 (Compact2.WIT + x)) = Compact2.vM N w (Compact2.WIT + x) := fun x hx h8 => by
     rw [hv6 x hx h8, Compact2.vM_wit N w x hx]
-  have hpreWords : ∀ i < 2718, t.getMem (BitVec.ofNat 64 (1216 + 8 * i)) =
+  have hpreWords : ∀ i < 2726, t.getMem (BitVec.ofNat 64 (1216 + 8 * i)) =
       (wordsOf (Compact2.preBufferWitList N w)).getD i 0 := by
     intro i hi
     rw [mt _ (by omega), show 1216 + 8 * i = Compact2.WOUT + 8 * i from rfl,
@@ -512,8 +515,8 @@ theorem compactGood_holds (im : Image) : CompactGood im := by
   obtain ⟨q, sq, pq, q5, q10, mq⟩ := Compact2.Buffer.buffer_spec hc t pt
   refine ⟨q, (((su.trans sv).trans st).trans sq).of_eq (by unfold compactC; norm_num)
     (by unfold compactC; norm_num), pq, q5, q10, ?_⟩
-  have hl : (wordsOf (ClaudeWCT.W9.T3M.witList N w)).length = 3108 :=
-    length_wordsOf 3108 _ (by rw [ClaudeWCT.W9.T3M.witList_length_eq])
+  have hl : (wordsOf (ClaudeWCT.W9.T3M.witList N w)).length = 3116 :=
+    length_wordsOf 3116 _ (by rw [ClaudeWCT.W9.T3M.witList_length_eq])
   rw [← hl]
   refine readWords_ext q _ 0x4c0 (fun i hi => ?_)
   rw [hl] at hi
@@ -577,11 +580,11 @@ theorem dword_of_halves (w : BitVec 64) :
 def ExpQW : Option (HashOutput × WCT9.Witness) → MachineState → Prop
   | none, t => FailedAt 354 t ∨ FailedAt 41062 t
   | some (N, w), t => t.pc = pcOf 44045 ∧ t.getReg .x5 = BitVec.ofNat 64 1 ∧ t.getReg .x10 = BitVec.ofNat 64 0 ∧
-      t.readWords (BitVec.ofNat 64 0x4c0) 3108 = wordsOf (ClaudeWCT.W9.T3M.witList N w)
+      t.readWords (BitVec.ofNat 64 0x4c0) 3116 = wordsOf (ClaudeWCT.W9.T3M.witList N w)
 /-- [h2 lane] prologue 1199 + front 29 + zero block 7, then the layers, the 2^16 search and the compaction. -/
 def expCostW : Nat := 1235 + newCost + (lcost 4 + (65535 * 30 + 111 + compactC))
-theorem lcost_four : lcost 4 ≤ 3523299703 := by decide
-theorem expCostW_le : expCostW ≤ 3944866269 := by
+theorem lcost_four : lcost 4 ≤ 3523312730 := by decide
+theorem expCostW_le : expCostW ≤ 3944879312 := by
   have h := lcost_four
   unfold expCostW newCost compactC
   generalize lcost 4 = L at h ⊢
@@ -646,13 +649,13 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hP : P
   obtain ⟨t1, st1, hpre, hmz, w800, w808, f1⟩ := front_pre30' hF hP hd m pk σ u pu
     (by rw [ru]; exact w9init_regs0 hd m pk b .x5 (by decide)) humem
   have hz0 : ∀ A, A < Compact2.LPLAN → (A < 0x7000 ∨ 0x7000 + 5312 ≤ A) → (A < 0xA0 ∨ 0xB0 ≤ A) →
-      (A < 0x65E0 ∨ 0x6600 ≤ A) → s0.getMem (BitVec.ofNat 64 A) = 0 := fun A hA h1 h2 h3 =>
+      (A < 0x6620 ∨ 0x6640 ≤ A) → s0.getMem (BitVec.ofNat 64 A) = 0 := fun A hA h1 h2 h3 =>
     w9init_zero hd m pk σ A hA ⟨h1, h2, by omega⟩
   have hz0' : ∀ A, A < Compact2.LPLAN → (A < 0x7000 ∨ 0x7000 + 5312 ≤ A) → (A < 0xA0 ∨ 0xB0 ≤ A) →
-      ¬ (0x65E0 ≤ A ∧ A < 0x6600 ∧ (A - 0x65E0) % 8 = 0) → s0.getMem (BitVec.ofNat 64 A) = 0 :=
+      ¬ (0x6620 ≤ A ∧ A < 0x6640 ∧ (A - 0x6620) % 8 = 0) → s0.getMem (BitVec.ofNat 64 A) = 0 :=
     fun A hA h1 h2 h3 => w9init_zero hd m pk σ A hA ⟨h1, h2, h3⟩
   unfold Compact2.LPLAN at hz0 hz0'
-  have hCC : compactC = 68770 := rfl
+  have hCC : compactC = 68786 := rfl
   have hPL : PLAN = 0xff9a00 := rfl
   refine (TBSim.steps (stu.trans st1) (TBSim.bind (W₂ := lcost 4 + (65535 * 30 + 111 + compactC))
     (newCode_tb hc (hookAt_of_front hF) sk m sig t1 hpre) (fun r t7 h7 => ?_))).mono
@@ -675,7 +678,7 @@ theorem expandW_tbsim {im : Image} (hc : NewCodeAt im) (hF : FrontAt im) (hP : P
       ¬ NewW A := by
     intro A h1 h2 h3 h4 h5 h6 h7 h8 h9 h10 h11 h12 h
     unfold NewW at h; simp only [DIG, NBUF, IDXV, ENC] at h h7 h8 h9 h10 h11 h12; omega
-  have z7 : ∀ A, A < 0x65E0 → (A < 0x60 ∨ 0x80 ≤ A) → (A < 0x100 ∨ 0x120 ≤ A) → (A < 0x400 ∨ 0x550 ≤ A) →
+  have z7 : ∀ A, A < 0x6620 → (A < 0x60 ∨ 0x80 ≤ A) → (A < 0x100 ∨ 0x120 ≤ A) → (A < 0x400 ∨ 0x550 ≤ A) →
       (A < 0x800 ∨ 0x818 ≤ A) → (A < 0x840 ∨ 0x2c48 ≤ A) → (A < 0xA0 ∨ 0xB0 ≤ A) → (A < 0x59B0 ∨ 0x59D0 ≤ A) →
       t7.getMem (BitVec.ofNat 64 A) = 0 := by
     intro A h0 h1 h2 h3 h4 h4' h5 h6
@@ -1069,15 +1072,15 @@ theorem readBuffer_trunc (t : MachineState) (A n m : Nat) (h : n ≤ m) :
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_ofNat]
   rw [Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by omega : 8 * n ≤ 8 * m)), readBuffer_foldl_mod t A n m h]
-/-- Expand writes 3108 whole words from 0x4c0; the 24860-byte witness is their prefix (the 4 bytes
+/-- Expand writes 3116 whole words from 0x4c0; the 24924-byte witness is their prefix (the 4 bytes
 after the 32-bit digest counter are zero and lie outside the witness). -/
 theorem expqW_output {imgs : Phase → Image} {N : HashOutput} {w : WCT9.Witness} {t : MachineState}
-    (h : t.readWords (BitVec.ofNat 64 0x4c0) 3108 = wordsOf (ClaudeWCT.W9.T3M.witList N w)) :
+    (h : t.readWords (BitVec.ofNat 64 0x4c0) 3116 = wordsOf (ClaudeWCT.W9.T3M.witList N w)) :
     readOutput (w9Sub imgs).sizes (w9Sub imgs).layout .expand t = ClaudeWCT.W9.T3M.witEnc N w := by
-  show readBuffer t 0x4c0 24860 =
-    BitVec.ofNat (8 * 24860) (SigGolfCandidate.T3.readLE (ClaudeWCT.W9.T3M.witList N w))
-  rw [readBuffer_trunc t 0x4c0 24860 (8 * 3108) (by omega),
-    readBuffer_of_words t 0x4c0 3108 (ClaudeWCT.W9.T3M.witList N w) (by decide) (by decide)
+  show readBuffer t 0x4c0 24924 =
+    BitVec.ofNat (8 * 24924) (SigGolfCandidate.T3.readLE (ClaudeWCT.W9.T3M.witList N w))
+  rw [readBuffer_trunc t 0x4c0 24924 (8 * 3116) (by omega),
+    readBuffer_of_words t 0x4c0 3116 (ClaudeWCT.W9.T3M.witList N w) (by decide) (by decide)
       (ClaudeWCT.W9.T3M.witList_length_eq N w) h]
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_ofNat]

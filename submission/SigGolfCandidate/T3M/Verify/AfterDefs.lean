@@ -36,7 +36,8 @@ structure FtsOut (F : FCtx) (top : Digest × Digest) (u : MachineState) : Prop w
   pc : u.pc = pcOf layerPc
   left : DigAt u WIT top.1
   right : DigAt u (WIT + 144) top.2
-  wit : Orig F.w (fun o => (32 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24832)) u
+  /-- C3 (FULL): witness word 3 (the L3 encoding's row-tweak high word, honest 1) is still original. -/
+  wit : Orig F.w (fun o => (24 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24896)) u
   base : u.getReg .x8 = BitVec.ofNat 64 (WIT + 176)
   a1 : u.getReg .x11 = 64
   s10 : u.getReg .x26 = 6
@@ -50,7 +51,7 @@ structure FtsOut (F : FCtx) (top : Digest × Digest) (u : MachineState) : Prop w
   topBase : u.getReg .x9 = BitVec.ofNat 64 TOPB9
   top : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
     BitVec.ofNat 64 (topWords.getD k 0)
-  top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21200
+  top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21264
   /-- `a2` after coordinate 8's last heap hash (`regionAddr 9 + 704` or `+ 848`); the L3 encoding writes there. -/
   a2 : u.getReg .x12 = BitVec.ofNat 64 1200 ∨ u.getReg .x12 = BitVec.ofNat 64 1344
 end SigGolfCandidate.T3M.Verify

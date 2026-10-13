@@ -37,9 +37,11 @@ theorem hit_recorded {α : Type} (program : M α) (hp : Security.SourceReplay.Ha
   obtain ⟨prior, hevent⟩ := SigGolfCandidate.T3.Security.PaddedExtraction.public_occurrence program hp before
     result hr answers ha actual hquery
   exact ⟨position, actual, prior, hbounded, hpos, hevent, hhit⟩
+/-- A good layer whose encoding row carries a nonzero 12-byte pad or (C2/C3 FULL) a row high word other than the
+honest 1. -/
 def PadAt (answers : Answers) (witness : WBytes) (index : Nat) : Prop :=
   ∃ lay : Layer, ClaudeWCT.W9.T3M.Extract.Good answers witness index lay ∧
-    ClaudeWCT.W9.T3M.wbcPad witness index lay ≠ 0
+    ¬ (ClaudeWCT.W9.T3M.wbcPad witness index lay = 0 ∧ ClaudeWCT.W9.T3M.wbcHigh witness index lay = 1)
 def Conclusion (answers : Answers) (message : Message) (witness : WBytes)
     (events : List FirstHit.QueryEvent) : Prop :=
   ∃ digestAnswer : HashOutput, (wdc witness).toNat < WCT9.digestVerifyWindow ∧
@@ -77,7 +79,8 @@ theorem verifyP_extracted_in {α : Type} (program : M α) (hp : Security.SourceR
     rw [FirstHit.recorded_inputs program hp before result hr answers ha,
       SigGolfCandidate.T3.Security.PaddedExtraction.queried_eq]
     exact hsub _ hin
-  · by_cases hz : ∀ lay : Layer, ClaudeWCT.W9.T3M.wbcPad witness (WCT9.digestIndex N) lay = 0
+  · by_cases hz : ∀ lay : Layer, ClaudeWCT.W9.T3M.wbcPad witness (WCT9.digestIndex N) lay = 0 ∧
+        ClaudeWCT.W9.T3M.wbcHigh witness (WCT9.digestIndex N) lay = 1
     · exact Or.inr (Or.inr (Or.inr ⟨fun lay => ⟨hgood lay, hz lay⟩, hfts⟩))
     · obtain ⟨lay, hlay⟩ := not_forall.mp hz
       exact Or.inr (Or.inr (Or.inl ⟨lay, hgood lay, hlay⟩))

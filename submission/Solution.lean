@@ -7,15 +7,15 @@ def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGo
 
 theorem signature_bytes : submission.sizes.signature = 5310 := rfl
 
-theorem witness_bytes : submission.sizes.witness = 24860 := rfl
+theorem witness_bytes : submission.sizes.witness = 24924 := rfl
 
 theorem cache_bytes : submission.sizes.cache = 131072 := rfl
 
 theorem layout_offsets : submission.layout =
-  { message := 26080, secretKey := 128, publicKey := 160,
+  { message := 26144, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7072 := by
+theorem certificate : SigGolf.Certificate submission 7054 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -87,12 +87,12 @@ node's hash at slot - 16, so the junk low half lands on a dead slot and the pack
 never dirtied: every `sd zero,24(a0)` goes (new per-child windows in [0,320)). Child cost 27 - skips, child
 saving 4 + skips (max 6), per-coordinate fixed part dispatchLen + 89, joint cap 776. FTS accept cost
 927 -> 918; verify bound 6998 -> 6976; C 7096 -> 7074.
-S = 5310, W = 24860, K = 131072, C = 7074; score 37562940.
 
-Top-leaf zero16 witness pad (Claude Fable 5.1, base 1e05e86b, C 7074): the 128 lay1->top transition blocks no
-longer store `sd zero,512(tp); sd zero,520(tp)`; the 16 bytes in front of the top-leaf tweak (witness offset 23920,
-absolute 25136) are hashed as they are (`leafHashPad`, honest 0). A padded top leaf input reaching the honest leaf
-value with a different pad is a hash hit at the leaf position (`leafHashPad_extract`); an honest witness has pad 0
-(`wtopPad_witEnc`). Top setup 8 -> 6 steps. Verify bound 6976 -> 6974; C 7074 -> 7072.
-S = 5310, W = 24860, K = 131072, C = 7072; score 37552320.
+Lower-tree half-swap and witness pads (C2 + C3): in the lower trees (L1..L3) a left child (even heap, leaves
+included) is the HIGH half of its hash and is written 16 bytes below its slot; each fold writes one marked tweak
+word `hyperWord + 1407 + heap` whose high word is a witness pad (honest 0). The top leaf's leading 16 bytes, every
+leaf tweak's high word and every encoding row tweak's high word (honest 1) are witness pads, and lower chain 0's
+last step keeps the high half. W 24860 -> 24924 (message at 26144); after-FTS cost 5271 -> 5251; verify bound
+6976 -> 6956; C 7074 -> 7054 (stacked on C1). Mechanism also certified in b3cc11b (credited dependency).
+S = 5310, W = 24924, K = 131072, C = 7054; score 37456740.
 -/

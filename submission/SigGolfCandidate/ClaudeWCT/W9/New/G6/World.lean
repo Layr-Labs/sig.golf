@@ -146,11 +146,6 @@ theorem buildLevels_free (tag lay tree h : Nat) (leaves : List Digest) :
   unfold buildLevels
   exact foldlM_allowed WFree _ _ (fun levels level =>
     bind_allowed WFree (buildLevel_free _ _ _ _ _ _) fun _ => pure_allowed _ _) _
-theorem buildLevelsBelow_free (tag lay tree h : Nat) (leaves : List Digest) :
-    AllQueriesSatisfy (WCT9.buildLevelsBelow tag lay tree h leaves) WFree := by
-  unfold WCT9.buildLevelsBelow
-  exact foldlM_allowed WFree _ _ (fun levels level =>
-    bind_allowed WFree (buildLevel_free _ _ _ _ _ _) fun _ => pure_allowed _ _) _
 theorem buildTree_free (lay : Layer) (tree selected : Nat) (digits : List Nat) :
     AllQueriesSatisfy (buildTree lay tree selected digits) WFree := by
   unfold buildTree
@@ -177,30 +172,31 @@ theorem buildLeafP_free (lay : Layer) (tree leaf : Nat) (digits : List Nat) (car
       bind_allowed WFree (chain_free _ _ _ _ _ _ _) fun _ => pure_allowed _ _
   · intro state
     exact bind_allowed WFree (leafHash_free _ _ _ _) fun _ => pure_allowed _ _
-theorem buildLeafPF_free (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
-    AllQueriesSatisfy (WCT9.buildLeafPF lay tree leaf digits carry) WFree := by
-  unfold WCT9.buildLeafPF
-  apply bind_allowed WFree
-  · unfold WCT9.lowerCoefs
-    apply foldlM_allowed WFree
-    intro state j
-    exact bind_allowed WFree (packedSecret_free _ _ _ _) fun _ => pure_allowed _ _
-  · intro cc
-    apply bind_allowed WFree
-    · apply foldlM_allowed WFree
-      intro state i
-      exact bind_allowed WFree (chain_free _ _ _ _ _ _ _) fun _ =>
-        bind_allowed WFree (chain_free _ _ _ _ _ _ _) fun _ => pure_allowed _ _
-    · intro state
-      exact bind_allowed WFree (leafHash_free _ _ _ _) fun _ => pure_allowed _ _
+/-- C2 (FULL): a lower-tree node hash (packed node word: marked, byte1 7) is never an FTS probe. -/
+theorem lowerNodeHash_free (lay : Layer) (tree heap : Nat) (left right : Digest) (hh : heap < 2 ^ height lay) :
+    AllQueriesSatisfy (WCT9.lowerNodeHash lay.val tree heap left right) WFree := by
+  unfold WCT9.lowerNodeHash WCT9.lowerHash
+  apply Signer.halfHash_allowed_of_short
+  unfold WCT9.merkleNodeInput
+  rw [List.append_assoc]
+  apply shortHash_free'
+  by_cases h0 : lay.val = 0
+  · rw [h0, WCT9.merkleTweak_top]; exact nodeTweak_probe_safe 3 0 tree heap
+  · rw [WCT9.merkleTweak_lower h0]
+    right
+    have h7 : height lay ≤ 7 := by fin_cases lay <;> simp_all [height]
+    have h128 : heap < 128 := lt_of_lt_of_le hh (le_trans (Nat.pow_le_pow_right (by decide) h7) (by norm_num))
+    have := WCT9.lowerTweak_tag h128 lay.val tree
+    unfold tweakTag at this
+    omega
+theorem lowerSeedPair_free (lay : Layer) (tree pair : Nat) :
+    AllQueriesSatisfy (WCT9.lowerSeedPair lay tree pair) WFree := by
+  unfold WCT9.lowerSeedPair
+  exact privatePair_free _ _ _ _ (by decide)
 theorem buildTreeP_free (lay : Layer) (tree selected : Nat) (digits : List Nat) :
-    AllQueriesSatisfy (WCT9.buildTreeP lay tree selected digits) WFree := by
-  unfold WCT9.buildTreeP
-  apply bind_allowed WFree
-  · exact foldlM_allowed WFree _ _ (fun state leaf =>
-      bind_allowed WFree (buildLeafPF_free _ _ _ _ _) fun _ => pure_allowed _ _) _
-  · intro state
-    exact bind_allowed WFree (buildLevelsBelow_free _ _ _ _ _) fun _ => pure_allowed _ _
+    AllQueriesSatisfy (WCT9.buildTreeP lay tree selected digits) WFree :=
+  Signer.buildTreeP_allowed' WFree chain_free leafHash_free (fun lay tree heap left right hh =>
+    lowerNodeHash_free lay tree heap left right hh) lowerSeedPair_free lay tree selected digits
 theorem maskedLevel_free (nodes : List Digest) (level : Nat) :
     AllQueriesSatisfy (maskedLevel nodes level) WFree := by
   unfold maskedLevel pairedMask

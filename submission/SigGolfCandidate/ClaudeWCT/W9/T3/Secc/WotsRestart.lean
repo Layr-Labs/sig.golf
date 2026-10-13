@@ -85,7 +85,7 @@ theorem fillTable_frontier (a : ChainAddr) (R : RefTables adversary) (endpoint :
   intro s0
   exact evaluate_const_succ d' endpoint s0
 theorem contact_iff_rowsInv (a : ChainAddr) (R : RefTables adversary) (endpoint : Digest) (memory : List Entry)
-    (observed : Fin (restDepth a R) → Digest → Option Digest) (hinv : RowsInv a memory observed) :
+    (observed : Fin (restDepth a R) → Digest → Option Digest) (hinv : RowsInvW a memory observed) :
     Contact observed endpoint ↔ ContactAt (fillTable a R endpoint) memory a := by
   by_cases hd0 : restDepth a R = 0
   · unfold Contact ContactAt
@@ -95,14 +95,15 @@ theorem contact_iff_rowsInv (a : ChainAddr) (R : RefTables adversary) (endpoint 
       exact absurd i.isLt (by omega)
     · rintro ⟨h, -⟩
       omega
-  unfold Contact ContactAt SeenRow
+  unfold Contact ContactAt SeenRowW
   rw [fillTable_depth, fillTable_frontier a R endpoint (by omega)]
   constructor
   · rintro ⟨i, hi, value, h⟩
     obtain ⟨answer, hm, hl⟩ := (hinv i value endpoint).mp h
-    refine ⟨by omega, value, answer, ?_, hl⟩
-    rw [show restDepth a R - 1 = i.val by omega]
-    exact hm
+    have he : restDepth a R - 1 = i.val := by omega
+    refine ⟨by omega, value, answer, ?_, ?_⟩
+    · rw [he]; exact hm
+    · rw [he]; exact hl
   · rintro ⟨hd, value, answer, hm, hl⟩
     refine ⟨⟨restDepth a R - 1, by omega⟩, by simp only; omega, value, (hinv _ value endpoint).mpr ⟨answer, hm, hl⟩⟩
 end PrefixGame

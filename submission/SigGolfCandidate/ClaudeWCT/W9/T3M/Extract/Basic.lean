@@ -57,6 +57,13 @@ noncomputable def honestMsg (answers : Answers) (index : Nat) (lay : Layer) : WC
     .pair (honestPair answers ⟨lay.val + 1, by omega⟩ (route index ⟨lay.val + 1, by omega⟩).2).1
       (honestPair answers ⟨lay.val + 1, by omega⟩ (route index ⟨lay.val + 1, by omega⟩).2).2
   else .pair (honestTop answers index).1 (honestTop answers index).2
+/-- Tree index bits per layer (the routed tree of an index below `2 ^ 31`). -/
+def treeBits (lay : Layer) : Nat := ![0, 12, 19, 25] lay
+theorem treeBits_le (lay : Layer) : treeBits lay ≤ 25 := by fin_cases lay <;> decide
+theorem tree_lt_of_treeBits {lay : Layer} {tree : Nat} (ht : tree < 2 ^ treeBits lay) : tree < 2 ^ 31 :=
+  lt_of_lt_of_le ht (le_trans (Nat.pow_le_pow_right (by decide) (treeBits_le lay)) (by norm_num))
+theorem leaf_lt_4096 {lay : Layer} {leaf : Nat} (hl : leaf < 2 ^ height lay) : leaf < 4096 := by
+  fin_cases lay <;> simp [height] at hl ⊢ <;> omega
 inductive Pos where
   | chain (lay : Layer) (tree leaf i step : Nat)
   | leaf (lay : Layer) (tree leaf : Nat)
@@ -70,8 +77,8 @@ noncomputable def honestInput (answers : Answers) : Pos → HashInput
       (honestChainValue answers lay tree leaf i (wotsSeed answers lay tree leaf i) step))
   | .leaf lay tree leaf => pad64 (leafInput lay tree leaf
       ((List.range (chainCount lay)).map (wotsEnd answers lay tree leaf)))
-  | .node lay tree level node => pad64 (nodeInputP 3 lay.val tree (2 ^ (height lay - level - 1) + node)
-      (treeValue (wotsTree answers lay tree) level (2 * node)) 0
+  | .node lay tree level node => pad64 (WCT9.merkleNodeInput lay.val tree (2 ^ (height lay - level - 1) + node)
+      (treeValue (wotsTree answers lay tree) level (2 * node))
       (treeValue (wotsTree answers lay tree) level (2 * node + 1)))
   | .forest index => pad64 (forestInput index (ftsPairsHonest answers index))
   | .wctChain index coord child chain step => pad64 (WCT9.chainInput index coord child chain step
@@ -85,13 +92,13 @@ noncomputable def honestInput (answers : Answers) : Pos → HashInput
 def Pos.hdr : Pos → BitVec 128
   | .chain lay tree lf i step => chainHeader lay tree lf i step
   | .leaf lay tree lf => leafTweak lay tree lf
-  | .node lay tree level nd => nodeTweak 3 lay.val tree (2 ^ (height lay - level - 1) + nd)
+  | .node lay tree level nd => WCT9.merkleTweak lay.val tree (2 ^ (height lay - level - 1) + nd)
   | .forest index => header 15 0 index 0 0
   | .wctChain index coord child t step => WCT9.ftsChainHeader index coord child t step
   | .wctLeaf index coord child => WCT9.ftsLeafHeader index coord child
   | .wctNode index coord level nd => WCT9.wctNodeHeader coord index (2 ^ (7 - level - 1) + nd)
 def Pos.Bounded : Pos → Prop
-  | .chain _ tree lf i step => tree < 2 ^ 31 ∧ lf < 4096 ∧ i < 64 ∧ step < 8
+  | .chain _ tree lf i step => tree < 2 ^ 31 ∧ lf < 4096 ∧ i < 64 ∧ step < 7
   | .leaf lay tree lf => lf < 2 ^ height lay ∧ tree * 2 ^ height lay + lf < 2 ^ 32
   | .node lay tree level nd => tree < 2 ^ 32 ∧ level < height lay ∧ (lay = 0 ∨ level + 1 < height lay) ∧
       (lay = 0 → tree = 0) ∧ nd < 2 ^ (height lay - level - 1)
@@ -99,13 +106,32 @@ def Pos.Bounded : Pos → Prop
   | .wctChain index coord child t step => index < 2 ^ 31 ∧ coord < 9 ∧ child < 128 ∧ t < 6 ∧ step < 4
   | .wctLeaf index coord child => index < 2 ^ 31 ∧ coord < 9 ∧ child < 128
   | .wctNode index coord level nd => index < 2 ^ 31 ∧ coord < 9 ∧ level < 6 ∧ nd < 2 ^ (7 - level - 1)
-/-- The 128-bit half of an output that a position's honest value uses: for FTS leaves and nodes the half of their
-heap (`WCT9.ftsHalf`: high for the top pair, nested FTS r1-1, and for even heaps `16..255`, C1), the low half
-everywhere else. -/
-def Pos.proj : Pos → HashOutput → Digest
-  | .wctNode _ _ level nd => WCT9.ftsHalf (2 ^ (7 - level - 1) + nd)
-  | .wctLeaf _ _ child => WCT9.ftsHalf (128 + child)
-  | _ => fun a => a.extractLsb' 0 128
+/-- Whether a position's honest value is the HIGH half of its hash output: FTS leaves and nodes on
+`WCT9.ftsHighHeap` heaps (the top pair, nested FTS r1-1, and the even heaps `16..255`, C1), the left children of the
+lower trees (C2: lower leaves and nodes of even heap, `WCT9.lowerHigh`) and the last step of lower chain 0 (C3,
+`WCT9.chainHigh`). -/
+def Pos.high : Pos → Bool
+  | .wctNode _ _ level nd => WCT9.ftsHighHeap (2 ^ (7 - level - 1) + nd)
+  | .wctLeaf _ _ child => WCT9.ftsHighHeap (128 + child)
+  | .leaf lay _ lf => WCT9.lowerHigh lay.val lf
+  | .node lay _ level nd => WCT9.lowerHigh lay.val (2 ^ (height lay - level - 1) + nd)
+  | .chain lay _ _ i step => WCT9.chainHigh lay i step
+  | _ => false
+/-- The 128-bit half of an output that a position's honest value uses. For FTS leaves and nodes this is
+`WCT9.ftsHalf` of their heap (definitionally). -/
+def Pos.proj (p : Pos) : HashOutput → Digest := WCT9.halfOf p.high
+theorem Pos.proj_eq (p : Pos) :
+    p.proj = fun a => if p.high then a.extractLsb' 128 128 else a.extractLsb' 0 128 := rfl
+theorem Pos.proj_of_low {p : Pos} (h : p.high = false) : p.proj = fun a => a.extractLsb' 0 128 := by
+  unfold Pos.proj; rw [h]; rfl
+theorem Pos.proj_of_high {p : Pos} (h : p.high = true) : p.proj = fun a => a.extractLsb' 128 128 := by
+  unfold Pos.proj; rw [h]; rfl
+/-- The (padded) length of a position's honest input (S2-2). -/
+def Pos.len : Pos → Nat
+  | .leaf lay _ _ => if lay = 0 then 896 else 704
+  | .wctLeaf .. => 128
+  | .forest .. => 320
+  | _ => 64
 /-- A hit at a position: a different input whose output agrees with the honest one on the used half. -/
 def HashHitAt (answers : Answers) (pos : Pos) (honest actual : HashInput) : Prop :=
   actual ≠ honest ∧ pos.proj (answers (.inl (.inr actual))) = pos.proj (answers (.inl (.inr honest)))
@@ -114,8 +140,28 @@ theorem hashHitAt_of_low {answers : Answers} {pos : Pos} {honest actual : HashIn
     HashHitAt answers pos honest actual := by
   unfold HashHitAt; rw [hp]; exact h
 def hdrBlock (input : HashInput) : HashInput := (input.drop 16).take 16
+/-- C3 (FULL, S2-2): the decoding key of an input's header block. Leaf-length inputs (704 or 896 bytes) are keyed by
+the low tweak word only (the leaf tweak's high word is a witness pad); every other input by its canonical header. -/
+def hdrKey (x : HashInput) : HashInput :=
+  if x.length = 704 ∨ x.length = 896 then (hdrBlock x).take 8 ++ List.replicate 8 0 else canonicalHeader (hdrBlock x)
+/-- Same length and same decoding key (C3 FULL; S2-2). -/
 def SameHeader (actual honest : HashInput) : Prop :=
-  canonicalHeader (hdrBlock actual) = canonicalHeader (hdrBlock honest)
+  actual.length = honest.length ∧ hdrKey actual = hdrKey honest
+theorem hdrKey_of_len64 {x : HashInput} (h : x.length = 64) : hdrKey x = canonicalHeader (hdrBlock x) := by
+  unfold hdrKey; rw [if_neg (by omega)]
+theorem hdrKey_congr {a b : HashInput} (hl : a.length = b.length) (hb : hdrBlock a = hdrBlock b) :
+    hdrKey a = hdrKey b := by
+  unfold hdrKey; rw [hl, hb]
+theorem SameHeader.of_hdrBlock {a b : HashInput} (hl : a.length = b.length) (hb : hdrBlock a = hdrBlock b) :
+    SameHeader a b := ⟨hl, hdrKey_congr hl hb⟩
+theorem SameHeader.of_canonical {a b : HashInput} (hl : a.length = b.length)
+    (hn : ¬ (b.length = 704 ∨ b.length = 896))
+    (hc : canonicalHeader (hdrBlock a) = canonicalHeader (hdrBlock b)) : SameHeader a b := by
+  refine ⟨hl, ?_⟩
+  unfold hdrKey
+  rw [if_neg (by rw [hl]; exact hn), if_neg hn, hc]
+theorem pad64_length_congr {a b : HashInput} (h : a.length = b.length) : (pad64 a).length = (pad64 b).length := by
+  simp only [pad64, List.length_append, List.length_replicate, h]
 def HitIn (answers : Answers) (qs : List Spec.Domain) : Prop :=
   ∃ pos actual, pos.Bounded ∧ .inl (.inr actual) ∈ qs ∧ HashHitAt answers pos (honestInput answers pos) actual ∧
     SameHeader actual (honestInput answers pos)

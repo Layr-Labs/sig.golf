@@ -141,11 +141,18 @@ theorem checkpoint_charge (q : Nat) (a : ChainAddr) (R : RefTables adversary) (s
     SphincsSecurity.Concrete.OtsPrefix.uniformImpl _ (fun _ _ => none) middle hmiddle
   simp only [SphincsSecurity.Concrete.PartialChainEndpoint.queryCount_empty, Nat.zero_add] at hpast
   omega
+/-- The observed prefix rows of chain `a` are the used halves (`rowHalf`, C3) of the recorded answers. -/
+def RowsInvW (a : ChainAddr) {d : Nat} (memory : List Entry) (observed : Fin d → Digest → Option Digest) : Prop :=
+  ∀ (i : Fin d) (v w : Digest), observed i v = some w ↔
+    ∃ answer, (chainRow a i v, answer) ∈ memory ∧ rowHalf a i answer = w
+theorem rowsInvW_nil (a : ChainAddr) (d : Nat) : RowsInvW a (d := d) [] (fun _ _ => none) := by
+  intro i v w
+  simp
 theorem route_step_lazy (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables adversary) (input : RefWorld.Domain)
-    (memory : List Entry) (observed : Fin d → Digest → Option Digest) (hinv : RowsInv a memory observed)
+    (memory : List Entry) (observed : Fin d → Digest → Option Digest) (hinv : RowsInvW a memory observed)
     (result : RefWorld.Range input × (Fin d → Digest → Option Digest))
     (hr : result ∈ (lazyRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl (routeImpl a d R input) observed).support) :
-    RowsInv a (stepTrace input result.1 memory) result.2 := by
+    RowsInvW a (stepTrace input result.1 memory) result.2 := by
   rcases input with (n | input) | u
   · simp only [routeImpl] at hr
     rw [show (liftM ((SeedSpec d).query (.inl n)) : OracleComp (SeedSpec d) _) =
@@ -186,7 +193,7 @@ theorem route_step_lazy (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTable
           constructor
           · rintro rfl
             refine ⟨_, Or.inr rfl, ?_⟩
-            simp only [low, ChainGraph.joinOutput_low]
+            simp only [rowHalf, halfOf_joinHalf]
           · rintro ⟨answer, hm | hm, hl⟩
             ·
               have hold := (hinv i v w).mpr ⟨answer, hm, hl⟩
@@ -194,7 +201,8 @@ theorem route_step_lazy (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTable
               exact hw₀
             · have := congrArg Prod.snd hm
               simp only at this
-              rw [← hl, this, low, ChainGraph.joinOutput_low]
+              rw [← hl, this]
+              simp only [rowHalf, halfOf_joinHalf]
         · have hne : chainRow a p.1 p.2 ≠ chainRow a i v := by
             intro he
             obtain ⟨hs, hv⟩ := Mask.chainRow_inj (by have := p.1.isLt; omega) (by have := i.isLt; omega) he
@@ -222,7 +230,7 @@ theorem checkpoint_rows (q : Nat) (a : ChainAddr) (R : RefTables adversary) (sto
     (middle : ((List Entry × OracleComp RefWorld SeedResult) × Nat) × (Fin (restDepth a R) → Digest → Option Digest))
     (hmiddle : middle ∈ (lazyRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl
       (seedBefore adversary q a R stop endpoint) (fun _ _ => none)).support) :
-    RowsInv a middle.1.1.1 middle.2 := by
+    RowsInvW a middle.1.1.1 middle.2 := by
   have hd : restDepth a R ≤ 256 := by have := restDepth_le a R; omega
   have hplain : (middle.1.1, middle.2) ∈ (lazyRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl
       (simulateQ (routeImpl a (restDepth a R) R) (SphincsSecurity.QueryPause.run stop stepTrace
@@ -246,10 +254,10 @@ theorem checkpoint_rows (q : Nat) (a : ChainAddr) (R : RefTables adversary) (sto
   rw [hcomp] at hplain
   exact SphincsSecurity.QueryPause.run_simulation_invariant stop stepTrace
     ((lazyImpl SphincsSecurity.Concrete.OtsPrefix.uniformImpl) ∘ₛ routeImpl a (restDepth a R) R)
-    (fun memory observed => RowsInv a memory observed)
+    (fun memory observed => RowsInvW a memory observed)
     (fun memory observed hinv _ input result hresult =>
       route_step_lazy a hd R input memory observed hinv result (by
         simpa only [QueryImpl.apply_compose, lazyRun] using hresult))
-    _ [] (fun _ _ => none) (rowsInv_nil a _) _ hplain
+    _ [] (fun _ _ => none) (rowsInvW_nil a _) _ hplain
 end PrefixGame
 end ClaudeWCT.W9.T3.Security.Wots
