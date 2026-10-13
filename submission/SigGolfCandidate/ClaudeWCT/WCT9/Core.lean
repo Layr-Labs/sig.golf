@@ -11,7 +11,7 @@ def children : Nat := 128
 def chains : Nat := 6
 def gateShift : Nat := 242
 def gateBits : Nat := 14
-def gateLimit : Nat := 1360
+def gateLimit : Nat := 1418
 def fieldBits : Nat := 10
 def fieldLimit : Nat := 563
 def jointCap : Nat := 775
@@ -34,7 +34,7 @@ def field (output : HashOutput) (coord : Coord) : Nat :=
 def rank (output : HashOutput) (coord : Coord) : Rank :=
   ⟨field output coord % 563, Nat.mod_lt _ (by decide)⟩
 def admissible (output : HashOutput) : Bool :=
-  decide (output.toNat / 2 ^ 242 % 2 ^ 14 < 1360) &&
+  decide (output.toNat / 2 ^ 242 % 2 ^ 14 < 1418) &&
     (List.range 9).all (fun coord =>
       decide (output.toNat / 2 ^ fieldBase coord % 2 ^ 10 < 563))
 /-- C1 (FTS Merkle half-swap): `4 + skips`, where `skips` (0, 1 or 2, by `c % 32`) counts the child program's
@@ -283,7 +283,7 @@ theorem safeZeroCopy_second_lower {lay : Layer} (hl : lay ≠ 0) (digits : List 
     safeZeroCopy lay digits 1 ↔ digits.getD 1 0 = maxDigit lay 1 := by
   simp [safeZeroCopy, hl]
 
-def producerFloor (lay : Layer) : Nat := ![21, 10, 9, 9] lay
+def producerFloor (lay : Layer) : Nat := ![22, 10, 9, 9] lay
 def wordCredit (lay : Layer) (digits : List Nat) : Nat :=
   ((List.range (chainCount lay)).filter fun i => digits.getD i 0 + 1 = maxDigit lay i).length
 /-- Producer-only restriction; includes the checksum and leaves the broad decoder unchanged. -/

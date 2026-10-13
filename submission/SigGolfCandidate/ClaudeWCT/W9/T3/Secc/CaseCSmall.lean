@@ -156,7 +156,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option exponentiation.threshold 1024
 theorem small_closing_real (y : ℝ) (hlow : 1 / 2 ^ 128 ≤ y) (hhigh : y ≤ 1000 / 4194304) :
-    196342 / 100000 * y + (75701 / 500) * y ^ 2 + 1 / 2 ^ 136 +
+    196362 / 100000 * y + (75701 / 500) * y ^ 2 + 1 / 2 ^ 136 +
       (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
   exact SigGolfCandidate.Research.V7Composed198Closing.WinsorDualHalf.small_closing_real y hlow hhigh
 theorem large_closing_real (y : ℝ) (hlow : 1000 / 4194304 ≤ y) :
@@ -164,15 +164,15 @@ theorem large_closing_real (y : ℝ) (hlow : 1000 / 4194304 ≤ y) :
       (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
   exact SigGolfCandidate.Research.V7Composed198Closing.WinsorDualHalf.large_closing_real y hlow
 theorem large_closing_real_high (y : ℝ) (hlow : 1 / 128 ≤ y) :
-    (2 * y - y ^ 2) + y * (262 / 100000) + y * (1 / 2 ^ 25) + y * (1 / 2 ^ 50) + 1 / 2 ^ 131 +
+    (2 * y - y ^ 2) + y * (282 / 100000) + y * (1 / 2 ^ 25) + y * (1 / 2 ^ 50) + 1 / 2 ^ 131 +
       (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
   exact SigGolfCandidate.Research.V7Composed198Closing.large_closing_real_high y hlow
 irreducible_def budgetSplit : Nat := 1000 * 2 ^ 106
-noncomputable irreducible_def smallCoefficient : ENNReal := 196342 / 100000
+noncomputable irreducible_def smallCoefficient : ENNReal := 196362 / 100000
 noncomputable irreducible_def smallQuadratic : ENNReal := 75701 / 500
 /-- Small-route absolute term: covers 2^-700 + 2^-698 (signer incompleteness) + 2^-137 (FTS overflow, X1). -/
 noncomputable irreducible_def smallAbsolute : ENNReal := ((2 : ENNReal) ^ 136)⁻¹
-noncomputable irreducible_def excessRate : ENNReal := 262 / 100000
+noncomputable irreducible_def excessRate : ENNReal := 282 / 100000
 noncomputable irreducible_def excessRate54 : ENNReal := 23 / 100000
 noncomputable irreducible_def cacheRate : ENNReal := ((2 : ENNReal) ^ 25)⁻¹
 noncomputable irreducible_def largeReserveRate : ENNReal := ((2 : ENNReal) ^ 50)⁻¹
@@ -324,7 +324,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-theorem full_bound (X : CaseCExtraction) (hexc : ExcessBound horizon (262 / 100000))
+theorem full_bound (X : CaseCExtraction) (hexc : ExcessBound horizon (282 / 100000))
     (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
     Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ PinnedC X adversary FullQ z |
         SeccLaw.completedExperiment adversary q hq] ≤
@@ -370,7 +370,7 @@ def CaseCSmallBound (CaseCFreshPinned Good : AdversaryP → PaddedGame.TraceResu
 /-- The small case-C bound on `Good` runs from the full bound, the near bound and the pair bound on `Good` runs. -/
 theorem caseC_small_bound (X : CaseCExtraction) (Y : CaseCSplitInterface X)
     (Good : AdversaryP → PaddedGame.TraceResult × Correctness.Answers → Prop) (nearTerm pairTerm : Nat → ENNReal)
-    (hexc : ExcessBound horizon (262 / 100000)) (hnear : NearBoundOn X Y.NearQ Good nearTerm)
+    (hexc : ExcessBound horizon (282 / 100000)) (hnear : NearBoundOn X Y.NearQ Good nearTerm)
     (hpair : PairBoundOn Y.PairGuess Good pairTerm) :
     CaseCSmallBound Y.CaseCFreshPinned Good nearTerm pairTerm := by
   intro adversary q hq h1 hsplit

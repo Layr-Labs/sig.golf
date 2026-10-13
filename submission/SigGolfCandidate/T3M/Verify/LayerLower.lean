@@ -753,7 +753,7 @@ def chainCost0 (lay : Nat) : Nat := if lay = 0 then 1066 else 2935 - 9 * tgtL la
 def chainFuel (lay : Nat) : Nat := if lay = 0 then 2320 else 1720
 def layerCost (lay Z : Nat) : Nat := stepsA lay + 8 + cyB lay + lfStepsL + chainCost0 lay - Z
 def layerFuel (lay : Nat) : Nat := stepsA lay + 1 + stB lay + chainFuel lay + lfStepsL
-def layerCostA (lay : Nat) : Nat := layerCost lay 0 - [21, 10, 9, 9].getD lay 0
+def layerCostA (lay : Nat) : Nat := layerCost lay 0 - [22, 10, 9, 9].getD lay 0
 theorem layerCostA_low (lay : Layer) (h : lay ≠ 0) :
     layerCostA lay.val = layerCost lay.val 0 - ClaudeWCT.WCT9.producerFloor lay := by
   fin_cases lay

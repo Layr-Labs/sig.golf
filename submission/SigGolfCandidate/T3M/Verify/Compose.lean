@@ -388,7 +388,7 @@ theorem s8v_zero_iff (c : NCtx) (hds : c.DigitsOk) :
 theorem top_after_hash (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0) (hidx : index < 2 ^ 31)
     (t : MachineState) (hpre : BC.EncPre w pk index 0 c t) (Q : Prop) (hQ : Q) (q : Query) (hq : EncQ 0 q)
     (a : BitVec 256) :
-    GoodQP (fun hash => hash q = a ∧ HashOk hash) (writeHash t a) 2369 2615 Q 1271
+    GoodQP (fun hash => hash q = a ∧ HashOk hash) (writeHash t a) 2369 2615 Q 1270
       (ccM (ClaudeWCT.W9.T3M.topLayerP w index (T3.TopDualHalf.select a)) (kFin pk)) := by
   set v := T3.TopDualHalf.select a with hvdef
   obtain ⟨n0, s0, st0, hn0, he⟩ := topTransition w pk index c hc t hpre a
@@ -463,7 +463,7 @@ theorem top_after_hash (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Na
         s0 hg0
       have H2 := GoodQ.steps st0 H
       refine H2.mono ?_ ?_ (fun h => ⟨h, ?_⟩) <;> omega
-    by_cases hcr : L.chainsCost 0 54 ≤ 915
+    by_cases hcr : L.chainsCost 0 54 ≤ 914
     · exact (body.mono (le_refl _) (le_refl _) (fun h => ⟨h, by omega⟩)).toP.pre_mono (fun _ h => h.2)
     · refine GoodQP.of_false body ?_
       rintro hash ⟨hea, hok⟩
@@ -474,7 +474,7 @@ theorem top_after_hash (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Na
       exact hcr (by omega)
   | none =>
     refine GoodQP.pre_mono (P := HashOk) ?_ (fun _ h => h.2)
-    refine Nonbinary.NCtx.goodQ_vacuous (A := 0) ?_ Q 1271
+    refine Nonbinary.NCtx.goodQ_vacuous (A := 0) ?_ Q 1270
     rw [ClaudeWCT.W9.T3M.topLayerP_of_decode_none w index hdec, ccM_map]
     simp only [kFin_none]
     have reject_from : ∀ z : MachineState, z.pc = pcOf 9147 → GoodQ z 4 4 False 0 (pure (false, 0)) := by
@@ -576,7 +576,7 @@ set_option maxHeartbeats 1000000
 set_option linter.unusedSimpArgs false
 def topFuel : Nat := 7 + 1 + 2369
 def topCyc : Nat := 7 + 8 + 2615
-def topCycA : Nat := 7 + 8 + 1271
+def topCycA : Nat := 7 + 8 + 1270
 theorem top_layer_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^ 31) (Q : Prop) (hQ : Q)
     (M : LayerMsg) (s : MachineState) (hs : LayerIn w pk index 0 M s) :
     GoodQ s topFuel topCyc Q topCycA (ccM (BC.layerLoop w index 1 M) (kFin pk)) := by
@@ -616,7 +616,7 @@ def lFuel : Nat → Nat
   | 1 => topFuel
   | n + 2 => layerFuel (n + 1) + mkFuel (n + 1) + lFuel (n + 1)
 theorem lCyc_4 : lCyc 4 = 6615 := by decide +kernel
-theorem lCycA_4 : lCycA 4 = 5243 := by decide +kernel
+theorem lCycA_4 : lCycA 4 = 5242 := by decide +kernel
 theorem lFuel_4 : lFuel 4 = 7759 := by decide +kernel
 theorem layers_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^ 31) (Q : Prop) (hQ : Q) :
     ∀ n, n ≤ 4 → ∀ msg s, RestIn w pk index n msg s →
@@ -661,7 +661,7 @@ theorem layers_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (h
 theorem after_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (Q : Prop) (hQ : Q) (a : HashOutput)
     (top : Digest × Digest) (u : MachineState)
     (h : FtsOut ⟨pk, w, a⟩ top u) :
-    GoodQ u 8050 8050 Q 5243 (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb) := by
+    GoodQ u 8050 8050 Q 5242 (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb) := by
   have hidx : ClaudeWCT.WCT9.digestIndex a < 2 ^ 31 := ClaudeWCT.WCT9.digestIndex_lt a
   obtain ⟨t, hst, hL3⟩ := layerIn_of_fts w pk _ top.1 top.2 u hidx h.glob h.idx h.pc h.left h.right h.wit h.base h.a1
     h.a2 h.d0 h.s10 h.heapOne h.heapTwo h.heapSeven h.heapThree h.heapFour h.heapFive h.coordStep h.topBase h.top h.top8
@@ -674,7 +674,7 @@ theorem after_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (Q : Prop) (hQ : 
   rw [e]
   rw [lFuel_4, lCyc_4, lCycA_4] at hg
   exact GoodQ.steps' hst hg (by omega) (by omega) (fun q => ⟨q, by omega⟩)
-theorem after_good_budget : AfterGoodBudget 5243 :=
+theorem after_good_budget : AfterGoodBudget 5242 :=
   fun pk w Q hQ a top u h => after_good pk w Q hQ a top u h
 end SigGolfCandidate.T3M
 end

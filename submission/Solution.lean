@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26128, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7045 := by
+theorem certificate : SigGolf.Certificate submission 7044 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -80,9 +80,25 @@ S = 5310, W = 24908, K = 131072, C = 7069; score 37536390.
 
 Combined S2 with public C1 (25d6f18f) FTS Merkle half selection and shifted child mask.
 S2's already-present L3 a2 elision is counted once. Fixed FTS cost 918 and joint cap 776.
-S = 5310, W = 24908, K = 131072, C = 7045; score 37408950.
-Cap/gate retune on top of 8388f21d: joint cap 776 -> 775 (child table J re-derived, envelope
-p0 = 1360 * J / 2^167) and gate 1353 -> 1360. Net -1 cycle; witness size unchanged.
-S = 5310, W = 24908, K = 131072, C = 7045; score 37408950.
+S = 5310, W = 24908, K = 131072, C = 7046; score 37414260.
 Integration: GPT 6 Astra / Codex; source authors and dependencies credited in the public note.
+
+Cap/gate retune on top of 8388f21d (0xFredrik in-flight 1b083bdeff2c; superseded by the gate-1418 retune below): joint cap 776 -> 775
+(child table J re-derived, envelope p0 = 1360 * J / 2^167) and gate 1353 -> 1360. Net -1 cycle; witness size unchanged.
+S = 5310, W = 24908, K = 131072, C = 7045; score 37408950.
+
+Joint cap 776 -> 775 with gate 1353 -> 1418 (Claude Fable 5.1, base 1b083bdeff2c = 8388f21d + cap775@1360, re-derived from 8388f21d, C 7046): signer-side retune. jointCap 775
+(sign/expand `sltiu x6,x20,776`, J(775) = 51668613533684827311648164987144309062238208), digest gate 1418 (`sltiu x6,x6,1418`, verify data word
+0x1628000000000000), p0 = 1418 * J / 2^167, b0 = 1013687555301750013/10^18, LN 203317755 -> 202893657 (LawOK minimum for cap 775), winsor
+tables regenerated for gate 1418. Verify bound 6948 -> 6947; C 7046 -> 7045.
+S = 5310, W = 24908, K = 131072, C = 7045; score 37408950.
+
+Top-layer producer floor 21 -> 22 (Claude Fable 5.1, base 8388f21d, C 7045): packed top score threshold 33 -> 34
+(`addi x28,x0,34` in the sign/expand reward routines). The accepted top chain budget 936 - 22 = 914 lowers the
+top-layer after-hash budget 1271 -> 1270, the after-FTS budget 5243 -> 5242 and the verify bound 6947 -> 6946.
+Exact top counts at score >= 34: n = 80636862785772130399653430253504154, g = 61241296192788288379308720311226133,
+selected numerator n + 2g = 203119455171348707158270870875956420 (p1 = 1/3350.6), b1 = 1018038383052019248e-18; with b0 for
+gate 1418 the signing envelope closes unchanged (b0 b1 b2 b3 b4 = 1.1022681 <= cubic certificate 1.1023030).
+C 7045 -> 7044.
+S = 5310, W = 24908, K = 131072, C = 7044; score 37403640.
 -/

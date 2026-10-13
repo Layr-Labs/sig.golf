@@ -11,9 +11,9 @@ open ClaudeWCT.W9.Machine.Sign (run)
 open ClaudeWCT.W9.Machine.Sign.SearchM (cst rfs mw ctrE grpE fieldE fieldLen idxE)
 set_option maxRecDepth 100000
 def ECBASE : Nat := 0xffe000
-/-- Expand digest-search gate `(N >> 242) % 2^14 < 1360` (T8E; the shape of the sign search's `SearchM.gateE`,
+/-- Expand digest-search gate `(N >> 242) % 2^14 < 1418` (T8E; the shape of the sign search's `SearchM.gateE`,
 kept local so that the expand proofs do not depend on the sign image's literal). -/
-def gateE : E := .bin .sltu (.bin .srl (.ld (cst (NBUF + 24))) (cst 50)) (cst 1360)
+def gateE : E := .bin .sltu (.bin .srl (.ld (cst (NBUF + 24))) (cst 50)) (cst 1418)
 /-- Expand joint-cost cap test `S < 776` (C1 joint cap 775). -/
 def capE : E := .bin .sltu (.reg .x20) (cst 776)
 def efsi (k : Nat) : Nat := ClaudeWCT.W9.Machine.Sign.SearchM.fsi k + 29890
@@ -239,37 +239,37 @@ theorem trial_spec (hl : LookOK im expLook) (s : MachineState) (hpc : s.pc = pcO
     rw [memEval_cons_ofNat _ _ _ _ _ hA (by decide +kernel), if_neg hn.1, memEval_cons_ofNat _ _ _ _ _ hA (by decide +kernel),
       if_neg hn.2]; rfl
 theorem gate_ult (a : BitVec 256) :
-    BitVec.ult (a.extractLsb' 192 64 >>> 50) 1360#64 = decide (a.toNat / 2 ^ 242 % 2 ^ 14 < 1360) := by
+    BitVec.ult (a.extractLsb' 192 64 >>> 50) 1418#64 = decide (a.toNat / 2 ^ 242 % 2 ^ 14 < 1418) := by
   simp only [BitVec.ult, SigGolfCandidate.Research.V7Composed198Gate.gate_shift50_toNat,
-    show (1360#64 : BitVec 64).toNat = 1360 from rfl]
+    show (1418#64 : BitVec 64).toNat = 1418 from rfl]
 theorem gateE_eval (s : MachineState) (a : BitVec 256) (ha : OutAt s NBUF a) :
-    gateE.eval s = BitVec.ofNat 64 (if a.toNat / 2 ^ 242 % 2 ^ 14 < 1360 then 1 else 0) := by
+    gateE.eval s = BitVec.ofNat 64 (if a.toNat / 2 ^ 242 % 2 ^ 14 < 1418 then 1 else 0) := by
   have h3 : s.getMem (BitVec.ofNat 64 (NBUF + 24)) = a.extractLsb' 192 64 := ha 3 (by decide +kernel)
   simp only [gateE, cst, E.eval, h3]
   rw [srl_eval _ 50 (by decide +kernel)]
-  change (if BitVec.ult (a.extractLsb' 192 64 >>> 50) 1360#64 then (1 : BitVec 64) else 0) = _
+  change (if BitVec.ult (a.extractLsb' 192 64 >>> 50) 1418#64 then (1 : BitVec 64) else 0) = _
   rw [gate_ult]
-  by_cases h : a.toNat / 2 ^ 242 % 2 ^ 14 < 1360
+  by_cases h : a.toNat / 2 ^ 242 % 2 ^ 14 < 1418
   · simp only [h, decide_true, if_true]; rfl
   · simp only [h, decide_false, Bool.false_eq_true, if_false]; rfl
 theorem gate_spec (hl : LookOK im expLook) (s : MachineState) (hpc : s.pc = pcOf 40910) (a : BitVec 256)
     (ha : OutAt s NBUF a) :
-    ∃ t, Steps im s 7 7 t ∧ t.pc = (if a.toNat / 2 ^ 242 % 2 ^ 14 < 1360 then pcOf 40917 else pcOf 41060) ∧
+    ∃ t, Steps im s 7 7 t ∧ t.pc = (if a.toNat / 2 ^ 242 % 2 ^ 14 < 1418 then pcOf 40917 else pcOf 41060) ∧
       t.getReg .x22 = a.extractLsb' 0 64 ∧ RegsExcept s t [.x6, .x22, .x28] ∧
       Frame s t (fun _ => False) := by
   have hg := gateE_eval s a (outS ha)
-  have hbr : ∀ b ∈ (resGate (decide ¬ (a.toNat / 2 ^ 242 % 2 ^ 14 < 1360))).brs, b.holds s := by
+  have hbr : ∀ b ∈ (resGate (decide ¬ (a.toNat / 2 ^ 242 % 2 ^ 14 < 1418))).brs, b.holds s := by
     intro b hb
     simp only [resGate, List.mem_singleton] at hb
     subst hb
     simp only [Br.holds, CmpOp.eval, E.eval, hg]
-    by_cases h0 : a.toNat / 2 ^ 242 % 2 ^ 14 < 1360
+    by_cases h0 : a.toNat / 2 ^ 242 % 2 ^ 14 < 1418
     · simp only [h0, if_true, not_true_eq_false, decide_false]; decide +kernel
     · simp only [h0, if_false, not_false_eq_true, decide_true]; decide +kernel
   obtain ⟨hs, hp, -, hr, hm⟩ := piece hl (run_gate _) s hpc rfl hbr rfl
   refine ⟨_, hs, ?_, ?_, regs_rfs hr, fun A _ _ => by rw [hm]; rfl⟩
   · rw [hp]; simp only [resGate]
-    by_cases h0 : a.toNat / 2 ^ 242 % 2 ^ 14 < 1360
+    by_cases h0 : a.toNat / 2 ^ 242 % 2 ^ 14 < 1418
     · simp only [h0, not_true_eq_false, decide_false, Bool.false_eq_true, if_false, if_true]
     · simp only [h0, not_false_eq_true, decide_true, if_false, if_true]
   · rw [hr]
@@ -515,7 +515,7 @@ theorem checks_spec (hl : LookOK im expLook) (u : MachineState) (hpc : u.pc = pc
   obtain ⟨t1, s1, p1, x22, r1, f1⟩ := gate_spec hl u hpc a ha
   have hadm := WCT9.admissible_iff a
   have hprod := WCT9.producerAdmissible_iff a
-  by_cases hg : a.toNat / 2 ^ 242 % 2 ^ 14 < 1360
+  by_cases hg : a.toNat / 2 ^ 242 % 2 ^ 14 < 1418
   · rw [if_pos hg] at p1
     obtain ⟨t2, s2, p2, x20, x21, r2, f2⟩ := cost0_spec hl t1 p1
     have ha2 : OutAt t2 NBUF a := fun j hj => by
