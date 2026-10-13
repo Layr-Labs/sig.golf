@@ -114,11 +114,11 @@ theorem land_split (n M w s : Nat) (hws : w ≤ s) :
     (Nat.pow_le_pow_right (by decide) hws)
   apply Nat.eq_of_testBit_eq
   intro j
-  rw [Nat.testBit_land, Nat.testBit_two_pow_mul_add _ hw, Nat.testBit_two_pow_mul_add _ hm]
+  rw [Nat.testBit_and, Nat.testBit_two_pow_mul_add _ hw, Nat.testBit_two_pow_mul_add _ hm]
   split
   · rw [Nat.testBit_two_pow_sub_one, Nat.testBit_mod_two_pow]
     cases n.testBit j <;> simp
-  · rw [Nat.testBit_land, Nat.testBit_div_two_pow, Nat.sub_add_cancel (by omega)]
+  · rw [Nat.testBit_and, Nat.testBit_div_two_pow, Nat.sub_add_cancel (by omega)]
 theorem split3 (n M : Nat) : n &&& (64 * M + 7) = 64 * ((n / 64) &&& M) + n % 8 :=
   land_split n M 3 6 (by decide)
 theorem split6 (n M : Nat) : n &&& (4096 * M + 63) = 4096 * ((n / 4096) &&& M) + n % 64 :=

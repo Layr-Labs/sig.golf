@@ -58,8 +58,16 @@ theorem authCount_eq_octH (leaves : List Nat) (hlen : leaves.length=3) (hn : lea
   obtain ⟨a,b,c,rfl⟩ := List.length_eq_three.mp hlen
   have hab : a ≠ b := by intro he;subst b;simp at hn
   have hbc : b ≠ c := by intro he;subst c;simp at hn
-  have hx1 : a ^^^ b ≠ 0 := Nat.xor_ne_zero_iff.mpr hab
-  have hx2 : b ^^^ c ≠ 0 := Nat.xor_ne_zero_iff.mpr hbc
+  have hx1 : a ^^^ b ≠ 0 := by
+    intro h
+    apply hab
+    have h' := congrArg (fun n : Nat => n ^^^ b) h
+    simpa [Nat.xor_assoc] using h'
+  have hx2 : b ^^^ c ≠ 0 := by
+    intro h
+    apply hbc
+    have h' := congrArg (fun n : Nat => n ^^^ c) h
+    simpa [Nat.xor_assoc] using h'
   simp only [authCount,octH,xorSum,List.drop_succ_cons,List.drop_zero,List.tail_cons,
     List.zip_cons_cons,List.zip_nil_right,List.map_cons,List.map_nil,
     List.zipWith_cons_cons,List.zipWith_nil_right,List.sum_cons,List.sum_nil,

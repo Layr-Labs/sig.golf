@@ -1,4 +1,6 @@
-import Mathlib
+import Mathlib.Data.Nat.ModEq
+import Mathlib.Tactic.Positivity
+import Mathlib.Tactic.Ring
 
 namespace SigGolfCandidate.T3.Rev
 def revBits : Nat → Nat → Nat

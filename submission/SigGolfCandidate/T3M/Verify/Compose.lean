@@ -15,7 +15,7 @@ open SigGolfCandidate.T3 (Digest Layer route)
 set_option maxHeartbeats 800000
 set_option linter.unusedSimpArgs false
 def topChainRegs : List Reg := [.x10,.x12,.x25,.x3,.x14,.x15,.x24]
-def topChainWrites (A : Nat) : Prop := (25168 ≤ A ∧ A < 26048) ∨ (10240 ≤ A ∧ A < 13712)
+def topChainWrites (A : Nat) : Prop := (25136 ≤ A ∧ A < 26016) ∨ (10240 ≤ A ∧ A < 13712)
 theorem topLeafK_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (t s0 s : MachineState)
     (a : BitVec 256) (ht : BC.EncPre w pk index 0 c t)
     (he : TopEntry (writeHash t a) (T3.TopDualHalf.select a) (trPc 0 c) s0)
@@ -59,7 +59,7 @@ theorem topLeafReady_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : N
   obtain ⟨d,h12,hd⟩ := ht.dst (by decide +kernel)
   change d = topRowA c ∨ d = topRowA c + 48 at hd
   have hg := Glob_writeHash ht.glob a d h12 (safeDest_hi d (by unfold WLO WIT; omega) (by omega) (by omega))
-  have hfr : Frame (writeHash t a) s (fun A => A = 25160 ∨ topChainWrites A) :=
+  have hfr : Frame (writeHash t a) s (fun A => A = 25128 ∨ topChainWrites A) :=
     he.frame.trans hf
   have hglob : Glob (leafK 0) w pk s := glob_frame hg hfr (by
     intro A h
@@ -91,16 +91,16 @@ theorem topLeafReady_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : N
       unfold topChainWrites WIT
       omega)
   · have hpad := ht.topPad rfl
-    have h0 : s.getMem (BitVec.ofNat 64 25136) = t.getMem (BitVec.ofNat 64 25136) := by
-      rw [hf.get (A := 25136) (by norm_num) (by unfold topChainWrites; omega),
-        he.frame.get (A := 25136) (by decide +kernel) (by decide +kernel),
-        writeHash_frame t a d 25136 h12 (by decide +kernel) (by omega) (Or.inr (by omega))]
-    have h1 : s.getMem (BitVec.ofNat 64 25144) = t.getMem (BitVec.ofNat 64 25144) := by
-      rw [hf.get (A := 25144) (by norm_num) (by unfold topChainWrites; omega),
-        he.frame.get (A := 25144) (by decide +kernel) (by decide +kernel),
-        writeHash_frame t a d 25144 h12 (by decide +kernel) (by omega) (Or.inr (by omega))]
+    have h0 : s.getMem (BitVec.ofNat 64 25104) = t.getMem (BitVec.ofNat 64 25104) := by
+      rw [hf.get (A := 25104) (by norm_num) (by unfold topChainWrites; omega),
+        he.frame.get (A := 25104) (by decide +kernel) (by decide +kernel),
+        writeHash_frame t a d 25104 h12 (by decide +kernel) (by omega) (Or.inr (by omega))]
+    have h1 : s.getMem (BitVec.ofNat 64 25112) = t.getMem (BitVec.ofNat 64 25112) := by
+      rw [hf.get (A := 25112) (by norm_num) (by unfold topChainWrites; omega),
+        he.frame.get (A := 25112) (by decide +kernel) (by decide +kernel),
+        writeHash_frame t a d 25112 h12 (by decide +kernel) (by omega) (Or.inr (by omega))]
     exact ⟨h0.trans hpad.1, h1.trans hpad.2⟩
-  · rw [hf.get (A := 25160) (by norm_num) (by unfold topChainWrites; omega)]
+  · rw [hf.get (A := 25128) (by norm_num) (by unfold topChainWrites; omega)]
     exact he.zeroHdr
 end SigGolfCandidate.T3M
 end
@@ -657,8 +657,8 @@ theorem after_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (Q : Prop) (hQ : 
     (h : FtsOut ⟨pk, w, a⟩ top u) :
     GoodQ u 8050 8050 Q 5269 (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb) := by
   have hidx : ClaudeWCT.WCT9.digestIndex a < 2 ^ 31 := ClaudeWCT.WCT9.digestIndex_lt a
-  obtain ⟨t, hst, hL3⟩ := layerIn_of_fts w pk _ top.1 top.2 u hidx h.glob h.idx h.pc h.left h.right h.wit h.base h.a1
-    h.s10 h.heapOne h.heapTwo h.heapSeven h.heapThree h.heapFour h.heapFive h.coordStep h.topBase h.top h.top8 h.a2
+  obtain ⟨t, hst, hL3⟩ := layerIn_of_fts w pk _ top.1 top.2 u hidx h.glob h.idx h.pc h.left h.right h.wit h.base h.a1 h.a2
+    h.s10 h.heapOne h.heapTwo h.heapSeven h.heapThree h.heapFour h.heapFive h.coordStep h.topBase h.top h.top8
   have hg := layers_good w pk _ hidx Q hQ 4 le_rfl (.pair top.1 top.2) t (by simpa [RestIn] using hL3)
   have e : ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb =
       ccM (BC.layerLoop w (ClaudeWCT.WCT9.digestIndex a) 4 (.pair top.1 top.2)) (kFin pk) := by

@@ -7,15 +7,15 @@ def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGo
 
 theorem signature_bytes : submission.sizes.signature = 5310 := rfl
 
-theorem witness_bytes : submission.sizes.witness = 24860 := rfl
+theorem witness_bytes : submission.sizes.witness = 24828 := rfl
 
 theorem cache_bytes : submission.sizes.cache = 131072 := rfl
 
 theorem layout_offsets : submission.layout =
-  { message := 26080, secretKey := 128, publicKey := 160,
+  { message := 26048, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7072 := by
+theorem certificate : SigGolf.Certificate submission 7070 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -90,9 +90,26 @@ saving 4 + skips (max 6), per-coordinate fixed part dispatchLen + 89, joint cap 
 S = 5310, W = 24860, K = 131072, C = 7074; score 37562940.
 
 Top-leaf zero16 witness pad (Claude Fable 5.1, base 1e05e86b, C 7074): the 128 lay1->top transition blocks no
-longer store `sd zero,512(tp); sd zero,520(tp)`; the 16 bytes in front of the top-leaf tweak (witness offset 23920,
-absolute 25136) are hashed as they are (`leafHashPad`, honest 0). A padded top leaf input reaching the honest leaf
+longer store `sd zero,512(tp); sd zero,520(tp)`; the 16 bytes in front of the top-leaf tweak (witness offset 23888,
+absolute 25104) are hashed as they are (`leafHashPad`, honest 0). A padded top leaf input reaching the honest leaf
 value with a different pad is a hash hit at the leaf position (`leafHashPad_extract`); an honest witness has pad 0
 (`wtopPad_witEnc`). Top setup 8 -> 6 steps. Verify bound 6976 -> 6974; C 7074 -> 7072.
 S = 5310, W = 24860, K = 131072, C = 7072; score 37552320.
+Compact leaf buffers (Claude Opus 5.5, base 2e294772, C 7098, ported onto the nested-FTS half-swap): the
+layer-3 and layer-2 leaf buffers drop their 16-byte tail pads (stride 736 -> 720; a lower-layer leaf hash
+reads 704 bytes and its last chain hash spills 16), so the layer-1 and top buffers, the tail `rho | 0 | dc`
+and the message move down by 32 bytes (message 26080 -> 26048). The verifier changes only the 128
+lower-layer transition immediates `addi tp,tp,736 -> 720` and the digest-block data word; verify cycles are
+unchanged (bound 6976) and the witness charge drops 98 -> 97.
+S = 5310, W = 24828, K = 131072, C = 7073; score 37557630.
+
+Tightened signer budget: the existing signForest proof establishes 31329 hash calls, so the
+31334 bound has five calls of slack. Using 31329 lowers the fixed signing budget from 112653
+to 112648. The finite-search moment bound then supports joint cap 775 with the original
+FTS gate 1353 and unchanged security-envelope constants. Sign and expand use the same new
+cap; relative to the compact-buffer base, keygen and verify images are unchanged.
+Verify bound 6976 -> 6975; witness charge stays 97; C 7073 -> 7072.
+S = 5310, W = 24828, K = 131072, C = 7072; score 37552320.
+Combined top-leaf pad, compact buffers, and cap 775: verify bound 6973 plus witness charge 97.
+S = 5310, W = 24828, K = 131072, C = 7070; score 37541700.
 -/
