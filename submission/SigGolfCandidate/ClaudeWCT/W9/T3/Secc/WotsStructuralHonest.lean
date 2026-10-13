@@ -46,36 +46,43 @@ theorem sat_privateNonce (T : Answers) (message : Message) :
   unfold SigGolfCandidate.T3.privateNonce
   exact QueriesSat.bind (sat_privateHash T _) (QueriesSat.pure' _)
 theorem posOf_eq_none {x : HashInput}
-    (h : ∀ p : Extract.Pos, p.Bounded →
-      Extract.canonicalHeader (Extract.hdrBlock x) ≠ bytesLE 16 p.hdr) : Extract.posOf x = none := by
+    (h : ∀ p : Extract.Pos, p.Bounded → Extract.keyOf x ≠ p.key) : Extract.posOf x = none := by
   unfold Extract.posOf
   rw [dif_neg]
   rintro ⟨p, hb, he⟩
   exact h p hb he
-theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat}
-    (hx : Extract.hdrBlock x = bytesLE 16 (rowTweak lay tree leaf)) : Extract.posOf x = none := by
-  apply posOf_eq_none
-  intro p hb he
-  rw [hx, SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _
-    (by have := rowTweak_marker lay tree leaf; unfold tweakMarker at this; omega)] at he
-  exact Extract.rowTweak_ne_hdr lay tree leaf hb (bytesLE_injective he)
+/-- Campaign S1: encoding blocks (64 bytes, one-word hyper tweak, any witness high word) are no position's input. -/
+theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hp : BitVec 64} (hl : x.length = 64)
+    (hx : Extract.hdrBlock x = bytesLE 16 (BC.rowTweakH lay tree leaf hp)) : Extract.posOf x = none :=
+  Extract.posOf_row_none hl hx
 theorem posOf_layerEncoding (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (counter : BitVec 32) :
-    Extract.posOf (pad64 (WCT9.layerEncodingInput lay tree leaf msg counter)) = none :=
-  posOf_row_none (BC.hdrBlock_layerEncodingInput lay tree leaf msg counter)
+    Extract.posOf (pad64 (WCT9.layerEncodingInput lay tree leaf msg counter)) = none := by
+  refine posOf_row_none (hp := 0) ?_ (BC.hdrBlock_layerEncodingInput lay tree leaf msg counter)
+  rw [← BC.pad64_layerEncodingInputP_zero]
+  exact BC.layerEncodingRow_length _ _ _ _ _ _ _ _
 theorem posOf_layerEncodingP (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (counter : BitVec 32)
-    (pad : BitVec 96) (padR : Digest) :
-    Extract.posOf (pad64 (layerEncodingInputP lay tree leaf msg counter pad padR)) = none :=
-  posOf_row_none (BC.hdrBlock_layerEncodingInputP lay tree leaf msg counter pad padR)
+    (hp : BitVec 64) (pad : BitVec 96) (padR : Digest) :
+    Extract.posOf (pad64 (layerEncodingInputP lay tree leaf msg counter hp pad padR)) = none :=
+  posOf_row_none (BC.layerEncodingRow_length _ _ _ _ _ _ _ _)
+    (BC.hdrBlock_layerEncodingInputP lay tree leaf msg counter hp pad padR)
 theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
     Extract.posOf (pad64 (digestInput rho message counter)) = none := by
-  unfold digestInput
   apply posOf_eq_none
-  intro p _ he
-  rw [Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
-    Extract.hdrBlock_prefix,
-    SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _
-      (by rw [digestHeader_firstByte]; decide)] at he
-  have hh := bytesLE_injective he
+  intro p hb hk
+  have hlen : (digestInput rho message counter).length = 64 := by
+    simp only [digestInput, List.length_append, bytesLE_length]
+  have hpad : pad64 (digestInput rho message counter) = digestInput rho message counter := by
+    unfold pad64; rw [hlen]; simp
+  have hblk : Extract.hdrBlock (digestInput rho message counter) = bytesLE 16 (digestHeader counter) := by
+    unfold digestInput
+    exact Extract.hdrBlock_prefix _ _ _
+  rw [hpad] at hk
+  unfold Extract.keyOf Extract.Pos.key at hk
+  rw [hlen, hblk, SigGolfCandidate.T3M.Extract.canonicalHeaderL_keep_hdr _ _ (by
+    have := digestHeader_lowNat counter
+    unfold tweakLow at this
+    rw [this]; unfold SigGolfCandidate.T3M.Extract.padLabel; omega)] at hk
+  have hh := bytesLE_injective (congrArg Prod.snd hk)
   cases p with
   | chain lay tree leaf i step => exact (chainHeader_ne_digestHeader _ _ _ _ _ counter).symm hh
   | wctChain index coord child c step =>
@@ -105,33 +112,26 @@ theorem sat_layerCounterSearch (T : Answers) (lay : Layer) (tree leaf : Nat) (ms
 theorem sat_digestSearch (T : Answers) (rho : Digest) (message : Message) :
     ∀ fuel counter, QueriesSat T (HonestQuery T) (ClaudeWCT.WCT9.digestSearch rho message counter fuel) :=
   ClaudeWCT.WCT9.Wots.Structural.sat_digestSearch_of T _ rho message fun _ => Or.inl (posOf_digest _ _ _)
-private theorem canonicalHeader_low (hdr : Digest) :
-    (Extract.canonicalHeader (bytesLE 16 hdr)).take 8 = bytesLE 8 (hdr.extractLsb' 0 64) := by
-  have he : hdr = hdr.extractLsb' 64 64 ++ hdr.extractLsb' 0 64 :=
-    (BitVec.extractLsb'_append_extractLsb' (w := 64) (len := 64) (x := hdr)).symm
-  conv_lhs => rw [he, SigGolfCandidate.T3M.Extract.bytesLE_header_words]
-  unfold SigGolfCandidate.T3M.Extract.canonicalHeader
-  split_ifs <;> simp [List.take_append, bytesLE_length]
-private theorem low_ne_of_firstByte (x y : BitVec 128)
-    (hc : 128 ≤ x.toNat % 256) (hr : y.toNat % 256 < 128) :
-    x.extractLsb' 0 64 ≠ y.extractLsb' 0 64 := by
-  intro he
-  have hv := congrArg BitVec.toNat he
-  simp only [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, pow_zero, Nat.div_one] at hv
-  omega
 theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Digest)
     (hoff : chainHeaderSpill tree leaf i step ≠ 0) :
     Extract.posOf (pad64 (chainInput lay tree leaf i step value)) = none := by
   apply posOf_eq_none
-  intro p hb he
-  rw [chainInput_padded, Extract.hdrBlock, chainInput_header] at he
-  have hn := congrArg (List.take 8) he
-  rw [canonicalHeader_low] at hn
-  have hp : (bytesLE 16 p.hdr).take 8 = bytesLE 8 (p.hdr.extractLsb' 0 64) := by
-    rw [← Extract.Pos.canonicalHeader_eq hb]
-    exact canonicalHeader_low _
-  rw [hp] at hn
+  intro p hb hk
+  have hlen : (pad64 (chainInput lay tree leaf i step value)).length = 64 := by
+    rw [chainInput_padded]; simp [chainInput, zero16, bytesLE_length]
+  have hblk : Extract.hdrBlock (pad64 (chainInput lay tree leaf i step value)) =
+      bytesLE 16 (chainHeader lay tree leaf i step) := by
+    rw [chainInput_padded, Extract.hdrBlock, chainInput_header]
+  unfold Extract.keyOf Extract.Pos.key at hk
+  rw [hlen, hblk] at hk
+  have hl := congrArg Prod.fst hk
+  have hh := congrArg Prod.snd hk
+  simp only at hl hh
+  have hn := congrArg (List.take 8) hh
+  rw [Extract.canonicalHeaderL_take8, Extract.bytesLE16_take8] at hn
   have hlo := bytesLE_injective hn
+  have hc := Extract.Pos.keyClass_eq hb
+  rw [← hl, ← Extract.keyClass_of_low_eq 64 hlo, Extract.keyClass_chainHeader] at hc
   cases p with
   | chain lay' tree' leaf' i' step' =>
       exact chainHeader_offgraph_low_ne hoff hb.1 hb.2.1 hb.2.2.1 hb.2.2.2 hlo
@@ -139,9 +139,8 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
       exact WCT9.ftsChainHeaderP_low_ne_chainHeader _ _ _ _ _ _ _ _ _ _ _ hlo.symm
   | wctNode index coord level nd =>
       exact WCT9.wctNodeHeader_low_ne_chainHeader hb.2.1 _ _ _ _ _ _ _ hlo.symm
-  | _ =>
-      exact low_ne_of_firstByte _ _ (chainHeader_firstByte lay tree leaf i step)
-        (Extract.Pos.hdr_marker_lt hb (by simp only [Extract.Pos.cls]; (try split) <;> omega)) hlo
+  | node lay' tree' level nd => simp only [Extract.Pos.cls] at hc; split_ifs at hc <;> omega
+  | _ => simp [Extract.Pos.cls] at hc
 theorem sat_chain (T : Answers) (lay : Layer) (tree leaf i start count : Nat)
     (htree : tree < 2 ^ 40) (hleaf : leaf < 2 ^ 32) (hi : i < 2 ^ 24) (hcount : start + count ≤ 256) :
     QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.chain lay tree leaf i start count
@@ -196,8 +195,8 @@ theorem sat_buildLeafTop (T : Answers) (leaf : Nat) (digits : List Nat) (hvalid 
         (fun i hi => hr.2.2.1 i (by rw [hr.1]; exact hi))
       simp only [Bool.false_eq_true, ite_false]
       refine QueriesSat.bind ?_ (QueriesSat.pure' _)
-      rw [he, ← WCT9.wotsEnd_top, Extract.leafHash_eq_shortHash]
-      exact sat_shortHash _ (honestQuery_honest T (.leaf (0 : Layer) 0 leaf) hb)
+      rw [he, ← WCT9.wotsEnd_top, Extract.leafHash_eq_projHash]
+      exact sat_projHash _ _ (honestQuery_honest T (.leaf (0 : Layer) 0 leaf) hb)
     · simp only [ite_true]
       exact QueriesSat.pure' _
 theorem honestQuery_treeNode (T : Answers) (lay : Layer) (tree : Nat) (ht : tree < 2 ^ Extract.treeBits lay)
@@ -291,8 +290,8 @@ theorem sat_buildLeafPF (T : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree lea
   refine QueriesSat.bind (sat_leafRowsF T hlay tree leaf digits hvalid htree hleaf) ?_
   rw [WCT9.eval_leafRowsF T hlay tree leaf digits hvalid]
   refine QueriesSat.bind ?_ (QueriesSat.pure' _)
-  rw [Extract.leafHash_eq_shortHash]
-  exact sat_shortHash _ (honestQuery_honest T (.leaf lay tree leaf) hb)
+  rw [Extract.leafHash_eq_projHash]
+  exact sat_projHash _ _ (honestQuery_honest T (.leaf lay tree leaf) hb)
 theorem sat_treeRowsP (T : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree selected : Nat) (digits : List Nat)
     (hvalid : Cost.ValidDigits lay digits) (htree : tree < 2 ^ 40) (ht : tree < 2 ^ Extract.treeBits lay) :
     QueriesSat T (HonestQuery T) (WCT9.treeRowsP lay tree selected digits) := by

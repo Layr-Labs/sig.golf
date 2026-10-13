@@ -14,7 +14,8 @@ def sibO (l j : Nat) : Nat := blkO l + 48 * (1 - bitAt j l)
 def padO (l : Nat) : Nat := blkO l + 32
 def leafO : Nat := 816
 def heapOf (l j : Nat) : Nat := 2 ^ (6 - l) + j / 2 ^ (l + 1)
-def nodeLo (k index : Nat) : Nat := 1537 + 65536 * k + 2 ^ 27 * index
+/-- Campaign S2: FTS node words carry the coordinate nibble `k + 1`. -/
+def nodeLo (k index : Nat) : Nat := 1537 + 65536 * (k + 1) + 2 ^ 27 * index
 def heapReg (h : Nat) : Reg :=
   match h with
   | 2 => .x13 | 3 => .x19 | 4 => .x20 | 5 => .x21 | 6 => .x26 | _ => .x30

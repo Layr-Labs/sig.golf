@@ -421,7 +421,7 @@ theorem drvInv_zero {sig : WCT9.Signature} {N : HashOutput} {sF t : MachineState
     (hpc : t.pc = pcOf (base + 34)) (hr : DRegs (WCT9.digestIndex N) t)
     (h8 : t.getReg .x8 = BitVec.ofNat 64 (regBase (0 - 1)))
     (h28 : t.getReg .x28 = BitVec.ofNat 64 (HB0 + 2048 + 512 * (0 - 1)))
-    (h15 : t.getReg .x15 = BitVec.ofNat 64 (WCT9.digestIndex N * 2 ^ 27 + 65536 * (0 - 1)))
+    (h15 : t.getReg .x15 = BitVec.ofNat 64 (WCT9.digestIndex N * 2 ^ 27 + 65536 * (0 - 1 + 1)))
     (hf : Frame sF t (fun _ => False)) (hz : DigAt sF 0x400 0 ∧ DigAt sF 0x410 0) :
     DrvInv sig N sF 0 [] t :=
   ⟨hpc, hr, h8, h28, h15, fun h => absurd h (by omega), rfl,

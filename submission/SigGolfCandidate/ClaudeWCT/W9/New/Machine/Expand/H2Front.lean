@@ -318,15 +318,15 @@ theorem w9initC_getMem (A : Nat) (hA : A < 2 ^ 64) :
       if 0x7000 ≤ A ∧ A < 0x7000 + 5312 ∧ (A - 0x7000) % 8 = 0 then
         bytesToWordLE (((bytes b).drop (A - 0x7000)).take 8)
       else if 0xA0 ≤ A ∧ A < 0xB0 ∧ (A - 0xA0) % 8 = 0 then bytesToWordLE (((bytes pk).drop (A - 0xA0)).take 8)
-      else if 0x65C0 ≤ A ∧ A < 0x65E0 ∧ (A - 0x65C0) % 8 = 0 then
-        bytesToWordLE (((bytes m).drop (A - 0x65C0)).take 8)
+      else if 0x6610 ≤ A ∧ A < 0x6630 ∧ (A - 0x6610) % 8 = 0 then
+        bytesToWordLE (((bytes m).drop (A - 0x6610)).take 8)
       else if Compact2.LPLAN ≤ A ∧ A < Compact2.LPLAN + 27648 ∧ (A - Compact2.LPLAN) % 8 = 0 then
         bytesToWordLE ((im.data.drop (A - Compact2.LPLAN)).take 8)
       else 0 := by
   unfold w9init
   rw [MachineState.getMem_setReg, getMem_writeBytesAsWords _ _ 0x7000 A (by rw [bytes_length_e]; decide) hA,
     getMem_writeBytesAsWords _ _ 0xA0 A (by rw [bytes_length_e]; decide) hA,
-    getMem_writeBytesAsWords _ _ 0x65C0 A (by rw [bytes_length_e]; decide) hA, dataBase_eq hd,
+    getMem_writeBytesAsWords _ _ 0x6610 A (by rw [bytes_length_e]; decide) hA, dataBase_eq hd,
     getMem_writeBytesAsWords _ _ Compact2.LPLAN A (by rw [data_length hd]; decide) hA, bytes_length_e, bytes_length_e,
     bytes_length_e, data_length hd]
   rfl
@@ -391,10 +391,10 @@ theorem front_spec' {im : Image} (hP : ProAt im) (s : MachineState)
       t.getMem (BitVec.ofNat 64 0x808) = s.getMem (BitVec.ofNat 64 0x7008) ∧
       t.getMem (BitVec.ofNat 64 DIG) = s.getMem (BitVec.ofNat 64 0x7000) ∧
       t.getMem (BitVec.ofNat 64 (DIG + 8)) = s.getMem (BitVec.ofNat 64 0x7008) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 0x65C0) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 0x65C8) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 0x65D0) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 0x65D8) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 0x6610) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 0x6618) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 0x6620) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 0x6628) ∧
       RegsExcept s t [.x5, .x6, .x7, .x19, .x29, .x30] ∧
       Frame s t (fun A => A = 0x800 ∨ A = 0x808 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨ A = DIG + 40 ∨
         A = DIG + 48 ∨ A = DIG + 56) := by
@@ -431,10 +431,10 @@ theorem front_pre30' {im : Image} (hF : FrontAt im) (hP : ProAt im) (hd : Expand
     fun A hA hn => (f0' A hA hn).trans (humem A hA)
   rw [humem 0x7000 (by decide)] at w800 d0
   rw [humem 0x7008 (by decide)] at w808 d8
-  rw [humem 0x65C0 (by decide)] at d32
-  rw [humem 0x65C8 (by decide)] at d40
-  rw [humem 0x65D0 (by decide)] at d48
-  rw [humem 0x65D8 (by decide)] at d56
+  rw [humem 0x6610 (by decide)] at d32
+  rw [humem 0x6618 (by decide)] at d40
+  rw [humem 0x6620 (by decide)] at d48
+  rw [humem 0x6628 (by decide)] at d56
   obtain ⟨t, st1, p, x19, z, r1, f1⟩ := zero_spec hF.2 t0 p0
   have f : Frame s t (fun A => A = 0x800 ∨ A = 0x808 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨
       A = DIG + 40 ∨ A = DIG + 48 ∨ A = DIG + 56 ∨ A = 0x59B0 ∨ A = 0x59B8 ∨ A = 0x59C0 ∨ A = 0x59C8) :=

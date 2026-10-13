@@ -5,7 +5,7 @@ namespace ClaudeWCT.W9.T3M
 open OracleComp OracleSpec SigGolfCandidate.T3
 open SigGolfCandidate.T3M (PubGood isHash isPublic allQ_pure allQ_bind allQ_map allQ_ite allQ_foldlM allQ_mapM
   allQ_mono pubGood_shortHash pubGood_publicHash pubGood_nodeHashP pubGood_nodeHash pubGood_digest
-  pubGood_chainP pubGood_layerP pubGood_recoverLayer)
+  pubGood_chainP pubGood_layerP pubGood_recoverLayer pubGood_projHash)
 open SphincsSecurity (bytesLE bytesLE_length)
 set_option linter.unusedSimpArgs false
 set_option maxRecDepth 10000
@@ -30,14 +30,19 @@ theorem pubGood_wctNodeHashP (coord index heap : Nat) (l : Digest) (hp : BitVec 
 theorem pubGood_wctTopHash (coord index heap : Nat) (l p r : Digest) :
     AllQueriesSatisfy (WCT9.wctTopHash coord index heap l p r) PubGood :=
   WCT9.allQ_highHash_of_shortHash _ (pubGood_shortHash _ (by simp [WCT9.wctTopInput, bytesLE_length]))
+theorem pubGood_lowerLeafHashP (lay : Layer) (tree leaf : Nat) (hp : BitVec 64) (ends : List Digest) :
+    AllQueriesSatisfy (lowerLeafHashP lay tree leaf hp ends) PubGood :=
+  pubGood_projHash _ _ (by simp [lowerLeafInputP, bytesLE_length])
 theorem pubGood_wctNodeHash (coord index heap : Nat) (l r : Digest) :
-    AllQueriesSatisfy (WCT9.wctNodeHash coord index heap l r) PubGood := pubGood_nodeHash _ _ _ _ _ _
+    AllQueriesSatisfy (WCT9.wctNodeHash coord index heap l r) PubGood :=
+  pubGood_shortHash _ (by simp [bytesLE_length])
 theorem pubGood_layerEncodingInputP (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (c : BitVec 32)
-    (pad : BitVec 96) (padR : Digest) :
-    AllQueriesSatisfy (ClaudeWCT.WCT9.encodingHash lay (layerEncodingInputP lay tree leaf msg c pad padR)) PubGood := by
+    (hp : BitVec 64) (pad : BitVec 96) (padR : Digest) :
+    AllQueriesSatisfy (ClaudeWCT.WCT9.encodingHash lay (layerEncodingInputP lay tree leaf msg c hp pad padR))
+      PubGood := by
   apply (WCT9.allQueries_encodingHash_iff _ _ _).mpr
   apply pubGood_shortHash
-  cases msg <;> simp [layerEncodingInputP, encodingInput, WCT9.pairEncodingInputP, bytesLE_length]
+  cases msg <;> simp [layerEncodingInputP, encodingInput, WCT9.pairEncodingInputPH, bytesLE_length]
 theorem pubGood_layerEncodingInput (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (c : BitVec 32) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg c)) PubGood := by
   apply (WCT9.allQueries_encodingHash_iff _ _ _).mpr
@@ -47,8 +52,8 @@ theorem pubGood_layerPairP (w : WBytes) (index : Nat) (lay : Layer) (digits : Li
     AllQueriesSatisfy (layerPairP w index lay digits) PubGood := by
   unfold layerPairP
   exact allQ_bind (allQ_mapM _ _ fun _ => pubGood_chainP _ _ _ _ _ _ _ _ _ _) fun _ =>
-    allQ_bind (SigGolfCandidate.T3M.pubGood_leafHash _ _ _ _) fun _ =>
-      allQ_bind (allQ_foldlM _ _ (fun _ _ => pubGood_nodeHashP _ _ _ _ _ _ _) _) fun _ => allQ_pure _
+    allQ_bind (pubGood_lowerLeafHashP _ _ _ _ _) fun _ =>
+      allQ_bind (allQ_foldlM _ _ (fun _ _ => pubGood_nodeHashPH _ _ _ _ _ _ _) _) fun _ => allQ_pure _
 theorem pubGood_layerGuardedPairP (w : WBytes) (index : Nat) (lay : Layer)
     (answer : Digest) (digits : List Nat) :
     AllQueriesSatisfy (layerGuardedPairP w index lay answer digits) PubGood := by
@@ -78,7 +83,7 @@ theorem pubGood_verifyTopP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (a
   unfold verifyTopP
   exact allQ_topDecodeRun _ _ _ (fun _ _ => pubGood_chainP _ _ _ _ _ _ _ _ _ _) fun _ =>
     allQ_bind (SigGolfCandidate.T3M.pubGood_leafHash _ _ _ _) fun _ =>
-      allQ_foldlM _ _ (fun _ _ => pubGood_nodeHashP _ _ _ _ _ _ _) _
+      allQ_foldlM _ _ (fun _ _ => pubGood_nodeHashPH _ _ _ _ _ _ _) _
 theorem pubGood_topLayerP (w : WBytes) (index : Nat) (answer : Digest) :
     AllQueriesSatisfy (topLayerP w index answer) PubGood := by
   cases hd : decode 0 answer with
@@ -97,7 +102,7 @@ theorem pubGood_layersBC (w : WBytes) (index : Nat) : ∀ n msg,
   | succ n ih =>
       intro msg
       unfold layersBC
-      refine allQ_ite _ (allQ_pure _) (allQ_bind (pubGood_layerEncodingInputP _ _ _ _ _ _ _) fun ans => ?_)
+      refine allQ_ite _ (allQ_pure _) (allQ_bind (pubGood_layerEncodingInputP _ _ _ _ _ _ _ _) fun ans => ?_)
       refine allQ_ite _ (pubGood_topLayerP _ _ _) ?_
       rcases decode (Fin.ofNat 4 n) ans with _ | digits
       · exact allQ_pure _
@@ -113,7 +118,7 @@ theorem pubGood_layersBCPrepass (w : WBytes) (index : Nat) : ∀ n msg,
   | succ n ih =>
       intro msg
       unfold layersBCPrepass
-      refine allQ_ite _ (allQ_pure _) (allQ_bind (pubGood_layerEncodingInputP _ _ _ _ _ _ _) fun ans => ?_)
+      refine allQ_ite _ (allQ_pure _) (allQ_bind (pubGood_layerEncodingInputP _ _ _ _ _ _ _ _) fun ans => ?_)
       rcases decode (Fin.ofNat 4 n) ans with _ | digits
       · exact allQ_pure _
       · exact allQ_ite _ (allQ_map _ (pubGood_layerP _ _ _ _))

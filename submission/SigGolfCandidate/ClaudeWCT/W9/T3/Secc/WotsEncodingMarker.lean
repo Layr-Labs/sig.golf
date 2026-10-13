@@ -26,17 +26,24 @@ private theorem broad_decoder_card (lay : Layer) : broadCount lay =
     exact (if_neg hl).symm
 
 private theorem broad_encoding_card (lay : Layer) :
-    (Finset.univ.filter fun a : HashOutput => (decode lay (encodingAnswer lay a)).isSome).card ≤
-      broadCount lay * (7*2^126) := by
+    (Finset.univ.filter fun a : HashOutput => (decode lay (encodingAnswer lay a)).isSome).card =
+      broadCount lay * (if lay=0 then 2^128 else 7*2^126) := by
   by_cases hl : lay=0
-  · simpa only [encodingAnswer, if_pos hl, broadCount] using
-      TopDualHalf.card_select_pred_le (fun d : Digest => (decode lay d).isSome)
+  · have he : (Finset.univ.filter fun a : HashOutput => (decode lay (encodingAnswer lay a)).isSome) =
+        (Finset.univ.filter fun a : HashOutput => (decode lay (a.extractLsb' 0 128)).isSome) := by
+      apply Finset.filter_congr
+      intro a ha
+      simp only [encodingAnswer, if_pos hl]
+    rw [he, if_pos hl]
+    unfold broadCount
+    exact SphincsSecurity.Completeness.card_filter_low (n:=256) (w:=128) (by decide)
+      (fun d : Digest => (decode lay d).isSome)
   · have hp : ∀ d : Digest, (decode lay d).isSome → lowerSpare d := by
       intro d hd
       obtain ⟨ds,hds⟩ := Option.isSome_iff_exists.mp hd
       exact decode_lowerSpare hl hds
     have hc := DualHalf.card_select_pred (fun d : Digest => (decode lay d).isSome) hp
-    exact le_of_eq (by simpa only [encodingAnswer, if_neg hl, broadCount] using hc)
+    simpa only [encodingAnswer, if_neg hl, broadCount] using hc
 
 theorem producer_rejection_broad (lay : Layer) :
     1000*2^256 ≤ 1001*(Finset.univ.filter fun a : HashOutput => producerDecode lay (encodingAnswer lay a)=none).card := by
@@ -48,13 +55,13 @@ theorem producer_rejection_broad (lay : Layer) :
     have hne := (Finset.mem_filter.mp ha).2
     obtain ⟨ds,hds⟩ := Option.ne_none_iff_exists'.mp hne
     exact Finset.mem_filter.mpr ⟨Finset.mem_univ _, Option.isSome_iff_exists.mpr ⟨ds,producerDecode_decode hds⟩⟩
-  have hbound : accepted.card ≤ broadCount lay * (7*2^126) :=
-    (Finset.card_le_card hsub).trans (broad_encoding_card lay)
+  have hbound : accepted.card ≤ broadCount lay * (if lay=0 then 2^128 else 7*2^126) :=
+    (Finset.card_le_card hsub).trans_eq (broad_encoding_card lay)
   have hpart := Finset.card_filter_add_card_filter_not (s := (Finset.univ : Finset HashOutput))
     (fun a => producerDecode lay (encodingAnswer lay a) = none)
   simp only [Finset.card_univ, Fintype.card_bitVec] at hpart
   change (Finset.univ.filter fun a : HashOutput => producerDecode lay (encodingAnswer lay a)=none).card + accepted.card = 2^256 at hpart
-  have hsmall : 1001 * (broadCount lay * (7*2^126)) ≤ 2^256 := by
+  have hsmall : 1001 * (broadCount lay * (if lay=0 then 2^128 else 7*2^126)) ≤ 2^256 := by
     rw [broad_decoder_card]
     fin_cases lay <;> norm_num [EncodingCounting.rawAcceptedCount, SigGolfResearch.NonbinaryTop.Counting.count]
   omega
@@ -100,7 +107,7 @@ theorem markerAt_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (trace : 
 theorem uniform_unit_neighbors (lay : Layer) (W : Encoding lay) (i : ChainIndex lay) :
     Pr[fun ans => ClaudeWCT.WCT9.encodingAnswer lay ans ∈
       EncodingTargets.targets lay (MixedCode.unitNeighbors W i) |
-      ($ᵗ HashOutput : ProbComp HashOutput)] ≤ (371 / 4) / (2 : ENNReal)^128 := by
+      ($ᵗ HashOutput : ProbComp HashOutput)] ≤ (147 / 2) / (2 : ENNReal)^128 := by
   classical
   let targets := EncodingTargets.targets lay (MixedCode.unitNeighbors W i)
   change Pr[fun ans => ClaudeWCT.WCT9.encodingAnswer lay ans ∈ targets |
@@ -108,18 +115,16 @@ theorem uniform_unit_neighbors (lay : Layer) (W : Encoding lay) (i : ChainIndex 
   have hc : targets.card ≤ chainCount lay - 1 :=
     (EncodingTargets.targets_card _ _).trans (MixedCode.unitNeighbors_card_le W i)
   by_cases hl : lay = 0
-  · have hprob := ClaudeWCT.WCT9.probability_top_encoding_le (fun d => d ∈ targets)
-    simp only [Function.comp_def, Finset.filter_mem_eq_inter, Finset.univ_inter] at hprob
-    simp only [ClaudeWCT.WCT9.encodingAnswer, if_pos hl]
+  · simp only [ClaudeWCT.WCT9.encodingAnswer, if_pos hl]
+    rw [FirstHit.uniform_low_mem]
     have hn : targets.card ≤ 53 := by
       have ht : chainCount lay = 54 := by rw [hl]; rfl
       simpa only [ht,Nat.reduceSub] using hc
-    calc _ ≤ (targets.card : ENNReal) * (7 / ((4 : ENNReal) * 2^128)) := hprob
-      _ ≤ 53 * (7 / ((4 : ENNReal) * 2^128)) := mul_le_mul' (by exact_mod_cast hn) le_rfl
-      _ = _ := by
-        apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
-        simp only [ENNReal.toReal_mul,ENNReal.toReal_div,ENNReal.toReal_pow,ENNReal.toReal_ofNat]
-        norm_num
+    exact (ENNReal.div_le_div_right (by exact_mod_cast hn) _).trans
+      (ENNReal.div_le_div_right (by
+        apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+        simp only [ENNReal.toReal_div,ENNReal.toReal_ofNat]
+        norm_num : (53 : ENNReal) ≤ 147/2) _)
   · have hp : ∀ d, d ∈ targets → lowerSpare d := by
       intro d hd
       obtain ⟨word,_,hword⟩ := (EncodingTargets.mem_targets _ _ _).mp hd
@@ -134,12 +139,12 @@ theorem uniform_unit_neighbors (lay : Layer) (W : Encoding lay) (i : ChainIndex 
       simpa only [hlen] using hc
     calc (targets.card : ENNReal) * (7 / ((4 : ENNReal) * 2^128))
         ≤ 42 * (7 / ((4 : ENNReal) * 2^128)) := mul_le_mul' (show (targets.card : ENNReal) ≤ 42 by exact_mod_cast hn) le_rfl
-      _ ≤ _ := by
-        apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+      _ = _ := by
+        apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
         simp only [ENNReal.toReal_mul,ENNReal.toReal_div,ENNReal.toReal_pow,ENNReal.toReal_ofNat]
         norm_num
 theorem markEntry_cell_le_raw (T : Answers) (x : HashInput) (a : ChainAddr) :
-    Pr[fun ans => MarkEntry T a (x, ans) | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ (371 / 4) / (2 : ENNReal) ^ 128 := by
+    Pr[fun ans => MarkEntry T a (x, ans) | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ (147 / 2) / (2 : ENNReal) ^ 128 := by
   classical
   obtain ⟨v, hv⟩ := WotsExtract.referenceDigits_decode T a.key
   by_cases hc : a.chain < chainCount a.key.lay
@@ -155,7 +160,7 @@ theorem markEntry_cell_le_raw (T : Answers) (x : HashInput) (a : ChainAddr) :
           · exact hlow
           · intro j hj
             exact hrest j.val (fun he => hj (Fin.ext he))
-      _ ≤ (371 / 4) / (2 : ENNReal) ^ 128 := uniform_unit_neighbors a.key.lay W i
+      _ ≤ (147 / 2) / (2 : ENNReal) ^ 128 := uniform_unit_neighbors a.key.lay W i
   · have hz : Pr[fun ans => MarkEntry T a (x, ans) | ($ᵗ HashOutput : ProbComp HashOutput)] = 0 := by
       apply probEvent_eq_zero
       rintro ans - ⟨message, counter, pad, digits, -, -, -, -, hlow, -⟩
@@ -165,7 +170,7 @@ theorem markEntry_cell_le_raw (T : Answers) (x : HashInput) (a : ChainAddr) :
     rw [hz]
     exact zero_le
 theorem markEntry_cell_le (T : Answers) (x : HashInput) (a : ChainAddr) :
-    Pr[fun ans => MarkEntry T a (x, ans) | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 93 / (2 : ENNReal)^128 := by
+    Pr[fun ans => MarkEntry T a (x, ans) | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 74 / (2 : ENNReal)^128 := by
   refine (markEntry_cell_le_raw T x a).trans (ENNReal.div_le_div_right ?_ _)
   apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
   simp only [ENNReal.toReal_div, ENNReal.toReal_ofNat]
@@ -196,19 +201,19 @@ theorem probEvent_cell_rej_le_tight (lay : Layer) (p : HashOutput → Prop) :
     · exact zero_le
   · simp
 theorem markEntry_rej_le (T : Answers) (x : HashInput) (a : ChainAddr) :
-    Pr[fun ans => MarkEntry T a (x, ans) | cell (rejAnswers a.key.lay)] ≤ 93 / (2 : ENNReal)^128 := by
+    Pr[fun ans => MarkEntry T a (x, ans) | cell (rejAnswers a.key.lay)] ≤ 74 / (2 : ENNReal)^128 := by
   calc _ ≤ 1001 / 1000 * Pr[fun ans => MarkEntry T a (x, ans) |
           ($ᵗ HashOutput : ProbComp HashOutput)] := probEvent_cell_rej_le_tight _ _
-    _ ≤ 1001 / 1000 * ((371 / 4) / (2 : ENNReal)^128) :=
+    _ ≤ 1001 / 1000 * ((147 / 2) / (2 : ENNReal)^128) :=
       mul_le_mul' le_rfl (markEntry_cell_le_raw T x a)
-    _ ≤ 93 / (2 : ENNReal)^128 := by
+    _ ≤ 74 / (2 : ENNReal)^128 := by
       apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
       simp only [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_pow, ENNReal.toReal_ofNat]
       norm_num
 
 theorem markEntry_init_le (T : Answers) (k : CellKey) (e : k.1) (p : CanonGraph.LeafPos × Fin 58) :
     Pr[fun ans => WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e.val, ans) |
-      cell (cellInit k e)] ≤ 93 / (2 : ENNReal) ^ 128 := by
+      cell (cellInit k e)] ≤ 74 / (2 : ENNReal) ^ 128 := by
   by_cases hp : p.1 = e.val.1.1
   · refine (probEvent_mono fun ans _ h => h.2).trans ?_
     unfold cellInit
@@ -222,26 +227,26 @@ theorem markEntry_init_le (T : Answers) (k : CellKey) (e : k.1) (p : CanonGraph.
     rintro ans - ⟨hsrc, message, counter, pad, digits, -, he, -⟩
     exact hp (encInput_leaf hsrc.1 (he.trans rfl : encInput e.val = encRow (leafOf p.1) message counter pad)).symm
 theorem markEntry_cell_le_tight (T : Answers) (x : HashInput) (a : ChainAddr) :
-    Pr[fun ans => MarkEntry T a (x, ans) | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 93 / (2 : ENNReal)^128 :=
+    Pr[fun ans => MarkEntry T a (x, ans) | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 74 / (2 : ENNReal)^128 :=
   markEntry_cell_le T x a
 
 theorem markEntry_rej_le_tight (T : Answers) (x : HashInput) (a : ChainAddr) :
-    Pr[fun ans => MarkEntry T a (x, ans) | cell (rejAnswers a.key.lay)] ≤ 93 / (2 : ENNReal)^128 :=
+    Pr[fun ans => MarkEntry T a (x, ans) | cell (rejAnswers a.key.lay)] ≤ 74 / (2 : ENNReal)^128 :=
   markEntry_rej_le T x a
 
 theorem markEntry_init_le_tight (T : Answers) (k : CellKey) (e : k.1) (p : CanonGraph.LeafPos × Fin 58) :
     Pr[fun ans => WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e.val, ans) |
-      cell (cellInit k e)] ≤ 93 / (2 : ENNReal)^128 := markEntry_init_le T k e p
+      cell (cellInit k e)] ≤ 74 / (2 : ENNReal)^128 := markEntry_init_le T k e p
 
 theorem markEntry_sum_init_le (T : Answers) (k : CellKey) (e : k.1) :
     ∑ p : CanonGraph.LeafPos × Fin 58,
       Pr[fun ans => WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e.val, ans) |
-        cell (cellInit k e)] ≤ 5022 / (2 : ENNReal) ^ 128 := by
+        cell (cellInit k e)] ≤ 3996 / (2 : ENNReal) ^ 128 := by
   classical
   have hb : ∀ p : CanonGraph.LeafPos × Fin 58,
       Pr[fun ans => WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e.val, ans) |
         cell (cellInit k e)] ≤ if p.1 = e.val.1.1 then
-          (if p.2.val < 54 then 93 / (2 : ENNReal) ^ 128 else 0) else 0 := by
+          (if p.2.val < 54 then 74 / (2 : ENNReal) ^ 128 else 0) else 0 := by
     intro p
     split_ifs with hp hc
     · exact markEntry_init_le_tight T k e p
@@ -335,7 +340,7 @@ theorem cells_marker_le [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex,
           (Fintype.piFinset_nonempty.mpr (cellInit_nonempty _)) y *
         ∑' r, (liftM (offlineRun (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) adversary q) : PMF SeedResult) r *
           (markerCount (mkSample (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) r) : ENNReal) ≤
-      (5022 / (2 : ENNReal) ^ 128) * ∑' y, PMF.uniformOfFinset (Fintype.piFinset (cellInit (cellKey (eagerAnswers U privateTable pub))))
+      (3996 / (2 : ENNReal) ^ 128) * ∑' y, PMF.uniformOfFinset (Fintype.piFinset (cellInit (cellKey (eagerAnswers U privateTable pub))))
           (Fintype.piFinset_nonempty.mpr (cellInit_nonempty _)) y *
         ∑' r, (liftM (offlineRun (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) adversary q) : PMF SeedResult) r *
           (encodingCount (mkSample (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) r) : ENNReal) := by
@@ -360,7 +365,7 @@ end Enc
 open Enc in
 theorem reference_markerCount_le (adversary : AdversaryP) (q : Nat) :
     ∑' s, referenceExperiment adversary q s * (Enc.markerCount s : ENNReal) ≤
-      (5022 / (2 : ENNReal) ^ 128) * ∑' s, referenceExperiment adversary q s * (encodingCount s : ENNReal) := by
+      (3996 / (2 : ENNReal) ^ 128) * ∑' s, referenceExperiment adversary q s * (encodingCount s : ENNReal) := by
   let _ : ∀ k : Set Enc.EncIndex, Fintype k := fun k => Fintype.ofFinite k
   let _ : ∀ k : Set Enc.EncIndex, DecidableEq k := fun k => Classical.decEq k
   exact Enc.reference_cells_le adversary q (fun s => (Enc.markerCount s : ENNReal))
@@ -372,7 +377,7 @@ theorem reference_marker_sum_le (adversary : AdversaryP) (q : Nat) :
     ∑ a : CanonGraph.LeafPos × Fin 58,
       Pr[fun s => WotsExtract.SourceChain7 ⟨⟨a.1.lay, a.1.tree.val, a.1.leaf.val⟩, a.2.val⟩ ∧
         MarkerAt s.answers s.trace ⟨⟨a.1.lay, a.1.tree.val, a.1.leaf.val⟩, a.2.val⟩ | referenceExperiment adversary q] ≤
-      (5022 / 2 ^ 128 : ENNReal) * ∑' s, referenceExperiment adversary q s * (encodingCount s : ENNReal) := by
+      (3996 / 2 ^ 128 : ENNReal) * ∑' s, referenceExperiment adversary q s * (encodingCount s : ENNReal) := by
   refine le_trans (le_of_eq ?_) (reference_markerCount_le adversary q)
   simp only [probEvent_eq_tsum_ite, PMF.probOutput_eq_apply]
   rw [← Summable.tsum_finsetSum (fun _ _ => ENNReal.summable)]

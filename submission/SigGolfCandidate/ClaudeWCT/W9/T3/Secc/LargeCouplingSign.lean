@@ -53,7 +53,7 @@ theorem ftsLabel_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin
           rfl
         simp only [Option.map_some, Option.getD_some, coordVal]
         rw [proj_toPos]
-        simp only [Node.isTop, hl, beq_iff_eq]
+        simp only [Node.isTop, Node.high, Node.toPos, Extract.Pos.high, hl, beq_iff_eq]
         by_cases h6 : level = 6
         · rw [if_pos h6, if_pos (by omega)]
         · rw [if_neg h6, if_neg (by omega)]
@@ -81,7 +81,10 @@ theorem cell_eq_cellValues (s : Secrets) (L : Labels) (N : CanonGraph.Node) :
       unfold ChainGraph.prior chainChild
       by_cases h0 : p.2.val = 0
       · rw [if_pos h0, if_pos h0]; rfl
-      · rw [if_neg h0, if_neg h0]; rfl
+      · rw [if_neg h0, if_neg h0]
+        simp only [coordVal, Node.toPos, Extract.Pos.proj, Extract.Pos.high, ChainGraph.predecessor]
+        rw [ChainGraph.chainHigh_of_lt _ _ (by have := p.2.isLt; omega)]
+        rfl
   | leaf Lf =>
       change pad64 (Extract.leafInput _ _ _ ((List.range (chainCount Lf.1.lay)).map (endLabel s L Lf.1))) = _
       congr 3

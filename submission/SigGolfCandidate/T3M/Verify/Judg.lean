@@ -347,4 +347,35 @@ theorem GoodQP.encodingHash_bind_pre {P : Hash → Prop} {β : Type} {s : Machin
     (A + 8 * (toQ (pad64 input)).blocks)
     (ccM (publicHash input >>= fun a => f (ClaudeWCT.WCT9.encodingAnswer lay a)) K)
   exact GoodQP.publicHash_bind_pre hf ht0 hv hin h
+/-! Campaign S1: projected hashes (`projHash high` keeps bytes 0..16 or 16..32 of the answer). -/
+theorem ccM_projHash_bind {β : Type} (high : Bool) (input : List UInt8) (f : Digest → M β)
+    (K : β → OracleComp HashSpec Obs) :
+    ccM (SigGolfCandidate.T3.projHash high input >>= f) K = (do
+      let a ← (liftM (HashSpec.query (toQ (pad64 input))) : OracleComp HashSpec _)
+      (fun r => (r.1, 1 + r.2)) <$> ccM (f (SigGolfCandidate.T3.projHalf high a)) K) := by
+  have : SigGolfCandidate.T3.projHash high input >>= f =
+      publicHash input >>= fun a => f (SigGolfCandidate.T3.projHalf high a) := by
+    unfold SigGolfCandidate.T3.projHash; rw [bind_assoc]; simp only [pure_bind]
+  rw [this, ccM_publicHash_bind]
+theorem GoodQ.projHash_bind {β : Type} {s : MachineState} {N C A : Nat} {Q : Prop} (high : Bool)
+    {input : List UInt8} {f : Digest → M β} {K : β → OracleComp HashSpec Obs}
+    (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
+    (hv : hashArgumentsValid s = true) (hin : hashInput s = toQ (pad64 input))
+    (h : ∀ a : BitVec 256, GoodQ (writeHash s a) N C Q A (ccM (f (SigGolfCandidate.T3.projHalf high a)) K)) :
+    GoodQ s (N + 1) (C + 8 * (toQ (pad64 input)).blocks) Q (A + 8 * (toQ (pad64 input)).blocks)
+      (ccM (SigGolfCandidate.T3.projHash high input >>= f) K) := by
+  have := GoodQ.query (K := fun a => ccM (f (SigGolfCandidate.T3.projHalf high a)) K) hf ht0 hv hin h
+  rw [cc_query] at this
+  rwa [ccM_projHash_bind]
+theorem GoodQP.projHash_bind_pre {P : Hash → Prop} {β : Type} {s : MachineState} {N C A : Nat} {Q : Prop}
+    (high : Bool) {input : List UInt8} {f : Digest → M β} {K : β → OracleComp HashSpec Obs}
+    (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
+    (hv : hashArgumentsValid s = true) (hin : hashInput s = toQ (pad64 input))
+    (h : ∀ a : BitVec 256, GoodQP (fun hash => hash (toQ (pad64 input)) = a ∧ P hash) (writeHash s a) N C Q A
+      (ccM (f (SigGolfCandidate.T3.projHalf high a)) K)) :
+    GoodQP P s (N + 1) (C + 8 * (toQ (pad64 input)).blocks) Q (A + 8 * (toQ (pad64 input)).blocks)
+      (ccM (SigGolfCandidate.T3.projHash high input >>= f) K) := by
+  have := GoodQP.query_pre (K := fun a => ccM (f (SigGolfCandidate.T3.projHalf high a)) K) hf ht0 hv hin h
+  rw [cc_query] at this
+  rwa [ccM_projHash_bind]
 end SigGolfCandidate.T3M.Verify

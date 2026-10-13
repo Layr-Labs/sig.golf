@@ -110,7 +110,7 @@ theorem rungPc_inline (c : LCtx) (i : Nat) (hnl : i % 3 ≠ 0 ∨ i = 42) :
   split_ifs <;> omega
 theorem chk_rung (c : LCtx) (i m : Nat) (hi : i ≤ 42) (hm : c.dig i ≤ m) (hm6 : m ≤ 6)
     (hfirst : (i % 3 ≠ 0 ∨ i = 42) → c.dig i < m) (hck : i = 42 → c.ck < 8) :
-    vrun (c.rungPc i m) 3 = some (rungRB m (if m = 6 then some (slotL i) else none) (c.rungPc i m)) := by
+    vrun (c.rungPc i m) 3 = some (rungRB m (if m = 6 then some (wslotL i) else none) (c.rungPc i m)) := by
   by_cases hl : i % 3 = 0 ∧ i ≠ 42
   · obtain ⟨h0, h42⟩ := hl
     obtain ⟨t, rfl⟩ : ∃ t, i = 3 * t := ⟨i / 3, by omega⟩
@@ -135,7 +135,8 @@ theorem chk_rung (c : LCtx) (i m : Nat) (hi : i ≤ 42) (hm : c.dig i ≤ m) (hm
       unfold rungPc
       rw [if_neg hl]
       split_ifs <;> omega
-    rw [hr]
+    have hw : wslotL i = slotL i := by unfold wslotL; rw [if_neg (by omega)]
+    rw [hr, hw]
     exact rOK_eq this
 end LCtx
 end SigGolfCandidate.T3M
@@ -145,19 +146,31 @@ open SigGolfCandidate.T3
 namespace LCtx
 theorem chk_rung' (c : LCtx) (i m : Nat) (hi : i ≤ 42) (hm : c.dig i < m) (hm6 : m ≤ 6) (hm1 : 1 ≤ m)
     (hck : i = 42 → c.ck < 8) :
-    vrun (c.rungPc i m) 3 = some (rungRB m (if m = 6 then some (slotL i) else none) (c.rungPc i m)) :=
+    vrun (c.rungPc i m) 3 = some (rungRB m (if m = 6 then some (wslotL i) else none) (c.rungPc i m)) :=
   c.chk_rung i m hi (by omega) hm6 (fun _ => hm) hck
+/-- The image's chain run from step `m` (campaign S1: chain 0's last step keeps the high half, `stepHigh`). -/
 def rest (c : LCtx) (i m : Nat) (v : Digest) : M Digest :=
   (List.range' m (7 - m)).foldlM
-    (fun v step => shortHash (chainInputP c.lay c.tree c.leaf (i + c.koff) step (c.pad0 i) (c.pad1 i) (c.padHeader i) v)) v
+    (fun v step => projHash (stepHigh i step)
+      (chainInputP c.lay c.tree c.leaf (i + c.koff) step (c.pad0 i) (c.pad1 i) (c.padHeader i) v)) v
 theorem rest_succ (c : LCtx) (i m : Nat) (h : m ≤ 6) (v : Digest) :
     c.rest i m v =
-      shortHash (chainInputP c.lay c.tree c.leaf (i + c.koff) m (c.pad0 i) (c.pad1 i) (c.padHeader i) v) >>= c.rest i (m + 1) := by
+      projHash (stepHigh i m) (chainInputP c.lay c.tree c.leaf (i + c.koff) m (c.pad0 i) (c.pad1 i) (c.padHeader i) v) >>=
+        c.rest i (m + 1) := by
   unfold rest
   rw [show 7 - m = (7 - (m + 1)) + 1 by omega, List.range'_succ, List.foldlM_cons]
 theorem rest_7 (c : LCtx) (i : Nat) (v : Digest) : c.rest i 7 v = pure v := rfl
-theorem chainP_rest (c : LCtx) (i d : Nat) (v : Digest) :
-    chainP c.lay c.tree c.leaf (i + c.koff) d (7 - d) (c.pad0 i) (c.pad1 i) (c.padHeader i) v = c.rest i d v := rfl
+/-- On a lower layer (`koff = 0`) the spec's chain projection `chainHigh` is the image's `stepHigh`. -/
+theorem chainP_rest (c : LCtx) (hlay : c.lay ≠ 0) (hko : c.koff = 0) (i d : Nat) (v : Digest) :
+    chainP c.lay c.tree c.leaf (i + c.koff) d (7 - d) (c.pad0 i) (c.pad1 i) (c.padHeader i) v = c.rest i d v := by
+  unfold chainP rest
+  have hl : c.lay.val ≠ 0 := fun h => hlay (Fin.ext h)
+  congr 1
+  funext v step
+  congr 1
+  unfold chainHigh stepHigh
+  rw [hko, Nat.add_zero]
+  by_cases h6 : step = 6 <;> by_cases h0 : i = 0 <;> simp [h6, h0, hl]
 theorem chainInputP_pad (lay : Layer) (tree leaf i step : Nat) (p0 p1 : Digest) (headerPad : Word) (v : Digest) :
     pad64 (chainInputP lay tree leaf i step p0 p1 headerPad v) = chainInputP lay tree leaf i step p0 p1 headerPad v :=
   pad64_of_aligned _ (by rw [chainInputP_length])
@@ -298,12 +311,12 @@ theorem steps_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     rw [rest_succ c i 6 (le_refl _)]
     have hf := hs.2.2.2.2.2.2.2.2.2
     have H : ∀ a : BitVec 256, Verify.GoodQ (writeHash s a) (N + xCost i) (C + xCost i) Q (A + xCost i)
-        (Verify.ccM (c.rest i 7 (a.extractLsb' 0 128)) (fun v => K (acc ++ [v]))) := by
+        (Verify.ccM (c.rest i 7 (projHalf (stepHigh i 6) a)) (fun v => K (acc ++ [v]))) := by
       intro a
       rw [rest_7, Verify.ccM_pure]
       obtain ⟨u, hu, hn⟩ := c.end_next hc hk i hi hck _ _ ((hpost a).2 rfl)
       exact Verify.GoodQ.steps' hu (hK _ _ hn) (by omega) (by omega) (fun hq => ⟨hq, by omega⟩)
-    have h3 := Verify.GoodQ.shortHash_bind (f := c.rest i 7) (K := fun v => K (acc ++ [v])) hf h5 hv
+    have h3 := Verify.GoodQ.projHash_bind (stepHigh i 6) (f := c.rest i 7) (K := fun v => K (acc ++ [v])) hf h5 hv
       (by rw [chainInputP_pad]; exact hin) H
     rw [chainInputP_pad, chainInputP_blocks] at h3
     exact h3.mono (by omega) (by simp [preCost]; omega) (fun hq => ⟨hq, by simp [preCost]; omega⟩)
@@ -315,14 +328,15 @@ theorem steps_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     have H : ∀ a : BitVec 256, Verify.GoodQ (writeHash s a) (N + 3 * (7 - (m + 1)) + 4 + 2)
         (C + preCost (m + 1) + xCost i + (if m + 1 = 6 then 2 else 1)) Q
         (A + preCost (m + 1) + xCost i + (if m + 1 = 6 then 2 else 1))
-        (Verify.ccM (c.rest i (m + 1) (a.extractLsb' 0 128)) (fun v => K (acc ++ [v]))) := by
+        (Verify.ccM (c.rest i (m + 1) (projHalf (stepHigh i m) a)) (fun v => K (acc ++ [v]))) := by
       intro a
+      rw [stepHigh_lt i m (by omega), projHalf_false]
       have hrun := c.chk_rung' i (m + 1) hi.2 (by omega) (by omega) (by omega) hck
       obtain ⟨u, hu, hp⟩ := c.rung_step hc hk i (m + 1) hi (by omega) (hrc _ (by omega) (by omega)) hrun acc _ _
         ((hpost a).1 (by omega))
       have := ih (m + 1) (by omega) (by omega) _ _ hp
       exact Verify.GoodQ.steps' hu this (by split <;> omega) (by omega) (fun hq => ⟨hq, by omega⟩)
-    have h3 := Verify.GoodQ.shortHash_bind (f := c.rest i (m + 1)) (K := fun v => K (acc ++ [v])) hf h5 hv
+    have h3 := Verify.GoodQ.projHash_bind (stepHigh i m) (f := c.rest i (m + 1)) (K := fun v => K (acc ++ [v])) hf h5 hv
       (by rw [chainInputP_pad]; exact hin) H
     rw [chainInputP_pad, chainInputP_blocks] at h3
     refine h3.mono (by omega) ?_ (fun hq => ⟨hq, ?_⟩)
@@ -413,8 +427,7 @@ theorem chain_good_raw (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p �
     (hK : ∀ v t, c.ChainNext s0 (i + 1) (acc ++ [v]) t → Verify.GoodQ t N C Q A (K (acc ++ [v])))
     (s : MachineState) (hs : c.ChainIn s0 i acc s) :
     Verify.GoodQ s (N + 40) (C + chainCost i (c.dig i)) Q (A + chainCost i (c.dig i))
-      (Verify.ccM (chainP c.lay c.tree c.leaf (i + c.koff) (c.dig i) (7 - c.dig i) (c.pad0 i) (c.pad1 i) (c.padHeader i) (c.val i))
-        (fun v => K (acc ++ [v]))) := by
+      (Verify.ccM (c.rest i (c.dig i) (c.val i)) (fun v => K (acc ++ [v]))) := by
   have hx4 := xCost_le i
   have hdl : c.dig i < 8 := by
     by_cases h42 : i = 42
@@ -423,13 +436,14 @@ theorem chain_good_raw (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p �
   have hsp := c.startPc_lt i hi.2 hc.2.2.2.2.2.2.1 hRank
   by_cases h7 : c.dig i = 7
   ·
-    rw [h7, show 7 - 7 = 0 from rfl]
-    have hspec : chainP c.lay c.tree c.leaf (i + c.koff) 7 0 (c.pad0 i) (c.pad1 i) (c.padHeader i) (c.val i) = pure (c.val i) := rfl
+    rw [h7]
+    have hspec : c.rest i 7 (c.val i) = pure (c.val i) := rfl
     rw [hspec, Verify.ccM_pure]
     by_cases hl : i % 3 = 0 ∧ i ≠ 42
     · obtain ⟨h0', h42⟩ := hl
       have hrun := c.chk_copyJ i (by omega) h0' h7 hRank (fun h => hNS ⟨h7,Or.inl h⟩)
-      obtain ⟨t, hst, hE⟩ := c.copyJ_step hc hk h0 i ⟨hi.1, by omega⟩ (i / 3 == 0)
+      obtain ⟨t, hst, hE⟩ := c.copyJ_step hc hk h0 i ⟨hi.1, by omega⟩
+        (Nat.pos_of_ne_zero (fun h => hNS ⟨h7, Or.inl h⟩)) (i / 3 == 0)
         (fun h => by
           have : i = 0 := by simp at h; omega
           exact ⟨this, hko (by omega)⟩)
@@ -448,7 +462,6 @@ theorem chain_good_raw (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p �
         (fun hq => ⟨hq, by unfold chainCost zc; simp [hl, h7]; omega⟩)
   ·
     have hd : c.dig i < 7 := by omega
-    rw [chainP_rest]
     have hsteps := c.steps_good hc hk h0 i hi hck acc K N C A Q hK (6 - c.dig i) (c.dig i) (by omega) (le_refl _)
     have hrp := c.rungPc_lt i (c.dig i) hi.2 (le_refl _) (by omega) hc.2.2.2.2.2.2.1
     by_cases hl : i % 3 = 0 ∧ i ≠ 42
@@ -484,12 +497,10 @@ theorem chain_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     (hK : ∀ v t, c.ChainNext s0 (i + 1) (acc ++ [v]) t → Verify.GoodQ t N C Q A (K (acc ++ [v])))
     (s : MachineState) (hs : c.ChainIn s0 i acc s) :
     Verify.GoodQ s (N + 40) (C + c.bufferCost i) Q (A + c.bufferCost i)
-      (Verify.ccM (chainP c.lay c.tree c.leaf (i+c.koff) (c.dig i) (7-c.dig i)
-        (c.pad0 i) (c.pad1 i) (c.padHeader i) (c.bufferVal i)) (fun v=>K (acc++[v]))) := by
+      (Verify.ccM (c.rest i (c.dig i) (c.bufferVal i)) (fun v=>K (acc++[v]))) := by
   by_cases hSafe : c.bufferSafe i
   · have h7 := hSafe.1
-    have hpure : chainP c.lay c.tree c.leaf (i+c.koff) (c.dig i) (7-c.dig i)
-        (c.pad0 i) (c.pad1 i) (c.padHeader i) (c.bufferVal i) = pure (c.bufferVal i) := by rw [h7]; rfl
+    have hpure : c.rest i (c.dig i) (c.bufferVal i) = pure (c.bufferVal i) := by rw [h7]; rfl
     rw [hpure,Verify.ccM_pure]
     by_cases hz : i=0
     · subst i
@@ -516,7 +527,7 @@ theorem bufferCost_ck (c : LCtx) : c.bufferCost 42 = chainCost 42 c.ck := by
   have hn : ¬c.bufferSafe 42 := by intro h; rcases h.2 with h|h|h <;> omega
   simp only [bufferCost,if_neg hn,Nat.sub_zero,c.dig42]
 def chainF (c : LCtx) (ends : List Digest) (i : Nat) : M (List Digest) := do
-  let v ← chainP c.lay c.tree c.leaf (i + c.koff) (c.dig i) (7 - c.dig i) (c.pad0 i) (c.pad1 i) (c.padHeader i) (c.bufferVal i)
+  let v ← c.rest i (c.dig i) (c.bufferVal i)
   pure (ends ++ [v])
 def chainsCost (c : LCtx) (i k : Nat) : Nat := ((List.range' i k).map c.bufferCost).sum
 theorem chains_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)

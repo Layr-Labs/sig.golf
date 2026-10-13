@@ -57,7 +57,7 @@ theorem prx_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (pr
     (h15 : tree = 0 ∨ s.getReg .x15 = BitVec.ofNat 64 (T3.height lay)) :
     ∃ t, Steps image s 15 15 t ∧ t.pc = pcOf (b + 112) ∧
       t.getMem (BitVec.ofNat 64 (ENC + 16)) = rowLo lay tree leaf ∧
-      t.getMem (BitVec.ofNat 64 (ENC + 24)) = BitVec.ofNat 64 1 ∧
+      t.getMem (BitVec.ofNat 64 (ENC + 24)) = BitVec.ofNat 64 0 ∧
       RegsExcept s t [.x6, .x7, .x28, .x30] ∧
       Frame s t (fun A => A = ENC + 16 ∨ A = ENC + 24) := by
   refine ⟨_, symRun_sound (runp_0 hK.2.1) (codeAt_p_0 hK) s hpc
@@ -89,12 +89,12 @@ theorem prx_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (pr
     simp only [ENC] at hn
     rw [if_neg (by omega), if_neg (by omega)]
 theorem rowTweak_eq_rowLo (lay : T3.Layer) (tree leaf : Nat) :
-    T3.rowTweak lay tree leaf = BitVec.ofNat 64 1 ++ rowLo lay tree leaf := rfl
+    T3.rowTweak lay tree leaf = BitVec.ofNat 64 0 ++ rowLo lay tree leaf := rfl
 theorem rowTweak_lo (lay : T3.Layer) (tree leaf : Nat) :
     (T3.rowTweak lay tree leaf).extractLsb' 0 64 = rowLo lay tree leaf :=
   BitVec.extractLsb'_append_eq_right
 theorem rowTweak_hi (lay : T3.Layer) (tree leaf : Nat) :
-    (T3.rowTweak lay tree leaf).extractLsb' 64 64 = BitVec.ofNat 64 1 :=
+    (T3.rowTweak lay tree leaf).extractLsb' 64 64 = BitVec.ofNat 64 0 :=
   BitVec.extractLsb'_append_eq_left
 theorem cs103_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 103))
     (lay : T3.Layer) (tree leaf : Nat) (hr : tree * 2 ^ T3.height lay + leaf < 2 ^ 32)
@@ -103,7 +103,7 @@ theorem cs103_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (
     (h15 : tree = 0 ∨ s.getReg .x15 = BitVec.ofNat 64 (T3.height lay)) :
     ∃ t, Steps image s 17 17 t ∧ t.pc = pcOf (b + 113) ∧
       t.getMem (BitVec.ofNat 64 (ENC + 16)) = rowLo lay tree leaf ∧
-      t.getMem (BitVec.ofNat 64 (ENC + 24)) = BitVec.ofNat 64 1 ∧
+      t.getMem (BitVec.ofNat 64 (ENC + 24)) = BitVec.ofNat 64 0 ∧
       t.getReg .x19 = BitVec.ofNat 64 0 ∧
       RegsExcept s t [.x6, .x7, .x19, .x28, .x30] ∧
       Frame s t (fun A => A = ENC + 16 ∨ A = ENC + 24) := by
@@ -171,7 +171,7 @@ theorem cs115_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (
     rw [if_neg (by omega)]
 theorem cs124_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 124)) (lay : Nat)
     (hl : lay < 4) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) :
-    ∃ t, Steps image s 6 6 t ∧ t.pc = (if lay = 0 then pcOf (tcEntry b) else pcOf (b + 130)) ∧
+    ∃ t, Steps image s 6 6 t ∧ t.pc = (if lay = 0 then pcOf (tcBase b) else pcOf (b + 130)) ∧
       t.getReg .x6 = s.getMem (BitVec.ofNat 64 EOUT) ∧ t.getReg .x7 = s.getMem (BitVec.ofNat 64 (EOUT + 8)) ∧
       t.getReg .x25 = BitVec.ofNat 64 0 ∧
       RegsExcept s t [.x6, .x7, .x25, .x28] ∧ Frame s t (fun _ => False) := by

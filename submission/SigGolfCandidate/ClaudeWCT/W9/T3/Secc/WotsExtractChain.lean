@@ -4,7 +4,7 @@ import SigGolfCandidate.ClaudeWCT.W9.New.G3a.ExtractSrc
 namespace ClaudeWCT.W9.T3.Security.WotsExtract
 open OracleComp OracleSpec
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open SigGolfCandidate.T3.Security.Wots (LeafAddr ChainAddr Entry chainRow low SeenRow encodingRow entriesOf)
+open SigGolfCandidate.T3.Security.Wots (LeafAddr ChainAddr Entry chainRow low SeenRow entriesOf)
 open SigGolfCandidate.T3M (chainP chainInputP)
 open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3.Security.Wots
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
@@ -31,13 +31,10 @@ theorem otherChainRow_intro {answers : Answers} {input : HashInput} {a : ChainAd
   ⟨a, step, hpos, h⟩
 theorem structuralHit_intro {answers : Answers} {qs : List Spec.Domain} (pos : Extract.Pos) (actual : HashInput)
     (hb : pos.Bounded) (hsrc : PosSource pos) (hq : (.inl (.inr actual) : Spec.Domain) ∈ qs)
-    (hhit : HashHit answers (Extract.honestInput answers pos) actual)
+    (hhit : HashHitP pos.high answers (Extract.honestInput answers pos) actual)
     (hsame : Extract.SameHeader actual (Extract.honestInput answers pos))
-    (hclass : StructuralClass answers actual pos) (hp : pos.proj = fun a => a.extractLsb' 0 128) :
-    StructuralHitSrc answers (entriesOf answers qs) :=
-  ⟨pos, actual, _, mem_entriesOf hq,
-    Extract.posOf_key_eq hb (by rw [hsame, Extract.hdrBlock_honestInput, Extract.Pos.canonicalHeader_eq hb]),
-    hb, hsrc, hclass, Extract.hashHitAt_of_low hp hhit⟩
+    (hclass : StructuralClass answers actual pos) : StructuralHitSrc answers (entriesOf answers qs) :=
+  ⟨pos, actual, _, mem_entriesOf hq, Extract.posOf_of_same hb hsame, hb, hsrc, hclass, hhit⟩
 theorem chain_bounded {a : ChainAddr} {step : Nat} (hsrc : SourceChain a)
     (hstep : step + 1 < 2 ^ width a.key.lay a.chain) :
     (Extract.Pos.chain a.key.lay a.key.tree a.key.leaf a.chain step).Bounded := by
@@ -51,19 +48,18 @@ theorem structuralHit_chain {answers : Answers} {qs : List Spec.Domain} (a : Cha
     (hq : (.inl (.inr (chainInputP a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v)) : Spec.Domain) ∈ qs)
     (hsrc : SourceChain a) (htb : a.key.tree < 2 ^ Extract.treeBits a.key.lay)
     (hstep : step + 1 < 2 ^ width a.key.lay a.chain)
-    (hhit : HashHit answers (Extract.honestInput answers (.chain a.key.lay a.key.tree a.key.leaf a.chain step))
+    (hhit : HashHitP (chainHigh a.key.lay a.chain step) answers
+      (Extract.honestInput answers (.chain a.key.lay a.key.tree a.key.leaf a.chain step))
       (chainInputP a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v))
     (hclass : ¬(pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0) ∨ depth answers a ≤ step) :
     StructuralHitSrc answers (entriesOf answers qs) := by
   have hb := chain_bounded hsrc hstep
-  have hhdr : Extract.canonicalHeader (Extract.hdrBlock
-      (chainInputP a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v)) =
-      bytesLE 16 (Extract.Pos.chain a.key.lay a.key.tree a.key.leaf a.chain step).hdr := by
-    rw [← pad64_chainInputP, Extract.hdrBlock_chainInputP, Extract.canonicalHeader_chainHeaderP]
-    exact Extract.Pos.canonicalHeader_eq
-      (p := .chain a.key.lay a.key.tree a.key.leaf a.chain step) hb
-  have hpos := Extract.posOf_key_eq (p := .chain a.key.lay a.key.tree a.key.leaf a.chain step) hb hhdr
-  refine ⟨_, _, _, mem_entriesOf hq, hpos, hb, ⟨htb, hsrc.1.2, hsrc.2, hstep⟩, ?_, Extract.hashHitAt_of_low rfl hhit⟩
+  have hpos : Extract.posOf (chainInputP a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v) =
+      some (.chain a.key.lay a.key.tree a.key.leaf a.chain step) := by
+    apply Extract.posOf_of_same hb (answers := answers)
+    rw [← pad64_chainInputP, Extract.honestInput]
+    exact Extract.sameHeader_chain _ _ _ _ _ _ _ _ _ _
+  refine ⟨_, _, _, mem_entriesOf hq, hpos, hb, ⟨htb, hsrc.1.2, hsrc.2, hstep⟩, ?_, hhit⟩
   refine otherChainRow_intro hpos ?_
   rcases hclass with hpad | hdepth
   · refine Or.inl fun value he => hpad ?_
@@ -104,14 +100,14 @@ theorem chain_cases (answers : Answers) (a : ChainAddr) (start count : Nat)
       Nat.pow_le_pow_right (by decide) (width_le' a.key.lay a.chain)
     omega
   have hit : ∀ step, step < count →
-      .inl (.inr (pad64 (pathInput answers
+      .inl (.inr (pad64 (pathInput answers (chainPathHigh a.key.lay a.chain start)
         (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start pad0 pad1 headerPad) value step))) ∈
         queried answers (chainP a.key.lay a.key.tree a.key.leaf a.chain start count pad0 pad1 headerPad value) →
-      HashHit answers
+      HashHitP (chainHigh a.key.lay a.chain (start + step)) answers
         (pad64 (chainInput a.key.lay a.key.tree a.key.leaf a.chain (start + step)
           (honestChainValue answers a.key.lay a.key.tree a.key.leaf a.chain
             (WCT9.wotsSeed answers a.key.lay a.key.tree a.key.leaf a.chain) (start + step))))
-        (pad64 (pathInput answers
+        (pad64 (pathInput answers (chainPathHigh a.key.lay a.chain start)
           (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start pad0 pad1 headerPad) value step)) →
       (¬(pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0) ∨ depth answers a ≤ start + step) → False := by
     intro step hstep hq hhit hclass

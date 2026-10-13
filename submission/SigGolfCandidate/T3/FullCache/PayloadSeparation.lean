@@ -117,6 +117,9 @@ macro "source_queries" : tactic => `(tactic| aesop (config := { maxRuleApplicati
 theorem shortHash_allowed (input : HashInput) : AllQueriesSatisfy (shortHash input) NonMac := by
   unfold shortHash; source_queries
 attribute [local aesop safe apply] shortHash_allowed
+theorem projHash_allowed (high : Bool) (input : HashInput) : AllQueriesSatisfy (projHash high input) NonMac := by
+  unfold projHash; source_queries
+attribute [local aesop safe apply] projHash_allowed
 theorem mask_allowed (level index : Nat) : AllQueriesSatisfy (mask level index) NonMac := by
   unfold mask pairedMask; source_queries
 attribute [local aesop safe apply] mask_allowed

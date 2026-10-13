@@ -354,7 +354,6 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 noncomputable abbrev pairTerm (q : Nat) : ENNReal := SigGolfCandidate.T3.Security.BPair.pairTerm q
-noncomputable abbrev guessTerm (q : Nat) : ENNReal := SigGolfCandidate.T3.Security.BPair.guessTerm q
 def OneGuessIn (answers : Answers) (log : QueryLog Requests) (entries : List Wots.Entry) : Prop :=
   ∃ c, GuessedIn answers log entries c
 section WorldBound

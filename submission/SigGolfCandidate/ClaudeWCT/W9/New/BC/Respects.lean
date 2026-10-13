@@ -10,12 +10,6 @@ theorem untouched_layerEncoding (a : ChainAddr) (lay : Layer) (tree leaf : Nat) 
   untouched_of_hdr a _ (rowTweak lay tree leaf)
     (ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInput lay tree leaf msg counter)
     (fun _ _ _ _ _ => Ne.symm (chainHeader_ne_rowTweak _ _ _ _ _ _ _ _))
-theorem untouched_layerEncodingP (a : ChainAddr) (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg)
-    (counter : BitVec 32) (pad : BitVec 96) (padR : Digest) :
-    Untouched a (.inl (.inr (pad64 (ClaudeWCT.W9.T3M.layerEncodingInputP lay tree leaf msg counter pad padR)))) :=
-  untouched_of_hdr a _ (rowTweak lay tree leaf)
-    (ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP lay tree leaf msg counter pad padR)
-    (fun _ _ _ _ _ => Ne.symm (chainHeader_ne_rowTweak _ _ _ _ _ _ _ _))
 theorem respects_layerEncoding (a : ChainAddr) (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg)
     (counter : BitVec 32) :
     Respects (Untouched a) (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg counter)) :=

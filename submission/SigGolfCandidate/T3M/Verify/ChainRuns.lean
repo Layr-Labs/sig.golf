@@ -267,7 +267,10 @@ def skipJB (tgt : Nat) : Result :=
 
 def offL (i : Nat) : Word := BitVec.ofNat 64 (64 * (42 - i)) - BitVec.ofNat 64 1024
 def slotL (i : Nat) : Nat := if i = 0 then 768 else 784 + 16 * i
-def hSlot (i d : Nat) : Option Nat := if d = 6 then some (slotL i) else none
+/-- Campaign S1: write address of the final step (step 6) of chain `i`: chain 0 of a lower layer takes the HIGH half
+of its last answer, so its final step writes 16 bytes below the value slot (`addi a2,tp,752`). -/
+def wslotL (i : Nat) : Nat := if i = 0 then 752 else slotL i
+def hSlot (i d : Nat) : Option Nat := if d = 6 then some (wslotL i) else none
 def triBase (t dB dC : Nat) : Nat := triBaseTab.getD (64 * t + 8 * dB + dC) 0
 def partLen (d : Nat) : Nat := if d = 7 then 4 else if d = 6 then 5 else 18 - 2 * d
 def pcB (t dB dC : Nat) : Nat := triBase t dB dC + 15
@@ -305,7 +308,7 @@ def xOK (t dB dC : Nat) : Bool :=
     (xJ (if t + 1 < 7 then .x16 else .x17) (9 * ((t + 1) % 7)) (if t = 0 ∨ t = 7 then .x27 else .x2)
       (BitVec.ofNat 64 (lowerImm (t+1))))
 def blkCheck (t dB dC : Nat) : Bool :=
-  rungsOK 0 (slotL (3 * t)) (triBase t dB dC) &&
+  rungsOK 0 (wslotL (3 * t)) (triBase t dB dC) &&
     partOK (3 * t + 1) dB (pcB t dB dC) (decide (t=0 ∧ dB=7)) &&
     partOK (3 * t + 2) dC (pcC t dB dC) (decide (dB=7 ∧ dC=7)) && xOK t dB dC
 def triCheck (t lo n : Nat) : Bool :=

@@ -7,8 +7,16 @@ def sub27S : List (BitVec 32) := [33171,0x79c0006f]
 def sub29S : List (BitVec 32) := List.replicate 11 0x13
 def sub40S : List (BitVec 32) := [2451]
 def sub80S : List (BitVec 32) := [4824595,623715]
-def sub120S : List (BitVec 32) := [6037011,3018291,134967,537857811,930563,9319299,7286819,8336419,134967,588189459,17707779,26096515,7286819,8336419,33857043,688915,0xfe6f3023,55221779,787347,0x580e42e3]
+def sub120S : List (BitVec 32) := [6037011,3018291,134967,537857811,930563,9319299,7286819,8336419,134967,588189459,17707779,26096515,7286819,8336419,33857043,688915,25363251,0xfe6f3023,0xfe0f3423,1867411]
 def sub157S : List (BitVec 32) := [1726995,0x5f00006f]
+/-- Campaign S1: the chain step tail `b + 24` jumps to the chain-0 fix in the sign arena (`1653`): branch-free copy of
+the high half of the answer onto the low half when `i = 0 ∧ lay ≠ 0 ∧ step = 6` (`T3.chainHigh`), then `addi s4,s4,1;
+j b+1`. -/
+def sub24S : List (BitVec 32) := [0x1a10006f]
+/-- The dead word after `sub24S` (old `j b+1`), kept so the leaf layout stays contiguous. -/
+def sub25S : List (BitVec 32) := [0xfa1ff06f]
+def c0S : List (BitVec 32) := [1684243,8401843,7566131,0xffaa0393,1291155,7566131,4395795,12780339,209795,8601091,
+  7745571,29766691,1706515,0xdd0ff06f]
 /-- Campaign T8D: the sign words at `1013 + 42 .. 1013 + 75` that the keygen image no longer shares (the keygen's
 top hooks at 157/159..161/192 changed); the sign keeps its own copies so that `Keygen` edits cannot reach it.
 Offsets 42..71 are dead in the T8D sign image (top seeds via TOPSEED/HORN, lower seeds via stage B's SEED). -/
@@ -19,11 +27,11 @@ def sub60S : List (BitVec 32) := [1703443,5119507,134839,68062867,31329843,13496
 def sub75S : List (BitVec 32) := [0x6750006f]
 /-- Campaign T8D: the leaf prologue `1528..1541` ends with `j 1554` (PRE: `bne s0` / `jal ra,COEFGEN` / `j 1053`). -/
 def hpS : List (BitVec 32) := [0xf49333,19071795,16978707,538141459,50601747,31679283,0xc100f13,59711251,31679283,134711,0x600e0e13,7223331,932899,0x340006f]
-def hpmS : List (BitVec 32) := [17078931,538634899,0xfff40313,50533139,7006899,0xc100313,58921747,7006899,0xa75ff06f]
+def hpmS : List (BitVec 32) := [17078931,537586323,0xfff40313,50533139,7006899,202375955,58921747,7006899,0xa75ff06f]
 def norootS : List (BitVec 32) := [1049363,0xa06a08e3,0x961ff06f]
 /-- The sign's leaf code at `b = 1013` (explicit: the shared `Keygen.sub_*` names only where the sign and keygen
 words agree and the shared run lemmas are used). -/
-def signSubL : Rv.Layout := [(0, sub_0), (1, sub_1), (2, sub_2), (8, sub_8), (9, sub_9), (23, sub_23), (24, sub_24),
+def signSubL : Rv.Layout := [(0, sub_0), (1, sub_1), (2, sub_2), (8, sub_8), (9, sub_9), (23, sub_23), (24, sub24S), (25, sub25S),
   (26, sub_26), (27, sub27S), (29, sub29S), (40, sub40S), (41, sub_41), (42, sub42S), (44, sub44S), (59, sub59S),
   (60, sub60S), (72, sub_72), (73, sub_73), (75, sub75S), (76, sub_76), (77, sub_77), (78, sub_78), (79, sub_79),
   (80, sub80S), (82, sub_82), (83, sub_83), (92, sub_92), (95, sub_95), (96, sub_96), (105, sub_105), (106, sub_106),
@@ -61,9 +69,12 @@ theorem codeAt_sub_9 {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
 theorem codeAt_sub_23 {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
     CodeAt image (pcOf (b + 23)) sub_23 :=
   h.1 23 sub_23 (by decide +kernel)
-theorem codeAt_sub_24 {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
-    CodeAt image (pcOf (b + 24)) sub_24 :=
-  h.1 24 sub_24 (by decide +kernel)
+theorem codeAt_sub24S {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
+    CodeAt image (pcOf (b + 24)) sub24S :=
+  h.1 24 sub24S (by decide +kernel)
+theorem codeAt_c0S {image : Image} {b : Nat} (h : SeedIndependentAt image b) : CodeAt image (pcOf 1653) c0S := by
+  obtain ⟨rfl, rfl⟩ := h.2.2.2.2
+  exact codeAt_sign_slice (by decide +kernel) (by decide +kernel)
 theorem codeAt_sub_26 {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
     CodeAt image (pcOf (b + 26)) sub_26 :=
   h.1 26 sub_26 (by decide +kernel)
@@ -197,6 +208,8 @@ theorem codeAt_sub71S {image : Image} {b : Nat} (h : SeedIndependentAt image b) 
     CodeAt image (pcOf (b + 71)) sub71S := by
   obtain ⟨rfl, rfl⟩ := h.2.2.2.2
   exact codeAt_sign_slice (by decide +kernel) (by decide +kernel)
+sym_block blkS_24 := symRun { noAlias := true } sub24S (pcOf (1013 + 24)) 100
+sym_block blkS_c0 := symRun { noAlias := true } c0S (pcOf 1653) 100
 sym_block blkS_27 := symRun { noAlias := true } sub27S (pcOf (1013 + 27)) 100
 sym_block blkS_40 := symRun { noAlias := true } sub40S (pcOf (1013 + 40)) 100
 sym_block blkS_80 := symRun { noAlias := true } sub80S (pcOf (1013 + 80)) 100

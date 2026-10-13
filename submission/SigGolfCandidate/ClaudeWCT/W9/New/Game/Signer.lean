@@ -8,7 +8,7 @@ section
 namespace ClaudeWCT.WCT9
 open OracleComp OracleSpec SigGolfCandidate.T3
 open SigGolfCandidate.T3M (PubGood allQ_pure allQ_bind allQ_foldlM allQ_mapM allQ_mono pubGood_shortHash
-  pubGood_nodeHash)
+  pubGood_nodeHash pubGood_projHash)
 open SphincsSecurity (bytesLE_length)
 def LowerSeedQ (lay : Layer) (tree : Nat) : SigGolfCandidate.T3.Spec.Domain → Prop
   | .inr (.inl tweak) => ∃ pair, tweak = lowerSeedHeader lay tree pair
@@ -19,7 +19,7 @@ section
 variable (lay : Layer) (tree : Nat)
 theorem lowerQuery_chain (leaf i start count : Nat) (value : Digest) :
     AllQueriesSatisfy (SigGolfCandidate.T3.chain lay tree leaf i start count value) (LowerQuery lay tree) :=
-  allQ_mono (allQ_foldlM _ _ (fun _ _ => pubGood_shortHash _ (by simp [SigGolfCandidate.T3.chainInput, bytesLE_length, zero16])) _)
+  allQ_mono (allQ_foldlM _ _ (fun _ _ => pubGood_projHash _ _ (by simp [SigGolfCandidate.T3.chainInput, bytesLE_length, zero16])) _)
     (fun _ h => Or.inl h)
 theorem lowerQuery_leafHash (leaf : Nat) (ends : List Digest) :
     AllQueriesSatisfy (SigGolfCandidate.T3.leafHash lay tree leaf ends) (LowerQuery lay tree) :=

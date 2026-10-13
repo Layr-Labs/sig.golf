@@ -14,19 +14,9 @@ def mkEntSpec (lay ci sh : Nat) : Spec :=
 def mkEntCheck (lay ci sh : Nat) : Bool :=
   mkSpecB [] [] baseK (mkEntK lay ci) [] (mkTabW lay ci sh) []
     (mkEntSpec lay ci sh) [] (mkEntPost lay ci sh) mkEntKeep
-def mkLvlSpecN (lay ci sh kk : Nat) : Spec :=
-  { T3M.mkLvlSpecN lay ci sh kk with
-    pc := mkShp lay ci sh + mkOff lay ci (kk + 1) + mkMove lay (mkLo lay ci + kk) }
-def mkLvlCheckN (lay ci sh kk : Nat) : Bool :=
-  mkSpecB (mkLvlAllow lay sh (mkLo lay ci + kk)) [] baseK
-    (mkLvlKN lay ci sh kk) [] (mkShp lay ci sh + mkOff lay ci kk + 2) []
-    (mkLvlSpecN lay ci sh kk) [] (mkLvlPostN lay ci sh kk)
-    (mkKeep ++ (.x14 :: mkLvlKeep lay (mkLo lay ci + kk)))
-def mkLvlCheck (lay ci sh kk : Nat) : Bool :=
-  if mkIsDisp lay ci kk then T3M.mkLvlCheckD lay ci sh kk
-  else mkLvlCheckN lay ci sh kk
+def mkLvlCheck (lay ci sh kk : Nat) : Bool := T3M.mkLvlCheck lay ci sh kk
 def childReturn (lay sh : Nat) : Nat :=
-  mkShp lay 0 sh + mkOff lay 0 (hL lay - 1) + 2
+  mkShp lay 0 sh + mkOff lay 0 sh (hL lay - 1) + 2
 def mkBlockCheck (lay ci sh : Nat) : Bool :=
   mkEntCheck lay ci sh &&
   (List.range (mkBits lay ci - if lay = 0 then 0 else 1)).all (mkLvlCheck lay ci sh) &&

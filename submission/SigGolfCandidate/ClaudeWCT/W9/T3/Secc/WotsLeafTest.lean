@@ -79,7 +79,8 @@ noncomputable def testImpl : QueryImpl RefWorld (StateT (TObs d) (OracleComp (TS
   | .inl (.inr input) =>
       match PrefixGame.rowOf a d input with
       | some p => StateT.mk fun obs =>
-          (fun w => (ChainGraph.joinOutput w (high (restTable R (.inl (.inr input)))), record obs p w)) <$>
+          (fun w => (ChainGraph.joinProj (chainHigh a.key.lay a.chain p.1.val) w
+            (projHalf (!chainHigh a.key.lay a.chain p.1.val) (restTable R (.inl (.inr input)))), record obs p w)) <$>
             prefAns L d Rev aF P p
       | none => StateT.lift (pubAns L d R Rev P input)
   | .inr _ => pure ()
@@ -91,6 +92,30 @@ theorem high_ovL (L : LeafAddr) (R : RefTables adversary) (X : LeafData L) (inpu
   | none => rw [restTable_ovL_pub L R X input hz]
   | some cv =>
       rw [zeroOf_some hz, restTable_ovL_zero, high, ChainGraph.joinOutput_high]
+
+/-- Campaign S2: the half of a prefix row of `a` kept from the rest table (the high half, or the low half at the
+last step of chain 0) is untouched by programming `L`'s step-0 rows. -/
+theorem proj_ovL (L : LeafAddr) (R : RefTables adversary) (X : LeafData L) {a : ChainAddr} {d : Nat}
+    {input : HashInput} {p : Fin d × Digest} (hp : PrefixGame.rowOf a d input = some p) :
+    projHalf (!chainHigh a.key.lay a.chain p.1.val) (restTable (ovL L R X) (.inl (.inr input))) =
+      projHalf (!chainHigh a.key.lay a.chain p.1.val) (restTable R (.inl (.inr input))) := by
+  cases hb : chainHigh a.key.lay a.chain p.1.val
+  · exact high_ovL L R X input
+  · have h6 : p.1.val = 6 ∧ a.chain = 0 := by
+      unfold chainHigh at hb
+      simp only [Bool.and_eq_true, beq_iff_eq] at hb
+      exact ⟨hb.1.1, hb.1.2⟩
+    cases hz : zeroOf L input with
+    | none => rw [restTable_ovL_pub L R X input hz]
+    | some cv =>
+        exfalso
+        have he : chainRow a p.1.val p.2 = chainRow ⟨L, cv.1⟩ 0 cv.2 :=
+          (PrefixGame.rowOf_some hp).symm.trans (zeroOf_some hz)
+        obtain ⟨-, -, hs', -⟩ := chainInput_eq_chainRow (a := ⟨L, cv.1⟩)
+          (by rw [h6.2]; decide)
+          (by have := chainCount_le L.lay; have := cv.1.isLt; simp only [Nat.reducePow]; omega)
+          (by omega) (by decide) he
+        omega
 
 theorem ite_decide_update (g : Digest → Digest) (y lab v : Digest) :
     (if decide (y = v) then lab else g v) = Function.update g y lab v := by
@@ -150,9 +175,10 @@ theorem testImpl_bridge (y : Free Rev → Digest) (K : Fin (WCT9.famCount L.lay)
     cases hp : PrefixGame.rowOf a d input with
     | some p =>
         simp only [simulateQ_map, simulateQ_spec_query]
-        show evalT y ((fun w => (ChainGraph.joinOutput w (high (restTable R (.inl (.inr input)))), record s p w)) <$>
+        show evalT y ((fun w => (ChainGraph.joinProj (chainHigh a.key.lay a.chain p.1.val) w
+            (projHalf (!chainHigh a.key.lay a.chain p.1.val) (restTable R (.inl (.inr input)))), record s p w)) <$>
           prefAns L d Rev aF P p) = _
-        rw [evalT_map, evalT_prefAns, PMF.pure_map, high_ovL L R]
+        rw [evalT_map, evalT_prefAns, PMF.pure_map, proj_ovL L R _ hp]
         change _ = StateT.run (_ <$> observedImpl SphincsSecurity.Concrete.OtsPrefix.uniformImpl _ (Sum.inr p)) s
         rw [StateT.run_map]
         change _ = (fun x => _) <$> PMF.pure _

@@ -36,8 +36,8 @@ theorem ftsChainLow_injective {i k j t s i' k' j' t' s' : Nat}
     (h : ftsChainLow i k j t s = ftsChainLow i' k' j' t' s') :
     i = i' ∧ k = k' ∧ j = j' ∧ t = t' ∧ s = s' := by
   unfold ftsChainLow at h
-  rw [Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hk, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt ht,
-    Nat.mod_eq_of_lt hs, Nat.mod_eq_of_lt hi', Nat.mod_eq_of_lt hk', Nat.mod_eq_of_lt hj',
+  rw [Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt ht,
+    Nat.mod_eq_of_lt hs, Nat.mod_eq_of_lt hi', Nat.mod_eq_of_lt hj',
     Nat.mod_eq_of_lt ht', Nat.mod_eq_of_lt hs'] at h
   norm_num only at h hi hi'
   omega
@@ -95,8 +95,7 @@ theorem ftsLeafLow_injective {i k j i' k' j' : Nat}
     (hi : i < 2 ^ 31) (hk : k < 16) (hj : j < 128) (hi' : i' < 2 ^ 31) (hk' : k' < 16) (hj' : j' < 128)
     (h : ftsLeafLow i k j = ftsLeafLow i' k' j') : i = i' ∧ k = k' ∧ j = j' := by
   unfold ftsLeafLow at h
-  rw [Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hk, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hi',
-    Nat.mod_eq_of_lt hk', Nat.mod_eq_of_lt hj'] at h
+  rw [Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hi', Nat.mod_eq_of_lt hj'] at h
   norm_num only at h hi hi'
   omega
 theorem ftsLeafHeader_toNat (index coord selected : Nat) :
@@ -129,12 +128,12 @@ theorem wctNodeHeader_eq {coord : Nat} (hk : coord < 9) (index : Nat) {heap : Na
   rw [nodeTweak_fts (by omega) (by omega) _ hn, show 4 + coord - 4 = coord by omega]
   rfl
 /-- Packed FTS node low word (heaps `8..127`): `ftsLeafLow index coord 0 - heap`. -/
-def ftsNodeLowN (index coord heap : Nat) : Nat := 1537 - heap + coord % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27
+def ftsNodeLowN (index coord heap : Nat) : Nat := 1537 - heap + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27
 theorem ftsNodeLowN_eq (index coord heap : Nat) :
-    ftsNodeLowN index coord heap = 1537 - heap + coord % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27 := rfl
+    ftsNodeLowN index coord heap = 1537 - heap + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27 := rfl
 theorem ftsNodeLowN_lt (index coord heap : Nat) : ftsNodeLowN index coord heap < 2 ^ 58 := by
   rw [ftsNodeLowN_eq]
-  have := Nat.mod_lt coord (show 0 < 16 by decide)
+  have := Nat.mod_lt (coord + 1) (show 0 < 16 by decide)
   have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
   omega
 theorem wctNodeHeader_eqN {coord : Nat} (hk : coord < 9) (index : Nat) {heap : Nat} (hn : FtsNew heap) :
@@ -167,7 +166,7 @@ theorem wctNodeHeader_firstByte (coord index heap : Nat) :
   have h := nodeTweak_marker 3 (nodeLayer coord) index heap
   unfold tweakMarker at h
   unfold wctNodeHeader
-  rw [h, if_neg (by unfold nodeLayer; omega)]
+  rw [h, if_neg (by unfold nodeLayer; omega), if_neg (by unfold nodeLayer; omega)]
   unfold nodeLayer
   by_cases hn : coord < 9 ∧ FtsNew heap
   · rw [if_pos ⟨rfl, by omega, by omega, hn.2⟩, if_pos hn]
@@ -494,23 +493,5 @@ theorem probability_lower_encoding (p : Digest → Prop) [DecidablePred p]
   congr 1
   apply (ENNReal.div_eq_div_iff (by norm_num) (by finiteness) (by norm_num) (by finiteness)).2
   norm_num
-
-open ENNReal in
-theorem probability_top_encoding_le (p : Digest → Prop) [DecidablePred p] :
-    Pr[p ∘ TopDualHalf.select | ($ᵗ HashOutput : ProbComp HashOutput)] ≤
-      ((Finset.univ.filter p).card : ENNReal) * (7 / ((4 : ENNReal) * 2^128)) := by
-  rw [probEvent_uniformSample]
-  change ((Finset.univ.filter fun a : HashOutput => p (TopDualHalf.select a)).card : ENNReal) /
-    (Fintype.card HashOutput : ENNReal) ≤ _
-  have hc : ((Finset.univ.filter fun a : HashOutput => p (TopDualHalf.select a)).card : ENNReal) ≤
-      ((Finset.univ.filter p).card * (7 * 2^126) : Nat) := by
-    exact_mod_cast TopDualHalf.card_select_pred_le p
-  calc _ ≤ ((Finset.univ.filter p).card * (7 * 2^126) : Nat) / (Fintype.card HashOutput : ENNReal) :=
-      ENNReal.div_le_div_right hc _
-    _ = _ := by
-      rw [Fintype.card_bitVec, Nat.cast_mul, mul_div_assoc]
-      congr 1
-      apply (ENNReal.div_eq_div_iff (by norm_num) (by finiteness) (by norm_num) (by finiteness)).2
-      norm_num
 
 end ClaudeWCT.WCT9

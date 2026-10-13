@@ -18,9 +18,11 @@ noncomputable def leafMsg (answers : Answers) (L : LeafAddr) : WCT9.LayerMsg :=
 theorem msgFits_leafMsg (answers : Answers) (L : LeafAddr) : Extract.msgFits L.lay (leafMsg answers L) := by
   unfold leafMsg
   split_ifs <;> trivial
-abbrev RowPad := BitVec 96 × Digest
+/-- Encoding-row witness pads: bytes 36..48, the (unused since nested FTS) forest right slot, and (campaign S2) the
+tweak high word. -/
+abbrev RowPad := BitVec 96 × Digest × BitVec 64
 def encRow (L : LeafAddr) (msg : WCT9.LayerMsg) (counter : BitVec 32) (pad : RowPad) : HashInput :=
-  pad64 (layerEncodingInputP L.lay L.tree L.leaf msg counter pad.1 pad.2)
+  pad64 (layerEncodingInputP L.lay L.tree L.leaf msg counter pad.2.2 pad.1 pad.2.1)
 theorem encRow_zero (L : LeafAddr) (msg : WCT9.LayerMsg) (counter : BitVec 32) :
     encRow L msg counter 0 = pad64 (WCT9.layerEncodingInput L.lay L.tree L.leaf msg counter) :=
   BC.pad64_layerEncodingInputP_zero _ _ _ _ _
@@ -66,7 +68,7 @@ def StructuralClass (answers : Answers) (input : HashInput) (position : Extract.
 def StructuralHit (answers : Answers) (trace : List Entry) : Prop :=
   ∃ position input answer, (input, answer) ∈ trace ∧ Extract.posOf input = some position ∧
     position.Bounded ∧ StructuralClass answers input position ∧
-    HashHit answers (Extract.honestInput answers position) input
+    HashHitP position.high answers (Extract.honestInput answers position) input
 def WotsPrimitive (answers : Answers) (trace : List Entry) : Prop :=
   (∃ L, EncodingMatchAt answers trace L) ∨ StructuralHit answers trace ∨
     (∃ a, TwoEdgeAt answers trace a) ∨

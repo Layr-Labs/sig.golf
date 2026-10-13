@@ -879,7 +879,7 @@ theorem counterWords (c : BitVec 32) :
 theorem wordsOf_encodingInput (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (c : BitVec 32) :
     wordsOf (T3.pad64 (WCT9.layerEncodingInput lay tree leaf msg c)) =
       [(left msg).extractLsb' 0 64, (left msg).extractLsb' 64 64,
-        rowLo lay tree leaf, BitVec.ofNat 64 1,
+        rowLo lay tree leaf, BitVec.ofNat 64 0,
         BitVec.ofNat 64 c.toNat, 0, (right msg).extractLsb' 0 64, (right msg).extractLsb' 64 64] := by
   cases msg with
   | forest root => simpa [WCT9.layerEncodingInput, left, right] using Search.wordsOf_encodingInput lay tree leaf root c
@@ -976,7 +976,7 @@ structure CsInv (b : Nat) (A : CsArgs) (s0 : MachineState) (i : Nat) (t : Machin
   hi : i ≤ capLimit A.lay.val
   x19 : t.getReg .x19 = BitVec.ofNat 64 i
   h16 : t.getMem (BitVec.ofNat 64 (ENC + 16)) = rowLo A.lay A.tree A.leaf
-  h24 : t.getMem (BitVec.ofNat 64 (ENC + 24)) = BitVec.ofNat 64 1
+  h24 : t.getMem (BitVec.ofNat 64 (ENC + 24)) = BitVec.ofNat 64 0
   c32 : ∃ x < 2 ^ 32, t.getMem (BitVec.ofNat 64 (ENC + 32)) = BitVec.ofNat 64 x
   regs : RegsExcept s0 t csRegs
   frame : Frame s0 t CsW
@@ -997,7 +997,7 @@ def CsPost (image : Image) (b : Nat) (A : CsArgs) (s0 : MachineState) : Option (
 structure TrialSt (b : Nat) (A : CsArgs) (s0 : MachineState) (i : Nat) (u : MachineState) : Prop where
   x19 : u.getReg .x19 = BitVec.ofNat 64 i
   h16 : u.getMem (BitVec.ofNat 64 (ENC + 16)) = rowLo A.lay A.tree A.leaf
-  h24 : u.getMem (BitVec.ofNat 64 (ENC + 24)) = BitVec.ofNat 64 1
+  h24 : u.getMem (BitVec.ofNat 64 (ENC + 24)) = BitVec.ofNat 64 0
   c32 : u.getMem (BitVec.ofNat 64 (ENC + 32)) = BitVec.ofNat 64 i
   regs : RegsExcept s0 u csRegs
   frame : Frame s0 u CsW
@@ -1112,7 +1112,7 @@ theorem cs_top_prepare {A : CsArgs} {s0 u : MachineState} {i : Nat} (hK : KernAt
     (hvalid : T3.topRanksValid (T3.topFlip v) = true)
     (hdec : T3.decode A.lay (T3.topFlip v) = some (topDigits (T3.topFlip v)))
     (h6 : u.getReg .x6 = v.extractLsb' 0 64) (h7 : u.getReg .x7 = v.extractLsb' 64 64)
-    (h30 : u.getReg .x30 = BitVec.ofNat 64 TOP_DATA) (h25 : u.getReg .x25 = 145#64) (h20 : u.getReg .x20 = 0) :
+    (h30 : u.getReg .x30 = BitVec.ofNat 64 TOP_DATA) (h25 : u.getReg .x25 = 144#64) (h20 : u.getReg .x20 = 0) :
     ∃ t, Steps image u 301 301 t ∧ RewardReady b A s0 i (topDigits (T3.topFlip v)) t := by
   obtain ⟨t, st, tpc, tdig, tr, tf⟩ := topUnpack_spec hK u v hvalid (hu.table hpre.table) hpc h6 h7 h30 h20 A.ret
     (by rw [hu.reg (by decide),hpre.x1])
@@ -1288,15 +1288,10 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
     have hT4 := hT3.step r4 (by decide) f4
     by_cases hlz : A.lay=0
     · rw [if_pos (hl0.2 hlz)] at p4
-      obtain ⟨kg,tg,sg,hkg,pg,g6,g7,rg,fg⟩ := top_select_spec hK t4 p4 a h6 h7
-        (by rw [r4.get (by decide),getReg_writeHash,h12])
-        (by rw [f4.get (by unfold EOUT;omega) (by simp)];exact hhi.1)
-        (by rw [f4.get (by unfold EOUT;omega) (by simp)];exact hhi.2)
-      have he : v=T3.TopDualHalf.select a := by simp [hvdef,WCT9.encodingAnswer,hlz]
-      rw [←he] at g6 g7
-      obtain ⟨tc,sc,pcc,h6c,h7c,rc,fc⟩ := tc_spec hK tg pg v g6 g7
-      have sc := sg.trans sc
-      have hTc := (hT4.step rg (by decide) fg).step rc (by decide) fc
+      have he : v=a.extractLsb' 0 128 := by simp [hvdef,WCT9.encodingAnswer,hlz]
+      rw [←he] at h6 h7
+      obtain ⟨tc,sc,pcc,h6c,h7c,rc,fc⟩ := tc_spec hK t4 p4 v h6 h7
+      have hTc := hT4.step rc (by decide) fc
       clear_value v
       obtain ⟨w,rfl⟩ : ∃ w,v=T3.topFlip w := ⟨T3.topFlip v,(T3.topFlip_topFlip v).symm⟩
       rw [T3.topFlip_topFlip] at h6c h7c
@@ -1308,7 +1303,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
         (by rw [r5.get (by decide),h6c]) (by rw [r5.get (by decide),h7c])
         (by rw [hT5.reg (by decide),hpre.x17,hlz];rfl) (hT5.table hpre.table).sum
       have hT6 := hT5.step r6 (by decide) f6
-      by_cases hs : topLookupSum w=145
+      by_cases hs : topLookupSum w=144
       · rw [if_pos hs] at p6
         have hd' : T3.decode A.lay (T3.topFlip w)=some (topDigits (T3.topFlip w)) := by rw [hdec,if_pos hs]
         have hpd := producerDecode_top (T3.topFlip w) (by simpa [hlz] using hd')

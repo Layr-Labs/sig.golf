@@ -481,7 +481,7 @@ theorem coordinate_treeLevels (answers : Answers) (index : Nat) (coord : Coord) 
     rw [hn, wctHeapNode_low (by omega)]
     have e1 : 2 * (2 ^ (7 - (level + 1)) + node) = 2 ^ (7 - level) + 2 * node := by omega
     simp only [e1, Nat.add_assoc]
-    rfl
+    rw [wctNodeHash_eq_nodeHash]
 /-- Nested FTS (r1-1): the two top values of a coordinate are high-half hashes with the previous right top as pad. -/
 theorem coordinate_top (answers : Answers) (index : Nat) (coord : Coord) (j : Nat) (hj : j < 2) :
     treeValue (heapLevels (coordNodes answers index coord)) 6 j =
@@ -621,7 +621,7 @@ theorem recoverCoordinate_honest (answers : Answers) (sig : Signature) (index : 
     rw [sibling_pair (fun n => treeValue levels 5 n), div_pow_succ]
   have htop := coordinate_top answers index coord (selected.val / 2 ^ 6) hq
   unfold recoverCoordinate
-  simp only [evalWithAnswerFn_bind, eval_mapM, evalWithAnswerFn_pure, wctNodeHash]
+  simp only [evalWithAnswerFn_bind, eval_mapM, evalWithAnswerFn_pure, wctNodeHash_eq_nodeHash]
   rw [hends, hroot]
   erw [hmerkle]
   erw [hother5, hpair5, ← htop, hother, order_pair levels selected.val selected.isLt]

@@ -145,7 +145,7 @@ theorem cell_not_digest (s : CanonGraph.Secrets) (node : CanonGraph.Node) (label
         have := leafTweak_marker L.1.lay L.1.tree.val L.1.leaf.val; unfold tweakMarker at this; omega)
   | node n =>
       simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr] at h
-      exact not_digest_of_marker h (nodeTweak_marker_ne_zero _ _ _ _)
+      exact SigGolfCandidate.T3.Security.BPair.not_digest_of_low h (nodeTweak_low_ne_zero _ _ _ _)
   | forest index =>
       simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr] at h
       exact not_digest_of_marker h (by rw [header_firstByte]; decide)

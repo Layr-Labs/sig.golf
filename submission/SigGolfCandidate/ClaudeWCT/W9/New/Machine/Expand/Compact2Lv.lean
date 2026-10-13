@@ -20,41 +20,63 @@ def pregAt (c : Nat) : Nat := 33122 + 6 * c
 def holdPc (c : Nat) : Nat := 33176 + 12 * c
 def cReg8 : List (BitVec 32) := [3155255,0xc4050513,5559,0x84058593,1591,109446675,0xf6dff0ef]
 def cReg7 : List (BitVec 32) := [3155255,0x8c050513,5559,0xb7058593,1591,109446675,0xf51ff0ef]
-def cReg6 : List (BitVec 32) := [3151159,0x54050513,5559,0xea058593,1591,109446675,0xf35ff0ef]
+def cReg6 : List (BitVec 32) := [3151159,1409615123,5559,0xea058593,1591,109446675,0xf35ff0ef]
 def cReg5 : List (BitVec 32) := [3151159,470091027,5559,486901139,1591,109446675,0xf19ff0ef]
-def cReg4 : List (BitVec 32) := [3151159,0xe4050513,5559,0x50058593,1591,109446675,0xefdff0ef]
+def cReg4 : List (BitVec 32) := [3151159,0xe4050513,5559,1342539155,1591,109446675,0xefdff0ef]
 def cReg3 : List (BitVec 32) := [3151159,0xac050513,9655,0x83058593,1591,109446675,0xee1ff0ef]
-def cReg2 : List (BitVec 32) := [3147063,0x74050513,9655,0xb6058593,1591,109446675,0xec5ff0ef]
+def cReg2 : List (BitVec 32) := [3147063,1946486035,9655,0xb6058593,1591,109446675,0xec5ff0ef]
 def cReg1 : List (BitVec 32) := [3147063,1006961939,9655,0xe9058593,1591,109446675,0xea9ff0ef]
 def cReg0 : List (BitVec 32) := [3147063,67437843,9655,470123923,1591,109446675,0xe8dff0ef]
-def cTop : List (BitVec 32) := [3155255,0xfc850513,9655,0x50058593,1591,554042899,0xe71ff0ef]
-def cIdx : List (BitVec 32) := [0x6003b03,35347219,0xff9937,0x40090913]
-def cCh1 : List (BitVec 32) := [3159351,545588499,13751,0x6f058593,1591,361104915,0xe45ff0ef]
-def cRow1 : List (BitVec 32) := [0xcb5993,0x7f9f993,3774995,19532339,537528851]
-def cLv10 : List (BitVec 32) := [3159351,478479635,672515,4395795,13751,0x58058593,6653363,33898115,42286851,64335907,65385507,643859,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
-def cLv11 : List (BitVec 32) := [3159351,411370771,1721091,4395795,13751,0x58058593,6653363,33898115,42286851,64335907,65385507,1692435,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
-def cLv12 : List (BitVec 32) := [3159351,344261907,2769667,4395795,13751,0x58058593,6653363,33898115,42286851,64335907,65385507,2741011,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
-def cLv13 : List (BitVec 32) := [3159351,277153043,3818243,4395795,13751,0x58058593,6653363,33898115,42286851,64335907,65385507,3789587,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
-def cLv14 : List (BitVec 32) := [3159351,210044179,4866819,4395795,13751,0x58058593,6653363,33898115,42286851,64335907,65385507,4838163,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
-def cLv15 : List (BitVec 32) := [3159351,142935315,5915395,4395795,13751,0x58058593,6653363,33898115,42286851,64335907,65385507,5886739,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
-def cLv16 : List (BitVec 32) := [3159351,75826451,6963971,4395795,13751,0x58058593,6653363,33898115,42286851,64335907,65385507,6935315,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
-def cCh2 : List (BitVec 32) := [3163447,0xe4850513,17847,772113811,1591,361104915,0xb91ff0ef]
+def cTop : List (BitVec 32) := [3155255,746915091,13751,0x81058593,1591,453379603,0xe71ff0ef]
+def cJTop : List (BitVec 32) := [0x4950106f]
+def cS2 : List (BitVec 32) := [16750903,1074333971]
+/-- Campaign S2 top path placement (arena 44060..44350): index, then per line (A: levels 0..5, rows of `TOPA` by
+`leaf % 64`; B: levels 6..11, rows of `TOPB` by `leaf / 64 % 64`) a row setup and six lower-shaped blocks. -/
+def cTIdx : List (BitVec 32) := [100678403,35347219]
+def cTRowA : List (BitVec 32) := [20666771,66714003,3774995,16778039,0xb8030313,6949427]
+def cTRowB : List (BitVec 32) := [26958227,66714003,3774995,16778039,0xd8030313,6949427]
+def cTv0 : List (BitVec 32) := [3155255,679806227,672515,4395795,9655,0x50058593,6653363,33898115,42286851,64335907,65385507,643859,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cTv1 : List (BitVec 32) := [3155255,612697363,1721091,4395795,9655,0x50058593,6653363,33898115,42286851,64335907,65385507,1692435,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cTv2 : List (BitVec 32) := [3155255,545588499,2769667,4395795,9655,0x50058593,6653363,33898115,42286851,64335907,65385507,2741011,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cTv3 : List (BitVec 32) := [3155255,478479635,3818243,4395795,9655,0x50058593,6653363,33898115,42286851,64335907,65385507,3789587,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cTv4 : List (BitVec 32) := [3155255,411370771,4866819,4395795,9655,0x50058593,6653363,33898115,42286851,64335907,65385507,4838163,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cTv5 : List (BitVec 32) := [3155255,344261907,5915395,4395795,9655,0x50058593,6653363,33898115,42286851,64335907,65385507,5886739,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cTv6 : List (BitVec 32) := [3155255,277153043,672515,4395795,9655,0x50058593,6653363,33898115,42286851,64335907,65385507,643859,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cTv7 : List (BitVec 32) := [3155255,210044179,1721091,4395795,9655,0x50058593,6653363,33898115,42286851,64335907,65385507,1692435,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cTv8 : List (BitVec 32) := [3155255,142935315,2769667,4395795,9655,0x50058593,6653363,33898115,42286851,64335907,65385507,2741011,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cTv9 : List (BitVec 32) := [3155255,75826451,3818243,4395795,9655,0x50058593,6653363,33898115,42286851,64335907,65385507,3789587,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cTv10 : List (BitVec 32) := [3155255,8717587,4866819,4395795,9655,0x50058593,6653363,33898115,42286851,64335907,65385507,4838163,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cTv11 : List (BitVec 32) := [3155255,0xfc850513,5915395,4395795,9655,0x50058593,6653363,33898115,42286851,64335907,65385507,5886739,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cTEnd : List (BitVec 32) := [0xeedfd06f]
+def tvAt (j : Nat) : Nat := 44068 + 144 * (j / 6) + 23 * (j % 6)
+def cTvs : List (List (BitVec 32)) := [cTv0, cTv1, cTv2, cTv3, cTv4, cTv5, cTv6, cTv7, cTv8, cTv9, cTv10, cTv11]
+def cTv (j : Nat) : List (BitVec 32) := cTvs.getD j []
+def cCh1 : List (BitVec 32) := [3159351,545588499,13751,1879410067,1591,361104915,0xe45ff0ef]
+def cRow1 : List (BitVec 32) := [13326739,133822867,3774995,19532339,537528851]
+def cLv10 : List (BitVec 32) := [3159351,478479635,672515,4395795,13751,1493534099,6653363,33898115,42286851,64335907,65385507,643859,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cLv11 : List (BitVec 32) := [3159351,411370771,1721091,4395795,13751,1493534099,6653363,33898115,42286851,64335907,65385507,1692435,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cLv12 : List (BitVec 32) := [3159351,344261907,2769667,4395795,13751,1493534099,6653363,33898115,42286851,64335907,65385507,2741011,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cLv13 : List (BitVec 32) := [3159351,277153043,3818243,4395795,13751,1493534099,6653363,33898115,42286851,64335907,65385507,3789587,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cLv14 : List (BitVec 32) := [3159351,210044179,4866819,4395795,13751,1493534099,6653363,33898115,42286851,64335907,65385507,4838163,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cLv15 : List (BitVec 32) := [3159351,142935315,5915395,4395795,13751,1493534099,6653363,33898115,42286851,64335907,65385507,5886739,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cLv16 : List (BitVec 32) := [3159351,75826451,6963971,4395795,13751,1493534099,6653363,33898115,42286851,64335907,65385507,6935315,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cCh2 : List (BitVec 32) := [3163447,0xe4850513,17847,805668243,1591,361104915,0xb91ff0ef]
 def cRow2 : List (BitVec 32) := [7035283,66714003,3774995,19532339]
-def cLv20 : List (BitVec 32) := [3163447,0xe0850513,672515,4395795,17847,453346707,6653363,33898115,42286851,64335907,65385507,643859,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
-def cLv21 : List (BitVec 32) := [3163447,0xdc850513,1721091,4395795,17847,453346707,6653363,33898115,42286851,64335907,65385507,1692435,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
-def cLv22 : List (BitVec 32) := [3163447,0xd8850513,2769667,4395795,17847,453346707,6653363,33898115,42286851,64335907,65385507,2741011,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
-def cLv23 : List (BitVec 32) := [3163447,0xd4850513,3818243,4395795,17847,453346707,6653363,33898115,42286851,64335907,65385507,3789587,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
-def cLv24 : List (BitVec 32) := [3163447,0xd0850513,4866819,4395795,17847,453346707,6653363,33898115,42286851,64335907,65385507,4838163,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
-def cLv25 : List (BitVec 32) := [3163447,0xcc850513,5915395,4395795,17847,453346707,6653363,33898115,42286851,64335907,65385507,5886739,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
-def cCh3 : List (BitVec 32) := [3167543,0xa8850513,21943,0xed058593,1591,361104915,0x93dff0ef]
+def cLv20 : List (BitVec 32) := [3163447,0xe0850513,672515,4395795,17847,470123923,6653363,33898115,42286851,64335907,65385507,643859,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cLv21 : List (BitVec 32) := [3163447,0xdc850513,1721091,4395795,17847,470123923,6653363,33898115,42286851,64335907,65385507,1692435,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cLv22 : List (BitVec 32) := [3163447,0xd8850513,2769667,4395795,17847,470123923,6653363,33898115,42286851,64335907,65385507,2741011,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cLv23 : List (BitVec 32) := [3163447,0xd4850513,3818243,4395795,17847,470123923,6653363,33898115,42286851,64335907,65385507,3789587,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cLv24 : List (BitVec 32) := [3163447,0xd0850513,4866819,4395795,17847,470123923,6653363,33898115,42286851,64335907,65385507,4838163,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cLv25 : List (BitVec 32) := [3163447,0xcc850513,5915395,4395795,17847,470123923,6653363,33898115,42286851,64335907,65385507,5886739,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cCh3 : List (BitVec 32) := [3167543,0xa8850513,21943,0xf0058593,1591,361104915,0x93dff0ef]
 def cRow3 : List (BitVec 32) := [66812307,3774995,19532339]
-def cLv30 : List (BitVec 32) := [3167543,0xa4850513,672515,4395795,21943,0xda058593,6653363,33898115,42286851,64335907,65385507,643859,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
-def cLv31 : List (BitVec 32) := [3167543,0xa0850513,1721091,4395795,21943,0xda058593,6653363,33898115,42286851,64335907,65385507,1692435,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
-def cLv32 : List (BitVec 32) := [3167543,0x9c850513,2769667,4395795,21943,0xda058593,6653363,33898115,42286851,64335907,65385507,2741011,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
-def cLv33 : List (BitVec 32) := [3167543,0x98850513,3818243,4395795,21943,0xda058593,6653363,33898115,42286851,64335907,65385507,3789587,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
-def cLv34 : List (BitVec 32) := [3167543,0x94850513,4866819,4395795,21943,0xda058593,6653363,33898115,42286851,64335907,65385507,4838163,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
-def cLv35 : List (BitVec 32) := [3167543,0x90850513,5915395,4395795,21943,0xda058593,6653363,33898115,42286851,64335907,65385507,5886739,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
-def cTail : List (BitVec 32) := [3147063,328979,26039,0x99058593,343683,8732419,30781475,31831075,17133187,374819,30784547]
+def cLv30 : List (BitVec 32) := [3167543,0xa4850513,672515,4395795,21943,0xdc058593,6653363,33898115,42286851,64335907,65385507,643859,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cLv31 : List (BitVec 32) := [3167543,0xa0850513,1721091,4395795,21943,0xdc058593,6653363,33898115,42286851,64335907,65385507,1692435,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cLv32 : List (BitVec 32) := [3167543,0x9c850513,2769667,4395795,21943,0xdc058593,6653363,33898115,42286851,64335907,65385507,2741011,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cLv33 : List (BitVec 32) := [3167543,0x98850513,3818243,4395795,21943,0xdc058593,6653363,33898115,42286851,64335907,65385507,3789587,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cLv34 : List (BitVec 32) := [3167543,0x94850513,4866819,4395795,21943,0xdc058593,6653363,33898115,42286851,64335907,65385507,4838163,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cLv35 : List (BitVec 32) := [3167543,0x90850513,5915395,4395795,21943,0xdc058593,6653363,33898115,42286851,64335907,65385507,5886739,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
+def cTail : List (BitVec 32) := [3147063,328979,26039,0x9c058593,343683,8732419,30781475,31831075,17133187,374819,30784547]
 def lvAt (lay j : Nat) : Nat := if lay = 1 then 42247 + 23 * j else if lay = 2 then 42419 + 23 * j else 42567 + 23 * j
 def cLvs : List (List (BitVec 32)) := [cLv10, cLv11, cLv12, cLv13, cLv14, cLv15, cLv16, cLv20, cLv21, cLv22, cLv23, cLv24, cLv25, cLv30, cLv31, cLv32, cLv33, cLv34, cLv35]
 def lvIdx (lay j : Nat) : Nat := if lay = 1 then j else if lay = 2 then 7 + j else 13 + j
@@ -75,7 +97,14 @@ theorem code_cPReg (c : Nat) (hc9 : c < 9) : CodeAt im (pcOf (pregAt c)) (cPReg 
   interval_cases c <;> exact codeAt_of_window hc (by decide) (by decide +kernel)
 theorem code_cHold (c : Nat) (hc9 : c < 9) : CodeAt im (pcOf (holdPc c)) (cHold c) := by
   interval_cases c <;> exact codeAt_of_window hc (by decide) (by decide +kernel)
-theorem code_cIdx : CodeAt im (pcOf 42231) cIdx := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cJTop : CodeAt im (pcOf 42231) cJTop := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cS2 : CodeAt im (pcOf 42233) cS2 := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cTIdx : CodeAt im (pcOf 44060) cTIdx := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cTRowA : CodeAt im (pcOf 44062) cTRowA := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cTRowB : CodeAt im (pcOf 44206) cTRowB := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cTEnd : CodeAt im (pcOf 44350) cTEnd := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cTv (j : Nat) (hj : j < 12) : CodeAt im (pcOf (tvAt j)) (cTv j) := by
+  interval_cases j <;> exact codeAt_of_window hc (by decide) (by decide +kernel)
 theorem code_cCh1 : CodeAt im (pcOf 42235) cCh1 := codeAt_of_window hc (by decide) (by decide +kernel)
 theorem code_cRow1 : CodeAt im (pcOf 42242) cRow1 := codeAt_of_window hc (by decide) (by decide +kernel)
 theorem code_cCh2 : CodeAt im (pcOf 42408) cCh2 := codeAt_of_window hc (by decide) (by decide +kernel)
@@ -96,7 +125,12 @@ sym_block RSnap := symRun cfgC cSnap (pcOf 42142) 40
 sym_block RZero2 := symRun cfgC cZero2 (pcOf 42149) 40
 sym_block RHdr := symRun cfgC cHdr (pcOf 42154) 40
 sym_block RTop := symRun cfgC cTop (pcOf 42224) 40
-sym_block RIdx := symRun cfgC cIdx (pcOf 42231) 40
+sym_block RJTop := symRun cfgC cJTop (pcOf 42231) 40
+sym_block RS2 := symRun cfgC cS2 (pcOf 42233) 40
+sym_block RTIdx := symRun cfgC cTIdx (pcOf 44060) 40
+sym_block RTRowA := symRun cfgC cTRowA (pcOf 44062) 40
+sym_block RTRowB := symRun cfgC cTRowB (pcOf 44206) 40
+sym_block RTEnd := symRun cfgC cTEnd (pcOf 44350) 40
 sym_block RCh1 := symRun cfgC cCh1 (pcOf 42235) 40
 sym_block RRow1 := symRun cfgC cRow1 (pcOf 42242) 40
 sym_block RCh2 := symRun cfgC cCh2 (pcOf 42408) 40
@@ -167,8 +201,8 @@ def lvObl (j S D : Nat) : List Oblig :=
    .align8 (.reg .x20), .valid ⟨some (.reg .x20), BitVec.ofNat 64 j⟩ 1]
 def lvSrc (lay j : Nat) : Nat :=
   0x300000 + 8136 + 64 * ((if lay = 1 then 66 else if lay = 2 then 116 else 165) + (if lay = 1 then 6 else 5) - j)
-/-- Lower-layer path area in the final witness (T8: layer bases 11648 / 14768 / 17824). -/
-def lvDst (lay : Nat) : Nat := 0x800 + (if lay = 1 then 11648 else if lay = 2 then 14768 else 17824)
+/-- Lower-layer path area in the final witness (S1: layer bases 11664 / 14784 / 17856). -/
+def lvDst (lay : Nat) : Nat := 0x800 + (if lay = 1 then 11664 else if lay = 2 then 14784 else 17856)
 def lvH (lay : Nat) : Nat := if lay = 1 then 7 else 6
 def rLvs : List Result := [RLv10.res, RLv11.res, RLv12.res, RLv13.res, RLv14.res, RLv15.res, RLv16.res, RLv20.res,
   RLv21.res, RLv22.res, RLv23.res, RLv24.res, RLv25.res, RLv30.res, RLv31.res, RLv32.res, RLv33.res, RLv34.res,
@@ -191,6 +225,12 @@ def LPLAN : Nat := 0xff9400
 def LPlanAt (t : MachineState) : Prop :=
   ∀ k < 192, t.getMem (BitVec.ofNat 64 (LPLAN + 8 * k)) = bytesToWordLE ((ClaudeWCT.W9.Machine.Expand.lplanBytes.drop (8 * k)).take 8)
 def lvRow (lay r : Nat) : Nat := if lay = 1 then 64 + r else r
+/-- Campaign S1: line-A slot table of the top placement routine (row `leaf % 64`, six slot indices, stride 8) at
+`0xfffb80`, legacy data offset 2944. -/
+def TOPA : Nat := 0xfffb80
+def topABytes : List (BitVec 8) := (SigGolfCandidate.T3M.Images.expandLegacyData.drop 2944).take 512
+def TopAAt (t : MachineState) : Prop :=
+  ∀ k < 64, t.getMem (BitVec.ofNat 64 (TOPA + 8 * k)) = bytesToWordLE ((topABytes.drop (8 * k)).take 8)
 set_option maxRecDepth 100000 in
 theorem lplan1_ok : ∀ r < 128, ∀ j < 7,
     LoadKind.bu.fromWord (bytesToWordLE ((ClaudeWCT.W9.Machine.Expand.lplanBytes.drop (8 * (64 + r))).take 8)) j =
@@ -204,12 +244,12 @@ theorem lplan2_ok : ∀ r < 64, ∀ j < 6,
   decide +kernel
 set_option maxRecDepth 100000 in
 theorem lowerPlan_lt : (∀ r < 128, ∀ j < 7, (ClaudeWCT.W9.T3M.lowerPlan 1 r).getD j 0 + 4 ≤ 23) ∧
-    (∀ r < 64, ∀ j < 6, (ClaudeWCT.W9.T3M.lowerPlan 2 r).getD j 0 + 4 ≤ 19) := by
+    (∀ r < 64, ∀ j < 6, (ClaudeWCT.W9.T3M.lowerPlan 2 r).getD j 0 + 4 ≤ 20) := by
   decide +kernel
 def plan (lay r j : Nat) : Nat := (ClaudeWCT.W9.T3M.lowerPlan (Fin.ofNat 4 lay) r).getD j 0
 theorem plan_ok (lay r j : Nat) (hl : 1 ≤ lay ∧ lay < 4) (hr : r < 2 ^ lvH lay) (hj : j < lvH lay) :
     LoadKind.bu.fromWord (bytesToWordLE ((ClaudeWCT.W9.Machine.Expand.lplanBytes.drop (8 * lvRow lay r)).take 8)) j =
-      BitVec.ofNat 64 (plan lay r j) ∧ plan lay r j + 4 ≤ (if lay = 1 then 23 else 19) := by
+      BitVec.ofNat 64 (plan lay r j) ∧ plan lay r j + 4 ≤ (if lay = 1 then 23 else 20) := by
   obtain ⟨h1, h4⟩ := hl
   unfold lvH at hr hj
   unfold plan lvRow
@@ -277,7 +317,7 @@ theorem lv_spec (lay j : Nat) (hl : 1 ≤ lay ∧ lay < 4) (hj : j < lvH lay) (s
   have hpl23 : plan lay r j ≤ 23 := by split_ifs at hpl <;> omega
   have hb : r / 2 ^ j % 2 < 2 := Nat.mod_lt _ (by norm_num)
   obtain ⟨h1, h4⟩ := hl
-  have hD : lvDst lay + 16 * 23 ≤ 0x800 + 20912 ∧ 0x800 + 11648 ≤ lvDst lay := by
+  have hD : lvDst lay + 16 * 23 ≤ 0x800 + 20912 ∧ 0x800 + 11664 ≤ lvDst lay := by
     unfold lvDst; split_ifs <;> omega
   have hDp : lvDst lay + 16 * plan lay r j + 64 ≤ 0x800 + 20912 := by
     unfold lvDst at *; split_ifs at * <;> omega
@@ -342,6 +382,142 @@ theorem lv_spec (lay j : Nat) (hl : 1 ≤ lay ∧ lay < 4) (hj : j < lvH lay) (s
         · subst q3; simp
         · rw [if_neg (fun h => q3 ((ofNat_inj hA (by omega)).mp h)), if_neg q3]
           by_cases q4 : A = lvDst lay + 16 * plan lay r j + 32
+          · subst q4; simp
+          · rw [if_neg (fun h => q4 ((ofNat_inj hA (by omega)).mp h)), if_neg q4]
+end
+/-! ### Campaign S2: the top path placement (twelve lower-shaped blocks at `tvAt j`) -/
+/-- Line-B slot table (row `leaf / 64 % 64`, six slot indices, stride 8) at `0xfffd80`, legacy data offset 3456. -/
+def TOPB : Nat := 0xfffd80
+def topBBytes : List (BitVec 8) := (SigGolfCandidate.T3M.Images.expandLegacyData.drop 3456).take 512
+def TopTabAt (t : MachineState) : Prop :=
+  TopAAt t ∧ ∀ k < 64, t.getMem (BitVec.ofNat 64 (TOPB + 8 * k)) = bytesToWordLE ((topBBytes.drop (8 * k)).take 8)
+/-- Row table of level `j` (line A for `j < 6`, line B otherwise). -/
+def tTab (j : Nat) : Nat := if j < 6 then TOPA else TOPB
+/-- Snapshot window of top level `j` (stage-1 top block at `SNAP2 + 8136`, level `j` at `64 (11 - j)`). -/
+def tvSrc (j : Nat) : Nat := 0x300000 + 8136 + 64 * (11 - j)
+/-- Final top path area (witness offset 8256 = machine `0x800 + 7424`). -/
+def tvDst : Nat := 0x800 + 7424
+/-- Window offset of top level `j` for row `r` of its line (`topPlanA` / `topPlanB`). -/
+def tOff (j r : Nat) : Nat :=
+  if j < 6 then (ClaudeWCT.W9.T3M.topPlanA.getD r []).getD j 0 else (ClaudeWCT.W9.T3M.topPlanB.getD r []).getD (j - 6) 0
+/-- Slot (16-byte units) of top level `j` for row `r`. -/
+def tplan (j r : Nat) : Nat := tOff j r / 16
+set_option maxRecDepth 100000 in
+theorem topA_ok : ∀ r < 64, ∀ jj < 6,
+    LoadKind.bu.fromWord (bytesToWordLE ((topABytes.drop (8 * r)).take 8)) jj = BitVec.ofNat 64 (tOff jj r / 16) ∧
+      tOff jj r % 16 = 0 ∧ tOff jj r + 64 ≤ 784 := by
+  decide +kernel
+set_option maxRecDepth 100000 in
+theorem topB_ok : ∀ r < 64, ∀ jj < 6,
+    LoadKind.bu.fromWord (bytesToWordLE ((topBBytes.drop (8 * r)).take 8)) jj =
+      BitVec.ofNat 64 (tOff (jj + 6) r / 16) ∧ tOff (jj + 6) r % 16 = 0 ∧ tOff (jj + 6) r + 64 ≤ 384 := by
+  decide +kernel
+theorem tplan_ok (j r : Nat) (hj : j < 12) (hr : r < 64) : 16 * tplan j r = tOff j r ∧ tOff j r + 64 ≤ 784 := by
+  unfold tplan
+  by_cases h6 : j < 6
+  · have := (topA_ok r hr j h6).2; omega
+  · have := (topB_ok r hr (j - 6) (by omega)).2; rw [show j - 6 + 6 = j by omega] at this; omega
+theorem tpb_eval {s : MachineState} {j r : Nat} (hj : j < 12) (hr : r < 64)
+    (h20 : s.getReg .x20 = BitVec.ofNat 64 (tTab j + 8 * r)) (hp : TopTabAt s) :
+    (pbE (j % 6)).eval s = BitVec.ofNat 64 (tplan j r) := by
+  simp only [pbE, E.eval, UnOp.eval, h20]
+  unfold tTab tplan
+  by_cases h6 : j < 6
+  · rw [if_pos h6, hp.1 r hr, Nat.mod_eq_of_lt h6, (topA_ok r hr j h6).1]
+  · rw [if_neg h6, hp.2 r hr, (topB_ok r hr (j % 6) (Nat.mod_lt _ (by norm_num))).1,
+      show j % 6 + 6 = j by omega]
+set_option maxRecDepth 20000 in
+theorem run_tv (j : Nat) (hj : j < 12) : symRun cfgC (cTv j) (pcOf (tvAt j)) 40 =
+    some ⟨⟨lvRegs (j % 6) (tvSrc j) tvDst, lvMem (j % 6) (tvSrc j) tvDst, lvObl (j % 6) (tvSrc j) tvDst⟩,
+      .c (pcOf (tvAt j + 23)), .endOfCode, 23, 23⟩ := by
+  interval_cases j <;> kernel_rfl
+section
+variable {im : Image} (hc : ClaudeWCT.W9.Machine.Expand.NewCodeAt im)
+include hc
+set_option maxRecDepth 20000 in
+set_option maxHeartbeats 2000000 in
+theorem tv_spec (j : Nat) (hj : j < 12) (s : MachineState) (hpc : s.pc = pcOf (tvAt j)) (r : Nat) (hr : r < 64)
+    (h19 : s.getReg .x19 = BitVec.ofNat 64 r) (h20 : s.getReg .x20 = BitVec.ofNat 64 (tTab j + 8 * r))
+    (hp : TopTabAt s) :
+    ∃ t, Steps im s 23 23 t ∧ t.pc = pcOf (tvAt j + 23) ∧
+      RegsExcept s t [.x6, .x7, .x10, .x11, .x29, .x30] ∧
+      ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) =
+        if A = tvDst + 16 * tplan j r + 48 * (1 - r / 2 ^ (j % 6) % 2) + 8 then
+          s.getMem (BitVec.ofNat 64 (tvSrc j + 48 * (1 - r / 2 ^ (j % 6) % 2) + 8))
+        else if A = tvDst + 16 * tplan j r + 48 * (1 - r / 2 ^ (j % 6) % 2) then
+          s.getMem (BitVec.ofNat 64 (tvSrc j + 48 * (1 - r / 2 ^ (j % 6) % 2)))
+        else if A = tvDst + 16 * tplan j r + 40 then s.getMem (BitVec.ofNat 64 (tvSrc j + 40))
+        else if A = tvDst + 16 * tplan j r + 32 then s.getMem (BitVec.ofNat 64 (tvSrc j + 32))
+        else s.getMem (BitVec.ofNat 64 A) := by
+  have hM : MEMORY_BYTES = 16777216 := rfl
+  have hr7 : r < 2 ^ 7 := by omega
+  have hj7 : j % 6 < 7 := by omega
+  have ht6 := t6E_eval h19 hr7 (j % 6) hj7
+  have hpb := tpb_eval hj hr h20 hp
+  have hpl := tplan_ok j r hj hr
+  have hb : r / 2 ^ (j % 6) % 2 < 2 := Nat.mod_lt _ (by norm_num)
+  have hDp : tvDst + 16 * tplan j r + 64 ≤ 0x800 + 8208 := by unfold tvDst; omega
+  have hS : 0x300000 + 8136 ≤ tvSrc j ∧ tvSrc j + 64 ≤ 0x300000 + 21832 := by unfold tvSrc; omega
+  have hS16 : tvSrc j % 16 = 8 := by unfold tvSrc; omega
+  have hDm : tvDst % 16 = 0 := by unfold tvDst; omega
+  have hT : tTab j % 8 = 0 ∧ tTab j + 8 * 64 ≤ 0x1000000 := by unfold tTab TOPA TOPB; split <;> omega
+  have hrun := run_tv j hj
+  have hslot : (slotE (j % 6)).eval s = BitVec.ofNat 64 (16 * tplan j r) := by
+    simp only [slotE, E.eval, BinOp.eval, hpb]
+    rw [show (4#64 : Word).toNat % 64 = 4 from rfl, ofNat_shl]; congr 1; ring
+  have ha0 : ∀ S, (a0E (j % 6) S).eval s = BitVec.ofNat 64 (48 * (1 - r / 2 ^ (j % 6) % 2) + S) := fun S => by
+    simp only [a0E, E.eval, BinOp.eval, ht6, ofNat_add_ofNat]
+  have ha1 : (a1E (j % 6) tvDst).eval s =
+      BitVec.ofNat 64 (tvDst + 16 * tplan j r + 48 * (1 - r / 2 ^ (j % 6) % 2)) := by
+    simp only [a1E, E.eval, BinOp.eval, hslot, ht6, ofNat_add_ofNat]; congr 1; ring
+  have hobl : Oblig.all s (lvObl (j % 6) (tvSrc j) tvDst) := by
+    rw [Oblig.all_iff]
+    intro o ho
+    simp only [lvObl, List.mem_cons, List.not_mem_nil, or_false] at ho
+    rcases ho with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+    · simp only [Oblig.holds, Addr.eval, ha1, ofNat_add_ofNat]; exact valid8 _ (by omega) (by omega)
+    · simp only [Oblig.holds, Addr.eval, ha1, ofNat_add_ofNat]; exact valid8 _ (by omega) (by omega)
+    · simp only [Oblig.holds, Addr.eval, ht6, hslot, ofNat_add_ofNat]
+      intro h; have := (ofNat_inj (by omega) (by omega)).mp h; omega
+    · simp only [Oblig.holds, Addr.eval, ht6, hslot, ofNat_add_ofNat]
+      intro h; have := (ofNat_inj (by omega) (by omega)).mp h; omega
+    · simp only [Oblig.holds, Addr.eval, ht6, ofNat_add_ofNat]; exact valid8 _ (by omega) (by omega)
+    · simp only [Oblig.holds, Addr.eval, ht6, hslot, ofNat_add_ofNat]
+      intro h; have := (ofNat_inj (by omega) (by omega)).mp h; omega
+    · simp only [Oblig.holds, Addr.eval, ht6, hslot, ofNat_add_ofNat]
+      intro h; have := (ofNat_inj (by omega) (by omega)).mp h; omega
+    · simp only [Oblig.holds, Addr.eval, ht6, ofNat_add_ofNat]; exact valid8 _ (by omega) (by omega)
+    · simp only [Oblig.holds, Addr.eval, hslot, ofNat_add_ofNat]; exact valid8 _ (by omega) (by omega)
+    · simp only [Oblig.holds, Addr.eval, hslot, ofNat_add_ofNat]; exact valid8 _ (by omega) (by omega)
+    · simp only [Oblig.holds, E.eval, h20, BitVec.toNat_ofNat]; omega
+    · simp only [Oblig.holds, Addr.eval, E.eval, h20, ofNat_add_ofNat, accessValid_iff, BitVec.toNat_ofNat]
+      omega
+  refine ⟨_, symRun_sound hrun (Compact2.code_cTv hc j hj) s hpc hobl, ?_, ?_, ?_⟩
+  · simp only [Result.toState_pc, E.eval]
+  · intro x hx
+    simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hx
+    obtain ⟨h6, h7, h10, h11, h29, h30⟩ := hx
+    rw [Result.toState_getReg]
+    cases x <;> first | rfl | (exfalso; simp_all)
+  · intro A hA
+    simp only [Result.toState_getMem, lvMem, memEval_cons, memEval_nil, Addr.eval, E.eval, ha0, ha1, hslot,
+      ofNat_add_ofNat, BitVec.add_zero]
+    have e1 : 48 * (1 - r / 2 ^ (j % 6) % 2) + (tvSrc j + 8) = tvSrc j + 48 * (1 - r / 2 ^ (j % 6) % 2) + 8 := by
+      ring
+    have e2 : 48 * (1 - r / 2 ^ (j % 6) % 2) + tvSrc j = tvSrc j + 48 * (1 - r / 2 ^ (j % 6) % 2) := by ring
+    have e3 : 16 * tplan j r + (tvDst + 40) = tvDst + 16 * tplan j r + 40 := by ring
+    have e4 : 16 * tplan j r + (tvDst + 32) = tvDst + 16 * tplan j r + 32 := by ring
+    rw [e1, e2, e3, e4]
+    by_cases q1 : A = tvDst + 16 * tplan j r + 48 * (1 - r / 2 ^ (j % 6) % 2) + 8
+    · subst q1; simp
+    · rw [if_neg (fun h => q1 ((ofNat_inj hA (by omega)).mp h)), if_neg q1]
+      by_cases q2 : A = tvDst + 16 * tplan j r + 48 * (1 - r / 2 ^ (j % 6) % 2)
+      · subst q2; simp
+      · rw [if_neg (fun h => q2 ((ofNat_inj hA (by omega)).mp h)), if_neg q2]
+        by_cases q3 : A = tvDst + 16 * tplan j r + 40
+        · subst q3; simp
+        · rw [if_neg (fun h => q3 ((ofNat_inj hA (by omega)).mp h)), if_neg q3]
+          by_cases q4 : A = tvDst + 16 * tplan j r + 32
           · subst q4; simp
           · rw [if_neg (fun h => q4 ((ofNat_inj hA (by omega)).mp h)), if_neg q4]
 end

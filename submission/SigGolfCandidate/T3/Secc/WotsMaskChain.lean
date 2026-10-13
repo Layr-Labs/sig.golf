@@ -12,19 +12,12 @@ set_option maxRecDepth 10000
 namespace Mask
 theorem eval_chain_one (T : Answers) (lay : Layer) (tree leaf i s : Nat) (v : Digest) :
     evalWithAnswerFn T (chain lay tree leaf i s 1 v) =
-      (T (.inl (.inr (chainInput lay tree leaf i s v)))).extractLsb' 0 128 := by
+      projHalf (chainHigh lay i s) (T (.inl (.inr (chainInput lay tree leaf i s v)))) := by
   rw [← pad64_chainInput]
   rfl
 variable (answers : Answers) (a : ChainAddr)
 end Mask
 namespace Mask
 variable (answers : Answers) (a : ChainAddr)
-theorem honestForest_eq (T : Answers) (index : Nat) :
-    Extract.honestForest T index = evalWithAnswerFn T (forestPk index
-      ((List.range 7).map fun c => treeValue (evalWithAnswerFn T (buildFts index c)).1 11 0)) := by
-  have h : Extract.honestForest T index =
-      (T (.inl (.inr (Extract.honestInput T (.forest index))))).extractLsb' 0 128 := rfl
-  rw [h, FtsExtract.honestInput_forest]
-  rfl
 end Mask
 end SigGolfCandidate.T3.Security.Wots

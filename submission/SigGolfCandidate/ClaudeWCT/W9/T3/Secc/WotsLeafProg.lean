@@ -369,15 +369,18 @@ noncomputable def progF {n m : Nat} (g : Fin n → Digest → Digest) (Lab : Fin
 theorem restTable_ov_const (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables adversary) (e s : Digest)
     (input : HashInput) :
     restTable (PrefixGame.ov a d R (fun _ _ => e, s)) (.inl (.inr input)) =
-      if ∃ step v, step < d ∧ input = chainRow a step v then
-        ChainGraph.joinOutput e (high (restTable R (.inl (.inr input))))
-      else restTable R (.inl (.inr input)) := by
+      match PrefixGame.rowOf a d input with
+      | some p => ChainGraph.joinProj (chainHigh a.key.lay a.chain p.1.val) e
+          (projHalf (!chainHigh a.key.lay a.chain p.1.val) (restTable R (.inl (.inr input))))
+      | none => restTable R (.inl (.inr input)) := by
   cases hp : PrefixGame.rowOf a d input with
   | some p =>
       have hin := PrefixGame.rowOf_some hp
-      rw [if_pos ⟨p.1, p.2, p.1.isLt, hin⟩, hin, PrefixGame.restTable_ov_prefix a hd]
+      simp only
+      rw [hin, PrefixGame.restTable_ov_prefix a hd]
   | none =>
-      rw [if_neg ((PrefixGame.rowOf_none_iff a input).mp hp), PrefixGame.restTable_ov_nonprefix a _ _ _ hp]
+      simp only
+      rw [PrefixGame.restTable_ov_nonprefix a _ _ _ hp]
 
 /-! ### The honest table of the prefix game with the leaf overridden -/
 
@@ -392,20 +395,28 @@ include hLleaf haL hac hd1
 theorem fill_pub (X : LeafData L) (e : Digest) (input : HashInput)
     (h : ∀ c : Fin (chainCount L.lay), c.val ≠ a.chain → ∀ v, input ≠ chainRow ⟨L, c⟩ 0 v) :
     PrefixGame.fillTable a (ovL L R X) e (.inl (.inr input)) =
-      if ∃ step v, step < restDepth a R ∧ input = chainRow a step v then
-        ChainGraph.joinOutput e (high (restTable R (.inl (.inr input))))
-      else restTable R (.inl (.inr input)) := by
+      match PrefixGame.rowOf a (restDepth a R) input with
+      | some p => ChainGraph.joinProj (chainHigh a.key.lay a.chain p.1.val) e
+          (projHalf (!chainHigh a.key.lay a.chain p.1.val) (restTable R (.inl (.inr input))))
+      | none => restTable R (.inl (.inr input)) := by
   have hdX := restDepth_ovL hLleaf a haL R X
   unfold PrefixGame.fillTable
   rw [restTable_ov_const a (by have := PrefixGame.restDepth_le a (ovL L R X); omega), hdX]
-  split_ifs with hc
-  · obtain ⟨step, v, hs, rfl⟩ := hc
+  cases hp : PrefixGame.rowOf a (restDepth a R) input with
+  | some p =>
+    simp only
+    have hin := PrefixGame.rowOf_some hp
+    obtain ⟨⟨step, hs⟩, v⟩ := p
+    simp only at hin ⊢
+    subst hin
     congr 1
     by_cases hz : step = 0
     · subst hz
       have hrow : chainRow a 0 v = chainRow ⟨L, (⟨a.chain, hac⟩ : Fin (chainCount L.lay))⟩ 0 v := by
         subst haL; rfl
-      rw [hrow, restTable_ovL_zero, high, ChainGraph.joinOutput_high]
+      rw [ChainGraph.chainHigh_of_lt _ _ (by decide), Bool.not_false, projHalf_true, projHalf_true,
+        hrow, restTable_ovL_zero, ChainGraph.joinOutput_high]
+      rfl
     · rw [restTable_ovL_pub]
       cases hzo : zeroOf L (chainRow a step v) with
       | none => rfl
@@ -416,7 +427,10 @@ theorem fill_pub (X : LeafData L) (e : Digest) (input : HashInput)
             (by have := chainCount_le L.lay; have := q.1.isLt; simp only [Nat.reducePow]; omega)
             (by have := PrefixGame.restDepth_le a R; omega) (by omega) he
           exact absurd hs' hz
-  · apply restTable_ovL_pub
+  | none =>
+    simp only
+    have hc := (PrefixGame.rowOf_none_iff a input).mp hp
+    apply restTable_ovL_pub
     cases hzo : zeroOf L input with
     | none => rfl
     | some q =>
@@ -461,10 +475,13 @@ theorem leafAgree_fill (X : LeafData L) (e : Digest) :
   refine ⟨fun q hq => ?_, fun o ho hno => ?_⟩
   · rcases q with (n | input) | coord
     · rfl
-    · rw [fill_pub hLleaf haL hac R hd1 X e input (fun c _ v he => hq c 0 v c.isLt (by omega) he), if_neg]
-      rintro ⟨step, v, hs, rfl⟩
-      apply hq a.chain step v hac (by have := PrefixGame.restDepth_le a R; omega)
-      subst haL; rfl
+    · rw [fill_pub hLleaf haL hac R hd1 X e input (fun c _ v he => hq c 0 v c.isLt (by omega) he)]
+      have hnone : PrefixGame.rowOf a (restDepth a R) input = none := by
+        rw [PrefixGame.rowOf_none_iff]
+        rintro ⟨step, v, hs, rfl⟩
+        apply hq a.chain step v hac (by have := PrefixGame.restDepth_le a R; omega)
+        subst haL; rfl
+      rw [hnone]
     · rw [fill_priv hLleaf haL hac R hd1]
       exact hA.out _ hq
   · rw [eval_lowerSeedPair, eval_lowerSeedPair] at *
@@ -550,14 +567,15 @@ theorem leafCongr_prog (g : Fin (chainCount L.lay) → Digest → Digest) (Lab :
           rw [eval_chain_one]
           rw [show chainInput L.lay L.tree L.leaf c 0 (seedOf X c) =
             chainRow ⟨L, (⟨c, hc⟩ : Fin (chainCount L.lay))⟩ 0 (seedOf X c)
-            from rfl, fill_zero hLleaf haL hac R hd1 _ e ⟨c, hc⟩ hca, ChainGraph.joinOutput_low]
+            from rfl, fill_zero hLleaf haL hac R hd1 _ e ⟨c, hc⟩ hca, ChainGraph.chainHigh_of_lt _ _ (by decide),
+            projHalf_false, ChainGraph.joinOutput_low]
           simp only [progF, Function.update_self]
         rw [hlab K', hlab K]
         have hk256 : 0 + 1 + k ≤ 256 := by
           have := Mask.depth_le_seven (restTable R) ⟨L, c⟩; omega
         refine Respects.eval_eq (S := fun q => T' q = T q) ?_ (fun q hq => hq)
         unfold chain
-        refine Respects.foldlM _ _ (fun step hstep value => Respects.shortHash _ ?_) _
+        refine Respects.foldlM _ _ (fun step hstep value => Respects.projHash _ _ ?_) _
         rw [pad64_chainInput]
         obtain ⟨hlo, hhi⟩ := List.mem_range'_1.mp hstep
         exact (fill_pub_indep hLleaf haL hac R hd1 _ _ e _ (hnz c step value (by omega) (by omega))).symm

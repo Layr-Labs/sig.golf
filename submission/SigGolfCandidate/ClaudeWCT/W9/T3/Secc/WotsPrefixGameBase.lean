@@ -61,10 +61,13 @@ theorem restTable_nonmem (R : RefTables adversary) (input : HashInput) (h : inpu
   rfl
 theorem restTable_private (R : RefTables adversary) (coordinate : Coordinate) :
     restTable R (.inr coordinate) = R.1 coordinate := rfl
+/-- Campaign S2: the hidden value of a prefix row sits in the half its chain step reads (`chainHigh`); the other half
+is kept. -/
 noncomputable def ovPub (a : ChainAddr) (d : Nat) (pub : referenceInputs adversary → HashOutput)
     (tables : Fin d → Digest → Digest) : referenceInputs adversary → HashOutput := fun x =>
   match rowOf a d x.val with
-  | some p => ChainGraph.joinOutput (tables p.1 p.2) (high (pub x))
+  | some p => ChainGraph.joinProj (chainHigh a.key.lay a.chain p.1.val) (tables p.1 p.2)
+      (projHalf (!chainHigh a.key.lay a.chain p.1.val) (pub x))
   | none => pub x
 /-- The seed of chain `a` in `ov a d R x`: its leaf-family evaluation (every layer: campaign X1 stage B, top leaves
 since campaign T8D), unchanged by `ov`; the seed component of `Hidden` is a dummy. -/
@@ -74,11 +77,12 @@ noncomputable def ovSeed (a : ChainAddr) (R : RefTables adversary) (_seed : Dige
 noncomputable def ov (a : ChainAddr) (d : Nat) (R : RefTables adversary) (x : Hidden d) : RefTables adversary :=
   (R.1, ovPub a d R.2 x.1)
 noncomputable def rd (a : ChainAddr) (d : Nat) (R : RefTables adversary) : Hidden d :=
-  (fun i v => low (R.2 ⟨chainRow a i v, chainRow_mem a i v⟩), 0)
+  (fun i v => projHalf (chainHigh a.key.lay a.chain i.val) (R.2 ⟨chainRow a i v, chainRow_mem a i v⟩), 0)
 theorem ovPub_row (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (pub : referenceInputs adversary → HashOutput)
     (tables : Fin d → Digest → Digest) (i : Fin d) (v : Digest) :
     ovPub a d pub tables ⟨chainRow a i v, chainRow_mem a i v⟩ =
-      ChainGraph.joinOutput (tables i v) (high (pub ⟨chainRow a i v, chainRow_mem a i v⟩)) := by
+      ChainGraph.joinProj (chainHigh a.key.lay a.chain i.val) (tables i v)
+        (projHalf (!chainHigh a.key.lay a.chain i.val) (pub ⟨chainRow a i v, chainRow_mem a i v⟩)) := by
   unfold ovPub
   rw [rowOf_chainRow a hd i v]
 theorem ovPub_none (a : ChainAddr) {d : Nat} (pub : referenceInputs adversary → HashOutput)
@@ -92,7 +96,14 @@ theorem rd_ov_rows (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables adv
   unfold rd ov
   funext i v
   simp only
-  rw [ovPub_row a hd, low, ChainGraph.joinOutput_low]
+  rw [ovPub_row a hd, ChainGraph.projHalf_joinProj]
+theorem projHalf_not_joinProj (b : Bool) (v o : Digest) : projHalf (!b) (ChainGraph.joinProj b v o) = o := by
+  cases b
+  · exact ChainGraph.joinOutput_high _ _
+  · exact ChainGraph.joinOutput_low _ _
+theorem joinProj_projHalf (b : Bool) (y : HashOutput) :
+    ChainGraph.joinProj b (projHalf b y) (projHalf (!b) y) = y := by
+  cases b <;> exact ChainGraph.joinOutput_parts _
 /-- `ov` ignores the seed component. -/
 theorem ov_seed_irrel (a : ChainAddr) {d : Nat} (R : RefTables adversary)
     (t : Fin d → Digest → Digest) (s s' : Digest) : ov a d R (t, s) = ov a d R (t, s') := rfl
@@ -111,7 +122,7 @@ theorem ov_ov_rd (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables adver
         simp only [hp]
         have hy : y = ⟨chainRow a p.1 p.2, chainRow_mem a p.1 p.2⟩ := Subtype.ext (rowOf_some hp)
         subst hy
-        simp only [high, low, ChainGraph.joinOutput_high, ChainGraph.joinOutput_parts]
+        rw [projHalf_not_joinProj, joinProj_projHalf]
 theorem restTable_ov_untouched (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables adversary) (x : Hidden d)
     (query : T3.Spec.Domain) (hq : UntouchedP a query) : restTable (ov a d R x) query = restTable R query := by
   rcases query with (n | input) | (tweak | other)
@@ -130,7 +141,8 @@ theorem restTable_ov_untouched (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : R
 theorem restTable_ov_prefix (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables adversary) (x : Hidden d)
     (i : Fin d) (v : Digest) :
     restTable (ov a d R x) (.inl (.inr (chainRow a i v))) =
-      ChainGraph.joinOutput (x.1 i v) (high (restTable R (.inl (.inr (chainRow a i v))))) := by
+      ChainGraph.joinProj (chainHigh a.key.lay a.chain i.val) (x.1 i v)
+        (projHalf (!chainHigh a.key.lay a.chain i.val) (restTable R (.inl (.inr (chainRow a i v))))) := by
   rw [restTable_mem _ _ (chainRow_mem a i v), restTable_mem _ _ (chainRow_mem a i v)]
   exact ovPub_row a hd R.2 x.1 i v
 theorem restTable_ov_nonprefix (a : ChainAddr) {d : Nat} (R : RefTables adversary) (x : Hidden d)
@@ -177,7 +189,9 @@ theorem eval_chain_ov (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables 
         exact Correctness.eval_chain_add _ _ _ _ _ _ _ _ _
       rw [hsplit, eval_chain_one]
       have hrow : chainInput a.key.lay a.key.tree a.key.leaf a.chain s v = chainRow a (⟨s, by omega⟩ : Fin d) v := rfl
-      rw [hrow, restTable_ov_prefix a hd R x, ChainGraph.joinOutput_low, ih (s + 1) (by omega)]
+      rw [hrow, restTable_ov_prefix a hd R x]
+      simp only [Fin.val_mk, ChainGraph.projHalf_joinProj]
+      rw [ih (s + 1) (by omega)]
       simp only [SphincsSecurity.Concrete.PartialChainEndpoint.evaluate]
       congr 1
       · funext i w

@@ -28,17 +28,6 @@ theorem respects_packedSecret (lay : Layer) (tree q : Nat) (carry : Digest) :
   split
   · exact Respects.bind (respects_privatePair _ _ _ _ _) fun _ => Respects.pure' _
   · exact Respects.pure' _
-theorem respects_buildLeafPF (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
-    Respects Enc.NonEnc (WCT9.buildLeafPF lay tree leaf digits carry) := by
-  unfold WCT9.buildLeafPF
-  refine Respects.bind ?_ fun cc => ?_
-  · unfold WCT9.lowerCoefs
-    exact Respects.foldlM _ _ (fun j _ state => Respects.bind (respects_packedSecret _ _ _ _) fun _ =>
-      Respects.pure' _) _
-  refine Respects.bind (Respects.foldlM _ _ (fun i _ state => ?_) _) fun state =>
-    Respects.bind (respects_leafHash _ _ _ _) fun _ => Respects.pure' _
-  exact Respects.bind (respects_chain _ _ _ _ _ _ _) fun _ =>
-    Respects.bind (respects_chain _ _ _ _ _ _ _) fun _ => Respects.pure' _
 theorem respects_bind_inv {S : Spec.Domain → Prop} {α β : Type} {p : M α} {f : α → M β} (P : α → Prop)
     (hp : Respects S p) (hP : ∀ T, P (evalWithAnswerFn T p)) (hf : ∀ x, P x → Respects S (f x)) :
     Respects S (p >>= f) := by
@@ -49,6 +38,22 @@ theorem respects_bind_inv {S : Spec.Domain → Prop} {α β : Type} {p : M α} {
   · rw [evalWithAnswerFn_bind, evalWithAnswerFn_bind, he]
     exact he'
   · rw [SourceReplay.queried_bind, SourceReplay.queried_bind, hq, he, hq']
+theorem respects_buildLeafPF (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
+    Respects Enc.NonEnc (WCT9.buildLeafPF lay tree leaf digits carry) := by
+  unfold WCT9.buildLeafPF
+  refine Respects.bind ?_ fun cc => ?_
+  · unfold WCT9.lowerCoefs
+    exact Respects.foldlM _ _ (fun j _ state => Respects.bind (respects_packedSecret _ _ _ _) fun _ =>
+      Respects.pure' _) _
+  refine respects_bind_inv (fun state : List Digest × List Digest => state.1.length = chainCount lay)
+    (Respects.foldlM _ _ (fun i _ state => ?_) _) (fun T => ?_) fun state hstate =>
+    Respects.bind (respects_leafHash _ _ _ _ (by rw [hstate]; exact SigGolfCandidate.T3.Security.Wots.Enc.chainCount_ge4 lay)) fun _ => Respects.pure' _
+  · exact Respects.bind (respects_chain _ _ _ _ _ _ _) fun _ =>
+      Respects.bind (respects_chain _ _ _ _ _ _ _) fun _ => Respects.pure' _
+  · exact Correctness.eval_foldlM_range_inv T (chainCount lay) _
+      (fun done (state : List Digest × List Digest) => state.1.length = done) ([], []) rfl
+      (fun i _ state hs => by
+        simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure, List.length_append, List.length_singleton, hs])
 theorem respects_foldlM_inv {S : Spec.Domain → Prop} {β γ : Type} (I : γ → Prop) (l : List β) (f : γ → β → M γ)
     (hpres : ∀ x ∈ l, ∀ s, I s → ∀ T, I (evalWithAnswerFn T (f s x)))
     (hf : ∀ x ∈ l, ∀ s, I s → Respects S (f s x)) : ∀ init, I init → Respects S (l.foldlM f init) := by
@@ -69,8 +74,8 @@ theorem getD_append_length_le {levels : List (List Digest)} {nodes : List Digest
     rcases Nat.eq_or_lt_of_le hj with he | hlt
     · rw [← he, Nat.sub_self]; simpa using h2
     · rw [List.getD_eq_default _ _ (by simp; omega)]; simp
-theorem respects_buildLevelsBelow (lay tree h : Nat) (hh : h ≤ 12) (leaves : List Digest)
-    (hlen : leaves.length ≤ 2 ^ h) : Respects Enc.NonEnc (WCT9.buildLevelsBelow 3 lay tree h leaves) := by
+theorem respects_buildLevelsBelow (lay tree h : Nat) (hh : h ≤ 12) (hh7 : 1 ≤ lay → lay < 4 → h ≤ 7)
+    (leaves : List Digest) (hlen : leaves.length ≤ 2 ^ h) : Respects Enc.NonEnc (WCT9.buildLevelsBelow 3 lay tree h leaves) := by
   unfold WCT9.buildLevelsBelow
   refine respects_foldlM_inv (fun levels : List (List Digest) => ∀ j, (levels.getD j []).length ≤ 2 ^ h) _ _
     ?_ ?_ [leaves] ?_
@@ -89,7 +94,13 @@ theorem respects_buildLevelsBelow (lay tree h : Nat) (hh : h ≤ 12) (leaves : L
     have hp : 2 ^ 1 ≤ 2 ^ (h - level) := Nat.pow_le_pow_right (by decide) (by omega)
     have hq : 2 ^ (h - level) ≤ 2 ^ 12 := Nat.pow_le_pow_right (by decide) (by omega)
     have hr : 2 ^ h ≤ 2 ^ 12 := Nat.pow_le_pow_right (by decide) hh
-    exact respects_nodeHash 3 lay tree _ _ _ (by decide) fun _ _ _ => by
+    exact respects_nodeHash 3 lay tree _ _ _ (by decide) fun _ h1 h4 => by
+      have h7 := hh7 h1 h4
+      have hA : 2 ^ (h - level) ≤ 2 ^ (h - 1) := Nat.pow_le_pow_right (by decide) (by omega)
+      have hB : 2 ^ h = 2 * 2 ^ (h - 1) := by
+        rw [← pow_succ']; congr 1; omega
+      have hC : 2 ^ h ≤ 2 ^ 7 := Nat.pow_le_pow_right (by decide) h7
+      have h128 : (2 : Nat) ^ 7 = 128 := by norm_num
       rw [Nat.mod_eq_of_lt (by omega)]; omega
   · intro j
     cases j with
@@ -110,35 +121,39 @@ theorem respects_buildTreeP (lay : Layer) (tree selected : Nat) (digits : List N
   · unfold WCT9.treeRowsP
     exact Respects.foldlM _ _ (fun leaf _ state =>
       Respects.bind (respects_buildLeafPF _ _ _ _ _) fun _ => Respects.pure' _) _
-  · exact Respects.bind (respects_buildLevelsBelow _ _ _ (by fin_cases lay <;> decide) _ (le_of_eq hrows))
+  · exact Respects.bind (respects_buildLevelsBelow _ _ _ (by fin_cases lay <;> decide) (by fin_cases lay <;> decide) _
+    (le_of_eq hrows))
       fun _ => Respects.pure' _
 end Programs
+/-- A rejected encoding pair (campaign S2: an encoding block is a 64-byte input whose tweak is `hp ++ t3`, with the
+witness high word `hp`). -/
 def RejPair (T T' : Answers) (q : Spec.Domain) : Prop :=
-  ∃ (input : HashInput) (lay : Layer) (tr lf : Nat), q = .inl (.inr input) ∧
-    SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (rowTweak lay tr lf) ∧
+  ∃ (input : HashInput) (lay : Layer) (tr lf : Nat) (hp : BitVec 64), q = .inl (.inr input) ∧ input.length = 64 ∧
+    SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (hp ++ hyperWord lay.val (tr * 2 ^ height lay + lf)) ∧
     WCT9.producerDecode lay (WCT9.encodingAnswer lay (T (.inl (.inr input)))) = none ∧
       WCT9.producerDecode lay (WCT9.encodingAnswer lay (T' (.inl (.inr input)))) = none
-theorem RejPair.layer {T T' : Answers} {input : HashInput} {lay : Layer} {tr lf : Nat}
+theorem RejPair.layer {T T' : Answers} {input : HashInput} {lay : Layer} {tr lf : Nat} {hp : BitVec 64}
     (h : RejPair T T' (.inl (.inr input)))
-    (hh : SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (rowTweak lay tr lf)) :
+    (hh : SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (hp ++ hyperWord lay.val (tr * 2 ^ height lay + lf))) :
     WCT9.producerDecode lay (WCT9.encodingAnswer lay (T (.inl (.inr input)))) = none ∧
       WCT9.producerDecode lay (WCT9.encodingAnswer lay (T' (.inl (.inr input)))) = none := by
-  obtain ⟨input', lay', tr', lf', hq, hh', h1, h2⟩ := h
+  obtain ⟨input', lay', tr', lf', hp', hq, -, hh', h1, h2⟩ := h
   have hi : input' = input := (Sum.inr.inj (Sum.inl.inj hq)).symm
   subst hi
   rw [hh] at hh'
-  have hl : lay' = lay := (Enc.rowTweak_layer (bytesLE_injective hh')).symm
+  have hl : lay' = lay := (Enc.hyperH_layer (bytesLE_injective hh')).symm
   subst hl
   exact ⟨h1, h2⟩
-theorem RejPair.mk {T T' : Answers} {input : HashInput} {lay : Layer} {tr lf : Nat}
-    (hh : SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (rowTweak lay tr lf))
+theorem RejPair.mk {T T' : Answers} {input : HashInput} {lay : Layer} {tr lf : Nat} {hp : BitVec 64}
+    (hlen : input.length = 64)
+    (hh : SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (hp ++ hyperWord lay.val (tr * 2 ^ height lay + lf)))
     (h1 : WCT9.producerDecode lay (WCT9.encodingAnswer lay (T (.inl (.inr input)))) = none)
     (h2 : WCT9.producerDecode lay (WCT9.encodingAnswer lay (T' (.inl (.inr input)))) = none) : RejPair T T' (.inl (.inr input)) :=
-  ⟨input, lay, tr, lf, rfl, hh, h1, h2⟩
+  ⟨input, lay, tr, lf, hp, rfl, hlen, hh, h1, h2⟩
 theorem RejPair.encHeader {T T' : Answers} {q : Spec.Domain} (h : RejPair T T' q) :
     ∃ input, q = .inl (.inr input) ∧ Enc.EncHeader input := by
-  obtain ⟨input, lay, tr, lf, hq, hh, -, -⟩ := h
-  exact ⟨input, hq, lay, tr, lf, hh⟩
+  obtain ⟨input, lay, tr, lf, hp, hq, hlen, hh, -, -⟩ := h
+  exact ⟨input, hq, hlen, lay, tr, lf, hp, hh⟩
 def AgreeOn (S : Spec.Domain → Prop) (T T' : Answers) : Prop :=
   ∀ q, S q → T' q = T q ∨ RejPair T T' q
 theorem AgreeOn.of_eq {S : Spec.Domain → Prop} {T T' : Answers} (h : ∀ q, S q → T' q = T q) : AgreeOn S T T' :=
@@ -385,7 +400,8 @@ theorem wotsTree_take_congr_nonEnc {T T' : Answers} (h : ∀ q, Enc.NonEnc q →
       funext leaf
       unfold WCT9.wotsRoot
       rw [he leaf]
-      exact (SigGolfCandidate.T3.Security.Wots.Enc.respects_leafHash _ _ _ _).eval_eq h
+      exact (SigGolfCandidate.T3.Security.Wots.Enc.respects_leafHash _ _ _ _
+        (by simp only [List.length_map, List.length_range]; exact SigGolfCandidate.T3.Security.Wots.Enc.chainCount_ge4 _)).eval_eq h
     unfold WCT9.wotsTree
     rw [hr, (SigGolfCandidate.T3.Security.Wots.Enc.respects_buildLevels 3 (0 : Layer).val tree (height 0)
       ((List.range (2 ^ height 0)).map (WCT9.wotsRoot T 0 tree)) (by decide) (fun _ => Or.inl rfl)).eval_eq h]

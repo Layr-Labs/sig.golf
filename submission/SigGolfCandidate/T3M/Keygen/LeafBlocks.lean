@@ -234,43 +234,60 @@ theorem sub95_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSta
   · intro A _ _; simp [st_95, blk117_95.res, rv_simp]
 theorem sub96_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)
     (hpc : s.pc = pcOf (b + 96)) (n : Nat) (hn : n = 54 ∨ n = 43)
-    (h26 : s.getReg .x26 = BitVec.ofNat 64 n) :
+    (h26 : s.getReg .x26 = BitVec.ofNat 64 n) (leaf : Nat) (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf) :
     ∃ t, Steps image s 9 9 t ∧ t.pc = pcOf (b + 105) ∧ t.getReg .x10 = BitVec.ofNat 64 LEAFPK ∧
       t.getReg .x11 = BitVec.ofNat 64 ((16 * (n + 1) + 63) / 64 * 64) ∧
-      t.getReg .x12 = BitVec.ofNat 64 LOUT ∧ RegsExcept s t [.x6, .x10, .x11, .x12] ∧
-      Frame s t (fun _ => False) := by
+      t.getReg .x12 = BitVec.ofNat 64 LOUT ∧ t.getReg .x29 = BitVec.ofNat 64 (leaf % 2) ∧
+      RegsExcept s t [.x10, .x11, .x12, .x29] ∧ Frame s t (fun _ => False) := by
   have hrun := run_96 h.2.1
   refine ⟨_, symRun_sound hrun (codeAt_sub_96 h) s hpc (by simp [st_96, blk117_96.res, rv_simp]),
-    ?_, ?_, ?_, ?_, ?_, ?_⟩
+    ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · simp [pcE_96, Result.toState_pc, E.eval]
   · simp [st_96, blk117_96.res, rv_simp]
   · simp only [Result.toState_getReg, st_96, blk117_96.res, rv_simp, h26]
     rcases hn with rfl | rfl <;> decide +kernel
   · simp [st_96, blk117_96.res, rv_simp]
+  · simp only [Result.toState_getReg, st_96, blk117_96.res, rv_simp, h18]
+    exact ofNat_and1 leaf
   · intro r hr; simp at hr; cases r <;> simp_all [st_96, blk117_96.res, rv_simp] <;> rfl
   · intro A _ _; simp [st_96, blk117_96.res, rv_simp]
 theorem fetch_sub105 {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)
     (hpc : s.pc = pcOf (b + 105)) : fetch image s = some (.base .ECALL) :=
   ((codeAt_sub_105 h).fetch s hpc).trans rfl
+/-- Leaf copy (campaign S1): `dest ← LOUT + 16 - 16 p` (`p = leaf % 2`): the high half of the leaf answer for an
+even (left) leaf, the low half for an odd one. -/
 theorem sub106_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)
     (hpc : s.pc = pcOf (b + 106)) (dest : Nat) (hd : dest % 8 = 0) (hd' : dest + 16 ≤ 2 ^ 24)
-    (hdl : dest + 16 ≤ LOUT ∨ LOUT + 16 ≤ dest) (h25 : s.getReg .x25 = BitVec.ofNat 64 dest) :
+    (hdl : dest + 16 ≤ LOUT ∨ LOUT + 32 ≤ dest) (h25 : s.getReg .x25 = BitVec.ofNat 64 dest) (p : Nat) (hp : p < 2)
+    (h29 : s.getReg .x29 = BitVec.ofNat 64 p) (h12 : s.getReg .x12 = BitVec.ofNat 64 LOUT) :
     ∃ t, Steps image s 6 6 t ∧ t.pc = pcOf (b + 112) ∧
-      t.getMem (BitVec.ofNat 64 dest) = s.getMem (BitVec.ofNat 64 LOUT) ∧
-      t.getMem (BitVec.ofNat 64 (dest + 8)) = s.getMem (BitVec.ofNat 64 (LOUT + 8)) ∧
+      t.getMem (BitVec.ofNat 64 dest) = s.getMem (BitVec.ofNat 64 (LOUT + 16 - 16 * p)) ∧
+      t.getMem (BitVec.ofNat 64 (dest + 8)) = s.getMem (BitVec.ofNat 64 (LOUT + 16 - 16 * p + 8)) ∧
       RegsExcept s t [.x6, .x7, .x29] ∧ Frame s t (fun A => A = dest ∨ A = dest + 8) := by
   have hrun := run_106 h.2.1
+  have e : s.getReg .x12 - s.getReg .x29 <<< 4 = BitVec.ofNat 64 (LOUT - 16 * p) := by
+    rw [h12, h29, ofNat_shl]
+    apply BitVec.eq_of_toNat_eq
+    simp only [BitVec.toNat_sub, BitVec.toNat_ofNat, LOUT]
+    rcases (show p = 0 ∨ p = 1 by omega) with rfl | rfl <;> norm_num
   have hobl : Oblig.all s st_106.obl := by
     simp only [st_106, blk117_106.res]
-    t3n [h25]
+    t3n [h25, e]
+    simp only [LOUT] at *
     omega
   refine ⟨_, symRun_sound hrun (codeAt_sub_106 h) s hpc hobl, ?_, ?_, ?_, ?_, ?_⟩
   · simp [pcE_106, Result.toState_pc, E.eval]
   · simp only [Result.toState_getMem, st_106, blk117_106.res]
-    t3n [h25]
+    t3n [h25, e]
     rw [if_neg (by omega), if_pos (by omega)]
+    congr 2
+    simp only [LOUT] at *
+    omega
   · simp only [Result.toState_getMem, st_106, blk117_106.res]
-    t3n [h25]
+    t3n [h25, e]
+    congr 2
+    simp only [LOUT] at *
+    omega
   · intro r hr; simp at hr; cases r <;> simp_all [st_106, blk117_106.res, rv_simp] <;> rfl
   · intro A hA hn
     simp only [Result.toState_getMem, st_106, blk117_106.res]

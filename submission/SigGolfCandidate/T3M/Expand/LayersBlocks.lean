@@ -138,7 +138,7 @@ theorem l318_spec (hpc : s.pc = pcOf 318) (index : Nat) (hi : index < 2 ^ 31)
     ∃ t, Steps image s 14 14 t ∧ t.pc = pcOf 457 ∧ t.getReg .x1 = pcOf 332 ∧
       t.getReg .x8 = BitVec.ofNat 64 0 ∧ t.getReg .x15 = BitVec.ofNat 64 12 ∧
       t.getReg .x26 = BitVec.ofNat 64 54 ∧ t.getReg .x27 = BitVec.ofNat 64 51 ∧
-      t.getReg .x17 = BitVec.ofNat 64 145 ∧
+      t.getReg .x17 = BitVec.ofNat 64 144 ∧
       t.getReg .x18 = BitVec.ofNat 64 (index / 2 ^ 19 % 2 ^ 12) ∧ t.getReg .x9 = BitVec.ofNat 64 (index / 2 ^ 31) ∧
       RegsExcept s t [.x1, .x6, .x7, .x8, .x9, .x15, .x17, .x18, .x26, .x27, .x28] ∧
       Frame s t (fun _ => False) := by

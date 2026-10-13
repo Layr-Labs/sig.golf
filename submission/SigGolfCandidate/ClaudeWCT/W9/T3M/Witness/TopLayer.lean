@@ -25,14 +25,26 @@ theorem decode_of_eval_topLayerP (answers : QueryImpl Spec Id) (w : WBytes) (ind
     (h : evalWithAnswerFn answers (topLayerP w index answer) = some out) :
     ∃ digits, decode 0 answer = some digits :=
   WCT9.decode_of_eval_topDecodeRun answers h
+/-- Padded top layer after decoding (campaign S1: one-word fold labels with witness high words `pads.merkleHigh`). -/
+def recoverTopP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (digits : List Nat) : M Digest := do
+  let (leaf, tree) := route index 0
+  let ends ← (List.finRange (chainCount 0)).mapM fun i =>
+    chainP 0 tree leaf i.val (digits.getD i.val 0) (maxDigit 0 i.val - digits.getD i.val 0)
+      (pads.chain 0 i).1 (pads.chain 0 i).2 (pads.chainHeader 0 i) ((sig.layers 0).values i)
+  let value ← leafHash 0 tree leaf ends
+  (List.finRange (height 0)).foldlM (fun value j => do
+    let other := (sig.layers 0).path j
+    let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
+    nodeHashPH (0 : Layer).val tree (2 ^ (height 0 - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1
+      (pads.merkleHigh 0 j) (pads.merkle 0 j) pair.2) value
 theorem verifyTopP_of_decode (sig : WCT9.Signature) (pads : Pads) (index : Nat) {answer : Digest}
     {digits : List Nat} (h : decode 0 answer = some digits) :
-    verifyTopP sig pads index answer = some <$> recoverLayerP (WCT9.toT3Signature (effectiveSignature sig pads digits)) pads.toT3 index 0 digits := by
+    verifyTopP sig pads index answer = some <$> recoverTopP (effectiveSignature sig pads digits) pads index digits := by
   unfold verifyTopP
   rw [WCT9.topDecodeRun_of_decode h]
   have hd := (WCT9.decode_top_some h).2.2.2
   rw [← hd]
-  unfold recoverLayerP
+  unfold recoverTopP
   generalize route index 0 = p
   obtain ⟨leaf, tree⟩ := p
   rfl

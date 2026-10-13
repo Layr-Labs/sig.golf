@@ -29,7 +29,8 @@ def pcI (c l : Nat) : Nat := rI c + 12 + 13 * l
 def lcEnd (c i : Nat) : Nat := if i = 5 then lI c else qI c (i + 1)
 def hdr8 (c : Nat) : Nat := 2049 + 65536 * c
 def hdr6 (c : Nat) : Nat := 1537 + 65536 * c
-def chainK (c i : Nat) : Nat := 0x80 + 4 * i + 65536 * c
+/-- FTS chain word constant (campaign S2: coordinate nibble `c + 1`). -/
+def chainK (c i : Nat) : Nat := 0x80 + 4 * i + 65536 * (c + 1)
 def nodeK (c : Nat) : Nat := 769 + 65536 * (4 + c)
 def slotV (c i : Nat) : Nat := SIG + 16 + 208 * c + 16 * i
 def slotP (c l : Nat) : Nat := SIG + 112 + 208 * c + 16 * l
@@ -38,15 +39,15 @@ def forOff (c : Nat) : Nat := 32 + 32 * c
 def w1E : E := .bin .or (.bin .sll (.reg .x18) (cE 32)) (.reg .x22)
 def qE (c i : Nat) : E := .bin .or (.bin .or (.bin .sll (.reg .x22) (cE 27)) (.bin .sll (.reg .x18) (cE 20))) (cE (chainK c i))
 def idx32E : E := .bin .sll (.reg .x22) (cE 32)
-def nodeLoE (c : Nat) : E :=
-  if c = 0 then .bin .or (.bin .sll (.reg .x22) (cE 27)) (cE 1537)
-  else .bin .or (.bin .or (.bin .sll (.reg .x22) (cE 27)) (cE (65536 * c))) (cE 1537)
+/-- FTS node word base (campaign S2: coordinate nibble `c + 1`; coordinate 0 goes through the arena trampoline,
+which produces the same expression). -/
+def nodeLoE (c : Nat) : E := .bin .or (.bin .or (.bin .sll (.reg .x22) (cE 27)) (cE (65536 * (c + 1)))) (cE 1537)
 def leafLoE (c : Nat) : E :=
-  .bin .or (.bin .or (.bin .sll (.reg .x22) (cE 27)) (.bin .sll (.reg .x18) (cE 20))) (cE (1537 + 65536 * c))
-def leafX7 (c : Nat) : E := if c = 0 then .bin .sll (.reg .x18) (cE 20) else cE (65536 * c + 1537)
+  .bin .or (.bin .or (.bin .sll (.reg .x22) (cE 27)) (.bin .sll (.reg .x18) (cE 20))) (cE (1537 + 65536 * (c + 1)))
+def leafX7 (c : Nat) : E := cE (65536 * (c + 1) + 1537)
 def x29A (off : Nat) : Addr := ⟨some (.reg .x29), BitVec.ofNat 64 off⟩
-def nodeLo7 (c index : Nat) : Nat := 1537 + 65536 * c + 2 ^ 27 * index
-def leafLo7 (c index j : Nat) : Nat := 1537 + 65536 * c + 2 ^ 20 * j + 2 ^ 27 * index
+def nodeLo7 (c index : Nat) : Nat := 1537 + 65536 * (c + 1) + 2 ^ 27 * index
+def leafLo7 (c index j : Nat) : Nat := 1537 + 65536 * (c + 1) + 2 ^ 20 * j + 2 ^ 27 * index
 def dE (i : Nat) : E := .bin .sub (cE 4) (.bin .and (.bin .srl (.reg .x25) (cE (3 * i))) (cE 7))
 def x18p1 : E := .bin .add (.reg .x18) (cE 1)
 def x18m1 : E := .bin .add (.reg .x18) (cE (2 ^ 64 - 1))
@@ -88,13 +89,13 @@ def expL (c : Nat) : PRes :=
     ([.valid (x29A 24) 8, .valid (x29A 16) 8, .valid (x29A 40) 8] ++
       (if c = 0 then [] else [.ne ⟨none, BitVec.ofNat 64 (FORW + forOff (c - 1) + 8)⟩ (x29A 32)]) ++
       [.valid (x29A 32) 8]) (tI c - 1) true
-    (if c = 0 then 17 else 23) []
+    (if c = 0 then 21 else 23) []
 def expT (c : Nat) (back : Bool) : PRes :=
   if back then pres [(.x6, cE 128), (.x18, x18p1)] [] [] (leafI c) false 3 [⟨.ltu, x18p1, cE 128, true⟩]
   else pres [(.x6, cE 128), (.x18, cE 127)] [] [] (nodeI c) false 4 [⟨.ltu, x18p1, cE 128, false⟩]
 def nodeLd (off : Nat) : E := .ld (.bin .add sh5 (cE (HEAPW + off)))
 def nodeAddr (off : Nat) : Addr := ⟨some sh5, BitVec.ofNat 64 (HEAPW + off)⟩
-def nodeX7 (c : Nat) : E := if c = 0 then nodeLd 24 else cE (65536 * c)
+def nodeX7 (c : Nat) : E := cE (65536 * (c + 1))
 /-- Packed node tweak (heaps `8..127`): high word `[h < 8] * h`, low word `nodeLo7 + [h < 8] * h - h`. -/
 def nodeHiE : E := .bin .mul (.bin .sltu (.reg .x18) (cE 8)) (.reg .x18)
 def nodeDE : E := .bin .sub nodeHiE (.reg .x18)
@@ -108,7 +109,7 @@ def expN (c : Nat) : PRes :=
       .valid (nodeAddr 24) 8, .ne (nodeAddr 16) ⟨none, BitVec.ofNat 64 NODEW⟩,
       .ne (nodeAddr 16) ⟨none, BitVec.ofNat 64 (NODEW + 8)⟩, .valid (nodeAddr 16) 8, .valid (nodeAddr 8) 8,
       .valid (nodeAddr 0) 8]
-    (ntI c - 1) true 25 28 []
+    (ntI c - 1) true (if c = 0 then 29 else 25) (if c = 0 then 32 else 28) []
 def heapAddr (off : Nat) : Addr := ⟨some sh4, BitVec.ofNat 64 (HEAPW + off)⟩
 /-- Nested FTS (r1-1): the fold output half, `16 * [heap < 4]` (heaps 2 and 3 keep the HIGH half). -/
 def hiSelE : E := .bin .sll (.bin .sltu (.reg .x18) (cE 4)) (cE 4)
@@ -200,7 +201,7 @@ def retW (c i : Nat) : Nat := 0x1000 + 4 * (qI c i + 5)
 def expQ (c i : Nat) : PRes := pres [(.x1, cE (retW c i)), (.x6, ptE i)] [] [] hornI false 5 []
 def expS (c i : Nat) : PRes :=
   pres [(.x6, cE 4), (.x7, cE (chainK c i)), (.x26, dE i), (.x29, cE CHAINW)]
-    [mwc (CHAINW + 24) (cE 0), mwc (CHAINW + 16) (qE c i)] [] (chkI c i 0) false (if c = 0 then 14 else 15) []
+    [mwc (CHAINW + 24) (cE 0), mwc (CHAINW + 16) (qE c i)] [] (chkI c i 0) false (if c = 0 then 17 else 15) []
 def expH0 : PRes := pres [(.x7, cE (COEF + 864)), (.x10, cE 0), (.x11, cE 0), (.x28, cE COEF)] [] [] hkI false 6 []
 def expHK : PRes :=
   pres [(.x7, .bin .add (.reg .x7) (cE (2 ^ 64 - 16))), (.x12, cE 0), (.x13, cE 0), (.x14, cE 0), (.x15, cE 0),

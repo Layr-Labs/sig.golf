@@ -23,24 +23,27 @@ end FCtx
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
-def layerPc : Nat := 850
+def layerPc : Nat := 851
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest HashOutput Selection selections header)
-/-- State after the nested FTS (pc 851, before the R9 copy): tree 8's top pair in the L3 block's left slot (witness
-offset 0) and in the virtual Z slot (offset 144). -/
+/-- State after the nested FTS (pc 851): tree 8's top pair in the L3 block's left slot (witness offset 0) and in the
+virtual Z slot (offset 144). Campaign S2: `s2` (x18) is not loaded by the FTS setup (the slot went to `add a5,a5,t1`,
+FTS words coord+1); the L3 block loads it (`ld s2,-304(s1)`, data word 0 = `d0`). The L3 encoding header high word
+(offset 24) is witness, and its answer is written at the `a2` left by coordinate 8's child routine (top node heap 2:
+`WIT - 16`, heap 3: `WIT + 128`). -/
 structure FtsOut (F : FCtx) (top : Digest × Digest) (u : MachineState) : Prop where
-  glob : Glob baseK F.w F.pk u
+  glob : Glob [(.x5, 0)] F.w F.pk u
   idx : u.getReg .x22 = BitVec.ofNat 64 F.idx
   pc : u.pc = pcOf layerPc
   left : DigAt u WIT top.1
   right : DigAt u (WIT + 144) top.2
-  wit : Orig F.w (fun o => (32 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24800)) u
+  wit : Orig F.w (fun o => (24 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24880)) u
   base : u.getReg .x8 = BitVec.ofNat 64 (WIT + 176)
   a1 : u.getReg .x11 = 64
-  /-- The fold hand-off `a2` of coordinate 8: the L3 encoding hash writes its digest there. -/
-  a2 : u.getReg .x12 = BitVec.ofNat 64 1200 ∨ u.getReg .x12 = BitVec.ofNat 64 1344
+  a2 : u.getReg .x12 = BitVec.ofNat 64 (WIT - 16) ∨ u.getReg .x12 = BitVec.ofNat 64 (WIT + 128)
+  d0 : u.getMem (BitVec.ofNat 64 (TOPB9 - 304)) = 0xFFF
   s10 : u.getReg .x26 = 6
   heapOne : u.getReg .x7 = 1
   heapTwo : u.getReg .x13 = 2
@@ -52,7 +55,7 @@ structure FtsOut (F : FCtx) (top : Digest × Digest) (u : MachineState) : Prop w
   topBase : u.getReg .x9 = BitVec.ofNat 64 TOPB9
   top : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
     BitVec.ofNat 64 (topWords.getD k 0)
-  top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21200
+  top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21248
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp

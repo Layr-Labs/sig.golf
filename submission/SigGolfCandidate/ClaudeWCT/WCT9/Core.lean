@@ -62,8 +62,10 @@ def digestSearch (rho : Digest) (message : Message) (counter : Nat) :
       let output ← digest rho message (BitVec.ofNat 32 counter)
       if producerAdmissible output then return some (BitVec.ofNat 32 counter, output)
       digestSearch rho message (counter + 1) fuel
+/-- FTS chain word. Campaign S2: coordinate nibble `coord + 1`, so every FTS word is `≥ 2 ^ 16` (above all top-tree
+fold words `heap < 4096`). -/
 def ftsChainLow (index coord selected chain step : Nat) : Nat :=
-  0x80 + chain % 8 * 2 ^ 2 + step % 4 * 2 ^ 8 + coord % 16 * 2 ^ 16 + selected % 128 * 2 ^ 20 +
+  0x80 + chain % 8 * 2 ^ 2 + step % 4 * 2 ^ 8 + (coord + 1) % 16 * 2 ^ 16 + selected % 128 * 2 ^ 20 +
     index % 2 ^ 31 * 2 ^ 27
 def ftsChainHeaderP (index coord selected chain step : Nat) (high : BitVec 64) : BitVec 128 :=
   high ++ BitVec.ofNat 64 (ftsChainLow index coord selected chain step)
@@ -75,8 +77,9 @@ def chainInput (index coord selected chain step : Nat) (value : Digest) : HashIn
 def chain (index coord selected i start count : Nat) (value : Digest) : M Digest :=
   (List.range' start count).foldlM
     (fun value step => shortHash (chainInput index coord selected i step value)) value
+/-- FTS leaf word. Campaign S2: coordinate nibble `coord + 1`. -/
 def ftsLeafLow (index coord selected : Nat) : Nat :=
-  1 + 6 * 2 ^ 8 + coord % 16 * 2 ^ 16 + selected % 128 * 2 ^ 20 + index % 2 ^ 31 * 2 ^ 27
+  1 + 6 * 2 ^ 8 + (coord + 1) % 16 * 2 ^ 16 + selected % 128 * 2 ^ 20 + index % 2 ^ 31 * 2 ^ 27
 def ftsLeafHeader (index coord selected : Nat) : BitVec 128 :=
   0#64 ++ BitVec.ofNat 64 (ftsLeafLow index coord selected)
 /-- FTS child leaf (campaign T8): `end0 | header | zero16 | end1..end5` (128 bytes, two blocks). The zero slot
@@ -118,8 +121,16 @@ def buildChild (index coord selected : Nat) (word : Rank) (carry : Digest) :
   pure ((root, state.2.1), state.2.2)
 def nodeLayer (coord : Nat) : Nat := 4 + coord
 def wctNodeHeader (coord index heap : Nat) : BitVec 128 := nodeTweak 3 (nodeLayer coord) index heap
+/-- FTS node hash (low half). Campaign S2: stated directly with `shortHash` (the S2 node projection `nodeHigh` is
+`false` on FTS layers, `wctNodeHash_eq_nodeHash`), so it stays definitionally the low-half hash of `nodeInput`. -/
 def wctNodeHash (coord index heap : Nat) (left right : Digest) : M Digest :=
-  nodeHash 3 (nodeLayer coord) index heap left right
+  shortHash (bytesLE 16 left ++ bytesLE 16 (wctNodeHeader coord index heap) ++ zero16 ++ bytesLE 16 right)
+theorem nodeHigh_nodeLayer (coord heap : Nat) : nodeHigh 3 (nodeLayer coord) heap = false := by
+  simp [nodeHigh, leftHigh, nodeLayer]
+theorem wctNodeHash_eq_nodeHash (coord index heap : Nat) (left right : Digest) :
+    wctNodeHash coord index heap left right = nodeHash 3 (nodeLayer coord) index heap left right := by
+  unfold wctNodeHash nodeHash wctNodeHeader
+  rw [nodeHigh_nodeLayer]; rfl
 /-- High half of a public hash. -/
 def highHash (input : HashInput) : M Digest := do
   pure ((← publicHash input).extractLsb' 128 128)
@@ -200,6 +211,16 @@ def pairEncodingInputP (up : Layer) (tree leaf : Nat) (left right : Digest) (cou
     (pad : BitVec 96) : HashInput :=
   bytesLE 16 left ++ bytesLE 16 (rowTweak up tree leaf) ++ bytesLE 4 counter ++ bytesLE 12 pad ++
     bytesLE 16 right
+/-- Padded encoding block (campaign S2): the tweak is one word (`t3`, bytes 16..24); its high word `hp` (bytes 24..32)
+is a witness pad like `pad` (bytes 36..48). Honest pads are 0 (`pairEncodingInputPH_zero`). -/
+def pairEncodingInputPH (up : Layer) (tree leaf : Nat) (left right : Digest) (counter : BitVec 32)
+    (hp : BitVec 64) (pad : BitVec 96) : HashInput :=
+  bytesLE 16 left ++ bytesLE 16 (hp ++ hyperWord up.val (tree * 2 ^ height up + leaf)) ++ bytesLE 4 counter ++
+    bytesLE 12 pad ++ bytesLE 16 right
+theorem pairEncodingInputPH_zero (up : Layer) (tree leaf : Nat) (left right : Digest) (counter : BitVec 32)
+    (pad : BitVec 96) :
+    pairEncodingInputPH up tree leaf left right counter 0 pad = pairEncodingInputP up tree leaf left right counter pad :=
+  rfl
 def layerEncodingInput (lay : Layer) (tree leaf : Nat) : LayerMsg → BitVec 32 → HashInput
   | .forest root, counter => encodingInput lay tree leaf root counter
   | .pair left right, counter => pairEncodingInputP lay tree leaf left right counter 0
@@ -259,16 +280,15 @@ never rejects. The signer still searches `searchLimit`. -/
 def verifyWindow : Nat := 2 ^ 32
 theorem ctr_not_ge_verifyWindow (c : BitVec 32) : ¬c.toNat ≥ verifyWindow := by
   unfold verifyWindow; exact Nat.not_le.mpr c.isLt
-/-- The top layer selects the low half when its high bit is set. Lower layers
-select it when both reserved bits are set; otherwise the high half is selected. -/
+/-- The top layer uses the low half. Lower layers select the low half when its
+reserved bits are set, and otherwise select the high half. Selection is deterministic. -/
 def encodingAnswer (lay : Layer) (answer : HashOutput) : Digest :=
-  if lay = 0 then TopDualHalf.select answer else DualHalf.select answer
+  if lay = 0 then answer.extractLsb' 0 128 else DualHalf.select answer
 
 def encodingHash (lay : Layer) (input : HashInput) : M Digest :=
   encodingAnswer lay <$> publicHash input
 
-theorem encodingHash_top (input : HashInput) :
-    encodingHash 0 input = TopDualHalf.select <$> publicHash input := rfl
+theorem encodingHash_top (input : HashInput) : encodingHash 0 input = shortHash input := rfl
 
 theorem encodingAnswer_lower_low (lay : Layer) (hl : lay ≠ 0) (answer : HashOutput)
     (hspare : lowerSpare (answer.extractLsb' 0 128)) :
