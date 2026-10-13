@@ -188,6 +188,8 @@ structure LayerIn (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index lay : Nat) 
   dst : lay < 3 → ∃ d, s.getReg .x12 = BitVec.ofNat 64 d ∧
     (d = rowA lay (cpIdx index lay) ∨ d = rowA lay (cpIdx index lay) + 48)
   bufferOrig : Verify.Orig w (fun o => bufferStart lay ≤ o ∧ o < 24832) s
+  /-- Layer 3: the nested FTS leaves `a2` at one of its two last heap outputs; the L3 encoding writes there. -/
+  dst3 : lay = 3 → s.getReg .x12 = BitVec.ofNat 64 1200 ∨ s.getReg .x12 = BitVec.ofNat 64 1344
 structure EncPre (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index lay c : Nat)
     (t : MachineState) : Prop where
   pc : t.pc = pcOf (trPc lay c + stepsA lay)
@@ -206,6 +208,7 @@ structure EncPre (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index lay c : Nat)
   dst : lay < 3 → ∃ d, t.getReg .x12 = BitVec.ofNat 64 d ∧ (d = rowA lay c ∨ d = rowA lay c + 48)
   bufferOrig : Verify.Orig w (fun o => bufferStart lay ≤ o ∧ o < 24832) t
   topZero : lay = 0 → ∀ A ∈ [25136,25144], t.getMem (BitVec.ofNat 64 A) = 0
+  dst3 : lay = 3 → t.getReg .x12 = BitVec.ofNat 64 1200 ∨ t.getReg .x12 = BitVec.ofNat 64 1344
 def rejectSteps (lay : Nat) : Nat := stepsA lay + if lay = 3 then 21 else 3
 def EncodingSetup : Prop :=
   ∀ (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer)
@@ -828,16 +831,18 @@ theorem encB_step_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) 
   have hB := hcc.2 h0
   have hkt : KnownOK (BC.bK lay.val c) t := ht.glob.1
   obtain ⟨d, h12, hdc⟩ : ∃ d, t.getReg .x12 = BitVec.ofNat 64 d ∧
-      (if lay.val = 3 then d = 1216 else (d = rowA lay.val c ∨ d = rowA lay.val c + 48)) := by
+      (if lay.val = 3 then (d = 1200 ∨ d = 1344) else (d = rowA lay.val c ∨ d = rowA lay.val c + 48)) := by
     by_cases h3 : lay.val = 3
-    · refine ⟨1216, hkt (.x12, 1216) ?_, by rw [if_pos h3]⟩
-      unfold BC.bK; rw [if_pos h3]; simp [bK, h3]
+    · rcases ht.dst3 h3 with hd | hd
+      · exact ⟨1200, hd, by rw [if_pos h3]; exact Or.inl rfl⟩
+      · exact ⟨1344, hd, by rw [if_pos h3]; exact Or.inr rfl⟩
     · obtain ⟨d, hd, hdd⟩ := ht.dst (by have := lay.isLt; omega)
       exact ⟨d, hd, by rw [if_neg h3]; exact hdd⟩
   have hdf : d % 8 = 0 ∧ d + 32 ≤ 2 ^ 23 ∧ safeDest d = true ∧ (lay.val ≠ 3 → WIT + layerEnd lay.val ≤ d) := by
     by_cases h3 : lay.val = 3
-    · rw [if_pos h3] at hdc; subst hdc
-      exact ⟨by decide +kernel, by decide +kernel, by decide +kernel, fun h => absurd h3 h⟩
+    · rw [if_pos h3] at hdc
+      rcases hdc with rfl | rfl <;>
+        exact ⟨by decide +kernel, by decide +kernel, by decide +kernel, fun h => absurd h3 h⟩
     · rw [if_neg h3] at hdc
       obtain ⟨r16, rlo, rhi, rend⟩ := rowA_facts lay.val c (by have := lay.isLt; omega) hc
       have hd8 : d % 8 = 0 := by rcases hdc with rfl | rfl <;> omega
@@ -865,7 +870,7 @@ theorem encB_step_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) 
   have hm1 : (M1E lay.val).eval u = BitVec.ofNat 64 M1c := by
     by_cases h3 : lay.val = 3
     · simp only [M1E, if_pos h3, E.eval, kw]
-      have hd3 : d = 1216 := by rw [if_pos h3] at hdc; exact hdc
+      have hd3 : d ≤ 1344 := by rw [if_pos h3] at hdc; rcases hdc with hdc | hdc <;> omega
       rw [hu, writeHash_frame t a d (TOPLOAD + 8) h12 (by unfold TOPLOAD; omega)
         (by omega) (Or.inr (by unfold TOPLOAD; omega))]
       exact ((ht.hdr3 h3).2.2 1 (by decide +kernel)).trans (by decide +kernel)
@@ -873,7 +878,7 @@ theorem encB_step_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) 
   have hm2 : (M2E lay.val).eval u = BitVec.ofNat 64 M2c := by
     by_cases h3 : lay.val = 3
     · simp only [M2E, if_pos h3, E.eval, kw]
-      have hd3 : d = 1216 := by rw [if_pos h3] at hdc; exact hdc
+      have hd3 : d ≤ 1344 := by rw [if_pos h3] at hdc; rcases hdc with hdc | hdc <;> omega
       rw [hu, writeHash_frame t a d TOPLOAD h12 (by unfold TOPLOAD; omega)
         (by omega) (Or.inr (by unfold TOPLOAD; omega))]
       exact ((ht.hdr3 h3).2.2 0 (by decide +kernel)).trans (by decide +kernel)
@@ -881,7 +886,7 @@ theorem encB_step_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) 
   have hmask : (maskE lay.val).eval u = BitVec.ofNat 64 0x7fc00 := by
     by_cases h3 : lay.val = 3
     · simp only [maskE, if_pos h3, E.eval, kw]
-      have hd3 : d = 1216 := by rw [if_pos h3] at hdc; exact hdc
+      have hd3 : d ≤ 1344 := by rw [if_pos h3] at hdc; rcases hdc with hdc | hdc <;> omega
       rw [hu, writeHash_frame t a d (TOPLOAD + 24) h12 (by unfold TOPLOAD; omega)
         (by omega) (Or.inr (by unfold TOPLOAD; omega))]
       exact ((ht.hdr3 h3).2.2 3 (by decide +kernel)).trans (by decide +kernel)
@@ -925,7 +930,7 @@ theorem encB_step_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) 
         have e22 : s0.getReg .x22 = BitVec.ofNat 64 (s6v lay.val) := by
           rw [hs0.regs (.x22, .ld (kw (TOPLOAD - 8))) (by simp [specBl, h3]), h3]
           change u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = _
-          have hd3 : d = 1216 := by rw [if_pos h3] at hdc; exact hdc
+          have hd3 : d ≤ 1344 := by rw [if_pos h3] at hdc; rcases hdc with hdc | hdc <;> omega
           rw [hu, writeHash_frame t a d (TOPLOAD - 8) h12 (by unfold TOPLOAD; omega)
             (by omega) (Or.inr (by unfold TOPLOAD; omega))]
           exact (ht.hdr3 h3).2.1
@@ -946,7 +951,7 @@ theorem encB_step_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) 
         have e4 : s0.getReg .x4 = BitVec.ofNat 64 (bufferBias lay.val) := by
           rw [hs0.regs (.x4, .ld (kw (TOPB9+56))) (by simp [specBl, h3]), h3]
           change u.getMem (BitVec.ofNat 64 (TOPB9+56)) = _
-          have hd3 : d = 1216 := by rw [if_pos h3] at hdc; exact hdc
+          have hd3 : d ≤ 1344 := by rw [if_pos h3] at hdc; rcases hdc with hdc | hdc <;> omega
           rw [hu, writeHash_frame t a d (TOPB9+56) h12 (by unfold TOPB9; omega)
             (by omega) (Or.inr (by unfold TOPB9; omega))]
           exact ht.glob.2.2.2.2.2.buffer3
@@ -1009,7 +1014,7 @@ theorem encB_step_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) 
       have hp2 := hp.2
       by_cases h3 : lay.val = 3
       · rw [if_pos h3] at hdc
-        exact Or.inr (by unfold WIT; omega)
+        exact Or.inr (by unfold WIT; rcases hdc with hdc | hdc <;> omega)
       · have hx := hdend h3
         exact Or.inl (by omega)
     have hOs0 : Verify.Orig w (fun o => 8256 ≤ o ∧ o < layerEnd lay.val) s0 := by
@@ -1022,7 +1027,7 @@ theorem encB_step_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) 
         intro l c hl hc
         exact of_decide_eq_true (List.all_eq_true.mp (List.all_eq_true.mp H l (by simp; omega)) c (List.mem_range.mpr hc))
       by_cases h3 : lay.val = 3
-      · rw [if_pos h3] at hdc; subst d; rw [h3]; decide +kernel
+      · rw [if_pos h3] at hdc; rcases hdc with rfl | rfl <;> (rw [h3]; decide +kernel)
       · rw [if_neg h3] at hdc
         have H := ht lay.val c (by have := lay.isLt; omega) hc
         rcases hdc with rfl | rfl <;> omega
@@ -1144,16 +1149,18 @@ theorem encB_step_hi (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (
   have hB := copy_parts_hi lay.val c (BC.copyCheck_at lay.val c lay.isLt hc) h0
   have hkt : KnownOK (BC.bK lay.val c) t := ht.glob.1
   obtain ⟨d, h12, hdc⟩ : ∃ d, t.getReg .x12 = BitVec.ofNat 64 d ∧
-      (if lay.val = 3 then d = 1216 else (d = rowA lay.val c ∨ d = rowA lay.val c + 48)) := by
+      (if lay.val = 3 then (d = 1200 ∨ d = 1344) else (d = rowA lay.val c ∨ d = rowA lay.val c + 48)) := by
     by_cases h3 : lay.val = 3
-    · refine ⟨1216, hkt (.x12, 1216) ?_, by rw [if_pos h3]⟩
-      unfold BC.bK; rw [if_pos h3]; simp [bK, h3]
+    · rcases ht.dst3 h3 with hd | hd
+      · exact ⟨1200, hd, by rw [if_pos h3]; exact Or.inl rfl⟩
+      · exact ⟨1344, hd, by rw [if_pos h3]; exact Or.inr rfl⟩
     · obtain ⟨d, hd, hdd⟩ := ht.dst (by have := lay.isLt; omega)
       exact ⟨d, hd, by rw [if_neg h3]; exact hdd⟩
   have hdf : d % 8 = 0 ∧ d + 32 ≤ 2 ^ 23 ∧ safeDest d = true ∧ (lay.val ≠ 3 → WIT + layerEnd lay.val ≤ d) := by
     by_cases h3 : lay.val = 3
-    · rw [if_pos h3] at hdc; subst hdc
-      exact ⟨by decide +kernel, by decide +kernel, by decide +kernel, fun h => absurd h3 h⟩
+    · rw [if_pos h3] at hdc
+      rcases hdc with rfl | rfl <;>
+        exact ⟨by decide +kernel, by decide +kernel, by decide +kernel, fun h => absurd h3 h⟩
     · rw [if_neg h3] at hdc
       obtain ⟨r16, rlo, rhi, rend⟩ := rowA_facts lay.val c (by have := lay.isLt; omega) hc
       have hd8 : d % 8 = 0 := by rcases hdc with rfl | rfl <;> omega
@@ -1194,7 +1201,7 @@ theorem encB_step_hi (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (
   have hm1 : (M1E lay.val).eval u = BitVec.ofNat 64 M1c := by
     by_cases h3 : lay.val = 3
     · simp only [M1E, if_pos h3, E.eval, kw]
-      have hd3 : d = 1216 := by rw [if_pos h3] at hdc; exact hdc
+      have hd3 : d ≤ 1344 := by rw [if_pos h3] at hdc; rcases hdc with hdc | hdc <;> omega
       rw [hu, writeHash_frame t a d (TOPLOAD + 8) h12 (by unfold TOPLOAD; omega)
         (by omega) (Or.inr (by unfold TOPLOAD; omega))]
       exact ((ht.hdr3 h3).2.2 1 (by decide +kernel)).trans (by decide +kernel)
@@ -1202,7 +1209,7 @@ theorem encB_step_hi (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (
   have hm2 : (M2E lay.val).eval u = BitVec.ofNat 64 M2c := by
     by_cases h3 : lay.val = 3
     · simp only [M2E, if_pos h3, E.eval, kw]
-      have hd3 : d = 1216 := by rw [if_pos h3] at hdc; exact hdc
+      have hd3 : d ≤ 1344 := by rw [if_pos h3] at hdc; rcases hdc with hdc | hdc <;> omega
       rw [hu, writeHash_frame t a d TOPLOAD h12 (by unfold TOPLOAD; omega)
         (by omega) (Or.inr (by unfold TOPLOAD; omega))]
       exact ((ht.hdr3 h3).2.2 0 (by decide +kernel)).trans (by decide +kernel)
@@ -1210,7 +1217,7 @@ theorem encB_step_hi (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (
   have hmask : (maskE lay.val).eval u = BitVec.ofNat 64 0x7fc00 := by
     by_cases h3 : lay.val = 3
     · simp only [maskE, if_pos h3, E.eval, kw]
-      have hd3 : d = 1216 := by rw [if_pos h3] at hdc; exact hdc
+      have hd3 : d ≤ 1344 := by rw [if_pos h3] at hdc; rcases hdc with hdc | hdc <;> omega
       rw [hu, writeHash_frame t a d (TOPLOAD + 24) h12 (by unfold TOPLOAD; omega)
         (by omega) (Or.inr (by unfold TOPLOAD; omega))]
       exact ((ht.hdr3 h3).2.2 3 (by decide +kernel)).trans (by decide +kernel)
@@ -1256,7 +1263,7 @@ theorem encB_step_hi (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (
         have e22 : s0.getReg .x22 = BitVec.ofNat 64 (s6v lay.val) := by
           rw [hs0.regs (.x22, .ld (kw (TOPLOAD - 8))) (by simp [specBlHi, h3]), h3]
           change u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = _
-          have hd3 : d = 1216 := by rw [if_pos h3] at hdc; exact hdc
+          have hd3 : d ≤ 1344 := by rw [if_pos h3] at hdc; rcases hdc with hdc | hdc <;> omega
           rw [hu, writeHash_frame t a d (TOPLOAD - 8) h12 (by unfold TOPLOAD; omega)
             (by omega) (Or.inr (by unfold TOPLOAD; omega))]
           exact (ht.hdr3 h3).2.1
@@ -1277,7 +1284,7 @@ theorem encB_step_hi (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (
         have e4 : s0.getReg .x4 = BitVec.ofNat 64 (bufferBias lay.val) := by
           rw [hs0.regs (.x4, .ld (kw (TOPB9+56))) (by simp [specBlHi, h3]), h3]
           change u.getMem (BitVec.ofNat 64 (TOPB9+56)) = _
-          have hd3 : d = 1216 := by rw [if_pos h3] at hdc; exact hdc
+          have hd3 : d ≤ 1344 := by rw [if_pos h3] at hdc; rcases hdc with hdc | hdc <;> omega
           rw [hu, writeHash_frame t a d (TOPB9+56) h12 (by unfold TOPB9; omega)
             (by omega) (Or.inr (by unfold TOPB9; omega))]
           exact ht.glob.2.2.2.2.2.buffer3
@@ -1340,7 +1347,7 @@ theorem encB_step_hi (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (
       have hp2 := hp.2
       by_cases h3 : lay.val = 3
       · rw [if_pos h3] at hdc
-        exact Or.inr (by unfold WIT; omega)
+        exact Or.inr (by unfold WIT; rcases hdc with hdc | hdc <;> omega)
       · have hx := hdend h3
         exact Or.inl (by omega)
     have hOs0 : Verify.Orig w (fun o => 8256 ≤ o ∧ o < layerEnd lay.val) s0 := by
@@ -1353,7 +1360,7 @@ theorem encB_step_hi (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (
         intro l c hl hc
         exact of_decide_eq_true (List.all_eq_true.mp (List.all_eq_true.mp H l (by simp; omega)) c (List.mem_range.mpr hc))
       by_cases h3 : lay.val = 3
-      · rw [if_pos h3] at hdc; subst d; rw [h3]; decide +kernel
+      · rw [if_pos h3] at hdc; rcases hdc with rfl | rfl <;> (rw [h3]; decide +kernel)
       · rw [if_neg h3] at hdc
         have H := ht lay.val c (by have := lay.isLt; omega) hc
         rcases hdc with rfl | rfl <;> omega
@@ -1474,16 +1481,18 @@ theorem encB_step_trap (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
     simpa only [beq_iff_eq] using H
   have hkt : KnownOK (BC.bK lay.val c) t := ht.glob.1
   obtain ⟨d, h12, hdc⟩ : ∃ d, t.getReg .x12 = BitVec.ofNat 64 d ∧
-      (if lay.val = 3 then d = 1216 else (d = rowA lay.val c ∨ d = rowA lay.val c + 48)) := by
+      (if lay.val = 3 then (d = 1200 ∨ d = 1344) else (d = rowA lay.val c ∨ d = rowA lay.val c + 48)) := by
     by_cases h3 : lay.val = 3
-    · refine ⟨1216, hkt (.x12, 1216) ?_, by rw [if_pos h3]⟩
-      unfold BC.bK; rw [if_pos h3]; simp [bK, h3]
+    · rcases ht.dst3 h3 with hd | hd
+      · exact ⟨1200, hd, by rw [if_pos h3]; exact Or.inl rfl⟩
+      · exact ⟨1344, hd, by rw [if_pos h3]; exact Or.inr rfl⟩
     · obtain ⟨d, hd, hdd⟩ := ht.dst (by have := lay.isLt; omega)
       exact ⟨d, hd, by rw [if_neg h3]; exact hdd⟩
   have hdf : d % 8 = 0 ∧ d + 32 ≤ 2 ^ 23 ∧ safeDest d = true ∧ (lay.val ≠ 3 → WIT + layerEnd lay.val ≤ d) := by
     by_cases h3 : lay.val = 3
-    · rw [if_pos h3] at hdc; subst hdc
-      exact ⟨by decide +kernel, by decide +kernel, by decide +kernel, fun h => absurd h3 h⟩
+    · rw [if_pos h3] at hdc
+      rcases hdc with rfl | rfl <;>
+        exact ⟨by decide +kernel, by decide +kernel, by decide +kernel, fun h => absurd h3 h⟩
     · rw [if_neg h3] at hdc
       obtain ⟨r16, rlo, rhi, rend⟩ := rowA_facts lay.val c (by have := lay.isLt; omega) hc
       have hd8 : d % 8 = 0 := by rcases hdc with rfl | rfl <;> omega

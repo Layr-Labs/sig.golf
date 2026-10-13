@@ -8,7 +8,7 @@ def nCopy (lay : Nat) : Nat := (xtrTab.getD lay []).length
 def trPc (lay c : Nat) : Nat := (xtrTab.getD lay []).getD c 0
 def kw (k : Nat) : E := .c (BitVec.ofNat 64 k)
 def hL (lay : Nat) : Nat := [12,7,6,6].getD lay 0
-def stepsA (lay : Nat) : Nat := if lay = 0 then 9 else if lay = 3 then 11 else 8
+def stepsA (lay : Nat) : Nat := if lay = 0 then 9 else if lay = 3 then 10 else 8
 def retOff (lay : Nat) : Nat := if lay = 0 then 11 else if lay = 3 then 42 else 41
 def s6v (lay : Nat) : Nat := [11904,15088,18144,21200].getD lay 0
 def s3v : Nat := 11904
@@ -48,7 +48,7 @@ def chainK (lay : Nat) : List (Reg × Word) :=
     (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x11, 64),
     (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x30, 7),
     (.x5, 0), (.x27, 0x3fe00), (.x4, BitVec.ofNat 64 (bufferBias lay))]
-def bK (lay : Nat) : List (Reg × Word) := layK lay ++ [(.x10, 1216)] ++ (if lay = 3 then [(.x12, 1216)] else []) ++
+def bK (lay : Nat) : List (Reg × Word) := layK lay ++ [(.x10, 1216)] ++
   (if lay = 1 ∨ lay = 2 then [(.x22, BitVec.ofNat 64 (s6v lay))] else [])
 def rReg (lay : Nat) : Reg := if lay = 3 then .x22 else .x31
 def leafE (lay : Nat) : E := if lay = 0 then .reg .x31 else .bin .and (.reg (rReg lay)) (kw (2 ^ hL lay - 1))
@@ -63,13 +63,14 @@ def setupAcceptDir (lay : Nat) : Bool := decide (lay = 3)
 def hdrA (lay : Nat) : Nat := if lay = 3 then TOPLOAD + 32 else HDATA + 8 * lay
 def t3E3 : E := .bin .or (.ld (kw (hdrA 3))) (.bin .sll (.reg .x22) (kw 16))
 /-- Layer-3 entry (nested FTS): copy R9 from the virtual Z slot (`WIT + 144`) to the L3 block's right slot
-(`WIT + 48`), then the row tweak at `WIT + 16`; for the lower layers only the tweak words. -/
+(`WIT + 48`), then the row tweak at `WIT + 16`; for the lower layers only the tweak words.
+The L3 encoding hash writes to the `a2` left by the FTS (`1200` or `1344`), so the entry does not set `a2`. -/
 def l3Writes (lay : Nat) : List (Addr × E) :=
   [(⟨none, BitVec.ofNat 64 1240⟩, kw 1), (⟨none, BitVec.ofNat 64 1232⟩, t3E3)] ++
   (if lay = 3 then [(⟨none, BitVec.ofNat 64 1272⟩, .ld (kw 1368)), (⟨none, BitVec.ofNat 64 1264⟩, .ld (kw 1360))]
    else [])
 def specA (lay p : Nat) : Spec :=
-  ⟨if lay = 3 then [(.x28, t3E3)] else [(.x23, s7E lay), (.x31, treeE lay), (.x28, t3E3)],
+  ⟨if lay = 3 then [(.x28, t3E3), (.x12, .reg .x12)] else [(.x23, s7E lay), (.x31, treeE lay), (.x28, t3E3)],
    l3Writes lay,
    p + stepsA lay, true, stepsA lay, [], none, stepsA lay⟩
 def rejA (lay _p : Nat) : Spec :=
@@ -135,7 +136,7 @@ def rejCk (lay : Nat) : Spec :=
 def rejCkHi (lay : Nat) : Spec :=
   ⟨[(.x5, kw 1), (.x10, kw 1)], [], rejEcall, true, (if lay = 3 then 23 else 20)+4,
     [ckHiBr lay true, spareHiBr lay false, spareBr lay true], none, (if lay = 3 then 26 else 23)+4⟩
-def spareTrap (lay c : Nat) : Nat := ([[],[142021,142149,142277,142405,142533,142661,142789,142917,143045,143173,143301,143429,143557,143685,143813,143941,144069,144197,144330,144453,144581,144709,144837,144965,145093,145221,145349,145477,145605,145733,145861,145989,146117,146245,146373,146501,146629,146757,146885,147013,147144,147269,147397,147525,147653,147781,147909,148037,148165,148293,148421,148549,148677,148805,148933,149061,149189,149317,149445,149573,149701,149829,149958,150085],[133829,133957,134085,134213,134341,134469,134597,134725,134853,134981,135109,135237,135365,135493,135621,135749,135877,136005,136133,136261,136389,136522,136645,136773,136901,137029,137157,137285,137413,137541,137669,137797,137925,138053,138181,138309,138437,138568,138693,138821,138949,139077,139205,139333,139461,139589,139717,139845,139973,140101,140229,140357,140485,140613,140741,140869,140997,141125,141253,141382,141509,141637,141765,141893],[871]].getD lay []).getD c 0
+def spareTrap (lay c : Nat) : Nat := ([[],[142021,142149,142277,142405,142533,142661,142789,142917,143045,143173,143301,143429,143557,143685,143813,143941,144069,144197,144330,144453,144581,144709,144837,144965,145093,145221,145349,145477,145605,145733,145861,145989,146117,146245,146373,146501,146629,146757,146885,147013,147144,147269,147397,147525,147653,147781,147909,148037,148165,148293,148421,148549,148677,148805,148933,149061,149189,149317,149445,149573,149701,149829,149958,150085],[133829,133957,134085,134213,134341,134469,134597,134725,134853,134981,135109,135237,135365,135493,135621,135749,135877,136005,136133,136261,136389,136522,136645,136773,136901,137029,137157,137285,137413,137541,137669,137797,137925,138053,138181,138309,138437,138568,138693,138821,138949,139077,139205,139333,139461,139589,139717,139845,139973,140101,140229,140357,140485,140613,140741,140869,140997,141125,141253,141382,141509,141637,141765,141893],[870]].getD lay []).getD c 0
 def rejBothSpare (lay c : Nat) : Spec :=
   ⟨[], [], spareTrap lay c, false, 8, [spareHiBr lay true, spareBr lay true], none, 8⟩
 def lfAllowed (lay : Nat) : List Nat := [bufferBase lay+16,bufferBase lay+24]

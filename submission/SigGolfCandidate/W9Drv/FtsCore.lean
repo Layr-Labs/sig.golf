@@ -844,7 +844,7 @@ theorem fts_final (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
   refine ⟨hu.glob, hu.index, ?_, ?_, ?_, ?_, ?_, hu.hashLen, hu.heaps 6 (by decide) (by decide), hu.stepOne,
     hu.stepTwo, hu.heaps 7 (by decide) (by decide), hu.heaps 3 (by decide) (by decide),
     hu.heaps 4 (by decide) (by decide), hu.heaps 5 (by decide) (by decide), hu.coordStep, hu.pairPtr,
-    hu.bank.top, hu.bank.top8⟩
+    hu.bank.top, hu.bank.top8, ?_⟩
   · exact hu.pc
   · have h := hu.prevL
     rwa [show regionAddr 9 + 720 = WIT by unfold regionAddr WIT; rfl] at h
@@ -852,6 +852,9 @@ theorem fts_final (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
     rwa [show regionAddr 9 + 864 = WIT + 144 by unfold regionAddr WIT; rfl] at h
   · exact hu.layer
   · rw [hu.baseReg]; rfl
+  · have h := hu.a2 (by decide)
+    rwa [show regionAddr 9 + 704 = 1200 by unfold regionAddr; rfl,
+      show regionAddr 9 + 848 = 1344 by unfold regionAddr; rfl] at h
 def finishN (w : ClaudeWCT.W9.T3M.WBytes) (state : Option (List (Digest × Digest))) :
     M (Option (Digest × Digest)) :=
   match state with
