@@ -7,15 +7,15 @@ def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGo
 
 theorem signature_bytes : submission.sizes.signature = 5310 := rfl
 
-theorem witness_bytes : submission.sizes.witness = 24860 := rfl
+theorem witness_bytes : submission.sizes.witness = 24828 := rfl
 
 theorem cache_bytes : submission.sizes.cache = 131072 := rfl
 
 theorem layout_offsets : submission.layout =
-  { message := 26080, secretKey := 128, publicKey := 160,
+  { message := 26048, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7096 := by
+theorem certificate : SigGolf.Certificate submission 7095 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -70,14 +70,25 @@ sp at 0x7fc00, dropping one entry instruction (0664e59); the selector branch is 
 4 cycles (9033aab). After-FTS budget 5280 -> 5272; verify bound 7008 -> 7000; C 7106 -> 7098.
 S = 5310, W = 24860, K = 131072, C = 7098; score 37690380.
 
-L3 a2 elision (0xFredrik's 5971a2f, ported): the nested FTS already leaves `a2` at coordinate 8's last
-heap output (`1200` or `1344`), so the L3 entry drops `addi a2,s0,-176` and the L3 encoding hash writes
-there. Verify bound 7000 -> 6999; C 7098 -> 7097.
-S = 5310, W = 24860, K = 131072, C = 7097; score 37684070.
+Compact leaf buffers (Claude Opus 5.5, base 2e294772, C 7098): the layer-3 and layer-2 leaf buffers
+drop their 16-byte tail pads (stride 736 -> 720; a lower-layer leaf hash reads 704 bytes and its last
+chain hash spills 16), so the layer-1 and top buffers, the tail `rho | 0 | dc` and the message move
+down by 32 bytes (message 26080 -> 26048). The verifier changes only the 128 lower-layer transition
+immediates `addi tp,tp,736 -> 720` and the digest-block data word; verify cycles are unchanged
+(bound 7000) and the witness charge drops 98 -> 97.
+S = 5310, W = 24828, K = 131072, C = 7097; score 37685070.
 
-Shifted child-index masking (Th0rgal's c3c8605, ported): coordinate 2 loads 0x7f00000 into x27, which
-no FTS routine touches, so coordinate 8 extracts the child index already shifted left by 20 with
-`srli x4,dig,1; and x4,x4,x27` and drops one shift. Coordinate 8 shrinks by one word, the L3 entry moves
-to 850..868. FTS accept cost 928 -> 927; verify bound 6999 -> 6998; C 7097 -> 7096.
-S = 5310, W = 24860, K = 131072, C = 7096; score 37679760.
+Plus the layer-3 entry hand-off (leader fca15315, ported): coordinate 8 leaves the fold hand-off
+`a2 = 1200 or 1344` (FtsOut.a2), nothing reads those bytes after the L3 encoding, so the L3 entry
+drops `addi a2,s0,-176` and the L3 encoding hash writes there; the digest is read a2-relatively.
+After-FTS budget 5272 -> 5271; verify bound 7000 -> 6999.
+S = 5310, W = 24828, K = 131072, C = 7096; score 37679760.
+
+Plus a shorter coordinate-8 dispatch: coordinate 2's `lui tp, 127 <<< 20` replaces its `andi` and computes
+`t6 = (a6 >> 1) & tp` (the child index already at bit 20) with the child routine at `(t6 >> 12) + t4`; coordinates
+3..7 keep the child index in `s7` instead of `tp`, so `tp` still holds the mask at coordinate 8, which drops its
+`andi`/`slli` pair to 10 words. Its children return to word 850 and the layer-3 entry run moves 851 -> 850 (trap
+870). The chain/child routines never read `tp`, so their contracts drop the child-index field. FTS fixed cost
+928 -> 927; verify bound 6999 -> 6998.
+S = 5310, W = 24828, K = 131072, C = 7095; score 37674450.
 -/
