@@ -1,3 +1,9 @@
+import SigGolfCandidate.T3M.Verify.ChainCheckT0
+import SigGolfCandidate.T3M.Verify.ChainCheckT1
+import SigGolfCandidate.T3M.Verify.ChainCheckT2
+import SigGolfCandidate.T3M.Verify.ChainCheckT3
+import SigGolfCandidate.T3M.Verify.ChainCheckT4
+import SigGolfCandidate.T3M.Verify.ChainCheckT5
 import SigGolfCandidate.T3M.Verify.ChainCheckT6
 
 namespace SigGolfCandidate.T3M

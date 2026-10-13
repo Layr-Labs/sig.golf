@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26144, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7054 := by
+theorem certificate : SigGolf.Certificate submission 7053 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -95,4 +95,11 @@ leaf tweak's high word and every encoding row tweak's high word (honest 1) are w
 last step keeps the high half. W 24860 -> 24924 (message at 26144); after-FTS cost 5271 -> 5251; verify bound
 6976 -> 6956; C 7074 -> 7054 (stacked on C1). Mechanism also certified in b3cc11b (credited dependency).
 S = 5310, W = 24924, K = 131072, C = 7054; score 37456740.
+
+Tightened signer budget on C2 + C3: the existing signForest proof establishes 31329 hash calls,
+so replacing the 31334 bound removes five calls of slack and lowers the fixed signing budget
+112653 -> 112648. The finite-search moment bound supports joint cap 775 with FTS gate 1353
+and unchanged security-envelope constants. Sign and expand use the new cap; keygen and verify
+images are unchanged. Verify bound 6956 -> 6955; witness charge remains 98; C 7054 -> 7053.
+S = 5310, W = 24924, K = 131072, C = 7053; score 37451430.
 -/

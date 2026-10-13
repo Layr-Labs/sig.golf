@@ -1,5 +1,4 @@
 import SigGolfCandidate.T3.FullCache.Primitives
-import Mathlib
 
 namespace SiggolfT3Mac4
 open SphincsSecurity

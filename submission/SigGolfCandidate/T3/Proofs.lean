@@ -1,3 +1,4 @@
+import Mathlib.Data.Nat.Bitwise
 import SigGolfCandidate.SphincsSecurity.Completeness.Search
 import SigGolfCandidate.T3.Tweaks
 import SigGolfCandidate.T3.Nonbinary.CreditFilter

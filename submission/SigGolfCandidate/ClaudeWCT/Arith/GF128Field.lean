@@ -3,6 +3,7 @@ import SigGolfCandidate.T3.Core
 import Mathlib.RingTheory.AdjoinRoot
 import Mathlib.Algebra.Field.ZMod
 import Mathlib.Data.FinEnum
+import Mathlib.Data.Nat.Bitwise
 import ToMathlib.Data.BitVec
 
 /-!

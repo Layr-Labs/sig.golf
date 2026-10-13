@@ -56,7 +56,7 @@ theorem bound_forestRows (index : Nat) (output : HashOutput) :
       (forestRows index output) :=
   cbound_of_ftsBound (ftsBound_forestRows index output)
 theorem bound_signForest (index : Nat) (output : HashOutput) :
-    CBound (fun result : List Opening × (Digest × Digest) => result.1.length = 9) 31334 (signForest index output) :=
+    CBound (fun result : List Opening × (Digest × Digest) => result.1.length = 9) 31329 (signForest index output) :=
   cbound_of_ftsBound (ftsBound_signForest index output)
 theorem bound_recoverCoordinate (sig : Signature) (index : Nat) (output : HashOutput) (coord : Coord)
     (prev : Digest × Digest) :
@@ -65,9 +65,9 @@ theorem bound_recoverCoordinate (sig : Signature) (index : Nat) (output : HashOu
 theorem bound_recoverFts (sig : Signature) (index : Nat) (output : HashOutput) :
     CBound (fun _ => True) 140 (recoverFts sig index output) :=
   cbound_of_ftsBound (ftsBound_recoverFts index sig output)
-/-- Stage-A FTS signing (T8 child code): per coordinate 51 coefficient pairs, 128 children of 24 chain steps + a
-2-block leaf, and 126 heap nodes; then the 5-block forest key. -/
-theorem signForest_blocks : 9 * (27 + 128 * (24 + 2) + 126) + 5 = 31334 := by norm_num
+/-- Stage-A FTS signing (T8 child code): per coordinate 27 coefficient pairs, 128 children of 24 chain steps + a
+2-block leaf, and 126 heap nodes. The final pair is returned without a further forest hash. -/
+theorem signForest_blocks : 9 * (27 + 128 * (24 + 2) + 126) = 31329 := by norm_num
 theorem verifyFts_blocks : 9 * (7 + 2 + 6) + 5 + 1 = 141 := by norm_num
 def DigestResult (out : Option (BitVec 32 × HashOutput)) : Prop :=
   ∀ counter output, out = some (counter, output) → producerAdmissible output = true
@@ -473,8 +473,8 @@ theorem bound_expandLayersBC (sig : Signature) (index : Nat) :
               (by simp only [recoveryLayersCostBC, hn, ite_false]; omega)
             refine (ih _).bind' (l := 0) (fun result _ => ?_) (by omega)
             cases result <;> exact .pure _ 0 trivial
-def signPayloadFixed : Nat := 2 + 31334 + layerFixedCostP 4
-theorem signPayloadFixed_eq : signPayloadFixed + 5187 = 2 + 31910 + layerFixedCost 4 := by
+def signPayloadFixed : Nat := 2 + 31329 + layerFixedCostP 4
+theorem signPayloadFixed_eq : signPayloadFixed + 5192 = 2 + 31910 + layerFixedCost 4 := by
   have h := layerFixedCostP_four
   unfold signPayloadFixed
   omega

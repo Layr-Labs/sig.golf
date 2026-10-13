@@ -1,4 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.Arith.GF128
+import Mathlib.Tactic.NormNum
 
 /-!
 # Limb-level facts for the sign machine's GF(2^128) Horner routine (campaign X1, stage A)
@@ -61,7 +62,7 @@ theorem lim3_lt (a b c : BitVec 64) {n : Nat} (h : lim3 a b c < 2 ^ (128 + n)) :
   unfold lim3 at h
   rw [Nat.pow_add] at h
   have : 2 ^ 128 * c.toNat < 2 ^ 128 * 2 ^ n := by
-    calc 2 ^ 128 * c.toNat = 2 ^ 64 * (2 ^ 64 * c.toNat) := by rw [← Nat.mul_assoc]; rfl
+    calc 2 ^ 128 * c.toNat = 2 ^ 64 * (2 ^ 64 * c.toNat) := by norm_num [← Nat.mul_assoc]
       _ ≤ a.toNat + 2 ^ 64 * (b.toNat + 2 ^ 64 * c.toNat) := by
         have := Nat.mul_le_mul_left (2 ^ 64) (Nat.le_add_left (2 ^ 64 * c.toNat) b.toNat)
         omega

@@ -3,7 +3,7 @@ import SigGolfCandidate.T3.Core
 namespace SigGolfCandidate.T3
 theorem topMask_lt : topMask < 2 ^ 119 := by decide
 theorem topFlip_topFlip (v : Digest) : topFlip (topFlip v) = v := by
-  simp [topFlip]
+  simp [topFlip, BitVec.xor_assoc]
 theorem topFlip_injective : Function.Injective topFlip := fun a b h => by
   simpa [topFlip_topFlip] using congrArg topFlip h
 def topFlipEquiv : Digest ≃ Digest := ⟨topFlip, topFlip, topFlip_topFlip, topFlip_topFlip⟩

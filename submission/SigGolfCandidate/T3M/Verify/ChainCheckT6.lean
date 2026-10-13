@@ -1,4 +1,4 @@
-import SigGolfCandidate.T3M.Verify.ChainCheckT5
+import SigGolfCandidate.T3M.Verify.ChainCheckParts
 
 namespace SigGolfCandidate.T3M
 set_option maxRecDepth 100000
