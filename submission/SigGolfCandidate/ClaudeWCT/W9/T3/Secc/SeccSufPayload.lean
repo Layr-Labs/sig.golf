@@ -1,3 +1,5 @@
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEncodingResample
+import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsExtractLayer
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.SeccSufRoute
 
 namespace ClaudeWCT.W9.T3.Security.BSuf
@@ -48,7 +50,7 @@ theorem layer_of_shaped (answers : Answers) (N : HashOutput) (wit : WCT9.Witness
       split
       · exact ClaudeWCT.W9.T3M.wbuffer_witEnc N wit lay i
       · exact ClaudeWCT.W9.T3M.wvalue_witEnc N wit lay i
-    rw [← hv, (hs.2.1 i.val i.isLt).1]
+    rw [← hv, (hs.2 i.val i.isLt).1]
     simp [piecesSignature, WCT9.wotsPieces]
   · funext j
     rw [← ClaudeWCT.W9.T3M.wpath_witEnc N wit lay j, (hs.1 j.val j.isLt).1]
@@ -111,8 +113,8 @@ theorem layers_payload (answers : Answers) (published : SigGolfCandidate.T3.Cach
                 simp
           obtain ⟨digitsG, ⟨_, hdec⟩, hshape⟩ := hgood (Fin.ofNat 4 n)
           have hright : ClaudeWCT.W9.T3M.wbcRight (witEnc N wit) = 0 := ClaudeWCT.W9.T3M.wright3_witEnc N wit
-          rw [ClaudeWCT.W9.T3M.wbcCtr_witEnc, ClaudeWCT.W9.T3M.wbcPad_witEnc, ClaudeWCT.W9.T3M.wbcHigh_witEnc, hright,
-            hcounter, ← hmsg, ClaudeWCT.W9.T3M.encodingHash_layerEncodingInputP_zero] at hdec
+          rw [ClaudeWCT.W9.T3M.wbcCtr_witEnc, ClaudeWCT.W9.T3M.wbcPad_witEnc, hright, hcounter, ← hmsg,
+            ClaudeWCT.W9.T3M.encodingHash_layerEncodingInputP_zero] at hdec
           rw [hsome.2.2, Option.some.injEq] at hdec
           subst hdec
           rename' digits => digitsG
@@ -323,3 +325,154 @@ theorem caseC_signed_impossible (adversary : ClaudeWCT.W9.T3M.Final.AdversaryP) 
     (_hclean : QueryRecorded.CleanWin q z.1) : ¬CaseCSigned adversary z :=
   gameCaseC_signed_false adversary z.2 _ (SeccLaw.completed_agrees adversary q hq z hz).2
 end ClaudeWCT.W9.T3.Security.BPB
+
+namespace ClaudeWCT.W9.T3.Security.CanonicalExtract
+open OracleComp OracleSpec SigGolfCandidate.T3
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.T3.Security.Wots (LeafAddr)
+open SigGolfCandidate.T3.Security.WotsExtract (routeLeaf)
+open ClaudeWCT.W9.T3M
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+
+theorem layer_of_shaped_readout (answers : Answers) (index : Nat) (wb : WBytes)
+    (sig : SigGolfCandidate.Research.SharedForest.Signature) (lay : Layer) (digits : List Nat)
+    (hs : Extract.LayerShaped answers wb index lay digits)
+    (hval : ∀ i : Fin (chainCount lay), wvalueFor wb lay digits i.val = (sig.layers lay).values i)
+    (hpath : ∀ j : Fin (height lay), wpath wb lay (route index lay).1 j.val = (sig.layers lay).path j) :
+    sig.layers lay = piecesSignature lay (WCT9.wotsPieces answers lay
+      (route index lay).2 (route index lay).1 digits) := by
+  apply SigGolfCandidate.T3M.LayerSignature.ext'
+  · funext i
+    rw [← hval i, (hs.2 i.val i.isLt).1]
+    simp [piecesSignature, WCT9.wotsPieces]
+  · funext j
+    rw [← hpath j, (hs.1 j.val j.isLt).1]
+    simp [piecesSignature, WCT9.wotsPieces]
+
+theorem good_shape_readout (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
+    (index : Nat) (wb : WBytes) (sig : SigGolfCandidate.Research.SharedForest.Signature)
+    (counters : Layer → BitVec 32)
+    (hg : ∀ lay, Good answers messages wb index lay)
+    (hctr : ∀ lay, wbcCtr wb index lay = counters lay)
+    (hpair : ∀ lay, ∃ left right, messages (routeLeaf index lay) = .pair left right)
+    (hval : ∀ lay digits (i : Fin (chainCount lay)),
+      wvalueFor wb lay digits i.val = (sig.layers lay).values i)
+    (hpath : ∀ lay (j : Fin (height lay)),
+      wpath wb lay (route index lay).1 j.val = (sig.layers lay).path j) :
+    ∀ lay, ∃ digits, WCT9.CanonicalPolicy.decode lay
+      (evalWithAnswerFn answers (WCT9.encodingHash lay (WCT9.layerEncodingInput lay
+        (route index lay).2 (route index lay).1 (messages (routeLeaf index lay)) (counters lay)))) = some digits ∧
+      sig.layers lay = piecesSignature lay (WCT9.wotsPieces answers lay
+        (route index lay).2 (route index lay).1 digits) := by
+  intro lay
+  obtain ⟨⟨digits, hframe, hs⟩, hpad⟩ := hg lay
+  have hd := hframe.2
+  have he (counter : BitVec 32) :
+      WCT9.encodingHash lay (layerEncodingInputP lay (route index lay).2 (route index lay).1
+        (messages (routeLeaf index lay)) counter 0 (wbcRight wb)) =
+      WCT9.encodingHash lay (WCT9.layerEncodingInput lay (route index lay).2 (route index lay).1
+        (messages (routeLeaf index lay)) counter) := by
+    obtain ⟨left,right,hm⟩ := hpair lay
+    rw [hm]
+    rfl
+  rw [hctr, hpad, he] at hd
+  exact ⟨digits, hd, layer_of_shaped_readout answers index wb sig lay digits hs (hval lay digits) (hpath lay)⟩
+#print axioms good_shape_readout
+end ClaudeWCT.W9.T3.Security.CanonicalExtract
+
+namespace ClaudeWCT.W9.T3.Security.CanonicalExtract
+open OracleComp OracleSpec SigGolfCandidate.T3
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.T3.Security.WotsExtract (routeLeaf)
+open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3.Security.Wots
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+
+theorem sourceMessages_pair (answers : Answers) (leaf : SigGolfCandidate.T3.Security.Wots.LeafAddr) :
+    ∃ left right, CanonicalRef.sourceMessages answers leaf = .pair left right := by
+  unfold CanonicalRef.sourceMessages
+  split <;> exact ⟨_,_,rfl⟩
+
+attribute [local irreducible] Paired.witEnc CanonicalRef.sourceMessages
+
+theorem good_shape_witEnc (answers : Answers) (output : HashOutput)
+    (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (hg : ∀ lay, Good answers (CanonicalRef.sourceMessages answers) (Paired.witEnc output w)
+      (WCT9.digestIndex output) lay) :
+    ∀ lay, ∃ digits, WCT9.CanonicalPolicy.decode lay
+      (evalWithAnswerFn answers (WCT9.encodingHash lay (WCT9.layerEncodingInput lay
+        (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1
+        (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay)) (w.counters lay)))) =
+      some digits ∧ w.signature.layers lay = piecesSignature lay (WCT9.wotsPieces answers lay
+        (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1 digits) := by
+  exact good_shape_readout answers (CanonicalRef.sourceMessages answers) (WCT9.digestIndex output)
+    (Paired.witEnc output w) w.signature w.counters hg (Paired.wbcCtr_witEnc output w)
+    (fun lay => sourceMessages_pair answers (routeLeaf (WCT9.digestIndex output) lay))
+    (Paired.wvalueFor_witEnc output w) (Paired.wpath_witEnc output w)
+#print axioms good_shape_witEnc
+end ClaudeWCT.W9.T3.Security.CanonicalExtract
+
+namespace ClaudeWCT.W9.T3M.Extract.Paired
+open OracleComp OracleSpec SigGolfCandidate.T3
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.Research.SharedForest
+open ClaudeWCT.WCT9
+open W9Machine
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local irreducible] T3M.Paired.witEnc
+
+theorem forest_openings_shape (answers : Answers) (output : HashOutput)
+    (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (ho : ForestOpenings answers (T3M.Paired.witEnc output w) (digestIndex output)
+      (rawChildFromOutput output) (fun coord => embed (forestRank output coord.val))) :
+    w.signature.forest = (evalWithAnswerFn answers (buildForest (digestIndex output)
+      (forestSelectionFromOutput output) (forestWordsFromOutput output))).1 := by
+  apply T3M.Paired.forest_eq_of_coordinates
+  · intro coord i
+    rw [buildForest_coordinateValues]
+    have hc := ((ho.2 coord).2.1 i).1
+    change V3.reveal (T3M.Paired.witEnc output w) coord.val i.val
+      (wordDigit (forestRank output coord.val) i) =
+      ClaudeWCT.WCT9.chainValue answers (digestIndex output) coord.val
+        (rawChildFromOutput output coord).val (forestRank output coord.val) i at hc
+    have hr : V3.reveal (T3M.Paired.witEnc output w) coord.val i.val
+        (wordDigit (forestRank output coord.val) i) =
+        T3M.Paired.coordinateValues w.signature.forest coord i := by
+      unfold V3.reveal
+      split
+      · exact T3M.Paired.wleafValue_witEnc output w coord i
+      · exact T3M.Paired.wchainValue_witEnc output w coord i
+    exact hr.symm.trans hc
+  · intro coord level hl
+    rw [buildForest_coordinatePath answers output coord level hl]
+    have hp := SharedV3.physical_lt coord.val (rawChildFromOutput output coord).val
+      (rawChildFromOutput output coord).isLt
+    have hmax : level≤SharedV3.lastLevel coord.val+1 := by
+      by_cases he : coord.val < 8 ∧ coord.val % 2 = 0
+      · simp only [if_pos he] at hl
+        simp [SharedV3.lastLevel, SharedV3.first, he]
+        omega
+      · simp only [if_neg he] at hl
+        simp [SharedV3.lastLevel, SharedV3.first, he]
+        omega
+    have hc := (ho.2 coord).2
+    by_cases hle : level≤SharedV3.lastLevel coord.val
+    · have hl6 : level<6 := by
+        unfold SharedV3.lastLevel at hle
+        split_ifs at hle <;> omega
+      have hs := PathStepGood.sibling_eq answers (T3M.Paired.witEnc output w)
+        (digestIndex output) coord.val (SharedV3.physical coord.val (rawChildFromOutput output coord).val)
+        level hp hl6 _ (hc.2.1 level hle)
+      rw [T3M.Paired.wsibling_witEnc output w coord level (by omega)] at hs
+      exact hs
+    · have he : level=SharedV3.lastLevel coord.val+1 := by omega
+      subst level
+      rw [←T3M.Paired.wtopOther_witEnc output w coord]
+      exact hc.2.2
+#print axioms forest_openings_shape
+end ClaudeWCT.W9.T3M.Extract.Paired

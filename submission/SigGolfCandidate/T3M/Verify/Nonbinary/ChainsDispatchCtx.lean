@@ -3,6 +3,7 @@ import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodOne
 
 section
 namespace SigGolfCandidate.T3M.Nonbinary
+variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)
 set_option maxRecDepth 8192
@@ -201,6 +202,7 @@ end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary.NCtx
+variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Nonbinary SigGolfCandidate.T3
 set_option maxHeartbeats 800000
@@ -233,9 +235,9 @@ theorem group_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     (hk : ∀p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0)
     (q : Nat) (hq : q<17) (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs)
     (N C A : Nat) (Q : Prop)
-    (hK : ∀ ends t,c.EndInv s0 (3*q+2) ends t → Verify.GoodQ t N C Q A (K ends)) :
+    (hK : ∀ ends t,c.EndInv s0 (3*q+2) ends t → Verify.GoodQP P t N C Q A (K ends)) :
     ∀ k i, 3*q ≤ i → i+k = 3*q+3 → 0 < k → ∀ acc s, c.ChainIn s0 i acc s →
-      Verify.GoodQ s (N+40*k) (C+c.chainsCost i k) Q (A+c.chainsCost i k)
+      Verify.GoodQP P s (N+40*k) (C+c.chainsCost i k) Q (A+c.chainsCost i k)
         (Verify.ccM ((List.range' i k).foldlM c.chainF acc) K) := by
   intro k
   induction k with
@@ -262,6 +264,7 @@ end SigGolfCandidate.T3M.Nonbinary.NCtx
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary.NCtx
+variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Nonbinary SigGolfCandidate.T3
 set_option maxRecDepth 8192
@@ -308,6 +311,7 @@ end SigGolfCandidate.T3M.Nonbinary.NCtx
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary.NCtx
+variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Nonbinary SigGolfCandidate.T3
 set_option maxRecDepth 8192

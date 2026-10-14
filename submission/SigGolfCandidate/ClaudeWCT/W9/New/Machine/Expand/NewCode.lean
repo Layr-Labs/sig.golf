@@ -9,7 +9,7 @@ open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open ClaudeWCT.W9.Machine.VLib
 def runM (r : PRes) (stop : Nat) (M : SymMem) (chg : List Reg) : Bool :=
   listBeq pairBeq r.st.mem M && r.st.obl.isEmpty && !r.ecall && r.spc.isNone &&
-    r.pc.toNat == (pcOf stop).toNat && keepB (allRegs.filter fun x => !chg.contains x) r
+    r.pc.toNat == (pcOf stop).toNat && VLib.keepB (allRegs.filter fun x => !chg.contains x) r
 theorem runM_spec {im : Image} (hc : NewCodeAt im) {stops : List Word} {fuel P : Nat} {dirs : List Dir}
     {known : List (Reg × Word)} {r : PRes} {stop : Nat} {M : SymMem} {chg : List Reg}
     (h : pathAux pcfg expLook stops fuel (pcOf P) dirs (σK known) [] = some r) (hb : runM r stop M chg = true)
@@ -22,13 +22,13 @@ theorem runM_spec {im : Image} (hc : NewCodeAt im) {stops : List Word} {fuel P :
   obtain ⟨⟨⟨⟨⟨hm, ho⟩, -⟩, hspc⟩, hpcr⟩, hkeep⟩ := hb
   obtain ⟨h1, -⟩ := pathRun_sound h (expLook_ok hc) s hpc hk (by rw [ho]; simp) hbr
   refine ⟨h1, ?_, ?_, ?_⟩
-  · rw [PRes.toState_pc r s hspc]; exact BitVec.eq_of_toNat_eq hpcr
+  · rw [VLib.PRes.toState_pc r s hspc]; exact BitVec.eq_of_toNat_eq hpcr
   · intro x hx
     by_cases h0 : x = .x0
     · subst h0; exact getReg_x0_eq _ _
-    · exact keepB_ok hkeep s x (List.mem_filter.mpr ⟨mem_allRegs x h0, by simpa using hx⟩)
+    · exact VLib.keepB_ok hkeep s x (List.mem_filter.mpr ⟨mem_allRegs x h0, by simpa using hx⟩)
   · intro A
-    rw [PRes.toState_getMem, listBeq_eq (fun _ _ => pairBeq_eq) hm]
+    rw [VLib.PRes.toState_getMem, listBeq_eq (fun _ _ => pairBeq_eq) hm]
 def optCheck (o : Option PRes) (f : PRes → Bool) : Bool :=
   match o with
   | some r => f r
@@ -143,9 +143,9 @@ theorem srchd_spec {im : Image} (hc : NewCodeAt im) (s : MachineState) (hpc : s.
       else s.getMem (BitVec.ofNat 64 A) := by
     intro A hA
     simp only [srchdM, cMem, List.cons_append, List.nil_append]
-    rw [memEval_cons_ofNat _ _ _ _ _ hA (by decide +kernel), memEval_cons_ofNat _ _ _ _ _ hA (by decide +kernel),
-      memEval_cons_ofNat _ _ _ _ _ hA (by decide +kernel), memEval_cons_ofNat _ _ _ _ _ hA (by decide +kernel),
-      memEval_cons_ofNat _ _ _ _ _ hA (by decide +kernel)]
+    rw [VLib.memEval_cons_ofNat _ _ _ _ _ hA (by decide +kernel), VLib.memEval_cons_ofNat _ _ _ _ _ hA (by decide +kernel),
+      VLib.memEval_cons_ofNat _ _ _ _ _ hA (by decide +kernel), VLib.memEval_cons_ofNat _ _ _ _ _ hA (by decide +kernel),
+      VLib.memEval_cons_ofNat _ _ _ _ _ hA (by decide +kernel)]
     rfl
   refine ⟨_, _, _, st, hcy, p, rg, ?_, ?_, ?_, ?_⟩
   · intro k hk
@@ -421,7 +421,7 @@ theorem drvInv_zero {sig : WCT9.Signature} {N : HashOutput} {sF t : MachineState
     (hpc : t.pc = pcOf (base + 34)) (hr : DRegs (WCT9.digestIndex N) t)
     (h8 : t.getReg .x8 = BitVec.ofNat 64 (regBase (0 - 1)))
     (h28 : t.getReg .x28 = BitVec.ofNat 64 (HB0 + 2048 + 512 * (0 - 1)))
-    (h15 : t.getReg .x15 = BitVec.ofNat 64 (WCT9.digestIndex N * 2 ^ 27 + 65536 * (0 - 1 + 1)))
+    (h15 : t.getReg .x15 = BitVec.ofNat 64 (WCT9.digestIndex N * 2 ^ 27 + 65536 * (0 - 1)))
     (hf : Frame sF t (fun _ => False)) (hz : DigAt sF 0x400 0 ∧ DigAt sF 0x410 0) :
     DrvInv sig N sF 0 [] t :=
   ⟨hpc, hr, h8, h28, h15, fun h => absurd h (by omega), rfl,
@@ -440,7 +440,7 @@ theorem fts_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.Si
       (fun top t => t.pc = pcOf 39142 ∧ t.getReg .x5 = 0 ∧ DigAt t 0x100 top.1 ∧ DigAt t 0x20290 top.2 ∧
         Frame sF t FtsW) := by
   have hidx : WCT9.digestIndex N < 2 ^ 31 := WCT9.digestIndex_lt N
-  have hg : N.toNat / 2 ^ 242 % 2 ^ 14 < 1418 := ((admissible_iff N).mp hin.adm).1
+  have hg : N.toNat / 2 ^ 242 % 2 ^ 14 < 1353 := ((admissible_iff N).mp hin.adm).1
   obtain ⟨t0, s0, p0, r0, x8_0, x28_0, x15_0, f0⟩ := drv_entry hc N sF hpc h5 hin.out hg
   have hI0 : DrvInv sig N sF 0 [] t0 := drvInv_zero (by rw [p0]) r0 x8_0 x28_0 x15_0 f0 hin.start
   unfold WCT9.recoverFts WCT9.recoverFtsFrom
@@ -630,85 +630,6 @@ theorem placed_of {N : HashOutput} {sig : WCT9.Signature} {s0 t : MachineState}
       rw [show i % 2 = 1 by omega, show sigBlk k + (o + 8 * 1) = 0x7000 + 16 * (1 + 13 * k + o / 16) + 8 by
         unfold sigBlk; omega]
       exact hd.2
-/-! C1: the first-pass placement yields `Placed1` (the plan layout). -/
-def cellD1 (j : Nat) (op : WCT9.Opening) (m : Nat) : Digest :=
-  match plSt1 j 7 (2 * m) with
-  | some o => (openingList op).getD (o / 16) 0
-  | none => 0
-theorem cellLev_lt {j m l : Nat} (h : cellLev j m = some l) : l < 7 := by
-  unfold cellLev at h
-  exact List.mem_range.mp (List.mem_of_find?_eq_some h)
-theorem cell1_window (j : Nat) (op : WCT9.Opening) (m : Nat) (hm : m < 64) :
-    window (regionBytesC1 j op) (16 * m) 16 = bytesLE 16 (cellD1 j op m) := by
-  by_cases h28 : m < 28
-  · rw [win1_cell _ _ _ h28]
-    unfold cellC1 cellD1 plSt1
-    rw [if_neg (by omega), show 2 * m / 2 = m by omega, show 2 * m % 2 = 0 by omega]
-    cases hc : cellLev j m with
-    | none => rfl
-    | some l =>
-      have hl := cellLev_lt hc
-      simp only [if_pos hl, Nat.mul_zero, Nat.add_zero]
-      rw [show (96 + 16 * l) / 16 = 6 + l by omega, openingList_path op l hl]
-      simp [pathD, hl]
-  · rw [win1_rest _ _ _ _ (by omega), cell_window j op m hm]
-    unfold cellD cellD1 plSt1
-    rw [if_pos (by omega)]
-set_option maxRecDepth 100000 in
-theorem plSt1_split_all : ∀ j < 128, ∀ i < 128,
-    plSt1 j 7 i = (plSt1 j 7 (2 * (i / 2))).map (· + 8 * (i % 2)) := by
-  decide +kernel
-set_option maxRecDepth 100000 in
-theorem plSt1_even_all : ∀ j < 128, ∀ m < 64, ∀ o, plSt1 j 7 (2 * m) = some o → o % 16 = 0 ∧ o < 208 := by
-  intro j hj m hm
-  have key : ∀ j < 128, ∀ m < 64, ((plSt1 j 7 (2 * m)).all fun o => o % 16 == 0 && decide (o < 208)) = true := by
-    decide +kernel
-  have := key j hj m hm
-  intro o ho
-  rw [ho] at this
-  simpa using this
-theorem placed1_of {N : HashOutput} {sig : WCT9.Signature} {s0 t : MachineState}
-    (hsig : ∀ n, n < 118 → DigAt s0 (0x7000 + 16 * n) ((sigDigests sig).getD n 0))
-    (hdone : ∀ k i, (hk : k < 9) → i < 128 → t.getMem (BitVec.ofNat 64 (regBase k + 8 * i)) =
-      match plSt1 (WCT9.child N ⟨k, hk⟩).val 7 i with
-      | some o => s0.getMem (BitVec.ofNat 64 (sigBlk k + o))
-      | none => 0) :
-    Placed1 N sig t := by
-  intro k i hk hi
-  have hk' : (⟨k % 9, Nat.mod_lt _ (by decide +kernel)⟩ : WCT9.Coord) = ⟨k, hk⟩ := Fin.ext (Nat.mod_eq_of_lt hk)
-  unfold regionWord1
-  rw [hk', hdone k i hk hi]
-  set j := (WCT9.child N ⟨k, hk⟩).val
-  have hj : j < 128 := (WCT9.child N ⟨k, hk⟩).isLt
-  set op := sig.openings ⟨k, hk⟩
-  have hw := words_of_window16 (regionBytesC1 j op) (regionBytesC1_length _ _) (16 * (i / 2)) (by omega) (by omega)
-    _ (cell1_window j op (i / 2) (by omega))
-  rw [show 16 * (i / 2) / 8 = 2 * (i / 2) by omega] at hw
-  have hgi : (wordsOf (regionBytesC1 j op)).getD i 0 =
-      if i % 2 = 0 then (cellD1 j op (i / 2)).extractLsb' 0 64 else (cellD1 j op (i / 2)).extractLsb' 64 64 := by
-    split
-    · rw [show i = 2 * (i / 2) by omega]; rw [show 2 * (i / 2) / 2 = i / 2 by omega]; exact hw.1
-    · rw [show i = 2 * (i / 2) + 1 by omega]; rw [show (2 * (i / 2) + 1) / 2 = i / 2 by omega]; exact hw.2
-  rw [hgi, plSt1_split_all j hj i hi]
-  unfold cellD1
-  cases hs : plSt1 j 7 (2 * (i / 2)) with
-  | none => simp
-  | some o =>
-    simp only [Option.map_some]
-    obtain ⟨h16, h224⟩ := plSt1_even_all j hj (i / 2) (by omega) o hs
-    have hd := hsig (1 + 13 * k + o / 16) (by omega)
-    have hop := sigDigests_opening sig ⟨k, hk⟩ (o / 16) (by omega)
-    simp only at hop
-    rw [hop] at hd
-    split
-    · rename_i h0
-      rw [h0, Nat.mul_zero, Nat.add_zero, show sigBlk k + o = 0x7000 + 16 * (1 + 13 * k + o / 16) by
-        unfold sigBlk; omega]
-      exact hd.1
-    · rename_i h0
-      rw [show i % 2 = 1 by omega, show sigBlk k + (o + 8 * 1) = 0x7000 + 16 * (1 + 13 * k + o / 16) + 8 by
-        unfold sigBlk; omega]
-      exact hd.2
 end ClaudeWCT.W9.Machine.Expand
 end
 section
@@ -772,11 +693,7 @@ theorem newCode_tb {im : Image} (hc : NewCodeAt im) (hh : HookAt im) (sk : BitVe
     rw [g3 _ (by unfold regBase; omega) (by unfold regBase; omega) (by unfold regBase; omega)
       (by unfold regBase; omega) (by unfold regBase; omega) (by unfold regBase; omega)]
     exact hpre.zeroW _ (by unfold regBase; omega) (by unfold regBase; omega)
-  have plan3 : PlanAt t3 := fun k hk => by
-    rw [g3 _ (by unfold PLAN; omega) (by unfold PLAN; omega) (by unfold PLAN; omega) (by unfold PLAN; omega)
-      (by unfold PLAN; omega) (by unfold PLAN; omega)]
-    exact hpre.plan k hk
-  obtain ⟨t4, k4, c4, st4, hc4, hI4⟩ := place1_spec hc placeOK1_init p3 nbuf3 hz3 plan3
+  obtain ⟨t4, k4, c4, st4, hc4, hI4⟩ := place_spec hc placeOK_init p3 nbuf3 hz3
   have p4 : t4.pc = pcOf 3151 := by rw [hI4.pc, cOff_nine]
   obtain ⟨t5, k5, c5, st5, hc5, p5, r5, mv5, f5⟩ := mv_spec hc t4 p4
   have x5_5 : t5.getReg .x5 = 0 := by
@@ -791,7 +708,7 @@ theorem newCode_tb {im : Image} (hc : NewCodeAt im) (hh : HookAt im) (sk : BitVe
     have := hpre.sigAt n (by omega)
     exact ⟨(g3 _ (by omega) (by omega) (by omega) (by omega) (by omega) (by omega)).trans this.1,
       (g3 _ (by omega) (by omega) (by omega) (by omega) (by omega) (by omega)).trans this.2⟩
-  have hplaced5 : Placed1 N sig t5 := placed1_of hsig3 (fun k i hk hi => by
+  have hplaced5 : Placed N sig t5 := placed_of hsig3 (fun k i hk hi => by
     rw [f5 _ (by unfold regBase; omega) (by unfold regBase; omega)]
     exact hI4.done k i (by omega) hk hi)
   have hin : FtsIn sig N t5 := by

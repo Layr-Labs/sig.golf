@@ -13,11 +13,11 @@ structure Layout where
   childWord : Fin 128 → Nat
   returnWord : Fin 9 → Nat
 def GoodQFor (im : Image) (s : MachineState) (N C : Nat) (Q : Prop) (A : Nat)
-    (X : OracleComp HashSpec Obs) : Prop :=
+    (X : OracleComp HashSpec Obs) (P : Hash → Prop := HashOk) : Prop :=
   ∀ F, N ≤ F → obs <$> Riscv.execute F im s = X ∧
     ∀ hash : Hash, (evalWithAnswerFn hash (Riscv.execute F im s)).exit ≠ .unfinished ∧
       (evalWithAnswerFn hash (Riscv.execute F im s)).cycles ≤ C ∧
-      ((evalWithAnswerFn hash (Riscv.execute F im s)).exit = .success → HashOk hash →
+      ((evalWithAnswerFn hash (Riscv.execute F im s)).exit = .success → P hash →
         Q ∧ (evalWithAnswerFn hash (Riscv.execute F im s)).cycles ≤ A)
 structure Budget where
   fuel : Nat

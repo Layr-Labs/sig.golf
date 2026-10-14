@@ -4,13 +4,14 @@ import SigGolfCandidate.W9Drv.CoordDefs
 
 section
 namespace W9Drv
+variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
 open W9Machine
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 def gJumpWords : List (BitVec 32) := [0x4f00306f]
 def gCheckWords : List (BitVec 32) := [0x1803883,0x16013e83,0x11d8e063]
-def gSetupWords : List (BitVec 32) := [0x3803,0x2185b13,0x100393,0x1bb1793,0x60178793,0x10337,0x6787b3,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x1d013403,0x17013e83,0x3013c03,0x1886833,0x13010493,0x17813103]
+def gSetupWords : List (BitVec 32) := [0x13903,0x3803,0x2185b13,0x100393,0x1bb1793,0x60178793,0x10337,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x1d013403,0x17013e83,0x3013c03,0x1886833,0x13010493,0x17813103]
 def gRejectWords : List (BitVec 32) := [0x100293,0x100513,0x73]
 def gJump : Result := ⟨SymState.init, .c (pcOf 3395), .jump, 1, 1⟩
 def gCheck : Result :=
@@ -18,15 +19,14 @@ def gCheck : Result :=
     .x29 (.ld (addC (.reg .x2) 352)), [], [.valid ⟨some (.reg .x2), 352⟩ 8]⟩,
     .ite .ltu (.ld (.c (BitVec.ofNat 64 24))) (.ld (addC (.reg .x2) 352)) (.c (pcOf 70)) (.c (pcOf 7)), .branch, 3, 3⟩
 def gSetup : Result :=
-  ⟨⟨((((((((((((((((RegFile.init.set .x2 (.ld (addC (.reg .x2) 376))).set .x6 (.c 65536)).set .x7 (.c 1)).set .x8 (.ld (addC (.reg .x2) 464))).set .x9 (addC (.reg .x2) 304)).set .x13 (.c 2)).set .x15 (.bin .add (.bin .sll (.bin .srl (.ld (.c 0)) (.c 33)) (.c 27)) (.c 67073))).set .x16 (.bin .or (.ld (.c 0)) (.ld (addC (.reg .x2) 48)))).set .x19 (.c 3)).set .x20 (.c 4)).set .x21 (.c 5)).set .x22 (.bin .srl (.ld (.c 0)) (.c 33))).set .x24 (.ld (addC (.reg .x2) 48))).set .x26 (.c 6)).set .x29 (.ld (addC (.reg .x2) 368))).set .x30 (.c 7)), [],
-    [.valid ⟨some (.reg .x2), 376⟩ 8, .valid ⟨some (.reg .x2), 48⟩ 8, .valid ⟨some (.reg .x2), 368⟩ 8, .valid ⟨some (.reg .x2), 464⟩ 8]⟩,
+  ⟨⟨(((((((((((((((((RegFile.init.set .x2 (.ld (addC (.reg .x2) 376))).set .x6 (.c 65536)).set .x7 (.c 1)).set .x8 (.ld (addC (.reg .x2) 464))).set .x9 (addC (.reg .x2) 304)).set .x13 (.c 2)).set .x15 (.bin .add (.bin .sll (.bin .srl (.ld (.c 0)) (.c 33)) (.c 27)) (.c 1537))).set .x16 (.bin .or (.ld (.c 0)) (.ld (addC (.reg .x2) 48)))).set .x18 (.ld (addC (.reg .x2) 0))).set .x19 (.c 3)).set .x20 (.c 4)).set .x21 (.c 5)).set .x22 (.bin .srl (.ld (.c 0)) (.c 33))).set .x24 (.ld (addC (.reg .x2) 48))).set .x26 (.c 6)).set .x29 (.ld (addC (.reg .x2) 368))).set .x30 (.c 7)), [],
+    [.valid ⟨some (.reg .x2), 376⟩ 8, .valid ⟨some (.reg .x2), 48⟩ 8, .valid ⟨some (.reg .x2), 368⟩ 8, .valid ⟨some (.reg .x2), 464⟩ 8, .valid ⟨some (.reg .x2), 0⟩ 8]⟩,
     .c (pcOf 89), .fuel, 19, 19⟩
 def gReject : Result :=
   ⟨⟨(RegFile.init.set .x5 (.c 1)).set .x10 (.c 1), [], []⟩, .c (pcOf 3397), .ecall, 2, 2⟩
 theorem gJump_checked : rOK (symRun {} gJumpWords (pcOf 7) 1) gJump = true := by decide +kernel
 theorem gJump_linked : sliceChecked 7 gJumpWords = true := by decide +kernel
 theorem gCheck_checked : rOK (symRun {} gCheckWords (pcOf 4) 3) gCheck = true := by decide +kernel
-theorem gCheck_linked : sliceChecked 4 gCheckWords = true := by decide +kernel
 theorem gSetup_checked : rOK (symRun {} gSetupWords (pcOf 70) 19) gSetup = true := by decide +kernel
 theorem gSetup_linked : sliceChecked 70 gSetupWords = true := by decide +kernel
 theorem gReject_checked : rOK (symRun {} gRejectWords (pcOf 3395) 3) gReject = true := by decide +kernel
@@ -35,6 +35,7 @@ end W9Drv
 end
 section
 namespace W9Drv
+variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput M)
@@ -56,16 +57,17 @@ theorem toState_mem_nil (r : Result) (s : MachineState) (h : r.st.mem = []) :
 theorem init_getReg (s : MachineState) (x : Reg) : (RegFile.init.get x).eval s = s.getReg x := by
   cases x <;> rfl
 theorem glob_congr {w : ClaudeWCT.W9.T3M.WBytes} {pk : Digest} {s t : MachineState} (h : Glob [(.x5, 0)] w pk s)
-    (hm : t.mem = s.mem) (h5 : t.getReg .x5 = 0) :
-    Glob [(.x5, 0)] w pk t := by
+    (hm : t.mem = s.mem) (h5 : t.getReg .x5 = 0) (h18 : t.getReg .x18 = 0xFFF) :
+    Glob baseK w pk t := by
   obtain ⟨-, h0, h2, h3, h4, h5'⟩ := h
   have e : ∀ A, t.getMem A = s.getMem A := fun A => congrFun hm A
   refine ⟨?_, fun j hj4 hj => (e _).trans (h0 j hj4 hj), ⟨(e _).trans h2.1, (e _).trans h2.2⟩,
     fun a ha => (e _).trans (h3 a ha), ?_, h5'.congr (fun A _ _ => e _)⟩
   · intro p hp
-    simp only [List.mem_cons, List.not_mem_nil, or_false] at hp
-    subst hp
-    exact h5
+    simp only [baseK, List.mem_cons, List.not_mem_nil, or_false] at hp
+    rcases hp with rfl | rfl
+    · exact h5
+    · exact h18
   · show (t.getMem _).toNat / 2 ^ 32 = 0
     rw [e]; exact h4
 theorem idx_val (x : Word) :
@@ -87,7 +89,7 @@ theorem setup_load (s : MachineState) (hsp : s.getReg .x2 = BitVec.ofNat 64 stac
   change s.getMem (s.getReg .x2 + BitVec.ofNat 64 k) = _
   rw [hsp, ofNat_add_ofNat]
 set_option maxRecDepth 100000 in
-theorem gate_orig (w : ClaudeWCT.W9.T3M.WBytes) {u s3 : MachineState} (hw : Orig w (fun o => o ≠ 24816) u)
+theorem gate_orig (w : ClaudeWCT.W9.T3M.WBytes) {u s3 : MachineState} (hw : Orig w (fun o => o ≠ 24848) u)
     (e3 : ∀ A, s3.getMem A = u.getMem A) (m : Nat) (hm9 : m ≤ 9) (off : Nat) (hoff : off < 896) (h8 : off % 8 = 0)
     (hv : m = 9 → 720 ≤ off) : W9Machine.OrigW w s3 (regionAddr m + off) := by
   unfold W9Machine.OrigW
@@ -106,20 +108,69 @@ theorem gate_orig (w : ClaudeWCT.W9.T3M.WBytes) {u s3 : MachineState} (hw : Orig
   unfold regionAddr WIT at *
   omega
 set_option maxRecDepth 100000 in
-theorem gate_slot (w : ClaudeWCT.W9.T3M.WBytes) {u s3 : MachineState} (hw : Orig w (fun o => o ≠ 24816) u)
+theorem gate_slot (w : ClaudeWCT.W9.T3M.WBytes) {u s3 : MachineState} (hw : Orig w (fun o => o ≠ 24848) u)
     (e3 : ∀ A, s3.getMem A = u.getMem A) (o : Nat) (ho : o = 720 ∨ o = 864) :
     DigAt s3 (regionAddr 0 + o) (wdig w (V3.regionOffset 0 + o)) := by
   have h0 := gate_orig w hw e3 0 (by decide) o (by omega) (by omega) (fun h => absurd h (by decide))
   have h1 := gate_orig w hw e3 0 (by decide) (o + 8) (by omega) (by omega) (fun h => absurd h (by decide))
   have hd := DigAt_origW h0 (by simpa only [Nat.add_assoc] using h1) (by unfold regionAddr; omega)
   rwa [show regionAddr 0 + o - 0x4c0 = V3.regionOffset 0 + o by unfold regionAddr V3.regionOffset; omega] at hd
-theorem gate_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
+end W9Drv
+end
+
+
+namespace W9Drv.SharedGate
+variable {P : SigGolfCandidate.Legacy.Hash → Prop}
+open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
+open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify W9Machine
+open SigGolfCandidate.T3 (Digest HashOutput M)
+set_option maxRecDepth 100000
+set_option maxHeartbeats 0
+
+def gateOk (a : HashOutput) : Bool := decide (a.toNat / 2^242 % 16384 < 734)
+def gCheckWords : List (BitVec 32) := [0x1803883,0x16013e83,0xfd8ec63]
+def gCheck : Result :=
+  { W9Drv.gCheck with pc := .ite .ltu (.ld (.c (BitVec.ofNat 64 24))) (.ld (addC (.reg .x2) 352)) (.c (pcOf 68)) (.c (pcOf 7)) }
+def gSetupWords : List (BitVec 32) := [0x3813e03,0x7f00db7] ++ W9Drv.gSetupWords
+
+def gSetup : Result :=
+  { W9Drv.gSetup with
+    st := { W9Drv.gSetup.st with
+      regs := ((W9Drv.gSetup.st.regs).set .x28 (.ld (addC (.reg .x2) 56))).set .x27 (.c 0x7f00000)
+      obl := W9Drv.gSetup.st.obl ++ [.valid ⟨some (.reg .x2), 56⟩ 8] }
+    steps := 21
+    cycles := 21 }
+theorem gCheck_checked : rOK (symRun {} gCheckWords (pcOf 4) 3) gCheck = true := by decide +kernel
+theorem gCheck_linked : sliceChecked 4 gCheckWords = true := by decide +kernel
+theorem gSetup_linked : sliceChecked 68 gSetupWords = true := by decide +kernel
+theorem gSetup_checked : rOK (symRun {} gSetupWords (pcOf 68) 21) gSetup = true := by decide +kernel
+
+theorem gate_ult_const (a : HashOutput) :
+    BitVec.ult (a.extractLsb' 192 64) (BitVec.ofNat 64 (734 * 2^50)) = gateOk a := by
+  unfold gateOk
+  change (a.extractLsb' 192 64).ult (BitVec.ofNat 64 (734 * 2^50)) = decide (a.toNat / 2^242 % 2^14 < 734)
+  rw [← SigGolfCandidate.Research.V7Composed198Gate.gate_shift50_toNat]
+  simp only [BitVec.ult, BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow,
+    show (BitVec.ofNat 64 (734 * 2^50)).toNat = 734 * 2^50 from rfl,
+    decide_eq_decide]
+  omega
+theorem gate_slot (w : ClaudeWCT.W9.T3M.WBytes) {u s3 : MachineState} (hw : Orig w (fun o => o ≠ 24848) u)
+    (e3 : ∀ A, s3.getMem A = u.getMem A) (o : Nat) (ho : o = 720 ∨ o = 144) :
+    DigAt s3 (regionAddr 0 + o) (wdig w (V3.regionOffset 0 + o)) := by
+  have h0 := gate_orig w hw e3 0 (by decide) o (by omega) (by omega) (fun h => absurd h (by decide))
+  have h1 := gate_orig w hw e3 0 (by decide) (o + 8) (by omega) (by omega) (fun h => absurd h (by decide))
+  have hd := DigAt_origW h0 (by simpa only [Nat.add_assoc] using h1) (by unfold regionAddr; omega)
+  rwa [show regionAddr 0 + o - 0x4c0 = V3.regionOffset 0 + o by unfold regionAddr V3.regionOffset; omega] at hd
+theorem good
+    (checkLink : sliceChecked 4 gCheckWords = true)
+    (setupLink : sliceChecked 68 gSetupWords = true)
+    (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
     (u : MachineState) (N C A : Nat) (Q : Prop)
     (K : Bool → OracleComp HashSpec Obs)
-    (hu : GatePre pk w a u) (hnone : K false = pure (false, 0))
-    (hnext : ∀ t, CoordPre pk w a 0 [] t →
-      GoodQFor Frozen.image t N C Q A (K true)) :
-    GoodQFor Frozen.image u (N + 22) (C + 22) Q (A + 22) (K (ClaudeWCT.W9.T3M.gateOk a)) := by
+    (hu : Pre pk w a u) (hnone : K false = pure (false, 0))
+    (hnext : ∀ t, SharedCoord.Pre pk w a 0 [] t →
+      GoodQFor (P := P) Frozen.image t N C Q A (K true)) :
+    GoodQFor (P := P) Frozen.image u (N + 24) (C + 24) Q (A + 24) (K (gateOk a)) := by
   let s1 := u
   have m1 : s1.mem = u.mem := rfl
   have r1 : ∀ x, s1.getReg x = u.getReg x := fun _ => rfl
@@ -127,12 +178,12 @@ theorem gate_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
   have hob1 : gCheck.obligs s1 := by
     apply (Oblig.all_iff s1 _).mpr
     intro o ho
-    simp only [gCheck, List.mem_cons, List.not_mem_nil, or_false] at ho
+    simp only [gCheck, W9Drv.gCheck, List.mem_cons, List.not_mem_nil, or_false] at ho
     subst ho
     change accessValid (s1.getReg .x2 + _) 8 = true
     rw [r1, hu.sp]
     decide +kernel
-  have st2 := symRun_sound (rOK_eq gCheck_checked) (slice_at _ _ gCheck_linked) s1 pc1 hob1
+  have st2 := symRun_sound (rOK_eq gCheck_checked) (slice_at _ _ checkLink) s1 pc1 hob1
   set s2 := gCheck.toState s1 with hs2
   have m2 : s2.mem = u.mem := (toState_mem_nil _ _ rfl).trans m1
   have hw0 : s1.getMem (BitVec.ofNat 64 0) = a.extractLsb' 0 64 := by
@@ -141,21 +192,21 @@ theorem gate_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
   have hw3 : s1.getMem (BitVec.ofNat 64 24) = a.extractLsb' 192 64 := by
     have := hu.digest 3 (by decide +kernel)
     simpa [MachineState.getMem, m1] using this
-  have hgate : s1.getMem ((addC (.reg .x2) 352).eval s1) = 0x1628000000000000#64 := by
+  have hgate : s1.getMem ((addC (.reg .x2) 352).eval s1) = BitVec.ofNat 64 (734 * 2^50) := by
     change s1.getMem ((addC (.reg .x2) (BitVec.ofNat 64 352)).eval s1) = _
     rw [setup_load s1 hu.sp 352]
     exact hu.setupMask.gate
-  have pc2 : s2.pc = if BitVec.ult (s1.getMem (BitVec.ofNat 64 24)) (s1.getMem ((addC (.reg .x2) 352).eval s1)) then pcOf 70 else pcOf 7 := by
-    show (E.ite .ltu (.ld (.c (BitVec.ofNat 64 24))) (.ld (addC (.reg .x2) 352)) (.c (pcOf 70)) (.c (pcOf 7))).eval s1 = _
+  have pc2 : s2.pc = if BitVec.ult (s1.getMem (BitVec.ofNat 64 24)) (s1.getMem ((addC (.reg .x2) 352).eval s1)) then pcOf 68 else pcOf 7 := by
+    show (E.ite .ltu (.ld (.c (BitVec.ofNat 64 24))) (.ld (addC (.reg .x2) 352)) (.c (pcOf 68)) (.c (pcOf 7))).eval s1 = _
     rfl
-  have hg : BitVec.ult (s1.getMem (BitVec.ofNat 64 24)) (s1.getMem ((addC (.reg .x2) 352).eval s1)) = ClaudeWCT.W9.T3M.gateOk a := by
+  have hg : BitVec.ult (s1.getMem (BitVec.ofNat 64 24)) (s1.getMem ((addC (.reg .x2) 352).eval s1)) = gateOk a := by
     rw [hw3, hgate]
-    exact SigGolfCandidate.Research.V7Composed198Gate.gate_ult_const a
+    exact gate_ult_const a
   have st2' : Steps Frozen.image s1 3 3 s2 := st2
-  by_cases hok : ClaudeWCT.W9.T3M.gateOk a = true
+  by_cases hok : gateOk a = true
   ·
     rw [hok]
-    have pc2' : s2.pc = pcOf 70 := by rw [pc2, hg, hok]; rfl
+    have pc2' : s2.pc = pcOf 68 := by rw [pc2, hg, hok]; rfl
     have hsp2 : s2.getReg .x2 = BitVec.ofNat 64 stackBase7 := by
       rw [hs2, Result.toState_getReg]
       show s1.getReg .x2 = _
@@ -163,22 +214,22 @@ theorem gate_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
     have hob : gSetup.obligs s2 := by
       apply (Oblig.all_iff s2 _).mpr
       intro o ho
-      simp only [gSetup, List.mem_cons, List.not_mem_nil, or_false] at ho
-      rcases ho with rfl | rfl | rfl | rfl
+      simp only [gSetup, W9Drv.gSetup, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at ho
+      rcases ho with rfl | rfl | rfl | rfl | rfl | rfl
       all_goals
         change accessValid (s2.getReg .x2 + _) 8 = true
         rw [hsp2]
         decide +kernel
-    have st3 := symRun_sound (rOK_eq gSetup_checked) (slice_at _ _ gSetup_linked) s2 pc2' hob
+    have st3 := symRun_sound (rOK_eq gSetup_checked) (slice_at _ _ setupLink) s2 pc2' hob
     set s3 := gSetup.toState s2 with hs3
-    have st3' : Steps Frozen.image s2 19 19 s3 := st3
+    have st3' : Steps Frozen.image s2 21 21 s3 := st3
     have m2' : ∀ A, s2.getMem A = u.getMem A := fun A => congrFun m2 A
     have hchild : s3.getReg .x29 = BitVec.ofNat 64 0xf1b00 := by
       rw [hs3, Result.toState_getReg]
       change s2.getMem ((addC (.reg .x2) (BitVec.ofNat 64 368)).eval s2) = _
       rw [setup_load s2 hsp2, m2']
       exact hu.setupMask.child
-    have hjt : s3.getReg .x24 = rankPad := by
+    have hjt : s3.getReg .x24 = SharedCoord.rankPad := by
       rw [hs3, Result.toState_getReg]
       change s2.getMem ((addC (.reg .x2) (BitVec.ofNat 64 48)).eval s2) = _
       rw [setup_load s2 hsp2, m2']
@@ -205,14 +256,19 @@ theorem gate_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
       rw [hs2, Result.toState_getReg]
       show s1.getReg .x5 = 0
       rw [r1]; exact hu.glob.1 (.x5, 0) (by simp)
-    have hpre : CoordPre pk w a 0 [] s3 := by
+    have h18 : s3.getReg .x18 = 0xFFF := by
+      rw [hs3, Result.toState_getReg]
+      change s2.getMem ((addC (.reg .x2) (BitVec.ofNat 64 0)).eval s2) = _
+      rw [setup_load s2 hsp2 0, m2']
+      exact hu.setupMask.d0
+    have hpre : SharedCoord.Pre pk w a 0 [] s3 := by
       refine {
         le := (by decide +kernel), length := rfl, pc := rfl,
-        glob := glob_congr hu.glob m3 h5, d0 := (e3 _).trans hu.setupMask.d0,
+        glob := glob_congr hu.glob m3 h5 h18,
         digest := ?_, bank := ?_, forest := ?_, index := hidx, heaps := ?_,
         stepOne := rfl, stepTwo := rfl, hashLen := ?_, coordStep := rfl,
         nodeReg := ?_, cached3 := ?_, cached := ?_,
-        mask := ?_, childMask := fun h => absurd h (by decide), jt := hjt, childBlock := hchild, baseReg := hbase, pairPtr := ?_,
+        mask := ?_, childMask := rfl, aTable := ?_, jt := hjt, childBlock := hchild, singletonTable := ?_, baseReg := hbase, pairPtr := ?_,
         prevL := ?_, prevR := ?_, a2 := fun h => absurd h (Nat.lt_irrefl 0), coords := ?_, layer := ?_ }
       · intro k hk; rw [e3]; exact hu.digest k hk
       · exact ⟨fun k hk => (e3 _).trans (hu.bank.top k hk), (e3 _).trans hu.bank.top8⟩
@@ -224,7 +280,7 @@ theorem gate_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
         rw [hs2, Result.toState_getReg]
         show s1.getReg .x11 = 64
         rw [r1]; exact hu.len64
-      · change ((s2.getMem (BitVec.ofNat 64 0) >>> 33) <<< 27) + 67073 = _
+      · change ((s2.getMem (BitVec.ofNat 64 0) >>> 33) <<< 27) + 1537 = _
         have hidx2 : s2.getMem (BitVec.ofNat 64 0) >>> 33 = BitVec.ofNat 64 (idxOf a) := by
           rw [hw0_2, idx_val, index_eq]
         rw [hidx2]
@@ -232,7 +288,7 @@ theorem gate_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
         simp only [BitVec.toNat_add, BitVec.toNat_shiftLeft, BitVec.toNat_ofNat, Nat.shiftLeft_eq]
         have h1 : idxOf a * 2 ^ 27 < 2 ^ 58 := by omega
         rw [Nat.mod_eq_of_lt (by omega : idxOf a < 2^64), Nat.mod_eq_of_lt (by omega : idxOf a * 2 ^ 27 < 2 ^ 64),
-          show BitVec.toNat (67073 : Word) = 67073 from rfl, show (0 : Nat) - 1 = 0 from rfl, Nat.mul_zero, Nat.add_zero]
+          show BitVec.toNat (1537 : Word) = 1537 from rfl, show (0 : Nat) - 1 = 0 from rfl, Nat.mul_zero, Nat.add_zero]
       · rw [hs3, Result.toState_getReg]
         show s2.getReg .x17 = _
         rw [hs2, Result.toState_getReg]
@@ -247,17 +303,23 @@ theorem gate_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
         rw [setup_load s2 hsp2, m2']
         exact hu.setupMask.jt
       · rw [hs3, Result.toState_getReg]
+        change s2.getMem ((addC (.reg .x2) (BitVec.ofNat 64 56)).eval s2) = _
+        rw [setup_load s2 hsp2, m2']
+        exact hu.setupMask.aTable
+      · rw [e3]
+        exact hu.setupMask.singleton
+      · rw [hs3, Result.toState_getReg]
         change s2.getReg .x2 + BitVec.ofNat 64 304 = _
         rw [hsp2, ofNat_add_ofNat]; rfl
       · exact gate_slot w hu.wit e3 720 (by decide)
-      · exact gate_slot w hu.wit e3 864 (by decide)
+      · exact gate_slot w hu.wit e3 144 (by decide)
       · intro m _ hm9 off hoff h8 hv _
         exact gate_orig w hu.wit e3 m hm9 off hoff h8 hv
       · exact (hu.wit.mono (fun o ho => by omega)).frame (fun j _ _ => e3 _)
     have := (((hnext s3 hpre).steps st3').steps st2')
     exact this.mono (by omega) (by omega) (fun hq => ⟨hq, by omega⟩)
   ·
-    have hok' : ClaudeWCT.W9.T3M.gateOk a = false := by simpa using hok
+    have hok' : gateOk a = false := by simpa using hok
     rw [hok', hnone]
     have pc2' : s2.pc = pcOf 7 := by
       rw [pc2, hg, hok']; rfl
@@ -267,9 +329,8 @@ theorem gate_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
     have st3 := block_steps gReject_checked gReject_linked rfl sr rfl
     have st3' : Steps Frozen.image sr 2 2 (gReject.toState sr) := st3
     have hf := block_ecall gReject_checked gReject_linked rfl sr rfl
-    have hr : GoodQFor Frozen.image (gReject.toState sr) 1 1 Q A (pure (false, 0)) :=
-      GoodQFor.reject hf (by rw [Result.toState_getReg]; rfl) (by rw [Result.toState_getReg]; rfl)
+    have hr : GoodQFor (P := P) Frozen.image (gReject.toState sr) 1 1 Q A (pure (false, 0)) :=
+      GoodQFor.reject (P := P) hf (by rw [Result.toState_getReg]; rfl) (by rw [Result.toState_getReg]; rfl)
     have := ((hr.steps st3').steps sj').steps st2'
     exact this.mono (by omega) (by omega) (fun hq => ⟨hq, by omega⟩)
-end W9Drv
-end
+end W9Drv.SharedGate

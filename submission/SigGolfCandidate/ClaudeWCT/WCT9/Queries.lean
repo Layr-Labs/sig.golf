@@ -24,7 +24,7 @@ theorem leafInputP_length (index coord selected : Nat) (pad : Digest) (ends : Li
     (leafInputP index coord selected pad ends).length = 128 := by
   simp only [leafInputP, List.length_append, bytesLE_length, digest_list_bytes_length, List.length_drop, hlen]
 theorem nodeHash_eq (coord index heap : Nat) (left right : Digest) :
-    wctNodeHash coord index heap left right = ftsHash heap (nodeInput coord index heap left right) := rfl
+    wctNodeHash coord index heap left right = shortHash (nodeInput coord index heap left right) := rfl
 theorem forestPk_eq (index : Nat) (pairs : List (Digest × Digest)) :
     forestPk index pairs = shortHash (forestInput index pairs) := rfl
 theorem leafInput_length (index coord selected : Nat) (ends : List Digest) (hlen : ends.length = 6) :
@@ -138,14 +138,6 @@ theorem bound_highHashP {P : Query → Prop} (input : HashInput) (k : Nat)
     Bound P (fun _ => True) k (highHash input) := by
   unfold highHash publicHash
   exact Bound.qry_bind (k := 0) hq (fun _ => .pure _ 0 trivial) (by simpa only [weight, Nat.add_zero] using hk)
-/-- C1: an FTS hash (either half) makes the one query `pad64 input`. -/
-theorem bound_ftsHashP {P : Query → Prop} (heap : Nat) (input : HashInput) (k : Nat)
-    (hq : P (.inl (.inr (pad64 input)))) (hk : (pad64 input).length / 64 ≤ k) :
-    Bound P (fun _ => True) k (ftsHash heap input) := by
-  rw [ftsHash_eq]
-  split
-  · exact bound_highHashP input k hq hk
-  · exact bound_shortHashP input k hq hk
 /-- A high-half hash makes the same single query as the low-half hash of the same input. -/
 theorem allQ_highHash_of_shortHash {P : Query → Prop} (input : HashInput)
     (h : AllQueriesSatisfy (shortHash input) P) : AllQueriesSatisfy (highHash input) P := by
@@ -154,13 +146,6 @@ theorem allQ_highHash_of_shortHash {P : Query → Prop} (input : HashInput)
     exact ((allQueriesSatisfy_query_bind_iff _ _ _).mp h).1
   unfold highHash publicHash
   exact (allQueriesSatisfy_query_bind_iff _ _ _).mpr ⟨hq, fun _ => allQueriesSatisfy_pure _ _⟩
-/-- C1: an FTS hash (either half) makes the same single query as the low-half hash of the same input. -/
-theorem allQ_ftsHash_of_shortHash {P : Query → Prop} (heap : Nat) (input : HashInput)
-    (h : AllQueriesSatisfy (shortHash input) P) : AllQueriesSatisfy (ftsHash heap input) P := by
-  rw [ftsHash_eq]
-  split
-  · exact allQ_highHash_of_shortHash input h
-  · exact h
 theorem bound_privatePairP {P : Query → Prop} (tag lay tree position index : Nat)
     (hq : P (.inr (.inl (header tag lay tree position index)))) :
     Bound P (fun _ => True) 1 (privatePair tag lay tree position index) := by
@@ -188,19 +173,18 @@ theorem ftsBound_leafHashP (coord selected : Nat) (pad : Digest) (ends : List Di
     (hcoord : coord < 9) (hsel : selected < 128) (hlen : ends.length = 6) :
     Bound (FtsQuery index) (fun _ => True) 2 (leafHashP index coord selected pad ends) := by
   unfold leafHashP
-  exact bound_ftsHashP _ _ 2 (FtsInput.leaf hcoord hsel hlen)
+  exact bound_shortHashP _ 2 (FtsInput.leaf hcoord hsel hlen)
     (by rw [pad64_of_mod (by rw [leafInputP_length _ _ _ _ _ hlen]), leafInputP_length _ _ _ _ _ hlen])
 theorem ftsBound_leafHash (coord selected : Nat) (ends : List Digest)
     (hcoord : coord < 9) (hsel : selected < 128) (hlen : ends.length = 6) :
     Bound (FtsQuery index) (fun _ => True) 2 (leafHash index coord selected ends) := by
-  rw [leafHash_eq, ← leafInputP_zero]
-  exact bound_shortHashP _ 2 (FtsInput.leaf hcoord hsel hlen)
-    (by rw [pad64_of_mod (by rw [leafInputP_length _ _ _ _ _ hlen]), leafInputP_length _ _ _ _ _ hlen])
+  rw [← leafHashP_zero]
+  exact ftsBound_leafHashP index coord selected 0 ends hcoord hsel hlen
 theorem ftsBound_nodeHash (coord heap : Nat) (left right : Digest)
     (hcoord : coord < 9) (hlo : 2 ≤ heap) (hhi : heap < 128) :
     Bound (FtsQuery index) (fun _ => True) 1 (wctNodeHash coord index heap left right) := by
   rw [nodeHash_eq]
-  exact bound_ftsHashP _ _ 1 (FtsInput.node left right hcoord hlo hhi)
+  exact bound_shortHashP _ 1 (FtsInput.node left right hcoord hlo hhi)
     (by rw [pad64_of_mod (by rw [nodeInput_length]), nodeInput_length])
 theorem ftsBound_topHash (coord heap : Nat) (left pad right : Digest)
     (hcoord : coord < 9) (hlo : 2 ≤ heap) (hhi : heap < 4) :
@@ -309,9 +293,9 @@ theorem ftsBound_forestRows (output : HashOutput) :
   unfold openingStep
   exact (ftsBound_buildCoordinateF index _ _ _ _).bind' (l := 0)
     (fun result _ => .pure _ 0 ⟨by simp [hstate.1], by simp [hstate.2]⟩) (by decide)
-/-- The nested FTS needs 31329 compressions; the stated bound keeps the old 31329 (5 to spare). -/
+/-- The nested FTS needs 31329 compressions; the stated bound keeps the old 31334 (5 to spare). -/
 theorem ftsBound_signForest (output : HashOutput) :
-    Bound (FtsQuery index) (fun result : List Opening × (Digest × Digest) => result.1.length = 9) 31329
+    Bound (FtsQuery index) (fun result : List Opening × (Digest × Digest) => result.1.length = 9) 31334
       (signForest index output) := by
   unfold signForest
   exact (ftsBound_forestRows index output).bind' (l := 0) (fun state hstate => .pure _ 0 hstate.1) (by decide)

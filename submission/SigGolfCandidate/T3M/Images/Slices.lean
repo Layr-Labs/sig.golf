@@ -93,4 +93,44 @@ theorem signCode_drop_eq (b : Nat) (hb : b / 256 < 86) :
   exact (chunkTail_eq signChunks 256 b signChunks_ok
     (by rw [signChunks_length]; exact hb)).symm
 
+def signReferenceChunks : List (List (BitVec 32)) :=
+  [signReferenceCode_0, signReferenceCode_1, signReferenceCode_2, signReferenceCode_3, signReferenceCode_4, signReferenceCode_5, signReferenceCode_6, signReferenceCode_7, signReferenceCode_8, signReferenceCode_9, signReferenceCode_10, signReferenceCode_11, signReferenceCode_12, signReferenceCode_13, signReferenceCode_14, signReferenceCode_15, signReferenceCode_16, signReferenceCode_17, signReferenceCode_18, signReferenceCode_19, signReferenceCode_20, signReferenceCode_21, signReferenceCode_22, signReferenceCode_23, signReferenceCode_24, signReferenceCode_25, signReferenceCode_26, signReferenceCode_27, signReferenceCode_28, signReferenceCode_29, signReferenceCode_30, signReferenceCode_31, signReferenceCode_32, signReferenceCode_33, signReferenceCode_34, signReferenceCode_35, signReferenceCode_36, signReferenceCode_37, signReferenceCode_38, signReferenceCode_39, signReferenceCode_40, signReferenceCode_41, signReferenceCode_42, signReferenceCode_43, signReferenceCode_44, signReferenceCode_45, signReferenceCode_46, signReferenceCode_47, signReferenceCode_48, signReferenceCode_49, signReferenceCode_50, signReferenceCode_51, signReferenceCode_52, signReferenceCode_53, signReferenceCode_54, signReferenceCode_55, signReferenceCode_56, signReferenceCode_57, signReferenceCode_58, signReferenceCode_59, signReferenceCode_60, signReferenceCode_61, signReferenceCode_62, signReferenceCode_63, signReferenceCode_64, signReferenceCode_65, signReferenceCode_66, signReferenceCode_67, signReferenceCode_68, signReferenceCode_69, signReferenceCode_70, signReferenceCode_71, signReferenceCode_72, signReferenceCode_73, signReferenceCode_74, signReferenceCode_75, signReferenceCode_76, signReferenceCode_77, signReferenceCode_78, signReferenceCode_79, signReferenceCode_80, signReferenceCode_81, signReferenceCode_82, signReferenceCode_83, signReferenceCode_84, signReferenceCode_85]
+
+private theorem signReferenceCode_flatten : signReferenceCode = signReferenceChunks.flatten := by
+  change signReferenceChunks.foldl (· ++ ·) [] = signReferenceChunks.flatten
+  rw [foldl_chunks, List.nil_append]
+
+private theorem signReferenceChunks_ok :
+    (signReferenceChunks.dropLast.all fun c => c.length == 256) = true := by
+  decide +kernel
+
+private theorem signReferenceChunks_length : signReferenceChunks.length = 86 := by
+  decide +kernel
+
+theorem signReferenceCode_drop_eq (b : Nat) (hb : b / 256 < 86) :
+    signReferenceCode.drop b = chunkTail signReferenceChunks 256 b := by
+  rw [signReferenceCode_flatten]
+  exact (chunkTail_eq signReferenceChunks 256 b signReferenceChunks_ok
+    (by rw [signReferenceChunks_length]; exact hb)).symm
+
+def expandReferenceChunks : List (List (BitVec 32)) :=
+  [expandReferenceCode_0, expandReferenceCode_1, expandReferenceCode_2, expandReferenceCode_3, expandReferenceCode_4, expandReferenceCode_5, expandReferenceCode_6, expandReferenceCode_7, expandReferenceCode_8, expandReferenceCode_9, expandReferenceCode_10, expandReferenceCode_11, expandReferenceCode_12, expandReferenceCode_13, expandReferenceCode_14, expandReferenceCode_15, expandReferenceCode_16, expandReferenceCode_17, expandReferenceCode_18, expandReferenceCode_19, expandReferenceCode_20, expandReferenceCode_21, expandReferenceCode_22, expandReferenceCode_23, expandReferenceCode_24, expandReferenceCode_25, expandReferenceCode_26, expandReferenceCode_27, expandReferenceCode_28, expandReferenceCode_29, expandReferenceCode_30, expandReferenceCode_31, expandReferenceCode_32, expandReferenceCode_33, expandReferenceCode_34, expandReferenceCode_35, expandReferenceCode_36, expandReferenceCode_37, expandReferenceCode_38, expandReferenceCode_39, expandReferenceCode_40, expandReferenceCode_41, expandReferenceCode_42, expandReferenceCode_43, expandReferenceCode_44, expandReferenceCode_45, expandReferenceCode_46, expandReferenceCode_47, expandReferenceCode_48, expandReferenceCode_49, expandReferenceCode_50, expandReferenceCode_51, expandReferenceCode_52, expandReferenceCode_53, expandReferenceCode_54, expandReferenceCode_55, expandReferenceCode_56, expandReferenceCode_57, expandReferenceCode_58, expandReferenceCode_59, expandReferenceCode_60, expandReferenceCode_61, expandReferenceCode_62, expandReferenceCode_63, expandReferenceCode_64, expandReferenceCode_65, expandReferenceCode_66, expandReferenceCode_67, expandReferenceCode_68, expandReferenceCode_69, expandReferenceCode_70, expandReferenceCode_71, expandReferenceCode_72, expandReferenceCode_73, expandReferenceCode_74, expandReferenceCode_75, expandReferenceCode_76, expandReferenceCode_77, expandReferenceCode_78, expandReferenceCode_79, expandReferenceCode_80, expandReferenceCode_81, expandReferenceCode_82, expandReferenceCode_83, expandReferenceCode_84, expandReferenceCode_85, expandReferenceCode_86, expandReferenceCode_87, expandReferenceCode_88, expandReferenceCode_89, expandReferenceCode_90, expandReferenceCode_91, expandReferenceCode_92, expandReferenceCode_93, expandReferenceCode_94, expandReferenceCode_95, expandReferenceCode_96, expandReferenceCode_97, expandReferenceCode_98, expandReferenceCode_99, expandReferenceCode_100, expandReferenceCode_101, expandReferenceCode_102, expandReferenceCode_103, expandReferenceCode_104, expandReferenceCode_105, expandReferenceCode_106, expandReferenceCode_107, expandReferenceCode_108, expandReferenceCode_109, expandReferenceCode_110, expandReferenceCode_111, expandReferenceCode_112, expandReferenceCode_113, expandReferenceCode_114, expandReferenceCode_115, expandReferenceCode_116, expandReferenceCode_117, expandReferenceCode_118, expandReferenceCode_119, expandReferenceCode_120, expandReferenceCode_121, expandReferenceCode_122, expandReferenceCode_123, expandReferenceCode_124, expandReferenceCode_125, expandReferenceCode_126, expandReferenceCode_127, expandReferenceCode_128, expandReferenceCode_129, expandReferenceCode_130, expandReferenceCode_131, expandReferenceCode_132, expandReferenceCode_133, expandReferenceCode_134, expandReferenceCode_135, expandReferenceCode_136, expandReferenceCode_137, expandReferenceCode_138, expandReferenceCode_139, expandReferenceCode_140, expandReferenceCode_141, expandReferenceCode_142, expandReferenceCode_143, expandReferenceCode_144, expandReferenceCode_145, expandReferenceCode_146, expandReferenceCode_147, expandReferenceCode_148, expandReferenceCode_149, expandReferenceCode_150, expandReferenceCode_151, expandReferenceCode_152, expandReferenceCode_153, expandReferenceCode_154, expandReferenceCode_155, expandReferenceCode_156, expandReferenceCode_157, expandReferenceCode_158, expandReferenceCode_159, expandReferenceCode_160, expandReferenceCode_161, expandReferenceCode_162, expandReferenceCode_163, expandReferenceCode_164, expandReferenceCode_165, expandReferenceCode_166, expandReferenceCode_167, expandReferenceCode_168, expandReferenceCode_169, expandReferenceCode_170, expandReferenceCode_171, expandReferenceCode_172]
+
+private theorem expandReferenceCode_flatten : expandReferenceCode = expandReferenceChunks.flatten := by
+  change expandReferenceChunks.foldl (· ++ ·) [] = expandReferenceChunks.flatten
+  rw [foldl_chunks, List.nil_append]
+
+private theorem expandReferenceChunks_ok :
+    (expandReferenceChunks.dropLast.all fun c => c.length == 256) = true := by
+  decide +kernel
+
+private theorem expandReferenceChunks_length : expandReferenceChunks.length = 173 := by
+  decide +kernel
+
+theorem expandReferenceCode_drop_eq (b : Nat) (hb : b / 256 < 173) :
+    expandReferenceCode.drop b = chunkTail expandReferenceChunks 256 b := by
+  rw [expandReferenceCode_flatten]
+  exact (chunkTail_eq expandReferenceChunks 256 b expandReferenceChunks_ok
+    (by rw [expandReferenceChunks_length]; exact hb)).symm
+
 end SigGolfCandidate.T3M.Images.Slices

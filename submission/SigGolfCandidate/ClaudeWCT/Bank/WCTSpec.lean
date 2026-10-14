@@ -113,3 +113,17 @@ noncomputable def wctSpec (hsum : HonestLawSum) (hacc : AcceptedProposalHonest) 
   excessRate := rate
   excess_le := hexc
 end ClaudeWCT.Bank.WCT
+
+namespace ClaudeWCT.Bank.WCT
+/-- A stop-loss certificate at a chosen bank threshold. -/
+def ExcessBoundAt (horizon : Nat) (threshold rate : ENNReal) : Prop :=
+  ClaudeWCT.Numerics.Law.lawAvg honestLaw horizon
+    (fun W : List WProposal => price W - threshold) ≤ rate
+
+theorem excessBoundAt_mono {horizon : Nat} {threshold threshold' rate : ENNReal}
+    (h : ExcessBoundAt horizon threshold rate) (ht : threshold ≤ threshold') :
+    ExcessBoundAt horizon threshold' rate := by
+  refine le_trans ?_ h
+  exact ClaudeWCT.Numerics.Law.lawAvg_mono honestLaw horizon
+    (fun W => tsub_le_tsub_left ht (price W))
+end ClaudeWCT.Bank.WCT

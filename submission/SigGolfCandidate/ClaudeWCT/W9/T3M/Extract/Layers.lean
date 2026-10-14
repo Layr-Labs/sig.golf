@@ -45,8 +45,7 @@ theorem layersBC_succ_eq (w : WBytes) (index n : Nat) (msg : WCT9.LayerMsg) :
     layersBC w index (n + 1) msg =
       if (wbcCtr w index (Fin.ofNat 4 n)).toNat ≥ WCT9.verifyWindow then pure none else
       (ClaudeWCT.WCT9.encodingHash (Fin.ofNat 4 n) (layerEncodingInputP (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
-          (route index (Fin.ofNat 4 n)).1 msg (wbcCtr w index (Fin.ofNat 4 n)) (wbcPad w index (Fin.ofNat 4 n)) (wbcRight w)
-          (wbcHigh w index (Fin.ofNat 4 n))) >>= fun answer =>
+          (route index (Fin.ofNat 4 n)).1 msg (wbcCtr w index (Fin.ofNat 4 n)) (wbcPad w index (Fin.ofNat 4 n)) (wbcRight w)) >>= fun answer =>
         if n = 0 then topLayerP w index answer
         else match decode (Fin.ofNat 4 n) answer with
           | some digits => layerGuardedPairP w index (Fin.ofNat 4 n) answer digits >>= fun pair =>
@@ -81,7 +80,7 @@ theorem layersBC_succ_split (answers : Answers) (w : WBytes) (index n : Nat) (ms
   rw [queried_bind]
   generalize hans : evalWithAnswerFn answers (ClaudeWCT.WCT9.encodingHash (Fin.ofNat 4 n) (layerEncodingInputP (Fin.ofNat 4 n)
     (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg (wbcCtr w index (Fin.ofNat 4 n))
-    (wbcPad w index (Fin.ofNat 4 n)) (wbcRight w) (wbcHigh w index (Fin.ofNat 4 n)))) = answer at h ⊢
+    (wbcPad w index (Fin.ofNat 4 n)) (wbcRight w))) = answer at h ⊢
   have hdig : ∃ digits, decode (Fin.ofNat 4 n) answer = some digits := by
     by_cases hn0 : n = 0
     · subst hn0
@@ -199,4 +198,105 @@ theorem layersBC_walk (answers : Answers) (w : WBytes) (index : Nat) (root : Dig
     rw [show (4 - 1 : Nat) = 3 from rfl, honestMsg_three] at hmsg
     simp only [WCT9.LayerMsg.pair.injEq] at hmsg
     exact Prod.ext hmsg.1 hmsg.2
+end ClaudeWCT.W9.T3M.Extract
+
+namespace ClaudeWCT.W9.T3M.Extract
+open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3M
+open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open Correctness (Answers)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+def CanonicalFrame (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (msg : WCT9.LayerMsg) (digits : List Nat) :
+    Prop :=
+  (wbcCtr w index lay).toNat < WCT9.verifyWindow ∧
+    ClaudeWCT.WCT9.CanonicalPolicy.decode lay (evalWithAnswerFn answers (ClaudeWCT.WCT9.encodingHash lay (layerEncodingInputP lay (route index lay).2 (route index lay).1
+      msg (wbcCtr w index lay) (wbcPad w index lay) (wbcRight w)))) = some digits
+
+theorem queried_map_canonical {α β : Type} (answers : Answers) (f : α → β) (p : M α) :
+    queried answers (f <$> p)=queried answers p := by
+  rw [map_eq_bind_pure_comp, queried_bind]
+  simp
+
+theorem layersCanonicalBC_succ_eq (w : WBytes) (index n : Nat) (msg : WCT9.LayerMsg) :
+    layersCanonicalBC w index (n + 1) msg =
+      if (wbcCtr w index (Fin.ofNat 4 n)).toNat ≥ WCT9.verifyWindow then pure none else
+      (ClaudeWCT.WCT9.encodingHash (Fin.ofNat 4 n) (layerEncodingInputP (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
+          (route index (Fin.ofNat 4 n)).1 msg (wbcCtr w index (Fin.ofNat 4 n)) (wbcPad w index (Fin.ofNat 4 n)) (wbcRight w)) >>= fun answer =>
+        if n = 0 then topLayerP w index answer
+        else match ClaudeWCT.WCT9.CanonicalPolicy.decode (Fin.ofNat 4 n) answer with
+          | some digits => layerGuardedPairP w index (Fin.ofNat 4 n) answer digits >>= fun pair =>
+              match pair with
+              | some pair => layersCanonicalBC w index n (.pair pair.1 pair.2)
+              | _ => pure none
+          | _ => pure none) := by
+  conv_lhs => unfold layersCanonicalBC
+  all_goals
+    cases hr : route index (Fin.ofNat 4 n)
+    simp only [hr] <;> rfl
+theorem layersCanonicalBC_succ_split (answers : Answers) (w : WBytes) (index n : Nat) (msg : WCT9.LayerMsg) (out : Digest)
+    (h : evalWithAnswerFn answers (layersCanonicalBC w index (n + 1) msg) = some out) :
+    ∃ digits, CanonicalFrame answers w index (Fin.ofNat 4 n) msg digits ∧
+      encodingQuery w index (Fin.ofNat 4 n) msg ∈ queried answers (layersCanonicalBC w index (n + 1) msg) ∧
+      (n = 0 → evalWithAnswerFn answers (layerP w index (Fin.ofNat 4 n) digits) = out ∧
+        ∀ q ∈ queried answers (layerP w index (Fin.ofNat 4 n) digits),
+          q ∈ queried answers (layersCanonicalBC w index (n + 1) msg)) ∧
+      (n ≠ 0 →
+        evalWithAnswerFn answers (layersCanonicalBC w index n
+          (.pair (evalWithAnswerFn answers (layerPairP w index (Fin.ofNat 4 n) digits)).1
+            (evalWithAnswerFn answers (layerPairP w index (Fin.ofNat 4 n) digits)).2)) = some out ∧
+        (∀ q ∈ queried answers (layerPairP w index (Fin.ofNat 4 n) digits),
+          q ∈ queried answers (layersCanonicalBC w index (n + 1) msg)) ∧
+        (∀ q ∈ queried answers (layersCanonicalBC w index n
+            (.pair (evalWithAnswerFn answers (layerPairP w index (Fin.ofNat 4 n) digits)).1
+              (evalWithAnswerFn answers (layerPairP w index (Fin.ofNat 4 n) digits)).2)),
+          q ∈ queried answers (layersCanonicalBC w index (n + 1) msg))) := by
+  rw [layersCanonicalBC_succ_eq] at h ⊢
+  by_cases hc : (wbcCtr w index (Fin.ofNat 4 n)).toNat ≥ WCT9.verifyWindow
+  · rw [if_pos hc] at h; simp at h
+  rw [if_neg hc] at h ⊢
+  rw [evalWithAnswerFn_bind] at h
+  rw [queried_bind]
+  generalize hans : evalWithAnswerFn answers (ClaudeWCT.WCT9.encodingHash (Fin.ofNat 4 n) (layerEncodingInputP (Fin.ofNat 4 n)
+    (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg (wbcCtr w index (Fin.ofNat 4 n))
+    (wbcPad w index (Fin.ofNat 4 n)) (wbcRight w))) = answer at h ⊢
+  have hdig : ∃ digits, ClaudeWCT.WCT9.CanonicalPolicy.decode (Fin.ofNat 4 n) answer = some digits := by
+    by_cases hn0 : n = 0
+    · subst hn0
+      simp only [if_true] at h
+      exact decode_of_eval_topLayerP answers w index h
+    · simp only [hn0, if_false] at h
+      cases hd : ClaudeWCT.WCT9.CanonicalPolicy.decode (Fin.ofNat 4 n) answer with
+      | none => rw [hd] at h; simp at h
+      | some digits => exact ⟨digits, rfl⟩
+  obtain ⟨digits, hd⟩ := hdig
+  refine ⟨digits, ⟨by omega, by rw [hans]; exact hd⟩, ?_, ?_, ?_⟩
+  · apply List.mem_append_left
+    change encodingQuery w index (Fin.ofNat 4 n) msg ∈ [encodingQuery w index (Fin.ofNat 4 n) msg]
+    exact List.mem_singleton_self _
+  · intro hn0
+    subst hn0
+    simp only [if_true] at h ⊢
+    rw [topLayerP_of_decode w index hd] at h ⊢
+    rw [evalWithAnswerFn_map] at h
+    refine ⟨Option.some.inj h, fun q hq => List.mem_append_right _ ?_⟩
+    rw [queried_map_canonical]; exact hq
+  · intro hn0
+    simp only [hn0, if_false, hd] at h ⊢
+    have hgood : WCT9.lowerRankGood answer := by
+      rw [evalWithAnswerFn_bind] at h
+      cases hp : evalWithAnswerFn answers (layerGuardedPairP w index (Fin.ofNat 4 n) answer digits) with
+      | none => rw [hp] at h; simp at h
+      | some pair => exact layerGuardedPairP_good_of_some answers w index (Fin.ofNat 4 n) answer digits pair hp
+    rw [layerGuardedPairP_of_good w index (Fin.ofNat 4 n) answer digits hgood, bind_map_left] at h ⊢
+    change evalWithAnswerFn answers (layerPairP w index (Fin.ofNat 4 n) digits >>= fun pair =>
+      layersCanonicalBC w index n (.pair pair.1 pair.2)) = some out at h
+    rw [evalWithAnswerFn_bind] at h
+    refine ⟨h, fun q hq => ?_, fun q hq => ?_⟩
+    · apply List.mem_append_right
+      rw [queried_bind]; exact List.mem_append_left _ hq
+    · apply List.mem_append_right
+      rw [queried_bind]; exact List.mem_append_right _ hq
+
+#print axioms layersCanonicalBC_succ_split
 end ClaudeWCT.W9.T3M.Extract

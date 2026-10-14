@@ -83,18 +83,12 @@ theorem sat_shortHash {T : Answers} {Q : T3.Spec.Domain → Prop} (input : HashI
   rw [queried_shortHash', List.mem_singleton] at hq
   rw [hq]
   exact h
-theorem queried_projHash' (T : Answers) (high : Bool) (input : HashInput) :
-    SourceReplay.queried T (projHash high input) = [.inl (.inr (pad64 input))] := rfl
-/-- C4: `sat_shortHash` for a hash keeping either half. -/
-theorem sat_projHash {T : Answers} {Q : T3.Spec.Domain → Prop} (high : Bool) (input : HashInput)
-    (h : Q (.inl (.inr (pad64 input)))) : QueriesSat T Q (projHash high input) := by
-  intro q hq
-  rw [queried_projHash', List.mem_singleton] at hq
-  rw [hq]
-  exact h
 theorem sat_publicHash {T : Answers} {Q : T3.Spec.Domain → Prop} (input : HashInput)
     (h : Q (.inl (.inr (pad64 input)))) : QueriesSat T Q (publicHash input) :=
   QueriesSat.query h
+def HonestQuery (T : Answers) : T3.Spec.Domain → Prop
+  | .inl (.inr x) => Extract.posOf x = none ∨ ∃ p : Extract.Pos, p.Bounded ∧ x = Extract.honestInput T p
+  | _ => True
 theorem chain_zero (lay : Layer) (tree leaf i start : Nat) (v : Digest) :
     chain lay tree leaf i start 0 v = pure v := rfl
 theorem queried_chain_one (T : Answers) (lay : Layer) (tree leaf i s : Nat) (v : Digest) :
@@ -111,8 +105,8 @@ def nodeQuery (tag lay tree heap : Nat) (left right : Digest) : T3.Spec.Domain :
   .inl (.inr (pad64 (nodeInputP tag lay tree heap left 0 right)))
 theorem sat_nodeHash {T : Answers} {Q : T3.Spec.Domain → Prop} (tag lay tree heap : Nat) (left right : Digest)
     (h : Q (nodeQuery tag lay tree heap left right)) : QueriesSat T Q (T3.nodeHash tag lay tree heap left right) := by
-  rw [nodeHash_eq_projHash]
-  exact sat_projHash _ _ h
+  rw [nodeHash_eq_shortHash]
+  exact sat_shortHash _ h
 theorem sat_buildLevel {T : Answers} {Q : T3.Spec.Domain → Prop} (tag lay tree h level : Nat)
     (nodes : List Digest)
     (hq : ∀ i, i < nodes.length / 2 →
