@@ -12,9 +12,9 @@ theorem run2_hint (M : Nat → Word) (idx : Nat) :
     run2Mem M idx ProducerSelector.HINT=M ProducerSelector.HINT := by
   change run2Mem M idx 132184=M 132184
   unfold run2Mem
-  simp only [tailMem,WIT,show ¬ (132184 : Nat)=2048+20968 by decide,
-    show ¬ (132184 : Nat)=2048+20960 by decide,show ¬ (132184 : Nat)=2048+20952 by decide,
-    show ¬ (132184 : Nat)=2048+20944 by decide,↓reduceIte]
+  simp only [tailMem,WIT,show ¬ (132184 : Nat)=2048+20872 by decide,
+    show ¬ (132184 : Nat)=2048+20864 by decide,show ¬ (132184 : Nat)=2048+20856 by decide,
+    show ¬ (132184 : Nat)=2048+20848 by decide,↓reduceIte]
   rw [layMem_out _ 3 (by decide) _ _ (by decide),
     layMem_out _ 2 (by decide) _ _ (by decide),
     layMem_out _ 1 (by decide) _ _ (by decide)]
