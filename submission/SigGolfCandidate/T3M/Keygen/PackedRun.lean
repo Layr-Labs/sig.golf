@@ -30,13 +30,13 @@ theorem sign_body_post (s : MachineState) : BodyPost s (run_sign_body.res.toStat
   have h := keygen_body_post s
   exact ⟨h.low, h.high, h.regs, h.frame⟩
 theorem sign_body_spec (s : MachineState) (hpc : s.pc = pcOf 1489) :
-    ∃ t, Steps Images.signImage s 19 19 t ∧ t.pc = pcOf 1028 ∧ BodyPost s t := by
+    ∃ t, Steps Images.signReferenceImage s 19 19 t ∧ t.pc = pcOf 1028 ∧ BodyPost s t := by
   exact ⟨_, steps_sign_body s hpc, by simp [run_sign_body.res, rv_simp], sign_body_post s⟩
 theorem expand_body_post (s : MachineState) : BodyPost s (run_expand_body.res.toState s) := by
   have h := keygen_body_post s
   exact ⟨h.low, h.high, h.regs, h.frame⟩
 theorem expand_body_spec (s : MachineState) (hpc : s.pc = pcOf 1253) :
-    ∃ t, Steps Images.expandImage s 19 19 t ∧ t.pc = pcOf 1038 ∧ BodyPost s t := by
+    ∃ t, Steps Images.expandReferenceImage s 19 19 t ∧ t.pc = pcOf 1038 ∧ BodyPost s t := by
   exact ⟨_, steps_expand_body s hpc, by simp [run_expand_body.res, rv_simp], expand_body_post s⟩
 end SigGolfCandidate.T3M.Keygen.PackedBlocks
 end

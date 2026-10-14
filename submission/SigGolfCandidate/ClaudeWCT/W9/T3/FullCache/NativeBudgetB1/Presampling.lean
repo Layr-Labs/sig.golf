@@ -150,3 +150,135 @@ theorem layerCounterSearch_table_failure (fallback : Correctness.Answers) (lay :
     SphincsSecurity.Completeness.failMass (producerEncodingDecode lay) ^ searchLimit lay :=
   layerCounterSearch_table_failure_le _ (searchLimit_le_rows lay) fallback lay r left right
 end ClaudeWCT.W9.T3.Presampling
+
+namespace ClaudeWCT.W9.T3.CanonicalSearch
+open OracleComp OracleSpec ENNReal
+open SigGolfCandidate.T3
+open ClaudeWCT.WCT9
+set_option maxRecDepth 10000
+set_option maxHeartbeats 1000000
+set_option backward.isDefEq.respectTransparency false
+
+theorem search_none_iff (answers : Correctness.Answers) (lay : Layer) (floor tree leaf : Nat)
+    (msg : LayerMsg) :
+    ∀ fuel counter,
+      evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt lay floor tree leaf msg counter fuel) = none ↔
+      ∀ offset, offset < fuel → CanonicalPolicy.producerDecodeAt lay floor (evalWithAnswerFn answers
+        (encodingHash lay (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 (counter + offset))))) = none := by
+  intro fuel
+  induction fuel with
+  | zero => intro counter; simp [CanonicalPolicy.layerCounterSearchAt]
+  | succ fuel ih =>
+      intro counter
+      simp only [CanonicalPolicy.layerCounterSearchAt, evalWithAnswerFn_bind]
+      cases hd : CanonicalPolicy.producerDecodeAt lay floor (evalWithAnswerFn answers
+        (encodingHash lay (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter)))) with
+      | none =>
+          simp only [hd, ih]
+          constructor
+          · intro hall offset hoff
+            cases offset with
+            | zero => simpa using hd
+            | succ offset => simpa [Nat.add_assoc,Nat.add_left_comm,Nat.add_comm] using hall offset (by omega)
+          · intro hall offset hoff
+            simpa [Nat.add_assoc,Nat.add_left_comm,Nat.add_comm] using hall (offset+1) (by omega)
+      | some digits =>
+          simp only [hd,evalWithAnswerFn_pure,reduceCtorEq,false_iff]
+          intro hall
+          have := hall 0 (by omega)
+          simp only [Nat.add_zero,hd,reduceCtorEq] at this
+end ClaudeWCT.W9.T3.CanonicalSearch
+
+namespace ClaudeWCT.W9.T3.Presampling.Canonical
+open OracleComp OracleSpec ENNReal
+open SigGolfCandidate.T3
+open ClaudeWCT.WCT9 ClaudeWCT.W9.T3.QuerySpace ClaudeWCT.W9.T3.CanonicalSearch
+open ClaudeWCT.W9.T3.PairRows (msgLeft msgRight eval_shortHash_layer)
+set_option maxRecDepth 10000
+set_option maxHeartbeats 1000000
+set_option backward.isDefEq.respectTransparency false
+noncomputable local instance : SampleableType (SearchKey → HashOutput) := tableSampler
+
+theorem search_none_table (L : Nat) (hL : L≤2^22) (outputs : SearchKey → HashOutput)
+    (fallback : Correctness.Answers) (lay : Layer) (floor : Nat) (r : Fin (2^32)) (msg : LayerMsg) :
+    evalWithAnswerFn (tableAnswers outputs fallback)
+      (CanonicalPolicy.layerCounterSearchAt lay floor (routedTree lay r) (routedLeaf lay r) msg 0 L)=none ↔
+    ∀ c : Fin L, decoder lay floor
+      (outputs (.inl ((lay,r,msgLeft msg,msgRight msg),Fin.castLE hL c)))=none := by
+  rw [search_none_iff]
+  have hv (c : Nat) (hc : c<L) :
+      evalWithAnswerFn (tableAnswers outputs fallback)
+        (encodingHash lay (layerEncodingInput lay (routedTree lay r) (routedLeaf lay r) msg
+          (BitVec.ofNat 32 (0+c)))) = encodingAnswer lay
+        (outputs (.inl ((lay,r,msgLeft msg,msgRight msg),Fin.castLE hL ⟨c,hc⟩))) := by
+    rw [Nat.zero_add,eval_shortHash_layer]
+    have hinput : PairRows.pairTrial lay (routedTree lay r) (routedLeaf lay r) (msgLeft msg) (msgRight msg) c =
+        searchQuery (.inl ((lay,r,msgLeft msg,msgRight msg),Fin.castLE hL ⟨c,hc⟩)) := rfl
+    rw [hinput,tableAnswers_apply]
+  constructor
+  · intro h c
+    have h := h c c.isLt
+    rw [hv c c.isLt] at h
+    exact h
+  · intro h c hc
+    rw [hv c hc]
+    exact h ⟨c,hc⟩
+
+theorem search_table_failure (L : Nat) (hL : L≤2^22) (fallback : Correctness.Answers)
+    (lay : Layer) (floor : Nat) (r : Fin (2^32)) (left right : Digest) :
+    Pr[fun outputs => evalWithAnswerFn (tableAnswers outputs fallback)
+      (CanonicalPolicy.layerCounterSearchAt lay floor (routedTree lay r) (routedLeaf lay r)
+        (.pair left right) 0 L)=none | ($ᵗ (SearchKey → HashOutput) : ProbComp _)] =
+      SphincsSecurity.Completeness.failMass (decoder lay floor)^L := by
+  simp_rw [search_none_table L hL,msgLeft,msgRight]
+  have h := uniform_table_restriction_failure
+    (fun c : Fin L => .inl ((lay,r,left,right),Fin.castLE hL c))
+    (fun _ _ h => Fin.castLE_injective hL (congrArg Prod.snd (Sum.inl.inj h)))
+    (fun x => decoder lay floor x=none)
+  simpa only [SphincsSecurity.Completeness.failMass_eq_probEvent,Fintype.card_fin,
+    HashOutput,SphincsSecurity.HashOutput,SphincsSecurity.hashOutputBits] using h
+
+#print axioms search_table_failure
+end ClaudeWCT.W9.T3.Presampling.Canonical
+
+
+namespace ClaudeWCT.W9.T3.Presampling.Canonical
+open OracleComp OracleSpec ENNReal
+open SigGolfCandidate.T3
+open ClaudeWCT.WCT9 ClaudeWCT.W9.T3.QuerySpace ClaudeWCT.W9.T3.CanonicalSearch
+open ClaudeWCT.W9.T3.PairRows (msgLeft msgRight eval_shortHash_layer)
+set_option maxRecDepth 10000
+set_option maxHeartbeats 1000000
+set_option backward.isDefEq.respectTransparency false
+noncomputable local instance : SampleableType (SearchKey → HashOutput) := tableSampler
+
+theorem search_none_agreement (L : Nat) (hL : L≤2^22) (outputs : SearchKey → HashOutput)
+    (answers : Correctness.Answers)
+    (hagree : ∀ key, answers (.inl (.inr (searchQuery key)))=outputs key) (lay : Layer) (floor : Nat) (r : Fin (2^32)) (msg : LayerMsg) :
+    evalWithAnswerFn answers
+      (CanonicalPolicy.layerCounterSearchAt lay floor (routedTree lay r) (routedLeaf lay r) msg 0 L)=none ↔
+    ∀ c : Fin L, decoder lay floor
+      (outputs (.inl ((lay,r,msgLeft msg,msgRight msg),Fin.castLE hL c)))=none := by
+  rw [search_none_iff]
+  have hv (c : Nat) (hc : c<L) :
+      evalWithAnswerFn answers
+        (encodingHash lay (layerEncodingInput lay (routedTree lay r) (routedLeaf lay r) msg
+          (BitVec.ofNat 32 (0+c)))) = encodingAnswer lay
+        (outputs (.inl ((lay,r,msgLeft msg,msgRight msg),Fin.castLE hL ⟨c,hc⟩))) := by
+    rw [Nat.zero_add,eval_shortHash_layer]
+    have hinput : PairRows.pairTrial lay (routedTree lay r) (routedLeaf lay r) (msgLeft msg) (msgRight msg) c =
+        searchQuery (.inl ((lay,r,msgLeft msg,msgRight msg),Fin.castLE hL ⟨c,hc⟩)) := rfl
+    rw [hinput,hagree]
+  constructor
+  · intro h c
+    have h := h c c.isLt
+    rw [hv c c.isLt] at h
+    exact h
+  · intro h c hc
+    rw [hv c hc]
+    exact h ⟨c,hc⟩
+
+
+#print axioms search_none_agreement
+end ClaudeWCT.W9.T3.Presampling.Canonical
+

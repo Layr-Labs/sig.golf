@@ -1038,3 +1038,224 @@ theorem search_frame (slot : Nat) (rho : Digest) (m : Message) :
 end ClaudeWCT.W9.T3.Security.CaseC
 end
 end
+
+namespace ClaudeWCT.Bank.NearWorld
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
+open SigGolfCandidate.T3.Security.BPair (AuxL AuxSpecL LazyMem)
+open SphincsSecurity.Concrete
+open ClaudeWCT.W9.T3.Security
+open ClaudeWCT.W9.T3.Security.CaseC (NearGhost projS GState samplerG initG RowsFrame
+ runWith_bind' runWith_pure' expectedValue_liftM_pmf expectedValue_uniformOfFintype)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 100000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+variable {P : Type} [Fintype P] [SampleableType P] (S : FtsBankSpec P)
+noncomputable def searchL (S : FtsBankSpec P) (rho : Digest) (m : Message) (counter : Nat) :
+    Nat → OracleComp WPair.WSpecL (Option (BitVec 32 × HashOutput))
+  | 0 => pure none
+  | fuel+1 => do
+      let output ← liftM (WPair.WSpecL.query (.inl (.trial (Sampling.digestTrial rho m counter))))
+      if S.producer output=true then pure (some (BitVec.ofNat 32 counter,output))
+      else searchL S rho m (counter+1) fuel
+noncomputable def ghostStep (S : FtsBankSpec P) (mem : LazyMem) : (i : AuxL) → AuxSpecL.Range i → NearGhost → NearGhost
+  | .nonce m, v, g =>
+      { g with lastFresh := decide (mem.nonces m = none),
+               reused := g.reused || (decide (mem.nonces m = none) && decide (S.Reuse mem.rows v m)) }
+  | .expose o, _, g => if g.lastFresh then { g with fresh := g.fresh ++ o.toList } else g
+  | _, _, g => g
+noncomputable def envG (S : FtsBankSpec P) (env : SecretGuessObservation.Environment AuxSpecL Guess.GCoord Digest LazyMem) :
+    SecretGuessObservation.Environment AuxSpecL Guess.GCoord Digest (LazyMem × NearGhost) where
+  auxiliary st i := (fun r => (r.1, (r.2, (ghostStep S) st.memory.1 i r.1 st.memory.2))) <$> env.auxiliary (projS st) i
+  trial mem c v hit := (env.trial mem.1 c v hit, mem.2)
+  disclosure mem c v := (env.disclosure mem.1 c v, mem.2)
+section Project
+variable (env : SecretGuessObservation.Environment AuxSpecL Guess.GCoord Digest LazyMem) (slot : Nat)
+theorem liftM_map_pmf (S : FtsBankSpec P) {α β : Type} (f : α → β) (p : PMF α) :
+    (liftM (f <$> p) : SPMF β) = f <$> (liftM p : SPMF α) :=
+  evalSPMF_map p f
+theorem step_project (S : FtsBankSpec P) (env : SecretGuessObservation.Environment AuxSpecL Guess.GCoord Digest LazyMem) (slot : Nat) (q : WPair.WSpecL.Domain) (s : GState) :
+    (fun r => (r.1, projS r.2)) <$> (SecretGuessObservation.forcedWithImpl ((envG S) env) samplerG slot q).run s =
+      (SecretGuessObservation.forcedWithImpl env WPair.samplerL slot q).run (projS s) := by
+  rcases q with i | (⟨c, v⟩ | c)
+  · simp only [SecretGuessObservation.forcedWithImpl, SecretGuessObservation.withImpl, SecretGuessObservation.lazyImpl,
+    StateT.run_mk]
+    change (fun r => (r.1, projS r.2)) <$> ((fun result => (result.1, { s with memory := result.2 })) <$>
+      (liftM ((fun r => (r.1, (r.2, (ghostStep S) s.memory.1 i r.1 s.memory.2))) <$> env.auxiliary (projS s) i) :
+        SPMF _)) =
+      (fun result => (result.1, { projS s with memory := result.2 })) <$> (liftM (env.auxiliary (projS s) i) : SPMF _)
+    rw [(liftM_map_pmf S), Functor.map_map, Functor.map_map]
+    rfl
+  · simp only [SecretGuessObservation.forcedWithImpl, StateT.run_mk]
+    rw [Functor.map_map]
+    rfl
+  · simp only [SecretGuessObservation.forcedWithImpl, SecretGuessObservation.withImpl, SecretGuessObservation.lazyImpl,
+    StateT.run_mk]
+    rw [Functor.map_map]
+    rfl
+theorem run_project (S : FtsBankSpec P) (env : SecretGuessObservation.Environment AuxSpecL Guess.GCoord Digest LazyMem) (slot : Nat) {β : Type} (W : OracleComp WPair.WSpecL β) (s : GState) :
+    (fun r => (r.1, projS r.2)) <$>
+        SecretGuessObservation.runWith (SecretGuessObservation.forcedWithImpl ((envG S) env) samplerG slot) W s =
+      SecretGuessObservation.runWith (SecretGuessObservation.forcedWithImpl env WPair.samplerL slot) W (projS s) := by
+  induction W using OracleComp.inductionOn generalizing s with
+  | pure b =>
+      simp only [SecretGuessObservation.runWith, simulateQ_pure, StateT.run_pure, map_pure]
+  | query_bind q next ih =>
+      rw [SecretGuessObservation.runWith_query_bind, SecretGuessObservation.runWith_query_bind, map_bind]
+      simp_rw [ih]
+      rw [← (step_project S) env slot q s, bind_map_left]
+theorem expectedValue_project (S : FtsBankSpec P) (env : SecretGuessObservation.Environment AuxSpecL Guess.GCoord Digest LazyMem) (slot : Nat) {β : Type} (W : OracleComp WPair.WSpecL β) (s : GState)
+    (payoff : β × WPair.WStateL → ENNReal) :
+    expectedValue (SecretGuessObservation.runWith (SecretGuessObservation.forcedWithImpl env WPair.samplerL slot) W (projS s)) payoff =
+      expectedValue (SecretGuessObservation.runWith (SecretGuessObservation.forcedWithImpl ((envG S) env) samplerG slot) W s)
+        (fun r => payoff (r.1, projS r.2)) := by
+  rw [← (run_project S) env slot W s, expectedValue_map]
+end Project
+noncomputable abbrev implG (S : FtsBankSpec P) (slot : Nat) := SecretGuessObservation.forcedWithImpl ((envG S) WPair.envL) samplerG slot
+theorem ev_aux_bind (S : FtsBankSpec P) {β : Type} (slot : Nat) (i : AuxL) (k : AuxSpecL.Range i → OracleComp WPair.WSpecL β)
+    (s : GState) (G : β × GState → ENNReal) :
+    expectedValue (SecretGuessObservation.runWith ((implG S) slot) (liftM (WPair.WSpecL.query (.inl i)) >>= k) s) G =
+      expectedValue (WPair.envL.auxiliary (projS s) i) (fun r =>
+        expectedValue (SecretGuessObservation.runWith ((implG S) slot) (k r.1)
+          { s with memory := (r.2, (ghostStep S) s.memory.1 i r.1 s.memory.2) }) G) := by
+  rw [SecretGuessObservation.runWith_query_bind, expectedValue_bind]
+  simp only [SecretGuessObservation.forcedWithImpl, SecretGuessObservation.withImpl, SecretGuessObservation.lazyImpl,
+    StateT.run_mk]
+  change expectedValue ((fun result => (result.1, { s with memory := result.2 })) <$>
+    (liftM ((fun r => (r.1, (r.2, (ghostStep S) s.memory.1 i r.1 s.memory.2))) <$> WPair.envL.auxiliary (projS s) i) :
+      SPMF _)) _ = _
+  rw [expectedValue_map, expectedValue_liftM_pmf, expectedValue_map]
+theorem searchL_succ (S : FtsBankSpec P) (rho : Digest) (m : Message) (c fuel : Nat) :
+    (searchL S) rho m c (fuel + 1) =
+      (liftM (WPair.WSpecL.query (.inl (.trial (Sampling.digestTrial rho m c)))) >>= fun output =>
+        if S.producer output = true then pure (some (BitVec.ofNat 32 c, output))
+        else (searchL S) rho m (c + 1) fuel) := rfl
+theorem ev_uniform_eq (S : FtsBankSpec P) (g : HashOutput → ENNReal) :
+    expectedValue (PMF.uniformOfFintype HashOutput) g = expectedValue ($ᵗ HashOutput : ProbComp HashOutput) g := by
+  rw [expectedValue_uniformOfFintype, BPORS.expected_uniform_eq_finiteAverage]
+theorem S_decode_some (S : FtsBankSpec P) {a : HashOutput} (h : S.producer a = true) :
+    S.decode a = some a := by
+  simp [ClaudeWCT.Bank.FtsBankSpec.decode, h]
+theorem S_decode_none (S : FtsBankSpec P) {a : HashOutput} (h : ¬S.producer a = true) :
+    S.decode a = none := by
+  simp [ClaudeWCT.Bank.FtsBankSpec.decode, h]
+theorem search_law (S : FtsBankSpec P) (slot : Nat) (rho : Digest) (m : Message)
+    (F : Option (BitVec 32 × HashOutput) → Sampling.RCache → ENNReal) :
+    ∀ fuel c (s : GState),
+      expectedValue (SecretGuessObservation.runWith ((implG S) slot) ((searchL S) rho m c fuel) s)
+          (fun r => F r.1 r.2.memory.1.rows) =
+        expectedValue (Sampling.roRun 0 (S.search rho m c fuel) s.memory.1.rows) (fun r => F r.1 r.2) := by
+  intro fuel
+  induction fuel with
+  | zero =>
+      intro c s
+      change expectedValue (SecretGuessObservation.runWith ((implG S) slot) (pure none) s) _ =
+        expectedValue (Sampling.roRun 0 (pure none) s.memory.1.rows) _
+      simp only [SecretGuessObservation.runWith, simulateQ_pure, StateT.run_pure, Sampling.roRun_pure,
+        expectedValue_pure]
+  | succ fuel ih =>
+      intro c s
+      rw [(searchL_succ S), (ev_aux_bind S)]
+      unfold ClaudeWCT.Bank.FtsBankSpec.search
+      rw [Sampling.publicSearch_succ, Sampling.roRun_bind, Sampling.roRun_publicQuery, expectedValue_bind,
+        randomOracle.run_eq]
+      change expectedValue (BPair.rowStep s.memory.1 (Sampling.digestTrial rho m c) false
+        (PMF.uniformOfFintype HashOutput)) _ = _
+      cases hx : s.memory.1.rows (Sampling.digestTrial rho m c) with
+      | some a =>
+          simp only [BPair.rowStep, hx]
+          rw [expectedValue_pure, expectedValue_pure]
+          dsimp only
+          by_cases had : S.producer a = true
+          · simp only [S_decode_some S had, had, if_true]
+            simp only [SecretGuessObservation.runWith, simulateQ_pure, StateT.run_pure, Sampling.roRun_pure,
+              expectedValue_pure]
+            rfl
+          · simp only [S_decode_none S had, had, Bool.false_eq_true, if_false]
+            rw [ih (c + 1)]
+            rfl
+      | none =>
+          have hdi : Sampling.digestTrial rho m c ∈ BPair.digestInputs := BPair.digestInput_mem _ _ _
+          simp only [BPair.rowStep, hx, hdi, if_true]
+          rw [expectedValue_map, expectedValue_bind, (ev_uniform_eq S)]
+          apply congrArg
+          funext a
+          rw [expectedValue_pure]
+          dsimp only
+          by_cases had : S.producer a = true
+          · simp only [S_decode_some S had, had, if_true]
+            simp only [SecretGuessObservation.runWith, simulateQ_pure, StateT.run_pure, Sampling.roRun_pure,
+              expectedValue_pure]
+            rfl
+          · simp only [S_decode_none S had, had, Bool.false_eq_true, if_false]
+            rw [ih (c + 1)]
+            rfl
+theorem runWith_bind_nonzero (S : FtsBankSpec P) {β γ : Type} (slot : Nat) (W : OracleComp WPair.WSpecL β)
+    (K : β → OracleComp WPair.WSpecL γ) (s : GState) (r : γ × GState)
+    (hr : SecretGuessObservation.runWith ((implG S) slot) (W >>= K) s r ≠ 0) :
+    ∃ mid, SecretGuessObservation.runWith ((implG S) slot) W s mid ≠ 0 ∧
+      SecretGuessObservation.runWith ((implG S) slot) (K mid.1) mid.2 r ≠ 0 := by
+  rw [runWith_bind', RetainedObservation.bind_nonzero] at hr
+  exact hr
+theorem runWith_pure_nonzero (S : FtsBankSpec P) {β : Type} (slot : Nat) (b : β) (s : GState) (r : β × GState)
+    (hr : SecretGuessObservation.runWith ((implG S) slot) (pure b) s r ≠ 0) : r = (b, s) := by
+  rw [runWith_pure'] at hr
+  simpa only [ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] using hr
+theorem aux_nonzero (S : FtsBankSpec P) (slot : Nat) (i : AuxL) (s : GState) (r : AuxSpecL.Range i × GState)
+    (hr : SecretGuessObservation.runWith ((implG S) slot) (liftM (WPair.WSpecL.query (.inl i))) s r ≠ 0) :
+    ∃ res, WPair.envL.auxiliary (projS s) i res ≠ 0 ∧
+      r = (res.1, { s with memory := (res.2, (ghostStep S) s.memory.1 i res.1 s.memory.2) }) := by
+  unfold SecretGuessObservation.runWith at hr
+  rw [simulateQ_spec_query] at hr
+  simp only [SecretGuessObservation.forcedWithImpl, SecretGuessObservation.withImpl, SecretGuessObservation.lazyImpl,
+    StateT.run_mk] at hr
+  change ((fun result => (result.1, { s with memory := result.2 })) <$>
+    (liftM ((fun r => (r.1, (r.2, (ghostStep S) s.memory.1 i r.1 s.memory.2))) <$> WPair.envL.auxiliary (projS s) i) :
+      SPMF _)) r ≠ 0 at hr
+  rw [(liftM_map_pmf S), Functor.map_map, map_eq_bind_pure_comp, RetainedObservation.bind_nonzero] at hr
+  obtain ⟨res, hres, hr⟩ := hr
+  simp only [Function.comp_def, ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] at hr
+  refine ⟨res, ?_, hr⟩
+  simpa [SPMF.liftM_apply] using hres
+theorem search_frame (S : FtsBankSpec P) (slot : Nat) (rho : Digest) (m : Message) :
+    ∀ fuel c (s : GState) r, SecretGuessObservation.runWith ((implG S) slot) ((searchL S) rho m c fuel) s r ≠ 0 →
+      RowsFrame s r.2 := by
+  intro fuel
+  induction fuel with
+  | zero =>
+      intro c s r hr
+      rw [(runWith_pure_nonzero S) slot none s r hr]
+      exact RowsFrame.refl s
+  | succ fuel ih =>
+      intro c s r hr
+      rw [(searchL_succ S)] at hr
+      obtain ⟨mid, hmid, hr⟩ := (runWith_bind_nonzero S) slot _ _ s r hr
+      obtain ⟨res, hres, rfl⟩ := (aux_nonzero S) slot (.trial (Sampling.digestTrial rho m c)) s mid hmid
+      have hf : RowsFrame s { s with memory := (res.2, (ghostStep S) s.memory.1 (.trial (Sampling.digestTrial rho m c))
+          res.1 s.memory.2) } := by
+        have hres' : res ∈ (BPair.rowStep s.memory.1 (Sampling.digestTrial rho m c) false
+            (PMF.uniformOfFintype HashOutput)).support := (PMF.mem_support_iff _ _).mpr hres
+        refine ⟨rfl, rfl, rfl, rfl, rfl, ?_⟩
+        unfold BPair.rowStep at hres'
+        cases hx : s.memory.1.rows (Sampling.digestTrial rho m c) with
+        | some a =>
+            simp only [hx] at hres'
+            rw [PMF.monad_pure_eq_pure, PMF.mem_support_pure_iff] at hres'
+            subst hres'
+            exact ⟨rfl, rfl, rfl⟩
+        | none =>
+            simp only [hx] at hres'
+            have hdi : Sampling.digestTrial rho m c ∈ BPair.digestInputs := BPair.digestInput_mem _ _ _
+            rw [if_pos hdi] at hres'
+            rw [PMF.monad_map_eq_map, PMF.mem_support_map_iff] at hres'
+            obtain ⟨a, -, rfl⟩ := hres'
+            exact ⟨rfl, rfl, rfl⟩
+      dsimp only at hr
+      split_ifs at hr
+      · rw [(runWith_pure_nonzero S) slot _ _ r hr]
+        exact hf
+      · exact hf.trans (ih (c + 1) _ r hr)
+#print axioms search_law
+#print axioms search_frame
+end ClaudeWCT.Bank.NearWorld

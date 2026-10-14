@@ -89,12 +89,12 @@ variable {answers : Answers} {trace trace' : List Entry}
 theorem contactAt_mono {a : ChainAddr} (h : ContactAt answers trace a) (hsub : ∀ e ∈ trace, e ∈ trace') :
     ContactAt answers trace' a := by
   obtain ⟨hd, value, hs⟩ := h
-  exact ⟨hd, value, ClaudeWCT.W9.T3.Security.Wots.seenRowW_mono hs hsub⟩
+  exact ⟨hd, value, SigGolfCandidate.T3.Security.WotsExtract.seenRow_mono hs hsub⟩
 theorem twoEdgeAt_mono {a : ChainAddr} (h : TwoEdgeAt answers trace a) (hsub : ∀ e ∈ trace, e ∈ trace') :
     TwoEdgeAt answers trace' a := by
   obtain ⟨hd, start, middle, h1, h2⟩ := h
-  exact ⟨hd, start, middle, ClaudeWCT.W9.T3.Security.Wots.seenRowW_mono h1 hsub,
-    ClaudeWCT.W9.T3.Security.Wots.seenRowW_mono h2 hsub⟩
+  exact ⟨hd, start, middle, SigGolfCandidate.T3.Security.WotsExtract.seenRow_mono h1 hsub,
+    SigGolfCandidate.T3.Security.WotsExtract.seenRow_mono h2 hsub⟩
 theorem encodingMatchAt_mono {L : LeafAddr} (h : EncodingMatchAt answers trace L) (hsub : ∀ e ∈ trace, e ∈ trace') :
     EncodingMatchAt answers trace' L := by
   obtain ⟨message, counter, pad, answer, hfit, hm, hne, hd⟩ := h
@@ -165,3 +165,184 @@ theorem check_accepting (answers : Answers) (publicKey : Digest) (log : QueryLog
             List.append_nil]
           exact List.mem_append_right _ hi
 end ClaudeWCT.W9.T3.Security.PaddedExtraction
+
+namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef
+open OracleComp OracleSpec
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Security.Wots
+open SigGolfCandidate.T3.Correctness (Answers)
+open ClaudeWCT.W9.T3M
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+
+theorem counterSearch_decode (answers : Answers) (lay : Layer) (floor tree leaf : Nat)
+    (msg : WCT9.LayerMsg) : ∀ fuel start c digits,
+    evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt lay floor tree leaf msg start fuel) =
+      some (c, digits) →
+    WCT9.CanonicalPolicy.producerDecodeAt lay floor
+      (evalWithAnswerFn answers (WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg c))) =
+      some digits := by
+  intro fuel
+  induction fuel with
+  | zero => intro start c digits h; simp [WCT9.CanonicalPolicy.layerCounterSearchAt] at h
+  | succ fuel ih =>
+      intro start c digits h
+      rw [WCT9.CanonicalPolicy.layerCounterSearchAt, evalWithAnswerFn_bind] at h
+      cases hd : WCT9.CanonicalPolicy.producerDecodeAt lay floor
+        (evalWithAnswerFn answers (WCT9.encodingHash lay
+          (WCT9.layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 start)))) with
+      | none => rw [hd] at h; exact ih (start + 1) c digits h
+      | some ds =>
+          rw [hd, evalWithAnswerFn_pure] at h
+          cases h
+          exact hd
+
+theorem referenceSearch_decode (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
+    (L : LeafAddr) {c : BitVec 32} {digits : List Nat}
+    (h : referenceSearch answers messages L = some (c, digits)) :
+    WCT9.CanonicalPolicy.decode L.lay
+      (WCT9.encodingAnswer L.lay (answers (.inl (.inr (encRow L (messages L) c 0))))) = some digits := by
+  unfold referenceSearch selected at h
+  cases hc : context (searchOf answers messages) WCT9.CanonicalPolicy.credit L with
+  | none => rw [hc] at h; cases h
+  | some remaining =>
+      rw [hc] at h
+      have hd := counterSearch_decode answers L.lay
+        (WCT9.CanonicalPolicy.threshold L.lay.val remaining) L.tree L.leaf (messages L)
+        (WCT9.searchLimit L.lay) 0 c digits h
+      rw [encRow_zero]
+      exact (WCT9.CanonicalPolicy.producerDecodeAt_spec hd).1
+
+theorem referenceDigits_decode (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
+    (L : LeafAddr) :
+    ∃ value : Digest, WCT9.CanonicalPolicy.decode L.lay value = some (referenceDigits answers messages L) := by
+  unfold referenceDigits
+  cases hs : referenceSearch answers messages L with
+  | none => exact dummyDigits_valid (WCT9.CanonicalPolicy.normalLayer L.lay)
+  | some found =>
+      obtain ⟨c, digits⟩ := found
+      exact ⟨_, referenceSearch_decode answers messages L hs⟩
+
+theorem normalLayer_chainCount (lay : Layer) :
+    chainCount (WCT9.CanonicalPolicy.normalLayer lay) = chainCount lay := by
+  fin_cases lay <;> rfl
+
+theorem normalLayer_maxDigit (lay : Layer) (i : Nat) :
+    maxDigit (WCT9.CanonicalPolicy.normalLayer lay) i = maxDigit lay i := by
+  fin_cases lay <;> rfl
+
+theorem referenceDigits_length (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
+    (L : LeafAddr) : (referenceDigits answers messages L).length = chainCount L.lay := by
+  obtain ⟨value, hv⟩ := referenceDigits_decode answers messages L
+  exact (decode_length_sum hv).1.trans (normalLayer_chainCount L.lay)
+
+theorem depth_le (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
+    (a : ChainAddr) (ha : a.chain < chainCount a.key.lay) :
+    depth answers messages a ≤ maxDigit a.key.lay a.chain := by
+  obtain ⟨value, hv⟩ := referenceDigits_decode answers messages a.key
+  have hi : a.chain < chainCount (WCT9.CanonicalPolicy.normalLayer a.key.lay) := by
+    rw [normalLayer_chainCount]; exact ha
+  have hd := decode_digit_max hv a.chain hi
+  rw [normalLayer_maxDigit] at hd
+  exact hd
+
+#print axioms referenceSearch_decode
+#print axioms referenceDigits_decode
+#print axioms depth_le
+end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef
+
+namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef
+open OracleComp OracleSpec
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Security.Wots
+open SigGolfCandidate.T3.Correctness (Answers)
+open ClaudeWCT.W9.T3M
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+
+theorem referenceInput_ne (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
+    (L : LeafAddr) (msg : WCT9.LayerMsg) (ctr : BitVec 32) (pad : RowPad)
+    (hfitRef : Extract.msgFits L.lay (messages L)) (hfit : Extract.msgFits L.lay msg)
+    {digits : List Nat}
+    (hd : WCT9.CanonicalPolicy.decode L.lay
+      (WCT9.encodingAnswer L.lay (answers (.inl (.inr (encRow L msg ctr pad))))) = some digits)
+    (hne : msg ≠ messages L ∨ digits ≠ referenceDigits answers messages L) :
+    referenceInput answers messages L ≠ some (encRow L msg ctr pad) := by
+  intro h
+  unfold referenceInput at h
+  cases hs : referenceSearch answers messages L with
+  | none => rw [hs] at h; simp at h
+  | some s =>
+      obtain ⟨c, w'⟩ := s
+      rw [hs] at h
+      simp only [Option.map_some, Option.some.injEq] at h
+      obtain ⟨hm, hc, -⟩ := BC.layerEncodingRow_injective_leaf hfitRef hfit h
+      rw [← h] at hd
+      subst hm hc
+      have hdec := referenceSearch_decode answers messages L hs
+      have hw : referenceDigits answers messages L = w' := by unfold referenceDigits; rw [hs]; rfl
+      have hdw : digits = w' := Option.some.inj (hd.symm.trans hdec)
+      rcases hne with hne | hne
+      · exact hne rfl
+      · exact hne (hdw.trans hw.symm)
+
+theorem referenceInput_ne_pad (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
+    (L : LeafAddr) (msg : WCT9.LayerMsg) (ctr : BitVec 32) (pad : RowPad)
+    (hfitRef : Extract.msgFits L.lay (messages L)) (hfit : Extract.msgFits L.lay msg)
+    (hpad : pad.1 ≠ 0) : referenceInput answers messages L ≠ some (encRow L msg ctr pad) := by
+  intro h
+  unfold referenceInput at h
+  cases hs : referenceSearch answers messages L with
+  | none => rw [hs] at h; simp at h
+  | some s =>
+      rw [hs] at h
+      simp only [Option.map_some, Option.some.injEq] at h
+      obtain ⟨-, -, hp, -⟩ := BC.layerEncodingRow_injective_leaf hfitRef hfit h
+      exact hpad hp.symm
+
+theorem canonical_word_cases {lay : Layer} {refDigest candDigest : Digest} {refDigits candDigits : List Nat}
+    (hr : WCT9.CanonicalPolicy.decode lay refDigest = some refDigits)
+    (hc : WCT9.CanonicalPolicy.decode lay candDigest = some candDigits) :
+    candDigits = refDigits ∨
+      (∃ i, i < chainCount lay ∧ candDigits.getD i 0 + 1 = refDigits.getD i 0 ∧
+        ∀ j, j < chainCount lay → j ≠ i → refDigits.getD j 0 ≤ candDigits.getD j 0) ∨
+      (∃ i, i < chainCount lay ∧ candDigits.getD i 0 + 2 ≤ refDigits.getD i 0) ∨
+      (∃ i j, i < chainCount lay ∧ j < chainCount lay ∧ i ≠ j ∧
+        candDigits.getD i 0 < refDigits.getD i 0 ∧ candDigits.getD j 0 < refDigits.getD j 0) := by
+  rcases word_cases hr hc with he | ⟨i, hi⟩ | ⟨i, hi⟩ | ⟨i, j, hij, hi, hj⟩
+  · exact Or.inl he
+  · refine Or.inr (Or.inl ⟨i.val, ?_, hi.2.2.1, ?_⟩)
+    · simpa only [normalLayer_chainCount] using (show i.val < chainCount (WCT9.CanonicalPolicy.normalLayer lay) from i.isLt)
+    · intro j hj hji
+      have hj' : j < chainCount (WCT9.CanonicalPolicy.normalLayer lay) := by
+        rw [normalLayer_chainCount]; exact hj
+      exact hi.2.2.2 ⟨j, hj'⟩ (fun h => hji (congrArg Fin.val h))
+  · refine Or.inr (Or.inr (Or.inl ⟨i.val, ?_, hi⟩))
+    simpa only [normalLayer_chainCount] using (show i.val < chainCount (WCT9.CanonicalPolicy.normalLayer lay) from i.isLt)
+  · refine Or.inr (Or.inr (Or.inr ⟨i.val, j.val, ?_, ?_, ?_, hi, hj⟩))
+    · simpa only [normalLayer_chainCount] using (show i.val < chainCount (WCT9.CanonicalPolicy.normalLayer lay) from i.isLt)
+    · simpa only [normalLayer_chainCount] using (show j.val < chainCount (WCT9.CanonicalPolicy.normalLayer lay) from j.isLt)
+    · exact fun h => hij (Fin.ext h)
+
+section mono
+variable {answers : Answers} {messages : LeafAddr → WCT9.LayerMsg} {trace trace' : List Entry}
+theorem contactAt_mono {a : ChainAddr} (h : ContactAt answers messages trace a)
+    (hsub : ∀ e ∈ trace, e ∈ trace') : ContactAt answers messages trace' a := by
+  obtain ⟨hd, value, hs⟩ := h
+  exact ⟨hd, value, SigGolfCandidate.T3.Security.WotsExtract.seenRow_mono hs hsub⟩
+theorem twoEdgeAt_mono {a : ChainAddr} (h : TwoEdgeAt answers messages trace a)
+    (hsub : ∀ e ∈ trace, e ∈ trace') : TwoEdgeAt answers messages trace' a := by
+  obtain ⟨hd, start, middle, h1, h2⟩ := h
+  exact ⟨hd, start, middle, SigGolfCandidate.T3.Security.WotsExtract.seenRow_mono h1 hsub,
+    SigGolfCandidate.T3.Security.WotsExtract.seenRow_mono h2 hsub⟩
+theorem encodingMatchAt_mono {L : LeafAddr} (h : EncodingMatchAt answers messages trace L)
+    (hsub : ∀ e ∈ trace, e ∈ trace') : EncodingMatchAt answers messages trace' L := by
+  obtain ⟨message, counter, pad, answer, hfit, hm, hne, hd⟩ := h
+  exact ⟨message, counter, pad, answer, hfit, hsub _ hm, hne, hd⟩
+theorem markerAt_mono {a : ChainAddr} (h : MarkerAt answers messages trace a)
+    (hsub : ∀ e ∈ trace, e ∈ trace') : MarkerAt answers messages trace' a := by
+  obtain ⟨message, counter, pad, answer, digits, hfit, hm, hne, hd, hl, hu⟩ := h
+  exact ⟨message, counter, pad, answer, digits, hfit, hsub _ hm, hne, hd, hl, hu⟩
+end mono
+#print axioms referenceInput_ne
+#print axioms canonical_word_cases
+end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef

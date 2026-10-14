@@ -175,8 +175,8 @@ theorem msgLabel_router (vals : Coord → Digest) (a : AuxData) (L : EncLeaf) :
   by_cases hl : L.1.lay.val < 3
   · rw [dif_pos hl, dif_pos hl]
     congr 1
-    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 0).trans (joinLabels_val _ _ _)
-    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 1).trans (joinLabels_val _ _ _)
+    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 0).trans (joinLabels_low rfl)
+    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 1).trans (joinLabels_low rfl)
   · rw [dif_neg hl, dif_neg hl]
     congr 1
     · exact (ftsLabel_top _ _ _ 0).trans ((proj_top _ _ _ _).symm.trans (joinLabels_val _ _ _))
@@ -784,3 +784,717 @@ theorem contact_le_lazy (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) 
 end Contact
 end ClaudeWCT.W9.T3.Security.LargeCoupling
 end
+
+namespace ClaudeWCT.W9.T3.Security.CanonEncoding.Paired
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SphincsSecurity.Concrete
+open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security
+open Correctness (Answers)
+open SigGolfCandidate.T3.Security.LargeCoupling (mix PrefixDetermined)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+theorem select_congr_prefix (L : EncLeaf) (floor : Nat) (f g : Fin (2 ^ 22) → HashOutput)
+    (h : ∀ c, c.val < WCT9.searchLimit L.1.lay →
+      (∀ r, capSel L (SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt L floor) f) = some r → c ≤ r.1) →
+        f c = g c) :
+    capSel L (SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt L floor) g) =
+      capSel L (SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt L floor) f) := by
+  cases hs : capSel L (SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt L floor) f) with
+  | none =>
+      have hrej : ∀ c : Fin (2 ^ 22), c.val < WCT9.searchLimit L.1.lay → decodeAt L floor (f c) = none := by
+        intro c hc
+        cases hf : SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt L floor) f with
+        | none => exact (SphincsSecurity.Concrete.FirstSuccessTable.select_none_iff _ _).mp hf c
+        | some r =>
+            have hge : WCT9.searchLimit L.1.lay ≤ r.1.val := by
+              by_contra hlt
+              have := (capSel_eq_some (L := L)).mpr ⟨hf, by omega⟩
+              rw [hs] at this
+              cases this
+            exact ((SphincsSecurity.Concrete.FirstSuccessTable.select_some_iff _ f r.1 r.2).mp hf).2 c
+              (by rw [Fin.lt_def]; omega)
+      have hfg : ∀ c : Fin (2 ^ 22), c.val < WCT9.searchLimit L.1.lay → f c = g c :=
+        fun c hc => h c hc (fun r hr => by rw [hs] at hr; cases hr)
+      cases hg : SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt L floor) g with
+      | none => rfl
+      | some r =>
+          obtain ⟨hv, -⟩ := (SphincsSecurity.Concrete.FirstSuccessTable.select_some_iff _ g r.1 r.2).mp hg
+          by_cases hlt : r.1.val < WCT9.searchLimit L.1.lay
+          · rw [← hfg r.1 hlt, hrej r.1 hlt] at hv
+            cases hv
+          · cases hc : capSel L (some r) with
+            | none => rfl
+            | some r' =>
+                obtain ⟨hr', hlt'⟩ := capSel_eq_some.mp hc
+                cases hr'
+                exact absurd hlt' hlt
+  | some r =>
+      obtain ⟨hraw, hlt⟩ := capSel_eq_some.mp hs
+      obtain ⟨i, v⟩ := r
+      have hsome := (SphincsSecurity.Concrete.FirstSuccessTable.select_some_iff _ f i v).mp hraw
+      have hle : ∀ c, c ≤ i → f c = g c := fun c hc =>
+        h c (lt_of_le_of_lt (Fin.le_def.mp hc) hlt) (fun r hr => by rw [hs] at hr; cases hr; exact hc)
+      have hg : SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt L floor) g = some (i, v) := by
+        apply (SphincsSecurity.Concrete.FirstSuccessTable.select_some_iff _ g i v).mpr
+        refine ⟨by rw [← hle i le_rfl]; exact hsome.1, fun j hj => ?_⟩
+        rw [← hle j (le_of_lt hj)]
+        exact hsome.2 j hj
+      rw [hg]
+      exact capSel_eq_some.mpr ⟨rfl, hlt⟩
+
+noncomputable def rowPrefix (f : EncLeaf × Fin (2^22) → HashOutput) (x : EncLeaf × Fin (2^22)) : Prop :=
+  ∃ remaining, rowsContext (Function.curry f) x.1.toWots=some remaining ∧
+    x.2.val<WCT9.searchLimit x.1.1.lay ∧
+    ∀ r, selectionAt (Function.curry f) x.1 remaining=some r → x.2≤r.1
+
+theorem selectionAt_prefix_congr
+    (f g : EncLeaf × Fin (2^22) → HashOutput)
+    (hfg : ∀ x, rowPrefix f x → f x=g x) (L : EncLeaf) (remaining : Nat)
+    (hctx : rowsContext (Function.curry f) L.toWots=some remaining) :
+    selectionAt (Function.curry g) L remaining=selectionAt (Function.curry f) L remaining := by
+  apply select_congr_prefix L (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining)
+  intro c hc hs
+  exact hfg (L,c) ⟨remaining,hctx,hc,hs⟩
+
+theorem rowsContext_prefix_congr
+    (f g : EncLeaf × Fin (2^22) → HashOutput)
+    (hfg : ∀ x, rowPrefix f x → f x=g x) (L : EncLeaf) :
+    rowsContext (Function.curry g) L.toWots=rowsContext (Function.curry f) L.toWots := by
+  apply Wots.CanonicalRef.context_congr_on WCT9.CanonicalPolicy.credit WotsExtract.SourceLeaf7
+    (fun _ h hp => Wots.CanonicalRef.source_parent h hp) _ (source_toWots L)
+  intro leaf hleaf remaining hctx
+  let E := encLeafOf leaf hleaf
+  have he : E.toWots=leaf := encLeafOf_toWots leaf hleaf
+  have hc : rowsContext (Function.curry f) E.toWots=some remaining := by rw [he]; exact hctx
+  rw [←he,searchRows_toWots,searchRows_toWots,selectionAt_prefix_congr f g hfg E remaining hc]
+
+attribute [local irreducible] rowsContext selectionAt
+
+private theorem option_bind_congr_on {A B : Type} {a b : Option A} {f g : A → Option B}
+    (he : a=b) (hf : ∀x,b=some x→f x=g x) : a.bind f=b.bind g := by
+  subst a
+  cases hb : b with
+  | none => rfl
+  | some x => exact hf x hb
+
+theorem selectionsOfRows_prefix_congr
+    (f g : EncLeaf × Fin (2^22) → HashOutput)
+    (hfg : ∀ x, rowPrefix f x → f x=g x) (L : EncLeaf) :
+    selectionsOfRows (Function.curry g) L=selectionsOfRows (Function.curry f) L :=
+  option_bind_congr_on (rowsContext_prefix_congr f g hfg L)
+    (fun remaining hc => selectionAt_prefix_congr f g hfg L remaining hc)
+
+theorem rowPrefix_determined : PrefixDetermined rowPrefix := by
+  intro f g hfg x
+  have hc := rowsContext_prefix_congr f g hfg x.1
+  constructor
+  · rintro ⟨remaining,hctx,hlimit,hs⟩
+    have hctx' := hc.symm.trans hctx
+    have he := selectionAt_prefix_congr f g hfg x.1 remaining hctx'
+    exact ⟨remaining,hctx',hlimit,fun r hr => hs r (he.symm ▸ hr)⟩
+  · rintro ⟨remaining,hctx,hlimit,hs⟩
+    have he := selectionAt_prefix_congr f g hfg x.1 remaining hctx
+    exact ⟨remaining,hc.trans hctx,hlimit,fun r hr => hs r (he ▸ hr)⟩
+
+#print axioms rowPrefix_determined
+end ClaudeWCT.W9.T3.Security.CanonEncoding.Paired
+
+namespace ClaudeWCT.W9.T3.Security.CanonEncoding.Paired
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security
+open ClaudeWCT.W9.T3.Security.CanonGraph
+open SigGolfCandidate.T3.Security.LargeCoupling (uniform_equiv_bind uniform_join_bind uniform_mix mix)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option synthInstance.maxSize 1024
+attribute [local instance] Classical.propDecidable
+noncomputable local instance : SampleableType Rows := SampleableType.ofFintype _
+noncomputable local instance : SampleableType (EncLeaf × Fin (2^22) → HashOutput) := SampleableType.ofFintype _
+noncomputable local instance (U : Finset HashInput) : SampleableType (U → HashOutput) := SampleableType.ofFintype _
+noncomputable local instance (U : Finset HashInput) (hE : encInputs ⊆ U) (labels : Labels) :
+    SampleableType (SphincsSecurity.Concrete.UniformTableSplit.Outside (encCell U hE labels) → HashOutput) :=
+  SampleableType.ofFintype _
+
+noncomputable def residualPsi0 (U : Finset HashInput) (hE : encInputs ⊆ U)
+    (labels : Labels) (rows : Rows) (τ : U → HashOutput) : U → HashOutput :=
+  SphincsSecurity.Concrete.UniformTableSplit.overwrite (encCell U hE labels) (encCell_injective U hE labels)
+    (mix rowPrefix (Function.uncurry rows) (fun x => τ (encCell U hE labels x))) τ
+
+theorem residualPsi0_prefix (U : Finset HashInput) (hE : encInputs ⊆ U)
+    (labels : Labels) (rows : Rows) (τ : U → HashOutput)
+    (x : EncLeaf × Fin (2^22)) (hx : rowPrefix (Function.uncurry rows) x) :
+    residualPsi0 U hE labels rows τ (encCell U hE labels x) = Function.uncurry rows x := by
+  unfold residualPsi0
+  rw [SphincsSecurity.Concrete.UniformTableSplit.overwrite_embed]
+  exact if_pos hx
+
+theorem selections_residualPsi0 (U : Finset HashInput) (hE : encInputs ⊆ U)
+    (labels : Labels) (rows : Rows) (τ : U → HashOutput) (L : EncLeaf) :
+    selectionsOfRows (fun L c => residualPsi0 U hE labels rows τ (encCell U hE labels (L,c))) L =
+      selectionsOfRows rows L :=
+  selectionsOfRows_prefix_congr (Function.uncurry rows)
+    (fun x => residualPsi0 U hE labels rows τ (encCell U hE labels x))
+    (fun x hx => (residualPsi0_prefix U hE labels rows τ x hx).symm) L
+
+theorem residual_bind0 (U : Finset HashInput) (hE : encInputs ⊆ U) (labels : Labels) {R : Type}
+    (next : (U → HashOutput) → ProbComp R) :
+    𝒮[($ᵗ (U → HashOutput) : ProbComp _) >>= next] =
+      𝒮[($ᵗ (EncLeaf → Fin (2 ^ 22) → HashOutput) : ProbComp _) >>= fun rows =>
+        ($ᵗ (U → HashOutput) : ProbComp _) >>= fun τ => next (residualPsi0 U hE labels rows τ)] := by
+  have hj : ∀ (rows : EncLeaf → Fin (2 ^ 22) → HashOutput) (g : EncLeaf × Fin (2 ^ 22) → HashOutput)
+      (out : SphincsSecurity.Concrete.UniformTableSplit.Outside (encCell U hE labels) → HashOutput),
+      residualPsi0 U hE labels rows
+        (SphincsSecurity.Concrete.UniformTableSplit.join (encCell U hE labels) (encCell_injective U hE labels) g out) =
+      SphincsSecurity.Concrete.UniformTableSplit.join (encCell U hE labels) (encCell_injective U hE labels)
+        (mix rowPrefix (Function.uncurry rows) g) out := by
+    intro rows g out
+    unfold residualPsi0
+    have hg : (fun x => SphincsSecurity.Concrete.UniformTableSplit.join (encCell U hE labels)
+        (encCell_injective U hE labels) g out (encCell U hE labels x)) = g :=
+      funext fun x => SphincsSecurity.Concrete.UniformTableSplit.join_embed _ _ _ _ x
+    rw [hg, SphincsSecurity.Concrete.UniformTableSplit.overwrite_join]
+  rw [evalSPMF_bind_congr' _ (fun rows => uniform_join_bind (encCell U hE labels) (encCell_injective U hE labels)
+    (fun τ => next (residualPsi0 U hE labels rows τ)))]
+  simp only [hj]
+  rw [uniform_equiv_bind (Equiv.curry (EncLeaf) (Fin (2 ^ 22)) HashOutput).symm.symm]
+  simp only [Equiv.symm_symm, Equiv.curry_apply, Function.uncurry_curry]
+  rw [uniform_mix rowPrefix rowPrefix_determined (fun R =>
+    ($ᵗ (SphincsSecurity.Concrete.UniformTableSplit.Outside (encCell U hE labels) → HashOutput) : ProbComp _) >>=
+      fun out => next (SphincsSecurity.Concrete.UniformTableSplit.join (encCell U hE labels)
+        (encCell_injective U hE labels) R out))]
+  rw [uniform_join_bind (encCell U hE labels) (encCell_injective U hE labels) next]
+
+#print axioms selections_residualPsi0
+#print axioms residual_bind0
+end ClaudeWCT.W9.T3.Security.CanonEncoding.Paired
+
+namespace ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security
+open ClaudeWCT.W9.T3M SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open Correctness (Answers)
+open ClaudeWCT.W9.T3.Security.LargeResidual (Coord seedView)
+open ClaudeWCT.W9.T3.Security.CanonGraph
+open ClaudeWCT.W9.T3.Security.CanonEncoding (EncLeaf Selections Selection childIndex childIndex_treeBits)
+open ClaudeWCT.W9.T3.Security.CanonEncoding.Paired
+open ClaudeWCT.W9.T3.Security.LargeResidual.Paired
+open SigGolfCandidate.T3.Security.LargeCoupling (mix uniform_equiv_bind)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option synthInstance.maxSize 1024
+attribute [local instance] Classical.propDecidable
+attribute [local irreducible] CanonEncoding.Paired.rowsContext CanonEncoding.Paired.selectionAt
+
+def AuxConsistent (a : AuxData) : Prop := a.sel=selectionsOfRows a.rows
+
+section Public
+variable (U : Finset HashInput) (hU : CanonGraph.Paired.canonInputs ⊆ U) (hE : encInputs ⊆ U)
+noncomputable def presentTable (τ : U → HashOutput) : U → HashOutput := fun x => LargeResidual.Paired.rowPresent x.val (τ x)
+noncomputable def presentTableEquiv : (U → HashOutput) ≃ (U → HashOutput) :=
+  Equiv.piCongrRight fun x : U => LargeResidual.Paired.rowPresent x.val
+noncomputable def residualPsi (labels : Labels) (rows : Rows) (τ : U → HashOutput) : U → HashOutput :=
+  CanonEncoding.Paired.residualPsi0 U hE labels rows (presentTable U τ)
+noncomputable def tablePsi (sec : Secrets) (vals : LargeResidual.Coord → Digest) (nv : Message → Digest)
+    (τ : U → HashOutput) (a : AuxData) : Answers :=
+  Wots.eagerAnswers U (privPsi sec nv a.priv)
+    (CanonGraph.Paired.Filtered.programmed U hU sec (LargeResidual.Paired.routerLabels vals a)
+      (residualPsi U hE (LargeResidual.Paired.routerLabels vals a) a.rows τ))
+
+theorem encCell_row (labels : Labels) (L : EncLeaf) (c : Fin (2^22)) :
+    (CanonEncoding.Paired.encCell U hE labels (L,c)).val = Wots.encRow L.toWots (msgLabel labels L) (BitVec.ofNat 32 c.val) 0 := by
+  rw [CanonEncoding.Paired.encCell_val,Wots.encRow_zero]
+  rfl
+
+theorem paired_ftsLabel_top (labels : Labels) (index : Fin (2^31)) (coord : Fin 9) (b : Fin 2) :
+    CanonGraph.Paired.ftsLabel labels index coord 6 b.val =
+      Extract.Paired.proj (CanonGraph.Node.wctNode (ftsTopNode index coord b)).toPos
+        (labels (.wctNode (ftsTopNode index coord b))) := by
+  unfold CanonGraph.Paired.ftsLabel
+  rw [if_neg (by omega)]
+  unfold ftsNodeAt
+  rw [dif_pos (show 6-1<6 ∧ b.val<2^(7-(6-1)-1) by have := b.isLt;omega)]
+  rfl
+
+theorem msgLabel_router (vals : LargeResidual.Coord → Digest) (a : AuxData) (L : EncLeaf) :
+    msgLabel (LargeResidual.Paired.routerLabels vals a) L = LargeResidual.msgVals vals L := by
+  unfold msgLabel LargeResidual.msgVals
+  by_cases hl : L.1.lay.val<3
+  · rw [dif_pos hl,dif_pos hl]
+    congr 1
+    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 0).trans (CanonGraph.Paired.joinLabels_low rfl)
+    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 1).trans (CanonGraph.Paired.joinLabels_low rfl)
+  · rw [dif_neg hl,dif_neg hl]
+    congr 1
+    · exact (paired_ftsLabel_top _ _ _ 0).trans (CanonGraph.Paired.joinLabels_val _ _ _)
+    · exact (paired_ftsLabel_top _ _ _ 1).trans (CanonGraph.Paired.joinLabels_val _ _ _)
+
+theorem sel_psi (a : AuxData) (ha : AuxConsistent a) (labels : Labels) (τ : U → HashOutput) (L : EncLeaf) :
+    selectionsOfRows (fun L c => residualPsi U hE labels a.rows τ (CanonEncoding.Paired.encCell U hE labels (L,c))) L = a.sel L :=
+  (selections_residualPsi0 U hE labels a.rows (presentTable U τ) L).trans (congrFun ha.symm L)
+
+end Public
+
+private theorem context_prefix_iff (context : Option Nat) (select : Nat → CanonEncoding.Selection)
+    (c : Fin (2^22)) (limit : Nat) :
+    (∃remaining,context=some remaining ∧ c.val<limit ∧ ∀r,select remaining=some r→c≤r.1) ↔
+      context.isSome ∧ c.val<limit ∧ ∀r,context.bind select=some r→c.val≤r.1.val := by
+  cases context with
+  | none =>
+      constructor
+      · rintro ⟨remaining,he,_,_⟩;cases he
+      · rintro ⟨he,_,_⟩;cases he
+  | some n =>
+      constructor
+      · rintro ⟨remaining,he,hlim,hs⟩
+        have hn : n=remaining := Option.some.inj he
+        subst remaining
+        exact ⟨rfl,hlim,fun r hr => Fin.le_def.mp (hs r hr)⟩
+      · rintro ⟨_,hlim,hs⟩
+        exact ⟨n,rfl,hlim,fun r hr => Fin.le_def.mpr (hs r hr)⟩
+
+theorem rowPrefix_iff (a : AuxData) (ha : AuxConsistent a) (L : EncLeaf) (c : Fin (2^22)) :
+    CanonEncoding.Paired.rowPrefix (Function.uncurry a.rows) (L,c) ↔ LargeResidual.Paired.PrefixRow a L (BitVec.ofNat 32 c.val) := by
+  have hc : (BitVec.ofNat 32 c.val).toNat=c.val := by
+    rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by have := c.isLt;omega)
+  unfold LargeResidual.Paired.PrefixRow
+  rw [hc,ha]
+  exact context_prefix_iff (rowsContext a.rows L.toWots) (selectionAt a.rows L) c (WCT9.searchLimit L.1.lay)
+
+#print axioms msgLabel_router
+#print axioms rowPrefix_iff
+end ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
+
+namespace ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security
+open ClaudeWCT.W9.T3M SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open Correctness (Answers)
+open ClaudeWCT.W9.T3.Security.LargeResidual (Coord seedView)
+open ClaudeWCT.W9.T3.Security.CanonGraph
+open ClaudeWCT.W9.T3.Security.CanonEncoding (EncLeaf Selections Selection childIndex childIndex_treeBits)
+open ClaudeWCT.W9.T3.Security.CanonEncoding.Paired
+open ClaudeWCT.W9.T3.Security.LargeResidual.Paired
+open SigGolfCandidate.T3.Security.LargeCoupling (mix uniform_equiv_bind)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option synthInstance.maxSize 1024
+attribute [local instance] Classical.propDecidable
+attribute [local irreducible] CanonEncoding.Paired.rowsContext CanonEncoding.Paired.selectionAt
+
+section Coherence
+variable (U : Finset HashInput) (hU : CanonGraph.Paired.canonInputs ⊆ U) (hE : encInputs ⊆ U)
+theorem coherent_psi (sec : Secrets) (vals : Coord → Digest) (nv : Message → Digest) (τ : U → HashOutput)
+    (a : AuxData) (ha : AuxConsistent a) (hv : seedView sec = fun x => vals (.inr x)) :
+    LargeResidual.Paired.Coherent U (tablePsi U hU hE sec vals nv τ a) vals nv τ a := by
+  set s : Secrets := sec with hs
+  set labels := LargeResidual.Paired.routerLabels vals a with hlabels
+  set res := residualPsi U hE labels a.rows τ with hres
+  set o := nonceOver (privateEquiv a.priv).2 nv with ho
+  have hT : tablePsi U hU hE sec vals nv τ a = CanonGraph.eagerAnswers (privateEquiv.symm (s, o)) U
+      (CanonGraph.Paired.Filtered.programmed U hU s labels res) := by
+    unfold tablePsi
+    rw [eagerAnswers_eq]
+    rfl
+  have hsec : secretsOf (tablePsi U hU hE sec vals nv τ a) = s := by
+    rw [hT, secretsOf_eager, privateSecrets_symm]
+  have hpubX : ∀ (X : HashInput) (hX : X ∈ U), tablePsi U hU hE sec vals nv τ a (.inl (.inr X)) =
+      CanonGraph.Paired.Filtered.programmed U hU s labels res ⟨X, hX⟩ := by
+    intro X hX
+    rw [hT]
+    exact eagerAnswers_mem _ U _ ⟨X, hX⟩
+  refine ⟨?_, by rw [hsec]; exact hv, ?_, ?_, ?_, ?_, ?_, ?_,ha⟩
+  · rw [hT]
+    apply CanonGraph.Paired.Filtered.agrees_of_programmed U hU _ labels res
+    intro x
+    rw [secretsOf_eager,privateSecrets_symm,eagerAnswers_mem]
+  ·
+    intro X hX hcell hpre
+    rw [hpubX X hX, CanonGraph.Paired.Filtered.programmed_other U hU s labels res ⟨X, hX⟩ (fun N hused => by
+      have := hcell N hused
+      rw [hsec] at this
+      exact this)]
+    by_cases hr : (⟨X, hX⟩ : U) ∈ Set.range (CanonEncoding.Paired.encCell U hE labels)
+    · obtain ⟨x, hx⟩ := hr
+      rw [hres, residualPsi, CanonEncoding.Paired.residualPsi0, ← hx, SphincsSecurity.Concrete.UniformTableSplit.overwrite_embed]
+      unfold mix
+      rw [if_neg]
+      · show LargeResidual.Paired.rowPresent (CanonEncoding.Paired.encCell U hE labels x).val (τ (CanonEncoding.Paired.encCell U hE labels x)) = _
+        rw [show (CanonEncoding.Paired.encCell U hE labels x).val = X from congrArg Subtype.val hx]
+      intro hpx
+      apply hpre
+      obtain ⟨L, c⟩ := x
+      refine ⟨L, BitVec.ofNat 32 c.val, ?_, (rowPrefix_iff a ha L c).mp hpx⟩
+      have hv := congrArg Subtype.val hx
+      rw [encCell_row, msgLabel_router] at hv
+      exact hv.symm
+    · rw [hres, residualPsi, CanonEncoding.Paired.residualPsi0, SphincsSecurity.Concrete.UniformTableSplit.overwrite_outside _ _ _ _ _ hr]
+      rfl
+  ·
+    intro L ctr hp
+    have hp1 : ctr.toNat < 2 ^ 22 := lt_of_lt_of_le hp.2.1 (WCT9.searchLimit_le L.1.lay)
+    have hc : BitVec.ofNat 32 (⟨ctr.toNat, hp1⟩ : Fin (2 ^ 22)).val = ctr := by
+      apply BitVec.eq_of_toNat_eq
+      rw [BitVec.toNat_ofNat]
+      exact Nat.mod_eq_of_lt (by have := hp1; omega)
+    have hX : Wots.encRow L.toWots (LargeResidual.msgVals vals L) ctr 0 = (CanonEncoding.Paired.encCell U hE labels (L, ⟨ctr.toNat, hp1⟩)).val := by
+      rw [encCell_row, msgLabel_router, hc]
+    rw [hX, hpubX _ (CanonEncoding.Paired.encCell U hE labels (L, ⟨ctr.toNat, hp1⟩)).property]
+    rw [CanonGraph.Paired.Filtered.programmed_other U hU s labels res _ (fun N _ => CanonEncoding.Paired.encodingQuery_ne_cell _ s N labels)]
+    rw [hres, residualPsi, CanonEncoding.Paired.residualPsi0, show (⟨(CanonEncoding.Paired.encCell U hE labels (L, ⟨ctr.toNat, hp1⟩)).val,
+      (CanonEncoding.Paired.encCell U hE labels (L, ⟨ctr.toNat, hp1⟩)).property⟩ : U) = CanonEncoding.Paired.encCell U hE labels (L, ⟨ctr.toNat, hp1⟩) from rfl,
+      SphincsSecurity.Concrete.UniformTableSplit.overwrite_embed]
+    unfold mix
+    rw [if_pos ((rowPrefix_iff a ha L _).mpr (by rw [hc]; exact hp))]
+    unfold LargeResidual.Paired.prefixValue
+    rw [dif_pos hp1]
+    rfl
+  ·
+    intro L
+    have hpub : ∀ x : U, tablePsi U hU hE sec vals nv τ a (.inl (.inr x.val)) =
+        CanonGraph.Paired.Filtered.programmed U hU (secretsOf (tablePsi U hU hE sec vals nv τ a)) labels res x := by
+      intro x
+      rw [hsec]
+      exact hpubX x.val x.property
+    rw [referenceSearch_eq_filtered U hU hE _ labels res hpub L]
+    rw [hres,sel_psi U hE a ha labels τ L]
+  ·
+    intro c hc hn
+    change privPsi s nv a.priv c = a.priv c
+    exact privPsi_other s nv a.priv c hc hn
+  ·
+    intro X hX
+    change SphincsSecurity.Concrete.finiteHashAnswer ∅ U _ X = 0
+    unfold SphincsSecurity.Concrete.finiteHashAnswer
+    rw [dif_neg hX]
+    rfl
+  ·
+    intro m
+    exact privPsi_nonce s nv a.priv m
+end Coherence
+#print axioms coherent_psi
+end ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
+
+namespace ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security
+open ClaudeWCT.W9.T3M SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open Correctness (Answers)
+open ClaudeWCT.W9.T3.Security.LargeResidual (Coord seedView)
+open ClaudeWCT.W9.T3.Security.CanonGraph
+open ClaudeWCT.W9.T3.Security.CanonEncoding (EncLeaf Selections Selection childIndex childIndex_treeBits)
+open ClaudeWCT.W9.T3.Security.CanonEncoding.Paired
+open ClaudeWCT.W9.T3.Security.LargeResidual.Paired
+open SigGolfCandidate.T3.Security.LargeCoupling (mix uniform_equiv_bind)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option synthInstance.maxSize 1024
+attribute [local instance] Classical.propDecidable
+attribute [local irreducible] CanonEncoding.Paired.rowsContext CanonEncoding.Paired.selectionAt
+
+open SigGolfCandidate.T3.Security.LargeCoupling (evalSPMF_bind_comm)
+noncomputable local instance : SampleableType FullGame.FullTable := CanonGraph.instSampleableTypeFullTable_canonGraph
+noncomputable local instance : SampleableType (Message → Digest) := SigGolfCandidate.T3.Security.LargeCoupling.Samplers.samplerNonces
+noncomputable local instance : SampleableType Rows := SampleableType.ofFintype _
+noncomputable local instance : SampleableType LowLabels := CanonGraph.instSampleableTypeLowLabels
+noncomputable local instance : SampleableType Labels := CanonGraph.instSampleableTypeLabels_1
+noncomputable local instance : SampleableType Secrets := CanonGraph.instSampleableTypeSecrets
+noncomputable local instance : SampleableType OtherHalves := CanonGraph.instSampleableTypeOtherHalves
+noncomputable local instance (U : Finset HashInput) : SampleableType (U → HashOutput) := SampleableType.ofFintype _
+
+theorem tables_bind {Result : Type} (U : Finset HashInput) (hU : CanonGraph.Paired.canonInputs ⊆ U)
+    (next : FullGame.FullTable → (U → HashOutput) → ProbComp Result) :
+    𝒮[do
+      let privateTable ← ($ᵗ FullGame.FullTable : ProbComp _)
+      let publicTable ← ($ᵗ (U → HashOutput) : ProbComp _)
+      next privateTable publicTable] =
+      𝒮[do
+        let secrets ← ($ᵗ Secrets : ProbComp _)
+        let other ← ($ᵗ OtherHalves : ProbComp _)
+        let labels ← ($ᵗ Labels : ProbComp _)
+        let residual ← ($ᵗ (U → HashOutput) : ProbComp _)
+        next (privateEquiv.symm (secrets, other)) (CanonGraph.Paired.Filtered.programmed U hU secrets labels residual)] := by
+  refine (CanonGraph.private_bind (fun privateTable => do
+    let publicTable ← ($ᵗ (U → HashOutput) : ProbComp _)
+    next privateTable publicTable)).trans ?_
+  refine evalSPMF_bind_congr' ($ᵗ Secrets : ProbComp _) fun secrets => ?_
+  refine evalSPMF_bind_congr' ($ᵗ OtherHalves : ProbComp _) fun other => ?_
+  exact CanonGraph.Paired.Filtered.uniform_bind_programmed U hU secrets (fun table => next (privateEquiv.symm (secrets, other)) table)
+theorem residual_bind (U : Finset HashInput) (hE : encInputs ⊆ U) (labels : Labels) {R : Type}
+    (next : (U → HashOutput) → ProbComp R) :
+    𝒮[($ᵗ (U → HashOutput) : ProbComp _) >>= next] =
+      𝒮[($ᵗ Rows : ProbComp _) >>= fun rows =>
+        ($ᵗ (U → HashOutput) : ProbComp _) >>= fun τ => next (residualPsi U hE labels rows τ)] := by
+  rw [CanonEncoding.Paired.residual_bind0 U hE labels next]
+  refine evalSPMF_bind_congr' _ fun rows => ?_
+  exact uniform_equiv_bind (presentTableEquiv U)
+    (fun τ => next (CanonEncoding.Paired.residualPsi0 U hE labels rows τ))
+theorem law_derived (U : Finset HashInput) (hU : CanonGraph.Paired.canonInputs ⊆ U) (hE : encInputs ⊆ U) {R : Type}
+    (next : Answers → ProbComp R) :
+    𝒮[($ᵗ FullGame.FullTable : ProbComp _) >>= fun priv => ($ᵗ (U → HashOutput) : ProbComp _) >>= fun pub =>
+        next (Wots.eagerAnswers U priv pub)] =
+      𝒮[($ᵗ Secrets : ProbComp _) >>= fun sec => ($ᵗ FullGame.FullTable : ProbComp _) >>= fun priv' =>
+        ($ᵗ (Message → Digest) : ProbComp _) >>= fun nv => ($ᵗ LowLabels : ProbComp _) >>= fun low =>
+        ($ᵗ LowLabels : ProbComp _) >>= fun high =>
+        ($ᵗ (EncLeaf → Fin (2 ^ 22) → HashOutput) : ProbComp _) >>= fun rows =>
+        ($ᵗ (U → HashOutput) : ProbComp _) >>= fun τ =>
+        next (CanonGraph.eagerAnswers (privateEquiv.symm (sec, nonceOver (privateEquiv priv').2 nv)) U
+          (CanonGraph.Paired.Filtered.programmed U hU sec (CanonGraph.Paired.joinLabels low high) (residualPsi U hE (CanonGraph.Paired.joinLabels low high) rows τ)))] := by
+  simp only [eagerAnswers_eq]
+  rw [tables_bind U hU (fun priv pub => next (CanonGraph.eagerAnswers priv U pub))]
+  refine (evalSPMF_bind_congr' ($ᵗ Secrets : ProbComp _) fun (sec : Secrets) => others_bind _).trans ?_
+  refine evalSPMF_bind_congr' ($ᵗ Secrets : ProbComp _) fun sec => ?_
+  refine evalSPMF_bind_congr' ($ᵗ FullGame.FullTable : ProbComp _) fun priv' => ?_
+  refine evalSPMF_bind_congr' ($ᵗ (Message → Digest) : ProbComp _) fun nv => ?_
+  rw [CanonGraph.Paired.labels_bind]
+  refine evalSPMF_bind_congr' _ fun low => evalSPMF_bind_congr' _ fun high => ?_
+  exact residual_bind U hE (CanonGraph.Paired.joinLabels low high) _
+theorem law_target (U : Finset HashInput) (hU : CanonGraph.Paired.canonInputs ⊆ U) (hE : encInputs ⊆ U) {R : Type}
+    (next : Answers → ProbComp R) :
+    𝒮[($ᵗ FullGame.FullTable : ProbComp _) >>= fun priv => ($ᵗ (U → HashOutput) : ProbComp _) >>= fun pub =>
+        next (Wots.eagerAnswers U priv pub)] =
+      𝒮[($ᵗ LowLabels : ProbComp _) >>= fun high =>
+        ($ᵗ (EncLeaf → Fin (2 ^ 22) → HashOutput) : ProbComp _) >>= fun rows =>
+        ($ᵗ FullGame.FullTable : ProbComp _) >>= fun priv' =>
+        ($ᵗ Secrets : ProbComp _) >>= fun sec => ($ᵗ (Message → Digest) : ProbComp _) >>= fun nv =>
+        ($ᵗ LowLabels : ProbComp _) >>= fun low => ($ᵗ (U → HashOutput) : ProbComp _) >>= fun τ =>
+        next (CanonGraph.eagerAnswers (privateEquiv.symm (sec, nonceOver (privateEquiv priv').2 nv)) U
+          (CanonGraph.Paired.Filtered.programmed U hU sec (CanonGraph.Paired.joinLabels low high) (residualPsi U hE (CanonGraph.Paired.joinLabels low high) rows τ)))] := by
+  rw [law_derived U hU hE next]
+  refine (evalSPMF_bind_congr' _ fun _ => evalSPMF_bind_congr' _ fun _ => evalSPMF_bind_congr' _ fun _ =>
+    evalSPMF_bind_comm _ _ _).trans ?_
+  refine (evalSPMF_bind_congr' _ fun _ => evalSPMF_bind_congr' _ fun _ => evalSPMF_bind_comm _ _ _).trans ?_
+  refine (evalSPMF_bind_congr' _ fun _ => evalSPMF_bind_comm _ _ _).trans ?_
+  refine (evalSPMF_bind_comm _ _ _).trans ?_
+  refine evalSPMF_bind_congr' _ fun _ => ?_
+  refine (evalSPMF_bind_congr' _ fun _ => evalSPMF_bind_congr' _ fun _ => evalSPMF_bind_congr' _ fun _ =>
+    evalSPMF_bind_comm _ _ _).trans ?_
+  refine (evalSPMF_bind_congr' _ fun _ => evalSPMF_bind_congr' _ fun _ => evalSPMF_bind_comm _ _ _).trans ?_
+  refine (evalSPMF_bind_congr' _ fun _ => evalSPMF_bind_comm _ _ _).trans ?_
+  refine (evalSPMF_bind_comm _ _ _).trans ?_
+  refine evalSPMF_bind_congr' _ fun _ => ?_
+  refine (evalSPMF_bind_comm _ _ _).trans ?_
+  rfl
+
+noncomputable def auxOf (high : LowLabels) (rows : Rows) (priv : FullGame.FullTable) : AuxData :=
+  ⟨high,rows,selectionsOfRows rows,priv⟩
+theorem auxOf_consistent (high : LowLabels) (rows : Rows) (priv : FullGame.FullTable) :
+    AuxConsistent (auxOf high rows priv) := rfl
+noncomputable def initComp : ProbComp AuxData :=
+  ($ᵗ LowLabels : ProbComp _) >>= fun high =>
+    ($ᵗ Rows : ProbComp _) >>= fun rows =>
+      ($ᵗ FullGame.FullTable : ProbComp _) >>= fun priv => pure (auxOf high rows priv)
+noncomputable def initLaw : PMF AuxData := liftM initComp
+theorem initLaw_spmf : (liftM initLaw : SPMF AuxData) = 𝒮[initComp] := by
+  apply SPMF.ext
+  intro a
+  rw [SPMF.liftM_apply, ← PMF.probOutput_eq_apply, ← probEvent_eq_eq_probOutput, initLaw,
+    MonitoredPrivate.event_lift, probEvent_eq_eq_probOutput]
+  rfl
+
+#print axioms residual_bind
+#print axioms law_target
+#print axioms initLaw_spmf
+end ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
+
+namespace ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
+open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open SigGolfCandidate.T3.Correctness (Answers)
+open ClaudeWCT.W9.T3.Security.LargeResidual.Paired
+open ClaudeWCT.W9.T3.Security.LargeResidual (Coord WCoord WJunk)
+open SigGolfCandidate.T3.Security.LargeResidual (State Cell AuxQuery retain runWith_query_bind)
+open ClaudeWCT.W9.T3.Security.FamResidual (lazyRun finish observedRun run_posterior lazyImpl lazy_aux' view supp)
+open SigGolfCandidate.T3.Security.LargeCoupling (probEvent_bind_le_of uniform_weight weight_self evalSPMF_uniform_inst
+  uniform_equiv_bind uniform_prod_bind)
+open ClaudeWCT.W9.T3.Security.CanonGraph
+open ClaudeWCT.W9.T3.Security.CanonEncoding
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option synthInstance.maxSize 1024
+attribute [local instance] Classical.propDecidable
+open ClaudeWCT.W9.T3.Security.LargeCoupling.Samplers SigGolfCandidate.T3.Security.LargeCoupling.Samplers
+open SigGolfCandidate.T3.Security.LargeCoupling (completeRows_none probEvent_bind_congr_eq)
+section Lazy
+variable {U : Finset HashInput}
+theorem lazy_aux {β : Type} (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input)) (q : Nat)
+    (i : AuxQuery) (k : AuxSpec.Range i → OracleComp (RWorld U) β) (s : LargeResidual.State WCoord (Cell U)) :
+    lazyRun aux q (liftM ((RWorld U).query (.inl i)) >>= k) s =
+      ((liftM (aux i) : SPMF _) >>= fun v => lazyRun aux q (k v) s) := by
+  exact lazy_aux' aux q i k s
+theorem finish_stop {R : Type} (X : SPMF (Option R × LargeResidual.State WCoord (Cell U)))
+    (P : LargeResidual.State WCoord (Cell U) → Prop) :
+    Pr[fun r => r.1 = none ∧ P r.2 | X >>= finish] = Pr[fun r => r.1 = none ∧ P r.2 | X] := by
+  rw [probEvent_bind_eq_tsum, probEvent_eq_tsum_ite]
+  apply tsum_congr
+  intro r
+  rcases r with ⟨v, st⟩
+  cases v with
+  | none =>
+      simp only [finish, probEvent_pure, true_and]
+      split_ifs <;> simp
+  | some v =>
+      simp only [reduceCtorEq, false_and, if_false, mul_eq_zero]
+      right
+      unfold finish
+      simp only [probEvent_bind_eq_tsum, probEvent_pure, reduceCtorEq, false_and, if_false, mul_zero, tsum_zero]
+theorem observed_avg {R : Type} (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input)) (q : Nat)
+    (program : OracleComp (RWorld U) R) (P : LargeResidual.State WCoord (Cell U) → Prop) :
+    Pr[fun r => r.1 = none ∧ P r.2 | 𝒮[($ᵗ (ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord) : ProbComp _)] >>= fun x =>
+        𝒮[($ᵗ (Cell U → LargeResidual.HashOutput) : ProbComp _)] >>= fun τ =>
+          observedRun aux q (view x) τ program LargeResidual.initial] =
+      Pr[fun r => r.1 = none ∧ P r.2 | lazyRun aux q program LargeResidual.initial] := by
+  rw [← cell_univ, ← completeRows_none]
+  have hpost := run_posterior aux q program (LargeResidual.initial : LargeResidual.State WCoord (Cell U))
+    (by change (supp (fun _ : WCoord => (Finset.univ : Finset LargeResidual.Digest))).Nonempty
+        rw [ClaudeWCT.W9.T3.Security.FamResidual.supp_univ]; exact Finset.univ_nonempty)
+  rw [← finish_stop (lazyRun aux q program LargeResidual.initial) P, ← hpost]
+  apply probEvent_bind_congr_eq
+  intro labels
+  apply probEvent_bind_congr_eq
+  intro τ
+  rw [probEvent_map]
+  congr 1
+  funext r
+  simp only [Function.comp_apply, retain, Option.map_eq_none_iff]
+theorem router_side (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q : Nat) :
+    Pr[fun r => r.1 = none ∧ r.2.counters.calls ≤ q |
+        lazyRun (auxLaw initLaw) q (router (Wots.PairedReference.referenceInputs adversary) adversary q) LargeResidual.initial] =
+      Pr[fun r => r.1 = none ∧ r.2.counters.calls ≤ q |
+        𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun high =>
+        𝒮[($ᵗ (EncLeaf → Fin (2 ^ 22) → HashOutput) : ProbComp _)] >>= fun rows =>
+        𝒮[($ᵗ FullGame.FullTable : ProbComp _)] >>= fun priv =>
+        𝒮[($ᵗ (ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord) : ProbComp _)] >>= fun x =>
+        𝒮[($ᵗ (Cell (Wots.PairedReference.referenceInputs adversary) → LargeResidual.HashOutput) : ProbComp _)] >>= fun τ =>
+        observedRun (auxLaw initLaw) q (view x) τ (routerWith (Wots.PairedReference.referenceInputs adversary) adversary q (auxOf high rows priv))
+          LargeResidual.initial] := by
+  unfold router initReq
+  rw [lazy_aux]
+  change Pr[_ | (liftM initLaw : SPMF AuxData) >>= _] = _
+  rw [initLaw_spmf]
+  unfold initComp
+  simp only [evalSPMF_bind, evalSPMF_pure, bind_assoc, pure_bind]
+  apply probEvent_bind_congr_eq
+  intro high
+  apply probEvent_bind_congr_eq
+  intro rows
+  apply probEvent_bind_congr_eq
+  intro priv
+  exact (observed_avg (auxLaw initLaw) q _ (fun st => st.counters.calls ≤ q)).symm
+end Lazy
+def RealContact (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q : Nat) (x : FirstHit.Recorded Bool × Answers) : Prop :=
+  ContactR adversary q x.1 x.2 ∧ NoOvR adversary x.1 x.2
+theorem loggedOutputs_short {A T : Answers} (hAT : Wots.Ref.ShortAgree A T) (log : QueryLog ClaudeWCT.W9.T3M.Final.Paired.Requests) :
+    WPair.Paired.loggedOutputs A log = WPair.Paired.loggedOutputs T log := by
+  unfold WPair.Paired.loggedOutputs WPair.Paired.signedOutput
+  congr 1
+  funext entry
+  congr 1
+  funext σ
+  rw [digestSearch_short hAT]
+theorem noOvR_short {A T : Answers} (hAT : Wots.Ref.ShortAgree A T) (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP)
+    (rec : FirstHit.Recorded Bool) : NoOvR adversary rec A ↔ NoOvR adversary rec T := by
+  unfold NoOvR LogNoOverflow
+  simp only [loggedOutputs_short hAT]
+/-- The contact event with the FTS no-overflow side condition (on the recorded trace). -/
+def ContactNO (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q : Nat) (z : PairedOuter.PaddedGame.TraceResult × Answers) : Prop :=
+  Contact adversary q z ∧ NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2
+noncomputable def fixedNext (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (T : Answers) : ProbComp (FirstHit.Recorded Bool × Answers) :=
+  (fun r => (r, T)) <$> Wots.Ref.fixedRecord T (PairedOuter.GameWith.idealGame PairedOuter.PaddedGame.checker adversary) (∅, ∅)
+theorem contact_real_side (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
+    Pr[ContactNO adversary q | PairedSeccLaw.completedExperiment adversary q hq] =
+      Pr[RealContact adversary q |
+        ($ᵗ FullGame.FullTable : ProbComp _) >>= fun priv =>
+          ($ᵗ (Wots.PairedReference.referenceInputs adversary → HashOutput) : ProbComp _) >>= fun pub =>
+            fixedNext adversary (Wots.eagerAnswers (Wots.PairedReference.referenceInputs adversary) priv pub)] := by
+  have h1 := Wots.PairedReference.completed_eager_cut adversary q hq (fun rec A => ContactR adversary q rec A ∧ NoOvR adversary rec A)
+  rw [show (ContactNO adversary q) = fun z => ContactR adversary q (QueryRecorded.recordedTrace z.1) z.2 ∧
+    NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2 from rfl, h1]
+  have h2 : (fun x : FirstHit.Recorded Bool × Answers => ContactR adversary q x.1 (Wots.Ref.cut x.1.state x.2) ∧
+      NoOvR adversary x.1 (Wots.Ref.cut x.1.state x.2)) = RealContact adversary q := by
+    funext x
+    exact propext (and_congr (contactR_short (Wots.Ref.cut_shortAgree _ _) adversary q x.1)
+      (noOvR_short (Wots.Ref.cut_shortAgree _ _) adversary x.1))
+  rw [h2]
+  unfold Wots.PairedReference.eagerRecorded
+  rw [MonitoredPrivate.event_lift]
+  apply probEvent_congr' (fun _ _ => Iff.rfl)
+  rw [evalSPMF_bind, evalSPMF_bind, evalSPMF_uniform_inst _ samplerFull]
+  congr 1
+
+end ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
+
+namespace ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
+open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open SigGolfCandidate.T3.Correctness (Answers)
+open ClaudeWCT.W9.T3.Security.LargeResidual.Paired
+open ClaudeWCT.W9.T3.Security.LargeResidual (Coord WCoord WJunk)
+open SigGolfCandidate.T3.Security.LargeResidual (State Cell AuxQuery retain runWith_query_bind)
+open ClaudeWCT.W9.T3.Security.FamResidual (lazyRun finish observedRun run_posterior lazyImpl lazy_aux' view supp)
+open SigGolfCandidate.T3.Security.LargeCoupling (probEvent_bind_le_of uniform_weight weight_self evalSPMF_uniform_inst
+  uniform_equiv_bind uniform_prod_bind)
+open ClaudeWCT.W9.T3.Security.CanonGraph
+open ClaudeWCT.W9.T3.Security.CanonEncoding
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option synthInstance.maxSize 1024
+attribute [local instance] Classical.propDecidable
+open ClaudeWCT.W9.T3.Security.LargeCoupling.Samplers SigGolfCandidate.T3.Security.LargeCoupling.Samplers
+open SigGolfCandidate.T3.Security.LargeCoupling (completeRows_none probEvent_bind_congr_eq)
+theorem contact_le_lazy (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
+    Pr[ContactNO adversary q | PairedSeccLaw.completedExperiment adversary q hq] ≤
+      Pr[fun r => r.1 = none ∧ r.2.counters.calls ≤ q |
+        lazyRun (auxLaw initLaw) q (router (Wots.PairedReference.referenceInputs adversary) adversary q) LargeResidual.initial] := by
+  have hU : CanonGraph.Paired.canonInputs ⊆ Wots.PairedReference.referenceInputs adversary :=
+    CanonGraph.Paired.canonInputs_subset_publicUniverse.trans (Wots.PairedReference.Ref.referenceInputs_universe adversary)
+  have hE : CanonGraph.encInputs ⊆ Wots.PairedReference.referenceInputs adversary :=
+    CanonGraph.encInputs_subset_publicUniverse.trans (Wots.PairedReference.Ref.referenceInputs_universe adversary)
+  rw [contact_real_side, router_side,
+    probEvent_congr' (fun _ _ => Iff.rfl) (law_target (Wots.PairedReference.referenceInputs adversary) hU hE (fixedNext adversary))]
+  refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun high => ?_
+  refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun rows => ?_
+  refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun priv => ?_
+  rw [probEvent_congr' (fun _ _ => Iff.rfl) (world_split _)]
+  refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun x => ?_
+  refine probEvent_bind_le_const _ _ _ _ fun jk => ?_
+  have hτ : ∀ (k : (Wots.PairedReference.referenceInputs adversary → HashOutput) → ProbComp (FirstHit.Recorded Bool × Answers)),
+      𝒮[(@uniformSample (Wots.PairedReference.referenceInputs adversary → HashOutput) (samplerPublic _) : ProbComp _) >>= k] =
+        𝒮[(@uniformSample (Wots.PairedReference.referenceInputs adversary → HashOutput) (samplerCell _) : ProbComp _) >>= k] := by
+    intro k
+    rw [evalSPMF_bind]
+  rw [probEvent_congr' (fun _ _ => Iff.rfl) (hτ _)]
+  refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun τ => ?_
+  · have hT : CanonGraph.eagerAnswers (privateEquiv.symm (secOf x jk,
+          nonceOver (privateEquiv priv).2 (fun m => x.1 (.inr m)))) (Wots.PairedReference.referenceInputs adversary)
+          (CanonGraph.Paired.Filtered.programmed (Wots.PairedReference.referenceInputs adversary) hU (secOf x jk)
+            (CanonGraph.Paired.joinLabels (fun N => x.1 (.inl (.inl N))) high)
+            (residualPsi (Wots.PairedReference.referenceInputs adversary) hE (CanonGraph.Paired.joinLabels (fun N => x.1 (.inl (.inl N))) high) rows τ)) =
+        tablePsi (Wots.PairedReference.referenceInputs adversary) hU hE (secOf x jk) (fun c => view x (.inl c)) (fun m => view x (.inr m)) τ
+          (auxOf high rows priv) := by
+      unfold tablePsi
+      rw [eagerAnswers_eq]
+      rfl
+    rw [hT]
+    unfold fixedNext RealContact
+    rw [probEvent_map]
+    have hcoh := coherent_psi (Wots.PairedReference.referenceInputs adversary) hU hE (secOf x jk) (fun c => view x (.inl c))
+        (fun m => view x (.inr m)) τ (auxOf high rows priv) (auxOf_consistent _ _ _) (seedView_secOf x jk)
+    have h := table_contact_le adversary q hq initLaw hcoh
+      (hcoh.source (evalWithAnswerFn _ keygen).2 (Correctness.keygen_correct _).2.1)
+    have hlab : Sum.elim (fun c => view x (.inl c)) (fun m => view x (.inr m)) = view x := by
+      funext c
+      rcases c with c | m <;> rfl
+    rw [hlab] at h
+    exact h
+
+end ClaudeWCT.W9.T3.Security.LargeCoupling.Paired

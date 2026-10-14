@@ -84,7 +84,7 @@ theorem rankPtr_spec {image : Image} (s : MachineState) (pc : Word)
   · intro r hr; simp at hr; cases r <;> simp_all [rankPtrBase.res, rv_simp] <;> rfl
   · intro A _ _; simp [rankPtrBase.res, rv_simp]
 def rankStart (j : Nat) : Nat := if j = 0 then 267 else if j < 9 then 266 + 5 * j else 268 + 5 * j
-theorem rankPtr_placement {image : Image} {b : Nat} (h : KernAt image b) (j : Fin 17) :
+theorem rankPtr_placement {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) (j : Fin 17) :
     CodeAt image (pcOf (b + rankStart j.val)) rankPtrCode := by
   fin_cases j
   · exact codeAt_top267 h
@@ -208,7 +208,7 @@ theorem topTail_sum (v : Digest) (sum : Nat) :
   simp only [tailWeight, Nat.div_div_eq_div_mul]
   norm_num
   omega
-theorem topTail_spec {image : Image} {b : Nat} (hK : KernAt image b)
+theorem topTail_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
     (s : MachineState) (v : Digest) (sum : Nat) (hsum : sum ≤ 4335)
     (hpc : s.pc = pcOf (b + 353))
     (h28 : s.getReg .x28 = topWindow v 17) (h7 : s.getReg .x7 = v.extractLsb' 64 64)
@@ -252,7 +252,7 @@ theorem rankPartial_seventeen (v : Digest) :
     List.map_append, List.map_cons, List.map_nil, List.sum_append, List.sum_cons,
     List.sum_nil]
   omega
-theorem rankLoad_placement {image : Image} {b : Nat} (h : KernAt image b) (j : Fin 16) :
+theorem rankLoad_placement {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) (j : Fin 16) :
     CodeAt image (pcOf (b + rankStart (j.val + 1) + 2)) [0x000ece83] := by
   fin_cases j
   · exact codeAt_top273 h
@@ -271,7 +271,7 @@ theorem rankLoad_placement {image : Image} {b : Nat} (h : KernAt image b) (j : F
   · exact codeAt_top340 h
   · exact codeAt_top345 h
   · exact codeAt_top350 h
-theorem rankTail_placement {image : Image} {b : Nat} (h : KernAt image b) (j : Fin 16) :
+theorem rankTail_placement {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) (j : Fin 16) :
     CodeAt image (pcOf (b + rankStart (j.val + 1) + 3)) rankTailCode := by
   fin_cases j
   · exact codeAt_top274 h
@@ -290,7 +290,7 @@ theorem rankTail_placement {image : Image} {b : Nat} (h : KernAt image b) (j : F
   · exact codeAt_top341 h
   · exact codeAt_top346 h
   · exact codeAt_top351 h
-theorem rankStep_spec {image : Image} {b : Nat} (hK : KernAt image b)
+theorem rankStep_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
     (j : Fin 16) (s : MachineState) (v : Digest) (sum : Nat)
     (hpc : s.pc = pcOf (b + rankStart (j.val + 1)))
     (h28 : s.getReg .x28 = topWindow v (j.val + 1))
@@ -316,7 +316,7 @@ theorem rankStep_spec {image : Image} {b : Nat} (hK : KernAt image b)
   refine ⟨t3, (e1.trans e2).trans e3, ?_, a3, b3,
     ((r1.trans r2).trans r3).mono (by decide), ((f1.trans f2).trans f3).mono (by simp)⟩
   simpa only [pcOf_add4, rankStart, Nat.add_assoc, Nat.reduceAdd, Nat.reduceMul, Nat.reduceLT, Nat.reduceEqDiff, ↓reduceIte] using p3
-theorem topFold_spec {image : Image} {b : Nat} (hK : KernAt image b)
+theorem topFold_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
     (s : MachineState) (v : Digest) (hpc : s.pc = pcOf (b + 265))
     (h6 : s.getReg .x6 = v.extractLsb' 0 64) (h7 : s.getReg .x7 = v.extractLsb' 64 64)
     (ht : SumTableOK s) :
@@ -574,7 +574,7 @@ theorem rankPartial_le (v : Digest) (n : Nat) : rankPartial v n ≤ 255 * n := b
     rw [rankPartial]
     have := rankLookup_le (topRank v n)
     omega
-theorem topCheck_spec {image : Image} {b : Nat} (hK : KernAt image b)
+theorem topCheck_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
     (s : MachineState) (v : Digest)
     (hpc : s.pc = pcOf (b + 265))
     (h6 : s.getReg .x6 = v.extractLsb' 0 64) (h7 : s.getReg .x7 = v.extractLsb' 64 64)
@@ -661,7 +661,7 @@ structure DigInv (b : Nat) (s0 : MachineState) (v : Digest) (n n4 i : Nat) (t : 
   digs : ∀ j < i, t.getByte (BitVec.ofNat 64 (DIGITS + j)) = BitVec.ofNat 8 (digVal v n4 j)
   regs : RegsExcept s0 t tailRegs
   frame : Frame s0 t DigW
-theorem dig_body (hK : KernAt image b) {s0 : MachineState} {v : Digest} {n n4 i : Nat} (hn : n ≤ 58)
+theorem dig_body {rewardCondition : Prop} (hK : KernAt image b rewardCondition) {s0 : MachineState} {v : Digest} {n n4 i : Nat} (hn : n ≤ 58)
     (hin : i < n) {t : MachineState} (hI : DigInv b s0 v n n4 i t) (hn4 : n4 < 2 ^ 63) :
     ∃ k u, Steps image t k k u ∧ k ≤ 19 ∧ DigInv b s0 v n n4 (i + 1) u := by
   obtain ⟨t1, s1, p1, r1, f1⟩ := cs442_spec hK t hI.pc i n (by omega) (by omega) hI.x20 hI.x21
@@ -739,7 +739,7 @@ theorem dig_body (hK : KernAt image b) {s0 : MachineState} {v : Digest} {n n4 i 
   · exact (((hI.regs.trans r4').trans r5).trans r6).mono (by decide)
   · exact (((hI.frame.trans hfr).trans f5).trans f6).mono
       (fun A _ h => by simp only [or_false, or_self] at h; exact h)
-theorem dig_loop (hK : KernAt image b) {s0 : MachineState} {v : Digest} {n n4 : Nat} (hn : n ≤ 58)
+theorem dig_loop {rewardCondition : Prop} (hK : KernAt image b rewardCondition) {s0 : MachineState} {v : Digest} {n n4 : Nat} (hn : n ≤ 58)
     (hn4 : n4 < 2 ^ 63) : ∀ m i t, i + m = n → DigInv b s0 v n n4 i t →
       ∃ k u, Steps image t k k u ∧ k ≤ 19 * m ∧ DigInv b s0 v n n4 n u := by
   intro m
@@ -756,7 +756,7 @@ theorem ext_lo_ofNat (v : Digest) (n4 : Nat) :
 theorem ext_hi_ofNat (v : Digest) (n4 : Nat) :
     v.extractLsb' 64 64 = BitVec.ofNat 64 (v.toNat / 2 ^ digOff n4 0 / 2 ^ 64) := by
   simp [digOff, BitVec.extractLsb', Nat.shiftRight_eq_div_pow]
-theorem cs_tail (hK : KernAt image b) (t : MachineState) (hpc : t.pc = pcOf (b + 438)) (v : Digest)
+theorem cs_tail {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (t : MachineState) (hpc : t.pc = pcOf (b + 438)) (v : Digest)
     (lay T S ret : Nat) (hl : lay < 4) (hT : T < 2 ^ 63) (hST : lay ≠ 0 → S ≤ T)
     (h1 : t.getReg .x1 = pcOf ret) (h8 : t.getReg .x8 = BitVec.ofNat 64 lay)
     (h17 : t.getReg .x17 = BitVec.ofNat 64 T) (h25 : t.getReg .x25 = BitVec.ofNat 64 S)

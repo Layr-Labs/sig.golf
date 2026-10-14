@@ -241,6 +241,18 @@ def PosSource : Extract.Pos → Prop
   | .forest index => index < 2 ^ 31
   | .ftsLeaf index coord leaf => index < 2 ^ 31 ∧ coord < 7 ∧ leaf < 2048
   | .ftsNode index coord level node => index < 2 ^ 31 ∧ coord < 7 ∧ level < 11 ∧ node < 2 ^ (11 - level - 1)
+def StructuralHitSrc (answers : Answers) (trace : List Entry) : Prop :=
+  ∃ position input answer, (input, answer) ∈ trace ∧ Extract.posOf input = some position ∧
+    position.Bounded ∧ PosSource position ∧ StructuralClass answers input position ∧
+    HashHit answers (Extract.honestInput answers position) input
+theorem StructuralHitSrc.toStructuralHit {answers : Answers} {trace : List Entry}
+    (h : StructuralHitSrc answers trace) : StructuralHit answers trace := by
+  obtain ⟨position, input, answer, hm, hpos, hb, -, hc, hh⟩ := h
+  exact ⟨position, input, answer, hm, hpos, hb, hc, hh⟩
+theorem structuralHitSrc_mono {answers : Answers} {trace trace' : List Entry} (h : StructuralHitSrc answers trace)
+    (hsub : ∀ e ∈ trace, e ∈ trace') : StructuralHitSrc answers trace' := by
+  obtain ⟨position, input, answer, hm, hpos, hb, hs, hc, hh⟩ := h
+  exact ⟨position, input, answer, hsub _ hm, hpos, hb, hs, hc, hh⟩
 theorem height_le' (lay : Layer) : height lay ≤ 12 := by fin_cases lay <;> decide
 theorem chainCount_le' (lay : Layer) : chainCount lay ≤ 58 := by fin_cases lay <;> decide
 theorem width_le' (lay : Layer) (i : Nat) : width lay i ≤ 3 := by unfold width; omega

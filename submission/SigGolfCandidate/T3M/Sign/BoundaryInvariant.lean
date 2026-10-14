@@ -689,3 +689,407 @@ theorem Inv.stable {sk : SecretKey} {cache : Bytes 131072} {t u : MachineState}
     exact h.2
 end SigGolfCandidate.T3M.Sign.Boundary
 end
+
+namespace SigGolfCandidate.T3M.Sign.Boundary.Generic
+open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp
+open SigGolfCandidate.T3 (M Digest HashOutput Cache Region Signature Selection sign signPayload signLayers privateMac privateNonce privateInput header digestSearch selections admissible attemptLimit buildFts frontier forestPk piecesSignature zero16)
+open SigGolfCandidate.T3M.Keygen (PRIV SEEDS CHAIN NODE NOUT LOUT LEAFPK MOUT ZDIG DUMMY TOP MACBLK REGION)
+open SphincsSecurity (bytesLE bytesLE_length)
+set_option maxRecDepth 20000
+set_option maxHeartbeats 1000000
+structure FrontCodeAt (im : Image) : Prop where
+  seg0 : CodeAt im (pcOf 0) seg_0
+  seg1432 : CodeAt im (pcOf 1432) seg_1432
+  seg47 : CodeAt im (pcOf 47) seg_47
+  seg54 : CodeAt im (pcOf 54) seg_54
+  seg57 : CodeAt im (pcOf 57) seg_57
+  seg60 : CodeAt im (pcOf 60) seg_60
+  seg63 : CodeAt im (pcOf 63) seg_63
+  seg122 : CodeAt im (pcOf 122) seg_122
+  seg123 : CodeAt im (pcOf 123) seg_123
+  seg543 : CodeAt im (pcOf 543) seg_543
+theorem blk0_spec (im : Image) (hc : FrontCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 0) :
+    ∃ t, Steps im s 17 17 t ∧ t.pc = pcOf 1227 ∧ t.getReg .x5 = 0 ∧
+      t.getMem (BitVec.ofNat 64 TAG) = s.getMem (BitVec.ofNat 64 CACHE) ∧
+      t.getMem (BitVec.ofNat 64 (TAG + 8)) = s.getMem (BitVec.ofNat 64 (CACHE + 8)) ∧
+      t.getMem (BitVec.ofNat 64 (TAG + 16)) = s.getMem (BitVec.ofNat 64 (CACHE + 16)) ∧
+      t.getMem (BitVec.ofNat 64 (TAG + 24)) = s.getMem (BitVec.ofNat 64 (CACHE + 24)) ∧
+      RegsExcept s t [.x5, .x6, .x7, .x29, .x30] ∧
+      Frame s t (fun A => (TAG ≤ A ∧ A < TAG + 32) ∨ (MACBLK ≤ A ∧ A < MACBLK + 64)) := by
+  refine ⟨_, symRun_sound blk_0 hc.seg0 s hpc (by simp [blk_0.res, rv_simp]),
+    ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · simp [blk_0.res, E.eval]
+  · simp [blk_0.res, rv_simp]
+  all_goals first
+    | (simp only [Result.toState_getMem, blk_0.res, TAG, CACHE, MACBLK, SK]; t3n [])
+    | skip
+  · intro r hr; simp at hr; cases r <;> simp_all [blk_0.res, rv_simp] <;> rfl
+  · intro A hA hn
+    simp only [TAG, MACBLK] at hn
+    simp only [Result.toState_getMem, blk_0.res]
+    t3n []
+    repeat rw [if_neg (by omega)]
+theorem blk1432_spec (im : Image) (hc : FrontCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 1432) :
+    ∃ t, Steps im s 1 1 t ∧ t.pc = pcOf 47 ∧
+      RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_, symRun_sound blk_1432 hc.seg1432 s hpc (by simp [blk_1432.res, rv_simp]), ?_, ?_, ?_⟩
+  · simp [blk_1432.res, E.eval]
+  · intro r hr; cases r <;> simp [blk_1432.res, rv_simp] <;> rfl
+  · intro A hA hn; simp [blk_1432.res, rv_simp]
+theorem blk47_spec (im : Image) (hc : FrontCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 47) :
+    ∃ t, Steps im s 7 7 t ∧
+      t.pc = (if s.getMem (BitVec.ofNat 64 MACOUT) = s.getMem (BitVec.ofNat 64 TAG) then pcOf 54
+        else pcOf 543) ∧
+      t.getReg .x28 = BitVec.ofNat 64 MACOUT ∧ t.getReg .x29 = BitVec.ofNat 64 TAG ∧
+      RegsExcept s t [.x6, .x7, .x28, .x29] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_, symRun_sound blk_47 hc.seg47 s hpc (by simp [blk_47.res, rv_simp]), ?_, ?_, ?_, ?_, ?_⟩
+  · simp only [Result.toState_pc, blk_47.res, E.eval, CmpOp.eval, MACOUT, TAG]
+    t3n []
+    split_ifs <;> simp_all
+  · simp [blk_47.res, rv_simp]
+  · simp [blk_47.res, rv_simp]
+  · intro r hr; simp at hr; cases r <;> simp_all [blk_47.res, rv_simp] <;> rfl
+  · intro A _ _; simp [blk_47.res, rv_simp]
+theorem cmp_next_spec (im : Image) {a k : Nat} {seg : List (BitVec 32)} {r : Result}
+    (hc : CodeAt im (pcOf a) seg) (hrun : symRun { noAlias := true } seg (pcOf a) 100 = some r)
+    (s : MachineState) (hpc : s.pc = pcOf a)
+    (h28 : s.getReg .x28 = BitVec.ofNat 64 MACOUT) (h29 : s.getReg .x29 = BitVec.ofNat 64 TAG)
+    (hobl : r.obligs s)
+    (hpcE : (r.toState s).pc = if s.getMem (BitVec.ofNat 64 (MACOUT + 8 * k)) =
+      s.getMem (BitVec.ofNat 64 (TAG + 8 * k)) then pcOf (a + 3) else pcOf 543)
+    (hregs : RegsExcept s (r.toState s) [.x6, .x7]) (hfr : Frame s (r.toState s) (fun _ => False)) :
+    ∃ t, Steps im s r.steps r.cycles t ∧
+      t.pc = (if s.getMem (BitVec.ofNat 64 (MACOUT + 8 * k)) = s.getMem (BitVec.ofNat 64 (TAG + 8 * k))
+        then pcOf (a + 3) else pcOf 543) ∧
+      RegsExcept s t [.x6, .x7] ∧ Frame s t (fun _ => False) :=
+  ⟨_, symRun_sound hrun hc s hpc hobl, hpcE, hregs, hfr⟩
+theorem blk54_spec (im : Image) (hc : FrontCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 54)
+    (h28 : s.getReg .x28 = BitVec.ofNat 64 MACOUT) (h29 : s.getReg .x29 = BitVec.ofNat 64 TAG) :
+    ∃ t, Steps im s 3 3 t ∧
+      t.pc = (if s.getMem (BitVec.ofNat 64 (MACOUT + 8 * 1)) = s.getMem (BitVec.ofNat 64 (TAG + 8 * 1))
+        then pcOf (54 + 3) else pcOf 543) ∧
+      RegsExcept s t [.x6, .x7] ∧ Frame s t (fun _ => False) :=
+  cmp_next_spec im hc.seg54 blk_54 s hpc h28 h29 (by simp only [blk_54.res]; t3n [h28, h29, MACOUT, TAG] <;> norm_num)
+    (by simp only [Result.toState_pc, blk_54.res, E.eval, CmpOp.eval, MACOUT, TAG]; t3n [h28, h29]
+        split_ifs <;> simp_all)
+    (by intro r hr; simp at hr; cases r <;> simp_all [blk_54.res, rv_simp] <;> rfl)
+    (by intro A _ _; simp [blk_54.res, rv_simp])
+theorem blk57_spec (im : Image) (hc : FrontCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 57)
+    (h28 : s.getReg .x28 = BitVec.ofNat 64 MACOUT) (h29 : s.getReg .x29 = BitVec.ofNat 64 TAG) :
+    ∃ t, Steps im s 3 3 t ∧
+      t.pc = (if s.getMem (BitVec.ofNat 64 (MACOUT + 8 * 2)) = s.getMem (BitVec.ofNat 64 (TAG + 8 * 2))
+        then pcOf (57 + 3) else pcOf 543) ∧
+      RegsExcept s t [.x6, .x7] ∧ Frame s t (fun _ => False) :=
+  cmp_next_spec im hc.seg57 blk_57 s hpc h28 h29 (by simp only [blk_57.res]; t3n [h28, h29, MACOUT, TAG] <;> norm_num)
+    (by simp only [Result.toState_pc, blk_57.res, E.eval, CmpOp.eval, MACOUT, TAG]; t3n [h28, h29]
+        split_ifs <;> simp_all)
+    (by intro r hr; simp at hr; cases r <;> simp_all [blk_57.res, rv_simp] <;> rfl)
+    (by intro A _ _; simp [blk_57.res, rv_simp])
+theorem blk60_spec (im : Image) (hc : FrontCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 60)
+    (h28 : s.getReg .x28 = BitVec.ofNat 64 MACOUT) (h29 : s.getReg .x29 = BitVec.ofNat 64 TAG) :
+    ∃ t, Steps im s 3 3 t ∧
+      t.pc = (if s.getMem (BitVec.ofNat 64 (MACOUT + 8 * 3)) = s.getMem (BitVec.ofNat 64 (TAG + 8 * 3))
+        then pcOf (60 + 3) else pcOf 543) ∧
+      RegsExcept s t [.x6, .x7] ∧ Frame s t (fun _ => False) :=
+  cmp_next_spec im hc.seg60 blk_60 s hpc h28 h29 (by simp only [blk_60.res]; t3n [h28, h29, MACOUT, TAG] <;> norm_num)
+    (by simp only [Result.toState_pc, blk_60.res, E.eval, CmpOp.eval, MACOUT, TAG]; t3n [h28, h29]
+        split_ifs <;> simp_all)
+    (by intro r hr; simp at hr; cases r <;> simp_all [blk_60.res, rv_simp] <;> rfl)
+    (by intro A _ _; simp [blk_60.res, rv_simp])
+theorem blk63_spec (im : Image) (hc : FrontCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 63) :
+    ∃ t, Steps im s 59 59 t ∧ t.pc = pcOf 122 ∧
+      t.getReg .x10 = BitVec.ofNat 64 NONCE ∧ t.getReg .x11 = BitVec.ofNat 64 128 ∧
+      t.getReg .x12 = BitVec.ofNat 64 RHOOUT ∧
+      t.getMem (BitVec.ofNat 64 PRIV) = s.getMem (BitVec.ofNat 64 SK) ∧
+      t.getMem (BitVec.ofNat 64 (PRIV + 8)) = s.getMem (BitVec.ofNat 64 (SK + 8)) ∧
+      t.getMem (BitVec.ofNat 64 (PRIV + 32)) = s.getMem (BitVec.ofNat 64 (SK + 16)) ∧
+      t.getMem (BitVec.ofNat 64 (PRIV + 40)) = s.getMem (BitVec.ofNat 64 (SK + 24)) ∧
+      t.getMem (BitVec.ofNat 64 (PRIV + 48)) = 0 ∧ t.getMem (BitVec.ofNat 64 (PRIV + 56)) = 0 ∧
+      t.getMem (BitVec.ofNat 64 NONCE) = s.getMem (BitVec.ofNat 64 SK) ∧
+      t.getMem (BitVec.ofNat 64 (NONCE + 8)) = s.getMem (BitVec.ofNat 64 (SK + 8)) ∧
+      t.getMem (BitVec.ofNat 64 (NONCE + 16)) = BitVec.ofNat 64 1793 ∧
+      t.getMem (BitVec.ofNat 64 (NONCE + 24)) = 0 ∧
+      t.getMem (BitVec.ofNat 64 (NONCE + 32)) = s.getMem (BitVec.ofNat 64 (SK + 16)) ∧
+      t.getMem (BitVec.ofNat 64 (NONCE + 40)) = s.getMem (BitVec.ofNat 64 (SK + 24)) ∧
+      t.getMem (BitVec.ofNat 64 (NONCE + 48)) = 0 ∧ t.getMem (BitVec.ofNat 64 (NONCE + 56)) = 0 ∧
+      t.getMem (BitVec.ofNat 64 (NONCE + 64)) = s.getMem (BitVec.ofNat 64 MSG) ∧
+      t.getMem (BitVec.ofNat 64 (NONCE + 72)) = s.getMem (BitVec.ofNat 64 (MSG + 8)) ∧
+      t.getMem (BitVec.ofNat 64 (NONCE + 80)) = s.getMem (BitVec.ofNat 64 (MSG + 16)) ∧
+      t.getMem (BitVec.ofNat 64 (NONCE + 88)) = s.getMem (BitVec.ofNat 64 (MSG + 24)) ∧
+      RegsExcept s t [.x6, .x7, .x10, .x11, .x12, .x28, .x29, .x30] ∧
+      Frame s t (fun A => A = PRIV ∨ A = PRIV + 8 ∨ A = PRIV + 32 ∨ A = PRIV + 40 ∨ A = PRIV + 48 ∨
+        A = PRIV + 56 ∨ (NONCE ≤ A ∧ A < NONCE + 96)) := by
+  refine ⟨_, symRun_sound blk_63 hc.seg63 s hpc (by simp [blk_63.res, rv_simp]),
+    ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · simp [blk_63.res, E.eval]
+  · simp [blk_63.res, rv_simp]
+  · simp [blk_63.res, rv_simp]
+  · simp [blk_63.res, rv_simp]
+  all_goals first
+    | (simp only [Result.toState_getMem, blk_63.res, PRIV, NONCE, SK, MSG]; t3n [])
+    | skip
+  · intro r hr; simp at hr; cases r <;> simp_all [blk_63.res, rv_simp] <;> rfl
+  · intro A hA hn
+    simp only [PRIV, NONCE] at hn
+    simp only [Result.toState_getMem, blk_63.res]
+    t3n []
+    repeat rw [if_neg (by omega)]
+theorem fetch_122 (im : Image) (hc : FrontCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 122) : fetch im s = some (.base .ECALL) :=
+  (hc.seg122.fetch s hpc).trans rfl
+theorem blk123_spec (im : Image) (hc : FrontCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 123) :
+    ∃ t, Steps im s 30 30 t ∧ t.pc = pcOf 153 ∧ t.getReg .x19 = BitVec.ofNat 64 0 ∧
+      t.getMem (BitVec.ofNat 64 SIG) = s.getMem (BitVec.ofNat 64 RHOOUT) ∧
+      t.getMem (BitVec.ofNat 64 (SIG + 8)) = s.getMem (BitVec.ofNat 64 (RHOOUT + 8)) ∧
+      t.getMem (BitVec.ofNat 64 DIG) = s.getMem (BitVec.ofNat 64 RHOOUT) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 8)) = s.getMem (BitVec.ofNat 64 (RHOOUT + 8)) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 MSG) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 (MSG + 8)) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 (MSG + 16)) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 (MSG + 24)) ∧
+      RegsExcept s t [.x6, .x7, .x19, .x29, .x30] ∧
+      Frame s t (fun A => A = SIG ∨ A = SIG + 8 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨ A = DIG + 40 ∨
+        A = DIG + 48 ∨ A = DIG + 56) := by
+  refine ⟨_, symRun_sound blk_123 hc.seg123 s hpc (by simp [blk_123.res, rv_simp]),
+    ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · simp [blk_123.res, E.eval]
+  · simp [blk_123.res, rv_simp]
+  all_goals first
+    | (simp only [Result.toState_getMem, blk_123.res, SIG, DIG, RHOOUT, MSG]; t3n [])
+    | skip
+  · intro r hr; simp at hr; cases r <;> simp_all [blk_123.res, rv_simp] <;> rfl
+  · intro A hA hn
+    simp only [SIG, DIG] at hn
+    simp only [Result.toState_getMem, blk_123.res]
+    t3n []
+    repeat rw [if_neg (by omega)]
+theorem cmp_chain (im : Image) (hc : FrontCodeAt im) (t : MachineState) (hpc : t.pc = pcOf 47) (a tag : BitVec 256)
+    (ha : OutAt t MACOUT a) (ht : OutAt t TAG tag) :
+    (a = tag → ∃ u, Steps im t 16 16 u ∧ u.pc = pcOf 63 ∧ RegsExcept t u [.x6, .x7, .x28, .x29] ∧
+      Frame t u (fun _ => False)) ∧
+    (a ≠ tag → ∃ u k c, Steps im t k c u ∧ c ≤ 16 ∧ u.pc = pcOf 543) := by
+  have e : ∀ k < 4, (t.getMem (BitVec.ofNat 64 (MACOUT + 8 * k)) = t.getMem (BitVec.ofNat 64 (TAG + 8 * k))) ↔
+      a.extractLsb' (64 * k) 64 = tag.extractLsb' (64 * k) 64 := fun k hk => by rw [ha k hk, ht k hk]
+  have hiff := bv256_eq_iff a tag
+  obtain ⟨t1, s1, p1, x28, x29, r1, f1⟩ := blk47_spec im hc t hpc
+  have g : ∀ u, RegsExcept t u [.x6, .x7, .x28, .x29] → Frame t u (fun _ => False) →
+      ∀ k < 4, (u.getMem (BitVec.ofNat 64 (MACOUT + 8 * k)) = u.getMem (BitVec.ofNat 64 (TAG + 8 * k)) ↔
+        a.extractLsb' (64 * k) 64 = tag.extractLsb' (64 * k) 64) := fun u _ hf k hk => by
+    rw [hf.get (by sg_omega) (fun h => h), hf.get (by sg_omega) (fun h => h)]; exact e k hk
+  have e0 := e 0 (by decide); simp only [Nat.mul_zero, Nat.add_zero] at e0
+  constructor
+  · intro hat
+    have h0 : a.extractLsb' 0 64 = tag.extractLsb' 0 64 := (hiff.1 hat).1
+    rw [if_pos (e0.2 h0)] at p1
+    have r1' : RegsExcept t t1 [.x6, .x7, .x28, .x29] := r1
+    obtain ⟨t2, s2, p2, r2, f2⟩ := blk54_spec im hc t1 p1 x28 x29
+    rw [if_pos ((g t1 r1' f1 1 (by decide)).2 (hiff.1 hat).2.1)] at p2
+    have r12 : RegsExcept t t2 [.x6, .x7, .x28, .x29] := (r1'.trans r2).mono (by decide)
+    have f12 : Frame t t2 (fun _ => False) := (f1.trans f2).mono (fun _ _ h => by simp_all)
+    obtain ⟨t3, s3, p3, r3, f3⟩ := blk57_spec im hc t2 p2 (by rw [r2.get (by decide), x28]) (by rw [r2.get (by decide), x29])
+    rw [if_pos ((g t2 r12 f12 2 (by decide)).2 (hiff.1 hat).2.2.1)] at p3
+    have r13 : RegsExcept t t3 [.x6, .x7, .x28, .x29] := (r12.trans r3).mono (by decide)
+    have f13 : Frame t t3 (fun _ => False) := (f12.trans f3).mono (fun _ _ h => by simp_all)
+    obtain ⟨t4, s4, p4, r4, f4⟩ := blk60_spec im hc t3 p3 (by rw [r3.get (by decide), r2.get (by decide), x28])
+      (by rw [r3.get (by decide), r2.get (by decide), x29])
+    rw [if_pos ((g t3 r13 f13 3 (by decide)).2 (hiff.1 hat).2.2.2)] at p4
+    exact ⟨t4, (s1.trans s2).trans (s3.trans s4), p4, (r13.trans r4).mono (by decide),
+      (f13.trans f4).mono (fun _ _ h => by simp_all)⟩
+  · intro hne
+    have r1' : RegsExcept t t1 [.x6, .x7, .x28, .x29] := r1
+    by_cases h0 : a.extractLsb' 0 64 = tag.extractLsb' 0 64
+    · rw [if_pos (e0.2 h0)] at p1
+      obtain ⟨t2, s2, p2, r2, f2⟩ := blk54_spec im hc t1 p1 x28 x29
+      have r12 : RegsExcept t t2 [.x6, .x7, .x28, .x29] := (r1'.trans r2).mono (by decide)
+      have f12 : Frame t t2 (fun _ => False) := (f1.trans f2).mono (fun _ _ h => by simp_all)
+      by_cases h1 : a.extractLsb' 64 64 = tag.extractLsb' 64 64
+      · rw [if_pos ((g t1 r1' f1 1 (by decide)).2 h1)] at p2
+        obtain ⟨t3, s3, p3, r3, f3⟩ := blk57_spec im hc t2 p2 (by rw [r2.get (by decide), x28])
+          (by rw [r2.get (by decide), x29])
+        have r13 : RegsExcept t t3 [.x6, .x7, .x28, .x29] := (r12.trans r3).mono (by decide)
+        have f13 : Frame t t3 (fun _ => False) := (f12.trans f3).mono (fun _ _ h => by simp_all)
+        by_cases h2 : a.extractLsb' 128 64 = tag.extractLsb' 128 64
+        · rw [if_pos ((g t2 r12 f12 2 (by decide)).2 h2)] at p3
+          obtain ⟨t4, s4, p4, -, -⟩ := blk60_spec im hc t3 p3 (by rw [r3.get (by decide), r2.get (by decide), x28])
+            (by rw [r3.get (by decide), r2.get (by decide), x29])
+          have h3 : ¬ a.extractLsb' 192 64 = tag.extractLsb' 192 64 := fun h3 => hne (hiff.2 ⟨h0, h1, h2, h3⟩)
+          rw [if_neg (fun h => h3 ((g t3 r13 f13 3 (by decide)).1 h))] at p4
+          exact ⟨t4, _, _, (s1.trans s2).trans (s3.trans s4), le_refl _, p4⟩
+        · rw [if_neg (fun h => h2 ((g t2 r12 f12 2 (by decide)).1 h))] at p3
+          exact ⟨t3, _, _, (s1.trans s2).trans s3, by norm_num, p3⟩
+      · rw [if_neg (fun h => h1 ((g t1 r1' f1 1 (by decide)).1 h))] at p2
+        exact ⟨t2, _, _, s1.trans s2, by norm_num, p2⟩
+    · rw [if_neg (fun h => h0 (e0.1 h))] at p1
+      exact ⟨t1, _, _, s1, by norm_num, p1⟩
+theorem fail_spec (im : Image) (hc : FrontCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 543) :
+    ∃ t, Steps im s 2 2 t ∧ Failed t ∧ RegsExcept s t [.x5, .x10] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_, symRun_sound blk_543 hc.seg543 s hpc (by simp [blk_543.res, rv_simp]), ⟨?_, ?_, ?_⟩, ?_, ?_⟩
+  · simp [blk_543.res, E.eval]
+  · simp [blk_543.res, rv_simp]
+  · simp [blk_543.res, rv_simp]
+  · intro r hr; simp at hr; cases r <;> simp_all [blk_543.res, rv_simp] <;> rfl
+  · intro A _ _; simp [blk_543.res, rv_simp]
+theorem nonce_front (im : Image) (hc : FrontCodeAt im) (hmcode : FullCache.Generic.MacCodeAt im true) {sk : SecretKey} {cache : Bytes 131072} {m : Message}
+    {α : Type} {W : Nat} {Q : Option α → MachineState → Prop}
+    (K : Digest → M (Option α))
+    (hfail : ∀ t, Failed t → Q none t)
+    (hrest : ∀ rho t, NoncePost sk cache m rho t → TBSim im sk t W (K rho) Q) :
+    TBSim im sk (sinit sk cache m) (frontC + W) (do
+      let tag ← privateMac (cacheDec cache).region
+      if tag ≠ (cacheDec cache).tag then pure none else privateNonce m >>= K) Q := by
+  set s0 := sinit sk cache m with hs0
+  obtain ⟨t1, st1, p1, x5, g0, g8, g16, g24, r1, f1⟩ := blk0_spec im hc s0 (sinit_pc sk cache m)
+  have e1 : ∀ X, X < 2 ^ 64 → ¬ ((TAG ≤ X ∧ X < TAG + 32) ∨ (MACBLK ≤ X ∧ X < MACBLK + 64)) →
+      t1.getMem (BitVec.ofNat 64 X) = s0.getMem (BitVec.ofNat 64 X) := fun X hX h => f1.get hX h
+  have hsk : FullCache.SkAt t1 sk := by
+    intro j
+    rw [e1 _ (by sg_omega) (by sg_omega)]
+    exact sinit_sk sk cache m j.val j.isLt
+  have hregion : t1.readWords (BitVec.ofNat 64 REGION) 16380 = wordsOf (List.ofFn (cacheDec cache).region) := by
+    rw [frame_readWords f1 REGION 16380 (by decide) (fun i _ h => by sg_omega)]
+    exact sinit_region sk cache m
+  refine TBSim.of_eq (W := 17 + (2489875 + (1 + (16 + (59 + (8 * 2 + (30 + W))))))) ?_ rfl
+    (by unfold frontC; ring)
+  refine TBSim.steps st1 ?_
+  refine TBSim.bind ((FullCache.Generic.mac_tsim true im hmcode sk (cacheDec cache).region t1 p1 x5 hsk hregion).toTBSim (by decide))
+    (fun a tm hm => ?_)
+  obtain ⟨t2, stm, pcm, rm, fm⟩ := blk1432_spec im hc tm hm.pc
+  refine TBSim.steps stm ?_
+  have t2x5 : t2.getReg .x5 = 0 := by rw [rm.get (by simp),hm.x5]
+  have hwf : Frame t1 t2 (fun X => (PRIV ≤ X ∧ X < PRIV+64) ∨
+      (0x70000 ≤ X ∧ X < 0x70040) ∨ (MACOUT ≤ X ∧ X < MACOUT+32)) :=
+    (hm.frame.trans fm).mono (by
+      intro X hX h; rcases h with h | h
+      · exact h
+      · exact h.elim)
+  have ha : OutAt t2 MACOUT a := by
+    have hw : t2.readWords (BitVec.ofNat 64 MACOUT) 4 = wordsOf (bytesLE 32 a) := by
+      rw [frame_readWords fm MACOUT 4 (by decide) (by intro i hi h; exact h)]
+      exact hm.words
+    rw [show (4:Nat)=2+2 from rfl,readWords_add,readWords_two,readWords_two,wordsOf_bytesLE32] at hw
+    simp only [List.cons_append,List.nil_append,List.cons.injEq] at hw
+    intro k hk
+    interval_cases k
+    · exact hw.1
+    · exact hw.2.1
+    · exact hw.2.2.1
+    · exact hw.2.2.2.1
+  have ht : OutAt t2 TAG (cacheDec cache).tag := fun k hk => by
+    rw [hwf.get (by sg_omega) (by sg_omega)]
+    have := sinit_tag sk cache m k hk
+    interval_cases k
+    · rw [show TAG + 8 * 0 = TAG from rfl, g0]; exact this
+    · rw [show TAG + 8 * 1 = TAG + 8 from rfl, g8]; exact this
+    · rw [show TAG + 8 * 2 = TAG + 16 from rfl, g16]; exact this
+    · rw [show TAG + 8 * 3 = TAG + 24 from rfl, g24]; exact this
+  obtain ⟨heq, hne⟩ := cmp_chain im hc t2 pcm a _ ha ht
+  by_cases hat : a = (cacheDec cache).tag
+  swap
+  ·
+    rw [if_pos hat]
+    obtain ⟨u, k, c, su, hcycles, upc⟩ := hne hat
+    obtain ⟨v, sv, hfv, -, -⟩ := fail_spec im hc u upc
+    exact TBSim.mono (TBSim.pure_steps (su.trans sv) (hfail v hfv)) (by omega) (fun _ _ h => h)
+  rw [if_neg (not_not.2 hat)]
+  obtain ⟨t3, st3, p3, r3, f3⟩ := heq hat
+  refine TBSim.steps st3 ?_
+  obtain ⟨t4, st4, p4, y10, y11, y12, q0, q8, q32, q40, q48, q56, n0, n8, n16, n24, n32, n40, n48, n56, n64, n72,
+    n80, n88, r4, f4⟩ := blk63_spec im hc t3 p3
+  have f04 : Frame s0 t4 (fun X => ((TAG ≤ X ∧ X < TAG + 32) ∨ (MACBLK ≤ X ∧ X < MACBLK + 64)) ∨
+      (MACOUT ≤ X ∧ X < MACOUT + 32) ∨ (PRIV ≤ X ∧ X < PRIV + 64) ∨ (NONCE ≤ X ∧ X < NONCE + 96) ∨ (0x70000 ≤ X ∧ X < 0x70040)) :=
+    (((f1.trans hwf).trans f3).trans f4).mono (fun X _ h => by
+      rcases h with ((h | h) | h) | h
+      · exact Or.inl h
+      · sg_omega
+      · exact h.elim
+      · sg_omega)
+  have k : ∀ j < 4, t3.getMem (BitVec.ofNat 64 (SK + 8 * j)) = sk.extractLsb' (64 * j) 64 := fun j hj => by
+    rw [f3.get (by sg_omega) (fun h => h), hwf.get (by sg_omega) (by sg_omega), e1 _ (by sg_omega) (by sg_omega)]
+    exact sinit_sk sk cache m j hj
+  have mm : ∀ j < 4, t3.getMem (BitVec.ofNat 64 (MSG + 8 * j)) = m.extractLsb' (64 * j) 64 := fun j hj => by
+    rw [f3.get (by sg_omega) (fun h => h), hwf.get (by sg_omega) (by sg_omega), e1 _ (by sg_omega) (by sg_omega)]
+    exact sinit_msg sk cache m j hj
+  have x5' : t4.getReg .x5 = 0 := by
+    rw [r4.get (by decide), r3.get (by decide), t2x5]
+  have hv4 : hashArgumentsValid t4 = true :=
+    hashArgs_const t4 NONCE 128 RHOOUT y10 y11 y12 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hq4 : hashInput t4 = toQ (privateInput sk (.inr (.inl m))) := by
+    refine hashInput_toQ t4 _ 1 NONCE (by
+      rw [privateInput_nonce_eq]; simp [bytesLE_length, SigGolfCandidate.T3.zero16]) y10 (by decide) (by decide)
+      y11 (by decide) ?_
+    rw [wordsOf_nonce, show 8 * (1 + 1) = 8 + 8 from rfl, readWords_add, readWords_eight, readWords_eight]
+    have z : ∀ X, NONCE + 96 ≤ X → X < NONCE + 128 → t4.getMem (BitVec.ofNat 64 X) = 0 := fun X h1 h2 => by
+      rw [f04.get (by sg_omega) (by sg_omega)]; exact sinit_zero sk cache m X (by unfold SIGN_DATA; sg_omega) (by sg_omega)
+    rw [n0, n8, n16, n24, n32, n40, n48, n56, n64, n72, n80, n88, z _ (by sg_omega) (by sg_omega),
+      z _ (by sg_omega) (by sg_omega), z _ (by sg_omega) (by sg_omega), z _ (by sg_omega) (by sg_omega),
+      show SK = SK + 8 * 0 from rfl, k 0 (by decide), k 1 (by decide), k 2 (by decide), k 3 (by decide),
+      show MSG = MSG + 8 * 0 from rfl, mm 0 (by decide), mm 1 (by decide), mm 2 (by decide), mm 3 (by decide)]
+    rfl
+  refine TBSim.steps st4 ?_
+  refine TBSim.privateNonce_bind (W := 30 + W) (fetch_122 im hc t4 p4) x5' hv4 hq4 (fun b => ?_)
+  set t5 := writeHash t4 b
+  have hwf5 := Frame.writeHash t4 b RHOOUT y12 (by decide)
+  have hrho : DigAt t5 RHOOUT (b.extractLsb' 0 128) := DigAt.writeHash_lo t4 b RHOOUT y12 (by decide)
+  obtain ⟨t6, st6, p6, x19, s0', s8', d0, d8, d32, d40, d48, d56, r6, f6⟩ :=
+    blk123_spec im hc t5 (by rw [pc_writeHash, p4, pcOf_add4])
+  have mm5 : ∀ j < 4, t5.getMem (BitVec.ofNat 64 (MSG + 8 * j)) = m.extractLsb' (64 * j) 64 := fun j hj => by
+    rw [hwf5.get (by sg_omega) (by sg_omega), f4.get (by sg_omega) (by sg_omega)]; exact mm j hj
+  have hpre : DsPre t6 (b.extractLsb' 0 128) m :=
+    { pc := p6
+      x5 := by rw [r6.get (by decide), getReg_writeHash, x5']
+      x19 := x19
+      rho := ⟨by rw [d0]; exact hrho.1, by rw [d8]; exact hrho.2⟩
+      msg := fun k hk => by
+        interval_cases k
+        · rw [show DIG + 32 + 8 * 0 = DIG + 32 from rfl, d32]; exact mm5 0 (by decide)
+        · rw [show DIG + 32 + 8 * 1 = DIG + 40 from rfl, d40]; exact mm5 1 (by decide)
+        · rw [show DIG + 32 + 8 * 2 = DIG + 48 from rfl, d48]; exact mm5 2 (by decide)
+        · rw [show DIG + 32 + 8 * 3 = DIG + 56 from rfl, d56]; exact mm5 3 (by decide) }
+  have f06 : Frame s0 t6 (fun X => (((TAG ≤ X ∧ X < TAG + 32) ∨ (MACBLK ≤ X ∧ X < MACBLK + 64)) ∨
+      (MACOUT ≤ X ∧ X < MACOUT + 32) ∨ (PRIV ≤ X ∧ X < PRIV + 64) ∨ (NONCE ≤ X ∧ X < NONCE + 96) ∨ (0x70000 ≤ X ∧ X < 0x70040)) ∨
+      (RHOOUT ≤ X ∧ X < RHOOUT + 32) ∨ (SIG ≤ X ∧ X < SIG + 16) ∨ (DIG ≤ X ∧ X < DIG + 64)) :=
+    ((f04.trans hwf5).trans f6).mono (fun X _ h => by
+      rcases h with (h | h) | h
+      · exact Or.inl h
+      · exact Or.inr (Or.inl h)
+      · sg_omega)
+  refine TBSim.steps st6 (hrest _ t6 ?_)
+  refine ⟨hpre, ⟨by rw [s0']; exact hrho.1, by rw [s8']; exact hrho.2⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · rw [f6.get (by sg_omega) (by sg_omega), hwf5.get (by sg_omega) (by sg_omega), q0, k 0 (by decide)]
+  · rw [f6.get (by sg_omega) (by sg_omega), hwf5.get (by sg_omega) (by sg_omega), q8]; exact k 1 (by decide)
+  · rw [f6.get (by sg_omega) (by sg_omega), hwf5.get (by sg_omega) (by sg_omega), q32]; exact k 2 (by decide)
+  · rw [f6.get (by sg_omega) (by sg_omega), hwf5.get (by sg_omega) (by sg_omega), q40]; exact k 3 (by decide)
+  · rw [f6.get (by sg_omega) (by sg_omega), hwf5.get (by sg_omega) (by sg_omega), q48]
+  · rw [f6.get (by sg_omega) (by sg_omega), hwf5.get (by sg_omega) (by sg_omega), q56]
+  · exact f06.mono (fun X _ h => by unfold FrontW; sg_omega)
+
+#print axioms nonce_front
+end SigGolfCandidate.T3M.Sign.Boundary.Generic
+
+namespace SigGolfCandidate.T3M.Sign.Boundary.Generic
+open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp
+open SigGolfCandidate.T3 (M Digest privateMac privateNonce)
+set_option maxRecDepth 100000
+set_option maxHeartbeats 1000000
+theorem sign_frontCodeAt : FrontCodeAt Images.signImage := by
+  constructor
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
+theorem sign_nonce_front {sk : SecretKey} {cache : Bytes 131072} {m : Message}
+    {α : Type} {W : Nat} {Q : Option α → MachineState → Prop}
+    (K : Digest → M (Option α))
+    (hfail : ∀ t, Failed t → Q none t)
+    (hrest : ∀ rho t, NoncePost sk cache m rho t → TBSim Images.signImage sk t W (K rho) Q) :
+    TBSim Images.signImage sk (sinit sk cache m) (frontC + W) (do
+      let tag ← privateMac (cacheDec cache).region
+      if tag ≠ (cacheDec cache).tag then pure none else privateNonce m >>= K) Q :=
+  nonce_front Images.signImage sign_frontCodeAt FullCache.Generic.sign_macCodeAt K hfail hrest
+#print axioms sign_nonce_front
+end SigGolfCandidate.T3M.Sign.Boundary.Generic

@@ -842,3 +842,256 @@ theorem fam_event_le_forced_slot {Result : Type} (computation : OracleComp (Worl
     payoff hevent
 end Main
 end ClaudeWCT.Guess.Fam
+
+/-! A first-guess potential retaining unused probe credit.  Unlike a union bound
+    by the maximum number of probes, the terminal credit can be transported to
+    the actual expected number of queries in the FTS class. -/
+namespace SphincsSecurity.Concrete.SecretGuessObservation.CountedFirst
+open OracleComp OracleSpec ENNReal
+attribute [local instance] Classical.propDecidable
+set_option backward.isDefEq.respectTransparency false
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+variable {Coordinate Value Memory AuxIndex : Type} {auxSpec : OracleSpec AuxIndex}
+  [Fintype Coordinate] [DecidableEq Coordinate] [DecidableEq Value]
+
+noncomputable def indicator (Bad : State Coordinate Value Memory → Prop) (budget : Nat)
+    (state : State Coordinate Value Memory) : ENNReal :=
+  if Bad state then 0 else if state.probes ≤ budget then
+    if state.guesses.Nonempty then 1 else 0 else 0
+noncomputable def potential (Bad : State Coordinate Value Memory → Prop) (size budget : Nat)
+    (state : State Coordinate Value Memory) : ENNReal :=
+  indicator Bad budget state + ((size - budget : Nat) : ENNReal)⁻¹ * (budget - state.probes : Nat)
+
+theorem indicator_le_one (Bad : State Coordinate Value Memory → Prop) (budget : Nat)
+    (state : State Coordinate Value Memory) : indicator Bad budget state ≤ 1 := by
+  unfold indicator
+  split_ifs <;> simp
+
+theorem indicator_frame (Bad : State Coordinate Value Memory → Prop) (budget : Nat)
+    (s t : State Coordinate Value Memory) (hp : t.probes = s.probes)
+    (hg : t.guesses = s.guesses) (hb : Bad s → Bad t) :
+    indicator Bad budget t ≤ indicator Bad budget s := by
+  unfold indicator
+  by_cases hs : Bad s
+  · rw [if_pos hs, if_pos (hb hs)]
+  · rw [if_neg hs]
+    by_cases ht : Bad t
+    · rw [if_pos ht]; exact bot_le
+    · rw [if_neg ht, hp, hg]
+
+theorem step_potential {environment : Environment auxSpec Coordinate Value Memory}
+    {sampler : Sampler Coordinate Value Memory} {size budget : Nat}
+    {Inv Bad : State Coordinate Value Memory → Prop}
+    (H : Hazard environment sampler size budget Inv Bad) (state : State Coordinate Value Memory)
+    (hs : Inv state) (input : (World auxSpec Coordinate Value).Domain) :
+    (∑' result, Pr[= result | (withImpl environment sampler input).run state] *
+      potential Bad size budget result.2) ≤ potential Bad size budget state := by
+  rcases input with input | (⟨coordinate, candidate⟩ | coordinate)
+  · refine tsum_le_of_support _ _ _ fun result hr => ?_
+    rcases withImpl_cases environment sampler state (.inl input) result hr with
+      ⟨memory, he⟩ | ⟨c, v, hit, hi, -, -⟩ | ⟨c, v, hi, -, -⟩
+    · have hb := H.bad state hs
+      rw [potential, potential]
+      refine add_le_add (indicator_frame Bad budget state result.2 ?_ ?_ ?_) ?_
+      · rw [he]
+      · rw [he]
+      · exact fun h => hb h _ result hr
+      · rw [he]
+    · cases hi
+    · cases hi
+  · simp only [withImpl, StateT.run_mk, tsum_probOutput_map_mul]
+    have hp (hit : Bool) : (afterTrial environment state coordinate candidate hit).probes = state.probes + 1 := rfl
+    have hcredit : ((size - budget : Nat) : ENNReal)⁻¹ * (budget - (state.probes + 1) : Nat) ≤
+        ((size - budget : Nat) : ENNReal)⁻¹ * (budget - state.probes : Nat) := by
+      exact mul_le_mul' le_rfl (Nat.cast_le.mpr (Nat.sub_le_sub_left (Nat.le_succ state.probes) budget))
+    have hbad_step (hit : Bool) (hh : sampler.trialLaw state coordinate candidate hit ≠ 0)
+        (hb : Bad state) : Bad (afterTrial environment state coordinate candidate hit) := by
+      apply H.bad state hs hb (.inr (.inl (coordinate, candidate)))
+        (hit, afterTrial environment state coordinate candidate hit)
+      simp only [withImpl, StateT.run_mk, map_eq_bind_pure_comp, RetainedObservation.bind_nonzero]
+      exact ⟨hit, hh, by simp⟩
+    by_cases hb : Bad state
+    · refine tsum_le_of_support _ _ _ fun hit hh => ?_
+      simp only [potential, indicator, if_pos hb, if_pos (hbad_step hit hh hb), hp, zero_add]
+      exact hcredit
+    by_cases hroom : state.probes < budget
+    swap
+    · refine tsum_le_of_support _ _ _ fun hit _ => ?_
+      have hpast : ¬state.probes + 1 ≤ budget := by omega
+      have hz : budget - (state.probes + 1) = 0 := by omega
+      simp only [potential, indicator, hp, if_neg hpast, hz, Nat.cast_zero, mul_zero, add_zero]
+      split_ifs <;> exact bot_le
+    by_cases hg : state.guesses.Nonempty
+    · refine tsum_le_of_support _ _ _ fun hit _ => ?_
+      have hind : indicator Bad budget state = 1 := by simp [indicator, hb, hg, Nat.le_of_lt hroom]
+      rw [potential, potential, hind, hp]
+      exact add_le_add (indicator_le_one _ _ _) hcredit
+    have hempty : state.guesses = ∅ := Finset.not_nonempty_iff_eq_empty.mp hg
+    have hind : indicator Bad budget state = 0 := by simp [indicator, hb, hg]
+    by_cases hc : coordinate ∈ state.retired
+    · refine tsum_le_of_support _ _ _ fun hit _ => ?_
+      have hzero : indicator Bad budget (afterTrial environment state coordinate candidate hit) = 0 := by
+        simp [indicator, afterTrial, hc, hempty]
+      rw [potential, potential, hzero, hind, hp, zero_add, zero_add]
+      exact hcredit
+    have hr : sampler.trialLaw state coordinate candidate true ≤ ((size - budget : Nat) : ENNReal)⁻¹ :=
+      H.hazard state hs hb (by simp [hempty]) hroom coordinate candidate hc
+    let credit : ENNReal := ((size - budget : Nat) : ENNReal)⁻¹ * (budget - (state.probes + 1) : Nat)
+    have hpoint (hit : Bool) : potential Bad size budget (afterTrial environment state coordinate candidate hit) ≤
+        credit + if hit = true then 1 else 0 := by
+      rw [potential, hp]
+      dsimp only [credit]
+      rw [add_comm]
+      apply add_le_add le_rfl
+      cases hit
+      · simp [indicator, afterTrial, hempty]
+      · simpa only [if_true] using indicator_le_one Bad budget (afterTrial environment state coordinate candidate true)
+    calc
+      _ ≤ ∑' hit, Pr[= hit | sampler.trialLaw state coordinate candidate] * (credit + if hit = true then 1 else 0) :=
+        ENNReal.tsum_le_tsum fun hit => mul_le_mul' le_rfl (hpoint hit)
+      _ = (∑' hit, Pr[= hit | sampler.trialLaw state coordinate candidate] * credit) +
+          sampler.trialLaw state coordinate candidate true := by
+        simp only [mul_add, ENNReal.tsum_add]
+        congr 1
+        simp [tsum_fintype, SPMF.probOutput_eq_apply]
+      _ ≤ credit + ((size - budget : Nat) : ENNReal)⁻¹ :=
+        add_le_add (tsum_le_of_support _ _ _ fun _ _ => le_rfl) hr
+      _ = potential Bad size budget state := by
+        rw [potential, hind, zero_add]
+        have hremaining : budget - state.probes = (budget - (state.probes + 1)) + 1 := by omega
+        rw [hremaining, Nat.cast_add, Nat.cast_one, mul_add, mul_one]
+  · refine tsum_le_of_support _ _ _ fun result hr => ?_
+    rcases withImpl_cases environment sampler state (.inr (.inr coordinate)) result hr with
+      ⟨memory, he⟩ | ⟨c, v, hit, hi, -, -⟩ | ⟨c, v, hi, -, he⟩
+    · rw [potential, potential]
+      refine add_le_add (indicator_frame Bad budget state result.2 ?_ ?_ ?_) ?_
+      · rw [he]
+      · rw [he]
+      · exact fun h => H.bad state hs h _ result hr
+      · rw [he]
+    · cases hi
+    · rw [potential, potential]
+      refine add_le_add (indicator_frame Bad budget state result.2 ?_ ?_ ?_) ?_
+      · rw [he]; rfl
+      · rw [he]; rfl
+      · exact fun h => H.bad state hs h _ result hr
+      · rw [he]; rfl
+
+theorem run_potential {environment : Environment auxSpec Coordinate Value Memory}
+    {sampler : Sampler Coordinate Value Memory} {size budget : Nat}
+    {Inv Bad : State Coordinate Value Memory → Prop}
+    (H : Hazard environment sampler size budget Inv Bad) {Result : Type}
+    (computation : OracleComp (World auxSpec Coordinate Value) Result)
+    (state : State Coordinate Value Memory) (hs : Inv state) :
+    (∑' result, Pr[= result | withRun environment sampler computation state] *
+      potential Bad size budget result.2) ≤ potential Bad size budget state := by
+  induction computation using OracleComp.inductionOn generalizing state with
+  | pure value => simp only [withRun, runWith_pure, tsum_probOutput_pure_mul, le_refl]
+  | query_bind input next ih =>
+      rw [withRun, runWith_query_bind, tsum_probOutput_bind_mul]
+      apply le_trans _ (step_potential H state hs input)
+      apply ENNReal.tsum_le_tsum
+      intro middle
+      by_cases hm : (withImpl environment sampler input).run state middle = 0
+      · simp only [SPMF.probOutput_eq_apply, hm, zero_mul, le_refl]
+      · exact mul_le_mul' le_rfl (ih middle.1 middle.2 (H.step state hs input middle hm))
+
+
+/-- Total runs retain the unused credit exactly, so the first-hit bound pays
+    only for the expected number of probes actually made. -/
+theorem expected_indicator_le_count {environment : Environment auxSpec Coordinate Value Memory}
+    {sampler : Sampler Coordinate Value Memory} {size budget : Nat}
+    {Inv Bad : State Coordinate Value Memory → Prop}
+    (H : Hazard environment sampler size budget Inv Bad) {Result : Type}
+    (computation : OracleComp (World auxSpec Coordinate Value) Result)
+    (state : State Coordinate Value Memory) (hs : Inv state) (hp : state.probes = 0)
+    (hg : state.guesses = ∅) (hsize : budget < size)
+    (hcomplete : (∑' result, Pr[= result | withRun environment sampler computation state]) = 1) :
+    (∑' result, Pr[= result | withRun environment sampler computation state] * indicator Bad budget result.2) ≤
+      ((size - budget : Nat) : ENNReal)⁻¹ *
+        ∑' result, Pr[= result | withRun environment sampler computation state] * (min result.2.probes budget : Nat) := by
+  let law := withRun environment sampler computation state
+  let rate : ENNReal := ((size - budget : Nat) : ENNReal)⁻¹
+  let unused : ENNReal := ∑' result, Pr[= result | law] * (rate * (budget - result.2.probes : Nat))
+  have hrate : rate ≠ ⊤ := by
+    dsimp [rate]
+    apply ENNReal.inv_ne_top.mpr
+    exact_mod_cast (show size - budget ≠ 0 by omega)
+  have hu : unused ≤ rate * budget :=
+    tsum_le_of_support _ _ _ fun result _ => mul_le_mul' le_rfl (Nat.cast_le.mpr (Nat.sub_le _ _))
+  have hufin : unused ≠ ⊤ := ne_top_of_le_ne_top (ENNReal.mul_ne_top hrate (by simp)) hu
+  have hpartition : rate * (∑' result, Pr[= result | law] * (min result.2.probes budget : Nat)) + unused =
+      rate * budget := by
+    dsimp only [unused]
+    rw [← ENNReal.tsum_mul_left, ← ENNReal.tsum_add]
+    calc
+      _ = ∑' result, Pr[= result | law] * (rate * budget) := by
+        apply tsum_congr
+        intro result
+        have hn : min result.2.probes budget + (budget - result.2.probes) = budget := by omega
+        have hn' : ((min result.2.probes budget : Nat) : ENNReal) + (budget - result.2.probes : Nat) = budget := by
+          exact_mod_cast hn
+        rw [← hn']
+        ring
+      _ = (∑' result, Pr[= result | law]) * (rate * budget) := ENNReal.tsum_mul_right
+      _ = rate * budget := by rw [hcomplete, one_mul]
+  have h := run_potential H computation state hs
+  have hi : indicator Bad budget state = 0 := by simp [indicator, hg]
+  rw [potential, hi, hp, Nat.sub_zero, zero_add] at h
+  simp only [potential, mul_add, ENNReal.tsum_add] at h
+  apply (ENNReal.add_le_add_iff_right hufin).mp
+  exact h.trans_eq hpartition.symm
+
+theorem event_le_count {environment : Environment auxSpec Coordinate Value Memory}
+    {sampler : Sampler Coordinate Value Memory} {size budget : Nat}
+    {Inv Bad : State Coordinate Value Memory → Prop}
+    (H : Hazard environment sampler size budget Inv Bad) {Result : Type}
+    (computation : OracleComp (World auxSpec Coordinate Value) Result)
+    (state : State Coordinate Value Memory) (hs : Inv state) (hp : state.probes = 0)
+    (hg : state.guesses = ∅) (hsize : budget < size)
+    (hcomplete : (∑' result, Pr[= result | withRun environment sampler computation state]) = 1)
+    (event : Result × State Coordinate Value Memory → Prop)
+    (hevent : ∀ result, withRun environment sampler computation state result ≠ 0 → event result →
+      ¬Bad result.2 ∧ result.2.probes ≤ budget ∧ result.2.guesses.Nonempty) :
+    Pr[event | withRun environment sampler computation state] ≤
+      ((size - budget : Nat) : ENNReal)⁻¹ *
+        ∑' result, Pr[= result | withRun environment sampler computation state] * (min result.2.probes budget : Nat) := by
+  refine le_trans ?_ (expected_indicator_le_count H computation state hs hp hg hsize hcomplete)
+  rw [probEvent_eq_tsum_ite]
+  apply ENNReal.tsum_le_tsum
+  intro result
+  by_cases hr : withRun environment sampler computation state result = 0
+  · simp only [SPMF.probOutput_eq_apply, hr, mul_zero, zero_mul]
+    split_ifs <;> exact le_rfl
+  · by_cases he : event result
+    · obtain ⟨hb, hp, hg⟩ := hevent result hr he
+      simp only [if_pos he, indicator, if_neg hb, if_pos hp, if_pos hg, mul_one, le_refl]
+    · simp only [if_neg he, zero_le]
+
+theorem event_le_class_cost {environment : Environment auxSpec Coordinate Value Memory}
+    {sampler : Sampler Coordinate Value Memory} {size budget : Nat}
+    {Inv Bad : State Coordinate Value Memory → Prop}
+    (H : Hazard environment sampler size budget Inv Bad) {Result : Type}
+    (computation : OracleComp (World auxSpec Coordinate Value) Result)
+    (state : State Coordinate Value Memory) (hs : Inv state) (hp : state.probes = 0)
+    (hg : state.guesses = ∅) (hsize : budget < size)
+    (hcomplete : (∑' result, Pr[= result | withRun environment sampler computation state]) = 1)
+    (event : Result × State Coordinate Value Memory → Prop)
+    (hevent : ∀ result, withRun environment sampler computation state result ≠ 0 → event result →
+      ¬Bad result.2 ∧ result.2.probes ≤ budget ∧ result.2.guesses.Nonempty)
+    (cost : Result × State Coordinate Value Memory → Nat)
+    (hcost : ∀ result, withRun environment sampler computation state result ≠ 0 →
+      min result.2.probes budget ≤ cost result) :
+    Pr[event | withRun environment sampler computation state] ≤
+      ((size - budget : Nat) : ENNReal)⁻¹ *
+        ∑' result, Pr[= result | withRun environment sampler computation state] * (cost result : ENNReal) := by
+  refine (event_le_count H computation state hs hp hg hsize hcomplete event hevent).trans ?_
+  apply mul_le_mul' le_rfl
+  apply ENNReal.tsum_le_tsum
+  intro result
+  by_cases hr : withRun environment sampler computation state result = 0
+  · simp only [SPMF.probOutput_eq_apply, hr, zero_mul, le_refl]
+  · exact mul_le_mul' le_rfl (Nat.cast_le.mpr (hcost result hr))
+
+end SphincsSecurity.Concrete.SecretGuessObservation.CountedFirst
