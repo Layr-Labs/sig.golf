@@ -7,15 +7,15 @@ def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGo
 
 theorem signature_bytes : submission.sizes.signature = 5310 := rfl
 
-theorem witness_bytes : submission.sizes.witness = 24924 := rfl
+theorem witness_bytes : submission.sizes.witness = 24828 := rfl
 
 theorem cache_bytes : submission.sizes.cache = 131072 := rfl
 
 theorem layout_offsets : submission.layout =
-  { message := 26144, secretKey := 128, publicKey := 160,
+  { message := 26048, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7036 := by
+theorem certificate : SigGolf.Certificate submission 7035 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -105,7 +105,7 @@ every FTS word takes the coordinate nibble c + 1 (one `add` in the verify prolog
 reloads s2 itself (`ld s2,-304(s1)`). After-FTS cost 5251 -> 5240; verify bound 6956 -> 6945; C 7054 -> 7043.
 Design, keygen image and Lean templates from b3cc11b (nconsigny), which certified the same top design on its own
 base (credited dependency); adapted to the C1 + C2/C3 base.
-S = 5310, W = 24924, K = 131072, C = 7043; score 37398330.
+S = 5310, W = 24828, K = 131072, C = 7043; score 37398330.
 -/
 
 /-
@@ -115,6 +115,6 @@ floor 22, FTS joint cap 775 and top search limit 2^21. The canonical selection
 hint occupies an existing witness word; compact signature size stays 5310.
 The arbitrary-hint verifier, canonical extraction condition and both producers
 are connected through the merged proof interfaces. The certificate target is
-raw bound 6938 plus witness charge 98, C = 7036, score 37361160. Validation
+raw bound 6938 plus witness charge 97, C = 7035, score 37355850. Validation
 status is reported separately in the public submission note.
 -/

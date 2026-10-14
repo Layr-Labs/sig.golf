@@ -66,7 +66,6 @@ theorem producerCostOK_iff_c1 : C1ProducerCapEq := by
   intro a
   unfold ProducerCostOK ClaudeWCT.WCT9.capOk
   rw [jointCost_eq_c1 a, decide_eq_true_iff]
-  rfl
 end W9Machine.N600
 end
 

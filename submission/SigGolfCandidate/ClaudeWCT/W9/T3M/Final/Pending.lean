@@ -820,8 +820,8 @@ open ClaudeWCT.WCT9.Rev3 (sign expand verify)
 open SigGolfCandidate.T3M (mrealize countBoth countCalls cacheB cacheDec isHash)
 open ClaudeWCT.W9.T3M (Images submission)
 def verifyCycleBound : Nat := 6938
-def claimedC : Nat := 7036
-def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 24924) : Prop :=
+def claimedC : Nat := 7035
+def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 24828) : Prop :=
   ∀ N, evalWithAnswerFn hash (mrealize 0 (digestP m w)) = some N → WCT9.capOk N = true
 variable (I : Images)
 def KeygenRunCounts : Prop := ∀ sk : SecretKey,
@@ -844,13 +844,13 @@ def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5310),
 def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5310),
   ((submission I).runWith hash .expand (m, pk, s)).finished = true ∧
     ((submission I).runWith hash .expand (m, pk, s)).cycles < CYCLE_LIMIT
-def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 24924),
+def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 24828),
   (fun r => (r.value, r.hashCalls)) <$> (submission I).run .verify (m, pk, w) =
     (fun p => (if p.1 then some () else none, p.2)) <$> countCalls (mrealize 0 (verifyP m pk w))
-def VerifyTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24924),
+def VerifyTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24828),
   ((submission I).runWith hash .verify (m, pk, w)).finished = true ∧
     ((submission I).runWith hash .verify (m, pk, w)).cycles < CYCLE_LIMIT
-def VerifyAcceptCycles : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24924),
+def VerifyAcceptCycles : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24828),
   SigGolfCandidate.T3M.Verify.HashOk (wtopHint w) hash → DigestCapOk hash m w →
   ((submission I).runWith hash .verify (m, pk, w)).value.isSome = true →
     ((submission I).runWith hash .verify (m, pk, w)).cycles ≤ verifyCycleBound
