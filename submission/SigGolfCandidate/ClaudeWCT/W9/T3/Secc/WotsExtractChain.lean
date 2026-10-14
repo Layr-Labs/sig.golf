@@ -1,5 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Layer
-import SigGolfCandidate.ClaudeWCT.W9.New.G3a.ExtractSrc
+import SigGolfCandidate.ClaudeWCT.W9.New.G3a_ExtractSrc
 
 namespace ClaudeWCT.W9.T3.Security.WotsExtract
 open OracleComp OracleSpec

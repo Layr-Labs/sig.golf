@@ -2,6 +2,7 @@ import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Encode
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.TopLayer
 import SigGolfCandidate.ClaudeWCT.WCT9.Correctness
 import SigGolfCandidate.ClaudeWCT.WCT9.Omit
+import SigGolfCandidate.Choice.Witness
 
 section
 namespace ClaudeWCT.W9.T3M
@@ -95,6 +96,21 @@ theorem encodingHash_layerEncodingInputP_zero (lay : Layer) (tree leaf : Nat) (m
       simp only [pad64, hlen]
       simp
   | pair left right => rfl
+theorem verificationHash_layerEncodingInputP_zero (lay : Layer) (hint : BitVec 64) (tree leaf : Nat) (msg : WCT9.LayerMsg)
+    (counter : BitVec 32) :
+    ClaudeWCT.WCT9.verificationHash lay hint (layerEncodingInputP lay tree leaf msg counter 0 0 1) =
+      ClaudeWCT.WCT9.verificationHash lay hint (WCT9.layerEncodingInput lay tree leaf msg counter) := by
+  cases msg with
+  | forest root =>
+      show WCT9.verificationHash lay hint (WCT9.pairEncodingInputP lay tree leaf root 0 counter 0) =
+        WCT9.verificationHash lay hint (encodingInput lay tree leaf root counter)
+      apply WCT9.verificationHash_congr
+      have hlen : (WCT9.pairEncodingInputP lay tree leaf root 0 counter 0).length = 64 := by
+        simp [WCT9.pairEncodingInputP, SphincsSecurity.bytesLE_length]
+      rw [pad64_encodingInput]
+      simp only [pad64, hlen]
+      simp
+  | pair left right => rfl
 theorem recoverLayerPairP_zero (sig : WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat)
     (hindex : index < 2 ^ 31) (hlay : lay ≠ 0) :
     recoverLayerPairP sig 0 index lay digits = WCT9.recoverLayerPair sig index lay digits := by
@@ -138,17 +154,19 @@ theorem verifyLayersBCP_zero (w : WCT9.Witness) (index : Nat) (hindex : index < 
   induction n with
   | zero => intro _ msg; rfl
   | succ n ih =>
-      intro hn msg
-      have hguard : n ≠ 0 → ∀ answer digits, recoverLayerPairGuardP w.signature 0 index (Fin.ofNat 4 n) answer digits =
-          WCT9.recoverLayerPairGuard w.signature index (Fin.ofNat 4 n) answer digits := by
-        intro h0 answer digits
-        apply recoverLayerPairGuardP_zero _ _ _ _ _ hindex
-        intro e; have := congrArg Fin.val e; simp [Fin.val_ofNat] at this; omega
-      by_cases h0 : n = 0
-      · simp only [verifyLayersBCP, WCT9.verifyLayersBC, Pads.zero_bc, Pads.zero_bcRight, Pads.zero_bcHigh,
-          encodingHash_layerEncodingInputP_zero, verifyTopP_zero _ _ _ hindex, h0, ↓reduceIte]
-      · simp only [verifyLayersBCP, WCT9.verifyLayersBC, Pads.zero_bc, Pads.zero_bcRight, Pads.zero_bcHigh,
-          encodingHash_layerEncodingInputP_zero, hguard h0, ih (by omega), h0, ↓reduceIte]
+      intro hn4 msg
+      by_cases hn : n = 0
+      · subst hn
+        simp only [verifyLayersBCP, WCT9.verifyLayersBC, Pads.zero_bc, Pads.zero_bcRight, Pads.zero_bcHigh,
+          verificationHash_layerEncodingInputP_zero, verifyTopP_zero _ _ _ hindex, ↓reduceIte]
+      · have hl : (Fin.ofNat 4 n : Layer) ≠ 0 := by
+          intro h
+          have h' := congrArg Fin.val h
+          simp only [Fin.val_ofNat, Fin.val_zero] at h'
+          omega
+        simp only [verifyLayersBCP, WCT9.verifyLayersBC, Pads.zero_bc, Pads.zero_bcRight, Pads.zero_bcHigh,
+          verificationHash_layerEncodingInputP_zero, recoverLayerPairGuardP_zero _ _ _ _ _ hindex hl,
+          ih (by omega), hn, ↓reduceIte]
         rfl
 theorem verifyPads_zero (m : Message) (pk : Digest) (w : WCT9.Witness) :
     verifyPads m pk w 0 = WCT9.Rev3.verify m pk w := by
@@ -516,21 +534,21 @@ theorem win_header (off n : Nat) (h : off + n ≤ 176) :
       simp only [List.length_append, headerBytes_length, wctBytes_length, layers_length]; omega),
     window_append_left _ _ _ _ (by simp only [List.length_append, headerBytes_length, wctBytes_length]; omega),
     window_append_left _ _ _ _ (by rw [headerBytes_length]; omega)]
-/-- The header as a slot, the L3 row tweak block (8 zero bytes, then the high word LE64 1: C2/C3 FULL), the L3
-counter, 108 zero bytes, the R9 slot and 16 zero bytes. -/
+/-- The header as a slot, 16 zero bytes, the L3 counter, 68 zero bytes, the selector, 32 zero bytes, the R9 slot and 16 zero bytes. -/
 theorem headerBytes_eq : headerBytes N w =
     (if (WCT9.child N 8).val / 2 ^ 6 % 2 = 1 then bytesLE 16 ((w.signature.openings 8).path 6) else zeros 16) ++
-      ((zeros 8 ++ bytesLE 8 (1 : BitVec 64)) ++ (bytesLE 4 (w.counters 3) ++ (zeros 108 ++
+      ((zeros 8 ++ bytesLE 8 (1 : BitVec 64)) ++ (bytesLE 4 (w.counters 3) ++ ((zeros 68 ++ (bytesLE 8 w.topHint ++ zeros 32)) ++
         ((if (WCT9.child N 8).val / 2 ^ 6 % 2 = 0 then bytesLE 16 ((w.signature.openings 8).path 6) else zeros 16) ++
           zeros 16)))) := by
   simp only [headerBytes, List.append_assoc]
-theorem win_header_mid (off n : Nat) (h0 : 36 ≤ off) (h : off + n ≤ 144) :
+theorem win_header_mid (off n : Nat) (h0 : 36 ≤ off) (h : off + n ≤ 104) :
     window (witList N w) off n = zeros n := by
   rw [win_header N w off n (by omega), headerBytes_eq,
     window_append_right _ _ _ _ (by rw [ite_slot_length]; omega), ite_slot_length,
     window_append_right _ _ _ _ (by simp [zeros, bytesLE_length]; omega),
     window_append_right _ _ _ _ (by simp [bytesLE_length, zeros]; omega),
     window_append_left _ _ _ _ (by simp [bytesLE_length, zeros]; omega)]
+  rw [window_append_left _ _ _ _ (by simp [bytesLE_length, zeros]; omega)]
   exact window_zeros _ _ _ (by simp [bytesLE_length, zeros]; omega)
 theorem wctr3_witEnc : wle32 (witEnc N w) 32 = w.counters 3 := by
   rw [wle32_witEnc, win_header _ _ _ _ (by omega), headerBytes_eq,
@@ -1440,8 +1458,7 @@ theorem wtop_witEnc (k : WCT9.Coord) :
         window_append_right _ _ _ _ (by simp [zeros, bytesLE_length]),
         window_append_right _ _ _ _ (by simp [zeros, bytesLE_length]),
         window_append_left _ _ _ _ (by simp [zeros, bytesLE_length]),
-        show 144 - (zeros 16).length - (zeros 8 ++ bytesLE 8 (1 : BitVec 64)).length -
-            (bytesLE 4 (w.counters 3)).length - (zeros 108).length = 0
+        show 144 - (zeros 16).length - (zeros 8 ++ bytesLE 8 (1 : BitVec 64)).length - (bytesLE 4 (w.counters 3)).length - ((zeros 68 ++ (bytesLE 8 w.topHint ++ zeros 32))).length = 0
           by simp [zeros, bytesLE_length],
         window_full _ _ (bytesLE_length _ _), Correctness.readDigest_bytesLE]
     · have h1 : (WCT9.child N 8).val / 2 ^ 6 % 2 = 1 := by omega
@@ -1511,14 +1528,15 @@ theorem wmhpad_witEnc (k : WCT9.Coord) (l : Nat) : wmhpad (witEnc N w) k.val (WC
   · rfl
 end fields
 theorem witDecP_witEnc (N : HashOutput) (w : WCT9.Witness) : witDecP N (witEnc N w) = w := by
-  obtain ⟨⟨rho, openings, layers⟩, dc, ctr⟩ := w
+  obtain ⟨⟨rho, openings, layers⟩, dc, ctr, hint⟩ := w
   unfold witDecP
   simp only [WCT9.Witness.mk.injEq, WCT9.Signature.mk.injEq]
   refine ⟨⟨wrho_witEnc N _, funext fun k => ?_, funext fun lay => ?_⟩, wdc_witEnc N _,
-    funext fun lay => wbcCtr_witEnc N _ lay⟩
-  · have hv := fun t => wreveal_witEnc N ⟨⟨rho, openings, layers⟩, dc, ctr⟩ k t
+    (funext fun lay => wbcCtr_witEnc N _ lay),
+    SigGolfCandidate.Choice.Witness.topHint_roundtrip N _⟩
+  · have hv := fun t => wreveal_witEnc N ⟨⟨rho, openings, layers⟩, dc, ctr, hint⟩ k t
       (WCT9.wordDigit (WCT9.rank N k) t)
-    have hp := fun l => wsib_witEnc N ⟨⟨rho, openings, layers⟩, dc, ctr⟩ k l
+    have hp := fun l => wsib_witEnc N ⟨⟨rho, openings, layers⟩, dc, ctr, hint⟩ k l
     simp only at hv hp
     rcases ho : openings k with ⟨vals, path⟩
     rw [ho] at hv hp
@@ -1743,7 +1761,7 @@ theorem expandN0_facts (answers : Correctness.Answers) (m : Message) (pk : Diges
             (evalWithAnswerFn answers (WCT9.recoverFts σ (WCT9.digestIndex output) output)).2)) with
       | none => simp only [hl, evalWithAnswerFn_pure, reduceCtorEq] at he
       | some layers =>
-          obtain ⟨root, counters⟩ := layers
+          obtain ⟨root, counters, topHint⟩ := layers
           simp only [hl] at he
           split at he
           · simp only [evalWithAnswerFn_pure, reduceCtorEq] at he

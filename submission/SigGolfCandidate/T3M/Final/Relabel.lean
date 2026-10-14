@@ -1,6 +1,6 @@
 import SigGolfCandidate.T3M.Sim
 import SigGolfCandidate.T3M.Witness.Honest
-import SigGolfCandidate.Bridge.Basic
+import SigGolfCandidate.Bridge_Basic
 
 namespace SigGolfCandidate.T3M.Final
 open OracleComp OracleSpec SigGolfCandidate.Bridge

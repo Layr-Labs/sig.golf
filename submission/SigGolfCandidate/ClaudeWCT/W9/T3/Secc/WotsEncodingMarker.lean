@@ -10,9 +10,10 @@ open SigGolfCandidate.T3
 set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
 set_option Elab.async false
+set_option backward.isDefEq.respectTransparency false
 
-attribute [local irreducible] Finset.univ Finset.filter
-private def broadCount (lay : Layer) : Nat :=
+attribute [local irreducible] Finset.univ Finset.filter encodingAnswer producerDecode decode
+private noncomputable def broadCount (lay : Layer) : Nat :=
   (Finset.univ.filter fun d : Digest => (decode lay d).isSome).card
 
 private theorem broad_decoder_card (lay : Layer) : broadCount lay =
@@ -28,15 +29,21 @@ private theorem broad_decoder_card (lay : Layer) : broadCount lay =
 private theorem broad_encoding_card (lay : Layer) :
     (Finset.univ.filter fun a : HashOutput => (decode lay (encodingAnswer lay a)).isSome).card ≤
       broadCount lay * (7*2^126) := by
+  classical
   by_cases hl : lay=0
-  · simpa only [encodingAnswer, if_pos hl, broadCount] using
-      TopDualHalf.card_select_pred_le (fun d : Digest => (decode lay d).isSome)
+  · subst lay
+    have h := card_top_encoding_le (fun d : Digest => (decode 0 d).isSome)
+    simpa only [broadCount, ← Fintype.card_subtype, Fintype.card_eq_nat_card] using h
   · have hp : ∀ d : Digest, (decode lay d).isSome → lowerSpare d := by
       intro d hd
       obtain ⟨ds,hds⟩ := Option.isSome_iff_exists.mp hd
       exact decode_lowerSpare hl hds
     have hc := DualHalf.card_select_pred (fun d : Digest => (decode lay d).isSome) hp
-    exact le_of_eq (by simpa only [encodingAnswer, if_neg hl, broadCount] using hc)
+    have he : encodingAnswer lay = DualHalf.select := by
+      funext a
+      rw [encodingAnswer, if_neg hl]
+    rw [he]
+    exact hc.le
 
 theorem producer_rejection_broad (lay : Layer) :
     1000*2^256 ≤ 1001*(Finset.univ.filter fun a : HashOutput => producerDecode lay (encodingAnswer lay a)=none).card := by
@@ -81,7 +88,7 @@ def MarkEntry (T : Answers) (a : ChainAddr) (entry : Entry) : Prop :=
   ∃ (message : WCT9.LayerMsg) (counter : BitVec 32) (pad : RowPad) (digits : List Nat),
     Extract.msgFits a.key.lay message ∧ entry.1 = encRow a.key message counter pad ∧
       referenceInput T a.key ≠ some (encRow a.key message counter pad) ∧
-      decode a.key.lay (WCT9.encodingAnswer a.key.lay entry.2) = some digits ∧
+      WCT9.encodingCanDecode a.key.lay entry.2 digits ∧
       digits.getD a.chain 0 + 1 = (referenceDigits T a.key).getD a.chain 0 ∧
       ∀ i, i ≠ a.chain → (referenceDigits T a.key).getD i 0 ≤ digits.getD i 0
 theorem markerAt_iff (T : Answers) (trace : List Entry) (a : ChainAddr) :
@@ -98,46 +105,27 @@ theorem markerAt_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (trace : 
   simp only
   rw [referenceInput_congr_honest h hs, referenceDigits_congr_honest h hs]
 theorem uniform_unit_neighbors (lay : Layer) (W : Encoding lay) (i : ChainIndex lay) :
-    Pr[fun ans => ClaudeWCT.WCT9.encodingAnswer lay ans ∈
+    Pr[fun ans => ∃ hint : BitVec 64, WCT9.verificationAnswer lay hint ans ∈
       EncodingTargets.targets lay (MixedCode.unitNeighbors W i) |
       ($ᵗ HashOutput : ProbComp HashOutput)] ≤ (371 / 4) / (2 : ENNReal)^128 := by
   classical
   let targets := EncodingTargets.targets lay (MixedCode.unitNeighbors W i)
-  change Pr[fun ans => ClaudeWCT.WCT9.encodingAnswer lay ans ∈ targets |
-    ($ᵗ HashOutput : ProbComp HashOutput)] ≤ _
   have hc : targets.card ≤ chainCount lay - 1 :=
     (EncodingTargets.targets_card _ _).trans (MixedCode.unitNeighbors_card_le W i)
-  by_cases hl : lay = 0
-  · have hprob := ClaudeWCT.WCT9.probability_top_encoding_le (fun d => d ∈ targets)
-    simp only [Function.comp_def, Finset.filter_mem_eq_inter, Finset.univ_inter] at hprob
-    simp only [ClaudeWCT.WCT9.encodingAnswer, if_pos hl]
-    have hn : targets.card ≤ 53 := by
-      have ht : chainCount lay = 54 := by rw [hl]; rfl
-      simpa only [ht,Nat.reduceSub] using hc
-    calc _ ≤ (targets.card : ENNReal) * (7 / ((4 : ENNReal) * 2^128)) := hprob
-      _ ≤ 53 * (7 / ((4 : ENNReal) * 2^128)) := mul_le_mul' (by exact_mod_cast hn) le_rfl
-      _ = _ := by
-        apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
-        simp only [ENNReal.toReal_mul,ENNReal.toReal_div,ENNReal.toReal_pow,ENNReal.toReal_ofNat]
-        norm_num
-  · have hp : ∀ d, d ∈ targets → lowerSpare d := by
-      intro d hd
-      obtain ⟨word,_,hword⟩ := (EncodingTargets.mem_targets _ _ _).mp hd
-      exact decode_lowerSpare hl hword
-    have hprob := ClaudeWCT.WCT9.probability_lower_encoding (fun d => d ∈ targets) hp
-    simp only [Function.comp_def, Finset.filter_mem_eq_inter, Finset.univ_inter] at hprob
-    simp only [ClaudeWCT.WCT9.encodingAnswer, if_neg hl]
-    rw [hprob]
-    have hn : targets.card ≤ 42 := by
-      have hall : ∀ l : Layer, l ≠ 0 → chainCount l = 43 := by decide +kernel
-      have hlen := hall lay hl
-      simpa only [hlen] using hc
-    calc (targets.card : ENNReal) * (7 / ((4 : ENNReal) * 2^128))
-        ≤ 42 * (7 / ((4 : ENNReal) * 2^128)) := mul_le_mul' (show (targets.card : ENNReal) ≤ 42 by exact_mod_cast hn) le_rfl
-      _ ≤ _ := by
-        apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
-        simp only [ENNReal.toReal_mul,ENNReal.toReal_div,ENNReal.toReal_pow,ENNReal.toReal_ofNat]
-        norm_num
+  have hn : targets.card ≤ 53 := by
+    have hmax : chainCount lay ≤ 54 := by fin_cases lay <;> decide
+    omega
+  have hp : lay ≠ 0 → ∀ d, d ∈ targets → lowerSpare d := by
+    intro hl d hd
+    obtain ⟨word, _, hword⟩ := (EncodingTargets.mem_targets _ _ _).mp hd
+    exact decode_lowerSpare hl hword
+  calc _ ≤ (targets.card : ENNReal) * (7 / ((4 : ENNReal) * 2^128)) :=
+        WCT9.probability_verification_exists_le lay targets hp
+    _ ≤ 53 * (7 / ((4 : ENNReal) * 2^128)) := mul_le_mul' (by exact_mod_cast hn) le_rfl
+    _ = _ := by
+      apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
+      simp only [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_pow, ENNReal.toReal_ofNat]
+      norm_num
 theorem markEntry_cell_le_raw (T : Answers) (x : HashInput) (a : ChainAddr) :
     Pr[fun ans => MarkEntry T a (x, ans) | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ (371 / 4) / (2 : ENNReal) ^ 128 := by
   classical
@@ -146,9 +134,10 @@ theorem markEntry_cell_le_raw (T : Answers) (x : HashInput) (a : ChainAddr) :
   · let W := decodedWord hv
     let i : Fin (MixedCode.Code.n (code a.key.lay)) := ⟨a.chain, hc⟩
     let targets := EncodingTargets.targets a.key.lay (MixedCode.unitNeighbors W i)
-    calc _ ≤ Pr[fun output => WCT9.encodingAnswer a.key.lay output ∈ targets | ($ᵗ HashOutput : ProbComp HashOutput)] := by
+    calc _ ≤ Pr[fun output => ∃ hint : BitVec 64, WCT9.verificationAnswer a.key.lay hint output ∈ targets | ($ᵗ HashOutput : ProbComp HashOutput)] := by
           apply probEvent_mono
-          rintro ans - ⟨message, counter, pad, digits, -, -, -, hd, hlow, hrest⟩
+          rintro ans - ⟨message, counter, pad, digits, -, -, -, ⟨hint, hd⟩, hlow, hrest⟩
+          refine ⟨hint, ?_⟩
           refine (EncodingTargets.source_decoded_target hd _).mpr ?_
           rw [MixedCode.mem_unitNeighbors]
           refine ⟨decodedWord_valid hv, decodedWord_valid hd, ?_, ?_⟩

@@ -1,5 +1,8 @@
 import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsDispatchCtx
 
+variable {choiceHint : BitVec 64}
+
+
 section
 namespace SigGolfCandidate.T3M.Nonbinary.NCtx
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
@@ -66,7 +69,7 @@ theorem guard_ok (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     unfold startPc leadPc leadOff entW
     simp
 theorem goodQ_fault {s : MachineState} {Q : Prop} {A : Nat} (hf : fetch vimage s=none) :
-    Verify.GoodQ s 1 0 Q A (pure (false, 0)) := by
+    Verify.GoodQ (choiceHint := choiceHint) s 1 0 Q A (pure (false, 0)) := by
   intro F hF
   have hF' : F=(F-1)+1 := by omega
   refine ⟨?_,fun hash => ?_⟩
@@ -86,9 +89,9 @@ theorem groups_from (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState
     (hk : ∀p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0) {v : Digest} (he : Encoded v s0) (hf : c.Fit v)
     (n : Nat) (hn : n ≤ 17) (hval : ∀ q, q<n → Search.topRank v q<125)
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
-    (hK : ∀ acc t,c.EndInv (set24 s0 (c.s8v (n-1))) (3*(n-1)+2) acc t → Verify.GoodQ t N C Q A (K acc)) :
+    (hK : ∀ acc t,c.EndInv (set24 s0 (c.s8v (n-1))) (3*(n-1)+2) acc t → Verify.GoodQ (choiceHint := choiceHint) t N C Q A (K acc)) :
     ∀ k q, 1 ≤ q → q+k=n → 0<k → ∀ acc s,c.GroupIn (set24 s0 (c.s8v (q-1))) q acc s →
-      Verify.GoodQ s (N+126*k) (C+c.chainsCost (3*q) (3*k)+ov q k) Q (A+c.chainsCost (3*q) (3*k)+ov q k)
+      Verify.GoodQ (choiceHint := choiceHint) s (N+126*k) (C+c.chainsCost (3*q) (3*k)+ov q k) Q (A+c.chainsCost (3*q) (3*k)+ov q k)
         (Verify.ccM ((List.range' (3*q) (3*k)).foldlM c.chainF acc) K) := by
   intro k
   induction k with
@@ -135,9 +138,9 @@ theorem groups_zero (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState
     (hk : ∀p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0) {v : Digest} (he : Encoded v s0) (hf : c.Fit v)
     (n : Nat) (hn : n ≤ 17) (hn1 : 1 ≤ n) (hval : ∀ q, q<n → Search.topRank v q<125)
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
-    (hK : ∀ acc t,c.EndInv (set24 s0 (c.s8v (n-1))) (3*(n-1)+2) acc t → Verify.GoodQ t N C Q A (K acc))
+    (hK : ∀ acc t,c.EndInv (set24 s0 (c.s8v (n-1))) (3*(n-1)+2) acc t → Verify.GoodQ (choiceHint := choiceHint) t N C Q A (K acc))
     (s : MachineState) (hs : c.GroupIn s0 0 [] s) :
-    Verify.GoodQ s (N+126*n) (C+c.chainsCost 0 (3*n)+ov 0 n) Q (A+c.chainsCost 0 (3*n)+ov 0 n)
+    Verify.GoodQ (choiceHint := choiceHint) s (N+126*n) (C+c.chainsCost 0 (3*n)+ov 0 n) Q (A+c.chainsCost 0 (3*n)+ov 0 n)
       (Verify.ccM ((List.range' 0 (3*n)).foldlM c.chainF []) K) := by
   obtain ⟨t,hst,hin⟩ := c.guard_ok hc hds hk he [] s hs
   have hkB := set24_known c (c.s8v 0) hk
@@ -204,9 +207,9 @@ theorem tail_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     (hk : ∀p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0) {v : Digest} (he : Encoded v s0) (hf : c.Fit v)
     (h24 : s0.getReg .x24=c.s8v 16)
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
-    (hK : ∀ ends t,c.EndInv (set24 s0 (c.s8w 53)) 53 ends t → Verify.GoodQ t N C Q A (K ends))
+    (hK : ∀ ends t,c.EndInv (set24 s0 (c.s8w 53)) 53 ends t → Verify.GoodQ (choiceHint := choiceHint) t N C Q A (K ends))
     (acc : List Digest) (s : MachineState) (hs : c.R8In s0 acc s) :
-    Verify.GoodQ s (N+129) (C+c.chainsCost 51 3+5) Q (A+c.chainsCost 51 3+5)
+    Verify.GoodQ (choiceHint := choiceHint) s (N+129) (C+c.chainsCost 51 3+5) Q (A+c.chainsCost 51 3+5)
       (Verify.ccM ((List.range' 51 3).foldlM c.chainF acc) K) := by
   obtain ⟨u2,st2,hu2⟩ := c.slot17_step hds h24 acc s hs
   have hk1 := set24_known c (c.s8w 53) hk
@@ -252,14 +255,14 @@ theorem top_full (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     (hk : ∀p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0) {v : Digest} (he : Encoded v s0) (hf : c.Fit v)
     (hval : ∀ q, q<17 → Search.topRank v q<125)
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
-    (hK : ∀ acc t,c.TopOut s0 acc t → Verify.GoodQ t N C Q A (K acc))
+    (hK : ∀ acc t,c.TopOut s0 acc t → Verify.GoodQ (choiceHint := choiceHint) t N C Q A (K acc))
     (s : MachineState) (hs : c.GroupIn s0 0 [] s) :
-    Verify.GoodQ s (N+2274) (C+c.chainsCost 0 54+74) Q (A+c.chainsCost 0 54+74) (Verify.ccM c.topP K) := by
+    Verify.GoodQ (choiceHint := choiceHint) s (N+2274) (C+c.chainsCost 0 54+74) Q (A+c.chainsCost 0 54+74) (Verify.ccM c.topP K) := by
   unfold topP
   rw [show (54:Nat)=3*17+3 from rfl,← List.range'_append_1,List.foldlM_append,Verify.ccM_bind]
   have ec := c.chainsCost_add' 0 (3*17) 3
   have hov : ov 0 17=66 := by decide +kernel
-  have H := c.groups_zero hc hds hk h0 he hf 17 (le_refl _) (by decide +kernel) hval
+  have H := c.groups_zero (choiceHint := choiceHint) hc hds hk h0 he hf 17 (le_refl _) (by decide +kernel) hval
     (fun ends => Verify.ccM ((List.range' (0+3*17) 3).foldlM c.chainF ends) K)
     (N+132) (C+c.chainsCost 51 3+8) (A+c.chainsCost 51 3+8) Q
     (fun acc t ht => by
@@ -287,7 +290,7 @@ theorem top_full (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
   rw [ec]
   refine H.mono ?_ ?_ (fun h => ⟨h,?_⟩) <;> omega
 theorem goodQ_vacuous {s : MachineState} {N C A : Nat} {X : OracleComp Legacy.HashSpec Verify.Obs}
-    (h : Verify.GoodQ s N C False A X) (Q' : Prop) (A' : Nat) : Verify.GoodQ s N C Q' A' X := by
+    (h : Verify.GoodQ (choiceHint := choiceHint) s N C False A X) (Q' : Prop) (A' : Nat) : Verify.GoodQ (choiceHint := choiceHint) s N C Q' A' X := by
   intro F hF
   obtain ⟨h1,h2⟩ := h F hF
   exact ⟨h1,fun hash => ⟨(h2 hash).1,(h2 hash).2.1,fun hs hok => ((h2 hash).2.2 hs hok).1.elim⟩⟩
@@ -298,15 +301,15 @@ theorem top_bad_group (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineSta
     (hbad : 125 ≤ Search.topRank v j) (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs)
     (hK : ∀ acc, K acc=pure (false,0)) (Q : Prop) (A : Nat)
     (s : MachineState) (hs : c.GroupIn s0 0 [] s) :
-    Verify.GoodQ s (126*j+6) (c.chainsCost 0 (3*j)+ov 0 j+5) Q A
+    Verify.GoodQ (choiceHint := choiceHint) s (126*j+6) (c.chainsCost 0 (3*j)+ov 0 j+5) Q A
       (Verify.ccM ((List.range' 0 (3*j)).foldlM c.chainF []) K) := by
   refine goodQ_vacuous (A := 0+c.chainsCost 0 (3*j)+ov 0 j) ?_ Q A
-  have H := c.groups_zero hc hds hk h0 he hf j (by omega) hj1 hval K 6 5 0 False
+  have H := c.groups_zero (choiceHint := choiceHint) hc hds hk h0 he hf j (by omega) hj1 hval K 6 5 0 False
     (fun acc t ht => by
       rw [hK acc]
       have hb' : 125 ≤ Search.topRank v (j-1+1) := by rw [show j-1+1=j by omega]; exact hbad
       obtain ⟨k,z,stz,hk5,fz⟩ := (c.end_dispatch_raw hc hds (set24_encoded _ he) (j-1) (by omega) acc t ht).2 hb'
-      have R := goodQ_fault (Q := False) (A := 0) fz
+      have R := goodQ_fault (choiceHint := choiceHint) (Q := False) (A := 0) fz
       refine (Verify.GoodQ.steps stz R).mono ?_ ?_ ?_
       · omega
       · omega

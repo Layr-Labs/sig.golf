@@ -1,8 +1,8 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CaseCNearSearch
-import SigGolfCandidate.ClaudeWCT.W9.New.G6.LazyEager
-import SigGolfCandidate.ClaudeWCT.W9.New.G6.LazyCount
+import SigGolfCandidate.ClaudeWCT.W9.New.G6_LazyEager
+import SigGolfCandidate.ClaudeWCT.W9.New.G6_LazyCount
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsSmallContract
-import SigGolfCandidate.ClaudeWCT.W9.New.C2.SignerCompleteBound
+import SigGolfCandidate.ClaudeWCT.W9.New.C2_SignerCompleteBound
 
 section
 namespace ClaudeWCT.W9.T3.Security.CaseC
@@ -528,7 +528,7 @@ theorem good_short {A T : Correctness.Answers} (h : SigGolfCandidate.T3.Security
   obtain ⟨digits, ⟨hctr, hdec⟩, hpath, hchain, hleaf⟩ := hg
   refine ⟨digits, ⟨hctr, ?_⟩, ?_, ?_, hleaf⟩
   · rw [← honestMsg_short h]
-    rw [← ClaudeWCT.W9.T3.Security.Wots.Ref.shortRespects_encodingHash lay _
+    rw [← ClaudeWCT.W9.T3.Security.Wots.Ref.shortRespects_verificationHash lay (ClaudeWCT.W9.T3M.wtopHint w) _
       (by rw [ClaudeWCT.W9.T3M.BC.layerEncodingRow_length]; unfold SeccLaw.maxInputLength; omega) A T h]
     exact hdec
   · intro j hj
@@ -543,8 +543,15 @@ theorem good_short {A T : Correctness.Answers} (h : SigGolfCandidate.T3.Security
     exact ClaudeWCT.W9.T3.Security.Wots.Ref.chainW_respects _ _ _ _ _ _ _ A T h
 theorem goodZ_short {A T : Correctness.Answers} (h : SigGolfCandidate.T3.Security.Wots.Ref.ShortAgree A T)
     (w : WBytes) (index : Nat) (lay : Layer) (hg : ClaudeWCT.W9.T3M.BC.GoodZ A w index lay) :
-    ClaudeWCT.W9.T3M.BC.GoodZ T w index lay :=
-  ⟨good_short h w index lay hg.1, hg.2⟩
+    ClaudeWCT.W9.T3M.BC.GoodZ T w index lay := by
+  refine ⟨fun hc => good_short h w index lay (hg.1 ?_), hg.2⟩
+  dsimp only [ClaudeWCT.W9.T3M.Extract.CanonicalFrame] at hc ⊢
+  rw [honestMsg_short h]
+  rw [ClaudeWCT.W9.T3.Security.Wots.Ref.shortRespects_verificationHash lay (ClaudeWCT.W9.T3M.wtopHint w) _
+    (by rw [ClaudeWCT.W9.T3M.BC.layerEncodingRow_length]; unfold SeccLaw.maxInputLength; omega) A T h,
+    ClaudeWCT.W9.T3.Security.Wots.Ref.shortRespects_encodingHash lay _
+    (by rw [ClaudeWCT.W9.T3M.BC.layerEncodingRow_length]; unfold SeccLaw.maxInputLength; omega) A T h]
+  exact hc
 theorem slotDisclosed_short {A T : Correctness.Answers} (h : SigGolfCandidate.T3.Security.Wots.Ref.ShortAgree A T)
     (log : QueryLog Requests) (N : HashOutput) (k : WCT9.Coord) (t : Fin 6) (hd : SlotDisclosed A log N k t) :
     SlotDisclosed T log N k t := by

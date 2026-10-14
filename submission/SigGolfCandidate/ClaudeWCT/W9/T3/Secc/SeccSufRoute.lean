@@ -1,5 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.SeccSufSigned
-import SigGolfCandidate.ClaudeWCT.W9.New.Positions.FtsBridge
+import SigGolfCandidate.ClaudeWCT.W9.New.Positions_FtsBridge
 
 namespace ClaudeWCT.W9.T3.Security.BPB
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal

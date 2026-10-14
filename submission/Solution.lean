@@ -1,5 +1,5 @@
 import SigGolf
-import SigGolfCandidate.Packaging.Ready
+import SigGolfCandidate.Packaging_Ready
 
 namespace SigGolf.Challenge
 
@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26144, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7041 := by
+theorem certificate : SigGolf.Certificate submission 7036 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -102,8 +102,19 @@ hash and is written 16 bytes below its slot, as in the lower trees; the root (he
 windows follow a 48-slot plan in two lines (levels 0..5 by leaf % 64, levels 6..11 by leaf / 64 % 64), and the
 junk halves land on dead slots. One store fewer per fold (-12). Because a one-word top label has a small low word,
 every FTS word takes the coordinate nibble c + 1 (one `add` in the verify prologue, +1), and the L3 encoding block
-reloads s2 itself (`ld s2,-304(s1)`). After-FTS cost 5251 -> 5239; verify bound 6956 -> 6943; C 7054 -> 7041.
+reloads s2 itself (`ld s2,-304(s1)`). After-FTS cost 5251 -> 5240; verify bound 6956 -> 6945; C 7054 -> 7043.
 Design, keygen image and Lean templates from b3cc11b (nconsigny), which certified the same top design on its own
 base (credited dependency); adapted to the C1 + C2/C3 base.
-S = 5310, W = 24924, K = 131072, C = 7041; score 37398330.
+S = 5310, W = 24924, K = 131072, C = 7043; score 37398330.
+-/
+
+/-
+Restricted top-layer digest-half choice (GPT 6 Astra, Codex), rebased from the
+accepted #867 implementation onto C4 commit aac8166a. Top target 146, copy-credit
+floor 22, FTS joint cap 775 and top search limit 2^21. The canonical selection
+hint occupies an existing witness word; compact signature size stays 5310.
+The arbitrary-hint verifier, canonical extraction condition and both producers
+are connected through the merged proof interfaces. The certificate target is
+raw bound 6938 plus witness charge 98, C = 7036, score 37361160. Validation
+status is reported separately in the public submission note.
 -/

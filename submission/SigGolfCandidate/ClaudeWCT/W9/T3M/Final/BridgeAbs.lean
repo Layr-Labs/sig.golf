@@ -1,5 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Final.Pending
-import SigGolfCandidate.ClaudeWCT.W9.New.F1a.Clean
+import SigGolfCandidate.ClaudeWCT.W9.New.F1a_Clean
 
 section
 namespace ClaudeWCT.W9.T3M.Final

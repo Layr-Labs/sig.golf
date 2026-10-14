@@ -73,10 +73,13 @@ import SigGolfCandidate.W9Machine.WctN600Assembly
 import SigGolfCandidate.W9Machine.WctSourceEquiv
 import SigGolfCandidate.W9Machine.WctEndpoints
 
+variable {choiceHint : BitVec 64}
+
+
 namespace W9Machine.N600
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
-theorem allGood : AllGood Frozen.layout := by
+theorem allGood : AllGood (choiceHint := choiceHint) Frozen.layout := by
   exact Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨0, by decide⟩ Checks.routine0 Checks.ready0.1 Checks.ready0.2) (
 Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨1, by decide⟩ Checks.routine1 Checks.ready1.1 Checks.ready1.2) (
 Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorrect ⟨2, by decide⟩ Checks.routine2 Checks.ready2.1 Checks.ready2.2) (
@@ -643,5 +646,5 @@ Fin.cons (good_of_ready V3SourceEquiv.sourceEquivalent V3Endpoints.endpointsCorr
 (fun i => Fin.elim0 i))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 end W9Machine.N600
 namespace W9Machine.Chain
-theorem allGood : N600.AllGood Frozen.layout := N600.allGood
+theorem allGood : N600.AllGood (choiceHint := choiceHint) Frozen.layout := N600.allGood
 end W9Machine.Chain

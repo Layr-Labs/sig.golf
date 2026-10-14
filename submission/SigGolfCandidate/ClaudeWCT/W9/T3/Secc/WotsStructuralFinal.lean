@@ -1,5 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsStructuralHonest
-import SigGolfCandidate.ClaudeWCT.W9.New.G3a.ExtractSrc
+import SigGolfCandidate.ClaudeWCT.W9.New.G3a_ExtractSrc
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsReferenceInputs
 import SigGolfCandidate.T3.Secc.WotsStructuralFinal
 

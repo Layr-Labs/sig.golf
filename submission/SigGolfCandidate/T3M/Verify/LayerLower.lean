@@ -1,4 +1,8 @@
 import SigGolfCandidate.T3M.Verify.LeafSem
+import SigGolfCandidate.Choice.Encoding
+
+variable {choiceHint : BitVec 64}
+
 
 set_option Elab.async false
 set_option maxRecDepth 100000
@@ -17,9 +21,9 @@ def lowCost (c : LCtx) : Nat := c.chainsCost 0 42 + chainCost 42 c.ck
 theorem lower_good (c : LCtx) (hc : c.ok) (hi0 : c.i0 = 0) (hko : c.koff = 0) (hck : c.ck < 8) (hRanks : ∀ j, j < 42 → c.headOK j) {s0 : MachineState}
     (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2) (h0 : c.Orig0 s0)
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
-    (hK : ∀ ends t, c.ChainOut s0 43 ends t → Verify.GoodQ t N C Q A (K ends))
+    (hK : ∀ ends t, c.ChainOut s0 43 ends t → Verify.GoodQ (choiceHint := choiceHint) t N C Q A (K ends))
     (s : MachineState) (hs : c.ChainIn s0 0 [] s) :
-    Verify.GoodQ s (N + 1720) (C + c.lowCost) Q (A + c.lowCost) (Verify.ccM c.lowP K) := by
+    Verify.GoodQ (choiceHint := choiceHint) s (N + 1720) (C + c.lowCost) Q (A + c.lowCost) (Verify.ccM c.lowP K) := by
   unfold lowP
   rw [Verify.ccM_bind]
   have H := c.chains_good hc hk h0 (fun _ => hko) 42 (by omega) (fun j _ hj => hRanks j hj) (fun e => Verify.ccM (c.chainF e 42) K)
@@ -883,8 +887,8 @@ theorem encQ_layer (lay : Layer) (tree leaf : Nat) (M : ClaudeWCT.WCT9.LayerMsg)
 theorem layer_good_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay : lay ≠ 0) (M : ClaudeWCT.WCT9.LayerMsg)
     (s : MachineState) (hs : LayerIn w pk index lay.val M s) {β : Type} (R : List Digest → T3.M (Option β))
     (K : Option β → OracleComp HashSpec Obs) (hK0 : K none = pure (false, 0)) (N C A : Nat) (Q : Prop)
-    (hR : ∀ ends u, LeafOut w pk index lay ends u → GoodQ u N C Q A (ccM (R ends) K)) :
-    GoodQ s (N + layerFuel lay.val) (C + layerCost lay.val 0) Q (A + layerCostA lay.val)
+    (hR : ∀ ends u, LeafOut w pk index lay ends u → GoodQ (choiceHint := choiceHint) u N C Q A (ccM (R ends) K)) :
+    GoodQ (choiceHint := choiceHint) s (N + layerFuel lay.val) (C + layerCost lay.val 0) Q (A + layerCostA lay.val)
       (ccM (layerHead w index lay M R) K) := by
   have h0 : lay.val ≠ 0 := fun h => hlay (Fin.ext h)
   have hlf : lfStepsL = 4 := rfl
@@ -917,7 +921,7 @@ theorem layer_good_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
     have H : ∀ a : BitVec 256, GoodQP (fun hash => hash (toQ (pad64 (ClaudeWCT.W9.T3M.layerEncodingInputP lay
         (route index lay).2 (route index lay).1 M (ClaudeWCT.W9.T3M.wbcCtr w index lay) (ClaudeWCT.W9.T3M.wbcPad w index lay)
         (ClaudeWCT.W9.T3M.wbcRight w) (ClaudeWCT.W9.T3M.wbcHigh w index lay)))) = a ∧
-          HashOk hash) (writeHash t a) (N + lfStepsL + 1720 + (bSt lay.val+4))
+          (HashOk choiceHint) hash) (writeHash t a) (N + lfStepsL + 1720 + (bSt lay.val+4))
         (C + lfStepsL + (2935 - 9 * tgtL lay.val) + (bCy lay.val+4))
         Q (A + lfStepsL + (2935 - 9 * tgtL lay.val - ClaudeWCT.WCT9.producerFloor lay) + (bCy lay.val+4))
         (ccM (match decode lay (ansD (selectedView a)) with
@@ -930,7 +934,7 @@ theorem layer_good_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
         dsimp only
         rw [ccM_pure, hK0]
         obtain ⟨v, k, cy, hst', hrejected, hk, hcy⟩ := hB.1 hds
-        have hrej : GoodQ v 1 1 Q 0 (pure (false,0)) := by
+        have hrej : GoodQ (choiceHint := choiceHint) v 1 1 Q 0 (pure (false,0)) := by
           rcases hrejected with hf' | ⟨hf',h5',h10'⟩
           · exact (GoodQ.fetch_none (Q := Q) (A := 0) hf').mono (by omega) (by omega) (fun h => ⟨h,by omega⟩)
           · exact GoodQ.reject hf' h5' h10'
@@ -960,7 +964,7 @@ theorem layer_good_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
             rw [hP]; unfold chainsP; rw [LCtx.chainCount_lower lay hlay]; rfl
           rw [ccM_bind, e]
           have body : ∀ k, k ≤ L.zSum 0 43 + 4*L.savedCopies 0 43 →
-              GoodQ (writeHash t a) (N + lfStepsL + 1720 + (bSt lay.val+4))
+              GoodQ (choiceHint := choiceHint) (writeHash t a) (N + lfStepsL + 1720 + (bSt lay.val+4))
                 (C + lfStepsL + (2935 - 9 * tgtL lay.val) + (bCy lay.val+4))
                 Q (A + lfStepsL + (2935 - 9 * tgtL lay.val - k) + (bCy lay.val+4))
                 (ccM L.lowP (fun ends => ccM (R ends) K)) := fun k hk =>
@@ -969,7 +973,10 @@ theorem layer_good_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
           · exact (body _ (by omega)).toP.pre_mono (fun _ h => h.2)
           · refine GoodQP.of_false (body 0 (Nat.zero_le _)) ?_
             rintro hash ⟨hea, hok⟩
-            have hh := hok lay _ hq ds (by rw [hea, ← selectedView_answer lay hlay]; exact hds)
+            have hh := hok lay _ hq ds (by
+              rw [ClaudeWCT.WCT9.verificationAnswer_lower lay hlay, hea,
+                ← selectedView_answer lay hlay]
+              exact hds)
             apply hcf
             simpa [ClaudeWCT.WCT9.dispatchPenalty,hlay] using hh
         · have hj := ClaudeWCT.WCT9.lowerFirstBad_lt (ansD (selectedView a)) hgood
@@ -981,7 +988,7 @@ theorem layer_good_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
             intro i hi _ _
             rw [lctx_rank_eq w index lay (selectedView a) _ (by omega)]
             exact ClaudeWCT.WCT9.lowerFirstBad_before (ansD (selectedView a)) hgood (i / 3) (by omega)
-          have hpref := L.chains_prefix_fault hLok rfl rfl hkn hO0 _ hj hbad hranks s0 hIn
+          have hpref := L.chains_prefix_fault (choiceHint := choiceHint) hLok rfl rfl hkn hO0 _ hj hbad hranks s0 hIn
           have hpcost := L.chainsCost_prefix_le (3 * ClaudeWCT.WCT9.lowerFirstBad (ansD (selectedView a))) (by omega)
           have hle : L.chainsCost 0 42 ≤ L.lowCost := by unfold LCtx.lowCost; omega
           simp only [guardedChainsP, ClaudeWCT.WCT9.lowerGuardedRun, if_neg hgood, bind_assoc, pure_bind,

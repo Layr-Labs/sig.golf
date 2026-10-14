@@ -1,6 +1,6 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsMaskBase
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeResidualRouter
-import SigGolfCandidate.ClaudeWCT.W9.New.Positions.FtsBridge
+import SigGolfCandidate.ClaudeWCT.W9.New.Positions_FtsBridge
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsExtractWord
 import SigGolfCandidate.T3.Secc.LargeCouplingSign
 

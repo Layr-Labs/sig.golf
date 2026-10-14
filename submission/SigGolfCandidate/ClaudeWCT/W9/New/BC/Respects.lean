@@ -53,6 +53,13 @@ theorem shortRespects_encodingHash (lay : Layer) (input : HashInput)
     (h : (pad64 input).length ≤ SeccLaw.maxInputLength) : ShortRespects (WCT9.encodingHash lay input) := by
   intro A T hAT
   rw [WCT9.eval_encodingHash, WCT9.eval_encodingHash, hAT.public _ h]
+theorem shortRespects_verificationHash (lay : Layer) (hint : BitVec 64) (input : HashInput)
+    (h : (pad64 input).length ≤ SeccLaw.maxInputLength) :
+    ShortRespects (WCT9.verificationHash lay hint input) := by
+  intro A T hAT
+  change WCT9.verificationAnswer lay hint (A (.inl (.inr (pad64 input)))) =
+    WCT9.verificationAnswer lay hint (T (.inl (.inr (pad64 input))))
+  rw [hAT.public _ h]
 theorem layerCounterSearch_respects (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (counter fuel : Nat) :
     ShortRespects (WCT9.layerCounterSearch lay tree leaf msg counter fuel) := by
   induction fuel generalizing counter with

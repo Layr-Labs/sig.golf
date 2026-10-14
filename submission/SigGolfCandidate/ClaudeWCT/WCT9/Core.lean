@@ -2,6 +2,7 @@ import SigGolfCandidate.T3.Core
 import SigGolfCandidate.T3.Nonbinary.LowerLayout
 import SigGolfCandidate.ClaudeWCT.WCT9.Codebook
 import SigGolfCandidate.ClaudeWCT.Arith.GF128
+import SigGolfCandidate.Choice.Selector
 
 namespace ClaudeWCT.WCT9
 open OracleComp OracleSpec SigGolfCandidate.T3
@@ -11,7 +12,7 @@ def children : Nat := 128
 def chains : Nat := 6
 def gateShift : Nat := 242
 def gateBits : Nat := 14
-def gateLimit : Nat := 1418
+def gateLimit : Nat := 1353
 def fieldBits : Nat := 10
 def fieldLimit : Nat := 563
 def jointCap : Nat := 775
@@ -34,7 +35,7 @@ def field (output : HashOutput) (coord : Coord) : Nat :=
 def rank (output : HashOutput) (coord : Coord) : Rank :=
   ⟨field output coord % 563, Nat.mod_lt _ (by decide)⟩
 def admissible (output : HashOutput) : Bool :=
-  decide (output.toNat / 2 ^ 242 % 2 ^ 14 < 1418) &&
+  decide (output.toNat / 2 ^ 242 % 2 ^ 14 < 1353) &&
     (List.range 9).all (fun coord =>
       decide (output.toNat / 2 ^ fieldBase coord % 2 ^ 10 < 563))
 /-- C1 (FTS Merkle half-swap): `4 + skips`, where `skips` (0, 1 or 2, by `c % 32`) counts the child program's
@@ -534,23 +535,46 @@ def producerDecode (lay : Layer) (answer : Digest) : Option (List Nat) :=
   match decode lay answer with
   | some digits => if producerFloor lay + dispatchPenalty lay digits ≤ wordCredit lay digits + 4 * savedCopies lay digits ∧ producerZeroBound lay digits ∧ producerRankBound lay answer then some digits else none
   | none => none
+def topSearchLimit : Nat := 2 ^ 21
 def lowerSearchLimit : Nat := 2 ^ 21
-def searchLimit (lay : Layer) : Nat := if lay = 0 then counterLimit else lowerSearchLimit
+def searchLimit (lay : Layer) : Nat := if lay = 0 then topSearchLimit else lowerSearchLimit
 /-- The verifier accepts every 32-bit counter: its window is the whole `BitVec 32` range, so the layer check
 never rejects. The signer still searches `searchLimit`. -/
 def verifyWindow : Nat := 2 ^ 32
 theorem ctr_not_ge_verifyWindow (c : BitVec 32) : ¬c.toNat ≥ verifyWindow := by
   unfold verifyWindow; exact Nat.not_le.mpr c.isLt
-/-- The top layer selects the low half when its high bit is set. Lower layers
-select it when both reserved bits are set; otherwise the high half is selected. -/
+/-- Canonical producer choice: try low first, and permit high only when the
+top two bits of low are not both zero. This predicate is not run by the verifier. -/
+def topChooseLow (answer : HashOutput) : Bool :=
+  (producerDecode 0 (answer.extractLsb' 0 128)).isSome ||
+    decide (SigGolfCandidate.Choice.Selector.group (answer.extractLsb' 0 128) = 0)
+
+/-- The producer's canonical word. Lower layers retain the reserved-bit rule. -/
 def encodingAnswer (lay : Layer) (answer : HashOutput) : Digest :=
-  if lay = 0 then TopDualHalf.select answer else DualHalf.select answer
+  if lay = 0 then
+    if topChooseLow answer then answer.extractLsb' 0 128 else answer.extractLsb' 128 128
+  else DualHalf.select answer
+
+/-- Stored in spare witness space; this does not add signature bytes. -/
+def encodingHint (lay : Layer) (answer : HashOutput) : BitVec 64 :=
+  if lay = 0 ∧ topChooseLow answer = false then 16 else 0
+
+/-- Verifier selection allows an arbitrary hint, subject to the quarter gate. -/
+def verificationAnswer (lay : Layer) (hint : BitVec 64) (answer : HashOutput) : Digest :=
+  if lay = 0 then
+    SigGolfCandidate.Choice.Selector.branchRead
+      (SigGolfCandidate.Choice.Selector.splitEquiv answer) hint
+  else DualHalf.select answer
+
+def verificationHash (lay : Layer) (hint : BitVec 64) (input : HashInput) : M Digest :=
+  verificationAnswer lay hint <$> publicHash input
 
 def encodingHash (lay : Layer) (input : HashInput) : M Digest :=
   encodingAnswer lay <$> publicHash input
 
 theorem encodingHash_top (input : HashInput) :
-    encodingHash 0 input = TopDualHalf.select <$> publicHash input := rfl
+    encodingHash 0 input = (fun answer => if topChooseLow answer then
+      answer.extractLsb' 0 128 else answer.extractLsb' 128 128) <$> publicHash input := rfl
 
 theorem encodingAnswer_lower_low (lay : Layer) (hl : lay ≠ 0) (answer : HashOutput)
     (hspare : lowerSpare (answer.extractLsb' 0 128)) :
@@ -580,6 +604,16 @@ def layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) (counter
       match producerDecode lay answer with
       | none => layerCounterSearch lay tree leaf msg (counter + 1) fuel
       | some digits => pure (some (BitVec.ofNat 32 counter, digits))
+/-- The same canonical search, retaining the selector from its successful hash
+answer. Expansion needs no extra query to recover it. -/
+def layerCounterSearchHint (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) (counter : Nat) :
+    Nat → M (Option (BitVec 32 × List Nat × BitVec 64))
+  | 0 => pure none
+  | fuel + 1 => do
+      let answer ← publicHash (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter))
+      match producerDecode lay (encodingAnswer lay answer) with
+      | none => layerCounterSearchHint lay tree leaf msg (counter + 1) fuel
+      | some digits => pure (some (BitVec.ofNat 32 counter, digits, encodingHint lay answer))
 def lowerOrdinal (lay : Layer) (leaf chain : Nat) : Nat := chainCount lay * leaf + chain
 def lowerSeedHeader (lay : Layer) (tree pair : Nat) : BitVec 128 := header 0 lay.val tree pair 0
 def lowerSeedPair (lay : Layer) (tree pair : Nat) : M (Digest × Digest) := privatePair 0 lay.val tree pair 0
@@ -665,6 +699,7 @@ structure Witness where
   signature : Signature
   digestCounter : BitVec 32
   counters : Layer → BitVec 32
+  topHint : BitVec 64
 def toT3Signature (sig : Signature) : SigGolfCandidate.T3.Signature :=
   ⟨sig.rho, fun _ => 0, fun _ => 0, sig.layers⟩
 def toT3Witness (w : Witness) : SigGolfCandidate.T3.Witness :=
@@ -732,19 +767,19 @@ def verifyTop (sig : Signature) (index : Nat) (answer : Digest) : M (Option Dige
         value)
     answer
 def expandLayersBC (sig : Signature) (index : Nat) :
-    Nat → LayerMsg → M (Option (Digest × List (BitVec 32)))
+    Nat → LayerMsg → M (Option (Digest × List (BitVec 32) × BitVec 64))
   | 0, _ => pure none
   | n + 1, msg => do
       let lay : Layer := Fin.ofNat 4 n
       let (leaf, tree) := route index lay
-      let some (counter, digits) ← layerCounterSearch lay tree leaf msg 0 (searchLimit lay) | pure none
+      let some (counter, digits, hint) ← layerCounterSearchHint lay tree leaf msg 0 (searchLimit lay) | pure none
       if n = 0 then
         let root ← recoverLayer (toT3Signature sig) index lay digits
-        pure (some (root, [counter]))
+        pure (some (root, [counter], hint))
       else
         let pair ← recoverLayerPair sig index lay digits
-        let some (root, counters) ← expandLayersBC sig index n (.pair pair.1 pair.2) | pure none
-        pure (some (root, counters ++ [counter]))
+        let some (root, counters, topHint) ← expandLayersBC sig index n (.pair pair.1 pair.2) | pure none
+        pure (some (root, counters ++ [counter], topHint))
 def verifyLayersBC (w : Witness) (index : Nat) : Nat → LayerMsg → M (Option Digest)
   | 0, _ => pure none
   | n + 1, msg => do
@@ -752,7 +787,7 @@ def verifyLayersBC (w : Witness) (index : Nat) : Nat → LayerMsg → M (Option 
       let counter := w.counters lay
       if counter.toNat ≥ verifyWindow then return none
       let (leaf, tree) := route index lay
-      let answer ← ClaudeWCT.WCT9.encodingHash lay (layerEncodingInput lay tree leaf msg counter)
+      let answer ← verificationHash lay w.topHint (layerEncodingInput lay tree leaf msg counter)
       if n = 0 then verifyTop w.signature index answer
       else do
         let some digits := decode lay answer | pure none
@@ -818,9 +853,9 @@ def expand (message : Message) (pk : Digest) (sig : Signature) : M (Option Witne
   let some (counter, output) ← digestSearch sig.rho message 0 attemptLimit | pure none
   let index := digestIndex output
   let top ← recoverFts sig index output
-  let some (root, counters) ← expandLayersBC sig index 4 (.pair top.1 top.2) | pure none
+  let some (root, counters, topHint) ← expandLayersBC sig index 4 (.pair top.1 top.2) | pure none
   if root ≠ pk then return none
-  pure (some ⟨sig, counter, fun lay => counters.getD lay.val 0⟩)
+  pure (some ⟨sig, counter, fun lay => counters.getD lay.val 0, topHint⟩)
 def verify (message : Message) (pk : Digest) (w : Witness) : M Bool := do
   if w.digestCounter.toNat ≥ attemptLimit then return false
   let output ← digest w.signature.rho message w.digestCounter

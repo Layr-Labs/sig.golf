@@ -1,4 +1,5 @@
 import SigGolfCandidate.T3M.Search.Basic
+import SigGolfCandidate.Choice.ProducerArithmetic
 import SigGolfCandidate.T3M.Search.TopWindow
 import SigGolfCandidate.T3M.ImageSlice
 import SigGolfCandidate.T3M.Images.Slices
@@ -17,9 +18,6 @@ set_option linter.unusedSimpArgs false
 /-- The frozen producer's reward routines share this entry and byte layout. -/
 def base (b : Nat) (top : Bool) : Nat :=
   if b = 354 then (if top then 43352 else 42947) else (if top then 21343 else 20938)
-def nDigits (top : Bool) : Nat := if top then 54 else 43
-def maximum (top : Bool) (i : Nat) : Nat := if top && decide (i < 51) then 4 else 7
-def direct (top : Bool) (i : Nat) : Bool := decide (i = 0) || (!top && decide (i = 1))
 def iw (rd rs imm f op : Nat) : BitVec 32 :=
   BitVec.ofNat 32 (imm * 2^20 + rs * 2^15 + f * 2^12 + rd * 2^7 + op)
 def byteLoad (rd i : Nat) : BitVec 32 := iw rd 10 i 4 3
@@ -34,7 +32,6 @@ def digitWords (top : Bool) (i : Nat) : List (BitVec 32) :=
     [minus 29 28 (maximum top i), eqZero 29, byteLoad 30 (i-1),
      minus 30 30 (maximum top (i-1)), eqZero 30, 0x1eefeb3, 0x2e9e93, 0x1d30333]
   else [])
-def penaltyGroups : List Nat := [0,1,2,3,4,5,6,7,8,10,11,12]
 def penaltyWords (q : Nat) : List (BitVec 32) :=
   [byteLoad 28 (3*q),byteLoad 29 (3*q+1),byteLoad 30 (3*q+2),
    0x1de0e33,0x1ee0e33,0x3e3e13,0x41c30333]
@@ -101,18 +98,6 @@ theorem pre_run (b : Nat) (hb : b=354 ∨ b=543) (top : Bool) :
 open SigGolfCandidate.T3 (Layer Digest)
 open ClaudeWCT.WCT9
 
-def credit (top : Bool) (ds : List Nat) (i : Nat) : Nat :=
-  if ds.getD i 0 = maximum top i-1 then 1 else 0
-def saved (top : Bool) (ds : List Nat) (i : Nat) : Prop :=
-  ds.getD i 0 = maximum top i ∧
-    (direct top i = true ∨ (i%3 ≠ 0 ∧ ds.getD (i-1) 0 = maximum top (i-1)))
-instance (top : Bool) (ds : List Nat) (i : Nat) : Decidable (saved top ds i) := by
-  unfold saved; infer_instance
-def reward (top : Bool) (ds : List Nat) (i : Nat) : Nat :=
-  credit top ds i + 4 * (if saved top ds i then 1 else 0)
-def penalty (ds : List Nat) (q : Nat) : Nat :=
-  if ds.getD (3*q) 0 + ds.getD (3*q+1) 0 + ds.getD (3*q+2) 0 < 3 then 1 else 0
-
 theorem constByte_eval (s : MachineState) (i : Nat) (hi : i < 54) :
     (constByte i).eval s = (s.getByte (BitVec.ofNat 64 (DIGITS+i))).zeroExtend 64 := by
   rw [constByte, E.eval, UnOp.eval, LoadKind.fromWord, E.eval, E.eval]
@@ -136,9 +121,6 @@ theorem constFlag_eval (s : MachineState) (i d m : Nat) (hi : i < 54)
   simp only [constFlag, E.eval, mkAdd_eval, constByte_eval s i hi, hb,
     widen_small d hd, BinOp.eval]
   exact eq_small d m hd hm hm0
-
-theorem maximum_bounds (top : Bool) (i : Nat) : 2 ≤ maximum top i ∧ maximum top i < 8 := by
-  unfold maximum; split <;> omega
 
 theorem constBonus_eval (s : MachineState) (top : Bool) (ds : List Nat) (i : Nat)
     (hi : i < nDigits top) (hd : ∀ j < nDigits top, ds.getD j 0 < 8)
@@ -224,46 +206,6 @@ theorem penalty_fold_eval (s : MachineState) (ds : List Nat)
       penaltyExpr_eval s ds q (hq q (by simp)) hd hm]
     simp only [List.map_cons, List.sum_cons, BitVec.sub_sub, ofNat_add_ofNat]
 
-theorem maximum_layer (lay : Layer) (i : Nat) : maximum (decide (lay=0)) i = T3.maxDigit lay i := by
-  by_cases h : lay=0 <;> simp [maximum, T3.maxDigit, h]
-theorem count_layer (lay : Layer) : nDigits (decide (lay=0)) = T3.chainCount lay := by
-  fin_cases lay <;> rfl
-
-theorem saved_layer (lay : Layer) (ds : List Nat) (i : Nat) :
-    saved (decide (lay=0)) ds i ↔ safeZeroCopy lay ds i := by
-  simp only [saved, maximum_layer, safeZeroCopy]
-  have hdirect : direct (decide (lay=0)) i = true ↔ i=0 ∨ (lay≠0 ∧ i=1) := by
-    simp [direct]
-  rw [hdirect]
-  constructor
-  · rintro ⟨ha, (h0 | h1) | ⟨hm, hp⟩⟩
-    · exact ⟨ha, Or.inl h0⟩
-    · exact ⟨ha, Or.inr (Or.inl h1)⟩
-    · exact ⟨ha, Or.inr (Or.inr ⟨by omega, hm, hp⟩)⟩
-  · rintro ⟨ha, h0 | h1 | ⟨_, hm, hp⟩⟩
-    · exact ⟨ha, Or.inl (Or.inl h0)⟩
-    · exact ⟨ha, Or.inl (Or.inr h1)⟩
-    · exact ⟨ha, Or.inr ⟨hm, hp⟩⟩
-
-theorem credit_layer (lay : Layer) (ds : List Nat) (i : Nat) :
-    ds.getD i 0 = maximum (decide (lay=0)) i-1 ↔ ds.getD i 0+1 = T3.maxDigit lay i := by
-  rw [← maximum_layer lay i]
-  have := (maximum_bounds (decide (lay=0)) i).1
-  omega
-
-theorem reward_sum_counts (top : Bool) (ds : List Nat) (is : List Nat) :
-    (is.map (reward top ds)).sum =
-      (is.filter fun i => decide (ds.getD i 0 = maximum top i-1)).length +
-      4 * (is.filter fun i => decide (saved top ds i)).length := by
-  induction is with
-  | nil => rfl
-  | cons i is ih =>
-    by_cases hc : ds.getD i 0 = maximum top i-1 <;>
-      by_cases hs : saved top ds i <;>
-      simp only [reward, credit, List.map_cons, List.sum_cons, List.filter_cons,
-        hc, hs, decide_true, decide_false, if_true, if_false, Bool.false_eq_true,
-        List.length_cons, ih] <;> omega
-
 theorem rewardsExpr_layer (s : MachineState) (lay : Layer) (ds : List Nat)
     (hd : ∀ j < T3.chainCount lay, ds.getD j 0 < 8)
     (hm : ∀ j < T3.chainCount lay, s.getByte (BitVec.ofNat 64 (DIGITS+j)) = BitVec.ofNat 8 (ds.getD j 0)) :
@@ -272,29 +214,6 @@ theorem rewardsExpr_layer (s : MachineState) (lay : Layer) (ds : List Nat)
     reward_sum_counts, count_layer]
   simp only [credit_layer, saved_layer]
   rfl
-
-theorem penalty_sum_count (ds : List Nat) (qs : List Nat) :
-    (qs.map (penalty ds)).sum =
-      (qs.filter fun q => decide (ds.getD (3*q) 0 + ds.getD (3*q+1) 0 + ds.getD (3*q+2) 0 < 3)).length := by
-  induction qs with
-  | nil => rfl
-  | cons q qs ih =>
-    by_cases h : ds.getD (3*q) 0 + ds.getD (3*q+1) 0 + ds.getD (3*q+2) 0 < 3 <;>
-      simp only [penalty, List.map_cons, List.sum_cons, List.filter_cons,
-        h, decide_true, decide_false, if_true, if_false, Bool.false_eq_true,
-        List.length_cons, ih] <;> omega
-
-theorem penalty_total (ds : List Nat) : (penaltyGroups.map (penalty ds)).sum = topDispatchPenalty ds := by
-  rw [penalty_sum_count]
-  have hr : penaltyGroups = (List.range 17).filter (fun q => decide (q ≠ 9 ∧ q < 13)) := by decide +kernel
-  rw [hr, List.filter_filter]
-  unfold topDispatchPenalty
-  apply congrArg List.length
-  apply List.filter_congr
-  intro q hq
-  apply Bool.eq_iff_iff.mpr
-  simp only [Bool.and_eq_true, decide_eq_true_eq]
-  tauto
 
 theorem scoreExpr_layer (s : MachineState) (lay : Layer) (ds : List Nat)
     (hd : ∀ j < T3.chainCount lay, ds.getD j 0 < 8)
@@ -492,35 +411,6 @@ theorem reward_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : Legac
 
 
 /-- Packed reward lookup data, before digit unpacking. -/
-def tripleScore (m a b c : Nat) : Nat :=
-  (if a=m-1 then 1 else 0) + (if b=m-1 then 1 else 0) + (if c=m-1 then 1 else 0) +
-  4*((if a=m ∧ b=m then 1 else 0)+(if b=m ∧ c=m then 1 else 0))
-def lowerLookup (first : Bool) (r : Nat) : Nat :=
-  tripleScore 7 (r%8) (r/8%8) (r/64%8) +
-  (if first then 4*((if r%8=7 then 1 else 0)+(if r/8%8=7 ∧ r%8≠7 then 1 else 0)) else 0)
-def topLookup (kind r : Nat) : Nat :=
-  if r<125 then tripleScore 4 (r%5) (r/5%5) (r/25%5) +
-    (if kind<2 then 1-(if r%5+r/5%5+r/25%5<3 then 1 else 0) else 0) +
-    (if kind=0 ∧ r%5=4 then 4 else 0)
-  else 0
-def tailLookup (r : Nat) : Nat := tripleScore 7 (r/8%8) (r/64%8) (r%8)
-def rewardTableByte (i : Nat) : BitVec 8 := BitVec.ofNat 8 <|
-  if i<1536 then lowerLookup true (i-1024)
-  else if i<2048 then lowerLookup false (i-1536)
-  else if i<2176 then topLookup 0 (i-2048)
-  else if i<2304 then topLookup 1 (i-2176)
-  else if i<2432 then topLookup 2 (i-2304)
-  else tailLookup (i-2432)
-def RewardTablesOK (s : MachineState) : Prop :=
-  ∀ i, 1024 ≤ i → i < 2944 → s.getByte (BitVec.ofNat 64 (TOP_DATA+i)) = rewardTableByte i
-theorem RewardTablesOK.frame {s t : MachineState} {W : Nat → Prop} (h : RewardTablesOK s)
-    (hf : Frame s t W) (hd : ∀ i, 1024 ≤ i → i < 2944 → ¬ W ((TOP_DATA+i)/8*8)) : RewardTablesOK t := by
-  intro i hi hj
-  exact (hf.getByte (by unfold TOP_DATA; omega) (hd i hi hj)).trans (h i hi hj)
-def topKind (q : Nat) : Nat := if q=0 then 0 else if q∈penaltyGroups then 1 else 2
-def packedTopScore (v : T3.Digest) : Nat :=
-  ((List.range 17).map (fun q => topLookup (topKind q) (topRank v q))).sum +
-    tailLookup (v.toNat / 2^119 % 512)
 def fastSignLower : List (BitVec 32) := [0x10005b7,0x80058593,0xa13,0x35513,0x1ff57e13,0xbe0e33,0xc00e4e83,0x1da0a33,0x935513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x1235513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x1b35513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x2435513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x2d35513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x3635513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x3d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x93d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x123d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x1b3d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x243d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x2d3d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x363d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x41988e33,0xffae0e13,0x1e3e13,0x1ca0a33,0xfff40e13,0x1e3e13,0x9e0e13,0x1ca6463,0xed4ec06f,0xf5cec06f]
 def fastSignTop : List (BitVec 32) := [0x10005b7,0x80058593,0xa13,0x35513,0x7f57e13,0xbe0e33,0xe4e83,0x1da0a33,0x735513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0xe35513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x1535513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x1c35513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x2335513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x2a35513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x3135513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x3835513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x3f35513,0x139e13,0x1c56533,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x63d513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0xd3d513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x143d513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x1b3d513,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x223d513,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x293d513,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x303d513,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x373d513,0x1ff57e13,0xbe0e33,0x180e4e83,0x1da0a33,0x2200e13,0x1ca6463,0x814ec06f,0x8c8ec06f]
 def fastExpandLower : List (BitVec 32) := [0x10005b7,0x80058593,0xa13,0x35513,0x1ff57e13,0xbe0e33,0xc00e4e83,0x1da0a33,0x935513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x1235513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x1b35513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x2435513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x2d35513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x3635513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x3d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x93d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x123d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x1b3d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x243d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x2d3d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x363d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x41988e33,0xffae0e13,0x1e3e13,0x1ca0a33,0xfff40e13,0x1e3e13,0x9e0e13,0x1ca6463,0xbfdd606f,0xc85d606f]
@@ -634,24 +524,6 @@ theorem prefix_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : Rewar
   · intro A _ _; rfl
 end PackedTop
 
-theorem tripleScore_le (m a b c : Nat) : tripleScore m a b c ≤ 11 := by
-  unfold tripleScore
-  split_ifs <;> omega
-theorem topLookup_le (kind r : Nat) : topLookup kind r ≤ 16 := by
-  have h := tripleScore_le 4 (r%5) (r/5%5) (r/25%5)
-  unfold topLookup
-  split_ifs <;> omega
-theorem tailLookup_le (r : Nat) : tailLookup r ≤ 11 := tripleScore_le _ _ _ _
-theorem table_top (s : MachineState) (ht : RewardTablesOK s) (kind r : Nat) (hk : kind<3) (hr : r<128) :
-    s.getByte (BitVec.ofNat 64 (TOP_DATA+(2048+128*kind+r))) = BitVec.ofNat 8 (topLookup kind r) := by
-  rw [ht _ (by omega) (by omega)]
-  interval_cases kind <;> simp only [rewardTableByte]
-  all_goals split_ifs <;> first | omega | congr 2 <;> omega
-theorem table_tail (s : MachineState) (ht : RewardTablesOK s) (r : Nat) (hr : r<512) :
-    s.getByte (BitVec.ofNat 64 (TOP_DATA+(2432+r))) = BitVec.ofNat 8 (tailLookup r) := by
-  rw [ht _ (by omega) (by omega)]
-  simp only [rewardTableByte]
-  split_ifs <;> first | omega | congr 2 <;> omega
 namespace PackedTop
 theorem topKind_lt (q : Nat) : topKind q<3 := by unfold topKind; split_ifs <;> omega
 theorem value_le (v : Digest) (q : Nat) : value v q≤16 := by
@@ -719,106 +591,6 @@ set_option maxRecDepth 32768
 set_option maxHeartbeats 1200000
 set_option Elab.async false
 set_option linter.unusedSimpArgs false
-
-theorem topDigits_getD' (v : T3.Digest) (i : Nat) (hi : i < 54) :
-    (topDigits (T3.topFlip v)).getD i 0 = T3.coreDigit 0 (T3.topFlip v) i := by
-  simp [topDigits, hi]
-
-theorem topDigits_group_getD (v : T3.Digest) (q : Nat) (hq : q < 17) (i : Nat) (hi : i < 3) :
-    (topDigits (T3.topFlip v)).getD (3*q+i) 0 = topRank v q / 5^i % 5 := by
-  rw [topDigits_getD' _ _ (by omega)]
-  simp only [T3.coreDigit, if_pos rfl, if_pos (by omega : 3*q+i<51), T3.topCode_topFlip]
-  rw [show (3*q+i)/3=q by omega, show (3*q+i)%3=i by omega]
-  rfl
-
-theorem reward_top_group (ds : List Nat) (q : Fin 17) :
-    ([3*q.val,3*q.val+1,3*q.val+2].map (reward true ds)).sum =
-      tripleScore 4 (ds.getD (3*q.val) 0) (ds.getD (3*q.val+1) 0) (ds.getD (3*q.val+2) 0) +
-      (if q.val=0 ∧ ds.getD (3*q.val) 0 = 4 then 4 else 0) := by
-  fin_cases q <;>
-    simp [reward, credit, saved, maximum, direct, tripleScore, and_comm, -List.getD_eq_getElem?_getD]
-  all_goals split_ifs <;> omega
-
-
-theorem reward_top_tail (ds : List Nat) :
-    ([51,52,53].map (reward true ds)).sum = tripleScore 7 (ds.getD 51 0) (ds.getD 52 0) (ds.getD 53 0) := by
-  simp [reward, credit, saved, maximum, direct, tripleScore, and_comm, -List.getD_eq_getElem?_getD]
-
-  split_ifs <;> omega
-
-theorem tailLookup_digits (v : T3.Digest) :
-    tailLookup (v.toNat / 2^119 % 512) =
-      tripleScore 7 ((topDigits (T3.topFlip v)).getD 51 0)
-        ((topDigits (T3.topFlip v)).getD 52 0) ((topDigits (T3.topFlip v)).getD 53 0) := by
-  rw [topDigits_getD' _ _ (by decide), topDigits_getD' _ _ (by decide), topDigits_getD' _ _ (by decide)]
-  norm_num [T3.coreDigit, T3.topCode_topFlip, T3.topRawShift, tailLookup]
-  congr 1 <;> omega
-
-theorem topLookup_add_penalty (q : Fin 17) (r : Nat) (hr : r < 125) :
-    topLookup (topKind q.val) r +
-        (if q.val ∈ penaltyGroups then (if r%5+r/5%5+r/25%5<3 then 1 else 0) else 0) =
-      tripleScore 4 (r%5) (r/5%5) (r/25%5) +
-        (if q.val=0 ∧ r%5=4 then 4 else 0) + (if q.val ∈ penaltyGroups then 1 else 0) := by
-  fin_cases q <;> simp [topKind, penaltyGroups, topLookup, hr]
-  all_goals split_ifs <;> omega
-
-theorem packed_group_reward (v : T3.Digest) (q : Fin 17) (hr : topRank v q.val < 125) :
-    topLookup (topKind q.val) (topRank v q.val) +
-      (if q.val ∈ penaltyGroups then penalty (topDigits (T3.topFlip v)) q.val else 0) =
-      ([3*q.val,3*q.val+1,3*q.val+2].map (reward true (topDigits (T3.topFlip v)))).sum +
-      (if q.val ∈ penaltyGroups then 1 else 0) := by
-  rw [reward_top_group]
-  have h0 := topDigits_group_getD v q.val q.isLt 0 (by decide)
-  simp only [Nat.add_zero, pow_zero, Nat.div_one] at h0
-  simpa only [penalty, h0, topDigits_group_getD v q.val q.isLt 0 (by decide),
-    topDigits_group_getD v q.val q.isLt 1 (by decide), topDigits_group_getD v q.val q.isLt 2 (by decide),
-    Nat.add_zero, pow_zero, pow_one, Nat.div_one, show (5:Nat)^2=25 from rfl] using
-    topLookup_add_penalty q (topRank v q.val) hr
-
-
-theorem reward_top_total (ds : List Nat) :
-    ((List.range 54).map (reward true ds)).sum = wordCredit 0 ds + 4 * savedCopies 0 ds := by
-  have hc (i : Nat) : ds.getD i 0 = maximum true i - 1 ↔ ds.getD i 0 + 1 = T3.maxDigit 0 i :=
-    credit_layer 0 ds i
-  have hs (i : Nat) : saved true ds i ↔ safeZeroCopy 0 ds i := saved_layer 0 ds i
-  rw [reward_sum_counts]
-  simp only [hc, hs]
-  rfl
-
-theorem reward_top_grouped (ds : List Nat) :
-    ((List.range 54).map (reward true ds)).sum =
-      (∑ q : Fin 17, ([3*q.val,3*q.val+1,3*q.val+2].map (reward true ds)).sum) +
-      tripleScore 7 (ds.getD 51 0) (ds.getD 52 0) (ds.getD 53 0) := by
-  have hi : List.range 54 =
-      (List.ofFn fun q : Fin 17 => [3*q.val,3*q.val+1,3*q.val+2]).flatten ++ [51,52,53] := by decide +kernel
-  rw [hi, List.map_append, List.sum_append, reward_top_tail]
-  simp only [List.map_flatten, List.sum_flatten, List.map_map, List.map_ofFn, Function.comp_def, List.sum_ofFn]
-
-theorem penalty_top_grouped (ds : List Nat) :
-    (∑ q : Fin 17, if q.val ∈ penaltyGroups then penalty ds q.val else 0) = dispatchPenalty 0 ds := by
-  rw [show dispatchPenalty 0 ds = topDispatchPenalty ds from rfl, ← penalty_total]
-  simp [Fin.sum_univ_succ, penaltyGroups, Nat.add_assoc]
-
-theorem packedTopScore_reward (v : T3.Digest) (hv : T3.topRanksValid (T3.topFlip v) = true) :
-    packedTopScore v + dispatchPenalty 0 (topDigits (T3.topFlip v)) =
-      wordCredit 0 (topDigits (T3.topFlip v)) + 4 * savedCopies 0 (topDigits (T3.topFlip v)) + 12 := by
-  have hg (q : Fin 17) : topRank v q.val < 125 :=
-    (topRanksValid_iff v).mp hv _ (List.mem_map.mpr ⟨q.val, List.mem_range.mpr q.isLt, rfl⟩)
-  have hs := Finset.sum_congr rfl (fun q (_ : q ∈ (Finset.univ : Finset (Fin 17))) =>
-    packed_group_reward v q (hg q))
-  simp only [Finset.sum_add_distrib] at hs
-  have ho : (∑ q : Fin 17, if q.val ∈ penaltyGroups then (1:Nat) else 0) = 12 := by decide +kernel
-  rw [ho, penalty_top_grouped] at hs
-  have hr := reward_top_grouped (topDigits (T3.topFlip v))
-  rw [reward_top_total, ← tailLookup_digits] at hr
-  have hp : packedTopScore v = (∑ q : Fin 17, topLookup (topKind q.val) (topRank v q.val)) +
-      tailLookup (v.toNat / 2^119 % 512) := by
-    unfold packedTopScore
-    rw [show List.range 17 = List.ofFn (fun q : Fin 17 => q.val) from rfl]
-    simp only [List.map_ofFn, List.sum_ofFn, Function.comp_def]
-  omega
-
-
 
 namespace PackedTop
 def addCode : List (BitVec 32) := [0x1da0a33]

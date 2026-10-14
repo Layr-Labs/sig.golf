@@ -56,7 +56,7 @@ theorem bound_forestRows (index : Nat) (output : HashOutput) :
       (forestRows index output) :=
   cbound_of_ftsBound (ftsBound_forestRows index output)
 theorem bound_signForest (index : Nat) (output : HashOutput) :
-    CBound (fun result : List Opening × (Digest × Digest) => result.1.length = 9) 31329 (signForest index output) :=
+    CBound (fun result : List Opening × (Digest × Digest) => result.1.length = 9) 31334 (signForest index output) :=
   cbound_of_ftsBound (ftsBound_signForest index output)
 theorem bound_recoverCoordinate (sig : Signature) (index : Nat) (output : HashOutput) (coord : Coord)
     (prev : Digest × Digest) :
@@ -66,8 +66,8 @@ theorem bound_recoverFts (sig : Signature) (index : Nat) (output : HashOutput) :
     CBound (fun _ => True) 140 (recoverFts sig index output) :=
   cbound_of_ftsBound (ftsBound_recoverFts index sig output)
 /-- Stage-A FTS signing (T8 child code): per coordinate 51 coefficient pairs, 128 children of 24 chain steps + a
-2-block leaf, and 126 heap nodes; with the nested commitment and no separate forest-key hash. -/
-theorem signForest_blocks : 9 * (27 + 128 * (24 + 2) + 126) = 31329 := by norm_num
+2-block leaf, and 126 heap nodes; then the 5-block forest key. -/
+theorem signForest_blocks : 9 * (27 + 128 * (24 + 2) + 126) + 5 = 31334 := by norm_num
 theorem verifyFts_blocks : 9 * (7 + 2 + 6) + 5 + 1 = 141 := by norm_num
 def DigestResult (out : Option (BitVec 32 × HashOutput)) : Prop :=
   ∀ counter output, out = some (counter, output) → producerAdmissible output = true
@@ -94,6 +94,23 @@ theorem bound_layerEncoding (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) (co
     CBound (fun _ => True) 1 (ClaudeWCT.WCT9.encodingHash lay (layerEncodingInput lay tree leaf msg counter)) := by
   cases msg <;> apply bound_encodingHash <;>
     simp [layerEncodingInput, encodingInput, pairEncodingInputP, pad64_length, SphincsSecurity.bytesLE_length]
+theorem bound_layerEncodingRaw (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) (counter : BitVec 32) :
+    CBound (fun _ => True) 1 (publicHash (layerEncodingInput lay tree leaf msg counter)) := by
+  have hpos : 0 < (layerEncodingInput lay tree leaf msg counter).length := by
+    cases msg <;> simp [layerEncodingInput, encodingInput, pairEncodingInputP, SphincsSecurity.bytesLE_length]
+  have hlen : (pad64 (layerEncodingInput lay tree leaf msg counter)).length / 64 ≤ 1 := by
+    cases msg <;> simp [layerEncodingInput, encodingInput, pairEncodingInputP, pad64_length,
+      SphincsSecurity.bytesLE_length]
+  change CBound (fun _ => True) 1 (qry (.inl (.inr (pad64 (layerEncodingInput lay tree leaf msg counter)))))
+  rw [← bind_pure (qry _)]
+  apply Bound.qry_bind (k := 0) ⟨pad64_positive _ hpos, pad64_aligned _⟩
+    (fun _ => .pure _ 0 trivial)
+  simpa only [weight, Nat.add_zero] using hlen
+
+theorem bound_layerVerification (lay : Layer) (hint : BitVec 64) (tree leaf : Nat)
+    (msg : LayerMsg) (counter : BitVec 32) :
+    CBound (fun _ => True) 1 (verificationHash lay hint (layerEncodingInput lay tree leaf msg counter)) :=
+  Bound.map _ (bound_layerEncodingRaw lay tree leaf msg counter) (fun _ _ => trivial)
 theorem bound_layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) :
     ∀ fuel counter, CBound (CounterResult lay) fuel (layerCounterSearch lay tree leaf msg counter fuel) := by
   intro fuel
@@ -111,6 +128,28 @@ theorem bound_layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : LayerMsg
       | some digits =>
           have hd := producerDecode_decode hs
           refine .pure (some (BitVec.ofNat 32 counter, digits)) fuel ?_
+          intro other values hv
+          obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hv)
+          exact ⟨(decode_length_sum hd).1, (decode_length_sum hd).2, validDigits_decode hd⟩
+theorem bound_layerCounterSearchHint (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) :
+    ∀ fuel counter, CBound (fun out => CounterResult lay
+      (out.map fun x : BitVec 32 × List Nat × BitVec 64 => (x.1, x.2.1))) fuel
+      (layerCounterSearchHint lay tree leaf msg counter fuel) := by
+  intro fuel
+  induction fuel with
+  | zero =>
+      intro counter
+      exact .pure none 0 (by simp [CounterResult])
+  | succ fuel ih =>
+      intro counter
+      unfold layerCounterSearchHint
+      refine (bound_layerEncodingRaw lay tree leaf msg (BitVec.ofNat 32 counter)).bind' (l := fuel)
+        (fun answer _ => ?_) (by omega)
+      cases hs : producerDecode lay (encodingAnswer lay answer) with
+      | none => exact ih (counter + 1)
+      | some digits =>
+          have hd := producerDecode_decode hs
+          refine .pure (some (BitVec.ofNat 32 counter, digits, encodingHint lay answer)) fuel ?_
           intro other values hv
           obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hv)
           exact ⟨(decode_length_sum hd).1, (decode_length_sum hd).2, validDigits_decode hd⟩
@@ -281,21 +320,14 @@ theorem bound_signLayersBC (cache : Cache) (index : Nat) :
           | some pair =>
               obtain ⟨counter, digits⟩ := pair
               exact (hout counter digits rfl).1
-        have hsum : ((out.map Prod.snd).getD dummyTop).sum = 126 ∨
-            ((out.map Prod.snd).getD dummyTop).sum = target 0 := by
-          cases out with
-          | none => first | exact Or.inl (by decide) | exact Or.inr (by decide)
-          | some pair =>
-              obtain ⟨counter, digits⟩ := pair
-              exact Or.inr (hout counter digits rfl).2.1
-        have h126 : 126 ≤ target 0 := by decide
         have hle : ((out.map Prod.snd).getD dummyTop).sum ≤ target 0 := by
-          rcases hsum with h | h <;> omega
-        first
-          | exact (bound_signTop cache _ _ hlen (le_of_le_of_eq hle (by decide))).bind'
-              (l := 0) (fun _ _ => .pure _ 0 trivial) (by simp [layerFixedCostP, layerFixedCost])
-          | exact (bound_signTop cache _ _ hlen (hsum.elim id fun h => h.trans (by decide))).bind'
-              (l := 0) (fun _ _ => .pure _ 0 trivial) (by simp [layerFixedCostP, layerFixedCost])
+          cases out with
+          | none => decide
+          | some pair =>
+              obtain ⟨counter,digits⟩ := pair
+              exact (hout counter digits rfl).2.1.le
+        exact (bound_signTop cache _ _ hlen (le_of_le_of_eq hle (by decide))).bind'
+          (l := 0) (fun _ _ => .pure _ 0 trivial) (by simp [layerFixedCostP,layerFixedCost])
       · simp only [hn, ite_false]
         cases out with
         | none => exact .pure _ _ trivial
@@ -425,7 +457,7 @@ theorem bound_verifyLayersBC (w : Witness) (index : Nat) :
       dsimp only
       split
       · exact .pure _ _ trivial
-      · refine (bound_layerEncoding _ _ _ msg _).bind'
+      · refine (bound_layerVerification _ w.topHint _ _ msg _).bind'
           (l := verifyLayersCostBC (n + 1) + n) (fun answer _ => ?_) (by simp only [verifyLayersCostBC]; omega)
         by_cases hn : n = 0
         · subst n
@@ -452,14 +484,14 @@ theorem bound_expandLayersBC (sig : Signature) (index : Nat) :
       intro msg
       unfold expandLayersBC
       dsimp only
-      refine (bound_layerCounterSearch (Fin.ofNat 4 n) _ _ msg (searchLimit (Fin.ofNat 4 n)) 0).bind'
+      refine (bound_layerCounterSearchHint (Fin.ofNat 4 n) _ _ msg (searchLimit (Fin.ofNat 4 n)) 0).bind'
         (l := recoveryLayersCostBC (n + 1) + n * counterLimit)
         (fun found hf => ?_)
         (by have := searchLimit_le (Fin.ofNat 4 n); simp only [recoveryLayersCostBC, Nat.add_mul, Nat.one_mul]; omega)
       cases found with
       | none => exact .pure _ _ trivial
       | some pair =>
-          obtain ⟨counter, digits⟩ := pair
+          obtain ⟨counter, digits, hint⟩ := pair
           have hd := hf counter digits rfl
           dsimp only
           by_cases hn : n = 0
@@ -473,8 +505,8 @@ theorem bound_expandLayersBC (sig : Signature) (index : Nat) :
               (by simp only [recoveryLayersCostBC, hn, ite_false]; omega)
             refine (ih _).bind' (l := 0) (fun result _ => ?_) (by omega)
             cases result <;> exact .pure _ 0 trivial
-def signPayloadFixed : Nat := 2 + 31329 + layerFixedCostP 4
-theorem signPayloadFixed_eq : signPayloadFixed + 5192 = 2 + 31910 + layerFixedCost 4 := by
+def signPayloadFixed : Nat := 2 + 31334 + layerFixedCostP 4
+theorem signPayloadFixed_eq : signPayloadFixed + 5187 = 2 + 31910 + layerFixedCost 4 := by
   have h := layerFixedCostP_four
   unfold signPayloadFixed
   omega

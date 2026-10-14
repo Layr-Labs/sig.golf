@@ -983,9 +983,9 @@ theorem merkle_rest (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (l
     (hx6 : lay.val = 0 → u.getReg .x6 = 520192)
     (ht5 : lay.val ≠ 0 → u.getReg .x31 = BitVec.ofNat 64 (route index lay).2)
     (K : Digest → OracleComp HashSpec Obs) (N C A : Nat) (Q : Prop)
-    (hK : ∀ root t, MkStop w pk lay.val (route index lay).1 u root t → GoodQ t N C Q A (K root)) :
+    (hK : ∀ root t, MkStop w pk lay.val (route index lay).1 u root t → GoodQ (choiceHint := choiceHint) t N C Q A (K root)) :
     ∀ n k v s, k + n = mkStop lay.val → k < hL lay.val → MAfter w pk lay.val (route index lay).1 u k v s →
-      GoodQ s (N + mkFuelR lay.val k n) (C + mkCycR lay.val k n) Q (A + mkCycR lay.val k n)
+      GoodQ (choiceHint := choiceHint) s (N + mkFuelR lay.val k n) (C + mkCycR lay.val k n) Q (A + mkCycR lay.val k n)
         (ccM ((List.range' k n).foldlM (mkStep w index lay) v) K) := by
   intro n
   induction n with
@@ -1000,7 +1000,7 @@ theorem merkle_rest (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (l
     have hlive : k < hL lay.val - (if lay.val = 0 then 0 else 1) := by change k < mkStop lay.val; omega
     obtain ⟨t, hst, hf, h5, hv, hin, hpost⟩ := lvl_step w pk index lay u hidx hs7 hx6 ht5 k hk hlive v s hs
     rw [List.range'_succ, List.foldlM_cons, mkStep_eq]
-    have H : ∀ a : BitVec 256, GoodQ (writeHash t a) (N + mkFuelR lay.val (k + 1) m) (C + mkCycR lay.val (k + 1) m) Q
+    have H : ∀ a : BitVec 256, GoodQ (choiceHint := choiceHint) (writeHash t a) (N + mkFuelR lay.val (k + 1) m) (C + mkCycR lay.val (k + 1) m) Q
         (A + mkCycR lay.val (k + 1) m)
         (ccM ((fun v' => (List.range' (k + 1) m).foldlM (mkStep w index lay) v')
           (Verify.vHalf (ClaudeWCT.WCT9.lowerHigh lay.val (mkHp index lay k)) a)) K) := by
@@ -1039,8 +1039,8 @@ theorem mkBits_stabBits (lay : Nat) (hlay : lay < 4) : mkBits lay 0 = stabBits l
 theorem merkle_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer) (ends : List Digest) (u : MachineState)
     (hidx : index < 2 ^ 31) (hu : LeafOut w pk index lay ends u)
     (K : Digest → OracleComp HashSpec Obs) (N C A : Nat) (Q : Prop)
-    (hK : ∀ root t, MkStop w pk lay.val (route index lay).1 u root t → GoodQ t N C Q A (K root)) :
-    GoodQ u (N + mkFuel lay.val) (C + mkCyc lay.val) Q (A + mkCyc lay.val)
+    (hK : ∀ root t, MkStop w pk lay.val (route index lay).1 u root t → GoodQ (choiceHint := choiceHint) t N C Q A (K root)) :
+    GoodQ (choiceHint := choiceHint) u (N + mkFuel lay.val) (C + mkCyc lay.val) Q (A + mkCyc lay.val)
       (ccM (ClaudeWCT.WCT9.leafHashW lay (route index lay).2 (route index lay).1 (ClaudeWCT.W9.T3M.wtopLeafPad w)
         (ClaudeWCT.W9.T3M.wleafHigh w lay) ends >>= merklePrefix w index lay) K) := by
   have hlay := lay.isLt
@@ -1087,7 +1087,7 @@ theorem merkle_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (l
       (by fin_cases lay <;> decide +kernel) (by fin_cases lay <;> decide +kernel) (by fin_cases lay <;> decide +kernel)
       hc8 (by omega)
   have hG : Glob baseK w pk t := ht.glob _ _ _ hu.glob (RelOK.nil u)
-  have H : ∀ a : BitVec 256, GoodQ (writeHash t a) (N + mkFuelR lay.val 0 (mkStop lay.val))
+  have H : ∀ a : BitVec 256, GoodQ (choiceHint := choiceHint) (writeHash t a) (N + mkFuelR lay.val 0 (mkStop lay.val))
       (C + mkCycR lay.val 0 (mkStop lay.val)) Q (A + mkCycR lay.val 0 (mkStop lay.val))
       (ccM (merklePrefix w index lay (Verify.vHalf (ClaudeWCT.WCT9.lowerHigh lay.val (route index lay).1) a)) K) := by
     intro a
@@ -1210,6 +1210,11 @@ theorem layerLoop_succ (w : ClaudeWCT.W9.T3M.WBytes) (index n : Nat) (hn : n < 4
   rw [ClaudeWCT.W9.T3M.layersBC, layerHead]
   dsimp only
   simp only [hn0, ↓reduceIte]
+  have hl : (Fin.ofNat 4 n : Layer) ≠ 0 := by
+    intro he
+    apply hn0
+    simpa [Fin.val_ofNat, Nat.mod_eq_of_lt hn] using congrArg Fin.val he
+  rw [ClaudeWCT.WCT9.verificationHash_lower _ hl]
   split_ifs with hc
   · rfl
   · congr 1
@@ -1229,7 +1234,7 @@ theorem layerLoop_succ (w : ClaudeWCT.W9.T3M.WBytes) (index n : Nat) (hn : n < 4
 theorem layerLoop_one (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (msg : LayerMsg) :
     BC.layerLoop w index 1 msg =
       if (ClaudeWCT.W9.T3M.wbcCtr w index 0).toNat ≥ ClaudeWCT.WCT9.verifyWindow then pure none else
-      ClaudeWCT.WCT9.encodingHash 0 (ClaudeWCT.W9.T3M.layerEncodingInputP 0 (route index 0).2 (route index 0).1 msg
+      ClaudeWCT.WCT9.verificationHash 0 (ClaudeWCT.W9.T3M.wtopHint w) (ClaudeWCT.W9.T3M.layerEncodingInputP 0 (route index 0).2 (route index 0).1 msg
         (ClaudeWCT.W9.T3M.wbcCtr w index 0) (ClaudeWCT.W9.T3M.wbcPad w index 0) (ClaudeWCT.W9.T3M.wbcRight w)
         (ClaudeWCT.W9.T3M.wbcHigh w index 0)) >>=
         ClaudeWCT.W9.T3M.topLayerP w index := by

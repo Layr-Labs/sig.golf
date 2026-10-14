@@ -1,4 +1,4 @@
-import SigGolfCandidate.ClaudeWCT.W9.New.Positions.FtsBridge
+import SigGolfCandidate.ClaudeWCT.W9.New.Positions_FtsBridge
 import SigGolfCandidate.ClaudeWCT.W9.New.BC.Respects
 
 namespace ClaudeWCT.W9.T3.Security.Wots.Ref

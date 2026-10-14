@@ -86,8 +86,9 @@ def bcCounterOff (index : Nat) (lay : Layer) : Nat := rowBlock index lay + 32
 def wbcCtr (w : WBytes) (index : Nat) (lay : Layer) : BitVec 32 := wle32 w (bcCounterOff index lay)
 def wbcPad (w : WBytes) (index : Nat) (lay : Layer) : BitVec 96 := w.extractLsb' (8 * (bcCounterOff index lay + 4)) 96
 def wbcRight (w : WBytes) : Digest := wdig w 48
-/-- C2/C3 (FULL): the high word of encoding `lay`'s row tweak (witness bytes `[rowBlock + 24, +8)`: L3 at witness 24,
-else the root window of `upLayer lay`; honest 1). -/
+/-- The restricted top selector occupies an unused header word. -/
+def wtopHint (w : WBytes) : BitVec 64 := w.extractLsb' (8 * 104) 64
+/-- Campaign S2: high word of the encoding tweak (bytes 24..32 of the encoding block), a witness pad (honest 0). -/
 def wbcHigh (w : WBytes) (index : Nat) (lay : Layer) : BitVec 64 := (wdig w (rowBlock index lay + 16)).extractLsb' 64 64
 theorem wctLeafSlot_zero (k : Nat) : wctLeafSlot k 0 = wctChainBlock k 0 + 48 := by
   simp [wctLeafSlot, wctChainBlock]
@@ -196,7 +197,7 @@ def layersBC (w : WBytes) (index : Nat) : Nat → WCT9.LayerMsg → M (Option Di
       let counter := wbcCtr w index lay
       if counter.toNat ≥ WCT9.verifyWindow then return none
       let (leaf, tree) := route index lay
-      let answer ← ClaudeWCT.WCT9.encodingHash lay (layerEncodingInputP lay tree leaf msg counter (wbcPad w index lay) (wbcRight w)
+      let answer ← WCT9.verificationHash lay (wtopHint w) (layerEncodingInputP lay tree leaf msg counter (wbcPad w index lay) (wbcRight w)
         (wbcHigh w index lay))
       if n = 0 then topLayerP w index answer
       else do
@@ -217,7 +218,7 @@ def layersBCPrepass (w : WBytes) (index : Nat) : Nat → WCT9.LayerMsg → M (Op
       let counter := wbcCtr w index lay
       if counter.toNat ≥ WCT9.verifyWindow then return none
       let (leaf, tree) := route index lay
-      let answer ← ClaudeWCT.WCT9.encodingHash lay (layerEncodingInputP lay tree leaf msg counter (wbcPad w index lay) (wbcRight w)
+      let answer ← WCT9.verificationHash lay (wtopHint w) (layerEncodingInputP lay tree leaf msg counter (wbcPad w index lay) (wbcRight w)
         (wbcHigh w index lay))
       let some digits := decode lay answer | pure none
       if n = 0 then some <$> layerP w index lay digits
@@ -349,7 +350,7 @@ def verifyLayersBCP (w : WCT9.Witness) (pads : Pads) (index : Nat) : Nat → WCT
       let counter := w.counters lay
       if counter.toNat ≥ WCT9.verifyWindow then return none
       let (leaf, tree) := route index lay
-      let answer ← ClaudeWCT.WCT9.encodingHash lay (layerEncodingInputP lay tree leaf msg counter (pads.bc lay) pads.bcRight
+      let answer ← WCT9.verificationHash lay w.topHint (layerEncodingInputP lay tree leaf msg counter (pads.bc lay) pads.bcRight
         (pads.bcHigh lay ^^^ 1))
       if n = 0 then verifyTopP w.signature pads index answer
       else do

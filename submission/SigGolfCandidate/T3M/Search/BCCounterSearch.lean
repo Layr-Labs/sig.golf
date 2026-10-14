@@ -15,7 +15,7 @@ set_option linter.unusedSimpArgs false
 set_option linter.unnecessarySeqFocus false
 set_option Elab.async false
 set_option maxRecDepth 8192
-def capLimit (lay : Nat) : Nat := if lay = 0 then 2 ^ 22 else 2 ^ 21
+def capLimit (lay : Nat) : Nat := if lay = 0 then 2 ^ 21 else 2 ^ 21
 def scanM : BitVec 64 := 1317624576693539401#64
 def lanes6 (x : BitVec 64) : BitVec 64 := x >>> 1 &&& x >>> 2 &&& (x ^^^ 18446744073709551615#64) &&& scanM
 def scanX (c lo hi : BitVec 64) : BitVec 64 :=
@@ -565,14 +565,14 @@ theorem capA2_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (
 theorem capA3_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (capBase b + 3)) (i : Nat)
     (hi : i < 2 ^ 64) (h19 : s.getReg .x19 = BitVec.ofNat 64 i) :
     ∃ t, Steps image s 2 2 t ∧
-      t.pc = (if i = 2 ^ 22 then pcOf (capBase b + 6) else pcOf (capBase b + 5)) ∧
+      t.pc = (if i = 2 ^ 21 then pcOf (capBase b + 6) else pcOf (capBase b + 5)) ∧
       RegsExcept s t [.x6] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (runa_3 hK.2.1) (codeAt_a_3 hK) s hpc (by simp [sta_3, blkA354_3.res, rv_simp]),
     ?_, ?_, ?_⟩
   · simp only [Result.toState_pc, pcEa_3, rebase, blkA354_3.res, E.eval, CmpOp.eval, h19]
-    by_cases h : i = 2 ^ 22
+    by_cases h : i = 2 ^ 21
     · subst h; simp
-    · have : (BitVec.ofNat 64 i == 4194304#64) = false := by
+    · have : (BitVec.ofNat 64 i == 2097152#64) = false := by
         rw [beq_eq_false_iff_ne, ne_eq, ofNat_eq_iff]; omega
       rw [this, if_neg (by simp), if_neg h]
   · intro r hr; simp at hr; cases r <;> simp_all [sta_3, blkA354_3.res, rv_simp] <;> rfl
@@ -611,8 +611,8 @@ theorem cap_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (ca
     · rw [if_pos hz] at p1
       obtain ⟨t2, s2, p2, r2, f2⟩ := capA3_spec hK t1 p1 i hi64
         (by rw [r1.get (by decide), r0.get (by decide), h19])
-      have hcap : capLimit lay = 2 ^ 22 := by unfold capLimit; rw [if_pos hz]
-      by_cases htop : i = 2 ^ 22
+      have hcap : capLimit lay = 2 ^ 21 := by unfold capLimit; rw [if_pos hz]
+      by_cases htop : i = 2 ^ 21
       · rw [if_pos htop] at p2
         obtain ⟨t3, s3, p3, r3, f3⟩ := capA6_spec hK t2 p2
         refine ⟨_, _, s0.trans (s1.trans (s2.trans s3)), by rw [if_pos hz], by rw [p3, hcap, if_pos htop],
@@ -920,7 +920,7 @@ structure CsArgs where
   leaf : Nat
   msg : WCT9.LayerMsg
   ret : Nat
-def csT (lay : Layer) : Nat := if lay = 0 then 270 else 380
+def csT (lay : Layer) : Nat := if lay = 0 then 500 else 380
 def csOk (lay : Layer) : Nat := if lay = 0 then 4096 else 4096
 theorem capLimit_le (n : Nat) : capLimit n ≤ 2 ^ 22 := by unfold capLimit; split_ifs <;> omega
 theorem capLimit_eq (lay : Layer) : capLimit lay.val = WCT9.searchLimit lay := by
@@ -985,15 +985,17 @@ def DummyOut (A : CsArgs) (s0 t : MachineState) : Prop :=
     (∀ j < 54, t.getByte (BitVec.ofNat 64 (DIGITS + j)) = BitVec.ofNat 8 (T3.dummyTop.getD j 0)) ∧
     (t.getMem (BitVec.ofNat 64 (ENC + 32))).toNat < 2 ^ 32 ∧ RegsExcept s0 t csRegs ∧ Frame s0 t CsW ∧
     (t.getReg .x25).toNat ≤ 129
-def CsPost (image : Image) (b : Nat) (A : CsArgs) (s0 : MachineState) : Option (BitVec 32 × List Nat) → MachineState → Prop
+def HintOut (lay : Layer) (hint : BitVec 64) (t : MachineState) : Prop :=
+  if lay=0 then t.getMem (BitVec.ofNat 64 Choice.ProducerSelector.HINT)=hint else hint=0
+def CsHintPost (image : Image) (b : Nat) (A : CsArgs) (s0 : MachineState) : Option (BitVec 32 × List Nat × BitVec 64) → MachineState → Prop
   | none, t => if A.lay = 0 ∧ b = 543 then DummyOut A s0 t else
       t.pc = pcOf (b + 2) ∧ t.getReg .x5 = BitVec.ofNat 64 1 ∧ t.getReg .x10 = BitVec.ofNat 64 1 ∧
       fetch image t = some (.base .ECALL)
-  | some (c, ds), t => t.pc = pcOf A.ret ∧ c.toNat < 2 ^ 22 ∧ t.getReg .x19 = BitVec.ofNat 64 c.toNat ∧
+  | some (c, ds, hint), t => t.pc = pcOf A.ret ∧ c.toNat < 2 ^ 22 ∧ t.getReg .x19 = BitVec.ofNat 64 c.toNat ∧
       t.getMem (BitVec.ofNat 64 (ENC + 32)) = BitVec.ofNat 64 c.toNat ∧
       (∃ v, T3.decode A.lay v = some ds) ∧ ds.length = T3.chainCount A.lay ∧
       (∀ j < T3.chainCount A.lay, t.getByte (BitVec.ofNat 64 (DIGITS + j)) = BitVec.ofNat 8 (ds.getD j 0)) ∧
-      RegsExcept s0 t csRegs ∧ Frame s0 t CsW ∧ (t.getReg .x25).toNat ≤ T3.target A.lay
+      RegsExcept s0 t csRegs ∧ Frame s0 t CsW ∧ (t.getReg .x25).toNat ≤ T3.target A.lay ∧ HintOut A.lay hint t
 structure TrialSt (b : Nat) (A : CsArgs) (s0 : MachineState) (i : Nat) (u : MachineState) : Prop where
   x19 : u.getReg .x19 = BitVec.ofNat 64 i
   h16 : u.getMem (BitVec.ofNat 64 (ENC + 16)) = rowLo A.lay A.tree A.leaf
@@ -1017,14 +1019,32 @@ theorem TrialSt.step {b : Nat} {A : CsArgs} {s0 u u' : MachineState} {i : Nat} (
       · exact h1
       · exact (hL' r h1).1)
   · exact (h.frame.trans hf).mono (fun A _ h' => by simp only [or_false] at h'; exact h')
+theorem TrialSt.step_hint {b : Nat} {A : CsArgs} {s0 u u' : MachineState} {i : Nat}
+    (h : TrialSt b A s0 i u) {L : List Reg} (hr : RegsExcept u u' L)
+    (hL : L.all (fun r => decide (r ∈ csRegs ∧ r ≠ .x19)) = true)
+    (hf : Frame u u' (fun A=>A=Choice.ProducerSelector.HINT)) : TrialSt b A s0 i u' := by
+  have hL' : ∀ r ∈ L, r ∈ csRegs ∧ r ≠ .x19 := fun r hr => by simpa using List.all_eq_true.1 hL r hr
+  refine ⟨?_,?_,?_,?_,?_,?_⟩
+  · rw [hr.get (fun h' => (hL' _ h').2 rfl),h.x19]
+  · rw [hf.get (by decide) (by decide),h.h16]
+  · rw [hf.get (by decide) (by decide),h.h24]
+  · rw [hf.get (by decide) (by decide),h.c32]
+  · exact (h.regs.trans hr).mono (fun r hr' => by
+      rcases List.mem_append.1 hr' with h1|h1
+      · exact h1
+      · exact (hL' r h1).1)
+  · exact (h.frame.trans hf).mono (fun X _ hx => by
+      rcases hx with hx|hx
+      · exact hx
+      · subst X; simp [CsW,DigW,Choice.ProducerSelector.HINT,DIGITS])
 theorem TrialSt.reg {b : Nat} {A : CsArgs} {s0 u : MachineState} {i : Nat} (h : TrialSt b A s0 i u)
     {r : Reg} (hr : r ∉ csRegs) : u.getReg r = s0.getReg r := h.regs.get hr
 section trial
 variable {image : Image} {b : Nat} {sk : BitVec 256}
-theorem cs_next {A : CsArgs} {s0 u : MachineState} {i F W : Nat} {Q : Option (BitVec 32 × List Nat) → MachineState → Prop}
+theorem cs_next {A : CsArgs} {s0 u : MachineState} {i F W : Nat} {Q : Option (BitVec 32 × List Nat × BitVec 64) → MachineState → Prop}
     (hK : KernAt image b) (hu : TrialSt b A s0 i u) (hpc : u.pc = pcOf (b + 468)) (hi : i < capLimit A.lay.val)
-    (ih : ∀ t, CsInv b A s0 (i + 1) t → TBSim image sk t W (WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg (i + 1) F) Q) :
-    TBSim image sk u (2 + W) (WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg (i + 1) F) Q := by
+    (ih : ∀ t, CsInv b A s0 (i + 1) t → TBSim image sk t W (WCT9.layerCounterSearchHint A.lay A.tree A.leaf A.msg (i + 1) F) Q) :
+    TBSim image sk u (2 + W) (WCT9.layerCounterSearchHint A.lay A.tree A.leaf A.msg (i + 1) F) Q := by
   obtain ⟨t1, s1, p1, h19, r1, f1⟩ := cs468_spec hK u hpc i hu.x19
   have hcap := capLimit_le A.lay.val
   refine TBSim.steps s1 (ih t1 ⟨p1, by omega, h19, ?_, ?_, ⟨i, by omega, ?_⟩, ?_, ?_⟩)
@@ -1047,11 +1067,12 @@ structure RewardReady (b : Nat) (A : CsArgs) (s0 : MachineState) (i : Nat) (ds :
   sum : (t.getReg .x25).toNat ≤ T3.target A.lay
 theorem cs_success {A : CsArgs} {s0 u : MachineState} {i : Nat} {ds : List Nat}
     (hK : KernAt image b) (hpre : CsPre b A s0) (hu : RewardReady b A s0 i ds u)
-    (hi : i < capLimit A.lay.val) (answer : Digest) (hdec : T3.decode A.lay answer = some ds) :
-    TBSim image sk u 0 (pure (some (BitVec.ofNat 32 i,ds))) (CsPost image b A s0) := by
+    (hi : i < capLimit A.lay.val) (answer : Digest) (hdec : T3.decode A.lay answer = some ds)
+    (hint : BitVec 64) (hhint : HintOut A.lay hint u) :
+    TBSim image sk u 0 (pure (some (BitVec.ofNat 32 i,ds,hint))) (CsHintPost image b A s0) := by
   have hcap := capLimit_le A.lay.val
   have hc : (BitVec.ofNat 32 i).toNat=i := by rw [BitVec.toNat_ofNat]; omega
-  refine TBSim.pure ⟨hu.pc,?_,?_,?_,⟨answer,hdec⟩,hu.len,hu.digs,hu.trial.regs,hu.trial.frame,hu.sum⟩
+  refine TBSim.pure ⟨hu.pc,?_,?_,?_,⟨answer,hdec⟩,hu.len,hu.digs,hu.trial.regs,hu.trial.frame,hu.sum,hhint⟩
   · rw [hc]; omega
   · rw [hc]; exact hu.trial.x19
   · rw [hc]; exact hu.trial.c32
@@ -1112,16 +1133,18 @@ theorem cs_top_prepare {A : CsArgs} {s0 u : MachineState} {i : Nat} (hK : KernAt
     (hvalid : T3.topRanksValid (T3.topFlip v) = true)
     (hdec : T3.decode A.lay (T3.topFlip v) = some (topDigits (T3.topFlip v)))
     (h6 : u.getReg .x6 = v.extractLsb' 0 64) (h7 : u.getReg .x7 = v.extractLsb' 64 64)
-    (h30 : u.getReg .x30 = BitVec.ofNat 64 TOP_DATA) (h25 : u.getReg .x25 = 145#64) (h20 : u.getReg .x20 = 0) :
-    ∃ t, Steps image u 301 301 t ∧ RewardReady b A s0 i (topDigits (T3.topFlip v)) t := by
+    (h30 : u.getReg .x30 = BitVec.ofNat 64 TOP_DATA) (h25 : u.getReg .x25 = 146#64) (h20 : u.getReg .x20 = 0) :
+    ∃ t, Steps image u 301 301 t ∧ RewardReady b A s0 i (topDigits (T3.topFlip v)) t ∧
+      Frame u t TopUnpack.Writes := by
   obtain ⟨t, st, tpc, tdig, tr, tf⟩ := topUnpack_spec hK u v hvalid (hu.table hpre.table) hpc h6 h7 h30 h20 A.ret
     (by rw [hu.reg (by decide),hpre.x1])
   have hregs : RegsExcept s0 t csRegs := (hu.regs.trans tr).mono (by decide)
   have hfr : Frame s0 t CsW := (hu.frame.trans tf).mono (fun A _ h => by
     rcases h with h | h
     · exact h
-    · exact Or.inr (Or.inr (Or.inr (Or.inr h))))
-  refine ⟨t,st,?_,?_,?_,?_,?_⟩
+    · exact Or.inr (Or.inr (Or.inr (Or.inr (by
+              unfold DigW; unfold TopUnpack.Writes at h; omega)))))
+  refine ⟨t,st,⟨?_,?_,?_,?_,?_⟩,tf⟩
   · simpa [hlz] using tpc
   · refine ⟨?_,?_,?_,?_,hregs,hfr⟩
     · rw [tr.get (by decide),hu.x19]
@@ -1194,8 +1217,8 @@ theorem TrialSt.hash {A : CsArgs} {s0 t2 : MachineState} {i : Nat} (hT : TrialSt
 theorem cfFlag_lt (b : Nat) : cfFlag b < 256 := by unfold cfFlag; split <;> omega
 theorem cs_exhaust {A : CsArgs} {s0 t : MachineState} {i : Nat} (hK : KernAt image b) (hpre : CsPre b A s0)
     (hI : CsInv b A s0 i t) (hi : i = capLimit A.lay.val) :
-    TBSim image sk t (0 * csT A.lay + csOk A.lay) (WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg i 0)
-      (CsPost image b A s0) := by
+    TBSim image sk t (0 * csT A.lay + csOk A.lay) (WCT9.layerCounterSearchHint A.lay A.tree A.leaf A.msg i 0)
+      (CsHintPost image b A s0) := by
   obtain ⟨k1, t1, s1, k1le, p1, r1, f1⟩ := cap_spec hK t hI.pc A.lay.val i A.lay.isLt hI.hi
     (by rw [hI.regs.get (by decide), hpre.x8]) hI.x19
   rw [if_pos hi] at p1
@@ -1205,7 +1228,7 @@ theorem cs_exhaust {A : CsArgs} {s0 t : MachineState} {i : Nat} (hK : KernAt ima
   have fr1 : Frame s0 t1 CsW := (hI.frame.trans f1).mono (fun A _ h => by simp only [or_false] at h; exact h)
   have hcf1 : CfTableOK (cfFlag b) t1 :=
     hpre.cf.frame fr1 (by intro j hj hj'; unfold CsW DigW TOP_DATA ENC EOUT DIGITS; omega)
-  have prog : WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg i 0 = pure none := rfl
+  have prog : WCT9.layerCounterSearchHint A.lay A.tree A.leaf A.msg i 0 = pure none := rfl
   rw [prog]
   by_cases hd : A.lay = 0 ∧ b = 543
   · have hfl : cfFlag b ≠ 0 := by unfold cfFlag; rw [if_pos hd.2]; omega
@@ -1232,7 +1255,8 @@ theorem cs_exhaust {A : CsArgs} {s0 t : MachineState} {i : Nat} (hK : KernAt ima
           rcases h with (h|h)|h
           · exact h
           · exact absurd h id
-          · exact Or.inr (Or.inr (Or.inr (Or.inr h))))
+          · exact Or.inr (Or.inr (Or.inr (Or.inr (by
+              unfold DigW; unfold TopUnpack.Writes at h; omega)))))
       · rw [r3.get (by decide),g25];decide
     · unfold csOk;rw [if_pos hd.1];omega
   · have hfl : A.lay.val ≠ 0 ∨ cfFlag b = 0 := by
@@ -1249,8 +1273,8 @@ theorem cs_exhaust {A : CsArgs} {s0 t : MachineState} {i : Nat} (hK : KernAt ima
     · unfold csOk; split_ifs <;> omega
 theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : CsPre b A s0) :
     ∀ F i t, i + F = capLimit A.lay.val → CsInv b A s0 i t →
-      TBSim image sk t (F * csT A.lay + csOk A.lay) (WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg i F)
-        (CsPost image b A s0) := by
+      TBSim image sk t (F * csT A.lay + csOk A.lay) (WCT9.layerCounterSearchHint A.lay A.tree A.leaf A.msg i F)
+        (CsHintPost image b A s0) := by
   have hl0 : (A.lay.val = 0) ↔ A.lay = 0 := ⟨fun h => Fin.ext h,fun h => by rw [h];rfl⟩
   have hcap := capLimit_le A.lay.val
   intro F
@@ -1263,16 +1287,16 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
     have hi : i < capLimit A.lay.val := by omega
     have hi22 : i < 2 ^ 22 := by omega
     obtain ⟨k2,t2,s2,k2le,p2,hf,h5,hv,hq,h12,hT⟩ := cs_answer hK hpre hI hi
-    have prog : WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg i (F+1) =
-        (WCT9.encodingHash A.lay (WCT9.layerEncodingInput A.lay A.tree A.leaf A.msg (BitVec.ofNat 32 i)) >>= fun answer =>
-          match WCT9.producerDecode A.lay answer with
-          | none => WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg (i+1) F
-          | some digits => pure (some (BitVec.ofNat 32 i,digits))) := rfl
+    have prog : WCT9.layerCounterSearchHint A.lay A.tree A.leaf A.msg i (F+1) =
+        (T3.publicHash (WCT9.layerEncodingInput A.lay A.tree A.leaf A.msg (BitVec.ofNat 32 i)) >>= fun answer =>
+          match WCT9.producerDecode A.lay (WCT9.encodingAnswer A.lay answer) with
+          | none => WCT9.layerCounterSearchHint A.lay A.tree A.leaf A.msg (i+1) F
+          | some digits => pure (some (BitVec.ofNat 32 i,digits,WCT9.encodingHint A.lay answer))) := rfl
     have ih' : ∀ t, CsInv b A s0 (i+1) t → TBSim image sk t (F*csT A.lay+csOk A.lay)
-        (WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg (i+1) F) (CsPost image b A s0) :=
+        (WCT9.layerCounterSearchHint A.lay A.tree A.leaf A.msg (i+1) F) (CsHintPost image b A s0) :=
       fun t ht => ih (i+1) t (by omega) ht
     rw [prog]
-    refine (TBSim.steps s2 (TBSim.encodingHash_bind hf h5 hv hq
+    refine (TBSim.steps s2 (TBSim.publicHash_bind hf h5 hv hq
       (W:=F*csT A.lay+csOk A.lay+(csT A.lay-(if A.lay=0 then 22 else 20))) (fun a => ?_))).mono ?_ (fun _ _ h => h)
     swap
     · rw [blocks_encodingInput,Nat.succ_mul];unfold csT at *;split_ifs at k2le ⊢ <;> omega
@@ -1288,15 +1312,16 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
     have hT4 := hT3.step r4 (by decide) f4
     by_cases hlz : A.lay=0
     · rw [if_pos (hl0.2 hlz)] at p4
-      obtain ⟨kg,tg,sg,hkg,pg,g6,g7,rg,fg⟩ := top_select_spec hK t4 p4 a h6 h7
+      obtain ⟨kg,tg,sg,hkg,pg,g6,g7,gHint,rg,fg⟩ := top_select_spec hK t4 p4 a
+        (hT4.table hpre.table).sum (hT4.reward hpre.reward) h6 h7
         (by rw [r4.get (by decide),getReg_writeHash,h12])
-        (by rw [f4.get (by unfold EOUT;omega) (by simp)];exact hhi.1)
-        (by rw [f4.get (by unfold EOUT;omega) (by simp)];exact hhi.2)
-      have he : v=T3.TopDualHalf.select a := by simp [hvdef,WCT9.encodingAnswer,hlz]
+        (hd.frame f4 (by decide) (by simp) (by simp))
+        (hhi.frame f4 (by decide) (by simp) (by simp))
+      have he : v=WCT9.encodingAnswer 0 a := by simp [hvdef,hlz]
       rw [←he] at g6 g7
       obtain ⟨tc,sc,pcc,h6c,h7c,rc,fc⟩ := tc_spec hK tg pg v g6 g7
       have sc := sg.trans sc
-      have hTc := (hT4.step rg (by decide) fg).step rc (by decide) fc
+      have hTc := (hT4.step_hint rg (by decide) fg).step rc (by decide) fc
       clear_value v
       obtain ⟨w,rfl⟩ : ∃ w,v=T3.topFlip w := ⟨T3.topFlip v,(T3.topFlip_topFlip v).symm⟩
       rw [T3.topFlip_topFlip] at h6c h7c
@@ -1308,7 +1333,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
         (by rw [r5.get (by decide),h6c]) (by rw [r5.get (by decide),h7c])
         (by rw [hT5.reg (by decide),hpre.x17,hlz];rfl) (hT5.table hpre.table).sum
       have hT6 := hT5.step r6 (by decide) f6
-      by_cases hs : topLookupSum w=145
+      by_cases hs : topLookupSum w=146
       · rw [if_pos hs] at p6
         have hd' : T3.decode A.lay (T3.topFlip w)=some (topDigits (T3.topFlip w)) := by rw [hdec,if_pos hs]
         have hpd := producerDecode_top (T3.topFlip w) (by simpa [hlz] using hd')
@@ -1329,12 +1354,18 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
           simp only [if_pos hok]
           obtain ⟨t8,s8,p8,g20,r8,f8⟩ := Credit.ok_spec hK tf pf
           have hT8 := hTf.step r8 (by decide) f8
-          obtain ⟨t9,s9,hR⟩ := cs_top_prepare hK hpre hT8 p8 hi22 hlz w hvalid hd'
+          obtain ⟨t9,s9,hR,f9⟩ := cs_top_prepare hK hpre hT8 p8 hi22 hlz w hvalid hd'
             (by rw [r8.get (by decide),rf.get (by decide),r7.get (by decide),r6.get (by decide),r5.get (by decide),h6c])
             (by rw [r8.get (by decide),rf.get (by decide),r7.get (by decide),r6.get (by decide),r5.get (by decide),h7c])
             (by rw [r8.get (by decide),rf.get (by decide),r7.get (by decide),h30'])
             (by rw [r8.get (by decide),rf.get (by decide),r7.get (by decide)];simpa only [hs] using h25') g20
+          have hHintFrame : Frame tg t9 TopUnpack.Writes :=
+            ((((((fc.trans f5).trans f6).trans f7).trans ff).trans f8).trans f9).mono (by simp)
           have done := cs_success (sk:=sk) hK hpre hR hi (T3.topFlip w) hd'
+            (WCT9.encodingHint A.lay a) (by
+              simp only [HintOut,hlz,if_true]
+              rw [hHintFrame.get (by decide) (by simp [TopUnpack.Writes,Choice.ProducerSelector.HINT])]
+              exact gHint)
           refine (TBSim.steps ((((((((s4.trans sc).trans s5).trans s6).trans s7).trans sf).trans s8).trans s9)) done).mono ?_ (fun _ _ h => h)
           simp only [csT,csOk,if_pos hlz];omega
         · rw [if_neg hok] at pf
@@ -1404,7 +1435,8 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
                 (by rw [rR.get (by decide),r8.get (by decide),r7.get (by decide),r6.get (by decide),h6s])
                 (by rw [rR.get (by decide),r8.get (by decide),r7.get (by decide),r6.get (by decide),h7s])
                 (by rw [rR.get (by decide),r8.get (by decide),r7.get (by decide),h25'])
-              have done := cs_success (sk:=sk) hK hpre hR hi v hd'
+              have done := cs_success (sk:=sk) hK hpre hR hi v hd' (WCT9.encodingHint A.lay a)
+                (by simp [HintOut,hlz,WCT9.encodingHint])
               refine (TBSim.steps ((((((s4.trans s5).trans s6).trans s7).trans s8).trans sR).trans s9) done).mono ?_ (fun _ _ h => h)
               simp only [csT,csOk,if_neg hlz];omega
             · rw [if_neg hreward] at pR ⊢
@@ -1431,7 +1463,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : C
         simp only [csT,csOk,if_neg hlz];omega
 theorem counterSearch_tbsim {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : CsPre b A s0) :
     TBSim image sk s0 (18 + capLimit A.lay.val * csT A.lay + csOk A.lay)
-      (WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg 0 (WCT9.searchLimit A.lay)) (CsPost image b A s0) := by
+      (WCT9.layerCounterSearchHint A.lay A.tree A.leaf A.msg 0 (WCT9.searchLimit A.lay)) (CsHintPost image b A s0) := by
   obtain ⟨t, st, pt, h16, h24, h19, rt, ft⟩ := cs103_spec hK s0 hpre.pc A.lay A.tree A.leaf hpre.hroute
     hpre.x8 hpre.x9 hpre.x18 hpre.x15
   obtain ⟨t', st', pt', rt', ft'⟩ := cs113_spec hK t pt
@@ -1490,16 +1522,20 @@ def CsPostS (b : Nat) (s : MachineState) (lay : Layer) (ret : Nat) :
       (∀ i < T3.chainCount lay, t.getByte (BitVec.ofNat 64 (DIGITS + i)) = BitVec.ofNat 8 (ds.getD i 0)) ∧
       (t.getMem (BitVec.ofNat 64 (ENC + 32))).toNat < 2 ^ 32 ∧ RegsExcept s t csRegs ∧ Frame s t CsW ∧
       (t.getReg .x25).toNat ≤ T3.target lay
+def CsHintPostS (b : Nat) (s : MachineState) (lay : Layer) (ret : Nat) :
+    Option (BitVec 32 × List Nat × BitVec 64) → MachineState → Prop
+  | none,t => CsPostS b s lay ret none t
+  | some (c,ds,hint),t => CsPostS b s lay ret (some (c,ds)) t ∧ HintOut lay hint t
 def csCostS (lay : Layer) : Nat := (if lay = 0 then T3.counterLimit * 270 else WCT9.lowerSearchLimit * 380) + 8192
 theorem CsPreS.toCsPre {b : Nat} {s : MachineState} {lay : Layer} {tree leaf : Nat} {msg : WCT9.LayerMsg} {ret : Nat}
     (h : CsPreS b s lay tree leaf msg ret) : CsPre b ⟨lay, tree, leaf, msg, ret⟩ s :=
   ⟨h.pc, h.x1, h.x5, h.x8, h.x9, h.x18, h.x17, h.x26, h.x27, h.htree, h.hleaf, h.hroute, h.x15, h.msg.1, h.msg.2,
     ⟨_, h.c32, (BitVec.ofNat_toNat _ _).trans (BitVec.setWidth_eq _)|>.symm⟩, h.z40, h.r48, h.r56, h.table, h.cf, h.reward⟩
-theorem counterSearch_spec {image : Image} {b : Nat} {sk : BitVec 256} (hK : KernAt image b)
+theorem counterSearchHint_spec {image : Image} {b : Nat} {sk : BitVec 256} (hK : KernAt image b)
     (s : MachineState) (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (ret : Nat)
     (h : CsPreS b s lay tree leaf msg ret) :
-    TBSim image sk s (csCostS lay) (WCT9.layerCounterSearch lay tree leaf msg 0 (WCT9.searchLimit lay))
-      (CsPostS b s lay ret) := by
+    TBSim image sk s (csCostS lay) (WCT9.layerCounterSearchHint lay tree leaf msg 0 (WCT9.searchLimit lay))
+      (CsHintPostS b s lay ret) := by
   refine (counterSearch_tbsim (sk := sk) hK h.toCsPre).mono ?_ (fun r t ht => ?_)
   · show 18 + capLimit lay.val * csT lay + csOk lay ≤
       (if lay = 0 then T3.counterLimit * 270 else WCT9.lowerSearchLimit * 380) + 8192
@@ -1508,18 +1544,35 @@ theorem counterSearch_spec {image : Image} {b : Nat} {sk : BitVec 256} (hK : Ker
     by_cases h : lay = 0
     · rw [if_pos (hl0.2 h), if_pos h, if_pos h, if_pos h]; norm_num
     · rw [if_neg (fun h' => h (hl0.1 h')), if_neg h, if_neg h, if_neg h]; norm_num
-  · rcases r with _ | ⟨c, ds⟩
+  · rcases r with _ | ⟨c, ds, hint⟩
     · change (if lay = 0 ∧ b = 543 then DummyOut _ s t else _) at ht
       show (if lay = 0 ∧ b = 543 then DummyOutS s ret t else FailedAt b t)
       split_ifs at ht ⊢ with hd
       · obtain ⟨tpc, dig, c32, hr, hf, h25⟩ := ht
         exact ⟨tpc, by rw [hr.get (by decide), h.x5], dig, c32, hr, hf, h25⟩
       · exact ⟨ht.1, ht.2.1, ht.2.2.1⟩
-    · obtain ⟨tpc, hc, _, h32, hdec, _, hdig, hr, hf, h25⟩ := ht
-      refine ⟨tpc, ?_, hdec, hdig, ?_, hr, hf, h25⟩
+    · obtain ⟨tpc, hc, _, h32, hdec, _, hdig, hr, hf, h25, hhint⟩ := ht
+      refine ⟨⟨tpc, ?_, hdec, hdig, ?_, hr, hf, h25⟩,hhint⟩
       · rw [hr.get (by decide), h.x5]
       · rw [h32, BitVec.toNat_ofNat]
         omega
+theorem counterSearch_spec {image : Image} {b : Nat} {sk : BitVec 256} (hK : KernAt image b)
+    (s : MachineState) (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (ret : Nat)
+    (h : CsPreS b s lay tree leaf msg ret) :
+    TBSim image sk s (csCostS lay) (WCT9.layerCounterSearch lay tree leaf msg 0 (WCT9.searchLimit lay))
+      (CsPostS b s lay ret) := by
+  rw [←WCT9.layerCounterSearchHint_forget lay tree leaf msg 0 (WCT9.searchLimit lay),map_eq_bind_pure_comp]
+  have hs := counterSearchHint_spec (sk:=sk) hK s lay tree leaf msg ret h
+  have ht := hs.bind (W₂:=0) (Q₂:=CsPostS b s lay ret)
+    (f:=fun r => pure ((Option.map fun x : BitVec 32 × List Nat × BitVec 64 => (x.1,x.2.1)) r))
+    (fun r t ht => TBSim.pure (by
+      cases r with
+      | none => exact ht
+      | some x => exact ht.1))
+  simpa only [Nat.add_zero,Function.comp_def] using ht
+
+#print axioms counterSearchHint_spec
+#print axioms counterSearch_spec
 end SigGolfCandidate.T3M.Search.BC
 end
 end

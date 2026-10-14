@@ -1,6 +1,9 @@
 import SigGolfCandidate.T3M.Verify.Mem
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.VerifyP
 
+variable {choiceHint : BitVec 64}
+
+
 set_option linter.unusedSimpArgs false
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
@@ -77,5 +80,5 @@ def AfterGoodBudget (acceptCycles : Nat) : Prop :=
   ∀ (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (Q : Prop), Q →
     ∀ (a : HashOutput) (top : Digest × Digest) (u : MachineState),
       FtsOut ⟨pk, w, a⟩ top u →
-      GoodQ u 8050 8050 Q acceptCycles (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb)
+      GoodQ (choiceHint := ClaudeWCT.W9.T3M.wtopHint w) u 8050 8050 Q acceptCycles (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb)
 end SigGolfCandidate.T3M.Verify

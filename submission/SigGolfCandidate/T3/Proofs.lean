@@ -1601,8 +1601,8 @@ theorem bound_topSignatureLeaf (leaf : Nat) (digits : List Nat) (hlen : digits.l
   · simp only [ite_true]
     exact .pure (0,state.2) 0 hstate
 theorem bound_signTop (cache : Cache) (leaf : Nat) (digits : List Nat)
-    (hlen : digits.length=54) (hsum : digits.sum≤145) :
-    CBound (fun result => result.1.length=54 ∧ result.2.length=12) 169 (signTop cache leaf digits) := by
+    (hlen : digits.length=54) (hsum : digits.sum≤146) :
+    CBound (fun result => result.1.length=54 ∧ result.2.length=12) 170 (signTop cache leaf digits) := by
   unfold signTop
   refine (bound_topSignatureLeaf leaf digits hlen).bind' (l := 12) (fun result hr => ?_)
     (by omega)
@@ -1664,8 +1664,8 @@ theorem bound_digestSearch (rho : Digest) (message : Message) :
       · exact ih (counter+1)
 def layerFixedCost : Nat → Nat
   | 0 => 0
-  | n+1 => if n=0 then 169 else treeCost (Fin.ofNat 4 n)+layerFixedCost n
-theorem layerFixedCost_four : layerFixedCost 4=85926 := by decide +kernel
+  | n+1 => if n=0 then 170 else treeCost (Fin.ofNat 4 n)+layerFixedCost n
+theorem layerFixedCost_four : layerFixedCost 4=85927 := by decide +kernel
 theorem bound_signLayers (cache : Cache) (index : Nat) :
     ∀ n message,CBound (fun _ => True) (n*counterLimit+layerFixedCost n)
       (signLayers cache index n message) := by
@@ -1685,14 +1685,14 @@ theorem bound_signLayers (cache : Cache) (index : Nat) :
       by_cases hn : n=0
       · subst n
         simp only [ite_true]
-        have hdig : ((out.map Prod.snd).getD dummyTop).length=54 ∧ ((out.map Prod.snd).getD dummyTop).sum≤145 := by
+        have hdig : ((out.map Prod.snd).getD dummyTop).length=54 ∧ ((out.map Prod.snd).getD dummyTop).sum≤146 := by
           cases out with
           | none => exact ⟨by decide,by decide⟩
           | some pair =>
               obtain ⟨counter,digits⟩ := pair
               have hd := hout counter digits rfl
               exact ⟨hd.1,by
-                change digits.sum ≤ 145
+                change digits.sum ≤ 146
                 have hsum := hd.2.1
                 norm_num [target] at hsum
                 omega⟩
@@ -1716,32 +1716,32 @@ theorem bound_privateNonce (message : Message) :
   unfold privateNonce privateHash
   exact Bound.qry_bind (k := 0) trivial (fun _ => .pure _ 0 trivial) (by simp [weight])
 theorem bound_signPayload (cache : Cache) (message : Message) :
-    CBound (fun _ => True) (121763+attemptLimit+4*counterLimit) (signPayload cache message) := by
+    CBound (fun _ => True) (121764+attemptLimit+4*counterLimit) (signPayload cache message) := by
   unfold signPayload
-  refine (bound_privateNonce message).bind' (l := 121761+attemptLimit+4*counterLimit)
+  refine (bound_privateNonce message).bind' (l := 121762+attemptLimit+4*counterLimit)
     (fun rho _ => ?_) (by omega)
-  refine (bound_digestSearch rho message attemptLimit 0).bind' (l := 121761+4*counterLimit)
+  refine (bound_digestSearch rho message attemptLimit 0).bind' (l := 121762+4*counterLimit)
     (fun found _ => ?_) (by omega)
   cases found with
   | none => exact .pure _ _ trivial
   | some pair =>
       obtain ⟨counter,output⟩ := pair
       dsimp only
-      refine Bound.bind' (l := 85928+4*counterLimit) (Bound.foldlM_range 7 _
+      refine Bound.bind' (l := 85929+4*counterLimit) (Bound.foldlM_range 7 _
         (fun coord (state : List Digest × List Digest × List Digest) => state.2.2.length=coord)
         (fun _ => 5119) ([],[],[]) rfl (fun coord _ state hstate => ?_))
         (fun state hstate => ?_) (by rw [sum_const_range];omega)
       · refine (bound_buildFts _ coord).bind' (l := 0) (fun result _ => ?_) (by decide)
         exact .pure _ 0 (by simp [hstate])
-      · refine (bound_forestPk _ state.2.2 hstate).bind' (l := 85926+4*counterLimit)
+      · refine (bound_forestPk _ state.2.2 hstate).bind' (l := 85927+4*counterLimit)
           (fun root _ => ?_) (by omega)
         refine (bound_signLayers cache _ 4 root).bind' (l := 0) (fun layers _ => ?_)
           (by rw [layerFixedCost_four];omega)
         cases layers <;> exact .pure _ 0 trivial
 theorem bound_sign (cache : Cache) (message : Message) :
-    CBound (fun _ => True) (121765+attemptLimit+4*counterLimit) (sign cache message) := by
+    CBound (fun _ => True) (121766+attemptLimit+4*counterLimit) (sign cache message) := by
   unfold sign
-  refine (bound_privateMac cache.region).bind' (l := 121763+attemptLimit+4*counterLimit)
+  refine (bound_privateMac cache.region).bind' (l := 121764+attemptLimit+4*counterLimit)
     (fun tag _ => ?_) (by omega)
   split
   · exact .pure _ _ trivial
@@ -2527,8 +2527,8 @@ theorem bound_recoverLayer (sig : Signature) (index : Nat) (lay : Layer) (digits
 def recoveryLayersCost : Nat → Nat
   | 0 => 0
   | n+1 => recoverLayerCost (Fin.ofNat 4 n)+recoveryLayersCost n
-/-- Recovery cost: 106 (top) + 118 + 116 + 116 for lower targets 201/202/202. -/
-theorem recoveryLayersCost_four : recoveryLayersCost 4=456 := by decide +kernel
+/-- Recovery cost: 105 (top) + 118 + 116 + 116 for lower targets 201/202/202. -/
+theorem recoveryLayersCost_four : recoveryLayersCost 4=455 := by decide +kernel
 theorem bound_verifyLayers (w : Witness) (index : Nat) :
     ∀ n root,CBound (fun _ => True) (n+recoveryLayersCost n) (verifyLayers w index n root) := by
   intro n

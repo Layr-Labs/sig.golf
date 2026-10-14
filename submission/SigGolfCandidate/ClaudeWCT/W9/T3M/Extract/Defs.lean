@@ -1,5 +1,6 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Encode
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Basic
+import SigGolfCandidate.Choice.Encoding
 
 namespace ClaudeWCT.W9.T3M.WctExtract
 open OracleComp OracleSpec SigGolfCandidate.T3
@@ -51,13 +52,24 @@ def LayerShaped (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (di
 def Frame (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (msg : WCT9.LayerMsg) (digits : List Nat) :
     Prop :=
   (wbcCtr w index lay).toNat < WCT9.verifyWindow ∧
-    decode lay (evalWithAnswerFn answers (ClaudeWCT.WCT9.encodingHash lay (layerEncodingInputP lay (route index lay).2 (route index lay).1
+    decode lay (evalWithAnswerFn answers (ClaudeWCT.WCT9.verificationHash lay (wtopHint w) (layerEncodingInputP lay (route index lay).2 (route index lay).1
       msg (wbcCtr w index lay) (wbcPad w index lay) (wbcRight w) (wbcHigh w index lay)))) = some digits
 def encodingQuery (w : WBytes) (index : Nat) (lay : Layer) (msg : WCT9.LayerMsg) : Spec.Domain :=
   .inl (.inr (pad64 (layerEncodingInputP lay (route index lay).2 (route index lay).1 msg (wbcCtr w index lay)
     (wbcPad w index lay) (wbcRight w) (wbcHigh w index lay))))
 def Good (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) : Prop :=
   ∃ digits, Frame answers w index lay (honestMsg answers index lay) digits ∧ LayerShaped answers w index lay digits
+/-- The supplied hint selects the producer's word at the honest-message row.
+This is automatic below the top layer and is recovered by signature expansion. -/
+def CanonicalFrame (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) : Prop :=
+  let input := layerEncodingInputP lay (route index lay).2 (route index lay).1
+    (honestMsg answers index lay) (wbcCtr w index lay) (wbcPad w index lay) (wbcRight w) (wbcHigh w index lay)
+  evalWithAnswerFn answers (WCT9.verificationHash lay (wtopHint w) input) =
+    evalWithAnswerFn answers (WCT9.encodingHash lay input)
+theorem canonicalFrame_lower (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer)
+    (hl : lay ≠ 0) : CanonicalFrame answers w index lay := by
+  dsimp only [CanonicalFrame]
+  rw [WCT9.verificationHash_lower lay hl]
 def Diverge (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (qs : List Spec.Domain) : Prop :=
   ∃ msg digits, msgFits lay msg ∧ msg ≠ honestMsg answers index lay ∧ Frame answers w index lay msg digits ∧
     LayerShaped answers w index lay digits ∧ encodingQuery w index lay msg ∈ qs

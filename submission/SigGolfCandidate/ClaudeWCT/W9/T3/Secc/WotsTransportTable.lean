@@ -1,7 +1,7 @@
 import SigGolfCandidate.T3.Secc.WotsTransportTable
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsTransportR3
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsTransportShort
-import SigGolfCandidate.ClaudeWCT.W9.New.G3b.Shared
+import SigGolfCandidate.ClaudeWCT.W9.New.G3b_Shared
 
 namespace ClaudeWCT.W9.T3.Security.Wots
 open SigGolfCandidate SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots

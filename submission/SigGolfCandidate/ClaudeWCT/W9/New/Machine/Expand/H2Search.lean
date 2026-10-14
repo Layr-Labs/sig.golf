@@ -690,14 +690,14 @@ def tailProgS (pk : PublicKey) (sig : WCT9.Signature) :
     Option (BitVec 32 × HashOutput × (Digest × Digest)) → M (Option (HashOutput × WCT9.Witness))
   | none => pure none
   | some (counter, N, top) => do
-    let some (v, root', counters) ← WCT9.expandLayersT sig (WCT9.digestIndex N) (WCT9.topSib sig) 4
+    let some (v, root', counters, topHint) ← WCT9.expandLayersT sig (WCT9.digestIndex N) (WCT9.topSib sig) 4
         (.pair top.1 top.2)
       | pure none
     let oc ← if root' = pk then pure (some 0) else
       WCT9.searchTop (WCT9.digestIndex N) v (WCT9.topSib sig) pk WCT9.searchFuel 1
     match oc with
     | none => pure none
-    | some c => pure (some (N, ⟨WCT9.fillTop sig c, counter, fun lay => counters.getD lay.val 0⟩))
+    | some c => pure (some (N, ⟨WCT9.fillTop sig c, counter, fun lay => counters.getD lay.val 0, topHint⟩))
 
 theorem expandN_splitS (m : Message) (pk : PublicKey) (sig : WCT9.Signature) (hp : WCT9.proj sig = sig) :
     ClaudeWCT.W9.T3M.expandN m pk sig = newProg m sig >>= tailProgS pk sig := by
@@ -711,11 +711,11 @@ theorem expandN_splitS (m : Message) (pk : PublicKey) (sig : WCT9.Signature) (hp
     refine bind_congr (fun root => ?_)
     simp only [pure_bind, tailProgS]
     refine bind_congr (fun x => ?_)
-    rcases x with _ | ⟨v, root', counters⟩
+    rcases x with _ | ⟨v, root', counters, topHint⟩
     · rfl
     · by_cases h : root' = pk
       · simp only [h, ↓reduceIte, pure_bind]
-        show _ = pure (some (N, (⟨WCT9.proj sig, counter, _⟩ : WCT9.Witness)))
+        show _ = pure (some (N, (⟨WCT9.proj sig, counter, _, topHint⟩ : WCT9.Witness)))
         rw [hp]
       · simp only [h, ↓reduceIte]
         refine bind_congr (fun oc => ?_)

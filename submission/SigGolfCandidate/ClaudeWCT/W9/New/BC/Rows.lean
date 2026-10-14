@@ -154,10 +154,20 @@ theorem layerEncodingRow_hi_eq {lay : Layer} {tree leaf : Nat} {msg msg' : WCT9.
   obtain ⟨h, -⟩ := List.append_inj h (by simp only [List.length_append, bytesLE_length])
   obtain ⟨-, ht⟩ := List.append_inj h (by simp only [bytesLE_length])
   exact (append64_inj (bytesLE_injective ht)).1
-/-- Honest layer frame with a zero 12-byte row pad and the honest row high word 1 (C2/C3 FULL). (Nested FTS r1-1:
-the L3 row is a pair row, so the old `wbcRight` slot is no longer read and carries no condition.) -/
+/-- Zero row padding and honest chain values whenever the hint selects the
+canonical producer word. An alternate top opening at the same authenticated
+row need not have the canonical chain values. Expanded signatures recover
+the canonical hint; lower layers are canonical for every hint. -/
 def GoodZ (answers : SigGolfCandidate.T3.Correctness.Answers) (w : WBytes) (index : Nat) (lay : Layer) : Prop :=
-  Extract.Good answers w index lay ∧ wbcPad w index lay = 0 ∧ wbcHigh w index lay = 1
+  (Extract.CanonicalFrame answers w index lay → Extract.Good answers w index lay) ∧
+    wbcPad w index lay = 0 ∧ wbcHigh w index lay = 1
 theorem GoodZ.good {answers : SigGolfCandidate.T3.Correctness.Answers} {w : WBytes} {index : Nat} {lay : Layer}
-    (h : GoodZ answers w index lay) : Extract.Good answers w index lay := h.1
+    (h : GoodZ answers w index lay) (hc : Extract.CanonicalFrame answers w index lay) :
+    Extract.Good answers w index lay := h.1 hc
+theorem GoodZ.of_good {answers : SigGolfCandidate.T3.Correctness.Answers} {w : WBytes} {index : Nat} {lay : Layer}
+    (h : Extract.Good answers w index lay) (hz : wbcPad w index lay = 0 ∧ wbcHigh w index lay = 1) : GoodZ answers w index lay :=
+  ⟨fun _ => h, hz⟩
+theorem GoodZ.lower {answers : SigGolfCandidate.T3.Correctness.Answers} {w : WBytes} {index : Nat} {lay : Layer}
+    (h : GoodZ answers w index lay) (hl : lay ≠ 0) : Extract.Good answers w index lay :=
+  h.good (Extract.canonicalFrame_lower answers w index lay hl)
 end ClaudeWCT.W9.T3M.BC

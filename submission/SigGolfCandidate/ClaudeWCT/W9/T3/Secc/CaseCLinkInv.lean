@@ -1,5 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.SeccLaw
-import SigGolfCandidate.ClaudeWCT.Bank.WCTRev3
+import SigGolfCandidate.ClaudeWCT.Bank_WCTRev3
 
 section
 namespace ClaudeWCT.W9.T3.Security.CreationGame

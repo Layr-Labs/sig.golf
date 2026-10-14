@@ -1,6 +1,9 @@
 import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecks
 import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsDispatchArith
 
+variable {choiceHint : BitVec 64}
+
+
 set_option maxRecDepth 20000
 section
 namespace SigGolfCandidate.T3M.Nonbinary
@@ -940,9 +943,9 @@ theorem steps_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     (hk : ∀p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0) (i : Nat) (hi : i<54)
     (acc : List Digest) (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs)
     (N C A : Nat) (Q : Prop)
-    (hK : ∀v t,c.EndInv s0 i (acc++[v]) t → Verify.GoodQ t N C Q A (K (acc++[v]))) :
+    (hK : ∀v t,c.EndInv s0 i (acc++[v]) t → Verify.GoodQ (choiceHint := choiceHint) t N C Q A (K (acc++[v]))) :
     ∀k m,m+k=last i → c.dig i ≤ m → ∀v s,c.PreHash s0 i acc m v s →
-      Verify.GoodQ s (N+3*(topMax i-m)+5) (C+preCost i m) Q (A+preCost i m)
+      Verify.GoodQ (choiceHint := choiceHint) s (N+3*(topMax i-m)+5) (C+preCost i m) Q (A+preCost i m)
         (Verify.ccM (c.rest i m v) (fun v => K (acc++[v]))) := by
   have hmax := topMax_bounds i
   have hlast := last_bounds i
@@ -955,7 +958,7 @@ theorem steps_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
       obtain ⟨h5,hv,hin,hpost⟩ := c.prehash_step hc hds s0 hk h0 i (last i) hi (le_refl _) hd acc v s hs
       rw [rest_succ c i (last i) (le_refl _)]
       have hf := hs.2.2.2.2.2.2.2.2
-      have H : ∀a : BitVec 256,Verify.GoodQ (writeHash s a) N C Q A
+      have H : ∀a : BitVec 256,Verify.GoodQ (choiceHint := choiceHint) (writeHash s a) N C Q A
           (Verify.ccM (c.rest i (last i+1) (a.extractLsb' 0 128)) (fun v => K (acc++[v]))) := by
         intro a
         rw [hlastEq,rest_max,Verify.ccM_pure]
@@ -969,7 +972,7 @@ theorem steps_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
       obtain ⟨h5,hv,hin,hpost⟩ := c.prehash_step hc hds s0 hk h0 i m hi (by omega) hd acc v s hs
       rw [rest_succ c i m (by omega)]
       have hf := hs.2.2.2.2.2.2.2.2
-      have H : ∀a : BitVec 256,Verify.GoodQ (writeHash s a) (N+3*(topMax i-(m+1))+5+2)
+      have H : ∀a : BitVec 256,Verify.GoodQ (choiceHint := choiceHint) (writeHash s a) (N+3*(topMax i-(m+1))+5+2)
           (C+preCost i (m+1)+(if m+1=last i then 2 else 1)) Q
           (A+preCost i (m+1)+(if m+1=last i then 2 else 1))
           (Verify.ccM (c.rest i (m+1) (a.extractLsb' 0 128)) (fun v => K (acc++[v]))) := by
@@ -1047,9 +1050,9 @@ theorem chain_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     (hk : ∀p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0) (i : Nat) (hi : i<54)
     (acc : List Digest) (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs)
     (N C A : Nat) (Q : Prop)
-    (hK : ∀v t,c.EndInv s0 i (acc++[v]) t → Verify.GoodQ t N C Q A (K (acc++[v])))
+    (hK : ∀v t,c.EndInv s0 i (acc++[v]) t → Verify.GoodQ (choiceHint := choiceHint) t N C Q A (K (acc++[v])))
     (s : MachineState) (hs : c.ChainIn s0 i acc s) :
-    Verify.GoodQ s (N+40) (C+c.chainCost i (c.dig i)) Q (A+c.chainCost i (c.dig i))
+    Verify.GoodQ (choiceHint := choiceHint) s (N+40) (C+c.chainCost i (c.dig i)) Q (A+c.chainCost i (c.dig i))
       (Verify.ccM (chainP 0 c.tree c.leaf i (c.dig i) (topMax i-c.dig i) (c.pad0 i) (c.pad1 i) (c.padHeader i) (c.bufferVal i))
         (fun v => K (acc++[v]))) := by
   have hm := topMax_bounds i

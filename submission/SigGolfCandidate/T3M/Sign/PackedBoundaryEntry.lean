@@ -960,7 +960,7 @@ theorem l0Spec_of (hTop : TopLeafSpec) (hK : CounterSearchSpec sk) : L0Spec leaf
   obtain ⟨ds, hds, upc, ux5, hd7, udig, ur, uf, ux25⟩ : ∃ ds : List Nat, (r.map Prod.snd).getD T3.dummyTop = ds ∧
       u.pc = pcOf 441 ∧ u.getReg .x5 = 0 ∧ (∀ i < 54, ds.getD i 0 ≤ 7) ∧
       (∀ i < 54, u.getByte (BitVec.ofNat 64 (DIGITS + i)) = BitVec.ofNat 8 (ds.getD i 0)) ∧
-      RegsExcept t1 u csRegs ∧ Frame t1 u CsW ∧ (u.getReg .x25).toNat ≤ 145 := by
+      RegsExcept t1 u csRegs ∧ Frame t1 u CsW ∧ (u.getReg .x25).toNat ≤ 146 := by
     rcases r with _ | ⟨c, ds⟩
     · change (if (0 : Layer) = 0 then DummyRet t1 441 u else Failed u) at hu
       rw [if_pos rfl] at hu
@@ -976,7 +976,7 @@ theorem l0Spec_of (hTop : TopLeafSpec) (hK : CounterSearchSpec sk) : L0Spec leaf
       omega
   dsimp only
   rw [hds]
-  have hx25 : (u.getReg .x25).toNat ≤ 145 := ux25
+  have hx25 : (u.getReg .x25).toNat ≤ 146 := ux25
   set leaf := index / 2 ^ 19 % 4096 with hleaf_def
   set dest0 := (u.getReg .x25).toNat with hdest0
   have gu : ∀ r, r ∉ [.x1, .x6, .x7, .x8, .x9, .x14, .x17, .x18, .x26, .x27, .x28] ++ csRegs →

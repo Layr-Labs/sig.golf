@@ -1,6 +1,9 @@
 import SigGolfCandidate.T3M.Verify.ChainSem
 import SigGolfCandidate.T3M.Verify.ChainCheckAll
 
+variable {choiceHint : BitVec 64}
+
+
 set_option linter.unusedSimpArgs false
 namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
@@ -285,9 +288,9 @@ def preCost (m : Nat) : Nat := 8 + 9 * (6 - m) + (if m < 6 then 1 else 0)
 theorem steps_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (h0 : c.Orig0 s0) (i : Nat) (hi : c.i0 ≤ i ∧ i ≤ 42) (hck : i = 42 → c.ck < 8) (acc : List Digest)
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
-    (hK : ∀ v t, c.ChainNext s0 (i + 1) (acc ++ [v]) t → Verify.GoodQ t N C Q A (K (acc ++ [v]))) :
+    (hK : ∀ v t, c.ChainNext s0 (i + 1) (acc ++ [v]) t → Verify.GoodQ (choiceHint := choiceHint) t N C Q A (K (acc ++ [v]))) :
     ∀ k m, m + k = 6 → c.dig i ≤ m → ∀ v s, c.PreHash s0 i acc m v s →
-      Verify.GoodQ s (N + 3 * (7 - m) + 4) (C + preCost m + xCost i) Q (A + preCost m + xCost i)
+      Verify.GoodQ (choiceHint := choiceHint) s (N + 3 * (7 - m) + 4) (C + preCost m + xCost i) Q (A + preCost m + xCost i)
         (Verify.ccM (c.rest i m v) (fun v => K (acc ++ [v]))) := by
   have hrc : ∀ m, c.dig i ≤ m → m ≤ 6 → c.rungPc i m < 257214 := fun m hd hm => c.rungPc_lt i m hi.2 hd hm hc.2.2.2.2.2.2.1
   have hx4 := xCost_le i
@@ -299,7 +302,7 @@ theorem steps_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     obtain ⟨h5, hv, hin, hpost⟩ := c.prehash_step hc s0 hk h0 i 6 hi (le_refl _) hd acc v s hs
     rw [rest_succ c i 6 (le_refl _)]
     have hf := hs.2.2.2.2.2.2.2.2.2
-    have H : ∀ a : BitVec 256, Verify.GoodQ (writeHash s a) (N + xCost i) (C + xCost i) Q (A + xCost i)
+    have H : ∀ a : BitVec 256, Verify.GoodQ (choiceHint := choiceHint) (writeHash s a) (N + xCost i) (C + xCost i) Q (A + xCost i)
         (Verify.ccM (c.rest i 7 (Verify.vHalf (stepHigh i 6) a)) (fun v => K (acc ++ [v]))) := by
       intro a
       rw [rest_7, Verify.ccM_pure]
@@ -314,7 +317,7 @@ theorem steps_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     obtain ⟨h5, hv, hin, hpost⟩ := c.prehash_step hc s0 hk h0 i m hi (by omega) hd acc v s hs
     rw [rest_succ c i m (by omega)]
     have hf := hs.2.2.2.2.2.2.2.2.2
-    have H : ∀ a : BitVec 256, Verify.GoodQ (writeHash s a) (N + 3 * (7 - (m + 1)) + 4 + 2)
+    have H : ∀ a : BitVec 256, Verify.GoodQ (choiceHint := choiceHint) (writeHash s a) (N + 3 * (7 - (m + 1)) + 4 + 2)
         (C + preCost (m + 1) + xCost i + (if m + 1 = 6 then 2 else 1)) Q
         (A + preCost (m + 1) + xCost i + (if m + 1 = 6 then 2 else 1))
         (Verify.ccM (c.rest i (m + 1) (Verify.vHalf (stepHigh i m) a)) (fun v => K (acc ++ [v]))) := by
@@ -413,9 +416,9 @@ theorem copyPc_end (c : LCtx) (i : Nat) (hi : i≤42) (hnl : i%3≠0 ∨ i=42)
 theorem chain_good_raw (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (h0 : c.Orig0 s0) (hko : c.i0 = 0 → c.koff = 0) (i : Nat) (hi : c.i0 ≤ i ∧ i ≤ 42) (hck : i = 42 → c.ck < 8) (hRank : c.headOK i) (hNS : ¬c.bufferSafe i)
     (acc : List Digest) (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
-    (hK : ∀ v t, c.ChainNext s0 (i + 1) (acc ++ [v]) t → Verify.GoodQ t N C Q A (K (acc ++ [v])))
+    (hK : ∀ v t, c.ChainNext s0 (i + 1) (acc ++ [v]) t → Verify.GoodQ (choiceHint := choiceHint) t N C Q A (K (acc ++ [v])))
     (s : MachineState) (hs : c.ChainIn s0 i acc s) :
-    Verify.GoodQ s (N + 40) (C + chainCost i (c.dig i)) Q (A + chainCost i (c.dig i))
+    Verify.GoodQ (choiceHint := choiceHint) s (N + 40) (C + chainCost i (c.dig i)) Q (A + chainCost i (c.dig i))
       (Verify.ccM (c.rest i (c.dig i) (c.val i)) (fun v => K (acc ++ [v]))) := by
   have hx4 := xCost_le i
   have hdl : c.dig i < 8 := by
@@ -483,9 +486,9 @@ theorem chain_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     (h0 : c.Orig0 s0) (hko : c.i0 = 0 → c.koff = 0) (i : Nat) (hi : c.i0 ≤ i ∧ i ≤ 42)
     (hck : i = 42 → c.ck < 8) (hRank : c.headOK i)
     (acc : List Digest) (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
-    (hK : ∀ v t, c.ChainNext s0 (i + 1) (acc ++ [v]) t → Verify.GoodQ t N C Q A (K (acc ++ [v])))
+    (hK : ∀ v t, c.ChainNext s0 (i + 1) (acc ++ [v]) t → Verify.GoodQ (choiceHint := choiceHint) t N C Q A (K (acc ++ [v])))
     (s : MachineState) (hs : c.ChainIn s0 i acc s) :
-    Verify.GoodQ s (N + 40) (C + c.bufferCost i) Q (A + c.bufferCost i)
+    Verify.GoodQ (choiceHint := choiceHint) s (N + 40) (C + c.bufferCost i) Q (A + c.bufferCost i)
       (Verify.ccM (c.rest i (c.dig i) (c.bufferVal i)) (fun v=>K (acc++[v]))) := by
   by_cases hSafe : c.bufferSafe i
   · have h7 := hSafe.1
@@ -522,9 +525,9 @@ def chainsCost (c : LCtx) (i k : Nat) : Nat := ((List.range' i k).map c.bufferCo
 theorem chains_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (h0 : c.Orig0 s0) (hko : c.i0 = 0 → c.koff = 0) (last : Nat) (hLast : last ≤ 42)
     (hRanks : ∀ j, c.i0 ≤ j → j < last → c.headOK j) (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs)
-    (N C A : Nat) (Q : Prop) (hK : ∀ ends t, c.ChainIn s0 last ends t → Verify.GoodQ t N C Q A (K ends)) :
+    (N C A : Nat) (Q : Prop) (hK : ∀ ends t, c.ChainIn s0 last ends t → Verify.GoodQ (choiceHint := choiceHint) t N C Q A (K ends)) :
     ∀ k i, i + k = last → c.i0 ≤ i → ∀ acc s, c.ChainIn s0 i acc s →
-      Verify.GoodQ s (N + 40 * k) (C + c.chainsCost i k) Q (A + c.chainsCost i k)
+      Verify.GoodQ (choiceHint := choiceHint) s (N + 40 * k) (C + c.chainsCost i k) Q (A + c.chainsCost i k)
         (Verify.ccM ((List.range' i k).foldlM c.chainF acc) K) := by
   intro k
   induction k with
@@ -550,9 +553,9 @@ theorem chains_prefix_fault (c : LCtx) (hc : c.ok) (hi0 : c.i0=0) (hko : c.koff=
     {s0 : MachineState} (hk : ∀ p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0)
     (j : Nat) (hj : j<14) (hBad : c.kOf j<rankFloor j)
     (hRanks : ∀i,i<3*j→c.headOK i) (s : MachineState) (hs : c.ChainIn s0 0 [] s) :
-    Verify.GoodQ s (1+40*(3*j)) (c.chainsCost 0 (3*j)) False (c.chainsCost 0 (3*j))
+    Verify.GoodQ (choiceHint := choiceHint) s (1+40*(3*j)) (c.chainsCost 0 (3*j)) False (c.chainsCost 0 (3*j))
       (Verify.ccM ((List.range' 0 (3*j)).foldlM c.chainF []) (fun _ => pure (false, 0))) := by
-  have hK : ∀ ends t, c.ChainIn s0 (3*j) ends t → Verify.GoodQ t 1 0 False 0 (pure (false, 0)) := by
+  have hK : ∀ ends t, c.ChainIn s0 (3*j) ends t → Verify.GoodQ (choiceHint := choiceHint) t 1 0 False 0 (pure (false, 0)) := by
     intro ends t ht
     have hpc := ht.2.2.2
     have hp : t.pc.toNat<0x1000 := by
@@ -579,9 +582,9 @@ theorem chainsCost_prefix_le (c : LCtx) (n : Nat) (hn : n≤42) : c.chainsCost 0
 theorem ck_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (h0 : c.Orig0 s0) (hko : c.i0 = 0 → c.koff = 0) (hck : c.ck < 8)
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
-    (hK : ∀ ends t, c.ChainOut s0 43 ends t → Verify.GoodQ t N C Q A (K ends))
+    (hK : ∀ ends t, c.ChainOut s0 43 ends t → Verify.GoodQ (choiceHint := choiceHint) t N C Q A (K ends))
     (acc : List Digest) (s : MachineState) (hs : c.ChainIn s0 42 acc s) :
-    Verify.GoodQ s (N + 40) (C + chainCost 42 c.ck) Q (A + chainCost 42 c.ck)
+    Verify.GoodQ (choiceHint := choiceHint) s (N + 40) (C + chainCost 42 c.ck) Q (A + chainCost 42 c.ck)
       (Verify.ccM (c.chainF acc 42) K) := by
   have := c.chain_good hc hk h0 hko 42 ⟨hc.2.2.2.2.2.2.2.2.1, le_refl _⟩ (fun _ => hck) (by intro _ h; exact (h rfl).elim) acc K N C A Q
     (fun v t ht => by

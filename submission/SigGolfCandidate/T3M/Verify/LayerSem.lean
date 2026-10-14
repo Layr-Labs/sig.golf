@@ -4,6 +4,9 @@ import SigGolfCandidate.T3M.Verify.ChainGood
 import SigGolfCandidate.T3M.Verify.LowerDecode
 import SigGolfCandidate.T3M.Verify.ChainSem
 
+variable {choiceHint : BitVec 64}
+
+
 set_option Elab.async false
 
 section
@@ -858,7 +861,7 @@ theorem encB_step_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) 
       have hd8 : d % 8 = 0 := by rcases hdc with ⟨hd1, hd2⟩ | rfl <;> omega
       have hd32 : d + 32 ≤ 2 ^ 23 := by rcases hdc with ⟨hd1, hd2⟩ | rfl <;> omega
       have hlo : WLO ≤ d := by
-        have hle : 48 ≤ BC.layerEnd lay.val := by
+        have hle : 112 ≤ BC.layerEnd lay.val := by
           have := lay.isLt; unfold BC.layerEnd
           rcases (show lay.val = 0 ∨ lay.val = 1 ∨ lay.val = 2 ∨ lay.val = 3 by omega) with h | h | h | h <;> simp [h]
         rcases hdc with ⟨hd1, hd2⟩ | rfl <;> (have := rlo; unfold WLO at this ⊢; omega)
@@ -1181,7 +1184,7 @@ theorem encB_step_hi (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (
       have hd8 : d % 8 = 0 := by rcases hdc with ⟨hd1, hd2⟩ | rfl <;> omega
       have hd32 : d + 32 ≤ 2 ^ 23 := by rcases hdc with ⟨hd1, hd2⟩ | rfl <;> omega
       have hlo : WLO ≤ d := by
-        have hle : 48 ≤ BC.layerEnd lay.val := by
+        have hle : 112 ≤ BC.layerEnd lay.val := by
           have := lay.isLt; unfold BC.layerEnd
           rcases (show lay.val = 0 ∨ lay.val = 1 ∨ lay.val = 2 ∨ lay.val = 3 by omega) with h | h | h | h <;> simp [h]
         rcases hdc with ⟨hd1, hd2⟩ | rfl <;> (have := rlo; unfold WLO at this ⊢; omega)
@@ -1518,7 +1521,7 @@ theorem encB_step_trap (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
       have hd8 : d % 8 = 0 := by rcases hdc with ⟨hd1, hd2⟩ | rfl <;> omega
       have hd32 : d + 32 ≤ 2 ^ 23 := by rcases hdc with ⟨hd1, hd2⟩ | rfl <;> omega
       have hlo : WLO ≤ d := by
-        have hle : 48 ≤ BC.layerEnd lay.val := by
+        have hle : 112 ≤ BC.layerEnd lay.val := by
           have := lay.isLt; unfold BC.layerEnd
           rcases (show lay.val = 0 ∨ lay.val = 1 ∨ lay.val = 2 ∨ lay.val = 3 by omega) with h | h | h | h <;> simp [h]
         rcases hdc with ⟨hd1, hd2⟩ | rfl <;> (have := rlo; unfold WLO at this ⊢; omega)
@@ -1626,7 +1629,7 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
         exact (hn (by rw [decode_lower_v6 lay hlay,if_neg hhi])).elim
 
 theorem Verify.GoodQ.fetch_none {s : MachineState} {Q : Prop} {A : Nat}
-    (hf : fetch image s = none) : GoodQ s 1 0 Q A (pure (false,0)) := by
+    (hf : fetch image s = none) : GoodQ (choiceHint := choiceHint) s 1 0 Q A (pure (false,0)) := by
   intro F hF
   have he : F = (F-1)+1 := by omega
   refine ⟨?_,fun hash => ?_⟩

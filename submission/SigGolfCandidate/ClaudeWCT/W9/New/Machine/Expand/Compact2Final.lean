@@ -1596,7 +1596,7 @@ def cZs : List (BitVec 32) := (cPost.drop 159).take 4
 def cZl : List (BitVec 32) := (cPost.drop 163).take 3
 def cTs : List (BitVec 32) := (cPost.drop 166).take 11
 def cP (j : Nat) : List (BitVec 32) := (cPost.drop (177 + 7 * j)).take 7
-def cFin : List (BitVec 32) := cPost.drop 261
+def cFin : List (BitVec 32) := (cPost.drop 261).take 2
 section
 variable {im : Image} (hc : NewCodeAt im)
 include hc
@@ -1610,8 +1610,8 @@ theorem code_cG (j : Nat) (hj : j < 12) : CodeAt im (pcOf (43503 + 13 * j)) (cG 
   interval_cases j <;> exact codeAt_of_window hc (by decide) (by decide +kernel)
 theorem code_cP (j : Nat) (hj : j < 12) : CodeAt im (pcOf (43677 + 7 * j)) (cP j) := by
   interval_cases j <;> exact codeAt_of_window hc (by decide) (by decide +kernel)
-/-- The final `ecall` at 43763. -/
-theorem code_ecall : CodeAt im (pcOf 43763) [0x00000073] := codeAt_of_window hc (by decide) (by decide +kernel)
+/-- Transfer to the hint-copy finish routine at 44203. -/
+theorem code_finish_jump : CodeAt im (pcOf 43763) [0x6e00006f] := codeAt_of_window hc (by decide) (by decide +kernel)
 end
 sym_block RHook := symRun cfgC cHook (pcOf 44043) 40
 sym_block RPro := symRun cfgC cPro (pcOf 43500) 40

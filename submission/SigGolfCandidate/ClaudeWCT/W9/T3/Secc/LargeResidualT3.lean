@@ -154,7 +154,7 @@ def EncodingContact (A : Answers) (K : Coord → Prop) (input : HashInput) (answ
     input = Wots.encRow L.toWots m ctr pad ∧
     ((∃ cs, firstUnknownMsg K L = some cs ∧ slotValue input cs.2 = honestValue A cs.1) ∨
       (Wots.referenceInput A L.toWots ≠ some input ∧
-        decode L.1.lay (WCT9.encodingAnswer L.1.lay answer) = some (Wots.referenceDigits A L.toWots)))
+        WCT9.encodingCanDecode L.1.lay answer (Wots.referenceDigits A L.toWots)))
 def ContactTest (A : Answers) (K : Coord → Prop) (input : HashInput) (answer : HashOutput) : Prop :=
   StructuralContact A K input answer ∨ EncodingContact A K input answer
 end ClaudeWCT.W9.T3.Security.LargeResidual

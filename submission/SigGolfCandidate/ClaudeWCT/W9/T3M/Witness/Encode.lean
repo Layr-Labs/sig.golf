@@ -14,15 +14,15 @@ def expandN0 (message : Message) (pk : Digest) (sig : WCT9.Signature) :
   let some (counter, output) ← WCT9.digestSearch sig.rho message 0 WCT9.digestAttemptLimit | pure none
   let index := WCT9.digestIndex output
   let top ← WCT9.recoverFts sig index output
-  let some (root, counters) ← WCT9.expandLayersBC sig index 4 (.pair top.1 top.2) | pure none
+  let some (root, counters, topHint) ← WCT9.expandLayersBC sig index 4 (.pair top.1 top.2) | pure none
   if root ≠ pk then return none
-  pure (some (output, ⟨sig, counter, fun lay => counters.getD lay.val 0⟩))
+  pure (some (output, ⟨sig, counter, fun lay => counters.getD lay.val 0, topHint⟩))
 /-- Nested FTS (r1-1): the 176 bytes before coordinate 8's region (virtual tree 9). Offset 0 is the L3 block's left
 slot (L8), 32 its counter, 48 its right slot (overwritten by the verifier with the copy of offset 144), 144 the R9
 slot. Coordinate 8's supplied top sibling sits at `topSlot 8 child` (offset 0 or 144). -/
 def headerBytes (N : HashOutput) (w : WCT9.Witness) : List UInt8 :=
   (if (WCT9.child N 8).val / 2 ^ 6 % 2 = 1 then bytesLE 16 ((w.signature.openings 8).path 6) else zeros 16) ++
-    zeros 8 ++ bytesLE 8 (1 : BitVec 64) ++ bytesLE 4 (w.counters 3) ++ zeros 108 ++
+    zeros 8 ++ bytesLE 8 (1 : BitVec 64) ++ bytesLE 4 (w.counters 3) ++ zeros 68 ++ bytesLE 8 w.topHint ++ zeros 32 ++
     (if (WCT9.child N 8).val / 2 ^ 6 % 2 = 0 then bytesLE 16 ((w.signature.openings 8).path 6) else zeros 16) ++
     zeros 16
 def authByte (child : Nat) (op : WCT9.Opening) (p : Nat) : UInt8 :=
@@ -123,6 +123,7 @@ def witDecP (N : HashOutput) (w : WBytes) : WCT9.Witness where
         ⟨fun i => wvalue w lay i.val, fun j => wpath w lay (route (WCT9.digestIndex N) lay).1 j.val⟩ }
   digestCounter := wdc w
   counters := fun lay => wbcCtr w (WCT9.digestIndex N) lay
+  topHint := wtopHint w
 def padDecP (N : HashOutput) (w : WBytes) : Pads where
   wctChain k t := wcpads w k.val t.val
   wctChainHigh k t := wcHeaderPad w k.val t.val

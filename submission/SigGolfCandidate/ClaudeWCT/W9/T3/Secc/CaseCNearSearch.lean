@@ -1,5 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.Numerics.WCTPrice
-import SigGolfCandidate.ClaudeWCT.W9.New.G6.LazyDefs
+import SigGolfCandidate.ClaudeWCT.W9.New.G6_LazyDefs
 
 section
 

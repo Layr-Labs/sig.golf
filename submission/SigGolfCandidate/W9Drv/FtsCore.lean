@@ -8,6 +8,9 @@ import SigGolfCandidate.T3M.Verify.AfterDefs
 import SigGolfCandidate.T3M.Verify.Common
 import SigGolfCandidate.T3M.Images.Sizes
 
+variable {choiceHint : BitVec 64}
+
+
 set_option Elab.async false
 
 section
@@ -575,7 +578,7 @@ theorem fetch_invalid_slot (s : MachineState) (r : Nat)
       exact fetch_invalid_last s hp
     · exact fetch_past s _ hp (by unfold slotStart; omega) (by unfold slotStart; omega)
 theorem goodQFor_fault {s : MachineState} {Q : Prop} {A : Nat} (hf : fetch Frozen.image s = none) :
-    GoodQFor Frozen.image s 1 0 Q A (pure (false, 0)) := by
+    GoodQFor (choiceHint := choiceHint) Frozen.image s 1 0 Q A (pure (false, 0)) := by
   intro F hF
   have hF' : F = (F - 1) + 1 := by omega
   refine ⟨?_, fun hash => ?_⟩
@@ -594,8 +597,8 @@ open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest M)
 open W9Machine
 set_option maxHeartbeats 1600000 in
-theorem coord_core_good (chains : N600.AllGood Frozen.layout)
-    (childs : ∀ j : Fin 128, Child.Good Frozen.layout ⟨38, 95, 95 - ClaudeWCT.WCT9.childSave j.val⟩ j)
+theorem coord_core_good (chains : N600.AllGood (choiceHint := choiceHint) Frozen.layout)
+    (childs : ∀ j : Fin 128, Child.Good (choiceHint := choiceHint) Frozen.layout ⟨38, 95, 95 - ClaudeWCT.WCT9.childSave j.val⟩ j)
     (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9) (j : Fin 128) (rank : Fin 563)
     (v u : MachineState) (padL padZ : Digest) (N C A : Nat) (Q : Prop)
     (K : Digest → OracleComp HashSpec Obs)
@@ -604,8 +607,8 @@ theorem coord_core_good (chains : N600.AllGood Frozen.layout)
     (hZ : DigAt v (0x4c0 + V3.regionOffset k.val + 864) padZ)
     (hnext : ∀ ends entry, Chain.Post Frozen.layout (V3.viewW w k.val v) index k j u ends entry →
       ∀ computed t, Child.Post Frozen.layout k j entry computed t →
-        GoodQFor Frozen.image t N C Q A (K computed)) :
-    GoodQFor Frozen.image u (N + 127) (C + 184) Q
+        GoodQFor (choiceHint := choiceHint) Frozen.image t N C Q A (K computed)) :
+    GoodQFor (choiceHint := choiceHint) Frozen.image u (N + 127) (C + 184) Q
       (A + (N600.rankCost rank + (95 - ClaudeWCT.WCT9.childSave j.val)))
       (ccM (N600.program w index k j rank >>= fun ends => V3.childN w index k j ends padL padZ) K) := by
   have hspec : (N600.program w index k j rank >>= fun ends => V3.childN w index k j ends padL padZ) =
@@ -720,7 +723,7 @@ theorem coord_next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
     exact hp.keep r h
   have hd (r : Reg) (h : r ∉ [.x1,.x4,.x8,.x9,.x14,.x15,.x16,.x17,.x23,.x27,.x31]) :
       (chainEntryState a k u).getReg r = u.getReg r := dispatch_keep k u r h
-  have hdr : ∀ i, 4 ≤ i → i < 6 → ¬ coordW k.val (ClaudeWCT.WCT9.child a k).val (WIT + 8 * i) := by
+  have hdr : ∀ i, 4 ≤ i → (i < 6 ∨ i = 13) → ¬ coordW k.val (ClaudeWCT.WCT9.child a k).val (WIT + 8 * i) := by
     intro i h4 h6 hw
     unfold coordW regionAddr WIT at hw
     split_ifs at hw <;> omega
@@ -878,15 +881,15 @@ theorem coord_next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   · exact hu.layer.frame (fun j hj h => hf _ (by unfold WIT WX at *; omega)
       (by intro hw; unfold coordW regionAddr WIT at *; split_ifs at hw <;> omega))
 set_option maxHeartbeats 1600000 in
-theorem coord_good (chains : N600.AllGood Frozen.layout)
-    (childs : ∀ j : Fin 128, Child.Good Frozen.layout ⟨38, 95, 95 - ClaudeWCT.WCT9.childSave j.val⟩ j)
+theorem coord_good (chains : N600.AllGood (choiceHint := choiceHint) Frozen.layout)
+    (childs : ∀ j : Fin 128, Child.Good (choiceHint := choiceHint) Frozen.layout ⟨38, 95, 95 - ClaudeWCT.WCT9.childSave j.val⟩ j)
     (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
     (k : Fin 9) (pairs : List (Digest × Digest)) (u : MachineState) (N C A : Nat) (Q : Prop)
     (K : Option (List (Digest × Digest)) → OracleComp HashSpec Obs)
     (hu : CoordPre pk w a k.val pairs u) (hnone : K none = pure (false, 0))
     (hnext : ∀ pair t, CoordPre pk w a (k.val + 1) (pairs ++ [pair]) t →
-      GoodQFor Frozen.image t N C Q A (K (some (pairs ++ [pair])))) :
-    GoodQFor Frozen.image u (N + (dispatchLen k + 184))
+      GoodQFor (choiceHint := choiceHint) Frozen.image t N C Q A (K (some (pairs ++ [pair])))) :
+    GoodQFor (choiceHint := choiceHint) Frozen.image u (N + (dispatchLen k + 184))
       (C + (dispatchLen k + 184)) Q (A + ((dispatchLen k + 89) + (N600.rankCost (ClaudeWCT.WCT9.rank a k) +
         ClaudeWCT.WCT9.childExtra (ClaudeWCT.WCT9.child a k))))
       (ccM (stepN w a (some pairs) k) K) := by
@@ -928,7 +931,7 @@ theorem coord_good (chains : N600.AllGood Frozen.layout)
       intro hh
       exact hok (show decide (ClaudeWCT.WCT9.field a k < 563) = true from decide_eq_true hh)
     have hpast := fetch_invalid_slot _ _ hpc (by omega) hfb
-    have rr : GoodQFor Frozen.image ((dispatchResult k).toState u) 1 0 Q 0 (pure (false, 0)) :=
+    have rr : GoodQFor (choiceHint := choiceHint) Frozen.image ((dispatchResult k).toState u) 1 0 Q 0 (pure (false, 0)) :=
       goodQFor_fault hpast
     have full := rr.steps ds
     have hfalse : ClaudeWCT.W9.T3M.fieldOk a k = false := Bool.eq_false_iff.mpr hok
@@ -967,16 +970,16 @@ theorem fold_none (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (ks : List (Fin
   induction ks with
   | nil => rfl
   | cons k ks ih => simpa only [List.foldlM_cons, stepN, pure_bind] using ih
-theorem coordinates_good (chains : N600.AllGood Frozen.layout)
-    (childs : ∀ j : Fin 128, Child.Good Frozen.layout ⟨38, 95, 95 - ClaudeWCT.WCT9.childSave j.val⟩ j)
+theorem coordinates_good (chains : N600.AllGood (choiceHint := choiceHint) Frozen.layout)
+    (childs : ∀ j : Fin 128, Child.Good (choiceHint := choiceHint) Frozen.layout ⟨38, 95, 95 - ClaudeWCT.WCT9.childSave j.val⟩ j)
     (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
     (ks : List (Fin 9)) (n : Nat) (pairs : List (Digest × Digest)) (u : MachineState)
     (N C A : Nat) (Q : Prop) (K : Option (Digest × Digest) → OracleComp HashSpec Obs)
     (horder : ks.map Fin.val = List.range' n ks.length) (hend : n + ks.length = 9)
     (hu : CoordPre pk w a n pairs u) (hnone : K none = pure (false, 0))
     (hnext : ∀ top t, FtsOut ⟨pk,w,a⟩ top t →
-      GoodQFor Frozen.image t N C Q A (K (some top))) :
-    GoodQFor Frozen.image u (N + coordsCost ks) (C + coordsCost ks) Q (A + coordsAccept a ks)
+      GoodQFor (choiceHint := choiceHint) Frozen.image t N C Q A (K (some top))) :
+    GoodQFor (choiceHint := choiceHint) Frozen.image u (N + coordsCost ks) (C + coordsCost ks) Q (A + coordsAccept a ks)
       (ccM (ks.foldlM (stepN w a) (some pairs) >>= finishN w) K) := by
   induction ks generalizing n pairs u with
   | nil =>
@@ -1025,13 +1028,13 @@ def FtsGoodByCost (acceptCost : HashOutput → Nat) : Prop :=
     (N C A : Nat) (Q : Prop) (K : Option (Digest × Digest) → OracleComp HashSpec Obs),
     GatePre pk w a u → K none = pure (false, 0) →
     (∀ top t, FtsOut ⟨pk,w,a⟩ top t →
-      GoodQFor Frozen.image t N C Q A (K (some top))) →
-    GoodQFor Frozen.image u (N+2023) (C+2023) Q (A+acceptCost a)
+      GoodQFor (choiceHint := choiceHint) Frozen.image t N C Q A (K (some top))) →
+    GoodQFor (choiceHint := choiceHint) Frozen.image u (N+2023) (C+2023) Q (A+acceptCost a)
       (ccM (if ClaudeWCT.W9.T3M.gateOk a then ftsN w a else pure none) K)
 def ftsAcceptCost (a : HashOutput) : Nat := 918 + ClaudeWCT.WCT9.jointCost a
-theorem fts_good_of (chains : N600.AllGood Frozen.layout)
-    (childs : ∀ j : Fin 128, Child.Good Frozen.layout ⟨38, 95, 95 - ClaudeWCT.WCT9.childSave j.val⟩ j) :
-    FtsGoodByCost ftsAcceptCost := by
+theorem fts_good_of (chains : N600.AllGood (choiceHint := choiceHint) Frozen.layout)
+    (childs : ∀ j : Fin 128, Child.Good (choiceHint := choiceHint) Frozen.layout ⟨38, 95, 95 - ClaudeWCT.WCT9.childSave j.val⟩ j) :
+    FtsGoodByCost (choiceHint := choiceHint) ftsAcceptCost := by
   intro pk w a u N C A Q K hu hnone hnext
   let KG : Bool → OracleComp HashSpec Obs := fun b =>
     if b then ccM (ftsN w a) K else K none
@@ -1052,7 +1055,7 @@ theorem fts_good_of (chains : N600.AllGood Frozen.layout)
         (List.finRange 9).foldlM (stepN w a) (some []) >>= f)
       funext state
       cases state <;> rfl)
-  change GoodQFor Frozen.image u (N + 1773) (C + 1773) Q (A + (896 + ClaudeWCT.WCT9.jointCost a) + 22)
+  change GoodQFor (choiceHint := choiceHint) Frozen.image u (N + 1773) (C + 1773) Q (A + (896 + ClaudeWCT.WCT9.jointCost a) + 22)
     (KG (ClaudeWCT.W9.T3M.gateOk a)) at hg
   apply (hg.mono (by omega) (by omega) (fun hq => ⟨hq, by simp only [ftsAcceptCost]; omega⟩)).congr
   cases ClaudeWCT.W9.T3M.gateOk a <;> simp [KG, ccM_pure]

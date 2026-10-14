@@ -19,7 +19,7 @@ open ClaudeWCT.W9.T3M (pathSlots layerBase layerBase_ge layerEnd_le layerRegion_
 here; the buffer pass writes its LE64(1) (`Buffer.bufferMem` at absolute 1240). -/
 def preHeader (N : HashOutput) (w : WCT9.Witness) : List UInt8 :=
   (if (WCT9.child N 8).val / 2 ^ 6 % 2 = 1 then bytesLE 16 ((w.signature.openings 8).path 6) else zeros 16) ++
-    (zeros 16 ++ (bytesLE 4 (w.counters 3) ++ (zeros 108 ++
+    (zeros 16 ++ (bytesLE 4 (w.counters 3) ++ ((zeros 68 ++ (bytesLE 8 w.topHint ++ zeros 32)) ++
       ((if (WCT9.child N 8).val / 2 ^ 6 % 2 = 0 then bytesLE 16 ((w.signature.openings 8).path 6) else zeros 16) ++
         zeros 16))))
 theorem preHeader_length (N : HashOutput) (w : WCT9.Witness) : (preHeader N w).length = 176 := by
@@ -769,10 +769,19 @@ theorem R_ctr (t : Nat) (ht : t = 0 ∨ t = 8) :
 theorem R_zero (A : Nat) (h1 : WOUT ≤ A) (h2 : A < 9472) (h8 : A % 8 = 0) (hn1 : ¬ (1392 ≤ A ∧ A < 9456))
     (hn2 : ¬ (1248 ≤ A ∧ A < 1264)) : regsMem (ctrMem (zMem (snapMem (vM N w)))) 9 A = 0 := by
   rw [R_eval _ _ h1 h2 h8, if_neg hn1, if_neg hn2]
+/-- Before the final hint store, the compactor produces the zero-hint header. -/
+theorem preHeader_hint_zero (hHint : w.topHint=0) : preHeader N w =
+    (if (WCT9.child N 8).val / 2 ^ 6 % 2 = 1 then bytesLE 16 ((w.signature.openings 8).path 6) else zeros 16) ++
+      (zeros 16 ++ (bytesLE 4 (w.counters 3) ++ (zeros 108 ++
+        ((if (WCT9.child N 8).val / 2 ^ 6 % 2 = 0 then bytesLE 16 ((w.signature.openings 8).path 6) else zeros 16) ++
+          zeros 16)))) := by
+  rw [preHeader, hHint]
+  rfl
+
 set_option maxHeartbeats 2000000 in
 /-- Nested FTS (r1-1): every word of the header and of the nine regions (offsets below 8256 from `WOUT`) after
 the final assembly is the corresponding word of the witness. -/
-theorem wct_words (o : Nat) (ho : o < 8256) (h8 : o % 8 = 0) :
+theorem wct_words (o : Nat) (ho : o < 8256) (h8 : o % 8 = 0) (hHint : w.topHint=0) :
     stMem (vM N w) (WOUT + o) = BitVec.ofNat 64 (readLE (window (preBufferWitList N w) o 8)) := by
   have hWO : WOUT = 0x4c0 := rfl
   unfold stMem
@@ -785,7 +794,7 @@ theorem wct_words (o : Nat) (ho : o < 8256) (h8 : o % 8 = 0) :
     have hd8 : hdst 8 = 1216 := rfl
     rw [plMem_at _ 9 le_rfl _ 8 (fun c hc hne => by unfold hdst; omega), if_pos (show 8 < 9 by omega), hs, hd8,
       pre_win_header N w o 8 (by omega)]
-    unfold preHeader
+    rw [preHeader_hint_zero N w hHint]
     rw [hdr_win _ _ _ (ClaudeWCT.W9.T3M.ite_slot_length _ _) (bytesLE_length _ _) (ClaudeWCT.W9.T3M.ite_slot_length _ _)
         o h8 (by omega)]
     have hw1 := R_holdw N w 8 (by omega) 1 (by omega)
@@ -908,13 +917,13 @@ theorem wct_words (o : Nat) (ho : o < 8256) (h8 : o % 8 = 0) :
 end final
 set_option maxHeartbeats 2000000 in
 theorem compact2_words (N : HashOutput) (w : WCT9.Witness) (i : Nat) (hi : i < 2726)
-    (hnt : 8 * i < 8256 ∨ 9024 ≤ 8 * i) :
+    (hnt : 8 * i < 8256 ∨ 9024 ≤ 8 * i) (hHint : w.topHint=0) :
     (wordsOf (preBufferWitList N w)).getD i 0 =
       if 8 * i < 8256 then stMem (vM N w) (WOUT + 8 * i)
       else out2old (v6M N w) (WCT9.digestIndex N) (8 * i - 832) := by
   rw [wordsOf_getD' _ 2726 (by rw [preBufferWitList_length]) i hi]
   by_cases hw : 8 * i < 8256
-  · rw [if_pos hw, wct_words N w (8 * i) hw (by omega)]
+  · rw [if_pos hw, wct_words N w (8 * i) hw (by omega) hHint]
   rw [if_neg hw]
   unfold out2old
   rw [if_neg (show ¬ 8 * i - 832 < 64 by omega), if_neg (show ¬ 8 * i - 832 < 7424 by omega)]

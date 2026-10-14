@@ -1,0 +1,366 @@
+import SigGolfCandidate.ClaudeWCT.W9.New.G6_LazyDefs
+import SigGolfCandidate.T3.Secc.PairGuessLazyFree
+
+namespace ClaudeWCT.W9.T3.Security.WPair
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
+open SigGolfCandidate.T3.Correctness (Answers)
+open ClaudeWCT.W9.T3.Security.CanonGraph (WctAddr WctPoint)
+open ClaudeWCT.W9.T3M.Final (AdversaryP)
+open SigGolfCandidate.T3.Security.BPair (AuxL AuxSpecL LazyMem digestInputs rowVal rowStep nonceStep NotDN)
+open SphincsSecurity.Concrete
+open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+theorem not_digest_of_marker {x : HashInput} {h : BitVec 128}
+    (hx : SigGolfCandidate.T3M.Extract.hdrBlock x = bytesLE 16 h)
+    (hmark : h.toNat % 256 ≠ 0) : x ∉ digestInputs := by
+  intro hm
+  obtain ⟨rho, m, ctr, rfl⟩ := SigGolfCandidate.T3.Security.BPair.mem_digestInputs.mp hm
+  rw [SigGolfCandidate.T3M.Extract.hdrBlock_pad64 _
+    (by rw [SigGolfCandidate.T3.Security.BPair.digestInput_length]; omega)] at hx
+  unfold digestInput at hx
+  have h2 : bytesLE 16 (digestHeader ctr) = bytesLE 16 h :=
+    (SigGolfCandidate.T3M.Extract.hdrBlock_prefix rho (digestHeader ctr) (bytesLE 32 m)).symm.trans hx
+  have hh := bytesLE_injective h2
+  rw [← hh, digestHeader_firstByte] at hmark
+  exact hmark rfl
+/-- C4: the digest is the only query whose low header word is 0 (a top fold label may have byte0 = 0). -/
+theorem not_digest_of_low {x : HashInput} {h : BitVec 128}
+    (hx : SigGolfCandidate.T3M.Extract.hdrBlock x = bytesLE 16 h)
+    (hlow : h.toNat % 2 ^ 64 ≠ 0) : x ∉ digestInputs := by
+  intro hm
+  obtain ⟨rho, m, ctr, rfl⟩ := SigGolfCandidate.T3.Security.BPair.mem_digestInputs.mp hm
+  rw [SigGolfCandidate.T3M.Extract.hdrBlock_pad64 _
+    (by rw [SigGolfCandidate.T3.Security.BPair.digestInput_length]; omega)] at hx
+  unfold digestInput at hx
+  have h2 : bytesLE 16 (digestHeader ctr) = bytesLE 16 h :=
+    (SigGolfCandidate.T3M.Extract.hdrBlock_prefix rho (digestHeader ctr) (bytesLE 32 m)).symm.trans hx
+  have hh := bytesLE_injective h2
+  have hd := digestHeader_lowNat ctr
+  unfold tweakLow at hd
+  rw [← hh] at hlow
+  exact hlow hd
+theorem not_digest_of_packed {x : HashInput} {h : BitVec 128}
+    (hx : SigGolfCandidate.T3M.Extract.hdrBlock x = bytesLE 16 h)
+    (hmark : 128 ≤ h.toNat % 256) : x ∉ digestInputs :=
+  not_digest_of_marker hx (by omega)
+theorem ftsQuery_dn {index : Nat} {q : SigGolfCandidate.T3.Spec.Domain} (h : WCT9.FtsQuery index q) : NotDN q := by
+  rcases q with (n | x) | (tweak | other)
+  · exact h.elim
+  · rcases (show WCT9.FtsInput index x from h).hdrBlock with
+      ⟨coord, selected, t, step, hx⟩ | ⟨coord, selected, -, -, hx⟩ | ⟨coord, heap, -, -, -, hx⟩ | hx
+    · exact not_digest_of_packed hx (by rw [WCT9.ftsChainHeader, WCT9.ftsChainHeaderP_firstByte]; omega)
+    · exact not_digest_of_marker hx (by rw [WCT9.ftsLeafHeader_firstByte]; decide)
+    · exact not_digest_of_marker hx (WCT9.wctNodeHeader_firstByte_ne_zero _ _ _)
+    · exact not_digest_of_marker hx (by rw [header_firstByte]; decide)
+  · trivial
+  · exact h.elim
+theorem allQ_mono {P Q : SigGolfCandidate.T3.Spec.Domain → Prop} {α : Type} {program : M α}
+    (h : AllQueriesSatisfy program P) (hPQ : ∀ q, P q → Q q) : AllQueriesSatisfy program Q := by
+  induction program using OracleComp.inductionOn with
+  | pure a => exact allQueriesSatisfy_pure _ _
+  | query_bind i next ih =>
+      obtain ⟨hi, hn⟩ := (allQueriesSatisfy_query_bind_iff _ _ _).mp h
+      exact (allQueriesSatisfy_query_bind_iff _ _ _).mpr ⟨hPQ _ hi, fun a => ih a (hn a)⟩
+theorem dn_of_fts {index : Nat} {α : Type} {program : M α} (h : AllQueriesSatisfy program (WCT9.FtsQuery index)) :
+    AllQueriesSatisfy program NotDN :=
+  allQ_mono h fun _ hq => ftsQuery_dn hq
+theorem signForest_dn (index : Nat) (output : HashOutput) : AllQueriesSatisfy (WCT9.signForest index output) NotDN :=
+  dn_of_fts (WCT9.signForest_queries index output)
+theorem layerEncoding_dn (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (counter : BitVec 32) :
+    AllQueriesSatisfy (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg counter)) NotDN := by
+  rw [ClaudeWCT.WCT9.allQueries_encodingHash_iff]
+  unfold shortHash publicHash
+  apply SourceQueries.bind_allowed NotDN
+  · apply (allQueriesSatisfy_query_iff _ _).mpr
+    exact not_digest_of_marker (ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInput lay tree leaf msg counter)
+      (by have := rowTweak_marker lay tree leaf; unfold tweakMarker at this; omega)
+  · intro _; exact SourceQueries.pure_allowed _ _
+theorem packedSecret_dn (lay : Layer) (tree q : Nat) (carry : Digest) :
+    AllQueriesSatisfy (WCT9.packedSecret (WCT9.lowerSeedPair lay tree) q carry) NotDN := by
+  unfold WCT9.packedSecret WCT9.lowerSeedPair
+  split
+  · exact SourceQueries.bind_allowed NotDN (SigGolfCandidate.T3.Security.BPair.privatePair_dn _ _ _ _ _)
+      fun _ => SourceQueries.pure_allowed _ _
+  · exact SourceQueries.pure_allowed _ _
+theorem buildLeafP_dn (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
+    AllQueriesSatisfy (WCT9.buildLeafP lay tree leaf digits carry) NotDN := by
+  unfold WCT9.buildLeafP
+  apply SourceQueries.bind_allowed NotDN
+  · apply SourceQueries.foldlM_allowed NotDN
+    intro state i
+    apply SourceQueries.bind_allowed NotDN (packedSecret_dn _ _ _ _)
+    intro sc
+    exact SourceQueries.bind_allowed NotDN (SigGolfCandidate.T3.Security.BPair.chain_dn _ _ _ _ _ _ _) fun _ =>
+      SourceQueries.bind_allowed NotDN (SigGolfCandidate.T3.Security.BPair.chain_dn _ _ _ _ _ _ _) fun _ =>
+        SourceQueries.pure_allowed _ _
+  · intro state
+    exact SourceQueries.bind_allowed NotDN (SigGolfCandidate.T3.Security.BPair.leafHash_dn _ _ _ _) fun _ =>
+      SourceQueries.pure_allowed _ _
+/-- C2 (FULL): a lower-tree node hash input is not a digest input (its header word is marked). -/
+theorem lowerNodeHash_dn (lay : Layer) (tree heap : Nat) (left right : Digest) (hh : heap < 2 ^ height lay) :
+    AllQueriesSatisfy (WCT9.lowerNodeHash lay.val tree heap left right) NotDN := by
+  unfold WCT9.lowerNodeHash WCT9.lowerHash
+  apply Signer.halfHash_allowed_of_short
+  have he : WCT9.merkleNodeInput lay.val tree heap left right =
+      SigGolfCandidate.T3M.SecurityInputs.block4 left (WCT9.merkleTweak lay.val tree heap) 0 right := by
+    unfold WCT9.merkleNodeInput SigGolfCandidate.T3M.SecurityInputs.block4
+    rw [show bytesLE 16 (0 : Digest) = zero16 by decide]
+  rw [he]
+  unfold shortHash publicHash
+  refine SourceQueries.bind_allowed NotDN ((allQueriesSatisfy_query_iff _ _).mpr
+    (not_digest_of_low (h := WCT9.merkleTweak lay.val tree heap) ?_ ?_)) fun _ => SourceQueries.pure_allowed _ _
+  · rw [SigGolfCandidate.T3M.SecurityInputs.pad64_block4]
+    exact ClaudeWCT.W9.T3M.Extract.hdrBlock_block4 _ _ _ _
+  · by_cases h0 : lay.val = 0
+    · rw [h0, WCT9.merkleTweak_top]
+      have := nodeTweak_low_ne_zero 3 0 tree heap
+      unfold tweakLow at this
+      exact this
+    · rw [WCT9.merkleTweak_lower h0]
+      have h7 : height lay ≤ 7 := by fin_cases lay <;> simp_all [height]
+      have h128 : heap < 128 := lt_of_lt_of_le hh (le_trans (Nat.pow_le_pow_right (by decide) h7) (by norm_num))
+      rw [WCT9.lowerTweak_toNat h128]
+      omega
+theorem buildTreeP_dn (lay : Layer) (tree selected : Nat) (digits : List Nat) :
+    AllQueriesSatisfy (WCT9.buildTreeP lay tree selected digits) NotDN :=
+  Signer.buildTreeP_allowed' NotDN SigGolfCandidate.T3.Security.BPair.chain_dn
+    SigGolfCandidate.T3.Security.BPair.leafHash_dn
+    (fun lay tree heap left right hh => lowerNodeHash_dn lay tree heap left right hh)
+    (fun lay tree pair => by
+      unfold WCT9.lowerSeedPair
+      exact SigGolfCandidate.T3.Security.BPair.privatePair_dn _ _ _ _ _) lay tree selected digits
+theorem signLayersBC_dn (cache : SigGolfCandidate.T3.Cache) (index n : Nat) (msg : WCT9.LayerMsg) :
+    AllQueriesSatisfy (WCT9.signLayersBC cache index n msg) NotDN :=
+  Signer.signLayersBC_allowed' NotDN cache layerEncoding_dn buildTreeP_dn
+    (SigGolfCandidate.T3.Security.BPair.signTop_dn cache) index n msg
+theorem cell_not_digest (s : CanonGraph.Secrets) (node : CanonGraph.Node) (labels : CanonGraph.Labels) :
+    CanonGraph.cell s node labels ∉ digestInputs := by
+  have h := CanonGraph.hdrBlock_cell s node labels
+  cases node with
+  | chain point =>
+      intro hm
+      obtain ⟨rho, m, ctr, he⟩ := SigGolfCandidate.T3.Security.BPair.mem_digestInputs.mp hm
+      rw [he, ClaudeWCT.W9.T3M.Extract.hdrBlock_pad64 _
+        (by rw [SigGolfCandidate.T3.Security.BPair.digestInput_length]; omega)] at h
+      unfold digestInput at h
+      rw [ClaudeWCT.W9.T3M.Extract.hdrBlock_prefix] at h
+      exact chainHeader_ne_digestHeader _ _ _ _ _ _ (bytesLE_injective h).symm
+  | wctChain point =>
+      simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr] at h
+      exact not_digest_of_packed h (by rw [WCT9.ftsChainHeader, WCT9.ftsChainHeaderP_firstByte]; omega)
+  | wctNode n =>
+      simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr] at h
+      exact not_digest_of_marker h (WCT9.wctNodeHeader_firstByte_ne_zero _ _ _)
+  | wctLeaf L =>
+      simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr] at h
+      exact not_digest_of_marker h (by rw [WCT9.ftsLeafHeader_firstByte]; decide)
+  | leaf L =>
+      simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr] at h
+      exact not_digest_of_marker h (by
+        have := leafTweak_marker L.1.lay L.1.tree.val L.1.leaf.val; unfold tweakMarker at this; omega)
+  | node n =>
+      simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr] at h
+      -- C4: every Merkle node word is nonzero (top labels `topNodeWord heap ≥ 1`, lower words have byte7 193).
+      refine not_digest_of_low h ?_
+      by_cases h0 : n.1.lay.val = 0
+      · rw [h0, WCT9.merkleTweak_top]
+        have := nodeTweak_low_ne_zero 3 0 n.1.tree.val (2 ^ (height n.1.lay - n.1.level.val - 1) + n.1.idx.val)
+        unfold tweakLow at this
+        exact this
+      · have h7 : height n.1.lay ≤ 7 := by
+          have h0' : n.1.lay ≠ 0 := fun e => h0 (by rw [e]; rfl)
+          revert h0'; generalize n.1.lay = lay; intro h0'; fin_cases lay <;> simp_all [height]
+        have hh := ClaudeWCT.W9.T3M.Extract.node_heap_lt128 n.2.2.1 h7
+        rw [WCT9.merkleTweak_lower h0, WCT9.lowerTweak_toNat hh]
+        have hl := n.1.lay.isLt
+        generalize 2 ^ (height n.1.lay - n.1.level.val - 1) + n.1.idx.val = heap at hh ⊢
+        generalize n.1.tree.val = tr
+        generalize n.1.lay.val = l at hl ⊢
+        omega
+  | forest index =>
+      simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr] at h
+      exact not_digest_of_marker h (by rw [header_firstByte]; decide)
+def nonceHalf (m : Message) : ChainGraph.HalfCoordinate := (.inr (.inl m), 0)
+theorem nonceHalf_not_secret (m : Message) : nonceHalf m ∉ Set.range CanonGraph.secretCoordinate := by
+  rintro ⟨i, hi⟩
+  have h1 := congrArg Prod.fst hi
+  cases i with
+  | inl a =>
+      simp only [CanonGraph.secretCoordinate, Sum.elim_inl, CanonGraph.seedCoordinateP] at h1
+      split_ifs at h1 <;> cases h1
+  | inr f => cases h1
+def nonceOther (m : Message) : CanonGraph.OtherHalf := ⟨nonceHalf m, nonceHalf_not_secret m⟩
+theorem nonceOther_injective : Function.Injective nonceOther := by
+  intro m m' h
+  have h1 := congrArg (fun o : CanonGraph.OtherHalf => o.1.1) h
+  change (Sum.inr (Sum.inl m) : Coordinate) = Sum.inr (Sum.inl m') at h1
+  exact Sum.inl.inj (Sum.inr.inj h1)
+section Table
+variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U)
+noncomputable def digestOf (ω : CanonTable.Omega U) : digestInputs → HashOutput :=
+  fun x => finiteHashAnswer ∅ U ω.residual x.val
+def nonceOf (ω : CanonTable.Omega U) : Message → Digest := fun m => ω.other (nonceOther m)
+theorem answers_digest (ω : CanonTable.Omega U) (g : CanonTable.HiddenF) (x : HashInput) (hx : x ∈ digestInputs) :
+    wA hU ω g (.inl (.inr x)) = rowVal (digestOf ω) x := by
+  rw [rowVal, dif_pos hx]
+  change finiteHashAnswer ∅ U (CanonGraph.programmed U hU (CanonTable.worldSecrets ω.secrets g.1)
+    (CanonTable.worldLabels ω g.2) ω.residual) x = finiteHashAnswer ∅ U ω.residual x
+  by_cases hxU : x ∈ U
+  · rw [finiteHashAnswer_none ∅ U _ _ hxU rfl, finiteHashAnswer_none ∅ U _ _ hxU rfl]
+    apply CanonGraph.programmed_other
+    intro node he
+    exact cell_not_digest _ node _ (by rw [← he]; exact hx)
+  · simp only [finiteHashAnswer, dif_neg hxU]
+theorem eval_nonce (ω : CanonTable.Omega U) (g : CanonTable.HiddenF) (m : Message) :
+    evalWithAnswerFn (wA hU ω g) (privateNonce m) = nonceOf ω m := by
+  unfold privateNonce privateHash
+  simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+  change (CanonGraph.privateEquiv.symm (CanonTable.worldSecrets ω.secrets g.1, ω.other) (.inr (.inl m))).extractLsb'
+    0 128 = _
+  rw [privateEquiv_symm_apply, ChainGraph.joinOutput_low]
+  exact splitEquiv_symm_other _ _ (nonceHalf m) (nonceHalf_not_secret m)
+end Table
+section Rest
+variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U)
+noncomputable local instance instDecidableEqCache_g6LazyFree : DecidableEq SigGolfCandidate.T3.Cache :=
+  Classical.decEq _
+def SameRest (ω₁ ω₂ : CanonTable.Omega U) : Prop :=
+  ω₁.secrets = ω₂.secrets ∧ ω₁.low = ω₂.low ∧ ω₁.high = ω₂.high ∧
+    (∀ x : U, x.val ∉ digestInputs → ω₁.residual x = ω₂.residual x) ∧
+    (∀ h : CanonGraph.OtherHalf, (∀ m, h ≠ nonceOther m) → ω₁.other h = ω₂.other h)
+theorem programmed_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : CanonTable.HiddenF) (x : U)
+    (hx : x.val ∉ digestInputs) :
+    CanonGraph.programmed U hU (CanonTable.worldSecrets ω₁.secrets g.1) (CanonTable.worldLabels ω₁ g.2) ω₁.residual x =
+      CanonGraph.programmed U hU (CanonTable.worldSecrets ω₂.secrets g.1) (CanonTable.worldLabels ω₂ g.2)
+        ω₂.residual x := by
+  have hs : CanonTable.worldSecrets ω₁.secrets g.1 = CanonTable.worldSecrets ω₂.secrets g.1 := by rw [h.1]
+  have hl : CanonTable.worldLabels ω₁ g.2 = CanonTable.worldLabels ω₂ g.2 := by
+    unfold CanonTable.worldLabels
+    rw [h.2.1, h.2.2.1]
+  rw [hs, hl]
+  by_cases hc : ∃ node, x.val = CanonGraph.cell (CanonTable.worldSecrets ω₂.secrets g.1) node (CanonTable.worldLabels ω₂ g.2)
+  · obtain ⟨node, hnode⟩ := hc
+    have hx' : x = CanonGraph.cellIn U hU (CanonTable.worldSecrets ω₂.secrets g.1) node (CanonTable.worldLabels ω₂ g.2) :=
+      Subtype.ext hnode
+    rw [hx', CanonGraph.programmed_at, CanonGraph.programmed_at]
+  · have hn : ∀ node, x.val ≠ CanonGraph.cell (CanonTable.worldSecrets ω₂.secrets g.1) node
+        (CanonTable.worldLabels ω₂ g.2) := fun node he => hc ⟨node, he⟩
+    rw [CanonGraph.programmed_other U hU _ _ _ _ hn, CanonGraph.programmed_other U hU _ _ _ _ hn]
+    exact h.2.2.2.1 x hx
+theorem private_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : CanonTable.HiddenF) (c : Coordinate)
+    (hc : ∀ m, c ≠ .inr (.inl m)) :
+    CanonGraph.privateEquiv.symm (CanonTable.worldSecrets ω₁.secrets g.1, ω₁.other) c =
+      CanonGraph.privateEquiv.symm (CanonTable.worldSecrets ω₂.secrets g.1, ω₂.other) c := by
+  have hhalf : ∀ k : Fin 2, CanonGraph.splitEquiv.symm (CanonTable.worldSecrets ω₁.secrets g.1, ω₁.other) (c, k) =
+      CanonGraph.splitEquiv.symm (CanonTable.worldSecrets ω₂.secrets g.1, ω₂.other) (c, k) := by
+    intro k
+    by_cases hr : (c, k) ∈ Set.range CanonGraph.secretCoordinate
+    · obtain ⟨i, hi⟩ := hr
+      rw [← hi, splitEquiv_symm_secret, splitEquiv_symm_secret, h.1]
+    · rw [splitEquiv_symm_other _ _ _ hr, splitEquiv_symm_other _ _ _ hr]
+      apply h.2.2.2.2
+      intro m he
+      have := congrArg (fun o : CanonGraph.OtherHalf => o.1.1) he
+      exact hc m this
+  rw [privateEquiv_symm_apply, privateEquiv_symm_apply, hhalf 0, hhalf 1]
+theorem answers_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : CanonTable.HiddenF)
+    (q : SigGolfCandidate.T3.Spec.Domain) (hq : NotDN q) : wA hU ω₁ g q = wA hU ω₂ g q := by
+  rcases q with (n | x) | c
+  · rfl
+  · change finiteHashAnswer ∅ U (CanonGraph.programmed U hU (CanonTable.worldSecrets ω₁.secrets g.1)
+        (CanonTable.worldLabels ω₁ g.2) ω₁.residual) x =
+      finiteHashAnswer ∅ U (CanonGraph.programmed U hU (CanonTable.worldSecrets ω₂.secrets g.1)
+        (CanonTable.worldLabels ω₂ g.2) ω₂.residual) x
+    by_cases hxU : x ∈ U
+    · rw [finiteHashAnswer_none ∅ U _ _ hxU rfl, finiteHashAnswer_none ∅ U _ _ hxU rfl]
+      exact programmed_sameRest hU h g ⟨x, hxU⟩ hq
+    · simp only [finiteHashAnswer, dif_neg hxU]
+  · apply private_sameRest h g c
+    rintro m rfl
+    exact hq
+theorem eval_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : CanonTable.HiddenF) {α : Type}
+    {program : M α} (hp : AllQueriesSatisfy program NotDN) :
+    evalWithAnswerFn (wA hU ω₁ g) program = evalWithAnswerFn (wA hU ω₂ g) program :=
+  eval_congr_allowed hp (answers_sameRest hU h g)
+theorem residual_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (x : HashInput) (hx : x ∉ digestInputs) :
+    finiteHashAnswer ∅ U ω₁.residual x = finiteHashAnswer ∅ U ω₂.residual x := by
+  by_cases hxU : x ∈ U
+  · rw [finiteHashAnswer_none ∅ U _ _ hxU rfl, finiteHashAnswer_none ∅ U _ _ hxU rfl]
+    exact h.2.2.2.1 ⟨x, hxU⟩ hx
+  · simp only [finiteHashAnswer, dif_neg hxU]
+theorem probeInput_not_digest (a : Guess.ChainAddr) (p : Fin 4) (c : Digest) :
+    Guess.probeInput a p c ∉ digestInputs := by
+  have hx := CanonTable.probeInput_hdr a p c
+  simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr] at hx
+  exact not_digest_of_packed hx (by rw [WCT9.ftsChainHeader, WCT9.ftsChainHeaderP_firstByte]; omega)
+theorem hashL_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) : hashL hU ω₁ = hashL hU ω₂ := by
+  funext x
+  unfold hashL
+  cases hd : Guess.decodeProbe x with
+  | some q =>
+      have hx := Guess.eq_of_decodeProbe hd
+      have hnd : x ∉ digestInputs := by rw [hx]; exact probeInput_not_digest _ _ _
+      have hstep : (CanonTable.chainTable hU ω₁).step = (CanonTable.chainTable hU ω₂).step := by
+        funext a p v
+        change ChainGraph.joinOutput v (ω₁.high (.wctChain (a, p))) = ChainGraph.joinOutput v (ω₂.high (.wctChain (a, p)))
+        rw [h.2.2.1]
+      have htop : (CanonTable.chainTable hU ω₁).top = (CanonTable.chainTable hU ω₂).top := by
+        funext a
+        change CanonGraph.joinLabels ω₁.low ω₁.high (.wctChain (a, 3)) = CanonGraph.joinLabels ω₂.low ω₂.high (.wctChain (a, 3))
+        rw [h.2.1, h.2.2.1]
+      have hmiss : (CanonTable.chainTable hU ω₁).miss x = (CanonTable.chainTable hU ω₂).miss x :=
+        residual_sameRest h x hnd
+      simp only [hstep, htop, hmiss]
+  | none =>
+      by_cases hx : x ∈ digestInputs
+      · simp only [if_pos hx]
+      · simp only [if_neg hx]
+        exact congrArg _ (answers_sameRest hU h 0 (.inl (.inr x)) hx)
+theorem honestForest_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : CanonTable.HiddenF)
+    (index : Nat) : WCT9.honestTop (wA hU ω₁ g) index = WCT9.honestTop (wA hU ω₂ g) index := by
+  rw [← WCT9.signForest_root _ index 0, ← WCT9.signForest_root _ index 0,
+    eval_sameRest hU h g (signForest_dn _ _)]
+theorem expectedOpening_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : CanonTable.HiddenF)
+    (index : Nat) (output : HashOutput) (k : WCT9.Coord) :
+    WCT9.expectedOpening (wA hU ω₁ g) index output k = WCT9.expectedOpening (wA hU ω₂ g) index output k := by
+  rw [← WCT9.signForest_openings, ← WCT9.signForest_openings, eval_sameRest hU h g (signForest_dn _ _)]
+theorem assembleWith_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : CanonTable.HiddenF)
+    (core : Digest × HashOutput × List Pieces) :
+    assembleWith (wA hU ω₁ g) core = assembleWith (wA hU ω₂ g) core := by
+  unfold assembleWith
+  exact congrArg (fun l => WCT9.assembledSignature core.1 l core.2.2)
+    (congrArg List.ofFn (funext fun k => expectedOpening_sameRest hU h g _ _ k))
+theorem signerLayersW_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) :
+    signerLayersW hU ω₁ = signerLayersW hU ω₂ := by
+  funext request output
+  unfold signerLayersW
+  rw [honestForest_sameRest hU h, eval_sameRest hU h _ (signLayersBC_dn _ _ _ _)]
+theorem finishL_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) : finishL hU ω₁ = finishL hU ω₂ := by
+  funext request rho found
+  rcases found with _ | ⟨c, output⟩
+  · rfl
+  · simp only [finishL, signerLayersW_sameRest hU h, assembleWith_sameRest hU h]
+theorem signL_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) : signL hU ω₁ = signL hU ω₂ := by
+  funext published request
+  unfold signL
+  simp only [finishL_sameRest hU h]
+theorem interactionL_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂)
+    (published : SigGolfCandidate.T3.Cache) {α : Type} :
+    (interactionL hU ω₁ published : OracleComp LazyPrivate.Interaction α → _) = interactionL hU ω₂ published := by
+  unfold interactionL
+  simp only [hashL_sameRest hU h, signL_sameRest hU h]
+theorem programL_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) {β : Type} :
+    (programL hU ω₁ : M β → _) = programL hU ω₂ := by
+  unfold programL
+  simp only [hashL_sameRest hU h]
+theorem worldGameL_congr {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (adversary : AdversaryP) :
+    worldGameCore hU ω₁ adversary = worldGameCore hU ω₂ adversary := by
+  unfold worldGameCore
+  rw [eval_sameRest hU h _ SigGolfCandidate.T3.Security.BPair.keygen_dn]
+  simp only [interactionL_sameRest hU h, programL_sameRest hU h]
+end Rest
+end ClaudeWCT.W9.T3.Security.WPair

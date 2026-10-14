@@ -788,9 +788,9 @@ def tailProg (pk : PublicKey) (sig : WCT9.Signature) :
     Option (BitVec 32 × HashOutput × (Digest × Digest)) → M (Option (HashOutput × WCT9.Witness))
   | none => pure none
   | some (counter, N, top) => do
-    let some (root, counters) ← WCT9.expandLayersBC sig (WCT9.digestIndex N) 4 (.pair top.1 top.2) | pure none
+    let some (root, counters, topHint) ← WCT9.expandLayersBC sig (WCT9.digestIndex N) 4 (.pair top.1 top.2) | pure none
     if root ≠ pk then return none
-    pure (some (N, ⟨sig, counter, fun lay => counters.getD lay.val 0⟩))
+    pure (some (N, ⟨sig, counter, fun lay => counters.getD lay.val 0, topHint⟩))
 -- [h2 lane] removed expandN_split: with H2, `expandN` is the searching expander; H2Search.expandN_splitS replaces it
 end ClaudeWCT.W9.Machine.Expand
 end
