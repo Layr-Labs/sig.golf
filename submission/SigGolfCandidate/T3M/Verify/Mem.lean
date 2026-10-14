@@ -6,10 +6,10 @@ namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)
 def WIT : Nat := 0x4c0
-def WSZ : Nat := 24908
-/-- Byte bound of the 3108 loaded witness words; the last word is the 4-byte digest counter
-zero-padded by the loader, since the witness itself is `WSZ = 24908` bytes. -/
-def WX : Nat := 24912
+def WSZ : Nat := 24924
+/-- Byte bound of the 3116 loaded witness words; the last word is the 4-byte digest counter
+zero-padded by the loader, since the witness itself is `WSZ = 24924` bytes. -/
+def WX : Nat := 24928
 def WLO : Nat := WIT + 48
 theorem ofNat_eq_iff {a b : Nat} (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) :
     (BitVec.ofNat 64 a = BitVec.ofNat 64 b) ↔ a = b := by
@@ -151,7 +151,7 @@ structure DataOK (s : MachineState) : Prop where
   mask : s.getMem (BitVec.ofNat 64 (TOPBASE - 8)) = 520192#64
   header : ∀ lay, lay < 4 →
     s.getMem (BitVec.ofNat 64 (hdrAddr lay)) = BitVec.ofNat 64 (hyperBase lay)
-  buffer3 : s.getMem (BitVec.ofNat 64 (TOPB9 + 56)) = 22208#64
+  buffer3 : s.getMem (BitVec.ofNat 64 (TOPB9 + 56)) = 22224#64
 theorem DataOK.prefix {s : MachineState} (h : DataOK s) (lay : Nat) (hl : lay < 4) :
     s.getMem (BitVec.ofNat 64 (hdrAddr lay)) = BitVec.ofNat 64 (hyperBase lay) :=
   h.header lay hl
@@ -204,6 +204,13 @@ theorem Orig.word {w : ClaudeWCT.W9.T3M.WBytes} {s : MachineState} {P : Nat → 
     s.getMem (BitVec.ofNat 64 (WIT + off)) = wword w (off / 8) := by
   have := hO (off / 8) (by omega) (by rwa [show 8 * (off / 8) = off by omega])
   rwa [show 8 * (off / 8) = off by omega] at this
+/-- The high word of a 16-byte witness digest (C2/C3 high-word pads). -/
+theorem Orig.hi {w : ClaudeWCT.W9.T3M.WBytes} {s : MachineState} {P : Nat → Prop} (hO : Orig w P s) (off : Nat)
+    (h8 : off % 8 = 0) (hoff : off + 8 < WX) (hp : P (off + 8)) :
+    s.getMem (BitVec.ofNat 64 (WIT + off + 8)) = dhi (ClaudeWCT.W9.T3M.wdig w off) := by
+  obtain ⟨j, rfl⟩ : ∃ j, off = 8 * j := ⟨off / 8, by omega⟩
+  rw [show WIT + 8 * j + 8 = WIT + (8 * j + 8) by ring, hO.word (8 * j + 8) (by omega) hoff hp, wdig_hi]
+  congr 1; omega
 theorem Orig.dig {w : ClaudeWCT.W9.T3M.WBytes} {s : MachineState} {P : Nat → Prop} (hO : Orig w P s) (off : Nat)
     (h8 : off % 8 = 0) (hoff : off + 8 < WX) (hp0 : P off) (hp1 : P (off + 8)) :
     s.getMem (BitVec.ofNat 64 (WIT + off)) = dlo (ClaudeWCT.W9.T3M.wdig w off) ∧

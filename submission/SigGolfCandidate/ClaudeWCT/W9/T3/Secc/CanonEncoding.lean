@@ -63,20 +63,14 @@ def encKey (labels : Labels) (x : EncLeaf × Fin (2^22)) : EncKey :=
 theorem hdrBlock_encQuery (key : EncKey) :
     Extract.hdrBlock (encQuery key) = bytesLE 16 (rowTweak key.1.1 key.1.2.1.val key.1.2.2.1.val) :=
   BC.hdrBlock_layerEncodingInput _ _ _ _ _
-/-- Campaign S1: an encoding block keys no position (it shares its label with a leaf block, but is shorter). -/
-theorem posOf_encQuery (key : EncKey) : Extract.posOf (encQuery key) = none := by
-  have hb := hdrBlock_encQuery key
-  unfold rowTweak at hb
-  refine Extract.posOf_row_none ?_ hb
-  unfold encQuery
-  rw [← BC.pad64_layerEncodingInputP_zero]
-  exact BC.layerEncodingRow_length _ _ _ _ _ _ _ _
+theorem row_ne_hdr (lay : Layer) (tree leaf : Nat) (node : Node) : rowTweak lay tree leaf ≠ node.toPos.hdr :=
+  Extract.rowTweak_ne_hdr lay tree leaf (toPos_bounded node)
 theorem encodingQuery_ne_cell (key : EncKey) (secrets : Secrets) (node : Node) (labels : Labels) :
     encQuery key ≠ cell secrets node labels := by
   intro heq
-  have h1 := posOf_encQuery key
-  rw [heq, posOf_cell] at h1
-  cases h1
+  have h1 := hdrBlock_encQuery key
+  rw [heq, hdrBlock_cell] at h1
+  exact row_ne_hdr _ _ _ node (bytesLE_injective h1).symm
 noncomputable def encCell (U : Finset HashInput) (hE : encInputs ⊆ U) (labels : Labels)
     (x : EncLeaf × Fin (2^22)) : U :=
   ⟨encQuery (encKey labels x), hE (encQuery_mem _)⟩

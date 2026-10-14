@@ -373,7 +373,9 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 namespace Structural
+open CanonGraph (Node Labels Secrets OtherHalves cell programmed canonInputs privateEquiv)
 section Fixed
+variable (V : Finset HashInput) (hU : canonInputs ⊆ V) (s : Secrets) (o : OtherHalves) (labels : Labels)
 theorem card_digest : (Fintype.card SphincsSecurity.Digest : ℝ≥0∞) = 2 ^ 128 := by
   simp [SphincsSecurity.digestBits]
   norm_num

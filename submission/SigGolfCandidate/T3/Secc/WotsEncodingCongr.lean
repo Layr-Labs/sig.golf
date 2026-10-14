@@ -1,9 +1,6 @@
 import SigGolfCandidate.T3.Secc.WotsMaskRef
 import SigGolfCandidate.T3.Secc.WotsExtractWord
-import SigGolfCandidate.T3.Secc.SeccLaw
-import SigGolfCandidate.T3.Secc.WotsEvents
-import SigGolfCandidate.SphincsSecurity.Proof.Base.FirstSuccessFamily
-import SigGolfCandidate.SphincsSecurity.Proof.Base.UniformTableOverwrite
+import SigGolfCandidate.T3.Secc.CanonEncoding
 
 namespace SigGolfCandidate.T3.Security.Wots
 open OracleComp OracleSpec ENNReal
@@ -15,9 +12,9 @@ open Mask
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 namespace Enc
-/-- Campaign S1: an encoding block is a 64-byte input whose tweak is a one-word hyper label (byte0 1, type byte
-193) with any high word (the verifier reads that word from the witness, the signer writes 0). Leaf blocks share
-the label but are longer. -/
+/-- C2/C3 (FULL): an encoding block is a 64-byte input whose tweak is a hyper word with ANY high word (the verifier
+reads the encoding row tweak's high word from the witness, honest value 1). A leaf block carries the same 16-byte
+header (high word 0) but is 704 or 896 bytes long, so the length keeps them apart. -/
 def EncHeader (input : HashInput) : Prop :=
   input.length = 64 ∧ ∃ (lay : Layer) (tree leaf : Nat) (hp : BitVec 64),
     Extract.hdrBlock input = bytesLE 16 (hp ++ hyperWord lay.val (tree * 2 ^ height lay + leaf))
@@ -27,27 +24,24 @@ def NonEnc : Spec.Domain → Prop
 /-- `h` is no hyper tweak, whatever its high word. -/
 def NotHyper (h : BitVec 128) : Prop :=
   ∀ (lay : Layer) (tree leaf : Nat) (hp : BitVec 64), h ≠ hp ++ hyperWord lay.val (tree * 2 ^ height lay + leaf)
-theorem notHyper_of_low {h : BitVec 128} (hl : ∀ lay routed : Nat, tweakLow h ≠ (hyperWord lay routed).toNat) :
-    NotHyper h := by
+theorem notHyper_of_marker {h : BitVec 128} (hm : tweakMarker h ≠ 1) : NotHyper h := by
+  intro lay tree leaf hp he
+  apply hm
+  rw [he, append64_marker, hyperWord_marker]
+theorem notHyper_of_tag {h : BitVec 128} (ht : tweakTag h ≠ 2) : NotHyper h := by
+  intro lay tree leaf hp he
+  apply ht
+  rw [he, append64_tag, hyperWord_tag]
+theorem notHyper_of_ne_rowTweak_low {h : BitVec 128}
+    (hl : ∀ lay routed : Nat, h.extractLsb' 0 64 ≠ hyperWord lay routed) : NotHyper h := by
   intro lay tree leaf hp he
   apply hl lay.val (tree * 2 ^ height lay + leaf)
-  rw [he, append64_lowNat]
-theorem tweakMarker_eq_low (h : BitVec 128) : tweakMarker h = tweakLow h % 256 := by
-  unfold tweakMarker tweakLow
-  rw [Nat.mod_mod_of_dvd _ (by norm_num)]
-theorem tweakTag_eq_low (h : BitVec 128) : tweakTag h = tweakLow h / 256 % 256 := by
-  unfold tweakTag tweakLow
-  have := Nat.mod_add_div h.toNat (2 ^ 64)
-  omega
-theorem notHyper_of_marker {h : BitVec 128} (hm : tweakMarker h ≠ 1) : NotHyper h :=
-  notHyper_of_low fun lay routed he => hm (by rw [tweakMarker_eq_low, he, hyperWord_marker])
-theorem notHyper_of_tag {h : BitVec 128} (ht : tweakTag h ≠ 2) : NotHyper h :=
-  notHyper_of_low fun lay routed he => ht (by rw [tweakTag_eq_low, he, hyperWord_tag])
-theorem notHyper_of_lt {h : BitVec 128} (hl : tweakLow h < 193 * 2 ^ 56) : NotHyper h :=
-  notHyper_of_low fun lay routed he => by
-    have := hyperWord_type lay routed
-    rw [he] at hl
-    omega
+  rw [he, append64_low]
+theorem rowTweak_eq_hyper (lay : Layer) (tree leaf : Nat) :
+    rowTweak lay tree leaf = 1#64 ++ hyperWord lay.val (tree * 2 ^ height lay + leaf) := rfl
+theorem encHeader_of_rowTweak {input : HashInput} (hlen : input.length = 64) {lay : Layer} {tree leaf : Nat}
+    (h : Extract.hdrBlock input = bytesLE 16 (rowTweak lay tree leaf)) : EncHeader input :=
+  ⟨hlen, lay, tree, leaf, 1#64, h⟩
 theorem nonEnc_of_hdr (input : HashInput) (h : BitVec 128) (hblock : Extract.hdrBlock input = bytesLE 16 h)
     (htag : NotHyper h) : NonEnc (.inl (.inr input)) := by
   rintro ⟨-, l, tr, lf, hp, he⟩
@@ -62,27 +56,24 @@ theorem nonEnc_pad64_long (input : HashInput) (hl : 64 < input.length) : NonEnc 
   omega
 theorem tag_ne_four {t : Nat} (ht : t % 256 ≠ 2) (l tr p ix : Nat) : NotHyper (header t l tr p ix) :=
   notHyper_of_tag (by rw [header_tag]; exact ht)
+/-- Legacy node tweaks other than the lower Merkle tweaks (whose low word is a hyper word) are no hyper tweak. -/
 theorem nodeTweak_ne_row (tag lay tree heap : Nat) (ht : tag % 256 ≠ 2)
-    (hroot : tag = 3 → 1 ≤ lay → lay < 4 → heap % 128 ≠ 1) : NotHyper (nodeTweak tag lay tree heap) := by
+    (hlow : tag = 3 → lay < 4 → lay = 0) : NotHyper (nodeTweak tag lay tree heap) := by
   by_cases h : tag = 3 ∧ lay < 4
   · obtain ⟨rfl, h4⟩ := h
-    by_cases h0 : lay = 0
-    · subst h0
-      apply notHyper_of_lt
-      rw [nodeTweak_top_low]
-      have := topNodeWord_lt heap
-      omega
-    · exact notHyper_of_marker (by rw [nodeTweak_lower_marker h0 h4]; exact hroot rfl (by omega) h4)
+    obtain rfl := hlow rfl h4
+    -- C4: the top label's low word is `topNodeWord heap < 4096`; a hyper word has byte7 = 193.
+    apply notHyper_of_ne_rowTweak_low
+    intro l r he
+    have hv := congrArg BitVec.toNat he
+    have hl := nodeTweak_top_low tree heap
+    have hlt := topNodeWord_lt heap
+    unfold tweakLow at hl
+    rw [BitVec.extractLsb'_toNat, Nat.shiftRight_zero, hyperWord_toNat] at hv
+    omega
   · by_cases hf : tag = 3 ∧ lay < 13
     · obtain ⟨rfl, h13⟩ := hf
-      apply notHyper_of_tag
-      rw [tweakTag_eq_low, nodeTweak_fts_low (by omega) h13]
-      split_ifs with hn
-      · rw [ftsNodeWordH_toNat]
-        obtain ⟨h8, h128⟩ := hn
-        omega
-      · rw [ftsNodeWord_toNat]
-        omega
+      exact notHyper_of_tag (nodeTweak_fts_tag_ne (by omega) h13 _ _ (by decide) (by decide))
     · rw [nodeTweak_other hf]; exact tag_ne_four ht _ _ _ _
 theorem rowTweak_layer {lay lay' : Layer} {tree leaf tree' leaf' : Nat}
     (h : rowTweak lay tree leaf = rowTweak lay' tree' leaf') : lay = lay' := by
@@ -118,31 +109,33 @@ theorem nonEnc_chainInput (lay : Layer) (tree leaf i s : Nat) (v : Digest) :
   rw [chainInput_header]
 section Programs
 theorem respects_nodeHash (tag lay tree heap : Nat) (left right : Digest) (ht : tag % 256 ≠ 2)
-    (hroot : tag = 3 → 1 ≤ lay → lay < 4 → heap % 128 ≠ 1) :
+    (hlow : tag = 3 → lay < 4 → lay = 0) :
     Respects NonEnc (nodeHash tag lay tree heap left right) := by
   rw [nodeHash_eq_projHash]
   apply Respects.projHash
   rw [pad64_nodeInputP]
-  exact nonEnc_of_hdr _ _ (Extract.hdrBlock_block4 left _ 0 right) (nodeTweak_ne_row tag lay tree heap ht hroot)
+  exact nonEnc_of_hdr _ _ (Extract.hdrBlock_block4 left _ 0 right) (nodeTweak_ne_row tag lay tree heap ht hlow)
 theorem respects_buildLevel (tag lay tree h level : Nat) (nodes : List Digest) (ht : tag % 256 ≠ 2)
     (hlow : tag = 3 → lay = 0 ∨ 4 ≤ lay) :
     Respects NonEnc (buildLevel tag lay tree h level nodes) :=
   Respects.mapM _ _ fun _ _ => respects_nodeHash _ _ _ _ _ _ ht
-    (fun h3 h1 h4 => by rcases hlow h3 with h | h <;> omega)
+    (fun h3 h4 => by rcases hlow h3 with h | h <;> omega)
 theorem respects_buildLevels (tag lay tree h : Nat) (leaves : List Digest) (ht : tag % 256 ≠ 2)
     (hlow : tag = 3 → lay = 0 ∨ 4 ≤ lay) :
     Respects NonEnc (buildLevels tag lay tree h leaves) := by
   unfold buildLevels
   exact Respects.foldlM _ _ (fun level _ levels =>
     Respects.bind (respects_buildLevel tag lay tree h level _ ht hlow) fun _ => Respects.pure' _) _
-/-- Campaign S1: a leaf block carries its leaf's encoding label; it is no encoding block because it is longer
-(it hashes `≥ 4` chain ends; every leaf hashes `chainCount lay ≥ 43`). -/
+theorem leafInput_long (lay : Layer) (tree leaf : Nat) (ends : List Digest) (hlen : 4 ≤ ends.length) :
+    64 < (leafInput lay tree leaf ends).length := by
+  rw [leafInput_length]
+  split_ifs <;> omega
+/-- C3 (FULL): a leaf block carries its leaf's hyper label; it is no encoding block because it hashes at least 4
+chain ends (every leaf hashes `chainCount lay ≥ 43`), so it is longer than 64 bytes. -/
 theorem respects_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) (hlen : 4 ≤ ends.length) :
     Respects NonEnc (leafHash lay tree leaf ends) := by
   unfold leafHash
-  refine Respects.projHash _ _ (nonEnc_pad64_long _ ?_)
-  rw [leafInput_length]
-  split_ifs <;> omega
+  exact Respects.projHash _ _ (nonEnc_pad64_long _ (leafInput_long lay tree leaf ends hlen))
 theorem chainCount_ge4 (lay : Layer) : 4 ≤ chainCount lay := by fin_cases lay <;> decide
 theorem respects_privatePair (tag lay tree position index : Nat) :
     Respects NonEnc (privatePair tag lay tree position index) :=
@@ -165,22 +158,18 @@ theorem respects_digest (rho : Digest) (message : Message) (counter : BitVec 32)
     Respects NonEnc (digest rho message counter) := by
   unfold digest
   apply Respects.publicHash
-  apply nonEnc_of_hdr _ (digestHeader counter) _ (notHyper_of_lt (by rw [digestHeader_lowNat]; norm_num))
+  apply nonEnc_of_hdr _ (digestHeader counter) _ (notHyper_of_marker (by rw [digestHeader_marker]; decide))
   unfold digestInput
   rw [Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
     Extract.hdrBlock_prefix]
 theorem respects_chain (lay : Layer) (tree leaf i start count : Nat) (v : Digest) :
     Respects NonEnc (chain lay tree leaf i start count v) := by
   unfold chain
-  exact Respects.foldlM _ _ (fun step _ value => Respects.projHash _ _ (nonEnc_chainInput _ _ _ _ _ _)) v
+  exact Respects.foldlM _ _ (fun step _ value => Respects.shortHash _ (nonEnc_chainInput _ _ _ _ _ _)) v
 theorem respects_topCoefs (leaf : Nat) : Respects NonEnc (topCoefs leaf) := by
   unfold topCoefs topSeedPair
   exact Respects.foldlM _ _ (fun _ _ _ =>
     Respects.bind (respects_privatePair _ _ _ _ _) fun _ => Respects.pure' _) _
-theorem respects_topPath (cache : Cache) (leaf : Nat) : Respects NonEnc (topPath cache leaf) := by
-  unfold topPath
-  exact Respects.mapM _ _ fun level _ =>
-    Respects.bind (respects_mask _ _) fun _ => Respects.pure' _
 /-- `Respects.bind` whose continuation only needs to respect `S` on values satisfying an invariant of `p`. -/
 theorem respects_bind_invT {S : Spec.Domain → Prop} {α β : Type} {p : M α} {f : α → M β} (P : α → Prop)
     (hp : Respects S p) (hP : ∀ T, P (evalWithAnswerFn T p)) (hf : ∀ x, P x → Respects S (f x)) :
@@ -192,8 +181,8 @@ theorem respects_bind_invT {S : Spec.Domain → Prop} {α β : Type} {p : M α} 
   · rw [evalWithAnswerFn_bind, evalWithAnswerFn_bind, he]
     exact he'
   · rw [SourceReplay.queried_bind, SourceReplay.queried_bind, hq, he, hq']
-/-- Campaign S2: the top leaf hashes all `chainCount 0 ≥ 4` chain ends (so its block is longer than an encoding
-block). -/
+/-- C3 (FULL): the top leaf hashes all `chainCount 0 ≥ 4` chain ends, so its block is longer than an encoding
+block. -/
 theorem respects_buildLeafTop (leaf : Nat) (digits : List Nat) (signatureOnly : Bool) :
     Respects NonEnc (buildLeafTop leaf digits signatureOnly) := by
   rw [Correctness.buildLeafTop_eq]
@@ -231,6 +220,10 @@ theorem respects_keygen : Respects NonEnc keygen := by
   · exact Respects.bind (Respects.mapM _ _ fun level _ => respects_maskedLevel _ _) fun _ => Respects.pure' _
   · rcases payload with ⟨publicKey, region⟩
     exact Respects.bind (respects_privateMac region) fun _ => Respects.pure' _
+theorem respects_topPath (cache : Cache) (leaf : Nat) : Respects NonEnc (topPath cache leaf) := by
+  unfold topPath
+  exact Respects.mapM _ _ fun level _ =>
+    Respects.bind (respects_mask _ _) fun _ => Respects.pure' _
 theorem respects_signTop (cache : Cache) (leaf : Nat) (digits : List Nat) :
     Respects NonEnc (signTop cache leaf digits) := by
   unfold signTop
@@ -238,9 +231,84 @@ theorem respects_signTop (cache : Cache) (leaf : Nat) (digits : List Nat) :
   rintro ⟨_, values⟩
   exact Respects.bind (respects_topPath _ _) fun _ => Respects.pure' _
 end Programs
+def leafOf (L : CanonGraph.LeafPos) : LeafAddr := ⟨L.lay, L.tree.val, L.leaf.val⟩
+abbrev EncIndex := CanonGraph.LeafPos × Digest × BitVec 32
+def encInput (e : EncIndex) : HashInput := encodingRow (leafOf e.1) e.2.1 e.2.2
+theorem encInput_length (e : EncIndex) : (encInput e).length = 64 := by
+  simp [encInput, encodingRow, encodingInput, pad64, bytesLE_length]
+def RejPair (T T' : Answers) (q : Spec.Domain) : Prop :=
+  ∃ (input : HashInput) (lay : Layer) (tr lf : Nat), q = .inl (.inr input) ∧
+    Extract.hdrBlock input = bytesLE 16 (rowTweak lay tr lf) ∧
+    searchDecode lay (low (T (.inl (.inr input)))) = none ∧ searchDecode lay (low (T' (.inl (.inr input)))) = none
+theorem RejPair.layer {T T' : Answers} {input : HashInput} {lay : Layer} {tr lf : Nat}
+    (h : RejPair T T' (.inl (.inr input))) (hh : Extract.hdrBlock input = bytesLE 16 (rowTweak lay tr lf)) :
+    searchDecode lay (low (T (.inl (.inr input)))) = none ∧
+      searchDecode lay (low (T' (.inl (.inr input)))) = none := by
+  obtain ⟨input', lay', tr', lf', hq, hh', h1, h2⟩ := h
+  have hi : input' = input := (Sum.inr.inj (Sum.inl.inj hq)).symm
+  subst hi
+  rw [hh] at hh'
+  have hl : lay' = lay := (rowTweak_layer (bytesLE_injective hh')).symm
+  subst hl
+  exact ⟨h1, h2⟩
+theorem RejPair.mk {T T' : Answers} {input : HashInput} {lay : Layer} {tr lf : Nat}
+    (hh : Extract.hdrBlock input = bytesLE 16 (rowTweak lay tr lf))
+    (h1 : searchDecode lay (low (T (.inl (.inr input)))) = none)
+    (h2 : searchDecode lay (low (T' (.inl (.inr input)))) = none) : RejPair T T' (.inl (.inr input)) :=
+  ⟨input, lay, tr, lf, rfl, hh, h1, h2⟩
+def AgreeOn (S : Spec.Domain → Prop) (T T' : Answers) : Prop :=
+  ∀ q, S q → T' q = T q ∨ RejPair T T' q
+def RespAt (T : Answers) (S : Spec.Domain → Prop) {α : Type} (p : M α) : Prop :=
+  ∀ T' : Answers, AgreeOn S T T' →
+    evalWithAnswerFn T' p = evalWithAnswerFn T p ∧ SourceReplay.queried T' p = SourceReplay.queried T p
 section RespAt
 variable {T : Answers} {S : Spec.Domain → Prop}
+theorem RespAt.pure' {α : Type} (x : α) : RespAt T S (pure x : M α) := fun _ _ => ⟨rfl, rfl⟩
+theorem RespAt.bind {α β : Type} {p : M α} {f : α → M β} (hp : RespAt T S p)
+    (hf : RespAt T S (f (evalWithAnswerFn T p))) : RespAt T S (p >>= f) := by
+  intro T' hT'
+  obtain ⟨he, hq⟩ := hp T' hT'
+  obtain ⟨he', hq'⟩ := hf T' hT'
+  refine ⟨?_, ?_⟩
+  · rw [evalWithAnswerFn_bind, evalWithAnswerFn_bind, he]
+    exact he'
+  · rw [SourceReplay.queried_bind, SourceReplay.queried_bind, hq, he, hq']
+theorem RespAt.eval_eq {α : Type} {p : M α} (h : RespAt T S p) {T' : Answers} (hT' : AgreeOn S T T') :
+    evalWithAnswerFn T' p = evalWithAnswerFn T p := (h T' hT').1
+theorem RespAt.queried_eq {α : Type} {p : M α} (h : RespAt T S p) {T' : Answers} (hT' : AgreeOn S T T') :
+    SourceReplay.queried T' p = SourceReplay.queried T p := (h T' hT').2
 end RespAt
 end Enc
 open Enc
+theorem leafSeed_congr_nonEnc {T T' : Answers} (h : ∀ q, NonEnc q → T' q = T q) (lay : Layer) (tree leaf i : Nat) :
+    leafSeed T' lay tree leaf i = leafSeed T lay tree leaf i := by
+  unfold leafSeed
+  split_ifs
+  · unfold Correctness.topLeafSeed Correctness.topCoefList
+    congr 2
+    funext j
+    unfold Correctness.topCoef Correctness.topCoefN topSeedPair
+    rw [(Enc.respects_privatePair 0 0 0 _ 0).eval_eq h]
+  all_goals rw [(Enc.respects_privatePair 0 lay.val tree (i / 2) leaf).eval_eq h]
+theorem leafEnd_congr_nonEnc {T T' : Answers} (h : ∀ q, NonEnc q → T' q = T q) (lay : Layer) (tree leaf i : Nat) :
+    leafEnd T' lay tree leaf i = leafEnd T lay tree leaf i := by
+  unfold leafEnd
+  rw [leafSeed_congr_nonEnc h]
+  exact (Enc.respects_chain _ _ _ _ _ _ _).eval_eq h
+theorem leafRoot_congr_nonEnc {T T' : Answers} (h : ∀ q, NonEnc q → T' q = T q) (lay : Layer) (tree leaf : Nat) :
+    leafRoot T' lay tree leaf = leafRoot T lay tree leaf := by
+  unfold leafRoot
+  have he : (List.range (chainCount lay)).map (leafEnd T' lay tree leaf) =
+      (List.range (chainCount lay)).map (leafEnd T lay tree leaf) :=
+    List.map_congr_left fun i _ => leafEnd_congr_nonEnc h lay tree leaf i
+  rw [he]
+  exact (Enc.respects_leafHash _ _ _ _
+    (by simp only [List.length_map, List.length_range]; exact Enc.chainCount_ge4 lay)).eval_eq h
+theorem builtTree_congr_nonEnc {T T' : Answers} (h : ∀ q, NonEnc q → T' q = T q) (lay : Layer) (tree : Nat)
+    (hlay : lay = 0) : builtTree T' lay tree = builtTree T lay tree := by
+  unfold builtTree
+  have hr : Correctness.leafRoot T' lay tree = Correctness.leafRoot T lay tree :=
+    funext (leafRoot_congr_nonEnc h lay tree)
+  rw [hr]
+  exact (Enc.respects_buildLevels 3 _ _ _ _ (by decide) (fun _ => Or.inl (by simp [hlay]))).eval_eq h
 end SigGolfCandidate.T3.Security.Wots

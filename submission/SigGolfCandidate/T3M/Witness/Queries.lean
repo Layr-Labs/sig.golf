@@ -59,10 +59,10 @@ theorem pubGood_ftsLeaf (index coord leaf : Nat) (s : Digest) :
 theorem pubGood_chainP (lay : Layer) (tree leaf i start count : Nat) (p0 p1 : Digest)
     (headerPad : BitVec 64) (v : Digest) :
     AllQueriesSatisfy (chainP lay tree leaf i start count p0 p1 headerPad v) PubGood :=
-  allQ_foldlM _ _ (fun _ _ => pubGood_projHash _ _ (by simp [chainInputP, bytesLE_length])) _
+  allQ_foldlM _ _ (fun _ _ => pubGood_shortHash _ (by simp [chainInputP, bytesLE_length])) _
 theorem pubGood_chain (lay : Layer) (tree leaf i start count : Nat) (v : Digest) :
     AllQueriesSatisfy (chain lay tree leaf i start count v) PubGood :=
-  allQ_foldlM _ _ (fun _ _ => pubGood_projHash _ _ (by simp [chainInput, bytesLE_length, zero16])) _
+  allQ_foldlM _ _ (fun _ _ => pubGood_shortHash _ (by simp [chainInput, bytesLE_length, zero16])) _
 theorem pubGood_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     AllQueriesSatisfy (leafHash lay tree leaf ends) PubGood :=
   pubGood_projHash _ _ (by rw [leafInput_length]; split_ifs <;> omega)
@@ -342,27 +342,33 @@ def nodeInputP (tag lay tree heap : Nat) (left pad right : Digest) : HashInput :
   block4 left (nodeTweak tag lay tree heap) pad right
 theorem ftsLeafP_eq_shortHash (index coord leaf : Nat) (pad0 secret pad1 : Digest) :
     ftsLeafP index coord leaf pad0 secret pad1 = shortHash (ftsLeafInputP index coord leaf pad0 secret pad1) := rfl
-/-- Campaign S1: replace the high word of a one-word label (honest high word 0) by the witness word `hp`; two-word
-labels (FTS levels 4/5, high word = heap) are kept. The padded verifier writes only the low word of a one-word label,
-the high word stays witness memory. -/
+/-- Replace the high word of a marked (byte0 >= 128) tweak by `hp`; unmarked tweaks are kept. For marked tweaks the
+high word is ignored by `canonicalHeader`, so the verifier may leave it to the witness. -/
 def withHigh (t : BitVec 128) (hp : BitVec 64) : BitVec 128 :=
-  if t.extractLsb' 64 64 = 0 then hp ++ t.extractLsb' 0 64 else t
-theorem withHigh_zero (t : BitVec 128) : withHigh t 0 = t := by
+  if 128 ≤ t.toNat % 256 then hp ++ t.extractLsb' 0 64 else t
+theorem withHigh_zero_of_high {t : BitVec 128} (h : t.extractLsb' 64 64 = 0) : withHigh t 0 = t := by
   unfold withHigh
   split
-  · rename_i h
-    apply BitVec.eq_of_toNat_eq
-    have hn := congrArg BitVec.toNat h
-    simp only [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow] at hn
-    rw [append64_toNat]
-    simp only [BitVec.extractLsb'_toNat, Nat.shiftRight_zero]
-    have := t.isLt
-    change t.toNat / 2 ^ 64 % 2 ^ 64 = 0 at hn
-    change 0 * 2 ^ 64 + t.toNat % 2 ^ 64 = t.toNat
-    omega
+  · rw [show (0 : BitVec 64) = t.extractLsb' 64 64 from h.symm]; exact BitVec.extractLsb'_append_extractLsb'
   · rfl
 theorem withHigh_nodeTweak_zero (tag lay tree heap : Nat) :
-    withHigh (nodeTweak tag lay tree heap) 0 = nodeTweak tag lay tree heap := withHigh_zero _
+    withHigh (nodeTweak tag lay tree heap) 0 = nodeTweak tag lay tree heap := by
+  by_cases htop : tag = 3 ∧ lay = 0
+  · obtain ⟨rfl, rfl⟩ := htop
+    apply withHigh_zero_of_high
+    rw [nodeTweak_top]; exact BitVec.extractLsb'_append_eq_left
+  unfold withHigh
+  split
+  · rename_i hm
+    have hk := nodeTweak_marker tag lay tree heap
+    unfold tweakMarker at hk
+    rw [hk, if_neg htop] at hm
+    split_ifs at hm with hf
+    · obtain ⟨rfl, h4, h13, hn⟩ := hf
+      rw [nodeTweak_ftsN h4 h13 tree hn, append64_low]
+      rfl
+    · omega
+  · rfl
 /-- FTS node input with a witness-supplied high tweak word (ignored for marked tweaks). -/
 def nodeInputPH (tag lay tree heap : Nat) (left : Digest) (hp : BitVec 64) (pad right : Digest) : HashInput :=
   block4 left (withHigh (nodeTweak tag lay tree heap) hp) pad right
@@ -372,16 +378,26 @@ theorem nodeInputPH_zero (tag lay tree heap : Nat) (left pad right : Digest) :
 @[simp] theorem pad64_nodeInputPH (tag lay tree heap : Nat) (left : Digest) (hp : BitVec 64) (pad right : Digest) :
     pad64 (nodeInputPH tag lay tree heap left hp pad right) = nodeInputPH tag lay tree heap left hp pad right :=
   pad64_block4 _ _ _ _
+/-- C4: the padded node hash keeps the half `nodeHalfHigh` (high only for an even top heap). -/
 theorem nodeHashP_eq_projHash (tag lay tree heap : Nat) (left pad right : Digest) :
     nodeHashP tag lay tree heap left pad right =
-      projHash (nodeHigh tag lay heap) (nodeInputP tag lay tree heap left pad right) := rfl
+      projHash (nodeHalfHigh tag lay heap) (nodeInputP tag lay tree heap left pad right) := rfl
+theorem nodeHashP_eq_shortHash {tag lay heap : Nat} (h : nodeHalfHigh tag lay heap = false) (tree : Nat)
+    (left pad right : Digest) :
+    nodeHashP tag lay tree heap left pad right = shortHash (nodeInputP tag lay tree heap left pad right) := by
+  rw [nodeHashP_eq_projHash, h, projHash_false]
 theorem ftsLeaf_eq_shortHash (index coord leaf : Nat) (secret : Digest) :
     ftsLeaf index coord leaf secret = shortHash (ftsLeafInputP index coord leaf 0 secret 0) := by
   simp only [ftsLeaf, ftsLeafInputP, block4, bytesLE_zero]
+/-- C4: the node hash keeps the half `nodeHalfHigh` (high only for an even top heap). -/
 theorem nodeHash_eq_projHash (tag lay tree heap : Nat) (left right : Digest) :
     nodeHash tag lay tree heap left right =
-      projHash (nodeHigh tag lay heap) (nodeInputP tag lay tree heap left 0 right) := by
+      projHash (nodeHalfHigh tag lay heap) (nodeInputP tag lay tree heap left 0 right) := by
   simp only [nodeHash, nodeInputP, block4, bytesLE_zero]
+theorem nodeHash_eq_shortHash {tag lay heap : Nat} (h : nodeHalfHigh tag lay heap = false) (tree : Nat)
+    (left right : Digest) :
+    nodeHash tag lay tree heap left right = shortHash (nodeInputP tag lay tree heap left 0 right) := by
+  rw [nodeHash_eq_projHash, h, projHash_false]
 theorem chainInputP_eq_block4 (lay : Layer) (tree leaf i step : Nat) (pad0 pad1 : Digest)
     (headerPad : BitVec 64) (value : Digest) :
     chainInputP lay tree leaf i step pad0 pad1 headerPad value =
@@ -550,29 +566,28 @@ theorem eval_shortHash (answers : Answers) (input : HashInput) :
     queried answers (projHash high input) = [.inl (.inr (pad64 input))] := rfl
 theorem eval_projHash (answers : Answers) (high : Bool) (input : HashInput) :
     evalWithAnswerFn answers (projHash high input) = projHalf high (answers (.inl (.inr (pad64 input)))) := rfl
-/-- Campaign S1: a hash path whose step `step` keeps the half `high step` of its answer. -/
-def hashPath (high : Nat → Bool) (input : Nat → Digest → HashInput) (count : Nat) (initial : Digest) : M Digest :=
-  (List.range count).foldlM (fun value step => projHash (high step) (input step value)) initial
-def pathValue (answers : Answers) (high : Nat → Bool) (input : Nat → Digest → HashInput)
+def hashPath (input : Nat → Digest → HashInput) (count : Nat) (initial : Digest) : M Digest :=
+  (List.range count).foldlM (fun value step => shortHash (input step value)) initial
+def pathValue (answers : Answers) (input : Nat → Digest → HashInput)
     (initial : Digest) (count : Nat) : Digest :=
-  evalWithAnswerFn answers (hashPath high input count initial)
-def pathInput (answers : Answers) (high : Nat → Bool) (input : Nat → Digest → HashInput)
-    (initial : Digest) (step : Nat) : HashInput := input step (pathValue answers high input initial step)
-theorem hashPath_succ (high : Nat → Bool) (input : Nat → Digest → HashInput) (count : Nat) (initial : Digest) :
-    hashPath high input (count + 1) initial =
-      (hashPath high input count initial >>= fun value => projHash (high count) (input count value)) := by
+  evalWithAnswerFn answers (hashPath input count initial)
+def pathInput (answers : Answers) (input : Nat → Digest → HashInput)
+    (initial : Digest) (step : Nat) : HashInput := input step (pathValue answers input initial step)
+theorem hashPath_succ (input : Nat → Digest → HashInput) (count : Nat) (initial : Digest) :
+    hashPath input (count + 1) initial =
+      (hashPath input count initial >>= fun value => shortHash (input count value)) := by
   simp [hashPath, List.range_succ, List.foldlM_append]
-@[simp] theorem pathValue_zero (answers : Answers) (high : Nat → Bool) (input : Nat → Digest → HashInput)
-    (initial : Digest) : pathValue answers high input initial 0 = initial := rfl
-theorem pathValue_succ (answers : Answers) (high : Nat → Bool) (input : Nat → Digest → HashInput)
+@[simp] theorem pathValue_zero (answers : Answers) (input : Nat → Digest → HashInput)
+    (initial : Digest) : pathValue answers input initial 0 = initial := rfl
+theorem pathValue_succ (answers : Answers) (input : Nat → Digest → HashInput)
     (initial : Digest) (step : Nat) :
-    pathValue answers high input initial (step + 1) =
-      evalWithAnswerFn answers (projHash (high step) (pathInput answers high input initial step)) := by
+    pathValue answers input initial (step + 1) =
+      evalWithAnswerFn answers (shortHash (pathInput answers input initial step)) := by
   simp only [pathValue, hashPath_succ, evalWithAnswerFn_bind, pathInput]
-theorem pathInput_queried (answers : Answers) (high : Nat → Bool) (input : Nat → Digest → HashInput)
+theorem pathInput_queried (answers : Answers) (input : Nat → Digest → HashInput)
     (initial : Digest) (count step : Nat) (hstep : step < count) :
-    .inl (.inr (pad64 (pathInput answers high input initial step))) ∈
-      queried answers (hashPath high input count initial) := by
+    .inl (.inr (pad64 (pathInput answers input initial step))) ∈
+      queried answers (hashPath input count initial) := by
   induction count with
   | zero => omega
   | succ count ih =>
@@ -580,32 +595,29 @@ theorem pathInput_queried (answers : Answers) (high : Nat → Bool) (input : Nat
       rcases Nat.lt_succ_iff_lt_or_eq.mp hstep with hlt | rfl
       · exact List.mem_append_left _ (ih hlt)
       · apply List.mem_append_right
-        simp only [queried_projHash, List.mem_singleton]
+        simp only [queried_shortHash, List.mem_singleton]
         rfl
-/-- Campaign S1: a query `actual` (different from the honest input) whose answer agrees with the honest answer on the
-half `high` (the half that is the node value at that position). -/
-def HashHitP (high : Bool) (answers : Answers) (honest actual : HashInput) : Prop :=
+def HashHit (answers : Answers) (honest actual : HashInput) : Prop :=
   actual ≠ honest ∧
-    projHalf high (answers (.inl (.inr actual))) = projHalf high (answers (.inl (.inr honest)))
-/-- Low-half hit (the pre-S1 notion; `HashHitP false`). -/
-abbrev HashHit (answers : Answers) (honest actual : HashInput) : Prop := HashHitP false answers honest actual
-theorem hashPath_extract (answers : Answers) (high : Nat → Bool) (input : Nat → Digest → HashInput)
+    (answers (.inl (.inr actual))).extractLsb' 0 128 =
+      (answers (.inl (.inr honest))).extractLsb' 0 128
+theorem hashPath_extract (answers : Answers) (input : Nat → Digest → HashInput)
     (honestInput : Nat → HashInput) (target : Nat → Digest) (Good : Nat → Prop)
     (initial : Digest) (count : Nat)
     (reference : ∀ step, step < count →
-      evalWithAnswerFn answers (projHash (high step) (honestInput step)) = target (step + 1))
+      evalWithAnswerFn answers (shortHash (honestInput step)) = target (step + 1))
     (parse : ∀ step, step < count → ∀ value,
       pad64 (input step value) = pad64 (honestInput step) → value = target step ∧ Good step)
-    (reaches : pathValue answers high input initial count = target count) :
+    (reaches : pathValue answers input initial count = target count) :
     (initial = target 0 ∧ ∀ step, step < count → Good step) ∨
       ∃ step, step < count ∧
-        .inl (.inr (pad64 (pathInput answers high input initial step))) ∈
-          queried answers (hashPath high input count initial) ∧
-        HashHitP (high step) answers (pad64 (honestInput step)) (pad64 (pathInput answers high input initial step)) := by
+        .inl (.inr (pad64 (pathInput answers input initial step))) ∈
+          queried answers (hashPath input count initial) ∧
+        HashHit answers (pad64 (honestInput step)) (pad64 (pathInput answers input initial step)) := by
   induction count with
   | zero => exact Or.inl ⟨reaches, fun step hstep => by omega⟩
   | succ count ih =>
-      by_cases heq : pad64 (pathInput answers high input initial count) = pad64 (honestInput count)
+      by_cases heq : pad64 (pathInput answers input initial count) = pad64 (honestInput count)
       · obtain ⟨hprev, hgood⟩ := parse count (by omega) _ heq
         rcases ih (fun step hstep => reference step (by omega))
           (fun step hstep => parse step (by omega)) hprev with ⟨hinit, hall⟩ | ⟨step, hstep, _, hhit⟩
@@ -614,36 +626,33 @@ theorem hashPath_extract (answers : Answers) (high : Nat → Bool) (input : Nat 
           rcases Nat.lt_succ_iff_lt_or_eq.mp hstep with hlt | rfl
           · exact hall step hlt
           · exact hgood
-        · exact Or.inr ⟨step, by omega, pathInput_queried answers high input initial _ _ (by omega), hhit⟩
+        · exact Or.inr ⟨step, by omega, pathInput_queried answers input initial _ _ (by omega), hhit⟩
       · right
-        refine ⟨count, by omega, pathInput_queried answers high input initial _ _ (by omega), heq, ?_⟩
+        refine ⟨count, by omega, pathInput_queried answers input initial _ _ (by omega), heq, ?_⟩
         rw [pathValue_succ] at reaches
         exact reaches.trans (reference count (by omega)).symm
-theorem foldlM_range'_eq_hashPath (high : Nat → Bool) (input : Nat → Digest → HashInput)
+theorem foldlM_range'_eq_hashPath (input : Nat → Digest → HashInput)
     (start count : Nat) (initial : Digest) :
-    (List.range' start count).foldlM (fun value step => projHash (high step) (input step value)) initial =
-      hashPath (fun step => high (start + step)) (fun step value => input (start + step) value) count initial := by
+    (List.range' start count).foldlM (fun value step => shortHash (input step value)) initial =
+      hashPath (fun step value => input (start + step) value) count initial := by
   rw [List.range'_eq_map_range, List.foldlM_map]
   rfl
-/-- The projection of chain step `start + step` (campaign S1: only lower chain 0, step 6 is high). -/
-def chainPathHigh (lay : Layer) (i start : Nat) : Nat → Bool := fun step => chainHigh lay i (start + step)
 theorem chainP_eq_hashPath (lay : Layer) (tree leaf i start count : Nat)
     (pad0 pad1 : Digest) (headerPad : BitVec 64) (initial : Digest) :
     chainP lay tree leaf i start count pad0 pad1 headerPad initial =
-      hashPath (chainPathHigh lay i start)
-        (fun step value => chainInputP lay tree leaf i (start + step) pad0 pad1 headerPad value)
+      hashPath (fun step value => chainInputP lay tree leaf i (start + step) pad0 pad1 headerPad value)
         count initial := by
-  exact foldlM_range'_eq_hashPath (chainHigh lay i)
-    (fun step value => chainInputP lay tree leaf i step pad0 pad1 headerPad value) start count initial
+  exact foldlM_range'_eq_hashPath (fun step value => chainInputP lay tree leaf i step pad0 pad1 headerPad value)
+    start count initial
 theorem map_val_finRange (n : Nat) : (List.finRange n).map Fin.val = List.range n := by
   apply List.ext_getElem
   · simp
   · intro i hi hj
     simp
-theorem foldlM_finRange_eq_hashPath (high : Nat → Bool) (input : Nat → Digest → HashInput)
+theorem foldlM_finRange_eq_hashPath (input : Nat → Digest → HashInput)
     (count : Nat) (initial : Digest) :
-    (List.finRange count).foldlM (fun value j => projHash (high j.val) (input j.val value)) initial =
-      hashPath high input count initial := by
+    (List.finRange count).foldlM (fun value j => shortHash (input j.val value)) initial =
+      hashPath input count initial := by
   unfold hashPath
   rw [← map_val_finRange count, List.foldlM_map]
 end SigGolfCandidate.T3M.SecurityExtraction
@@ -675,11 +684,11 @@ theorem ftsLeafP_extract (answers : Answers) (index coord leaf : Nat)
     · rw [ftsLeafP_eq_shortHash, queried_shortHash, pad64_ftsLeafInputP]
       exact List.mem_singleton_self _
 theorem nodeHashP_extract (answers : Answers) (tag lay tree heap : Nat)
-    (left pad right honestLeft honestRight : Digest)
+    (hlow : nodeHalfHigh tag lay heap = false) (left pad right honestLeft honestRight : Digest)
     (reaches : evalWithAnswerFn answers (nodeHashP tag lay tree heap left pad right) =
       evalWithAnswerFn answers (nodeHash tag lay tree heap honestLeft honestRight)) :
     (left = honestLeft ∧ pad = 0 ∧ right = honestRight) ∨
-      (HashHitP (nodeHigh tag lay heap) answers (nodeInputP tag lay tree heap honestLeft 0 honestRight)
+      (HashHit answers (nodeInputP tag lay tree heap honestLeft 0 honestRight)
         (nodeInputP tag lay tree heap left pad right) ∧
       .inl (.inr (nodeInputP tag lay tree heap left pad right)) ∈
         queried answers (nodeHashP tag lay tree heap left pad right)) := by
@@ -690,7 +699,7 @@ theorem nodeHashP_extract (answers : Answers) (tag lay tree heap : Nat)
   · right
     constructor
     · refine ⟨heq, ?_⟩
-      rw [nodeHashP_eq_projHash, nodeHash_eq_projHash, eval_projHash, eval_projHash,
+      rw [nodeHashP_eq_shortHash hlow, nodeHash_eq_shortHash hlow, eval_shortHash, eval_shortHash,
         pad64_nodeInputP, pad64_nodeInputP] at reaches
       exact reaches
     · rw [nodeHashP_eq_projHash, queried_projHash, pad64_nodeInputP]
@@ -700,7 +709,7 @@ def honestChainValue (answers : Answers) (lay : Layer) (tree leaf i : Nat)
   evalWithAnswerFn answers (chain lay tree leaf i 0 step seed)
 theorem honestChainValue_succ (answers : Answers) (lay : Layer) (tree leaf i : Nat)
     (seed : Digest) (step : Nat) :
-    evalWithAnswerFn answers (projHash (chainHigh lay i step) (chainInput lay tree leaf i step
+    evalWithAnswerFn answers (shortHash (chainInput lay tree leaf i step
       (honestChainValue answers lay tree leaf i seed step))) =
         honestChainValue answers lay tree leaf i seed (step + 1) := by
   unfold honestChainValue
@@ -713,28 +722,23 @@ theorem chainPath_extract (answers : Answers) (lay : Layer) (tree leaf i start c
     (pad0 pad1 : Digest) (headerPad : BitVec 64) (value seed : Digest)
     (ht : tree < 2^31) (hl : leaf < 4096) (hi : i < 64)
     (hsteps : count = 0 ∨ start + count ≤ 8)
-    (reaches : pathValue answers (chainPathHigh lay i start) (chainPathInput lay tree leaf i start pad0 pad1 headerPad)
-      value count =
+    (reaches : pathValue answers (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value count =
       honestChainValue answers lay tree leaf i seed (start + count)) :
     (value = honestChainValue answers lay tree leaf i seed start ∧
       (0 < count → pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0)) ∨
       ∃ step, step < count ∧
-        .inl (.inr (pad64 (pathInput answers (chainPathHigh lay i start)
-          (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value step))) ∈
-          queried answers (hashPath (chainPathHigh lay i start)
-            (chainPathInput lay tree leaf i start pad0 pad1 headerPad) count value) ∧
-        HashHitP (chainHigh lay i (start + step)) answers
+        .inl (.inr (pad64 (pathInput answers (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value step))) ∈
+          queried answers (hashPath (chainPathInput lay tree leaf i start pad0 pad1 headerPad) count value) ∧
+        HashHit answers
           (pad64 (chainInput lay tree leaf i (start + step)
             (honestChainValue answers lay tree leaf i seed (start + step))))
-          (pad64 (pathInput answers (chainPathHigh lay i start)
-            (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value step)) := by
-  have h := hashPath_extract answers (chainPathHigh lay i start)
-    (chainPathInput lay tree leaf i start pad0 pad1 headerPad)
+          (pad64 (pathInput answers (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value step)) := by
+  have h := hashPath_extract answers (chainPathInput lay tree leaf i start pad0 pad1 headerPad)
     (fun step => chainInput lay tree leaf i (start + step)
       (honestChainValue answers lay tree leaf i seed (start + step)))
     (fun step => honestChainValue answers lay tree leaf i seed (start + step))
     (fun _ => pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0) value count
-    (fun step _ => by simpa only [Nat.add_assoc, chainPathHigh] using
+    (fun step _ => by simpa only [Nat.add_assoc] using
       honestChainValue_succ answers lay tree leaf i seed (start + step))
     (fun step hstep current heq => by
       have hs : start + step < 8 := by rcases hsteps with hz | hb <;> omega
@@ -755,20 +759,14 @@ theorem chainP_extract (answers : Answers) (lay : Layer) (tree leaf i start coun
     (value = honestChainValue answers lay tree leaf i seed start ∧
       (0 < count → pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0)) ∨
       ∃ step, step < count ∧
-        .inl (.inr (pad64 (pathInput answers (chainPathHigh lay i start)
-          (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value step))) ∈
+        .inl (.inr (pad64 (pathInput answers (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value step))) ∈
           queried answers (chainP lay tree leaf i start count pad0 pad1 headerPad value) ∧
-        HashHitP (chainHigh lay i (start + step)) answers
+        HashHit answers
           (pad64 (chainInput lay tree leaf i (start + step)
             (honestChainValue answers lay tree leaf i seed (start + step))))
-          (pad64 (pathInput answers (chainPathHigh lay i start)
-            (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value step)) := by
+          (pad64 (pathInput answers (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value step)) := by
   rw [chainP_eq_hashPath] at reaches ⊢
   exact chainPath_extract answers lay tree leaf i start count pad0 pad1 headerPad value seed ht hl hi hsteps reaches
-/-- Campaign S1: the projection of Merkle step `step` (the node computed at that step, heap
-`2 ^ (height - step - 1) + leaf / 2 ^ (step + 1)`). -/
-def merkleHigh (tag lay height leaf : Nat) : Nat → Bool := fun step =>
-  nodeHigh tag lay (2^(height-step-1) + leaf/2^(step+1))
 def merkleInput (tag lay tree height leaf : Nat) (path pads : Nat → Digest)
     (step : Nat) (value : Digest) : HashInput :=
   let pair := if leaf / 2^step % 2 = 0 then (value, path step) else (path step, value)
@@ -787,22 +785,18 @@ theorem merkleInput_parse (tag lay tree height leaf step : Nat)
 theorem merklePath_extract (answers : Answers) (tag lay tree height leaf count : Nat)
     (path pads honestPath target : Nat → Digest) (value : Digest)
     (reference : ∀ step, step < count →
-      evalWithAnswerFn answers (projHash (merkleHigh tag lay height leaf step)
+      evalWithAnswerFn answers (shortHash
         (merkleInput tag lay tree height leaf honestPath (fun _ => 0) step (target step))) =
           target (step + 1))
-    (reaches : pathValue answers (merkleHigh tag lay height leaf) (merkleInput tag lay tree height leaf path pads)
-      value count = target count) :
+    (reaches : pathValue answers (merkleInput tag lay tree height leaf path pads) value count = target count) :
     (value = target 0 ∧ ∀ step, step < count → path step = honestPath step ∧ pads step = 0) ∨
       ∃ step, step < count ∧
-        .inl (.inr (pad64 (pathInput answers (merkleHigh tag lay height leaf)
-          (merkleInput tag lay tree height leaf path pads) value step))) ∈
-          queried answers (hashPath (merkleHigh tag lay height leaf)
-            (merkleInput tag lay tree height leaf path pads) count value) ∧
-        HashHitP (merkleHigh tag lay height leaf step) answers
+        .inl (.inr (pad64 (pathInput answers (merkleInput tag lay tree height leaf path pads) value step))) ∈
+          queried answers (hashPath (merkleInput tag lay tree height leaf path pads) count value) ∧
+        HashHit answers
           (pad64 (merkleInput tag lay tree height leaf honestPath (fun _ => 0) step (target step)))
-          (pad64 (pathInput answers (merkleHigh tag lay height leaf)
-            (merkleInput tag lay tree height leaf path pads) value step)) :=
-  hashPath_extract answers _ _ _ target _ value count reference
+          (pad64 (pathInput answers (merkleInput tag lay tree height leaf path pads) value step)) :=
+  hashPath_extract answers _ _ target _ value count reference
     (fun step _ current => merkleInput_parse tag lay tree height leaf step path pads honestPath current (target step)) reaches
 def merkleInputH (tag lay tree height leaf : Nat) (path pads : Nat → Digest) (hpads : Nat → BitVec 64)
     (step : Nat) (value : Digest) : HashInput :=
@@ -837,165 +831,52 @@ theorem merkleInputH_parse (tag lay tree height leaf step : Nat)
     exact ⟨hc, hs, hp, hh⟩
   · obtain ⟨hs, hh, hp, hc⟩ := block4_injective heq
     exact ⟨hc, hs, hp, hh⟩
-/-- `merkleHPath_extract` for any projection schedule `high` (campaign S2: FTS coordinate paths use the low half,
-`high = fun _ => false`). -/
-theorem merkleHPath_extractG (answers : Answers) (high : Nat → Bool) (tag lay tree height leaf count : Nat)
-    (path pads honestPath target : Nat → Digest) (hpads : Nat → BitVec 64) (value : Digest)
-    (reference : ∀ step, step < count →
-      evalWithAnswerFn answers (projHash (high step)
-        (merkleInput tag lay tree height leaf honestPath (fun _ => 0) step (target step))) =
-          target (step + 1))
-    (reaches : pathValue answers high (merkleInputH tag lay tree height leaf path pads hpads)
-      value count = target count) :
-    (value = target 0 ∧ ∀ step, step < count → path step = honestPath step ∧ pads step = 0 ∧
-        HighOK tag lay tree height leaf hpads step) ∨
-      ∃ step, step < count ∧
-        .inl (.inr (pad64 (pathInput answers high
-          (merkleInputH tag lay tree height leaf path pads hpads) value step))) ∈
-          queried answers (hashPath high
-            (merkleInputH tag lay tree height leaf path pads hpads) count value) ∧
-        HashHitP (high step) answers
-          (pad64 (merkleInput tag lay tree height leaf honestPath (fun _ => 0) step (target step)))
-          (pad64 (pathInput answers high
-            (merkleInputH tag lay tree height leaf path pads hpads) value step)) :=
-  hashPath_extract answers _ _ _ target _ value count reference
-    (fun step _ current => merkleInputH_parse tag lay tree height leaf step path pads honestPath hpads current
-      (target step)) reaches
 theorem merkleHPath_extract (answers : Answers) (tag lay tree height leaf count : Nat)
     (path pads honestPath target : Nat → Digest) (hpads : Nat → BitVec 64) (value : Digest)
     (reference : ∀ step, step < count →
-      evalWithAnswerFn answers (projHash (merkleHigh tag lay height leaf step)
+      evalWithAnswerFn answers (shortHash
         (merkleInput tag lay tree height leaf honestPath (fun _ => 0) step (target step))) =
           target (step + 1))
-    (reaches : pathValue answers (merkleHigh tag lay height leaf) (merkleInputH tag lay tree height leaf path pads hpads)
-      value count = target count) :
+    (reaches : pathValue answers (merkleInputH tag lay tree height leaf path pads hpads) value count = target count) :
     (value = target 0 ∧ ∀ step, step < count → path step = honestPath step ∧ pads step = 0 ∧
         HighOK tag lay tree height leaf hpads step) ∨
       ∃ step, step < count ∧
-        .inl (.inr (pad64 (pathInput answers (merkleHigh tag lay height leaf)
-          (merkleInputH tag lay tree height leaf path pads hpads) value step))) ∈
-          queried answers (hashPath (merkleHigh tag lay height leaf)
-            (merkleInputH tag lay tree height leaf path pads hpads) count value) ∧
-        HashHitP (merkleHigh tag lay height leaf step) answers
+        .inl (.inr (pad64 (pathInput answers (merkleInputH tag lay tree height leaf path pads hpads) value step))) ∈
+          queried answers (hashPath (merkleInputH tag lay tree height leaf path pads hpads) count value) ∧
+        HashHit answers
           (pad64 (merkleInput tag lay tree height leaf honestPath (fun _ => 0) step (target step)))
-          (pad64 (pathInput answers (merkleHigh tag lay height leaf)
-            (merkleInputH tag lay tree height leaf path pads hpads) value step)) :=
-  hashPath_extract answers _ _ _ target _ value count reference
+          (pad64 (pathInput answers (merkleInputH tag lay tree height leaf path pads hpads) value step)) :=
+  hashPath_extract answers _ _ target _ value count reference
     (fun step _ current => merkleInputH_parse tag lay tree height leaf step path pads honestPath hpads current
       (target step)) reaches
-def layerLeafP (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) : M Digest := do
-  let (leaf, tree) := route index lay
-  let ends ← (List.finRange (chainCount lay)).mapM fun i =>
-    chainP lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
-      (wchainPads w lay i.val).1 (wchainPads w lay i.val).2 (wchainHeaderPad w lay i.val) (wvalue w lay i.val)
-  leafHash lay tree leaf ends
-theorem layerP_eq_hashPath (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) :
-    layerP w index lay digits = (layerLeafP w index lay digits >>= fun value =>
-      hashPath (merkleHigh 3 lay.val (height lay) (route index lay).1)
-        (merkleInput 3 lay.val (route index lay).2 (height lay) (route index lay).1
-        (wpath w lay (route index lay).1) (wmerklePad w lay)) (height lay) value) := by
-  unfold layerP layerLeafP
-  rcases route index lay with ⟨leaf, tree⟩
-  dsimp only
-  rw [bind_assoc]
-  congr 1
-  funext ends
-  congr 1
-  funext value
-  exact foldlM_finRange_eq_hashPath (merkleHigh 3 lay.val (height lay) leaf)
-    (merkleInput 3 lay.val tree (height lay) leaf (wpath w lay leaf) (wmerklePad w lay)) (height lay) value
-theorem layerP_merkle_extract (answers : Answers) (w : WBytes) (index : Nat)
-    (lay : Layer) (digits : List Nat) (honestPath target : Nat → Digest)
-    (reference : ∀ step, step < height lay →
-      evalWithAnswerFn answers (projHash (merkleHigh 3 lay.val (height lay) (route index lay).1 step)
-        (merkleInput 3 lay.val (route index lay).2 (height lay) (route index lay).1
-          honestPath (fun _ => 0) step (target step))) = target (step + 1))
-    (reaches : evalWithAnswerFn answers (layerP w index lay digits) = target (height lay)) :
-    (evalWithAnswerFn answers (layerLeafP w index lay digits) = target 0 ∧
-      ∀ step, step < height lay →
-        wpath w lay (route index lay).1 step = honestPath step ∧ wmerklePad w lay step = 0) ∨
-      ∃ step, step < height lay ∧ ∃ actual,
-        .inl (.inr actual) ∈ queried answers (layerP w index lay digits) ∧
-        HashHitP (merkleHigh 3 lay.val (height lay) (route index lay).1 step) answers
-          (pad64 (merkleInput 3 lay.val (route index lay).2 (height lay) (route index lay).1
-            honestPath (fun _ => 0) step (target step))) actual := by
-  rw [layerP_eq_hashPath, evalWithAnswerFn_bind] at reaches
-  have h := merklePath_extract answers 3 lay.val (route index lay).2 (height lay)
-    (route index lay).1 (height lay) (wpath w lay (route index lay).1) (wmerklePad w lay)
-    honestPath target (evalWithAnswerFn answers (layerLeafP w index lay digits)) reference reaches
-  rcases h with hgood | ⟨step, hstep, hquery, hhit⟩
-  · exact Or.inl hgood
-  · right
-    refine ⟨step, hstep, _, ?_, hhit⟩
-    rw [layerP_eq_hashPath, queried_bind]
-    exact List.mem_append_right _ hquery
 theorem merkleInput_tree_reference (answers : Answers) (tag lay tree height leaf : Nat)
-    (levels : List (List Digest)) (leaves : List Digest)
+    (hlow : ¬ (tag = 3 ∧ lay = 0)) (levels : List (List Digest)) (leaves : List Digest)
     (htree : TreeLevels answers tag lay tree height leaves height levels)
     (hleaf : leaf < 2^height) (step : Nat) (hstep : step < height) :
-    evalWithAnswerFn answers (projHash (merkleHigh tag lay height leaf step)
+    evalWithAnswerFn answers (shortHash
       (merkleInput tag lay tree height leaf
         (fun j => treeValue levels j (leaf / 2^j ^^^ 1)) (fun _ => 0)
         step (treeValue levels step (leaf / 2^step)))) =
       treeValue levels (step + 1) (leaf / 2^(step + 1)) := by
-  unfold merkleInput merkleHigh
+  unfold merkleInput
   dsimp only
   rw [Correctness.sibling_pair, Correctness.div_pow_succ]
-  rw [← nodeHash_eq_projHash]
+  rw [← nodeHash_eq_shortHash (nodeHalfHigh_of_ne hlow _)]
   have hparent : leaf / 2^(step + 1) < 2^(height - (step + 1)) := by
     simpa using Correctness.div_pow_bound (start := 0) (level := step + 1)
       (node := leaf) (height := height) (by omega) (by simpa using hleaf)
   have hp := htree.2.2 step hstep (leaf / 2^(step + 1)) hparent
   simpa only [treeValue, Nat.sub_sub] using hp.symm
 theorem merkleInput_tree_reference_prefix (answers : Answers) (tag lay tree height leaf count : Nat)
-    (levels : List (List Digest)) (leaves : List Digest)
+    (hlow : ¬ (tag = 3 ∧ lay = 0)) (levels : List (List Digest)) (leaves : List Digest)
     (htree : TreeLevels answers tag lay tree height leaves height levels)
     (hleaf : leaf < 2^height) (hcount : count ≤ height) :
-    ∀ step, step < count → evalWithAnswerFn answers (projHash (merkleHigh tag lay height leaf step)
+    ∀ step, step < count → evalWithAnswerFn answers (shortHash
       (merkleInput tag lay tree height leaf
         (fun j => treeValue levels j (leaf / 2^j ^^^ 1)) (fun _ => 0)
         step (treeValue levels step (leaf / 2^step)))) =
       treeValue levels (step + 1) (leaf / 2^(step + 1)) := by
   intro step hstep
-  exact merkleInput_tree_reference answers tag lay tree height leaf levels leaves htree hleaf step
+  exact merkleInput_tree_reference answers tag lay tree height leaf hlow levels leaves htree hleaf step
     (lt_of_lt_of_le hstep hcount)
-theorem merkleInput_built_reference (answers : Answers) (tag lay tree height leaf : Nat)
-    (leaves : List Digest) (hlen : leaves.length = 2^height)
-    (hleaf : leaf < 2^height) (step : Nat) (hstep : step < height) :
-    let levels := evalWithAnswerFn answers (buildLevels tag lay tree height leaves)
-    evalWithAnswerFn answers (projHash (merkleHigh tag lay height leaf step)
-      (merkleInput tag lay tree height leaf
-        (fun j => treeValue levels j (leaf / 2^j ^^^ 1)) (fun _ => 0)
-        step (treeValue levels step (leaf / 2^step)))) =
-      treeValue levels (step + 1) (leaf / 2^(step + 1)) := by
-  exact merkleInput_tree_reference answers tag lay tree height leaf _ leaves
-    (Correctness.eval_buildLevels_correct answers tag lay tree height leaves hlen) hleaf step hstep
-theorem layerP_built_merkle_extract (answers : Answers) (w : WBytes) (index : Nat)
-    (lay : Layer) (digits : List Nat)
-    (reaches : evalWithAnswerFn answers (layerP w index lay digits) =
-      treeValue (Correctness.builtTree answers lay (route index lay).2) (height lay) 0) :
-    (evalWithAnswerFn answers (layerLeafP w index lay digits) =
-        Correctness.leafRoot answers lay (route index lay).2 (route index lay).1 ∧
-      ∀ step, step < height lay →
-        wpath w lay (route index lay).1 step =
-          treeValue (Correctness.builtTree answers lay (route index lay).2) step
-            ((route index lay).1 / 2^step ^^^ 1) ∧ wmerklePad w lay step = 0) ∨
-      ∃ step, step < height lay ∧ ∃ actual,
-        .inl (.inr actual) ∈ queried answers (layerP w index lay digits) ∧
-        HashHitP (merkleHigh 3 lay.val (height lay) (route index lay).1 step) answers
-          (pad64 (merkleInput 3 lay.val (route index lay).2 (height lay) (route index lay).1
-            (fun j => treeValue (Correctness.builtTree answers lay (route index lay).2) j
-              ((route index lay).1 / 2^j ^^^ 1)) (fun _ => 0) step
-            (treeValue (Correctness.builtTree answers lay (route index lay).2) step
-              ((route index lay).1 / 2^step)))) actual := by
-  have h := layerP_merkle_extract answers w index lay digits
-    (fun step => treeValue (Correctness.builtTree answers lay (route index lay).2) step
-      ((route index lay).1 / 2^step ^^^ 1))
-    (fun step => treeValue (Correctness.builtTree answers lay (route index lay).2) step
-      ((route index lay).1 / 2^step))
-    (merkleInput_tree_reference answers 3 lay.val (route index lay).2 (height lay) (route index lay).1
-      _ _ (Correctness.builtTree_correct answers lay (route index lay).2) (route_leaf_bound index lay))
-    (by simpa only [Nat.div_eq_of_lt (route_leaf_bound index lay)] using reaches)
-  simpa only [pow_zero, Nat.div_one,
-    Correctness.builtTree_leaf answers lay _ _ (route_leaf_bound index lay)] using h
 end SigGolfCandidate.T3M.SecurityExtraction

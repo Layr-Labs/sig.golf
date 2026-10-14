@@ -26,7 +26,7 @@ theorem untouched_chainInput_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree
 theorem respects_chain_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i start count : Nat) (v : Digest) :
     Respects (Untouched a) (chain lay tree leaf i start count v) := by
   unfold chain
-  exact Respects.foldlM _ _ (fun step _ value => Respects.projHash _ _ (untouched_chainInput_of_lay a hl _ _ _ _ _))
+  exact Respects.foldlM _ _ (fun step _ value => Respects.shortHash _ (untouched_chainInput_of_lay a hl _ _ _ _ _))
     _
 variable {T T' : Answers} (hT : ∀ q, Untouched a q → T q = T' q)
 include hT

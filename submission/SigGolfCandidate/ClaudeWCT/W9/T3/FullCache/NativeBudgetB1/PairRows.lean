@@ -80,8 +80,7 @@ theorem layerTrial_injective (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) {c
     bytesLE_length]
 theorem rowQ_pairTrial (lay : Layer) (tree leaf : Nat) (left right : Digest) (counter : Nat) :
     RowQ (pairTrial lay tree leaf left right counter) :=
-  SigGolfCandidate.T3.Freshness.rowQ_of_rowTweak (queryHeader_pairTrial ..)
-    (by simp [pairTrial, pairEncodingInputP, bytesLE_length])
+  ⟨rowTweak lay tree leaf, queryHeader_pairTrial .., rowTweak_marker .., rowTweak_tag .., rowTweak_high ..⟩
 theorem pairTrial_ne_of_layer {lay other : Layer} (hne : lay ≠ other) (tree leaf : Nat) (left right : Digest)
     (counter : Nat) (tree' leaf' : Nat) (left' right' : Digest) (counter' : Nat) :
     pairTrial lay tree leaf left right counter ≠ pairTrial other tree' leaf' left' right' counter' := by

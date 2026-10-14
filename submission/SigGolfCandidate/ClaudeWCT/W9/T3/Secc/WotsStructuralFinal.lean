@@ -26,7 +26,7 @@ structure Variant (labels : CanonGraph.Labels) (T T' : Answers) : Prop where
     x = CanonGraph.cell (CanonGraph.secretsOf T) node labels) → T (.inl (.inr x)) = T' (.inl (.inr x))
 theorem posOf_honestInput (T : Answers) (p : Extract.Pos) (hp : p.Bounded) :
     Extract.posOf (Extract.honestInput T p) = some p :=
-  Extract.posOf_honestInput T hp
+  Extract.posOf_eq hp (Extract.honestInput_length T p) (Extract.hdrBlock_honestInput T p)
 theorem Variant.honest {labels : CanonGraph.Labels} {T T' : Answers} (hv : Variant labels T T') :
     ∀ q, HonestQuery T q → T q = T' q
   | .inl (.inl n), _ => hv.coin n
@@ -181,10 +181,12 @@ theorem prob_high_eq (target : SphincsSecurity.Digest) :
 theorem prob_proj_eq (p : Extract.Pos) (target : SphincsSecurity.Digest) :
     Pr[fun answer : HashOutput => p.proj answer = target | PMF.uniformOfFintype HashOutput] =
       (Fintype.card SphincsSecurity.Digest : ℝ≥0∞)⁻¹ := by
-  unfold Extract.Pos.proj projHalf
+  rw [Extract.Pos.proj_eq]
   cases p.high
-  · exact SphincsSecurity.Concrete.HiddenLabelProbe.prob_truncate_eq target
-  · exact prob_high_eq target
+  · simp only [Bool.false_eq_true, ite_false]
+    exact SphincsSecurity.Concrete.HiddenLabelProbe.prob_truncate_eq target
+  · simp only [ite_true]
+    exact prob_high_eq target
 namespace Structural
 open SigGolfCandidate.T3.Security.Wots.Structural
 open ClaudeWCT.W9.T3.Security.CanonGraph (Node Labels Secrets OtherHalves cell programmed canonInputs privateEquiv)

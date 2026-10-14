@@ -23,15 +23,18 @@ theorem digestInput_injective {rho rho' : Digest} {m m' : Message} {c c' : BitVe
   exact ⟨hr, hc, hm⟩
 theorem queried_digest (answers : Correctness.Answers) (rho : Digest) (m : Message) (c : BitVec 32) :
     queried answers (digest rho m c) = [.inl (.inr (pad64 (digestInput rho m c)))] := rfl
+def hdrTag (input : HashInput) : Nat :=
+  if 128 ≤ ((Extract.hdrBlock input).getD 0 0).toNat then 1
+  else ((Extract.hdrBlock input).getD 1 0).toNat
 theorem hdrBlock_digestInput (rho : Digest) (m : Message) (c : BitVec 32) :
     Extract.hdrBlock (pad64 (digestInput rho m c)) = SphincsSecurity.bytesLE 16 (digestHeader c) := by
   rw [pad64_digestInput]
   exact Extract.hdrBlock_prefix _ _ _
-/-- First header byte (the pre-S1 marker). -/
+/-- First header byte (the pre-C4 digest marker). -/
 def hdrByte0 (input : HashInput) : Nat := ((Extract.hdrBlock input).getD 0 0).toNat
-/-- Campaign S1: the low header word (bytes 16..24 of the input). The digest is the only query whose low header
-word is zero (`digestHeader_lowNat`, `nodeTweak_low_ne_zero`); byte0 alone no longer separates it, because a top
-fold label `topNodeWord heap` may have byte0 = 0. -/
+/-- C4 (adapted from b3cc11b): the low header word (bytes 16..24 of the input). The digest is the only query whose low
+header word is zero (`digestHeader_lowNat`, `nodeTweak_low_ne_zero`); byte0 alone no longer separates it, because a
+top fold label `topNodeWord heap` has byte0 = 0 at the heaps `256 k`. -/
 def hdrMarker (input : HashInput) : Nat := readLE ((Extract.hdrBlock input).take 8)
 theorem hdrMarker_eq {input : HashInput} {hdr : Digest}
     (h : Extract.hdrBlock input = SphincsSecurity.bytesLE 16 hdr) : hdrMarker input = tweakLow hdr := by
@@ -81,6 +84,10 @@ theorem shortHash_ok_marker {input : HashInput} {hdr : Digest}
   apply SourceQueries.bind_allowed
   · exact (allQueriesSatisfy_query_iff _ _).mpr (hdrMarker_ne_zero h hm)
   · intro _; exact SourceQueries.pure_allowed _ _
+theorem shortHash_ok {input : HashInput} {tag lay tree position index : Nat}
+    (h : Extract.hdrBlock (pad64 input) = SphincsSecurity.bytesLE 16 (header tag lay tree position index))
+    (_ht : tag % 256 ≠ 0) : AllQueriesSatisfy (shortHash input) NotDigestQ :=
+  shortHash_ok_marker h (by rw [header_marker]; decide)
 theorem privatePair_ok (tag lay tree position index : Nat) :
     AllQueriesSatisfy (privatePair tag lay tree position index) NotDigestQ :=
   SourceQueries.privatePair_allowed NotDigestQ (fun _ => trivial) tag lay tree position index
@@ -91,7 +98,7 @@ theorem chain_ok (lay : Layer) (tree leaf i start count : Nat) (value : Digest) 
   unfold chain
   apply SourceQueries.foldlM_allowed NotDigestQ
   intro v step
-  unfold projHash publicHash
+  unfold shortHash publicHash
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
     change hdrMarker (pad64 (chainInput lay tree leaf i step v)) ≠ 0
@@ -112,11 +119,35 @@ theorem nodeHash_ok (tag lay tree heap : Nat) (left right : Digest) (_ht : tag %
   rw [nodeHash_eq_projHash]
   exact projHash_ok_marker _ (by rw [pad64_nodeInputP]; exact BSuf.hdrBlock_nodeInputP _ _ _ _ _ _ _)
     (nodeTweak_low_ne_zero _ _ _ _)
+theorem nodeHash3_ok (lay tree heap : Nat) (left right : Digest) :
+    AllQueriesSatisfy (nodeHash 3 lay tree heap left right) NotDigestQ :=
+  nodeHash_ok 3 lay tree heap left right (by decide)
+theorem ftsLeaf_ok (index coord leaf : Nat) (secret : Digest) :
+    AllQueriesSatisfy (ftsLeaf index coord leaf secret) NotDigestQ := by
+  rw [ftsLeaf_eq_shortHash]
+  exact shortHash_ok (tag := 9) (by rw [pad64_ftsLeafInputP]; exact BSuf.hdrBlock_ftsLeafInputP _ _ _ _ _ _)
+    (by decide)
+theorem forestPk_ok (index : Nat) (roots : List Digest) : AllQueriesSatisfy (forestPk index roots) NotDigestQ := by
+  rw [Extract.forestPk_eq_shortHash]
+  exact shortHash_ok (tag := 11) (Extract.hdrBlock_listInput _ _ _) (by decide)
 theorem encoding_ok (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : BitVec 32) :
     AllQueriesSatisfy (shortHash (encodingInput lay tree leaf message counter)) NotDigestQ :=
   shortHash_ok_marker (by
     rw [Extract.hdrBlock_pad64 _ (by simp [encodingInput, SphincsSecurity.bytesLE_length])]
     exact Extract.hdrBlock_prefix _ _ _) (by rw [rowTweak_marker]; decide)
+theorem counterSearch_ok (lay : Layer) (tree leaf : Nat) (message : Digest) :
+    ∀ fuel counter, AllQueriesSatisfy (counterSearch lay tree leaf message counter fuel) NotDigestQ := by
+  intro fuel
+  induction fuel with
+  | zero => intro counter; exact SourceQueries.pure_allowed _ _
+  | succ fuel ih =>
+      intro counter
+      unfold counterSearch
+      apply SourceQueries.bind_allowed _ (encoding_ok _ _ _ _ _)
+      intro answer
+      split
+      · exact ih _
+      · exact SourceQueries.pure_allowed _ _
 theorem buildLevel_ok (tag lay tree h level : Nat) (nodes : List Digest) (ht : tag % 256 ≠ 0) :
     AllQueriesSatisfy (buildLevel tag lay tree h level nodes) NotDigestQ := by
   unfold buildLevel
@@ -128,13 +159,24 @@ theorem buildLevels_ok (tag lay tree h : Nat) (leaves : List Digest) (ht : tag %
     SourceQueries.bind_allowed _ (buildLevel_ok _ _ _ _ _ _ ht) fun _ => SourceQueries.pure_allowed _ _) _
 theorem buildLevels3_ok (lay tree h : Nat) (leaves : List Digest) :
     AllQueriesSatisfy (buildLevels 3 lay tree h leaves) NotDigestQ := buildLevels_ok 3 lay tree h leaves (by decide)
+theorem buildLevels10_ok (lay tree h : Nat) (leaves : List Digest) :
+    AllQueriesSatisfy (buildLevels 10 lay tree h leaves) NotDigestQ := buildLevels_ok 10 lay tree h leaves (by decide)
 section aesopShape
 attribute [local aesop safe apply] SourceQueries.pure_allowed SourceQueries.bind_allowed SourceQueries.map_allowed
-  SourceQueries.foldlM_allowed SourceQueries.mapM_allowed privatePair_ok mask_ok chain_ok leafHash_ok
-  buildLevels3_ok
+  SourceQueries.foldlM_allowed SourceQueries.mapM_allowed privatePair_ok mask_ok chain_ok leafHash_ok nodeHash3_ok
+  ftsLeaf_ok forestPk_ok counterSearch_ok buildLevels3_ok buildLevels10_ok
+theorem buildLeaf_ok (lay : Layer) (tree leaf : Nat) (digits : List Nat) (signatureOnly : Bool) :
+    AllQueriesSatisfy (buildLeaf lay tree leaf digits signatureOnly) NotDigestQ := by
+  unfold buildLeaf; aesop (config := { maxRuleApplications := 1000 })
+attribute [local aesop safe apply] buildLeaf_ok
+theorem buildTree_ok (lay : Layer) (tree selected : Nat) (digits : List Nat) :
+    AllQueriesSatisfy (buildTree lay tree selected digits) NotDigestQ := by
+  unfold buildTree; aesop (config := { maxRuleApplications := 1000 })
+theorem buildFts_ok (index coord : Nat) : AllQueriesSatisfy (buildFts index coord) NotDigestQ := by
+  unfold buildFts; aesop (config := { maxRuleApplications := 1000 })
 theorem topPath_ok (cache : T3.Cache) (leaf : Nat) : AllQueriesSatisfy (topPath cache leaf) NotDigestQ := by
   unfold topPath; aesop (config := { maxRuleApplications := 1000 })
-attribute [local aesop safe apply] topPath_ok
+attribute [local aesop safe apply] buildTree_ok buildFts_ok topPath_ok
 theorem topCoefs_ok (leaf : Nat) : AllQueriesSatisfy (topCoefs leaf) NotDigestQ := by
   unfold topCoefs topSeedPair; aesop (config := { maxRuleApplications := 1000 })
 attribute [local aesop safe apply] topCoefs_ok
@@ -151,6 +193,19 @@ theorem signTop_ok (cache : T3.Cache) (leaf : Nat) (digits : List Nat) :
     AllQueriesSatisfy (signTop cache leaf digits) NotDigestQ := by
   unfold signTop; aesop (config := { maxRuleApplications := 1000 })
 attribute [local aesop safe apply] signTop_ok
+theorem signLayers_ok (cache : T3.Cache) (index n : Nat) (message : Digest) :
+    AllQueriesSatisfy (signLayers cache index n message) NotDigestQ := by
+  induction n generalizing message with
+  | zero => unfold signLayers; aesop (config := { maxRuleApplications := 1000 })
+  | succ n ih => unfold signLayers; aesop (config := { maxRuleApplications := 1000 })
+attribute [local aesop safe apply] signLayers_ok
+theorem forestRows_ok (index : Nat) (chosen : List Selection) :
+    AllQueriesSatisfy (Correctness.forestRows index chosen) NotDigestQ := by
+  unfold Correctness.forestRows; aesop (config := { maxRuleApplications := 1000 })
+attribute [local aesop safe apply] forestRows_ok
+theorem payloadAfterDigest_ok (cache : T3.Cache) (rho : Digest) (output : HashOutput) :
+    AllQueriesSatisfy (payloadAfterDigest cache rho output) NotDigestQ := by
+  rw [SigningRecords.payloadAfterDigest_forestRows]; aesop (config := { maxRuleApplications := 1000 })
 end aesopShape
 theorem allQ_queried {α : Type} (answers : Correctness.Answers) (P : T3.Spec.Domain → Prop) (program : M α)
     (h : AllQueriesSatisfy program P) : ∀ q ∈ queried answers program, P q := by

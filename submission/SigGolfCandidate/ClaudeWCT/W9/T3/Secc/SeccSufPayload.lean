@@ -48,7 +48,7 @@ theorem layer_of_shaped (answers : Answers) (N : HashOutput) (wit : WCT9.Witness
       split
       · exact ClaudeWCT.W9.T3M.wbuffer_witEnc N wit lay i
       · exact ClaudeWCT.W9.T3M.wvalue_witEnc N wit lay i
-    rw [← hv, (hs.2.2 i.val i.isLt).1]
+    rw [← hv, (hs.2.1 i.val i.isLt).1]
     simp [piecesSignature, WCT9.wotsPieces]
   · funext j
     rw [← ClaudeWCT.W9.T3M.wpath_witEnc N wit lay j, (hs.1 j.val j.isLt).1]

@@ -27,9 +27,11 @@ set_option maxRecDepth 10000
 set_option maxHeartbeats 0 in
 theorem signCode_drop_new : Images.signImage.code.drop 11003 = signNew ++ Images.signImage.code.drop 20771 := by
   decide +kernel
+/-- C4: the coordinate-0 arena at sign words 1700..1725. -/
+theorem arena_signImage : arenaCode <+: Images.signImage.code.drop 1700 :=
+  List.prefix_iff_eq_take.mpr (by decide +kernel)
 theorem newCodeAt_image : NewCodeAt Sign.image :=
-  ⟨⟨_, signCode_drop_new.symm⟩, ⟨Images.signImage.code.drop 21802, by decide +kernel⟩,
-    ClaudeWCT.W9.Machine.Sign.arena_signImage⟩
+  ⟨⟨_, signCode_drop_new.symm⟩, ⟨Images.signImage.code.drop 21802, by decide +kernel⟩, arena_signImage⟩
 
 /-! ### Hybrid base states -/
 
@@ -397,14 +399,14 @@ theorem lower_blocks {lay : Layer} (h : lay ≠ 0) : leafBlocks lay = 11 := by
 def leafStepB (lay : Layer) (tree leaf : Nat) (digits : List Nat) (coefs : List Digest)
     (state : List Digest × List Digest) (i : Nat) : SigGolfCandidate.T3.M (List Digest × List Digest) := do
   let digit := digits.getD i 0
-  let value ← SigGolfCandidate.T3.chain lay tree leaf i 0 digit (WCT9.lowerFamilySeed coefs i)
-  let last ← SigGolfCandidate.T3.chain lay tree leaf i digit (maxDigit lay i - digit) value
+  let value ← WCT9.chainW lay tree leaf i 0 digit (WCT9.lowerFamilySeed coefs i)
+  let last ← WCT9.chainW lay tree leaf i digit (maxDigit lay i - digit) value
   pure (state.1 ++ [last], state.2 ++ [value])
 theorem buildLeafPF_eq (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
     WCT9.buildLeafPF lay tree leaf digits carry = (do
       let coefs ← WCT9.lowerCoefs lay tree leaf carry
       let rows ← (List.range (chainCount lay)).foldlM (leafStepB lay tree leaf digits coefs.1) ([], [])
-      let root ← SigGolfCandidate.T3.leafHash lay tree leaf rows.1
+      let root ← WCT9.lowerLeafHash lay tree leaf rows.1
       pure ((root, rows.2), coefs.2)) := rfl
 
 section chain
@@ -415,9 +417,9 @@ theorem chain_cont (hlay : A.lay ≠ 0) (hso : A.so = false) {j : Nat} (hj : j <
     {st : List Digest × List Digest} (u : MachineState) (seed carry : Digest) (upc : u.pc = pcOf (1013 + 61))
     (hu : LeafInv s0 A j st u) (h28 : u.getReg .x28 = BitVec.ofNat 64 0) (hseed : DigAt u SEEDS seed)
     (hc : DigAt u (SEEDS + 16) carry) :
-    TSim Sign.image sk u (16 + (Sign.Seed.rungKS A.lay * A.e j + 10) + (4 + (11 + slotK A.lay j)))
-      (16 + (Sign.Seed.rungCS A.lay * A.e j + 10) + (4 + (11 + slotK A.lay j))) (A.e j) (A.e j)
-      ((fun r : Digest × Digest => (st.1 ++ [r.2], st.2 ++ [r.1])) <$> chainProg A j seed)
+    TSim Sign.image sk u (16 + Sign.Seed.chainK A.lay j (A.e j) + (4 + (11 + slotK A.lay j)))
+      (16 + Sign.Seed.chainCy A.lay j (A.e j) + (4 + (11 + slotK A.lay j))) (A.e j) (A.e j)
+      ((fun r : Digest × Digest => (st.1 ++ [r.2], st.2 ++ [r.1])) <$> Sign.Seed.chainProgW A j seed)
       (fun st' w => w.pc = pcOf (1013 + 41) ∧ LeafInv s0 A (j + 1) st' w ∧ DigAt w (SEEDS + 16) carry) := by
   have hsub := Sign.SeedIndependent.seedIndependentAt_sign
   have hn : A.n = 43 := lower_n hlay
@@ -436,7 +438,7 @@ theorem chain_cont (hlay : A.lay ≠ 0) (hso : A.so = false) {j : Nat} (hj : j <
   rw [map_eq_bind_pure_comp]
   refine (TSim.steps st0 (TSim.bind (k₂ := 4 + (11 + slotK A.lay j))
     (c₂ := 4 + (11 + slotK A.lay j)) (n₂ := 0) (b₂ := 0) hch (fun r w hw => ?_))).of_eq
-    (by unfold chainProg; rfl) (by omega) (by omega) (by simp) (by simp)
+    (by unfold Sign.Seed.chainProgW; rfl) (by omega) (by omega) (by simp) (by simp)
   obtain ⟨wpc, hwv, hwl, hwr, hwf⟩ := hw
   obtain ⟨x, stx, xpc, hx, hfx⟩ := Sign.Seed.leaf_postchainS hsub sk hpre hj hu wpc (u0r.trans hwr)
     (u0f.trans hwf) r.1 r.2 hwv hwl
@@ -451,8 +453,7 @@ theorem chain_cont (hlay : A.lay ≠ 0) (hso : A.so = false) {j : Nat} (hj : j <
   · unfold ChainW; omega
   · unfold ChainW; omega
 
-/-- Campaign S1: one lower chain (Horner seed + chain incl. the 13-step chain-0 fix per rung). -/
-def chainC : Nat := 5 + lowerSeedC + 455
+def chainC : Nat := 5 + lowerSeedC + 403
 /-- State before chain `j` of a lower leaf (`j = 0`: at `SEED` after the coefficient loop). -/
 structure FSt (s0 : MachineState) (A : LeafArgs) (coefs : List Digest) (carry : Digest) (j : Nat)
     (st : List Digest × List Digest) (u : MachineState) : Prop where
@@ -505,19 +506,18 @@ theorem chain_step (hlay : A.lay ≠ 0) (hso : A.so = false) (hvS : A.valp + 16 
     (hu.carry.frame vf (by decide) (by simp) (by simp)).frame wf (by decide) (by decide) (by decide)
   have hcont := chain_cont sk hpre' hlay hso (j := j) (by omega) (st := st) w (WCT9.lowerFamilySeed coefs j) carry
     (by rw [wpc]) hinvw w28 wseed hcw'
-  have hk : 16 + (Sign.Seed.rungKS A.lay * A.e j + 10) + (4 + (11 + slotK A.lay j)) ≤
-      16 + (Sign.Seed.rungCS A.lay * A.e j + 10) + (4 + (11 + slotK A.lay j)) := by
-    have h1 : Sign.Seed.rungKS A.lay ≤ Sign.Seed.rungCS A.lay := by
-      unfold Sign.Seed.rungKS Sign.Seed.rungCS rungK rungC; omega
-    have := Nat.mul_le_mul_right (A.e j) h1
+  have hk : 16 + Sign.Seed.chainK A.lay j (A.e j) + (4 + (11 + slotK A.lay j)) ≤
+      16 + Sign.Seed.chainCy A.lay j (A.e j) + (4 + (11 + slotK A.lay j)) := by
+    have := Sign.Seed.chainK_le_chainCy A.lay j (A.e j)
     omega
-  have hc364 : 16 + (Sign.Seed.rungCS A.lay * A.e j + 10) + (4 + (11 + slotK A.lay j)) ≤ 455 := by
-    unfold Sign.Seed.rungCS
-    rw [lower_e hlay hso j, lower_rungC hlay, Sign.Seed.slotK_low hlay j]
+  have hc364 : 16 + Sign.Seed.chainCy A.lay j (A.e j) + (4 + (11 + slotK A.lay j)) ≤ 403 := by
+    rw [lower_e hlay hso j, Sign.Seed.chainCy_low hlay, lower_rungC hlay, Sign.Seed.slotK_low hlay j]
     split_ifs <;> omega
   have heq : leafStepB A.lay A.tree A.leaf A.digits coefs st j =
-      (fun r : Digest × Digest => (st.1 ++ [r.2], st.2 ++ [r.1])) <$> chainProg A j (WCT9.lowerFamilySeed coefs j) := by
-    simp only [leafStepB, chainProg, LeafArgs.e, LeafArgs.d, hso, Bool.false_eq_true, if_false, map_bind, map_pure]
+      (fun r : Digest × Digest => (st.1 ++ [r.2], st.2 ++ [r.1])) <$>
+        Sign.Seed.chainProgW A j (WCT9.lowerFamilySeed coefs j) := by
+    simp only [leafStepB, Sign.Seed.chainProgW, LeafArgs.e, LeafArgs.d, hso, Bool.false_eq_true, if_false, map_bind,
+      map_pure]
   rw [heq]
   refine TBSim.mono (TBSim.steps (sv.trans sw) ((hcont.toTBSim hk).mono hc364 (fun st' x hx => ?_)))
     (by unfold chainC; omega) (fun _ _ h => h)
@@ -560,7 +560,7 @@ theorem buildLeafPF_tbsim (hlay : A.lay ≠ 0) (hso : A.so = false) (hpc : s0.pc
   have hc1 : A.leaf % 2 = 1 → DigAt t1 (SEEDS + 16) carry := fun h =>
     (hcar h).frame t1f (by omega) (by omega) (by omega)
   rw [buildLeafPF_eq]
-  refine TBSim.mono (TBSim.steps st1 (TBSim.bind (W₂ := 43 * chainC + 106)
+  refine TBSim.mono (TBSim.steps st1 (TBSim.bind (W₂ := 43 * chainC + 112)
     (coef_phase sk hpre hlay h0 hs1 t1pc hc1) (fun cs u hu => ?_))) (by unfold lowLeafC coefC chainC lowerSeedC hornStepC; omega)
     (fun _ _ h => h)
   obtain ⟨upc, ucoef, ulen, ucarry, ur, uf⟩ := hu
@@ -582,7 +582,7 @@ theorem buildLeafPF_tbsim (hlay : A.lay ≠ 0) (hso : A.so = false) (hpc : s0.pc
     (fun j hj st x hx => by simpa using chain_step sk hpre hlay hso hvS hdS hdestS ulen hj hx) hF0
   rw [show List.range' 0 43 = List.range (chainCount A.lay) by rw [lower_n hlay]; exact List.range_eq_range'.symm]
     at hfold
-  refine TBSim.bind (W₁ := 43 * chainC) (W₂ := 106) hfold (fun rows x hx => ?_)
+  refine TBSim.bind (W₁ := 43 * chainC) (W₂ := 112) hfold (fun rows x hx => ?_)
   obtain ⟨xpc, -, ⟨s3, hs3, hinv3⟩, xcarry⟩ := hx
   have hpre3 := LeafPreS.transfer hpre hs3.regs hs3.base hdS
   rw [show (43 : Nat) = A.n from hn.symm] at hinv3

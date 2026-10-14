@@ -1568,42 +1568,26 @@ theorem hasTag_padded (front back : HashInput) (hfront : front.length=16)
  (tag lay tree position index : Nat) :
  HasTag tag (pad64 (front ++ bytesLE 16 (header tag lay tree position index) ++ back)) :=
  ⟨lay,tree,position,index,queryHeader_padded _ _ hfront _⟩
-/-- Encoding-trial header class (campaign S1): the row tweak `0 | hyperWord` (marker 1, tag 2, high word 0, type
-byte 193). It equals the WOTS leaf tweak as a value, so `RowQ` also fixes the 64-byte length (leaf inputs are longer);
-the type byte excludes top fold words (`< 4096`), the marker excludes lower fold words other than heap 1 (mod 128). -/
-def RowHdr (hdr : BitVec 128) : Prop :=
- tweakMarker hdr = 1 ∧ tweakTag hdr = 2 ∧ tweakHigh hdr = 0 ∧ tweakLow hdr / 2 ^ 56 = 193
-/-- Search headers: the digest header (whole low word 0) or a row header. -/
+def RowHdr (hdr : BitVec 128) : Prop := tweakMarker hdr = 1 ∧ tweakTag hdr = 2 ∧ tweakHigh hdr = 1
+/-- Search headers: the digest header (C4: whole low word 0, since top labels `256 k` have marker byte 0) or a row
+header. -/
 def SearchHdr (hdr : BitVec 128) : Prop := (tweakMarker hdr = 0 ∧ tweakLow hdr = 0) ∨ RowHdr hdr
-def RowQ (input : HashInput) : Prop := ∃ hdr, queryHeader input = bytesLE 16 hdr ∧ RowHdr hdr ∧ input.length = 64
-def SearchQ (input : HashInput) : Prop :=
- ∃ hdr, queryHeader input = bytesLE 16 hdr ∧ SearchHdr hdr ∧ input.length = 64
+def RowQ (input : HashInput) : Prop := ∃ hdr, queryHeader input = bytesLE 16 hdr ∧ RowHdr hdr
+def SearchQ (input : HashInput) : Prop := ∃ hdr, queryHeader input = bytesLE 16 hdr ∧ SearchHdr hdr
 theorem RowQ.searchQ {input : HashInput} (h : RowQ input) : SearchQ input :=
- let ⟨hdr, hq, hr, hl⟩ := h; ⟨hdr, hq, Or.inr hr, hl⟩
+ let ⟨hdr, hq, hr⟩ := h; ⟨hdr, hq, Or.inr hr⟩
 theorem searchQ_ne {input target : HashInput} {hdr : BitVec 128}
  (h : queryHeader input = bytesLE 16 hdr) (hn : ¬ SearchHdr hdr) (ht : SearchQ target) : input ≠ target := by
  rintro rfl
- obtain ⟨hdr', h', hs, -⟩ := ht
+ obtain ⟨hdr', h', hs⟩ := ht
  rw [h] at h'
  exact hn ((bytesLE_injective h') ▸ hs)
-theorem searchQ_ne_length {input target : HashInput} (hl : input.length ≠ 64) (ht : SearchQ target) :
- input ≠ target := by
- rintro rfl
- obtain ⟨-, -, -, h⟩ := ht
- exact hl h
 theorem rowQ_ne {input target : HashInput} {hdr : BitVec 128}
  (h : queryHeader input = bytesLE 16 hdr) (hn : ¬ RowHdr hdr) (ht : RowQ target) : input ≠ target := by
  rintro rfl
- obtain ⟨hdr', h', hs, -⟩ := ht
+ obtain ⟨hdr', h', hs⟩ := ht
  rw [h] at h'
  exact hn ((bytesLE_injective h') ▸ hs)
-theorem rowHdr_rowTweak (lay : Layer) (tree leaf : Nat) : RowHdr (rowTweak lay tree leaf) := by
- refine ⟨rowTweak_marker .., rowTweak_tag .., rowTweak_high .., ?_⟩
- unfold rowTweak
- rw [append64_lowNat, hyperWord_type]
-theorem rowQ_of_rowTweak {input : HashInput} {lay : Layer} {tree leaf : Nat}
- (h : queryHeader input = bytesLE 16 (rowTweak lay tree leaf)) (hl : input.length = 64) : RowQ input :=
- ⟨_, h, rowHdr_rowTweak lay tree leaf, hl⟩
 theorem header_not_search (tag lay tree position index : Nat) (ht : tag % 256 ≠ 2) :
  ¬ SearchHdr (header tag lay tree position index) := by
  unfold SearchHdr RowHdr; rw [header_marker, header_tag]; omega
@@ -1611,21 +1595,21 @@ theorem chainHeader_not_search (lay : Layer) (tree leaf i step : Nat) :
  ¬ SearchHdr (chainHeader lay tree leaf i step) := by
  have := chainHeader_tweakMarker lay tree leaf i step
  unfold SearchHdr RowHdr; omega
+theorem leafTweak_not_search (lay : Layer) (tree leaf : Nat) : ¬ SearchHdr (leafTweak lay tree leaf) := by
+ unfold SearchHdr RowHdr; rw [leafTweak_marker, leafTweak_high]; omega
 theorem digestHeader_not_row (counter : BitVec 32) : ¬ RowHdr (digestHeader counter) := by
  unfold RowHdr; rw [digestHeader_marker]; omega
 theorem nodeTweak_not_search (tag lay tree heap : Nat) (htag : tag % 256 ≠ 2)
- (hroot : tag = 3 → 1 ≤ lay → lay < 4 → heap % 128 ≠ 1) : ¬ SearchHdr (nodeTweak tag lay tree heap) := by
+ (hroot : tag = 3 → 1 ≤ lay → lay < 4 → heap % 2 ^ 64 ≠ 1) : ¬ SearchHdr (nodeTweak tag lay tree heap) := by
  by_cases h : tag = 3 ∧ lay < 4
  · obtain ⟨rfl, h4⟩ := h
    by_cases h0 : lay = 0
-   · subst h0; unfold SearchHdr RowHdr; rw [nodeTweak_top_marker, nodeTweak_top_low]
+   · subst h0; unfold SearchHdr RowHdr; rw [nodeTweak_top_low, nodeTweak_top_high]
      have := topNodeWord_pos heap
-     have := topNodeWord_lt heap
      omega
    · have hh := hroot rfl (by omega) h4
-     have ht := lowerNodeWord_type (lay - 1) tree heap
      unfold SearchHdr RowHdr
-     rw [nodeTweak_lower_marker h0 h4, nodeTweak_hyper_high h4, nodeTweak_lower_low h0 h4]; omega
+     rw [nodeTweak_lower_marker h0 h4, nodeTweak_hyper_high h4, if_neg h0]; omega
  · by_cases hf : tag = 3 ∧ lay < 13
    · obtain ⟨rfl, h13⟩ := hf
      unfold SearchHdr RowHdr
@@ -1636,23 +1620,15 @@ theorem nodeTweak_not_search (tag lay tree heap : Nat) (htag : tag % 256 ≠ 2)
    · rw [nodeTweak_other hf]; exact header_not_search _ _ _ _ _ htag
 @[simp] theorem rowQ_encoding (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : Nat) :
  RowQ (encodingTrial lay tree leaf message counter) :=
- rowQ_of_rowTweak (queryHeader_encoding ..) (by simp [encodingTrial, encodingInput, pad64, bytesLE_length])
+ ⟨rowTweak lay tree leaf, queryHeader_encoding .., rowTweak_marker .., rowTweak_tag .., rowTweak_high ..⟩
 @[simp] theorem searchQ_encoding (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : Nat) :
  SearchQ (encodingTrial lay tree leaf message counter) := (rowQ_encoding ..).searchQ
 @[simp] theorem searchQ_digest (rho : Digest) (message : Message) (counter : Nat) :
  SearchQ (digestTrial rho message counter) :=
- ⟨digestHeader _, queryHeader_digest .., Or.inl ⟨digestHeader_marker _, by
-   unfold tweakLow; rw [digestHeader_toNat]; exact Nat.mul_mod_left _ _⟩,
-  by simp [digestTrial, digestInput, pad64, bytesLE_length]⟩
+ ⟨digestHeader _, queryHeader_digest .., Or.inl ⟨digestHeader_marker _, digestHeader_lowNat _⟩⟩
 theorem avoids_shortHash_of_ne (secret : BitVec 256) (target input : HashInput)
  (hne : pad64 input ≠ target) : Avoids secret target (shortHash input) := by
  unfold shortHash
- apply avoids_bind
- · exact (allQueriesSatisfy_query_iff _ _).mpr hne
- · intro _; exact avoids_pure _ _ _
-theorem avoids_projHash_of_ne (secret : BitVec 256) (target input : HashInput) (high : Bool)
- (hne : pad64 input ≠ target) : Avoids secret target (projHash high input) := by
- unfold projHash
  apply avoids_bind
  · exact (allQueriesSatisfy_query_iff _ _).mpr hne
  · intro _; exact avoids_pure _ _ _
@@ -1674,54 +1650,6 @@ theorem hasTag_not_search {tag : Nat} {input target : HashInput} (hi : HasTag ta
  exact searchQ_ne h (header_not_search _ _ _ _ _ h2) ht
 attribute [aesop safe apply] avoids_pure avoids_bind avoids_map avoids_mapM avoids_foldlM
 macro "avoids_search" : tactic => `(tactic| aesop (config := { maxRuleApplications := 1000 }))
-/-- `avoids_bind` with the continuation needed only on the support of the first program. -/
-theorem avoids_bind_of_support {α β : Type} {secret : BitVec 256} {target : HashInput} {program : M α}
- {next : α → M β} (hp : Avoids secret target program)
- (hn : ∀ a ∈ support program, Avoids secret target (next a)) : Avoids secret target (program >>= next) := by
- induction program using OracleComp.inductionOn with
- | pure a =>
-   rw [pure_bind]
-   exact hn a (by simp)
- | query_bind t mx ih =>
-   rw [bind_assoc]
-   change AllQueriesSatisfy _ _ at hp ⊢
-   rw [allQueriesSatisfy_query_bind_iff] at hp ⊢
-   refine ⟨hp.1, fun u => ih u (hp.2 u) fun a ha => hn a ?_⟩
-   rw [mem_support_bind_iff]
-   exact ⟨u, by simp, ha⟩
-theorem mem_support_foldlM_range'_inv {α : Type} (f : α → Nat → M α) (Inv : Nat → α → Prop)
- (hstep : ∀ k a, Inv k a → ∀ a' ∈ support (f a k), Inv (k + 1) a') :
- ∀ (n s : Nat) (init : α), Inv s init → ∀ x ∈ support ((List.range' s n).foldlM f init), Inv (s + n) x
- | 0, s, init, h, x, hx => by
-   rw [List.range'_zero, List.foldlM_nil] at hx
-   simp only [support_pure, Set.mem_singleton_iff] at hx
-   subst hx; simpa using h
- | n + 1, s, init, h, x, hx => by
-   rw [List.range'_succ, List.foldlM_cons, mem_support_bind_iff] at hx
-   obtain ⟨a, ha, hx⟩ := hx
-   have := mem_support_foldlM_range'_inv f Inv hstep n (s + 1) a (hstep s init h a ha) x hx
-   simpa [Nat.add_assoc, Nat.add_comm 1 n] using this
-theorem mem_support_foldlM_range_inv {α : Type} (f : α → Nat → M α) (Inv : Nat → α → Prop)
- (hstep : ∀ k a, Inv k a → ∀ a' ∈ support (f a k), Inv (k + 1) a') (n : Nat) (init : α) (h : Inv 0 init)
- (x : α) (hx : x ∈ support ((List.range n).foldlM f init)) : Inv n x := by
- rw [List.range_eq_range'] at hx
- simpa using mem_support_foldlM_range'_inv f Inv hstep n 0 init h x hx
-/-- WOTS leaf inputs are longer than one block (so never a 64-byte search trial, although the leaf tweak
-equals the row tweak as a value under campaign S1). -/
-theorem leafInput_length_gt (lay : Layer) (tree leaf : Nat) (ends : List Digest)
- (hlen : ends.length = chainCount lay) : 64 < (leafInput lay tree leaf ends).length := by
- have hc : 43 ≤ chainCount lay := by fin_cases lay <;> decide
- unfold leafInput
- split
- · simp only [List.length_append, bytesLE_length, zero16, List.length_replicate, digest_list_bytes_length, hlen]
-   omega
- · simp only [List.length_append, bytesLE_length, digest_list_bytes_length, List.length_drop, hlen]
-   omega
-theorem pad64_leafInput_length_ne (lay : Layer) (tree leaf : Nat) (ends : List Digest)
- (hlen : ends.length = chainCount lay) : (pad64 (leafInput lay tree leaf ends)).length ≠ 64 := by
- have := leafInput_length_gt lay tree leaf ends hlen
- simp only [pad64, List.length_append, List.length_replicate]
- omega
 section NonSearch
 variable (secret : BitVec 256) (target : HashInput) (ht : SearchQ target)
 include ht
@@ -1750,57 +1678,30 @@ include ht
  unfold chain
  apply avoids_foldlM
  intro value step
- apply avoids_projHash_of_ne
+ apply avoids_shortHash_of_ne
  have hh : queryHeader (pad64 (chainInput lay tree leaf i step value)) =
      bytesLE 16 (chainHeader lay tree leaf i step) := by
    simpa only [chainInput, List.append_assoc] using
      queryHeader_padded zero16 (zero16 ++ bytesLE 16 value) (by simp [zero16])
        (chainHeader lay tree leaf i step)
  exact searchQ_ne hh (chainHeader_not_search lay tree leaf i step) ht
-theorem avoids_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest)
- (hlen : ends.length = chainCount lay) :
+@[aesop safe apply] theorem avoids_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
  Avoids secret target (leafHash lay tree leaf ends) := by
  unfold leafHash
- apply avoids_projHash_of_ne
- exact searchQ_ne_length (pad64_leafInput_length_ne lay tree leaf ends hlen) ht
+ apply avoids_shortHash_of_ne
+ exact searchQ_ne (queryHeader_leafInput ..) (leafTweak_not_search lay tree leaf) ht
 @[aesop safe apply] theorem avoids_nodeHash (tag lay tree heap : Nat) (left right : Digest)
- (h2 : tag%256 ≠ 2) (hroot : tag = 3 → 1 ≤ lay → lay < 4 → heap % 128 ≠ 1) :
+ (h2 : tag%256 ≠ 2) (hroot : tag = 3 → 1 ≤ lay → lay < 4 → heap % 2 ^ 64 ≠ 1) :
  Avoids secret target (nodeHash tag lay tree heap left right) := by
  unfold nodeHash
- apply avoids_projHash_of_ne
+ apply avoids_shortHash_of_ne
  apply searchQ_ne _ (nodeTweak_not_search tag lay tree heap h2 hroot) ht
  simpa only [List.append_assoc] using
    (queryHeader_padded (bytesLE 16 left) (zero16 ++ bytesLE 16 right) (bytesLE_length ..)
      (nodeTweak tag lay tree heap))
 @[aesop safe apply] theorem avoids_buildLeaf (lay : Layer) (tree leaf : Nat) (digits : List Nat)
  (signatureOnly : Bool) : Avoids secret target (buildLeaf lay tree leaf digits signatureOnly) := by
- cases signatureOnly
- · unfold buildLeaf
-   refine avoids_bind_of_support (by avoids_search) fun state hs => ?_
-   have hinv := mem_support_foldlM_range_inv _
-     (fun k (st : List Digest × List Digest) => st.1.length = min (2 * k) (chainCount lay))
-     (fun k a ha a' ha' => by
-       rw [mem_support_bind_iff] at ha'
-       obtain ⟨seeds, -, ha'⟩ := ha'
-       have h2 := mem_support_foldlM_range_inv _
-         (fun h (st : List Digest × List Digest) => st.1.length = min (2 * k + h) (chainCount lay))
-         (fun h b hb b' hb' => by
-           try dsimp only at hb hb' ⊢
-           split at hb'
-           · simp only [support_pure, Set.mem_singleton_iff] at hb'
-             subst hb'; omega
-           · simp only [mem_support_bind_iff, support_pure, Set.mem_singleton_iff, Bool.false_eq_true,
-               ite_false] at hb'
-             obtain ⟨_, -, _, -, rfl⟩ := hb'
-             simp only [List.length_append, List.length_singleton]; omega)
-         2 a (by simpa using ha) a' ha'
-       try dsimp only at h2 ⊢
-       omega)
-     _ ([], []) (by simp) state hs
-   have hlen : state.1.length = chainCount lay := by (try dsimp only at hinv); omega
-   simp only [Bool.false_eq_true, ite_false]
-   exact avoids_bind (avoids_leafHash secret target ht lay tree leaf _ hlen) fun _ => avoids_pure _ _ _
- · unfold buildLeaf; avoids_search
+ unfold buildLeaf; avoids_search
 @[aesop safe apply] theorem avoids_buildLevel (tag lay tree h level : Nat) (nodes : List Digest)
  (h2 : tag%256 ≠ 2) (hlow : tag = 3 → lay = 0 ∨ 4 ≤ lay) :
  Avoids secret target (buildLevel tag lay tree h level nodes) := by
@@ -1817,22 +1718,7 @@ theorem avoids_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest)
  unfold topCoefs topSeedPair; avoids_search
 @[aesop safe apply] theorem avoids_buildLeafTop (leaf : Nat) (digits : List Nat) (signatureOnly : Bool) :
  Avoids secret target (buildLeafTop leaf digits signatureOnly) := by
- cases signatureOnly
- · unfold buildLeafTop
-   refine avoids_bind (avoids_topCoefs secret target ht leaf) fun coefs => ?_
-   refine avoids_bind_of_support (by avoids_search) fun state hs => ?_
-   have hinv := mem_support_foldlM_range_inv _
-     (fun k (st : List Digest × List Digest) => st.1.length = k)
-     (fun k a ha a' ha' => by
-       try dsimp only at ha ha' ⊢
-       simp only [mem_support_bind_iff, support_pure, Set.mem_singleton_iff, Bool.false_eq_true,
-         ite_false] at ha'
-       obtain ⟨_, -, _, -, rfl⟩ := ha'
-       simp only [List.length_append, List.length_singleton]; omega)
-     _ ([], []) (by simp) state hs
-   simp only [Bool.false_eq_true, ite_false]
-   exact avoids_bind (avoids_leafHash secret target ht 0 0 leaf _ hinv) fun _ => avoids_pure _ _ _
- · unfold buildLeafTop; avoids_search
+ unfold buildLeafTop; avoids_search
 @[aesop safe apply] theorem avoids_buildTopTree : Avoids secret target buildTopTree := by
  unfold buildTopTree; avoids_search
 @[aesop safe apply] theorem avoids_ftsLeaf (index coord leaf : Nat) (value : Digest) :
@@ -2021,8 +1907,6 @@ attribute [aesop safe apply] hashOnly_pure hashOnly_bind hashOnly_map hashOnly_m
 macro "hashes" : tactic => `(tactic| aesop (config := { maxRuleApplications := 1000 }))
 @[aesop safe apply] theorem hashOnly_shortHash (input : HashInput) : HashOnly (shortHash input) := by
  unfold shortHash; hashes
-@[aesop safe apply] theorem hashOnly_projHash (high : Bool) (input : HashInput) : HashOnly (projHash high input) := by
- unfold projHash; hashes
 @[aesop safe apply] theorem hashOnly_privatePair (tag lay tree position index : Nat) :
  HashOnly (privatePair tag lay tree position index) := by
  unfold privatePair; hashes
@@ -2035,6 +1919,8 @@ macro "hashes" : tactic => `(tactic| aesop (config := { maxRuleApplications := 1
 @[aesop safe apply] theorem hashOnly_chain (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
  HashOnly (chain lay tree leaf i start count value) := by
  unfold chain; hashes
+@[aesop safe apply] theorem hashOnly_projHash (high : Bool) (input : HashInput) : HashOnly (projHash high input) := by
+ unfold projHash; hashes
 @[aesop safe apply] theorem hashOnly_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
  HashOnly (leafHash lay tree leaf ends) := by unfold leafHash; hashes
 @[aesop safe apply] theorem hashOnly_nodeHash (tag lay tree heap : Nat) (left right : Digest) :

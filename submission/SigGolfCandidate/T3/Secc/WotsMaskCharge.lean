@@ -47,7 +47,7 @@ theorem sum_map_one {β : Type} (l : List β) : (l.map fun _ => 1).sum = l.lengt
 theorem queried_length_chain (T : Answers) (lay : Layer) (tree leaf i start count : Nat) (v : Digest) :
     (SourceReplay.queried T (chain lay tree leaf i start count v)).length = count := by
   unfold chain
-  rw [queried_length_foldlM T _ _ (fun _ => 1) (fun _ _ _ => queried_length_projHash _ _ _), sum_map_one,
+  rw [queried_length_foldlM T _ _ (fun _ => 1) (fun _ _ _ => queried_length_shortHash _ _), sum_map_one,
     List.length_range']
 def halfCount (lay : Layer) (digits : List Nat) (signatureOnly : Bool) (i : Nat) : Nat :=
   if chainCount lay ≤ i then 0

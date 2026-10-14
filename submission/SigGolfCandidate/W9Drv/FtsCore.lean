@@ -937,35 +937,21 @@ theorem coord_good (chains : N600.AllGood Frozen.layout)
 /-- The end of the nested FTS: coordinate 8 has handed its top pair to the virtual region below it. -/
 theorem fts_final (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
     (pairs : List (Digest × Digest)) (u : MachineState) (hu : CoordPre pk w a 9 pairs u) :
-    FtsOut ⟨pk, w, a⟩ (prevOf w pairs) u where
-  glob := hu.glob
-  idx := hu.index
-  pc := hu.pc
-  left := by
-    have h := hu.prevL
+    FtsOut ⟨pk, w, a⟩ (prevOf w pairs) u := by
+  refine ⟨hu.glob, hu.index, ?_, ?_, ?_, ?_, ?_, hu.hashLen, hu.heaps 6 (by decide) (by decide), hu.stepOne,
+    hu.stepTwo, hu.heaps 7 (by decide) (by decide), hu.heaps 3 (by decide) (by decide),
+    hu.heaps 4 (by decide) (by decide), hu.heaps 5 (by decide) (by decide), hu.coordStep, hu.pairPtr,
+    hu.bank.top, hu.bank.top8, ?_, hu.d0⟩
+  · exact hu.pc
+  · have h := hu.prevL
     rwa [show regionAddr 9 + 720 = WIT by unfold regionAddr WIT; rfl] at h
-  right := by
-    have h := hu.prevR
+  · have h := hu.prevR
     rwa [show regionAddr 9 + 864 = WIT + 144 by unfold regionAddr WIT; rfl] at h
-  wit := hu.layer
-  base := by rw [hu.baseReg]; rfl
-  a1 := hu.hashLen
-  a2 := by
-    rcases hu.a2 (by decide) with h | h
-    · left; rw [h]; rfl
-    · right; rw [h]; rfl
-  d0 := hu.d0
-  s10 := hu.heaps 6 (by decide) (by decide)
-  heapOne := hu.stepOne
-  heapTwo := hu.stepTwo
-  heapSeven := hu.heaps 7 (by decide) (by decide)
-  heapThree := hu.heaps 3 (by decide) (by decide)
-  heapFour := hu.heaps 4 (by decide) (by decide)
-  heapFive := hu.heaps 5 (by decide) (by decide)
-  coordStep := hu.coordStep
-  topBase := hu.pairPtr
-  top := hu.bank.top
-  top8 := hu.bank.top8
+  · exact hu.layer
+  · rw [hu.baseReg]; rfl
+  · have h := hu.a2 (by decide)
+    rwa [show regionAddr 9 + 704 = 1200 by unfold regionAddr; rfl,
+      show regionAddr 9 + 848 = 1344 by unfold regionAddr; rfl] at h
 def finishN (w : ClaudeWCT.W9.T3M.WBytes) (state : Option (List (Digest × Digest))) :
     M (Option (Digest × Digest)) :=
   match state with
@@ -1151,7 +1137,7 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open OracleComp
 open SigGolfCandidate.T3 (Digest HashOutput M shortHash header)
 open SphincsSecurity (bytesLE bytesLE_length)
-theorem nodeHdr_canonical (k : Fin 9) (index heap : Nat) (hp : BitVec 64) (hh1 : 1 ≤ heap) (hh2 : heap < 2 ^ 64) :
+theorem nodeHdr_canonical (k : Fin 9) (index heap : Nat) (hp : BitVec 64) :
     V3.nodeHdr k.val index heap hp =
       SigGolfCandidate.T3M.SecurityInputs.withHigh
         (SigGolfCandidate.T3.nodeTweak 3 (ClaudeWCT.WCT9.nodeLayer k.val) index heap) hp := by
@@ -1166,7 +1152,10 @@ theorem nodeHdr_canonical (k : Fin 9) (index heap : Nat) (hp : BitVec 64) (hh1 :
   by_cases hn : SigGolfCandidate.T3.FtsNew heap
   · have hm := SigGolfCandidate.T3.ftsNodeWordH_marker hn (4 + k.val - 4) index
     rw [if_pos (show 8 ≤ heap ∧ heap < 128 from hn), SigGolfCandidate.T3.nodeTweak_ftsN (by omega) (by omega) _ hn,
-      if_pos (by rw [BitVec.extractLsb'_append_eq_left]; rfl),
+      if_pos (by rw [SigGolfCandidate.T3.append64_toNat]
+                 obtain ⟨h8, h128⟩ := hn
+                 have h0 : (0#64).toNat = 0 := rfl
+                 omega),
       SigGolfCandidate.T3.append64_low]
     congr 1
     unfold SigGolfCandidate.T3.ftsNodeWordH
@@ -1175,13 +1164,7 @@ theorem nodeHdr_canonical (k : Fin 9) (index heap : Nat) (hp : BitVec 64) (hh1 :
     congr 1
     omega
   · rw [if_neg (show ¬ (8 ≤ heap ∧ heap < 128) from hn), SigGolfCandidate.T3.nodeTweak_fts (by omega) (by omega) _ hn,
-      if_neg (by
-        rw [BitVec.extractLsb'_append_eq_left]
-        intro h0
-        have := congrArg BitVec.toNat h0
-        rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt hh2] at this
-        simp at this
-        omega),
+      if_neg (by rw [SigGolfCandidate.T3.append64_toNat, SigGolfCandidate.T3.ftsNodeWord_toNat]; omega),
       show 4 + k.val - 4 = k.val by omega]
     have hw : BitVec.ofNat 64 (V3.nodeLow k.val index) = SigGolfCandidate.T3.ftsNodeWord k.val index := by
       apply BitVec.eq_of_toNat_eq
@@ -1216,14 +1199,13 @@ theorem blkOff_auth6 (child l : Nat) (hl : l < 6) : V3.blkOff child l = ClaudeWC
   · rw [show l = 5 by omega, ClaudeWCT.W9.T3M.authBase_five]
     unfold V3.blkOff
     rfl
-theorem nodeInput_canonical (k : Fin 9) (index heap : Nat) (left : Digest) (hp : BitVec 64) (pad right : Digest)
-    (hh1 : 1 ≤ heap) (hh2 : heap < 2 ^ 64) :
+theorem nodeInput_canonical (k : Fin 9) (index heap : Nat) (left : Digest) (hp : BitVec 64) (pad right : Digest) :
     V3.hashSel (ClaudeWCT.WCT9.ftsHighHeap heap) (V3.nodeInput k.val index heap left hp pad right) =
       ClaudeWCT.W9.T3M.wctNodeHashP k.val index heap left hp pad right := by
   rw [hashSel_ftsHash]
   unfold V3.nodeInput ClaudeWCT.W9.T3M.wctNodeHashP SigGolfCandidate.T3M.SecurityInputs.nodeInputPH
     SigGolfCandidate.T3M.SecurityInputs.block4
-  rw [nodeHdr_canonical k index heap hp hh1 hh2]
+  rw [nodeHdr_canonical]
 theorem leafInput_canonical (k index j : Nat) (pad : Digest) (ends : List Digest) (h : ends.length = 6) :
     V3.hashSel (ClaudeWCT.WCT9.ftsHighHeap (128 + j)) (V3.leafInput k index j pad ends) =
       ClaudeWCT.WCT9.leafHashP index k j pad ends := by
@@ -1243,17 +1225,16 @@ theorem finRange_map_val (n : Nat) : (List.finRange n).map Fin.val = List.range 
   apply List.ext_getElem (by simp)
   intro i h1 h2
   simp
-theorem topInput_canonical (k : Fin 9) (index j : Nat) (hj : j < 128) (left pad right : Digest) :
+theorem topInput_canonical (k : Fin 9) (index j : Nat) (left pad right : Digest) :
     V3.nodeInput k.val index ((128 + j) / 2 ^ 6) left 0 pad right =
       ClaudeWCT.WCT9.wctTopInput k.val index (2 + j / 2 ^ 6) left pad right := by
   have hh : (128 + j) / 2 ^ 6 = 2 + j / 2 ^ 6 := by omega
   unfold V3.nodeInput ClaudeWCT.WCT9.wctTopInput ClaudeWCT.WCT9.wctNodeHeader
-  rw [hh, nodeHdr_canonical k index (2 + j / 2 ^ 6) 0 (by omega) (by omega),
-    SigGolfCandidate.T3M.SecurityInputs.withHigh_nodeTweak_zero]
-theorem hashHi_top (k : Fin 9) (index j : Nat) (hj : j < 128) (left pad right : Digest) :
+  rw [hh, nodeHdr_canonical, SigGolfCandidate.T3M.SecurityInputs.withHigh_nodeTweak_zero]
+theorem hashHi_top (k : Fin 9) (index j : Nat) (left pad right : Digest) :
     V3.hashHi (V3.nodeInput k.val index ((128 + j) / 2 ^ 6) left 0 pad right) =
       ClaudeWCT.WCT9.wctTopHash k.val index (2 + j / 2 ^ 6) left pad right := by
-  rw [topInput_canonical k index j hj]
+  rw [topInput_canonical]
   rfl
 theorem sibling_eq (w : ClaudeWCT.W9.T3M.WBytes) (k j l : Nat) (hl : l < 6) :
     V3.sibling w k j l = ClaudeWCT.W9.T3M.wsib w k j l := by
@@ -1304,12 +1285,8 @@ theorem fold5_canonical (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9) 
   congr 1
   funext value level
   have hl := level.isLt
-  have hh : 2 ^ (6 - level.val) + j.val / 2 ^ (level.val + 1) < 2 ^ 32 := by
-    have hj := j.isLt
-    interval_cases (level.val) <;> omega
   rw [hiOut_heap j.val (level.val + 1) j.isLt (by omega), heap_eq j.val level.val j.isLt (by omega),
-    nodeInput_canonical k index _ _ _ _ _
-      (Nat.le_trans Nat.one_le_two_pow (Nat.le_add_right _ _)) (lt_trans hh (by norm_num)),
+    nodeInput_canonical k index _ _ _ _ _,
     sibling_eq w k.val j.val level.val (by omega), nodeHPad_eq w k.val j.val level.val hl,
     nodePad_eq w k.val j.val level.val (by omega)]
   by_cases hb : j.val / 2 ^ level.val % 2 = 0 <;> simp [hb]
@@ -1331,7 +1308,7 @@ theorem coordN_canonical (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9)
   rw [fold5_canonical]
   congr 1
   funext value
-  rw [hashHi_top k _ j.val j.isLt, sibling_eq w k.val j.val 5 (by decide), topOther_eq]
+  rw [hashHi_top, sibling_eq w k.val j.val 5 (by decide), topOther_eq]
   have hb5 : j.val / 32 % 2 = 0 ∨ j.val / 32 % 2 = 1 := by omega
   have hb6 : j.val / 64 % 2 = 0 ∨ j.val / 64 % 2 = 1 := by omega
   rcases hb5 with hb5 | hb5 <;> rcases hb6 with hb6 | hb6 <;>

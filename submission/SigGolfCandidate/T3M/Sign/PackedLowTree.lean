@@ -127,15 +127,16 @@ theorem blk1193_spec (s : MachineState) (hpc : s.pc = pcOf 1193) (lay tree : Nat
     · simp only [Result.toState_getReg, SeedIndependent.blkS_hpm.res]
       t3n [g8, g9]
       unfold Keygen.nodeLo
-      rw [if_neg (by omega), T3.hyperWord_toNat]
+      rw [if_neg (by omega), BitVec.ofNat_toNat, BitVec.setWidth_eq]
       have hl : BitVec.ofNat 64 ((lay + 18446744073709551615) * 281474976710656) =
           BitVec.ofNat 64 ((lay - 1) * 281474976710656) := by
         apply BitVec.eq_of_toNat_eq; simp only [BitVec.toNat_ofNat]; omega
-      rw [hl, show (512#64) = BitVec.ofNat 64 512 from rfl,
-        ofNat_or_disjoint 512 (tree * 65536) 16 (by decide) (by omega),
+      rw [hl, show (513#64) = BitVec.ofNat 64 513 from rfl,
+        ofNat_or_disjoint 513 (tree * 65536) 16 (by decide) (by omega),
         ofNat_or_disjoint' _ ((lay - 1) * 281474976710656) 48 (by omega) (by omega),
         show (13907115649320091648#64) = BitVec.ofNat 64 (193 * 2 ^ 56) from rfl,
         ofNat_or_disjoint' _ (193 * 2 ^ 56) 56 (by omega) (by omega)]
+      unfold T3.hyperWord
       congr 1
       rw [Nat.mod_eq_of_lt htree, Nat.mod_eq_of_lt (by omega : lay - 1 < 256)]
       omega
@@ -413,7 +414,7 @@ def btBodyP (leafFn : LeafFn) (lay : Layer) (tree sel : Nat) (ds : List Nat)
 def buildTreeP (leafFn : LeafFn) (lay : Layer) (tree sel : Nat) (ds : List Nat) :
     T3.M (List (List Digest) × List Digest) := do
   let state ← (List.range (2 ^ height lay)).foldlM (btBodyP leafFn lay tree sel ds) ([], [], 0)
-  let levels ← ClaudeWCT.WCT9.buildLevelsBelow 3 lay.val tree (height lay) state.1
+  let levels ← Seed.levelsBelowW lay.val tree (height lay) state.1
   pure (levels, state.2.1)
 section loop
 variable {sk : SecretKey} {cache : Bytes 131072} {lay : Layer} {tree sel : Nat} {ds : List Nat} {sb : Nat}
@@ -736,14 +737,14 @@ theorem heapH_sib {H sel i : Nat} (hi : i < H) :
   rw [h2, Nat.add_comm, Nat.add_mul_div_right _ _ (Nat.two_pow_pos i), Nat.add_comm,
     two_pow_add_xor_one (by omega)]
 theorem btLev_costs (lay : Layer) (hlay : lay ≠ 0) (tree : Nat) :
-    Seed.levKB (btLev lay tree) ≤ Seed.levCB (btLev lay tree) ∧ Seed.levCB (btLev lay tree) ≤ 5889 := by
+    Seed.levKB (btLev lay tree) ≤ Seed.levCB (btLev lay tree) ∧ Seed.levCB (btLev lay tree) ≤ 6609 := by
   rcases height_low hlay with h | h <;> simp only [Seed.levKB, Seed.levCB, btLev, h] <;> decide
 theorem bt_tail {sk : SecretKey} {cache : Bytes 131072} {lay : Layer} {tree sel : Nat} {ds : List Nat}
     {sb ret : Nat} {s s1 t : MachineState} (hs : BtPre sk cache lay tree sel ds sb s1)
     (h4 : s1.getReg .x4 = pcOf ret) (hr0 : RegsExcept s s1 [.x4, .x13]) (hf0 : Frame s s1 (fun _ => False))
     {st : List Digest × List Digest} (ht : BtInv s1 sb sel (height lay) (2 ^ height lay) st t) :
     TBSim image sk t 19000 (do
-      let levels ← ClaudeWCT.WCT9.buildLevelsBelow 3 lay.val tree (height lay) st.1
+      let levels ← Seed.levelsBelowW lay.val tree (height lay) st.1
       pure (levels, st.2)) (BtPost sk cache lay tree sel sb ret s) := by
   have hlay := hs.hlay
   have hH := height_low hlay
@@ -795,7 +796,8 @@ theorem bt_tail {sk : SecretKey} {cache : Bytes 131072} {lay : Layer} {tree sel 
         exact ht.roots.frame (t1f.trans t2f) (by rw [ht.len]; packed_sgo) (fun _ _ _ h => by
           rcases h with h | h <;> exact h) }
   have hlev := Seed.buildLevelsBelow_tsim SeedIndependent.seedIndependentAt_sign sk hlp
-    (by show height lay ≤ 7; exact hH7) (by show 2 ≤ height lay; rcases hH with h | h <;> omega) t2pc
+    (by show 1 ≤ lay.val; exact Nat.pos_of_ne_zero (fun h => hlay (Fin.ext h)))
+    (by show 2 ≤ height lay; rcases hH with h | h <;> omega) t2pc
   obtain ⟨hlk, hlc⟩ := btLev_costs lay hlay tree
   refine TBSim.mono (TBSim.steps (st1.trans st2) (TBSim.bind (W₂ := 120) (TSim.toTBSim hlev hlk)
     (fun levels u hu => ?_))) (by omega) (fun _ _ h => h)

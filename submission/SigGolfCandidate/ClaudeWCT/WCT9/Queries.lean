@@ -309,9 +309,9 @@ theorem ftsBound_forestRows (output : HashOutput) :
   unfold openingStep
   exact (ftsBound_buildCoordinateF index _ _ _ _).bind' (l := 0)
     (fun result _ => .pure _ 0 ⟨by simp [hstate.1], by simp [hstate.2]⟩) (by decide)
-/-- The nested FTS needs 31329 compressions; the stated bound keeps the old 31334 (5 to spare). -/
+/-- The nested FTS needs 31329 compressions; the stated bound keeps the old 31329 (5 to spare). -/
 theorem ftsBound_signForest (output : HashOutput) :
-    Bound (FtsQuery index) (fun result : List Opening × (Digest × Digest) => result.1.length = 9) 31334
+    Bound (FtsQuery index) (fun result : List Opening × (Digest × Digest) => result.1.length = 9) 31329
       (signForest index output) := by
   unfold signForest
   exact (ftsBound_forestRows index output).bind' (l := 0) (fun state hstate => .pure _ 0 hstate.1) (by decide)

@@ -175,8 +175,8 @@ def L0W (A : Nat) : Prop :=
 coefficients at `0x61000`). -/
 def TopScr (A : Nat) : Prop := 0x60000 ≤ A ∧ A < 0x61180
 /-- Cycle bound of one signature-only top leaf (prologue, COEFGEN, 54 x (HORN + chain), exit). -/
-def topLeafC : Nat := 229100
-def L0Cost : Nat := counterLimit * 270 + topLeafC + 40000
+def topLeafC : Nat := 225300
+def L0Cost : Nat := counterLimit * 270 + topLeafC + 38800
 /-- Campaign T8D (NF17): the top leaf with family seeds (`T3.buildLeafTop`). -/
 def TopLeafSpec : Prop :=
   ∀ (sk : SecretKey) (A : LeafArgs) (s : MachineState),

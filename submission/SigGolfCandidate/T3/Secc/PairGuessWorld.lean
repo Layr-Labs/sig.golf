@@ -1,6 +1,5 @@
 import SigGolfCandidate.SphincsSecurity.Proof.Forced.SecretGuessForced
-import SigGolfCandidate.T3.Secc.SeccLaw
-import SigGolfCandidate.T3.Secc.WotsEvents
+import SigGolfCandidate.T3.Secc.CanonGraph
 import SigGolfCandidate.T3.Secc.WotsReference
 import SigGolfCandidate.SphincsSecurity.Proof.Forced.SecretGuessErasure
 
@@ -195,17 +194,100 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
+abbrev FtsCoord := Fin (2^31) × Fin 7 × Fin 2048
+def toLeafPos (f : FtsCoord) : CanonGraph.FtsLeafPos := ⟨f.1, f.2.1, f.2.2⟩
+def ofLeafPos (p : CanonGraph.FtsLeafPos) : FtsCoord := (p.index, p.coord, p.leaf)
+@[simp] theorem ofLeafPos_toLeafPos (f : FtsCoord) : ofLeafPos (toLeafPos f) = f := rfl
+@[simp] theorem toLeafPos_ofLeafPos (p : CanonGraph.FtsLeafPos) : toLeafPos (ofLeafPos p) = p := rfl
+abbrev WState := SecretGuessObservation.State FtsCoord Digest PUnit
+def init : WState := SecretGuessObservation.initialState PUnit.unit
+theorem card_digest : Fintype.card Digest = 2 ^ 128 := by simp
+def probeInput (f : FtsCoord) (c : Digest) : HashInput :=
+  pad64 (ftsLeafInputP f.1.val f.2.1.val f.2.2.val 0 c 0)
+theorem probeInput_eq (f : FtsCoord) (c : Digest) :
+    probeInput f c = block4 0 (header 9 f.2.1.val f.1.val 0 f.2.2.val) c 0 := by
+  unfold probeInput ftsLeafInputP
+  exact pad64_block4 _ _ _ _
+@[simp] theorem probeInput_length (f : FtsCoord) (c : Digest) : (probeInput f c).length = 64 := by
+  rw [probeInput_eq]; exact block4_length _ _ _ _
+noncomputable def decodeProbe (x : HashInput) : Option (FtsCoord × Digest) :=
+  haveI := Classical.propDecidable (∃ p : FtsCoord × Digest, x = probeInput p.1 p.2)
+  if h : ∃ p : FtsCoord × Digest, x = probeInput p.1 p.2 then some (Classical.choose h) else none
+def secretAt (answers : Answers) (f : FtsCoord) : Digest := CanonGraph.ftsSecretOf answers (toLeafPos f)
+def secretNat (answers : Answers) (index coord leaf : Nat) : Digest :=
+  let pair := evalWithAnswerFn answers (privatePair 8 coord index 0 (leaf / 2))
+  if leaf % 2 = 0 then pair.1 else pair.2
 section Rows
 attribute [local irreducible] SigGolfCandidate.T3.buildFts SigGolfCandidate.T3.buildLevels Correctness.ftsRows
+theorem eval_ftsRows_secrets (answers : Answers) (index coord : Nat) :
+    (evalWithAnswerFn answers (Correctness.ftsRows index coord)).2.length = 2048 ∧
+      ∀ leaf, leaf < 2048 →
+        (evalWithAnswerFn answers (Correctness.ftsRows index coord)).2.getD leaf 0 =
+          secretNat answers index coord leaf := by
+  unfold Correctness.ftsRows
+  refine Correctness.eval_foldlM_range_inv answers 1024 _
+    (fun pairs (rows : List Digest × List Digest) => rows.2.length = 2 * pairs ∧
+      ∀ leaf, leaf < 2 * pairs → rows.2.getD leaf 0 = secretNat answers index coord leaf)
+    ([], []) ⟨rfl, fun leaf h => by omega⟩ (fun pair _ rows hrows => ?_)
+  simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+  obtain ⟨hlen, hget⟩ := hrows
+  refine ⟨by simp [hlen]; omega, ?_⟩
+  intro leaf hleaf
+  by_cases hold : leaf < 2 * pair
+  · rw [List.getD_append _ _ _ _ (by rw [hlen]; exact hold)]
+    exact hget leaf hold
+  · rw [List.getD_append_right _ _ _ _ (by rw [hlen]; omega), hlen]
+    have he : leaf = 2 * pair ∨ leaf = 2 * pair + 1 := by omega
+    rcases he with rfl | rfl
+    · simp only [Nat.sub_self, List.getD_cons_zero, secretNat]
+      rw [show 2 * pair / 2 = pair by omega, if_pos (by omega)]
+    · simp only [show 2 * pair + 1 - 2 * pair = 1 by omega, secretNat]
+      rw [show (2 * pair + 1) / 2 = pair by omega, if_neg (by omega)]
+      rfl
+theorem buildFts_secret (answers : Answers) (index coord leaf : Nat) (hleaf : leaf < 2048) :
+    (evalWithAnswerFn answers (buildFts index coord)).2.getD leaf 0 = secretNat answers index coord leaf := by
+  rw [Correctness.buildFts_eq]
+  simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+  exact (eval_ftsRows_secrets answers index coord).2 leaf hleaf
 end Rows
-abbrev FtsCoord := Fin (2^31) × Fin 7 × Fin 2048
+theorem honestInput_ftsLeaf (answers : Answers) (f : FtsCoord) :
+    Extract.honestInput answers (.ftsLeaf f.1.val f.2.1.val f.2.2.val) = probeInput f (secretAt answers f) := by
+  simp only [Extract.honestInput]
+  have h := buildFts_secret answers f.1.val f.2.1.val f.2.2.val f.2.2.isLt
+  unfold Extract.ftsSecret
+  rw [h]
+  rfl
 def leafIndex (bucket leaf : Nat) : Fin 2048 := ⟨(bucket * 128 + leaf) % 2048, Nat.mod_lt _ (by decide)⟩
 def outputIndex (output : HashOutput) : Fin (2^31) := ⟨output.toNat % 2 ^ 31, Nat.mod_lt _ (by positivity)⟩
 def openedPositions (output : HashOutput) : List FtsCoord :=
   (List.finRange 7).flatMap fun c =>
     ((selections output).getD c.val ⟨0, []⟩).leaves.map fun leaf =>
       (outputIndex output, c, leafIndex ((selections output).getD c.val ⟨0, []⟩).bucket leaf)
+noncomputable def signedOutput (answers : Answers) (message : Message) (signature : Signature) :
+    Option HashOutput :=
+  (evalWithAnswerFn answers (digestSearch signature.rho message 0 attemptLimit)).map Prod.snd
+def Disclosed (answers : Answers) (log : QueryLog Requests) (f : FtsCoord) : Prop :=
+  ∃ entry ∈ log, ∃ signature output, entry.2 = some signature ∧
+    signedOutput answers entry.1.message signature = some output ∧ f ∈ openedPositions output
 noncomputable def pairTerm (q : Nat) : ENNReal := (q.choose 2 : ENNReal) * ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ ^ 2
+noncomputable def guessTerm (q : Nat) : ENNReal := (q : ENNReal) * ((2 ^ 128 - q : Nat) : ENNReal)⁻¹
+section World
+variable (U : Finset HashInput) (hU : CanonGraph.canonInputs ⊆ U)
+structure Omega where
+  seeds : ChainGraph.Seeds
+  other : CanonGraph.OtherHalves
+  labels : CanonGraph.Labels
+  residual : U → HashOutput
+variable {U}
+def Omega.secrets (ω : Omega U) (fts : FtsCoord → Digest) : CanonGraph.Secrets
+  | .inl a => ω.seeds a
+  | .inr p => fts (ofLeafPos p)
+noncomputable def Omega.answers (ω : Omega U) (fts : FtsCoord → Digest) : Answers :=
+  CanonGraph.eagerAnswers (CanonGraph.privateEquiv.symm (ω.secrets fts, ω.other)) U
+    (CanonGraph.programmed U hU (ω.secrets fts) ω.labels ω.residual)
+def overwrite (positions : List FtsCoord) (values : List Digest) (f : FtsCoord) : Digest :=
+  ((positions.zip values).find? (fun pv => decide (pv.1 = f))).elim 0 Prod.snd
+end World
 end SigGolfCandidate.T3.Security.BPair
 end
 end

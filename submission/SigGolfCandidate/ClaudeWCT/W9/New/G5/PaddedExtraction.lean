@@ -37,9 +37,11 @@ theorem hit_recorded {α : Type} (program : M α) (hp : Security.SourceReplay.Ha
   obtain ⟨prior, hevent⟩ := SigGolfCandidate.T3.Security.PaddedExtraction.public_occurrence program hp before
     result hr answers ha actual hquery
   exact ⟨position, actual, prior, hbounded, hpos, hevent, hhit⟩
+/-- A good layer whose encoding row carries a nonzero 12-byte pad or (C2/C3 FULL) a row high word other than the
+honest 1. -/
 def PadAt (answers : Answers) (witness : WBytes) (index : Nat) : Prop :=
   ∃ lay : Layer, ClaudeWCT.W9.T3M.Extract.Good answers witness index lay ∧
-    (ClaudeWCT.W9.T3M.wbcPad witness index lay ≠ 0 ∨ ClaudeWCT.W9.T3M.wbcHigh witness index lay ≠ 0)
+    ¬ (ClaudeWCT.W9.T3M.wbcPad witness index lay = 0 ∧ ClaudeWCT.W9.T3M.wbcHigh witness index lay = 1)
 def Conclusion (answers : Answers) (message : Message) (witness : WBytes)
     (events : List FirstHit.QueryEvent) : Prop :=
   ∃ digestAnswer : HashOutput, (wdc witness).toNat < WCT9.digestVerifyWindow ∧
@@ -78,13 +80,10 @@ theorem verifyP_extracted_in {α : Type} (program : M α) (hp : Security.SourceR
       SigGolfCandidate.T3.Security.PaddedExtraction.queried_eq]
     exact hsub _ hin
   · by_cases hz : ∀ lay : Layer, ClaudeWCT.W9.T3M.wbcPad witness (WCT9.digestIndex N) lay = 0 ∧
-        ClaudeWCT.W9.T3M.wbcHigh witness (WCT9.digestIndex N) lay = 0
+        ClaudeWCT.W9.T3M.wbcHigh witness (WCT9.digestIndex N) lay = 1
     · exact Or.inr (Or.inr (Or.inr ⟨fun lay => ⟨hgood lay, hz lay⟩, hfts⟩))
     · obtain ⟨lay, hlay⟩ := not_forall.mp hz
-      refine Or.inr (Or.inr (Or.inl ⟨lay, hgood lay, ?_⟩))
-      by_cases hp : ClaudeWCT.W9.T3M.wbcPad witness (WCT9.digestIndex N) lay = 0
-      · exact Or.inr (fun hh => hlay ⟨hp, hh⟩)
-      · exact Or.inl hp
+      exact Or.inr (Or.inr (Or.inl ⟨lay, hgood lay, hlay⟩))
 theorem verifyP_recorded (message : Message) (publicKey : Digest) (witness : WBytes)
     (before : LazyPrivate.State) (result : FirstHit.Recorded Bool)
     (hr : result ∈ support (FirstHit.record (verifyP message publicKey witness) before))
@@ -99,12 +98,6 @@ theorem verifyP_recorded (message : Message) (publicKey : Digest) (witness : WBy
   exact verifyP_extracted_in _ hp before result hr answers ha message publicKey witness hpk hv (fun _ h => h)
 noncomputable def reference : FirstHit.Reference := fun state input =>
   (ClaudeWCT.W9.T3M.Extract.posOf input).map (ClaudeWCT.W9.T3M.Extract.honestInput (SourceReplay.answers state))
-/-- Campaign S1: the half of a query's answer that is compared with its position's honest value. -/
-noncomputable def orient (input : HashInput) : Bool :=
-  ((ClaudeWCT.W9.T3M.Extract.posOf input).map ClaudeWCT.W9.T3M.Extract.Pos.high).getD false
-theorem orient_of_pos {input : HashInput} {position : ClaudeWCT.W9.T3M.Extract.Pos}
-    (hpos : ClaudeWCT.W9.T3M.Extract.posOf input = some position) : orient input = position.high := by
-  simp only [orient, hpos, Option.map_some, Option.getD_some]
 theorem reference_of_pos (state : LazyPrivate.State) (input : HashInput) (position : ClaudeWCT.W9.T3M.Extract.Pos)
     (hpos : ClaudeWCT.W9.T3M.Extract.posOf input = some position) :
     reference state input = some (ClaudeWCT.W9.T3M.Extract.honestInput (SourceReplay.answers state) position) := by
@@ -129,9 +122,9 @@ theorem Conclusion.mono {answers : Answers} {message : Message} {witness : WByte
   · exact Or.inr (Or.inr (Or.inr hgood))
 theorem padded_known_bound (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
     Pr[fun result => result.2.2.base.source.1 ≤ q ∧
-      FirstHit.KnownPublicHitP reference orient (QueryRecorded.recordedTrace result) |
+      FirstHit.KnownPublicHit reference (QueryRecorded.recordedTrace result) |
       PaddedGame.tracedExperiment adversary q hq] ≤ q / (2 : ENNReal) ^ 128 :=
-  GameWith.Recorded.known_public_hit_boundP PaddedGame.checker reference orient adversary q hq
+  GameWith.Recorded.known_public_hit_bound PaddedGame.checker reference adversary q hq
 theorem check_recorded (publicKey : Digest) (log : QueryLog Requests) (forgery : ForgeryP)
     (before : LazyPrivate.State) (result : FirstHit.Recorded Bool)
     (hr : result ∈ support (FirstHit.record (checkForgeryP publicKey log forgery) before))

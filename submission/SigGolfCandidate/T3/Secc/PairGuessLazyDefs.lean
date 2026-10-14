@@ -98,8 +98,67 @@ noncomputable def nonceStep (mem : LazyMem) (m : Message) (fresh : PMF Digest) :
   match mem.nonces m with
   | some v => pure (v, mem)
   | none => (fun v => (v, mem.drawNonce m v)) <$> fresh
+noncomputable def auxWith (rowSrc : HashInput → PMF HashOutput) (nonceSrc : Message → PMF Digest)
+    (state : WStateL) : (input : AuxSpecL.Domain) → PMF (AuxSpecL.Range input × LazyMem)
+  | .coin n => (fun c => (c, state.memory)) <$> PMF.uniformOfFintype (Fin (n + 1))
+  | .birth x => rowStep state.memory x true (rowSrc x)
+  | .trial x => rowStep state.memory x false (rowSrc x)
+  | .nonce m => nonceStep state.memory m (nonceSrc m)
+  | .expose o => pure ((), state.memory.expose o)
+noncomputable def envWith (rowSrc : HashInput → PMF HashOutput) (nonceSrc : Message → PMF Digest) :
+    SecretGuessObservation.Environment AuxSpecL FtsCoord Digest LazyMem where
+  auxiliary := auxWith rowSrc nonceSrc
+  trial mem _ _ _ := mem
+  disclosure mem _ _ := mem
+noncomputable def envL : SecretGuessObservation.Environment AuxSpecL FtsCoord Digest LazyMem :=
+  envWith (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => PMF.uniformOfFintype Digest)
+noncomputable def envE (D : digestInputs → HashOutput) (Nn : Message → Digest) :
+    SecretGuessObservation.Environment AuxSpecL FtsCoord Digest LazyMem :=
+  envWith (fun x => pure (rowVal D x)) (fun m => pure (Nn m))
+def coinReqL (n : Nat) : OracleComp WSpecL (Fin (n + 1)) := liftM (WSpecL.query (.inl (.coin n)))
+def birthReq (x : HashInput) : OracleComp WSpecL HashOutput := liftM (WSpecL.query (.inl (.birth x)))
+def trialReq (x : HashInput) : OracleComp WSpecL HashOutput := liftM (WSpecL.query (.inl (.trial x)))
+def nonceReq (m : Message) : OracleComp WSpecL Digest := liftM (WSpecL.query (.inl (.nonce m)))
+def exposeReq (o : Option HashOutput) : OracleComp WSpecL Unit := liftM (WSpecL.query (.inl (.expose o)))
+def guessReq (p : FtsCoord × Digest) : OracleComp WSpecL Bool := liftM (WSpecL.query (.inr (.inl p)))
+def discloseReq (f : FtsCoord) : OracleComp WSpecL Digest := liftM (WSpecL.query (.inr (.inr f)))
+noncomputable def searchL (rho : Digest) (m : Message) (counter : Nat) : Nat → OracleComp WSpecL (Option (BitVec 32 × HashOutput))
+  | 0 => pure none
+  | fuel + 1 => do
+      let output ← trialReq (pad64 (digestInput rho m (BitVec.ofNat 32 counter)))
+      if digestAdmissible output = true then pure (some (BitVec.ofNat 32 counter, output))
+      else searchL rho m (counter + 1) fuel
 section World
+variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U)
 noncomputable local instance instDecidableEqCache_pairGuessLazyDefs : DecidableEq T3.Cache := Classical.decEq _
+noncomputable def hashL (ω : Omega U) (x : HashInput) : OracleComp WSpecL HashOutput :=
+  match decodeProbe x with
+  | some p => do
+      let hit ← guessReq p
+      pure (if hit then ω.labels (.ftsLeaf (toLeafPos p.1)) else finiteHashAnswer ∅ U ω.residual x)
+  | none => if x ∈ digestInputs then birthReq x else pure (Omega.answers hU ω (fun _ => 0) (.inl (.inr x)))
+noncomputable def finishL (ω : Omega U) (request : Request) (rho : Digest) :
+    Option (BitVec 32 × HashOutput) → OracleComp WSpecL (Option Signature)
+  | none => pure none
+  | some (_, output) =>
+      match signerLayers hU ω request output with
+      | none => pure none
+      | some pieces => do
+          let values ← (openedPositions output).mapM discloseReq
+          pure (some (Correctness.assembledSignature rho
+            (openedValues (overwrite (openedPositions output) values) output,
+              (signerForest hU ω output).2.1, (signerForest hU ω output).2.2) pieces))
+noncomputable def programL (ω : Omega U) {β : Type} : M β → OracleComp WSpecL (β × List Wots.Entry) :=
+  OracleComp.construct (fun value => pure (value, []))
+    (fun input _ next => match input with
+      | .inl (.inl n) => do
+          let coin ← coinReqL n
+          next coin
+      | .inl (.inr x) => do
+          let answer ← hashL hU ω x
+          let rest ← next answer
+          pure (rest.1, (x, answer) :: rest.2)
+      | .inr _ => next (0 : HashOutput))
 end World
 end SigGolfCandidate.T3.Security.BPair
 end

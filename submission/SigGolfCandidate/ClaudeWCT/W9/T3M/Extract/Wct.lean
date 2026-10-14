@@ -22,43 +22,41 @@ theorem queried_map {α β : Type} (answers : Answers) (f : α → β) (p : M α
     queried answers (f <$> p) = queried answers p := by
   rw [map_eq_bind_pure_comp, queried_bind]
   simp
-theorem queried_hashPath (answers : Answers) (high : Nat → Bool) (input : Nat → Digest → HashInput)
-    (initial : Digest) :
-    ∀ count, queried answers (hashPath high input count initial) =
-      (List.range count).map fun step => .inl (.inr (pad64 (pathInput answers high input initial step)))
+theorem queried_hashPath (answers : Answers) (input : Nat → Digest → HashInput) (initial : Digest) :
+    ∀ count, queried answers (hashPath input count initial) =
+      (List.range count).map fun step => .inl (.inr (pad64 (pathInput answers input initial step)))
   | 0 => rfl
   | count + 1 => by
-      rw [hashPath_succ, queried_bind, queried_hashPath answers high input initial count, List.range_succ,
-        List.map_append, queried_projHash]
+      rw [hashPath_succ, queried_bind, queried_hashPath answers input initial count, List.range_succ,
+        List.map_append, queried_shortHash]
       rfl
-theorem pathValue_honest (answers : Answers) (high : Nat → Bool) (input : Nat → Digest → HashInput)
-    (honestInput : Nat → HashInput)
+theorem pathValue_honest (answers : Answers) (input : Nat → Digest → HashInput) (honestInput : Nat → HashInput)
     (target : Nat → Digest) (initial : Digest) (count : Nat)
     (reference : ∀ step, step < count →
-      evalWithAnswerFn answers (projHash (high step) (honestInput step)) = target (step + 1))
+      evalWithAnswerFn answers (shortHash (honestInput step)) = target (step + 1))
     (honest : ∀ step, step < count → input step (target step) = honestInput step)
-    (h0 : initial = target 0) : ∀ step, step ≤ count → pathValue answers high input initial step = target step := by
+    (h0 : initial = target 0) : ∀ step, step ≤ count → pathValue answers input initial step = target step := by
   intro step
   induction step with
   | zero => intro _; exact h0
   | succ step ih =>
       intro hs
       rw [pathValue_succ, pathInput, ih (by omega), honest step (by omega), reference step (by omega)]
-theorem queried_hashPath_honest (answers : Answers) (high : Nat → Bool) (input : Nat → Digest → HashInput)
+theorem queried_hashPath_honest (answers : Answers) (input : Nat → Digest → HashInput)
     (honestInput : Nat → HashInput) (target : Nat → Digest) (initial : Digest) (count : Nat)
     (reference : ∀ step, step < count →
-      evalWithAnswerFn answers (projHash (high step) (honestInput step)) = target (step + 1))
+      evalWithAnswerFn answers (shortHash (honestInput step)) = target (step + 1))
     (honest : ∀ step, step < count → input step (target step) = honestInput step)
     (h0 : initial = target 0) :
-    ∀ q ∈ queried answers (hashPath high input count initial), ∃ step, step < count ∧
+    ∀ q ∈ queried answers (hashPath input count initial), ∃ step, step < count ∧
       q = .inl (.inr (pad64 (honestInput step))) := by
   intro q hq
   rw [queried_hashPath] at hq
   obtain ⟨step, hs, rfl⟩ := List.mem_map.mp hq
   have hs := List.mem_range.mp hs
   refine ⟨step, hs, ?_⟩
-  rw [pathInput, pathValue_honest answers high input honestInput target initial count reference honest h0 step
-    hs.le, honest step hs]
+  rw [pathInput, pathValue_honest answers input honestInput target initial count reference honest h0 step hs.le,
+    honest step hs]
 /-! ### C1: hash paths whose step `s` uses the half of FTS heap `sel s` -/
 section pathF
 variable (sel : Nat → Nat)
@@ -236,26 +234,23 @@ theorem wctChainInputP_block4 (step : Nat) (pa : Digest) (pb : BitVec 64) (pc v 
 theorem wctChainInput_block4' (step : Nat) (v : Digest) :
     WCT9.chainInput index coord child t step v = block4 0 (WCT9.ftsChainHeader index coord child t step) 0 v := by
   rw [← wctChainInputP_zero, wctChainInputP_block4]; rfl
-theorem canonicalHeader_ftsChainHeaderP (len step : Nat) (pb : BitVec 64) :
-    Extract.canonicalHeaderL len (bytesLE 16 (WCT9.ftsChainHeaderP index coord child t step pb)) =
-      Extract.canonicalHeaderL len (bytesLE 16 (WCT9.ftsChainHeader index coord child t step)) := by
+theorem canonicalHeader_ftsChainHeaderP (step : Nat) (pb : BitVec 64) :
+    Extract.canonicalHeader (bytesLE 16 (WCT9.ftsChainHeaderP index coord child t step pb)) =
+      Extract.canonicalHeader (bytesLE 16 (WCT9.ftsChainHeader index coord child t step)) := by
   unfold WCT9.ftsChainHeader WCT9.ftsChainHeaderP
-  apply SigGolfCandidate.T3M.Extract.canonicalHeaderL_high_irrelevant
-  rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (lt_trans (WCT9.ftsChainLow_lt ..) (by decide))]
-  have := WCT9.ftsChainLow_byte0 index coord child t step
-  unfold SigGolfCandidate.T3M.Extract.padLabel
+  apply SigGolfCandidate.T3M.Extract.canonicalHeader_high_irrelevant
+  rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (lt_trans (WCT9.ftsChainLow_lt ..) (by decide)),
+    WCT9.ftsChainLow_byte0]
   omega
 theorem wctChainP_eq_hashPath (start count : Nat) (pa : Digest) (pb : BitVec 64) (pc v : Digest) :
     wctChainP index coord child t start count pa pb pc v =
-      hashPath (fun _ => false) (fun step value => wctChainInputP index coord child t (start + step) pa pb pc value)
-        count v :=
-  foldlM_range'_eq_hashPath (fun _ => false) (fun step value => wctChainInputP index coord child t step pa pb pc value)
-    start count v
+      hashPath (fun step value => wctChainInputP index coord child t (start + step) pa pb pc value) count v :=
+  foldlM_range'_eq_hashPath (fun step value => wctChainInputP index coord child t step pa pb pc value) start count v
 theorem wctValue_succ (s : Nat) :
-    evalWithAnswerFn answers (projHash false (WCT9.chainInput index coord child t s
+    evalWithAnswerFn answers (shortHash (WCT9.chainInput index coord child t s
       (Extract.wctValue answers index coord child t s))) = Extract.wctValue answers index coord child t (s + 1) := by
   unfold Extract.wctValue
-  rw [WCT9.eval_chain_add answers index coord child t 0 s 1, projHash_false]
+  rw [WCT9.eval_chain_add answers index coord child t 0 s 1]
   simp [WCT9.chain]
 theorem honestInput_wctChain (s : Nat) :
     Extract.honestInput answers (.wctChain index coord child t s) =
@@ -271,7 +266,7 @@ theorem chain_extract (d : Nat) (hd : d ≤ 4) (pa : Digest) (pb : BitVec 64) (p
     Extract.HitIn answers (queried answers (wctChainP index coord child t (4 - d) d pa pb pc v)) := by
   rw [wctChainP_eq_hashPath] at reaches ⊢
   have href : ∀ step, step < d →
-      evalWithAnswerFn answers (projHash ((fun _ => false) step) (WCT9.chainInput index coord child t (4 - d + step)
+      evalWithAnswerFn answers (shortHash (WCT9.chainInput index coord child t (4 - d + step)
         (Extract.wctValue answers index coord child t (4 - d + step)))) =
         Extract.wctValue answers index coord child t (4 - d + (step + 1)) := by
     intro step _
@@ -287,7 +282,7 @@ theorem chain_extract (d : Nat) (hd : d ≤ 4) (pa : Digest) (pb : BitVec 64) (p
     have hpb := congrArg (fun x : BitVec 128 => x.extractLsb' 64 64) hh
     simp only [WCT9.ftsChainHeader, WCT9.ftsChainHeaderP_high] at hpb
     exact ⟨hv, h0, hpb, h1⟩
-  have h := hashPath_extract answers (fun _ => false)
+  have h := hashPath_extract answers
     (fun step value => wctChainInputP index coord child t (4 - d + step) pa pb pc value)
     (fun step => WCT9.chainInput index coord child t (4 - d + step)
       (Extract.wctValue answers index coord child t (4 - d + step)))
@@ -297,7 +292,7 @@ theorem chain_extract (d : Nat) (hd : d ≤ 4) (pa : Digest) (pb : BitVec 64) (p
   rcases h with ⟨hv, hgood⟩ | ⟨step, hstep, hq, hhit⟩
   · left
     refine ⟨by simpa using hv, fun hd0 => hgood 0 hd0, fun q hq => ?_⟩
-    obtain ⟨step, hs, rfl⟩ := queried_hashPath_honest answers (fun _ => false)
+    obtain ⟨step, hs, rfl⟩ := queried_hashPath_honest answers
       (fun step value => wctChainInputP index coord child t (4 - d + step) pa pb pc value)
       (fun step => WCT9.chainInput index coord child t (4 - d + step)
         (Extract.wctValue answers index coord child t (4 - d + step)))
@@ -311,11 +306,12 @@ theorem chain_extract (d : Nat) (hd : d ≤ 4) (pa : Digest) (pb : BitVec 64) (p
     obtain ⟨hi, hc, hj, ht⟩ := hb
     refine ⟨.wctChain index coord child t (4 - d + step), _, ⟨hi, hc, hj, ht, by omega⟩, hq, ?_, ?_⟩
     · rw [honestInput_wctChain, ← Extract.pad64_wctChainInput]; exact hhit
-    · unfold Extract.SameHeader Extract.keyOf
-      rw [Extract.hdrBlock_honestInput, Extract.length_honestInput, pathInput]
-      simp only [wctChainInputP_block4, pad64_block4, hdrBlock_block4W, Extract.Pos.hdr, block4_length,
-        Extract.Pos.len]
-      rw [canonicalHeader_ftsChainHeaderP index coord child t _ _ _]
+    · refine Extract.SameHeader.of_canonical ?_ (by rw [Extract.honestInput_length]; simp [Extract.Pos.len]) ?_
+      · rw [Extract.honestInput_length, pathInput]
+        simp only [wctChainInputP_block4, pad64_block4, block4_length, Extract.Pos.len]
+      rw [Extract.hdrBlock_honestInput, pathInput]
+      simp only [wctChainInputP_block4, pad64_block4, hdrBlock_block4W, Extract.Pos.hdr]
+      exact canonicalHeader_ftsChainHeaderP index coord child t _ _
 end chain
 theorem leafHash_eq_shortHash (index coord child : Nat) (ends : List Digest) :
     WCT9.leafHash index coord child ends = shortHash (Extract.wctLeafInput index coord child ends) := by
@@ -380,29 +376,25 @@ theorem leaf_extract (answers : Answers) (index coord child : Nat) (pad : Digest
   · right
     refine ⟨.wctLeaf index coord child, _, hb, List.mem_singleton_self _, ⟨heq, ?_⟩, ?_⟩
     · rw [WCT9.eval_ftsHash] at reaches
-      simp only [Extract.Pos.proj, Extract.Pos.high, Extract.projHalf_ftsHalf]
       show WCT9.ftsHalf (128 + child) _ = WCT9.ftsHalf (128 + child) _
       rw [reaches, childRoot_eq_out]
-    · unfold Extract.SameHeader Extract.keyOf
-      rw [Extract.hdrBlock_honestInput, Extract.length_honestInput, Extract.hdrBlock_wctLeafInputP]
-      have hl : (pad64 (Extract.wctLeafInputP index coord child pad ends)).length = 128 := by
-        rw [Cost.pad64_length, Extract.wctLeafInputP, Extract.listInput_length']
-        simp [hlen]
-      rw [hl]
-      rfl
+    · refine Extract.SameHeader.of_hdrBlock ?_ (by rw [Extract.hdrBlock_honestInput, Extract.hdrBlock_wctLeafInputP]; rfl)
+      rw [Extract.honestInput_length]
+      simp [Extract.wctLeafInputP, Extract.listInput, pad64, bytesLE_length, digest_list_bytes_length, hlen,
+        Extract.Pos.len]
 theorem merkleInput_tree_reference_le (answers : Answers) (tag lay tree height completed leaf : Nat)
     (levels : List (List Digest)) (leaves : List Digest)
-    (htree : TreeLevels answers tag lay tree height leaves completed levels)
+    (htree : TreeLevels answers tag lay tree height leaves completed levels) (htop : ¬ (tag = 3 ∧ lay = 0))
     (hleaf : leaf < 2 ^ height) (step : Nat) (hstep : step < completed) (hc : completed ≤ height) :
-    evalWithAnswerFn answers (projHash (merkleHigh tag lay height leaf step)
+    evalWithAnswerFn answers (shortHash
       (merkleInput tag lay tree height leaf
         (fun j => treeValue levels j (leaf / 2 ^ j ^^^ 1)) (fun _ => 0)
         step (treeValue levels step (leaf / 2 ^ step)))) =
       treeValue levels (step + 1) (leaf / 2 ^ (step + 1)) := by
-  unfold merkleInput merkleHigh
+  unfold merkleInput
   dsimp only
   rw [Correctness.sibling_pair, Correctness.div_pow_succ]
-  rw [← nodeHash_eq_projHash]
+  rw [← nodeHash_eq_shortHash (nodeHalfHigh_of_ne htop _)]
   have hparent : leaf / 2 ^ (step + 1) < 2 ^ (height - (step + 1)) := by
     simpa using Correctness.div_pow_bound (start := 0) (level := step + 1)
       (node := leaf) (height := height) (by omega) (by simpa using hleaf)
@@ -487,6 +479,24 @@ theorem hdrBlock_merkleInputH (path pads : Nat → Digest) (hpads : Nat → BitV
   unfold merkleInputH nodeInputPH
   dsimp only
   split <;> rw [pad64_block4, hdrBlock_block4W]
+theorem canonicalHeader_withHigh (t : BitVec 128) (hp : BitVec 64) :
+    Extract.canonicalHeader (bytesLE 16 (withHigh t hp)) = Extract.canonicalHeader (bytesLE 16 t) := by
+  unfold withHigh
+  split
+  · rename_i hm
+    have ht : t = t.extractLsb' 64 64 ++ t.extractLsb' 0 64 := by
+      have h := (BitVec.extractLsb'_append_extractLsb' (w := 64) (len := 64) (x := t)).symm
+      exact h
+    conv_rhs => rw [ht]
+    apply SigGolfCandidate.T3M.Extract.canonicalHeader_high_irrelevant
+    rw [BitVec.extractLsb'_toNat]
+    simp only [Nat.shiftRight_zero]
+    have : t.toNat % 2 ^ 64 % 256 = t.toNat % 256 := by
+      rw [Nat.mod_mod_of_dvd _ (by norm_num)]
+    rw [show (2 : Nat) ^ 64 = 2 ^ 64 from rfl]
+    omega
+  · rfl
+
 theorem merkle_extract (hidx : index < 2 ^ 31) (hj : j < 128) (path pads : Nat → Digest)
     (hpads : Nat → BitVec 64) (leaf : Digest)
     (reaches : evalWithAnswerFn answers (hashPathF (msel j) (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 j path pads hpads) 5
@@ -520,19 +530,14 @@ theorem merkle_extract (hidx : index < 2 ^ 31) (hj : j < 128) (path pads : Nat �
       simpa [Nat.sub_sub] using this
     refine ⟨.wctNode index c.val step (j / 2 ^ (step + 1)), _, ⟨hidx, c.isLt, by omega, hn⟩, hq, ?_, ?_⟩
     · refine ⟨by rw [← merkle_honestInput answers index c j step hstep]; exact hne, ?_⟩
-      simp only [Extract.Pos.proj, Extract.Pos.high, Extract.projHalf_ftsHalf]
       show WCT9.ftsHalf (msel j step) _ = WCT9.ftsHalf (msel j step) _
       rw [← merkle_honestInput answers index c j step hstep]; exact hhit
-    · rw [← merkle_honestInput answers index c j step hstep, pathInputF]
-      exact Extract.sameHeader_merkleInputH _ _ _ _ (by unfold WCT9.nodeLayer; have := c.isLt; omega) _ _ _ _ _ _ _
-        (fun _ => by
-          have hpos : 0 < 2 ^ (7 - step - 1) + j / 2 ^ (step + 1) := by positivity
-          have h2 : 2 ^ (7 - step - 1) ≤ 2 ^ 6 := Nat.pow_le_pow_right (by decide) (by omega)
-          have h3 : j / 2 ^ (step + 1) ≤ j := Nat.div_le_self _ _
-          have hlt : 2 ^ (7 - step - 1) + j / 2 ^ (step + 1) < 2 ^ 64 :=
-            lt_of_le_of_lt (Nat.add_le_add h2 h3) (by norm_num; omega)
-          rw [Nat.mod_eq_of_lt hlt]
-          exact Nat.pos_iff_ne_zero.mp hpos)
+    · refine Extract.SameHeader.of_canonical ?_ (by rw [Extract.honestInput_length]; simp [Extract.Pos.len]) ?_
+      · rw [Extract.honestInput_length, pathInputF]
+        simp only [merkleInputH, pad64_nodeInputPH, SigGolfCandidate.T3M.SecurityInputs.nodeInputPH, pad64_block4,
+          block4_length, Extract.Pos.len]
+      rw [Extract.hdrBlock_honestInput, pathInputF, hdrBlock_merkleInputH, canonicalHeader_withHigh]
+      rfl
 theorem top_lt (hj : j < 128) : j / 2 ^ 6 < 2 := by
   apply (Nat.div_lt_iff_lt_mul (by positivity)).mpr; norm_num; omega
 theorem top_reference (hj : j < 128) :
@@ -591,16 +596,15 @@ theorem top_extract (hidx : index < 2 ^ 31) (hj : j < 128) (v other z : Digest)
   · right
     refine ⟨.wctNode index c.val 5 (j / 2 ^ 6), _, ⟨hidx, c.isLt, by norm_num, by have := top_lt j hj; norm_num at this ⊢; omega⟩,
       List.mem_singleton_self _, ⟨heq, ?_⟩, ?_⟩
-    · simp only [Extract.Pos.proj, Extract.Pos.high, Extract.projHalf_ftsHalf]
-      show WCT9.ftsHalf (2 ^ (7 - 5 - 1) + j / 2 ^ 6) _ = WCT9.ftsHalf (2 ^ (7 - 5 - 1) + j / 2 ^ 6) _
+    · show WCT9.ftsHalf (2 ^ (7 - 5 - 1) + j / 2 ^ 6) _ = WCT9.ftsHalf (2 ^ (7 - 5 - 1) + j / 2 ^ 6) _
       rw [WCT9.ftsHalf_of_high (WCT9.ftsHighHeap_top (by have := top_lt j hj; norm_num; omega)),
         WCT9.ftsHalf_of_high (WCT9.ftsHighHeap_top (by have := top_lt j hj; norm_num; omega))]
       rw [← top_honestInput answers index c j]
       exact reaches.trans (top_reference answers index c j hj).symm
-    · unfold Extract.SameHeader Extract.keyOf
-      rw [Extract.hdrBlock_honestInput, Extract.length_honestInput, wctTopInput_block4, pad64_block4,
-        hdrBlock_block4W, block4_length]
-      rfl
+    · refine Extract.SameHeader.of_hdrBlock ?_
+        (by rw [Extract.hdrBlock_honestInput, wctTopInput_block4, pad64_block4, hdrBlock_block4W]; rfl)
+      rw [Extract.honestInput_length, wctTopInput_block4, pad64_block4]
+      simp [block4, bytesLE_length, Extract.Pos.len]
 end merkle
 theorem recoverCoordinateP_dec (N : HashOutput) (w : WBytes) (index : Nat) (c : WCT9.Coord) (prev : Digest × Digest) :
     recoverCoordinateP (witDecP N w).signature (padDecP N w) index N c prev =

@@ -6,6 +6,7 @@ def seg_0 : List (BitVec 32) := [659,0x8000e93,134967,963331,9352067,7286819,833
 def seg_26 : List (BitVec 32) := [4919,40456803]
 def seg_28 : List (BitVec 32) := [138167,0xa00b8b93,6882227,4428691,2329779,465567983]
 def seg_34 : List (BitVec 32) := [1640723,0xfddff06f]
+/-- C4: word 37 is `addi s5,zero,0` (the top label's base word is 0; it was 64). -/
 def seg_36 : List (BitVec 32) := [12584851,2707,805306607]
 def seg_39 : List (BitVec 32) := [998244463,16855811,25244547,7286819,8336419,39991,34343955,0x40000a13,2098835]
 def seg_48 : List (BitVec 32) := [1049363,0x86a0663]
@@ -52,18 +53,18 @@ def sub_82 : List (BitVec 32) := [17698323]
 def sub_83 : List (BitVec 32) := [134839,0x600e8e93,31329843,134839,487493267,963331,9352067,7221283,8270883]
 def sub_92 : List (BitVec 32) := [17533843,1673619,0xf2dff06f]
 def sub_95 : List (BitVec 32) := [68129379]
-def sub_96 : List (BitVec 32) := [1901971,4560275,66422163,0xfc05f593,132407,0x60050513,132663,1007027731,1670803]
+def sub_96 : List (BitVec 32) := [1901331,4395795,66257683,0xfc037313,132407,0x60050513,198035,132663,0x3c060613]
 def sub_105 : List (BitVec 32) := [115]
-def sub_106 : List (BitVec 32) := [5152403,0x41d60eb3,17740547,26129283,7122979,8172579]
+def sub_106 : List (BitVec 32) := [134839,0x3c0e8e93,963331,9352067,7122979,8172579]
 def sub_112 : List (BitVec 32) := [98407]
 def sub_113 : List (BitVec 32) := [1051155,0xfff78313,6953523]
 def sub_116 : List (BitVec 32) := [0xa0a0663]
 def sub_117 : List (BitVec 32) := [658451]
 def sub_118 : List (BitVec 32) := [1708819,0x86c5c63]
-def sub_120 : List (BitVec 32) := [6037011,3018291,134967,537857811,930563,9319299,7286819,8336419,134967,588189459,17707779,26096515,7286819,8336419,33857043,30073651,25363251,0xfe6f3023,0xfe0f3423,1867411]
-def sub_140 : List (BitVec 32) := [5152403,132407,537199891,67110291,132663,604374547]
+def sub_120 : List (BitVec 32) := [6037011,3018291,134967,537857811,930563,9319299,7286819,8336419,134967,588189459,17707779,26096515,7286819,8336419,33857043,30073651,0xfe6f3023,55221779,787347,0x580e42e3]
+def sub_140 : List (BitVec 32) := [0xfe7f3423,132407,537199891,67110291,132663,604374547]
 def sub_146 : List (BitVec 32) := [115]
-def sub_147 : List (BitVec 32) := [4988435,3018291,0x41d60eb3,17740547,26129283,7221283,8270883,19,1838099,0xf69ff06f]
+def sub_147 : List (BitVec 32) := [4988435,3018291,134839,604933779,963331,9352067,7221283,8270883,1838099,0xf69ff06f]
 def sub_157 : List (BitVec 32) := [1726995,0xf59ff06f]
 def sub_159 : List (BitVec 32) := [32871]
 def revCode : List (BitVec 32) := [787347,0xff3f313,8590099,8639379,6546355,7735,0xf0fe0e13,29618995,4395795,4445075,29619123,6546355,15927,859704851,29618995,2298643,2347923,29619123,6546355,24119,0x555e0e13,29618995,1250067,1299347,29619123,6546355,50566035,0xa14ff06f]
@@ -86,10 +87,24 @@ def sub27K : List (BitVec 32) := [33171,17371923,538141459,50601747,31679283,202
 def sub42K : List (BitVec 32) := [1672851,2021654767]
 def sub44K : List (BitVec 32) := [113246319,17044243,34479891,31679283,1270547,295827,34152211,31712179,134711,7223331,8272931,132407,67110291,132663,67503635]
 def sub75K : List (BitVec 32) := [2063597679]
+/-! C4 (top-tree spill-down; the keygen words are b3cc11b's, byte-identical): the keygen's top leaf exit (offsets 96, 106)
+and tree node (120, 140, 147) select the answer half by parity (`ld 16(t4)` for an even index) and write the one-word
+label `(s5 | tree << 32) + heap` with a zero high word. The sign keeps `sub_96`, `sub_106`, `sub_120`, `sub_140`,
+`sub_147` (its own copies at 1013). -/
+def sub96K : List (BitVec 32) := [1901971,4560275,66422163,0xfc05f593,132407,0x60050513,132663,1007027731,1670803]
+def sub106K : List (BitVec 32) := [5152403,0x41d60eb3,17740547,26129283,7122979,8172579]
+def sub120K : List (BitVec 32) := [6037011,3018291,134967,537857811,930563,9319299,7286819,8336419,134967,588189459,17707779,26096515,7286819,8336419,33857043,30073651,25363251,0xfe6f3023,0xfe0f3423,1867411]
+def sub140K : List (BitVec 32) := [5152403,132407,537199891,67110291,132663,604374547]
+def sub147K : List (BitVec 32) := [4988435,3018291,0x41d60eb3,17740547,26129283,7221283,8270883,19,1838099,0xf69ff06f]
+/-- Offsets where the keygen's leaf subroutine differs from `subL` (T8D: 27, 42, 44, 75; C4: 96, 106, 120, 140, 147). -/
+def kOwn (off : Nat) : Bool := off = 27 || off = 42 || off = 44 || off = 75 || off = 96 || off = 106 || off = 120 ||
+  off = 140 || off = 147
 /-- The keygen copy of the leaf subroutine (offsets relative to 117). -/
 def kSubL : Rv.Layout := subL.map fun p =>
   if p.1 = 27 then (27, sub27K) else if p.1 = 42 then (42, sub42K) else if p.1 = 44 then (44, sub44K)
-  else if p.1 = 75 then (75, sub75K) else p
+  else if p.1 = 75 then (75, sub75K) else if p.1 = 96 then (96, sub96K) else if p.1 = 106 then (106, sub106K)
+  else if p.1 = 120 then (120, sub120K) else if p.1 = 140 then (140, sub140K) else if p.1 = 147 then (147, sub147K)
+  else p
 theorem kSubL_ok : layoutOk 0 kSubL = true := by decide +kernel
 /-- COEFGEN (612..640): the 12 private pairs `privatePair 0 0 0 (12 leaf + j) 0` into the 24 coefficients at COEF. -/
 def coefgenCode : List (BitVec 32) := [138295,12586771,65603379,34019091,1533715,3731,132407,15022115,343075,67110291,67438099,115,67449347,4993059,75837955,4994083,84226563,4995107,92615171,4996131,34343955,1052435,34545427,31917875,2002579,12586771,4226717923,2451,32871]
@@ -154,22 +169,31 @@ theorem codeAt_330 : CodeAt image (pcOf 330) seg_330 :=
   codeAt_layout code_eq mainL_ok (i := 23) (by kernel_rfl) (by decide)
 theorem codeAt_334 : CodeAt image (pcOf 334) seg_334 :=
   codeAt_layout code_eq mainL_ok (i := 24) (by kernel_rfl) (by apply of_decide_eq_true; kernel_rfl)
-/-- The leaf subroutine at `b`, except the segments at offsets 27, 42, 44 and 75 (which differ between the keygen
-image and `subL`, campaign T8D). -/
+/-- The leaf subroutine at `b`, except the segments at the `kOwn` offsets (which differ between the keygen image and
+`subL`, campaign T8D and C4). C4: only the keygen image (the sign uses `SeedIndependentAt`). -/
 def SubAt (image : Image) (b : Nat) : Prop :=
-  (∀ off code, (off, code) ∈ subL → off ≠ 27 → off ≠ 42 → off ≠ 44 → off ≠ 75 →
+  (∀ off code, (off, code) ∈ subL → kOwn off = false →
     CodeAt image (pcOf (b + off)) code) ∧ (b = 117 ∨ b = 1013) ∧
   (CodeAt image (pcOf (b + 1000)) maxDigitCode ∧ CodeAt image (pcOf (b + 1004)) revCode ∧
-    ((image = Images.keygenImage ∧ b = 117) ∨ (image = Images.signImage ∧ b = 1013)))
+    (image = Images.keygenImage ∧ b = 117))
 theorem codeAt_max : CodeAt image (pcOf 1117) maxDigitCode :=
   codeAt_layout code_eq mainL_ok (i := 26) (by kernel_rfl) (by decide)
 theorem codeAt_1121 : CodeAt image (pcOf 1121) revCode :=
   codeAt_layout code_eq mainL_ok (i := 27) (by kernel_rfl) (by decide)
 theorem subAt_keygen : SubAt image 117 := by
-  refine ⟨?_, Or.inl rfl, codeAt_max, codeAt_1121, Or.inl ⟨rfl, rfl⟩⟩
-  intro off code hm h27 h42 h44 h75
-  have hp : (off, code) ∈ kSubL := List.mem_map.mpr ⟨(off, code), hm, by simp [h27, h42, h44, h75]⟩
+  refine ⟨?_, Or.inl rfl, codeAt_max, codeAt_1121, rfl, rfl⟩
+  intro off code hm hk
+  simp only [kOwn, Bool.or_eq_false_iff, decide_eq_false_iff_not] at hk
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨h27, h42⟩, h44⟩, h75⟩, h96⟩, h106⟩, h120⟩, h140⟩, h147⟩ := hk
+  have hp : (off, code) ∈ kSubL := List.mem_map.mpr ⟨(off, code), hm, by
+    simp [h27, h42, h44, h75, h96, h106, h120, h140, h147]⟩
   obtain ⟨i, hi⟩ := List.mem_iff_getElem?.mp hp
+  exact codeAt_sublayout codeAt_kSubCode kSubL_ok hi
+/-- C4: a keygen-only segment of `kSubL` at `117 + off`. -/
+theorem codeAt_kSub {image : Image} {b : Nat} (h : SubAt image b) {off : Nat} {code : List (BitVec 32)}
+    (hm : (off, code) ∈ kSubL) : CodeAt image (pcOf (b + off)) code := by
+  obtain ⟨rfl, rfl⟩ := h.2.2.2.2
+  obtain ⟨i, hi⟩ := List.mem_iff_getElem?.mp hm
   exact codeAt_sublayout codeAt_kSubCode kSubL_ok hi
 theorem codeAt_rev {image : Image} {b : Nat} (h : SubAt image b) : CodeAt image (pcOf (b + 1004)) revCode :=
   h.2.2.2.1
@@ -185,112 +209,112 @@ theorem codeAt_maxHigh {image : Image} {b : Nat} (h : SubAt image b) :
   simpa [Nat.add_assoc] using q
 theorem codeAt_sub_0 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 0)) sub_0 :=
-  h.1 0 sub_0 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 0 sub_0 (by decide +kernel) (by decide)
 theorem codeAt_sub_1 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 1)) sub_1 :=
-  h.1 1 sub_1 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 1 sub_1 (by decide +kernel) (by decide)
 theorem codeAt_sub_2 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 2)) sub_2 :=
-  h.1 2 sub_2 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 2 sub_2 (by decide +kernel) (by decide)
 theorem codeAt_sub_8 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 8)) sub_8 :=
-  h.1 8 sub_8 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 8 sub_8 (by decide +kernel) (by decide)
 theorem codeAt_sub_9 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 9)) sub_9 :=
-  h.1 9 sub_9 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 9 sub_9 (by decide +kernel) (by decide)
 theorem codeAt_sub_23 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 23)) sub_23 :=
-  h.1 23 sub_23 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 23 sub_23 (by decide +kernel) (by decide)
 theorem codeAt_sub_24 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 24)) sub_24 :=
-  h.1 24 sub_24 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 24 sub_24 (by decide +kernel) (by decide)
 theorem codeAt_sub_26 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 26)) sub_26 :=
-  h.1 26 sub_26 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 26 sub_26 (by decide +kernel) (by decide)
 theorem codeAt_sub_41 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 41)) sub_41 :=
-  h.1 41 sub_41 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 41 sub_41 (by decide +kernel) (by decide)
 theorem codeAt_sub_59 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 59)) sub_59 :=
-  h.1 59 sub_59 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 59 sub_59 (by decide +kernel) (by decide)
 theorem codeAt_sub_60 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 60)) sub_60 :=
-  h.1 60 sub_60 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 60 sub_60 (by decide +kernel) (by decide)
 theorem codeAt_sub_72 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 72)) sub_72 :=
-  h.1 72 sub_72 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 72 sub_72 (by decide +kernel) (by decide)
 theorem codeAt_sub_73 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 73)) sub_73 :=
-  h.1 73 sub_73 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 73 sub_73 (by decide +kernel) (by decide)
 theorem codeAt_sub_76 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 76)) sub_76 :=
-  h.1 76 sub_76 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 76 sub_76 (by decide +kernel) (by decide)
 theorem codeAt_sub_77 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 77)) sub_77 :=
-  h.1 77 sub_77 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 77 sub_77 (by decide +kernel) (by decide)
 theorem codeAt_sub_78 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 78)) sub_78 :=
-  h.1 78 sub_78 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 78 sub_78 (by decide +kernel) (by decide)
 theorem codeAt_sub_79 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 79)) sub_79 :=
-  h.1 79 sub_79 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 79 sub_79 (by decide +kernel) (by decide)
 theorem codeAt_sub_80 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 80)) sub_80 :=
-  h.1 80 sub_80 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 80 sub_80 (by decide +kernel) (by decide)
 theorem codeAt_sub_82 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 82)) sub_82 :=
-  h.1 82 sub_82 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 82 sub_82 (by decide +kernel) (by decide)
 theorem codeAt_sub_83 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 83)) sub_83 :=
-  h.1 83 sub_83 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 83 sub_83 (by decide +kernel) (by decide)
 theorem codeAt_sub_92 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 92)) sub_92 :=
-  h.1 92 sub_92 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 92 sub_92 (by decide +kernel) (by decide)
 theorem codeAt_sub_95 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 95)) sub_95 :=
-  h.1 95 sub_95 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
-theorem codeAt_sub_96 {image : Image} {b : Nat} (h : SubAt image b) :
-    CodeAt image (pcOf (b + 96)) sub_96 :=
-  h.1 96 sub_96 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 95 sub_95 (by decide +kernel) (by decide)
+theorem codeAt_sub96K {image : Image} {b : Nat} (h : SubAt image b) :
+    CodeAt image (pcOf (b + 96)) sub96K :=
+  codeAt_kSub h (by decide +kernel)
 theorem codeAt_sub_105 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 105)) sub_105 :=
-  h.1 105 sub_105 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
-theorem codeAt_sub_106 {image : Image} {b : Nat} (h : SubAt image b) :
-    CodeAt image (pcOf (b + 106)) sub_106 :=
-  h.1 106 sub_106 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 105 sub_105 (by decide +kernel) (by decide)
+theorem codeAt_sub106K {image : Image} {b : Nat} (h : SubAt image b) :
+    CodeAt image (pcOf (b + 106)) sub106K :=
+  codeAt_kSub h (by decide +kernel)
 theorem codeAt_sub_112 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 112)) sub_112 :=
-  h.1 112 sub_112 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 112 sub_112 (by decide +kernel) (by decide)
 theorem codeAt_sub_113 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 113)) sub_113 :=
-  h.1 113 sub_113 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 113 sub_113 (by decide +kernel) (by decide)
 theorem codeAt_sub_116 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 116)) sub_116 :=
-  h.1 116 sub_116 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 116 sub_116 (by decide +kernel) (by decide)
 theorem codeAt_sub_117 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 117)) sub_117 :=
-  h.1 117 sub_117 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 117 sub_117 (by decide +kernel) (by decide)
 theorem codeAt_sub_118 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 118)) sub_118 :=
-  h.1 118 sub_118 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
-theorem codeAt_sub_120 {image : Image} {b : Nat} (h : SubAt image b) :
-    CodeAt image (pcOf (b + 120)) sub_120 :=
-  h.1 120 sub_120 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
-theorem codeAt_sub_140 {image : Image} {b : Nat} (h : SubAt image b) :
-    CodeAt image (pcOf (b + 140)) sub_140 :=
-  h.1 140 sub_140 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 118 sub_118 (by decide +kernel) (by decide)
+theorem codeAt_sub120K {image : Image} {b : Nat} (h : SubAt image b) :
+    CodeAt image (pcOf (b + 120)) sub120K :=
+  codeAt_kSub h (by decide +kernel)
+theorem codeAt_sub140K {image : Image} {b : Nat} (h : SubAt image b) :
+    CodeAt image (pcOf (b + 140)) sub140K :=
+  codeAt_kSub h (by decide +kernel)
 theorem codeAt_sub_146 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 146)) sub_146 :=
-  h.1 146 sub_146 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
-theorem codeAt_sub_147 {image : Image} {b : Nat} (h : SubAt image b) :
-    CodeAt image (pcOf (b + 147)) sub_147 :=
-  h.1 147 sub_147 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 146 sub_146 (by decide +kernel) (by decide)
+theorem codeAt_sub147K {image : Image} {b : Nat} (h : SubAt image b) :
+    CodeAt image (pcOf (b + 147)) sub147K :=
+  codeAt_kSub h (by decide +kernel)
 theorem codeAt_sub_157 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 157)) sub_157 :=
-  h.1 157 sub_157 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 157 sub_157 (by decide +kernel) (by decide)
 theorem codeAt_sub_159 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 159)) sub_159 :=
-  h.1 159 sub_159 (by decide +kernel) (by decide) (by decide) (by decide) (by decide)
+  h.1 159 sub_159 (by decide +kernel) (by decide)
 sym_block blk_0 := symRun { noAlias := true } seg_0 (pcOf 0) 100
 sym_block blk_26 := symRun { noAlias := true } seg_26 (pcOf 26) 100
 sym_block blk_28 := symRun { noAlias := true } seg_28 (pcOf 28) 100
@@ -377,6 +401,11 @@ sym_block blk1013_140 := symRun { noAlias := true } sub_140 (pcOf (1013 + 140)) 
 sym_block blk117_rev := symRun { noAlias := true } revCode (pcOf (117 + 1004)) 100
 sym_block blk1013_rev := symRun { noAlias := true } revCode (pcOf (1013 + 1004)) 100
 sym_block blk117_147 := symRun { noAlias := true } sub_147 (pcOf (117 + 147)) 100
+sym_block kblk_96 := symRun { noAlias := true } sub96K (pcOf (117 + 96)) 100
+sym_block kblk_106 := symRun { noAlias := true } sub106K (pcOf (117 + 106)) 100
+sym_block kblk_120 := symRun { noAlias := true } sub120K (pcOf (117 + 120)) 100
+sym_block kblk_140 := symRun { noAlias := true } sub140K (pcOf (117 + 140)) 100
+sym_block kblk_147 := symRun { noAlias := true } sub147K (pcOf (117 + 147)) 100
 sym_block blk1013_147 := symRun { noAlias := true } sub_147 (pcOf (1013 + 147)) 100
 sym_block blk117_157 := symRun { noAlias := true } sub_157 (pcOf (117 + 157)) 100
 sym_block blk1013_157 := symRun { noAlias := true } sub_157 (pcOf (1013 + 157)) 100
@@ -623,7 +652,7 @@ theorem run_118 {b : Nat} (hb : b = 117 ∨ b = 1013) :
   · exact blk117_118.trans (congrArg some (by kernel_rfl))
   · exact blk1013_118.trans (congrArg some (by kernel_rfl))
 def st_120 : SymState := blk117_120.res.st
-def pcE_120 (b : Nat) : E := .c (pcOf (b + 140))
+def pcE_120 (b : Nat) : E := rebase blk117_120.res.pc (pcOf (b + 1004)) (pcOf (b + 140))
 theorem run_120 {b : Nat} (hb : b = 117 ∨ b = 1013) :
     symRun { noAlias := true } sub_120 (pcOf (b + 120)) 100 =
       some ⟨st_120, pcE_120 b, blk117_120.res.stop, blk117_120.res.steps, blk117_120.res.cycles⟩ := by
@@ -690,4 +719,25 @@ theorem run_maxHigh {b : Nat} (hb : b = 117 ∨ b = 1013) :
   rcases hb with rfl | rfl
   · exact max117High.trans (congrArg some (by kernel_rfl))
   · exact max1013High.trans (congrArg some (by kernel_rfl))
+/-! C4: the keygen-only runs (`b = 117` is forced by `SubAt`). -/
+def st_96K : SymState := kblk_96.res.st
+theorem run_96K : symRun { noAlias := true } sub96K (pcOf (117 + 96)) 100 =
+    some ⟨st_96K, .c (pcOf (117 + 105)), kblk_96.res.stop, kblk_96.res.steps, kblk_96.res.cycles⟩ :=
+  kblk_96.trans (congrArg some (by kernel_rfl))
+def st_106K : SymState := kblk_106.res.st
+theorem run_106K : symRun { noAlias := true } sub106K (pcOf (117 + 106)) 100 =
+    some ⟨st_106K, .c (pcOf (117 + 112)), kblk_106.res.stop, kblk_106.res.steps, kblk_106.res.cycles⟩ :=
+  kblk_106.trans (congrArg some (by kernel_rfl))
+def st_120K : SymState := kblk_120.res.st
+theorem run_120K : symRun { noAlias := true } sub120K (pcOf (117 + 120)) 100 =
+    some ⟨st_120K, .c (pcOf (117 + 140)), kblk_120.res.stop, kblk_120.res.steps, kblk_120.res.cycles⟩ :=
+  kblk_120.trans (congrArg some (by kernel_rfl))
+def st_140K : SymState := kblk_140.res.st
+theorem run_140K : symRun { noAlias := true } sub140K (pcOf (117 + 140)) 100 =
+    some ⟨st_140K, .c (pcOf (117 + 146)), kblk_140.res.stop, kblk_140.res.steps, kblk_140.res.cycles⟩ :=
+  kblk_140.trans (congrArg some (by kernel_rfl))
+def st_147K : SymState := kblk_147.res.st
+theorem run_147K : symRun { noAlias := true } sub147K (pcOf (117 + 147)) 100 =
+    some ⟨st_147K, .c (pcOf (117 + 118)), kblk_147.res.stop, kblk_147.res.steps, kblk_147.res.cycles⟩ :=
+  kblk_147.trans (congrArg some (by kernel_rfl))
 end SigGolfCandidate.T3M.Keygen

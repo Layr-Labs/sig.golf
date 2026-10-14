@@ -1,5 +1,5 @@
 import SigGolfCandidate.T3.Secc.CaseCFull
-import SigGolfCandidate.T3.Secc.WotsExtractWord
+import SigGolfCandidate.T3.Secc.LargeContactWalk
 import SigGolfCandidate.T3.Secc.PairGuessFinal
 
 namespace SigGolfCandidate.T3.Security.CaseC

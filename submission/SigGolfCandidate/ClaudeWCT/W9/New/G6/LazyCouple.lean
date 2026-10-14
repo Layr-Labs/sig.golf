@@ -14,6 +14,7 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 section WorldBoundL
 open SecretGuessObservation (fixedRun lazyRun)
+variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : Omega U)
 end WorldBoundL
 section Chain
 end Chain
@@ -26,6 +27,37 @@ theorem forcedRun_query (E : SecretGuessObservation.Environment AuxSpecL FtsCoor
   rw [forcedRun, ← bind_pure (liftM (WSpecL.query input)), SecretGuessObservation.runWith_query_bind]
   simp only [SecretGuessObservation.runWith_pure]
   exact bind_pure _
+theorem forced_birth_cached (s : WStateL) (x : HashInput) (a : HashOutput) (h : s.memory.rows x = some a) :
+    forcedRun envL slot (birthReq x) s = pure (a, s) := by
+  rw [birthReq, forcedRun_query, envL, step_birth, rowStep_some _ _ _ _ a h, liftM_pure, map_pure, replayRow_true]
+theorem forced_birth_fresh (s : WStateL) (x : HashInput) (h : s.memory.rows x = none) (hx : x ∈ digestInputs) :
+    forcedRun envL slot (birthReq x) s =
+      (fun a => (a, { s with memory := s.memory.readRow x a true })) <$>
+        (liftM (PMF.uniformOfFintype HashOutput) : SPMF HashOutput) := by
+  rw [birthReq, forcedRun_query, envL, step_birth, rowStep_in _ _ _ _ h hx, liftM_map, Functor.map_map]
+theorem forced_birth_other (s : WStateL) (x : HashInput) (h : s.memory.rows x = none) (hx : x ∉ digestInputs) :
+    forcedRun envL slot (birthReq x) s = pure (0, s) := by
+  rw [birthReq, forcedRun_query, envL, step_birth, rowStep_out _ _ _ _ h hx, liftM_pure, map_pure, replayRow_true]
+theorem forced_trial_cached (s : WStateL) (x : HashInput) (a : HashOutput) (h : s.memory.rows x = some a) :
+    forcedRun envL slot (trialReq x) s =
+      pure (a, { s with memory := { s.memory with trials := s.memory.trials ++ [x] } }) := by
+  rw [trialReq, forcedRun_query, envL, step_trial, rowStep_some _ _ _ _ a h, liftM_pure, map_pure, replayRow_false]
+theorem forced_trial_fresh (s : WStateL) (x : HashInput) (h : s.memory.rows x = none) (hx : x ∈ digestInputs) :
+    forcedRun envL slot (trialReq x) s =
+      (fun a => (a, { s with memory := s.memory.readRow x a false })) <$>
+        (liftM (PMF.uniformOfFintype HashOutput) : SPMF HashOutput) := by
+  rw [trialReq, forcedRun_query, envL, step_trial, rowStep_in _ _ _ _ h hx, liftM_map, Functor.map_map]
+theorem forced_nonce_cached (s : WStateL) (m : Message) (v : Digest) (h : s.memory.nonces m = some v) :
+    forcedRun envL slot (nonceReq m) s = pure (v, s) := by
+  rw [nonceReq, forcedRun_query, envL, step_nonce, nonceStep_some _ _ _ v h, liftM_pure, map_pure]
+theorem forced_nonce_fresh (s : WStateL) (m : Message) (h : s.memory.nonces m = none) :
+    forcedRun envL slot (nonceReq m) s =
+      (fun v => (v, { s with memory := s.memory.drawNonce m v })) <$>
+        (liftM (PMF.uniformOfFintype Digest) : SPMF Digest) := by
+  rw [nonceReq, forcedRun_query, envL, step_nonce, nonceStep_none _ _ _ h, liftM_map, Functor.map_map]
+theorem forced_expose (s : WStateL) (o : Option HashOutput) :
+    forcedRun envL slot (exposeReq o) s = pure ((), { s with memory := s.memory.expose o }) := by
+  rw [exposeReq, forcedRun_query, envL, step_expose]
 theorem forcedRun_bind' {β γ : Type} (E : SecretGuessObservation.Environment AuxSpecL FtsCoord Digest LazyMem)
     (first : OracleComp WSpecL β) (next : β → OracleComp WSpecL γ) (s : WStateL) :
     forcedRun E slot (first >>= next) s = forcedRun E slot first s >>= fun mid => forcedRun E slot (next mid.1) mid.2 := by
@@ -44,6 +76,40 @@ theorem ro_uniform (x : HashInput) :
   have h4 : (PMF.uniformOfFintype HashOutput) (a : HashOutput) = ((Fintype.card HashOutput : ENNReal))⁻¹ :=
     PMF.uniformOfFintype_apply (a : HashOutput)
   exact h1.trans (h2.trans (h3.trans (h4.symm.trans (SPMF.liftM_apply _ _).symm)))
+theorem forced_searchL (rho : Digest) (m : Message) (counter fuel : Nat) (s : WStateL) :
+    (fun r => (r.1, r.2.memory.rows)) <$> forcedRun envL slot (searchL rho m counter fuel) s =
+      𝒮[Sampling.roRun 0 (digestSearch rho m counter fuel) s.memory.rows] := by
+  induction fuel generalizing counter s with
+  | zero =>
+      change (fun r => (r.1, r.2.memory.rows)) <$> forcedRun envL slot (pure none) s =
+        𝒮[Sampling.roRun 0 (pure none : M (Option (BitVec 32 × HashOutput))) s.memory.rows]
+      rw [Sampling.roRun_pure, evalSPMF_pure, forcedRun, SecretGuessObservation.runWith_pure, map_pure]
+  | succ fuel ih =>
+      have hx := digestInput_mem rho m (BitVec.ofNat 32 counter)
+      rw [searchL, digestSearch, forcedRun_bind']
+      rw [show digest rho m (BitVec.ofNat 32 counter) =
+        Sampling.publicQuery (pad64 (digestInput rho m (BitVec.ofNat 32 counter))) from rfl]
+      rw [Sampling.roRun_bind, Sampling.roRun_publicQuery, randomOracle.run_eq, map_bind]
+      cases hc : s.memory.rows (pad64 (digestInput rho m (BitVec.ofNat 32 counter))) with
+      | some a =>
+          rw [forced_trial_cached slot s _ a hc, pure_bind]
+          simp only [pure_bind]
+          by_cases hadm : digestAdmissible a = true
+          · simp only [hadm, ↓reduceIte, forcedRun, SecretGuessObservation.runWith_pure, map_pure,
+              Sampling.roRun_pure, evalSPMF_pure]
+          · simp only [hadm, ↓reduceIte, Bool.false_eq_true]
+            exact ih (counter + 1) _
+      | none =>
+          rw [forced_trial_fresh slot s _ hc hx, bind_map_left]
+          simp only [evalSPMF_bind, bind_assoc, pure_bind]
+          rw [ro_uniform]
+          refine bind_congr fun a => ?_
+          by_cases hadm : digestAdmissible a = true
+          · simp only [hadm, ↓reduceIte, forcedRun, SecretGuessObservation.runWith_pure, map_pure,
+              Sampling.roRun_pure, evalSPMF_pure]
+            rfl
+          · simp only [hadm, ↓reduceIte, Bool.false_eq_true]
+            exact ih (counter + 1) _
 def SearchCore (s s' : WStateL) : Prop :=
   s'.allowed = s.allowed ∧ s'.retired = s.retired ∧ s'.guesses = s.guesses ∧ s'.probes = s.probes ∧
     s'.memory.nonces = s.memory.nonces ∧ s'.memory.births = s.memory.births ∧
@@ -52,6 +118,41 @@ theorem SearchCore.trans {s1 s2 s3 : WStateL} (h1 : SearchCore s1 s2) (h2 : Sear
   ⟨h2.1.trans h1.1, h2.2.1.trans h1.2.1, h2.2.2.1.trans h1.2.2.1, h2.2.2.2.1.trans h1.2.2.2.1,
     h2.2.2.2.2.1.trans h1.2.2.2.2.1, h2.2.2.2.2.2.1.trans h1.2.2.2.2.2.1, h2.2.2.2.2.2.2.trans h1.2.2.2.2.2.2⟩
 theorem SearchCore.refl (s : WStateL) : SearchCore s s := ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+theorem forced_searchL_core (rho : Digest) (m : Message) (counter fuel : Nat) (s : WStateL)
+    (r : Option (BitVec 32 × HashOutput) × WStateL) (hr : forcedRun envL slot (searchL rho m counter fuel) s r ≠ 0) :
+    SearchCore s r.2 := by
+  induction fuel generalizing counter s with
+  | zero =>
+      change forcedRun envL slot (pure none) s r ≠ 0 at hr
+      rw [forcedRun, SecretGuessObservation.runWith_pure] at hr
+      simp only [ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] at hr
+      rw [hr]
+      exact SearchCore.refl s
+  | succ fuel ih =>
+      have hx := digestInput_mem rho m (BitVec.ofNat 32 counter)
+      rw [searchL, forcedRun_bind', RetainedObservation.bind_nonzero] at hr
+      obtain ⟨mid, hm, hr⟩ := hr
+      have hmid : SearchCore s mid.2 := by
+        cases hc : s.memory.rows (pad64 (digestInput rho m (BitVec.ofNat 32 counter))) with
+        | some a =>
+            rw [forced_trial_cached slot s _ a hc] at hm
+            simp only [ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] at hm
+            rw [hm]
+            exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+        | none =>
+            rw [forced_trial_fresh slot s _ hc hx, map_eq_bind_pure_comp, RetainedObservation.bind_nonzero] at hm
+            obtain ⟨a, -, hm⟩ := hm
+            simp only [Function.comp_apply, ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] at hm
+            rw [hm, readRow_false]
+            exact ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+      by_cases hadm : digestAdmissible mid.1 = true
+      · simp only [hadm, ↓reduceIte] at hr
+        rw [forcedRun, SecretGuessObservation.runWith_pure] at hr
+        simp only [ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] at hr
+        rw [hr]
+        exact hmid
+      · simp only [hadm, ↓reduceIte, Bool.false_eq_true] at hr
+        exact hmid.trans (ih (counter + 1) mid.2 hr)
 end Laws
 end SigGolfCandidate.T3.Security.BPair
 end
@@ -73,10 +174,126 @@ def Keeps (m m' : LazyMem) : Prop := m'.births = m.births ∧ m'.exposures = m.e
 theorem Keeps.refl (m : LazyMem) : Keeps m m := ⟨rfl, rfl, rfl⟩
 theorem Keeps.trans {m1 m2 m3 : LazyMem} (h1 : Keeps m1 m2) (h2 : Keeps m2 m3) : Keeps m1 m3 :=
   ⟨h2.1.trans h1.1, h2.2.1.trans h1.2.1, h2.2.2.trans h1.2.2⟩
+theorem fixed_coin_state (n : Nat) (s : WStateL) (r : Fin (n + 1) × WStateL)
+    (hr : fixedRun (envE D Nn) fts (coinReqL n) s r ≠ 0) : r.2 = s := by
+  unfold coinReqL fixedRun runWith at hr
+  rw [simulateQ_spec_query] at hr
+  change ((fun result => (result.1, { s with memory := result.2 })) <$>
+    (liftM ((fun c => (c, s.memory)) <$> PMF.uniformOfFintype (Fin (n + 1))) : SPMF _)) r ≠ 0 at hr
+  rw [liftM_map, Functor.map_map] at hr
+  simp only [map_eq_bind_pure_comp, RetainedObservation.bind_nonzero, Function.comp_def, ne_eq,
+    SPMF.pure_apply_eq_zero_iff, not_not] at hr
+  obtain ⟨c, _, rfl⟩ := hr
+  rfl
+theorem fixed_guess_state (p : FtsCoord × Digest) (s : WStateL) (r : Bool × WStateL)
+    (hr : fixedRun (envE D Nn) fts (guessReq p) s r ≠ 0) : r.2.memory = s.memory := by
+  unfold guessReq fixedRun runWith at hr
+  rw [simulateQ_spec_query] at hr
+  change (pure (decide (fts p.1 = p.2), SecretGuessObservation.afterTrial (envE D Nn) s p.1 p.2
+    (decide (fts p.1 = p.2))) : SPMF (Bool × WStateL)) r ≠ 0 at hr
+  simp only [ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] at hr
+  rw [hr]
+  rfl
+theorem fixed_disclosures_state (positions : List FtsCoord) (s : WStateL) (r : List Digest × WStateL)
+    (hr : fixedRun (envE D Nn) fts (positions.mapM discloseReq) s r ≠ 0) : r.2.memory = s.memory := by
+  induction positions generalizing s r with
+  | nil =>
+      rw [List.mapM_nil] at hr
+      rw [runL_pure_nonzero _ fts _ s r hr]
+  | cons first rest ih =>
+      rw [List.mapM_cons] at hr
+      obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ fts _ _ s r hr
+      obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ fts _ _ m1.2 r hr
+      rw [runL_pure_nonzero _ fts _ _ r hr]
+      have hm1 : m1.2.memory = s.memory := by
+        unfold discloseReq fixedRun runWith at h1
+        rw [simulateQ_spec_query] at h1
+        change (pure (fts first, SecretGuessObservation.afterDisclosure (envE D Nn) s first (fts first)) :
+          SPMF (Digest × WStateL)) m1 ≠ 0 at h1
+        simp only [ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] at h1
+        rw [h1]
+        rfl
+      exact (ih m1.2 m2 h2).trans hm1
+theorem fixed_nonce_keeps (m : Message) (s : WStateL) (r : Digest × WStateL)
+    (hr : fixedRun (envE D Nn) fts (nonceReq m) s r ≠ 0) : Keeps s.memory r.2.memory := by
+  cases hc : s.memory.nonces m with
+  | some v =>
+      rw [nonceReq, fixed_aux_single D Nn fts s (.nonce m) v s.memory (nonceStep_some _ _ _ v hc)] at hr
+      simp only [ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] at hr
+      rw [hr]
+      exact Keeps.refl _
+  | none =>
+      rw [nonceReq, fixed_aux_single D Nn fts s (.nonce m) (Nn m) (s.memory.drawNonce m (Nn m))
+        ((nonceStep_none _ _ _ hc).trans (map_pure _ _))] at hr
+      simp only [ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] at hr
+      rw [hr]
+      exact ⟨rfl, rfl, rfl⟩
+theorem fixed_expose_mem (o : Option HashOutput) (s : WStateL) (r : Unit × WStateL)
+    (hr : fixedRun (envE D Nn) fts (exposeReq o) s r ≠ 0) : r.2.memory = s.memory.expose o := by
+  rw [exposeReq, fixed_aux_single D Nn fts s (.expose o) () (s.memory.expose o) rfl] at hr
+  simp only [ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] at hr
+  rw [hr]
+theorem fixed_birth_counts (x : HashInput) (s : WStateL) (r : HashOutput × WStateL)
+    (hr : fixedRun (envE D Nn) fts (birthReq x) s r ≠ 0) :
+    r.2.memory.births.length ≤ s.memory.births.length + 1 ∧ r.2.memory.exposures = s.memory.exposures ∧
+      r.2.memory.trials = s.memory.trials := by
+  cases hc : s.memory.rows x with
+  | some a =>
+      rw [birthReq, fixed_aux_single D Nn fts s (.birth x) a (s.memory.replayRow x true)
+        (rowStep_some _ _ _ _ a hc)] at hr
+      simp only [ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] at hr
+      rw [hr]
+      refine ⟨?_, ?_, ?_⟩ <;> simp [replayRow_true]
+  | none =>
+      by_cases hx : x ∈ digestInputs
+      · rw [birthReq, fixed_aux_single D Nn fts s (.birth x) (rowVal D x) (s.memory.readRow x (rowVal D x) true)
+          ((rowStep_in _ _ _ _ hc hx).trans (map_pure _ _))] at hr
+        simp only [ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] at hr
+        rw [hr]
+        refine ⟨?_, ?_, ?_⟩ <;> simp [readRow_true]
+      · rw [birthReq, fixed_aux_single D Nn fts s (.birth x) 0 (s.memory.replayRow x true)
+          (rowStep_out _ _ _ _ hc hx)] at hr
+        simp only [ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] at hr
+        rw [hr]
+        refine ⟨?_, ?_, ?_⟩ <;> simp [replayRow_true]
+theorem fixed_trial_counts (x : HashInput) (s : WStateL) (r : HashOutput × WStateL)
+    (hr : fixedRun (envE D Nn) fts (trialReq x) s r ≠ 0) :
+    r.2.memory.births = s.memory.births ∧ r.2.memory.exposures = s.memory.exposures ∧
+      r.2.memory.trials = s.memory.trials ++ [x] := by
+  cases hc : s.memory.rows x with
+  | some a =>
+      rw [trialReq, fixed_aux_single D Nn fts s (.trial x) a (s.memory.replayRow x false)
+        (rowStep_some _ _ _ _ a hc)] at hr
+      simp only [ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] at hr
+      rw [hr]
+      refine ⟨?_, ?_, ?_⟩ <;> simp [replayRow_false]
+  | none =>
+      by_cases hx : x ∈ digestInputs
+      · rw [trialReq, fixed_aux_single D Nn fts s (.trial x) (rowVal D x) (s.memory.readRow x (rowVal D x) false)
+          ((rowStep_in _ _ _ _ hc hx).trans (map_pure _ _))] at hr
+        simp only [ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] at hr
+        rw [hr]
+        refine ⟨?_, ?_, ?_⟩ <;> simp [readRow_false]
+      · rw [trialReq, fixed_aux_single D Nn fts s (.trial x) 0 (s.memory.replayRow x false)
+          (rowStep_out _ _ _ _ hc hx)] at hr
+        simp only [ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] at hr
+        rw [hr]
+        refine ⟨?_, ?_, ?_⟩ <;> simp [replayRow_false]
 end Steps
 section Programs
 open SecretGuessObservation (fixedRun fixedImpl runWith)
+variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : Omega U)
 noncomputable local instance instDecidableEqCache_pairGuessLazyCount : DecidableEq T3.Cache := Classical.decEq _
+theorem queried_sign_search (fts : FtsCoord → Digest) (published : T3.Cache) (request : Request)
+    (hc : request.cache = published) (x : HashInput)
+    (hx : (.inl (.inr x) : T3.Spec.Domain) ∈ SecurityExtraction.queried (Omega.answers hU ω fts)
+      (digestSearch (nonceOf ω request.message) request.message 0 attemptLimit)) :
+    (.inl (.inr x) : T3.Spec.Domain) ∈ SecurityExtraction.queried (Omega.answers hU ω fts)
+      (FullGame.authenticatedSign published request) := by
+  unfold FullGame.authenticatedSign
+  rw [SecurityExtraction.queried_bind, if_pos hc, Correctness.signPayload_eq, SecurityExtraction.queried_bind,
+    SecurityExtraction.queried_bind, eval_nonce hU ω fts request.message]
+  exact List.mem_append_right _ (List.mem_append_right _ (List.mem_append_left _ hx))
 theorem queried_digestSearch_succ (A : Answers) (rho : Digest) (m : Message) (counter fuel : Nat) :
     SecurityExtraction.queried A (digestSearch rho m counter (fuel + 1)) =
       (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 counter)))) : T3.Spec.Domain) ::
@@ -86,6 +303,81 @@ theorem queried_digestSearch_succ (A : Answers) (rho : Digest) (m : Message) (co
             else digestSearch rho m (counter + 1) fuel) := by
   rw [digestSearch]
   exact SecurityExtraction.queried_query_bind A _ _
+theorem finishL_state (fts : FtsCoord → Digest) (request : Request) (rho : Digest)
+    (found : Option (BitVec 32 × HashOutput)) (s : WStateL) (r : Option Signature × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) fts (finishL hU ω request rho found) s r ≠ 0) :
+    r.2.memory = s.memory := by
+  cases found with
+  | none => rw [runL_pure_nonzero _ fts _ s r hr]
+  | some found =>
+      obtain ⟨c, out⟩ := found
+      change fixedRun (envE (digestOf ω) (nonceOf ω)) fts (match signerLayers hU ω request out with
+        | none => pure none
+        | some pieces => do
+            let values ← (openedPositions out).mapM discloseReq
+            pure (some (Correctness.assembledSignature rho
+              (openedValues (overwrite (openedPositions out) values) out,
+                (signerForest hU ω out).2.1, (signerForest hU ω out).2.2) pieces))) s r ≠ 0 at hr
+      cases hl : signerLayers hU ω request out with
+      | none =>
+          rw [hl] at hr
+          rw [runL_pure_nonzero _ fts _ s r hr]
+      | some pieces =>
+          rw [hl] at hr
+          obtain ⟨mid, hm, hr⟩ := runL_bind_nonzero _ fts _ _ s r hr
+          rw [runL_pure_nonzero _ fts _ _ r hr]
+          exact fixed_disclosures_state _ _ fts _ s mid hm
+theorem hashL_counts (fts : FtsCoord → Digest) (x : HashInput) (s : WStateL) (r : HashOutput × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) fts (hashL hU ω x) s r ≠ 0) :
+    r.2.memory.births.length ≤ s.memory.births.length + 1 ∧ r.2.memory.exposures = s.memory.exposures ∧
+      r.2.memory.trials = s.memory.trials := by
+  unfold hashL at hr
+  cases hd : decodeProbe x with
+  | some p =>
+      rw [hd] at hr
+      dsimp only at hr
+      obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ fts _ _ s r hr
+      rw [runL_pure_nonzero _ fts _ _ r hr, fixed_guess_state _ _ fts p s m1 h1]
+      exact ⟨Nat.le_succ _, rfl, rfl⟩
+  | none =>
+      rw [hd] at hr
+      dsimp only at hr
+      by_cases hx : x ∈ digestInputs
+      · rw [if_pos hx] at hr
+        exact fixed_birth_counts _ _ fts x s r hr
+      · rw [if_neg hx] at hr
+        rw [runL_pure_nonzero _ fts _ s r hr]
+        exact ⟨Nat.le_succ _, rfl, rfl⟩
+theorem programL_counts (fts : FtsCoord → Digest) {β : Type} (program : M β) (s : WStateL)
+    (hs : Good (digestOf ω) (nonceOf ω) s.memory) (r : (β × List Wots.Entry) × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) fts (programL hU ω program) s r ≠ 0) :
+    r.2.memory.births.length ≤ s.memory.births.length + r.1.2.length ∧
+      r.2.memory.exposures = s.memory.exposures ∧ r.2.memory.trials = s.memory.trials := by
+  induction program using OracleComp.inductionOn generalizing s r with
+  | pure value =>
+      rw [programL_pure] at hr
+      rw [runL_pure_nonzero _ fts _ s r hr]
+      exact ⟨by simp, rfl, rfl⟩
+  | query_bind input next ih =>
+      rcases input with (n | x) | c
+      · rw [programL_coin] at hr
+        obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ fts _ _ s r hr
+        have hm := fixed_coin_state _ _ fts n s m1 h1
+        have := ih m1.1 m1.2 (by rw [hm]; exact hs) r hr
+        rw [hm] at this
+        exact this
+      · rw [programL_public] at hr
+        obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ fts _ _ s r hr
+        obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ fts _ _ m1.2 r hr
+        rw [runL_pure_nonzero _ fts _ _ r hr]
+        have g1 := run_good _ _ fts _ s hs m1 h1
+        obtain ⟨hb1, he1, ht1⟩ := hashL_counts hU ω fts x s m1 h1
+        obtain ⟨i1, i2, i3⟩ := ih m1.1 m1.2 g1.1 m2 h2
+        refine ⟨?_, i2.trans he1, i3.trans ht1⟩
+        change m2.2.memory.births.length ≤ s.memory.births.length + (m2.1.2.length + 1)
+        omega
+      · rw [programL_private] at hr
+        exact ih (0 : HashOutput) s hs r hr
 end Programs
 section Bank
 end Bank

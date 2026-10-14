@@ -45,5 +45,12 @@ theorem ev_bind_le {α β : Type} (mx : SPMF α) (f : α → SPMF β) (g : β �
   exact expectedValue_le_of_le _ h
 end Generic
 section Router
+variable (U : Finset HashInput) (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input)) (q : Nat)
+def DiscFrame (s s' : State WCoord (Cell U)) : Prop :=
+  s'.rows = s.rows ∧ s'.counters = s.counters ∧ ∀ m : Message, s'.candidates (.inr m) = s.candidates (.inr m)
+theorem DiscFrame.refl (s : State WCoord (Cell U)) : DiscFrame U s s := ⟨rfl, rfl, fun _ => rfl⟩
+theorem DiscFrame.trans {s1 s2 s3 : State WCoord (Cell U)} (h1 : DiscFrame U s1 s2) (h2 : DiscFrame U s2 s3) :
+    DiscFrame U s1 s3 :=
+  ⟨h2.1.trans h1.1, h2.2.1.trans h1.2.1, fun m => (h2.2.2 m).trans (h1.2.2 m)⟩
 end Router
 end SigGolfCandidate.T3.Security.LargeCoupling

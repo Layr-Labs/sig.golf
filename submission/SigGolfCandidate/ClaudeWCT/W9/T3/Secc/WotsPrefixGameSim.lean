@@ -25,8 +25,8 @@ noncomputable def routeImpl (a : ChainAddr) (d : Nat) (R : RefTables adversary) 
   | .inl (.inl n) => liftM ((SeedSpec d).query (.inl n))
   | .inl (.inr input) =>
       match rowOf a d input with
-      | some p => (fun w => ChainGraph.joinProj (chainHigh a.key.lay a.chain p.1.val) w
-            (projHalf (!chainHigh a.key.lay a.chain p.1.val) (restTable R (.inl (.inr input))))) <$>
+      | some p => (fun w => joinHalf (WCT9.chainHigh a.key.lay a.chain p.1.val) w
+            (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain p.1.val) (restTable R (.inl (.inr input))))) <$>
           liftM ((SeedSpec d).query (.inr p))
       | none => pure (restTable R (.inl (.inr input)))
   | .inr _ => pure ()
