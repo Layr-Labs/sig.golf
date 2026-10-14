@@ -18,7 +18,7 @@ open SigGolfCandidate.T3 (Digest Layer route)
 set_option maxHeartbeats 800000
 set_option linter.unusedSimpArgs false
 def topChainRegs : List Reg := [.x10,.x12,.x25,.x3,.x14,.x15,.x24]
-def topChainWrites (A : Nat) : Prop := (25232 ≤ A ∧ A < 26112) ∨ (10240 ≤ A ∧ A < 13712)
+def topChainWrites (A : Nat) : Prop := (25136 ≤ A ∧ A < 26016) ∨ (10144 ≤ A ∧ A < 13616)
 theorem topLeafK_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (t s0 s : MachineState)
     (a : BitVec 256) (ht : BC.EncPre w pk index 0 c t)
     (he : TopEntry (writeHash t a) (ClaudeWCT.WCT9.verificationAnswer 0 (ClaudeWCT.W9.T3M.wtopHint w) a) (trPc 0 c) s0)
@@ -57,12 +57,12 @@ theorem topLeafReady_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : N
   have hk := topLeafK_of w pk index c t s0 s a ht he hr h15
   have hc' : c < 128 := by have := BC.nCopy_eq; omega
   have ha := topRowA_mem c hc'
-  have hal : 13696 ≤ topRowA c ∧ topRowA c ≤ 13952 ∧ topRowA c % 16 = 0 := by
+  have hal : 13600 ≤ topRowA c ∧ topRowA c ≤ 13856 ∧ topRowA c % 16 = 0 := by
     simp only [Nonbinary.aVals, List.mem_cons, List.not_mem_nil, or_false] at ha; omega
   obtain ⟨d,h12,hd⟩ := ht.dst (by decide +kernel)
   change (d + 16 = topRowA c ∧ WIT + BC.layerEnd 0 + 16 ≤ topRowA c) ∨ d = topRowA c + 48 at hd
   have hg := Glob_writeHash ht.glob a d h12 (safeDest_hi d (by unfold WLO WIT; omega) (by omega) (by omega))
-  have hfr : Frame (writeHash t a) s (fun A => A = 25160 ∨ topChainWrites A) :=
+  have hfr : Frame (writeHash t a) s (fun A => A = 25064 ∨ topChainWrites A) :=
     he.frame.trans hf
   have hglob : Glob (leafK 0) w pk s := glob_frame hg hfr (by
     intro A h
@@ -93,22 +93,22 @@ theorem topLeafReady_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : N
       norm_num [ClaudeWCT.W9.T3M.layerBase, ClaudeWCT.W9.T3M.pathSlots] at hp
       unfold topChainWrites WIT
       omega)
-  · -- C3: the top leaf pad is witness memory (nothing writes `[25200, 25216)` before the top leaf hash)
-    have hfr : ∀ A, A = 25200 ∨ A = 25208 → s.getMem (BitVec.ofNat 64 A) = t.getMem (BitVec.ofNat 64 A) := by
+  · -- C3: the top leaf pad is witness memory (nothing writes `[25104, 25120)` before the top leaf hash)
+    have hfr : ∀ A, A = 25104 ∨ A = 25112 → s.getMem (BitVec.ofNat 64 A) = t.getMem (BitVec.ofNat 64 A) := by
       intro A hA
       rw [hf.get (by omega) (by unfold topChainWrites; omega), he.frame.get (by omega) (by omega),
         writeHash_frame t a d A h12 (by omega) (by omega) (Or.inr (by omega))]
-    have hlb0 : ClaudeWCT.W9.T3M.leafBufferBase 0 = 23984 := rfl
-    have hpad := ht.bufferOrig.dig 23984 (by decide) (by unfold WX; decide) ⟨by decide, by decide⟩
+    have hlb0 : ClaudeWCT.W9.T3M.leafBufferBase 0 = 23888 := rfl
+    have hpad := ht.bufferOrig.dig 23888 (by decide) (by unfold WX; decide) ⟨by decide, by decide⟩
       ⟨by decide, by decide⟩
     unfold ClaudeWCT.W9.T3M.wtopLeafPad; rw [hlb0]
-    exact ⟨(hfr 25200 (Or.inl rfl)).trans hpad.1, (hfr 25208 (Or.inr rfl)).trans hpad.2⟩
+    exact ⟨(hfr 25104 (Or.inl rfl)).trans hpad.1, (hfr 25112 (Or.inr rfl)).trans hpad.2⟩
   · -- C3: the top leaf tweak's high word is witness memory
-    have h1 : s.getMem (BitVec.ofNat 64 25224) = t.getMem (BitVec.ofNat 64 25224) := by
+    have h1 : s.getMem (BitVec.ofNat 64 25128) = t.getMem (BitVec.ofNat 64 25128) := by
       rw [hf.get (by omega) (by unfold topChainWrites; omega), he.frame.get (by omega) (by omega),
-        writeHash_frame t a d 25224 h12 (by omega) (by omega) (Or.inr (by omega))]
-    have hlb0 : ClaudeWCT.W9.T3M.leafBufferBase 0 = 23984 := rfl
-    have hhi := ht.bufferOrig.hi 24000 (by decide) (by unfold WX; decide) ⟨by decide, by decide⟩
+        writeHash_frame t a d 25128 h12 (by omega) (by omega) (Or.inr (by omega))]
+    have hlb0 : ClaudeWCT.W9.T3M.leafBufferBase 0 = 23888 := rfl
+    have hhi := ht.bufferOrig.hi 23904 (by decide) (by unfold WX; decide) ⟨by decide, by decide⟩
     unfold ClaudeWCT.W9.T3M.wleafHigh; rw [hlb0]
     exact h1.trans hhi
 end SigGolfCandidate.T3M
@@ -123,7 +123,7 @@ set_option maxHeartbeats 1000000
 set_option linter.unusedSimpArgs false
 theorem nctx_block (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (v : Digest) (p i : Nat) :
     (nctxOf w index v p).blk i - 0x4c0 = ClaudeWCT.W9.T3M.chainBlock 0 i := by
-  change 11904 - 1664 + 64 * (53 - i) - 1216 = 8256 + 16 * 48 + 64 * (54 - 1 - i)
+  change 11808 - 1664 + 64 * (53 - i) - 1216 = 8256 + 16 * 42 + 64 * (54 - 1 - i)
   omega
 def srcChain (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (v : Digest) (i : Nat) : T3.M Digest :=
   chainP 0 (route index 0).2 (route index 0).1 i ((dataDigits 0 v).getD i 0)
@@ -189,7 +189,7 @@ theorem nctx_group0 (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (v : Digest) (p 
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_ofNat]
   omega
-theorem top_chain_frame (c : NCtx) (hc : c.S3 = 11904) {s t : MachineState}
+theorem top_chain_frame (c : NCtx) (hc : c.S3 = 11808) {s t : MachineState}
     (hf : Frame s t (c.Wr 54)) : Frame s t topChainWrites := by
   apply hf.mono
   intro A _ hA
@@ -401,7 +401,7 @@ theorem top_after_hash (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Na
   have hc' : c < 128 := by have := BC.nCopy_eq; omega
   have hDs0 : DataOK s0 := by
     have ha := topRowA_mem c hc'
-    have hal : 13696 ≤ topRowA c ∧ topRowA c ≤ 13952 ∧ topRowA c % 16 = 0 := by
+    have hal : 13600 ≤ topRowA c ∧ topRowA c ≤ 13856 ∧ topRowA c % 16 = 0 := by
       simp only [Nonbinary.aVals, List.mem_cons, List.not_mem_nil, or_false] at ha; omega
     obtain ⟨d, h12, hd⟩ := hpre.dst (by decide +kernel)
     change (d + 16 = topRowA c ∧ WIT + BC.layerEnd 0 + 16 ≤ topRowA c) ∨ d = topRowA c + 48 at hd

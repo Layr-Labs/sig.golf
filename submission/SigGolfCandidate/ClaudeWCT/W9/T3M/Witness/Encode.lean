@@ -87,7 +87,7 @@ def topPathByte {lay : Layer} (leaf : Nat) (ls : LayerSignature lay) (p : Nat) :
       (fun j => decide (topSibSlot leaf j.val ≤ p ∧ p < topSibSlot leaf j.val + 16)) with
   | some j => (bytesLE 16 (ls.path j)).getD (p - topSibSlot leaf j.val) 0
   | none => 0
-/-- C4: the 768-byte top path area (48 slots). -/
+/-- C4: the 672-byte top path area (42 slots). -/
 def topPathBytes {lay : Layer} (leaf : Nat) (ls : LayerSignature lay) : List UInt8 :=
   (List.range (16 * pathSlots lay)).map (topPathByte leaf ls)
 /-- C4: the top region is the plan-placed path area followed by the top chain blocks; a lower region is its
