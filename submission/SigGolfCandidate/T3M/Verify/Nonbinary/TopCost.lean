@@ -129,7 +129,7 @@ theorem chainsCost_any (c : NCtx) (hds : c.DigitsOk) : c.chainsCost 0 54 ≤ 225
 theorem chainsCost_accepted (c : NCtx) (v : Digest) (digits : List Nat)
     (hdec : decode 0 v = some digits)
     (hd : ∀ i, i < 54 → c.dig i = coreDigit 0 v i) :
-    c.chainsCost 0 54 + topCredit v + 4*savedCopies 0 digits = 927 + dispatchPenalty 0 digits := by
+    c.chainsCost 0 54 + topCredit v + 4*savedCopies 0 digits = 936 + dispatchPenalty 0 digits := by
   have hsome := decode_top_some hdec
   have hsource : ∀ i, i < 54 → digits.getD i 0 = c.dig i := by
     intro i hi
@@ -142,7 +142,7 @@ theorem chainsCost_accepted (c : NCtx) (v : Digest) (digits : List Nat)
     intro i hi
     rw [hd i hi, ← hm]
     exact T3.Nonbinary.coreDigit_le 0 v i
-  have hsum : ((List.range 54).map c.dig).sum = 146 := by
+  have hsum : ((List.range 54).map c.dig).sum = 145 := by
     have he : (List.range 54).map c.dig = dataDigits 0 v := by
       unfold dataDigits
       apply List.map_congr_left

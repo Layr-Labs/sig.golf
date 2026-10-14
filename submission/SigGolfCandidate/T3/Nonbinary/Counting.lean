@@ -57,18 +57,18 @@ theorem truncated_card (cut : Nat) (hc : 0<cut) :
       (by simpa only [Finset.card_univ] using Nat.lt_of_lt_of_le word_card_small (Nat.sub_le _ _)),
     SigGolfResearch.Gate6.sum_pow_mod_pred_generic (by norm_num [radix]),
     Nat.mod_eq_of_lt ((Finset.card_filter_le _ _).trans_lt (by simpa using word_card_small))]
-/-- Campaign T8D (NF17): accepted top words at target 146 (no credit floor). -/
-def count : Nat := 68265759603931770586437474120287175
+/-- Campaign T8D (NF17): accepted top words at target 145 (no credit floor). -/
+def count : Nat := 91088036708222302737139366458447855
 theorem exact_packed_count :
-    (packed%radix^147)%(radix-1)-(packed%radix^146)%(radix-1)=count := by decide +kernel
-theorem accepted_card : (Finset.univ.filter fun w : Word => weight w=146).card=count := by
+    (packed%radix^146)%(radix-1)-(packed%radix^145)%(radix-1)=count := by decide +kernel
+theorem accepted_card : (Finset.univ.filter fun w : Word => weight w=145).card=count := by
   classical
-  have hs : (Finset.univ.filter fun w : Word => weight w=146)=
-      (Finset.univ.filter fun w : Word => weight w<147)\
-        (Finset.univ.filter fun w : Word => weight w<146) := by
+  have hs : (Finset.univ.filter fun w : Word => weight w=145)=
+      (Finset.univ.filter fun w : Word => weight w<146)\
+        (Finset.univ.filter fun w : Word => weight w<145) := by
     ext w; simp only [Finset.mem_filter,Finset.mem_univ,true_and,Finset.mem_sdiff]; omega
   rw [hs,Finset.card_sdiff_of_subset]
-  · rw [truncated_card 147 (by decide),truncated_card 146 (by decide),exact_packed_count]
+  · rw [truncated_card 146 (by decide),truncated_card 145 (by decide),exact_packed_count]
   · intro w hw
     simp only [Finset.mem_filter,Finset.mem_univ,true_and] at hw ⊢
     omega
@@ -81,13 +81,13 @@ theorem digest_injective : Function.Injective digest := by
   exact congrArg (fun x : Fin (2^128) => x.val) h
 noncomputable def acceptedDigests : Finset (Fin (2^128)) := by
   classical
-  exact (Finset.univ.filter fun w : Word => weight w=146).image digest
+  exact (Finset.univ.filter fun w : Word => weight w=145).image digest
 theorem accepted_digest_card : acceptedDigests.card=count := by
   classical
   unfold acceptedDigests
   rw [Finset.card_image_of_injective _ digest_injective,accepted_card]
 theorem probability_fraction : (count : ℚ)/2^128=
-    68265759603931770586437474120287175/340282366920938463463374607431768211456 := by
+    91088036708222302737139366458447855/340282366920938463463374607431768211456 := by
   norm_num [count]
 end SigGolfResearch.NonbinaryTop.Counting
 #print axioms SigGolfResearch.NonbinaryTop.Counting.weighted_words

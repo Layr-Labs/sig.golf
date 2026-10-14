@@ -1,5 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.Numerics.WCTEnvelope
-import SigGolfCandidate.ClaudeWCT.Bank_WCTHonest
+import SigGolfCandidate.ClaudeWCT.Bank.WCTHonest
 
 namespace ClaudeWCT.Numerics.WCTPrice
 open Finset ENNReal

@@ -1,5 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.SeccSufRoute
-import SigGolfCandidate.ClaudeWCT.GuessV2_WCTCoords
+import SigGolfCandidate.ClaudeWCT.GuessV2.WCTCoords
 import SigGolfCandidate.T3.Secc.CaseCLeaf
 
 namespace ClaudeWCT.W9.T3.Security.CaseC

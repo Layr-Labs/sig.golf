@@ -72,30 +72,30 @@ theorem truncated_card (cut : Nat) (hc : 0<cut) :
       (by simpa only [Finset.card_univ] using Nat.lt_of_lt_of_le word_card_small (Nat.sub_le _ _)),
     SigGolfResearch.Gate6.sum_pow_mod_pred_generic (by norm_num [radix]),
     Nat.mod_eq_of_lt ((Finset.card_filter_le _ _).trans_lt (by simpa using word_card_small))]
-/-- Accepted top words at target146 with the legacy T3 credit floor7. The W9 producer
+/-- Accepted top words at target145 with the legacy T3 credit floor7. The W9 producer
 uses a separate effective-credit count. -/
-def count : Nat := 67567856205106535693258756678239530
+def count : Nat := 90117006931743565721975311298003535
 theorem exact_packed_count :
-    (packed%radix^9408)%(radix-1)-(packed%radix^(9344+creditFloor))%(radix-1)=count := by decide +kernel
+    (packed%radix^9344)%(radix-1)-(packed%radix^(9280+creditFloor))%(radix-1)=count := by decide +kernel
 theorem credited_card :
-    (Finset.univ.filter fun w : Word => weight w=146 ∧ creditFloor≤credit w).card=count := by
+    (Finset.univ.filter fun w : Word => weight w=145 ∧ creditFloor≤credit w).card=count := by
   classical
-  have hs : (Finset.univ.filter fun w : Word => weight w=146 ∧ creditFloor≤credit w)=
-      (Finset.univ.filter fun w : Word => stat w<9408)\
-        (Finset.univ.filter fun w : Word => stat w<9344+creditFloor) := by
+  have hs : (Finset.univ.filter fun w : Word => weight w=145 ∧ creditFloor≤credit w)=
+      (Finset.univ.filter fun w : Word => stat w<9344)\
+        (Finset.univ.filter fun w : Word => stat w<9280+creditFloor) := by
     ext w
     have hc := credit_le w
     have he := stat_eq w
     simp only [Finset.mem_filter,Finset.mem_univ,true_and,Finset.mem_sdiff]
     omega
   rw [hs,Finset.card_sdiff_of_subset]
-  · rw [truncated_card 9408 (by decide),truncated_card (9344+creditFloor) (by decide),exact_packed_count]
+  · rw [truncated_card 9344 (by decide),truncated_card (9280+creditFloor) (by decide),exact_packed_count]
   · intro w hw
     have hf : creditFloor≤64 := by decide
     simp only [Finset.mem_filter,Finset.mem_univ,true_and] at hw ⊢
     omega
 theorem credited_digest_card :
-    ((Finset.univ.filter fun w : Word => weight w=146 ∧ creditFloor≤credit w).image digest).card=count := by
+    ((Finset.univ.filter fun w : Word => weight w=145 ∧ creditFloor≤credit w).image digest).card=count := by
   classical
   rw [Finset.card_image_of_injective _ digest_injective,credited_card]
 theorem credited_decoder_count :
@@ -103,7 +103,7 @@ theorem credited_decoder_count :
   classical
   rw [Fintype.card_subtype]
   have he : (Finset.univ.filter fun d : Fin (2^128) => ∃ w,Decoder.decode d=some w ∧ creditFloor≤credit w)=
-      (Finset.univ.filter fun w : Word => weight w=146 ∧ creditFloor≤credit w).image digest := by
+      (Finset.univ.filter fun w : Word => weight w=145 ∧ creditFloor≤credit w).image digest := by
     ext d
     simp only [Finset.mem_filter,Finset.mem_univ,true_and,Finset.mem_image]
     constructor
@@ -114,7 +114,7 @@ theorem credited_decoder_count :
       exact ⟨w,(Decoder.decode_some_iff d w).mpr ⟨hd,hweight⟩,hc⟩
   rw [he,credited_digest_card]
 theorem probability_fraction : (count : ℚ)/2^128=
-    67567856205106535693258756678239530/2^128 := by
+    90117006931743565721975311298003535/2^128 := by
   simp only [count,Nat.cast_ofNat]
 end SigGolfResearch.NonbinaryTop.CreditCounting
 #print axioms SigGolfResearch.NonbinaryTop.CreditCounting.exact_packed_count
@@ -208,7 +208,7 @@ theorem topCredit_parse {v : Digest} {w : Codec.Word}
     rw [if_neg hn,he]
 theorem decodeBV_parse {v : Digest} {w : Codec.Word} (hw : Decoder.decodeBV v=some w) :
     Decoder.parse 17 v.toNat=some w := by
-  change ((Decoder.parse 17 v.toNat).filter fun w => decide (Counting.weight w=146))=some w at hw
+  change ((Decoder.parse 17 v.toNat).filter fun w => decide (Counting.weight w=145))=some w at hw
   exact (Option.filter_eq_some_iff.mp hw).1
 theorem searchDecode_top_isSome (v : Digest) :
     (searchDecode 0 v).isSome=true ↔
