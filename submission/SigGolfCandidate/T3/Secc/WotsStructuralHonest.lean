@@ -1,6 +1,7 @@
 import SigGolfCandidate.T3.Secc.WotsReference
 import SigGolfCandidate.T3.Secc.WotsMask
-import SigGolfCandidate.T3.Secc.CanonGraphHonest
+import SigGolfCandidate.T3.Secc.SeccLaw
+import SigGolfCandidate.T3.Secc.WotsEvents
 
 namespace SigGolfCandidate.T3.Security.Wots.Structural
 open OracleComp OracleSpec ENNReal
@@ -25,9 +26,6 @@ theorem QueriesSat.bind {α β : Type} {p : M α} {f : α → M β} (hp : Querie
   rcases hq with hq | hq
   · exact hp q hq
   · exact hf q hq
-theorem QueriesSat.map {α β : Type} {p : M α} (f : α → β) (hp : QueriesSat T Q p) : QueriesSat T Q (f <$> p) := by
-  rw [map_eq_bind_pure_comp]
-  exact QueriesSat.bind hp (QueriesSat.pure' _)
 theorem QueriesSat.query {q : T3.Spec.Domain} (h : Q q) : QueriesSat T Q (liftM (T3.Spec.query q)) := by
   intro q' hq'
   have he : SourceReplay.queried T (liftM (T3.Spec.query q) : M _) = [q] := by
@@ -83,14 +81,13 @@ theorem sat_shortHash {T : Answers} {Q : T3.Spec.Domain → Prop} (input : HashI
   rw [queried_shortHash', List.mem_singleton] at hq
   rw [hq]
   exact h
-theorem queried_projHash' (T : Answers) (high : Bool) (input : HashInput) :
-    SourceReplay.queried T (projHash high input) = [.inl (.inr (pad64 input))] := rfl
-/-- C4: `sat_shortHash` for a hash keeping either half. -/
 theorem sat_projHash {T : Answers} {Q : T3.Spec.Domain → Prop} (high : Bool) (input : HashInput)
     (h : Q (.inl (.inr (pad64 input)))) : QueriesSat T Q (projHash high input) := by
   intro q hq
-  rw [queried_projHash', List.mem_singleton] at hq
-  rw [hq]
+  have hq' : q ∈ SourceReplay.queried T (projHash high input) := hq
+  rw [show SourceReplay.queried T (projHash high input) = [.inl (.inr (pad64 input))] from rfl,
+    List.mem_singleton] at hq'
+  rw [hq']
   exact h
 theorem sat_publicHash {T : Answers} {Q : T3.Spec.Domain → Prop} (input : HashInput)
     (h : Q (.inl (.inr (pad64 input)))) : QueriesSat T Q (publicHash input) :=

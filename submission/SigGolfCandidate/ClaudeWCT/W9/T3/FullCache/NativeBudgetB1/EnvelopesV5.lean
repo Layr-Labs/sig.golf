@@ -4,18 +4,18 @@ namespace ClaudeWCT.W9.T3.BaseAudit.V5
 open SigGolfCandidate.T3.BaseAudit (zU)
 set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
-def J : ℕ := 51906856451773461050531707007196013186252800
-/-- Density-aware digest acceptance: gate 1353/2^14, fields 563/1024 (rank = field), cap fraction J(cap 776, C1 child table) / 72064^9:
-`1353 * 563^9 * J / (2^104 * 72064^9) = 1353 * J / 2^167`. -/
-def p0 : ℚ := 1353 * J / 2 ^ 167
-def b0 : ℚ := 1014329324794593512 / 1000000000000000000
+def J : ℕ := 51668613533684827311648164987144309062238208
+/-- Density-aware digest acceptance: gate 1418/2^14, fields 563/1024 (rank = field), cap fraction J(cap 775, C1 child table) / 72064^9:
+`1418 * 563^9 * J / (2^104 * 72064^9) = 1418 * J / 2^167`. -/
+def p0 : ℚ := 1418 * J / 2 ^ 167
+def b0 : ℚ := 1013687555301750013 / 1000000000000000000
 theorem step_0 : zU * ((1 - p0) * b0 + p0) ≤ b0 := by norm_num [zU, p0, b0, J]
 theorem probability_floor : 1 / 5026 ≤ p0 ∧ p0 ≤ 1 / 2471 := by norm_num [p0, J]
 theorem p0_ge_5026 : 1 / 5026 ≤ p0 := by norm_num [p0, J]
 theorem p0_nonneg : 0 ≤ p0 := by norm_num [p0, J]
 theorem p0_le_one : p0 ≤ 1 := by norm_num [p0, J]
 /-- Selected top density numerator at target 145: the raw accepted count plus twice the count whose high bit is set. The corresponding denominator is `2 * 2^128`. -/
-def topCount144 : ℕ := 210281445478427825137652285090230379
+def topCount144 : ℕ := 203119455171348707158270870875956420
 def lowerCount197 : ℕ := 140610462347261096978771217394878840
 def lowerCount198 : ℕ := 113470737483767875195512089978341656
 def lowerCount199 : ℕ := 87860897096037675585104420890976996
@@ -30,7 +30,7 @@ def lowerCount200f4 : ℕ := 72090332289016918256778319009782683
 def lowerCount201f10 : ℕ := 54408112790925688753987891000775297
 def lowerCount202f9 : ℕ := 44444210514614632453013305786840214
 def p1 : ℚ := topCount144 / (2 * 2 ^ 128)
-def b1 : ℚ := 1017413314287797250 / 1000000000000000000
+def b1 : ℚ := 1018038383052019248 / 1000000000000000000
 theorem step_1 : zU * ((1 - p1) * b1 + p1) ≤ b1 := by norm_num [zU, p1, b1, topCount144]
 /-- Low-half preference and the disjoint high-half fallback multiply the lower density by 7/4. -/
 def p2 : ℚ := 7 * lowerCount201f10 / (4 * 2 ^ 128)

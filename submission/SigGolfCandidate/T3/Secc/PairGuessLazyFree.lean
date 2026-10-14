@@ -25,7 +25,7 @@ theorem not_digest_of_marker {x : HashInput} {h : Digest} (hx : Extract.hdrBlock
   have h2 : bytesLE 16 (digestHeader ctr) = bytesLE 16 h :=
     (Extract.hdrBlock_prefix rho (digestHeader ctr) (bytesLE 32 m)).symm.trans hx
   exact hm (by rw [← bytesLE_injective h2, digestHeader_marker])
-/-- C4: the digest is the only query with low header word 0 (top fold labels may have byte0 = 0). -/
+/-- Campaign S2: separation from the digest by the low header word (top fold words may have byte0 = 0). -/
 theorem not_digest_of_low {x : HashInput} {h : Digest} (hx : Extract.hdrBlock x = bytesLE 16 h)
     (hm : tweakLow h ≠ 0) : x ∉ digestInputs := by
   intro hmem
@@ -42,9 +42,9 @@ theorem privatePair_dn (t l tr p ix : Nat) : AllQueriesSatisfy (privatePair t l 
   exact bind_allowed NotDN ((allQueriesSatisfy_query_iff _ _).mpr trivial) fun _ => pure_allowed _ _
 theorem privateMac_dn (region : Region) : AllQueriesSatisfy (privateMac region) NotDN := by
   exact privateMac_allowed NotDN (fun _ => trivial) region
-theorem chainStep_dn (lay : Layer) (tree leaf i step : Nat) (value : Digest) :
-    AllQueriesSatisfy (shortHash (chainInput lay tree leaf i step value)) NotDN := by
-  unfold shortHash publicHash
+theorem chainStep_dn (lay : Layer) (tree leaf i step : Nat) (value : Digest) (high : Bool) :
+    AllQueriesSatisfy (projHash high (chainInput lay tree leaf i step value)) NotDN := by
+  unfold projHash publicHash
   apply bind_allowed NotDN
   · apply (allQueriesSatisfy_query_iff _ _).mpr
     intro hm
@@ -60,7 +60,7 @@ theorem chainStep_dn (lay : Layer) (tree leaf i step : Nat) (value : Digest) :
 theorem chain_dn (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
     AllQueriesSatisfy (chain lay tree leaf i start count value) NotDN := by
   unfold chain
-  exact foldlM_allowed NotDN _ _ (fun v step => chainStep_dn lay tree leaf i step v) value
+  exact foldlM_allowed NotDN _ _ (fun v step => chainStep_dn lay tree leaf i step v _) value
 theorem leafHash_dn (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     AllQueriesSatisfy (leafHash lay tree leaf ends) NotDN := by
   unfold leafHash projHash publicHash
@@ -174,17 +174,7 @@ theorem signTop_dn (cache : T3.Cache) (leaf : Nat) (digits : List Nat) :
     bind_allowed NotDN (topPath_dn _ _) fun _ => pure_allowed _ _
 end DN
 def nonceHalf (m : Message) : ChainGraph.HalfCoordinate := (.inr (.inl m), 0)
-theorem nonceHalf_not_secret (m : Message) : nonceHalf m ∉ Set.range CanonGraph.secretCoordinate := by
-  rintro ⟨i, hi⟩
-  have h1 := congrArg Prod.fst hi
-  cases i with
-  | inl a => cases h1
-  | inr f => cases h1
-def nonceOther (m : Message) : CanonGraph.OtherHalf := ⟨nonceHalf m, nonceHalf_not_secret m⟩
 section Rest
-variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U)
 noncomputable local instance instDecidableEqCache_pairGuessLazyFree : DecidableEq T3.Cache := Classical.decEq _
-noncomputable def digestOf (ω : Omega U) : digestInputs → HashOutput := fun x => finiteHashAnswer ∅ U ω.residual x.val
-def nonceOf (ω : Omega U) : Message → Digest := fun m => ω.other (nonceOther m)
 end Rest
 end SigGolfCandidate.T3.Security.BPair

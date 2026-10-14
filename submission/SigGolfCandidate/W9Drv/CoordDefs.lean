@@ -21,7 +21,6 @@ structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   le : n ≤ 9
   length : pairs.length = n
   pc : u.pc = pcOf (dispatchPc n)
-  /-- C4 (D7): `s2` (x18) is loaded only in the L3 block, so the FTS phase keeps `x5 = 0` and the data word `d0`. -/
   glob : Glob [(.x5, 0)] w pk u
   digest : DigestAt a u
   bank : HeaderBank u
@@ -32,7 +31,6 @@ structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   stepTwo : u.getReg .x13 = 2
   hashLen : u.getReg .x11 = 64
   coordStep : u.getReg .x6 = 65536
-  /-- C4: the FTS coordinate nibble is `coordinate + 1` (`add a5,a5,t1` in the prologue). -/
   nodeReg : u.getReg .x15 = BitVec.ofNat 64 (idxOf a * 2^27 + 67073 + 65536 * (n-1))
   d0 : u.getMem (BitVec.ofNat 64 dataBase7) = 0xFFF
   cached3 : u.getReg .x17 = if n < 8 then a.extractLsb' 192 64 else a.extractLsb' 192 64 ||| rankPad
@@ -49,6 +47,5 @@ structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
     u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + 848)
   coords : ∀ m, n ≤ m → m ≤ 9 → ∀ off, off < 896 → off % 8 = 0 → (m = 9 → 720 ≤ off) →
     (m = n → ¬ V3.isHand off) → W9Machine.OrigW w u (regionAddr m + off)
-  /-- C3 (FULL): witness word 3 (the L3 encoding's row-tweak high word) is still original. -/
-  layer : Orig w (fun o => (24 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24896)) u
+  layer : Orig w (fun o => (24 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24880)) u
 end W9Drv

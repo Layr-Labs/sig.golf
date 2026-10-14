@@ -172,20 +172,19 @@ def e_hdrA : List (BitVec 32) := [1050259,29791923,1707539,29974067,29787827,710
 theorem e_hdrA_at : CodeAt image (pcOf 1119) e_hdrA :=
   codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block eb_hdrA := symRun { noAlias := true } e_hdrA (pcOf 1119) 30
-/-- C4: the top fold label is the heap (`t1 = a3`) with a zero high word (`t2 = 0`). -/
-def e_hdrB : List (BitVec 32) := [915,426771,33817187]
+def e_hdrB : List (BitVec 32) := [787,33817187]
 theorem e_hdrB_at : CodeAt image (pcOf 42765) e_hdrB :=
   codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block eb_hdrB := symRun { noAlias := true } e_hdrB (pcOf 42765) 30
-def e_hdrC : List (BitVec 32) := [17077011,538141459,0xfff40f13,51322643,31679283,0xc100f13,59711251,756023407]
-theorem e_hdrC_at : CodeAt image (pcOf 42768) e_hdrC :=
+def e_hdrC : List (BitVec 32) := [17077011,537092883,0xfff40f13,51322643,31679283,202379027,59711251,31679283]
+theorem e_hdrC_at : CodeAt image (pcOf 42767) e_hdrC :=
   codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-sym_block eb_hdrC := symRun { noAlias := true } e_hdrC (pcOf 42768) 30
-def e_hdrD : List (BitVec 32) := [0xd44d706f]
-theorem e_hdrD_at : CodeAt image (pcOf 42776) e_hdrD :=
+sym_block eb_hdrC := symRun { noAlias := true } e_hdrC (pcOf 42767) 30
+def e_hdrD : List (BitVec 32) := [13828915,0xd44d706f]
+theorem e_hdrD_at : CodeAt image (pcOf 42775) e_hdrD :=
   codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-sym_block eb_hdrD := symRun { noAlias := true } e_hdrD (pcOf 42776) 30
-def e_hdrE : List (BitVec 32) := [134711,537792019,7223331,8272931,132407,537199891,67110291,132663,604374547]
+sym_block eb_hdrD := symRun { noAlias := true } e_hdrD (pcOf 42775) 30
+def e_hdrE : List (BitVec 32) := [134711,537792019,7223331,932899,132407,537199891,67110291,132663,604374547]
 theorem e_hdrE_at : CodeAt image (pcOf 1129) e_hdrE :=
   codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block eb_hdrE := symRun { noAlias := true } e_hdrE (pcOf 1129) 30
@@ -225,58 +224,10 @@ def e_slZ : List (BitVec 32) := [0xc40d706f]
 theorem e_slZ_at : CodeAt image (pcOf 42764) e_slZ :=
   codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
 sym_block eb_slZ := symRun { noAlias := true } e_slZ (pcOf 42764) 30
-/-! C2 + C3 (FULL) trampolines: chain tail at 43451 (from 1047), left-child current value at 43462 (from 1103),
-packed lower node word at 43467 (from 42775). -/
-def e_hdrT : List (BitVec 32) := [31679283,13828915,1475543827,915,2795331695]
-theorem e_hdrT_at : CodeAt image (pcOf 43467) e_hdrT :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-sym_block eb_hdrT := symRun { noAlias := true } e_hdrT (pcOf 43467) 30
-def e_ct0 : List (BitVec 32) := [34181731]
-theorem e_ct0_at : CodeAt image (pcOf 43451) e_ct0 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-sym_block eb_ct0 := symRun { noAlias := true } e_ct0 (pcOf 43451) 30
-def e_ct1 : List (BitVec 32) := [33816675]
-theorem e_ct1_at : CodeAt image (pcOf 43452) e_ct1 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-sym_block eb_ct1 := symRun { noAlias := true } e_ct1 (pcOf 43452) 30
-def e_ct2 : List (BitVec 32) := [6292243,6954083]
-theorem e_ct2_at : CodeAt image (pcOf 43453) e_ct2 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-sym_block eb_ct2 := symRun { noAlias := true } e_ct2 (pcOf 43453) 30
-def e_ct3 : List (BitVec 32) := [134711,504247043,512635779,476985379,478034979,1706515,2426232943]
-theorem e_ct3_at : CodeAt image (pcOf 43455) e_ct3 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-sym_block eb_ct3 := symRun { noAlias := true } e_ct3 (pcOf 43455) 30
-def e_ct4 : List (BitVec 32) := [1706515,2426232943]
-theorem e_ct4_at : CodeAt image (pcOf 43460) e_ct4 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-sym_block eb_ct4 := symRun { noAlias := true } e_ct4 (pcOf 43460) 30
-/-- C4: the top layer's left child also reads the high half (the `beq s0` skip is a NOP). -/
-def e_lcA : List (BitVec 32) := [134839,604933779,19]
-theorem e_lcA_at : CodeAt image (pcOf 43462) e_lcA :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-sym_block eb_lcA := symRun { noAlias := true } e_lcA (pcOf 43462) 30
-def e_lcB : List (BitVec 32) := [17731219,2715639919]
-theorem e_lcB_at : CodeAt image (pcOf 43465) e_lcB :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-sym_block eb_lcB := symRun { noAlias := true } e_lcB (pcOf 43465) 30
-def e_lcC : List (BitVec 32) := [2715639919]
-theorem e_lcC_at : CodeAt image (pcOf 43466) e_lcC :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-sym_block eb_lcC := symRun { noAlias := true } e_lcC (pcOf 43466) 30
-def e_lcD : List (BitVec 32) := [134967,537857811,963331,9352067,7286819,8336419,134967,588189459,733955,9122691,7286819,8336419]
-theorem e_lcD_at : CodeAt image (pcOf 1105) e_lcD :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-sym_block eb_lcD := symRun { noAlias := true } e_lcD (pcOf 1105) 30
-/-- C3 (FULL): extra steps of the chain tail trampoline over the old `addi s4; jal` (2 steps). -/
-def trXE (lay i m : Nat) : Nat := if i ≠ 0 then 2 else if lay = 0 then 3 else if m = 6 then 10 else 5
-theorem trXE_le (lay i m : Nat) : trXE lay i m ≤ 10 := by unfold trXE; split_ifs <;> omega
-/-- C2 (FULL) + C4: offset of the current value (a left child) in the node output: every layer reads the high half. -/
-def hiOff (_lay : Nat) : Nat := 16
 def slotOff (lay : T3.Layer) (c : Nat) : Nat := if lay = 0 then 16 * c + 32 else if c = 0 then 0 else 16 * c + 16
 def hpK (lay : T3.Layer) : Nat := if lay = 0 then 19 else 17
 def slK (lay : T3.Layer) (i : Nat) : Nat := if lay = 0 then 5 else if i = 0 then 5 else 6
-def hdrK (lay : Nat) : Nat := if lay = 0 then 19 else 31
+def hdrK (lay : Nat) : Nat := if lay = 0 then 19 else 27
 section blocks
 variable (s : MachineState)
 theorem rl997_spec (hpc : s.pc = pcOf 997) (lay : T3.Layer) (tree leaf : Nat)
@@ -541,130 +492,78 @@ theorem rl1032_spec (hpc : s.pc = pcOf 1032) (lay : T3.Layer) (tree leaf i st : 
     (Keygen.PackedBlocks.source_high_actual lay tree leaf i st hr hf hi hs).symm
 theorem fetch_1046 (hpc : s.pc = pcOf 1046) : fetch image s = some (.base .ECALL) :=
   (codeAt_1046.fetch s hpc).trans rfl
-theorem eb_ct3_regs (t : MachineState) : RegsExcept t (eb_ct3.res.toState t) [.x6, .x7, .x20, .x28] := by
-  intro r hr; simp at hr; cases r <;> simp_all [eb_ct3.res, rv_simp] <;> rfl
-/-- C3 (FULL): the chain tail `jal 43451` at 1047 and its trampoline. Lower chain 0's step 6 output keeps the high
-half (copied from `CHAIN + 64` to `CHAIN + 48`); every other step keeps the low half. -/
-theorem rl1047_spec (hpc : s.pc = pcOf 1047) (lay : T3.Layer) (i m : Nat) (hi : i < 2 ^ 64) (hm : m < 2 ^ 63)
-    (h8 : s.getReg .x8 = BitVec.ofNat 64 lay.val) (h19 : s.getReg .x19 = BitVec.ofNat 64 i)
-    (h20 : s.getReg .x20 = BitVec.ofNat 64 m) (lo hv : T3.Digest) (hlo : DigAt s (CHAIN + 48) lo)
-    (hhv : DigAt s (CHAIN + 64) hv) :
-    ∃ t, Steps image s (2 + trXE lay.val i m) (2 + trXE lay.val i m) t ∧ t.pc = pcOf 1031 ∧
-      t.getReg .x20 = BitVec.ofNat 64 (m + 1) ∧
-      DigAt t (CHAIN + 48) (if ClaudeWCT.WCT9.chainHigh lay i m then hv else lo) ∧
+/-- Campaign S1 chain-0 rider: 1047 jumps to the branch-free trampoline at 44046, which copies the high half of the
+step answer over its low half iff `chainHigh` (the last step of chain 0 of a lower layer), then counts the step. -/
+def e_c0 : List (BitVec 32) := [1684243,8401843,7566131,0xffaa0393,1291155,7566131,4395795,12780339,209795,8601091,7745571,29766691,1706515,0xfb1d506f]
+theorem e_c0_at : CodeAt image (pcOf 44046) e_c0 :=
+  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
+sym_block eb_c0 := symRun { noAlias := true } e_c0 (pcOf 44046) 30
+/-- The chain-0 rider condition (`T3.chainHigh` as numbers). -/
+def c0High (lay i st : Nat) : Bool := st == 6 && i == 0 && lay != 0
+theorem ult_ofNat_ofNat (a b : Nat) (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) :
+    BitVec.ult (BitVec.ofNat 64 a) (BitVec.ofNat 64 b) = decide (a < b) := by
+  simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb]
+theorem c0_valid (x : Nat) (h1 : x % 8 = 0) (h2 : x + 8 ≤ 2 ^ 24) : accessValid (BitVec.ofNat 64 x) 8 = true := by
+  rw [accessValid_iff, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]; exact ⟨by simp [MEMORY_BYTES]; omega, h1⟩
+theorem rl1047_spec (hpc : s.pc = pcOf 1047) (lay i st : Nat) (hlay : lay < 4) (hi : i < 64) (hst : st < 8)
+    (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (h19 : s.getReg .x19 = BitVec.ofNat 64 i)
+    (h20 : s.getReg .x20 = BitVec.ofNat 64 st) (h12 : s.getReg .x12 = BitVec.ofNat 64 (CHAIN + 48)) :
+    ∃ t, Steps image s 15 15 t ∧ t.pc = pcOf 1031 ∧ t.getReg .x20 = BitVec.ofNat 64 (st + 1) ∧
+      t.getMem (BitVec.ofNat 64 (CHAIN + 48)) =
+        s.getMem (BitVec.ofNat 64 (CHAIN + 48 + (if c0High lay i st then 16 else 0))) ∧
+      t.getMem (BitVec.ofNat 64 (CHAIN + 56)) =
+        s.getMem (BitVec.ofNat 64 (CHAIN + 56 + (if c0High lay i st then 16 else 0))) ∧
       RegsExcept s t [.x6, .x7, .x20, .x28] ∧ Frame s t (fun A => A = CHAIN + 48 ∨ A = CHAIN + 56) := by
-  have hlay : lay.val < 2 ^ 64 := by have := lay.isLt; omega
-  obtain ⟨t0, s0, p0, r0, f0⟩ : ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf 43451 ∧ RegsExcept s t [] ∧
+  obtain ⟨t1, s1, p1, r1, f1⟩ : ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf 44046 ∧ RegsExcept s t [] ∧
       Frame s t (fun _ => False) := by
     refine ⟨_, symRun_sound eblk_1047 codeAt_1047 s hpc (by simp [eblk_1047.res, rv_simp]), ?_, ?_, ?_⟩
-    · simp [eblk_1047.res, E.eval]
+    · simp [Result.toState_pc, eblk_1047.res, E.eval]
     · intro r hr; cases r <;> rfl
     · intro A hA hn; rfl
-  have last : ∀ u : MachineState, u.pc = pcOf 43460 → u.getReg .x20 = BitVec.ofNat 64 m →
-      ∃ t, Steps image u 2 2 t ∧ t.pc = pcOf 1031 ∧ t.getReg .x20 = BitVec.ofNat 64 (m + 1) ∧
-        RegsExcept u t [.x20] ∧ Frame u t (fun _ => False) := by
-    intro u hu hu20
-    refine ⟨_, symRun_sound eb_ct4 e_ct4_at u hu (by simp [eb_ct4.res, rv_simp]), ?_, ?_, ?_, ?_⟩
-    · simp [eb_ct4.res, E.eval]
-    · simp only [Result.toState_getReg, eb_ct4.res, rv_simp, hu20]
-      rw [ofNat_add_ofNat]
-    · intro r hr; simp at hr; cases r <;> simp_all [eb_ct4.res, rv_simp] <;> rfl
-    · intro A _ _; simp [eb_ct4.res, rv_simp]
-  have ne_of {x y : Nat} (hx : x < 2 ^ 64) (hy : y < 2 ^ 64) :
-      (BitVec.ofNat 64 x != BitVec.ofNat 64 y) = decide (x ≠ y) := by
-    by_cases hxy : x = y
-    · subst hxy; simp
-    · have : BitVec.ofNat 64 x ≠ BitVec.ofNat 64 y := fun he => hxy ((ofNat_inj hx hy).mp he)
-      simp [hxy, this]
-  obtain ⟨t1, s1, p1, r1, f1⟩ : ∃ t, Steps image t0 1 1 t ∧ t.pc = (if i ≠ 0 then pcOf 43460 else pcOf 43452) ∧
-      RegsExcept t0 t [] ∧ Frame t0 t (fun _ => False) := by
-    refine ⟨_, symRun_sound eb_ct0 e_ct0_at t0 p0 (by simp [eb_ct0.res, rv_simp]), ?_, ?_, ?_⟩
-    · simp only [Result.toState_pc, eb_ct0.res, E.eval, CmpOp.eval, r0.get (by simp), h19]
-      rw [show (0#64 : Word) = BitVec.ofNat 64 0 from rfl, ne_of hi (by norm_num)]
-      by_cases hi0 : i = 0 <;> simp [hi0]
-    · intro r hr; cases r <;> rfl
-    · intro A hA hn; rfl
-  have g1 : ∀ r, r ∉ ([] : List Reg) → t1.getReg r = s.getReg r := fun r hr => (r0.trans r1).get hr
-  by_cases hi0 : i ≠ 0
-  · rw [if_pos hi0] at p1
-    obtain ⟨t2, s2, p2, x2, r2, f2⟩ := last t1 p1 (by rw [g1 _ (by simp)]; exact h20)
-    have hs : ClaudeWCT.WCT9.chainHigh lay i m = false := ClaudeWCT.WCT9.chainHigh_eq_false (Or.inr (Or.inl hi0))
-    refine ⟨t2, ((s0.trans s1).trans s2).of_eq (by simp [trXE, hi0]) (by simp [trXE, hi0]), p2, x2, ?_,
-      ((r0.trans r1).trans r2).mono (by simp), ((f0.trans f1).trans f2).mono (fun A _ hA => by simp_all)⟩
-    rw [hs]
-    exact hlo.frame ((f0.trans f1).trans f2) (by decide) (by simp) (by simp)
-  have hi0' : i = 0 := by omega
-  rw [if_neg hi0] at p1
-  obtain ⟨t2, s2, p2, r2, f2⟩ : ∃ t, Steps image t1 1 1 t ∧
-      t.pc = (if lay.val = 0 then pcOf 43460 else pcOf 43453) ∧
-      RegsExcept t1 t [] ∧ Frame t1 t (fun _ => False) := by
-    refine ⟨_, symRun_sound eb_ct1 e_ct1_at t1 p1 (by simp [eb_ct1.res, rv_simp]), ?_, ?_, ?_⟩
-    · simp only [Result.toState_pc, eb_ct1.res, E.eval, CmpOp.eval, g1 _ (by simp), h8]
-      rw [show (0#64 : Word) = BitVec.ofNat 64 0 from rfl, ex_beq _ _ hlay (by norm_num)]
-      by_cases hl0 : lay.val = 0 <;> simp [hl0]
-    · intro r hr; cases r <;> rfl
-    · intro A hA hn; rfl
-  have g2 : ∀ r, r ∉ ([] : List Reg) → t2.getReg r = s.getReg r := fun r hr => ((r0.trans r1).trans r2).get hr
-  have f02 : Frame s t2 (fun _ => False) := ((f0.trans f1).trans f2).mono (fun A _ hA => by simp_all)
-  by_cases hl0 : lay.val = 0
-  · rw [if_pos hl0] at p2
-    obtain ⟨t3, s3, p3, x3, r3, f3⟩ := last t2 p2 (by rw [g2 _ (by simp)]; exact h20)
-    have hs : ClaudeWCT.WCT9.chainHigh lay i m = false :=
-      ClaudeWCT.WCT9.chainHigh_eq_false (Or.inl (Fin.ext hl0))
-    refine ⟨t3, (((s0.trans s1).trans s2).trans s3).of_eq (by simp [trXE, hi0', hl0]) (by simp [trXE, hi0', hl0]),
-      p3, x3, ?_, (((r0.trans r1).trans r2).trans r3).mono (by simp),
-      (f02.trans f3).mono (fun A _ hA => by simp_all)⟩
-    rw [hs]
-    exact hlo.frame (f02.trans f3) (by decide) (by simp) (by simp)
-  rw [if_neg hl0] at p2
-  obtain ⟨t3, s3, p3, r3, f3⟩ : ∃ t, Steps image t2 2 2 t ∧ t.pc = (if m ≠ 6 then pcOf 43460 else pcOf 43455) ∧
-      RegsExcept t2 t [.x6] ∧ Frame t2 t (fun _ => False) := by
-    refine ⟨_, symRun_sound eb_ct2 e_ct2_at t2 p2 (by simp [eb_ct2.res, rv_simp]), ?_, ?_, ?_⟩
-    · simp only [Result.toState_pc, eb_ct2.res, E.eval, CmpOp.eval, g2 _ (by simp), h20]
-      rw [show (6#64 : Word) = BitVec.ofNat 64 6 from rfl, ne_of (by omega) (by norm_num)]
-      by_cases hm6 : m = 6 <;> simp [hm6]
-    · intro r hr; simp at hr; cases r <;> simp_all [eb_ct2.res, rv_simp] <;> rfl
-    · intro A hA hn; simp [eb_ct2.res, rv_simp]
-  have f03 : Frame s t3 (fun _ => False) := (f02.trans f3).mono (fun A _ hA => by simp_all)
-  have g3 : ∀ r, r ∉ [.x6] → t3.getReg r = s.getReg r := fun r hr => ((((r0.trans r1).trans r2).trans r3)).get
-    (by simpa using hr)
-  by_cases hm6 : m ≠ 6
-  · rw [if_pos hm6] at p3
-    obtain ⟨t4, s4, p4, x4, r4, f4⟩ := last t3 p3 (by rw [g3 _ (by simp)]; exact h20)
-    have hs : ClaudeWCT.WCT9.chainHigh lay i m = false :=
-      ClaudeWCT.WCT9.chainHigh_eq_false (Or.inr (Or.inr hm6))
-    refine ⟨t4, ((((s0.trans s1).trans s2).trans s3).trans s4).of_eq (by simp [trXE, hi0', hl0, hm6])
-      (by simp [trXE, hi0', hl0, hm6]), p4, x4, ?_, ((((r0.trans r1).trans r2).trans r3).trans r4).mono (by simp),
-      (f03.trans f4).mono (fun A _ hA => by simp_all)⟩
-    rw [hs]
-    exact hlo.frame (f03.trans f4) (by decide) (by simp) (by simp)
-  have hm6' : m = 6 := by omega
-  rw [if_neg hm6] at p3
-  have hs : ClaudeWCT.WCT9.chainHigh lay i m = true :=
-    ClaudeWCT.WCT9.chainHigh_eq_true.mpr ⟨fun h => hl0 (by rw [h]; rfl), hi0', hm6'⟩
-  have hobl : Oblig.all t3 eb_ct3.res.st.obl := by simp [eb_ct3.res, rv_simp]
-  refine ⟨_, ((((s0.trans s1).trans s2).trans s3).trans (symRun_sound eb_ct3 e_ct3_at t3 p3 hobl)).of_eq
-    (by simp [trXE, hi0', hl0, hm6', eb_ct3.res]) (by simp [trXE, hi0', hl0, hm6', eb_ct3.res]), ?_, ?_, ?_, ?_, ?_⟩
-  · simp [eb_ct3.res, E.eval]
-  · simp only [Result.toState_getReg, eb_ct3.res, rv_simp]
-    rw [g3 .x20 (by simp), h20, hm6']; rfl
-  · rw [hs, if_pos rfl]
-    have hv3 := hhv.frame f03 (by decide) (by simp) (by simp)
-    constructor
-    · simp only [Result.toState_getMem, eb_ct3.res]
-      t3n []
-      exact hv3.1
-    · simp only [Result.toState_getMem, eb_ct3.res]
-      t3n []
-      exact hv3.2
-  · exact ((((r0.trans r1).trans r2).trans r3).trans (eb_ct3_regs t3)).mono (by simp)
-  · have f4 : Frame t3 (eb_ct3.res.toState t3) (fun A => A = CHAIN + 48 ∨ A = CHAIN + 56) := by
-      intro A hA hn
-      simp only [Result.toState_getMem, eb_ct3.res]
-      t3n []
-      have hA' : A % 18446744073709551616 = A := Nat.mod_eq_of_lt hA
-      rw [hA', if_neg (by simp only [CHAIN] at hn; omega), if_neg (by simp only [CHAIN] at hn; omega)]
-    exact (f03.trans f4).mono (fun A _ hA => by simp_all)
+  have g8 : t1.getReg .x8 = BitVec.ofNat 64 lay := by rw [r1.get (by decide), h8]
+  have g19 : t1.getReg .x19 = BitVec.ofNat 64 i := by rw [r1.get (by decide), h19]
+  have g20 : t1.getReg .x20 = BitVec.ofNat 64 st := by rw [r1.get (by decide), h20]
+  have g12 : t1.getReg .x12 = BitVec.ofNat 64 (CHAIN + 48) := by rw [r1.get (by decide), h12]
+  have L1 : (BitVec.ofNat 64 i).ult 1#64 = decide (i = 0) := by
+    rw [show (1#64 : Word) = BitVec.ofNat 64 1 from rfl, ult_ofNat_ofNat i 1 (by omega) (by norm_num)]
+    simp
+  have L2 : (0#64 : Word).ult (BitVec.ofNat 64 lay) = decide (lay ≠ 0) := by
+    rw [show (0#64 : Word) = BitVec.ofNat 64 0 from rfl, ult_ofNat_ofNat 0 lay (by norm_num) (by omega)]
+    simp [Nat.pos_iff_ne_zero]
+  have L3 : (BitVec.ofNat 64 (st + 18446744073709551610)).ult 1#64 = decide (st = 6) := by
+    interval_cases st <;> decide
+  have L3' : (BitVec.ofNat 64 st + 18446744073709551610#64).ult 1#64 = decide (st = 6) := by
+    interval_cases st <;> decide
+  have hrun := symRun_sound eb_c0 e_c0_at t1 p1 (by
+    simp only [eb_c0.res, rv_simp, g8, g19, g20, g12, ofNat_add_ofNat, L1, L2, L3, L3']
+    by_cases hi0 : i = 0 <;> by_cases hl0 : lay = 0 <;> by_cases hs6 : st = 6 <;> simp [hi0, hl0, hs6] <;> decide)
+  have hF : (((if decide (i = 0) = true then 1#64 else 0#64) &&& if decide (lay ≠ 0) = true then 1#64 else 0#64) &&&
+      if decide (st = 6) = true then 1#64 else 0#64) <<< ((4#64 : Word).toNat % 64) =
+        BitVec.ofNat 64 (if c0High lay i st then 16 else 0) := by
+    by_cases hi0 : i = 0 <;> by_cases hl0 : lay = 0 <;> by_cases hs6 : st = 6 <;> simp [hi0, hl0, hs6, c0High] <;> decide
+  have hsm : ∀ A < 2 ^ 64, s.getMem (BitVec.ofNat 64 A) = t1.getMem (BitVec.ofNat 64 A) :=
+    fun A hA => (f1.get hA (fun h => h)).symm
+  have hlt : CHAIN + 48 + (if c0High lay i st then 16 else 0) < 2 ^ 64 := by split <;> simp only [CHAIN] <;> omega
+  have hlt8 : CHAIN + 56 + (if c0High lay i st then 16 else 0) < 2 ^ 64 := by split <;> simp only [CHAIN] <;> omega
+  refine ⟨_, s1.trans hrun, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · simp [Result.toState_pc, eb_c0.res, E.eval]
+  · simp only [Result.toState_getReg, eb_c0.res, rv_simp, g20, ofNat_add_ofNat]
+  · simp only [Result.toState_getMem, eb_c0.res, rv_simp, g8, g19, g20, g12, ofNat_add_ofNat, L1, L2, L3, L3', hF,
+      hsm _ hlt]
+    rw [if_neg (by decide), if_pos trivial, Nat.add_comm _ (CHAIN + 48)]
+  · simp only [Result.toState_getMem, eb_c0.res, rv_simp, g8, g19, g20, g12, ofNat_add_ofNat, L1, L2, L3, L3', hF,
+      hsm _ hlt8]
+    rw [if_pos trivial, show (if c0High lay i st = true then 16 else 0) + (CHAIN + 48) + 8 =
+      CHAIN + 56 + (if c0High lay i st = true then 16 else 0) by omega]
+  · intro r hr
+    rw [Result.toState_getReg, ← r1.get (by simp)]
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    cases r <;> simp_all [rv_simp, eb_c0.res] <;> rfl
+  · intro A hA hn
+    simp only [Result.toState_getMem, eb_c0.res, rv_simp, g12, ofNat_add_ofNat]
+    rw [if_neg (fun h => hn (Or.inr ((ofNat_inj hA (by simp only [CHAIN]; omega)).mp h))),
+      if_neg (fun h => hn (Or.inl ((ofNat_inj hA (by simp only [CHAIN]; omega)).mp h)))]
+    exact f1.get hA (fun h => h)
 theorem rl1049_spec (hpc : s.pc = pcOf 1049) (lay : T3.Layer) (i : Nat) (hi : i < 2 ^ 59)
     (h8 : s.getReg .x8 = BitVec.ofNat 64 lay.val) (h19 : s.getReg .x19 = BitVec.ofNat 64 i) :
     ∃ t, Steps image s (slK lay i) (slK lay i) t ∧ t.pc = pcOf 1052 ∧
@@ -879,150 +778,56 @@ theorem rl1080_spec (hpc : s.pc = pcOf 1080) (P M : Nat) (hP8 : P % 8 = 0) (hP :
     t3n [h24]
     rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
       if_neg (by omega)]
-theorem rl1105_spec (hpc : s.pc = pcOf 1105) (X P : Nat) (hX : X = NOUT ∨ X = NOUT + 16) (hP8 : P % 8 = 0)
-    (hP : 0x7000 ≤ P) (hP' : P + 16 ≤ 0x7000 + 5616)
-    (h29 : s.getReg .x29 = BitVec.ofNat 64 X) (h22 : s.getReg .x22 = BitVec.ofNat 64 P) :
-    ∃ t, Steps image s 12 12 t ∧ t.pc = pcOf 1117 ∧
-      t.getMem (BitVec.ofNat 64 NODE) = s.getMem (BitVec.ofNat 64 X) ∧
-      t.getMem (BitVec.ofNat 64 (NODE + 8)) = s.getMem (BitVec.ofNat 64 (X + 8)) ∧
-      t.getMem (BitVec.ofNat 64 (NODE + 48)) = s.getMem (BitVec.ofNat 64 P) ∧
-      t.getMem (BitVec.ofNat 64 (NODE + 56)) = s.getMem (BitVec.ofNat 64 (P + 8)) ∧
-      RegsExcept s t [.x6, .x7, .x30] ∧
-      Frame s t (fun A => A = NODE ∨ A = NODE + 8 ∨ A = NODE + 48 ∨ A = NODE + 56) := by
-  have hX' : 131648 ≤ X ∧ X ≤ 131664 ∧ X % 8 = 0 := by rcases hX with h | h <;> rw [h] <;> decide
-  refine ⟨_, symRun_sound eb_lcD e_lcD_at s hpc ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · simp only [eb_lcD.res, Result.obligs, Oblig.all, Oblig.holds, Addr.eval, E.eval, BinOp.eval, RegFile.get,
-      h22, h29, ofNat_add_ofNat, BitVec.ofNat_eq_ofNat, add_zero]
-    repeat' apply And.intro
-    all_goals first
-        | exact ex_valid _ (by omega) (by omega)
-        | exact ex_ne _ _ (by omega) (by omega) (by omega)
-        | skip
-  · simp [Result.toState_pc, eb_lcD.res, E.eval]
-  iterate 4
-    · simp only [Result.toState_getMem, eb_lcD.res, NODE, NOUT]
-      t3n [h22, h29]
-      all_goals ((try split_ifs) <;> first | (exfalso; omega) | (congr 2; ring) | rfl)
-  · ex_regs eb_lcD.res
-  · intro A hA hn
-    simp only [NODE] at hn
-    simp only [Result.toState_getMem, eb_lcD.res]
-    t3n []
-    rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega)]
-/-- C2 (FULL): the bit-0 branch (current value = left input). Lower layers read the high half of the node output
-(`NOUT + 16`, trampoline at 43462), the top layer the low half. -/
-theorem rl1099_spec (hpc : s.pc = pcOf 1099) (lay : Nat) (hlay : lay < 2 ^ 64)
-    (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (P M : Nat) (hP8 : P % 8 = 0) (hP : 0x7000 ≤ P)
-    (hP' : P + 16 ≤ 0x7000 + 5616) (hM8 : M % 8 = 0) (hM : 0x800 ≤ M) (hM' : M + 64 ≤ 0x7000)
+theorem rl1099_spec (hpc : s.pc = pcOf 1099) (P M : Nat) (hP8 : P % 8 = 0) (hP : 0x7000 ≤ P) (hP' : P + 16 ≤ 0x7000 + 5616)
+    (hM8 : M % 8 = 0) (hM : 0x800 ≤ M) (hM' : M + 64 ≤ 0x7000)
     (h22 : s.getReg .x22 = BitVec.ofNat 64 P) (h24 : s.getReg .x24 = BitVec.ofNat 64 M) :
-    ∃ t, Steps image s 22 22 t ∧ t.pc = pcOf 1117 ∧
+    ∃ t, Steps image s 18 18 t ∧ t.pc = pcOf 1117 ∧
       t.getMem (BitVec.ofNat 64 (M + 48)) = s.getMem (BitVec.ofNat 64 P) ∧
       t.getMem (BitVec.ofNat 64 (M + 56)) = s.getMem (BitVec.ofNat 64 (P + 8)) ∧
-      t.getMem (BitVec.ofNat 64 NODE) = s.getMem (BitVec.ofNat 64 (NOUT + hiOff lay)) ∧
-      t.getMem (BitVec.ofNat 64 (NODE + 8)) = s.getMem (BitVec.ofNat 64 (NOUT + hiOff lay + 8)) ∧
+      t.getMem (BitVec.ofNat 64 NODE) = s.getMem (BitVec.ofNat 64 (NOUT + 16)) ∧
+      t.getMem (BitVec.ofNat 64 (NODE + 8)) = s.getMem (BitVec.ofNat 64 (NOUT + 24)) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 48)) = s.getMem (BitVec.ofNat 64 P) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 56)) = s.getMem (BitVec.ofNat 64 (P + 8)) ∧
       RegsExcept s t [.x6, .x7, .x29, .x30] ∧
       Frame s t (fun A => A = M + 48 ∨ A = M + 56 ∨ A = NODE ∨ A = NODE + 8 ∨ A = NODE + 48 ∨ A = NODE + 56) := by
-  obtain ⟨t1, s1, p1, m48, m56, r1, f1⟩ : ∃ t, Steps image s 5 5 t ∧ t.pc = pcOf 43462 ∧
-      t.getMem (BitVec.ofNat 64 (M + 48)) = s.getMem (BitVec.ofNat 64 P) ∧
-      t.getMem (BitVec.ofNat 64 (M + 56)) = s.getMem (BitVec.ofNat 64 (P + 8)) ∧
-      RegsExcept s t [.x6, .x7] ∧ Frame s t (fun A => A = M + 48 ∨ A = M + 56) := by
-    refine ⟨_, symRun_sound eblk_1099 codeAt_1099 s hpc ?_, ?_, ?_, ?_, ?_, ?_⟩
-    · simp only [eblk_1099.res, Result.obligs, Oblig.all, Oblig.holds, Addr.eval, E.eval, BinOp.eval, RegFile.get,
-        h22, h24, ofNat_add_ofNat, BitVec.ofNat_eq_ofNat, add_zero]
-      repeat' apply And.intro
-      all_goals first
-          | exact ex_valid _ (by omega) (by omega)
-          | exact ex_ne _ _ (by omega) (by omega) (by omega)
-          | skip
-    · simp [Result.toState_pc, eblk_1099.res, E.eval]
-    iterate 2
-      · simp only [Result.toState_getMem, eblk_1099.res]
-        t3n [h22, h24]
-        all_goals ((try split_ifs) <;> first | (exfalso; omega) | (congr 2; ring) | rfl)
-    · ex_regs eblk_1099.res
-    · intro A hA hn
-      simp only [Result.toState_getMem, eblk_1099.res]
-      t3n [h24]
-      rw [if_neg (by omega), if_neg (by omega)]
-  have g8 : t1.getReg .x8 = BitVec.ofNat 64 lay := by rw [r1.get (by decide), h8]
-  obtain ⟨t2, s2, p2, x29, r2, f2⟩ : ∃ t, Steps image t1 3 3 t ∧
-      t.pc = pcOf 43465 ∧ t.getReg .x29 = BitVec.ofNat 64 NOUT ∧
-      RegsExcept t1 t [.x29] ∧ Frame t1 t (fun _ => False) := by
-    refine ⟨_, symRun_sound eb_lcA e_lcA_at t1 p1 (by simp [eb_lcA.res, rv_simp]), ?_, ?_, ?_, ?_⟩
-    · simp [Result.toState_pc, eb_lcA.res, E.eval]
-    · simp [eb_lcA.res, rv_simp]
-    · ex_regs eb_lcA.res
-    · intro A _ _; simp [eb_lcA.res, rv_simp]
-  obtain ⟨t3, s3, p3, y29, r3, f3⟩ : ∃ t, Steps image t2 2 2 t ∧
-      t.pc = pcOf 1105 ∧ t.getReg .x29 = BitVec.ofNat 64 (NOUT + hiOff lay) ∧
-      RegsExcept t2 t [.x29] ∧ Frame t2 t (fun _ => False) := by
-    refine ⟨_, symRun_sound eb_lcB e_lcB_at t2 p2 (by simp [eb_lcB.res, rv_simp]), ?_, ?_, ?_, ?_⟩
-    · simp [Result.toState_pc, eb_lcB.res, E.eval]
-    · simp only [Result.toState_getReg, eb_lcB.res, rv_simp, x29, hiOff, ofNat_add_ofNat]
-    · ex_regs eb_lcB.res
-    · intro A _ _; simp [eb_lcB.res, rv_simp]
-  have g22 : t3.getReg .x22 = BitVec.ofNat 64 P := by
-    rw [r3.get (by decide), r2.get (by decide), r1.get (by decide), h22]
-  obtain ⟨t4, s4, p4, n0, n8, n48, n56, r4, f4⟩ := rl1105_spec t3 p3 (NOUT + hiOff lay) P
-    (by unfold hiOff; simp) hP8 hP hP' y29 g22
-  have f13 : Frame s t3 (fun A => A = M + 48 ∨ A = M + 56) :=
-    ((f1.trans f2).trans f3).mono (fun A _ h => by rcases h with (h | h) | h; exact h; exact h.elim; exact h.elim)
-  have hoff : hiOff lay ≤ 16 := by unfold hiOff; omega
-  refine ⟨t4, ((s1.trans s2).trans s3).trans s4 |>.of_eq rfl rfl, p4,
-    ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · rw [f4.get (by omega) (by simp only [NODE]; omega), f3.get (by omega) (by simp), f2.get (by omega) (by simp), m48]
-  · rw [f4.get (by omega) (by simp only [NODE]; omega), f3.get (by omega) (by simp), f2.get (by omega) (by simp), m56]
-  · rw [n0, f13.get (by simp only [NOUT]; omega) (by simp only [NOUT]; omega)]
-  · rw [n8, f13.get (by simp only [NOUT]; omega) (by simp only [NOUT]; omega)]
-  · rw [n48, f13.get (by omega) (by omega)]
-  · rw [n56, f13.get (by omega) (by omega)]
-  · exact (((r1.trans r2).trans r3).trans r4).mono (by decide)
-  · exact (f13.trans f4).mono (fun A _ h => by rcases h with (h | h) | h <;> simp_all)
-theorem eb_hdrT_regs (t : MachineState) : RegsExcept t (eb_hdrT.res.toState t) [.x6, .x7] := by
-  intro r hr; simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-  cases r <;> simp_all [eb_hdrT.res, rv_simp] <;> rfl
-theorem eb_hdrT_frame (t : MachineState) : Frame t (eb_hdrT.res.toState t) (fun _ => False) := by
-  intro A _ _; simp [eb_hdrT.res, rv_simp]
-theorem eb_hdrT_x6 (t : MachineState) :
-    (eb_hdrT.res.toState t).getReg .x6 = (t.getReg .x6 ||| t.getReg .x30) + t.getReg .x13 + BitVec.ofNat 64 1407 := by
-  simp only [Result.toState_getReg, eb_hdrT.res, rv_simp]
-theorem eb_hdrT_x7 (t : MachineState) : (eb_hdrT.res.toState t).getReg .x7 = 0 := by
-  simp only [Result.toState_getReg, eb_hdrT.res, rv_simp]
-theorem eb_hdrE_regs (t : MachineState) : RegsExcept t (eb_hdrE.res.toState t) [.x10, .x11, .x12, .x28] := by
-  intro r hr; simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
-  cases r <;> simp_all [eb_hdrE.res, rv_simp] <;> rfl
-theorem eb_hdrT_pc (t : MachineState) : (eb_hdrT.res.toState t).pc = pcOf 1129 := by
-  simp [Result.toState_pc, eb_hdrT.res, E.eval]
-/-- the node tweak words written at `NODE + 16` / `NODE + 24`: `WCT9.merkleTweak` (C2 packed word for lower layers). -/
-theorem merkleTweak_words_top (tree heap : Nat) (h1 : 1 ≤ heap) (hh : heap < 4096) :
-    (ClaudeWCT.WCT9.merkleTweak 0 tree heap).extractLsb' 0 64 = BitVec.ofNat 64 heap ∧
-    (ClaudeWCT.WCT9.merkleTweak 0 tree heap).extractLsb' 64 64 = 0 := by
-  rw [ClaudeWCT.WCT9.merkleTweak_top_low, ClaudeWCT.WCT9.merkleTweak_top_high, T3.topNodeWord_eq h1 hh]
-  exact ⟨rfl, rfl⟩
+  refine ⟨_, symRun_sound eblk_1099 codeAt_1099 s hpc ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · simp only [eblk_1099.res, Result.obligs, Oblig.all, Oblig.holds, Addr.eval, E.eval, BinOp.eval, RegFile.get,
+      h22, h24, ofNat_add_ofNat, BitVec.ofNat_eq_ofNat, add_zero]
+    refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
+      first
+        | exact ex_valid _ (by omega) (by omega)
+        | exact ex_ne _ _ (by omega) (by omega) (by omega)
+  · simp [Result.toState_pc, eblk_1099.res, E.eval]
+  iterate 6
+    · simp only [Result.toState_getMem, eblk_1099.res, NODE, NOUT]
+      t3n [h22, h24]
+      all_goals ((try split_ifs) <;> first | (exfalso; omega) | (congr 2; ring) | rfl)
+  · ex_regs eblk_1099.res
+  · intro A hA hn
+    simp only [NODE] at hn
+    simp only [Result.toState_getMem, eblk_1099.res]
+    t3n [h24]
+    rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
+      if_neg (by omega)]
+set_option maxHeartbeats 800000 in
+/-- Campaign S1 one-word fold label: `NODE + 16 = nodeLo lay tree + heap` (top: the heap; lower: `hyperWord - 1 + heap`),
+`NODE + 24 = 0`. -/
 theorem rl1119_spec (hpc : s.pc = pcOf 1119) (lay tree leaf hh j : Nat) (hlay : lay < 4) (htree : tree < 2 ^ 32)
-    (hl : leaf < 2 ^ 32) (hj : j < hh) (hh' : hh ≤ 12) (htopl : lay = 0 → leaf < 2 ^ hh)
+    (hl : leaf < 2 ^ 32) (hj : j < hh) (hh' : hh ≤ 12)
     (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (h9 : s.getReg .x9 = BitVec.ofNat 64 tree)
     (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf) (h15 : s.getReg .x15 = BitVec.ofNat 64 hh)
     (h20 : s.getReg .x20 = BitVec.ofNat 64 j)
     (h28 : s.getReg .x28 = BitVec.ofNat 64 (hh - j - 1)) :
     ∃ t, Steps image s (hdrK lay) (hdrK lay) t ∧ t.pc = pcOf 1138 ∧
       t.getMem (BitVec.ofNat 64 (NODE + 16)) =
-        (ClaudeWCT.WCT9.merkleTweak lay tree (2 ^ (hh - j - 1) + leaf / 2 ^ (j + 1))).extractLsb' 0 64 ∧
-      t.getMem (BitVec.ofNat 64 (NODE + 24)) =
-        (ClaudeWCT.WCT9.merkleTweak lay tree (2 ^ (hh - j - 1) + leaf / 2 ^ (j + 1))).extractLsb' 64 64 ∧
+        BitVec.ofNat 64 (Keygen.nodeLo lay tree + (2 ^ (hh - j - 1) + leaf / 2 ^ (j + 1))) ∧
+      t.getMem (BitVec.ofNat 64 (NODE + 24)) = 0 ∧
       t.getReg .x10 = BitVec.ofNat 64 NODE ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 NOUT ∧
       RegsExcept s t [.x6, .x7, .x10, .x11, .x12, .x13, .x28, .x30] ∧
       Frame s t (fun A => A = NODE + 16 ∨ A = NODE + 24) := by
-  set heap := 2 ^ (hh - j - 1) + leaf / 2 ^ (j + 1) with hheap
-  have hheap' : heap < 2 ^ 64 := by
-    have : 2 ^ (hh - j - 1) ≤ 2 ^ 12 := Nat.pow_le_pow_right (by norm_num) (by omega)
-    have : leaf / 2 ^ (j + 1) ≤ leaf := Nat.div_le_self _ _
-    omega
   obtain ⟨t1, s1, p1, x13, r1, f1⟩ : ∃ t, Steps image s 6 6 t ∧ t.pc = pcOf 42765 ∧
-      t.getReg .x13 = BitVec.ofNat 64 heap ∧
+      t.getReg .x13 = BitVec.ofNat 64 (2 ^ (hh - j - 1) + leaf / 2 ^ (j + 1)) ∧
       RegsExcept s t [.x13, .x28] ∧ Frame s t (fun _ => False) := by
     refine ⟨_, symRun_sound eb_hdrA e_hdrA_at s hpc (by simp [eb_hdrA.res, rv_simp]), ?_, ?_, ?_, ?_⟩
     · simp [Result.toState_pc, eb_hdrA.res, E.eval]
@@ -1037,113 +842,90 @@ theorem rl1119_spec (hpc : s.pc = pcOf 1119) (lay tree leaf hh j : Nat) (hlay : 
       rw [e1, e2, ofNat_shr _ _ (by omega), Nat.one_mul, ofNat_add_ofNat]
     · ex_regs eb_hdrA.res
     · intro A _ _; simp [eb_hdrA.res, rv_simp]
+  have hheap : 2 ^ (hh - j - 1) + leaf / 2 ^ (j + 1) < 2 ^ 33 := by
+    have hp : 2 ^ (hh - j - 1) ≤ 2 ^ 12 := Nat.pow_le_pow_right (by norm_num) (by omega)
+    have hq : leaf / 2 ^ (j + 1) < 2 ^ 32 := lt_of_le_of_lt (Nat.div_le_self _ _) hl
+    omega
   have g8 : t1.getReg .x8 = BitVec.ofNat 64 lay := by rw [r1.get (by decide), h8]
   have g9 : t1.getReg .x9 = BitVec.ofNat 64 tree := by rw [r1.get (by decide), h9]
-  obtain ⟨t2, s2, p2, x7, x6, r2, f2⟩ : ∃ t, Steps image t1 3 3 t ∧
-      t.pc = (if lay = 0 then pcOf 42776 else pcOf 42768) ∧
-      t.getReg .x7 = 0 ∧
-      t.getReg .x6 = BitVec.ofNat 64 heap ∧ RegsExcept t1 t [.x6, .x7] ∧ Frame t1 t (fun _ => False) := by
-    refine ⟨_, symRun_sound eb_hdrB e_hdrB_at t1 p1 (by simp [eb_hdrB.res, rv_simp]), ?_, ?_, ?_, ?_, ?_⟩
+  obtain ⟨t2, s2, p2, x6, r2, f2⟩ : ∃ t, Steps image t1 2 2 t ∧
+      t.pc = (if lay = 0 then pcOf 42775 else pcOf 42767) ∧ t.getReg .x6 = BitVec.ofNat 64 0 ∧
+      RegsExcept t1 t [.x6] ∧ Frame t1 t (fun _ => False) := by
+    refine ⟨_, symRun_sound eb_hdrB e_hdrB_at t1 p1 (by simp [eb_hdrB.res, rv_simp]), ?_, ?_, ?_, ?_⟩
     · simp only [Result.toState_pc, eb_hdrB.res, E.eval, CmpOp.eval, g8]
       rw [show (0#64 : Word) = BitVec.ofNat 64 0 from rfl, ex_beq lay 0 (by omega) (by norm_num)]
       by_cases h0 : lay = 0 <;> simp [h0]
     · simp [eb_hdrB.res, rv_simp]
-    · simp only [Result.toState_getReg, eb_hdrB.res, rv_simp, x13]
     · ex_regs eb_hdrB.res
     · intro A _ _; simp [eb_hdrB.res, rv_simp]
-  have g13 : t2.getReg .x13 = BitVec.ofNat 64 heap := by rw [r2.get (by decide), x13]
-  obtain ⟨t3, s3, p3, y6, y7, r3, f3⟩ : ∃ t, Steps image t2 (if lay = 0 then 1 else 13) (if lay = 0 then 1 else 13) t ∧
-      t.pc = pcOf 1129 ∧ t.getReg .x6 = (ClaudeWCT.WCT9.merkleTweak lay tree heap).extractLsb' 0 64 ∧
-      t.getReg .x7 = (ClaudeWCT.WCT9.merkleTweak lay tree heap).extractLsb' 64 64 ∧
-      RegsExcept t2 t [.x6, .x7, .x30] ∧ Frame t2 t (fun _ => False) := by
+  obtain ⟨t3, s3, p3, y6, r3, f3⟩ : ∃ t, Steps image t2 (if lay = 0 then 0 else 8) (if lay = 0 then 0 else 8) t ∧
+      t.pc = pcOf 42775 ∧ t.getReg .x6 = BitVec.ofNat 64 (Keygen.nodeLo lay tree) ∧
+      RegsExcept t2 t [.x6, .x30] ∧ Frame t2 t (fun _ => False) := by
     by_cases h0 : lay = 0
-    · subst h0
-      rw [if_pos rfl] at p2
-      have hlf := htopl rfl
-      have hheap1 : 1 ≤ heap := by
-        rw [hheap]; exact le_trans Nat.one_le_two_pow (Nat.le_add_right _ _)
-      have hheap2 : heap < 4096 := by
-        have e : 2 ^ hh = 2 ^ (j + 1) * 2 ^ (hh - j - 1) := by rw [← Nat.pow_add]; congr 1; omega
-        have hq : leaf / 2 ^ (j + 1) < 2 ^ (hh - j - 1) := by
-          rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos _), Nat.mul_comm, ← e]; exact hlf
-        have hp : 2 ^ (hh - j - 1) ≤ 2 ^ 11 := Nat.pow_le_pow_right (by norm_num) (by omega)
-        have h11 : (2 : Nat) ^ 11 = 2048 := by norm_num
-        rw [hheap]
-        rw [h11] at hp
-        generalize 2 ^ (hh - j - 1) = X at hq hp ⊢
-        generalize leaf / 2 ^ (j + 1) = Y at hq ⊢
-        omega
-      obtain ⟨wlo, whi⟩ := merkleTweak_words_top tree heap hheap1 hheap2
-      refine ⟨_, (symRun_sound eb_hdrD e_hdrD_at t2 p2 (by simp [eb_hdrD.res, rv_simp])).of_eq (by simp [eb_hdrD.res])
-        (by simp [eb_hdrD.res]), ?_, ?_, ?_, ?_, ?_⟩
-      · simp [Result.toState_pc, eb_hdrD.res, E.eval]
-      · rw [wlo]; simp only [Result.toState_getReg, eb_hdrD.res, rv_simp, x6]
-      · rw [whi]; simp only [Result.toState_getReg, eb_hdrD.res, rv_simp, x7]
-      · intro r hr; cases r <;> rfl
-      · intro A hA hn; rfl
+    · rw [if_pos h0] at p2
+      refine ⟨t2, (Steps.refl t2).of_eq (by simp [h0]) (by simp [h0]), p2, ?_, RegsExcept.refl _ _, Frame.refl _ _⟩
+      rw [x6, Keygen.nodeLo, if_pos h0]
     · rw [if_neg h0] at p2
       have g8' : t2.getReg .x8 = BitVec.ofNat 64 lay := by rw [r2.get (by decide), g8]
       have g9' : t2.getReg .x9 = BitVec.ofNat 64 tree := by rw [r2.get (by decide), g9]
-      obtain ⟨u, su, pu, uor, u13, ru, fu⟩ : ∃ u, Steps image t2 8 8 u ∧ u.pc = pcOf 43467 ∧
-          (u.getReg .x6 ||| u.getReg .x30) = BitVec.ofNat 64 (Keygen.nodeLo lay tree) ∧
-          u.getReg .x13 = BitVec.ofNat 64 heap ∧ RegsExcept t2 u [.x6, .x30] ∧ Frame t2 u (fun _ => False) := by
-        refine ⟨_, symRun_sound eb_hdrC e_hdrC_at t2 p2 (by simp [eb_hdrC.res, rv_simp]), ?_, ?_, ?_, ?_, ?_⟩
-        · simp [Result.toState_pc, eb_hdrC.res, E.eval]
-        · simp only [Result.toState_getReg, eb_hdrC.res]
-          t3n [g8', g9']
-          unfold Keygen.nodeLo
-          rw [if_neg h0, BitVec.ofNat_toNat, BitVec.setWidth_eq]
-          have hl' : BitVec.ofNat 64 ((lay + 18446744073709551615) * 281474976710656) =
-              BitVec.ofNat 64 ((lay - 1) * 281474976710656) := by
-            apply BitVec.eq_of_toNat_eq; simp only [BitVec.toNat_ofNat]; omega
-          rw [hl', show (513#64) = BitVec.ofNat 64 513 from rfl,
-            ofNat_or_disjoint 513 (tree * 65536) 16 (by decide) (by omega),
-            ofNat_or_disjoint' _ ((lay - 1) * 281474976710656) 48 (by omega) (by omega),
-            show (13907115649320091648#64) = BitVec.ofNat 64 (193 * 2 ^ 56) from rfl,
-            ofNat_or_disjoint' _ (193 * 2 ^ 56) 56 (by omega) (by omega)]
-          unfold T3.hyperWord
-          congr 1
-          rw [Nat.mod_eq_of_lt htree, Nat.mod_eq_of_lt (by omega : lay - 1 < 256)]
-          omega
-        · simp only [Result.toState_getReg, eb_hdrC.res, rv_simp, g13]
-        · ex_regs eb_hdrC.res
-        · intro A _ _; simp [eb_hdrC.res, rv_simp]
-      refine ⟨_, (su.trans (symRun_sound eb_hdrT e_hdrT_at u pu (by simp [eb_hdrT.res, rv_simp]))).of_eq
-        (by simp [h0, eb_hdrT.res]) (by simp [h0, eb_hdrT.res]), ?_, ?_, ?_, ?_, ?_⟩
-      · exact eb_hdrT_pc u
-      · rw [ClaudeWCT.WCT9.merkleTweak_lower h0, ClaudeWCT.WCT9.lowerTweak_low, eb_hdrT_x6, uor, u13]
-        unfold Keygen.nodeLo ClaudeWCT.WCT9.lowerK
-        rw [if_neg h0, BitVec.ofNat_toNat, BitVec.setWidth_eq, BitVec.add_assoc, ofNat_add_ofNat,
-          Nat.add_comm heap 1407]
-      · rw [ClaudeWCT.WCT9.merkleTweak_lower h0, ClaudeWCT.WCT9.lowerTweak_high, eb_hdrT_x7]
-      · exact (ru.trans (eb_hdrT_regs u)).mono (by decide)
-      · exact (fu.trans (eb_hdrT_frame u)).mono (fun A _ h => by simp_all)
-  obtain ⟨t4, s4, p4, m16, m24, x10, x11, x12, r4, f4⟩ : ∃ t, Steps image t3 9 9 t ∧ t.pc = pcOf 1138 ∧
-      t.getMem (BitVec.ofNat 64 (NODE + 16)) = (ClaudeWCT.WCT9.merkleTweak lay tree heap).extractLsb' 0 64 ∧
-      t.getMem (BitVec.ofNat 64 (NODE + 24)) = (ClaudeWCT.WCT9.merkleTweak lay tree heap).extractLsb' 64 64 ∧
+      refine ⟨_, (symRun_sound eb_hdrC e_hdrC_at t2 p2 (by simp [eb_hdrC.res, rv_simp])).of_eq (by simp [h0, eb_hdrC.res])
+        (by simp [h0, eb_hdrC.res]), ?_, ?_, ?_, ?_⟩
+      · simp [Result.toState_pc, eb_hdrC.res, E.eval]
+      · simp only [Result.toState_getReg, eb_hdrC.res]
+        t3n [g8', g9']
+        unfold Keygen.nodeLo
+        rw [if_neg h0]
+        have hl' : BitVec.ofNat 64 ((lay + 18446744073709551615) * 281474976710656) =
+            BitVec.ofNat 64 ((lay - 1) * 281474976710656) := by
+          apply BitVec.eq_of_toNat_eq; simp only [BitVec.toNat_ofNat]; omega
+        rw [hl', show (512#64) = BitVec.ofNat 64 512 from rfl,
+          ofNat_or_disjoint 512 (tree * 65536) 16 (by decide) (by omega),
+          ofNat_or_disjoint' _ ((lay - 1) * 281474976710656) 48 (by omega) (by omega),
+          show (13907115649320091648#64) = BitVec.ofNat 64 (193 * 2 ^ 56) from rfl,
+          ofNat_or_disjoint' _ (193 * 2 ^ 56) 56 (by omega) (by omega)]
+        unfold T3.hyperWord
+        apply congrArg (BitVec.ofNat 64)
+        rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt htree, Nat.mod_eq_of_lt (by omega : lay - 1 < 256)]
+        omega
+      · ex_regs eb_hdrC.res
+      · intro A _ _; simp [eb_hdrC.res, rv_simp]
+  have y13 : t3.getReg .x13 = BitVec.ofNat 64 (2 ^ (hh - j - 1) + leaf / 2 ^ (j + 1)) := by
+    rw [r3.get (by decide), r2.get (by decide), x13]
+  obtain ⟨t4, s4, p4, z6, r4, f4⟩ : ∃ t, Steps image t3 2 2 t ∧ t.pc = pcOf 1129 ∧
+      t.getReg .x6 = BitVec.ofNat 64 (Keygen.nodeLo lay tree + (2 ^ (hh - j - 1) + leaf / 2 ^ (j + 1))) ∧
+      RegsExcept t3 t [.x6] ∧ Frame t3 t (fun _ => False) := by
+    refine ⟨_, symRun_sound eb_hdrD e_hdrD_at t3 p3 (by simp [eb_hdrD.res, rv_simp]), ?_, ?_, ?_, ?_⟩
+    · simp [Result.toState_pc, eb_hdrD.res, E.eval]
+    · simp only [Result.toState_getReg, eb_hdrD.res, rv_simp, y6, y13, ofNat_add_ofNat]
+    · ex_regs eb_hdrD.res
+    · intro A _ _; simp [eb_hdrD.res, rv_simp]
+  obtain ⟨t5, s5, p5, m16, m24, x10, x11, x12, r5, f5⟩ : ∃ t, Steps image t4 9 9 t ∧ t.pc = pcOf 1138 ∧
+      t.getMem (BitVec.ofNat 64 (NODE + 16)) =
+        BitVec.ofNat 64 (Keygen.nodeLo lay tree + (2 ^ (hh - j - 1) + leaf / 2 ^ (j + 1))) ∧
+      t.getMem (BitVec.ofNat 64 (NODE + 24)) = 0 ∧
       t.getReg .x10 = BitVec.ofNat 64 NODE ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 NOUT ∧
-      RegsExcept t3 t [.x10, .x11, .x12, .x28] ∧ Frame t3 t (fun A => A = NODE + 16 ∨ A = NODE + 24) := by
-    refine ⟨_, symRun_sound eb_hdrE e_hdrE_at t3 p3 (by simp [eb_hdrE.res, rv_simp, accessValid_iff, MEMORY_BYTES]),
+      RegsExcept t4 t [.x10, .x11, .x12, .x28] ∧ Frame t4 t (fun A => A = NODE + 16 ∨ A = NODE + 24) := by
+    refine ⟨_, symRun_sound eb_hdrE e_hdrE_at t4 p4 (by simp [eb_hdrE.res, rv_simp, accessValid_iff, MEMORY_BYTES]),
       ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
     · simp [Result.toState_pc, eb_hdrE.res, E.eval]
     · simp only [Result.toState_getMem, eb_hdrE.res, NODE]
-      t3n [y6]
+      t3n [z6]
     · simp only [Result.toState_getMem, eb_hdrE.res, NODE]
-      t3n [y7]
+      t3n []
     · simp [eb_hdrE.res, rv_simp]
     · simp [eb_hdrE.res, rv_simp]
     · simp [eb_hdrE.res, rv_simp]
-    · exact eb_hdrE_regs t3
+    · ex_regs eb_hdrE.res
     · intro A hA hn
       simp only [NODE] at hn
       simp only [Result.toState_getMem, eb_hdrE.res]
       t3n []
       rw [if_neg (by omega), if_neg (by omega)]
-  refine ⟨t4, (((s1.trans s2).trans s3).trans s4).of_eq (by unfold hdrK; split_ifs <;> simp_all)
-    (by unfold hdrK; split_ifs <;> simp_all), p4, m16, m24, x10, x11, x12,
-    (((r1.trans r2).trans r3).trans r4).mono (by decide),
-    (((f1.trans f2).trans f3).trans f4).mono (fun A _ h => by simp_all)⟩
+  refine ⟨t5, ((((s1.trans s2).trans s3).trans s4).trans s5).of_eq (by unfold hdrK; split_ifs <;> simp_all)
+    (by unfold hdrK; split_ifs <;> simp_all), p5, m16, m24, x10, x11, x12,
+    ((((r1.trans r2).trans r3).trans r4).trans r5).mono (by decide),
+    ((((f1.trans f2).trans f3).trans f4).trans f5).mono (fun A _ h => by simp_all)⟩
 theorem fetch_1138 (hpc : s.pc = pcOf 1138) : fetch image s = some (.base .ECALL) :=
   (codeAt_1138.fetch s hpc).trans rfl
 theorem rl1139_spec (hpc : s.pc = pcOf 1139) (P M j : Nat) (hM : 64 ≤ M) (hM' : M < 2 ^ 64)

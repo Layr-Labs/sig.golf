@@ -13,7 +13,7 @@ theorem signCode_length : signCode.length = 21942 := by
   set_option maxRecDepth 100000 in decide +kernel
 theorem signData_length : signData.length = 86016 := by
   rw [signData, List.length_append, signPrefixData_length, signLegacyData_length]
-theorem expandCode_length : expandCode.length = 44046 := by
+theorem expandCode_length : expandCode.length = 44351 := by
   rw [expandCode, foldl_append_length]
   set_option maxRecDepth 100000 in decide +kernel
 theorem expandData_length : expandData.length = 27648 := by

@@ -301,12 +301,17 @@ theorem shared_header {image : Image} {b : Nat} (h : SubAt image b)
     (h8 : s.getReg .x8 = BitVec.ofNat 64 lay.val) :
     ∃ t, Steps image s (headerK lay) (headerK lay) t ∧ t.pc = pcOf (b + 23) ∧
       HeaderPost s t (height lay) := by
-  obtain ⟨rfl, rfl⟩ := h.2.2.2.2
-  fin_cases lay
-  · exact keygen_header_0 s hpc h8
-  · exact keygen_header_1 s hpc h8
-  · exact keygen_header_2 s hpc h8
-  · exact keygen_header_3 s hpc h8
+  rcases h.2.2.2.2 with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+  · fin_cases lay
+    · exact keygen_header_0 s hpc h8
+    · exact keygen_header_1 s hpc h8
+    · exact keygen_header_2 s hpc h8
+    · exact keygen_header_3 s hpc h8
+  · fin_cases lay
+    · exact sign_header_0 s hpc h8
+    · exact sign_header_1 s hpc h8
+    · exact sign_header_2 s hpc h8
+    · exact sign_header_3 s hpc h8
 theorem shared_header_source {image : Image} {b : Nat} (h : SubAt image b)
     (s : MachineState) (hpc : s.pc = pcOf (b + 9)) (lay : Layer) (tree leaf i step : Nat)
     (hr : tree * 2 ^ height lay + leaf < 2 ^ 31) (hf : leaf < 2 ^ height lay)

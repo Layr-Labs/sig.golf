@@ -208,32 +208,6 @@ theorem pairEncodingInputP_injective {up up' : Layer} {tree leaf tree' leaf' : N
   obtain ⟨hL, hh⟩ := List.append_inj h (by simp only [bytesLE_length])
   obtain ⟨e1, e2, e3⟩ := rowTweak_injective hl hr hl' hr' (bytesLE_injective hh)
   exact ⟨e1, e2, e3, bytesLE_injective hL, bytesLE_injective hR, bytesLE_injective hc, bytesLE_injective hp⟩
-theorem pairEncodingInputH_length (up : Layer) (tree leaf : Nat) (left right : Digest) (counter : BitVec 32)
-    (pad : BitVec 96) (hi : BitVec 64) : (pairEncodingInputH up tree leaf left right counter pad hi).length = 64 := by
-  simp only [pairEncodingInputH, List.length_append, bytesLE_length]
-theorem rowTweakW_injective {up up' : Layer} {tree leaf tree' leaf' : Nat} {hi hi' : BitVec 64}
-    (hl : leaf < 2 ^ height up) (hr : tree * 2 ^ height up + leaf < 2 ^ 32)
-    (hl' : leaf' < 2 ^ height up') (hr' : tree' * 2 ^ height up' + leaf' < 2 ^ 32)
-    (h : rowTweakW up tree leaf hi = rowTweakW up' tree' leaf' hi') :
-    up = up' ∧ tree = tree' ∧ leaf = leaf' ∧ hi = hi' := by
-  obtain ⟨hh, hw⟩ := append64_inj h
-  obtain ⟨e1, e2, e3⟩ := leafTweak_injective hl hr hl' hr' (by rw [leafTweak, leafTweak, hw])
-  exact ⟨e1, e2, e3, hh⟩
-/-- C2/C3 (FULL): the padded encoding block is injective in its coordinates, halves, counter, pads and the row
-tweak's high word. -/
-theorem pairEncodingInputH_injective {up up' : Layer} {tree leaf tree' leaf' : Nat} {l r l' r' : Digest}
-    {c c' : BitVec 32} {pad pad' : BitVec 96} {hi hi' : BitVec 64}
-    (hl : leaf < 2 ^ height up) (hr : tree * 2 ^ height up + leaf < 2 ^ 32)
-    (hl' : leaf' < 2 ^ height up') (hr' : tree' * 2 ^ height up' + leaf' < 2 ^ 32)
-    (h : pairEncodingInputH up tree leaf l r c pad hi = pairEncodingInputH up' tree' leaf' l' r' c' pad' hi') :
-    up = up' ∧ tree = tree' ∧ leaf = leaf' ∧ l = l' ∧ r = r' ∧ c = c' ∧ pad = pad' ∧ hi = hi' := by
-  rw [pairEncodingInputH_eq, pairEncodingInputH_eq] at h
-  obtain ⟨h, hR⟩ := List.append_inj h (by simp only [List.length_append, bytesLE_length])
-  obtain ⟨h, hp⟩ := List.append_inj h (by simp only [List.length_append, bytesLE_length])
-  obtain ⟨h, hc⟩ := List.append_inj h (by simp only [List.length_append, bytesLE_length])
-  obtain ⟨hL, hh⟩ := List.append_inj h (by simp only [bytesLE_length])
-  obtain ⟨e1, e2, e3, e4⟩ := rowTweakW_injective hl hr hl' hr' (bytesLE_injective hh)
-  exact ⟨e1, e2, e3, bytesLE_injective hL, bytesLE_injective hR, bytesLE_injective hc, bytesLE_injective hp, e4⟩
 theorem pairEncoding_separation (up : Layer) (tree leaf : Nat) :
     (∀ (lay : Layer) (tree' leaf' i st : Nat), rowTweak up tree leaf ≠ chainHeader lay tree' leaf' i st) ∧
     (∀ (i k j t s : Nat) (high : BitVec 64), rowTweak up tree leaf ≠ ftsChainHeaderP i k j t s high) ∧
@@ -343,85 +317,4 @@ theorem lowerSeedHeader_ne_top (lay : Layer) (hlay : lay ≠ 0) (tree pair tree'
 theorem ftsSeedHeader_ne_lowerSeedHeader (coord index pair : Nat) (lay : Layer) (tree pair' : Nat) :
     ftsSeedHeader coord index pair ≠ lowerSeedHeader lay tree pair' :=
   ftsSeedHeader_ne_tag coord index pair 0 lay.val tree pair' 0 (by decide)
-/-! ### C2 (FULL): the packed lower node tweak -/
-theorem lowerNodeWord_toNat {heap : Nat} (hh : heap < 128) (lay tree : Nat) :
-    (lowerNodeWord lay tree heap).toNat = 1920 + heap + tree % 2 ^ 32 * 2 ^ 16 + lay % 256 * 2 ^ 48 + 193 * 2 ^ 56 := by
-  unfold lowerNodeWord lowerK
-  rw [BitVec.toNat_add, hyperWord_toNat, BitVec.toNat_ofNat]
-  have h1 := Nat.mod_lt tree (show 0 < 2 ^ 32 by decide)
-  have h2 := Nat.mod_lt lay (show 0 < 256 by decide)
-  rw [Nat.mod_eq_of_lt (show 1407 + heap < 2 ^ 64 by omega)]
-  apply (Nat.mod_eq_of_lt _).trans
-  · omega
-  · omega
-theorem lowerTweak_toNat {heap : Nat} (hh : heap < 128) (lay tree : Nat) :
-    (lowerTweak lay tree heap).toNat = 1920 + heap + tree % 2 ^ 32 * 2 ^ 16 + (lay - 1) % 256 * 2 ^ 48 + 193 * 2 ^ 56 := by
-  unfold lowerTweak
-  rw [append64_toNat, lowerNodeWord_toNat hh]
-  simp
-theorem lowerTweak_marker {heap : Nat} (hh : heap < 128) (lay tree : Nat) :
-    tweakMarker (lowerTweak lay tree heap) = 128 + heap := by
-  unfold tweakMarker; rw [lowerTweak_toNat hh]; omega
-theorem lowerTweak_firstByte {heap : Nat} (hh : heap < 128) (lay tree : Nat) :
-    (lowerTweak lay tree heap).toNat % 256 = 128 + heap := lowerTweak_marker hh lay tree
-theorem lowerTweak_tag {heap : Nat} (hh : heap < 128) (lay tree : Nat) :
-    tweakTag (lowerTweak lay tree heap) = 7 := by
-  unfold tweakTag; rw [lowerTweak_toNat hh]; omega
-theorem lowerTweak_high' (lay tree heap : Nat) : tweakHigh (lowerTweak lay tree heap) = 0 := by
-  unfold lowerTweak; rw [append64_high]; rfl
-theorem lowerTweak_injective {lay lay' tree tree' heap heap' : Nat} (h1 : 1 ≤ lay) (h4 : lay < 4)
-    (h1' : 1 ≤ lay') (h4' : lay' < 4) (ht : tree < 2 ^ 32) (ht' : tree' < 2 ^ 32) (hh : heap < 128)
-    (hh' : heap' < 128) (h : lowerTweak lay tree heap = lowerTweak lay' tree' heap') :
-    lay = lay' ∧ tree = tree' ∧ heap = heap' := by
-  have e := congrArg BitVec.toNat h
-  rw [lowerTweak_toNat hh, lowerTweak_toNat hh', Nat.mod_eq_of_lt ht, Nat.mod_eq_of_lt ht',
-    Nat.mod_eq_of_lt (show lay - 1 < 256 by omega), Nat.mod_eq_of_lt (show lay' - 1 < 256 by omega)] at e
-  omega
-theorem chainHeader_byte1_low (lay : Layer) (tree leaf i step : Nat) :
-    (chainHeader lay tree leaf i step).toNat / 256 % 8 = step % 8 := by
-  rw [chainHeader_toNat, chainHeaderFlaggedLow_toNat, chainHeaderLow_toNat]
-  have := Nat.mod_lt i (show 0 < 64 by decide)
-  have := Nat.mod_lt step (show 0 < 8 by decide)
-  generalize (tree % 2 ^ 31 / 2 ^ (32 - height lay) + leaf % 4096 / 2 ^ height lay * 2 ^ (height lay - 1)) = x
-  generalize (tree % 2 ^ 31 * 2 ^ height lay + leaf % 4096) % 2 ^ 32 = r
-  have := Nat.mod_lt x (show 0 < 2 by decide)
-  have := Nat.mod_lt (x / 2) (show 0 < 32 by decide)
-  split_ifs <;> omega
-theorem lowerTweak_ne_chainHeader {heap : Nat} (hh : heap < 128) (lay tree : Nat) (lay' : Layer)
-    (tree' leaf i step : Nat) (hs : step % 8 ≠ 7) : lowerTweak lay tree heap ≠ chainHeader lay' tree' leaf i step := by
-  intro h
-  have e := chainHeader_byte1_low lay' tree' leaf i step
-  rw [← h, lowerTweak_toNat hh] at e
-  omega
-theorem lowerTweak_low_ge {heap : Nat} (hh : heap < 128) (lay tree : Nat) :
-    193 * 2 ^ 56 ≤ (lowerTweak lay tree heap).toNat % 2 ^ 64 := by
-  rw [lowerTweak_toNat hh]
-  have h1 := Nat.mod_lt tree (show 0 < 2 ^ 32 by decide)
-  have h2 := Nat.mod_lt (lay - 1) (show 0 < 256 by decide)
-  rw [Nat.mod_eq_of_lt (by omega)]; omega
-theorem lowerTweak_ne_of_low_lt {heap : Nat} (hh : heap < 128) (lay tree : Nat) {x : BitVec 128}
-    (hx : x.toNat % 2 ^ 64 < 2 ^ 58) : lowerTweak lay tree heap ≠ x := by
-  intro h
-  have := lowerTweak_low_ge hh lay tree
-  rw [h] at this
-  omega
-theorem lowerTweak_ne_ftsChainHeaderP {heap : Nat} (hh : heap < 128) (lay tree : Nat)
-    (index coord selected chain step : Nat) (high : BitVec 64) :
-    lowerTweak lay tree heap ≠ ftsChainHeaderP index coord selected chain step high := by
-  apply lowerTweak_ne_of_low_lt hh
-  have e : (ftsChainHeaderP index coord selected chain step high).toNat % 2 ^ 64 =
-      ((ftsChainHeaderP index coord selected chain step high).extractLsb' 0 64).toNat := by
-    rw [BitVec.extractLsb'_toNat]; simp
-  rw [e, ftsChainHeaderP_low, BitVec.toNat_ofNat]
-  have := ftsChainLow_lt index coord selected chain step
-  rw [Nat.mod_eq_of_lt (by omega)]; exact this
-theorem lowerTweak_ne_wctNodeHeader {heap : Nat} (hh : heap < 128) (lay tree : Nat) {coord : Nat} (hk : coord < 9)
-    (index heap' : Nat) : lowerTweak lay tree heap ≠ wctNodeHeader coord index heap' := by
-  apply lowerTweak_ne_of_low_lt hh
-  rw [wctNodeHeader_toNat hk]
-  split_ifs
-  · have := ftsNodeLowN_lt index coord heap'
-    omega
-  · have := ftsLeafLow_lt index coord 0
-    omega
 end ClaudeWCT.WCT9

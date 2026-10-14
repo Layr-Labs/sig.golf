@@ -1041,7 +1041,7 @@ theorem ktop_iter {j : Nat} (hj : j < 54) {st : List Digest × List Digest} {t :
   have hseed : DigAt t11 (CHAIN + 48) (topSeed coefs j) :=
     t3seed.frame (((((((t4f.trans t5f).trans t6f).trans t7f).trans t8f).trans t9f).trans t10f).trans t11f)
       (by decide) (by simp) (by simp)
-  have hch := chainRun_tsim subAt_keygen sk hcp t11pc (topSeed coefs j) hseed
+  have hch := chainRun_tsim subAt_keygen sk hcp rfl t11pc (topSeed coefs j) hseed
   rw [topBody_eq]
   refine (TSim.steps (((((((((st1.trans st2).trans st3).trans st4).trans st5).trans st6).trans st7).trans
     st8).trans st9).trans (st10.trans st11)) (TSim.bind (k₂ := 16) (c₂ := 16) (n₂ := 0) (b₂ := 0) hch
@@ -1137,10 +1137,10 @@ theorem ktop_exit {st : List Digest × List Digest} {t : MachineState} (ht : TIn
     rw [t3x11, hnb] <;> rfl
   have h5 : t3.getReg .x5 = 0 := by rw [r13.get (by simp), g _ (by simp [tRegs, leafRegs]), hpre.x5]
   have hlh : leafHash 0 0 A.leaf st.1 =
-      T3.projHash (T3.leafHalfHigh 0 A.leaf) (T3.leafInput A.lay A.tree A.leaf st.1) := by
+      T3.projHash (T3.leafHigh A.leaf) (T3.leafInput A.lay A.tree A.leaf st.1) := by
     rw [h0.1, h0.2]; rfl
   rw [hlh]
-  refine (TSim.steps (st1.trans (st2.trans st3)) (tsim_projHash_bind (k := 7) (c := 7) (n := 0) (b := 0)
+  refine (TSim.steps (st1.trans (st2.trans st3)) (TSim.projHash_bind (k := 7) (c := 7) (n := 0) (b := 0)
     (f := fun root => pure (root, st.2)) (fetch_sub105 subAt_keygen t3 t3pc) h5 hv hq (fun a => ?_))).of_eq rfl
     (by omega) (by rw [hblk]; omega) (by omega) (by rw [hblk]; omega)
   have hdb := hpre.hd
@@ -1151,15 +1151,15 @@ theorem ktop_exit {st : List Digest × List Digest} {t : MachineState} (ht : TIn
     (by rw [getReg_writeHash, r13.get (by simp), g _ (by simp [tRegs, leafRegs]), hpre.x25])
     (A.leaf % 2) (Nat.mod_lt _ (by decide)) (by rw [getReg_writeHash]; exact t3x29)
     (by rw [getReg_writeHash]; exact t3x12)
-  have hd2 : DigAt u2 A.dest (T3.projHalf (T3.leafHalfHigh 0 A.leaf) a) := by
+  have hd2 : DigAt u2 A.dest (T3.projHalf (T3.leafHigh A.leaf) a) := by
     rcases Nat.mod_two_eq_zero_or_one A.leaf with hp | hp
     · have hhi := DigAt.writeHash_hi t3 a LOUT t3x12 (by decide)
-      have hh : T3.leafHalfHigh 0 A.leaf = true := by simp [T3.leafHalfHigh, hp]
+      have hh : T3.leafHigh A.leaf = true := by simp [T3.leafHigh, hp]
       rw [hh, T3.projHalf_true]
       rw [hp] at u2a u2b
       exact ⟨u2a.trans hhi.1, by rw [u2b]; exact hhi.2⟩
     · have hlo := DigAt.writeHash_lo t3 a LOUT t3x12 (by decide)
-      have hh : T3.leafHalfHigh 0 A.leaf = false := by simp [T3.leafHalfHigh, hp]
+      have hh : T3.leafHigh A.leaf = false := by simp [T3.leafHigh, hp]
       rw [hh, T3.projHalf_false]
       rw [hp] at u2a u2b
       exact ⟨u2a.trans hlo.1, by rw [u2b]; exact hlo.2⟩

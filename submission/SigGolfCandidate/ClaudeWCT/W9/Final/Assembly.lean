@@ -5,10 +5,10 @@ namespace ClaudeWCT.W9.Final
 open ClaudeWCT.W9.T3M (Images)
 abbrev submission (I : Images) : SigGolf.Submission := ClaudeWCT.W9.T3M.Final.submissionNew I
 theorem signature_bytes (I : Images) : (submission I).sizes.signature = 5310 := rfl
-theorem witness_bytes (I : Images) : (submission I).sizes.witness = 24924 := rfl
+theorem witness_bytes (I : Images) : (submission I).sizes.witness = 24908 := rfl
 theorem cache_bytes (I : Images) : (submission I).sizes.cache = 131072 := rfl
 theorem layout_offsets (I : Images) : (submission I).layout =
-    { message := 26144, secretKey := 128, publicKey := 160,
+    { message := 26128, secretKey := 128, publicKey := 160,
       cache := 524288, signature := 28672, witness := 1216 } := rfl
 theorem keygen_image (I : Images) :
     (submission I).image .keygen =

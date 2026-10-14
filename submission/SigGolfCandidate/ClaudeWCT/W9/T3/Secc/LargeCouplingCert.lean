@@ -42,7 +42,7 @@ open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final SigGolfCandidate.T3M.SecurityInputs
   SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers)
-open LargeResidual CanonGraph CanonEncoding
+open LargeResidual
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
@@ -56,7 +56,7 @@ open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final SigGolfCandidate.T3M.SecurityInputs
   SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers)
-open LargeResidual CanonGraph CanonEncoding
+open LargeResidual
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
@@ -70,7 +70,7 @@ namespace SigGolfCandidate.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final
 open SigGolfCandidate.T3.Correctness (Answers)
-open LargeResidual CanonGraph CanonEncoding
+open LargeResidual
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
@@ -1198,7 +1198,7 @@ theorem certOut_le_psi (q : Nat) (r : Option (Option (Bool × RouterState)) × L
   · exact zero_le
 theorem bank_cert_le (hUpub : SeccLaw.publicUniverse ⊆ U) (initLaw : PMF AuxData) (adversary : AdversaryP) (q : Nat) :
     Pr[CertOut | lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial] ≤
-      (q : ENNReal) * (if q ≤ 2 ^ 121 then 23 / 100000 else 247 / 100000) / 2 ^ 128 +
+      (q : ENNReal) * (if q ≤ 2 ^ 121 then 23 / 100000 else 282 / 100000) / 2 ^ 128 +
         coeffQ q * (∑' r, Pr[= r | lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial] *
           (r.2.counters.mass : ENNReal)) / 2 ^ 128 := by
   set L := lazyRun (auxLaw initLaw) q (router U adversary q) LargeResidual.initial with hL
@@ -1279,7 +1279,7 @@ theorem large_cert_bound (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
   refine (hmain.trans (le_of_eq (add_assoc _ _ _))).trans ((add_le_add le_rfl habs).trans ?_)
   have hrm : (∑' r, Pr[= r | lazyRun (auxLaw initLaw) q (router (Wots.referenceInputs adversary) adversary q)
       LargeResidual.initial] * (r.2.counters.mass : ENNReal)) = routerMass adversary q := rfl
-  have hexc_eq : (if q ≤ 2 ^ 121 then (23 / 100000 : ENNReal) else 247 / 100000) =
+  have hexc_eq : (if q ≤ 2 ^ 121 then (23 / 100000 : ENNReal) else 282 / 100000) =
       (if q ≤ 2 ^ 121 then excessRate54 else excessRate) := by
     rw [ClaudeWCT.W9.T3.Security.SeccClosingW9.excessRate54_def,
       ClaudeWCT.W9.T3.Security.SeccClosingW9.excessRate_def]

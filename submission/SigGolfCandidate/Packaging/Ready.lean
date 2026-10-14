@@ -41,7 +41,7 @@ theorem fts_x5 : FtsGoodByCost W9Drv.GatePre FtsOutV (ftsAcceptCost 918) := by
     (fun top t ht => goodQ_frozen.mpr (hnext top t ht))
   rw [W9Drv.ftsN_eq] at h
   exact goodQ_frozen.mp h
-theorem after_x6 : AfterGoodBudget FtsOutV 5240 :=
+theorem after_x6 : AfterGoodBudget FtsOutV 5241 :=
   fun pk w Q hQ a top u h => SigGolfCandidate.T3M.after_good_budget pk w Q hQ a top u h
 theorem verify_final_closed :
     ClaudeWCT.W9.T3M.Final.VerifyRefines I0 ∧ ClaudeWCT.W9.T3M.Final.VerifyTerminates I0 ∧

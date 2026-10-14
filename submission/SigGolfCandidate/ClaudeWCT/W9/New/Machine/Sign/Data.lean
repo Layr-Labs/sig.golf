@@ -65,14 +65,14 @@ def coordCode8_4 : List (BitVec 32) := ((SigGolfCandidate.T3M.Images.signCode_80
 def coordCode8 : List (BitVec 32) := coordCode8_0 ++ coordCode8_1 ++ coordCode8_2 ++ coordCode8_3 ++ coordCode8_4
 def tailCode_0 : List (BitVec 32) := [(SigGolfCandidate.T3M.Images.signCode_80).drop 235,(SigGolfCandidate.T3M.Images.signCode_81).take 35].flatten
 def tailCode : List (BitVec 32) := tailCode_0
+/-- Campaign S2 arena (words 1653..1692, formerly dead nops): the lower chain-0 final-step projection (1653..1666)
+and the coordinate-0 FTS chain/leaf/node word trampolines (coordinate nibble 1, 1667..1692). -/
+def arenaCode : List (BitVec 32) := ((SigGolfCandidate.T3M.Images.signCode_6).drop 117).take 40
 def fieldIdx : List Nat := [11186,12238,13297,14357,15417,16476,17536,18596,19655]
 def coordCodes : List (List (BitVec 32)) := [coordCode0, coordCode1, coordCode2, coordCode3, coordCode4, coordCode5, coordCode6, coordCode7, coordCode8]
 /-- Nested FTS (r1-1): the sign trampolines at words 21450..21666 (leaf pad, fold post-hash, forest replacement);
 C1 (FTS half-swap): the fold half selectors `Q_c` and the even-leaf high-half copies `T_c` at 21667..21801. -/
 def signTramp : List (BitVec 32) := [(SigGolfCandidate.T3M.Images.signCode_83).drop 202,SigGolfCandidate.T3M.Images.signCode_84,(SigGolfCandidate.T3M.Images.signCode_85).take 42].flatten
-/-- C4 (FTS coordinate + 1, adapted from b3cc11b's campaign S2 arena): the coordinate-0 trampolines at sign words
-1700..1725 (six chain constants `lui t2,16; addi t2,t2,128+4i`, two `lui t2,16; or t1,t1,t2; ori t1,t1,1537`). -/
-def arenaCode : List (BitVec 32) := ((SigGolfCandidate.T3M.Images.signCode_6).drop 164).take 26
 def signNew : List (BitVec 32) := headCode ++ (coordCode0 ++ (coordCode1 ++ (coordCode2 ++ (coordCode3 ++ (coordCode4 ++ (coordCode5 ++ (coordCode6 ++ (coordCode7 ++ (coordCode8 ++ tailCode)))))))))
 def leafIdx : List Nat := [11201,12252,13312,14372,15431,16491,17551,18610,19670]
 def qIdx : List Nat := [11201,11349,11494,11639,11784,11929,12252,12407,12552,12697,12842,12987,13312,13467,13612,13757,13902,14047,14372,14527,14672,14817,14962,15107,15431,15586,15731,15876,16021,16166,16491,16646,16791,16936,17081,17226,17551,17706,17851,17996,18141,18286,18610,18765,18910,19055,19200,19345,19670,19825,19970,20115,20260,20405]

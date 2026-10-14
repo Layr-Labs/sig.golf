@@ -1,9 +1,8 @@
 import SigGolfCandidate.T3.FullCache.NativeGame
 import SigGolfCandidate.T3.Gate6.VerifierGate
+import SigGolfCandidate.T3M.Final.SecurityP
 import SigGolfCandidate.T3M.Witness.Queries
 import SigGolfCandidate.T3M.Extract.Leaf
-import SigGolfCandidate.T3M.Extract.HeaderBytes
-import SigGolfCandidate.T3M.Final.SecurityP
 
 section
 namespace SigGolfCandidate.T3.Security.CountedPrivate
@@ -3210,6 +3209,98 @@ theorem public_targets_bound {α : Type} (targets : PublicTargets) (maxTargets :
       observe (publicTargetTest targets) program state] ≤
       budget*((maxTargets : ENNReal)/(2 : ENNReal)^128) :=
   observe_hit_bound _ _ (public_target_hazard targets maxTargets hcard) program state budget
+/-! Campaign S1: projected public targets. A query `input` is compared on the half `orient input` of its answer
+(the half that is the honest value at the position named by `input`). A uniform answer has uniform halves. -/
+theorem hashOutput_high_eq_low_swap (output : HashOutput) :
+    output.extractLsb' 128 128 =
+      (output.extractLsb' 0 128 ++ output.extractLsb' 128 128 : BitVec 256).extractLsb' 0 128 := by
+  rw [BitVec.extractLsb'_append_eq_right]
+def swapHalves (output : HashOutput) : HashOutput :=
+  (output.extractLsb' 0 128 ++ output.extractLsb' 128 128 : BitVec 256)
+theorem swapHalves_swapHalves (output : HashOutput) : swapHalves (swapHalves output) = output := by
+  unfold swapHalves
+  rw [BitVec.extractLsb'_append_eq_right, BitVec.extractLsb'_append_eq_left]
+  exact BitVec.extractLsb'_append_extractLsb' (w := 128) (len := 128) (x := output)
+theorem swapHalves_bijective : Function.Bijective swapHalves :=
+  Function.Involutive.bijective swapHalves_swapHalves
+theorem projHalf_eq_low_orient (high : Bool) (output : HashOutput) :
+    projHalf high output = (bif high then swapHalves output else output).extractLsb' 0 128 := by
+  cases high
+  · rfl
+  · simp only [projHalf, cond_true, swapHalves, BitVec.extractLsb'_append_eq_right]
+theorem uniform_proj_mem (high : Bool) (targets : Finset Digest) :
+    Pr[fun output => projHalf high output ∈ targets | ($ᵗ HashOutput : ProbComp HashOutput)]=
+      targets.card/(2 : ENNReal)^128 := by
+  cases high
+  · exact uniform_low_mem targets
+  · have hmap : Pr[fun output => projHalf true output ∈ targets | ($ᵗ HashOutput : ProbComp HashOutput)] =
+        Pr[fun output => output.extractLsb' 0 128 ∈ targets |
+          (swapHalves <$> ($ᵗ HashOutput : ProbComp HashOutput))] := by
+      rw [probEvent_map]
+      congr 1
+      funext output
+      simp only [Function.comp_apply, projHalf_eq_low_orient, cond_true]
+    rw [hmap]
+    have hu : 𝒮[swapHalves <$> ($ᵗ HashOutput : ProbComp HashOutput)] =
+        𝒮[($ᵗ HashOutput : ProbComp HashOutput)] :=
+      evalSPMF_map_bijective_uniform_cross (α := HashOutput) (β := HashOutput) swapHalves swapHalves_bijective
+    rw [probEvent_congr' (fun _ _ => Iff.rfl) hu]
+    exact uniform_low_mem targets
+theorem probEvent_uniform_projHalf_eq (high : Bool) (target : Digest) :
+    Pr[fun output : HashOutput => projHalf high output = target | ($ᵗ HashOutput : ProbComp HashOutput)] =
+      (Fintype.card Digest : ENNReal)⁻¹ := by
+  have h := uniform_proj_mem high {target}
+  simp only [Finset.mem_singleton, Finset.card_singleton, Nat.cast_one] at h
+  rw [h, Fintype.card_bitVec, one_div]
+  norm_num
+/-- Campaign S1: either half of a uniform answer hits a fixed digest with probability `2 ^ -128`. -/
+theorem prob_projHalf_eq (high : Bool) (target : Digest) :
+    Pr[fun answer => projHalf high answer = target | PMF.uniformOfFintype HashOutput] =
+      (Fintype.card Digest : ENNReal)⁻¹ := by
+  simpa only [probEvent_eq_tsum_ite, probOutput_uniformSample, PMF.probOutput_eq_apply,
+    PMF.uniformOfFintype_apply] using probEvent_uniform_projHalf_eq high target
+noncomputable def publicTargetTestP (targets : PublicTargets) (orient : HashInput → Bool) : Test
+  | state,.inl (.inr input),output =>
+      decide (state.2 input=none ∧ projHalf (orient input) output ∈ targets state input)
+  | _,.inl (.inl _),_ => false
+  | _,.inr _,_ => false
+theorem public_target_stepP (targets : PublicTargets) (orient : HashInput → Bool) (state : LazyPrivate.State)
+    (input : HashInput) :
+    Pr[fun result => publicTargetTestP targets orient state (.inl (.inr input)) result.1=true |
+      LazyPrivate.run (liftM (T3.Spec.query (.inl (.inr input)))) state]=
+      if state.2 input=none then (targets state input).card/(2 : ENNReal)^128 else 0 := by
+  change Pr[fun result => publicTargetTestP targets orient state (.inl (.inr input)) result.1=true |
+    LazyPrivate.run (Sampling.publicHandler input) state]=_
+  rw [LazyPrivate.run_publicQuery]
+  by_cases hfresh : state.2 input=none
+  · rw [if_pos hfresh,randomOracle,QueryImpl.withCaching_run_none _ hfresh]
+    simp only [map_eq_bind_pure_comp,bind_assoc,probEvent_bind_eq_expectedValue,
+      probEvent_pure,publicTargetTestP,hfresh,true_and,decide_eq_true_eq,
+      Function.comp_apply,expectedValue_pure]
+    rw [expectedValue_ite_one]
+    exact uniform_proj_mem _ _
+  · rw [if_neg hfresh]
+    apply probEvent_eq_zero
+    intro result _
+    simp only [publicTargetTestP,decide_eq_true_eq,not_and]
+    exact fun h => False.elim (hfresh h)
+theorem public_target_hazardP (targets : PublicTargets) (orient : HashInput → Bool) (maxTargets : Nat)
+    (hcard : ∀ state input,(targets state input).card ≤ maxTargets)
+    (state : LazyPrivate.State) (input : T3.Spec.Domain) :
+    Pr[fun result => publicTargetTestP targets orient state input result.1=true |
+      LazyPrivate.run (liftM (T3.Spec.query input)) state] ≤
+      FullGame.queryCharge input*((maxTargets : ENNReal)/(2 : ENNReal)^128) := by
+  cases input with
+  | inl input =>
+      cases input with
+      | inl n => simp [publicTargetTestP]
+      | inr input =>
+          rw [public_target_stepP]
+          simp only [FullGame.queryCharge,Derivation.charged,if_true,Nat.cast_one,one_mul]
+          split
+          · exact ENNReal.div_le_div_right (by exact_mod_cast hcard state input) _
+          · exact bot_le
+  | inr coordinate => simp [publicTargetTestP]
 noncomputable def onePublicTarget
     (target : LazyPrivate.State → HashInput → Option Digest) : PublicTargets :=
   fun state input => (target state input).toFinset
@@ -3756,6 +3847,72 @@ theorem knownPublicHit_iff (reference : Reference) {α : Type} (result : Recorde
               (known_target_test_iff reference prior input answer).mp ht
             exact ⟨prior,input,answer,honest,output,he,hfresh,href,hknown,heq⟩
     | inr coordinate => simp [publicTargetTest] at ht
+noncomputable def knownTargetP (reference : Reference) (orient : HashInput → Bool) (state : LazyPrivate.State)
+    (input : HashInput) : Option Digest := do
+  let honest ← reference state input
+  let output ← state.2 honest
+  pure (projHalf (orient input) output)
+/-- Campaign S1: a fresh query whose answer agrees, on the half `orient input`, with the (already known) answer of the
+honest input it is compared to. -/
+def KnownPublicHitP (reference : Reference) (orient : HashInput → Bool) {α : Type} (result : Recorded α) : Prop :=
+  ∃ prior input answer honest output,
+    (⟨prior,.inl (.inr input),answer⟩ : QueryEvent) ∈ result.events ∧
+    prior.2 input=none ∧ reference prior input=some honest ∧ prior.2 honest=some output ∧
+    projHalf (orient input) answer=projHalf (orient input) output
+theorem knownTargetP_eq_some (reference : Reference) (orient : HashInput → Bool) (state : LazyPrivate.State)
+    (input : HashInput) (target : Digest) :
+    knownTargetP reference orient state input=some target ↔
+      ∃ honest output,reference state input=some honest ∧ state.2 honest=some output ∧
+        projHalf (orient input) output=target := by
+  unfold knownTargetP
+  cases h : reference state input
+  · simp
+  · rename_i honest
+    cases ho : state.2 honest <;> simp [ho]
+theorem known_target_test_iffP (reference : Reference) (orient : HashInput → Bool) (state : LazyPrivate.State)
+    (input : HashInput) (answer : HashOutput) :
+    publicTargetTestP (onePublicTarget (knownTargetP reference orient)) orient state (.inl (.inr input)) answer=true ↔
+      state.2 input=none ∧ ∃ honest output,
+        reference state input=some honest ∧ state.2 honest=some output ∧
+        projHalf (orient input) answer=projHalf (orient input) output := by
+  simp only [publicTargetTestP,decide_eq_true_eq,onePublicTarget,Option.mem_toFinset,
+    Option.mem_def,knownTargetP_eq_some]
+  constructor
+  · rintro ⟨hfresh,honest,output,hr,ho,he⟩
+    exact ⟨hfresh,honest,output,hr,ho,he.symm⟩
+  · rintro ⟨hfresh,honest,output,hr,ho,he⟩
+    exact ⟨hfresh,honest,output,hr,ho,he.symm⟩
+theorem knownPublicHitP_iff (reference : Reference) (orient : HashInput → Bool) {α : Type} (result : Recorded α) :
+    KnownPublicHitP reference orient result ↔
+      ∃ event ∈ result.events,
+        publicTargetTestP (onePublicTarget (knownTargetP reference orient)) orient event.before event.input
+          event.answer=true := by
+  constructor
+  · rintro ⟨prior,input,answer,honest,output,he,hfresh,href,hknown,heq⟩
+    exact ⟨⟨prior,.inl (.inr input),answer⟩,he,
+      (known_target_test_iffP reference orient prior input answer).mpr
+        ⟨hfresh,honest,output,href,hknown,heq⟩⟩
+  · rintro ⟨⟨prior,query,answer⟩,he,ht⟩
+    cases query with
+    | inl query =>
+        cases query with
+        | inl n => simp [publicTargetTestP] at ht
+        | inr input =>
+            obtain ⟨hfresh,honest,output,href,hknown,heq⟩ :=
+              (known_target_test_iffP reference orient prior input answer).mp ht
+            exact ⟨prior,input,answer,honest,output,he,hfresh,href,hknown,heq⟩
+    | inr coordinate => simp [publicTargetTestP] at ht
+theorem recorded_known_public_hit_boundP {α : Type} (reference : Reference) (orient : HashInput → Bool)
+    (program : M α) (state : LazyPrivate.State) (budget : Nat) :
+    Pr[fun result => (result.events.map (fun event => FullGame.queryCharge event.input)).sum≤budget ∧
+      KnownPublicHitP reference orient result | record program state] ≤ budget/(2 : ENNReal)^128 := by
+  have hcard : ∀ state input,(onePublicTarget (knownTargetP reference orient) state input).card≤1 := by
+    intro state input
+    simp only [onePublicTarget]
+    cases knownTargetP reference orient state input <;> simp
+  have h := recorded_hit_bound _ _
+    (public_target_hazardP (onePublicTarget (knownTargetP reference orient)) orient 1 hcard) program state budget
+  simpa only [Nat.cast_one,mul_one_div,← knownPublicHitP_iff] using h
 theorem recorded_known_public_hit_bound {α : Type} (reference : Reference)
     (program : M α) (state : LazyPrivate.State) (budget : Nat) :
     Pr[fun result => (result.events.map (fun event => FullGame.queryCharge event.input)).sum≤budget ∧
@@ -5436,18 +5593,31 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 attribute [local irreducible] instFintypeAddress order
+/-- Chain value after `step` steps. Campaign S1: the output of step `s` is the half `chainHigh layer chain s` of its
+label (high only for the last step 6 of chain 0 of a lower layer; that output is never a step input). -/
 def value (seeds : Seeds) (labels : Labels) (address : Address) (step : Nat) : Digest :=
   if step=0 then seeds address
-  else (labels (address,⟨(step-1)%7,Nat.mod_lt _ (by decide)⟩)).extractLsb' 0 128
+  else projHalf (chainHigh address.layer address.chain.val ((step-1)%7))
+    (labels (address,⟨(step-1)%7,Nat.mod_lt _ (by decide)⟩))
 theorem value_zero (seeds : Seeds) (labels : Labels) (address : Address) :
     value seeds labels address 0=seeds address := by simp [value]
 theorem value_succ (seeds : Seeds) (labels : Labels) (address : Address) (step : Fin 7) :
-    value seeds labels address (step.val+1)=(labels (address,step)).extractLsb' 0 128 := by
+    value seeds labels address (step.val+1)=
+      projHalf (chainHigh address.layer address.chain.val step.val) (labels (address,step)) := by
   simp [value,Nat.mod_eq_of_lt step.isLt]
+theorem chainHigh_of_lt (lay : Layer) (i : Nat) {step : Nat} (h : step < 6) : chainHigh lay i step = false := by
+  unfold chainHigh
+  have : (step == 6) = false := by simp; omega
+  rw [this]; rfl
 theorem prior_eq_value (seeds : Seeds) (labels : Labels) (point : Point) :
     prior seeds point labels=value seeds labels point.1 point.2.val := by
   have hmod : (point.2.val-1)%7=point.2.val-1 := Nat.mod_eq_of_lt (by have := point.2.isLt;omega)
-  simp only [prior,value,predecessor,hmod]
+  unfold prior value predecessor
+  split_ifs with h0
+  · rfl
+  · rw [chainHigh_of_lt _ _ (by have := point.2.isLt; rw [hmod]; omega)]
+    simp only [hmod]
+    rfl
 theorem row_pad64 (point : Point) (digest : Digest) : pad64 (row point digest)=row point digest := by
   simp [pad64,row_length]
 def Agrees (answers : Answers) (seeds : Seeds) (labels : Labels) : Prop :=
@@ -5461,10 +5631,11 @@ theorem source_step (answers : Answers) (seeds : Seeds) (labels : Labels) (h : A
   have hh := h (address,step)
   rw [hin] at hh
   have hc : chain address.layer address.tree.val address.leaf.val address.chain.val step.val 1
-      (value seeds labels address step.val)=shortHash (row (address,step) (value seeds labels address step.val)) := by
+      (value seeds labels address step.val)=projHash (chainHigh address.layer address.chain.val step.val)
+        (row (address,step) (value seeds labels address step.val)) := by
     simp [chain,List.range'_succ,row]
   rw [hc]
-  change (answers (.inl (.inr (pad64 (row (address,step) (value seeds labels address step.val)))))).extractLsb' 0 128=_
+  change projHalf _ (answers (.inl (.inr (pad64 (row (address,step) (value seeds labels address step.val))))))=_
   rw [row_pad64,hh,value_succ]
 theorem source_chain (answers : Answers) (seeds : Seeds) (labels : Labels) (h : Agrees answers seeds labels)
     (address : Address) (start count : Nat) (hbound : start+count ≤ 7) :
@@ -5648,6 +5819,20 @@ theorem joinOutput_high (low high : Digest) : (joinOutput low high).extractLsb' 
 theorem joinOutput_parts (output : HashOutput) :
     joinOutput (output.extractLsb' 0 128) (output.extractLsb' 128 128)=output :=
   outputEquiv.symm_apply_apply output
+/-- Campaign S1: the answer whose half `high` is `value` and whose other half is `other`. -/
+noncomputable def joinProj (high : Bool) (value other : Digest) : HashOutput :=
+  bif high then joinOutput other value else joinOutput value other
+theorem projHalf_joinProj (high : Bool) (value other : Digest) : projHalf high (joinProj high value other) = value := by
+  cases high
+  · exact joinOutput_low _ _
+  · exact joinOutput_high _ _
+theorem joinProj_false (value other : Digest) : joinProj false value other = joinOutput value other := rfl
+/-- `outputEquiv` with the halves ordered (value half, other half). -/
+noncomputable def outputEquivP (high : Bool) : HashOutput ≃ Digest × Digest :=
+  bif high then outputEquiv.trans (Equiv.prodComm Digest Digest) else outputEquiv
+theorem outputEquivP_symm (high : Bool) (value other : Digest) :
+    (outputEquivP high).symm (value, other) = joinProj high value other := by
+  cases high <;> rfl
 def halves (table : FullGame.FullTable) : HalfTable := fun coordinate =>
   if coordinate.2.val=0 then (table coordinate.1).extractLsb' 0 128
   else (table coordinate.1).extractLsb' 128 128
