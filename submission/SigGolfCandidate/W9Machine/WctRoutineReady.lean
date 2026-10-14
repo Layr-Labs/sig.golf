@@ -3,6 +3,7 @@ import SigGolfCandidate.W9Machine.WctChainSplit
 
 section
 namespace W9Machine
+variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 theorem chainPiece_steps_cycles (p : ChainPiece) : p.result.steps = p.result.cycles := by
@@ -25,8 +26,8 @@ theorem ChainRoutine.checked_cycles (r : ChainRoutine) (h : r.checked = true) : 
 theorem chainRoutine_good (r : ChainRoutine) (hr : r.checked = true)
     (s : MachineState) (post : MachineState → Prop) (hready : PlanReady r.pieces s post)
     (N C A : Nat) (Q : Prop) (K : MachineState → OracleComp HashSpec Obs)
-    (hK : ∀ t, post t → GoodQFor Frozen.image t N C Q A (K t)) :
-    GoodQFor Frozen.image s (N + 89) (C + 89) Q (A + 89)
+    (hK : ∀ t, post t → GoodQFor (P := P) Frozen.image t N C Q A (K t)) :
+    GoodQFor (P := P) Frozen.image s (N + 89) (C + 89) Q (A + 89)
       (cc (chainPlan r.pieces s) K) := by
   have hc := r.checked_cycles hr
   have hp := planCycles_eq r
@@ -37,6 +38,7 @@ end W9Machine
 end
 section
 namespace W9Machine.Chain
+variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 structure RoutineReady (rank : Fin 666) (r : ChainRoutine) : Prop where
   guard : planGuard r.pieces {} = true

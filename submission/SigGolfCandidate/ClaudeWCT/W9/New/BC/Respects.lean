@@ -10,21 +10,12 @@ theorem untouched_layerEncoding (a : ChainAddr) (lay : Layer) (tree leaf : Nat) 
   untouched_of_hdr a _ (rowTweak lay tree leaf)
     (ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInput lay tree leaf msg counter)
     (fun _ _ _ _ _ => Ne.symm (chainHeader_ne_rowTweak _ _ _ _ _ _ _ _))
-/-- C2/C3 (FULL): a chain header (marker at least 128) is no encoding row tweak, whatever its witness high word. -/
-theorem chainHeader_ne_rowTweakW (lay : Layer) (tree leaf i step : Nat) (up : Layer) (tree' leaf' : Nat)
-    (hi : BitVec 64) : chainHeader lay tree leaf i step ≠ WCT9.rowTweakW up tree' leaf' hi := by
-  intro h
-  have hc := chainHeader_tweakMarker lay tree leaf i step
-  rw [h] at hc
-  unfold WCT9.rowTweakW at hc
-  rw [append64_marker, hyperWord_toNat] at hc
-  omega
 theorem untouched_layerEncodingP (a : ChainAddr) (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg)
-    (counter : BitVec 32) (pad : BitVec 96) (padR : Digest) (hi : BitVec 64) :
-    Untouched a (.inl (.inr (pad64 (ClaudeWCT.W9.T3M.layerEncodingInputP lay tree leaf msg counter pad padR hi)))) :=
-  untouched_of_hdr a _ (WCT9.rowTweakW lay tree leaf hi)
-    (ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP lay tree leaf msg counter pad padR hi)
-    (fun _ _ _ _ _ => Ne.symm (chainHeader_ne_rowTweakW _ _ _ _ _ _ _ _ _))
+    (counter : BitVec 32) (pad : BitVec 96) (padR : Digest) :
+    Untouched a (.inl (.inr (pad64 (ClaudeWCT.W9.T3M.layerEncodingInputP lay tree leaf msg counter pad padR)))) :=
+  untouched_of_hdr a _ (rowTweak lay tree leaf)
+    (ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP lay tree leaf msg counter pad padR)
+    (fun _ _ _ _ _ => Ne.symm (chainHeader_ne_rowTweak _ _ _ _ _ _ _ _))
 theorem respects_layerEncoding (a : ChainAddr) (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg)
     (counter : BitVec 32) :
     Respects (Untouched a) (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg counter)) :=

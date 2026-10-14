@@ -1489,3 +1489,589 @@ theorem expectedClassCount_disjoint (first second : SigGolfCandidate.T3.Spec.Dom
   exact expectedValue_add _ _ _
 end ClaudeWCT.W9.T3.Security.CreationGame
 end
+
+section
+namespace ClaudeWCT.W9.T3.Security.PairedOuter.GameWith
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SphincsSecurity (OracleWorld romImpl sampleMasterSeed)
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.FullGame
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+noncomputable local instance : DecidableEq SigGolfCandidate.T3.Cache := Classical.decEq _
+noncomputable local instance : DecidableEq SiggolfT3Mac4.Cache := Classical.decEq _
+noncomputable local instance : DecidableEq Region := Classical.decEq _
+noncomputable local instance : Fintype Coordinate := coordinateFintype
+noncomputable local instance : Fintype OtherCoordinate := otherFintype
+noncomputable local instance : Fintype Region := CacheAuthentication.regionFintype
+noncomputable local instance : SampleableType FullTable := Derivation.outputSampler Coordinate
+noncomputable local instance : SampleableType OtherTable := otherSampler
+noncomputable local instance : SampleableType MacTable := CacheAuthentication.macTableSampler
+structure Checker (Forgery : Type) where
+  check : Digest → QueryLog Requests → Forgery → M Bool
+  nonMac : ∀ pk log forgery, NonMac (check pk log forgery)
+variable {Forgery : Type}
+abbrev AdversaryFor (Forgery : Type) :=
+  Digest → SigGolfCandidate.T3.Cache → OracleComp LazyPrivate.Interaction (Option Forgery)
+noncomputable def verdict (checker : Checker Forgery) (publicKey : Digest)
+    (result : Option Forgery × QueryLog Requests) : M Bool := do
+  let some forgery := result.1 | return false
+  let verified ← checker.check publicKey result.2 forgery
+  pure (decide (result.2.length ≤ 2^32) && verified)
+theorem verdict_nonMac (checker : Checker Forgery) (publicKey : Digest)
+    (result : Option Forgery × QueryLog Requests) : NonMac (verdict checker publicKey result) := by
+  unfold verdict
+  cases result.1 with
+  | none => exact SourceQueries.pure_allowed _ _
+  | some forgery =>
+      exact SourceQueries.bind_allowed _ (checker.nonMac publicKey result.2 forgery)
+        (fun _ => SourceQueries.pure_allowed _ _)
+noncomputable def game (checker : Checker Forgery) (adversary : AdversaryFor Forgery) : M Bool := do
+  let generated ← keygen
+  let result ← FullGame.loggedWith (fun request => sign request.cache request.message)
+    (adversary generated.1 generated.2)
+  verdict checker generated.1 result
+noncomputable def realExperiment (checker : Checker Forgery) (adversary : AdversaryFor Forgery) :
+    ProbComp (Bool × Nat) :=
+  sampleMasterSeed >>= fun secret =>
+    (simulateQ romImpl (SphincsSecurity.countHashQueries
+      (Derivation.realize (privateInput secret) (game checker adversary)))).run' ∅
+noncomputable def tableExperiment (checker : Checker Forgery) (adversary : AdversaryFor Forgery)
+    (q : Nat) : ProbComp (Option (Bool × Nat)) :=
+  ($ᵗ FullTable : ProbComp _) >>= fun outputs =>
+    (simulateQ romImpl (Derivation.tableRun outputs (Derivation.cap (game checker adversary) q))).run' ∅
+theorem private_derivation_event_bound (checker : Checker Forgery)
+    (adversary : AdversaryFor Forgery) (q : Nat) (hq : q < 2^256) :
+    Pr[fun result => result.1=true ∧ result.2 ≤ q | realExperiment checker adversary] ≤
+      Pr[fun outcome => ∃ result, outcome=some result ∧ result.1=true |
+        tableExperiment checker adversary q] + q / ((2^256 : Nat) : ENNReal) :=
+  Derivation.event_game_hop privateInput privateInput_injective
+    privateInput_hit (game checker adversary) q hq (· = true)
+noncomputable def countedTableExperiment (checker : Checker Forgery) (adversary : AdversaryFor Forgery) : ProbComp (Bool × CountState) := do
+  let table ← ($ᵗ FullTable : ProbComp _)
+  run table (game checker adversary) (0,∅)
+theorem counted_table_event (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (q : Nat) :
+    Pr[fun result => result.1=true ∧ result.2.1≤q | countedTableExperiment checker adversary]=
+      Pr[fun outcome => ∃ result,outcome=some result ∧ result.1=true | tableExperiment checker adversary q] := by
+  unfold countedTableExperiment tableExperiment
+  simp only [probEvent_bind_eq_tsum]
+  apply tsum_congr
+  intro table
+  apply congrArg
+  exact table_cap_event table (game checker adversary) ∅ q (·=true)
+theorem real_to_counted_table (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (q : Nat) (hq : q < 2^256) :
+    Pr[fun result => result.1=true ∧ result.2≤q | realExperiment checker adversary] ≤
+      Pr[fun result => result.1=true ∧ result.2.1≤q | countedTableExperiment checker adversary]+
+        q/((2^256 : Nat) : ENNReal) := by
+  rw [counted_table_event]
+  exact private_derivation_event_bound checker adversary q hq
+noncomputable def splitTableExperiment (checker : Checker Forgery) (adversary : AdversaryFor Forgery) : ProbComp (Bool × CountState) := do
+  let other ← ($ᵗ OtherTable : ProbComp _)
+  let mac ← ($ᵗ MacTable : ProbComp _)
+  run (joinTable other mac) (game checker adversary) (0,∅)
+theorem table_experiment_split (checker : Checker Forgery) (adversary : AdversaryFor Forgery) :
+    𝒮[countedTableExperiment checker adversary]=𝒮[splitTableExperiment checker adversary] :=
+  uniform_table_split_bind (fun table => run table (game checker adversary) (0,∅))
+noncomputable def checkContinuation (checker : Checker Forgery) (other : OtherTable) (publicKey : Digest)
+    (result : (Option Forgery × QueryLog Requests) × CountState) : ProbComp (Bool × CountState) :=
+  (simulateQ (baseHandler other) (verdict checker publicKey result.1)).run result.2
+noncomputable def realRest (checker : Checker Forgery) (other : OtherTable) (mac : MacTable) (adversary : AdversaryFor Forgery)
+    (publicKey : Digest) (published : SigGolfCandidate.T3.Cache) (state : CountState) : ProbComp (Bool × CountState) :=
+  RequestHop.run (worldHandler other) (MacGame.realSigner (baseHandler other) mac)
+    (adversary publicKey published) state >>= checkContinuation checker other publicKey
+noncomputable def idealRest (checker : Checker Forgery) (other : OtherTable) (adversary : AdversaryFor Forgery)
+    (publicKey : Digest) (published : SigGolfCandidate.T3.Cache) (state : CountState) : ProbComp (Bool × CountState) :=
+  RequestHop.run (worldHandler other) (MacGame.idealSigner (baseHandler other) published)
+    (adversary publicKey published) state >>= checkContinuation checker other publicKey
+theorem logged_source_run (other : OtherTable) (mac : MacTable)
+    (program : OracleComp LazyPrivate.Interaction (Option Forgery)) (state : CountState) :
+    (simulateQ (MacGame.sourceHandler (baseHandler other) mac) (FullGame.loggedWith (fun request => sign request.cache request.message) program)).run state=
+      RequestHop.run (worldHandler other) (MacGame.realSigner (baseHandler other) mac) program state := by
+  rw [FullGame.loggedWith_interpretation]
+  change RequestHop.run (worldHandler other)
+    (fun request => simulateQ (MacGame.sourceHandler (baseHandler other) mac)
+      (sign request.cache request.message)) program state=_
+  exact congrArg (fun signer => RequestHop.run (worldHandler other) signer program state)
+    (funext fun request => MacGame.source_signer_eq (baseHandler other) mac request)
+theorem source_rest_run (checker : Checker Forgery) (other : OtherTable) (mac : MacTable) (adversary : AdversaryFor Forgery)
+    (publicKey : Digest) (published : SigGolfCandidate.T3.Cache) (state : CountState) :
+    (simulateQ (MacGame.sourceHandler (baseHandler other) mac) (do
+      let result ← FullGame.loggedWith (fun request => sign request.cache request.message) (adversary publicKey published)
+      verdict checker publicKey result)).run state=
+      realRest checker other mac adversary publicKey published state := by
+  rw [simulateQ_bind,StateT.run_bind,logged_source_run]
+  unfold realRest
+  apply bind_congr
+  intro result
+  rw [MacGame.simulate_no_mac _ _ _ (verdict_nonMac checker publicKey result.1)]
+  rfl
+theorem fixed_game_expansion (checker : Checker Forgery) (other : OtherTable) (mac : MacTable) (adversary : AdversaryFor Forgery) :
+    run (joinTable other mac) (game checker adversary) (0,∅)=
+      (do
+        let generated ← (simulateQ (baseHandler other) keygenPayload).run (0,∅)
+        realRest checker other mac adversary generated.1.1 ⟨MacGame.tagAt mac generated.1.2,generated.1.2⟩
+          (generated.2.1+2,generated.2.2)) := by
+  rw [run,tableHandler_split,game]
+  simp only [keygen,bind_assoc,pure_bind,simulateQ_bind,StateT.run_bind]
+  rw [MacGame.simulate_no_mac _ _ _ keygenPayload_nonMac]
+  apply bind_congr
+  intro generated
+  rw [source_mac_run,pure_bind]
+  simpa only [simulateQ_bind,StateT.run_bind] using
+    source_rest_run checker other mac adversary generated.1.1
+      ⟨MacGame.tagAt mac generated.1.2,generated.1.2⟩ (generated.2.1+2,generated.2.2)
+theorem refresh_published_mac (checker : Checker Forgery) (other : OtherTable) (adversary : AdversaryFor Forgery)
+    (generated : (Digest × Region) × CountState) :
+    𝒮[do
+      let mac ← ($ᵗ MacTable : ProbComp _)
+      realRest checker other mac adversary generated.1.1 ⟨MacGame.tagAt mac generated.1.2,generated.1.2⟩
+        (generated.2.1+2,generated.2.2)]=
+    𝒮[do
+      let tag ← ($ᵗ HashOutput : ProbComp _)
+      let mac ← ($ᵗ MacTable : ProbComp _)
+      realRest checker other (MacGame.retag mac ⟨tag,generated.1.2⟩) adversary
+        generated.1.1 ⟨tag,generated.1.2⟩ (generated.2.1+2,generated.2.2)] := by
+  exact MacGame.refresh_published generated.1.2 (fun tag mac =>
+    realRest checker other mac adversary generated.1.1 ⟨tag,generated.1.2⟩
+      (generated.2.1+2,generated.2.2))
+noncomputable def preparedExperiment (checker : Checker Forgery) (adversary : AdversaryFor Forgery) : ProbComp (Bool × CountState) := do
+  let prepared ← setup
+  let mac ← ($ᵗ MacTable : ProbComp _)
+  realRest checker prepared.other (MacGame.retag mac prepared.published)
+    adversary prepared.publicKey prepared.published prepared.state
+noncomputable def authenticatedExperiment (checker : Checker Forgery) (adversary : AdversaryFor Forgery) : ProbComp (Bool × CountState) := do
+  let prepared ← setup
+  idealRest checker prepared.other adversary prepared.publicKey prepared.published prepared.state
+theorem split_experiment_prepared (checker : Checker Forgery) (adversary : AdversaryFor Forgery) :
+    𝒮[splitTableExperiment checker adversary]=𝒮[preparedExperiment checker adversary] := by
+  unfold splitTableExperiment preparedExperiment setup
+  simp only [bind_assoc,pure_bind]
+  apply evalSPMF_bind_congr'
+  intro other
+  simp_rw [fixed_game_expansion]
+  rw [evalSPMF_bind_bind_swap]
+  apply evalSPMF_bind_congr'
+  intro generated
+  exact refresh_published_mac checker other adversary generated
+theorem checkContinuation_long (checker : Checker Forgery) (other : OtherTable) (publicKey : Digest)
+    (result : (Option Forgery × QueryLog Requests) × CountState)
+    (hlong : 2^32 < result.1.2.length) (q : Nat) :
+    Pr[fun outcome => outcome.1=true ∧ outcome.2.1≤q | checkContinuation checker other publicKey result]=0 := by
+  have hn : ¬result.1.2.length≤2^32 := Nat.not_le.mpr hlong
+  unfold checkContinuation verdict
+  cases result.1.1 with
+  | none => simp [StateT.run_pure]
+  | some forgery =>
+      simp
+      intro count cache _ hshort
+      exact False.elim (hn hshort)
+theorem rest_authentication_bound (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (prepared : Setup) (q : Nat) :
+    Pr[fun result => result.1=true ∧ result.2.1≤q | do
+      let mac ← ($ᵗ MacTable : ProbComp _)
+      realRest checker prepared.other (MacGame.retag mac prepared.published)
+        adversary prepared.publicKey prepared.published prepared.state] ≤
+    Pr[fun result => result.1=true ∧ result.2.1≤q |
+      idealRest checker prepared.other adversary prepared.publicKey prepared.published prepared.state]+
+      ((2 : ENNReal)^152)⁻¹ := by
+  have h := MacGame.authentication_hop (worldHandler prepared.other) (baseHandler prepared.other)
+    prepared.published (adversary prepared.publicKey prepared.published) (2^32) prepared.state
+    (checkContinuation checker prepared.other prepared.publicKey) (fun result => result.1=true ∧ result.2.1≤q)
+    (fun result hlong => checkContinuation_long checker prepared.other prepared.publicKey result hlong q)
+  refine h.trans (add_le_add le_rfl ?_)
+  apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+  norm_num [ENNReal.toReal_mul,ENNReal.toReal_inv,ENNReal.toReal_pow]
+theorem prepared_authentication_bound (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (q : Nat) :
+    Pr[fun result => result.1=true ∧ result.2.1≤q | preparedExperiment checker adversary] ≤
+      Pr[fun result => result.1=true ∧ result.2.1≤q | authenticatedExperiment checker adversary]+
+        ((2 : ENNReal)^152)⁻¹ :=
+  probEvent_bind_le_add setup _ _ _ _ (fun prepared => rest_authentication_bound checker adversary prepared q)
+theorem real_to_authenticated (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (q : Nat) (hq : q < 2^256) :
+    Pr[fun result => result.1=true ∧ result.2≤q | realExperiment checker adversary] ≤
+      Pr[fun result => result.1=true ∧ result.2.1≤q | authenticatedExperiment checker adversary]+
+        ((2 : ENNReal)^152)⁻¹+q/((2^256 : Nat) : ENNReal) := by
+  have h := real_to_counted_table checker adversary q hq
+  have he := (table_experiment_split checker adversary).trans (split_experiment_prepared checker adversary)
+  have hp : Pr[fun result => result.1=true ∧ result.2.1≤q | countedTableExperiment checker adversary]=
+      Pr[fun result => result.1=true ∧ result.2.1≤q | preparedExperiment checker adversary] :=
+    probEvent_congr' (fun _ _ => Iff.rfl) he
+  rw [hp] at h
+  exact h.trans (add_le_add (prepared_authentication_bound checker adversary q) le_rfl)
+noncomputable def idealGame (checker : Checker Forgery) (adversary : AdversaryFor Forgery) : M Bool := do
+  let generated ← keygen
+  let result ← FullGame.loggedWith (FullGame.authenticatedSign generated.2) (adversary generated.1 generated.2)
+  verdict checker generated.1 result
+theorem ideal_rest_run (checker : Checker Forgery) (other : OtherTable) (mac : MacTable) (adversary : AdversaryFor Forgery)
+    (publicKey : Digest) (published : SigGolfCandidate.T3.Cache) (state : CountState) :
+    (simulateQ (MacGame.sourceHandler (baseHandler other) mac) (do
+      let result ← FullGame.loggedWith (FullGame.authenticatedSign published) (adversary publicKey published)
+      verdict checker publicKey result)).run state=idealRest checker other adversary publicKey published state := by
+  rw [simulateQ_bind,StateT.run_bind,FullGame.loggedWith_interpretation]
+  have hs : (fun request => simulateQ (MacGame.sourceHandler (baseHandler other) mac)
+      (FullGame.authenticatedSign published request))=MacGame.idealSigner (baseHandler other) published :=
+    funext fun request => FullGame.authenticatedSign_interpretation other mac published request
+  rw [hs]
+  change RequestHop.run (worldHandler other) (MacGame.idealSigner (baseHandler other) published)
+    (adversary publicKey published) state >>= _ = _
+  unfold idealRest
+  apply bind_congr
+  intro result
+  rw [MacGame.simulate_no_mac _ _ _ (verdict_nonMac checker publicKey result.1)]
+  rfl
+theorem fixed_ideal_expansion (checker : Checker Forgery) (other : OtherTable) (mac : MacTable) (adversary : AdversaryFor Forgery) :
+    run (joinTable other mac) (idealGame checker adversary) (0,∅)=
+      (do
+        let generated ← (simulateQ (baseHandler other) keygenPayload).run (0,∅)
+        idealRest checker other adversary generated.1.1 ⟨MacGame.tagAt mac generated.1.2,generated.1.2⟩
+          (generated.2.1+2,generated.2.2)) := by
+  rw [run,tableHandler_split,idealGame]
+  simp only [keygen,bind_assoc,pure_bind,simulateQ_bind,StateT.run_bind]
+  rw [MacGame.simulate_no_mac _ _ _ keygenPayload_nonMac]
+  apply bind_congr
+  intro generated
+  rw [source_mac_run,pure_bind]
+  simpa only [simulateQ_bind,StateT.run_bind] using
+    ideal_rest_run checker other mac adversary generated.1.1
+      ⟨MacGame.tagAt mac generated.1.2,generated.1.2⟩ (generated.2.1+2,generated.2.2)
+noncomputable def idealTableExperiment (checker : Checker Forgery) (adversary : AdversaryFor Forgery) : ProbComp (Bool × CountState) := do
+  let table ← ($ᵗ FullTable : ProbComp _)
+  run table (idealGame checker adversary) (0,∅)
+theorem ideal_table_authenticated (checker : Checker Forgery) (adversary : AdversaryFor Forgery) :
+    𝒮[idealTableExperiment checker adversary]=𝒮[authenticatedExperiment checker adversary] := by
+  unfold idealTableExperiment
+  rw [uniform_table_split_bind]
+  unfold authenticatedExperiment setup
+  simp only [bind_assoc,pure_bind]
+  apply evalSPMF_bind_congr'
+  intro other
+  simp_rw [fixed_ideal_expansion]
+  rw [evalSPMF_bind_bind_swap]
+  apply evalSPMF_bind_congr'
+  intro generated
+  exact sample_mac_at_bind generated.1.2 (fun tag =>
+    idealRest checker other adversary generated.1.1 ⟨tag,generated.1.2⟩ (generated.2.1+2,generated.2.2))
+noncomputable def idealLazyExperiment (checker : Checker Forgery) (adversary : AdversaryFor Forgery) :
+    ProbComp ((Bool × Nat) × LazyPrivate.State) :=
+  LazyPrivate.run (SphincsSecurity.QueryCap.counted Derivation.charged (idealGame checker adversary)) (∅,∅)
+theorem ideal_lazy_event (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (q : Nat) :
+    Pr[fun result => result.1.1=true ∧ result.1.2≤q | idealLazyExperiment checker adversary]=
+      Pr[fun result => result.1=true ∧ result.2.1≤q | authenticatedExperiment checker adversary] := by
+  have h := LazyPrivate.run_eq_table
+    (SphincsSecurity.QueryCap.counted Derivation.charged (idealGame checker adversary)) ∅
+  have hp : Pr[fun result => result.1.1=true ∧ result.1.2≤q |
+      Prod.map id Prod.snd <$> idealLazyExperiment checker adversary]=
+      Pr[fun result => result.1.1=true ∧ result.1.2≤q | do
+        let table ← ($ᵗ FullTable : ProbComp _)
+        (simulateQ romImpl (Derivation.tableRun table
+          (SphincsSecurity.QueryCap.counted Derivation.charged (idealGame checker adversary)))).run ∅] :=
+    probEvent_congr' (fun _ _ => Iff.rfl) h
+  simp only [probEvent_map,Prod.map,id_eq,Function.comp_def] at hp
+  rw [hp]
+  have he : Pr[fun result => result.1=true ∧ result.2.1≤q | idealTableExperiment checker adversary]=
+      Pr[fun result => result.1=true ∧ result.2.1≤q | authenticatedExperiment checker adversary] :=
+    probEvent_congr' (fun _ _ => Iff.rfl) (ideal_table_authenticated checker adversary)
+  rw [← he]
+  unfold idealTableExperiment
+  simp only [probEvent_bind_eq_tsum]
+  apply tsum_congr
+  intro table
+  apply congrArg
+  rw [run,tableHandler,countHandler_run,probEvent_map]
+  simp only [plain_run,Function.comp_def,Nat.zero_add]
+theorem real_to_ideal_lazy (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (q : Nat) (hq : q < 2^256) :
+    Pr[fun result => result.1=true ∧ result.2≤q | realExperiment checker adversary] ≤
+      Pr[fun result => result.1.1=true ∧ result.1.2≤q | idealLazyExperiment checker adversary]+
+        ((2 : ENNReal)^152)⁻¹+q/((2^256 : Nat) : ENNReal) := by
+  rw [ideal_lazy_event]
+  exact real_to_authenticated checker adversary q hq
+end ClaudeWCT.W9.T3.Security.PairedOuter.GameWith
+end
+#print axioms ClaudeWCT.W9.T3.Security.PairedOuter.GameWith.real_to_ideal_lazy
+
+namespace ClaudeWCT.W9.T3.Security.PairedOuter.GameWith
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 100000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+variable {Forgery : Type}
+namespace Counted
+open SigGolfCandidate.T3.Security.CountedPrivate
+noncomputable def experiment (checker : Checker Forgery) (adversary : AdversaryFor Forgery) : ProbComp (Bool × State) :=
+  run (GameWith.idealGame checker adversary) (0,∅,∅)
+theorem experiment_event (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (q : Nat) :
+    Pr[fun result => result.1=true ∧ result.2.1≤q | experiment checker adversary]=
+      Pr[fun result => result.1.1=true ∧ result.1.2≤q | GameWith.idealLazyExperiment checker adversary] := by
+  simp only [experiment,run,GameWith.idealLazyExperiment,probEvent_map,Function.comp_def,Nat.zero_add]
+theorem real_to_counted_ideal (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (q : Nat) (hq : q < 2^256) :
+    Pr[fun result => result.1=true ∧ result.2≤q | realExperiment checker adversary] ≤
+      Pr[fun result => result.1=true ∧ result.2.1≤q | experiment checker adversary]+
+        ((2 : ENNReal)^152)⁻¹+q/((2^256 : Nat) : ENNReal) := by
+  rw [experiment_event]
+  exact GameWith.real_to_ideal_lazy checker adversary q hq
+end Counted
+namespace Monitored
+open SigGolfCandidate.T3.Security.MonitoredPrivate
+noncomputable def experiment (checker : Checker Forgery) (adversary : AdversaryFor Forgery) : ProbComp (Bool × State) :=
+  run (GameWith.idealGame checker adversary) ⟨(0,∅,∅),false⟩
+theorem experiment_erasure (checker : Checker Forgery) (adversary : AdversaryFor Forgery) :
+    Prod.map id State.source <$> experiment checker adversary=Counted.experiment checker adversary :=
+  run_erasure (GameWith.idealGame checker adversary) ⟨(0,∅,∅),false⟩
+theorem experiment_event (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (q : Nat) :
+    Pr[fun result => result.1=true ∧ result.2.source.1≤q | experiment checker adversary]=
+      Pr[fun result => result.1=true ∧ result.2.1≤q | Counted.experiment checker adversary] := by
+  rw [← experiment_erasure checker adversary,probEvent_map]
+  rfl
+theorem real_to_monitored_ideal (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (q : Nat) (hq : q < 2^256) :
+    Pr[fun result => result.1=true ∧ result.2≤q | realExperiment checker adversary] ≤
+      Pr[fun result => result.1=true ∧ result.2.source.1≤q | experiment checker adversary]+
+        ((2 : ENNReal)^152)⁻¹+q/((2^256 : Nat) : ENNReal) := by
+  rw [experiment_event]
+  exact Counted.real_to_counted_ideal checker adversary q hq
+end Monitored
+namespace Recorded
+open SigGolfCandidate.T3.Security.QueryRecorded
+abbrev TraceResult := Bool × (SigGolfCandidate.T3.Security.MonitoredPrivate.History × State)
+/-- The paired source is recorded directly. Its bank exposes accepted outputs,
+so no auxiliary proposal trace is needed by this game. -/
+noncomputable def tracedExperiment (checker : Checker Forgery) (adversary : AdversaryFor Forgery)
+    (_budget : Nat) (_hbudget : _budget≤2^127) : PMF TraceResult :=
+  (fun r=> (r.1,[],r.2)) <$> (liftM (run (GameWith.idealGame checker adversary) initial) : PMF _)
+
+theorem traced_source_erasure (checker : Checker Forgery) (adversary : AdversaryFor Forgery)
+    (q : Nat) (hq : q≤2^127) :
+    Prod.map id Prod.snd <$> tracedExperiment checker adversary q hq =
+      (liftM (run (GameWith.idealGame checker adversary) initial) : PMF _) := by
+  unfold tracedExperiment
+  simp only [Functor.map_map,Prod.map,id_eq]
+  exact id_map _
+
+theorem traced_base_erasure (checker : Checker Forgery) (adversary : AdversaryFor Forgery)
+    (q : Nat) (hq : q≤2^127) :
+    (fun r : TraceResult=>(r.1,r.2.2.base)) <$> tracedExperiment checker adversary q hq =
+      (liftM (Monitored.experiment checker adversary) : PMF _) := by
+  unfold tracedExperiment
+  simp only [Functor.map_map]
+  exact lift_run_erasure (GameWith.idealGame checker adversary) initial
+
+theorem traced_event (checker : Checker Forgery) (adversary : AdversaryFor Forgery)
+    (q : Nat) (hq : q≤2^127) :
+    Pr[fun r=>r.1=true ∧ r.2.2.base.source.1≤q|tracedExperiment checker adversary q hq]=
+    Pr[fun r=>r.1=true ∧ r.2.source.1≤q|Monitored.experiment checker adversary] := by
+  have h:=congrArg (fun law : PMF (Bool×SigGolfCandidate.T3.Security.MonitoredPrivate.State)=>
+    Pr[fun r=>r.1=true ∧ r.2.source.1≤q|law]) (traced_base_erasure checker adversary q hq)
+  simpa only [probEvent_map,Function.comp_def,MonitoredPrivate.event_lift] using h
+
+theorem traced_exception_bound (checker : Checker Forgery) (adversary : AdversaryFor Forgery)
+    (q : Nat) (hq : q≤2^127) :
+    Pr[fun r=>r.2.2.base.source.1≤q ∧ r.2.2.base.exceptional=true|
+      tracedExperiment checker adversary q hq] ≤ q/(2:ENNReal)^146 := by
+  have he:=congrArg (fun law : PMF (Bool×SigGolfCandidate.T3.Security.MonitoredPrivate.State)=>
+    Pr[fun r=>r.2.source.1≤q ∧ r.2.exceptional=true|law]) (traced_base_erasure checker adversary q hq)
+  simp only [probEvent_map,Function.comp_def,MonitoredPrivate.event_lift] at he
+  rw [he]
+  exact MonitoredPrivate.gate6_run_empty_linear_charge (GameWith.idealGame checker adversary) q 146 hq (by decide)
+
+theorem split_clean (checker : Checker Forgery) (adversary : AdversaryFor Forgery)
+    (q : Nat) (hq : q≤2^127) :
+    Pr[fun r=>r.1=true ∧ r.2.2.base.source.1≤q|tracedExperiment checker adversary q hq]≤
+      Pr[CleanWin q|tracedExperiment checker adversary q hq]+
+      Pr[fun r=>r.2.2.base.source.1≤q ∧ r.2.2.base.exceptional=true|
+        tracedExperiment checker adversary q hq] := by
+  simp only [probEvent_eq_tsum_ite]
+  rw [←ENNReal.tsum_add]
+  apply ENNReal.tsum_le_tsum
+  intro r
+  by_cases hr:r∈(tracedExperiment checker adversary q hq).support
+  · have hh:r.2.1=[] := by
+      unfold tracedExperiment at hr
+      rw [PMF.monad_map_eq_map,PMF.support_map] at hr
+      obtain ⟨v,hv,he⟩:=hr
+      exact congrArg (fun x:TraceResult=>x.2.1) he.symm
+    by_cases hw:r.1=true ∧ r.2.2.base.source.1≤q
+    · cases hb:r.2.2.base.exceptional <;> simp [CleanWin,hw,hw.1,hw.2,hb,hh]
+    · simp only [hw,if_false,zero_le]
+  · have hz:(tracedExperiment checker adversary q hq) r=0 := by
+      simpa only [PMF.mem_support_iff,not_not] using hr
+    simp only [PMF.probOutput_eq_apply,hz,ite_self,add_zero,le_refl]
+
+theorem real_to_clean_trace (checker : Checker Forgery) (adversary : AdversaryFor Forgery)
+    (q : Nat) (hq : q≤2^127) :
+    Pr[fun r=>r.1=true ∧ r.2≤q|realExperiment checker adversary]≤
+      Pr[CleanWin q|tracedExperiment checker adversary q hq]+
+      q/(2:ENNReal)^146+((2:ENNReal)^152)⁻¹+q/((2^256:Nat):ENNReal) := by
+  have h:=Monitored.real_to_monitored_ideal checker adversary q (lt_of_le_of_lt hq (by decide))
+  rw [←traced_event checker adversary q hq] at h
+  exact h.trans (add_le_add (add_le_add
+    ((split_clean checker adversary q hq).trans
+      (add_le_add le_rfl (traced_exception_bound checker adversary q hq))) le_rfl) le_rfl)
+
+theorem traced_record_erasure (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (budget : Nat) (hbudget : budget ≤ 2^127) :
+    recordedTrace <$> tracedExperiment checker adversary budget hbudget=
+      (liftM (FirstHit.record (GameWith.idealGame checker adversary) (∅,∅)) : PMF _) := by
+  have hr : recorded <$> run (GameWith.idealGame checker adversary) initial=
+      FirstHit.record (GameWith.idealGame checker adversary) (∅,∅) := by
+    rw [run_recorded]
+    have hp : prepend ([] : List FirstHit.QueryEvent)=(id : FirstHit.Recorded Bool → FirstHit.Recorded Bool) := by
+      funext result
+      rfl
+    change prepend [] <$> FirstHit.record (GameWith.idealGame checker adversary) (∅,∅)=_
+    rw [hp,id_map]
+  calc
+    _ = recorded <$> (Prod.map id Prod.snd <$> tracedExperiment checker adversary budget hbudget) := by
+      rw [Functor.map_map]
+      rfl
+    _ = recorded <$> (liftM (run (GameWith.idealGame checker adversary) initial) : PMF _) := by
+      rw [traced_source_erasure]
+    _ = (liftM (recorded <$> run (GameWith.idealGame checker adversary) initial) : PMF _) := (liftM_map _ _).symm
+    _ = _ := by rw [hr]
+theorem traced_cost_coherent (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (budget : Nat) (hbudget : budget ≤ 2^127)
+    (result : Bool × (MonitoredPrivate.History × State))
+    (hr : result ∈ (tracedExperiment checker adversary budget hbudget).support) : CostCoherent result.2.2 := by
+  have hp : (result.1,result.2.2) ∈
+      (Prod.map id Prod.snd <$> tracedExperiment checker adversary budget hbudget).support := by
+    rw [PMF.monad_map_eq_map,PMF.support_map]
+    exact ⟨result,hr,rfl⟩
+  rw [traced_source_erasure] at hp
+  rw [MonitoredPrivate.pmf_support] at hp
+  exact run_cost_coherent (GameWith.idealGame checker adversary) initial initial_cost
+    (result.1,result.2.2) hp
+theorem known_public_hit_bound (checker : Checker Forgery) (reference : FirstHit.Reference) (adversary : AdversaryFor Forgery)
+    (q : Nat) (hq : q ≤ 2^127) :
+    Pr[fun result => result.2.2.base.source.1≤q ∧ FirstHit.KnownPublicHit reference (recordedTrace result) |
+      tracedExperiment checker adversary q hq] ≤ q/(2 : ENNReal)^128 := by
+  have h := FirstHit.recorded_known_public_hit_bound reference (GameWith.idealGame checker adversary) (∅,∅) q
+  have he := congrArg (fun law => Pr[fun result : FirstHit.Recorded Bool =>
+      (result.events.map (fun event => FullGame.queryCharge event.input)).sum≤q ∧
+      FirstHit.KnownPublicHit reference result | law]) (traced_record_erasure checker adversary q hq)
+  rw [probEvent_map,Function.comp_def,MonitoredPrivate.event_lift] at he
+  apply le_trans _ (he.le.trans h)
+  simp only [probEvent_eq_tsum_ite]
+  apply ENNReal.tsum_le_tsum
+  intro result
+  by_cases hr : result ∈ (tracedExperiment checker adversary q hq).support
+  · have hc := traced_cost_coherent checker adversary q hq result hr
+    simp only [Function.comp_def,recordedTrace,recorded]
+    rw [show result.2.2.base.source.1=
+      (result.2.2.events.map (fun event => FullGame.queryCharge event.input)).sum from hc]
+  · have hz : (tracedExperiment checker adversary q hq) result=0 := by
+      by_contra hn
+      exact hr (by simpa only [PMF.mem_support_iff] using hn)
+    simp only [PMF.probOutput_eq_apply,hz,ite_self,le_refl]
+
+#print axioms real_to_clean_trace
+end Recorded
+end ClaudeWCT.W9.T3.Security.PairedOuter.GameWith
+
+section
+namespace ClaudeWCT.W9.T3.Security.PairedOuter.PaddedGame
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
+open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final.Paired
+open ClaudeWCT.W9.T3M.Paired
+open SigGolfCandidate.T3M (allQ_bind allQ_pure)
+open SigGolfCandidate.Research.SharedForest (Signature)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+attribute [local irreducible] keygen ClaudeWCT.W9.T3M.Final.Paired.checkForgeryP
+theorem check_public (publicKey : Digest) (log : QueryLog Requests) (forgery : ClaudeWCT.W9.T3M.Final.Paired.ForgeryP) :
+    PublicVerdict.Only (ClaudeWCT.W9.T3M.Final.Paired.checkForgeryP publicKey log forgery) := by
+  have hv (message : Message) (witness : WBytes) : PublicVerdict.Only (ClaudeWCT.W9.T3M.Paired.verifyP message publicKey witness) :=
+    ClaudeWCT.W9.T3M.Paired.publicOnly_verifyP message publicKey witness
+  have he (message : Message) (signature : Signature) : PublicVerdict.Only (ClaudeWCT.W9.T3M.Paired.expandB message publicKey signature) :=
+    ClaudeWCT.W9.T3M.Paired.publicOnly_expandB message publicKey signature
+  cases forgery with
+  | witness message witness =>
+      unfold ClaudeWCT.W9.T3M.Final.Paired.checkForgeryP
+      exact allQ_bind (hv message witness) fun _ => allQ_pure _
+  | signature message signature =>
+      unfold ClaudeWCT.W9.T3M.Final.Paired.checkForgeryP
+      apply allQ_bind (he message signature)
+      intro witness
+      cases witness with
+      | none => exact allQ_pure _
+      | some witness => exact allQ_bind (hv message witness) fun _ => allQ_pure _
+theorem check_nonMac (publicKey : Digest) (log : QueryLog Requests) (forgery : ClaudeWCT.W9.T3M.Final.Paired.ForgeryP) :
+    FullGame.NonMac (ClaudeWCT.W9.T3M.Final.Paired.checkForgeryP publicKey log forgery) := by
+  apply SigGolfCandidate.T3M.allQ_mono (check_public publicKey log forgery)
+  intro input h
+  rcases input with (sample | input) | coordinate
+  · exact h.elim
+  · trivial
+  · exact h.elim
+noncomputable def checker : GameWith.Checker ClaudeWCT.W9.T3M.Final.Paired.ForgeryP := ⟨ClaudeWCT.W9.T3M.Final.Paired.checkForgeryP,check_nonMac⟩
+theorem game_eq (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) : GameWith.game checker adversary=ClaudeWCT.W9.T3M.Final.Paired.gameP adversary := by
+  unfold GameWith.game ClaudeWCT.W9.T3M.Final.Paired.gameP
+  apply bind_congr
+  rintro ⟨publicKey,cache⟩
+  unfold FullGame.loggedWith ClaudeWCT.W9.T3M.Final.Paired.signingOracle
+  simp only [monadLift_self]
+  apply bind_congr
+  rintro ⟨forgery,log⟩
+  cases forgery <;> rfl
+theorem realExperiment_eq (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) :
+    GameWith.realExperiment checker adversary=ClaudeWCT.W9.T3M.Final.Paired.realExperimentP adversary := by
+  unfold GameWith.realExperiment ClaudeWCT.W9.T3M.Final.Paired.realExperimentP
+  rw [game_eq]
+theorem verdict_public (publicKey : Digest) (result : Option ClaudeWCT.W9.T3M.Final.Paired.ForgeryP × QueryLog Requests) :
+    PublicVerdict.Only (GameWith.verdict checker publicKey result) := by
+  unfold GameWith.verdict
+  cases result.1 with
+  | none => exact allQ_pure _
+  | some forgery => exact allQ_bind (check_public publicKey result.2 forgery) fun _ => allQ_pure _
+abbrev TraceResult := Bool × (MonitoredPrivate.History × QueryRecorded.State)
+noncomputable def tracedExperiment (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (budget : Nat) (hbudget : budget ≤ 2^127) :
+    PMF TraceResult := GameWith.Recorded.tracedExperiment checker adversary budget hbudget
+theorem real_to_clean_trace (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q : Nat) (hq : q ≤ 2^127) :
+    Pr[fun result => result.1=true ∧ result.2 ≤ q | ClaudeWCT.W9.T3M.Final.Paired.realExperimentP adversary] ≤
+      Pr[QueryRecorded.CleanWin q | tracedExperiment adversary q hq]+
+      q/(2 : ENNReal)^146+((2 : ENNReal)^152)⁻¹+
+      q/((2^256 : Nat) : ENNReal) := by
+  simpa only [realExperiment_eq,tracedExperiment] using
+    GameWith.Recorded.real_to_clean_trace checker adversary q hq
+theorem traced_record_erasure (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (budget : Nat) (hbudget : budget ≤ 2^127) :
+    QueryRecorded.recordedTrace <$> tracedExperiment adversary budget hbudget=
+      (liftM (FirstHit.record (GameWith.idealGame checker adversary) (∅,∅)) : PMF _) :=
+  GameWith.Recorded.traced_record_erasure checker adversary budget hbudget
+theorem traced_cost_coherent (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (budget : Nat) (hbudget : budget ≤ 2^127)
+    (result : TraceResult) (hr : result ∈ (tracedExperiment adversary budget hbudget).support) :
+    QueryRecorded.CostCoherent result.2.2 :=
+  GameWith.Recorded.traced_cost_coherent checker adversary budget hbudget result hr
+end ClaudeWCT.W9.T3.Security.PairedOuter.PaddedGame
+end
+namespace ClaudeWCT.W9.T3.Security.PairedOuter.PaddedGame
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
+open ClaudeWCT.W9.T3M.Final.Paired
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 100000
+attribute [local instance] Classical.propDecidable
+
+theorem large_budget (adversary : AdversaryP) (q : Nat) (hq : 2^127≤q) :
+    Pr[fun r=>r.1=true ∧ r.2≤q|realExperimentP adversary]≤(q:ENNReal)/2^127 := by
+  apply probEvent_le_one.trans
+  have hcast : (2:ENNReal)^127≤(q:ENNReal) := by exact_mod_cast hq
+  calc
+    (1:ENNReal)=(2:ENNReal)^127/(2:ENNReal)^127 := (ENNReal.div_self (by positivity) (by finiteness)).symm
+    _≤_ := ENNReal.div_le_div_right hcast _
+
+theorem securityP_of_clean_bound
+    (hclean : ∀ (adversary : AdversaryP) (q : Nat),1≤q→∀hq:q≤2^127,
+      Pr[QueryRecorded.CleanWin q|tracedExperiment adversary q hq]+
+      q/(2:ENNReal)^146+(2:ENNReal)⁻¹^700+((2:ENNReal)^152)⁻¹+
+      q/((2^256:Nat):ENNReal)≤(q:ENNReal)/2^127) : SecurityP := by
+  intro adversary q hpositive
+  by_cases hq:2^127≤q
+  · exact large_budget adversary q hq
+  · have hs:q≤2^127:=by omega
+    apply (real_to_clean_trace adversary q hs).trans
+    apply le_trans ?_ (hclean adversary q hpositive hs)
+    have ha : Pr[QueryRecorded.CleanWin q|tracedExperiment adversary q hs]+q/(2:ENNReal)^146 ≤
+        Pr[QueryRecorded.CleanWin q|tracedExperiment adversary q hs]+q/(2:ENNReal)^146+(2:ENNReal)⁻¹^700 :=
+      le_add_of_nonneg_right (by positivity)
+    exact add_le_add (add_le_add ha le_rfl) le_rfl
+#print axioms securityP_of_clean_bound
+end ClaudeWCT.W9.T3.Security.PairedOuter.PaddedGame

@@ -138,259 +138,259 @@ def selectorL (b : Nat) : Rv.Layout := [(0,selector0),(2,selector2),(6,selector6
 def selectorCode (b : Nat) : List (BitVec 32) := layoutCode (selectorL b)
 theorem selectorL_ok {b : Nat} (hb : b=354 ∨ b=543) : layoutOk 0 (selectorL b)=true := by
   rcases hb with rfl | rfl <;> decide +kernel
-def KernAt (image : Image) (b : Nat) : Prop :=
+def KernAt (image : Image) (b : Nat) (rewardCondition : Prop := Reward.RewardAt image b) : Prop :=
   (CodeAt image (pcOf b) (kernCode b) ∧ CodeAt image (pcOf (capBase b)) (appCode b)) ∧ (b = 354 ∨ b = 543) ∧
     CodeAt image (pcOf (prxBase b)) (p_0 b) ∧
     (CodeAt image (pcOf (tcBase b)) (c_0 b) ∧ CodeAt image (pcOf (tcEntry b)) (topEntryCode b) ∧
       CodeAt image (pcOf (topSelectBase b)) topSelectCode) ∧
     CodeAt image (pcOf (zBase b)) (zeroCode b) ∧
-    CodeAt image (pcOf (selectorBase b)) (selectorCode b) ∧ Reward.RewardAt image b
-theorem codeAt_k_0 {image : Image} {b : Nat} (h : KernAt image b) :
+    CodeAt image (pcOf (selectorBase b)) (selectorCode b) ∧ rewardCondition
+theorem codeAt_k_0 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 0)) k_0 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 0) rfl
-theorem codeAt_k_2 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_2 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 2)) k_2 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 1) rfl
-theorem codeAt_k_3 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_3 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 3)) k_3 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 2) rfl
-theorem codeAt_k_7 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_7 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 7)) k_7 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 3) rfl
-theorem codeAt_k_9 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_9 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 9)) k_9 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 4) rfl
-theorem codeAt_k_31 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_31 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 31)) k_31 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 5) rfl
-theorem codeAt_k_40 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_40 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 40)) k_40 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 6) rfl
-theorem codeAt_k_43 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_43 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 43)) k_43 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 7) rfl
-theorem codeAt_k_44 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_44 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 44)) k_44 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 8) rfl
-theorem codeAt_k_47 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_47 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 47)) k_47 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 9) rfl
-theorem codeAt_k_48 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_48 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 48)) k_48 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 10) rfl
-theorem codeAt_k_51 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_51 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 51)) k_51 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 11) rfl
-theorem codeAt_k_52 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_52 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 52)) k_52 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 12) rfl
-theorem codeAt_k_53 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_53 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 53)) k_53 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 13) rfl
-theorem codeAt_k_97 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_97 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 97)) k_97 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 14) rfl
-theorem codeAt_k_99 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_99 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 99)) k_99 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 15) rfl
-theorem codeAt_k_101 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_101 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 101)) k_101 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 16) rfl
-theorem codeAt_k_103 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_103 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 103)) (k_103 b) :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 17) rfl
-theorem codeAt_k_104 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_104 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 104)) k_104 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 18) rfl
-theorem codeAt_k_112 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_112 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 112)) k_112 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 19) rfl
-theorem codeAt_k_113 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_113 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 113)) (k_113 b) :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 20) rfl
-theorem codeAt_k_115 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_115 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 115)) k_115 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 21) rfl
-theorem codeAt_k_123 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_123 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 123)) k_123 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 22) rfl
-theorem codeAt_k_124 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_124 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 124)) (k_124 b) :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 23) rfl
-theorem codeAt_k_130 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_130 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 130)) (k_130 b) :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 24) rfl
-theorem codeAt_k_132 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_132 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 132)) k_132 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 25) rfl
-theorem codeAt_k_259 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_259 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 259)) (k_259 b) :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 26) rfl
-theorem codeAt_k_263 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_263 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 263)) k_263 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 27) rfl
-theorem codeAt_k_265 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_265 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 265)) (k_265 b) :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 28) rfl
-theorem codeAt_k_438 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_438 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 438)) k_438 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 29) rfl
-theorem codeAt_k_440 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_440 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 440)) k_440 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 30) rfl
-theorem codeAt_k_441 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_441 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 441)) k_441 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 31) rfl
-theorem codeAt_k_442 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_442 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 442)) k_442 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 32) rfl
-theorem codeAt_k_443 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_443 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 443)) k_443 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 33) rfl
-theorem codeAt_k_446 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_446 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 446)) k_446 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 34) rfl
-theorem codeAt_k_448 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_448 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 448)) k_448 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 35) rfl
-theorem codeAt_k_452 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_452 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 452)) k_452 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 36) rfl
-theorem codeAt_k_453 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_453 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 453)) k_453 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 37) rfl
-theorem codeAt_k_461 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_461 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 461)) k_461 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 38) rfl
-theorem codeAt_k_462 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_462 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 462)) k_462 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 39) rfl
-theorem codeAt_k_466 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_466 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 466)) k_466 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 40) rfl
-theorem codeAt_k_467 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_467 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 467)) (k_467 b) :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 41) rfl
-theorem codeAt_k_468 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_k_468 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 468)) (k_468 b) :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 42) rfl
-theorem codeAt_a_0 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_a_0 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (capBase b + 0)) (a_0) :=
   codeAt_sublayout h.1.2 (appL_ok h.2.1) (i := 0) rfl
-theorem codeAt_a_2 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_a_2 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (capBase b + 2)) (a_2) :=
   codeAt_sublayout h.1.2 (appL_ok h.2.1) (i := 1) rfl
-theorem codeAt_a_3 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_a_3 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (capBase b + 3)) (a_3) :=
   codeAt_sublayout h.1.2 (appL_ok h.2.1) (i := 2) rfl
-theorem codeAt_a_5 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_a_5 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (capBase b + 5)) (a_5 b) :=
   codeAt_sublayout h.1.2 (appL_ok h.2.1) (i := 3) rfl
-theorem codeAt_a_6 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_a_6 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (capBase b + 6)) (a_6 b) :=
   codeAt_sublayout h.1.2 (appL_ok h.2.1) (i := 4) rfl
-theorem codeAt_a_7 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_a_7 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (capBase b + 7)) (a_7) :=
   codeAt_sublayout h.1.2 (appL_ok h.2.1) (i := 5) rfl
-theorem codeAt_a_33 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_a_33 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (capBase b + 33)) (a_33) :=
   codeAt_sublayout h.1.2 (appL_ok h.2.1) (i := 6) rfl
-theorem codeAt_a_35 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_a_35 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (capBase b + 35)) (a_35) :=
   codeAt_sublayout h.1.2 (appL_ok h.2.1) (i := 7) rfl
-theorem codeAt_a_40 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_a_40 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (capBase b + 40)) (a_40 b) :=
   codeAt_sublayout h.1.2 (appL_ok h.2.1) (i := 8) rfl
-theorem codeAt_a_41 {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_a_41 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (capBase b + 41)) (a_41 b) :=
   codeAt_sublayout h.1.2 (appL_ok h.2.1) (i := 9) rfl
-theorem codeAt_p_0 {image : Image} {b : Nat} (h : KernAt image b) : CodeAt image (pcOf (prxBase b)) (p_0 b) :=
+theorem codeAt_p_0 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) : CodeAt image (pcOf (prxBase b)) (p_0 b) :=
   h.2.2.1
-theorem codeAt_c_0 {image : Image} {b : Nat} (h : KernAt image b) : CodeAt image (pcOf (tcBase b)) (c_0 b) :=
+theorem codeAt_c_0 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) : CodeAt image (pcOf (tcBase b)) (c_0 b) :=
   h.2.2.2.1.1
-theorem codeAt_topEntry {image : Image} {b : Nat} (h : KernAt image b) :
+theorem codeAt_topEntry {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (tcEntry b)) (topEntryCode b) := h.2.2.2.1.2.1
-theorem codeAt_topSelect {image : Image} {b : Nat} (h : KernAt image b) (i o : Nat) (seg : List (BitVec 32))
+theorem codeAt_topSelect {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) (i o : Nat) (seg : List (BitVec 32))
     (hs : topSelectL[i]? = some (o,seg)) : CodeAt image (pcOf (topSelectBase b+o)) seg :=
   codeAt_sublayout h.2.2.2.1.2.2 topSelectL_ok hs
-theorem codeAt_zero {image : Image} {b : Nat} (h : KernAt image b) (i o : Nat) (seg : List (BitVec 32))
+theorem codeAt_zero {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) (i o : Nat) (seg : List (BitVec 32))
     (hs : (zeroL b)[i]? = some (o, seg)) : CodeAt image (pcOf (zBase b + o)) seg :=
   codeAt_sublayout h.2.2.2.2.1 (zeroL_ok h.2.1) hs
-theorem kernCode_expand : (Images.expandImage.code.drop 354).take (kernCode 354).length = kernCode 354 := by
-  change (Images.expandCode.drop 354).take _ = _
-  rw [Images.Slices.expandCode_drop_eq 354 (by decide)]
+theorem kernCode_expand : (Images.expandReferenceImage.code.drop 354).take (kernCode 354).length = kernCode 354 := by
+  change (Images.expandReferenceCode.drop 354).take _ = _
+  rw [Images.Slices.expandReferenceCode_drop_eq 354 (by decide)]
   decide +kernel
-theorem kernCode_sign : (Images.signImage.code.drop 543).take (kernCode 543).length = kernCode 543 := by
-  change (Images.signCode.drop 543).take _ = _
-  rw [Images.Slices.signCode_drop_eq 543 (by decide)]
+theorem kernCode_sign : (Images.signReferenceImage.code.drop 543).take (kernCode 543).length = kernCode 543 := by
+  change (Images.signReferenceCode.drop 543).take _ = _
+  rw [Images.Slices.signReferenceCode_drop_eq 543 (by decide)]
   decide +kernel
-theorem appCode_expand : (Images.expandImage.code.drop 41066).take (appCode 354).length = appCode 354 := by
-  change (Images.expandCode.drop 41066).take _ = _
-  rw [Images.Slices.expandCode_drop_eq 41066 (by decide)]
+theorem appCode_expand : (Images.expandReferenceImage.code.drop 41066).take (appCode 354).length = appCode 354 := by
+  change (Images.expandReferenceCode.drop 41066).take _ = _
+  rw [Images.Slices.expandReferenceCode_drop_eq 41066 (by decide)]
   decide +kernel
-theorem appCode_sign : (Images.signImage.code.drop 20771).take (appCode 543).length = appCode 543 := by
-  change (Images.signCode.drop 20771).take _ = _
-  rw [Images.Slices.signCode_drop_eq 20771 (by decide)]
+theorem appCode_sign : (Images.signReferenceImage.code.drop 20771).take (appCode 543).length = appCode 543 := by
+  change (Images.signReferenceCode.drop 20771).take _ = _
+  rw [Images.Slices.signReferenceCode_drop_eq 20771 (by decide)]
   decide +kernel
-theorem prxCode_expand : (Images.expandImage.code.drop 42726).take (p_0 354).length = p_0 354 := by
-  change (Images.expandCode.drop 42726).take _ = _
-  rw [Images.Slices.expandCode_drop_eq 42726 (by decide)]
+theorem prxCode_expand : (Images.expandReferenceImage.code.drop 42726).take (p_0 354).length = p_0 354 := by
+  change (Images.expandReferenceCode.drop 42726).take _ = _
+  rw [Images.Slices.expandReferenceCode_drop_eq 42726 (by decide)]
   decide +kernel
-theorem tcCode_expand : (Images.expandImage.code.drop 43035).take (c_0 354).length = c_0 354 := by
-  change (Images.expandCode.drop 43035).take _ = _
-  rw [Images.Slices.expandCode_drop_eq 43035 (by decide)]
+theorem tcCode_expand : (Images.expandReferenceImage.code.drop 43035).take (c_0 354).length = c_0 354 := by
+  change (Images.expandReferenceCode.drop 43035).take _ = _
+  rw [Images.Slices.expandReferenceCode_drop_eq 43035 (by decide)]
   decide +kernel
-theorem prxCode_sign : (Images.signImage.code.drop 1508).take (p_0 543).length = p_0 543 := by
-  change (Images.signCode.drop 1508).take _ = _
-  rw [Images.Slices.signCode_drop_eq 1508 (by decide)]
+theorem prxCode_sign : (Images.signReferenceImage.code.drop 1508).take (p_0 543).length = p_0 543 := by
+  change (Images.signReferenceCode.drop 1508).take _ = _
+  rw [Images.Slices.signReferenceCode_drop_eq 1508 (by decide)]
   decide +kernel
-theorem tcCode_sign : (Images.signImage.code.drop 21027).take (c_0 543).length = c_0 543 := by
-  change (Images.signCode.drop 21027).take _ = _
-  rw [Images.Slices.signCode_drop_eq 21027 (by decide)]
+theorem tcCode_sign : (Images.signReferenceImage.code.drop 21027).take (c_0 543).length = c_0 543 := by
+  change (Images.signReferenceCode.drop 21027).take _ = _
+  rw [Images.Slices.signReferenceCode_drop_eq 21027 (by decide)]
   decide +kernel
-theorem zeroCode_expand : (Images.expandImage.code.drop 42841).take (zeroCode 354).length = zeroCode 354 := by
-  change (Images.expandCode.drop 42841).take _ = _
-  rw [Images.Slices.expandCode_drop_eq 42841 (by decide)]
+theorem zeroCode_expand : (Images.expandReferenceImage.code.drop 42841).take (zeroCode 354).length = zeroCode 354 := by
+  change (Images.expandReferenceCode.drop 42841).take _ = _
+  rw [Images.Slices.expandReferenceCode_drop_eq 42841 (by decide)]
   decide +kernel
-theorem zeroCode_sign : (Images.signImage.code.drop 20832).take (zeroCode 543).length = zeroCode 543 := by
-  change (Images.signCode.drop 20832).take _ = _
-  rw [Images.Slices.signCode_drop_eq 20832 (by decide)]
+theorem zeroCode_sign : (Images.signReferenceImage.code.drop 20832).take (zeroCode 543).length = zeroCode 543 := by
+  change (Images.signReferenceCode.drop 20832).take _ = _
+  rw [Images.Slices.signReferenceCode_drop_eq 20832 (by decide)]
   decide +kernel
-theorem selectorCode_expand : (Images.expandImage.code.drop 42939).take (selectorCode 354).length = selectorCode 354 := by
-  change (Images.expandCode.drop 42939).take _ = _
-  rw [Images.Slices.expandCode_drop_eq 42939 (by decide)]
+theorem selectorCode_expand : (Images.expandReferenceImage.code.drop 42939).take (selectorCode 354).length = selectorCode 354 := by
+  change (Images.expandReferenceCode.drop 42939).take _ = _
+  rw [Images.Slices.expandReferenceCode_drop_eq 42939 (by decide)]
   decide +kernel
-theorem selectorCode_sign : (Images.signImage.code.drop 20930).take (selectorCode 543).length = selectorCode 543 := by
-  change (Images.signCode.drop 20930).take _ = _
-  rw [Images.Slices.signCode_drop_eq 20930 (by decide)]
+theorem selectorCode_sign : (Images.signReferenceImage.code.drop 20930).take (selectorCode 543).length = selectorCode 543 := by
+  change (Images.signReferenceCode.drop 20930).take _ = _
+  rw [Images.Slices.signReferenceCode_drop_eq 20930 (by decide)]
   decide +kernel
-theorem codeAt_selector {image : Image} {b : Nat} (h : KernAt image b) (i o : Nat) (seg : List (BitVec 32))
+theorem codeAt_selector {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) (i o : Nat) (seg : List (BitVec 32))
     (hs : (selectorL b)[i]? = some (o,seg)) : CodeAt image (pcOf (selectorBase b+o)) seg :=
   codeAt_sublayout h.2.2.2.2.2.1 (selectorL_ok h.2.1) hs
-theorem topEntry_expand : (Images.expandImage.code.drop 1272).take (topEntryCode 354).length = (topEntryCode 354) := by
-  change (Images.expandCode.drop 1272).take _ = _
-  rw [Images.Slices.expandCode_drop_eq 1272 (by decide)]
+theorem topEntry_expand : (Images.expandReferenceImage.code.drop 1272).take (topEntryCode 354).length = (topEntryCode 354) := by
+  change (Images.expandReferenceCode.drop 1272).take _ = _
+  rw [Images.Slices.expandReferenceCode_drop_eq 1272 (by decide)]
   decide +kernel
-theorem topSelect_expand : (Images.expandImage.code.drop 43032).take topSelectCode.length = topSelectCode := by
-  change (Images.expandCode.drop 43032).take _ = _
-  rw [Images.Slices.expandCode_drop_eq 43032 (by decide)]
+theorem topSelect_expand : (Images.expandReferenceImage.code.drop 43032).take topSelectCode.length = topSelectCode := by
+  change (Images.expandReferenceCode.drop 43032).take _ = _
+  rw [Images.Slices.expandReferenceCode_drop_eq 43032 (by decide)]
   decide +kernel
-theorem topEntry_sign : (Images.signImage.code.drop 1523).take (topEntryCode 543).length = (topEntryCode 543) := by
-  change (Images.signCode.drop 1523).take _ = _
-  rw [Images.Slices.signCode_drop_eq 1523 (by decide)]
+theorem topEntry_sign : (Images.signReferenceImage.code.drop 1523).take (topEntryCode 543).length = (topEntryCode 543) := by
+  change (Images.signReferenceCode.drop 1523).take _ = _
+  rw [Images.Slices.signReferenceCode_drop_eq 1523 (by decide)]
   decide +kernel
-theorem topSelect_sign : (Images.signImage.code.drop 21024).take topSelectCode.length = topSelectCode := by
-  change (Images.signCode.drop 21024).take _ = _
-  rw [Images.Slices.signCode_drop_eq 21024 (by decide)]
+theorem topSelect_sign : (Images.signReferenceImage.code.drop 21024).take topSelectCode.length = topSelectCode := by
+  change (Images.signReferenceCode.drop 21024).take _ = _
+  rw [Images.Slices.signReferenceCode_drop_eq 21024 (by decide)]
   decide +kernel
-theorem kernAt_expand : KernAt Images.expandImage 354 :=
+theorem kernAt_expand : KernAt Images.expandReferenceImage 354 :=
   ⟨⟨codeAt_slice (by decide +kernel) kernCode_expand, codeAt_slice (by decide +kernel) appCode_expand⟩, Or.inl rfl,
     codeAt_slice (by decide +kernel) prxCode_expand,
     ⟨codeAt_slice (by decide +kernel) tcCode_expand, codeAt_slice (by decide +kernel) topEntry_expand,
       codeAt_slice (by decide +kernel) topSelect_expand⟩,
     codeAt_slice (by decide +kernel) zeroCode_expand,
     codeAt_slice (by decide +kernel) selectorCode_expand, Reward.at_expand⟩
-theorem kernAt_sign : KernAt Images.signImage 543 :=
+theorem kernAt_sign : KernAt Images.signReferenceImage 543 :=
   ⟨⟨codeAt_slice (by decide +kernel) kernCode_sign, codeAt_slice (by decide +kernel) appCode_sign⟩, Or.inr rfl,
     codeAt_slice (by decide +kernel) prxCode_sign,
     ⟨codeAt_slice (by decide +kernel) tcCode_sign, codeAt_slice (by decide +kernel) topEntry_sign,
@@ -796,15 +796,15 @@ theorem codeAt_gateHead {image : Image} {b : Nat} (h : GateAt image b) :
 theorem codeAt_gateJump {image : Image} {b : Nat} (h : GateAt image b) :
     CodeAt image (pcOf (gatePc b + 5)) (gateJump b) :=
   codeAt_sublayout h (gateL_ok b) (i := 1) rfl
-theorem gateAt_expand : GateAt Images.expandImage 354 := by
+theorem gateAt_expand : GateAt Images.expandReferenceImage 354 := by
   apply codeAt_slice (by decide +kernel)
-  change (Images.expandCode.drop 1152).take _ = _
-  rw [Images.Slices.expandCode_drop_eq 1152 (by decide)]
+  change (Images.expandReferenceCode.drop 1152).take _ = _
+  rw [Images.Slices.expandReferenceCode_drop_eq 1152 (by decide)]
   decide +kernel
-theorem gateAt_sign : GateAt Images.signImage 543 := by
+theorem gateAt_sign : GateAt Images.signReferenceImage 543 := by
   apply codeAt_slice (by decide +kernel)
-  change (Images.signCode.drop 1221).take _ = _
-  rw [Images.Slices.signCode_drop_eq 1221 (by decide)]
+  change (Images.signReferenceCode.drop 1221).take _ = _
+  rw [Images.Slices.signReferenceCode_drop_eq 1221 (by decide)]
   decide +kernel
 sym_block blkGateE := symRun { noAlias := true } gateEHead (pcOf 1152) 20
 sym_block blkGateS := symRun { noAlias := true } gateSHead (pcOf 1221) 20

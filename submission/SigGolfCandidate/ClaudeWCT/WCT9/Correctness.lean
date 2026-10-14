@@ -229,7 +229,7 @@ theorem buildChildF_result (answers : Answers) (index coord selected : Nat) (wor
     intro i hi hj
     simpa only [List.getD_eq_getElem _ _ hi, List.getElem_ofFn] using
       hval ⟨i, by omega⟩ (by omega)
-  rw [buildChildF_factor, evalWithAnswerFn_bind, evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+  rw [buildChildF_factor, evalWithAnswerFn_bind]
   change (evalWithAnswerFn answers (leafHashP index coord selected pad rows.1), rows.2) = _
   rw [hends, hvals]
   rfl
@@ -246,11 +246,6 @@ theorem treeValue_take_lt (L : List (List Digest)) {n j : Nat} (hj : j < n) (x :
     treeValue (L.take n) j x = treeValue L j x := by
   unfold treeValue
   rw [getD_take_lt L hj]
-/-- C1: evaluating an FTS hash reads the half `ftsHalf heap` of the answer. -/
-theorem eval_ftsHash (answers : Answers) (heap : Nat) (input : HashInput) :
-    evalWithAnswerFn answers (ftsHash heap input) = ftsHalf heap (answers (.inl (.inr (pad64 input)))) := by
-  unfold ftsHash ftsHalf
-  cases ftsHighHeap heap <;> rfl
 theorem wctHeapNode_low {coord index heap : Nat} (h : 4 ≤ heap) (padR left right : Digest) :
     wctHeapNode coord index heap padR left right = wctNodeHash coord index heap left right := by
   simp only [wctHeapNode, if_neg (show ¬heap < 4 by omega)]
@@ -442,17 +437,8 @@ theorem heapLevels_value (heap : Array Digest) (level j : Nat) (hl : level < 7)
   simp only [List.getElem_map, List.getElem_range]
   rw [List.getD_eq_getElem _ _ (by simp only [List.length_map, List.length_range]; exact hj)]
   simp only [List.getElem_map, List.getElem_range]
-/-- `TreeLevels` with an arbitrary node hash `hf heap left right` (C1: the FTS trees use `wctNodeHash`, whose used
-half depends on the heap). `TreeLevels answers tag lay tree` is `TreeLevelsF answers (nodeHash tag lay tree)`. -/
-def TreeLevelsF (answers : Answers) (hf : Nat → Digest → Digest → M Digest) (h : Nat) (leaves : List Digest)
-    (completed : Nat) (levels : List (List Digest)) : Prop :=
-  Cost.LevelShape h completed levels ∧ levels.getD 0 [] = leaves ∧
-    ∀ level, level < completed → ∀ node, node < 2 ^ (h - (level + 1)) →
-      (levels.getD (level + 1) []).getD node 0 = evalWithAnswerFn answers
-        (hf (2 ^ (h - (level + 1)) + node)
-          ((levels.getD level []).getD (2 * node) 0) ((levels.getD level []).getD (2 * node + 1) 0))
 theorem coordinate_treeLevels (answers : Answers) (index : Nat) (coord : Coord) :
-    TreeLevelsF answers (wctNodeHash coord.val index) 7 (coordLeaves answers index coord) 5
+    TreeLevels answers 3 (nodeLayer coord.val) index 7 (coordLeaves answers index coord) 5
       ((heapLevels (coordNodes answers index coord)).take 6) := by
   have hg := coordNodes_graph answers index coord
   refine ⟨⟨by simp only [heapLevels, List.length_take, List.length_map, List.length_range]; rfl, ?_⟩, ?_, ?_⟩
@@ -495,6 +481,7 @@ theorem coordinate_treeLevels (answers : Answers) (index : Nat) (coord : Coord) 
     rw [hn, wctHeapNode_low (by omega)]
     have e1 : 2 * (2 ^ (7 - (level + 1)) + node) = 2 ^ (7 - level) + 2 * node := by omega
     simp only [e1, Nat.add_assoc]
+    rfl
 /-- Nested FTS (r1-1): the two top values of a coordinate are high-half hashes with the previous right top as pad. -/
 theorem coordinate_top (answers : Answers) (index : Nat) (coord : Coord) (j : Nat) (hj : j < 2) :
     treeValue (heapLevels (coordNodes answers index coord)) 6 j =
@@ -520,31 +507,6 @@ theorem built_pair (answers : Answers) (index : Nat) (coord : Coord) (selected :
   unfold treeValue at h0 h1
   rw [h0, h1]
   rfl
-theorem eval_merklePathF_le (answers : Answers) (hf : Nat → Digest → Digest → M Digest) (h completed start n node : Nat)
-    (levels : List (List Digest)) (leaves : List Digest)
-    (htree : TreeLevelsF answers hf h leaves completed levels)
-    (hc : completed ≤ h) (hsteps : start + n ≤ completed) (hnode : node < 2 ^ (h - start))
-    (path : Fin n → Digest)
-    (hpath : ∀ j, path j = treeValue levels (start + j.val) (node / 2 ^ j.val ^^^ 1)) :
-    evalWithAnswerFn answers ((List.finRange n).foldlM (fun value j => do
-      let other := path j
-      let pair := if node / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
-      hf (2 ^ (h - (start + j.val + 1)) + node / 2 ^ (j.val + 1)) pair.1 pair.2)
-      (treeValue levels start node)) = treeValue levels (start + n) (node / 2 ^ n) := by
-  have hi := eval_foldlM_list_inv answers (List.finRange n)
-    (fun value j => do
-      let other := path j
-      let pair := if node / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
-      hf (2 ^ (h - (start + j.val + 1)) + node / 2 ^ (j.val + 1)) pair.1 pair.2)
-    (fun i value => value = treeValue levels (start + i) (node / 2 ^ i))
-    (treeValue levels start node) (by simp) (fun i hi value hv => ?_)
-  · simpa only [List.length_finRange] using hi
-  · simp only [List.length_finRange] at hi
-    simp only [List.getElem_finRange, Fin.val_cast, hpath, hv]
-    rw [sibling_pair, div_pow_succ]
-    have hp := htree.2.2 (start + i) (by omega) (node / 2 ^ (i + 1))
-      (div_pow_bound (start := start) (level := i + 1) (by omega) hnode)
-    simpa only [treeValue, Nat.add_assoc] using hp.symm
 theorem eval_merklePath_le (answers : Answers) (tag lay tree h completed start n node : Nat)
     (levels : List (List Digest)) (leaves : List Digest)
     (htree : TreeLevels answers tag lay tree h leaves completed levels)
@@ -555,9 +517,21 @@ theorem eval_merklePath_le (answers : Answers) (tag lay tree h completed start n
       let other := path j
       let pair := if node / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
       nodeHash tag lay tree (2 ^ (h - (start + j.val + 1)) + node / 2 ^ (j.val + 1)) pair.1 pair.2)
-      (treeValue levels start node)) = treeValue levels (start + n) (node / 2 ^ n) :=
-  eval_merklePathF_le answers (nodeHash tag lay tree) h completed start n node levels leaves htree hc hsteps hnode
-    path hpath
+      (treeValue levels start node)) = treeValue levels (start + n) (node / 2 ^ n) := by
+  have hi := eval_foldlM_list_inv answers (List.finRange n)
+    (fun value j => do
+      let other := path j
+      let pair := if node / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
+      nodeHash tag lay tree (2 ^ (h - (start + j.val + 1)) + node / 2 ^ (j.val + 1)) pair.1 pair.2)
+    (fun i value => value = treeValue levels (start + i) (node / 2 ^ i))
+    (treeValue levels start node) (by simp) (fun i hi value hv => ?_)
+  · simpa only [List.length_finRange] using hi
+  · simp only [List.length_finRange] at hi
+    simp only [List.getElem_finRange, Fin.val_cast, hpath, hv]
+    rw [sibling_pair, div_pow_succ]
+    have hp := htree.2.2 (start + i) (by omega) (node / 2 ^ (i + 1))
+      (div_pow_bound (start := start) (level := i + 1) (by omega) hnode)
+    simpa only [treeValue, Nat.add_assoc] using hp.symm
 def honestOpening (built : List (List Digest) × List Digest) (selected : Child) : Opening :=
   let path := (List.range 7).map fun level =>
     (built.1.getD level []).getD (selected.val / 2 ^ level ^^^ 1) 0
@@ -626,7 +600,7 @@ theorem recoverCoordinate_honest (answers : Answers) (sig : Signature) (index : 
     unfold coordLeaves coordLeavesWith
     rw [List.getD_eq_getElem _ _ (by simp only [List.length_ofFn]; exact selected.isLt),
       List.getElem_ofFn]
-  have hmerkle := eval_merklePathF_le answers (wctNodeHash coord.val index) 7 5 0 5 selected.val (levels.take 6)
+  have hmerkle := eval_merklePath_le answers 3 (nodeLayer coord.val) index 7 5 0 5 selected.val (levels.take 6)
     (coordLeaves answers index coord) (coordinate_treeLevels answers index coord)
     (by decide) (by decide) (by simp only [Nat.sub_zero]; exact selected.isLt)
     (fun j => (sig.openings coord).path (Fin.castLE (by decide) j)) hpath
@@ -647,7 +621,7 @@ theorem recoverCoordinate_honest (answers : Answers) (sig : Signature) (index : 
     rw [sibling_pair (fun n => treeValue levels 5 n), div_pow_succ]
   have htop := coordinate_top answers index coord (selected.val / 2 ^ 6) hq
   unfold recoverCoordinate
-  simp only [evalWithAnswerFn_bind, eval_mapM, evalWithAnswerFn_pure]
+  simp only [evalWithAnswerFn_bind, eval_mapM, evalWithAnswerFn_pure, wctNodeHash]
   rw [hends, hroot]
   erw [hmerkle]
   erw [hother5, hpair5, ← htop, hother, order_pair levels selected.val selected.isLt]
@@ -846,20 +820,17 @@ def wotsSeed (answers : Answers) (lay : Layer) (tree leaf i : Nat) : Digest :=
 theorem wotsSeed_fam (answers : Answers) (lay : Layer) (tree leaf i : Nat) :
     wotsSeed answers lay tree leaf i =
       ClaudeWCT.Arith.familyEval (List.ofFn (famCoef answers lay tree leaf)) (i + 1) := rfl
-/-- C3: the chains of the current scheme (`chainW`, lower chain 0's step 6 keeps the high half). -/
 def wotsValue (answers : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat) (i : Nat) : Digest :=
-  evalWithAnswerFn answers (chainW lay tree leaf i 0 (digits.getD i 0)
+  evalWithAnswerFn answers (SigGolfCandidate.T3.chain lay tree leaf i 0 (digits.getD i 0)
     (wotsSeed answers lay tree leaf i))
 def wotsEnd (answers : Answers) (lay : Layer) (tree leaf i : Nat) : Digest :=
-  evalWithAnswerFn answers (chainW lay tree leaf i 0 (maxDigit lay i)
+  evalWithAnswerFn answers (SigGolfCandidate.T3.chain lay tree leaf i 0 (maxDigit lay i)
     (wotsSeed answers lay tree leaf i))
-/-- C2: lower leaves use the half of their index (`lowerLeafHash`); the top (layer 0) is `T3.leafHash`. -/
 def wotsRoot (answers : Answers) (lay : Layer) (tree leaf : Nat) : Digest :=
-  evalWithAnswerFn answers (lowerLeafHash lay tree leaf
+  evalWithAnswerFn answers (SigGolfCandidate.T3.leafHash lay tree leaf
     ((List.range (chainCount lay)).map (wotsEnd answers lay tree leaf)))
-/-- C2: lower nodes use the half of their heap (`lowerLevels`); the top (layer 0) is `T3.buildLevels 3`. -/
 def wotsTree (answers : Answers) (lay : Layer) (tree : Nat) : List (List Digest) :=
-  evalWithAnswerFn answers (lowerLevels lay.val tree (height lay)
+  evalWithAnswerFn answers (buildLevels 3 lay.val tree (height lay)
     ((List.range (2 ^ height lay)).map (wotsRoot answers lay tree)))
 def wotsPieces (answers : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat) : Pieces :=
   ((List.range (chainCount lay)).map (wotsValue answers lay tree leaf digits),
@@ -880,32 +851,27 @@ theorem wotsSeed_lower (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) (tre
   rw [e]
 theorem wotsValue_top (answers : Answers) (leaf : Nat) (digits : List Nat) :
     wotsValue answers 0 0 leaf digits = leafValue answers 0 0 leaf digits := by
-  funext i; unfold wotsValue leafValue; rw [wotsSeed_top, chainW_top]
+  funext i; unfold wotsValue leafValue; rw [wotsSeed_top]
 theorem wotsEnd_top (answers : Answers) (leaf : Nat) :
     wotsEnd answers 0 0 leaf = leafEnd answers 0 0 leaf := by
-  funext i; unfold wotsEnd leafEnd; rw [wotsSeed_top, chainW_top]
+  funext i; unfold wotsEnd leafEnd; rw [wotsSeed_top]
 theorem wotsRoot_top (answers : Answers) :
     wotsRoot answers 0 0 = leafRoot answers 0 0 := by
-  funext leaf; unfold wotsRoot leafRoot; rw [wotsEnd_top, lowerLeafHash_top]
+  funext leaf; unfold wotsRoot leafRoot; rw [wotsEnd_top]
 theorem wotsTree_top (answers : Answers) :
     wotsTree answers 0 0 = builtTree answers 0 0 := by
-  unfold wotsTree builtTree; rw [wotsRoot_top]; exact congrArg _ (lowerLevels_top _ _ _)
+  unfold wotsTree builtTree; rw [wotsRoot_top]
 theorem wotsPieces_top (answers : Answers) (leaf : Nat) (digits : List Nat) :
     wotsPieces answers 0 0 leaf digits = honestPieces answers 0 0 leaf digits := by
   unfold wotsPieces honestPieces; rw [wotsValue_top, wotsTree_top]
-theorem eval_chainW_add (answers : Answers) (lay : Layer) (tree leaf i start a b : Nat) (value : Digest) :
-    evalWithAnswerFn answers (chainW lay tree leaf i start (a + b) value) =
-      evalWithAnswerFn answers (chainW lay tree leaf i (start + a) b
-        (evalWithAnswerFn answers (chainW lay tree leaf i start a value))) := by
-  rw [chainW_add, evalWithAnswerFn_bind]
 theorem wotsValue_completes (answers : Answers) (lay : Layer) (tree leaf : Nat)
     (digits : List Nat) (hvalid : Cost.ValidDigits lay digits) (i : Nat) (hi : i < chainCount lay) :
-    evalWithAnswerFn answers (chainW lay tree leaf i (digits.getD i 0)
+    evalWithAnswerFn answers (SigGolfCandidate.T3.chain lay tree leaf i (digits.getD i 0)
       (maxDigit lay i - digits.getD i 0) (wotsValue answers lay tree leaf digits i)) =
       wotsEnd answers lay tree leaf i := by
   unfold wotsValue wotsEnd
   have hd := hvalid i hi
-  have hc := eval_chainW_add answers lay tree leaf i 0 (digits.getD i 0)
+  have hc := SigGolfCandidate.T3.Correctness.eval_chain_add answers lay tree leaf i 0 (digits.getD i 0)
     (maxDigit lay i - digits.getD i 0) (wotsSeed answers lay tree leaf i)
   rw [Nat.zero_add, Nat.add_sub_of_le hd] at hc
   exact hc.symm
@@ -969,8 +935,8 @@ def LeafRowsF (answers : Answers) (lay : Layer) (tree leaf : Nat) (digits : List
 def leafStepF (lay : Layer) (tree leaf : Nat) (digits : List Nat) (coefs : List Digest)
     (state : List Digest × List Digest) (i : Nat) : M (List Digest × List Digest) := do
   let digit := digits.getD i 0
-  let value ← chainW lay tree leaf i 0 digit (lowerFamilySeed coefs i)
-  let last ← chainW lay tree leaf i digit (maxDigit lay i - digit) value
+  let value ← SigGolfCandidate.T3.chain lay tree leaf i 0 digit (lowerFamilySeed coefs i)
+  let last ← SigGolfCandidate.T3.chain lay tree leaf i digit (maxDigit lay i - digit) value
   pure (state.1 ++ [last], state.2 ++ [value])
 def leafRowsF (lay : Layer) (tree leaf : Nat) (digits : List Nat) (coefs : List Digest) :
     M (List Digest × List Digest) :=
@@ -979,7 +945,7 @@ theorem buildLeafPF_factor (lay : Layer) (tree leaf : Nat) (digits : List Nat) (
     buildLeafPF lay tree leaf digits carry = (do
       let coefs ← lowerCoefs lay tree leaf carry
       let rows ← leafRowsF lay tree leaf digits coefs.1
-      let root ← lowerLeafHash lay tree leaf rows.1
+      let root ← SigGolfCandidate.T3.leafHash lay tree leaf rows.1
       pure ((root, rows.2), coefs.2)) := by
   rfl
 theorem leafStepF_inv (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree leaf : Nat) (digits : List Nat)
@@ -992,7 +958,7 @@ theorem leafStepF_inv (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree
   simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
   rw [lowerFamilySeed_eq answers hlay]
   change LeafRowsF answers lay tree leaf digits (i + 1)
-    (rows.1 ++ [evalWithAnswerFn answers (chainW lay tree leaf i (digits.getD i 0)
+    (rows.1 ++ [evalWithAnswerFn answers (SigGolfCandidate.T3.chain lay tree leaf i (digits.getD i 0)
       (maxDigit lay i - digits.getD i 0) (wotsValue answers lay tree leaf digits i))],
      rows.2 ++ [wotsValue answers lay tree leaf digits i])
   rw [wotsValue_completes answers lay tree leaf digits hvalid i hi]
@@ -1034,108 +1000,6 @@ theorem buildLeafPF_result (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) 
   simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
   rw [eval_leafRowsF answers hlay tree leaf digits hvalid]
   rfl
-/-! ### C2: honest lower trees (`lowerLevels`, the half of each heap) -/
-theorem eval_lowerLevel (answers : Answers) (lay tree h level : Nat) (nodes : List Digest) :
-    evalWithAnswerFn answers (lowerLevel lay tree h level nodes) =
-      (List.range (nodes.length / 2)).map fun i => evalWithAnswerFn answers
-        (lowerNodeHash lay tree (2 ^ (h - level) + i) (nodes.getD (2 * i) 0) (nodes.getD (2 * i + 1) 0)) :=
-  eval_mapM answers _ _
-theorem eval_lowerLevel_length (answers : Answers) (lay tree h level : Nat) (nodes : List Digest) :
-    (evalWithAnswerFn answers (lowerLevel lay tree h level nodes)).length = nodes.length / 2 := by
-  rw [eval_lowerLevel, List.length_map, List.length_range]
-theorem eval_lowerLevel_getD (answers : Answers) (lay tree h level : Nat) (nodes : List Digest)
-    (i : Nat) (hi : i < nodes.length / 2) :
-    (evalWithAnswerFn answers (lowerLevel lay tree h level nodes)).getD i 0 =
-      evalWithAnswerFn answers (lowerNodeHash lay tree (2 ^ (h - level) + i)
-        (nodes.getD (2 * i) 0) (nodes.getD (2 * i + 1) 0)) := by
-  rw [eval_lowerLevel]
-  simp [List.getD_eq_getElem, hi]
-/-- `T3.Correctness.TreeLevels` for the trees of the current scheme (`lowerNodeHash`; at layer 0 it is
-`nodeHash 3 0`, `lowerNodeHash_top`). -/
-def TreeLevelsL (answers : Answers) (lay tree h : Nat) (leaves : List Digest)
-    (completed : Nat) (levels : List (List Digest)) : Prop :=
-  SigGolfCandidate.T3.Cost.LevelShape h completed levels ∧ levels.getD 0 [] = leaves ∧
-    ∀ level, level < completed → ∀ node, node < 2 ^ (h - (level + 1)) →
-      (levels.getD (level + 1) []).getD node 0 = evalWithAnswerFn answers
-        (lowerNodeHash lay tree (2 ^ (h - (level + 1)) + node)
-          ((levels.getD level []).getD (2 * node) 0) ((levels.getD level []).getD (2 * node + 1) 0))
-theorem treeLevelsL_top {answers : Answers} {tree h : Nat} {leaves : List Digest} {completed : Nat}
-    {levels : List (List Digest)} :
-    TreeLevelsL answers 0 tree h leaves completed levels ↔ TreeLevels answers 3 0 tree h leaves completed levels := by
-  unfold TreeLevelsL TreeLevels
-  simp only [lowerNodeHash_top]
-theorem eval_lowerLevels_correct (answers : Answers) (lay tree h : Nat)
-    (leaves : List Digest) (hlen : leaves.length = 2 ^ h) :
-    TreeLevelsL answers lay tree h leaves h (evalWithAnswerFn answers (lowerLevels lay tree h leaves)) := by
-  unfold lowerLevels
-  refine eval_foldlM_range'_inv answers 1 h _ (TreeLevelsL answers lay tree h leaves) [leaves]
-    ⟨⟨rfl, ?_⟩, rfl, ?_⟩ (fun i hi levels hlevels => ?_)
-  · intro j hj
-    have he : j = 0 := by omega
-    subst j
-    simpa using hlen
-  · intro j hj
-    omega
-  · simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-    let next := evalWithAnswerFn answers (lowerLevel lay tree h (1 + i) (levels.getD (1 + i - 1) []))
-    have hlength : levels.length = i + 1 := hlevels.1.1
-    have hprevious : (levels.getD (1 + i - 1) []).length = 2 ^ (h - i) := by
-      simpa using hlevels.1.2 i le_rfl
-    have hnext : next.length = 2 ^ (h - (i + 1)) := by
-      rw [eval_lowerLevel_length, hprevious, show h - i = h - (i + 1) + 1 by omega, pow_succ,
-        Nat.mul_div_cancel _ (by decide : 0 < 2)]
-    change TreeLevelsL answers lay tree h leaves (i + 1) (levels ++ [next])
-    refine ⟨⟨by simp [hlength], ?_⟩, ?_, ?_⟩
-    · intro j hj
-      by_cases hold : j ≤ i
-      · rw [List.getD_append _ _ _ _ (by omega)]
-        exact hlevels.1.2 j hold
-      · have he : j = i + 1 := by omega
-        subst j
-        rw [List.getD_append_right _ _ _ _ (by omega), hlength]
-        simp only [Nat.sub_self, List.getD_cons_zero]
-        exact hnext
-    · rw [List.getD_append _ _ _ _ (by omega)]
-      exact hlevels.2.1
-    · intro level hlevel node hnode
-      by_cases hold : level < i
-      · rw [List.getD_append _ _ _ _ (by omega), List.getD_append _ _ _ level (by omega)]
-        exact hlevels.2.2 level hold node hnode
-      · have he : level = i := by omega
-        subst level
-        rw [List.getD_append_right _ _ _ _ (by omega), hlength]
-        simp only [Nat.sub_self, List.getD_cons_zero]
-        rw [List.getD_append _ _ _ i (by omega)]
-        have hwidth : (levels.getD (1 + i - 1) []).length / 2 = 2 ^ (h - (i + 1)) := by
-          rw [hprevious, show h - i = h - (i + 1) + 1 by omega, pow_succ,
-            Nat.mul_div_cancel _ (by decide : 0 < 2)]
-        have hc := eval_lowerLevel_getD answers lay tree h (1 + i) (levels.getD (1 + i - 1) []) node
-          (by rw [hwidth]; exact hnode)
-        simpa only [next, show 1 + i = i + 1 by omega, Nat.add_sub_cancel] using hc
-theorem eval_merklePathL (answers : Answers) (lay tree h start n node : Nat)
-    (levels : List (List Digest)) (leaves : List Digest)
-    (htree : TreeLevelsL answers lay tree h leaves h levels)
-    (hsteps : start + n ≤ h) (hnode : node < 2 ^ (h - start)) (path : Fin n → Digest)
-    (hpath : ∀ j, path j = treeValue levels (start + j.val) (node / 2 ^ j.val ^^^ 1)) :
-    evalWithAnswerFn answers ((List.finRange n).foldlM (fun value j => do
-      let other := path j
-      let pair := if node / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
-      lowerNodeHash lay tree (2 ^ (h - (start + j.val + 1)) + node / 2 ^ (j.val + 1)) pair.1 pair.2)
-      (treeValue levels start node)) = treeValue levels (start + n) (node / 2 ^ n) := by
-  have hi := eval_foldlM_list_inv answers (List.finRange n)
-    (fun value j => do
-      let other := path j
-      let pair := if node / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
-      lowerNodeHash lay tree (2 ^ (h - (start + j.val + 1)) + node / 2 ^ (j.val + 1)) pair.1 pair.2)
-    (fun i value => value = treeValue levels (start + i) (node / 2 ^ i))
-    (treeValue levels start node) (by simp) (fun i hi value hv => ?_)
-  · simpa only [List.length_finRange] using hi
-  · simp only [List.length_finRange] at hi
-    simp only [List.getElem_finRange, Fin.val_cast, Fin.val_mk, hpath, hv]
-    rw [sibling_pair, div_pow_succ]
-    have hp := htree.2.2 (start + i) (by omega) (node / 2 ^ (i + 1))
-      (div_pow_bound (start := start) (level := i + 1) (by omega) hnode)
-    simpa only [treeValue, Nat.add_assoc] using hp.symm
 def treeCarry (answers : Answers) (lay : Layer) (tree leaf : Nat) : Digest :=
   if leaf = 0 then 0 else leafCarryOut answers lay tree (leaf - 1)
 theorem carryOk_treeCarry (answers : Answers) (lay : Layer) (tree leaf : Nat) :
@@ -1160,20 +1024,19 @@ theorem buildTreeP_factor (lay : Layer) (tree selected : Nat) (digits : List Nat
       let levels ← buildLevelsBelow 3 lay.val tree (height lay) rows.1
       pure (levels, rows.2.1)) := by
   rfl
-/-- C2: `buildLevelsBelow` builds the levels below the root of `lowerLevels`. -/
 theorem buildLevels_eq_below (tag lay tree h : Nat) (leaves : List Digest) (hh : 1 ≤ h) :
-    lowerLevels lay tree h leaves = (buildLevelsBelow tag lay tree h leaves >>= fun levels => do
-      let nodes ← lowerLevel lay tree h h (levels.getD (h - 1) [])
+    buildLevels tag lay tree h leaves = (buildLevelsBelow tag lay tree h leaves >>= fun levels => do
+      let nodes ← buildLevel tag lay tree h h (levels.getD (h - 1) [])
       pure (levels ++ [nodes])) := by
-  unfold lowerLevels buildLevelsBelow
+  unfold buildLevels buildLevelsBelow
   rw [show h = (h - 1) + 1 from by omega, ← List.range'_append_1, List.foldlM_append]
   simp only [show 1 + (h - 1) = h - 1 + 1 by omega, List.range'_one, List.foldlM_cons, List.foldlM_nil, bind_pure,
     Nat.add_sub_cancel]
 theorem eval_buildLevelsBelow (answers : Answers) (tag lay tree h : Nat) (leaves : List Digest)
     (hlen : leaves.length = 2 ^ h) (hh : 1 ≤ h) :
     evalWithAnswerFn answers (buildLevelsBelow tag lay tree h leaves) =
-      (evalWithAnswerFn answers (lowerLevels lay tree h leaves)).take h := by
-  have hfull := (eval_lowerLevels_correct answers lay tree h leaves hlen).1.1
+      (evalWithAnswerFn answers (buildLevels tag lay tree h leaves)).take h := by
+  have hfull := (eval_buildLevels_correct answers tag lay tree h leaves hlen).1.1
   rw [buildLevels_eq_below tag lay tree h leaves hh] at hfull ⊢
   simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure] at hfull ⊢
   generalize evalWithAnswerFn answers (buildLevelsBelow tag lay tree h leaves) = L at hfull ⊢
@@ -1250,9 +1113,9 @@ theorem eval_buildTreeP_result (answers : Answers) {lay : Layer} (hlay : lay ≠
     (by fin_cases lay <;> decide)]
   rfl
 theorem wotsTree_correct (answers : Answers) (lay : Layer) (tree : Nat) :
-    TreeLevelsL answers lay.val tree (height lay)
+    TreeLevels answers 3 lay.val tree (height lay)
       ((List.range (2 ^ height lay)).map (wotsRoot answers lay tree)) (height lay) (wotsTree answers lay tree) :=
-  eval_lowerLevels_correct answers lay.val tree (height lay) _ (by simp)
+  eval_buildLevels_correct answers 3 lay.val tree (height lay) _ (by simp)
 theorem wotsTree_leaf (answers : Answers) (lay : Layer) (tree leaf : Nat) (hleaf : leaf < 2 ^ height lay) :
     treeValue (wotsTree answers lay tree) 0 leaf = wotsRoot answers lay tree leaf := by
   unfold treeValue
@@ -1262,7 +1125,7 @@ theorem eval_wots_chains_honest (answers : Answers) (lay : Layer) (tree leaf : N
     (hvalid : Cost.ValidDigits lay digits) (values : Fin (chainCount lay) → Digest)
     (hvalues : ∀ i, values i = wotsValue answers lay tree leaf digits i.val) :
     evalWithAnswerFn answers ((List.finRange (chainCount lay)).mapM fun i =>
-      chainW lay tree leaf i.val (digits.getD i.val 0)
+      SigGolfCandidate.T3.chain lay tree leaf i.val (digits.getD i.val 0)
         (maxDigit lay i.val - digits.getD i.val 0) (values i)) =
       (List.range (chainCount lay)).map (wotsEnd answers lay tree leaf) := by
   rw [eval_mapM]
@@ -1284,7 +1147,7 @@ theorem eval_recoverLayerPair_honest (answers : Answers) (sig : Signature) (inde
       builtPair answers lay (route index lay).2 := by
   have hh := height_pos lay
   have hleafB := route_leaf_bound index lay
-  have hp := eval_merklePathL answers lay.val (route index lay).2 (height lay) 0 (height lay - 1)
+  have hp := eval_merklePath answers 3 lay.val (route index lay).2 (height lay) 0 (height lay - 1)
     (route index lay).1 (wotsTree answers lay (route index lay).2)
     ((List.range (2 ^ height lay)).map (wotsRoot answers lay (route index lay).2))
     (wotsTree_correct answers lay (route index lay).2) (by omega)
@@ -1305,7 +1168,7 @@ theorem eval_recoverLayerPair_honest (answers : Answers) (sig : Signature) (inde
       (route index lay).1 / 2 ^ (height lay - 1) = 1 := by
     generalize (route index lay).1 / 2 ^ (height lay - 1) = q at hq ⊢
     omega
-  have hlr : evalWithAnswerFn answers (lowerLeafHash lay (route index lay).2 (route index lay).1
+  have hlr : evalWithAnswerFn answers (SigGolfCandidate.T3.leafHash lay (route index lay).2 (route index lay).1
       ((List.range (chainCount lay)).map (wotsEnd answers lay (route index lay).2 (route index lay).1))) =
       wotsRoot answers lay (route index lay).2 (route index lay).1 := rfl
   unfold recoverLayerPair

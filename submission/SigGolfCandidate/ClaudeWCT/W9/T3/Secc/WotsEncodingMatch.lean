@@ -327,3 +327,56 @@ theorem free_match_le [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, D
 end Table
 end Enc
 end ClaudeWCT.W9.T3.Security.Wots
+
+namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef
+open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
+open SigGolfCandidate.T3.Security.Wots.Enc
+open ClaudeWCT.W9.T3.Security.Wots.Enc
+open OracleComp OracleSpec ENNReal
+open SigGolfCandidate.T3.Correctness (Answers)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance low] Classical.propDecidable
+theorem cell_transfer (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q : Nat) [∀ k : Set Enc.EncIndex, Fintype k] [∀ k : Set Enc.EncIndex, DecidableEq k]
+    (U : Finset HashInput) (hU : SeccLaw.publicUniverse ⊆ U) (privateTable : FullGame.FullTable)
+    (pub : U → HashOutput) (h : RefSample → ENNReal) (φ : List Entry → ENNReal)
+    (hφ : ∀ y, (∀ e, y e ∈ cellInit (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))) e) → ∀ r,
+      h (mkSample (eagerAnswers U privateTable (Enc.ov (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells pub y)) r) = φ (traceOf (eagerAnswers U privateTable (Enc.ov (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells pub y)) r.2)) :
+    ∑' y, PMF.uniformOfFinset (Fintype.piFinset (cellInit (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub)))))
+          (Fintype.piFinset_nonempty.mpr (cellInit_nonempty _)) y *
+        ∑' r, (liftM (PairedReference.offlineRun (eagerAnswers U privateTable (Enc.ov (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells pub y)) adversary q) : PMF SeedResult) r *
+          h (mkSample (eagerAnswers U privateTable (Enc.ov (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells pub y)) r) =
+      ∑' z, Pr[= z | (simulateQ (Lazy.lazyImpl Enc.encInput (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells (eagerAnswers U privateTable pub))
+          (SphincsSecurity.QueryPause.traced Lazy.obs (PairedReference.referenceGame (eagerAnswers U privateTable pub) adversary q))).run
+          (cellInit (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))))] * φ z.1.2.toList := by
+  have hinner : ∀ y : (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells → HashOutput, (∀ e, y e ∈ cellInit (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))) e) →
+      ∑' r, (liftM (PairedReference.offlineRun (eagerAnswers U privateTable (Enc.ov (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells pub y)) adversary q) : PMF SeedResult) r *
+          h (mkSample (eagerAnswers U privateTable (Enc.ov (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells pub y)) r) =
+        ∑' r, Pr[= r | 𝒮[simulateQ (refImpl (Lazy.overwrite Enc.encInput (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells (eagerAnswers U privateTable pub) y))
+          (SphincsSecurity.QueryPause.traced Lazy.obs (PairedReference.referenceGame (eagerAnswers U privateTable pub) adversary q))]] *
+            φ r.2.toList := by
+    intro y hy
+    have hgame : PairedReference.referenceGame (eagerAnswers U privateTable (Enc.ov (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells pub y)) adversary q = PairedReference.referenceGame (eagerAnswers U privateTable pub) adversary q :=
+      referenceGame_overwrite hU privateTable pub y hy adversary q
+    simp only [PrefixGame.liftM_apply, hφ y hy, probOutput_evalSPMF]
+    unfold PairedReference.offlineRun
+    rw [hgame, ← Enc.eager_ovk_eq U hU privateTable pub _ y]
+    have hmap := Lazy.recorded_traced (eagerAnswers U privateTable (Enc.ov (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells pub y)) (PairedReference.referenceGame (eagerAnswers U privateTable pub) adversary q)
+    rw [← tsum_probOutput_map_mul _ (fun r : SeedResult => (r.1, traceOf (eagerAnswers U privateTable (Enc.ov (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells pub y)) r.2))
+      (fun z : Option (Bool × Nat) × List Entry => φ z.2), hmap, tsum_probOutput_map_mul]
+  refine Eq.trans (tsum_congr (g := fun y : (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells → HashOutput =>
+      PMF.uniformOfFinset (Fintype.piFinset (cellInit (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub)))))
+          (Fintype.piFinset_nonempty.mpr (cellInit_nonempty _)) y *
+        ∑' r, Pr[= r | 𝒮[simulateQ (refImpl (Lazy.overwrite Enc.encInput (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells (eagerAnswers U privateTable pub) y))
+          (SphincsSecurity.QueryPause.traced Lazy.obs (PairedReference.referenceGame (eagerAnswers U privateTable pub) adversary q))]] *
+            φ r.2.toList) fun y => ?_) ?_
+  · by_cases hy : ∀ e, y e ∈ cellInit (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))) e
+    · rw [hinner y hy]
+    · rw [PMF.uniformOfFinset_apply, if_neg (fun hm => hy (Fintype.mem_piFinset.mp hm)), zero_mul, zero_mul]
+  · rw [← Lazy.lazyRun_eq_simulate,
+      ← tsum_probOutput_map_mul _ Prod.fst (fun r : Option (Bool × Nat) × FreeMonoid Entry => φ r.2.toList),
+      ← Lazy.eager_lazy_init (hinit := cellInit_nonempty _), tsum_probOutput_bind_mul]
+    simp only [probOutput_complete_init _ (cellInit_nonempty _)]
+
+end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef

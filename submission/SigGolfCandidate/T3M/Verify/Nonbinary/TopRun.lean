@@ -2,6 +2,7 @@ import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsDispatchCtx
 
 section
 namespace SigGolfCandidate.T3M.Nonbinary.NCtx
+variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Nonbinary SigGolfCandidate.T3
 set_option maxHeartbeats 1000000
@@ -66,7 +67,7 @@ theorem guard_ok (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     unfold startPc leadPc leadOff entW
     simp
 theorem goodQ_fault {s : MachineState} {Q : Prop} {A : Nat} (hf : fetch vimage s=none) :
-    Verify.GoodQ s 1 0 Q A (pure (false, 0)) := by
+    Verify.GoodQP P s 1 0 Q A (pure (false, 0)) := by
   intro F hF
   have hF' : F=(F-1)+1 := by omega
   refine ⟨?_,fun hash => ?_⟩
@@ -86,9 +87,9 @@ theorem groups_from (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState
     (hk : ∀p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0) {v : Digest} (he : Encoded v s0) (hf : c.Fit v)
     (n : Nat) (hn : n ≤ 17) (hval : ∀ q, q<n → Search.topRank v q<125)
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
-    (hK : ∀ acc t,c.EndInv (set24 s0 (c.s8v (n-1))) (3*(n-1)+2) acc t → Verify.GoodQ t N C Q A (K acc)) :
+    (hK : ∀ acc t,c.EndInv (set24 s0 (c.s8v (n-1))) (3*(n-1)+2) acc t → Verify.GoodQP P t N C Q A (K acc)) :
     ∀ k q, 1 ≤ q → q+k=n → 0<k → ∀ acc s,c.GroupIn (set24 s0 (c.s8v (q-1))) q acc s →
-      Verify.GoodQ s (N+126*k) (C+c.chainsCost (3*q) (3*k)+ov q k) Q (A+c.chainsCost (3*q) (3*k)+ov q k)
+      Verify.GoodQP P s (N+126*k) (C+c.chainsCost (3*q) (3*k)+ov q k) Q (A+c.chainsCost (3*q) (3*k)+ov q k)
         (Verify.ccM ((List.range' (3*q) (3*k)).foldlM c.chainF acc) K) := by
   intro k
   induction k with
@@ -109,7 +110,7 @@ theorem groups_from (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState
       have hqn : q'+1=n-1 := by omega
       have H := c.group_good hc hds hkB h0B (q'+1) (by omega) K N C A Q (by rw [← hqn] at hK; exact hK)
         3 (3*(q'+1)) (le_refl _) (by omega) (by decide +kernel) acc t hin
-      have H' := Verify.GoodQ.steps hst H
+      have H' := Verify.GoodQP.steps hst H
       simp only [Nat.mul_zero,Nat.add_zero,List.range'_zero,List.foldlM_nil,bind_pure,Verify.ccM_pure] at H' ⊢
       have h1 : ov (q'+1) (0+1)=1 := rfl
       refine H'.mono ?_ ?_ (fun h => ⟨h,?_⟩) <;> omega
@@ -126,18 +127,18 @@ theorem groups_from (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState
           rw [e2] at st
           have H := ih (q'+2) (by omega) (by omega) (by omega) ends u' (by simpa using hu')
           rw [show 3*(q'+2)=3*(q'+1)+3 by omega] at H
-          refine (Verify.GoodQ.steps st H).mono ?_ ?_ (fun h => ⟨h,?_⟩) <;> omega)
+          refine (Verify.GoodQP.steps st H).mono ?_ ?_ (fun h => ⟨h,?_⟩) <;> omega)
         3 (3*(q'+1)) (le_refl _) (by omega) (by decide +kernel) acc t hin
-      have H' := Verify.GoodQ.steps hst H
+      have H' := Verify.GoodQP.steps hst H
       rw [ec]
       refine H'.mono ?_ ?_ (fun h => ⟨h,?_⟩) <;> omega
 theorem groups_zero (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     (hk : ∀p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0) {v : Digest} (he : Encoded v s0) (hf : c.Fit v)
     (n : Nat) (hn : n ≤ 17) (hn1 : 1 ≤ n) (hval : ∀ q, q<n → Search.topRank v q<125)
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
-    (hK : ∀ acc t,c.EndInv (set24 s0 (c.s8v (n-1))) (3*(n-1)+2) acc t → Verify.GoodQ t N C Q A (K acc))
+    (hK : ∀ acc t,c.EndInv (set24 s0 (c.s8v (n-1))) (3*(n-1)+2) acc t → Verify.GoodQP P t N C Q A (K acc))
     (s : MachineState) (hs : c.GroupIn s0 0 [] s) :
-    Verify.GoodQ s (N+126*n) (C+c.chainsCost 0 (3*n)+ov 0 n) Q (A+c.chainsCost 0 (3*n)+ov 0 n)
+    Verify.GoodQP P s (N+126*n) (C+c.chainsCost 0 (3*n)+ov 0 n) Q (A+c.chainsCost 0 (3*n)+ov 0 n)
       (Verify.ccM ((List.range' 0 (3*n)).foldlM c.chainF []) K) := by
   obtain ⟨t,hst,hin⟩ := c.guard_ok hc hds hk he [] s hs
   have hkB := set24_known c (c.s8v 0) hk
@@ -150,7 +151,7 @@ theorem groups_zero (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState
   · subst hm0
     have H := c.group_good hc hds hkB h0B 0 (by omega) K N C A Q (by simpa using hK)
       3 0 (le_refl _) (by omega) (by decide +kernel) [] t (by simpa using hin)
-    have H' := Verify.GoodQ.steps hst H
+    have H' := Verify.GoodQP.steps hst H
     simp only [Nat.mul_zero,Nat.add_zero,List.range'_zero,List.foldlM_nil,bind_pure,Verify.ccM_pure] at H' ⊢
     have h1 : ov 0 (0+1)=1 := rfl
     refine H'.mono ?_ ?_ (fun h => ⟨h,?_⟩) <;> omega
@@ -167,9 +168,9 @@ theorem groups_zero (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState
         simp only [Nat.mul_one] at H
         have e1 : dsp (0+1)=3 := rfl
         rw [e1] at st
-        refine (Verify.GoodQ.steps st H).mono ?_ ?_ (fun h => ⟨h,?_⟩) <;> omega)
+        refine (Verify.GoodQP.steps st H).mono ?_ ?_ (fun h => ⟨h,?_⟩) <;> omega)
       3 0 (le_refl _) (by omega) (by decide +kernel) [] t (by simpa using hin)
-    have H' := Verify.GoodQ.steps hst H
+    have H' := Verify.GoodQP.steps hst H
     simp only [Nat.zero_add] at H' ec ⊢
     rw [ec]
     refine H'.mono ?_ ?_ (fun h => ⟨h,?_⟩) <;> omega
@@ -204,9 +205,9 @@ theorem tail_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     (hk : ∀p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0) {v : Digest} (he : Encoded v s0) (hf : c.Fit v)
     (h24 : s0.getReg .x24=c.s8v 16)
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
-    (hK : ∀ ends t,c.EndInv (set24 s0 (c.s8w 53)) 53 ends t → Verify.GoodQ t N C Q A (K ends))
+    (hK : ∀ ends t,c.EndInv (set24 s0 (c.s8w 53)) 53 ends t → Verify.GoodQP P t N C Q A (K ends))
     (acc : List Digest) (s : MachineState) (hs : c.R8In s0 acc s) :
-    Verify.GoodQ s (N+129) (C+c.chainsCost 51 3+5) Q (A+c.chainsCost 51 3+5)
+    Verify.GoodQP P s (N+129) (C+c.chainsCost 51 3+5) Q (A+c.chainsCost 51 3+5)
       (Verify.ccM ((List.range' 51 3).foldlM c.chainF acc) K) := by
   obtain ⟨u2,st2,hu2⟩ := c.slot17_step hds h24 acc s hs
   have hk1 := set24_known c (c.s8w 53) hk
@@ -241,20 +242,20 @@ theorem tail_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
           simp only [chainF,bind_assoc,pure_bind,Verify.ccM_bind,List.range'_zero,List.foldlM_nil,Verify.ccM_pure]
           have H3 := c.chain_good hc hds hk1 h01 53 (by decide +kernel) _ K N C A Q
             (fun v3 t4 ht4 => hK _ t4 ht4) t3 hin53
-          have H4 := Verify.GoodQ.steps st3 H3
+          have H4 := Verify.GoodQP.steps st3 H3
           refine H4.mono ?_ ?_ (fun h => ⟨h,?_⟩) <;> omega)
         t1 hin52
       refine H2.mono ?_ ?_ (fun h => ⟨h,?_⟩) <;> omega)
     u2 hu2
-  have H5 := Verify.GoodQ.steps st2 H
+  have H5 := Verify.GoodQP.steps st2 H
   refine H5.mono ?_ ?_ (fun h => ⟨h,?_⟩) <;> omega
 theorem top_full (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     (hk : ∀p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0) {v : Digest} (he : Encoded v s0) (hf : c.Fit v)
     (hval : ∀ q, q<17 → Search.topRank v q<125)
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
-    (hK : ∀ acc t,c.TopOut s0 acc t → Verify.GoodQ t N C Q A (K acc))
+    (hK : ∀ acc t,c.TopOut s0 acc t → Verify.GoodQP P t N C Q A (K acc))
     (s : MachineState) (hs : c.GroupIn s0 0 [] s) :
-    Verify.GoodQ s (N+2274) (C+c.chainsCost 0 54+74) Q (A+c.chainsCost 0 54+74) (Verify.ccM c.topP K) := by
+    Verify.GoodQP P s (N+2274) (C+c.chainsCost 0 54+74) Q (A+c.chainsCost 0 54+74) (Verify.ccM c.topP K) := by
   unfold topP
   rw [show (54:Nat)=3*17+3 from rfl,← List.range'_append_1,List.foldlM_append,Verify.ccM_bind]
   have ec := c.chainsCost_add' 0 (3*17) 3
@@ -277,7 +278,7 @@ theorem top_full (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
           (tailInitial_regs _ _ _ (by decide +kernel)).trans (set24_encoded _ he).table⟩
       have H := c.tail_good hc hds hkB h0B heB hf h24 K N C A Q
         (fun ends z hz => hK ends z (c.end_return hds he.table ends z hz)) acc u hu
-      have H2 := Verify.GoodQ.steps st H
+      have H2 := Verify.GoodQP.steps st H
       simp only [Nat.zero_add]
       refine H2.mono ?_ ?_ (fun h => ⟨h,?_⟩) <;> omega)
     s hs
@@ -287,7 +288,7 @@ theorem top_full (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
   rw [ec]
   refine H.mono ?_ ?_ (fun h => ⟨h,?_⟩) <;> omega
 theorem goodQ_vacuous {s : MachineState} {N C A : Nat} {X : OracleComp Legacy.HashSpec Verify.Obs}
-    (h : Verify.GoodQ s N C False A X) (Q' : Prop) (A' : Nat) : Verify.GoodQ s N C Q' A' X := by
+    (h : Verify.GoodQP P s N C False A X) (Q' : Prop) (A' : Nat) : Verify.GoodQP P s N C Q' A' X := by
   intro F hF
   obtain ⟨h1,h2⟩ := h F hF
   exact ⟨h1,fun hash => ⟨(h2 hash).1,(h2 hash).2.1,fun hs hok => ((h2 hash).2.2 hs hok).1.elim⟩⟩
@@ -298,7 +299,7 @@ theorem top_bad_group (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineSta
     (hbad : 125 ≤ Search.topRank v j) (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs)
     (hK : ∀ acc, K acc=pure (false,0)) (Q : Prop) (A : Nat)
     (s : MachineState) (hs : c.GroupIn s0 0 [] s) :
-    Verify.GoodQ s (126*j+6) (c.chainsCost 0 (3*j)+ov 0 j+5) Q A
+    Verify.GoodQP P s (126*j+6) (c.chainsCost 0 (3*j)+ov 0 j+5) Q A
       (Verify.ccM ((List.range' 0 (3*j)).foldlM c.chainF []) K) := by
   refine goodQ_vacuous (A := 0+c.chainsCost 0 (3*j)+ov 0 j) ?_ Q A
   have H := c.groups_zero hc hds hk h0 he hf j (by omega) hj1 hval K 6 5 0 False
@@ -306,8 +307,8 @@ theorem top_bad_group (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineSta
       rw [hK acc]
       have hb' : 125 ≤ Search.topRank v (j-1+1) := by rw [show j-1+1=j by omega]; exact hbad
       obtain ⟨k,z,stz,hk5,fz⟩ := (c.end_dispatch_raw hc hds (set24_encoded _ he) (j-1) (by omega) acc t ht).2 hb'
-      have R := goodQ_fault (Q := False) (A := 0) fz
-      refine (Verify.GoodQ.steps stz R).mono ?_ ?_ ?_
+      have R := goodQ_fault (P := P) (Q := False) (A := 0) fz
+      refine (Verify.GoodQP.steps stz R).mono ?_ ?_ ?_
       · omega
       · omega
       · intro h; exact h.elim)

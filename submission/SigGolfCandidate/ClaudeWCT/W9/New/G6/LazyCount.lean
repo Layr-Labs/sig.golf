@@ -934,3 +934,506 @@ theorem worldGameL_probes_births (g : CanonTable.HiddenF) (adversary : Adversary
 end Programs
 end ClaudeWCT.W9.T3.Security.WPair
 end
+
+namespace ClaudeWCT.W9.T3.Security.WPair.Paired
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
+open SigGolfCandidate.Research.SharedForest
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.T3.Security.BPair (AuxL AuxSpecL LazyMem digestInputs rowVal rowStep nonceStep NotDN Good good_empty)
+open SphincsSecurity.Concrete
+open SecretGuessObservation (fixedRun)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+noncomputable local instance : DecidableEq SigGolfCandidate.T3.Cache := Classical.decEq _
+variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : CanonTable.Omega U)
+theorem finishL_some (g : CanonTable.HiddenF) (request : Request) (rho : Digest)
+    (found : Option (BitVec 32 × HashOutput)) (s : WStateL) (r : Option SigGolfCandidate.Research.SharedForest.Signature × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) (Guess.Fam.phi g.1 g.2) (finishL hU ω request rho found) s r ≠ 0)
+    (σ : SigGolfCandidate.Research.SharedForest.Signature) (hσ : r.1 = some σ) : ∃ c out, found = some (c, out) ∧ σ.rho = rho := by
+  cases found with
+  | none =>
+      rw [runL_pure_nonzero _ (Guess.Fam.phi g.1 g.2) _ s r hr] at hσ
+      cases hσ
+  | some found =>
+      obtain ⟨c, out⟩ := found
+      refine ⟨c, out, rfl, ?_⟩
+      simp only [finishL] at hr
+      cases hl : signerLayersW hU ω request out with
+      | none =>
+          rw [hl] at hr
+          rw [runL_pure_nonzero _ (Guess.Fam.phi g.1 g.2) _ s r hr] at hσ
+          cases hσ
+      | some pieces =>
+          rw [hl] at hr
+          obtain ⟨mid, -, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ s r hr
+          rw [runL_pure_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ r hr] at hσ
+          cases hσ
+          rfl
+
+theorem fixed_searchL_value (g : CanonTable.HiddenF) (rho : Digest) (m : Message) (counter fuel : Nat)
+    (s : WStateL) (hs : SigGolfCandidate.T3.Security.BPair.Consistent (digestOf ω) (nonceOf ω) s.memory)
+    (r : Option (BitVec 32 × HashOutput) × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) (Guess.Fam.phi g.1 g.2) (searchL rho m counter fuel) s r ≠ 0) :
+    r.1 = evalWithAnswerFn (wA hU ω 0) (sharedDigestSearch rho m counter fuel) := by
+  have h := fixed_inline_nonzero (digestOf ω) (nonceOf ω) (Guess.Fam.phi g.1 g.2) _ s hs r hr
+  change fixedRun env (Guess.Fam.phi g.1 g.2) (simulateQ (inlineAux ω) (searchL rho m counter fuel)) (forget s) (r.1, forget r.2) ≠ 0 at h
+  rw [inline_searchL hU ω] at h
+  exact congrArg Prod.fst (fixedRun_pure_nonzero g _ _ _ h)
+
+theorem signL_ghost (g : CanonTable.HiddenF) (published : SigGolfCandidate.T3.Cache) (request : Request)
+    (s : WStateL) (hs : Good (digestOf ω) (nonceOf ω) s.memory) (r : Option SigGolfCandidate.Research.SharedForest.Signature × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) (Guess.Fam.phi g.1 g.2) (signL hU ω published request) s r ≠ 0)
+    (σ : SigGolfCandidate.Research.SharedForest.Signature) (output : HashOutput) (hσ : r.1 = some σ)
+    (ho : Paired.signedOutput (wA hU ω g) request.message σ = some output) :
+    output ∈ r.2.memory.exposures := by
+  unfold signL at hr
+  by_cases hc : request.cache = published
+  · rw [if_pos hc] at hr
+    obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ s r hr
+    obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ m1.2 r hr
+    obtain ⟨m3, h3, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ m2.2 r hr
+    have g1 := run_good _ _ (Guess.Fam.phi g.1 g.2) _ s hs m1 h1
+    have g2 := run_good _ _ (Guess.Fam.phi g.1 g.2) _ m1.2 g1.1 m2 h2
+    have hv2 := fixed_searchL_value hU ω g _ _ _ _ m1.2 g1.1.1 m2 h2
+    have hm3 : m3.2.memory = m2.2.memory.expose (m2.1.map Prod.snd) := by
+      rw [exposeReq, fixed_aux_single (digestOf ω) (nonceOf ω) (Guess.Fam.phi g.1 g.2) m2.2 (.expose _) () _ rfl] at h3
+      simp only [ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] at h3
+      subst h3
+      rfl
+    have g3' := run_good _ _ (Guess.Fam.phi g.1 g.2) _ m2.2 g2.1 m3 h3
+    have g3 := run_good _ _ (Guess.Fam.phi g.1 g.2) _ m3.2 g3'.1 r hr
+    obtain ⟨c, out, hfound, hrho⟩ := finishL_some hU ω g request m1.1 m2.1 m3.2 r hr σ hσ
+    have hout : output = out := by
+      unfold Paired.signedOutput at ho
+      rw [eval_free hU ω g 0 (sharedDigestSearch_free _ _ _ _), hrho, ← hv2, hfound] at ho
+      exact (Option.some.inj ho).symm
+    subst hout
+    apply g3.2.exposures
+    rw [hm3, hfound]
+    exact List.mem_append_right _ (List.mem_singleton_self _)
+  · rw [if_neg hc] at hr
+    rw [runL_pure_nonzero _ (Guess.Fam.phi g.1 g.2) _ s r hr] at hσ
+    cases hσ
+
+theorem interactionL_ghost (g : CanonTable.HiddenF) (published : SigGolfCandidate.T3.Cache) {α : Type}
+    (program : OracleComp Paired.Interaction α) (s : WStateL) (hs : Good (digestOf ω) (nonceOf ω) s.memory)
+    (r : (α × QueryLog Requests × List Wots.Entry) × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) (Guess.Fam.phi g.1 g.2) (interactionL hU ω published program) s r ≠ 0) :
+    (∀ entry ∈ r.1.2.1, ∀ σ output, entry.2 = some σ →
+        Paired.signedOutput (wA hU ω g) entry.1.message σ = some output → output ∈ r.2.memory.exposures) ∧
+      ∀ x a, (x, a) ∈ r.1.2.2 → x ∈ digestInputs → r.2.memory.rows x = some a := by
+  induction program using OracleComp.inductionOn generalizing s r with
+  | pure value =>
+      rw [interactionL_pure] at hr
+      rw [runL_pure_nonzero _ (Guess.Fam.phi g.1 g.2) _ s r hr]
+      exact ⟨fun _ h => (by simp at h), fun _ _ h => (by simp at h)⟩
+  | query_bind input next ih =>
+      rcases input with (n | x) | request
+      · rw [interactionL_coin] at hr
+        obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ s r hr
+        exact ih m1.1 m1.2 (run_good _ _ (Guess.Fam.phi g.1 g.2) _ s hs m1 h1).1 r hr
+      · rw [interactionL_public] at hr
+        obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ s r hr
+        obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ m1.2 r hr
+        rw [runL_pure_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ r hr]
+        have g1 := run_good _ _ (Guess.Fam.phi g.1 g.2) _ s hs m1 h1
+        have g2 := run_good _ _ (Guess.Fam.phi g.1 g.2) _ m1.2 g1.1 m2 h2
+        obtain ⟨i1, i2⟩ := ih m1.1 m1.2 g1.1 m2 h2
+        refine ⟨i1, fun y a hy hdy => ?_⟩
+        rcases List.mem_cons.mp hy with he | hy
+        · obtain ⟨rfl, rfl⟩ := Prod.mk.inj he
+          exact g2.2.rows _ _ (hashL_ghost hU ω g y s hs m1 h1 hdy)
+        · exact i2 y a hy hdy
+      · rw [interactionL_request] at hr
+        obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ s r hr
+        obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ m1.2 r hr
+        rw [runL_pure_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ r hr]
+        have g1 := run_good _ _ (Guess.Fam.phi g.1 g.2) _ s hs m1 h1
+        have g2 := run_good _ _ (Guess.Fam.phi g.1 g.2) _ m1.2 g1.1 m2 h2
+        obtain ⟨i1, i2⟩ := ih m1.1 m1.2 g1.1 m2 h2
+        refine ⟨fun entry he σ output hσ ho => ?_, i2⟩
+        rcases List.mem_cons.mp he with he | he
+        · subst he
+          exact g2.2.exposures _ (signL_ghost hU ω g published request s hs m1 h1 σ output hσ ho)
+        · exact i1 entry he σ output hσ ho
+
+theorem queried_sign_search (g : CanonTable.HiddenF) (published : SigGolfCandidate.T3.Cache) (request : Request)
+    (hc : request.cache = published) (x : HashInput)
+    (hx : (.inl (.inr x) : SigGolfCandidate.T3.Spec.Domain) ∈
+      SigGolfCandidate.T3M.SecurityExtraction.queried (wA hU ω g)
+        (sharedDigestSearch (nonceOf ω request.message) request.message 0 WCT9.digestAttemptLimit)) :
+    (.inl (.inr x) : SigGolfCandidate.T3.Spec.Domain) ∈ SigGolfCandidate.T3M.SecurityExtraction.queried (wA hU ω g)
+      (Paired.authenticatedSign published request) := by
+  unfold Paired.authenticatedSign
+  rw [SigGolfCandidate.T3M.SecurityExtraction.queried_bind, if_pos hc]
+  change _ ∈ _ ++ SigGolfCandidate.T3M.SecurityExtraction.queried (wA hU ω g)
+    (SigGolfCandidate.Research.SharedForest.signPayload request.cache request.message)
+  rw [SigGolfCandidate.Research.SharedForest.signPayload, SigGolfCandidate.T3M.SecurityExtraction.queried_bind,
+    SigGolfCandidate.T3M.SecurityExtraction.queried_bind, eval_nonce hU ω g request.message]
+  exact List.mem_append_right _ (List.mem_append_right _ (List.mem_append_left _ hx))
+
+theorem queried_wctDigestSearch_succ (A : Answers) (rho : Digest) (m : Message) (counter fuel : Nat) :
+    SigGolfCandidate.T3M.SecurityExtraction.queried A (sharedDigestSearch rho m counter (fuel + 1)) =
+      (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 counter)))) : SigGolfCandidate.T3.Spec.Domain) ::
+        SigGolfCandidate.T3M.SecurityExtraction.queried A
+          (if digestAccepted (A (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 counter)))))) = true
+            then pure (some (BitVec.ofNat 32 counter,
+              A (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 counter)))))))
+            else sharedDigestSearch rho m (counter + 1) fuel) := by
+  rw [sharedDigestSearch]
+  exact SigGolfCandidate.T3M.SecurityExtraction.queried_query_bind A _ _
+
+theorem searchL_counts (g : CanonTable.HiddenF) (rho : Digest) (m : Message) (counter fuel : Nat) (s : WStateL)
+    (hs : Good (digestOf ω) (nonceOf ω) s.memory) (r : Option (BitVec 32 × HashOutput) × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) (Guess.Fam.phi g.1 g.2) (searchL rho m counter fuel) s r ≠ 0) :
+    r.2.memory.births = s.memory.births ∧ r.2.memory.exposures = s.memory.exposures ∧
+      ∀ x ∈ r.2.memory.trials, x ∈ s.memory.trials ∨ (.inl (.inr x) : SigGolfCandidate.T3.Spec.Domain) ∈
+        SigGolfCandidate.T3M.SecurityExtraction.queried (wA hU ω g) (sharedDigestSearch rho m counter fuel) := by
+  induction fuel generalizing counter s r with
+  | zero =>
+      rw [runL_pure_nonzero _ (Guess.Fam.phi g.1 g.2) _ s r hr]
+      exact ⟨rfl, rfl, fun x hx => Or.inl hx⟩
+  | succ fuel ih =>
+      rw [searchL] at hr
+      obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ s r hr
+      obtain ⟨hb1, he1, ht1⟩ := fixed_trial_counts _ _ (Guess.Fam.phi g.1 g.2) _ s m1 h1
+      have g1 := run_good _ _ (Guess.Fam.phi g.1 g.2) _ s hs m1 h1
+      have hv1 : m1.1 = wA hU ω g (.inl (.inr (pad64 (digestInput rho m (BitVec.ofNat 32 counter))))) := by
+        have h := fixed_inline_nonzero (digestOf ω) (nonceOf ω) (Guess.Fam.phi g.1 g.2) _ s hs.1 m1 h1
+        rw [show simulateQ (inlineWith (digestOf ω) (nonceOf ω)) (trialReq (pad64 (digestInput rho m
+            (BitVec.ofNat 32 counter)))) =
+              pure (rowVal (digestOf ω) (pad64 (digestInput rho m (BitVec.ofNat 32 counter))))
+          from by simp only [trialReq, simulateQ_spec_query, inlineWith]] at h
+        rw [congrArg Prod.fst (fixedRun_pure_nonzero g _ _ _ h),
+          answers_digest hU ω g _ (SigGolfCandidate.T3.Security.BPair.digestInput_mem _ _ _)]
+      rw [queried_wctDigestSearch_succ, ← hv1]
+      by_cases hadm : digestAccepted m1.1 = true
+      · simp only [hadm, ↓reduceIte] at hr ⊢
+        rw [runL_pure_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ r hr]
+        refine ⟨hb1, he1, fun x hx => ?_⟩
+        rw [ht1, List.mem_append, List.mem_singleton] at hx
+        rcases hx with hx | rfl
+        · exact Or.inl hx
+        · exact Or.inr (List.mem_cons_self)
+      · simp only [hadm, ↓reduceIte, Bool.false_eq_true] at hr ⊢
+        obtain ⟨hb2, he2, ht2⟩ := ih (counter + 1) m1.2 g1.1 r hr
+        refine ⟨hb2.trans hb1, he2.trans he1, fun x hx => ?_⟩
+        rcases ht2 x hx with hx | hx
+        · rw [ht1, List.mem_append, List.mem_singleton] at hx
+          rcases hx with hx | rfl
+          · exact Or.inl hx
+          · exact Or.inr (List.mem_cons_self)
+        · exact Or.inr (List.mem_cons_of_mem _ hx)
+
+theorem finishL_state (g : Guess.GCoord → Digest) (request : Request) (rho : Digest)
+    (found : Option (BitVec 32 × HashOutput)) (s : WStateL) (r : Option SigGolfCandidate.Research.SharedForest.Signature × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) g (finishL hU ω request rho found) s r ≠ 0) :
+    r.2.memory = s.memory := by
+  cases found with
+  | none => rw [runL_pure_nonzero _ g _ s r hr]
+  | some found =>
+      obtain ⟨c, out⟩ := found
+      simp only [finishL] at hr
+      cases hl : signerLayersW hU ω request out with
+      | none =>
+          rw [hl] at hr
+          rw [runL_pure_nonzero _ g _ s r hr]
+      | some pieces =>
+          rw [hl] at hr
+          obtain ⟨mid, hm, hr⟩ := runL_bind_nonzero _ g _ _ s r hr
+          rw [runL_pure_nonzero _ g _ _ r hr]
+          exact fixed_discloseAll_state _ _ g _ s mid hm
+
+theorem signL_counts (g : CanonTable.HiddenF) (published : SigGolfCandidate.T3.Cache) (request : Request)
+    (s : WStateL) (hs : Good (digestOf ω) (nonceOf ω) s.memory) (r : Option SigGolfCandidate.Research.SharedForest.Signature × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) (Guess.Fam.phi g.1 g.2) (signL hU ω published request) s r ≠ 0) :
+    r.2.memory.births = s.memory.births ∧ r.2.memory.exposures.length ≤ s.memory.exposures.length + 1 ∧
+      ∀ x ∈ r.2.memory.trials, x ∈ s.memory.trials ∨ (.inl (.inr x) : SigGolfCandidate.T3.Spec.Domain) ∈
+        SigGolfCandidate.T3M.SecurityExtraction.queried (wA hU ω g) (Paired.authenticatedSign published request) := by
+  unfold signL at hr
+  by_cases hc : request.cache = published
+  · rw [if_pos hc] at hr
+    obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ s r hr
+    obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ m1.2 r hr
+    obtain ⟨m3, h3, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ m2.2 r hr
+    have k1 := fixed_nonce_keeps _ _ (Guess.Fam.phi g.1 g.2) request.message s m1 h1
+    have g1 := run_good _ _ (Guess.Fam.phi g.1 g.2) _ s hs m1 h1
+    have hv1 : m1.1 = nonceOf ω request.message := fixed_nonce_value ω g request.message s hs.1 m1 h1
+    obtain ⟨hb2, he2, ht2⟩ := searchL_counts hU ω g m1.1 request.message 0 WCT9.digestAttemptLimit m1.2 g1.1 m2 h2
+    have hm3 := fixed_expose_mem _ _ (Guess.Fam.phi g.1 g.2) _ m2.2 m3 h3
+    have hr4 := finishL_state hU ω (Guess.Fam.phi g.1 g.2) request m1.1 m2.1 m3.2 r hr
+    rw [hr4, hm3]
+    refine ⟨hb2.trans k1.1, ?_, fun x hx => ?_⟩
+    · change (m2.2.memory.exposures ++ (m2.1.map Prod.snd).toList).length ≤ s.memory.exposures.length + 1
+      rw [List.length_append, he2, k1.2.1]
+      cases m2.1 <;> simp
+    · change x ∈ m2.2.memory.trials at hx
+      rcases ht2 x hx with hx | hx
+      · rw [k1.2.2] at hx
+        exact Or.inl hx
+      · rw [hv1] at hx
+        exact Or.inr (queried_sign_search hU ω g published request hc x hx)
+  · rw [if_neg hc] at hr
+    rw [runL_pure_nonzero _ (Guess.Fam.phi g.1 g.2) _ s r hr]
+    exact ⟨rfl, Nat.le_succ _, fun x hx => Or.inl hx⟩
+
+theorem interactionL_counts (g : CanonTable.HiddenF) (published : SigGolfCandidate.T3.Cache) {α : Type}
+    (program : OracleComp Paired.Interaction α) (s : WStateL) (hs : Good (digestOf ω) (nonceOf ω) s.memory)
+    (r : (α × QueryLog Requests × List Wots.Entry) × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) (Guess.Fam.phi g.1 g.2) (interactionL hU ω published program) s r ≠ 0) :
+    r.2.memory.births.length ≤ s.memory.births.length + r.1.2.2.length ∧
+      r.2.memory.exposures.length ≤ s.memory.exposures.length + r.1.2.1.length ∧
+      ∀ x ∈ r.2.memory.trials, x ∈ s.memory.trials ∨ ∃ entry ∈ r.1.2.1,
+        (.inl (.inr x) : SigGolfCandidate.T3.Spec.Domain) ∈
+          SigGolfCandidate.T3M.SecurityExtraction.queried (wA hU ω g) (Paired.authenticatedSign published entry.1) := by
+  induction program using OracleComp.inductionOn generalizing s r with
+  | pure value =>
+      rw [interactionL_pure] at hr
+      rw [runL_pure_nonzero _ (Guess.Fam.phi g.1 g.2) _ s r hr]
+      exact ⟨by simp, by simp, fun x hx => Or.inl hx⟩
+  | query_bind input next ih =>
+      rcases input with (n | x) | request
+      · rw [interactionL_coin] at hr
+        obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ s r hr
+        have hm := fixed_coin_state _ _ (Guess.Fam.phi g.1 g.2) n s m1 h1
+        have := ih m1.1 m1.2 (by rw [hm]; exact hs) r hr
+        rw [hm] at this
+        exact this
+      · rw [interactionL_public] at hr
+        obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ s r hr
+        obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ m1.2 r hr
+        rw [runL_pure_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ r hr]
+        have g1 := run_good _ _ (Guess.Fam.phi g.1 g.2) _ s hs m1 h1
+        obtain ⟨hb1, he1, ht1⟩ := hashL_counts hU ω (Guess.Fam.phi g.1 g.2) x s m1 h1
+        obtain ⟨i1, i2, i3⟩ := ih m1.1 m1.2 g1.1 m2 h2
+        refine ⟨?_, ?_, fun y hy => ?_⟩
+        · change m2.2.memory.births.length ≤ s.memory.births.length + (m2.1.2.2.length + 1)
+          omega
+        · rw [he1] at i2
+          exact i2
+        · rcases i3 y hy with hy | hy
+          · rw [ht1] at hy
+            exact Or.inl hy
+          · exact Or.inr hy
+      · rw [interactionL_request] at hr
+        obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ s r hr
+        obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ m1.2 r hr
+        rw [runL_pure_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ r hr]
+        have g1 := run_good _ _ (Guess.Fam.phi g.1 g.2) _ s hs m1 h1
+        obtain ⟨hb1, he1, ht1⟩ := signL_counts hU ω g published request s hs m1 h1
+        obtain ⟨i1, i2, i3⟩ := ih m1.1 m1.2 g1.1 m2 h2
+        refine ⟨?_, ?_, fun y hy => ?_⟩
+        · rw [hb1] at i1
+          exact i1
+        · change m2.2.memory.exposures.length ≤ s.memory.exposures.length + (m2.1.2.1.length + 1)
+          omega
+        · rcases i3 y hy with hy | ⟨entry, he, hq⟩
+          · rcases ht1 y hy with hy | hq
+            · exact Or.inl hy
+            · exact Or.inr ⟨⟨request, m1.1⟩, List.mem_cons_self, hq⟩
+          · exact Or.inr ⟨entry, List.mem_cons_of_mem _ he, hq⟩
+
+theorem searchL_probes (g : Guess.GCoord → Digest) (rho : Digest) (m : Message) (counter fuel : Nat) (s : WStateL)
+    (r : Option (BitVec 32 × HashOutput) × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) g (searchL rho m counter fuel) s r ≠ 0) :
+    r.2.probes = s.probes := by
+  induction fuel generalizing counter s r with
+  | zero =>
+      rw [runL_pure_nonzero _ g _ s r hr]
+  | succ fuel ih =>
+      rw [searchL] at hr
+      obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ g _ _ s r hr
+      have hp1 := fixed_aux_probes (envE (digestOf ω) (nonceOf ω)) g (.trial _) s m1 h1
+      by_cases hadm : digestAccepted m1.1 = true
+      · simp only [hadm, ↓reduceIte] at hr
+        rw [runL_pure_nonzero _ g _ _ r hr]
+        exact hp1
+      · simp only [hadm, ↓reduceIte, Bool.false_eq_true] at hr
+        exact (ih (counter + 1) m1.2 r hr).trans hp1
+
+theorem finishL_probes (g : Guess.GCoord → Digest) (request : Request) (rho : Digest)
+    (found : Option (BitVec 32 × HashOutput)) (s : WStateL) (r : Option SigGolfCandidate.Research.SharedForest.Signature × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) g (finishL hU ω request rho found) s r ≠ 0) :
+    r.2.probes = s.probes := by
+  cases found with
+  | none => rw [runL_pure_nonzero _ g _ s r hr]
+  | some found =>
+      obtain ⟨c, out⟩ := found
+      simp only [finishL] at hr
+      cases hl : signerLayersW hU ω request out with
+      | none =>
+          rw [hl] at hr
+          rw [runL_pure_nonzero _ g _ s r hr]
+      | some pieces =>
+          rw [hl] at hr
+          obtain ⟨mid, hm, hr⟩ := runL_bind_nonzero _ g _ _ s r hr
+          rw [runL_pure_nonzero _ g _ _ r hr]
+          exact fixed_discloseAll_probes _ _ g _ s mid hm
+
+theorem signL_probes (g : Guess.GCoord → Digest) (published : SigGolfCandidate.T3.Cache) (request : Request)
+    (s : WStateL) (r : Option SigGolfCandidate.Research.SharedForest.Signature × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) g (signL hU ω published request) s r ≠ 0) :
+    r.2.probes = s.probes := by
+  unfold signL at hr
+  by_cases hc : request.cache = published
+  · rw [if_pos hc] at hr
+    obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ g _ _ s r hr
+    obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ g _ _ m1.2 r hr
+    obtain ⟨m3, h3, hr⟩ := runL_bind_nonzero _ g _ _ m2.2 r hr
+    have hp1 := fixed_aux_probes (envE (digestOf ω) (nonceOf ω)) g (.nonce _) s m1 h1
+    have hp2 := searchL_probes ω g m1.1 request.message 0 WCT9.digestAttemptLimit m1.2 m2 h2
+    have hp3 := fixed_aux_probes (envE (digestOf ω) (nonceOf ω)) g (.expose _) m2.2 m3 h3
+    have hp4 := finishL_probes hU ω g request m1.1 m2.1 m3.2 r hr
+    exact hp4.trans (hp3.trans (hp2.trans hp1))
+  · rw [if_neg hc] at hr
+    rw [runL_pure_nonzero _ g _ s r hr]
+
+theorem interactionL_probes_births (g : CanonTable.HiddenF) (published : SigGolfCandidate.T3.Cache) {α : Type}
+    (program : OracleComp Paired.Interaction α) (s : WStateL) (hs : Good (digestOf ω) (nonceOf ω) s.memory)
+    (r : (α × QueryLog Requests × List Wots.Entry) × WStateL)
+    (hr : fixedRun (envE (digestOf ω) (nonceOf ω)) (Guess.Fam.phi g.1 g.2) (interactionL hU ω published program) s r ≠ 0) :
+    r.2.probes + r.2.memory.births.length ≤ s.probes + s.memory.births.length + r.1.2.2.length := by
+  induction program using OracleComp.inductionOn generalizing s r with
+  | pure value =>
+      rw [interactionL_pure] at hr
+      rw [runL_pure_nonzero _ (Guess.Fam.phi g.1 g.2) _ s r hr]
+      simp
+  | query_bind input next ih =>
+      rcases input with (n | x) | request
+      · rw [interactionL_coin] at hr
+        obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ s r hr
+        have hm := fixed_coin_state _ _ (Guess.Fam.phi g.1 g.2) n s m1 h1
+        have := ih m1.1 m1.2 (by rw [hm]; exact hs) r hr
+        rw [hm] at this
+        exact this
+      · rw [interactionL_public] at hr
+        obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ s r hr
+        obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ m1.2 r hr
+        rw [runL_pure_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ r hr]
+        have g1 := run_good _ _ (Guess.Fam.phi g.1 g.2) _ s hs m1 h1
+        have hb1 := hashL_probes_births hU ω (Guess.Fam.phi g.1 g.2) x s m1 h1
+        have i1 := ih m1.1 m1.2 g1.1 m2 h2
+        change m2.2.probes + m2.2.memory.births.length ≤ s.probes + s.memory.births.length + (m2.1.2.2.length + 1)
+        omega
+      · rw [interactionL_request] at hr
+        obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ s r hr
+        obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ m1.2 r hr
+        rw [runL_pure_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ r hr]
+        have g1 := run_good _ _ (Guess.Fam.phi g.1 g.2) _ s hs m1 h1
+        have hb1 := (signL_counts hU ω g published request s hs m1 h1).1
+        have hp1 := signL_probes hU ω (Guess.Fam.phi g.1 g.2) published request s m1 h1
+        have i1 := ih m1.1 m1.2 g1.1 m2 h2
+        rw [hb1, hp1] at i1
+        exact i1
+
+#print axioms interactionL_probes_births
+#print axioms interactionL_counts
+#print axioms interactionL_ghost
+end ClaudeWCT.W9.T3.Security.WPair.Paired
+
+namespace ClaudeWCT.W9.T3.Security.WPair.Paired
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
+open SigGolfCandidate.Research.SharedForest
+open SigGolfCandidate.T3.Security.BPair (Good good_empty LazyMem)
+open SphincsSecurity.Concrete
+open SecretGuessObservation (fixedRun)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (omega : CanonTable.Omega U)
+
+theorem experimentL_counts (g : CanonTable.HiddenF) {α β : Type} (published : SigGolfCandidate.T3.Cache)
+    (program : OracleComp Interaction α) (finish : (α × QueryLog Requests) → M β)
+    (r : (β × QueryLog Requests × List Wots.Entry) × WStateL)
+    (hr : fixedRun (envE (digestOf omega) (nonceOf omega)) (Guess.Fam.phi g.1 g.2)
+      (experimentL hU omega published program finish) initL r ≠ 0) :
+    r.2.memory.births.length ≤ r.1.2.2.length ∧
+      (∀ x ∈ r.2.memory.trials, ∃ entry ∈ r.1.2.1,
+        (.inl (.inr x) : SigGolfCandidate.T3.Spec.Domain) ∈
+          SigGolfCandidate.T3M.SecurityExtraction.queried (wA hU omega g) (authenticatedSign published entry.1)) ∧
+      r.2.memory.exposures.length ≤ r.1.2.1.length := by
+  unfold experimentL at hr
+  obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ initL r hr
+  obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ m1.2 r hr
+  rw [runL_pure_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ r hr]
+  have g1 := run_good _ _ (Guess.Fam.phi g.1 g.2) _ initL (good_empty _ _) m1 h1
+  obtain ⟨i1, i2, i3⟩ := interactionL_counts hU omega g _ _ initL (good_empty _ _) m1 h1
+  obtain ⟨p1, p2, p3⟩ := WPair.programL_counts hU omega (Guess.Fam.phi g.1 g.2) _ m1.2 g1.1 m2 h2
+  have h0 : initL.memory = LazyMem.empty := rfl
+  rw [h0] at i1 i2 i3
+  refine ⟨?_, fun x hx => ?_, ?_⟩
+  · change m2.2.memory.births.length ≤ (m1.1.2.2 ++ m2.1.2).length
+    rw [List.length_append]
+    change m1.2.memory.births.length ≤ 0 + m1.1.2.2.length at i1
+    omega
+  · change x ∈ m2.2.memory.trials at hx
+    rw [p3] at hx
+    rcases i3 x hx with hx | hx
+    · exact absurd hx (List.not_mem_nil)
+    · exact hx
+  · change m2.2.memory.exposures.length ≤ m1.1.2.1.length
+    rw [p2]
+    change m1.2.memory.exposures.length ≤ 0 + m1.1.2.1.length at i2
+    omega
+
+theorem experimentL_probes_births (g : CanonTable.HiddenF) {α β : Type} (published : SigGolfCandidate.T3.Cache)
+    (program : OracleComp Interaction α) (finish : (α × QueryLog Requests) → M β)
+    (r : (β × QueryLog Requests × List Wots.Entry) × WStateL)
+    (hr : fixedRun (envE (digestOf omega) (nonceOf omega)) (Guess.Fam.phi g.1 g.2)
+      (experimentL hU omega published program finish) initL r ≠ 0) :
+    r.2.probes + r.2.memory.births.length ≤ r.1.2.2.length := by
+  unfold experimentL at hr
+  obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ initL r hr
+  obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ m1.2 r hr
+  rw [runL_pure_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ r hr]
+  have g1 := run_good _ _ (Guess.Fam.phi g.1 g.2) _ initL (good_empty _ _) m1 h1
+  have i := interactionL_probes_births hU omega g _ _ initL (good_empty _ _) m1 h1
+  have p := WPair.programL_probes_births hU omega (Guess.Fam.phi g.1 g.2) _ m1.2 g1.1 m2 h2
+  change m1.2.probes + m1.2.memory.births.length ≤ 0 + 0 + m1.1.2.2.length at i
+  change m2.2.probes + m2.2.memory.births.length ≤ (m1.1.2.2 ++ m2.1.2).length
+  rw [List.length_append]
+  omega
+
+theorem experimentL_ghosts (g : CanonTable.HiddenF) {α β : Type} (published : SigGolfCandidate.T3.Cache)
+    (program : OracleComp Interaction α) (finish : (α × QueryLog Requests) → M β)
+    (r : (β × QueryLog Requests × List Wots.Entry) × WStateL)
+    (hr : fixedRun (envE (digestOf omega) (nonceOf omega)) (Guess.Fam.phi g.1 g.2)
+      (experimentL hU omega published program finish) initL r ≠ 0) :
+    (∀ entry ∈ r.1.2.1, ∀ signature output, entry.2 = some signature →
+      signedOutput (wA hU omega g) entry.1.message signature = some output → output ∈ r.2.memory.exposures) ∧
+    (∀ x a, (x, a) ∈ r.1.2.2 → x ∈ SigGolfCandidate.T3.Security.BPair.digestInputs →
+      r.2.memory.rows x = some a) := by
+  unfold experimentL at hr
+  obtain ⟨m1, h1, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ initL r hr
+  obtain ⟨m2, h2, hr⟩ := runL_bind_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ m1.2 r hr
+  rw [runL_pure_nonzero _ (Guess.Fam.phi g.1 g.2) _ _ r hr]
+  have g1 := run_good _ _ (Guess.Fam.phi g.1 g.2) _ initL (good_empty _ _) m1 h1
+  have g2 := run_good _ _ (Guess.Fam.phi g.1 g.2) _ m1.2 g1.1 m2 h2
+  obtain ⟨i1, i2⟩ := interactionL_ghost hU omega g _ _ initL (good_empty _ _) m1 h1
+  have p := WPair.programL_ghost hU omega g _ m1.2 g1.1 m2 h2
+  refine ⟨fun entry he signature output hs ho => g2.2.exposures _ (i1 entry he signature output hs ho), ?_⟩
+  intro x a hx hdx
+  rcases List.mem_append.mp hx with hx | hx
+  · exact g2.2.rows _ _ (i2 x a hx hdx)
+  · exact p x a hx hdx
+
+theorem experimentL_rows_birth_or_trials (g : CanonTable.HiddenF) {α β : Type}
+    (published : SigGolfCandidate.T3.Cache) (program : OracleComp Interaction α)
+    (finish : (α × QueryLog Requests) → M β)
+    (r : (β × QueryLog Requests × List Wots.Entry) × WStateL)
+    (hr : fixedRun (envE (digestOf omega) (nonceOf omega)) (Guess.Fam.phi g.1 g.2)
+      (experimentL hU omega published program finish) initL r ≠ 0)
+    (x : HashInput) (a : HashOutput) (hx : (x,a) ∈ r.1.2.2)
+    (hd : x ∈ SigGolfCandidate.T3.Security.BPair.digestInputs) :
+    a ∈ r.2.memory.births ∨ x ∈ r.2.memory.trials := by
+  have hg := run_good _ _ (Guess.Fam.phi g.1 g.2) _ initL (good_empty _ _) r hr
+  exact hg.1.2 x a ((experimentL_ghosts hU omega g published program finish r hr).2 x a hx hd)
+
+#print axioms experimentL_counts
+#print axioms experimentL_probes_births
+#print axioms experimentL_ghosts
+end ClaudeWCT.W9.T3.Security.WPair.Paired

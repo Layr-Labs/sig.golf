@@ -39,7 +39,7 @@ def penaltyWords (q : Nat) : List (BitVec 32) :=
   [byteLoad 28 (3*q),byteLoad 29 (3*q+1),byteLoad 30 (3*q+2),
    0x1de0e33,0x1ee0e33,0x3e3e13,0x41c30333]
 def floorWords (top : Bool) : List (BitVec 32) :=
-  if top then [0x1600e13] else [0xfff40e13,0x1e3e13,0x9e0e13]
+  if top then [0x1500e13] else [0xfff40e13,0x1e3e13,0x9e0e13]
 def exitWords (b : Nat) (top : Bool) : List (BitVec 32) :=
   if b = 354 then (if top then [0x1c34463,0x8067,0xe21d506f] else [0x1c34463,0x8067,0xf7cd606f])
   else (if top then [0x1c34463,0x8067,0x8f9eb06f] else [0x1c34463,0x8067,0xa54ec06f])
@@ -82,7 +82,7 @@ def scoreExpr (top : Bool) : E :=
   if top then penaltyGroups.foldl (fun e q => mkBin .sub e (penaltyExpr q)) (rewardsExpr top)
   else rewardsExpr top
 def floorExpr (top : Bool) : E :=
-  if top then .c 22 else mkAdd
+  if top then .c 21 else mkAdd
     (.bin .sltu (mkAdd (.reg .x8) (.c 18446744073709551615)) (.c 1)) (.c 9)
 
 sym_block low354 := symRun {noAlias:=true} (code 354 false) (pcOf (base 354 false)) 1000
@@ -315,7 +315,7 @@ theorem scoreExpr_layer (s : MachineState) (lay : Layer) (ds : List Nat)
 
 /-- The signed 64-bit score subtraction agrees with the bounded natural reward test. -/
 theorem signed_reward_lt (r p f : Nat) (hr : r ≤ 270) (hp : p ≤ 12)
-    (hf : f = 9 ∨ f = 10 ∨ f = 22) :
+    (hf : f = 9 ∨ f = 10 ∨ f = 21) :
     (BitVec.ofNat 64 r - BitVec.ofNat 64 p).slt (BitVec.ofNat 64 f) =
       decide (r < p + f) := by
   have small_toInt (n : Nat) (hn : n ≤ 270) :
@@ -379,7 +379,7 @@ theorem total_penalty_bound (lay : Layer) (ds : List Nat) : dispatchPenalty lay 
     exact (List.length_filter_le _ _).trans (by decide : penaltyGroups.length ≤ 12)
   · omega
 
-theorem floor_values (lay : Layer) : producerFloor lay = 9 ∨ producerFloor lay = 10 ∨ producerFloor lay = 22 := by
+theorem floor_values (lay : Layer) : producerFloor lay = 9 ∨ producerFloor lay = 10 ∨ producerFloor lay = 21 := by
   fin_cases lay <;> decide
 
 theorem pre_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : LegacyRewardAt image b)
@@ -522,9 +522,9 @@ def packedTopScore (v : T3.Digest) : Nat :=
   ((List.range 17).map (fun q => topLookup (topKind q) (topRank v q))).sum +
     tailLookup (v.toNat / 2^119 % 512)
 def fastSignLower : List (BitVec 32) := [0x10005b7,0x80058593,0xa13,0x35513,0x1ff57e13,0xbe0e33,0xc00e4e83,0x1da0a33,0x935513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x1235513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x1b35513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x2435513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x2d35513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x3635513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x3d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x93d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x123d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x1b3d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x243d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x2d3d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x363d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x41988e33,0xffae0e13,0x1e3e13,0x1ca0a33,0xfff40e13,0x1e3e13,0x9e0e13,0x1ca6463,0xed4ec06f,0xf5cec06f]
-def fastSignTop : List (BitVec 32) := [0x10005b7,0x80058593,0xa13,0x35513,0x7f57e13,0xbe0e33,0xe4e83,0x1da0a33,0x735513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0xe35513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x1535513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x1c35513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x2335513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x2a35513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x3135513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x3835513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x3f35513,0x139e13,0x1c56533,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x63d513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0xd3d513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x143d513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x1b3d513,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x223d513,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x293d513,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x303d513,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x373d513,0x1ff57e13,0xbe0e33,0x180e4e83,0x1da0a33,0x2200e13,0x1ca6463,0x814ec06f,0x8c8ec06f]
+def fastSignTop : List (BitVec 32) := [0x10005b7,0x80058593,0xa13,0x35513,0x7f57e13,0xbe0e33,0xe4e83,0x1da0a33,0x735513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0xe35513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x1535513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x1c35513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x2335513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x2a35513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x3135513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x3835513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x3f35513,0x139e13,0x1c56533,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x63d513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0xd3d513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x143d513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x1b3d513,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x223d513,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x293d513,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x303d513,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x373d513,0x1ff57e13,0xbe0e33,0x180e4e83,0x1da0a33,0x2100e13,0x1ca6463,0x814ec06f,0x8c8ec06f]
 def fastExpandLower : List (BitVec 32) := [0x10005b7,0x80058593,0xa13,0x35513,0x1ff57e13,0xbe0e33,0xc00e4e83,0x1da0a33,0x935513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x1235513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x1b35513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x2435513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x2d35513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x3635513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x3d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x93d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x123d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x1b3d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x243d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x2d3d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x363d513,0x1ff57e13,0xbe0e33,0xe00e4e83,0x1da0a33,0x41988e33,0xffae0e13,0x1e3e13,0x1ca0a33,0xfff40e13,0x1e3e13,0x9e0e13,0x1ca6463,0xbfdd606f,0xc85d606f]
-def fastExpandTop : List (BitVec 32) := [0x10005b7,0x80058593,0xa13,0x35513,0x7f57e13,0xbe0e33,0xe4e83,0x1da0a33,0x735513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0xe35513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x1535513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x1c35513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x2335513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x2a35513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x3135513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x3835513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x3f35513,0x139e13,0x1c56533,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x63d513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0xd3d513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x143d513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x1b3d513,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x223d513,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x293d513,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x303d513,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x373d513,0x1ff57e13,0xbe0e33,0x180e4e83,0x1da0a33,0x2200e13,0x1ca6463,0xd3cd606f,0xdf0d606f]
+def fastExpandTop : List (BitVec 32) := [0x10005b7,0x80058593,0xa13,0x35513,0x7f57e13,0xbe0e33,0xe4e83,0x1da0a33,0x735513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0xe35513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x1535513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x1c35513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x2335513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x2a35513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x3135513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x3835513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x3f35513,0x139e13,0x1c56533,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x63d513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0xd3d513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x143d513,0x7f57e13,0xbe0e33,0x80e4e83,0x1da0a33,0x1b3d513,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x223d513,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x293d513,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x303d513,0x7f57e13,0xbe0e33,0x100e4e83,0x1da0a33,0x373d513,0x1ff57e13,0xbe0e33,0x180e4e83,0x1da0a33,0x2100e13,0x1ca6463,0xd3cd606f,0xdf0d606f]
 
 def fastCode (b : Nat) (top : Bool) : List (BitVec 32) :=
   if b=354 then (if top then fastExpandTop else fastExpandLower)
@@ -537,16 +537,16 @@ theorem fast_at_code {image : Image} {b : Nat} (h : RewardAt image b) (top : Boo
     CodeAt image (pcOf (base b top)) (fastCode b top) := by cases top; exact h.1; exact h.2
 
 theorem fastCode_sign (top : Bool) :
-    (Images.signCode.drop (base 543 top)).take (fastCode 543 top).length = fastCode 543 top := by
-  cases top <;> rw [Images.Slices.signCode_drop_eq _ (by decide)] <;> decide +kernel
+    (Images.signReferenceCode.drop (base 543 top)).take (fastCode 543 top).length = fastCode 543 top := by
+  cases top <;> rw [Images.Slices.signReferenceCode_drop_eq _ (by decide)] <;> decide +kernel
 theorem fastCode_expand (top : Bool) :
-    (Images.expandCode.drop (base 354 top)).take (fastCode 354 top).length = fastCode 354 top := by
-  cases top <;> rw [Images.Slices.expandCode_drop_eq _ (by decide)] <;> decide +kernel
-theorem at_sign : RewardAt Images.signImage 543 := by
+    (Images.expandReferenceCode.drop (base 354 top)).take (fastCode 354 top).length = fastCode 354 top := by
+  cases top <;> rw [Images.Slices.expandReferenceCode_drop_eq _ (by decide)] <;> decide +kernel
+theorem at_sign : RewardAt Images.signReferenceImage 543 := by
   constructor <;> apply codeAt_slice (by decide +kernel)
   · exact fastCode_sign false
   · exact fastCode_sign true
-theorem at_expand : RewardAt Images.expandImage 354 := by
+theorem at_expand : RewardAt Images.expandReferenceImage 354 := by
   constructor <;> apply codeAt_slice (by decide +kernel)
   · exact fastCode_expand false
   · exact fastCode_expand true
@@ -909,7 +909,7 @@ theorem init_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : RewardA
 def branchCode : List (BitVec 32) := (fastExpandTop.drop 95).take 2
 sym_block branchBase := symRun {noAlias:=true} branchCode 0#64 3
 def branchResult (b : Nat) : Result :=
-  ⟨branchBase.res.st,.ite .ltu (.reg .x20) (.c 34) (.c (pcOf (base b true+98)))
+  ⟨branchBase.res.st,.ite .ltu (.reg .x20) (.c 33) (.c (pcOf (base b true+98)))
     (.c (pcOf (base b true+97))),.branch,2,2⟩
 theorem branch_run (b : Nat) (hb : b=354 ∨ b=543) :
     symRun {noAlias:=true} branchCode (pcOf (base b true+95)) 3 = some (branchResult b) := by
@@ -918,14 +918,14 @@ theorem branch_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : Rewar
     (s : MachineState) (acc : Nat) (ha : acc<2^64)
     (hpc : s.pc=pcOf (base b true+95)) (h20 : s.getReg .x20=BitVec.ofNat 64 acc) :
     ∃ t, Steps image s 2 2 t ∧
-      t.pc=(if acc<34 then pcOf (base b true+98) else pcOf (base b true+97)) ∧
+      t.pc=(if acc<33 then pcOf (base b true+98) else pcOf (base b true+97)) ∧
       RegsExcept s t [.x28] ∧ Frame s t (fun _=>False) := by
   have hc : CodeAt image (pcOf (base b true+95)) branchCode := by
     have hh := fast_slice hR true 95 2 (by rw [fastCode_length]; decide)
     convert hh using 1 <;> rcases hb with rfl | rfl <;> kernel_rfl
   refine ⟨_,symRun_sound (branch_run b hb) hc s hpc (by simp [branchResult,branchBase.res,rv_simp]),?_,?_,?_⟩
-  · change (if (s.getReg .x20).ult 34#64 then _ else _) = _
-    rw [h20,ofNat_ult acc 34 ha (by decide)]
+  · change (if (s.getReg .x20).ult 33#64 then _ else _) = _
+    rw [h20,ofNat_ult acc 33 ha (by decide)]
     simp [E.eval]
   · intro r hr; cases r <;> simp_all [branchResult,branchBase.res,rv_simp] <;> rfl
   · intro A _ _; rfl
@@ -960,11 +960,11 @@ theorem top_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : RewardAt
   have he := packedTopScore_reward v hvalid
   have hbound := total_reward_bound 0 (topDigits (T3.topFlip v))
   obtain ⟨t3,s3,p3,r3,f3⟩ := branch_spec hb hR t2 (packedTopScore v) (by omega) p2 g2
-  have hiff : 34 ≤ packedTopScore v ↔ producerFloor 0+dispatchPenalty 0 (topDigits (T3.topFlip v)) ≤
+  have hiff : 33 ≤ packedTopScore v ↔ producerFloor 0+dispatchPenalty 0 (topDigits (T3.topFlip v)) ≤
       wordCredit 0 (topDigits (T3.topFlip v))+4*savedCopies 0 (topDigits (T3.topFlip v)) := by
-    change 34 ≤ packedTopScore v ↔ 22+_ ≤ _
+    change 33 ≤ packedTopScore v ↔ 21+_ ≤ _
     omega
-  by_cases ha : 34 ≤ packedTopScore v
+  by_cases ha : 33 ≤ packedTopScore v
   · rw [if_neg (by omega)] at p3
     obtain ⟨t4,s4,p4,r4,f4⟩ := exit_spec hb hR t3 true p3
     refine ⟨t4,((s1.trans s2).trans s3).trans s4,?_,
