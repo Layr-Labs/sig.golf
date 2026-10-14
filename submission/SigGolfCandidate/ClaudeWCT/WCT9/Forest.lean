@@ -137,10 +137,10 @@ theorem signPayload_expands (answers : Answers) (cache : Cache) (message : Messa
           have hf := recoverFts_honest answers sig (digestIndex output) output
             (fun coord => hrows.2.2.1 coord coord.isLt)
           have hparts : PiecesAgree (toT3Signature sig) pieces 4 := fun _ _ => rfl
-          obtain ⟨counters, _, hreplay⟩ := (signLayersBC_expandLayersBC answers cache
+          obtain ⟨counters, topHint, _, hreplay⟩ := (signLayersBC_expandLayersBC answers cache
             (digestIndex output) hcache (digestIndex_lt output) htop 4 (by decide) (by decide) _ pieces
             hl).2 sig hparts
-          refine ⟨⟨sig, counter, fun lay => counters.getD lay.val 0⟩, ?_⟩
+          refine ⟨⟨sig, counter, fun lay => counters.getD lay.val 0, topHint⟩, ?_⟩
           unfold expand
           rw [show sig.rho = evalWithAnswerFn answers (privateNonce message) by rfl]
           simp only [evalWithAnswerFn_bind, hd, hf, hreplay, ne_eq, not_true_eq_false, ite_false,
@@ -293,7 +293,7 @@ theorem expandWith_implies_verifyWith (limit : Nat) (hlimit : limit ≤ 2 ^ 32) 
             (evalWithAnswerFn answers (recoverFts sig (digestIndex output) output)).2)) with
       | none => simp only [hl, evalWithAnswerFn_pure, reduceCtorEq] at he
       | some layers =>
-          obtain ⟨root, counters⟩ := layers
+          obtain ⟨root, counters, topHint⟩ := layers
           simp only [hl] at he
           split at he
           · simp only [evalWithAnswerFn_pure, reduceCtorEq] at he
@@ -306,8 +306,8 @@ theorem expandWith_implies_verifyWith (limit : Nat) (hlimit : limit ≤ 2 ^ 32) 
             have hadm := admissible_of_producer hprod
             have hnot : ¬counter.toNat ≥ limit := by omega
             have hverified := (expandLayersBC_verified answers sig
-              (digestIndex output) 4 (by decide) _ root counters hl).2
-              ⟨sig, counter, fun lay => counters.getD lay.val 0⟩ rfl (fun _ _ => rfl)
+              (digestIndex output) 4 (by decide) _ root counters topHint hl).2
+              ⟨sig, counter, fun lay => counters.getD lay.val 0, topHint⟩ rfl rfl (fun _ _ => rfl)
             simp only [verifyWith, hnot, ite_false, evalWithAnswerFn_bind, houtput, hadm,
               Bool.not_true, Bool.false_eq_true, hverified, evalWithAnswerFn_pure, hroot,
               beq_self_eq_true]
@@ -338,12 +338,12 @@ theorem signPayloadWith_expands (limit : Nat) (answers : Answers) (cache : Cache
               (evalWithAnswerFn answers (privateNonce message))
               (evalWithAnswerFn answers (signForest (digestIndex output) output)).1 pieces)) pieces 4 :=
             fun _ _ => rfl
-          obtain ⟨counters, _, hreplay⟩ := (signLayersBC_expandLayersBC answers cache
+          obtain ⟨counters, topHint, _, hreplay⟩ := (signLayersBC_expandLayersBC answers cache
             (digestIndex output) hcache (digestIndex_lt output) htop 4 (by decide) (by decide) _ pieces
             hl).2 _ hparts
           refine ⟨⟨assembledSignature (evalWithAnswerFn answers (privateNonce message))
             (evalWithAnswerFn answers (signForest (digestIndex output) output)).1 pieces,
-            counter, fun lay => counters.getD lay.val 0⟩, ?_⟩
+            counter, fun lay => counters.getD lay.val 0, topHint⟩, ?_⟩
           unfold expandWith
           simp only [assembledSignature_rho, evalWithAnswerFn_bind, hd, hf, hreplay, ne_eq,
             not_true_eq_false, ite_false, evalWithAnswerFn_pure]

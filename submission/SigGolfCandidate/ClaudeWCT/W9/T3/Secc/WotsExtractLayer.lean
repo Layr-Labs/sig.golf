@@ -318,7 +318,7 @@ theorem frame_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) 
       (msg = Extract.honestMsg answers index lay ∧ BC.GoodZ answers w index lay) := by
   classical
   have hdec : decode (routeLeaf index lay).lay
-      (WCT9.encodingAnswer (routeLeaf index lay).lay (answers (.inl (.inr (encRow (routeLeaf index lay) msg (wbcCtr w index lay) (wbcPad w index lay, wbcRight w, wbcHigh w index lay ^^^ 1)))))) = some digits := by
+      (WCT9.verificationAnswer (routeLeaf index lay).lay (wtopHint w) (answers (.inl (.inr (encRow (routeLeaf index lay) msg (wbcCtr w index lay) (wbcPad w index lay, wbcRight w, wbcHigh w index lay ^^^ 1)))))) = some digits := by
     rw [encRow_wit]; exact hframe.2
   have hfit' : Extract.msgFits (routeLeaf index lay).lay msg := hfit
   have hencE : (encRow (routeLeaf index lay) msg (wbcCtr w index lay) (wbcPad w index lay, wbcRight w, wbcHigh w index lay ^^^ 1),
@@ -342,7 +342,7 @@ theorem frame_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) 
       exact (hchains i hi).1 (le_of_eq hdi)
     by_cases hm : msg = Extract.honestMsg answers index lay
     · by_cases hp : wbcPad w index lay = 0 ∧ wbcHigh w index lay = 1
-      · exact Or.inr ⟨hm, ⟨digits, hm ▸ hframe, hshape⟩, hp⟩
+      · exact Or.inr ⟨hm, BC.GoodZ.of_good ⟨digits, hm ▸ hframe, hshape⟩ hp⟩
       · have hpad : (wbcPad w index lay, wbcRight w, wbcHigh w index lay ^^^ 1).1 ≠ 0 ∨
             (wbcPad w index lay, wbcRight w, wbcHigh w index lay ^^^ 1).2.2 ≠ 0 := by
           by_cases hp1 : wbcPad w index lay = 0
@@ -355,24 +355,41 @@ theorem frame_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) 
         refine Or.inl (Or.inl ⟨routeLeaf index lay, hsrc, msg, wbcCtr w index lay, (wbcPad w index lay, wbcRight w, wbcHigh w index lay ^^^ 1),
           _, hfit', hencE, ?_, ?_⟩)
         · exact referenceInput_ne_pad answers _ msg _ _ hfit' hpad
-        · rw [← heq]; exact hdec
+        · rw [← heq]; exact ⟨wtopHint w, hdec⟩
     · refine Or.inl (Or.inl ⟨routeLeaf index lay, hsrc, msg, wbcCtr w index lay, (wbcPad w index lay, wbcRight w, wbcHigh w index lay ^^^ 1),
         _, hfit', hencE, ?_, ?_⟩)
-      · exact referenceInput_ne answers _ msg _ _ hfit' hdec (Or.inl (by rw [leafMsg_route _ _ _ hidx]; exact hm))
-      · rw [← heq]; exact hdec
+      · exact referenceInput_ne_msg answers _ msg _ _ hfit' (by rw [leafMsg_route _ _ _ hidx]; exact hm)
+      · rw [← heq]; exact ⟨wtopHint w, hdec⟩
   ·
     have hlow : digits.getD i.val 0 + 1 = (referenceDigits answers (routeLeaf index lay)).getD i.val 0 := hu.2.2.1
     have hne : digits ≠ referenceDigits answers (routeLeaf index lay) := by
       intro he; rw [he] at hlow; omega
-    refine Or.inl (Or.inr (Or.inr (Or.inr (Or.inr ⟨⟨routeLeaf index lay, i.val⟩, hsrcC7 i.val i.isLt,
-      ⟨msg, wbcCtr w index lay, (wbcPad w index lay, wbcRight w, wbcHigh w index lay ^^^ 1), _, digits, hfit', hencE,
-        referenceInput_ne answers _ msg _ _ hfit' hdec (Or.inr hne), hdec, hlow, ?_⟩,
-      hcontact i.val i.isLt (by show _ < (referenceDigits answers (routeLeaf index lay)).getD i.val 0; omega)⟩))))
-    intro k hk
-    by_cases hkc : k < chainCount lay
-    · exact hu.2.2.2 ⟨k, hkc⟩ (fun he => hk (congrArg Fin.val he))
-    · rw [List.getD_eq_default _ _ (by rw [referenceDigits_length]; exact not_lt.mp hkc)]
-      exact Nat.zero_le _
+    by_cases hri : referenceInput answers (routeLeaf index lay) = some
+        (encRow (routeLeaf index lay) msg (wbcCtr w index lay) (wbcPad w index lay, wbcRight w, wbcHigh w index lay ^^^ 1))
+    · obtain ⟨hm, hp⟩ := referenceInput_eq_msg_pad answers _ msg _ _ hfit' hri
+      have hmsg : msg = Extract.honestMsg answers index lay := by
+        rw [leafMsg_route _ _ _ hidx] at hm
+        exact hm
+      right
+      refine ⟨hmsg, ?_, by simpa using hp⟩
+      intro hc
+      have hdcanon := hframe.2
+      rw [hmsg] at hdcanon
+      change Extract.CanonicalFrame answers w index lay at hc
+      dsimp only [Extract.CanonicalFrame] at hc
+      rw [hc, ← hmsg] at hdcanon
+      exact (referenceInput_ne answers (routeLeaf index lay) msg (wbcCtr w index lay)
+        (wbcPad w index lay, wbcRight w, wbcHigh w index lay ^^^ 1) hfit' (by rw [encRow_wit]; exact hdcanon) (Or.inr hne) hri).elim
+    ·
+      refine Or.inl (Or.inr (Or.inr (Or.inr (Or.inr ⟨⟨routeLeaf index lay, i.val⟩, hsrcC7 i.val i.isLt,
+        ⟨msg, wbcCtr w index lay, (wbcPad w index lay, wbcRight w, wbcHigh w index lay ^^^ 1), _, digits, hfit', hencE,
+          hri, ⟨wtopHint w, hdec⟩, hlow, ?_⟩,
+        hcontact i.val i.isLt (by show _ < (referenceDigits answers (routeLeaf index lay)).getD i.val 0; omega)⟩))))
+      intro k hk
+      by_cases hkc : k < chainCount lay
+      · exact hu.2.2.2 ⟨k, hkc⟩ (fun he => hk (congrArg Fin.val he))
+      · rw [List.getD_eq_default _ _ (by rw [referenceDigits_length]; exact not_lt.mp hkc)]
+        exact Nat.zero_le _
   ·
     refine Or.inl (Or.inr (Or.inr (Or.inl ⟨⟨routeLeaf index lay, i.val⟩, hsrcC i.val i.isLt, ?_⟩)))
     have hlt : digits.getD i.val 0 < depth answers ⟨routeLeaf index lay, i.val⟩ := by

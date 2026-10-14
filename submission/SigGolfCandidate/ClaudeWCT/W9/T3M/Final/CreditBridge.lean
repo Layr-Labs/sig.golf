@@ -1,5 +1,6 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Final.Budgets
 import SigGolfCandidate.T3M.Verify.HashAgree
+import SigGolfCandidate.Choice.Witness
 
 section
 open OracleComp OracleSpec
@@ -217,6 +218,7 @@ theorem encQ_layer (lay lay' : Layer) (tree leaf : Nat) (msg : ClaudeWCT.WCT9.La
   unfold rowTweak at hb'
   exact (hyperH_layer hb').symm
 variable {f g : Hash}
+variable {choiceHint : BitVec 64}
 theorem agree_mrealize {α : Type} {p : M α} (hp : AllQueriesSatisfy p NotEncS)
     (hfg : ∀ q, (∀ lay : Layer, ¬ EncQ lay.val q) → f q = g q) : Agree f g (mrealize 0 p) := by
   induction p using OracleComp.inductionOn with
@@ -249,15 +251,26 @@ theorem eval_encodingHash (hash : Hash) (lay : Layer) (y : HashInput) :
     evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.WCT9.encodingHash lay y) =
       ClaudeWCT.WCT9.encodingAnswer lay (hash (toQ (pad64 y))) := by
   rw [← eval_mrealize, mrealize_encodingHash, evalWithAnswerFn_map, eval_liftQ]
-theorem hfg_ok (hash : Hash) : ∀ q, (∀ lay : Layer, ¬ EncQ lay.val q) → hash q = okHash hash q :=
+theorem mrealize_verificationHash (lay : Layer) (hint : BitVec 64) (y : HashInput) :
+    mrealize 0 (ClaudeWCT.WCT9.verificationHash lay hint y) =
+      ClaudeWCT.WCT9.verificationAnswer lay hint <$>
+        (liftM (HashSpec.query (toQ (pad64 y))) : OracleComp HashSpec _) := by
+  rw [ClaudeWCT.WCT9.verificationHash, mrealize_map, SigGolfCandidate.T3M.mrealize_publicHash]
+theorem eval_verificationHash (hash : Hash) (lay : Layer) (hint : BitVec 64) (y : HashInput) :
+    evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.WCT9.verificationHash lay hint y) =
+      ClaudeWCT.WCT9.verificationAnswer lay hint (hash (toQ (pad64 y))) := by
+  rw [← eval_mrealize, mrealize_verificationHash, evalWithAnswerFn_map, eval_liftQ]
+theorem hfg_ok (hash : Hash) : ∀ q, (∀ lay : Layer, ¬ EncQ lay.val q) →
+    hash q = okHash (choiceHint := choiceHint) hash q :=
   fun _ h => (okHash_eq_of_not_enc hash h).symm
 theorem okHash_producer (hash : Hash) (lay : Layer) (tree leaf : Nat) (msg : ClaudeWCT.WCT9.LayerMsg)
     (c : BitVec 32) {digits : List Nat}
     (hp : ClaudeWCT.WCT9.producerDecode lay
-      (ClaudeWCT.WCT9.encodingAnswer lay (hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c))))) =
-        some digits) :
+      (ClaudeWCT.WCT9.verificationAnswer lay choiceHint
+        (hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c))))) = some digits) :
     hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c))) =
-      okHash hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c))) := by
+      okHash (choiceHint := choiceHint) hash
+        (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c))) := by
   refine (okHash_eq hash ?_).symm
   rintro ⟨lay', hq, ds, hds, hlow⟩
   obtain rfl := encQ_layer lay lay' tree leaf msg c hq
@@ -266,53 +279,60 @@ theorem okHash_producer (hash : Hash) (lay : Layer) (tree leaf : Nat) (msg : Cla
   have := ClaudeWCT.WCT9.producerDecode_credit hp
   omega
 theorem agree_layers (hash : Hash) (sig : ClaudeWCT.WCT9.Signature) (index : Nat) :
-    ∀ n, n ≤ 4 → ∀ msg root counters,
+    ∀ n, n ≤ 4 → ∀ msg root counters topHint,
       evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.WCT9.expandLayersBC sig index n msg) =
-        some (root, counters) →
-      ∀ w : ClaudeWCT.WCT9.Witness, w.signature = sig →
+        some (root, counters, topHint) →
+      ∀ w : ClaudeWCT.WCT9.Witness, w.signature = sig → w.topHint = topHint →
         (∀ lay : Layer, lay.val < n → w.counters lay = counters.getD lay.val 0) →
-        Agree hash (okHash hash) (mrealize 0 (ClaudeWCT.WCT9.verifyLayersBC w index n msg)) := by
+        Agree hash (okHash (choiceHint := w.topHint) hash)
+          (mrealize 0 (ClaudeWCT.WCT9.verifyLayersBC w index n msg)) := by
   intro n
   induction n with
   | zero =>
-      intro _ msg root counters he
+      intro _ msg root counters topHint he
       simp [ClaudeWCT.WCT9.expandLayersBC] at he
   | succ n ih =>
-      intro hn msg root counters he w hw hc
+      intro hn msg root counters topHint he w hw hwh hc
       simp only [ClaudeWCT.WCT9.expandLayersBC, evalWithAnswerFn_bind] at he
-      cases hs : evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.WCT9.layerCounterSearch (Fin.ofNat 4 n)
+      cases hs : evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.WCT9.layerCounterSearchHint (Fin.ofNat 4 n)
         (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg 0
         (ClaudeWCT.WCT9.searchLimit (Fin.ofNat 4 n))) with
       | none => simp only [hs, evalWithAnswerFn_pure, reduceCtorEq] at he
       | some found =>
-          obtain ⟨counter, digits⟩ := found
+          obtain ⟨counter, digits, hint⟩ := found
           have hlim := ClaudeWCT.WCT9.searchLimit_le (Fin.ofNat 4 n)
-          obtain ⟨_, hbound, hsd⟩ := ClaudeWCT.WCT9.layerCounterSearch_some_search (machineAnswers hash 0)
+          obtain ⟨_, hbound, hhint, hsd⟩ := ClaudeWCT.WCT9.layerCounterSearchHint_some (machineAnswers hash 0)
             (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg
-            (ClaudeWCT.WCT9.searchLimit (Fin.ofNat 4 n)) 0 counter digits
+            (ClaudeWCT.WCT9.searchLimit (Fin.ofNat 4 n)) 0 counter digits hint
             (by unfold counterLimit at hlim; omega) hs
           have hdecode := ClaudeWCT.WCT9.producerDecode_decode hsd
           have hnot : ¬counter.toNat ≥ ClaudeWCT.WCT9.verifyWindow := ClaudeWCT.WCT9.ctr_not_ge_verifyWindow counter
           have hlay := ClaudeWCT.WCT9.ofNat_layer_val n (by omega)
           simp only [hs] at he
           have hproducerRaw := hsd
-          rw [eval_encodingHash] at hsd
-          have hq := okHash_producer hash _ _ _ msg counter hsd
+          rw [eval_verificationHash] at hsd
           by_cases hn0 : n = 0
           · subst hn0
             simp only [if_true, evalWithAnswerFn_bind, evalWithAnswerFn_pure, Option.some.injEq,
               Prod.mk.injEq] at he
-            obtain ⟨-, rfl⟩ := he
+            obtain ⟨-, rfl, rfl⟩ := he
             have hcounter : w.counters (Fin.ofNat 4 0) = counter := by
               rw [hc _ (by rw [hlay]; omega), hlay]; rfl
+            have hq := okHash_producer (choiceHint := w.topHint) hash _ _ _ msg counter
+              (by rw [hwh]; exact hsd)
             simp only [ClaudeWCT.WCT9.verifyLayersBC, hcounter, hnot, ite_false]
             refine (agree_mrealize_bind _ _).mpr ⟨?_, ?_⟩
-            · rw [mrealize_encodingHash, agree_map_iff]
+            · rw [mrealize_verificationHash, agree_map_iff]
               exact ⟨hq, trivial⟩
-            · simp only [if_true, ↓reduceIte]
+            · simp only [if_true, ↓reduceIte, hwh]
               rw [ClaudeWCT.WCT9.verifyTop_of_decode _ _ hdecode, mrealize_map, agree_map_iff]
               exact agree_mrealize (notEnc_recoverLayer _ _ _ _ (by rfl)) (hfg_ok hash)
-          · simp only [hn0, if_false, evalWithAnswerFn_bind] at he
+          · have hlay0 : (Fin.ofNat 4 n : Layer) ≠ 0 := by
+              intro h; have := congrArg Fin.val h; rw [hlay] at this; exact hn0 this
+            have hq := okHash_producer (choiceHint := w.topHint) hash (Fin.ofNat 4 n)
+              (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg counter
+              (digits := digits) (by simpa only [ClaudeWCT.WCT9.verificationAnswer_lower _ hlay0] using hsd)
+            simp only [hn0, if_false, evalWithAnswerFn_bind] at he
             cases hr : evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.WCT9.expandLayersBC sig index n
               (.pair (evalWithAnswerFn (machineAnswers hash 0)
                 (ClaudeWCT.WCT9.recoverLayerPair sig index (Fin.ofNat 4 n) digits)).1
@@ -320,34 +340,33 @@ theorem agree_layers (hash : Hash) (sig : ClaudeWCT.WCT9.Signature) (index : Nat
                 (ClaudeWCT.WCT9.recoverLayerPair sig index (Fin.ofNat 4 n) digits)).2)) with
             | none => simp only [hr, evalWithAnswerFn_pure, reduceCtorEq] at he
             | some previous =>
-                obtain ⟨previousRoot, previousCounters⟩ := previous
+                obtain ⟨previousRoot, previousCounters, previousHint⟩ := previous
                 simp only [hr, evalWithAnswerFn_pure, Option.some.injEq, Prod.mk.injEq] at he
-                obtain ⟨-, rfl⟩ := he
-                have hlen := (ClaudeWCT.WCT9.expandLayersBC_verified _ sig index n (by omega) _ _ _ hr).1
+                obtain ⟨-, rfl, rfl⟩ := he
+                have hlen := (ClaudeWCT.WCT9.expandLayersBC_verified _ sig index n (by omega) _ _ _ _ hr).1
                 have hcounter : w.counters (Fin.ofNat 4 n) = counter := by
                   rw [hc _ (by rw [hlay]; omega), hlay,
                     List.getD_append_right previousCounters [counter] 0 n (by omega), hlen]
                   simp
                 simp only [ClaudeWCT.WCT9.verifyLayersBC, hcounter, hnot, ite_false]
                 refine (agree_mrealize_bind _ _).mpr ⟨?_, ?_⟩
-                · rw [mrealize_encodingHash, agree_map_iff]
+                · rw [mrealize_verificationHash, agree_map_iff]
                   exact ⟨hq, trivial⟩
-                · rw [hdecode]
-                  have hgood := ClaudeWCT.WCT9.producerDecode_lowerRankGood
-                    (lay := Fin.ofNat 4 n) (by intro h; have := congrArg Fin.val h; rw [hlay] at this; exact hn0 this) hproducerRaw
+                · rw [ClaudeWCT.WCT9.verificationHash_hints_lower _ hlay0 w.topHint hint, hdecode]
+                  have hgood := ClaudeWCT.WCT9.producerDecode_lowerRankGood hlay0 hproducerRaw
                   simp only [hn0, if_false,
                     ClaudeWCT.WCT9.recoverLayerPairGuard_of_good _ _ _ _ _ hgood, bind_map_left]
                   refine (agree_mrealize_bind _ _).mpr
                     ⟨agree_mrealize (notEnc_recoverLayerPair _ _ _ _) (hfg_ok hash), ?_⟩
                   rw [hw]
-                  refine ih (by omega) _ _ _ hr w hw (fun lay hsmall => ?_)
+                  refine ih (by omega) _ _ _ _ hr w hw hwh (fun lay hsmall => ?_)
                   rw [hc lay (by omega), List.getD_append previousCounters [counter] 0 lay.val (by omega)]
 theorem expandN_layers (A : SigGolfCandidate.T3.Correctness.Answers) (m : SigGolfCandidate.T3.Message) (pk : Digest)
     (σ : ClaudeWCT.WCT9.Signature) (N : HashOutput) (wt : ClaudeWCT.WCT9.Witness)
     (he : evalWithAnswerFn A (ClaudeWCT.W9.T3M.expandN0 m pk σ) = some (N, wt)) :
     ∃ root counters, evalWithAnswerFn A (ClaudeWCT.WCT9.expandLayersBC σ (ClaudeWCT.WCT9.digestIndex N) 4
         (.pair (evalWithAnswerFn A (ClaudeWCT.WCT9.recoverFts σ (ClaudeWCT.WCT9.digestIndex N) N)).1
-          (evalWithAnswerFn A (ClaudeWCT.WCT9.recoverFts σ (ClaudeWCT.WCT9.digestIndex N) N)).2)) = some (root, counters) ∧
+          (evalWithAnswerFn A (ClaudeWCT.WCT9.recoverFts σ (ClaudeWCT.WCT9.digestIndex N) N)).2)) = some (root, counters, wt.topHint) ∧
       ∀ lay : Layer, wt.counters lay = counters.getD lay.val 0 := by
   simp only [ClaudeWCT.W9.T3M.expandN0, evalWithAnswerFn_bind] at he
   cases hd : evalWithAnswerFn A (ClaudeWCT.WCT9.digestSearch σ.rho m 0 ClaudeWCT.WCT9.digestAttemptLimit) with
@@ -360,7 +379,7 @@ theorem expandN_layers (A : SigGolfCandidate.T3.Correctness.Answers) (m : SigGol
             (evalWithAnswerFn A (ClaudeWCT.WCT9.recoverFts σ (ClaudeWCT.WCT9.digestIndex output) output)).2)) with
       | none => simp only [hl, evalWithAnswerFn_pure, reduceCtorEq] at he
       | some layers =>
-          obtain ⟨root, counters⟩ := layers
+          obtain ⟨root, counters, topHint⟩ := layers
           simp only [hl] at he
           split at he
           · simp only [evalWithAnswerFn_pure, reduceCtorEq] at he
@@ -370,7 +389,8 @@ theorem expandN_layers (A : SigGolfCandidate.T3.Correctness.Answers) (m : SigGol
 theorem agree_verifyP (hash : Hash) (m : SigGolfCandidate.T3.Message) (pk : Digest) (σ : ClaudeWCT.WCT9.Signature)
     (N : HashOutput) (wt : ClaudeWCT.WCT9.Witness)
     (hx : evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.W9.T3M.expandN0 m pk σ) = some (N, wt)) :
-    Agree hash (okHash hash) (mrealize 0 (ClaudeWCT.W9.T3M.verifyP m pk (ClaudeWCT.W9.T3M.witEnc N wt))) := by
+    Agree hash (okHash (choiceHint := ClaudeWCT.W9.T3M.wtopHint (ClaudeWCT.W9.T3M.witEnc N wt)) hash) (mrealize 0 (ClaudeWCT.W9.T3M.verifyP m pk (ClaudeWCT.W9.T3M.witEnc N wt))) := by
+  rw [SigGolfCandidate.Choice.Witness.topHint_roundtrip]
   have F := ClaudeWCT.W9.T3M.expandN0_facts _ m pk σ N wt hx
   obtain ⟨root, counters, hl, hcs⟩ := expandN_layers _ m pk σ N wt hx
   have hv : ClaudeWCT.W9.T3M.verifyP m pk (ClaudeWCT.W9.T3M.witEnc N wt) =
@@ -387,23 +407,23 @@ theorem agree_verifyP (hash : Hash) (m : SigGolfCandidate.T3.Message) (pk : Dige
   have hidx : ClaudeWCT.WCT9.digestIndex N < 2 ^ 31 := ClaudeWCT.WCT9.digestIndex_lt N
   unfold ClaudeWCT.W9.T3M.verifyPadsTail
   simp only [F.adm, Bool.not_true, Bool.false_eq_true, if_false, ClaudeWCT.W9.T3M.recoverFtsP_zero,
-    ClaudeWCT.W9.T3M.verifyLayersBCP_zero _ _ hidx]
+    ClaudeWCT.W9.T3M.verifyLayersBCP_zero _ _ hidx 4 (by decide)]
   refine (agree_mrealize_bind _ _).mpr ⟨agree_mrealize (notEnc_recoverFts _ _ _) (hfg_ok hash), ?_⟩
   refine (agree_mrealize_bind _ _).mpr ⟨?_, ?_⟩
-  · rw [F.sig, ClaudeWCT.W9.T3M.verifyLayersBCP_zero _ _ hidx 4 le_rfl]
-    exact agree_layers hash σ _ 4 le_rfl _ root counters hl wt F.sig (fun lay _ => hcs lay)
+  · rw [F.sig]
+    exact agree_layers hash σ _ 4 le_rfl _ root counters wt.topHint hl wt F.sig rfl (fun lay _ => hcs lay)
   · split <;> trivial
 theorem digestCap_okHash (hash : Hash) (m : SigGolfCandidate.T3.Message) (pk : Digest)
     (σ : ClaudeWCT.WCT9.Signature) (N : HashOutput) (wt : ClaudeWCT.WCT9.Witness)
     (hx : evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.W9.T3M.expandN0 m pk σ) = some (N, wt)) :
-    DigestCapOk (okHash hash) m (ClaudeWCT.W9.T3M.witEnc N wt) := by
+    DigestCapOk (okHash (choiceHint := ClaudeWCT.W9.T3M.wtopHint (ClaudeWCT.W9.T3M.witEnc N wt)) hash) m (ClaudeWCT.W9.T3M.witEnc N wt) := by
   have F := ClaudeWCT.W9.T3M.expandN0_facts _ m pk σ N wt hx
   have hd : ClaudeWCT.W9.T3M.digestP m (ClaudeWCT.W9.T3M.witEnc N wt) =
       some <$> SigGolfCandidate.T3.digest wt.signature.rho m wt.digestCounter := by
     unfold ClaudeWCT.W9.T3M.digestP
     rw [ClaudeWCT.W9.T3M.wdc_witEnc, ClaudeWCT.W9.T3M.wrho_witEnc,
       if_neg (by have := wt.digestCounter.isLt; unfold ClaudeWCT.WCT9.digestVerifyWindow; omega)]
-  have hag : Agree hash (okHash hash) (mrealize 0 (ClaudeWCT.W9.T3M.digestP m (ClaudeWCT.W9.T3M.witEnc N wt))) := by
+  have hag : Agree hash (okHash (choiceHint := ClaudeWCT.W9.T3M.wtopHint (ClaudeWCT.W9.T3M.witEnc N wt)) hash) (mrealize 0 (ClaudeWCT.W9.T3M.digestP m (ClaudeWCT.W9.T3M.witEnc N wt))) := by
     rw [hd, mrealize_map, agree_map_iff]
     exact agree_mrealize (notEnc_digest _ _ _) (hfg_ok hash)
   intro N' hN'
@@ -416,7 +436,7 @@ attribute [local reducible] SphincsSecurity.hashOutputBits ClaudeWCT.W9.T3M.subm
   SigGolfCandidate.Legacy.Output SigGolfCandidate.Legacy.Input
 set_option maxRecDepth 100000 in
 theorem expand_witness (P : Pending I) (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5310)
-    (w : Bytes 24828) (he : ((ClaudeWCT.W9.T3M.submission I).runWith hash .expand (m, pk, s)).value = some w) :
+    (w : Bytes 24924) (he : ((ClaudeWCT.W9.T3M.submission I).runWith hash .expand (m, pk, s)).value = some w) :
     ∃ σ' N wt, evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.W9.T3M.expandN0 m pk σ') = some (N, wt) ∧
       w = ClaudeWCT.W9.T3M.witEnc N wt := by
   have h := congrArg (evalWithAnswerFn hash) (expand_value P m pk s)
@@ -432,11 +452,11 @@ theorem expand_witness (P : Pending I) (hash : Hash) (m : Message) (pk : PublicK
       obtain ⟨c, -, -, h0⟩ := ClaudeWCT.W9.T3M.expandN_completion _ m pk _ N wt hx
       exact ⟨_, N, wt, h0, (Option.some.inj he).symm⟩
 set_option maxRecDepth 100000 in
-theorem verify_run_ok (P : Pending I) (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24828)
-    (hagree : Agree hash (okHash hash) (mrealize 0 (ClaudeWCT.W9.T3M.verifyP m pk w))) :
+theorem verify_run_ok (P : Pending I) (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24924)
+    (hagree : Agree hash (okHash (choiceHint := ClaudeWCT.W9.T3M.wtopHint w) hash) (mrealize 0 (ClaudeWCT.W9.T3M.verifyP m pk w))) :
     (ClaudeWCT.W9.T3M.submission I).runWith hash .verify (m, pk, w) =
-      (ClaudeWCT.W9.T3M.submission I).runWith (okHash hash) .verify (m, pk, w) := by
-  have ha : Agree hash (okHash hash) ((ClaudeWCT.W9.T3M.submission I).run .verify (m, pk, w)) := by
+      (ClaudeWCT.W9.T3M.submission I).runWith (okHash (choiceHint := ClaudeWCT.W9.T3M.wtopHint w) hash) .verify (m, pk, w) := by
+  have ha : Agree hash (okHash (choiceHint := ClaudeWCT.W9.T3M.wtopHint w) hash) ((ClaudeWCT.W9.T3M.submission I).run .verify (m, pk, w)) := by
     rw [← agree_map_iff (fun r => r.value.isSome), verify_value P m pk w]
     exact hagree
   exact agree_eval ha

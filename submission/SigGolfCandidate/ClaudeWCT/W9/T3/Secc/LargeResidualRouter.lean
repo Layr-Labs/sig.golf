@@ -1,3 +1,4 @@
+import SigGolfCandidate.Choice.Target
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeResidualT3
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CaseCLinkInv
 import SigGolfCandidate.T3.Secc.LargeResidualRouter
@@ -125,20 +126,20 @@ noncomputable instance instSeedsWCoord : ClaudeWCT.W9.T3.Security.FamResidual.Se
       have h5 : w.2.2.2 = w'.2.2.2 := Fin.ext (by omega)
       have : w = w' := Prod.ext h1 (Prod.ext h2 (Prod.ext h4 h5))
       rw [this]
-/-- Encoding rows compare the same half selected by the actual encoding oracle. -/
+/-- The target probe covers both permitted top openings, including a noncanonical hint. -/
 noncomputable def encodingHit (lay : Layer) (target : Digest) : Hit WCoord :=
-  .selectedTarget target (fun answer => decide (if lay = 0 then TopDualHalf.gate (answer.extractLsb' 0 128) else lowerSpare (answer.extractLsb' 0 128)))
+  .selectedTarget target (fun answer => decide (if lay = 0 then answer.extractLsb' 0 128 = target ∨ SigGolfCandidate.Choice.Selector.group (answer.extractLsb' 0 128) = 0 else lowerSpare (answer.extractLsb' 0 128)))
 
 theorem encodingHit_answerValue (lay : Layer) (target : Digest) (answer : HashOutput) :
-    (encodingHit lay target).answerValue answer = WCT9.encodingAnswer lay answer := by
+    (encodingHit lay target).answerValue answer = WCT9.encodingTarget lay target answer := by
   have hlow : SigGolfCandidate.T3.Security.LargeResidual.low answer = answer.extractLsb' 0 128 := rfl
   by_cases hl : lay = 0
-  · simp [hlow, encodingHit, Hit.answerValue, WCT9.encodingAnswer, hl, TopDualHalf.select, TopDualHalf.selectPair]
-  · simp [hlow, encodingHit, Hit.answerValue, WCT9.encodingAnswer, hl, DualHalf.select, DualHalf.selectPair]
+  · simp [hlow, encodingHit, Hit.answerValue, WCT9.encodingTarget, hl]
+  · simp [hlow, encodingHit, Hit.answerValue, WCT9.encodingTarget, WCT9.encodingAnswer, hl, DualHalf.select, DualHalf.selectPair]
 
 theorem keep_encodingHit (labels : WCoord → Digest) (lay : Layer) (target : Digest) (answer : HashOutput) :
     (⟨none, encodingHit lay target⟩ : Probe WCoord).keep labels answer ↔
-      target ≠ WCT9.encodingAnswer lay answer := by
+      target ≠ WCT9.encodingTarget lay target answer := by
   unfold Probe.keep
   rw [encodingHit_answerValue]
   simp [Probe.guessMiss, encodingHit, Hit.miss]

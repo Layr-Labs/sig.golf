@@ -1,5 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsExtractChain
-import SigGolfCandidate.ClaudeWCT.W9.New.G3b.Shared
+import SigGolfCandidate.ClaudeWCT.W9.New.G3b_Shared
 
 namespace ClaudeWCT.W9.T3.Security.WotsExtract
 open OracleComp OracleSpec
@@ -12,6 +12,32 @@ open SigGolfCandidate.T3.Correctness (Answers)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
+theorem xor_one_inj {a b : BitVec 64} (h : a ^^^ 1 = b ^^^ 1) : a = b := by
+  have := congrArg (· ^^^ (1 : BitVec 64)) h
+  simpa [BitVec.xor_assoc] using this
+
+/-- Equality with the reference row fixes the authenticated message and pad,
+regardless of which permitted half is opened by a witness. -/
+theorem referenceInput_eq_msg_pad (answers : Answers) (L : LeafAddr) (msg : WCT9.LayerMsg)
+    (ctr : BitVec 32) (pad : RowPad) (hfit : Extract.msgFits L.lay msg)
+    (h : referenceInput answers L = some (encRow L msg ctr pad)) :
+    msg = leafMsg answers L ∧ pad.1 = 0 ∧ pad.2.2 = 0 := by
+  unfold referenceInput at h
+  cases hs : referenceSearch answers L with
+  | none => rw [hs] at h; simp at h
+  | some s =>
+      rw [hs] at h
+      simp only [Option.map_some, Option.some.injEq] at h
+      obtain ⟨hm, -, hp, -⟩ := BC.layerEncodingRow_injective_leaf (msgFits_leafMsg answers L) hfit h
+      have hh := BC.layerEncodingRow_hi_eq h
+      exact ⟨hm.symm, hp.symm, (xor_one_inj hh).symm⟩
+
+theorem referenceInput_ne_msg (answers : Answers) (L : LeafAddr) (msg : WCT9.LayerMsg)
+    (ctr : BitVec 32) (pad : RowPad) (hfit : Extract.msgFits L.lay msg)
+    (hne : msg ≠ leafMsg answers L) :
+    referenceInput answers L ≠ some (encRow L msg ctr pad) :=
+  fun h => hne (referenceInput_eq_msg_pad answers L msg ctr pad hfit h).1
+
 theorem referenceInput_ne (answers : Answers) (L : LeafAddr) (msg : WCT9.LayerMsg) (ctr : BitVec 32) (pad : RowPad)
     (hfit : Extract.msgFits L.lay msg)
     {digits : List Nat} (hd : decode L.lay (WCT9.encodingAnswer L.lay (answers (.inl (.inr (encRow L msg ctr pad))))) = some digits)
@@ -41,9 +67,6 @@ theorem encRow_wit (L : LeafAddr) (msg : WCT9.LayerMsg) (counter : BitVec 32) (p
       pad64 (layerEncodingInputP L.lay L.tree L.leaf msg counter pad padR hi) := by
   show pad64 (layerEncodingInputP L.lay L.tree L.leaf msg counter pad padR ((hi ^^^ 1) ^^^ 1)) = _
   rw [BitVec.xor_assoc, BitVec.xor_self, BitVec.xor_zero]
-theorem xor_one_inj {a b : BitVec 64} (h : a ^^^ 1 = b ^^^ 1) : a = b := by
-  have := congrArg (· ^^^ (1 : BitVec 64)) h
-  simpa [BitVec.xor_assoc] using this
 /-- A row whose 12-byte pad is nonzero or whose high-word mask is nonzero (C2/C3 FULL: row high word `≠ 1`) is not
 the reference row. -/
 theorem referenceInput_ne_pad (answers : Answers) (L : LeafAddr) (msg : WCT9.LayerMsg) (ctr : BitVec 32) (pad : RowPad)

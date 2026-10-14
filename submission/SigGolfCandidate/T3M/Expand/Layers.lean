@@ -361,7 +361,7 @@ end SigGolfCandidate.T3M.Expand
 end
 section
 namespace SigGolfCandidate.T3M.Expand.BC
-open OracleComp SigGolfCandidate.T3
+open OracleComp SigGolfCandidate.T3 RiscvZkvm.Rv64
 open ClaudeWCT
 /-- C2 + C3 (FULL): `WCT9.recoverLayerPair` has the C2 + C3 body (`chainW`, `lowerLeafHash`, `lowerNodeHash`). -/
 theorem recoverLayerPair_eqN (sig : WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat) :
@@ -377,25 +377,25 @@ def recoverMsg (sig : WCT9.Signature) (index : Nat) (lay : Layer) (digits : List
     let pair ← WCT9.recoverLayerPair sig index lay digits
     pure (.pair pair.1 pair.2, 0)
 def layerRun (sig : WCT9.Signature) (index : Nat) :
-    Nat → WCT9.LayerMsg → Digest → M (Option (Digest × Digest × List (BitVec 32)))
-  | 0, msg, v => match msg with
-    | .forest root => pure (some (v, root, []))
+    Nat → WCT9.LayerMsg → Digest → Word → M (Option (Digest × Digest × List (BitVec 32) × Word))
+  | 0, msg, v, hint => match msg with
+    | .forest root => pure (some (v, root, [], hint))
     | .pair _ _ => pure none
-  | n + 1, msg, _ => WCT9.expandLayersT sig index (WCT9.topSib sig) (n + 1) msg
-theorem layerRun_succ (sig : WCT9.Signature) (index n : Nat) (hn : n < 4) (value : WCT9.LayerMsg) (vin : Digest) :
-    layerRun sig index (n + 1) value vin =
-      WCT9.layerCounterSearch (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 value 0
+  | n + 1, msg, _, _ => WCT9.expandLayersT sig index (WCT9.topSib sig) (n + 1) msg
+theorem layerRun_succ (sig : WCT9.Signature) (index n : Nat) (hn : n < 4) (value : WCT9.LayerMsg) (vin : Digest) (hin : Word) :
+    layerRun sig index (n + 1) value vin hin =
+      WCT9.layerCounterSearchHint (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 value 0
           (WCT9.searchLimit (Fin.ofNat 4 n)) >>= fun r => match r with
-        | some (counter, digits) => recoverMsg sig index (Fin.ofNat 4 n) digits >>= fun mv =>
-            layerRun sig index n mv.1 mv.2 >>= fun r' => match r' with
-              | some (v, root, counters) => pure (some (v, root, counters ++ [counter]))
+        | some (counter, digits, hint) => recoverMsg sig index (Fin.ofNat 4 n) digits >>= fun mv =>
+            layerRun sig index n mv.1 mv.2 hint >>= fun r' => match r' with
+              | some (v, root, counters, topHint) => pure (some (v, root, counters ++ [counter], topHint))
               | none => pure none
         | none => pure none := by
   conv_lhs => unfold layerRun; unfold WCT9.expandLayersT
   dsimp only
   congr 1
   funext r
-  rcases r with _ | ⟨c, ds⟩
+  rcases r with _ | ⟨c, ds, hint⟩
   · rfl
   · cases n with
     | zero => simp [recoverMsg, layerRun, bind_assoc]
@@ -412,7 +412,7 @@ theorem layerRun_succ (sig : WCT9.Signature) (index n : Nat) (hn : n < 4) (value
       change (WCT9.expandLayersT sig index (WCT9.topSib sig) (n + 1) (.pair pair.1 pair.2) >>= _) = _
       congr 1
       funext r'
-      rcases r' with _ | ⟨v, root, counters⟩ <;> rfl
+      rcases r' with _ | ⟨v, root, counters, topHint⟩ <;> rfl
 end SigGolfCandidate.T3M.Expand.BC
 end
 section
@@ -421,7 +421,7 @@ open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGol
 open SigGolfCandidate.T3 (Layer Digest route height chainCount target width maxDigit counterLimit decode)
 open SigGolfCandidate.T3M.Search (ENC EOUT DIGITS NODE NOUT csN4 CsW csRegs csT csOk
   KernAt kernAt_expand topDigits lowDigits decode_top decode_low)
-open SigGolfCandidate.T3M.Search.BC (CsArgs CsPre CsPost counterSearch_tbsim)
+open SigGolfCandidate.T3M.Search.BC (CsArgs CsPre CsHintPost counterSearch_tbsim)
 open ClaudeWCT
 set_option autoImplicit false
 theorem decode_digit_le {lay : Layer} {v : Digest} {ds : List Nat} (h : decode lay v = some ds) :
@@ -472,19 +472,20 @@ def LW (index n : Nat) (A : Nat) : Prop :=
 def LayerOut (t : MachineState) (sig : WCT9.Signature) (index : Nat) (lay : Layer) (c : BitVec 32) : Prop :=
   HalfAt t (lD lay) (lk lay) c ∧ (∀ i < chainCount lay, DigAt t (lWC lay - 64 * i + 48) (lval (WCT9.toT3Signature sig) lay i)) ∧
     (∀ j < height lay, DigAt t (lWM lay - 64 * j + sideOff (route index lay).1 j) (lpath (WCT9.toT3Signature sig) lay j))
-def LPost (s : MachineState) (sig : WCT9.Signature) (index n : Nat) (vin : Digest) :
-    Option (Digest × Digest × List (BitVec 32)) → MachineState → Prop
+def LPost (s : MachineState) (sig : WCT9.Signature) (index n : Nat) (vin : Digest) (hin : Word) :
+    Option (Digest × Digest × List (BitVec 32) × Word) → MachineState → Prop
   | none, t => Search.FailedAt 354 t
-  | some (v, root, counters), t => t.pc = pcOf 342 ∧ t.getReg .x5 = 0 ∧ DigAt t ENC root ∧ counters.length = n ∧
+  | some (v, root, counters, hint), t => t.pc = pcOf 342 ∧ t.getReg .x5 = 0 ∧ DigAt t ENC root ∧ counters.length = n ∧
       (∀ lay : Layer, lay.val < n → LayerOut t sig index lay (counters.getD lay.val 0)) ∧
       HalfFrame s t n ∧ RegsExcept s t lRegs ∧ Frame s t (LW index n) ∧
-      (n = 0 → t = s ∧ v = vin) ∧ (n ≠ 0 → TopBlkG (WCT9.toT3Signature sig) index 0 v t)
+      (n = 0 → t = s ∧ v = vin ∧ hint=hin) ∧ (n ≠ 0 → TopBlkG (WCT9.toT3Signature sig) index 0 v t) ∧
+      (n ≠ 0 → t.getMem (BitVec.ofNat 64 Choice.ProducerSelector.HINT)=hint)
 def layCost (lay : Layer) : Nat :=
   lK lay + (18 + Search.capLimit lay.val * Search.BC.csT lay + Search.BC.csOk lay) + 10 + rlCost lay
 def lcost : Nat → Nat
   | 0 => 0
   | n + 1 => layCost (Fin.ofNat 4 n) + lcost n
-theorem lcost_four_eq : lcost 4 = 3523312730 := by decide +kernel
+theorem lcost_four_eq : lcost 4 = 3439426650 := by decide +kernel
 theorem ltable (lay : Layer) :
     0x7000 ≤ lP lay ∧ lP lay + 16 * (chainCount lay + height lay) ≤ 0x7000 + 5616 ∧ lP lay % 8 = 0 ∧
     lWC lay % 8 = 0 ∧ lWM lay % 8 = 0 ∧ 0x800 + 64 * (height lay - 1) ≤ lWM lay ∧
@@ -593,16 +594,16 @@ open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGol
 open SigGolfCandidate.T3 (Layer Digest route height chainCount target width maxDigit counterLimit decode)
 open SigGolfCandidate.T3M.Search (ENC EOUT DIGITS NODE NOUT csN4 CsW csRegs csT csOk
   KernAt kernAt_expand topDigits lowDigits decode_top decode_low)
-open SigGolfCandidate.T3M.Search.BC (CsArgs CsPre CsPost counterSearch_tbsim)
+open SigGolfCandidate.T3M.Search.BC (CsArgs CsPre CsHintPost counterSearch_tbsim)
 open ClaudeWCT
 set_option autoImplicit false
 section step
 variable {sk : BitVec 256}
-theorem layer_step {sig : WCT9.Signature} {index n : Nat} {value : WCT9.LayerMsg} {vin : Digest} {s : MachineState}
+theorem layer_step {sig : WCT9.Signature} {index n : Nat} {value : WCT9.LayerMsg} {vin : Digest} {hin : Word} {s : MachineState}
     (hn : n < 4) (hI : LInv sig index (n + 1) value s)
-    (ih : ∀ v' w s', LInv sig index n v' s' →
-      TBSim image sk s' (lcost n) (layerRun sig index n v' w) (LPost s' sig index n w)) :
-    TBSim image sk s (lcost (n + 1)) (layerRun sig index (n + 1) value vin) (LPost s sig index (n + 1) vin) := by
+    (ih : ∀ v' w hint s', LInv sig index n v' s' →
+      TBSim image sk s' (lcost n) (layerRun sig index n v' w hint) (LPost s' sig index n w hint)) :
+    TBSim image sk s (lcost (n + 1)) (layerRun sig index (n + 1) value vin hin) (LPost s sig index (n + 1) vin hin) := by
   set lay : Layer := Fin.ofNat 4 n with hlay
   have hlv : lay.val = n := fin_ofNat_val n hn
   have htab := ltable lay
@@ -625,16 +626,16 @@ theorem layer_step {sig : WCT9.Signature} {index n : Nat} {value : WCT9.LayerMsg
       by rw [g1 _ (by decide)]; exact (hI.right (by omega)).1, by rw [g1 _ (by decide)]; exact (hI.right (by omega)).2, htable1,
       hI.cf.frame f1 (by intro i hi hi' h; exact h),
       hI.reward.frame f1 (by intro i hi hi' h; exact h)⟩
-  rw [layerRun_succ _ _ _ hn _ vin]
+  rw [layerRun_succ _ _ _ hn _ vin hin]
   refine (TBSim.steps s1 (TBSim.bind (W₂ := 10 + rlCost lay + lcost n)
     (counterSearch_tbsim (sk := sk) kernAt_expand hcs) (fun r t2 h2 => ?_))).mono
     (by simp only [lcost, layCost, ← hlay]; omega) (fun _ _ h => h)
-  rcases r with _ | ⟨c, ds⟩
+  rcases r with _ | ⟨c, ds, hint⟩
   · change (if lay = 0 ∧ (354 : Nat) = 543 then _ else _) at h2
     rw [if_neg (by omega)] at h2
     obtain ⟨p2, h5, h10, _⟩ := h2
-    exact (TBSim.pure (Q := LPost s sig index (n + 1) vin) (a := none) ⟨p2, h5, h10⟩).mono (by omega) (fun _ _ h => h)
-  · obtain ⟨p2, hc, x19, e32, ⟨v, hdec⟩, hlen, hdig, r2, f2, _⟩ := h2
+    exact (TBSim.pure (Q := LPost s sig index (n + 1) vin hin) (a := none) ⟨p2, h5, h10⟩).mono (by omega) (fun _ _ h => h)
+  · obtain ⟨p2, hc, x19, e32, ⟨v, hdec⟩, hlen, hdig, r2, f2, _, hint2⟩ := h2
     dsimp only at p2 hc x19 e32 hdec hlen hdig
     change Frame t1 t2 CsW at f2
     obtain ⟨t3, s3, p3, x1', hD, x16, x23, x24, r3, f3⟩ := lpost_spec lay t2 p2 c.toNat x19
@@ -797,10 +798,10 @@ theorem layer_step {sig : WCT9.Signature} {index n : Nat} {value : WCT9.LayerMsg
             have hb := htab.2.2.2.2.2.2.2.1
             simp only [Search.TOP_DATA] at hh
             omega
-    refine (TBSim.bind (W₂ := 0) (ih mv.1 mv.2 t4 hI4) (fun r' t5 h5 => ?_)).mono (by omega) (fun _ _ h => h)
-    rcases r' with _ | ⟨v', root', counters⟩
+    refine (TBSim.bind (W₂ := 0) (ih mv.1 mv.2 hint t4 hI4) (fun r' t5 h5 => ?_)).mono (by omega) (fun _ _ h => h)
+    rcases r' with _ | ⟨v', root', counters, topHint⟩
     · exact TBSim.pure h5
-    · obtain ⟨p5, x5', e5, hlen5, hout5, hhf5, r5, f5, eq5, blk5⟩ := h5
+    · obtain ⟨p5, x5', e5, hlen5, hout5, hhf5, r5, f5, eq5, blk5, hint5⟩ := h5
       have hk := htab.2.2.2.2.2.2.2.2.2.2
       have hDv : lD lay = 0x3ce8 ∨ lD lay = 0x4968 ∨ lD lay = 0x55a8 ∨ lD lay = 0x820 ∨ lD lay = 0x810 ∨ lD lay = 0x818 := by
         clear_value lay; fin_cases lay <;> simp [lD]
@@ -818,7 +819,7 @@ theorem layer_step {sig : WCT9.Signature} {index n : Nat} {value : WCT9.LayerMsg
           rcases ltable_disj lay'' lay hne with hd | hd <;> omega
       have hgetD : ∀ lay' : Layer, lay'.val < n → (counters ++ [c]).getD lay'.val 0 = counters.getD lay'.val 0 :=
         fun lay' h => List.getD_append _ _ _ _ (by omega)
-      refine TBSim.pure ⟨p5, x5', e5, by simp [hlen5], ?_, ?_, ?_, ?_, fun h => absurd h (Nat.succ_ne_zero n), ?_⟩
+      refine TBSim.pure ⟨p5, x5', e5, by simp [hlen5], ?_, ?_, ?_, ?_, fun h => absurd h (Nat.succ_ne_zero n), ?_, ?_⟩
       · intro lay' hlay'
         by_cases hlt : lay'.val < n
         · rw [hgetD lay' hlt]; exact hout5 lay' hlt
@@ -877,20 +878,42 @@ theorem layer_step {sig : WCT9.Signature} {index n : Nat} {value : WCT9.LayerMsg
           · exact Or.inr (Or.inr ⟨lay'', by omega, h⟩)
       · intro _
         by_cases hn0 : n = 0
-        · obtain ⟨rfl, rfl⟩ := eq5 hn0
+        · obtain ⟨rfl, rfl, _⟩ := eq5 hn0
           subst hn0
           exact blk4 rfl
         · exact blk5 hn0
+      · intro _
+        by_cases hn0 : n=0
+        · obtain ⟨rfl,_,rfl⟩ := eq5 hn0
+          have hlay0 : lay=0 := by
+            apply Fin.ext
+            change lay.val=0
+            simpa only [hn0] using hlv
+          have hnHint : ¬ RlScratch Choice.ProducerSelector.HINT := by
+            simp [RlScratch,Expand.RlScratch,Choice.ProducerSelector.HINT,
+              Search.DIGITS,CHAIN,NODE,NOUT,LEAFPK,ENC]
+          have hHintFar : ¬ RlWit lay (route index lay).1 (lWC lay) (lWM lay)
+              Choice.ProducerSelector.HINT := by
+            intro hw
+            have := rlWit_range hw
+            simp only [Choice.ProducerSelector.HINT,Search.DIGITS] at this
+            omega
+          rw [f4.get (by decide) (by simp [hnHint,hHintFar]),
+            f3.get (by decide) (by rw [hlay0]; decide)]
+          simpa only [Search.BC.HintOut,hlay0,if_true] using hint2
+        · exact hint5 hn0
 theorem layers_tbsim {sig : WCT9.Signature} {index : Nat} :
-    ∀ n (value : WCT9.LayerMsg) (vin : Digest) (s : MachineState), LInv sig index n value s →
-      TBSim image sk s (lcost n) (layerRun sig index n value vin) (LPost s sig index n vin)
-  | 0, value, vin, s, hI => by
+    ∀ n (value : WCT9.LayerMsg) (vin : Digest) (hin : Word) (s : MachineState), LInv sig index n value s →
+      TBSim image sk s (lcost n) (layerRun sig index n value vin hin) (LPost s sig index n vin hin)
+  | 0, value, vin, hin, s, hI => by
     obtain ⟨root, rfl⟩ := hI.terminal rfl
-    refine TBSim.pure (Q := LPost s sig index 0 vin) (a := some (vin, root, [])) ⟨hI.pc, hI.x5, hI.enc, rfl,
+    refine TBSim.pure (Q := LPost s sig index 0 vin hin) (a := some (vin, root, [], hin)) ⟨hI.pc, hI.x5, hI.enc, rfl,
       fun lay h => absurd h (by omega), fun _ _ _ _ _ => rfl, RegsExcept.refl _ _, Frame.refl _ _,
-      fun _ => ⟨rfl, rfl⟩, fun h => absurd rfl h⟩
-  | n + 1, value, vin, s, hI => layer_step (by have := hI.hn; omega) hI
-      (fun v' w s' h' => layers_tbsim n v' w s' h')
+      fun _ => ⟨rfl, rfl, rfl⟩, fun h => absurd rfl h, fun h => absurd rfl h⟩
+  | n + 1, value, vin, hin, s, hI => layer_step (by have := hI.hn; omega) hI
+      (fun v' w hint s' h' => layers_tbsim n v' w hint s' h')
+
+#print axioms layers_tbsim
 end step
 end SigGolfCandidate.T3M.Expand.BC
 end

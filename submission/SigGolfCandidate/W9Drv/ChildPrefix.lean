@@ -3,6 +3,9 @@ import SigGolfCandidate.W9Machine.WctChildContract
 import SigGolfCandidate.W9Machine.WctJudg
 import SigGolfCandidate.T3M.Verify.Common
 
+variable {choiceHint : BitVec 64}
+
+
 section
 namespace W9Drv.ChildProof
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
@@ -45,7 +48,7 @@ def lvlTmpl (j l : Nat) : List (BitVec 32) :=
     [0x00000073]
 def lvlLen (j l : Nat) : Nat := 5 - (if skipA2 j l then 1 else 0)
 def childSaveC (j : Nat) : Nat := 4 + ((List.range 5).map fun l => if skipA2 j l then 1 else 0).sum
-def ChildGood : Prop := ∀ j : Fin 128, Child.Good Frozen.layout ⟨38, 95, 95 - ClaudeWCT.WCT9.childSave j.val⟩ j
+def ChildGood : Prop := ∀ j : Fin 128, Child.Good (choiceHint := choiceHint) Frozen.layout ⟨38, 95, 95 - ClaudeWCT.WCT9.childSave j.val⟩ j
 def encLoad (rd rs imm : Nat) : BitVec 32 :=
   BitVec.ofNat 32 (imm * 2 ^ 20 + rs * 2 ^ 15 + 3 * 2 ^ 12 + rd * 2 ^ 7 + 3)
 def childTmpl (j : Nat) : List (BitVec 32) :=
@@ -421,9 +424,9 @@ theorem hashSel_bind {im : Image} {β : Type} {s : MachineState} {N C A : Nat} {
     {input : List UInt8} {hi : Bool} {f : Digest → M β} {K : β → OracleComp HashSpec Obs}
     (hf : fetch im s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
     (hv : hashArgumentsValid s = true) (hin : hashInput s = toQ (pad64 input))
-    (h : ∀ a : BitVec 256, GoodQFor im (writeHash s a) N C Q A
+    (h : ∀ a : BitVec 256, GoodQFor (choiceHint := choiceHint) im (writeHash s a) N C Q A
       (ccM (f (if hi then a.extractLsb' 128 128 else a.extractLsb' 0 128)) K)) :
-    GoodQFor im s (N + 1) (C + 8 * (toQ (pad64 input)).blocks) Q (A + 8 * (toQ (pad64 input)).blocks)
+    GoodQFor (choiceHint := choiceHint) im s (N + 1) (C + 8 * (toQ (pad64 input)).blocks) Q (A + 8 * (toQ (pad64 input)).blocks)
       (ccM (V3.hashSel hi input >>= f) K) := by
   cases hi with
   | false => exact GoodQFor.shortHash_bind hf ht0 hv hin h
@@ -628,9 +631,9 @@ theorem childSaveC_eq (j : Nat) (hj : j < 128) : childSaveC j = ClaudeWCT.WCT9.c
 theorem child_rest {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j)
     {B k index : Nat} {leaf pads sibs tws : Nat → Digest} {u : MachineState}
     (hu : ChildPre j B k index leaf pads sibs tws u) (K : Digest → OracleComp HashSpec Obs) (N C A : Nat) (Q : Prop)
-    (hK : ∀ v t, Mid j B k index u 5 v t → GoodQFor im t N C Q A (K v)) :
+    (hK : ∀ v t, Mid j B k index u 5 v t → GoodQFor (choiceHint := choiceHint) im t N C Q A (K v)) :
     ∀ n l v s, l + n = 5 → Mid j B k index u l v s →
-      GoodQFor im s (N + fuelR j l n) (C + cycR j l n) Q (A + cycR j l n)
+      GoodQFor (choiceHint := choiceHint) im s (N + fuelR j l n) (C + cycR j l n) Q (A + cycR j l n)
         (ccM ((List.range' l n).foldlM (childLevelP k index j pads (hpOf j tws) sibs) v) K) := by
   intro n
   induction n with
@@ -643,7 +646,7 @@ theorem child_rest {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im
     intro l v s hln hs
     obtain ⟨t, hst, hf, h5, hv, hin, hpost⟩ := lvl_step hj hcode hu l (by omega) v s hs
     rw [List.range'_succ, List.foldlM_cons, childLevelP_eq]
-    have H : ∀ a : BitVec 256, GoodQFor im (writeHash t a) (N + fuelR j (l + 1) m) (C + cycR j (l + 1) m) Q
+    have H : ∀ a : BitVec 256, GoodQFor (choiceHint := choiceHint) im (writeHash t a) (N + fuelR j (l + 1) m) (C + cycR j (l + 1) m) Q
         (A + cycR j (l + 1) m)
         (ccM ((fun v' => (List.range' (l + 1) m).foldlM (childLevelP k index j pads (hpOf j tws) sibs) v')
           (selD j (l + 1) a)) K) :=
@@ -662,8 +665,8 @@ theorem child_prefix_good (im : Image) (j : Nat) (hj : j < 128) (hcode : ChildCo
     (B k index : Nat) (leaf pads sibs tws : Nat → Digest) (u : MachineState)
     (N C A : Nat) (Q : Prop) (K : Digest → OracleComp HashSpec Obs)
     (hu : ChildPre j B k index leaf pads sibs tws u)
-    (hK : ∀ v t, Mid j B k index u 5 v t → GoodQFor im t N C Q A (K v)) :
-    GoodQFor im u (N + (32 - childSaveC j)) (C + (82 - childSaveC j)) Q (A + (82 - childSaveC j))
+    (hK : ∀ v t, Mid j B k index u 5 v t → GoodQFor (choiceHint := choiceHint) im t N C Q A (K v)) :
+    GoodQFor (choiceHint := choiceHint) im u (N + (32 - childSaveC j)) (C + (82 - childSaveC j)) Q (A + (82 - childSaveC j))
       (ccM (V3.hashSel (hiSel j 0) (leafBytes leaf) >>= fun v =>
         (List.range 5).foldlM (childLevelP k index j pads (hpOf j tws) sibs) v) K) := by
   have h8 := hu.base8
@@ -714,7 +717,7 @@ theorem child_prefix_good (im : Image) (j : Nat) (hj : j < 128) (hcode : ChildCo
     simp only [List.length_map, List.length_range] at hw
     rw [hw]
     rfl
-  have H : ∀ a : BitVec 256, GoodQFor im (writeHash t a) (N + fuelR j 0 5) (C + cycR j 0 5) Q (A + cycR j 0 5)
+  have H : ∀ a : BitVec 256, GoodQFor (choiceHint := choiceHint) im (writeHash t a) (N + fuelR j 0 5) (C + cycR j 0 5) Q (A + cycR j 0 5)
       (ccM ((fun v => (List.range 5).foldlM (childLevelP k index j pads (hpOf j tws) sibs) v) (selD j 0 a)) K) := by
     intro a
     have hmid : Mid j B k index u 0 (selD j 0 a) (writeHash t a) := by
@@ -734,7 +737,7 @@ theorem child_prefix_good (im : Image) (j : Nat) (hj : j < 128) (hcode : ChildCo
         · exact ⟨outO 0 j + 8, mem_stagesW (m := 0) (by omega) (by simp [stageW]), by omega⟩
         · exact ⟨outO 0 j + 16, mem_stagesW (m := 0) (by omega) (by simp [stageW]), by omega⟩
         · exact ⟨outO 0 j + 24, mem_stagesW (m := 0) (by omega) (by simp [stageW]), by omega⟩
-    show GoodQFor im (writeHash t a) (N + fuelR j 0 5) (C + cycR j 0 5) Q (A + cycR j 0 5)
+    show GoodQFor (choiceHint := choiceHint) im (writeHash t a) (N + fuelR j 0 5) (C + cycR j 0 5) Q (A + cycR j 0 5)
       (ccM ((List.range 5).foldlM (childLevelP k index j pads (hpOf j tws) sibs) (selD j 0 a)) K)
     rw [List.range_eq_range']
     exact child_rest hj hcode hu K N C A Q hK 5 0 _ _ rfl hmid
@@ -814,15 +817,15 @@ theorem tail_good {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im 
     (hu : ChildPre j B k index leaf pads sibs tws u) (hlo : 192 ≤ B)
     (v : Digest) (s : MachineState) (hs : Mid j B k index u 5 v s)
     (N C A : Nat) (Q : Prop) (K : Digest → OracleComp HashSpec Obs)
-    (hK : ∀ computed t, HandPost B j u computed t → GoodQFor im t N C Q A (K computed)) :
-    GoodQFor im s (N + 6) (C + 13) Q (A + 13)
+    (hK : ∀ computed t, HandPost B j u computed t → GoodQFor (choiceHint := choiceHint) im t N C Q A (K computed)) :
+    GoodQFor (choiceHint := choiceHint) im s (N + 6) (C + 13) Q (A + 13)
       (ccM (childLevelHi k index j pads (hpOf j tws) sibs v) K) := by
   have hBhi := hu.baseHi
   unfold MEMORY_BYTES at hBhi
   have hho := handO_cases j
   obtain ⟨t, hst, hf, h5, hv, hin, hpc, h11, h12, hkeep, hframe⟩ :=
     last_setup hj hcode hu hlo v s hs
-  have H : ∀ ans : BitVec 256, GoodQFor im (writeHash t ans) (N + 1) (C + 1) Q (A + 1)
+  have H : ∀ ans : BitVec 256, GoodQFor (choiceHint := choiceHint) im (writeHash t ans) (N + 1) (C + 1) Q (A + 1)
       (ccM (pure (ans.extractLsb' 128 128)) K) := by
     intro ans
     have hdest : B - handO j + 32 < 2 ^ 64 := by omega
@@ -962,7 +965,7 @@ theorem hpOf_nodeTw (w : ClaudeWCT.W9.T3M.WBytes) (k j : Nat) :
   unfold hpOf V3.nodeHPad
   rfl
 set_option maxRecDepth 100000 in
-theorem child_good : ChildGood := by
+theorem child_good : ChildGood (choiceHint := choiceHint) := by
   intro j w index k ends u N C A Q K hu hK
   have hp := child_pre w index k j ends u hu
   have hcode := child_code j.val j.isLt
@@ -1006,5 +1009,5 @@ theorem child_good : ChildGood := by
 end W9Drv.ChildProof
 end
 theorem W9Drv.childGood : ∀ j : Fin 128,
-    W9Machine.Child.Good W9Machine.Frozen.layout ⟨38, 95, 95 - ClaudeWCT.WCT9.childSave j.val⟩ j :=
+    W9Machine.Child.Good (choiceHint := choiceHint) W9Machine.Frozen.layout ⟨38, 95, 95 - ClaudeWCT.WCT9.childSave j.val⟩ j :=
   W9Drv.ChildProof.child_good

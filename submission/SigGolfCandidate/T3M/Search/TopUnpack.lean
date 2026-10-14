@@ -9,7 +9,7 @@ set_option Elab.async false
 set_option maxRecDepth 8192
 set_option maxHeartbeats 600000
 set_option linter.unusedSimpArgs false
-def Writes (A : Nat) : Prop := DIGITS ≤ A ∧ A < DIGITS+64
+def Writes (A : Nat) : Prop := DIGITS ≤ A ∧ A < DIGITS+56
 abbrev Changed : List Reg := [.x6,.x7,.x20,.x21,.x28,.x29,.x30]
 theorem read_wu_byte (s : MachineState) (A k : Nat) (hA : A+8 < 2^64)
     (hal : A%4=0) (hk : k<4) :

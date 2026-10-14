@@ -1,4 +1,8 @@
 import SigGolfCandidate.T3M.Verify.LeafSem
+import SigGolfCandidate.Choice.Encoding
+
+variable {choiceHint : BitVec 64}
+
 
 set_option Elab.async false
 set_option maxRecDepth 100000
@@ -17,9 +21,9 @@ def lowCost (c : LCtx) : Nat := c.chainsCost 0 42 + chainCost 42 c.ck
 theorem lower_good (c : LCtx) (hc : c.ok) (hi0 : c.i0 = 0) (hko : c.koff = 0) (hck : c.ck < 8) (hRanks : ∀ j, j < 42 → c.headOK j) {s0 : MachineState}
     (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2) (h0 : c.Orig0 s0)
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
-    (hK : ∀ ends t, c.ChainOut s0 43 ends t → Verify.GoodQ t N C Q A (K ends))
+    (hK : ∀ ends t, c.ChainOut s0 43 ends t → Verify.GoodQ (choiceHint := choiceHint) t N C Q A (K ends))
     (s : MachineState) (hs : c.ChainIn s0 0 [] s) :
-    Verify.GoodQ s (N + 1720) (C + c.lowCost) Q (A + c.lowCost) (Verify.ccM c.lowP K) := by
+    Verify.GoodQ (choiceHint := choiceHint) s (N + 1720) (C + c.lowCost) Q (A + c.lowCost) (Verify.ccM c.lowP K) := by
   unfold lowP
   rw [Verify.ccM_bind]
   have H := c.chains_good hc hk h0 (fun _ => hko) 42 (by omega) (fun j _ hj => hRanks j hj) (fun e => Verify.ccM (c.chainF e 42) K)
@@ -93,7 +97,7 @@ open SigGolfCandidate.T3 (Digest HashOutput Layer route height chainCount counte
 theorem geomL (lay : Layer) (h : lay ≠ 0) :
     s6v lay.val = 1216 + ClaudeWCT.W9.T3M.layerBase lay + 16 * ClaudeWCT.W9.T3M.pathSlots lay + 1024 ∧
       ClaudeWCT.W9.T3M.layerBase lay + 16 * ClaudeWCT.W9.T3M.pathSlots lay + 2752 ≤ layerEnd lay.val ∧
-      8256 ≤ ClaudeWCT.W9.T3M.layerBase lay ∧ layerEnd lay.val < 21681 := by
+      8256 ≤ ClaudeWCT.W9.T3M.layerBase lay ∧ layerEnd lay.val < 21777 := by
   fin_cases lay
   · exact absurd rfl h
   all_goals decide +kernel
@@ -116,7 +120,7 @@ theorem leafL_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (la
     (h23 : s0.getReg .x23 = BitVec.ofNat 64 (lfS7 lay.val (route index lay).1))
     (h30 : s0.getReg .x31 = BitVec.ofNat 64 (route index lay).2)
     (h1 : s0.getReg .x9 = BitVec.ofNat 64 TOPB9)
-    (hBuffer : Verify.Orig w (fun o => BC.bufferStart lay.val ≤ o ∧ o < 24800) s0)
+    (hBuffer : Verify.Orig w (fun o => BC.bufferStart lay.val ≤ o ∧ o < 24896) s0)
     (ends : List Digest) (t : MachineState)
     (ht : (lctxOf w index lay a).ChainOut s0 43 ends t) :
     ∃ u, Steps image t 4 4 u ∧ LeafOut w pk index lay ends u := by
@@ -142,9 +146,9 @@ theorem leafL_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (la
     fin_cases lay
     · exact absurd rfl hlay
     all_goals rfl
-  have hBb : bufferBase lay.val % 8 = 0 ∧ 22896 ≤ bufferBase lay.val ∧ bufferBase lay.val ≤ 25104 := by
+  have hBb : bufferBase lay.val % 8 = 0 ∧ 22992 ≤ bufferBase lay.val ∧ bufferBase lay.val ≤ 25200 := by
     fin_cases lay <;> decide +kernel
-  have hBi : 22128 ≤ bufferBias lay.val ∧ bufferBias lay.val ≤ 24592 := by fin_cases lay <;> decide +kernel
+  have hBi : 22224 ≤ bufferBias lay.val ∧ bufferBias lay.val ≤ 24688 := by fin_cases lay <;> decide +kernel
   obtain ⟨u, hu⟩ := spec_run (lfSlotCheck_at lay.val L.ck h0 lay.isLt hck) t (by rw [hpc]; rfl) hknown
     (by intro b hb; simp [specLf, h0] at hb) (by simp)
   have hst := hu.steps
@@ -260,7 +264,7 @@ theorem leafL_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (la
       fin_cases lay
       · exact absurd rfl hlay
       all_goals decide +kernel
-    have hBt : Verify.Orig w (fun o => BC.bufferStart (lay.val-1) ≤ o ∧ o < 24800) t :=
+    have hBt : Verify.Orig w (fun o => BC.bufferStart (lay.val-1) ≤ o ∧ o < 24896) t :=
       (hBuffer.mono (fun o ho => ⟨by omega,ho.2⟩)).frame (fun j hj hp =>
         hF.get (by unfold WIT WX at *; omega) (fun hw => by
           unfold LCtx.Wr LCtx.bufferWr LCtx.bufferEnd LCtx.bufferSlot LCtx.blk at hw
@@ -613,9 +617,9 @@ theorem setup_hash : SetupHash := fun w pk index lay msg s hs t ht => by
     obtain ⟨d, h12, hdd⟩ := hpost.dst hl3
     have hm (A : Word) : t.getMem A = memEval s (headerWrites lay.val c) A := by
       simpa [specA, h3] using ht.mem A
-    have hrowpad : rowA lay.val c + 64 < 25104 := by
+    have hrowpad : rowA lay.val c + 64 < 25200 := by
       have H : ((List.range 3).all fun l => (List.range (nCopy l)).all fun c =>
-        decide (rowA l c + 64 < 25104)) = true := by decide +kernel
+        decide (rowA l c + 64 < 25200)) = true := by decide +kernel
       exact of_decide_eq_true (List.all_eq_true.mp (List.all_eq_true.mp H lay.val
         (List.mem_range.mpr hl3)) c (List.mem_range.mpr hc))
     have hf : ∀ q, q < 64 → q ≠ 16 →
@@ -883,8 +887,8 @@ theorem encQ_layer (lay : Layer) (tree leaf : Nat) (M : ClaudeWCT.WCT9.LayerMsg)
 theorem layer_good_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay : lay ≠ 0) (M : ClaudeWCT.WCT9.LayerMsg)
     (s : MachineState) (hs : LayerIn w pk index lay.val M s) {β : Type} (R : List Digest → T3.M (Option β))
     (K : Option β → OracleComp HashSpec Obs) (hK0 : K none = pure (false, 0)) (N C A : Nat) (Q : Prop)
-    (hR : ∀ ends u, LeafOut w pk index lay ends u → GoodQ u N C Q A (ccM (R ends) K)) :
-    GoodQ s (N + layerFuel lay.val) (C + layerCost lay.val 0) Q (A + layerCostA lay.val)
+    (hR : ∀ ends u, LeafOut w pk index lay ends u → GoodQ (choiceHint := choiceHint) u N C Q A (ccM (R ends) K)) :
+    GoodQ (choiceHint := choiceHint) s (N + layerFuel lay.val) (C + layerCost lay.val 0) Q (A + layerCostA lay.val)
       (ccM (layerHead w index lay M R) K) := by
   have h0 : lay.val ≠ 0 := fun h => hlay (Fin.ext h)
   have hlf : lfStepsL = 4 := rfl
@@ -917,7 +921,7 @@ theorem layer_good_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
     have H : ∀ a : BitVec 256, GoodQP (fun hash => hash (toQ (pad64 (ClaudeWCT.W9.T3M.layerEncodingInputP lay
         (route index lay).2 (route index lay).1 M (ClaudeWCT.W9.T3M.wbcCtr w index lay) (ClaudeWCT.W9.T3M.wbcPad w index lay)
         (ClaudeWCT.W9.T3M.wbcRight w) (ClaudeWCT.W9.T3M.wbcHigh w index lay)))) = a ∧
-          HashOk hash) (writeHash t a) (N + lfStepsL + 1720 + (bSt lay.val+4))
+          (HashOk choiceHint) hash) (writeHash t a) (N + lfStepsL + 1720 + (bSt lay.val+4))
         (C + lfStepsL + (2935 - 9 * tgtL lay.val) + (bCy lay.val+4))
         Q (A + lfStepsL + (2935 - 9 * tgtL lay.val - ClaudeWCT.WCT9.producerFloor lay) + (bCy lay.val+4))
         (ccM (match decode lay (ansD (selectedView a)) with
@@ -930,7 +934,7 @@ theorem layer_good_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
         dsimp only
         rw [ccM_pure, hK0]
         obtain ⟨v, k, cy, hst', hrejected, hk, hcy⟩ := hB.1 hds
-        have hrej : GoodQ v 1 1 Q 0 (pure (false,0)) := by
+        have hrej : GoodQ (choiceHint := choiceHint) v 1 1 Q 0 (pure (false,0)) := by
           rcases hrejected with hf' | ⟨hf',h5',h10'⟩
           · exact (GoodQ.fetch_none (Q := Q) (A := 0) hf').mono (by omega) (by omega) (fun h => ⟨h,by omega⟩)
           · exact GoodQ.reject hf' h5' h10'
@@ -960,7 +964,7 @@ theorem layer_good_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
             rw [hP]; unfold chainsP; rw [LCtx.chainCount_lower lay hlay]; rfl
           rw [ccM_bind, e]
           have body : ∀ k, k ≤ L.zSum 0 43 + 4*L.savedCopies 0 43 →
-              GoodQ (writeHash t a) (N + lfStepsL + 1720 + (bSt lay.val+4))
+              GoodQ (choiceHint := choiceHint) (writeHash t a) (N + lfStepsL + 1720 + (bSt lay.val+4))
                 (C + lfStepsL + (2935 - 9 * tgtL lay.val) + (bCy lay.val+4))
                 Q (A + lfStepsL + (2935 - 9 * tgtL lay.val - k) + (bCy lay.val+4))
                 (ccM L.lowP (fun ends => ccM (R ends) K)) := fun k hk =>
@@ -969,7 +973,10 @@ theorem layer_good_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
           · exact (body _ (by omega)).toP.pre_mono (fun _ h => h.2)
           · refine GoodQP.of_false (body 0 (Nat.zero_le _)) ?_
             rintro hash ⟨hea, hok⟩
-            have hh := hok lay _ hq ds (by rw [hea, ← selectedView_answer lay hlay]; exact hds)
+            have hh := hok lay _ hq ds (by
+              rw [ClaudeWCT.WCT9.verificationAnswer_lower lay hlay, hea,
+                ← selectedView_answer lay hlay]
+              exact hds)
             apply hcf
             simpa [ClaudeWCT.WCT9.dispatchPenalty,hlay] using hh
         · have hj := ClaudeWCT.WCT9.lowerFirstBad_lt (ansD (selectedView a)) hgood
@@ -981,7 +988,7 @@ theorem layer_good_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
             intro i hi _ _
             rw [lctx_rank_eq w index lay (selectedView a) _ (by omega)]
             exact ClaudeWCT.WCT9.lowerFirstBad_before (ansD (selectedView a)) hgood (i / 3) (by omega)
-          have hpref := L.chains_prefix_fault hLok rfl rfl hkn hO0 _ hj hbad hranks s0 hIn
+          have hpref := L.chains_prefix_fault (choiceHint := choiceHint) hLok rfl rfl hkn hO0 _ hj hbad hranks s0 hIn
           have hpcost := L.chainsCost_prefix_le (3 * ClaudeWCT.WCT9.lowerFirstBad (ansD (selectedView a))) (by omega)
           have hle : L.chainsCost 0 42 ≤ L.lowCost := by unfold LCtx.lowCost; omega
           simp only [guardedChainsP, ClaudeWCT.WCT9.lowerGuardedRun, if_neg hgood, bind_assoc, pure_bind,
@@ -997,7 +1004,7 @@ theorem layer_good_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
 theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (left right : Digest) (u : MachineState)
     (hidx : idx < 2 ^ 31) (hglob : Glob [(.x5, 0)] w pk u) (hreg : u.getReg .x22 = BitVec.ofNat 64 idx)
     (hpc : u.pc = pcOf 850) (hleft : DigAt u WIT left) (hright : DigAt u (WIT + 144) right)
-    (hwit : Verify.Orig w (fun o => (24 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24800)) u)
+    (hwit : Verify.Orig w (fun o => (24 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24896)) u)
     (hbase8 : u.getReg .x8 = BitVec.ofNat 64 (WIT + 176)) (ha1 : u.getReg .x11 = 64)
     (hs10 : u.getReg .x26 = 6) (hOne : u.getReg .x7 = 1) (hTwo : u.getReg .x13 = 2) (hSeven : u.getReg .x30 = 7)
     (hThree : u.getReg .x19 = 3) (hFour : u.getReg .x20 = 4) (hFive : u.getReg .x21 = 5)
@@ -1005,7 +1012,7 @@ theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (
     (hbase : u.getReg .x9 = BitVec.ofNat 64 TOPB9)
     (htop : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
       BitVec.ofNat 64 (topWords.getD k 0))
-    (htop8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21168)
+    (htop8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21264)
     (ha2 : u.getReg .x12 = BitVec.ofNat 64 1200 ∨ u.getReg .x12 = BitVec.ofNat 64 1344)
     (hd0 : u.getMem (BitVec.ofNat 64 (TOPB9 - 304)) = 0xFFF) :
     ∃ t, Steps image u 0 0 t ∧ LayerIn w pk idx 3 (.pair left right) t := by
@@ -1039,7 +1046,7 @@ theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (
     exact ⟨(htop 4 (by decide +kernel)).trans (by decide +kernel), htop8, htop⟩
   · intro h
     exact absurd h (by decide +kernel)
-  · exact hwit.mono (fun o ho => Or.inr ⟨by have hh : 21680 ≤ o := ho.1; omega,ho.2⟩)
+  · exact hwit.mono (fun o ho => Or.inr ⟨by have hh : 21776 ≤ o := ho.1; omega,ho.2⟩)
 theorem tree_next (index : Nat) (L : Layer) (h : L ≠ 0) : (route index L).2 = index / 2 ^ below (L.val - 1) := by
   rw [route_snd]
   fin_cases L

@@ -6,11 +6,11 @@ namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)
 def WIT : Nat := 0x4c0
-def WSZ : Nat := 24828
-/-- Byte bound of the 3104 loaded witness words; the last word is the 4-byte digest counter
-zero-padded by the loader, since the witness itself is `WSZ = 24828` bytes. -/
-def WX : Nat := 24832
-def WLO : Nat := WIT + 48
+def WSZ : Nat := 24924
+/-- Byte bound of the 3116 loaded witness words; the last word is the 4-byte digest counter
+zero-padded by the loader, since the witness itself is `WSZ = 24924` bytes. -/
+def WX : Nat := 24928
+def WLO : Nat := WIT + 112
 theorem ofNat_eq_iff {a b : Nat} (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) :
     (BitVec.ofNat 64 a = BitVec.ofNat 64 b) ↔ a = b := by
   constructor
@@ -133,7 +133,7 @@ def PkOK (pk : Digest) (s : MachineState) : Prop :=
 def PZero (s : MachineState) : Prop := ∀ a ∈ pSlots, s.getMem (BitVec.ofNat 64 a) = 0
 def PHalf (s : MachineState) : Prop := (s.getMem (BitVec.ofNat 64 CTRW)).toNat / 2 ^ 32 = 0
 def WitHdr (w : ClaudeWCT.W9.T3M.WBytes) (s : MachineState) : Prop :=
-  ∀ j, 4 ≤ j → j < 6 → s.getMem (BitVec.ofNat 64 (WIT + 8 * j)) = wword w j
+  ∀ j, 4 ≤ j → (j < 6 ∨ j = 13) → s.getMem (BitVec.ofNat 64 (WIT + 8 * j)) = wword w j
 def dataWords : List Nat :=
   [2 ^ 40, 17311559823019733055, 8198552921648689607, 0x30401, 0x7fc00, 2256, 11736, 0xa01, 0x901, 7072, 15264, 0]
 def TOPLOAD : Nat := 0xffbf68
@@ -151,7 +151,7 @@ structure DataOK (s : MachineState) : Prop where
   mask : s.getMem (BitVec.ofNat 64 (TOPBASE - 8)) = 520192#64
   header : ∀ lay, lay < 4 →
     s.getMem (BitVec.ofNat 64 (hdrAddr lay)) = BitVec.ofNat 64 (hyperBase lay)
-  buffer3 : s.getMem (BitVec.ofNat 64 (TOPB9 + 56)) = 22128#64
+  buffer3 : s.getMem (BitVec.ofNat 64 (TOPB9 + 56)) = 22224#64
 theorem DataOK.prefix {s : MachineState} (h : DataOK s) (lay : Nat) (hl : lay < 4) :
     s.getMem (BitVec.ofNat 64 (hdrAddr lay)) = BitVec.ofNat 64 (hyperBase lay) :=
   h.header lay hl
@@ -233,13 +233,15 @@ def memOKA (allow : List Nat) (rel : List Reg) (ws : SymMem) : Bool :=
   ws.all fun p => relOK rel p.1 || (p.1.base.isNone &&
     (safeAddr p.1.off.toNat || (p.1.off.toNat == CTRW && isLowW CTRW p.2) ||
       (allow.contains p.1.off.toNat && decide ((WLO ≤ p.1.off.toNat ∨
-        (WIT ≤ p.1.off.toNat ∧ p.1.off.toNat + 8 ≤ WIT + 32)) ∧ p.1.off.toNat < 2 ^ 23))))
+        (WIT ≤ p.1.off.toNat ∧ p.1.off.toNat + 8 ≤ WIT + 32) ∨
+        (WIT + 48 ≤ p.1.off.toNat ∧ p.1.off.toNat + 8 ≤ WIT + 64)) ∧ p.1.off.toNat < 2 ^ 23))))
 def memOK (ws : SymMem) : Bool := memOKA [] [] ws
 def regsOK (gk : List (Reg × Word)) (rf : RegFile) : Bool := gk.all fun p => E.beq (rf.get p.1) (.c p.2)
 def RelOK (rel : List Reg) (s : MachineState) : Prop :=
   ∀ r ∈ rel, WLO ≤ (s.getReg r).toNat ∧ (s.getReg r).toNat < 2 ^ 23
 theorem RelOK.nil (s : MachineState) : RelOK [] s := fun _ h => by simp at h
-def Prot (A : Nat) : Prop := A ∈ pSlots ∨ A = 0xA0 ∨ A = 0xA8 ∨ (WIT + 32 ≤ A ∧ A < WLO)
+def Prot (A : Nat) : Prop := A ∈ pSlots ∨ A = 0xA0 ∨ A = 0xA8 ∨
+  (WIT + 32 ≤ A ∧ A < WLO ∧ (A < WIT + 48 ∨ WIT + 64 ≤ A))
 theorem safeAddr_spec {n : Nat} (h : safeAddr n = true) :
     n + 8 ≤ WIT ∧ n ∉ pSlots ∧ n ≠ 0xA0 ∧ n ≠ 0xA8 ∧ n ≠ CTRW := by
   unfold safeAddr at h
@@ -265,7 +267,8 @@ theorem memOKA_cases {allow : List Nat} {rel : List Reg} {ws : SymMem} (h : memO
     (∃ r ∈ rel, p.1.base = some (.reg r) ∧ p.1.off.toNat < 4096) ∨
     (p.1.base = none ∧
       (safeAddr p.1.off.toNat = true ∨ (p.1.off.toNat = CTRW ∧ isLowW CTRW p.2 = true) ∨
-        (p.1.off.toNat ∈ allow ∧ (WLO ≤ p.1.off.toNat ∨ (WIT ≤ p.1.off.toNat ∧ p.1.off.toNat + 8 ≤ WIT + 32)) ∧
+        (p.1.off.toNat ∈ allow ∧ (WLO ≤ p.1.off.toNat ∨ (WIT ≤ p.1.off.toNat ∧ p.1.off.toNat + 8 ≤ WIT + 32) ∨
+        (WIT + 48 ≤ p.1.off.toNat ∧ p.1.off.toNat + 8 ≤ WIT + 64)) ∧
           p.1.off.toNat < 2 ^ 23))) := by
   have := List.all_eq_true.mp h p hp
   simp only [Bool.or_eq_true, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq,
@@ -297,7 +300,7 @@ theorem memOKA_prot {allow : List Nat} {rel : List Reg} {ws : SymMem} (h : memOK
   · obtain ⟨_, hge⟩ := relWrite_ge hrel hr hb hoff
     intro heq
     have : (p.1.eval s).toNat = A := by rw [← heq, ofNat_toNat_lt _ hA]
-    rcases hp with h1 | h1 | h1 | ⟨_, h1⟩
+    rcases hp with h1 | h1 | h1 | ⟨_, h1, _⟩
     · have := hps A h1; unfold WLO at hge; omega
     · unfold WLO WIT at hge; omega
     · unfold WLO WIT at hge; omega
@@ -310,17 +313,17 @@ theorem memOKA_prot {allow : List Nat} {rel : List Reg} {ws : SymMem} (h : memOK
     simp only [hoff] at hc
     rcases hc with h1 | ⟨h2, -⟩ | ⟨-, h4⟩
     · obtain ⟨s1, s2, s3, s4, -⟩ := safeAddr_spec h1
-      rcases hp with h | h | h | ⟨h, -⟩
+      rcases hp with h | h | h | ⟨h, -, -⟩
       · exact s2 h
       · exact s3 h
       · exact s4 h
       · omega
-    · rcases hp with h | h | h | ⟨h, -⟩
+    · rcases hp with h | h | h | ⟨h, -, -⟩
       · rw [h2] at h; unfold CTRW at h; simp [pSlots] at h
       · unfold CTRW at h2; omega
       · unfold CTRW at h2; omega
       · unfold CTRW WIT at *; omega
-    · rcases hp with h | h | h | ⟨h'', h'⟩
+    · rcases hp with h | h | h | ⟨h'', h', hgap⟩
       · have := hps A h; unfold WLO WIT at *; omega
       · unfold WLO WIT at h4; omega
       · unfold WLO WIT at h4; omega
@@ -400,7 +403,7 @@ theorem Glob_toState_allow {gk0 gk : List (Reg × Word)} {w : ClaudeWCT.W9.T3M.W
     have := List.all_eq_true.mp hr p hp
     rw [SymState.toState_getReg, E.beq_eq this]; rfl
   · intro j hj4 hj
-    rw [fr _ (by unfold WIT; omega) (Or.inr (Or.inr (Or.inr ⟨by unfold WIT; omega, by unfold WLO WIT; omega⟩)))]
+    rw [fr _ (by unfold WIT; omega) (Or.inr (Or.inr (Or.inr ⟨by unfold WIT; omega, by unfold WLO WIT; omega, by unfold WIT; omega⟩)))]
     exact h0 j hj4 hj
   · exact ⟨(fr 0xA0 (by omega) (by simp [Prot])).trans h2.1, (fr 0xA8 (by omega) (by simp [Prot])).trans h2.2⟩
   · intro a ha
@@ -460,7 +463,7 @@ theorem WitAll_writeHash {w : ClaudeWCT.W9.T3M.WBytes} {s : MachineState} (hW : 
   exact hW j hj
 def safeDest (d : Nat) : Bool :=
   decide (d % 8 = 0) && decide (d + 32 ≤ 2 ^ 23) &&
-    (pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 2).map (fun j => WIT + 32 + 8 * j)).all
+    (pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 10).map (fun j => WIT + 32 + 8 * j)).all
       (fun q => decide (q + 8 ≤ d ∨ d + 32 ≤ q))
 theorem safeDest_hi (d : Nat) (h : WLO ≤ d) (h8 : d % 8 = 0) (hm : d + 32 ≤ 2 ^ 23) :
     safeDest d = true := by
@@ -486,21 +489,21 @@ theorem Glob_writeHash {gk : List (Reg × Word)} {w : ClaudeWCT.W9.T3M.WBytes} {
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro p hp; rw [writeHash_getReg]; exact h1 p hp
   · intro j hj4 hj
-    have hm : WIT + 8 * j ∈ pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 2).map (fun j => WIT + 32 + 8 * j) :=
+    have hm : WIT + 8 * j ∈ pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 10).map (fun j => WIT + 32 + 8 * j) :=
       List.mem_append_right _ (List.mem_map.mpr ⟨j - 4, List.mem_range.mpr (by omega), by omega⟩)
     rw [fr (WIT + 8 * j) (by unfold WIT; omega) (hd2 _ hm)]
     exact h0 j hj4 hj
-  · have m0 : (0xA0 : Nat) ∈ pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 2).map (fun j => WIT + 32 + 8 * j) := by
+  · have m0 : (0xA0 : Nat) ∈ pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 10).map (fun j => WIT + 32 + 8 * j) := by
       simp
-    have m8 : (0xA8 : Nat) ∈ pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 2).map (fun j => WIT + 32 + 8 * j) := by
+    have m8 : (0xA8 : Nat) ∈ pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 10).map (fun j => WIT + 32 + 8 * j) := by
       simp
     exact ⟨(fr 0xA0 (by omega) (hd2 _ m0)).trans h2.1, (fr 0xA8 (by omega) (hd2 _ m8)).trans h2.2⟩
   · intro a ha
-    have hm : a ∈ pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 2).map (fun j => WIT + 32 + 8 * j) :=
+    have hm : a ∈ pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 10).map (fun j => WIT + 32 + 8 * j) :=
       List.mem_append_left _ (List.mem_append_left _ ha)
     have := hps a ha
     rw [fr a (by unfold WIT at this; omega) (hd2 _ hm)]; exact h3 a ha
-  · have mc : CTRW ∈ pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 2).map (fun j => WIT + 32 + 8 * j) := by simp
+  · have mc : CTRW ∈ pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 10).map (fun j => WIT + 32 + 8 * j) := by simp
     show ((writeHash s ans).getMem (BitVec.ofNat 64 CTRW)).toNat / 2 ^ 32 = 0
     rw [fr CTRW (by unfold CTRW; omega) (hd2 _ mc)]; exact h4
   · apply h5.congr

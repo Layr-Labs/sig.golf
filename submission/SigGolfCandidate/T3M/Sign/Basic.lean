@@ -6,7 +6,7 @@ import SigGolfCandidate.T3M.Keygen.Init
 section
 namespace SigGolfCandidate.T3M
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
-def signCodeChunks : List (List (BitVec 32)) := [Images.signCode_0, Images.signCode_1, Images.signCode_2, Images.signCode_3, Images.signCode_4, Images.signCode_5, Images.signCode_6, Images.signCode_7, Images.signCode_8, Images.signCode_9, Images.signCode_10, Images.signCode_11, Images.signCode_12, Images.signCode_13, Images.signCode_14, Images.signCode_15, Images.signCode_16, Images.signCode_17, Images.signCode_18, Images.signCode_19, Images.signCode_20, Images.signCode_21, Images.signCode_22, Images.signCode_23, Images.signCode_24, Images.signCode_25, Images.signCode_26, Images.signCode_27, Images.signCode_28, Images.signCode_29, Images.signCode_30, Images.signCode_31, Images.signCode_32, Images.signCode_33, Images.signCode_34, Images.signCode_35, Images.signCode_36, Images.signCode_37, Images.signCode_38, Images.signCode_39, Images.signCode_40, Images.signCode_41, Images.signCode_42, Images.signCode_43, Images.signCode_44, Images.signCode_45, Images.signCode_46, Images.signCode_47, Images.signCode_48, Images.signCode_49, Images.signCode_50, Images.signCode_51, Images.signCode_52, Images.signCode_53, Images.signCode_54, Images.signCode_55, Images.signCode_56, Images.signCode_57, Images.signCode_58, Images.signCode_59, Images.signCode_60, Images.signCode_61, Images.signCode_62, Images.signCode_63, Images.signCode_64, Images.signCode_65, Images.signCode_66, Images.signCode_67, Images.signCode_68, Images.signCode_69, Images.signCode_70, Images.signCode_71, Images.signCode_72, Images.signCode_73, Images.signCode_74, Images.signCode_75, Images.signCode_76, Images.signCode_77, Images.signCode_78, Images.signCode_79, Images.signCode_80, Images.signCode_81, Images.signCode_82, Images.signCode_83, Images.signCode_84, Images.signCode_85]
+def signCodeChunks : List (List (BitVec 32)) := [Images.signCode_0, Images.signCode_1, Images.signCode_2, Images.signCode_3, Images.signCode_4, Images.signCode_5, Images.signCode_6, Images.signCode_7, Images.signCode_8, Images.signCode_9, Images.signCode_10, Images.signCode_11, Images.signCode_12, Images.signCode_13, Images.signCode_14, Images.signCode_15, Images.signCode_16, Images.signCode_17, Images.signCode_18, Images.signCode_19, Images.signCode_20, Images.signCode_21, Images.signCode_22, Images.signCode_23, Images.signCode_24, Images.signCode_25, Images.signCode_26, Images.signCode_27, Images.signCode_28, Images.signCode_29, Images.signCode_30, Images.signCode_31, Images.signCode_32, Images.signCode_33, Images.signCode_34, Images.signCode_35, Images.signCode_36, Images.signCode_37, Images.signCode_38, Images.signCode_39, Images.signCode_40, Images.signCode_41, Images.signCode_42, Images.signCode_43, Images.signCode_44, Images.signCode_45, Images.signCode_46, Images.signCode_47, Images.signCode_48, Images.signCode_49, Images.signCode_50, Images.signCode_51, Images.signCode_52, Images.signCode_53, Images.signCode_54, Images.signCode_55, Images.signCode_56, Images.signCode_57, Images.signCode_58, Images.signCode_59, Images.signCode_60, Images.signCode_61, Images.signCode_62, Images.signCode_63, Images.signCode_64, Images.signCode_65, Images.signCode_66, Images.signCode_67, Images.signCode_68, Images.signCode_69, Images.signCode_70, Images.signCode_71, Images.signCode_72, Images.signCode_73, Images.signCode_74, Images.signCode_75, Images.signCode_76, Images.signCode_77, Images.signCode_78, Images.signCode_79, Images.signCode_80, Images.signCode_81, Images.signCode_82, Images.signCode_83, Images.signCode_84, Images.signCode_85, Images.signCode_86]
 private theorem foldl_chunks (cs : List (List (BitVec 32))) (acc : List (BitVec 32)) :
     cs.foldl (· ++ ·) acc = acc ++ cs.flatten := by
   induction cs generalizing acc with
@@ -34,9 +34,9 @@ def seg_47 : List (BitVec 32) := [134711,1041108499,134839,1074695827,930563,963
 def seg_54 : List (BitVec 32) := [9319171,9352067,2020810339]
 def seg_57 : List (BitVec 32) := [17707779,17740675,2020808803]
 def seg_60 : List (BitVec 32) := [26096387,26129283,2020807267]
-def seg_63 : List (BitVec 32) := [134221459,134967,963331,9352067,7286819,8336419,150998675,134967,34541331,963331,9352067,7286819,8336419,134967,34551843,34552867,134221459,134967,135204627,963331,9352067,7286819,8336419,150998675,134967,168759059,963331,9352067,7286819,8336419,134967,135204627,34551843,34552867,1880097555,915,134711,135138835,7223331,8272931,28343,134967,202313491,1544467203,1552855939,7286819,8336419,28343,134967,219090707,1561244419,1569633155,7286819,8336419,132407,134546707,134219155,132663,268830227]
+def seg_63 : List (BitVec 32) := [134221459,134967,963331,9352067,7286819,8336419,150998675,134967,34541331,963331,9352067,7286819,8336419,134967,34551843,34552867,134221459,134967,135204627,963331,9352067,7286819,8336419,150998675,134967,168759059,963331,9352067,7286819,8336419,134967,135204627,34551843,34552867,1880097555,915,134711,135138835,7223331,8272931,28343,134967,202313491,1645130499,1653519235,7286819,8336419,28343,134967,219090707,1661907715,1670296451,7286819,8336419,132407,134546707,134219155,132663,268830227]
 def seg_122 : List (BitVec 32) := [115]
-def seg_123 : List (BitVec 32) := [134839,269389459,32567,963331,9352067,7286819,8336419,134839,269389459,134967,302976787,963331,9352067,7286819,8336419,28343,134967,336531219,1544467203,1552855939,7286819,8336419,28343,134967,353308435,1561244419,1569633155,7286819,8336419,2451]
+def seg_123 : List (BitVec 32) := [134839,269389459,32567,963331,9352067,7286819,8336419,134839,269389459,134967,302976787,963331,9352067,7286819,8336419,28343,134967,336531219,1645130499,1653519235,7286819,8336419,28343,134967,353308435,1661907715,1670296451,7286819,8336419,2451]
 def seg_153 : List (BitVec 32) := [412131439,1617529443]
 def seg_155 : List (BitVec 32) := [4919,787,627603,134711,302910995,7223331,8272931,132407,302318867,67110291,132663,369493523]
 def seg_167 : List (BitVec 32) := [115]
@@ -87,7 +87,7 @@ def seg_397 : List (BitVec 32) := [2098195,6293395,34871,4245162003,211814547,13
 def seg_411 : List (BitVec 32) := [1049624815]
 def seg_412 : List (BitVec 32) := [1049619,7341971,34871,3406301203,210765971,134711,1426984467,930563,12800915,133172755,29620531,591635,20141203,926941423]
 def seg_426 : List (BitVec 32) := [986710255]
-def seg_427 : List (BitVec 32) := [1043,1171,56626451,53480851,152045715,134711,1426984467,930563,20140947,7735,4294839827,29620531,591635,864026863]
+def seg_427 : List (BitVec 32) := [1043,1171,56626451,53480851,153094291,134711,1426984467,930563,20140947,7735,4294839827,29620531,591635,864026863]
 def seg_441 : List (BitVec 32) := [1052563,133943,1108019987,35767,2299235219,344981743]
 def seg_447 : List (BitVec 32) := [1989148783]
 def seg_456 : List (BitVec 32) := [1530131,1657107,1644819,138167,2685111187,134327,537693331,273678575]
@@ -425,7 +425,7 @@ open SigGolfCandidate.T3 (M Spec publicHash shortHash privateHash privatePair pr
   privateInput header pad64 Coordinate HashOutput Digest Region)
 open SigGolfCandidate.T3M.Keygen (PRIV SEEDS CHAIN NODE NOUT LOUT LEAFPK MOUT ZDIG DUMMY TOP MACBLK REGION)
 open SphincsSecurity (bytesLE bytesLE_length)
-abbrev MSG : Nat := 0x65c0
+abbrev MSG : Nat := 0x6620
 abbrev SK : Nat := 0x80
 abbrev SIG : Nat := 0x7000
 abbrev CACHE : Nat := 0x80000

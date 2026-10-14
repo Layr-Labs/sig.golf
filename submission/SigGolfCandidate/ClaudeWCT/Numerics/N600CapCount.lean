@@ -91,7 +91,7 @@ theorem card_capSet : capSet.card = J := by
       intro c hc
       rw [mem_capSet] at hc
       rw [mem_range]
-      have h707 : ClaudeWCT.WCT9.jointCap = 775 := rfl
+      have hcap : ClaudeWCT.WCT9.jointCap = 775 := rfl
       omega
     rw [card_eq_sum_card_fiberwise hmem]
     unfold capSet

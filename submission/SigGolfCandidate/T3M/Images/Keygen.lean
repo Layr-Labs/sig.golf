@@ -10,7 +10,8 @@ def keygenCode_2 : List (BitVec 32) := bv_list% 32 [16255027,64509715,19429427,1
 def keygenCode_3 : List (BitVec 32) := List.replicate 256 19
 def keygenCode_4 : List (BitVec 32) := List.replicate 93 19 ++ bv_list% 32 [3148435,2579093091,4197011,2555375727,787347,267645715,8590099,8639379,6546355,7735,4043181587,29618995,4395795,4445075,29619123,6546355,15927,859704851,29618995,2298643,2347923,29619123,6546355,24119,1432227347,29618995,1250067,1299347,29619123,6546355,50566035,2706370671]
 def keygenCode : List (BitVec 32) :=
-  [keygenCode_0, keygenCode_1, keygenCode_2, keygenCode_3, keygenCode_4].foldl (· ++ ·) []
+  [keygenCode_0,keygenCode_1,keygenCode_2,keygenCode_3,keygenCode_4].foldl (· ++ ·) []
+
 def keygenData : List (BitVec 8) := [
 ]
 def keygenImage : Riscv.Image := ⟨keygenCode, keygenData⟩

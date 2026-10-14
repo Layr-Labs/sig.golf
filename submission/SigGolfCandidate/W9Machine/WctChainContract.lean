@@ -1,5 +1,8 @@
 import SigGolfCandidate.W9Machine.WctChildContract
 
+variable {choiceHint : BitVec 64}
+
+
 set_option autoImplicit false
 namespace W9Machine.Chain
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
@@ -38,8 +41,8 @@ def Good (L : Layout) (rank : Fin 666) : Prop :=
   ∀ (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128) (u : MachineState)
     (N C A : Nat) (Q : Prop) (K : List Digest → OracleComp HashSpec Obs),
     Pre L w index k j rank u →
-    (∀ ends t, Post L w index k j u ends t → GoodQFor L.image t N C Q A (K ends)) →
-    GoodQFor L.image u (N + 89) (C + 89) Q (A + 89)
+    (∀ ends t, Post L w index k j u ends t → GoodQFor (choiceHint := choiceHint) L.image t N C Q A (K ends)) →
+    GoodQFor (choiceHint := choiceHint) L.image u (N + 89) (C + 89) Q (A + 89)
       (ccM (program w index k j rank) K)
-def AllGood (L : Layout) : Prop := ∀ rank : Fin 666, Good L rank
+def AllGood (L : Layout) : Prop := ∀ rank : Fin 666, Good (choiceHint := choiceHint) L rank
 end W9Machine.Chain

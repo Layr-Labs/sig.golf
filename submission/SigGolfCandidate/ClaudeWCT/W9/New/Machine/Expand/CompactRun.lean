@@ -173,7 +173,7 @@ theorem run_spec (N : HashOutput) (s : MachineState) (hpc : s.pc = pcOf 41108) (
         finalWord (fun B => s.getMem (BitVec.ofNat 64 B)) (fun k => N.toNat / 2 ^ WCT9.childBase k % 128) i) ∧
       (∀ k < 9, ∀ j < 3, t.getMem (BitVec.ofNat 64 (holdAt k + 8 * j)) =
         holdVal (fun B => s.getMem (BitVec.ofNat 64 B)) (fun k => N.toNat / 2 ^ WCT9.childBase k % 128) k j) ∧
-      ∀ A < 2 ^ 64, (A < 0x800 ∨ 0x200000 + 9216 ≤ A) → ¬ InHold 9 A →
+      ∀ A < 2 ^ 64, (A < 0x800 ∨ (0x800 + 8 * 2729 ≤ A ∧ A < 0x200000) ∨ 0x200000 + 9216 ≤ A) → ¬ InHold 9 A →
         t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A) := by
   have hMB : MEMORY_BYTES = 16777216 := rfl
   have hPL : PLAN = 0xff9a00 := rfl

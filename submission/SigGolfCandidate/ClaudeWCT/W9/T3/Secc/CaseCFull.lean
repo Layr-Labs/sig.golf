@@ -1,5 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CaseCLinkInv
-import SigGolfCandidate.ClaudeWCT.W9.New.G3a.PaddedWitness
+import SigGolfCandidate.ClaudeWCT.W9.New.G3a_PaddedWitness
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Basic
 import SigGolfCandidate.T3.Secc.CaseCFull
 

@@ -1,6 +1,9 @@
 import SigGolfCandidate.W9Machine.WctChainControl
 import SigGolfCandidate.W9Machine.WctChainSplit
 
+variable {choiceHint : BitVec 64}
+
+
 section
 namespace W9Machine
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
@@ -25,8 +28,8 @@ theorem ChainRoutine.checked_cycles (r : ChainRoutine) (h : r.checked = true) : 
 theorem chainRoutine_good (r : ChainRoutine) (hr : r.checked = true)
     (s : MachineState) (post : MachineState → Prop) (hready : PlanReady r.pieces s post)
     (N C A : Nat) (Q : Prop) (K : MachineState → OracleComp HashSpec Obs)
-    (hK : ∀ t, post t → GoodQFor Frozen.image t N C Q A (K t)) :
-    GoodQFor Frozen.image s (N + 89) (C + 89) Q (A + 89)
+    (hK : ∀ t, post t → GoodQFor (choiceHint := choiceHint) Frozen.image t N C Q A (K t)) :
+    GoodQFor (choiceHint := choiceHint) Frozen.image s (N + 89) (C + 89) Q (A + 89)
       (cc (chainPlan r.pieces s) K) := by
   have hc := r.checked_cycles hr
   have hp := planCycles_eq r

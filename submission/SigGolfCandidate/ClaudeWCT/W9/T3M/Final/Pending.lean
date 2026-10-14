@@ -1,6 +1,6 @@
-import SigGolfCandidate.ClaudeWCT.W9.T3.FullCache.NativeBudgetB1.Moment
+import SigGolfCandidate.ClaudeWCT.W9.T3.FullCache.NativeBudgetB1_Moment
 import SigGolfCandidate.ClaudeWCT.WCT9.QueriesWots
-import SigGolfCandidate.ClaudeWCT.W9.T3.FullCache.NativeBudgetB1.ExpansionBudget
+import SigGolfCandidate.ClaudeWCT.W9.T3.FullCache.NativeBudgetB1_ExpansionBudget
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Submission
 import SigGolfCandidate.T3M.Verify.HashOk
 import SigGolfCandidate.ClaudeWCT.W9.T3M.SigCodecC
@@ -177,12 +177,22 @@ theorem hashOnly_packedSecret (pairQuery : Nat → M (Digest × Digest)) (h : �
 @[aesop safe apply] theorem hashOnly_encodingHash (lay : Layer) (input : HashInput) :
     HashOnly (ClaudeWCT.WCT9.encodingHash lay input) := by
   exact (ClaudeWCT.WCT9.allQueries_encodingHash_iff lay input _).mpr (hashOnly_shortHash input)
+@[aesop safe apply] theorem hashOnly_verificationHash (lay : Layer) (hint : BitVec 64) (input : HashInput) :
+    HashOnly (ClaudeWCT.WCT9.verificationHash lay hint input) := by
+  unfold ClaudeWCT.WCT9.verificationHash
+  hashes
 @[aesop safe apply] theorem hashOnly_layerCounterSearch (lay : Layer) (tree leaf : Nat)
     (msg : ClaudeWCT.WCT9.LayerMsg) (counter fuel : Nat) :
     HashOnly (ClaudeWCT.WCT9.layerCounterSearch lay tree leaf msg counter fuel) := by
   induction fuel generalizing counter with
   | zero => unfold ClaudeWCT.WCT9.layerCounterSearch; hashes
   | succ fuel ih => unfold ClaudeWCT.WCT9.layerCounterSearch; hashes
+@[aesop safe apply] theorem hashOnly_layerCounterSearchHint (lay : Layer) (tree leaf : Nat)
+    (msg : ClaudeWCT.WCT9.LayerMsg) (counter fuel : Nat) :
+    HashOnly (ClaudeWCT.WCT9.layerCounterSearchHint lay tree leaf msg counter fuel) := by
+  induction fuel generalizing counter with
+  | zero => unfold ClaudeWCT.WCT9.layerCounterSearchHint; hashes
+  | succ fuel ih => unfold ClaudeWCT.WCT9.layerCounterSearchHint; hashes
 @[aesop safe apply] theorem hashOnly_signLayersBC (cache : Cache) (index n : Nat) (msg : ClaudeWCT.WCT9.LayerMsg) :
     HashOnly (ClaudeWCT.WCT9.signLayersBC cache index n msg) := by
   induction n generalizing msg with
@@ -246,13 +256,13 @@ theorem hashOnly_expandLayersT (sig : Signature) (index : Nat) (o : Digest) (n :
   | zero => unfold ClaudeWCT.WCT9.expandLayersT; exact hashOnly_pure _
   | succ n ih =>
     unfold ClaudeWCT.WCT9.expandLayersT
-    refine hashOnly_bind (hashOnly_layerCounterSearch _ _ _ _ _ _) fun r => ?_
-    rcases r with _ | ⟨counter, digits⟩
+    refine hashOnly_bind (hashOnly_layerCounterSearchHint _ _ _ _ _ _) fun r => ?_
+    rcases r with _ | ⟨counter, digits, hint⟩
     · exact hashOnly_pure _
     · exact hashOnly_ite' (hashOnly_bind (hashOnly_topFold _ _ _) fun _ =>
           hashOnly_bind (hashOnly_topNode _ _ _) fun _ => hashOnly_pure _)
         (hashOnly_bind (hashOnly_recoverLayerPair _ _ _ _) fun _ => hashOnly_bind (ih _) fun r => by
-          rcases r with _ | ⟨v, root, cs⟩ <;> exact hashOnly_pure _)
+          rcases r with _ | ⟨v, root, cs, topHint⟩ <;> exact hashOnly_pure _)
 theorem hashOnly_searchTop (index : Nat) (v sib pk : Digest) (fuel c : Nat) :
     HashOnly (ClaudeWCT.WCT9.searchTop index v sib pk fuel c) := by
   induction fuel generalizing c with
@@ -809,9 +819,9 @@ open ClaudeWCT.WCT9 (Signature Witness)
 open ClaudeWCT.WCT9.Rev3 (sign expand verify)
 open SigGolfCandidate.T3M (mrealize countBoth countCalls cacheB cacheDec isHash)
 open ClaudeWCT.W9.T3M (Images submission)
-def verifyCycleBound : Nat := 6943
-def claimedC : Nat := 7040
-def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 24828) : Prop :=
+def verifyCycleBound : Nat := 6938
+def claimedC : Nat := 7036
+def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 24924) : Prop :=
   ∀ N, evalWithAnswerFn hash (mrealize 0 (digestP m w)) = some N → WCT9.capOk N = true
 variable (I : Images)
 def KeygenRunCounts : Prop := ∀ sk : SecretKey,
@@ -834,14 +844,14 @@ def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5310),
 def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5310),
   ((submission I).runWith hash .expand (m, pk, s)).finished = true ∧
     ((submission I).runWith hash .expand (m, pk, s)).cycles < CYCLE_LIMIT
-def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 24828),
+def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 24924),
   (fun r => (r.value, r.hashCalls)) <$> (submission I).run .verify (m, pk, w) =
     (fun p => (if p.1 then some () else none, p.2)) <$> countCalls (mrealize 0 (verifyP m pk w))
-def VerifyTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24828),
+def VerifyTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24924),
   ((submission I).runWith hash .verify (m, pk, w)).finished = true ∧
     ((submission I).runWith hash .verify (m, pk, w)).cycles < CYCLE_LIMIT
-def VerifyAcceptCycles : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24828),
-  SigGolfCandidate.T3M.Verify.HashOk hash → DigestCapOk hash m w →
+def VerifyAcceptCycles : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24924),
+  SigGolfCandidate.T3M.Verify.HashOk (wtopHint w) hash → DigestCapOk hash m w →
   ((submission I).runWith hash .verify (m, pk, w)).value.isSome = true →
     ((submission I).runWith hash .verify (m, pk, w)).cycles ≤ verifyCycleBound
 structure Pending : Prop where

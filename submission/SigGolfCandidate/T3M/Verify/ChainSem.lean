@@ -452,9 +452,9 @@ theorem slotL_mono (i j : Nat) (h : i ≤ j) : slotL i ≤ slotL j := by unfold 
 theorem slotL_props (i : Nat) (hi : i ≤ 42) : slotL i % 16 = 0 ∧ 768 ≤ slotL i ∧ slotL i + 32 ≤ 0x5D0 := by
   unfold slotL; split <;> omega
 theorem bufferSlot_props (c : LCtx) (i : Nat) (hi : i ≤ 42) :
-    c.bufferSlot i % 16 = 0 ∧ 22832 ≤ c.bufferSlot i ∧ c.bufferSlot i + 32 ≤ 26592 := by
-  have hb : 21616 ≤ ClaudeWCT.W9.T3M.leafBufferBase c.lay ∧
-      ClaudeWCT.W9.T3M.leafBufferBase c.lay ≤ 23888 ∧
+    c.bufferSlot i % 16 = 0 ∧ 22928 ≤ c.bufferSlot i ∧ c.bufferSlot i + 32 ≤ 26688 := by
+  have hb : 21712 ≤ ClaudeWCT.W9.T3M.leafBufferBase c.lay ∧
+      ClaudeWCT.W9.T3M.leafBufferBase c.lay ≤ 23984 ∧
       ClaudeWCT.W9.T3M.leafBufferBase c.lay % 16 = 0 := by
     generalize c.lay = lay
     fin_cases lay <;> decide +kernel
@@ -714,7 +714,7 @@ theorem prehash_step (c : LCtx) (hc : c.ok) (s0 : MachineState) (hk : ∀ p ∈ 
   have t5 : t.getReg .x5 = 0 := kr _ _ (by simp [known]) (by decide +kernel)
   have t11 : t.getReg .x11 = BitVec.ofNat 64 64 := kr _ _ (by simp [known]) (by decide +kernel)
   obtain ⟨p0, p1⟩ := pads_at hc h0 hi hF
-  have hwb : c.outSlot i % 8 = 0 ∧ c.outSlot i + 32 ≤ 26592 := by
+  have hwb : c.outSlot i % 8 = 0 ∧ c.outSlot i + 32 ≤ 26688 := by
     by_cases hi0 : i = 0
     · subst hi0; omega
     · rw [hwi hi0]; omega

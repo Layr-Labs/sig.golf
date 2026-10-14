@@ -2,6 +2,9 @@ import SigGolfCandidate.W9Machine.WctFetch
 import SigGolfCandidate.W9Machine.WctJudg
 import SigGolfCandidate.W9Machine.WctRoutineModel
 
+variable {choiceHint : BitVec 64}
+
+
 section
 namespace W9Machine
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
@@ -16,9 +19,9 @@ theorem chainPiece_shortHash {β : Type} (p : ChainPiece)
     (h5 : (p.result.toState s).getReg .x5 = 0)
     (hv : hashArgumentsValid (p.result.toState s) = true)
     (hin : hashInput (p.result.toState s) = toQ (pad64 input))
-    (h : ∀ a : BitVec 256, GoodQFor Frozen.image (writeHash (p.result.toState s) a)
+    (h : ∀ a : BitVec 256, GoodQFor (choiceHint := choiceHint) Frozen.image (writeHash (p.result.toState s) a)
       N C Q A (ccM (f (a.extractLsb' 0 128)) K)) :
-    GoodQFor Frozen.image s (N + 1 + p.result.steps)
+    GoodQFor (choiceHint := choiceHint) Frozen.image s (N + 1 + p.result.steps)
       (C + 8 * (toQ (pad64 input)).blocks + p.result.cycles) Q
       (A + 8 * (toQ (pad64 input)).blocks + p.result.cycles)
       (ccM (shortHash input >>= f) K) := by
@@ -58,8 +61,8 @@ def PlanReady : List ChainPiece → MachineState → (MachineState → Prop) →
 theorem chainPlan_good (ps : List ChainPiece) (s : MachineState) (post : MachineState → Prop)
     (hready : PlanReady ps s post) (N C A : Nat) (Q : Prop)
     (K : MachineState → OracleComp HashSpec Obs)
-    (hK : ∀ t, post t → GoodQFor Frozen.image t N C Q A (K t)) :
-    GoodQFor Frozen.image s (N + planFuel ps) (C + planCycles ps) Q (A + planCycles ps)
+    (hK : ∀ t, post t → GoodQFor (choiceHint := choiceHint) Frozen.image t N C Q A (K t)) :
+    GoodQFor (choiceHint := choiceHint) Frozen.image s (N + planFuel ps) (C + planCycles ps) Q (A + planCycles ps)
       (cc (chainPlan ps s) K) := by
   induction ps generalizing s with
   | nil => simpa only [chainPlan, planFuel, planCycles, Nat.add_zero, cc_pure] using hK s hready

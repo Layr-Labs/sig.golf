@@ -329,7 +329,7 @@ theorem contactTest_enc {A : Answers} {K : Coord → Prop} {y : HashOutput} {L :
       (∃ cs, firstUnknownMsg K L = some cs ∧
           slotValue (Wots.encRow L.toWots m c pad) cs.2 = LargeResidual.honestValue A cs.1) ∨
         (Wots.referenceInput A L.toWots ≠ some (Wots.encRow L.toWots m c pad) ∧
-          decode L.1.lay (WCT9.encodingAnswer L.1.lay y) = some (Wots.referenceDigits A L.toWots)) := by
+          WCT9.encodingCanDecode L.1.lay y (Wots.referenceDigits A L.toWots)) := by
   constructor
   · rintro (⟨N', hN', -⟩ | ⟨L', m', c', pad', -, hX, h⟩)
     · rw [encodingRow_parsed_none] at hN'
@@ -395,15 +395,20 @@ theorem Coherent.decode_ref (h : Coherent U T vals nv τ a) (L : EncLeaf) (d : D
         exact decode_some_injective hd hw
       · rintro rfl
         exact hw
+theorem Coherent.canDecode_ref (h : Coherent U T vals nv τ a) (L : EncLeaf) (answer : HashOutput) :
+    WCT9.encodingCanDecode L.1.lay answer (Wots.referenceDigits T L.toWots) ↔
+      WCT9.encodingTarget L.1.lay (refDigest a L) answer = refDigest a L :=
+  WCT9.encodingCanDecode_iff_target _ _ _ _ ((h.decode_ref L _).mpr rfl)
 theorem Coherent.prefix_ref (h : Coherent U T vals nv τ a) (L : EncLeaf) (ctr : BitVec 32) (hp : PrefixRow a L ctr)
-    (hd : decode L.1.lay (WCT9.encodingAnswer L.1.lay (prefixValue a L ctr)) = some (Wots.referenceDigits T L.toWots)) :
+    (hd : WCT9.encodingCanDecode L.1.lay (prefixValue a L ctr) (Wots.referenceDigits T L.toWots)) :
     Wots.referenceInput T L.toWots = some (Wots.encRow L.toWots (msgVals vals L) ctr 0) := by
   obtain ⟨hcap, hle⟩ := hp
   have hlt : ctr.toNat < 2 ^ 22 := lt_of_lt_of_le hcap (WCT9.searchLimit_le L.1.lay)
   have hpv : prefixValue a L ctr = a.rows L ⟨ctr.toNat, hlt⟩ := by unfold prefixValue; rw [dif_pos hlt]
   rw [hpv] at hd
-  have hd' : WCT9.producerDecode L.1.lay (WCT9.encodingAnswer L.1.lay (a.rows L ⟨ctr.toNat, hlt⟩)) =
-      some (Wots.referenceDigits T L.toWots) := WotsExtract.producerDecode_of_reference T L.toWots hd
+  obtain ⟨reference, href⟩ := WotsExtract.referenceDigits_producerDecode T L.toWots
+  obtain ⟨values, hd'⟩ := WCT9.encodingCanDecode_producer_contact L.1.lay
+    (a.rows L ⟨ctr.toNat, hlt⟩) reference _ href hd
   have hrej : ∀ c : Fin (2 ^ 22), ∀ r', SphincsSecurity.Concrete.FirstSuccessTable.select (decodeAt L) (a.rows L) =
       some r' → c < r'.1 → WCT9.producerDecode L.1.lay (WCT9.encodingAnswer L.1.lay (a.rows L c)) = none := by
     intro c r' hr' hc
@@ -1242,9 +1247,9 @@ theorem case_enc_known (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals n
       lookupVal_map (fun c => Sum.elim vals nv (.inl c)) _ cs.1 (List.mem_map.mpr ⟨cs, hcs, rfl⟩))
   rw [hmv]
   have hct : ∀ y : HashOutput, ContactTest T st.known X y ↔
-      Wots.referenceInput T L.toWots ≠ some X ∧ WCT9.encodingAnswer L.1.lay y = refDigest a L := by
+      Wots.referenceInput T L.toWots ≠ some X ∧ WCT9.encodingTarget L.1.lay (refDigest a L) y = refDigest a L := by
     intro y
-    rw [hXe, contactTest_enc hfit, hcoh.honestValue, hcoh.decode_ref, ← hXe, hkm] <;>
+    rw [hXe, contactTest_enc hfit, hcoh.honestValue, hcoh.canDecode_ref, ← hXe, hkm] <;>
       simp only [reduceCtorEq, false_and, exists_false, false_or]
   have hcell : ∀ N' : CanonGraph.Node, X = cellValues N' vals → ∀ cs ∈ childSlots N', st.known cs.1 :=
     fun N' hN' => absurd hN' (not_cell_unparsed hcoh hnp N')
@@ -1266,7 +1271,7 @@ theorem case_enc_known (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals n
       rw [hpre.1]
       apply hcoh.prefix_ref L ctr hpre.2
       rw [← hTX]
-      exact (hcoh.decode_ref L _).mpr hc.2
+      exact (hcoh.canDecode_ref L _).mpr hc.2
     apply outcome_continue hrel1 hlt X _ hnc
       (tickState q (discloseStates U q (Sum.elim vals nv) ws ((msgSlots L).map Prod.fst)) .call)
     · rw [hnext, hTX]

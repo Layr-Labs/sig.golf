@@ -208,6 +208,19 @@ theorem pubGood_layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : WCT9.L
       rcases WCT9.producerDecode lay ans with _ | digits
       · exact ih _
       · exact allQ_pure _
+theorem pubGood_layerCounterSearchHint (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) : ∀ fuel counter,
+    AllQueriesSatisfy (WCT9.layerCounterSearchHint lay tree leaf msg counter fuel) PubGood := by
+  intro fuel
+  induction fuel with
+  | zero => intro counter; exact allQ_pure _
+  | succ fuel ih =>
+      intro counter
+      unfold WCT9.layerCounterSearchHint
+      refine allQ_bind (pubGood_publicHash _ ?_) fun ans => ?_
+      · cases msg <;> simp [WCT9.layerEncodingInput, encodingInput, WCT9.pairEncodingInputP, bytesLE_length]
+      · rcases WCT9.producerDecode lay (WCT9.encodingAnswer lay ans) with _ | digits
+        · exact ih _
+        · exact allQ_pure _
 theorem pubGood_recoverLayerPair (sig : WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat) :
     AllQueriesSatisfy (WCT9.recoverLayerPair sig index lay digits) PubGood := by
   unfold WCT9.recoverLayerPair
@@ -244,8 +257,8 @@ theorem pubGood_expandLayersBC (sig : WCT9.Signature) (index : Nat) : ∀ n msg,
   | succ n ih =>
       intro msg
       unfold WCT9.expandLayersBC
-      refine allQ_bind (pubGood_layerCounterSearch _ _ _ _ _ _) fun r => ?_
-      rcases r with _ | ⟨counter, digits⟩
+      refine allQ_bind (pubGood_layerCounterSearchHint _ _ _ _ _ _) fun r => ?_
+      rcases r with _ | ⟨counter, digits, hint⟩
       · exact allQ_pure _
       · exact allQ_ite _ (allQ_bind (pubGood_recoverLayer _ _ _ _) fun _ => allQ_pure _)
           (allQ_bind (pubGood_recoverLayerPair _ _ _ _) fun _ => allQ_bind (ih _) fun r => by
@@ -283,8 +296,8 @@ theorem pubGood_expandLayersT (sig : WCT9.Signature) (index : Nat) (o : Digest) 
   | succ n ih =>
       intro msg
       unfold WCT9.expandLayersT
-      refine allQ_bind (pubGood_layerCounterSearch _ _ _ _ _ _) fun r => ?_
-      rcases r with _ | ⟨counter, digits⟩
+      refine allQ_bind (pubGood_layerCounterSearchHint _ _ _ _ _ _) fun r => ?_
+      rcases r with _ | ⟨counter, digits, hint⟩
       · exact allQ_pure _
       · exact allQ_ite _ (allQ_bind (pubGood_topFold _ _ _) fun _ =>
             allQ_bind (pubGood_topNode _ _ _) fun _ => allQ_pure _)

@@ -3,6 +3,9 @@ import SigGolfCandidate.W9Machine.WctWitnessBridge
 import SigGolfCandidate.W9Machine.WctRoutineReady
 import SigGolfCandidate.W9Machine.WctN600Contract
 
+variable {choiceHint : BitVec 64}
+
+
 section
 
 
@@ -688,8 +691,8 @@ theorem runPlan_good {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
     (hpc : ∀ p, ps.head? = some p → s.pc = pcOf p.pc)
     (N C A : Nat) (Q : Prop) (K : List (BitVec 256) → OracleComp HashSpec Obs)
     (hK : ∀ answers' s', Inv u index k j (terminalTrace ps tr) answers' s' →
-      GoodQFor Frozen.image (leafSetupRel.toState s') N C Q A (K answers')) :
-    GoodQFor Frozen.image s (N + planFuel ps) (C + planCycles ps) Q (A + planCycles ps)
+      GoodQFor (choiceHint := choiceHint) Frozen.image (leafSetupRel.toState s') N C Q A (K answers')) :
+    GoodQFor (choiceHint := choiceHint) Frozen.image s (N + planFuel ps) (C + planCycles ps) Q (A + planCycles ps)
       (ccM (traceProgram (originalValue u index k j) (planQueries ps tr) answers) K) := by
   induction ps generalizing tr answers s with
   | nil => simp [planGuard] at hg
@@ -716,7 +719,7 @@ theorem runPlan_good {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
       obtain ⟨hnext, hgtail⟩ := htail
       have hltail : PlanLinked ps := fun q hq => hl q (List.mem_cons_of_mem p hq)
       have hktail : ∀ answers' s', Inv u index k j (terminalTrace ps (tr.step p.kind)) answers' s' →
-          GoodQFor Frozen.image (leafSetupRel.toState s') N C Q A (K answers') := by
+          GoodQFor (choiceHint := choiceHint) Frozen.image (leafSetupRel.toState s') N C Q A (K answers') := by
         intro answers' s' h
         exact hK answers' s' (by simpa only [terminalTrace, if_neg hleaf] using h)
       have hnpc (ans : BitVec 256) : ∀ q, ps.head? = some q →
@@ -750,7 +753,7 @@ namespace W9Machine.Chain
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 theorem good_of_ready (source : SourceEquivalent) (endpoints : EndpointsCorrect)
-    (rank : Fin 666) (r : ChainRoutine) (hr : RoutineReady rank r) : Good Frozen.layout rank := by
+    (rank : Fin 666) (r : ChainRoutine) (hr : RoutineReady rank r) : Good (choiceHint := choiceHint) Frozen.layout rank := by
   intro w index k j u N C A Q K hu hK
   have hpc : ∀ p, r.pieces.head? = some p → u.pc = pcOf p.pc := by
     intro p hp
@@ -759,7 +762,7 @@ theorem good_of_ready (source : SourceEquivalent) (endpoints : EndpointsCorrect)
     have he' : p.pc = chainEntries.getD rank.val 0 := Option.some.inj he
     exact hu.pc.trans (congrArg pcOf he'.symm)
   have hk : ∀ answers s, Inv u index k j (terminalTrace r.pieces {}) answers s →
-      GoodQFor Frozen.image (leafSetupRel.toState s) N C Q A
+      GoodQFor (choiceHint := choiceHint) Frozen.image (leafSetupRel.toState s) N C Q A
         (K (sourceEnds w k rank answers)) := by
     intro answers s hs
     exact hK _ _ (hs.leafPost hu _ (by simp [sourceEnds])
@@ -775,7 +778,7 @@ theorem good_of_ready (source : SourceEquivalent) (endpoints : EndpointsCorrect)
   have he := congrArg (fun p => ccM p K) (source Frozen.layout w index k j rank u hu)
   simpa only [ccM_bind, ccM_pure] using he
 theorem allGood_of_ready (source : SourceEquivalent) (endpoints : EndpointsCorrect)
-    (ready : ∀ rank : Fin 666, ∃ r, RoutineReady rank r) : AllGood Frozen.layout := by
+    (ready : ∀ rank : Fin 666, ∃ r, RoutineReady rank r) : AllGood (choiceHint := choiceHint) Frozen.layout := by
   intro rank
   obtain ⟨r, hr⟩ := ready rank
   exact good_of_ready source endpoints rank r hr
@@ -791,7 +794,7 @@ open Chain OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv Risc
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 theorem good_of_ready (source : Chain.SourceEquivalent) (endpoints : Chain.EndpointsCorrect)
     (rank : Fin 563) (r : ChainRoutine) (hr : Chain.RoutineReady (embed rank) r)
-    (hrankcost : planCycles r.pieces ≤ rankCost rank) : Good Frozen.layout rank := by
+    (hrankcost : planCycles r.pieces ≤ rankCost rank) : Good (choiceHint := choiceHint) Frozen.layout rank := by
   intro w index k j u N C A Q K hu hK
   have hpc : ∀ p, r.pieces.head? = some p → u.pc = pcOf p.pc := by
     intro p hp
@@ -800,7 +803,7 @@ theorem good_of_ready (source : Chain.SourceEquivalent) (endpoints : Chain.Endpo
     have he' : p.pc = chainEntries.getD (embed rank).val 0 := Option.some.inj he
     exact hu.pc.trans (congrArg pcOf he'.symm)
   have hk : ∀ answers s, Inv u index k j (terminalTrace r.pieces {}) answers s →
-      GoodQFor Frozen.image (leafSetupRel.toState s) N C Q A
+      GoodQFor (choiceHint := choiceHint) Frozen.image (leafSetupRel.toState s) N C Q A
         (K (sourceEnds w k (embed rank) answers)) := by
     intro answers s hs
     exact hK _ _ (hs.leafPost hu _ (by simp [sourceEnds])

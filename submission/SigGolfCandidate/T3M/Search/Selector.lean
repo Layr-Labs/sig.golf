@@ -149,113 +149,47 @@ theorem selector_spec {image : Image} {b : Nat} (hK : KernAt image b)
         (rt.get (by decide)).trans g6,(rt.get (by decide)).trans g7,
         ((ru.trans rv).trans rt).mono (by decide),((fu.trans fv).trans ft).mono (by simp)⟩
 
-sym_block top354_entry := symRun {noAlias:=true} (topEntryCode 354) (pcOf (tcEntry 354)) 200
-sym_block top543_entry := symRun {noAlias:=true} (topEntryCode 543) (pcOf (tcEntry 543)) 200
-def topState_entry : SymState := top354_entry.res.st
-def topPc_entry (b : Nat) : E := .c (pcOf (topSelectBase b))
-theorem topRun_entry {b : Nat} (hb : b=354 ∨ b=543) :
-    symRun {noAlias:=true} (topEntryCode b) (pcOf (tcEntry b)) 200 =
-    some ⟨topState_entry,topPc_entry b,top354_entry.res.stop,top354_entry.res.steps,top354_entry.res.cycles⟩ := by
-  rcases hb with rfl | rfl
-  · exact top354_entry.trans (congrArg some (by kernel_rfl))
-  · exact top543_entry.trans (congrArg some (by kernel_rfl))
-sym_block top354_gate := symRun {noAlias:=true} (topSelect0) (pcOf (topSelectBase 354+0)) 200
-sym_block top543_gate := symRun {noAlias:=true} (topSelect0) (pcOf (topSelectBase 543+0)) 200
-def topState_gate : SymState := top354_gate.res.st
-def topPc_gate (b : Nat) : E := rebase top354_gate.res.pc (pcOf (tcBase b)) (pcOf (topSelectBase b+1))
-theorem topRun_gate {b : Nat} (hb : b=354 ∨ b=543) :
-    symRun {noAlias:=true} (topSelect0) (pcOf (topSelectBase b+0)) 200 =
-    some ⟨topState_gate,topPc_gate b,top354_gate.res.stop,top354_gate.res.steps,top354_gate.res.cycles⟩ := by
-  rcases hb with rfl | rfl
-  · exact top354_gate.trans (congrArg some (by kernel_rfl))
-  · exact top543_gate.trans (congrArg some (by kernel_rfl))
-sym_block top354_load := symRun {noAlias:=true} (topSelect1) (pcOf (topSelectBase 354+1)) 200
-sym_block top543_load := symRun {noAlias:=true} (topSelect1) (pcOf (topSelectBase 543+1)) 200
-def topState_load : SymState := top354_load.res.st
-def topPc_load (b : Nat) : E := .c (pcOf (tcBase b))
-theorem topRun_load {b : Nat} (hb : b=354 ∨ b=543) :
-    symRun {noAlias:=true} (topSelect1) (pcOf (topSelectBase b+1)) 200 =
-    some ⟨topState_load,topPc_load b,top354_load.res.stop,top354_load.res.steps,top354_load.res.cycles⟩ := by
-  rcases hb with rfl | rfl
-  · exact top354_load.trans (congrArg some (by kernel_rfl))
-  · exact top543_load.trans (congrArg some (by kernel_rfl))
-theorem top_gate_msb (v : T3.Digest) :
-    (v.extractLsb' 64 64).msb = decide (T3.TopDualHalf.gate v) := by
-  rw [BitVec.msb_eq_getLsbD_last]
-  simp only [BitVec.getLsbD_extractLsb', Nat.reduceSub, Nat.reduceAdd, decide_true, Bool.true_and]
-  by_cases h : T3.TopDualHalf.gate v
-  · simp [h, (T3.TopDualHalf.gate_iff_getLsbD v).mp h]
-  · have hh : v.getLsbD 127 = false := by
-      cases hv : v.getLsbD 127
-      · rfl
-      · exact False.elim (h ((T3.TopDualHalf.gate_iff_getLsbD v).mpr hv))
-    simpa [h] using hh
-theorem top_entry_spec {image : Image} {b : Nat} (hK : KernAt image b)
-    (s : MachineState) (hpc : s.pc=pcOf (tcEntry b)) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf (topSelectBase b) ∧
-      RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_,symRun_sound (topRun_entry hK.2.1) (codeAt_topEntry hK) s hpc
-    (by simp [topState_entry,top354_entry.res,rv_simp]),?_,?_,?_⟩
-  · rfl
-  · intro r hr; cases r <;> simp_all [topState_entry,top354_entry.res,rv_simp] <;> rfl
-  · intro A _ _; simp [topState_entry,top354_entry.res,rv_simp]
-theorem top_gate_spec {image : Image} {b : Nat} (hK : KernAt image b)
-    (s : MachineState) (hpc : s.pc=pcOf (topSelectBase b)) (v : T3.Digest)
-    (h7 : s.getReg .x7=v.extractLsb' 64 64) :
-    ∃ t, Steps image s 1 1 t ∧
-      t.pc=(if T3.TopDualHalf.gate v then pcOf (tcBase b) else pcOf (topSelectBase b+1)) ∧
-      RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_,symRun_sound (topRun_gate hK.2.1) (codeAt_topSelect hK 0 0 topSelect0 rfl) s hpc
-    (by simp [topState_gate,top354_gate.res,rv_simp]),?_,?_,?_⟩
-  · simp only [Result.toState_pc,topPc_gate,rebase,top354_gate.res,E.eval,CmpOp.eval,h7]
-    rw [BitVec.slt_zero_eq_msb,top_gate_msb]
-    by_cases h : T3.TopDualHalf.gate v <;> simp [h]
-  · intro r hr; cases r <;> simp_all [topState_gate,top354_gate.res,rv_simp] <;> rfl
-  · intro A _ _; simp [topState_gate,top354_gate.res,rv_simp]
-theorem top_load_spec {image : Image} {b : Nat} (hK : KernAt image b)
-    (s : MachineState) (hpc : s.pc=pcOf (topSelectBase b+1)) (v : T3.Digest)
-    (h12 : s.getReg .x12=BitVec.ofNat 64 EOUT)
-    (hm0 : s.getMem (BitVec.ofNat 64 (EOUT+16))=v.extractLsb' 0 64)
-    (hm1 : s.getMem (BitVec.ofNat 64 (EOUT+24))=v.extractLsb' 64 64) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc=pcOf (tcBase b) ∧
-      t.getReg .x6=v.extractLsb' 0 64 ∧ t.getReg .x7=v.extractLsb' 64 64 ∧
-      RegsExcept s t [.x6,.x7] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_,symRun_sound (topRun_load hK.2.1) (codeAt_topSelect hK 1 1 topSelect1 rfl) s hpc
-    (by simp [topState_load,top354_load.res,rv_simp,h12,EOUT,accessValid_iff,MEMORY_BYTES]),?_,?_,?_,?_,?_⟩
-  · rfl
-  · simpa [topState_load,top354_load.res,rv_simp,h12,EOUT] using hm0
-  · simpa [topState_load,top354_load.res,rv_simp,h12,EOUT] using hm1
-  · intro r hr; simp at hr; cases r <;> simp_all [topState_load,top354_load.res,rv_simp] <;> rfl
-  · intro A _ _; simp [topState_load,top354_load.res,rv_simp]
+theorem choice_allowed {b : Nat} (hb : b=354 ∨ b=543) :
+    Choice.ProducerSelector.Allowed (choiceBase b) := by
+  rcases hb with rfl|rfl
+  · exact Or.inr rfl
+  · exact Or.inl rfl
+
+theorem choice_entry_at {image : Image} {b : Nat} (hK : KernAt image b) :
+    Choice.ProducerSelector.EntryAt image (choiceBase b) := by
+  have hc := codeAt_topEntry hK
+  rcases hK.2.1 with rfl|rfl <;> exact hc
+
+/-- The canonical producer selector, including its entry and return jumps. -/
 theorem top_select_spec {image : Image} {b : Nat} (hK : KernAt image b)
     (s : MachineState) (hpc : s.pc=pcOf (tcEntry b)) (a : BitVec 256)
+    (hsum : SumTableOK s) (hrew : Reward.RewardTablesOK s)
     (h6 : s.getReg .x6=(a.extractLsb' 0 128).extractLsb' 0 64)
     (h7 : s.getReg .x7=(a.extractLsb' 0 128).extractLsb' 64 64)
     (h12 : s.getReg .x12=BitVec.ofNat 64 EOUT)
-    (hm0 : s.getMem (BitVec.ofNat 64 (EOUT+16))=(a.extractLsb' 128 128).extractLsb' 0 64)
-    (hm1 : s.getMem (BitVec.ofNat 64 (EOUT+24))=(a.extractLsb' 128 128).extractLsb' 64 64) :
-    ∃ k t, Steps image s k k t ∧ k ≤ 4 ∧ t.pc=pcOf (tcBase b) ∧
-      t.getReg .x6=(T3.TopDualHalf.select a).extractLsb' 0 64 ∧
-      t.getReg .x7=(T3.TopDualHalf.select a).extractLsb' 64 64 ∧
-      RegsExcept s t [.x6,.x7] ∧ Frame s t (fun _ => False) := by
-  obtain ⟨u,su,pu,ru,fu⟩ := top_entry_spec hK s hpc
-  obtain ⟨v,sv,pv,rv,fv⟩ := top_gate_spec hK u pu (a.extractLsb' 0 128)
-    ((ru.get (by decide)).trans h7)
-  have rr := ru.trans rv
-  have ff := fu.trans fv
-  by_cases h : T3.TopDualHalf.gate (a.extractLsb' 0 128)
-  · rw [if_pos h] at pv
-    simp only [T3.TopDualHalf.select,T3.TopDualHalf.selectPair,if_pos h]
-    exact ⟨2,v,su.trans sv,by omega,pv,(rr.get (by decide)).trans h6,
-      (rr.get (by decide)).trans h7,rr.mono (by decide),ff.mono (by simp)⟩
-  · rw [if_neg h] at pv
-    simp only [T3.TopDualHalf.select,T3.TopDualHalf.selectPair,if_neg h]
-    obtain ⟨t,st,pt,g6,g7,rt,ft⟩ := top_load_spec hK v pv (a.extractLsb' 128 128)
-      ((rr.get (by decide)).trans h12)
-      (by rw [ff.get (by unfold EOUT;omega) (by simp)];exact hm0)
-      (by rw [ff.get (by unfold EOUT;omega) (by simp)];exact hm1)
-    exact ⟨4,t,(su.trans sv).trans st,by omega,pt,g6,g7,
-      (rr.trans rt).mono (by decide),(ff.trans ft).mono (by simp)⟩
+    (hlo : DigAt s EOUT (a.extractLsb' 0 128))
+    (hhi : DigAt s (EOUT+16) (a.extractLsb' 128 128)) :
+    ∃ k t, Steps image s k k t ∧ k ≤ 155 ∧ t.pc=pcOf (tcBase b) ∧
+      t.getReg .x6=(ClaudeWCT.WCT9.encodingAnswer 0 a).extractLsb' 0 64 ∧
+      t.getReg .x7=(ClaudeWCT.WCT9.encodingAnswer 0 a).extractLsb' 64 64 ∧
+      t.getMem (BitVec.ofNat 64 Choice.ProducerSelector.HINT)=ClaudeWCT.WCT9.encodingHint 0 a ∧
+      RegsExcept s t Choice.ProducerSelector.clobbers ∧
+      Frame s t (fun A=>A=Choice.ProducerSelector.HINT) := by
+  have hp : Choice.ProducerSelector.entryPC (choiceBase b)=tcEntry b := by
+    rcases hK.2.1 with rfl|rfl <;> rfl
+  have hr : Choice.ProducerSelector.returnPC (choiceBase b)=tcBase b := by
+    rcases hK.2.1 with rfl|rfl <;> rfl
+  obtain ⟨u,su,pu,ru,fu⟩ := Choice.ProducerSelector.entry_spec
+    (choice_allowed hK.2.1) (choice_entry_at hK) s (by simpa only [hp] using hpc)
+  obtain ⟨k,t,st,hk,pt,g6,g7,ht,rt,ft⟩ := Choice.ProducerSelector.selector_spec
+    (choice_allowed hK.2.1) hK.2.2.2.1.2.2.2 u a
+    (hsum.frame fu (by simp)) (hrew.frame fu (by simp)) pu
+    (by rw [ru.get (by decide),h6]) (by rw [ru.get (by decide),h7])
+    (by rw [ru.get (by decide),h12])
+    (hlo.frame fu (by decide) (by simp) (by simp))
+    (hhi.frame fu (by decide) (by simp) (by simp))
+  exact ⟨1+k,t,su.trans st,by omega,by simpa only [hr] using pt,g6,g7,ht,
+    (ru.trans rt).mono (by simp),(fu.trans ft).mono (by simp)⟩
 
 end SigGolfCandidate.T3M.Search
 

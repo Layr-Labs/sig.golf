@@ -3,6 +3,7 @@ import SigGolfCandidate.T3M.Search.RewardBlocks
 import SigGolfCandidate.T3M.Images.Sizes
 import SigGolfCandidate.T3M.ImageSlice
 import SigGolfCandidate.T3M.Images.Slices
+import SigGolfCandidate.Choice.ProducerSelectorImages
 
 namespace SigGolfCandidate.T3M.Search
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
@@ -74,7 +75,7 @@ theorem kernL_ok {b : Nat} (hb : b = 354 ∨ b = 543) : layoutOk 0 (kernL b) = t
 def capBase (b : Nat) : Nat := if b = 354 then 41066 else 20771
 def a_0 : List (BitVec 32) := [2097975,6940771]
 def a_2 : List (BitVec 32) := [268387]
-def a_3 : List (BitVec 32) := [4195127,6915171]
+def a_3 : List (BitVec 32) := [2097975,6915171]
 def a_5s : List (BitVec 32) := [0xda8ec06f]
 def a_5e : List (BitVec 32) := [0xd98d806f]
 def a_5 (b : Nat) : List (BitVec 32) := if b = 354 then a_5e else a_5s
@@ -104,7 +105,8 @@ def tcBase (b : Nat) : Nat := topSelectBase b + 3
 def c_0s : List (BitVec 32) := [0xfff34313,0xfff00e13,0x9e5e13,29606835,0xbfcec06f]
 def c_0e : List (BitVec 32) := [0xfff34313,0xfff00e13,0x9e5e13,29606835,0x929d606f]
 def c_0 (b : Nat) : List (BitVec 32) := if b = 354 then c_0e else c_0s
-def topEntryCode (b : Nat) : List (BitVec 32) := if b = 354 then [0x4812806f] else [0xb41306f]
+def choiceBase (b : Nat) : Nat := if b=354 then 44046 else 21942
+def topEntryCode (b : Nat) : List (BitVec 32) := if b = 354 then [0x4592906f] else [0x70d1306f]
 def topSelect0 : List (BitVec 32) := [0x3c663]
 def topSelect1 : List (BitVec 32) := [0x1063303,0x1863383]
 def topSelectL : Rv.Layout := [(0,topSelect0),(1,topSelect1)]
@@ -142,7 +144,8 @@ def KernAt (image : Image) (b : Nat) : Prop :=
   (CodeAt image (pcOf b) (kernCode b) ∧ CodeAt image (pcOf (capBase b)) (appCode b)) ∧ (b = 354 ∨ b = 543) ∧
     CodeAt image (pcOf (prxBase b)) (p_0 b) ∧
     (CodeAt image (pcOf (tcBase b)) (c_0 b) ∧ CodeAt image (pcOf (tcEntry b)) (topEntryCode b) ∧
-      CodeAt image (pcOf (topSelectBase b)) topSelectCode) ∧
+      (CodeAt image (pcOf (topSelectBase b)) topSelectCode ∧
+        Choice.ProducerSelector.FullAt image (choiceBase b))) ∧
     CodeAt image (pcOf (zBase b)) (zeroCode b) ∧
     CodeAt image (pcOf (selectorBase b)) (selectorCode b) ∧ Reward.RewardAt image b
 theorem codeAt_k_0 {image : Image} {b : Nat} (h : KernAt image b) :
@@ -312,7 +315,7 @@ theorem codeAt_topEntry {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (tcEntry b)) (topEntryCode b) := h.2.2.2.1.2.1
 theorem codeAt_topSelect {image : Image} {b : Nat} (h : KernAt image b) (i o : Nat) (seg : List (BitVec 32))
     (hs : topSelectL[i]? = some (o,seg)) : CodeAt image (pcOf (topSelectBase b+o)) seg :=
-  codeAt_sublayout h.2.2.2.1.2.2 topSelectL_ok hs
+  codeAt_sublayout h.2.2.2.1.2.2.1 topSelectL_ok hs
 theorem codeAt_zero {image : Image} {b : Nat} (h : KernAt image b) (i o : Nat) (seg : List (BitVec 32))
     (hs : (zeroL b)[i]? = some (o, seg)) : CodeAt image (pcOf (zBase b + o)) seg :=
   codeAt_sublayout h.2.2.2.2.1 (zeroL_ok h.2.1) hs
@@ -387,14 +390,14 @@ theorem kernAt_expand : KernAt Images.expandImage 354 :=
   ⟨⟨codeAt_slice (by decide +kernel) kernCode_expand, codeAt_slice (by decide +kernel) appCode_expand⟩, Or.inl rfl,
     codeAt_slice (by decide +kernel) prxCode_expand,
     ⟨codeAt_slice (by decide +kernel) tcCode_expand, codeAt_slice (by decide +kernel) topEntry_expand,
-      codeAt_slice (by decide +kernel) topSelect_expand⟩,
+      ⟨codeAt_slice (by decide +kernel) topSelect_expand, Choice.ProducerSelector.at_expand⟩⟩,
     codeAt_slice (by decide +kernel) zeroCode_expand,
     codeAt_slice (by decide +kernel) selectorCode_expand, Reward.at_expand⟩
 theorem kernAt_sign : KernAt Images.signImage 543 :=
   ⟨⟨codeAt_slice (by decide +kernel) kernCode_sign, codeAt_slice (by decide +kernel) appCode_sign⟩, Or.inr rfl,
     codeAt_slice (by decide +kernel) prxCode_sign,
     ⟨codeAt_slice (by decide +kernel) tcCode_sign, codeAt_slice (by decide +kernel) topEntry_sign,
-      codeAt_slice (by decide +kernel) topSelect_sign⟩,
+      ⟨codeAt_slice (by decide +kernel) topSelect_sign, Choice.ProducerSelector.at_sign⟩⟩,
     codeAt_slice (by decide +kernel) zeroCode_sign,
     codeAt_slice (by decide +kernel) selectorCode_sign, Reward.at_sign⟩
 sym_block blk354_0 := symRun { noAlias := true } k_0 (pcOf (354 + 0)) 200

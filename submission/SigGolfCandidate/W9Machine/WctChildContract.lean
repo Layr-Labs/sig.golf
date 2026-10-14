@@ -1,5 +1,8 @@
 import SigGolfCandidate.W9Machine.WctV3Source
 
+variable {choiceHint : BitVec 64}
+
+
 set_option autoImplicit false
 namespace W9Machine.Child
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
@@ -45,7 +48,7 @@ def Good (L : Layout) (b : Budget) (j : Fin 128) : Prop :=
   ∀ (w : WBytes) (index : Nat) (k : Fin 9) (ends : List Digest) (u : MachineState)
     (N C A : Nat) (Q : Prop) (K : Digest → OracleComp HashSpec Obs),
     Pre L w index k j ends u →
-    (∀ computed t, Post L k j u computed t → GoodQFor L.image t N C Q A (K computed)) →
-    GoodQFor L.image u (N + b.fuel) (C + b.allCycles) Q (A + b.acceptCycles)
+    (∀ computed t, Post L k j u computed t → GoodQFor (choiceHint := choiceHint) L.image t N C Q A (K computed)) →
+    GoodQFor (choiceHint := choiceHint) L.image u (N + b.fuel) (C + b.allCycles) Q (A + b.acceptCycles)
       (ccM (V3.childProgram w index k j ends) K)
 end W9Machine.Child

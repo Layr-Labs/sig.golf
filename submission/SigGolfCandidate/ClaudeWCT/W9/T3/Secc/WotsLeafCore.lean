@@ -1,7 +1,7 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsLeafTest
 import SigGolfCandidate.ClaudeWCT.Arith.FamilyTest
 import SigGolfCandidate.ClaudeWCT.WCT9.LowerReveal
-import SigGolfCandidate.ClaudeWCT.W9.New.G3b.Shared
+import SigGolfCandidate.ClaudeWCT.W9.New.G3b_Shared
 
 /-! # The per-chain seed-test reduction (campaign X1 stage B, step B3)
 
