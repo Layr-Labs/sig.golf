@@ -118,8 +118,6 @@ noncomputable instance instFintypeRefTables (adversary : AdversaryP) : Fintype (
 instance instNonemptyRefTables (adversary : AdversaryP) : Nonempty (RefTables adversary) := ⟨(fun _ => 0, fun _ => 0)⟩
 noncomputable def restTable {adversary : AdversaryP} (R : RefTables adversary) : Answers :=
   eagerAnswers (referenceInputs adversary) R.1 R.2
-@[irreducible] noncomputable def restDepth {adversary : AdversaryP} (a : ChainAddr) (R : RefTables adversary) : Nat :=
-  depth (restTable R) a
 namespace PrefixGame
 variable {adversary : AdversaryP}
 def high (output : HashOutput) : Digest := output.extractLsb' 128 128
@@ -142,12 +140,6 @@ theorem setSeed_seedHalf (a : ChainAddr) (output : HashOutput) : setSeed a outpu
 theorem setSeed_setSeed (a : ChainAddr) (output : HashOutput) (seed seed' : Digest) :
     setSeed a (setSeed a output seed) seed' = setSeed a output seed' := by
   unfold setSeed
-  by_cases h : a.chain % 2 = 0
-  · rw [if_pos h, if_pos h, if_pos h, ChainGraph.joinOutput_high]
-  · rw [if_neg h, if_neg h, if_neg h, ChainGraph.joinOutput_low]
-theorem siblingHalf_setSeed (a : ChainAddr) (output : HashOutput) (seed : Digest) :
-    siblingHalf a (setSeed a output seed) = siblingHalf a output := by
-  unfold siblingHalf setSeed
   by_cases h : a.chain % 2 = 0
   · rw [if_pos h, if_pos h, if_pos h, ChainGraph.joinOutput_high]
   · rw [if_neg h, if_neg h, if_neg h, ChainGraph.joinOutput_low]

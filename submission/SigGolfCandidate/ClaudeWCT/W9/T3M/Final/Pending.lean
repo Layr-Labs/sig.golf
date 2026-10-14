@@ -23,6 +23,11 @@ set_option linter.unusedSimpArgs false
 @[aesop safe apply] theorem hashOnly_leafHash (index coord selected : Nat) (ends : List Digest) :
     HashOnly (ClaudeWCT.WCT9.leafHash index coord selected ends) := by
   unfold ClaudeWCT.WCT9.leafHash; hashes
+@[aesop safe apply] theorem hashOnly_leafHashW (lay : Layer) (tree leaf : Nat)
+    (pad : Digest) (hi : BitVec 64) (ends : List Digest) :
+    HashOnly (ClaudeWCT.WCT9.leafHashW lay tree leaf pad hi ends) := by
+  unfold ClaudeWCT.WCT9.leafHashW
+  exact SigGolfCandidate.T3.SourceReplay.hashOnly_projHash _ _
 @[aesop safe apply] theorem hashOnly_forestPk (index : Nat) (pairs : List (Digest × Digest)) :
     HashOnly (ClaudeWCT.WCT9.forestPk index pairs) := by
   unfold ClaudeWCT.WCT9.forestPk; hashes
@@ -107,26 +112,6 @@ theorem hashOnly_packedSecret (pairQuery : Nat → M (Digest × Digest)) (h : �
     exact hashOnly_bind (SigGolfCandidate.T3.SourceReplay.hashOnly_chain _ _ _ _ _ _ _) fun _ =>
       hashOnly_bind (SigGolfCandidate.T3.SourceReplay.hashOnly_chain _ _ _ _ _ _ _) fun _ => hashOnly_pure _
   · exact hashOnly_bind (SigGolfCandidate.T3.SourceReplay.hashOnly_leafHash _ _ _ _) fun _ => hashOnly_pure _
-/-! C2/C3: the half-selecting hashes of the current scheme make the same single query as `shortHash`. -/
-@[aesop safe apply] theorem hashOnly_halfHash (high : Bool) (input : HashInput) :
-    HashOnly (ClaudeWCT.WCT9.halfHash high input) := by
-  rw [ClaudeWCT.WCT9.halfHash_eq]
-  exact hashOnly_bind (SigGolfCandidate.T3.SourceReplay.hashOnly_publicHash _) fun _ => hashOnly_pure _
-@[aesop safe apply] theorem hashOnly_chainW (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
-    HashOnly (ClaudeWCT.WCT9.chainW lay tree leaf i start count value) := by
-  unfold ClaudeWCT.WCT9.chainW
-  exact hashOnly_foldlM _ _ (fun _ _ => hashOnly_halfHash _ _) _
-@[aesop safe apply] theorem hashOnly_lowerLeafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
-    HashOnly (ClaudeWCT.WCT9.lowerLeafHash lay tree leaf ends) := by
-  unfold ClaudeWCT.WCT9.lowerLeafHash ClaudeWCT.WCT9.leafHashW ClaudeWCT.WCT9.lowerHash
-  exact hashOnly_halfHash _ _
-@[aesop safe apply] theorem hashOnly_lowerNodeHash (lay tree heap : Nat) (left right : Digest) :
-    HashOnly (ClaudeWCT.WCT9.lowerNodeHash lay tree heap left right) := by
-  unfold ClaudeWCT.WCT9.lowerNodeHash ClaudeWCT.WCT9.lowerHash
-  exact hashOnly_halfHash _ _
-@[aesop safe apply] theorem hashOnly_lowerLevel (lay tree h level : Nat) (nodes : List Digest) :
-    HashOnly (ClaudeWCT.WCT9.lowerLevel lay tree h level nodes) := by
-  unfold ClaudeWCT.WCT9.lowerLevel; hashes
 @[aesop safe apply] theorem hashOnly_buildLeafPF (lay : Layer) (tree leaf : Nat) (digits : List Nat)
     (carry : Digest) : HashOnly (ClaudeWCT.WCT9.buildLeafPF lay tree leaf digits carry) := by
   unfold ClaudeWCT.WCT9.buildLeafPF
@@ -138,9 +123,9 @@ theorem hashOnly_packedSecret (pairQuery : Nat → M (Digest × Digest)) (h : �
     exact hashOnly_pure _
   rcases cc with ⟨coefs, carry'⟩
   refine hashOnly_bind (hashOnly_foldlM _ _ (fun state i => ?_) _) fun state => ?_
-  · exact hashOnly_bind (hashOnly_chainW _ _ _ _ _ _ _) fun _ =>
-      hashOnly_bind (hashOnly_chainW _ _ _ _ _ _ _) fun _ => hashOnly_pure _
-  · exact hashOnly_bind (hashOnly_lowerLeafHash _ _ _ _) fun _ => hashOnly_pure _
+  · exact hashOnly_bind (SigGolfCandidate.T3.SourceReplay.hashOnly_chain _ _ _ _ _ _ _) fun _ =>
+      hashOnly_bind (SigGolfCandidate.T3.SourceReplay.hashOnly_chain _ _ _ _ _ _ _) fun _ => hashOnly_pure _
+  · exact hashOnly_bind (SigGolfCandidate.T3.SourceReplay.hashOnly_leafHash _ _ _ _) fun _ => hashOnly_pure _
 @[aesop safe apply] theorem hashOnly_buildLevelsBelow (tag lay tree h : Nat) (leaves : List Digest) :
     HashOnly (ClaudeWCT.WCT9.buildLevelsBelow tag lay tree h leaves) := by
   unfold ClaudeWCT.WCT9.buildLevelsBelow; hashes
@@ -809,9 +794,9 @@ open ClaudeWCT.WCT9 (Signature Witness)
 open ClaudeWCT.WCT9.Rev3 (sign expand verify)
 open SigGolfCandidate.T3M (mrealize countBoth countCalls cacheB cacheDec isHash)
 open ClaudeWCT.W9.T3M (Images submission)
-def verifyCycleBound : Nat := 6945
-def claimedC : Nat := 7043
-def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 24924) : Prop :=
+def verifyCycleBound : Nat := 6944
+def claimedC : Nat := 7042
+def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 24908) : Prop :=
   ∀ N, evalWithAnswerFn hash (mrealize 0 (digestP m w)) = some N → WCT9.capOk N = true
 variable (I : Images)
 def KeygenRunCounts : Prop := ∀ sk : SecretKey,
@@ -834,13 +819,13 @@ def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5310),
 def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5310),
   ((submission I).runWith hash .expand (m, pk, s)).finished = true ∧
     ((submission I).runWith hash .expand (m, pk, s)).cycles < CYCLE_LIMIT
-def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 24924),
+def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 24908),
   (fun r => (r.value, r.hashCalls)) <$> (submission I).run .verify (m, pk, w) =
     (fun p => (if p.1 then some () else none, p.2)) <$> countCalls (mrealize 0 (verifyP m pk w))
-def VerifyTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24924),
+def VerifyTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24908),
   ((submission I).runWith hash .verify (m, pk, w)).finished = true ∧
     ((submission I).runWith hash .verify (m, pk, w)).cycles < CYCLE_LIMIT
-def VerifyAcceptCycles : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24924),
+def VerifyAcceptCycles : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24908),
   SigGolfCandidate.T3M.Verify.HashOk hash → DigestCapOk hash m w →
   ((submission I).runWith hash .verify (m, pk, w)).value.isSome = true →
     ((submission I).runWith hash .verify (m, pk, w)).cycles ≤ verifyCycleBound

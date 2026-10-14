@@ -12,7 +12,6 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance low] Classical.propDecidable
 attribute [local irreducible] referenceGame offlineGame
 namespace Enc
-def chainAt (p : CanonGraph.LeafPos × Fin 58) : ChainAddr := ⟨leafOf p.1, p.2.val⟩
 theorem unit_neighbors_le_53 (lay : Layer) (word : Encoding lay) (i : ChainIndex lay) :
     (MixedCode.unitNeighbors word i).card ≤ 53 :=
   (MixedCode.unitNeighbors_card_le word i).trans (Nat.sub_le_sub_right (chainCount_le_54 lay) 1)

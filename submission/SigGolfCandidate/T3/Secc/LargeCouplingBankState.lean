@@ -11,16 +11,6 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-structure BankInv (U : Finset HashInput) (ws : LargeResidual.State WCoord (Cell U)) (st : RouterState) : Prop where
-  calls : ws.counters.calls = st.calls
-  mass : ws.counters.mass ≤ ws.counters.calls
-  births : st.births.length ≤ st.calls
-  nonce : ∀ m, st.memo.lookup m = none → ws.candidates (.inr m) = Finset.univ
-  fresh : ∀ (X : HashInput) (hX : X ∈ U), IsDigestRow X → X ∉ st.seen → X ∉ st.trials → ws.rows ⟨X, hX⟩ = none
-  seenRows : ∀ (X : HashInput) (hX : X ∈ U), IsDigestRow X → X ∈ st.seen → X ∉ st.trials →
-    ∃ y, st.cache X = some y ∧ ws.rows ⟨X, hX⟩ = some y
-  bornSeen : ∀ p ∈ st.births, p.1 ∈ st.seen
-  trials : ∀ X ∈ st.trials, ∃ rho m c, X = pad64 (digestInput rho m c) ∧ (st.memo.lookup m).isSome
 theorem digestTrial_inj {rho rho' : Digest} {m m' : Message} {c c' : Fin (2 ^ 32)}
     (h : Sampling.digestTrial rho m c.val = Sampling.digestTrial rho' m' c'.val) : m = m' ∧ rho = rho' ∧ c = c' := by
   have h' : pad64 (digestInput rho m (BitVec.ofNat 32 c.val)) = pad64 (digestInput rho' m' (BitVec.ofNat 32 c'.val)) := h

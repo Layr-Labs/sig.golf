@@ -25,7 +25,7 @@ theorem blkO_five (j : Nat) : blkO 5 j = 64 := rfl
 theorem blkO_six (j : Nat) : blkO 6 j = 0 := rfl
 def leafO : Nat := 816
 def heapOf (l j : Nat) : Nat := 2 ^ (6 - l) + j / 2 ^ (l + 1)
-/-- C4: FTS node words carry the coordinate nibble `k + 1`. -/
+/-- Campaign S2: FTS node words carry the coordinate nibble `k + 1`. -/
 def nodeLo (k index : Nat) : Nat := 1537 + 65536 * (k + 1) + 2 ^ 27 * index
 def heapReg (h : Nat) : Reg :=
   match h with

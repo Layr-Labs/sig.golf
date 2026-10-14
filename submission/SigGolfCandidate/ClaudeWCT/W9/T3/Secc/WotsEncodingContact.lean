@@ -32,9 +32,9 @@ theorem frontierValue_congr_honest {T T' : Answers} (h : AgreeOn (HonestQ T) T T
   have hd : depth T' (chainAt p) = depth T (chainAt p) := by
     unfold depth chainAt
     rw [referenceDigits_congr_honest h hs]
-  unfold frontierValue honestChainValueW
+  unfold frontierValue honestChainValue
   rw [hd, wotsSeed_congr_nonEnc (nonEnc_of_honest h)]
-  exact (respects_chainW _ _ _ _ _ _ _).eval_eq (nonEnc_of_honest h)
+  exact (Enc.respects_chain _ _ _ _ _ _ _).eval_eq (nonEnc_of_honest h)
 theorem contactAt_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (trace : List Entry)
     (p : CanonGraph.LeafPos × Fin 58) (hs : p.1.Source) :
     ContactAt T' trace (chainAt p) ↔ ContactAt T trace (chainAt p) := by

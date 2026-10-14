@@ -35,75 +35,36 @@ theorem chainValue_eq (h : Agrees answers labels) (a : Address) (step : Nat) (hs
 theorem maxDigit_le_seven (lay : Layer) (i : Nat) : maxDigit lay i ≤ 7 := by
   unfold maxDigit
   split_ifs <;> decide
-/-- C3: the honest chain of the current scheme after `m + 1` steps is the used half (`Pos.proj`: the high half for
-the last step of a lower chain 0) of step `m`'s label. -/
-theorem chainValueW_succ (h : Agrees answers labels) (a : Address) (m : Fin 7) :
-    Wots.honestChainValueW answers a.layer a.tree.val a.leaf.val a.chain.val
-      (WCT9.wotsSeed answers a.layer a.tree.val a.leaf.val a.chain.val) (m.val + 1) =
-      (Node.chain (a, m)).toPos.proj (labels (.chain (a, m))) := by
-  have hm := m.isLt
-  rw [← Wots.honestChainValueW_succ, Wots.honestChainValueW_eq (step := m.val) (Or.inr (Or.inr (by omega))),
-    chainValue_eq h a m.val (by omega)]
-  have hrow : pad64 (chainInput a.layer a.tree.val a.leaf.val a.chain.val m.val
-      (ChainGraph.value (seedsOf (secretsOf answers)) (chainLabels labels) a m.val)) =
-      cell (secretsOf answers) (.chain (a, m)) labels := by
-    have hr : ∀ v, chainInput a.layer a.tree.val a.leaf.val a.chain.val m.val v = ChainGraph.row (a, m) v :=
-      fun _ => rfl
-    simp only [cell]
-    rw [ChainGraph.input, ChainGraph.prior_eq_value, hr, ChainGraph.row_pad64]
-  have hp : (Node.chain (a, m)).toPos.proj = WCT9.halfOf (WCT9.chainHigh a.layer a.chain.val m.val) := rfl
-  rw [hp, hrow, h (.chain (a, m))]
-/-- C3: a revealed chain value is the seed (digit 0) or the used half of the label of the step before it. -/
 theorem leafValue_eq (h : Agrees answers labels) (L : LeafPos) (digits : List Nat) (i : Nat) (hi : i < 58)
     (hdigit : digits.getD i 0 ≤ 7) :
     WCT9.wotsValue answers L.lay L.tree.val L.leaf.val digits i =
-      if digits.getD i 0 = 0 then seedsOf (secretsOf answers) ⟨L.lay, L.tree, L.leaf, fin58 i⟩
-      else (Node.chain (⟨L.lay, L.tree, L.leaf, fin58 i⟩, ⟨(digits.getD i 0 - 1) % 7, Nat.mod_lt _ (by decide)⟩)).toPos.proj
-        (labels (.chain (⟨L.lay, L.tree, L.leaf, fin58 i⟩, ⟨(digits.getD i 0 - 1) % 7, Nat.mod_lt _ (by decide)⟩))) := by
+      ChainGraph.value (seedsOf (secretsOf answers)) (chainLabels labels) ⟨L.lay, L.tree, L.leaf, fin58 i⟩
+        (digits.getD i 0) := by
   have hval : (fin58 i).val = i := Nat.mod_eq_of_lt hi
-  have he : WCT9.wotsValue answers L.lay L.tree.val L.leaf.val digits i =
-      Wots.honestChainValueW answers L.lay L.tree.val L.leaf.val (fin58 i).val
-        (WCT9.wotsSeed answers L.lay L.tree.val L.leaf.val (fin58 i).val) (digits.getD i 0) := by
-    unfold WCT9.wotsValue Wots.honestChainValueW; rw [hval]
-  rw [he]
-  split_ifs with h0
-  · rw [h0, Wots.honestChainValueW_zero, seedsOf_secretsOf]
-  · obtain ⟨m, hm⟩ : ∃ m, digits.getD i 0 = m + 1 := ⟨digits.getD i 0 - 1, by omega⟩
-    have hmod : (digits.getD i 0 - 1) % 7 = m := by rw [hm]; exact Nat.mod_eq_of_lt (by omega)
-    have hx := chainValueW_succ h ⟨L.lay, L.tree, L.leaf, fin58 i⟩ ⟨m, by omega⟩
-    simp only [hmod]
-    exact (congrArg (Wots.honestChainValueW answers L.lay L.tree.val L.leaf.val (fin58 i).val
-      (WCT9.wotsSeed answers L.lay L.tree.val L.leaf.val (fin58 i).val)) hm).trans hx
-/-- C3: a chain end is the used half (`Pos.proj`, the high half for lower chain 0) of its last step's label. -/
+  have hx := chainValue_eq h ⟨L.lay, L.tree, L.leaf, fin58 i⟩ (digits.getD i 0) hdigit
+  simp only [hval] at hx
+  exact hx
 theorem leafEnd_eq (h : Agrees answers labels) (L : LeafPos) (i : Nat) (hi : i < 58) :
     WCT9.wotsEnd answers L.lay L.tree.val L.leaf.val i = endLabel (secretsOf answers) labels L i := by
   have hval : (fin58 i).val = i := Nat.mod_eq_of_lt hi
-  have hm1 : 1 ≤ maxDigit L.lay i := by unfold maxDigit; split_ifs <;> decide
-  have hm7 := maxDigit_le_seven L.lay i
-  obtain ⟨m, hm⟩ : ∃ m, maxDigit L.lay i = m + 1 := ⟨maxDigit L.lay i - 1, by omega⟩
-  have hmod : (maxDigit L.lay i - 1) % 7 = m := by rw [hm]; exact Nat.mod_eq_of_lt (by omega)
-  have he : WCT9.wotsEnd answers L.lay L.tree.val L.leaf.val i =
-      Wots.honestChainValueW answers L.lay L.tree.val L.leaf.val (fin58 i).val
-        (WCT9.wotsSeed answers L.lay L.tree.val L.leaf.val (fin58 i).val) (maxDigit L.lay i) := by
-    unfold WCT9.wotsEnd Wots.honestChainValueW; rw [hval]
-  have hx := chainValueW_succ h ⟨L.lay, L.tree, L.leaf, fin58 i⟩ ⟨m, by omega⟩
-  rw [he, hm, hx]
-  unfold endLabel endPt
-  simp only [hmod]
+  have hx := chainValue_eq h ⟨L.lay, L.tree, L.leaf, fin58 i⟩ (maxDigit L.lay i) (maxDigit_le_seven L.lay i)
+  simp only [hval] at hx
+  exact hx
 theorem leafEnds_eq (h : Agrees answers labels) (L : LeafPos) :
     (List.range (chainCount L.lay)).map (WCT9.wotsEnd answers L.lay L.tree.val L.leaf.val) =
       (List.range (chainCount L.lay)).map (endLabel (secretsOf answers) labels L) := by
   apply List.map_congr_left
   intro i hi
   exact leafEnd_eq h L i (lt_of_lt_of_le (List.mem_range.mp hi) (chainCount_bound L.lay))
-/-- C2: a leaf value is the used half (`Pos.proj`) of its leaf label. -/
 theorem leafRoot_eq (h : Agrees answers labels) (L : SrcLeaf) :
-    WCT9.wotsRoot answers L.1.lay L.1.tree.val L.1.leaf.val = (Node.leaf L).toPos.proj (labels (.leaf L)) := by
+    WCT9.wotsRoot answers L.1.lay L.1.tree.val L.1.leaf.val = projHalf (Node.leaf L).high (labels (.leaf L)) := by
   unfold WCT9.wotsRoot
-  rw [WCT9.lowerLeafHash_eq]
-  unfold WCT9.lowerHash
-  rw [Wots.eval_halfHash', leafEnds_eq h L.1]
-  exact congrArg (WCT9.halfOf (WCT9.lowerHigh L.1.lay.val L.1.leaf.val)) (h (.leaf L))
+  rw [show leafHash L.1.lay L.1.tree.val L.1.leaf.val ((List.range (chainCount L.1.lay)).map
+      (WCT9.wotsEnd answers L.1.lay L.1.tree.val L.1.leaf.val)) =
+      projHash (Node.leaf L).high (Extract.leafInput L.1.lay L.1.tree.val L.1.leaf.val
+      ((List.range (chainCount L.1.lay)).map (WCT9.wotsEnd answers L.1.lay L.1.tree.val L.1.leaf.val))) from rfl,
+    eval_projHash, leafEnds_eq h L.1]
+  exact congrArg (fun output : HashOutput => projHalf (Node.leaf L).high output) (h (.leaf L))
 theorem treeNodeAt_some (lay : Layer) (tree : Fin (2^31)) (level c : Nat) (hlevel : level < height lay)
     (hc : c < 2 ^ (height lay - level - 1)) (ht : tree.val < 2 ^ treeBits lay)
     (hroot : lay = 0 ∨ level + 1 < height lay) :
@@ -146,15 +107,13 @@ theorem builtTree_eq (h : Agrees answers labels) (lay : Layer) (tree : Fin (2^31
         exact ih (by omega) (by omega) j (by omega)
       obtain ⟨n, hn, hlay, htree, hlev, hidx⟩ := treeNodeAt_some lay tree level c hlt hc1 ht (by omega)
       change ((WCT9.wotsTree answers lay tree.val).getD (level + 1) []).getD c 0 = _
-      rw [hrec]
-      unfold WCT9.lowerNodeHash WCT9.lowerHash
-      rw [Wots.eval_halfHash']
+      rw [hrec, nodeHash_eq_projHash, eval_projHash]
       unfold treeLabel
       rw [if_neg (by omega), show level + 1 - 1 = level by omega, hn]
       simp only
       have hinput : cell (secretsOf answers) (.node n) labels =
-          pad64 (WCT9.merkleNodeInput lay.val tree.val (2 ^ (height lay - (level + 1)) + c)
-            (((WCT9.wotsTree answers lay tree.val).getD level []).getD (2 * c) 0)
+          pad64 (nodeInputP 3 lay.val tree.val (2 ^ (height lay - (level + 1)) + c)
+            (((WCT9.wotsTree answers lay tree.val).getD level []).getD (2 * c) 0) 0
             (((WCT9.wotsTree answers lay tree.val).getD level []).getD (2 * c + 1) 0)) := by
         have h1 := hchild (2 * c) (by omega)
         have h2 := hchild (2 * c + 1) (by omega)
@@ -165,14 +124,14 @@ theorem builtTree_eq (h : Agrees answers labels) (lay : Layer) (tree : Fin (2^31
         subst hlay htree
         simp only [cell]
         rw [hlev, hidx, show height nlay - level - 1 = height nlay - (level + 1) by omega]
-      have hhigh : (Node.node n).toPos.high = WCT9.lowerHigh lay.val (2 ^ (height lay - (level + 1)) + c) := by
+      have hhigh : (Node.node n).high = nodeHigh 3 lay.val (2 ^ (height lay - (level + 1)) + c) := by
         obtain ⟨⟨nlay, ntree, nlevel, nidx⟩, hv⟩ := n
         simp only at hlay htree hlev hidx
         subst hlay
-        simp only [Node.toPos, Extract.Pos.high]
+        simp only [Node.high, Node.toPos, Extract.Pos.high]
         rw [hlev, hidx, show height nlay - level - 1 = height nlay - (level + 1) by omega]
       rw [← hinput, ← hhigh]
-      exact congrArg (fun output : HashOutput => (Node.node n).toPos.proj output) (h (.node n))
+      exact congrArg (fun output : HashOutput => projHalf (Node.node n).high output) (h (.node n))
 theorem honestRoot_eq (h : Agrees answers labels) :
     Extract.honestRoot answers 0 0 = treeLabel labels 0 0 (height 0) 0 :=
   builtTree_eq h 0 0 (height 0) 0 le_rfl (by simp) (by decide) (Or.inl rfl)

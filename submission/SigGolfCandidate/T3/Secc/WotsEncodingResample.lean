@@ -131,16 +131,8 @@ theorem uniform_resample_tsum {Ω K : Type} [Fintype Ω] [Nonempty Ω] {X : K �
   rw [tsum_bind_mul]
   refine tsum_congr fun ω => ?_
   rw [tsum_map_mul]
-theorem encInput_short (e : EncIndex) : encInput e ∈ SeccLaw.publicUniverse :=
-  SeccLaw.mem_publicUniverse _ (by rw [encInput_length]; unfold SeccLaw.maxInputLength; omega)
 section Overwrite
 variable {U : Finset HashInput}
-noncomputable def ov (k : Set EncIndex) (pub : U → HashOutput) (y : k → HashOutput) : U → HashOutput :=
-  fun u => if h : ∃ e, e ∈ k ∧ encInput e = u.val then y ⟨Classical.choose h, (Classical.choose_spec h).1⟩
-    else pub u
-noncomputable def rd (hU : SeccLaw.publicUniverse ⊆ U) (k : Set EncIndex) (pub : U → HashOutput) :
-    k → HashOutput :=
-  fun e => pub ⟨encInput e.val, hU (encInput_short e.val)⟩
 end Overwrite
 section Tables
 variable (U : Finset HashInput)

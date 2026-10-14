@@ -271,16 +271,20 @@ theorem chainHeader_ne_nodeTweak (lay : Layer) (tree leaf i step : Nat) (tag lay
     have := ftsNodeWordH_lt (lay' - 4) tree' heap
     split_ifs at hw <;> omega
   · by_cases ht : tag = 3 ∧ lay' = 0
-    · -- C4 (adapted from b3cc11b): the top label is the low word `topNodeWord heap < 4096`, a chain word is `≥ 193 * 2^56`.
-      obtain ⟨rfl, rfl⟩ := ht
-      have hw := congrArg (fun x : BitVec 128 => (x.extractLsb' 0 64).toNat) h
-      simp only [chainHeader_low, chainHeaderFlaggedLow_toNat, nodeTweak_top, append64_low, topNodeWord_toNat64] at hw
+    · obtain ⟨rfl, rfl⟩ := ht
+      have hw := congrArg tweakLow h
+      rw [nodeTweak_top_low] at hw
+      unfold tweakLow at hw
       have hb := chainHeaderLow_band lay tree leaf i step
+      have h64 : (chainHeader lay tree leaf i step).toNat % 2 ^ 64 =
+          ((chainHeader lay tree leaf i step).extractLsb' 0 64).toNat := by
+        rw [BitVec.extractLsb'_toNat, Nat.shiftRight_zero]
+      rw [h64, chainHeader_low, chainHeaderFlaggedLow_toNat] at hw
       have := topNodeWord_lt heap
       split_ifs at hw <;> omega
     · have hc := chainHeader_tweakMarker lay tree leaf i step
-      rw [h, nodeTweak_marker, if_neg ht] at hc
-      split_ifs at hc <;> first | omega | (exfalso; exact hf ‹_›)
+      rw [h, nodeTweak_marker] at hc
+      split_ifs at hc <;> omega
 theorem header_marker_lt_nonpacked (tag lay tree position index : Nat)
     (hn : packedNodeTag tag = false) (hp : position < 2^31) :
     (header tag lay tree position index).toNat / 2^56 % 256 < 128 := by

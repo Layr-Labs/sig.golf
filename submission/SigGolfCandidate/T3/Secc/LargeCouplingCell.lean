@@ -5,84 +5,12 @@ open OracleComp OracleSpec ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers)
 open SphincsSecurity (bytesLE bytesLE_length)
-open CanonGraph CanonEncoding
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-def coordVal (s : Secrets) (L : Labels) : Coord → Digest
-  | .inl M => (L M).extractLsb' 0 128
-  | .inr x => s x
-def cellValues : CanonGraph.Node → (Coord → Digest) → HashInput
-  | .chain p, v => ChainGraph.row p (v (chainChild p))
-  | .leaf L, v => pad64 (Extract.leafInput L.lay L.tree.val L.leaf.val
-      ((List.range (chainCount L.lay)).map fun i => v (.inl (.chain (endPoint L i)))))
-  | .node n, v => pad64 (nodeInputP 3 n.1.lay.val n.1.tree.val
-      (2 ^ (height n.1.lay - n.1.level.val - 1) + n.1.idx.val)
-      (((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val)).map v).getD 0) 0
-      (((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val + 1)).map v).getD 0))
-  | .ftsLeaf f, v => pad64 (ftsLeafInputP f.index.val f.coord.val f.leaf.val 0 (v (.inr (.inr f))) 0)
-  | .ftsNode n, v => pad64 (nodeInputP 10 n.1.coord.val n.1.index.val
-      (2 ^ (11 - n.1.level.val - 1) + n.1.idx.val)
-      (((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val)).map v).getD 0) 0
-      (((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)).map v).getD 0))
-  | .forest index, v => pad64 (Extract.forestInput index.val
-      ((List.range 7).map fun c => v (.inl (.ftsNode (ftsRootNode index (fin7 c))))))
-theorem treeLabel_eq (s : Secrets) (L : Labels) (lay : Layer) (tree : Fin (2^31)) (level c : Nat) :
-    treeLabel L lay tree level c = ((treeChild lay tree level c).map (coordVal s L)).getD 0 := by
-  unfold treeLabel treeChild
-  by_cases h0 : level = 0
-  · rw [if_pos h0, if_pos h0]
-    by_cases hc : c < 4096
-    · rw [dif_pos hc, dif_pos hc]; rfl
-    · rw [dif_neg hc, dif_neg hc]; rfl
-  · rw [if_neg h0, if_neg h0]
-    cases treeNodeAt lay tree (level - 1) c <;> rfl
-theorem ftsLabel_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin 7) (level c : Nat) :
-    ftsLabel L index coord level c = ((ftsChild index coord level c).map (coordVal s L)).getD 0 := by
-  unfold ftsLabel ftsChild
-  by_cases h0 : level = 0
-  · rw [if_pos h0, if_pos h0]
-    by_cases hc : c < 2048
-    · rw [dif_pos hc, dif_pos hc]; rfl
-    · rw [dif_neg hc, dif_neg hc]; rfl
-  · rw [if_neg h0, if_neg h0]
-    cases ftsNodeAt index coord (level - 1) c <;> rfl
 theorem width_ge (lay : Layer) (i : Nat) : 2 ≤ width lay i := by
   unfold width; norm_num
-theorem cell_eq_cellValues (s : Secrets) (L : Labels) (N : CanonGraph.Node) :
-    cell s N L = cellValues N (coordVal s L) := by
-  cases N with
-  | chain p =>
-      change ChainGraph.row p (ChainGraph.prior (seedsOf s) p (chainLabels L)) = ChainGraph.row p _
-      congr 1
-      unfold ChainGraph.prior chainChild
-      by_cases h0 : p.2.val = 0
-      · rw [if_pos h0, if_pos h0]; rfl
-      · rw [if_neg h0, if_neg h0]; rfl
-  | leaf Lf =>
-      change pad64 (Extract.leafInput _ _ _ ((List.range (chainCount Lf.lay)).map (endLabel s L Lf))) = _
-      congr 3
-      funext i
-      unfold endLabel ChainGraph.value
-      have hw := width_ge Lf.lay i
-      have h1 : 1 ≤ maxDigit Lf.lay i := by
-        unfold maxDigit
-        split_ifs <;> decide
-      rw [if_neg (by omega)]
-      simp only [coordVal, endPoint, chainLabels, Nat.sub_sub]
-  | node n =>
-      change pad64 (nodeInputP 3 _ _ _ (treeLabel L _ _ _ _) 0 (treeLabel L _ _ _ _)) = _
-      rw [treeLabel_eq s, treeLabel_eq s]
-      rfl
-  | ftsLeaf f => rfl
-  | ftsNode n =>
-      change pad64 (nodeInputP 10 _ _ _ (ftsLabel L _ _ _ _) 0 (ftsLabel L _ _ _ _)) = _
-      rw [ftsLabel_eq s, ftsLabel_eq s]
-      rfl
-  | forest index =>
-      change pad64 (Extract.forestInput _ ((List.range 7).map fun c => ftsLabel L index (fin7 c) 11 0)) = _
-      congr 3
 theorem slotValue_append_left (X Y : HashInput) (k : Nat) (hk : 16 * (k + 1) ≤ X.length) :
     slotValue (X ++ Y) k = slotValue X k := by
   unfold slotValue

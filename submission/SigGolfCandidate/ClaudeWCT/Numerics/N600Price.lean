@@ -394,7 +394,7 @@ open ClaudeWCT.Numerics.Law
 open SphincsSecurity.Concrete (uniformWordAverage binomialAverage binomialAverage_mono binomialAverage_mul_left)
 open SigGolfCandidate.T3.BPORS.History (atIndex)
 open ClaudeWCT.Numerics.PoissonReflect (rejection_window_sharp rate_le_one)
-noncomputable def priceScale : ENNReal := ((1353 * 563 ^ 9 : ℕ) : ENNReal) / 2 ^ 7
+noncomputable def priceScale : ENNReal := ((1418 * 563 ^ 9 : ℕ) : ENNReal) / 2 ^ 7
 theorem priceScale_mul : priceScale * ((2 ^ 31 : ℕ) : ENNReal) = (A : ENNReal) := by
   apply (ENNReal.toReal_eq_toReal_iff' (by unfold priceScale; finiteness) (by finiteness)).mp
   unfold priceScale
@@ -447,10 +447,10 @@ variable {T : ℕ} (hT1 : 2 ^ 32 ≤ T) (hT2 : T ≤ 2 ^ 32)
 include hT1 hT2
 theorem law_price_mean_le [SampleableType (Fin 9 → C × β)] (hβ : Fintype.card β = 563) (hC : Fintype.card C = 128) (h₁ : W1Table val)
     (hlaw : LawOK vc κ) :
-    lawAvg (marked (α := Fin (2 ^ 31)) vc) T (priceN val) ≤ 675 / 1000 := by
+    lawAvg (marked (α := Fin (2 ^ 31)) vc) T (priceN val) ≤ 695 / 1000 := by
   rw [law_price_mean_eq val hlaw]
   have h := poissonCheckQ_sound_tilt (Qv := Q) (f := fun r => xNum r ^ 9) (dbase := Nn ^ 9) (sn := A) (sd := 1)
-    (Mn := 675) (Md := 1000) mean_ok (by decide) (by decide) (by decide) (by decide) (by decide)
+    (Mn := 695) (Md := 1000) mean_ok (by decide) (by decide) (by decide) (by decide) (by decide)
     (by decide) rate_le_one κ hlaw.one_le (rate_window hlaw hT2) (rejection_window_sharp T hT1) _
     (fun r _ => law_env_le val hβ hC h₁ hlaw r) (fun r _ => law_env_le_one val hlaw r)
   simpa only [Nat.cast_one, div_one, Nat.cast_ofNat] using h
@@ -466,10 +466,10 @@ theorem law_diag_eq (hlaw : LawOK vc κ) (T : ℕ) :
         (fun r => lawAvg vc r (fun L => env (n := 9) (C := C) val L ^ 2)) := by
   simp_rw [law_marked_atIndex vc hlaw.sum_one _ T (fun L => env (n := 9) (C := C) val L ^ 2), card_index]
   rw [sum_const, card_univ, Fintype.card_fin, nsmul_eq_mul, ← mul_assoc, ← priceScale_sq_mul]
-theorem theta_excess_le_square_v5 (value mean : ENNReal) (hvalue : value ≠ ⊤) (hmean : mean ≤ 675 / 1000) :
-    (1296 / 1000) * (value - 1023 / 1024) + 2 * mean * value ≤ value ^ 2 + mean ^ 2 := by
+theorem theta_excess_le_square_v5 (value mean : ENNReal) (hvalue : value ≠ ⊤) (hmean : mean ≤ 695 / 1000) :
+    (1216 / 1000) * (value - 1023 / 1024) + 2 * mean * value ≤ value ^ 2 + mean ^ 2 := by
   have hmf : mean ≠ ⊤ := ne_top_of_le_ne_top (by finiteness) hmean
-  have hmr : mean.toReal ≤ 675 / 1000 := by
+  have hmr : mean.toReal ≤ 695 / 1000 := by
     have h := (ENNReal.toReal_le_toReal hmf (by finiteness)).mpr hmean
     simpa only [ENNReal.toReal_div, ENNReal.toReal_ofNat] using h
   have hm0 : 0 ≤ mean.toReal := ENNReal.toReal_nonneg
@@ -483,11 +483,11 @@ theorem theta_excess_le_square_v5 (value mean : ENNReal) (hvalue : value ≠ ⊤
     apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
     simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_pow,
       ENNReal.toReal_sub_of_le hlarge hvalue, ENNReal.toReal_div, ENNReal.toReal_ofNat]
-    nlinarith [sq_nonneg (value.toReal - mean.toReal - 81 / 125)]
-theorem theta_excess_le_square_54 (value mean : ENNReal) (hvalue : value ≠ ⊤) (hmean : mean ≤ 675 / 1000) :
-    (5232 / 1000) * (value - 2031 / 1024) + 2 * mean * value ≤ value ^ 2 + mean ^ 2 := by
+    nlinarith [sq_nonneg (value.toReal - mean.toReal - 76 / 125)]
+theorem theta_excess_le_square_54 (value mean : ENNReal) (hvalue : value ≠ ⊤) (hmean : mean ≤ 695 / 1000) :
+    (5153 / 1000) * (value - 2031 / 1024) + 2 * mean * value ≤ value ^ 2 + mean ^ 2 := by
   have hmf : mean ≠ ⊤ := ne_top_of_le_ne_top (by finiteness) hmean
-  have hmr : mean.toReal ≤ 675 / 1000 := by
+  have hmr : mean.toReal ≤ 695 / 1000 := by
     have h := (ENNReal.toReal_le_toReal hmf (by finiteness)).mpr hmean
     simpa only [ENNReal.toReal_div, ENNReal.toReal_ofNat] using h
   have hm0 : 0 ≤ mean.toReal := ENNReal.toReal_nonneg
@@ -501,7 +501,7 @@ theorem theta_excess_le_square_54 (value mean : ENNReal) (hvalue : value ≠ ⊤
     apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
     simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_pow,
       ENNReal.toReal_sub_of_le hlarge hvalue, ENNReal.toReal_div, ENNReal.toReal_ofNat]
-    nlinarith [sq_nonneg (value.toReal - mean.toReal - 654 / 250)]
+    nlinarith [sq_nonneg (value.toReal - mean.toReal - 5153 / 2000)]
 theorem priceN_ne_top (W : List (Fin (2 ^ 31) × (Fin 9 → C × β))) : priceN val W ≠ ⊤ := by
   unfold priceN
   exact ENNReal.mul_ne_top priceScale_ne_top
@@ -512,7 +512,7 @@ include hT1 hT2
 theorem law_price_second_le [SampleableType (Fin 9 → C × β)] (hβ : Fintype.card β = 563)
     (hC : Fintype.card C = 128) (h₁ : W1Table val) (h₂ : W2Table val) (hlaw : LawOK vc κ) :
     lawAvg (marked (α := Fin (2 ^ 31)) vc) T (fun W => priceN val W ^ 2) ≤
-      lawAvg (marked (α := Fin (2 ^ 31)) vc) T (priceN val) ^ 2 + 3200 / 1000000 := by
+      lawAvg (marked (α := Fin (2 ^ 31)) vc) T (priceN val) ^ 2 + 3427 / 1000000 := by
   set M := marked (α := Fin (2 ^ 31)) vc
   have hsq := lawAvg_sum_square_le M T (fun index W => env (n := 9) (C := C) val (atIndex index W))
     (fun first second hne => law_marked_negative_correlation vc hlaw.sum_one first second hne T _ _
@@ -521,7 +521,7 @@ theorem law_price_second_le [SampleableType (Fin 9 → C × β)] (hβ : Fintype.
       priceScale * ∑ index : Fin (2 ^ 31), lawAvg M T (fun W => env (n := 9) (C := C) val (atIndex index W)) := by
     unfold priceN; rw [lawAvg_mul_left, lawAvg_sum]
   have hcheck := poissonCheckQ_sound_tilt (Qv := Q) (f := fun r => yNum r ^ 9) (dbase := (Kc * Nn ^ 2) ^ 9)
-    (sn := A ^ 2) (sd := 2 ^ 31) (Mn := 3200) (Md := 1000000) diag_ok (by decide) (by decide) (by decide)
+    (sn := A ^ 2) (sd := 2 ^ 31) (Mn := 3427) (Md := 1000000) diag_ok (by decide) (by decide) (by decide)
     (by decide) (by decide) (by decide) rate_le_one κ hlaw.one_le (rate_window hlaw hT2) (rejection_window_sharp T hT1) _
     (fun r _ => law_env_sq_le val hβ hC h₁ h₂ hlaw r) (fun r _ => law_env_sq_le_one val hlaw r)
   simp only [Nat.cast_pow, Nat.cast_ofNat] at hcheck
@@ -539,7 +539,7 @@ theorem law_price_second_le [SampleableType (Fin 9 → C × β)] (hβ : Fintype.
         exact add_le_add le_rfl hcheck
 theorem law_price_excess_le [SampleableType (Fin 9 → C × β)] (hβ : Fintype.card β = 563)
     (hC : Fintype.card C = 128) (h₁ : W1Table val) (h₂ : W2Table val) (hlaw : LawOK vc κ) :
-    lawAvg (marked (α := Fin (2 ^ 31)) vc) T (fun W => priceN val W - 1023 / 1024) ≤ 247 / 100000 := by
+    lawAvg (marked (α := Fin (2 ^ 31)) vc) T (fun W => priceN val W - 1023 / 1024) ≤ 282 / 100000 := by
   set M := marked (α := Fin (2 ^ 31)) vc
   have hmean := law_price_mean_le val hT1 hT2 hβ hC h₁ hlaw
   have hsecond := law_price_second_le val hT1 hT2 hβ hC h₁ h₂ hlaw
@@ -549,26 +549,26 @@ theorem law_price_excess_le [SampleableType (Fin 9 → C × β)] (hβ : Fintype.
     theta_excess_le_square_v5 (priceN val W) mean (priceN_ne_top val W) hmean)
   rw [lawAvg_add, lawAvg_add, lawAvg_mul_left, lawAvg_mul_left,
     lawAvg_const M (marked_sum_one vc hlaw.sum_one) T] at h
-  have hcancel : (1296 / 1000 : ENNReal) * lawAvg M T (fun W => priceN val W - 1023 / 1024) ≤ 3200 / 1000000 := by
+  have hcancel : (1216 / 1000 : ENNReal) * lawAvg M T (fun W => priceN val W - 1023 / 1024) ≤ 3427 / 1000000 := by
     apply ENNReal.le_of_add_le_add_right (a := 2 * mean ^ 2) (by finiteness)
     calc
-      _ = (1296 / 1000 : ENNReal) * lawAvg M T (fun W => priceN val W - 1023 / 1024) + 2 * mean * mean := by ring
+      _ = (1216 / 1000 : ENNReal) * lawAvg M T (fun W => priceN val W - 1023 / 1024) + 2 * mean * mean := by ring
       _ ≤ lawAvg M T (fun W => priceN val W ^ 2) + mean ^ 2 := h
-      _ ≤ (mean ^ 2 + 3200 / 1000000) + mean ^ 2 := add_le_add hsecond le_rfl
+      _ ≤ (mean ^ 2 + 3427 / 1000000) + mean ^ 2 := add_le_add hsecond le_rfl
       _ = _ := by ring
-  have hi : (1000 / 1296 : ENNReal) * (1296 / 1000) = 1 := by
+  have hi : (1000 / 1216 : ENNReal) * (1216 / 1000) = 1 := by
     apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
     norm_num [ENNReal.toReal_mul, ENNReal.toReal_div]
   calc
-    _ = (1000 / 1296 : ENNReal) * ((1296 / 1000) * lawAvg M T (fun W => priceN val W - 1023 / 1024)) := by
+    _ = (1000 / 1216 : ENNReal) * ((1216 / 1000) * lawAvg M T (fun W => priceN val W - 1023 / 1024)) := by
         rw [← mul_assoc, hi, one_mul]
-    _ ≤ (1000 / 1296 : ENNReal) * (3200 / 1000000) := mul_le_mul' le_rfl hcancel
+    _ ≤ (1000 / 1216 : ENNReal) * (3427 / 1000000) := mul_le_mul' le_rfl hcancel
     _ ≤ _ := by
         apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
         norm_num [ENNReal.toReal_mul, ENNReal.toReal_div]
 theorem law_price_excess_le_54 [SampleableType (Fin 9 → C × β)] (hβ : Fintype.card β = 563)
     (hC : Fintype.card C = 128) (h₁ : W1Table val) (h₂ : W2Table val) (hlaw : LawOK vc κ) :
-    lawAvg (marked (α := Fin (2 ^ 31)) vc) T (fun W => priceN val W - 2031 / 1024) ≤ 6117 / 10000000 := by
+    lawAvg (marked (α := Fin (2 ^ 31)) vc) T (fun W => priceN val W - 2031 / 1024) ≤ 67 / 100000 := by
   set M := marked (α := Fin (2 ^ 31)) vc
   have hmean := law_price_mean_le val hT1 hT2 hβ hC h₁ hlaw
   have hsecond := law_price_second_le val hT1 hT2 hβ hC h₁ h₂ hlaw
@@ -578,20 +578,20 @@ theorem law_price_excess_le_54 [SampleableType (Fin 9 → C × β)] (hβ : Finty
     theta_excess_le_square_54 (priceN val W) mean (priceN_ne_top val W) hmean)
   rw [lawAvg_add, lawAvg_add, lawAvg_mul_left, lawAvg_mul_left,
     lawAvg_const M (marked_sum_one vc hlaw.sum_one) T] at h
-  have hcancel : (5232 / 1000 : ENNReal) * lawAvg M T (fun W => priceN val W - 2031 / 1024) ≤ 3200 / 1000000 := by
+  have hcancel : (5153 / 1000 : ENNReal) * lawAvg M T (fun W => priceN val W - 2031 / 1024) ≤ 3427 / 1000000 := by
     apply ENNReal.le_of_add_le_add_right (a := 2 * mean ^ 2) (by finiteness)
     calc
-      _ = (5232 / 1000 : ENNReal) * lawAvg M T (fun W => priceN val W - 2031 / 1024) + 2 * mean * mean := by ring
+      _ = (5153 / 1000 : ENNReal) * lawAvg M T (fun W => priceN val W - 2031 / 1024) + 2 * mean * mean := by ring
       _ ≤ lawAvg M T (fun W => priceN val W ^ 2) + mean ^ 2 := h
-      _ ≤ (mean ^ 2 + 3200 / 1000000) + mean ^ 2 := add_le_add hsecond le_rfl
+      _ ≤ (mean ^ 2 + 3427 / 1000000) + mean ^ 2 := add_le_add hsecond le_rfl
       _ = _ := by ring
-  have hi : (1000 / 5232 : ENNReal) * (5232 / 1000) = 1 := by
+  have hi : (1000 / 5153 : ENNReal) * (5153 / 1000) = 1 := by
     apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
     norm_num [ENNReal.toReal_mul, ENNReal.toReal_div]
   calc
-    _ = (1000 / 5232 : ENNReal) * ((5232 / 1000) * lawAvg M T (fun W => priceN val W - 2031 / 1024)) := by
+    _ = (1000 / 5153 : ENNReal) * ((5153 / 1000) * lawAvg M T (fun W => priceN val W - 2031 / 1024)) := by
         rw [← mul_assoc, hi, one_mul]
-    _ ≤ (1000 / 5232 : ENNReal) * (3200 / 1000000) := mul_le_mul' le_rfl hcancel
+    _ ≤ (1000 / 5153 : ENNReal) * (3427 / 1000000) := mul_le_mul' le_rfl hcancel
     _ ≤ _ := by
         apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
         norm_num [ENNReal.toReal_mul, ENNReal.toReal_div]
@@ -654,15 +654,15 @@ theorem law_nearPrice_mean_eq (hlaw : LawOK vc κ) (T : ℕ) :
 theorem law_nearPrice_le [SampleableType (Fin 9 → C × β)] {T : ℕ} (hT1 : 2 ^ 32 ≤ T) (hT2 : T ≤ 2 ^ 32)
     (hβ : Fintype.card β = 563) (hC : Fintype.card C = 128) (h₁ : W1Table val) (hf : ∀ i, WFTable val i)
     (hlaw : LawOK vc κ) :
-    lawAvg (marked (α := Fin (2 ^ 31)) vc) T (nearPriceN val) ≤ 291 / 1 := by
+    lawAvg (marked (α := Fin (2 ^ 31)) vc) T (nearPriceN val) ≤ 299 / 1 := by
   rw [law_nearPrice_mean_eq val hlaw]
   have h := poissonCheckQ_sound_tilt (Qv := Q) (f := fun r => xNum r ^ 8 * xfSum r) (dbase := 6 * Nn ^ 9)
-    (sn := 54 * A) (sd := 1) (Mn := 291) (Md := 1) near_ok (by decide) (by decide) (by decide) (by decide)
+    (sn := 54 * A) (sd := 1) (Mn := 299) (Md := 1) near_ok (by decide) (by decide) (by decide) (by decide)
     (by decide) (by decide) rate_le_one κ hlaw.one_le (rate_window hlaw hT2) (rejection_window_sharp T hT1) _
     (fun r _ => (nearLoad_le val hβ hC h₁ hf hlaw r).trans_eq (by push_cast; ring_nf))
     (fun r _ => nearLoad_le_one val hlaw r)
   simpa only [Nat.cast_one, div_one, Nat.cast_ofNat, Nat.cast_mul] using h
-theorem near_le_sub : (291 / 1 : ENNReal) ≤ 300 - 1 / 16 := by
+theorem near_le_sub : (299 / 1 : ENNReal) ≤ 300 - 1 / 16 := by
   apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
   rw [ENNReal.toReal_sub_of_le (by
     apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp; norm_num [ENNReal.toReal_div])
@@ -682,7 +682,7 @@ theorem lawOK_uniform (hne : Fintype.card (Fin 9 → C × β) ≠ 0) :
 noncomputable def uniformOn (S : Finset (Fin 9 → C × β)) (x : Fin 9 → C × β) : ENNReal :=
   open Classical in if x ∈ S then (S.card : ENNReal)⁻¹ else 0
 theorem lawOK_uniformOn (S : Finset (Fin 9 → C × β)) (hS : S.Nonempty)
-    (hrate : 10 ^ 8 * 2 ^ 32 * Fintype.card (Fin 9 → C × β) ≤ 203317755 * 2 ^ 31 * S.card) :
+    (hrate : 10 ^ 8 * 2 ^ 32 * Fintype.card (Fin 9 → C × β) ≤ 202893657 * 2 ^ 31 * S.card) :
     LawOK (uniformOn S) ((Fintype.card (Fin 9 → C × β) : ENNReal) / S.card) where
   sum_one := by
     classical
@@ -709,7 +709,7 @@ theorem lawOK_uniformOn (S : Finset (Fin 9 → C × β)) (hS : S.Nonempty)
     simp only [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_inv, ENNReal.toReal_natCast, LN, LD,
       ENNReal.toReal_pow, ENNReal.toReal_ofNat]
     have h : ((10 ^ 8 * 2 ^ 32 * Fintype.card (Fin 9 → C × β) : ℕ) : ℝ) ≤
-        ((203317755 * 2 ^ 31 * S.card : ℕ) : ℝ) := by exact_mod_cast hrate
+        ((202893657 * 2 ^ 31 * S.card : ℕ) : ℝ) := by exact_mod_cast hrate
     push_cast at h ⊢
     set c : ℝ := (Fintype.card (Fin 9 → C × β) : ℝ)
     set t : ℝ := (S.card : ℝ)
@@ -719,7 +719,7 @@ theorem lawOK_uniformOn (S : Finset (Fin 9 → C × β)) (hS : S.Nonempty)
     linarith
 theorem lawOK_uniformOn' (S : Finset (Fin 9 → C × β)) (hS : S.Nonempty) (Ncoords Ns : ℕ)
     (hcard : Fintype.card (Fin 9 → C × β) = Ncoords) (hNs : S.card = Ns)
-    (hrate : 10 ^ 8 * 2 ^ 32 * Ncoords ≤ 203317755 * 2 ^ 31 * Ns) :
+    (hrate : 10 ^ 8 * 2 ^ 32 * Ncoords ≤ 202893657 * 2 ^ 31 * Ns) :
     LawOK (uniformOn S) ((Ncoords : ENNReal) / Ns) := by
   have h := lawOK_uniformOn S hS (by rw [hcard, hNs]; exact hrate)
   rwa [hcard, hNs] at h
@@ -736,17 +736,17 @@ theorem lawAvg_marked_uniform (T : ℕ) (f : List (Fin (2 ^ 31) × (Fin 9 → C 
 theorem uniform_price_excess_le {T : ℕ} (hT1 : 2 ^ 32 ≤ T) (hT2 : T ≤ 2 ^ 32)
     (hβ : Fintype.card β = 563) (hC : Fintype.card C = 128) (h₁ : W1Table val) (h₂ : W2Table val) :
     uniformWordAverage T (fun W : List (Fin (2 ^ 31) × (Fin 9 → C × β)) => priceN val W - 1023 / 1024) ≤
-      247 / 100000 := by
+      282 / 100000 := by
   rw [← lawAvg_marked_uniform]
   exact law_price_excess_le val hT1 hT2 hβ hC h₁ h₂ (lawOK_uniform (by simp [hβ, hC]))
 theorem uniform_price_mean_le {T : ℕ} (hT1 : 2 ^ 32 ≤ T) (hT2 : T ≤ 2 ^ 32)
     (hβ : Fintype.card β = 563) (hC : Fintype.card C = 128) (h₁ : W1Table val) :
-    uniformWordAverage T (priceN (C := C) val) ≤ 675 / 1000 := by
+    uniformWordAverage T (priceN (C := C) val) ≤ 695 / 1000 := by
   rw [← lawAvg_marked_uniform]
   exact law_price_mean_le val hT1 hT2 hβ hC h₁ (lawOK_uniform (by simp [hβ, hC]))
 theorem uniform_nearPrice_le {T : ℕ} (hT1 : 2 ^ 32 ≤ T) (hT2 : T ≤ 2 ^ 32)
     (hβ : Fintype.card β = 563) (hC : Fintype.card C = 128) (h₁ : W1Table val) (hf : ∀ i, WFTable val i) :
-    uniformWordAverage T (nearPriceN (C := C) val) ≤ 291 / 1 := by
+    uniformWordAverage T (nearPriceN (C := C) val) ≤ 299 / 1 := by
   rw [← lawAvg_marked_uniform]
   exact law_nearPrice_le val hT1 hT2 hβ hC h₁ hf (lawOK_uniform (by simp [hβ, hC]))
 end Uniform
@@ -781,18 +781,21 @@ theorem cap_exp_majorant (c : ENNReal) (hc : c ≠ ⊤) :
 
 theorem tail_constant_le :
     (3 / 64 : ENNReal) * ENNReal.ofReal (Real.exp (-(2031 / 128))) *
-      ENNReal.ofReal (Real.exp 8) ≤ 3 / 100000 := by
-  have hlow : (3125 / 2 : ℝ) ≤ Real.exp (1007 / 128) := by
-    refine le_trans ?_ (Real.sum_le_exp_of_nonneg (by norm_num : (0 : ℝ) ≤ 1007 / 128) 16)
+      ENNReal.ofReal (Real.exp (203 / 25)) ≤ 203 / 10000000 := by
+  -- `2031/128 - 203/25 = 24791/3200 ≈ 7.747`, and `exp (24791/3200) ≈ 2315 ≥ 937500/406 ≈ 2309.1`;
+  -- the 20-term Taylor polynomial already exceeds `2314`.
+  have hlow : (937500 / 406 : ℝ) ≤ Real.exp (24791 / 3200) := by
+    refine le_trans ?_ (Real.sum_le_exp_of_nonneg (by norm_num : (0 : ℝ) ≤ 24791 / 3200) 20)
     norm_num [Finset.sum_range_succ, Nat.factorial]
-  have he : Real.exp (-(2031 / 128)) * Real.exp 8 = (Real.exp (1007 / 128))⁻¹ := by
+  have he : Real.exp (-(2031 / 128)) * Real.exp (203 / 25) = (Real.exp (24791 / 3200))⁻¹ := by
     rw [← Real.exp_add, ← Real.exp_neg]; congr 1; ring
   apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
   simp only [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_ofNat,
     ENNReal.toReal_ofReal (Real.exp_nonneg _)]
   rw [mul_assoc, he]
-  have hinv : (Real.exp (1007 / 128))⁻¹ ≤ 2 / 3125 := by
-    have h := (inv_le_inv₀ (Real.exp_pos (1007 / 128)) (by norm_num : (0 : ℝ) < 3125 / 2)).2 hlow
+  have hinv : (Real.exp (24791 / 3200))⁻¹ ≤ 203 / 468750 := by
+    have h := (inv_le_inv₀ (Real.exp_pos (24791 / 3200))
+      (by norm_num : (0 : ℝ) < 937500 / 406)).2 hlow
     norm_num at h
     exact h
   nlinarith
@@ -804,8 +807,8 @@ theorem excess_le_of_capped_exp {β : Type} [Fintype β] (v : β → ENNReal) (T
     (hcapped : ∀ W, capped W ≠ ⊤)
     (hsplit : ∀ W, price W ≤ capped W + residual W)
     (hexp : lawAvg v T (fun W => ENNReal.ofReal (Real.exp (8 * (capped W).toReal))) ≤
-      ENNReal.ofReal (Real.exp 8))
-    (hres : lawAvg v T residual ≤ 1 / 5000) :
+      ENNReal.ofReal (Real.exp (203 / 25)))
+    (hres : lawAvg v T residual ≤ 2097 / 10000000) :
     lawAvg v T (fun W => price W - 2031 / 1024) ≤ 23 / 100000 := by
   let a : ENNReal := (3 / 64) * ENNReal.ofReal (Real.exp (-(2031 / 128)))
   have hpoint : ∀ W, price W - 2031 / 1024 ≤
@@ -823,9 +826,9 @@ theorem excess_le_of_capped_exp {β : Type} [Fintype β] (v : β → ENNReal) (T
       lawAvg_mono v T hpoint
     _ = a * lawAvg v T (fun W => ENNReal.ofReal (Real.exp (8 * (capped W).toReal))) +
         lawAvg v T residual := by rw [lawAvg_add, lawAvg_mul_left]
-    _ ≤ a * ENNReal.ofReal (Real.exp 8) + 1 / 5000 :=
+    _ ≤ a * ENNReal.ofReal (Real.exp (203 / 25)) + 2097 / 10000000 :=
       add_le_add (mul_le_mul' le_rfl hexp) hres
-    _ ≤ 3 / 100000 + 1 / 5000 := add_le_add tail_constant_le le_rfl
+    _ ≤ 203 / 10000000 + 2097 / 10000000 := add_le_add tail_constant_le le_rfl
     _ = 23 / 100000 := by
       apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
       simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_div,
@@ -873,9 +876,9 @@ numerical bounds.  Finite coverage counting supplies these hypotheses. -/
 theorem law_price_excess_le_winsor (val : β → Fin 6 → ℕ)
     {vc : (Fin 9 → C × β) → ENNReal} {κ : ENNReal} (hlaw : LawOK vc κ) (T : ℕ)
     (hmgf : (2 ^ 31 : ENNReal) * coordAverage (2 ^ 31 : ENNReal)⁻¹ vc T
-      (bucketExpIncrement val) ≤ 8)
+      (bucketExpIncrement val) ≤ 203 / 25)
     (hres : (2 ^ 31 : ENNReal) * coordAverage (2 ^ 31 : ENNReal)⁻¹ vc T
-      (bucketResidual val) ≤ 1 / 5000) :
+      (bucketResidual val) ≤ 2097 / 10000000) :
     lawAvg (marked (α := Fin (2 ^ 31)) vc) T (fun W => priceN val W - 2031 / 1024) ≤
       23 / 100000 := by
   let cap : List (Fin (2 ^ 31) × (Fin 9 → C × β)) → ENNReal :=
@@ -896,12 +899,15 @@ theorem law_price_excess_le_winsor (val : β → Fin 6 → ℕ)
     apply Finset.sum_le_sum
     intro i _
     exact le_of_eq (by rw [bucketCapped, bucketResidual, add_comm, tsub_add_min])
-  · apply law_marked_exp_sum_le vc hlaw.sum_one T (fun _ L => bucketCapped val L)
+  · apply law_marked_exp_sum_le vc hlaw.sum_one T (fun _ L => bucketCapped val L) (203 / 25)
+      (by norm_num)
     · intro i L; exact min_le_right _ _
     · intro i L b R
       exact min_le_min (mul_le_mul' le_rfl (env_insert_le val L R b)) le_rfl
     · change (2 ^ 31 : ENNReal) * coordAverage (2 ^ 31 : ENNReal)⁻¹ vc T
-        (fun L => ENNReal.ofReal (Real.exp (8 * (bucketCapped val L).toReal)) - 1) ≤ 8 at hmgf
+        (fun L => ENNReal.ofReal (Real.exp (8 * (bucketCapped val L).toReal)) - 1) ≤
+          203 / 25 at hmgf
+      rw [ENNReal.ofReal_div_of_pos (by norm_num), ENNReal.ofReal_ofNat, ENNReal.ofReal_ofNat]
       simpa only [Fintype.card_fin, Nat.cast_pow, Nat.cast_ofNat, Finset.sum_const,
         Finset.card_univ, nsmul_eq_mul] using hmgf
   · change lawAvg (marked (α := Fin (2 ^ 31)) vc) T
@@ -1069,7 +1075,7 @@ theorem fullCoverage_card_product {r n : ℕ} (val : β → Fin 6 → ℕ) (E : 
     (t k).1 (val (t k).2) (fun m => E m k)) => @ite ℕ _ d 1 0) (Subsingleton.elim _ _)
 theorem bucketPrice_ofFn {r : ℕ} (val : β → Fin 6 → ℕ)
     (hβ : Fintype.card β=563) (hC : Fintype.card C=128) (E : Fin r → Fin 9 → C × β) :
-    bucketPrice val (List.ofFn E) = (1353 / 2^70 : ENNReal) *
+    bucketPrice val (List.ofFn E) = (1418 / 2^70 : ENNReal) *
       ((∏ k, coordinateCoverage val (fun j => E j k) : ℕ) : ENNReal) := by
   classical
   unfold bucketPrice ClaudeWCT.Numerics.Thinning.env SigGolfResearch.Gate6.Moments.finiteAverage
@@ -1320,9 +1326,9 @@ theorem winsorResidual_pay (un ud t : ℕ) (hud : 0 < ud) (x : ℝ) (hx : 0 ≤ 
 theorem winsorPayChecks_entry (h : winsorPayChecks = true) (m t b : ℕ)
     (he : ((m,t),b) ∈ (winsorMGFPayData.zip winsorResidualPayData).zipIdx) :
     (m = 3000*winsorScale ∨
-      winsorScale * (winsorExpNum (min winsorScale (winsorCeil (winsorScale*(1353*51^b)) (2^70*50^b))) ^ 8 - winsorExpDen ^ 8) * (2^70*50^b) * 51^9 ≤
-        m * winsorExpDen ^ 8 * (1353*51^b) * 50^9) ∧
-    (t = winsorScale ∨ winsorScale*((1353*51^b)-(2^70*50^b))*51^9 ≤ t*(1353*51^b)*50^9) := by
+      winsorScale * (winsorExpNum (min winsorScale (winsorCeil (winsorScale*(1418*51^b)) (2^70*50^b))) ^ 8 - winsorExpDen ^ 8) * (2^70*50^b) * 51^9 ≤
+        m * winsorExpDen ^ 8 * (1418*51^b) * 50^9) ∧
+    (t = winsorScale ∨ winsorScale*((1418*51^b)-(2^70*50^b))*51^9 ≤ t*(1418*51^b)*50^9) := by
   unfold winsorPayChecks at h
   have hh := List.all_eq_true.mp h ((m,t),b) he
   simpa only [Bool.and_eq_true, Bool.or_eq_true, beq_iff_eq, decide_eq_true_eq] using hh
@@ -1429,8 +1435,8 @@ theorem geometricBin_product_interval (c bins : Fin 9 → ℕ)
     (hs : ∀ k, (51/50 : ℝ)^(bins k)*(50/51) ≤ c k ∧
       (c k : ℝ) ≤ (51/50 : ℝ)^(bins k)) :
     let b := ∑ k, bins k
-    let U := ((1353*51^b : ℕ):ℝ) / ((2^70*50^b : ℕ):ℝ)
-    let x := (1353/2^70 : ℝ) * ∏ k, (c k : ℝ)
+    let U := ((1418*51^b : ℕ):ℝ) / ((2^70*50^b : ℕ):ℝ)
+    let x := (1418/2^70 : ℝ) * ∏ k, (c k : ℝ)
     U*(50/51 : ℝ)^9 ≤ x ∧ x ≤ U := by
   dsimp only
   have hlo : (∏ k, (51/50 : ℝ)^(bins k)*(50/51)) ≤ ∏ k, (c k : ℝ) := by
@@ -1439,14 +1445,14 @@ theorem geometricBin_product_interval (c bins : Fin 9 → ℕ)
     exact Finset.prod_le_prod (fun _ _ => by positivity) (fun k _ => (hs k).2)
   rw [Finset.prod_mul_distrib, Finset.prod_pow_eq_pow_sum, Fin.prod_const] at hlo
   rw [Finset.prod_pow_eq_pow_sum] at hhi
-  have hU : ((1353*51^(∑ k, bins k) : ℕ):ℝ) / ((2^70*50^(∑ k, bins k) : ℕ):ℝ) =
-      (1353/2^70 : ℝ)*(51/50 : ℝ)^(∑ k, bins k) := by
+  have hU : ((1418*51^(∑ k, bins k) : ℕ):ℝ) / ((2^70*50^(∑ k, bins k) : ℕ):ℝ) =
+      (1418/2^70 : ℝ)*(51/50 : ℝ)^(∑ k, bins k) := by
     push_cast
     rw [div_pow]
     ring
   rw [hU]
   constructor
-  · simpa only [mul_assoc] using mul_le_mul_of_nonneg_left hlo (show 0 ≤ (1353/2^70:ℝ) by positivity)
+  · simpa only [mul_assoc] using mul_le_mul_of_nonneg_left hlo (show 0 ≤ (1418/2^70:ℝ) by positivity)
   · exact mul_le_mul_of_nonneg_left hhi (by positivity)
 theorem coverageBin_one : coverageBin 1 = 0 := by decide +kernel
 
@@ -1756,7 +1762,7 @@ set_option maxHeartbeats 1000000
       c*50^coverageBin c ≤ 51^coverageBin c &&
       (c≤1 || 51^(coverageBin c-1)<c*50^(coverageBin c-1)))=true)
     (hpay : winsorPayChecks=true) :
-    let x := (1353/2^70 : ℝ)*∏ k,(c k:ℝ)
+    let x := (1418/2^70 : ℝ)*∏ k,(c k:ℝ)
     let p := winsorPayPair (∑ k,coverageBin (c k))
     (Real.exp (8*min x 1)-1 ≤ x*((p.1:ℝ)/winsorScale)) ∧
       max (x-1) 0 ≤ x*((p.2:ℝ)/winsorScale) := by
@@ -1838,9 +1844,9 @@ attribute [local irreducible] coverageBinnedPoly retainedCoveragePoly xNum winso
     (hpay : winsorPayChecks=true) :
     let P := (coverageBinnedPoly r)^9
     let price := fun xs : Fin 9 → (Fin r → Fin 128 × β) =>
-      (1353/2^70:ℝ)*(∏ k,coordinateCoverage val (xs k):ℕ)
+      (1418/2^70:ℝ)*(∏ k,coordinateCoverage val (xs k):ℕ)
     (∑ xs, (Real.exp (8*min (price xs) 1)-1)) ≤
-      (1353/2^7:ℝ)/winsorScale *
+      (1418/2^7:ℝ)/winsorScale *
         ((∑ b ∈ range 2201, P.coeff b*(winsorPayPair b).1) +
           3000*winsorScale*(xNum r^9-∑ b ∈ range 2201, P.coeff b):ℕ) := by
   classical
@@ -1849,12 +1855,12 @@ attribute [local irreducible] coverageBinnedPoly retainedCoveragePoly xNum winso
   let good := fun xs : Fin 9 → (Fin r → Fin 128 × β) => ∀ k, cc (xs k)<4096
   let label := fun xs : Fin 9 → (Fin r → Fin 128 × β) => ∑ k, coverageBin (cc (xs k))
   apply (finite_nat_payoff_le (fun xs => ∏ k, cc (xs k))
-    (fun xs => Real.exp (8*min ((1353/2^70:ℝ)*(∏ k,cc (xs k):ℕ)) 1)-1) good
+    (fun xs => Real.exp (8*min ((1418/2^70:ℝ)*(∏ k,cc (xs k):ℕ)) 1)-1) good
     ((coverageBinnedPoly r)^9).coeff (fun b => (winsorPayPair b).1) label
-    3000 2201 winsorScale (128^9) (xNum r^9) (1353/2^70) (by positivity)
+    3000 2201 winsorScale (128^9) (xNum r^9) (1418/2^70) (by positivity)
     winsorScale_pos (coverage_product_sum_xNum val hβ h₁ r)
     ((sum_coeff_le_eval_one _ _).trans (coverageBinned_mass_le r hmass)) ?_ ?_ ?_).trans_eq
-  · have hs : (1353/2^70:ℝ)*(128^9:ℕ)/winsorScale = (1353/2^7:ℝ)/winsorScale := by
+  · have hs : (1418/2^70:ℝ)*(128^9:ℕ)/winsorScale = (1418/2^7:ℝ)/winsorScale := by
       congr 1
       norm_num
     rw [hs]
@@ -1864,7 +1870,7 @@ attribute [local irreducible] coverageBinnedPoly retainedCoveragePoly xNum winso
       have hp := (winsor_product_pay (fun k=>cc (xs k)) h.1 h.2 hlenm hlent hbin hpay).1
       simpa only [Nat.cast_prod] using hp
     · rw [if_neg h]
-      simpa only [mul_comm, Nat.cast_ofNat] using cappedExp_le_linear ((1353/2^70:ℝ)*(∏ k,cc (xs k):ℕ)) (by positivity)
+      simpa only [mul_comm, Nat.cast_ofNat] using cappedExp_le_linear ((1418/2^70:ℝ)*(∏ k,cc (xs k):ℕ)) (by positivity)
   · intro b hb
     exact (winsorPayPair_bound b hb hlenm hlent hbound).1
   · intro b hb
@@ -1882,9 +1888,9 @@ attribute [local irreducible] coverageBinnedPoly retainedCoveragePoly xNum winso
     (hpay : winsorPayChecks=true) :
     let P := (coverageBinnedPoly r)^9
     let price := fun xs : Fin 9 → (Fin r → Fin 128 × β) =>
-      (1353/2^70:ℝ)*(∏ k,coordinateCoverage val (xs k):ℕ)
+      (1418/2^70:ℝ)*(∏ k,coordinateCoverage val (xs k):ℕ)
     (∑ xs, max (price xs-1) 0) ≤
-      (1353/2^7:ℝ)/winsorScale *
+      (1418/2^7:ℝ)/winsorScale *
         ((∑ b ∈ range 2201, P.coeff b*(winsorPayPair b).2) +
           winsorScale*(xNum r^9-∑ b ∈ range 2201, P.coeff b):ℕ) := by
   classical
@@ -1893,13 +1899,13 @@ attribute [local irreducible] coverageBinnedPoly retainedCoveragePoly xNum winso
   let good := fun xs : Fin 9 → (Fin r → Fin 128 × β) => ∀ k, cc (xs k)<4096
   let label := fun xs : Fin 9 → (Fin r → Fin 128 × β) => ∑ k, coverageBin (cc (xs k))
   apply (finite_nat_payoff_le (fun xs => ∏ k, cc (xs k))
-    (fun xs => max ((1353/2^70:ℝ)*(∏ k,cc (xs k):ℕ)-1) 0) good
+    (fun xs => max ((1418/2^70:ℝ)*(∏ k,cc (xs k):ℕ)-1) 0) good
     ((coverageBinnedPoly r)^9).coeff (fun b => (winsorPayPair b).2) label
-    1 2201 winsorScale (128^9) (xNum r^9) (1353/2^70) (by positivity)
+    1 2201 winsorScale (128^9) (xNum r^9) (1418/2^70) (by positivity)
     winsorScale_pos (coverage_product_sum_xNum val hβ h₁ r)
     ((sum_coeff_le_eval_one _ _).trans (coverageBinned_mass_le r hmass)) ?_ ?_ ?_).trans_eq
   · simp only [Nat.one_mul]
-    have hs : (1353/2^70:ℝ)*(128^9:ℕ)/winsorScale = (1353/2^7:ℝ)/winsorScale := by
+    have hs : (1418/2^70:ℝ)*(128^9:ℕ)/winsorScale = (1418/2^7:ℝ)/winsorScale := by
       congr 1
       norm_num
     rw [hs]
@@ -1950,7 +1956,7 @@ theorem bucketResidual_ne_top (val : β → Fin 6 → ℕ) (L : List (Fin 9 → 
 theorem bucketPrice_ofFn_real {r : ℕ} (val : β → Fin 6 → ℕ)
     (hβ : Fintype.card β=563) (hC : Fintype.card C=128) (E : Fin r → Fin 9 → C × β) :
     (bucketPrice val (List.ofFn E)).toReal =
-      (1353/2^70:ℝ)*(∏ k,coordinateCoverage val (fun j=>E j k):ℕ) := by
+      (1418/2^70:ℝ)*(∏ k,coordinateCoverage val (fun j=>E j k):ℕ) := by
   rw [bucketPrice_ofFn val hβ hC]
   simp only [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_pow,
     ENNReal.toReal_ofNat, ENNReal.toReal_natCast]
@@ -1999,9 +2005,9 @@ theorem uniform_raw_bound {β : Type} [Fintype β] [SampleableType (Fin 9 → Fi
     (raw : (Fin 9 → (Fin r → Fin 128 × β)) → ℝ)
     (hnn : ∀ xs, 0≤raw xs)
     (heq : ∀ xs, fee (List.ofFn (fun j k=>xs k j))=ENNReal.ofReal (raw xs))
-    (hraw : (∑ xs, raw xs) ≤ (1353/2^7:ℝ)/winsorScale*(d:ℝ)) :
+    (hraw : (∑ xs, raw xs) ≤ (1418/2^7:ℝ)/winsorScale*(d:ℝ)) :
     SphincsSecurity.Concrete.uniformWordAverage r fee ≤
-      (1353/2^7:ENNReal)/winsorScale*(d:ENNReal)/((Q^(9*r):ℕ):ENNReal) := by
+      (1418/2^7:ENNReal)/winsorScale*(d:ENNReal)/((Q^(9*r):ℕ):ENNReal) := by
   have hS : (winsorScale:ENNReal)≠0 := by norm_num [winsorScale]
   have hQ : ((Q^(9*r):ℕ):ENNReal)≠0 := by exact_mod_cast (pow_ne_zero _ (by norm_num [Q] : Q≠0))
   rw [uniformWordAverage_coord_sum hβ]
@@ -2037,14 +2043,14 @@ attribute [local irreducible] coverageBinnedPoly retainedCoveragePoly xNum winso
       (c≤1 || 51^(coverageBin c-1)<c*50^(coverageBin c-1)))=true)
     (hpay : winsorPayChecks=true) :
     SphincsSecurity.Concrete.uniformWordAverage r (bucketExpIncrement (C:=Fin 128) val) ≤
-      (1353/2^7:ENNReal)/winsorScale*((winsorRowDots r).1:ENNReal)/((Q^(9*r):ℕ):ENNReal) ∧
+      (1418/2^7:ENNReal)/winsorScale*((winsorRowDots r).1:ENNReal)/((Q^(9*r):ℕ):ENNReal) ∧
     SphincsSecurity.Concrete.uniformWordAverage r (bucketResidual (C:=Fin 128) val) ≤
-      (1353/2^7:ENNReal)/winsorScale*((winsorRowDots r).2:ENNReal)/((Q^(9*r):ℕ):ENNReal) := by
+      (1418/2^7:ENNReal)/winsorScale*((winsorRowDots r).2:ENNReal)/((Q^(9*r):ℕ):ENNReal) := by
   classical
   have hd := winsorRowDots_model r hr hmass hx hlenm hlent
   constructor
   · apply uniform_raw_bound hβ r (winsorRowDots r).1 (bucketExpIncrement (C:=Fin 128) val)
-      (fun xs => Real.exp (8*min ((1353/2^70:ℝ)*(∏ k,coordinateCoverage val (xs k):ℕ)) 1)-1)
+      (fun xs => Real.exp (8*min ((1418/2^70:ℝ)*(∏ k,coordinateCoverage val (xs k):ℕ)) 1)-1)
     · intro xs
       exact sub_nonneg.mpr (Real.one_le_exp_iff.mpr (by positivity))
     · intro xs
@@ -2052,7 +2058,7 @@ attribute [local irreducible] coverageBinnedPoly retainedCoveragePoly xNum winso
     · rw [hd]
       exact raw_winsor_mgf_bound val hβ h₁ r hret hmass hlenm hlent hbound hbin hpay
   · apply uniform_raw_bound hβ r (winsorRowDots r).2 (bucketResidual (C:=Fin 128) val)
-      (fun xs => max ((1353/2^70:ℝ)*(∏ k,coordinateCoverage val (xs k):ℕ)-1) 0)
+      (fun xs => max ((1418/2^70:ℝ)*(∏ k,coordinateCoverage val (xs k):ℕ)-1) 0)
     · intro xs; exact le_max_right _ _
     · intro xs
       rw [bucketResidual_real, bucketPrice_ofFn_real val hβ (by simp)]
@@ -2099,7 +2105,7 @@ theorem bucketResidual_le_price (val : β → Fin 6 → ℕ) (L : List (Fin 9 �
 end
 
 theorem row_scale_normalize (M r d : ℕ) (hM : 0<M) :
-    ((1353/2^7:ENNReal)/winsorScale*(d:ENNReal)/((Q^(9*r):ℕ):ENNReal)) /
+    ((1418/2^7:ENNReal)/winsorScale*(d:ENNReal)/((Q^(9*r):ℕ):ENNReal)) /
       ((M:ENNReal)*priceScale) =
     (d:ENNReal)/((M*winsorScale*Nn^9*Q^(9*r):ℕ):ENNReal) := by
   have hS : (winsorScale:ENNReal)≠0 := by norm_num [winsorScale]
@@ -2139,12 +2145,12 @@ variable [SampleableType (Fin 9 → C × β)]
 theorem law_normalized_uniform_row (fee : List (Fin 9 → C × β) → ENNReal)
     {vc : (Fin 9 → C × β) → ENNReal} {κ : ENNReal} (hlaw : LawOK vc κ)
     (M r d : ℕ) (hM : 0<M)
-    (hu : uniformWordAverage r fee ≤ (1353/2^7:ENNReal)/winsorScale*(d:ENNReal)/((Q^(9*r):ℕ):ENNReal)) :
+    (hu : uniformWordAverage r fee ≤ (1418/2^7:ENNReal)/winsorScale*(d:ENNReal)/((Q^(9*r):ℕ):ENNReal)) :
     lawAvg vc r fee/((M:ENNReal)*priceScale) ≤
       κ^r*((d:ENNReal)/((M*winsorScale*Nn^9*Q^(9*r):ℕ):ENNReal)) := by
   have h := (lawAvg_le_uniform vc κ hlaw.density r fee).trans (mul_le_mul' le_rfl hu)
   calc
-    _ ≤ (κ^r*((1353/2^7:ENNReal)/winsorScale*(d:ENNReal)/((Q^(9*r):ℕ):ENNReal)))/((M:ENNReal)*priceScale) := by
+    _ ≤ (κ^r*((1418/2^7:ENNReal)/winsorScale*(d:ENNReal)/((Q^(9*r):ℕ):ENNReal)))/((M:ENNReal)*priceScale) := by
       simpa only [div_eq_mul_inv] using mul_le_mul' h le_rfl
     _ = _ := by rw [mul_div_assoc, row_scale_normalize M r d hM]
 
@@ -2209,9 +2215,9 @@ attribute [local irreducible] coverageBinnedPoly retainedCoveragePoly xNum winso
     (hbin : winsorBinCheck=true) (hpay : winsorPayChecks=true)
     (hmasses : (List.range 31).all winsorMassCheck=true)
     (hmgfcheck : poissonCheckQ Q 13533529 100000000 LN LD (fun r=>(winsorRowDots r).1)
-      (3000*winsorScale*Nn^9) (3000*A) 1 8 1 80=true)
+      (3000*winsorScale*Nn^9) (3000*A) 1 203 25 80=true)
     (hrescheck : poissonCheckQ Q 13533529 100000000 LN LD (fun r=>(winsorRowDots r).2)
-      (winsorScale*Nn^9) A 1 1 5000 80=true) :
+      (winsorScale*Nn^9) A 1 2097 10000000 80=true) :
     lawAvg (marked (α:=Fin (2^31)) vc) T (fun W=>priceN val W-2031/1024) ≤ 23/100000 := by
   have hmgfpoint (L : List (Fin 9 → Fin 128 × β)) :
       bucketExpIncrement val L ≤ (3000:ENNReal)*priceScale*env val L := by
@@ -2229,7 +2235,7 @@ attribute [local irreducible] coverageBinnedPoly retainedCoveragePoly xNum winso
         c*#{E : Fin r → Fin 128 × β | coordinateCoverage val E=c} :=
       retainedCoverage_count_bound_of_packed val hW h4 hβ coverageH_packed ⟨r,by omega⟩ c
     exact uniform_winsor_rows val hβ h₁ r hr hret hm hmass.2 hlenm hlent hbound hbin hpay
-  have hmgf := law_coord_bound_of_rows val (bucketExpIncrement val) 3000 8 1
+  have hmgf := law_coord_bound_of_rows val (bucketExpIncrement val) 3000 203 25
     (by norm_num) (by norm_num) hlaw T hT1 hT2 (fun r=>(winsorRowDots r).1) hmgfpoint hmgfcheck
     (fun r hr => by
       by_cases hcut : r≤20
@@ -2238,7 +2244,7 @@ attribute [local irreducible] coverageBinnedPoly retainedCoveragePoly xNum winso
         rw [full_row_normalize 3000 r (by norm_num)]
         exact (law_fee_norm_le_env val _ 3000 (by norm_num) hmgfpoint vc r).trans
           (law_env_le val hβ (by simp) h₁ hlaw r))
-  have hres := law_coord_bound_of_rows val (bucketResidual val) 1 1 5000
+  have hres := law_coord_bound_of_rows val (bucketResidual val) 1 2097 10000000
     (by norm_num) (by norm_num) hlaw T hT1 hT2 (fun r=>(winsorRowDots r).2) hrespoint
     (by simpa only [Nat.one_mul] using hrescheck)
     (fun r hr => by

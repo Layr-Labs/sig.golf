@@ -15,9 +15,6 @@ set_option linter.constructorNameAsVariable false
 attribute [local instance low] Classical.propDecidable
 attribute [local irreducible] referenceGame offlineGame
 namespace Enc
-noncomputable def contacts (T : Answers) (trace : List Entry) : Nat :=
-  (Finset.univ.filter fun p : CanonGraph.LeafPos × Fin 58 =>
-    WotsExtract.SourceChain (chainAt p) ∧ ContactAt T trace (chainAt p)).card
 theorem indicator_le_one (P : Prop) [Decidable P] : (if P then (1 : ENNReal) else 0) ≤ 1 := by
   split_ifs <;> simp
 end Enc

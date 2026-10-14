@@ -154,19 +154,18 @@ structure ChainHead (b : Nat) (s0 : MachineState) (valp m : Nat) (v : Digest) (t
   regs : RegsExcept s0 t chainRegs
   frame : Frame s0 t (ChainW valp)
   val : DigAt t (CHAIN + 48) v
-/-- C4 (b3cc11b's `TSim.projHash_bind`, kept local to the keygen): a projected hash (`projHash high`) followed by `f`;
-the continuation sees the chosen half. -/
-theorem tsim_projHash_bind {β : Type} {image : Image} {sk : BitVec 256} {s : MachineState} {input : List UInt8}
-    {high : Bool} {k c n b : Nat} {f : Digest → T3.M β} {Q : β → MachineState → Prop}
-    (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
-    (hv : hashArgumentsValid s = true) (hq : hashInput s = toQ (pad64 input))
-    (h : ∀ a : BitVec 256, TSim image sk (writeHash s a) k c n b (f (T3.projHalf high a)) Q) :
-    TSim image sk s (1 + k) (8 * (toQ (pad64 input)).blocks + c) (1 + n) ((toQ (pad64 input)).blocks + b)
-      (T3.projHash high input >>= f) Q := by
-  have e : T3.projHash high input >>= f = T3.publicHash input >>= fun a => f (T3.projHalf high a) := by
-    unfold T3.projHash; rw [bind_assoc]; simp only [pure_bind]
+/-- Keygen chains are top-layer (`lay = 0`): `chainHigh` is false, so every chain step is a `shortHash`. -/
+theorem chain_eq_short {lay : Layer} (hlay : lay.val = 0) (tree leaf i start count : Nat) :
+    chain lay tree leaf i start count = fun v => (List.range' start count).foldlM
+      (fun value step => shortHash (chainInput lay tree leaf i step value)) v := by
+  funext v
+  unfold chain
+  have e : (fun value step => T3.projHash (T3.chainHigh lay i step) (chainInput lay tree leaf i step value)) =
+      (fun value step => shortHash (chainInput lay tree leaf i step value)) := by
+    funext value step
+    have : T3.chainHigh lay i step = false := by simp [T3.chainHigh, hlay]
+    rw [this, T3.projHash_false]
   rw [e]
-  exact TSim.publicHash_bind hf ht0 hv hq h
 section loop
 variable {image : Image} {b : Nat} (hsub : SubAt image b) (sk : BitVec 256) {s0 : MachineState}
   {lay : Layer} {tree leaf i cap e valp ret : Nat} (hpre : ChainPre s0 lay tree leaf i cap e valp ret)
@@ -365,7 +364,8 @@ theorem chain_exit_cap {v : Digest} {t : MachineState} (ht : ChainHead b s0 valp
       rcases h with ((h | h | h) | h) | h <;> first | exact h.elim | omega)⟩
   have hvv : DigAt t2 valp v := ⟨t2v0.trans hvt1.1, t2v8.trans hvt1.2⟩
   exact hvv.frame (t3f.trans t4f) (by have := hpre.hv; omega) (by simp) (by simp)
-theorem chainRun_tsim (hpc : s0.pc = pcOf b) (seed : Digest) (hseed : DigAt s0 (CHAIN + 48) seed) :
+theorem chainRun_tsim (hlay : lay.val = 0) (hpc : s0.pc = pcOf b) (seed : Digest)
+    (hseed : DigAt s0 (CHAIN + 48) seed) :
     TSim image sk s0 (rungK lay * e + 10) (rungC lay * e + 10) e e
       (do let v ← chain lay tree leaf i 0 cap seed
           let last ← chain lay tree leaf i cap (e - cap) v
@@ -379,7 +379,7 @@ theorem chainRun_tsim (hpc : s0.pc = pcOf b) (seed : Digest) (hseed : DigAt s0 (
   have p1 : TSim image sk t0 (sumTo (fun _ => rungK lay) cap) (sumTo (fun _ => rungC lay) cap)
       (sumTo (fun _ => 1) cap) (sumTo (fun _ => 1) cap)
       (chain lay tree leaf i 0 cap seed) (fun v t => ChainHead b s0 valp cap v t) := by
-    unfold chain
+    rw [chain_eq_short hlay]
     exact TSim.foldlM_range' 0 cap _ seed (fun j v t => ChainHead b s0 valp j v t) _ _ _ _
       (fun j hj v t ht => (chain_step hsub sk hpre (m := 0 + j) (by omega) (by omega)
         (by simpa using ht)).mono (fun v' u hu => by simpa using hu.1)) h0
@@ -390,7 +390,7 @@ theorem chainRun_tsim (hpc : s0.pc = pcOf b) (seed : Digest) (hseed : DigAt s0 (
           (List.range' (cap + 1) (e - cap - 1)).foldlM
             (fun value step => shortHash (chainInput lay tree leaf i step value)) v1 := by
       funext v
-      unfold chain
+      simp only [chain_eq_short hlay]
       rw [show e - cap = e - cap - 1 + 1 by omega, List.range'_succ, List.foldlM_cons]
       rfl
     have rest : ∀ v t, ChainHead b s0 valp cap v t →

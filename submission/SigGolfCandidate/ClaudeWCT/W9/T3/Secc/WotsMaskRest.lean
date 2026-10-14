@@ -18,10 +18,10 @@ variable (a : ChainAddr)
 theorem slotAddr_lay : (slotAddr a).key.lay = a.key.lay := by
   unfold slotAddr; split_ifs <;> rfl
 theorem respectsP_chain_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i start count : Nat) (v : Digest) :
-    Respects (UntouchedP a) (WCT9.chainW lay tree leaf i start count v) :=
-  respects_chainW' _ _ _ _ _ _ _ fun step value _ _ => untouchedP_of_untouched a
-    ⟨untouched_chainInput_of_lay a hl _ _ _ _ _,
-      untouched_chainInput_of_lay (slotAddr a) (by rw [slotAddr_lay]; exact hl) _ _ _ _ _⟩
+    Respects (UntouchedP a) (chain lay tree leaf i start count v) :=
+  Respects.mono' (Respects.inter (respects_chain_of_lay a hl tree leaf i start count v)
+    (respects_chain_of_lay (slotAddr a) (by rw [slotAddr_lay]; exact hl) tree leaf i start count v))
+    fun _ hq => untouchedP_of_untouched a hq
 variable {T T' : Answers} (hT : ∀ q, UntouchedP a q → T q = T' q)
 include hT
 theorem wotsSeed_congr_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i : Nat) :
@@ -42,16 +42,14 @@ theorem wotsRoot_congr_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf 
     WCT9.wotsRoot T lay tree leaf = WCT9.wotsRoot T' lay tree leaf := by
   unfold WCT9.wotsRoot
   rw [List.map_congr_left (fun i _ => wotsEnd_congr_of_lay a hT hl tree leaf i)]
-  exact (respectsP_lowerLeafHash a _ _ _ _ (by
-    simp only [List.length_map, List.length_range]; exact SigGolfCandidate.T3.Security.Wots.Enc.chainCount_ge4 _)).eval_eq hT
+  exact (respectsP_leafHash a _ _ _ _).eval_eq hT
 theorem wotsTree_congr_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree : Nat) :
     WCT9.wotsTree T lay tree = WCT9.wotsTree T' lay tree := by
   unfold WCT9.wotsTree
   have hr : WCT9.wotsRoot T lay tree = WCT9.wotsRoot T' lay tree :=
     funext (wotsRoot_congr_of_lay a hT hl tree)
   rw [hr]
-  exact (respectsP_lowerLevels a _ _ _ (by fin_cases lay <;> decide) _
-    (by simp only [List.length_map, List.length_range]; exact le_rfl)).eval_eq hT
+  exact (respectsP_buildLevels a 3 _ _ _ _ (by decide)).eval_eq hT
 theorem honestTop_congr (index : Nat) : Extract.honestTop T index = Extract.honestTop T' index := by
   rw [Extract.honestTop_eq_wct9, Extract.honestTop_eq_wct9]
   exact ClaudeWCT.WCT9.Wots.honestTop_congr (fun _ hq => hT _ (ftsQuery_untouchedP a hq))
