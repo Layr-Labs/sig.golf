@@ -7,15 +7,15 @@ def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGo
 
 theorem signature_bytes : submission.sizes.signature = 5310 := rfl
 
-theorem witness_bytes : submission.sizes.witness = 24924 := rfl
+theorem witness_bytes : submission.sizes.witness = 24828 := rfl
 
 theorem cache_bytes : submission.sizes.cache = 131072 := rfl
 
 theorem layout_offsets : submission.layout =
-  { message := 26144, secretKey := 128, publicKey := 160,
+  { message := 26048, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7041 := by
+theorem certificate : SigGolf.Certificate submission 7040 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -106,4 +106,11 @@ reloads s2 itself (`ld s2,-304(s1)`). After-FTS cost 5251 -> 5239; verify bound 
 Design, keygen image and Lean templates from b3cc11b (nconsigny), which certified the same top design on its own
 base (credited dependency); adapted to the C1 + C2/C3 base.
 S = 5310, W = 24924, K = 131072, C = 7041; score 37398330.
+Top-path compaction: replace the 48-slot two-line window plan with a 42-slot plan
+(A slots 21..41, guard slot 20, B slots 0..19). The top path shrinks 768 -> 672 bytes;
+all following witness regions move down 96 bytes. Expand retains its original snapshot,
+copies the shifted chain suffix, gathers top siblings from that snapshot, and zeroes
+84 final path words before placing them by the new plan. The verification instruction
+count remains bounded by 6943; witness charge falls 98 -> 97.
+S = 5310, W = 24828, K = 131072, C = 7040; score 37382400.
 -/
