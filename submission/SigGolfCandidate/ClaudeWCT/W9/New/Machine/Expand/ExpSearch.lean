@@ -14,8 +14,8 @@ def ECBASE : Nat := 0xffe000
 /-- Expand digest-search gate `(N >> 242) % 2^14 < 1353` (T8E; the shape of the sign search's `SearchM.gateE`,
 kept local so that the expand proofs do not depend on the sign image's literal). -/
 def gateE : E := .bin .sltu (.bin .srl (.ld (cst (NBUF + 24))) (cst 50)) (cst 1353)
-/-- Expand joint-cost cap test `S < 776` (C1 joint cap 775). -/
-def capE : E := .bin .sltu (.reg .x20) (cst 776)
+/-- Expand joint-cost cap test `S < 774` (C1 joint cap 773). -/
+def capE : E := .bin .sltu (.reg .x20) (cst 774)
 def efsi (k : Nat) : Nat := ClaudeWCT.W9.Machine.Sign.SearchM.fsi k + 29890
 def esci (k : Nat) : Nat := ClaudeWCT.W9.Machine.Sign.SearchM.sci k + 29890
 def resHead (d : Bool) : PRes :=
@@ -486,24 +486,24 @@ theorem fields_from (hl : LookOK im expLook) (a : BitVec 256) :
       rw [if_neg (fun h => hf (h k hk9 le_rfl))]; exact p1
 theorem cap_spec (hl : LookOK im expLook) (s : MachineState) (hpc : s.pc = pcOf 41052) (S : Nat)
     (hS : S < 2 ^ 64) (h20 : s.getReg .x20 = BitVec.ofNat 64 S) :
-    ∃ t, Steps im s 2 2 t ∧ t.pc = (if S ≤ 775 then pcOf 41054 else pcOf 41060) ∧
+    ∃ t, Steps im s 2 2 t ∧ t.pc = (if S ≤ 773 then pcOf 41054 else pcOf 41060) ∧
       RegsExcept s t [.x6] ∧ Frame s t (fun _ => False) := by
-  have hce : capE.eval s = BitVec.ofNat 64 (if S < 776 then 1 else 0) := by
+  have hce : capE.eval s = BitVec.ofNat 64 (if S < 774 then 1 else 0) := by
     simp only [capE, cst, E.eval, h20, BinOp.eval, BitVec.ult, toNat_ofNat_lt hS,
-      toNat_ofNat_lt (show 776 < 2 ^ 64 by decide +kernel)]
-    by_cases h : S < 776 <;> simp [h]
-  have hbr : ∀ b ∈ (resCap (decide ¬ (S ≤ 775))).brs, b.holds s := by
+      toNat_ofNat_lt (show 774 < 2 ^ 64 by decide +kernel)]
+    by_cases h : S < 774 <;> simp [h]
+  have hbr : ∀ b ∈ (resCap (decide ¬ (S ≤ 773))).brs, b.holds s := by
     intro b hb
     simp only [resCap, List.mem_singleton] at hb
     subst hb
     simp only [Br.holds, CmpOp.eval, E.eval, hce]
-    by_cases h0 : S ≤ 775
-    · simp only [show S < 776 by omega, if_true, h0, not_true_eq_false, decide_false]; decide +kernel
-    · simp only [show ¬ S < 776 by omega, if_false, h0, not_false_eq_true, decide_true]; decide +kernel
+    by_cases h0 : S ≤ 773
+    · simp only [show S < 774 by omega, if_true, h0, not_true_eq_false, decide_false]; decide +kernel
+    · simp only [show ¬ S < 774 by omega, if_false, h0, not_false_eq_true, decide_true]; decide +kernel
   obtain ⟨hs, hp, -, hr, hm⟩ := piece hl (run_cap _) s hpc rfl hbr rfl
   refine ⟨_, hs, ?_, regs_rfs hr, fun A _ _ => by rw [hm]; rfl⟩
   rw [hp]; simp only [resCap]
-  by_cases h0 : S ≤ 775
+  by_cases h0 : S ≤ 773
   · simp only [h0, not_true_eq_false, decide_false, Bool.false_eq_true, if_false, if_true]
   · simp only [h0, not_false_eq_true, decide_true, if_false, if_true]
 theorem checks_spec (hl : LookOK im expLook) (u : MachineState) (hpc : u.pc = pcOf 40910) (a : BitVec 256)
@@ -545,7 +545,7 @@ theorem checks_spec (hl : LookOK im expLook) (u : MachineState) (hpc : u.pc = pc
         rw [if_pos (by rw [hjc]; exact hcap)] at p4
         exact ⟨p4, by rw [r4.get (by decide +kernel)]; exact h22 r3⟩
       · rw [if_neg hA]
-        have hcap : ¬ psum a 9 ≤ 775 := fun h => hA (hprod.2 ⟨hadm.2 ⟨hg, hf⟩, by rw [← hjc]; exact h⟩)
+        have hcap : ¬ psum a 9 ≤ 773 := fun h => hA (hprod.2 ⟨hadm.2 ⟨hg, hf⟩, by rw [← hjc]; exact h⟩)
         rw [if_neg hcap] at p4; exact p4
     · rw [if_neg (fun h => hf (hall.1 h))] at p3
       refine ⟨t3, 7 + 3 + c3, (s1.trans s2).trans s3, by omega, ((r1.trans r2).trans r3).mono (by decide +kernel),
