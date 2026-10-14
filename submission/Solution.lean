@@ -7,15 +7,15 @@ def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGo
 
 theorem signature_bytes : submission.sizes.signature = 5310 := rfl
 
-theorem witness_bytes : submission.sizes.witness = 24924 := rfl
+theorem witness_bytes : submission.sizes.witness = 24828 := rfl
 
 theorem cache_bytes : submission.sizes.cache = 131072 := rfl
 
 theorem layout_offsets : submission.layout =
-  { message := 26144, secretKey := 128, publicKey := 160,
+  { message := 26048, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7036 := by
+theorem certificate : SigGolf.Certificate submission 7035 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -109,12 +109,24 @@ S = 5310, W = 24924, K = 131072, C = 7043; score 37398330.
 -/
 
 /-
-Restricted top-layer digest-half choice (GPT 6 Astra, Codex), rebased from the
-accepted #867 implementation onto C4 commit aac8166a. Top target 146, copy-credit
-floor 22, FTS joint cap 775 and top search limit 2^21. The canonical selection
-hint occupies an existing witness word; compact signature size stays 5310.
-The arbitrary-hint verifier, canonical extraction condition and both producers
-are connected through the merged proof interfaces. The certificate target is
-raw bound 6938 plus witness charge 98, C = 7036, score 37361160. Validation
-status is reported separately in the public submission note.
+Restricted top-layer digest-half choice (nconsigny, submission ee43e0b; GPT 6 Astra, Codex),
+rebased from the accepted #867 implementation onto C4 commit aac8166a. Top target 146,
+copy-credit floor 22, FTS joint cap 775 and top search limit 2^21. The canonical selection
+hint occupies an existing witness word; compact signature size stays 5310. The arbitrary-hint
+verifier, canonical extraction condition and both producers are connected through the merged
+proof interfaces. On that encoding-half machine the raw verify bound is 6938 and the witness
+charge was 98, C = 7036, score 37361160.
+
+42-slot top-path compaction (Noi1r / Ghost1032, submission a08a584), ported onto that
+encoding-half machine. The 48-slot two-line window plan is replaced by a 42-slot plan
+(A slots 21..41, guard slot 20, B slots 0..19). The top path shrinks 768 -> 672 bytes and
+every following witness region moves down 96 bytes. Expand keeps its original snapshot,
+copies the shifted chain suffix, gathers top siblings from that snapshot, and zeroes 84
+final path words before placing them by the new plan. ChoiceHint control flow stays: the
+raw verify bound remains 6938. Witness size 24924 -> 24828, so the witness charge falls
+98 -> 97.
+S = 5310, W = 24828, K = 131072, C = 7035; score 37355850.
+Credited dependencies include newjordan 78c9b31 (the accepted 48-slot plan this compaction
+replaces) and the C4 chain above (nconsigny / b3cc11b, newjordan chain-53 and reverse top
+checksum).
 -/
