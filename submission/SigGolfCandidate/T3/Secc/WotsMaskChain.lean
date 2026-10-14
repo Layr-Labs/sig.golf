@@ -12,7 +12,7 @@ set_option maxRecDepth 10000
 namespace Mask
 theorem eval_chain_one (T : Answers) (lay : Layer) (tree leaf i s : Nat) (v : Digest) :
     evalWithAnswerFn T (chain lay tree leaf i s 1 v) =
-      (T (.inl (.inr (chainInput lay tree leaf i s v)))).extractLsb' 0 128 := by
+      projHalf (chainHigh lay i s) (T (.inl (.inr (chainInput lay tree leaf i s v)))) := by
   rw [← pad64_chainInput]
   rfl
 variable (answers : Answers) (a : ChainAddr)

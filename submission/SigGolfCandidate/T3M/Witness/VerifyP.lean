@@ -6,9 +6,9 @@ open SphincsSecurity (bytesLE)
 def ftsLeafP (index coord leaf : Nat) (pad0 secret pad1 : Digest) : M Digest :=
   shortHash (bytesLE 16 pad0 ++ bytesLE 16 (header 9 coord index 0 leaf) ++ bytesLE 16 secret ++
     bytesLE 16 pad1)
-/-- Padded node (pad at bytes 32..48). C4 (as b3cc11b's campaign S1): projected like `nodeHash` (`nodeHalfHigh`). -/
+/-- Padded node (pad at bytes 32..48). Campaign S1: projected like `nodeHash`. -/
 def nodeHashP (tag lay tree heap : Nat) (left pad right : Digest) : M Digest :=
-  projHash (nodeHalfHigh tag lay heap)
+  projHash (nodeHigh tag lay heap)
     (bytesLE 16 left ++ bytesLE 16 (nodeTweak tag lay tree heap) ++ bytesLE 16 pad ++ bytesLE 16 right)
 def chainHeaderP (lay : Layer) (tree leaf i step : Nat) (headerPad : BitVec 64) : Digest :=
   headerPad ++ (chainHeader lay tree leaf i step).extractLsb' 0 64
@@ -19,7 +19,8 @@ def chainInputP (lay : Layer) (tree leaf i step : Nat) (pad0 pad1 : Digest)
 def chainP (lay : Layer) (tree leaf i start count : Nat) (pad0 pad1 : Digest)
     (headerPad : BitVec 64) (value : Digest) : M Digest :=
   (List.range' start count).foldlM
-    (fun value step => shortHash (chainInputP lay tree leaf i step pad0 pad1 headerPad value)) value
+    (fun value step => projHash (chainHigh lay i step) (chainInputP lay tree leaf i step pad0 pad1 headerPad value))
+    value
 def digestP (m : Message) (w : WBytes) : M (Option HashOutput) :=
   if (wdc w).toNat ≥ attemptLimit then pure none else some <$> digest (wrho w) m (wdc w)
 def selectionsOk (chosen : List Selection) : Bool :=

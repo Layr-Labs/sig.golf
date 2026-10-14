@@ -34,10 +34,10 @@ abbrev SCREND : Nat := 0x52010
 abbrev COEF : Nat := 0x50800
 def hook153 : BitVec 32 := 0x1890a06f
 def hook540 : BitVec 32 := 0x3791306f
-/-- The sign code: the record window at 11003, (nested FTS r1-1) the trampolines at 21450 and (C4, FTS
-coordinate + 1) the coordinate-0 arena at 1700. -/
+/-- The sign code: the record window at 11003, (nested FTS r1-1) the trampolines at 21450 and (campaign S2) the
+arena at 1653 (lower chain-0 rider, coordinate-0 FTS word trampolines). -/
 def NewCodeAt (im : Image) : Prop :=
-  signNew <+: im.code.drop 11003 ∧ signTramp <+: im.code.drop 21450 ∧ arenaCode <+: im.code.drop 1700
+  signNew <+: im.code.drop 11003 ∧ signTramp <+: im.code.drop 21450 ∧ arenaCode <+: im.code.drop 1653
 /-- [h2 lane] the sign prepass appended at word 20813 (entered from the record's copy at 20730): move digest 192 (the top
 sibling, scratch 0x7ca0) to the last scratch slot and digests 193..340 down one slot, then return to 20731. -/
 def h2SignTail : List (BitVec 32) := [0x8e37, 0xca0e0e13, 0xe3703, 0x8e3783, 0xe0e93, 0x10e0e13, 0x8f37, 0x5f0f0f13,
@@ -152,7 +152,7 @@ def LayPost (t : MachineState) : Option (List Pieces) → MachineState → Prop
   | none, u => FailedT u
   | some ps, u => u.pc = pcOf 540 ∧ ps.length = 4 ∧ (∀ lay : Layer, PieceAt u lay (ps.getD lay.val ([], []))) ∧
       Frame t u (fun A => ¬ (SIG ≤ A ∧ A < SIG + 2192))
-def layC : Nat := 3575044093
+def layC : Nat := 3575049093
 def LayersSpec (im : Image) (sk : BitVec 256) (cache : Bytes 131072) (Inv : MachineState → Prop) : Prop :=
   ∀ (index : Nat) (top : Digest × Digest) (t : MachineState), LayPre index top t → Inv t →
     TBSim im sk t layC (WCT9.signLayersBC (cacheDec cache) index 4 (.pair top.1 top.2)) (LayPost t)
@@ -162,7 +162,7 @@ def NewW (A : Nat) : Prop := SearchW A ∨ FtsW A
 def InvStable (Inv : MachineState → Prop) : Prop :=
   ∀ t u, Inv t → Frame t u NewW → RegsExcept t u newRegs → Inv u
 def wsub (imgs : Phase → Image) : Submission :=
-  ⟨⟨5310, 24924, 131072⟩, ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x4c0⟩, imgs⟩
+  ⟨⟨5310, 24908, 131072⟩, ⟨0x6610, 0x80, 0xa0, 0x80000, 0x7000, 0x4c0⟩, imgs⟩
 structure Unchanged (imgs : Phase → Image) (Inv : BitVec 256 → Bytes 131072 → Message → MachineState → Prop) :
     Prop where
   front : ∀ sk cache m, ∃ s0, initialState (wsub imgs) .sign (sk, cache, m) = some s0 ∧
@@ -194,10 +194,10 @@ def cbase (c : Nat) : Nat := fieldIdx.getD c 0
 def headLook (n : Nat) : Option (BitVec 32) := if 11003 ≤ n then headCode[n - 11003]? else none
 /-- Nested FTS (r1-1) and C1: the trampolines at 21450..21801. -/
 def trampLook (n : Nat) : Option (BitVec 32) := if 21450 ≤ n then signTramp[n - 21450]? else none
-/-- C4: the coordinate-0 arena at 1700..1725 (below every coordinate window). -/
-def arenaLook (n : Nat) : Option (BitVec 32) := if 1700 ≤ n then arenaCode[n - 1700]? else none
-/-- A coordinate's code window, falling through to the trampolines (nested FTS r1-1), and below the window to the
-C4 arena. -/
+/-- Campaign S2: the arena at 1653 (below every coordinate window). -/
+def arenaLook (n : Nat) : Option (BitVec 32) := if 1653 ≤ n then arenaCode[n - 1653]? else none
+/-- A coordinate's code window, falling through to the trampolines (nested FTS r1-1), and below the window to
+the S2 arena. -/
 def coordLook (c n : Nat) : Option (BitVec 32) :=
   if cbase c ≤ n then
     (match (coordCodes.getD c [])[n - cbase c]? with | some w => some w | none => trampLook n)
@@ -286,11 +286,18 @@ theorem arenaLook_ok {im : Image} (h : NewCodeAt im) : LookOK im arenaLook := by
   unfold arenaLook at hw
   split at hw
   · rename_i hle
-    have hlen : n - 1700 < arenaCode.length := (List.getElem?_eq_some_iff.mp hw).1
-    have h2 : (im.code.drop 1700)[n - 1700]? = some w := by
+    have hlen : n - 1653 < arenaCode.length := (List.getElem?_eq_some_iff.mp hw).1
+    have h2 : (im.code.drop 1653)[n - 1653]? = some w := by
       rw [← hrest, List.getElem?_append_left hlen]; exact hw
     rwa [List.getElem?_drop, Nat.add_sub_cancel' hle] at h2
   · cases hw
+set_option maxRecDepth 100000 in
+/-- The S2 sign image carries the trampoline arena at 1653. -/
+theorem arena_take : (SigGolfCandidate.T3M.Images.signImage.code.drop 1653).take arenaCode.length = arenaCode := by
+  decide +kernel
+theorem arena_signImage : arenaCode <+: SigGolfCandidate.T3M.Images.signImage.code.drop 1653 :=
+  ⟨_, by rw [← List.take_append_drop arenaCode.length (SigGolfCandidate.T3M.Images.signImage.code.drop 1653),
+    arena_take]⟩
 theorem coordLook_ok {im : Image} (h : NewCodeAt im) {c : Nat} (hc : c < 9) : LookOK im (coordLook c) := by
   intro n w hw
   unfold coordLook at hw

@@ -20,7 +20,7 @@ theorem ftsChainLow_lt (index coord selected chain step : Nat) :
   unfold ftsChainLow
   have := Nat.mod_lt chain (show 0 < 8 by decide)
   have := Nat.mod_lt step (show 0 < 4 by decide)
-  have := Nat.mod_lt (coord + 1) (show 0 < 16 by decide)
+  have := Nat.mod_lt coord (show 0 < 16 by decide)
   have := Nat.mod_lt selected (show 0 < 128 by decide)
   have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
   norm_num only at *
@@ -80,7 +80,7 @@ theorem chainInput_eq (index coord selected chain step : Nat) (value : Digest) :
         zero16 ++ bytesLE 16 value := rfl
 theorem ftsLeafLow_lt (index coord selected : Nat) : ftsLeafLow index coord selected < 2 ^ 58 := by
   unfold ftsLeafLow
-  have := Nat.mod_lt (coord + 1) (show 0 < 16 by decide)
+  have := Nat.mod_lt coord (show 0 < 16 by decide)
   have := Nat.mod_lt selected (show 0 < 128 by decide)
   have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
   norm_num only at *
@@ -95,8 +95,7 @@ theorem ftsLeafLow_injective {i k j i' k' j' : Nat}
     (hi : i < 2 ^ 31) (hk : k < 16) (hj : j < 128) (hi' : i' < 2 ^ 31) (hk' : k' < 16) (hj' : j' < 128)
     (h : ftsLeafLow i k j = ftsLeafLow i' k' j') : i = i' ∧ k = k' ∧ j = j' := by
   unfold ftsLeafLow at h
-  rw [Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hi',
-    Nat.mod_eq_of_lt hj'] at h
+  rw [Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hi', Nat.mod_eq_of_lt hj'] at h
   norm_num only at h hi hi'
   omega
 theorem ftsLeafHeader_toNat (index coord selected : Nat) :
@@ -167,7 +166,7 @@ theorem wctNodeHeader_firstByte (coord index heap : Nat) :
   have h := nodeTweak_marker 3 (nodeLayer coord) index heap
   unfold tweakMarker at h
   unfold wctNodeHeader
-  rw [h, if_neg (by unfold nodeLayer; omega)]
+  rw [h, if_neg (by unfold nodeLayer; omega), if_neg (by unfold nodeLayer; omega)]
   unfold nodeLayer
   by_cases hn : coord < 9 ∧ FtsNew heap
   · rw [if_pos ⟨rfl, by omega, by omega, hn.2⟩, if_pos hn]
@@ -327,7 +326,7 @@ theorem rank_val (output : HashOutput) (coord : Coord) :
     (rank output coord).val = field output coord % 563 := rfl
 theorem admissible_iff (output : HashOutput) :
     admissible output = true ↔
-      output.toNat / 2 ^ 242 % 2 ^ 14 < 1353 ∧ ∀ coord : Coord, field output coord < 563 := by
+      output.toNat / 2 ^ 242 % 2 ^ 14 < 1418 ∧ ∀ coord : Coord, field output coord < 563 := by
   unfold admissible field
   simp only [Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, List.mem_range]
   constructor

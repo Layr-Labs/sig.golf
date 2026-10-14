@@ -347,19 +347,6 @@ theorem ftsHonestQuery_congr (q : Query) : FtsHonestQuery T index q ↔ FtsHones
   · exact Iff.rfl
 end Congr
 namespace Mask
-theorem ftsHonestInput_maskAt (answers : Answers) (a : ChainAddr) (index : Nat) (p : FtsPos) (hp : p.Bounded) :
-    ftsHonestInput (maskAt answers a) index p = ftsHonestInput answers index p :=
-  ftsHonestInput_congr (fun _ hq => Wots.Mask.maskAt_untouched answers a (ftsQuery_untouched a hq)) p hp
-theorem honestTop_maskAt (answers : Answers) (a : ChainAddr) (index : Nat) :
-    honestTop (maskAt answers a) index = honestTop answers index :=
-  honestTop_congr (fun _ hq => Wots.Mask.maskAt_untouched answers a (ftsQuery_untouched a hq))
-theorem coordinatePair_maskAt (answers : Answers) (a : ChainAddr) (index : Nat) (coord : Coord) :
-    coordinatePair (maskAt answers a) index coord = coordinatePair answers index coord :=
-  coordinatePair_congr (fun _ hq => Wots.Mask.maskAt_untouched answers a (ftsQuery_untouched a hq)) coord
-theorem expectedOpening_maskAt (answers : Answers) (a : ChainAddr) (index : Nat) (output : HashOutput)
-    (coord : Coord) :
-    expectedOpening (maskAt answers a) index output coord = expectedOpening answers index output coord :=
-  expectedOpening_congr (fun _ hq => Wots.Mask.maskAt_untouched answers a (ftsQuery_untouched a hq)) output coord
 theorem respects_digestSearch (a : ChainAddr) (rho : Digest) (message : Message) :
     ∀ fuel counter, Wots.Mask.Respects (Wots.Mask.Untouched a) (WCT9.digestSearch rho message counter fuel) := by
   intro fuel

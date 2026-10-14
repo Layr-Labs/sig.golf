@@ -9,24 +9,6 @@ open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 def seedTweak (a : ChainAddr) : BitVec 128 := header 0 a.key.lay.val a.key.tree (a.chain / 2) a.key.leaf
-def siblingHalf (a : ChainAddr) (output : HashOutput) : Digest :=
-  if a.chain % 2 = 0 then output.extractLsb' 128 128 else output.extractLsb' 0 128
-noncomputable def prefixStep (answers : Answers) (a : ChainAddr) (input : HashInput) : Option Nat :=
-  if h : ∃ step value, step < depth answers a ∧ input = chainRow a step value then some (Classical.choose h) else none
-noncomputable def maskAt (answers : Answers) (a : ChainAddr) : Answers
-  | .inl (.inr input) =>
-      match prefixStep answers a input with
-      | some step => if step + 1 = depth answers a then ChainGraph.joinOutput (frontierValue answers a) 0
-          else (0 : HashOutput)
-      | none => answers (.inl (.inr input))
-  | .inl (.inl coin) => answers (.inl (.inl coin))
-  | .inr (.inl tweak) =>
-      if tweak = seedTweak a ∧ 1 ≤ depth answers a then
-        (let output := answers (.inr (.inl tweak))
-         if a.chain % 2 = 0 then ChainGraph.joinOutput 0 (output.extractLsb' 128 128)
-         else ChainGraph.joinOutput (output.extractLsb' 0 128) 0)
-      else answers (.inr (.inl tweak))
-  | .inr (.inr other) => answers (.inr (.inr other))
 namespace Mask
 def Respects (S : Spec.Domain → Prop) {α : Type} (program : M α) : Prop :=
   ∀ T T' : Answers, (∀ q, S q → T q = T' q) →
@@ -57,7 +39,6 @@ theorem Respects.shortHash (input : HashInput) (h : S (.inl (.inr (pad64 input))
     Respects S (T3.shortHash input) := by
   unfold T3.shortHash
   exact Respects.bind (Respects.publicHash input h) fun _ => Respects.pure' _
-/-- C4: a hash keeping either half (`T3.projHash`) issues the same single query as `shortHash`. -/
 theorem Respects.projHash (high : Bool) (input : HashInput) (h : S (.inl (.inr (pad64 input)))) :
     Respects S (T3.projHash high input) := by
   unfold T3.projHash
@@ -117,12 +98,6 @@ theorem header_ne_of_tag {t l tr p ix t' l' tr' p' ix' : Nat} (h : t % 256 ≠ t
     header t l tr p ix ≠ header t' l' tr' p' ix' := fun he => h (header_fields he).1
 def LeafAlias (lay : Layer) (tree leaf : Nat) (L : LeafAddr) : Prop :=
   lay = L.lay ∧ tree % 2 ^ 40 = L.tree % 2 ^ 40 ∧ leaf % 2 ^ 32 = L.leaf % 2 ^ 32
-theorem LeafAlias.refl (L : LeafAddr) : LeafAlias L.lay L.tree L.leaf L := ⟨rfl, rfl, rfl⟩
-theorem LeafAlias.header_eq {lay : Layer} {tree leaf : Nat} {L : LeafAddr} (h : LeafAlias lay tree leaf L)
-    (t p : Nat) : header t lay.val tree p leaf = header t L.lay.val L.tree p L.leaf := by
-  obtain ⟨hl, ht, hi⟩ := h
-  subst hl
-  exact header_congr rfl ht hi
 theorem LeafAlias.eq_of_lt {lay : Layer} {tree leaf : Nat} {L : LeafAddr} (h : LeafAlias lay tree leaf L)
     (ht : tree < 2 ^ 40) (hl : leaf < 2 ^ 32) (ht' : L.tree < 2 ^ 40) (hl' : L.leaf < 2 ^ 32) :
     (⟨lay, tree, leaf⟩ : LeafAddr) = L := by
@@ -142,32 +117,7 @@ theorem chain_alias {lay : Layer} {tree leaf : Nat} {L : LeafAddr} (h : LeafAlia
     chain lay tree leaf i = chain L.lay L.tree L.leaf i := by
   funext start count value
   unfold chain
-  rw [chainInput_alias h i]
-/-- Lower (legacy T3) seeds are private half-cells; top seeds are leaf-family values since campaign T8D
-(`Correctness.leafSeed_top`). -/
-theorem leafSeed_eq (T : Answers) {lay : Layer} (hlay : lay ≠ 0) (tree leaf i : Nat) : leafSeed T lay tree leaf i =
-    if i % 2 = 0 then (T (.inr (.inl (header 0 lay.val tree (i / 2) leaf)))).extractLsb' 0 128
-    else (T (.inr (.inl (header 0 lay.val tree (i / 2) leaf)))).extractLsb' 128 128 := by
-  unfold leafSeed; rw [if_neg hlay]; rfl
-theorem topCoefN_alias (T : Answers) {leaf leaf' : Nat} (h : leaf % 2 ^ 32 = leaf' % 2 ^ 32) (j : Nat) :
-    Correctness.topCoefN T leaf j = Correctness.topCoefN T leaf' j := by
-  unfold Correctness.topCoefN topSeedPair privatePair
-  have hp : (topCoefOrdinal leaf j / 2) % 2 ^ 32 = (topCoefOrdinal leaf' j / 2) % 2 ^ 32 := by
-    unfold topCoefOrdinal topCoefCount; omega
-  have hq : topCoefOrdinal leaf j % 2 = topCoefOrdinal leaf' j % 2 := by
-    unfold topCoefOrdinal topCoefCount; omega
-  rw [header_normal 0 0 0 (topCoefOrdinal leaf j / 2), header_normal 0 0 0 (topCoefOrdinal leaf' j / 2), hp, hq]
-theorem leafSeed_alias (T : Answers) {lay : Layer} {tree leaf : Nat} {L : LeafAddr}
-    (h : LeafAlias lay tree leaf L) (i : Nat) :
-    leafSeed T lay tree leaf i = leafSeed T L.lay L.tree L.leaf i := by
-  by_cases h0 : lay = 0
-  · have h0' : L.lay = 0 := h.1 ▸ h0
-    rw [h0, h0', Correctness.leafSeed_top, Correctness.leafSeed_top]
-    unfold Correctness.topLeafSeed Correctness.topCoefList
-    congr 2
-    funext j
-    exact topCoefN_alias T h.2.2 j.val
-  · rw [leafSeed_eq T h0, leafSeed_eq T (h.1 ▸ h0), h.header_eq]
+  rw [chainInput_alias h i, h.1]
 theorem pad64_chainInput (lay : Layer) (tree leaf i step : Nat) (value : Digest) :
     pad64 (chainInput lay tree leaf i step value) = chainInput lay tree leaf i step value := by
   simp [chainInput, pad64, bytesLE_length, zero16]
@@ -185,90 +135,17 @@ theorem chainInput_eq_chainRow {lay : Layer} {tree leaf i s s' : Nat} {v v' : Di
   obtain ⟨hh, hv⟩ := chainInput_fields h
   obtain ⟨hl, ht, hf, hi', hs''⟩ := chainHeader_fields hh
   exact ⟨⟨hl, ht, hf⟩, by omega, by omega, hv⟩
-theorem seedTweak_alias {lay : Layer} {tree leaf i : Nat} {a : ChainAddr} (hi : i < 2 ^ 24) (hc : a.chain < 2 ^ 24)
-    (h : header 0 lay.val tree (i / 2) leaf = seedTweak a) : LeafAlias lay tree leaf a.key ∧ i / 2 = a.chain / 2 := by
-  unfold seedTweak at h
-  obtain ⟨-, hl, ht, hp, hx⟩ := header_fields h
-  have hl' : lay = a.key.lay := by
-    apply Fin.ext
-    rw [Nat.mod_eq_of_lt (lt_trans lay.isLt (by decide)),
-      Nat.mod_eq_of_lt (lt_trans a.key.lay.isLt (by decide))] at hl
-    exact hl
-  simp only [Nat.reducePow] at hp hi hc
-  have hp1 : i / 2 < 4294967296 := by omega
-  have hp2 : a.chain / 2 < 4294967296 := by omega
-  rw [Nat.mod_eq_of_lt hp1, Nat.mod_eq_of_lt hp2] at hp
-  exact ⟨⟨hl', ht, hx⟩, hp⟩
 theorem dummyDigits_spec (lay : Layer) :
     (dummyDigits lay).length = chainCount lay ∧ Cost.ValidDigits lay (dummyDigits lay) := by
   fin_cases lay <;> exact ⟨by decide, by unfold Cost.ValidDigits; decide⟩
-theorem referenceDigits_spec (answers : Answers) (L : LeafAddr) :
-    (referenceDigits answers L).length = chainCount L.lay ∧ Cost.ValidDigits L.lay (referenceDigits answers L) := by
-  unfold referenceDigits
-  cases h : referenceSearch answers L with
-  | none => exact dummyDigits_spec L.lay
-  | some found =>
-      obtain ⟨counter, digits⟩ := found
-      have hd := (Correctness.counterSearch_some answers L.lay L.tree L.leaf (leafMsg answers L)
-        counterLimit 0 counter digits (by decide) h).2.2
-      exact ⟨(decode_length_sum hd).1, Cost.validDigits_decode hd⟩
-theorem depth_le_width (answers : Answers) (a : ChainAddr) (hc : a.chain < chainCount a.key.lay) :
-    depth answers a ≤ maxDigit a.key.lay a.chain :=
-  (referenceDigits_spec answers a.key).2 a.chain hc
 theorem width_le (lay : Layer) (i : Nat) : maxDigit lay i ≤ 7 := by
   unfold maxDigit
   split_ifs <;> decide
-theorem chain_lt_of_depth (answers : Answers) (a : ChainAddr) (hd : 1 ≤ depth answers a) :
-    a.chain < chainCount a.key.lay := by
-  by_contra hc
-  have hlen := (referenceDigits_spec answers a.key).1
-  have h0 : depth answers a = 0 := List.getD_eq_default _ _ (by omega)
-  omega
-theorem depth_le_seven (answers : Answers) (a : ChainAddr) : depth answers a ≤ 7 := by
-  by_cases hd : 1 ≤ depth answers a
-  · exact (depth_le_width answers a (chain_lt_of_depth answers a hd)).trans (width_le _ _)
-  · omega
 theorem chainCount_le (lay : Layer) : chainCount lay ≤ 58 := chainCount_bound lay
 def Untouched (a : ChainAddr) : Spec.Domain → Prop
   | .inl (.inr input) => ∀ step value, step < 256 → input ≠ chainRow a step value
   | .inr (.inl tweak) => tweak ≠ seedTweak a
   | _ => True
-theorem prefixStep_spec {answers : Answers} {a : ChainAddr} {input : HashInput} {step : Nat}
-    (h : prefixStep answers a input = some step) :
-    step < depth answers a ∧ ∃ value, input = chainRow a step value := by
-  unfold prefixStep at h
-  split at h
-  · rename_i hex
-    have he := Option.some.inj h
-    subst he
-    obtain ⟨value, hlt, heq⟩ := Classical.choose_spec hex
-    exact ⟨hlt, value, heq⟩
-  · cases h
-theorem prefixStep_untouched {answers : Answers} {a : ChainAddr} {input : HashInput}
-    (h : Untouched a (.inl (.inr input))) : prefixStep answers a input = none := by
-  cases hp : prefixStep answers a input with
-  | none => rfl
-  | some step =>
-      obtain ⟨hlt, w, heq⟩ := prefixStep_spec hp
-      exact absurd heq (h step w (by have := depth_le_seven answers a; omega))
-theorem maskAt_public (answers : Answers) (a : ChainAddr) (input : HashInput) :
-    maskAt answers a (.inl (.inr input)) = match prefixStep answers a input with
-      | some step => if step + 1 = depth answers a then ChainGraph.joinOutput (frontierValue answers a) 0
-          else (0 : HashOutput)
-      | none => answers (.inl (.inr input)) := rfl
-theorem maskAt_tweak (answers : Answers) (a : ChainAddr) (tweak : BitVec 128) :
-    maskAt answers a (.inr (.inl tweak)) =
-      if tweak = seedTweak a ∧ 1 ≤ depth answers a then
-        (if a.chain % 2 = 0 then ChainGraph.joinOutput 0 ((answers (.inr (.inl tweak))).extractLsb' 128 128)
-         else ChainGraph.joinOutput ((answers (.inr (.inl tweak))).extractLsb' 0 128) 0)
-      else answers (.inr (.inl tweak)) := rfl
-theorem maskAt_untouched (answers : Answers) (a : ChainAddr) {q : Spec.Domain} (h : Untouched a q) :
-    maskAt answers a q = answers q := by
-  rcases q with (coin | input) | (tweak | other)
-  · rfl
-  · rw [maskAt_public, prefixStep_untouched h]
-  · rw [maskAt_tweak, if_neg (fun h' => h h'.1)]
-  · rfl
 theorem untouched_of_hdr (a : ChainAddr) (input : HashInput) (h : BitVec 128)
     (hblock : Extract.hdrBlock input = bytesLE 16 h)
     (htag : ∀ (l : Layer) tr leaf i step, h ≠ chainHeader l tr leaf i step) :
@@ -279,12 +156,6 @@ theorem untouched_of_hdr (a : ChainAddr) (input : HashInput) (h : BitVec 128)
     chainInput_header _ _ _ _ _ _
   rw [heq, hb] at hblock
   exact htag _ _ _ _ _ (bytesLE_injective hblock).symm
-theorem untouched_prefixed (a : ChainAddr) (x : Digest) (rest : HashInput) {t : Nat} (ht : t % 256 ≠ 1)
-    (l tr p ix : Nat) :
-    Untouched a (.inl (.inr (pad64 (bytesLE 16 x ++ bytesLE 16 (header t l tr p ix) ++ rest)))) := by
-  apply untouched_of_hdr a _ (header t l tr p ix) _
-    (fun _ _ _ _ _ => Ne.symm (chainHeader_ne_header _ _ _ _ _ _ _ _ _ _))
-  rw [Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega), Extract.hdrBlock_prefix]
 theorem untouched_privatePair (a : ChainAddr) {t : Nat} (ht : t % 256 ≠ 0) (l tr p ix : Nat) :
     Untouched a (.inr (.inl (header t l tr p ix))) := by
   change header t l tr p ix ≠ seedTweak a

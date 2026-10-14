@@ -255,7 +255,7 @@ def nodeInC (k index j : Nat) (sibs : Nat → Digest) (v : Digest) (l : Nat) : L
   blk4 pair.1 (ClaudeWCT.WCT9.wctNodeHeader k index (heapOf l j)) 0 pair.2
 theorem childLevel_eq (k index j : Nat) (sibs : Nat → Digest) (v : Digest) (l : Nat) :
     childLevel k index j sibs v l = ClaudeWCT.WCT9.ftsHash (heapOf l j) (nodeInC k index j sibs v l) := by
-  unfold childLevel nodeInC ClaudeWCT.WCT9.wctNodeHash blk4
+  unfold childLevel nodeInC ClaudeWCT.WCT9.wctNodeHash ClaudeWCT.WCT9.wctNodeHeader blk4
   rw [bytesLE16_zero]
 theorem nodeInC_blocks (k index j : Nat) (sibs : Nat → Digest) (v : Digest) (l : Nat) :
     (toQ (pad64 (nodeInC k index j sibs v l))).blocks = 1 := by

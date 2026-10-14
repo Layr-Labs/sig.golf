@@ -879,7 +879,7 @@ theorem counterWords (c : BitVec 32) :
 theorem wordsOf_encodingInput (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (c : BitVec 32) :
     wordsOf (T3.pad64 (WCT9.layerEncodingInput lay tree leaf msg c)) =
       [(left msg).extractLsb' 0 64, (left msg).extractLsb' 64 64,
-        rowLo lay tree leaf, BitVec.ofNat 64 1,
+        rowLo lay tree leaf, BitVec.ofNat 64 0,
         BitVec.ofNat 64 c.toNat, 0, (right msg).extractLsb' 0 64, (right msg).extractLsb' 64 64] := by
   cases msg with
   | forest root => simpa [WCT9.layerEncodingInput, left, right] using Search.wordsOf_encodingInput lay tree leaf root c
@@ -976,7 +976,7 @@ structure CsInv (b : Nat) (A : CsArgs) (s0 : MachineState) (i : Nat) (t : Machin
   hi : i ≤ capLimit A.lay.val
   x19 : t.getReg .x19 = BitVec.ofNat 64 i
   h16 : t.getMem (BitVec.ofNat 64 (ENC + 16)) = rowLo A.lay A.tree A.leaf
-  h24 : t.getMem (BitVec.ofNat 64 (ENC + 24)) = BitVec.ofNat 64 1
+  h24 : t.getMem (BitVec.ofNat 64 (ENC + 24)) = BitVec.ofNat 64 0
   c32 : ∃ x < 2 ^ 32, t.getMem (BitVec.ofNat 64 (ENC + 32)) = BitVec.ofNat 64 x
   regs : RegsExcept s0 t csRegs
   frame : Frame s0 t CsW
@@ -997,7 +997,7 @@ def CsPost (image : Image) (b : Nat) (A : CsArgs) (s0 : MachineState) : Option (
 structure TrialSt (b : Nat) (A : CsArgs) (s0 : MachineState) (i : Nat) (u : MachineState) : Prop where
   x19 : u.getReg .x19 = BitVec.ofNat 64 i
   h16 : u.getMem (BitVec.ofNat 64 (ENC + 16)) = rowLo A.lay A.tree A.leaf
-  h24 : u.getMem (BitVec.ofNat 64 (ENC + 24)) = BitVec.ofNat 64 1
+  h24 : u.getMem (BitVec.ofNat 64 (ENC + 24)) = BitVec.ofNat 64 0
   c32 : u.getMem (BitVec.ofNat 64 (ENC + 32)) = BitVec.ofNat 64 i
   regs : RegsExcept s0 u csRegs
   frame : Frame s0 u CsW
