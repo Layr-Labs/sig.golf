@@ -8,7 +8,7 @@ open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput)
 open W9Machine
-def dispatchPc (n : Nat) : Nat := [89, 171, 257, 342, 426, 512, 597, 681, 766, 850].getD n 850
+def dispatchPc (n : Nat) : Nat := [89, 171, 257, 342, 426, 512, 596, 680, 765, 849].getD n 849
 def cachedWord (n : Nat) : Nat := [0,0,1,1,1,2,2,2,2,2].getD n 2
 def pairBase : Nat := 0xffbe10
 /-- Nested FTS: coordinate 0's pads are the witness slots of region 0 (honest 0). -/
