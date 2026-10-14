@@ -1,5 +1,5 @@
 import SigGolfCandidate.T3.Secc.WotsReference
-import SigGolfCandidate.T3.Secc.WotsExtractVerify
+import SigGolfCandidate.T3.Secc.WotsExtractWord
 
 namespace SigGolfCandidate.T3.Security.Wots.Ref
 open OracleComp OracleSpec ENNReal
@@ -30,21 +30,15 @@ theorem ShortRespects.bind {α β : Type} {p : M α} {f : α → M β} (hp : Sho
   intro A T h
   rw [evalWithAnswerFn_bind, evalWithAnswerFn_bind, hp A T h]
   exact hf _ A T h
-theorem ShortRespects.map {α β : Type} {p : M α} (f : α → β) (hp : ShortRespects p) :
-    ShortRespects (f <$> p) := by
-  intro A T h
-  rw [evalWithAnswerFn_map, evalWithAnswerFn_map, hp A T h]
 theorem ShortRespects.shortHash (input : HashInput) (h : (pad64 input).length ≤ SeccLaw.maxInputLength) :
     ShortRespects (T3.shortHash input) := by
   intro A T hAT
   rw [eval_shortHash, eval_shortHash, hAT.public _ h]
-/-- C4: `T3.projHash` (either half) respects short-input agreement like `shortHash`. -/
-theorem ShortRespects.projHash (high : Bool) (input : HashInput)
-    (h : (pad64 input).length ≤ SeccLaw.maxInputLength) : ShortRespects (T3.projHash high input) := by
+theorem ShortRespects.projHash (high : Bool) (input : HashInput) (h : (pad64 input).length ≤ SeccLaw.maxInputLength) :
+    ShortRespects (T3.projHash high input) := by
   intro A T hAT
-  have e : ∀ X : Answers, evalWithAnswerFn X (T3.projHash high input) =
-      T3.projHalf high (X (.inl (.inr (pad64 input)))) := fun _ => rfl
-  rw [e, e, hAT.public _ h]
+  rw [SigGolfCandidate.T3M.SecurityExtraction.eval_projHash, SigGolfCandidate.T3M.SecurityExtraction.eval_projHash,
+    hAT.public _ h]
 theorem ShortRespects.privatePair (tag lay tree position index : Nat) :
     ShortRespects (T3.privatePair tag lay tree position index) := by
   intro A T hAT
@@ -77,9 +71,6 @@ theorem chainCount_le (lay : Layer) : chainCount lay ≤ 58 := by
 theorem chainInput_length (lay : Layer) (tree leaf i step : Nat) (value : Digest) :
     (chainInput lay tree leaf i step value).length = 64 := by
   simp [chainInput, zero16, bytesLE_length]
-theorem listInput_length (first : Digest) (hdr : BitVec 128) (rest : List Digest) :
-    (Extract.listInput first hdr rest).length = 32 + 16 * rest.length := by
-  simp only [Extract.listInput, List.length_append, bytesLE_length, digest_list_bytes_length]
 theorem short_of_le (input : HashInput) (h : input.length ≤ 4033) :
     (pad64 input).length ≤ SeccLaw.maxInputLength := by
   have := pad64_length_le input
@@ -88,7 +79,7 @@ theorem short_of_le (input : HashInput) (h : input.length ≤ 4033) :
 theorem chain_respects (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
     ShortRespects (chain lay tree leaf i start count value) := by
   unfold chain
-  exact ShortRespects.foldlM _ _ (fun step _ v => ShortRespects.shortHash _
+  exact ShortRespects.foldlM _ _ (fun step _ v => ShortRespects.projHash _ _
     (short_of_le _ (by rw [chainInput_length]; omega))) value
 theorem leafHash_respects (lay : Layer) (tree leaf : Nat) (ends : List Digest) (hlen : ends.length ≤ 200) :
     ShortRespects (leafHash lay tree leaf ends) := by
@@ -112,50 +103,9 @@ theorem buildLevels_respects (tag lay tree h : Nat) (leaves : List Digest) :
   unfold buildLevels
   exact ShortRespects.foldlM _ _ (fun level _ levels =>
     ShortRespects.bind (buildLevel_respects _ _ _ _ _ _) fun _ => ShortRespects.pure' _) _
-theorem ftsLeaf_respects (index coord leaf : Nat) (secret : Digest) :
-    ShortRespects (ftsLeaf index coord leaf secret) := by
-  unfold ftsLeaf
-  apply ShortRespects.shortHash
-  apply short_of_le
-  simp [zero16, bytesLE_length]
-theorem buildFts_respects (index coord : Nat) : ShortRespects (buildFts index coord) := by
-  unfold buildFts
-  refine ShortRespects.bind (ShortRespects.foldlM _ _ (fun pair _ state => ?_) _) fun state =>
-    ShortRespects.bind (buildLevels_respects _ _ _ _ _) fun _ => ShortRespects.pure' _
-  refine ShortRespects.bind (ShortRespects.privatePair _ _ _ _ _) fun seeds => ?_
-  rcases seeds with ⟨left, right⟩
-  exact ShortRespects.bind (ftsLeaf_respects _ _ _ _) fun _ =>
-    ShortRespects.bind (ftsLeaf_respects _ _ _ _) fun _ => ShortRespects.pure' _
-theorem forestPk_respects (index : Nat) (roots : List Digest) (hlen : roots.length ≤ 200) :
-    ShortRespects (forestPk index roots) := by
-  unfold forestPk
-  apply ShortRespects.shortHash
-  apply short_of_le
-  simp only [List.length_append, bytesLE_length, digest_list_bytes_length, List.length_drop]
-  omega
-theorem counterSearch_respects (lay : Layer) (tree leaf : Nat) (message : Digest) (counter fuel : Nat) :
-    ShortRespects (counterSearch lay tree leaf message counter fuel) := by
-  induction fuel generalizing counter with
-  | zero => exact ShortRespects.pure' _
-  | succ fuel ih =>
-      unfold counterSearch
-      refine ShortRespects.bind (ShortRespects.shortHash _ (short_of_le _ ?_)) fun answer => ?_
-      · simp [encodingInput, bytesLE_length]
-      · cases searchDecode lay answer with
-        | none => exact ih _
-        | some digits => exact ShortRespects.pure' _
 section objects
 variable {A T : Answers} (hAT : ShortAgree A T)
 include hAT
-theorem leafSeed_short (lay : Layer) (tree leaf i : Nat) : leafSeed A lay tree leaf i = leafSeed T lay tree leaf i := by
-  unfold leafSeed
-  split_ifs
-  · unfold Correctness.topLeafSeed Correctness.topCoefList
-    congr 2
-    funext j
-    unfold Correctness.topCoef Correctness.topCoefN topSeedPair
-    rw [ShortRespects.privatePair 0 0 0 _ 0 A T hAT]
-  all_goals rw [ShortRespects.privatePair 0 lay.val tree (i / 2) leaf A T hAT]
 theorem chainValue_short (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
     evalWithAnswerFn A (chain lay tree leaf i start count value) =
       evalWithAnswerFn T (chain lay tree leaf i start count value) :=
@@ -163,27 +113,5 @@ theorem chainValue_short (lay : Layer) (tree leaf i start count : Nat) (value : 
 theorem honestChainValue_short (lay : Layer) (tree leaf i : Nat) (seed : Digest) (step : Nat) :
     honestChainValue A lay tree leaf i seed step = honestChainValue T lay tree leaf i seed step :=
   chainValue_short hAT lay tree leaf i 0 step seed
-theorem leafEnd_short (lay : Layer) (tree leaf i : Nat) : leafEnd A lay tree leaf i = leafEnd T lay tree leaf i := by
-  unfold leafEnd
-  rw [leafSeed_short hAT]
-  exact chainValue_short hAT _ _ _ _ _ _ _
-theorem leafRoot_short (lay : Layer) (tree leaf : Nat) : leafRoot A lay tree leaf = leafRoot T lay tree leaf := by
-  unfold leafRoot
-  rw [List.map_congr_left (fun i _ => leafEnd_short hAT lay tree leaf i)]
-  apply leafHash_respects
-  · simp only [List.length_map, List.length_range]
-    have := chainCount_le lay
-    omega
-  · exact hAT
-theorem builtTree_short (lay : Layer) (tree : Nat) : builtTree A lay tree = builtTree T lay tree := by
-  unfold builtTree
-  rw [List.map_congr_left (fun leaf _ => leafRoot_short hAT lay tree leaf)]
-  exact buildLevels_respects _ _ _ _ _ A T hAT
-theorem honestRoot_short (lay : Layer) (tree : Nat) : Extract.honestRoot A lay tree = Extract.honestRoot T lay tree := by
-  unfold Extract.honestRoot
-  rw [builtTree_short hAT]
-theorem buildFts_short (index coord : Nat) :
-    evalWithAnswerFn A (buildFts index coord) = evalWithAnswerFn T (buildFts index coord) :=
-  buildFts_respects index coord A T hAT
 end objects
 end SigGolfCandidate.T3.Security.Wots.Ref

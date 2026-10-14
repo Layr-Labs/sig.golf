@@ -1,4 +1,5 @@
-import SigGolfCandidate.T3.Secc.WotsExtractSplit
+import SigGolfCandidate.T3.Secc.WotsExtractWord
+import SigGolfCandidate.T3.Secc.SeccSufSigned
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsTransportSplit
 
 namespace ClaudeWCT.W9.T3.Security.WotsExtract
@@ -8,7 +9,7 @@ open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final
 open ClaudeWCT.W9.T3M (wrho wdc)
 open ClaudeWCT.W9.T3.Security.Wots
 open SigGolfCandidate.T3.Security.Wots (Entry entriesOf)
-open SigGolfCandidate.T3.Security.WotsExtract (recordedEntries entries_recorded)
+
 open SigGolfCandidate.T3.Correctness (Answers)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000

@@ -29,7 +29,7 @@ def pcI (c l : Nat) : Nat := rI c + 12 + 13 * l
 def lcEnd (c i : Nat) : Nat := if i = 5 then lI c else qI c (i + 1)
 def hdr8 (c : Nat) : Nat := 2049 + 65536 * c
 def hdr6 (c : Nat) : Nat := 1537 + 65536 * c
-/-- FTS chain word constant. C4 (FTS coordinate + 1, as b3cc11b's campaign S2): coordinate nibble `c + 1`. -/
+/-- FTS chain word constant (campaign S2: coordinate nibble `c + 1`). -/
 def chainK (c i : Nat) : Nat := 0x80 + 4 * i + 65536 * (c + 1)
 def nodeK (c : Nat) : Nat := 769 + 65536 * (4 + c)
 def slotV (c i : Nat) : Nat := SIG + 16 + 208 * c + 16 * i
@@ -39,16 +39,12 @@ def forOff (c : Nat) : Nat := 32 + 32 * c
 def w1E : E := .bin .or (.bin .sll (.reg .x18) (cE 32)) (.reg .x22)
 def qE (c i : Nat) : E := .bin .or (.bin .or (.bin .sll (.reg .x22) (cE 27)) (.bin .sll (.reg .x18) (cE 20))) (cE (chainK c i))
 def idx32E : E := .bin .sll (.reg .x22) (cE 32)
-/-- FTS node word base. C4: coordinate nibble `c + 1`; coordinate 0 goes through the arena trampoline
-`lui t2,16; or t1,t1,t2; ori t1,t1,1537`, which produces the same expression. -/
+/-- FTS node word base (campaign S2: coordinate nibble `c + 1`; coordinate 0 goes through the arena trampoline,
+which produces the same expression). -/
 def nodeLoE (c : Nat) : E := .bin .or (.bin .or (.bin .sll (.reg .x22) (cE 27)) (cE (65536 * (c + 1)))) (cE 1537)
-/-- FTS leaf word. C4: coordinate nibble `c + 1`; for coordinate 0 the arena trampoline ORs `65536` and `1537`
-separately. -/
 def leafLoE (c : Nat) : E :=
-  if c = 0 then
-    .bin .or (.bin .or (.bin .or (.bin .sll (.reg .x22) (cE 27)) (.bin .sll (.reg .x18) (cE 20))) (cE 65536)) (cE 1537)
-  else .bin .or (.bin .or (.bin .sll (.reg .x22) (cE 27)) (.bin .sll (.reg .x18) (cE 20))) (cE (1537 + 65536 * (c + 1)))
-def leafX7 (c : Nat) : E := if c = 0 then cE 65536 else cE (65536 * (c + 1) + 1537)
+  .bin .or (.bin .or (.bin .sll (.reg .x22) (cE 27)) (.bin .sll (.reg .x18) (cE 20))) (cE (1537 + 65536 * (c + 1)))
+def leafX7 (c : Nat) : E := cE (65536 * (c + 1) + 1537)
 def x29A (off : Nat) : Addr := ⟨some (.reg .x29), BitVec.ofNat 64 off⟩
 def nodeLo7 (c index : Nat) : Nat := 1537 + 65536 * (c + 1) + 2 ^ 27 * index
 def leafLo7 (c index j : Nat) : Nat := 1537 + 65536 * (c + 1) + 2 ^ 20 * j + 2 ^ 27 * index

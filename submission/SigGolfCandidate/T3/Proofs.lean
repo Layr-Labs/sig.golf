@@ -1179,7 +1179,6 @@ theorem bound_shortHash (input : HashInput) (k : Nat) (hpos : 0 < input.length)
   unfold shortHash publicHash
   apply Bound.qry_bind (k := 0) ⟨pad64_positive input hpos,pad64_aligned input⟩ (fun _ => .pure _ 0 trivial)
   simpa only [weight,Nat.add_zero] using hlen
-/-- C4 (adapted from b3cc11b): one public query for either half. -/
 theorem bound_projHash (high : Bool) (input : HashInput) (k : Nat) (hpos : 0 < input.length)
     (hlen : (pad64 input).length/64 ≤ k) : CBound (fun _ => True) k (projHash high input) := by
   unfold projHash publicHash
@@ -1206,7 +1205,7 @@ theorem bound_chain (lay : Layer) (tree leaf i start count : Nat) (value : Diges
   unfold chain
   refine Bound.foldlM_range'_le start count _ (fun _ _ => True) (fun _ => 1) value trivial
     (fun n _ value _ => ?_) (fun _ _ => trivial) (by simp)
-  apply bound_shortHash <;> simp [chainInput,pad64_length,zero16,SphincsSecurity.bytesLE_length]
+  apply bound_projHash <;> simp [chainInput,pad64_length,zero16,SphincsSecurity.bytesLE_length]
 theorem bound_nodeHash (tag lay tree heap : Nat) (left right : Digest) :
     CBound (fun _ => True) 1 (nodeHash tag lay tree heap left right) := by
   unfold nodeHash

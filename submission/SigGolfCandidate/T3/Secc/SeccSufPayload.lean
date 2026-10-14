@@ -10,7 +10,6 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local irreducible] buildFts buildTree
-abbrev S (answers : Answers) (index coord leaf : Nat) : Digest := Extract.ftsSecret answers index coord leaf
 theorem hdrBlock_nodeInputP (tag lay tree heap : Nat) (l p r : Digest) :
     Extract.hdrBlock (nodeInputP tag lay tree heap l p r) = bytesLE 16 (nodeTweak tag lay tree heap) := by
   unfold nodeInputP; exact Extract.hdrBlock_block4 _ _ _ _

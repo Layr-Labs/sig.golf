@@ -1,5 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEvents
-import SigGolfCandidate.T3.Secc.WotsExtractVerify
+import SigGolfCandidate.T3.Secc.WotsExtractWord
 
 namespace ClaudeWCT.W9.T3.Security.WotsExtract
 open OracleComp OracleSpec
@@ -89,12 +89,12 @@ variable {answers : Answers} {trace trace' : List Entry}
 theorem contactAt_mono {a : ChainAddr} (h : ContactAt answers trace a) (hsub : ∀ e ∈ trace, e ∈ trace') :
     ContactAt answers trace' a := by
   obtain ⟨hd, value, hs⟩ := h
-  exact ⟨hd, value, ClaudeWCT.W9.T3.Security.Wots.seenRowW_mono hs hsub⟩
+  exact ⟨hd, value, SigGolfCandidate.T3.Security.WotsExtract.seenRow_mono hs hsub⟩
 theorem twoEdgeAt_mono {a : ChainAddr} (h : TwoEdgeAt answers trace a) (hsub : ∀ e ∈ trace, e ∈ trace') :
     TwoEdgeAt answers trace' a := by
   obtain ⟨hd, start, middle, h1, h2⟩ := h
-  exact ⟨hd, start, middle, ClaudeWCT.W9.T3.Security.Wots.seenRowW_mono h1 hsub,
-    ClaudeWCT.W9.T3.Security.Wots.seenRowW_mono h2 hsub⟩
+  exact ⟨hd, start, middle, SigGolfCandidate.T3.Security.WotsExtract.seenRow_mono h1 hsub,
+    SigGolfCandidate.T3.Security.WotsExtract.seenRow_mono h2 hsub⟩
 theorem encodingMatchAt_mono {L : LeafAddr} (h : EncodingMatchAt answers trace L) (hsub : ∀ e ∈ trace, e ∈ trace') :
     EncodingMatchAt answers trace' L := by
   obtain ⟨message, counter, pad, answer, hfit, hm, hne, hd⟩ := h

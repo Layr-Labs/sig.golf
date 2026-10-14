@@ -8,7 +8,7 @@ open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput)
 open W9Machine
-def dispatchPc (n : Nat) : Nat := [89, 171, 257, 342, 426, 512, 597, 681, 766, 850].getD n 850
+def dispatchPc (n : Nat) : Nat := [89, 171, 257, 342, 426, 512, 596, 680, 765, 850].getD n 850
 def cachedWord (n : Nat) : Nat := [0,0,1,1,1,2,2,2,2,2].getD n 2
 def pairBase : Nat := 0xffbe10
 /-- Nested FTS: coordinate 0's pads are the witness slots of region 0 (honest 0). -/
@@ -21,7 +21,6 @@ structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   le : n ≤ 9
   length : pairs.length = n
   pc : u.pc = pcOf (dispatchPc n)
-  /-- C4 (D7): `s2` (x18) is loaded only in the L3 block, so the FTS phase keeps `x5 = 0` and the data word `d0`. -/
   glob : Glob [(.x5, 0)] w pk u
   digest : DigestAt a u
   bank : HeaderBank u
@@ -32,7 +31,6 @@ structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   stepTwo : u.getReg .x13 = 2
   hashLen : u.getReg .x11 = 64
   coordStep : u.getReg .x6 = 65536
-  /-- C4: the FTS coordinate nibble is `coordinate + 1` (`add a5,a5,t1` in the prologue). -/
   nodeReg : u.getReg .x15 = BitVec.ofNat 64 (idxOf a * 2^27 + 67073 + 65536 * (n-1))
   d0 : u.getMem (BitVec.ofNat 64 dataBase7) = 0xFFF
   cached3 : u.getReg .x17 = if n < 8 then a.extractLsb' 192 64 else a.extractLsb' 192 64 ||| rankPad
@@ -49,6 +47,7 @@ structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
     u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + 848)
   coords : ∀ m, n ≤ m → m ≤ 9 → ∀ off, off < 896 → off % 8 = 0 → (m = 9 → 720 ≤ off) →
     (m = n → ¬ V3.isHand off) → W9Machine.OrigW w u (regionAddr m + off)
-  /-- C3 (FULL): witness word 3 (the L3 encoding's row-tweak high word) is still original. -/
-  layer : Orig w (fun o => (24 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24896)) u
+  layer : Orig w (fun o => (24 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24880)) u
+  /-- R4-k5: after coordinate 8 (dispatch block 8 loads it), `s2` holds data word 0 for the L3 block. -/
+  s2 : n = 9 → u.getReg .x18 = 0xFFF
 end W9Drv

@@ -19,9 +19,10 @@ attribute [local instance low] Classical.propDecidable
 attribute [local irreducible] referenceGame offlineGame
 namespace SmallA
 theorem posOf_chainRow (a : ChainAddr) (s : Nat) (v : Digest) (htree : a.key.tree < 2 ^ 31)
-    (hleaf : a.key.leaf < 4096) (hc : a.chain < 64) (hs : s < 7) :
+    (hleaf : a.key.leaf < 4096) (hc : a.chain < 64) (hs : s < 8) :
     Extract.posOf (chainRow a s v) = some (.chain a.key.lay a.key.tree a.key.leaf a.chain s) :=
-  Extract.posOf_eq ⟨htree, hleaf, hc, hs⟩ (Mask.chainRow_length a s v)
+  Extract.posOf_eq ⟨htree, hleaf, hc, hs⟩
+    (by show (chainInput _ _ _ _ _ _).length = 64; simp [chainInput, zero16, bytesLE_length])
     (show Extract.hdrBlock (chainRow a s v) =
         bytesLE 16 (chainHeader a.key.lay a.key.tree a.key.leaf a.chain s) from
       SigGolfCandidate.T3.Security.Wots.SmallA.hdrBlock_chainRow a s v)
@@ -35,13 +36,10 @@ theorem chainRow_ne_encRow (a : ChainAddr) (s : Nat) (v : Digest) (L : LeafAddr)
   have h1 : ClaudeWCT.W9.T3M.Extract.hdrBlock (chainRow a s v) =
       bytesLE 16 (chainHeader a.key.lay a.key.tree a.key.leaf a.chain s) :=
     SigGolfCandidate.T3.Security.Wots.SmallA.hdrBlock_chainRow a s v
-  rw [h1, show encRow L m c pad = pad64 (layerEncodingInputP L.lay L.tree L.leaf m c pad.1 pad.2.1 (pad.2.2 ^^^ 1)) from rfl,
+  rw [h1, show encRow L m c pad = pad64 (layerEncodingInputP L.lay L.tree L.leaf m c pad.2.2 pad.1 pad.2.1) from rfl,
     ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP] at hb
-  have hm := congrArg tweakMarker (bytesLE_injective hb)
-  unfold WCT9.rowTweakW at hm
-  rw [append64_marker, hyperWord_marker] at hm
-  have := chainHeader_firstByte a.key.lay a.key.tree a.key.leaf a.chain s
-  unfold tweakMarker at hm
+  have hm := chainHeader_tweakMarker a.key.lay a.key.tree a.key.leaf a.chain s
+  rw [bytesLE_injective hb, ClaudeWCT.W9.T3M.BC.rowTweakH, append64_marker, hyperWord_marker] at hm
   omega
 theorem encRow_ne_digest (L : LeafAddr) (m : WCT9.LayerMsg) (c : BitVec 32) (pad : RowPad) (rho : Digest)
     (m' : Message) (c' : BitVec 32) : encRow L m c pad ≠ pad64 (digestInput rho m' c') := by
@@ -50,11 +48,10 @@ theorem encRow_ne_digest (L : LeafAddr) (m : WCT9.LayerMsg) (c : BitVec 32) (pad
   have h2 : ClaudeWCT.W9.T3M.Extract.hdrBlock (pad64 (digestInput rho m' c')) =
       bytesLE 16 (digestHeader c') :=
     SigGolfCandidate.T3.Security.Wots.SmallA.hdrBlock_digest rho m' c'
-  rw [h2, show encRow L m c pad = pad64 (layerEncodingInputP L.lay L.tree L.leaf m c pad.1 pad.2.1 (pad.2.2 ^^^ 1)) from rfl,
+  rw [h2, show encRow L m c pad = pad64 (layerEncodingInputP L.lay L.tree L.leaf m c pad.2.2 pad.1 pad.2.1) from rfl,
     ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP] at hb
   have hm := congrArg tweakMarker (bytesLE_injective hb)
-  unfold WCT9.rowTweakW at hm
-  rw [append64_marker, hyperWord_marker, digestHeader_marker] at hm
+  rw [digestHeader_marker, ClaudeWCT.W9.T3M.BC.rowTweakH, append64_marker, hyperWord_marker] at hm
   exact absurd hm (by decide)
 end SmallA
 theorem prefixRow_encodingRow_disjoint (T : Answers) (input : SigGolfCandidate.T3.Spec.Domain) :
