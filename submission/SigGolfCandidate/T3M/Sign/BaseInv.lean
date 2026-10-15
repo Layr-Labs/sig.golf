@@ -14,7 +14,7 @@ def BaseA (A : Nat) : Prop :=
   A = PRIV ∨ A = PRIV + 8 ∨ A = PRIV + 32 ∨ A = PRIV + 40 ∨ A = PRIV + 48 ∨ A = PRIV + 56 ∨
     (REGION ≤ A ∧ A < REGION + 131040) ∨ NeverW A ∨
       (Search.TOP_DATA ≤ A ∧ A < Search.TOP_DATA + 2944)
-structure Base (sk : SecretKey) (cache : Bytes 131072) (t : MachineState) : Prop where
+structure Base (sk : SecretKey) (cache : Bytes 131072) (t : MachineState) (cfFlag : Nat := 1) : Prop where
   x5 : t.getReg .x5 = 0
   p0 : t.getMem (BitVec.ofNat 64 PRIV) = sk.extractLsb' 0 64
   p8 : t.getMem (BitVec.ofNat 64 (PRIV + 8)) = sk.extractLsb' 64 64
@@ -25,11 +25,12 @@ structure Base (sk : SecretKey) (cache : Bytes 131072) (t : MachineState) : Prop
   region : ∀ k < 16380, t.getMem (BitVec.ofNat 64 (REGION + 8 * k)) = cache.extractLsb' (64 * (k + 4)) 64
   zero : ∀ A < 2 ^ 64, NeverW A → t.getMem (BitVec.ofNat 64 A) = 0
   table : Search.TableOK t
-  cf : Search.CfTableOK 1 t
+  cf : Search.CfTableOK cfFlag t
   reward : Search.Reward.RewardTablesOK t
+variable {cfFlag : Nat}
 theorem Base.frame {sk : SecretKey} {cache : Bytes 131072} {t u : MachineState} {W : Nat → Prop}
-    {l : List Reg} (h : Base sk cache t) (hf : Frame t u W) (hr : RegsExcept t u l) (h5 : .x5 ∉ l)
-    (hW : ∀ A, A < 2 ^ 64 → BaseA A → ¬ W A) : Base sk cache u := by
+    {l : List Reg} (h : Base (cfFlag := cfFlag) sk cache t) (hf : Frame t u W) (hr : RegsExcept t u l) (h5 : .x5 ∉ l)
+    (hW : ∀ A, A < 2 ^ 64 → BaseA A → ¬ W A) : Base (cfFlag := cfFlag) sk cache u := by
   have g : ∀ A, A < 2 ^ 64 → BaseA A → u.getMem (BitVec.ofNat 64 A) = t.getMem (BitVec.ofNat 64 A) :=
     fun A hA hb => hf.get hA (hW A hA hb)
   refine ⟨by rw [hr.get h5, h.x5], ?_, ?_, ?_, ?_, ?_, ?_, fun k hk => ?_, fun A hA hn => ?_, ?_, ?_, ?_⟩
@@ -87,7 +88,7 @@ theorem wordsOf_region (cache : Bytes 131072) :
   rw [BitVec.toNat_ofNat, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, Nat.div_div_eq_div_mul,
     ← Nat.pow_add]
   congr 3; ring
-theorem Base.region_words {sk : SecretKey} {cache : Bytes 131072} {t : MachineState} (h : Base sk cache t) :
+theorem Base.region_words {sk : SecretKey} {cache : Bytes 131072} {t : MachineState} (h : Base (cfFlag := cfFlag) sk cache t) :
     t.readWords (BitVec.ofNat 64 REGION) 16380 = wordsOf (List.ofFn (cacheDec cache).region) := by
   rw [readWords_eq_map t REGION 16380 (by sg_omega), wordsOf_region]
   exact List.map_congr_left (fun k hk => h.region k (List.mem_range.mp hk))

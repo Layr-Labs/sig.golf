@@ -1,9 +1,6 @@
 import Mathlib.Data.Fin.Basic
 import SigGolfCandidate.W9Machine.WctChainContract
 
-variable {choiceHint : BitVec 64}
-
-
 section
 
 namespace W9Machine.N600
@@ -35,19 +32,19 @@ abbrev clobbers := Chain.clobbers
 def program (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
     (rank : Fin 563) : M (List Digest) :=
   V3.chainProgram w index k j (embed rank)
-def Good (L : Layout) (rank : Fin 563) : Prop :=
+def Good (L : Layout) (rank : Fin 563) (P : Hash → Prop := HashOk) : Prop :=
   ∀ (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128) (u : MachineState)
     (N C A : Nat) (Q : Prop) (K : List Digest → OracleComp HashSpec Obs),
     Pre L w index k j rank u →
-    (∀ ends t, Post L w index k j u ends t → GoodQFor (choiceHint := choiceHint) L.image t N C Q A (K ends)) →
-    GoodQFor (choiceHint := choiceHint) L.image u (N + 89) (C + 89) Q (A + rankCost rank)
+    (∀ ends t, Post L w index k j u ends t → GoodQFor (P := P) L.image t N C Q A (K ends)) →
+    GoodQFor (P := P) L.image u (N + 89) (C + 89) Q (A + rankCost rank)
       (ccM (program w index k j rank) K)
-def AllGood (L : Layout) : Prop := ∀ rank : Fin 563, Good (choiceHint := choiceHint) L rank
+def AllGood (L : Layout) (P : Hash → Prop := HashOk) : Prop := ∀ rank : Fin 563, Good L rank (P := P)
 def NineCost (ranks : Fin 9 → Fin 563) : Nat :=
   ((List.finRange 9).map fun k => rankCost (ranks k)).sum
 def JointCost (ranks : Fin 9 → Fin 563) (children : Fin 9 → Fin 128) : Nat :=
   NineCost ranks + ((List.finRange 9).map fun k => ClaudeWCT.WCT9.childExtra (children k)).sum
 def ProducerCostOK (ranks : Fin 9 → Fin 563) (children : Fin 9 → Fin 128) : Prop :=
-  JointCost ranks children ≤ 775
+  JointCost ranks children ≤ 789
 end W9Machine.N600
 end

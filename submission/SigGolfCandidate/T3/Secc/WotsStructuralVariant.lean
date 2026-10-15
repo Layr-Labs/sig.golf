@@ -28,4 +28,28 @@ theorem congr_of_queried {α : Type} (T T' : Answers) (program : M α)
       · rw [eval_query_bind, eval_query_bind, ← h0]
         exact ih'.1
       · rw [SourceReplay.queried_query_bind, SourceReplay.queried_query_bind, ← h0, ih'.2]
+structure Variant (labels : CanonGraph.Labels) (T T' : Answers) : Prop where
+  agrees : CanonGraph.Agrees T labels
+  coin : ∀ n, T (.inl (.inl n)) = T' (.inl (.inl n))
+  priv : ∀ c, T (.inr c) = T' (.inr c)
+  pub : ∀ x : HashInput, (∀ node : CanonGraph.Node, Extract.posOf x = some node.toPos →
+    x = CanonGraph.cell (CanonGraph.secretsOf T) node labels) → T (.inl (.inr x)) = T' (.inl (.inr x))
+theorem posOf_honestInput (T : Answers) (p : Extract.Pos) (hp : p.Bounded) :
+    Extract.posOf (Extract.honestInput T p) = some p :=
+  Extract.posOf_eq hp (Extract.hdrBlock_honestInput T p)
+theorem Variant.honest {labels : CanonGraph.Labels} {T T' : Answers} (hv : Variant labels T T') :
+    ∀ q, HonestQuery T q → T q = T' q
+  | .inl (.inl n), _ => hv.coin n
+  | .inr c, _ => hv.priv c
+  | .inl (.inr x), Or.inl hnone => hv.pub x (fun node h => by rw [hnone] at h; cases h)
+  | .inl (.inr x), Or.inr ⟨p, hp, hx⟩ => hv.pub x (fun node h => by
+      rw [hx, posOf_honestInput T p hp] at h
+      cases h
+      rw [hx]
+      exact CanonGraph.honestInput_eq hv.agrees node)
+theorem Variant.congr {labels : CanonGraph.Labels} {T T' : Answers} (hv : Variant labels T T') {α : Type}
+    {program : M α} (hp : QueriesSat T (HonestQuery T) program) :
+    evalWithAnswerFn T program = evalWithAnswerFn T' program ∧
+      SourceReplay.queried T program = SourceReplay.queried T' program :=
+  congr_of_queried T T' program (fun q hq => hv.honest q (hp q hq))
 end SigGolfCandidate.T3.Security.Wots.Structural

@@ -26,38 +26,38 @@ def cfLayout : Rv.Layout := [(0,setupCode),(4,preCode),(7,loadCode),(8,postCode)
   (33,luiCode),(34,flagCode),(35,beqCode),(36,ld1Code),(37,ld2Code),(38,dumCode),(41,alignCode)]
 theorem cfLayout_ok : layoutOk 0 cfLayout = true := by decide +kernel
 theorem cfLayout_code : topSeg392 = layoutCode cfLayout := by decide +kernel
-theorem code_cf {image : Image} {b : Nat} (hK : KernAt image b) (i o : Nat) (seg : List (BitVec 32))
+theorem code_cf {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (i o : Nat) (seg : List (BitVec 32))
     (h : cfLayout[i]? = some (o, seg)) : CodeAt image (pcOf (b + 392 + o)) seg := by
   have hc := codeAt_top392 hK
   rw [cfLayout_code] at hc
   exact codeAt_sublayout hc cfLayout_ok (i := i) (o := o) (seg := seg) h
-theorem code_setup {image : Image} {b : Nat} (hK : KernAt image b) : CodeAt image (pcOf (b + 392)) setupCode := by
+theorem code_setup {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) : CodeAt image (pcOf (b + 392)) setupCode := by
   simpa using code_cf hK 0 0 setupCode (by kernel_rfl)
-theorem code_pre {image : Image} {b : Nat} (hK : KernAt image b) : CodeAt image (pcOf (b + 396)) preCode := by
+theorem code_pre {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) : CodeAt image (pcOf (b + 396)) preCode := by
   simpa [Nat.add_assoc] using code_cf hK 1 4 preCode (by kernel_rfl)
-theorem code_load {image : Image} {b : Nat} (hK : KernAt image b) : CodeAt image (pcOf (b + 399)) loadCode := by
+theorem code_load {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) : CodeAt image (pcOf (b + 399)) loadCode := by
   simpa [Nat.add_assoc] using code_cf hK 2 7 loadCode (by kernel_rfl)
-theorem code_post {image : Image} {b : Nat} (hK : KernAt image b) : CodeAt image (pcOf (b + 400)) postCode := by
+theorem code_post {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) : CodeAt image (pcOf (b + 400)) postCode := by
   simpa [Nat.add_assoc] using code_cf hK 3 8 postCode (by kernel_rfl)
-theorem code_tail {image : Image} {b : Nat} (hK : KernAt image b) : CodeAt image (pcOf (b + 407)) tailCode := by
+theorem code_tail {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) : CodeAt image (pcOf (b + 407)) tailCode := by
   simpa [Nat.add_assoc] using code_cf hK 4 15 tailCode (by kernel_rfl)
-theorem code_ok {image : Image} {b : Nat} (hK : KernAt image b) : CodeAt image (pcOf (b + 422)) okCode := by
+theorem code_ok {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) : CodeAt image (pcOf (b + 422)) okCode := by
   simpa [Nat.add_assoc] using code_cf hK 5 30 okCode (by kernel_rfl)
-theorem code_h0 {image : Image} {b : Nat} (hK : KernAt image b) : CodeAt image (pcOf (b + 424)) h0Code := by
+theorem code_h0 {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) : CodeAt image (pcOf (b + 424)) h0Code := by
   simpa [Nat.add_assoc] using code_cf hK 6 32 h0Code (by kernel_rfl)
-theorem code_lui {image : Image} {b : Nat} (hK : KernAt image b) : CodeAt image (pcOf (b + 425)) luiCode := by
+theorem code_lui {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) : CodeAt image (pcOf (b + 425)) luiCode := by
   simpa [Nat.add_assoc] using code_cf hK 7 33 luiCode (by kernel_rfl)
-theorem code_flag {image : Image} {b : Nat} (hK : KernAt image b) : CodeAt image (pcOf (b + 426)) flagCode := by
+theorem code_flag {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) : CodeAt image (pcOf (b + 426)) flagCode := by
   simpa [Nat.add_assoc] using code_cf hK 8 34 flagCode (by kernel_rfl)
-theorem code_beq {image : Image} {b : Nat} (hK : KernAt image b) : CodeAt image (pcOf (b + 427)) beqCode := by
+theorem code_beq {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) : CodeAt image (pcOf (b + 427)) beqCode := by
   simpa [Nat.add_assoc] using code_cf hK 9 35 beqCode (by kernel_rfl)
-theorem code_ld1 {image : Image} {b : Nat} (hK : KernAt image b) : CodeAt image (pcOf (b + 428)) ld1Code := by
+theorem code_ld1 {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) : CodeAt image (pcOf (b + 428)) ld1Code := by
   simpa [Nat.add_assoc] using code_cf hK 10 36 ld1Code (by kernel_rfl)
-theorem code_ld2 {image : Image} {b : Nat} (hK : KernAt image b) : CodeAt image (pcOf (b + 429)) ld2Code := by
+theorem code_ld2 {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) : CodeAt image (pcOf (b + 429)) ld2Code := by
   simpa [Nat.add_assoc] using code_cf hK 11 37 ld2Code (by kernel_rfl)
-theorem code_dum {image : Image} {b : Nat} (hK : KernAt image b) : CodeAt image (pcOf (b + 430)) dumCode := by
+theorem code_dum {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) : CodeAt image (pcOf (b + 430)) dumCode := by
   simpa [Nat.add_assoc] using code_cf hK 12 38 dumCode (by kernel_rfl)
-theorem code_align {image : Image} {b : Nat} (hK : KernAt image b) : CodeAt image (pcOf (b + 433)) alignCode := by
+theorem code_align {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) : CodeAt image (pcOf (b + 433)) alignCode := by
   simpa [Nat.add_assoc] using code_cf hK 13 41 alignCode (by kernel_rfl)
 sym_block cs354 := symRun {noAlias:=true} setupCode (pcOf (354+392)) 200
 sym_block cs543 := symRun {noAlias:=true} setupCode (pcOf (543+392)) 200
@@ -145,7 +145,7 @@ set_option maxHeartbeats 800000
 set_option linter.unusedSimpArgs false
 set_option linter.unnecessarySeqFocus false
 variable {image : Image} {b : Nat}
-theorem setup_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 392)) :
+theorem setup_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (b + 392)) :
     ∃ t, Steps image s 4 4 t ∧ t.pc = pcOf (b + 396) ∧ t.getReg .x10 = s.getReg .x6 ∧
       t.getReg .x11 = s.getReg .x7 ∧ t.getReg .x12 = 0 ∧ t.getReg .x20 = 17#64 ∧
       RegsExcept s t [.x10, .x11, .x12, .x20] ∧ Frame s t (fun _ => False) := by
@@ -158,7 +158,7 @@ theorem setup_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (
   · simp [cs354.res, rv_simp]
   · intro r hr; simp at hr; cases r <;> simp_all [cs354.res, rv_simp] <;> rfl
   · intro A _ _; simp [cs354.res, rv_simp]
-theorem pre_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 396)) :
+theorem pre_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (b + 396)) :
     ∃ t, Steps image s 3 3 t ∧ t.pc = pcOf (b + 399) ∧
       t.getReg .x28 = ((s.getReg .x10 &&& 127#64) <<< 2) + s.getReg .x30 ∧
       RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
@@ -168,7 +168,7 @@ theorem pre_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b 
   · simp [cp354.res, rv_simp]
   · intro r hr; simp at hr; cases r <;> simp_all [cp354.res, rv_simp] <;> rfl
   · intro A _ _; simp [cp354.res, rv_simp]
-theorem ok_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 422)) :
+theorem ok_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (b + 422)) :
     ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf (b + 363) ∧ t.getReg .x20 = 0 ∧
       RegsExcept s t [.x20] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_ok hK.2.1) (code_ok hK) s hpc (by simp [co354.res, rv_simp]),
@@ -177,7 +177,7 @@ theorem ok_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b +
   · simp [co354.res, rv_simp]
   · intro r hr; simp at hr; cases r <;> simp_all [co354.res, rv_simp] <;> rfl
   · intro A _ _; simp [co354.res, rv_simp]
-theorem dum_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 430)) :
+theorem dum_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (b + 430)) :
     ∃ t, Steps image s 3 3 t ∧ t.pc = pcOf (b + 363) ∧ t.getReg .x20 = 0 ∧ t.getReg .x25 = 129#64 ∧
       RegsExcept s t [.x20, .x25] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_dum hK.2.1) (code_dum hK) s hpc (by simp [cd354.res, rv_simp]),
@@ -187,7 +187,7 @@ theorem dum_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b 
   · simp [cd354.res, rv_simp]
   · intro r hr; simp at hr; cases r <;> simp_all [cd354.res, rv_simp] <;> rfl
   · intro A _ _; simp [cd354.res, rv_simp]
-theorem lui_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 425)) :
+theorem lui_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (b + 425)) :
     ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf (b + 426) ∧ t.getReg .x30 = BitVec.ofNat 64 TOP_DATA ∧
       RegsExcept s t [.x30] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_lui hK.2.1) (code_lui hK) s hpc (by simp [cl354.res, rv_simp]),
@@ -196,7 +196,7 @@ theorem lui_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b 
   · simp [cl354.res, rv_simp, TOP_DATA]
   · intro r hr; simp at hr; cases r <;> simp_all [cl354.res, rv_simp] <;> rfl
   · intro A _ _; simp [cl354.res, rv_simp]
-theorem h0_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 424)) (lay : Nat)
+theorem h0_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (b + 424)) (lay : Nat)
     (hl : lay < 4) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) :
     ∃ t, Steps image s 1 1 t ∧ t.pc = (if lay = 0 then pcOf (b + 425) else pcOf (b + 0)) ∧
       RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
@@ -209,7 +209,7 @@ theorem h0_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b +
       simp [h', h]
   · intro r hr; cases r <;> simp_all [ch354.res, rv_simp] <;> rfl
   · intro A _ _; simp [ch354.res, rv_simp]
-theorem beq_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 427)) (f : Nat)
+theorem beq_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (b + 427)) (f : Nat)
     (hf : f < 256) (h28 : s.getReg .x28 = BitVec.ofNat 64 f) :
     ∃ t, Steps image s 1 1 t ∧ t.pc = (if f = 0 then pcOf (b + 0) else pcOf (b + 428)) ∧
       RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
@@ -244,7 +244,7 @@ theorem steps_ld {s : MachineState} {pc : Word} {w : BitVec 32}
     rw [classify_sound hcl]
     simp only [Micro.exec, LoadKind.width, hv, if_true, LoadKind.read]
   exact Steps.of_eq (Steps.step hf hs (Steps.refl _)) rfl rfl
-theorem load_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 399)) (A : Nat)
+theorem load_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (b + 399)) (A : Nat)
     (hA : A + 131 < 16777216) (h28 : s.getReg .x28 = BitVec.ofNat 64 A) :
     ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf (b + 400) ∧
       t.getReg .x28 = (s.getByte (BitVec.ofNat 64 (A + 131))).zeroExtend 64 ∧
@@ -267,7 +267,7 @@ theorem load_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b
   · intro q hq; simp only [List.mem_singleton] at hq
     exact MachineState.getReg_setReg_ne _ _ _ _ (Ne.symm hq)
   · intro A _ _; simp [MachineState.setReg, MachineState.setPC, MachineState.getMem]
-theorem flag_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 426))
+theorem flag_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (b + 426))
     (h30 : s.getReg .x30 = BitVec.ofNat 64 TOP_DATA) :
     ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf (b + 427) ∧
       t.getReg .x28 = (s.getByte (BitVec.ofNat 64 (TOP_DATA + 631))).zeroExtend 64 ∧
@@ -290,7 +290,7 @@ theorem flag_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b
   · intro q hq; simp only [List.mem_singleton] at hq
     exact MachineState.getReg_setReg_ne _ _ _ _ (Ne.symm hq)
   · intro A _ _; simp [MachineState.setReg, MachineState.setPC, MachineState.getMem]
-theorem ld_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 428))
+theorem ld_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (b + 428))
     (h30 : s.getReg .x30 = BitVec.ofNat 64 TOP_DATA) :
     ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf (b + 430) ∧
       t.getReg .x6 = s.getMem (BitVec.ofNat 64 (TOP_DATA + 632)) ∧
@@ -351,7 +351,7 @@ theorem ofNat_sub1 (n : Nat) (hn : 1 ≤ n) (hn' : n < 2 ^ 64) :
   have h : BitVec.ofNat 64 n = BitVec.ofNat 64 (n - 1) + 1#64 := by
     rw [show (1#64) = BitVec.ofNat 64 1 from rfl, ofNat_add_ofNat]; congr 1; omega
   rw [h, BitVec.add_sub_cancel]
-theorem post_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 400)) (n : Nat)
+theorem post_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (b + 400)) (n : Nat)
     (hn : 1 ≤ n) (hn' : n ≤ 17) (h20 : s.getReg .x20 = BitVec.ofNat 64 n) :
     ∃ t, Steps image s 7 7 t ∧ t.pc = (if n = 1 then pcOf (b + 407) else pcOf (b + 396)) ∧
       t.getReg .x12 = s.getReg .x12 + s.getReg .x28 ∧
@@ -395,7 +395,7 @@ theorem eq6_ofNat' (d : Nat) (hd : d < 8) :
     (if ((BitVec.ofNat 64 d) + 18446744073709551610#64).ult 1#64 = true then 1#64 else 0#64) =
       BitVec.ofNat 64 (if d = 6 then 1 else 0) := by
   interval_cases d <;> decide
-theorem tail_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 407)) (X C : Nat)
+theorem tail_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (b + 407)) (X C : Nat)
     (hX : X < 512) (hC : C < 64) (h10 : s.getReg .x10 = BitVec.ofNat 64 X)
     (h12 : s.getReg .x12 = BitVec.ofNat 64 C) :
     ∃ t, Steps image s 15 15 t ∧
@@ -525,7 +525,7 @@ theorem table_credit_byte (s : MachineState) (ht : TableOK s) (r : Nat) (hr : r 
   have h1 : (128 + 4 * r + 3 - 128) % 4 = 3 := by omega
   have h2 : (128 + 4 * r + 3 - 128) / 4 = r := by omega
   rw [h1, h2, if_neg (by omega)]
-theorem loop_body (hK : KernAt image b) {s0 t : MachineState} (ht : TableOK s0) (v : Digest)
+theorem loop_body {rewardCondition : Prop} (hK : KernAt image b rewardCondition) {s0 t : MachineState} (ht : TableOK s0) (v : Digest)
     (hvalid : T3.topRanksValid (T3.topFlip v) = true) (k : Nat) (hk : k < 17) (hI : LInv b s0 v k t) :
     ∃ u, Steps image t 11 11 u ∧ LInv b s0 v (k + 1) u := by
   have pc := hI.pc
@@ -566,7 +566,7 @@ theorem loop_body (hK : KernAt image b) {s0 t : MachineState} (ht : TableOK s0) 
   · rw [r3.get (by decide), r2.get (by decide), r1.get (by decide), hI.tab]
   · exact ((hI.regs.trans r1).trans r2 |>.trans r3).mono (by decide)
   · exact ((hI.frame.trans f1).trans f2 |>.trans f3).mono (by simp)
-theorem loop_iter (hK : KernAt image b) {s0 t : MachineState} (ht : TableOK s0) (v : Digest)
+theorem loop_iter {rewardCondition : Prop} (hK : KernAt image b rewardCondition) {s0 t : MachineState} (ht : TableOK s0) (v : Digest)
     (hvalid : T3.topRanksValid (T3.topFlip v) = true) (hI : LInv b s0 v 0 t) (n : Nat) (hn : n ≤ 17) :
     ∃ u, Steps image t (11 * n) (11 * n) u ∧ LInv b s0 v n u := by
   induction n with
@@ -575,7 +575,7 @@ theorem loop_iter (hK : KernAt image b) {s0 t : MachineState} (ht : TableOK s0) 
       obtain ⟨u, hs, hu⟩ := ih (by omega)
       obtain ⟨w, hw, hwI⟩ := loop_body hK ht v hvalid n (by omega) hu
       exact ⟨w, (hs.trans hw).of_eq (by omega) (by omega), hwI⟩
-theorem credit_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 392)) (v : Digest)
+theorem credit_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (b + 392)) (v : Digest)
     (hvalid : T3.topRanksValid (T3.topFlip v) = true) (ht : TableOK s)
     (h6 : s.getReg .x6 = v.extractLsb' 0 64) (h7 : s.getReg .x7 = v.extractLsb' 64 64)
     (h30 : s.getReg .x30 = BitVec.ofNat 64 TOP_DATA) :
@@ -672,7 +672,7 @@ theorem flag_byte (s : MachineState) (flag : Nat) (hf : flag < 256) (h : CfTable
   unfold cfByte
   rw [if_pos rfl]
   exact zext_ofNat8 flag hf
-theorem exhaust_fail (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 424)) (lay : Nat)
+theorem exhaust_fail {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (b + 424)) (lay : Nat)
     (hl : lay < 4) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (flag : Nat) (hf : flag < 256)
     (hcf : CfTableOK flag s) (hfl : lay ≠ 0 ∨ flag = 0) :
     ∃ n t, n ≤ 4 ∧ Steps image s n n t ∧ t.pc = pcOf (b + 0) ∧
@@ -693,7 +693,7 @@ theorem exhaust_fail (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf
     · exact (((f0.trans f1).trans f2).trans f3).mono (by simp)
   · rw [if_neg hz] at p0
     exact ⟨1, t0, by omega, s0, p0, r0.mono (by decide), f0⟩
-theorem exhaust_dummy (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 424))
+theorem exhaust_dummy {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (b + 424))
     (h8 : s.getReg .x8 = BitVec.ofNat 64 0) (flag : Nat) (hf : flag < 256) (hcf : CfTableOK flag s)
     (hfl : flag ≠ 0) :
     ∃ t, Steps image s 9 9 t ∧ t.pc = pcOf (b + 363) ∧
@@ -781,7 +781,7 @@ theorem align_hi (v : Digest) :
   · simp [show 2 + j < 64 from by omega, show ¬ 2 + j < 1 from by omega, show 64 + j < 126 from by omega,
       BitVec.getLsbD, show 1 + j < 64 from by omega, show 64 + (1 + j) = 64 + j + 1 from by omega]
   · simp [show ¬ 2 + j < 64 from by omega, show ¬ 64 + j < 126 from by omega]
-theorem align_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (b + 433)) (v : Digest)
+theorem align_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (b + 433)) (v : Digest)
     (hv : T3.lowerSpare v) (h6 : s.getReg .x6 = v.extractLsb' 0 64) (h7 : s.getReg .x7 = v.extractLsb' 64 64) :
     ∃ t, Steps image s 5 5 t ∧ t.pc = pcOf (b + 438) ∧
       t.getReg .x6 = (BitVec.ofNat 128 (T3.lowerWord v)).extractLsb' 0 64 ∧
