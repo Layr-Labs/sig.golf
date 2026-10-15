@@ -112,3 +112,7 @@ elab "sym_block " id:ident " := " t:term : command => do
     addDecl <| Declaration.thmDecl { name := base, levelParams := [], type := ty, value := pf }
     enableRealizationsForConst base
 end SigGolfCandidate.Rv
+
+-- Registered in this prerequisite module because Lean does not expose a new
+-- simp attribute to later commands in the same source file.
+register_simp_attr rv_simp

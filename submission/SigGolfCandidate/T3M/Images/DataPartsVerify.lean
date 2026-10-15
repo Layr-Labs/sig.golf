@@ -1,9 +1,16 @@
 import SigGolfCandidate.T3M.Images.Verify
 
+set_option maxRecDepth 100000
 namespace SigGolfCandidate.T3M.Images
 theorem verifyPrefixData_length : verifyPrefixData.length = 4608 := by
-  rw [verifyPrefixData, List.length_flatten]
-  set_option maxRecDepth 100000 in decide +kernel
+  simp only [verifyPrefixData, List.length_flatten, List.map_cons, List.map_nil,
+    List.sum_cons, List.sum_nil, List.length_append, List.length_replicate,
+    decodePackedWords_length, verifyPrefix_0, verifyPrefix_1, verifyPrefix_2, verifyPrefix_3, verifyPrefix_4, verifyPrefix_5, verifyPrefix_6, verifyPrefix_7, verifyPrefix_8, verifyPrefix_9, verifyPrefix_10, verifyPrefix_11, verifyPrefix_12, verifyPrefix_13, verifyPrefix_14, verifyPrefix_15, verifyPrefix_16, verifyPrefix_17]
+  decide +kernel
 theorem verifyLegacyData_length : verifyLegacyData.length = 67584 := by
-  set_option maxRecDepth 100000 in decide +kernel
+  simp only [verifyLegacyData, verifyHdr, verifyPad, verifyLegacyTail,
+    List.length_append, List.length_flatten, List.length_flatMap, List.map_cons, List.map_nil,
+    List.sum_cons, List.sum_nil, List.length_replicate, List.length_map, List.length_range,
+    decodePackedWords_length, verifyLegacyTail_0, verifyLegacyTail_1, verifyLegacyTail_2, verifyLegacyTail_3, verifyLegacyTail_4, verifyLegacyTail_5, verifyLegacyTail_6, verifyLegacyTail_7, verifyLegacyTail_8, verifyLegacyTail_9, verifyLegacyTail_10, verifyLegacyTail_11, verifyLegacyTail_12, verifyLegacyTail_13, verifyLegacyTail_14, verifyLegacyTail_15, verifyLegacyTail_16, verifyLegacyTail_17, verifyLegacyTail_18, verifyLegacyTail_19, verifyLegacyTail_20, verifyLegacyTail_21, verifyLegacyTail_22, verifyLegacyTail_23, verifyLegacyTail_24, verifyLegacyTail_25, verifyLegacyTail_26, verifyLegacyTail_27, verifyLegacyTail_28, verifyLegacyTail_29, verifyLegacyTail_30, verifyLegacyTail_31, verifyLegacyTail_32, verifyLegacyTail_33, verifyLegacyTail_34, verifyLegacyTail_35, verifyLegacyTail_36, verifyLegacyTail_37, verifyLegacyTail_38, verifyLegacyTail_39, verifyLegacyTail_40, verifyLegacyTail_41, verifyLegacyTail_42, verifyLegacyTail_43, verifyLegacyTail_44, verifyLegacyTail_45, verifyLegacyTail_46, verifyLegacyTail_47, verifyLegacyTail_48, verifyLegacyTail_49, verifyLegacyTail_50, verifyLegacyTail_51, verifyLegacyTail_52, verifyLegacyTail_53, verifyLegacyTail_54, verifyLegacyTail_55, verifyLegacyTail_56, verifyLegacyTail_57, verifyLegacyTail_58, verifyLegacyTail_59, verifyLegacyTail_60, verifyLegacyTail_61, verifyLegacyTail_62, verifyLegacyTail_63, verifyLegacyTail_64, verifyLegacyTail_65, verifyLegacyTail_66, verifyLegacyTail_67, verifyLegacyTail_68, verifyLegacyTail_69, verifyLegacyTail_70, verifyLegacyTail_71, verifyLegacyTail_72, verifyLegacyTail_73, verifyLegacyTail_74, verifyLegacyTail_75, verifyLegacyTail_76, verifyLegacyTail_77, verifyLegacyTail_78, verifyLegacyTail_79, verifyLegacyTail_80, verifyLegacyTail_81, verifyLegacyTail_82, verifyLegacyTail_83, verifyLegacyTail_84, verifyLegacyTail_85, verifyLegacyTail_86, verifyLegacyTail_87, verifyLegacyTail_88, verifyLegacyTail_89, verifyLegacyTail_90, verifyLegacyTail_91, verifyLegacyTail_92, verifyLegacyTail_93, verifyLegacyTail_94, verifyLegacyTail_95, verifyLegacyTail_96, verifyLegacyTail_97, verifyLegacyTail_98, verifyLegacyTail_99, verifyLegacyTail_100, verifyLegacyTail_101, verifyLegacyTail_102, verifyLegacyTail_103, verifyLegacyTail_104, verifyLegacyTail_105, verifyLegacyTail_106, verifyLegacyTail_107, verifyLegacyTail_108, verifyLegacyTail_109, verifyLegacyTail_110, verifyLegacyTail_111, verifyLegacyTail_112, verifyLegacyTail_113, verifyLegacyTail_114, verifyLegacyTail_115, verifyLegacyTail_116, verifyLegacyTail_117, verifyLegacyTail_118, verifyLegacyTail_119, verifyLegacyTail_120, verifyLegacyTail_121, verifyLegacyTail_122, verifyLegacyTail_123, verifyLegacyTail_124, verifyLegacyTail_125, verifyLegacyTail_126, verifyLegacyTail_127]
+  decide +kernel
 end SigGolfCandidate.T3M.Images

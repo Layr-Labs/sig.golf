@@ -92,8 +92,6 @@ theorem coefficient_power_mod (K y M H j n : Nat) (hm : 1<M) (hj : j≤K) :
   rw [Nat.zero_add] at hp
   rw [hp,←Nat.pow_mod]
 end SigGolfResearch.Gate6
-#print axioms SigGolfResearch.Gate6.family_card_packed_generic
-#print axioms SigGolfResearch.Gate6.coefficient_power_mod
 end
 section
 namespace SigGolfResearch.Gate6
@@ -114,7 +112,6 @@ theorem capped_family_card :
     (univ.filter (fun s : SetFamily => familyCost s≤87)).card = 1792558607887680192091036610744811520 :=
   family_card_packed.trans (dp_coefficient_packed.trans packedSetCount_value)
 end SigGolfResearch.Gate6
-#print axioms SigGolfResearch.Gate6.capped_family_card
 end
 section
 namespace SigGolfResearch.Gate6
@@ -175,7 +172,6 @@ theorem ordered_accepted_card : Fintype.card {s : Slots // SlotsAccepted s} =
     exact capped_family_card
   exact hfirst.trans (hmiddle.trans ((congrArg (fun n => n*6^7) hlast).trans (Nat.mul_comm _ _)))
 end SigGolfResearch.Gate6
-#print axioms SigGolfResearch.Gate6.ordered_accepted_card
 end
 section
 namespace SigGolfResearch.Gate6

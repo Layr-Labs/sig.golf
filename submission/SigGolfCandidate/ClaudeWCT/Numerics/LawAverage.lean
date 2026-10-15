@@ -415,19 +415,17 @@ theorem coordAverage_const {β : Type} [Fintype β] (p : ENNReal) (hp : p ≤ 1)
   simp_rw [lawAvg_const v hv]
   exact binomialAverage_const hp T c
 
-/-- A convenient exponential-moment consequence of bucket product dependence.
-The exponent `8` is the fixed Chernoff tilt; `K` is the (nonnegative, real) bound on the
-summed exponential increments, which bounds the product by `exp K`. -/
+/-- A convenient exponential-moment consequence of bucket product dependence. -/
 theorem law_marked_exp_sum_le {α β : Type} [Fintype α] [DecidableEq α] [Nonempty α]
     [Fintype β] (v : β → ENNReal) (hv : ∑ b, v b = 1) (T : ℕ)
-    (Y : α → List β → ENNReal) (K : ℝ) (hK : 0 ≤ K)
+    (Y : α → List β → ENNReal)
     (hY : ∀ i L, Y i L ≤ 1)
     (hmono : ∀ i L b R, Y i (L ++ R) ≤ Y i (L ++ b :: R))
     (hinc : (∑ i, coordAverage (Fintype.card α : ENNReal)⁻¹ v T
-      (fun L => ENNReal.ofReal (Real.exp (8 * (Y i L).toReal)) - 1)) ≤ ENNReal.ofReal K) :
+      (fun L => ENNReal.ofReal (Real.exp (8 * (Y i L).toReal)) - 1)) ≤ 8) :
     lawAvg (marked (α := α) v) T (fun W =>
       ENNReal.ofReal (Real.exp (8 * (∑ i, Y i (SigGolfCandidate.T3.BPORS.History.atIndex i W)).toReal))) ≤
-      ENNReal.ofReal (Real.exp K) := by
+      ENNReal.ofReal (Real.exp 8) := by
   let p : ENNReal := (Fintype.card α : ENNReal)⁻¹
   have hp : p ≤ 1 := ENNReal.inv_le_one.mpr (by exact_mod_cast Fintype.card_pos (α := α))
   let F : α → List β → ENNReal := fun i L => ENNReal.ofReal (Real.exp (8 * (Y i L).toReal))
@@ -442,10 +440,10 @@ theorem law_marked_exp_sum_le {α β : Type} [Fintype α] [DecidableEq α] [None
     apply ENNReal.ofReal_le_ofReal
     apply Real.exp_le_exp.mpr
     exact mul_le_mul_of_nonneg_left (ENNReal.toReal_mono (hfin i _) (hmono i L b R)) (by norm_num)
-  have hM : ∑ i, M i ≤ ENNReal.ofReal K := hinc
+  have hM : ∑ i, M i ≤ 8 := hinc
   have hMi : ∀ i, M i ≠ ⊤ := by
     intro i
-    exact ne_top_of_le_ne_top ENNReal.ofReal_ne_top
+    exact ne_top_of_le_ne_top (by finiteness)
       ((Finset.single_le_sum (fun j _ => bot_le) (Finset.mem_univ i)).trans hM)
   have hMF : ∀ i, coordAverage p v T (F i) = 1 + M i := by
     intro i
@@ -453,7 +451,7 @@ theorem law_marked_exp_sum_le {α β : Type} [Fintype α] [DecidableEq α] [None
       funext L
       exact (add_tsub_cancel_of_le (hF1 i L)).symm
     rw [heq, coordAverage_add, coordAverage_const p hp v hv]
-  have hprod : ∏ i, (1 + M i) ≤ ENNReal.ofReal (Real.exp K) := by
+  have hprod : ∏ i, (1 + M i) ≤ ENNReal.ofReal (Real.exp 8) := by
     calc
       (∏ i, (1 + M i)) ≤ ∏ i, ENNReal.ofReal (Real.exp (M i).toReal) := by
         apply Finset.prod_le_prod'
@@ -465,13 +463,83 @@ theorem law_marked_exp_sum_le {α β : Type} [Fintype α] [DecidableEq α] [None
       _ = ENNReal.ofReal (Real.exp ((∑ i, M i).toReal)) := by
         rw [ENNReal.toReal_sum (fun i _ => hMi i), Real.exp_sum,
           ENNReal.ofReal_prod_of_nonneg (fun i _ => (Real.exp_pos _).le)]
-      _ ≤ ENNReal.ofReal (Real.exp K) := by
+      _ ≤ ENNReal.ofReal (Real.exp 8) := by
         apply ENNReal.ofReal_le_ofReal
         apply Real.exp_le_exp.mpr
-        have h := ENNReal.toReal_mono ENNReal.ofReal_ne_top hM
-        rwa [ENNReal.toReal_ofReal hK] at h
+        simpa using ENNReal.toReal_mono (by finiteness : (8 : ENNReal) ≠ ⊤) hM
   have heq : (fun W => ENNReal.ofReal (Real.exp
       (8 * (∑ i, Y i (SigGolfCandidate.T3.BPORS.History.atIndex i W)).toReal))) =
+      (fun W => ∏ i, F i (SigGolfCandidate.T3.BPORS.History.atIndex i W)) := by
+    funext W
+    rw [ENNReal.toReal_sum (fun i _ => hfin i _), Finset.mul_sum, Real.exp_sum,
+      ENNReal.ofReal_prod_of_nonneg (fun i _ => (Real.exp_pos _).le)]
+  rw [heq]
+  refine (law_marked_product_le v hv T F hFmono).trans ?_
+  change (∏ i, coordAverage p v T (F i)) ≤ _
+  simpa only [hMF] using hprod
+
+end ClaudeWCT.Numerics.Law
+
+/-! Variable exponential slope and moment budget for paired forest pricing. -/
+namespace ClaudeWCT.Numerics.Law
+open ENNReal Finset
+open SphincsSecurity.Concrete (binomialAverage binomialAverage_add binomialAverage_const)
+
+theorem law_marked_exp_sum_general {α β : Type} [Fintype α] [DecidableEq α] [Nonempty α]
+    [Fintype β] (v : β → ENNReal) (hv : ∑ b, v b = 1) (T : ℕ)
+    (Y : α → List β → ENNReal) (t bound : ℝ)
+    (ht : 0 ≤ t) (hbound : 0 ≤ bound)
+    (hY : ∀ i L, Y i L ≠ ⊤)
+    (hmono : ∀ i L b R, Y i (L ++ R) ≤ Y i (L ++ b :: R))
+    (hinc : (∑ i, coordAverage (Fintype.card α : ENNReal)⁻¹ v T
+      (fun L => ENNReal.ofReal (Real.exp (t * (Y i L).toReal)) - 1)) ≤ ENNReal.ofReal bound) :
+    lawAvg (marked (α := α) v) T (fun W =>
+      ENNReal.ofReal (Real.exp (t * (∑ i, Y i (SigGolfCandidate.T3.BPORS.History.atIndex i W)).toReal))) ≤
+      ENNReal.ofReal (Real.exp bound) := by
+  let p : ENNReal := (Fintype.card α : ENNReal)⁻¹
+  have hp : p ≤ 1 := ENNReal.inv_le_one.mpr (by exact_mod_cast Fintype.card_pos (α := α))
+  let F : α → List β → ENNReal := fun i L => ENNReal.ofReal (Real.exp (t * (Y i L).toReal))
+  let M : α → ENNReal := fun i => coordAverage p v T (fun L => F i L - 1)
+  have hfin : ∀ i L, Y i L ≠ ⊤ := hY
+  have hF1 : ∀ i L, 1 ≤ F i L := by
+    intro i L
+    apply ENNReal.one_le_ofReal.mpr
+    exact Real.one_le_exp_iff.mpr (by positivity)
+  have hFmono : ∀ i L b R, F i (L ++ R) ≤ F i (L ++ b :: R) := by
+    intro i L b R
+    apply ENNReal.ofReal_le_ofReal
+    apply Real.exp_le_exp.mpr
+    exact mul_le_mul_of_nonneg_left (ENNReal.toReal_mono (hfin i _) (hmono i L b R)) ht
+  have hM : ∑ i, M i ≤ ENNReal.ofReal bound := hinc
+  have hMi : ∀ i, M i ≠ ⊤ := by
+    intro i
+    exact ne_top_of_le_ne_top (by finiteness)
+      ((Finset.single_le_sum (fun j _ => bot_le) (Finset.mem_univ i)).trans hM)
+  have hMF : ∀ i, coordAverage p v T (F i) = 1 + M i := by
+    intro i
+    have heq : F i = fun L => 1 + (F i L - 1) := by
+      funext L
+      exact (add_tsub_cancel_of_le (hF1 i L)).symm
+    rw [heq, coordAverage_add, coordAverage_const p hp v hv]
+  have hprod : ∏ i, (1 + M i) ≤ ENNReal.ofReal (Real.exp bound) := by
+    calc
+      (∏ i, (1 + M i)) ≤ ∏ i, ENNReal.ofReal (Real.exp (M i).toReal) := by
+        apply Finset.prod_le_prod'
+        intro i _
+        rw [← ENNReal.ofReal_toReal (hMi i), ← ENNReal.ofReal_one,
+          ← ENNReal.ofReal_add (by norm_num) ENNReal.toReal_nonneg]
+        apply ENNReal.ofReal_le_ofReal
+        simpa [add_comm] using Real.add_one_le_exp (M i).toReal
+      _ = ENNReal.ofReal (Real.exp ((∑ i, M i).toReal)) := by
+        rw [ENNReal.toReal_sum (fun i _ => hMi i), Real.exp_sum,
+          ENNReal.ofReal_prod_of_nonneg (fun i _ => (Real.exp_pos _).le)]
+      _ ≤ ENNReal.ofReal (Real.exp bound) := by
+        apply ENNReal.ofReal_le_ofReal
+        apply Real.exp_le_exp.mpr
+        simpa only [ENNReal.toReal_ofReal hbound] using
+          ENNReal.toReal_mono ENNReal.ofReal_ne_top hM
+  have heq : (fun W => ENNReal.ofReal (Real.exp
+      (t * (∑ i, Y i (SigGolfCandidate.T3.BPORS.History.atIndex i W)).toReal))) =
       (fun W => ∏ i, F i (SigGolfCandidate.T3.BPORS.History.atIndex i W)) := by
     funext W
     rw [ENNReal.toReal_sum (fun i _ => hfin i _), Finset.mul_sum, Real.exp_sum,

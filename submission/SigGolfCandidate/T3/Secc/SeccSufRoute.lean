@@ -30,59 +30,24 @@ theorem hdrBlock_digestInput (rho : Digest) (m : Message) (c : BitVec 32) :
     Extract.hdrBlock (pad64 (digestInput rho m c)) = SphincsSecurity.bytesLE 16 (digestHeader c) := by
   rw [pad64_digestInput]
   exact Extract.hdrBlock_prefix _ _ _
-/-- First header byte (the pre-C4 digest marker). -/
-def hdrByte0 (input : HashInput) : Nat := ((Extract.hdrBlock input).getD 0 0).toNat
-/-- C4 (adapted from b3cc11b): the low header word (bytes 16..24 of the input). The digest is the only query whose low
-header word is zero (`digestHeader_lowNat`, `nodeTweak_low_ne_zero`); byte0 alone no longer separates it, because a
-top fold label `topNodeWord heap` has byte0 = 0 at the heaps `256 k`. -/
-def hdrMarker (input : HashInput) : Nat := readLE ((Extract.hdrBlock input).take 8)
+def hdrMarker (input : HashInput) : Nat := ((Extract.hdrBlock input).getD 0 0).toNat
 theorem hdrMarker_eq {input : HashInput} {hdr : Digest}
-    (h : Extract.hdrBlock input = SphincsSecurity.bytesLE 16 hdr) : hdrMarker input = tweakLow hdr := by
-  unfold hdrMarker tweakLow
-  rw [h]
-  have hs := T3M.readLE_append ((SphincsSecurity.bytesLE 16 hdr).take 8) ((SphincsSecurity.bytesLE 16 hdr).drop 8)
-  rw [List.take_append_drop, T3M.readLE_bytesLE 16 hdr] at hs
-  have hl : ((SphincsSecurity.bytesLE 16 hdr).take 8).length = 8 := by simp [SphincsSecurity.bytesLE_length]
-  have hlt := T3M.readLE_lt ((SphincsSecurity.bytesLE 16 hdr).take 8)
-  rw [hl] at hs hlt
-  omega
-theorem hdrMarker_ne_zero_of_byte0 {input : HashInput} (h : hdrByte0 input ≠ 0) : hdrMarker input ≠ 0 := by
+    (h : Extract.hdrBlock input = SphincsSecurity.bytesLE 16 hdr) : hdrMarker input = tweakMarker hdr := by
   unfold hdrMarker
-  intro h0
-  have hd := T3M.readLE_div_mod ((Extract.hdrBlock input).take 8) 0
-  rw [h0] at hd
-  apply h
-  unfold hdrByte0
-  have : ((Extract.hdrBlock input).take 8).getD 0 0 = (Extract.hdrBlock input).getD 0 0 := by
-    cases Extract.hdrBlock input <;> rfl
-  rw [← this, ← hd]
+  rw [h, bytesLE16_first_toNat]
   rfl
-theorem hdrMarker_ne_zero {input : HashInput} {hdr : Digest}
-    (h : Extract.hdrBlock input = SphincsSecurity.bytesLE 16 hdr) (hm : tweakMarker hdr ≠ 0) :
-    hdrMarker input ≠ 0 := by
-  rw [hdrMarker_eq h]
-  unfold tweakMarker at hm
-  unfold tweakLow
-  omega
 theorem hdrMarker_digestInput (rho : Digest) (m : Message) (c : BitVec 32) :
     hdrMarker (pad64 (digestInput rho m c)) = 0 := by
-  rw [hdrMarker_eq (hdrBlock_digestInput rho m c), digestHeader_lowNat]
+  rw [hdrMarker_eq (hdrBlock_digestInput rho m c), digestHeader_marker]
 def NotDigestQ : T3.Spec.Domain → Prop
   | .inl (.inr input) => hdrMarker input ≠ 0
   | _ => True
-theorem projHash_ok_marker (high : Bool) {input : HashInput} {hdr : Digest}
-    (h : Extract.hdrBlock (pad64 input) = SphincsSecurity.bytesLE 16 hdr) (hm : tweakLow hdr ≠ 0) :
-    AllQueriesSatisfy (projHash high input) NotDigestQ := by
-  unfold projHash publicHash
-  apply SourceQueries.bind_allowed
-  · exact (allQueriesSatisfy_query_iff _ _).mpr (show hdrMarker (pad64 input) ≠ 0 by rw [hdrMarker_eq h]; exact hm)
-  · intro _; exact SourceQueries.pure_allowed _ _
 theorem shortHash_ok_marker {input : HashInput} {hdr : Digest}
     (h : Extract.hdrBlock (pad64 input) = SphincsSecurity.bytesLE 16 hdr) (hm : tweakMarker hdr ≠ 0) :
     AllQueriesSatisfy (shortHash input) NotDigestQ := by
   unfold shortHash publicHash
   apply SourceQueries.bind_allowed
-  · exact (allQueriesSatisfy_query_iff _ _).mpr (hdrMarker_ne_zero h hm)
+  · exact (allQueriesSatisfy_query_iff _ _).mpr (show hdrMarker (pad64 input) ≠ 0 by rw [hdrMarker_eq h]; exact hm)
   · intro _; exact SourceQueries.pure_allowed _ _
 theorem shortHash_ok {input : HashInput} {tag lay tree position index : Nat}
     (h : Extract.hdrBlock (pad64 input) = SphincsSecurity.bytesLE 16 (header tag lay tree position index))
@@ -103,22 +68,19 @@ theorem chain_ok (lay : Layer) (tree leaf i start count : Nat) (value : Digest) 
   · apply (allQueriesSatisfy_query_iff _ _).mpr
     change hdrMarker (pad64 (chainInput lay tree leaf i step v)) ≠ 0
     rw [chainInput_padded]
-    apply hdrMarker_ne_zero_of_byte0
-    unfold hdrByte0 Extract.hdrBlock
+    unfold hdrMarker Extract.hdrBlock
     rw [chainInput_header, bytesLE16_first_toNat]
     have := chainHeader_firstByte lay tree leaf i step
     omega
   · intro _; exact SourceQueries.pure_allowed _ _
 theorem leafHash_ok (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     AllQueriesSatisfy (leafHash lay tree leaf ends) NotDigestQ :=
-  projHash_ok_marker _ (Extract.hdrBlock_leafInput _ _ _ _) (by
-    have h := leafTweak_marker lay tree leaf
-    unfold tweakMarker at h; unfold tweakLow; omega)
+  shortHash_ok_marker (Extract.hdrBlock_leafInput _ _ _ _) (by rw [leafTweak_marker]; decide)
 theorem nodeHash_ok (tag lay tree heap : Nat) (left right : Digest) (_ht : tag % 256 ≠ 0) :
     AllQueriesSatisfy (nodeHash tag lay tree heap left right) NotDigestQ := by
-  rw [nodeHash_eq_projHash]
-  exact projHash_ok_marker _ (by rw [pad64_nodeInputP]; exact BSuf.hdrBlock_nodeInputP _ _ _ _ _ _ _)
-    (nodeTweak_low_ne_zero _ _ _ _)
+  rw [nodeHash_eq_shortHash]
+  exact shortHash_ok_marker (by rw [pad64_nodeInputP]; exact BSuf.hdrBlock_nodeInputP _ _ _ _ _ _ _)
+    (nodeTweak_marker_ne_zero _ _ _ _)
 theorem nodeHash3_ok (lay tree heap : Nat) (left right : Digest) :
     AllQueriesSatisfy (nodeHash 3 lay tree heap left right) NotDigestQ :=
   nodeHash_ok 3 lay tree heap left right (by decide)

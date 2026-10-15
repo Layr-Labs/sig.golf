@@ -1,6 +1,6 @@
 import SigGolfCandidate.Rv.Hash
 import SigGolfCandidate.Rv.Tactic
-import SigGolfCandidate.Rv.SimpAttr
+import Lean
 
 namespace SigGolfCandidate.Rv
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 OracleComp

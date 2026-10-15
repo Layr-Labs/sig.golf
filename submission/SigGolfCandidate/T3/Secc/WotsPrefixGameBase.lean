@@ -1,4 +1,5 @@
-import SigGolfCandidate.T3.Secc.WotsMaskRef
+import SigGolfCandidate.T3.Secc.WotsReference
+import SigGolfCandidate.T3.Secc.WotsMaskCharge
 import SigGolfCandidate.T3.Secc.WotsMaskRest
 import SigGolfCandidate.T3.Secc.WotsExtractChain
 import SigGolfCandidate.SphincsSecurity.Proof.Chains.AdaptiveChainEndpoint

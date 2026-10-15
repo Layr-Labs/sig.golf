@@ -96,5 +96,4 @@ theorem credited_card_144_10 :
   ClaudeWCT.Numerics.TopCredit.credited_card_of 144 10 _
     (by norm_num) (by norm_num) exact_packed_144_10
 
-#print axioms credited_card_144_10
 end ClaudeWCT.Numerics.TopCredit.FloorTenResearch

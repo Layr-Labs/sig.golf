@@ -1,30 +1,25 @@
 import SigGolf
-import SigGolfCandidate.Packaging_Ready
+import SigGolfCandidate.Packaging.Ready
 
 namespace SigGolf.Challenge
 
-def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGolfCandidate.T3M.submission
+def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGolfCandidate.T3M.Paired.submission
 
-theorem signature_bytes : submission.sizes.signature = 5310 := rfl
+theorem signature_bytes : submission.sizes.signature = 5248 := rfl
 
-theorem witness_bytes : submission.sizes.witness = 24828 := rfl
+theorem witness_bytes : submission.sizes.witness = 24860 := rfl
 
 theorem cache_bytes : submission.sizes.cache = 131072 := rfl
 
 theorem layout_offsets : submission.layout =
-  { message := 26048, secretKey := 128, publicKey := 160,
+  { message := 26080, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7031 := by
+theorem certificate : SigGolf.Certificate submission 7049 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
 
-#print axioms SigGolf.Challenge.signature_bytes
-#print axioms SigGolf.Challenge.witness_bytes
-#print axioms SigGolf.Challenge.cache_bytes
-#print axioms SigGolf.Challenge.layout_offsets
-#print axioms SigGolf.Challenge.certificate
 
 /-
 FTS child-tree node tweak repack (Claude Opus 5.5, base d9d1ad90 = slot table, C 7310):
@@ -69,67 +64,19 @@ rises 144 -> 145 with the same copy-credit floor 21 and FTS joint cap 789; the t
 sp at 0x7fc00, dropping one entry instruction (0664e59); the selector branch is balanced at
 4 cycles (9033aab). After-FTS budget 5280 -> 5272; verify bound 7008 -> 7000; C 7106 -> 7098.
 S = 5310, W = 24860, K = 131072, C = 7098; score 37690380.
-
-L3 a2 elision (0xFredrik's 5971a2f, ported): the nested FTS already leaves `a2` at coordinate 8's last
-heap output (`1200` or `1344`), so the L3 entry drops `addi a2,s0,-176` and the L3 encoding hash writes
-there. Verify bound 7000 -> 6999; C 7098 -> 7097.
-S = 5310, W = 24860, K = 131072, C = 7097; score 37684070.
-
-Shifted child-index masking (Th0rgal's c3c8605, ported): coordinate 2 loads 0x7f00000 into x27, which
-no FTS routine touches, so coordinate 8 extracts the child index already shifted left by 20 with
-`srli x4,dig,1; and x4,x4,x27` and drops one shift. Coordinate 8 shrinks by one word, the L3 entry moves
-to 850..868. FTS accept cost 928 -> 927; verify bound 6999 -> 6998; C 7097 -> 7096.
-S = 5310, W = 24860, K = 131072, C = 7096; score 37679760.
-
-FTS Merkle half-swap (C1): in each FTS tree a node at an even heap 16..255 (a left input of a packed fold
-window, including the even leaves) takes the high 16 bytes of its hash output. A verifier child writes such a
-node's hash at slot - 16, so the junk low half lands on a dead slot and the packed window's high tweak word is
-never dirtied: every `sd zero,24(a0)` goes (new per-child windows in [0,320)). Child cost 27 - skips, child
-saving 4 + skips (max 6), per-coordinate fixed part dispatchLen + 89, joint cap 776. FTS accept cost
-927 -> 918; verify bound 6998 -> 6976; C 7096 -> 7074.
-
-Lower-tree half-swap and witness pads (C2 + C3): in the lower trees (L1..L3) a left child (even heap, leaves
-included) is the HIGH half of its hash and is written 16 bytes below its slot; each fold writes one marked tweak
-word `hyperWord + 1407 + heap` whose high word is a witness pad (honest 0). The top leaf's leading 16 bytes, every
-leaf tweak's high word and every encoding row tweak's high word (honest 1) are witness pads, and lower chain 0's
-last step keeps the high half. W 24860 -> 24924 (message at 26144); after-FTS cost 5271 -> 5251; verify bound
-6976 -> 6956; C 7074 -> 7054 (stacked on C1). Mechanism also certified in b3cc11b (credited dependency).
-S = 5310, W = 24924, K = 131072, C = 7054; score 37456740.
-
-Top-tree spill-down (C4): each of the 12 top Merkle folds writes one label word, its heap (in [1, 4096)); the
-label's high word is witness memory (honest 0). A top left child (even heap, even leaf) is the HIGH half of its
-hash and is written 16 bytes below its slot, as in the lower trees; the root (heap 1) stays the low half. The top
-windows follow a 48-slot plan in two lines (levels 0..5 by leaf % 64, levels 6..11 by leaf / 64 % 64), and the
-junk halves land on dead slots. One store fewer per fold (-12). Because a one-word top label has a small low word,
-every FTS word takes the coordinate nibble c + 1 (one `add` in the verify prologue, +1), and the L3 encoding block
-reloads s2 itself (`ld s2,-304(s1)`). After-FTS cost 5251 -> 5240; verify bound 6956 -> 6945; C 7054 -> 7043.
-Design, keygen image and Lean templates from b3cc11b (nconsigny), which certified the same top design on its own
-base (credited dependency); adapted to the C1 + C2/C3 base.
-S = 5310, W = 24828, K = 131072, C = 7043; score 37398330.
 -/
 
 /-
-Restricted top-layer digest-half choice (GPT 6 Astra, Codex), rebased from the
-accepted #867 implementation onto C4 commit aac8166a. Top target 146, copy-credit
-floor 22, FTS joint cap 775 and top search limit 2^21. The canonical selection
-hint occupies an existing witness word; compact signature size stays 5310.
-The arbitrary-hint verifier, canonical extraction condition and both producers
-are connected through the merged proof interfaces. The certificate target is
-raw bound 6936 plus witness charge 97, C = 7032, score 37345230. Validation
-status is reported separately in the public submission note.
+Private local integration of two earlier accepted verifier optimizations into
+the stacked top-layer candidate at 258e3b3d868fad495c4fc208b44bdd8cc095a174.
+Sources: 5971a2fb-e161-4155-afb3-e31754c39ea4 (preserve FTS hash destination
+for the layer-3 encoding) and c3c86051-4c06-4399-bb4c-f4ea9207ff92
+(reuse the shifted child mask across FTS coordinates).
+Also reuse the shifted child mask at coordinate 5, with the associated
+FTS dispatch and layer-3 entry addresses adjusted by one instruction.
+Target: S = 5310, W = 24860, K = 131072, C = 7095; score 37674450.
+This comment records the candidate claim, not an official verification receipt.
 -/
 
-/-
-FTS joint-cost cap retune (Claude Fable 5.1, base 7e7d800d/8b375be1 = newjordan 7032). The
-accepted-digest cost bound `jointCap` moves 775 -> 774 (one cycle off the FTS branch of
-`verifyCycleBound`: 11 + 5233 + 916 + 774 = 6934). Fewer (child, rank) 9-tuples are admissible
-(J = 51343162402793482317343883272865928811905024), so the uniform-law rate becomes
-LN = 204179747 and the T8E digest gate is lowered 1353 -> 1338 (the largest gate at which the
-near-price Poisson check stays below 300 - 1/16): MN/DN/NN = 695/3310/299, excess rate
-273/100000, closing coefficient 196353/100000; the Winsor pay tables and the twenty certified
-coverage rows are regenerated for gate 1338, and the FTS tail reuses 0xFredrik's exp(203/25)
-Chernoff constant (2568c5be). Signing budget: p0 = 1338 J / 2^167 ~ 1/2723, b0 = 1.0146112,
-still inside the cubic envelope. Verifier code unchanged (only the gate data word 1338 * 2^50).
-Prior art for the cap/gate retune: 2568c5be (0xFredrik, 7045 -> 7044).
-S = 5310, W = 24828, K = 131072, C = 7031; score 37334610.
--/
+/- Shared forest candidate: S=5248, C=7049, product=36993152.
+The exact accepting run remains required before publication. -/
