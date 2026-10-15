@@ -210,7 +210,7 @@ theorem expandLayersBC_eq_T (sig : Signature) (index : Nat) :
     intro hn msg
     simp only [expandLayersBC, expandLayersT, map_bind]
     refine bind_congr fun r => ?_
-    rcases r with _ | ⟨counter, digits⟩
+    rcases r with _ | ⟨counter, digits, hint⟩
     · simp
     · cases n with
       | zero =>
@@ -226,7 +226,7 @@ theorem expandLayersBC_eq_T (sig : Signature) (index : Nat) :
         rw [ih (by omega), bind_map_left]
         unfold proj
         refine bind_congr fun r' => ?_
-        rcases r' with _ | ⟨v, root, counters⟩ <;> simp
+        rcases r' with _ | ⟨v, root, counters, topHint⟩ <;> simp
 
 /-- Changing the top sibling only changes the last node hash. -/
 theorem eval_expandLayersT_other (answers : Answers) (s : Signature) (index : Nat) (o o' : Digest) :
@@ -239,11 +239,11 @@ theorem eval_expandLayersT_other (answers : Answers) (s : Signature) (index : Na
   | succ n ih =>
     intro msg
     simp only [expandLayersT, evalWithAnswerFn_bind]
-    cases evalWithAnswerFn answers (layerCounterSearch (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
+    cases evalWithAnswerFn answers (layerCounterSearchHint (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
         (route index (Fin.ofNat 4 n)).1 msg 0 (searchLimit (Fin.ofNat 4 n))) with
     | none => simp
     | some found =>
-      obtain ⟨counter, digits⟩ := found
+      obtain ⟨counter, digits, hint⟩ := found
       by_cases hn : n = 0
       · simp [hn]
       · simp only [hn, if_false, evalWithAnswerFn_bind, ih]
@@ -300,9 +300,9 @@ def expandWithN (limit : Nat) (message : Message) (pk : Digest) (sig : Signature
   let some (counter, output) ← digestSearch sig.rho message 0 limit | pure none
   let index := digestIndex output
   let root ← recoverFts sig index output
-  let some (root, counters) ← expandLayersBC sig index 4 (.pair root.1 root.2) | pure none
+  let some (root, counters, topHint) ← expandLayersBC sig index 4 (.pair root.1 root.2) | pure none
   if root ≠ pk then return none
-  pure (some (output, ⟨sig, counter, fun lay => counters.getD lay.val 0⟩))
+  pure (some (output, ⟨sig, counter, fun lay => counters.getD lay.val 0, topHint⟩))
 
 theorem expandWith_eq_N (limit : Nat) (m : Message) (pk : Digest) (σ : Signature) :
     expandWith limit m pk σ = Option.map Prod.snd <$> expandWithN limit m pk σ := by
@@ -313,7 +313,7 @@ theorem expandWith_eq_N (limit : Nat) (m : Message) (pk : Digest) (σ : Signatur
   · simp only
     rw [map_bind]; congr 1; funext root
     rw [map_bind]; congr 1; funext r
-    rcases r with _ | ⟨root, counters⟩
+    rcases r with _ | ⟨root, counters, topHint⟩
     · simp
     · simp only
       split <;> simp
@@ -332,8 +332,8 @@ theorem eval_expandWithN_fill (answers : Answers) (limit : Nat) (m : Message) (p
             (fun x => (x.1, evalWithAnswerFn answers (topNode (digestIndex output) x.1 (setTop (topSib σ) c)),
               x.2.2)) with
         | none => none
-        | some (_, root, counters) =>
-          if root ≠ pk then none else some (output, ⟨fillTop σ c, counter, fun lay => counters.getD lay.val 0⟩) := by
+        | some (_, root, counters, topHint) =>
+          if root ≠ pk then none else some (output, ⟨fillTop σ c, counter, fun lay => counters.getD lay.val 0, topHint⟩) := by
   unfold expandWithN
   simp only [evalWithAnswerFn_bind, fillTop_rho]
   cases evalWithAnswerFn answers (digestSearch σ.rho m 0 limit) with
@@ -347,7 +347,7 @@ theorem eval_expandWithN_fill (answers : Answers) (limit : Nat) (m : Message) (p
         (.pair (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)).1 (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)).2)) with
     | none => rfl
     | some x =>
-      obtain ⟨v, root, counters⟩ := x
+      obtain ⟨v, root, counters, topHint⟩ := x
       simp only [Option.map_some, Function.comp]
       split <;> simp_all
 
@@ -376,7 +376,7 @@ theorem eval_expandS (answers : Answers) (limit : Nat) (m : Message) (pk : Diges
         (.pair (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)).1 (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)).2)) with
     | none => rw [hl] at h; simp at h
     | some x =>
-      obtain ⟨v, root, counters⟩ := x
+      obtain ⟨v, root, counters, topHint⟩ := x
       rw [hl] at h
       simp only at h
       have hroot : evalWithAnswerFn answers (topNode (digestIndex output) v (topSib (proj σ))) = root := by
@@ -436,7 +436,7 @@ theorem expandS_complete (answers : Answers) (limit : Nat) (m : Message) (pk : D
         (.pair (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)).1 (evalWithAnswerFn answers (recoverFts σ (digestIndex output) output)).2)) with
     | none => rw [hl] at h; simp at h
     | some y =>
-      obtain ⟨v, root, counters⟩ := y
+      obtain ⟨v, root, counters, topHint⟩ := y
       rw [hl] at h
       simp only [Option.map_some] at h
       have hmatch : evalWithAnswerFn answers (topNode (digestIndex output) v (setTop (topSib σ) ch)) = pk := by
@@ -570,14 +570,14 @@ theorem bound_expandLayersT (sig : Signature) (index : Nat) (o : Digest) :
       intro msg
       unfold expandLayersT
       dsimp only
-      refine (bound_layerCounterSearch (Fin.ofNat 4 n) _ _ msg (searchLimit (Fin.ofNat 4 n)) 0).bind'
+      refine (bound_layerCounterSearchHint (Fin.ofNat 4 n) _ _ msg (searchLimit (Fin.ofNat 4 n)) 0).bind'
         (l := recoveryLayersCostBC (n + 1) + n * counterLimit)
         (fun found hf => ?_)
         (by have := searchLimit_le (Fin.ofNat 4 n); simp only [recoveryLayersCostBC, Nat.add_mul, Nat.one_mul]; omega)
       cases found with
       | none => exact .pure _ _ trivial
       | some pair =>
-          obtain ⟨counter, digits⟩ := pair
+          obtain ⟨counter, digits, hint⟩ := pair
           have hd := hf counter digits rfl
           dsimp only
           by_cases hn : n = 0
@@ -623,7 +623,7 @@ theorem bound_expandS (limit : Nat) (message : Message) (pk : Digest) (sig : Sig
       cases layers with
       | none => exact .pure _ _ trivial
       | some triple =>
-          obtain ⟨v, root, counters⟩ := triple
+          obtain ⟨v, root, counters, topHint⟩ := triple
           dsimp only
           split
           · exact .pure _ _ trivial

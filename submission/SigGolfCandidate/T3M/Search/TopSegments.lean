@@ -80,7 +80,7 @@ theorem topSegLayout_ok {b : Nat} (hb : b=354 ∨ b=543) : layoutOk 0 (topSegLay
   rcases hb with rfl | rfl <;> decide +kernel
 theorem topSegLayout_code {b : Nat} (hb : b=354 ∨ b=543) : k_265 b = layoutCode (topSegLayout b) := by
   rcases hb with rfl | rfl <;> decide +kernel
-theorem codeAt_top265 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top265 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 265)) topSeg265 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -96,7 +96,7 @@ theorem run_top265 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_265.trans (congrArg some (by rfl))
   · exact tb543_265.trans (congrArg some (by rfl))
-theorem codeAt_top267 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top267 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 267)) topSeg267 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -112,13 +112,13 @@ theorem run_top267 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_267.trans (congrArg some (by rfl))
   · exact tb543_267.trans (congrArg some (by rfl))
-theorem codeAt_top269 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top269 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 269)) topSeg269 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 2) (o := 4) (seg := topSeg269) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top270 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top270 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 270)) topSeg270 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -134,7 +134,7 @@ theorem run_top270 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_270.trans (congrArg some (by rfl))
   · exact tb543_270.trans (congrArg some (by rfl))
-theorem codeAt_top271 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top271 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 271)) topSeg271 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -150,13 +150,13 @@ theorem run_top271 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_271.trans (congrArg some (by rfl))
   · exact tb543_271.trans (congrArg some (by rfl))
-theorem codeAt_top273 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top273 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 273)) topSeg273 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 5) (o := 8) (seg := topSeg273) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top274 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top274 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 274)) topSeg274 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -172,7 +172,7 @@ theorem run_top274 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_274.trans (congrArg some (by rfl))
   · exact tb543_274.trans (congrArg some (by rfl))
-theorem codeAt_top276 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top276 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 276)) topSeg276 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -188,13 +188,13 @@ theorem run_top276 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_276.trans (congrArg some (by rfl))
   · exact tb543_276.trans (congrArg some (by rfl))
-theorem codeAt_top278 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top278 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 278)) topSeg278 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 8) (o := 13) (seg := topSeg278) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top279 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top279 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 279)) topSeg279 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -210,7 +210,7 @@ theorem run_top279 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_279.trans (congrArg some (by rfl))
   · exact tb543_279.trans (congrArg some (by rfl))
-theorem codeAt_top281 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top281 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 281)) topSeg281 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -226,13 +226,13 @@ theorem run_top281 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_281.trans (congrArg some (by rfl))
   · exact tb543_281.trans (congrArg some (by rfl))
-theorem codeAt_top283 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top283 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 283)) topSeg283 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 11) (o := 18) (seg := topSeg283) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top284 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top284 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 284)) topSeg284 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -248,7 +248,7 @@ theorem run_top284 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_284.trans (congrArg some (by rfl))
   · exact tb543_284.trans (congrArg some (by rfl))
-theorem codeAt_top286 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top286 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 286)) topSeg286 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -264,13 +264,13 @@ theorem run_top286 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_286.trans (congrArg some (by rfl))
   · exact tb543_286.trans (congrArg some (by rfl))
-theorem codeAt_top288 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top288 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 288)) topSeg288 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 14) (o := 23) (seg := topSeg288) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top289 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top289 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 289)) topSeg289 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -286,7 +286,7 @@ theorem run_top289 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_289.trans (congrArg some (by rfl))
   · exact tb543_289.trans (congrArg some (by rfl))
-theorem codeAt_top291 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top291 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 291)) topSeg291 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -302,13 +302,13 @@ theorem run_top291 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_291.trans (congrArg some (by rfl))
   · exact tb543_291.trans (congrArg some (by rfl))
-theorem codeAt_top293 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top293 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 293)) topSeg293 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 17) (o := 28) (seg := topSeg293) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top294 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top294 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 294)) topSeg294 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -324,7 +324,7 @@ theorem run_top294 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_294.trans (congrArg some (by rfl))
   · exact tb543_294.trans (congrArg some (by rfl))
-theorem codeAt_top296 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top296 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 296)) topSeg296 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -340,13 +340,13 @@ theorem run_top296 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_296.trans (congrArg some (by rfl))
   · exact tb543_296.trans (congrArg some (by rfl))
-theorem codeAt_top298 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top298 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 298)) topSeg298 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 20) (o := 33) (seg := topSeg298) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top299 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top299 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 299)) topSeg299 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -362,7 +362,7 @@ theorem run_top299 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_299.trans (congrArg some (by rfl))
   · exact tb543_299.trans (congrArg some (by rfl))
-theorem codeAt_top301 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top301 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 301)) topSeg301 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -378,13 +378,13 @@ theorem run_top301 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_301.trans (congrArg some (by rfl))
   · exact tb543_301.trans (congrArg some (by rfl))
-theorem codeAt_top303 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top303 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 303)) topSeg303 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 23) (o := 38) (seg := topSeg303) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top304 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top304 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 304)) topSeg304 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -400,7 +400,7 @@ theorem run_top304 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_304.trans (congrArg some (by rfl))
   · exact tb543_304.trans (congrArg some (by rfl))
-theorem codeAt_top306 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top306 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 306)) topSeg306 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -416,13 +416,13 @@ theorem run_top306 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_306.trans (congrArg some (by rfl))
   · exact tb543_306.trans (congrArg some (by rfl))
-theorem codeAt_top308 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top308 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 308)) topSeg308 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 26) (o := 43) (seg := topSeg308) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top309 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top309 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 309)) topSeg309 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -438,7 +438,7 @@ theorem run_top309 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_309.trans (congrArg some (by rfl))
   · exact tb543_309.trans (congrArg some (by rfl))
-theorem codeAt_top311 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top311 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 311)) topSeg311 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -454,7 +454,7 @@ theorem run_top311 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_311.trans (congrArg some (by rfl))
   · exact tb543_311.trans (congrArg some (by rfl))
-theorem codeAt_top313 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top313 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 313)) topSeg313 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -470,13 +470,13 @@ theorem run_top313 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_313.trans (congrArg some (by rfl))
   · exact tb543_313.trans (congrArg some (by rfl))
-theorem codeAt_top315 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top315 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 315)) topSeg315 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 30) (o := 50) (seg := topSeg315) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top316 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top316 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 316)) topSeg316 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -492,7 +492,7 @@ theorem run_top316 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_316.trans (congrArg some (by rfl))
   · exact tb543_316.trans (congrArg some (by rfl))
-theorem codeAt_top318 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top318 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 318)) topSeg318 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -508,13 +508,13 @@ theorem run_top318 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_318.trans (congrArg some (by rfl))
   · exact tb543_318.trans (congrArg some (by rfl))
-theorem codeAt_top320 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top320 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 320)) topSeg320 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 33) (o := 55) (seg := topSeg320) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top321 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top321 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 321)) topSeg321 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -530,7 +530,7 @@ theorem run_top321 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_321.trans (congrArg some (by rfl))
   · exact tb543_321.trans (congrArg some (by rfl))
-theorem codeAt_top323 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top323 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 323)) topSeg323 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -546,13 +546,13 @@ theorem run_top323 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_323.trans (congrArg some (by rfl))
   · exact tb543_323.trans (congrArg some (by rfl))
-theorem codeAt_top325 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top325 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 325)) topSeg325 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 36) (o := 60) (seg := topSeg325) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top326 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top326 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 326)) topSeg326 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -568,7 +568,7 @@ theorem run_top326 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_326.trans (congrArg some (by rfl))
   · exact tb543_326.trans (congrArg some (by rfl))
-theorem codeAt_top328 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top328 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 328)) topSeg328 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -584,13 +584,13 @@ theorem run_top328 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_328.trans (congrArg some (by rfl))
   · exact tb543_328.trans (congrArg some (by rfl))
-theorem codeAt_top330 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top330 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 330)) topSeg330 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 39) (o := 65) (seg := topSeg330) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top331 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top331 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 331)) topSeg331 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -606,7 +606,7 @@ theorem run_top331 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_331.trans (congrArg some (by rfl))
   · exact tb543_331.trans (congrArg some (by rfl))
-theorem codeAt_top333 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top333 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 333)) topSeg333 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -622,13 +622,13 @@ theorem run_top333 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_333.trans (congrArg some (by rfl))
   · exact tb543_333.trans (congrArg some (by rfl))
-theorem codeAt_top335 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top335 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 335)) topSeg335 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 42) (o := 70) (seg := topSeg335) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top336 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top336 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 336)) topSeg336 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -644,7 +644,7 @@ theorem run_top336 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_336.trans (congrArg some (by rfl))
   · exact tb543_336.trans (congrArg some (by rfl))
-theorem codeAt_top338 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top338 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 338)) topSeg338 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -660,13 +660,13 @@ theorem run_top338 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_338.trans (congrArg some (by rfl))
   · exact tb543_338.trans (congrArg some (by rfl))
-theorem codeAt_top340 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top340 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 340)) topSeg340 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 45) (o := 75) (seg := topSeg340) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top341 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top341 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 341)) topSeg341 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -682,7 +682,7 @@ theorem run_top341 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_341.trans (congrArg some (by rfl))
   · exact tb543_341.trans (congrArg some (by rfl))
-theorem codeAt_top343 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top343 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 343)) topSeg343 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -698,13 +698,13 @@ theorem run_top343 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_343.trans (congrArg some (by rfl))
   · exact tb543_343.trans (congrArg some (by rfl))
-theorem codeAt_top345 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top345 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 345)) topSeg345 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 48) (o := 80) (seg := topSeg345) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top346 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top346 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 346)) topSeg346 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -720,7 +720,7 @@ theorem run_top346 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_346.trans (congrArg some (by rfl))
   · exact tb543_346.trans (congrArg some (by rfl))
-theorem codeAt_top348 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top348 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 348)) topSeg348 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -736,13 +736,13 @@ theorem run_top348 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_348.trans (congrArg some (by rfl))
   · exact tb543_348.trans (congrArg some (by rfl))
-theorem codeAt_top350 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top350 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 350)) topSeg350 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 51) (o := 85) (seg := topSeg350) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top351 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top351 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 351)) topSeg351 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -758,7 +758,7 @@ theorem run_top351 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_351.trans (congrArg some (by rfl))
   · exact tb543_351.trans (congrArg some (by rfl))
-theorem codeAt_top353 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top353 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 353)) topSeg353 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -774,25 +774,25 @@ theorem run_top353 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_353.trans (congrArg some (by rfl))
   · exact tb543_353.trans (congrArg some (by rfl))
-theorem codeAt_top362 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top362 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 362)) (topSeg362 b) := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 54) (o := 97) (seg := topSeg362 b) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top369 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top369 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 369)) topSeg369 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 55) (o := 104) (seg := topSeg369) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top370 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top370 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 370)) topSeg370 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 56) (o := 105) (seg := topSeg370) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top371 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top371 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 371)) topSeg371 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -808,13 +808,13 @@ theorem run_top371 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_371.trans (congrArg some (by rfl))
   · exact tb543_371.trans (congrArg some (by rfl))
-theorem codeAt_top372 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top372 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 372)) topSeg372 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 58) (o := 107) (seg := topSeg372) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top373 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top373 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 373)) topSeg373 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -830,13 +830,13 @@ theorem run_top373 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_373.trans (congrArg some (by rfl))
   · exact tb543_373.trans (congrArg some (by rfl))
-theorem codeAt_top374 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top374 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 374)) topSeg374 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 60) (o := 109) (seg := topSeg374) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top375 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top375 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 375)) topSeg375 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -852,7 +852,7 @@ theorem run_top375 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_375.trans (congrArg some (by rfl))
   · exact tb543_375.trans (congrArg some (by rfl))
-theorem codeAt_top383 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top383 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 383)) topSeg383 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -868,13 +868,13 @@ theorem run_top383 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_383.trans (congrArg some (by rfl))
   · exact tb543_383.trans (congrArg some (by rfl))
-theorem codeAt_top384 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top384 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 384)) topSeg384 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 63) (o := 119) (seg := topSeg384) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top385 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top385 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 385)) topSeg385 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -890,13 +890,13 @@ theorem run_top385 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_385.trans (congrArg some (by rfl))
   · exact tb543_385.trans (congrArg some (by rfl))
-theorem codeAt_top387 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top387 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 387)) topSeg387 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 65) (o := 122) (seg := topSeg387) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top388 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top388 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 388)) topSeg388 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -912,13 +912,13 @@ theorem run_top388 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_388.trans (congrArg some (by rfl))
   · exact tb543_388.trans (congrArg some (by rfl))
-theorem codeAt_top390 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top390 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 390)) topSeg390 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
   have hp := codeAt_sublayout hc (topSegLayout_ok h.2.1) (i := 67) (o := 125) (seg := topSeg390) (by rfl)
   simpa only [Nat.add_assoc, Nat.reduceAdd] using hp
-theorem codeAt_top391 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top391 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 391)) (topSeg391 b) := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc
@@ -934,7 +934,7 @@ theorem run_top391 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact tb354_391.trans (congrArg some (by rfl))
   · exact tb543_391.trans (congrArg some (by rfl))
-theorem codeAt_top392 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+theorem codeAt_top392 {image : Image} {b : Nat} (h : KernAt image b) :
     CodeAt image (pcOf (b + 392)) topSeg392 := by
   have hc := codeAt_k_265 h
   rw [topSegLayout_code h.2.1] at hc

@@ -2,6 +2,9 @@ import SigGolfCandidate.T3M.Verify.Judg
 import SigGolfCandidate.T3M.Mem
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Layout
 
+variable {choiceHint : BitVec 64}
+
+
 set_option autoImplicit false
 namespace W9Machine
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv
@@ -13,11 +16,11 @@ structure Layout where
   childWord : Fin 128 → Nat
   returnWord : Fin 9 → Nat
 def GoodQFor (im : Image) (s : MachineState) (N C : Nat) (Q : Prop) (A : Nat)
-    (X : OracleComp HashSpec Obs) (P : Hash → Prop := HashOk) : Prop :=
+    (X : OracleComp HashSpec Obs) : Prop :=
   ∀ F, N ≤ F → obs <$> Riscv.execute F im s = X ∧
     ∀ hash : Hash, (evalWithAnswerFn hash (Riscv.execute F im s)).exit ≠ .unfinished ∧
       (evalWithAnswerFn hash (Riscv.execute F im s)).cycles ≤ C ∧
-      ((evalWithAnswerFn hash (Riscv.execute F im s)).exit = .success → P hash →
+      ((evalWithAnswerFn hash (Riscv.execute F im s)).exit = .success → HashOk choiceHint hash →
         Q ∧ (evalWithAnswerFn hash (Riscv.execute F im s)).cycles ≤ A)
 structure Budget where
   fuel : Nat

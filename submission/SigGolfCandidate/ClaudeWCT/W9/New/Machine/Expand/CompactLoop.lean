@@ -19,7 +19,7 @@ macro "c_regs" res:ident : tactic =>
              simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
              cases r <;> simp_all [rv_simp, $res:ident] <;> rfl))
 section
-variable {im : Image} (hc : CompactCodeAt im)
+variable {im : Image} (hc : NewCodeAt im)
 include hc
 set_option maxRecDepth 20000 in
 theorem copy_iter (s : MachineState) (hpc : s.pc = pcOf 42130) (src dst n : Nat)

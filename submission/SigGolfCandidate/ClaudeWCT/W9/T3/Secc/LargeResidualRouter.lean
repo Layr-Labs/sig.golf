@@ -1,3 +1,4 @@
+import SigGolfCandidate.Choice.Target
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.LargeResidualT3
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CaseCLinkInv
 import SigGolfCandidate.T3.Secc.LargeResidualRouter
@@ -125,20 +126,20 @@ noncomputable instance instSeedsWCoord : ClaudeWCT.W9.T3.Security.FamResidual.Se
       have h5 : w.2.2.2 = w'.2.2.2 := Fin.ext (by omega)
       have : w = w' := Prod.ext h1 (Prod.ext h2 (Prod.ext h4 h5))
       rw [this]
-/-- Encoding rows compare the same half selected by the actual encoding oracle. -/
+/-- The target probe covers both permitted top openings, including a noncanonical hint. -/
 noncomputable def encodingHit (lay : Layer) (target : Digest) : Hit WCoord :=
-  .selectedTarget target (fun answer => decide (if lay = 0 then TopDualHalf.gate (answer.extractLsb' 0 128) else lowerSpare (answer.extractLsb' 0 128)))
+  .selectedTarget target (fun answer => decide (if lay = 0 then answer.extractLsb' 0 128 = target ∨ SigGolfCandidate.Choice.Selector.group (answer.extractLsb' 0 128) = 0 else lowerSpare (answer.extractLsb' 0 128)))
 
 theorem encodingHit_answerValue (lay : Layer) (target : Digest) (answer : HashOutput) :
-    (encodingHit lay target).answerValue answer = WCT9.encodingAnswer lay answer := by
+    (encodingHit lay target).answerValue answer = WCT9.encodingTarget lay target answer := by
   have hlow : SigGolfCandidate.T3.Security.LargeResidual.low answer = answer.extractLsb' 0 128 := rfl
   by_cases hl : lay = 0
-  · simp [hlow, encodingHit, Hit.answerValue, WCT9.encodingAnswer, hl, TopDualHalf.select, TopDualHalf.selectPair]
-  · simp [hlow, encodingHit, Hit.answerValue, WCT9.encodingAnswer, hl, DualHalf.select, DualHalf.selectPair]
+  · simp [hlow, encodingHit, Hit.answerValue, WCT9.encodingTarget, hl]
+  · simp [hlow, encodingHit, Hit.answerValue, WCT9.encodingTarget, WCT9.encodingAnswer, hl, DualHalf.select, DualHalf.selectPair]
 
 theorem keep_encodingHit (labels : WCoord → Digest) (lay : Layer) (target : Digest) (answer : HashOutput) :
     (⟨none, encodingHit lay target⟩ : Probe WCoord).keep labels answer ↔
-      target ≠ WCT9.encodingAnswer lay answer := by
+      target ≠ WCT9.encodingTarget lay target answer := by
   unfold Probe.keep
   rw [encodingHit_answerValue]
   simp [Probe.guessMiss, encodingHit, Hit.miss]
@@ -200,9 +201,9 @@ def cellValues : CanonGraph.Node → (Coord → Digest) → HashInput
   | .chain p, v => ChainGraph.row p (v (chainChild p))
   | .leaf L, v => pad64 (Extract.leafInput L.1.lay L.1.tree.val L.1.leaf.val
       ((List.range (chainCount L.1.lay)).map fun i => v (.inl (.chain (endPoint L.1 i)))))
-  | .node n, v => pad64 (nodeInputP 3 n.1.lay.val n.1.tree.val
+  | .node n, v => pad64 (WCT9.merkleNodeInput n.1.lay.val n.1.tree.val
       (2 ^ (height n.1.lay - n.1.level.val - 1) + n.1.idx.val)
-      (((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val)).map v).getD 0) 0
+      (((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val)).map v).getD 0)
       (((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val + 1)).map v).getD 0))
   | .wctChain p, v => WCT9.chainInput p.1.1.val p.1.2.1.val p.1.2.2.1.val p.1.2.2.2.val p.2.val
       (v (wctItem p.1 p.2.val))
@@ -516,198 +517,3 @@ theorem paired_view_seed (x : FamResidual.Hid PairedCoord) (a : ChainGraph.Addre
 #print axioms instPairedSeeds
 #print axioms paired_view_seed
 end ClaudeWCT.W9.T3.Security.LargeResidual.AdjacentLeafResearch
-
-namespace ClaudeWCT.W9.T3.Security.LargeResidual.Paired
-open OracleComp OracleSpec ENNReal
-open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open ClaudeWCT.W9.T3M SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
-open SigGolfCandidate.T3.Correctness (Answers)
-open SigGolfCandidate.T3.Security.LargeResidual (slotValue routeAddr IsDigestRow AuxQuery Cell dummyDigest World Probe Hit Charge)
-open ClaudeWCT.W9.T3.Security.CanonGraph ClaudeWCT.W9.T3.Security.CanonEncoding
-set_option maxHeartbeats 300000
-set_option maxRecDepth 10000
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance] Classical.propDecidable
-noncomputable local instance : DecidableEq SigGolfCandidate.T3.Cache := Classical.decEq _
-
-structure AuxData where
-  high : CanonGraph.Node → Digest
-  rows : CanonEncoding.EncLeaf → Fin (2^22) → HashOutput
-  sel : CanonEncoding.Selections
-  priv : FullGame.FullTable
-abbrev AuxSpec : OracleSpec AuxQuery
-  | .coin n => Fin (n+1)
-  | .init => AuxData
-noncomputable def auxLaw (initLaw : PMF AuxData) : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input)
-  | .coin n => PMF.uniformOfFintype (Fin (n+1))
-  | .init => initLaw
-abbrev RWorld (U : Finset HashInput) := World AuxSpec WCoord (Cell U)
-
-section Requests
-variable (U : Finset HashInput)
-def coinReq (n : Nat) : OracleComp (RWorld U) (Fin (n+1)) := liftM ((RWorld U).query (.inl (.coin n)))
-def initReq : OracleComp (RWorld U) AuxData := liftM ((RWorld U).query (.inl .init))
-def readReq (row : Cell U) (charge : Charge) : OracleComp (RWorld U) HashOutput :=
-  liftM ((RWorld U).query (.inr (.read row charge)))
-def probeReq (row : Cell U) (test : Probe WCoord) : OracleComp (RWorld U) HashOutput :=
-  liftM ((RWorld U).query (.inr (.probe row test)))
-def discloseReq (c : WCoord) (charge : Charge) : OracleComp (RWorld U) Digest :=
-  liftM ((RWorld U).query (.inr (.disclose c charge)))
-def tickReq (charge : Charge) : OracleComp (RWorld U) Unit := liftM ((RWorld U).query (.inr (.tick charge)))
-def discloseAll : List Coord → OracleComp (RWorld U) (List (Coord × Digest))
-  | [] => pure []
-  | c::rest => do
-      let v ← discloseReq U (.inl c) .none
-      let tail ← discloseAll rest
-      pure ((c,v)::tail)
-end Requests
-
-abbrev RouterState := LargeResidual.RouterState
-def RouterState.known (st : RouterState) : Coord → Prop :=
-  Known fun c => c∈keygenDisclosed ∨ c∈st.disclosed
-
-def padVals (v : Coord → Digest) (index : Fin (2^31)) (coord : Fin 9) (branch : Nat) : Digest×Digest :=
-  (((padCoord index coord branch 0).map v).getD 0,((padCoord index coord branch 1).map v).getD 0)
-
-def cellValues : CanonGraph.Node → (Coord → Digest) → HashInput
-  | .wctLeaf L,v => pad64 (Extract.wctLeafInputP L.index.val L.coord.val L.child.val
-      (padVals v L.index L.coord (L.child.val%2)).1
-      (List.ofFn fun t : Fin 6 => v (wctItem (L.index,L.coord,L.child,t) 4)))
-  | .wctNode n,v => pad64 (nodeInputP 3 (WCT9.nodeLayer n.1.coord.val) n.1.index.val
-      (2^(7-n.1.level.val-1)+n.1.idx.val)
-      (((ftsChild n.1.index n.1.coord n.1.level.val (2*n.1.idx.val)).map v).getD 0)
-      (if n.1.level.val=4 then (padVals v n.1.index n.1.coord (n.1.idx.val/2)).2 else 0)
-      (((ftsChild n.1.index n.1.coord n.1.level.val (2*n.1.idx.val+1)).map v).getD 0))
-  | n,v => LargeResidual.cellValues n v
-noncomputable def cellFrom (N : CanonGraph.Node) (v : Coord → Digest) : HashInput := cellValues N v
-noncomputable def refDigest (a : AuxData) (L : CanonEncoding.EncLeaf) : Digest :=
-  match a.sel L with
-  | some r => r.2
-  | none => dummyDigest L.1.lay
-
-def PrefixRow (a : AuxData) (L : CanonEncoding.EncLeaf) (ctr : BitVec 32) : Prop :=
-  (CanonEncoding.Paired.rowsContext a.rows L.toWots).isSome ∧
-  ctr.toNat<WCT9.searchLimit L.1.lay ∧ ∀r,a.sel L=some r → ctr.toNat≤r.1.val
-
-def prefixValue (a : AuxData) (L : CanonEncoding.EncLeaf) (ctr : BitVec 32) : HashOutput :=
-  if h : ctr.toNat<2^22 then a.rows L ⟨ctr.toNat,h⟩ else 0
-
-noncomputable def routerDigits (a : AuxData) (L : Wots.LeafAddr) : List Nat :=
-  if h : ∃L' : CanonEncoding.EncLeaf,L'.toWots=L then
-    ((a.sel (Classical.choose h)).bind fun r => WCT9.CanonicalPolicy.decode L.lay r.2).getD (Wots.dummyDigits (WCT9.CanonicalPolicy.normalLayer L.lay))
-  else Wots.dummyDigits L.lay
-
-def RouteOkR (a : AuxData) (index : Nat) : Prop :=
-  ∀lay : Layer,∃(L : CanonEncoding.EncLeaf)(r : Fin (2^22)×Digest),
-    L.toWots=routeAddr index lay ∧ a.sel L=some r ∧ (WCT9.CanonicalPolicy.decode lay r.2).isSome
-
-def maskOf (a : AuxData) (level node : Nat) : Digest :=
-  let answer := a.priv (.inl (header 13 0 0 level (node/2)))
-  if node%2=0 then answer.extractLsb' 0 128 else answer.extractLsb' 128 128
-
-def macOf (a : AuxData) (region : Region) : HashOutput :=
-  SiggolfT3Mac4.encodeTag (SiggolfT3Mac4.macTag
-    (fun i => a.priv (.inl (header 14 0 0 0 i.val))) (List.ofFn region))
-
-def Parsed (X : HashInput) : Prop :=
-  ∃N : CanonGraph.Node,CanonGraph.Paired.Filtered.Used N ∧ Extract.posOf X=some N.toPos
-
-noncomputable def rowPresent (X : HashInput) : HashOutput ≃ HashOutput :=
-  if hp : Parsed X then CanonGraph.Paired.presentEquiv (Classical.choose hp) else Equiv.refl _
-
-section Route
-variable (U : Finset HashInput)
-def testReq (first : Bool) (row : Cell U) (test : Probe WCoord) : OracleComp (RWorld U) HashOutput :=
-  if first then probeReq U row test else readReq U row .call
-
-noncomputable def routeQuery (a : AuxData) (st : RouterState) (X : HashInput) :
-    OracleComp (RWorld U) (HashOutput×RouterState) :=
-  let st' := st.after X
-  let first : Bool := decide (X∉st.seen)
-  if h : X∈U then
-    if hp : Parsed X then
-      let N := Classical.choose hp
-      match firstUnknown (RouterState.known st) N with
-      | some cs => (fun y => (rowPresent X y,st')) <$>
-          testReq U first ⟨X,h⟩ ⟨some (.inl cs.1,slotValue X cs.2),.label (.inl (.inl N))⟩
-      | none => do
-          let pairs ← discloseAll U ((childSlots N).map Prod.fst)
-          if X=cellFrom N (lookupVal pairs) then do
-            let v ← discloseReq U (.inl (.inl N)) .call
-            pure (CanonGraph.Paired.presentEquiv N (ChainGraph.joinOutput v (a.high N)),st')
-          else (fun y => (rowPresent X y,st')) <$>
-            testReq U first ⟨X,h⟩ ⟨none,.label (.inl (.inl N))⟩
-    else if he : EncRow X then
-      let L := Classical.choose he
-      let ctr := Classical.choose (Classical.choose_spec (Classical.choose_spec he))
-      do
-        let pairs ← discloseAll U ((msgSlots L).map Prod.fst)
-        if X=Wots.encRow L.toWots (msgVals (lookupVal pairs) L) ctr 0 ∧ PrefixRow a L ctr then do
-          tickReq U .call
-          pure (prefixValue a L ctr,st')
-        else (fun y => (y,st')) <$> testReq U first ⟨X,h⟩ ⟨none,encodingHit L.1.lay (refDigest a L)⟩
-    else if IsDigestRow X then
-      (fun y => (y,if st.Fresh X then {st' with births:=(X,y)::st.births} else st')) <$> readReq U ⟨X,h⟩ .mass
-    else (fun y => (y,st')) <$> readReq U ⟨X,h⟩ .call
-  else do
-    tickReq U .call
-    pure (0,st')
-
-noncomputable def readImpl (a : AuxData) : QueryImpl SigGolfCandidate.T3.Spec (OracleComp (RWorld U))
-  | .inl (.inl n) => coinReq U n
-  | .inl (.inr X) => if h : X∈U then readReq U ⟨X,h⟩ .none else pure (0 : HashOutput)
-  | .inr c => pure (a.priv c)
-
-end Route
-end ClaudeWCT.W9.T3.Security.LargeResidual.Paired
-
-namespace ClaudeWCT.W9.T3.Security.LargeResidual.Paired
-open OracleComp OracleSpec ENNReal
-open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open ClaudeWCT.W9.T3M
-open SigGolfCandidate.T3.Correctness (Answers)
-open SigGolfCandidate.T3.Security.LargeResidual (Cell)
-open ClaudeWCT.W9.T3.Security.CanonGraph ClaudeWCT.W9.T3.Security.CanonEncoding
-set_option maxHeartbeats 300000
-set_option maxRecDepth 10000
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance] Classical.propDecidable
-
-open SigGolfCandidate.T3.Security.LargeResidual (IsDigestRow slotValue)
-variable (U : Finset HashInput)
-noncomputable def routeQuerySelected (a : AuxData) (st : RouterState) (X : HashInput) :
-    OracleComp (RWorld U) (HashOutput×RouterState) :=
-  let st' := st.after X
-  let first : Bool := decide (X∉st.seen)
-  if h : X∈U then
-    if hp : Parsed X then
-      let N := Classical.choose hp
-      match firstUnknown (RouterState.known st) N with
-      | some cs => (fun y => (rowPresent X y,st')) <$>
-          testReq U first ⟨X,h⟩ ⟨some (.inl cs.1,slotValue X cs.2),.label (.inl (.inl N))⟩
-      | none => do
-          let pairs ← discloseAll U ((childSlots N).map Prod.fst)
-          if X=cellFrom N (lookupVal pairs) then do
-            let v ← discloseReq U (.inl (.inl N)) .call
-            pure (CanonGraph.Paired.presentEquiv N (ChainGraph.joinOutput v (a.high N)),st')
-          else (fun y => (rowPresent X y,st')) <$>
-            testReq U first ⟨X,h⟩ ⟨none,.label (.inl (.inl N))⟩
-    else if he : EncRow X then
-      let L := Classical.choose he
-      let ctr := Classical.choose (Classical.choose_spec (Classical.choose_spec he))
-      do
-        let pairs ← discloseAll U ((msgSlots L).map Prod.fst)
-        if X=Wots.encRow L.toWots (msgVals (lookupVal pairs) L) ctr 0 ∧ PrefixRow a L ctr then do
-          tickReq U .call
-          pure (prefixValue a L ctr,st')
-        else if (a.sel L).isSome then
-          (fun y => (y,st')) <$> testReq U first ⟨X,h⟩ ⟨none,encodingHit L.1.lay (refDigest a L)⟩
-        else (fun y => (y,st')) <$> readReq U ⟨X,h⟩ .call
-    else if IsDigestRow X then
-      (fun y => (y,if st.Fresh X then {st' with births:=(X,y)::st.births} else st')) <$> readReq U ⟨X,h⟩ .mass
-    else (fun y => (y,st')) <$> readReq U ⟨X,h⟩ .call
-  else do
-    tickReq U .call
-    pure (0,st')
-
-end ClaudeWCT.W9.T3.Security.LargeResidual.Paired

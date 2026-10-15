@@ -1,7 +1,7 @@
 import SigGolfCandidate.T3.Secc.WotsEncodingMatch
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEncodingResample
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsPrefixGame
-import SigGolfCandidate.ClaudeWCT.W9.New.G3b.Shared
+import SigGolfCandidate.ClaudeWCT.W9.New.G3b_Shared
 
 namespace ClaudeWCT.W9.T3.Security.Wots
 open SigGolfCandidate SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
@@ -73,7 +73,7 @@ def MatchEntry (T : Answers) (entry : Entry) : Prop :=
   ∃ (L : CanonGraph.LeafPos) (message : WCT9.LayerMsg) (counter : BitVec 32) (pad : RowPad), L.Source ∧
     Extract.msgFits L.lay message ∧ entry.1 = encRow (leafOf L) message counter pad ∧
       referenceInput T (leafOf L) ≠ some (encRow (leafOf L) message counter pad) ∧
-      decode L.lay (WCT9.encodingAnswer L.lay entry.2) = some (referenceDigits T (leafOf L))
+      WCT9.encodingCanDecode L.lay entry.2 (referenceDigits T (leafOf L))
 theorem matchAt_iff (T : Answers) (trace : List Entry) :
     (∃ L : CanonGraph.LeafPos, L.Source ∧ EncodingMatchAt T trace (leafOf L)) ↔
       ∃ entry ∈ trace, MatchEntry T entry := by
@@ -96,36 +96,14 @@ theorem encInput_leaf {e : EncIndex} {L : CanonGraph.LeafPos} {message : WCT9.La
 theorem matchEntry_cell_le (T : Answers) (e : EncIndex) :
     Pr[fun ans => MatchEntry T (encInput e, ans) | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ (7 / ((4 : ENNReal) * 2^128)) := by
   classical
-  let targets : Finset Digest :=
-    Finset.univ.filter fun d => decode e.1.1.lay d = some (referenceDigits T (leafOf e.1.1))
-  have hcard : targets.card ≤ 1 := by
-    apply Finset.card_le_one.mpr
-    intro a ha b hb
-    exact decode_some_injective (Finset.mem_filter.mp ha).2 (Finset.mem_filter.mp hb).2
-  calc _ ≤ Pr[fun output => WCT9.encodingAnswer e.1.1.lay output ∈ targets |
-        ($ᵗ HashOutput : ProbComp HashOutput)] := by
+  calc _ ≤ Pr[fun ans => WCT9.encodingCanDecode e.1.1.lay ans
+        (referenceDigits T (leafOf e.1.1)) | ($ᵗ HashOutput : ProbComp HashOutput)] := by
         apply probEvent_mono
         rintro ans - ⟨L, message, counter, pad, hLs, -, he, -, hdec⟩
         have hL : e.1.1 = L := encInput_leaf hLs he
         subst hL
-        exact Finset.mem_filter.mpr ⟨Finset.mem_univ _, hdec⟩
-    _ ≤ 7 / ((4 : ENNReal) * 2^128) := by
-      by_cases hl : e.1.1.lay = 0
-      · have hprob := WCT9.probability_top_encoding_le (fun d => d ∈ targets)
-        simp only [Function.comp_def, Finset.filter_mem_eq_inter, Finset.univ_inter] at hprob
-        simp only [WCT9.encodingAnswer, if_pos hl]
-        have hc : (targets.card : ENNReal) ≤ 1 := by exact_mod_cast hcard
-        have hmul := mul_le_mul' hc (le_refl (7 / ((4 : ENNReal) * 2^128)))
-        exact hprob.trans (by simpa only [one_mul] using hmul)
-      · have hp : ∀ d, d ∈ targets → lowerSpare d := fun d hd =>
-          decode_lowerSpare hl (Finset.mem_filter.mp hd).2
-        have hprob := WCT9.probability_lower_encoding (fun d => d ∈ targets) hp
-        simp only [Function.comp_def, Finset.filter_mem_eq_inter, Finset.univ_inter] at hprob
-        simp only [WCT9.encodingAnswer, if_neg hl]
-        rw [hprob]
-        have hc : (targets.card : ENNReal) ≤ 1 := by exact_mod_cast hcard
-        simpa only [one_mul] using mul_le_mul' hc
-          (le_refl (7 / ((4 : ENNReal) * 2^128)))
+        exact hdec
+    _ ≤ _ := WCT9.probability_encodingCanDecode_le _ _
 
 theorem matchEntry_other (U : Finset HashInput) (privateTable : FullGame.FullTable) (pub : U → HashOutput)
     (x : HashInput) (hx : ¬ Lazy.IsCell encInput (freeSet (eagerAnswers U privateTable pub)) x) :
@@ -139,7 +117,11 @@ theorem matchEntry_other (U : Finset HashInput) (privateTable : FullGame.FullTab
       change ¬ Reached _ _ (encInput (encIdx L hLs message counter pad hfit))
       rw [hx']
       exact hfree, hx'⟩
-  have href := reached_valid_reference hreached (ClaudeWCT.W9.T3.Security.WotsExtract.producerDecode_of_reference _ _ hdec)
+  obtain ⟨hint, hword⟩ := hdec
+  have hprod := ClaudeWCT.W9.T3.Security.WotsExtract.producerDecode_of_reference (eagerAnswers U privateTable pub) (leafOf L) hword
+  obtain ⟨values, hcanonical⟩ := WCT9.encodingCanDecode_producer_contact L.lay
+    (eagerAnswers U privateTable pub (.inl (.inr x))) _ _ hprod ⟨hint, hword⟩
+  have href := reached_valid_reference hreached hcanonical
   exact hne (he ▸ href)
 section Table
 variable (adversary : AdversaryP) (q : Nat)
@@ -327,56 +309,3 @@ theorem free_match_le [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, D
 end Table
 end Enc
 end ClaudeWCT.W9.T3.Security.Wots
-
-namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef
-open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
-open SigGolfCandidate.T3.Security.Wots.Enc
-open ClaudeWCT.W9.T3.Security.Wots.Enc
-open OracleComp OracleSpec ENNReal
-open SigGolfCandidate.T3.Correctness (Answers)
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 10000
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance low] Classical.propDecidable
-theorem cell_transfer (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q : Nat) [∀ k : Set Enc.EncIndex, Fintype k] [∀ k : Set Enc.EncIndex, DecidableEq k]
-    (U : Finset HashInput) (hU : SeccLaw.publicUniverse ⊆ U) (privateTable : FullGame.FullTable)
-    (pub : U → HashOutput) (h : RefSample → ENNReal) (φ : List Entry → ENNReal)
-    (hφ : ∀ y, (∀ e, y e ∈ cellInit (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))) e) → ∀ r,
-      h (mkSample (eagerAnswers U privateTable (Enc.ov (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells pub y)) r) = φ (traceOf (eagerAnswers U privateTable (Enc.ov (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells pub y)) r.2)) :
-    ∑' y, PMF.uniformOfFinset (Fintype.piFinset (cellInit (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub)))))
-          (Fintype.piFinset_nonempty.mpr (cellInit_nonempty _)) y *
-        ∑' r, (liftM (PairedReference.offlineRun (eagerAnswers U privateTable (Enc.ov (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells pub y)) adversary q) : PMF SeedResult) r *
-          h (mkSample (eagerAnswers U privateTable (Enc.ov (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells pub y)) r) =
-      ∑' z, Pr[= z | (simulateQ (Lazy.lazyImpl Enc.encInput (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells (eagerAnswers U privateTable pub))
-          (SphincsSecurity.QueryPause.traced Lazy.obs (PairedReference.referenceGame (eagerAnswers U privateTable pub) adversary q))).run
-          (cellInit (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))))] * φ z.1.2.toList := by
-  have hinner : ∀ y : (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells → HashOutput, (∀ e, y e ∈ cellInit (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))) e) →
-      ∑' r, (liftM (PairedReference.offlineRun (eagerAnswers U privateTable (Enc.ov (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells pub y)) adversary q) : PMF SeedResult) r *
-          h (mkSample (eagerAnswers U privateTable (Enc.ov (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells pub y)) r) =
-        ∑' r, Pr[= r | 𝒮[simulateQ (refImpl (Lazy.overwrite Enc.encInput (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells (eagerAnswers U privateTable pub) y))
-          (SphincsSecurity.QueryPause.traced Lazy.obs (PairedReference.referenceGame (eagerAnswers U privateTable pub) adversary q))]] *
-            φ r.2.toList := by
-    intro y hy
-    have hgame : PairedReference.referenceGame (eagerAnswers U privateTable (Enc.ov (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells pub y)) adversary q = PairedReference.referenceGame (eagerAnswers U privateTable pub) adversary q :=
-      referenceGame_overwrite hU privateTable pub y hy adversary q
-    simp only [PrefixGame.liftM_apply, hφ y hy, probOutput_evalSPMF]
-    unfold PairedReference.offlineRun
-    rw [hgame, ← Enc.eager_ovk_eq U hU privateTable pub _ y]
-    have hmap := Lazy.recorded_traced (eagerAnswers U privateTable (Enc.ov (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells pub y)) (PairedReference.referenceGame (eagerAnswers U privateTable pub) adversary q)
-    rw [← tsum_probOutput_map_mul _ (fun r : SeedResult => (r.1, traceOf (eagerAnswers U privateTable (Enc.ov (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells pub y)) r.2))
-      (fun z : Option (Bool × Nat) × List Entry => φ z.2), hmap, tsum_probOutput_map_mul]
-  refine Eq.trans (tsum_congr (g := fun y : (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells → HashOutput =>
-      PMF.uniformOfFinset (Fintype.piFinset (cellInit (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub)))))
-          (Fintype.piFinset_nonempty.mpr (cellInit_nonempty _)) y *
-        ∑' r, Pr[= r | 𝒮[simulateQ (refImpl (Lazy.overwrite Enc.encInput (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))).cells (eagerAnswers U privateTable pub) y))
-          (SphincsSecurity.QueryPause.traced Lazy.obs (PairedReference.referenceGame (eagerAnswers U privateTable pub) adversary q))]] *
-            φ r.2.toList) fun y => ?_) ?_
-  · by_cases hy : ∀ e, y e ∈ cellInit (cellKey (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub))) e
-    · rw [hinner y hy]
-    · rw [PMF.uniformOfFinset_apply, if_neg (fun hm => hy (Fintype.mem_piFinset.mp hm)), zero_mul, zero_mul]
-  · rw [← Lazy.lazyRun_eq_simulate,
-      ← tsum_probOutput_map_mul _ Prod.fst (fun r : Option (Bool × Nat) × FreeMonoid Entry => φ r.2.toList),
-      ← Lazy.eager_lazy_init (hinit := cellInit_nonempty _), tsum_probOutput_bind_mul]
-    simp only [probOutput_complete_init _ (cellInit_nonempty _)]
-
-end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef
