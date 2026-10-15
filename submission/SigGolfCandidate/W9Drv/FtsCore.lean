@@ -1174,10 +1174,10 @@ def words (k : Nat) : List (BitVec 32) :=
     [0x1003803,0x1886833,0x7f87213,0x6787b3,0x1421f93,0xffefb3,0x721b93,0x1cb8bb3,0xc8040413,0x585713,0x277733,0x700e7],
     [0xe81213,0x1b27233,0x6787b3,0xf26fb3,0xc25b93,0x1db8bb3,0xc8040413,0x1185713,0x277733,0x700e7],
     [0x1d85713,0x277733,0x7f8f213,0x6787b3,0x1421f93,0xffefb3,0x721b93,0x1cb8bb3,0xc8040413,0x700e7],
-    [0x188e8b3,0xe89213,0x1b27233,0x6787b3,0xf26fb3,0xc25b93,0x1db8bb3,0xc8040413,0x58d713,0x277733,0x13,0x700e7],
+    [0x188e8b3,0xe89213,0x1b27233,0x6787b3,0xf26fb3,0xc25b93,0x1db8bb3,0xc8040413,0x58d713,0x277733,0x700e7],
     [0x118d213,0x1b27233,0x6787b3,0xf26fb3,0xf104bc83,0xc25b93,0x19b8bb3,0xc8040413,0x118d713,0x277733,0x700e7]].getD k []
-def start (k : Nat) : Nat := [89,171,257,341,425,511,595,679,765].getD k 849
-def length (k : Nat) : Nat := [8,12,10,10,12,10,10,12,11].getD k 0
+def start (k : Nat) : Nat := [89,171,257,341,425,511,595,679,764].getD k 849
+def length (k : Nat) : Nat := [8,12,10,10,12,10,10,11,11].getD k 0
 def first (k : Nat) : Bool := decide (k < 8 ∧ k % 2 = 0)
 def rankPosition (k : Nat) : Nat := [13,13,25,37,13,25,37,13,25].getD k 13
 def result (k : Nat) : Result :=
@@ -1212,7 +1212,7 @@ set_option maxHeartbeats 0 in
 theorem checked : ∀ k : Fin 9,
     rOK (symRun {} (words k.val) (pcOf (start k.val)) (length k.val)) (result k.val) = true := by
   intro k; fin_cases k <;> decide +kernel
-theorem total_dispatch_words : ((List.range 9).map length).sum = 95 := by decide
+theorem total_dispatch_words : ((List.range 9).map length).sum = 94 := by decide
 theorem linked (k : Fin 9) : sliceChecked (start k.val) (words k.val) = true := by
   fin_cases k <;> decide +kernel
 
@@ -2100,11 +2100,11 @@ theorem child_cost_eq (k : Fin 9) (raw : Fin 128) :
   split_ifs <;> omega
 
 theorem coordsAccept_all (a : HashOutput) :
-    coordsAccept a (List.finRange 9) = 857 + SharedForest.jointAccountingCost a := by
+    coordsAccept a (List.finRange 9) = 856 + SharedForest.jointAccountingCost a := by
   unfold coordsAccept
   simp_rw [child_cost_eq]
   have hfixed : ((List.finRange 9).map (fun k =>
-      SharedDispatch.length k.val + (if SharedV3.first k.val then 78 else 90))).sum = 857 := by decide +kernel
+      SharedDispatch.length k.val + (if SharedV3.first k.val then 78 else 90))).sum = 856 := by decide +kernel
   have hpoint : ∀ k : Fin 9,
       SharedDispatch.length k.val + (N600.rankCost (SharedForest.forestRank a k.val) +
         ((if SharedV3.first k.val then 78 else 90) + SharedForest.accountingCorrection k.val (SharedForest.rawChildFromOutput a k))) =
@@ -2155,7 +2155,7 @@ def FtsGoodByCost (acceptCost : HashOutput → Nat) (P : Hash → Prop := HashOk
     GoodQFor (P := P) Frozen.image u (N+2023) (C+2023) Q (A+acceptCost a)
       (ccM (if SharedGate.gateOk a then ftsN w a else pure none) K)
 
-def ftsAcceptCost (a : HashOutput) : Nat := 881 + SharedForest.jointAccountingCost a
+def ftsAcceptCost (a : HashOutput) : Nat := 880 + SharedForest.jointAccountingCost a
 
 theorem fts_good_of
     (checkLink : sliceChecked 4 SharedGate.gCheckWords = true)
@@ -2167,13 +2167,13 @@ theorem fts_good_of
   intro pk w a u N C A Q K hu hnone hnext
   let KG : Bool → OracleComp HashSpec Obs := fun b =>
     if b then ccM (ftsN w a) K else K none
-  have hg := SharedGate.good checkLink setupLink pk w a u (N + 1760) (C + 1760)
-    (A + (857 + SharedForest.jointAccountingCost a)) Q KG hu
+  have hg := SharedGate.good checkLink setupLink pk w a u (N + 1759) (C + 1759)
+    (A + (856 + SharedForest.jointAccountingCost a)) Q KG hu
     (by simpa only [KG, Bool.false_eq_true, ↓reduceIte] using hnone)
     (fun t ht => by
       have hc := all_good links chains childs pk w a (List.finRange 9) 0 [] t N C A Q K
         (by decide) (by simp) ht hnone (fun pairs st hh => hnext _ st (final pk w a pairs st hh))
-      rw [show coordsCost (List.finRange 9) = 1760 by decide, coordsAccept_all] at hc
+      rw [show coordsCost (List.finRange 9) = 1759 by decide, coordsAccept_all] at hc
       apply hc.congr
       change ccM (_ >>= finishN w) K = ccM (ftsN w a) K
       apply congrArg (fun p : M (Option (Digest × Digest)) => ccM p K)
@@ -2182,8 +2182,8 @@ theorem fts_good_of
         (List.finRange 9).foldlM (stepN w a) (some []) >>= f)
       funext state
       cases state <;> rfl)
-  change GoodQFor (P := P) Frozen.image u (N + 1784) (C + 1784) Q
-    (A + (857 + SharedForest.jointAccountingCost a) + 24) (KG (SharedGate.gateOk a)) at hg
+  change GoodQFor (P := P) Frozen.image u (N + 1783) (C + 1783) Q
+    (A + (856 + SharedForest.jointAccountingCost a) + 24) (KG (SharedGate.gateOk a)) at hg
   apply (hg.mono (by omega) (by omega) (fun hq => ⟨hq, by simp only [ftsAcceptCost]; omega⟩)).congr
   cases SharedGate.gateOk a <;> simp [KG, ccM_pure]
 
