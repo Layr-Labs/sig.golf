@@ -470,7 +470,7 @@ open SigGolfCandidate.T3 (M Spec publicHash shortHash privateHash privatePair pr
   privateInput header pad64 Coordinate HashOutput Digest Region)
 open SigGolfCandidate.T3M.Keygen (PRIV SEEDS CHAIN NODE NOUT LOUT LEAFPK MOUT ZDIG DUMMY TOP MACBLK REGION)
 open SphincsSecurity (bytesLE bytesLE_length)
-abbrev MSG : Nat := 0x65E0
+abbrev MSG : Nat := 0x65C0
 abbrev SK : Nat := 0x80
 abbrev SIG : Nat := 0x7000
 abbrev CACHE : Nat := 0x80000

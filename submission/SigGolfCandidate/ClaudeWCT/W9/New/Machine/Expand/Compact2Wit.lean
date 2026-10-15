@@ -961,7 +961,7 @@ theorem finalBufferWindow (N : HashOutput) (w : WCT9.Witness) (lay : Layer)
     window (ClaudeWCT.W9.T3M.witList N w) (leafBufferBase lay + off) n =
       window (leafBufferBytes w.signature lay) off n := by
   have hbase : 21712 ≤ leafBufferBase lay := by fin_cases lay <;> decide
-  have hbound : leafBufferBase lay + leafBufferLen lay ≤ 24832 := by fin_cases lay <;> decide
+  have hbound : leafBufferBase lay + leafBufferLen lay ≤ 24800 := by fin_cases lay <;> decide
   rw [ClaudeWCT.W9.T3M.witList_split, window_append_right _ _ _ _ (by
     simp only [List.length_append, headerBytes_length, wctBytes_length, layers_length]; omega)]
   simp only [List.length_append, headerBytes_length, wctBytes_length, layers_length]
@@ -1016,7 +1016,7 @@ theorem topBufferWindow (sig : WCT9.Signature) (off : Nat) (hb : off + 8 ≤ 912
       exact window_zeros _ _ _ (by omega)
 
 theorem lowerBufferWindow (sig : WCT9.Signature) (lay : Layer) (hL : lay ≠ 0)
-    (off : Nat) (hb : off + 8 ≤ 736) (ha : off % 8 = 0) :
+    (off : Nat) (hb : off + 8 ≤ leafBufferLen lay) (ha : off % 8 = 0) :
     window (leafBufferBytes sig lay) off 8 =
       if off < 16 then window (endpointBytes sig lay) off 8 else if off < 32 then zeros 8
       else if off < 704 then window (endpointBytes sig lay) (off - 16) 8 else zeros 8 := by
@@ -1026,6 +1026,8 @@ theorem lowerBufferWindow (sig : WCT9.Signature) (lay : Layer) (hL : lay ≠ 0)
     all_goals rfl
   have ht : ((endpointBytes sig lay).take 16).length = 16 := by simp [hl]
   have hd : ((endpointBytes sig lay).drop 16).length = 672 := by simp [hl]
+  have hp : off + 8 ≤ 704 + (if lay = 1 ∨ lay = 2 then 16 else 32) := by
+    fin_cases lay <;> simp_all [leafBufferLen]
   simp only [leafBufferBytes, if_neg hL]
   by_cases h16 : off < 16
   · rw [if_pos h16,
@@ -1113,23 +1115,27 @@ set_option maxHeartbeats 3000000
 set_option maxRecDepth 100000
 set_option linter.unusedSimpArgs false
 
-def bufferZeroAddresses : List Nat := [22944, 22952, 23632, 23640, 23648, 23656, 23680, 23688, 24368, 24376, 24384, 24392, 24416, 24424, 25104, 25112, 25120, 25128, 25136, 25144, 25152, 25160, 26032, 26040]
+def bufferZeroAddresses : List Nat := [22944, 22952, 23632, 23640, 23648, 23656,
+  23680, 23688, 24368, 24376, 24400, 24408, 25088, 25096,
+  25104, 25112, 25120, 25128, 26000, 26008]
 def bufferEndpointAddresses : List Nat := (List.finRange 4).flatMap fun lay =>
   (List.range (chainCount lay)).flatMap fun i =>
     [1216 + leafBufferSlot lay i, 1216 + leafBufferSlot lay i + 8]
-theorem buffer_address_coverage : ∀ i : Fin 390,
+theorem buffer_address_coverage : ∀ i : Fin 386,
     22928 + 8 * i.val ∈ bufferEndpointAddresses ++ bufferZeroAddresses := by decide +kernel
 
 theorem bufferMem_zeroAddress (M : Nat → Word) (A : Nat) (h : A ∈ bufferZeroAddresses) :
     Buffer.bufferMem M A = 0 := by
   simp only [bufferZeroAddresses, List.mem_cons, List.not_mem_nil, or_false] at h
-  rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+  rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
+    rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   all_goals norm_num [Buffer.bufferMem]
 
 theorem serializedMem_zeroAddress (N : HashOutput) (w : WCT9.Witness) (A : Nat)
     (h : A ∈ bufferZeroAddresses) : serializedMem N w A = 0 := by
   simp only [bufferZeroAddresses, List.mem_cons, List.not_mem_nil, or_false] at h
-  rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+  rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
+    rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   · change BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList N w) (leafBufferBase 3 + 16) 8)) = 0
     rw [finalBufferWindow N w 3 16 8 (by decide), lowerBufferWindow w.signature 3 (by decide) 16 (by decide) (by decide)]
     norm_num [zeros, readLE] <;> rfl
@@ -1160,12 +1166,6 @@ theorem serializedMem_zeroAddress (N : HashOutput) (w : WCT9.Witness) (A : Nat)
   · change BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList N w) (leafBufferBase 2 + 712) 8)) = 0
     rw [finalBufferWindow N w 2 712 8 (by decide), lowerBufferWindow w.signature 2 (by decide) 712 (by decide) (by decide)]
     norm_num [zeros, readLE] <;> rfl
-  · change BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList N w) (leafBufferBase 2 + 720) 8)) = 0
-    rw [finalBufferWindow N w 2 720 8 (by decide), lowerBufferWindow w.signature 2 (by decide) 720 (by decide) (by decide)]
-    norm_num [zeros, readLE] <;> rfl
-  · change BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList N w) (leafBufferBase 2 + 728) 8)) = 0
-    rw [finalBufferWindow N w 2 728 8 (by decide), lowerBufferWindow w.signature 2 (by decide) 728 (by decide) (by decide)]
-    norm_num [zeros, readLE] <;> rfl
   · change BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList N w) (leafBufferBase 1 + 16) 8)) = 0
     rw [finalBufferWindow N w 1 16 8 (by decide), lowerBufferWindow w.signature 1 (by decide) 16 (by decide) (by decide)]
     norm_num [zeros, readLE] <;> rfl
@@ -1177,12 +1177,6 @@ theorem serializedMem_zeroAddress (N : HashOutput) (w : WCT9.Witness) (A : Nat)
     norm_num [zeros, readLE] <;> rfl
   · change BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList N w) (leafBufferBase 1 + 712) 8)) = 0
     rw [finalBufferWindow N w 1 712 8 (by decide), lowerBufferWindow w.signature 1 (by decide) 712 (by decide) (by decide)]
-    norm_num [zeros, readLE] <;> rfl
-  · change BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList N w) (leafBufferBase 1 + 720) 8)) = 0
-    rw [finalBufferWindow N w 1 720 8 (by decide), lowerBufferWindow w.signature 1 (by decide) 720 (by decide) (by decide)]
-    norm_num [zeros, readLE] <;> rfl
-  · change BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList N w) (leafBufferBase 1 + 728) 8)) = 0
-    rw [finalBufferWindow N w 1 728 8 (by decide), lowerBufferWindow w.signature 1 (by decide) 728 (by decide) (by decide)]
     norm_num [zeros, readLE] <;> rfl
   · change BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList N w) (leafBufferBase 0 + 0) 8)) = 0
     rw [finalBufferWindow N w 0 0 8 (by decide), topBufferWindow w.signature 0 (by decide) (by decide)]
@@ -1224,19 +1218,19 @@ theorem mem_bufferEndpointAddresses {A : Nat} (h : A ∈ bufferEndpointAddresses
   · exact ⟨lay,i,8,hi,Or.inr rfl,h⟩
 
 theorem bufferMem_serializer (N : HashOutput) (w : WCT9.Witness) (A : Nat)
-    (hlo : 1216 ≤ A) (hhi : A < 26080) (halign : A % 8 = 0) :
+    (hlo : 1216 ≤ A) (hhi : A < 26048) (halign : A % 8 = 0) :
     Buffer.bufferMem (preBufferMem N w) A = serializedMem N w A := by
   by_cases hprefix : A < 22928
   · rw [Buffer.bufferMem, if_neg (by omega), if_neg (by omega)]
     unfold preBufferMem serializedMem
     rw [preBufferPrefix N w _ 8 (by omega)]
-  by_cases hfooter : 26048 ≤ A
+  by_cases hfooter : 26016 ≤ A
   · rw [Buffer.bufferMem, if_pos ⟨hfooter,hhi,halign⟩]
     unfold preBufferMem serializedMem
-    rw [show A - 3120 - 1216 = 21712 + (A - 26048) by omega,
-      show A - 1216 = 24832 + (A - 26048) by omega,
+    rw [show A - 3088 - 1216 = 21712 + (A - 26016) by omega,
+      show A - 1216 = 24800 + (A - 26016) by omega,
       preBufferWinTail N w _ 8 (by omega), ClaudeWCT.W9.T3M.win_tail N w _ 8 (by omega)]
-  · have hidx : (A - 22928) / 8 < 390 := by omega
+  · have hidx : (A - 22928) / 8 < 386 := by omega
     have h := buffer_address_coverage ⟨(A - 22928) / 8,hidx⟩
     have he : 22928 + 8 * ((A - 22928) / 8) = A := by omega
     simp only [he,List.mem_append] at h
@@ -1247,18 +1241,18 @@ theorem bufferMem_serializer (N : HashOutput) (w : WCT9.Witness) (A : Nat)
     · rw [bufferMem_zeroAddress _ _ h,serializedMem_zeroAddress N w _ h]
 
 theorem bufferMem_original_congr (M M' : Nat → Word) (A : Nat)
-    (hlo : 1216 ≤ A) (hhi : A < 26080) (halign : A % 8 = 0)
+    (hlo : 1216 ≤ A) (hhi : A < 26048) (halign : A % 8 = 0)
     (hmem : ∀ B, 1216 ≤ B → B < 22960 → B % 8 = 0 → M B = M' B) :
     Buffer.bufferMem M A = Buffer.bufferMem M' A := by
   by_cases hprefix : A < 22928
   · rw [Buffer.bufferMem, if_neg (by omega), if_neg (by omega),
       Buffer.bufferMem, if_neg (by omega), if_neg (by omega)]
     exact hmem A hlo (by omega) halign
-  by_cases hfooter : 26048 ≤ A
+  by_cases hfooter : 26016 ≤ A
   · rw [Buffer.bufferMem, if_pos ⟨hfooter,hhi,halign⟩,
       Buffer.bufferMem, if_pos ⟨hfooter,hhi,halign⟩]
-    exact hmem (A-3120) (by omega) (by omega) (by omega)
-  · have hidx : (A - 22928) / 8 < 390 := by omega
+    exact hmem (A-3088) (by omega) (by omega) (by omega)
+  · have hidx : (A - 22928) / 8 < 386 := by omega
     have h := buffer_address_coverage ⟨(A - 22928) / 8,hidx⟩
     have he : 22928 + 8 * ((A - 22928) / 8) = A := by omega
     simp only [he,List.mem_append] at h
@@ -1275,7 +1269,7 @@ theorem bufferMem_original_congr (M M' : Nat → Word) (A : Nat)
 
 theorem bufferMem_words (N : HashOutput) (w : WCT9.Witness) (M : Nat → Word)
     (hmem : ∀ i < 2718, M (1216 + 8*i) = (wordsOf (preBufferWitList N w)).getD i 0)
-    (i : Nat) (hi : i < 3108) :
+    (i : Nat) (hi : i < 3104) :
     Buffer.bufferMem M (1216 + 8*i) = (wordsOf (ClaudeWCT.W9.T3M.witList N w)).getD i 0 := by
   have hm : ∀ B, 1216 ≤ B → B < 22960 → B % 8 = 0 → M B = preBufferMem N w B := by
     intro B hB hB' h8
@@ -1289,7 +1283,7 @@ theorem bufferMem_words (N : HashOutput) (w : WCT9.Witness) (M : Nat → Word)
     simpa only [Nat.add_sub_of_le hB] using h
   rw [bufferMem_original_congr M (preBufferMem N w) _ (by omega) (by omega) (by omega) hm,
     bufferMem_serializer N w _ (by omega) (by omega) (by omega),
-    wordsOf_getD' _ 3108 (ClaudeWCT.W9.T3M.witList_length_eq N w) i hi]
+    wordsOf_getD' _ 3104 (ClaudeWCT.W9.T3M.witList_length_eq N w) i hi]
   unfold serializedMem
   congr 3 <;> omega
 

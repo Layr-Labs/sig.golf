@@ -84,7 +84,8 @@ def endpointBytes (sig : WCT9.Signature) (lay : Layer) : List UInt8 :=
   (List.finRange (chainCount lay)).flatMap fun i => bytesLE 16 ((sig.layers lay).values i)
 def leafBufferBytes (sig : WCT9.Signature) (lay : Layer) : List UInt8 :=
   if lay = 0 then zeros 32 ++ endpointBytes sig lay ++ zeros 16
-  else (endpointBytes sig lay).take 16 ++ zeros 16 ++ (endpointBytes sig lay).drop 16 ++ zeros 32
+  else (endpointBytes sig lay).take 16 ++ zeros 16 ++ (endpointBytes sig lay).drop 16 ++
+    zeros (if lay = 1 ∨ lay = 2 then 16 else 32)
 def leafBuffersBytes (sig : WCT9.Signature) : List UInt8 :=
   (List.finRange 4).reverse.flatMap (leafBufferBytes sig)
 def tailBytes (w : WCT9.Witness) : List UInt8 :=
