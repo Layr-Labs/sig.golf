@@ -70,64 +70,30 @@ theorem ftsLeafHeader_ne_ftsChainHeaderP (index coord selected : Nat) (i k j t s
 theorem wctNodeHeader_ne_chainHeader (coord index heap : Nat) (lay : Layer) (tree leaf i st : Nat) :
     wctNodeHeader coord index heap ≠ chainHeader lay tree leaf i st := by
   intro h
-  by_cases hn : coord < 9 ∧ FtsNew heap
-  · have hw := chainHeader_low_band lay tree leaf i st
-    rw [← h, wctNodeHeader_low hn.1, if_pos hn.2, BitVec.toNat_ofNat,
-      Nat.mod_eq_of_lt (lt_trans (ftsNodeLowN_lt ..) (by decide))] at hw
-    have := ftsNodeLowN_lt index coord heap
-    omega
-  · have hc := chainHeader_firstByte lay tree leaf i st
-    rw [← h, wctNodeHeader_firstByte, if_neg hn] at hc
-    omega
-theorem wctNodeHeader_low_ne_chainHeader {coord : Nat} (hk : coord < 9) (index heap : Nat) (lay : Layer)
-    (tree leaf i st : Nat) :
-    (wctNodeHeader coord index heap).extractLsb' 0 64 ≠ (chainHeader lay tree leaf i st).extractLsb' 0 64 := by
-  intro h
-  have hw := chainHeader_low_band lay tree leaf i st
-  rw [← h, wctNodeHeader_low hk, BitVec.toNat_ofNat] at hw
-  have h1 := ftsNodeLowN_lt index coord heap
-  have h2 := ftsLeafLow_lt index coord 0
-  split at hw <;> omega
+  have hc := chainHeader_firstByte lay tree leaf i st
+  rw [← h, wctNodeHeader_firstByte] at hc
+  omega
 theorem wctNodeHeader_ne_header {coord : Nat} (hk : coord < 9) (index heap tag lay tree position idx : Nat)
     (ht : tag % 256 ≠ 6) : wctNodeHeader coord index heap ≠ header tag lay tree position idx := by
   intro h
-  by_cases hn : FtsNew heap
-  · have h1 := wctNodeHeader_firstByteN hk index hn
-    rw [h, header_firstByte] at h1
-    obtain ⟨-, h128⟩ := hn; omega
-  · have h1 := wctNodeHeader_byte1 hk index heap
-    rw [h, header_byte1, if_neg hn] at h1
-    exact ht h1
+  have h1 := wctNodeHeader_byte1 hk index heap
+  rw [h, header_byte1] at h1
+  exact ht h1
 theorem wctNodeHeader_ne_ftsChainHeaderP (coord index heap : Nat) (i k j t s : Nat) (high : BitVec 64) :
     wctNodeHeader coord index heap ≠ ftsChainHeaderP i k j t s high := by
   intro h
-  by_cases hn : coord < 9 ∧ FtsNew heap
-  · have h1 := wctNodeHeader_byte1 hn.1 index heap
-    rw [if_pos hn.2, h, ftsChainHeaderP_toNat] at h1
-    unfold ftsChainLow at h1
-    have := Nat.mod_lt t (show 0 < 8 by decide)
-    have := Nat.mod_lt s (show 0 < 4 by decide)
-    have := Nat.mod_lt k (show 0 < 16 by decide)
-    have := Nat.mod_lt j (show 0 < 128 by decide)
-    omega
-  · have hc := ftsChainHeaderP_firstByte i k j t s high
-    rw [← h, wctNodeHeader_firstByte, if_neg hn] at hc
-    omega
+  have hc := ftsChainHeaderP_firstByte i k j t s high
+  rw [← h, wctNodeHeader_firstByte] at hc
+  omega
 theorem ftsLeafHeader_tweakMarker (index coord selected : Nat) : tweakMarker (ftsLeafHeader index coord selected) = 1 :=
   ftsLeafHeader_firstByte index coord selected
 theorem ftsLeafHeader_tweakTag (index coord selected : Nat) : tweakTag (ftsLeafHeader index coord selected) = 6 := by
   unfold tweakTag; have := ftsLeafHeader_byte1 index coord selected; norm_num at this ⊢; omega
-theorem wctNodeHeader_tweakMarker (coord index heap : Nat) :
-    tweakMarker (wctNodeHeader coord index heap) = if coord < 9 ∧ FtsNew heap then 257 - heap else 1 :=
+theorem wctNodeHeader_tweakMarker (coord index heap : Nat) : tweakMarker (wctNodeHeader coord index heap) = 1 :=
   wctNodeHeader_firstByte coord index heap
-theorem wctNodeHeader_tweakMarker_ne_zero (coord index heap : Nat) : tweakMarker (wctNodeHeader coord index heap) ≠ 0 :=
-  wctNodeHeader_firstByte_ne_zero coord index heap
 theorem wctNodeHeader_tweakTag {coord : Nat} (hk : coord < 9) (index heap : Nat) :
-    tweakTag (wctNodeHeader coord index heap) = if FtsNew heap then 5 else 6 := by
-  unfold tweakTag; have := wctNodeHeader_byte1 hk index heap
-  by_cases hn : FtsNew heap
-  · rw [if_pos hn] at this ⊢; norm_num at this ⊢; omega
-  · rw [if_neg hn] at this ⊢; norm_num at this ⊢; omega
+    tweakTag (wctNodeHeader coord index heap) = 6 := by
+  unfold tweakTag; have := wctNodeHeader_byte1 hk index heap; norm_num at this ⊢; omega
 theorem ftsChainHeaderP_tweakMarker (index coord selected chain step : Nat) (high : BitVec 64) :
     128 ≤ tweakMarker (ftsChainHeaderP index coord selected chain step high) := by
   unfold tweakMarker; rw [ftsChainHeaderP_firstByte]; omega
@@ -142,13 +108,13 @@ theorem ftsLeafHeader_ne_digestHeader (index coord selected : Nat) (counter : Bi
   ne_of_tweakMarker (by rw [ftsLeafHeader_tweakMarker, digestHeader_marker]; decide)
 theorem wctNodeHeader_ne_rowTweak {coord : Nat} (hk : coord < 9) (index heap : Nat) (lay : Layer) (tree leaf : Nat) :
     wctNodeHeader coord index heap ≠ rowTweak lay tree leaf :=
-  ne_of_tweakTag (by rw [wctNodeHeader_tweakTag hk, rowTweak_tag]; split <;> decide)
+  ne_of_tweakTag (by rw [wctNodeHeader_tweakTag hk, rowTweak_tag]; decide)
 theorem wctNodeHeader_ne_leafTweak {coord : Nat} (hk : coord < 9) (index heap : Nat) (lay : Layer) (tree leaf : Nat) :
     wctNodeHeader coord index heap ≠ leafTweak lay tree leaf :=
-  ne_of_tweakTag (by rw [wctNodeHeader_tweakTag hk, leafTweak_tag]; split <;> decide)
+  ne_of_tweakTag (by rw [wctNodeHeader_tweakTag hk, leafTweak_tag]; decide)
 theorem wctNodeHeader_ne_digestHeader (coord index heap : Nat) (counter : BitVec 32) :
     wctNodeHeader coord index heap ≠ digestHeader counter :=
-  ne_of_tweakMarker (by rw [digestHeader_marker]; exact wctNodeHeader_tweakMarker_ne_zero _ _ _)
+  ne_of_tweakMarker (by rw [wctNodeHeader_tweakMarker, digestHeader_marker]; decide)
 theorem ftsChainHeaderP_ne_rowTweak (index coord selected chain step : Nat) (high : BitVec 64) (lay : Layer)
     (tree leaf : Nat) : ftsChainHeaderP index coord selected chain step high ≠ rowTweak lay tree leaf := by
   apply ne_of_tweakMarker

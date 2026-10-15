@@ -34,8 +34,7 @@ abbrev SCREND : Nat := 0x52010
 abbrev COEF : Nat := 0x50800
 def hook153 : BitVec 32 := 0x1890a06f
 def hook540 : BitVec 32 := 0x3791306f
-/-- The sign code: the record window at 11003 and (nested FTS r1-1) the trampolines at 21450. -/
-def NewCodeAt (im : Image) : Prop := signNew <+: im.code.drop 11003 ∧ signTramp <+: im.code.drop 21450
+def NewCodeAt (im : Image) : Prop := signNew <+: im.code.drop 11003
 /-- [h2 lane] the sign prepass appended at word 20813 (entered from the record's copy at 20730): move digest 192 (the top
 sibling, scratch 0x7ca0) to the last scratch slot and digests 193..340 down one slot, then return to 20731. -/
 def h2SignTail : List (BitVec 32) := [0x8e37, 0xca0e0e13, 0xe3703, 0x8e3783, 0xe0e93, 0x10e0e13, 0x8f37, 0x5f0f0f13,
@@ -89,16 +88,12 @@ structure FtsPre (sk : BitVec 256) (N : HashOutput) (s : MachineState) : Prop wh
   table : TableAt s
 def ftsRegs : List Reg := [.x1, .x6, .x7, .x10, .x11, .x12, .x13, .x14, .x15, .x16, .x17, .x18, .x24, .x25, .x26, .x28,
   .x29]
-/-- Nested FTS (r1-1): `0x20290..0x202a0` is the L3 encoding R slot, which now receives `R8`. -/
-def FtsW (A : Nat) : Prop := (PRIVW ≤ A ∧ A < SCREND) ∨ (SIG + 16 ≤ A ∧ A < SIG + 1888) ∨ (FOUT ≤ A ∧ A < FOUT + 32) ∨
-  (0x20290 ≤ A ∧ A < 0x20290 + 16)
+def FtsW (A : Nat) : Prop := (PRIVW ≤ A ∧ A < SCREND) ∨ (SIG + 16 ≤ A ∧ A < SIG + 1888) ∨ (FOUT ≤ A ∧ A < FOUT + 32)
 def OpeningAt (t : MachineState) (k : Nat) (op : WCT9.Opening) : Prop :=
   (∀ i : Fin 6, DigAt t (SIG + 16 + 208 * k + 16 * i.val) (op.values i)) ∧
     ∀ l : Fin 7, DigAt t (SIG + 112 + 208 * k + 16 * l.val) (op.path l)
-/-- Nested FTS (r1-1): the FTS part ends with the last top pair `(L8, R8)` at `FOUT` (L3 message) and `0x20290`
-(the encoding R slot). -/
-def FtsPost (s : MachineState) : List WCT9.Opening × (Digest × Digest) → MachineState → Prop
-  | (ops, top), t => t.pc = pcOf 370 ∧ t.getReg .x5 = 0 ∧ DigAt t FOUT top.1 ∧ DigAt t 0x20290 top.2 ∧ ops.length = 9 ∧
+def FtsPost (s : MachineState) : List WCT9.Opening × Digest → MachineState → Prop
+  | (ops, root), t => t.pc = pcOf 370 ∧ t.getReg .x5 = 0 ∧ DigAt t FOUT root ∧ ops.length = 9 ∧
       (∀ k < 9, OpeningAt t k (ops.getD k ⟨fun _ => 0, fun _ => 0⟩)) ∧ RegsExcept s t ftsRegs ∧ Frame s t FtsW
 def ftsC : Nat := 114000000
 def FtsGood (im : Image) : Prop :=
@@ -135,13 +130,12 @@ def FrontSpec (im : Image) (sk : BitVec 256) (cache : Bytes 131072) (m : Message
     TBSim im sk s0 (frontC + W) (do
       let tag ← privateMac (cacheDec cache).region
       if tag ≠ (cacheDec cache).tag then pure none else privateNonce m >>= K) Q
-structure LayPre (index : Nat) (top : Digest × Digest) (t : MachineState) : Prop where
+structure LayPre (index : Nat) (root : Digest) (t : MachineState) : Prop where
   pc : t.pc = pcOf 370
   x5 : t.getReg .x5 = 0
   hidx : index < 2 ^ 31
   idx : t.getMem (BitVec.ofNat 64 IDXV) = BitVec.ofNat 64 index
-  root : DigAt t FOUT top.1
-  right : DigAt t 0x20290 top.2
+  root : DigAt t FOUT root
 def t3LayIdx (lay : Layer) : Nat := (![137, 203, 253, 302] : Layer → Nat) lay
 def PieceAt (u : MachineState) (lay : Layer) (p : Pieces) : Prop :=
   (∀ i < chainCount lay, DigAt u (SIG + 16 * (t3LayIdx lay + i)) (p.1.getD i 0)) ∧
@@ -150,17 +144,17 @@ def LayPost (t : MachineState) : Option (List Pieces) → MachineState → Prop
   | none, u => FailedT u
   | some ps, u => u.pc = pcOf 540 ∧ ps.length = 4 ∧ (∀ lay : Layer, PieceAt u lay (ps.getD lay.val ([], []))) ∧
       Frame t u (fun A => ¬ (SIG ≤ A ∧ A < SIG + 2192))
-def layC : Nat := 3575044093
+def layC : Nat := 26 + 3059161999
 def LayersSpec (im : Image) (sk : BitVec 256) (cache : Bytes 131072) (Inv : MachineState → Prop) : Prop :=
-  ∀ (index : Nat) (top : Digest × Digest) (t : MachineState), LayPre index top t → Inv t →
-    TBSim im sk t layC (WCT9.signLayersBC (cacheDec cache) index 4 (.pair top.1 top.2)) (LayPost t)
+  ∀ (index : Nat) (root : Digest) (t : MachineState), LayPre index root t → Inv t →
+    TBSim im sk t layC (WCT9.signLayersBC (cacheDec cache) index 4 (.forest root)) (LayPost t)
 def newRegs : List Reg := [.x1, .x6, .x7, .x10, .x11, .x12, .x13, .x14, .x15, .x16, .x17, .x18, .x19, .x20, .x21, .x22,
   .x24, .x25, .x26, .x28, .x29]
 def NewW (A : Nat) : Prop := SearchW A ∨ FtsW A
 def InvStable (Inv : MachineState → Prop) : Prop :=
   ∀ t u, Inv t → Frame t u NewW → RegsExcept t u newRegs → Inv u
 def wsub (imgs : Phase → Image) : Submission :=
-  ⟨⟨5310, 24860, 131072⟩, ⟨0x65e0, 0x80, 0xa0, 0x80000, 0x7000, 0x4c0⟩, imgs⟩
+  ⟨⟨5310, 20912, 131072⟩, ⟨0x59b0, 0x80, 0xa0, 0x80000, 0x7000, 0x800⟩, imgs⟩
 structure Unchanged (imgs : Phase → Image) (Inv : BitVec 256 → Bytes 131072 → Message → MachineState → Prop) :
     Prop where
   front : ∀ sk cache m, ∃ s0, initialState (wsub imgs) .sign (sk, cache, m) = some s0 ∧
@@ -190,13 +184,8 @@ open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 def scfg : Config := {}
 def cbase (c : Nat) : Nat := fieldIdx.getD c 0
 def headLook (n : Nat) : Option (BitVec 32) := if 11003 ≤ n then headCode[n - 11003]? else none
-/-- Nested FTS (r1-1): the trampolines at 21450..21666. -/
-def trampLook (n : Nat) : Option (BitVec 32) := if 21450 ≤ n then signTramp[n - 21450]? else none
-/-- A coordinate's code window, falling through to the trampolines (nested FTS r1-1). -/
 def coordLook (c n : Nat) : Option (BitVec 32) :=
-  if cbase c ≤ n then
-    (match (coordCodes.getD c [])[n - cbase c]? with | some w => some w | none => trampLook n)
-  else none
+  if cbase c ≤ n then (coordCodes.getD c [])[n - cbase c]? else none
 def tailLook (n : Nat) : Option (BitVec 32) := if 20715 ≤ n then tailCode[n - 20715]? else none
 def hookLook (n : Nat) : Option (BitVec 32) :=
   if n = 153 then some hook153 else if n = 540 then some hook540 else if n = 545 then some 0x00000073 else none
@@ -249,7 +238,7 @@ theorem signNew_coord {c k : Nat} (hc : c < 9) {w : BitVec 32} (h : (coordCodes.
     exact getElem?_append_off headCode_length (getElem?_append_off coordCode0_length (getElem?_append_off coordCode1_length (getElem?_append_off coordCode2_length (getElem?_append_off coordCode3_length (getElem?_append_off coordCode4_length (getElem?_append_off coordCode5_length (getElem?_append_off coordCode6_length (getElem?_append_off coordCode7_length (getElem?_append_pre h)))))))))
 theorem newCode_word {im : Image} (h : NewCodeAt im) {k : Nat} {w : BitVec 32} (hk : signNew[k]? = some w) :
     im.code[11003 + k]? = some w := by
-  obtain ⟨rest, hrest⟩ := h.1
+  obtain ⟨rest, hrest⟩ := h
   have hlen : k < signNew.length := (List.getElem?_eq_some_iff.mp hk).1
   have h2 : (im.code.drop 11003)[k]? = some w := by
     rw [← hrest, List.getElem?_append_left hlen]; exact hk
@@ -264,29 +253,14 @@ theorem headLook_ok {im : Image} (h : NewCodeAt im) : LookOK im headLook := by
   · cases hw
 theorem cbase_ge (c : Nat) (hc : c < 9) : 11003 ≤ cbase c := by
   interval_cases c <;> decide +kernel
-theorem trampLook_ok {im : Image} (h : NewCodeAt im) : LookOK im trampLook := by
-  intro n w hw
-  obtain ⟨rest, hrest⟩ := h.2
-  unfold trampLook at hw
-  split at hw
-  · rename_i hle
-    have hlen : n - 21450 < signTramp.length := (List.getElem?_eq_some_iff.mp hw).1
-    have h2 : (im.code.drop 21450)[n - 21450]? = some w := by
-      rw [← hrest, List.getElem?_append_left hlen]; exact hw
-    rwa [List.getElem?_drop, Nat.add_sub_cancel' hle] at h2
-  · cases hw
 theorem coordLook_ok {im : Image} (h : NewCodeAt im) {c : Nat} (hc : c < 9) : LookOK im (coordLook c) := by
   intro n w hw
   unfold coordLook at hw
   split at hw
   · rename_i hle
-    split at hw
-    · rename_i w' hw'
-      cases hw
-      have := newCode_word h (signNew_coord hc hw')
-      have hb := cbase_ge c hc
-      rwa [show 11003 + (cbase c - 11003 + (n - cbase c)) = n by omega] at this
-    · exact trampLook_ok h n w hw
+    have := newCode_word h (signNew_coord hc hw)
+    have hb := cbase_ge c hc
+    rwa [show 11003 + (cbase c - 11003 + (n - cbase c)) = n by omega] at this
   · cases hw
 theorem tailLook_ok {im : Image} (h : NewCodeAt im) : LookOK im tailLook := by
   intro n w hw
@@ -304,16 +278,6 @@ theorem hookLook_ok {im : Image} (h : HooksAt im) : LookOK im hookLook := by
   · subst e1; cases hw; exact h1
   · subst e2; cases hw; exact h2
   · subst e3; cases hw; exact h3
-/-- The tail window falling through to the trampolines (nested FTS r1-1: the forest hash is replaced). -/
-def forLook (n : Nat) : Option (BitVec 32) := match tailLook n with | some w => some w | none => trampLook n
-theorem forLook_ok {im : Image} (h : NewCodeAt im) : LookOK im forLook := by
-  intro n w hw
-  unfold forLook at hw
-  split at hw
-  · rename_i w' hw'
-    cases hw
-    exact tailLook_ok h n _ hw'
-  · exact trampLook_ok h n w hw
 def h2Look (n : Nat) : Option (BitVec 32) := if 20813 ≤ n then h2SignTail[n - 20813]? else none
 /-- The record's tail window, then the H2 prepass: the path from the copy hook at 20730 runs through both. -/
 def cLook (n : Nat) : Option (BitVec 32) := match tailLook n with | some w => some w | none => h2Look n

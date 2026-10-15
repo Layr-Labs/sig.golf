@@ -1,3 +1,4 @@
+-- Import independent check batches here so Lake can build them in parallel.
 import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecksPart0
 import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecksPart1
 import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodChecksPart2
@@ -61,13 +62,28 @@ section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem fault_top_word (q : Nat) (hq : q<17) (h0 : q≠0) : (lcode (entOff q)).head?=some 0 := by
-  interval_cases q <;> first | contradiction | decide +kernel
-theorem fault_prefix_word : (lcode (entOff 0+1)).head?=some 0 := by decide +kernel
-theorem fault_top126_word (q : Nat) (hq : q<17) (h0 : q≠0) (he : 1024≤entOff q) :
-    (lcode (entOff q-1024)).head?=some 0 := by
-  interval_cases q <;> first | contradiction | (norm_num [entOff] at he; done) | decide +kernel
-theorem fault_prefix126_word : (lcode (entOff 0+1-1024)).head?=some 0 := by decide +kernel
+private theorem rejectBatch_part_0 : (List.range' 0 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_8 : (List.range' 8 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_16 : (List.range' 16 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_24 : (List.range' 24 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_32 : (List.range' 32 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_40 : (List.range' 40 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_48 : (List.range' 48 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_56 : (List.range' 56 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_64 : (List.range' 64 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_72 : (List.range' 72 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_80 : (List.range' 80 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_88 : (List.range' 88 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_96 : (List.range' 96 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_104 : (List.range' 104 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_112 : (List.range' 112 8).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch_part_120 : (List.range' 120 5).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by decide +kernel
+private theorem rejectBatch : (List.range' 0 125).all (fun k => rOK (vrun (guardW k) 1) rejJ) = true := by
+  exact (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 0 8 117 rejectBatch_part_0 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 8 8 109 rejectBatch_part_8 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 16 8 101 rejectBatch_part_16 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 24 8 93 rejectBatch_part_24 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 32 8 85 rejectBatch_part_32 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 40 8 77 rejectBatch_part_40 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 48 8 69 rejectBatch_part_48 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 56 8 61 rejectBatch_part_56 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 64 8 53 rejectBatch_part_64 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 72 8 45 rejectBatch_part_72 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 80 8 37 rejectBatch_part_80 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 88 8 29 rejectBatch_part_88 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 96 8 21 rejectBatch_part_96 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 104 8 13 rejectBatch_part_104 (@check_range_add (fun k => rOK (vrun (guardW k) 1) rejJ) 112 8 5 rejectBatch_part_112 rejectBatch_part_120)))))))))))))))
+theorem rejCheck_ok : rejCheck=true := by
+  unfold rejCheck
+  rw [List.range_eq_range']
+  exact rejectBatch
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
@@ -79,13 +95,12 @@ theorem tripleCheck_at (q : Nat) (hq : q<17) (hn : inl q=false) : tripleCheck q=
   interval_cases q
   all_goals first | (simp [inl] at hn) | skip
   exacts [tripleCheck_0, tripleCheck_1, tripleCheck_2, tripleCheck_3, tripleCheck_4, tripleCheck_5,
-    tripleCheck_6, tripleCheck_7, tripleCheck_8, tripleCheck_10, tripleCheck_11, tripleCheck_12]
+    tripleCheck_6, tripleCheck_7, tripleCheck_8, tripleCheck_9, tripleCheck_10, tripleCheck_11, tripleCheck_12]
 theorem inlineGroupCheck_at (q : Nat) (hq : inl q=true) :
     inlineGroupCheck q 0 25=true ∧ inlineGroupCheck q 25 25=true ∧ inlineGroupCheck q 50 25=true ∧
       inlineGroupCheck q 75 25=true ∧ inlineGroupCheck q 100 25=true := by
-  have h : q=9 ∨ q=13 ∨ q=14 ∨ q=15 ∨ q=16 := by simp [inl] at hq; omega
-  rcases h with rfl|rfl|rfl|rfl|rfl
-  · exact ⟨inlineGroupCheck_9_0,inlineGroupCheck_9_25,inlineGroupCheck_9_50,inlineGroupCheck_9_75,inlineGroupCheck_9_100⟩
+  have h : q=13 ∨ q=14 ∨ q=15 ∨ q=16 := by simp [inl] at hq; omega
+  rcases h with rfl|rfl|rfl|rfl
   · exact ⟨inlineGroupCheck_13_0,inlineGroupCheck_13_25,inlineGroupCheck_13_50,inlineGroupCheck_13_75,inlineGroupCheck_13_100⟩
   · exact ⟨inlineGroupCheck_14_0,inlineGroupCheck_14_25,inlineGroupCheck_14_50,inlineGroupCheck_14_75,
       inlineGroupCheck_14_100⟩
@@ -93,7 +108,7 @@ theorem inlineGroupCheck_at (q : Nat) (hq : inl q=true) :
       inlineGroupCheck_15_100⟩
   · exact ⟨inlineGroupCheck_16_0,inlineGroupCheck_16_25,inlineGroupCheck_16_50,inlineGroupCheck_16_75,
       inlineGroupCheck_16_100⟩
-theorem inlineCheck_static_at (q k : Nat) (hq : inl q=true) (hk : k<125) : inlineCheck q k=true := by
+theorem inlineCheck_at (q k : Nat) (hq : inl q=true) (hk : k<125) : inlineCheck q k=true := by
   obtain ⟨h0,h1,h2,h3,h4⟩ := inlineGroupCheck_at q hq
   have pick : ∀ lo, inlineGroupCheck q lo 25=true → lo ≤ k → k<lo+25 → inlineCheck q k=true := by
     intro lo h hl hh
@@ -111,22 +126,8 @@ theorem entCheck_at (q k : Nat) (hq : q<17) (hn : inl q=false) (hk : k<(mx q+1)^
   have h := tripleCheck_at q hq hn
   simp only [tripleCheck,Bool.and_eq_true] at h
   exact (Bool.and_eq_true _ _ |>.mp (List.all_eq_true.mp h.1 k (List.mem_range.mpr hk))).1
-theorem static_false_of_row_false (q k : Nat) (h : rowInl q k=false) : inl q=false := by
-  simp [rowInl, Bool.or_eq_false_iff] at h
-  exact h.1
-theorem rowInl_lt (q k : Nat) (h : rowInl q k=true) : q<17 := by
-  simp [rowInl, inl] at h
-  omega
-theorem inlineCheck_at (q k : Nat) (hq : rowInl q k=true) (hk : k<125) : inlineCheck q k=true := by
-  cases hn : inl q
-  · have hq17 := rowInl_lt q k hq
-    have h := entCheck_at q k hq17 hn (by simp [mx,hq17]; omega)
-    simpa only [entCheck,hq,if_true] using h
-  · exact inlineCheck_static_at q k hn hk
 theorem mx_inl (q : Nat) (hq : inl q=true) : mx q=4 := by
   simp [inl] at hq; unfold mx; rw [if_pos (by omega)]
-theorem mx_rowInl (q k : Nat) (hq : rowInl q k=true) : mx q=4 := by
-  exact if_pos (rowInl_lt q k hq)
 theorem s8Check_at (q k : Nat) (hq : q<17) (hk : k<(mx q+1)^3) : s8Check q k=true := by
   cases hn : inl q
   · have h := tripleCheck_at q hq hn
@@ -134,7 +135,7 @@ theorem s8Check_at (q k : Nat) (hq : q<17) (hk : k<(mx q+1)^3) : s8Check q k=tru
     exact (Bool.and_eq_true _ _ |>.mp (List.all_eq_true.mp h.1 k (List.mem_range.mpr hk))).2
   · have hm := mx_inl q hn
     rw [hm] at hk
-    have h := inlineCheck_static_at q k hn (by norm_num at hk; omega)
+    have h := inlineCheck_at q k hn (by norm_num at hk; omega)
     simp only [inlineCheck,Bool.and_eq_true] at h
     exact h.1.1.1.1
 theorem blockCheck_at (q dB dC : Nat) (hq : q<17) (hn : inl q=false) (hB : dB ≤ mx q) (hC : dC ≤ mx q) :
@@ -152,8 +153,12 @@ theorem blockCheck_at (q dB dC : Nat) (hq : q<17) (hn : inl q=false) (hB : dB �
     split_ifs at * <;> omega
   have hb := List.all_eq_true.mp h.2 ((mx q+1)*dB+dC) (List.mem_range.mpr hh)
   rwa [e1,e2] at hb
+theorem stub_at (k : Nat) (hk : k<125) : vrun (guardW k) 1=some rejJ := by
+  have h := rejCheck_ok
+  simp only [rejCheck] at h
+  exact rOK_eq (List.all_eq_true.mp h k (List.mem_range.mpr hk))
 theorem s8Run_at (q k : Nat) (hq : q<17) (hk : k<(mx q+1)^3) :
-    (if q=0 then rOK (vrun (entW 0 k) 1) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k)))=true := by
+    (if q=0 then rOK (vrun (entW 0 k) 3) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k)))=true := by
   have h := s8Check_at q k hq hk
   simp only [s8Check,Bool.and_eq_true] at h
   exact h.1

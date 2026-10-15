@@ -26,8 +26,8 @@ def width (_lay : Layer) (_i : Nat) : Nat := 3
 (51..53); every lower chain is radix 8. -/
 def maxDigit (lay : Layer) (i : Nat) : Nat :=
   if lay = 0 then (if i < 51 then 4 else 7) else 7
-/-- Digit-sum targets: top 145 (NF17), lower layers 201/202/202. -/
-def target (lay : Layer) : Nat := ![145, 201, 202, 202] lay
+/-- Digit-sum targets (campaign T8E): top 144 (NF17), lower layers 199/199/199. -/
+def target (lay : Layer) : Nat := ![144, 199, 199, 199] lay
 /-- Encoding values are below `2 ^ encodedBits lay`. Campaign T8D: the top encoding uses all 128 bits (the radix-8
 digits of chains 51/52 sit in bits 122..127), so there is no range bound on any layer. -/
 def encodedBits (_lay : Layer) : Nat := 128
@@ -152,17 +152,10 @@ def rowTweak (lay : Layer) (tree leaf : Nat) : BitVec 128 :=
   1#64 ++ hyperWord lay.val (tree * 2 ^ height lay + leaf)
 def ftsNodeWord (coord index : Nat) : BitVec 64 :=
   BitVec.ofNat 64 (1 + 6 * 2 ^ 8 + coord % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27)
-/-- Packed FTS node word (heaps `8..127`, the four lower child levels): the heap is folded into the low word
-(`ftsNodeWord - heap`, byte0 `257 - heap >= 130`, byte1 `5`), so the header is marked and its high word is
-ignored by `canonicalHeader` (honest value 0). -/
-def ftsNodeWordH (coord index heap : Nat) : BitVec 64 :=
-  BitVec.ofNat 64 (1537 - heap + coord % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27)
 def nodeTweak (tag lay tree heap : Nat) : BitVec 128 :=
   if tag = 3 ∧ lay < 4 then
     BitVec.ofNat 64 heap ++ (if lay = 0 then 64#64 else hyperWord (lay - 1) tree)
-  else if tag = 3 ∧ lay < 13 then
-    (if 8 ≤ heap ∧ heap < 128 then 0#64 ++ ftsNodeWordH (lay - 4) tree heap
-     else BitVec.ofNat 64 heap ++ ftsNodeWord (lay - 4) tree)
+  else if tag = 3 ∧ lay < 13 then BitVec.ofNat 64 heap ++ ftsNodeWord (lay - 4) tree
   else header tag lay tree 0 heap
 def leafInput (lay : Layer) (tree leaf : Nat) (ends : List Digest) : HashInput :=
   if lay = 0 then zero16 ++ bytesLE 16 (leafTweak lay tree leaf) ++ ends.flatMap (bytesLE 16)
@@ -294,9 +287,9 @@ def topCredit (value : Digest) : Nat :=
 def encCredit (lay : Layer) (value : Digest) : Nat := if lay = 0 then topCredit value else 0
 def searchDecode (lay : Layer) (value : Digest) : Option (List Nat) :=
   if encCredit lay value < creditFloor lay then none else decode lay value
-/-- Top digits signed when the top counter search is exhausted (campaign T8D, NF17 at target 145): 30 threes,
-21 twos, then radix-8 digits 4, 4, 5 (sum 145, no zero digit). -/
-def dummyTop : List Nat := List.replicate 30 3 ++ List.replicate 21 2 ++ [4,4,5]
+/-- Top digits signed when the top counter search is exhausted (campaign T8D, NF17 at target 144): 30 threes,
+21 twos, then 4 on the three radix-8 chains (sum 144, no zero digit). -/
+def dummyTop : List Nat := List.replicate 30 3 ++ List.replicate 21 2 ++ [4,4,4]
 def encodingInput (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : BitVec 32) : HashInput :=
   bytesLE 16 message ++ bytesLE 16 (rowTweak lay tree leaf) ++ bytesLE 4 counter
 def counterSearch (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : Nat) :

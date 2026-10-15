@@ -1,4 +1,3 @@
-import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsEncodingResample
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CanonEncoding
 import SigGolfCandidate.T3.Secc.LargeResidualT3
 import SigGolfCandidate.T3.Secc.WotsExtractWord
@@ -39,32 +38,26 @@ def endPoint (L : LeafPos) (i : Nat) : ChainGraph.Point :=
 def leafBlock (lay : Layer) (i : Nat) : Nat := if lay = 0 then i + 2 else listBlock i
 /-- Block of FTS end `t` in the padded FTS leaf `end0 | hdr | pad | end1..end5` (campaign T8). -/
 def ftsLeafSlot (t : Nat) : Nat := if t = 0 then 0 else t + 2
-/-- Pad source of FTS coordinate `coord` (nested FTS r1-1): top node `b` of coordinate `coord - 1`; none for
-coordinate 0, whose pads are the constant `ftsStart`. -/
-def prevTop (index : Fin (2^31)) (coord : Fin 9) (b : Fin 2) : Option Coord :=
-  if h : coord.val = 0 then none else some (.inl (.wctNode (ftsTopNode index ⟨coord.val - 1, by omega⟩ b)))
 def childSlots : CanonGraph.Node → List (Coord × Nat)
   | .chain p => [(chainChild p, 3)]
   | .leaf L => (List.range (chainCount L.1.lay)).map fun i => (.inl (.chain (endPoint L.1 i)), leafBlock L.1.lay i)
   | .node n => ((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val)).map (·, 0)).toList ++
       ((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val + 1)).map (·, 3)).toList
   | .wctChain p => [(wctItem p.1 p.2.val, 3)]
-  | .wctLeaf L => (List.ofFn fun t : Fin 6 => (wctItem (L.index, L.coord, L.child, t) 4, ftsLeafSlot t.val)) ++
-      ((prevTop L.index L.coord 0).map (·, 2)).toList
+  | .wctLeaf L => List.ofFn fun t : Fin 6 => (wctItem (L.index, L.coord, L.child, t) 4, ftsLeafSlot t.val)
   | .wctNode n => ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val)).map (·, 0)).toList ++
-      ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)).map (·, 3)).toList ++
-      (if n.1.level.val = 5 then ((prevTop n.1.index n.1.coord 1).map (·, 2)).toList else [])
+      ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)).map (·, 3)).toList
   | .forest index => (List.range 9).flatMap fun c =>
       [(.inl (.wctNode (ftsTopNode index (fin9 c) 0)), 2 + 2 * c), (.inl (.wctNode (ftsTopNode index (fin9 c) 1)), 3 + 2 * c)]
 noncomputable def honestValue (A : Answers) : Coord → Digest
-  | .inl N => N.toPos.proj (A (.inl (.inr (Extract.honestInput A N.toPos))))
+  | .inl N => (A (.inl (.inr (Extract.honestInput A N.toPos)))).extractLsb' 0 128
   | .inr s => seedView (secretsOf A) s
 inductive Known (D : Coord → Prop) : Coord → Prop
   | base {c : Coord} : D c → Known D c
   | node {N : CanonGraph.Node} : (∀ cs ∈ childSlots N, Known D cs.1) → Known D (.inl N)
 noncomputable def firstUnknown (K : Coord → Prop) (N : CanonGraph.Node) : Option (Coord × Nat) :=
   (childSlots N).find? fun cs => decide (¬K cs.1)
-def keygenCacheDisclosed : List Coord :=
+def keygenDisclosed : List Coord :=
   (List.range' 0 13).flatMap fun level =>
     (List.range (2 ^ (12 - level))).filterMap fun node => treeChild 0 0 level node
 def chainItem (L : LeafPos) (i d : Nat) : Coord :=
@@ -109,185 +102,24 @@ def msgSlots (L : EncLeaf) : List (Coord × Nat) :=
   if h : L.1.lay.val < 3 then
     [(.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 0)), 0),
       (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 1)), 3)]
-  else [(.inl (.wctNode (ftsTopNode (childIndex L) 8 0)), 0), (.inl (.wctNode (ftsTopNode (childIndex L) 8 1)), 3)]
-/-- The large-game simulator may reveal internal message roots for free. These
-coordinates contain neither WOTS chain values nor FTS chain values or seeds. -/
-noncomputable def encodingDisclosed : List Coord :=
-  (Finset.univ : Finset EncLeaf).toList.flatMap fun L => (msgSlots L).map Prod.fst
-
-noncomputable def keygenDisclosed : List Coord :=
-  keygenCacheDisclosed ++ encodingDisclosed
-
-attribute [local irreducible] Finset.univ
-
-theorem msgSlot_mem_keygen {L : EncLeaf} {cs : Coord × Nat} (hc : cs ∈ msgSlots L) :
-    cs.1 ∈ keygenDisclosed := by
-  apply List.mem_append_right keygenCacheDisclosed
-  exact List.mem_flatMap.mpr ⟨L, Finset.mem_toList.mpr (Finset.mem_univ _),
-    List.mem_map.mpr ⟨cs, hc, rfl⟩⟩
-
-theorem encodingDisclosed_shape {c : Coord} (hc : c ∈ encodingDisclosed) :
-    (∃ n, c = .inl (.node n)) ∨ ∃ n, c = .inl (.wctNode n) := by
-  unfold encodingDisclosed at hc
-  obtain ⟨L, _, hc⟩ := List.mem_flatMap.mp hc
-  obtain ⟨cs, hcs, rfl⟩ := List.mem_map.mp hc
-  unfold msgSlots at hcs
-  split_ifs at hcs
-  · simp only [List.mem_cons, List.not_mem_nil, or_false] at hcs
-    rcases hcs with rfl | rfl <;> exact Or.inl ⟨_, rfl⟩
-  · simp only [List.mem_cons, List.not_mem_nil, or_false] at hcs
-    rcases hcs with rfl | rfl <;> exact Or.inr ⟨_, rfl⟩
-
+  else [(.inl (.forest (childIndex L)), 0)]
 def msgVals (vals : Coord → Digest) (L : EncLeaf) : WCT9.LayerMsg :=
   if h : L.1.lay.val < 3 then
     .pair (vals (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 0))))
       (vals (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 1))))
-  else .pair (vals (.inl (.wctNode (ftsTopNode (childIndex L) 8 0))))
-    (vals (.inl (.wctNode (ftsTopNode (childIndex L) 8 1))))
+  else .forest (vals (.inl (.forest (childIndex L))))
 noncomputable def firstUnknownMsg (K : Coord → Prop) (L : EncLeaf) : Option (Coord × Nat) :=
   (msgSlots L).find? fun cs => decide (¬K cs.1)
 def StructuralContact (A : Answers) (K : Coord → Prop) (input : HashInput) (answer : HashOutput) : Prop :=
   ∃ N : CanonGraph.Node, Extract.posOf input = some N.toPos ∧
     ((∃ cs, firstUnknown K N = some cs ∧ slotValue input cs.2 = honestValue A cs.1) ∨
-      (input ≠ Extract.honestInput A N.toPos ∧ N.toPos.proj answer = honestValue A (.inl N)))
+      (input ≠ Extract.honestInput A N.toPos ∧ answer.extractLsb' 0 128 = honestValue A (.inl N)))
 def EncodingContact (A : Answers) (K : Coord → Prop) (input : HashInput) (answer : HashOutput) : Prop :=
   ∃ (L : EncLeaf) (m : WCT9.LayerMsg) (ctr : BitVec 32) (pad : Wots.RowPad), Extract.msgFits L.1.lay m ∧
     input = Wots.encRow L.toWots m ctr pad ∧
     ((∃ cs, firstUnknownMsg K L = some cs ∧ slotValue input cs.2 = honestValue A cs.1) ∨
       (Wots.referenceInput A L.toWots ≠ some input ∧
-        decode L.1.lay (WCT9.encodingAnswer L.1.lay answer) = some (Wots.referenceDigits A L.toWots)))
+        decode L.1.lay (answer.extractLsb' 0 128) = some (Wots.referenceDigits A L.toWots)))
 def ContactTest (A : Answers) (K : Coord → Prop) (input : HashInput) (answer : HashOutput) : Prop :=
   StructuralContact A K input answer ∨ EncodingContact A K input answer
 end ClaudeWCT.W9.T3.Security.LargeResidual
-
-namespace ClaudeWCT.W9.T3.Security.LargeResidual.Paired
-open OracleComp OracleSpec ENNReal
-open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open ClaudeWCT.W9.T3M
-open SigGolfCandidate.T3.Correctness (Answers)
-open ClaudeWCT.W9.T3.Security.CanonGraph
-open ClaudeWCT.W9.T3.Security.CanonEncoding
-open SigGolfCandidate.T3.Security.LargeResidual (slotValue)
-set_option maxHeartbeats 200000
-set_option maxRecDepth 10000
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance] Classical.propDecidable
-
-/-- Physical tree leaves retain their raw seed-family coordinates. -/
-def ftsChild (index : Fin (2^31)) (coord : Fin 9) (level physical : Nat) : Option Coord :=
- if level=0 then
-   if h:CanonGraph.Paired.rawLeaf coord.val physical<128 then
-     some (.inl (.wctLeaf ⟨index,coord,⟨CanonGraph.Paired.rawLeaf coord.val physical,h⟩⟩))
-   else none
- else (ftsNodeAt index coord (level-1) physical).map fun n => .inl (.wctNode n)
-
-/-- The exact branch-dependent L/R pad source. -/
-def padCoord (index : Fin (2^31)) (coord : Fin 9) (branch : Nat) (side : Fin 2) : Option Coord :=
- if h:coord.val=0 then none else
-   let previous : Fin 9 := ⟨coord.val-1,by have:=coord.isLt;omega⟩
-   if coord.val%2=1 then ftsChild index previous 5 (2*branch+side.val)
-   else ftsChild index previous 6 side.val
-
-def childSlots : CanonGraph.Node → List (Coord×Nat)
- | .wctLeaf L => (List.ofFn fun t:Fin 6 => (wctItem (L.index,L.coord,L.child,t) 4,ftsLeafSlot t.val)) ++
-   ((padCoord L.index L.coord (L.child.val%2) 0).map (·,2)).toList
- | .wctNode n => ((ftsChild n.1.index n.1.coord n.1.level.val (2*n.1.idx.val)).map (·,0)).toList ++
-   ((ftsChild n.1.index n.1.coord n.1.level.val (2*n.1.idx.val+1)).map (·,3)).toList ++
-   (if n.1.level.val=4 then ((padCoord n.1.index n.1.coord (n.1.idx.val/2) 1).map (·,2)).toList else [])
- | n => LargeResidual.childSlots n
-
-noncomputable def honestValue (A : Answers) : Coord → Digest
- | .inl n => Extract.Paired.proj n.toPos (A (.inl (.inr (Extract.Paired.honestInput A n.toPos))))
- | .inr s => seedView (secretsOf A) s
-
-inductive Known (D : Coord → Prop) : Coord → Prop
- | base {c : Coord} : D c → Known D c
- | node {n : CanonGraph.Node} : (∀cs∈childSlots n,Known D cs.1) → Known D (.inl n)
-
-noncomputable def firstUnknown (K : Coord → Prop) (n : CanonGraph.Node) : Option (Coord×Nat) :=
- (childSlots n).find? fun cs => decide (¬K cs.1)
-
-def StructuralContact (A : Answers) (K : Coord → Prop) (input : HashInput) (answer : HashOutput) : Prop :=
- ∃n:CanonGraph.Node, Extract.Paired.Bounded n.toPos ∧ Extract.posOf input=some n.toPos ∧
-   ((∃cs,firstUnknown K n=some cs ∧ slotValue input cs.2=honestValue A cs.1) ∨
-    (input≠Extract.Paired.honestInput A n.toPos ∧ Extract.Paired.proj n.toPos answer=honestValue A (.inl n)))
-
-def EncodingContact (A : Answers) (input : HashInput) (answer : HashOutput) : Prop :=
- ∃(L:EncLeaf)(m:WCT9.LayerMsg)(ctr:BitVec 32)(pad:Wots.RowPad),Extract.msgFits L.1.lay m ∧
-  input=Wots.encRow L.toWots m ctr pad ∧
-  Wots.CanonicalRef.referenceSearch A (Wots.CanonicalRef.sourceMessages A) L.toWots≠none ∧
-  Wots.CanonicalRef.referenceInput A (Wots.CanonicalRef.sourceMessages A) L.toWots≠some input ∧
-  WCT9.CanonicalPolicy.decode L.1.lay (WCT9.encodingAnswer L.1.lay answer)=
-    some (Wots.CanonicalRef.referenceDigits A (Wots.CanonicalRef.sourceMessages A) L.toWots)
-
-def ContactTest (A : Answers) (K : Coord→Prop) (input : HashInput) (answer : HashOutput) : Prop :=
- StructuralContact A K input answer ∨ EncodingContact A input answer
-
-theorem Known.mono {D D':Coord→Prop} (h:∀c,D c→D' c) {c:Coord} (hk:Known D c) : Known D' c := by
- induction hk with
- | base hc=>exact .base (h _ hc)
- | node _ ih=>exact .node ih
-
-theorem firstUnknown_single (K:Coord→Prop) (n:CanonGraph.Node) (c:Coord) (b:Nat)
- (h:childSlots n=[(c,b)]) (hk:¬K c) : firstUnknown K n= some (c,b) := by
- unfold firstUnknown
- rw [h]
- simp [hk]
-
-def Clear (A:Answers) (K:Coord→Prop) (X:HashInput) (y:HashOutput) : Prop :=
- (∀n:CanonGraph.Node,Extract.Paired.Bounded n.toPos→Extract.posOf X=some n.toPos→
-   ¬(X≠Extract.Paired.honestInput A n.toPos ∧ Extract.Paired.proj n.toPos y=honestValue A (.inl n))) ∧
- (∀n:CanonGraph.Node,Extract.Paired.Bounded n.toPos→Extract.posOf X=some n.toPos→∀c b,
-   childSlots n=[(c,b)]→slotValue X b=honestValue A c→K c) ∧
- ¬EncodingContact A X y
-
-theorem clear_of_not_contact {A:Answers}{K:Coord→Prop}{X:HashInput}{y:HashOutput}
- (h:¬ContactTest A K X y) : Clear A K X y := by
- refine ⟨fun n hn hp hh=>h (Or.inl ⟨n,hn,hp,Or.inr hh⟩),?_,fun he=>h (Or.inr he)⟩
- intro n hn hp c b hc hv
- by_contra hk
- exact h (Or.inl ⟨n,hn,hp,Or.inl ⟨(c,b),firstUnknown_single K n c b hc hk,hv⟩⟩)
-
-theorem Clear.mono {A:Answers}{K K':Coord→Prop}{X:HashInput}{y:HashOutput}
- (h:Clear A K X y) (hK:∀c,K c→K' c) : Clear A K' X y :=
- ⟨h.1,fun n hn hp c b hc hv=>hK c (h.2.1 n hn hp c b hc hv),h.2.2⟩
-#print axioms clear_of_not_contact
-end ClaudeWCT.W9.T3.Security.LargeResidual.Paired
-
-namespace ClaudeWCT.W9.T3.Security.LargeResidual.Paired
-open OracleComp OracleSpec ENNReal
-open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open SigGolfCandidate.T3.Correctness (Answers)
-open CanonGraph
-open SigGolfCandidate.Research.SharedForest
-set_option maxHeartbeats 200000
-set_option maxRecDepth 10000
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance] Classical.propDecidable
-noncomputable local instance : DecidableEq SigGolfCandidate.T3.Cache := Classical.decEq _
-
-def wctOpened (index : Fin (2^31)) (k : Fin 9) (output : HashOutput) : List Coord :=
- List.ofFn fun t : Fin 6 => wctItem (index,k,rawChildFromOutput output k,t)
-   (4-WCT9.wordDigit (forestRank output k.val) t)
-def wctPath (index : Fin (2^31)) (k : Fin 9) (output : HashOutput) : List Coord :=
- (List.range (if firstCoord k.val then 6 else 7)).filterMap fun l =>
-   ftsChild index k l ((physicalChildFromOutput output k).val/2^l ^^^ 1)
-def ftsItems (index : Fin (2^31)) (output : HashOutput) : List Coord :=
- (List.finRange 9).flatMap fun k => wctOpened index k output ++ wctPath index k output
-noncomputable def signItems (answers : Answers) (output : HashOutput) : List Coord :=
- ftsItems (digestIndex output) output ++ layerItems
-   (Wots.CanonicalRef.referenceDigits answers (Wots.CanonicalRef.sourceMessages answers)) (digestIndex output)
-def RouteOk (answers : Answers) (index : Nat) : Prop :=
- ∀lay : Layer,(Wots.CanonicalRef.referenceSearch answers (Wots.CanonicalRef.sourceMessages answers)
-   (SigGolfCandidate.T3.Security.LargeResidual.routeAddr index lay)).isSome
-noncomputable def signDigest (answers : Answers) (message : Message) : Option (BitVec 32×HashOutput) :=
- evalWithAnswerFn answers (sharedDigestSearch (evalWithAnswerFn answers (privateNonce message)) message 0
-   WCT9.digestAttemptLimit)
-noncomputable def signDisclosed (answers : Answers) (published : SigGolfCandidate.T3.Cache)
-    (request : SigGolfCandidate.T3.Security.Request) : List Coord :=
- if request.cache=published then
-   match signDigest answers request.message with
-   | some (_,output) => if RouteOk answers (WCT9.digestIndex output) then signItems answers output else []
-   | none => []
- else []
-end ClaudeWCT.W9.T3.Security.LargeResidual.Paired

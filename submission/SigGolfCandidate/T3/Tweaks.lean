@@ -65,47 +65,10 @@ theorem nodeTweak_top (tree heap : Nat) : nodeTweak 3 0 tree heap = BitVec.ofNat
 theorem nodeTweak_lower {lay : Nat} (h0 : lay ≠ 0) (h4 : lay < 4) (tree heap : Nat) :
     nodeTweak 3 lay tree heap = BitVec.ofNat 64 heap ++ hyperWord (lay - 1) tree := by
   simp [nodeTweak, h0, h4]
-def FtsNew (heap : Nat) : Prop := 8 ≤ heap ∧ heap < 128
-instance (heap : Nat) : Decidable (FtsNew heap) := inferInstanceAs (Decidable (8 ≤ heap ∧ heap < 128))
-theorem nodeTweak_fts {lay : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13) (tree : Nat) {heap : Nat} (hn : ¬ FtsNew heap) :
+theorem nodeTweak_fts {lay : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13) (tree heap : Nat) :
     nodeTweak 3 lay tree heap = BitVec.ofNat 64 heap ++ ftsNodeWord (lay - 4) tree := by
   unfold nodeTweak
-  rw [if_neg (show ¬ (3 = 3 ∧ lay < 4) by omega), if_pos (show (3 = 3 ∧ lay < 13) by omega), if_neg (show ¬ (8 ≤ heap ∧ heap < 128) from hn)]
-theorem nodeTweak_ftsN {lay : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13) (tree : Nat) {heap : Nat} (hn : FtsNew heap) :
-    nodeTweak 3 lay tree heap = 0#64 ++ ftsNodeWordH (lay - 4) tree heap := by
-  unfold nodeTweak
-  rw [if_neg (show ¬ (3 = 3 ∧ lay < 4) by omega), if_pos (show (3 = 3 ∧ lay < 13) by omega), if_pos (show (8 ≤ heap ∧ heap < 128) from hn)]
-theorem ftsNodeWordH_toNat (coord index heap : Nat) :
-    (ftsNodeWordH coord index heap).toNat = 1537 - heap + coord % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27 := by
-  unfold ftsNodeWordH
-  rw [BitVec.toNat_ofNat]
-  apply Nat.mod_eq_of_lt
-  have := Nat.mod_lt coord (show 0 < 16 by decide)
-  have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
-  omega
-theorem ftsNodeWordH_lt (coord index heap : Nat) : (ftsNodeWordH coord index heap).toNat < 2 ^ 58 := by
-  rw [ftsNodeWordH_toNat]
-  have := Nat.mod_lt coord (show 0 < 16 by decide)
-  have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
-  omega
-theorem ftsNodeWordH_marker {heap : Nat} (hn : FtsNew heap) (coord index : Nat) :
-    (ftsNodeWordH coord index heap).toNat % 256 = 257 - heap := by
-  obtain ⟨h8, h128⟩ := hn
-  rw [ftsNodeWordH_toNat]; omega
-theorem ftsNodeWordH_tag {heap : Nat} (hn : FtsNew heap) (coord index : Nat) :
-    (ftsNodeWordH coord index heap).toNat / 256 % 256 = 5 := by
-  obtain ⟨h8, h128⟩ := hn
-  rw [ftsNodeWordH_toNat]; omega
-theorem ftsNodeWordH_injective {coord index heap coord' index' heap' : Nat} (hc : coord < 16) (hi : index < 2 ^ 31)
-    (hn : FtsNew heap) (hc' : coord' < 16) (hi' : index' < 2 ^ 31) (hn' : FtsNew heap')
-    (h : ftsNodeWordH coord index heap = ftsNodeWordH coord' index' heap') :
-    coord = coord' ∧ index = index' ∧ heap = heap' := by
-  obtain ⟨h8, h128⟩ := hn
-  obtain ⟨h8', h128'⟩ := hn'
-  have hh := congrArg BitVec.toNat h
-  rw [ftsNodeWordH_toNat, ftsNodeWordH_toNat, Nat.mod_eq_of_lt hc, Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hc',
-    Nat.mod_eq_of_lt hi'] at hh
-  omega
+  rw [if_neg (show ¬ (3 = 3 ∧ lay < 4) by omega), if_pos (show (3 = 3 ∧ lay < 13) by omega)]
 theorem nodeTweak_other {tag lay : Nat} (h : ¬ (tag = 3 ∧ lay < 13)) (tree heap : Nat) :
     nodeTweak tag lay tree heap = header tag lay tree 0 heap := by
   unfold nodeTweak
@@ -130,50 +93,24 @@ theorem ftsNodeWord_injective {coord index coord' index' : Nat} (hc : coord < 16
     Nat.mod_eq_of_lt hi'] at hh
   omega
 theorem nodeTweak_fts_marker {lay : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13) (tree heap : Nat) :
-    tweakMarker (nodeTweak 3 lay tree heap) = if FtsNew heap then 257 - heap else 1 := by
-  by_cases hn : FtsNew heap
-  · rw [if_pos hn, nodeTweak_ftsN h4 h13 tree hn, append64_marker, ftsNodeWordH_marker hn]
-  · rw [if_neg hn, nodeTweak_fts h4 h13 tree hn, append64_marker, ftsNodeWord_marker]
+    tweakMarker (nodeTweak 3 lay tree heap) = 1 := by
+  rw [nodeTweak_fts h4 h13, append64_marker, ftsNodeWord_marker]
 theorem nodeTweak_fts_tag {lay : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13) (tree heap : Nat) :
-    tweakTag (nodeTweak 3 lay tree heap) = if FtsNew heap then 5 else 6 := by
-  by_cases hn : FtsNew heap
-  · rw [if_pos hn, nodeTweak_ftsN h4 h13 tree hn, append64_tag, ftsNodeWordH_tag hn]
-  · rw [if_neg hn, nodeTweak_fts h4 h13 tree hn, append64_tag, ftsNodeWord_tag]
-theorem nodeTweak_fts_tag_ne {lay : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13) (tree heap : Nat) {t : Nat}
-    (h5 : t ≠ 5) (h6 : t ≠ 6) : tweakTag (nodeTweak 3 lay tree heap) ≠ t := by
-  rw [nodeTweak_fts_tag h4 h13]; by_cases hn : FtsNew heap
-  · rw [if_pos hn]; omega
-  · rw [if_neg hn]; omega
-theorem nodeTweak_fts_marker_ne {lay : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13) (tree heap : Nat) {t : Nat}
-    (h1 : t ≠ 1) (h128 : t < 128) : tweakMarker (nodeTweak 3 lay tree heap) ≠ t := by
-  rw [nodeTweak_fts_marker h4 h13]; by_cases hn : FtsNew heap
-  · rw [if_pos hn]; obtain ⟨h8, h128'⟩ := hn; omega
-  · rw [if_neg hn]; omega
+    tweakTag (nodeTweak 3 lay tree heap) = 6 := by
+  rw [nodeTweak_fts h4 h13, append64_tag, ftsNodeWord_tag]
 theorem nodeTweak_fts_high {lay : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13) (tree heap : Nat) :
-    tweakHigh (nodeTweak 3 lay tree heap) = if FtsNew heap then 0 else heap % 2 ^ 64 := by
-  by_cases hn : FtsNew heap
-  · rw [if_pos hn, nodeTweak_ftsN h4 h13 tree hn, append64_high]; rfl
-  · rw [if_neg hn, nodeTweak_fts h4 h13 tree hn, append64_high, BitVec.toNat_ofNat]
+    tweakHigh (nodeTweak 3 lay tree heap) = heap % 2 ^ 64 := by
+  rw [nodeTweak_fts h4 h13, append64_high, BitVec.toNat_ofNat]
 theorem nodeTweak_fts_injective {lay lay' tree tree' heap heap' : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13)
     (h4' : 4 ≤ lay') (h13' : lay' < 13) (ht : tree < 2 ^ 31) (ht' : tree' < 2 ^ 31)
     (hh : heap < 2 ^ 64) (hh' : heap' < 2 ^ 64)
     (h : nodeTweak 3 lay tree heap = nodeTweak 3 lay' tree' heap') : lay = lay' ∧ tree = tree' ∧ heap = heap' := by
-  have hm := congrArg tweakMarker h
-  rw [nodeTweak_fts_marker h4 h13, nodeTweak_fts_marker h4' h13'] at hm
-  by_cases hn : FtsNew heap <;> by_cases hn' : FtsNew heap'
-  · rw [nodeTweak_ftsN h4 h13 tree hn, nodeTweak_ftsN h4' h13' tree' hn'] at h
-    obtain ⟨-, hw⟩ := append64_inj h
-    obtain ⟨hc, hi, he⟩ := ftsNodeWordH_injective (by omega) ht hn (by omega) ht' hn' hw
-    exact ⟨by omega, hi, he⟩
-  · rw [if_pos hn, if_neg hn'] at hm; obtain ⟨-, h128⟩ := hn; omega
-  · rw [if_neg hn, if_pos hn'] at hm; obtain ⟨-, h128⟩ := hn'; omega
-  · have hH := congrArg tweakHigh h
-    rw [nodeTweak_fts_high h4 h13, nodeTweak_fts_high h4' h13', if_neg hn, if_neg hn', Nat.mod_eq_of_lt hh,
-      Nat.mod_eq_of_lt hh'] at hH
-    rw [nodeTweak_fts h4 h13 tree hn, nodeTweak_fts h4' h13' tree' hn'] at h
-    obtain ⟨-, hw⟩ := append64_inj h
-    obtain ⟨hc, hi⟩ := ftsNodeWord_injective (by omega) ht (by omega) ht' hw
-    exact ⟨by omega, hi, hH⟩
+  have hH := congrArg tweakHigh h
+  rw [nodeTweak_fts_high h4 h13, nodeTweak_fts_high h4' h13', Nat.mod_eq_of_lt hh, Nat.mod_eq_of_lt hh'] at hH
+  rw [nodeTweak_fts h4 h13, nodeTweak_fts h4' h13'] at h
+  obtain ⟨-, hw⟩ := append64_inj h
+  obtain ⟨hc, hi⟩ := ftsNodeWord_injective (by omega) ht (by omega) ht' hw
+  exact ⟨by omega, hi, hH⟩
 theorem nodeTweak_top_marker (tree heap : Nat) : tweakMarker (nodeTweak 3 0 tree heap) = 64 := by
   rw [nodeTweak_top, append64_marker]; rfl
 theorem nodeTweak_top_tag (tree heap : Nat) : tweakTag (nodeTweak 3 0 tree heap) = 0 := by
@@ -331,39 +268,20 @@ theorem digestHeader_ne_rowTweak (counter : BitVec 32) (lay : Layer) (tree leaf 
     digestHeader counter ≠ rowTweak lay tree leaf :=
   ne_of_tweakMarker (by rw [digestHeader_marker, rowTweak_marker]; decide)
 theorem nodeTweak_marker (tag lay tree heap : Nat) :
-    tweakMarker (nodeTweak tag lay tree heap) = (if tag = 3 ∧ lay = 0 then 64
-      else if tag = 3 ∧ 4 ≤ lay ∧ lay < 13 ∧ FtsNew heap then 257 - heap else 1) := by
+    tweakMarker (nodeTweak tag lay tree heap) = (if tag = 3 ∧ lay = 0 then 64 else 1) := by
   by_cases h : tag = 3 ∧ lay < 4
   · obtain ⟨rfl, h4⟩ := h
     by_cases h0 : lay = 0
     · subst h0; rw [nodeTweak_top_marker]; simp
-    · rw [nodeTweak_lower_marker h0 h4, if_neg (by omega), if_neg (by omega)]
+    · rw [nodeTweak_lower_marker h0 h4]; simp [h0]
   · by_cases hf : tag = 3 ∧ lay < 13
     · obtain ⟨rfl, h13⟩ := hf
-      rw [nodeTweak_fts_marker (by omega) h13, if_neg (show ¬ (3 = 3 ∧ lay = 0) by omega)]
-      by_cases hn : FtsNew heap
-      · rw [if_pos hn, if_pos ⟨rfl, by omega, h13, hn⟩]
-      · rw [if_neg hn, if_neg (fun h' => hn h'.2.2.2)]
+      rw [nodeTweak_fts_marker (by omega) h13]; simp; omega
     · rw [nodeTweak_other hf, header_marker]
       have : ¬ (tag = 3 ∧ lay = 0) := fun h' => h ⟨h'.1, by omega⟩
-      have h2 : ¬ (tag = 3 ∧ 4 ≤ lay ∧ lay < 13 ∧ FtsNew heap) := fun h' => hf ⟨h'.1, h'.2.2.1⟩
-      rw [if_neg this, if_neg h2]
-theorem nodeTweak_probe_safe (tag lay tree heap : Nat) :
-    (nodeTweak tag lay tree heap).toNat % 256 < 128 ∨ 4 ≤ (nodeTweak tag lay tree heap).toNat / 256 % 256 := by
-  by_cases hf : tag = 3 ∧ 4 ≤ lay ∧ lay < 13 ∧ FtsNew heap
-  · obtain ⟨rfl, h4, h13, hn⟩ := hf
-    right
-    have := nodeTweak_fts_tag h4 h13 tree heap
-    rw [if_pos hn] at this
-    unfold tweakTag at this
-    omega
-  · left
-    have := nodeTweak_marker tag lay tree heap
-    unfold tweakMarker at this
-    rw [this]
-    split_ifs <;> first | decide | (exfalso; exact hf ‹_›)
+      simp [this]
 theorem nodeTweak_marker_ne_zero (tag lay tree heap : Nat) : tweakMarker (nodeTweak tag lay tree heap) ≠ 0 := by
-  rw [nodeTweak_marker]; unfold FtsNew; split_ifs with h1 h2 <;> omega
+  rw [nodeTweak_marker]; split_ifs <;> decide
 theorem digestHeader_ne_nodeTweak (counter : BitVec 32) (tag lay tree heap : Nat) :
     digestHeader counter ≠ nodeTweak tag lay tree heap :=
   ne_of_tweakMarker (by rw [digestHeader_marker]; exact (nodeTweak_marker_ne_zero tag lay tree heap).symm)
@@ -371,20 +289,18 @@ theorem nodeTweak_fts_ne_hyper {lay lay' : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13
     (tree heap tree' heap' : Nat) : nodeTweak 3 lay tree heap ≠ nodeTweak 3 lay' tree' heap' := by
   by_cases h0 : lay' = 0
   · subst h0
-    exact ne_of_tweakMarker (by rw [nodeTweak_top_marker]; exact nodeTweak_fts_marker_ne h4 h13 _ _ (by decide) (by decide))
-  · exact ne_of_tweakTag (by rw [nodeTweak_lower_tag h0 hl']; exact nodeTweak_fts_tag_ne h4 h13 _ _ (by decide) (by decide))
+    exact ne_of_tweakMarker (by rw [nodeTweak_fts_marker h4 h13, nodeTweak_top_marker]; decide)
+  · exact ne_of_tweakTag (by rw [nodeTweak_fts_tag h4 h13, nodeTweak_lower_tag h0 hl']; decide)
 theorem nodeTweak_fts_ne_leafTweak {lay : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13) (tree heap : Nat)
     (lay' : Layer) (tree' leaf' : Nat) : nodeTweak 3 lay tree heap ≠ leafTweak lay' tree' leaf' :=
-  ne_of_tweakTag (by rw [leafTweak_tag]; exact nodeTweak_fts_tag_ne h4 h13 _ _ (by decide) (by decide))
+  ne_of_tweakTag (by rw [nodeTweak_fts_tag h4 h13, leafTweak_tag]; decide)
 theorem nodeTweak_fts_ne_rowTweak {lay : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13) (tree heap : Nat)
     (lay' : Layer) (tree' leaf' : Nat) : nodeTweak 3 lay tree heap ≠ rowTweak lay' tree' leaf' :=
-  ne_of_tweakTag (by rw [rowTweak_tag]; exact nodeTweak_fts_tag_ne h4 h13 _ _ (by decide) (by decide))
+  ne_of_tweakTag (by rw [nodeTweak_fts_tag h4 h13, rowTweak_tag]; decide)
 theorem nodeTweak_fts_ne_header {lay : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13) (tree heap : Nat) {tag : Nat}
     (ht : tag % 256 ≠ 6) (lay' tree' position index : Nat) :
-    nodeTweak 3 lay tree heap ≠ header tag lay' tree' position index := by
-  by_cases hn : FtsNew heap
-  · exact ne_of_tweakMarker (by rw [header_marker, nodeTweak_fts_marker h4 h13, if_pos hn]; obtain ⟨-, h⟩ := hn; omega)
-  · exact ne_of_tweakTag (by rw [nodeTweak_fts_tag h4 h13, if_neg hn, header_tag]; omega)
+    nodeTweak 3 lay tree heap ≠ header tag lay' tree' position index :=
+  ne_of_tweakTag (by rw [nodeTweak_fts_tag h4 h13, header_tag]; omega)
 theorem leafInput_length (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     (leafInput lay tree leaf ends).length =
       if lay = 0 then 32 + 16 * ends.length else 32 + 16 * (ends.length - 1) := by

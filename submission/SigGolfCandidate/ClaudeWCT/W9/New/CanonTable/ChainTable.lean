@@ -44,7 +44,7 @@ theorem decodeProbe_none {x : HashInput} (h : Guess.decodeProbe x = none) (a : W
   rw [hx, decodeProbe_probe] at h
   cases h
 theorem probeInput_mem (a : WctAddr) (p : Fin 4) (c : Digest) : Guess.probeInput a p c ∈ canonInputs := by
-  obtain ⟨K, hK⟩ := ClaudeWCT.Arith.familyEval_surjective (n := 54) (t := 1) (by decide)
+  obtain ⟨K, hK⟩ := ClaudeWCT.Arith.familyEval_surjective (n := 102) (t := 1) (by decide)
     (fun _ => WCT9.ftsPoint a.2.2.1.val a.2.2.2.val) (fun i j _ => Subsingleton.elim i j)
     (fun _ => Guess.Fam.ftsPoint_lt a.2.2.1 a.2.2.2) (fun _ => c)
   have hK0 := congrFun hK 0
@@ -88,17 +88,9 @@ theorem ftsLabel_outer (left right : Labels) (h : ∀ node, ¬Hidden node → le
   split_ifs with hzero hc
   · rw [hn _ (fun _ => Node.noConfusion)]
   · rfl
-  all_goals
-    cases ftsNodeAt index coord (level - 1) c with
+  · cases ftsNodeAt index coord (level - 1) c with
     | none => rfl
     | some n => simp only; rw [hn _ (fun _ => Node.noConfusion)]
-theorem ftsPrevLabel_outer (left right : Labels) (h : ∀ node, ¬Hidden node → left node = right node)
-    (index : Fin (2^31)) (coord : Fin 9) :
-    ftsPrevLabel left index coord = ftsPrevLabel right index coord := by
-  unfold ftsPrevLabel
-  split_ifs
-  · rfl
-  · rw [ftsLabel_outer left right h, ftsLabel_outer left right h]
 theorem cell_outer (secrets secrets' : Secrets) (labels labels' : Labels)
     (hs : ∀ a, secrets (.inl a) = secrets' (.inl a)) (hl : ∀ node, ¬Hidden node → labels node = labels' node)
     (node : Node) (hnode : ∀ q, node ≠ .wctChain q) :
@@ -137,9 +129,9 @@ theorem cell_outer (secrets secrets' : Secrets) (labels labels' : Labels)
           simp only [Node.wctChain.injEq, Prod.mk.injEq] at he
           obtain ⟨-, rfl⟩ := he
           exact absurd hq (by decide))]
-      simp only [cell, hends, ftsPrevLabel_outer labels labels' hl]
+      simp only [cell, hends]
   | wctNode n =>
-      simp only [cell, ftsLabel_outer labels labels' hl, ftsPrevLabel_outer labels labels' hl]
+      simp only [cell, ftsLabel_outer labels labels' hl]
   | forest index =>
       simp only [cell, ftsLabel_outer labels labels' hl]
 def stepNode (c : WctAddr × Fin 3) : Node := .wctChain (c.1, ⟨c.2.val, by omega⟩)
@@ -190,7 +182,6 @@ theorem worldLabels_step (ω : Omega U) (g12 : Guess.Fam.LabelIdx → Digest) (a
   have hs : stepNode (a, ⟨q.val, hq⟩) = .wctChain (a, q) := rfl
   unfold worldLabels joinLabels worldLow
   rw [← hs, stepNode_injective.extend_apply]
-  rfl
 theorem worldLabels_outer (ω : Omega U) (g12 : Guess.Fam.LabelIdx → Digest) (node : Node) (hnode : ¬Hidden node) :
     worldLabels ω g12 node = joinLabels ω.low ω.high node := by
   unfold worldLabels joinLabels worldLow

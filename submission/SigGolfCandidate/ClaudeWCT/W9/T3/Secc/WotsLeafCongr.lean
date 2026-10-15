@@ -225,9 +225,9 @@ theorem wotsTree_lay {lay : Layer} (hl : lay ≠ L.lay) (tree : Nat) :
   rw [List.map_congr_left (fun leaf hleaf => wotsRoot_out hC hLleaf
     (by have := List.mem_range.mp hleaf; have := height_pow_le lay; omega) (fun h => hl h.1))]
   exact eval_out hC (respectsL_buildLevels L 3 _ _ _ _ (by decide))
-theorem honestForest_out (index : Nat) : Extract.honestTop T' index = Extract.honestTop T index := by
-  rw [Extract.honestTop_eq_wct9, Extract.honestTop_eq_wct9]
-  exact ClaudeWCT.WCT9.Wots.honestTop_congr (fun _ hq => hC.out _ (leafOut_ftsQuery L hq))
+theorem honestForest_out (index : Nat) : Extract.honestForest T' index = Extract.honestForest T index := by
+  rw [Extract.honestForest_eq_wct9, Extract.honestForest_eq_wct9]
+  exact ClaudeWCT.WCT9.Wots.honestForest_congr (fun _ hq => hC.out _ (leafOut_ftsQuery L hq))
 include hLleaf in
 /-- Messages of leaves on `L`'s layer come from the layer above (or the forest), which `L` does not touch. -/
 theorem leafMsg_lay {K : LeafAddr} (hK : K.lay = L.lay) : leafMsg T' K = leafMsg T K := by
@@ -515,7 +515,7 @@ theorem eval_signPayload_leaf (hLtree : L.tree < 2 ^ 40) (cache : Cache) (messag
     refine eval_bind_of (eval_signLayers_leaf hC hLleaf hLtree cache _ (WCT9.digestIndex_lt _) 4
       le_rfl _ (fun m hm => ?_)) ?_
     · obtain rfl : m = 3 := by omega
-      rw [← Extract.honestTop_eq_wct9]
+      rw [← Extract.honestForest_eq_wct9]
       exact ClaudeWCT.W9.T3.Security.Wots.Mask.signedMsg_top T _ (WCT9.digestIndex_lt _)
     · generalize evalWithAnswerFn T (WCT9.signLayersBC cache (WCT9.digestIndex output) 4 _) = pieces
       rcases pieces with _ | pieces <;> rfl
@@ -539,10 +539,10 @@ theorem count_signPayload_leaf (hLtree : L.tree < 2 ^ 40) (cache : Cache) (messa
       (by rw [queried_out hC.toLeafAgree (respectsL_signForest L _ _)]) ?_
     rw [ClaudeWCT.WCT9.eval_signForest]
     dsimp only
-    have hmsg : ∀ m, 4 = m + 1 → WCT9.LayerMsg.pair (ClaudeWCT.WCT9.honestTop T (WCT9.digestIndex output)).1 (ClaudeWCT.WCT9.honestTop T (WCT9.digestIndex output)).2 =
+    have hmsg : ∀ m, 4 = m + 1 → WCT9.LayerMsg.forest (ClaudeWCT.WCT9.honestForest T (WCT9.digestIndex output)) =
         leafMsg T (routeLeaf (WCT9.digestIndex output) (Fin.ofNat 4 m)) := fun m hm => by
       obtain rfl : m = 3 := by omega
-      rw [← Extract.honestTop_eq_wct9]
+      rw [← Extract.honestForest_eq_wct9]
       exact ClaudeWCT.W9.T3.Security.Wots.Mask.signedMsg_top T _ (WCT9.digestIndex_lt _)
     refine count_bind_of (eval_signLayers_leaf hC hLleaf hLtree cache _ (WCT9.digestIndex_lt _)
       4 le_rfl _ hmsg) (count_signLayers_leaf hC hLleaf hLtree cache _ (WCT9.digestIndex_lt _) 4
@@ -610,102 +610,3 @@ theorem referenceGame_leaf (hLtree : L.tree < 2 ^ 40) (adversary : Final.Adversa
 end Congr
 end Leaf
 end ClaudeWCT.W9.T3.Security.Wots
-
-namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Leaf
-open OracleComp OracleSpec ENNReal
-open SigGolfCandidate.T3 SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
-open SigGolfCandidate.T3.Correctness (Answers)
-open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
-open ClaudeWCT.W9.T3M SigGolfCandidate.Research.SharedForest
-open SigGolfCandidate.T3.Security.Wots.Mask ClaudeWCT.W9.T3.Security.Wots.Mask
-open ClaudeWCT.W9.T3.Security.Wots.Leaf
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 10000
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance] Classical.propDecidable
-
-structure Congr (messages : LeafAddr → WCT9.LayerMsg) (L : LeafAddr) (T T' : Answers) : Prop
-    extends LeafAgree L T T' where
-  rows : ∀ c, c < chainCount L.lay → ∀ s v, CanonicalRef.depth T messages ⟨L, c⟩ ≤ s → s < 256 →
-    T' (.inl (.inr (chainRow ⟨L,c⟩ s v)))=T (.inl (.inr (chainRow ⟨L,c⟩ s v)))
-  front : ∀ c, c < chainCount L.lay →
-    CanonicalRef.frontierValue T' messages ⟨L,c⟩=CanonicalRef.frontierValue T messages ⟨L,c⟩
-
-variable {messages : LeafAddr → WCT9.LayerMsg} {L : LeafAddr} {T T' : Answers}
-
-theorem searchOf_congr (hC : LeafAgree L T T') (K : LeafAddr) (remaining : Nat) :
-    CanonicalRef.searchOf T' messages K remaining=CanonicalRef.searchOf T messages K remaining := by
-  unfold CanonicalRef.searchOf
-  exact eval_out hC (respects_leafOut (fun a => CanonicalRef.Mask.respects_layerCounterSearchAt a _ _ _ _ _ _ _) L)
-
-theorem referenceSearch_congr (hC : LeafAgree L T T') (K : LeafAddr) :
-    CanonicalRef.referenceSearch T' messages K=CanonicalRef.referenceSearch T messages K :=
-  CanonicalRef.referenceSearch_congr (fun K r _ => searchOf_congr hC K r) K
-
-theorem depth_congr (hC : LeafAgree L T T') (a : ChainAddr) :
-    CanonicalRef.depth T' messages a=CanonicalRef.depth T messages a := by
-  unfold CanonicalRef.depth CanonicalRef.referenceDigits
-  rw [referenceSearch_congr hC]
-
-section Congr
-variable (hC : Congr messages L T T') (hLleaf : L.leaf < 2^24)
-include hC
-include hLleaf in
-/-- `L`'s own chains: from the frontier on, the rows agree. -/
-theorem eval_chainL {c count : Nat} (hc : c < chainCount L.lay) (hd : CanonicalRef.depth T messages ⟨L, c⟩ ≤ count) (hcount : count ≤ 256) :
-    evalWithAnswerFn T' (chain L.lay L.tree L.leaf c 0 count (WCT9.wotsSeed T' L.lay L.tree L.leaf c)) =
-      evalWithAnswerFn T (chain L.lay L.tree L.leaf c 0 count (WCT9.wotsSeed T L.lay L.tree L.leaf c)) := by
-  obtain ⟨e, rfl⟩ : ∃ e, count = CanonicalRef.depth T messages ⟨L, c⟩ + e := ⟨count - CanonicalRef.depth T messages ⟨L, c⟩, by omega⟩
-  have hd' : CanonicalRef.depth T' messages ⟨L, c⟩ = CanonicalRef.depth T messages ⟨L, c⟩ := depth_congr hC.toLeafAgree ⟨L, c⟩
-  rw [Correctness.eval_chain_add, Correctness.eval_chain_add T, Nat.zero_add]
-  have hf := hC.front c hc
-  unfold CanonicalRef.frontierValue honestChainValue at hf
-  simp only at hf
-  rw [hd'] at hf
-  rw [hf]
-  refine Respects.eval_eq (S := fun q => T' q = T q) ?_ (fun q hq => hq)
-  unfold chain
-  refine Respects.foldlM _ _ (fun step hstep value => Respects.shortHash _ ?_) _
-  rw [pad64_chainInput]
-  obtain ⟨hlo, hhi⟩ := List.mem_range'_1.mp hstep
-  exact hC.rows c hc step value hlo (by omega)
-include hLleaf in
-theorem wotsEnd_congr {lay : Layer} {tree leaf : Nat} (hleaf : leaf < 2 ^ 24) (i : Nat) (hi : i < chainCount lay) :
-    WCT9.wotsEnd T' lay tree leaf i = WCT9.wotsEnd T lay tree leaf i := by
-  by_cases hal : LeafAlias lay tree leaf L
-  · have hb : lay = 0 ∨ (leaf < 2 ^ 24 ∧ L.leaf < 2 ^ 24) := Or.inr ⟨hleaf, hLleaf⟩
-    have hi' : i < chainCount L.lay := hal.1 ▸ hi
-    unfold WCT9.wotsEnd
-    rw [chain_alias hal, wotsSeed_alias T' hal hb, wotsSeed_alias T hal hb, hal.1]
-    exact eval_chainL hC hLleaf hi' (CanonicalRef.depth_le T messages ⟨L, i⟩ hi') (by have := width_le L.lay i; omega)
-  · exact wotsEnd_out hC.toLeafAgree hLleaf hleaf hal i hi
-include hLleaf in
-theorem wotsValue_congr {lay : Layer} {tree leaf : Nat} (hleaf : leaf < 2 ^ 24) (digits : List Nat) (i : Nat)
-    (hi : i < chainCount lay) (hdig : digits.getD i 0 ≤ 256)
-    (halias : LeafAlias lay tree leaf L → CanonicalRef.depth T messages ⟨L, i⟩ ≤ digits.getD i 0) :
-    WCT9.wotsValue T' lay tree leaf digits i = WCT9.wotsValue T lay tree leaf digits i := by
-  by_cases hal : LeafAlias lay tree leaf L
-  · have hb : lay = 0 ∨ (leaf < 2 ^ 24 ∧ L.leaf < 2 ^ 24) := Or.inr ⟨hleaf, hLleaf⟩
-    have hi' : i < chainCount L.lay := hal.1 ▸ hi
-    unfold WCT9.wotsValue
-    rw [chain_alias hal, wotsSeed_alias T' hal hb, wotsSeed_alias T hal hb]
-    exact eval_chainL hC hLleaf hi' (halias hal) hdig
-  · unfold WCT9.wotsValue
-    rw [wotsSeed_out hC.toLeafAgree hLleaf hleaf hal]
-    exact eval_chain_out hC.toLeafAgree (by have := chainCount_le lay; simp only [Nat.reducePow]; omega)
-      (fun h => hal h.1) (by omega) _
-include hLleaf in
-theorem wotsRoot_congr {lay : Layer} {tree leaf : Nat} (hleaf : leaf < 2 ^ 24) :
-    WCT9.wotsRoot T' lay tree leaf = WCT9.wotsRoot T lay tree leaf := by
-  unfold WCT9.wotsRoot
-  rw [List.map_congr_left (fun i hi => wotsEnd_congr hC hLleaf hleaf i (List.mem_range.mp hi))]
-  exact eval_out hC.toLeafAgree (respectsL_leafHash L _ _ _ _)
-include hLleaf in
-theorem wotsTree_congr (lay : Layer) (tree : Nat) : WCT9.wotsTree T' lay tree = WCT9.wotsTree T lay tree := by
-  unfold WCT9.wotsTree
-  rw [List.map_congr_left (fun leaf hleaf => wotsRoot_congr hC hLleaf
-    (by have := List.mem_range.mp hleaf; have := height_pow_le lay; omega))]
-  exact eval_out hC.toLeafAgree (respectsL_buildLevels L 3 _ _ _ _ (by decide))
-
-end Congr
-end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Leaf

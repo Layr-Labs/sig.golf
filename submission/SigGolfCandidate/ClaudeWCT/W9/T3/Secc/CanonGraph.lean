@@ -68,11 +68,11 @@ def Node.depth : Node → Nat
   | .leaf _ => 7
   | .node n => 8 + n.1.level.val
   | .wctChain p => p.2.val
-  | .wctLeaf L => 4 + 7 * L.coord.val
-  | .wctNode n => 5 + 7 * n.1.coord.val + n.1.level.val
-  | .forest _ => 70
-/-- Coefficient index of the FTS seed families (campaign X1, stage A): `(index, coord, j)`, `j < 54`. -/
-abbrev WctCoef := Fin (2 ^ 31) × Fin 9 × Fin 54
+  | .wctLeaf _ => 4
+  | .wctNode n => 5 + n.1.level.val
+  | .forest _ => 11
+/-- Coefficient index of the FTS seed families (campaign X1, stage A): `(index, coord, j)`, `j < 102`. -/
+abbrev WctCoef := Fin (2 ^ 31) × Fin 9 × Fin 102
 /-- Hidden secrets: leaf-family coefficients (by address: an address with chain `j < famCount layer` is coefficient
 `j` of its leaf, campaign X1 stage B for lower leaves, campaign T8D for top leaves) and FTS family coefficients. WOTS and
 FTS seeds are not secrets themselves but evaluations (`seedsOf`, `wctSeedsOf`) of the coefficient families. -/
@@ -91,7 +91,7 @@ def leafFamily (secrets : Secrets) (lay : Layer) (tree : Fin (2 ^ 31)) (leaf : F
 def seedsOf (secrets : Secrets) : Seeds := fun a =>
   ClaudeWCT.Arith.familyEval (List.ofFn (leafFamily secrets a.layer a.tree a.leaf)) (a.chain.val + 1)
 /-- The coefficient family of FTS coordinate `(index, coord)`. -/
-def wctFamily (secrets : Secrets) (index : Fin (2 ^ 31)) (coord : Fin 9) : Fin 54 → Digest :=
+def wctFamily (secrets : Secrets) (index : Fin (2 ^ 31)) (coord : Fin 9) : Fin 102 → Digest :=
   fun j => secrets (.inr (index, coord, j))
 /-- FTS seed of chain `a`: its family evaluated at `ftsPoint child chain` in GF(2^128). -/
 def wctSeedsOf (secrets : Secrets) : WctAddr → Digest := fun a =>
@@ -138,18 +138,13 @@ def ftsNodeAt (index : Fin (2^31)) (coord : Fin 9) (level c : Nat) : Option WctN
       calc 2 ^ (7 - level - 1) ≤ 2 ^ 6 := Nat.pow_le_pow_right (by decide) (by omega)
         _ = 64 := by norm_num)⟩⟩, h.2⟩
   else none
-/-- FTS tree value from labels. The top values (level 6, nested FTS r1-1) are the high half of their label. -/
 def ftsLabel (labels : Labels) (index : Fin (2^31)) (coord : Fin 9) (level c : Nat) : Digest :=
   if level = 0 then
     (if h : c < 128 then (labels (.wctLeaf ⟨index, coord, ⟨c, h⟩⟩)).extractLsb' 0 128 else 0)
   else
     match ftsNodeAt index coord (level - 1) c with
-    | some n => if level = 6 then (labels (.wctNode n)).extractLsb' 128 128 else (labels (.wctNode n)).extractLsb' 0 128
+    | some n => (labels (.wctNode n)).extractLsb' 0 128
     | none => 0
-/-- Pads of coordinate `coord` (nested FTS r1-1): the previous coordinate's top pair, `(0, 0)` for coordinate 0. -/
-def ftsPrevLabel (labels : Labels) (index : Fin (2^31)) (coord : Fin 9) : Digest × Digest :=
-  if h : coord.val = 0 then (0, 0) else
-    (ftsLabel labels index ⟨coord.val - 1, by omega⟩ 6 0, ftsLabel labels index ⟨coord.val - 1, by omega⟩ 6 1)
 def cell (secrets : Secrets) : Node → Labels → HashInput
   | .chain p, labels => ChainGraph.input (seedsOf secrets) p (chainLabels labels)
   | .leaf L, labels => pad64 (Extract.leafInput L.1.lay L.1.tree.val L.1.leaf.val
@@ -160,13 +155,11 @@ def cell (secrets : Secrets) : Node → Labels → HashInput
       (treeLabel labels n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val + 1)))
   | .wctChain p, labels => WCT9.chainInput p.1.1.val p.1.2.1.val p.1.2.2.1.val p.1.2.2.2.val p.2.val
       (wctValueL secrets labels p.1 p.2.val)
-  | .wctLeaf L, labels => pad64 (Extract.wctLeafInputP L.index.val L.coord.val L.child.val
-      (ftsPrevLabel labels L.index L.coord).1
+  | .wctLeaf L, labels => pad64 (Extract.wctLeafInput L.index.val L.coord.val L.child.val
       (List.ofFn fun t : Fin 6 => wctEndLabel labels (L.index, L.coord, L.child, t)))
   | .wctNode n, labels => pad64 (nodeInputP 3 (WCT9.nodeLayer n.1.coord.val) n.1.index.val
       (2 ^ (7 - n.1.level.val - 1) + n.1.idx.val)
-      (ftsLabel labels n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val))
-      (if n.1.level.val = 5 then (ftsPrevLabel labels n.1.index n.1.coord).2 else 0)
+      (ftsLabel labels n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val)) 0
       (ftsLabel labels n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)))
   | .forest index, labels => pad64 (Extract.forestInput index.val
       ((List.range 9).map fun coord => (ftsLabel labels index (fin9 coord) 6 0, ftsLabel labels index (fin9 coord) 6 1)))
@@ -326,7 +319,7 @@ theorem hdrBlock_cell (secrets : Secrets) (node : Node) (labels : Labels) :
       rfl
   | wctLeaf L =>
       simp only [cell]
-      rw [Extract.hdrBlock_wctLeafInputP]
+      rw [Extract.hdrBlock_wctLeafInput]
       rfl
   | wctNode n =>
       simp only [cell]
@@ -370,38 +363,18 @@ theorem treeLabel_congr (left right : Labels) (lay : Layer) (tree : Fin (2^31)) 
     | some n =>
         simp only
         rw [h _ (by simp only [Node.depth]; rw [treeNodeAt_level hn]; omega)]
-theorem ftsNodeAt_coord {index : Fin (2^31)} {coord : Fin 9} {level c : Nat} {n : WctNodePos}
-    (h : ftsNodeAt index coord level c = some n) : n.1.coord = coord := by
-  unfold ftsNodeAt at h
-  split_ifs at h with hv
-  cases h
-  rfl
 theorem ftsLabel_congr (left right : Labels) (index : Fin (2^31)) (coord : Fin 9) (level c : Nat)
-    (h : ∀ other : Node, other.depth < 5 + 7 * coord.val + level → left other = right other) :
+    (h : ∀ other : Node, other.depth < 5 + level → left other = right other) :
     ftsLabel left index coord level c = ftsLabel right index coord level c := by
   unfold ftsLabel
   split_ifs with hzero hc
-  · have hd : (Node.wctLeaf ⟨index, coord, ⟨c, hc⟩⟩).depth < 5 + 7 * coord.val + level := by
-      show 4 + 7 * coord.val < _; omega
-    rw [h _ hd]
+  · rw [h _ (by simp only [Node.depth]; omega)]
   · rfl
-  all_goals
-    cases hn : ftsNodeAt index coord (level - 1) c with
+  · cases hn : ftsNodeAt index coord (level - 1) c with
     | none => rfl
     | some n =>
-        have hd : (Node.wctNode n).depth < 5 + 7 * coord.val + level := by
-          show 5 + 7 * n.1.coord.val + n.1.level.val < _
-          rw [ftsNodeAt_level hn, ftsNodeAt_coord hn]; omega
-        simp only [h _ hd]
-theorem ftsPrevLabel_congr (left right : Labels) (index : Fin (2^31)) (coord : Fin 9)
-    (h : ∀ other : Node, other.depth < 4 + 7 * coord.val → left other = right other) :
-    ftsPrevLabel left index coord = ftsPrevLabel right index coord := by
-  unfold ftsPrevLabel
-  split_ifs with hz
-  · rfl
-  · have hc : 0 < coord.val := Nat.pos_of_ne_zero hz
-    rw [ftsLabel_congr left right index _ 6 0 (fun other ho => h other (by simp only at ho; omega)),
-      ftsLabel_congr left right index _ 6 1 (fun other ho => h other (by simp only at ho; omega))]
+        simp only
+        rw [h _ (by simp only [Node.depth]; rw [ftsNodeAt_level hn]; omega)]
 theorem cell_congr (secrets : Secrets) (node : Node) (left right : Labels)
     (h : ∀ other : Node, other.depth < node.depth → left other = right other) :
     cell secrets node left = cell secrets node right := by
@@ -445,18 +418,14 @@ theorem cell_congr (secrets : Secrets) (node : Node) (left right : Labels)
         congr 1
         funext t
         unfold wctEndLabel
-        rw [h _ (by show 3 < 4 + 7 * L.coord.val; omega)]
-      have hpad := ftsPrevLabel_congr left right L.index L.coord
-        (fun other ho => h other (by show other.depth < 4 + 7 * L.coord.val; omega))
-      simp only [cell, hends, hpad]
+        rw [h _ (by simp only [Node.depth]; decide)]
+      simp only [cell, hends]
   | wctNode n =>
       have hl := ftsLabel_congr left right n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val)
         (fun other ho => h other (by simpa only [Node.depth] using ho))
       have hr := ftsLabel_congr left right n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)
         (fun other ho => h other (by simpa only [Node.depth] using ho))
-      have hpad := ftsPrevLabel_congr left right n.1.index n.1.coord
-        (fun other ho => h other (by show other.depth < 5 + 7 * n.1.coord.val + n.1.level.val; omega))
-      simp only [cell, hl, hr, hpad]
+      simp only [cell, hl, hr]
   | forest index =>
       have hroots : ((List.range 9).map fun coord =>
             (ftsLabel left index (fin9 coord) 6 0, ftsLabel left index (fin9 coord) 6 1)) =
@@ -464,11 +433,10 @@ theorem cell_congr (secrets : Secrets) (node : Node) (left right : Labels)
             (ftsLabel right index (fin9 coord) 6 0, ftsLabel right index (fin9 coord) 6 1)) := by
         apply List.map_congr_left
         intro coord _
-        have hc := (fin9 coord).isLt
         rw [ftsLabel_congr left right index (fin9 coord) 6 0
-            (fun other ho => h other (show other.depth < 70 by omega)),
+            (fun other ho => h other (show other.depth < 11 by omega)),
           ftsLabel_congr left right index (fin9 coord) 6 1
-            (fun other ho => h other (show other.depth < 70 by omega))]
+            (fun other ho => h other (show other.depth < 11 by omega))]
       simp only [cell, hroots]
 theorem posOf_cell (secrets : Secrets) (node : Node) (labels : Labels) :
     Extract.posOf (cell secrets node labels) = some node.toPos :=
@@ -517,7 +485,7 @@ theorem treeLabel_root (labels : Labels) :
   rw [dif_pos (by decide)]
   rfl
 theorem ftsLabel_top (labels : Labels) (index : Fin (2^31)) (coord : Fin 9) (b : Fin 2) :
-    ftsLabel labels index coord 6 b.val = (labels (.wctNode (ftsTopNode index coord b))).extractLsb' 128 128 := by
+    ftsLabel labels index coord 6 b.val = (labels (.wctNode (ftsTopNode index coord b))).extractLsb' 0 128 := by
   unfold ftsLabel
   rw [if_neg (by omega)]
   unfold ftsNodeAt
@@ -549,7 +517,7 @@ theorem cell_length_le (secrets : Secrets) (node : Node) (labels : Labels) :
       simp only [cell, WCT9.chainInput, zero16, List.length_append, List.length_replicate, bytesLE_length]
       omega
   | wctLeaf L =>
-      simp only [cell, Extract.wctLeafInputP]
+      simp only [cell, Extract.wctLeafInput]
       rw [Cost.pad64_length, Extract.listInput_length']
       simp only [List.length_cons, List.length_drop, List.length_ofFn]
       omega
@@ -886,58 +854,14 @@ theorem tables_bind {Result : Type} (U : Finset HashInput) (hU : canonInputs ⊆
   intro other
   exact uniform_bind_programmed U hU secrets (fun table => next (privateEquiv.symm (secrets, other)) table)
 abbrev LowLabels := Node → Digest
-/-- Nested FTS (r1-1): the top FTS nodes (`wctNode` level 5) use the HIGH half of their output. -/
-def Node.isTop : Node → Bool
-  | .wctNode n => n.1.level.val == 5
-  | _ => false
-theorem proj_toPos (N : Node) (y : HashOutput) :
-    N.toPos.proj y = if N.isTop then y.extractLsb' 128 128 else y.extractLsb' 0 128 := by
-  cases N with
-  | wctNode n =>
-      by_cases h : n.1.level.val = 5
-      · simp [Node.toPos, Node.isTop, Extract.Pos.proj, h]
-      · simp [Node.toPos, Node.isTop, Extract.Pos.proj, h]
-  | _ => rfl
-theorem proj_toPos_of_not_top {N : Node} (h : N.isTop = false) (y : HashOutput) :
-    N.toPos.proj y = y.extractLsb' 0 128 := by
-  rw [proj_toPos, h]; rfl
-/-- The two halves of an output, swapped. -/
-noncomputable def swapOut : HashOutput ≃ HashOutput :=
-  (ChainGraph.outputEquiv.trans (Equiv.prodComm _ _)).trans ChainGraph.outputEquiv.symm
-theorem proj_top (index : Fin (2^31)) (coord : Fin 9) (b : Fin 2) (y : HashOutput) :
-    (Node.wctNode (ftsTopNode index coord b)).toPos.proj y = y.extractLsb' 128 128 := by
-  rw [proj_toPos]; rfl
-theorem swapOut_low (y : HashOutput) : (swapOut y).extractLsb' 0 128 = y.extractLsb' 128 128 :=
-  ChainGraph.joinOutput_low _ _
-theorem swapOut_high (y : HashOutput) : (swapOut y).extractLsb' 128 128 = y.extractLsb' 0 128 :=
-  ChainGraph.joinOutput_high _ _
-/-- How node `N` stores its value: an output whose low half is the value, presented with the halves swapped for the
-top FTS nodes, so that the value always sits in the half that `N.toPos.proj` reads. -/
-noncomputable def presentEquiv (N : Node) : HashOutput ≃ HashOutput := if N.isTop then swapOut else Equiv.refl _
-theorem proj_presentEquiv (N : Node) (y : HashOutput) : N.toPos.proj (presentEquiv N y) = y.extractLsb' 0 128 := by
-  rw [proj_toPos]
-  unfold presentEquiv
-  cases N.isTop
-  · rfl
-  · exact swapOut_high y
 noncomputable def labelPairEquiv : Labels ≃ LowLabels × LowLabels :=
-  ((Equiv.piCongrRight fun N => (presentEquiv N).symm).trans
-    (Equiv.arrowCongr (Equiv.refl Node) ChainGraph.outputEquiv)).trans
+  (Equiv.arrowCongr (Equiv.refl Node) ChainGraph.outputEquiv).trans
     (Equiv.arrowProdEquivProdArrow Node (fun _ => Digest) (fun _ => Digest))
-/-- Labels from used halves `low` and other halves `high` (nested FTS r1-1: `low node` is the half that the node's
-parents read, the high half for the top FTS nodes). -/
 noncomputable def joinLabels (low high : LowLabels) : Labels :=
-  fun node => presentEquiv node (ChainGraph.joinOutput (low node) (high node))
+  fun node => ChainGraph.joinOutput (low node) (high node)
 theorem labelPairEquiv_symm (low high : LowLabels) : labelPairEquiv.symm (low, high) = joinLabels low high := rfl
-theorem joinLabels_val (low high : LowLabels) (node : Node) :
-    node.toPos.proj (joinLabels low high node) = low node :=
-  (proj_presentEquiv node _).trans (ChainGraph.joinOutput_low _ _)
-theorem joinLabels_low {low high : LowLabels} {node : Node} (h : node.isTop = false) :
-    (joinLabels low high node).extractLsb' 0 128 = low node := by
-  rw [← proj_toPos_of_not_top h]; exact joinLabels_val low high node
-theorem joinLabels_not_top {low high : LowLabels} {node : Node} (h : node.isTop = false) :
-    joinLabels low high node = ChainGraph.joinOutput (low node) (high node) := by
-  unfold joinLabels presentEquiv; rw [h]; rfl
+theorem joinLabels_low (low high : LowLabels) (node : Node) :
+    (joinLabels low high node).extractLsb' 0 128 = low node := ChainGraph.joinOutput_low _ _
 noncomputable local instance instSampleableTypeLowLabels : SampleableType LowLabels := SampleableType.ofFintype _
 noncomputable local instance instSampleableTypeProdLowLabels : SampleableType (LowLabels × LowLabels) := SampleableType.ofFintype _
 theorem labels_bind {Result : Type} (next : Labels → ProbComp Result) :
@@ -1018,645 +942,3 @@ theorem seedsOf_secretsOf (answers : Answers) (a : Address) :
   unfold seedsOf
   rw [leafFamily_secretsOf answers, WCT9.wotsSeed_fam]
 end ClaudeWCT.W9.T3.Security.CanonGraph
-
-namespace ClaudeWCT.W9.T3.Security.CanonGraph.Paired
-open OracleComp OracleSpec OracleComp.EvalDist OracleComp.DeferredSampling ENNReal
-open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
-open SphincsSecurity.Concrete FiniteGraphSampling
-open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open ClaudeWCT.W9.T3M SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
-open Correctness (Answers)
-open CanonGraph
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 10000
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance] Classical.propDecidable
-
-def first (coord : Nat) : Prop := coord<8 ∧ coord%2=0
-instance (coord : Nat) : Decidable (first coord) := by unfold first;infer_instance
-/-- Inverse of the fixed physical placement used by B and C trees. -/
-def rawLeaf (coord physical : Nat) : Nat :=
-  if first coord then physical else 2*(physical%64)+physical/64
-
-def ftsLabel (labels : Labels) (index : Fin (2^31)) (coord : Fin 9) (level physical : Nat) : Digest :=
-  if level=0 then
-    if h:rawLeaf coord.val physical<128 then
-      (labels (.wctLeaf ⟨index,coord,⟨rawLeaf coord.val physical,h⟩⟩)).extractLsb' 0 128
-    else 0
-  else
-    match ftsNodeAt index coord (level-1) physical with
-    | some n=>Extract.Paired.proj (.wctNode index.val coord.val (level-1) physical) (labels (.wctNode n))
-    | none=>0
-
-/-- A and C bind the preceding pair; B binds the selected A branch. -/
-def pads (labels : Labels) (index : Fin (2^31)) (coord : Fin 9) (branch : Nat) : Digest×Digest :=
-  if h:coord.val=0 then (0,0) else
-    let previous : Fin 9:=⟨coord.val-1,by have:=coord.isLt;omega⟩
-    if coord.val%2=1 then
-      (ftsLabel labels index previous 5 (2*branch),ftsLabel labels index previous 5 (2*branch+1))
-    else (ftsLabel labels index previous 6 0,ftsLabel labels index previous 6 1)
-
-def cell (secrets : Secrets) : Node→Labels→HashInput
-  | .wctLeaf L,labels=>pad64 (Extract.wctLeafInputP L.index.val L.coord.val L.child.val
-      (pads labels L.index L.coord (L.child.val%2)).1
-      (List.ofFn fun t:Fin 6=>wctEndLabel labels (L.index,L.coord,L.child,t)))
-  | .wctNode n,labels=>pad64 (nodeInputP 3 (WCT9.nodeLayer n.1.coord.val) n.1.index.val
-      (2^(7-n.1.level.val-1)+n.1.idx.val)
-      (ftsLabel labels n.1.index n.1.coord n.1.level.val (2*n.1.idx.val))
-      (if n.1.level.val=4 then (pads labels n.1.index n.1.coord (n.1.idx.val/2)).2 else 0)
-      (ftsLabel labels n.1.index n.1.coord n.1.level.val (2*n.1.idx.val+1)))
-  | node,labels=>CanonGraph.cell secrets node labels
-
-theorem hdrBlock_cell (secrets : Secrets) (node : Node) (labels : Labels) :
-    Extract.hdrBlock (cell secrets node labels)=bytesLE 16 node.toPos.hdr := by
-  cases node with
-  | wctLeaf L=>
-    simp only [cell]
-    rw [Extract.hdrBlock_wctLeafInputP]
-    rfl
-  | wctNode n=>
-    simp only [cell]
-    rw [Extract.hdrBlock_nodeInputP]
-    rfl
-  | chain v=>exact CanonGraph.hdrBlock_cell secrets (.chain v) labels
-  | leaf v=>exact CanonGraph.hdrBlock_cell secrets (.leaf v) labels
-  | node v=>exact CanonGraph.hdrBlock_cell secrets (.node v) labels
-  | wctChain v=>exact CanonGraph.hdrBlock_cell secrets (.wctChain v) labels
-  | forest v=>exact CanonGraph.hdrBlock_cell secrets (.forest v) labels
-
-theorem cell_separated (secrets : Secrets) : Separated (cell secrets) := by
-  intro left right hne before after heq
-  have h1:=hdrBlock_cell secrets left before
-  have h2:=hdrBlock_cell secrets right after
-  rw [heq] at h1
-  exact hne (toPos_injective (Extract.Pos.hdr_injective (toPos_bounded left) (toPos_bounded right)
-    (bytesLE_injective (h1.symm.trans h2))))
-
-theorem ftsLabel_congr (left right : Labels) (index : Fin (2^31)) (coord : Fin 9) (level c : Nat)
-    (h : ∀other:Node,other.depth<5+7*coord.val+level→left other=right other) :
-    ftsLabel left index coord level c=ftsLabel right index coord level c := by
-  unfold ftsLabel
-  split_ifs with hzero hc
-  · rw [h _ (by simp only [Node.depth];omega)]
-  · rfl
-  all_goals
-    cases hn:ftsNodeAt index coord (level-1) c with
-    | none=>rfl
-    | some n=>
-      have hd:(Node.wctNode n).depth<5+7*coord.val+level := by
-        show 5+7*n.1.coord.val+n.1.level.val<_
-        rw [ftsNodeAt_level hn,ftsNodeAt_coord hn]
-        omega
-      simp only [h _ hd]
-
-theorem pads_congr (left right : Labels) (index : Fin (2^31)) (coord : Fin 9) (branch : Nat)
-    (h : ∀other:Node,other.depth<4+7*coord.val→left other=right other) :
-    pads left index coord branch=pads right index coord branch := by
-  unfold pads
-  split_ifs with hz hodd
-  · rfl
-  all_goals
-    dsimp only
-    apply Prod.ext
-    all_goals dsimp only;apply ftsLabel_congr;intro other ho;apply h;dsimp at ho;omega
-
-theorem cell_congr (secrets : Secrets) (node : Node) (left right : Labels)
-    (h : ∀other:Node,other.depth<node.depth→left other=right other) :
-    cell secrets node left=cell secrets node right := by
-  cases node with
-  | wctLeaf L=>
-    have hends : (List.ofFn fun t:Fin 6=>wctEndLabel left (L.index,L.coord,L.child,t))=
-        (List.ofFn fun t:Fin 6=>wctEndLabel right (L.index,L.coord,L.child,t)) := by
-      congr 1
-      funext t
-      unfold wctEndLabel
-      rw [h _ (by show 3<4+7*L.coord.val;omega)]
-    have hpad:=pads_congr left right L.index L.coord (L.child.val%2)
-      (fun other ho=>h other ho)
-    simp only [cell,hends,hpad]
-  | wctNode n=>
-    have hl:=ftsLabel_congr left right n.1.index n.1.coord n.1.level.val (2*n.1.idx.val)
-      (fun other ho=>h other ho)
-    have hr:=ftsLabel_congr left right n.1.index n.1.coord n.1.level.val (2*n.1.idx.val+1)
-      (fun other ho=>h other ho)
-    have hpad:=pads_congr left right n.1.index n.1.coord (n.1.idx.val/2)
-      (fun other ho=>h other (by show other.depth<5+7*n.1.coord.val+n.1.level.val;omega))
-    simp only [cell,hl,hr,hpad]
-  | _=>exact CanonGraph.cell_congr secrets _ left right h
-
-theorem posOf_cell (secrets : Secrets) (node : Node) (labels : Labels) :
-    Extract.posOf (cell secrets node labels)=some node.toPos :=
-  Extract.posOf_eq (toPos_bounded node) (hdrBlock_cell secrets node labels)
-
-theorem cell_eq_of_posOf {input : HashInput} {node node' : Node} (secrets : Secrets) (labels : Labels)
-    (hpos : Extract.posOf input=some node.toPos) (h : input=cell secrets node' labels) : node'=node := by
-  subst h
-  rw [posOf_cell] at hpos
-  exact toPos_injective (Option.some.inj hpos)
-
-noncomputable def canonInputs : Finset HashInput := SeccLaw.publicUniverse
-attribute [irreducible] canonInputs
-
-theorem cell_length_le (secrets : Secrets) (node : Node) (labels : Labels) :
-    (cell secrets node labels).length≤4096 := by
-  cases node with
-  | wctLeaf L=>
-    simp only [cell,Extract.wctLeafInputP]
-    rw [Cost.pad64_length,Extract.listInput_length']
-    simp only [List.length_cons,List.length_drop,List.length_ofFn]
-    omega
-  | wctNode n=>
-    simp only [cell]
-    rw [pad64_nodeInputP,nodeInputP,block4]
-    simp only [List.length_append,bytesLE_length]
-    omega
-  | chain v=>exact CanonGraph.cell_length_le secrets (.chain v) labels
-  | leaf v=>exact CanonGraph.cell_length_le secrets (.leaf v) labels
-  | node v=>exact CanonGraph.cell_length_le secrets (.node v) labels
-  | wctChain v=>exact CanonGraph.cell_length_le secrets (.wctChain v) labels
-  | forest v=>exact CanonGraph.cell_length_le secrets (.forest v) labels
-
-theorem cell_mem (secrets : Secrets) (node : Node) (labels : Labels) : cell secrets node labels∈canonInputs := by
-  rw [canonInputs]
-  exact SeccLaw.mem_publicUniverse _ (cell_length_le secrets node labels)
-theorem canonInputs_subset_publicUniverse : canonInputs⊆SeccLaw.publicUniverse := by
-  rw [canonInputs]
-noncomputable def cellIn (U : Finset HashInput) (hU : canonInputs ⊆ U) (secrets : Secrets)
-    (node : Node) (labels : Labels) : U :=
-  ⟨cell secrets node labels, hU (cell_mem secrets node labels)⟩
-theorem cellIn_separated (U : Finset HashInput) (hU : canonInputs ⊆ U) (secrets : Secrets) :
-    Separated (cellIn U hU secrets) := by
-  intro left right hne before after heq
-  exact cell_separated secrets left right hne before after (congrArg Subtype.val heq)
-theorem cellIn_injective (U : Finset HashInput) (hU : canonInputs ⊆ U) (secrets : Secrets) (labels : Labels) :
-    Function.Injective (fun node => cellIn U hU secrets node labels) := by
-  intro left right heq
-  by_contra hne
-  exact cellIn_separated U hU secrets left right hne labels labels heq
-noncomputable def graph (U : Finset HashInput) (hU : canonInputs ⊆ U) (secrets : Secrets)
-    (table : U → HashOutput) : Labels :=
-  read (cellIn U hU secrets) advance table order (fun _ => 0)
-noncomputable def programmed (U : Finset HashInput) (hU : canonInputs ⊆ U) (secrets : Secrets)
-    (labels : Labels) (residual : U → HashOutput) : U → HashOutput :=
-  patch (fun node => cellIn U hU secrets node labels) labels residual order
-section Laws
-variable (U : Finset HashInput) (hU : canonInputs ⊆ U)
-noncomputable local instance instSampleableTypeHashOutput_canonGraph : SampleableType HashOutput := SampleableType.ofFintype _
-noncomputable local instance instSampleableTypeLabels : SampleableType Labels := SampleableType.ofFintype _
-noncomputable local instance instSampleableTypeForallSubtypeHashInputMemFinsetHashOutput_canonGraph : SampleableType (U → HashOutput) := SampleableType.ofFintype _
-theorem programmed_at (secrets : Secrets) (labels : Labels) (residual : U → HashOutput) (node : Node) :
-    programmed U hU secrets labels residual (cellIn U hU secrets node labels) = labels node :=
-  patch_at _ (cellIn_injective U hU secrets labels) labels residual order node (mem_order node)
-theorem programmed_other (secrets : Secrets) (labels : Labels) (residual : U → HashOutput) (query : U)
-    (hquery : ∀ node, query.val ≠ cell secrets node labels) :
-    programmed U hU secrets labels residual query = residual query := by
-  apply patch_of_forall_ne
-  intro node _ heq
-  exact hquery node (congrArg Subtype.val heq)
-theorem read_eq_plant (secrets : Secrets) (nodes : List Node) (hnodup : nodes.Nodup) (before : Labels) :
-    𝒮[do
-      let table ← ($ᵗ (U → HashOutput) : ProbComp _)
-      pure (read (cellIn U hU secrets) advance table nodes before, table)] =
-      𝒮[plant (cellIn U hU secrets) advance nodes before] :=
-  evalDist_read_eq_plant (cellIn U hU secrets) advance (cellIn_separated U hU secrets) nodes hnodup before
-theorem replay_eq_programmed (secrets : Secrets) (labels : Labels) (residual : U → HashOutput)
-    (nodes : List Node) (hsorted : nodes.Pairwise (fun left right => left.depth ≤ right.depth))
-    (before : Labels) (hagrees : ∀ node, node ∉ nodes → before node = labels node) :
-    replay (cellIn U hU secrets) advance labels residual nodes before =
-      (labels, patch (fun node => cellIn U hU secrets node labels) labels residual nodes) := by
-  induction nodes generalizing before with
-  | nil =>
-      have hbefore : before = labels := funext fun node => hagrees node (by simp)
-      rw [hbefore]
-      rfl
-  | cons first rest ih =>
-      obtain ⟨hdepth, hsorted⟩ := List.pairwise_cons.mp hsorted
-      have hinput : cellIn U hU secrets first before = cellIn U hU secrets first labels := by
-        apply Subtype.ext
-        apply cell_congr
-        intro other hother
-        apply hagrees
-        intro hmem
-        rcases List.mem_cons.mp hmem with heq | hmem
-        · rw [heq] at hother; omega
-        · have := hdepth _ hmem; omega
-      have hafter : ∀ node, node ∉ rest → advance first (labels first) before node = labels node := by
-        intro node hnode
-        unfold advance
-        by_cases heq : node = first
-        · subst node; rw [Function.update_self]
-        · rw [Function.update_of_ne heq]
-          exact hagrees node (fun hmem => (List.mem_cons.mp hmem).elim heq hnode)
-      rw [replay, ih hsorted _ hafter, patch, hinput]
-theorem plant_eq_uniform_programmed (secrets : Secrets) :
-    𝒮[plant (cellIn U hU secrets) advance order (fun _ => 0)] =
-      𝒮[do
-        let labels ← ($ᵗ Labels : ProbComp _)
-        let residual ← ($ᵗ (U → HashOutput) : ProbComp _)
-        pure (labels, programmed U hU secrets labels residual)] := by
-  rw [evalDist_plant_eq_replay _ _ _ order_nodup]
-  apply evalSPMF_bind_congr_left
-  intro labels
-  apply evalSPMF_bind_congr_left
-  intro residual
-  rw [replay_eq_programmed U hU secrets labels residual order order_sorted _
-    (fun node hnode => (hnode (mem_order node)).elim)]
-  rfl
-theorem graph_eq_uniform_programmed (secrets : Secrets) :
-    𝒮[do
-      let table ← ($ᵗ (U → HashOutput) : ProbComp _)
-      pure (graph U hU secrets table, table)] =
-      𝒮[do
-        let labels ← ($ᵗ Labels : ProbComp _)
-        let residual ← ($ᵗ (U → HashOutput) : ProbComp _)
-        pure (labels, programmed U hU secrets labels residual)] :=
-  (read_eq_plant U hU secrets order order_nodup _).trans (plant_eq_uniform_programmed U hU secrets)
-theorem graph_bind_eq_uniform_programmed {Result : Type} (secrets : Secrets)
-    (next : Labels → (U → HashOutput) → ProbComp Result) :
-    𝒮[do
-      let table ← ($ᵗ (U → HashOutput) : ProbComp _)
-      next (graph U hU secrets table) table] =
-      𝒮[do
-        let labels ← ($ᵗ Labels : ProbComp _)
-        let residual ← ($ᵗ (U → HashOutput) : ProbComp _)
-        next labels (programmed U hU secrets labels residual)] := by
-  have h := congrArg (fun law : SPMF (Labels × (U → HashOutput)) =>
-    law >>= fun result => 𝒮[next result.1 result.2]) (graph_eq_uniform_programmed U hU secrets)
-  simpa only [evalSPMF_bind, evalSPMF_pure, bind_assoc, pure_bind] using h
-theorem uniform_bind_programmed {Result : Type} (secrets : Secrets) (next : (U → HashOutput) → ProbComp Result) :
-    𝒮[do let table ← ($ᵗ (U → HashOutput) : ProbComp _); next table] =
-      𝒮[do
-        let labels ← ($ᵗ Labels : ProbComp _)
-        let residual ← ($ᵗ (U → HashOutput) : ProbComp _)
-        next (programmed U hU secrets labels residual)] :=
-  graph_bind_eq_uniform_programmed U hU secrets (fun _ table => next table)
-end Laws
-#print axioms cell_congr
-#print axioms graph_eq_uniform_programmed
-#print axioms uniform_bind_programmed
-end ClaudeWCT.W9.T3.Security.CanonGraph.Paired
-
-namespace ClaudeWCT.W9.T3.Security.CanonGraph.Paired.Filtered
-open OracleComp OracleSpec OracleComp.EvalDist OracleComp.DeferredSampling ENNReal
-open SphincsSecurity.Concrete FiniteGraphSampling
-open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open ClaudeWCT.W9.T3M
-set_option maxHeartbeats 400000
-set_option maxRecDepth 10000
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance] Classical.propDecidable
-
-def Used : Node → Prop
-  | .forest _ => False
-  | .wctNode n => first n.1.coord.val → n.1.level.val < 5
-  | _ => True
-instance (n : Node) : Decidable (Used n) := by unfold Used; cases n <;> infer_instance
-
-theorem used_iff_bounded (n : Node) : Used n ↔ Extract.Paired.Bounded n.toPos := by
-  cases n with
-  | forest i => rfl
-  | wctNode n =>
-      simp only [Used, Node.toPos, Extract.Paired.Bounded, Extract.Paired.first,
-        decide_eq_true_eq]
-      exact ⟨fun h => ⟨toPos_bounded (.wctNode n), h⟩, fun h => h.2⟩
-  | chain p =>
-      change True ↔ (Node.chain p).toPos.Bounded
-      exact ⟨fun _ => toPos_bounded _, fun _ => trivial⟩
-  | leaf p =>
-      change True ↔ (Node.leaf p).toPos.Bounded
-      exact ⟨fun _ => toPos_bounded _, fun _ => trivial⟩
-  | node p =>
-      change True ↔ (Node.node p).toPos.Bounded
-      exact ⟨fun _ => toPos_bounded _, fun _ => trivial⟩
-  | wctChain p =>
-      change True ↔ (Node.wctChain p).toPos.Bounded
-      exact ⟨fun _ => toPos_bounded _, fun _ => trivial⟩
-  | wctLeaf p =>
-      change True ↔ (Node.wctLeaf p).toPos.Bounded
-      exact ⟨fun _ => toPos_bounded _, fun _ => trivial⟩
-
-theorem treeLabel_congr (left right : Labels) (lay : Layer) (tree : Fin (2^31)) (level c : Nat)
-    (h : ∀ other : Node, Used other → other.depth < 8 + level → left other = right other) :
-    treeLabel left lay tree level c = treeLabel right lay tree level c := by
-  unfold treeLabel
-  split_ifs with hzero
-  · cases leafAt lay tree c with
-    | none => rfl
-    | some L => simp only; rw [h (.leaf L) trivial (by simp only [Node.depth]; omega)]
-  · cases hn : treeNodeAt lay tree (level - 1) c with
-    | none => rfl
-    | some n =>
-        simp only
-        rw [h (.node n) trivial (by simp only [Node.depth]; rw [treeNodeAt_level hn]; omega)]
-
-theorem ftsLabel_congr (left right : Labels) (index : Fin (2^31)) (coord : Fin 9) (level c : Nat)
-    (hl : first coord.val → level ≤ 5)
-    (h : ∀ other : Node, Used other → other.depth < 5 + 7 * coord.val + level → left other = right other) :
-    Paired.ftsLabel left index coord level c = Paired.ftsLabel right index coord level c := by
-  unfold Paired.ftsLabel
-  split_ifs with hzero hc
-  · rw [h (.wctLeaf ⟨index,coord,⟨rawLeaf coord.val c,hc⟩⟩) trivial (by simp only [Node.depth]; omega)]
-  · rfl
-  all_goals
-    cases hn : ftsNodeAt index coord (level-1) c with
-    | none => rfl
-    | some n =>
-      have hu : Used (.wctNode n) := by
-        change first n.1.coord.val → n.1.level.val < 5
-        rw [ftsNodeAt_level hn, ftsNodeAt_coord hn]
-        intro hf
-        have := hl hf
-        omega
-      have hd : (Node.wctNode n).depth < 5+7*coord.val+level := by
-        simp only [Node.depth]
-        rw [ftsNodeAt_level hn,ftsNodeAt_coord hn]
-        omega
-      simp only [h _ hu hd]
-
-theorem pads_congr (left right : Labels) (index : Fin (2^31)) (coord : Fin 9) (branch : Nat)
-    (h : ∀other : Node, Used other → other.depth<4+7*coord.val → left other=right other) :
-    Paired.pads left index coord branch = Paired.pads right index coord branch := by
-  unfold Paired.pads
-  split_ifs with hz hodd
-  · rfl
-  · dsimp only
-    apply Prod.ext
-    all_goals
-      dsimp only
-      apply ftsLabel_congr
-      · intro _; omega
-      · intro other hu ho; apply h other hu; dsimp at ho; omega
-  · dsimp only
-    apply Prod.ext
-    all_goals
-      dsimp only
-      apply ftsLabel_congr
-      · intro hf
-        unfold first at hf
-        dsimp only at hf
-        omega
-      · intro other hu ho; apply h other hu; dsimp at ho; omega
-
-theorem cell_congr_nonforest (secrets : Secrets) (node : Node)
-    (hnf : ∀i, node≠.forest i) (left right : Labels)
-    (h : ∀ other : Node, Used other → other.depth < node.depth → left other = right other) :
-    Paired.cell secrets node left = Paired.cell secrets node right := by
-  cases node with
-  | chain p =>
-      change ChainGraph.input (seedsOf secrets) p (chainLabels left) =
-        ChainGraph.input (seedsOf secrets) p (chainLabels right)
-      unfold ChainGraph.input ChainGraph.prior
-      split_ifs with hz
-      · rfl
-      · have hd := h (.chain (ChainGraph.predecessor p)) trivial (by
-          simp only [Node.depth, ChainGraph.predecessor]; omega)
-        simp only [chainLabels, hd]
-  | leaf L =>
-      have hends : (List.range (chainCount L.1.lay)).map (endLabel secrets left L.1) =
-          (List.range (chainCount L.1.lay)).map (endLabel secrets right L.1) := by
-        apply List.map_congr_left
-        intro i _
-        unfold endLabel ChainGraph.value
-        split_ifs
-        · rfl
-        · simp only [chainLabels]
-          rw [h (.chain _) trivial (by simp only [Node.depth]; exact Nat.mod_lt _ (by decide))]
-      simp only [Paired.cell, CanonGraph.cell, hends]
-  | node n =>
-      have hl := treeLabel_congr left right n.1.lay n.1.tree n.1.level.val (2*n.1.idx.val)
-        (fun other ho hd => h other ho hd)
-      have hr := treeLabel_congr left right n.1.lay n.1.tree n.1.level.val (2*n.1.idx.val+1)
-        (fun other ho hd => h other ho hd)
-      simp only [Paired.cell, CanonGraph.cell, hl, hr]
-  | wctChain p =>
-      have hv : wctValueL secrets left p.1 p.2.val = wctValueL secrets right p.1 p.2.val := by
-        unfold wctValueL
-        split_ifs with hz
-        · rfl
-        · rw [h (.wctChain (p.1,⟨(p.2.val-1)%4,Nat.mod_lt _ (by decide)⟩)) trivial (by simp only [Node.depth]; have := p.2.isLt; omega)]
-      simp only [Paired.cell, CanonGraph.cell, hv]
-  | wctLeaf L =>
-      have hends : (List.ofFn fun t : Fin 6 => wctEndLabel left (L.index,L.coord,L.child,t)) =
-          (List.ofFn fun t : Fin 6 => wctEndLabel right (L.index,L.coord,L.child,t)) := by
-        congr 1
-        funext t
-        unfold wctEndLabel
-        rw [h (.wctChain ((L.index,L.coord,L.child,t),3)) trivial (by show 3<4+7*L.coord.val; omega)]
-      have hpad := pads_congr left right L.index L.coord (L.child.val%2)
-        (fun other ho hd => h other ho hd)
-      simp only [Paired.cell,hends,hpad]
-  | wctNode n =>
-      have hh : first n.1.coord.val → n.1.level.val ≤ 5 := fun _ => Nat.le_of_lt_succ n.1.level.isLt
-      have hl := ftsLabel_congr left right n.1.index n.1.coord n.1.level.val (2*n.1.idx.val) hh
-        (fun other ho hd => h other ho hd)
-      have hr := ftsLabel_congr left right n.1.index n.1.coord n.1.level.val (2*n.1.idx.val+1) hh
-        (fun other ho hd => h other ho hd)
-      have hpad := pads_congr left right n.1.index n.1.coord (n.1.idx.val/2)
-        (fun other ho hd => h other ho (by change other.depth<5+7*n.1.coord.val+n.1.level.val; omega))
-      simp only [Paired.cell,hl,hr,hpad]
-  | forest i => exact (hnf i rfl).elim
-
-theorem cell_congr (secrets : Secrets) (node : Node) (hu : Used node) (left right : Labels)
-    (h : ∀ other : Node, Used other → other.depth < node.depth → left other = right other) :
-    Paired.cell secrets node left = Paired.cell secrets node right := by
-  apply cell_congr_nonforest secrets node _ left right h
-  intro i hi
-  subst node
-  exact hu
-
-end ClaudeWCT.W9.T3.Security.CanonGraph.Paired.Filtered
-namespace ClaudeWCT.W9.T3.Security.CanonGraph.Paired.Filtered
-open OracleComp OracleSpec OracleComp.EvalDist OracleComp.DeferredSampling ENNReal
-open SphincsSecurity.Concrete FiniteGraphSampling
-open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open ClaudeWCT.W9.T3M
-set_option maxHeartbeats 400000
-set_option maxRecDepth 10000
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance] Classical.propDecidable
-
-noncomputable def order : List Node := CanonGraph.order.filter (fun n => decide (Used n))
-theorem mem_order (n : Node) : n ∈ order ↔ Used n := by
-  simp only [order, List.mem_filter, CanonGraph.mem_order, true_and, decide_eq_true_eq]
-theorem order_nodup : order.Nodup := CanonGraph.order_nodup.filter _
-theorem order_sorted : order.Pairwise (fun left right => left.depth ≤ right.depth) :=
-  CanonGraph.order_sorted.filter _
-
-noncomputable def programmed (U : Finset HashInput) (hU : Paired.canonInputs ⊆ U) (secrets : Secrets)
-    (labels : Labels) (residual : U → HashOutput) : U → HashOutput :=
-  patch (fun node => Paired.cellIn U hU secrets node labels) labels residual order
-
-theorem programmed_at (U : Finset HashInput) (hU : Paired.canonInputs ⊆ U) (secrets : Secrets)
-    (labels : Labels) (residual : U → HashOutput) (node : Node) (hu : Used node) :
-    programmed U hU secrets labels residual (Paired.cellIn U hU secrets node labels) = labels node :=
-  patch_at _ (Paired.cellIn_injective U hU secrets labels) labels residual order node ((mem_order node).2 hu)
-
-theorem programmed_other (U : Finset HashInput) (hU : Paired.canonInputs ⊆ U) (secrets : Secrets)
-    (labels : Labels) (residual : U → HashOutput) (query : U)
-    (hquery : ∀ node, Used node → query.val ≠ Paired.cell secrets node labels) :
-    programmed U hU secrets labels residual query = residual query := by
-  apply patch_of_forall_ne
-  intro node hn heq
-  exact hquery node ((mem_order node).1 hn) (congrArg Subtype.val heq)
-
-theorem replay_snd (U : Finset HashInput) (hU : Paired.canonInputs ⊆ U)
-    (secrets : Secrets) (labels : Labels) (residual : U → HashOutput)
-    (nodes : List Node) (hsorted : nodes.Pairwise (fun left right => left.depth ≤ right.depth))
-    (hused : ∀node∈nodes, Used node)
-    (before : Labels) (hagrees : ∀node, Used node → node∉nodes → before node=labels node) :
-    (replay (Paired.cellIn U hU secrets) advance labels residual nodes before).2 =
-      patch (fun node => Paired.cellIn U hU secrets node labels) labels residual nodes := by
-  induction nodes generalizing before with
-  | nil => rfl
-  | cons first rest ih =>
-    obtain ⟨hdepth,hsorted⟩ := List.pairwise_cons.mp hsorted
-    have hinput : Paired.cellIn U hU secrets first before = Paired.cellIn U hU secrets first labels := by
-      apply Subtype.ext
-      apply cell_congr secrets first (hused first (by simp))
-      intro other hu ho
-      apply hagrees other hu
-      intro hmem
-      rcases List.mem_cons.mp hmem with heq|hmem
-      · rw [heq] at ho; omega
-      · have := hdepth _ hmem; omega
-    have hafter : ∀node, Used node → node∉rest → advance first (labels first) before node=labels node := by
-      intro node hu hn
-      unfold advance
-      by_cases heq : node=first
-      · subst node; rw [Function.update_self]
-      · rw [Function.update_of_ne heq]
-        exact hagrees node hu (fun hm => (List.mem_cons.mp hm).elim heq hn)
-    simp only [replay, patch]
-    rw [ih hsorted (fun node hn => hused node (List.mem_cons_of_mem _ hn)) _ hafter, hinput]
-
-section Laws
-variable (U : Finset HashInput) (hU : Paired.canonInputs ⊆ U)
-noncomputable local instance : SampleableType HashOutput := SampleableType.ofFintype _
-noncomputable local instance : SampleableType Labels := SampleableType.ofFintype _
-noncomputable local instance : SampleableType (U → HashOutput) := SampleableType.ofFintype _
-
-theorem plant_bind_programmed {Result : Type} (secrets : Secrets)
-    (next : (U → HashOutput) → ProbComp Result) :
-    𝒮[do let result ← plant (Paired.cellIn U hU secrets) advance order (fun _ => 0); next result.2] =
-      𝒮[do
-        let labels ← ($ᵗ Labels : ProbComp _)
-        let residual ← ($ᵗ (U → HashOutput) : ProbComp _)
-        next (programmed U hU secrets labels residual)] := by
-  rw [evalSPMF_bind, evalDist_plant_eq_replay _ _ _ order_nodup]
-  simp only [evalSPMF_bind, bind_assoc, evalSPMF_pure, pure_bind]
-  apply bind_congr
-  intro labels
-  apply bind_congr
-  intro residual
-  rw [replay_snd U hU secrets labels residual order order_sorted
-    (fun node hn => (mem_order node).1 hn) _
-    (fun node hu hn => (hn ((mem_order node).2 hu)).elim)]
-  rfl
-
-theorem uniform_bind_programmed {Result : Type} (secrets : Secrets)
-    (next : (U → HashOutput) → ProbComp Result) :
-    𝒮[do let table ← ($ᵗ (U → HashOutput) : ProbComp _); next table] =
-      𝒮[do
-        let labels ← ($ᵗ Labels : ProbComp _)
-        let residual ← ($ᵗ (U → HashOutput) : ProbComp _)
-        next (programmed U hU secrets labels residual)] := by
-  have h := congrArg (fun law : SPMF (Labels × (U → HashOutput)) =>
-      law >>= fun result => 𝒮[next result.2])
-    (Paired.read_eq_plant U hU secrets order order_nodup (fun _ => 0))
-  have h' : 𝒮[do let table ← ($ᵗ (U → HashOutput) : ProbComp _); next table] =
-      𝒮[do let result ← plant (Paired.cellIn U hU secrets) advance order (fun _ => 0); next result.2] := by
-    simpa only [evalSPMF_bind,evalSPMF_pure,bind_assoc,pure_bind] using h
-  exact h'.trans (plant_bind_programmed U hU secrets next)
-end Laws
-
-def Agrees (answers : Correctness.Answers) (labels : Labels) : Prop :=
-  ∀node, Used node → answers (.inl (.inr (Paired.cell (secretsOf answers) node labels)))=labels node
-
-theorem agrees_of_programmed (U : Finset HashInput) (hU : Paired.canonInputs ⊆ U)
-    (answers : Correctness.Answers) (labels : Labels) (residual : U → HashOutput)
-    (hpub : ∀x : U, answers (.inl (.inr x.val))=programmed U hU (secretsOf answers) labels residual x) :
-    Agrees answers labels := by
-  intro node hu
-  have h := hpub (Paired.cellIn U hU (secretsOf answers) node labels)
-  rw [programmed_at _ _ _ _ _ _ hu] at h
-  exact h
-end ClaudeWCT.W9.T3.Security.CanonGraph.Paired.Filtered
-
-namespace ClaudeWCT.W9.T3.Security.CanonGraph.Paired
-open OracleComp OracleSpec OracleComp.EvalDist ENNReal
-open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open ClaudeWCT.W9.T3M SphincsSecurity.Concrete
-set_option maxHeartbeats 300000
-set_option maxRecDepth 10000
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance] Classical.propDecidable
-
-def highNode : Node → Bool
-  | .wctNode n => decide (Extract.Paired.highPosition n.1.coord.val n.1.level.val)
-  | _ => false
-
-theorem proj_toPos (N : Node) (y : HashOutput) :
-    Extract.Paired.proj N.toPos y = if highNode N then y.extractLsb' 128 128 else y.extractLsb' 0 128 := by
-  cases N with
-  | wctNode n =>
-      simp only [Node.toPos,highNode,Extract.Paired.proj,decide_eq_true_eq,ite_apply]
-  | _ => rfl
-
-noncomputable def presentEquiv (N : Node) : HashOutput ≃ HashOutput :=
-  if highNode N then CanonGraph.swapOut else Equiv.refl _
-
-theorem proj_presentEquiv (N : Node) (y : HashOutput) :
-    Extract.Paired.proj N.toPos (presentEquiv N y)=y.extractLsb' 0 128 := by
-  rw [proj_toPos]
-  unfold presentEquiv
-  cases highNode N
-  · rfl
-  · exact CanonGraph.swapOut_high y
-
-noncomputable def labelPairEquiv : Labels ≃ LowLabels × LowLabels :=
-  ((Equiv.piCongrRight fun N => (presentEquiv N).symm).trans
-    (Equiv.arrowCongr (Equiv.refl Node) ChainGraph.outputEquiv)).trans
-    (Equiv.arrowProdEquivProdArrow Node (fun _ => Digest) (fun _ => Digest))
-
-noncomputable def joinLabels (low high : LowLabels) : Labels :=
-  fun node => presentEquiv node (ChainGraph.joinOutput (low node) (high node))
-
-theorem labelPairEquiv_symm (low high : LowLabels) : labelPairEquiv.symm (low,high)=joinLabels low high := rfl
-
-theorem joinLabels_val (low high : LowLabels) (node : Node) :
-    Extract.Paired.proj node.toPos (joinLabels low high node)=low node :=
-  (proj_presentEquiv node _).trans (ChainGraph.joinOutput_low _ _)
-
-theorem joinLabels_not_high {low high : LowLabels} {node : Node} (h : highNode node=false) :
-    joinLabels low high node=ChainGraph.joinOutput (low node) (high node) := by
-  unfold joinLabels presentEquiv
-  rw [h]
-  rfl
-
-theorem joinLabels_low {low high : LowLabels} {node : Node} (h : highNode node=false) :
-    (joinLabels low high node).extractLsb' 0 128=low node := by
-  rw [joinLabels_not_high h]
-  exact ChainGraph.joinOutput_low _ _
-
-section Laws
-noncomputable local instance : SampleableType HashOutput := SampleableType.ofFintype _
-noncomputable local instance : SampleableType Labels := SampleableType.ofFintype _
-noncomputable local instance : SampleableType LowLabels := SampleableType.ofFintype _
-noncomputable local instance : SampleableType (LowLabels × LowLabels) := SampleableType.ofFintype _
-
-theorem labels_bind {Result : Type} (next : Labels → ProbComp Result) :
-    𝒮[do let labels ← ($ᵗ Labels : ProbComp _); next labels] =
-      𝒮[do
-        let low ← ($ᵗ LowLabels : ProbComp _)
-        let high ← ($ᵗ LowLabels : ProbComp _)
-        next (joinLabels low high)] := by
-  have hpair : 𝒮[labelPairEquiv <$> ($ᵗ Labels : ProbComp _)] =
-      𝒮[do let low ← ($ᵗ LowLabels : ProbComp _); let high ← ($ᵗ LowLabels : ProbComp _); pure (low,high)] :=
-    (evalSPMF_map_bijective_uniform_cross (α := Labels) (β := LowLabels × LowLabels)
-      labelPairEquiv labelPairEquiv.bijective).trans (FullGame.uniform_product (A := LowLabels) (B := LowLabels)).symm
-  have h := congrArg (fun law : SPMF (LowLabels × LowLabels) =>
-    law >>= fun result => 𝒮[next (labelPairEquiv.symm result)]) hpair
-  simpa only [evalSPMF_map, evalSPMF_bind, bind_map_left, evalSPMF_pure, bind_assoc, pure_bind,
-    Equiv.symm_apply_apply,labelPairEquiv_symm] using h
-end Laws
-end ClaudeWCT.W9.T3.Security.CanonGraph.Paired

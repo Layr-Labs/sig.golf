@@ -1,4 +1,3 @@
-import SigGolfCandidate.ClaudeWCT.Bank.WCTRev3
 import SigGolfCandidate.ClaudeWCT.W9.New.G6.LazyDefs
 import SigGolfCandidate.T3.Secc.PairGuessLazyFree
 
@@ -39,7 +38,7 @@ theorem ftsQuery_dn {index : Nat} {q : SigGolfCandidate.T3.Spec.Domain} (h : WCT
       ⟨coord, selected, t, step, hx⟩ | ⟨coord, selected, -, -, hx⟩ | ⟨coord, heap, -, -, -, hx⟩ | hx
     · exact not_digest_of_packed hx (by rw [WCT9.ftsChainHeader, WCT9.ftsChainHeaderP_firstByte]; omega)
     · exact not_digest_of_marker hx (by rw [WCT9.ftsLeafHeader_firstByte]; decide)
-    · exact not_digest_of_marker hx (WCT9.wctNodeHeader_firstByte_ne_zero _ _ _)
+    · exact not_digest_of_marker hx (by rw [WCT9.wctNodeHeader_firstByte]; decide)
     · exact not_digest_of_marker hx (by rw [header_firstByte]; decide)
   · trivial
   · exact h.elim
@@ -56,8 +55,7 @@ theorem dn_of_fts {index : Nat} {α : Type} {program : M α} (h : AllQueriesSati
 theorem signForest_dn (index : Nat) (output : HashOutput) : AllQueriesSatisfy (WCT9.signForest index output) NotDN :=
   dn_of_fts (WCT9.signForest_queries index output)
 theorem layerEncoding_dn (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (counter : BitVec 32) :
-    AllQueriesSatisfy (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg counter)) NotDN := by
-  rw [ClaudeWCT.WCT9.allQueries_encodingHash_iff]
+    AllQueriesSatisfy (shortHash (WCT9.layerEncodingInput lay tree leaf msg counter)) NotDN := by
   unfold shortHash publicHash
   apply SourceQueries.bind_allowed NotDN
   · apply (allQueriesSatisfy_query_iff _ _).mpr
@@ -136,7 +134,7 @@ theorem cell_not_digest (s : CanonGraph.Secrets) (node : CanonGraph.Node) (label
       exact not_digest_of_packed h (by rw [WCT9.ftsChainHeader, WCT9.ftsChainHeaderP_firstByte]; omega)
   | wctNode n =>
       simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr] at h
-      exact not_digest_of_marker h (WCT9.wctNodeHeader_firstByte_ne_zero _ _ _)
+      exact not_digest_of_marker h (by rw [WCT9.wctNodeHeader_firstByte]; decide)
   | wctLeaf L =>
       simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr] at h
       exact not_digest_of_marker h (by rw [WCT9.ftsLeafHeader_firstByte]; decide)
@@ -287,7 +285,7 @@ theorem hashL_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω
       · simp only [if_neg hx]
         exact congrArg _ (answers_sameRest hU h 0 (.inl (.inr x)) hx)
 theorem honestForest_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : CanonTable.HiddenF)
-    (index : Nat) : WCT9.honestTop (wA hU ω₁ g) index = WCT9.honestTop (wA hU ω₂ g) index := by
+    (index : Nat) : WCT9.honestForest (wA hU ω₁ g) index = WCT9.honestForest (wA hU ω₂ g) index := by
   rw [← WCT9.signForest_root _ index 0, ← WCT9.signForest_root _ index 0,
     eval_sameRest hU h g (signForest_dn _ _)]
 theorem expectedOpening_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : CanonTable.HiddenF)
@@ -330,78 +328,3 @@ theorem worldGameL_congr {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ 
   simp only [interactionL_sameRest hU h, programL_sameRest hU h]
 end Rest
 end ClaudeWCT.W9.T3.Security.WPair
-
-namespace ClaudeWCT.W9.T3.Security.WPair.Paired
-open OracleComp OracleSpec
-open SigGolfCandidate.T3 SigGolfCandidate.T3.Security SigGolfCandidate.Research.SharedForest
-open SigGolfCandidate.T3.Security.BPair (NotDN)
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 10000
-set_option backward.isDefEq.respectTransparency false
-
-theorem tail_notDN : SharedQueries.TailAllowed NotDN where
-  chainStep := SigGolfCandidate.T3.Security.BPair.chainStep_dn
-  leaf := SigGolfCandidate.T3.Security.BPair.leafHash_dn
-  level := fun _ _ _ _ _ => SigGolfCandidate.T3.Security.BPair.buildLevel_dn _ _ _ _ _ (by decide)
-  seed := fun _ _ _ => SigGolfCandidate.T3.Security.BPair.privatePair_dn _ _ _ _ _
-  encoding := WPair.layerEncoding_dn
-  top := SigGolfCandidate.T3.Security.BPair.signTop_dn
-
-theorem prepareRoots_dn (index : Nat) : AllQueriesSatisfy (prepareRoots index) NotDN :=
-  SharedQueries.prepareRoots_allowed NotDN tail_notDN index
-
-theorem searchPreparedLayers_dn (cache : SigGolfCandidate.T3.Cache) (index : Nat)
-    (prepared : PreparedRoots) (forest : PairRoot) :
-    AllQueriesSatisfy (searchPreparedLayers cache index prepared forest) NotDN :=
-  SharedQueries.searchPreparedLayers_allowed NotDN tail_notDN cache index prepared forest
-
-variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U)
-
-theorem forestCommitment_sameRest {omega1 omega2 : CanonTable.Omega U} (h : WPair.SameRest omega1 omega2)
-    (hidden : CanonTable.HiddenF) (index : Nat) :
-    forestCommitment (wA hU omega1 hidden) index = forestCommitment (wA hU omega2 hidden) index := by
-  rw [← buildForest_commitment (wA hU omega1 hidden) index (forestSelectionFromOutput 0) (forestWordsFromOutput 0),
-    ← buildForest_commitment (wA hU omega2 hidden) index (forestSelectionFromOutput 0) (forestWordsFromOutput 0),
-    WPair.eval_sameRest hU h hidden (ClaudeWCT.Bank.Paired.buildForest_notDN ..)]
-
-theorem assembleWith_sameRest {omega1 omega2 : CanonTable.Omega U} (h : WPair.SameRest omega1 omega2)
-    (hidden : CanonTable.HiddenF) (core : Digest × HashOutput × CanonicalLayers) :
-    assembleWith (wA hU omega1 hidden) core = assembleWith (wA hU omega2 hidden) core := by
-  unfold assembleWith
-  rw [WPair.eval_sameRest hU h hidden (ClaudeWCT.Bank.Paired.buildForest_notDN ..)]
-
-theorem signerLayersW_sameRest {omega1 omega2 : CanonTable.Omega U} (h : WPair.SameRest omega1 omega2) :
-    signerLayersW hU omega1 = signerLayersW hU omega2 := by
-  funext request output
-  unfold signerLayersW
-  rw [forestCommitment_sameRest hU h, WPair.eval_sameRest hU h _ (prepareRoots_dn _),
-    WPair.eval_sameRest hU h _ (searchPreparedLayers_dn ..)]
-
-theorem finishL_sameRest {omega1 omega2 : CanonTable.Omega U} (h : WPair.SameRest omega1 omega2) :
-    finishL hU omega1 = finishL hU omega2 := by
-  funext request rho found
-  rcases found with _ | ⟨counter, output⟩
-  · rfl
-  · simp only [finishL, signerLayersW_sameRest hU h, assembleWith_sameRest hU h]
-
-theorem signL_sameRest {omega1 omega2 : CanonTable.Omega U} (h : WPair.SameRest omega1 omega2) :
-    signL hU omega1 = signL hU omega2 := by
-  funext published request
-  unfold signL
-  simp only [finishL_sameRest hU h]
-
-theorem interactionL_sameRest {omega1 omega2 : CanonTable.Omega U} (h : WPair.SameRest omega1 omega2)
-    (published : SigGolfCandidate.T3.Cache) {α : Type} :
-    (interactionL hU omega1 published : OracleComp Interaction α → _) = interactionL hU omega2 published := by
-  unfold interactionL
-  simp only [WPair.hashL_sameRest hU h, signL_sameRest hU h]
-
-theorem experimentL_sameRest {omega1 omega2 : CanonTable.Omega U} (h : WPair.SameRest omega1 omega2)
-    {α β : Type} (published : SigGolfCandidate.T3.Cache) (program : OracleComp Interaction α)
-    (finish : (α × QueryLog Requests) → M β) :
-    experimentL hU omega1 published program finish = experimentL hU omega2 published program finish := by
-  unfold experimentL
-  rw [interactionL_sameRest hU h, WPair.programL_sameRest hU h]
-
-#print axioms experimentL_sameRest
-end ClaudeWCT.W9.T3.Security.WPair.Paired

@@ -5,35 +5,33 @@ open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Cost
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
-theorem bound_buildChildF (index coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest)
-    (hcoord : coord < 9) (hsel : selected < 128) :
+theorem bound_buildChildF (index coord selected : Nat) (word : Rank) (coefs : List Digest) (hcoord : coord < 9)
+    (hsel : selected < 128) :
     CBound (fun result : Digest × List Digest => result.2.length = 6) childCost
-      (buildChildF index coord selected word coefs pad) :=
-  cbound_of_ftsBound (ftsBound_buildChildF index coord selected word coefs pad hcoord hsel)
-theorem bound_buildCoordinateF (index : Nat) (coord : Coord) (selected : Child) (word : Rank)
-    (prev : Digest × Digest) :
-    CBound (fun _ => True) 3481 (buildCoordinateF index coord selected word prev) :=
-  cbound_of_ftsBound (ftsBound_buildCoordinateF index coord selected word prev)
+      (buildChildF index coord selected word coefs) :=
+  cbound_of_ftsBound (ftsBound_buildChildF index coord selected word coefs hcoord hsel)
+theorem bound_buildCoordinateF (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
+    CBound (fun _ => True) 3505 (buildCoordinateF index coord selected word) :=
+  cbound_of_ftsBound (ftsBound_buildCoordinateF index coord selected word)
 theorem bound_forestPk (index : Nat) (pairs : List (Digest × Digest)) (hlen : pairs.length = 9) :
     CBound (fun _ => True) 5 (WCT9.forestPk index pairs) :=
   cbound_of_ftsBound (ftsBound_forestPk index pairs hlen)
 theorem bound_forestRows (index : Nat) (output : HashOutput) :
-    CBound (fun state : List Opening × List (Digest × Digest) => state.1.length = 9 ∧ state.2.length = 9) 31329
+    CBound (fun state : List Opening × List (Digest × Digest) => state.1.length = 9 ∧ state.2.length = 9) 31545
       (forestRows index output) :=
   cbound_of_ftsBound (ftsBound_forestRows index output)
 theorem bound_signForest (index : Nat) (output : HashOutput) :
-    CBound (fun result : List Opening × (Digest × Digest) => result.1.length = 9) 31334 (signForest index output) :=
+    CBound (fun result : List Opening × Digest => result.1.length = 9) 31550 (signForest index output) :=
   cbound_of_ftsBound (ftsBound_signForest index output)
-theorem bound_recoverCoordinate (sig : Signature) (index : Nat) (output : HashOutput) (coord : Coord)
-    (prev : Digest × Digest) :
-    CBound (fun _ => True) 15 (recoverCoordinate sig index output coord prev) :=
-  cbound_of_ftsBound (ftsBound_recoverCoordinate index sig output coord prev)
+theorem bound_recoverCoordinate (sig : Signature) (index : Nat) (output : HashOutput) (coord : Coord) :
+    CBound (fun _ => True) 15 (recoverCoordinate sig index output coord) :=
+  cbound_of_ftsBound (ftsBound_recoverCoordinate index sig output coord)
 theorem bound_recoverFts (sig : Signature) (index : Nat) (output : HashOutput) :
     CBound (fun _ => True) 140 (recoverFts sig index output) :=
   cbound_of_ftsBound (ftsBound_recoverFts index sig output)
 /-- Stage-A FTS signing (T8 child code): per coordinate 51 coefficient pairs, 128 children of 24 chain steps + a
 2-block leaf, and 126 heap nodes; then the 5-block forest key. -/
-theorem signForest_blocks : 9 * (27 + 128 * (24 + 2) + 126) + 5 = 31334 := by norm_num
+theorem signForest_blocks : 9 * (51 + 128 * (24 + 2) + 126) + 5 = 31550 := by norm_num
 theorem verifyFts_blocks : 9 * (7 + 2 + 6) + 5 + 1 = 141 := by norm_num
 def DigestResult (out : Option (BitVec 32 × HashOutput)) : Prop :=
   ∀ counter output, out = some (counter, output) → producerAdmissible output = true
@@ -57,8 +55,8 @@ theorem bound_digestSearch (rho : Digest) (message : Message) :
         exact hgood
       · exact ih (counter + 1)
 theorem bound_layerEncoding (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) (counter : BitVec 32) :
-    CBound (fun _ => True) 1 (ClaudeWCT.WCT9.encodingHash lay (layerEncodingInput lay tree leaf msg counter)) := by
-  cases msg <;> apply bound_encodingHash <;>
+    CBound (fun _ => True) 1 (shortHash (layerEncodingInput lay tree leaf msg counter)) := by
+  cases msg <;> apply bound_shortHash <;>
     simp [layerEncodingInput, encodingInput, pairEncodingInputP, pad64_length, SphincsSecurity.bytesLE_length]
 theorem bound_layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) :
     ∀ fuel counter, CBound (CounterResult lay) fuel (layerCounterSearch lay tree leaf msg counter fuel) := by
@@ -185,25 +183,38 @@ theorem chainCount_lower {lay : Layer} (hlay : lay ≠ 0) : chainCount lay = 43 
 theorem maxDigit_lower {lay : Layer} (hlay : lay ≠ 0) (i : Nat) : maxDigit lay i = 7 := by
   unfold maxDigit; rw [if_neg hlay]
 theorem leafSeedsP_lower {lay : Layer} (_hlay : lay ≠ 0) (leaf : Nat) :
-    leafSeedsP lay leaf = 4 := by
+    leafSeedsP lay leaf = if leaf % 2 = 0 then 9 else 8 := by
   unfold leafSeedsP lowerCoefOrdinal lowerCoefCount
-  omega
+  split <;> omega
 theorem digitTotal_lower {lay : Layer} (hlay : lay ≠ 0) : digitTotal lay = 301 := by
   unfold digitTotal
   rw [chainCount_lower hlay]
   simp only [maxDigit_lower hlay, Finset.sum_const, Finset.card_range, smul_eq_mul]
 theorem leafCostP_lower {lay : Layer} (hlay : lay ≠ 0) (leaf : Nat) :
-    leafCostP lay leaf = 316 := by
+    leafCostP lay leaf = (if leaf % 2 = 0 then 9 else 8) + 312 := by
   unfold leafCostP
   rw [leafSeedsP_lower hlay, digitTotal_lower hlay]
-  simp [leafHashCost, hlay]
+  simp only [leafHashCost, if_neg hlay]
+theorem parity_sum (m : Nat) :
+    (∑ leaf ∈ Finset.range (2 * m), ((if leaf % 2 = 0 then 9 else 8) + 312)) = m * 641 := by
+  induction m with
+  | zero => simp
+  | succ m ih =>
+      rw [show 2 * (m + 1) = 2 * m + 1 + 1 by ring, Finset.sum_range_succ, Finset.sum_range_succ, ih]
+      have h1 : (2 * m) % 2 = 0 := by omega
+      have h2 : (2 * m + 1) % 2 = 1 := by omega
+      simp only [h1, h2, if_true, show (1 : Nat) ≠ 0 by decide, if_false]
+      ring
 theorem treeCostP_lower_eq {lay : Layer} (hlay : lay ≠ 0) :
-    treeCostP lay = 2 ^ height lay * 316 + (2 ^ height lay - 2) := by
+    treeCostP lay = 2 ^ height lay / 2 * 641 + (2 ^ height lay - 2) := by
   unfold treeCostP
+  have hh : 2 ^ height lay = 2 * (2 ^ height lay / 2) := by
+    fin_cases lay <;> first | exact absurd rfl hlay | decide
   rw [Finset.sum_congr rfl (fun leaf _ => leafCostP_lower hlay leaf)]
-  simp only [Finset.sum_const, Finset.card_range, smul_eq_mul]
+  conv_lhs => rw [hh]
+  rw [parity_sum, ← hh]
 theorem treeCostP_lower :
-    treeCostP 1 + 2305 = treeCost 1 ∧ treeCostP 2 + 1153 = treeCost 2 ∧ treeCostP 3 + 1153 = treeCost 3 := by
+    treeCostP 1 + 1729 = treeCost 1 ∧ treeCostP 2 + 865 = treeCost 2 ∧ treeCostP 3 + 865 = treeCost 3 := by
   rw [treeCostP_lower_eq (by decide), treeCostP_lower_eq (by decide), treeCostP_lower_eq (by decide)]
   decide
 def layerFixedCostP : Nat → Nat
@@ -216,7 +227,7 @@ theorem layerFixedCostP_succ_succ (n : Nat) :
     layerFixedCostP (n + 2) = treeCostP (Fin.ofNat 4 (n + 1)) + layerFixedCostP (n + 1) := rfl
 theorem layerFixedCost_succ_succ (n : Nat) :
     layerFixedCost (n + 2) = treeCost (Fin.ofNat 4 (n + 1)) + layerFixedCost (n + 1) := rfl
-theorem layerFixedCostP_four : layerFixedCostP 4 + 4611 = layerFixedCost 4 := by
+theorem layerFixedCostP_four : layerFixedCostP 4 + 3459 = layerFixedCost 4 := by
   obtain ⟨h1, h2, h3⟩ := treeCostP_lower
   have e3 : (Fin.ofNat 4 3 : Layer) = 3 := rfl
   have e2 : (Fin.ofNat 4 2 : Layer) = 2 := rfl
@@ -294,34 +305,6 @@ theorem bound_recoverLayerPair (sig : Signature) (index : Nat) (lay : Layer) (di
     exact bound_nodeHash _ _ _ _ _ _
   · rw [sum_finRange (chainCount lay) (fun i => maxDigit lay i - digits.getD i 0),
       remaining_steps lay digits hd hlen hsum]
-    simp only [recoverLayerPairCost]
-    omega
-theorem bound_recoverLayerPairGuard (sig : Signature) (index : Nat) (lay : Layer) (answer : Digest)
-    (digits : List Nat) (hd : ValidDigits lay digits) (hlen : digits.length = chainCount lay)
-    (hsum : digits.sum = target lay) :
-    CBound (fun _ => True) (recoverLayerPairCost lay) (recoverLayerPairGuard sig index lay answer digits) := by
-  unfold recoverLayerPairGuard lowerGuardedRun
-  split_ifs
-  · exact Bound.map _ (bound_recoverLayerPair sig index lay digits hd hlen hsum) (fun _ _ => trivial)
-  · refine (Bound.mapM_list (P := GoodQuery) (List.range (3 * lowerFirstBad answer)) _
-      (fun i => maxDigit lay i - digits.getD i 0) (fun i _ => bound_chain _ _ _ _ _ _ _)).bind'
-      (l := 0) (fun _ _ => .pure _ 0 trivial) ?_
-    have hn : 3 * lowerFirstBad answer ≤ chainCount lay := by
-      have := lowerFirstBad_le answer
-      have hc : 43 ≤ chainCount lay := by fin_cases lay <;> decide
-      omega
-    have hsplit := congrArg (fun xs : List Nat => (xs.map (fun i => maxDigit lay i - digits.getD i 0)).sum)
-      (List.range_add (n := 3 * lowerFirstBad answer) (m := chainCount lay - 3 * lowerFirstBad answer))
-    rw [Nat.add_sub_of_le hn] at hsplit
-    simp only [List.map_append, List.sum_append] at hsplit
-    have htotal : ((List.range (chainCount lay)).map
-        (fun i => maxDigit lay i - digits.getD i 0)).sum = capacity lay - target lay := by
-      rw [← List.sum_toFinset _ (List.nodup_range)]
-      have he : (List.range (chainCount lay)).toFinset = Finset.range (chainCount lay) := by
-        ext i
-        simp
-      rw [he]
-      exact remaining_steps lay digits hd hlen hsum
     simp only [recoverLayerPairCost]
     omega
 def recoveryLayersCostBC : Nat → Nat
@@ -402,13 +385,10 @@ theorem bound_verifyLayersBC (w : Witness) (index : Nat) :
           | none => exact .pure _ _ trivial
           | some digits =>
               dsimp only
-              refine (bound_recoverLayerPairGuard w.signature index (Fin.ofNat 4 n) answer digits
+              exact (bound_recoverLayerPair w.signature index (Fin.ofNat 4 n) digits
                 (validDigits_decode hd) (decode_length_sum hd).1 (decode_length_sum hd).2).bind'
-                (l := n + verifyLayersCostBC n) (fun pair _ => ?_)
+                (l := n + verifyLayersCostBC n) (fun pair _ => ih _)
                 (by simp only [verifyLayersCostBC, hn, ite_false]; omega)
-              cases pair
-              · exact .pure _ _ trivial
-              · exact ih _
 theorem bound_expandLayersBC (sig : Signature) (index : Nat) :
     ∀ n msg, CBound (fun _ => True) (n * counterLimit + recoveryLayersCostBC n) (expandLayersBC sig index n msg) := by
   intro n
@@ -439,8 +419,8 @@ theorem bound_expandLayersBC (sig : Signature) (index : Nat) :
               (by simp only [recoveryLayersCostBC, hn, ite_false]; omega)
             refine (ih _).bind' (l := 0) (fun result _ => ?_) (by omega)
             cases result <;> exact .pure _ 0 trivial
-def signPayloadFixed : Nat := 2 + 31334 + layerFixedCostP 4
-theorem signPayloadFixed_eq : signPayloadFixed + 5187 = 2 + 31910 + layerFixedCost 4 := by
+def signPayloadFixed : Nat := 2 + 31550 + layerFixedCostP 4
+theorem signPayloadFixed_eq : signPayloadFixed + 4035 = 2 + 32126 + layerFixedCost 4 := by
   have h := layerFixedCostP_four
   unfold signPayloadFixed
   omega
@@ -458,7 +438,7 @@ theorem bound_signPayloadWith (limit : Nat) (cache : Cache) (message : Message) 
       dsimp only
       refine (bound_signForest _ output).bind' (l := layerFixedCostP 4 + 4 * counterLimit)
         (fun forest _ => ?_) (by unfold signPayloadFixed; omega)
-      refine (bound_signLayersBC cache _ 4 (.pair forest.2.1 forest.2.2)).bind' (l := 0) (fun layers _ => ?_)
+      refine (bound_signLayersBC cache _ 4 (.forest forest.2)).bind' (l := 0) (fun layers _ => ?_)
         (by omega)
       cases layers <;> exact .pure _ 0 trivial
 theorem bound_signWith (limit : Nat) (cache : Cache) (message : Message) :
@@ -480,7 +460,7 @@ theorem bound_verifyWith (limit : Nat) (message : Message) (pk : Digest) (w : Wi
     split
     · exact .pure _ _ trivial
     · refine (bound_recoverFts w.signature _ output).bind' (l := 585) (fun root _ => ?_) (by decide)
-      refine (bound_verifyLayersBC w _ 4 (.pair root.1 root.2)).bind' (l := 0) (fun r _ => ?_)
+      refine (bound_verifyLayersBC w _ 4 (.forest root)).bind' (l := 0) (fun r _ => ?_)
         (by have := verifyLayersCostBC_four_le; omega)
       cases r <;> exact .pure _ 0 trivial
 theorem bound_expandWith (limit : Nat) (message : Message) (pk : Digest) (sig : Signature) :
@@ -495,7 +475,7 @@ theorem bound_expandWith (limit : Nat) (message : Message) (pk : Digest) (sig : 
       dsimp only
       refine (bound_recoverFts sig _ output).bind' (l := 4 * counterLimit + 481)
         (fun root _ => ?_) (by omega)
-      refine (bound_expandLayersBC sig _ 4 (.pair root.1 root.2)).bind' (l := 0)
+      refine (bound_expandLayersBC sig _ 4 (.forest root)).bind' (l := 0)
         (fun layers _ => ?_) (by have := recoveryLayersCostBC_four_le; omega)
       cases layers with
       | none => exact .pure _ 0 trivial
@@ -528,153 +508,3 @@ theorem verify_compression_bound (secret : BitVec 256) (message : Message) (pk :
   rw [World.countBlocks, ← realize_count] at hr
   exact (bound_verify message pk w).count_support result (realize_support_subset secret _ hr) |>.2
 end ClaudeWCT.WCT9.Cost
-
-/-!
-# Executable source-level prototype of adjacent lower-leaf sharing
-
-This standalone prototype materializes 14 coefficients (7 private pairs)
-once per two leaves, then evaluates them at disjoint stride-58 points. It
-is not the sign image and is not installed in the candidate certificate.
-The compression bound below is for the actual OracleComp program, not a
-numerical relabeling of the current independent-leaf program.
--/
-namespace ClaudeWCT.WCT9.Cost.AdjacentLeafResearch
-open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Cost
-
-/-- Padded pair family: avoids carry reuse between 13-coefficient groups. -/
-def pairCoefs (lay : Layer) (tree group : Nat) : M (List Digest) :=
-  (List.range 7).foldlM (fun cs j => do
-    let p ← privatePair 0 lay.val tree (7*group+j) 0
-    pure (cs ++ [p.1,p.2])) []
-
-theorem bound_pairCoefs (lay : Layer) (tree group : Nat) :
-    CBound (fun cs => cs.length = 14) 7 (pairCoefs lay tree group) := by
-  unfold pairCoefs
-  refine Bound.foldlM_range_le 7 _ (fun i (cs : List Digest) => cs.length = 2*i)
-    (fun _ => 1) [] rfl (fun j _ cs hcs => ?_) (fun cs hcs => hcs) (by norm_num)
-  refine (bound_privatePair 0 lay.val tree (7*group+j) 0).bind' (l := 0)
-    (fun p _ => .pure _ 0 (by simp only [List.length_append, List.length_cons, List.length_nil]; omega))
-    (by omega)
-
-/-- Both leaves use the same coefficients, but no same-seed aliases. -/
-def sharedLeaf (lay : Layer) (tree leaf : Nat) (digits : List Nat) (coefs : List Digest) :
-    M (Digest × List Digest) := do
-  let state ← (List.range (chainCount lay)).foldlM
-    (fun (state : List Digest × List Digest) i => do
-      let digit := digits.getD i 0
-      let seed := ClaudeWCT.Arith.familyEval coefs (58*(leaf%2)+i+1)
-      let value ← SigGolfCandidate.T3.chain lay tree leaf i 0 digit seed
-      let last ← SigGolfCandidate.T3.chain lay tree leaf i digit (maxDigit lay i-digit) value
-      pure (state.1 ++ [last], state.2 ++ [value])) ([],[])
-  let root ← SigGolfCandidate.T3.leafHash lay tree leaf state.1
-  pure (root,state.2)
-
-theorem bound_sharedLeaf (lay : Layer) (tree leaf : Nat) (digits : List Nat)
-    (hd : ValidDigits lay digits) (coefs : List Digest) :
-    CBound (fun result => result.2.length = chainCount lay)
-      (digitTotal lay+leafHashCost lay) (sharedLeaf lay tree leaf digits coefs) := by
-  unfold sharedLeaf
-  refine Bound.bind' (l := leafHashCost lay) (Bound.foldlM_range (chainCount lay) _
-    (fun i (state : List Digest × List Digest) => state.1.length = i ∧ state.2.length = i)
-    (fun i => maxDigit lay i) ([],[]) ⟨rfl,rfl⟩
-    (fun i hi state hstate => ?_)) (fun state hstate => ?_) ?_
-  · have hc := hd i hi
-    refine (bound_chain lay tree leaf i 0 (digits.getD i 0) _).bind'
-      (l := maxDigit lay i-digits.getD i 0) (fun value _ => ?_) (by omega)
-    refine (bound_chain lay tree leaf i (digits.getD i 0) (maxDigit lay i-digits.getD i 0) value).bind'
-      (l := 0) (fun last _ => ?_) (by omega)
-    exact .pure _ 0 ⟨by simp only [List.length_append,List.length_singleton]; omega,
-      by simp only [List.length_append,List.length_singleton]; omega⟩
-  · refine (bound_leafHash lay tree leaf state.1 hstate.1).bind' (l := 0)
-      (fun root _ => .pure _ 0 hstate.2) (by omega)
-  · unfold digitTotal
-    exact le_refl _
-
-/-- A real pair of leaf roots and their selected signature values. -/
-def sharedPair (lay : Layer) (tree group : Nat) (digits0 digits1 : List Nat) :
-    M ((Digest × List Digest) × (Digest × List Digest)) := do
-  let cs ← pairCoefs lay tree group
-  let p0 ← sharedLeaf lay tree (2*group) digits0 cs
-  let p1 ← sharedLeaf lay tree (2*group+1) digits1 cs
-  pure (p0,p1)
-
-theorem bound_sharedPair (lay : Layer) (hlay : lay ≠ 0) (tree group : Nat)
-    (digits0 digits1 : List Nat) (h0 : ValidDigits lay digits0) (h1 : ValidDigits lay digits1) :
-    CBound (fun result => result.1.2.length = 43 ∧ result.2.2.length = 43)
-      631 (sharedPair lay tree group digits0 digits1) := by
-  have hd : digitTotal lay = 301 := digitTotal_lower hlay
-  have hl : leafHashCost lay = 11 := by simp [leafHashCost,hlay]
-  have hc : chainCount lay = 43 := chainCount_lower hlay
-  unfold sharedPair
-  refine (bound_pairCoefs lay tree group).bind' (l := 624) (fun cs _ => ?_) (by omega)
-  refine (bound_sharedLeaf lay tree (2*group) digits0 h0 cs).bind' (l := 312)
-    (fun p0 hp0 => ?_) (by simp only [hd,hl]; omega)
-  refine (bound_sharedLeaf lay tree (2*group+1) digits1 h1 cs).bind' (l := 0)
-    (fun p1 hp1 => .pure _ 0 (by simpa only [hc] using And.intro hp0 hp1))
-    (by simp only [hd,hl]; omega)
-
-/-- Independent B4 leaf bound 316+316 versus actual sharedPair bound 631. -/
-theorem pair_saves_one_compression : 316+316-631 = 1 := by decide
-
-/-- Leaves+Merkle-node cost of the proposed three paired lower trees. -/
-theorem paired_tree_costs :
-    (128/2*631+(128-2)) = 40510 ∧
-    (64/2*631+(64-2)) = 20254 ∧
-    (128*316+(128-2)) + 2*(64*316+(64-2)) -
-      ((128/2*631+(128-2))+2*(64/2*631+(64-2))) = 128 := by decide
-
-#print axioms bound_sharedPair
-#print axioms paired_tree_costs
-
-/-- Complete source-level paired lower tree, including selected-leaf
-signature values and all Merkle levels. This still is not the sign image. -/
-def sharedTree (lay : Layer) (tree selected : Nat) (digits : List Nat) :
-    M (List (List Digest) × List Digest) := do
-  let state ← (List.range (2^height lay/2)).foldlM
-    (fun (state : List Digest × List Digest) group => do
-      let p ← sharedPair lay tree group
-        (if 2*group = selected then digits else [])
-        (if 2*group+1 = selected then digits else [])
-      pure (state.1 ++ [p.1.1,p.2.1],
-        if 2*group = selected then p.1.2 else if 2*group+1 = selected then p.2.2 else state.2)) ([],[])
-  let levels ← buildLevelsBelow 3 lay.val tree (height lay) state.1
-  pure (levels,state.2)
-
-def sharedTreeCost (lay : Layer) : Nat := (2^height lay/2)*631+(2^height lay-2)
-
-/-- Compression bound for the complete actual OracleComp tree prototype. -/
-theorem bound_sharedTree (lay : Layer) (hlay : lay ≠ 0) (tree selected : Nat) (digits : List Nat)
-    (hd : ValidDigits lay digits) :
-    CBound (fun result => LevelShape (height lay) (height lay-1) result.1)
-      (sharedTreeCost lay) (sharedTree lay tree selected digits) := by
-  have he : 2*(2^height lay/2) = 2^height lay := by
-    fin_cases lay <;> decide
-  unfold sharedTree sharedTreeCost
-  refine Bound.bind' (l := 2^height lay-2) (Bound.foldlM_range_le (2^height lay/2) _
-    (fun i (state : List Digest × List Digest) => state.1.length = 2*i)
-    (fun _ => 631) ([],[]) rfl (fun group _ state hs => ?_)
-    (fun state hs => hs) (by simp)) (fun state hs => ?_) le_rfl
-  · have hd0 : ValidDigits lay (if 2*group=selected then digits else []) := by
-      split <;> first | exact hd | exact validDigits_nil lay
-    have hd1 : ValidDigits lay (if 2*group+1=selected then digits else []) := by
-      split <;> first | exact hd | exact validDigits_nil lay
-    refine (bound_sharedPair lay hlay tree group _ _ hd0 hd1).bind' (l := 0)
-      (fun p _ => .pure _ 0 (by simp only [List.length_append,List.length_cons,List.length_nil]; omega))
-      (by omega)
-  · have hlen : state.1.length = 2^height lay := hs.trans he
-    refine (bound_buildLevelsBelow 3 lay.val tree (height lay) state.1 hlen
-      (by fin_cases lay <;> decide)).bind' (l := 0)
-      (fun levels hlevels => .pure (levels,state.2) 0 hlevels) (by omega)
-
-/-- Source compression saving versus the present per-leaf tree bounds. -/
-theorem sharedTree_savings :
-    treeCostP 1 - sharedTreeCost 1 = 64 ∧
-    treeCostP 2 - sharedTreeCost 2 = 32 ∧
-    treeCostP 3 - sharedTreeCost 3 = 32 := by
-  rw [treeCostP_lower_eq (by decide),treeCostP_lower_eq (by decide),treeCostP_lower_eq (by decide)]
-  decide
-
-#print axioms bound_sharedTree
-#print axioms sharedTree_savings
-
-end ClaudeWCT.WCT9.Cost.AdjacentLeafResearch

@@ -1,4 +1,3 @@
-import SigGolfCandidate.Research.V7Composed198Gate
 import SigGolfCandidate.ClaudeWCT.WCT9.Queries
 import SigGolfCandidate.T3.FullCache.PayloadSeparation
 import SigGolfCandidate.T3.FullCache.SourcePrelude
@@ -117,11 +116,6 @@ theorem shortHash_allowed (input : HashInput) : AllQueriesSatisfy (shortHash inp
   unfold shortHash publicHash
   exact SourceQueries.bind_allowed P ((allQueriesSatisfy_query_iff _ _).mpr (hpublic _))
     fun _ => SourceQueries.pure_allowed P _
-include hpublic in
-theorem highHash_allowed (input : HashInput) : AllQueriesSatisfy (WCT9.highHash input) P := by
-  unfold WCT9.highHash publicHash
-  exact SourceQueries.bind_allowed P ((allQueriesSatisfy_query_iff _ _).mpr (hpublic _))
-    fun _ => SourceQueries.pure_allowed P _
 include hseed in
 theorem seed_allowed (lay tree position index : Nat) :
     AllQueriesSatisfy (privatePair 8 lay tree position index) P := by
@@ -146,8 +140,8 @@ theorem ftsCoefs_allowed (index coord : Nat) : AllQueriesSatisfy (WCT9.ftsCoefs 
   exact SourceQueries.bind_allowed P (by unfold WCT9.ftsSeedPair; exact seed_allowed P hseed _ _ _ _)
     fun _ => SourceQueries.pure_allowed P _
 include hpublic in
-theorem buildChildF_allowed (index coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest) :
-    AllQueriesSatisfy (WCT9.buildChildF index coord selected word coefs pad) P := by
+theorem buildChildF_allowed (index coord selected : Nat) (word : Rank) (coefs : List Digest) :
+    AllQueriesSatisfy (WCT9.buildChildF index coord selected word coefs) P := by
   unfold WCT9.buildChildF
   apply SourceQueries.bind_allowed P
   · apply SourceQueries.foldlM_allowed P
@@ -158,7 +152,7 @@ theorem buildChildF_allowed (index coord selected : Nat) (word : Rank) (coefs : 
     intro _
     exact SourceQueries.pure_allowed P _
   · intro state
-    exact SourceQueries.bind_allowed P (by unfold WCT9.leafHashP; exact shortHash_allowed P hpublic _)
+    exact SourceQueries.bind_allowed P (leafHash_allowed P hpublic _ _ _ _)
       fun _ => SourceQueries.pure_allowed P _
 include hpublic in
 theorem nodeHash_allowed (tag lay tree heap : Nat) (left right : Digest) :
@@ -166,31 +160,27 @@ theorem nodeHash_allowed (tag lay tree heap : Nat) (left right : Digest) :
   unfold nodeHash
   exact shortHash_allowed P hpublic _
 include hpublic in
-theorem heapBuild_allowed (index coord : Nat) (padR : Digest) (leaves : List Digest) :
-    AllQueriesSatisfy (WCT9.heapBuild index coord padR leaves) P := by
+theorem heapBuild_allowed (index coord : Nat) (leaves : List Digest) :
+    AllQueriesSatisfy (WCT9.heapBuild index coord leaves) P := by
   unfold WCT9.heapBuild
   apply SourceQueries.foldlM_allowed P
   intro nodes heap
-  refine SourceQueries.bind_allowed P ?_ fun _ => SourceQueries.pure_allowed P _
-  unfold WCT9.wctHeapNode
-  split
-  · unfold WCT9.wctTopHash; exact highHash_allowed P hpublic _
-  · unfold WCT9.wctNodeHash; exact nodeHash_allowed P hpublic _ _ _ _ _ _
+  exact SourceQueries.bind_allowed P (by unfold WCT9.wctNodeHash; exact nodeHash_allowed P hpublic _ _ _ _ _ _)
+    fun _ => SourceQueries.pure_allowed P _
 include hpublic hseed in
-theorem buildCoordinateF_allowed (index : Nat) (coord : Coord) (selected : Child) (word : Rank)
-    (prev : Digest × Digest) :
-    AllQueriesSatisfy (WCT9.buildCoordinateF index coord selected word prev) P := by
+theorem buildCoordinateF_allowed (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
+    AllQueriesSatisfy (WCT9.buildCoordinateF index coord selected word) P := by
   unfold WCT9.buildCoordinateF
   apply SourceQueries.bind_allowed P (ftsCoefs_allowed P hseed _ _)
   intro coefs
   apply SourceQueries.bind_allowed P
   · apply SourceQueries.foldlM_allowed P
     intro state j
-    apply SourceQueries.bind_allowed P (buildChildF_allowed P hpublic _ _ _ _ _ _)
+    apply SourceQueries.bind_allowed P (buildChildF_allowed P hpublic _ _ _ _ _)
     rintro ⟨root, values⟩
     exact SourceQueries.pure_allowed P _
   · intro state
-    exact SourceQueries.bind_allowed P (heapBuild_allowed P hpublic _ _ _ _)
+    exact SourceQueries.bind_allowed P (heapBuild_allowed P hpublic _ _ _)
       fun _ => SourceQueries.pure_allowed P _
 include hpublic in
 theorem forestPk_allowed (index : Nat) (pairs : List (Digest × Digest)) :
@@ -199,7 +189,7 @@ theorem forestPk_allowed (index : Nat) (pairs : List (Digest × Digest)) :
   exact shortHash_allowed P hpublic _
 omit hseed in
 theorem layerCounterSearch_allowed'
-    (henc : ∀ lay tree leaf msg counter, AllQueriesSatisfy (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg counter)) P)
+    (henc : ∀ lay tree leaf msg counter, AllQueriesSatisfy (shortHash (WCT9.layerEncodingInput lay tree leaf msg counter)) P)
     (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (counter fuel : Nat) :
     AllQueriesSatisfy (WCT9.layerCounterSearch lay tree leaf msg counter fuel) P := by
   induction fuel generalizing counter with
@@ -217,7 +207,7 @@ theorem layerCounterSearch_allowed (lay : Layer) (tree leaf : Nat) (msg : WCT9.L
   layerCounterSearch_allowed' P (fun _ _ _ _ _ => shortHash_allowed P hpublic _) lay tree leaf msg counter fuel
 omit hseed in
 theorem signLayersBC_allowed' (cache : SigGolfCandidate.T3.Cache)
-    (henc : ∀ lay tree leaf msg counter, AllQueriesSatisfy (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg counter)) P)
+    (henc : ∀ lay tree leaf msg counter, AllQueriesSatisfy (shortHash (WCT9.layerEncodingInput lay tree leaf msg counter)) P)
     (hbuild : ∀ lay tree selected digits, AllQueriesSatisfy (WCT9.buildTreeP lay tree selected digits) P)
     (htop : ∀ leaf digits, AllQueriesSatisfy (signTop cache leaf digits) P) (index n : Nat) (msg : WCT9.LayerMsg) :
     AllQueriesSatisfy (WCT9.signLayersBC cache index n msg) P := by
@@ -272,9 +262,11 @@ theorem signPayloadWith_allowed (limit : Nat) (cache : SigGolfCandidate.T3.Cache
   · apply SourceQueries.bind_allowed P
     · apply SourceQueries.foldlM_allowed P
       intro state coord
-      exact SourceQueries.bind_allowed P (buildCoordinateF_allowed P hpublic hseed _ _ _ _ _)
+      exact SourceQueries.bind_allowed P (buildCoordinateF_allowed P hpublic hseed _ _ _ _)
         fun _ => SourceQueries.pure_allowed P _
     · intro state
+      apply SourceQueries.bind_allowed P (forestPk_allowed P hpublic _ _)
+      intro root
       apply SourceQueries.bind_allowed P (hlayers _ _ _)
       intro layers
       split
@@ -385,156 +377,3 @@ theorem sign_avoids (protectedMessage : Message) (cache : SigGolfCandidate.T3.Ca
 end Signer
 end ClaudeWCT.W9.T3.Security
 end
-
-namespace ClaudeWCT.W9.T3.Security.SharedQueries
-open OracleComp OracleSpec
-open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open ClaudeWCT.WCT9
-open SigGolfCandidate.Research.SharedForest
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 10000
-set_option backward.isDefEq.respectTransparency false
-
-structure TailAllowed (Q : SigGolfCandidate.T3.Spec.Domain → Prop) : Prop where
-  chainStep : ∀ lay tree leaf i step value,
-    AllQueriesSatisfy (shortHash (SigGolfCandidate.T3.chainInput lay tree leaf i step value)) Q
-  leaf : ∀ lay tree leaf ends, AllQueriesSatisfy (SigGolfCandidate.T3.leafHash lay tree leaf ends) Q
-  level : ∀ (lay : Layer) tree h level nodes,
-    AllQueriesSatisfy (buildLevel 3 lay.val tree h level nodes) Q
-  seed : ∀ lay tree pair, AllQueriesSatisfy (lowerSeedPair lay tree pair) Q
-  encoding : ∀ lay tree leaf msg counter,
-    AllQueriesSatisfy (encodingHash lay (layerEncodingInput lay tree leaf msg counter)) Q
-  top : ∀ cache leaf digits, AllQueriesSatisfy (signTop cache leaf digits) Q
-
-section
-variable (Q : SigGolfCandidate.T3.Spec.Domain → Prop) (hQ : TailAllowed Q)
-include hQ
-
-theorem chain_allowed (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
-    AllQueriesSatisfy (SigGolfCandidate.T3.chain lay tree leaf i start count value) Q := by
-  unfold SigGolfCandidate.T3.chain
-  exact SourceQueries.foldlM_allowed Q _ _ (fun _ _ => hQ.chainStep ..) _
-
-theorem lowerCoefs_allowed (lay : Layer) (tree leaf : Nat) (carry : Digest) :
-    AllQueriesSatisfy (lowerCoefs lay tree leaf carry) Q := by
-  unfold lowerCoefs
-  apply SourceQueries.foldlM_allowed Q
-  intro state j
-  refine SourceQueries.bind_allowed Q ?_ fun _ => SourceQueries.pure_allowed Q _
-  unfold packedSecret
-  split
-  · exact SourceQueries.bind_allowed Q (hQ.seed ..) fun _ => SourceQueries.pure_allowed Q _
-  · exact SourceQueries.pure_allowed Q _
-
-theorem buildLeafPF_allowed (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
-    AllQueriesSatisfy (buildLeafPF lay tree leaf digits carry) Q := by
-  unfold buildLeafPF
-  refine SourceQueries.bind_allowed Q (lowerCoefs_allowed Q hQ ..) fun _ => ?_
-  refine SourceQueries.bind_allowed Q (SourceQueries.foldlM_allowed Q _ _ (fun state i => ?_) _) fun _ =>
-    SourceQueries.bind_allowed Q (hQ.leaf ..) fun _ => SourceQueries.pure_allowed Q _
-  exact SourceQueries.bind_allowed Q (chain_allowed Q hQ ..) fun _ =>
-    SourceQueries.bind_allowed Q (chain_allowed Q hQ ..) fun _ => SourceQueries.pure_allowed Q _
-
-theorem chainPrefixes_allowed (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
-    AllQueriesSatisfy (chainPrefixes lay tree leaf i start count value) Q := by
-  induction count generalizing start value with
-  | zero => exact SourceQueries.pure_allowed Q _
-  | succ count ih =>
-    unfold chainPrefixes
-    exact SourceQueries.bind_allowed Q (hQ.chainStep ..) fun _ =>
-      SourceQueries.bind_allowed Q (ih ..) fun _ => SourceQueries.pure_allowed Q _
-
-theorem buildLeafPrefixes_allowed (lay : Layer) (tree leaf : Nat) (carry : Digest) :
-    AllQueriesSatisfy (buildLeafPrefixes lay tree leaf carry) Q := by
-  unfold buildLeafPrefixes
-  exact SourceQueries.bind_allowed Q (lowerCoefs_allowed Q hQ ..) fun _ =>
-    SourceQueries.bind_allowed Q (SourceQueries.mapM_allowed Q _ _
-      (fun _ => chainPrefixes_allowed Q hQ ..)) fun _ =>
-      SourceQueries.bind_allowed Q (hQ.leaf ..) fun _ => SourceQueries.pure_allowed Q _
-
-theorem buildTreePrefixes_allowed (lay : Layer) (tree selected : Nat) :
-    AllQueriesSatisfy (buildTreePrefixes lay tree selected) Q := by
-  unfold buildTreePrefixes
-  refine SourceQueries.bind_allowed Q (SourceQueries.foldlM_allowed Q _ _ (fun state leaf => ?_) _) fun _ =>
-    SourceQueries.bind_allowed Q ?_ fun _ => SourceQueries.pure_allowed Q _
-  · dsimp only
-    split
-    · refine SourceQueries.bind_allowed Q (buildLeafPrefixes_allowed Q hQ ..) fun r => ?_
-      rcases r with ⟨⟨root, prefixes⟩, carry⟩
-      exact SourceQueries.pure_allowed Q _
-    · refine SourceQueries.bind_allowed Q (buildLeafPF_allowed Q hQ ..) fun r => ?_
-      rcases r with ⟨⟨root, prefixes⟩, carry⟩
-      simp only [pure_bind]
-      exact SourceQueries.pure_allowed Q _
-  · unfold buildLevelsBelow
-    exact SourceQueries.foldlM_allowed Q _ _ (fun _ _ =>
-      SourceQueries.bind_allowed Q (hQ.level ..) fun _ => SourceQueries.pure_allowed Q _) _
-
-theorem prepareRoots_allowed (index : Nat) : AllQueriesSatisfy (prepareRoots index) Q := by
-  unfold prepareRoots
-  exact SourceQueries.bind_allowed Q (buildTreePrefixes_allowed Q hQ ..) fun _ =>
-    SourceQueries.bind_allowed Q (buildTreePrefixes_allowed Q hQ ..) fun _ =>
-      SourceQueries.bind_allowed Q (buildTreePrefixes_allowed Q hQ ..) fun _ => SourceQueries.pure_allowed Q _
-
-theorem layerCounterSearchAt_allowed (lay : Layer) (floor tree leaf : Nat)
-    (msg : LayerMsg) (counter fuel : Nat) :
-    AllQueriesSatisfy (CanonicalPolicy.layerCounterSearchAt lay floor tree leaf msg counter fuel) Q := by
-  induction fuel generalizing counter with
-  | zero => exact SourceQueries.pure_allowed Q _
-  | succ fuel ih =>
-    unfold CanonicalPolicy.layerCounterSearchAt
-    apply SourceQueries.bind_allowed Q (hQ.encoding ..)
-    intro answer
-    split
-    · exact ih _
-    · exact SourceQueries.pure_allowed Q _
-
-theorem searchPreparedLayers_allowed (cache : SigGolfCandidate.T3.Cache) (index : Nat)
-    (prepared : PreparedRoots) (forest : PairRoot) :
-    AllQueriesSatisfy (searchPreparedLayers cache index prepared forest) Q := by
-  unfold searchPreparedLayers
-  apply SourceQueries.bind_allowed Q (layerCounterSearchAt_allowed Q hQ ..)
-  intro found
-  rcases found with _ | ⟨counter0,digits0⟩
-  · exact SourceQueries.pure_allowed Q _
-  · dsimp only
-    split
-    · exact SourceQueries.pure_allowed Q _
-    · apply SourceQueries.bind_allowed Q (layerCounterSearchAt_allowed Q hQ ..)
-      intro found
-      rcases found with _ | ⟨counter1,digits1⟩
-      · exact SourceQueries.pure_allowed Q _
-      · dsimp only
-        split
-        · exact SourceQueries.pure_allowed Q _
-        · apply SourceQueries.bind_allowed Q (layerCounterSearchAt_allowed Q hQ ..)
-          intro found
-          rcases found with _ | ⟨counter2,digits2⟩
-          · exact SourceQueries.pure_allowed Q _
-          · dsimp only
-            split
-            · exact SourceQueries.pure_allowed Q _
-            · apply SourceQueries.bind_allowed Q (layerCounterSearchAt_allowed Q hQ ..)
-              intro found
-              rcases found with _ | ⟨counter3,digits3⟩
-              · exact SourceQueries.pure_allowed Q _
-              · exact SourceQueries.bind_allowed Q (hQ.top ..) fun _ => SourceQueries.pure_allowed Q _
-
-theorem signFromOutput_allowed
-    (hforest : ∀ index selected words, AllQueriesSatisfy (buildForest index selected words) Q)
-    (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (counter : BitVec 32) (output : HashOutput) :
-    AllQueriesSatisfy (signFromOutput cache rho counter output) Q := by
-  unfold signFromOutput
-  apply SourceQueries.bind_allowed Q (hforest ..)
-  intro forest
-  apply SourceQueries.bind_allowed Q (prepareRoots_allowed Q hQ ..)
-  intro prepared
-  apply SourceQueries.bind_allowed Q (searchPreparedLayers_allowed Q hQ ..)
-  intro layers
-  cases layers <;> exact SourceQueries.pure_allowed Q _
-end
-
-#print axioms prepareRoots_allowed
-#print axioms searchPreparedLayers_allowed
-#print axioms signFromOutput_allowed
-end ClaudeWCT.W9.T3.Security.SharedQueries

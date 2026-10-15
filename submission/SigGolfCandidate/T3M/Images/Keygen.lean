@@ -1,5 +1,5 @@
-import SigGolfCandidate.T3M.Images.Literals
 import SigGolfCandidate.Legacy
+import SigGolfCandidate.T3M.Images.Literals
 
 set_option maxRecDepth 16384
 namespace SigGolfCandidate.T3M.Images

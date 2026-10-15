@@ -16,10 +16,8 @@ def nbE (l : Nat) : E := .bin .xor (bitE l) (.c 1#64)
 def t6E (l : Nat) : E := .bin .add (.bin .sll (nbE l) (.c 4#64)) (.bin .sll (nbE l) (.c 5#64))
 def hwE (l : Nat) : E :=
   .un (.ld .hu (2 * (l % 4))) (if l < 4 then (E.reg .x20).ld else (E.bin .add (.reg .x20) (.c 8#64)).ld)
-/-- Nested FTS (r1-1): level 5 targets the fixed staging block `+832` (`addi t3,zero,832`, no plan load). -/
 def dstE (l : Nat) : E :=
-  if l < 5 then .bin .add (.bin .add (.reg .x9) (hwE l)) (t6E l)
-  else if l = 5 then .bin .add (.bin .add (.reg .x9) (.c 832#64)) (t6E l) else .bin .add (.reg .x9) (hwE l)
+  if l < 6 then .bin .add (.bin .add (.reg .x9) (hwE l)) (t6E l) else .bin .add (.reg .x9) (hwE l)
 def a3E (l : Nat) : E := .bin .add (.reg .x8) (t6E l)
 def srcE (l o : Nat) : E :=
   if 64 * (6 - l) + o = 0 then a3E l else .bin .add (a3E l) (.c (BitVec.ofNat 64 (64 * (6 - l) + o)))
@@ -28,37 +26,21 @@ def sibRegs (l : Nat) : RegFile :=
     (t6E l)
 def sibMem (l : Nat) : SymMem :=
   [(⟨some (dstE l), 8#64⟩, (srcE l 8).ld), (⟨some (dstE l), 0#64⟩, (srcE l 0).ld)]
-def sibObl4 (l : Nat) : List Oblig :=
+def sibObl (l : Nat) : List Oblig :=
   [.valid ⟨some (dstE l), 8#64⟩ 8, .valid ⟨some (dstE l), 0#64⟩ 8,
-    .valid ⟨some (a3E l), BitVec.ofNat 64 (64 * (6 - l) + 8)⟩ 8, .valid ⟨some (a3E l), BitVec.ofNat 64 (64 * (6 - l))⟩ 8]
-def sibOblP (l : Nat) : List Oblig := [.align8 (.reg .x20), .valid ⟨some (.reg .x20), BitVec.ofNat 64 (2 * l)⟩ 2]
-def sibObl (l : Nat) : List Oblig := sibObl4 l ++ (if l = 5 then [] else sibOblP l)
-theorem rSib_st (l : Nat) (hl : l < 6) : (rSib l).st = ⟨sibRegs l, sibMem l, sibObl l⟩ := by
+    .valid ⟨some (a3E l), BitVec.ofNat 64 (64 * (6 - l) + 8)⟩ 8, .valid ⟨some (a3E l), BitVec.ofNat 64 (64 * (6 - l))⟩ 8,
+    .align8 (.reg .x20), .valid ⟨some (.reg .x20), BitVec.ofNat 64 (2 * l)⟩ 2]
+theorem rSib_st (l : Nat) (hl : l < 7) : (rSib l).st = ⟨sibRegs l, sibMem l, sibObl l⟩ := by
   interval_cases l <;> kernel_rfl
 def srcOff (c l : Nat) : Nat := 64 * (6 - l) + 48 * (1 - c / 2 ^ l % 2)
 def planHW (c l : Nat) : Nat := if l < 6 then authBase c l else authRoot c
 set_option maxRecDepth 100000 in
-theorem planHW_ok : ∀ r < 64, ∀ l < 5,
+theorem planHW_ok : ∀ r < 64, ∀ l < 7,
     LoadKind.hu.fromWord (bytesToWordLE ((planBytes.drop (8 * (2 * r + l / 4))).take 8)) (2 * (l % 4)) =
       BitVec.ofNat 64 (planHW r l) := by
   decide +kernel
-theorem authSibOff_ok : ∀ c < 128, ∀ l < 5, authSibOff c l % 16 = 0 ∧ authSibOff c l + 16 ≤ 320 := by
+theorem authSibOff_ok : ∀ c < 128, ∀ l < 7, authSibOff c l % 16 = 0 ∧ authSibOff c l + 16 ≤ 320 := by
   decide +kernel
-theorem authSibOff_five (c : Nat) : authSibOff c 5 = 832 + 48 * (1 - c / 2 ^ 5 % 2) := by
-  unfold authSibOff SigGolfCandidate.T3M.sibOff
-  rw [if_pos (by norm_num), ClaudeWCT.W9.T3M.authBase_five]
-  have : c / 2 ^ 5 % 2 < 2 := Nat.mod_lt _ (by norm_num)
-  split_ifs <;> omega
-theorem auth6_ok (c : Nat) (hc : c < 128) (l : Nat) (hl : l < 6) :
-    authSibOff c l % 16 = 0 ∧ authSibOff c l + 16 ≤ 896 ∧ (l < 5 → authSibOff c l + 16 ≤ 320) ∧
-      (l = 5 → 832 ≤ authSibOff c l) := by
-  by_cases h : l < 5
-  · have := authSibOff_ok c hc l h
-    exact ⟨this.1, by omega, fun _ => this.2, fun h5 => by omega⟩
-  · obtain rfl : l = 5 := by omega
-    rw [authSibOff_five]
-    have : c / 2 ^ 5 % 2 < 2 := Nat.mod_lt _ (by norm_num)
-    refine ⟨by omega, by omega, fun h => by omega, fun _ => by omega⟩
 theorem planHW_mod (c l : Nat) : planHW (c % 64) l = planHW c l := by
   unfold planHW authBase authRoot; rw [Nat.mod_mod]
 section eval
@@ -100,7 +82,7 @@ theorem srcE_eval (l : Nat) (hl : l < 7) {S : Nat} (h8 : s.getReg .x8 = BitVec.o
   · simp only [E.eval, BinOp.eval, a3E_eval h19 hc l hl h8, ofNat_add_ofNat]; congr 1; omega
 end eval
 theorem hwE_eval {s : MachineState} {c : Nat} (hc : c < 128)
-    (h20 : s.getReg .x20 = BitVec.ofNat 64 (PLAN + 16 * (c % 64))) (hp : PlanAt s) (l : Nat) (hl : l < 5) :
+    (h20 : s.getReg .x20 = BitVec.ofNat 64 (PLAN + 16 * (c % 64))) (hp : PlanAt s) (l : Nat) (hl : l < 7) :
     (hwE l).eval s = BitVec.ofNat 64 (planHW c l) := by
   have hr : c % 64 < 64 := Nat.mod_lt _ (by norm_num)
   have hw : (if l < 4 then (E.reg .x20).ld else (E.bin .add (.reg .x20) (.c 8#64)).ld).eval s =
@@ -121,18 +103,14 @@ theorem authSibOff_eq (c l : Nat) (hl : l < 7) :
   split_ifs <;> omega
 theorem dstE_eval {s : MachineState} {c D : Nat} (hc : c < 128) (h19 : s.getReg .x19 = BitVec.ofNat 64 c)
     (h20 : s.getReg .x20 = BitVec.ofNat 64 (PLAN + 16 * (c % 64))) (hp : PlanAt s)
-    (h9 : s.getReg .x9 = BitVec.ofNat 64 D) (l : Nat) (hl : l < 6) :
+    (h9 : s.getReg .x9 = BitVec.ofNat 64 D) (l : Nat) (hl : l < 7) :
     (dstE l).eval s = BitVec.ofNat 64 (D + authSibOff c l) := by
-  by_cases hl5 : l < 5
-  · rw [authSibOff_eq c l (by omega), if_pos (show l < 6 by omega)]
-    simp only [dstE, if_pos hl5, E.eval, BinOp.eval, h9, hwE_eval hc h20 hp l hl5, t6E_eval h19 hc l (by omega),
-      ofNat_add_ofNat]
+  rw [authSibOff_eq c l hl]
+  unfold dstE
+  split
+  · simp only [E.eval, BinOp.eval, h9, hwE_eval hc h20 hp l hl, t6E_eval h19 hc l hl, ofNat_add_ofNat]
     rw [Nat.add_assoc]
-  · obtain rfl : l = 5 := by omega
-    rw [authSibOff_five]
-    simp only [dstE, show ¬ (5 : Nat) < 5 by decide, if_false, if_true, E.eval, BinOp.eval, h9,
-      t6E_eval h19 hc 5 (by omega), ofNat_add_ofNat]
-    rw [Nat.add_assoc]
+  · simp only [E.eval, BinOp.eval, h9, hwE_eval hc h20 hp l hl, ofNat_add_ofNat]
 theorem srcOff_bound (c l : Nat) : srcOff c l + 16 ≤ 448 ∧ srcOff c l % 16 = 0 := by
   unfold srcOff
   have : c / 2 ^ l % 2 < 2 := Nat.mod_lt _ (by norm_num)
@@ -142,44 +120,16 @@ theorem sibRegs_get (l : Nat) (s : MachineState) (r : Reg) (hr : r ∉ [.x13, .x
   simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
   obtain ⟨h13, h28, h29, h30, h31⟩ := hr
   cases r <;> first | rfl | (exfalso; simp_all)
-/-! Nested FTS (r1-1): level 6. The word at `sibAt k 6` jumps to the trampoline `P6(k)` (words
-`33000 + 13 k`), which loads coordinate `k`'s top sibling from the scratch region (`x8 + 48 (1 - bit6)`) and
-stores it with the flag `1 - bit6` to the hold slot `0x380000 + 32 k`; the final assembly places it. -/
-def cJ6s : List (BitVec 32) := [4187975791,3776933999,3365892207,2954850415,2543808623,4279201903,3868160111,3457118319,3046076527]
-def cP6s : List (List (BitVec 32)) := [[6938515,2084755,6264467,5217939,30836403,8816307,441987,8830723,3673655,31338531,32388131,33437731,109084783],[6938515,2084755,6264467,5217939,30836403,8816307,441987,8830723,3673655,64892963,65942563,66992163,520126575],[6938515,2084755,6264467,5217939,30836403,8816307,441987,8830723,3673655,98447395,99496995,100546595,931168367],[6938515,2084755,6264467,5217939,30836403,8816307,441987,8830723,3673655,132001827,133051427,134101027,1342210159],[6938515,2084755,6264467,5217939,30836403,8816307,441987,8830723,3673655,165556259,166605859,167655459,1753251951],[6938515,2084755,6264467,5217939,30836403,8816307,441987,8830723,3673655,199110691,200160291,201209891,17858671],[6938515,2084755,6264467,5217939,30836403,8816307,441987,8830723,3673655,232665123,233714723,234764323,428900463],[6938515,2084755,6264467,5217939,30836403,8816307,441987,8830723,3673655,266219555,267269155,268318755,839942255],[6938515,2084755,6264467,5217939,30836403,8816307,441987,8830723,3673655,299773987,300823587,301873187,1250984047]]
-def cJ6 (k : Nat) : List (BitVec 32) := [cJ6s.getD k 0]
-def cP6 (k : Nat) : List (BitVec 32) := cP6s.getD k []
-def p6At (k : Nat) : Nat := 33000 + 13 * k
-def p6tE : E := .bin .add (.bin .sll (nbE 6) (.c 5#64)) (.bin .sll (nbE 6) (.c 4#64))
-def a6E : E := .bin .add p6tE (.reg .x8)
-def p6Regs : RegFile :=
-  ((((RegFile.init.set .x13 a6E).set .x28 (.c 0x380000#64)).set .x29 (E.ld a6E)).set .x30
-    (E.ld (.bin .add a6E (.c 8#64)))).set .x31 (nbE 6)
-def p6Mem (k : Nat) : SymMem :=
-  [(⟨none, BitVec.ofNat 64 (holdAt k + 16)⟩, nbE 6), (⟨none, BitVec.ofNat 64 (holdAt k + 8)⟩, E.ld (.bin .add a6E (.c 8#64))),
-    (⟨none, BitVec.ofNat 64 (holdAt k)⟩, E.ld a6E)]
-def p6Obl : List Oblig := [.valid ⟨some a6E, 8#64⟩ 8, .valid ⟨some a6E, 0#64⟩ 8]
-theorem run_j6 (k : Nat) (hk : k < 9) : symRun cfgC (cJ6 k) (pcOf (sibAt k 6)) 40 =
-    some ⟨⟨RegFile.init, [], []⟩, .c (pcOf (p6At k)), .jump, 1, 1⟩ := by
-  interval_cases k <;> kernel_rfl
-theorem run_p6 (k : Nat) (hk : k < 9) : symRun cfgC (cP6 k) (pcOf (p6At k)) 40 =
-    some ⟨⟨p6Regs, p6Mem k, p6Obl⟩, .c (pcOf (coordAt k + 109)), .jump, 13, 13⟩ := by
-  interval_cases k <;> kernel_rfl
-theorem p6Regs_get (s : MachineState) (r : Reg) (hr : r ∉ [.x13, .x28, .x29, .x30, .x31]) :
-    (p6Regs.get r).eval s = s.getReg r := by
-  simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-  obtain ⟨h13, h28, h29, h30, h31⟩ := hr
-  cases r <;> first | rfl | (exfalso; simp_all)
 section
-variable {im : Image} (hc : CompactCodeAt im)
+variable {im : Image} (hc : NewCodeAt im)
 include hc
 set_option maxRecDepth 20000 in
 set_option maxHeartbeats 1000000 in
-theorem sib_spec (k l : Nat) (hk : k < 9) (hl : l < 6) (s : MachineState) (hpc : s.pc = pcOf (sibAt k l))
+theorem sib_spec (k l : Nat) (hk : k < 9) (hl : l < 7) (s : MachineState) (hpc : s.pc = pcOf (sibAt k l))
     (c S D : Nat) (hcl : c < 128) (h8 : s.getReg .x8 = BitVec.ofNat 64 S) (h9 : s.getReg .x9 = BitVec.ofNat 64 D)
     (h19 : s.getReg .x19 = BitVec.ofNat 64 c) (h20 : s.getReg .x20 = BitVec.ofNat 64 (PLAN + 16 * (c % 64)))
     (hp : PlanAt s) (hS : S % 16 = 0) (hS' : S + 448 ≤ MEMORY_BYTES) (hD : D % 16 = 0)
-    (hD' : D + 896 ≤ MEMORY_BYTES) :
+    (hD' : D + 320 ≤ MEMORY_BYTES) :
     ∃ t, Steps im s (sibLen l) (sibLen l) t ∧ t.pc = pcOf (sibAt k l + sibLen l) ∧
       RegsExcept s t [.x13, .x28, .x29, .x30, .x31] ∧
       ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) =
@@ -187,30 +137,19 @@ theorem sib_spec (k l : Nat) (hk : k < 9) (hl : l < 6) (s : MachineState) (hpc :
         else if A = D + authSibOff c l then s.getMem (BitVec.ofNat 64 (S + srcOff c l))
         else s.getMem (BitVec.ofNat 64 A) := by
   have hM : MEMORY_BYTES = 16777216 := rfl
-  have ha := auth6_ok c hcl l hl
+  have ha := authSibOff_ok c hcl l hl
   have hso := srcOff_bound c l
   have hd := dstE_eval hcl h19 h20 hp h9 l hl
-  have hs0 := srcE_eval h19 hcl l (by omega) h8 0
-  have hs8 := srcE_eval h19 hcl l (by omega) h8 8
-  have ha3 := a3E_eval h19 hcl l (by omega) h8
+  have hs0 := srcE_eval h19 hcl l hl h8 0
+  have hs8 := srcE_eval h19 hcl l hl h8 8
+  have ha3 := a3E_eval h19 hcl l hl h8
   have hrun := run_sib k l hk hl
   rw [rSib_st l hl] at hrun
   have hobl : Oblig.all s (sibObl l) := by
     rw [Oblig.all_iff]
     intro o ho
-    unfold sibObl at ho
-    rw [List.mem_append] at ho
-    rcases ho with ho | ho
-    swap
-    · split at ho
-      · simp at ho
-      · simp only [sibOblP, List.mem_cons, List.not_mem_nil, or_false] at ho
-        rcases ho with rfl | rfl
-        · simp only [Oblig.holds, E.eval, h20, BitVec.toNat_ofNat]; unfold PLAN; omega
-        · simp only [Oblig.holds, Addr.eval, E.eval, h20, ofNat_add_ofNat, accessValid_iff, BitVec.toNat_ofNat]
-          unfold PLAN; omega
-    simp only [sibObl4, List.mem_cons, List.not_mem_nil, or_false] at ho
-    rcases ho with rfl | rfl | rfl | rfl
+    simp only [sibObl, List.mem_cons, List.not_mem_nil, or_false] at ho
+    rcases ho with rfl | rfl | rfl | rfl | rfl | rfl
     · simp only [Oblig.holds, Addr.eval, hd, ofNat_add_ofNat, accessValid_iff, BitVec.toNat_ofNat]; omega
     · simp only [Oblig.holds, Addr.eval, hd, ofNat_add_ofNat, accessValid_iff, BitVec.toNat_ofNat]; omega
     · simp only [Oblig.holds, Addr.eval, ha3, ofNat_add_ofNat, accessValid_iff, BitVec.toNat_ofNat]
@@ -219,6 +158,9 @@ theorem sib_spec (k l : Nat) (hk : k < 9) (hl : l < 6) (s : MachineState) (hpc :
     · simp only [Oblig.holds, Addr.eval, ha3, ofNat_add_ofNat, accessValid_iff, BitVec.toNat_ofNat]
       rw [show S + 48 * (1 - c / 2 ^ l % 2) + 64 * (6 - l) = S + srcOff c l by unfold srcOff; omega]
       omega
+    · simp only [Oblig.holds, E.eval, h20, BitVec.toNat_ofNat]; unfold PLAN; omega
+    · simp only [Oblig.holds, Addr.eval, E.eval, h20, ofNat_add_ofNat, accessValid_iff, BitVec.toNat_ofNat]
+      unfold PLAN; omega
   refine ⟨_, symRun_sound hrun (code_cSib hc k l hk hl) s hpc hobl, ?_, ?_, ?_⟩
   · simp only [Result.toState_pc, E.eval]
   · intro r hr
@@ -234,64 +176,6 @@ theorem sib_spec (k l : Nat) (hk : k < 9) (hl : l < 6) (s : MachineState) (hpc :
       by_cases h2 : A = D + authSibOff c l
       · subst h2; simp
       · rw [if_neg (fun h => h2 ((ofNat_inj hA (by omega)).mp h)), if_neg h2]
-theorem code_cJ6 (k : Nat) (hk : k < 9) : CodeAt im (pcOf (sibAt k 6)) (cJ6 k) := by
-  interval_cases k <;> exact codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_cP6 (k : Nat) (hk : k < 9) : CodeAt im (pcOf (p6At k)) (cP6 k) := by
-  interval_cases k <;> exact codeAt_of_compact_window hc (by decide) (by decide +kernel)
-set_option maxRecDepth 20000 in
-set_option maxHeartbeats 1000000 in
-theorem sib6_spec (k : Nat) (hk : k < 9) (s : MachineState) (hpc : s.pc = pcOf (sibAt k 6)) (c S : Nat)
-    (hcl : c < 128) (h8 : s.getReg .x8 = BitVec.ofNat 64 S) (h19 : s.getReg .x19 = BitVec.ofNat 64 c)
-    (hS : S % 16 = 0) (hS' : S + 448 ≤ MEMORY_BYTES) :
-    ∃ t, Steps im s 14 14 t ∧ t.pc = pcOf (coordAt k + 109) ∧ RegsExcept s t [.x13, .x28, .x29, .x30, .x31] ∧
-      ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) =
-        if A = holdAt k + 16 then BitVec.ofNat 64 (1 - c / 2 ^ 6 % 2)
-        else if A = holdAt k + 8 then s.getMem (BitVec.ofNat 64 (S + srcOff c 6 + 8))
-        else if A = holdAt k then s.getMem (BitVec.ofNat 64 (S + srcOff c 6))
-        else s.getMem (BitVec.ofNat 64 A) := by
-  have hM : MEMORY_BYTES = 16777216 := rfl
-  obtain ⟨t1, hj, r1, m1, p1⟩ : ∃ t1, Steps im s 1 1 t1 ∧ (∀ r, t1.getReg r = s.getReg r) ∧
-      (∀ A, t1.getMem A = s.getMem A) ∧ t1.pc = pcOf (p6At k) := by
-    refine ⟨_, symRun_sound (run_j6 k hk) (code_cJ6 hc k hk) s hpc (by simp [rv_simp]), ?_, ?_, ?_⟩
-    · intro r; rw [Result.toState_getReg]; cases r <;> rfl
-    · intro A; simp [rv_simp]
-    · simp [Result.toState_pc, E.eval]
-  have hnb := nbE_eval (s := t1) (by rw [r1]; exact h19) hcl 6 (by omega)
-  have h48 : p6tE.eval t1 = BitVec.ofNat 64 (48 * (1 - c / 2 ^ 6 % 2)) := by
-    simp only [p6tE, E.eval, BinOp.eval, hnb]
-    have : c / 2 ^ 6 % 2 < 2 := Nat.mod_lt _ (by norm_num)
-    rcases (show c / 2 ^ 6 % 2 = 0 ∨ c / 2 ^ 6 % 2 = 1 by omega) with h | h <;> rw [h] <;> decide
-  have hso := srcOff_bound c 6
-  have ha6 : a6E.eval t1 = BitVec.ofNat 64 (S + srcOff c 6) := by
-    simp only [a6E, E.eval, BinOp.eval, h48, r1, h8, ofNat_add_ofNat]
-    congr 1; unfold srcOff; omega
-  have ha8 : (E.bin .add a6E (.c 8#64)).eval t1 = BitVec.ofNat 64 (S + srcOff c 6 + 8) := by
-    simp only [E.eval, BinOp.eval, ha6, ofNat_add_ofNat]
-  have hobl : Oblig.all t1 p6Obl := by
-    rw [Oblig.all_iff]
-    intro o ho
-    simp only [p6Obl, List.mem_cons, List.not_mem_nil, or_false] at ho
-    rcases ho with rfl | rfl
-    · simp only [Oblig.holds, Addr.eval, ha6, ofNat_add_ofNat, accessValid_iff, BitVec.toNat_ofNat]; omega
-    · simp only [Oblig.holds, Addr.eval, ha6, BitVec.add_zero, accessValid_iff, BitVec.toNat_ofNat]; omega
-  have hp := symRun_sound (run_p6 k hk) (code_cP6 hc k hk) t1 p1 hobl
-  refine ⟨_, (hj.trans hp).of_eq rfl rfl, ?_, ?_, ?_⟩
-  · simp only [Result.toState_pc, E.eval]
-  · intro r hr
-    rw [Result.toState_getReg, p6Regs_get t1 r hr, r1]
-  · intro A hA
-    simp only [Result.toState_getMem, p6Mem, memEval_cons, memEval_nil, Addr.eval, hnb, ha6, ha8, E.eval, BinOp.eval,
-      ofNat_add_ofNat, m1]
-    have hH : holdAt k + 16 < 2 ^ 64 := by unfold holdAt; omega
-    by_cases e1 : A = holdAt k + 16
-    · subst e1; simp
-    · rw [if_neg (fun h => e1 ((ofNat_inj hA hH).mp h)), if_neg e1]
-      by_cases e2 : A = holdAt k + 8
-      · subst e2; simp
-      · rw [if_neg (fun h => e2 ((ofNat_inj hA (by omega)).mp h)), if_neg e2]
-        by_cases e3 : A = holdAt k
-        · subst e3; simp
-        · rw [if_neg (fun h => e3 ((ofNat_inj hA (by omega)).mp h)), if_neg e3]
 end
 end ClaudeWCT.W9.Machine.Expand.Compact
 end
@@ -318,7 +202,7 @@ theorem run_mid (k : Nat) (hk : k < 9) : symRun cfgC (cMid k) (pcOf (coordAt k +
   interval_cases k
   exacts [RMid0, RMid1, RMid2, RMid3, RMid4, RMid5, RMid6, RMid7, RMid8]
 section
-variable {im : Image} (hc : CompactCodeAt im)
+variable {im : Image} (hc : NewCodeAt im)
 include hc
 theorem start_spec (s : MachineState) (hpc : s.pc = pcOf 41108) :
     ∃ t, Steps im s 7 7 t ∧ t.pc = pcOf 42130 ∧ t.getReg .x10 = BitVec.ofNat 64 0x840 ∧
@@ -389,7 +273,7 @@ theorem midRegs_get (k : Nat) (s : MachineState) (r : Reg) (hr : r ∉ [.x1, .x1
 theorem childBase_shift (k : Nat) (hk : k < 9) : WCT9.childBase k % 64 + 7 ≤ 64 ∧ WCT9.childBase k / 64 < 4 := by
   interval_cases k <;> decide
 section
-variable {im : Image} (hc : CompactCodeAt im)
+variable {im : Image} (hc : NewCodeAt im)
 include hc
 theorem head_spec (k : Nat) (hk : k < 9) (s : MachineState) (hpc : s.pc = pcOf (coordAt k)) (N : HashOutput)
     (hN : OutAt s 0x60 N) (D : Nat) (h9 : s.getReg .x9 = BitVec.ofNat 64 D) :
@@ -476,22 +360,17 @@ open ClaudeWCT.W9.Machine.Expand (PLAN PlanAt)
 open ClaudeWCT.W9.T3M (authSibOff)
 set_option linter.unusedSimpArgs false
 def sibLev (c j : Nat) : Option Nat :=
-  (List.range 6).find? fun l => authSibOff c l = 8 * j ∨ authSibOff c l + 8 = 8 * j
+  (List.range 7).find? fun l => authSibOff c l = 8 * j ∨ authSibOff c l + 8 = 8 * j
 def sibSrc (c j : Nat) : Option Nat :=
   (sibLev c j).map fun l => if authSibOff c l = 8 * j then srcOff c l else srcOff c l + 8
-/-- Staging region of coordinate `k` (nested FTS r1-1): sibling slots of levels 0..5 (level 5 in the top block at
-`+832`), zeros elsewhere in `[0, 320)`, the copied chain/leaf words above. -/
 def coordMem (M : Nat → Word) (c S D : Nat) (A : Nat) : Word :=
   if D ≤ A ∧ A < D + 896 ∧ (A - D) % 8 = 0 then
-    match sibSrc c ((A - D) / 8) with
-    | some o => M (S + o)
-    | none => if A - D < 320 then 0 else M (S + 448 + (A - D - 320))
+    if A - D < 320 then
+      match sibSrc c ((A - D) / 8) with
+      | some o => M (S + o)
+      | none => 0
+    else M (S + 448 + (A - D - 320))
   else M A
-/-- The hold slot of coordinate `k`: its top sibling and the flag `1 - bit6`. -/
-def holdMem (M : Nat → Word) (c S k : Nat) (A : Nat) (rest : Word) : Word :=
-  if A = holdAt k + 16 then BitVec.ofNat 64 (1 - c / 2 ^ 6 % 2)
-  else if A = holdAt k + 8 then M (S + srcOff c 6 + 8)
-  else if A = holdAt k then M (S + srcOff c 6) else rest
 def sibsMem (M : Nat → Word) (c S D L : Nat) (A : Nat) : Word :=
   match (List.range L).find? (fun l => A = D + authSibOff c l ∨ A = D + authSibOff c l + 8) with
   | some l => if A = D + authSibOff c l then M (S + srcOff c l) else M (S + srcOff c l + 8)
@@ -510,16 +389,10 @@ theorem find_none {p : Nat → Bool} {L : Nat} (h : (List.range L).find? p = non
     p l = false := by
   have := List.find?_eq_none.mp h l (List.mem_range.mpr hl)
   simpa using this
-theorem auth_disj (c : Nat) (hc : c < 128) (l l' : Nat) (hl : l < 6) (hl' : l' < 6) (hne : l ≠ l') :
-    authSibOff c l + 16 ≤ authSibOff c l' ∨ authSibOff c l' + 16 ≤ authSibOff c l := by
-  by_cases h : l < 5 ∧ l' < 5
-  · exact ClaudeWCT.W9.T3M.auth_sib_disjoint c hc l h.1 l' h.2 hne
-  · have a := auth6_ok c hc l hl
-    have b := auth6_ok c hc l' hl'
-    rcases (show l = 5 ∨ l' = 5 by omega) with e | e
-    · have := a.2.2.2 e; have := b.2.2.1 (by omega); omega
-    · have := b.2.2.2 e; have := a.2.2.1 (by omega); omega
-theorem sibsMem_succ (M : Nat → Word) (c S D L : Nat) (hc : c < 128) (hL : L < 6) (A : Nat) :
+theorem auth_disj (c : Nat) (hc : c < 128) (l l' : Nat) (hl : l < 7) (hl' : l' < 7) (hne : l ≠ l') :
+    authSibOff c l + 16 ≤ authSibOff c l' ∨ authSibOff c l' + 16 ≤ authSibOff c l :=
+  ClaudeWCT.W9.T3M.auth_sib_disjoint c hc l hl l' hl' hne
+theorem sibsMem_succ (M : Nat → Word) (c S D L : Nat) (hc : c < 128) (hL : L < 7) (A : Nat) :
     sibsMem M c S D (L + 1) A =
       if A = D + authSibOff c L + 8 then M (S + srcOff c L + 8)
       else if A = D + authSibOff c L then M (S + srcOff c L) else sibsMem M c S D L A := by
@@ -549,7 +422,7 @@ theorem sibsMem_succ (M : Nat → Word) (c S D L : Nat) (hc : c < 128) (hL : L <
           if_neg h1, if_neg h2]
 theorem sibLev_eq (c D A : Nat) (hDA : D ≤ A) (hal : (A - D) % 8 = 0) :
     sibLev c ((A - D) / 8) =
-      (List.range 6).find? (fun l => decide (A = D + authSibOff c l ∨ A = D + authSibOff c l + 8)) := by
+      (List.range 7).find? (fun l => decide (A = D + authSibOff c l ∨ A = D + authSibOff c l + 8)) := by
   unfold sibLev
   congr 1
   funext l
@@ -558,19 +431,19 @@ theorem sibLev_eq (c D A : Nat) (hDA : D ≤ A) (hal : (A - D) % 8 = 0) :
 def zcMem (M : Nat → Word) (S D : Nat) (A : Nat) : Word :=
   if D + 320 ≤ A ∧ A < D + 896 ∧ (A - D - 320) % 8 = 0 then M (S + 448 + (A - D - 320))
   else if D ≤ A ∧ A < D + 320 ∧ (A - D) % 8 = 0 then 0 else M A
-theorem sibsMem_six (M : Nat → Word) (c S D : Nat) (hc : c < 128) (hD : D % 16 = 0) (hS : D + 896 ≤ S)
-    (A : Nat) : sibsMem (zcMem M S D) c S D 6 A = coordMem M c S D A := by
+theorem sibsMem_seven (M : Nat → Word) (c S D : Nat) (hc : c < 128) (hD : D % 16 = 0) (hS : D + 896 ≤ S)
+    (A : Nat) : sibsMem (zcMem M S D) c S D 7 A = coordMem M c S D A := by
   have hzS : ∀ o, o < 448 → zcMem M S D (S + o) = M (S + o) := by
     intro o ho; unfold zcMem; rw [if_neg (by omega), if_neg (by omega)]
   unfold sibsMem coordMem
-  cases h : (List.range 6).find? (fun l => decide (A = D + authSibOff c l ∨ A = D + authSibOff c l + 8)) with
+  cases h : (List.range 7).find? (fun l => decide (A = D + authSibOff c l ∨ A = D + authSibOff c l + 8)) with
   | some l =>
     obtain ⟨hl, hp⟩ := find_some h
     simp only [decide_eq_true_eq] at hp
-    obtain ⟨ha16, ha, -, -⟩ := auth6_ok c hc l hl
+    obtain ⟨ha16, ha⟩ := authSibOff_ok c hc l hl
     have hso := srcOff_bound c l
     have hDA : D ≤ A ∧ A < D + 896 ∧ (A - D) % 8 = 0 := by omega
-    rw [if_pos hDA, sibSrc, sibLev_eq c D A hDA.1 hDA.2.2, h]
+    rw [if_pos hDA, if_pos (by omega), sibSrc, sibLev_eq c D A hDA.1 hDA.2.2, h]
     simp only [Option.map_some]
     by_cases h0 : A = D + authSibOff c l
     · rw [if_pos h0, if_pos (by omega), hzS _ (by omega)]
@@ -579,33 +452,33 @@ theorem sibsMem_six (M : Nat → Word) (c S D : Nat) (hc : c < 128) (hD : D % 16
     simp only
     unfold zcMem
     by_cases hDA : D ≤ A ∧ A < D + 896 ∧ (A - D) % 8 = 0
-    · rw [if_pos hDA, sibSrc, sibLev_eq c D A hDA.1 hDA.2.2, h]
-      simp only [Option.map_none]
+    · rw [if_pos hDA]
       by_cases h3 : A - D < 320
-      · rw [if_pos h3, if_neg (by omega), if_pos (by omega)]
+      · rw [if_pos h3, sibSrc, sibLev_eq c D A hDA.1 hDA.2.2, h, if_neg (by omega), if_pos (by omega)]
+        rfl
       · rw [if_neg h3, if_pos (by omega)]
     · rw [if_neg hDA, if_neg (by omega), if_neg (by omega)]
-theorem sibsMem_out (M : Nat → Word) (c S D L : Nat) (hc : c < 128) (hL : L ≤ 6) (A : Nat)
-    (hA : A < D ∨ D + 896 ≤ A) : sibsMem M c S D L A = M A := by
+theorem sibsMem_out (M : Nat → Word) (c S D L : Nat) (hc : c < 128) (hL : L ≤ 7) (A : Nat)
+    (hA : A < D ∨ D + 320 ≤ A) : sibsMem M c S D L A = M A := by
   unfold sibsMem
   cases h : (List.range L).find? (fun l => decide (A = D + authSibOff c l ∨ A = D + authSibOff c l + 8)) with
   | some l =>
     obtain ⟨hl, hp⟩ := find_some h
     simp only [decide_eq_true_eq] at hp
-    have := auth6_ok c hc l (by omega)
+    have := authSibOff_ok c hc l (by omega)
     omega
   | none => rfl
-def sibsCyc (L : Nat) : Nat := 14 * L
+def sibsCyc (L : Nat) : Nat := 14 * L - 2 * (L / 7)
 section
-variable {im : Image} (hc : CompactCodeAt im)
+variable {im : Image} (hc : NewCodeAt im)
 include hc
 theorem sibs_spec (k : Nat) (hk : k < 9) (c S D : Nat) (hcl : c < 128) (hS : S % 16 = 0)
-    (hS' : S + 448 ≤ MEMORY_BYTES) (hD : D % 16 = 0) (hDS : D + 896 ≤ S) (hDP : D + 896 ≤ PLAN)
+    (hS' : S + 448 ≤ MEMORY_BYTES) (hD : D % 16 = 0) (hDS : D + 320 ≤ S) (hDP : D + 320 ≤ PLAN)
     (u : MachineState) (M0 : Nat → Word) (hM : ∀ A < 2 ^ 64, u.getMem (BitVec.ofNat 64 A) = M0 A)
     (hpc : u.pc = pcOf (coordAt k + 13)) (h8 : u.getReg .x8 = BitVec.ofNat 64 S)
     (h9 : u.getReg .x9 = BitVec.ofNat 64 D) (h19 : u.getReg .x19 = BitVec.ofNat 64 c)
     (h20 : u.getReg .x20 = BitVec.ofNat 64 (PLAN + 16 * (c % 64))) (hp : PlanAt u) :
-    ∀ L ≤ 6, ∃ t, Steps im u (sibsCyc L) (sibsCyc L) t ∧ t.pc = pcOf (coordAt k + 13 + sibsCyc L) ∧
+    ∀ L ≤ 7, ∃ t, Steps im u (sibsCyc L) (sibsCyc L) t ∧ t.pc = pcOf (coordAt k + 13 + sibsCyc L) ∧
       RegsExcept u t [.x13, .x28, .x29, .x30, .x31] ∧
       ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) = sibsMem M0 c S D L A := by
   have hMB : MEMORY_BYTES = 16777216 := rfl
@@ -638,12 +511,11 @@ theorem coord_spec (k : Nat) (hk : k < 9) (s : MachineState) (hpc : s.pc = pcOf 
     (h9 : s.getReg .x9 = BitVec.ofNat 64 D) (h18 : s.getReg .x18 = BitVec.ofNat 64 PLAN)
     (hS : S % 16 = 0) (hD : D % 16 = 0) (hDS : D + 896 ≤ S) (hS' : S + 1024 ≤ MEMORY_BYTES)
     (hDP : D + 896 ≤ PLAN) :
-    ∃ t, Steps im s 707 707 t ∧ t.pc = pcOf (coordAt k + 111) ∧
+    ∃ t, Steps im s 705 705 t ∧ t.pc = pcOf (coordAt k + 111) ∧
       t.getReg .x8 = BitVec.ofNat 64 (S + 1024) ∧ t.getReg .x9 = BitVec.ofNat 64 (D + 896) ∧
       RegsExcept s t [.x1, .x6, .x7, .x8, .x9, .x10, .x11, .x12, .x13, .x19, .x20, .x28, .x29, .x30, .x31] ∧
       ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) =
-        holdMem (fun B => s.getMem (BitVec.ofNat 64 B)) (N.toNat / 2 ^ WCT9.childBase k % 128) S k A
-          (coordMem (fun B => s.getMem (BitVec.ofNat 64 B)) (N.toNat / 2 ^ WCT9.childBase k % 128) S D A) := by
+        coordMem (fun B => s.getMem (BitVec.ofNat 64 B)) (N.toNat / 2 ^ WCT9.childBase k % 128) S D A := by
   have hMB : MEMORY_BYTES = 16777216 := rfl
   have hPL : PLAN = 0xff9a00 := rfl
   obtain ⟨c, hcdef⟩ : ∃ c, c = N.toNat / 2 ^ WCT9.childBase k % 128 := ⟨_, rfl⟩
@@ -693,28 +565,14 @@ theorem coord_spec (k : Nat) (hk : k < 9) (s : MachineState) (hpc : s.pc = pcOf 
   have e19 : t5.getReg .x19 = BitVec.ofNat 64 c := by
     rw [g5.get (by decide), g4.get (by decide), g3.get (by decide), g2.get (by decide), r19]
   obtain ⟨t6, s6, p6, g6, m6⟩ := sibs_spec hc k hk c S D hcl hS (by omega) hD (by omega) (by omega) t5 _ hM5
-    p5 e8 e9 e19 w20 hp5 6 le_rfl
-  obtain ⟨t6', s6', p6', g6', m6'⟩ := sib6_spec hc k hk t6
-    (by rw [p6, show coordAt k + 13 + sibsCyc 6 = sibAt k 6 by unfold sibsCyc sibAt; omega]) c S hcl
-    (by rw [g6.get (by decide), e8]) (by rw [g6.get (by decide), e19]) hS (by omega)
-  obtain ⟨t7, s7, p7, w8, w9, g7, f7⟩ := step_spec hc k hk t6' p6' S D
-    (by rw [g6'.get (by decide), g6.get (by decide), e8]) (by rw [g6'.get (by decide), g6.get (by decide), e9])
-  have hzS : ∀ o, o < 448 → t6.getMem (BitVec.ofNat 64 (S + o)) = s.getMem (BitVec.ofNat 64 (S + o)) := by
-    intro o ho
-    rw [m6 _ (by omega), sibsMem_out _ c S D 6 hcl le_rfl _ (Or.inr (by omega))]
-    unfold zcMem; rw [if_neg (by omega), if_neg (by omega)]
-  have hso := srcOff_bound c 6
-  refine ⟨t7, (((((((s1.trans s2).trans s3).trans s4).trans s5).trans s6).trans s6').trans s7).of_eq
+    p5 e8 e9 e19 w20 hp5 7 le_rfl
+  obtain ⟨t7, s7, p7, w8, w9, g7, f7⟩ := step_spec hc k hk t6
+    (by rw [p6, show coordAt k + 13 + sibsCyc 7 = coordAt k + 109 by unfold sibsCyc; omega]) S D
+    (by rw [g6.get (by decide), e8]) (by rw [g6.get (by decide), e9])
+  refine ⟨t7, ((((((s1.trans s2).trans s3).trans s4).trans s5).trans s6).trans s7).of_eq
     (by unfold sibsCyc; omega) (by unfold sibsCyc; omega), p7, w8, w9,
-    (((((((g1.trans g2).trans g3).trans g4).trans g5).trans g6).trans g6').trans g7).mono (by decide),
-    fun A hA => ?_⟩
-  rw [f7 A hA (fun h => h), m6' A hA]
-  unfold holdMem
-  split_ifs
-  · rfl
-  · rw [show S + srcOff c 6 + 8 = S + (srcOff c 6 + 8) by omega, hzS _ (by omega)]
-  · rw [hzS _ (by omega)]
-  · rw [m6 A hA, sibsMem_six _ c S D hcl hD hDS A]
+    ((((((g1.trans g2).trans g3).trans g4).trans g5).trans g6).trans g7).mono (by decide), fun A hA => ?_⟩
+  rw [f7 A hA (fun h => h), m6 A hA, sibsMem_seven _ c S D hcl hD hDS A]
 end
 end ClaudeWCT.W9.Machine.Expand.Compact
 end

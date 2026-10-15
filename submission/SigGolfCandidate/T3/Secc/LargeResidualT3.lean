@@ -13,54 +13,27 @@ def low (answer : HashOutput) : Digest := SphincsSecurity.truncateHash answer
 inductive Hit (Coord : Type) where
   | label (parent : Coord)
   | target (value : Digest)
-  | selectedTarget (target : Digest) (pickLow : HashOutput → Bool)
 structure Probe (Coord : Type) where
   guess : Option (Coord × Digest)
   hit : Hit Coord
 section Defs
 variable {Coord : Type}
-def Hit.isSelected : Hit Coord → Bool
-  | .label _ => false
-  | .target _ => false
-  | .selectedTarget _ _ => true
-def Hit.answerValue : Hit Coord → HashOutput → Digest
-  | .label _, answer => low answer
-  | .target _, answer => low answer
-  | .selectedTarget _ pickLow, answer =>
-      if pickLow answer then low answer else answer.extractLsb' 128 128
-@[simp] theorem Hit.isSelected_label (parent : Coord) : (Hit.label parent).isSelected = false := rfl
-@[simp] theorem Hit.isSelected_target (target : Digest) : (Hit.target (Coord := Coord) target).isSelected = false := rfl
-@[simp] theorem Hit.isSelected_selectedTarget (target : Digest) (pickLow : HashOutput → Bool) :
-    (Hit.selectedTarget (Coord := Coord) target pickLow).isSelected = true := rfl
-@[simp] theorem Hit.answerValue_label (parent : Coord) (answer : HashOutput) :
-    (Hit.label parent).answerValue answer = low answer := rfl
-@[simp] theorem Hit.answerValue_target (target : Digest) (answer : HashOutput) :
-    (Hit.target (Coord := Coord) target).answerValue answer = low answer := rfl
-@[simp] theorem Hit.answerValue_selectedTarget (target : Digest) (pickLow : HashOutput → Bool) (answer : HashOutput) :
-    (Hit.selectedTarget (Coord := Coord) target pickLow).answerValue answer =
-      if pickLow answer then low answer else answer.extractLsb' 128 128 := rfl
-theorem Hit.answerValue_of_not_selected (hit : Hit Coord) (h : hit.isSelected = false) (answer : HashOutput) :
-    hit.answerValue answer = low answer := by
-  cases hit <;> simp_all [Hit.isSelected, Hit.answerValue]
 def Hit.miss : Hit Coord → (Coord → Digest) → Digest → Prop
   | .label parent, labels, value => labels parent ≠ value
   | .target t, _, value => t ≠ value
-  | .selectedTarget t _, _, value => t ≠ value
 def Hit.labelMiss : Hit Coord → (Coord → Digest) → Digest → Prop
   | .label parent, labels, value => labels parent ≠ value
   | .target _t, _, _ => True
-  | .selectedTarget _ _, _, _ => True
 def Hit.answerOk : Hit Coord → Digest → Prop
   | .label _p, _ => True
   | .target t, value => t ≠ value
-  | .selectedTarget t _, value => t ≠ value
 theorem Hit.miss_iff (hit : Hit Coord) (labels : Coord → Digest) (value : Digest) :
     hit.miss labels value ↔ hit.labelMiss labels value ∧ hit.answerOk value := by
   cases hit <;> simp [Hit.miss, Hit.labelMiss, Hit.answerOk]
 def Probe.guessMiss (probe : Probe Coord) (labels : Coord → Digest) : Prop :=
   ∀ g ∈ probe.guess, labels g.1 ≠ g.2
 def Probe.keep (probe : Probe Coord) (labels : Coord → Digest) (answer : HashOutput) : Prop :=
-  probe.guessMiss labels ∧ probe.hit.miss labels (probe.hit.answerValue answer)
+  probe.guessMiss labels ∧ probe.hit.miss labels (low answer)
 variable [DecidableEq Coord]
 def Probe.guessRestrict (probe : Probe Coord) (allowed : Coord → Finset Digest) : Coord → Finset Digest :=
   match probe.guess with
@@ -69,21 +42,13 @@ def Probe.guessRestrict (probe : Probe Coord) (allowed : Coord → Finset Digest
 def Hit.restrict : Hit Coord → (Coord → Finset Digest) → Digest → Coord → Finset Digest
   | .label parent, allowed, value => eraseTableValue allowed parent value
   | .target _, allowed, _ => allowed
-  | .selectedTarget _ _, allowed, _ => allowed
 def Probe.restrict (probe : Probe Coord) (allowed : Coord → Finset Digest) (answer : HashOutput) :
     Coord → Finset Digest :=
-  probe.hit.restrict (probe.guessRestrict allowed) (probe.hit.answerValue answer)
+  probe.hit.restrict (probe.guessRestrict allowed) (low answer)
 def Probe.Admissible (candidates : Coord → Finset Digest) (hit : Hit Coord) (g : Coord × Digest) : Prop :=
-  2 ≤ (candidates g.1).card ∧ (∀ parent, hit = Hit.label parent → g.1 ≠ parent) ∧
-    hit.isSelected = false
+  2 ≤ (candidates g.1).card ∧ ∀ parent, hit = Hit.label parent → g.1 ≠ parent
 noncomputable def Probe.effective (candidates : Coord → Finset Digest) (probe : Probe Coord) : Probe Coord :=
   ⟨probe.guess.filter (fun g => decide (Probe.Admissible candidates probe.hit g)), probe.hit⟩
-omit [DecidableEq Coord] in
-@[simp] theorem Probe.effective_selectedTarget (candidates : Coord → Finset Digest)
-    (guess : Option (Coord × Digest)) (target : Digest) (pickLow : HashOutput → Bool) :
-    (Probe.effective candidates ⟨guess, .selectedTarget target pickLow⟩) =
-      ⟨none, .selectedTarget target pickLow⟩ := by
-  cases guess <;> simp [Probe.effective, Probe.Admissible]
 end Defs
 section Restrict
 variable {Coord : Type} [DecidableEq Coord]
@@ -113,7 +78,6 @@ theorem Hit.restrict_subset (hit : Hit Coord) (allowed : Coord → Finset Digest
   cases hit with
   | label parent => exact eraseTableValue_subset _ _ _ _
   | target t => exact subset_refl _
-  | selectedTarget t pickLow => exact subset_refl _
 theorem restrict_subset (probe : Probe Coord) (allowed : Coord → Finset Digest) (answer : HashOutput) (c : Coord) :
     probe.restrict allowed answer c ⊆ allowed c :=
   (Hit.restrict_subset _ _ _ c).trans (guessRestrict_subset probe allowed c)
@@ -141,11 +105,10 @@ theorem mem_hitRestrict (hit : Hit Coord) (allowed : Coord → Finset Digest) (v
       · rintro ⟨h, hp⟩ c
         exact ⟨h c, fun hc => hc ▸ hp⟩
   | target t => simp [Hit.restrict, Hit.labelMiss]
-  | selectedTarget t pickLow => simp [Hit.restrict, Hit.labelMiss]
 theorem mem_restrict (probe : Probe Coord) (allowed : Coord → Finset Digest) (answer : HashOutput)
     (labels : Coord → Digest) :
     (∀ c, labels c ∈ probe.restrict allowed answer c) ↔
-      (∀ c, labels c ∈ allowed c) ∧ probe.guessMiss labels ∧ probe.hit.labelMiss labels (probe.hit.answerValue answer) := by
+      (∀ c, labels c ∈ allowed c) ∧ probe.guessMiss labels ∧ probe.hit.labelMiss labels (low answer) := by
   unfold Probe.restrict
   rw [mem_hitRestrict, mem_guessRestrict, and_assoc]
 end Restrict
@@ -170,17 +133,17 @@ theorem response_apply (labels : Coord → Digest) (probe : Probe Coord) (answer
 theorem Probe.mass (probe : Probe Coord) (allowed : Coord → Finset Digest) (answer : HashOutput)
     (labels : Coord → Digest) :
     (if probe.keep labels answer then complete allowed labels else 0) =
-      if probe.hit.answerOk (probe.hit.answerValue answer) then
+      if probe.hit.answerOk (low answer) then
         restrictionWeight allowed (probe.restrict allowed answer) * complete (probe.restrict allowed answer) labels
       else 0 := by
-  by_cases ha : probe.hit.answerOk (probe.hit.answerValue answer)
+  by_cases ha : probe.hit.answerOk (low answer)
   · rw [if_pos ha]
     have h := restrict_guard allowed (probe.restrict allowed answer) (restrict_subset probe allowed answer)
-      (fun labels => probe.guessMiss labels ∧ probe.hit.labelMiss labels (probe.hit.answerValue answer))
+      (fun labels => probe.guessMiss labels ∧ probe.hit.labelMiss labels (low answer))
       (fun labels => mem_restrict probe allowed answer labels) labels
-    have hkeep : probe.keep labels answer ↔ probe.guessMiss labels ∧ probe.hit.labelMiss labels (probe.hit.answerValue answer) := by
+    have hkeep : probe.keep labels answer ↔ probe.guessMiss labels ∧ probe.hit.labelMiss labels (low answer) := by
       simp only [Probe.keep, Hit.miss_iff, ha, and_true]
-    by_cases hc : probe.guessMiss labels ∧ probe.hit.labelMiss labels (probe.hit.answerValue answer)
+    by_cases hc : probe.guessMiss labels ∧ probe.hit.labelMiss labels (low answer)
     · rw [if_pos (hkeep.mpr hc)]
       rw [if_pos hc] at h
       exact h
@@ -227,66 +190,6 @@ theorem hit_miss_prob (hit : Hit Coord) (labels : Coord → Digest) :
         simp only [Hit.miss, low, ne_eq, eq_comm]
       rw [he]
       exact HiddenLabelProbe.prob_truncate_ne t
-  | selectedTarget t pickLow =>
-      have he : (fun answer => Hit.miss (.selectedTarget t pickLow) labels (low answer)) =
-          (fun answer => SphincsSecurity.truncateHash answer ≠ t) := by
-        funext answer
-        simp only [Hit.miss, low, ne_eq, eq_comm]
-      rw [he]
-      exact HiddenLabelProbe.prob_truncate_ne t
-/-- Independent uniform halves both miss every fixed digest with this exact count. -/
-theorem card_both_halves_ne (d : Digest) :
-    (Finset.univ.filter fun a : HashOutput =>
-      a.extractLsb' 0 128 ≠ d ∧ a.extractLsb' 128 128 ≠ d).card =
-      (2 ^ 128 - 1) ^ 2 := by
-  classical
-  calc
-    _ = (Finset.univ.filter fun p : Digest × Digest => p.1 ≠ d ∧ p.2 ≠ d).card := by
-      refine Finset.card_equiv (SphincsSecurity.splitHashOutputEquiv 128 (by decide)) fun a => ?_
-      simp only [Finset.mem_filter, Finset.mem_univ, true_and]
-      rfl
-    _ = ((Finset.univ.erase d) ×ˢ (Finset.univ.erase d)).card := by
-      apply congrArg Finset.card
-      ext p
-      simp [ne_comm]
-    _ = (2 ^ 128 - 1) ^ 2 := by
-      rw [Finset.card_product]
-      simp only [Finset.card_erase_of_mem (Finset.mem_univ d), Finset.card_univ,
-        Fintype.card_bitVec, SphincsSecurity.digestBits, pow_two]
-
-/-- A selector constrained to return one of the two halves cannot hit unless a half hits. -/
-theorem probability_selected_ne_ge (select : HashOutput → Digest)
-    (hs : ∀ a, select a = a.extractLsb' 0 128 ∨ select a = a.extractLsb' 128 128)
-    (d : Digest) :
-    (1 - 1 / (2 : ENNReal) ^ 128) ^ 2 ≤
-      Pr[fun a => select a ≠ d | ($ᵗ HashOutput : ProbComp HashOutput)] := by
-  calc
-    _ = Pr[fun a : HashOutput => a.extractLsb' 0 128 ≠ d ∧
-          a.extractLsb' 128 128 ≠ d | ($ᵗ HashOutput : ProbComp HashOutput)] := by
-      rw [probEvent_uniformSample, card_both_halves_ne, Fintype.card_bitVec]
-      simp only [Nat.cast_pow, ENNReal.natCast_sub,
-        Nat.cast_ofNat, Nat.cast_one, SphincsSecurity.hashOutputBits]
-      have hd : (((2 : ENNReal)^128 - 1) / 2^128)^2 =
-          ((2 : ENNReal)^128 - 1)^2 / (2^128)^2 := by
-        simp only [div_eq_mul_inv, mul_pow, ENNReal.inv_pow]
-      rw [show (2 : ENNReal)^256 = ((2 : ENNReal)^128)^2 by norm_num, ← hd]
-      congr 1
-      rw [ENNReal.sub_div (by intros; norm_num), ENNReal.div_self (by norm_num) (by finiteness)]
-    _ ≤ _ := probEvent_mono'' fun a ha => by
-      rcases hs a with h | h
-      · simpa only [h] using ha.1
-      · simpa only [h] using ha.2
-
-theorem probability_pickLow_ne_ge (pickLow : HashOutput → Bool) (d : Digest) :
-    (1 - 1 / (2 : ENNReal) ^ 128) ^ 2 ≤
-      Pr[fun a => (if pickLow a then a.extractLsb' 0 128 else a.extractLsb' 128 128) ≠ d |
-        ($ᵗ HashOutput : ProbComp HashOutput)] := by
-  apply probability_selected_ne_ge
-  intro a
-  split_ifs
-  · exact Or.inl rfl
-  · exact Or.inr rfl
-
 end Hazard
 end SigGolfCandidate.T3.Security.LargeResidual
 end
@@ -520,19 +423,13 @@ theorem card_restrict_ge (probe : Probe Coord) (allowed : Coord → Finset Diges
   unfold Probe.restrict
   cases hhit : probe.hit with
   | target t =>
-      simp only [Hit.restrict, Hit.answerValue]
-      unfold Probe.guessRestrict
-      cases hg : probe.guess with
-      | none => simp
-      | some g => exact card_erase_ge _ _ _ _
-  | selectedTarget t pickLow =>
-      simp only [Hit.restrict, Hit.answerValue]
+      simp only [Hit.restrict]
       unfold Probe.guessRestrict
       cases hg : probe.guess with
       | none => simp
       | some g => exact card_erase_ge _ _ _ _
   | label parent =>
-      simp only [Hit.restrict, Hit.answerValue]
+      simp only [Hit.restrict]
       unfold Probe.guessRestrict
       cases hg : probe.guess with
       | none => exact card_erase_ge _ _ _ _

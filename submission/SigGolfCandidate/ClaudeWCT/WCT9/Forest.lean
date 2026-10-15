@@ -10,7 +10,7 @@ set_option backward.isDefEq.respectTransparency false
 def openingStep (index : Nat) (output : HashOutput) (state : List Opening × List (Digest × Digest))
     (coord : Coord) : M (List Opening × List (Digest × Digest)) := do
   let selected := child output coord
-  let (levels, values) ← buildCoordinateF index coord selected (rank output coord) (prevPair ftsStart state.2)
+  let (levels, values) ← buildCoordinateF index coord selected (rank output coord)
   let path := (List.range 7).map fun level =>
     (levels.getD level []).getD (selected.val / 2 ^ level ^^^ 1) 0
   let opening : Opening := ⟨fun i => values.getD i.val 0, fun i => path.getD i.val 0⟩
@@ -21,23 +21,20 @@ theorem signPayload_rows (cache : Cache) (message : Message) : signPayload cache
     let some (_, output) ← digestSearch rho message 0 attemptLimit | pure none
     let index := digestIndex output
     let state ← (List.finRange 9).foldlM (openingStep index output) ([], [])
-    let top := prevPair ftsStart state.2
-    let some layers ← signLayersBC cache index 4 (.pair top.1 top.2) | pure none
+    let root ← forestPk index state.2
+    let some layers ← signLayersBC cache index 4 (.forest root) | pure none
     pure (some ⟨rho, fun coord => state.1.getD coord.val ⟨fun _ => 0, fun _ => 0⟩,
       fun lay => piecesSignature lay (layers.getD lay.val ([], []))⟩)) := rfl
 theorem eval_openingStep (answers : Answers) (index : Nat) (output : HashOutput)
-    (state : List Opening × List (Digest × Digest)) (coord : Coord)
-    (hprev : prevPair ftsStart state.2 = ftsPrev answers index coord.val) :
+    (state : List Opening × List (Digest × Digest)) (coord : Coord) :
     evalWithAnswerFn answers (openingStep index output state coord) =
       (state.1 ++ [expectedOpening answers index output coord],
         state.2 ++ [coordinatePair answers index coord]) := by
   have hroot := built_pair answers index coord (child output coord) (rank output coord)
   unfold openingStep expectedOpening
-  rw [hprev]
   simp only [evalWithAnswerFn_bind]
   generalize evalWithAnswerFn answers
-    (buildCoordinateF index coord (child output coord) (rank output coord)
-      (ftsPrev answers index coord.val)) = built at hroot ⊢
+    (buildCoordinateF index coord (child output coord) (rank output coord)) = built at hroot ⊢
   obtain ⟨levels, values⟩ := built
   simp only [evalWithAnswerFn_pure] at hroot ⊢
   rw [← hroot]
@@ -69,24 +66,6 @@ theorem signerRows_step (answers : Answers) (index : Nat) (output : HashOutput) 
     · have he : d = c := Fin.ext (by omega)
       subst d
       simp
-theorem prevPair_of_rows (answers : Answers) (index : Nat) (output : HashOutput) (d : Nat) (hd : d ≤ 9)
-    (state : List Opening × List (Digest × Digest)) (hrows : SignerRows answers index output d state) :
-    prevPair ftsStart state.2 = ftsPrev answers index d := by
-  rcases hrows with ⟨-, h2, -, h4⟩
-  cases d with
-  | zero => rw [List.length_eq_zero_iff.mp h2]; rfl
-  | succ d =>
-    unfold prevPair
-    rw [List.getLastD_eq_getLast?, List.getLast?_eq_getElem?, h2, Nat.add_sub_cancel,
-      List.getElem?_eq_getElem (by omega), Option.getD_some, ← List.getD_eq_getElem _ (0, 0) (by omega),
-      h4 ⟨d, by omega⟩ (by simp)]
-    rfl
-theorem prevPair_ofFn (answers : Answers) (index : Nat) :
-    prevPair ftsStart (List.ofFn (coordinatePair answers index)) = ftsPrev answers index 9 := by
-  unfold prevPair
-  rw [List.getLastD_eq_getLast?, List.getLast?_eq_getElem?]
-  simp only [List.length_ofFn, List.getElem?_ofFn]
-  rfl
 theorem eval_signerRows (answers : Answers) (index : Nat) (output : HashOutput) :
     SignerRows answers index output 9
       (evalWithAnswerFn answers ((List.finRange 9).foldlM (openingStep index output) ([], []))) := by
@@ -95,7 +74,7 @@ theorem eval_signerRows (answers : Answers) (index : Nat) (output : HashOutput) 
       intro i hi state hstate
       have hi9 : i < 9 := by simpa using hi
       simp only [List.getElem_finRange, Fin.cast_mk]
-      rw [eval_openingStep _ _ _ _ _ (prevPair_of_rows answers index output i (by omega) state hstate)]
+      rw [eval_openingStep]
       exact signerRows_step answers index output ⟨i, hi9⟩ state hstate)
   simpa only [List.length_finRange] using h
 theorem signerRows_roots (answers : Answers) (index : Nat) (output : HashOutput)
@@ -122,9 +101,10 @@ theorem signPayload_expands (answers : Answers) (cache : Cache) (message : Messa
       have hrows := eval_signerRows answers (digestIndex output) output
       generalize evalWithAnswerFn answers ((List.finRange 9).foldlM
         (openingStep (digestIndex output) output) ([], [])) = state at he hrows
-      rw [prevPair_of_rows answers _ output 9 le_rfl state hrows] at he
+      rw [signerRows_roots answers _ output state hrows] at he
       cases hl : evalWithAnswerFn answers (signLayersBC cache (digestIndex output) 4
-        (.pair (ftsPrev answers (digestIndex output) 9).1 (ftsPrev answers (digestIndex output) 9).2)) with
+        (.forest (evalWithAnswerFn answers (forestPk (digestIndex output)
+          (List.ofFn (coordinatePair answers (digestIndex output))))))) with
       | none => simp only [hl, evalWithAnswerFn_pure, reduceCtorEq] at he
       | some pieces =>
           simp only [hl, evalWithAnswerFn_pure, Option.some.injEq] at he
@@ -193,10 +173,10 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 def forestRows (index : Nat) (output : HashOutput) : M (List Opening × List (Digest × Digest)) :=
   (List.finRange 9).foldlM (openingStep index output) ([], [])
-/-- The FTS part of signing (nested FTS r1-1): the 9 openings and the last top pair (the L3 message). -/
-def signForest (index : Nat) (output : HashOutput) : M (List Opening × (Digest × Digest)) := do
+def signForest (index : Nat) (output : HashOutput) : M (List Opening × Digest) := do
   let state ← forestRows index output
-  pure (state.1, prevPair ftsStart state.2)
+  let root ← forestPk index state.2
+  pure (state.1, root)
 def assembledSignature (rho : Digest) (openings : List Opening) (pieces : List Pieces) : Signature :=
   ⟨rho, fun coord => openings.getD coord.val ⟨fun _ => 0, fun _ => 0⟩,
     fun lay => piecesSignature lay (pieces.getD lay.val ([], []))⟩
@@ -206,14 +186,14 @@ def assembledSignature (rho : Digest) (openings : List Opening) (pieces : List P
     (pieces : List Pieces) (coord : Coord) :
     (assembledSignature rho openings pieces).openings coord =
       openings.getD coord.val ⟨fun _ => 0, fun _ => 0⟩ := rfl
-/-- Honest L3 message (nested FTS r1-1): the top pair of coordinate 8. -/
-def honestTop (answers : Answers) (index : Nat) : Digest × Digest := ftsPrev answers index 9
+def honestForest (answers : Answers) (index : Nat) : Digest :=
+  evalWithAnswerFn answers (forestPk index (List.ofFn (coordinatePair answers index)))
 theorem signPayloadWith_eq (limit : Nat) (cache : Cache) (message : Message) :
     signPayloadWith limit cache message = (do
       let rho ← privateNonce message
       let some (_, output) ← digestSearch rho message 0 limit | pure none
       let forest ← signForest (digestIndex output) output
-      let some pieces ← signLayersBC cache (digestIndex output) 4 (.pair forest.2.1 forest.2.2) | pure none
+      let some pieces ← signLayersBC cache (digestIndex output) 4 (.forest forest.2) | pure none
       pure (some (assembledSignature rho forest.1 pieces))) := by
   unfold signPayloadWith signForest forestRows
   refine bind_congr fun rho => bind_congr fun found => ?_
@@ -226,7 +206,7 @@ theorem signPayload_eq (cache : Cache) (message : Message) :
       let rho ← privateNonce message
       let some (_, output) ← digestSearch rho message 0 SigGolfCandidate.T3.attemptLimit | pure none
       let forest ← signForest (digestIndex output) output
-      let some pieces ← signLayersBC cache (digestIndex output) 4 (.pair forest.2.1 forest.2.2) | pure none
+      let some pieces ← signLayersBC cache (digestIndex output) 4 (.forest forest.2) | pure none
       pure (some (assembledSignature rho forest.1 pieces))) :=
   signPayloadWith_eq SigGolfCandidate.T3.attemptLimit cache message
 theorem Rev3.signPayload_eq (cache : Cache) (message : Message) :
@@ -234,7 +214,7 @@ theorem Rev3.signPayload_eq (cache : Cache) (message : Message) :
       let rho ← privateNonce message
       let some (_, output) ← digestSearch rho message 0 digestAttemptLimit | pure none
       let forest ← signForest (digestIndex output) output
-      let some pieces ← signLayersBC cache (digestIndex output) 4 (.pair forest.2.1 forest.2.2) | pure none
+      let some pieces ← signLayersBC cache (digestIndex output) 4 (.forest forest.2) | pure none
       pure (some (assembledSignature rho forest.1 pieces))) :=
   signPayloadWith_eq digestAttemptLimit cache message
 theorem eval_forestRows (answers : Answers) (index : Nat) (output : HashOutput) :
@@ -252,13 +232,12 @@ theorem eval_forestRows (answers : Answers) (index : Nat) (output : HashOutput) 
   rw [← List.getD_eq_getElem _ ⟨fun _ => 0, fun _ => 0⟩ hi, hrows.2.2.1 ⟨i, hi9⟩ hi9, List.getElem_ofFn]
 theorem eval_signForest (answers : Answers) (index : Nat) (output : HashOutput) :
     evalWithAnswerFn answers (signForest index output) =
-      (List.ofFn (expectedOpening answers index output), honestTop answers index) := by
+      (List.ofFn (expectedOpening answers index output), honestForest answers index) := by
   unfold signForest
   simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure, eval_forestRows]
-  rw [prevPair_ofFn]
   rfl
 theorem signForest_root (answers : Answers) (index : Nat) (output : HashOutput) :
-    (evalWithAnswerFn answers (signForest index output)).2 = honestTop answers index := by
+    (evalWithAnswerFn answers (signForest index output)).2 = honestForest answers index := by
   rw [eval_signForest]
 theorem signForest_openings (answers : Answers) (index : Nat) (output : HashOutput) (coord : Coord) :
     (evalWithAnswerFn answers (signForest index output)).1.getD coord.val ⟨fun _ => 0, fun _ => 0⟩ =
@@ -289,8 +268,7 @@ theorem expandWith_implies_verifyWith (limit : Nat) (hlimit : limit ≤ 2 ^ 32) 
       obtain ⟨counter, output⟩ := found
       simp only [hd, evalWithAnswerFn_bind] at he
       cases hl : evalWithAnswerFn answers (expandLayersBC sig (digestIndex output) 4
-          (.pair (evalWithAnswerFn answers (recoverFts sig (digestIndex output) output)).1
-            (evalWithAnswerFn answers (recoverFts sig (digestIndex output) output)).2)) with
+          (.forest (evalWithAnswerFn answers (recoverFts sig (digestIndex output) output)))) with
       | none => simp only [hl, evalWithAnswerFn_pure, reduceCtorEq] at he
       | some layers =>
           obtain ⟨root, counters⟩ := layers
@@ -326,7 +304,7 @@ theorem signPayloadWith_expands (limit : Nat) (answers : Answers) (cache : Cache
       obtain ⟨counter, output⟩ := found
       simp only [hd, evalWithAnswerFn_bind, signForest_root] at he
       cases hl : evalWithAnswerFn answers (signLayersBC cache (digestIndex output) 4
-        (.pair (honestTop answers (digestIndex output)).1 (honestTop answers (digestIndex output)).2)) with
+        (.forest (honestForest answers (digestIndex output)))) with
       | none => simp only [hl, evalWithAnswerFn_pure, reduceCtorEq] at he
       | some pieces =>
           simp only [hl, evalWithAnswerFn_pure, Option.some.injEq] at he

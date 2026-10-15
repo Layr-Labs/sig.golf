@@ -5,12 +5,10 @@ set_option linter.unusedSimpArgs false
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)
-def WIT : Nat := 0x4c0
-def WSZ : Nat := 24860
-/-- Byte bound of the 3108 loaded witness words; the last word is the 4-byte digest counter
-zero-padded by the loader, since the witness itself is `WSZ = 24860` bytes. -/
-def WX : Nat := 24864
-def WLO : Nat := WIT + 48
+def WIT : Nat := 0x800
+def WSZ : Nat := 20912
+def WX : Nat := 20912
+def WLO : Nat := WIT + 64
 theorem ofNat_eq_iff {a b : Nat} (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) :
     (BitVec.ofNat 64 a = BitVec.ofNat 64 b) ↔ a = b := by
   constructor
@@ -133,14 +131,14 @@ def PkOK (pk : Digest) (s : MachineState) : Prop :=
 def PZero (s : MachineState) : Prop := ∀ a ∈ pSlots, s.getMem (BitVec.ofNat 64 a) = 0
 def PHalf (s : MachineState) : Prop := (s.getMem (BitVec.ofNat 64 CTRW)).toNat / 2 ^ 32 = 0
 def WitHdr (w : ClaudeWCT.W9.T3M.WBytes) (s : MachineState) : Prop :=
-  ∀ j, 4 ≤ j → j < 6 → s.getMem (BitVec.ofNat 64 (WIT + 8 * j)) = wword w j
+  ∀ j, 4 ≤ j → j < 8 → s.getMem (BitVec.ofNat 64 (WIT + 8 * j)) = wword w j
 def dataWords : List Nat :=
-  [2 ^ 40, 17311559823019733055, 8198552921648689607, 0x30401, 0x7fc00, 2256, 11736, 0xa01, 0x901, 7072, 15264, 0]
+  [2 ^ 40, 17311559823019733055, 8198552921648689607, 0x30401, 0x3fe00, 2256, 11736, 0xa01, 0x901, 7072, 15264, 0]
 def TOPLOAD : Nat := 0xffbf68
 def TOPBASE : Nat := 0xffc000
 def TOPB9 : Nat := 0xffbf10
 def topWords : List Nat :=
-  [17311559823019733055, 8198552921648689607, 0x30401, 0x7fc00, 0x201 + 193 * 2 ^ 56 + 3 * 2 ^ 48]
+  [17311559823019733055, 8198552921648689607, 0x30401, 0x3fe00, 0x201 + 193 * 2 ^ 56 + 3 * 2 ^ 48]
 def DATA : Nat := 16777120
 def TAB : Nat := 16709632
 def HDATA : Nat := 0xffbf90
@@ -148,27 +146,24 @@ def headerBank (lay koff : Nat) : Nat := TOPBASE + 4096 * lay + 64 * koff
 def hyperBase (lay : Nat) : Nat := 0x201 + lay * 2 ^ 48 + 193 * 2 ^ 56
 def hdrAddr (lay : Nat) : Nat := TOPBASE - 120 + 8 * ((lay + 1) % 4)
 structure DataOK (s : MachineState) : Prop where
-  mask : s.getMem (BitVec.ofNat 64 (TOPBASE - 8)) = 520192#64
+  mask : s.getMem (BitVec.ofNat 64 (TOPBASE - 8)) = 130048#64
   header : ∀ lay, lay < 4 →
     s.getMem (BitVec.ofNat 64 (hdrAddr lay)) = BitVec.ofNat 64 (hyperBase lay)
-  buffer3 : s.getMem (BitVec.ofNat 64 (TOPB9 + 56)) = 22160#64
 theorem DataOK.prefix {s : MachineState} (h : DataOK s) (lay : Nat) (hl : lay < 4) :
     s.getMem (BitVec.ofNat 64 (hdrAddr lay)) = BitVec.ofNat 64 (hyperBase lay) :=
   h.header lay hl
 theorem hdrAddr_bounds (lay : Nat) : TOPBASE - 120 ≤ hdrAddr lay ∧ hdrAddr lay + 8 ≤ TOPBASE - 88 := by
   unfold hdrAddr TOPBASE; constructor <;> omega
 theorem DataOK.congr_top {s t : MachineState} (h : DataOK s)
-    (hm : ∀ A, TOPBASE - 240 ≤ A → A < TOPBASE →
+    (hm : ∀ A, TOPBASE - 120 ≤ A → A < TOPBASE →
       t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)) : DataOK t := by
   constructor
   · rw [hm _ (by unfold TOPBASE; omega) (by unfold TOPBASE; omega)]
     exact h.mask
   · intro lay hl
     have hb := hdrAddr_bounds lay
-    rw [hm _ (by unfold TOPBASE at *; omega) (by unfold TOPBASE at *; omega)]
+    rw [hm _ hb.1 (by unfold TOPBASE at *; omega)]
     exact h.header lay hl
-  · rw [hm _ (by unfold TOPBASE TOPB9; omega) (by unfold TOPBASE TOPB9; omega)]
-    exact h.buffer3
 theorem DataOK.congr {s t : MachineState} (h : DataOK s)
     (hm : ∀ A, TAB ≤ A → A + 8 ≤ 2 ^ 24 →
       t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)) : DataOK t := by
@@ -179,8 +174,6 @@ theorem DataOK.congr {s t : MachineState} (h : DataOK s)
     have hb := hdrAddr_bounds lay
     rw [hm _ (by unfold TOPBASE TAB at *; omega) (by unfold TOPBASE at *; omega)]
     exact h.header lay hl
-  · rw [hm _ (by unfold TOPB9 TAB; omega) (by unfold TOPB9; omega)]
-    exact h.buffer3
 def Glob (gk : List (Reg × Word)) (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (s : MachineState) : Prop :=
   (∀ p ∈ gk, s.getReg p.1 = p.2) ∧ WitHdr w s ∧ PkOK pk s ∧ PZero s ∧ PHalf s ∧ DataOK s
 def WitAll (w : ClaudeWCT.W9.T3M.WBytes) (s : MachineState) : Prop :=
@@ -453,7 +446,7 @@ theorem WitAll_writeHash {w : ClaudeWCT.W9.T3M.WBytes} {s : MachineState} (hW : 
   exact hW j hj
 def safeDest (d : Nat) : Bool :=
   decide (d % 8 = 0) && decide (d + 32 ≤ 2 ^ 23) &&
-    (pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 2).map (fun j => WIT + 32 + 8 * j)).all
+    (pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 4).map (fun j => WIT + 32 + 8 * j)).all
       (fun q => decide (q + 8 ≤ d ∨ d + 32 ≤ q))
 theorem safeDest_hi (d : Nat) (h : WLO ≤ d) (h8 : d % 8 = 0) (hm : d + 32 ≤ 2 ^ 23) :
     safeDest d = true := by
@@ -479,21 +472,21 @@ theorem Glob_writeHash {gk : List (Reg × Word)} {w : ClaudeWCT.W9.T3M.WBytes} {
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro p hp; rw [writeHash_getReg]; exact h1 p hp
   · intro j hj4 hj
-    have hm : WIT + 8 * j ∈ pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 2).map (fun j => WIT + 32 + 8 * j) :=
+    have hm : WIT + 8 * j ∈ pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 4).map (fun j => WIT + 32 + 8 * j) :=
       List.mem_append_right _ (List.mem_map.mpr ⟨j - 4, List.mem_range.mpr (by omega), by omega⟩)
     rw [fr (WIT + 8 * j) (by unfold WIT; omega) (hd2 _ hm)]
     exact h0 j hj4 hj
-  · have m0 : (0xA0 : Nat) ∈ pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 2).map (fun j => WIT + 32 + 8 * j) := by
+  · have m0 : (0xA0 : Nat) ∈ pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 4).map (fun j => WIT + 32 + 8 * j) := by
       simp
-    have m8 : (0xA8 : Nat) ∈ pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 2).map (fun j => WIT + 32 + 8 * j) := by
+    have m8 : (0xA8 : Nat) ∈ pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 4).map (fun j => WIT + 32 + 8 * j) := by
       simp
     exact ⟨(fr 0xA0 (by omega) (hd2 _ m0)).trans h2.1, (fr 0xA8 (by omega) (hd2 _ m8)).trans h2.2⟩
   · intro a ha
-    have hm : a ∈ pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 2).map (fun j => WIT + 32 + 8 * j) :=
+    have hm : a ∈ pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 4).map (fun j => WIT + 32 + 8 * j) :=
       List.mem_append_left _ (List.mem_append_left _ ha)
     have := hps a ha
     rw [fr a (by unfold WIT at this; omega) (hd2 _ hm)]; exact h3 a ha
-  · have mc : CTRW ∈ pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 2).map (fun j => WIT + 32 + 8 * j) := by simp
+  · have mc : CTRW ∈ pSlots ++ [0xA0, 0xA8, CTRW] ++ (List.range 4).map (fun j => WIT + 32 + 8 * j) := by simp
     show ((writeHash s ans).getMem (BitVec.ofNat 64 CTRW)).toNat / 2 ^ 32 = 0
     rw [fr CTRW (by unfold CTRW; omega) (hd2 _ mc)]; exact h4
   · apply h5.congr

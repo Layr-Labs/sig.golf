@@ -7,17 +7,8 @@ namespace ClaudeWCT.W9.Machine.Expand.Compact2
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
 open ClaudeWCT.W9.Machine.Expand.Compact (cfgC)
 def cSnap : List (BitVec 32) := [5431,0x80050513,3147191,361875,5687,0xaa960613,0xfb9ff0ef]
-def cZero2 : List (BitVec 32) := [1463,1275430291,5687,2632320531,4229951727]  -- nested FTS: zero 2718 words from 1216
-/-- Nested FTS (r1-1): the header copy is replaced by `jal zero,P_final` (P_final at words 33117..33284). -/
-def cHdr : List (BitVec 32) := [2899275887]
-def cCtr : List (BitVec 32) := [3147063,33883411,1308624275,2098707,1280344303]
-def cPRegs : List (List (BitVec 32)) := [[3147063,67437843,9655,386237843,117442067,1255178479],[3147063,1006961939,9655,3741681043,117442067,1230012655],[3147063,1946486035,9655,2802156947,117442067,1204846831],[3151159,2886010131,5559,1862632851,117442067,1179681007],[3151159,3825534227,5559,923108755,117442067,1154515183],[3151159,470091027,5559,4278551955,117442067,1129349359],[3151159,1409615123,5559,3339027859,117442067,1104183535],[3155255,2349139219,5559,2399503763,117442067,1079017711],[3155255,3288663315,1463,1459979667,117442067,1053851887]]
-def cHolds : List (List (BitVec 32)) := [[3673655,17710979,933507,9322243,8361619,5218195,32933555,9015,201523987,6719155,30847011,31896611],[3673655,51265411,34487939,42876675,8361619,5218195,32933555,9015,3556967187,6719155,30847011,31896611],[3673655,84819843,68042371,76431107,8361619,5218195,32933555,9015,2617443091,6719155,30847011,31896611],[3673655,118374275,101596803,109985539,8361619,5218195,32933555,4919,1677918995,6719155,30847011,31896611],[3673655,151928707,135151235,143539971,8361619,5218195,32933555,4919,738394899,6719155,30847011,31896611],[3673655,185483139,168705667,177094403,8361619,5218195,32933555,4919,4093838099,6719155,30847011,31896611],[3673655,219037571,202260099,210648835,8361619,5218195,32933555,4919,3154314003,6719155,30847011,31896611],[3673655,252592003,235814531,244203267,8361619,5218195,32933555,4919,2214789907,6719155,30847011,31896611],[3673655,286146435,269368963,277757699,8361619,5218195,32933555,823,1275265811,6719155,30847011,31896611]]
-def cPEnd : List (BitVec 32) := [990937199]
-def cPReg (c : Nat) : List (BitVec 32) := cPRegs.getD c []
-def cHold (c : Nat) : List (BitVec 32) := cHolds.getD c []
-def pregAt (c : Nat) : Nat := 33122 + 6 * c
-def holdPc (c : Nat) : Nat := 33176 + 12 * c
+def cZero2 : List (BitVec 32) := [5559,0x80058593,5687,0xa3660613,0xfc1ff0ef]
+def cHdr : List (BitVec 32) := [3147063,328979,5559,0x80058593,1591,8783379,0xf89ff0ef]
 def cReg8 : List (BitVec 32) := [3155255,0xc4050513,5559,0x84058593,1591,109446675,0xf6dff0ef]
 def cReg7 : List (BitVec 32) := [3155255,0x8c050513,5559,0xb7058593,1591,109446675,0xf51ff0ef]
 def cReg6 : List (BitVec 32) := [3151159,0x54050513,5559,0xea058593,1591,109446675,0xf35ff0ef]
@@ -54,7 +45,7 @@ def cLv32 : List (BitVec 32) := [3167543,0x9c850513,2769667,4395795,21943,0xda05
 def cLv33 : List (BitVec 32) := [3167543,0x98850513,3818243,4395795,21943,0xda058593,6653363,33898115,42286851,64335907,65385507,3789587,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
 def cLv34 : List (BitVec 32) := [3167543,0x94850513,4866819,4395795,21943,0xda058593,6653363,33898115,42286851,64335907,65385507,4838163,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
 def cLv35 : List (BitVec 32) := [3167543,0x90850513,5915395,4395795,21943,0xda058593,6653363,33898115,42286851,64335907,65385507,5886739,1274643,1262355,5444499,4395795,7537459,6620467,6653363,343683,8732419,30781475,31831075]
-def cTail : List (BitVec 32) := [3147063,328979,26039,0x99058593,343683,8732419,30781475,31831075,17133187,374819,30784547]
+def cTail : List (BitVec 32) := [3147063,328979,26039,0x99058593,343683,8732419,30781475,31831075,17133187,374819,30784547,1049235,1299]
 def lvAt (lay j : Nat) : Nat := if lay = 1 then 42247 + 23 * j else if lay = 2 then 42419 + 23 * j else 42567 + 23 * j
 def cLvs : List (List (BitVec 32)) := [cLv10, cLv11, cLv12, cLv13, cLv14, cLv15, cLv16, cLv20, cLv21, cLv22, cLv23, cLv24, cLv25, cLv30, cLv31, cLv32, cLv33, cLv34, cLv35]
 def lvIdx (lay j : Nat) : Nat := if lay = 1 then j else if lay = 2 then 7 + j else 13 + j
@@ -63,34 +54,28 @@ def regAt (k : Nat) : Nat := 42161 + 7 * (8 - k)
 def cRegs : List (List (BitVec 32)) := [cReg0, cReg1, cReg2, cReg3, cReg4, cReg5, cReg6, cReg7, cReg8]
 def cReg (k : Nat) : List (BitVec 32) := cRegs.getD k []
 section code
-variable {im : Image} (hc : ClaudeWCT.W9.Machine.Expand.CompactCodeAt im)
+variable {im : Image} (hc : ClaudeWCT.W9.Machine.Expand.NewCodeAt im)
 include hc
-theorem code_cSnap : CodeAt im (pcOf 42142) cSnap := codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_cZero2 : CodeAt im (pcOf 42149) cZero2 := codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_cHdr : CodeAt im (pcOf 42154) cHdr := codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_cTop : CodeAt im (pcOf 42224) cTop := codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_cCtr : CodeAt im (pcOf 33117) cCtr := codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_cPEnd : CodeAt im (pcOf 33284) cPEnd := codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_cPReg (c : Nat) (hc9 : c < 9) : CodeAt im (pcOf (pregAt c)) (cPReg c) := by
-  interval_cases c <;> exact codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_cHold (c : Nat) (hc9 : c < 9) : CodeAt im (pcOf (holdPc c)) (cHold c) := by
-  interval_cases c <;> exact codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_cIdx : CodeAt im (pcOf 42231) cIdx := codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_cCh1 : CodeAt im (pcOf 42235) cCh1 := codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_cRow1 : CodeAt im (pcOf 42242) cRow1 := codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_cCh2 : CodeAt im (pcOf 42408) cCh2 := codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_cRow2 : CodeAt im (pcOf 42415) cRow2 := codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_cCh3 : CodeAt im (pcOf 42557) cCh3 := codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_cRow3 : CodeAt im (pcOf 42564) cRow3 := codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_cTail : CodeAt im (pcOf 42705) cTail := codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_ecall : CodeAt im (pcOf 42718) [0x73] := codeAt_of_compact_window hc (by decide) (by decide +kernel)
+theorem code_cSnap : CodeAt im (pcOf 42142) cSnap := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cZero2 : CodeAt im (pcOf 42149) cZero2 := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cHdr : CodeAt im (pcOf 42154) cHdr := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cTop : CodeAt im (pcOf 42224) cTop := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cIdx : CodeAt im (pcOf 42231) cIdx := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cCh1 : CodeAt im (pcOf 42235) cCh1 := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cRow1 : CodeAt im (pcOf 42242) cRow1 := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cCh2 : CodeAt im (pcOf 42408) cCh2 := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cRow2 : CodeAt im (pcOf 42415) cRow2 := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cCh3 : CodeAt im (pcOf 42557) cCh3 := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cRow3 : CodeAt im (pcOf 42564) cRow3 := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cTail : CodeAt im (pcOf 42705) cTail := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_ecall : CodeAt im (pcOf 42718) [0x73] := codeAt_of_window hc (by decide) (by decide +kernel)
 theorem code_cReg (k : Nat) (hk : k < 9) : CodeAt im (pcOf (regAt k)) (cReg k) := by
-  interval_cases k <;> exact codeAt_of_compact_window hc (by decide) (by decide +kernel)
+  interval_cases k <;> exact codeAt_of_window hc (by decide) (by decide +kernel)
 theorem code_cLv (lay j : Nat) (hl : 1 ≤ lay ∧ lay < 4) (hj : j < (if lay = 1 then 7 else 6)) :
     CodeAt im (pcOf (lvAt lay j)) (cLv lay j) := by
   obtain ⟨h1, h4⟩ := hl
   interval_cases lay <;> simp only [if_true, if_false, show (2 : Nat) ≠ 1 by decide, show (3 : Nat) ≠ 1 by decide] at hj <;>
-    interval_cases j <;> exact codeAt_of_compact_window hc (by decide) (by decide +kernel)
+    interval_cases j <;> exact codeAt_of_window hc (by decide) (by decide +kernel)
 end code
 sym_block RSnap := symRun cfgC cSnap (pcOf 42142) 40
 sym_block RZero2 := symRun cfgC cZero2 (pcOf 42149) 40
@@ -250,7 +235,7 @@ theorem valid8 (X : Nat) (h : X + 8 ≤ 16777216) (h8 : X % 8 = 0) : accessValid
   rw [accessValid_iff, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
   exact ⟨by rw [show MEMORY_BYTES = 16777216 from rfl]; omega, h8⟩
 section
-variable {im : Image} (hc : ClaudeWCT.W9.Machine.Expand.CompactCodeAt im)
+variable {im : Image} (hc : ClaudeWCT.W9.Machine.Expand.NewCodeAt im)
 include hc
 set_option maxRecDepth 20000 in
 set_option maxHeartbeats 2000000 in

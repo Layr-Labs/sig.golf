@@ -29,7 +29,7 @@ theorem card_capP : #{p : WProposal | capP p} = 2 ^ 31 * ClaudeWCT.Numerics.N600
   rw [h, card_product, ClaudeWCT.Numerics.N600Cap.card_capSet, card_univ, Fintype.card_fin]
 theorem acceptanceV5 :
     Pr[fun x : HashOutput => ClaudeWCT.WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      (1353 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 167 := by
+      (1451 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 167 := by
   rw [← expectedValue_ite_one, SigGolfCandidate.T3.BPORS.expected_uniform_eq_finiteAverage]
   unfold SigGolfResearch.Gate6.Moments.finiteAverage
   have hsum : (∑ x : HashOutput, if ClaudeWCT.WCT9.producerAdmissible x = true then (1 : ENNReal) else 0) =
@@ -52,7 +52,7 @@ theorem acceptanceV5_eq_p0 :
     Pr[fun x : HashOutput => ClaudeWCT.WCT9.producerAdmissible x = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
       ENNReal.ofReal (BaseAudit.V5.p0 : ℝ) := by
   rw [acceptanceV5]
-  have hq : ((BaseAudit.V5.p0 : ℚ) : ℝ) = (1353 : ℝ) * (ClaudeWCT.Numerics.N600Cap.J : ℝ) / 2 ^ 167 := by
+  have hq : ((BaseAudit.V5.p0 : ℚ) : ℝ) = (1451 : ℝ) * (ClaudeWCT.Numerics.N600Cap.J : ℝ) / 2 ^ 167 := by
     simp only [BaseAudit.V5.p0, BaseAudit.V5.J, ClaudeWCT.Numerics.N600Cap.J]
     push_cast
     ring
@@ -73,7 +73,7 @@ section
 section
 namespace ClaudeWCT.W9.T3.Correctness
 open OracleComp OracleSpec
-open ClaudeWCT.WCT9 (Signature Witness digestAttemptLimit honestTop eval_signForest)
+open ClaudeWCT.WCT9 (Signature Witness digestAttemptLimit honestForest eval_signForest)
 open ClaudeWCT.WCT9.Rev3 (sign expand verify signPayload)
 open SigGolfCandidate.T3 hiding Signature Witness sign expand verify signPayload digestSearch admissible
 open SigGolfCandidate.T3.Correctness (Answers DigestFamily KeygenCorrect)
@@ -156,8 +156,7 @@ theorem signPayload_succeeds (answers : Answers) (cache : Cache) (message : Mess
   rw [ClaudeWCT.WCT9.Rev3.signPayload_eq]
   simp only [evalWithAnswerFn_bind, hd, eval_signForest]
   obtain ⟨pieces, hp⟩ := signLayersBC_succeeds answers cache (ClaudeWCT.WCT9.digestIndex output)
-    (ClaudeWCT.WCT9.digestIndex_lt output) hgood.2 4 (.pair (honestTop answers (ClaudeWCT.WCT9.digestIndex output)).1
-      (honestTop answers (ClaudeWCT.WCT9.digestIndex output)).2)
+    (ClaudeWCT.WCT9.digestIndex_lt output) hgood.2 4 (.forest (honestForest answers (ClaudeWCT.WCT9.digestIndex output)))
   simp only [hp, evalWithAnswerFn_pure]
   exact ⟨_, rfl⟩
 def SigningComplete (answers : Answers) (keys : Digest × Cache) : Prop :=
@@ -212,8 +211,7 @@ theorem signPayload_succeedsFor (answers : Answers) (cache : Cache) (message : M
   rw [ClaudeWCT.WCT9.Rev3.signPayload_eq]
   simp only [evalWithAnswerFn_bind, hd, eval_signForest]
   obtain ⟨pieces, hp⟩ := signLayersBC_succeeds answers cache (ClaudeWCT.WCT9.digestIndex output)
-    (ClaudeWCT.WCT9.digestIndex_lt output) hgood.2 4 (.pair (honestTop answers (ClaudeWCT.WCT9.digestIndex output)).1
-      (honestTop answers (ClaudeWCT.WCT9.digestIndex output)).2)
+    (ClaudeWCT.WCT9.digestIndex_lt output) hgood.2 4 (.forest (honestForest answers (ClaudeWCT.WCT9.digestIndex output)))
   simp only [hp, evalWithAnswerFn_pure]
   exact ⟨_, rfl⟩
 theorem signing_complete_for_of_searches (answers : Answers) (keys : Digest × Cache)
@@ -236,8 +234,7 @@ theorem signPayload_succeedsSelected (answers : Answers) (cache : Cache) (messag
   rw [ClaudeWCT.WCT9.Rev3.signPayload_eq]
   simp only [evalWithAnswerFn_bind, hd, eval_signForest]
   obtain ⟨pieces, hp⟩ := signLayersBC_succeeds answers cache (ClaudeWCT.WCT9.digestIndex output)
-    (ClaudeWCT.WCT9.digestIndex_lt output) hgood.2 4 (.pair (honestTop answers (ClaudeWCT.WCT9.digestIndex output)).1
-      (honestTop answers (ClaudeWCT.WCT9.digestIndex output)).2)
+    (ClaudeWCT.WCT9.digestIndex_lt output) hgood.2 4 (.forest (honestForest answers (ClaudeWCT.WCT9.digestIndex output)))
   simp only [hp, evalWithAnswerFn_pure]
   exact ⟨_, rfl⟩
 theorem signing_complete_of_selected_searches (answers : Answers) (keys : Digest × Cache)
@@ -295,7 +292,7 @@ theorem digest_failure_power :
   digest_failure_power_of_acceptance (BaseAudit.V5.p0 : ℝ)
     (by norm_num [BaseAudit.V5.p0, BaseAudit.V5.J]) (by norm_num [BaseAudit.V5.p0, BaseAudit.V5.J]) digest_probability_eq_p0
 theorem digest_failMass_eq :
-    failMass digestDecode = 1 - (1353 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 167 := by
+    failMass digestDecode = 1 - (1451 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 167 := by
   have h : (fun answer : HashOutput => (digestDecode answer).isSome = true) =
       fun x => ClaudeWCT.WCT9.producerAdmissible x = true := by
     funext x
@@ -303,7 +300,7 @@ theorem digest_failMass_eq :
     split <;> simp_all
   rw [failMass_eq_one_sub_accept, h, acceptanceV5]
 theorem digest_failure_explicit :
-    (1 - (1353 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 167) ^ (2 ^ 21) ≤
+    (1 - (1451 * ClaudeWCT.Numerics.N600Cap.J : ENNReal) / 2 ^ 167) ^ (2 ^ 21) ≤
       1 / (2 : ENNReal) ^ 450 := by
   rw [← digest_failMass_eq]
   exact digest_failure_power
@@ -385,10 +382,10 @@ theorem layerCounterSearch_none_agreement (outputs : SearchKey → HashOutput)
   rw [layerCounterSearch_none_iff]
   have hv (c : Nat) (hc : c < ClaudeWCT.WCT9.searchLimit lay) :
       evalWithAnswerFn answers
-        (ClaudeWCT.WCT9.encodingHash lay (ClaudeWCT.WCT9.layerEncodingInput lay (routedTree lay r) (routedLeaf lay r) msg
+        (shortHash (ClaudeWCT.WCT9.layerEncodingInput lay (routedTree lay r) (routedLeaf lay r) msg
           (BitVec.ofNat 32 (0 + c)))) =
-        ClaudeWCT.WCT9.encodingAnswer lay (outputs (.inl ((lay, r, msgLeft msg, msgRight msg),
-          Fin.castLE (Presampling.searchLimit_le_rows lay) ⟨c, hc⟩))) := by
+        (outputs (.inl ((lay, r, msgLeft msg, msgRight msg),
+          Fin.castLE (Presampling.searchLimit_le_rows lay) ⟨c, hc⟩))).extractLsb' 0 128 := by
     rw [Nat.zero_add, eval_shortHash_layer]
     have hinput : pairTrial lay (routedTree lay r) (routedLeaf lay r) (msgLeft msg) (msgRight msg) c =
         searchQuery (.inl ((lay, r, msgLeft msg, msgRight msg),

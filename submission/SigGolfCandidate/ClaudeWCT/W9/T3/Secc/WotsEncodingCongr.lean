@@ -116,13 +116,13 @@ end Programs
 def RejPair (T T' : Answers) (q : Spec.Domain) : Prop :=
   ∃ (input : HashInput) (lay : Layer) (tr lf : Nat), q = .inl (.inr input) ∧
     SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (rowTweak lay tr lf) ∧
-    WCT9.producerDecode lay (WCT9.encodingAnswer lay (T (.inl (.inr input)))) = none ∧
-      WCT9.producerDecode lay (WCT9.encodingAnswer lay (T' (.inl (.inr input)))) = none
+    WCT9.producerDecode lay (low (T (.inl (.inr input)))) = none ∧
+      WCT9.producerDecode lay (low (T' (.inl (.inr input)))) = none
 theorem RejPair.layer {T T' : Answers} {input : HashInput} {lay : Layer} {tr lf : Nat}
     (h : RejPair T T' (.inl (.inr input)))
     (hh : SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (rowTweak lay tr lf)) :
-    WCT9.producerDecode lay (WCT9.encodingAnswer lay (T (.inl (.inr input)))) = none ∧
-      WCT9.producerDecode lay (WCT9.encodingAnswer lay (T' (.inl (.inr input)))) = none := by
+    WCT9.producerDecode lay (low (T (.inl (.inr input)))) = none ∧
+      WCT9.producerDecode lay (low (T' (.inl (.inr input)))) = none := by
   obtain ⟨input', lay', tr', lf', hq, hh', h1, h2⟩ := h
   have hi : input' = input := (Sum.inr.inj (Sum.inl.inj hq)).symm
   subst hi
@@ -132,8 +132,8 @@ theorem RejPair.layer {T T' : Answers} {input : HashInput} {lay : Layer} {tr lf 
   exact ⟨h1, h2⟩
 theorem RejPair.mk {T T' : Answers} {input : HashInput} {lay : Layer} {tr lf : Nat}
     (hh : SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (rowTweak lay tr lf))
-    (h1 : WCT9.producerDecode lay (WCT9.encodingAnswer lay (T (.inl (.inr input)))) = none)
-    (h2 : WCT9.producerDecode lay (WCT9.encodingAnswer lay (T' (.inl (.inr input)))) = none) : RejPair T T' (.inl (.inr input)) :=
+    (h1 : WCT9.producerDecode lay (low (T (.inl (.inr input)))) = none)
+    (h2 : WCT9.producerDecode lay (low (T' (.inl (.inr input)))) = none) : RejPair T T' (.inl (.inr input)) :=
   ⟨input, lay, tr, lf, rfl, hh, h1, h2⟩
 theorem RejPair.encHeader {T T' : Answers} {q : Spec.Domain} (h : RejPair T T' q) :
     ∃ input, q = .inl (.inr input) ∧ Enc.EncHeader input := by
@@ -177,7 +177,7 @@ theorem RespAt.queried_eq {α : Type} {p : M α} (h : RespAt T S p) {T' : Answer
 end RespAt
 theorem respAt_layerCounterSearch (T : Answers) (S : Spec.Domain → Prop) (lay : Layer) (tree leaf : Nat)
     (msg : WCT9.LayerMsg) : ∀ fuel start,
-      (∀ c < fuel, (∀ c' < c, WCT9.producerDecode lay (WCT9.encodingAnswer lay (T (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg
+      (∀ c < fuel, (∀ c' < c, WCT9.producerDecode lay (low (T (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg
           (BitVec.ofNat 32 (start + c')))))))) = none) →
         S (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 (start + c))))))) →
       RespAt T S (WCT9.layerCounterSearch lay tree leaf msg start fuel) := by
@@ -189,7 +189,7 @@ theorem respAt_layerCounterSearch (T : Answers) (S : Spec.Domain → Prop) (lay 
       have hS0 : S (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 start))))) := by
         have := hS 0 (Nat.zero_lt_succ _) (fun c' hc' => absurd hc' (Nat.not_lt_zero _))
         rwa [Nat.add_zero] at this
-      have hrest : WCT9.producerDecode lay (WCT9.encodingAnswer lay (T (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg
+      have hrest : WCT9.producerDecode lay (low (T (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf msg
           (BitVec.ofNat 32 start))))))) = none →
           RespAt T S (WCT9.layerCounterSearch lay tree leaf msg (start + 1) fuel) := by
         intro hnone
@@ -204,17 +204,17 @@ theorem respAt_layerCounterSearch (T : Answers) (S : Spec.Domain → Prop) (lay 
         rwa [show start + (c + 1) = start + 1 + c by omega] at h
       rw [WCT9.layerCounterSearch]
       rw [evalWithAnswerFn_bind, evalWithAnswerFn_bind, SourceReplay.queried_bind, SourceReplay.queried_bind]
-      have hq0 : SourceReplay.queried T' (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg
-          (BitVec.ofNat 32 start))) = SourceReplay.queried T (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg
+      have hq0 : SourceReplay.queried T' (shortHash (WCT9.layerEncodingInput lay tree leaf msg
+          (BitVec.ofNat 32 start))) = SourceReplay.queried T (shortHash (WCT9.layerEncodingInput lay tree leaf msg
           (BitVec.ofNat 32 start))) := rfl
       rw [hq0]
       rcases hT' _ hS0 with heq | hrej
-      · have hev : evalWithAnswerFn T' (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg
-            (BitVec.ofNat 32 start))) = evalWithAnswerFn T (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg
+      · have hev : evalWithAnswerFn T' (shortHash (WCT9.layerEncodingInput lay tree leaf msg
+            (BitVec.ofNat 32 start))) = evalWithAnswerFn T (shortHash (WCT9.layerEncodingInput lay tree leaf msg
             (BitVec.ofNat 32 start))) :=
-          congrArg (WCT9.encodingAnswer lay) heq
+          congrArg (fun x : HashOutput => x.extractLsb' 0 128) heq
         rw [hev]
-        cases hd : WCT9.producerDecode lay (evalWithAnswerFn T (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg
+        cases hd : WCT9.producerDecode lay (evalWithAnswerFn T (shortHash (WCT9.layerEncodingInput lay tree leaf msg
             (BitVec.ofNat 32 start)))) with
         | none =>
             obtain ⟨h1, h2⟩ := hrest hd T' hT'
@@ -223,9 +223,9 @@ theorem respAt_layerCounterSearch (T : Answers) (S : Spec.Domain → Prop) (lay 
         | some digits => exact ⟨rfl, rfl⟩
       · obtain ⟨hTn, hTn'⟩ := hrej.layer
           (ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 start))
-        have hl : WCT9.producerDecode lay (evalWithAnswerFn T (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg
+        have hl : WCT9.producerDecode lay (evalWithAnswerFn T (shortHash (WCT9.layerEncodingInput lay tree leaf msg
             (BitVec.ofNat 32 start)))) = none := hTn
-        have hl' : WCT9.producerDecode lay (evalWithAnswerFn T' (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg
+        have hl' : WCT9.producerDecode lay (evalWithAnswerFn T' (shortHash (WCT9.layerEncodingInput lay tree leaf msg
             (BitVec.ofNat 32 start)))) = none := hTn'
         obtain ⟨h1, h2⟩ := hrest hTn T' hT'
         rw [hl, hl']
@@ -233,7 +233,7 @@ theorem respAt_layerCounterSearch (T : Answers) (S : Spec.Domain → Prop) (lay 
         exact ⟨h1, by rw [h2]⟩
 def Reached (T : Answers) (L : LeafAddr) (input : HashInput) : Prop :=
   ∃ c < WCT9.searchLimit L.lay, input = encRow L (leafMsg T L) (BitVec.ofNat 32 c) 0 ∧
-    ∀ c' < c, WCT9.producerDecode L.lay (WCT9.encodingAnswer L.lay (T (.inl (.inr (encRow L (leafMsg T L) (BitVec.ofNat 32 c') 0))))) = none
+    ∀ c' < c, WCT9.producerDecode L.lay (low (T (.inl (.inr (encRow L (leafMsg T L) (BitVec.ofNat 32 c') 0))))) = none
 def leafOf (L : CanonGraph.LeafPos) : LeafAddr := ⟨L.lay, L.tree.val, L.leaf.val⟩
 def HonestQ (T : Answers) : Spec.Domain → Prop
   | .inl (.inr input) => ¬ EncHeader input ∨ ∃ L : CanonGraph.LeafPos, L.Source ∧ Reached T (leafOf L) input
@@ -325,7 +325,7 @@ theorem respAt_signPayload (T : Answers) (cache : T3.Cache) (message : Message) 
     refine RespAt.bind (RespAt.of_respects (respects_signForest _ _) fun _ h => honestQ_of_nonEnc h) ?_
     refine RespAt.bind (respAt_signLayers T cache _ (WCT9.digestIndex_lt _) 4 le_rfl _ (fun m hm => ?_)) ?_
     · obtain rfl : m = 3 := by omega
-      rw [ClaudeWCT.WCT9.signForest_root, ← Extract.honestTop_eq_wct9]
+      rw [ClaudeWCT.WCT9.signForest_root, ← Extract.honestForest_eq_wct9]
       exact Mask.signedMsg_top T _ (WCT9.digestIndex_lt _)
     · generalize evalWithAnswerFn T (WCT9.signLayersBC cache (WCT9.digestIndex output) 4 _) = pieces
       rcases pieces with _ | pieces <;> exact RespAt.pure' _
@@ -365,10 +365,10 @@ theorem referenceGame_congr_honest {T T' : Answers} (h : AgreeOn (HonestQ T) T T
     (adversary : Final.AdversaryP) (q : Nat) : referenceGame T' adversary q = referenceGame T adversary q := by
   unfold referenceGame
   rw [offlineGame_congr h]
-theorem honestTop_congr_nonEnc {T T' : Answers} (h : ∀ q, Enc.NonEnc q → T' q = T q) (index : Nat) :
-    Extract.honestTop T' index = Extract.honestTop T index := by
-  rw [Extract.honestTop_eq_wct9, Extract.honestTop_eq_wct9]
-  exact ClaudeWCT.WCT9.Wots.Enc.honestTop_congr h index
+theorem honestForest_congr_nonEnc {T T' : Answers} (h : ∀ q, Enc.NonEnc q → T' q = T q) (index : Nat) :
+    Extract.honestForest T' index = Extract.honestForest T index := by
+  rw [Extract.honestForest_eq_wct9, Extract.honestForest_eq_wct9]
+  exact ClaudeWCT.WCT9.Wots.Enc.honestForest_congr h index
 theorem wotsTree_take_congr_nonEnc {T T' : Answers} (h : ∀ q, Enc.NonEnc q → T' q = T q) (lay : Layer)
     (tree : Nat) :
     (WCT9.wotsTree T' lay tree).take (height lay) = (WCT9.wotsTree T lay tree).take (height lay) := by
@@ -408,7 +408,7 @@ theorem leafMsg_congr_nonEnc {T T' : Answers} (h : ∀ q, Enc.NonEnc q → T' q 
   unfold leafMsg
   split
   · rw [honestPair_congr_nonEnc h]
-  · rw [honestTop_congr_nonEnc h _]
+  · rw [honestForest_congr_nonEnc h _]
 theorem nonEnc_of_honest {T T' : Answers} (h : AgreeOn (HonestQ T) T T') : ∀ q, Enc.NonEnc q → T' q = T q :=
   h.nonEnc fun _ hq => honestQ_of_nonEnc hq
 theorem referenceSearch_congr_honest {T T' : Answers} (h : AgreeOn (HonestQ T) T T')

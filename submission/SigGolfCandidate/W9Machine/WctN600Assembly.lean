@@ -15,7 +15,6 @@ section
 
 section
 namespace W9Machine
-variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 set_option maxRecDepth 10000
 open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
 def hLoad (i d : Nat) : E := .ld (addC (.reg .x28) (hOff i d))
@@ -53,7 +52,6 @@ end W9Machine
 end
 section
 namespace W9Machine
-variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify SigGolfCandidate.Rv RiscvZkvm.Rv64
 def wctChainClobbers : List Reg := [.x3, .x10, .x11, .x12, .x14, .x25]
 theorem chainPiece_keeps (p : ChainPiece) : Keeps p.result wctChainClobbers := by
@@ -78,7 +76,6 @@ end W9Machine
 end
 section
 namespace W9Machine
-variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 set_option maxRecDepth 10000
 open SigGolfCandidate.Legacy.Riscv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify SigGolfCandidate.Rv RiscvZkvm.Rv64
@@ -134,7 +131,6 @@ end
 section
 set_option autoImplicit false
 namespace W9Machine.Chain
-variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 theorem Inv.headerLoad {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128}
@@ -153,7 +149,6 @@ end W9Machine.Chain
 end
 section
 namespace W9Machine.Chain
-variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 theorem Inv.rung {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 666}
@@ -219,7 +214,6 @@ end W9Machine.Chain
 end
 section
 namespace W9Machine.Chain
-variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 theorem Inv.head {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 666}
@@ -270,7 +264,6 @@ end W9Machine.Chain
 end
 section
 namespace W9Machine.Chain
-variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 theorem Inv.copy {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 666}
@@ -311,7 +304,6 @@ end W9Machine.Chain
 end
 section
 namespace W9Machine.Chain
-variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 set_option maxRecDepth 10000
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
@@ -398,7 +390,6 @@ end W9Machine.Chain
 end
 section
 namespace W9Machine
-variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (pad64)
@@ -446,7 +437,6 @@ end W9Machine
 end
 section
 namespace W9Machine.Chain
-variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (pad64)
@@ -538,59 +528,45 @@ end
 section
 set_option autoImplicit false
 namespace W9Machine.Chain
-variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 set_option maxRecDepth 10000
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest)
 theorem merkleField_of_frame {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9}
     {j : Fin 128} {rank : Fin 666} {u s : MachineState} (hu : Pre L w index k j rank u)
-    (hf : Frame u s (writes k)) (off : Nat) (ha : off % 8 = 0)
-    (ho : off + 16 ≤ 336 ∨ (832 ≤ off ∧ off + 16 ≤ 896)) :
+    (hf : Frame u s (writes k)) (off : Nat) (ha : off % 8 = 0) (ho : off + 16 ≤ 336) :
     DigAt s (base k + off) (wdig w (V3.regionOffset k.val + off)) := by
   have hk := k.isLt
   have h0 := hu.origW off (by omega) ha
   have h1 : OrigW w u (base k + off + 8) := by
     simpa only [Nat.add_assoc] using hu.origW (off + 8) (by omega) (by omega)
   have hdig := DigAt_origW h0 h1 (by unfold base coordinateBase; omega)
-  have he : base k + off - 0x4c0 = V3.regionOffset k.val + off := by
+  have he : base k + off - 0x800 = V3.regionOffset k.val + off := by
     unfold base coordinateBase V3.regionOffset
     omega
   rw [he] at hdig
   exact hdig.frame hf (by unfold base coordinateBase; omega)
     (by unfold writes; omega) (by unfold writes; omega)
-/-- Nested FTS child fields: levels 0..4 below the chain window, level 5 in the fixed block `832..896`. -/
-theorem v3_field_bounds : ∀ j : Fin 128, ∀ l : Fin 6,
-    V3.sibOff j.val l.val % 8 = 0 ∧
-      (V3.sibOff j.val l.val + 16 ≤ 336 ∨ (832 ≤ V3.sibOff j.val l.val ∧ V3.sibOff j.val l.val + 16 ≤ 896)) ∧
-    V3.padOff j.val l.val % 8 = 0 ∧
-      (V3.padOff j.val l.val + 16 ≤ 336 ∨ (832 ≤ V3.padOff j.val l.val ∧ V3.padOff j.val l.val + 16 ≤ 896)) ∧
-    (V3.blkOff j.val l.val + 16) % 8 = 0 ∧
-      (V3.blkOff j.val l.val + 16 + 16 ≤ 336 ∨
-        (832 ≤ V3.blkOff j.val l.val + 16 ∧ V3.blkOff j.val l.val + 16 + 16 ≤ 896)) := by
+theorem auth_bounds : ∀ j : Fin 128, ∀ l : Fin 7,
+    ClaudeWCT.W9.T3M.authSibOff j.val l.val % 8 = 0 ∧ ClaudeWCT.W9.T3M.authSibOff j.val l.val + 16 ≤ 320 ∧
+    ClaudeWCT.W9.T3M.authPadOff j.val l.val % 8 = 0 ∧ ClaudeWCT.W9.T3M.authPadOff j.val l.val + 16 ≤ 336 := by
   decide +kernel
 theorem merklePad_of_frame {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9}
     {j : Fin 128} {rank : Fin 666} {u s : MachineState} (hu : Pre L w index k j rank u)
-    (hf : Frame u s (writes k)) (l : Nat) (hl : l < 6) :
-    DigAt s (base k + V3.padOff j.val l) (V3.nodePad w k.val j.val l) := by
-  have hb := v3_field_bounds j ⟨l, hl⟩
-  have h := merkleField_of_frame hu hf (V3.padOff j.val l) hb.2.2.1 hb.2.2.2.1
-  simpa only [V3.nodePad, wdig] using h
+    (hf : Frame u s (writes k)) (l : Nat) (hl : l < 7) :
+    DigAt s (base k + ClaudeWCT.W9.T3M.authPadOff j.val l) (V3.nodePad w k.val j.val l) := by
+  have hb := auth_bounds j ⟨l, hl⟩
+  have h := merkleField_of_frame hu hf (ClaudeWCT.W9.T3M.authPadOff j.val l) hb.2.2.1 hb.2.2.2
+  simpa only [V3.nodePad, ClaudeWCT.W9.T3M.wmpad, ClaudeWCT.W9.T3M.regionBase, V3.regionOffset, wdig]
+    using h
 theorem merkleSibling_of_frame {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9}
     {j : Fin 128} {rank : Fin 666} {u s : MachineState} (hu : Pre L w index k j rank u)
-    (hf : Frame u s (writes k)) (l : Nat) (hl : l < 6) :
-    DigAt s (base k + V3.sibOff j.val l) (V3.sibling w k.val j.val l) := by
-  have hb := v3_field_bounds j ⟨l, hl⟩
-  have h := merkleField_of_frame hu hf (V3.sibOff j.val l) hb.1 hb.2.1
-  simpa only [V3.sibling, wdig] using h
-theorem merkleTw_of_frame {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9}
-    {j : Fin 128} {rank : Fin 666} {u s : MachineState} (hu : Pre L w index k j rank u)
-    (hf : Frame u s (writes k)) (l : Nat) (hl : l < 6) :
-    DigAt s (base k + V3.blkOff j.val l + 16) (V3.nodeTw w k.val j.val l) := by
-  have hb := v3_field_bounds j ⟨l, hl⟩
-  have h := merkleField_of_frame hu hf (V3.blkOff j.val l + 16) hb.2.2.2.2.1 hb.2.2.2.2.2
-  rw [← Nat.add_assoc] at h
-  simpa only [V3.nodeTw, wdig, Nat.add_assoc] using h
+    (hf : Frame u s (writes k)) (l : Nat) (hl : l < 7) :
+    DigAt s (base k + ClaudeWCT.W9.T3M.authSibOff j.val l) (V3.sibling w k.val j.val l) := by
+  have hb := auth_bounds j ⟨l, hl⟩
+  have h := merkleField_of_frame hu hf (ClaudeWCT.W9.T3M.authSibOff j.val l) hb.1 (le_trans hb.2.1 (by decide : 320 ≤ 336))
+  simpa only [V3.sibling, ClaudeWCT.W9.T3M.wsib, ClaudeWCT.W9.T3M.regionBase, V3.regionOffset, wdig]
+    using h
 theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128}
     {rank : Fin 666} {u s : MachineState} {tr : ChainTrace} {answers : List (BitVec 256)}
     (hu : Pre L w index k j rank u) (hs : Inv u index k j tr answers s)
@@ -638,7 +614,7 @@ theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
     have hw1 : OrigW w u (base k + 720 + 8) := by
       simpa only [Nat.add_assoc] using hu.origW 728 (by decide) (by decide)
     have hdig := DigAt_origW hw0 hw1 (by unfold base coordinateBase; omega)
-    have he : base k + 720 - 0x4c0 = V3.regionOffset k.val + 720 := by
+    have he : base k + 720 - 0x800 = V3.regionOffset k.val + 720 := by
       unfold base coordinateBase V3.regionOffset
       omega
     rw [he] at hdig
@@ -664,11 +640,12 @@ theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
     baseReg := (hkeep .x8 (by decide)).trans hu.baseReg,
     hashInput := hp.1, hashLen := hp.2.1,
     nodeWord := (hkeep .x15 (by decide)).trans hu.nodeWord,
+    childIdx := (hkeep .x4 (by decide)).trans hu.childIdx,
+    forestPointer := (hkeep .x9 (by decide)).trans hu.forestPointer,
     returnPC := (hkeep .x1 (by decide)).trans hu.returnPC,
     heaps := ?_, leafAt := ?_,
-    padAt := fun l hl => merklePad_of_frame hu hf l hl,
-    sibAt := fun l hl => merkleSibling_of_frame hu hf l hl,
-    twAt := fun l hl => merkleTw_of_frame hu hf l hl }
+    padAt := fun l hl => merklePad_of_frame hu hf l (by omega),
+    sibAt := fun l hl => merkleSibling_of_frame hu hf l hl }
   · rw [hp.2.2, hs.keep .x23 (by decide), hu.childPC, SigGolfCandidate.T3M.pcOf_add4, pcOf_and_not1]
   · intro h hlo hhi
     have hn : Child.heapReg h ∉ clobbers := by interval_cases h <;> decide
@@ -689,7 +666,6 @@ end W9Machine.Chain
 end
 section
 namespace W9Machine.Chain
-variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 theorem runPlan_good {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 666}
@@ -699,8 +675,8 @@ theorem runPlan_good {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
     (hpc : ∀ p, ps.head? = some p → s.pc = pcOf p.pc)
     (N C A : Nat) (Q : Prop) (K : List (BitVec 256) → OracleComp HashSpec Obs)
     (hK : ∀ answers' s', Inv u index k j (terminalTrace ps tr) answers' s' →
-      GoodQFor (P := P) Frozen.image (leafSetupRel.toState s') N C Q A (K answers')) :
-    GoodQFor (P := P) Frozen.image s (N + planFuel ps) (C + planCycles ps) Q (A + planCycles ps)
+      GoodQFor Frozen.image (leafSetupRel.toState s') N C Q A (K answers')) :
+    GoodQFor Frozen.image s (N + planFuel ps) (C + planCycles ps) Q (A + planCycles ps)
       (ccM (traceProgram (originalValue u index k j) (planQueries ps tr) answers) K) := by
   induction ps generalizing tr answers s with
   | nil => simp [planGuard] at hg
@@ -716,7 +692,7 @@ theorem runPlan_good {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
       have he : p.result = leafSetupRel := by simp [ChainPiece.result, hleaf]
       have ht := chainPiece_steps p hlink hcheck s (hpc p rfl) (hs.plainObligations hu p hh hguard)
       rw [he] at ht
-      have hc := GoodQFor.steps (P := P) ht (hK answers s (by simpa [terminalTrace, hleaf] using hs))
+      have hc := GoodQFor.steps ht (hK answers s (by simpa [terminalTrace, hleaf] using hs))
       simpa only [planFuel, planCycles, planQueries, hh, Bool.false_eq_true, if_false,
         traceProgram, ccM_pure, ChainPiece.totalCycles, he, leafSetupRel,
         Nat.zero_add, Nat.add_zero] using hc
@@ -727,7 +703,7 @@ theorem runPlan_good {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
       obtain ⟨hnext, hgtail⟩ := htail
       have hltail : PlanLinked ps := fun q hq => hl q (List.mem_cons_of_mem p hq)
       have hktail : ∀ answers' s', Inv u index k j (terminalTrace ps (tr.step p.kind)) answers' s' →
-          GoodQFor (P := P) Frozen.image (leafSetupRel.toState s') N C Q A (K answers') := by
+          GoodQFor Frozen.image (leafSetupRel.toState s') N C Q A (K answers') := by
         intro answers' s' h
         exact hK answers' s' (by simpa only [terminalTrace, if_neg hleaf] using h)
       have hnpc (ans : BitVec 256) : ∀ q, ps.head? = some q →
@@ -740,17 +716,17 @@ theorem runPlan_good {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
         have hc := fun ans => ih (tr.step p.kind) (answers ++ [ans]) _
           (hs.hashEffect hu p hh hguard ans) hgtail hltail
           (by simpa only [if_pos hh] using hnpc ans) hktail
-        have hq := GoodQFor.publicHash_bind (P := P)
+        have hq := GoodQFor.publicHash_bind
           (chainPiece_ecall p hlink hcheck s hr.obligations hr.stop)
           hr.mode hr.valid hr.query hc
-        have hrun := GoodQFor.steps (P := P) (chainPiece_steps p hlink hcheck s (hpc p rfl) hr.obligations) hq
+        have hrun := GoodQFor.steps (chainPiece_steps p hlink hcheck s (hpc p rfl) hr.obligations) hq
         simpa only [planFuel, planCycles, planQueries, if_pos hh, traceProgram,
           ChainPiece.totalCycles, hr.blocks, Nat.mul_one, Nat.add_assoc,
           Nat.add_left_comm, Nat.add_comm] using hrun
       · have hfalse : p.isHash = false := Bool.eq_false_iff.mpr hh
         have hc := ih (tr.step p.kind) answers _ (hs.plainEffect hu p hfalse hleaf hguard)
           hgtail hltail (by simpa only [if_neg hh] using hnpc 0) hktail
-        have hrun := GoodQFor.steps (P := P)
+        have hrun := GoodQFor.steps
           (chainPiece_steps p hlink hcheck s (hpc p rfl) (hs.plainObligations hu p hfalse hguard)) hc
         simpa only [planFuel, planCycles, planQueries, if_neg hh, ChainPiece.totalCycles,
           Nat.add_zero, Nat.zero_add, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using hrun
@@ -758,11 +734,10 @@ end W9Machine.Chain
 end
 section
 namespace W9Machine.Chain
-variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 theorem good_of_ready (source : SourceEquivalent) (endpoints : EndpointsCorrect)
-    (rank : Fin 666) (r : ChainRoutine) (hr : RoutineReady rank r) : Good Frozen.layout rank (P := P) := by
+    (rank : Fin 666) (r : ChainRoutine) (hr : RoutineReady rank r) : Good Frozen.layout rank := by
   intro w index k j u N C A Q K hu hK
   have hpc : ∀ p, r.pieces.head? = some p → u.pc = pcOf p.pc := by
     intro p hp
@@ -771,7 +746,7 @@ theorem good_of_ready (source : SourceEquivalent) (endpoints : EndpointsCorrect)
     have he' : p.pc = chainEntries.getD rank.val 0 := Option.some.inj he
     exact hu.pc.trans (congrArg pcOf he'.symm)
   have hk : ∀ answers s, Inv u index k j (terminalTrace r.pieces {}) answers s →
-      GoodQFor (P := P) Frozen.image (leafSetupRel.toState s) N C Q A
+      GoodQFor Frozen.image (leafSetupRel.toState s) N C Q A
         (K (sourceEnds w k rank answers)) := by
     intro answers s hs
     exact hK _ _ (hs.leafPost hu _ (by simp [sourceEnds])
@@ -787,7 +762,7 @@ theorem good_of_ready (source : SourceEquivalent) (endpoints : EndpointsCorrect)
   have he := congrArg (fun p => ccM p K) (source Frozen.layout w index k j rank u hu)
   simpa only [ccM_bind, ccM_pure] using he
 theorem allGood_of_ready (source : SourceEquivalent) (endpoints : EndpointsCorrect)
-    (ready : ∀ rank : Fin 666, ∃ r, RoutineReady rank r) : AllGood Frozen.layout (P := P) := by
+    (ready : ∀ rank : Fin 666, ∃ r, RoutineReady rank r) : AllGood Frozen.layout := by
   intro rank
   obtain ⟨r, hr⟩ := ready rank
   exact good_of_ready source endpoints rank r hr
@@ -799,12 +774,11 @@ section
 
 
 namespace W9Machine.N600
-variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open Chain OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 theorem good_of_ready (source : Chain.SourceEquivalent) (endpoints : Chain.EndpointsCorrect)
     (rank : Fin 563) (r : ChainRoutine) (hr : Chain.RoutineReady (embed rank) r)
-    (hrankcost : planCycles r.pieces ≤ rankCost rank) : Good Frozen.layout rank (P := P) := by
+    (hrankcost : planCycles r.pieces ≤ rankCost rank) : Good Frozen.layout rank := by
   intro w index k j u N C A Q K hu hK
   have hpc : ∀ p, r.pieces.head? = some p → u.pc = pcOf p.pc := by
     intro p hp
@@ -813,7 +787,7 @@ theorem good_of_ready (source : Chain.SourceEquivalent) (endpoints : Chain.Endpo
     have he' : p.pc = chainEntries.getD (embed rank).val 0 := Option.some.inj he
     exact hu.pc.trans (congrArg pcOf he'.symm)
   have hk : ∀ answers s, Inv u index k j (terminalTrace r.pieces {}) answers s →
-      GoodQFor (P := P) Frozen.image (leafSetupRel.toState s) N C Q A
+      GoodQFor Frozen.image (leafSetupRel.toState s) N C Q A
         (K (sourceEnds w k (embed rank) answers)) := by
     intro answers s hs
     exact hK _ _ (hs.leafPost hu _ (by simp [sourceEnds])
@@ -830,211 +804,3 @@ theorem good_of_ready (source : Chain.SourceEquivalent) (endpoints : Chain.Endpo
   simpa only [ccM_bind, ccM_pure, N600.program, Chain.program] using he
 end W9Machine.N600
 end
-
-namespace W9Machine.N600
-variable {P : SigGolfCandidate.Legacy.Hash → Prop}
-open Chain OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
-open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
-theorem good_of_ready_layout (L : Layout)
-    (himage : L.image = Frozen.image)
-    (hchain : ∀ r, L.chainWord r = Frozen.layout.chainWord r) (source : Chain.SourceEquivalent) (endpoints : Chain.EndpointsCorrect)
-    (rank : Fin 563) (r : ChainRoutine) (hr : Chain.RoutineReady (embed rank) r)
-    (hrankcost : planCycles r.pieces ≤ rankCost rank) : Good L rank (P := P) := by
-  intro w index k j u N C A Q K hu hK
-  change (∀ ends t, Post L w index k j u ends t → GoodQFor (P := P) L.image t N C Q A (K ends)) at hK
-  rw [himage] at hK ⊢
-  have hpc : ∀ p, r.pieces.head? = some p → u.pc = pcOf p.pc := by
-    intro p hp
-    have he := hr.entry
-    rw [hp] at he
-    have he' : p.pc = chainEntries.getD (embed rank).val 0 := Option.some.inj he
-    exact hu.pc.trans ((congrArg pcOf (hchain (embed rank))).trans (congrArg pcOf he'.symm))
-  have hk : ∀ answers s, Inv u index k j (terminalTrace r.pieces {}) answers s →
-      GoodQFor (P := P) Frozen.image (leafSetupRel.toState s) N C Q A
-        (K (sourceEnds w k (embed rank) answers)) := by
-    intro answers s hs
-    exact hK _ _ (hs.leafPost hu _ (by simp [sourceEnds])
-      (endpoints L w index k j (embed rank) u s _ answers hu hs hr.endpoints) hr.pad)
-  have hrun := runPlan_good hu r.pieces {} [] u (inv_initial L w index k j (embed rank) u hu)
-    hr.guard hr.linked hpc N C A Q (fun answers => K (sourceEnds w k (embed rank) answers)) hk
-  have hcost := hr.cycles
-  have hfuel := planFuel_le_cycles r.pieces
-  have hbig := hrun.mono (A' := A + rankCost rank) (by omega : N + planFuel r.pieces ≤ N + 89)
-    (by omega : C + planCycles r.pieces ≤ C + 89) (fun h => ⟨h, by omega⟩)
-  apply hbig.congr
-  rw [hr.queries]
-  have he := congrArg (fun p => ccM p K) (source L w index k j (embed rank) u hu)
-  simpa only [ccM_bind, ccM_pure, N600.program, Chain.program] using he
-end W9Machine.N600
-
-namespace W9Machine.Chain
-variable {P : SigGolfCandidate.Legacy.Hash → Prop}
-open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
-open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
-open SigGolfCandidate.T3 (Digest)
-set_option maxRecDepth 100000
-set_option maxHeartbeats 0
-
-theorem shared_field_bounds : ∀ j : Fin 128, ∀ l : Fin 6,
-    SharedV3.sibOff j.val l.val % 8 = 0 ∧
-      (SharedV3.sibOff j.val l.val + 16 ≤ 336 ∨
-        (832 ≤ SharedV3.sibOff j.val l.val ∧ SharedV3.sibOff j.val l.val + 16 ≤ 896)) ∧
-    (SharedV3.blkOff j.val l.val + 32) % 8 = 0 ∧
-      (SharedV3.blkOff j.val l.val + 32 + 16 ≤ 336 ∨
-        (832 ≤ SharedV3.blkOff j.val l.val + 32 ∧ SharedV3.blkOff j.val l.val + 32 + 16 ≤ 896)) ∧
-    (SharedV3.blkOff j.val l.val + 16) % 8 = 0 ∧
-      (SharedV3.blkOff j.val l.val + 16 + 16 ≤ 336 ∨
-        (832 ≤ SharedV3.blkOff j.val l.val + 16 ∧ SharedV3.blkOff j.val l.val + 16 + 16 ≤ 896)) := by
-  intro j
-  fin_cases j <;> decide +kernel
-
-theorem Post.sharedChild {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {raw : Fin 128}
-    {rank : Fin 666} {u t : MachineState} {ends : List Digest}
-    (hu : Pre L w index k raw rank u) (ht : Post L w index k raw u ends t) :
-    SharedChild.Pre L w index k raw ends t := by
-  have hj := SharedV3.physical_lt k.val raw.val raw.isLt
-  refine ⟨ht.child.indexBound, ht.length, ht.child.pc, ht.child.baseReg,
-    ht.child.hashMode, ht.child.hashInput, ht.child.hashLen, ht.child.nodeWord,
-    ht.child.returnPC, ht.child.heaps, ht.child.leafAt, ?_, ?_, ?_⟩
-  · intro l hl
-    have hb := shared_field_bounds ⟨SharedV3.physical k.val raw.val, hj⟩ ⟨l, hl⟩
-    have h := merkleField_of_frame hu ht.frame
-      (SharedV3.blkOff (SharedV3.physical k.val raw.val) l + 32) hb.2.2.1 hb.2.2.2.1
-    simpa only [SharedV3.nodePad, base, Nat.add_assoc] using h
-  · intro l hl
-    have hb := shared_field_bounds ⟨SharedV3.physical k.val raw.val, hj⟩ ⟨l, hl⟩
-    have h := merkleField_of_frame hu ht.frame
-      (SharedV3.sibOff (SharedV3.physical k.val raw.val) l) hb.1 hb.2.1
-    simpa only [SharedV3.sibling, base] using h
-  · intro l hl
-    have hb := shared_field_bounds ⟨SharedV3.physical k.val raw.val, hj⟩ ⟨l, hl⟩
-    have h := merkleField_of_frame hu ht.frame
-      (SharedV3.blkOff (SharedV3.physical k.val raw.val) l + 16) hb.2.2.2.2.1 hb.2.2.2.2.2
-    simpa only [SharedV3.nodeTw, base, Nat.add_assoc] using h
-end W9Machine.Chain
-
-namespace W9Machine.Chain
-open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
-open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
-open SigGolfCandidate.T3 (M)
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 10000
-
-private theorem publicHash_sim_bind {β : Type} {im : Image} {sk : BitVec 256} {s : MachineState}
-    {input : List UInt8} {W : Nat} {f : BitVec 256 → M β} {Q : β → MachineState → Prop}
-    (hf : fetch im s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
-    (hv : hashArgumentsValid s = true) (hq : hashInput s = toQ (SigGolfCandidate.T3.pad64 input))
-    (h : ∀ a, TBSim im sk (writeHash s a) W (f a) Q) :
-    TBSim im sk s (8 * (toQ (SigGolfCandidate.T3.pad64 input)).blocks + W)
-      (SigGolfCandidate.T3.publicHash input >>= f) Q := by
-  unfold TBSim
-  rw [mrealize_bind, mrealize_publicHash]
-  exact Sim.query_bind hf ht0 hv hq h
-
-theorem runPlan_tbsim_at {α : Type} {im : Image} {sk : BitVec 256}
-    {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128} {rank : Fin 666}
-    {u : MachineState} (hu : Pre L w index k j rank u)
-    (ps : List ChainPiece) (tr : ChainTrace) (answers : List (BitVec 256)) (s : MachineState)
-    (hs : Inv u index k j tr answers s) (hg : planGuard ps tr = true) (hl : PlanLinked ps)
-    (hc : ∀ p ∈ ps, CodeAt im (pcOf p.pc) p.words)
-    (hpc : ∀ p, ps.head? = some p → s.pc = pcOf p.pc)
-    (W : Nat) (Q : α → MachineState → Prop) (K : List (BitVec 256) → M α)
-    (hK : ∀ answers' s', Inv u index k j (terminalTrace ps tr) answers' s' →
-      TBSim im sk (leafSetupRel.toState s') W (K answers') Q) :
-    TBSim im sk s (W + planCycles ps)
-      (traceProgram (originalValue u index k j) (planQueries ps tr) answers >>= K) Q := by
-  induction ps generalizing tr answers s with
-  | nil => simp [planGuard] at hg
-  | cons p ps ih =>
-    obtain ⟨hlink, hcheck⟩ := hl p (by simp)
-    have hcode := hc p (by simp)
-    have hguard := hg
-    simp only [planGuard, Bool.and_eq_true, decide_eq_true_eq] at hguard
-    obtain ⟨⟨hguard, hw⟩, hrest⟩ := hguard
-    by_cases hleaf : p.kind = .leaf
-    · have hnil : ps = [] := by simpa [hleaf] using hrest
-      subst ps
-      have hh : p.isHash = false := by simp [ChainPiece.isHash, hleaf]
-      have he : p.result = leafSetupRel := by simp [ChainPiece.result, hleaf]
-      have ht := chainPiece_steps_at p hcode hcheck s (hpc p rfl) (hs.plainObligations hu p hh hguard)
-      rw [he] at ht
-      have hsim := TBSim.steps ht (hK answers s (by simpa [terminalTrace, hleaf] using hs))
-      simpa only [planCycles, planQueries, hh, Bool.false_eq_true, if_false,
-        traceProgram, pure_bind, ChainPiece.totalCycles, he, leafSetupRel,
-        Nat.zero_add, Nat.add_zero, Nat.add_comm] using hsim
-    · have htail : ((ps.head?.map ChainPiece.pc == some p.nextPc) &&
-          planGuard ps (tr.step p.kind)) = true := by
-        cases he : p.kind <;> simp_all
-      simp only [Bool.and_eq_true, beq_iff_eq] at htail
-      obtain ⟨hnext, hgtail⟩ := htail
-      have hltail : PlanLinked ps := fun q hq => hl q (List.mem_cons_of_mem p hq)
-      have hctail : ∀ q ∈ ps, CodeAt im (pcOf q.pc) q.words := fun q hq => hc q (by simp [hq])
-      have hktail : ∀ answers' s', Inv u index k j (terminalTrace ps (tr.step p.kind)) answers' s' →
-          TBSim im sk (leafSetupRel.toState s') W (K answers') Q := by
-        intro answers' s' h
-        exact hK answers' s' (by simpa only [terminalTrace, if_neg hleaf] using h)
-      have hnpc (ans : BitVec 256) : ∀ q, ps.head? = some q →
-          (if p.isHash then writeHash (p.result.toState s) ans else p.result.toState s).pc = pcOf q.pc := by
-        intro q hq
-        have he : q.pc = p.nextPc := by simpa only [hq, Option.map_some, Option.some.injEq] using hnext
-        exact (chain_next_pc p s ans hleaf hw).trans (congrArg pcOf he.symm)
-      by_cases hh : p.isHash = true
-      · have hr := hs.hashReady hu p hh hguard
-        have hsim := fun ans => ih (tr.step p.kind) (answers ++ [ans]) _
-          (hs.hashEffect hu p hh hguard ans) hgtail hltail hctail
-          (by simpa only [if_pos hh] using hnpc ans) hktail
-        have hq := publicHash_sim_bind
-          (chainPiece_ecall_at p hcode hcheck s hr.obligations hr.stop)
-          hr.mode hr.valid hr.query hsim
-        have hrun := TBSim.steps (chainPiece_steps_at p hcode hcheck s (hpc p rfl) hr.obligations) hq
-        simpa only [planCycles, planQueries, if_pos hh, traceProgram, bind_assoc,
-          ChainPiece.totalCycles, hr.blocks, Nat.mul_one, Nat.add_assoc,
-          Nat.add_left_comm, Nat.add_comm] using hrun
-      · have hfalse : p.isHash = false := Bool.eq_false_iff.mpr hh
-        have hsim := ih (tr.step p.kind) answers _ (hs.plainEffect hu p hfalse hleaf hguard)
-          hgtail hltail hctail (by simpa only [if_neg hh] using hnpc 0) hktail
-        have hrun := TBSim.steps
-          (chainPiece_steps_at p hcode hcheck s (hpc p rfl) (hs.plainObligations hu p hfalse hguard)) hsim
-        simpa only [planCycles, planQueries, if_neg hh, ChainPiece.totalCycles,
-          Nat.add_zero, Nat.zero_add, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using hrun
-
-#print axioms runPlan_tbsim_at
-end W9Machine.Chain
-
-namespace W9Machine.N600
-open Chain OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
-open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
-open SigGolfCandidate.T3 (Digest)
-set_option maxHeartbeats 1000000
-
-theorem tbsim_of_ready_layout (L : Layout) (sk : BitVec 256)
-    (hchain : ∀ rank, L.chainWord rank = Frozen.layout.chainWord rank)
-    (source : Chain.SourceEquivalent) (endpoints : Chain.EndpointsCorrect)
-    (rank : Fin 563) (r : ChainRoutine) (hr : Chain.RoutineReady (embed rank) r)
-    (hcode : ∀ p ∈ r.pieces, CodeAt L.image (pcOf p.pc) p.words)
-    (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128) (u : MachineState)
-    (hu : Pre L w index k j rank u) :
-    TBSim L.image sk u 89 (program w index k j rank) (Post L w index k j u) := by
-  have hpc : ∀ p, r.pieces.head? = some p → u.pc = pcOf p.pc := by
-    intro p hp
-    have he := hr.entry
-    rw [hp] at he
-    have he' : p.pc = chainEntries.getD (embed rank).val 0 := Option.some.inj he
-    exact hu.pc.trans ((congrArg pcOf (hchain (embed rank))).trans (congrArg pcOf he'.symm))
-  have hk : ∀ answers s, Inv u index k j (terminalTrace r.pieces {}) answers s →
-      TBSim L.image sk (leafSetupRel.toState s) 0 (pure (sourceEnds w k (embed rank) answers))
-        (Post L w index k j u) := by
-    intro answers s hs
-    exact TBSim.pure (hs.leafPost hu _ (by simp [sourceEnds])
-      (endpoints L w index k j (embed rank) u s _ answers hu hs hr.endpoints) hr.pad)
-  have hrun := runPlan_tbsim_at hu r.pieces {} [] u (inv_initial L w index k j (embed rank) u hu)
-    hr.guard hr.linked hcode hpc 0 (Post L w index k j u)
-    (fun answers => pure (sourceEnds w k (embed rank) answers)) hk
-  have hbig := hrun.mono (by have := hr.cycles; omega : 0 + planCycles r.pieces ≤ 89)
-    (fun _ _ h => h)
-  apply hbig.of_eq
-  rw [hr.queries]
-  exact congrArg (mrealize sk) (source L w index k j (embed rank) u hu)
-
-#print axioms tbsim_of_ready_layout
-end W9Machine.N600

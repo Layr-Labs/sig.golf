@@ -59,8 +59,6 @@ structure FtsIn (sig : WCT9.Signature) (N : HashOutput) (sF : MachineState) : Pr
   adm : WCT9.admissible N = true
   placed : Placed N sig sF
   bank : HdrBankOK sF
-  /-- Nested FTS (r1-1): the pads of coordinate 0 (`ftsStart = (0, 0)`) are read from `0x400..0x420`. -/
-  start : DigAt sF 0x400 0 ∧ DigAt sF 0x410 0
 structure DrvInv (sig : WCT9.Signature) (N : HashOutput) (sF : MachineState) (k : Nat)
     (pairs : List (Digest × Digest)) (t : MachineState) : Prop where
   pc : t.pc = pcOf (base + dOff k)
@@ -70,11 +68,10 @@ structure DrvInv (sig : WCT9.Signature) (N : HashOutput) (sF : MachineState) (k 
   x15 : t.getReg .x15 = BitVec.ofNat 64 (WCT9.digestIndex N * 2 ^ 27 + 65536 * (k - 1))
   x16 : 0 < k → t.getReg .x16 = N.extractLsb' (64 * dWord (k - 1)) 64
   len : pairs.length = k
-  /-- Nested FTS (r1-1): only the last pair is needed (the next coordinate's pads); it sits just below `pslot k`. -/
-  prev : DigAt t (0x400 + 32 * k) (WCT9.prevPair WCT9.ftsStart pairs).1 ∧
-    DigAt t (0x410 + 32 * k) (WCT9.prevPair WCT9.ftsStart pairs).2
-  frame : Frame sF t (fun A => (0x840 ≤ A ∧ A < regBase k) ∨ (0 < k ∧ 0x410 ≤ A ∧ A < 0x420 + 32 * k))
-def coordCost : Nat := 430
+  pairs : ∀ k', k' < k → DigAt t (pslot k') (pairs.getD k' (0, 0)).1 ∧
+    DigAt t (pslot k' + 16) (pairs.getD k' (0, 0)).2
+  frame : Frame sF t (fun A => (0x840 ≤ A ∧ A < regBase k) ∨ (0x420 ≤ A ∧ A < 0x430 + 32 * k))
+def coordCost : Nat := 420
 theorem region_facts {sig : WCT9.Signature} {N : HashOutput} {sF t : MachineState} (hin : FtsIn sig N sF)
     (k : Nat) (hk : k < 9)
     (hfr : ∀ o, o < 1024 → t.getMem (BitVec.ofNat 64 (regBase k + o)) = sF.getMem (BitVec.ofNat 64 (regBase k + o))) :
@@ -187,8 +184,7 @@ def coordRegs : List Reg :=
 theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.Signature} {N : HashOutput}
     {sF : MachineState} (hin : FtsIn sig N sF) (k : Nat) (hk : k < 9) (pairs : List (Digest × Digest))
     (t : MachineState) (hI : DrvInv sig N sF k pairs t) :
-    TBSim im sk t coordCost
-      (WCT9.recoverCoordinate sig (WCT9.digestIndex N) N ⟨k, hk⟩ (WCT9.prevPair WCT9.ftsStart pairs))
+    TBSim im sk t coordCost (WCT9.recoverCoordinate sig (WCT9.digestIndex N) N ⟨k, hk⟩)
       (fun pr u => DrvInv sig N sF (k + 1) (pairs ++ [pr]) u) := by
   have hidx : WCT9.digestIndex N < 2 ^ 31 := WCT9.digestIndex_lt N
   have hj : (WCT9.child N ⟨k, hk⟩).val < 128 := (WCT9.child N ⟨k, hk⟩).isLt
@@ -200,7 +196,7 @@ theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.
   have hps := pslot_bounds k hk
   set index := WCT9.digestIndex N with hindex
   set j := (WCT9.child N ⟨k, hk⟩).val with hjdef
-  have hlow : ∀ A, A < 0x400 → t.getMem (BitVec.ofNat 64 A) = sF.getMem (BitVec.ofNat 64 A) :=
+  have hlow : ∀ A, A < 0x420 → t.getMem (BitVec.ofNat 64 A) = sF.getMem (BitVec.ofNat 64 A) :=
     fun A hA => hI.frame A (by omega) (by omega)
   have hregk : ∀ o, o < 1024 → t.getMem (BitVec.ofNat 64 (regBase k + o)) =
       sF.getMem (BitVec.ofNat 64 (regBase k + o)) :=
@@ -255,23 +251,18 @@ theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.
   have hW := walk_tb (sk := sk) hc hpre 64 0 _ c [] t2 hw (by omega) rfl
     ⟨rfl, hpre.regs, keepC.refl _, Frame.refl _ _, fun t' ht' => absurd ht' (by omega)⟩
   rw [recoverCoordinate_split]
-  refine (TBSim.steps (s1.trans s2) (TBSim.bind (W₂ := childC) hW (fun ends w hw' => ?_))).mono
-    (by have := childC_eq; have := hc300; unfold routineCost at this; unfold coordCost dLen; split <;> omega)
-    (fun _ _ h => h)
+  refine (TBSim.steps (s1.trans s2) (TBSim.bind (W₂ := 99) hW (fun ends w hw' => ?_))).mono
+    (by have := hc300; unfold routineCost at this; unfold coordCost dLen; split <;> omega) (fun _ _ h => h)
   simp only [List.nil_append] at hw'
   have hlen := hw'.len
   have hpath : ∀ l (h : l < 7), Merkle.finPath (sig.openings ⟨k, hk⟩).path l = (sig.openings ⟨k, hk⟩).path ⟨l, h⟩ :=
     fun l h => by simp [Merkle.finPath, h]
   rw [show (⟨k, hk⟩ : WCT9.Coord).val = k from rfl]
-  set pv := WCT9.prevPair WCT9.ftsStart pairs with hpv
-  have hprog : (WCT9.leafHashP index k j pv.1 ends >>= fun root =>
-        (List.range 5).foldlM (Merkle.childLevel k index j (Merkle.finPath (sig.openings ⟨k, hk⟩).path)) root >>= fun w =>
-        childTopN k index j (Merkle.finPath (sig.openings ⟨k, hk⟩).path) pv.2 w >>= fun top =>
-        pure (Merkle.pairOf j top ((sig.openings ⟨k, hk⟩).path 6))) =
-      childProgN k index j (Merkle.leafFields k index j ends) (Merkle.finPath (sig.openings ⟨k, hk⟩).path) pv := by
-    rw [Merkle.childCanonN k index j ends _ pv hlen]
-    have hp6 : Merkle.finPath (sig.openings ⟨k, hk⟩).path 6 = (sig.openings ⟨k, hk⟩).path 6 := hpath 6 (by norm_num)
-    rw [hp6]
+  have hprog : (WCT9.leafHash index k j ends >>=
+        Merkle.sixLevels k index j (Merkle.finPath (sig.openings ⟨k, hk⟩).path)) >>=
+        (fun top => pure (Merkle.pairOf j top ((sig.openings ⟨k, hk⟩).path 6))) =
+      Merkle.childProgC k index j (Merkle.leafFields k index j ends) (Merkle.finPath (sig.openings ⟨k, hk⟩).path) := by
+    rw [Merkle.childCanon k index j ends _ hlen]; rfl
   rw [hprog]
   have kw : ∀ r, r ∉ coordRegs → w.getReg r = t.getReg r := by
     intro r hr
@@ -287,17 +278,10 @@ theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.
     · have := chainsWr_range h; omega
     · omega
     · omega
-  have hwlow : ∀ A, A + 8 ≤ 0x840 → w.getMem (BitVec.ofNat 64 A) = t.getMem (BitVec.ofNat 64 A) := by
-    intro A hA
-    rw [hw'.frame A (by omega) (by
-          rintro (h | h | h)
-          · have := chainsWr_range h; unfold regBase at this; omega
-          · unfold regBase at h; omega
-          · unfold regBase at h; omega), m21]
   have hpreC : ChildPreE j (regBase k) k index (pslot k) (Merkle.leafFields k index j ends)
-      (Merkle.finPath (sig.openings ⟨k, hk⟩).path) pv w := by
+      (Merkle.finPath (sig.openings ⟨k, hk⟩).path) w := by
     refine ⟨?_, by omega, by unfold MEMORY_BYTES; omega, hps.1, by unfold pslot regBase; omega, by omega, by omega,
-      ?_, ?_, hw'.a0, hw'.a1, ?_, ?_, ?_, ?_, ?_, ?_, by unfold pslot; omega, ?_, ?_⟩
+      ?_, ?_, hw'.a0, hw'.a1, ?_, ?_, ?_, ?_, ?_, ?_⟩
     · rw [hw'.pc, r21, x23_1, pc_child]
     · rw [kw _ (by decide)]; exact hI.regs.x5
     · rw [hw'.keep _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), r21, x8_1]
@@ -309,7 +293,7 @@ theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.
       rw [kw _ (by rcases hh with h | h | h | h | h | h <;> rw [h] <;> decide)]
       exact hI.regs.heaps h h2 h7
     · rw [hw'.keep _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), r21, x9_1]
-    · intro i hi h2
+    · intro i hi
       unfold Merkle.leafFields Merkle.leafO
       by_cases h0 : i = 0
       · subst h0; simp only [if_true, Nat.mul_zero, Nat.add_zero]
@@ -317,9 +301,22 @@ theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.
       · by_cases h1 : i = 1
         · subst h1; simp only [show (1 : Nat) ≠ 0 by decide, if_false, if_true]
           exact leafHdr_digAt hk hidx hj hw'.h0 hw'.h1
-        · simp only [h0, h1, h2, if_false]
-          have := hw'.ends (i - 2) (by omega)
-          rwa [show slotC (i - 2) = 816 + 16 * i by unfold slotC; split <;> omega, ← Nat.add_assoc] at this
+        · by_cases h2 : i = 2
+          · subst h2; simp only [show (2 : Nat) ≠ 0 by decide, show (2 : Nat) ≠ 1 by decide, if_false, if_true]
+            have hnw : ∀ o, o < 16 → ¬ (chainsWr (regBase k) (codewordL (WCT9.rank N ⟨k, hk⟩).val) 6
+                (regBase k + 848 + o) ∨ regBase k + 848 + o = regBase k + 832 ∨
+                regBase k + 848 + o = regBase k + 840) := by
+              rintro o ho (⟨t', ht', _, hc⟩ | h | h)
+              · exact leafPad_free ht' o ho hc
+              · omega
+              · omega
+            have e0 := hw'.frame (regBase k + 848) (by omega) (by simpa using hnw 0 (by omega))
+            have e8 := hw'.frame (regBase k + 848 + 8) (by omega) (hnw 8 (by omega))
+            rw [show regBase k + 816 + 16 * 2 = regBase k + 848 by omega]
+            exact ⟨e0.trans rpad.1, e8.trans rpad.2⟩
+          · simp only [h0, h1, h2, if_false]
+            have := hw'.ends (i - 2) (by omega)
+            rwa [show slotC (i - 2) = 816 + 16 * i by unfold slotC; split <;> omega, ← Nat.add_assoc] at this
     · intro l hl
       have hm := rmp l (by omega)
       have hb : Merkle.padO l + 16 ≤ 464 := by unfold Merkle.padO Merkle.blkO; omega
@@ -332,10 +329,6 @@ theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.
       rw [hpath l hl]
       exact ⟨(wfr _ (by omega) (by omega)).trans hm.1, by
         rw [Nat.add_assoc, wfr _ (by omega) (by omega), ← Nat.add_assoc]; exact hm.2⟩
-    · rw [show pslot k - 32 = 0x400 + 32 * k by unfold pslot; omega]
-      exact ⟨(hwlow _ (by omega)).trans hI.prev.1.1, (hwlow _ (by omega)).trans hI.prev.1.2⟩
-    · rw [show pslot k - 16 = 0x410 + 32 * k by unfold pslot; omega]
-      exact ⟨(hwlow _ (by omega)).trans hI.prev.2.1, (hwlow _ (by omega)).trans hI.prev.2.2⟩
   refine (child_tbE (sk := sk) hj hc hpreC).mono (le_refl _) (fun pr t3 hpost => ?_)
   have kall : ∀ r, r ∉ coordRegs → t3.getReg r = t.getReg r := by
     intro r hr
@@ -347,7 +340,7 @@ theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.
       t3.getReg r = t1.getReg r := fun r a b c d e f => by
     rw [hpost.keep r a b c d e, hw'.keep r a b c d e f, r21]
   have F1 : Frame t t2 (fun _ => False) := fun A _ _ => m21 _
-  refine ⟨?_, ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_, ?_, fun _ => ?_, by simp [hI.len], ?_, ?_⟩
+  refine ⟨?_, ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_, ?_, ?_, fun _ => ?_, by simp [hI.len], fun k' hk' => ?_, ?_⟩
   · rw [hpost.pc, hw'.keep _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), r21, x1_1,
       pcOf_and_not1, dOff_succ k hk, Nat.add_assoc]
   · rw [kall _ (by decide)]; exact hI.regs.x5
@@ -369,11 +362,30 @@ theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.
   · rw [kx _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), x28_1, Nat.add_sub_cancel]
   · rw [kx _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), x15_1, Nat.add_sub_cancel]
   · rw [kx _ (by decide) (by decide) (by decide) (by decide) (by decide) (by decide), x16_1, Nat.add_sub_cancel]
-  · have hlast : WCT9.prevPair WCT9.ftsStart (pairs ++ [pr]) = pr := by
-      unfold WCT9.prevPair; simp
-    rw [hlast, show 0x400 + 32 * (k + 1) = pslot k by unfold pslot; omega,
-      show 0x410 + 32 * (k + 1) = pslot k + 16 by unfold pslot; omega]
-    exact hpost.pair
+  ·
+    have hfr3 : ∀ A, A + 8 ≤ pslot k → t3.getMem (BitVec.ofNat 64 A) = t.getMem (BitVec.ofNat 64 A) := by
+      intro A hA
+      rw [hpost.frame A (by omega) (by
+          rintro (⟨off, _, he⟩ | h)
+          · omega
+          · omega),
+        hw'.frame A (by omega) (by
+          rintro (h | h | h)
+          · have := chainsWr_range h; omega
+          · omega
+          · omega), m21]
+    rcases Nat.lt_or_ge k' k with h | h
+    · rw [getD_append_lt _ _ _ _ (by rw [hI.len]; exact h)]
+      have hD := hI.pairs k' h
+      have hlt : pslot k' + 32 ≤ pslot k := by unfold pslot; omega
+      exact ⟨⟨(hfr3 _ (by omega)).trans hD.1.1, (hfr3 _ (by omega)).trans hD.1.2⟩,
+        ⟨(hfr3 _ (by omega)).trans hD.2.1, (hfr3 _ (by omega)).trans hD.2.2⟩⟩
+    · have : k' = k := by omega
+      subst this
+      have e := getD_append_len pairs pr (0, 0)
+      rw [hI.len] at e
+      rw [e]
+      exact hpost.pair
   · refine (((hI.frame.trans F1).trans hw'.frame).trans hpost.frame).mono (fun A _ hA => ?_)
     rcases hA with ((h | h) | h) | h
     · rcases h with h | h
@@ -384,13 +396,9 @@ theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.
       · have := chainsWr_range h; left; unfold regBase at this ⊢; omega
       · left; unfold regBase at h ⊢; omega
       · left; unfold regBase at h ⊢; omega
-    · rcases h with ⟨off, hoff, he⟩ | h | h | h | h | h
+    · rcases h with ⟨off, hoff, he⟩ | h
       · have := (childWrites_bound hoff).2
         left; unfold regBase at he ⊢; omega
       · right; unfold pslot at h; omega
-      · left; unfold regBase at h ⊢; omega
-      · left; unfold regBase at h ⊢; omega
-      · left; unfold regBase at h ⊢; omega
-      · left; unfold regBase at h ⊢; omega
 end ClaudeWCT.W9.Machine.Expand
 end

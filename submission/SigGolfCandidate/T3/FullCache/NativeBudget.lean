@@ -7,7 +7,6 @@ section
 end
 section
 end
-set_option Elab.async false
 namespace SigGolfCandidate.T3.Security.ProposalOverflow
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SphincsSecurity.Concrete
@@ -844,7 +843,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 noncomputable def encodingRate (lay : Layer) : ℝ := (EncodingCounting.acceptedCount lay : ℝ)/2^128
-theorem encodingRate_bounds (lay : Layer) : 1/7400 ≤ encodingRate lay ∧ encodingRate lay ≤ 1 := by
+theorem encodingRate_bounds (lay : Layer) : 1/5800 ≤ encodingRate lay ∧ encodingRate lay ≤ 1 := by
   fin_cases lay <;> norm_num [encodingRate,EncodingCounting.acceptedCount]
 theorem encodingRate_cast (lay : Layer) :
     ENNReal.ofReal (encodingRate lay)=(EncodingCounting.acceptedCount lay : ENNReal)/2^128 := by
@@ -879,11 +878,11 @@ theorem rejection_power_le (p : ℝ) (hp : p ≤ 1) (trials bits : Nat)
   rw [ENNReal.ofReal_div_of_pos (show 0 < (2 : ℝ)^n by positivity),
     ENNReal.ofReal_one,ENNReal.ofReal_pow (show 0 ≤ (2 : ℝ) by norm_num),ENNReal.ofReal_ofNat]
 theorem encoding_failure_power (lay : Layer) :
-    failMass (Sampling.encodingDecode lay)^counterLimit ≤ 1/(2 : ENNReal)^800 := by
+    failMass (Sampling.encodingDecode lay)^counterLimit ≤ 1/(2 : ENNReal)^1024 := by
   rw [encoding_failMass,← ENNReal.ofReal_pow (by linarith [(encodingRate_bounds lay).2])]
-  have hreal := rejection_power_le (encodingRate lay) (encodingRate_bounds lay).2 counterLimit 800
+  have hreal := rejection_power_le (encodingRate lay) (encodingRate_bounds lay).2 counterLimit 1024
     (by have hl := Real.log_two_lt_d9;have hp := (encodingRate_bounds lay).1
-        change (800 : ℝ)*Real.log 2 ≤ 4194304*encodingRate lay
+        change (1024 : ℝ)*Real.log 2 ≤ 4194304*encodingRate lay
         nlinarith)
   have hcast := ENNReal.ofReal_le_ofReal hreal
   simpa only [ofReal_inv_two_pow] using hcast
@@ -892,7 +891,7 @@ theorem counterSearch_failure_le (secret : BitVec 256) (lay : Layer)
     (hfresh : ∀ c,0 ≤ c → c < 2^32 → cache (Sampling.encodingTrial lay tree leaf message c)=none) :
     Pr[fun result => result.1=none |
       Sampling.roRun secret (counterSearch lay tree leaf message 0 counterLimit) cache] ≤
-      1/(2 : ENNReal)^800 := by
+      1/(2 : ENNReal)^1024 := by
   exact (Sampling.counterSearch_failure secret lay tree leaf message counterLimit 0
     (by decide) cache hfresh).trans (encoding_failure_power lay)
 theorem digest_failure_power_of_acceptance (p : ℝ) (hp : 1/3300 ≤ p) (hp1 : p ≤ 1)
@@ -957,15 +956,15 @@ theorem signing_incomplete_probability_le (law : ProbComp Answers) (digestFail e
   exact hm.trans ((probEvent_or_le law _ _).trans (add_le_add hd' he'))
 theorem signing_incomplete_probability_small (law : ProbComp Answers)
     (hd : ∀ family,Pr[DigestFailed family | law] ≤ 1/(2 : ENNReal)^450)
-    (he : ∀ family,Pr[EncodingFailed family | law] ≤ 1/(2 : ENNReal)^800) :
+    (he : ∀ family,Pr[EncodingFailed family | law] ≤ 1/(2 : ENNReal)^1024) :
     Pr[fun answers => ¬SigningComplete answers (evalWithAnswerFn answers keygen) | law] ≤
       1/(2 : ENNReal)^65 := by
   refine (signing_incomplete_probability_le law _ _ hd he).trans ?_
-  have hreal : (2 : ℝ)^384*(1/2^450)+2^173*(1/2^800) ≤ 1/2^65 := by
+  have hreal : (2 : ℝ)^384*(1/2^450)+2^173*(1/2^1024) ≤ 1/2^65 := by
     set_option exponentiation.threshold 2048 in norm_num
   have hcast := ENNReal.ofReal_le_ofReal hreal
   rw [ENNReal.ofReal_add (show 0 ≤ (2 : ℝ)^384*(1/2^450) by positivity)
-    (show 0 ≤ (2 : ℝ)^173*(1/2^800) by positivity),
+    (show 0 ≤ (2 : ℝ)^173*(1/2^1024) by positivity),
     ENNReal.ofReal_mul (show 0 ≤ (2 : ℝ)^384 by positivity),
     ENNReal.ofReal_mul (show 0 ≤ (2 : ℝ)^173 by positivity)] at hcast
   simpa only [ENNReal.ofReal_pow (show 0 ≤ (2 : ℝ) by norm_num),
@@ -1118,11 +1117,11 @@ theorem tableGood_failure_small_of_acceptance (p : ℝ) (hp : 1/3300 ≤ p) (hp1
       ($ᵗ (QuerySpace.SearchKey → HashOutput) : ProbComp _)] ≤ 1/(2 : ENNReal)^65 := by
   refine (tableGood_failure_le _ _
     (digest_failure_power_of_acceptance p hp hp1 haccept) encoding_failure_power).trans ?_
-  have hreal : (2 : ℝ)^384*(1/2^450)+2^173*(1/2^800) ≤ 1/2^65 := by
+  have hreal : (2 : ℝ)^384*(1/2^450)+2^173*(1/2^1024) ≤ 1/2^65 := by
     set_option exponentiation.threshold 2048 in norm_num
   have hcast := ENNReal.ofReal_le_ofReal hreal
   rw [ENNReal.ofReal_add (show 0 ≤ (2 : ℝ)^384*(1/2^450) by positivity)
-    (show 0 ≤ (2 : ℝ)^173*(1/2^800) by positivity),
+    (show 0 ≤ (2 : ℝ)^173*(1/2^1024) by positivity),
     ENNReal.ofReal_mul (show 0 ≤ (2 : ℝ)^384 by positivity),
     ENNReal.ofReal_mul (show 0 ≤ (2 : ℝ)^173 by positivity)] at hcast
   simpa only [ENNReal.ofReal_pow (show 0 ≤ (2 : ℝ) by norm_num),
@@ -1174,11 +1173,11 @@ theorem tableGoodFor_failure_small_of_acceptance (message : Message) (p : ℝ) (
       ($ᵗ (QuerySpace.SearchKey → HashOutput) : ProbComp _)] ≤ 1/(2 : ENNReal)^321 := by
   refine (tableGoodFor_failure_le message _ _
     (digest_failure_power_of_acceptance p hp hp1 haccept) encoding_failure_power).trans ?_
-  have hreal : (2 : ℝ)^128*(1/2^450)+2^173*(1/2^800) ≤ 1/2^321 := by
+  have hreal : (2 : ℝ)^128*(1/2^450)+2^173*(1/2^1024) ≤ 1/2^321 := by
     set_option exponentiation.threshold 2048 in norm_num
   have hcast := ENNReal.ofReal_le_ofReal hreal
   rw [ENNReal.ofReal_add (show 0 ≤ (2 : ℝ)^128*(1/2^450) by positivity)
-    (show 0 ≤ (2 : ℝ)^173*(1/2^800) by positivity),
+    (show 0 ≤ (2 : ℝ)^173*(1/2^1024) by positivity),
     ENNReal.ofReal_mul (show 0 ≤ (2 : ℝ)^128 by positivity),
     ENNReal.ofReal_mul (show 0 ≤ (2 : ℝ)^173 by positivity)] at hcast
   simpa only [ENNReal.ofReal_pow (show 0 ≤ (2 : ℝ) by norm_num),
@@ -1427,7 +1426,7 @@ theorem not_tableGoodForNonces_iff (nonces : Message → HashOutput)
 theorem tableGoodForNonces_failure_le (nonces : Message → HashOutput) :
     Pr[fun outputs => ¬tableGoodForNonces nonces outputs |
       ($ᵗ (QuerySpace.SearchKey → HashOutput) : ProbComp _)] ≤
-      (2 : ENNReal)^256*(1/2^450)+(2 : ENNReal)^173*(1/2^800) := by
+      (2 : ENNReal)^256*(1/2^450)+(2 : ENNReal)^173*(1/2^1024) := by
   let law := ($ᵗ (QuerySpace.SearchKey → HashOutput) : ProbComp _)
   have hd' := finite_family_failure_le law
     (fun (message : Message) outputs => DigestFailed ((nonces message).extractLsb' 0 128,message)
@@ -1436,7 +1435,7 @@ theorem tableGoodForNonces_failure_le (nonces : Message → HashOutput) :
       ((nonces message).extractLsb' 0 128,message)).le.trans digest_failure_power)
   have he' := finite_family_failure_le law
     (fun family outputs => EncodingFailed family (Presampling.tableAnswers outputs zeroAnswers))
-      (1/(2 : ENNReal)^800)
+      (1/(2 : ENNReal)^1024)
     (fun family => (Presampling.counterSearch_table_failure zeroAnswers family).le.trans (encoding_failure_power family.1))
   rw [Fintype.card_bitVec,Nat.cast_pow,Nat.cast_ofNat] at hd'
   replace he' := he'.trans (mul_le_mul' encodingFamily_card_le le_rfl)
@@ -1446,11 +1445,11 @@ theorem tableGoodForNonces_failure_small (nonces : Message → HashOutput) :
     Pr[fun outputs => ¬tableGoodForNonces nonces outputs |
       ($ᵗ (QuerySpace.SearchKey → HashOutput) : ProbComp _)] ≤ 1/(2 : ENNReal)^193 := by
   refine (tableGoodForNonces_failure_le nonces).trans ?_
-  have hreal : (2 : ℝ)^256*(1/2^450)+2^173*(1/2^800) ≤ 1/2^193 := by
+  have hreal : (2 : ℝ)^256*(1/2^450)+2^173*(1/2^1024) ≤ 1/2^193 := by
     set_option exponentiation.threshold 2048 in norm_num
   have hcast := ENNReal.ofReal_le_ofReal hreal
   rw [ENNReal.ofReal_add (show 0 ≤ (2 : ℝ)^256*(1/2^450) by positivity)
-    (show 0 ≤ (2 : ℝ)^173*(1/2^800) by positivity),
+    (show 0 ≤ (2 : ℝ)^173*(1/2^1024) by positivity),
     ENNReal.ofReal_mul (show 0 ≤ (2 : ℝ)^256 by positivity),
     ENNReal.ofReal_mul (show 0 ≤ (2 : ℝ)^173 by positivity)] at hcast
   simpa only [ENNReal.ofReal_pow (show 0 ≤ (2 : ℝ) by norm_num),
@@ -1609,10 +1608,7 @@ theorem nodeTweak_not_search (tag lay tree heap : Nat) (htag : tag % 256 ≠ 2)
  · by_cases hf : tag = 3 ∧ lay < 13
    · obtain ⟨rfl, h13⟩ := hf
      unfold SearchHdr RowHdr
-     rw [nodeTweak_fts_marker (by omega) h13, nodeTweak_fts_tag (by omega) h13]
-     by_cases hn : FtsNew heap
-     · rw [if_pos hn, if_pos hn]; obtain ⟨_, _⟩ := hn; omega
-     · rw [if_neg hn, if_neg hn]; omega
+     rw [nodeTweak_fts_marker (by omega) h13, nodeTweak_fts_tag (by omega) h13]; omega
    · rw [nodeTweak_other hf]; exact header_not_search _ _ _ _ _ htag
 @[simp] theorem rowQ_encoding (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : Nat) :
  RowQ (encodingTrial lay tree leaf message counter) :=

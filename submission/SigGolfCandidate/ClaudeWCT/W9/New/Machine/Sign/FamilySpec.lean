@@ -25,25 +25,24 @@ def fChildRows (index coord sel : Nat) (word : WCT9.Rank) (coefs : List Digest) 
     M (List Digest × List Digest) :=
   (List.finRange 6).foldlM (fChildStep index coord sel word coefs) ([], [])
 
-theorem buildChildF_factor (index coord sel : Nat) (word : WCT9.Rank) (coefs : List Digest) (padL : Digest) :
-    WCT9.buildChildF index coord sel word coefs padL = (do
+theorem buildChildF_factor (index coord sel : Nat) (word : WCT9.Rank) (coefs : List Digest) :
+    WCT9.buildChildF index coord sel word coefs = (do
       let rows ← fChildRows index coord sel word coefs
-      let root ← WCT9.leafHashP index coord sel padL rows.1
+      let root ← WCT9.leafHash index coord sel rows.1
       pure (root, rows.2)) := rfl
 
 /-- The 128 children of one coordinate (leaf roots, selected child's chain values). -/
 def fCoordRows (index : Nat) (coord : WCT9.Coord) (selected : WCT9.Child) (word : WCT9.Rank)
-    (coefs : List Digest) (padL : Digest) : M (List Digest × List Digest) :=
+    (coefs : List Digest) : M (List Digest × List Digest) :=
   (List.range 128).foldlM (fun (state : List Digest × List Digest) j => do
-      let (root, values) ← WCT9.buildChildF index coord.val j word coefs padL
+      let (root, values) ← WCT9.buildChildF index coord.val j word coefs
       pure (state.1 ++ [root], (if j = selected.val then values else state.2))) ([], [])
 
-theorem buildCoordinateF_factor (index : Nat) (coord : WCT9.Coord) (selected : WCT9.Child) (word : WCT9.Rank)
-    (prev : Digest × Digest) :
-    WCT9.buildCoordinateF index coord selected word prev = (do
+theorem buildCoordinateF_factor (index : Nat) (coord : WCT9.Coord) (selected : WCT9.Child) (word : WCT9.Rank) :
+    WCT9.buildCoordinateF index coord selected word = (do
       let coefs ← WCT9.ftsCoefs index coord.val
-      let rows ← fCoordRows index coord selected word coefs prev.1
-      let nodes ← WCT9.heapBuild index coord.val prev.2 rows.1
+      let rows ← fCoordRows index coord selected word coefs
+      let nodes ← WCT9.heapBuild index coord.val rows.1
       pure (WCT9.heapLevels nodes, rows.2)) := rfl
 
 /-- One coefficient query of `WCT9.ftsCoefs`. -/
@@ -52,7 +51,7 @@ def coefStep (index coord : Nat) (acc : List Digest) (j : Nat) : M (List Digest)
   pure (acc ++ [p.1, p.2])
 
 theorem ftsCoefs_eq (index coord : Nat) :
-    WCT9.ftsCoefs index coord = (List.range' 0 27).foldlM (coefStep index coord) [] := by
+    WCT9.ftsCoefs index coord = (List.range' 0 51).foldlM (coefStep index coord) [] := by
   unfold WCT9.ftsCoefs WCT9.ftsCoefPairs
   rw [List.range_eq_range']
   rfl

@@ -160,7 +160,7 @@ def SubAt (image : Image) (b : Nat) : Prop :=
   (∀ off code, (off, code) ∈ subL → off ≠ 27 → off ≠ 42 → off ≠ 44 → off ≠ 75 →
     CodeAt image (pcOf (b + off)) code) ∧ (b = 117 ∨ b = 1013) ∧
   (CodeAt image (pcOf (b + 1000)) maxDigitCode ∧ CodeAt image (pcOf (b + 1004)) revCode ∧
-    ((image = Images.keygenImage ∧ b = 117) ∨ (image = Images.signReferenceImage ∧ b = 1013)))
+    ((image = Images.keygenImage ∧ b = 117) ∨ (image = Images.signImage ∧ b = 1013)))
 theorem codeAt_max : CodeAt image (pcOf 1117) maxDigitCode :=
   codeAt_layout code_eq mainL_ok (i := 26) (by kernel_rfl) (by decide)
 theorem codeAt_1121 : CodeAt image (pcOf 1121) revCode :=

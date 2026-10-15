@@ -23,22 +23,18 @@ end FCtx
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
-def layerPc : Nat := 853
+def layerPc : Nat := 32951
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest HashOutput Selection selections header)
-/-- State after the nested FTS (pc 853, with the pair already in the L3 row): tree 8's top pair in the L3 block's left slot (witness
-offset 0) and right slot (offset 48). -/
-structure FtsOut (F : FCtx) (top : Digest × Digest) (u : MachineState) : Prop where
+structure FtsOut (F : FCtx) (root : Digest) (u : MachineState) : Prop where
   glob : Glob baseK F.w F.pk u
   idx : u.getReg .x22 = BitVec.ofNat 64 F.idx
   pc : u.pc = pcOf layerPc
-  left : DigAt u WIT top.1
-  right : DigAt u (WIT + 48) top.2
-  wit : Orig F.w (fun o => (32 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24832)) u
-  base : u.getReg .x8 = BitVec.ofNat 64 (WIT + 176)
-  a1 : u.getReg .x11 = 64
+  root : DigAt u WIT root
+  wit : Orig F.w (fun o => (32 ≤ o ∧ o < 64) ∨ (7424 ≤ o ∧ o < 20896)) u
+  a2 : u.getReg .x12 = BitVec.ofNat 64 WIT
   s10 : u.getReg .x26 = 6
   heapOne : u.getReg .x7 = 1
   heapTwo : u.getReg .x13 = 2
@@ -51,16 +47,14 @@ structure FtsOut (F : FCtx) (top : Digest × Digest) (u : MachineState) : Prop w
   top : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
     BitVec.ofNat 64 (topWords.getD k 0)
   top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21200
-  /-- `a2` after coordinate 8's last heap hash (`1216` or `1264`); the L3 encoding writes there. -/
-  a2 : u.getReg .x12 = BitVec.ofNat 64 1216 ∨ u.getReg .x12 = BitVec.ofNat 64 1264
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3 (Digest HashOutput Selection selections)
-def afterFts (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (r : Option (Digest × Digest)) : T3.M Bool :=
+def afterFts (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (r : Option Digest) : T3.M Bool :=
   match r with
-  | some top => do
-      let __x ← ClaudeWCT.W9.T3M.layersCanonicalBC w index 4 (.pair top.1 top.2)
+  | some root => do
+      let __x ← ClaudeWCT.W9.T3M.layersBC w index 4 (.forest root)
       match __x with
       | some root => pure (root == pk)
       | _ => pure false
@@ -70,9 +64,8 @@ namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3 (Digest HashOutput)
 def AfterGoodBudget (acceptCycles : Nat) : Prop :=
-  ∀ (floors : T3.Layer → Nat), CreditFloors floors →
   ∀ (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (Q : Prop), Q →
-    ∀ (a : HashOutput) (top : Digest × Digest) (u : MachineState),
-      FtsOut ⟨pk, w, a⟩ top u →
-      GoodQP (HashOkBy floors) u 8050 8050 Q acceptCycles (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb)
+    ∀ (a : HashOutput) (root : Digest) (u : MachineState),
+      FtsOut ⟨pk, w, a⟩ root u →
+      GoodQ u 8050 8050 Q acceptCycles (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some root)) Kb)
 end SigGolfCandidate.T3M.Verify

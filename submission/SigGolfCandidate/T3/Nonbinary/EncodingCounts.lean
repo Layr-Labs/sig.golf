@@ -72,18 +72,18 @@ theorem fieldsPoly_replicate (w n : Nat) : fieldsPoly (List.replicate n w)=field
   | zero => simp [fieldsPoly]
   | succ n ih => simp [List.replicate_succ,fieldsPoly,ih,pow_succ,mul_comm]
 attribute [local irreducible] wordPoly fieldPoly fieldsPoly
-/-- Raw data-word counts. Lower layers (targets 201/202/202): the sums of the 42 data digits in
-`[194, 202)` for layer 1 and `[195, 203)` for layers 2 and 3. The top entry is a fixed combinatorial fact about `fields 0`
+/-- Raw data-word counts. Lower layers (campaign T8E, targets 199/199/199): the sums of the 42 data digits in
+`[192, 200)`. The top entry is a fixed combinatorial fact about `fields 0`
 (the top decoder is counted in `Nonbinary.CreditFilter`). -/
 def rawAcceptedCount (lay : Layer) : Nat :=
   ![114690553285359954664897085539254262,
-    58782472808233403853217196834292020,
-    46428947739236900406585478288441112,
-    46428947739236900406585478288441112] lay
+    92776203686822587555841720857213728,
+    92776203686822587555841720857213728,
+    92776203686822587555841720857213728] lay
 def AcceptSum (lay : Layer) (total : Nat) : Prop :=
-  if lay=0 then total=129 else target lay - 7 ≤ total ∧ total < target lay + 1
+  if lay=0 then total=129 else 192≤total ∧ total<200
 instance (lay : Layer) (total : Nat) : Decidable (AcceptSum lay total) :=
-  inferInstanceAs (Decidable (if lay=0 then total=129 else target lay - 7 ≤ total ∧ total < target lay + 1))
+  inferInstanceAs (Decidable (if lay=0 then total=129 else 192≤total ∧ total<200))
 def wordBits (lay : Layer) : Nat := if lay=0 then 125 else 126
 theorem usedBits_fields (lay : Layer) : usedBits (fields lay)=wordBits lay := by
   fin_cases lay <;> decide
@@ -149,8 +149,7 @@ theorem truncated_count (lay : Layer) (cut : Nat) (hc : 0<cut) :
 def intervalCount (packed lo hi : Nat) : Nat :=
   (packed%radix^hi)%(radix-1) - (packed%radix^lo)%(radix-1)
 theorem top_exact : intervalCount topPacked 129 130=rawAcceptedCount 0 := by decide +kernel
-theorem lower_201_exact : intervalCount lowerPacked 194 202=rawAcceptedCount 1 := by decide +kernel
-theorem lower_last_exact : intervalCount lowerPacked 195 203=rawAcceptedCount 3 := by decide +kernel
+theorem lower_last_exact : intervalCount lowerPacked 192 200=rawAcceptedCount 3 := by decide +kernel
 theorem interval_words_count (lay : Layer) (lo hi : Nat) (hl : 0<lo) (hh : lo≤hi) :
     Fintype.card {n : Fin (2^usedBits (fields lay)) //
       lo≤wordSum (fields lay) n.val ∧ wordSum (fields lay) n.val<hi} =
@@ -169,15 +168,15 @@ theorem accepted_words_count (lay : Layer) :
     rw [top_weighted,top_exact] at h
     have he (s : Nat) : (129 ≤ s ∧ s < 130) ↔ s = 129 := by omega
     simpa [he,AcceptSum] using h
-  · have h := interval_words_count 1 194 202 (by decide) (by decide)
-    rw [lower_weighted 1 (by decide),lower_201_exact] at h
-    simpa [AcceptSum,rawAcceptedCount,target] using h
-  · have h := interval_words_count 2 195 203 (by decide) (by decide)
+  · have h := interval_words_count 1 192 200 (by decide) (by decide)
+    rw [lower_weighted 1 (by decide),lower_last_exact] at h
+    simpa [AcceptSum,rawAcceptedCount] using h
+  · have h := interval_words_count 2 192 200 (by decide) (by decide)
     rw [lower_weighted 2 (by decide),lower_last_exact] at h
-    simpa [AcceptSum,rawAcceptedCount,target] using h
-  · have h := interval_words_count 3 195 203 (by decide) (by decide)
+    simpa [AcceptSum,rawAcceptedCount] using h
+  · have h := interval_words_count 3 192 200 (by decide) (by decide)
     rw [lower_weighted 3 (by decide),lower_last_exact] at h
-    simpa [AcceptSum,target] using h
+    simpa [AcceptSum] using h
 theorem decode_isSome_iff (lay : Layer) (value : Digest) (hl : lay≠0) :
     (decode lay value).isSome ↔ lowerSpare value ∧
       AcceptSum lay (wordSum (fields lay) (lowerWord value)) := by
@@ -216,10 +215,10 @@ def acceptedDigestEquiv (lay : Layer) (hl : lay≠0) :
     apply Fin.ext
     exact packWord_word lay hl _
 def acceptedCount (lay : Layer) : Nat :=
-  ![90117006931743565721975311298003535,
-    58782472808233403853217196834292020,
-    46428947739236900406585478288441112,
-    46428947739236900406585478288441112] lay
+  ![119055472510971231422674926968209380,
+    92776203686822587555841720857213728,
+    92776203686822587555841720857213728,
+    92776203686822587555841720857213728] lay
 theorem decoder_acceptance_count (lay : Layer) :
     Fintype.card {value : Digest // (searchDecode lay value).isSome} = acceptedCount lay := by
   classical

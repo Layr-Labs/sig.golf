@@ -218,7 +218,7 @@ end Effective
 /-- The effective probe of the family engine: the guess is dropped unless `Adm`. -/
 noncomputable def _root_.SigGolfCandidate.T3.Security.LargeResidual.Probe.effF {Coord : Type} [Seeds Coord]
     [Fintype Coord] (cand : Coord → Finset Digest) (probe : Probe Coord) : Probe Coord :=
-  ⟨if probe.hit.isSelected then none else probe.guess.filter (fun g => decide (Adm cand probe.hit g)), probe.hit⟩
+  ⟨probe.guess.filter (fun g => decide (Adm cand probe.hit g)), probe.hit⟩
 
 section Laws
 variable {Coord : Type} [Seeds Coord] [Fintype Coord] [DecidableEq Coord]
@@ -257,14 +257,14 @@ theorem discLaw_mem (cand : Coord → Finset Digest) (c : Coord) (v : Digest) (h
 
 theorem supp_probeRestrict (cand : Coord → Finset Digest) (probe : Probe Coord) (answer : HashOutput) :
     supp (probe.restrict cand answer) =
-      (supp cand).filter fun x => probe.guessMiss (view x) ∧ probe.hit.labelMiss (view x) (probe.hit.answerValue answer) := by
+      (supp cand).filter fun x => probe.guessMiss (view x) ∧ probe.hit.labelMiss (view x) (low answer) := by
   ext x
   simp only [mem_supp, Finset.mem_filter]
   exact mem_restrict probe cand answer (view x)
 
 theorem lazyResp_nonempty (cand : Coord → Finset Digest) (probe : Probe Coord) (answer : HashOutput)
     (h : lazyResp cand probe answer ≠ 0) :
-    probe.hit.answerOk (probe.hit.answerValue answer) ∧ (supp (probe.restrict cand answer)).Nonempty := by
+    probe.hit.answerOk (low answer) ∧ (supp (probe.restrict cand answer)).Nonempty := by
   rw [lazyResp, SPMF.bind_apply_eq_tsum] at h
   obtain ⟨x, hx⟩ : ∃ x, cell (supp cand) x * response (view x) probe answer ≠ 0 := by
     by_contra hn
@@ -867,8 +867,7 @@ theorem lazyResp_failure (cand : Coord → Finset Digest) (hS : (supp cand).None
   rw [response_failure]
   rfl
 
-theorem keep_probF (S : Finset (Hid Coord)) (hS : S.Nonempty) (probe : Probe Coord)
-    (hsel : probe.hit.isSelected = false) :
+theorem keep_probF (S : Finset (Hid Coord)) (hS : S.Nonempty) (probe : Probe Coord) :
     Pr[fun z => probe.keep (view z.1) z.2 | lawF S hS] =
       Pr[fun x => probe.guessMiss (view x) | PMF.uniformOfFinset S hS] * (1 - (Fintype.card Digest : ENNReal)⁻¹) := by
   change Pr[fun z => probe.keep (view z.1) z.2 |
@@ -883,7 +882,7 @@ theorem keep_probF (S : Finset (Hid Coord)) (hS : S.Nonempty) (probe : Probe Coo
       have he : ((fun z : Hid Coord × HashOutput => probe.keep (view z.1) z.2) ∘ (fun answer => (x, answer))) =
           (fun answer => probe.hit.miss (view x) (low answer)) := by
         funext answer
-        simp only [Function.comp_def, Probe.keep, hg, true_and, Hit.answerValue_of_not_selected _ hsel]
+        simp only [Function.comp_def, Probe.keep, hg, true_and]
       rw [he]
     · rw [if_neg hg]
       have he : ((fun z : Hid Coord × HashOutput => probe.keep (view z.1) z.2) ∘ (fun answer => (x, answer))) =
@@ -895,43 +894,6 @@ theorem keep_probF (S : Finset (Hid Coord)) (hS : S.Nonempty) (probe : Probe Coo
   simp only [probEvent_map, hinner, PMF.probOutput_eq_apply, mul_ite, mul_zero]
   rw [probEvent_eq_tsum_ite, ← ENNReal.tsum_mul_right]
   simp only [PMF.probOutput_eq_apply, ite_mul, zero_mul]
-
-/-- A target selected from either half misses whenever both halves miss. -/
-theorem keep_selected_prob_geF (S : Finset (Hid Coord)) (hS : S.Nonempty) (probe : Probe Coord)
-    (hsel : probe.hit.isSelected = true) (hguess : probe.guess = none) :
-    (1 - (Fintype.card Digest : ENNReal)⁻¹) ^ 2 ≤
-      Pr[fun z => probe.keep (view z.1) z.2 | lawF S hS] := by
-  obtain ⟨guess, hit⟩ := probe
-  change guess = none at hguess
-  subst guess
-  cases hit with
-  | label parent => simp [Hit.isSelected] at hsel
-  | target target => simp [Hit.isSelected] at hsel
-  | selectedTarget target pickLow =>
-      have hinner (x : Hid Coord) :
-          Pr[(fun z : Hid Coord × HashOutput =>
-              (⟨none, .selectedTarget target pickLow⟩ : Probe Coord).keep (view z.1) z.2) ∘
-                (fun answer => (x, answer)) | PMF.uniformOfFintype HashOutput] =
-            Pr[fun answer => (if pickLow answer then low answer else answer.extractLsb' 128 128) ≠ target |
-              PMF.uniformOfFintype HashOutput] := by
-        congr 1
-        funext answer
-        simp [Probe.keep, Probe.guessMiss, Hit.miss, Hit.answerValue, ne_comm]
-      change _ ≤ Pr[fun z => (⟨none, .selectedTarget target pickLow⟩ : Probe Coord).keep (view z.1) z.2 |
-        (PMF.uniformOfFinset S hS) >>= fun x => (fun answer => (x, answer)) <$> PMF.uniformOfFintype HashOutput]
-      rw [probEvent_bind_eq_tsum]
-      simp only [probEvent_map, hinner, PMF.probOutput_eq_apply]
-      rw [ENNReal.tsum_mul_right, PMF.tsum_coe, one_mul]
-      have hc : (Fintype.card Digest : ENNReal) = (2 : ENNReal) ^ 128 := by
-        rw [show Fintype.card Digest = (2 : Nat) ^ 128 from Fintype.card_bitVec 128,
-          Nat.cast_pow, Nat.cast_ofNat]
-      rw [hc]
-      have h := SigGolfCandidate.T3.Security.LargeResidual.probability_pickLow_ne_ge pickLow target
-      rw [probEvent_def, evalSPMF_uniformSample] at h
-      change (1 - 1 / (2 : ENNReal) ^ 128) ^ 2 ≤
-        Pr[fun answer => (if pickLow answer then low answer else answer.extractLsb' 128 128) ≠ target |
-          PMF.uniformOfFintype HashOutput] at h
-      simpa only [one_div] using h
 
 theorem guessMiss_prob_geF (S : Finset (Hid Coord)) (hS : S.Nonempty) (probe : Probe Coord) (minimum : ENNReal)
     (hmin : ∀ g ∈ probe.guess, Pr[fun x => view x g.1 = g.2 | PMF.uniformOfFinset S hS] ≤ minimum) :
@@ -961,8 +923,7 @@ theorem guessMiss_prob_geF (S : Finset (Hid Coord)) (hS : S.Nonempty) (probe : P
 theorem lazyResp_failure_le_hazard (cand : Coord → Finset Digest) (hS : (supp cand).Nonempty) (probe : Probe Coord)
     (probes : Nat)
     (hmin : ∀ g ∈ probe.guess, Pr[fun x => view x g.1 = g.2 | PMF.uniformOfFinset (supp cand) hS] ≤
-      ((2 ^ 128 - probes : Nat) : ENNReal)⁻¹)
-    (hselected : probe.hit.isSelected = true → probe.guess = none) :
+      ((2 ^ 128 - probes : Nat) : ENNReal)⁻¹) :
     (lazyResp cand probe).toPMF none ≤ SigGolfCandidate.T3.Security.LargePotential.hazard (2 ^ 128) probes := by
   rw [lazyResp_failure cand hS probe]
   have hcompl := probEvent_compl (lawF (supp cand) hS) (fun z => probe.keep (view z.1) z.2)
@@ -972,18 +933,13 @@ theorem lazyResp_failure_le_hazard (cand : Coord → Finset Digest) (hS : (supp 
     ENNReal.eq_sub_of_add_eq' (by simp) (by rw [add_comm]; exact hcompl)
   rw [heq, SigGolfCandidate.T3.Security.LargePotential.hazard]
   apply tsub_le_tsub_left _ 1
+  rw [keep_probF (supp cand) hS probe, pow_two]
+  apply mul_le_mul' (guessMiss_prob_geF (supp cand) hS probe _ hmin)
+  apply tsub_le_tsub_left
   have hcard : (Fintype.card Digest : ENNReal) = ((2 ^ 128 : Nat) : ENNReal) := by
     simp [SphincsSecurity.digestBits]
-  have hmiss : 1 - ((2 ^ 128 - probes : Nat) : ENNReal)⁻¹ ≤
-      1 - (Fintype.card Digest : ENNReal)⁻¹ := by
-    apply tsub_le_tsub_left
-    rw [hcard]
-    exact ENNReal.inv_le_inv.mpr (by exact_mod_cast Nat.sub_le _ _)
-  by_cases hs : probe.hit.isSelected = true
-  · exact (pow_le_pow_left' hmiss 2).trans (keep_selected_prob_geF (supp cand) hS probe hs (hselected hs))
-  · have hn : probe.hit.isSelected = false := by cases hh : probe.hit.isSelected <;> simp_all
-    rw [keep_probF (supp cand) hS probe hn, pow_two]
-    exact mul_le_mul' (guessMiss_prob_geF (supp cand) hS probe _ hmin) hmiss
+  rw [hcard]
+  exact ENNReal.inv_le_inv.mpr (by exact_mod_cast Nat.sub_le _ _)
 
 /-- The hazard of an admissible guess as a probability. -/
 theorem guess_prob_le (cand : Coord → Finset Digest) (hS : (supp cand).Nonempty) (probes : ℕ)
@@ -1081,7 +1037,6 @@ theorem restrict_eq_of_ne (probe : Probe Coord) (cand : Coord → Finset Digest)
   unfold Probe.restrict
   cases hh : probe.hit with
   | target t => simp only [Hit.restrict]; exact hguess
-  | selectedTarget t pick => simp only [Hit.restrict]; exact hguess
   | label parent =>
       simp only [Hit.restrict, eraseTableValue]
       rw [Function.update_of_ne (hp parent hh)]
@@ -1092,11 +1047,8 @@ theorem famDebt_probe_le (cand : Coord → Finset Digest) (test : Probe Coord) (
     famDebt ((test.effF cand).restrict cand answer) f ≤ famDebt cand f + 1 := by
   have hadm : ∀ g ∈ (test.effF cand).guess, Adm cand (test.effF cand).hit g := by
     intro g hg
-    by_cases hs : test.hit.isSelected = true
-    · simp [Probe.effF, hs] at hg
-    · simp only [Probe.effF, hs, Bool.false_eq_true, if_false, Option.mem_def,
-        Option.filter_eq_some_iff, decide_eq_true_eq] at hg
-      exact hg.2
+    simp only [Probe.effF, Option.mem_def, Option.filter_eq_some_iff, decide_eq_true_eq] at hg
+    exact hg.2
   apply famDebt_le_of cand _ f (restrict_subset _ cand answer) hne
   · intro c
     have := card_restrict_ge (test.effF cand) cand answer (fun g hg => (hadm g hg).2.1) c
@@ -1167,11 +1119,8 @@ theorem run_residual {Result : Type} (aux : (input : auxSpec.Domain) → PMF (au
 theorem effF_adm (cand : Coord → Finset Digest) (test : Probe Coord) :
     ∀ g ∈ (test.effF cand).guess, Adm cand (test.effF cand).hit g := by
   intro g hg
-  by_cases hs : test.hit.isSelected = true
-  · simp [Probe.effF, hs] at hg
-  · simp only [Probe.effF, hs, Bool.false_eq_true, if_false, Option.mem_def,
-      Option.filter_eq_some_iff, decide_eq_true_eq] at hg
-    exact hg.2
+  simp only [Probe.effF, Option.mem_def, Option.filter_eq_some_iff, decide_eq_true_eq] at hg
+  exact hg.2
 
 theorem residual_step_bound (aux : (input : auxSpec.Domain) → PMF (auxSpec.Range input)) (q : Nat)
     (input : (World auxSpec Coord Cell).Domain) (state : State Coord Cell) (hinv : Inv state) :
@@ -1232,9 +1181,6 @@ theorem residual_step_bound (aux : (input : auxSpec.Domain) → PMF (auxSpec.Ran
                 · exact lazyResp_failure_le_hazard state.candidates hinv.1 _ state.counters.probes
                     (fun g hg => guess_prob_le state.candidates hinv.1 state.counters.probes hinv.2.1 hinv.2.2
                       _ g (effF_adm state.candidates test g hg))
-                    (fun hs => by
-                      change test.hit.isSelected = true at hs
-                      simp [Probe.effF, hs])
                 · have hzero : (((2 ^ 128 - state.counters.probes : Nat) : ENNReal))⁻¹ = ⊤ := by
                     rw [show 2 ^ 128 - state.counters.probes = 0 by omega, Nat.cast_zero, ENNReal.inv_zero]
                   have hh : hazard (2 ^ 128) state.counters.probes = 1 := by
@@ -1523,17 +1469,14 @@ set_option linter.unusedSectionVars false
 variable {Coord : Type} [Seeds Coord] [Fintype Coord]
 
 theorem effF_self (cand : Coord → Finset Digest) (test : Probe Coord)
-    (h : ∀ g ∈ test.guess, Adm cand test.hit g)
-    (hsel : test.hit.isSelected = false ∨ test.guess = none := by
-      first | exact Or.inl rfl | exact Or.inr rfl) : test.effF cand = test := by
+    (h : ∀ g ∈ test.guess, Adm cand test.hit g) : test.effF cand = test := by
   obtain ⟨guess, hit⟩ := test
+  unfold Probe.effF
   cases guess with
-  | none => simp [Probe.effF]
+  | none => rfl
   | some g =>
-      have hs : hit.isSelected = false := hsel.resolve_right (by simp)
       have hg' := h g rfl
-      simp only [Probe.effF, hs, Bool.false_eq_true, if_false, Option.filter_some,
-        decide_eq_true_eq]
+      simp only [Option.filter_some, decide_eq_true_eq]
       rw [if_pos hg']
 
 /-- `Adm` for a plain guess: the T3 admissibility. -/

@@ -41,7 +41,7 @@ abbrev LowerLeaf := {_L : Layer × Fin (2 ^ 31) × Fin 4096 // True}
 abbrev WJunk := {a : ChainGraph.Address // WCT9.famCount a.layer ≤ a.chain.val}
 /-- Plain (independently uniform) world coordinates: nodes, (no) top WOTS seeds, nonces. -/
 abbrev WPlain := (CanonGraph.Node ⊕ WTopAddr) ⊕ Message
-/-- Seed families: WOTS leaves (`famCount` coefficients) and FTS coordinates `(index, coord)` (54 coefficients). -/
+/-- Seed families: WOTS leaves (`famCount` coefficients) and FTS coordinates `(index, coord)` (102 coefficients). -/
 abbrev WFam := LowerLeaf ⊕ (Fin (2 ^ 31) × Fin 9)
 /-- Split of the world coordinates: WOTS seeds are their leaf family at `lowerPoint chain = chain + 1`, FTS seeds are
 evaluations of their family `(index, coord)` at `ftsPoint`. -/
@@ -82,7 +82,7 @@ noncomputable instance instSeedsWCoord : ClaudeWCT.W9.T3.Security.FamResidual.Se
   Fam := WFam
   plainDec := Classical.decEq _
   famDec := Classical.decEq _
-  deg := Sum.elim (fun L => WCT9.famCount L.1.1 - 1) (fun _ => 53)
+  deg := Sum.elim (fun L => WCT9.famCount L.1.1 - 1) (fun _ => 101)
   split := wsplit
   embed := wembed
   split_embed p := by
@@ -125,24 +125,6 @@ noncomputable instance instSeedsWCoord : ClaudeWCT.W9.T3.Security.FamResidual.Se
       have h5 : w.2.2.2 = w'.2.2.2 := Fin.ext (by omega)
       have : w = w' := Prod.ext h1 (Prod.ext h2 (Prod.ext h4 h5))
       rw [this]
-/-- Encoding rows compare the same half selected by the actual encoding oracle. -/
-noncomputable def encodingHit (lay : Layer) (target : Digest) : Hit WCoord :=
-  .selectedTarget target (fun answer => decide (if lay = 0 then TopDualHalf.gate (answer.extractLsb' 0 128) else lowerSpare (answer.extractLsb' 0 128)))
-
-theorem encodingHit_answerValue (lay : Layer) (target : Digest) (answer : HashOutput) :
-    (encodingHit lay target).answerValue answer = WCT9.encodingAnswer lay answer := by
-  have hlow : SigGolfCandidate.T3.Security.LargeResidual.low answer = answer.extractLsb' 0 128 := rfl
-  by_cases hl : lay = 0
-  · simp [hlow, encodingHit, Hit.answerValue, WCT9.encodingAnswer, hl, TopDualHalf.select, TopDualHalf.selectPair]
-  · simp [hlow, encodingHit, Hit.answerValue, WCT9.encodingAnswer, hl, DualHalf.select, DualHalf.selectPair]
-
-theorem keep_encodingHit (labels : WCoord → Digest) (lay : Layer) (target : Digest) (answer : HashOutput) :
-    (⟨none, encodingHit lay target⟩ : Probe WCoord).keep labels answer ↔
-      target ≠ WCT9.encodingAnswer lay answer := by
-  unfold Probe.keep
-  rw [encodingHit_answerValue]
-  simp [Probe.guessMiss, encodingHit, Hit.miss]
-
 abbrev RWorld (U : Finset HashInput) := World AuxSpec WCoord (Cell U)
 section Requests
 variable (U : Finset HashInput)
@@ -182,20 +164,6 @@ noncomputable def RouterState.next (U : Finset HashInput) (st : RouterState) (X 
   if X ∈ U ∧ IsDigestRow X ∧ st.Fresh X then { st.after X with births := (X, y) :: st.births } else st.after X
 def RouterState.known (st : RouterState) : Coord → Prop :=
   Known fun c => c ∈ keygenDisclosed ∨ c ∈ st.disclosed
-theorem RouterState.msgSlot_known (st : RouterState) (L : EncLeaf) (cs : Coord × Nat)
-    (hc : cs ∈ msgSlots L) : st.known cs.1 :=
-  Known.base (Or.inl (msgSlot_mem_keygen hc))
-
-theorem RouterState.firstUnknownMsg_none (st : RouterState) (L : EncLeaf) :
-    firstUnknownMsg st.known L = none := by
-  apply List.find?_eq_none.mpr
-  intro cs hc
-  simpa using st.msgSlot_known L cs hc
-
-/-- Pads of FTS coordinate `coord` read from coordinate values (nested FTS r1-1): the previous coordinate's top
-values, `(0, 0)` for coordinate 0. -/
-def prevVals (v : Coord → Digest) (index : Fin (2^31)) (coord : Fin 9) : Digest × Digest :=
-  (((prevTop index coord 0).map v).getD 0, ((prevTop index coord 1).map v).getD 0)
 def cellValues : CanonGraph.Node → (Coord → Digest) → HashInput
   | .chain p, v => ChainGraph.row p (v (chainChild p))
   | .leaf L, v => pad64 (Extract.leafInput L.1.lay L.1.tree.val L.1.leaf.val
@@ -206,12 +174,11 @@ def cellValues : CanonGraph.Node → (Coord → Digest) → HashInput
       (((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val + 1)).map v).getD 0))
   | .wctChain p, v => WCT9.chainInput p.1.1.val p.1.2.1.val p.1.2.2.1.val p.1.2.2.2.val p.2.val
       (v (wctItem p.1 p.2.val))
-  | .wctLeaf L, v => pad64 (Extract.wctLeafInputP L.index.val L.coord.val L.child.val (prevVals v L.index L.coord).1
+  | .wctLeaf L, v => pad64 (Extract.wctLeafInput L.index.val L.coord.val L.child.val
       (List.ofFn fun t : Fin 6 => v (wctItem (L.index, L.coord, L.child, t) 4)))
   | .wctNode n, v => pad64 (nodeInputP 3 (WCT9.nodeLayer n.1.coord.val) n.1.index.val
       (2 ^ (7 - n.1.level.val - 1) + n.1.idx.val)
-      (((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val)).map v).getD 0)
-      (if n.1.level.val = 5 then (prevVals v n.1.index n.1.coord).2 else 0)
+      (((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val)).map v).getD 0) 0
       (((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)).map v).getD 0))
   | .forest index, v => pad64 (Extract.forestInput index.val
       ((List.range 9).map fun c => (v (.inl (.wctNode (ftsTopNode index (fin9 c) 0))),
@@ -245,10 +212,6 @@ def EncRow (X : HashInput) : Prop :=
   ∃ (L : EncLeaf) (m : WCT9.LayerMsg) (ctr : BitVec 32) (pad : Wots.RowPad), Extract.msgFits L.1.lay m ∧
     X = Wots.encRow L.toWots m ctr pad
 def Parsed (X : HashInput) : Prop := ∃ N : CanonGraph.Node, Extract.posOf X = some N.toPos
-/-- How the router presents a sampled answer for row `X` (nested FTS r1-1): with the halves swapped when `X` parses
-as a top FTS node, so that the sampled low half lands in the half the node's parents read. -/
-noncomputable def rowPresent (X : HashInput) : HashOutput ≃ HashOutput :=
-  if hp : Parsed X then CanonGraph.presentEquiv (Classical.choose hp) else Equiv.refl _
 section Route
 variable (U : Finset HashInput)
 def testReq (first : Bool) (row : Cell U) (test : Probe WCoord) : OracleComp (RWorld U) HashOutput :=
@@ -261,14 +224,14 @@ noncomputable def routeQuery (a : AuxData) (st : RouterState) (X : HashInput) :
     if hp : Parsed X then
       let N := Classical.choose hp
       match firstUnknown st.known N with
-      | some cs => (fun y => (rowPresent X y, st')) <$>
+      | some cs => (fun y => (y, st')) <$>
           testReq U first ⟨X, h⟩ ⟨some (.inl cs.1, slotValue X cs.2), .label (.inl (.inl N))⟩
       | none => do
           let pairs ← discloseAll U ((childSlots N).map Prod.fst)
           if X = cellFrom N (lookupVal pairs) then do
             let v ← discloseReq U (.inl (.inl N)) .call
-            pure (CanonGraph.presentEquiv N (ChainGraph.joinOutput v (a.high N)), st')
-          else (fun y => (rowPresent X y, st')) <$> testReq U first ⟨X, h⟩ ⟨none, .label (.inl (.inl N))⟩
+            pure (ChainGraph.joinOutput v (a.high N), st')
+          else (fun y => (y, st')) <$> testReq U first ⟨X, h⟩ ⟨none, .label (.inl (.inl N))⟩
     else if he : EncRow X then
       let L := Classical.choose he
       let ctr := Classical.choose (Classical.choose_spec (Classical.choose_spec he))
@@ -280,7 +243,7 @@ noncomputable def routeQuery (a : AuxData) (st : RouterState) (X : HashInput) :
           if X = Wots.encRow L.toWots (msgVals (lookupVal pairs) L) ctr 0 ∧ PrefixRow a L ctr then do
             tickReq U .call
             pure (prefixValue a L ctr, st')
-          else (fun y => (y, st')) <$> testReq U first ⟨X, h⟩ ⟨none, encodingHit L.1.lay (refDigest a L)⟩
+          else (fun y => (y, st')) <$> testReq U first ⟨X, h⟩ ⟨none, .target (refDigest a L)⟩
     else if IsDigestRow X then
       (fun y => (y, if st.Fresh X then { st' with births := (X, y) :: st.births } else st')) <$> readReq U ⟨X, h⟩ .mass
     else (fun y => (y, st')) <$> readReq U ⟨X, h⟩ .call
@@ -390,324 +353,3 @@ noncomputable def router (adversary : Final.AdversaryP) (q : Nat) : OracleComp (
   initReq U >>= routerWith U adversary q
 end Route
 end ClaudeWCT.W9.T3.Security.LargeResidual
-
-/-!
-# Paired-family residual engine prototype
-
-The installed WCoord instance above is unchanged. A distinct wrapper type
-below gets a fully proved Seeds instance grouping lower leaves by leaf/2,
-with 14 coefficients and stride-58 points. This makes the existing generic
-residual posterior engine applicable to this address model. It does NOT
-establish that the sign image or old large-coupling proof implements it.
--/
-namespace ClaudeWCT.W9.T3.Security.LargeResidual.AdjacentLeafResearch
-open OracleComp OracleSpec ENNReal
-open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open ClaudeWCT.W9.T3.Security.CanonGraph
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 10000
-attribute [local instance] Classical.propDecidable
-
-/-- Distinct type: never silently replace the installed WCoord instance. -/
-structure PairedCoord where
-  value : WCoord
-  deriving DecidableEq, Fintype
-
-/-- The top family keeps its original identity; lower families share
-identity between adjacent leaves. -/
-def groupedLeaf (a : ChainGraph.Address) : LowerLeaf :=
-  ⟨(a.layer,a.tree,
-    if a.layer=0 then a.leaf else ⟨a.leaf.val/2, by have := a.leaf.isLt; omega⟩),trivial⟩
-
-def groupedPoint (a : ChainGraph.Address) : Nat :=
-  if a.layer=0 then a.chain.val+1 else 58*(a.leaf.val%2)+a.chain.val+1
-
-/-- Inversion includes all reserved Fin58 addresses, not just 43 real chains. -/
-theorem grouped_address_injective {a a' : ChainGraph.Address}
-    (hf : groupedLeaf a = groupedLeaf a') (hp : groupedPoint a = groupedPoint a') : a=a' := by
-  have hv := congrArg Subtype.val hf
-  have hl : a.layer=a'.layer := congrArg Prod.fst hv
-  have ht : a.tree=a'.tree := congrArg (fun p => p.2.1) hv
-  have hc := a.chain.isLt
-  have hc' := a'.chain.isLt
-  have hm := Nat.mod_lt a.leaf.val (by decide : 0<2)
-  have hm' := Nat.mod_lt a'.leaf.val (by decide : 0<2)
-  have hleaf := congrArg (fun p => p.2.2.val) hv
-  by_cases h0 : a.layer=0
-  · have h0' : a'.layer=0 := hl ▸ h0
-    simp only [groupedLeaf,groupedPoint,if_pos h0,if_pos h0'] at hleaf hp
-    exact ChainGraph.Address.ext hl ht (Fin.ext hleaf) (Fin.ext (by omega))
-  · have h0' : a'.layer≠0 := hl ▸ h0
-    simp only [groupedLeaf,groupedPoint,if_neg h0,if_neg h0'] at hleaf hp
-    exact ChainGraph.Address.ext hl ht (Fin.ext (by omega)) (Fin.ext (by omega))
-
-theorem groupedPoint_small (a : ChainGraph.Address) : groupedPoint a < 1024 := by
-  have hc := a.chain.isLt
-  have hm := Nat.mod_lt a.leaf.val (by decide : 0<2)
-  unfold groupedPoint
-  split <;> omega
-
-def pairedSplit : PairedCoord → WPlain ⊕ (WFam × Nat)
-  | ⟨.inl (.inl N)⟩ => .inl (.inl (.inl N))
-  | ⟨.inl (.inr (.inl a))⟩ => .inr (.inl (groupedLeaf a),groupedPoint a)
-  | ⟨.inl (.inr (.inr w))⟩ => .inr (.inr (w.1,w.2.1),WCT9.ftsPoint w.2.2.1.val w.2.2.2.val)
-  | ⟨.inr m⟩ => .inl (.inr m)
-
-def pairedEmbed (p : WPlain) : PairedCoord := ⟨wembed p⟩
-
-/-- Top degree23, lower-pair degree13, FTS degree53. -/
-def pairedDegree : WFam → Nat
-  | .inl L => if L.1.1=0 then 23 else 13
-  | .inr _ => 53
-
-noncomputable instance instPairedSeeds : FamResidual.Seeds PairedCoord where
-  Plain := WPlain
-  Fam := WFam
-  plainDec := Classical.decEq _
-  famDec := Classical.decEq _
-  deg := pairedDegree
-  split := pairedSplit
-  embed := pairedEmbed
-  split_embed p := by
-    rcases p with (N | ⟨a,ha⟩) | m
-    · rfl
-    · exact ha.elim
-    · rfl
-  embed_of_split c p h := by
-    rcases c with ⟨(N | a | w) | m⟩
-    · simp only [pairedSplit,Sum.inl.injEq] at h; subst h; rfl
-    · simp only [pairedSplit,reduceCtorEq] at h
-    · simp only [pairedSplit,reduceCtorEq] at h
-    · simp only [pairedSplit,Sum.inl.injEq] at h; subst h; rfl
-  point_lt c f pt h := by
-    rcases c with ⟨(N | a | w) | m⟩
-    · simp only [pairedSplit,reduceCtorEq] at h
-    · simp only [pairedSplit,Sum.inr.injEq,Prod.mk.injEq] at h
-      rw [← h.2]
-      exact groupedPoint_small a
-    · simp only [pairedSplit,Sum.inr.injEq,Prod.mk.injEq] at h
-      rw [← h.2]
-      have := w.2.2.1.isLt; have := w.2.2.2.isLt
-      unfold WCT9.ftsPoint WCT9.ftsOrdinal
-      omega
-    · simp only [pairedSplit,reduceCtorEq] at h
-  seed_inj c c' fp h h' := by
-    have he : pairedSplit c = pairedSplit c' := h.trans h'.symm
-    rcases c with ⟨(N | a | w) | m⟩ <;> rcases c' with ⟨(N' | a' | w') | m'⟩ <;>
-      simp only [pairedSplit,Sum.inl.injEq,Sum.inr.injEq,Prod.mk.injEq,reduceCtorEq,false_and] at he h
-    · have haa := grouped_address_injective he.1 he.2
-      subst a'
-      rfl
-    · obtain ⟨⟨h1,h2⟩,h3⟩ := he
-      unfold WCT9.ftsPoint WCT9.ftsOrdinal at h3
-      have := w.2.2.2.isLt; have := w'.2.2.2.isLt
-      have h4 : w.2.2.1=w'.2.2.1 := Fin.ext (by omega)
-      have h5 : w.2.2.2=w'.2.2.2 := Fin.ext (by omega)
-      have hw : w=w' := Prod.ext h1 (Prod.ext h2 (Prod.ext h4 h5))
-      subst w'
-      rfl
-
-/-- The generic residual engine now sees the proposed shared seed family. -/
-theorem paired_view_seed (x : FamResidual.Hid PairedCoord) (a : ChainGraph.Address) :
-    FamResidual.view x ⟨.inl (.inr (.inl a))⟩ =
-      ClaudeWCT.Arith.familyEval (List.ofFn (x.2 (.inl (groupedLeaf a)))) (groupedPoint a) := rfl
-
-#print axioms grouped_address_injective
-#print axioms instPairedSeeds
-#print axioms paired_view_seed
-end ClaudeWCT.W9.T3.Security.LargeResidual.AdjacentLeafResearch
-
-namespace ClaudeWCT.W9.T3.Security.LargeResidual.Paired
-open OracleComp OracleSpec ENNReal
-open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open ClaudeWCT.W9.T3M SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
-open SigGolfCandidate.T3.Correctness (Answers)
-open SigGolfCandidate.T3.Security.LargeResidual (slotValue routeAddr IsDigestRow AuxQuery Cell dummyDigest World Probe Hit Charge)
-open ClaudeWCT.W9.T3.Security.CanonGraph ClaudeWCT.W9.T3.Security.CanonEncoding
-set_option maxHeartbeats 300000
-set_option maxRecDepth 10000
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance] Classical.propDecidable
-noncomputable local instance : DecidableEq SigGolfCandidate.T3.Cache := Classical.decEq _
-
-structure AuxData where
-  high : CanonGraph.Node → Digest
-  rows : CanonEncoding.EncLeaf → Fin (2^22) → HashOutput
-  sel : CanonEncoding.Selections
-  priv : FullGame.FullTable
-abbrev AuxSpec : OracleSpec AuxQuery
-  | .coin n => Fin (n+1)
-  | .init => AuxData
-noncomputable def auxLaw (initLaw : PMF AuxData) : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input)
-  | .coin n => PMF.uniformOfFintype (Fin (n+1))
-  | .init => initLaw
-abbrev RWorld (U : Finset HashInput) := World AuxSpec WCoord (Cell U)
-
-section Requests
-variable (U : Finset HashInput)
-def coinReq (n : Nat) : OracleComp (RWorld U) (Fin (n+1)) := liftM ((RWorld U).query (.inl (.coin n)))
-def initReq : OracleComp (RWorld U) AuxData := liftM ((RWorld U).query (.inl .init))
-def readReq (row : Cell U) (charge : Charge) : OracleComp (RWorld U) HashOutput :=
-  liftM ((RWorld U).query (.inr (.read row charge)))
-def probeReq (row : Cell U) (test : Probe WCoord) : OracleComp (RWorld U) HashOutput :=
-  liftM ((RWorld U).query (.inr (.probe row test)))
-def discloseReq (c : WCoord) (charge : Charge) : OracleComp (RWorld U) Digest :=
-  liftM ((RWorld U).query (.inr (.disclose c charge)))
-def tickReq (charge : Charge) : OracleComp (RWorld U) Unit := liftM ((RWorld U).query (.inr (.tick charge)))
-def discloseAll : List Coord → OracleComp (RWorld U) (List (Coord × Digest))
-  | [] => pure []
-  | c::rest => do
-      let v ← discloseReq U (.inl c) .none
-      let tail ← discloseAll rest
-      pure ((c,v)::tail)
-end Requests
-
-abbrev RouterState := LargeResidual.RouterState
-def RouterState.known (st : RouterState) : Coord → Prop :=
-  Known fun c => c∈keygenDisclosed ∨ c∈st.disclosed
-
-def padVals (v : Coord → Digest) (index : Fin (2^31)) (coord : Fin 9) (branch : Nat) : Digest×Digest :=
-  (((padCoord index coord branch 0).map v).getD 0,((padCoord index coord branch 1).map v).getD 0)
-
-def cellValues : CanonGraph.Node → (Coord → Digest) → HashInput
-  | .wctLeaf L,v => pad64 (Extract.wctLeafInputP L.index.val L.coord.val L.child.val
-      (padVals v L.index L.coord (L.child.val%2)).1
-      (List.ofFn fun t : Fin 6 => v (wctItem (L.index,L.coord,L.child,t) 4)))
-  | .wctNode n,v => pad64 (nodeInputP 3 (WCT9.nodeLayer n.1.coord.val) n.1.index.val
-      (2^(7-n.1.level.val-1)+n.1.idx.val)
-      (((ftsChild n.1.index n.1.coord n.1.level.val (2*n.1.idx.val)).map v).getD 0)
-      (if n.1.level.val=4 then (padVals v n.1.index n.1.coord (n.1.idx.val/2)).2 else 0)
-      (((ftsChild n.1.index n.1.coord n.1.level.val (2*n.1.idx.val+1)).map v).getD 0))
-  | n,v => LargeResidual.cellValues n v
-noncomputable def cellFrom (N : CanonGraph.Node) (v : Coord → Digest) : HashInput := cellValues N v
-noncomputable def refDigest (a : AuxData) (L : CanonEncoding.EncLeaf) : Digest :=
-  match a.sel L with
-  | some r => r.2
-  | none => dummyDigest L.1.lay
-
-def PrefixRow (a : AuxData) (L : CanonEncoding.EncLeaf) (ctr : BitVec 32) : Prop :=
-  (CanonEncoding.Paired.rowsContext a.rows L.toWots).isSome ∧
-  ctr.toNat<WCT9.searchLimit L.1.lay ∧ ∀r,a.sel L=some r → ctr.toNat≤r.1.val
-
-def prefixValue (a : AuxData) (L : CanonEncoding.EncLeaf) (ctr : BitVec 32) : HashOutput :=
-  if h : ctr.toNat<2^22 then a.rows L ⟨ctr.toNat,h⟩ else 0
-
-noncomputable def routerDigits (a : AuxData) (L : Wots.LeafAddr) : List Nat :=
-  if h : ∃L' : CanonEncoding.EncLeaf,L'.toWots=L then
-    ((a.sel (Classical.choose h)).bind fun r => WCT9.CanonicalPolicy.decode L.lay r.2).getD (Wots.dummyDigits (WCT9.CanonicalPolicy.normalLayer L.lay))
-  else Wots.dummyDigits L.lay
-
-def RouteOkR (a : AuxData) (index : Nat) : Prop :=
-  ∀lay : Layer,∃(L : CanonEncoding.EncLeaf)(r : Fin (2^22)×Digest),
-    L.toWots=routeAddr index lay ∧ a.sel L=some r ∧ (WCT9.CanonicalPolicy.decode lay r.2).isSome
-
-def maskOf (a : AuxData) (level node : Nat) : Digest :=
-  let answer := a.priv (.inl (header 13 0 0 level (node/2)))
-  if node%2=0 then answer.extractLsb' 0 128 else answer.extractLsb' 128 128
-
-def macOf (a : AuxData) (region : Region) : HashOutput :=
-  SiggolfT3Mac4.encodeTag (SiggolfT3Mac4.macTag
-    (fun i => a.priv (.inl (header 14 0 0 0 i.val))) (List.ofFn region))
-
-def Parsed (X : HashInput) : Prop :=
-  ∃N : CanonGraph.Node,CanonGraph.Paired.Filtered.Used N ∧ Extract.posOf X=some N.toPos
-
-noncomputable def rowPresent (X : HashInput) : HashOutput ≃ HashOutput :=
-  if hp : Parsed X then CanonGraph.Paired.presentEquiv (Classical.choose hp) else Equiv.refl _
-
-section Route
-variable (U : Finset HashInput)
-def testReq (first : Bool) (row : Cell U) (test : Probe WCoord) : OracleComp (RWorld U) HashOutput :=
-  if first then probeReq U row test else readReq U row .call
-
-noncomputable def routeQuery (a : AuxData) (st : RouterState) (X : HashInput) :
-    OracleComp (RWorld U) (HashOutput×RouterState) :=
-  let st' := st.after X
-  let first : Bool := decide (X∉st.seen)
-  if h : X∈U then
-    if hp : Parsed X then
-      let N := Classical.choose hp
-      match firstUnknown (RouterState.known st) N with
-      | some cs => (fun y => (rowPresent X y,st')) <$>
-          testReq U first ⟨X,h⟩ ⟨some (.inl cs.1,slotValue X cs.2),.label (.inl (.inl N))⟩
-      | none => do
-          let pairs ← discloseAll U ((childSlots N).map Prod.fst)
-          if X=cellFrom N (lookupVal pairs) then do
-            let v ← discloseReq U (.inl (.inl N)) .call
-            pure (CanonGraph.Paired.presentEquiv N (ChainGraph.joinOutput v (a.high N)),st')
-          else (fun y => (rowPresent X y,st')) <$>
-            testReq U first ⟨X,h⟩ ⟨none,.label (.inl (.inl N))⟩
-    else if he : EncRow X then
-      let L := Classical.choose he
-      let ctr := Classical.choose (Classical.choose_spec (Classical.choose_spec he))
-      do
-        let pairs ← discloseAll U ((msgSlots L).map Prod.fst)
-        if X=Wots.encRow L.toWots (msgVals (lookupVal pairs) L) ctr 0 ∧ PrefixRow a L ctr then do
-          tickReq U .call
-          pure (prefixValue a L ctr,st')
-        else (fun y => (y,st')) <$> testReq U first ⟨X,h⟩ ⟨none,encodingHit L.1.lay (refDigest a L)⟩
-    else if IsDigestRow X then
-      (fun y => (y,if st.Fresh X then {st' with births:=(X,y)::st.births} else st')) <$> readReq U ⟨X,h⟩ .mass
-    else (fun y => (y,st')) <$> readReq U ⟨X,h⟩ .call
-  else do
-    tickReq U .call
-    pure (0,st')
-
-noncomputable def readImpl (a : AuxData) : QueryImpl SigGolfCandidate.T3.Spec (OracleComp (RWorld U))
-  | .inl (.inl n) => coinReq U n
-  | .inl (.inr X) => if h : X∈U then readReq U ⟨X,h⟩ .none else pure (0 : HashOutput)
-  | .inr c => pure (a.priv c)
-
-end Route
-end ClaudeWCT.W9.T3.Security.LargeResidual.Paired
-
-namespace ClaudeWCT.W9.T3.Security.LargeResidual.Paired
-open OracleComp OracleSpec ENNReal
-open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open ClaudeWCT.W9.T3M
-open SigGolfCandidate.T3.Correctness (Answers)
-open SigGolfCandidate.T3.Security.LargeResidual (Cell)
-open ClaudeWCT.W9.T3.Security.CanonGraph ClaudeWCT.W9.T3.Security.CanonEncoding
-set_option maxHeartbeats 300000
-set_option maxRecDepth 10000
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance] Classical.propDecidable
-
-open SigGolfCandidate.T3.Security.LargeResidual (IsDigestRow slotValue)
-variable (U : Finset HashInput)
-noncomputable def routeQuerySelected (a : AuxData) (st : RouterState) (X : HashInput) :
-    OracleComp (RWorld U) (HashOutput×RouterState) :=
-  let st' := st.after X
-  let first : Bool := decide (X∉st.seen)
-  if h : X∈U then
-    if hp : Parsed X then
-      let N := Classical.choose hp
-      match firstUnknown (RouterState.known st) N with
-      | some cs => (fun y => (rowPresent X y,st')) <$>
-          testReq U first ⟨X,h⟩ ⟨some (.inl cs.1,slotValue X cs.2),.label (.inl (.inl N))⟩
-      | none => do
-          let pairs ← discloseAll U ((childSlots N).map Prod.fst)
-          if X=cellFrom N (lookupVal pairs) then do
-            let v ← discloseReq U (.inl (.inl N)) .call
-            pure (CanonGraph.Paired.presentEquiv N (ChainGraph.joinOutput v (a.high N)),st')
-          else (fun y => (rowPresent X y,st')) <$>
-            testReq U first ⟨X,h⟩ ⟨none,.label (.inl (.inl N))⟩
-    else if he : EncRow X then
-      let L := Classical.choose he
-      let ctr := Classical.choose (Classical.choose_spec (Classical.choose_spec he))
-      do
-        let pairs ← discloseAll U ((msgSlots L).map Prod.fst)
-        if X=Wots.encRow L.toWots (msgVals (lookupVal pairs) L) ctr 0 ∧ PrefixRow a L ctr then do
-          tickReq U .call
-          pure (prefixValue a L ctr,st')
-        else if (a.sel L).isSome then
-          (fun y => (y,st')) <$> testReq U first ⟨X,h⟩ ⟨none,encodingHit L.1.lay (refDigest a L)⟩
-        else (fun y => (y,st')) <$> readReq U ⟨X,h⟩ .call
-    else if IsDigestRow X then
-      (fun y => (y,if st.Fresh X then {st' with births:=(X,y)::st.births} else st')) <$> readReq U ⟨X,h⟩ .mass
-    else (fun y => (y,st')) <$> readReq U ⟨X,h⟩ .call
-  else do
-    tickReq U .call
-    pure (0,st')
-
-end ClaudeWCT.W9.T3.Security.LargeResidual.Paired

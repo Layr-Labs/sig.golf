@@ -538,7 +538,7 @@ theorem shl_index (index n : Nat) : BitVec.ofNat 64 index <<< n = BitVec.ofNat 6
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_shiftLeft, BitVec.toNat_ofNat, Nat.shiftLeft_eq, Nat.mod_mul_mod]
 theorem drv_entry {im : Image} (hc : NewCodeAt im) (N : HashOutput) (s : MachineState) (hpc : s.pc = pcOf base)
-    (h5 : s.getReg .x5 = 0) (hN : OutAt s 0x60 N) (hg : N.toNat / 2 ^ 242 % 2 ^ 14 < 1353) :
+    (h5 : s.getReg .x5 = 0) (hN : OutAt s 0x60 N) (hg : N.toNat / 2 ^ 242 % 2 ^ 14 < 1451) :
     ∃ t, Steps im s 31 31 t ∧ t.pc = pcOf (base + 34) ∧ DRegs (WCT9.digestIndex N) t ∧
       t.getReg .x8 = BitVec.ofNat 64 (regBase (0 - 1)) ∧
       t.getReg .x28 = BitVec.ofNat 64 (HB0 + 2048 + 512 * (0 - 1)) ∧
@@ -558,9 +558,9 @@ theorem drv_entry {im : Image} (hc : NewCodeAt im) (N : HashOutput) (s : Machine
   have x3_2 : u2.getReg .x3 = 1#64 := by
     simp only [hu2, Result.toState_getReg, blk_4.res, rv_simp, m1, hw, hw3, BitVec.toNat_ofNat, Nat.reduceMod,
       Nat.reducePow]
-    have hlt : BitVec.ult (N.extractLsb' 192 64 >>> 50) 1353#64 = true := by
+    have hlt : BitVec.ult (N.extractLsb' 192 64 >>> 50) 1451#64 = true := by
       simp only [BitVec.ult, SigGolfCandidate.Research.V7Composed198Gate.gate_shift50_toNat,
-        show (1353#64 : BitVec 64).toNat = 1353 from rfl, decide_eq_true_eq]
+        show (1451#64 : BitVec 64).toNat = 1451 from rfl, decide_eq_true_eq]
       exact hg
     simp [hlt]
   have s3 := symRun_sound blk_9 (codeAt_9 hc) u2 p2 (by simp [blk_9.res, rv_simp])
@@ -632,31 +632,29 @@ theorem disp_spec {im : Image} (hc : NewCodeAt im) (k : Nat) (hk : k < 9) (N : H
   · exact disp_6 hc N index hidx s hpc h22 h29 h24 h2 h6 h15 (h16 (by decide +kernel)) h8 h28 hN
   · exact disp_7 hc N index hidx s hpc h22 h29 h24 h2 h6 h15 h8 h28 hN
   · exact disp_8 hc N index hidx s hpc h22 h29 h24 h2 h6 h15 (h16 (by decide +kernel)) h8 h28 hN
-/-- Nested FTS (r1-1): the last top pair (forest-buffer slot 8 at `0x520`) goes to `0x100` and `0x20290`. -/
 theorem forest_blk {im : Image} (hc : NewCodeAt im) (s : MachineState) (hpc : s.pc = pcOf (base + 194)) :
-    ∃ t, Steps im s 10 10 t ∧ t.pc = pcOf (base + 204) ∧
-      t.getMem (BitVec.ofNat 64 0x100) = s.getMem (BitVec.ofNat 64 0x520) ∧
-      t.getMem (BitVec.ofNat 64 0x108) = s.getMem (BitVec.ofNat 64 0x528) ∧
-      t.getMem (BitVec.ofNat 64 0x20290) = s.getMem (BitVec.ofNat 64 0x530) ∧
-      t.getMem (BitVec.ofNat 64 0x20298) = s.getMem (BitVec.ofNat 64 0x538) ∧
-      (∀ r, r ≠ .x3 → r ≠ .x14 → r ≠ .x28 → t.getReg r = s.getReg r) ∧
-      Frame s t (fun A => A = 0x100 ∨ A = 0x108 ∨ A = 0x20290 ∨ A = 0x20298) := by
+    ∃ t, Steps im s 9 9 t ∧ t.pc = pcOf (base + 203) ∧ fetch im t = some (.base .ECALL) ∧
+      t.getMem (BitVec.ofNat 64 0x400) = 0 ∧ t.getMem (BitVec.ofNat 64 0x408) = 0 ∧
+      t.getMem (BitVec.ofNat 64 0x410) = BitVec.ofNat 64 3841 ∧ t.getMem (BitVec.ofNat 64 0x418) = s.getReg .x22 ∧
+      t.getReg .x10 = BitVec.ofNat 64 0x400 ∧ t.getReg .x11 = BitVec.ofNat 64 320 ∧
+      t.getReg .x12 = BitVec.ofNat 64 0x100 ∧
+      (∀ r, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → t.getReg r = s.getReg r) ∧
+      Frame s t (fun A => 0x400 ≤ A ∧ A < 0x420) := by
   have hs := symRun_sound blk_194 (codeAt_194 hc) s hpc (by simp [blk_194.res, rv_simp])
-  set u := Result.toState blk_194.res s with hu
-  have hupc : u.pc = pcOf (base + 203) := by simp [hu, Result.toState_pc, blk_194.res, E.eval, base]
-  have hs2 := symRun_sound blk_203 (codeAt_203 hc) u hupc (by simp [blk_203.res, rv_simp])
-  refine ⟨_, hs.trans hs2, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · simp [Result.toState_pc, blk_203.res, E.eval, base]
-  · simp only [Result.toState_getMem, blk_203.res, hu, blk_194.res]; t3n []
-  · simp only [Result.toState_getMem, blk_203.res, hu, blk_194.res]; t3n []
-  · simp only [Result.toState_getMem, blk_203.res, hu, blk_194.res]; t3n []
-  · simp only [Result.toState_getMem, blk_203.res, hu, blk_194.res]; t3n []
-  · intro r h3 h14 h28
-    simp only [Result.toState_getReg, blk_203.res, hu, blk_194.res]
-    cases r <;> simp_all [rv_simp] <;> rfl
+  refine ⟨_, hs, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · simp [Result.toState_pc, blk_194.res, E.eval, base]
+  · rw [(codeAt_203 hc).fetch _ (by simp [Result.toState_pc, blk_194.res, E.eval, base])]; rfl
+  · simp only [Result.toState_getMem, blk_194.res]; t3n []
+  · simp only [Result.toState_getMem, blk_194.res]; t3n []
+  · simp only [Result.toState_getMem, blk_194.res]; t3n []
+  · simp only [Result.toState_getMem, blk_194.res]; t3n []
+  · simp [blk_194.res, rv_simp]
+  · simp [blk_194.res, rv_simp]
+  · simp [blk_194.res, rv_simp]
+  · intro r h3 h10 h11 h12; cases r <;> simp_all [blk_194.res, rv_simp] <;> rfl
   · intro A hA hn
-    simp only [not_or] at hn
-    simp only [Result.toState_getMem, blk_203.res, hu, blk_194.res]
+    simp only [not_and, not_lt] at hn
+    simp only [Result.toState_getMem, blk_194.res]
     t3n []
     rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega)]
 theorem end_blk {im : Image} (hc : NewCodeAt im) (s : MachineState) (hpc : s.pc = pcOf (base + 204)) :

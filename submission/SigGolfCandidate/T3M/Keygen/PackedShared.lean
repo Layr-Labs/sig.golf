@@ -7,7 +7,7 @@ namespace SigGolfCandidate.T3M.Keygen.PackedBlocks
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 theorem sign_header_0 (s : MachineState) (hpc : s.pc = pcOf 1022)
     (h8 : s.getReg .x8 = 0#64) :
-    ∃ t, Steps Images.signReferenceImage s 30 30 t ∧ t.pc = pcOf 1036 ∧ HeaderPost s t 12 := by
+    ∃ t, Steps Images.signImage s 30 30 t ∧ t.pc = pcOf 1036 ∧ HeaderPost s t 12 := by
   let s0 := run_sign_entry.res.toState s
   have h0 := steps_sign_entry s hpc
   let s1 := run_sign_layer0.res.toState s0
@@ -32,7 +32,7 @@ theorem sign_header_0 (s : MachineState) (hpc : s.pc = pcOf 1022)
       rw [if_neg (by omega), if_neg (by omega)]
 theorem sign_header_1 (s : MachineState) (hpc : s.pc = pcOf 1022)
     (h8 : s.getReg .x8 = 1#64) :
-    ∃ t, Steps Images.signReferenceImage s 33 33 t ∧ t.pc = pcOf 1036 ∧ HeaderPost s t 7 := by
+    ∃ t, Steps Images.signImage s 33 33 t ∧ t.pc = pcOf 1036 ∧ HeaderPost s t 7 := by
   let s0 := run_sign_entry.res.toState s
   have h0 := steps_sign_entry s hpc
   let s1 := run_sign_layer0.res.toState s0
@@ -61,7 +61,7 @@ theorem sign_header_1 (s : MachineState) (hpc : s.pc = pcOf 1022)
       rw [if_neg (by omega), if_neg (by omega)]
 theorem sign_header_2 (s : MachineState) (hpc : s.pc = pcOf 1022)
     (h8 : s.getReg .x8 = 2#64) :
-    ∃ t, Steps Images.signReferenceImage s 34 34 t ∧ t.pc = pcOf 1036 ∧ HeaderPost s t 6 := by
+    ∃ t, Steps Images.signImage s 34 34 t ∧ t.pc = pcOf 1036 ∧ HeaderPost s t 6 := by
   let s0 := run_sign_entry.res.toState s
   have h0 := steps_sign_entry s hpc
   let s1 := run_sign_layer0.res.toState s0
@@ -90,7 +90,7 @@ theorem sign_header_2 (s : MachineState) (hpc : s.pc = pcOf 1022)
       rw [if_neg (by omega), if_neg (by omega)]
 theorem sign_header_3 (s : MachineState) (hpc : s.pc = pcOf 1022)
     (h8 : s.getReg .x8 = 3#64) :
-    ∃ t, Steps Images.signReferenceImage s 34 34 t ∧ t.pc = pcOf 1036 ∧ HeaderPost s t 6 := by
+    ∃ t, Steps Images.signImage s 34 34 t ∧ t.pc = pcOf 1036 ∧ HeaderPost s t 6 := by
   let s0 := run_sign_entry.res.toState s
   have h0 := steps_sign_entry s hpc
   let s1 := run_sign_layer0.res.toState s0

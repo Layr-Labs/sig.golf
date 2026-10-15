@@ -34,11 +34,11 @@ def SeedIndependentAt (image : Image) (b : Nat) : Prop :=
   (b = 117 ∨ b = 1013) ∧
   (CodeAt image (pcOf (b + 1000)) Sign.maxDigitCodeS ∧
    CodeAt image (pcOf (b + 1004)) revCode ∧
-   (image = Images.signReferenceImage ∧ b = 1013))
+   (image = Images.signImage ∧ b = 1013))
 private theorem signSubL_ok : layoutOk 0 signSubL = true := by decide +kernel
-private theorem signSubAt : CodeAt Images.signReferenceImage (pcOf 1013) (layoutCode signSubL) :=
+private theorem signSubAt : CodeAt Images.signImage (pcOf 1013) (layoutCode signSubL) :=
   codeAt_sign_slice (by decide +kernel) (by decide +kernel)
-theorem seedIndependentAt_sign : SeedIndependentAt Images.signReferenceImage 1013 := by
+theorem seedIndependentAt_sign : SeedIndependentAt Images.signImage 1013 := by
   refine ⟨?_, Or.inr rfl, Sign.codeAt_maxDigit, Sign.codeAt_2017, rfl, rfl⟩
   intro off code hm
   obtain ⟨i, hi⟩ := List.mem_iff_getElem?.mp hm
@@ -211,113 +211,3 @@ sym_block blkS_71 := symRun { noAlias := true } sub71S (pcOf (1013 + 71)) 100
 sym_block blkS_75 := symRun { noAlias := true } sub75S (pcOf (1013 + 75)) 100
 sym_block blkS_maxLow := symRun { noAlias := true } Sign.maxLowS (pcOf (1013 + 1000)) 100
 end SigGolfCandidate.T3M.Sign.SeedIndependent
-
-
-namespace SigGolfCandidate.T3M.Sign.SharedLeafCode
-open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
-open SigGolfCandidate.T3M SigGolfCandidate.T3M.Keygen SigGolfCandidate.T3M.Sign.SeedIndependent
-structure Code (image : Image) (b : Nat) : Prop where
-  base : b = 1013
-  codeAt_hpS : CodeAt image (pcOf 1528) hpS
-  codeAt_maxHigh : CodeAt image (pcOf (b + 1002)) maxHigh
-  codeAt_maxLow : CodeAt image (pcOf (b + 1000)) Sign.maxLowS
-  codeAt_preS : CodeAt image (pcOf 1554) preS
-  codeAt_sub27S : CodeAt image (pcOf (b + 27)) sub27S
-  codeAt_sub40S : CodeAt image (pcOf (b + 40)) sub40S
-  codeAt_sub71S : CodeAt image (pcOf (b + 71)) sub71S
-  codeAt_sub80S : CodeAt image (pcOf (b + 80)) sub80S
-  codeAt_sub_105 : CodeAt image (pcOf (b + 105)) sub_105
-  codeAt_sub_106 : CodeAt image (pcOf (b + 106)) sub_106
-  codeAt_sub_112 : CodeAt image (pcOf (b + 112)) sub_112
-  codeAt_sub_41 : CodeAt image (pcOf (b + 41)) sub_41
-  codeAt_sub_72 : CodeAt image (pcOf (b + 72)) sub_72
-  codeAt_sub_73 : CodeAt image (pcOf (b + 73)) sub_73
-  codeAt_sub_75 : CodeAt image (pcOf (b + 75)) sub75S
-  codeAt_sub_76 : CodeAt image (pcOf (b + 76)) sub_76
-  codeAt_sub_77 : CodeAt image (pcOf (b + 77)) sub_77
-  codeAt_sub_78 : CodeAt image (pcOf (b + 78)) sub_78
-  codeAt_sub_79 : CodeAt image (pcOf (b + 79)) sub_79
-  codeAt_sub_82 : CodeAt image (pcOf (b + 82)) sub_82
-  codeAt_sub_83 : CodeAt image (pcOf (b + 83)) sub_83
-  codeAt_sub_92 : CodeAt image (pcOf (b + 92)) sub_92
-  codeAt_sub_95 : CodeAt image (pcOf (b + 95)) sub_95
-  codeAt_sub_96 : CodeAt image (pcOf (b + 96)) sub_96
-end SigGolfCandidate.T3M.Sign.SharedLeafCode
-
-namespace SigGolfCandidate.T3M.Sign.SharedLeafCode
-open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
-open SigGolfCandidate.T3M SigGolfCandidate.T3M.Keygen
-set_option maxRecDepth 100000
-set_option maxHeartbeats 2000000
- theorem installed_code : Code Images.signImage 1013 := by
-  constructor
-  · rfl
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-#print axioms installed_code
-end SigGolfCandidate.T3M.Sign.SharedLeafCode
-
-namespace SigGolfCandidate.T3M.Sign.SharedTreeCode
-open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
-open SigGolfCandidate.T3M SigGolfCandidate.T3M.Keygen SigGolfCandidate.T3M.Sign.SeedIndependent
-structure Code (image : Image) (b : Nat) : Prop where
-  base : b=1013
-  codeAt_sub_113 : CodeAt image (pcOf (b + 113)) sub_113
-  codeAt_sub_116 : CodeAt image (pcOf (b + 116)) sub_116
-  codeAt_sub_117 : CodeAt image (pcOf (b + 117)) sub_117
-  codeAt_sub_118 : CodeAt image (pcOf (b + 118)) sub_118
-  codeAt_sub120S : CodeAt image (pcOf (b + 120)) sub120S
-  codeAt_rev : CodeAt image (pcOf (b + 1004)) revCode
-  codeAt_sub_140 : CodeAt image (pcOf (b + 140)) sub_140
-  codeAt_sub_146 : CodeAt image (pcOf (b + 146)) sub_146
-  codeAt_sub_147 : CodeAt image (pcOf (b + 147)) sub_147
-  codeAt_sub157S : CodeAt image (pcOf (b + 157)) sub157S
-  codeAt_norootS : CodeAt image (pcOf 1551) norootS
-  codeAt_norootJ : CodeAt image (pcOf 1553) norootJ
-  codeAt_sub_159 : CodeAt image (pcOf (b + 159)) sub_159
-end SigGolfCandidate.T3M.Sign.SharedTreeCode
-
-namespace SigGolfCandidate.T3M.Sign.SharedTreeCode
-open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
-open SigGolfCandidate.T3M SigGolfCandidate.T3M.Keygen
-set_option maxHeartbeats 2000000
-set_option maxRecDepth 100000
-theorem installed_code : Code Images.signImage 1013 := by
-  constructor
-  · rfl
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-end SigGolfCandidate.T3M.Sign.SharedTreeCode

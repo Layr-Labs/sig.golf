@@ -1,5 +1,4 @@
 import SigGolfCandidate.T3.Core
-import SigGolfCandidate.T3.Nonbinary.LowerLayout
 import SigGolfCandidate.ClaudeWCT.WCT9.Codebook
 import SigGolfCandidate.ClaudeWCT.Arith.GF128
 
@@ -11,10 +10,10 @@ def children : Nat := 128
 def chains : Nat := 6
 def gateShift : Nat := 242
 def gateBits : Nat := 14
-def gateLimit : Nat := 1353
+def gateLimit : Nat := 1451
 def fieldBits : Nat := 10
 def fieldLimit : Nat := 563
-def jointCap : Nat := 789
+def jointCap : Nat := 785
 abbrev Coord := Fin 9
 abbrev Child := Fin 128
 abbrev Rank := Fin 563
@@ -34,13 +33,12 @@ def field (output : HashOutput) (coord : Coord) : Nat :=
 def rank (output : HashOutput) (coord : Coord) : Rank :=
   ⟨field output coord % 563, Nat.mod_lt _ (by decide)⟩
 def admissible (output : HashOutput) : Bool :=
-  decide (output.toNat / 2 ^ 242 % 2 ^ 14 < 1353) &&
+  decide (output.toNat / 2 ^ 242 % 2 ^ 14 < 1451) &&
     (List.range 9).all (fun coord =>
       decide (output.toNat / 2 ^ fieldBase coord % 2 ^ 10 < 563))
-/-- Nested FTS (r1-1): one less saved instruction on the 54 children whose level-4 fold reused `a2`. -/
 def childSaveTable : List Nat :=
-  [0,2,2,3,2,4,4,4,2,4,4,5,3,5,5,5,0,2,2,4,1,3,3,4,1,3,3,4,2,4,4,4,0,2,2,3,1,3,3,4,1,3,3,5,2,5,5,5,1,3,3,4,2,4,4,4,2,4,4,4,3,4,4,4,0,2,2,3,2,4,4,4,2,4,4,5,3,5,5,5,0,2,2,4,1,3,3,4,1,3,3,4,2,4,4,4,0,2,2,3,1,3,3,4,1,3,3,5,2,5,5,5,1,3,3,4,2,4,4,4,2,4,4,4,3,4,4,4]
-def maxChildSave : Nat := 5
+  [1,2,1,1,1,2,2,1,2,2,2,2,1,2,2,1,1,2,3,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,3,2,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,1,1,1,1,0,0,1,1,1,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,1,1,2,2,2,1,2,2,1,1,2,2,1,1,1,1,1]
+def maxChildSave : Nat := 3
 def childSave (c : Nat) : Nat := childSaveTable.getD (c % 128) 0
 def childExtra (c : Child) : Nat := maxChildSave - childSave c.val
 theorem childSaveTable_le : ∀ i, i < 128 → childSaveTable.getD i 0 ≤ maxChildSave := by decide
@@ -120,23 +118,9 @@ def nodeLayer (coord : Nat) : Nat := 4 + coord
 def wctNodeHeader (coord index heap : Nat) : BitVec 128 := nodeTweak 3 (nodeLayer coord) index heap
 def wctNodeHash (coord index heap : Nat) (left right : Digest) : M Digest :=
   nodeHash 3 (nodeLayer coord) index heap left right
-/-- High half of a public hash. -/
-def highHash (input : HashInput) : M Digest := do
-  pure ((← publicHash input).extractLsb' 128 128)
-/-- Nested FTS (r1-1): input of a top node (heap 2 or 3) of an FTS coordinate, with the previous coordinate's
-right top value in the pad slot. -/
-def wctTopInput (coord index heap : Nat) (left pad right : Digest) : HashInput :=
-  bytesLE 16 left ++ bytesLE 16 (wctNodeHeader coord index heap) ++ bytesLE 16 pad ++ bytesLE 16 right
-/-- Nested FTS (r1-1): the top values (heaps 2 and 3) are the HIGH half of their node hash. -/
-def wctTopHash (coord index heap : Nat) (left pad right : Digest) : M Digest :=
-  highHash (wctTopInput coord index heap left pad right)
-/-- Heap of an FTS coordinate. Heaps `4..127` are low-half node hashes with a zero pad; heaps 2 and 3 are
-`wctTopHash` with pad `padR` (nested FTS r1-1). -/
-def wctHeapNode (coord index heap : Nat) (padR left right : Digest) : M Digest :=
-  if heap < 4 then wctTopHash coord index heap left padR right else wctNodeHash coord index heap left right
-def heapBuild (index coord : Nat) (padR : Digest) (leaves : List Digest) : M (Array Digest) :=
+def heapBuild (index coord : Nat) (leaves : List Digest) : M (Array Digest) :=
   (List.range' 2 126).reverse.foldlM (fun nodes heap => do
-    let value ← wctHeapNode coord index heap padR (nodes.getD (2 * heap) 0) (nodes.getD (2 * heap + 1) 0)
+    let value ← wctNodeHash coord index heap (nodes.getD (2 * heap) 0) (nodes.getD (2 * heap + 1) 0)
     pure (nodes.set! heap value)) ((List.replicate 128 (0 : Digest) ++ leaves).toArray)
 def heapLevels (heap : Array Digest) : List (List Digest) :=
   (List.range 7).map fun level =>
@@ -147,13 +131,13 @@ def buildCoordinate (index : Nat) (coord : Coord) (selected : Child) (word : Ran
     (fun (state : List Digest × List Digest × Digest) j => do
       let ((root, values), carry) ← buildChild index coord.val j word state.2.2
       pure (state.1 ++ [root], (if j = selected.val then values else state.2.1), carry)) ([], [], 0)
-  let nodes ← heapBuild index coord.val 0 state.1
+  let nodes ← heapBuild index coord.val state.1
   pure (heapLevels nodes, state.2.1)
-/-! ### Arithmetic seeds (stage3 F8): FTS seeds from a degree-53 GF(2^128) family per coordinate.
-The 54 coefficients are the halves of `ftsSeedPair index coord j`, `j < 27`, low half first; the seed of chain
+/-! ### Arithmetic seeds (campaign X1, stage A): FTS seeds from a degree-101 GF(2^128) family per coordinate.
+The 102 coefficients are the halves of `ftsSeedPair index coord j`, `j < 51`, low half first; the seed of chain
 `chain` of child `child` is `familyEval coefs (ftsPoint child chain)`. Used by `signPayload` and by `Rev3.sign`
 (through `signPayloadWith`). -/
-def ftsCoefPairs : Nat := 27
+def ftsCoefPairs : Nat := 51
 def ftsCoefs (index coord : Nat) : M (List Digest) :=
   (List.range ftsCoefPairs).foldlM (fun acc j => do
     let p ← ftsSeedPair index coord j
@@ -161,7 +145,7 @@ def ftsCoefs (index coord : Nat) : M (List Digest) :=
 def ftsPoint (child chain : Nat) : Nat := ftsOrdinal child chain + 1
 def ftsFamilySeed (coefs : List Digest) (child chain : Nat) : Digest :=
   ClaudeWCT.Arith.familyEval coefs (ftsPoint child chain)
-def buildChildF (index coord selected : Nat) (word : Rank) (coefs : List Digest) (padL : Digest) :
+def buildChildF (index coord selected : Nat) (word : Rank) (coefs : List Digest) :
     M (Digest × List Digest) := do
   let state ← (List.finRange 6).foldlM
     (fun (state : List Digest × List Digest) i => do
@@ -170,23 +154,17 @@ def buildChildF (index coord selected : Nat) (word : Rank) (coefs : List Digest)
       let value ← chain index coord selected i.val 0 (4 - deficit) secret
       let last ← chain index coord selected i.val (4 - deficit) deficit value
       pure (state.1 ++ [last], state.2 ++ [value])) ([], [])
-  let root ← leafHashP index coord selected padL state.1
+  let root ← leafHash index coord selected state.1
   pure (root, state.2)
-/-- One FTS coordinate (nested FTS r1-1): `prev` is the previous coordinate's top pair `(L, R)`; every leaf
-carries `L` in its pad slot and the two top nodes carry `R` in their pad slot. -/
-def buildCoordinateF (index : Nat) (coord : Coord) (selected : Child) (word : Rank) (prev : Digest × Digest) :
+def buildCoordinateF (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
     M (List (List Digest) × List Digest) := do
   let coefs ← ftsCoefs index coord.val
   let state ← (List.range 128).foldlM
     (fun (state : List Digest × List Digest) j => do
-      let (root, values) ← buildChildF index coord.val j word coefs prev.1
+      let (root, values) ← buildChildF index coord.val j word coefs
       pure (state.1 ++ [root], (if j = selected.val then values else state.2))) ([], [])
-  let nodes ← heapBuild index coord.val prev.2 state.1
+  let nodes ← heapBuild index coord.val state.1
   pure (heapLevels nodes, state.2)
-/-- Nested FTS (r1-1): the pads of coordinate 0 in the honest scheme. -/
-def ftsStart : Digest × Digest := (0, 0)
-/-- Nested FTS (r1-1): the pads of the next coordinate, i.e. the last top pair (or `start` before coordinate 0). -/
-def prevPair (start : Digest × Digest) (pairs : List (Digest × Digest)) : Digest × Digest := pairs.getLastD start
 def forestInput (index : Nat) (pairs : List (Digest × Digest)) : HashInput :=
   zero16 ++ bytesLE 16 (header 15 0 index 0 0) ++
     pairs.flatMap (fun p => bytesLE 16 p.1 ++ bytesLE 16 p.2)
@@ -203,54 +181,12 @@ def pairEncodingInputP (up : Layer) (tree leaf : Nat) (left right : Digest) (cou
 def layerEncodingInput (lay : Layer) (tree leaf : Nat) : LayerMsg → BitVec 32 → HashInput
   | .forest root, counter => encodingInput lay tree leaf root counter
   | .pair left right, counter => pairEncodingInputP lay tree leaf left right counter 0
-/-- A zero-step chain whose leaf slot survives earlier 32-byte HASH writes. -/
-def safeZeroCopy (lay : Layer) (digits : List Nat) (i : Nat) : Prop :=
-  digits.getD i 0 = maxDigit lay i ∧
-    (i = 0 ∨ (lay ≠ 0 ∧ i = 1) ∨
-      (0 < i ∧ i % 3 ≠ 0 ∧ digits.getD (i-1) 0 = maxDigit lay (i-1)))
-instance (lay : Layer) (digits : List Nat) (i : Nat) : Decidable (safeZeroCopy lay digits i) := by
-  unfold safeZeroCopy
-  infer_instance
-
-def savedCopies (lay : Layer) (digits : List Nat) : Nat :=
-  ((List.range (chainCount lay)).filter fun i => decide (safeZeroCopy lay digits i)).length
-
-def topDispatchPenalty (digits : List Nat) : Nat :=
-  ((List.range 17).filter fun q => decide
-    (q ≠ 9 ∧ q < 13 ∧ digits.getD (3*q) 0 + digits.getD (3*q+1) 0 + digits.getD (3*q+2) 0 < 3)).length
-
-def dispatchPenalty (lay : Layer) (digits : List Nat) : Nat :=
-  if lay = 0 then topDispatchPenalty digits else 0
-
-theorem safeZeroCopy_digit {lay : Layer} {digits : List Nat} {i : Nat}
-    (h : safeZeroCopy lay digits i) : digits.getD i 0 = maxDigit lay i := h.1
-
-theorem safeZeroCopy_first (lay : Layer) (digits : List Nat) :
-    safeZeroCopy lay digits 0 ↔ digits.getD 0 0 = maxDigit lay 0 := by
-  simp [safeZeroCopy]
-
-theorem safeZeroCopy_second_lower {lay : Layer} (hl : lay ≠ 0) (digits : List Nat) :
-    safeZeroCopy lay digits 1 ↔ digits.getD 1 0 = maxDigit lay 1 := by
-  simp [safeZeroCopy, hl]
-
-def producerFloor (lay : Layer) : Nat := ![21, 10, 9, 9] lay
+def producerFloor (lay : Layer) : Nat := ![8, 5, 5, 4] lay
 def wordCredit (lay : Layer) (digits : List Nat) : Nat :=
   ((List.range (chainCount lay)).filter fun i => digits.getD i 0 + 1 = maxDigit lay i).length
-/-- Producer-only restriction; includes the checksum and leaves the broad decoder unchanged. -/
-def producerZeroBound (lay : Layer) (digits : List Nat) : Prop :=
-  lay = 0 ∨ (digits.filter (· = 0)).length ≤ 5
-instance (lay : Layer) (digits : List Nat) : Decidable (producerZeroBound lay digits) := by
-  unfold producerZeroBound; infer_instance
-/-- Two stride-512 columns need rank five; the other stride-1024 columns need rank three. -/
-def producerRankFloor (i : Nat) : Nat := if i = 1 ∨ i = 8 then 5 else 3
-/-- Producer-only table-address safety for the mixed-stride dispatch. -/
-def producerRankBound (lay : Layer) (answer : Digest) : Prop :=
-  lay = 0 ∨ ∀ i : Fin 14, producerRankFloor i.val ≤ lowerWord answer / 2^(9*i.val) % 512
-instance (lay : Layer) (answer : Digest) : Decidable (producerRankBound lay answer) := by
-  unfold producerRankBound; infer_instance
 def producerDecode (lay : Layer) (answer : Digest) : Option (List Nat) :=
   match decode lay answer with
-  | some digits => if producerFloor lay + dispatchPenalty lay digits ≤ wordCredit lay digits + 4 * savedCopies lay digits ∧ producerZeroBound lay digits ∧ producerRankBound lay answer then some digits else none
+  | some digits => if producerFloor lay ≤ wordCredit lay digits then some digits else none
   | none => none
 def lowerSearchLimit : Nat := 2 ^ 21
 def searchLimit (lay : Layer) : Nat := if lay = 0 then counterLimit else lowerSearchLimit
@@ -259,42 +195,11 @@ never rejects. The signer still searches `searchLimit`. -/
 def verifyWindow : Nat := 2 ^ 32
 theorem ctr_not_ge_verifyWindow (c : BitVec 32) : ¬c.toNat ≥ verifyWindow := by
   unfold verifyWindow; exact Nat.not_le.mpr c.isLt
-/-- The top layer selects the low half when its high bit is set. Lower layers
-select it when both reserved bits are set; otherwise the high half is selected. -/
-def encodingAnswer (lay : Layer) (answer : HashOutput) : Digest :=
-  if lay = 0 then TopDualHalf.select answer else DualHalf.select answer
-
-def encodingHash (lay : Layer) (input : HashInput) : M Digest :=
-  encodingAnswer lay <$> publicHash input
-
-theorem encodingHash_top (input : HashInput) :
-    encodingHash 0 input = TopDualHalf.select <$> publicHash input := rfl
-
-theorem encodingAnswer_lower_low (lay : Layer) (hl : lay ≠ 0) (answer : HashOutput)
-    (hspare : lowerSpare (answer.extractLsb' 0 128)) :
-    encodingAnswer lay answer = answer.extractLsb' 0 128 := by
-  simp [encodingAnswer, hl, DualHalf.select, DualHalf.selectPair, hspare]
-
-theorem encodingAnswer_lower_high (lay : Layer) (hl : lay ≠ 0) (answer : HashOutput)
-    (hspare : ¬lowerSpare (answer.extractLsb' 0 128)) :
-    encodingAnswer lay answer = answer.extractLsb' 128 128 := by
-  simp [encodingAnswer, hl, DualHalf.select, DualHalf.selectPair, hspare]
-
-theorem encodingHash_congr (lay : Layer) {x y : HashInput} (h : pad64 x = pad64 y) :
-    encodingHash lay x = encodingHash lay y := by
-  unfold encodingHash publicHash
-  rw [h]
-
-theorem encodingHash_bind {β : Type} (lay : Layer) (input : HashInput) (f : Digest → M β) :
-    encodingHash lay input >>= f = publicHash input >>= fun a => f (encodingAnswer lay a) := by
-  unfold encodingHash
-  simp only [map_eq_bind_pure_comp, bind_assoc, pure_bind, Function.comp_apply]
-
 def layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) (counter : Nat) :
     Nat → M (Option (BitVec 32 × List Nat))
   | 0 => pure none
   | fuel + 1 => do
-      let answer ← ClaudeWCT.WCT9.encodingHash lay (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter))
+      let answer ← shortHash (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter))
       match producerDecode lay answer with
       | none => layerCounterSearch lay tree leaf msg (counter + 1) fuel
       | some digits => pure (some (BitVec.ofNat 32 counter, digits))
@@ -316,11 +221,11 @@ def buildLevelsBelow (tag lay tree h : Nat) (leaves : List Digest) : M (List (Li
   (List.range' 1 (h - 1)).foldlM (fun levels level => do
     let nodes ← buildLevel tag lay tree h level (levels.getD (level - 1) [])
     pure (levels ++ [nodes])) [leaves]
-/-! ### B4 lower arithmetic seeds: a degree-7 GF(2^128) family per leaf.
-Coefficient `j` of leaf `leaf` has ordinal `8 * leaf + j`; the even coefficient count
-uses four private pairs per leaf without a carry. The producer reveals at most five seeds.
-The seed of chain `i` is `familyEval coefs (lowerPoint i)`, `lowerPoint i = i + 1`. -/
-def lowerCoefCount : Nat := 8
+/-! ### Arithmetic seeds (campaign X1, stage B): lower WOTS seeds from a degree-16 GF(2^128) family per leaf.
+Leaf `leaf` of tree `tree` in layer `lay ≥ 1` has 17 coefficients; coefficient `j` is the packed half with ordinal
+`17 * leaf + j` of `lowerSeedPair lay tree` (the same carry packing as `buildLeafP`, so a tree costs
+`⌈17 · 2^height / 2⌉` private pairs). The seed of chain `i` is `familyEval coefs (lowerPoint i)`, `lowerPoint i = i + 1`. -/
+def lowerCoefCount : Nat := 17
 def lowerCoefOrdinal (leaf j : Nat) : Nat := lowerCoefCount * leaf + j
 def lowerPoint (chain : Nat) : Nat := chain + 1
 def lowerCoefs (lay : Layer) (tree leaf : Nat) (carry : Digest) : M (List Digest × Digest) :=
@@ -399,27 +304,6 @@ def recoverLayerPair (sig : Signature) (index : Nat) (lay : Layer) (digits : Lis
     nodeHash 3 lay.val tree (2 ^ (height lay - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1 pair.2) value
   let other := (sig.layers lay).path (topLevel lay)
   pure (if leaf / 2 ^ (height lay - 1) % 2 = 0 then (top, other) else (other, top))
-/-- Lower dispatch is defined only at ranks allocated in the absolute-address table. -/
-def lowerRankGood (answer : Digest) : Prop :=
-  ∀ i : Fin 14, producerRankFloor i.val ≤ lowerWord answer / 2 ^ (9 * i.val) % 512
-instance (answer : Digest) : Decidable (lowerRankGood answer) := by
-  unfold lowerRankGood
-  infer_instance
-def lowerFirstBad (answer : Digest) : Nat :=
-  ((List.range 14).find? (fun i => decide
-    (lowerWord answer / 2 ^ (9 * i) % 512 < producerRankFloor i))).getD 14
-def lowerGuardedRun {α : Type} (run : Nat → M Digest) (finish : M α) (answer : Digest) : M (Option α) :=
-  if lowerRankGood answer then some <$> finish
-  else do
-    let _ ← (List.range (3 * lowerFirstBad answer)).mapM run
-    pure none
-def recoverLayerPairGuard (sig : Signature) (index : Nat) (lay : Layer) (answer : Digest)
-    (digits : List Nat) : M (Option (Digest × Digest)) :=
-  lowerGuardedRun
-    (fun i => SigGolfCandidate.T3.chain lay (route index lay).2 (route index lay).1 i
-      (digits.getD i 0) (maxDigit lay i - digits.getD i 0) ((sig.layers lay).values ⟨i % chainCount lay,
-        Nat.mod_lt _ (by fin_cases lay <;> decide)⟩))
-    (recoverLayerPair sig index lay digits) answer
 def topGroupBad (answer : Digest) (i : Nat) : Bool :=
   decide (i % 3 = 0 ∧ i < 51 ∧ 125 ≤ topCode answer / 2 ^ (7 * (i / 3)) % 128)
 def topDecodeStep (run : Fin (chainCount 0) → Nat → M Digest) (answer : Digest)
@@ -469,11 +353,11 @@ def verifyLayersBC (w : Witness) (index : Nat) : Nat → LayerMsg → M (Option 
       let counter := w.counters lay
       if counter.toNat ≥ verifyWindow then return none
       let (leaf, tree) := route index lay
-      let answer ← ClaudeWCT.WCT9.encodingHash lay (layerEncodingInput lay tree leaf msg counter)
+      let answer ← shortHash (layerEncodingInput lay tree leaf msg counter)
       if n = 0 then verifyTop w.signature index answer
       else do
         let some digits := decode lay answer | pure none
-        let some pair ← recoverLayerPairGuard w.signature index lay answer digits | pure none
+        let pair ← recoverLayerPair w.signature index lay digits
         verifyLayersBC w index n (.pair pair.1 pair.2)
 def signPayload (cache : Cache) (message : Message) : M (Option Signature) := do
   let rho ← privateNonce message
@@ -482,14 +366,14 @@ def signPayload (cache : Cache) (message : Message) : M (Option Signature) := do
   let state ← (List.finRange 9).foldlM
     (fun (state : List Opening × List (Digest × Digest)) coord => do
       let selected := child output coord
-      let (levels, values) ← buildCoordinateF index coord selected (rank output coord) (prevPair ftsStart state.2)
+      let (levels, values) ← buildCoordinateF index coord selected (rank output coord)
       let path := (List.range 7).map fun level =>
         (levels.getD level []).getD (selected.val / 2 ^ level ^^^ 1) 0
       let opening : Opening := ⟨fun i => values.getD i.val 0, fun i => path.getD i.val 0⟩
       pure (state.1 ++ [opening],
         state.2 ++ [((levels.getD 6 []).getD 0 0, (levels.getD 6 []).getD 1 0)])) ([], [])
-  let top := prevPair ftsStart state.2
-  let some layers ← signLayersBC cache index 4 (.pair top.1 top.2) | pure none
+  let root ← forestPk index state.2
+  let some layers ← signLayersBC cache index 4 (.forest root) | pure none
   pure (some ⟨rho, fun coord => state.1.getD coord.val ⟨fun _ => 0, fun _ => 0⟩,
     fun lay => piecesSignature lay (layers.getD lay.val ([], []))⟩)
 def sign (cache : Cache) (message : Message) : M (Option Signature) := do
@@ -502,40 +386,30 @@ def serializeOpening (opened : Opening) : HashInput :=
 def serialize (sig : Signature) : HashInput :=
   bytesLE 16 sig.rho ++ (List.ofFn sig.openings).flatMap serializeOpening ++
     (List.ofFn fun lay => serializeLayer (sig.layers lay)).flatten
-def recoverCoordinate (sig : Signature) (index : Nat) (output : HashOutput) (coord : Coord)
-    (prev : Digest × Digest) : M (Digest × Digest) := do
+def recoverCoordinate (sig : Signature) (index : Nat) (output : HashOutput) (coord : Coord) :
+    M (Digest × Digest) := do
   let selected := child output coord
   let word := rank output coord
   let ends ← (List.finRange 6).mapM fun i =>
     let deficit := wordDigit word i
     chain index coord.val selected.val i.val (4 - deficit) deficit ((sig.openings coord).values i)
-  let root ← leafHashP index coord.val selected.val prev.1 ends
-  let value ← (List.finRange 5).foldlM
+  let root ← leafHash index coord.val selected.val ends
+  let top ← (List.finRange 6).foldlM
     (fun value level => do
-      let other := (sig.openings coord).path (Fin.castLE (by decide) level)
+      let other := (sig.openings coord).path level.castSucc
       let pair := if selected.val / 2 ^ level.val % 2 = 0 then (value, other) else (other, value)
       wctNodeHash coord.val index (2 ^ (6 - level.val) + selected.val / 2 ^ (level.val + 1))
         pair.1 pair.2) root
-  let other5 := (sig.openings coord).path 5
-  let pair5 := if selected.val / 2 ^ 5 % 2 = 0 then (value, other5) else (other5, value)
-  let top ← wctTopHash coord.val index (2 + selected.val / 2 ^ 6) pair5.1 prev.2 pair5.2
   let other := (sig.openings coord).path 6
   pure (if selected.val / 2 ^ 6 % 2 = 0 then (top, other) else (other, top))
-/-- Nested FTS (r1-1): run the coordinates in order, each with the previous top pair as pads; return the last pair
-(the L3 message). -/
-def recoverFtsFrom (start : Digest × Digest) (sig : Signature) (index : Nat) (output : HashOutput) :
-    M (Digest × Digest) := do
-  let pairs ← (List.finRange 9).foldlM (fun (pairs : List (Digest × Digest)) coord => do
-    let pair ← recoverCoordinate sig index output coord (prevPair start pairs)
-    pure (pairs ++ [pair])) []
-  pure (prevPair start pairs)
-def recoverFts (sig : Signature) (index : Nat) (output : HashOutput) : M (Digest × Digest) :=
-  recoverFtsFrom ftsStart sig index output
+def recoverFts (sig : Signature) (index : Nat) (output : HashOutput) : M Digest := do
+  let pairs ← (List.finRange 9).mapM (recoverCoordinate sig index output)
+  forestPk index pairs
 def expand (message : Message) (pk : Digest) (sig : Signature) : M (Option Witness) := do
   let some (counter, output) ← digestSearch sig.rho message 0 attemptLimit | pure none
   let index := digestIndex output
-  let top ← recoverFts sig index output
-  let some (root, counters) ← expandLayersBC sig index 4 (.pair top.1 top.2) | pure none
+  let root ← recoverFts sig index output
+  let some (root, counters) ← expandLayersBC sig index 4 (.forest root) | pure none
   if root ≠ pk then return none
   pure (some ⟨sig, counter, fun lay => counters.getD lay.val 0⟩)
 def verify (message : Message) (pk : Digest) (w : Witness) : M Bool := do
@@ -543,158 +417,8 @@ def verify (message : Message) (pk : Digest) (w : Witness) : M Bool := do
   let output ← digest w.signature.rho message w.digestCounter
   if !admissible output then return false
   let index := digestIndex output
-  let top ← recoverFts w.signature index output
-  let some root ← verifyLayersBC w index 4 (.pair top.1 top.2) | pure false
+  let root ← recoverFts w.signature index output
+  let some root ← verifyLayersBC w index 4 (.forest root) | pure false
   pure (root == pk)
 def keygen := SigGolfCandidate.T3.keygen
 end ClaudeWCT.WCT9
-
-/-! Canonical ancestor-only policy for the paired-forest research construction.
-These definitions are separate from the currently installed submission. A lower
-leaf's threshold depends only on credits of its canonical ancestors. -/
-namespace ClaudeWCT.WCT9.CanonicalPolicy
-open OracleComp OracleSpec SigGolfCandidate.T3
-
-def totalCredit : Nat := 63
-
-/-- The paired gate needs this larger finite search window for simultaneous
-completeness over every256-bit message. It does not change the moment model. -/
-def ftsSearchLimit : Nat := 2 ^ 21
-
-def lowerOneThresholds : List Nat :=
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-   1,2,3,4,5,6,7,7,8,9,10,11,11,12,13,14,15,16,17]
-
-def lowerTwoThresholds : List Nat :=
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,2,3,4,5,6,6,7,8,9,10,11,12,13,14,15,16,17]
-
-/-- Out-of-range lower residuals deliberately have an impossible threshold. -/
-def threshold (stage residual : Nat) : Nat :=
-  if stage = 0 then 16
-  else if stage = 1 then lowerOneThresholds.getD residual 301
-  else if stage = 2 then lowerTwoThresholds.getD residual 301
-  else if stage = 3 ∧ residual ≤ 17 then residual
-  else 301
-
-/-- All three lower layers use digit sum201. Layer1's existing broad decoder
-has the same lower digit layout and this exact target. -/
-def normalLayer (lay : Layer) : Layer := if lay = 0 then 0 else 1
-
-def decode (lay : Layer) (answer : Digest) : Option (List Nat) :=
-  SigGolfCandidate.T3.decode (normalLayer lay) answer
-
-def reward (lay : Layer) (digits : List Nat) : Nat :=
-  wordCredit lay digits + 4 * savedCopies lay digits
-
-def credit (lay : Layer) (digits : List Nat) : Nat :=
-  reward lay digits - dispatchPenalty lay digits
-
-def nextResidual (residual : Nat) (lay : Layer) (digits : List Nat) : Nat :=
-  residual - credit lay digits
-
-def producerDecodeAt (lay : Layer) (floor : Nat) (answer : Digest) : Option (List Nat) :=
-  match decode lay answer with
-  | some digits =>
-      if floor + dispatchPenalty lay digits ≤ reward lay digits ∧
-          producerZeroBound lay digits ∧ producerRankBound lay answer then some digits
-      else none
-  | none => none
-
-def layerCounterSearchAt (lay : Layer) (floor tree leaf : Nat) (msg : LayerMsg)
-    (counter : Nat) : Nat → M (Option (BitVec 32 × List Nat))
-  | 0 => pure none
-  | fuel + 1 => do
-      let answer ← encodingHash lay (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter))
-      match producerDecodeAt lay floor answer with
-      | none => layerCounterSearchAt lay floor tree leaf msg (counter + 1) fuel
-      | some digits => pure (some (BitVec.ofNat 32 counter, digits))
-
-theorem normalLayer_target (lay : Layer) :
-    target (normalLayer lay) = if lay = 0 then 145 else 201 := by
-  by_cases h : lay = 0 <;> simp [normalLayer, h, target]
-
-theorem producerDecodeAt_spec {lay : Layer} {floor : Nat} {answer : Digest} {digits : List Nat}
-    (h : producerDecodeAt lay floor answer = some digits) :
-    decode lay answer = some digits ∧ floor + dispatchPenalty lay digits ≤ reward lay digits ∧
-      producerZeroBound lay digits ∧ producerRankBound lay answer := by
-  unfold producerDecodeAt at h
-  cases hd : decode lay answer with
-  | none => simp [hd] at h
-  | some ds =>
-      simp only [hd] at h
-      split_ifs at h with hc
-      cases h
-      exact ⟨rfl, hc⟩
-
-theorem producerDecodeAt_credit {lay : Layer} {floor : Nat} {answer : Digest} {digits : List Nat}
-    (h : producerDecodeAt lay floor answer = some digits) : floor ≤ credit lay digits := by
-  have hc := (producerDecodeAt_spec h).2.1
-  unfold credit
-  omega
-
-theorem threshold_top (residual : Nat) : threshold 0 residual = 16 := by
-  simp [threshold]
-
-theorem nextResidual_le (residual : Nat) (lay : Layer) (digits : List Nat) :
-    nextResidual residual lay digits ≤ residual := Nat.sub_le _ _
-
-theorem residual_composition (residual : Nat) (lay₁ lay₂ : Layer) (digits₁ digits₂ : List Nat) :
-    nextResidual (nextResidual residual lay₁ digits₁) lay₂ digits₂ =
-      residual - (credit lay₁ digits₁ + credit lay₂ digits₂) := by
-  simp [nextResidual, Nat.sub_sub]
-
-theorem threshold_zero : threshold 1 0 = 0 ∧ threshold 2 0 = 0 ∧ threshold 3 0 = 0 := by
-  decide
-
-#print axioms producerDecodeAt_spec
-#print axioms producerDecodeAt_credit
-#print axioms residual_composition
-end ClaudeWCT.WCT9.CanonicalPolicy
-
-namespace ClaudeWCT.WCT9.CanonicalPolicy
-open SigGolfCandidate.T3
-set_option maxRecDepth 10000
-set_option maxHeartbeats 1000000
-
-theorem lower_one_progress : ∀ r : Fin 52,
-    threshold 1 r.val ≤ 17 ∧ r.val - threshold 1 r.val < 35 := by decide +kernel
-
-theorem lower_two_progress : ∀ r : Fin 35,
-    threshold 2 r.val ≤ 17 ∧ r.val - threshold 2 r.val < 18 := by decide +kernel
-
-theorem lower_three_progress (r : Nat) (hr : r < 18) :
-    threshold 3 r = r := by simp [threshold, show r ≤ 17 by omega]
-
-theorem accepted_top_residual {answer : Digest} {digits : List Nat}
-    (h : producerDecodeAt 0 16 answer = some digits) : nextResidual 63 0 digits < 52 := by
-  have hc := producerDecodeAt_credit h
-  unfold nextResidual
-  omega
-
-theorem accepted_one_residual (r : Fin 52) {answer : Digest} {digits : List Nat}
-    (h : producerDecodeAt 1 (threshold 1 r.val) answer = some digits) :
-    nextResidual r.val 1 digits < 35 := by
-  have hc := producerDecodeAt_credit h
-  have hp := (lower_one_progress r).2
-  unfold nextResidual
-  omega
-
-theorem accepted_two_residual (r : Fin 35) {answer : Digest} {digits : List Nat}
-    (h : producerDecodeAt 2 (threshold 2 r.val) answer = some digits) :
-    nextResidual r.val 2 digits < 18 := by
-  have hc := producerDecodeAt_credit h
-  have hp := (lower_two_progress r).2
-  unfold nextResidual
-  omega
-
-theorem accepted_three_residual (r : Fin 18) {answer : Digest} {digits : List Nat}
-    (h : producerDecodeAt 3 (threshold 3 r.val) answer = some digits) :
-    nextResidual r.val 3 digits = 0 := by
-  have hc := producerDecodeAt_credit h
-  rw [lower_three_progress r.val r.isLt] at hc
-  exact Nat.sub_eq_zero_of_le hc
-
-#print axioms lower_one_progress
-#print axioms lower_two_progress
-#print axioms accepted_three_residual
-end ClaudeWCT.WCT9.CanonicalPolicy

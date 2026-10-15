@@ -85,6 +85,6 @@ theorem hdrBlock_honestInput (answers : Answers) (p : Pos) :
   | wctChain index coord child t step =>
       simp only [honestInput, Pos.hdr]; rw [pad64_wctChainInput, hdrBlock_wctChainInput]
   | wctLeaf index coord child =>
-      simp only [honestInput, Pos.hdr]; rw [hdrBlock_wctLeafInputP]
+      simp only [honestInput, Pos.hdr]; rw [hdrBlock_wctLeafInput]
   | wctNode index coord level nd =>
       simp only [honestInput, Pos.hdr]; rw [hdrBlock_nodeInputP]; rfl

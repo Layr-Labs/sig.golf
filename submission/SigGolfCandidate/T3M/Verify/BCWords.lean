@@ -23,8 +23,7 @@ def ctrE (lay c : Nat) : E :=
 def ctrBr (lay c : Nat) (d : Bool) : Br := ⟨if lay = 3 then .ltu else .geu, ctrE lay c, kw 0x400000, d⟩
 def headerWrites (lay c : Nat) : List (Addr × E) :=
   [(⟨none, BitVec.ofNat 64 (rowA lay c + 24)⟩, kw 1),
-   (⟨none, BitVec.ofNat 64 (rowA lay c + 16)⟩, .reg .x28)] ++
-  (if lay=0 then [(⟨none,25144⟩,kw 0),(⟨none,25136⟩,kw 0)] else [])
+   (⟨none, BitVec.ofNat 64 (rowA lay c + 16)⟩, .reg .x28)]
 def specA (lay c : Nat) : Spec :=
   if lay = 3 then T3M.specA lay (trPc lay c) else
   ⟨if lay = 0 then [(.x23, s7E lay), (.x12, .reg .x12)]
@@ -38,9 +37,8 @@ def rejA (lay c : Nat) : Spec :=
 def keepA (lay : Nat) : List Reg := if lay = 3 then [.x22] else if lay = 0 then [.x28, .x31] else [.x28]
 def bKB (lay c : Nat) : List (Reg × Word) := (bK lay c).filter (fun p => p.1 != .x12)
 def oblB : List Oblig := [.valid ⟨some (.reg .x12), 8⟩ 8, .valid ⟨some (.reg .x12), 0⟩ 8]
-def oblBHi : List Oblig := [.valid ⟨some (.reg .x12), 24⟩ 8, .valid ⟨some (.reg .x12), 16⟩ 8] ++ oblB
 def allowed (lay c : Nat) : List Nat :=
-  if lay = 3 then [1232, 1240, 1264, 1272] else [rowA lay c + 16, rowA lay c + 24] ++ (if lay=0 then [25136,25144] else [])
+  if lay = 3 then [2064, 2072] else [rowA lay c + 16, rowA lay c + 24]
 def setupCheck (lay c : Nat) : Bool :=
   specB (allowed lay c) [] baseK (runAt (preK lay) [] (setupPc lay (trPc lay c)) [])
     (specA lay c) [] (bK lay c) (keepA lay)
@@ -48,16 +46,11 @@ def copyCheck (lay c : Nat) : Bool :=
   setupCheck lay c &&
   (if lay = 0 then true else
     specB [] [] baseK (runAt (bKB lay c) [] (trPc lay c + stepsA lay + 1)
-      [.br (decide (lay = 3)), .br false, .jmp]) (specBl lay (trPc lay c)) oblB (postBlC lay (trPc lay c)) (keepB lay) &&
+      [.br false, .br false, .jmp]) (specBl lay (trPc lay c)) oblB (postBlC lay (trPc lay c)) keepB &&
     specB [] [] [] (runAt (bKB lay c) [] (trPc lay c + stepsA lay + 1)
-      [.br (decide (lay = 3)), .br true]) (rejCk lay) oblB [] [] &&
-    specB [] [] baseK (runAt (bKB lay c) [] (trPc lay c + stepsA lay + 1)
-      [.br (decide (lay ≠ 3)), .br true, .br false, .jmp]) (specBlHi lay (trPc lay c)) oblBHi (postBlC lay (trPc lay c)) (keepB lay) &&
+      [.br false, .br true]) (rejCk lay) oblB [] [] &&
     specB [] [] [] (runAt (bKB lay c) [] (trPc lay c + stepsA lay + 1)
-      [.br (decide (lay ≠ 3)), .br true, .br true]) (rejCkHi lay) oblBHi [] [] &&
-    specB [] [] [] (runAt (bKB lay c) [spareTrap lay c] (trPc lay c + stepsA lay + 1)
-      [.br (decide (lay ≠ 3)), .br false]) (rejBothSpare lay c) oblBHi [] [] &&
-    (vlook (spareTrap lay c) == some 0))
+      [.br true]) rejSpare oblB [] [])
 def layerCheck (lay lo n : Nat) : Bool :=
   (List.range' lo n).all fun c => copyCheck lay c
 end SigGolfCandidate.T3M.BC
@@ -66,10 +59,10 @@ section
 namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M.Verify
-def keepLfL : List Reg := [.x27, .x1, .x2, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23, .x6, .x25,
+def keepLfL : List Reg := [.x1, .x2, .x13, .x19, .x20, .x12, .x21, .x16, .x17, .x8, .x9, .x24, .x22, .x23, .x6, .x25,
   .x26, .x29, .x31, .x30, .x28, .x14]
 def lfSlotCheck (lay c : Nat) : Bool :=
-  specB (lfAllowed lay) [] baseK (runAt (leafK lay) [] (ckSlot c + partLen c) (lfDirs lay)) (specLf lay) [] (postLf lay) keepLfL
+  specB [] [] baseK (runAt (leafK lay) [] (ckSlot c + partLen c) (lfDirs lay)) (specLf lay) [] (postLf lay) keepLfL
 set_option maxRecDepth 100000 in
 theorem lfSlotChecks : ([1, 2, 3].all fun lay => (List.range 8).all fun c => lfSlotCheck lay c) = true := by
   decide +kernel

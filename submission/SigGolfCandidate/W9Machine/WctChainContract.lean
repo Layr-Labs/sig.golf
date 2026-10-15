@@ -15,14 +15,16 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (base k)
   leafWord : u.getReg .x31 = BitVec.ofNat 64 (V3.leafLow index k.val j.val)
   nodeWord : u.getReg .x15 = BitVec.ofNat 64 (V3.nodeLow k.val index)
+  childIdx : u.getReg .x4 = BitVec.ofNat 64 j.val
   hashMode : u.getReg .x5 = 0
   stepOne : u.getReg .x7 = 1
   stepTwo : u.getReg .x13 = 2
   hashLen : u.getReg .x11 = 64
   childPC : u.getReg .x23 = pcOf (L.childWord j)
   returnPC : u.getReg .x1 = pcOf (L.returnWord k)
+  forestPointer : u.getReg .x9 = BitVec.ofNat 64 (pairAddress k)
   heaps : ∀ h, 2 ≤ h → h ≤ 7 → u.getReg (Child.heapReg h) = BitVec.ofNat 64 h
-  witness : ∀ off, off < 896 → off % 8 = 0 →
+  witness : ∀ off, off < 816 → off % 8 = 0 →
     u.getMem (BitVec.ofNat 64 (base k + off)) =
       w.extractLsb' (8 * (V3.regionOffset k.val + off)) 64
 def writes (k : Fin 9) (A : Nat) : Prop := base k + 336 ≤ A ∧ A < base k + 832
@@ -33,12 +35,12 @@ structure Post (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   child : Child.Pre L w index k j ends t
   keep : ∀ r, r ∉ clobbers → t.getReg r = u.getReg r
   frame : Frame u t (writes k)
-def Good (L : Layout) (rank : Fin 666) (P : Hash → Prop := HashOk) : Prop :=
+def Good (L : Layout) (rank : Fin 666) : Prop :=
   ∀ (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128) (u : MachineState)
     (N C A : Nat) (Q : Prop) (K : List Digest → OracleComp HashSpec Obs),
     Pre L w index k j rank u →
-    (∀ ends t, Post L w index k j u ends t → GoodQFor (P := P) L.image t N C Q A (K ends)) →
-    GoodQFor (P := P) L.image u (N + 89) (C + 89) Q (A + 89)
+    (∀ ends t, Post L w index k j u ends t → GoodQFor L.image t N C Q A (K ends)) →
+    GoodQFor L.image u (N + 89) (C + 89) Q (A + 89)
       (ccM (program w index k j rank) K)
-def AllGood (L : Layout) (P : Hash → Prop := HashOk) : Prop := ∀ rank : Fin 666, Good L rank (P := P)
+def AllGood (L : Layout) : Prop := ∀ rank : Fin 666, Good L rank
 end W9Machine.Chain

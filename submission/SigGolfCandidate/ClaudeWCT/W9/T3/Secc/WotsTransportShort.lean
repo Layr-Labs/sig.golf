@@ -16,9 +16,9 @@ attribute [local instance] Classical.propDecidable
 section objects
 variable {A T : Answers} (hAT : ShortAgree A T)
 include hAT
-theorem honestTop_short (index : Nat) : Extract.honestTop A index = Extract.honestTop T index := by
-  rw [Extract.honestTop_eq_wct9, Extract.honestTop_eq_wct9]
-  exact ClaudeWCT.WCT9.Wots.honestTop_congr (fun _ hq => hAT _ (ClaudeWCT.WCT9.Wots.ftsQuery_short hq))
+theorem honestForest_short (index : Nat) : Extract.honestForest A index = Extract.honestForest T index := by
+  rw [Extract.honestForest_eq_wct9, Extract.honestForest_eq_wct9]
+  exact ClaudeWCT.WCT9.Wots.honestForest_congr (fun _ hq => hAT _ (ClaudeWCT.WCT9.Wots.ftsQuery_short hq))
 theorem wotsSeed_short (lay : Layer) (tree leaf i : Nat) :
     WCT9.wotsSeed A lay tree leaf i = WCT9.wotsSeed T lay tree leaf i := by
   rw [WCT9.wotsSeed_fam, WCT9.wotsSeed_fam]
@@ -62,10 +62,6 @@ theorem wctValue_short (index coord child chain step : Nat) (hc : coord < 9) (hc
     Extract.wctValue A index coord child chain step = Extract.wctValue T index coord child chain step :=
   ClaudeWCT.WCT9.Wots.ftsChainValue_congr (index := index) (T := A) (T' := T)
     (fun _ hq => hAT _ (ClaudeWCT.WCT9.Wots.ftsQuery_short hq)) ⟨coord, hc⟩ ⟨child, hch⟩ ⟨chain, ht⟩ step hs
-theorem ftsPrev_short (index coord : Nat) (hc : coord ≤ 9) :
-    Extract.ftsPrev A index coord = Extract.ftsPrev T index coord :=
-  ClaudeWCT.WCT9.Wots.ftsPrev_congr (index := index)
-    (fun _ hq => hAT _ (ClaudeWCT.WCT9.Wots.ftsQuery_short hq)) coord hc
 theorem wctEnds_short (index coord child : Nat) (hc : coord < 9) (hch : child < 128) :
     Extract.wctEnds A index coord child = Extract.wctEnds T index coord child := by
   unfold Extract.wctEnds
@@ -75,7 +71,7 @@ theorem leafMsg_short (L : LeafAddr) : leafMsg A L = leafMsg T L := by
   split_ifs
   · unfold Extract.honestPair
     rw [wotsTree_short hAT]
-  · rw [honestTop_short hAT]
+  · rw [honestForest_short hAT]
 theorem referenceSearch_short (L : LeafAddr) : referenceSearch A L = referenceSearch T L := by
   unfold referenceSearch
   rw [leafMsg_short hAT]
@@ -115,11 +111,11 @@ theorem honestInput_short (position : Extract.Pos) (hb : position.Bounded) :
   | wctLeaf index coord child =>
       obtain ⟨-, hc, hch⟩ := hb
       simp only [Extract.honestInput]
-      rw [wctEnds_short hAT index coord child hc hch, ftsPrev_short hAT index coord (by omega)]
+      rw [wctEnds_short hAT index coord child hc hch]
   | wctNode index coord level nd =>
       obtain ⟨-, hc, -, -⟩ := hb
       simp only [Extract.honestInput]
-      rw [ftsLevels_short hAT index coord hc, ftsPrev_short hAT index coord (by omega)]
+      rw [ftsLevels_short hAT index coord hc]
 end objects
 theorem honestInput_length (answers : Answers) (position : Extract.Pos) :
     (Extract.honestInput answers position).length ≤ SeccLaw.maxInputLength := by
@@ -145,7 +141,7 @@ theorem honestInput_length (answers : Answers) (position : Extract.Pos) :
       omega
   | wctLeaf index coord child =>
       apply short_of_le
-      simp only [Extract.wctLeafInputP, Extract.listInput_length', List.length_cons, List.length_drop,
+      simp only [Extract.wctLeafInput, Extract.listInput_length', List.length_cons, List.length_drop,
         Extract.wctEnds, List.length_ofFn]
       omega
   | wctNode index coord level node =>

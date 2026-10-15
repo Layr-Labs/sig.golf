@@ -2,7 +2,7 @@ import SigGolfCandidate.ClaudeWCT.WCT9.Core
 import SigGolfCandidate.T3.Nonbinary.LowerLayout
 
 section
-set_option maxRecDepth 10000
+
 
 namespace ClaudeWCT.WCT9
 open SigGolfCandidate.T3
@@ -12,17 +12,10 @@ def decodeV5Lower (lay : Layer) (n : Nat) : Option (List Nat) :=
   let total := digits.sum
   if total ≤ target lay ∧ target lay - total < 8 then some (digits ++ [target lay - total]) else none
 def producerDecodeV5Lower (lay : Layer) (n : Nat) : Option (List Nat) :=
-  (decodeV5Lower lay n).bind fun digits =>
-    if producerFloor lay + dispatchPenalty lay digits ≤ wordCredit lay digits + 4 * savedCopies lay digits ∧
-        producerZeroBound lay digits ∧
-        producerRankBound lay (lowerPack n)
-    then some digits else none
+  (decodeV5Lower lay n).bind fun digits => if producerFloor lay ≤ wordCredit lay digits then some digits else none
 theorem producerDecode_eq_bind (lay : Layer) (v : Digest) :
     producerDecode lay v =
-      (decode lay v).bind fun digits =>
-        if producerFloor lay + dispatchPenalty lay digits ≤ wordCredit lay digits + 4 * savedCopies lay digits ∧
-        producerZeroBound lay digits ∧ producerRankBound lay v
-        then some digits else none := by
+      (decode lay v).bind fun digits => if producerFloor lay ≤ wordCredit lay digits then some digits else none := by
   unfold producerDecode
   generalize decode lay v = x
   cases x <;> rfl
@@ -45,8 +38,7 @@ theorem producerDecode_lower_eq {lay : Layer} (hlay : lay ≠ 0) (v : Digest) :
   rw [producerDecode_eq_bind, decode_lower_eq hlay]
   by_cases hs : lowerSpare v
   · rw [if_pos hs, if_pos hs]
-    unfold producerDecodeV5Lower
-    rw [lowerPack_lowerWord hs]
+    rfl
   · rw [if_neg hs, if_neg hs]
     rfl
 theorem decode_lowerPack {lay : Layer} (hlay : lay ≠ 0) {n : Nat} (hn : n < 2 ^ 126) :
@@ -389,7 +381,7 @@ theorem lowSum_eq (V : Nat) (h : V / 2 ^ 64 < 2 ^ 62) :
   have := lowDigits_sum (V % 2 ^ 64) (V / 2 ^ 64) (Nat.mod_lt _ (by norm_num))
   rw [← hV] at this
   exact this.symm
-theorem target_le (lay : Layer) : target lay ≤ 202 := by
+theorem target_le (lay : Layer) : target lay ≤ 201 := by
   fin_cases lay <;> decide
 def lowSumS1 (v : Digest) : Nat := lowSwar (v.toNat % 2 ^ 63) (v.toNat / 2 ^ 64 % 2 ^ 63)
 theorem lowSumS1_lt (v : Digest) : lowSumS1 v < 4095 := Nat.mod_lt _ (by norm_num)
@@ -441,20 +433,3 @@ theorem decode_lower_v6 (lay : Layer) (hlay : lay ≠ 0) (value : Digest) :
   · rw [if_neg hs, if_neg hs]
 end SigGolfCandidate.T3M
 end
-
-namespace SigGolfCandidate.T3M
-open SigGolfCandidate.T3
-abbrev canonicalDecode := ClaudeWCT.WCT9.CanonicalPolicy.decode
-def canonicalTarget (lay : Layer) : Nat := target (ClaudeWCT.WCT9.CanonicalPolicy.normalLayer lay)
-theorem canonical_decode_lower_v6 (lay : Layer) (hlay : lay ≠ 0) (value : Digest) :
-    canonicalDecode lay value =
-      if lowerSpare value then
-        (if (canonicalTarget lay + 2 ^ 64 - lowSumS1 value) % 2 ^ 64 < 8 then
-          some (((List.range 42).map fun i => lowerWord value / 2 ^ (3 * i) % 8) ++
-            [(canonicalTarget lay + 2 ^ 64 - lowSumS1 value) % 2 ^ 64])
-        else none)
-      else none := by
-  simpa only [canonicalDecode, ClaudeWCT.WCT9.CanonicalPolicy.decode,
-    canonicalTarget, ClaudeWCT.WCT9.CanonicalPolicy.normalLayer, if_neg hlay] using
-    decode_lower_v6 (1 : Layer) (by decide) value
-end SigGolfCandidate.T3M

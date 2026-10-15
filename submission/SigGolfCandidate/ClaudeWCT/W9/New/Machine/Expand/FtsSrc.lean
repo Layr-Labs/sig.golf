@@ -24,24 +24,6 @@ theorem childCanon (k index j : Nat) (ends : List Digest) (sibs : Nat → Digest
   unfold childProgC ClaudeWCT.WCT9.leafHash sixLevels
   rw [leafBytes_canon k index j ends h, bind_assoc]
   rfl
-/-- Nested FTS (r1-1): the leaf block with the pad slot set to `pad` is `leafInputP`. -/
-theorem leafBytes_canonP (k index j : Nat) (ends : List Digest) (pad : Digest) (h : ends.length = 6) :
-    leafBytes (ClaudeWCT.W9.Machine.Expand.leafP (leafFields k index j ends) pad) =
-      ClaudeWCT.WCT9.leafInputP index k j pad ends := by
-  match ends, h with
-  | [e0, e1, e2, e3, e4, e5], _ =>
-    simp only [leafBytes, show List.range 8 = [0, 1, 2, 3, 4, 5, 6, 7] from rfl, List.flatMap_cons,
-      List.flatMap_nil, ClaudeWCT.W9.Machine.Expand.leafP, leafFields, List.drop_succ_cons, List.drop_zero,
-      List.append_nil, List.append_assoc, ClaudeWCT.WCT9.leafInputP]
-    rfl
-theorem childCanonN (k index j : Nat) (ends : List Digest) (sibs : Nat → Digest) (pv : Digest × Digest)
-    (h : ends.length = 6) :
-    ClaudeWCT.W9.Machine.Expand.childProgN k index j (leafFields k index j ends) sibs pv =
-      (ClaudeWCT.WCT9.leafHashP index k j pv.1 ends >>= fun root =>
-        (List.range 5).foldlM (childLevel k index j sibs) root >>= fun w =>
-        ClaudeWCT.W9.Machine.Expand.childTopN k index j sibs pv.2 w >>= fun top => pure (pairOf j top (sibs 6))) := by
-  unfold ClaudeWCT.W9.Machine.Expand.childProgN ClaudeWCT.WCT9.leafHashP
-  rw [leafBytes_canonP k index j ends pv.1 h]
 theorem finRange_map_val (n : Nat) : (List.finRange n).map Fin.val = List.range n := by
   apply List.ext_getElem (by simp)
   intro i h1 h2
@@ -67,24 +49,6 @@ theorem sixFolds (k index j : Nat) (path : Fin 7 → Digest) (root : Digest) :
   rw [hf, show List.foldlM (fun value (level : Fin 6) => F value level.val) root (List.finRange 6) =
       List.foldlM F root ((List.finRange 6).map Fin.val) by rw [List.foldlM_map], finRange_map_val]
   rfl
-/-- Nested FTS (r1-1): the five low folds of `recoverCoordinate`. -/
-theorem fiveFolds (k index j : Nat) (path : Fin 7 → Digest) (root : Digest) :
-    (List.finRange 5).foldlM (fun value (level : Fin 5) => do
-      let other := path (Fin.castLE (by decide) level)
-      let pair := if j / 2 ^ level.val % 2 = 0 then (value, other) else (other, value)
-      ClaudeWCT.WCT9.wctNodeHash k index (2 ^ (6 - level.val) + j / 2 ^ (level.val + 1)) pair.1 pair.2) root =
-    (List.range 5).foldlM (childLevel k index j (finPath path)) root := by
-  have hf : (fun value (level : Fin 5) ↦ do
-      let other := path (Fin.castLE (by decide) level)
-      let pair := if j / 2 ^ level.val % 2 = 0 then (value, other) else (other, value)
-      ClaudeWCT.WCT9.wctNodeHash k index (2 ^ (6 - level.val) + j / 2 ^ (level.val + 1)) pair.1 pair.2 :
-        Digest → Fin 5 → M Digest) = fun value level => childLevel k index j (finPath path) value level.val := by
-    funext value level
-    simp only [childLevel, finPath, dif_pos (show level.val < 7 by omega), bitAt, heapOf]
-    rfl
-  rw [hf, show List.foldlM (fun value (level : Fin 5) => childLevel k index j (finPath path) value level.val) root
-      (List.finRange 5) = List.foldlM (childLevel k index j (finPath path)) root ((List.finRange 5).map Fin.val) by
-      rw [List.foldlM_map], finRange_map_val]
 end ClaudeWCT.W9.Machine.Merkle
 end
 section
@@ -101,15 +65,12 @@ theorem mapM_finRange_eq {β : Type} (f : Fin 6 → M β) (g : Nat → M β) (h 
     (List.finRange 6).mapM f = (List.range' 0 6).mapM g := by
   have : f = g ∘ Fin.val := funext h
   rw [this, ← List.mapM_map, Merkle.finRange_map_val, List.range_eq_range']
-theorem recoverCoordinate_split (sig : WCT9.Signature) (index : Nat) (N : HashOutput) (k : WCT9.Coord)
-    (prev : Digest × Digest) :
-    WCT9.recoverCoordinate sig index N k prev =
+theorem recoverCoordinate_split (sig : WCT9.Signature) (index : Nat) (N : HashOutput) (k : WCT9.Coord) :
+    WCT9.recoverCoordinate sig index N k =
       (chainsFrom index k.val (WCT9.child N k).val (codewordL (WCT9.rank N k).val)
           (fun t => if h : t < 6 then (sig.openings k).values ⟨t, h⟩ else 0) 0 >>= fun ends =>
-        WCT9.leafHashP index k.val (WCT9.child N k).val prev.1 ends >>= fun root =>
-        (List.range 5).foldlM (Merkle.childLevel k.val index (WCT9.child N k).val (Merkle.finPath (sig.openings k).path))
-          root >>= fun w =>
-        childTopN k.val index (WCT9.child N k).val (Merkle.finPath (sig.openings k).path) prev.2 w >>= fun top =>
+        (WCT9.leafHash index k.val (WCT9.child N k).val ends >>=
+          Merkle.sixLevels k.val index (WCT9.child N k).val (Merkle.finPath (sig.openings k).path)) >>= fun top =>
         pure (Merkle.pairOf (WCT9.child N k).val top ((sig.openings k).path 6))) := by
   unfold WCT9.recoverCoordinate
   simp only
@@ -123,12 +84,9 @@ theorem recoverCoordinate_split (sig : WCT9.Signature) (index : Nat) (N : HashOu
   unfold chainsFrom
   rw [show 6 - 0 = 6 from rfl, ← hm]
   refine bind_congr fun ends => ?_
+  rw [bind_assoc]
   refine bind_congr fun root => ?_
-  rw [Merkle.fiveFolds]
-  refine bind_congr fun w => ?_
-  unfold childTopN Merkle.pairOf
-  simp only [Merkle.bitAt, Merkle.finPath, dif_pos (show (5 : Nat) < 7 by omega),
-    show Merkle.heapOf 5 (WCT9.child N k).val = 2 + (WCT9.child N k).val / 2 ^ 6 by unfold Merkle.heapOf; norm_num]
+  rw [Merkle.sixFolds]
   rfl
 end ClaudeWCT.W9.Machine.Expand
 end

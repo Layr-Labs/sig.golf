@@ -1,4 +1,3 @@
-import SigGolfCandidate.T3.Secc.PairGuessLazyFree
 import SigGolfCandidate.ClaudeWCT.W9.New.Game.Signer
 import SigGolfCandidate.ClaudeWCT.Bank.GameInvL
 import SigGolfCandidate.ClaudeWCT.Bank.WCTHonest
@@ -35,14 +34,13 @@ def payAfterDigest (cache : T3.Cache) (rho : Digest) (output : HashOutput) : M (
     (fun (state : List Opening × List (Digest × Digest)) coord => do
       let selected := child output coord
       let (levels, values) ← buildCoordinateF index coord selected (rank output coord)
-        (WCT9.prevPair WCT9.ftsStart state.2)
       let path := (List.range 7).map fun level =>
         (levels.getD level []).getD (selected.val / 2 ^ level ^^^ 1) 0
       let opening : Opening := ⟨fun i => values.getD i.val 0, fun i => path.getD i.val 0⟩
       pure (state.1 ++ [opening],
         state.2 ++ [((levels.getD 6 []).getD 0 0, (levels.getD 6 []).getD 1 0)])) ([], [])
-  let top := WCT9.prevPair WCT9.ftsStart state.2
-  let some layers ← WCT9.signLayersBC cache index 4 (.pair top.1 top.2) | pure none
+  let root ← WCT9.forestPk index state.2
+  let some layers ← WCT9.signLayersBC cache index 4 (.forest root) | pure none
   pure (some ⟨rho, fun coord => state.1.getD coord.val ⟨fun _ => 0, fun _ => 0⟩,
     fun lay => piecesSignature lay (layers.getD lay.val ([], []))⟩)
 theorem signPayload_factor (cache : T3.Cache) (message : Message) :
@@ -87,17 +85,30 @@ theorem avoids_forestPk (index : Nat) (roots : List (Digest × Digest)) :
     NonceFreshness.Avoids m (WCT9.forestPk index roots) := by
   unfold WCT9.forestPk
   exact NonceFreshness.avoids_shortHash m _
-theorem avoids_buildChildF (index coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest) :
-    NonceFreshness.Avoids m (buildChildF index coord selected word coefs pad) :=
+theorem avoids_buildChildF (index coord selected : Nat) (word : Rank) (coefs : List Digest) :
+    NonceFreshness.Avoids m (buildChildF index coord selected word coefs) :=
   W9.T3.Security.Signer.buildChildF_allowed _ (fun _ => by simp [NonceFreshness.nonceQuery])
-    index coord selected word coefs pad
+    index coord selected word coefs
 theorem avoids_ftsCoefs (index coord : Nat) : NonceFreshness.Avoids m (WCT9.ftsCoefs index coord) :=
   W9.T3.Security.Signer.ftsCoefs_allowed _ (fun _ _ _ _ => by simp [NonceFreshness.nonceQuery]) index coord
-theorem avoids_buildCoordinateF (index : Nat) (coord : Coord) (selected : Child) (word : Rank)
-    (prev : Digest × Digest) :
-    NonceFreshness.Avoids m (buildCoordinateF index coord selected word prev) :=
-  W9.T3.Security.Signer.buildCoordinateF_allowed _ (fun _ => by simp [NonceFreshness.nonceQuery])
-    (fun _ _ _ _ => by simp [NonceFreshness.nonceQuery]) index coord selected word prev
+theorem avoids_buildCoordinateF (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
+    NonceFreshness.Avoids m (buildCoordinateF index coord selected word) := by
+  unfold buildCoordinateF
+  apply NonceFreshness.avoids_bind m (avoids_ftsCoefs m _ _)
+  intro coefs
+  apply NonceFreshness.avoids_bind m
+  · apply NonceFreshness.avoids_foldlM m
+    intro state j
+    exact NonceFreshness.avoids_bind m (avoids_buildChildF m _ _ _ _ _) fun _ => NonceFreshness.avoids_pure m _
+  · intro state
+    apply NonceFreshness.avoids_bind m
+    · unfold WCT9.heapBuild
+      apply NonceFreshness.avoids_foldlM m
+      intro nodes heap
+      exact NonceFreshness.avoids_bind m (NonceFreshness.avoids_nodeHash m _ _ _ _ _ _)
+        fun _ => NonceFreshness.avoids_pure m _
+    · intro _
+      exact NonceFreshness.avoids_pure m _
 theorem avoids_signLayersBC (cache : T3.Cache) (index n : Nat) (msg : WCT9.LayerMsg) :
     NonceFreshness.Avoids m (WCT9.signLayersBC cache index n msg) :=
   W9.T3.Security.Signer.signLayersBC_allowed _ (fun _ => by simp [NonceFreshness.nonceQuery]) cache
@@ -111,8 +122,10 @@ theorem wct_payAvoids : PayAvoids payAfterDigest := by
   apply NonceFreshness.avoids_bind m
   · apply NonceFreshness.avoids_foldlM m
     intro state coord
-    exact NonceFreshness.avoids_bind m (avoids_buildCoordinateF m _ _ _ _ _) fun _ => NonceFreshness.avoids_pure m _
+    exact NonceFreshness.avoids_bind m (avoids_buildCoordinateF m _ _ _ _) fun _ => NonceFreshness.avoids_pure m _
   · intro state
+    apply NonceFreshness.avoids_bind m (avoids_forestPk m _ _)
+    intro root
     apply NonceFreshness.avoids_bind m (avoids_signLayersBC m _ _ _ _)
     intro layers
     split
@@ -203,27 +216,6 @@ theorem leafHash_ok (index coord selected : Nat) (ends : List Digest) :
       WCT9.ftsLeafHeader_firstByte]
     decide
   · intro _; exact SourceQueries.pure_allowed _ _
-theorem leafHashP_ok (index coord selected : Nat) (pad : Digest) (ends : List Digest) :
-    AllQueriesSatisfy (WCT9.leafHashP index coord selected pad ends) BPB.NotDigestQ := by
-  unfold WCT9.leafHashP WCT9.leafInputP shortHash publicHash
-  apply SourceQueries.bind_allowed
-  · apply (allQueriesSatisfy_query_iff _ _).mpr
-    show BPB.hdrMarker (pad64 (bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (WCT9.ftsLeafHeader index coord selected) ++
-      bytesLE 16 pad ++ (ends.drop 1).flatMap (bytesLE 16))) ≠ 0
-    unfold BPB.hdrMarker
-    rw [List.append_assoc (bytesLE 16 _ ++ bytesLE 16 _), hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _) (bytesLE_length _ _), bytesLE16_first_toNat,
-      WCT9.ftsLeafHeader_firstByte]
-    decide
-  · intro _; exact SourceQueries.pure_allowed _ _
-theorem topHash_ok (coord index heap : Nat) (left pad right : Digest) :
-    AllQueriesSatisfy (WCT9.wctTopHash coord index heap left pad right) BPB.NotDigestQ :=
-  WCT9.allQ_highHash_of_shortHash _ (BPB.shortHash_ok_marker
-    (show T3M.Extract.hdrBlock (pad64 (WCT9.wctTopInput coord index heap left pad right)) =
-        SphincsSecurity.bytesLE 16 (nodeTweak 3 (WCT9.nodeLayer coord) index heap) by
-      change T3M.Extract.hdrBlock (pad64 (T3M.SecurityInputs.nodeInputP 3 (WCT9.nodeLayer coord) index heap
-        left pad right)) = _
-      rw [T3M.SecurityInputs.pad64_nodeInputP]; exact BSuf.hdrBlock_nodeInputP _ _ _ _ _ _ _)
-    (nodeTweak_marker_ne_zero _ _ _ _))
 theorem forest_header_plain (index : Nat) : header 15 0 index 0 0 = wctHeader 15 0 index 0 0 := by
   unfold wctHeader header
   rw [if_neg (by decide)]
@@ -244,14 +236,14 @@ theorem hdrBlock_pairEncodingInputP (lay : Layer) (tree leaf : Nat) (left right 
   rw [List.append_assoc, List.append_assoc]
   exact T3M.Extract.hdrBlock_prefix _ _ _
 theorem layerEncoding_ok (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (counter : BitVec 32) :
-    AllQueriesSatisfy (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg counter)) BPB.NotDigestQ := by
+    AllQueriesSatisfy (shortHash (WCT9.layerEncodingInput lay tree leaf msg counter)) BPB.NotDigestQ := by
   cases msg with
   | forest root => exact BPB.encoding_ok lay tree leaf root counter
   | pair left right =>
       exact BPB.shortHash_ok_marker (hdrBlock_pairEncodingInputP lay tree leaf left right counter 0)
         (by rw [rowTweak_marker]; decide)
-theorem buildChildF_ok (index coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest) :
-    AllQueriesSatisfy (buildChildF index coord selected word coefs pad) BPB.NotDigestQ := by
+theorem buildChildF_ok (index coord selected : Nat) (word : Rank) (coefs : List Digest) :
+    AllQueriesSatisfy (buildChildF index coord selected word coefs) BPB.NotDigestQ := by
   unfold buildChildF
   apply SourceQueries.bind_allowed
   · apply SourceQueries.foldlM_allowed
@@ -262,31 +254,28 @@ theorem buildChildF_ok (index coord selected : Nat) (word : Rank) (coefs : List 
     intro _
     exact SourceQueries.pure_allowed _ _
   · intro state
-    exact SourceQueries.bind_allowed _ (leafHashP_ok _ _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
+    exact SourceQueries.bind_allowed _ (leafHash_ok _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
 theorem ftsCoefs_ok (index coord : Nat) : AllQueriesSatisfy (WCT9.ftsCoefs index coord) BPB.NotDigestQ := by
   unfold WCT9.ftsCoefs
   apply SourceQueries.foldlM_allowed
   intro acc j
   exact SourceQueries.bind_allowed _ (BPB.privatePair_ok _ _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
-theorem buildCoordinateF_ok (index : Nat) (coord : Coord) (selected : Child) (word : Rank) (prev : Digest × Digest) :
-    AllQueriesSatisfy (buildCoordinateF index coord selected word prev) BPB.NotDigestQ := by
+theorem buildCoordinateF_ok (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
+    AllQueriesSatisfy (buildCoordinateF index coord selected word) BPB.NotDigestQ := by
   unfold buildCoordinateF
   apply SourceQueries.bind_allowed _ (ftsCoefs_ok _ _)
   intro coefs
   apply SourceQueries.bind_allowed
   · apply SourceQueries.foldlM_allowed
     intro state j
-    exact SourceQueries.bind_allowed _ (buildChildF_ok _ _ _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
+    exact SourceQueries.bind_allowed _ (buildChildF_ok _ _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
   · intro state
     apply SourceQueries.bind_allowed
     · unfold WCT9.heapBuild
       apply SourceQueries.foldlM_allowed
       intro nodes heap
-      refine SourceQueries.bind_allowed _ ?_ fun _ => SourceQueries.pure_allowed _ _
-      unfold WCT9.wctHeapNode
-      split
-      · exact topHash_ok _ _ _ _ _ _
-      · exact BPB.nodeHash_ok 3 _ _ _ _ _ (by decide)
+      exact SourceQueries.bind_allowed _ (BPB.nodeHash_ok 3 _ _ _ _ _ (by decide))
+        fun _ => SourceQueries.pure_allowed _ _
     · intro _
       exact SourceQueries.pure_allowed _ _
 theorem wct_payNotDigest : PayNotDigest payAfterDigest := by
@@ -295,8 +284,10 @@ theorem wct_payNotDigest : PayNotDigest payAfterDigest := by
   apply SourceQueries.bind_allowed
   · apply SourceQueries.foldlM_allowed
     intro state coord
-    exact SourceQueries.bind_allowed _ (buildCoordinateF_ok _ _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
+    exact SourceQueries.bind_allowed _ (buildCoordinateF_ok _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
   · intro state
+    apply SourceQueries.bind_allowed _ (forestPk_ok _ _)
+    intro root
     apply SourceQueries.bind_allowed _ (W9.T3.Security.Signer.signLayersBC_allowed' _ _ layerEncoding_ok
       (W9.T3.Security.Signer.buildTreeP_allowed' _ BPB.chain_ok BPB.leafHash_ok
         (fun _ _ _ _ _ => BPB.buildLevel_ok _ _ _ _ _ _ (by decide))
@@ -637,14 +628,30 @@ theorem chain_allowed (index coord selected i start count : Nat) (value : Digest
   unfold WCT9.chain
   exact SourceQueries.foldlM_allowed Q _ _ (fun _ _ => SourceQueries.shortHash_allowed Q hpublic _) _
 include hpublic in
-theorem buildChildF_allowed (index coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest) :
-    AllQueriesSatisfy (buildChildF index coord selected word coefs pad) Q :=
-  W9.T3.Security.Signer.buildChildF_allowed Q hpublic index coord selected word coefs pad
-include hpublic hpair in
-theorem buildCoordinateF_allowed (index : Nat) (coord : Coord) (selected : Child) (word : Rank)
-    (prev : Digest × Digest) :
-    AllQueriesSatisfy (buildCoordinateF index coord selected word prev) Q :=
-  W9.T3.Security.Signer.buildCoordinateF_allowed Q hpublic (fun _ _ _ _ => hpair _) index coord selected word prev
+theorem buildChildF_allowed (index coord selected : Nat) (word : Rank) (coefs : List Digest) :
+    AllQueriesSatisfy (buildChildF index coord selected word coefs) Q :=
+  W9.T3.Security.Signer.buildChildF_allowed Q hpublic index coord selected word coefs
+include hpublic hpair hnonce in
+theorem buildCoordinateF_allowed (index : Nat) (coord : Coord) (selected : Child) (word : Rank) :
+    AllQueriesSatisfy (buildCoordinateF index coord selected word) Q := by
+  unfold buildCoordinateF
+  apply SourceQueries.bind_allowed _
+    (W9.T3.Security.Signer.ftsCoefs_allowed Q (fun _ _ _ _ => hpair _) _ _)
+  intro coefs
+  apply SourceQueries.bind_allowed
+  · apply SourceQueries.foldlM_allowed
+    intro state j
+    exact SourceQueries.bind_allowed _ (buildChildF_allowed Q hpublic _ _ _ _ _)
+      fun _ => SourceQueries.pure_allowed _ _
+  · intro state
+    apply SourceQueries.bind_allowed
+    · unfold WCT9.heapBuild
+      apply SourceQueries.foldlM_allowed
+      intro nodes heap
+      exact SourceQueries.bind_allowed _ (SourceQueries.nodeHash_allowed Q hpublic hpair hnonce _ _ _ _ _ _)
+        fun _ => SourceQueries.pure_allowed _ _
+    · intro _
+      exact SourceQueries.pure_allowed _ _
 include hpublic hpair hnonce in
 theorem payAfterDigest_allowed (cache : T3.Cache) (rho : Digest) (output : HashOutput) :
     AllQueriesSatisfy (payAfterDigest cache rho output) Q := by
@@ -652,9 +659,12 @@ theorem payAfterDigest_allowed (cache : T3.Cache) (rho : Digest) (output : HashO
   apply SourceQueries.bind_allowed
   · apply SourceQueries.foldlM_allowed
     intro state coord
-    exact SourceQueries.bind_allowed _ (buildCoordinateF_allowed Q hpublic hpair _ _ _ _ _)
+    exact SourceQueries.bind_allowed _ (buildCoordinateF_allowed Q hpublic hpair hnonce _ _ _ _)
       fun _ => SourceQueries.pure_allowed _ _
   · intro state
+    unfold WCT9.forestPk
+    apply SourceQueries.bind_allowed _ (SourceQueries.shortHash_allowed Q hpublic _)
+    intro root
     apply SourceQueries.bind_allowed _ (W9.T3.Security.Signer.signLayersBC_allowed Q hpublic _
       (W9.T3.Security.Signer.buildTreeP_allowed Q hpublic (fun _ _ _ => hpair _))
       (SourceQueries.signTop_allowed Q hpublic hpair hnonce _) _ _ _)
@@ -813,407 +823,3 @@ theorem wctL_search (rho : Digest) (m : Message) :
   (wct_digestSearch_public (wctSpecL horizon rate hexc).toFtsBankSpec rfl rho m _ 0).symm
 end ClaudeWCT.Bank.WCT
 end
-
-namespace ClaudeWCT.Bank.Paired
-open OracleComp OracleSpec OracleComp.EvalDist ENNReal
-open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open SphincsSecurity.Completeness (searchLoop)
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 10000
-set_option backward.isDefEq.respectTransparency false
-
-noncomputable def bankSpec : FtsBankSpecL Proposal :=
-  lawSpec.atLimit ClaudeWCT.WCT9.digestAttemptLimit (by decide +kernel)
-
-theorem digestSearch_public (rho : Digest) (message : Message) :
-    ∀ fuel counter, SigGolfCandidate.Research.SharedForest.sharedDigestSearch rho message counter fuel =
-      lawSpec.search rho message counter fuel := by
-  intro fuel
-  induction fuel with
-  | zero => intro counter; rfl
-  | succ fuel ih =>
-      intro counter
-      rw [SigGolfCandidate.Research.SharedForest.sharedDigestSearch, FtsBankSpec.search, searchLoop]
-      simp only [Sampling.publicProgram, simulateQ_bind, simulateQ_spec_query,
-        SphincsSecurity.Concrete.oracleHash, HasQuery.query, Sampling.publicHandler,
-        digest, publicHash, Sampling.digestTrial, FtsBankSpec.decode,
-        show lawSpec.producer = producer from rfl, producer_source]
-      apply bind_congr
-      intro answer
-      split <;> simp only [simulateQ_pure, map_pure, ih, FtsBankSpec.search, Sampling.publicProgram]
-
-#print axioms digestSearch_public
-end ClaudeWCT.Bank.Paired
-
-namespace ClaudeWCT.Bank.Paired
-open OracleComp OracleSpec OracleComp.EvalDist ENNReal
-open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open SigGolfCandidate.Research
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 10000
-set_option backward.isDefEq.respectTransparency false
-
-def payAfterDigest (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (output : HashOutput) :
-    M (Option SharedForest.Signature) :=
-  Option.map SharedForest.Witness.signature <$> SharedForest.signFromOutput cache rho 0 output
-
-theorem signature_counter (cache : SigGolfCandidate.T3.Cache) (rho : Digest)
-    (counter : BitVec 32) (output : HashOutput) :
-    Option.map SharedForest.Witness.signature <$> SharedForest.signFromOutput cache rho counter output =
-      payAfterDigest cache rho output := by
-  unfold payAfterDigest SharedForest.signFromOutput
-  simp only [map_bind]
-  apply bind_congr
-  intro forest
-  apply bind_congr
-  intro prepared
-  apply bind_congr
-  intro layers
-  cases layers <;> rfl
-
-theorem signPayload_factor (cache : SigGolfCandidate.T3.Cache) (message : Message) :
-    SharedForest.signPayload cache message = (do
-      let rho ← privateNonce message
-      let found ← SharedForest.sharedDigestSearch rho message 0 ClaudeWCT.WCT9.digestAttemptLimit
-      match found with
-      | none => pure none
-      | some (_,output) => payAfterDigest cache rho output) := by
-  unfold SharedForest.signPayload
-  apply bind_congr
-  intro rho
-  apply bind_congr
-  intro found
-  cases found with
-  | none => rfl
-  | some found =>
-      rcases found with ⟨counter,output⟩
-      dsimp only
-      rw [← signature_counter cache rho counter output]
-      simp only [map_eq_bind_pure_comp]
-      apply bind_congr
-      intro witness
-      cases witness <;> rfl
-
-#print axioms signature_counter
-#print axioms signPayload_factor
-end ClaudeWCT.Bank.Paired
-
-namespace ClaudeWCT.Bank.Paired
-open OracleComp OracleSpec
-open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open SigGolfCandidate.Research.SharedForest
-open ClaudeWCT.WCT9
-open ClaudeWCT.W9.T3.Security
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 10000
-set_option backward.isDefEq.respectTransparency false
-
-structure ForestAllowed (Q : SigGolfCandidate.T3.Spec.Domain → Prop) : Prop where
-  coefs : ∀ index coord, AllQueriesSatisfy (ftsCoefs index coord) Q
-  child : ∀ index coord selected word coefs pad,
-    AllQueriesSatisfy (buildChildF index coord selected word coefs pad) Q
-  node : ∀ first coord index heap pads left right,
-    AllQueriesSatisfy (sharedNode first coord index heap pads left right) Q
-
-section
-variable (Q : SigGolfCandidate.T3.Spec.Domain → Prop) (hQ : ForestAllowed Q)
-include hQ
-
-theorem sharedHeap_allowed (first : Bool) (index coord : Nat) (pads : Nat → PairRoot)
-    (leaves : List Digest) : AllQueriesSatisfy (sharedHeap first index coord pads leaves) Q := by
-  unfold sharedHeap
-  exact SourceQueries.foldlM_allowed Q _ _ (fun _ _ =>
-    SourceQueries.bind_allowed Q (hQ.node ..) fun _ => SourceQueries.pure_allowed Q _) _
-
-theorem sharedCoordinate_allowed (first : Bool) (index coord : Nat)
-    (selected : Child) (word : Rank) (pads : Nat → PairRoot) :
-    AllQueriesSatisfy (buildSharedCoordinate first index coord selected word pads) Q := by
-  unfold buildSharedCoordinate
-  exact SourceQueries.bind_allowed Q (hQ.coefs ..) fun _ =>
-    SourceQueries.bind_allowed Q (SourceQueries.foldlM_allowed Q _ _
-      (fun _ _ => SourceQueries.bind_allowed Q (hQ.child ..) fun _ => SourceQueries.pure_allowed Q _) _) fun _ =>
-      SourceQueries.bind_allowed Q (sharedHeap_allowed Q hQ ..) fun _ => SourceQueries.pure_allowed Q _
-
-theorem pair_allowed (index pair : Nat) (s : SigGolfCandidate.Research.SharedForest.Selection)
-    (aWord bWord : Rank) (prev : PairRoot) : AllQueriesSatisfy (buildPair index pair s aWord bWord prev) Q := by
-  unfold buildPair
-  exact SourceQueries.bind_allowed Q (sharedCoordinate_allowed Q hQ ..) fun _ =>
-    SourceQueries.bind_allowed Q (sharedCoordinate_allowed Q hQ ..) fun _ => SourceQueries.pure_allowed Q _
-
-theorem singleton_allowed (index : Nat) (selected : Child) (word : Rank) (prev : PairRoot) :
-    AllQueriesSatisfy (buildSingleton index selected word prev) Q := by
-  unfold buildSingleton
-  exact SourceQueries.bind_allowed Q (sharedCoordinate_allowed Q hQ ..) fun _ => SourceQueries.pure_allowed Q _
-
-theorem forest_allowed (index : Nat) (selected : ForestSelection) (words : ForestWords) :
-    AllQueriesSatisfy (buildForest index selected words) Q := by
-  unfold buildForest
-  exact SourceQueries.bind_allowed Q (SourceQueries.foldlM_allowed Q _ _
-    (fun _ _ => SourceQueries.bind_allowed Q (pair_allowed Q hQ ..) fun _ => SourceQueries.pure_allowed Q _) _) fun _ =>
-    SourceQueries.bind_allowed Q (singleton_allowed Q hQ ..) fun _ => SourceQueries.pure_allowed Q _
-end
-
-section
-variable (Q : SigGolfCandidate.T3.Spec.Domain → Prop)
-  (hpublic : ∀ input, Q (.inl (.inr input)))
-  (hpair : ∀ tweak, Q (.inr (.inl tweak)))
-  (htop : ∀ cache leaf digits, AllQueriesSatisfy (signTop cache leaf digits) Q)
-
-include hpublic hpair htop in
-theorem tail_public : SharedQueries.TailAllowed Q where
-  chainStep := fun _ _ _ _ _ _ => SourceQueries.shortHash_allowed Q hpublic _
-  leaf := fun _ _ _ _ => SourceQueries.shortHash_allowed Q hpublic _
-  level := fun _ _ _ _ _ => by
-    unfold buildLevel
-    exact SourceQueries.mapM_allowed Q _ _ fun _ =>
-      W9.T3.Security.Signer.nodeHash_allowed Q hpublic _ _ _ _ _ _
-  seed := fun _ _ _ => SourceQueries.privatePair_allowed Q hpair _ _ _ _ _
-  encoding := fun lay _ _ msg _ => by
-    cases msg <;> exact SourceQueries.shortHash_allowed Q hpublic _
-  top := htop
-
-include hpublic hpair in
-theorem forest_public : ForestAllowed Q where
-  coefs := fun _ _ => W9.T3.Security.Signer.ftsCoefs_allowed Q (fun _ _ _ _ => hpair _) _ _
-  child := W9.T3.Security.Signer.buildChildF_allowed Q hpublic
-  node := fun first coord index heap pads left right => by
-    unfold sharedNode sharedOuterHash
-    split
-    · split
-      · exact SourceQueries.shortHash_allowed Q hpublic _
-      · exact W9.T3.Security.Signer.highHash_allowed Q hpublic _
-    · split
-      · split
-        · exact W9.T3.Security.Signer.highHash_allowed Q hpublic _
-        · exact SourceQueries.shortHash_allowed Q hpublic _
-      · exact W9.T3.Security.Signer.nodeHash_allowed Q hpublic _ _ _ _ _ _
-end
-
-theorem pay_allowed (Q : SigGolfCandidate.T3.Spec.Domain → Prop)
-    (htail : SharedQueries.TailAllowed Q) (hforest : ForestAllowed Q)
-    (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (output : HashOutput) :
-    AllQueriesSatisfy (payAfterDigest cache rho output) Q :=
-  SourceQueries.map_allowed Q _ (SharedQueries.signFromOutput_allowed Q htail
-    (forest_allowed Q hforest) cache rho 0 output)
-
-theorem payHashOnly : PayHashOnly payAfterDigest :=
-  pay_allowed _ (tail_public _ (fun _ => trivial) (fun _ => trivial)
-    (SourceQueries.signTop_allowed _ (fun _ => trivial) (fun _ => trivial) (fun _ => trivial)))
-    (forest_public _ (fun _ => trivial) (fun _ => trivial))
-
-theorem payAvoids : PayAvoids payAfterDigest := by
-  intro message
-  apply pay_allowed
-  · exact tail_public _ (fun _ => by simp [NonceFreshness.nonceQuery])
-      (fun _ => by simp [NonceFreshness.nonceQuery]) (NonceFreshness.avoids_signTop message)
-  · exact forest_public _ (fun _ => by simp [NonceFreshness.nonceQuery])
-      (fun _ => by simp [NonceFreshness.nonceQuery])
-
-theorem tail_notDigest : SharedQueries.TailAllowed BPB.NotDigestQ where
-  chainStep := fun lay tree leaf i step value => by
-    unfold shortHash publicHash
-    apply SourceQueries.bind_allowed
-    · apply (allQueriesSatisfy_query_iff _ _).mpr
-      change BPB.hdrMarker (pad64 (SigGolfCandidate.T3.chainInput lay tree leaf i step value)) ≠ 0
-      rw [chainInput_padded]
-      unfold BPB.hdrMarker SigGolfCandidate.T3M.Extract.hdrBlock
-      rw [chainInput_header, bytesLE16_first_toNat]
-      have := chainHeader_firstByte lay tree leaf i step
-      omega
-    · intro _; exact SourceQueries.pure_allowed _ _
-  leaf := BPB.leafHash_ok
-  level := fun _ _ _ _ _ => BPB.buildLevel_ok _ _ _ _ _ _ (by decide)
-  seed := fun _ _ _ => BPB.privatePair_ok _ _ _ _ _
-  encoding := WCT.layerEncoding_ok
-  top := BPB.signTop_ok
-
-theorem topInput_notDigest (coord index heap : Nat) (left pad right : Digest) :
-    AllQueriesSatisfy (shortHash (wctTopInput coord index heap left pad right)) BPB.NotDigestQ :=
-  BPB.shortHash_ok_marker
-    (show SigGolfCandidate.T3M.Extract.hdrBlock (pad64 (wctTopInput coord index heap left pad right)) =
-      SphincsSecurity.bytesLE 16 (nodeTweak 3 (nodeLayer coord) index heap) by
-      change SigGolfCandidate.T3M.Extract.hdrBlock
-        (pad64 (SigGolfCandidate.T3M.SecurityInputs.nodeInputP 3 (nodeLayer coord) index heap left pad right)) = _
-      rw [SigGolfCandidate.T3M.SecurityInputs.pad64_nodeInputP]
-      exact BSuf.hdrBlock_nodeInputP _ _ _ _ _ _ _)
-    (nodeTweak_marker_ne_zero _ _ _ _)
-
-theorem forest_notDigest : ForestAllowed BPB.NotDigestQ where
-  coefs := WCT.ftsCoefs_ok
-  child := WCT.buildChildF_ok
-  node := fun first coord index heap pads left right => by
-    unfold sharedNode sharedOuterHash
-    split
-    · split
-      · exact topInput_notDigest ..
-      · exact allQ_highHash_of_shortHash _ (topInput_notDigest ..)
-    · split
-      · split
-        · exact allQ_highHash_of_shortHash _ (topInput_notDigest ..)
-        · exact topInput_notDigest ..
-      · exact BPB.nodeHash_ok _ _ _ _ _ _ (by decide)
-
-theorem payNotDigest : PayNotDigest payAfterDigest :=
-  pay_allowed _ tail_notDigest forest_notDigest
-
-theorem payRho : PayRho payAfterDigest SigGolfCandidate.Research.SharedForest.Signature.rho := by
-  intro A cache rho output sig h
-  unfold payAfterDigest signFromOutput at h
-  simp only [SigGolfCandidate.T3M.eval_map, evalWithAnswerFn_bind] at h
-  split at h
-  all_goals (rw [evalWithAnswerFn_pure] at h; cases h)
-  all_goals rfl
-
-#print axioms payHashOnly
-#print axioms payAvoids
-#print axioms payNotDigest
-#print axioms payRho
-end ClaudeWCT.Bank.Paired
-
-namespace ClaudeWCT.Bank.FtsBankSpecL
-open OracleComp OracleSpec
-open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-set_option maxHeartbeats 200000
-set_option maxRecDepth 10000
-
-theorem payloadRecord_factor {P Sig : Type} [Fintype P] [SampleableType P]
-    (S : FtsBankSpecL P) (pay : SigGolfCandidate.T3.Cache → Digest → HashOutput → M (Option Sig))
-    (cache : SigGolfCandidate.T3.Cache) (message : Message) :
-    Prod.fst <$> S.payloadRecord pay cache message = (do
-      let rho ← privateNonce message
-      let found ← S.search rho message 0 S.limit
-      match found with
-      | none => pure none
-      | some (_,output) => pay cache rho output) := by
-  unfold FtsBankSpecL.payloadRecord FtsBankSpecL.recordForNonce
-  simp only [map_bind]
-  apply bind_congr
-  intro rho
-  apply bind_congr
-  intro found
-  rcases found with _ | ⟨_, output⟩
-  · simp
-  · simp only [map_bind,map_pure]
-    exact bind_pure _
-
-#print axioms payloadRecord_factor
-end ClaudeWCT.Bank.FtsBankSpecL
-
-namespace ClaudeWCT.Bank.Paired
-open OracleComp OracleSpec SigGolfCandidate.T3
-open SigGolfCandidate.Research
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 10000
-
-theorem payloadRecord_erasure (cache : SigGolfCandidate.T3.Cache) (message : Message) :
-    Prod.fst <$> bankSpec.payloadRecord payAfterDigest cache message =
-      SharedForest.signPayload cache message := by
-  rw [FtsBankSpecL.payloadRecord_factor, signPayload_factor]
-  apply bind_congr
-  intro rho
-  rw [digestSearch_public]
-  rfl
-
-#print axioms payloadRecord_erasure
-end ClaudeWCT.Bank.Paired
-
-namespace ClaudeWCT.Bank.Paired
-open OracleComp OracleSpec OracleComp.EvalDist ENNReal
-open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open SigGolfCandidate.T3M.Final SigGolfCandidate.Research
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 100000
-attribute [local instance] Classical.propDecidable
-noncomputable local instance instDecidableEqCache_pairedBank : DecidableEq T3.Cache := Classical.decEq _
-
-noncomputable def authenticatedSign (published : T3.Cache) (request : Request) :
-    M (Option SharedForest.Signature) := do
-  let _ ← privateMac request.cache.region
-  if request.cache=published then SharedForest.signPayload request.cache request.message else pure none
-
-theorem record_erasure (published : T3.Cache) (request : Request) :
-    Prod.fst <$> bankSpec.authenticatedRecord payAfterDigest published request =
-      authenticatedSign published request := by
-  unfold FtsBankSpecL.authenticatedRecord authenticatedSign
-  rw [map_bind]
-  apply bind_congr
-  intro tag
-  split_ifs
-  · exact payloadRecord_erasure _ _
-  · rfl
-
-noncomputable def recordedSource (published : T3.Cache) : QueryImpl (Interaction' SharedForest.Signature) M
-  | .inl input => forwardWorld input
-  | .inr request => authenticatedSign published request
-
-theorem source_erasure (published : T3.Cache) :
-    bankSpec.source payAfterDigest published = recordedSource published := by
-  funext input
-  cases input with
-  | inl input => rfl
-  | inr request => exact record_erasure published request
-
-theorem recordedExperiment_erasure
-    (rest : Digest → T3.Cache → OracleComp (Interaction' SharedForest.Signature) Bool) :
-    bankSpec.recordedExperiment payAfterDigest rest = (do
-      let generated ← (liftM (QueryRecorded.run keygen QueryRecorded.initial) : PMF _)
-      (liftM (QueryRecorded.run (simulateQ (recordedSource generated.1.2)
-        (rest generated.1.1 generated.1.2)) generated.2) : PMF _)) := by
-  unfold FtsBankSpecL.recordedExperiment
-  simp_rw [source_erasure]
-
-#print axioms record_erasure
-#print axioms recordedExperiment_erasure
-end ClaudeWCT.Bank.Paired
-
-namespace ClaudeWCT.Bank.Paired
-open OracleComp OracleSpec
-open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open SigGolfCandidate.Research.SharedForest
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 100000
-set_option backward.isDefEq.respectTransparency false
-
-def NotNonce : SigGolfCandidate.T3.Spec.Domain → Prop
-  | .inr (.inr (.inl _))=>False
-  | _=>True
-
-theorem notDN_of_marker_notNonce (q : SigGolfCandidate.T3.Spec.Domain)
-    (hmark : BPB.NotDigestQ q) (hnonce : NotNonce q) : BPair.NotDN q := by
-  rcases q with (n|x)|(tweak|(m|region))
-  · trivial
-  · intro hx
-    obtain ⟨rho,m,c,rfl⟩:=BPair.mem_digestInputs.mp hx
-    exact hmark (BPB.hdrMarker_digestInput rho m c)
-  · trivial
-  · exact hnonce.elim
-  · trivial
-
-theorem allQ_notDN {α : Type} (program : M α)
-    (hmark : AllQueriesSatisfy program BPB.NotDigestQ)
-    (hnonce : AllQueriesSatisfy program NotNonce) : AllQueriesSatisfy program BPair.NotDN := by
-  induction program using OracleComp.inductionOn with
-  | pure value => exact allQueriesSatisfy_pure _ _
-  | query_bind q next ih =>
-      obtain ⟨hm,hms⟩:=(allQueriesSatisfy_query_bind_iff _ _ _).mp hmark
-      obtain ⟨hn,hns⟩:=(allQueriesSatisfy_query_bind_iff _ _ _).mp hnonce
-      exact (allQueriesSatisfy_query_bind_iff _ _ _).mpr
-        ⟨notDN_of_marker_notNonce q hm hn,fun a=>ih a (hms a) (hns a)⟩
-
-theorem forest_notNonce : ForestAllowed NotNonce :=
-  forest_public NotNonce (fun _=>trivial) (fun _=>trivial)
-
-theorem forest_notDN : ForestAllowed BPair.NotDN where
-  coefs := fun index coord=>allQ_notDN _ (forest_notDigest.coefs index coord) (forest_notNonce.coefs index coord)
-  child := fun index coord selected word coefs pad=>allQ_notDN _
-    (forest_notDigest.child index coord selected word coefs pad) (forest_notNonce.child index coord selected word coefs pad)
-  node := fun first coord index heap pads left right=>allQ_notDN _
-    (forest_notDigest.node first coord index heap pads left right) (forest_notNonce.node first coord index heap pads left right)
-
-theorem buildForest_notDN (index : Nat) (selected : ForestSelection) (words : ForestWords) :
-    AllQueriesSatisfy (buildForest index selected words) BPair.NotDN :=
-  forest_allowed BPair.NotDN forest_notDN index selected words
-
-#print axioms forest_notDN
-#print axioms buildForest_notDN
-end ClaudeWCT.Bank.Paired

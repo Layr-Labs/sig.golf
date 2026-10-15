@@ -18,6 +18,11 @@ theorem ftsLeaves_eq (answers : Answers) (index : Nat) (coord : WCT9.Coord) :
     ftsLeaves answers index coord.val = WCT9.coordLeaves answers index coord := rfl
 theorem ftsPair_eq_coordinatePair (answers : Answers) (index : Nat) (coord : WCT9.Coord) :
     ftsPair answers index coord.val = WCT9.coordinatePair answers index coord := ftsPair_eq answers index coord
+theorem honestForest_eq_recover (answers : Answers) (index : Nat) :
+    honestForest answers index =
+      evalWithAnswerFn answers (WCT9.forestPk index (List.ofFn (WCT9.coordinatePair answers index))) := by
+  unfold honestForest
+  rw [ftsPairsHonest_eq]
 def heapLevel (heap : Nat) : Nat := 6 - Nat.log 2 heap
 def heapNode (heap : Nat) : Nat := heap - 2 ^ Nat.log 2 heap
 theorem heap_decomp {heap : Nat} (h1 : 2 ≤ heap) (h2 : heap < 128) :
@@ -51,8 +56,8 @@ theorem honestInput_ofFts (T : Answers) (index : Nat) (p : WCT9.Wots.FtsPos) (hp
   cases p with
   | chain coord child t step => rfl
   | leaf coord child =>
-      simp only [Pos.ofFts, honestInput, WCT9.Wots.ftsHonestInput, wctLeafInputP, listInput, WCT9.leafInputP,
-        List.flatMap_cons, List.append_assoc]
+      simp only [Pos.ofFts, honestInput, WCT9.Wots.ftsHonestInput, wctLeafInput, listInput, WCT9.leafInput,
+        List.flatMap_cons, WCT9.bytesLE_zero16, List.append_assoc]
       rfl
   | node coord heap =>
       obtain ⟨h1, h2, h3⟩ := heap_decomp hp.1 hp.2
@@ -65,24 +70,15 @@ theorem honestInput_ofFts (T : Answers) (index : Nat) (p : WCT9.Wots.FtsPos) (hp
         ftsNodes_eq]
       rw [show 2 ^ (7 - heapLevel heap) + 2 * heapNode heap = 2 * heap by omega,
         show 2 ^ (7 - heapLevel heap) + (2 * heapNode heap + 1) = 2 * heap + 1 by omega, h3]
-      have hl5 : heapLevel heap = 5 ↔ heap < 4 := by
-        clear hpow hpos
-        have hb1 : 2 ^ (7 - heapLevel heap - 1) ≤ heap := by omega
-        have hb2 : heap < 2 * 2 ^ (7 - heapLevel heap - 1) := by omega
-        clear h2 h3
-        generalize heapLevel heap = L at h1 hb1 hb2 ⊢
-        interval_cases L <;> simp at hb1 hb2 ⊢ <;> omega
-      by_cases hlt : heap < 4
-      · simp only [if_pos (hl5.mpr hlt), if_pos hlt, nodeInputP, block4, WCT9.wctTopInput, WCT9.nodeLayer,
-          WCT9.wctNodeHeader]
-      · simp only [if_neg (fun h => hlt (hl5.mp h)), if_neg hlt, nodeInputP, block4, WCT9.wctTopInput,
-          WCT9.nodeLayer, WCT9.wctNodeHeader]
+      simp only [nodeInputP, block4, WCT9.nodeInput, bytesLE_zero'', WCT9.nodeLayer, WCT9.wctNodeHeader]
   | forest =>
       simp only [Pos.ofFts, honestInput, WCT9.Wots.ftsHonestInput, forestInput, ftsPairsHonest_eq]
 theorem ftsHonestQuery_pos {T : Answers} {index : Nat} (hidx : index < 2 ^ 31) {x : HashInput}
     (h : WCT9.Wots.FtsHonestQuery T index (.inl (.inr x))) : ∃ pos : Pos, pos.Bounded ∧ x = honestInput T pos := by
   obtain ⟨p, hp, rfl⟩ := (show ∃ p : WCT9.Wots.FtsPos, p.Bounded ∧ x = WCT9.Wots.ftsHonestInput T index p from h)
   exact ⟨Pos.ofFts index p, ofFts_bounded hidx p hp, (honestInput_ofFts T index p hp).symm⟩
-theorem honestTop_eq_wct9 (answers : Answers) (index : Nat) :
-    honestTop answers index = WCT9.honestTop answers index := honestTop_eq answers index
+theorem honestForest_eq_wct9 (answers : Answers) (index : Nat) :
+    honestForest answers index = WCT9.honestForest answers index := by
+  rw [honestForest_eq_recover]
+  rfl
 end ClaudeWCT.W9.T3M.Extract

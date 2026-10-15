@@ -21,5 +21,9 @@ def PosSource : Extract.Pos → Prop
 def StructuralHitSrc (answers : Answers) (trace : List Entry) : Prop :=
   ∃ position input answer, (input, answer) ∈ trace ∧ Extract.posOf input = some position ∧
     position.Bounded ∧ PosSource position ∧ StructuralClass answers input position ∧
-    Extract.HashHitAt answers position (Extract.honestInput answers position) input
+    HashHit answers (Extract.honestInput answers position) input
+theorem StructuralHitSrc.toStructuralHit {answers : Answers} {trace : List Entry}
+    (h : StructuralHitSrc answers trace) : StructuralHit answers trace := by
+  obtain ⟨position, input, answer, hm, hpos, hb, -, hc, hh⟩ := h
+  exact ⟨position, input, answer, hm, hpos, hb, hc, hh⟩
 end ClaudeWCT.W9.T3.Security.WotsExtract

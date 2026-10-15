@@ -43,7 +43,7 @@ theorem verifyP_walk_extract (answers : Answers) (m : Message) (pk : Digest) (w 
        ((∀ l : Layer, Good answers w (WCT9.digestIndex N) l) ∧
           evalWithAnswerFn answers
               (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N) =
-            honestTop answers (WCT9.digestIndex N) ∧
+            honestForest answers (WCT9.digestIndex N) ∧
           ∀ q ∈ queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N),
             q ∈ queried answers (verifyP m pk w))) := by
   obtain ⟨N, hdc, hN, hdq, hS, hlay, hqF, hqL⟩ := WctExtract.verifyP_walk_wct answers m pk w hv
@@ -88,9 +88,10 @@ theorem ftsPairsHonest_eq (answers : Answers) (index : Nat) :
   intro i hi _
   simp only [ftsPairsHonest, List.getElem_map, List.getElem_range, List.getElem_ofFn]
   exact ftsPair_eq answers index ⟨i, by simpa [ftsPairsHonest] using hi⟩
-theorem honestTop_eq (answers : Answers) (index : Nat) :
-    honestTop answers index = WCT9.honestTop answers index :=
-  WctExtract.ftsPair_eq_prev answers index 8
+theorem honestForest_eq (answers : Answers) (index : Nat) :
+    honestForest answers index = WCT9.honestForest answers index := by
+  unfold honestForest WCT9.honestForest
+  rw [ftsPairsHonest_eq]
 theorem honestPair_eq (answers : Answers) (lay : Layer) (tree : Nat) :
     honestPair answers lay tree = WCT9.builtPair answers lay tree := rfl
 theorem honestRoot_top (answers : Answers) :

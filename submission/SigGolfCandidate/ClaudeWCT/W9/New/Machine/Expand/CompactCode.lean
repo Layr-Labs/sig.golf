@@ -1,43 +1,8 @@
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.Base
 
-namespace ClaudeWCT.W9.Machine.Expand
-open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
-open SigGolfCandidate.T3M.Verify
-open ClaudeWCT.W9.Machine.VLib
-
-def compactScope (n : Nat) : Bool :=
-  decide ((33000≤n ∧ n<33285) ∨ (41108≤n ∧ n<42719) ∨ (43951≤n ∧ n<44043))
-def compactLook (n : Nat) : Option (BitVec 32) := if compactScope n then expLook n else none
-structure CompactCodeAt (im : Image) : Prop where
-  look : LookOK im compactLook
-
-theorem CompactCodeAt.ofNew {im : Image} (h : NewCodeAt im) : CompactCodeAt im := by
-  refine ⟨?_⟩
-  intro n w hw
-  unfold compactLook at hw
-  split at hw
-  · exact expLook_ok h n w hw
-  · cases hw
-instance {im : Image} : Coe (NewCodeAt im) (CompactCodeAt im) := ⟨CompactCodeAt.ofNew⟩
-
-def compactWindowOK (n : Nat) (ws : List (BitVec 32)) : Bool :=
-  (List.range ws.length).all fun i=>compactLook (n+i)==ws[i]?
-theorem codeAt_of_compact_window {im : Image} (hc : CompactCodeAt im) {n : Nat} {ws : List (BitVec 32)}
-    (hn : 0x1000+4*n+4*ws.length<2^64) (h : compactWindowOK n ws=true) : CodeAt im (pcOf n) ws := by
-  refine codeAt_of_look hc.look n ws hn (fun i hi=>?_)
-  unfold compactWindowOK at h
-  have:=List.all_eq_true.mp h i (List.mem_range.mpr hi)
-  simpa using this
-#print axioms CompactCodeAt.ofNew
-#print axioms codeAt_of_compact_window
-example {im : Image} (hc : NewCodeAt im) : CompactCodeAt im := hc
-end ClaudeWCT.W9.Machine.Expand
-
 namespace ClaudeWCT.W9.Machine.Expand.Compact
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
 def cfgC : Config := { noAlias := true }
-/-- Nested FTS (r1-1): hold slot of coordinate `k` (top sibling, flag `1 - bit6`), written by the staging pass. -/
-def holdAt (k : Nat) : Nat := 0x380000 + 32 * k
 def coordAt (k : Nat) : Nat := 41121 + 111 * k
 def sibAt (k l : Nat) : Nat := coordAt k + 13 + 14 * l
 def sibLen (l : Nat) : Nat := if l < 6 then 14 else 12
@@ -53,31 +18,29 @@ def cHeads : List (List (BitVec 32)) :=[[0x6003303,217875,0x7f37993,296339,41944
 def cHead (k : Nat) : List (BitVec 32) := cHeads.getD k []
 def cMids : List (List (BitVec 32)) :=[[470025491,335840659,75499027,0x7a1000ef],[470025491,335840659,75499027,0x5e5000ef],[470025491,335840659,75499027,0x429000ef],[470025491,335840659,75499027,651165935],[470025491,335840659,75499027,0xb1000ef],[470025491,335840659,75499027,0x6f4000ef],[470025491,335840659,75499027,0x538000ef],[470025491,335840659,75499027,935330031],[470025491,335840659,75499027,469762287]]
 def cMid (k : Nat) : List (BitVec 32) := cMids.getD k []
-def cSibs : List (List (BitVec 32)) :=[[679427,29658675,647059,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,403095171,411483907,31338531,32388131],[2776579,29658675,1695635,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,335986307,344375043,31338531,32388131],[4873731,29658675,2744211,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,268877443,277266179,31338531,32388131],[6970883,29658675,3792787,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,0xc06be83,0xc86bf03,31338531,32388131],[9068035,29658675,4841363,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,0x806be83,0x886bf03,31338531,32388131],[872418835,29658675,5889939,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,67550851,75939587,31338531,32388131],[0xca5e03,29658675,6938515,2084755,6264467,5218195,0xdf8fb3,32769715,441987,8830723,31338531,32388131]]
+def cSibs : List (List (BitVec 32)) :=[[679427,29658675,647059,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,403095171,411483907,31338531,32388131],[2776579,29658675,1695635,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,335986307,344375043,31338531,32388131],[4873731,29658675,2744211,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,268877443,277266179,31338531,32388131],[6970883,29658675,3792787,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,0xc06be83,0xc86bf03,31338531,32388131],[9068035,29658675,4841363,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,0x806be83,0x886bf03,31338531,32388131],[0xaa5e03,29658675,5889939,2097043,2084755,6264467,5218195,0xdf8fb3,32769715,33426995,67550851,75939587,31338531,32388131],[0xca5e03,29658675,6938515,2084755,6264467,5218195,0xdf8fb3,32769715,441987,8830723,31338531,32388131]]
 def cSib (l : Nat) : List (BitVec 32) := cSibs.getD l []
 section code
-variable {im : Image} (hc : CompactCodeAt im)
+variable {im : Image} (hc : NewCodeAt im)
 include hc
-theorem code_cStart : CodeAt im (pcOf 41108) cStart := codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_cRegs : CodeAt im (pcOf 41115) cRegs := codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_cFinal : CodeAt im (pcOf 42120) cFinal := codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_cHalt : CodeAt im (pcOf 42127) cHalt := codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_cCopy : CodeAt im (pcOf 42130) cCopy := codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_cZero : CodeAt im (pcOf 42137) cZero := codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_copyRet : CodeAt im (pcOf 42136) [0x8067] := codeAt_of_compact_window hc (by decide) (by decide +kernel)
-theorem code_zeroRet : CodeAt im (pcOf 42141) [0x8067] := codeAt_of_compact_window hc (by decide) (by decide +kernel)
+theorem code_cStart : CodeAt im (pcOf 41108) cStart := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cRegs : CodeAt im (pcOf 41115) cRegs := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cFinal : CodeAt im (pcOf 42120) cFinal := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cHalt : CodeAt im (pcOf 42127) cHalt := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cCopy : CodeAt im (pcOf 42130) cCopy := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cZero : CodeAt im (pcOf 42137) cZero := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_copyRet : CodeAt im (pcOf 42136) [0x8067] := codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_zeroRet : CodeAt im (pcOf 42141) [0x8067] := codeAt_of_window hc (by decide) (by decide +kernel)
 theorem code_cHead (k : Nat) (hk : k < 9) : CodeAt im (pcOf (coordAt k)) (cHead k) := by
-  interval_cases k <;> exact codeAt_of_compact_window hc (by decide) (by decide +kernel)
+  interval_cases k <;> exact codeAt_of_window hc (by decide) (by decide +kernel)
 theorem code_cMid (k : Nat) (hk : k < 9) : CodeAt im (pcOf (coordAt k + 6)) (cMid k) := by
-  interval_cases k <;> exact codeAt_of_compact_window hc (by decide) (by decide +kernel)
+  interval_cases k <;> exact codeAt_of_window hc (by decide) (by decide +kernel)
 theorem code_cRow (k : Nat) (hk : k < 9) : CodeAt im (pcOf (coordAt k + 10)) cRow := by
-  interval_cases k <;> exact codeAt_of_compact_window hc (by decide) (by decide +kernel)
+  interval_cases k <;> exact codeAt_of_window hc (by decide) (by decide +kernel)
 theorem code_cStep (k : Nat) (hk : k < 9) : CodeAt im (pcOf (coordAt k + 109)) cStep := by
-  interval_cases k <;> exact codeAt_of_compact_window hc (by decide) (by decide +kernel)
-/-- Nested FTS (r1-1): levels 0..5 run in place (level 5 now writes to the fixed staging block at +832); level 6
-jumps to a per-coordinate trampoline (`sib6_spec`). -/
-theorem code_cSib (k l : Nat) (hk : k < 9) (hl : l < 6) : CodeAt im (pcOf (sibAt k l)) (cSib l) := by
-  interval_cases k <;> interval_cases l <;> exact codeAt_of_compact_window hc (by decide) (by decide +kernel)
+  interval_cases k <;> exact codeAt_of_window hc (by decide) (by decide +kernel)
+theorem code_cSib (k l : Nat) (hk : k < 9) (hl : l < 7) : CodeAt im (pcOf (sibAt k l)) (cSib l) := by
+  interval_cases k <;> interval_cases l <;> exact codeAt_of_window hc (by decide) (by decide +kernel)
 end code
 sym_block RStart := symRun cfgC cStart (pcOf 41108) 40
 sym_block RRegs := symRun cfgC cRegs (pcOf 41115) 40
@@ -113,8 +76,9 @@ sym_block RSib2 := symRun cfgC (cSib 2) (pcOf (sibAt 0 2)) 40
 sym_block RSib3 := symRun cfgC (cSib 3) (pcOf (sibAt 0 3)) 40
 sym_block RSib4 := symRun cfgC (cSib 4) (pcOf (sibAt 0 4)) 40
 sym_block RSib5 := symRun cfgC (cSib 5) (pcOf (sibAt 0 5)) 40
-def rSib (l : Nat) : Result := [RSib0.res, RSib1.res, RSib2.res, RSib3.res, RSib4.res, RSib5.res].getD l RSib0.res
-theorem run_sib (k l : Nat) (hk : k < 9) (hl : l < 6) : symRun cfgC (cSib l) (pcOf (sibAt k l)) 40 =
+sym_block RSib6 := symRun cfgC (cSib 6) (pcOf (sibAt 0 6)) 40
+def rSib (l : Nat) : Result := [RSib0.res, RSib1.res, RSib2.res, RSib3.res, RSib4.res, RSib5.res, RSib6.res].getD l RSib0.res
+theorem run_sib (k l : Nat) (hk : k < 9) (hl : l < 7) : symRun cfgC (cSib l) (pcOf (sibAt k l)) 40 =
     some ⟨(rSib l).st, .c (pcOf (sibAt k l + sibLen l)), .endOfCode, sibLen l, sibLen l⟩ := by
   interval_cases k <;> interval_cases l <;> kernel_rfl
 theorem run_row (k : Nat) (hk : k < 9) : symRun cfgC cRow (pcOf (coordAt k + 10)) 40 =
@@ -124,39 +88,3 @@ theorem run_step (k : Nat) (hk : k < 9) : symRun cfgC cStep (pcOf (coordAt k + 1
     some ⟨RStep.res.st, .c (pcOf (coordAt k + 111)), .endOfCode, 2, 2⟩ := by
   interval_cases k <;> kernel_rfl
 end ClaudeWCT.W9.Machine.Expand.Compact
-
-namespace ClaudeWCT.W9.Machine.Expand
-open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
-open ClaudeWCT.W9.Machine.VLib
-set_option maxHeartbeats 3000000
-set_option maxRecDepth 100000
-def compactChunkAllowed (c : Nat) : Prop := c=128 ∨ c=129 ∨ c=130 ∨ (160≤c ∧ c≤166) ∨ c=171 ∨ c=172
-def compactChunkLen (c : Nat) : Nat := if c=172 then 11 else 256
-theorem compactCode_of_chunks {im : Image}
-    (hc : ∀c,compactChunkAllowed c → CodeAt im (pcOf (256*c)) ((expChunks.getD (c-4) []).take (compactChunkLen c))) :
-    CompactCodeAt im := by
-  constructor
-  intro n w hw
-  unfold compactLook at hw
-  split at hw
-  · rename_i hs
-    have hn := of_decide_eq_true hs
-    have ha : compactChunkAllowed (n/256) := by unfold compactChunkAllowed; omega
-    have hl : n%256<compactChunkLen (n/256) := by unfold compactChunkLen; split <;> omega
-    have hp : 1024≤n := by omega
-    unfold expLook at hw
-    rw [if_pos hp] at hw
-    have ht : ((expChunks.getD (n/256-4) []).take (compactChunkLen (n/256)))[n%256]?=some w := by
-      rw [List.getElem?_take,if_pos hl]; exact hw
-    have hb : (pcOf (256*(n/256))).toNat=0x1000+4*(256*(n/256)) := by
-      rw [pcOf,BitVec.toNat_ofNat,Nat.mod_eq_of_lt]; omega
-    obtain ⟨_,_,_,hpre⟩ := hc (n/256) ha
-    rw [hb] at hpre
-    obtain ⟨rest,hrest⟩ := hpre
-    have hh := congrArg (·[n%256]?) hrest
-    simp only [List.getElem?_append_left (List.getElem?_eq_some_iff.mp ht).1,ht,List.getElem?_drop] at hh
-    rw [show (0x1000+4*(256*(n/256))-0x1000)/4+n%256=n by omega] at hh
-    exact hh.symm
-  · cases hw
-#print axioms compactCode_of_chunks
-end ClaudeWCT.W9.Machine.Expand

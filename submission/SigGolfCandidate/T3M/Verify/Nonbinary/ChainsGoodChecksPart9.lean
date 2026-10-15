@@ -1,3 +1,4 @@
+import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsSem
 import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsCheckParts
 
 section
@@ -15,11 +16,11 @@ private theorem r8Blk_part_48 : (List.range' 48 16).all r8BlkCheck = true := by 
 theorem r8BlkCheck_all : (List.range' 0 64).all r8BlkCheck = true :=
   @check_range_add r8BlkCheck 0 16 48 r8Blk_part_0 (@check_range_add r8BlkCheck 16 16 32 r8Blk_part_16
     (@check_range_add r8BlkCheck 32 16 16 r8Blk_part_32 r8Blk_part_48))
-theorem r8SufCheck_all (alt : Bool) : (List.range' 0 8).all (fun y => r8SufCheck y alt) = true := by cases alt <;> decide +kernel
+theorem r8SufCheck_all : (List.range' 0 8).all r8SufCheck = true := by decide +kernel
 theorem r8BlkCheck_at (k : Nat) (hk : k<64) : r8BlkCheck k=true :=
   List.all_eq_true.mp r8BlkCheck_all k (List.mem_range'_1.mpr ⟨by omega,by omega⟩)
-theorem r8SufCheck_at (y : Nat) (hy : y<8) (alt : Bool := false) : r8SufCheck y alt=true :=
-  List.all_eq_true.mp (r8SufCheck_all alt) y (List.mem_range'_1.mpr ⟨by omega,by omega⟩)
+theorem r8SufCheck_at (y : Nat) (hy : y<8) : r8SufCheck y=true :=
+  List.all_eq_true.mp r8SufCheck_all y (List.mem_range'_1.mpr ⟨by omega,by omega⟩)
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
