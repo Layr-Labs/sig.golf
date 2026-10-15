@@ -1003,7 +1003,7 @@ theorem layer_good_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
     exact (GoodQP.steps' hst this (by omega) (by omega) (by omega)).toGoodQ
 theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (left right : Digest) (u : MachineState)
     (hidx : idx < 2 ^ 31) (hglob : Glob [(.x5, 0)] w pk u) (hreg : u.getReg .x22 = BitVec.ofNat 64 idx)
-    (hpc : u.pc = pcOf 850) (hleft : DigAt u WIT left) (hright : DigAt u (WIT + 144) right)
+    (hpc : u.pc = pcOf 849) (hleft : DigAt u WIT left) (hright : DigAt u (WIT + 144) right)
     (hwit : Verify.Orig w (fun o => (24 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24800)) u)
     (hbase8 : u.getReg .x8 = BitVec.ofNat 64 (WIT + 176)) (ha1 : u.getReg .x11 = 64)
     (hs10 : u.getReg .x26 = 6) (hOne : u.getReg .x7 = 1) (hTwo : u.getReg .x13 = 2) (hSeven : u.getReg .x30 = 7)

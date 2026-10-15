@@ -14,7 +14,7 @@ def prefixTailWordsOf (a : Nat) : List (BitVec 32) :=
 def prefixWordsOf (a : Nat) : List (BitVec 32) :=
   prefixHead ++ prefixChoose ++ prefixRead ++ prefixTailWordsOf a
 def aVals : List Nat := [13664,13680,13712,13728,13760,13776,13808,13824,13856]
-sym_block prefixBase := symRun { noAlias := true } (prefixTailWordsOf 13760) (BitVec.ofNat 64 (0x1000 + 4 * 1080)) 200
+sym_block prefixBase := symRun { noAlias := true } (prefixTailWordsOf 13760) (BitVec.ofNat 64 (0x1000 + 4 * 1079)) 200
 def prefixRegs (a : Nat) : RegFile :=
   prefixBase.res.st.regs.set .x8 (.bin .add (.reg .x10) (.c (BitVec.ofNat 64 (2 ^ 64 - (a - 11808)))))
 def prefixRes (a : Nat) : Result :=

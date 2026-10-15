@@ -26,12 +26,12 @@ end FCtx
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
-def layerPc : Nat := 850
+def layerPc : Nat := 849
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest HashOutput Selection selections header)
-/-- State after the nested FTS (pc 850, before the R9 copy): tree 8's top pair in the L3 block's left slot (witness
+/-- State after the nested FTS (pc 849, before the R9 copy): tree 8's top pair in the L3 block's left slot (witness
 offset 0) and in the virtual Z slot (offset 144). -/
 structure FtsOut (F : FCtx) (top : Digest × Digest) (u : MachineState) : Prop where
   /-- C4 (D7, adapted from b3cc11b): the FTS setup no longer loads `s2` (x18); the L3 block loads it from `d0`. -/

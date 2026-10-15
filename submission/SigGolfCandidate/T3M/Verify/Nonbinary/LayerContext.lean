@@ -209,7 +209,7 @@ theorem prefix_sub_at (c : Nat) (hc : c < 128) (pre seg post : List (BitVec 32))
       0x1000 + 4 * (trPc 0 c + 6 + pre.length) by ring] at h'
 theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0)
     (t : MachineState) (ht : BC.EncPre w pk index 0 c t) (a : BitVec 256) :
-    ∃ n s, Steps image (writeHash t a) n n s ∧ n ≤ 14 ∧
+    ∃ n s, Steps image (writeHash t a) n n s ∧ n ≤ 13 ∧
       TopEntry (writeHash t a) (ClaudeWCT.WCT9.verificationAnswer 0 (ClaudeWCT.W9.T3M.wtopHint w) a) (trPc 0 c) s := by
   have hc' : c < 128 := by have := BC.nCopy_eq; omega
   have ha := topRowA_mem c hc'
@@ -254,6 +254,7 @@ theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
       (prefix_sub_at c hc' (Nonbinary.prefixHead ++ Nonbinary.prefixChoose) Nonbinary.prefixRead
         (Nonbinary.prefixTailWordsOf (topRowA c))
         (by simp [Nonbinary.prefixWordsOf,List.append_assoc])))
+    (hk (.x11, 64#64) (by simp [BC.bK, T3M.bK, layK]))
     h12s hdA hh hv hhi
   obtain ⟨du,hdu,hduA⟩ : ∃ du, u.getReg .x12 = BitVec.ofNat 64 du ∧
       du % 8 = 0 ∧ 0x1000 ≤ du ∧ du + 16 ≤ 0x7000 := by
@@ -266,7 +267,7 @@ theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
   obtain ⟨z, ez, pz, lo, hi, tl, s3, mask, rz, fz⟩ :=
     Verify.Nonbinary.prefix_tail_spec u
       (ClaudeWCT.WCT9.verificationAnswer 0 (ClaudeWCT.W9.T3M.wtopHint w) a)
-      (topRowA c) du (trPc 0 c + 14) ha
+      (topRowA c) du (trPc 0 c + 13) ha
       (by simpa [Nat.add_assoc] using pu)
       (by simpa [Nonbinary.prefixHead, Nonbinary.prefixChoose, Nonbinary.prefixRead,
         Choice.MachineSelect.head, Choice.MachineSelect.choose, Choice.MachineSelect.read, Nat.add_assoc] using
