@@ -6,10 +6,10 @@ namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)
 def WIT : Nat := 0x4c0
-def WSZ : Nat := 24860
-/-- Byte bound of the 3108 loaded witness words; the last word is the 4-byte digest counter
-zero-padded by the loader, since the witness itself is `WSZ = 24860` bytes. -/
-def WX : Nat := 24864
+def WSZ : Nat := 24828
+/-- Byte bound of the 3104 loaded witness words; the last word is the 4-byte digest counter
+zero-padded by the loader, since the witness itself is `WSZ = 24828` bytes. -/
+def WX : Nat := 24832
 def WLO : Nat := WIT + 48
 theorem ofNat_eq_iff {a b : Nat} (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) :
     (BitVec.ofNat 64 a = BitVec.ofNat 64 b) ↔ a = b := by

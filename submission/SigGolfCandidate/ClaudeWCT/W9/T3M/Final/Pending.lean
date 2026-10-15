@@ -785,8 +785,8 @@ open ClaudeWCT.WCT9.Rev3 (sign expand verify)
 open SigGolfCandidate.T3M (mrealize countBoth countCalls cacheB cacheDec isHash)
 open ClaudeWCT.W9.T3M (Images submission)
 def verifyCycleBound : Nat := 6997
-def claimedC : Nat := 7095
-def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 24860) : Prop :=
+def claimedC : Nat := 7094
+def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 24828) : Prop :=
   ∀ N, evalWithAnswerFn hash (mrealize 0 (digestP m w)) = some N → WCT9.capOk N = true
 variable (I : Images)
 def KeygenRunCounts : Prop := ∀ sk : SecretKey,
@@ -809,13 +809,13 @@ def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5310),
 def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5310),
   ((submission I).runWith hash .expand (m, pk, s)).finished = true ∧
     ((submission I).runWith hash .expand (m, pk, s)).cycles < CYCLE_LIMIT
-def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 24860),
+def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 24828),
   (fun r => (r.value, r.hashCalls)) <$> (submission I).run .verify (m, pk, w) =
     (fun p => (if p.1 then some () else none, p.2)) <$> countCalls (mrealize 0 (verifyP m pk w))
-def VerifyTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24860),
+def VerifyTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24828),
   ((submission I).runWith hash .verify (m, pk, w)).finished = true ∧
     ((submission I).runWith hash .verify (m, pk, w)).cycles < CYCLE_LIMIT
-def VerifyAcceptCycles : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24860),
+def VerifyAcceptCycles : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24828),
   SigGolfCandidate.T3M.Verify.HashOk hash → DigestCapOk hash m w →
   ((submission I).runWith hash .verify (m, pk, w)).value.isSome = true →
     ((submission I).runWith hash .verify (m, pk, w)).cycles ≤ verifyCycleBound
@@ -1638,9 +1638,9 @@ abbrev expandB := ClaudeWCT.W9.T3M.Paired.expandB
 abbrev verifyP := ClaudeWCT.W9.T3M.Paired.verifyP
 abbrev witEnc := ClaudeWCT.W9.T3M.Paired.witEnc
 
- def verifyCycleBound : Nat := 6951
- def claimedC : Nat := 7049
- def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 24860) : Prop :=
+ def verifyCycleBound : Nat := 6950
+ def claimedC : Nat := 7047
+ def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 24828) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64
       (SigGolfCandidate.T3.digestInput (wrho w) m (wdc w)))))≤788
@@ -1665,15 +1665,15 @@ abbrev witEnc := ClaudeWCT.W9.T3M.Paired.witEnc
  def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5248),
   ((submission I).runWith hash .expand (m,pk,s)).finished=true ∧
     ((submission I).runWith hash .expand (m,pk,s)).cycles<CYCLE_LIMIT
- def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 24860),
+ def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 24828),
   (fun r => (r.value,r.hashCalls)) <$> (submission I).run .verify (m,pk,w)=
     (fun p => (if p.1 then some () else none,p.2)) <$> countCalls (mrealize 0 (verifyP m pk w))
- def VerifyTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24860),
+ def VerifyTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24828),
   ((submission I).runWith hash .verify (m,pk,w)).finished=true ∧
     ((submission I).runWith hash .verify (m,pk,w)).cycles<CYCLE_LIMIT
  def VerifyAcceptCycles : Prop := ∀ (floors : SigGolfCandidate.T3.Layer→Nat),
   SigGolfCandidate.T3M.Verify.CreditFloors floors →
-  ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24860),
+  ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24828),
   SigGolfCandidate.T3M.Verify.HashOkBy floors hash → DigestCapOk hash m w →
   ((submission I).runWith hash .verify (m,pk,w)).value.isSome=true →
     ((submission I).runWith hash .verify (m,pk,w)).cycles≤verifyCycleBound

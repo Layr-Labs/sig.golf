@@ -7,15 +7,15 @@ def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGo
 
 theorem signature_bytes : submission.sizes.signature = 5248 := rfl
 
-theorem witness_bytes : submission.sizes.witness = 24860 := rfl
+theorem witness_bytes : submission.sizes.witness = 24828 := rfl
 
 theorem cache_bytes : submission.sizes.cache = 131072 := rfl
 
 theorem layout_offsets : submission.layout =
-  { message := 26080, secretKey := 128, publicKey := 160,
+  { message := 26048, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7049 := by
+theorem certificate : SigGolf.Certificate submission 7047 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -83,5 +83,8 @@ Target: S = 5310, W = 24860, K = 131072, C = 7095; score 37674450.
 This comment records the candidate claim, not an official verification receipt.
 -/
 
-/- Shared forest candidate: S=5248, C=7049, product=36993152.
-The exact accepting run remains required before publication. -/
+/- LOCAL UNVERIFIED combination: S5248/W24828/C7047, score36982656.
+Witness trim from kobizk PR907/be3510ee; singleton-pointer prefetch from our
+PR909/f4bd26ed. Both parents still await official validation. Accepted base
+PR900/soispoke, original paired scheme Ghost1032 and Noi1r. Full certificate
+and exact-image remote validation remain required. -/

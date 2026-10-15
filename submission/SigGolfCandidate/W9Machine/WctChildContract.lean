@@ -155,7 +155,7 @@ def writes (k : Fin 9) (raw : Fin 128) (A : Nat) : Prop :=
 
 structure Post (L : Layout) (k : Fin 9) (raw : Fin 128) (u : MachineState)
     (computed : Digest) (t : MachineState) : Prop where
-  pc : t.pc = pcOf (L.returnWord k + (if k.val = 8 then 77 else 74))
+  pc : t.pc = pcOf (L.returnWord k + (if k.val = 8 then 78 else 74))
   hashLen : t.getReg .x11 = 64
   top : DigAt t (handAddr k raw) computed
   a2 : t.getReg .x12 = BitVec.ofNat 64 (outputAddr k raw)

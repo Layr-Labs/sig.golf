@@ -1174,10 +1174,10 @@ def words (k : Nat) : List (BitVec 32) :=
     [0x1003803,0x1886833,0x7f87213,0x6787b3,0x1421f93,0xffefb3,0x721b93,0x1cb8bb3,0xc8040413,0x585713,0x277733,0x700e7],
     [0xe81213,0x1b27233,0x6787b3,0xf26fb3,0xc25b93,0x1db8bb3,0xc8040413,0x1185713,0x277733,0x700e7],
     [0x1d85713,0x277733,0x7f8f213,0x6787b3,0x1421f93,0xffefb3,0x721b93,0x1cb8bb3,0xc8040413,0x700e7],
-    [0x188e8b3,0xe89213,0x1b27233,0x6787b3,0xf26fb3,0xc25b93,0x1db8bb3,0xc8040413,0x58d713,0x277733,0x13,0x700e7],
-    [0x118d213,0x1b27233,0x6787b3,0xf26fb3,0xf104bc83,0xc25b93,0x19b8bb3,0xc8040413,0x118d713,0x277733,0x700e7]].getD k []
+    [0x188e8b3,0xe89213,0x1b27233,0x6787b3,0xf26fb3,0xc25b93,0x1db8bb3,0xc8040413,0x58d713,0x277733,0xf104be83,0x700e7],
+    [0x118d213,0x1b27233,0x6787b3,0xf26fb3,0xc25b93,0x1db8bb3,0xc8040413,0x118d713,0x277733,0x700e7]].getD k []
 def start (k : Nat) : Nat := [89,171,257,341,425,511,595,679,765].getD k 849
-def length (k : Nat) : Nat := [8,12,10,10,12,10,10,12,11].getD k 0
+def length (k : Nat) : Nat := [8,12,10,10,12,10,10,12,10].getD k 0
 def first (k : Nat) : Bool := decide (k < 8 ∧ k % 2 = 0)
 def rankPosition (k : Nat) : Nat := [13,13,25,37,13,25,37,13,25].getD k 13
 def result (k : Nat) : Result :=
@@ -1196,23 +1196,23 @@ def result (k : Nat) : Result :=
   let singletonBase := .ld (addC (.reg .x9) (BitVec.ofNat 64 (2^64 - 240)))
   let childPC := mkAdd (if first k then mkBin .sll child (.c 7)
     else mkBin .srl child (.c 12)) (if first k then .reg .x28
-      else if k = 8 then singletonBase else .reg .x29)
+      else .reg .x29)
   let field := mkBin .and (mkBin .srl rankDig (.c (BitVec.ofNat 64 (rankPosition k - 8)))) (.reg .x2)
   let regs := if k = 1 ∨ k = 4 then RegFile.init.set .x16 padded else RegFile.init
   let regs := if k = 7 then regs.set .x17 lastPadded else regs
-  let regs := if k = 8 then regs.set .x25 singletonBase else regs
+  let regs := if k = 7 then regs.set .x29 singletonBase else regs
   let regs := (regs.set .x4 child).set .x31 header
   let regs := if k = 0 then regs else (regs.set .x15 node).set .x8
     (addC (.reg .x8) (BitVec.ofNat 64 (2^64 - 896)))
   let regs := ((regs.set .x23 childPC).set .x14 field).set .x1 (.c (pcOf (start k + length k)))
-  ⟨⟨regs, [], if k = 8 then [.valid ⟨some (.reg .x9), BitVec.ofNat 64 (2^64 - 240)⟩ 8] else []⟩,
+  ⟨⟨regs, [], if k = 7 then [.valid ⟨some (.reg .x9), BitVec.ofNat 64 (2^64 - 240)⟩ 8] else []⟩,
     mkBin .and field (.c (~~~1#64)), .jump, length k, length k⟩
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 0 in
 theorem checked : ∀ k : Fin 9,
     rOK (symRun {} (words k.val) (pcOf (start k.val)) (length k.val)) (result k.val) = true := by
   intro k; fin_cases k <;> decide +kernel
-theorem total_dispatch_words : ((List.range 9).map length).sum = 95 := by decide
+theorem total_dispatch_words : ((List.range 9).map length).sum = 94 := by decide
 theorem linked (k : Fin 9) : sliceChecked (start k.val) (words k.val) = true := by
   fin_cases k <;> decide +kernel
 
@@ -1314,7 +1314,7 @@ theorem mem (k : Fin 9) (u : MachineState) (addr : Word) :
   fin_cases k <;> rfl
 
 theorem keep (k : Fin 9) (u : MachineState) (r : Reg)
-    (hr : r ∉ [.x1,.x4,.x8,.x14,.x15,.x16,.x17,.x23,.x25,.x31]) :
+    (hr : r ∉ [.x1,.x4,.x8,.x14,.x15,.x16,.x17,.x23,.x25,.x29,.x31]) :
     ((result k.val).toState u).getReg r = u.getReg r := by
   rw [Result.toState_getReg]
   fin_cases k <;> cases r <;> first | exact False.elim (hr (by decide)) | rfl
@@ -1400,27 +1400,20 @@ theorem child_pc (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k
   have hm := hu.childMask
   have hA := hu.aTable
   have hB := hu.childBlock
-  have hC := hu.singletonTable
-  have h9 := hu.pairPtr
   have hj := (SharedForest.rawChildFromOutput a k).isLt
   have hpc : ((result k.val).toState u).getReg .x23 =
       (childOfWord k ((childDig k.val).eval u) <<< (if first k.val then 7 else 8)) +
-      (if first k.val then u.getReg .x28 else if k.val = 8 then
-        u.getMem (BitVec.ofNat 64 (TOPB9 - 240)) else u.getReg .x29) := by
+      (if first k.val then u.getReg .x28 else u.getReg .x29) := by
     have he : ((result k.val).toState u).getReg .x23 =
         (if first k.val then ((result k.val).toState u).getReg .x4 <<< 7
          else ((result k.val).toState u).getReg .x4 >>> 12) +
-        (if first k.val then u.getReg .x28 else if k.val = 8 then
-          u.getMem (u.getReg .x9 + BitVec.ofNat 64 (2^64 - 240)) else u.getReg .x29) := by
+        (if first k.val then u.getReg .x28 else u.getReg .x29) := by
       fin_cases k <;> rfl
-    rw [he, packed_result k u hm, h9]
-    have ha : BitVec.ofNat 64 TOPB9 + BitVec.ofNat 64 (2^64 - 240) =
-        BitVec.ofNat 64 (TOPB9 - 240) := by decide +kernel
-    rw [ha]
+    rw [he, packed_result k u hm]
     cases first k.val
     · simp only [Bool.false_eq_true, ↓reduceIte, childOfWord, packed_shr]
     · rfl
-  rw [hpc, hraw, hA, hB, hC]
+  rw [hpc, hraw, hA, hB]
   generalize SharedForest.rawChildFromOutput a k = j
   have hbound := j.isLt
   apply BitVec.eq_of_toNat_eq
@@ -1449,7 +1442,7 @@ theorem chain_pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (
     N600.Pre (SharedLayout.layout k) (SharedV3.viewW w k.val u) (idxOf a) k
       (SharedForest.rawChildFromOutput a k) rank (chainEntryState k rank u) := by
   have hm (addr : Word) : (chainEntryState k rank u).getMem addr = u.getMem addr := rfl
-  have hr (r : Reg) (h : r ∉ [.x1,.x4,.x8,.x14,.x15,.x16,.x17,.x23,.x25,.x31]) :
+  have hr (r : Reg) (h : r ∉ [.x1,.x4,.x8,.x14,.x15,.x16,.x17,.x23,.x25,.x29,.x31]) :
       (chainEntryState k rank u).getReg r = u.getReg r := keep k u r h
   have hc := raw_eval pk w a k pairs u hu
   have hi : idxOf a < 2^31 := ClaudeWCT.WCT9.digestIndex_lt a
@@ -1749,7 +1742,7 @@ theorem next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : F
       simp only [Child.clobbers, List.mem_cons, List.not_mem_nil, or_false] at *
       tauto)]
     exact hp.keep r h
-  have hd (r : Reg) (h : r ∉ [.x1,.x4,.x8,.x14,.x15,.x16,.x17,.x23,.x25,.x31]) :
+  have hd (r : Reg) (h : r ∉ [.x1,.x4,.x8,.x14,.x15,.x16,.x17,.x23,.x25,.x29,.x31]) :
       (SharedDispatch.chainEntryState k rank u).getReg r = u.getReg r := SharedDispatch.keep k u r h
   have hdr : ∀ i, 4 ≤ i → i < 6 → ¬ SharedChild.writes k (SharedForest.rawChildFromOutput a k) (WIT + 8 * i) := by
     intro i h4 h6 hw
@@ -1822,7 +1815,15 @@ theorem next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : F
     aTable := (hr .x28 (by decide)).trans ((hd .x28 (by decide)).trans hu.aTable)
     singletonTable := (hm _ (by unfold TOPB9; omega) (Or.inr (by unfold TOPB9; omega))).trans hu.singletonTable
     jt := (hr .x24 (by decide)).trans ((hd .x24 (by decide)).trans hu.jt)
-    childBlock := (hr .x29 (by decide)).trans ((hd .x29 (by decide)).trans hu.childBlock)
+    childBlock := by
+      rw [hr .x29 (by decide)]
+      have hb := hu.childBlock
+      have h9 := hu.pairPtr
+      have hC := hu.singletonTable
+      fin_cases k <;> first | exact hb | skip
+      change u.getMem (u.getReg .x9 + BitVec.ofNat 64 (2^64 - 240)) = BitVec.ofNat 64 0xe7400
+      rw [h9]
+      exact hC
     baseReg := ?_
     pairPtr := ?_
     prevL := ?_
@@ -1933,8 +1934,8 @@ theorem steps (links : ∀ k : Fin 9, sliceChecked (start k.val) (words k.val) =
   change Oblig.all u (result k.val).st.obl
   rw [Oblig.all_iff]
   intro o ho
-  by_cases hc : k.val = 8
-  · have he : k = ⟨8, by decide⟩ := Fin.ext hc
+  by_cases hc : k.val = 7
+  · have he : k = ⟨7, by decide⟩ := Fin.ext hc
     subst k
     change o ∈ [.valid ⟨some (.reg .x9), BitVec.ofNat 64 (2^64 - 240)⟩ 8] at ho
     simp only [List.mem_singleton] at ho
@@ -2100,11 +2101,11 @@ theorem child_cost_eq (k : Fin 9) (raw : Fin 128) :
   split_ifs <;> omega
 
 theorem coordsAccept_all (a : HashOutput) :
-    coordsAccept a (List.finRange 9) = 857 + SharedForest.jointAccountingCost a := by
+    coordsAccept a (List.finRange 9) = 856 + SharedForest.jointAccountingCost a := by
   unfold coordsAccept
   simp_rw [child_cost_eq]
   have hfixed : ((List.finRange 9).map (fun k =>
-      SharedDispatch.length k.val + (if SharedV3.first k.val then 78 else 90))).sum = 857 := by decide +kernel
+      SharedDispatch.length k.val + (if SharedV3.first k.val then 78 else 90))).sum = 856 := by decide +kernel
   have hpoint : ∀ k : Fin 9,
       SharedDispatch.length k.val + (N600.rankCost (SharedForest.forestRank a k.val) +
         ((if SharedV3.first k.val then 78 else 90) + SharedForest.accountingCorrection k.val (SharedForest.rawChildFromOutput a k))) =
@@ -2155,7 +2156,7 @@ def FtsGoodByCost (acceptCost : HashOutput → Nat) (P : Hash → Prop := HashOk
     GoodQFor (P := P) Frozen.image u (N+2023) (C+2023) Q (A+acceptCost a)
       (ccM (if SharedGate.gateOk a then ftsN w a else pure none) K)
 
-def ftsAcceptCost (a : HashOutput) : Nat := 881 + SharedForest.jointAccountingCost a
+def ftsAcceptCost (a : HashOutput) : Nat := 880 + SharedForest.jointAccountingCost a
 
 theorem fts_good_of
     (checkLink : sliceChecked 4 SharedGate.gCheckWords = true)
@@ -2167,13 +2168,13 @@ theorem fts_good_of
   intro pk w a u N C A Q K hu hnone hnext
   let KG : Bool → OracleComp HashSpec Obs := fun b =>
     if b then ccM (ftsN w a) K else K none
-  have hg := SharedGate.good checkLink setupLink pk w a u (N + 1760) (C + 1760)
-    (A + (857 + SharedForest.jointAccountingCost a)) Q KG hu
+  have hg := SharedGate.good checkLink setupLink pk w a u (N + 1759) (C + 1759)
+    (A + (856 + SharedForest.jointAccountingCost a)) Q KG hu
     (by simpa only [KG, Bool.false_eq_true, ↓reduceIte] using hnone)
     (fun t ht => by
       have hc := all_good links chains childs pk w a (List.finRange 9) 0 [] t N C A Q K
         (by decide) (by simp) ht hnone (fun pairs st hh => hnext _ st (final pk w a pairs st hh))
-      rw [show coordsCost (List.finRange 9) = 1760 by decide, coordsAccept_all] at hc
+      rw [show coordsCost (List.finRange 9) = 1759 by decide, coordsAccept_all] at hc
       apply hc.congr
       change ccM (_ >>= finishN w) K = ccM (ftsN w a) K
       apply congrArg (fun p : M (Option (Digest × Digest)) => ccM p K)
@@ -2182,8 +2183,8 @@ theorem fts_good_of
         (List.finRange 9).foldlM (stepN w a) (some []) >>= f)
       funext state
       cases state <;> rfl)
-  change GoodQFor (P := P) Frozen.image u (N + 1784) (C + 1784) Q
-    (A + (857 + SharedForest.jointAccountingCost a) + 24) (KG (SharedGate.gateOk a)) at hg
+  change GoodQFor (P := P) Frozen.image u (N + 1783) (C + 1783) Q
+    (A + (856 + SharedForest.jointAccountingCost a) + 24) (KG (SharedGate.gateOk a)) at hg
   apply (hg.mono (by omega) (by omega) (fun hq => ⟨hq, by simp only [ftsAcceptCost]; omega⟩)).congr
   cases SharedGate.gateOk a <;> simp [KG, ccM_pure]
 
