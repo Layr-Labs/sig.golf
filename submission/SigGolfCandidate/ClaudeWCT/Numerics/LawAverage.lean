@@ -480,73 +480,176 @@ theorem law_marked_exp_sum_le {α β : Type} [Fintype α] [DecidableEq α] [None
 
 end ClaudeWCT.Numerics.Law
 
-/-! Variable exponential slope and moment budget for paired forest pricing. -/
+/-!
+Research extension: density can be charged to arrival probability rather than
+multiplying the entire payoff. The square comparison below concerns a SINGLE
+marked bucket, so it does not require a new two-bucket joint-law assumption.
+This extension changes no scheme parameter. Hosted elaboration/replay pending.
+-/
 namespace ClaudeWCT.Numerics.Law
 open ENNReal Finset
-open SphincsSecurity.Concrete (binomialAverage binomialAverage_add binomialAverage_const)
 
-theorem law_marked_exp_sum_general {α β : Type} [Fintype α] [DecidableEq α] [Nonempty α]
-    [Fintype β] (v : β → ENNReal) (hv : ∑ b, v b = 1) (T : ℕ)
-    (Y : α → List β → ENNReal) (t bound : ℝ)
-    (ht : 0 ≤ t) (hbound : 0 ≤ bound)
-    (hY : ∀ i L, Y i L ≠ ⊤)
-    (hmono : ∀ i L b R, Y i (L ++ R) ≤ Y i (L ++ b :: R))
-    (hinc : (∑ i, coordAverage (Fintype.card α : ENNReal)⁻¹ v T
-      (fun L => ENNReal.ofReal (Real.exp (t * (Y i L).toReal)) - 1)) ≤ ENNReal.ofReal bound) :
-    lawAvg (marked (α := α) v) T (fun W =>
-      ENNReal.ofReal (Real.exp (t * (∑ i, Y i (SigGolfCandidate.T3.BPORS.History.atIndex i W)).toReal))) ≤
-      ENNReal.ofReal (Real.exp bound) := by
-  let p : ENNReal := (Fintype.card α : ENNReal)⁻¹
-  have hp : p ≤ 1 := ENNReal.inv_le_one.mpr (by exact_mod_cast Fintype.card_pos (α := α))
-  let F : α → List β → ENNReal := fun i L => ENNReal.ofReal (Real.exp (t * (Y i L).toReal))
-  let M : α → ENNReal := fun i => coordAverage p v T (fun L => F i L - 1)
-  have hfin : ∀ i L, Y i L ≠ ⊤ := hY
-  have hF1 : ∀ i L, 1 ≤ F i L := by
-    intro i L
-    apply ENNReal.one_le_ofReal.mpr
-    exact Real.one_le_exp_iff.mpr (by positivity)
-  have hFmono : ∀ i L b R, F i (L ++ R) ≤ F i (L ++ b :: R) := by
-    intro i L b R
-    apply ENNReal.ofReal_le_ofReal
-    apply Real.exp_le_exp.mpr
-    exact mul_le_mul_of_nonneg_left (ENNReal.toReal_mono (hfin i _) (hmono i L b R)) ht
-  have hM : ∑ i, M i ≤ ENNReal.ofReal bound := hinc
-  have hMi : ∀ i, M i ≠ ⊤ := by
-    intro i
-    exact ne_top_of_le_ne_top (by finiteness)
-      ((Finset.single_le_sum (fun j _ => bot_le) (Finset.mem_univ i)).trans hM)
-  have hMF : ∀ i, coordAverage p v T (F i) = 1 + M i := by
-    intro i
-    have heq : F i = fun L => 1 + (F i L - 1) := by
-      funext L
-      exact (add_tsub_cancel_of_le (hF1 i L)).symm
-    rw [heq, coordAverage_add, coordAverage_const p hp v hv]
-  have hprod : ∏ i, (1 + M i) ≤ ENNReal.ofReal (Real.exp bound) := by
+section ArrivalDensity
+variable {β : Type} [Fintype β]
+
+/-- Normalized density domination increases arrivals without taxing baseline. -/
+theorem arrival_density_mixture_le
+    (v u : β → ENNReal) (hv : ∑ b, v b = 1) (hu : ∑ b, u b = 1)
+    (p κ : ENNReal) (hp : p ≤ 1) (hκp : κ * p ≤ 1)
+    (hdensity : ∀ b, v b ≤ κ * u b)
+    (a : ENNReal) (b : β → ENNReal) (hab : ∀ x, a ≤ b x) :
+    (1 - p) * a + p * ∑ x, v x * b x ≤
+      (1 - κ * p) * a + (κ * p) * ∑ x, u x * b x := by
+  classical
+  choose d hd using fun x => exists_add_of_le (hab x)
+  have mix (w : β → ENNReal) (hw : ∑ x, w x = 1)
+      (q : ENNReal) (hq : q ≤ 1) :
+      (1 - q) * a + q * ∑ x, w x * b x =
+        a + q * ∑ x, w x * d x := by
+    simp_rw [hd, mul_add]
+    rw [sum_add_distrib, ← sum_mul, hw, one_mul, mul_add,
+      ← add_assoc, ← add_mul, tsub_add_cancel_of_le hq, one_mul]
+  rw [mix v hv p hp, mix u hu (κ * p) hκp]
+  apply add_le_add_left
+  calc
+    p * ∑ x, v x * d x ≤ p * ∑ x, (κ * u x) * d x :=
+      mul_le_mul' le_rfl (sum_le_sum fun x _ => mul_le_mul' (hdensity x) le_rfl)
+    _ = (κ * p) * ∑ x, u x * d x := by
+      simp_rw [mul_assoc]
+      rw [← mul_sum]
+      ring
+
+/-- Insertion monotonicity must hold even after fixing an arbitrary prefix. -/
+theorem coordAverage_arrival_density_le
+    (v u : β → ENNReal) (hv : ∑ b, v b = 1) (hu : ∑ b, u b = 1)
+    (p κ : ENNReal) (hp : p ≤ 1) (hκp : κ * p ≤ 1)
+    (hdensity : ∀ b, v b ≤ κ * u b)
+    (T : ℕ) (f : List β → ENNReal)
+    (hf : ∀ L b R, f (L ++ R) ≤ f (L ++ b :: R)) :
+    coordAverage p v T f ≤ coordAverage (κ * p) u T f := by
+  induction T generalizing f with
+  | zero => simp [coordAverage, SphincsSecurity.Concrete.binomialAverage_zero, lawAvg_zero]
+  | succ T ih =>
+    rw [coordAverage_succ, coordAverage_succ]
+    have hprefix (b : β) :
+        coordAverage p v T (fun L => f (b :: L)) ≤
+          coordAverage (κ * p) u T (fun L => f (b :: L)) := by
+      apply ih
+      intro L a R
+      exact hf (b :: L) a R
     calc
-      (∏ i, (1 + M i)) ≤ ∏ i, ENNReal.ofReal (Real.exp (M i).toReal) := by
-        apply Finset.prod_le_prod'
-        intro i _
-        rw [← ENNReal.ofReal_toReal (hMi i), ← ENNReal.ofReal_one,
-          ← ENNReal.ofReal_add (by norm_num) ENNReal.toReal_nonneg]
-        apply ENNReal.ofReal_le_ofReal
-        simpa [add_comm] using Real.add_one_le_exp (M i).toReal
-      _ = ENNReal.ofReal (Real.exp ((∑ i, M i).toReal)) := by
-        rw [ENNReal.toReal_sum (fun i _ => hMi i), Real.exp_sum,
-          ENNReal.ofReal_prod_of_nonneg (fun i _ => (Real.exp_pos _).le)]
-      _ ≤ ENNReal.ofReal (Real.exp bound) := by
-        apply ENNReal.ofReal_le_ofReal
-        apply Real.exp_le_exp.mpr
-        simpa only [ENNReal.toReal_ofReal hbound] using
-          ENNReal.toReal_mono ENNReal.ofReal_ne_top hM
-  have heq : (fun W => ENNReal.ofReal (Real.exp
-      (t * (∑ i, Y i (SigGolfCandidate.T3.BPORS.History.atIndex i W)).toReal))) =
-      (fun W => ∏ i, F i (SigGolfCandidate.T3.BPORS.History.atIndex i W)) := by
-    funext W
-    rw [ENNReal.toReal_sum (fun i _ => hfin i _), Finset.mul_sum, Real.exp_sum,
-      ENNReal.ofReal_prod_of_nonneg (fun i _ => (Real.exp_pos _).le)]
-  rw [heq]
-  refine (law_marked_product_le v hv T F hFmono).trans ?_
-  change (∏ i, coordAverage p v T (F i)) ≤ _
-  simpa only [hMF] using hprod
+      (1 - p) * coordAverage p v T f +
+          p * ∑ b, v b * coordAverage p v T (fun L => f (b :: L)) ≤
+          (1 - p) * coordAverage (κ * p) u T f +
+          p * ∑ b, v b * coordAverage (κ * p) u T (fun L => f (b :: L)) :=
+        add_le_add (mul_le_mul' le_rfl (ih f hf))
+          (mul_le_mul' le_rfl
+            (sum_le_sum fun b _ => mul_le_mul' le_rfl (hprefix b)))
+      _ ≤ (1 - κ * p) * coordAverage (κ * p) u T f +
+          (κ * p) * ∑ b, u b * coordAverage (κ * p) u T (fun L => f (b :: L)) := by
+        apply arrival_density_mixture_le v u hv hu p κ hp hκp hdensity
+        intro b
+        apply coordAverage_mono
+        intro L
+        exact hf [] b L
 
+/-- Squaring a monotone bucket payoff needs no new domination hypothesis. -/
+theorem coordAverage_arrival_density_square_le
+    (v u : β → ENNReal) (hv : ∑ b, v b = 1) (hu : ∑ b, u b = 1)
+    (p κ : ENNReal) (hp : p ≤ 1) (hκp : κ * p ≤ 1)
+    (hdensity : ∀ b, v b ≤ κ * u b)
+    (T : ℕ) (f : List β → ENNReal)
+    (hf : ∀ L b R, f (L ++ R) ≤ f (L ++ b :: R)) :
+    coordAverage p v T (fun L => f L ^ 2) ≤
+      coordAverage (κ * p) u T (fun L => f L ^ 2) := by
+  apply coordAverage_arrival_density_le v u hv hu p κ hp hκp hdensity
+  intro L b R
+  simpa only [pow_two] using mul_le_mul' (hf L b R) (hf L b R)
+
+/-- The diagonal in a marked sum-square is a single-bucket square. -/
+theorem marked_bucket_arrival_density_square_le
+    {α : Type} [Fintype α] [DecidableEq α] [Nonempty α]
+    (v u : β → ENNReal) (hv : ∑ b, v b = 1) (hu : ∑ b, u b = 1)
+    (κ : ENNReal)
+    (hp : (Fintype.card α : ENNReal)⁻¹ ≤ 1)
+    (hκp : κ * (Fintype.card α : ENNReal)⁻¹ ≤ 1)
+    (hdensity : ∀ b, v b ≤ κ * u b)
+    (index : α) (T : ℕ) (f : List β → ENNReal)
+    (hf : ∀ L b R, f (L ++ R) ≤ f (L ++ b :: R)) :
+    lawAvg (marked (α := α) v) T (fun W => f (SigGolfCandidate.T3.BPORS.History.atIndex index W) ^ 2) ≤
+      coordAverage (κ * (Fintype.card α : ENNReal)⁻¹) u T (fun L => f L ^ 2) := by
+  rw [law_marked_atIndex v hv]
+  exact coordAverage_arrival_density_square_le v u hv hu _ κ hp hκp hdensity T f hf
+
+/-- The off-diagonal part continues to use the existing negative-correlation
+argument; only each nonnegative one-bucket mean is dominated. -/
+theorem marked_cross_arrival_density_le
+    {α : Type} [Fintype α] [DecidableEq α] [Nonempty α]
+    (v u : β → ENNReal) (hv : ∑ b, v b = 1) (hu : ∑ b, u b = 1)
+    (κ : ENNReal)
+    (hp : (Fintype.card α : ENNReal)⁻¹ ≤ 1)
+    (hκp : κ * (Fintype.card α : ENNReal)⁻¹ ≤ 1)
+    (hdensity : ∀ b, v b ≤ κ * u b)
+    (first second : α) (hne : first ≠ second) (T : ℕ)
+    (f g : List β → ENNReal)
+    (hf : ∀ L b R, f (L ++ R) ≤ f (L ++ b :: R))
+    (hg : ∀ L b R, g (L ++ R) ≤ g (L ++ b :: R)) :
+    lawAvg (marked (α := α) v) T
+        (fun W => f (SigGolfCandidate.T3.BPORS.History.atIndex first W) *
+          g (SigGolfCandidate.T3.BPORS.History.atIndex second W)) ≤
+      coordAverage (κ * (Fintype.card α : ENNReal)⁻¹) u T f *
+        coordAverage (κ * (Fintype.card α : ENNReal)⁻¹) u T g := by
+  have hc := law_marked_negative_correlation v hv first second hne T f g
+    (fun b L => hf [] b L) (fun b L => hg [] b L)
+  rw [law_marked_atIndex v hv, law_marked_atIndex v hv] at hc
+  exact hc.trans (mul_le_mul'
+    (coordAverage_arrival_density_le v u hv hu _ κ hp hκp hdensity T f hf)
+    (coordAverage_arrival_density_le v u hv hu _ κ hp hκp hdensity T g hg))
+end ArrivalDensity
+
+section CoverageInsertion
+open ClaudeWCT.Numerics.Thinning SigGolfResearch.Gate6.Moments
+variable {c n : ℕ} {β C : Type} [Fintype β] [Fintype C] [DecidableEq C]
+
+/-- Coverage depends on membership, not the position of the inserted mark. -/
+theorem env_insertion_le (val : β → Fin c → ℕ)
+    (L R : List (Fin n → C × β)) (b : Fin n → C × β) :
+    env val (L ++ R) ≤ env val (L ++ b :: R) := by
+  classical
+  have hcov : ∀ t, ListCov val (L ++ R) t → ListCov val (L ++ b :: R) t := by
+    intro t h k i
+    obtain ⟨e, he, h'⟩ := h k i
+    refine ⟨e, ?_, h'⟩
+    rcases List.mem_append.mp he with he | he
+    · exact List.mem_append.mpr (Or.inl he)
+    · exact List.mem_append.mpr (Or.inr (List.mem_cons_of_mem b he))
+  unfold env finiteAverage
+  refine ENNReal.div_le_div_right (sum_le_sum fun t _ => ?_) _
+  split_ifs with h₁ h₂
+  · exact le_rfl
+  · exact absurd (hcov t h₁) h₂
+  · exact zero_le_one
+  · exact le_rfl
+
+/-- The same insertion invariant holds after deleting one coverage constraint. -/
+theorem nearEnv_insertion_le (val : β → Fin c → ℕ) (k₀ : Fin n) (i₀ : Fin c)
+    (L R : List (Fin n → C × β)) (b : Fin n → C × β) :
+    nearEnv val k₀ i₀ (L ++ R) ≤ nearEnv val k₀ i₀ (L ++ b :: R) := by
+  classical
+  have hcov : ∀ t, ListCovExcept val k₀ i₀ (L ++ R) t →
+      ListCovExcept val k₀ i₀ (L ++ b :: R) t := by
+    intro t h k i hki
+    obtain ⟨e, he, h'⟩ := h k i hki
+    refine ⟨e, ?_, h'⟩
+    rcases List.mem_append.mp he with he | he
+    · exact List.mem_append.mpr (Or.inl he)
+    · exact List.mem_append.mpr (Or.inr (List.mem_cons_of_mem b he))
+  unfold nearEnv finiteAverage
+  refine ENNReal.div_le_div_right (sum_le_sum fun t _ => ?_) _
+  split_ifs with h₁ h₂
+  · exact le_rfl
+  · exact absurd (hcov t h₁) h₂
+  · exact zero_le_one
+  · exact le_rfl
+end CoverageInsertion
 end ClaudeWCT.Numerics.Law

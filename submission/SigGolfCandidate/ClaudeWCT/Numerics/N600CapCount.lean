@@ -6,7 +6,7 @@ open Finset Polynomial
 set_option maxRecDepth 100000
 open ClaudeWCT.WCT9 (routineCost routineCosts routineCosts_length jointCap Coord Child Rank childExtra childSave maxChildSave)
 def pairCost (c : Fin 9 → Child × Rank) : ℕ := ∑ k, (routineCost (c k).2 + childExtra (c k).1)
-def J : ℕ := 51758331623566378875032754303375722573332992
+def J : ℕ := 51668613533684827311648164987144309062238208
 noncomputable def costPoly : ℕ[X] := ∑ r : Fin 563, X ^ routineCost r
 noncomputable def pairPoly : ℕ[X] := ∑ p : Child × Rank, X ^ (routineCost p.2 + childExtra p.1)
 theorem sum_routineCost {M : Type*} [AddCommMonoid M] (f : ℕ → M) :
@@ -31,7 +31,8 @@ theorem pairCost_le (c : Fin 9 → Child × Rank) : pairCost c ≤ 846 := by
   calc ∑ k, (routineCost (c k).2 + childExtra (c k).1) ≤ ∑ _k : Fin 9, 94 :=
         sum_le_sum fun k _ => by
           have h1 := (ClaudeWCT.WCT9.routineCost_bounds (c k).2).2
-          have h2 : childExtra (c k).1 ≤ 5 := by unfold childExtra maxChildSave; omega
+          have h2 : childExtra (c k).1 ≤ 5 := by
+            have := ClaudeWCT.WCT9.childSave_ge (c k).1.val; unfold childExtra maxChildSave; omega
           omega
     _ = 846 := by simp
 def costEval (B : ℕ) : ℕ := (routineCosts.map fun c => B ^ c).sum
@@ -56,7 +57,7 @@ theorem pairEval_one : pairEval 1 = 72064 := by decide +kernel
 theorem eval_one_pairPoly : pairPoly.eval 1 = 72064 := by
   rw [eval_pairPoly, pairEval_one]
 def capCheck : Bool :=
-  Nat.beq ((List.range 790).foldr (fun t s => pairEval (2 ^ 150) ^ 9 / (2 ^ 150) ^ t % 2 ^ 150 + s) 0) J
+  Nat.beq ((List.range 776).foldr (fun t s => pairEval (2 ^ 150) ^ 9 / (2 ^ 150) ^ t % 2 ^ 150 + s) 0) J
 theorem capCheck_ok : capCheck = true := by decide +kernel
 theorem range_foldr_eq_sum' (h : ℕ → ℕ) (n : ℕ) :
     (List.range n).foldr (fun r s => h r + s) 0 = ∑ r ∈ Finset.range n, h r := by
@@ -85,12 +86,12 @@ theorem card_capSet : capSet.card = J := by
   have hext : ∀ t, (pairPoly ^ 9).coeff t = pairEval (2 ^ 150) ^ 9 / (2 ^ 150) ^ t % 2 ^ 150 := by
     intro t
     rw [← ClaudeWCT.Numerics.eval_div_pow_mod hB t _ hcoeff, eval_pow, eval_pairPoly]
-  have hsplit : capSet.card = ∑ t ∈ range 790, #{c : Fin 9 → Child × Rank | pairCost c = t} := by
-    have hmem : ∀ c ∈ capSet, pairCost c ∈ range 790 := by
+  have hsplit : capSet.card = ∑ t ∈ range 776, #{c : Fin 9 → Child × Rank | pairCost c = t} := by
+    have hmem : ∀ c ∈ capSet, pairCost c ∈ range 776 := by
       intro c hc
       rw [mem_capSet] at hc
       rw [mem_range]
-      have h707 : ClaudeWCT.WCT9.jointCap = 789 := rfl
+      have hcap : ClaudeWCT.WCT9.jointCap = 775 := rfl
       omega
     rw [card_eq_sum_card_fiberwise hmem]
     unfold capSet

@@ -9,6 +9,19 @@ set_option maxHeartbeats 1200000
 set_option maxRecDepth 65536
 set_option linter.unusedSimpArgs false
 
+/-- The long selector path does not force an extra unit of producer credit.
+This concrete producer-accepted word has selector group three and net credit
+exactly twenty-two.  In particular, selector time and the top-chain bound
+cannot be tightened merely by ruling out their simultaneous worst cases. -/
+theorem long_selector_floor_is_tight :
+    ∃ v : Digest,
+      producerDecode 0 v ≠ none ∧
+      SigGolfCandidate.Choice.Selector.group v = 3 ∧
+      wordCredit 0 (dataDigits 0 v) + 4 * savedCopies 0 (dataDigits 0 v) =
+        producerFloor 0 + dispatchPenalty 0 (dataDigits 0 v) := by
+  refine ⟨339633656887439470471391196493463420927, ?_⟩
+  decide +kernel
+
 private theorem cost_kss_kOf (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q < 17) :
     kss q (c.kOf q) = c.dig (3*q) + c.dig (3*q+1) + c.dig (3*q+2) := by
   obtain ⟨k1,k2,k3⟩ := c.kdig_kOf hds q (by omega)
@@ -129,7 +142,7 @@ theorem chainsCost_any (c : NCtx) (hds : c.DigitsOk) : c.chainsCost 0 54 ≤ 225
 theorem chainsCost_accepted (c : NCtx) (v : Digest) (digits : List Nat)
     (hdec : decode 0 v = some digits)
     (hd : ∀ i, i < 54 → c.dig i = coreDigit 0 v i) :
-    c.chainsCost 0 54 + topCredit v + 4*savedCopies 0 digits = 936 + dispatchPenalty 0 digits := by
+    c.chainsCost 0 54 + topCredit v + 4*savedCopies 0 digits = 927 + dispatchPenalty 0 digits := by
   have hsome := decode_top_some hdec
   have hsource : ∀ i, i < 54 → digits.getD i 0 = c.dig i := by
     intro i hi
@@ -142,7 +155,7 @@ theorem chainsCost_accepted (c : NCtx) (v : Digest) (digits : List Nat)
     intro i hi
     rw [hd i hi, ← hm]
     exact T3.Nonbinary.coreDigit_le 0 v i
-  have hsum : ((List.range 54).map c.dig).sum = 145 := by
+  have hsum : ((List.range 54).map c.dig).sum = 146 := by
     have he : (List.range 54).map c.dig = dataDigits 0 v := by
       unfold dataDigits
       apply List.map_congr_left

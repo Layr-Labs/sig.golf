@@ -1,4 +1,4 @@
-import SigGolfCandidate.ClaudeWCT.W9.New.G5.PaddedExtraction
+import SigGolfCandidate.ClaudeWCT.W9.New.G5_PaddedExtraction
 import SigGolfCandidate.T3.Secc.SeccSufSigned
 
 namespace ClaudeWCT.W9.T3.Security.BPB

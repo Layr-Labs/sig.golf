@@ -1,4 +1,4 @@
-import SigGolfCandidate.ClaudeWCT.W9.New.Positions.FtsBridge
+import SigGolfCandidate.ClaudeWCT.W9.New.Positions_FtsBridge
 import SigGolfCandidate.ClaudeWCT.W9.New.BC.Respects
 
 namespace ClaudeWCT.W9.T3.Security.Wots.Ref
@@ -13,9 +13,42 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 set_option linter.unnecessarySimpa false
 attribute [local instance] Classical.propDecidable
+/-! C2/C3 (FULL): the half-keeping hashes of the current scheme. -/
+theorem halfHash_respects (high : Bool) (input : HashInput) (h : (pad64 input).length ≤ SeccLaw.maxInputLength) :
+    ShortRespects (WCT9.halfHash high input) := by
+  intro A T hAT
+  rw [eval_halfHash', eval_halfHash', hAT.public _ h]
+theorem chainW_respects (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
+    ShortRespects (WCT9.chainW lay tree leaf i start count value) := by
+  unfold WCT9.chainW
+  exact ShortRespects.foldlM _ _ (fun step _ v => halfHash_respects _ _
+    (short_of_le _ (by rw [chainInput_length]; omega))) value
+theorem lowerLeafHash_respects (lay : Layer) (tree leaf : Nat) (ends : List Digest) (hlen : ends.length ≤ 200) :
+    ShortRespects (WCT9.lowerLeafHash lay tree leaf ends) := by
+  rw [WCT9.lowerLeafHash_eq]
+  unfold WCT9.lowerHash
+  apply halfHash_respects
+  apply short_of_le
+  rw [leafInput_length]
+  split_ifs <;> omega
+theorem lowerNodeHash_respects (lay tree heap : Nat) (left right : Digest) :
+    ShortRespects (WCT9.lowerNodeHash lay tree heap left right) := by
+  unfold WCT9.lowerNodeHash WCT9.lowerHash
+  apply halfHash_respects
+  apply short_of_le
+  simp [WCT9.merkleNodeInput, zero16, bytesLE_length]
+theorem lowerLevels_respects (lay tree h : Nat) (leaves : List Digest) :
+    ShortRespects (WCT9.lowerLevels lay tree h leaves) := by
+  unfold WCT9.lowerLevels
+  exact ShortRespects.foldlM _ _ (fun level _ levels =>
+    ShortRespects.bind (ShortRespects.mapM _ _ fun i _ => lowerNodeHash_respects _ _ _ _ _) fun _ =>
+      ShortRespects.pure' _) _
 section objects
 variable {A T : Answers} (hAT : ShortAgree A T)
 include hAT
+theorem honestChainValueW_short (lay : Layer) (tree leaf i : Nat) (seed : Digest) (step : Nat) :
+    honestChainValueW A lay tree leaf i seed step = honestChainValueW T lay tree leaf i seed step :=
+  chainW_respects lay tree leaf i 0 step seed A T hAT
 theorem honestTop_short (index : Nat) : Extract.honestTop A index = Extract.honestTop T index := by
   rw [Extract.honestTop_eq_wct9, Extract.honestTop_eq_wct9]
   exact ClaudeWCT.WCT9.Wots.honestTop_congr (fun _ hq => hAT _ (ClaudeWCT.WCT9.Wots.ftsQuery_short hq))
@@ -30,12 +63,12 @@ theorem wotsEnd_short (lay : Layer) (tree leaf i : Nat) :
     WCT9.wotsEnd A lay tree leaf i = WCT9.wotsEnd T lay tree leaf i := by
   unfold WCT9.wotsEnd
   rw [wotsSeed_short hAT]
-  exact chainValue_short hAT _ _ _ _ _ _ _
+  exact chainW_respects _ _ _ _ _ _ _ A T hAT
 theorem wotsRoot_short (lay : Layer) (tree leaf : Nat) :
     WCT9.wotsRoot A lay tree leaf = WCT9.wotsRoot T lay tree leaf := by
   unfold WCT9.wotsRoot
   rw [List.map_congr_left (fun i _ => wotsEnd_short hAT lay tree leaf i)]
-  apply leafHash_respects
+  apply lowerLeafHash_respects
   · simp only [List.length_map, List.length_range]
     have := chainCount_le lay
     omega
@@ -44,7 +77,7 @@ theorem wotsTree_short (lay : Layer) (tree : Nat) :
     WCT9.wotsTree A lay tree = WCT9.wotsTree T lay tree := by
   unfold WCT9.wotsTree
   rw [List.map_congr_left (fun leaf _ => wotsRoot_short hAT lay tree leaf)]
-  exact buildLevels_respects _ _ _ _ _ A T hAT
+  exact lowerLevels_respects _ _ _ _ A T hAT
 theorem ftsLevels_short (index coord : Nat) (hc : coord < 9) :
     Extract.ftsLevels A index coord = Extract.ftsLevels T index coord := by
   unfold Extract.ftsLevels
@@ -89,7 +122,7 @@ theorem depth_short (a : ChainAddr) : depth A a = depth T a := by
 theorem frontierValue_short (a : ChainAddr) : frontierValue A a = frontierValue T a := by
   unfold frontierValue
   rw [depth_short hAT, wotsSeed_short hAT]
-  exact honestChainValue_short hAT _ _ _ _ _ _
+  exact honestChainValueW_short hAT _ _ _ _ _ _
 theorem referenceInput_short (L : LeafAddr) : referenceInput A L = referenceInput T L := by
   unfold referenceInput
   rw [referenceSearch_short hAT, leafMsg_short hAT]
@@ -134,7 +167,7 @@ theorem honestInput_length (answers : Answers) (position : Extract.Pos) :
       split_ifs <;> omega
   | node lay tree level node =>
       apply short_of_le
-      simp [nodeInputP]
+      simp [WCT9.merkleNodeInput, zero16, bytesLE_length]
   | forest index =>
       apply short_of_le
       rw [Extract.forestInput, ClaudeWCT.WCT9.forestInput_length _ _ (Extract.ftsPairsHonest_length _ _)]

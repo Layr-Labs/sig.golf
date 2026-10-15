@@ -1,9 +1,11 @@
 import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsDispatchArith
 import SigGolfCandidate.T3M.Verify.Nonbinary.ChainsGoodOne
 
+variable {choiceHint : BitVec 64}
+
+
 section
 namespace SigGolfCandidate.T3M.Nonbinary
-variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)
 set_option maxRecDepth 8192
@@ -202,7 +204,6 @@ end SigGolfCandidate.T3M.Nonbinary
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary.NCtx
-variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Nonbinary SigGolfCandidate.T3
 set_option maxHeartbeats 800000
@@ -235,9 +236,9 @@ theorem group_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
     (hk : ∀p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0)
     (q : Nat) (hq : q<17) (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs)
     (N C A : Nat) (Q : Prop)
-    (hK : ∀ ends t,c.EndInv s0 (3*q+2) ends t → Verify.GoodQP P t N C Q A (K ends)) :
+    (hK : ∀ ends t,c.EndInv s0 (3*q+2) ends t → Verify.GoodQ (choiceHint := choiceHint) t N C Q A (K ends)) :
     ∀ k i, 3*q ≤ i → i+k = 3*q+3 → 0 < k → ∀ acc s, c.ChainIn s0 i acc s →
-      Verify.GoodQP P s (N+40*k) (C+c.chainsCost i k) Q (A+c.chainsCost i k)
+      Verify.GoodQ (choiceHint := choiceHint) s (N+40*k) (C+c.chainsCost i k) Q (A+c.chainsCost i k)
         (Verify.ccM ((List.range' i k).foldlM c.chainF acc) K) := by
   intro k
   induction k with
@@ -264,7 +265,6 @@ end SigGolfCandidate.T3M.Nonbinary.NCtx
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary.NCtx
-variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Nonbinary SigGolfCandidate.T3
 set_option maxRecDepth 8192
@@ -311,7 +311,6 @@ end SigGolfCandidate.T3M.Nonbinary.NCtx
 end
 section
 namespace SigGolfCandidate.T3M.Nonbinary.NCtx
-variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Nonbinary SigGolfCandidate.T3
 set_option maxRecDepth 8192
@@ -518,7 +517,7 @@ theorem end_tail (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState} {
     change pcOf (TailDispatch.armPC (v.toNat/2^122%64)) = pcOf (TailDispatch.armPC (v.toNat/2^122))
     rw [Nat.mod_eq_of_lt (show v.toNat/2^122<64 by omega)]
 /-- Theoretical reverse checksum after all digits of groups `0..q`, including digit 53 at `q = 17`. -/
-def s8v (c : NCtx) (q : Nat) : Word := 145#64-BitVec.ofNat 64 (((List.range (3*q+3)).map c.dig).sum)
+def s8v (c : NCtx) (q : Nat) : Word := 146#64-BitVec.ofNat 64 (((List.range (3*q+3)).map c.dig).sum)
 def set24 (b : MachineState) (x : Word) : MachineState := b.setReg .x24 x
 theorem set24_regs (b : MachineState) (x : Word) (r : Reg) (hr : r≠.x24) : (set24 b x).getReg r=b.getReg r := by
   unfold set24
@@ -597,7 +596,7 @@ theorem entry_step (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {b : MachineState} 
     simp only [show 3*(q+1)<51 by omega,show 3*(q+1)%3=0 by omega,if_true,show 3*(q+1)/3=q+1 by omega,show q+1≠0 by omega,if_false]
 /-! ### Group 17 (campaign T8D, TOP2 NF17): slot, chains 51/52, general-field dispatch, chain 53 -/
 /-- Reverse checksum after the first `n` digits. The machine stops updating at `n = 53`. -/
-def s8w (c : NCtx) (n : Nat) : Word := 145#64-BitVec.ofNat 64 (((List.range n).map c.dig).sum)
+def s8w (c : NCtx) (n : Nat) : Word := 146#64-BitVec.ofNat 64 (((List.range n).map c.dig).sum)
 theorem s8v_eq (c : NCtx) (q : Nat) : c.s8v q=c.s8w (3*q+3) := rfl
 theorem sum_range_add (f : Nat → Nat) (n k : Nat) :
     ((List.range (n+k)).map f).sum = ((List.range n).map f).sum + ((List.range' n k).map f).sum := by

@@ -25,6 +25,16 @@ theorem not_digest_of_marker {x : HashInput} {h : Digest} (hx : Extract.hdrBlock
   have h2 : bytesLE 16 (digestHeader ctr) = bytesLE 16 h :=
     (Extract.hdrBlock_prefix rho (digestHeader ctr) (bytesLE 32 m)).symm.trans hx
   exact hm (by rw [← bytesLE_injective h2, digestHeader_marker])
+/-- C4: the digest is the only query with low header word 0 (top fold labels may have byte0 = 0). -/
+theorem not_digest_of_low {x : HashInput} {h : Digest} (hx : Extract.hdrBlock x = bytesLE 16 h)
+    (hm : tweakLow h ≠ 0) : x ∉ digestInputs := by
+  intro hmem
+  obtain ⟨rho, m, ctr, rfl⟩ := mem_digestInputs.mp hmem
+  rw [Extract.hdrBlock_pad64 _ (by rw [digestInput_length]; omega)] at hx
+  unfold digestInput at hx
+  have h2 : bytesLE 16 (digestHeader ctr) = bytesLE 16 h :=
+    (Extract.hdrBlock_prefix rho (digestHeader ctr) (bytesLE 32 m)).symm.trans hx
+  exact hm (by rw [← bytesLE_injective h2, digestHeader_lowNat])
 section DN
 open SourceQueries
 theorem privatePair_dn (t l tr p ix : Nat) : AllQueriesSatisfy (privatePair t l tr p ix) NotDN := by
@@ -53,17 +63,17 @@ theorem chain_dn (lay : Layer) (tree leaf i start count : Nat) (value : Digest) 
   exact foldlM_allowed NotDN _ _ (fun v step => chainStep_dn lay tree leaf i step v) value
 theorem leafHash_dn (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     AllQueriesSatisfy (leafHash lay tree leaf ends) NotDN := by
-  unfold leafHash shortHash publicHash
+  unfold leafHash projHash publicHash
   exact bind_allowed NotDN ((allQueriesSatisfy_query_iff _ _).mpr
     (not_digest_of_marker (Extract.hdrBlock_leafInput lay tree leaf ends) (by rw [leafTweak_marker]; decide)))
     fun _ => pure_allowed _ _
 theorem nodeHash_dn {tag : Nat} (lay tree heap : Nat) (left right : Digest) (_ht : tag % 256 ≠ 12) :
     AllQueriesSatisfy (nodeHash tag lay tree heap left right) NotDN := by
-  rw [nodeHash_eq_shortHash]
-  unfold shortHash publicHash
+  rw [nodeHash_eq_projHash]
+  unfold projHash publicHash
   exact bind_allowed NotDN ((allQueriesSatisfy_query_iff _ _).mpr
-    (not_digest_of_marker (by rw [pad64_nodeInputP, nodeInputP]; exact Extract.hdrBlock_block4 _ _ _ _)
-      (nodeTweak_marker_ne_zero _ _ _ _)))
+    (not_digest_of_low (by rw [pad64_nodeInputP, nodeInputP]; exact Extract.hdrBlock_block4 _ _ _ _)
+      (nodeTweak_low_ne_zero _ _ _ _)))
     fun _ => pure_allowed _ _
 theorem mask_dn (level index : Nat) : AllQueriesSatisfy (mask level index) NotDN := by
   unfold mask pairedMask

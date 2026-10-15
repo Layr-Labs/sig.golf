@@ -38,12 +38,23 @@ theorem queried_length_lowerCoefs (T : Answers) (lay : Layer) (tree leaf : Nat) 
   rcases sc with ⟨coef, c⟩
   dsimp only
   rw [queried_length_pure, Nat.add_zero]
+theorem queried_length_halfHash (T : Answers) (high : Bool) (input : HashInput) :
+    (SourceReplay.queried T (WCT9.halfHash high input)).length = 1 := by
+  cases high
+  · exact queried_length_shortHash _ _
+  · rfl
+/-- C3: a chain of the current scheme makes one query per step. -/
+theorem queried_length_chainW (T : Answers) (lay : Layer) (tree leaf i start count : Nat) (v : Digest) :
+    (SourceReplay.queried T (WCT9.chainW lay tree leaf i start count v)).length = count := by
+  unfold WCT9.chainW
+  rw [queried_length_foldlM T _ _ (fun _ => 1) (fun _ _ _ => queried_length_halfHash _ _ _), sum_map_one,
+    List.length_range']
 theorem queried_length_leafStepF (T : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat)
     (coefs : List Digest) (s : List Digest × List Digest) (i : Nat) :
     (SourceReplay.queried T (WCT9.leafStepF lay tree leaf digits coefs s i)).length =
       digits.getD i 0 + (maxDigit lay i - digits.getD i 0) := by
   unfold WCT9.leafStepF
-  rw [queried_length_bind, queried_length_chain, queried_length_bind, queried_length_chain, queried_length_pure,
+  rw [queried_length_bind, queried_length_chainW, queried_length_bind, queried_length_chainW, queried_length_pure,
     Nat.add_zero]
 theorem queried_length_buildLeafPF (T : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
     (SourceReplay.queried T (WCT9.buildLeafPF lay tree leaf digits carry)).length = leafCountP lay leaf digits := by
@@ -51,7 +62,8 @@ theorem queried_length_buildLeafPF (T : Answers) (lay : Layer) (tree leaf : Nat)
   unfold WCT9.leafRowsF leafCountP
   rw [queried_length_foldlM T _ _ _ (fun i _ s => queried_length_leafStepF T lay tree leaf digits _ s i),
     queried_length_bind, queried_length_pure]
-  have hl : ∀ ends, (SourceReplay.queried T (leafHash lay tree leaf ends)).length = 1 := fun ends => rfl
+  have hl : ∀ ends, (SourceReplay.queried T (WCT9.lowerLeafHash lay tree leaf ends)).length = 1 := fun ends => by
+    unfold WCT9.lowerLeafHash WCT9.leafHashW WCT9.lowerHash; exact queried_length_halfHash _ _ _
   rw [hl]
   omega
 def treeCountP (lay : Layer) (selected : Nat) (digits : List Nat) : Nat :=
@@ -79,7 +91,8 @@ theorem count_buildTreeP_maskAt (lay : Layer) (hlay : lay ≠ 0) (tree selected 
       (slotOK_of (Or.inr hm) (by have := List.mem_range.mp hleaf; have := height_pow_le lay; omega)))
   rw [WCT9.buildTreeP_factor]
   simp only [queried_length_bind, queried_length_pure, queried_length_treeRowsP]
-  rw [hroots, hroots, hm', count_maskAt_of_respects answers a (respectsP_buildLevelsBelow a 3 _ _ _ _ (by decide))]
+  rw [hroots, hroots, hm', count_maskAt_of_respects answers a (respectsP_buildLevelsBelow a 3 _ _ _
+    (by fin_cases lay <;> decide) _ (by simp only [List.length_map, List.length_range]; exact le_rfl))]
 theorem count_keygenPayload_maskAt :
     (SourceReplay.queried (maskAt answers a) keygenPayload).length =
       (SourceReplay.queried answers keygenPayload).length := by

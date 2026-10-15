@@ -25,17 +25,6 @@ theorem decode_of_eval_topLayerP (answers : QueryImpl Spec Id) (w : WBytes) (ind
     (h : evalWithAnswerFn answers (topLayerP w index answer) = some out) :
     ∃ digits, decode 0 answer = some digits :=
   WCT9.decode_of_eval_topDecodeRun answers h
-theorem verifyTopP_of_decode (sig : WCT9.Signature) (pads : Pads) (index : Nat) {answer : Digest}
-    {digits : List Nat} (h : decode 0 answer = some digits) :
-    verifyTopP sig pads index answer = some <$> recoverLayerP (WCT9.toT3Signature (effectiveSignature sig pads digits)) pads.toT3 index 0 digits := by
-  unfold verifyTopP
-  rw [WCT9.topDecodeRun_of_decode h]
-  have hd := (WCT9.decode_top_some h).2.2.2
-  rw [← hd]
-  unfold recoverLayerP
-  generalize route index 0 = p
-  obtain ⟨leaf, tree⟩ := p
-  rfl
 theorem eval_verifyTopP_none (answers : QueryImpl Spec Id) (sig : WCT9.Signature) (pads : Pads) (index : Nat)
     {answer : Digest} (h : decode 0 answer = none) :
     evalWithAnswerFn answers (verifyTopP sig pads index answer) = none :=

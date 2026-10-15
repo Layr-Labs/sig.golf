@@ -47,7 +47,7 @@ def resCc1 (k : Nat) : PRes :=
   ⟨⟨rfs [(.x6, .bin .add (.reg .x7) (.reg .x24))], [], []⟩, pcOf (sci k + 4), false, 1, 1, [], none⟩
 def resCc3 (k : Nat) : PRes :=
   ⟨⟨rfs [(.x20, .bin .add (.reg .x20) (.reg .x6))], [], []⟩, pcOf (fsi (k + 1)), false, 1, 1, [], none⟩
-def capE : E := .bin .sltu (.reg .x20) (cst 790)
+def capE : E := .bin .sltu (.reg .x20) (cst 776)
 def resCap (d : Bool) : PRes :=
   ⟨⟨rfs [(.x6, capE)], [], []⟩, if d then pcOf 11170 else pcOf 11164, false, 2, 2, [⟨.eq, capE, .c 0, d⟩], none⟩
 def idxE : E := .bin .srl (.bin .sll (.reg .x22) (cst 0)) (cst 33)
@@ -163,9 +163,7 @@ set_option maxRecDepth 10000
 set_option linter.unusedSimpArgs false
 def costByte (f : Nat) : Nat :=
   if f < 563 then WCT9.routineCosts.getD f 0
-  else if 16256 ≤ f then WCT9.maxChildSave - WCT9.childSave (f - 16256)
-  else if 1024 ≤ f ∧ f < 1280 then
-    (SigGolfCandidate.T3M.Images.signPrefix_4.getD (f - 1024) 0).toNat else 255
+  else if 16256 ≤ f then WCT9.maxChildSave - WCT9.childSave (f - 16256) else 255
 def costChk : Nat → List (BitVec 8) → Bool
   | _, [] => true
   | f, b :: bs => (b.toNat == costByte f) && costChk (f + 1) bs
@@ -187,13 +185,12 @@ theorem costBytes_getD (f : Nat) (hf : f < 16384) : (costBytes.getD f 0).toNat =
   rwa [Nat.zero_add] at this
 theorem costByte_lt (f : Nat) : costByte f < 256 := by
   unfold costByte
-  split_ifs with h h2 h3
+  split_ifs with h h2
   · have hm : f < WCT9.routineCosts.length := by rw [WCT9.routineCosts_length]; exact h
     rw [List.getD_eq_getElem _ _ hm]
     have := (WCT9.routineCosts_bounds _ (List.getElem_mem hm)).2
     omega
   · unfold WCT9.maxChildSave; omega
-  · exact BitVec.isLt _
   · decide
 def childN (a : BitVec 256) (c : Nat) : Nat := a.toNat / 2 ^ WCT9.childBase c % 128
 theorem childN_lt (a : BitVec 256) (c : Nat) : childN a c < 128 := Nat.mod_lt _ (by decide +kernel)
@@ -650,24 +647,24 @@ theorem psum_nine (a : BitVec 256) (h : ∀ c : WCT9.Coord, WCT9.field a c < 563
   rfl
 theorem cap_spec (hl : LookOK im headLook) (s : MachineState) (hpc : s.pc = pcOf 11162) (S : Nat)
     (hS : S < 2 ^ 64) (h20 : s.getReg .x20 = BitVec.ofNat 64 S) :
-    ∃ t, Steps im s 2 2 t ∧ t.pc = (if S ≤ 789 then pcOf 11164 else pcOf 11170) ∧
+    ∃ t, Steps im s 2 2 t ∧ t.pc = (if S ≤ 775 then pcOf 11164 else pcOf 11170) ∧
       RegsExcept s t [.x6] ∧ Frame s t (fun _ => False) := by
-  have hce : capE.eval s = BitVec.ofNat 64 (if S < 790 then 1 else 0) := by
+  have hce : capE.eval s = BitVec.ofNat 64 (if S < 776 then 1 else 0) := by
     simp only [capE, cst, E.eval, h20, BinOp.eval, BitVec.ult, toNat_ofNat_lt hS,
-      toNat_ofNat_lt (show 790 < 2 ^ 64 by decide +kernel)]
-    by_cases h : S < 790 <;> simp [h]
-  have hbr : ∀ b ∈ (resCap (decide ¬ (S ≤ 789))).brs, b.holds s := by
+      toNat_ofNat_lt (show 776 < 2 ^ 64 by decide +kernel)]
+    by_cases h : S < 776 <;> simp [h]
+  have hbr : ∀ b ∈ (resCap (decide ¬ (S ≤ 775))).brs, b.holds s := by
     intro b hb
     simp only [resCap, List.mem_singleton] at hb
     subst hb
     simp only [Br.holds, CmpOp.eval, E.eval, hce]
-    by_cases h0 : S ≤ 789
-    · simp only [show S < 790 by omega, if_true, h0, not_true_eq_false, decide_false]; decide +kernel
-    · simp only [show ¬ S < 790 by omega, if_false, h0, not_false_eq_true, decide_true]; decide +kernel
+    by_cases h0 : S ≤ 775
+    · simp only [show S < 776 by omega, if_true, h0, not_true_eq_false, decide_false]; decide +kernel
+    · simp only [show ¬ S < 776 by omega, if_false, h0, not_false_eq_true, decide_true]; decide +kernel
   obtain ⟨hs, hp, -, hr, hm⟩ := piece hl (run_cap _) s hpc rfl hbr rfl
   refine ⟨_, hs, ?_, regs_rfs hr, fun A _ _ => by rw [hm]; rfl⟩
   rw [hp]; simp only [resCap]
-  by_cases h0 : S ≤ 789
+  by_cases h0 : S ≤ 775
   · simp only [h0, not_true_eq_false, decide_false, Bool.false_eq_true, if_false, if_true]
   · simp only [h0, not_false_eq_true, decide_true, if_false, if_true]
 theorem checks_spec (hl : LookOK im headLook) (u : MachineState) (hpc : u.pc = pcOf 11020) (a : BitVec 256)
@@ -709,7 +706,7 @@ theorem checks_spec (hl : LookOK im headLook) (u : MachineState) (hpc : u.pc = p
         rw [if_pos (by rw [hjc]; exact hcap)] at p4
         exact ⟨p4, by rw [r4.get (by decide +kernel)]; exact h22 r3⟩
       · rw [if_neg hA]
-        have hcap : ¬ psum a 9 ≤ 789 := fun h => hA (hprod.2 ⟨hadm.2 ⟨hg, hf⟩, by rw [← hjc]; exact h⟩)
+        have hcap : ¬ psum a 9 ≤ 775 := fun h => hA (hprod.2 ⟨hadm.2 ⟨hg, hf⟩, by rw [← hjc]; exact h⟩)
         rw [if_neg hcap] at p4; exact p4
     · rw [if_neg (fun h => hf (hall.1 h))] at p3
       refine ⟨t3, 7 + 3 + c3, (s1.trans s2).trans s3, by omega, ((r1.trans r2).trans r3).mono (by decide +kernel),

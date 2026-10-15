@@ -46,7 +46,7 @@ theorem decode_none_bad (a : Digest) (j : Nat) (hj : j<17) (hbad : 125 ≤ Searc
   simp only [decide_eq_true_eq] at this
   unfold Search.topRank topCode at *
   omega
-theorem decode_none_sum (a : Digest) (hs : (Search.topDigits a).sum ≠ 145) : decode 0 a=none := by
+theorem decode_none_sum (a : Digest) (hs : (Search.topDigits a).sum ≠ 146) : decode 0 a=none := by
   rw [Search.decode_top, if_neg]
   rintro ⟨-,h⟩
   exact hs h
