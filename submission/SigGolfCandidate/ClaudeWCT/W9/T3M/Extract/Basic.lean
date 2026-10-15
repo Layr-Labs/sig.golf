@@ -1,7 +1,6 @@
 import SigGolfCandidate.T3M.Witness.Queries
 import SigGolfCandidate.T3M.Extract.Normalize
 import SigGolfCandidate.ClaudeWCT.WCT9.Correctness
-import SigGolfCandidate.Research.V7Composed198Gate
 
 namespace ClaudeWCT.W9.T3M.Extract
 open OracleComp OracleSpec SigGolfCandidate.T3
@@ -58,6 +57,13 @@ noncomputable def honestMsg (answers : Answers) (index : Nat) (lay : Layer) : WC
     .pair (honestPair answers ⟨lay.val + 1, by omega⟩ (route index ⟨lay.val + 1, by omega⟩).2).1
       (honestPair answers ⟨lay.val + 1, by omega⟩ (route index ⟨lay.val + 1, by omega⟩).2).2
   else .pair (honestTop answers index).1 (honestTop answers index).2
+/-- Tree index bits per layer (the routed tree of an index below `2 ^ 31`). -/
+def treeBits (lay : Layer) : Nat := ![0, 12, 19, 25] lay
+theorem treeBits_le (lay : Layer) : treeBits lay ≤ 25 := by fin_cases lay <;> decide
+theorem tree_lt_of_treeBits {lay : Layer} {tree : Nat} (ht : tree < 2 ^ treeBits lay) : tree < 2 ^ 31 :=
+  lt_of_lt_of_le ht (le_trans (Nat.pow_le_pow_right (by decide) (treeBits_le lay)) (by norm_num))
+theorem leaf_lt_4096 {lay : Layer} {leaf : Nat} (hl : leaf < 2 ^ height lay) : leaf < 4096 := by
+  fin_cases lay <;> simp [height] at hl ⊢ <;> omega
 inductive Pos where
   | chain (lay : Layer) (tree leaf i step : Nat)
   | leaf (lay : Layer) (tree leaf : Nat)
@@ -71,8 +77,8 @@ noncomputable def honestInput (answers : Answers) : Pos → HashInput
       (honestChainValue answers lay tree leaf i (wotsSeed answers lay tree leaf i) step))
   | .leaf lay tree leaf => pad64 (leafInput lay tree leaf
       ((List.range (chainCount lay)).map (wotsEnd answers lay tree leaf)))
-  | .node lay tree level node => pad64 (nodeInputP 3 lay.val tree (2 ^ (height lay - level - 1) + node)
-      (treeValue (wotsTree answers lay tree) level (2 * node)) 0
+  | .node lay tree level node => pad64 (WCT9.merkleNodeInput lay.val tree (2 ^ (height lay - level - 1) + node)
+      (treeValue (wotsTree answers lay tree) level (2 * node))
       (treeValue (wotsTree answers lay tree) level (2 * node + 1)))
   | .forest index => pad64 (forestInput index (ftsPairsHonest answers index))
   | .wctChain index coord child chain step => pad64 (WCT9.chainInput index coord child chain step
@@ -86,13 +92,13 @@ noncomputable def honestInput (answers : Answers) : Pos → HashInput
 def Pos.hdr : Pos → BitVec 128
   | .chain lay tree lf i step => chainHeader lay tree lf i step
   | .leaf lay tree lf => leafTweak lay tree lf
-  | .node lay tree level nd => nodeTweak 3 lay.val tree (2 ^ (height lay - level - 1) + nd)
+  | .node lay tree level nd => WCT9.merkleTweak lay.val tree (2 ^ (height lay - level - 1) + nd)
   | .forest index => header 15 0 index 0 0
   | .wctChain index coord child t step => WCT9.ftsChainHeader index coord child t step
   | .wctLeaf index coord child => WCT9.ftsLeafHeader index coord child
   | .wctNode index coord level nd => WCT9.wctNodeHeader coord index (2 ^ (7 - level - 1) + nd)
 def Pos.Bounded : Pos → Prop
-  | .chain _ tree lf i step => tree < 2 ^ 31 ∧ lf < 4096 ∧ i < 64 ∧ step < 8
+  | .chain _ tree lf i step => tree < 2 ^ 31 ∧ lf < 4096 ∧ i < 64 ∧ step < 7
   | .leaf lay tree lf => lf < 2 ^ height lay ∧ tree * 2 ^ height lay + lf < 2 ^ 32
   | .node lay tree level nd => tree < 2 ^ 32 ∧ level < height lay ∧ (lay = 0 ∨ level + 1 < height lay) ∧
       (lay = 0 → tree = 0) ∧ nd < 2 ^ (height lay - level - 1)
@@ -100,11 +106,32 @@ def Pos.Bounded : Pos → Prop
   | .wctChain index coord child t step => index < 2 ^ 31 ∧ coord < 9 ∧ child < 128 ∧ t < 6 ∧ step < 4
   | .wctLeaf index coord child => index < 2 ^ 31 ∧ coord < 9 ∧ child < 128
   | .wctNode index coord level nd => index < 2 ^ 31 ∧ coord < 9 ∧ level < 6 ∧ nd < 2 ^ (7 - level - 1)
-/-- The 128-bit half of an output that a position's honest value uses: the high half for the top nodes of an FTS
-coordinate (`wctNode` level 5, nested FTS r1-1), the low half everywhere else. -/
-def Pos.proj : Pos → HashOutput → Digest
-  | .wctNode _ _ level _ => if level = 5 then fun a => a.extractLsb' 128 128 else fun a => a.extractLsb' 0 128
-  | _ => fun a => a.extractLsb' 0 128
+/-- Whether a position's honest value is the HIGH half of its hash output: FTS leaves and nodes on
+`WCT9.ftsHighHeap` heaps (the top pair, nested FTS r1-1, and the even heaps `16..255`, C1), the left children of the
+lower trees (C2: lower leaves and nodes of even heap, `WCT9.lowerHigh`) and the last step of lower chain 0 (C3,
+`WCT9.chainHigh`). -/
+def Pos.high : Pos → Bool
+  | .wctNode _ _ level nd => WCT9.ftsHighHeap (2 ^ (7 - level - 1) + nd)
+  | .wctLeaf _ _ child => WCT9.ftsHighHeap (128 + child)
+  | .leaf lay _ lf => WCT9.lowerHigh lay.val lf
+  | .node lay _ level nd => WCT9.lowerHigh lay.val (2 ^ (height lay - level - 1) + nd)
+  | .chain lay _ _ i step => WCT9.chainHigh lay i step
+  | _ => false
+/-- The 128-bit half of an output that a position's honest value uses. For FTS leaves and nodes this is
+`WCT9.ftsHalf` of their heap (definitionally). -/
+def Pos.proj (p : Pos) : HashOutput → Digest := WCT9.halfOf p.high
+theorem Pos.proj_eq (p : Pos) :
+    p.proj = fun a => if p.high then a.extractLsb' 128 128 else a.extractLsb' 0 128 := rfl
+theorem Pos.proj_of_low {p : Pos} (h : p.high = false) : p.proj = fun a => a.extractLsb' 0 128 := by
+  unfold Pos.proj; rw [h]; rfl
+theorem Pos.proj_of_high {p : Pos} (h : p.high = true) : p.proj = fun a => a.extractLsb' 128 128 := by
+  unfold Pos.proj; rw [h]; rfl
+/-- The (padded) length of a position's honest input (S2-2). -/
+def Pos.len : Pos → Nat
+  | .leaf lay _ _ => if lay = 0 then 896 else 704
+  | .wctLeaf .. => 128
+  | .forest .. => 320
+  | _ => 64
 /-- A hit at a position: a different input whose output agrees with the honest one on the used half. -/
 def HashHitAt (answers : Answers) (pos : Pos) (honest actual : HashInput) : Prop :=
   actual ≠ honest ∧ pos.proj (answers (.inl (.inr actual))) = pos.proj (answers (.inl (.inr honest)))
@@ -113,8 +140,61 @@ theorem hashHitAt_of_low {answers : Answers} {pos : Pos} {honest actual : HashIn
     HashHitAt answers pos honest actual := by
   unfold HashHitAt; rw [hp]; exact h
 def hdrBlock (input : HashInput) : HashInput := (input.drop 16).take 16
+/-- C4: a header block whose low word `W` (its first 8 bytes) satisfies `1 ≤ W < 2 ^ 16`. Among 64-byte positions
+only the top folds have such a label (`T3.topNodeWord`, in `[1, 4096)`): the digest has `W = 0`, every FTS word is
+`≥ 2 ^ 16` (coordinate nibble `coord + 1`), WOTS chain and lower fold words carry type byte 193. -/
+def TopLow (b : HashInput) : Prop := 1 ≤ readLE (b.take 8) ∧ readLE (b.take 8) < 2 ^ 16
+instance (b : HashInput) : Decidable (TopLow b) :=
+  inferInstanceAs (Decidable (1 ≤ readLE (b.take 8) ∧ readLE (b.take 8) < 2 ^ 16))
+/-- C3 (FULL, S2-2) + C4: the decoding key of an input's header block. Leaf-length inputs (704 or 896 bytes) and
+64-byte inputs with a top label (`TopLow`) are keyed by the low tweak word only (their high word is a witness pad);
+every other input by its canonical header. -/
+def hdrKey (x : HashInput) : HashInput :=
+  if x.length = 704 ∨ x.length = 896 then (hdrBlock x).take 8 ++ List.replicate 8 0
+  else if x.length = 64 ∧ TopLow (hdrBlock x) then (hdrBlock x).take 8 ++ List.replicate 8 0
+  else canonicalHeader (hdrBlock x)
+/-- Same length and same decoding key (C3 FULL; S2-2). -/
 def SameHeader (actual honest : HashInput) : Prop :=
-  canonicalHeader (hdrBlock actual) = canonicalHeader (hdrBlock honest)
+  actual.length = honest.length ∧ hdrKey actual = hdrKey honest
+/-- C4: a 64-byte input without a top label is keyed by its canonical header. -/
+theorem hdrKey_of_len64 {x : HashInput} (h : x.length = 64) (ht : ¬ TopLow (hdrBlock x)) :
+    hdrKey x = canonicalHeader (hdrBlock x) := by
+  unfold hdrKey; rw [if_neg (by omega), if_neg (fun h' => ht h'.2)]
+/-- C4: a 64-byte input with a top label is keyed by its low word. -/
+theorem hdrKey_of_top {x : HashInput} (h : x.length = 64) (ht : TopLow (hdrBlock x)) :
+    hdrKey x = (hdrBlock x).take 8 ++ List.replicate 8 0 := by
+  unfold hdrKey; rw [if_neg (by omega), if_pos ⟨h, ht⟩]
+theorem hdrBlock_length_of_64 {x : HashInput} (h : x.length = 64) : (hdrBlock x).length = 16 := by
+  unfold hdrBlock; simp [h]
+theorem canonicalHeader_take8 {h : HashInput} (hl : 8 ≤ h.length) : (canonicalHeader h).take 8 = h.take 8 := by
+  unfold canonicalHeader
+  split
+  · rw [List.take_append_of_le_length (by simp; omega)]; simp
+  · rfl
+theorem hdrKey_congr {a b : HashInput} (hl : a.length = b.length) (hb : hdrBlock a = hdrBlock b) :
+    hdrKey a = hdrKey b := by
+  unfold hdrKey; rw [hl, hb]
+theorem SameHeader.of_hdrBlock {a b : HashInput} (hl : a.length = b.length) (hb : hdrBlock a = hdrBlock b) :
+    SameHeader a b := ⟨hl, hdrKey_congr hl hb⟩
+theorem SameHeader.of_canonical {a b : HashInput} (hl : a.length = b.length)
+    (hn : ¬ (b.length = 704 ∨ b.length = 896))
+    (hc : canonicalHeader (hdrBlock a) = canonicalHeader (hdrBlock b)) : SameHeader a b := by
+  refine ⟨hl, ?_⟩
+  unfold hdrKey
+  rw [if_neg (by rw [hl]; exact hn), if_neg hn]
+  by_cases h64 : b.length = 64
+  · have ha := hdrBlock_length_of_64 (hl.trans h64)
+    have hb := hdrBlock_length_of_64 h64
+    have ht : (hdrBlock a).take 8 = (hdrBlock b).take 8 := by
+      rw [← canonicalHeader_take8 (by omega : 8 ≤ (hdrBlock a).length), hc,
+        canonicalHeader_take8 (by omega : 8 ≤ (hdrBlock b).length)]
+    have hT : TopLow (hdrBlock a) ↔ TopLow (hdrBlock b) := by unfold TopLow; rw [ht]
+    by_cases hT' : TopLow (hdrBlock b)
+    · rw [if_pos ⟨hl.trans h64, hT.mpr hT'⟩, if_pos ⟨h64, hT'⟩, ht]
+    · rw [if_neg (fun h => hT' (hT.mp h.2)), if_neg (fun h => hT' h.2), hc]
+  · rw [if_neg (fun h => h64 (by rw [← hl]; exact h.1)), if_neg (fun h => h64 h.1), hc]
+theorem pad64_length_congr {a b : HashInput} (h : a.length = b.length) : (pad64 a).length = (pad64 b).length := by
+  simp only [pad64, List.length_append, List.length_replicate, h]
 def HitIn (answers : Answers) (qs : List Spec.Domain) : Prop :=
   ∃ pos actual, pos.Bounded ∧ .inl (.inr actual) ∈ qs ∧ HashHitAt answers pos (honestInput answers pos) actual ∧
     SameHeader actual (honestInput answers pos)
@@ -134,127 +214,3 @@ theorem wctEnds_length (answers : Answers) (index coord child : Nat) :
     (wctEnds answers index coord child).length = 6 := by
   simp [wctEnds]
 end ClaudeWCT.W9.T3M.Extract
-
-
-namespace ClaudeWCT.W9.T3M.Extract.Paired
-open OracleComp OracleSpec SigGolfCandidate.T3
-open SigGolfCandidate.T3.Correctness (Answers)
-open SigGolfCandidate.Research
-open SphincsSecurity (bytesLE)
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 10000
-
-/-- The four canonical paired commitments preceding the final singleton. -/
-def pairPrev (answers : Answers) (index : Nat) : Nat → SharedForest.PairRoot
-  | 0 => ClaudeWCT.WCT9.ftsStart
-  | n+1 => SharedForest.expectedPairRoot answers index n (pairPrev answers index n)
-
-def first (coord : Nat) : Bool := decide (coord < 8 ∧ coord % 2 = 0)
-
-def physical (coord raw : Nat) : Nat := SharedForest.physicalChild (first coord) raw
-
-def pads (answers : Answers) (index coord branch : Nat) : SharedForest.PairRoot :=
-  if coord = 8 then pairPrev answers index 4
-  else if first coord then pairPrev answers index (coord/2)
-  else SharedForest.nodesPair
-    (SharedForest.firstNodes answers index (coord/2) (pairPrev answers index (coord/2))) branch
-
-def nodes (answers : Answers) (index coord : Nat) : Array Digest :=
-  if coord = 8 then SharedForest.sharedNodes answers false index 8 (fun _ => pairPrev answers index 4)
-  else if first coord then SharedForest.firstNodes answers index (coord/2) (pairPrev answers index (coord/2))
-  else SharedForest.secondNodes answers index (coord/2) (pairPrev answers index (coord/2))
-
-/-- Every used node chooses one fixed balanced128-bit output projection. -/
-def highPosition (coord level : Nat) : Prop :=
-  coord < 8 ∧ ((coord % 2 = 0 ∧ level = 4) ∨ (coord % 2 = 1 ∧ level = 5))
-instance (coord level : Nat) : Decidable (highPosition coord level) := by
-  unfold highPosition
-  infer_instance
-
-def proj : Pos → HashOutput → Digest
-  | .wctNode _ coord level _ => if highPosition coord level then
-      fun answer => answer.extractLsb' 128 128 else fun answer => answer.extractLsb' 0 128
-  | _ => fun answer => answer.extractLsb' 0 128
-
-noncomputable def honestInput (answers : Answers) : Pos → HashInput
-  | .wctLeaf index coord child => pad64 (wctLeafInputP index coord child
-      (pads answers index coord (physical coord child/64)).1 (wctEnds answers index coord child))
-  | .wctNode index coord level node =>
-      let heap := 2^(6-level)+node
-      pad64 (ClaudeWCT.WCT9.wctTopInput coord index heap
-        ((nodes answers index coord).getD (2*heap) 0)
-        (if level = 4 then (pads answers index coord (heap/2-2)).2 else 0)
-        ((nodes answers index coord).getD (2*heap+1) 0))
-  | position => Extract.honestInput answers position
-
-/-- Only positions actually constructed by the paired source are charged. -/
-def Bounded (position : Pos) : Prop :=
-  match position with
-  | .forest _ => False
-  | .wctNode _ coord level _ => position.Bounded ∧ (first coord = true → level < 5)
-  | _ => position.Bounded
-
-theorem Bounded.legacy {position : Pos} (h : Bounded position) : position.Bounded := by
-  cases position <;> simp only [Bounded] at h <;> first | exact h | exact h.1
-
-def HashHitAt (answers : Answers) (position : Pos) (honest actual : HashInput) : Prop :=
-  actual ≠ honest ∧ proj position (answers (.inl (.inr actual))) =
-    proj position (answers (.inl (.inr honest)))
-
-def HitIn (answers : Answers) (queries : List Spec.Domain) : Prop :=
-  ∃ position actual, Bounded position ∧ .inl (.inr actual) ∈ queries ∧
-    HashHitAt answers position (honestInput answers position) actual ∧
-    SameHeader actual (honestInput answers position)
-
-theorem HitIn.mono {answers : Answers} {queries queries' : List Spec.Domain}
-    (hit : HitIn answers queries) (hsub : ∀ query ∈ queries, query ∈ queries') :
-    HitIn answers queries' := by
-  obtain ⟨position, actual, hb, hq, hh, hs⟩ := hit
-  exact ⟨position, actual, hb, hsub _ hq, hh, hs⟩
-
-theorem input_eq_of_no_hit {answers : Answers} {queries : List Spec.Domain}
-    (hn : ¬HitIn answers queries) (position : Pos) (actual : HashInput)
-    (hb : Bounded position) (hq : .inl (.inr actual) ∈ queries)
-    (hs : SameHeader actual (honestInput answers position))
-    (hout : proj position (answers (.inl (.inr actual))) =
-      proj position (answers (.inl (.inr (honestInput answers position))))) :
-    actual = honestInput answers position := by
-  by_contra he
-  exact hn ⟨position, actual, hb, hq, ⟨he,hout⟩, hs⟩
-
-theorem first_even (pair : Nat) (hp : pair < 4) : first (2*pair) = true := by
-  simp only [first, decide_eq_true_eq]
-  omega
-
-theorem first_odd (pair : Nat) : first (2*pair+1) = false := by
-  simp only [first, decide_eq_false_iff_not]
-  omega
-
-theorem pads_even (answers : Answers) (index pair branch : Nat) (hp : pair < 4) :
-    pads answers index (2*pair) branch = pairPrev answers index pair := by
-  simp only [pads, if_neg (show 2*pair ≠ 8 by omega), first_even pair hp, if_true,
-    Nat.mul_div_cancel_left pair (by decide : 0<2)]
-
-theorem pads_odd (answers : Answers) (index pair branch : Nat) :
-    pads answers index (2*pair+1) branch = SharedForest.nodesPair
-      (SharedForest.firstNodes answers index pair (pairPrev answers index pair)) branch := by
-  simp only [pads, if_neg (show 2*pair+1 ≠ 8 by omega), first_odd pair, Bool.false_eq_true, if_false]
-  rw [show (2*pair+1)/2 = pair by omega]
-
-theorem nodes_even (answers : Answers) (index pair : Nat) (hp : pair < 4) :
-    nodes answers index (2*pair) = SharedForest.firstNodes answers index pair (pairPrev answers index pair) := by
-  simp only [nodes, if_neg (show 2*pair ≠ 8 by omega), first_even pair hp, if_true,
-    Nat.mul_div_cancel_left pair (by decide : 0<2)]
-
-theorem nodes_odd (answers : Answers) (index pair : Nat) :
-    nodes answers index (2*pair+1) = SharedForest.secondNodes answers index pair (pairPrev answers index pair) := by
-  simp only [nodes, if_neg (show 2*pair+1 ≠ 8 by omega), first_odd pair, Bool.false_eq_true, if_false]
-  rw [show (2*pair+1)/2 = pair by omega]
-
-theorem singleton_top (answers : Answers) (index : Nat) :
-    ((nodes answers index 8).getD 2 0, (nodes answers index 8).getD 3 0) =
-      SharedForest.forestCommitment answers index := by
-  rfl
-
-#print axioms input_eq_of_no_hit
-end ClaudeWCT.W9.T3M.Extract.Paired

@@ -92,6 +92,13 @@ theorem sat_highHash {Q : Query → Prop} (input : HashInput)
     (h : Q (.inl (.inr (pad64 input)))) : Wots.Structural.QueriesSat T Q (highHash input) := by
   unfold highHash
   exact Wots.Structural.QueriesSat.bind (Wots.Structural.sat_publicHash input h) (Wots.Structural.QueriesSat.pure' _)
+/-- C1: an FTS hash (either half) makes the one query `pad64 input`. -/
+theorem sat_ftsHash {Q : Query → Prop} (heap : Nat) (input : HashInput)
+    (h : Q (.inl (.inr (pad64 input)))) : Wots.Structural.QueriesSat T Q (ftsHash heap input) := by
+  rw [ftsHash_eq]
+  split
+  · exact sat_highHash T input h
+  · exact Wots.Structural.sat_shortHash input h
 theorem sat_query {q : Query} (h : FtsHonestQuery T index q) :
     Wots.Structural.QueriesSat T (FtsHonestQuery T index) (liftM (SigGolfCandidate.T3.Spec.query q)) :=
   Wots.Structural.QueriesSat.query h
@@ -153,7 +160,7 @@ theorem sat_buildChildF (coord : Coord) (child : Child) (word : Rank) :
   rw [eval_childRows_ends T index coord.val child.val word]
   refine Wots.Structural.QueriesSat.bind ?_ (Wots.Structural.QueriesSat.pure' _)
   unfold leafHashP
-  exact Wots.Structural.sat_shortHash _ ⟨.leaf coord child, trivial, rfl⟩
+  exact sat_ftsHash T _ _ ⟨.leaf coord child, trivial, rfl⟩
 theorem sat_coordRows (coord : Coord) (selected : Child) (word : Rank) :
     Wots.Structural.QueriesSat T (FtsHonestQuery T index)
       (coordRows index coord selected word (List.ofFn (ftsCoef T index coord.val)) (ftsPrev T index coord.val).1) := by
@@ -204,7 +211,7 @@ theorem sat_heapBuild (coord : Coord) :
         exact sat_highHash T _ ⟨.node coord (127 - done), ⟨by omega, by omega⟩, by simp only [ftsHonestInput, if_pos hlt]⟩
       · rename_i hlt
         rw [nodeHash_eq]
-        exact Wots.Structural.sat_shortHash _ ⟨.node coord (127 - done), ⟨by omega, by omega⟩,
+        exact sat_ftsHash T _ _ ⟨.node coord (127 - done), ⟨by omega, by omega⟩,
           by simp only [ftsHonestInput, if_neg hlt, wctTopInput_zero]⟩
     · simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
       refine ⟨by rw [Array.size_set!, hsz], ?_⟩

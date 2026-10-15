@@ -1,5 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.CaseCSplit
-import SigGolfCandidate.ClaudeWCT.W9.New.G6.PairFinal
+import SigGolfCandidate.ClaudeWCT.W9.New.G6_PairFinal
 
 namespace ClaudeWCT.W9.T3.Security.Wots
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal

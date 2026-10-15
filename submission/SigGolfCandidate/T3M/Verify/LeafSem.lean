@@ -125,22 +125,27 @@ namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3
 theorem leafHash_eq (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
-    leafHash lay tree leaf ends = shortHash (T3.leafInput lay tree leaf ends) := rfl
+    leafHash lay tree leaf ends = projHash (leafHalfHigh lay leaf) (T3.leafInput lay tree leaf ends) := rfl
 def dw (e : Digest) : List (BitVec 64) := [e.extractLsb' 0 64, e.extractLsb' 64 64]
 theorem flatMap_length16 : ∀ (L : List Digest), (L.flatMap (SphincsSecurity.bytesLE 16)).length = 16 * L.length
   | [] => rfl
   | e :: L => by
     rw [List.flatMap_cons, List.length_append, flatMap_length16 L, SphincsSecurity.bytesLE_length]; simp; ring
 abbrev leafWord (lay : Layer) (tree leaf : Nat) : BitVec 64 := T3.hyperWord lay.val (tree * 2 ^ height lay + leaf)
-theorem leafInput_top (tree leaf : Nat) (ends : List Digest) :
-    T3.leafInput 0 tree leaf ends =
-      zero16 ++ SphincsSecurity.bytesLE 16 (T3.leafTweak 0 tree leaf) ++ ends.flatMap (SphincsSecurity.bytesLE 16) := by
-  simp [T3.leafInput]
-theorem leafInput_low (lay : Layer) (h : lay ≠ 0) (tree leaf : Nat) (ends : List Digest) :
-    T3.leafInput lay tree leaf ends =
-      SphincsSecurity.bytesLE 16 (ends.getD 0 0) ++ SphincsSecurity.bytesLE 16 (T3.leafTweak lay tree leaf) ++
+/-- C3: the verifier's leaf input (top pad and tweak high word from the witness). -/
+abbrev lfIn (w : ClaudeWCT.W9.T3M.WBytes) (lay : Layer) (tree leaf : Nat) (ends : List Digest) : List UInt8 :=
+  ClaudeWCT.WCT9.leafInputW lay tree leaf (ClaudeWCT.W9.T3M.wtopLeafPad w) (ClaudeWCT.W9.T3M.wleafHigh w lay) ends
+theorem leafInput_top (tree leaf : Nat) (pad : Digest) (hi : BitVec 64) (ends : List Digest) :
+    ClaudeWCT.WCT9.leafInputW 0 tree leaf pad hi ends =
+      SphincsSecurity.bytesLE 16 pad ++ SphincsSecurity.bytesLE 16 (hi ++ leafWord 0 tree leaf) ++
+        ends.flatMap (SphincsSecurity.bytesLE 16) := by
+  unfold ClaudeWCT.WCT9.leafInputW ClaudeWCT.WCT9.leafTweakW; rw [if_pos rfl]
+theorem leafInput_low (lay : Layer) (h : lay ≠ 0) (tree leaf : Nat) (pad : Digest) (hi : BitVec 64)
+    (ends : List Digest) :
+    ClaudeWCT.WCT9.leafInputW lay tree leaf pad hi ends =
+      SphincsSecurity.bytesLE 16 (ends.getD 0 0) ++ SphincsSecurity.bytesLE 16 (hi ++ leafWord lay tree leaf) ++
         (ends.drop 1).flatMap (SphincsSecurity.bytesLE 16) := by
-  simp only [T3.leafInput, if_neg h]
+  simp only [ClaudeWCT.WCT9.leafInputW, ClaudeWCT.WCT9.leafTweakW, if_neg h]
 theorem readWords_digs (t : MachineState) : ∀ (L : List Digest) (A : Nat),
     (∀ j < L.length, DigAt t (A + 16 * j) (L.getD j 0)) →
       t.readWords (BitVec.ofNat 64 A) (2 * L.length) = L.flatMap dw
@@ -157,22 +162,23 @@ theorem readWords_digs (t : MachineState) : ∀ (L : List Digest) (A : Nat),
 theorem getD_drop1 (L : List Digest) (j : Nat) : (L.drop 1).getD j 0 = L.getD (j + 1) 0 := by
   rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_drop]
   congr 2; omega
-theorem lowLeaf_hashInput (t : MachineState) (lay : Layer) (hlay : lay ≠ 0) (tree leaf : Nat) (ends : List Digest)
+theorem lowLeaf_hashInput (t : MachineState) (lay : Layer) (hlay : lay ≠ 0) (tree leaf : Nat) (pad : Digest)
+    (hi : BitVec 64) (ends : List Digest)
     (off : Nat) (hoff : off % 16 = 0) (hbound : off + 1472 < 2 ^ 64)
     (hn : ends.length = 43) (h10 : t.getReg .x10 = BitVec.ofNat 64 (off + 768))
     (h11 : t.getReg .x11 = BitVec.ofNat 64 704) (hS : ∀ j < 43, DigAt t (off + slotL j) (ends.getD j 0))
     (hT0 : t.getMem (BitVec.ofNat 64 (off + 784)) = leafWord lay tree leaf)
-    (hT1 : t.getMem (BitVec.ofNat 64 (off + 792)) = 0) :
-    hashInput t = toQ (pad64 (T3.leafInput lay tree leaf ends)) ∧
-      (toQ (pad64 (T3.leafInput lay tree leaf ends))).blocks = 11 := by
-  have hl : (T3.leafInput lay tree leaf ends).length = 64 * (10 + 1) := by
+    (hT1 : t.getMem (BitVec.ofNat 64 (off + 792)) = hi) :
+    hashInput t = toQ (pad64 (ClaudeWCT.WCT9.leafInputW lay tree leaf pad hi ends)) ∧
+      (toQ (pad64 (ClaudeWCT.WCT9.leafInputW lay tree leaf pad hi ends))).blocks = 11 := by
+  have hl : (ClaudeWCT.WCT9.leafInputW lay tree leaf pad hi ends).length = 64 * (10 + 1) := by
     rw [leafInput_low lay hlay, List.length_append, List.length_append, flatMap_length16,
       SphincsSecurity.bytesLE_length, SphincsSecurity.bytesLE_length, List.length_drop, hn] <;> norm_num
   rw [pad64_of_aligned _ (by simp [hl])]
   refine ⟨?_, by rw [blocks_toQ ⟨by simp [hl], by simp [hl]⟩, hl]⟩
   apply hashInput_toQ t _ 10 (off + 768) hl h10 (by omega) (by omega) (by simpa using h11) (by omega)
   rw [leafInput_low lay hlay, wordsOf_append _ _ (by simp [SphincsSecurity.bytesLE_length]),
-    wordsOf_append _ _ (by simp [SphincsSecurity.bytesLE_length]), Verify.wordsOf_leafTweak, wordsOf_bytesLE16,
+    wordsOf_append _ _ (by simp [SphincsSecurity.bytesLE_length]), Verify.wordsOf_append64, wordsOf_bytesLE16,
     wordsOf_flatMap16, show 8 * (10 + 1) = 2 + (2 + 2 * (ends.drop 1).length) by simp [hn],
     readWords_add, readWords_add, readWords_two, readWords_two]
   have e0 := hS 0 (by omega)
@@ -184,29 +190,31 @@ theorem lowLeaf_hashInput (t : MachineState) (lay : Layer) (hlay : lay ≠ 0) (t
       have := hS (j + 1) (by simp at hj; omega)
       rwa [show off + slotL (j + 1) = (off + 800) + 16 * j by unfold slotL; simp; omega] at this)]
   rfl
-theorem topLeaf_hashInput (t : MachineState) (tree leaf : Nat) (ends : List Digest)
-    (hn : ends.length = 54) (h10 : t.getReg .x10 = BitVec.ofNat 64 25136)
+theorem topLeaf_hashInput (t : MachineState) (tree leaf : Nat) (pad : Digest) (hi : BitVec 64) (ends : List Digest)
+    (hn : ends.length = 54) (h10 : t.getReg .x10 = BitVec.ofNat 64 25104)
     (h11 : t.getReg .x11 = BitVec.ofNat 64 896) (hS : ∀ j < 54, DigAt t (slotT j) (ends.getD j 0))
-    (hZ0 : t.getMem (BitVec.ofNat 64 25136) = 0) (hZ1 : t.getMem (BitVec.ofNat 64 25144) = 0)
-    (hT0 : t.getMem (BitVec.ofNat 64 25152) = leafWord 0 tree leaf)
-    (hT1 : t.getMem (BitVec.ofNat 64 25160) = 0) :
-    hashInput t = toQ (pad64 (T3.leafInput 0 tree leaf ends)) ∧
-      (toQ (pad64 (T3.leafInput 0 tree leaf ends))).blocks = 14 := by
-  have hl : (T3.leafInput 0 tree leaf ends).length = 64 * (13 + 1) := by
-    rw [leafInput_top, List.length_append, List.length_append, flatMap_length16, SphincsSecurity.bytesLE_length, hn]
-      <;> simp [zero16]
+    (hZ : DigAt t 25104 pad)
+    (hT0 : t.getMem (BitVec.ofNat 64 25120) = leafWord 0 tree leaf)
+    (hT1 : t.getMem (BitVec.ofNat 64 25128) = hi) :
+    hashInput t = toQ (pad64 (ClaudeWCT.WCT9.leafInputW 0 tree leaf pad hi ends)) ∧
+      (toQ (pad64 (ClaudeWCT.WCT9.leafInputW 0 tree leaf pad hi ends))).blocks = 14 := by
+  have hl : (ClaudeWCT.WCT9.leafInputW 0 tree leaf pad hi ends).length = 64 * (13 + 1) := by
+    rw [leafInput_top, List.length_append, List.length_append, flatMap_length16, SphincsSecurity.bytesLE_length,
+      SphincsSecurity.bytesLE_length, hn]
+  have hZ0 : t.getMem (BitVec.ofNat 64 25104) = pad.extractLsb' 0 64 := hZ.1
+  have hZ1 : t.getMem (BitVec.ofNat 64 25112) = pad.extractLsb' 64 64 := hZ.2
   rw [pad64_of_aligned _ (by simp [hl])]
   refine ⟨?_, by rw [blocks_toQ ⟨by simp [hl], by simp [hl]⟩, hl]⟩
-  apply hashInput_toQ t _ 13 25136 hl h10 (by norm_num) (by norm_num) (by simpa using h11) (by norm_num)
-  rw [leafInput_top, wordsOf_append _ _ (by simp [SphincsSecurity.bytesLE_length, zero16]),
-    wordsOf_append _ _ (by simp [zero16]), Verify.wordsOf_leafTweak, ← Verify.bytesLE16_zero, wordsOf_bytesLE16,
+  apply hashInput_toQ t _ 13 25104 hl h10 (by norm_num) (by norm_num) (by simpa using h11) (by norm_num)
+  rw [leafInput_top, wordsOf_append _ _ (by simp [SphincsSecurity.bytesLE_length]),
+    wordsOf_append _ _ (by simp [SphincsSecurity.bytesLE_length]), Verify.wordsOf_append64, wordsOf_bytesLE16,
     wordsOf_flatMap16, show 8 * (13 + 1) = 2 + (2 + 2 * ends.length) by simp [hn],
     readWords_add, readWords_add, readWords_two, readWords_two]
-  rw [show 25136 + 8 * 2 = 25152 by rfl, show 25152 + 8 = 25160 by rfl, show 25152 + 8 * 2 = 25168 by rfl,
-    show 25136 + 8 = (25144 : Nat) by rfl, hZ0, hZ1, hT0, hT1,
-    readWords_digs t ends 25168 (fun j hj => by
+  rw [show 25104 + 8 * 2 = 25120 by rfl, show 25120 + 8 = 25128 by rfl, show 25120 + 8 * 2 = 25136 by rfl,
+    show 25104 + 8 = (25112 : Nat) by rfl, hZ0, hZ1, hT0, hT1,
+    readWords_digs t ends 25136 (fun j hj => by
       have := hS j (by omega)
-      rwa [show slotT j = 25168 + 16 * j by unfold slotT; omega] at this)]
+      rwa [show slotT j = 25136 + 16 * j by unfold slotT; omega] at this)]
   rfl
 end SigGolfCandidate.T3M
 end
@@ -251,15 +259,17 @@ structure LeafOut (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
   ends : ∀ j < chainCount lay, DigAt u (lfSlot lay.val j) (ends.getD j 0)
   T0 : u.getMem (BitVec.ofNat 64 (lfBase lay.val + 16)) =
     T3.hyperWord lay.val ((route index lay).2 * 2 ^ height lay + (route index lay).1)
-  T1 : u.getMem (BitVec.ofNat 64 (lfBase lay.val + 24)) = 0
+  /-- C3: the leaf tweak's high word is witness memory (`wleafHigh`). -/
+  T1 : u.getMem (BitVec.ofNat 64 (lfBase lay.val + 24)) = ClaudeWCT.W9.T3M.wleafHigh w lay
   orig : Verify.Orig w (fun o => 8256 ≤ o ∧
     o < ClaudeWCT.W9.T3M.layerBase lay + 16 * ClaudeWCT.W9.T3M.pathSlots lay) u
-  topZero : lay = 0 → ∀ A ∈ [25136,25144,25160], u.getMem (BitVec.ofNat 64 A) = 0
-  bufferOrig : lay ≠ 0 → Verify.Orig w (fun o => BC.bufferStart (lay.val-1) ≤ o ∧ o < 24832) u
+  /-- C3: the top leaf's leading 16 bytes are the witness pad (`wtopLeafPad`). -/
+  topPad : lay = 0 → DigAt u 25104 (ClaudeWCT.W9.T3M.wtopLeafPad w)
+  bufferOrig : lay ≠ 0 → Verify.Orig w (fun o => BC.bufferStart (lay.val-1) ≤ o ∧ o < 24800) u
 theorem LeafOut.hashInput {w : ClaudeWCT.W9.T3M.WBytes} {pk : Digest} {index : Nat} {lay : Layer} {ends : List Digest}
     {u : MachineState} (h : LeafOut w pk index lay ends u) :
-    hashInput u = toQ (pad64 (T3.leafInput lay (route index lay).2 (route index lay).1 ends)) ∧
-      (toQ (pad64 (T3.leafInput lay (route index lay).2 (route index lay).1 ends))).blocks = lfBlocks lay.val := by
+    hashInput u = toQ (pad64 (lfIn w lay (route index lay).2 (route index lay).1 ends)) ∧
+      (toQ (pad64 (lfIn w lay (route index lay).2 (route index lay).1 ends))).blocks = lfBlocks lay.val := by
   have h10 := h.glob.1 (.x10, BitVec.ofNat 64 (lfBase lay.val)) (by simp [lfK, postLf, lfBase])
   have h11 := h.glob.1 (.x11, BitVec.ofNat 64 (lfBytes lay.val)) (by simp [lfK, postLf, lfBytes])
   have hT0 := h.T0
@@ -268,9 +278,7 @@ theorem LeafOut.hashInput {w : ClaudeWCT.W9.T3M.WBytes} {pk : Digest} {index : N
   have hn := h.len
   by_cases h0 : lay = 0
   · subst h0
-    have hZ0 := h.topZero rfl 25136 (by simp)
-    have hZ1 := h.topZero rfl 25144 (by simp)
-    exact topLeaf_hashInput u _ _ ends hn h10 h11 hS hZ0 hZ1 hT0 hT1
+    exact topLeaf_hashInput u _ _ _ _ ends hn h10 h11 hS (h.topPad rfl) hT0 hT1
   · have hc := LCtx.chainCount_lower lay h0
     have hv : lay.val ≠ 0 := fun hv => h0 (Fin.ext hv)
     simp only [lfBase, lfBytes, lfSlot, lfBlocks, if_neg hv] at h10 h11 hT0 hT1 hS ⊢
@@ -280,10 +288,10 @@ theorem LeafOut.hashInput {w : ClaudeWCT.W9.T3M.WBytes} {pk : Digest} {index : N
     have hm : bufferBias lay.val % 16 = 0 := by fin_cases lay <;> decide +kernel
     have hbd : bufferBias lay.val + 1472 < 2 ^ 64 := by fin_cases lay <;> decide +kernel
     rw [hb] at h10 hT0 hT1
-    exact lowLeaf_hashInput u lay h0 _ _ ends (bufferBias lay.val) hm hbd hn h10 h11 hS hT0 hT1
+    exact lowLeaf_hashInput u lay h0 _ _ _ _ ends (bufferBias lay.val) hm hbd hn h10 h11 hS hT0 hT1
 theorem glob_frame {gk gk' : List (Reg × Word)} {w : ClaudeWCT.W9.T3M.WBytes} {pk : Digest} {s t : MachineState}
     {W : Nat → Prop} (hG : Glob gk w pk s) (hf : Frame s t W)
-    (hW : ∀ A, W A → 544 ≤ A ∧ (A < 0x4c0 ∨ 0x500 ≤ A) ∧ A < 2 ^ 23) (hk : ∀ p ∈ gk', t.getReg p.1 = p.2) :
+    (hW : ∀ A, W A → 544 ≤ A ∧ (A < 0x4c0 ∨ 0x530 ≤ A) ∧ A < 2 ^ 23) (hk : ∀ p ∈ gk', t.getReg p.1 = p.2) :
     Glob gk' w pk t := by
   obtain ⟨-, hH, hP, hZ, hh, hD⟩ := hG
   have hn : ∀ A, A < 544 → ¬ W A := fun A hA h => by have := hW A h; omega
@@ -345,7 +353,9 @@ structure TopLeafReady (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Na
   ends : ∀ j < 54, DigAt t (slotT j) (ends.getD j 0)
   orig : Verify.Orig w (fun o => 8256 ≤ o ∧
     o < ClaudeWCT.W9.T3M.layerBase 0 + 16 * ClaudeWCT.W9.T3M.pathSlots 0) t
-  topZero : ∀ A ∈ [25136,25144,25160], t.getMem (BitVec.ofNat 64 A) = 0
+  /-- C3: the top leaf pad and tweak high word are witness memory. -/
+  topPad : DigAt t 25104 (ClaudeWCT.W9.T3M.wtopLeafPad w)
+  topHi : t.getMem (BitVec.ofNat 64 25128) = ClaudeWCT.W9.T3M.wleafHigh w 0
 theorem lfKeepK_keep : (lfKeepK 0).all (fun p => decide (p.1 ∈ keepLfAll 0)) = true := by decide +kernel
 theorem leafT_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0) (hidx : index < 2 ^ 31)
     (ends : List Digest) (t : MachineState) (ht : TopLeafReady w pk index c ends t) :
@@ -363,9 +373,9 @@ theorem leafT_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (
   refine ⟨u, hst, ?_⟩
   have hku : KnownOK (postLf 0) u := hu.known
   have hkeep := hu.keep
-  have hmem : ∀ A, u.getMem A = memEval t [(⟨none, BitVec.ofNat 64 25152⟩, .reg .x28)] A := by
+  have hmem : ∀ A, u.getMem A = memEval t [(⟨none, BitVec.ofNat 64 25120⟩, .reg .x28)] A := by
     intro A; rw [hu.mem]; simp [specLfT, specLf, bufferBase]
-  have hfr : ∀ A, A < 2 ^ 64 → A ≠ 25152 → u.getMem (BitVec.ofNat 64 A) = t.getMem (BitVec.ofNat 64 A) := by
+  have hfr : ∀ A, A < 2 ^ 64 → A ≠ 25120 → u.getMem (BitVec.ofNat 64 A) = t.getMem (BitVec.ofNat 64 A) := by
     intro A hA h1
     rw [hmem]
     apply memEval_frame_ofNat t _ A hA
@@ -394,25 +404,24 @@ theorem leafT_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (
     have hj' : j < 54 := hj
     have e := ht.ends j hj'
     simp only [lfSlot, if_pos rfl]
-    have hsl : 25168 ≤ slotT j ∧ slotT j ≤ 26016 := by unfold slotT; omega
+    have hsl : 25136 ≤ slotT j ∧ slotT j ≤ 25984 := by unfold slotT; omega
     exact ⟨(hfr (slotT j) (by omega) (by omega)).trans e.1,
       (hfr (slotT j + 8) (by omega) (by omega)).trans e.2⟩
-  · rw [show lfBase (0 : Layer).val + 16 = 25152 from rfl, hmem,
+  · rw [show lfBase (0 : Layer).val + 16 = 25120 from rfl, hmem,
       memEval_cons_ofNat _ _ _ _ _ (by norm_num) (by norm_num), if_pos rfl]
     simp only [E.eval]
     exact ht.word
-  · rw [show lfBase (0 : Layer).val + 24 = 25160 from rfl, hfr 25160 (by norm_num) (by norm_num)]
-    exact ht.topZero 25160 (by simp)
+  · rw [show lfBase (0 : Layer).val + 24 = 25128 from rfl, hfr 25128 (by norm_num) (by norm_num)]
+    exact ht.topHi
   · exact (hu.orig_const ht.orig).mono (fun o ho => ⟨ho, by
-      have hhi : o < 9024 := ho.2
+      have hhi : o < 8928 := ho.2
       simp only [lfAllowed, bufferBase, List.getD_cons_zero, List.mem_cons,
         List.not_mem_nil, or_false, not_or]
       unfold WIT
       constructor <;> omega⟩)
-  · intro _ A hA
-    have hAz : A = 25136 ∨ A = 25144 ∨ A = 25160 := by simpa using hA
-    rw [hfr A (by rcases hAz with rfl | rfl | rfl <;> norm_num) (by omega)]
-    exact ht.topZero A hA
+  · intro _
+    exact ⟨(hfr 25104 (by norm_num) (by norm_num)).trans ht.topPad.1,
+      (hfr (25104 + 8) (by norm_num) (by norm_num)).trans ht.topPad.2⟩
   · intro h; exact (h rfl).elim
 theorem leafT_reject (t : MachineState) (y : Nat) (alt : Bool) (hy : y < 8)
     (hpc : t.pc = pcOf (Nonbinary.finW y alt)) (hk : KnownOK (leafK 0) t)
@@ -431,14 +440,3 @@ theorem leafT_reject (t : MachineState) (y : Nat) (alt : Bool) (hy : y < 8)
 end SigGolfCandidate.T3M
 end
 end
-
-namespace SigGolfCandidate.T3M.LCtx
-open SigGolfCandidate.T3
-theorem canonical_decode_lower_sum (lay : Layer) (hlay : lay ≠ 0) (value : Digest) (ds : List Nat)
-    (h : canonicalDecode lay value = some ds) : ds.length = 43 ∧ ds.sum = canonicalTarget lay := by
-  have hd : decode (1 : Layer) value = some ds := by
-    simpa only [canonicalDecode, ClaudeWCT.WCT9.CanonicalPolicy.decode,
-      ClaudeWCT.WCT9.CanonicalPolicy.normalLayer, if_neg hlay] using h
-  simpa only [canonicalTarget, ClaudeWCT.WCT9.CanonicalPolicy.normalLayer, if_neg hlay] using
-    decode_lower_sum (1 : Layer) (by decide) value ds hd
-end SigGolfCandidate.T3M.LCtx

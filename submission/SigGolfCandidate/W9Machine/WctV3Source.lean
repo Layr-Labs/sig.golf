@@ -1,13 +1,13 @@
 import SigGolfCandidate.W9Machine.WctLayout
-import SigGolfCandidate.Research.V7Composed198Gate
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.VerifyP
 
 set_option autoImplicit false
 namespace W9Machine.V3
 open OracleComp SigGolfCandidate.T3 SigGolfCandidate.T3M
 open SphincsSecurity (bytesLE)
+/-- Campaign S2 (as S1): the coordinate nibble carries `coord + 1` (every FTS word is `≥ 2^16`). -/
 def chainPrefix (index coord child : Nat) : Nat :=
-  (index <<< 27) ||| (coord <<< 16) ||| (child <<< 20)
+  (index <<< 27) ||| ((coord + 1) <<< 16) ||| (child <<< 20)
 def chainLow (index coord child chain step : Nat) : Nat :=
   0x80 ||| (chain <<< 2) ||| (step <<< 8) ||| chainPrefix index coord child
 abbrev HeaderPad := BitVec 64
@@ -46,24 +46,41 @@ def nodeHdr (coord index heap : Nat) (hp : BitVec 64) : Digest :=
   else BitVec.ofNat 64 heap ++ BitVec.ofNat 64 (nodeLow coord index)
 def nodeInput (coord index heap : Nat) (left : Digest) (hp : BitVec 64) (pad right : Digest) : HashInput :=
   bytesLE 16 left ++ bytesLE 16 (nodeHdr coord index heap hp) ++ bytesLE 16 pad ++ bytesLE 16 right
+/-- C1 fold windows of child levels `0..4` (by `child % 32`): five packed windows in `[0, 320)`. The spec's
+`authBase` carries the same table (`W9Drv.blkOff_auth`). -/
+def ftsPlan : List (List Nat) :=
+  [[16,64,112,160,192], [0,64,112,160,192], [16,80,144,192,224], [0,80,144,192,224],
+   [16,64,128,192,224], [0,64,128,192,224], [64,0,128,192,224], [0,80,160,224,256],
+   [16,64,112,176,224], [0,64,112,176,224], [16,80,144,208,256], [0,80,144,208,256],
+   [16,144,80,208,256], [0,64,128,208,256], [64,0,128,208,256], [0,128,80,208,256],
+   [16,64,112,240,176], [0,64,112,240,176], [64,0,112,240,176], [256,0,64,192,128],
+   [16,64,128,192,256], [0,64,128,192,256], [64,0,128,192,256], [0,256,80,144,208],
+   [16,64,192,128,256], [0,64,192,128,256], [64,0,192,128,256], [0,80,144,256,208],
+   [16,144,80,256,208], [0,64,128,256,208], [64,0,128,256,208], [0,80,256,208,160]]
 /-- Nested FTS (r1-1): fold block offset of child level `level` in a region. Levels 0..4 follow the child plan;
 level 5 (heaps 2, 3) uses the fixed block at 832, `left | hdr | Z | right`. -/
-def blkOff (child level : Nat) : Nat := if level < 5 then ClaudeWCT.W9.T3M.authBase child level else 832
+def blkOff (child level : Nat) : Nat := if level < 5 then (ftsPlan.getD (child % 32) []).getD level 0 else 832
 def sibOff (child level : Nat) : Nat := blkOff child level + 48 * (1 - child / 2 ^ level % 2)
 def padOff (child level : Nat) : Nat := blkOff child level + 32
 def nodePad (w : WBytes) (coord child level : Nat) : Digest := wdig w (regionOffset coord + padOff child level)
 /-- The 16-byte tweak slot of a child level in the witness (`blkOff + 16`). -/
 def nodeTw (w : WBytes) (coord child level : Nat) : Digest :=
   wdig w (regionOffset coord + blkOff child level + 16)
-/-- High tweak word of a packed node (levels `< 4`) whose computed child is the right input; elsewhere 0. -/
+/-- High tweak word of a packed node (levels `< 4`): witness memory (honest 0), the verifier writes only the low
+tweak word there (C1: also when the computed child is the left input); elsewhere 0. -/
 def nodeHPad (w : WBytes) (coord child level : Nat) : BitVec 64 :=
-  if level < 4 ∧ child / 2 ^ level % 2 = 1 then (nodeTw w coord child level).extractLsb' 64 64 else 0
+  if level < 4 then (nodeTw w coord child level).extractLsb' 64 64 else 0
 def sibling (w : WBytes) (coord child level : Nat) : Digest := wdig w (regionOffset coord + sibOff child level)
 /-- FTS leaf pad slot (`regionOffset coord + 720`): tree `coord - 1`'s left top node in the nested FTS. -/
 def leafPad (w : WBytes) (coord : Nat) : Digest := wdig w (regionOffset coord + 720)
 /-- The high 16 bytes of a public hash: the value of a heap-2/3 node. -/
 def hashHi (input : HashInput) : M Digest := do
   pure ((← publicHash input).extractLsb' 128 128)
+/-- C1 (FTS Merkle half-swap): the value computed at child level `m` (the leaf for `m = 0`, the output of fold level
+`m - 1` otherwise) takes the high half of its hash output when it is a left input at a heap in `16..255`. -/
+def hiOut (child m : Nat) : Bool := decide (m ≤ 3) && decide (child / 2 ^ m % 2 = 0)
+/-- The 16-byte node value of a public hash: high half if `hi`, low half otherwise. -/
+def hashSel (hi : Bool) (input : HashInput) : M Digest := if hi then hashHi input else shortHash input
 /-- Witness slot of tree `coord`'s top sibling: the Z slot (`+864`) of the region below when the computed top
 node is the left one, its leaf pad (`+720`) otherwise; below tree 8 this is the virtual region (offsets 144, 0). -/
 def topOtherOff (coord child : Nat) : Nat :=
@@ -82,15 +99,16 @@ structure RootPair where
 def orderPair (child : Nat) (computed other : Digest) : RootPair :=
   if child / 64 % 2 = 0 then ⟨computed, other⟩ else ⟨other, computed⟩
 /-- One nested FTS tree with explicit nested pads: `padL` in the leaf pad slot and `padZ` in the level-5 (heap 2/3)
-fold's pad slot. Levels 0..4 keep the low half; level 5 keeps the high half. Returns the computed top node. -/
+fold's pad slot. The leaf and levels 0..4 keep the half chosen by `hiOut`; level 5 keeps the high half. Returns the
+computed top node. -/
 def childN (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128) (ends : List Digest)
     (padL padZ : Digest) : M Digest := do
-  let leaf ← shortHash (leafInput k.val index j.val padL ends)
+  let leaf ← hashSel (hiOut j.val 0) (leafInput k.val index j.val padL ends)
   let v ← (List.range 5).foldlM (fun value level =>
     let other := sibling w k.val j.val level
     let left := if j.val / 2 ^ level % 2 = 0 then value else other
     let right := if j.val / 2 ^ level % 2 = 0 then other else value
-    shortHash (nodeInput k.val index ((128 + j.val) / 2 ^ (level + 1))
+    hashSel (hiOut j.val (level + 1)) (nodeInput k.val index ((128 + j.val) / 2 ^ (level + 1))
       left (nodeHPad w k.val j.val level) (nodePad w k.val j.val level) right)) leaf
   let other := sibling w k.val j.val 5
   let left := if j.val / 2 ^ 5 % 2 = 0 then v else other
@@ -102,90 +120,3 @@ def childProgram (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
     (ends : List Digest) : M Digest :=
   childN w index k j ends (leafPad w k.val) (nodePad w k.val j.val 5)
 end W9Machine.V3
-
-/-! The arbitrary-witness source for the shared-path verifier. Chain addresses
-retain raw child indices; only authentication paths use the rotated B placement. -/
-namespace W9Machine.SharedV3
-open OracleComp SigGolfCandidate.T3 SigGolfCandidate.T3M
-open SigGolfCandidate.Research
-abbrev WBytes := ClaudeWCT.W9.T3M.WBytes
-abbrev PairRoot := Digest × Digest
-
-def first (coord : Nat) : Bool := decide (coord < 8 ∧ coord % 2 = 0)
-def physical (coord raw : Nat) : Nat := SharedForest.physicalChild (first coord) raw
-def lastLevel (coord : Nat) : Nat := if first coord then 4 else 5
-
-def blkOff (child level : Nat) : Nat :=
-  if level < 5 then SharedPathPacking.block child level else 832
-def sibOff (child level : Nat) : Nat := blkOff child level + 48 * (1 - child / 2 ^ level % 2)
-def nodePad (w : WBytes) (coord child level : Nat) : Digest :=
-  wdig w (V3.regionOffset coord + blkOff child level + 32)
-def nodeTw (w : WBytes) (coord child level : Nat) : Digest :=
-  wdig w (V3.regionOffset coord + blkOff child level + 16)
-def nodeHPad (w : WBytes) (coord child level : Nat) : BitVec 64 :=
-  if level < 4 ∧ child / 2 ^ level % 2 = 1 then (nodeTw w coord child level).extractLsb' 64 64 else 0
-def sibling (w : WBytes) (coord child level : Nat) : Digest :=
-  wdig w (V3.regionOffset coord + sibOff child level)
-def leafPad (w : WBytes) (coord : Nat) : Digest := V3.leafPad w coord
-def handR (coord : Nat) : Nat := if coord = 9 then 768 else 144
-
-def childInput (w : WBytes) (index coord physical : Nat) (padR value : Digest)
-    (level : Nat) : HashInput :=
-  let other := sibling w coord physical level
-  let left := if physical / 2 ^ level % 2 = 0 then value else other
-  let right := if physical / 2 ^ level % 2 = 0 then other else value
-  V3.nodeInput coord index ((128 + physical) / 2 ^ (level + 1)) left
-    (nodeHPad w coord physical level) (if level = 4 then padR else nodePad w coord physical level) right
-
-def childN (w : WBytes) (index : Nat) (k : Fin 9) (raw : Fin 128) (ends : List Digest)
-    (padL padR : Digest) : M Digest := do
-  let leaf ← shortHash (V3.leafInput k.val index raw.val padL ends)
-  let j := physical k.val raw.val
-  let n := lastLevel k.val
-  let value ← (List.range n).foldlM
-    (fun value level => shortHash (childInput w index k.val j padR value level)) leaf
-  if k.val = 8 then shortHash (childInput w index k.val j padR value n)
-  else V3.hashHi (childInput w index k.val j padR value n)
-
-def childProgram (w : WBytes) (index : Nat) (k : Fin 9) (raw : Fin 128)
-    (ends : List Digest) : M Digest :=
-  childN w index k raw ends (leafPad w k.val) (nodePad w k.val (physical k.val raw.val) 4)
-
-def direction (coord child : Nat) : Nat := child / 2 ^ (lastLevel coord + 1) % 2
-
-def topOtherOff (coord child : Nat) : Nat :=
-  V3.regionOffset coord + (if direction coord child = 0 then handR (coord + 1) else 720) - 896
-
-def topOther (w : WBytes) (coord child : Nat) : Digest := wdig w (topOtherOff coord child)
-
-def orderPair (coord child : Nat) (computed other : Digest) : PairRoot :=
-  if direction coord child = 0 then (computed, other) else (other, computed)
-
-def initialPair (w : WBytes) : PairRoot :=
-  (leafPad w 0, wdig w (V3.regionOffset 0 + 144))
-
-def coordinate (w : WBytes) (index : Nat) (k : Fin 9) (raw : Fin 128) (rank : Fin 666)
-    (prev : PairRoot) : M PairRoot := do
-  let ends ← V3.chainProgram w index k raw rank
-  let computed ← childN w index k raw ends prev.1 prev.2
-  pure (orderPair k.val (physical k.val raw.val) computed
-    (topOther w k.val (physical k.val raw.val)))
-
-def forest (w : WBytes) (index : Nat) (raw : Fin 9 → Fin 128) (ranks : Fin 9 → Fin 666) : M PairRoot :=
-  (List.finRange 9).foldlM (fun prev k => coordinate w index k (raw k) (ranks k) prev) (initialPair w)
-
-theorem physical_lt (coord raw : Nat) (h : raw < 128) : physical coord raw < 128 :=
-  SharedForest.physicalChild_lt _ _ h
-
-theorem lastLevel_cases (coord : Nat) : lastLevel coord = 4 ∨ lastLevel coord = 5 := by
-  unfold lastLevel; split <;> simp
-
-theorem pad4 (w : WBytes) (coord child : Nat) (h : child < 128) :
-    nodePad w coord child 4 = wdig w (V3.regionOffset coord + 144) := by
-  have hp := SharedPathPacking.planOK_all ⟨child, h⟩
-  have hb : SharedPathPacking.block child 4 = 112 := by
-    unfold SharedPathPacking.planOK at hp
-    simp only [Bool.and_eq_true, decide_eq_true_eq] at hp
-    exact hp.1.1
-  simp only [nodePad, blkOff, show 4 < 5 by decide, ↓reduceIte, hb]
-end W9Machine.SharedV3

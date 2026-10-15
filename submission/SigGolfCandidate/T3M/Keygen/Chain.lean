@@ -154,6 +154,19 @@ structure ChainHead (b : Nat) (s0 : MachineState) (valp m : Nat) (v : Digest) (t
   regs : RegsExcept s0 t chainRegs
   frame : Frame s0 t (ChainW valp)
   val : DigAt t (CHAIN + 48) v
+/-- C4 (b3cc11b's `TSim.projHash_bind`, kept local to the keygen): a projected hash (`projHash high`) followed by `f`;
+the continuation sees the chosen half. -/
+theorem tsim_projHash_bind {β : Type} {image : Image} {sk : BitVec 256} {s : MachineState} {input : List UInt8}
+    {high : Bool} {k c n b : Nat} {f : Digest → T3.M β} {Q : β → MachineState → Prop}
+    (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
+    (hv : hashArgumentsValid s = true) (hq : hashInput s = toQ (pad64 input))
+    (h : ∀ a : BitVec 256, TSim image sk (writeHash s a) k c n b (f (T3.projHalf high a)) Q) :
+    TSim image sk s (1 + k) (8 * (toQ (pad64 input)).blocks + c) (1 + n) ((toQ (pad64 input)).blocks + b)
+      (T3.projHash high input >>= f) Q := by
+  have e : T3.projHash high input >>= f = T3.publicHash input >>= fun a => f (T3.projHalf high a) := by
+    unfold T3.projHash; rw [bind_assoc]; simp only [pure_bind]
+  rw [e]
+  exact TSim.publicHash_bind hf ht0 hv hq h
 section loop
 variable {image : Image} {b : Nat} (hsub : SubAt image b) (sk : BitVec 256) {s0 : MachineState}
   {lay : Layer} {tree leaf i cap e valp ret : Nat} (hpre : ChainPre s0 lay tree leaf i cap e valp ret)
