@@ -1,4 +1,4 @@
-import Mathlib.Tactic
+import Mathlib.Tactic.IntervalCases
 import SigGolfCandidate.T3M.Verify.ChainRuns
 
 section

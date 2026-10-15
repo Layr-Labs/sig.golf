@@ -44,7 +44,8 @@ theorem div_eq_iff_lca {x y : Nat} (h : x ≠ y) (ℓ : Nat) : x / 2 ^ ℓ = y /
     have hlt : x ^^^ y < 2 ^ ℓ := (Nat.log2_lt hx).mp (by omega)
     have h0 : (x ^^^ y) / 2 ^ ℓ = 0 := Nat.div_eq_of_lt hlt
     rw [Nat.xor_div_two_pow] at h0
-    exact xor_eq_zero_iff.mp h0
+    by_contra hne
+    exact (Nat.xor_ne_zero_iff.mpr hne) h0
 theorem lcaLevel_comm (x y : Nat) : lcaLevel x y = lcaLevel y x := by
   unfold lcaLevel; rw [Nat.xor_comm]
 theorem lcaLevel_pos (x y : Nat) : 0 < lcaLevel x y := by unfold lcaLevel; omega

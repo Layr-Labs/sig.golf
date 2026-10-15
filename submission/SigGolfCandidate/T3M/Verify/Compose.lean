@@ -391,7 +391,7 @@ theorem s8v_zero_iff (c : NCtx) (hds : c.DigitsOk) :
 theorem top_after_hash (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0) (hidx : index < 2 ^ 31)
     (t : MachineState) (hpre : BC.EncPre w pk index 0 c t) (Q : Prop) (hQ : Q) (q : Query) (hq : EncQ 0 q)
     (a : BitVec 256) :
-    GoodQP (fun hash => hash q = a ∧ (HashOk (ClaudeWCT.W9.T3M.wtopHint w)) hash) (writeHash t a) 2373 2619 Q 1264
+    GoodQP (fun hash => hash q = a ∧ (HashOk (ClaudeWCT.W9.T3M.wtopHint w)) hash) (writeHash t a) 2373 2619 Q 1263
       (ccM (ClaudeWCT.W9.T3M.topLayerP w index (ClaudeWCT.WCT9.verificationAnswer 0 (ClaudeWCT.W9.T3M.wtopHint w) a)) (kFin pk)) := by
   set v := ClaudeWCT.WCT9.verificationAnswer 0 (ClaudeWCT.W9.T3M.wtopHint w) a with hvdef
   obtain ⟨n0, s0, st0, hn0, he⟩ := topTransition w pk index c hc t hpre a
@@ -433,7 +433,7 @@ theorem top_after_hash (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Na
       rw [s8v_zero_iff L hds, show L.dig = coreDigit 0 v from funext hdig]
       have : (dataDigits 0 v).sum = 146 := hsum
       simpa [dataDigits, T3.dataCount] using this
-    have body : GoodQ (choiceHint := ClaudeWCT.W9.T3M.wtopHint w) (writeHash t a) 2373 2619 Q (L.chainsCost 0 54 + 359)
+    have body : GoodQ (choiceHint := ClaudeWCT.W9.T3M.wtopHint w) (writeHash t a) 2373 2619 Q (L.chainsCost 0 54 + 358)
         (ccM ((List.range' 0 54).foldlM L.chainF [])
           (fun ends => ccM (ClaudeWCT.WCT9.leafHashW 0 (route index 0).2 (route index 0).1 (ClaudeWCT.W9.T3M.wtopLeafPad w)
             (ClaudeWCT.W9.T3M.wleafHigh w 0) ends >>= merkleP w index 0)
@@ -477,7 +477,7 @@ theorem top_after_hash (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Na
       exact hcr (by omega)
   | none =>
     refine GoodQP.pre_mono (P := (HashOk (ClaudeWCT.W9.T3M.wtopHint w))) ?_ (fun _ h => h.2)
-    refine Nonbinary.NCtx.goodQ_vacuous (A := 0) ?_ Q 1264
+    refine Nonbinary.NCtx.goodQ_vacuous (A := 0) ?_ Q 1263
     rw [ClaudeWCT.W9.T3M.topLayerP_of_decode_none w index hdec, ccM_map]
     simp only [kFin_none]
     have reject_from : ∀ z : MachineState, z.pc = pcOf 9147 → GoodQ (choiceHint := ClaudeWCT.W9.T3M.wtopHint w) z 4 4 False 0 (pure (false, 0)) := by
@@ -579,7 +579,7 @@ set_option maxHeartbeats 1000000
 set_option linter.unusedSimpArgs false
 def topFuel : Nat := 5 + 1 + 2373
 def topCyc : Nat := 5 + 8 + 2619
-def topCycA : Nat := 5 + 8 + 1264
+def topCycA : Nat := 5 + 8 + 1263
 theorem top_layer_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^ 31) (Q : Prop) (hQ : Q)
     (M : LayerMsg) (s : MachineState) (hs : LayerIn w pk index 0 M s) :
     GoodQ (choiceHint := ClaudeWCT.W9.T3M.wtopHint w) s topFuel topCyc Q topCycA (ccM (BC.layerLoop w index 1 M) (kFin pk)) := by
@@ -619,7 +619,7 @@ def lFuel : Nat → Nat
   | 1 => topFuel
   | n + 2 => layerFuel (n + 1) + mkFuel (n + 1) + lFuel (n + 1)
 theorem lCyc_4 : lCyc 4 = 6616 := by decide +kernel
-theorem lCycA_4 : lCycA 4 = 5233 := by decide +kernel
+theorem lCycA_4 : lCycA 4 = 5232 := by decide +kernel
 theorem lFuel_4 : lFuel 4 = 7760 := by decide +kernel
 theorem layers_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^ 31) (Q : Prop) (hQ : Q) :
     ∀ n, n ≤ 4 → ∀ msg s, RestIn w pk index n msg s →
@@ -665,7 +665,7 @@ theorem layers_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (h
 theorem after_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (Q : Prop) (hQ : Q) (a : HashOutput)
     (top : Digest × Digest) (u : MachineState)
     (h : FtsOut ⟨pk, w, a⟩ top u) :
-    GoodQ (choiceHint := ClaudeWCT.W9.T3M.wtopHint w) u 8050 8050 Q 5233 (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb) := by
+    GoodQ (choiceHint := ClaudeWCT.W9.T3M.wtopHint w) u 8050 8050 Q 5232 (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb) := by
   have hidx : ClaudeWCT.WCT9.digestIndex a < 2 ^ 31 := ClaudeWCT.WCT9.digestIndex_lt a
   obtain ⟨t, hst, hL3⟩ := layerIn_of_fts w pk _ top.1 top.2 u hidx h.glob h.idx h.pc h.left h.right h.wit h.base h.a1
     h.s10 h.heapOne h.heapTwo h.heapSeven h.heapThree h.heapFour h.heapFive h.coordStep h.topBase h.top h.top8 h.a2 h.d0
@@ -678,7 +678,7 @@ theorem after_good (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (Q : Prop) (hQ : 
   rw [e]
   rw [lFuel_4, lCyc_4, lCycA_4] at hg
   exact GoodQ.steps' hst hg (by omega) (by omega) (fun q => ⟨q, by omega⟩)
-theorem after_good_budget : AfterGoodBudget 5233 :=
+theorem after_good_budget : AfterGoodBudget 5232 :=
   fun pk w Q hQ a top u h => after_good pk w Q hQ a top u h
 end SigGolfCandidate.T3M
 end

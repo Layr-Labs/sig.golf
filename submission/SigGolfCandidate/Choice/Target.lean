@@ -5,6 +5,7 @@ namespace ClaudeWCT.WCT9
 open SigGolfCandidate.T3 SigGolfCandidate.Choice
 set_option backward.isDefEq.respectTransparency false
 set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
 
 def encodingTarget (lay : Layer) (target : Digest) (answer : HashOutput) : Digest :=
   if lay = 0 then
@@ -18,25 +19,27 @@ theorem verificationAnswer_top_exists_iff (answer : HashOutput) (target : Digest
         (Selector.group (answer.extractLsb' 0 128) ≠ 0 ∧ answer.extractLsb' 128 128 = target) := by
   constructor
   · rintro ⟨hint, hh⟩
-    change (if (if Selector.group (answer.extractLsb' 0 128) = 0 then 0 else hint &&& 16) = 16
+    change (if (if Selector.group (answer.extractLsb' 0 128) = 0 then (0 : BitVec 64) else if hint = 0 then 0 else 16) = 16
       then answer.extractLsb' 128 128 else answer.extractLsb' 0 128) = target at hh
     by_cases hg : Selector.group (answer.extractLsb' 0 128) = 0
     · rw [if_pos hg, if_neg (by decide : (0 : BitVec 64) ≠ 16)] at hh
       exact Or.inl hh
     · rw [if_neg hg] at hh
-      split_ifs at hh with hm
-      · exact Or.inr ⟨hg, hh⟩
-      · exact Or.inl hh
+      by_cases hz : hint = 0
+      · simp only [if_pos hz, if_neg (by decide : (0 : BitVec 64) ≠ 16)] at hh
+        exact Or.inl hh
+      · simp only [if_neg hz, if_pos rfl] at hh
+        exact Or.inr ⟨hg, hh⟩
   · rintro (hl | ⟨hg, hh⟩)
     · refine ⟨0, ?_⟩
-      change (if (if Selector.group (answer.extractLsb' 0 128) = 0 then 0 else (0 : BitVec 64) &&& 16) = 16
+      change (if (if Selector.group (answer.extractLsb' 0 128) = 0 then (0 : BitVec 64) else if (0 : BitVec 64) = 0 then 0 else 16) = 16
         then answer.extractLsb' 128 128 else answer.extractLsb' 0 128) = target
-      rw [show (0 : BitVec 64) &&& 16 = 0 from rfl, ite_self, if_neg (by decide : (0 : BitVec 64) ≠ 16)]
+      simp only [ite_true, ite_self, if_neg (by decide : (0 : BitVec 64) ≠ 16)]
       exact hl
     · refine ⟨16, ?_⟩
-      change (if (if Selector.group (answer.extractLsb' 0 128) = 0 then 0 else (16 : BitVec 64) &&& 16) = 16
+      change (if (if Selector.group (answer.extractLsb' 0 128) = 0 then (0 : BitVec 64) else if (16 : BitVec 64) = 0 then 0 else 16) = 16
         then answer.extractLsb' 128 128 else answer.extractLsb' 0 128) = target
-      rw [if_neg hg, if_pos (by decide)]
+      rw [if_neg hg, if_neg (by decide : (16 : BitVec 64) ≠ 0), if_pos rfl]
       exact hh
 
 theorem verificationAnswer_exists_iff_target (lay : Layer) (answer : HashOutput) (target : Digest) :
