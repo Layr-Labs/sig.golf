@@ -26,8 +26,8 @@ def width (_lay : Layer) (_i : Nat) : Nat := 3
 (51..53); every lower chain is radix 8. -/
 def maxDigit (lay : Layer) (i : Nat) : Nat :=
   if lay = 0 then (if i < 51 then 4 else 7) else 7
-/-- Restricted top-half choice: top target 146; lower targets 201/202/202. -/
-def target (lay : Layer) : Nat := ![146, 201, 202, 202] lay
+/-- Digit-sum targets: top 145 (NF17), lower layers 201/202/202. -/
+def target (lay : Layer) : Nat := ![145, 201, 202, 202] lay
 /-- Encoding values are below `2 ^ encodedBits lay`. Campaign T8D: the top encoding uses all 128 bits (the radix-8
 digits of chains 51/52 sit in bits 122..127), so there is no range bound on any layer. -/
 def encodedBits (_lay : Layer) : Nat := 128
@@ -102,34 +102,6 @@ def publicHash (input : HashInput) : M HashOutput := Spec.query (.inl (.inr (pad
 def privateHash (coordinate : Coordinate) : M HashOutput := Spec.query (.inr coordinate)
 def shortHash (input : HashInput) : M Digest := do
   pure ((← publicHash input).extractLsb' 0 128)
-/-! ### C4: top-tree spill-down (adapted from b3cc11b's campaign S2 `projHalf`/`projHash`/`topNodeWord`)
-A 32-byte answer has two 16-byte halves. In the TOP tree (`lay = 0`, tag 3) a node of even heap (a left child; the root,
-heap 1, is odd) and a leaf of even index keep the HIGH half (bytes 16..32) of their answer; every other node and leaf
-keeps the low half. The lower trees (L1..L3) keep this legacy text (their current scheme is `WCT9.lowerNodeHash`). -/
-def projHalf (high : Bool) (output : HashOutput) : Digest :=
-  bif high then output.extractLsb' 128 128 else output.extractLsb' 0 128
-/-- Hash and keep the half selected by `high` (`projHash false = shortHash`). -/
-def projHash (high : Bool) (input : HashInput) : M Digest := do
-  pure (projHalf high (← publicHash input))
-theorem projHalf_false (output : HashOutput) : projHalf false output = output.extractLsb' 0 128 := rfl
-theorem projHalf_true (output : HashOutput) : projHalf true output = output.extractLsb' 128 128 := rfl
-@[simp] theorem projHash_false (input : HashInput) : projHash false input = shortHash input := rfl
-/-- C4: the half of a node hash: high only for an even heap of the top tree (tag 3, `lay = 0`). -/
-def nodeHalfHigh (tag lay heap : Nat) : Bool := decide (tag = 3 ∧ lay = 0 ∧ heap % 2 = 0)
-/-- C4: the half of a leaf hash: high only for a top leaf of even index. -/
-def leafHalfHigh (lay : Layer) (leaf : Nat) : Bool := decide (lay.val = 0 ∧ leaf % 2 = 0)
-theorem nodeHalfHigh_top (heap : Nat) : nodeHalfHigh 3 0 heap = decide (heap % 2 = 0) := by
-  simp [nodeHalfHigh]
-theorem nodeHalfHigh_of_ne {tag lay : Nat} (h : ¬ (tag = 3 ∧ lay = 0)) (heap : Nat) : nodeHalfHigh tag lay heap = false := by
-  simp only [nodeHalfHigh, decide_eq_false_iff_not]; exact fun h' => h ⟨h'.1, h'.2.1⟩
-theorem leafHalfHigh_top (leaf : Nat) : leafHalfHigh 0 leaf = decide (leaf % 2 = 0) := by
-  simp [leafHalfHigh]
-theorem leafHalfHigh_lower {lay : Layer} (h : lay ≠ 0) (leaf : Nat) : leafHalfHigh lay leaf = false := by
-  simp only [leafHalfHigh, decide_eq_false_iff_not]
-  exact fun h' => h (Fin.ext h'.1)
-/-- C4 top fold word: the heap itself for the real heaps `1..4095` (`topNodeWord_eq`); always in `[1, 4096)`, so it
-is never the digest word 0, never an FTS word (`≥ 2 ^ 16`) and never a lower word (type byte 193). -/
-def topNodeWord (heap : Nat) : Nat := (heap - 1) % 4095 + 1
 def privatePair (tag lay tree position index : Nat) : M (Digest × Digest) := do
   let output ← privateHash (.inl (header tag lay tree position index))
   pure (output.extractLsb' 0 128, output.extractLsb' 128 128)
@@ -178,19 +150,16 @@ def leafTweak (lay : Layer) (tree leaf : Nat) : BitVec 128 :=
   0#64 ++ hyperWord lay.val (tree * 2 ^ height lay + leaf)
 def rowTweak (lay : Layer) (tree leaf : Nat) : BitVec 128 :=
   1#64 ++ hyperWord lay.val (tree * 2 ^ height lay + leaf)
-/-- FTS node word of the two-word labels. C4: coordinate nibble `coord + 1` (every FTS word is `≥ 2 ^ 16`). -/
 def ftsNodeWord (coord index : Nat) : BitVec 64 :=
-  BitVec.ofNat 64 (1 + 6 * 2 ^ 8 + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27)
+  BitVec.ofNat 64 (1 + 6 * 2 ^ 8 + coord % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27)
 /-- Packed FTS node word (heaps `8..127`, the four lower child levels): the heap is folded into the low word
 (`ftsNodeWord - heap`, byte0 `257 - heap >= 130`, byte1 `5`), so the header is marked and its high word is
-ignored by `canonicalHeader` (honest value 0). C4: coordinate nibble `coord + 1`. -/
+ignored by `canonicalHeader` (honest value 0). -/
 def ftsNodeWordH (coord index heap : Nat) : BitVec 64 :=
-  BitVec.ofNat 64 (1537 - heap + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27)
-/-- Node tweaks. C4: the top tree (`lay = 0`) has the one-word label `topNodeWord heap` (= heap) whose high word is a
-witness pad (honest 0); the legacy lower branch (`lay` 1..3) keeps its text. -/
+  BitVec.ofNat 64 (1537 - heap + coord % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27)
 def nodeTweak (tag lay tree heap : Nat) : BitVec 128 :=
   if tag = 3 ∧ lay < 4 then
-    (if lay = 0 then 0#64 ++ BitVec.ofNat 64 (topNodeWord heap) else BitVec.ofNat 64 heap ++ hyperWord (lay - 1) tree)
+    BitVec.ofNat 64 heap ++ (if lay = 0 then 64#64 else hyperWord (lay - 1) tree)
   else if tag = 3 ∧ lay < 13 then
     (if 8 ≤ heap ∧ heap < 128 then 0#64 ++ ftsNodeWordH (lay - 4) tree heap
      else BitVec.ofNat 64 heap ++ ftsNodeWord (lay - 4) tree)
@@ -198,9 +167,8 @@ def nodeTweak (tag lay tree heap : Nat) : BitVec 128 :=
 def leafInput (lay : Layer) (tree leaf : Nat) (ends : List Digest) : HashInput :=
   if lay = 0 then zero16 ++ bytesLE 16 (leafTweak lay tree leaf) ++ ends.flatMap (bytesLE 16)
   else bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (leafTweak lay tree leaf) ++ (ends.drop 1).flatMap (bytesLE 16)
-/-- Leaf hash. C4: a top leaf of even index keeps the high half (`leafHalfHigh`). -/
 def leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) : M Digest :=
-  projHash (leafHalfHigh lay leaf) (leafInput lay tree leaf ends)
+  shortHash (leafInput lay tree leaf ends)
 def buildLeaf (lay : Layer) (tree leaf : Nat) (digits : List Nat)
     (signatureOnly : Bool := false) : M (Digest × List Digest) := do
   let state ← (List.range ((chainCount lay + 1) / 2)).foldlM
@@ -218,10 +186,8 @@ def buildLeaf (lay : Layer) (tree leaf : Nat) (digits : List Nat)
   if signatureOnly then return (0, state.2)
   let root ← leafHash lay tree leaf state.1
   pure (root, state.2)
-/-- Node hash. C4: a top node of even heap keeps the high half (`nodeHalfHigh`). -/
 def nodeHash (tag lay tree heap : Nat) (left right : Digest) : M Digest :=
-  projHash (nodeHalfHigh tag lay heap)
-    (bytesLE 16 left ++ bytesLE 16 (nodeTweak tag lay tree heap) ++ zero16 ++ bytesLE 16 right)
+  shortHash (bytesLE 16 left ++ bytesLE 16 (nodeTweak tag lay tree heap) ++ zero16 ++ bytesLE 16 right)
 def buildLevel (tag lay tree h level : Nat) (nodes : List Digest) : M (List Digest) :=
   (List.range (nodes.length / 2)).mapM fun i =>
     nodeHash tag lay tree (2 ^ (h-level) + i) (nodes.getD (2*i) 0) (nodes.getD (2*i+1) 0)
@@ -328,8 +294,9 @@ def topCredit (value : Digest) : Nat :=
 def encCredit (lay : Layer) (value : Digest) : Nat := if lay = 0 then topCredit value else 0
 def searchDecode (lay : Layer) (value : Digest) : Option (List Nat) :=
   if encCredit lay value < creditFloor lay then none else decode lay value
-/-- Top fallback word at target 146: 30 threes, 21 twos, then 4, 5, 5; no zero digit. -/
-def dummyTop : List Nat := List.replicate 30 3 ++ List.replicate 21 2 ++ [4,5,5]
+/-- Top digits signed when the top counter search is exhausted (campaign T8D, NF17 at target 145): 30 threes,
+21 twos, then radix-8 digits 4, 4, 5 (sum 145, no zero digit). -/
+def dummyTop : List Nat := List.replicate 30 3 ++ List.replicate 21 2 ++ [4,4,5]
 def encodingInput (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : BitVec 32) : HashInput :=
   bytesLE 16 message ++ bytesLE 16 (rowTweak lay tree leaf) ++ bytesLE 4 counter
 def counterSearch (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : Nat) :

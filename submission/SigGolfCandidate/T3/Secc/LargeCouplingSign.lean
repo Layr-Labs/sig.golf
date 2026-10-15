@@ -15,6 +15,14 @@ attribute [local irreducible] buildFts buildTree keygen
 noncomputable local instance instDecidableEqCache_largeCouplingSign : DecidableEq T3.Cache := Classical.decEq _
 section Honest
 variable {T : Answers} {labels : Labels}
+theorem honestValue_eq (h : Agrees T labels) : honestValue T = coordVal (secretsOf T) labels := by
+  funext c
+  cases c with
+  | inl M =>
+      change (T (.inl (.inr (Extract.honestInput T M.toPos)))).extractLsb' 0 128 = _
+      rw [honest_answer h M]
+      rfl
+  | inr x => rfl
 theorem filterMap_map_getD {α β γ : Type} (l : List α) (f : α → Option β) (v : β → γ) (d : γ)
     (h : ∀ a ∈ l, (f a).isSome) : (l.filterMap f).map v = l.map fun a => ((f a).map v).getD d := by
   induction l with

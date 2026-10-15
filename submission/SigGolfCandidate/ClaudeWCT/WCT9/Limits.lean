@@ -40,9 +40,9 @@ def expandWith (limit : Nat) (message : Message) (pk : Digest) (sig : Signature)
   let some (counter, output) ← digestSearch sig.rho message 0 limit | pure none
   let index := digestIndex output
   let top ← recoverFts sig index output
-  let some (root, counters, topHint) ← expandLayersBC sig index 4 (.pair top.1 top.2) | pure none
+  let some (root, counters) ← expandLayersBC sig index 4 (.pair top.1 top.2) | pure none
   if root ≠ pk then return none
-  pure (some ⟨sig, counter, fun lay => counters.getD lay.val 0, topHint⟩)
+  pure (some ⟨sig, counter, fun lay => counters.getD lay.val 0⟩)
 def verifyWith (limit : Nat) (message : Message) (pk : Digest) (w : Witness) : M Bool := do
   if w.digestCounter.toNat ≥ limit then return false
   let output ← digest w.signature.rho message w.digestCounter
@@ -87,20 +87,20 @@ def topFold (sig : Signature) (index : Nat) (digits : List Nat) : M Digest := do
   ((List.finRange (height 0)).take 11).foldlM (topStep sig index) value
 /-- `expandLayersBC` that also returns the top layer's level-11 node and takes the top sibling as an argument. -/
 def expandLayersT (sig : Signature) (index : Nat) (other : Digest) :
-    Nat → LayerMsg → M (Option (Digest × Digest × List (BitVec 32) × BitVec 64))
+    Nat → LayerMsg → M (Option (Digest × Digest × List (BitVec 32)))
   | 0, _ => pure none
   | n + 1, msg => do
       let lay : Layer := Fin.ofNat 4 n
       let (leaf, tree) := route index lay
-      let some (counter, digits, hint) ← layerCounterSearchHint lay tree leaf msg 0 (searchLimit lay) | pure none
+      let some (counter, digits) ← layerCounterSearch lay tree leaf msg 0 (searchLimit lay) | pure none
       if n = 0 then
         let v ← topFold sig index digits
         let root ← topNode index v other
-        pure (some (v, root, [counter], hint))
+        pure (some (v, root, [counter]))
       else
         let pair ← recoverLayerPair sig index lay digits
-        let some (v, root, counters, topHint) ← expandLayersT sig index other n (.pair pair.1 pair.2) | pure none
-        pure (some (v, root, counters ++ [counter], topHint))
+        let some (v, root, counters) ← expandLayersT sig index other n (.pair pair.1 pair.2) | pure none
+        pure (some (v, root, counters ++ [counter]))
 def searchFuel : Nat := 65535
 /-- Candidates `c, c + 1, ...` for the omitted bits; the first whose root is `pk`. -/
 def searchTop (index : Nat) (v sib pk : Digest) : Nat → Nat → M (Option Nat)
@@ -115,10 +115,10 @@ def expandS (limit : Nat) (message : Message) (pk : Digest) (sig : Signature) :
   let some (counter, output) ← digestSearch sig0.rho message 0 limit | pure none
   let index := digestIndex output
   let top ← recoverFts sig0 index output
-  let some (v, root, counters, topHint) ← expandLayersT sig0 index (topSib sig0) 4 (.pair top.1 top.2) | pure none
-  if root = pk then return some (output, ⟨sig0, counter, fun lay => counters.getD lay.val 0, topHint⟩)
+  let some (v, root, counters) ← expandLayersT sig0 index (topSib sig0) 4 (.pair top.1 top.2) | pure none
+  if root = pk then return some (output, ⟨sig0, counter, fun lay => counters.getD lay.val 0⟩)
   let some c ← searchTop index v (topSib sig0) pk searchFuel 1 | pure none
-  pure (some (output, ⟨fillTop sig0 c, counter, fun lay => counters.getD lay.val 0, topHint⟩))
+  pure (some (output, ⟨fillTop sig0 c, counter, fun lay => counters.getD lay.val 0⟩))
 namespace Rev3
 def signPayload (cache : Cache) (message : Message) : M (Option Signature) :=
   signPayloadWith digestAttemptLimit cache message

@@ -1,7 +1,7 @@
 import SigGolfCandidate.ClaudeWCT.W9.T3.Secc.WotsLeafTest
 import SigGolfCandidate.ClaudeWCT.Arith.FamilyTest
 import SigGolfCandidate.ClaudeWCT.WCT9.LowerReveal
-import SigGolfCandidate.ClaudeWCT.W9.New.G3b_Shared
+import SigGolfCandidate.ClaudeWCT.W9.New.G3b.Shared
 
 /-! # The per-chain seed-test reduction (campaign X1 stage B, step B3)
 
@@ -78,9 +78,7 @@ theorem routeImpl_congr (K K' : Fin (WCT9.famCount L.lay) → Digest) (f f' : Fi
   · simp only [PrefixGame.routeImpl]
   · simp only [PrefixGame.routeImpl]
     cases hp : PrefixGame.rowOf a (restDepth a R) input with
-    | some p =>
-        simp only
-        rw [PrefixGame.rowOf_some hp, otherHalf_ovL L R, otherHalf_ovL L R]
+    | some p => simp only [high_ovL]
     | none =>
         simp only
         congr 1
@@ -690,3 +688,685 @@ end PerR
 
 end Leaf
 end ClaudeWCT.W9.T3.Security.Wots
+
+namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.Core
+open SigGolfCandidate SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
+open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open OracleComp OracleSpec ENNReal
+open SigGolfCandidate.T3 ClaudeWCT.W9.T3M
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.T3.Security.Wots.PrefixGame (high Hidden)
+open ClaudeWCT.W9.T3.Security.Wots.Leaf
+open ClaudeWCT.Arith.SideChannel (TSpec Free evalT seedsY seedsR seedsH)
+open SphincsSecurity.Concrete.PartialChainEndpoint (evaluate observedRun)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+variable {U : Finset HashInput} (hU : SeccLaw.publicUniverse⊆U)
+attribute [local irreducible] raw normalize answers RawPrefix.fill RawLeaf.ovL
+
+noncomputable def revSet (L : LeafAddr) (R : Tables U) : Finset (Fin (chainCount L.lay)) :=
+  Finset.univ.filter fun c => CanonicalRef.depth (raw R) zeroMessages ⟨L,c⟩=0
+noncomputable def Kst (L : LeafAddr) (R : Tables U) (r : Fin (chainCount L.lay)→Digest) : Fin (WCT9.famCount L.lay)→Digest :=
+  if h : ∃K,seedsR (ptL L) (revSet L R) K=r then h.choose else 0
+
+theorem seedsR_Kst (L : LeafAddr) (R : Tables U) (K : Fin (WCT9.famCount L.lay)→Digest) :
+    seedsR (ptL L) (revSet L R) (Kst L R (seedsR (ptL L) (revSet L R) K))=seedsR (ptL L) (revSet L R) K := by
+  unfold Kst
+  rw [dif_pos ⟨K,rfl⟩]
+  exact (⟨K,rfl⟩ : ∃K',seedsR (ptL L) (revSet L R) K'=seedsR (ptL L) (revSet L R) K).choose_spec
+
+noncomputable def Tst (L : LeafAddr) (a : ChainAddr) (R : Tables U)
+    (p : PData L (RawPrefix.restDepth a R)) (r : Fin (chainCount L.lay)→Digest) : Answers :=
+  answers hU (RawPrefix.fill a (RawLeaf.ovL L R (Kst L R r,progF p.1.1 p.1.2 (Kst L R r))) (eP L p))
+noncomputable def testRun {L : LeafAddr} {a : ChainAddr} {R : Tables U} {Res : Type}
+    (GD : Answers→OracleComp RefWorld Res) (aF : Free (revSet L R))
+    (p : PData L (RawPrefix.restDepth a R)) (r : Fin (chainCount L.lay)→Digest) :
+    OracleComp (TSpec (Free (revSet L R)) Digest) (Res×TObs (RawPrefix.restDepth a R)) :=
+  (simulateQ (Test.testImpl L a (RawPrefix.restDepth a R) (Tst hU L a R p r) (revSet L R) aF (mkP p r))
+    (GD (Tst hU L a R p r))).run (fun _ _=>none)
+
+section Points
+variable {L : LeafAddr} (hL : WotsExtract.SourceLeaf7 L) {a : ChainAddr}
+  (ha : a.key=L) (hac : a.chain<chainCount L.lay) (R : Tables U) (hd : 1≤RawPrefix.restDepth a R)
+  {Res : Type} (GD : Answers→OracleComp RefWorld Res)
+  (hG : ∀T T',CanonicalRef.Leaf.Congr (sourceMessages T) L T T'→GD T'=GD T)
+  (aF : Free (revSet L R)) (haF : aF.1.val=a.chain)
+include hL ha hac hd hG
+
+theorem GD_prog (K : Fin (WCT9.famCount L.lay)→Digest) (p : PData L (RawPrefix.restDepth a R)) :
+    GD (answers hU (RawPrefix.fill a (RawLeaf.ovL L R (K,progF p.1.1 p.1.2 K)) (eP L p)))=
+      GD (Tst hU L a R p (seedsR (ptL L) (revSet L R) K)) := by
+  unfold Tst
+  have hl : L.leaf<2^24 := by
+    have hh : ∀lay:Layer,2^height lay≤2^24 := by intro lay;fin_cases lay<;>decide
+    exact hL.2.trans_le (hh L.lay)
+  apply Eq.symm
+  apply hG
+  apply leafCongr_normalize hU hL
+  apply RawLeaf.leafCongr_prog hU hl ha hac R hd
+  intro c hc
+  have h := congrFun (seedsR_Kst L R K) c
+  have hc' : c∈revSet L R := by simp only [revSet,Finset.mem_filter,Finset.mem_univ,true_and];exact hc
+  simpa only [seedsR,if_pos hc',seedOf,ptL,WCT9.lowerPoint] using h.symm
+
+include haF
+
+theorem frozen_point (K : Fin (WCT9.famCount L.lay)→Digest) (p : PData L (RawPrefix.restDepth a R)) :
+    observedRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl
+      (tY L (RawPrefix.restDepth a R) (mkP p 0) (seedOf K a.chain))
+      (simulateQ (Route.routeImpl a (RawPrefix.restDepth a R) (answers hU (RawLeaf.ovL L R (K,progF p.1.1 p.1.2 K)))
+        (answers hU (RawPrefix.fill a (RawLeaf.ovL L R (K,progF p.1.1 p.1.2 K)) (eP L p))))
+        (GD (answers hU (RawPrefix.fill a (RawLeaf.ovL L R (K,progF p.1.1 p.1.2 K)) (eP L p))))) (fun _ _=>none) =
+    evalT (seedsY (ptL L) (revSet L R) K) (testRun hU GD aF p (seedsR (ptL L) (revSet L R) K)) := by
+  rw [GD_prog hU hL ha hac R hd GD hG K p]
+  unfold testRun
+  rw [Test.evalT_testRun]
+  have hfy : fY L (RawPrefix.restDepth a R) (revSet L R) (mkP p (seedsR (ptL L) (revSet L R) K))
+      (seedsY (ptL L) (revSet L R) K)=progF p.1.1 p.1.2 K := by
+    funext c
+    unfold fY progF mkP
+    simp only
+    split_ifs with hc
+    · unfold seedsR;rw [if_pos hc];rfl
+    · rfl
+  have hya : seedsY (ptL L) (revSet L R) K aF=seedOf K a.chain := by
+    change seedOf K aF.1.val=seedOf K a.chain
+    rw [haF]
+  rw [hfy,hya,tY_mkP p (seedsR (ptL L) (revSet L R) K) 0]
+  have hKK : ∀ c : Fin (chainCount L.lay), CanonicalRef.depth (raw R) zeroMessages ⟨L,c⟩=0 →
+      seedOf K c=seedOf (Kst L R (seedsR (ptL L) (revSet L R) K)) c := by
+    intro c hc
+    have h := congrFun (seedsR_Kst L R K) c
+    have hc' : c∈revSet L R := by simp only [revSet,Finset.mem_filter,Finset.mem_univ,true_and];exact hc
+    simpa only [seedsR,if_pos hc',seedOf,ptL,WCT9.lowerPoint] using h.symm
+  rw [RawLeaf.route_programmed hU hL ha hac R hd p.1.1 p.1.2 K _ hKK (eP L p)]
+  simp only [Tst]
+end Points
+
+end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.Core
+
+namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.Core
+open OracleComp OracleSpec ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open ClaudeWCT.W9.T3.Security.Wots.Leaf
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+variable {U : Finset HashInput}
+
+theorem revSet_card_le (L : LeafAddr) (R : Tables U) :
+    (revSet L R).card+3≤WCT9.famCount L.lay := by
+  unfold revSet
+  change (Finset.univ.filter fun c : Fin (chainCount L.lay) =>
+    (CanonicalRef.referenceDigits (raw R) zeroMessages L).getD c 0=0).card+3≤_
+  rw [card_filter_getD_zero' _ _ (CanonicalRef.referenceDigits_length (raw R) zeroMessages L)]
+  cases hs : CanonicalRef.referenceSearch (raw R) zeroMessages L with
+  | none =>
+    simp only [CanonicalRef.referenceDigits,hs,Option.map_none,Option.getD_none,dummyDigits_zero,Nat.zero_add]
+    have hc : ∀ lay : Layer,3≤WCT9.famCount lay := by intro lay;fin_cases lay <;> decide
+    exact hc L.lay
+  | some found =>
+    obtain ⟨c,ds⟩ := found
+    have hd : ∃ floor value,WCT9.CanonicalPolicy.producerDecodeAt L.lay floor value=some ds := by
+      unfold CanonicalRef.referenceSearch CanonicalRef.selected at hs
+      cases hc : CanonicalRef.context (CanonicalRef.searchOf (raw R) zeroMessages) WCT9.CanonicalPolicy.credit L with
+      | none => rw [hc] at hs;cases hs
+      | some remaining =>
+        rw [hc] at hs
+        exact ⟨_,_,CanonicalRef.counterSearch_decode (raw R) L.lay _ L.tree L.leaf (zeroMessages L)
+          (WCT9.searchLimit L.lay) 0 c ds hs⟩
+    simp only [CanonicalRef.referenceDigits,hs,Option.map_some,Option.getD_some]
+    obtain ⟨floor,value,hd⟩ := hd
+    have hp := WCT9.CanonicalPolicy.producerDecodeAt_spec hd
+    by_cases hz : L.lay=0
+    · have hdec : decode 0 value=some ds := by
+        simpa only [WCT9.CanonicalPolicy.decode,WCT9.CanonicalPolicy.normalLayer,hz,ite_true] using hp.1
+      have hb := WCT9.top_zero_count_le WCT9.top_target_ge hdec
+      rw [hz,WCT9.famCount_top]
+      omega
+    · have hb := hp.2.2.1.resolve_left hz
+      rw [WCT9.famCount_lower hz]
+      omega
+
+end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.Core
+
+namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.Core
+open OracleComp OracleSpec ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open ClaudeWCT.W9.T3.Security.Wots.Leaf
+open ClaudeWCT.Arith.SideChannel (TSpec Free evalT seedsY seedsR seedsH)
+open SphincsSecurity.Concrete.PartialChainEndpoint (evaluate observedRun)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+attribute [local irreducible] raw normalize answers RawPrefix.fill RawLeaf.ovL Tst
+variable {U : Finset HashInput} (hU : SeccLaw.publicUniverse⊆U)
+
+theorem route_withPublic_congr {L : LeafAddr} {a : ChainAddr} (ha : a.key=L) {d : Nat} (hd : 1≤d)
+    (B : Answers) (f f' : Fin (chainCount L.lay)→Digest→Digest)
+    (hf : ∀c : Fin (chainCount L.lay),c.val≠a.chain→f c=f' c) :
+    Route.routeImpl a d B (Test.withPublic L B f)=Route.routeImpl a d B (Test.withPublic L B f') := by
+  funext query
+  rcases query with (coin | input) | coord
+  · simp only [Route.routeImpl]
+  · simp only [Route.routeImpl]
+    cases hp : PrefixGame.rowOf a d input with
+    | some p => rfl
+    | none =>
+      simp only [Test.withPublic,Test.publicAt]
+      congr 1
+      cases hz : zeroOf L input with
+      | none => rfl
+      | some cv =>
+        simp only
+        rw [hf cv.1 (by
+          intro he
+          apply PrefixGame.rowOf_none hp (⟨0,hd⟩,cv.2)
+          rw [zeroOf_some hz]
+          subst ha
+          rw [he])]
+  · simp only [Route.routeImpl]
+
+section Points
+variable {L : LeafAddr} (hL : WotsExtract.SourceLeaf7 L) {a : ChainAddr}
+  (ha : a.key=L) (hac : a.chain<chainCount L.lay) (R : Tables U) (hd : 1≤RawPrefix.restDepth a R)
+  {Res : Type} (GD : Answers→OracleComp RefWorld Res)
+  (hG : ∀T T',CanonicalRef.Leaf.Congr (sourceMessages T) L T T'→GD T'=GD T)
+  (aF : Free (revSet L R)) (haF : aF.1.val=a.chain)
+include hL ha hac hd hG haF
+
+theorem mix_point (K : Fin (WCT9.famCount L.lay)→Digest) (p : PData L (RawPrefix.restDepth a R)) (s : Digest) :
+    observedRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl (tY L (RawPrefix.restDepth a R) (mkP p 0) s)
+      (simulateQ (Route.routeImpl a (RawPrefix.restDepth a R) (answers hU (RawLeaf.ovL L R (K,progF p.1.1 p.1.2 K)))
+        (answers hU (RawPrefix.fill a (RawLeaf.ovL L R (K,progF p.1.1 p.1.2 K)) (eP L p))))
+        (GD (answers hU (RawPrefix.fill a (RawLeaf.ovL L R (K,progF p.1.1 p.1.2 K)) (eP L p))))) (fun _ _=>none) =
+    evalT (seedsH (ptL L) (revSet L R) aF K s) (testRun hU GD aF p (seedsR (ptL L) (revSet L R) K)) := by
+  rw [GD_prog hU hL ha hac R hd GD hG K p]
+  unfold testRun
+  rw [Test.evalT_testRun]
+  have hya : seedsH (ptL L) (revSet L R) aF K s aF=s := by unfold seedsH;rw [if_pos rfl]
+  rw [hya,tY_mkP p (seedsR (ptL L) (revSet L R) K) 0]
+  have hKK : ∀ c : Fin (chainCount L.lay), CanonicalRef.depth (raw R) zeroMessages ⟨L,c⟩=0 →
+      seedOf K c=seedOf (Kst L R (seedsR (ptL L) (revSet L R) K)) c := by
+    intro c hc
+    have h := congrFun (seedsR_Kst L R K) c
+    have hc' : c∈revSet L R := by simp only [revSet,Finset.mem_filter,Finset.mem_univ,true_and];exact hc
+    simpa only [seedsR,if_pos hc',seedOf,ptL,WCT9.lowerPoint] using h.symm
+  rw [RawLeaf.route_programmed hU hL ha hac R hd p.1.1 p.1.2 K _ hKK (eP L p)]
+  have hbase : answers hU (RawPrefix.fill a (RawLeaf.ovL L R
+      (Kst L R (seedsR (ptL L) (revSet L R) K),progF p.1.1 p.1.2 (Kst L R (seedsR (ptL L) (revSet L R) K)))) (eP L p)) =
+      Tst hU L a R p (seedsR (ptL L) (revSet L R) K) := by unfold Tst;rfl
+  rw [hbase]
+  rw [route_withPublic_congr ha hd (Tst hU L a R p (seedsR (ptL L) (revSet L R) K)) (progF p.1.1 p.1.2 K)
+    (fY L (RawPrefix.restDepth a R) (revSet L R) (mkP p (seedsR (ptL L) (revSet L R) K))
+      (seedsH (ptL L) (revSet L R) aF K s))]
+  intro c hca
+  funext v
+  unfold fY progF mkP
+  simp only
+  split_ifs with hc
+  · unfold seedsR;rw [if_pos hc];rfl
+  · have hne : (⟨c,hc⟩ : Free (revSet L R))≠aF := by
+      intro he
+      apply hca
+      rw [←haF,←he]
+    unfold seedsH
+    rw [if_neg hne]
+    rfl
+end Points
+end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.Core
+
+namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.Core
+open SigGolfCandidate SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
+open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open OracleComp OracleSpec ENNReal
+open SigGolfCandidate.T3 ClaudeWCT.W9.T3M
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.T3.Security.Wots.PrefixGame (high Hidden)
+open ClaudeWCT.W9.T3.Security.Wots.Leaf
+open ClaudeWCT.Arith.SideChannel (TSpec Free evalT seedsY seedsR seedsH)
+open SphincsSecurity.Concrete.PartialChainEndpoint (evaluate observedRun)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+attribute [local irreducible] raw normalize answers RawPrefix.fill RawLeaf.ovL
+variable {U : Finset HashInput} (hU : SeccLaw.publicUniverse⊆U)
+
+noncomputable def gameD {Res : Type} (a : ChainAddr) (d : Nat) (R' : Tables U)
+    (GD : Answers→OracleComp RefWorld Res) (e : Digest) : OracleComp (PrefixGame.SeedSpec d) Res :=
+  simulateQ (Route.routeImpl a d (answers hU R') (answers hU (RawPrefix.fill a R' e)))
+    (GD (answers hU (RawPrefix.fill a R' e)))
+noncomputable def frozenLaw {Res : Type} (a : ChainAddr) (d : Nat) (R' : Tables U)
+    (GD : Answers→OracleComp RefWorld Res) : PMF (Digest×(Res×TObs d)) :=
+  (PMF.uniformOfFintype (Hidden d)).bind fun x =>
+    (observedRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl x.1
+      (gameD hU a d R' GD (evaluate x.1 (RawPrefix.ovSeed a R' x.2))) (fun _ _=>none)).map
+      (fun res => (evaluate x.1 (RawPrefix.ovSeed a R' x.2),res))
+noncomputable def mixLaw {Res : Type} (a : ChainAddr) (d : Nat) (R' : Tables U)
+    (GD : Answers→OracleComp RefWorld Res) : PMF (Digest×(Res×TObs d)) :=
+  SphincsSecurity.Concrete.PartialChainEndpoint.realRun (fun _=>SphincsSecurity.Concrete.OtsPrefix.uniformImpl)
+    (gameD hU a d R' GD) (fun _ _=>none)
+
+theorem ovSeed_ovL {L : LeafAddr} {a : ChainAddr} (ha : a.key=L) (hL : WotsExtract.SourceLeaf7 L)
+    (R : Tables U) (K : Fin (WCT9.famCount L.lay)→Digest) (f : Fin (chainCount L.lay)→Digest→Digest)
+    (s : Digest) : RawPrefix.ovSeed a (RawLeaf.ovL L R (K,f)) s=seedOf K a.chain := by
+  have hl : L.leaf<2^24 := by
+    have hh : ∀lay:Layer,2^height lay≤2^24 := by intro lay;fin_cases lay<;>decide
+    exact hL.2.trans_le (hh L.lay)
+  unfold RawPrefix.ovSeed
+  subst ha
+  rw [RawLeaf.wotsSeed_ovL hl]
+  rfl
+
+end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.Core
+
+namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.Core
+open SigGolfCandidate SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
+open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open OracleComp OracleSpec ENNReal
+open SigGolfCandidate.T3 ClaudeWCT.W9.T3M
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.T3.Security.Wots.PrefixGame (high Hidden)
+open ClaudeWCT.W9.T3.Security.Wots.Leaf
+open ClaudeWCT.Arith.SideChannel (TSpec Free evalT seedsY seedsR seedsH)
+open SphincsSecurity.Concrete.PartialChainEndpoint (evaluate observedRun)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+attribute [local irreducible] raw normalize answers RawPrefix.fill RawLeaf.ovL
+variable {U : Finset HashInput} (hU : SeccLaw.publicUniverse⊆U)
+
+section Decomp
+variable {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.chain < chainCount L.lay)
+  (hL : WotsExtract.SourceLeaf7 L) (R : Tables U) (hd1 : 1 ≤ RawPrefix.restDepth a R)
+  {Res : Type} (GD : Answers → OracleComp RefWorld Res) (hG : ∀ T T', CanonicalRef.Leaf.Congr (sourceMessages T) L T T' → GD T' = GD T)
+  (aF : Free (revSet L R)) (haF : aF.1.val = a.chain)
+include haL hac hL hd1 hG haF
+
+/-- **Frozen law, decomposed.** -/
+theorem frozen_decomp :
+    (PMF.uniformOfFintype (LeafData L)).bind (fun y => frozenLaw hU a (RawPrefix.restDepth a R) (RawLeaf.ovL L R y) GD) =
+      (PMF.uniformOfFintype (Fin (WCT9.famCount L.lay) → Digest)).bind (fun K => (PMF.uniformOfFintype (PData L (RawPrefix.restDepth a R))).bind
+        (fun p => (evalT (seedsY (ptL L) (revSet L R) K) (testRun hU GD aF p (seedsR (ptL L) (revSet L R) K))).map
+          (fun res => (eP L p, res)))) := by
+  rw [uniform_prod_bind]
+  congr 1
+  funext K
+  -- the frozen law of `RawLeaf.ovL L R (K, f)`: the seed component is a dummy
+  have hfr : ∀ f, frozenLaw hU a (RawPrefix.restDepth a R) (RawLeaf.ovL L R (K, f)) GD =
+      (PMF.uniformOfFintype (Fin (RawPrefix.restDepth a R) → Digest → Digest)).bind (fun t =>
+        (observedRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl t
+          (gameD hU a (RawPrefix.restDepth a R) (RawLeaf.ovL L R (K, f)) GD (evaluate t (seedOf K a.chain))) (fun _ _ => none)).map
+          (fun res => (evaluate t (seedOf K a.chain), res))) := by
+    intro f
+    unfold frozenLaw
+    rw [show PMF.uniformOfFintype (Hidden (RawPrefix.restDepth a R)) =
+      PMF.uniformOfFintype ((Fin (RawPrefix.restDepth a R) → Digest → Digest) × Digest) from rfl, uniform_prod_bind]
+    congr 1
+    funext t
+    simp only [ovSeed_ovL haL hL R K f]
+    exact uniform_bind_const _
+  simp only [hfr]
+  rw [uniform_program (fun c : Fin (chainCount L.lay) => seedOf K c.val)]
+  conv_rhs => rw [show PMF.uniformOfFintype (PData L (RawPrefix.restDepth a R)) = PMF.uniformOfFintype
+    (((Fin (chainCount L.lay) → Digest → Digest) × (Fin (chainCount L.lay) → Digest)) ×
+      ((Fin (RawPrefix.restDepth a R) → Digest → Digest) × (Fin (RawPrefix.restDepth a R) → Digest))) from rfl, uniform_prod_bind]
+  congr 1
+  funext gl
+  rw [uniform_program (fun i : Fin (RawPrefix.restDepth a R) => if i.val = 0 then seedOf K a.chain else 0)]
+  congr 1
+  funext q
+  have ht : (fun i : Fin (RawPrefix.restDepth a R) => Function.update (q.1 i) (if i.val = 0 then seedOf K a.chain else 0) (q.2 i)) =
+      tY L (RawPrefix.restDepth a R) (mkP (gl, q) 0) (seedOf K a.chain) := rfl
+  have he : evaluate (tY L (RawPrefix.restDepth a R) (mkP (gl, q) 0) (seedOf K a.chain)) (seedOf K a.chain) = eP L (gl, q) :=
+    evaluate_tY hd1 _ _
+  rw [ht, he]
+  unfold gameD
+  have hp := frozen_point hU hL haL hac R hd1 GD hG aF haF K (gl, q)
+  exact congrArg (PMF.map _) hp
+
+/-- **Frozen law with the leaf data, decomposed.** -/
+theorem frozen_decompY :
+    (PMF.uniformOfFintype (LeafData L)).bind
+        (fun y => (frozenLaw hU a (RawPrefix.restDepth a R) (RawLeaf.ovL L R y) GD).map (fun z => (y, z))) =
+      (PMF.uniformOfFintype (Fin (WCT9.famCount L.lay) → Digest)).bind (fun K => (PMF.uniformOfFintype (PData L (RawPrefix.restDepth a R))).bind
+        (fun p => (evalT (seedsY (ptL L) (revSet L R) K) (testRun hU GD aF p (seedsR (ptL L) (revSet L R) K))).map
+          (fun res => (((K, progF p.1.1 p.1.2 K) : LeafData L), (eP L p, res))))) := by
+  rw [uniform_prod_bind]
+  congr 1
+  funext K
+  have hfr : ∀ f, frozenLaw hU a (RawPrefix.restDepth a R) (RawLeaf.ovL L R (K, f)) GD =
+      (PMF.uniformOfFintype (Fin (RawPrefix.restDepth a R) → Digest → Digest)).bind (fun t =>
+        (observedRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl t
+          (gameD hU a (RawPrefix.restDepth a R) (RawLeaf.ovL L R (K, f)) GD (evaluate t (seedOf K a.chain))) (fun _ _ => none)).map
+          (fun res => (evaluate t (seedOf K a.chain), res))) := by
+    intro f
+    unfold frozenLaw
+    rw [show PMF.uniformOfFintype (Hidden (RawPrefix.restDepth a R)) =
+      PMF.uniformOfFintype ((Fin (RawPrefix.restDepth a R) → Digest → Digest) × Digest) from rfl, uniform_prod_bind]
+    congr 1
+    funext t
+    simp only [ovSeed_ovL haL hL R K f]
+    exact uniform_bind_const _
+  simp only [hfr, PMF.map_bind, PMF.map_comp]
+  rw [uniform_program (fun c : Fin (chainCount L.lay) => seedOf K c.val)]
+  conv_rhs => rw [show PMF.uniformOfFintype (PData L (RawPrefix.restDepth a R)) = PMF.uniformOfFintype
+    (((Fin (chainCount L.lay) → Digest → Digest) × (Fin (chainCount L.lay) → Digest)) ×
+      ((Fin (RawPrefix.restDepth a R) → Digest → Digest) × (Fin (RawPrefix.restDepth a R) → Digest))) from rfl, uniform_prod_bind]
+  congr 1
+  funext gl
+  rw [uniform_program (fun i : Fin (RawPrefix.restDepth a R) => if i.val = 0 then seedOf K a.chain else 0)]
+  congr 1
+  funext q
+  have ht : (fun i : Fin (RawPrefix.restDepth a R) => Function.update (q.1 i) (if i.val = 0 then seedOf K a.chain else 0) (q.2 i)) =
+      tY L (RawPrefix.restDepth a R) (mkP (gl, q) 0) (seedOf K a.chain) := rfl
+  have he : evaluate (tY L (RawPrefix.restDepth a R) (mkP (gl, q) 0) (seedOf K a.chain)) (seedOf K a.chain) = eP L (gl, q) :=
+    evaluate_tY hd1 _ _
+  rw [ht, he]
+  unfold gameD
+  have hp := frozen_point hU hL haL hac R hd1 GD hG aF haF K (gl, q)
+  exact congrArg (PMF.map _) hp
+
+/-- **Mixture law with the leaf data, decomposed.** -/
+theorem mix_decompY :
+    (PMF.uniformOfFintype (LeafData L)).bind
+        (fun y => (mixLaw hU a (RawPrefix.restDepth a R) (RawLeaf.ovL L R y) GD).map (fun z => (y, z))) =
+      (PMF.uniformOfFintype (Fin (WCT9.famCount L.lay) → Digest)).bind (fun K => (PMF.uniformOfFintype (PData L (RawPrefix.restDepth a R))).bind
+        (fun p => (PMF.uniformOfFintype Digest).bind (fun s =>
+          (evalT (seedsH (ptL L) (revSet L R) aF K s) (testRun hU GD aF p (seedsR (ptL L) (revSet L R) K))).map
+            (fun res => (((K, progF p.1.1 p.1.2 K) : LeafData L), (eP L p, res)))))) := by
+  rw [uniform_prod_bind]
+  congr 1
+  funext K
+  have hmx : ∀ f, mixLaw hU a (RawPrefix.restDepth a R) (RawLeaf.ovL L R (K, f)) GD =
+      (PMF.uniformOfFintype Digest).bind (fun s => (PMF.uniformOfFintype (Fin (RawPrefix.restDepth a R) → Digest → Digest)).bind
+        (fun t => (observedRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl t
+          (gameD hU a (RawPrefix.restDepth a R) (RawLeaf.ovL L R (K, f)) GD (evaluate t s)) (fun _ _ => none)).map
+          (fun res => (evaluate t s, res)))) := by
+    intro f
+    unfold mixLaw
+    simp only [SphincsSecurity.Concrete.PartialChainEndpoint.realRun,
+      SphincsSecurity.Concrete.PartialChainEndpoint.completeTables_empty,
+      SphincsSecurity.Concrete.EndpointPreimageDensity.real, PMF.map_bind, PMF.bind_bind, PMF.bind_map,
+      PMF.map_comp, Function.comp_def]
+    rw [PMF.bind_comm]
+  simp only [hmx, PMF.map_bind, PMF.map_comp]
+  rw [uniform_program (fun c : Fin (chainCount L.lay) => seedOf K c.val)]
+  conv_rhs => rw [show PMF.uniformOfFintype (PData L (RawPrefix.restDepth a R)) = PMF.uniformOfFintype
+    (((Fin (chainCount L.lay) → Digest → Digest) × (Fin (chainCount L.lay) → Digest)) ×
+      ((Fin (RawPrefix.restDepth a R) → Digest → Digest) × (Fin (RawPrefix.restDepth a R) → Digest))) from rfl, uniform_prod_bind]
+  congr 1
+  funext gl
+  conv_rhs => rw [PMF.bind_comm]
+  congr 1
+  funext s
+  rw [uniform_program (fun i : Fin (RawPrefix.restDepth a R) => if i.val = 0 then s else 0)]
+  congr 1
+  funext q
+  have ht : (fun i : Fin (RawPrefix.restDepth a R) => Function.update (q.1 i) (if i.val = 0 then s else 0) (q.2 i)) =
+      tY L (RawPrefix.restDepth a R) (mkP (gl, q) 0) s := rfl
+  have he : evaluate (tY L (RawPrefix.restDepth a R) (mkP (gl, q) 0) s) s = eP L (gl, q) := evaluate_tY hd1 _ _
+  rw [ht, he]
+  unfold gameD
+  have hp := mix_point hU hL haL hac R hd1 GD hG aF haF K (gl, q) s
+  exact congrArg (PMF.map _) hp
+end Decomp
+end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.Core
+
+namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.Core
+open SigGolfCandidate SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
+open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open OracleComp OracleSpec ENNReal
+open SigGolfCandidate.T3 ClaudeWCT.W9.T3M
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.T3.Security.Wots.PrefixGame (high Hidden)
+open ClaudeWCT.W9.T3.Security.Wots.Leaf
+open ClaudeWCT.Arith.SideChannel (TSpec Free evalT seedsY seedsR seedsH)
+open SphincsSecurity.Concrete.PartialChainEndpoint (evaluate observedRun)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+attribute [local irreducible] raw normalize answers RawPrefix.fill RawLeaf.ovL
+variable {U : Finset HashInput} (hU : SeccLaw.publicUniverse⊆U)
+
+open ClaudeWCT.Arith.SideChannel (tdepth prT amLen)
+open SigGolfCandidate.T3.Security.Wots.Mask ClaudeWCT.W9.T3.Security.Wots.Mask
+section PerR
+variable {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.chain < chainCount L.lay)
+  (hL : WotsExtract.SourceLeaf7 L) (R : Tables U) (hd1 : 1 ≤ RawPrefix.restDepth a R)
+  {Res : Type} (GD : Answers → OracleComp RefWorld Res) (hG : ∀ T T', CanonicalRef.Leaf.Congr (sourceMessages T) L T T' → GD T' = GD T)
+  (aF : Free (revSet L R)) (haF : aF.1.val = a.chain) (q : ℕ)
+  (hGq : ∀ T, OracleComp.IsQueryBoundP (GD T) RefCharged q)
+
+include hGq in
+theorem tdepth_testRun (p : PData L (RawPrefix.restDepth a R)) (r : Fin (chainCount L.lay) → Digest) :
+    tdepth (testRun hU GD aF p r) ≤ q :=
+  ClaudeWCT.Arith.SideChannel.tdepth_simulate_le _ RefCharged (fun qu s => Test.tdepth_testImpl (Tst hU L a R p r) aF _ qu s) _ q _
+    (hGq _)
+
+/-- The per-rest-table error: `2 δ K(q) E_{p,K}[amLen]`. -/
+noncomputable def errR : ℝ :=
+  ∑ p : PData L (RawPrefix.restDepth a R), ∑ K : Fin (WCT9.famCount L.lay) → Digest,
+    (Fintype.card (Fin (WCT9.famCount L.lay) → Digest) : ℝ)⁻¹ * ((Fintype.card (PData L (RawPrefix.restDepth a R)) : ℝ)⁻¹ *
+      (2 * ((Fintype.card Digest : ℝ)⁻¹) ^ 3 * ClaudeWCT.Arith.SideChannel.kconst q *
+        amLen (testRun hU GD aF p (seedsR (ptL L) (revSet L R) K))))
+
+include haL hac hL hd1 hG haF hGq
+
+theorem frozen_le_mix_R (E : LeafData L → Digest × (Res × TObs (RawPrefix.restDepth a R)) → Prop)
+    (hE : ∀ (p : PData L (RawPrefix.restDepth a R)) (K K' : Fin (WCT9.famCount L.lay) → Digest),
+      seedsR (ptL L) (revSet L R) K = seedsR (ptL L) (revSet L R) K' →
+        E (K, progF p.1.1 p.1.2 K) = E (K', progF p.1.1 p.1.2 K')) :
+    Pr[fun w => E w.1 w.2 | (PMF.uniformOfFintype (LeafData L)).bind
+        (fun y => (frozenLaw hU a (RawPrefix.restDepth a R) (RawLeaf.ovL L R y) GD).map (fun z => (y, z)))] ≤
+      Pr[fun w => E w.1 w.2 | (PMF.uniformOfFintype (LeafData L)).bind
+        (fun y => (mixLaw hU a (RawPrefix.restDepth a R) (RawLeaf.ovL L R y) GD).map (fun z => (y, z)))] +
+        ENNReal.ofReal (errR hU (a := a) R GD aF q) := by
+  rw [frozen_decompY hU haL hac hL R hd1 GD hG aF haF, mix_decompY hU haL hac hL R hd1 GD hG aF haF]
+  set A : PData L (RawPrefix.restDepth a R) → (Fin (chainCount L.lay) → Digest) → (Res × TObs (RawPrefix.restDepth a R)) → Prop :=
+    fun p r res => E (Kst L R r, progF p.1.1 p.1.2 (Kst L R r)) (eP L p, res) with hAdef
+  have hA : ∀ (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (RawPrefix.restDepth a R)),
+      (fun res => E (K, progF p.1.1 p.1.2 K) (eP L p, res)) = A p (seedsR (ptL L) (revSet L R) K) := by
+    intro K p
+    funext res
+    simp only [hAdef]
+    rw [hE p K _ (seedsR_Kst L R K).symm]
+  set tr := fun (p : PData L (RawPrefix.restDepth a R)) (r : Fin (chainCount L.lay) → Digest) => testRun hU GD aF p r with htr
+  simp only [prob_uniform_bind, prob_pmf_map, Function.comp_def]
+  simp only [prob_evalT]
+  simp only [hA]
+  have hRev : (revSet L R).card + 3 ≤ WCT9.famCount L.lay := revSet_card_le L R
+  have hpt : Function.Injective (ptL L) := fun c c' h => Fin.ext (by unfold ptL at h; omega)
+  have hsmall : ∀ c, ptL L c < 1024 := fun c => by
+    unfold ptL; have := c.isLt; have := chainCount_le L.lay; omega
+  -- convert to real sums
+  rw [show (∑ K : Fin (WCT9.famCount L.lay) → Digest, (Fintype.card (Fin (WCT9.famCount L.lay) → Digest) : ℝ≥0∞)⁻¹ *
+      ∑ p : PData L (RawPrefix.restDepth a R), (Fintype.card (PData L (RawPrefix.restDepth a R)) : ℝ≥0∞)⁻¹ *
+        ENNReal.ofReal (prT (seedsY (ptL L) (revSet L R) K) (A p (seedsR (ptL L) (revSet L R) K))
+          (testRun hU GD aF p (seedsR (ptL L) (revSet L R) K)))) =
+      ENNReal.ofReal (∑ K : Fin (WCT9.famCount L.lay) → Digest, (Fintype.card (Fin (WCT9.famCount L.lay) → Digest) : ℝ)⁻¹ *
+        ∑ p : PData L (RawPrefix.restDepth a R), (Fintype.card (PData L (RawPrefix.restDepth a R)) : ℝ)⁻¹ *
+          prT (seedsY (ptL L) (revSet L R) K) (A p (seedsR (ptL L) (revSet L R) K))
+            (testRun hU GD aF p (seedsR (ptL L) (revSet L R) K))) by
+    simp only [sum_inv_ofReal _ (fun _ => ClaudeWCT.Arith.SideChannel.prT_nonneg _ _ _)]
+    exact sum_inv_ofReal _ (fun K => Finset.sum_nonneg fun p _ => mul_nonneg (by positivity)
+      (ClaudeWCT.Arith.SideChannel.prT_nonneg _ _ _))]
+  set cK : ℝ := (Fintype.card (Fin (WCT9.famCount L.lay) → Digest) : ℝ)⁻¹ with hcK
+  set cp : ℝ := (Fintype.card (PData L (RawPrefix.restDepth a R)) : ℝ)⁻¹ with hcp
+  set cD : ℝ := (Fintype.card Digest : ℝ)⁻¹ with hcD
+  set C : ℝ := 2 * ((Fintype.card Digest : ℝ)⁻¹) ^ 3 * ClaudeWCT.Arith.SideChannel.kconst q with hC
+  set x := fun (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (RawPrefix.restDepth a R)) =>
+    prT (seedsY (ptL L) (revSet L R) K) (A p (seedsR (ptL L) (revSet L R) K)) (testRun hU GD aF p (seedsR (ptL L) (revSet L R) K))
+    with hx
+  set z := fun (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (RawPrefix.restDepth a R)) (s : Digest) =>
+    prT (seedsH (ptL L) (revSet L R) aF K s) (A p (seedsR (ptL L) (revSet L R) K))
+      (testRun hU GD aF p (seedsR (ptL L) (revSet L R) K)) with hz
+  set m := fun (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (RawPrefix.restDepth a R)) =>
+    amLen (testRun hU GD aF p (seedsR (ptL L) (revSet L R) K)) with hm
+  have hcK0 : 0 ≤ cK := by positivity
+  have hcp0 : 0 ≤ cp := by positivity
+  have hcD0 : 0 ≤ cD := by positivity
+  have hz0 : ∀ K p s, 0 ≤ z K p s := fun _ _ _ => ClaudeWCT.Arith.SideChannel.prT_nonneg _ _ _
+  rw [show (∑ K : Fin (WCT9.famCount L.lay) → Digest, (Fintype.card (Fin (WCT9.famCount L.lay) → Digest) : ℝ≥0∞)⁻¹ *
+      ∑ p : PData L (RawPrefix.restDepth a R), (Fintype.card (PData L (RawPrefix.restDepth a R)) : ℝ≥0∞)⁻¹ *
+        ∑ s : Digest, (Fintype.card Digest : ℝ≥0∞)⁻¹ * ENNReal.ofReal (z K p s)) =
+      ENNReal.ofReal (∑ K : Fin (WCT9.famCount L.lay) → Digest, cK * ∑ p : PData L (RawPrefix.restDepth a R), cp * ∑ s : Digest, cD * z K p s) by
+    have h1 : ∀ K p, ∑ s : Digest, (Fintype.card Digest : ℝ≥0∞)⁻¹ * ENNReal.ofReal (z K p s) =
+        ENNReal.ofReal (∑ s : Digest, cD * z K p s) := fun K p => sum_inv_ofReal (z K p) (hz0 K p)
+    simp only [h1]
+    have h2 : ∀ K, ∑ p : PData L (RawPrefix.restDepth a R), (Fintype.card (PData L (RawPrefix.restDepth a R)) : ℝ≥0∞)⁻¹ *
+        ENNReal.ofReal (∑ s : Digest, cD * z K p s) =
+        ENNReal.ofReal (∑ p : PData L (RawPrefix.restDepth a R), cp * ∑ s : Digest, cD * z K p s) := fun K =>
+      sum_inv_ofReal (fun p => ∑ s : Digest, cD * z K p s)
+        (fun p => Finset.sum_nonneg fun s _ => mul_nonneg hcD0 (hz0 K p s))
+    simp only [h2]
+    exact sum_inv_ofReal _ (fun K => Finset.sum_nonneg fun p _ => mul_nonneg hcp0
+      (Finset.sum_nonneg fun s _ => mul_nonneg hcD0 (hz0 K p s)))]
+  have hY : 0 ≤ ∑ K : Fin (WCT9.famCount L.lay) → Digest, cK * ∑ p : PData L (RawPrefix.restDepth a R), cp * ∑ s : Digest, cD * z K p s :=
+    Finset.sum_nonneg fun K _ => mul_nonneg hcK0 (Finset.sum_nonneg fun p _ => mul_nonneg hcp0
+      (Finset.sum_nonneg fun s _ => mul_nonneg hcD0 (hz0 K p s)))
+  have hZ : 0 ≤ errR hU (a := a) R GD aF q := by
+    unfold errR
+    refine Finset.sum_nonneg fun p _ => Finset.sum_nonneg fun K _ => mul_nonneg hcK0 (mul_nonneg hcp0 ?_)
+    exact mul_nonneg (mul_nonneg (mul_nonneg (by norm_num) (pow_nonneg (inv_nonneg.mpr (Nat.cast_nonneg _)) 3))
+      (Nat.cast_nonneg _)) (ClaudeWCT.Arith.SideChannel.amLen_nonneg _)
+  rw [← ENNReal.ofReal_add hY hZ]
+  apply ENNReal.ofReal_le_ofReal
+  have key : ∀ p : PData L (RawPrefix.restDepth a R), ∑ K, x K p ≤
+      ∑ K, (∑ s, z K p s) / Fintype.card Digest + C * ∑ K, m K p := fun p =>
+    ClaudeWCT.Arith.SideChannel.family_test_le hpt hsmall hRev aF (A p)
+      (fun r => testRun hU GD aF p r) q (fun r => tdepth_testRun hU R GD aF q hGq p r)
+  have e1 : ∑ K : Fin (WCT9.famCount L.lay) → Digest, cK * ∑ p : PData L (RawPrefix.restDepth a R), cp * x K p =
+      ∑ p : PData L (RawPrefix.restDepth a R), (cK * cp) * ∑ K, x K p := by
+    simp only [Finset.mul_sum]
+    rw [Finset.sum_comm]
+    refine Finset.sum_congr rfl fun p _ => Finset.sum_congr rfl fun K _ => by ring
+  have e2 : ∑ K : Fin (WCT9.famCount L.lay) → Digest, cK * ∑ p : PData L (RawPrefix.restDepth a R), cp * ∑ s : Digest, cD * z K p s =
+      ∑ p : PData L (RawPrefix.restDepth a R), (cK * cp) * ∑ K, (∑ s, z K p s) / Fintype.card Digest := by
+    simp only [Finset.mul_sum, div_eq_mul_inv, Finset.sum_mul]
+    rw [Finset.sum_comm]
+    refine Finset.sum_congr rfl fun p _ => Finset.sum_congr rfl fun K _ => Finset.sum_congr rfl fun s _ => by
+      rw [hcD]; ring
+  have e3 : errR hU (a := a) R GD aF q = ∑ p : PData L (RawPrefix.restDepth a R), (cK * cp) * (C * ∑ K, m K p) := by
+    unfold errR
+    simp only [Finset.mul_sum]
+    refine Finset.sum_congr rfl fun p _ => Finset.sum_congr rfl fun K _ => by rw [hcK, hcp, hC]; ring
+  rw [e1, e2, e3, ← Finset.sum_add_distrib]
+  refine Finset.sum_le_sum fun p _ => ?_
+  rw [← mul_add]
+  exact mul_le_mul_of_nonneg_left (key p) (mul_nonneg hcK0 hcp0)
+theorem mix_le_frozen_R (E : LeafData L → Digest × (Res × TObs (RawPrefix.restDepth a R)) → Prop)
+    (hE : ∀ (p : PData L (RawPrefix.restDepth a R)) (K K' : Fin (WCT9.famCount L.lay) → Digest),
+      seedsR (ptL L) (revSet L R) K = seedsR (ptL L) (revSet L R) K' →
+        E (K, progF p.1.1 p.1.2 K) = E (K', progF p.1.1 p.1.2 K')) :
+    Pr[fun w => E w.1 w.2 | (PMF.uniformOfFintype (LeafData L)).bind
+        (fun y => (mixLaw hU a (RawPrefix.restDepth a R) (RawLeaf.ovL L R y) GD).map (fun z => (y, z)))] ≤
+      Pr[fun w => E w.1 w.2 | (PMF.uniformOfFintype (LeafData L)).bind
+        (fun y => (frozenLaw hU a (RawPrefix.restDepth a R) (RawLeaf.ovL L R y) GD).map (fun z => (y, z)))] +
+        ENNReal.ofReal (errR hU (a := a) R GD aF q) := by
+  rw [frozen_decompY hU haL hac hL R hd1 GD hG aF haF, mix_decompY hU haL hac hL R hd1 GD hG aF haF]
+  set A : PData L (RawPrefix.restDepth a R) → (Fin (chainCount L.lay) → Digest) → (Res × TObs (RawPrefix.restDepth a R)) → Prop :=
+    fun p r res => E (Kst L R r, progF p.1.1 p.1.2 (Kst L R r)) (eP L p, res) with hAdef
+  have hA : ∀ (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (RawPrefix.restDepth a R)),
+      (fun res => E (K, progF p.1.1 p.1.2 K) (eP L p, res)) = A p (seedsR (ptL L) (revSet L R) K) := by
+    intro K p
+    funext res
+    simp only [hAdef]
+    rw [hE p K _ (seedsR_Kst L R K).symm]
+  set tr := fun (p : PData L (RawPrefix.restDepth a R)) (r : Fin (chainCount L.lay) → Digest) => testRun hU GD aF p r with htr
+  simp only [prob_uniform_bind, prob_pmf_map, Function.comp_def]
+  simp only [prob_evalT]
+  simp only [hA]
+  have hRev : (revSet L R).card + 3 ≤ WCT9.famCount L.lay := revSet_card_le L R
+  have hpt : Function.Injective (ptL L) := fun c c' h => Fin.ext (by unfold ptL at h; omega)
+  have hsmall : ∀ c, ptL L c < 1024 := fun c => by
+    unfold ptL; have := c.isLt; have := chainCount_le L.lay; omega
+  -- convert to real sums
+  rw [show (∑ K : Fin (WCT9.famCount L.lay) → Digest, (Fintype.card (Fin (WCT9.famCount L.lay) → Digest) : ℝ≥0∞)⁻¹ *
+      ∑ p : PData L (RawPrefix.restDepth a R), (Fintype.card (PData L (RawPrefix.restDepth a R)) : ℝ≥0∞)⁻¹ *
+        ENNReal.ofReal (prT (seedsY (ptL L) (revSet L R) K) (A p (seedsR (ptL L) (revSet L R) K))
+          (testRun hU GD aF p (seedsR (ptL L) (revSet L R) K)))) =
+      ENNReal.ofReal (∑ K : Fin (WCT9.famCount L.lay) → Digest, (Fintype.card (Fin (WCT9.famCount L.lay) → Digest) : ℝ)⁻¹ *
+        ∑ p : PData L (RawPrefix.restDepth a R), (Fintype.card (PData L (RawPrefix.restDepth a R)) : ℝ)⁻¹ *
+          prT (seedsY (ptL L) (revSet L R) K) (A p (seedsR (ptL L) (revSet L R) K))
+            (testRun hU GD aF p (seedsR (ptL L) (revSet L R) K))) by
+    simp only [sum_inv_ofReal _ (fun _ => ClaudeWCT.Arith.SideChannel.prT_nonneg _ _ _)]
+    exact sum_inv_ofReal _ (fun K => Finset.sum_nonneg fun p _ => mul_nonneg (by positivity)
+      (ClaudeWCT.Arith.SideChannel.prT_nonneg _ _ _))]
+  set cK : ℝ := (Fintype.card (Fin (WCT9.famCount L.lay) → Digest) : ℝ)⁻¹ with hcK
+  set cp : ℝ := (Fintype.card (PData L (RawPrefix.restDepth a R)) : ℝ)⁻¹ with hcp
+  set cD : ℝ := (Fintype.card Digest : ℝ)⁻¹ with hcD
+  set C : ℝ := 2 * ((Fintype.card Digest : ℝ)⁻¹) ^ 3 * ClaudeWCT.Arith.SideChannel.kconst q with hC
+  set x := fun (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (RawPrefix.restDepth a R)) =>
+    prT (seedsY (ptL L) (revSet L R) K) (A p (seedsR (ptL L) (revSet L R) K)) (testRun hU GD aF p (seedsR (ptL L) (revSet L R) K))
+    with hx
+  set z := fun (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (RawPrefix.restDepth a R)) (s : Digest) =>
+    prT (seedsH (ptL L) (revSet L R) aF K s) (A p (seedsR (ptL L) (revSet L R) K))
+      (testRun hU GD aF p (seedsR (ptL L) (revSet L R) K)) with hz
+  set m := fun (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (RawPrefix.restDepth a R)) =>
+    amLen (testRun hU GD aF p (seedsR (ptL L) (revSet L R) K)) with hm
+  have hcK0 : 0 ≤ cK := by positivity
+  have hcp0 : 0 ≤ cp := by positivity
+  have hcD0 : 0 ≤ cD := by positivity
+  have hz0 : ∀ K p s, 0 ≤ z K p s := fun _ _ _ => ClaudeWCT.Arith.SideChannel.prT_nonneg _ _ _
+  rw [show (∑ K : Fin (WCT9.famCount L.lay) → Digest, (Fintype.card (Fin (WCT9.famCount L.lay) → Digest) : ℝ≥0∞)⁻¹ *
+      ∑ p : PData L (RawPrefix.restDepth a R), (Fintype.card (PData L (RawPrefix.restDepth a R)) : ℝ≥0∞)⁻¹ *
+        ∑ s : Digest, (Fintype.card Digest : ℝ≥0∞)⁻¹ * ENNReal.ofReal (z K p s)) =
+      ENNReal.ofReal (∑ K : Fin (WCT9.famCount L.lay) → Digest, cK * ∑ p : PData L (RawPrefix.restDepth a R), cp * ∑ s : Digest, cD * z K p s) by
+    have h1 : ∀ K p, ∑ s : Digest, (Fintype.card Digest : ℝ≥0∞)⁻¹ * ENNReal.ofReal (z K p s) =
+        ENNReal.ofReal (∑ s : Digest, cD * z K p s) := fun K p => sum_inv_ofReal (z K p) (hz0 K p)
+    simp only [h1]
+    have h2 : ∀ K, ∑ p : PData L (RawPrefix.restDepth a R), (Fintype.card (PData L (RawPrefix.restDepth a R)) : ℝ≥0∞)⁻¹ *
+        ENNReal.ofReal (∑ s : Digest, cD * z K p s) =
+        ENNReal.ofReal (∑ p : PData L (RawPrefix.restDepth a R), cp * ∑ s : Digest, cD * z K p s) := fun K =>
+      sum_inv_ofReal (fun p => ∑ s : Digest, cD * z K p s)
+        (fun p => Finset.sum_nonneg fun s _ => mul_nonneg hcD0 (hz0 K p s))
+    simp only [h2]
+    exact sum_inv_ofReal _ (fun K => Finset.sum_nonneg fun p _ => mul_nonneg hcp0
+      (Finset.sum_nonneg fun s _ => mul_nonneg hcD0 (hz0 K p s)))]
+  have hY : 0 ≤ ∑ K : Fin (WCT9.famCount L.lay) → Digest, cK * ∑ p : PData L (RawPrefix.restDepth a R), cp * x K p :=
+    Finset.sum_nonneg fun K _ => mul_nonneg hcK0 (Finset.sum_nonneg fun p _ => mul_nonneg hcp0
+      (ClaudeWCT.Arith.SideChannel.prT_nonneg _ _ _))
+  have hZ : 0 ≤ errR hU (a := a) R GD aF q := by
+    unfold errR
+    refine Finset.sum_nonneg fun p _ => Finset.sum_nonneg fun K _ => mul_nonneg hcK0 (mul_nonneg hcp0 ?_)
+    exact mul_nonneg (mul_nonneg (mul_nonneg (by norm_num) (pow_nonneg (inv_nonneg.mpr (Nat.cast_nonneg _)) 3))
+      (Nat.cast_nonneg _)) (ClaudeWCT.Arith.SideChannel.amLen_nonneg _)
+  rw [← ENNReal.ofReal_add hY hZ]
+  apply ENNReal.ofReal_le_ofReal
+  have key : ∀ p : PData L (RawPrefix.restDepth a R), ∑ K, (∑ s, z K p s) / Fintype.card Digest ≤
+      ∑ K, x K p + C * ∑ K, m K p := fun p =>
+    ClaudeWCT.Arith.SideChannel.family_test_ge hpt hsmall hRev aF (A p)
+      (fun r => testRun hU GD aF p r) q (fun r => tdepth_testRun hU R GD aF q hGq p r)
+  have e1 : ∑ K : Fin (WCT9.famCount L.lay) → Digest, cK * ∑ p : PData L (RawPrefix.restDepth a R), cp * x K p =
+      ∑ p : PData L (RawPrefix.restDepth a R), (cK * cp) * ∑ K, x K p := by
+    simp only [Finset.mul_sum]
+    rw [Finset.sum_comm]
+    refine Finset.sum_congr rfl fun p _ => Finset.sum_congr rfl fun K _ => by ring
+  have e2 : ∑ K : Fin (WCT9.famCount L.lay) → Digest, cK * ∑ p : PData L (RawPrefix.restDepth a R), cp * ∑ s : Digest, cD * z K p s =
+      ∑ p : PData L (RawPrefix.restDepth a R), (cK * cp) * ∑ K, (∑ s, z K p s) / Fintype.card Digest := by
+    simp only [Finset.mul_sum, div_eq_mul_inv, Finset.sum_mul]
+    rw [Finset.sum_comm]
+    refine Finset.sum_congr rfl fun p _ => Finset.sum_congr rfl fun K _ => Finset.sum_congr rfl fun s _ => by
+      rw [hcD]; ring
+  have e3 : errR hU (a := a) R GD aF q = ∑ p : PData L (RawPrefix.restDepth a R), (cK * cp) * (C * ∑ K, m K p) := by
+    unfold errR
+    simp only [Finset.mul_sum]
+    refine Finset.sum_congr rfl fun p _ => Finset.sum_congr rfl fun K _ => by rw [hcK, hcp, hC]; ring
+  rw [e2, e1, e3, ← Finset.sum_add_distrib]
+  refine Finset.sum_le_sum fun p _ => ?_
+  rw [← mul_add]
+  exact mul_le_mul_of_nonneg_left (key p) (mul_nonneg hcK0 hcp0)
+end PerR
+end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.Core

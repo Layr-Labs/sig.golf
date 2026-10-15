@@ -34,10 +34,8 @@ abbrev SCREND : Nat := 0x52010
 abbrev COEF : Nat := 0x50800
 def hook153 : BitVec 32 := 0x1890a06f
 def hook540 : BitVec 32 := 0x3791306f
-/-- The sign code: the record window at 11003, (nested FTS r1-1) the trampolines at 21450 and (C4, FTS
-coordinate + 1) the coordinate-0 arena at 1700. -/
-def NewCodeAt (im : Image) : Prop :=
-  signNew <+: im.code.drop 11003 ∧ signTramp <+: im.code.drop 21450 ∧ arenaCode <+: im.code.drop 1700
+/-- The sign code: the record window at 11003 and (nested FTS r1-1) the trampolines at 21450. -/
+def NewCodeAt (im : Image) : Prop := signNew <+: im.code.drop 11003 ∧ signTramp <+: im.code.drop 21450
 /-- [h2 lane] the sign prepass appended at word 20813 (entered from the record's copy at 20730): move digest 192 (the top
 sibling, scratch 0x7ca0) to the last scratch slot and digests 193..340 down one slot, then return to 20731. -/
 def h2SignTail : List (BitVec 32) := [0x8e37, 0xca0e0e13, 0xe3703, 0x8e3783, 0xe0e93, 0x10e0e13, 0x8f37, 0x5f0f0f13,
@@ -162,7 +160,7 @@ def NewW (A : Nat) : Prop := SearchW A ∨ FtsW A
 def InvStable (Inv : MachineState → Prop) : Prop :=
   ∀ t u, Inv t → Frame t u NewW → RegsExcept t u newRegs → Inv u
 def wsub (imgs : Phase → Image) : Submission :=
-  ⟨⟨5310, 24828, 131072⟩, ⟨0x65c0, 0x80, 0xa0, 0x80000, 0x7000, 0x4c0⟩, imgs⟩
+  ⟨⟨5310, 24860, 131072⟩, ⟨0x65e0, 0x80, 0xa0, 0x80000, 0x7000, 0x4c0⟩, imgs⟩
 structure Unchanged (imgs : Phase → Image) (Inv : BitVec 256 → Bytes 131072 → Message → MachineState → Prop) :
     Prop where
   front : ∀ sk cache m, ∃ s0, initialState (wsub imgs) .sign (sk, cache, m) = some s0 ∧
@@ -192,16 +190,13 @@ open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 def scfg : Config := {}
 def cbase (c : Nat) : Nat := fieldIdx.getD c 0
 def headLook (n : Nat) : Option (BitVec 32) := if 11003 ≤ n then headCode[n - 11003]? else none
-/-- Nested FTS (r1-1) and C1: the trampolines at 21450..21801. -/
+/-- Nested FTS (r1-1): the trampolines at 21450..21666. -/
 def trampLook (n : Nat) : Option (BitVec 32) := if 21450 ≤ n then signTramp[n - 21450]? else none
-/-- C4: the coordinate-0 arena at 1700..1725 (below every coordinate window). -/
-def arenaLook (n : Nat) : Option (BitVec 32) := if 1700 ≤ n then arenaCode[n - 1700]? else none
-/-- A coordinate's code window, falling through to the trampolines (nested FTS r1-1), and below the window to the
-C4 arena. -/
+/-- A coordinate's code window, falling through to the trampolines (nested FTS r1-1). -/
 def coordLook (c n : Nat) : Option (BitVec 32) :=
   if cbase c ≤ n then
     (match (coordCodes.getD c [])[n - cbase c]? with | some w => some w | none => trampLook n)
-  else arenaLook n
+  else none
 def tailLook (n : Nat) : Option (BitVec 32) := if 20715 ≤ n then tailCode[n - 20715]? else none
 def hookLook (n : Nat) : Option (BitVec 32) :=
   if n = 153 then some hook153 else if n = 540 then some hook540 else if n = 545 then some 0x00000073 else none
@@ -271,23 +266,12 @@ theorem cbase_ge (c : Nat) (hc : c < 9) : 11003 ≤ cbase c := by
   interval_cases c <;> decide +kernel
 theorem trampLook_ok {im : Image} (h : NewCodeAt im) : LookOK im trampLook := by
   intro n w hw
-  obtain ⟨rest, hrest⟩ := h.2.1
+  obtain ⟨rest, hrest⟩ := h.2
   unfold trampLook at hw
   split at hw
   · rename_i hle
     have hlen : n - 21450 < signTramp.length := (List.getElem?_eq_some_iff.mp hw).1
     have h2 : (im.code.drop 21450)[n - 21450]? = some w := by
-      rw [← hrest, List.getElem?_append_left hlen]; exact hw
-    rwa [List.getElem?_drop, Nat.add_sub_cancel' hle] at h2
-  · cases hw
-theorem arenaLook_ok {im : Image} (h : NewCodeAt im) : LookOK im arenaLook := by
-  intro n w hw
-  obtain ⟨rest, hrest⟩ := h.2.2
-  unfold arenaLook at hw
-  split at hw
-  · rename_i hle
-    have hlen : n - 1700 < arenaCode.length := (List.getElem?_eq_some_iff.mp hw).1
-    have h2 : (im.code.drop 1700)[n - 1700]? = some w := by
       rw [← hrest, List.getElem?_append_left hlen]; exact hw
     rwa [List.getElem?_drop, Nat.add_sub_cancel' hle] at h2
   · cases hw
@@ -303,7 +287,7 @@ theorem coordLook_ok {im : Image} (h : NewCodeAt im) {c : Nat} (hc : c < 9) : Lo
       have hb := cbase_ge c hc
       rwa [show 11003 + (cbase c - 11003 + (n - cbase c)) = n by omega] at this
     · exact trampLook_ok h n w hw
-  · exact arenaLook_ok h n w hw
+  · cases hw
 theorem tailLook_ok {im : Image} (h : NewCodeAt im) : LookOK im tailLook := by
   intro n w hw
   unfold tailLook at hw
@@ -399,21 +383,6 @@ theorem TBSim.shortHash_bind' {s : MachineState} {input : List UInt8} {W : Nat}
   have := h a
   unfold TBSim at this
   simpa only [Function.comp, pure_bind] using this
-/-- C1: an FTS hash of heap `heap` keeps the `WCT9.ftsHalf heap` half of the hash output. -/
-theorem TBSim.ftsHash_bind' {s : MachineState} {heap : Nat} {input : List UInt8} {W : Nat}
-    {f : Digest → M β} {Q : β → MachineState → Prop}
-    (hf : fetch im s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
-    (hv : hashArgumentsValid s = true) (hq : hashInput s = toQ (pad64 input))
-    (h : ∀ a : BitVec 256, TBSim im sk (writeHash s a) W (f (WCT9.ftsHalf heap a)) Q) :
-    TBSim im sk s (8 * (toQ (pad64 input)).blocks + W) (WCT9.ftsHash heap input >>= f) Q := by
-  by_cases hh : WCT9.ftsHighHeap heap = true
-  · rw [WCT9.ftsHash_of_high hh]
-    unfold WCT9.highHash
-    simp only [bind_assoc, pure_bind]
-    exact TBSim.publicHash_bind' hf ht0 hv hq (fun a => by rw [← WCT9.ftsHalf_of_high hh a]; exact h a)
-  · have hl : WCT9.ftsHighHeap heap = false := by simpa using hh
-    rw [WCT9.ftsHash_of_low hl]
-    exact TBSim.shortHash_bind' hf ht0 hv hq (fun a => by rw [← WCT9.ftsHalf_of_low hl a]; exact h a)
 theorem TBSim.privateHash_bind' {s : MachineState} {co : Coordinate} {W : Nat}
     {f : HashOutput → M β} {Q : β → MachineState → Prop}
     (hf : fetch im s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
