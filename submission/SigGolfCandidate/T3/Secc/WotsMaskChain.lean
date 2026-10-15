@@ -19,5 +19,12 @@ variable (answers : Answers) (a : ChainAddr)
 end Mask
 namespace Mask
 variable (answers : Answers) (a : ChainAddr)
+theorem honestForest_eq (T : Answers) (index : Nat) :
+    Extract.honestForest T index = evalWithAnswerFn T (forestPk index
+      ((List.range 7).map fun c => treeValue (evalWithAnswerFn T (buildFts index c)).1 11 0)) := by
+  have h : Extract.honestForest T index =
+      (T (.inl (.inr (Extract.honestInput T (.forest index))))).extractLsb' 0 128 := rfl
+  rw [h, FtsExtract.honestInput_forest]
+  rfl
 end Mask
 end SigGolfCandidate.T3.Security.Wots

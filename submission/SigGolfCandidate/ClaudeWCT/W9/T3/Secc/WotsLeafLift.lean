@@ -145,3 +145,142 @@ end Lift
 
 end Leaf
 end ClaudeWCT.W9.T3.Security.Wots
+
+namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.Core
+open SigGolfCandidate SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
+open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open OracleComp OracleSpec ENNReal
+open SigGolfCandidate.T3 ClaudeWCT.W9.T3M
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.T3.Security.Wots.PrefixGame (high Hidden)
+open ClaudeWCT.W9.T3.Security.Wots.Leaf
+open ClaudeWCT.Arith.SideChannel (TSpec Free evalT seedsY seedsR seedsH)
+open SphincsSecurity.Concrete.PartialChainEndpoint (evaluate observedRun)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+attribute [local irreducible] raw normalize answers RawPrefix.fill RawLeaf.ovL
+variable {U : Finset HashInput} (hU : SeccLaw.publicUniverse⊆U)
+
+open SigGolfCandidate.T3.Security.Wots.Mask ClaudeWCT.W9.T3.Security.Wots.Mask
+noncomputable local instance : Fintype Coordinate := coordinateFintype
+noncomputable def restLaw (U : Finset HashInput) : PMF (Tables U) := PMF.uniformOfFintype (Tables U)
+theorem sourceLeaf_leaf_lt {L : LeafAddr} (hL : WotsExtract.SourceLeaf7 L) : L.leaf<2^24 := by
+  have hh : ∀lay:Layer,2^height lay≤2^24 := by intro lay;fin_cases lay<;>decide
+  exact hL.2.trans_le (hh L.lay)
+/-- The chain `a` as an unrevealed coordinate of its leaf (depth `≥ 1`). -/
+def selfF {a : ChainAddr} (hac : a.chain < chainCount a.key.lay) (R : Tables U)
+    (hd1 : 1 ≤ RawPrefix.restDepth a R) : Free (revSet a.key R) :=
+  ⟨⟨a.chain, hac⟩, by
+    unfold revSet
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+    rw [RawPrefix.restDepth_eq] at hd1
+    intro h
+    rw [show (⟨a.key, (⟨a.chain, hac⟩ : Fin (chainCount a.key.lay)).val⟩ : ChainAddr) = a from rfl] at h
+    omega⟩
+
+/-- Per rest table error (zero at depth `0`). -/
+noncomputable def errAR {Res : Type} (a : ChainAddr) (hac : a.chain < chainCount a.key.lay)
+    (GD : Answers → OracleComp RefWorld Res) (q : ℕ) (R : Tables U) : ℝ≥0∞ :=
+  if hd1 : 1 ≤ RawPrefix.restDepth a R then ENNReal.ofReal (errR hU (a := a) R GD (selfF hac R hd1) q) else 0
+
+include hU in
+theorem restLaw_resampleL_tsum {L : LeafAddr} (hL : L.leaf < 2 ^ 24) (Φ : Tables U → ℝ≥0∞) :
+    ∑' R, restLaw U R * Φ R =
+      ∑' R, restLaw U R * ∑' y, PMF.uniformOfFintype (LeafData L) y * Φ (RawLeaf.ovL L R y) := by
+  unfold restLaw
+  have h := RawLeaf.restLaw_resampleL hU hL (fun R => PMF.pure R)
+  simp only [PMF.bind_pure] at h
+  conv_lhs => rw [h]
+  rw [SphincsSecurity.Concrete.PartialChainEndpoint.expectation_bind]
+  congr 1
+  funext R
+  congr 1
+  rw [show (PMF.uniformOfFintype (LeafData L)).bind (fun y => PMF.pure (RawLeaf.ovL L R y)) =
+    (PMF.uniformOfFintype (LeafData L)).map (RawLeaf.ovL L R) from rfl,
+    SphincsSecurity.Concrete.PartialChainEndpoint.expectation_map]
+
+section Lift
+variable {a : ChainAddr} (hac : a.chain < chainCount a.key.lay) (hL : WotsExtract.SourceLeaf7 a.key)
+  {Res : Type} (GD : Answers → OracleComp RefWorld Res) (hG : ∀ T T', CanonicalRef.Leaf.Congr (sourceMessages T) a.key T T' → GD T' = GD T)
+  (q : ℕ) (hGq : ∀ T, OracleComp.IsQueryBoundP (GD T) RefCharged q)
+  (F : (d : ℕ) → Tables U → Digest × (Res × TObs d) → Prop)
+  (hF : ∀ (R : Tables U) (p : PData a.key (RawPrefix.restDepth a R)) (K K' : Fin (WCT9.famCount a.key.lay) → Digest),
+    seedsR (ptL a.key) (revSet a.key R) K = seedsR (ptL a.key) (revSet a.key R) K' →
+      F (RawPrefix.restDepth a R) (RawLeaf.ovL a.key R (K, progF p.1.1 p.1.2 K)) =
+        F (RawPrefix.restDepth a R) (RawLeaf.ovL a.key R (K', progF p.1.1 p.1.2 K')))
+  (hF0 : ∀ R z, ¬F 0 R z)
+
+include hU hL in
+/-- Resampling the leaf data, the event and the law at the resampled table. -/
+theorem resample_ind (Law : (d : ℕ) → Tables U → PMF (Digest × (Res × TObs d))) :
+    ∑' R, restLaw U R * Pr[F (RawPrefix.restDepth a R) R | Law (RawPrefix.restDepth a R) R] =
+      ∑' R, restLaw U R * Pr[fun w => F (RawPrefix.restDepth a R) (RawLeaf.ovL a.key R w.1) w.2 |
+        (PMF.uniformOfFintype (LeafData a.key)).bind
+          (fun y => (Law (RawPrefix.restDepth a R) (RawLeaf.ovL a.key R y)).map (fun z => (y, z)))] := by
+  rw [restLaw_resampleL_tsum hU (sourceLeaf_leaf_lt hL) (fun R => Pr[F (RawPrefix.restDepth a R) R | Law (RawPrefix.restDepth a R) R])]
+  refine tsum_congr fun R => ?_
+  congr 1
+  rw [prob_bind]
+  refine tsum_congr fun y => ?_
+  congr 1
+  rw [prob_pmf_map, RawLeaf.restDepth_ovL (sourceLeaf_leaf_lt hL) R y a]
+  rfl
+
+theorem prob_zero_of_depth {R : Tables U} (h0 : RawPrefix.restDepth a R = 0) {Ω : Type}
+    (G : Ω → Digest × (Res × TObs (RawPrefix.restDepth a R)) → Prop)
+    (hG0 : ∀ w : Ω × (Digest × (Res × TObs (RawPrefix.restDepth a R))), ¬G w.1 w.2)
+    (P : PMF (Ω × (Digest × (Res × TObs (RawPrefix.restDepth a R))))) : Pr[fun w => G w.1 w.2 | P] = 0 := by
+  rw [probEvent_eq_tsum_ite]
+  exact ENNReal.tsum_eq_zero.mpr fun w => if_neg (hG0 w)
+
+include hac hL hG hGq hF hF0
+
+/-- **Frozen ≤ mixture + error.** -/
+theorem frozen_le_mix :
+    ∑' R, restLaw U R * Pr[F (RawPrefix.restDepth a R) R | frozenLaw hU a (RawPrefix.restDepth a R) R GD] ≤
+      ∑' R, restLaw U R * Pr[F (RawPrefix.restDepth a R) R | mixLaw hU a (RawPrefix.restDepth a R) R GD] +
+        ∑' R, restLaw U R * errAR hU a hac GD q R := by
+  rw [resample_ind hU hL F (fun d R => frozenLaw hU a d R GD),
+    resample_ind hU hL F (fun d R => mixLaw hU a d R GD), ← ENNReal.tsum_add]
+  refine ENNReal.tsum_le_tsum fun R => ?_
+  rw [← mul_add]
+  refine mul_le_mul' le_rfl ?_
+  by_cases hd1 : 1 ≤ RawPrefix.restDepth a R
+  · unfold errAR
+    rw [dif_pos hd1]
+    exact frozen_le_mix_R hU rfl hac hL R hd1 GD hG (selfF hac R hd1) rfl q hGq
+      (fun y z => F (RawPrefix.restDepth a R) (RawLeaf.ovL a.key R y) z) (fun p K K' h => hF R p K K' h)
+  · have h0 : RawPrefix.restDepth a R = 0 := by omega
+    have hF0' : ∀ (d : ℕ), d = 0 → ∀ (R' : Tables U) (z : Digest × (Res × TObs d)), ¬F d R' z := by
+      intro d hd
+      subst hd
+      exact hF0
+    rw [prob_zero_of_depth h0 (fun y z => F (RawPrefix.restDepth a R) (RawLeaf.ovL a.key R y) z) (fun w => hF0' _ h0 _ w.2)]
+    exact bot_le
+
+/-- **Mixture ≤ frozen + error.** -/
+theorem mix_le_frozen :
+    ∑' R, restLaw U R * Pr[F (RawPrefix.restDepth a R) R | mixLaw hU a (RawPrefix.restDepth a R) R GD] ≤
+      ∑' R, restLaw U R * Pr[F (RawPrefix.restDepth a R) R | frozenLaw hU a (RawPrefix.restDepth a R) R GD] +
+        ∑' R, restLaw U R * errAR hU a hac GD q R := by
+  rw [resample_ind hU hL F (fun d R => frozenLaw hU a d R GD),
+    resample_ind hU hL F (fun d R => mixLaw hU a d R GD), ← ENNReal.tsum_add]
+  refine ENNReal.tsum_le_tsum fun R => ?_
+  rw [← mul_add]
+  refine mul_le_mul' le_rfl ?_
+  by_cases hd1 : 1 ≤ RawPrefix.restDepth a R
+  · unfold errAR
+    rw [dif_pos hd1]
+    exact mix_le_frozen_R hU rfl hac hL R hd1 GD hG (selfF hac R hd1) rfl q hGq
+      (fun y z => F (RawPrefix.restDepth a R) (RawLeaf.ovL a.key R y) z) (fun p K K' h => hF R p K K' h)
+  · have h0 : RawPrefix.restDepth a R = 0 := by omega
+    have hF0' : ∀ (d : ℕ), d = 0 → ∀ (R' : Tables U) (z : Digest × (Res × TObs d)), ¬F d R' z := by
+      intro d hd
+      subst hd
+      exact hF0
+    rw [prob_zero_of_depth h0 (fun y z => F (RawPrefix.restDepth a R) (RawLeaf.ovL a.key R y) z) (fun w => hF0' _ h0 _ w.2)]
+    exact bot_le
+end Lift
+end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.Core

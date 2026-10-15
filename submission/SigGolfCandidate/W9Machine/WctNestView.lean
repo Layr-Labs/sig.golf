@@ -196,7 +196,7 @@ theorem nodePad_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8) (j
 theorem nodeHPad_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8) (j : Fin 128) (l : Nat) :
     nodeHPad (viewW w n u) n j.val l = nodeHPad w n j.val l := by
   unfold nodeHPad
-  by_cases hl : l < 4
+  by_cases hl : l < 4 ∧ j.val / 2 ^ l % 2 = 1
   · rw [if_pos hl, if_pos hl]
     have hb := child_low_bounds j ⟨l, by omega⟩
     simp only [Fin.val_mk] at hb
@@ -264,3 +264,204 @@ theorem chainProgram_view (w : WBytes) (index : Nat) (k : Fin 9) (u : MachineSta
   simp only [hA, hB, hC, hR]
 
 end W9Machine.V3
+
+/-! Incoming pair slots for shared coordinates. Both128-bit outputs may leave
+junk in their preceding headers, so the witness view includes those headers. -/
+namespace W9Machine.SharedV3
+open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64 SigGolfCandidate.Legacy.Riscv
+open SigGolfCandidate.T3 (Digest M shortHash)
+open W9Machine.V3 (setWords extract_setWords extract128_eq extract128_of_halves regionOffset
+  chainProgram chainPadA chainPadB chainPadC chainOffset reveal leafSlot)
+def handSlots : List Nat := [128, 136, 144, 152, 704, 712, 720, 728]
+def isHand (o : Nat) : Prop := (128 ≤ o ∧ o < 160) ∨ (704 ≤ o ∧ o < 736)
+instance (o : Nat) : Decidable (isHand o) := by unfold isHand; infer_instance
+theorem mem_handSlots {o : Nat} (h8 : o % 8 = 0) : o ∈ handSlots ↔ isHand o := by
+  unfold handSlots isHand
+  simp only [List.mem_cons, List.not_mem_nil, or_false]
+  omega
+def handBits (n : Nat) : List Nat := handSlots.map fun o => 8 * (regionOffset n + o)
+/-- The witness seen by coordinate `n` at state `u`: region `n`'s hand-off words read from memory. -/
+def viewW (w : WBytes) (n : Nat) (u : MachineState) : WBytes :=
+  setWords w (fun b => u.getMem (BitVec.ofNat 64 (0x4c0 + b / 8))) (handBits n)
+
+theorem regionOffset_mod (n : Nat) : regionOffset n % 8 = 0 := by unfold regionOffset; omega
+theorem regionOffset_le (n : Nat) : regionOffset n ≤ 7344 := by unfold regionOffset; omega
+
+/-- A 64-bit witness word of the view: memory on region `n`'s hand-off words, the witness elsewhere. -/
+theorem view_word (w : WBytes) (n : Nat) (u : MachineState) (p : Nat) (hp : p % 8 = 0) (hpn : p + 8 ≤ 24028) :
+    (viewW w n u).extractLsb' (8 * p) 64 =
+      if regionOffset n ≤ p ∧ isHand (p - regionOffset n) then u.getMem (BitVec.ofNat 64 (0x4c0 + p))
+      else w.extractLsb' (8 * p) 64 := by
+  have hr := regionOffset_mod n
+  have hrl := regionOffset_le n
+  unfold viewW
+  rw [extract_setWords _ _ _ _ ?_ (by omega) (by omega)]
+  · have hmem : 8 * p ∈ handBits n ↔ regionOffset n ≤ p ∧ isHand (p - regionOffset n) := by
+      unfold handBits
+      simp only [List.mem_map]
+      constructor
+      · rintro ⟨o, ho, he⟩
+        have h8 : o % 8 = 0 := by unfold handSlots at ho; simp at ho; omega
+        have hh := (mem_handSlots h8).mp ho
+        refine ⟨by omega, ?_⟩
+        rw [show p - regionOffset n = o by omega]; exact hh
+      · rintro ⟨hle, hh⟩
+        refine ⟨p - regionOffset n, (mem_handSlots (by omega)).mpr hh, by omega⟩
+    by_cases h : regionOffset n ≤ p ∧ isHand (p - regionOffset n)
+    · rw [if_pos (hmem.mpr h), if_pos h, show 8 * p / 8 = p by omega]
+    · rw [if_neg (fun h' => h (hmem.mp h')), if_neg h]
+  · intro o ho
+    unfold handBits handSlots at ho
+    simp only [List.mem_map, List.mem_cons, List.not_mem_nil, or_false] at ho
+    obtain ⟨o', ho', rfl⟩ := ho
+    omega
+
+/-- Outside region `n`'s hand-off words the view is the witness. -/
+theorem view_dig (w : WBytes) (n : Nat) (u : MachineState) (off : Nat) (h8 : off % 8 = 0)
+    (hb : off + 16 ≤ 24028)
+    (h0 : ¬ (regionOffset n ≤ off ∧ isHand (off - regionOffset n)))
+    (h1 : ¬ (regionOffset n ≤ off + 8 ∧ isHand (off + 8 - regionOffset n))) :
+    wdig (viewW w n u) off = wdig w off := by
+  unfold wdig ClaudeWCT.W9.T3M.wdig
+  apply extract128_eq
+  · rw [view_word w n u off h8 (by omega), if_neg h0]
+  · rw [show 8 * off + 64 = 8 * (off + 8) by omega, view_word w n u (off + 8) (by omega) (by omega), if_neg h1]
+
+/-- On a hand-off slot pair the view holds the memory digest. -/
+theorem view_dig_hand (w : WBytes) (n : Nat) (u : MachineState) (o : Nat) (ho : o = 720 ∨ o = 144) (hn : n ≤ 8)
+    (d : Digest) (hd : DigAt u (0x4c0 + regionOffset n + o) d) :
+    wdig (viewW w n u) (regionOffset n + o) = d := by
+  have hr := regionOffset_mod n
+  have hrl := regionOffset_le n
+  unfold wdig ClaudeWCT.W9.T3M.wdig
+  apply extract128_of_halves
+  · rw [view_word w n u _ (by omega) (by omega), if_pos ⟨by omega, by unfold isHand; omega⟩]
+    rw [← hd.1, Nat.add_assoc]
+  · rw [show 8 * (regionOffset n + o) + 64 = 8 * (regionOffset n + o + 8) by omega,
+      view_word w n u _ (by omega) (by omega), if_pos ⟨by omega, by unfold isHand; omega⟩]
+    rw [← hd.2]
+    congr 2
+    omega
+
+
+def SafeRead (c : Nat) : Prop := c % 8 = 0 ∧
+  (c + 16 ≤ 128 ∨ (160 ≤ c ∧ c + 16 ≤ 704) ∨ (736 ≤ c ∧ c + 16 ≤ 896))
+instance (c : Nat) : Decidable (SafeRead c) := by unfold SafeRead; infer_instance
+
+set_option maxRecDepth 100000 in
+set_option maxHeartbeats 0 in
+theorem child_reads : ∀ j : Fin 128, ∀ l : Fin 6,
+    SafeRead (sibOff j.val l.val) ∧
+    (l.val ≠ 4 → SafeRead (blkOff j.val l.val + 32)) ∧
+    (l.val < 4 → SafeRead (blkOff j.val l.val + 16)) := by
+  intro j
+  fin_cases j <;> decide +kernel
+
+theorem view_dig_safe (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8)
+    (c : Nat) (hc : SafeRead c) :
+    wdig (viewW w n u) (regionOffset n + c) = wdig w (regionOffset n + c) := by
+  have hr := regionOffset_mod n
+  have hrl := regionOffset_le n
+  rcases hc with ⟨hc8, hc⟩
+  apply view_dig w n u _ (by omega) (by omega)
+  · intro h; unfold isHand at h; omega
+  · intro h; unfold isHand at h; omega
+
+theorem sibling_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8)
+    (j : Fin 128) (l : Nat) (hl : l < 6) :
+    sibling (viewW w n u) n j.val l = sibling w n j.val l := by
+  exact view_dig_safe w n u hn _ (child_reads j ⟨l, hl⟩).1
+
+theorem nodePad_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8)
+    (j : Fin 128) (l : Nat) (hl : l < 6) (hne : l ≠ 4) :
+    nodePad (viewW w n u) n j.val l = nodePad w n j.val l := by
+  have h := view_dig_safe w n u hn _ ((child_reads j ⟨l, hl⟩).2.1 hne)
+  simpa only [nodePad, Nat.add_assoc] using h
+
+theorem nodeHPad_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8)
+    (j : Fin 128) (l : Nat) :
+    nodeHPad (viewW w n u) n j.val l = nodeHPad w n j.val l := by
+  unfold nodeHPad
+  by_cases h : l < 4 ∧ j.val / 2 ^ l % 2 = 1
+  · rw [if_pos h, if_pos h]
+    have hd := view_dig_safe w n u hn _ ((child_reads j ⟨l, by omega⟩).2.2 h.1)
+    have he : nodeTw (viewW w n u) n j.val l = nodeTw w n j.val l := by
+      simpa only [nodeTw, Nat.add_assoc] using hd
+    rw [he]
+  · rw [if_neg h, if_neg h]
+
+theorem leafPad_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8) (d : Digest)
+    (hd : DigAt u (0x4c0 + regionOffset n + 720) d) : leafPad (viewW w n u) n = d :=
+  view_dig_hand w n u 720 (Or.inl rfl) hn d hd
+
+theorem nodePad4_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8)
+    (j : Fin 128) (d : Digest) (hd : DigAt u (0x4c0 + regionOffset n + 144) d) :
+    nodePad (viewW w n u) n j.val 4 = d := by
+  rw [pad4 _ _ _ j.isLt]
+  exact view_dig_hand w n u 144 (Or.inr rfl) hn d hd
+
+theorem childInput_view (w : WBytes) (index n : Nat) (u : MachineState) (hn : n ≤ 8)
+    (j : Fin 128) (padR value : Digest) (l : Nat) (hl : l < 6) :
+    childInput (viewW w n u) index n j.val padR value l =
+      childInput w index n j.val padR value l := by
+  unfold childInput
+  rw [sibling_view w n u hn j l hl, nodeHPad_view w n u hn j l]
+  by_cases h : l = 4
+  · simp only [h, ↓reduceIte]
+  · rw [if_neg h, if_neg h, nodePad_view w n u hn j l hl h]
+
+theorem childProgram_view (w : WBytes) (index : Nat) (k : Fin 9) (u : MachineState)
+    (raw : Fin 128) (ends : List Digest) (padL padR : Digest)
+    (hL : DigAt u (0x4c0 + regionOffset k.val + 720) padL)
+    (hR : DigAt u (0x4c0 + regionOffset k.val + 144) padR) :
+    childProgram (viewW w k.val u) index k raw ends = childN w index k raw ends padL padR := by
+  have hn : k.val ≤ 8 := by omega
+  let j : Fin 128 := ⟨physical k.val raw.val, physical_lt _ _ raw.isLt⟩
+  unfold childProgram
+  rw [leafPad_view w k.val u hn padL hL, nodePad4_view w k.val u hn j padR hR]
+  have hi (l : Nat) (hl : l < 6) (value : Digest) :
+      childInput (viewW w k.val u) index k.val (physical k.val raw.val) padR value l =
+        childInput w index k.val (physical k.val raw.val) padR value l :=
+    childInput_view w index k.val u hn j padR value l hl
+  unfold childN
+  rcases lastLevel_cases k.val with hh | hh
+  all_goals simp only [hh, show List.range 4 = [0,1,2,3] from rfl,
+    show List.range 5 = [0,1,2,3,4] from rfl, List.foldlM_cons, List.foldlM_nil,
+    hi 0 (by decide), hi 1 (by decide), hi 2 (by decide), hi 3 (by decide),
+    hi 4 (by decide), hi 5 (by decide)]
+
+theorem chainProgram_view (w : WBytes) (index : Nat) (k : Fin 9) (u : MachineState) (j : Fin 128)
+    (rank : Fin 666) :
+    chainProgram (viewW w k.val u) index k j rank = chainProgram w index k j rank := by
+  have hn : k.val ≤ 8 := by omega
+  unfold chainProgram
+  congr 1
+  funext t
+  have ht := t.isLt
+  have hA : chainPadA (viewW w k.val u) k.val t.val = chainPadA w k.val t.val := by
+    unfold chainPadA chainOffset
+    exact view_dig_safe w k.val u hn _ (by unfold SafeRead; omega)
+  have hC : chainPadC (viewW w k.val u) k.val t.val = chainPadC w k.val t.val := by
+    unfold chainPadC chainOffset
+    rw [Nat.add_assoc]
+    exact view_dig_safe w k.val u hn _ (by unfold SafeRead; omega)
+  have hB : chainPadB (viewW w k.val u) k.val t.val = chainPadB w k.val t.val := by
+    unfold chainPadB chainOffset
+    have hr := regionOffset_mod k.val
+    have hrl := regionOffset_le k.val
+    rw [view_word w k.val u _ (by omega) (by omega), if_neg (by unfold isHand; omega)]
+  have hR : ∀ d, reveal (viewW w k.val u) k.val t.val d = reveal w k.val t.val d := by
+    intro d
+    unfold reveal
+    split
+    · unfold leafSlot
+      split
+      · exact view_dig_safe w k.val u hn _ (by decide)
+      · exact view_dig_safe w k.val u hn _ (by unfold SafeRead; omega)
+    · unfold chainOffset
+      rw [Nat.add_assoc]
+      exact view_dig_safe w k.val u hn _ (by unfold SafeRead; omega)
+  simp only [hA, hB, hC, hR]
+
+
+end W9Machine.SharedV3

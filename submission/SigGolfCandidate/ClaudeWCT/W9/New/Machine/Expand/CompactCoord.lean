@@ -60,7 +60,7 @@ theorem auth6_ok (c : Nat) (hc : c < 128) (l : Nat) (hl : l < 6) :
     have : c / 2 ^ 5 % 2 < 2 := Nat.mod_lt _ (by norm_num)
     refine ⟨by omega, by omega, fun h => by omega, fun _ => by omega⟩
 theorem planHW_mod (c l : Nat) : planHW (c % 64) l = planHW c l := by
-  unfold planHW authBase authRoot; rw [Nat.mod_mod_of_dvd _ (by norm_num : 32 ∣ 64)]
+  unfold planHW authBase authRoot; rw [Nat.mod_mod]
 section eval
 variable {s : MachineState} {c : Nat} (h19 : s.getReg .x19 = BitVec.ofNat 64 c) (hc : c < 128)
 include h19 hc
@@ -171,7 +171,7 @@ theorem p6Regs_get (s : MachineState) (r : Reg) (hr : r ∉ [.x13, .x28, .x29, .
   obtain ⟨h13, h28, h29, h30, h31⟩ := hr
   cases r <;> first | rfl | (exfalso; simp_all)
 section
-variable {im : Image} (hc : NewCodeAt im)
+variable {im : Image} (hc : CompactCodeAt im)
 include hc
 set_option maxRecDepth 20000 in
 set_option maxHeartbeats 1000000 in
@@ -235,9 +235,9 @@ theorem sib_spec (k l : Nat) (hk : k < 9) (hl : l < 6) (s : MachineState) (hpc :
       · subst h2; simp
       · rw [if_neg (fun h => h2 ((ofNat_inj hA (by omega)).mp h)), if_neg h2]
 theorem code_cJ6 (k : Nat) (hk : k < 9) : CodeAt im (pcOf (sibAt k 6)) (cJ6 k) := by
-  interval_cases k <;> exact codeAt_of_window hc (by decide) (by decide +kernel)
+  interval_cases k <;> exact codeAt_of_compact_window hc (by decide) (by decide +kernel)
 theorem code_cP6 (k : Nat) (hk : k < 9) : CodeAt im (pcOf (p6At k)) (cP6 k) := by
-  interval_cases k <;> exact codeAt_of_window hc (by decide) (by decide +kernel)
+  interval_cases k <;> exact codeAt_of_compact_window hc (by decide) (by decide +kernel)
 set_option maxRecDepth 20000 in
 set_option maxHeartbeats 1000000 in
 theorem sib6_spec (k : Nat) (hk : k < 9) (s : MachineState) (hpc : s.pc = pcOf (sibAt k 6)) (c S : Nat)
@@ -318,7 +318,7 @@ theorem run_mid (k : Nat) (hk : k < 9) : symRun cfgC (cMid k) (pcOf (coordAt k +
   interval_cases k
   exacts [RMid0, RMid1, RMid2, RMid3, RMid4, RMid5, RMid6, RMid7, RMid8]
 section
-variable {im : Image} (hc : NewCodeAt im)
+variable {im : Image} (hc : CompactCodeAt im)
 include hc
 theorem start_spec (s : MachineState) (hpc : s.pc = pcOf 41108) :
     ∃ t, Steps im s 7 7 t ∧ t.pc = pcOf 42130 ∧ t.getReg .x10 = BitVec.ofNat 64 0x840 ∧
@@ -389,7 +389,7 @@ theorem midRegs_get (k : Nat) (s : MachineState) (r : Reg) (hr : r ∉ [.x1, .x1
 theorem childBase_shift (k : Nat) (hk : k < 9) : WCT9.childBase k % 64 + 7 ≤ 64 ∧ WCT9.childBase k / 64 < 4 := by
   interval_cases k <;> decide
 section
-variable {im : Image} (hc : NewCodeAt im)
+variable {im : Image} (hc : CompactCodeAt im)
 include hc
 theorem head_spec (k : Nat) (hk : k < 9) (s : MachineState) (hpc : s.pc = pcOf (coordAt k)) (N : HashOutput)
     (hN : OutAt s 0x60 N) (D : Nat) (h9 : s.getReg .x9 = BitVec.ofNat 64 D) :
@@ -597,7 +597,7 @@ theorem sibsMem_out (M : Nat → Word) (c S D L : Nat) (hc : c < 128) (hL : L �
   | none => rfl
 def sibsCyc (L : Nat) : Nat := 14 * L
 section
-variable {im : Image} (hc : NewCodeAt im)
+variable {im : Image} (hc : CompactCodeAt im)
 include hc
 theorem sibs_spec (k : Nat) (hk : k < 9) (c S D : Nat) (hcl : c < 128) (hS : S % 16 = 0)
     (hS' : S + 448 ≤ MEMORY_BYTES) (hD : D % 16 = 0) (hDS : D + 896 ≤ S) (hDP : D + 896 ≤ PLAN)

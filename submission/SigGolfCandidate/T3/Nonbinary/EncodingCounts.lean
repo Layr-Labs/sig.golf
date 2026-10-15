@@ -216,7 +216,7 @@ def acceptedDigestEquiv (lay : Layer) (hl : lay≠0) :
     apply Fin.ext
     exact packWord_word lay hl _
 def acceptedCount (lay : Layer) : Nat :=
-  ![67567856205106535693258756678239530,
+  ![90117006931743565721975311298003535,
     58782472808233403853217196834292020,
     46428947739236900406585478288441112,
     46428947739236900406585478288441112] lay
@@ -254,7 +254,5 @@ theorem encoding_uniform_probability (lay : Layer) :
   simp only [Fintype.card_bitVec,Nat.cast_mul,Nat.cast_pow,Nat.cast_ofNat]
   rw [show (2 : ENNReal)^256 = 2^128*2^128 by rw [← pow_add]]
   exact ENNReal.mul_div_mul_right _ _ (by simp) (by simp)
-#print axioms decoder_acceptance_count
-#print axioms encoding_uniform_probability
 end SigGolfCandidate.T3.EncodingCounting
 end

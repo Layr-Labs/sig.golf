@@ -87,10 +87,4 @@ theorem ftsP_eq (w : WBytes) (index : Nat) (chosen : List Selection) :
       let some (roots, ptr) := state | pure none
       if streamEnd < ptr then return none
       pure (some (← forestPk index roots))) := rfl
-/-- Kept from the deleted legacy `Extract.Layer` and `Extract.VerifyP` (C4, D6). -/
-theorem height_le (lay : Layer) : height lay ≤ 12 := by fin_cases lay <;> decide
-theorem queried_map {α β : Type} (answers : Answers) (f : α → β) (p : M α) :
-    queried answers (f <$> p) = queried answers p := by
-  rw [map_eq_bind_pure_comp, queried_bind]
-  simp
 end SigGolfCandidate.T3M.Extract

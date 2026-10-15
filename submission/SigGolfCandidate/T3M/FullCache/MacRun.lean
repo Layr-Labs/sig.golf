@@ -94,7 +94,7 @@ abbrev PRIV : Nat := 0x20000
 abbrev KEYS : Nat := 0x70000
 abbrev REGION : Nat := 0x80020
 abbrev REGIONEND : Nat := 0xA0000
-def macImage (sg : Bool) : Image := if sg then Images.signImage else Images.keygenImage
+def macImage (sg : Bool) : Image := if sg then Images.signReferenceImage else Images.keygenImage
 def macBase (sg : Bool) : Nat := if sg then 1227 else 334
 def macOut (sg : Bool) : Nat := if sg then 0x203E0 else 0x80000
 def macSeg_0 : List (BitVec 32) := [134711,921107,3767,0x80e8e93,963331,7221283,9351939,7222307,17740547,40775715,26129155,40776739,34486307,34487331,4919,0xe0130313,7223331,932899,132407,328979,67110291,460343,394771]
@@ -734,3 +734,419 @@ theorem mac_tsim (sg : Bool) (sk : BitVec 256) (region : T3.Region) (s : Machine
   · exact (F0.trans ft).mono (fun A hA h => h.elim id (fun h => Or.inr (Or.inr h)))
 end SigGolfCandidate.T3M.FullCache
 end
+
+namespace SigGolfCandidate.T3M.FullCache.Generic
+open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
+open SphincsSecurity SiggolfT3Mac4 OracleComp OracleSpec
+set_option maxRecDepth 20000
+set_option maxHeartbeats 1000000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+set_option linter.unnecessarySeqFocus false
+structure MacCodeAt (image : Image) (sg : Bool) : Prop where
+  seg0 : CodeAt image (pcOf (macBase sg + 0)) (macSeg_0)
+  seg23 : CodeAt image (pcOf (macBase sg + 23)) (macSeg_23)
+  seg24 : CodeAt image (pcOf (macBase sg + 24)) (macSeg_24)
+  seg29 : CodeAt image (pcOf (macBase sg + 29)) (macSeg_29)
+  seg30 : CodeAt image (pcOf (macBase sg + 30)) (macSeg_30 sg)
+  seg38 : CodeAt image (pcOf (macBase sg + 38)) (macSeg_38)
+  seg78 : CodeAt image (pcOf (macBase sg + 78)) (macSeg_78)
+  seg80 : CodeAt image (pcOf (macBase sg + 80)) (macSeg_80)
+  seg120 : CodeAt image (pcOf (macBase sg + 120)) (macSeg_120)
+  seg122 : CodeAt image (pcOf (macBase sg + 122)) (macSeg_122)
+  seg162 : CodeAt image (pcOf (macBase sg + 162)) (macSeg_162)
+  seg164 : CodeAt image (pcOf (macBase sg + 164)) (macSeg_164)
+  seg204 : CodeAt image (pcOf (macBase sg + 204)) (macSeg_204)
+theorem mac_init (sg : Bool) (image : Image) (hc : MacCodeAt image sg) (s : MachineState) (hpc : s.pc = pcOf (macBase sg)) :
+    ∃ t, Steps image s 23 23 t ∧ t.pc = pcOf (macBase sg + 23) ∧
+      t.getReg .x28 = BitVec.ofNat 64 PRIV ∧ t.getReg .x10 = BitVec.ofNat 64 PRIV ∧
+      t.getReg .x11 = 64 ∧ t.getReg .x12 = BitVec.ofNat 64 KEYS ∧
+      t.getMem (BitVec.ofNat 64 PRIV) = s.getMem 0x80 ∧
+      t.getMem (BitVec.ofNat 64 (PRIV+8)) = s.getMem 0x88 ∧
+      t.getMem (BitVec.ofNat 64 (PRIV+16)) = 3585 ∧
+      t.getMem (BitVec.ofNat 64 (PRIV+24)) = 0 ∧
+      t.getMem (BitVec.ofNat 64 (PRIV+32)) = s.getMem 0x90 ∧
+      t.getMem (BitVec.ofNat 64 (PRIV+40)) = s.getMem 0x98 ∧
+      t.getMem (BitVec.ofNat 64 (PRIV+48)) = 0 ∧
+      t.getMem (BitVec.ofNat 64 (PRIV+56)) = 0 ∧
+      RegsExcept s t [.x6,.x10,.x11,.x12,.x28,.x29] ∧
+      Frame s t (fun A => PRIV ≤ A ∧ A < PRIV+64) := by
+  cases sg
+  · refine ⟨_, symRun_sound macBlkK_0 (hc.seg0) s hpc (by simp [macBlkK_0.res, rv_simp]),
+      ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    all_goals first
+      | (simp [macBlkK_0.res, macBase, PRIV, KEYS, rv_simp])
+      | skip
+    · intro r hr; simp at hr; cases r <;> simp_all [macBlkK_0.res, rv_simp] <;> rfl
+    · intro A hA hn
+      simp only [PRIV] at hn
+      simp only [Result.toState_getMem, macBlkK_0.res]
+      t3n []
+      repeat rw [if_neg (by omega)]
+  · refine ⟨_, symRun_sound macBlkS_0 (hc.seg0) s hpc (by simp [macBlkS_0.res, rv_simp]),
+      ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    all_goals first
+      | (simp [macBlkS_0.res, macBase, PRIV, KEYS, rv_simp])
+      | skip
+    · intro r hr; simp at hr; cases r <;> simp_all [macBlkS_0.res, rv_simp] <;> rfl
+    · intro A hA hn
+      simp only [PRIV] at hn
+      simp only [Result.toState_getMem, macBlkS_0.res]
+      t3n []
+      repeat rw [if_neg (by omega)]
+theorem mac_next (sg : Bool) (image : Image) (hc : MacCodeAt image sg) (s : MachineState) (hpc : s.pc = pcOf (macBase sg+24))
+    (h28 : s.getReg .x28 = BitVec.ofNat 64 PRIV) :
+    ∃ t, Steps image s 5 5 t ∧ t.pc = pcOf (macBase sg+29) ∧
+      t.getReg .x12 = BitVec.ofNat 64 (KEYS+32) ∧
+      t.getMem (BitVec.ofNat 64 (PRIV+24)) = BitVec.ofNat 64 (2^32) ∧
+      RegsExcept s t [.x6,.x12] ∧ Frame s t (fun A => A = PRIV+24) := by
+  cases sg
+  · refine ⟨_, symRun_sound macBlkK_24 (hc.seg24) s hpc
+      (by simp only [macBlkK_24.res]; t3n [h28, PRIV]; norm_num), ?_, ?_, ?_, ?_, ?_⟩
+    · simp [macBlkK_24.res, macBase, rv_simp]
+    · simp [macBlkK_24.res, KEYS, rv_simp]
+    · simp only [Result.toState_getMem, macBlkK_24.res]; t3n [h28, PRIV]
+    · intro r hr; simp at hr; cases r <;> simp_all [macBlkK_24.res, rv_simp] <;> rfl
+    · intro A hA hn
+      simp only [PRIV] at hn
+      simp only [Result.toState_getMem, macBlkK_24.res]
+      t3n [h28, PRIV]
+      rw [if_neg (by omega)]
+  · refine ⟨_, symRun_sound macBlkS_24 (hc.seg24) s hpc
+      (by simp only [macBlkS_24.res]; t3n [h28, PRIV]; norm_num), ?_, ?_, ?_, ?_, ?_⟩
+    · simp [macBlkS_24.res, macBase, rv_simp]
+    · simp [macBlkS_24.res, KEYS, rv_simp]
+    · simp only [Result.toState_getMem, macBlkS_24.res]; t3n [h28, PRIV]
+    · intro r hr; simp at hr; cases r <;> simp_all [macBlkS_24.res, rv_simp] <;> rfl
+    · intro A hA hn
+      simp only [PRIV] at hn
+      simp only [Result.toState_getMem, macBlkS_24.res]
+      t3n [h28, PRIV]
+      rw [if_neg (by omega)]
+theorem mac_lanes_init (sg : Bool) (image : Image) (hc : MacCodeAt image sg) (s : MachineState) (hpc : s.pc = pcOf (macBase sg+30)) :
+    ∃ t, Steps image s 8 8 t ∧ t.pc = pcOf (macBase sg+38) ∧
+      t.getReg .x18 = BitVec.ofNat 64 (2^61-1) ∧
+      t.getReg .x19 = BitVec.ofNat 64 REGIONEND ∧
+      t.getReg .x22 = BitVec.ofNat 64 KEYS ∧ t.getReg .x25 = BitVec.ofNat 64 (macOut sg) ∧
+      RegsExcept s t [.x18,.x19,.x22,.x25] ∧ Frame s t (fun _ => False) := by
+  cases sg
+  · refine ⟨_, symRun_sound macBlkK_30 (hc.seg30) s hpc
+      (by simp [macBlkK_30.res, rv_simp]), ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    all_goals first
+      | (simp [macBlkK_30.res, macBase, macOut, KEYS, REGIONEND, rv_simp])
+      | skip
+    · intro r hr; simp at hr; cases r <;> simp_all [macBlkK_30.res, rv_simp] <;> rfl
+    · intro A _ _; simp [macBlkK_30.res, rv_simp]
+  · refine ⟨_, symRun_sound macBlkS_30 (hc.seg30) s hpc
+      (by simp [macBlkS_30.res, rv_simp]), ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    all_goals first
+      | (simp [macBlkS_30.res, macBase, macOut, KEYS, REGIONEND, rv_simp])
+      | skip
+    · intro r hr; simp at hr; cases r <;> simp_all [macBlkS_30.res, rv_simp] <;> rfl
+    · intro A _ _; simp [macBlkS_30.res, rv_simp]
+theorem mac_pass_at (sg : Bool) (image : Image) (hc : MacCodeAt image sg) (j : Fin 4) :
+    CodeAt image (pcOf (macBase sg+38+42*j.val)) MacPass.macPassCode := by
+  fin_cases j
+  · have h := hc.seg38
+    rw [macSeg_38_pass] at h
+    convert h using 1 <;> congr 1 <;> simp only [Fin.val_zero, Fin.val_one] <;> omega
+  · have h := hc.seg80
+    rw [macSeg_80_pass] at h
+    convert h using 1 <;> congr 1 <;> simp only [Fin.val_zero, Fin.val_one] <;> omega
+  · have h := hc.seg122
+    rw [macSeg_122_pass] at h
+    convert h using 1 <;> congr 1 <;> simp only [Fin.val_zero, Fin.val_one] <;> omega
+  · have h := hc.seg164
+    rw [macSeg_164_pass] at h
+    convert h using 1 <;> congr 1 <;> simp only [Fin.val_zero, Fin.val_one] <;> omega
+theorem mac_store (sg : Bool) (image : Image) (hc : MacCodeAt image sg) (j : Fin 4) (s : MachineState)
+    (hpc : s.pc = pcOf (macBase sg+78+42*j.val))
+    (h25 : s.getReg .x25 = BitVec.ofNat 64 (macOut sg)) :
+    ∃ t, Steps image s (if j.val < 3 then 2 else 1) (if j.val < 3 then 2 else 1) t ∧
+      t.pc = pcOf (macBase sg+laneEnd j) ∧
+      t.getMem (BitVec.ofNat 64 (macOut sg+8*j.val)) = s.getReg .x14 ∧
+      t.getReg .x22 = (if j.val < 3 then s.getReg .x22+16 else s.getReg .x22) ∧
+      RegsExcept s t [.x22] ∧ Frame s t (fun A => A = macOut sg+8*j.val) := by
+  cases sg
+  · fin_cases j
+    · refine ⟨_, symRun_sound macBlkK_78 (hc.seg78) s hpc
+        (by simp only [macBlkK_78.res]; t3n [h25, macOut, Bool.false_eq_true]; norm_num), ?_, ?_, ?_, ?_, ?_⟩
+      · simp [macBlkK_78.res, macBase, laneEnd, rv_simp]
+      · simp only [Result.toState_getMem, macBlkK_78.res]; t3n [h25, macOut, Bool.false_eq_true]
+      · simp [macBlkK_78.res, rv_simp]
+      · intro r hr; simp at hr; cases r <;> simp_all [macBlkK_78.res, rv_simp] <;> rfl
+      · intro A hA hn
+        simp only [macOut, Bool.false_eq_true, if_false, if_true, Fin.val_zero, Fin.val_one, Nat.reduceMul, Nat.reduceAdd, Nat.mul_zero, Nat.add_zero] at hn
+        simp only [Result.toState_getMem, macBlkK_78.res]
+        t3n [h25, macOut, Bool.false_eq_true]
+        rw [if_neg (by omega)]
+    · refine ⟨_, symRun_sound macBlkK_120 (hc.seg120) s hpc
+        (by simp only [macBlkK_120.res]; t3n [h25, macOut, Bool.false_eq_true]; norm_num), ?_, ?_, ?_, ?_, ?_⟩
+      · simp [macBlkK_120.res, macBase, laneEnd, rv_simp]
+      · simp only [Result.toState_getMem, macBlkK_120.res]; t3n [h25, macOut, Bool.false_eq_true]
+      · simp [macBlkK_120.res, rv_simp]
+      · intro r hr; simp at hr; cases r <;> simp_all [macBlkK_120.res, rv_simp] <;> rfl
+      · intro A hA hn
+        simp only [macOut, Bool.false_eq_true, if_false, if_true, Fin.val_zero, Fin.val_one, Nat.reduceMul, Nat.reduceAdd, Nat.mul_zero, Nat.add_zero] at hn
+        simp only [Result.toState_getMem, macBlkK_120.res]
+        t3n [h25, macOut, Bool.false_eq_true]
+        rw [if_neg (by omega)]
+    · refine ⟨_, symRun_sound macBlkK_162 (hc.seg162) s hpc
+        (by simp only [macBlkK_162.res]; t3n [h25, macOut, Bool.false_eq_true]; norm_num), ?_, ?_, ?_, ?_, ?_⟩
+      · simp [macBlkK_162.res, macBase, laneEnd, rv_simp]
+      · simp only [Result.toState_getMem, macBlkK_162.res]; t3n [h25, macOut, Bool.false_eq_true]
+      · simp [macBlkK_162.res, rv_simp]
+      · intro r hr; simp at hr; cases r <;> simp_all [macBlkK_162.res, rv_simp] <;> rfl
+      · intro A hA hn
+        simp only [macOut, Bool.false_eq_true, if_false, if_true, Fin.val_zero, Fin.val_one, Nat.reduceMul, Nat.reduceAdd, Nat.mul_zero, Nat.add_zero] at hn
+        simp only [Result.toState_getMem, macBlkK_162.res]
+        t3n [h25, macOut, Bool.false_eq_true]
+        rw [if_neg (by omega)]
+    · refine ⟨_, symRun_sound macBlkK_204 (hc.seg204) s hpc
+        (by simp only [macBlkK_204.res]; t3n [h25, macOut, Bool.false_eq_true]; norm_num), ?_, ?_, ?_, ?_, ?_⟩
+      · simp [macBlkK_204.res, macBase, laneEnd, rv_simp]
+      · simp only [Result.toState_getMem, macBlkK_204.res]; t3n [h25, macOut, Bool.false_eq_true]
+      · simp [macBlkK_204.res, rv_simp]
+      · intro r hr; simp at hr; cases r <;> simp_all [macBlkK_204.res, rv_simp] <;> rfl
+      · intro A hA hn
+        simp only [macOut, Bool.false_eq_true, if_false, if_true, Fin.val_zero, Fin.val_one, Nat.reduceMul, Nat.reduceAdd, Nat.mul_zero, Nat.add_zero] at hn
+        simp only [Result.toState_getMem, macBlkK_204.res]
+        t3n [h25, macOut, Bool.false_eq_true]
+        rw [if_neg (by omega)]
+  · fin_cases j
+    · refine ⟨_, symRun_sound macBlkS_78 (hc.seg78) s hpc
+        (by simp only [macBlkS_78.res]; t3n [h25, macOut, Bool.false_eq_true]; norm_num), ?_, ?_, ?_, ?_, ?_⟩
+      · simp [macBlkS_78.res, macBase, laneEnd, rv_simp]
+      · simp only [Result.toState_getMem, macBlkS_78.res]; t3n [h25, macOut, Bool.false_eq_true]
+      · simp [macBlkS_78.res, rv_simp]
+      · intro r hr; simp at hr; cases r <;> simp_all [macBlkS_78.res, rv_simp] <;> rfl
+      · intro A hA hn
+        simp only [macOut, Bool.false_eq_true, if_false, if_true, Fin.val_zero, Fin.val_one, Nat.reduceMul, Nat.reduceAdd, Nat.mul_zero, Nat.add_zero] at hn
+        simp only [Result.toState_getMem, macBlkS_78.res]
+        t3n [h25, macOut, Bool.false_eq_true]
+        rw [if_neg (by omega)]
+    · refine ⟨_, symRun_sound macBlkS_120 (hc.seg120) s hpc
+        (by simp only [macBlkS_120.res]; t3n [h25, macOut, Bool.false_eq_true]; norm_num), ?_, ?_, ?_, ?_, ?_⟩
+      · simp [macBlkS_120.res, macBase, laneEnd, rv_simp]
+      · simp only [Result.toState_getMem, macBlkS_120.res]; t3n [h25, macOut, Bool.false_eq_true]
+      · simp [macBlkS_120.res, rv_simp]
+      · intro r hr; simp at hr; cases r <;> simp_all [macBlkS_120.res, rv_simp] <;> rfl
+      · intro A hA hn
+        simp only [macOut, Bool.false_eq_true, if_false, if_true, Fin.val_zero, Fin.val_one, Nat.reduceMul, Nat.reduceAdd, Nat.mul_zero, Nat.add_zero] at hn
+        simp only [Result.toState_getMem, macBlkS_120.res]
+        t3n [h25, macOut, Bool.false_eq_true]
+        rw [if_neg (by omega)]
+    · refine ⟨_, symRun_sound macBlkS_162 (hc.seg162) s hpc
+        (by simp only [macBlkS_162.res]; t3n [h25, macOut, Bool.false_eq_true]; norm_num), ?_, ?_, ?_, ?_, ?_⟩
+      · simp [macBlkS_162.res, macBase, laneEnd, rv_simp]
+      · simp only [Result.toState_getMem, macBlkS_162.res]; t3n [h25, macOut, Bool.false_eq_true]
+      · simp [macBlkS_162.res, rv_simp]
+      · intro r hr; simp at hr; cases r <;> simp_all [macBlkS_162.res, rv_simp] <;> rfl
+      · intro A hA hn
+        simp only [macOut, Bool.false_eq_true, if_false, if_true, Fin.val_zero, Fin.val_one, Nat.reduceMul, Nat.reduceAdd, Nat.mul_zero, Nat.add_zero] at hn
+        simp only [Result.toState_getMem, macBlkS_162.res]
+        t3n [h25, macOut, Bool.false_eq_true]
+        rw [if_neg (by omega)]
+    · refine ⟨_, symRun_sound macBlkS_204 (hc.seg204) s hpc
+        (by simp only [macBlkS_204.res]; t3n [h25, macOut, Bool.false_eq_true]; norm_num), ?_, ?_, ?_, ?_, ?_⟩
+      · simp [macBlkS_204.res, macBase, laneEnd, rv_simp]
+      · simp only [Result.toState_getMem, macBlkS_204.res]; t3n [h25, macOut, Bool.false_eq_true]
+      · simp [macBlkS_204.res, rv_simp]
+      · intro r hr; simp at hr; cases r <;> simp_all [macBlkS_204.res, rv_simp] <;> rfl
+      · intro A hA hn
+        simp only [macOut, Bool.false_eq_true, if_false, if_true, Fin.val_zero, Fin.val_one, Nat.reduceMul, Nat.reduceAdd, Nat.mul_zero, Nat.add_zero] at hn
+        simp only [Result.toState_getMem, macBlkS_204.res]
+        t3n [h25, macOut, Bool.false_eq_true]
+        rw [if_neg (by omega)]
+theorem one_lane (sg : Bool) (image : Image) (hc : MacCodeAt image sg) (j : Fin 4) (s : MachineState) (region : List UInt8)
+    (hpc : s.pc = pcOf (macBase sg+38+42*j.val))
+    (h18 : s.getReg .x18 = BitVec.ofNat 64 (2^61-1))
+    (h19 : s.getReg .x19 = BitVec.ofNat 64 REGIONEND)
+    (h22 : s.getReg .x22 = BitVec.ofNat 64 (KEYS+16*j.val))
+    (h25 : s.getReg .x25 = BitVec.ofNat 64 (macOut sg))
+    (hlen : region.length = 131040)
+    (hreg : wordsToNat (s.readWords (BitVec.ofNat 64 REGION) 16380) = T3.readLE region) :
+    ∃ t, Steps image s (425894+(if j.val<3 then 2 else 1))
+        (622454+(if j.val<3 then 2 else 1)) t ∧
+      t.pc = pcOf (macBase sg+laneEnd j) ∧
+      t.getMem (BitVec.ofNat 64 (macOut sg+8*j.val)) = laneWord s j region ∧
+      t.getReg .x22 = (if j.val<3 then BitVec.ofNat 64 (KEYS+16*(j.val+1)) else s.getReg .x22) ∧
+      RegsExcept s t laneRegs ∧ Frame s t (fun A => A = macOut sg+8*j.val) := by
+  have hj := j.isLt
+  obtain ⟨u,hu,upc,u14,ur,um⟩ := MacPass.mac_pass_region (mac_pass_at sg image hc j) s hpc
+    (KEYS+16*j.val) region h22 (by simp [KEYS]; omega) (by simp [KEYS]; omega)
+    h18 h19 hlen hreg
+  have upc' : u.pc = pcOf (macBase sg+78+42*j.val) := by
+    rw [upc]; unfold pcOf
+    change BitVec.ofNat 64 (4096+4*(macBase sg+38+42*j.val)) + BitVec.ofNat 64 160 = _
+    rw [ofNat_add_ofNat]; exact congrArg (BitVec.ofNat 64) (by omega)
+  have ur25 : u.getReg .x25 = BitVec.ofNat 64 (macOut sg) := by
+    rw [ur .x25 (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by decide),h25]
+  obtain ⟨t,ht,tpc,tm,t22,tr,tf⟩ := mac_store sg image hc j u upc' ur25
+  refine ⟨t,hu.trans ht,tpc,?_,?_,?_,?_⟩
+  · rw [tm,u14]; rfl
+  · rw [t22,ur .x22 (by decide) (by decide) (by decide) (by decide) (by decide) (by decide) (by decide)]
+    split_ifs
+    · rw [h22]
+      change BitVec.ofNat 64 (KEYS+16*j.val) + BitVec.ofNat 64 16 = _
+      rw [ofNat_add_ofNat]
+      exact congrArg (BitVec.ofNat 64) (by omega)
+    · rfl
+  · intro r hr
+    have hr' : r ≠ .x13 ∧ r ≠ .x14 ∧ r ≠ .x15 ∧ r ≠ .x16 ∧ r ≠ .x17 ∧ r ≠ .x22 ∧ r ≠ .x23 ∧ r ≠ .x24 := by simpa [laneRegs] using hr
+    rw [tr.get (by simpa using hr'.2.2.2.2.2.1)]
+    exact ur r hr'.1 hr'.2.1 hr'.2.2.1 hr'.2.2.2.1 hr'.2.2.2.2.1 hr'.2.2.2.2.2.2.1 hr'.2.2.2.2.2.2.2
+  · intro A hA hn; rw [tf.get hA hn,um]
+theorem mac_pure (sg : Bool) (image : Image) (hc : MacCodeAt image sg) (s : MachineState) (region : List UInt8)
+    (hpc : s.pc = pcOf (macBase sg+30)) (hlen : region.length = 131040)
+    (hreg : wordsToNat (s.readWords (BitVec.ofNat 64 REGION) 16380) = T3.readLE region) :
+    ∃ t, Steps image s 1703591 2489831 t ∧ t.pc = pcOf (macBase sg+205) ∧
+      (∀ j : Fin 4, t.getMem (BitVec.ofNat 64 (macOut sg+8*j.val)) = laneWord s j region) ∧
+      t.getReg .x5 = s.getReg .x5 ∧ Frame s t (OutW sg) := by
+  obtain ⟨u0,st0,pc0,m18,m19,m22,m25,r0,f0⟩ := mac_lanes_init sg image hc s hpc
+  have F0 : Frame s u0 (OutW sg) := f0.mono (fun _ _ h => h.elim)
+  obtain ⟨u1,st1,pc1,word1,next1,r1,f1⟩ := one_lane sg image hc 0 u0 region
+    (by simpa using pc0) m18 m19 (by simpa using m22) m25 hlen (by rw [out_region F0]; exact hreg)
+  have F1 : Frame s u1 (OutW sg) :=
+    (F0.trans (lane_frame_out f1)).mono (fun _ _ h => h.elim id id)
+  have W1 : u1.getMem (BitVec.ofNat 64 (macOut sg+8*(0 : Fin 4).val)) = laneWord s 0 region :=
+    word1.trans (out_laneWord F0 0 region)
+  obtain ⟨u2,st2,pc2,word2,next2,r2,f2⟩ := one_lane sg image hc 1 u1 region
+    (by simpa [laneEnd,Nat.add_assoc] using pc1)
+    (by rw [r1.get (by decide : Reg.x18 ∉ laneRegs)]; exact m18)
+    (by rw [r1.get (by decide : Reg.x19 ∉ laneRegs)]; exact m19)
+    (by simpa using next1)
+    (by rw [r1.get (by decide : Reg.x25 ∉ laneRegs)]; exact m25)
+    hlen (by rw [out_region F1]; exact hreg)
+  have F2 : Frame s u2 (OutW sg) :=
+    (F1.trans (lane_frame_out f2)).mono (fun _ _ h => h.elim id id)
+  have W2 : u2.getMem (BitVec.ofNat 64 (macOut sg+8*(1 : Fin 4).val)) = laneWord s 1 region :=
+    word2.trans (out_laneWord F1 1 region)
+  obtain ⟨u3,st3,pc3,word3,next3,r3,f3⟩ := one_lane sg image hc 2 u2 region
+    (by simpa [laneEnd,Nat.add_assoc] using pc2)
+    (by rw [r2.get (by decide : Reg.x18 ∉ laneRegs),r1.get (by decide : Reg.x18 ∉ laneRegs)]; exact m18)
+    (by rw [r2.get (by decide : Reg.x19 ∉ laneRegs),r1.get (by decide : Reg.x19 ∉ laneRegs)]; exact m19)
+    (by simpa using next2)
+    (by rw [r2.get (by decide : Reg.x25 ∉ laneRegs),r1.get (by decide : Reg.x25 ∉ laneRegs)]; exact m25)
+    hlen (by rw [out_region F2]; exact hreg)
+  have F3 : Frame s u3 (OutW sg) :=
+    (F2.trans (lane_frame_out f3)).mono (fun _ _ h => h.elim id id)
+  have W3 : u3.getMem (BitVec.ofNat 64 (macOut sg+8*(2 : Fin 4).val)) = laneWord s 2 region :=
+    word3.trans (out_laneWord F2 2 region)
+  obtain ⟨u4,st4,pc4,word4,next4,r4,f4⟩ := one_lane sg image hc 3 u3 region
+    (by simpa [laneEnd,Nat.add_assoc] using pc3)
+    (by rw [r3.get (by decide : Reg.x18 ∉ laneRegs),r2.get (by decide : Reg.x18 ∉ laneRegs),r1.get (by decide : Reg.x18 ∉ laneRegs)]; exact m18)
+    (by rw [r3.get (by decide : Reg.x19 ∉ laneRegs),r2.get (by decide : Reg.x19 ∉ laneRegs),r1.get (by decide : Reg.x19 ∉ laneRegs)]; exact m19)
+    (by simpa using next3)
+    (by rw [r3.get (by decide : Reg.x25 ∉ laneRegs),r2.get (by decide : Reg.x25 ∉ laneRegs),r1.get (by decide : Reg.x25 ∉ laneRegs)]; exact m25)
+    hlen (by rw [out_region F3]; exact hreg)
+  have F4 : Frame s u4 (OutW sg) :=
+    (F3.trans (lane_frame_out f4)).mono (fun _ _ h => h.elim id id)
+  have W4 : u4.getMem (BitVec.ofNat 64 (macOut sg+8*(3 : Fin 4).val)) = laneWord s 3 region :=
+    word4.trans (out_laneWord F3 3 region)
+  refine ⟨u4,(st0.trans (st1.trans (st2.trans (st3.trans st4)))).of_eq (by decide) (by decide),
+    ?_,?_,?_,F4⟩
+  · simpa [laneEnd] using pc4
+  · intro j; fin_cases j
+    · rw [f4.get (by cases sg <;> decide) (by simp <;> omega),f3.get (by cases sg <;> decide) (by simp <;> omega),f2.get (by cases sg <;> decide) (by simp <;> omega)]
+      exact W1
+    · rw [f4.get (by cases sg <;> decide) (by simp <;> omega),f3.get (by cases sg <;> decide) (by simp <;> omega)]
+      exact W2
+    · rw [f4.get (by cases sg <;> decide) (by simp <;> omega)]
+      exact W3
+    · exact W4
+  · rw [r4.get (by decide : Reg.x5 ∉ laneRegs),r3.get (by decide : Reg.x5 ∉ laneRegs),r2.get (by decide : Reg.x5 ∉ laneRegs),r1.get (by decide : Reg.x5 ∉ laneRegs),r0.get (by decide)]
+theorem mac_tsim (sg : Bool) (image : Image) (hc : MacCodeAt image sg) (sk : BitVec 256) (region : T3.Region) (s : MachineState)
+    (hpc : s.pc = pcOf (macBase sg)) (h5 : s.getReg .x5 = 0) (hsk : SkAt s sk)
+    (hreg : s.readWords (BitVec.ofNat 64 REGION) 16380 = wordsOf (List.ofFn region)) :
+    TSim image sk s 1703621 2489875 2 2 (T3.privateMac region) (MacDone sg s) := by
+  obtain ⟨u0,st0,pc0,x28,x10,x11,x12,m0,m8,m16,m24,m32,m40,m48,m56,r0,f0⟩ := mac_init sg image hc s hpc
+  have p0 : PrivAt u0 sk 0 := by
+    intro j; fin_cases j
+    · exact m0.trans (hsk 0)
+    · exact m8.trans (hsk 1)
+    · exact m16
+    · exact m24
+    · exact m32.trans (hsk 2)
+    · exact m40.trans (hsk 3)
+    · exact m48
+    · exact m56
+  have z0 : u0.getReg .x5 = 0 := by rw [r0.get (by decide),h5]
+  have v0 : hashArgumentsValid u0 = true := hashArgs_const u0 PRIV 64 KEYS x10 x11 x12
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+  have q0 := priv_query u0 sk 0 p0 x10 x11
+  have fetch0 : fetch image u0 = some (.base .ECALL) := (hc.seg23).fetch u0 pc0 |>.trans rfl
+  unfold T3.privateMac T3.privateMacKey
+  simp only [bind_assoc,pure_bind]
+  refine (TSim.steps st0 (TSim.privateTweak_bind (k := 1703597) (c := 2489844) (n := 1) (b := 1) fetch0 z0 v0 q0 (fun a => ?_))).of_eq
+    rfl (by decide) (by decide) (by decide) (by decide)
+  have pa : (writeHash u0 a).pc = pcOf (macBase sg+24) := by
+    rw [pc_writeHash,pc0,pcOf_add4]
+  obtain ⟨u1,st1,pc1,y12,n24,r1,f1⟩ := mac_next sg image hc (writeHash u0 a) pa (by simpa using x28)
+  have p1 := priv_next p0 x12 f1 n24
+  have y10 : u1.getReg .x10 = BitVec.ofNat 64 PRIV := by rw [r1.get (by decide),getReg_writeHash,x10]
+  have y11 : u1.getReg .x11 = 64 := by rw [r1.get (by decide),getReg_writeHash,x11]
+  have z1 : u1.getReg .x5 = 0 := by rw [r1.get (by decide),getReg_writeHash,z0]
+  have v1 : hashArgumentsValid u1 = true := hashArgs_const u1 PRIV 64 (KEYS+32) y10 y11 y12
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+  have q1 := priv_query u1 sk 1 p1 y10 y11
+  have fetch1 : fetch image u1 = some (.base .ECALL) := (hc.seg29).fetch u1 pc1 |>.trans rfl
+  refine TSim.steps st1 (TSim.privateTweak_bind (k := 1703591) (c := 2489831) (n := 0) (b := 0) fetch1 z1 v1 q1 (fun b => ?_))
+  have F0 : Frame s (writeHash u1 b) (MacW sg) := by
+    have ha := Frame.writeHash u0 a KEYS x12 (by decide)
+    have hb := Frame.writeHash u1 b (KEYS+32) y12 (by decide)
+    apply (((f0.trans ha).trans f1).trans hb).mono
+    intro A hA h
+    unfold MacW
+    rcases h with ((h | h) | h) | h
+    · exact Or.inl h
+    · exact Or.inr (Or.inl (by omega))
+    · left; subst A; simp [PRIV]
+    · exact Or.inr (Or.inl (by omega))
+  have preg : (writeHash u1 b).readWords (BitVec.ofNat 64 REGION) 16380 = wordsOf (List.ofFn region) := by
+    rw [frame_readWords F0 REGION 16380 (by decide) (by
+      intro i hi; cases sg <;> simp only [MacW,OutW,macOut,PRIV,KEYS,REGION,Bool.false_eq_true,if_false,if_true] <;> omega)]
+    exact hreg
+  have pb : (writeHash u1 b).pc = pcOf (macBase sg+30) := by
+    rw [pc_writeHash,pc1,pcOf_add4]
+  obtain ⟨t,st,pc,tagwords,zt,ft⟩ := mac_pure sg image hc (writeHash u1 b) (List.ofFn region) pb
+    (by rw [List.length_ofFn]) (by rw [preg,wordsToNat_wordsOf 16380 _ (by rw [List.length_ofFn])])
+  have hk := keys_after a b x12 f1 y12
+  refine TSim.pure_steps st ?_
+  refine ⟨pc,?_,?_,?_⟩
+  · rw [zt,getReg_writeHash,z1]
+  · rw [show (4 : Nat) = 2+2 from rfl,readWords_add,readWords_two,readWords_two,wordsOf_bytesLE32]
+    have H : ∀ j : Fin 4, t.getMem (BitVec.ofNat 64 (macOut sg+8*j.val)) =
+        (SiggolfT3Mac4.encodeTag (SiggolfT3Mac4.macTag (keyPair a b) (List.ofFn region))).extractLsb' (64*j.val) 64 := by
+      intro j
+      rw [tagwords j,laneWord_eq_tag _ _ _ _ hk j,encodeTag_word]
+    change [t.getMem (BitVec.ofNat 64 (macOut sg+8*(0:Fin 4).val)),
+      t.getMem (BitVec.ofNat 64 (macOut sg+8*(1:Fin 4).val)),
+      t.getMem (BitVec.ofNat 64 (macOut sg+8*(2:Fin 4).val)),
+      t.getMem (BitVec.ofNat 64 (macOut sg+8*(3:Fin 4).val))] = _
+    rw [H 0,H 1,H 2,H 3]
+    rfl
+  · exact (F0.trans ft).mono (fun A hA h => h.elim id (fun h => Or.inr (Or.inr h)))
+
+end SigGolfCandidate.T3M.FullCache.Generic
+
+namespace SigGolfCandidate.T3M.FullCache.Generic
+open SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
+set_option maxRecDepth 100000
+set_option maxHeartbeats 1000000
+theorem sign_macCodeAt : MacCodeAt Images.signImage true := by
+  constructor
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
+end SigGolfCandidate.T3M.FullCache.Generic

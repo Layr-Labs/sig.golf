@@ -1,4 +1,4 @@
-import SigGolfCandidate.T3.Secc.LargeCouplingInteraction
+import SigGolfCandidate.T3.Secc.LargeCouplingSigning
 import SigGolfCandidate.T3.Secc.CaseCCore
 
 namespace SigGolfCandidate.T3.Security.LargeCoupling

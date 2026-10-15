@@ -107,8 +107,8 @@ set_option linter.unusedSimpArgs false
 campaign T8D / TOP2 NF17) holds the three radix-8 chains, largest digit 7. -/
 def mx (q : Nat) : Nat := if q<17 then 4 else 7
 def off (i : Nat) : Word := BitVec.ofNat 64 (64*(53-i))-BitVec.ofNat 64 1664
-def slot (i : Nat) : Nat := 25136+16*i
-def slotOffset (a : Nat) : Nat := a-24592
+def slot (i : Nat) : Nat := 25168+16*i
+def slotOffset (a : Nat) : Nat := a-24624
 def rungR (d : Nat) (sl : Option Nat) (p : Nat) : Result :=
   T3M.rungRB d (sl.map slotOffset) p
 def copyN (rb : Reg) (o : Word) (sl tgt : Nat) : Result :=
@@ -166,7 +166,7 @@ def headJDTermF (rb : Reg) (o : Word) (tgt i d : Nat) : Result :=
 def s8R (n p : Nat) : Result :=
   ⟨⟨RegFile.init.set .x24 (addC (.reg .x24) (-BitVec.ofNat 64 n)),[],[]⟩,.c (pcOf (p+1)),.fuel,1,1⟩
 def guardR (k : Nat) : Result :=
-  ⟨⟨RegFile.init.set .x24 (.c (146#64-BitVec.ofNat 64 (kss 0 k))),[],[]⟩,
+  ⟨⟨RegFile.init.set .x24 (.c (145#64-BitVec.ofNat 64 (kss 0 k))),[],[]⟩,
     .c (pcOf (cellW 0 k+2)),.fuel,1,1⟩
 def bge9R (p : Nat) : Result :=
   ⟨SymState.init,.ite .ge (.reg .x16) (.c 0) (.c (BitVec.ofNat 64 (0x1000+4*p-4096))) (.c (pcOf (p+1))),.branch,1,1⟩
@@ -247,7 +247,7 @@ The tail dispatch of group 16 jumps to the slot `33512 + 64*k` with `k = d51 + 8
 7: copy / terminal head / head + rungs, `partOK 17`), then the general-field dispatch `srli a4,a7,47;
 andi a4,a4,1792; add a4,a4,t1; jalr 2032(a4)` directly into the complete copied chain-53 suffix
 (`y = d53`, bits 119..121), bypassing the dead padding slot `r8SlotW y = 130299+64*y`.
-The reverse checksum remains `146 - sum (digits 0..52)` throughout chain 53.
+The reverse checksum remains `145 - sum (digits 0..52)` throughout chain 53.
 `SUFFIX[y]` = chain 53 code, then main's final tail at `finW y` (its `bne`
 goes to a local `j REJ` stub). -/
 def r8Blk : List Nat := [219217,219258,219297,219334,219369,219402,219433,219461,219488,219527,219564,219599,219632,219663,219692,219718,219743,219780,219815,219848,219879,219908,219935,219959,219982,220017,220050,220081,220110,220137,220162,220184,220205,220238,220269,220298,220325,220350,220373,220393,220412,220443,220472,220499,220524,220547,220568,220586,220603,220631,220657,220681,220703,220723,220741,220756,220770,220797,220822,220845,220866,220885,220902,220916]

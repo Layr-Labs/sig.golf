@@ -169,9 +169,9 @@ theorem decode_low (lay : Layer) (h : lay ≠ 0) (v : Digest) :
   unfold T3.decode
   rw [if_neg hb, dataDigits_low lay h]
   simp only [h, if_false]
-/-- Campaign T8D (NF17): no range bound on the top value; target 146. -/
+/-- Campaign T8D (NF17): no range bound on the top value; target 145. -/
 theorem decode_top (v : Digest) :
-    T3.decode 0 v = if T3.topRanksValid v = true ∧ (topDigits v).sum = 146
+    T3.decode 0 v = if T3.topRanksValid v = true ∧ (topDigits v).sum = 145
       then some (topDigits v) else none := by
   unfold T3.decode
   rw [if_neg (show ¬ v.toNat ≥ 2 ^ T3.encodedBits 0 from Nat.not_le.mpr v.isLt)]

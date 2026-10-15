@@ -41,18 +41,15 @@ theorem pubGood_publicHash (input : HashInput) (h : 0 < input.length) :
 theorem pubGood_shortHash (input : HashInput) (h : 0 < input.length) :
     AllQueriesSatisfy (shortHash input) PubGood := by
   unfold shortHash; exact allQ_bind (pubGood_publicHash input h) fun _ => allQ_pure _
-theorem pubGood_projHash (high : Bool) (input : HashInput) (h : 0 < input.length) :
-    AllQueriesSatisfy (projHash high input) PubGood := by
-  unfold projHash; exact allQ_bind (pubGood_publicHash input h) fun _ => allQ_pure _
 theorem pubGood_ftsLeafP (index coord leaf : Nat) (p0 s p1 : Digest) :
     AllQueriesSatisfy (ftsLeafP index coord leaf p0 s p1) PubGood :=
   pubGood_shortHash _ (by simp [bytesLE_length])
 theorem pubGood_nodeHashP (tag lay tree heap : Nat) (l p r : Digest) :
     AllQueriesSatisfy (nodeHashP tag lay tree heap l p r) PubGood :=
-  pubGood_projHash _ _ (by simp [bytesLE_length])
+  pubGood_shortHash _ (by simp [bytesLE_length])
 theorem pubGood_nodeHash (tag lay tree heap : Nat) (l r : Digest) :
     AllQueriesSatisfy (nodeHash tag lay tree heap l r) PubGood :=
-  pubGood_projHash _ _ (by simp [bytesLE_length])
+  pubGood_shortHash _ (by simp [bytesLE_length])
 theorem pubGood_ftsLeaf (index coord leaf : Nat) (s : Digest) :
     AllQueriesSatisfy (ftsLeaf index coord leaf s) PubGood :=
   pubGood_shortHash _ (by simp [bytesLE_length, zero16])
@@ -65,7 +62,7 @@ theorem pubGood_chain (lay : Layer) (tree leaf i start count : Nat) (v : Digest)
   allQ_foldlM _ _ (fun _ _ => pubGood_shortHash _ (by simp [chainInput, bytesLE_length, zero16])) _
 theorem pubGood_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     AllQueriesSatisfy (leafHash lay tree leaf ends) PubGood :=
-  pubGood_projHash _ _ (by rw [leafInput_length]; split_ifs <;> omega)
+  pubGood_shortHash _ (by rw [leafInput_length]; split_ifs <;> omega)
 theorem pubGood_forestPk (index : Nat) (roots : List Digest) :
     AllQueriesSatisfy (forestPk index roots) PubGood :=
   pubGood_shortHash _ (by simp [bytesLE_length])
@@ -346,24 +343,16 @@ theorem ftsLeafP_eq_shortHash (index coord leaf : Nat) (pad0 secret pad1 : Diges
 high word is ignored by `canonicalHeader`, so the verifier may leave it to the witness. -/
 def withHigh (t : BitVec 128) (hp : BitVec 64) : BitVec 128 :=
   if 128 ≤ t.toNat % 256 then hp ++ t.extractLsb' 0 64 else t
-theorem withHigh_zero_of_high {t : BitVec 128} (h : t.extractLsb' 64 64 = 0) : withHigh t 0 = t := by
-  unfold withHigh
-  split
-  · rw [show (0 : BitVec 64) = t.extractLsb' 64 64 from h.symm]; exact BitVec.extractLsb'_append_extractLsb'
-  · rfl
 theorem withHigh_nodeTweak_zero (tag lay tree heap : Nat) :
     withHigh (nodeTweak tag lay tree heap) 0 = nodeTweak tag lay tree heap := by
-  by_cases htop : tag = 3 ∧ lay = 0
-  · obtain ⟨rfl, rfl⟩ := htop
-    apply withHigh_zero_of_high
-    rw [nodeTweak_top]; exact BitVec.extractLsb'_append_eq_left
   unfold withHigh
   split
   · rename_i hm
     have hk := nodeTweak_marker tag lay tree heap
     unfold tweakMarker at hk
-    rw [hk, if_neg htop] at hm
-    split_ifs at hm with hf
+    rw [hk] at hm
+    split_ifs at hm with h0 hf
+    · omega
     · obtain ⟨rfl, h4, h13, hn⟩ := hf
       rw [nodeTweak_ftsN h4 h13 tree hn, append64_low]
       rfl
@@ -378,26 +367,14 @@ theorem nodeInputPH_zero (tag lay tree heap : Nat) (left pad right : Digest) :
 @[simp] theorem pad64_nodeInputPH (tag lay tree heap : Nat) (left : Digest) (hp : BitVec 64) (pad right : Digest) :
     pad64 (nodeInputPH tag lay tree heap left hp pad right) = nodeInputPH tag lay tree heap left hp pad right :=
   pad64_block4 _ _ _ _
-/-- C4: the padded node hash keeps the half `nodeHalfHigh` (high only for an even top heap). -/
-theorem nodeHashP_eq_projHash (tag lay tree heap : Nat) (left pad right : Digest) :
-    nodeHashP tag lay tree heap left pad right =
-      projHash (nodeHalfHigh tag lay heap) (nodeInputP tag lay tree heap left pad right) := rfl
-theorem nodeHashP_eq_shortHash {tag lay heap : Nat} (h : nodeHalfHigh tag lay heap = false) (tree : Nat)
-    (left pad right : Digest) :
-    nodeHashP tag lay tree heap left pad right = shortHash (nodeInputP tag lay tree heap left pad right) := by
-  rw [nodeHashP_eq_projHash, h, projHash_false]
+theorem nodeHashP_eq_shortHash (tag lay tree heap : Nat) (left pad right : Digest) :
+    nodeHashP tag lay tree heap left pad right = shortHash (nodeInputP tag lay tree heap left pad right) := rfl
 theorem ftsLeaf_eq_shortHash (index coord leaf : Nat) (secret : Digest) :
     ftsLeaf index coord leaf secret = shortHash (ftsLeafInputP index coord leaf 0 secret 0) := by
   simp only [ftsLeaf, ftsLeafInputP, block4, bytesLE_zero]
-/-- C4: the node hash keeps the half `nodeHalfHigh` (high only for an even top heap). -/
-theorem nodeHash_eq_projHash (tag lay tree heap : Nat) (left right : Digest) :
-    nodeHash tag lay tree heap left right =
-      projHash (nodeHalfHigh tag lay heap) (nodeInputP tag lay tree heap left 0 right) := by
-  simp only [nodeHash, nodeInputP, block4, bytesLE_zero]
-theorem nodeHash_eq_shortHash {tag lay heap : Nat} (h : nodeHalfHigh tag lay heap = false) (tree : Nat)
-    (left right : Digest) :
+theorem nodeHash_eq_shortHash (tag lay tree heap : Nat) (left right : Digest) :
     nodeHash tag lay tree heap left right = shortHash (nodeInputP tag lay tree heap left 0 right) := by
-  rw [nodeHash_eq_projHash, h, projHash_false]
+  simp only [nodeHash, nodeInputP, block4, bytesLE_zero]
 theorem chainInputP_eq_block4 (lay : Layer) (tree leaf i step : Nat) (pad0 pad1 : Digest)
     (headerPad : BitVec 64) (value : Digest) :
     chainInputP lay tree leaf i step pad0 pad1 headerPad value =
@@ -562,10 +539,6 @@ theorem queried_bind {α β : Type} (answers : Answers) (program : M α) (next :
 theorem eval_shortHash (answers : Answers) (input : HashInput) :
     evalWithAnswerFn answers (shortHash input) =
       (answers (.inl (.inr (pad64 input)))).extractLsb' 0 128 := rfl
-@[simp] theorem queried_projHash (answers : Answers) (high : Bool) (input : HashInput) :
-    queried answers (projHash high input) = [.inl (.inr (pad64 input))] := rfl
-theorem eval_projHash (answers : Answers) (high : Bool) (input : HashInput) :
-    evalWithAnswerFn answers (projHash high input) = projHalf high (answers (.inl (.inr (pad64 input)))) := rfl
 def hashPath (input : Nat → Digest → HashInput) (count : Nat) (initial : Digest) : M Digest :=
   (List.range count).foldlM (fun value step => shortHash (input step value)) initial
 def pathValue (answers : Answers) (input : Nat → Digest → HashInput)
@@ -684,7 +657,7 @@ theorem ftsLeafP_extract (answers : Answers) (index coord leaf : Nat)
     · rw [ftsLeafP_eq_shortHash, queried_shortHash, pad64_ftsLeafInputP]
       exact List.mem_singleton_self _
 theorem nodeHashP_extract (answers : Answers) (tag lay tree heap : Nat)
-    (hlow : nodeHalfHigh tag lay heap = false) (left pad right honestLeft honestRight : Digest)
+    (left pad right honestLeft honestRight : Digest)
     (reaches : evalWithAnswerFn answers (nodeHashP tag lay tree heap left pad right) =
       evalWithAnswerFn answers (nodeHash tag lay tree heap honestLeft honestRight)) :
     (left = honestLeft ∧ pad = 0 ∧ right = honestRight) ∨
@@ -699,10 +672,10 @@ theorem nodeHashP_extract (answers : Answers) (tag lay tree heap : Nat)
   · right
     constructor
     · refine ⟨heq, ?_⟩
-      rw [nodeHashP_eq_shortHash hlow, nodeHash_eq_shortHash hlow, eval_shortHash, eval_shortHash,
+      rw [nodeHashP_eq_shortHash, nodeHash_eq_shortHash, eval_shortHash, eval_shortHash,
         pad64_nodeInputP, pad64_nodeInputP] at reaches
       exact reaches
-    · rw [nodeHashP_eq_projHash, queried_projHash, pad64_nodeInputP]
+    · rw [nodeHashP_eq_shortHash, queried_shortHash, pad64_nodeInputP]
       exact List.mem_singleton_self _
 def honestChainValue (answers : Answers) (lay : Layer) (tree leaf i : Nat)
     (seed : Digest) (step : Nat) : Digest :=
@@ -849,8 +822,53 @@ theorem merkleHPath_extract (answers : Answers) (tag lay tree height leaf count 
   hashPath_extract answers _ _ target _ value count reference
     (fun step _ current => merkleInputH_parse tag lay tree height leaf step path pads honestPath hpads current
       (target step)) reaches
+def layerLeafP (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) : M Digest := do
+  let (leaf, tree) := route index lay
+  let ends ← (List.finRange (chainCount lay)).mapM fun i =>
+    chainP lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
+      (wchainPads w lay i.val).1 (wchainPads w lay i.val).2 (wchainHeaderPad w lay i.val) (wvalue w lay i.val)
+  leafHash lay tree leaf ends
+theorem layerP_eq_hashPath (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) :
+    layerP w index lay digits = (layerLeafP w index lay digits >>= fun value =>
+      hashPath (merkleInput 3 lay.val (route index lay).2 (height lay) (route index lay).1
+        (wpath w lay (route index lay).1) (wmerklePad w lay)) (height lay) value) := by
+  unfold layerP layerLeafP
+  rcases route index lay with ⟨leaf, tree⟩
+  dsimp only
+  rw [bind_assoc]
+  congr 1
+  funext ends
+  congr 1
+  funext value
+  exact foldlM_finRange_eq_hashPath
+    (merkleInput 3 lay.val tree (height lay) leaf (wpath w lay leaf) (wmerklePad w lay)) (height lay) value
+theorem layerP_merkle_extract (answers : Answers) (w : WBytes) (index : Nat)
+    (lay : Layer) (digits : List Nat) (honestPath target : Nat → Digest)
+    (reference : ∀ step, step < height lay →
+      evalWithAnswerFn answers (shortHash
+        (merkleInput 3 lay.val (route index lay).2 (height lay) (route index lay).1
+          honestPath (fun _ => 0) step (target step))) = target (step + 1))
+    (reaches : evalWithAnswerFn answers (layerP w index lay digits) = target (height lay)) :
+    (evalWithAnswerFn answers (layerLeafP w index lay digits) = target 0 ∧
+      ∀ step, step < height lay →
+        wpath w lay (route index lay).1 step = honestPath step ∧ wmerklePad w lay step = 0) ∨
+      ∃ step, step < height lay ∧ ∃ actual,
+        .inl (.inr actual) ∈ queried answers (layerP w index lay digits) ∧
+        HashHit answers
+          (pad64 (merkleInput 3 lay.val (route index lay).2 (height lay) (route index lay).1
+            honestPath (fun _ => 0) step (target step))) actual := by
+  rw [layerP_eq_hashPath, evalWithAnswerFn_bind] at reaches
+  have h := merklePath_extract answers 3 lay.val (route index lay).2 (height lay)
+    (route index lay).1 (height lay) (wpath w lay (route index lay).1) (wmerklePad w lay)
+    honestPath target (evalWithAnswerFn answers (layerLeafP w index lay digits)) reference reaches
+  rcases h with hgood | ⟨step, hstep, hquery, hhit⟩
+  · exact Or.inl hgood
+  · right
+    refine ⟨step, hstep, _, ?_, hhit⟩
+    rw [layerP_eq_hashPath, queried_bind]
+    exact List.mem_append_right _ hquery
 theorem merkleInput_tree_reference (answers : Answers) (tag lay tree height leaf : Nat)
-    (hlow : ¬ (tag = 3 ∧ lay = 0)) (levels : List (List Digest)) (leaves : List Digest)
+    (levels : List (List Digest)) (leaves : List Digest)
     (htree : TreeLevels answers tag lay tree height leaves height levels)
     (hleaf : leaf < 2^height) (step : Nat) (hstep : step < height) :
     evalWithAnswerFn answers (shortHash
@@ -861,14 +879,14 @@ theorem merkleInput_tree_reference (answers : Answers) (tag lay tree height leaf
   unfold merkleInput
   dsimp only
   rw [Correctness.sibling_pair, Correctness.div_pow_succ]
-  rw [← nodeHash_eq_shortHash (nodeHalfHigh_of_ne hlow _)]
+  rw [← nodeHash_eq_shortHash]
   have hparent : leaf / 2^(step + 1) < 2^(height - (step + 1)) := by
     simpa using Correctness.div_pow_bound (start := 0) (level := step + 1)
       (node := leaf) (height := height) (by omega) (by simpa using hleaf)
   have hp := htree.2.2 step hstep (leaf / 2^(step + 1)) hparent
   simpa only [treeValue, Nat.sub_sub] using hp.symm
 theorem merkleInput_tree_reference_prefix (answers : Answers) (tag lay tree height leaf count : Nat)
-    (hlow : ¬ (tag = 3 ∧ lay = 0)) (levels : List (List Digest)) (leaves : List Digest)
+    (levels : List (List Digest)) (leaves : List Digest)
     (htree : TreeLevels answers tag lay tree height leaves height levels)
     (hleaf : leaf < 2^height) (hcount : count ≤ height) :
     ∀ step, step < count → evalWithAnswerFn answers (shortHash
@@ -877,6 +895,45 @@ theorem merkleInput_tree_reference_prefix (answers : Answers) (tag lay tree heig
         step (treeValue levels step (leaf / 2^step)))) =
       treeValue levels (step + 1) (leaf / 2^(step + 1)) := by
   intro step hstep
-  exact merkleInput_tree_reference answers tag lay tree height leaf hlow levels leaves htree hleaf step
+  exact merkleInput_tree_reference answers tag lay tree height leaf levels leaves htree hleaf step
     (lt_of_lt_of_le hstep hcount)
+theorem merkleInput_built_reference (answers : Answers) (tag lay tree height leaf : Nat)
+    (leaves : List Digest) (hlen : leaves.length = 2^height)
+    (hleaf : leaf < 2^height) (step : Nat) (hstep : step < height) :
+    let levels := evalWithAnswerFn answers (buildLevels tag lay tree height leaves)
+    evalWithAnswerFn answers (shortHash
+      (merkleInput tag lay tree height leaf
+        (fun j => treeValue levels j (leaf / 2^j ^^^ 1)) (fun _ => 0)
+        step (treeValue levels step (leaf / 2^step)))) =
+      treeValue levels (step + 1) (leaf / 2^(step + 1)) := by
+  exact merkleInput_tree_reference answers tag lay tree height leaf _ leaves
+    (Correctness.eval_buildLevels_correct answers tag lay tree height leaves hlen) hleaf step hstep
+theorem layerP_built_merkle_extract (answers : Answers) (w : WBytes) (index : Nat)
+    (lay : Layer) (digits : List Nat)
+    (reaches : evalWithAnswerFn answers (layerP w index lay digits) =
+      treeValue (Correctness.builtTree answers lay (route index lay).2) (height lay) 0) :
+    (evalWithAnswerFn answers (layerLeafP w index lay digits) =
+        Correctness.leafRoot answers lay (route index lay).2 (route index lay).1 ∧
+      ∀ step, step < height lay →
+        wpath w lay (route index lay).1 step =
+          treeValue (Correctness.builtTree answers lay (route index lay).2) step
+            ((route index lay).1 / 2^step ^^^ 1) ∧ wmerklePad w lay step = 0) ∨
+      ∃ step, step < height lay ∧ ∃ actual,
+        .inl (.inr actual) ∈ queried answers (layerP w index lay digits) ∧
+        HashHit answers
+          (pad64 (merkleInput 3 lay.val (route index lay).2 (height lay) (route index lay).1
+            (fun j => treeValue (Correctness.builtTree answers lay (route index lay).2) j
+              ((route index lay).1 / 2^j ^^^ 1)) (fun _ => 0) step
+            (treeValue (Correctness.builtTree answers lay (route index lay).2) step
+              ((route index lay).1 / 2^step)))) actual := by
+  have h := layerP_merkle_extract answers w index lay digits
+    (fun step => treeValue (Correctness.builtTree answers lay (route index lay).2) step
+      ((route index lay).1 / 2^step ^^^ 1))
+    (fun step => treeValue (Correctness.builtTree answers lay (route index lay).2) step
+      ((route index lay).1 / 2^step))
+    (merkleInput_tree_reference answers 3 lay.val (route index lay).2 (height lay) (route index lay).1
+      _ _ (Correctness.builtTree_correct answers lay (route index lay).2) (route_leaf_bound index lay))
+    (by simpa only [Nat.div_eq_of_lt (route_leaf_bound index lay)] using reaches)
+  simpa only [pow_zero, Nat.div_one,
+    Correctness.builtTree_leaf answers lay _ _ (route_leaf_bound index lay)] using h
 end SigGolfCandidate.T3M.SecurityExtraction

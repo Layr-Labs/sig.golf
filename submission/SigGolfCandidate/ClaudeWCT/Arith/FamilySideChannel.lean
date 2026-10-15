@@ -313,8 +313,6 @@ theorem thirteen_coefficient_packed_savings :
 
 theorem savings_exceed_floor_ten_threshold : 122 ≤ 128 ∧ 122 ≤ 192 := by decide
 
-#print axioms joint_side_channel
-#print axioms thirteen_coefficient_packed_savings
 
 /-- General grouped-family candidate: at most five disclosures per leaf. -/
 abbrev GroupChain (g : Nat) := Fin g × Fin 43
@@ -397,8 +395,6 @@ This is NOT an accepting-run profile or a termination certificate. -/
 theorem pair_horner_bound_delta :
     (6 + (14*10+1) + 12) * (13-8) * 43 * 256 = 8751360 := by decide
 
-#print axioms group_side_channel
-#print axioms inherited_buffer_boundary
 
 /-!
 Implementation map / remaining obligations:
@@ -472,7 +468,5 @@ theorem paired_coefficient_hash_counts (group : Nat) :
   simp only [he, ho]
   decide
 
-#print axioms pairRoute_injective
-#print axioms paired_coefficient_hash_counts
 
 end ClaudeWCT.Arith.SideChannel.AdjacentLeafResearch

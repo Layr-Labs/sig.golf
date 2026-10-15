@@ -64,5 +64,3 @@ def packedSetCount : Nat :=
 theorem packedSetCount_value : packedSetCount = 1792558607887680192091036610744811520 := by
   decide +kernel
 end SigGolfResearch.Gate6
-#print axioms SigGolfResearch.Gate6.family_weight_sum
-#print axioms SigGolfResearch.Gate6.packedSetCount_value

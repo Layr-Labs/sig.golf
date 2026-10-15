@@ -441,3 +441,20 @@ theorem decode_lower_v6 (lay : Layer) (hlay : lay ≠ 0) (value : Digest) :
   · rw [if_neg hs, if_neg hs]
 end SigGolfCandidate.T3M
 end
+
+namespace SigGolfCandidate.T3M
+open SigGolfCandidate.T3
+abbrev canonicalDecode := ClaudeWCT.WCT9.CanonicalPolicy.decode
+def canonicalTarget (lay : Layer) : Nat := target (ClaudeWCT.WCT9.CanonicalPolicy.normalLayer lay)
+theorem canonical_decode_lower_v6 (lay : Layer) (hlay : lay ≠ 0) (value : Digest) :
+    canonicalDecode lay value =
+      if lowerSpare value then
+        (if (canonicalTarget lay + 2 ^ 64 - lowSumS1 value) % 2 ^ 64 < 8 then
+          some (((List.range 42).map fun i => lowerWord value / 2 ^ (3 * i) % 8) ++
+            [(canonicalTarget lay + 2 ^ 64 - lowSumS1 value) % 2 ^ 64])
+        else none)
+      else none := by
+  simpa only [canonicalDecode, ClaudeWCT.WCT9.CanonicalPolicy.decode,
+    canonicalTarget, ClaudeWCT.WCT9.CanonicalPolicy.normalLayer, if_neg hlay] using
+    decode_lower_v6 (1 : Layer) (by decide) value
+end SigGolfCandidate.T3M

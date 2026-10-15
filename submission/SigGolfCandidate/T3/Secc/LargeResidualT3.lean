@@ -642,11 +642,17 @@ noncomputable def signDisclosed (A : Answers) (published : T3.Cache) (request : 
 def msgCoord (L : EncLeaf) : Coord :=
   if h : L.1.lay.val < 3 then .inl (.node (rootNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L)))
   else .inl (.forest (childIndex L))
+def StructuralContact (A : Answers) (K : Coord → Prop) (input : HashInput) (answer : HashOutput) : Prop :=
+  ∃ N : CanonGraph.Node, Extract.posOf input = some N.toPos ∧
+    ((∃ cs, firstUnknown K N = some cs ∧ slotValue input cs.2 = honestValue A cs.1) ∨
+      (input ≠ Extract.honestInput A N.toPos ∧ answer.extractLsb' 0 128 = honestValue A (.inl N)))
 def EncodingContact (A : Answers) (K : Coord → Prop) (input : HashInput) (answer : HashOutput) : Prop :=
   ∃ (L : EncLeaf) (m : Digest) (ctr : BitVec 32), input = Wots.encodingRow L.toWots m ctr ∧
     ((¬K (msgCoord L) ∧ m = honestValue A (msgCoord L)) ∨
       (Wots.referenceInput A L.toWots ≠ some input ∧
         decode L.1.lay (answer.extractLsb' 0 128) = some (Wots.referenceDigits A L.toWots)))
+def ContactTest (A : Answers) (K : Coord → Prop) (input : HashInput) (answer : HashOutput) : Prop :=
+  StructuralContact A K input answer ∨ EncodingContact A K input answer
 def IsDigestRow (input : HashInput) : Prop :=
   ∃ (rho : Digest) (message : Message) (counter : BitVec 32), input = pad64 (digestInput rho message counter)
 end SigGolfCandidate.T3.Security.LargeResidual

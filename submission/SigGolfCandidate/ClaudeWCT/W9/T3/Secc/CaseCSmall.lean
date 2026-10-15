@@ -400,3 +400,77 @@ theorem caseC_small_bound (X : CaseCExtraction) (Y : CaseCSplitInterface X)
       exact le_self_add
 end ClaudeWCT.W9.T3.Security.CaseC
 end
+
+namespace ClaudeWCT.W9.T3.Security.PairedBankLink
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
+open SigGolfCandidate.T3.Security.CaseC (theta countOf lazyOf Agrees)
+open SigGolfCandidate.T3.Correctness (Answers)
+open ClaudeWCT.W9.T3M
+open ClaudeWCT.Bank (FtsBankSpecL)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+
+noncomputable def completedWeight (F : (Bool × QueryRecorded.State) → Answers → Prop)
+    (y : Bool × QueryRecorded.State) : ENNReal :=
+  Pr[fun tables => F y (SigGolfCandidate.T3.Security.SeccLaw.completeWith (lazyOf y.2) tables) |
+    PMF.uniformOfFintype SigGolfCandidate.T3.Security.SeccLaw.CompletionTables]
+
+theorem completed_event_eq (F : (Bool × QueryRecorded.State) → Answers → Prop)
+    (adversary : Final.Paired.AdversaryP) (q : Nat) (hq : q ≤ 2^127) :
+    Pr[fun z => F (z.1.1,z.1.2.2) z.2 | PairedSeccLaw.completedExperiment adversary q hq] =
+      expectedValue (PairedOuter.PaddedGame.tracedExperiment adversary q hq)
+        (fun r => completedWeight F (r.1,r.2.2)) := by
+  unfold PairedSeccLaw.completedExperiment
+  rw [←PMF.monad_bind_eq_bind,probEvent_bind_eq_tsum]
+  unfold expectedValue
+  apply tsum_congr
+  intro r
+  rw [←PMF.monad_map_eq_map,probEvent_map,PMF.probOutput_eq_apply]
+  rfl
+
+section GenericBound
+variable {P : Type} [Fintype P] [SampleableType P] (S : FtsBankSpecL P)
+  (pay : SigGolfCandidate.T3.Cache → Digest → HashOutput → M (Option SigGolfCandidate.Research.SharedForest.Signature))
+  (hrecord : ∀ published request, Prod.fst <$> S.authenticatedRecord pay published request =
+    PairedOuter.FullGame.authenticatedSign published request)
+include hrecord
+
+theorem completed_event_le_shared
+    (hNotDigest : ClaudeWCT.Bank.PayNotDigest pay) (hAvoids : ClaudeWCT.Bank.PayAvoids pay)
+    (F : (Bool × QueryRecorded.State) → Answers → Prop)
+    (adversary : Final.Paired.AdversaryP) (q : Nat) (hq : q ≤ 2^127)
+    (rate : ENNReal)
+    (hrate : ClaudeWCT.Numerics.Law.lawAvg S.law S.horizon (fun W => S.price W-S.specTheta) ≤ rate)
+    (hwin : ∀ b ∈ (S.bankExperiment pay (rest adversary) q).support, ∀ tables,
+      F (b.1,b.2.2) (SigGolfCandidate.T3.Security.SeccLaw.completeWith (lazyOf b.2.2) tables) →
+        1 ≤ S.potential q b.2) :
+    Pr[fun z => F (z.1.1,z.1.2.2) z.2 | PairedSeccLaw.completedExperiment adversary q hq] ≤
+      (theta+1/64)/2^128 * PairedSeccLaw.expectedCharge adversary q hq
+        (fun _ => SigGolfCandidate.T3.Security.CreationGame.publicClass CaseC.IsDigestInput) +
+      (q : ENNReal)*rate/2^128 := by
+  rw [completed_event_eq]
+  have he := congrArg (fun law : PMF (Bool × QueryRecorded.State) =>
+    expectedValue law (completedWeight F)) (recordedExperiment_eq S pay hrecord adversary q hq)
+  rw [PMF.monad_map_eq_map,CaseC.expectedValue_pmf_map] at he
+  rw [he]
+  refine (S.bank_event_le_rate pay hNotDigest hAvoids (rest adversary) q rate hrate
+    (completedWeight F) (fun _ => probEvent_le_one) ?_).trans ?_
+  · intro b hb hnonzero
+    by_cases hex : ∃ tables, F (b.1,b.2.2)
+        (SigGolfCandidate.T3.Security.SeccLaw.completeWith (lazyOf b.2.2) tables)
+    · obtain ⟨tables,ht⟩ := hex
+      exact hwin b hb tables ht
+    · exfalso
+      apply hnonzero
+      unfold completedWeight
+      simp only [probEvent_eq_tsum_ite]
+      have hfalse : ∀ tables, ¬F (b.1,b.2.2)
+          (SigGolfCandidate.T3.Security.SeccLaw.completeWith (lazyOf b.2.2) tables) :=
+        fun tables ht => hex ⟨tables,ht⟩
+      simp [hfalse]
+  · exact add_le_add (mul_le_mul' le_rfl (expectedBirths_le_shared S pay hrecord adversary q hq)) le_rfl
+end GenericBound
+end ClaudeWCT.W9.T3.Security.PairedBankLink
