@@ -1,4 +1,7 @@
-import Mathlib
+import Mathlib.Data.Nat.Bitwise
+import Mathlib.Tactic.Ring
+import Mathlib.Tactic.Positivity
+import Mathlib.Tactic.SplitIfs
 
 namespace SigGolfCandidate.T3.Rev
 def revBits : Nat → Nat → Nat

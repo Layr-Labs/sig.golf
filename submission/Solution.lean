@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26048, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7032 := by
+theorem certificate : SigGolf.Certificate submission 7031 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -115,6 +115,6 @@ floor 22, FTS joint cap 775 and top search limit 2^21. The canonical selection
 hint occupies an existing witness word; compact signature size stays 5310.
 The arbitrary-hint verifier, canonical extraction condition and both producers
 are connected through the merged proof interfaces. The certificate target is
-raw bound 6936 plus witness charge 97, C = 7032, score 37345230. Validation
+raw bound 6936 plus witness charge 97, C = 7031, score 37345230. Validation
 status is reported separately in the public submission note.
 -/

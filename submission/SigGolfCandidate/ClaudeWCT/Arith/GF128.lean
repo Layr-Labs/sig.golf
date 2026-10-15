@@ -1,4 +1,5 @@
-import Mathlib
+import Mathlib.Data.BitVec
+import Mathlib.Tactic.NormNum
 
 /-!
 # GF(2^128) arithmetic and polynomial seed families (arithmetic chain seeds)

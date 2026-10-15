@@ -1,4 +1,8 @@
-import Mathlib.Tactic
+import Mathlib.Data.List.OfFn
+import Mathlib.Algebra.Order.BigOperators.Group.Finset
+import Mathlib.Tactic.FinCases
+import Mathlib.Tactic.Linarith
+import Mathlib.Tactic.Push
 
 namespace SigGolfResearch.NonbinaryTop.Codec
 set_option maxHeartbeats 1000000
