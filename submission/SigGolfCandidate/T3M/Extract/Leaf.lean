@@ -51,9 +51,8 @@ theorem hdrBlock_listInput (first : Digest) (hdr : BitVec 128) (rest : List Dige
     hdrBlock (pad64 (listInput first hdr rest)) = bytesLE 16 hdr := by
   rw [hdrBlock_pad64 _ (by rw [listInput_length]; omega)]
   exact hdrBlock_prefix first hdr _
-/-- C4: the top leaf takes the half `leafHalfHigh lay leaf` of its hash (high for even top leaves). -/
-theorem leafHash_eq_projHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
-    leafHash lay tree leaf ends = projHash (leafHalfHigh lay leaf) (leafInput lay tree leaf ends) := rfl
+theorem leafHash_eq_shortHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
+    leafHash lay tree leaf ends = shortHash (leafInput lay tree leaf ends) := rfl
 theorem leafInput_eq_listInput {lay : Layer} (h0 : lay ≠ 0) (tree leaf : Nat) (ends : List Digest) :
     leafInput lay tree leaf ends = listInput (ends.getD 0 0) (leafTweak lay tree leaf) (ends.drop 1) := by
   simp only [leafInput, T3.leafInput, h0, if_false, listInput]
@@ -105,6 +104,23 @@ theorem listHash_extract (answers : Answers) (hdr : BitVec 128) (xs ys : List Di
     · unfold SameHeader
       rw [hdrBlock_listInput, hdrBlock_listInput]
     · rw [queried_shortHash]
+      exact List.mem_singleton_self _
+theorem leafHash_extract (answers : Answers) (lay : Layer) (tree leaf : Nat) (ends honest : List Digest)
+    (hlen : ends.length = honest.length) (hpos : 0 < honest.length)
+    (reaches : evalWithAnswerFn answers (leafHash lay tree leaf ends) =
+      evalWithAnswerFn answers (leafHash lay tree leaf honest)) :
+    ends = honest ∨
+      (HashHit answers (pad64 (leafInput lay tree leaf honest)) (pad64 (leafInput lay tree leaf ends)) ∧
+        SameHeader (pad64 (leafInput lay tree leaf ends)) (pad64 (leafInput lay tree leaf honest)) ∧
+        .inl (.inr (pad64 (leafInput lay tree leaf ends))) ∈ queried answers (leafHash lay tree leaf ends)) := by
+  by_cases heq : pad64 (leafInput lay tree leaf ends) = pad64 (leafInput lay tree leaf honest)
+  · exact Or.inl (leafInput_ends hlen hpos heq)
+  · refine Or.inr ⟨⟨heq, ?_⟩, ?_, ?_⟩
+    · rw [leafHash_eq_shortHash, leafHash_eq_shortHash, eval_shortHash, eval_shortHash] at reaches
+      exact reaches
+    · unfold SameHeader
+      rw [hdrBlock_leafInput, hdrBlock_leafInput]
+    · rw [leafHash_eq_shortHash, queried_shortHash]
       exact List.mem_singleton_self _
 theorem forestPk_extract (answers : Answers) (index : Nat) (roots honest : List Digest)
     (hlen : roots.length = honest.length) (hpos : 0 < honest.length)

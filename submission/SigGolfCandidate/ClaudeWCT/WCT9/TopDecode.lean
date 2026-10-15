@@ -117,14 +117,14 @@ theorem producerDecode_eq_none_or (lay : Layer) (answer : Digest) :
       · exact Or.inr rfl
       · exact Or.inl rfl
 theorem producerFloor_values :
-    producerFloor 0 = 22 ∧ producerFloor 1 = 10 ∧ producerFloor 2 = 9 ∧ producerFloor 3 = 9 :=
+    producerFloor 0 = 21 ∧ producerFloor 1 = 10 ∧ producerFloor 2 = 9 ∧ producerFloor 3 = 9 :=
   ⟨rfl, rfl, rfl, rfl⟩
-theorem searchLimit_top : searchLimit 0 = topSearchLimit := rfl
+theorem searchLimit_top : searchLimit 0 = counterLimit := rfl
 theorem searchLimit_lower {lay : Layer} (h : lay ≠ 0) : searchLimit lay = lowerSearchLimit := by
   unfold searchLimit
   rw [if_neg h]
 theorem searchLimit_le (lay : Layer) : searchLimit lay ≤ counterLimit := by
-  unfold searchLimit topSearchLimit lowerSearchLimit counterLimit
+  unfold searchLimit lowerSearchLimit counterLimit
   split <;> norm_num
 theorem lowerSearchLimit_eq : lowerSearchLimit = 2 ^ 21 := rfl
 theorem chainCount_top : chainCount 0 = 54 := rfl

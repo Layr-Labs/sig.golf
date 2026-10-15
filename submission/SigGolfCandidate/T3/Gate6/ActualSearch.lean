@@ -67,8 +67,6 @@ noncomputable def run {Input : Type} [DecidableEq Input]
           let output ← ($ᵗ Output : ProbComp Output)
           run policy steps ((input,output)::history) (insert cache input output fresh)
 end SigGolfResearch.Gate6.Cache
-#print axioms SigGolfResearch.Gate6.Cache.count_insert
-#print axioms SigGolfResearch.Gate6.Cache.probability_matches
 end
 section
 namespace SigGolfResearch.Gate6.Cache
@@ -118,8 +116,6 @@ theorem bernoulli_shift_real (x : ℝ) :
   rw [he]
   nlinarith
 end SigGolfResearch.Gate6.Cache
-#print axioms SigGolfResearch.Gate6.Cache.bernoulli_mgf_real
-#print axioms SigGolfResearch.Gate6.Cache.initial_tail_real
 end
 section
 namespace SigGolfResearch.Gate6.Cache
@@ -213,8 +209,6 @@ theorem initial_totalWeight_le {Input : Type} (q : Nat) (hq : q≤2^127) :
       rw [show (2 : ℝ)^759=2^59*2^700 by rw [←pow_add]]
       field_simp
 end SigGolfResearch.Gate6.Cache
-#print axioms SigGolfResearch.Gate6.Cache.expected_totalWeight_insert
-#print axioms SigGolfResearch.Gate6.Cache.initial_totalWeight_le
 end
 section
 namespace SigGolfResearch.Gate6.NativeCache
@@ -371,9 +365,6 @@ theorem clean_point_bound_arithmetic (cache : RCache) (hfinite : Finite cache)
       linarith
     _ ≤ _ := by norm_num [Cache.rate_value]
 end SigGolfResearch.Gate6.NativeCache
-#print axioms SigGolfResearch.Gate6.NativeCache.expected_totalWeight_fresh
-#print axioms SigGolfResearch.Gate6.NativeCache.initial_totalWeight_le
-#print axioms SigGolfResearch.Gate6.NativeCache.clean_point_bound_arithmetic
 end
 section
 namespace SigGolfResearch.Gate6.NativeSearch
@@ -588,7 +579,6 @@ theorem uniform_nonce_completed_cap (secret : BitVec 256) (message : Message)
   (uniform_nonce_completed_point secret message fuel hlimit cache mark).trans
     (NativeCache.clean_point_bound_arithmetic cache hfinite q hsize hq hclean mark)
 end SigGolfResearch.Gate6.NativeSearch
-#print axioms SigGolfResearch.Gate6.NativeSearch.uniform_nonce_completed_cap
 end
 section
 namespace SigGolfResearch.Gate6.NativeSearch
@@ -657,8 +647,6 @@ theorem recordLaw_scaled_cap (secret : BitVec 256) (message : Message)
       apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
       norm_num [ENNReal.toReal_mul,ENNReal.toReal_div,ENNReal.toReal_inv,ENNReal.toReal_pow]
 end SigGolfResearch.Gate6.NativeSearch
-#print axioms SigGolfResearch.Gate6.NativeSearch.complete_erasure
-#print axioms SigGolfResearch.Gate6.NativeSearch.recordLaw_scaled_cap
 end
 section
 namespace SigGolfResearch.Gate6.Source
@@ -710,7 +698,4 @@ theorem actual_recordLaw_scaled_cap (secret : BitVec 256) (message : Message)
   rw [actual_recordLaw_eq]
   exact NativeSearch.recordLaw_scaled_cap secret message fuel hlimit cache hfinite q hsize hq hclean mark
 end SigGolfResearch.Gate6.Source
-#print axioms SigGolfResearch.Gate6.Source.actual_search_eq
-#print axioms SigGolfResearch.Gate6.Source.actual_uniform_nonce_completed_cap
-#print axioms SigGolfResearch.Gate6.Source.actual_recordLaw_scaled_cap
 end

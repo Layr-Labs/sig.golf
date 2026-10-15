@@ -50,8 +50,6 @@ instance : Nonempty {r : RawRecord // Accepted r} :=
 instance : Nonempty {p : Payload // PayloadAccepted p} :=
   ⟨⟨_,accepted_witness⟩⟩
 end SigGolfResearch.Gate6
-#print axioms SigGolfResearch.Gate6.rawRecord_card
-#print axioms SigGolfResearch.Gate6.accepted_witness
 end
 section
 namespace SigGolfResearch.Gate6
@@ -115,5 +113,4 @@ theorem fresh_mark_conditional (mark : MarkedLabel) :
         (Pr[Accepted | ($ᵗ RawRecord : ProbComp RawRecord)])⁻¹) * (2^59 : ENNReal)⁻¹ := by ac_rfl
     _ = _ := by rw [ENNReal.mul_inv_cancel hp probEvent_ne_top,one_mul]
 end SigGolfResearch.Gate6
-#print axioms SigGolfResearch.Gate6.fresh_mark_conditional
 end

@@ -930,5 +930,3 @@ theorem clean_point_bound_arithmetic (cache : RCache) (hfinite : Finite cache)
   exact SigGolfResearch.Gate6.NativeCache.clean_point_bound_arithmetic cache hfinite budget hsize hbudget
     (fun h => hclean ((targetCacheExceptional_iff_native cache).mpr h)) point
 end SigGolfCandidate.T3.Sampling
-#print axioms SigGolfCandidate.T3.Sampling.targetCacheExceptional_iff_native
-#print axioms SigGolfCandidate.T3.Sampling.clean_point_bound_arithmetic

@@ -79,9 +79,8 @@ noncomputable def testImpl : QueryImpl RefWorld (StateT (TObs d) (OracleComp (TS
   | .inl (.inr input) =>
       match PrefixGame.rowOf a d input with
       | some p => StateT.mk fun obs =>
-          (fun w => (joinHalf (WCT9.chainHigh a.key.lay a.chain p.1.val) w
-            (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain p.1.val) (restTable R (.inl (.inr input)))),
-              record obs p w)) <$> prefAns L d Rev aF P p
+          (fun w => (ChainGraph.joinOutput w (high (restTable R (.inl (.inr input)))), record obs p w)) <$>
+            prefAns L d Rev aF P p
       | none => StateT.lift (pubAns L d R Rev P input)
   | .inr _ => pure ()
 end Defs
@@ -93,25 +92,6 @@ theorem high_ovL (L : LeafAddr) (R : RefTables adversary) (X : LeafData L) (inpu
   | some cv =>
       rw [zeroOf_some hz, restTable_ovL_zero, high, ChainGraph.joinOutput_high]
 
-/-- C3: the half of a chain-`a` row that the prefix game keeps from the rest table is unchanged by the leaf
-override: a step-0 row keeps its high half, and the only row whose used half is high (step 6 of a lower chain 0)
-is no step-0 row. -/
-theorem otherHalf_ovL (L : LeafAddr) (R : RefTables adversary) (X : LeafData L) (a : ChainAddr) (s : Nat)
-    (v : Digest) :
-    WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain s) (restTable (ovL L R X) (.inl (.inr (chainRow a s v)))) =
-      WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain s) (restTable R (.inl (.inr (chainRow a s v)))) := by
-  cases hb : WCT9.chainHigh a.key.lay a.chain s with
-  | false => exact high_ovL L R X _
-  | true =>
-      have h6 : s = 6 := (WCT9.chainHigh_eq_true.mp hb).2.2
-      cases hz : zeroOf L (chainRow a s v) with
-      | none => rw [restTable_ovL_pub L R X _ hz]
-      | some cv =>
-          exfalso
-          have he := zeroOf_some hz
-          have hh := (chainHeader_fields (chainInput_fields he).1).2.2.2.2
-          rw [h6] at hh
-          simp at hh
 theorem ite_decide_update (g : Digest → Digest) (y lab v : Digest) :
     (if decide (y = v) then lab else g v) = Function.update g y lab v := by
   rw [Function.update_apply]
@@ -170,10 +150,9 @@ theorem testImpl_bridge (y : Free Rev → Digest) (K : Fin (WCT9.famCount L.lay)
     cases hp : PrefixGame.rowOf a d input with
     | some p =>
         simp only [simulateQ_map, simulateQ_spec_query]
-        show evalT y ((fun w => (joinHalf (WCT9.chainHigh a.key.lay a.chain p.1.val) w
-          (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain p.1.val) (restTable R (.inl (.inr input)))),
-            record s p w)) <$> prefAns L d Rev aF P p) = _
-        rw [evalT_map, evalT_prefAns, PMF.pure_map, PrefixGame.rowOf_some hp, otherHalf_ovL L R]
+        show evalT y ((fun w => (ChainGraph.joinOutput w (high (restTable R (.inl (.inr input)))), record s p w)) <$>
+          prefAns L d Rev aF P p) = _
+        rw [evalT_map, evalT_prefAns, PMF.pure_map, high_ovL L R]
         change _ = StateT.run (_ <$> observedImpl SphincsSecurity.Concrete.OtsPrefix.uniformImpl _ (Sum.inr p)) s
         rw [StateT.run_map]
         change _ = (fun x => _) <$> PMF.pure _
@@ -343,3 +322,290 @@ theorem enT_simulate {ι ιs σ : Type} [Fintype ι] [DecidableEq ι] {spec : Or
 
 end Leaf
 end ClaudeWCT.W9.T3.Security.Wots
+
+namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.Test
+open OracleComp OracleSpec ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open ClaudeWCT.W9.T3.Security.Wots.Leaf
+open SigGolfCandidate.T3.Security.Wots.PrefixGame (high Hidden)
+open ClaudeWCT.Arith.SideChannel (TSpec coinQ testQ evalT answerImpl Free enT exT tdepth)
+open SphincsSecurity.Concrete.PartialChainEndpoint (PrefixSpec observedImpl record evaluate observedRun)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+
+noncomputable def publicAt (L : LeafAddr) (B : Answers) (f : Fin (chainCount L.lay) → Digest → Digest) (input : HashInput) : HashOutput :=
+  match zeroOf L input with
+  | some cv => ChainGraph.joinOutput (f cv.1 cv.2) (high (B (.inl (.inr input))))
+  | none => B (.inl (.inr input))
+noncomputable def withPublic (L : LeafAddr) (B : Answers) (f : Fin (chainCount L.lay) → Digest → Digest) : Answers
+  | .inl (.inr input) => publicAt L B f input
+  | .inl (.inl coin) => B (.inl (.inl coin))
+  | .inr coordinate => B (.inr coordinate)
+
+section Defs
+variable (L : LeafAddr) (a : ChainAddr) (d : Nat) (B : Answers)
+  (Rev : Finset (Fin (chainCount L.lay))) (aF : Free Rev) (P : TParams L d)
+/-- Answer to any other public query: step-0 rows of unrevealed chains of `L` are tests. -/
+noncomputable def pubAns (input : HashInput) : OracleComp (TSpec (Free Rev) Digest) HashOutput :=
+  match zeroOf L input with
+  | some cv =>
+      if hc : cv.1 ∈ Rev then
+        pure (ChainGraph.joinOutput (Function.update (P.g cv.1) (P.r cv.1) (P.lab cv.1) cv.2)
+          (high (B (.inl (.inr input)))))
+      else (fun b => ChainGraph.joinOutput (if b then P.lab cv.1 else P.g cv.1 cv.2)
+          (high (B (.inl (.inr input))))) <$> testQ (⟨cv.1, hc⟩, cv.2)
+  | none => pure (B (.inl (.inr input)))
+
+/-- The test-program implementation of the prefix game's oracle world. -/
+noncomputable def testImpl : QueryImpl RefWorld (StateT (TObs d) (OracleComp (TSpec (Free Rev) Digest)))
+  | .inl (.inl n) => StateT.lift (coinQ n)
+  | .inl (.inr input) =>
+      match PrefixGame.rowOf a d input with
+      | some p => StateT.mk fun obs =>
+          (fun w => (ChainGraph.joinOutput w (high (B (.inl (.inr input)))), record obs p w)) <$>
+            prefAns L d Rev aF P p
+      | none => StateT.lift (pubAns L d B Rev P input)
+  | .inr _ => pure ()
+end Defs
+
+
+section Bridge
+variable {L : LeafAddr} {a : ChainAddr} {d : Nat} (B : Answers)
+  {Rev : Finset (Fin (chainCount L.lay))} (aF : Free Rev) (P : TParams L d)
+
+theorem evalT_pubAns (y : Free Rev → Digest) (input : HashInput) :
+    evalT y (pubAns L d B Rev P input)=PMF.pure (publicAt L B (fY L d Rev P y) input) := by
+  unfold pubAns publicAt
+  cases hz : zeroOf L input with
+  | none => rfl
+  | some cv =>
+    simp only
+    unfold fY
+    split_ifs with hc
+    · rfl
+    · rw [evalT_map,ClaudeWCT.Arith.SideChannel.evalT_testQ,PMF.pure_map,ite_decide_update]
+/-- Per-query identification of the test program, run against `y`, with the programmed prefix-game world. -/
+theorem testImpl_bridge (y : Free Rev → Digest) (q : RefWorld.Domain) :
+    (StateT.mk fun s => evalT y ((testImpl L a d B Rev aF P q).run s) : StateT (TObs d) PMF _) =
+      simulateQ (observedImpl SphincsSecurity.Concrete.OtsPrefix.uniformImpl (tY L d P (y aF)))
+        (Route.routeImpl a d B (withPublic L B (fY L d Rev P y)) q) := by
+  rcases q with (n | input) | u
+  · funext s
+    simp only [testImpl, Route.routeImpl, simulateQ_spec_query, StateT.run_lift]
+    show evalT y (ClaudeWCT.Arith.SideChannel.coinQ n >>= fun a => pure (a, s)) =
+      (SphincsSecurity.Concrete.OtsPrefix.uniformImpl n).map (fun answer => (answer, s))
+    rw [ClaudeWCT.Arith.SideChannel.evalT_bind, ClaudeWCT.Arith.SideChannel.evalT_coinQ]
+    rfl
+  · funext s
+    simp only [testImpl, Route.routeImpl]
+    cases hp : PrefixGame.rowOf a d input with
+    | some p =>
+        simp only [simulateQ_map, simulateQ_spec_query]
+        show evalT y ((fun w => (ChainGraph.joinOutput w (high (B (.inl (.inr input)))), record s p w)) <$>
+          prefAns L d Rev aF P p) = _
+        rw [evalT_map, evalT_prefAns, PMF.pure_map]
+        change _ = StateT.run (_ <$> observedImpl SphincsSecurity.Concrete.OtsPrefix.uniformImpl _ (Sum.inr p)) s
+        rw [StateT.run_map]
+        change _ = (fun x => _) <$> PMF.pure _
+        rw [PMF.monad_map_eq_map, PMF.pure_map]
+    | none =>
+        simp only [simulateQ_pure, StateT.run_lift]
+        show evalT y (pubAns L d B Rev P input >>= fun a => pure (a, s)) = _
+        rw [ClaudeWCT.Arith.SideChannel.evalT_bind, evalT_pubAns B P y input, PMF.pure_bind]
+        rfl
+  · funext s
+    rfl
+
+/-- **Bridge.** The test program run against `y` is the prefix-game run in the world programmed at `y`. -/
+theorem evalT_testRun (y : Free Rev → Digest) {α : Type} (G : OracleComp RefWorld α)
+    (obs : TObs d) :
+    evalT y ((simulateQ (testImpl L a d B Rev aF P) G).run obs) =
+      observedRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl (tY L d P (y aF))
+        (simulateQ (Route.routeImpl a d B (withPublic L B (fY L d Rev P y))) G) obs := by
+  unfold evalT observedRun
+  rw [ClaudeWCT.Arith.SideChannel.simulateQ_run_stateT, ← QueryImpl.simulateQ_compose]
+  congr 2
+  funext q
+  rw [QueryImpl.apply_compose]
+  exact testImpl_bridge B aF P y q
+end Bridge
+
+section Counts
+variable {L : LeafAddr} {a : ChainAddr} {d : Nat} (B : Answers) {Rev : Finset (Fin (chainCount L.lay))}
+  (aF : Free Rev) (P : TParams L d)
+
+theorem tdepth_testImpl (q : RefWorld.Domain) (s : TObs d) :
+    tdepth ((testImpl L a d B Rev aF P q).run s) ≤ if RefCharged q then 1 else 0 := by
+  rcases q with (n | input) | u
+  · simp only [testImpl, StateT.run_lift]
+    rw [if_neg (by simp [RefCharged])]
+    refine (ClaudeWCT.Arith.SideChannel.tdepth_bind_le _ _ 0 fun _ => le_rfl).trans ?_
+    rw [Nat.add_zero, show coinQ n = (coinQ n >>= pure : OracleComp (TSpec (Free Rev) Digest) _) from
+      (bind_pure _).symm, ClaudeWCT.Arith.SideChannel.tdepth_coin]
+    simp [ClaudeWCT.Arith.SideChannel.tdepth_pure]
+  · rw [if_pos (by simp [RefCharged])]
+    cases hp : PrefixGame.rowOf a d input with
+    | some p =>
+        simp only [testImpl, hp, StateT.run_mk]
+        refine (tdepth_map_le _ _).trans ?_
+        unfold prefAns
+        split_ifs with h0
+        · exact (tdepth_map_le _ _).trans (le_of_eq (tdepth_testQ _))
+        · exact Nat.zero_le _
+    | none =>
+        simp only [testImpl, hp, StateT.run_lift]
+        refine (ClaudeWCT.Arith.SideChannel.tdepth_bind_le _ _ 0 fun _ => le_rfl).trans ?_
+        rw [Nat.add_zero]
+        unfold pubAns
+        cases hz : zeroOf L input with
+        | none => exact Nat.zero_le _
+        | some cv =>
+            simp only
+            split_ifs with hc
+            · exact Nat.zero_le _
+            · exact (tdepth_map_le _ _).trans (le_of_eq (tdepth_testQ _))
+  · exact Nat.zero_le _
+
+theorem enT_testImpl (y : Free Rev → Digest) (q : RefWorld.Domain) (s : TObs d) :
+    enT y ((testImpl L a d B Rev aF P q).run s) = if isTestQ L a d Rev q then 1 else 0 := by
+  rcases q with (n | input) | u
+  · rw [if_neg (by simp [isTestQ])]
+    simp only [testImpl, StateT.run_lift]
+    rw [ClaudeWCT.Arith.SideChannel.enT_bind, show coinQ n = (coinQ n >>= pure : OracleComp (TSpec (Free Rev) Digest) _)
+      from (bind_pure _).symm, ClaudeWCT.Arith.SideChannel.enT_coin]
+    simp [ClaudeWCT.Arith.SideChannel.enT_pure, ClaudeWCT.Arith.SideChannel.exT_const]
+  · cases hp : PrefixGame.rowOf a d input with
+    | some p =>
+        have hT : isTestQ L a d Rev (.inl (.inr input)) ↔ p.1.val = 0 := by simp only [isTestQ, hp]
+        simp only [testImpl, hp, StateT.run_mk]
+        rw [enT_map]
+        unfold prefAns
+        split_ifs with h0 h1 h1
+        · rw [enT_map, enT_testQ]
+        · exact absurd (hT.mpr h0) h1
+        · exact absurd (hT.mp h1) h0
+        · rfl
+    | none =>
+        simp only [testImpl, hp, StateT.run_lift]
+        rw [ClaudeWCT.Arith.SideChannel.enT_bind,
+          show (fun x => enT y (pure (x, s) : OracleComp (TSpec (Free Rev) Digest) _)) = fun _ => (0 : ℝ) from rfl,
+          ClaudeWCT.Arith.SideChannel.exT_const, add_zero]
+        unfold pubAns
+        cases hz : zeroOf L input with
+        | none =>
+            rw [if_neg (by simp only [isTestQ, hp, hz]; exact id)]
+            rfl
+        | some cv =>
+            have hT : isTestQ L a d Rev (.inl (.inr input)) ↔ cv.1 ∉ Rev := by simp only [isTestQ, hp, hz]
+            simp only
+            split_ifs with hc h1 h1
+            · exact absurd hc (hT.mp h1)
+            · rfl
+            · rw [enT_map, enT_testQ]
+            · exact absurd (hT.mpr hc) h1
+  · rw [if_neg (by simp [isTestQ])]
+    rfl
+end Counts
+
+
+end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.Test
+
+namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.RawLeaf
+open OracleComp OracleSpec ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open ClaudeWCT.W9.T3.Security.Wots.Leaf
+open SigGolfCandidate.T3.Security.Wots.PrefixGame (high)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+variable {U : Finset HashInput} (hU : SeccLaw.publicUniverse⊆U)
+include hU
+attribute [local irreducible] raw normalize answers RawPrefix.fill ovL
+
+theorem high_ovL (L : LeafAddr) (R : Tables U) (X : LeafData L) (input : HashInput) :
+    high (raw (ovL L R X) (.inl (.inr input)))=high (raw R (.inl (.inr input))) := by
+  cases hz : zeroOf L input with
+  | none => rw [raw_ovL_pub _ _ _ _ hz]
+  | some cv => rw [zeroOf_some hz,raw_ovL_zero hU,high,ChainGraph.joinOutput_high]
+
+theorem high_fill (a : ChainAddr) (R : Tables U) (e : Digest) (input : HashInput) :
+    high (raw (RawPrefix.fill a R e) (.inl (.inr input)))=high (raw R (.inl (.inr input))) := by
+  unfold RawPrefix.fill
+  rw [raw_ov_const hU a (by have := RawPrefix.restDepth_le a R;omega)]
+  split_ifs <;> simp only [high,ChainGraph.joinOutput_high]
+
+theorem normalized_public_congr {L : LeafAddr} {R R' : Tables U}
+    (hC : LeafAgree L (raw R) (raw R')) (hm : sourceMessages (raw R')=sourceMessages (raw R))
+    (input : HashInput) (heq : raw R' (.inl (.inr input))=raw R (.inl (.inr input))) :
+    answers hU R' (.inl (.inr input))=answers hU R (.inl (.inr input)) := by
+  by_cases hn : Wots.Enc.NonEnc (.inl (.inr input))
+  · rw [nonEnc hU R' _ hn,nonEnc hU R _ hn,heq]
+  · apply (leafAgree_normalize hU hC hm).out
+    intro c step value hc hs he
+    have hne := nonEnc_chainRow ⟨L,c⟩ step value
+    apply hn
+    rw [he]
+    exact hne
+
+theorem route_programmed {L : LeafAddr} (hL : WotsExtract.SourceLeaf7 L)
+    {a : ChainAddr} (ha : a.key=L) (hac : a.chain<chainCount L.lay) (R : Tables U)
+    (hd : 1≤RawPrefix.restDepth a R)
+    (g : Fin (chainCount L.lay)→Digest→Digest) (Lab : Fin (chainCount L.lay)→Digest)
+    (K K' : Fin (WCT9.famCount L.lay)→Digest)
+    (hKK : ∀c : Fin (chainCount L.lay),CanonicalRef.depth (raw R) zeroMessages ⟨L,c⟩=0→seedOf K c=seedOf K' c)
+    (e : Digest) :
+    Route.routeImpl a (RawPrefix.restDepth a R) (answers hU (ovL L R (K,progF g Lab K)))
+      (answers hU (RawPrefix.fill a (ovL L R (K,progF g Lab K)) e)) =
+    Route.routeImpl a (RawPrefix.restDepth a R)
+      (answers hU (RawPrefix.fill a (ovL L R (K',progF g Lab K')) e))
+      (Test.withPublic L (answers hU (RawPrefix.fill a (ovL L R (K',progF g Lab K')) e)) (progF g Lab K)) := by
+  have hl : L.leaf<2^24 := by
+    have hh : ∀lay:Layer,2^height lay≤2^24 := by intro lay;fin_cases lay<;>decide
+    exact hL.2.trans_le (hh L.lay)
+  have hC := leafCongr_prog hU hl ha hac R hd g Lab K K' hKK e
+  have hm := CanonicalRef.Leaf.sourceMessages_congr hC hl
+  funext query
+  rcases query with (coin | input) | coord
+  · simp only [Route.routeImpl]
+  · simp only [Route.routeImpl]
+    cases hp : PrefixGame.rowOf a (RawPrefix.restDepth a R) input with
+    | some p =>
+      simp only
+      congr 1
+      funext v
+      congr 1
+      rw [PrefixGame.rowOf_some hp,answers_chainRow,answers_chainRow,
+        high_fill hU,high_ovL hU,high_ovL hU]
+    | none =>
+      simp only [Test.withPublic,Test.publicAt]
+      congr 1
+      cases hz : zeroOf L input with
+      | none =>
+        simp only
+        symm
+        apply normalized_public_congr hU hC.toLeafAgree hm
+        exact (fill_pub_indep hU hl ha hac R hd _ _ e input (by
+          intro c hca v he
+          rw [he,zeroOf_chainRow] at hz
+          cases hz)).symm
+      | some cv =>
+        simp only
+        have hca : cv.1.val≠a.chain := by
+          intro he
+          apply PrefixGame.rowOf_none hp (⟨0,hd⟩,cv.2)
+          rw [zeroOf_some hz]
+          subst ha
+          rw [he]
+        rw [zeroOf_some hz,answers_chainRow,answers_chainRow,
+          high_fill hU,high_ovL hU]
+        exact fill_zero hU hl ha hac R hd _ e cv.1 hca cv.2
+  · simp only [Route.routeImpl]
+
+end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.RawLeaf

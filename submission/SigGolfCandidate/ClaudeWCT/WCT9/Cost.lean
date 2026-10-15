@@ -5,40 +5,6 @@ open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Cost
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
-/-! ### C2/C3: cost bounds of the half-selecting hashes (same single query as `shortHash`) -/
-theorem bound_halfHash (high : Bool) (input : HashInput) (k : Nat) (hpos : 0 < input.length)
-    (hlen : (pad64 input).length / 64 ≤ k) : CBound (fun _ => True) k (halfHash high input) := by
-  cases high
-  · exact bound_shortHash input k hpos hlen
-  · show CBound (fun _ => True) k (highHash input)
-    unfold highHash publicHash
-    exact Bound.qry_bind (k := 0) ⟨pad64_positive input hpos, pad64_aligned input⟩ (fun _ => .pure _ 0 trivial)
-      (by simpa only [weight, Nat.add_zero] using hlen)
-theorem bound_chainW (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
-    CBound (fun _ => True) count (chainW lay tree leaf i start count value) := by
-  unfold chainW
-  refine Bound.foldlM_range'_le start count _ (fun _ _ => True) (fun _ => 1) value trivial
-    (fun n _ value _ => ?_) (fun _ _ => trivial) (by simp)
-  apply bound_halfHash <;> simp [SigGolfCandidate.T3.chainInput, pad64_length, zero16, SphincsSecurity.bytesLE_length]
-theorem bound_lowerLeafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) (hlen : ends.length = chainCount lay) :
-    CBound (fun _ => True) (leafHashCost lay) (lowerLeafHash lay tree leaf ends) := by
-  rw [lowerLeafHash_eq]
-  unfold lowerHash
-  apply bound_halfHash <;> simp only [pad64_length, SigGolfCandidate.T3.leafInput_length, hlen]
-  · fin_cases lay <;> decide
-  · fin_cases lay <;> decide
-theorem bound_lowerNodeHash (lay tree heap : Nat) (left right : Digest) :
-    CBound (fun _ => True) 1 (lowerNodeHash lay tree heap left right) := by
-  unfold lowerNodeHash lowerHash
-  apply bound_halfHash <;> simp [merkleNodeInput, pad64_length, zero16, SphincsSecurity.bytesLE_length]
-theorem bound_lowerLevel (lay tree h level : Nat) (nodes : List Digest) :
-    CBound (fun result => result.length = nodes.length / 2) (nodes.length / 2)
-      (lowerLevel lay tree h level nodes) := by
-  unfold lowerLevel
-  have hc := Bound.mapM_list (P := GoodQuery) (List.range (nodes.length / 2))
-    (fun i => lowerNodeHash lay tree (2 ^ (h - level) + i) (nodes.getD (2 * i) 0) (nodes.getD (2 * i + 1) 0))
-    (fun _ => 1) (fun _ _ => bound_lowerNodeHash _ _ _ _ _)
-  simpa using hc
 theorem bound_buildChildF (index coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest)
     (hcoord : coord < 9) (hsel : selected < 128) :
     CBound (fun result : Digest × List Digest => result.2.length = 6) childCost
@@ -94,23 +60,6 @@ theorem bound_layerEncoding (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) (co
     CBound (fun _ => True) 1 (ClaudeWCT.WCT9.encodingHash lay (layerEncodingInput lay tree leaf msg counter)) := by
   cases msg <;> apply bound_encodingHash <;>
     simp [layerEncodingInput, encodingInput, pairEncodingInputP, pad64_length, SphincsSecurity.bytesLE_length]
-theorem bound_layerEncodingRaw (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) (counter : BitVec 32) :
-    CBound (fun _ => True) 1 (publicHash (layerEncodingInput lay tree leaf msg counter)) := by
-  have hpos : 0 < (layerEncodingInput lay tree leaf msg counter).length := by
-    cases msg <;> simp [layerEncodingInput, encodingInput, pairEncodingInputP, SphincsSecurity.bytesLE_length]
-  have hlen : (pad64 (layerEncodingInput lay tree leaf msg counter)).length / 64 ≤ 1 := by
-    cases msg <;> simp [layerEncodingInput, encodingInput, pairEncodingInputP, pad64_length,
-      SphincsSecurity.bytesLE_length]
-  change CBound (fun _ => True) 1 (qry (.inl (.inr (pad64 (layerEncodingInput lay tree leaf msg counter)))))
-  rw [← bind_pure (qry _)]
-  apply Bound.qry_bind (k := 0) ⟨pad64_positive _ hpos, pad64_aligned _⟩
-    (fun _ => .pure _ 0 trivial)
-  simpa only [weight, Nat.add_zero] using hlen
-
-theorem bound_layerVerification (lay : Layer) (hint : BitVec 64) (tree leaf : Nat)
-    (msg : LayerMsg) (counter : BitVec 32) :
-    CBound (fun _ => True) 1 (verificationHash lay hint (layerEncodingInput lay tree leaf msg counter)) :=
-  Bound.map _ (bound_layerEncodingRaw lay tree leaf msg counter) (fun _ _ => trivial)
 theorem bound_layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) :
     ∀ fuel counter, CBound (CounterResult lay) fuel (layerCounterSearch lay tree leaf msg counter fuel) := by
   intro fuel
@@ -128,28 +77,6 @@ theorem bound_layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : LayerMsg
       | some digits =>
           have hd := producerDecode_decode hs
           refine .pure (some (BitVec.ofNat 32 counter, digits)) fuel ?_
-          intro other values hv
-          obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hv)
-          exact ⟨(decode_length_sum hd).1, (decode_length_sum hd).2, validDigits_decode hd⟩
-theorem bound_layerCounterSearchHint (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) :
-    ∀ fuel counter, CBound (fun out => CounterResult lay
-      (out.map fun x : BitVec 32 × List Nat × BitVec 64 => (x.1, x.2.1))) fuel
-      (layerCounterSearchHint lay tree leaf msg counter fuel) := by
-  intro fuel
-  induction fuel with
-  | zero =>
-      intro counter
-      exact .pure none 0 (by simp [CounterResult])
-  | succ fuel ih =>
-      intro counter
-      unfold layerCounterSearchHint
-      refine (bound_layerEncodingRaw lay tree leaf msg (BitVec.ofNat 32 counter)).bind' (l := fuel)
-        (fun answer _ => ?_) (by omega)
-      cases hs : producerDecode lay (encodingAnswer lay answer) with
-      | none => exact ih (counter + 1)
-      | some digits =>
-          have hd := producerDecode_decode hs
-          refine .pure (some (BitVec.ofNat 32 counter, digits, encodingHint lay answer)) fuel ?_
           intro other values hv
           obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hv)
           exact ⟨(decode_length_sum hd).1, (decode_length_sum hd).2, validDigits_decode hd⟩
@@ -193,13 +120,13 @@ theorem bound_buildLeafPF (lay : Layer) (tree leaf : Nat) (digits : List Nat) (h
     (fun i => maxDigit lay i) ([], []) ⟨rfl, rfl⟩
     (fun i hi state hstate => ?_)) (fun state hstate => ?_) ?_
   · have hc := hd i hi
-    refine (bound_chainW lay tree leaf i 0 (digits.getD i 0) _).bind'
+    refine (bound_chain lay tree leaf i 0 (digits.getD i 0) _).bind'
       (l := maxDigit lay i - digits.getD i 0) (fun value _ => ?_) (by omega)
-    refine (bound_chainW lay tree leaf i (digits.getD i 0) (maxDigit lay i - digits.getD i 0) value).bind'
+    refine (bound_chain lay tree leaf i (digits.getD i 0) (maxDigit lay i - digits.getD i 0) value).bind'
       (l := 0) (fun last _ => ?_) (by omega)
     exact .pure _ 0 ⟨by simp only [List.length_append, List.length_singleton]; omega,
       by simp only [List.length_append, List.length_singleton]; omega⟩
-  · refine (bound_lowerLeafHash lay tree leaf state.1 hstate.1).bind' (l := 0) (fun root _ => ?_) (by omega)
+  · refine (bound_leafHash lay tree leaf state.1 hstate.1).bind' (l := 0) (fun root _ => ?_) (by omega)
     exact .pure _ 0 hstate.2
   · unfold digitTotal
     exact le_refl _
@@ -214,7 +141,7 @@ theorem bound_buildLevelsBelow (tag lay tree h : Nat) (leaves : List Digest) (hl
     (fun i hi levels hlevels => ?_) (fun _ h => h) ?_
   · have hprevious : (levels.getD (1 + i - 1) []).length = 2 ^ (h - i) := by
       simpa using hlevels.2 i le_rfl
-    refine (bound_lowerLevel lay tree h (1 + i) (levels.getD (1 + i - 1) [])).bind' (l := 0)
+    refine (bound_buildLevel tag lay tree h (1 + i) (levels.getD (1 + i - 1) [])).bind' (l := 0)
       (fun nodes hnodes => ?_) (by rw [hprevious]; omega)
     have hnext : nodes.length = 2 ^ (h - (i + 1)) := by
       rw [hprevious, show h - i = h - (i + 1) + 1 by omega, pow_succ, Nat.mul_div_cancel _ (by decide : 0 < 2)]
@@ -320,14 +247,21 @@ theorem bound_signLayersBC (cache : Cache) (index : Nat) :
           | some pair =>
               obtain ⟨counter, digits⟩ := pair
               exact (hout counter digits rfl).1
-        have hle : ((out.map Prod.snd).getD dummyTop).sum ≤ target 0 := by
+        have hsum : ((out.map Prod.snd).getD dummyTop).sum = 126 ∨
+            ((out.map Prod.snd).getD dummyTop).sum = target 0 := by
           cases out with
-          | none => decide
+          | none => first | exact Or.inl (by decide) | exact Or.inr (by decide)
           | some pair =>
-              obtain ⟨counter,digits⟩ := pair
-              exact (hout counter digits rfl).2.1.le
-        exact (bound_signTop cache _ _ hlen (le_of_le_of_eq hle (by decide))).bind'
-          (l := 0) (fun _ _ => .pure _ 0 trivial) (by simp [layerFixedCostP,layerFixedCost])
+              obtain ⟨counter, digits⟩ := pair
+              exact Or.inr (hout counter digits rfl).2.1
+        have h126 : 126 ≤ target 0 := by decide
+        have hle : ((out.map Prod.snd).getD dummyTop).sum ≤ target 0 := by
+          rcases hsum with h | h <;> omega
+        first
+          | exact (bound_signTop cache _ _ hlen (le_of_le_of_eq hle (by decide))).bind'
+              (l := 0) (fun _ _ => .pure _ 0 trivial) (by simp [layerFixedCostP, layerFixedCost])
+          | exact (bound_signTop cache _ _ hlen (hsum.elim id fun h => h.trans (by decide))).bind'
+              (l := 0) (fun _ _ => .pure _ 0 trivial) (by simp [layerFixedCostP, layerFixedCost])
       · simp only [hn, ite_false]
         cases out with
         | none => exact .pure _ _ trivial
@@ -351,13 +285,13 @@ theorem bound_recoverLayerPair (sig : Signature) (index : Nat) (lay : Layer) (di
   unfold recoverLayerPair
   dsimp only
   refine (Bound.mapM_list (P := GoodQuery) (List.finRange (chainCount lay)) _
-    (fun i => maxDigit lay i.val - digits.getD i.val 0) (fun i _ => bound_chainW _ _ _ _ _ _ _)).bind'
+    (fun i => maxDigit lay i.val - digits.getD i.val 0) (fun i _ => bound_chain _ _ _ _ _ _ _)).bind'
     (l := leafHashCost lay + (height lay - 1)) (fun ends hends => ?_) ?_
-  · refine (bound_lowerLeafHash lay _ _ ends (by simpa using hends)).bind (fun root _ => ?_)
+  · refine (bound_leafHash lay _ _ ends (by simpa using hends)).bind (fun root _ => ?_)
     refine ((Bound.foldlM_list (P := GoodQuery) (List.finRange (height lay - 1)) _
       (fun _ _ => True) (fun _ => 1) root trivial (fun i hi value _ => ?_)).bind' (l := 0)
       (fun _ _ => .pure _ 0 trivial) (by simp))
-    exact bound_lowerNodeHash _ _ _ _ _
+    exact bound_nodeHash _ _ _ _ _ _
   · rw [sum_finRange (chainCount lay) (fun i => maxDigit lay i - digits.getD i 0),
       remaining_steps lay digits hd hlen hsum]
     simp only [recoverLayerPairCost]
@@ -370,7 +304,7 @@ theorem bound_recoverLayerPairGuard (sig : Signature) (index : Nat) (lay : Layer
   split_ifs
   · exact Bound.map _ (bound_recoverLayerPair sig index lay digits hd hlen hsum) (fun _ _ => trivial)
   · refine (Bound.mapM_list (P := GoodQuery) (List.range (3 * lowerFirstBad answer)) _
-      (fun i => maxDigit lay i - digits.getD i 0) (fun i _ => bound_chainW _ _ _ _ _ _ _)).bind'
+      (fun i => maxDigit lay i - digits.getD i 0) (fun i _ => bound_chain _ _ _ _ _ _ _)).bind'
       (l := 0) (fun _ _ => .pure _ 0 trivial) ?_
     have hn : 3 * lowerFirstBad answer ≤ chainCount lay := by
       have := lowerFirstBad_le answer
@@ -457,7 +391,7 @@ theorem bound_verifyLayersBC (w : Witness) (index : Nat) :
       dsimp only
       split
       · exact .pure _ _ trivial
-      · refine (bound_layerVerification _ w.topHint _ _ msg _).bind'
+      · refine (bound_layerEncoding _ _ _ msg _).bind'
           (l := verifyLayersCostBC (n + 1) + n) (fun answer _ => ?_) (by simp only [verifyLayersCostBC]; omega)
         by_cases hn : n = 0
         · subst n
@@ -484,14 +418,14 @@ theorem bound_expandLayersBC (sig : Signature) (index : Nat) :
       intro msg
       unfold expandLayersBC
       dsimp only
-      refine (bound_layerCounterSearchHint (Fin.ofNat 4 n) _ _ msg (searchLimit (Fin.ofNat 4 n)) 0).bind'
+      refine (bound_layerCounterSearch (Fin.ofNat 4 n) _ _ msg (searchLimit (Fin.ofNat 4 n)) 0).bind'
         (l := recoveryLayersCostBC (n + 1) + n * counterLimit)
         (fun found hf => ?_)
         (by have := searchLimit_le (Fin.ofNat 4 n); simp only [recoveryLayersCostBC, Nat.add_mul, Nat.one_mul]; omega)
       cases found with
       | none => exact .pure _ _ trivial
       | some pair =>
-          obtain ⟨counter, digits, hint⟩ := pair
+          obtain ⟨counter, digits⟩ := pair
           have hd := hf counter digits rfl
           dsimp only
           by_cases hn : n = 0
@@ -689,8 +623,6 @@ theorem paired_tree_costs :
     (128*316+(128-2)) + 2*(64*316+(64-2)) -
       ((128/2*631+(128-2))+2*(64/2*631+(64-2))) = 128 := by decide
 
-#print axioms bound_sharedPair
-#print axioms paired_tree_costs
 
 /-- Complete source-level paired lower tree, including selected-leaf
 signature values and all Merkle levels. This still is not the sign image. -/
@@ -740,7 +672,5 @@ theorem sharedTree_savings :
   rw [treeCostP_lower_eq (by decide),treeCostP_lower_eq (by decide),treeCostP_lower_eq (by decide)]
   decide
 
-#print axioms bound_sharedTree
-#print axioms sharedTree_savings
 
 end ClaudeWCT.WCT9.Cost.AdjacentLeafResearch

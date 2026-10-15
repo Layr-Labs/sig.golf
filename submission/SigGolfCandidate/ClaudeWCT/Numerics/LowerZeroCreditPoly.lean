@@ -56,8 +56,4 @@ theorem coeff_splitZ {z R : ℕ} (hz : z ≤ 42) (hR : R < 32768) :
   · intro h
     exact (h (mem_range.mpr (by omega))).elim
 
-#print axioms basePolyZ_split
-#print axioms eval_nonzeroPolyZ
-#print axioms nonzeroPolyZ_degree
-#print axioms coeff_splitZ
 end ClaudeWCT.Numerics.LowerZeroCreditPoly

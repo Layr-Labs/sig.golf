@@ -28,3 +28,22 @@ theorem chainPiece_ecall (p : ChainPiece) (hlink : sliceChecked p.pc p.words = t
   exact symRun_ecall (rOK_eq hcheck) (slice_at p.pc p.words hlink) s
     ((Oblig.all_iff s _).mpr hob) hstop
 end W9Machine
+
+namespace W9Machine
+open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
+
+theorem chainPiece_steps_at {im : SigGolfCandidate.Legacy.Riscv.Image} (p : ChainPiece)
+    (hc : CodeAt im (pcOf p.pc) p.words) (hcheck : p.checked = true)
+    (s : MachineState) (hpc : s.pc = pcOf p.pc)
+    (hob : ∀ o ∈ p.result.st.obl, o.holds s) :
+    Steps im s p.result.steps p.result.cycles (p.result.toState s) := by
+  exact symRun_sound (rOK_eq hcheck) hc s hpc ((Oblig.all_iff s _).mpr hob)
+
+theorem chainPiece_ecall_at {im : SigGolfCandidate.Legacy.Riscv.Image} (p : ChainPiece)
+    (hc : CodeAt im (pcOf p.pc) p.words) (hcheck : p.checked = true)
+    (s : MachineState) (hob : ∀ o ∈ p.result.st.obl, o.holds s)
+    (hstop : p.result.stop = .ecall) :
+    SigGolfCandidate.Legacy.Riscv.fetch im (p.result.toState s) = some (.base .ECALL) := by
+  exact symRun_ecall (rOK_eq hcheck) hc s ((Oblig.all_iff s _).mpr hob) hstop
+
+end W9Machine

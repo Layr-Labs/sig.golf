@@ -58,13 +58,8 @@ theorem window_digitZ (n B A j k : ℕ) (hj : j < k) :
   rw [Nat.div_div_eq_div_mul, ← pow_add]
 
 #time theorem check_199_4 : countCheckZ 199 4 90649243438620156062228389214105950 = true := by decide +kernel
-#print axioms check_199_4
 #time theorem check_199_5 : countCheckZ 199 5 87421058181341847220388848563308770 = true := by decide +kernel
-#print axioms check_199_5
 #time theorem check_200_4 : countCheckZ 200 4 72459682149134130685732695915636483 = true := by decide +kernel
-#print axioms check_200_4
-#print axioms accZ_window
-#print axioms windowsZ_disjoint
 end ClaudeWCT.Numerics.LowerZeroCredit
 
 namespace ClaudeWCT.Numerics.LowerZeroCredit
@@ -297,9 +292,6 @@ theorem card_lowerAcceptS1Z_199_5 :
 theorem card_lowerAcceptS1Z_200_4 :
     (univ.filter fun v : BitVec 128 => LowerAcceptS1Z 200 4 v.toNat).card = 72459682149134130685732695915636483 := by
   rw [card_lowerAcceptS1Z]; exact card_lowerAcceptZ_of_check _ _ _ (by decide) check_200_4
-#print axioms card_lowerAcceptS1Z_199_4
-#print axioms card_lowerAcceptS1Z_199_5
-#print axioms card_lowerAcceptS1Z_200_4
 end ClaudeWCT.Numerics.LowerZeroCredit
 
 section
@@ -390,8 +382,6 @@ def badCount (T : ℕ) (i : Fin 14) : ℕ :=
     if i.val = 1 ∨ i.val = 8 then 52300309978308840623335998836060 else 22062436680049562308975409015140 := by
   fin_cases i <;> decide +kernel
 
-#print axioms restricted_poly
-#print axioms card_bad_sum
 
 
 theorem mem_badWords (i : Fin 14) (d : Fin 42 → Fin 8) :
@@ -605,7 +595,5 @@ theorem card_lowerAcceptS1Rank_200_4 :
   norm_num [Fin.sum_univ_succ] at h
   exact h
 
-#print axioms card_lowerAcceptS1Rank_199_5
-#print axioms card_lowerAcceptS1Rank_200_4
 end ClaudeWCT.Numerics.LowerRank
 end

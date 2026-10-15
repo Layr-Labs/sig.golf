@@ -1,8 +1,5 @@
 import SigGolfCandidate.W9Machine.WctChildContract
 
-variable {choiceHint : BitVec 64}
-
-
 set_option autoImplicit false
 namespace W9Machine.Chain
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
@@ -18,7 +15,6 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (base k)
   leafWord : u.getReg .x31 = BitVec.ofNat 64 (V3.leafLow index k.val j.val)
   nodeWord : u.getReg .x15 = BitVec.ofNat 64 (V3.nodeLow k.val index)
-  childIdx : u.getReg .x4 = BitVec.ofNat 64 (([none, none, some 20, none, none, some 20, none, none, some 20].getD k.val none).elim j.val (j.val <<< ·))
   hashMode : u.getReg .x5 = 0
   stepOne : u.getReg .x7 = 1
   stepTwo : u.getReg .x13 = 2
@@ -37,12 +33,12 @@ structure Post (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   child : Child.Pre L w index k j ends t
   keep : ∀ r, r ∉ clobbers → t.getReg r = u.getReg r
   frame : Frame u t (writes k)
-def Good (L : Layout) (rank : Fin 666) : Prop :=
+def Good (L : Layout) (rank : Fin 666) (P : Hash → Prop := HashOk) : Prop :=
   ∀ (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128) (u : MachineState)
     (N C A : Nat) (Q : Prop) (K : List Digest → OracleComp HashSpec Obs),
     Pre L w index k j rank u →
-    (∀ ends t, Post L w index k j u ends t → GoodQFor (choiceHint := choiceHint) L.image t N C Q A (K ends)) →
-    GoodQFor (choiceHint := choiceHint) L.image u (N + 89) (C + 89) Q (A + 89)
+    (∀ ends t, Post L w index k j u ends t → GoodQFor (P := P) L.image t N C Q A (K ends)) →
+    GoodQFor (P := P) L.image u (N + 89) (C + 89) Q (A + 89)
       (ccM (program w index k j rank) K)
-def AllGood (L : Layout) : Prop := ∀ rank : Fin 666, Good (choiceHint := choiceHint) L rank
+def AllGood (L : Layout) (P : Hash → Prop := HashOk) : Prop := ∀ rank : Fin 666, Good L rank (P := P)
 end W9Machine.Chain

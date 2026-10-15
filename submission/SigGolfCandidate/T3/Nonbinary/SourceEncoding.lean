@@ -65,11 +65,11 @@ theorem encodeN_parse {n x : Nat} {d : (Fin n → Triple5) × Triple8}
         exact Nat.mod_add_div x 128
     · contradiction
 def decode (d : Fin (2^128)) : Option Word :=
-  (parse 17 d.val).filter fun w => decide (weight w=146)
+  (parse 17 d.val).filter fun w => decide (weight w=145)
 theorem encodeN_word (w : Word) : encodeN w=encode w := rfl
 attribute [local irreducible] encodeN Codec.encode Codec.pack Codec.ranks
 theorem decode_some_iff (d : Fin (2^128)) (w : Word) :
-    decode d=some w ↔ digest w=d ∧ weight w=146 := by
+    decode d=some w ↔ digest w=d ∧ weight w=145 := by
   constructor
   · intro h
     obtain ⟨hparse,hw⟩ := Option.filter_eq_some_iff.mp h
@@ -146,13 +146,6 @@ theorem encoding_uniform_probability :
   rw [show (2 : ENNReal)^256=2^128*2^128 by rw [←pow_add]]
   exact ENNReal.mul_div_mul_right _ _ (by simp) (by simp)
 end SigGolfResearch.NonbinaryTop.Decoder
-#print axioms SigGolfResearch.NonbinaryTop.Decoder.parse_encodeN
-#print axioms SigGolfResearch.NonbinaryTop.Decoder.encodeN_parse
-#print axioms SigGolfResearch.NonbinaryTop.Decoder.decode_some_iff
-#print axioms SigGolfResearch.NonbinaryTop.Decoder.decoder_count
-#print axioms SigGolfResearch.NonbinaryTop.Decoder.decoder_uniform_probability
-#print axioms SigGolfResearch.NonbinaryTop.Decoder.decoder_bv_count
-#print axioms SigGolfResearch.NonbinaryTop.Decoder.encoding_uniform_probability
 end
 section
 namespace SigGolfResearch.NonbinaryTop.Decoder
@@ -290,7 +283,7 @@ theorem parse_top_isSome_iff (v : Digest) :
   exact and_iff_right (topFlip v).isLt
 theorem decode_top_eq_map (v : Digest) :
     T3.decode 0 v=(Decoder.decodeBV (topFlip v)).map wordDigits := by
-  change T3.decode 0 v=((Decoder.parse 17 (topFlip v).toNat).filter fun w => decide (Counting.weight w=146)).map wordDigits
+  change T3.decode 0 v=((Decoder.parse 17 (topFlip v).toNat).filter fun w => decide (Counting.weight w=145)).map wordDigits
   have hb : ¬ v.toNat ≥ 2^encodedBits 0 := Nat.not_le.mpr v.isLt
   cases hp : Decoder.parse 17 (topFlip v).toNat with
   | none =>
@@ -302,12 +295,12 @@ theorem decode_top_eq_map (v : Digest) :
   | some w =>
     have hh := (parse_top_isSome_iff v).mp (by simp [hp])
     have hdata := dataDigits_parse hp
-    by_cases hsum : Counting.weight w=146
+    by_cases hsum : Counting.weight w=145
     · simp only [T3.decode,if_neg hb,ite_true,hh,Bool.true_and,
-        hdata,wordDigits_sum,show target 0=146 by rfl,hsum,decide_true,
+        hdata,wordDigits_sum,show target 0=145 by rfl,hsum,decide_true,
         if_true,decide_false,Bool.false_eq_true,if_false,Option.filter_some,Option.map_some,Option.map_none]
     · simp only [T3.decode,if_neg hb,ite_true,hh,Bool.true_and,
-        hdata,wordDigits_sum,show target 0=146 by rfl,hsum,decide_true,
+        hdata,wordDigits_sum,show target 0=145 by rfl,hsum,decide_true,
         if_true,decide_false,Bool.false_eq_true,if_false,Option.filter_some,Option.map_some,Option.map_none]
 theorem decode_top_isSome (v : Digest) :
     (T3.decode 0 v).isSome=(Decoder.decodeBV (topFlip v)).isSome := by
@@ -343,7 +336,4 @@ theorem actual_encoding_probability :
   rw [hpred, ← probEvent_map, ← Decoder.encoding_uniform_probability]
   simp only [probEvent_eq_tsum_indicator, probOutput_map_bijective_uniformSample (hf := hg)]
 end SigGolfCandidate.T3.Nonbinary
-#print axioms SigGolfCandidate.T3.Nonbinary.decode_top_eq_map
-#print axioms SigGolfCandidate.T3.Nonbinary.actual_decoder_count
-#print axioms SigGolfCandidate.T3.Nonbinary.actual_encoding_probability
 end

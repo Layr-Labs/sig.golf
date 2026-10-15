@@ -6,7 +6,7 @@ set_option Elab.async false
 set_option maxRecDepth 8192
 set_option linter.unusedSimpArgs false
 set_option linter.unusedVariables false
-theorem selector_code0 {image : Image} {b : Nat} (hK : KernAt image b) :
+theorem selector_code0 {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) :
     CodeAt image (pcOf (selectorBase b+0)) (selector0) :=
   codeAt_selector hK 0 0 (selector0) (by rfl)
 sym_block sel354_0 := symRun {noAlias:=true} (selector0) (pcOf (selectorBase 354+0)) 200
@@ -19,7 +19,7 @@ theorem selRun0 {b : Nat} (hb : b=354 ∨ b=543) :
   rcases hb with rfl | rfl
   · exact sel354_0.trans (congrArg some (by kernel_rfl))
   · exact sel543_0.trans (congrArg some (by kernel_rfl))
-theorem selector_code2 {image : Image} {b : Nat} (hK : KernAt image b) :
+theorem selector_code2 {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) :
     CodeAt image (pcOf (selectorBase b+2)) (selector2) :=
   codeAt_selector hK 1 2 (selector2) (by rfl)
 sym_block sel354_2 := symRun {noAlias:=true} (selector2) (pcOf (selectorBase 354+2)) 200
@@ -32,7 +32,7 @@ theorem selRun2 {b : Nat} (hb : b=354 ∨ b=543) :
   rcases hb with rfl | rfl
   · exact sel354_2.trans (congrArg some (by kernel_rfl))
   · exact sel543_2.trans (congrArg some (by kernel_rfl))
-theorem selector_code6 {image : Image} {b : Nat} (hK : KernAt image b) :
+theorem selector_code6 {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) :
     CodeAt image (pcOf (selectorBase b+6)) (selector6 b) :=
   codeAt_selector hK 2 6 (selector6 b) (by rfl)
 sym_block sel354_6 := symRun {noAlias:=true} (selector6 354) (pcOf (selectorBase 354+6)) 200
@@ -45,7 +45,7 @@ theorem selRun6 {b : Nat} (hb : b=354 ∨ b=543) :
   rcases hb with rfl | rfl
   · exact sel354_6.trans (congrArg some (by kernel_rfl))
   · exact sel543_6.trans (congrArg some (by kernel_rfl))
-theorem selector_code7 {image : Image} {b : Nat} (hK : KernAt image b) :
+theorem selector_code7 {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) :
     CodeAt image (pcOf (selectorBase b+7)) (selector7 b) :=
   codeAt_selector hK 3 7 (selector7 b) (by rfl)
 sym_block sel354_7 := symRun {noAlias:=true} (selector7 354) (pcOf (selectorBase 354+7)) 200
@@ -58,7 +58,7 @@ theorem selRun7 {b : Nat} (hb : b=354 ∨ b=543) :
   rcases hb with rfl | rfl
   · exact sel354_7.trans (congrArg some (by kernel_rfl))
   · exact sel543_7.trans (congrArg some (by kernel_rfl))
-theorem selector0_spec {image : Image} {b : Nat} (hK : KernAt image b)
+theorem selector0_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
     (s : MachineState) (hpc : s.pc=pcOf (selectorBase b)) (v : BitVec 128)
     (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64) :
     ∃ t, Steps image s 2 2 t ∧
@@ -71,7 +71,7 @@ theorem selector0_spec {image : Image} {b : Nat} (hK : KernAt image b)
     by_cases h : T3.lowerSpare v <;> simp [h]
   · intro r hr; simp at hr; cases r <;> simp_all [selState0,sel354_0.res,rv_simp] <;> rfl
   · intro A _ _; simp [selState0,sel354_0.res,rv_simp]
-theorem selector2_spec {image : Image} {b : Nat} (hK : KernAt image b)
+theorem selector2_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
     (s : MachineState) (hpc : s.pc=pcOf (selectorBase b+2)) (v : BitVec 128)
     (h12 : s.getReg .x12=BitVec.ofNat 64 EOUT)
     (hm0 : s.getMem (BitVec.ofNat 64 (EOUT+16))=v.extractLsb' 0 64)
@@ -91,7 +91,7 @@ theorem selector2_spec {image : Image} {b : Nat} (hK : KernAt image b)
   · simpa [selState2,sel354_2.res,rv_simp,h12,EOUT] using hm1
   · intro r hr; simp at hr; cases r <;> simp_all [selState2,sel354_2.res,rv_simp] <;> rfl
   · intro A _ _; simp [selState2,sel354_2.res,rv_simp]
-theorem selector6_spec {image : Image} {b : Nat} (hK : KernAt image b)
+theorem selector6_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
     (s : MachineState) (hpc : s.pc=pcOf (selectorBase b+6)) :
     ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf (b+468) ∧
       RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
@@ -100,7 +100,7 @@ theorem selector6_spec {image : Image} {b : Nat} (hK : KernAt image b)
   · rfl
   · intro r hr; cases r <;> simp_all [selState6,sel354_6.res,rv_simp] <;> rfl
   · intro A _ _; simp [selState6,sel354_6.res,rv_simp]
-theorem selector7_spec {image : Image} {b : Nat} (hK : KernAt image b)
+theorem selector7_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
     (s : MachineState) (hpc : s.pc=pcOf (selectorBase b+7)) :
     ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf (b+132) ∧
       RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
@@ -109,7 +109,7 @@ theorem selector7_spec {image : Image} {b : Nat} (hK : KernAt image b)
   · rfl
   · intro r hr; cases r <;> simp_all [selState7,sel354_7.res,rv_simp] <;> rfl
   · intro A _ _; simp [selState7,sel354_7.res,rv_simp]
-theorem selector_spec {image : Image} {b : Nat} (hK : KernAt image b)
+theorem selector_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
     (s : MachineState) (hpc : s.pc=pcOf (selectorBase b)) (a : BitVec 256)
     (lay : T3.Layer) (hl : lay ≠ 0)
     (h6 : s.getReg .x6=(a.extractLsb' 0 128).extractLsb' 0 64)
@@ -149,47 +149,113 @@ theorem selector_spec {image : Image} {b : Nat} (hK : KernAt image b)
         (rt.get (by decide)).trans g6,(rt.get (by decide)).trans g7,
         ((ru.trans rv).trans rt).mono (by decide),((fu.trans fv).trans ft).mono (by simp)⟩
 
-theorem choice_allowed {b : Nat} (hb : b=354 ∨ b=543) :
-    Choice.ProducerSelector.Allowed (choiceBase b) := by
-  rcases hb with rfl|rfl
-  · exact Or.inr rfl
-  · exact Or.inl rfl
-
-theorem choice_entry_at {image : Image} {b : Nat} (hK : KernAt image b) :
-    Choice.ProducerSelector.EntryAt image (choiceBase b) := by
-  have hc := codeAt_topEntry hK
-  rcases hK.2.1 with rfl|rfl <;> exact hc
-
-/-- The canonical producer selector, including its entry and return jumps. -/
-theorem top_select_spec {image : Image} {b : Nat} (hK : KernAt image b)
+sym_block top354_entry := symRun {noAlias:=true} (topEntryCode 354) (pcOf (tcEntry 354)) 200
+sym_block top543_entry := symRun {noAlias:=true} (topEntryCode 543) (pcOf (tcEntry 543)) 200
+def topState_entry : SymState := top354_entry.res.st
+def topPc_entry (b : Nat) : E := .c (pcOf (topSelectBase b))
+theorem topRun_entry {b : Nat} (hb : b=354 ∨ b=543) :
+    symRun {noAlias:=true} (topEntryCode b) (pcOf (tcEntry b)) 200 =
+    some ⟨topState_entry,topPc_entry b,top354_entry.res.stop,top354_entry.res.steps,top354_entry.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact top354_entry.trans (congrArg some (by kernel_rfl))
+  · exact top543_entry.trans (congrArg some (by kernel_rfl))
+sym_block top354_gate := symRun {noAlias:=true} (topSelect0) (pcOf (topSelectBase 354+0)) 200
+sym_block top543_gate := symRun {noAlias:=true} (topSelect0) (pcOf (topSelectBase 543+0)) 200
+def topState_gate : SymState := top354_gate.res.st
+def topPc_gate (b : Nat) : E := rebase top354_gate.res.pc (pcOf (tcBase b)) (pcOf (topSelectBase b+1))
+theorem topRun_gate {b : Nat} (hb : b=354 ∨ b=543) :
+    symRun {noAlias:=true} (topSelect0) (pcOf (topSelectBase b+0)) 200 =
+    some ⟨topState_gate,topPc_gate b,top354_gate.res.stop,top354_gate.res.steps,top354_gate.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact top354_gate.trans (congrArg some (by kernel_rfl))
+  · exact top543_gate.trans (congrArg some (by kernel_rfl))
+sym_block top354_load := symRun {noAlias:=true} (topSelect1) (pcOf (topSelectBase 354+1)) 200
+sym_block top543_load := symRun {noAlias:=true} (topSelect1) (pcOf (topSelectBase 543+1)) 200
+def topState_load : SymState := top354_load.res.st
+def topPc_load (b : Nat) : E := .c (pcOf (tcBase b))
+theorem topRun_load {b : Nat} (hb : b=354 ∨ b=543) :
+    symRun {noAlias:=true} (topSelect1) (pcOf (topSelectBase b+1)) 200 =
+    some ⟨topState_load,topPc_load b,top354_load.res.stop,top354_load.res.steps,top354_load.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact top354_load.trans (congrArg some (by kernel_rfl))
+  · exact top543_load.trans (congrArg some (by kernel_rfl))
+theorem top_gate_msb (v : T3.Digest) :
+    (v.extractLsb' 64 64).msb = decide (T3.TopDualHalf.gate v) := by
+  rw [BitVec.msb_eq_getLsbD_last]
+  simp only [BitVec.getLsbD_extractLsb', Nat.reduceSub, Nat.reduceAdd, decide_true, Bool.true_and]
+  by_cases h : T3.TopDualHalf.gate v
+  · simp [h, (T3.TopDualHalf.gate_iff_getLsbD v).mp h]
+  · have hh : v.getLsbD 127 = false := by
+      cases hv : v.getLsbD 127
+      · rfl
+      · exact False.elim (h ((T3.TopDualHalf.gate_iff_getLsbD v).mpr hv))
+    simpa [h] using hh
+theorem top_entry_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
+    (s : MachineState) (hpc : s.pc=pcOf (tcEntry b)) :
+    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf (topSelectBase b) ∧
+      RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_,symRun_sound (topRun_entry hK.2.1) (codeAt_topEntry hK) s hpc
+    (by simp [topState_entry,top354_entry.res,rv_simp]),?_,?_,?_⟩
+  · rfl
+  · intro r hr; cases r <;> simp_all [topState_entry,top354_entry.res,rv_simp] <;> rfl
+  · intro A _ _; simp [topState_entry,top354_entry.res,rv_simp]
+theorem top_gate_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
+    (s : MachineState) (hpc : s.pc=pcOf (topSelectBase b)) (v : T3.Digest)
+    (h7 : s.getReg .x7=v.extractLsb' 64 64) :
+    ∃ t, Steps image s 1 1 t ∧
+      t.pc=(if T3.TopDualHalf.gate v then pcOf (tcBase b) else pcOf (topSelectBase b+1)) ∧
+      RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_,symRun_sound (topRun_gate hK.2.1) (codeAt_topSelect hK 0 0 topSelect0 rfl) s hpc
+    (by simp [topState_gate,top354_gate.res,rv_simp]),?_,?_,?_⟩
+  · simp only [Result.toState_pc,topPc_gate,rebase,top354_gate.res,E.eval,CmpOp.eval,h7]
+    rw [BitVec.slt_zero_eq_msb,top_gate_msb]
+    by_cases h : T3.TopDualHalf.gate v <;> simp [h]
+  · intro r hr; cases r <;> simp_all [topState_gate,top354_gate.res,rv_simp] <;> rfl
+  · intro A _ _; simp [topState_gate,top354_gate.res,rv_simp]
+theorem top_load_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
+    (s : MachineState) (hpc : s.pc=pcOf (topSelectBase b+1)) (v : T3.Digest)
+    (h12 : s.getReg .x12=BitVec.ofNat 64 EOUT)
+    (hm0 : s.getMem (BitVec.ofNat 64 (EOUT+16))=v.extractLsb' 0 64)
+    (hm1 : s.getMem (BitVec.ofNat 64 (EOUT+24))=v.extractLsb' 64 64) :
+    ∃ t, Steps image s 2 2 t ∧ t.pc=pcOf (tcBase b) ∧
+      t.getReg .x6=v.extractLsb' 0 64 ∧ t.getReg .x7=v.extractLsb' 64 64 ∧
+      RegsExcept s t [.x6,.x7] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_,symRun_sound (topRun_load hK.2.1) (codeAt_topSelect hK 1 1 topSelect1 rfl) s hpc
+    (by simp [topState_load,top354_load.res,rv_simp,h12,EOUT,accessValid_iff,MEMORY_BYTES]),?_,?_,?_,?_,?_⟩
+  · rfl
+  · simpa [topState_load,top354_load.res,rv_simp,h12,EOUT] using hm0
+  · simpa [topState_load,top354_load.res,rv_simp,h12,EOUT] using hm1
+  · intro r hr; simp at hr; cases r <;> simp_all [topState_load,top354_load.res,rv_simp] <;> rfl
+  · intro A _ _; simp [topState_load,top354_load.res,rv_simp]
+theorem top_select_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
     (s : MachineState) (hpc : s.pc=pcOf (tcEntry b)) (a : BitVec 256)
-    (hsum : SumTableOK s) (hrew : Reward.RewardTablesOK s)
     (h6 : s.getReg .x6=(a.extractLsb' 0 128).extractLsb' 0 64)
     (h7 : s.getReg .x7=(a.extractLsb' 0 128).extractLsb' 64 64)
     (h12 : s.getReg .x12=BitVec.ofNat 64 EOUT)
-    (hlo : DigAt s EOUT (a.extractLsb' 0 128))
-    (hhi : DigAt s (EOUT+16) (a.extractLsb' 128 128)) :
-    ∃ k t, Steps image s k k t ∧ k ≤ 155 ∧ t.pc=pcOf (tcBase b) ∧
-      t.getReg .x6=(ClaudeWCT.WCT9.encodingAnswer 0 a).extractLsb' 0 64 ∧
-      t.getReg .x7=(ClaudeWCT.WCT9.encodingAnswer 0 a).extractLsb' 64 64 ∧
-      t.getMem (BitVec.ofNat 64 Choice.ProducerSelector.HINT)=ClaudeWCT.WCT9.encodingHint 0 a ∧
-      RegsExcept s t Choice.ProducerSelector.clobbers ∧
-      Frame s t (fun A=>A=Choice.ProducerSelector.HINT) := by
-  have hp : Choice.ProducerSelector.entryPC (choiceBase b)=tcEntry b := by
-    rcases hK.2.1 with rfl|rfl <;> rfl
-  have hr : Choice.ProducerSelector.returnPC (choiceBase b)=tcBase b := by
-    rcases hK.2.1 with rfl|rfl <;> rfl
-  obtain ⟨u,su,pu,ru,fu⟩ := Choice.ProducerSelector.entry_spec
-    (choice_allowed hK.2.1) (choice_entry_at hK) s (by simpa only [hp] using hpc)
-  obtain ⟨k,t,st,hk,pt,g6,g7,ht,rt,ft⟩ := Choice.ProducerSelector.selector_spec
-    (choice_allowed hK.2.1) hK.2.2.2.1.2.2.2 u a
-    (hsum.frame fu (by simp)) (hrew.frame fu (by simp)) pu
-    (by rw [ru.get (by decide),h6]) (by rw [ru.get (by decide),h7])
-    (by rw [ru.get (by decide),h12])
-    (hlo.frame fu (by decide) (by simp) (by simp))
-    (hhi.frame fu (by decide) (by simp) (by simp))
-  exact ⟨1+k,t,su.trans st,by omega,by simpa only [hr] using pt,g6,g7,ht,
-    (ru.trans rt).mono (by simp),(fu.trans ft).mono (by simp)⟩
+    (hm0 : s.getMem (BitVec.ofNat 64 (EOUT+16))=(a.extractLsb' 128 128).extractLsb' 0 64)
+    (hm1 : s.getMem (BitVec.ofNat 64 (EOUT+24))=(a.extractLsb' 128 128).extractLsb' 64 64) :
+    ∃ k t, Steps image s k k t ∧ k ≤ 4 ∧ t.pc=pcOf (tcBase b) ∧
+      t.getReg .x6=(T3.TopDualHalf.select a).extractLsb' 0 64 ∧
+      t.getReg .x7=(T3.TopDualHalf.select a).extractLsb' 64 64 ∧
+      RegsExcept s t [.x6,.x7] ∧ Frame s t (fun _ => False) := by
+  obtain ⟨u,su,pu,ru,fu⟩ := top_entry_spec hK s hpc
+  obtain ⟨v,sv,pv,rv,fv⟩ := top_gate_spec hK u pu (a.extractLsb' 0 128)
+    ((ru.get (by decide)).trans h7)
+  have rr := ru.trans rv
+  have ff := fu.trans fv
+  by_cases h : T3.TopDualHalf.gate (a.extractLsb' 0 128)
+  · rw [if_pos h] at pv
+    simp only [T3.TopDualHalf.select,T3.TopDualHalf.selectPair,if_pos h]
+    exact ⟨2,v,su.trans sv,by omega,pv,(rr.get (by decide)).trans h6,
+      (rr.get (by decide)).trans h7,rr.mono (by decide),ff.mono (by simp)⟩
+  · rw [if_neg h] at pv
+    simp only [T3.TopDualHalf.select,T3.TopDualHalf.selectPair,if_neg h]
+    obtain ⟨t,st,pt,g6,g7,rt,ft⟩ := top_load_spec hK v pv (a.extractLsb' 128 128)
+      ((rr.get (by decide)).trans h12)
+      (by rw [ff.get (by unfold EOUT;omega) (by simp)];exact hm0)
+      (by rw [ff.get (by unfold EOUT;omega) (by simp)];exact hm1)
+    exact ⟨4,t,(su.trans sv).trans st,by omega,pt,g6,g7,
+      (rr.trans rt).mono (by decide),(ff.trans ft).mono (by simp)⟩
 
 end SigGolfCandidate.T3M.Search
 
@@ -628,6 +694,293 @@ theorem lower_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : Reward
   · simpa only [good,hg,if_true] using pt
   · simpa only [good,hg,if_false,show (82:Nat)≠81 by decide] using pt
 
-#print axioms lower_spec
 
 end SigGolfCandidate.T3M.Search.LowerLUT
+
+namespace SigGolfCandidate.T3M.Search.CanonicalReward
+open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
+open SigGolfCandidate.T3 (Digest Layer)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+
+theorem code_take_slice {image : Image} {base length : Nat} {words : List (BitVec 32)}
+    (hc : CodeAt image (pcOf base) (words.take length)) (hl : length≤words.length)
+    (offset count : Nat) (ho : offset+count≤length) :
+    CodeAt image (pcOf (base+offset)) ((words.drop offset).take count) := by
+  have he : words.take length = words.take offset ++ (words.drop offset).take count ++
+      (words.drop (offset+count)).take (length-(offset+count)) := by
+    rw [show length=offset+(count+(length-(offset+count))) by omega,List.take_add,List.take_add,List.drop_drop]
+    rw [List.append_assoc]
+    congr 3 <;> omega
+  rw [he] at hc
+  have hh := CodeAt.drop_prefix hc
+  have hlen : (words.take offset).length=offset := by rw [List.length_take,Nat.min_eq_left (by omega)]
+  rw [hlen] at hh
+  convert hh using 1
+  simp only [pcOf,←BitVec.ofNat_add]
+  congr 1
+  omega
+
+def PrefixAt (image : Image) (b : Nat) : Prop :=
+  CodeAt image (pcOf (Reward.base b false)) ((Reward.fastCode b false).take 77) ∧
+    CodeAt image (pcOf (Reward.base b true)) ((Reward.fastCode b true).take 95)
+
+theorem lower_slice {image : Image} {b : Nat} (hR : PrefixAt image b)
+    (offset count : Nat) (h : offset+count≤77) :
+    CodeAt image (pcOf (Reward.base b false+offset)) (LowerLUT.piece b offset count) :=
+  code_take_slice hR.1 (by rw [Reward.fastCode_length];decide) offset count h
+
+theorem top_slice {image : Image} {b : Nat} (hR : PrefixAt image b)
+    (offset count : Nat) (h : offset+count≤95) :
+    CodeAt image (pcOf (Reward.base b true+offset)) (((Reward.fastCode b true).drop offset).take count) :=
+  code_take_slice hR.2 (by rw [Reward.fastCode_length];decide) offset count h
+end SigGolfCandidate.T3M.Search.CanonicalReward
+
+namespace SigGolfCandidate.T3M.Search.CanonicalReward.Lower
+open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
+open SigGolfCandidate.T3 (Digest Layer)
+open SigGolfCandidate.T3M.Search.LowerLUT
+set_option maxHeartbeats 1200000
+set_option maxRecDepth 32768
+theorem prefix_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : CanonicalReward.PrefixAt image b)
+    (s : MachineState) (q : Nat) (hq : q<14) (v : Digest)
+    (hp : s.pc=pcOf (Reward.base b false+3+5*q))
+    (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64)
+    (h11 : s.getReg .x11=16775168#64) :
+    ∃ t, Steps image s 3 3 t ∧ t.pc=pcOf (Reward.base b false+3+5*q+3) ∧
+      t.getReg .x28=BitVec.ofNat 64 (rank v q+16775168) ∧
+      RegsExcept s t [.x10,.x28] ∧ Frame s t (fun _=>False) := by
+  refine ⟨_,symRun_sound (prefix_run hb q hq) (by simpa only [Nat.add_assoc] using CanonicalReward.lower_slice hR (3+5*q) 3 (by omega)) s hp
+    (by simp [prefixResult,SymState.init,rv_simp]),rfl,?_,?_,?_⟩
+  · simp only [prefixResult,rv_simp,addrE,shrE,E.eval,BinOp.eval,h11]
+    have he : (s.getReg (src q) >>> ((BitVec.ofNat 64 (9*(q%7))).toNat % 64)) &&& 511#64 =
+        BitVec.ofNat 64 (rank v q) := by
+      have hs : (BitVec.ofNat 64 (9*(q%7))).toNat % 64=9*(q%7) := by simp; omega
+      rw [hs]
+      unfold src rank shift
+      by_cases hh : q<7
+      · rw [if_pos hh,if_pos hh,h6]
+        simpa [Nat.mod_eq_of_lt hh] using ext_shr_mask v 0 (9*q) 9 (by omega)
+      · rw [if_neg hh,if_neg hh,h7]
+        have hmod : q%7=q-7 := by omega
+        simpa [hmod] using ext_shr_mask v 64 (9*(q-7)) 9 (by omega)
+    rw [he]
+    exact (BitVec.ofNat_add _ _).symm
+  · intro r hr; cases r <;> simp_all [prefixResult,SymState.init,RegFile.init,rv_simp] <;> rfl
+  · intro A _ _; simp [prefixResult,SymState.init,rv_simp]
+
+theorem add_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : CanonicalReward.PrefixAt image b)
+    (s : MachineState) (q : Nat) (hq : q<14) (hp : s.pc=pcOf (Reward.base b false+3+5*q+4)) :
+    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf (Reward.base b false+3+5*q+5) ∧
+      t.getReg .x20=s.getReg .x20+s.getReg .x29 ∧ RegsExcept s t [.x20] ∧ Frame s t (fun _=>False) := by
+  refine ⟨_,symRun_sound (add_run hb q hq) (by simpa only [Nat.add_assoc] using CanonicalReward.lower_slice hR (3+5*q+4) 1 (by omega)) s hp
+    (by simp [addResult,SymState.init,rv_simp]),rfl,?_,?_,?_⟩
+  · simp [addResult,SymState.init,rv_simp]
+  · intro r hr; cases r <;> simp_all [addResult,rv_simp] <;> rfl
+  · intro A _ _; simp [addResult,SymState.init,rv_simp]
+
+theorem gadget_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : CanonicalReward.PrefixAt image b)
+    (s : MachineState) (q : Nat) (hq : q<14) (v : Digest) (ht : Reward.RewardTablesOK s)
+    (hp : s.pc=pcOf (Reward.base b false+3+5*q))
+    (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64)
+    (h11 : s.getReg .x11=16775168#64) :
+    ∃ t, Steps image s 5 5 t ∧ t.pc=pcOf (Reward.base b false+3+5*(q+1)) ∧
+      t.getReg .x20=s.getReg .x20+BitVec.ofNat 64 (score (decide (q=0)) (rank v q)) ∧
+      RegsExcept s t [.x10,.x20,.x28,.x29] ∧ Frame s t (fun _=>False) := by
+  obtain ⟨u,su,pu,ux,ru,fu⟩ := prefix_spec hb hR s q hq v hp h6 h7 h11
+  have hr : rank v q<512 := Nat.mod_lt _ (by decide)
+  have hc := CanonicalReward.lower_slice hR (3+5*q+3) 1 (by omega)
+  have hcode : piece b (3+5*q+3) 1=[if q=0 then 0xc00e4e83 else 0xe00e4e83] := by
+    rcases hb with rfl | rfl <;> interval_cases q <;> kernel_rfl
+  rw [hcode] at hc
+  have hdec : decodeInstruction (if q=0 then 0xc00e4e83 else 0xe00e4e83) =
+      some (.base (.LBU .x29 .x28 (loadOff q))) := by
+    by_cases hz:q=0 <;> simp only [loadOff,hz,if_true,if_false] <;> rfl
+  have ha : u.getReg .x28+signExtend12 (loadOff q) =
+      BitVec.ofNat 64 ((if q=0 then 16774144 else 16774656)+rank v q) := by rw [ux,load_address q _ hr]
+  have hv : accessValid (u.getReg .x28+signExtend12 (loadOff q)) 1=true := by
+    rw [ha]; simp only [accessValid_iff,MEMORY_BYTES]
+    rw [BitVec.toNat_ofNat,Nat.mod_eq_of_lt (by split_ifs <;> omega)]
+    norm_num
+    split_ifs <;> omega
+  have sl := steps_lbu hc (by simpa only [Nat.add_assoc] using pu) hdec hv
+  have ht' : Reward.RewardTablesOK u := ht.frame fu (by simp)
+  have hm := lookup_table u ht' q (rank v q) hq hr
+  rw [ha,hm] at sl
+  have hw : (BitVec.ofNat 8 (score (decide (q=0)) (rank v q))).zeroExtend 64 =
+      BitVec.ofNat 64 (score (decide (q=0)) (rank v q)) := by
+    apply BitVec.eq_of_toNat_eq
+    simp only [BitVec.zeroExtend_eq_setWidth,BitVec.toNat_setWidth,BitVec.toNat_ofNat]
+    have hbound := score_bound (decide (q=0)) (rank v q) hr
+    norm_num; omega
+  rw [hw] at sl
+  let u1 := (u.setReg .x29 (BitVec.ofNat 64 (score (decide (q=0)) (rank v q)))).setPC (u.pc+4)
+  have pu1 : u1.pc=pcOf (Reward.base b false+3+5*q+4) := by
+    simp only [u1,MachineState.setPC,pu,pcOf_add4]
+  obtain ⟨t,st,pt,tx,rt,ft⟩ := add_spec hb hR u1 q hq pu1
+  have rl : RegsExcept u u1 [.x29] := by
+    intro r hr
+    have hr' : r≠.x29 := by simpa using hr
+    exact MachineState.getReg_setReg_ne _ _ _ _ (Ne.symm hr')
+  have fl : Frame u u1 (fun _=>False) := by intro A _ _; rfl
+  refine ⟨t,(su.trans sl).trans st,?_,?_,((ru.trans rl).trans rt).mono (by decide),
+    ((fu.trans fl).trans ft).mono (by simp)⟩
+  · convert pt using 1 <;> congr 1 <;> omega
+  · rw [tx]
+    change (u.setReg .x29 (BitVec.ofNat 64 (score (decide (q=0)) (rank v q)))).getReg .x20+(u.setReg .x29 (BitVec.ofNat 64 (score (decide (q=0)) (rank v q)))).getReg .x29 = _
+    rw [MachineState.getReg_setReg_ne _ _ _ _ (by decide : Reg.x29 ≠ .x20),
+      MachineState.getReg_setReg_eq (by decide : Reg.x29 ≠ .x0),ru.get (by decide : Reg.x20 ∉ [.x10,.x28])]
+
+
+theorem loop_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : CanonicalReward.PrefixAt image b)
+    (s : MachineState) (v : Digest) (ht : Reward.RewardTablesOK s)
+    (hp : s.pc=pcOf (Reward.base b false+3))
+    (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64)
+    (h11 : s.getReg .x11=16775168#64) (h20 : s.getReg .x20=0) (n : Nat) (hn : n≤14) :
+    ∃ t, Steps image s (5*n) (5*n) t ∧ t.pc=pcOf (Reward.base b false+3+5*n) ∧
+      t.getReg .x20=BitVec.ofNat 64 (partialScore v n) ∧
+      RegsExcept s t [.x10,.x20,.x28,.x29] ∧ Frame s t (fun _=>False) := by
+  induction n with
+  | zero => exact ⟨s,Steps.refl s,by simpa using hp,by simpa [partialScore] using h20,RegsExcept.refl _ _,Frame.refl _ _⟩
+  | succ n ih =>
+    obtain ⟨u,su,pu,ux,ru,fu⟩ := ih (by omega)
+    obtain ⟨t,st,pt,tx,rt,ft⟩ := gadget_spec hb hR u n (by omega) v (ht.frame fu (by simp)) pu
+      ((ru.get (by decide)).trans h6) ((ru.get (by decide)).trans h7) ((ru.get (by decide)).trans h11)
+    refine ⟨t,?_,pt,?_,(ru.trans rt).mono (by decide),(fu.trans ft).mono (by simp)⟩
+    · convert su.trans st using 1 <;> omega
+    · rw [tx,ux,partial_succ,BitVec.ofNat_add]
+
+theorem init_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : CanonicalReward.PrefixAt image b)
+    (s : MachineState) (hp : s.pc=pcOf (Reward.base b false)) :
+    ∃ t, Steps image s 3 3 t ∧ t.pc=pcOf (Reward.base b false+3) ∧
+      t.getReg .x11=16775168#64 ∧ t.getReg .x20=0 ∧
+      RegsExcept s t [.x11,.x20] ∧ Frame s t (fun _=>False) := by
+  refine ⟨_,symRun_sound (init_run hb) (CanonicalReward.lower_slice hR 0 3 (by omega)) s hp
+    (by simp [initResult,lowerInit.res,rv_simp]),rfl,?_,?_,?_,?_⟩
+  · simp [initResult,lowerInit.res,rv_simp]
+  · simp [initResult,lowerInit.res,rv_simp]
+  · intro r hr; cases r <;> simp_all [initResult,lowerInit.res,rv_simp] <;> rfl
+  · intro A _ _; simp [initResult,lowerInit.res,rv_simp]
+
+end SigGolfCandidate.T3M.Search.CanonicalReward.Lower
+namespace SigGolfCandidate.T3M.Search.CanonicalReward.Top
+open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
+open SigGolfCandidate.T3 (Digest Layer)
+open SigGolfCandidate.T3M.Search.Reward SigGolfCandidate.T3M.Search.Reward.PackedTop
+set_option maxHeartbeats 1200000
+set_option maxRecDepth 32768
+theorem code_prefix {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : CanonicalReward.PrefixAt image b)
+    (q : Nat) (hq : q<18) : CodeAt image (pcOf (base b true+start q)) (prefixCode q) := by
+  have hc := CanonicalReward.top_slice hR (start q) (plen q) (by
+    interval_cases q <;> decide)
+  convert hc using 1 <;> rcases hb with rfl | rfl <;> interval_cases q <;> kernel_rfl
+theorem prefix_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : CanonicalReward.PrefixAt image b)
+    (s : MachineState) (v : Digest) (q : Nat) (hq : q<18)
+    (hpc : s.pc=pcOf (base b true+start q))
+    (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64)
+    (h11 : s.getReg .x11=BitVec.ofNat 64 (TOP_DATA+2048)) :
+    ∃ t, Steps image s (plen q) (plen q) t ∧ t.pc=pcOf (base b true+start q+plen q) ∧
+      t.getReg .x28=BitVec.ofNat 64 (TOP_DATA+2048+index v q) ∧
+      RegsExcept s t [.x10,.x28] ∧ Frame s t (fun _=>False) := by
+  refine ⟨_,symRun_sound (prefix_run b q hb hq) (code_prefix hb hR q hq) s hpc (by simp [prefixResult,prefixState,rv_simp]),rfl,?_,?_,?_⟩
+  · change (mkAdd (indexE q) (.reg .x11)).eval s = _
+    rw [mkAdd_eval,E.eval,index_eval s v q hq h6 h7,h11,ofNat_add_ofNat]
+    congr 1
+    omega
+  · intro r hr; cases r <;> simp_all [prefixResult,prefixState,RegFile.init,rv_simp] <;> rfl
+  · intro A _ _; rfl
+theorem code_load {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : CanonicalReward.PrefixAt image b)
+    (q : Nat) (hq : q<18) : CodeAt image (pcOf (base b true+start q+plen q)) [loadWord q] := by
+  have hc := CanonicalReward.top_slice hR (start q+plen q) 1 (by interval_cases q <;> decide)
+  convert hc using 1 <;> rcases hb with rfl | rfl <;> interval_cases q <;> kernel_rfl
+theorem load_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : CanonicalReward.PrefixAt image b)
+    (s : MachineState) (v : Digest) (q : Nat) (hq : q<18) (ht : RewardTablesOK s)
+    (hpc : s.pc=pcOf (base b true+start q+plen q))
+    (h28 : s.getReg .x28=BitVec.ofNat 64 (TOP_DATA+2048+index v q)) :
+    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf (base b true+start q+plen q+1) ∧
+      t.getReg .x29=BitVec.ofNat 64 (value v q) ∧ RegsExcept s t [.x29] ∧ Frame s t (fun _=>False) := by
+  have hoff : signExtend12 (BitVec.ofNat 12 (offset q))=BitVec.ofNat 64 (offset q) := by interval_cases q <;> decide +kernel
+  have ha : s.getReg .x28+signExtend12 (BitVec.ofNat 12 (offset q))=BitVec.ofNat 64 (TOP_DATA+2048+index v q+offset q) := by rw [h28,hoff,ofNat_add_ofNat]
+  have hv : accessValid (s.getReg .x28+signExtend12 (BitVec.ofNat 12 (offset q))) 1=true := by
+    rw [ha,accessValid_iff]
+    have hi := index_lt v q
+    have ho : offset q≤384 := by unfold offset; split_ifs; omega; have := topKind_lt q; omega
+    have hbnd : TOP_DATA+2048+index v q+offset q<2^64 := by unfold TOP_DATA; split_ifs at hi <;> omega
+    rw [toNat_ofNat_lt hbnd]
+    simp only [MEMORY_BYTES,Nat.mod_one,and_true,true_and]
+    unfold TOP_DATA
+    split_ifs at hi <;> omega
+  have hs := steps_lbu (code_load hb hR q hq) hpc (load_decode q hq) hv
+  rw [ha,table_value s ht v q hq] at hs
+  refine ⟨_,hs,?_,?_,?_,?_⟩
+  · change s.pc+4 = _
+    rw [hpc,pcOf_add4]
+  · change (s.setReg .x29 (BitVec.ofNat 64 (value v q))).getReg .x29 = _
+    exact MachineState.getReg_setReg_eq (by decide)
+  · intro r hr; simp only [List.mem_singleton] at hr
+    exact MachineState.getReg_setReg_ne _ _ _ _ (Ne.symm hr)
+  · intro A _ _; rfl
+theorem code_add {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : CanonicalReward.PrefixAt image b)
+    (q : Nat) (hq : q<18) : CodeAt image (pcOf (base b true+start q+plen q+1)) addCode := by
+  have hc := CanonicalReward.top_slice hR (start q+plen q+1) 1 (by interval_cases q <;> decide)
+  convert hc using 1 <;> rcases hb with rfl | rfl <;> interval_cases q <;> kernel_rfl
+theorem add_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : CanonicalReward.PrefixAt image b)
+    (s : MachineState) (q : Nat) (hq : q<18) (a z : Word)
+    (hpc : s.pc=pcOf (base b true+start q+plen q+1)) (h20 : s.getReg .x20=a) (h29 : s.getReg .x29=z) :
+    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf (base b true+start q+plen q+2) ∧
+      t.getReg .x20=a+z ∧ RegsExcept s t [.x20] ∧ Frame s t (fun _=>False) := by
+  refine ⟨_,symRun_sound (add_run _) (code_add hb hR q hq) s hpc (by simp [addBase.res,rv_simp]),?_,?_,?_,?_⟩
+  · simp only [Result.toState_pc,E.eval,pcOf_add4,Nat.add_assoc,Nat.reduceAdd]
+  · simpa [addBase.res,rv_simp] using congrArg₂ (fun x y : Word => x+y) h20 h29
+  · intro r hr; cases r <;> simp_all [addBase.res,rv_simp] <;> rfl
+  · intro A _ _; rfl
+theorem group_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : CanonicalReward.PrefixAt image b)
+    (s : MachineState) (v : Digest) (q : Nat) (hq : q<18) (acc : Nat) (ht : RewardTablesOK s)
+    (hpc : s.pc=pcOf (base b true+start q))
+    (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64)
+    (h11 : s.getReg .x11=BitVec.ofNat 64 (TOP_DATA+2048)) (h20 : s.getReg .x20=BitVec.ofNat 64 acc) :
+    ∃ t, Steps image s (plen q+2) (plen q+2) t ∧ t.pc=pcOf (base b true+start (q+1)) ∧
+      t.getReg .x20=BitVec.ofNat 64 (acc+value v q) ∧
+      RegsExcept s t [.x10,.x20,.x28,.x29] ∧ Frame s t (fun _=>False) := by
+  obtain ⟨t1,s1,p1,g1,r1,f1⟩ := prefix_spec hb hR s v q hq hpc h6 h7 h11
+  obtain ⟨t2,s2,p2,g2,r2,f2⟩ := load_spec hb hR t1 v q hq (ht.frame f1 (by simp)) p1 g1
+  obtain ⟨t3,s3,p3,g3,r3,f3⟩ := add_spec hb hR t2 q hq _ _ p2
+    (by rw [r2.get (by decide),r1.get (by decide),h20]) g2
+  refine ⟨t3,by simpa only [Nat.add_assoc] using (s1.trans s2).trans s3,?_,?_,
+    ((r1.trans r2).trans r3).mono (by decide),((f1.trans f2).trans f3).mono (by simp)⟩
+  · simpa only [start_succ,Nat.add_assoc] using p3
+  · simpa only [ofNat_add_ofNat] using g3
+theorem iter {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : CanonicalReward.PrefixAt image b)
+    (s : MachineState) (v : Digest) (n : Nat) (hn : n≤18) (ht : RewardTablesOK s)
+    (hpc : s.pc=pcOf (base b true+3))
+    (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64)
+    (h11 : s.getReg .x11=BitVec.ofNat 64 (TOP_DATA+2048)) (h20 : s.getReg .x20=0) :
+    ∃ t, Steps image s (start n-3) (start n-3) t ∧ t.pc=pcOf (base b true+start n) ∧
+      t.getReg .x20=BitVec.ofNat 64 (runningSum v n) ∧
+      RegsExcept s t [.x10,.x20,.x28,.x29] ∧ Frame s t (fun _=>False) := by
+  induction n with
+  | zero => exact ⟨s,Steps.refl _,hpc,h20,RegsExcept.refl _ _,Frame.refl _ _⟩
+  | succ n ih =>
+    obtain ⟨t1,s1,p1,g1,r1,f1⟩ := ih (by omega)
+    obtain ⟨t2,s2,p2,g2,r2,f2⟩ := group_spec hb hR t1 v n (by omega) (runningSum v n)
+      (ht.frame f1 (by simp)) p1 (by rw [r1.get (by decide),h6])
+      (by rw [r1.get (by decide),h7]) (by rw [r1.get (by decide),h11]) g1
+    refine ⟨t2,?_,p2,?_,(r1.trans r2).mono (by decide),(f1.trans f2).mono (by simp)⟩
+    · have he : start n-3+(plen n+2)=start (n+1)-3 := by
+        rw [start_succ]
+        have : 3 ≤ start n := by unfold start; omega
+        omega
+      simpa only [he] using s1.trans s2
+    · simpa only [runningSum_succ] using g2
+theorem init_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : CanonicalReward.PrefixAt image b)
+    (s : MachineState) (hpc : s.pc=pcOf (base b true)) :
+    ∃ t, Steps image s 3 3 t ∧ t.pc=pcOf (base b true+3) ∧
+      t.getReg .x11=BitVec.ofNat 64 (TOP_DATA+2048) ∧ t.getReg .x20=0 ∧
+      RegsExcept s t [.x11,.x20] ∧ Frame s t (fun _=>False) := by
+  have hc : CodeAt image (pcOf (base b true)) initCode := by
+    have hh := CanonicalReward.top_slice hR 0 3 (by omega)
+    convert hh using 1 <;> rcases hb with rfl | rfl <;> kernel_rfl
+  refine ⟨_,symRun_sound (init_run b hb) hc s hpc (by simp [initResult,initBase.res,rv_simp]),rfl,rfl,rfl,?_,?_⟩
+  · intro r hr; cases r <;> simp_all [initResult,initBase.res,rv_simp] <;> rfl
+  · intro A _ _; rfl
+end SigGolfCandidate.T3M.Search.CanonicalReward.Top

@@ -1,4 +1,4 @@
-import SigGolfCandidate.T3.Secc.LargeCouplingInteraction
+import SigGolfCandidate.T3.Secc.LargeCouplingSigning
 
 namespace SigGolfCandidate.T3.Security.LargeCoupling
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
@@ -50,6 +50,19 @@ theorem cacheRegion_congr (f g : Nat → Nat → Digest)
 section Keygen
 variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData}
+theorem Coherent.topValue_eq (hcoh : Coherent U T vals nv τ a) (level node : Nat) (hl : 0 ≤ level) (hl' : level < 12)
+    (hn : node < 2 ^ (12 - level)) : topValue (keyValues vals) level node = treeValue (builtTree T 0 0) level node := by
+  obtain ⟨c, hc⟩ := treeChild_top_some level node (by omega) (by omega) hn
+  have hmem := treeChild_mem_keygen level node hl (by omega) hn c hc
+  have hb := builtTree_eq hcoh.agrees 0 ⟨0, by decide⟩ level node (by simp [height]; omega)
+    (by simpa [height] using hn)
+  change _ = treeValue (builtTree T 0 (⟨0, by decide⟩ : Fin (2 ^ 31)).val) level node
+  rw [hb, treeLabel_eq (secretsOf T), ← honestValue_eq hcoh.agrees, hcoh.honestValue]
+  have hc' : treeChild 0 ⟨0, by decide⟩ level node = some c := hc
+  unfold LargeResidual.topValue
+  rw [hc, hc']
+  simp only [Option.map_some, Option.getD_some]
+  exact lookupVal_map vals keygenDisclosed c hmem
 theorem Coherent.private_header (hcoh : Coherent U T vals nv τ a)
     (tag level node : Nat) (h0 : tag%256 ≠ 0) (h8 : tag%256 ≠ 8) :
     T (.inr (.inl (header tag 0 0 level node))) = a.priv (.inl (header tag 0 0 level node)) := by
@@ -85,5 +98,26 @@ theorem Coherent.mac_eq (hcoh : Coherent U T vals nv τ a) (region : Region) :
   simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
   rw [hk]
   rfl
+theorem Coherent.region (hcoh : Coherent U T vals nv τ a) :
+    Correctness.cacheRegion (fun level node => topValue (keyValues vals) level node ^^^ maskOf a level node) =
+      Correctness.cacheRegion (Correctness.maskedTop T) := by
+  apply cacheRegion_congr
+  intro level node hl hl' hn
+  rw [hcoh.topValue_eq level node hl hl' hn, hcoh.mask_eq]
+  rfl
+theorem Coherent.published (hcoh : Coherent U T vals nv τ a) :
+    (⟨macOf a (Correctness.cacheRegion fun level node =>
+        topValue (keyValues vals) level node ^^^ maskOf a level node),
+      Correctness.cacheRegion fun level node => topValue (keyValues vals) level node ^^^ maskOf a level node⟩ :
+        T3.Cache) = (evalWithAnswerFn T keygen).2 := by
+  obtain ⟨-, hreg, htag⟩ := Correctness.keygen_correct T
+  rw [hcoh.region, hcoh.mac_eq]
+  unfold Correctness.CacheTagCorrect at htag
+  cases hk : (evalWithAnswerFn T keygen).2 with
+  | mk tag region =>
+      rw [hk] at hreg htag
+      simp only at hreg htag
+      subst hreg
+      rw [htag]
 end Keygen
 end SigGolfCandidate.T3.Security.LargeCoupling
