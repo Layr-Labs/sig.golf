@@ -30,8 +30,8 @@ def submissionNew (I : Images) : SigGolf.Submission := currentOf (submission I)
 theorem legacyOf_submissionNew (I : Images) : legacyOf (submissionNew I) = submission I :=
   legacyOf_currentOf (submission I)
 theorem certificateNew_of {I : Images} (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    SigGolf.Certificate (submissionNew I) 7049 := by
-  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 7049 := by
+    SigGolf.Certificate (submissionNew I) 7028 := by
+  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 7028 := by
     rw [legacyOf_submissionNew]
     exact certificate_of E F P S
   have hrun : RunAgrees (submissionNew I) := runAgrees_of_admissible (submissionNew I) hL.admissible

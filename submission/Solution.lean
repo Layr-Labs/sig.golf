@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26080, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7049 := by
+theorem certificate : SigGolf.Certificate submission 7028 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -83,5 +83,8 @@ Target: S = 5310, W = 24860, K = 131072, C = 7095; score 37674450.
 This comment records the candidate claim, not an official verification receipt.
 -/
 
-/- Shared forest candidate: S=5248, C=7049, product=36993152.
+/- Shared forest candidate: S=5248, C=7028, product=36882944.
+Coordinate-8 dispatch hoist (C 7030 -> 7028): coordinate 7's dispatcher computes coordinate 8's shared shift
+`tp = a7 >>> 17` in its former nop slot; coordinate 8's dispatcher shrinks from 11 to 9 instructions and its 128 C
+routines return with `316(ra)`.
 The exact accepting run remains required before publication. -/

@@ -166,6 +166,49 @@ theorem nodeHash_allowed (tag lay tree heap : Nat) (left right : Digest) :
   unfold nodeHash
   exact shortHash_allowed P hpublic _
 include hpublic in
+/-- C1: an FTS hash (either half) makes one public query. -/
+theorem ftsHash_allowed (heap : Nat) (input : HashInput) : AllQueriesSatisfy (WCT9.ftsHash heap input) P := by
+  rw [WCT9.ftsHash_eq]
+  split
+  · exact highHash_allowed P hpublic _
+  · exact shortHash_allowed P hpublic _
+include hpublic in
+theorem nodeHashH_allowed (coord index heap : Nat) (left right : Digest) :
+    AllQueriesSatisfy (WCT9.wctNodeHashH coord index heap left right) P := by
+  unfold WCT9.wctNodeHashH
+  exact ftsHash_allowed P hpublic _ _
+include hpublic in
+/-- C1: the paired child of heap `heap` makes only public queries. -/
+theorem buildChildH_allowed (heap index coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest) :
+    AllQueriesSatisfy (WCT9.buildChildH heap index coord selected word coefs pad) P := by
+  unfold WCT9.buildChildH
+  apply SourceQueries.bind_allowed P
+  · apply SourceQueries.foldlM_allowed P
+    intro state i
+    apply SourceQueries.bind_allowed P (chain_allowed P hpublic _ _ _ _ _ _ _)
+    intro value
+    apply SourceQueries.bind_allowed P (chain_allowed P hpublic _ _ _ _ _ _ _)
+    intro _
+    exact SourceQueries.pure_allowed P _
+  · intro state
+    exact SourceQueries.bind_allowed P (by unfold WCT9.leafHashH; exact ftsHash_allowed P hpublic _ _)
+      fun _ => SourceQueries.pure_allowed P _
+include hpublic in
+/-- C1: every paired node (either half) makes one public query. -/
+theorem sharedNode_allowed (first : Bool) (coord index heap : Nat)
+    (pads : Nat → SigGolfCandidate.Research.SharedForest.PairRoot) (left right : Digest) :
+    AllQueriesSatisfy (SigGolfCandidate.Research.SharedForest.sharedNode first coord index heap pads left right) P := by
+  unfold SigGolfCandidate.Research.SharedForest.sharedNode SigGolfCandidate.Research.SharedForest.sharedOuterHash
+  split
+  · split
+    · exact shortHash_allowed P hpublic _
+    · exact highHash_allowed P hpublic _
+  · split
+    · split
+      · exact highHash_allowed P hpublic _
+      · exact shortHash_allowed P hpublic _
+    · exact nodeHashH_allowed P hpublic _ _ _ _ _
+include hpublic in
 theorem heapBuild_allowed (index coord : Nat) (padR : Digest) (leaves : List Digest) :
     AllQueriesSatisfy (WCT9.heapBuild index coord padR leaves) P := by
   unfold WCT9.heapBuild

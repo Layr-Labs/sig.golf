@@ -37,6 +37,26 @@ theorem leafHashP_cost_ge (answers : SigGolfCandidate.T3.Correctness.Answers) (i
   refine le_trans (by norm_num) (Nat.div_le_div_right (c := 64) (pad64_length_ge _ ?_))
   simp only [List.length_append, SphincsSecurity.bytesLE_length]
   omega
+/-- C1: an FTS hash (either half) costs one compression per 64-byte block, like `shortHash`. -/
+theorem ftsHash_cost (answers : SigGolfCandidate.T3.Correctness.Answers) (heap : Nat) (x : HashInput) :
+    cost answers (ClaudeWCT.WCT9.ftsHash heap x) = (pad64 x).length / 64 := by
+  rw [ClaudeWCT.WCT9.ftsHash_eq]
+  split
+  · unfold ClaudeWCT.WCT9.highHash
+    rw [cost_bind, cost_pure, Nat.add_zero]
+    unfold publicHash
+    rw [cost_query]
+    rfl
+  · exact shortHash_cost answers x
+/-- C1: the paired leaf of heap `heap` (either half) costs at least one compression. -/
+theorem leafHashH_cost_ge (answers : SigGolfCandidate.T3.Correctness.Answers) (heap index coord selected : Nat)
+    (pad : Digest) (ends : List Digest) :
+    1 ≤ cost answers (ClaudeWCT.WCT9.leafHashH heap index coord selected pad ends) := by
+  unfold ClaudeWCT.WCT9.leafHashH ClaudeWCT.WCT9.leafInputP
+  rw [ftsHash_cost]
+  refine le_trans (by norm_num) (Nat.div_le_div_right (c := 64) (pad64_length_ge _ ?_))
+  simp only [List.length_append, SphincsSecurity.bytesLE_length]
+  omega
 theorem chain_cost_ge (answers : SigGolfCandidate.T3.Correctness.Answers) (index coord selected i start count : Nat)
     (value : Digest) : count ≤ cost answers (ClaudeWCT.WCT9.chain index coord selected i start count value) := by
   unfold ClaudeWCT.WCT9.chain
@@ -54,6 +74,15 @@ theorem buildChildF_cost_ge (answers : SigGolfCandidate.T3.Correctness.Answers) 
   rw [cost_bind, cost_bind, cost_pure, Nat.add_zero]
   refine le_trans (by norm_num) (Nat.add_le_add (foldlM_cost_ge answers _ 4 (fun state i => ?_) (List.finRange 6) _)
     (leafHashP_cost_ge answers index coord selected padL _))
+  simp only [cost_bind, cost_pure, Nat.add_zero]
+  exact le_trans (by omega) (Nat.add_le_add (chain_cost_ge answers _ _ _ _ _ _ _) (chain_cost_ge answers _ _ _ _ _ _ _))
+theorem buildChildH_cost_ge (answers : SigGolfCandidate.T3.Correctness.Answers) (heap index coord selected : Nat)
+    (word : ClaudeWCT.WCT9.Rank) (coefs : List Digest) (padL : Digest) :
+    25 ≤ cost answers (ClaudeWCT.WCT9.buildChildH heap index coord selected word coefs padL) := by
+  unfold ClaudeWCT.WCT9.buildChildH
+  rw [cost_bind, cost_bind, cost_pure, Nat.add_zero]
+  refine le_trans (by norm_num) (Nat.add_le_add (foldlM_cost_ge answers _ 4 (fun state i => ?_) (List.finRange 6) _)
+    (leafHashH_cost_ge answers heap index coord selected padL _))
   simp only [cost_bind, cost_pure, Nat.add_zero]
   exact le_trans (by omega) (Nat.add_le_add (chain_cost_ge answers _ _ _ _ _ _ _) (chain_cost_ge answers _ _ _ _ _ _ _))
 theorem buildCoordinateF_cost_ge (answers : SigGolfCandidate.T3.Correctness.Answers) (index : Nat)
@@ -462,7 +491,7 @@ open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness
 open SigGolfCandidate.T3.SearchCost (cost cost_bind cost_pure cost_bound)
 open SigGolfCandidate.T3.FullCacheExpansionCost (foldlM_cost_ge)
-open ClaudeWCT.W9.T3.FullCacheExpansionCost (buildChildF_cost_ge)
+open ClaudeWCT.W9.T3.FullCacheExpansionCost (buildChildF_cost_ge buildChildH_cost_ge)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
@@ -476,7 +505,7 @@ theorem buildSharedCoordinate_cost_ge (answers : Answers) (first : Bool) (index 
   refine le_trans ?_ (Nat.le_add_right _ _)
   refine le_trans (by simp) (foldlM_cost_ge answers _ 25 (fun state j => ?_) (List.range 128) _)
   rw [cost_bind]
-  exact le_trans (buildChildF_cost_ge answers index coord (rawChild first j) word _ _) (Nat.le_add_right _ _)
+  exact le_trans (buildChildH_cost_ge answers (128 + j) index coord (rawChild first j) word _ _) (Nat.le_add_right _ _)
 
 theorem buildPair_cost_ge (answers : Answers) (index pair : Nat) (selected : Selection)
     (aWord bWord : Rank) (prev : PairRoot) :

@@ -94,8 +94,12 @@ structure Pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (n : 
   prevL : DigAt u (regionAddr n + 720) (prevOf w pairs).1
   prevR : DigAt u (regionAddr n + SharedV3.handR n) (prevOf w pairs).2
   a2 : 0 < n → u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + (if n = 9 then 720 else 704)) ∨
-    u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + (if n = 9 then 768 else 128))
+    u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + (if n = 9 then 768 else 144))
   coords : ∀ m, n ≤ m → m ≤ 9 → ∀ off, off < 896 → off % 8 = 0 → (m = 9 → 720 ≤ off) →
     (m = n → ¬ isHand n off) → W9Machine.OrigW w u (regionAddr m + off)
   layer : Orig w (fun o => (32 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24832)) u
+  /-- Coordinate-8 dispatch hoist: coordinate 7's dispatcher ends with `srli tp,a7,17` (word 689, after its
+  `or a7,a7,s8`), and no chain or B′ child routine of coordinate 7 writes `tp` or `a7`, so coordinate 8's dispatcher
+  finds its shared shift `a7 >>> 17` already in `tp`. -/
+  hoist : n = 8 → u.getReg .x4 = u.getReg .x17 >>> 17
 end W9Drv.SharedCoord

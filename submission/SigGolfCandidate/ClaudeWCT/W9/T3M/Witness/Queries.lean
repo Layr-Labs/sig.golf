@@ -33,6 +33,14 @@ theorem pubGood_wctTopHash (coord index heap : Nat) (l p r : Digest) :
   WCT9.allQ_highHash_of_shortHash _ (pubGood_shortHash _ (by simp [WCT9.wctTopInput, bytesLE_length]))
 theorem pubGood_wctNodeHash (coord index heap : Nat) (l r : Digest) :
     AllQueriesSatisfy (WCT9.wctNodeHash coord index heap l r) PubGood := pubGood_nodeHash _ _ _ _ _ _
+/-- C1: the paired leaf of heap `heap` (either half) makes one public, well-formed query. -/
+theorem pubGood_leafHashH (heap index coord child : Nat) (pad : Digest) (ends : List Digest) :
+    AllQueriesSatisfy (WCT9.leafHashH heap index coord child pad ends) PubGood :=
+  WCT9.allQ_ftsHash_of_shortHash _ _ (pubGood_shortHash _ (by simp [WCT9.leafInputP, bytesLE_length]))
+/-- C1: a paired packed node (either half) makes one public, well-formed query. -/
+theorem pubGood_wctNodeHashH (coord index heap : Nat) (l r : Digest) :
+    AllQueriesSatisfy (WCT9.wctNodeHashH coord index heap l r) PubGood :=
+  WCT9.allQ_ftsHash_of_shortHash _ _ (pubGood_shortHash _ (by simp [bytesLE_length, zero16]))
 theorem pubGood_layerEncodingInputP (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (c : BitVec 32)
     (pad : BitVec 96) (padR : Digest) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.encodingHash lay (layerEncodingInputP lay tree leaf msg c pad padR)) PubGood := by
@@ -367,6 +375,12 @@ theorem public_leafHashP (index coord child : Nat) (pad : Digest) (ends : List D
   allQ_mono (ClaudeWCT.W9.T3M.pubGood_leafHashP ..) fun _ h=>h.1
 theorem public_wctNodeHash (coord index heap : Nat) (left right : Digest) : Only (wctNodeHash coord index heap left right) :=
   allQ_mono (ClaudeWCT.W9.T3M.pubGood_wctNodeHash ..) fun _ h=>h.1
+theorem public_leafHashH (heap index coord child : Nat) (pad : Digest) (ends : List Digest) :
+    Only (ClaudeWCT.WCT9.leafHashH heap index coord child pad ends) :=
+  allQ_mono (ClaudeWCT.W9.T3M.pubGood_leafHashH ..) fun _ h=>h.1
+theorem public_wctNodeHashH (coord index heap : Nat) (left right : Digest) :
+    Only (wctNodeHashH coord index heap left right) :=
+  allQ_mono (ClaudeWCT.W9.T3M.pubGood_wctNodeHashH ..) fun _ h=>h.1
 theorem public_encodingHash (lay : Layer) (input : HashInput) : Only (encodingHash lay input) :=
   (allQueries_encodingHash_iff _ _ _).mpr (public_shortHash _)
 theorem public_topFold (sig : ClaudeWCT.WCT9.Signature) (index : Nat) (digits : List Nat) : Only (topFold sig index digits) :=
@@ -396,13 +410,13 @@ theorem public_sharedNode (first : Bool) (coord index heap : Nat)
       · unfold highHash
         exact public_bind (public_publicHash _) fun _ => public_pure _
       · exact public_shortHash _
-    · exact public_wctNodeHash _ _ _ _ _
+    · exact public_wctNodeHashH _ _ _ _ _
 theorem public_recoverSharedInner (first : Bool) (index coord : Nat) (selected : Child)
     (word : Rank) (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) :
     Only (recoverSharedInner first index coord selected word values path prev) := by
   unfold recoverSharedInner
   refine public_bind (public_mapM _ _ (fun _ => public_chain _ _ _ _ _ _ _)) fun _ => ?_
-  refine public_bind (public_leafHashP _ _ _ _ _) fun _ => ?_
+  refine public_bind (public_leafHashH _ _ _ _ _ _) fun _ => ?_
   exact public_foldlM _ _ (fun _ _ => public_sharedNode _ _ _ _ _ _ _) _
 theorem public_recoverPair (index pair : Nat) (s : Selection) (aWord bWord : Rank)
     (opened : PairOpening) (prev : PairRoot) : Only (recoverPair index pair s aWord bWord opened prev) := by
@@ -497,8 +511,15 @@ theorem publicOnly_coordinate (w : WBytes) (index : Nat) (k : Fin 9) (raw : Fin 
     exact allQ_mapM _ _ fun _=>allQ_foldlM _ _ (fun _ _=>public_shortHash _) _
   · refine allQ_bind ?_ fun _=>allQ_pure _
     unfold SharedV3.childN
-    refine allQ_bind (public_shortHash _) fun _=>?_
-    refine allQ_bind (allQ_foldlM _ _ (fun _ _=>public_shortHash _) _) fun _=>?_
+    have hsel : ∀ hi input, Only (SharedV3.hashSel hi input) := by
+      intro hi input
+      unfold SharedV3.hashSel
+      split
+      · unfold V3.hashHi
+        exact allQ_bind (public_publicHash _) fun _=>allQ_pure _
+      · exact public_shortHash _
+    refine allQ_bind (hsel _ _) fun _=>?_
+    refine allQ_bind (allQ_foldlM _ _ (fun _ _=>hsel _ _) _) fun _=>?_
     split
     · exact public_shortHash _
     · unfold V3.hashHi
@@ -573,6 +594,12 @@ theorem good_leafHashP (index coord child : Nat) (pad : Digest) (ends : List Dig
   allQ_mono (ClaudeWCT.W9.T3M.pubGood_leafHashP ..) fun _ h=>h.2
 theorem good_wctNodeHash (coord index heap : Nat) (left right : Digest) : Good (wctNodeHash coord index heap left right) :=
   allQ_mono (ClaudeWCT.W9.T3M.pubGood_wctNodeHash ..) fun _ h=>h.2
+theorem good_leafHashH (heap index coord child : Nat) (pad : Digest) (ends : List Digest) :
+    Good (ClaudeWCT.WCT9.leafHashH heap index coord child pad ends) :=
+  allQ_mono (ClaudeWCT.W9.T3M.pubGood_leafHashH ..) fun _ h=>h.2
+theorem good_wctNodeHashH (coord index heap : Nat) (left right : Digest) :
+    Good (wctNodeHashH coord index heap left right) :=
+  allQ_mono (ClaudeWCT.W9.T3M.pubGood_wctNodeHashH ..) fun _ h=>h.2
 theorem good_layerEncodingHash (lay : Layer) (tree leaf : Nat) (msg : LayerMsg) (counter : BitVec 32) :
     Good (encodingHash lay (layerEncodingInput lay tree leaf msg counter)) :=
   allQ_mono (ClaudeWCT.W9.T3M.pubGood_layerEncodingInput ..) fun _ h=>h.2
@@ -603,13 +630,13 @@ theorem good_sharedNode (first : Bool) (coord index heap : Nat)
       · unfold highHash
         exact good_bind (good_publicHash _ (by simp [wctTopInput_length])) fun _ => good_pure _
       · exact good_shortHash _ (by simp [wctTopInput_length])
-    · exact good_wctNodeHash _ _ _ _ _
+    · exact good_wctNodeHashH _ _ _ _ _
 theorem good_recoverSharedInner (first : Bool) (index coord : Nat) (selected : Child)
     (word : Rank) (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) :
     Good (recoverSharedInner first index coord selected word values path prev) := by
   unfold recoverSharedInner
   refine good_bind (good_mapM _ _ (fun _ => good_chain _ _ _ _ _ _ _)) fun _ => ?_
-  refine good_bind (good_leafHashP _ _ _ _ _) fun _ => ?_
+  refine good_bind (good_leafHashH _ _ _ _ _ _) fun _ => ?_
   exact good_foldlM _ _ (fun _ _ => good_sharedNode _ _ _ _ _ _ _) _
 theorem good_recoverPair (index pair : Nat) (s : Selection) (aWord bWord : Rank)
     (opened : PairOpening) (prev : PairRoot) : Good (recoverPair index pair s aWord bWord opened prev) := by
@@ -705,8 +732,15 @@ theorem goodQ_coordinate (w : WBytes) (index : Nat) (k : Fin 9) (raw : Fin 128) 
     exact allQ_mapM _ _ fun _=>allQ_foldlM _ _ (fun _ _=>good_shortHash _ (by simp [V3.chainInput,V3.leafInput,SharedV3.childInput,V3.nodeInput,SphincsSecurity.bytesLE_length])) _
   · refine allQ_bind ?_ fun _=>allQ_pure _
     unfold SharedV3.childN
-    refine allQ_bind (good_shortHash _ (by simp [V3.chainInput,V3.leafInput,SharedV3.childInput,V3.nodeInput,SphincsSecurity.bytesLE_length])) fun _=>?_
-    refine allQ_bind (allQ_foldlM _ _ (fun _ _=>good_shortHash _ (by simp [V3.chainInput,V3.leafInput,SharedV3.childInput,V3.nodeInput,SphincsSecurity.bytesLE_length])) _) fun _=>?_
+    have hsel : ∀ hi input, 0 < input.length → Good (SharedV3.hashSel hi input) := by
+      intro hi input hpos
+      unfold SharedV3.hashSel
+      split
+      · unfold V3.hashHi
+        exact allQ_bind (good_publicHash _ hpos) fun _=>allQ_pure _
+      · exact good_shortHash _ hpos
+    refine allQ_bind (hsel _ _ (by simp [V3.chainInput,V3.leafInput,SharedV3.childInput,V3.nodeInput,SphincsSecurity.bytesLE_length])) fun _=>?_
+    refine allQ_bind (allQ_foldlM _ _ (fun _ _=>hsel _ _ (by simp [V3.chainInput,V3.leafInput,SharedV3.childInput,V3.nodeInput,SphincsSecurity.bytesLE_length])) _) fun _=>?_
     split
     · exact good_shortHash _ (by simp [V3.chainInput,V3.leafInput,SharedV3.childInput,V3.nodeInput,SphincsSecurity.bytesLE_length])
     · unfold V3.hashHi

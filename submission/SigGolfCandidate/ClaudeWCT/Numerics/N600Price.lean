@@ -4515,14 +4515,14 @@ theorem rank_weight : (∑ r : Fin 563, radix ^ (routineCost r - 75)) = rankPack
   rw [rank_list] at h
   exact h
 theorem a_weight_poly (R : Nat) : (∑ c : Fin 32, R ^ SharedForest.aCorrection c.val) =
-      4 + 16*R + 5*R^2 + 5*R^3 + R^5 + R^6 := by
-  norm_num [Fin.sum_univ_succ, Fin.succ, SharedForest.aCorrection,
-    saves, current, block, bitAt, plans, List.range_succ, List.range_zero]
+      13 + 16*R + 3*R^2 := by
+  simp only [SharedForest.aCorrection_table]
+  norm_num [Fin.sum_univ_succ, Fin.succ, SharedForest.correctionTable]
   ring
 theorem b_weight_poly (R : Nat) : (∑ c : Fin 32, R ^ SharedForest.bCorrection c.val) =
-      4 + 16*R + 5*R^2 + 5*R^3 + R^4 + R^5 := by
-  norm_num [Fin.sum_univ_succ, Fin.succ, SharedForest.bCorrection,
-    saves, current, block, bitAt, plans, List.range_succ, List.range_zero]
+      13 + 16*R + 3*R^2 := by
+  simp only [SharedForest.bCorrection_table]
+  norm_num [Fin.sum_univ_succ, Fin.succ, SharedForest.correctionTable]
   ring
 theorem a_weight : (∑ c : Fin 32, radix ^ SharedForest.aCorrection c.val) = fieldA := a_weight_poly radix
 theorem b_weight : (∑ c : Fin 32, radix ^ SharedForest.bCorrection c.val) = fieldBC := b_weight_poly radix
@@ -4569,13 +4569,13 @@ theorem weighted_words : (∑ w : «Word», radix ^ weight w) = fieldForestPacke
 theorem word_card_small : Fintype.card «Word» < radix - 1 := by
   norm_num [«Word», Coordinate, Fintype.card_prod, Fintype.card_fun, radix]
 
-theorem accepted_card : (Finset.univ.filter fun w : «Word» => weight w ≤ 113).card = fieldRetained := by
-  rw [SigGolfResearch.Gate6.generic_capped_card weight radix 113
+theorem accepted_card : (Finset.univ.filter fun w : «Word» => weight w ≤ 103).card = fieldRetained := by
+  rw [SigGolfResearch.Gate6.generic_capped_card weight radix 103
     (by norm_num [radix]) word_card_small, weighted_words]
   rfl
 
 theorem accepted_card_exact :
-    (Finset.univ.filter fun w : «Word» => weight w ≤ 113).card * 4^9 = count := by
+    (Finset.univ.filter fun w : «Word» => weight w ≤ 103).card * 4^9 = count := by
   rw [accepted_card, field_retained_eq]
 
 #print axioms accepted_card_exact
@@ -4667,7 +4667,7 @@ set_option maxHeartbeats 2000000
 attribute [local irreducible] SharedDigestFields.cost SharedDigestFields.coordinateCost ClaudeWCT.WCT9.routineCost
 
 theorem accepted_iff (f : Fields) : accepted f = true ↔
-    f.2.2.2.toNat < 734 ∧ (∀ k, (f.2.1 k).toNat < 563) ∧ cost f ≤ 788 := by
+    f.2.2.2.toNat < 734 ∧ (∀ k, (f.2.1 k).toNat < 563) ∧ cost f ≤ 778 := by
   simp only [accepted, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true]
   simp only [List.mem_finRange, forall_const]
   tauto
@@ -4697,7 +4697,7 @@ theorem encode_decode (f : Fields) (hg : f.2.2.2.toNat < 734)
         change f.2.2.2.toNat % 2^14 = f.2.2.2.toNat
         exact Nat.mod_eq_of_lt f.2.2.2.isLt
 
-theorem accepted_encode (w : «Word») (hw : weight w ≤ 113) (index : BitVec 31) (gate : Fin 734) :
+theorem accepted_encode (w : «Word») (hw : weight w ≤ 103) (index : BitVec 31) (gate : Fin 734) :
     accepted (encodeFields w index gate) = true := by
   apply (accepted_iff _).mpr
   refine ⟨?_, ?_, ?_⟩
@@ -4710,7 +4710,7 @@ theorem accepted_encode (w : «Word») (hw : weight w ≤ 113) (index : BitVec 3
   · rw [cost_encode]
     omega
 
-theorem weight_decode (f : Fields) (hf : accepted f = true) : weight (decodeFields f) ≤ 113 := by
+theorem weight_decode (f : Fields) (hf : accepted f = true) : weight (decodeFields f) ≤ 103 := by
   obtain ⟨hg,hr,hc⟩ := (accepted_iff f).mp hf
   have he := encode_decode f hg hr
   have hw := cost_encode (decodeFields f) f.2.2.1 ⟨f.2.2.2.toNat,hg⟩
@@ -4718,7 +4718,7 @@ theorem weight_decode (f : Fields) (hf : accepted f = true) : weight (decodeFiel
   omega
 
 def acceptedEquiv : {f : Fields // accepted f = true} ≃
-    {w : «Word» // weight w ≤ 113} × BitVec 31 × Fin 734 where
+    {w : «Word» // weight w ≤ 103} × BitVec 31 × Fin 734 where
   toFun f := (⟨decodeFields f.val, weight_decode f.val f.property⟩,
     f.val.2.2.1, ⟨f.val.2.2.2.toNat, ((accepted_iff _).mp f.property).1⟩)
   invFun v := ⟨encodeFields v.1.val v.2.1 v.2.2, accepted_encode _ v.1.property _ _⟩
@@ -4736,10 +4736,10 @@ def acceptedEquiv : {f : Fields // accepted f = true} ≃
         exact Nat.mod_eq_of_lt (by have h := v.2.2.isLt; omega)
 
 theorem accepted_fields_card : Fintype.card {f : Fields // accepted f = true} =
-    (Finset.univ.filter fun w : «Word» => weight w ≤ 113).card * 2^31 * 734 := by
+    (Finset.univ.filter fun w : «Word» => weight w ≤ 103).card * 2^31 * 734 := by
   rw [Fintype.card_congr acceptedEquiv]
   simp only [Fintype.card_prod, Fintype.card_bitVec, Fintype.card_fin,
-    Fintype.card_subtype (fun w : «Word» => weight w ≤ 113)]
+    Fintype.card_subtype (fun w : «Word» => weight w ≤ 103)]
   omega
 
 #print axioms acceptedEquiv

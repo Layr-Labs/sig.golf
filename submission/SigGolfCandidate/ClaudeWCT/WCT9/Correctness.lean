@@ -239,6 +239,57 @@ theorem childRoot_word_independent (answers : Answers) (index coord selected : N
       (evalWithAnswerFn answers (buildChildF index coord selected right
         (List.ofFn (ftsCoef answers index coord)) pad)).1 := by
   rw [buildChildF_result, buildChildF_result]
+/-- C1: evaluating an FTS hash reads the half `ftsHalf heap` of the answer. -/
+theorem eval_ftsHash (answers : Answers) (heap : Nat) (input : HashInput) :
+    evalWithAnswerFn answers (ftsHash heap input) = ftsHalf heap (answers (.inl (.inr (pad64 input)))) := by
+  unfold ftsHash ftsHalf
+  cases ftsHighHeap heap <;> rfl
+theorem buildChildH_factor (heap index coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest) :
+    buildChildH heap index coord selected word coefs pad = (do
+      let rows ← childRows index coord selected word coefs
+      let root ← leafHashH heap index coord selected pad rows.1
+      pure (root, rows.2)) := by
+  rfl
+/-- C1: honest FTS leaf of raw child `selected` placed at heap `heap`, with leaf pad `pad`. -/
+def childRootH (answers : Answers) (heap index coord selected : Nat) (pad : Digest) : Digest :=
+  evalWithAnswerFn answers (leafHashH heap index coord selected pad
+    (List.ofFn (fun i : Fin 6 => chainEnd answers index coord selected i)))
+theorem childRootH_of_low (answers : Answers) {heap : Nat} (h : ftsHighHeap heap = false)
+    (index coord selected : Nat) (pad : Digest) :
+    childRootH answers heap index coord selected pad = childRoot answers index coord selected pad := by
+  unfold childRootH childRoot
+  rw [leafHashH_of_low h]
+theorem buildChildH_result (answers : Answers) (heap index coord selected : Nat) (word : Rank) (pad : Digest) :
+    evalWithAnswerFn answers
+        (buildChildH heap index coord selected word (List.ofFn (ftsCoef answers index coord)) pad) =
+      (childRootH answers heap index coord selected pad,
+        List.ofFn (fun i : Fin 6 => chainValue answers index coord selected word i)) := by
+  let rows := evalWithAnswerFn answers (childRows index coord selected word
+    (List.ofFn (ftsCoef answers index coord)))
+  have hr : Rows answers index coord selected word 6 rows :=
+    eval_childRows answers index coord selected word
+  rcases hr with ⟨he, hv, hend, hval⟩
+  have hends : rows.1 = List.ofFn (fun i : Fin 6 => chainEnd answers index coord selected i) := by
+    apply List.ext_getElem (by simpa only [List.length_ofFn] using he)
+    intro i hi hj
+    simpa only [List.getD_eq_getElem _ _ hi, List.getElem_ofFn] using
+      hend ⟨i, by omega⟩ (by omega)
+  have hvals : rows.2 = List.ofFn (fun i : Fin 6 => chainValue answers index coord selected word i) := by
+    apply List.ext_getElem (by simpa only [List.length_ofFn] using hv)
+    intro i hi hj
+    simpa only [List.getD_eq_getElem _ _ hi, List.getElem_ofFn] using
+      hval ⟨i, by omega⟩ (by omega)
+  rw [buildChildH_factor, evalWithAnswerFn_bind, evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+  change (evalWithAnswerFn answers (leafHashH heap index coord selected pad rows.1), rows.2) = _
+  rw [hends, hvals]
+  rfl
+theorem childRootH_word_independent (answers : Answers) (heap index coord selected : Nat) (left right : Rank)
+    (pad : Digest) :
+    (evalWithAnswerFn answers
+        (buildChildH heap index coord selected left (List.ofFn (ftsCoef answers index coord)) pad)).1 =
+      (evalWithAnswerFn answers (buildChildH heap index coord selected right
+        (List.ofFn (ftsCoef answers index coord)) pad)).1 := by
+  rw [buildChildH_result, buildChildH_result]
 theorem getD_take_lt {α : Type} (L : List α) {n j : Nat} (hj : j < n) (d : α) :
     (L.take n).getD j d = L.getD j d := by
   rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_take_of_lt hj]
