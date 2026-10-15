@@ -38,13 +38,6 @@ theorem ShortRespects.shortHash (input : HashInput) (h : (pad64 input).length �
     ShortRespects (T3.shortHash input) := by
   intro A T hAT
   rw [eval_shortHash, eval_shortHash, hAT.public _ h]
-/-- C4: `T3.projHash` (either half) respects short-input agreement like `shortHash`. -/
-theorem ShortRespects.projHash (high : Bool) (input : HashInput)
-    (h : (pad64 input).length ≤ SeccLaw.maxInputLength) : ShortRespects (T3.projHash high input) := by
-  intro A T hAT
-  have e : ∀ X : Answers, evalWithAnswerFn X (T3.projHash high input) =
-      T3.projHalf high (X (.inl (.inr (pad64 input)))) := fun _ => rfl
-  rw [e, e, hAT.public _ h]
 theorem ShortRespects.privatePair (tag lay tree position index : Nat) :
     ShortRespects (T3.privatePair tag lay tree position index) := by
   intro A T hAT
@@ -93,14 +86,14 @@ theorem chain_respects (lay : Layer) (tree leaf i start count : Nat) (value : Di
 theorem leafHash_respects (lay : Layer) (tree leaf : Nat) (ends : List Digest) (hlen : ends.length ≤ 200) :
     ShortRespects (leafHash lay tree leaf ends) := by
   unfold leafHash
-  apply ShortRespects.projHash
+  apply ShortRespects.shortHash
   apply short_of_le
   rw [leafInput_length]
   split_ifs <;> omega
 theorem nodeHash_respects (tag lay tree heap : Nat) (left right : Digest) :
     ShortRespects (nodeHash tag lay tree heap left right) := by
   unfold nodeHash
-  apply ShortRespects.projHash
+  apply ShortRespects.shortHash
   apply short_of_le
   simp [zero16, bytesLE_length]
 theorem buildLevel_respects (tag lay tree h level : Nat) (nodes : List Digest) :
@@ -185,5 +178,139 @@ theorem honestRoot_short (lay : Layer) (tree : Nat) : Extract.honestRoot A lay t
 theorem buildFts_short (index coord : Nat) :
     evalWithAnswerFn A (buildFts index coord) = evalWithAnswerFn T (buildFts index coord) :=
   buildFts_respects index coord A T hAT
+theorem honestForest_short (index : Nat) : Extract.honestForest A index = Extract.honestForest T index := by
+  rw [WotsExtract.honestForest_eq_built, WotsExtract.honestForest_eq_built]
+  simp only [buildFts_short hAT]
+  apply forestPk_respects
+  · simp only [List.length_map, List.length_range]; omega
+  · exact hAT
+theorem builtSecret_short (index : Nat) : FtsExtract.builtSecret A index = FtsExtract.builtSecret T index := by
+  funext c g
+  simp only [FtsExtract.builtSecret, buildFts_short hAT]
+theorem out_short (input : HashInput) (h : input.length ≤ SeccLaw.maxInputLength) :
+    FtsExtract.out A input = FtsExtract.out T input := by
+  unfold FtsExtract.out
+  rw [hAT.public input h]
+theorem honL_short (index coord : Nat) (secret : Nat → Digest) (level node : Nat) :
+    FtsExtract.honL A index coord secret level node = FtsExtract.honL T index coord secret level node := by
+  induction level generalizing node with
+  | zero =>
+      simp only [FtsExtract.honL]
+      exact out_short hAT _ (by simp [ftsLeafInputP, SeccLaw.maxInputLength])
+  | succ level ih =>
+      simp only [FtsExtract.honL]
+      rw [ih, ih]
+      exact out_short hAT _ (by simp [nodeInputP, SeccLaw.maxInputLength])
+theorem honInputL_short (index coord : Nat) (secret : Nat → Digest) (level node : Nat) :
+    FtsExtract.honInputL A index coord secret level node = FtsExtract.honInputL T index coord secret level node := by
+  cases level with
+  | zero => rfl
+  | succ level =>
+      simp only [FtsExtract.honInputL]
+      rw [honL_short hAT, honL_short hAT]
+theorem leafMsg_short (L : LeafAddr) : leafMsg A L = leafMsg T L := by
+  unfold leafMsg
+  split_ifs
+  · exact honestRoot_short hAT _ _
+  · exact honestForest_short hAT _
+theorem referenceSearch_short (L : LeafAddr) : referenceSearch A L = referenceSearch T L := by
+  unfold referenceSearch
+  rw [leafMsg_short hAT]
+  exact counterSearch_respects _ _ _ _ _ _ A T hAT
+theorem referenceDigits_short (L : LeafAddr) : referenceDigits A L = referenceDigits T L := by
+  unfold referenceDigits
+  rw [referenceSearch_short hAT]
+theorem depth_short (a : ChainAddr) : depth A a = depth T a := by
+  unfold depth
+  rw [referenceDigits_short hAT]
+theorem frontierValue_short (a : ChainAddr) : frontierValue A a = frontierValue T a := by
+  unfold frontierValue
+  rw [depth_short hAT, leafSeed_short hAT]
+  exact honestChainValue_short hAT _ _ _ _ _ _
+theorem referenceInput_short (L : LeafAddr) : referenceInput A L = referenceInput T L := by
+  unfold referenceInput
+  rw [referenceSearch_short hAT, leafMsg_short hAT]
+theorem honestInput_short (position : Extract.Pos) (hb : position.Bounded) :
+    Extract.honestInput A position = Extract.honestInput T position := by
+  cases position with
+  | chain lay tree leaf i step =>
+      simp only [Extract.honestInput]
+      rw [leafSeed_short hAT, honestChainValue_short hAT]
+  | leaf lay tree leaf =>
+      simp only [Extract.honestInput]
+      rw [List.map_congr_left (fun i _ => leafEnd_short hAT lay tree leaf i)]
+  | node lay tree level node =>
+      simp only [Extract.honestInput]
+      rw [builtTree_short hAT]
+  | forest index =>
+      rw [FtsExtract.honestInput_forest, FtsExtract.honestInput_forest]
+      simp only [buildFts_short hAT]
+  | ftsLeaf index coord leaf =>
+      rw [FtsExtract.honestInput_ftsLeaf, FtsExtract.honestInput_ftsLeaf, builtSecret_short hAT]
+      rfl
+  | ftsNode index coord level node =>
+      obtain ⟨-, -, hl, hn⟩ := hb
+      have hn' : node < 2 ^ (11 - (level + 1)) := by
+        have : 11 - level - 1 = 11 - (level + 1) := by omega
+        rwa [this] at hn
+      rw [FtsExtract.honestInput_ftsNode A index coord level node hl hn',
+        FtsExtract.honestInput_ftsNode T index coord level node hl hn', builtSecret_short hAT,
+        honInputL_short hAT]
 end objects
+theorem honestInput_length (answers : Answers) (position : Extract.Pos) :
+    (Extract.honestInput answers position).length ≤ SeccLaw.maxInputLength := by
+  cases position with
+  | chain lay tree leaf i step =>
+      apply short_of_le
+      rw [chainInput_length]; omega
+  | leaf lay tree leaf =>
+      apply short_of_le
+      simp only [Extract.leafInput]
+      rw [leafInput_length]
+      simp only [List.length_map, List.length_range]
+      have := chainCount_le lay
+      split_ifs <;> omega
+  | node lay tree level node =>
+      apply short_of_le
+      simp [nodeInputP]
+  | forest index =>
+      rw [FtsExtract.honestInput_forest]
+      apply short_of_le
+      rw [Extract.forestInput, listInput_length]
+      simp only [List.length_drop, List.length_map, List.length_range]
+      omega
+  | ftsLeaf index coord leaf =>
+      apply short_of_le
+      simp [ftsLeafInputP]
+  | ftsNode index coord level node =>
+      apply short_of_le
+      simp [nodeInputP]
+theorem WotsPrimitive.transfer {A T : Answers} {trace : List Entry} (hAT : ShortAgree A T)
+    (htrace : ∀ e ∈ trace, A (.inl (.inr e.1)) = T (.inl (.inr e.1)))
+    (h : WotsPrimitive A trace) : WotsPrimitive T trace := by
+  have hdepth : depth A = depth T := funext (depth_short hAT)
+  have hfront : frontierValue A = frontierValue T := funext (frontierValue_short hAT)
+  have hrefi : referenceInput A = referenceInput T := funext (referenceInput_short hAT)
+  have hrefd : referenceDigits A = referenceDigits T := funext (referenceDigits_short hAT)
+  rcases h with ⟨L, hL⟩ | hS | ⟨a, ha⟩ | ⟨a, b, hab, ha, hb⟩ | ⟨a, ha, hc⟩
+  · refine Or.inl ⟨L, ?_⟩
+    simpa only [EncodingMatchAt, hrefi, hrefd] using hL
+  · refine Or.inr (Or.inl ?_)
+    obtain ⟨position, input, answer, hmem, hpos, hbounded, hclass, hhit⟩ := hS
+    refine ⟨position, input, answer, hmem, hpos, hbounded, ?_, ?_⟩
+    · cases position <;> simpa only [StructuralClass, OtherChainRow, hdepth] using hclass
+    · rw [← honestInput_short hAT position hbounded]
+      obtain ⟨hne, heq⟩ := hhit
+      refine ⟨hne, ?_⟩
+      rw [← htrace (input, answer) hmem,
+        ← hAT.public _ (honestInput_length A position)]
+      exact heq
+  · refine Or.inr (Or.inr (Or.inl ⟨a, ?_⟩))
+    simpa only [TwoEdgeAt, hdepth, hfront] using ha
+  · refine Or.inr (Or.inr (Or.inr (Or.inl ⟨a, b, hab, ?_, ?_⟩)))
+    · simpa only [ContactAt, hdepth, hfront] using ha
+    · simpa only [ContactAt, hdepth, hfront] using hb
+  · refine Or.inr (Or.inr (Or.inr (Or.inr ⟨a, ?_, ?_⟩)))
+    · simpa only [MarkerAt, hrefi, hrefd] using ha
+    · simpa only [ContactAt, hdepth, hfront] using hc
 end SigGolfCandidate.T3.Security.Wots.Ref

@@ -1,4 +1,4 @@
-import SigGolfCandidate.Bridge_Basic
+import SigGolfCandidate.Bridge.Basic
 import VCVio.OracleComp.QueryTracking.RandomOracle.EagerTable
 
 open OracleSpec OracleComp SigGolfCandidate.Bridge

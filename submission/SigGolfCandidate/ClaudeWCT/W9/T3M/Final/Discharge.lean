@@ -27,7 +27,7 @@ theorem run_keygen_congr {sA wA sB wB c : Nat} {lA lB : Layout} {iA iB : Phase �
   rfl
 theorem keygen_run_eq (hadm : (submission I).Admissible) (sk : SecretKey) :
     (submission I).run .keygen sk = SigGolfCandidate.T3M.submission.run .keygen sk := by
-  have hvA : ((submission I).image .keygen).Valid ⟨5310, 24828, 131072⟩ ⟨0x65c0, 0x80, 0xa0, 0x80000, 0x7000, 0x4c0⟩ :=
+  have hvA : ((submission I).image .keygen).Valid ⟨5310, 24860, 131072⟩ ⟨0x65e0, 0x80, 0xa0, 0x80000, 0x7000, 0x4c0⟩ :=
     hadm.2 .keygen
   have hvB : (SigGolfCandidate.T3M.submission.image .keygen).Valid
       ⟨SigGolfCandidate.T3M.submission.sizes.signature, SigGolfCandidate.T3M.submission.sizes.witness, 131072⟩
@@ -45,3 +45,28 @@ theorem keygen_runWith_holds (hadm : (submission I).Admissible) : KeygenRunWith 
   rw [keygen_run_eq I hadm sk]
   exact SigGolfCandidate.T3M.Keygen.keygen_runWith hash sk
 end ClaudeWCT.W9.T3M.Final
+
+namespace ClaudeWCT.W9.T3M.Final.Paired
+open SigGolfCandidate.Legacy OracleComp
+open ClaudeWCT.W9.T3M (Images)
+variable (I : Images)
+theorem keygen_run_eq (hadm : (submission I).Admissible) (sk : SecretKey) :
+    (submission I).run .keygen sk = SigGolfCandidate.T3M.submission.run .keygen sk := by
+  have hvA : ((submission I).image .keygen).Valid ⟨5248, 24860, 131072⟩ ⟨0x65e0, 0x80, 0xa0, 0x80000, 0x7000, 0x4c0⟩ :=
+    hadm.2 .keygen
+  have hvB : (SigGolfCandidate.T3M.submission.image .keygen).Valid
+      ⟨SigGolfCandidate.T3M.submission.sizes.signature, SigGolfCandidate.T3M.submission.sizes.witness, 131072⟩
+      SigGolfCandidate.T3M.submission.layout := SigGolfCandidate.T3M.submission_keygen_valid
+  have hk : (submission I).image .keygen = SigGolfCandidate.T3M.submission.image .keygen := by
+    rw [ClaudeWCT.W9.T3M.Paired.submission_keygen, SigGolfCandidate.T3M.submission_keygen]
+  exact run_keygen_congr (iA := (submission I).image) (iB := SigGolfCandidate.T3M.submission.image) hk hvA hvB
+    (by rw [SigGolfCandidate.T3M.submission_layout]) (by rw [SigGolfCandidate.T3M.submission_layout])
+    (by rw [SigGolfCandidate.T3M.submission_layout]) sk
+theorem keygen_run_counts_holds (hadm : (submission I).Admissible) : KeygenRunCounts I := fun sk => by
+  rw [keygen_run_eq I hadm sk]
+  exact SigGolfCandidate.T3M.Keygen.keygen_run_counts sk
+theorem keygen_runWith_holds (hadm : (submission I).Admissible) : KeygenRunWith I := fun hash sk => by
+  unfold Submission.runWith
+  rw [keygen_run_eq I hadm sk]
+  exact SigGolfCandidate.T3M.Keygen.keygen_runWith hash sk
+end ClaudeWCT.W9.T3M.Final.Paired

@@ -1,3 +1,5 @@
+import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Header
+import SigGolfCandidate.W9Drv.FtsCore
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.Queries
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.HdrBlocks
 import SigGolfCandidate.ClaudeWCT.W9.T3M.Extract.Defs
@@ -57,129 +59,6 @@ theorem queried_hashPath_honest (answers : Answers) (input : Nat → Digest → 
   refine ⟨step, hs, ?_⟩
   rw [pathInput, pathValue_honest answers input honestInput target initial count reference honest h0 step hs.le,
     honest step hs]
-/-! ### C1: hash paths whose step `s` uses the half of FTS heap `sel s` -/
-section pathF
-variable (sel : Nat → Nat)
-def hashPathF (input : Nat → Digest → HashInput) (count : Nat) (initial : Digest) : M Digest :=
-  (List.range count).foldlM (fun value step => WCT9.ftsHash (sel step) (input step value)) initial
-def pathValueF (answers : Answers) (input : Nat → Digest → HashInput) (initial : Digest) (count : Nat) : Digest :=
-  evalWithAnswerFn answers (hashPathF sel input count initial)
-def pathInputF (answers : Answers) (input : Nat → Digest → HashInput) (initial : Digest) (step : Nat) : HashInput :=
-  input step (pathValueF sel answers input initial step)
-theorem queried_ftsHash (answers : Answers) (heap : Nat) (input : HashInput) :
-    queried answers (WCT9.ftsHash heap input) = [.inl (.inr (pad64 input))] := by
-  unfold WCT9.ftsHash
-  cases WCT9.ftsHighHeap heap <;> rfl
-theorem hashPathF_succ (input : Nat → Digest → HashInput) (count : Nat) (initial : Digest) :
-    hashPathF sel input (count + 1) initial =
-      (hashPathF sel input count initial >>= fun value => WCT9.ftsHash (sel count) (input count value)) := by
-  simp [hashPathF, List.range_succ, List.foldlM_append]
-@[simp] theorem pathValueF_zero (answers : Answers) (input : Nat → Digest → HashInput) (initial : Digest) :
-    pathValueF sel answers input initial 0 = initial := rfl
-theorem pathValueF_succ (answers : Answers) (input : Nat → Digest → HashInput) (initial : Digest) (step : Nat) :
-    pathValueF sel answers input initial (step + 1) =
-      WCT9.ftsHalf (sel step) (answers (.inl (.inr (pad64 (pathInputF sel answers input initial step))))) := by
-  simp only [pathValueF, hashPathF_succ, evalWithAnswerFn_bind, pathInputF, WCT9.eval_ftsHash]
-theorem queried_hashPathF (answers : Answers) (input : Nat → Digest → HashInput) (initial : Digest) :
-    ∀ count, queried answers (hashPathF sel input count initial) =
-      (List.range count).map fun step => .inl (.inr (pad64 (pathInputF sel answers input initial step)))
-  | 0 => rfl
-  | count + 1 => by
-      rw [hashPathF_succ, queried_bind, queried_hashPathF answers input initial count, List.range_succ,
-        List.map_append, queried_ftsHash]
-      rfl
-theorem pathInputF_queried (answers : Answers) (input : Nat → Digest → HashInput) (initial : Digest)
-    (count step : Nat) (hstep : step < count) :
-    .inl (.inr (pad64 (pathInputF sel answers input initial step))) ∈
-      queried answers (hashPathF sel input count initial) := by
-  rw [queried_hashPathF]
-  exact List.mem_map.mpr ⟨step, List.mem_range.mpr hstep, rfl⟩
-theorem pathValueF_honest (answers : Answers) (input : Nat → Digest → HashInput) (honestInput : Nat → HashInput)
-    (target : Nat → Digest) (initial : Digest) (count : Nat)
-    (reference : ∀ step, step < count →
-      evalWithAnswerFn answers (WCT9.ftsHash (sel step) (honestInput step)) = target (step + 1))
-    (honest : ∀ step, step < count → input step (target step) = honestInput step)
-    (h0 : initial = target 0) : ∀ step, step ≤ count → pathValueF sel answers input initial step = target step := by
-  intro step
-  induction step with
-  | zero => intro _; exact h0
-  | succ step ih =>
-      intro hs
-      rw [pathValueF_succ, pathInputF, ih (by omega), honest step (by omega), ← WCT9.eval_ftsHash,
-        reference step (by omega)]
-theorem queried_hashPathF_honest (answers : Answers) (input : Nat → Digest → HashInput)
-    (honestInput : Nat → HashInput) (target : Nat → Digest) (initial : Digest) (count : Nat)
-    (reference : ∀ step, step < count →
-      evalWithAnswerFn answers (WCT9.ftsHash (sel step) (honestInput step)) = target (step + 1))
-    (honest : ∀ step, step < count → input step (target step) = honestInput step)
-    (h0 : initial = target 0) :
-    ∀ q ∈ queried answers (hashPathF sel input count initial), ∃ step, step < count ∧
-      q = .inl (.inr (pad64 (honestInput step))) := by
-  intro q hq
-  rw [queried_hashPathF] at hq
-  obtain ⟨step, hs, rfl⟩ := List.mem_map.mp hq
-  have hs := List.mem_range.mp hs
-  refine ⟨step, hs, ?_⟩
-  rw [pathInputF, pathValueF_honest sel answers input honestInput target initial count reference honest h0 step hs.le,
-    honest step hs]
-/-- `hashPath_extract` for FTS paths (C1): a hit agrees with the honest output on the half of heap `sel step`. -/
-theorem hashPathF_extract (answers : Answers) (input : Nat → Digest → HashInput)
-    (honestInput : Nat → HashInput) (target : Nat → Digest) (Good : Nat → Prop)
-    (initial : Digest) (count : Nat)
-    (reference : ∀ step, step < count →
-      evalWithAnswerFn answers (WCT9.ftsHash (sel step) (honestInput step)) = target (step + 1))
-    (parse : ∀ step, step < count → ∀ value,
-      pad64 (input step value) = pad64 (honestInput step) → value = target step ∧ Good step)
-    (reaches : pathValueF sel answers input initial count = target count) :
-    (initial = target 0 ∧ ∀ step, step < count → Good step) ∨
-      ∃ step, step < count ∧
-        .inl (.inr (pad64 (pathInputF sel answers input initial step))) ∈
-          queried answers (hashPathF sel input count initial) ∧
-        pad64 (pathInputF sel answers input initial step) ≠ pad64 (honestInput step) ∧
-        WCT9.ftsHalf (sel step) (answers (.inl (.inr (pad64 (pathInputF sel answers input initial step))))) =
-          WCT9.ftsHalf (sel step) (answers (.inl (.inr (pad64 (honestInput step))))) := by
-  induction count with
-  | zero => exact Or.inl ⟨reaches, fun step hstep => by omega⟩
-  | succ count ih =>
-      by_cases heq : pad64 (pathInputF sel answers input initial count) = pad64 (honestInput count)
-      · obtain ⟨hprev, hgood⟩ := parse count (by omega) _ heq
-        rcases ih (fun step hstep => reference step (by omega))
-          (fun step hstep => parse step (by omega)) hprev with ⟨hinit, hall⟩ | ⟨step, hstep, _, hne, hhit⟩
-        · left
-          refine ⟨hinit, fun step hstep => ?_⟩
-          rcases Nat.lt_succ_iff_lt_or_eq.mp hstep with hlt | rfl
-          · exact hall step hlt
-          · exact hgood
-        · exact Or.inr ⟨step, by omega, pathInputF_queried sel answers input initial _ _ (by omega), hne, hhit⟩
-      · right
-        refine ⟨count, by omega, pathInputF_queried sel answers input initial _ _ (by omega), heq, ?_⟩
-        rw [pathValueF_succ] at reaches
-        have hr := reference count (by omega)
-        rw [WCT9.eval_ftsHash] at hr
-        exact reaches.trans hr.symm
-theorem merkleHPathF_extract (answers : Answers) (tag lay tree height leaf count : Nat)
-    (path pads honestPath target : Nat → Digest) (hpads : Nat → BitVec 64) (value : Digest)
-    (reference : ∀ step, step < count →
-      evalWithAnswerFn answers (WCT9.ftsHash (sel step)
-        (merkleInput tag lay tree height leaf honestPath (fun _ => 0) step (target step))) =
-          target (step + 1))
-    (reaches : pathValueF sel answers (merkleInputH tag lay tree height leaf path pads hpads) value count =
-      target count) :
-    (value = target 0 ∧ ∀ step, step < count → path step = honestPath step ∧ pads step = 0 ∧
-        HighOK tag lay tree height leaf hpads step) ∨
-      ∃ step, step < count ∧
-        .inl (.inr (pad64 (pathInputF sel answers (merkleInputH tag lay tree height leaf path pads hpads) value
-          step))) ∈ queried answers (hashPathF sel (merkleInputH tag lay tree height leaf path pads hpads) count value) ∧
-        pad64 (pathInputF sel answers (merkleInputH tag lay tree height leaf path pads hpads) value step) ≠
-          pad64 (merkleInput tag lay tree height leaf honestPath (fun _ => 0) step (target step)) ∧
-        WCT9.ftsHalf (sel step) (answers (.inl (.inr (pad64 (pathInputF sel answers
-          (merkleInputH tag lay tree height leaf path pads hpads) value step))))) =
-          WCT9.ftsHalf (sel step) (answers (.inl (.inr (pad64
-            (merkleInput tag lay tree height leaf honestPath (fun _ => 0) step (target step)))))) :=
-  hashPathF_extract sel answers _ _ target _ value count reference
-    (fun step _ current => merkleInputH_parse tag lay tree height leaf step path pads honestPath hpads current
-      (target step)) reaches
-end pathF
 theorem hdrBlock_block4W (a b c d : Digest) : Extract.hdrBlock (block4 a b c d) = bytesLE 16 b := by
   unfold Extract.hdrBlock block4
   rw [List.append_assoc, List.append_assoc, List.drop_left' (bytesLE_length 16 a)]
@@ -306,9 +185,7 @@ theorem chain_extract (d : Nat) (hd : d ≤ 4) (pa : Digest) (pb : BitVec 64) (p
     obtain ⟨hi, hc, hj, ht⟩ := hb
     refine ⟨.wctChain index coord child t (4 - d + step), _, ⟨hi, hc, hj, ht, by omega⟩, hq, ?_, ?_⟩
     · rw [honestInput_wctChain, ← Extract.pad64_wctChainInput]; exact hhit
-    · refine Extract.SameHeader.of_canonical ?_ (by rw [Extract.honestInput_length]; simp [Extract.Pos.len]) ?_
-      · rw [Extract.honestInput_length, pathInput]
-        simp only [wctChainInputP_block4, pad64_block4, block4_length, Extract.Pos.len]
+    · unfold Extract.SameHeader
       rw [Extract.hdrBlock_honestInput, pathInput]
       simp only [wctChainInputP_block4, pad64_block4, hdrBlock_block4W, Extract.Pos.hdr]
       exact canonicalHeader_ftsChainHeaderP index coord child t _ _
@@ -317,18 +194,16 @@ theorem leafHash_eq_shortHash (index coord child : Nat) (ends : List Digest) :
     WCT9.leafHash index coord child ends = shortHash (Extract.wctLeafInput index coord child ends) := by
   unfold WCT9.leafHash Extract.wctLeafInput Extract.listInput
   simp only [List.flatMap_cons, WCT9.bytesLE_zero16, List.append_assoc]
-/-- The padded FTS leaf (campaign T8) as a list input: the pad is the first digest after the header. C1: the leaf
-is FTS heap `128 + child`. -/
-theorem leafHashP_eq_ftsHash (index coord child : Nat) (pad : Digest) (ends : List Digest) :
-    WCT9.leafHashP index coord child pad ends =
-      WCT9.ftsHash (128 + child) (Extract.wctLeafInputP index coord child pad ends) := by
+/-- The padded FTS leaf (campaign T8) as a list input: the pad is the first digest after the header. -/
+theorem leafHashP_eq_shortHash (index coord child : Nat) (pad : Digest) (ends : List Digest) :
+    WCT9.leafHashP index coord child pad ends = shortHash (Extract.wctLeafInputP index coord child pad ends) := by
   unfold WCT9.leafHashP WCT9.leafInputP Extract.wctLeafInputP Extract.listInput
   simp only [List.flatMap_cons, List.append_assoc]
 theorem childRoot_eq_out (answers : Answers) (index coord child : Nat) :
     WCT9.childRoot answers index coord child (Extract.ftsPrev answers index coord).1 =
-      WCT9.ftsHalf (128 + child) (answers (.inl (.inr (Extract.honestInput answers (.wctLeaf index coord child))))) := by
+      (answers (.inl (.inr (Extract.honestInput answers (.wctLeaf index coord child))))).extractLsb' 0 128 := by
   unfold WCT9.childRoot
-  rw [leafHashP_eq_ftsHash, WCT9.eval_ftsHash]
+  rw [leafHashP_eq_shortHash, eval_shortHash]
   rfl
 theorem wctEnds_length (answers : Answers) (index coord child : Nat) :
     (Extract.wctEnds answers index coord child).length = 6 := by
@@ -362,8 +237,8 @@ theorem leaf_extract (answers : Answers) (index coord child : Nat) (pad : Digest
       queried answers (WCT9.leafHashP index coord child pad ends) =
         [.inl (.inr (Extract.honestInput answers (.wctLeaf index coord child)))]) ∨
     Extract.HitIn answers (queried answers (WCT9.leafHashP index coord child pad ends)) := by
-  rw [leafHashP_eq_ftsHash] at reaches ⊢
-  rw [queried_ftsHash]
+  rw [leafHashP_eq_shortHash] at reaches ⊢
+  rw [queried_shortHash]
   by_cases heq : pad64 (Extract.wctLeafInputP index coord child pad ends) =
       Extract.honestInput answers (.wctLeaf index coord child)
   · left
@@ -374,17 +249,15 @@ theorem leaf_extract (answers : Answers) (index coord child : Nat) (pad : Digest
     obtain ⟨hpad, hrest⟩ := List.cons.inj hr
     exact ⟨eq_of_getD_drop (by rw [hlen, wctEnds_length]) (by omega) h0 hrest, hpad, by rw [heq]⟩
   · right
-    refine ⟨.wctLeaf index coord child, _, hb, List.mem_singleton_self _, ⟨heq, ?_⟩, ?_⟩
-    · rw [WCT9.eval_ftsHash] at reaches
-      show WCT9.ftsHalf (128 + child) _ = WCT9.ftsHalf (128 + child) _
+    refine ⟨.wctLeaf index coord child, _, hb, List.mem_singleton_self _, Extract.hashHitAt_of_low rfl ⟨heq, ?_⟩, ?_⟩
+    · rw [eval_shortHash] at reaches
       rw [reaches, childRoot_eq_out]
-    · refine Extract.SameHeader.of_hdrBlock ?_ (by rw [Extract.hdrBlock_honestInput, Extract.hdrBlock_wctLeafInputP]; rfl)
-      rw [Extract.honestInput_length]
-      simp [Extract.wctLeafInputP, Extract.listInput, pad64, bytesLE_length, digest_list_bytes_length, hlen,
-        Extract.Pos.len]
+    · unfold Extract.SameHeader
+      rw [Extract.hdrBlock_honestInput, Extract.hdrBlock_wctLeafInputP]
+      rfl
 theorem merkleInput_tree_reference_le (answers : Answers) (tag lay tree height completed leaf : Nat)
     (levels : List (List Digest)) (leaves : List Digest)
-    (htree : TreeLevels answers tag lay tree height leaves completed levels) (htop : ¬ (tag = 3 ∧ lay = 0))
+    (htree : TreeLevels answers tag lay tree height leaves completed levels)
     (hleaf : leaf < 2 ^ height) (step : Nat) (hstep : step < completed) (hc : completed ≤ height) :
     evalWithAnswerFn answers (shortHash
       (merkleInput tag lay tree height leaf
@@ -394,48 +267,25 @@ theorem merkleInput_tree_reference_le (answers : Answers) (tag lay tree height c
   unfold merkleInput
   dsimp only
   rw [Correctness.sibling_pair, Correctness.div_pow_succ]
-  rw [← nodeHash_eq_shortHash (nodeHalfHigh_of_ne htop _)]
+  rw [← nodeHash_eq_shortHash]
   have hparent : leaf / 2 ^ (step + 1) < 2 ^ (height - (step + 1)) := by
     simpa using Correctness.div_pow_bound (start := 0) (level := step + 1)
       (node := leaf) (height := height) (by omega) (by simpa using hleaf)
   have hp := htree.2.2 step hstep (leaf / 2 ^ (step + 1)) hparent
   simpa only [treeValue, Nat.sub_sub] using hp.symm
-/-- C1: `merkleInput_tree_reference_le` for an FTS tree, whose node at heap `h` is `wctNodeHash` (half of `h`). -/
-theorem merkleInput_ftsReference (answers : Answers) (coord index leaf completed : Nat)
-    (levels : List (List Digest)) (leaves : List Digest)
-    (htree : WCT9.TreeLevelsF answers (WCT9.wctNodeHash coord index) 7 leaves completed levels)
-    (hleaf : leaf < 2 ^ 7) (step : Nat) (hstep : step < completed) (hc : completed ≤ 7) :
-    evalWithAnswerFn answers (WCT9.ftsHash (2 ^ (7 - step - 1) + leaf / 2 ^ (step + 1))
-      (merkleInput 3 (WCT9.nodeLayer coord) index 7 leaf
-        (fun j => treeValue levels j (leaf / 2 ^ j ^^^ 1)) (fun _ => 0)
-        step (treeValue levels step (leaf / 2 ^ step)))) =
-      treeValue levels (step + 1) (leaf / 2 ^ (step + 1)) := by
-  unfold merkleInput
-  dsimp only
-  rw [Correctness.sibling_pair, Correctness.div_pow_succ]
-  have hparent : leaf / 2 ^ (step + 1) < 2 ^ (7 - (step + 1)) := by
-    simpa using Correctness.div_pow_bound (start := 0) (level := step + 1)
-      (node := leaf) (height := 7) (by omega) (by simpa using hleaf)
-  have hp := htree.2.2 step hstep (leaf / 2 ^ (step + 1)) hparent
-  simp only [WCT9.wctNodeHash, WCT9.wctNodeHeader] at hp
-  simp only [nodeInputP, block4, WCT9.bytesLE_zero16, Nat.sub_sub]
-  simpa only [treeValue] using hp.symm
 section merkle
 variable (answers : Answers) (index : Nat) (c : WCT9.Coord) (j : Nat)
 def mTarget (step : Nat) : Digest := treeValue (Extract.ftsLevels answers index c.val) step (j / 2 ^ step)
 def mPath (l : Nat) : Digest := treeValue (Extract.ftsLevels answers index c.val) l (j / 2 ^ l ^^^ 1)
 theorem ftsLevels_treeLevels :
-    WCT9.TreeLevelsF answers (WCT9.wctNodeHash c.val index) 7 (WCT9.coordLeaves answers index c) 5
+    TreeLevels answers 3 (WCT9.nodeLayer c.val) index 7 (WCT9.coordLeaves answers index c) 5
       ((Extract.ftsLevels answers index c.val).take 6) :=
   WCT9.coordinate_treeLevels answers index c
-/-- C1: the heap of the node computed at fold step `step` of child `j` (the half its parent reads). -/
-def msel (step : Nat) : Nat := 2 ^ (7 - step - 1) + j / 2 ^ (step + 1)
 theorem merkle_reference (hj : j < 128) : ∀ step, step < 5 →
-    evalWithAnswerFn answers (WCT9.ftsHash (msel j step) (merkleInput 3 (WCT9.nodeLayer c.val) index 7 j
-      (mPath answers index c j) (fun _ => 0) step (mTarget answers index c j step))) =
-        mTarget answers index c j (step + 1) := by
+    evalWithAnswerFn answers (shortHash (merkleInput 3 (WCT9.nodeLayer c.val) index 7 j (mPath answers index c j)
+      (fun _ => 0) step (mTarget answers index c j step))) = mTarget answers index c j (step + 1) := by
   intro step hstep
-  have h := merkleInput_ftsReference answers c.val index j 5 _ _
+  have h := merkleInput_tree_reference_le answers 3 (WCT9.nodeLayer c.val) index 7 5 j _ _
     (ftsLevels_treeLevels answers index c) (by norm_num; omega) step hstep (by decide)
   have e1 : ∀ x, treeValue ((Extract.ftsLevels answers index c.val).take 6) step x =
       treeValue (Extract.ftsLevels answers index c.val) step x := fun x => WCT9.treeValue_take_lt _ (by omega) x
@@ -499,22 +349,22 @@ theorem canonicalHeader_withHigh (t : BitVec 128) (hp : BitVec 64) :
 
 theorem merkle_extract (hidx : index < 2 ^ 31) (hj : j < 128) (path pads : Nat → Digest)
     (hpads : Nat → BitVec 64) (leaf : Digest)
-    (reaches : evalWithAnswerFn answers (hashPathF (msel j) (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 j path pads hpads) 5
+    (reaches : evalWithAnswerFn answers (hashPath (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 j path pads hpads) 5
       leaf) = mTarget answers index c j 5) :
     (leaf = WCT9.childRoot answers index c.val j (Extract.ftsPrev answers index c.val).1 ∧
       (∀ l, l < 5 → path l = mPath answers index c j l ∧ pads l = 0) ∧
-      ∀ q ∈ queried answers (hashPathF (msel j) (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 j path pads hpads) 5 leaf),
+      ∀ q ∈ queried answers (hashPath (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 j path pads hpads) 5 leaf),
         ∃ l, l < 5 ∧ q = .inl (.inr (Extract.honestInput answers (.wctNode index c.val l (j / 2 ^ (l + 1)))))) ∨
     Extract.HitIn answers (queried answers
-      (hashPathF (msel j) (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 j path pads hpads) 5 leaf)) := by
+      (hashPath (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 j path pads hpads) 5 leaf)) := by
   have hR := merkle_reference answers index c j hj
-  have h := merkleHPathF_extract (msel j) answers 3 (WCT9.nodeLayer c.val) index 7 j 5 path pads
-    (mPath answers index c j) (mTarget answers index c j) hpads leaf hR reaches
-  rcases h with ⟨h0, hall⟩ | ⟨step, hstep, hq, hne, hhit⟩
+  have h := merkleHPath_extract answers 3 (WCT9.nodeLayer c.val) index 7 j 5 path pads (mPath answers index c j)
+    (mTarget answers index c j) hpads leaf hR reaches
+  rcases h with ⟨h0, hall⟩ | ⟨step, hstep, hq, hhit⟩
   · left
     refine ⟨by rw [h0, mTarget_zero answers index c j hj], fun l hl => ⟨(hall l hl).1, (hall l hl).2.1⟩,
       fun q hq => ?_⟩
-    obtain ⟨step, hs, rfl⟩ := queried_hashPathF_honest (msel j) answers
+    obtain ⟨step, hs, rfl⟩ := queried_hashPath_honest answers
       (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 j path pads hpads)
       (fun step => merkleInput 3 (WCT9.nodeLayer c.val) index 7 j (mPath answers index c j) (fun _ => 0) step
         (mTarget answers index c j step))
@@ -529,14 +379,10 @@ theorem merkle_extract (hidx : index < 2 ^ 31) (hj : j < 128) (path pads : Nat �
         (by norm_num; omega)
       simpa [Nat.sub_sub] using this
     refine ⟨.wctNode index c.val step (j / 2 ^ (step + 1)), _, ⟨hidx, c.isLt, by omega, hn⟩, hq, ?_, ?_⟩
-    · refine ⟨by rw [← merkle_honestInput answers index c j step hstep]; exact hne, ?_⟩
-      show WCT9.ftsHalf (msel j step) _ = WCT9.ftsHalf (msel j step) _
+    · apply Extract.hashHitAt_of_low (by simp only [Extract.Pos.proj, if_neg (show step ≠ 5 by omega)])
       rw [← merkle_honestInput answers index c j step hstep]; exact hhit
-    · refine Extract.SameHeader.of_canonical ?_ (by rw [Extract.honestInput_length]; simp [Extract.Pos.len]) ?_
-      · rw [Extract.honestInput_length, pathInputF]
-        simp only [merkleInputH, pad64_nodeInputPH, SigGolfCandidate.T3M.SecurityInputs.nodeInputPH, pad64_block4,
-          block4_length, Extract.Pos.len]
-      rw [Extract.hdrBlock_honestInput, pathInputF, hdrBlock_merkleInputH, canonicalHeader_withHigh]
+    · unfold Extract.SameHeader
+      rw [Extract.hdrBlock_honestInput, pathInput, hdrBlock_merkleInputH, canonicalHeader_withHigh]
       rfl
 theorem top_lt (hj : j < 128) : j / 2 ^ 6 < 2 := by
   apply (Nat.div_lt_iff_lt_mul (by positivity)).mpr; norm_num; omega
@@ -596,15 +442,12 @@ theorem top_extract (hidx : index < 2 ^ 31) (hj : j < 128) (v other z : Digest)
   · right
     refine ⟨.wctNode index c.val 5 (j / 2 ^ 6), _, ⟨hidx, c.isLt, by norm_num, by have := top_lt j hj; norm_num at this ⊢; omega⟩,
       List.mem_singleton_self _, ⟨heq, ?_⟩, ?_⟩
-    · show WCT9.ftsHalf (2 ^ (7 - 5 - 1) + j / 2 ^ 6) _ = WCT9.ftsHalf (2 ^ (7 - 5 - 1) + j / 2 ^ 6) _
-      rw [WCT9.ftsHalf_of_high (WCT9.ftsHighHeap_top (by have := top_lt j hj; norm_num; omega)),
-        WCT9.ftsHalf_of_high (WCT9.ftsHighHeap_top (by have := top_lt j hj; norm_num; omega))]
+    · simp only [Extract.Pos.proj, if_pos rfl]
       rw [← top_honestInput answers index c j]
       exact reaches.trans (top_reference answers index c j hj).symm
-    · refine Extract.SameHeader.of_hdrBlock ?_
-        (by rw [Extract.hdrBlock_honestInput, wctTopInput_block4, pad64_block4, hdrBlock_block4W]; rfl)
-      rw [Extract.honestInput_length, wctTopInput_block4, pad64_block4]
-      simp [block4, bytesLE_length, Extract.Pos.len]
+    · unfold Extract.SameHeader
+      rw [Extract.hdrBlock_honestInput, wctTopInput_block4, pad64_block4, hdrBlock_block4W]
+      rfl
 end merkle
 theorem recoverCoordinateP_dec (N : HashOutput) (w : WBytes) (index : Nat) (c : WCT9.Coord) (prev : Digest × Digest) :
     recoverCoordinateP (witDecP N w).signature (padDecP N w) index N c prev =
@@ -613,7 +456,7 @@ theorem recoverCoordinateP_dec (N : HashOutput) (w : WBytes) (index : Nat) (c : 
           (wcpads w c.val t.val).1 (wcHeaderPad w c.val t.val) (wcpads w c.val t.val).2
           (wreveal w c.val t.val (WCT9.wordDigit (WCT9.rank N c) t))) >>= fun ends =>
         WCT9.leafHashP index c.val (WCT9.child N c).val prev.1 ends >>= fun leaf =>
-          hashPathF (msel (WCT9.child N c).val) (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 (WCT9.child N c).val
+          hashPath (merkleInputH 3 (WCT9.nodeLayer c.val) index 7 (WCT9.child N c).val
             (wsib w c.val (WCT9.child N c).val) (wmpad w c.val (WCT9.child N c).val)
             (wmhpad w c.val (WCT9.child N c).val)) 5 leaf >>= fun v =>
           WCT9.wctTopHash c.val index (2 + (WCT9.child N c).val / 2 ^ 6)
@@ -659,7 +502,7 @@ theorem coord_extract (answers : Answers) (N : HashOutput) (w : WBytes) (c : WCT
       (wreveal w c.val t.val (WCT9.wordDigit (WCT9.rank N c) t)))) = ends at reaches ⊢
   generalize hL : evalWithAnswerFn answers (WCT9.leafHashP (WCT9.digestIndex N) c.val (WCT9.child N c).val
     prev.1 ends) = leaf at reaches ⊢
-  generalize hV : evalWithAnswerFn answers (hashPathF (msel (WCT9.child N c).val) (merkleInputH 3 (WCT9.nodeLayer c.val) (WCT9.digestIndex N) 7
+  generalize hV : evalWithAnswerFn answers (hashPath (merkleInputH 3 (WCT9.nodeLayer c.val) (WCT9.digestIndex N) 7
     (WCT9.child N c).val (wsib w c.val (WCT9.child N c).val) (wmpad w c.val (WCT9.child N c).val)
     (wmhpad w c.val (WCT9.child N c).val)) 5 leaf) = v at reaches ⊢
   generalize hT : evalWithAnswerFn answers (WCT9.wctTopHash c.val (WCT9.digestIndex N) (2 + (WCT9.child N c).val / 2 ^ 6)
@@ -983,3 +826,1531 @@ theorem verifyP_extract {LayerEvent : Answers → WBytes → Nat → List Spec.D
   · exact Or.inl (hhit.mono hqF)
   · exact Or.inr (Or.inr ⟨hgood, hhon⟩)
 end ClaudeWCT.W9.T3M.WctExtract
+
+
+namespace ClaudeWCT.W9.T3M.Extract.Paired
+open OracleComp OracleSpec SigGolfCandidate.T3
+open SigGolfCandidate.Research
+open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open SigGolfCandidate.T3M (nodeHashP sibOff)
+open Correctness (Answers treeValue TreeLevels)
+open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
+open ClaudeWCT.W9.T3M.WctExtract
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+
+theorem hdrBlock_honestInput (answers : Answers) (p : Pos) :
+    hdrBlock (honestInput answers p) = bytesLE 16 p.hdr := by
+  cases p with
+  | wctLeaf index coord child => exact hdrBlock_wctLeafInputP ..
+  | wctNode index coord level nd =>
+      simp only [honestInput, Pos.hdr]
+      rw [wctTopInput_block4, pad64_block4, hdrBlock_block4W]
+      rw [show 7-level-1=6-level by omega]
+      rfl
+  | chain lay tree lf i step => exact Extract.hdrBlock_honestInput answers (.chain lay tree lf i step)
+  | leaf lay tree lf => exact Extract.hdrBlock_honestInput answers (.leaf lay tree lf)
+  | node lay tree level nd => exact Extract.hdrBlock_honestInput answers (.node lay tree level nd)
+  | forest index => exact Extract.hdrBlock_honestInput answers (.forest index)
+  | wctChain index coord child t step => exact Extract.hdrBlock_honestInput answers (.wctChain index coord child t step)
+
+section chain
+variable (answers : Answers) (index coord child t : Nat)
+theorem honestInput_wctChain (s : Nat) :
+    honestInput answers (.wctChain index coord child t s) =
+      WCT9.chainInput index coord child t s (Extract.wctValue answers index coord child t s) :=
+  WctExtract.honestInput_wctChain answers index coord child t s
+theorem chain_extract (d : Nat) (hd : d ≤ 4) (pa : Digest) (pb : BitVec 64) (pc v : Digest)
+    (hb : index < 2 ^ 31 ∧ coord < 9 ∧ child < 128 ∧ t < 6)
+    (reaches : evalWithAnswerFn answers (wctChainP index coord child t (4 - d) d pa pb pc v) =
+      Extract.wctValue answers index coord child t 4) :
+    (v = Extract.wctValue answers index coord child t (4 - d) ∧ (0 < d → pa = 0 ∧ pb = 0 ∧ pc = 0) ∧
+      ∀ q ∈ queried answers (wctChainP index coord child t (4 - d) d pa pb pc v), ∃ s, 4 - d ≤ s ∧ s < 4 ∧
+        q = .inl (.inr (honestInput answers (.wctChain index coord child t s)))) ∨
+    HitIn answers (queried answers (wctChainP index coord child t (4 - d) d pa pb pc v)) := by
+  rw [wctChainP_eq_hashPath] at reaches ⊢
+  have href : ∀ step, step < d →
+      evalWithAnswerFn answers (shortHash (WCT9.chainInput index coord child t (4 - d + step)
+        (Extract.wctValue answers index coord child t (4 - d + step)))) =
+        Extract.wctValue answers index coord child t (4 - d + (step + 1)) := by
+    intro step _
+    rw [wctValue_succ, Nat.add_assoc]
+  have hparse : ∀ step, step < d → ∀ value,
+      pad64 (wctChainInputP index coord child t (4 - d + step) pa pb pc value) =
+        pad64 (WCT9.chainInput index coord child t (4 - d + step)
+          (Extract.wctValue answers index coord child t (4 - d + step))) →
+      value = Extract.wctValue answers index coord child t (4 - d + step) ∧ (pa = 0 ∧ pb = 0 ∧ pc = 0) := by
+    intro step _ value heq
+    rw [wctChainInputP_block4, wctChainInput_block4', pad64_block4, pad64_block4] at heq
+    obtain ⟨h0, hh, h1, hv⟩ := block4_injective heq
+    have hpb := congrArg (fun x : BitVec 128 => x.extractLsb' 64 64) hh
+    simp only [WCT9.ftsChainHeader, WCT9.ftsChainHeaderP_high] at hpb
+    exact ⟨hv, h0, hpb, h1⟩
+  have h := hashPath_extract answers
+    (fun step value => wctChainInputP index coord child t (4 - d + step) pa pb pc value)
+    (fun step => WCT9.chainInput index coord child t (4 - d + step)
+      (Extract.wctValue answers index coord child t (4 - d + step)))
+    (fun step => Extract.wctValue answers index coord child t (4 - d + step))
+    (fun _ => pa = 0 ∧ pb = 0 ∧ pc = 0) v d href hparse
+    (by rw [show 4 - d + d = 4 by omega]; exact reaches)
+  rcases h with ⟨hv, hgood⟩ | ⟨step, hstep, hq, hhit⟩
+  · left
+    refine ⟨by simpa using hv, fun hd0 => hgood 0 hd0, fun q hq => ?_⟩
+    obtain ⟨step, hs, rfl⟩ := queried_hashPath_honest answers
+      (fun step value => wctChainInputP index coord child t (4 - d + step) pa pb pc value)
+      (fun step => WCT9.chainInput index coord child t (4 - d + step)
+        (Extract.wctValue answers index coord child t (4 - d + step)))
+      (fun step => Extract.wctValue answers index coord child t (4 - d + step)) v d href
+      (fun step hs => by
+        obtain ⟨h0, hB, h1⟩ := hgood step hs
+        simp only [h0, hB, h1, wctChainInputP_zero]) hv q hq
+    refine ⟨4 - d + step, by omega, by omega, ?_⟩
+    rw [honestInput_wctChain, Extract.pad64_wctChainInput]
+  · right
+    obtain ⟨hi, hc, hj, ht⟩ := hb
+    refine ⟨.wctChain index coord child t (4 - d + step), _, ⟨hi, hc, hj, ht, by omega⟩, hq, ?_, ?_⟩
+    · rw [honestInput_wctChain, ← Extract.pad64_wctChainInput]; exact hhit
+    · unfold Extract.SameHeader
+      rw [hdrBlock_honestInput, pathInput]
+      simp only [wctChainInputP_block4, pad64_block4, hdrBlock_block4W, Extract.Pos.hdr]
+      exact canonicalHeader_ftsChainHeaderP index coord child t _ _
+end chain
+
+theorem childRoot_eq_out (answers : Answers) (index coord child : Nat) :
+    WCT9.childRoot answers index coord child (pads answers index coord (physical coord child/64)).1 =
+      (answers (.inl (.inr (honestInput answers (.wctLeaf index coord child))))).extractLsb' 0 128 := by
+  unfold WCT9.childRoot
+  rw [leafHashP_eq_shortHash, eval_shortHash]
+  rfl
+theorem leaf_extract (answers : Answers) (index coord child : Nat) (pad : Digest) (ends : List Digest)
+    (hlen : ends.length = 6) (hb : index < 2 ^ 31 ∧ coord < 9 ∧ child < 128)
+    (reaches : evalWithAnswerFn answers (WCT9.leafHashP index coord child pad ends) =
+      WCT9.childRoot answers index coord child (pads answers index coord (physical coord child/64)).1) :
+    (ends = Extract.wctEnds answers index coord child ∧ pad = (pads answers index coord (physical coord child/64)).1 ∧
+      queried answers (WCT9.leafHashP index coord child pad ends) =
+        [.inl (.inr (honestInput answers (.wctLeaf index coord child)))]) ∨
+    HitIn answers (queried answers (WCT9.leafHashP index coord child pad ends)) := by
+  rw [leafHashP_eq_shortHash] at reaches ⊢
+  rw [queried_shortHash]
+  by_cases heq : pad64 (Extract.wctLeafInputP index coord child pad ends) =
+      honestInput answers (.wctLeaf index coord child)
+  · left
+    have hw : honestInput answers (.wctLeaf index coord child) =
+        pad64 (Extract.wctLeafInputP index coord child (pads answers index coord (physical coord child/64)).1
+          (Extract.wctEnds answers index coord child)) := rfl
+    obtain ⟨h0, hr⟩ := listInput_inj (by simp [hlen, wctEnds_length]) (heq.trans hw)
+    obtain ⟨hpad, hrest⟩ := List.cons.inj hr
+    exact ⟨eq_of_getD_drop (by rw [hlen, wctEnds_length]) (by omega) h0 hrest, hpad, by rw [heq]⟩
+  · right
+    refine ⟨.wctLeaf index coord child, _, hb, List.mem_singleton_self _, ⟨heq, ?_⟩, ?_⟩
+    · rw [eval_shortHash] at reaches
+      simp only [proj]
+      rw [reaches, childRoot_eq_out]
+    · unfold Extract.SameHeader
+      rw [hdrBlock_honestInput, Extract.hdrBlock_wctLeafInputP]
+      rfl
+
+#print axioms chain_extract
+#print axioms leaf_extract
+end ClaudeWCT.W9.T3M.Extract.Paired
+
+
+namespace ClaudeWCT.W9.T3M.Extract.Paired
+open OracleComp OracleSpec SigGolfCandidate.T3
+open SigGolfCandidate.Research
+open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open SigGolfCandidate.T3M (nodeHashP sibOff)
+open Correctness (Answers treeValue TreeLevels)
+open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
+open ClaudeWCT.W9.T3M.WctExtract
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+
+theorem node_block_extract (answers : Answers) (index coord level node : Nat)
+    (left hdr pad right : Digest)
+    (hb : Bounded (.wctNode index coord level node))
+    (hs : canonicalHeader (bytesLE 16 hdr) =
+      canonicalHeader (bytesLE 16 (Pos.hdr (.wctNode index coord level node))))
+    (reaches : proj (.wctNode index coord level node)
+        (answers (.inl (.inr (block4 left hdr pad right)))) =
+      proj (.wctNode index coord level node)
+        (answers (.inl (.inr (honestInput answers (.wctNode index coord level node)))))) :
+    (left = (nodes answers index coord).getD (2*(2^(6-level)+node)) 0 ∧
+      pad = (if level=4 then (pads answers index coord ((2^(6-level)+node)/2-2)).2 else 0) ∧
+      right = (nodes answers index coord).getD (2*(2^(6-level)+node)+1) 0 ∧
+      hdr = Pos.hdr (.wctNode index coord level node)) ∨
+    HitIn answers [.inl (.inr (block4 left hdr pad right))] := by
+  by_cases heq : block4 left hdr pad right = honestInput answers (.wctNode index coord level node)
+  · left
+    simp only [honestInput] at heq
+    rw [wctTopInput_block4, pad64_block4] at heq
+    obtain ⟨hl, hh, hp, hr⟩ := block4_injective heq
+    refine ⟨hl, hp, hr, ?_⟩
+    rw [hh]
+    simp only [Pos.hdr, WCT9.wctNodeHeader, show 7-level-1=6-level by omega]
+  · right
+    refine ⟨.wctNode index coord level node, _, hb, List.mem_singleton_self _, ⟨heq,reaches⟩, ?_⟩
+    unfold SameHeader
+    rw [hdrBlock_block4W, hdrBlock_honestInput]
+    exact hs
+
+theorem nodes_shared (answers : Answers) (index coord : Nat) (hc : coord < 9) :
+    nodes answers index coord = SharedForest.sharedNodes answers (first coord) index coord
+      (pads answers index coord) := by
+  by_cases he : coord = 8
+  · subst coord
+    simp only [nodes, pads, if_pos rfl]
+    rfl
+  · by_cases hf : first coord = true
+    · have hp : coord % 2 = 0 := (of_decide_eq_true hf).2
+      have hi : 2*(coord/2) = coord := by omega
+      simp only [nodes, if_neg he, hf, if_true, SharedForest.firstNodes, hi]
+      apply congrArg (SharedForest.sharedNodes answers true index coord)
+      funext branch
+      simp only [pads, if_neg he, hf, if_true]
+    · have hff : first coord = false := Bool.eq_false_iff.mpr hf
+      have hp : coord % 2 = 1 := by
+        have hn : ¬(coord<8 ∧ coord%2=0) := by
+          simpa only [first, decide_eq_true_eq] using hf
+        omega
+      have hi : 2*(coord/2)+1 = coord := by omega
+      simp only [nodes, if_neg he, hff, Bool.false_eq_true, if_false,
+        SharedForest.secondNodes, hi]
+      apply congrArg (SharedForest.sharedNodes answers false index coord)
+      funext branch
+      simp only [pads, if_neg he, hff, Bool.false_eq_true, if_false]
+
+theorem nodes_graph (answers : Answers) (index coord : Nat) (hc : coord < 9) :
+    SharedForest.SharedHeapInv answers (first coord) index coord (pads answers index coord)
+      (SharedForest.sharedLeaves answers (first coord) index coord (pads answers index coord))
+      (128-SharedForest.heapCut (first coord)) (nodes answers index coord) := by
+  rw [nodes_shared answers index coord hc]
+  exact SharedForest.sharedNodes_graph ..
+
+#print axioms chain_extract
+#print axioms leaf_extract
+end ClaudeWCT.W9.T3M.Extract.Paired
+
+namespace ClaudeWCT.W9.T3M.Extract.Paired
+open OracleComp OracleSpec SigGolfCandidate.T3
+open SigGolfCandidate.Research
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open ClaudeWCT.W9.T3M.WctExtract
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+
+def nodeProgram (coord level : Nat) (input : HashInput) : M Digest :=
+  if highPosition coord level then WCT9.highHash input else shortHash input
+
+theorem eval_nodeProgram (answers : Answers) (index coord level node : Nat) (input : HashInput) :
+    evalWithAnswerFn answers (nodeProgram coord level input) =
+      proj (.wctNode index coord level node) (answers (.inl (.inr (pad64 input)))) := by
+  by_cases hp : highPosition coord level
+  · simp only [nodeProgram, proj, if_pos hp]
+    rfl
+  · simp only [nodeProgram, proj, if_neg hp]
+    rfl
+
+theorem sharedNode_eq_nodeProgram (answers : Answers) (index coord level node : Nat)
+    (hb : Bounded (.wctNode index coord level node)) (left right : Digest) :
+    SharedForest.sharedNode (first coord) coord index (2^(6-level)+node)
+      (pads answers index coord) left right =
+    nodeProgram coord level (WCT9.wctTopInput coord index (2^(6-level)+node) left
+      (if level=4 then (pads answers index coord ((2^(6-level)+node)/2-2)).2 else 0) right) := by
+  obtain ⟨⟨hi,hc,hl,hn⟩,hu⟩ := hb
+  have he : 7-level-1=6-level := by omega
+  rw [he] at hn
+  have h4 : (2^(6-level)+node<4) ↔ level=5 := by
+    interval_cases level <;> norm_num at hn ⊢ <;> omega
+  have h8 : (2^(6-level)+node<8) ↔ 4≤level := by
+    interval_cases level <;> norm_num at hn ⊢ <;> omega
+  simp only [SharedForest.sharedNode, h4, h8]
+  by_cases h5 : level=5
+  · subst level
+    have hf : first coord = false := Bool.eq_false_iff.mpr (by intro h; have := hu h; omega)
+    have hn : ¬(coord<8 ∧ coord%2=0) := by
+      simpa only [first, decide_eq_false_iff_not] using hf
+    by_cases hco : coord=8
+    · subst coord
+      simp only [SharedForest.sharedOuterHash, nodeProgram, highPosition, ↓reduceIte]
+      rfl
+    · have hp : highPosition coord 5 := by unfold highPosition; omega
+      simp only [if_pos rfl, SharedForest.sharedOuterHash, if_neg hco, nodeProgram,
+        if_pos hp, ↓reduceIte]
+      rfl
+  · simp only [if_neg h5]
+    by_cases hlev : level=4
+    · subst level
+      simp only [show 4≤4 by decide, if_true, if_pos rfl]
+      by_cases hf : first coord=true
+      · have hp : highPosition coord 4 := by
+          have hc := of_decide_eq_true hf
+          exact ⟨hc.1,Or.inl ⟨hc.2,rfl⟩⟩
+        simp only [hf, if_true, nodeProgram, if_pos hp, ↓reduceIte]
+      · have hp : ¬highPosition coord 4 := by
+          intro hp
+          apply hf
+          simp only [first, decide_eq_true_eq]
+          exact ⟨hp.1, by rcases hp.2 with hp|hp <;> omega⟩
+        simp only [hf, if_false, nodeProgram, if_neg hp, ↓reduceIte]
+        rfl
+    · have hlt : level<4 := by omega
+      have hp : ¬highPosition coord level := by unfold highPosition; omega
+      simp only [if_neg (show ¬4≤level by omega), if_neg hlev, nodeProgram, if_neg hp, ↓reduceIte]
+      change nodeHash 3 (WCT9.nodeLayer coord) index (2^(6-level)+node) left right = _
+      rw [nodeHash_eq_shortHash]
+      rfl
+
+theorem node_eval (answers : Answers) (index coord level node : Nat)
+    (hb : Bounded (.wctNode index coord level node)) (left right : Digest) :
+    evalWithAnswerFn answers (SharedForest.sharedNode (first coord) coord index
+      (2^(6-level)+node) (pads answers index coord) left right) =
+      proj (.wctNode index coord level node) (answers (.inl (.inr
+        (pad64 (WCT9.wctTopInput coord index (2^(6-level)+node) left
+          (if level=4 then (pads answers index coord ((2^(6-level)+node)/2-2)).2 else 0) right))))) := by
+  rw [sharedNode_eq_nodeProgram answers index coord level node hb, eval_nodeProgram]
+
+theorem node_reference (answers : Answers) (index coord level node : Nat)
+    (hb : Bounded (.wctNode index coord level node)) :
+    proj (.wctNode index coord level node)
+      (answers (.inl (.inr (honestInput answers (.wctNode index coord level node))))) =
+      (nodes answers index coord).getD (2^(6-level)+node) 0 := by
+  have hb' := hb
+  obtain ⟨⟨hi,hc,hl,hn⟩,hu⟩ := hb'
+  have hg := nodes_graph answers index coord hc
+  have hc' := SharedForest.heapCut_bounds (first coord)
+  have hheap : SharedForest.heapCut (first coord)≤2^(6-level)+node ∧ 2^(6-level)+node<128 := by
+    by_cases hf : first coord=true
+    · have hl' := hu hf
+      simp only [SharedForest.heapCut, hf, if_true]
+      interval_cases level <;> norm_num at hn ⊢ <;> omega
+    · have hff := Bool.eq_false_iff.mpr hf
+      simp only [SharedForest.heapCut, hff, Bool.false_eq_true, if_false]
+      interval_cases level <;> norm_num at hn ⊢ <;> omega
+  have href := hg.2.2 (2^(6-level)+node) hheap.1 hheap.2 (by omega)
+  rw [node_eval answers index coord level node hb] at href
+  exact href.symm
+
+theorem leaf_reference (answers : Answers) (index coord raw : Nat)
+    (hc : coord<9) (hr : raw<128) :
+    (nodes answers index coord).getD (128+physical coord raw) 0 =
+      WCT9.childRoot answers index coord raw
+        (pads answers index coord (physical coord raw/64)).1 := by
+  have hp := SharedForest.physicalChild_lt (first coord) raw hr
+  change physical coord raw<128 at hp
+  have hg := nodes_graph answers index coord hc
+  have hl := hg.2.1 (128+physical coord raw) (by omega) (by omega)
+  rw [Nat.add_sub_cancel_left, SharedForest.sharedLeaves,
+    List.getD_eq_getElem _ _ (by simp only [List.length_ofFn]; exact hp),
+    List.getElem_ofFn] at hl
+  rw [show SharedForest.rawChild (first coord) (physical coord raw) = raw from
+    SharedForest.raw_physical_child (first coord) raw hr] at hl
+  exact hl
+
+#print axioms node_eval
+#print axioms node_reference
+end ClaudeWCT.W9.T3M.Extract.Paired
+
+namespace ClaudeWCT.W9.T3M.Extract.Paired
+open OracleComp OracleSpec SigGolfCandidate.T3
+open SigGolfCandidate.Research
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open ClaudeWCT.W9.T3M.WctExtract
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+section chain
+variable (answers : Answers) (index coord child t : Nat)
+theorem chainV3_extract (d : Nat) (hd : d ≤ 4) (pa : Digest) (pb : BitVec 64) (pc v : Digest)
+    (hb : index < 2 ^ 31 ∧ coord < 9 ∧ child < 128 ∧ t < 6)
+    (reaches : evalWithAnswerFn answers (W9Machine.V3.chainP index coord child t (4 - d) d pa pb pc v) =
+      Extract.wctValue answers index coord child t 4) :
+    (v = Extract.wctValue answers index coord child t (4 - d) ∧ (0 < d → pa = 0 ∧ pb = 0 ∧ pc = 0) ∧
+      ∀ q ∈ queried answers (W9Machine.V3.chainP index coord child t (4 - d) d pa pb pc v), ∃ s, 4 - d ≤ s ∧ s < 4 ∧
+        q = .inl (.inr (honestInput answers (.wctChain index coord child t s)))) ∨
+    HitIn answers (queried answers (W9Machine.V3.chainP index coord child t (4 - d) d pa pb pc v)) := by
+  have he := W9Machine.chainP_canonical index coord child t (4-d) d pa pc v pb
+    hb.1 hb.2.1 hb.2.2.1 hb.2.2.2 (by omega)
+  rw [he] at reaches ⊢
+  exact chain_extract answers index coord child t d hd pa pb pc v hb reaches
+end chain
+theorem leafV3_extract (answers : Answers) (index coord child : Nat) (pad : Digest) (ends : List Digest)
+    (hlen : ends.length = 6) (hb : index < 2 ^ 31 ∧ coord < 9 ∧ child < 128)
+    (reaches : evalWithAnswerFn answers (shortHash (W9Machine.V3.leafInput coord index child pad ends)) =
+      WCT9.childRoot answers index coord child (pads answers index coord (physical coord child/64)).1) :
+    (ends = Extract.wctEnds answers index coord child ∧ pad = (pads answers index coord (physical coord child/64)).1 ∧
+      queried answers (shortHash (W9Machine.V3.leafInput coord index child pad ends)) =
+        [.inl (.inr (honestInput answers (.wctLeaf index coord child)))]) ∨
+    HitIn answers (queried answers (shortHash (W9Machine.V3.leafInput coord index child pad ends))) := by
+  rw [W9Drv.leafInput_canonical _ _ _ _ _ hlen] at reaches ⊢
+  exact leaf_extract answers index coord child pad ends hlen hb reaches
+
+theorem nodeV3_block_extract (answers : Answers) (index : Nat) (coord : Fin 9)
+    (level node : Nat) (left pad right : Digest) (hp : BitVec 64)
+    (hb : Bounded (.wctNode index coord.val level node))
+    (reaches : proj (.wctNode index coord.val level node)
+      (answers (.inl (.inr (pad64 (W9Machine.V3.nodeInput coord.val index
+        (2^(6-level)+node) left hp pad right))))) =
+      (nodes answers index coord.val).getD (2^(6-level)+node) 0) :
+    (left = (nodes answers index coord.val).getD (2*(2^(6-level)+node)) 0 ∧
+      pad = (if level=4 then (pads answers index coord.val ((2^(6-level)+node)/2-2)).2 else 0) ∧
+      right = (nodes answers index coord.val).getD (2*(2^(6-level)+node)+1) 0 ∧
+      W9Machine.V3.nodeHdr coord.val index (2^(6-level)+node) hp =
+        Pos.hdr (.wctNode index coord.val level node)) ∨
+    HitIn answers [.inl (.inr (pad64 (W9Machine.V3.nodeInput coord.val index
+      (2^(6-level)+node) left hp pad right)))] := by
+  have he : W9Machine.V3.nodeInput coord.val index (2^(6-level)+node) left hp pad right =
+      block4 left (W9Machine.V3.nodeHdr coord.val index (2^(6-level)+node) hp) pad right := rfl
+  rw [he, pad64_block4] at reaches ⊢
+  apply node_block_extract answers index coord.val level node left _ pad right hb
+  · rw [W9Drv.nodeHdr_canonical, canonicalHeader_withHigh]
+    simp only [Pos.hdr, WCT9.wctNodeHeader, show 7-level-1=6-level by omega]
+  · exact reaches.trans (node_reference answers index coord.val level node hb).symm
+
+#print axioms chainV3_extract
+#print axioms leafV3_extract
+end ClaudeWCT.W9.T3M.Extract.Paired
+
+namespace ClaudeWCT.W9.T3M.Extract.Paired
+open OracleComp OracleSpec SigGolfCandidate.T3
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+
+def posHash (position : Pos) (input : HashInput) : M Digest := do
+  pure (proj position (← publicHash input))
+
+theorem queried_posHash (answers : Answers) (position : Pos) (input : HashInput) :
+    queried answers (posHash position input) = [.inl (.inr (pad64 input))] := rfl
+
+theorem eval_posHash (answers : Answers) (position : Pos) (input : HashInput) :
+    evalWithAnswerFn answers (posHash position input) =
+      proj position (answers (.inl (.inr (pad64 input)))) := rfl
+
+def projectedPath (positions : Nat → Pos) (input : Nat → Digest → HashInput)
+    (count : Nat) (initial : Digest) : M Digest :=
+  (List.range count).foldlM (fun value step => posHash (positions step) (input step value)) initial
+
+def projectedValue (answers : Answers) (positions : Nat → Pos)
+    (input : Nat → Digest → HashInput) (initial : Digest) (count : Nat) : Digest :=
+  evalWithAnswerFn answers (projectedPath positions input count initial)
+
+def projectedInput (answers : Answers) (positions : Nat → Pos)
+    (input : Nat → Digest → HashInput) (initial : Digest) (step : Nat) : HashInput :=
+  input step (projectedValue answers positions input initial step)
+
+theorem projectedPath_succ (positions : Nat → Pos) (input : Nat → Digest → HashInput)
+    (count : Nat) (initial : Digest) :
+    projectedPath positions input (count+1) initial =
+      (projectedPath positions input count initial >>= fun value => posHash (positions count) (input count value)) := by
+  simp [projectedPath, List.range_succ, List.foldlM_append]
+
+theorem projectedValue_succ (answers : Answers) (positions : Nat → Pos)
+    (input : Nat → Digest → HashInput) (initial : Digest) (step : Nat) :
+    projectedValue answers positions input initial (step+1) =
+      evalWithAnswerFn answers (posHash (positions step) (projectedInput answers positions input initial step)) := by
+  simp only [projectedValue, projectedPath_succ, evalWithAnswerFn_bind, projectedInput]
+
+theorem projectedInput_queried (answers : Answers) (positions : Nat → Pos)
+    (input : Nat → Digest → HashInput) (initial : Digest) (count step : Nat) (hstep : step<count) :
+    .inl (.inr (pad64 (projectedInput answers positions input initial step))) ∈
+      queried answers (projectedPath positions input count initial) := by
+  induction count with
+  | zero => omega
+  | succ count ih =>
+      rw [projectedPath_succ, queried_bind]
+      rcases Nat.lt_succ_iff_lt_or_eq.mp hstep with hlt|rfl
+      · exact List.mem_append_left _ (ih hlt)
+      · apply List.mem_append_right
+        simp only [queried_posHash, List.mem_singleton]
+        rfl
+
+theorem projectedPath_extract (answers : Answers) (positions : Nat → Pos)
+    (input : Nat → Digest → HashInput) (honest : Nat → HashInput)
+    (target : Nat → Digest) (Good : Nat → Prop) (initial : Digest) (count : Nat)
+    (reference : ∀ step, step<count →
+      evalWithAnswerFn answers (posHash (positions step) (honest step)) = target (step+1))
+    (parse : ∀ step, step<count → ∀ value,
+      pad64 (input step value) = pad64 (honest step) → value=target step ∧ Good step)
+    (reaches : projectedValue answers positions input initial count = target count) :
+    (initial=target 0 ∧ ∀ step, step<count → Good step) ∨
+    ∃ step, step<count ∧
+      .inl (.inr (pad64 (projectedInput answers positions input initial step))) ∈
+        queried answers (projectedPath positions input count initial) ∧
+      HashHitAt answers (positions step) (pad64 (honest step))
+        (pad64 (projectedInput answers positions input initial step)) := by
+  induction count with
+  | zero => exact Or.inl ⟨reaches, fun step hstep => by omega⟩
+  | succ count ih =>
+      by_cases heq : pad64 (projectedInput answers positions input initial count) = pad64 (honest count)
+      · obtain ⟨hprev,hgood⟩ := parse count (by omega) _ heq
+        rcases ih (fun step hstep => reference step (by omega))
+          (fun step hstep => parse step (by omega)) hprev with ⟨hinit,hall⟩|⟨step,hstep,_,hhit⟩
+        · left
+          refine ⟨hinit,fun step hstep => ?_⟩
+          rcases Nat.lt_succ_iff_lt_or_eq.mp hstep with hlt|rfl
+          · exact hall step hlt
+          · exact hgood
+        · exact Or.inr ⟨step,by omega, projectedInput_queried answers positions input initial _ _ (by omega),hhit⟩
+      · right
+        refine ⟨count,by omega,projectedInput_queried answers positions input initial _ _ (by omega),heq,?_⟩
+        rw [projectedValue_succ] at reaches
+        exact reaches.trans (reference count (by omega)).symm
+
+theorem queried_projectedPath (answers : Answers) (positions : Nat→Pos)
+    (input : Nat→Digest→HashInput) (initial : Digest) :
+    ∀ count, queried answers (projectedPath positions input count initial) =
+      (List.range count).map fun step =>
+        .inl (.inr (pad64 (projectedInput answers positions input initial step)))
+  | 0 => rfl
+  | count+1 => by
+      rw [projectedPath_succ, queried_bind, queried_projectedPath answers positions input initial count,
+        List.range_succ, List.map_append, queried_posHash]
+      rfl
+
+theorem projectedValue_honest (answers : Answers) (positions : Nat→Pos)
+    (input : Nat→Digest→HashInput) (honest : Nat→HashInput) (target : Nat→Digest)
+    (initial : Digest) (count : Nat)
+    (reference : ∀ step, step<count →
+      evalWithAnswerFn answers (posHash (positions step) (honest step)) = target (step+1))
+    (hin : ∀ step, step<count → pad64 (input step (target step)) = pad64 (honest step))
+    (h0 : initial=target 0) :
+    ∀ step, step≤count → projectedValue answers positions input initial step = target step := by
+  intro step
+  induction step with
+  | zero => intro _; exact h0
+  | succ step ih =>
+      intro hs
+      rw [projectedValue_succ, eval_posHash, projectedInput, ih (by omega), hin step (by omega)]
+      exact reference step (by omega)
+
+theorem queried_projectedPath_honest (answers : Answers) (positions : Nat→Pos)
+    (input : Nat→Digest→HashInput) (honest : Nat→HashInput) (target : Nat→Digest)
+    (initial : Digest) (count : Nat)
+    (reference : ∀ step, step<count →
+      evalWithAnswerFn answers (posHash (positions step) (honest step)) = target (step+1))
+    (hin : ∀ step, step<count → pad64 (input step (target step)) = pad64 (honest step))
+    (h0 : initial=target 0) :
+    ∀ q ∈ queried answers (projectedPath positions input count initial),
+      ∃ step, step<count ∧ q=.inl (.inr (pad64 (honest step))) := by
+  intro q hq
+  rw [queried_projectedPath] at hq
+  obtain ⟨step,hs,rfl⟩ := List.mem_map.mp hq
+  have hs := List.mem_range.mp hs
+  refine ⟨step,hs,?_⟩
+  rw [projectedInput, projectedValue_honest answers positions input honest target initial count
+    reference hin h0 step hs.le, hin step hs]
+
+#print axioms projectedPath_extract
+end ClaudeWCT.W9.T3M.Extract.Paired
+
+namespace ClaudeWCT.W9.T3M.Extract.Paired
+open OracleComp OracleSpec SigGolfCandidate.T3
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open ClaudeWCT.WCT9
+open W9Machine
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+
+def pathPos (index coord physical level : Nat) : Pos :=
+  .wctNode index coord level (physical/2^(level+1))
+
+theorem pathPos_bounded (index coord physical level : Nat)
+    (hi : index<2^31) (hc : coord<9) (hp : physical<128)
+    (hl : level≤SharedV3.lastLevel coord) : Bounded (pathPos index coord physical level) := by
+  have hlast := SharedV3.lastLevel_cases coord
+  have hl6 : level<6 := by omega
+  refine ⟨⟨hi,hc,hl6,?_⟩,?_⟩
+  · interval_cases level <;> norm_num <;> omega
+  · intro hf
+    have he : SharedV3.first coord=first coord := rfl
+    simp only [SharedV3.lastLevel, he, hf, ↓reduceIte] at hl
+    omega
+
+theorem not_high_before_last (coord level : Nat) (hc : coord<9)
+    (hl : level<SharedV3.lastLevel coord) : ¬highPosition coord level := by
+  interval_cases coord <;>
+    norm_num [SharedV3.lastLevel, SharedV3.first, highPosition] at hl ⊢ <;> omega
+
+theorem high_last (coord : Nat) (hc : coord<9) :
+    highPosition coord (SharedV3.lastLevel coord) ↔ coord≠8 := by
+  interval_cases coord <;> decide
+
+theorem childN_eq_projectedPath (w : SharedV3.WBytes) (index : Nat)
+    (coord : Fin 9) (raw : Fin 128) (ends : List Digest) (padL padR : Digest) :
+    SharedV3.childN w index coord raw ends padL padR = (do
+      let leaf ← shortHash (V3.leafInput coord.val index raw.val padL ends)
+      projectedPath (pathPos index coord.val (SharedV3.physical coord.val raw.val))
+        (fun level value => SharedV3.childInput w index coord.val
+          (SharedV3.physical coord.val raw.val) padR value level)
+        (SharedV3.lastLevel coord.val+1) leaf) := by
+  unfold SharedV3.childN
+  apply bind_congr
+  intro leaf
+  dsimp only
+  have hf : projectedPath (pathPos index coord.val (SharedV3.physical coord.val raw.val))
+      (fun level value => SharedV3.childInput w index coord.val
+        (SharedV3.physical coord.val raw.val) padR value level)
+      (SharedV3.lastLevel coord.val) leaf =
+      (List.range (SharedV3.lastLevel coord.val)).foldlM
+        (fun value level => shortHash (SharedV3.childInput w index coord.val
+          (SharedV3.physical coord.val raw.val) padR value level)) leaf := by
+    unfold projectedPath
+    apply foldlM_congr_mem
+    intro value level hl
+    have hp := not_high_before_last coord.val level coord.isLt (List.mem_range.mp hl)
+    simp only [posHash, pathPos, proj, if_neg hp]
+    rfl
+  rw [projectedPath_succ, hf]
+  apply bind_congr
+  intro value
+  by_cases hc : coord.val=8
+  · have hp : ¬highPosition coord.val (SharedV3.lastLevel coord.val) := by
+      rw [high_last _ coord.isLt]
+      exact not_not.mpr hc
+    simp only [if_pos hc, posHash, pathPos, proj, if_neg hp]
+    rfl
+  · have hp := (high_last _ coord.isLt).mpr hc
+    simp only [if_neg hc, posHash, pathPos, proj, if_pos hp]
+    rfl
+
+def pathTarget (answers : Answers) (index coord physical level : Nat) : Digest :=
+  (nodes answers index coord).getD ((128+physical)/2^level) 0
+
+theorem pad64_honest_node (answers : Answers) (index coord level node : Nat) :
+    pad64 (honestInput answers (.wctNode index coord level node)) =
+      honestInput answers (.wctNode index coord level node) := by
+  simp only [honestInput, WctExtract.wctTopInput_block4, pad64_block4]
+
+theorem heap_path_pair6 (f : Nat→Digest) (physical level : Nat)
+    (hp : physical<128) (hl : level<6) :
+    (if physical/2^level%2=0 then
+      (f ((128+physical)/2^level), f (((128+physical)/2^level)^^^1))
+    else (f (((128+physical)/2^level)^^^1), f ((128+physical)/2^level))) =
+    (f (2*((128+physical)/2^(level+1))),f (2*((128+physical)/2^(level+1))+1)) := by
+  have hb : physical/2^level%2=(128+physical)/2^level%2 := by
+    interval_cases level <;> norm_num <;> omega
+  rw [hb, Correctness.sibling_pair f ((128+physical)/2^level)]
+  have hd : (128+physical)/2^level/2=(128+physical)/2^(level+1) := by
+    rw [Nat.div_div_eq_div_mul, pow_succ]
+  rw [hd]
+
+theorem childInput_sameHeader (w : SharedV3.WBytes) (answers : Answers)
+    (index : Nat) (coord : Fin 9) (physical level : Nat) (hp : physical<128)
+    (hl : level<6) (padR value : Digest) :
+    SameHeader (pad64 (SharedV3.childInput w index coord.val physical padR value level))
+      (honestInput answers (pathPos index coord.val physical level)) := by
+  have hh := W9Drv.heap_eq physical level hp hl
+  unfold SharedV3.childInput V3.nodeInput
+  change SameHeader (pad64 (block4 _ (V3.nodeHdr _ _ _ _) _ _)) _
+  unfold SameHeader
+  rw [pad64_block4, WctExtract.hdrBlock_block4W, hdrBlock_honestInput,
+    W9Drv.nodeHdr_canonical, WctExtract.canonicalHeader_withHigh]
+  simp only [pathPos, Pos.hdr, WCT9.wctNodeHeader, hh,
+    show 7-level-1=6-level by omega]
+
+def PathStepGood (answers : Answers) (w : SharedV3.WBytes)
+    (index coord physical : Nat) (padR : Digest) (level : Nat) : Prop :=
+  pad64 (SharedV3.childInput w index coord physical padR
+    (pathTarget answers index coord physical level) level) =
+      honestInput answers (pathPos index coord physical level) ∧
+  (level=4 → padR=(pads answers index coord (physical/64)).2)
+
+theorem childInput_parse (answers : Answers) (w : SharedV3.WBytes)
+    (index coord physical level : Nat) (hp : physical<128) (hl : level<6)
+    (padR value : Digest)
+    (heq : pad64 (SharedV3.childInput w index coord physical padR value level) =
+      pad64 (honestInput answers (pathPos index coord physical level))) :
+    value=pathTarget answers index coord physical level ∧
+      PathStepGood answers w index coord physical padR level := by
+  rw [pathPos, pad64_honest_node] at heq
+  have he := heq
+  simp only [SharedV3.childInput, V3.nodeInput] at he
+  change pad64 (block4 _ (V3.nodeHdr _ _ _ _) _ _) = _ at he
+  rw [pad64_block4] at he
+  simp only [honestInput, WctExtract.wctTopInput_block4, pad64_block4] at he
+  obtain ⟨hleft,hhdr,hpad,hright⟩ := block4_injective he
+  have hh := W9Drv.heap_eq physical level hp hl
+  have hs := heap_path_pair6 (fun j => (nodes answers index coord).getD j 0) physical level hp hl
+  rw [hh] at hs
+  have hv : value=pathTarget answers index coord physical level := by
+    unfold pathTarget
+    by_cases hb : physical/2^level%2=0
+    · have href := congrArg Prod.fst hs
+      simp only [if_pos hb, Prod.fst] at href hleft
+      exact hleft.trans href.symm
+    · have href := congrArg Prod.snd hs
+      simp only [if_neg hb, Prod.snd] at href hright
+      exact hright.trans href.symm
+  refine ⟨hv,?_,?_⟩
+  · rw [←hv]
+    exact heq
+  · intro h4
+    subst level
+    have he : (2^(6-4)+physical/2^(4+1))/2-2=physical/64 := by
+      norm_num
+      omega
+    simpa only [↓reduceIte,he] using hpad
+
+theorem path_extract (answers : Answers) (w : SharedV3.WBytes)
+    (index : Nat) (coord : Fin 9) (physical count : Nat)
+    (hi : index<2^31) (hp : physical<128)
+    (hc : count≤SharedV3.lastLevel coord.val+1) (padR initial : Digest)
+    (reaches : projectedValue answers (pathPos index coord.val physical)
+      (fun level value => SharedV3.childInput w index coord.val physical padR value level)
+      initial count = pathTarget answers index coord.val physical count) :
+    (initial=pathTarget answers index coord.val physical 0 ∧
+      ∀ level, level<count → PathStepGood answers w index coord.val physical padR level) ∨
+    HitIn answers (queried answers (projectedPath (pathPos index coord.val physical)
+      (fun level value => SharedV3.childInput w index coord.val physical padR value level) count initial)) := by
+  have hlast := SharedV3.lastLevel_cases coord.val
+  have hb (level : Nat) (hl : level<count) : Bounded (pathPos index coord.val physical level) :=
+    pathPos_bounded index coord.val physical level hi coord.isLt hp (by omega)
+  have h := projectedPath_extract answers (pathPos index coord.val physical)
+    (fun level value => SharedV3.childInput w index coord.val physical padR value level)
+    (fun level => honestInput answers (pathPos index coord.val physical level))
+    (pathTarget answers index coord.val physical) (PathStepGood answers w index coord.val physical padR)
+    initial count (by
+      intro level hl
+      rw [eval_posHash]
+      change proj (.wctNode index coord.val level (physical/2^(level+1)))
+        (answers (.inl (.inr (pad64 (honestInput answers
+          (.wctNode index coord.val level (physical/2^(level+1)))))))) = _
+      rw [pad64_honest_node, node_reference answers index coord.val level _ (hb level hl)]
+      unfold pathTarget
+      rw [W9Drv.heap_eq physical level hp (by omega)])
+    (by
+      intro level hl value he
+      exact childInput_parse answers w index coord.val physical level hp (by omega) padR value he) reaches
+  rcases h with hg|⟨level,hl,hq,hhit⟩
+  · exact Or.inl hg
+  · right
+    refine ⟨pathPos index coord.val physical level,_,hb level hl,hq,?_,?_⟩
+    · simpa only [pathPos, pad64_honest_node] using hhit
+    · exact childInput_sameHeader w answers index coord physical level hp (by omega) padR _
+
+#print axioms childN_eq_projectedPath
+end ClaudeWCT.W9.T3M.Extract.Paired
+
+namespace ClaudeWCT.W9.T3M.Extract.Paired
+open OracleComp OracleSpec SigGolfCandidate.T3
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.Research
+open W9Machine
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+
+def targetPair (answers : Answers) (index coord physical : Nat) : SharedForest.PairRoot :=
+  if first coord then SharedForest.nodesPair (nodes answers index coord) (physical/64)
+  else ((nodes answers index coord).getD 2 0,(nodes answers index coord).getD 3 0)
+
+theorem ordered_target_pair (answers : Answers) (index coord physical : Nat) (hp : physical<128) :
+    SharedV3.orderPair coord physical
+      (pathTarget answers index coord physical (SharedV3.lastLevel coord+1))
+      ((nodes answers index coord).getD
+        (((128+physical)/2^(SharedV3.lastLevel coord+1))^^^1) 0) =
+    targetPair answers index coord physical := by
+  have hf : SharedV3.first coord=first coord := rfl
+  by_cases hc : first coord=true
+  · simpa only [SharedV3.orderPair, SharedV3.direction, SharedV3.lastLevel, hf, hc,
+      if_true, targetPair, pathTarget, SharedForest.authAt, Nat.reduceAdd, Nat.reducePow] using
+      SharedForest.ordered_branch_pair (nodes answers index coord) physical hp
+  · have hff := Bool.eq_false_iff.mpr hc
+    have he : (128+physical)/64=2+physical/64 := by omega
+    simpa only [SharedV3.orderPair, SharedV3.direction, SharedV3.lastLevel, hf, hff,
+      Bool.false_eq_true, if_false, targetPair, pathTarget, SharedForest.authAt,
+      Nat.reduceAdd, Nat.reducePow, he] using
+      SharedForest.ordered_top_pair (nodes answers index coord) physical hp
+
+theorem targetPair_even (answers : Answers) (index pair physical : Nat) (hp : pair<4) :
+    targetPair answers index (2*pair) physical =
+      SharedForest.nodesPair (SharedForest.firstNodes answers index pair (pairPrev answers index pair))
+        (physical/64) := by
+  simp only [targetPair, first_even pair hp, ↓reduceIte, nodes_even answers index pair hp]
+
+theorem targetPair_odd (answers : Answers) (index pair physical : Nat) :
+    targetPair answers index (2*pair+1) physical = pairPrev answers index (pair+1) := by
+  simp only [targetPair, first_odd pair, Bool.false_eq_true, ↓reduceIte, nodes_odd]
+  rfl
+
+theorem targetPair_singleton (answers : Answers) (index physical : Nat) :
+    targetPair answers index 8 physical = SharedForest.forestCommitment answers index := by
+  change ((nodes answers index 8).getD 2 0,(nodes answers index 8).getD 3 0) = _
+  exact singleton_top answers index
+
+theorem pair_handoff (answers : Answers) (index pair aPhysical bPhysical : Nat)
+    (hp : pair<4) (hb : aPhysical/64=bPhysical/64) :
+    pads answers index (2*pair+1) (bPhysical/64) = targetPair answers index (2*pair) aPhysical := by
+  rw [pads_odd, targetPair_even answers index pair aPhysical hp, hb]
+
+#print axioms ordered_target_pair
+#print axioms pair_handoff
+end ClaudeWCT.W9.T3M.Extract.Paired
+
+namespace ClaudeWCT.W9.T3M.Extract.Paired
+open OracleComp OracleSpec SigGolfCandidate.T3
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open SigGolfCandidate.Research
+open ClaudeWCT.W9.T3M.WctExtract
+open W9Machine
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+
+def ChainOpenings (answers : Answers) (w : SharedV3.WBytes) (index : Nat)
+    (coord : Fin 9) (raw : Fin 128) (rank : Fin 666) : Prop :=
+  ∀ t : Fin 6,
+    V3.reveal w coord.val t.val (WCT9.digit rank t) =
+      Extract.wctValue answers index coord.val raw.val t.val (4-WCT9.digit rank t) ∧
+    (0<WCT9.digit rank t → V3.chainPadA w coord.val t.val=0 ∧
+      V3.chainPadB w coord.val t.val=0 ∧ V3.chainPadC w coord.val t.val=0)
+
+def CoordinateOpenings (answers : Answers) (w : SharedV3.WBytes) (index : Nat)
+    (coord : Fin 9) (raw : Fin 128) (rank : Fin 666) (prev : SharedV3.PairRoot) : Prop :=
+  ChainOpenings answers w index coord raw rank ∧
+  (∀ level, level≤SharedV3.lastLevel coord.val →
+    PathStepGood answers w index coord.val (SharedV3.physical coord.val raw.val) prev.2 level) ∧
+  SharedV3.topOther w coord.val (SharedV3.physical coord.val raw.val) =
+    (nodes answers index coord.val).getD
+      (((128+SharedV3.physical coord.val raw.val)/2^(SharedV3.lastLevel coord.val+1))^^^1) 0
+
+theorem coordinate_extract (answers : Answers) (w : SharedV3.WBytes)
+    (index : Nat) (coord : Fin 9) (raw : Fin 128) (rank : Fin 666)
+    (hi : index<2^31) (prev : SharedV3.PairRoot)
+    (reaches : evalWithAnswerFn answers (SharedV3.coordinate w index coord raw rank prev) =
+      targetPair answers index coord.val (SharedV3.physical coord.val raw.val)) :
+    (CoordinateOpenings answers w index coord raw rank prev ∧
+      prev=pads answers index coord.val (SharedV3.physical coord.val raw.val/64)) ∨
+    HitIn answers (queried answers (SharedV3.coordinate w index coord raw rank prev)) := by
+  have hp := SharedV3.physical_lt coord.val raw.val raw.isLt
+  have hlast := SharedV3.lastLevel_cases coord.val
+  simp only [SharedV3.coordinate, childN_eq_projectedPath, bind_assoc] at reaches ⊢
+  rw [queried_bind, queried_bind, queried_bind]
+  rw [evalWithAnswerFn_bind, evalWithAnswerFn_bind, evalWithAnswerFn_bind,
+    evalWithAnswerFn_pure] at reaches
+  simp only [queried_pure, List.append_nil]
+  generalize hE : evalWithAnswerFn answers (V3.chainProgram w index coord raw rank) = ends at reaches ⊢
+  generalize hL : evalWithAnswerFn answers
+    (shortHash (V3.leafInput coord.val index raw.val prev.1 ends)) = leaf at reaches ⊢
+  generalize hT : evalWithAnswerFn answers
+    (projectedPath (pathPos index coord.val (SharedV3.physical coord.val raw.val))
+      (fun level value => SharedV3.childInput w index coord.val
+        (SharedV3.physical coord.val raw.val) prev.2 value level)
+      (SharedV3.lastLevel coord.val+1) leaf) = top at reaches
+  have hpairs := reaches.trans (ordered_target_pair answers index coord.val _ hp).symm
+  have hout : top=pathTarget answers index coord.val (SharedV3.physical coord.val raw.val)
+        (SharedV3.lastLevel coord.val+1) ∧
+      SharedV3.topOther w coord.val (SharedV3.physical coord.val raw.val) =
+        (nodes answers index coord.val).getD
+          (((128+SharedV3.physical coord.val raw.val)/2^(SharedV3.lastLevel coord.val+1))^^^1) 0 := by
+    by_cases hd : SharedV3.direction coord.val (SharedV3.physical coord.val raw.val)=0
+    · simpa only [SharedV3.orderPair, if_pos hd, Prod.mk.injEq] using hpairs
+    · have h := hpairs
+      simp only [SharedV3.orderPair, if_neg hd, Prod.mk.injEq] at h
+      exact ⟨h.2,h.1⟩
+  rcases path_extract answers w index coord _ _ hi hp le_rfl prev.2 leaf
+      (by rw [projectedValue, hT]; exact hout.1) with ⟨hleaf,hpath⟩|hhit
+  swap
+  · exact Or.inr (hhit.mono fun q hq => List.mem_append_right _ (List.mem_append_right _ hq))
+  have hlen : ends.length=6 := by
+    rw [←hE, V3.chainProgram, Correctness.eval_mapM]
+    simp
+  have hleaf' : leaf=WCT9.childRoot answers index coord.val raw.val
+      (pads answers index coord.val (SharedV3.physical coord.val raw.val/64)).1 := by
+    rw [hleaf]
+    simpa only [pathTarget, pow_zero, Nat.div_one, SharedV3.physical, physical, SharedV3.first, first] using
+      leaf_reference answers index coord.val raw.val coord.isLt raw.isLt
+  rcases leafV3_extract answers index coord.val raw.val prev.1 ends hlen
+      ⟨hi,coord.isLt,raw.isLt⟩ (hL.trans hleaf') with ⟨hends,hpad,hqL⟩|hhit
+  swap
+  · exact Or.inr (hhit.mono fun q hq => List.mem_append_right _ (List.mem_append_left _ hq))
+  have hend (t : Fin 6) : evalWithAnswerFn answers
+      (V3.chainP index coord.val raw.val t.val (4-WCT9.digit rank t) (WCT9.digit rank t)
+        (V3.chainPadA w coord.val t.val) (V3.chainPadB w coord.val t.val)
+        (V3.chainPadC w coord.val t.val) (V3.reveal w coord.val t.val (WCT9.digit rank t))) =
+      Extract.wctValue answers index coord.val raw.val t.val 4 := by
+    rw [←hE, V3.chainProgram, Correctness.eval_mapM] at hends
+    have h := List.getElem_of_eq hends (i:=t.val) (by simp)
+    simpa only [List.getElem_map, List.getElem_finRange, Extract.wctEnds,
+      List.getElem_ofFn, Fin.cast_mk, Fin.eta, Fin.cast_eq_self] using h
+  have hchain (t : Fin 6) := chainV3_extract answers index coord.val raw.val t.val
+    (WCT9.digit rank t) (WCT9.digit_le_four rank t) _ _ _ _
+    ⟨hi,coord.isLt,raw.isLt,t.isLt⟩ (hend t)
+  by_cases hhit : ∃ t : Fin 6, HitIn answers (queried answers
+      (V3.chainP index coord.val raw.val t.val (4-WCT9.digit rank t) (WCT9.digit rank t)
+        (V3.chainPadA w coord.val t.val) (V3.chainPadB w coord.val t.val)
+        (V3.chainPadC w coord.val t.val) (V3.reveal w coord.val t.val (WCT9.digit rank t))))
+  · obtain ⟨t,ht⟩ := hhit
+    exact Or.inr (ht.mono fun q hq => List.mem_append_left _ (by
+      rw [V3.chainProgram, queried_mapM]
+      exact List.mem_flatMap.mpr ⟨t,List.mem_finRange t,hq⟩))
+  · push Not at hhit
+    have hgood (t : Fin 6) := (hchain t).resolve_right (hhit t)
+    left
+    refine ⟨⟨?_,?_,hout.2⟩,Prod.ext hpad ?_⟩
+    · intro t
+      exact ⟨(hgood t).1,(hgood t).2.1⟩
+    · intro level hl
+      exact hpath level (by omega)
+    · exact (hpath 4 (by omega)).2 rfl
+
+#print axioms coordinate_extract
+end ClaudeWCT.W9.T3M.Extract.Paired
+
+namespace ClaudeWCT.W9.T3M.Extract.Paired
+open OracleComp OracleSpec SigGolfCandidate.T3
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open SigGolfCandidate.Research
+open W9Machine
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+
+/-- The shared selector fixes the same physical half in both coordinates of a pair.
+The chain addresses below still contain the unrotated raw child. -/
+def BranchCompatible (raw : Fin 9 → Fin 128) : Prop :=
+  ∀ pair : Fin 4,
+    SharedV3.physical (2*pair.val) (raw ⟨2*pair.val,by have := pair.isLt; omega⟩).val / 64 =
+      SharedV3.physical (2*pair.val+1) (raw ⟨2*pair.val+1,by have := pair.isLt; omega⟩).val / 64
+
+def canonicalBefore (answers : Answers) (index : Nat) (raw : Fin 9 → Fin 128)
+    (coord : Fin 9) : SharedV3.PairRoot :=
+  pads answers index coord.val (SharedV3.physical coord.val (raw coord).val / 64)
+
+theorem canonicalBefore_zero (answers : Answers) (index : Nat) (raw : Fin 9 → Fin 128) :
+    canonicalBefore answers index raw 0 = WCT9.ftsStart := by
+  exact pads_even answers index 0 _ (by decide)
+
+/-- B's two bindings recover the selected A pair; the next A starts at B's root. -/
+theorem canonicalBefore_succ (answers : Answers) (index : Nat) (raw : Fin 9 → Fin 128)
+    (shared : BranchCompatible raw) (c : Nat) (hc : c<8) :
+    canonicalBefore answers index raw ⟨c+1,by omega⟩ =
+      targetPair answers index c (SharedV3.physical c (raw ⟨c,by omega⟩).val) := by
+  by_cases hlast : c=7
+  · subst c
+    change pads answers index 8 _ = targetPair answers index (2*3+1) _
+    rw [targetPair_odd]
+    rfl
+  by_cases heven : c%2=0
+  · let pair : Fin 4 := ⟨c/2,by omega⟩
+    have he : c=2*pair.val := by dsimp [pair]; omega
+    have h := pair_handoff answers index pair.val _ _ pair.isLt (shared pair)
+    simpa only [canonicalBefore,←he] using h
+  · let pair : Nat := c/2
+    have he : c=2*pair+1 := by dsimp [pair]; omega
+    have hp : pair+1<4 := by dsimp [pair]; omega
+    have hn : c+1=2*(pair+1) := by omega
+    have hpad (branch : Nat) : pads answers index (c+1) branch = pairPrev answers index (pair+1) := by
+      rw [hn, pads_even answers index (pair+1) branch hp]
+    have htarget (physical : Nat) : targetPair answers index c physical = pairPrev answers index (pair+1) := by
+      rw [he, targetPair_odd]
+    exact (hpad _).trans (htarget _).symm
+
+section forestFold
+variable (answers : Answers) (w : SharedV3.WBytes) (index : Nat)
+    (raw : Fin 9 → Fin 128) (ranks : Fin 9 → Fin 666)
+
+def forestPrefix (n : Nat) : M SharedV3.PairRoot :=
+  ((List.finRange 9).take n).foldlM
+    (fun prev k => SharedV3.coordinate w index k (raw k) (ranks k) prev)
+    (SharedV3.initialPair w)
+
+def forestState (n : Nat) : SharedV3.PairRoot :=
+  evalWithAnswerFn answers (forestPrefix w index raw ranks n)
+
+theorem forestPrefix_zero : forestPrefix w index raw ranks 0 = pure (SharedV3.initialPair w) := rfl
+
+theorem forestState_zero : forestState answers w index raw ranks 0 = SharedV3.initialPair w := rfl
+
+theorem forestPrefix_succ (n : Nat) (hn : n<9) :
+    forestPrefix w index raw ranks (n+1) = (do
+      let prev ← forestPrefix w index raw ranks n
+      SharedV3.coordinate w index ⟨n,hn⟩ (raw ⟨n,hn⟩) (ranks ⟨n,hn⟩) prev) := by
+  unfold forestPrefix
+  rw [WctExtract.finRange_take_succ n hn, List.foldlM_append]
+  simp only [List.foldlM_cons, List.foldlM_nil, bind_pure]
+  have he : (Fin.ofNat 9 n : Fin 9)=⟨n,hn⟩ := Fin.ext (Nat.mod_eq_of_lt hn)
+  rw [he]
+
+theorem forestState_succ (n : Nat) (hn : n<9) :
+    forestState answers w index raw ranks (n+1) =
+      evalWithAnswerFn answers (SharedV3.coordinate w index ⟨n,hn⟩
+        (raw ⟨n,hn⟩) (ranks ⟨n,hn⟩) (forestState answers w index raw ranks n)) := by
+  rw [forestState, forestPrefix_succ w index raw ranks n hn, evalWithAnswerFn_bind]
+  rfl
+
+theorem forest_eq_prefix : SharedV3.forest w index raw ranks = forestPrefix w index raw ranks 9 := by
+  unfold forestPrefix
+  rw [List.take_of_length_le (by simp)]
+  rfl
+
+theorem forest_eq_prefix_drop (n : Nat) :
+    SharedV3.forest w index raw ranks = (do
+      let prev ← forestPrefix w index raw ranks n
+      ((List.finRange 9).drop n).foldlM
+        (fun prev k => SharedV3.coordinate w index k (raw k) (ranks k) prev) prev) := by
+  have he := List.take_append_drop n (List.finRange 9)
+  conv_lhs =>
+    unfold SharedV3.forest
+    rw [←he, List.foldlM_append]
+  rfl
+
+theorem forestPrefix_trace_sub (n : Nat) :
+    ∀ q ∈ queried answers (forestPrefix w index raw ranks n),
+      q ∈ queried answers (SharedV3.forest w index raw ranks) := by
+  intro q hq
+  rw [forest_eq_prefix_drop w index raw ranks n, queried_bind]
+  exact List.mem_append_left _ hq
+
+theorem coordinate_trace_sub (coord : Fin 9) :
+    ∀ q ∈ queried answers (SharedV3.coordinate w index coord (raw coord) (ranks coord)
+      (forestState answers w index raw ranks coord.val)),
+      q ∈ queried answers (SharedV3.forest w index raw ranks) := by
+  intro q hq
+  apply forestPrefix_trace_sub answers w index raw ranks (coord.val+1) q
+  rw [forestPrefix_succ w index raw ranks coord.val coord.isLt, queried_bind]
+  exact List.mem_append_right _ hq
+end forestFold
+
+/-- The recovered canonical input of every coordinate, together with its opening facts.
+Keeping the actual prefix equality makes trace membership available without rerunning the fold. -/
+def ForestOpenings (answers : Answers) (w : SharedV3.WBytes) (index : Nat)
+    (raw : Fin 9 → Fin 128) (ranks : Fin 9 → Fin 666) : Prop :=
+  SharedV3.initialPair w = WCT9.ftsStart ∧
+    ∀ coord : Fin 9,
+      forestState answers w index raw ranks coord.val = canonicalBefore answers index raw coord ∧
+      CoordinateOpenings answers w index coord (raw coord) (ranks coord)
+        (canonicalBefore answers index raw coord)
+
+/-- Reverse extraction starts at the singleton's two committed nodes and traverses B then A
+for each pair. An inconsistent shared branch is excluded by the actual digest field relation. -/
+theorem forest_extract (answers : Answers) (w : SharedV3.WBytes) (index : Nat)
+    (raw : Fin 9 → Fin 128) (ranks : Fin 9 → Fin 666)
+    (hi : index<2^31) (shared : BranchCompatible raw)
+    (reaches : evalWithAnswerFn answers (SharedV3.forest w index raw ranks) =
+      SharedForest.forestCommitment answers index) :
+    ForestOpenings answers w index raw ranks ∨
+      HitIn answers (queried answers (SharedV3.forest w index raw ranks)) := by
+  have claim : ∀ c (hc : c<9),
+      forestState answers w index raw ranks (c+1) =
+        targetPair answers index c (SharedV3.physical c (raw ⟨c,hc⟩).val) →
+      (SharedV3.initialPair w=WCT9.ftsStart ∧ ∀ k : Fin 9, k.val≤c →
+        forestState answers w index raw ranks k.val=canonicalBefore answers index raw k ∧
+        CoordinateOpenings answers w index k (raw k) (ranks k)
+          (canonicalBefore answers index raw k)) ∨
+        HitIn answers (queried answers (SharedV3.forest w index raw ranks)) := by
+    intro c
+    induction c with
+    | zero =>
+      intro hc hr
+      rw [forestState_succ answers w index raw ranks 0 hc] at hr
+      rcases coordinate_extract answers w index ⟨0,hc⟩ (raw ⟨0,hc⟩) (ranks ⟨0,hc⟩)
+          hi (forestState answers w index raw ranks 0) hr with ⟨hop,hprev⟩|hhit
+      · have hp : forestState answers w index raw ranks 0=canonicalBefore answers index raw 0 := hprev
+        rw [hp] at hop
+        left
+        refine ⟨?_,fun k hk => ?_⟩
+        · exact hp.trans (canonicalBefore_zero answers index raw)
+        · have he : k=0 := Fin.ext (by omega)
+          subst k
+          exact ⟨hp,hop⟩
+      · exact Or.inr (hhit.mono (coordinate_trace_sub answers w index raw ranks ⟨0,hc⟩))
+    | succ c ih =>
+      intro hc hr
+      rw [forestState_succ answers w index raw ranks (c+1) hc] at hr
+      rcases coordinate_extract answers w index ⟨c+1,hc⟩ (raw ⟨c+1,hc⟩) (ranks ⟨c+1,hc⟩)
+          hi (forestState answers w index raw ranks (c+1)) hr with ⟨hop,hprev⟩|hhit
+      · have hp : forestState answers w index raw ranks (c+1)=
+            canonicalBefore answers index raw ⟨c+1,hc⟩ := hprev
+        have hprior := hp.trans (canonicalBefore_succ answers index raw shared c (by omega))
+        rcases ih (by omega) hprior with ⟨hstart,hall⟩|hhit
+        · left
+          refine ⟨hstart,fun k hk => ?_⟩
+          by_cases hle : k.val≤c
+          · exact hall k hle
+          · have he : k=⟨c+1,hc⟩ := Fin.ext (by show k.val=c+1; omega)
+            subst k
+            rw [hp] at hop
+            exact ⟨hp,hop⟩
+        · exact Or.inr hhit
+      · exact Or.inr (hhit.mono (coordinate_trace_sub answers w index raw ranks ⟨c+1,hc⟩))
+  have hlast : forestState answers w index raw ranks 9 =
+      targetPair answers index 8 (SharedV3.physical 8 (raw 8).val) := by
+    rw [targetPair_singleton, forestState, ←forest_eq_prefix w index raw ranks]
+    exact reaches
+  rcases claim 8 (by decide) hlast with ⟨hstart,hall⟩|hhit
+  · exact Or.inl ⟨hstart,fun k => hall k (by have := k.isLt; omega)⟩
+  · exact Or.inr hhit
+
+/-- Concrete output fields enforce the branch equality required by reverse extraction. -/
+theorem branchCompatible_output (output : HashOutput) :
+    BranchCompatible (SharedForest.rawChildFromOutput output) := by
+  intro pair
+  change (SharedForest.physicalChildFromOutput output
+      ⟨2*pair.val,by have := pair.isLt; omega⟩).val/64 =
+    (SharedForest.physicalChildFromOutput output
+      ⟨2*pair.val+1,by have := pair.isLt; omega⟩).val/64
+  rw [SharedForest.physicalFromOutput_first, SharedForest.physicalFromOutput_second]
+  exact SharedForest.selected_branch ((SharedForest.forestSelectionFromOutput output).pairs pair)
+
+#print axioms forest_extract
+#print axioms branchCompatible_output
+end ClaudeWCT.W9.T3M.Extract.Paired
+
+namespace ClaudeWCT.W9.T3M.Extract.Paired
+open OracleComp OracleSpec SigGolfCandidate.T3
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open SigGolfCandidate.Research
+open ClaudeWCT.W9.T3M.WctExtract
+open W9Machine
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+
+/-- Every nonempty chain emits its first public query, without any semantic assumption. -/
+theorem chainV3_first_queried (answers : Answers) (index coord raw chain start count : Nat)
+    (padA : Digest) (padB : BitVec 64) (padC value : Digest) (hcount : 0<count) :
+    (.inl (.inr (pad64 (V3.chainInput index coord raw chain start padA padB padC value))) : Spec.Domain) ∈
+      queried answers (V3.chainP index coord raw chain start count padA padB padC value) := by
+  cases count with
+  | zero => omega
+  | succ n =>
+    rw [V3.chainP, List.range'_succ, List.foldlM_cons, queried_bind]
+    exact List.mem_append_left _ (by simp only [queried_shortHash, List.mem_singleton])
+
+/-- Chain membership is independent of the incoming pair, which is consumed only after the chains. -/
+theorem chainV3_coordinate_trace_sub (answers : Answers) (w : SharedV3.WBytes) (index : Nat)
+    (coord : Fin 9) (raw : Fin 128) (rank : Fin 666) (prev : SharedV3.PairRoot) (t : Fin 6) :
+    ∀ q ∈ queried answers (V3.chainP index coord.val raw.val t.val
+      (4-WCT9.digit rank t) (WCT9.digit rank t)
+      (V3.chainPadA w coord.val t.val) (V3.chainPadB w coord.val t.val)
+      (V3.chainPadC w coord.val t.val) (V3.reveal w coord.val t.val (WCT9.digit rank t))),
+      q ∈ queried answers (SharedV3.coordinate w index coord raw rank prev) := by
+  intro q hq
+  rw [SharedV3.coordinate, queried_bind]
+  apply List.mem_append_left
+  rw [V3.chainProgram, queried_mapM]
+  exact List.mem_flatMap.mpr ⟨t,List.mem_finRange t,hq⟩
+
+/-- A successful no-collision opening exposes the canonical first input at the *raw* chain address. -/
+theorem active_chain_queried (answers : Answers) (w : SharedV3.WBytes) (index : Nat)
+    (coord : Fin 9) (raw : Fin 128) (rank : Fin 666) (hi : index<2^31)
+    (honest : ChainOpenings answers w index coord raw rank) (t : Fin 6)
+    (active : 0<WCT9.digit rank t) (prev : SharedV3.PairRoot) :
+    (.inl (.inr (honestInput answers
+      (.wctChain index coord.val raw.val t.val (4-WCT9.digit rank t)))) : Spec.Domain) ∈
+      queried answers (SharedV3.coordinate w index coord raw rank prev) := by
+  have hd := WCT9.digit_le_four rank t
+  obtain ⟨hvalue,hpads⟩ := honest t
+  obtain ⟨hA,hB,hC⟩ := hpads active
+  have hfirst := chainV3_first_queried answers index coord.val raw.val t.val
+    (4-WCT9.digit rank t) (WCT9.digit rank t)
+    (V3.chainPadA w coord.val t.val) (V3.chainPadB w coord.val t.val)
+    (V3.chainPadC w coord.val t.val) (V3.reveal w coord.val t.val (WCT9.digit rank t)) active
+  have hinput : pad64 (V3.chainInput index coord.val raw.val t.val (4-WCT9.digit rank t)
+      (V3.chainPadA w coord.val t.val) (V3.chainPadB w coord.val t.val)
+      (V3.chainPadC w coord.val t.val) (V3.reveal w coord.val t.val (WCT9.digit rank t))) =
+      honestInput answers (.wctChain index coord.val raw.val t.val (4-WCT9.digit rank t)) := by
+    rw [hA,hB,hC,hvalue,
+      W9Machine.chainInput_canonical _ _ _ _ _ _ _ _ _ hi coord.isLt raw.isLt t.isLt (by omega),
+      wctChainInputP_zero, Extract.pad64_wctChainInput,
+      honestInput_wctChain]
+  rw [hinput] at hfirst
+  exact chainV3_coordinate_trace_sub answers w index coord raw rank prev t _ hfirst
+
+/-- Export consumed by paired coverage: each active slot contributes its canonical start query.
+No physical child permutation appears in this address. -/
+theorem active_slot_queried (answers : Answers) (w : SharedV3.WBytes) (index : Nat)
+    (raw : Fin 9 → Fin 128) (ranks : Fin 9 → Fin 666) (hi : index<2^31)
+    (honest : ForestOpenings answers w index raw ranks)
+    (coord : Fin 9) (t : Fin 6) (active : 0<WCT9.digit (ranks coord) t) :
+    (.inl (.inr (honestInput answers
+      (.wctChain index coord.val (raw coord).val t.val (4-WCT9.digit (ranks coord) t)))) : Spec.Domain) ∈
+      queried answers (SharedV3.forest w index raw ranks) := by
+  exact coordinate_trace_sub answers w index raw ranks coord _
+    (active_chain_queried answers w index coord (raw coord) (ranks coord) hi
+      (honest.2 coord).2.1 t active (forestState answers w index raw ranks coord.val))
+
+/-- The extraction-facing corollary hides intermediate path facts from coverage clients. -/
+theorem forest_extract_active (answers : Answers) (w : SharedV3.WBytes) (index : Nat)
+    (raw : Fin 9 → Fin 128) (ranks : Fin 9 → Fin 666)
+    (hi : index<2^31) (shared : BranchCompatible raw)
+    (reaches : evalWithAnswerFn answers (SharedV3.forest w index raw ranks) =
+      SharedForest.forestCommitment answers index) :
+    HitIn answers (queried answers (SharedV3.forest w index raw ranks)) ∨
+      (ForestOpenings answers w index raw ranks ∧
+       ∀ (coord : Fin 9) (t : Fin 6), 0<WCT9.digit (ranks coord) t →
+        (.inl (.inr (honestInput answers
+          (.wctChain index coord.val (raw coord).val t.val (4-WCT9.digit (ranks coord) t)))) : Spec.Domain) ∈
+          queried answers (SharedV3.forest w index raw ranks)) := by
+  rcases forest_extract answers w index raw ranks hi shared reaches with hhon|hhit
+  · exact Or.inr ⟨hhon,active_slot_queried answers w index raw ranks hi hhon⟩
+  · exact Or.inl hhit
+
+#print axioms active_slot_queried
+#print axioms forest_extract_active
+end ClaudeWCT.W9.T3M.Extract.Paired
+
+
+namespace ClaudeWCT.W9.T3M.Extract.Paired
+open OracleComp OracleSpec SigGolfCandidate.T3
+open SigGolfCandidate.Research
+open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open Correctness (Answers)
+open ClaudeWCT.W9.T3M.WctExtract
+open W9Machine
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+
+theorem PathStepGood.sibling_eq (answers : Answers) (w : SharedV3.WBytes)
+    (index coord physical level : Nat) (hp : physical<128) (hl : level<6) (padR : Digest)
+    (hg : PathStepGood answers w index coord physical padR level) :
+    SharedV3.sibling w coord physical level =
+      SharedForest.authAt (nodes answers index coord) physical level := by
+  have he := hg.1
+  simp only [SharedV3.childInput, V3.nodeInput] at he
+  change pad64 (block4 _ (V3.nodeHdr _ _ _ _) _ _) = _ at he
+  rw [pad64_block4] at he
+  simp only [pathPos, honestInput, WctExtract.wctTopInput_block4, pad64_block4] at he
+  obtain ⟨hleft,hhdr,hpad,hright⟩ := block4_injective he
+  have hh := W9Drv.heap_eq physical level hp hl
+  have hs := heap_path_pair6 (fun j => (nodes answers index coord).getD j 0) physical level hp hl
+  rw [hh] at hs
+  unfold SharedForest.authAt
+  by_cases hb : physical/2^level%2=0
+  · have href := congrArg Prod.snd hs
+    simp only [if_pos hb, Prod.snd] at href hright
+    exact hright.trans href.symm
+  · have href := congrArg Prod.fst hs
+    simp only [if_neg hb, Prod.fst] at href hleft
+    exact hleft.trans href.symm
+#print axioms PathStepGood.sibling_eq
+end ClaudeWCT.W9.T3M.Extract.Paired
+
+namespace ClaudeWCT.W9.T3M.Extract.Paired
+open OracleComp OracleSpec SigGolfCandidate.T3
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.Research.SharedForest
+open ClaudeWCT.WCT9
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local irreducible] sharedNodes firstNodes secondNodes expectedPairRoot chainValue
+
+theorem buildForest_opening (answers : Answers) (index : Nat)
+    (selected : ForestSelection) (words : ForestWords) :
+    (evalWithAnswerFn answers (buildForest index selected words)).1 =
+      ⟨fun pair => expectedPairOpening answers index pair.val (selected.pairs pair)
+        (words.first pair) (words.second pair) (pairPrev answers index pair.val),
+       ⟨fun i => chainValue answers index 8 (rawChild false selected.singleton.val) words.singleton i,
+        fun i => authAt (nodes answers index 8) selected.singleton.val i.val⟩⟩ := by
+  have hfour : List.finRange 4 = [0,1,2,3] := by decide
+  simp only [buildForest,hfour,List.foldlM_cons,List.foldlM_nil,
+    evalWithAnswerFn_bind,evalWithAnswerFn_pure,buildPair_result,
+    buildSingleton,buildSharedCoordinate_result]
+  apply congrArg₂ ForestOpening.mk
+  · funext pair
+    fin_cases pair <;> rfl
+  · apply congrArg₂ SingletonOpening.mk
+    · funext i
+      fin_cases i <;> rfl
+    · rfl
+#print axioms buildForest_opening
+end ClaudeWCT.W9.T3M.Extract.Paired
+
+namespace ClaudeWCT.W9.T3M.Extract.Paired
+open OracleComp OracleSpec SigGolfCandidate.T3
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.Research.SharedForest
+open ClaudeWCT.WCT9
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local irreducible] sharedNodes firstNodes secondNodes expectedPairRoot chainValue
+
+theorem raw_selected_first (output : HashOutput) (pair : Fin 4) :
+    rawChild true (firstChild ((forestSelectionFromOutput output).pairs pair)).val =
+      (rawChildFromOutput output ⟨2*pair.val,by have := pair.isLt;omega⟩).val := by
+  rw [← physicalFromOutput_first output pair]
+  change rawChild true (physicalChild (firstCoord (2*pair.val)) _)=_
+  have hf : firstCoord (2*pair.val)=true := by simp [firstCoord];omega
+  rw [hf]
+  exact raw_physical_child true _ (rawChildFromOutput output _).isLt
+
+theorem raw_selected_second (output : HashOutput) (pair : Fin 4) :
+    rawChild false (secondChild ((forestSelectionFromOutput output).pairs pair)).val =
+      (rawChildFromOutput output ⟨2*pair.val+1,by have := pair.isLt;omega⟩).val := by
+  rw [← physicalFromOutput_second output pair]
+  change rawChild false (physicalChild (firstCoord (2*pair.val+1)) _)=_
+  have hf : firstCoord (2*pair.val+1)=false := by simp [firstCoord]
+  rw [hf]
+  exact raw_physical_child false _ (rawChildFromOutput output _).isLt
+
+theorem raw_selected_singleton (output : HashOutput) :
+    rawChild false (forestSelectionFromOutput output).singleton.val =
+      (rawChildFromOutput output 8).val := by
+  exact raw_physical_child false _ (rawChildFromOutput output 8).isLt
+
+theorem buildForest_coordinateValues (answers : Answers) (output : HashOutput) (coord : Fin 9) (i : Fin 6) :
+    T3M.Paired.coordinateValues (evalWithAnswerFn answers (buildForest (digestIndex output)
+      (forestSelectionFromOutput output) (forestWordsFromOutput output))).1 coord i =
+      chainValue answers (digestIndex output) coord.val (rawChildFromOutput output coord).val
+        (forestRank output coord.val) i := by
+  rw [buildForest_opening]
+  fin_cases coord <;> fin_cases i <;>
+    simp [T3M.Paired.coordinateValues,expectedPairOpening,forestWordsFromOutput,
+      raw_selected_first,raw_selected_second,raw_selected_singleton,List.getD_eq_getElem]
+
+theorem buildForest_coordinatePath (answers : Answers) (output : HashOutput) (coord : Fin 9)
+    (level : Nat) (hl : level < (if coord.val < 8 ∧ coord.val % 2 = 0 then 6 else 7)) :
+    T3M.Paired.coordinatePath (evalWithAnswerFn answers (buildForest (digestIndex output)
+      (forestSelectionFromOutput output) (forestWordsFromOutput output))).1 coord level =
+      authAt (nodes answers (digestIndex output) coord.val)
+        (W9Machine.SharedV3.physical coord.val (rawChildFromOutput output coord).val) level := by
+  rw [buildForest_opening]
+  fin_cases coord
+  · change authAt (firstNodes answers (digestIndex output) 0 (pairPrev answers (digestIndex output) 0))
+      (firstChild ((forestSelectionFromOutput output).pairs 0)).val (level % 6) = _
+    have hb : level < 6 := hl
+    have hp := congrArg Fin.val (physicalFromOutput_first output 0)
+    change W9Machine.SharedV3.physical 0 (rawChildFromOutput output 0).val =
+      (firstChild ((forestSelectionFromOutput output).pairs 0)).val at hp
+    rw [Nat.mod_eq_of_lt hb, ← hp]
+    rfl
+  · change authAt (secondNodes answers (digestIndex output) 0 (pairPrev answers (digestIndex output) 0))
+      (secondChild ((forestSelectionFromOutput output).pairs 0)).val (level % 7) = _
+    have hb : level < 7 := hl
+    have hp := congrArg Fin.val (physicalFromOutput_second output 0)
+    change W9Machine.SharedV3.physical 1 (rawChildFromOutput output 1).val =
+      (secondChild ((forestSelectionFromOutput output).pairs 0)).val at hp
+    rw [Nat.mod_eq_of_lt hb, ← hp]
+    rfl
+  · change authAt (firstNodes answers (digestIndex output) 1 (pairPrev answers (digestIndex output) 1))
+      (firstChild ((forestSelectionFromOutput output).pairs 1)).val (level % 6) = _
+    have hb : level < 6 := hl
+    have hp := congrArg Fin.val (physicalFromOutput_first output 1)
+    change W9Machine.SharedV3.physical 2 (rawChildFromOutput output 2).val =
+      (firstChild ((forestSelectionFromOutput output).pairs 1)).val at hp
+    rw [Nat.mod_eq_of_lt hb, ← hp]
+    rfl
+  · change authAt (secondNodes answers (digestIndex output) 1 (pairPrev answers (digestIndex output) 1))
+      (secondChild ((forestSelectionFromOutput output).pairs 1)).val (level % 7) = _
+    have hb : level < 7 := hl
+    have hp := congrArg Fin.val (physicalFromOutput_second output 1)
+    change W9Machine.SharedV3.physical 3 (rawChildFromOutput output 3).val =
+      (secondChild ((forestSelectionFromOutput output).pairs 1)).val at hp
+    rw [Nat.mod_eq_of_lt hb, ← hp]
+    rfl
+  · change authAt (firstNodes answers (digestIndex output) 2 (pairPrev answers (digestIndex output) 2))
+      (firstChild ((forestSelectionFromOutput output).pairs 2)).val (level % 6) = _
+    have hb : level < 6 := hl
+    have hp := congrArg Fin.val (physicalFromOutput_first output 2)
+    change W9Machine.SharedV3.physical 4 (rawChildFromOutput output 4).val =
+      (firstChild ((forestSelectionFromOutput output).pairs 2)).val at hp
+    rw [Nat.mod_eq_of_lt hb, ← hp]
+    rfl
+  · change authAt (secondNodes answers (digestIndex output) 2 (pairPrev answers (digestIndex output) 2))
+      (secondChild ((forestSelectionFromOutput output).pairs 2)).val (level % 7) = _
+    have hb : level < 7 := hl
+    have hp := congrArg Fin.val (physicalFromOutput_second output 2)
+    change W9Machine.SharedV3.physical 5 (rawChildFromOutput output 5).val =
+      (secondChild ((forestSelectionFromOutput output).pairs 2)).val at hp
+    rw [Nat.mod_eq_of_lt hb, ← hp]
+    rfl
+  · change authAt (firstNodes answers (digestIndex output) 3 (pairPrev answers (digestIndex output) 3))
+      (firstChild ((forestSelectionFromOutput output).pairs 3)).val (level % 6) = _
+    have hb : level < 6 := hl
+    have hp := congrArg Fin.val (physicalFromOutput_first output 3)
+    change W9Machine.SharedV3.physical 6 (rawChildFromOutput output 6).val =
+      (firstChild ((forestSelectionFromOutput output).pairs 3)).val at hp
+    rw [Nat.mod_eq_of_lt hb, ← hp]
+    rfl
+  · change authAt (secondNodes answers (digestIndex output) 3 (pairPrev answers (digestIndex output) 3))
+      (secondChild ((forestSelectionFromOutput output).pairs 3)).val (level % 7) = _
+    have hb : level < 7 := hl
+    have hp := congrArg Fin.val (physicalFromOutput_second output 3)
+    change W9Machine.SharedV3.physical 7 (rawChildFromOutput output 7).val =
+      (secondChild ((forestSelectionFromOutput output).pairs 3)).val at hp
+    rw [Nat.mod_eq_of_lt hb, ← hp]
+    rfl
+  · change authAt (nodes answers (digestIndex output) 8)
+      (forestSelectionFromOutput output).singleton.val (level % 7) = _
+    have hb : level < 7 := hl
+    rw [Nat.mod_eq_of_lt hb]
+    rfl
+#print axioms buildForest_coordinateValues
+#print axioms buildForest_coordinatePath
+end ClaudeWCT.W9.T3M.Extract.Paired
+
+namespace ClaudeWCT.W9.T3M.Extract.Paired
+open OracleComp OracleSpec SigGolfCandidate.T3
+open SigGolfCandidate.T3.Correctness (Answers)
+open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open ClaudeWCT.W9.T3M.WctExtract W9Machine
+set_option maxHeartbeats 100000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+
+def FtsPosition : Pos → Prop
+  | .wctChain .. | .wctLeaf .. | .wctNode .. => True
+  | _ => False
+
+def FtsQuery : Spec.Domain → Prop
+  | .inl (.inr input) => ∃ p, FtsPosition p ∧ p.Bounded ∧ posOf input=some p
+  | _ => False
+
+def FtsQueries (answers : Answers) {α : Type} (program : M α) : Prop :=
+  ∀ q ∈ queried answers program, FtsQuery q
+
+theorem FtsQueries.pure' (answers : Answers) {α : Type} (value : α) :
+    FtsQueries answers (pure value : M α) := by
+  intro q hq;simpa only [queried_pure,List.not_mem_nil] using hq
+
+theorem FtsQueries.bind (answers : Answers) {α β : Type} {p : M α} {f : α → M β}
+    (hp:FtsQueries answers p) (hf:FtsQueries answers (f (evalWithAnswerFn answers p))) :
+    FtsQueries answers (p >>= f) := by
+  intro q hq
+  rw [queried_bind,List.mem_append] at hq
+  exact hq.elim (hp q) (hf q)
+
+theorem FtsQueries.fold (answers : Answers) {α β : Type} (items : List α)
+    (f : β → α → M β) (hf:∀ x ∈ items,∀ state,FtsQueries answers (f state x)) (initial : β) :
+    FtsQueries answers (items.foldlM f initial) := by
+  induction items generalizing initial with
+  | nil=>exact FtsQueries.pure' answers _
+  | cons x xs ih=>
+    rw [List.foldlM_cons]
+    exact FtsQueries.bind answers (hf x (List.mem_cons_self ..) initial)
+      (ih (fun y hy=>hf y (List.mem_cons_of_mem x hy)) _)
+
+theorem posOf_sameHeader (answers : Answers) (p : Pos) (hp : p.Bounded) (input : HashInput)
+    (hs : SameHeader input (honestInput answers p)) : posOf input=some p := by
+  apply posOf_key_eq hp
+  rw [hs,hdrBlock_honestInput,Pos.canonicalHeader_eq hp]
+
+theorem posOf_padded_chain (index coord raw t step : Nat)
+    (pa : Digest) (pb : BitVec 64) (pc value : Digest)
+    (hb : (Pos.wctChain index coord raw t step).Bounded) :
+    posOf (pad64 (wctChainInputP index coord raw t step pa pb pc value)) =
+      some (.wctChain index coord raw t step) := by
+  apply posOf_key_eq hb
+  rw [wctChainInputP_block4,pad64_block4,hdrBlock_block4W,
+    canonicalHeader_ftsChainHeaderP]
+  simpa only [Pos.hdr] using (Pos.canonicalHeader_eq hb)
+
+theorem chainV3_ftsQueries (answers : Answers) (index coord raw t start count : Nat)
+    (pa : Digest) (pb : BitVec 64) (pc value : Digest)
+    (hi : index<2^31) (hc : coord<9) (hr : raw<128) (ht : t<6) (hn : start+count≤4) :
+    FtsQueries answers (V3.chainP index coord raw t start count pa pb pc value) := by
+  have he := W9Machine.chainP_canonical index coord raw t start count pa pc value pb hi hc hr ht hn
+  rw [he,wctChainP_eq_hashPath]
+  intro q hq
+  rw [queried_hashPath] at hq
+  obtain ⟨step,hstep,rfl⟩:=List.mem_map.mp hq
+  have hs : step<count := List.mem_range.mp hstep
+  have hb : (Pos.wctChain index coord raw t (start+step)).Bounded := ⟨hi,hc,hr,ht,by omega⟩
+  refine ⟨.wctChain index coord raw t (start+step),trivial,hb,?_⟩
+  exact posOf_padded_chain index coord raw t (start+step) pa pb pc _ hb
+
+theorem chainProgram_ftsQueries (answers : Answers) (w : SharedV3.WBytes) (index : Nat)
+    (coord : Fin 9) (raw : Fin 128) (rank : Fin 666) (hi:index<2^31) :
+    FtsQueries answers (V3.chainProgram w index coord raw rank) := by
+  intro q hq
+  rw [V3.chainProgram,queried_mapM] at hq
+  obtain ⟨t,ht,hq⟩:=List.mem_flatMap.mp hq
+  exact chainV3_ftsQueries answers _ _ _ _ _ _ _ _ _ _ hi coord.isLt raw.isLt t.isLt
+    (by have:=ClaudeWCT.WCT9.digit_le_four rank t;omega) q hq
+
+theorem leafV3_ftsQueries (answers : Answers) (index : Nat) (coord : Fin 9) (raw : Fin 128)
+    (pad : Digest) (ends : List Digest) (hlen:ends.length=6) (hi:index<2^31) :
+    FtsQueries answers (shortHash (V3.leafInput coord.val index raw.val pad ends)) := by
+  rw [W9Drv.leafInput_canonical _ _ _ _ _ hlen,leafHashP_eq_shortHash]
+  intro q hq
+  rw [queried_shortHash,List.mem_singleton] at hq
+  subst hq
+  have hb : (Pos.wctLeaf index coord.val raw.val).Bounded := ⟨hi,coord.isLt,raw.isLt⟩
+  refine ⟨.wctLeaf index coord.val raw.val,trivial,hb,?_⟩
+  apply posOf_eq hb
+  exact hdrBlock_wctLeafInputP ..
+
+theorem path_ftsQueries (answers : Answers) (w : SharedV3.WBytes) (index : Nat)
+    (coord : Fin 9) (physical : Nat) (padR value : Digest) (hi:index<2^31) (hp:physical<128) :
+    FtsQueries answers
+      (projectedPath (pathPos index coord.val physical)
+        (fun level value=>SharedV3.childInput w index coord.val physical padR value level)
+        (SharedV3.lastLevel coord.val+1) value) := by
+  intro q hq
+  rw [queried_projectedPath] at hq
+  obtain ⟨level,hl,rfl⟩:=List.mem_map.mp hq
+  have hl':level<6 := by have:=SharedV3.lastLevel_cases coord.val;have:=List.mem_range.mp hl;omega
+  have hb : (pathPos index coord.val physical level).Bounded :=
+    (pathPos_bounded index coord.val physical level hi coord.isLt hp (by have:=List.mem_range.mp hl;omega)).legacy
+  refine ⟨pathPos index coord.val physical level,trivial,hb,?_⟩
+  apply posOf_sameHeader answers _ hb
+  exact childInput_sameHeader w answers index coord physical level hp hl' padR _
+
+theorem coordinate_ftsQueries (answers : Answers) (w : SharedV3.WBytes) (index : Nat)
+    (coord : Fin 9) (raw : Fin 128) (rank : Fin 666) (prev : SharedV3.PairRoot) (hi:index<2^31) :
+    FtsQueries answers (SharedV3.coordinate w index coord raw rank prev) := by
+  unfold SharedV3.coordinate
+  refine FtsQueries.bind answers (chainProgram_ftsQueries answers w index coord raw rank hi) ?_
+  rw [childN_eq_projectedPath,bind_assoc]
+  refine FtsQueries.bind answers (leafV3_ftsQueries answers index coord raw prev.1 _ ?_ hi) ?_
+  · rw [V3.chainProgram,Correctness.eval_mapM];simp
+  · exact FtsQueries.bind answers (path_ftsQueries answers w index coord _ _ _ hi (SharedV3.physical_lt _ _ raw.isLt))
+      (FtsQueries.pure' answers _)
+
+theorem forest_ftsQueries (answers : Answers) (w : SharedV3.WBytes) (index : Nat)
+    (raw : Fin 9→Fin 128) (rank : Fin 9→Fin 666) (hi:index<2^31) :
+    FtsQueries answers (SharedV3.forest w index raw rank) := by
+  unfold SharedV3.forest
+  exact FtsQueries.fold answers (List.finRange 9) _
+    (fun k _ prev=>coordinate_ftsQueries answers w index k (raw k) (rank k) prev hi) _
+
+def FtsHitIn (answers : Answers) (qs : List Spec.Domain) : Prop :=
+  ∃ p input, FtsPosition p ∧ Bounded p ∧ .inl (.inr input)∈qs ∧
+    HashHitAt answers p (honestInput answers p) input ∧ SameHeader input (honestInput answers p)
+
+theorem FtsHitIn.hitIn {answers : Answers} {qs : List Spec.Domain} (h:FtsHitIn answers qs) : HitIn answers qs := by
+  obtain ⟨p,x,_,hb,hq,hh,hs⟩:=h
+  exact ⟨p,x,hb,hq,hh,hs⟩
+
+theorem forest_hit_fts (answers : Answers) (w : SharedV3.WBytes) (index : Nat)
+    (raw : Fin 9→Fin 128) (rank : Fin 9→Fin 666) (hi:index<2^31)
+    (hit:HitIn answers (queried answers (SharedV3.forest w index raw rank))) :
+    FtsHitIn answers (queried answers (SharedV3.forest w index raw rank)) := by
+  obtain ⟨p,x,hb,hq,hh,hs⟩:=hit
+  obtain ⟨p',hfts,_,hpos⟩:=forest_ftsQueries answers w index raw rank hi _ hq
+  have hp:=posOf_sameHeader answers p hb.legacy x hs
+  have he:p'=p := Option.some.inj (hpos.symm.trans hp)
+  subst p'
+  exact ⟨p,x,hfts,hb,hq,hh,hs⟩
+
+#print axioms forest_hit_fts
+end ClaudeWCT.W9.T3M.Extract.Paired
+
+namespace ClaudeWCT.W9.T3M.Extract.Paired
+open OracleSpec SigGolfCandidate.T3
+open SigGolfCandidate.T3.Correctness (Answers)
+theorem FtsHitIn.mono {answers : Answers} {queries queries' : List Spec.Domain}
+    (hit : FtsHitIn answers queries) (hsub : ∀ query ∈ queries, query ∈ queries') :
+    FtsHitIn answers queries' := by
+  obtain ⟨p,x,hfts,hb,hq,hh,hs⟩ := hit
+  exact ⟨p,x,hfts,hb,hsub _ hq,hh,hs⟩
+end ClaudeWCT.W9.T3M.Extract.Paired

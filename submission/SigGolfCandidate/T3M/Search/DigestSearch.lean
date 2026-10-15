@@ -563,6 +563,14 @@ theorem wordsOf_digestInput (rho : Digest) (m : T3.Message) (c : BitVec 32) :
 theorem blocks_digestInput (rho : Digest) (m : T3.Message) (c : BitVec 32) :
     (toQ (T3.pad64 (T3.digestInput rho m c))).blocks = 1 := by
   rw [pad64_digestInput, blocks_toQ (by rw [Aligned, digestInput_length]; omega), digestInput_length]
+theorem TBSim.publicHash_bind {β : Type} {image : Image} {sk : BitVec 256} {s : MachineState}
+    {input : List UInt8} {W : Nat} {f : HashOutput → T3.M β} {Q : β → MachineState → Prop}
+    (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
+    (hv : hashArgumentsValid s = true) (hq : hashInput s = toQ (T3.pad64 input))
+    (h : ∀ a, TBSim image sk (writeHash s a) W (f a) Q) :
+    TBSim image sk s (8 * (toQ (T3.pad64 input)).blocks + W) (T3.publicHash input >>= f) Q := by
+  unfold TBSim; rw [mrealize_bind, mrealize_publicHash]
+  exact Sim.query_bind hf ht0 hv hq h
 section blocks
 variable {image : Image} {d b : Nat}
 theorem ds0_spec (hD : DsAt image d b) (s : MachineState) (hpc : s.pc = pcOf (d + 0)) (i : Nat)

@@ -130,7 +130,7 @@ theorem run37 {b : Nat} (hb : b = 354 ∨ b = 543) :
 
 variable {image : Image} {b : Nat}
 
-theorem setup_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (zBase b + 5)) :
+theorem setup_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (zBase b + 5)) :
     ∃ t, Steps image s 17 20 t ∧ t.pc = pcOf (zBase b + 22) ∧
       t.getReg .x29 = lanes0 (s.getReg .x6) ∧ t.getReg .x28 = lanes0 (s.getReg .x7) ∧
       t.getReg .x21 = 0 ∧ RegsExcept s t [.x20, .x21, .x28, .x29, .x30] ∧ Frame s t (fun _ => False) := by
@@ -142,7 +142,7 @@ theorem setup_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (
   · intro r hr; cases r <;> simp_all [z354_5.res, rv_simp] <;> rfl
   · intro A _ _; simp [z354_5.res, rv_simp]
 
-theorem clear_lo_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (zBase b + 23)) :
+theorem clear_lo_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (zBase b + 23)) :
     ∃ t, Steps image s 4 4 t ∧ t.pc = pcOf (zBase b + 22) ∧
       t.getReg .x29 = clear (s.getReg .x29) ∧ t.getReg .x21 = s.getReg .x21 + 1#64 ∧
       RegsExcept s t [.x21, .x29, .x30] ∧ Frame s t (fun _ => False) := by
@@ -153,7 +153,7 @@ theorem clear_lo_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcO
   · intro r hr; cases r <;> simp_all [z354_23.res, rv_simp] <;> rfl
   · intro A _ _; simp [z354_23.res, rv_simp]
 
-theorem clear_hi_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (zBase b + 28)) :
+theorem clear_hi_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (zBase b + 28)) :
     ∃ t, Steps image s 4 4 t ∧ t.pc = pcOf (zBase b + 27) ∧
       t.getReg .x28 = clear (s.getReg .x28) ∧ t.getReg .x21 = s.getReg .x21 + 1#64 ∧
       RegsExcept s t [.x21, .x28, .x30] ∧ Frame s t (fun _ => False) := by
@@ -164,7 +164,7 @@ theorem clear_hi_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcO
   · intro r hr; cases r <;> simp_all [z354_28.res, rv_simp] <;> rfl
   · intro A _ _; simp [z354_28.res, rv_simp]
 
-theorem entry_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (zBase b))
+theorem entry_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (zBase b))
     (lay : Nat) (hl : lay < 4) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) :
     ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf (zBase b + (if lay ≠ 3 then 2 else 5)) ∧
       RegsExcept s t [.x30] ∧ Frame s t (fun _ => False) := by
@@ -175,7 +175,7 @@ theorem entry_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (
   · intro r hr; cases r <;> simp_all [z354_0.res, rv_simp] <;> rfl
   · intro A _ _; simp [z354_0.res, rv_simp]
 
-theorem extra_credit_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (zBase b + 2)) :
+theorem extra_credit_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (zBase b + 2)) :
     ∃ t, Steps image s 3 3 t ∧
       t.pc = pcOf (zBase b + (if clear (s.getReg .x28) = 0#64 then 37 else 5)) ∧
       RegsExcept s t [.x28, .x29] ∧ Frame s t (fun _ => False) := by
@@ -189,7 +189,7 @@ theorem extra_credit_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc =
   · intro r hr; cases r <;> simp_all [z354_2.res, rv_simp] <;> rfl
   · intro A _ _; simp [z354_2.res, rv_simp]
 
-theorem test_lo_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (zBase b + 22)) :
+theorem test_lo_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (zBase b + 22)) :
     ∃ t, Steps image s 1 1 t ∧
       t.pc = pcOf (zBase b + (if s.getReg .x29 = 0#64 then 27 else 23)) ∧
       RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
@@ -199,7 +199,7 @@ theorem test_lo_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf
   · intro r hr; cases r <;> simp_all [z354_22.res, rv_simp] <;> rfl
   · intro A _ _; simp [z354_22.res, rv_simp]
 
-theorem test_hi_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (zBase b + 27)) :
+theorem test_hi_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (zBase b + 27)) :
     ∃ t, Steps image s 1 1 t ∧
       t.pc = pcOf (zBase b + (if s.getReg .x28 = 0#64 then 32 else 28)) ∧
       RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
@@ -209,7 +209,7 @@ theorem test_hi_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf
   · intro r hr; cases r <;> simp_all [z354_27.res, rv_simp] <;> rfl
   · intro A _ _; simp [z354_27.res, rv_simp]
 
-theorem checksum_test_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (zBase b + 32)) :
+theorem checksum_test_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (zBase b + 32)) :
     ∃ t, Steps image s 1 1 t ∧
       t.pc = pcOf (zBase b + (if s.getReg .x17 = s.getReg .x25 then 33 else 34)) ∧
       RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
@@ -219,7 +219,7 @@ theorem checksum_test_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc 
   · intro r hr; cases r <;> simp_all [z354_32.res, rv_simp] <;> rfl
   · intro A _ _; simp [z354_32.res, rv_simp]
 
-theorem checksum_inc_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (zBase b + 33)) :
+theorem checksum_inc_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (zBase b + 33)) :
     ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf (zBase b + 34) ∧
       t.getReg .x21 = s.getReg .x21 + 1#64 ∧ RegsExcept s t [.x21] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run33 hK.2.1) (codeAt_zero hK 8 33 z_33 (by rfl)) s hpc
@@ -228,7 +228,7 @@ theorem checksum_inc_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc =
   · intro r hr; cases r <;> simp_all [z354_33.res, rv_simp] <;> rfl
   · intro A _ _; simp [z354_33.res, rv_simp]
 
-theorem limit_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (zBase b + 34)) (n : Nat)
+theorem limit_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (zBase b + 34)) (n : Nat)
     (hn : n < 2 ^ 64) (h21 : s.getReg .x21 = BitVec.ofNat 64 n) :
     ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf (zBase b + (if n ≤ 5 then 36 else 37)) ∧
       RegsExcept s t [.x30] ∧ Frame s t (fun _ => False) := by
@@ -242,7 +242,7 @@ theorem limit_spec (hK : KernAt image b) (s : MachineState) (hpc : s.pc = pcOf (
   · intro r hr; cases r <;> simp_all [z354_34.res, rv_simp] <;> rfl
   · intro A _ _; simp [z354_34.res, rv_simp]
 
-theorem exit_spec (hK : KernAt image b) (s : MachineState) (o : Nat) (ho : o = 36 ∨ o = 37)
+theorem exit_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (o : Nat) (ho : o = 36 ∨ o = 37)
     (hpc : s.pc = pcOf (zBase b + o)) :
     ∃ t, Steps image s 1 1 t ∧ t.pc = (if o = 36 then pcOf (zBase b + 38) else pcOf (b + 468)) ∧
       RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
@@ -349,7 +349,7 @@ sym_block re543_58 := symRun {noAlias := true} (exitCode 543 58) (pcOf (20832+96
 sym_block re354_59 := symRun {noAlias := true} (exitCode 354 59) (pcOf (42841+97)) 200
 sym_block re543_59 := symRun {noAlias := true} (exitCode 543 59) (pcOf (20832+97)) 200
 
-theorem code_rank {image : Image} {b : Nat} (hK : KernAt image b) :
+theorem code_rank {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) :
     CodeAt image (pcOf (zBase b+38)) (rankCode b) :=
   codeAt_zero hK 12 38 (rankCode b) (by rfl)
 
@@ -362,7 +362,7 @@ theorem run_exit {b o : Nat} (hb : b=354 ∨ b=543) (ho : o=58 ∨ o=59) :
   · exact re543_58.trans (congrArg some (by kernel_rfl))
   · exact re543_59.trans (congrArg some (by kernel_rfl))
 
-theorem exit_spec {image : Image} {b : Nat} (hK : KernAt image b) (s : MachineState)
+theorem exit_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState)
     (o : Nat) (ho : o=58 ∨ o=59) (hp : s.pc=pcOf (zBase b+38+o)) :
     ∃ t, Steps image s 1 1 t ∧ t.pc=(if o=58 then pcOf (Reward.base b false) else pcOf (b+468)) ∧
       RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
@@ -376,7 +376,7 @@ theorem exit_spec {image : Image} {b : Nat} (hK : KernAt image b) (s : MachineSt
   · intro r hr; cases r <;> simp [re354_58.res,rv_simp] <;> rfl
   · intro A _ _; simp [re354_58.res,rv_simp]
 
-theorem spec {image : Image} {b : Nat} (hK : KernAt image b) (s : MachineState)
+theorem spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState)
     (hp : s.pc=pcOf (zBase b+38)) (v : Digest)
     (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64) :
     ∃ t, Steps image s 59 59 t ∧ t.pc=(if rankOK v then pcOf (Reward.base b false) else pcOf (b+468)) ∧

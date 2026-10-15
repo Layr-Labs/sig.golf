@@ -57,7 +57,7 @@ theorem jt_step {im : Image} (hc : NewCodeAt im) (f : Nat) (hf : f < 563) (s : M
 structure FtsIn (sig : WCT9.Signature) (N : HashOutput) (sF : MachineState) : Prop where
   out : OutAt sF 0x60 N
   adm : WCT9.admissible N = true
-  placed : Placed1 N sig sF
+  placed : Placed N sig sF
   bank : HdrBankOK sF
   /-- Nested FTS (r1-1): the pads of coordinate 0 (`ftsStart = (0, 0)`) are read from `0x400..0x420`. -/
   start : DigAt sF 0x400 0 ∧ DigAt sF 0x410 0
@@ -67,7 +67,7 @@ structure DrvInv (sig : WCT9.Signature) (N : HashOutput) (sF : MachineState) (k 
   regs : DRegs (WCT9.digestIndex N) t
   x8 : t.getReg .x8 = BitVec.ofNat 64 (regBase (k - 1))
   x28 : t.getReg .x28 = BitVec.ofNat 64 (HB0 + 2048 + 512 * (k - 1))
-  x15 : t.getReg .x15 = BitVec.ofNat 64 (WCT9.digestIndex N * 2 ^ 27 + 65536 * (k - 1 + 1))
+  x15 : t.getReg .x15 = BitVec.ofNat 64 (WCT9.digestIndex N * 2 ^ 27 + 65536 * (k - 1))
   x16 : 0 < k → t.getReg .x16 = N.extractLsb' (64 * dWord (k - 1)) 64
   len : pairs.length = k
   /-- Nested FTS (r1-1): only the last pair is needed (the next coordinate's pads); it sits just below `pslot k`. -/
@@ -82,35 +82,28 @@ theorem region_facts {sig : WCT9.Signature} {N : HashOutput} {sF t : MachineStat
     (∀ i (h : i < 6), DigAt t (regBase k + slotC i) ((sig.openings ⟨k, hk⟩).values ⟨i, h⟩)) ∧
     (∀ i, i < 6 → PadsZ (regBase k) i t) ∧
     DigAt t (regBase k + 848) 0 ∧
-    (∀ l, l < 5 → DigAt t (regBase k + Merkle.padO l (WCT9.child N ⟨k, hk⟩).val) 0) ∧
+    (∀ l, l < 7 → DigAt t (regBase k + Merkle.padO l) 0) ∧
     (∀ l (h : l < 7), DigAt t (regBase k + Merkle.sibO l (WCT9.child N ⟨k, hk⟩).val)
       ((sig.openings ⟨k, hk⟩).path ⟨l, h⟩)) := by
   have tr : ∀ o d, o % 8 = 0 → o + 16 ≤ 1024 → DigAt sF (regBase k + o) d → DigAt t (regBase k + o) d :=
     fun o d h8 h16 hd => ⟨(hfr o (by omega)).trans hd.1, by
       rw [show regBase k + o + 8 = regBase k + (o + 8) by omega, hfr (o + 8) (by omega),
         ← show regBase k + o + 8 = regBase k + (o + 8) by omega]; exact hd.2⟩
-  have hjc := (WCT9.child N ⟨k, hk⟩).isLt
-  have pd0 := fun o (h8 : o % 8 = 0) (h16 : o + 16 ≤ 1024) d hw => placed1_digAt hin.placed k hk o h8 h16 d hw
-  have pd : ∀ o, o % 8 = 0 → o + 16 ≤ 1024 → 448 ≤ o → ∀ d, SigGolfCandidate.T3M.window (regionBytesV5 (WCT9.child N ⟨k, hk⟩).val
-      (sig.openings ⟨k, hk⟩)) o 16 = SphincsSecurity.bytesLE 16 d → DigAt sF (regBase k + o) d :=
-    fun o h8 h16 h448 d hw => pd0 o h8 h16 d (by rw [win1_rest _ _ _ _ h448]; exact hw)
+  have pd := fun o (h8 : o % 8 = 0) (h16 : o + 16 ≤ 1024) d hw => placed_digAt hin.placed k hk o h8 h16 d hw
   refine ⟨fun i h => ?_, fun i h => ?_, fun i h => ?_,
-    tr _ _ (by omega) (by omega) (pd 848 (by omega) (by omega) (by omega) 0 (by rw [win_leafPad, zeros16])),
+    tr _ _ (by omega) (by omega) (pd 848 (by omega) (by omega) 0 (by rw [win_leafPad, zeros16])),
     fun l h => ?_, fun l h => ?_⟩
   · have hb := offC_bounds i h
     rw [Nat.add_assoc]
-    exact tr _ _ (by omega) (by omega) (pd _ (by omega) (by omega) (by unfold offC; omega) _
-      (win_chainVal _ _ ⟨i, h⟩))
+    exact tr _ _ (by omega) (by omega) (pd _ (by omega) (by omega) _ (win_chainVal _ _ ⟨i, h⟩))
   · have hb := slotC_bounds i h
-    exact tr _ _ (by omega) (by omega) (pd _ (by omega) (by omega) (by unfold slotC; split <;> omega) _
-      (win_leafSlot _ _ ⟨i, h⟩))
+    exact tr _ _ (by omega) (by omega) (pd _ (by omega) (by omega) _ (win_leafSlot _ _ ⟨i, h⟩))
   · have hb := offC_bounds i h
-    have hoc : 448 ≤ offC i := by unfold offC; omega
-    have z0 := tr _ _ (by omega) (by omega) (pd (offC i + 0) (by omega) (by omega) (by omega) 0
+    have z0 := tr _ _ (by omega) (by omega) (pd (offC i + 0) (by omega) (by omega) 0
       (by rw [win_chainPad _ _ i h 0 (Or.inl rfl), zeros16]))
-    have z16 := tr _ _ (by omega) (by omega) (pd (offC i + 16) (by omega) (by omega) (by omega) 0
+    have z16 := tr _ _ (by omega) (by omega) (pd (offC i + 16) (by omega) (by omega) 0
       (by rw [win_chainPad _ _ i h 16 (Or.inr (Or.inl rfl)), zeros16]))
-    have z32 := tr _ _ (by omega) (by omega) (pd (offC i + 32) (by omega) (by omega) (by omega) 0
+    have z32 := tr _ _ (by omega) (by omega) (pd (offC i + 32) (by omega) (by omega) 0
       (by rw [win_chainPad _ _ i h 32 (Or.inr (Or.inr rfl)), zeros16]))
     refine ⟨?_, ?_, ?_, ?_, ?_⟩
     · have := z0.1; simp only [Nat.add_zero] at this; exact this.trans rfl
@@ -120,11 +113,14 @@ theorem region_facts {sig : WCT9.Signature} {N : HashOutput} {sF t : MachineStat
       exact this.trans rfl
     · have := z16.2; rw [show regBase k + (offC i + 16) + 8 = regBase k + offC i + 24 by omega] at this
       exact this.trans rfl
-  · obtain ⟨-, h16, h448⟩ := cellLev_pad_all _ hjc l h
-    exact tr _ _ (by omega) (by omega)
-      (pd0 _ (by omega) (by omega) 0 (by rw [win1_mpad _ hjc _ l h, zeros16]))
-  · obtain ⟨-, h16, h448⟩ := cellLev_sib_all _ hjc l h
-    exact tr _ _ (by omega) (by omega) (pd0 _ (by omega) (by omega) _ (win1_sib _ hjc _ ⟨l, h⟩))
+  · have := tr _ _ (by unfold Merkle.padO Merkle.blkO; omega) (by unfold Merkle.padO Merkle.blkO; omega)
+      (pd (Merkle.padO l) (by unfold Merkle.padO Merkle.blkO; omega) (by unfold Merkle.padO Merkle.blkO; omega) 0
+        (by unfold Merkle.padO Merkle.blkO; rw [win_mpad _ _ ⟨l, h⟩, zeros16]))
+    exact this
+  · have hbit := bitAt_lt (WCT9.child N ⟨k, hk⟩).val l
+    exact tr _ _ (by unfold Merkle.sibO Merkle.blkO; omega) (by unfold Merkle.sibO Merkle.blkO; omega)
+      (pd _ (by unfold Merkle.sibO Merkle.blkO; omega) (by unfold Merkle.sibO Merkle.blkO; omega) _
+        (by unfold Merkle.sibO Merkle.blkO Merkle.bitAt; exact win_sib _ _ ⟨l, h⟩))
 end ClaudeWCT.W9.Machine.Expand
 end
 section
@@ -169,7 +165,7 @@ theorem leafHdr_digAt {w : MachineState} {B k index j : Nat} (hk : k < 9) (hidx 
   · rw [h0, SigGolfCandidate.T3.append64_low]
     unfold ClaudeWCT.WCT9.ftsLeafLow qQ
     congr 1
-    rw [Nat.mod_eq_of_lt (show k + 1 < 16 by omega), Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hidx]
+    rw [Nat.mod_eq_of_lt (show k < 16 by omega), Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hidx]
     ring
   · rw [show B + 832 + 8 = B + 840 by omega, h1]
     apply BitVec.eq_of_toNat_eq
@@ -325,13 +321,14 @@ theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.
           have := hw'.ends (i - 2) (by omega)
           rwa [show slotC (i - 2) = 816 + 16 * i by unfold slotC; split <;> omega, ← Nat.add_assoc] at this
     · intro l hl
-      have hm := rmp l hl
-      have hb : Merkle.padO l j + 16 ≤ 464 := by have := (cellLev_pad_all j hj l hl).2.2; omega
+      have hm := rmp l (by omega)
+      have hb : Merkle.padO l + 16 ≤ 464 := by unfold Merkle.padO Merkle.blkO; omega
       exact ⟨(wfr _ (by omega) (by omega)).trans hm.1, by
         rw [Nat.add_assoc, wfr _ (by omega) (by omega), ← Nat.add_assoc]; exact hm.2⟩
     · intro l hl
       have hm := rs l hl
-      have hb : Merkle.sibO l j + 16 ≤ 464 := by have := (cellLev_sib_all j hj l hl).2.2; omega
+      have hb : Merkle.sibO l j + 16 ≤ 464 := by
+        unfold Merkle.sibO Merkle.blkO; have := bitAt_lt j l; omega
       rw [hpath l hl]
       exact ⟨(wfr _ (by omega) (by omega)).trans hm.1, by
         rw [Nat.add_assoc, wfr _ (by omega) (by omega), ← Nat.add_assoc]; exact hm.2⟩
@@ -388,7 +385,7 @@ theorem coord_tb {im : Image} (hc : NewCodeAt im) {sk : BitVec 256} {sig : WCT9.
       · left; unfold regBase at h ⊢; omega
       · left; unfold regBase at h ⊢; omega
     · rcases h with ⟨off, hoff, he⟩ | h | h | h | h | h
-      · have := (childWrites_bound hj hoff).2
+      · have := (childWrites_bound hoff).2
         left; unfold regBase at he ⊢; omega
       · right; unfold pslot at h; omega
       · left; unfold regBase at h ⊢; omega
