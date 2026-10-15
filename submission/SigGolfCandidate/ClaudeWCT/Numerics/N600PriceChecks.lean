@@ -2391,11 +2391,11 @@ def rowThree : Array Nat := #[346390910997172446261317588447252241589,3463909133
 
 def initialBound : Nat := 365364585468063845982778503300967050589
 
-def ftsNum : Nat := 734 * 563 ^ 9 * 52061563476303414825532212503848335359868928
+def ftsNum : Nat := 734 * 563 ^ 9 * 52090883977537229784030361060728194885222400
 
 def ftsDen : Nat := 2 ^ 14 * 1024 ^ 9 * 52416169542617085727767971710947931910569984
 
-def ftsBound : Nat := 349325989776095170129832986894036643760
+def ftsBound : Nat := 349320764165276982274184579318539724508
 
 def fixedBound : Nat := 617358996970638686225956552741729761734
 
@@ -2542,17 +2542,18 @@ def radix : Nat := 2 ^ 256
 
 def rankPacked : Nat := routineCosts.foldl (fun s c => s + (1 <<< (256 * (c - 75)))) 0
 
-def childA : Nat := 16 + 64 * radix + 20 * radix ^ 2 + 20 * radix ^ 3 +
-  4 * radix ^ 5 + 4 * radix ^ 6
+/-- C1 (stage 1): per-child accounting corrections `2 - skips′` over the 128 children: 52 children with 0, 64
+with 1, 12 with 2 (A, B and C use the same table). -/
+def childA : Nat := 52 + 64 * radix + 12 * radix ^ 2
 
-def childBC : Nat := 16 + 64 * radix + 20 * radix ^ 2 + 20 * radix ^ 3 +
-  4 * radix ^ 4 + 4 * radix ^ 5
+def childBC : Nat := 52 + 64 * radix + 12 * radix ^ 2
 
 def forestPacked : Nat := (rankPacked * childA) ^ 4 * (rankPacked * childBC) ^ 5
 
-def retained : Nat := forestPacked % radix ^ 114 % (radix - 1)
+/-- C1 (stage 1): joint cap 778, i.e. retained weights `≤ 778 - 675 = 103`. -/
+def retained : Nat := forestPacked % radix ^ 104 % (radix - 1)
 
-def count : Nat := 52061563476303414825532212503848335359868928
+def count : Nat := 52090883977537229784030361060728194885222400
 
 def total : Nat := 52416169542617085727767971710947931910569984
 
@@ -2562,21 +2563,20 @@ theorem total_eq : (128 * 563) ^ 9 = total := by decide +kernel
 
 theorem mass_below_radix : total < radix - 1 := by decide +kernel
 
-theorem retained_fraction : total * 9932347962 ≤ count * 10000000000 := by decide +kernel
+theorem retained_fraction : total * 9937941751 ≤ count * 10000000000 := by decide +kernel
 
 #print axioms retained_eq
 #print axioms total_eq
 
 
-def fieldA : Nat := 4 + 16 * radix + 5 * radix ^ 2 + 5 * radix ^ 3 +
-  radix ^ 5 + radix ^ 6
+/-- C1 (stage 1): the same corrections over the 32 low-field classes: 13, 16 and 3 classes. -/
+def fieldA : Nat := 13 + 16 * radix + 3 * radix ^ 2
 
-def fieldBC : Nat := 4 + 16 * radix + 5 * radix ^ 2 + 5 * radix ^ 3 +
-  radix ^ 4 + radix ^ 5
+def fieldBC : Nat := 13 + 16 * radix + 3 * radix ^ 2
 
 def fieldForestPacked : Nat := (rankPacked * fieldA) ^ 4 * (rankPacked * fieldBC) ^ 5
 
-def fieldRetained : Nat := fieldForestPacked % radix ^ 114 % (radix - 1)
+def fieldRetained : Nat := fieldForestPacked % radix ^ 104 % (radix - 1)
 
 theorem field_retained_eq : fieldRetained * 4 ^ 9 = count := by decide +kernel
 

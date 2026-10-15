@@ -1172,14 +1172,15 @@ theorem sat_fts_childRows (coord : Coord) (child : Child) (word : Rank) :
 include hidx in
 theorem sat_fts_buildChild (coord : Coord) (child : Child) (word : Rank) :
     QueriesSat T (HonestQuery T)
-      (buildChildF index coord.val child.val word (List.ofFn (ftsCoef T index coord.val))
+      (buildChildH (128 + Extract.Paired.physical coord.val child.val) index coord.val child.val word
+        (List.ofFn (ftsCoef T index coord.val))
         (Extract.Paired.pads T index coord.val (Extract.Paired.physical coord.val child.val/64)).1) := by
-  rw [buildChildF_factor]
+  rw [buildChildH_factor]
   refine QueriesSat.bind (sat_fts_childRows T index hidx coord child word) ?_
   rw [eval_childRows_ends T index coord.val child.val word]
   refine QueriesSat.bind ?_ (QueriesSat.pure' _)
-  rw [ClaudeWCT.W9.T3M.WctExtract.leafHashP_eq_shortHash]
-  apply SigGolfCandidate.T3.Security.Wots.Structural.sat_shortHash
+  rw [ClaudeWCT.W9.T3M.WctExtract.leafHashH_eq_ftsHash]
+  refine ClaudeWCT.WCT9.Wots.Structural.sat_ftsHash T _ _ ?_
   refine Or.inr ⟨.wctLeaf index coord.val child.val,⟨hidx,coord.isLt,child.isLt⟩,?_⟩
   have he : List.ofFn (fun t : Fin 6 => chainEnd T index coord.val child.val t) =
       Extract.wctEnds T index coord.val child.val := by
@@ -1271,8 +1272,8 @@ theorem sat_sharedNode (coord : Coord) (heap : Nat)
   · rw [if_pos (show 4≤heap ∧ heap<8 by omega)] at hq
     exact SigGolfCandidate.T3.Security.Wots.Structural.sat_shortHash _ hq
   · rw [if_neg (by omega : ¬(4≤heap ∧ heap<8)),wctTopInput_zero] at hq
-    rw [nodeHash_eq]
-    exact SigGolfCandidate.T3.Security.Wots.Structural.sat_shortHash _ hq
+    rw [nodeHashH_eq]
+    exact ClaudeWCT.WCT9.Wots.Structural.sat_ftsHash T _ _ hq
 
 #print axioms sat_sharedNode
 end ClaudeWCT.W9.T3.Security.Wots.PairedStructural
@@ -1302,7 +1303,13 @@ theorem sharedHeap_arithmetic (cut done : Nat) (hcut : 2 ≤ cut) (hd : done < 1
 theorem sharedHeap_other_arithmetic (done j : Nat) (hd : done < 128)
     (hj : 128-(done+1) ≤ j) (hne : j ≠ 127-done) : 128-done ≤ j := by omega
 
+/-- Arithmetic side conditions of one `sat_sharedHeap` step, kept out of the step's large context so `omega`
+never compares the heap-array atoms there. -/
+theorem sharedHeap_child_arithmetic (cut done : Nat) (hcut : 2 ≤ cut) (hd : done < 128-cut) :
+    128-done ≤ 2*(127-done) ∧ 128-done ≤ 2*(127-done)+1 ∧ 127-done < 256 := by omega
+
  include hidx in
+set_option maxHeartbeats 800000 in
 theorem sat_sharedHeap (coord : Coord) :
     QueriesSat T (HonestQuery T)
       (SharedForest.sharedHeap (Extract.Paired.first coord.val) index coord.val
@@ -1343,19 +1350,22 @@ theorem sat_sharedHeap (coord : Coord) :
     have hd:done<128-SharedForest.heapCut (Extract.Paired.first coord.val) := by
       simpa only [List.length_reverse,List.length_range'] using hdone
     rw [SharedForest.shared_heap_order _ done hd]
-    have hl:nodes.getD (2*(127-done)) 0=(Extract.Paired.nodes T index coord.val).getD (2*(127-done)) 0 := hagree _ (by omega)
-    have hr:nodes.getD (2*(127-done)+1) 0=(Extract.Paired.nodes T index coord.val).getD (2*(127-done)+1) 0 := hagree _ (by omega)
+    obtain ⟨ha,hb,hc⟩ := sharedHeap_arithmetic _ _ hcut.1 hd
+    obtain ⟨hl2,hr2,hs⟩ := sharedHeap_child_arithmetic _ _ hcut.1 hd
+    have hl:nodes.getD (2*(127-done)) 0=(Extract.Paired.nodes T index coord.val).getD (2*(127-done)) 0 :=
+      hagree (2*(127-done)) hl2
+    have hr:nodes.getD (2*(127-done)+1) 0=(Extract.Paired.nodes T index coord.val).getD (2*(127-done)+1) 0 :=
+      hagree (2*(127-done)+1) hr2
     refine ⟨?_,?_⟩
     · refine QueriesSat.bind ?_ (QueriesSat.pure' _)
       rw [hl,hr]
-      exact sat_sharedNode T index hidx coord (127-done) (by omega) (by omega)
+      exact sat_sharedNode T index hidx coord (127-done) ha hb
     · simp only [evalWithAnswerFn_bind,evalWithAnswerFn_pure]
       refine ⟨by rw [Array.size_set!,hsz],?_⟩
       intro j hj
       by_cases he:j=127-done
       · subst he
-        rw [getD_set_self nodes _ _ (by omega),hl,hr]
-        obtain ⟨ha,hb,hc⟩ := sharedHeap_arithmetic _ _ hcut.1 hd
+        rw [getD_set_self nodes (127-done) _ (by rw [hsz]; exact hs),hl,hr]
         exact (hnode (127-done) ha hb hc).symm
       · rw [getD_set_other nodes _ _ _ (Ne.symm he)]
         exact hagree j (sharedHeap_other_arithmetic done j (lt_of_lt_of_le hd (Nat.sub_le _ _)) hj he)

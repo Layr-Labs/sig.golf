@@ -31,6 +31,13 @@ theorem buildChildF_factor (index coord sel : Nat) (word : WCT9.Rank) (coefs : L
       let root ← WCT9.leafHashP index coord sel padL rows.1
       pure (root, rows.2)) := rfl
 
+/-- C1: `WCT9.buildChildH` (leaf of heap `heap`) factors through the same six chains. -/
+theorem buildChildH_factorS (heap index coord sel : Nat) (word : WCT9.Rank) (coefs : List Digest) (padL : Digest) :
+    WCT9.buildChildH heap index coord sel word coefs padL = (do
+      let rows ← fChildRows index coord sel word coefs
+      let root ← WCT9.leafHashH heap index coord sel padL rows.1
+      pure (root, rows.2)) := rfl
+
 /-- The 128 children of one coordinate (leaf roots, selected child's chain values). -/
 def fCoordRows (index : Nat) (coord : WCT9.Coord) (selected : WCT9.Child) (word : WCT9.Rank)
     (coefs : List Digest) (padL : Digest) : M (List Digest × List Digest) :=

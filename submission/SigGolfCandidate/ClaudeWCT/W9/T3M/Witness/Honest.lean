@@ -395,11 +395,12 @@ theorem layerRegion_length (N : HashOutput) (w : WCT9.Witness) (lay : Layer) :
 theorem endpointBytes_length (sig : WCT9.Signature) (lay : Layer) :
     (endpointBytes sig lay).length = 16 * chainCount lay := by
   simp [endpointBytes, List.length_flatMap, bytesLE_length, List.sum_replicate, Nat.mul_comm]
-def leafBufferLen (lay : Layer) : Nat := if lay = 0 then 912 else 736
+def leafBufferLen (lay : Layer) : Nat :=
+  if lay = 0 then 912 else if lay = 1 ∨ lay = 2 then 720 else 736
 theorem leafBufferBytes_length (sig : WCT9.Signature) (lay : Layer) :
     (leafBufferBytes sig lay).length = leafBufferLen lay := by
   fin_cases lay <;> simp [leafBufferBytes, leafBufferLen, endpointBytes_length, zeros, chainCount]
-theorem leafBuffersBytes_length (sig : WCT9.Signature) : (leafBuffersBytes sig).length = 3120 := by
+theorem leafBuffersBytes_length (sig : WCT9.Signature) : (leafBuffersBytes sig).length = 3088 := by
   simp only [leafBuffersBytes, List.length_flatMap, leafBufferBytes_length]
   decide
 theorem tailBytes_length (w : WCT9.Witness) : (tailBytes w).length = 32 := by
@@ -408,7 +409,7 @@ theorem layers_length (N : HashOutput) (w : WCT9.Witness) :
     ((List.finRange 4).flatMap (layerRegion N w)).length = 13456 := by
   simp only [List.length_flatMap, layerRegion_length]
   decide
-theorem witList_length_eq (N : HashOutput) (w : WCT9.Witness) : (witList N w).length = 24864 := by
+theorem witList_length_eq (N : HashOutput) (w : WCT9.Witness) : (witList N w).length = 24832 := by
   unfold witList
   simp only [List.length_append, headerBytes_length, wctBytes_length, layers_length, leafBuffersBytes_length,
     tailBytes_length]
@@ -425,15 +426,15 @@ theorem extract_readLE_lt (L : List UInt8) (n : Nat) (hlt : readLE L < 2 ^ (8 * 
   calc readLE ((L.drop off).take k) < 256 ^ ((L.drop off).take k).length := this
     _ ≤ 256 ^ k := Nat.pow_le_pow_right (by norm_num) (by simp)
 /-- The serialized list keeps 4 trailing zero bytes after the 32-bit digest counter (the expand
-machine still writes whole words); the witness is its first `wsize = 24860` bytes. -/
-theorem witList_readLE_lt (N : HashOutput) (w : WCT9.Witness) : readLE (witList N w) < 2 ^ (8 * 24860) := by
+machine still writes whole words); the witness is its first `wsize = 24828` bytes. -/
+theorem witList_readLE_lt (N : HashOutput) (w : WCT9.Witness) : readLE (witList N w) < 2 ^ (8 * 24828) := by
   have hsplit : witList N w = ((headerBytes N w ++ wctBytes N w.signature ++ (List.finRange 4).flatMap (layerRegion N w) ++
       leafBuffersBytes w.signature) ++ (bytesLE 16 w.signature.rho ++ zeros 8 ++ bytesLE 4 w.digestCounter)) ++
       zeros 4 := by
     simp only [witList, tailBytes, List.append_assoc]
   have hlen : ((headerBytes N w ++ wctBytes N w.signature ++ (List.finRange 4).flatMap (layerRegion N w) ++
       leafBuffersBytes w.signature) ++ (bytesLE 16 w.signature.rho ++ zeros 8 ++ bytesLE 4 w.digestCounter)).length =
-      24860 := by
+      24828 := by
     simp only [List.length_append, headerBytes_length, wctBytes_length, layers_length, leafBuffersBytes_length,
       bytesLE_length, zeros, List.length_replicate]
   have hz : readLE (zeros 4) = 0 := by decide
@@ -443,11 +444,11 @@ theorem witList_readLE_lt (N : HashOutput) (w : WCT9.Witness) : readLE (witList 
 theorem wdig_witEnc (N : HashOutput) (w : WCT9.Witness) (off : Nat) :
     wdig (witEnc N w) off = readDigest (window (witList N w) off 16) := by
   unfold wdig witEnc readDigest window
-  exact extract_readLE_lt (witList N w) 24860 (witList_readLE_lt N w) off 16
+  exact extract_readLE_lt (witList N w) 24828 (witList_readLE_lt N w) off 16
 theorem wle32_witEnc (N : HashOutput) (w : WCT9.Witness) (off : Nat) :
     wle32 (witEnc N w) off = BitVec.ofNat 32 (readLE (window (witList N w) off 4)) := by
   unfold wle32 witEnc window
-  exact extract_readLE_lt (witList N w) 24860 (witList_readLE_lt N w) off 4
+  exact extract_readLE_lt (witList N w) 24828 (witList_readLE_lt N w) off 4
 theorem witList_split (N : HashOutput) (w : WCT9.Witness) :
     witList N w = ((headerBytes N w ++ wctBytes N w.signature) ++ (List.finRange 4).flatMap (layerRegion N w)) ++
       (leafBuffersBytes w.signature ++ tailBytes w) := by simp only [witList, List.append_assoc]
@@ -481,7 +482,7 @@ theorem wctr3_witEnc : wle32 (witEnc N w) 32 = w.counters 3 := by
     window_append_left _ _ _ _ (by simp [bytesLE_length, zeros]),
     show 32 - 16 - (zeros 16).length = 0 by simp [zeros], window_full _ _ (bytesLE_length _ _), readLE_bytesLE_32]
 theorem wpad3_witEnc : (witEnc N w).extractLsb' (8 * 36) 96 = 0 := by
-  have h := extract_readLE_lt (witList N w) 24860 (witList_readLE_lt N w) 36 12
+  have h := extract_readLE_lt (witList N w) 24828 (witList_readLE_lt N w) 36 12
   unfold witEnc
   rw [show (96 : Nat) = 8 * 12 from rfl, h, show ((witList N w).drop 36).take 12 = window (witList N w) 36 12 from rfl,
     win_header_mid _ _ _ _ le_rfl (by omega)]
@@ -492,16 +493,16 @@ end header
 section tail
 variable (N : HashOutput) (w : WCT9.Witness)
 theorem win_tail (off n : Nat) (h : off + n ≤ 32) :
-    window (witList N w) (24832 + off) n = window (tailBytes w) off n := by
+    window (witList N w) (24800 + off) n = window (tailBytes w) off n := by
   rw [witList_split, window_append_right _ _ _ _ (by
       simp only [List.length_append, headerBytes_length, wctBytes_length, layers_length]; omega)]
   simp only [List.length_append, headerBytes_length, wctBytes_length, layers_length]
   rw [window_append_right _ _ _ _ (by rw [leafBuffersBytes_length]; omega), leafBuffersBytes_length]
   exact congrArg (fun k : Nat => window (tailBytes w) k n)
-    (show 24832 + off - (176 + 8080 + 13456) - 3120 = off by omega)
+    (show 24800 + off - (176 + 8080 + 13456) - 3088 = off by omega)
 theorem wrho_witEnc : wrho (witEnc N w) = w.signature.rho := by
   unfold wrho rhoOff
-  rw [wdig_witEnc, show (24832 : Nat) = 24832 + 0 from rfl, win_tail _ _ _ _ (by omega)]
+  rw [wdig_witEnc, show (24800 : Nat) = 24800 + 0 from rfl, win_tail _ _ _ _ (by omega)]
   unfold tailBytes
   rw [window_append_left _ _ _ _ (by simp [bytesLE_length, zeros]),
     window_append_left _ _ _ _ (by simp [bytesLE_length, zeros]),
@@ -515,15 +516,15 @@ theorem tail_counter_window : window (tailBytes w) 24 8 = bytesLE 4 w.digestCoun
   exact window_full _ _ (by simp [bytesLE_length, zeros])
 theorem wdc_witEnc : wdc (witEnc N w) = w.digestCounter := by
   unfold wdc dcOff
-  rw [wle32_witEnc, show (24856 : Nat) = 24832 + 24 from rfl, win_tail _ _ _ _ (by omega)]
+  rw [wle32_witEnc, show (24824 : Nat) = 24800 + 24 from rfl, win_tail _ _ _ _ (by omega)]
   have h : window (tailBytes w) 24 4 = window (window (tailBytes w) 24 8) 0 4 := by
     unfold window; rw [List.drop_zero, List.take_take, Nat.min_eq_left (by omega)]
   rw [h, tail_counter_window, window_append_left _ _ _ _ (by simp [bytesLE_length]),
     window_full _ _ (bytesLE_length _ _), readLE_bytesLE_32]
 theorem wdcWord_witEnc : (wdcWord (witEnc N w)).toNat = w.digestCounter.toNat := by
   unfold wdcWord witEnc dcOff
-  rw [show (64 : Nat) = 8 * 8 from rfl, extract_readLE_lt (witList N w) 24860 (witList_readLE_lt N w) 24856 8,
-    show ((witList N w).drop 24856).take 8 = window (witList N w) (24832 + 24) 8 from rfl,
+  rw [show (64 : Nat) = 8 * 8 from rfl, extract_readLE_lt (witList N w) 24828 (witList_readLE_lt N w) 24824 8,
+    show ((witList N w).drop 24824).take 8 = window (witList N w) (24800 + 24) 8 from rfl,
     win_tail _ _ _ _ (by omega), tail_counter_window, readLE_append, bytesLE_length,
     Correctness.readLE_bytesLE]
   have hz : readLE (zeros 4) = 0 := by decide
@@ -833,7 +834,7 @@ theorem wbcPad_witEnc (lay : Layer) : wbcPad (witEnc N w) (WCT9.digestIndex N) l
       (by have := height_pos' (upLayer lay); omega)
     unfold wbcPad witEnc bcCounterOff
     rw [rowBlock_upper _ _ hlt, show (96 : Nat) = 8 * 12 from rfl,
-      extract_readLE_lt (witList N w) 24860 (witList_readLE_lt N w) _ 12,
+      extract_readLE_lt (witList N w) 24828 (witList_readLE_lt N w) _ 12,
       show ((witList N w).drop (layerBase (upLayer lay) +
           lowerCtrSlot (upLayer lay) (route (WCT9.digestIndex N) (upLayer lay)).1 + 4)).take 12 =
         window (witList N w) (layerBase (upLayer lay) +
@@ -1483,16 +1484,16 @@ def prefixEnc (p : List UInt8) (N : HashOutput) (w : WCT9.Witness) : WBytes :=
   BitVec.ofNat _ (readLE (prefixList p N w))
 
 theorem prefixList_readLE_lt (p : List UInt8) (hp : p.length=8256)
-    (N : HashOutput) (w : WCT9.Witness) : readLE (prefixList p N w)<2^(8*24860) := by
+    (N : HashOutput) (w : WCT9.Witness) : readLE (prefixList p N w)<2^(8*24828) := by
   let pre := (headerBytes N w ++ wctBytes N w.signature ++ (List.finRange 4).flatMap (layerRegion N w) ++
       leafBuffersBytes w.signature) ++ (bytesLE 16 w.signature.rho ++ zeros 8 ++ bytesLE 4 w.digestCounter)
   have hs : witList N w=pre++zeros 4 := by simp only [pre,witList,tailBytes,List.append_assoc]
-  have hl : pre.length=24860 := by
+  have hl : pre.length=24828 := by
     simp only [pre,List.length_append,headerBytes_length,wctBytes_length,layers_length,
       leafBuffersBytes_length,bytesLE_length,zeros,List.length_replicate]
   have hh : prefixList p N w=(p++pre.drop 8256)++zeros 4 := by
     rw [prefixList,hs,List.drop_append_of_le_length (by omega),List.append_assoc]
-  have hlen : (p++pre.drop 8256).length=24860 := by simp [hp,hl]
+  have hlen : (p++pre.drop 8256).length=24828 := by simp [hp,hl]
   have hz : readLE (zeros 4)=0 := by decide
   have h256 : ∀ n : Nat,(256:Nat)^n=2^(8*n) := fun n=>by rw [pow_mul];norm_num
   rw [hh,readLE_append,hz,Nat.mul_zero,Nat.add_zero,←h256,←hlen]
@@ -1509,7 +1510,7 @@ theorem prefix_window (p : List UInt8) (hp : p.length=8256) (N : HashOutput) (w 
 theorem wdig_prefixEnc (p : List UInt8) (hp : p.length=8256) (N : HashOutput) (w : WCT9.Witness)
     (off : Nat) (ho : 8256≤off) : wdig (prefixEnc p N w) off=wdig (witEnc N w) off := by
   rw [wdig_witEnc]
-  have h := extract_readLE_lt (prefixList p N w) 24860 (prefixList_readLE_lt p hp N w) off 16
+  have h := extract_readLE_lt (prefixList p N w) 24828 (prefixList_readLE_lt p hp N w) off 16
   change wdig (BitVec.ofNat _ (readLE (prefixList p N w))) off=_
   rw [wdig,h]
   exact congrArg readDigest (prefix_window p hp N w off 16 ho)
@@ -1517,7 +1518,7 @@ theorem wdig_prefixEnc (p : List UInt8) (hp : p.length=8256) (N : HashOutput) (w
 theorem wle32_prefixEnc (p : List UInt8) (hp : p.length=8256) (N : HashOutput) (w : WCT9.Witness)
     (off : Nat) (ho : 8256≤off) : wle32 (prefixEnc p N w) off=wle32 (witEnc N w) off := by
   rw [wle32_witEnc]
-  have h := extract_readLE_lt (prefixList p N w) 24860 (prefixList_readLE_lt p hp N w) off 4
+  have h := extract_readLE_lt (prefixList p N w) 24828 (prefixList_readLE_lt p hp N w) off 4
   change wle32 (BitVec.ofNat _ (readLE (prefixList p N w))) off=_
   rw [wle32,h]
   exact congrArg (fun bs=>BitVec.ofNat 32 (readLE bs)) (prefix_window p hp N w off 4 ho)
@@ -1600,8 +1601,8 @@ theorem wbcPad_prefixEnc (p : List UInt8) (hp : p.length=8256) (N : HashOutput) 
   have hh : wbcPad (prefixEnc p N w) (WCT9.digestIndex N) lay=wbcPad (witEnc N w) (WCT9.digestIndex N) lay := by
     unfold wbcPad prefixEnc witEnc
     rw [show (96:Nat)=8*12 by rfl,
-      extract_readLE_lt (prefixList p N w) 24860 (prefixList_readLE_lt p hp N w) _ 12,
-      extract_readLE_lt (witList N w) 24860 (witList_readLE_lt N w) _ 12]
+      extract_readLE_lt (prefixList p N w) 24828 (prefixList_readLE_lt p hp N w) _ 12,
+      extract_readLE_lt (witList N w) 24828 (witList_readLE_lt N w) _ 12]
     exact congrArg (fun bs=>BitVec.ofNat 96 (readLE bs)) (prefix_window p hp N w _ 12 hlow)
   rw [hh,wbcPad_witEnc]
 
@@ -1614,7 +1615,7 @@ theorem wdig_prefixEnc_left (p : List UInt8) (hp : p.length=8256) (N : HashOutpu
     (off : Nat) (ho : off+16≤8256) :
     wdig (prefixEnc p N w) off=readDigest (window p off 16) := by
   unfold wdig prefixEnc
-  rw [extract_readLE_lt (prefixList p N w) 24860 (prefixList_readLE_lt p hp N w) off 16]
+  rw [extract_readLE_lt (prefixList p N w) 24828 (prefixList_readLE_lt p hp N w) off 16]
   exact congrArg readDigest (prefix_window_left p hp N w off 16 ho)
 
 theorem wle32_prefixEnc_left (p : List UInt8) (hp : p.length=8256) (N : HashOutput) (w : WCT9.Witness)
@@ -1622,7 +1623,7 @@ theorem wle32_prefixEnc_left (p : List UInt8) (hp : p.length=8256) (N : HashOutp
     wle32 (prefixEnc p N w) off=BitVec.ofNat 32 (readLE (window p off 4)) := by
   unfold wle32 prefixEnc
   rw [show (32:Nat)=8*4 by rfl,
-    extract_readLE_lt (prefixList p N w) 24860 (prefixList_readLE_lt p hp N w) off 4]
+    extract_readLE_lt (prefixList p N w) 24828 (prefixList_readLE_lt p hp N w) off 4]
   exact congrArg (fun bs=>BitVec.ofNat 32 (readLE bs)) (prefix_window_left p hp N w off 4 ho)
 
 /-- The prefix counter bytes are independent of every forest slot. -/
@@ -1721,7 +1722,7 @@ def coreSlots (child count : Nat) : List (Nat × Nat) :=
 
 def CoreLayoutOK (child : Nat) : Bool :=
   let slots:=coreSlots child 6
-  slots.all (fun p=>decide (p.1%16=0 ∧ p.1+16≤896 ∧ p.1≠144 ∧ p.1≠720)) &&
+  slots.all (fun p=>decide (p.1%16=0 ∧ p.1+16≤896 ∧ p.1≠160 ∧ p.1≠720)) &&
   slots.all (fun p=>slots.all (fun q=>decide (p.1=q.1→p.2=q.2)))
 
 set_option maxHeartbeats 0 in
@@ -1740,7 +1741,7 @@ theorem coreSlots_subset (child count : Nat) (hc : count≤6) :
 
 theorem coreSlots_range (child : Fin 128) (count : Nat) (hc : count≤6)
     (p : Nat × Nat) (hp : p∈coreSlots child.val count) :
-    p.1%16=0 ∧ p.1+16≤896 ∧ p.1≠144 ∧ p.1≠720 := by
+    p.1%16=0 ∧ p.1+16≤896 ∧ p.1≠160 ∧ p.1≠720 := by
   have h:=coreLayoutOK_all child
   simp only [CoreLayoutOK,Bool.and_eq_true,List.all_eq_true,decide_eq_true_eq] at h
   exact h.1 p (coreSlots_subset child.val count hc hp)
@@ -1760,9 +1761,11 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
 def slotRegion (k : Nat) : Nat :=176+896*(8-k)
+/-- C1 (X = 128): a pair's handed-off top value lands on the next region's R pad at `+160` (right) or on its leaf
+pad at `+720` (left). -/
 def handSlot (k : Nat) (right : Bool) : Nat :=
   if k=8 then (if right then 48 else 0)
-  else slotRegion (k+1)+(if right then 144 else 720)
+  else slotRegion (k+1)+(if right then 160 else 720)
 
 inductive SlotAt (children : Fin 9→Fin 128) (counts : Fin 9→Nat) (sides : Fin 9→Bool) :
     Nat→(Fin 9×Nat)→Prop
@@ -1776,7 +1779,7 @@ theorem slotRegion_injective (k l a b : Nat) (hk : k<9) (hl : l<9)
   omega
 
 theorem core_ne_hand (k l : Fin 9) (off : Nat) (ho : off<896)
-    (h144 : off≠144) (h720 : off≠720) (side : Bool) :
+    (h160 : off≠160) (h720 : off≠720) (side : Bool) :
     slotRegion k.val+off≠handSlot l.val side := by
   intro he
   by_cases hl:l.val=8
@@ -1784,7 +1787,7 @@ theorem core_ne_hand (k l : Fin 9) (off : Nat) (ho : off<896)
     cases side <;> simp at he <;> unfold slotRegion at he <;> omega
   · simp only [handSlot,if_neg hl] at he
     have hll:l.val+1<9:=by omega
-    have hh:=slotRegion_injective k.val (l.val+1) off (if side then 144 else 720)
+    have hh:=slotRegion_injective k.val (l.val+1) off (if side then 160 else 720)
       k.isLt hll ho (by cases side <;> decide) he
     cases side <;> simp at hh <;> omega
 
@@ -1798,8 +1801,8 @@ theorem handSlot_same (k l : Fin 9) (left right : Bool)
   · simp only [handSlot,hl,if_true,if_neg hk] at he
     cases left <;> cases right <;> simp at he <;> unfold slotRegion at he <;> omega
   · simp only [handSlot,if_neg hk,if_neg hl] at he
-    have hh:=slotRegion_injective (k.val+1) (l.val+1) (if left then 144 else 720)
-      (if right then 144 else 720) (by omega) (by omega)
+    have hh:=slotRegion_injective (k.val+1) (l.val+1) (if left then 160 else 720)
+      (if right then 160 else 720) (by omega) (by omega)
       (by cases left <;> decide) (by cases right <;> decide) he
     omega
 
@@ -1926,7 +1929,7 @@ theorem wpad3_countedPrefix (counter : BitVec 32) (slots : List (Nat×Digest))
   change (prefixEnc _ N w).extractLsb' (8*36) 96=0
   unfold prefixEnc
   rw [show (96:Nat)=8*12 by rfl,
-    extract_readLE_lt _ 24860 (prefixList_readLE_lt _ (countedPrefix_length _ _) N w) 36 12]
+    extract_readLE_lt _ 24828 (prefixList_readLE_lt _ (countedPrefix_length _ _) N w) 36 12]
   change BitVec.ofNat 96 (readLE (window _ 36 12))=0
   rw [prefix_window_left _ (countedPrefix_length _ _) _ _ _ _ (by decide),countedPrefix_pad3 counter slots hf]
   rfl
@@ -2179,7 +2182,7 @@ theorem word_prefixEnc_free (counter : BitVec 32) (slots : List (Nat×Digest))
     (prefixEnc (countedPrefix counter (readSlot slots)) N w).extractLsb' (8*off) 64=0 := by
   unfold prefixEnc
   rw [show (64:Nat)=8*8 by rfl,
-    extract_readLE_lt _ 24860 (prefixList_readLE_lt _ (countedPrefix_length _ _) N w) off 8]
+    extract_readLE_lt _ 24828 (prefixList_readLE_lt _ (countedPrefix_length _ _) N w) off 8]
   change BitVec.ofNat 64 (readLE (window _ off 8))=0
   rw [prefix_window_left _ (countedPrefix_length _ _) _ _ _ _ hb,
     countedPrefix_freeWord counter slots off hb hn hf]
@@ -2220,7 +2223,7 @@ theorem extract_prefixEnc_free (counter : BitVec 32) (slots : List (Nat×Digest)
     (hf:∀p∈slots,off+n≤p.1 ∨ p.1+16≤off) :
     (prefixEnc (countedPrefix counter (readSlot slots)) N w).extractLsb' (8*off) (8*n)=0 := by
   unfold prefixEnc
-  rw[extract_readLE_lt _ 24860 (prefixList_readLE_lt _ (countedPrefix_length _ _) N w) off n]
+  rw[extract_readLE_lt _ 24828 (prefixList_readLE_lt _ (countedPrefix_length _ _) N w) off n]
   change BitVec.ofNat (8*n) (readLE (window _ off n))=0
   rw[prefix_window_left _ (countedPrefix_length _ _) _ _ _ _ hb,
     countedPrefix_free counter slots off n hb hn hf]
@@ -2237,7 +2240,7 @@ set_option maxRecDepth 10000
 theorem SlotAt.free_local {children : Fin 9→Fin 128} {counts : Fin 9→Nat} {sides : Fin 9→Bool}
     (hc : ∀k,counts k≤6) (k : Fin 9) (off len : Nat) (hb:off+len≤896)
     (hf:∀p∈coreSlots (children k).val (counts k),off+len≤p.1 ∨ p.1+16≤off)
-    (h144:off+len≤144 ∨ 160≤off) (h720:off+len≤720 ∨ 736≤off)
+    (h160:off+len≤160 ∨ 176≤off) (h720:off+len≤720 ∨ 736≤off)
     {a : Nat} {tag : Fin 9×Nat} (h:SlotAt children counts sides a tag) :
     slotRegion k.val+off+len≤a ∨ a+16≤ slotRegion k.val+off := by
   cases h with
@@ -2268,15 +2271,16 @@ open SigGolfCandidate.Research
 set_option maxHeartbeats 0
 set_option maxRecDepth 100000
 
+/-- Witness fields whose honest value is zero: chain pads, node pads below the R pad and (C1) the high header
+word of every packed level `0..3`. -/
 def zeroFields (child : Nat) : List (Nat×Nat) :=
   ((List.range 6).flatMap fun i=>[(640-64*i,16),(640-64*i+24,8),(640-64*i+32,16)]) ++
   ((List.range 6).filterMap fun l=>if l=4 then none else
     some ((if l<5 then SharedPathPacking.block child l else 832)+32,16)) ++
-  ((List.range 4).filterMap fun l=>if child/2^l%2=1 then
-    some (SharedPathPacking.block child l+24,8) else none)
+  ((List.range 4).map fun l=>(SharedPathPacking.block child l+24,8))
 
 def ZeroLayoutOK (child : Nat) : Bool := (zeroFields child).all fun q=>
-  decide (q.1+q.2≤896 ∧ (q.1+q.2≤144∨160≤q.1) ∧ (q.1+q.2≤720∨736≤q.1)) &&
+  decide (q.1+q.2≤896 ∧ (q.1+q.2≤160∨176≤q.1) ∧ (q.1+q.2≤720∨736≤q.1)) &&
     (coreSlots child 6).all (fun p=>decide (q.1+q.2≤p.1∨p.1+16≤q.1))
 
 theorem zeroLayoutOK_all : ∀child : Fin 128,ZeroLayoutOK child.val=true := by
@@ -2284,7 +2288,7 @@ theorem zeroLayoutOK_all : ∀child : Fin 128,ZeroLayoutOK child.val=true := by
   fin_cases child <;> decide +kernel
 
 theorem zeroFields_free (child : Fin 128) (q : Nat×Nat) (hq:q∈zeroFields child.val) :
-    q.1+q.2≤896 ∧ (q.1+q.2≤144∨160≤q.1) ∧ (q.1+q.2≤720∨736≤q.1) ∧
+    q.1+q.2≤896 ∧ (q.1+q.2≤160∨176≤q.1) ∧ (q.1+q.2≤720∨736≤q.1) ∧
     (∀p∈coreSlots child.val 6,q.1+q.2≤p.1∨p.1+16≤q.1) := by
   have hh:=zeroLayoutOK_all child
   simp only[ZeroLayoutOK,List.all_eq_true,Bool.and_eq_true,decide_eq_true_eq] at hh
@@ -2360,10 +2364,10 @@ theorem node_zero_fields (child l : Nat) (hl:l<6) (hne:l≠4) :
   apply List.mem_append_right
   exact List.mem_filterMap.mpr ⟨l,List.mem_range.mpr hl,by simp[hne]⟩
 
-theorem header_zero_fields (child l : Nat) (hl:l<4) (hb:child/2^l%2=1) :
+theorem header_zero_fields (child l : Nat) (hl:l<4) :
     (SharedPathPacking.block child l+24,8)∈zeroFields child := by
   apply List.mem_append_right
-  exact List.mem_filterMap.mpr ⟨l,List.mem_range.mpr hl,by simp[hb]⟩
+  exact List.mem_map.mpr ⟨l,List.mem_range.mpr hl,rfl⟩
 
 theorem nodePad_witEnc (output : HashOutput) (witness : SharedForest.Witness)
     (k : Fin 9) (l : Nat) (hl:l≤SharedV3.lastLevel k.val) (hne:l≠4) :
@@ -2378,12 +2382,12 @@ theorem nodeHPad_witEnc (output : HashOutput) (witness : SharedForest.Witness)
   unfold SharedV3.nodeHPad
   split_ifs with hh
   · rw[SharedV3.nodeTw,W9Machine.wdig_hi]
-    have hz:=extract_witEnc_zero_field output witness k _ (header_zero_fields _ l hh.1 hh.2)
+    have hz:=extract_witEnc_zero_field output witness k _ (header_zero_fields _ l hh)
     simpa only[SharedV3.blkOff,if_pos (show l<5 by omega),Nat.add_assoc] using hz
   · rfl
 
 theorem SlotAt.initial_free {children : Fin 9→Fin 128} {counts : Fin 9→Nat} {sides : Fin 9→Bool}
-    (hc:∀k,counts k≤6) (off:Nat) (ho:off=144∨off=720)
+    (hc:∀k,counts k≤6) (off:Nat) (ho:off=160∨off=720)
     {a:Nat} {tag:Fin 9×Nat} (h:SlotAt children counts sides a tag) :
     slotRegion 0+off+16≤a ∨ a+16≤ slotRegion 0+off := by
   cases h with
@@ -2403,7 +2407,7 @@ theorem SlotAt.initial_free {children : Fin 9→Fin 128} {counts : Fin 9→Nat} 
     · cases sides k <;> simp only[handSlot,if_neg hz,↓reduceIte,Bool.false_eq_true] <;> unfold slotRegion <;> omega
 
 theorem initial_word_zero (output : HashOutput) (witness : SharedForest.Witness)
-    (off:Nat) (ho:off=144∨off=720) :
+    (off:Nat) (ho:off=160∨off=720) :
     W9Machine.wdig (Paired.witEnc output witness) (V3.regionOffset 0+off)=0 := by
   change (prefixEnc (countedPrefix (witness.counters 3) (readSlot (Paired.forestSlots output witness.signature))) output (Paired.mainWitness witness)).extractLsb' _ (8*16)=0
   apply extract_prefixEnc_free
@@ -2416,7 +2420,7 @@ theorem initial_word_zero (output : HashOutput) (witness : SharedForest.Witness)
 theorem initialPair_witEnc (output : HashOutput) (witness : SharedForest.Witness) :
     SharedV3.initialPair (Paired.witEnc output witness)=(0,0) := by
   exact Prod.ext (initial_word_zero output witness 720 (by simp))
-    (initial_word_zero output witness 144 (by simp))
+    (initial_word_zero output witness 160 (by simp))
 #print axioms nodePad_witEnc
 #print axioms nodeHPad_witEnc
 #print axioms initialPair_witEnc

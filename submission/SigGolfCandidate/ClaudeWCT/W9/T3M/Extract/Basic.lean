@@ -171,10 +171,143 @@ instance (coord level : Nat) : Decidable (highPosition coord level) := by
   unfold highPosition
   infer_instance
 
+/-- C1 (FTS Merkle half-swap): node `node` of level `level` (heap `2^(6-level) + node`) uses the high half on the
+top folds of `highPosition` and on every even heap `16..127` (the even nodes of levels `0..2`). -/
+def highNodeAt (coord level node : Nat) : Prop :=
+  highPosition coord level ∨ (level ≤ 2 ∧ node % 2 = 0)
+instance (coord level node : Nat) : Decidable (highNodeAt coord level node) := by
+  unfold highNodeAt
+  infer_instance
+
+/-- C1: the leaf of raw child `child` (heap `128 + physical`) uses the high half on even physical children. -/
+def highLeafAt (coord child : Nat) : Prop := physical coord child % 2 = 0
+instance (coord child : Nat) : Decidable (highLeafAt coord child) := by
+  unfold highLeafAt
+  infer_instance
+
 def proj : Pos → HashOutput → Digest
-  | .wctNode _ coord level _ => if highPosition coord level then
+  | .wctNode _ coord level node => if highNodeAt coord level node then
+      fun answer => answer.extractLsb' 128 128 else fun answer => answer.extractLsb' 0 128
+  | .wctLeaf _ coord child => if highLeafAt coord child then
       fun answer => answer.extractLsb' 128 128 else fun answer => answer.extractLsb' 0 128
   | _ => fun answer => answer.extractLsb' 0 128
+
+/-- C1: a leaf position projects onto the half of its heap `128 + physical`. -/
+theorem proj_wctLeaf (index coord child : Nat) :
+    proj (.wctLeaf index coord child) = ClaudeWCT.WCT9.ftsHalf (128 + physical coord child) := by
+  funext answer
+  have hiff := ClaudeWCT.WCT9.ftsHighHeap_iff (show 4 ≤ 128 + physical coord child by omega)
+  by_cases h : physical coord child % 2 = 0
+  · have ht : ClaudeWCT.WCT9.ftsHighHeap (128 + physical coord child) = true := hiff.mpr ⟨by omega, by omega⟩
+    simp [proj, highLeafAt, h, ClaudeWCT.WCT9.ftsHalf, ht]
+  · have hf : ClaudeWCT.WCT9.ftsHighHeap (128 + physical coord child) = false :=
+      Bool.eq_false_iff.mpr (fun ht => h (by have := (hiff.mp ht).2; omega))
+    simp [proj, highLeafAt, h, ClaudeWCT.WCT9.ftsHalf, hf]
+
+/-- C1: below the top folds (`level ≤ 3`, heaps `8..127`) the high nodes are exactly the `ftsHighHeap` heaps. -/
+theorem highNodeAt_packed (coord level node : Nat) (hl : level ≤ 3) (hn : node < 2 ^ (6 - level)) :
+    ClaudeWCT.WCT9.ftsHighHeap (2 ^ (6 - level) + node) = decide (highNodeAt coord level node) := by
+  have hp : ¬highPosition coord level := by unfold highPosition; omega
+  have h4 : 4 ≤ 2 ^ (6 - level) + node := by interval_cases level <;> norm_num <;> omega
+  have hiff := ClaudeWCT.WCT9.ftsHighHeap_iff h4
+  have he : (16 ≤ 2 ^ (6 - level) + node ∧ (2 ^ (6 - level) + node) % 2 = 0) ↔ (level ≤ 2 ∧ node % 2 = 0) := by
+    interval_cases level <;> norm_num at hn ⊢ <;> omega
+  have hh : highNodeAt coord level node ↔ (level ≤ 2 ∧ node % 2 = 0) := by
+    unfold highNodeAt
+    exact ⟨fun h => h.resolve_left hp, Or.inr⟩
+  by_cases hc : level ≤ 2 ∧ node % 2 = 0
+  · rw [decide_eq_true (hh.mpr hc)]
+    exact hiff.mpr (he.mpr hc)
+  · rw [decide_eq_false (fun h => hc (hh.mp h))]
+    exact Bool.eq_false_iff.mpr (fun ht => hc (he.mp (hiff.mp ht)))
+
+/-- C1: below the top folds (`level ≤ 3`, heaps `8..127`) a node position projects onto the half of its heap. -/
+theorem proj_wctNode_packed (index coord level node : Nat) (hl : level ≤ 3) (hn : node < 2 ^ (6 - level)) :
+    proj (.wctNode index coord level node) = ClaudeWCT.WCT9.ftsHalf (2 ^ (6 - level) + node) := by
+  funext answer
+  have hh := highNodeAt_packed coord level node hl hn
+  by_cases hc : highNodeAt coord level node
+  · rw [decide_eq_true hc] at hh
+    simp [proj, hc, ClaudeWCT.WCT9.ftsHalf, hh]
+  · rw [decide_eq_false hc] at hh
+    simp [proj, hc, ClaudeWCT.WCT9.ftsHalf, hh]
+
+/-- C1: a node of level `level` hashes into the half of `highNodeAt coord level node`. -/
+def nodeProgram (coord level node : Nat) (input : HashInput) : M Digest :=
+  if highNodeAt coord level node then ClaudeWCT.WCT9.highHash input else shortHash input
+
+set_option backward.isDefEq.respectTransparency false in
+theorem eval_nodeProgram (answers : Answers) (index coord level node : Nat) (input : HashInput) :
+    evalWithAnswerFn answers (nodeProgram coord level node input) =
+      proj (.wctNode index coord level node) (answers (.inl (.inr (pad64 input)))) := by
+  by_cases hp : highNodeAt coord level node
+  · simp only [nodeProgram, proj, if_pos hp]
+    rfl
+  · simp only [nodeProgram, proj, if_neg hp]
+    rfl
+
+set_option backward.isDefEq.respectTransparency false in
+/-- C1: the paired node at heap `2^(6-level)+node`, for any branch pads `ps`, is the fixed-projection hash of its
+`wctTopInput`. -/
+theorem sharedNode_eq_nodeProgramP (index coord level node : Nat) (hc : coord < 9) (hl : level < 6)
+    (hn : node < 2^(6-level)) (hu : first coord = true → level < 5) (ps : Nat → SharedForest.PairRoot)
+    (left right : Digest) :
+    SharedForest.sharedNode (first coord) coord index (2^(6-level)+node) ps left right =
+    nodeProgram coord level node (ClaudeWCT.WCT9.wctTopInput coord index (2^(6-level)+node) left
+      (if level=4 then (ps ((2^(6-level)+node)/2-2)).2 else 0) right) := by
+  have h4 : (2^(6-level)+node<4) ↔ level=5 := by
+    interval_cases level <;> norm_num at hn ⊢ <;> omega
+  have h8 : (2^(6-level)+node<8) ↔ 4≤level := by
+    interval_cases level <;> norm_num at hn ⊢ <;> omega
+  simp only [SharedForest.sharedNode, h4, h8]
+  by_cases h5 : level=5
+  · subst level
+    have hf : first coord = false := Bool.eq_false_iff.mpr (by intro h; have := hu h; omega)
+    have hn : ¬(coord<8 ∧ coord%2=0) := by
+      simpa only [first, decide_eq_false_iff_not] using hf
+    by_cases hco : coord=8
+    · subst coord
+      have hp : ¬highNodeAt 8 5 node := by unfold highNodeAt highPosition; omega
+      simp only [SharedForest.sharedOuterHash, nodeProgram, if_neg hp, ↓reduceIte]
+      rfl
+    · have hp : highNodeAt coord 5 node := Or.inl (by unfold highPosition; omega)
+      simp only [if_pos rfl, SharedForest.sharedOuterHash, if_neg hco, nodeProgram,
+        if_pos hp, ↓reduceIte]
+      rfl
+  · simp only [if_neg h5]
+    by_cases hlev : level=4
+    · subst level
+      simp only [show 4≤4 by decide, if_true, if_pos rfl]
+      by_cases hf : first coord=true
+      · have hp : highNodeAt coord 4 node := by
+          have hc := of_decide_eq_true hf
+          exact Or.inl ⟨hc.1,Or.inl ⟨hc.2,rfl⟩⟩
+        simp only [hf, if_true, nodeProgram, if_pos hp, ↓reduceIte]
+      · have hp : ¬highNodeAt coord 4 node := by
+          intro hp
+          rcases hp with hp|hp
+          · apply hf
+            simp only [first, decide_eq_true_eq]
+            exact ⟨hp.1, by rcases hp.2 with hp|hp <;> omega⟩
+          · omega
+        simp only [hf, if_false, nodeProgram, if_neg hp, ↓reduceIte]
+        rfl
+    · have hlt : level<4 := by omega
+      simp only [if_neg (show ¬4≤level by omega), if_neg hlev, ↓reduceIte]
+      have hnode : ClaudeWCT.WCT9.wctNodeHashH coord index (2^(6-level)+node) left right =
+          ClaudeWCT.WCT9.ftsHash (2^(6-level)+node) (ClaudeWCT.WCT9.wctTopInput coord index (2^(6-level)+node) left 0 right) := by
+        unfold ClaudeWCT.WCT9.wctNodeHashH ClaudeWCT.WCT9.wctTopInput
+        rw [ClaudeWCT.WCT9.bytesLE_zero16]
+      rw [hnode]
+      have hpk := highNodeAt_packed coord level node (by omega) hn
+      by_cases hh : highNodeAt coord level node
+      · rw [decide_eq_true hh] at hpk
+        rw [ClaudeWCT.WCT9.ftsHash_of_high hpk]
+        simp only [nodeProgram, if_pos hh]
+      · rw [decide_eq_false hh] at hpk
+        rw [ClaudeWCT.WCT9.ftsHash_of_low hpk]
+        simp only [nodeProgram, if_neg hh]
+
 
 noncomputable def honestInput (answers : Answers) : Pos → HashInput
   | .wctLeaf index coord child => pad64 (wctLeafInputP index coord child

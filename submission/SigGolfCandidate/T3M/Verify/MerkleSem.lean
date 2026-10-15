@@ -337,7 +337,7 @@ structure MAfter (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (lay leaf : Nat) (u
   orig : Orig w (mkP lay leaf k (leaf / 2 ^ k % 2)) s
   dstReg : s.getReg .x12 = BitVec.ofNat 64 (mkCur lay leaf k (leaf / 2 ^ k % 2))
   x28 : k ≠ 0 → lay ≠ 0 → s.getReg .x28 = T3.hyperWord (lay - 1) (u.getReg .x31).toNat
-  bufferOrig : lay ≠ 0 → Orig w (fun o => BC.bufferStart (lay-1) ≤ o ∧ o < 24832) s
+  bufferOrig : lay ≠ 0 → Orig w (fun o => BC.bufferStart (lay-1) ≤ o ∧ o < 24800) s
 structure MkEnd (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (lay leaf : Nat) (u : MachineState) (root : Digest) (t : MachineState) :
     Prop where
   pc : t.pc = pcOf (mkFin lay leaf + 1)
@@ -374,25 +374,25 @@ theorem lvlMem_read (lay ci sh l : Nat) (s : MachineState) (A : Nat) (hA : A < 2
   unfold mkLvlMem
   rw [memEval_cons_ofNat _ _ _ _ _ hA hB, memEval_cons_ofNat _ _ _ _ _ hA (by omega), memEval_nil]
 theorem mk_buffer_ge (lay o : Nat) (hlay : lay < 4)
-    (ho : BC.bufferStart (lay-1) ≤ o ∧ o < 24832) : 21712 ≤ o := by
+    (ho : BC.bufferStart (lay-1) ≤ o ∧ o < 24800) : 21712 ≤ o := by
   interval_cases lay <;> simp [BC.bufferStart] at ho <;> omega
 
 theorem mk_buffer_writeHash {w : ClaudeWCT.W9.T3M.WBytes} {s : MachineState}
     (lay : Nat) (hlay : lay < 4)
-    (hO : Orig w (fun o => BC.bufferStart (lay-1) ≤ o ∧ o < 24832) s)
+    (hO : Orig w (fun o => BC.bufferStart (lay-1) ≤ o ∧ o < 24800) s)
     (a : BitVec 256) (d : Nat) (h12 : s.getReg .x12 = BitVec.ofNat 64 d)
     (hd : d + 32 ≤ WIT + 21712) :
-    Orig w (fun o => BC.bufferStart (lay-1) ≤ o ∧ o < 24832) (writeHash s a) := by
+    Orig w (fun o => BC.bufferStart (lay-1) ≤ o ∧ o < 24800) (writeHash s a) := by
   apply (Orig_writeHash hO a d h12 (by unfold WIT at hd; omega)).mono
   intro o ho
   exact ⟨ho, Or.inr (by have := mk_buffer_ge lay o hlay ho; omega)⟩
 
 theorem lvl_bufferOrig {w : ClaudeWCT.W9.T3M.WBytes} (lay : Layer) (leaf k : Nat)
     (hleaf : leaf < 2 ^ hL lay.val) (hk : k < hL lay.val) (s t : MachineState)
-    (hO : lay.val ≠ 0 → Orig w (fun o => BC.bufferStart (lay.val-1) ≤ o ∧ o < 24832) s)
+    (hO : lay.val ≠ 0 → Orig w (fun o => BC.bufferStart (lay.val-1) ≤ o ∧ o < 24800) s)
     (hmem : ∀ A, t.getMem A =
       memEval s (mkLvlMem lay.val (mkCi lay.val k) (mkSh lay.val (mkCi lay.val k) leaf) k) A) :
-    lay.val ≠ 0 → Orig w (fun o => BC.bufferStart (lay.val-1) ≤ o ∧ o < 24832) t := by
+    lay.val ≠ 0 → Orig w (fun o => BC.bufferStart (lay.val-1) ≤ o ∧ o < 24800) t := by
   intro h0
   apply (hO h0).frame
   intro j hj ho
@@ -561,7 +561,7 @@ theorem lvl_after (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (lay leaf : Nat) (
     (h28 : lay ≠ 0 → t.getReg .x28 = T3.hyperWord (lay - 1) (u.getReg .x31).toNat)
     (horig : Orig w (fun o => mkP lay leaf k (leaf / 2 ^ k % 2) o ∧ o ≠ mkBo lay leaf k + 16 ∧
       o ≠ mkBo lay leaf k + 24) t)
-    (hbuffer : lay ≠ 0 → Orig w (fun o => BC.bufferStart (lay-1) ≤ o ∧ o < 24832) t)
+    (hbuffer : lay ≠ 0 → Orig w (fun o => BC.bufferStart (lay-1) ≤ o ∧ o < 24800) t)
     (h10 : t.getReg .x10 = BitVec.ofNat 64 (mkBlk lay leaf k)) (a : BitVec 256) :
     (k + 1 < hL lay → t.pc = pcOf (mkEc lay leaf (k + 1)) →
       t.getReg .x12 = BitVec.ofNat 64 (mkCur lay leaf (k + 1) (leaf / 2 ^ (k + 1) % 2)) →

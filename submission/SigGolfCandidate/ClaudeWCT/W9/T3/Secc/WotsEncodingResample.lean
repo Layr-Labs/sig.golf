@@ -848,8 +848,8 @@ theorem sharedNode_nonEnc (first : Bool) (coord index heap : Nat) (hcoord : coor
     · split
       · exact topHigh_nonEnc _ _ _ hcoord _ _ _
       · exact topLow_nonEnc _ _ _ hcoord _ _ _
-    · change AllQueriesSatisfy (shortHash (WCT9.wctTopInput coord index heap left 0 right)) NonEnc
-      exact topLow_nonEnc _ _ _ hcoord _ _ _
+    · change AllQueriesSatisfy (WCT9.ftsHash heap (WCT9.wctTopInput coord index heap left 0 right)) NonEnc
+      exact WCT9.allQ_ftsHash_of_shortHash _ _ (topLow_nonEnc _ _ _ hcoord _ _ _)
 
 theorem sharedHeap_nonEnc (first : Bool) (index coord : Nat) (hcoord : coord < 9)
     (pads : Nat → PairRoot) (leaves : List Digest) :
@@ -868,8 +868,8 @@ theorem sharedLeaves_congr {answers answers' : Answers}
   have hraw : rawChild first physical.val < 128 := by
     have hp := physical.isLt
     cases first <;> simp only [rawChild, Bool.false_eq_true, ↓reduceIte] <;> omega
-  exact WCT9.Wots.childRoot_congr (fun query hq => h query (WCT9.Wots.ftsQuery_nonEnc hq))
-    coord ⟨rawChild first physical.val, hraw⟩ _
+  exact WCT9.Wots.childRootH_congr (fun query hq => h query (WCT9.Wots.ftsQuery_nonEnc hq))
+    (128 + physical.val) coord ⟨rawChild first physical.val, hraw⟩ _
 
 theorem sharedNodes_congr {answers answers' : Answers}
     (h : ∀ query, NonEnc query → answers' query = answers query)
@@ -1215,8 +1215,8 @@ theorem sharedNode_untouched (a : ChainAddr) (first : Bool) (coord index heap : 
     · split
       · exact topHigh_untouched a _ _ _ _ _ _
       · exact topLow_untouched a _ _ _ _ _ _
-    · change AllQueriesSatisfy (shortHash (WCT9.wctTopInput coord index heap left 0 right)) (UntouchedP a)
-      exact topLow_untouched a _ _ _ _ _ _
+    · change AllQueriesSatisfy (WCT9.ftsHash heap (WCT9.wctTopInput coord index heap left 0 right)) (UntouchedP a)
+      exact WCT9.allQ_ftsHash_of_shortHash _ _ (topLow_untouched a _ _ _ _ _ _)
 
 theorem sharedHeap_untouched (a : ChainAddr) (first : Bool) (index coord : Nat)
     (pads : Nat → PairRoot) (leaves : List Digest) :
@@ -1234,8 +1234,8 @@ theorem sharedLeaves_congr_untouched (a : ChainAddr) {answers answers' : Answers
   have hraw : rawChild first physical.val < 128 := by
     have hp := physical.isLt
     cases first <;> simp only [rawChild, Bool.false_eq_true, ↓reduceIte] <;> omega
-  exact WCT9.Wots.childRoot_congr (fun query hq => h query (Wots.Mask.ftsQuery_untouchedP a hq))
-    coord ⟨rawChild first physical.val, hraw⟩ _
+  exact WCT9.Wots.childRootH_congr (fun query hq => h query (Wots.Mask.ftsQuery_untouchedP a hq))
+    (128 + physical.val) coord ⟨rawChild first physical.val, hraw⟩ _
 
 theorem sharedNodes_congr_untouched (a : ChainAddr) {answers answers' : Answers}
     (h : ∀ query, UntouchedP a query → answers' query = answers query)
@@ -1467,7 +1467,7 @@ theorem respects_buildSharedCoordinate (first : Bool) (index coord : Nat) (hc : 
   refine Respects.bind (respects_ftsCoefs index coord) fun _ => ?_
   refine Respects.bind (Respects.foldlM _ _ (fun j hj _ => ?_) _) fun _ => ?_
   · have hraw := rawChild_lt first j (List.mem_range.mp hj)
-    exact Respects.bind (ClaudeWCT.WCT9.Wots.Enc.respects_buildChildF _ _ _ _ _ _ hc hraw)
+    exact Respects.bind (ClaudeWCT.WCT9.Wots.Enc.respects_buildChildH _ _ _ _ _ _ _ hc hraw)
       fun _ => Respects.pure' _
   · exact Respects.bind (WCT9.Wots.respects_of_allQueriesSatisfy
       (sharedHeap_nonEnc first index coord hc pads _)) fun _ => Respects.pure' _
@@ -1783,7 +1783,7 @@ theorem respectsP_buildSharedCoordinate (a : ChainAddr) (first : Bool) (index co
   refine Respects.bind (respectsP_ftsCoefs a index coord) fun _ => ?_
   refine Respects.bind (Respects.foldlM _ _ (fun j hj _ => ?_) _) fun _ => ?_
   · have hraw := rawChild_lt first j (List.mem_range.mp hj)
-    exact Respects.bind (ClaudeWCT.W9.T3.Security.Wots.Mask.Respects.untouchedP (fun c => ClaudeWCT.WCT9.Wots.Mask.respects_buildChildF c index coord (rawChild first j) _ _ _ hc hraw) a)
+    exact Respects.bind (ClaudeWCT.W9.T3.Security.Wots.Mask.Respects.untouchedP (fun c => ClaudeWCT.WCT9.Wots.Mask.respects_buildChildH c index (128 + j) coord (rawChild first j) _ _ _ hc hraw) a)
       fun _ => Respects.pure' _
   · exact Respects.bind (WCT9.Wots.respects_of_allQueriesSatisfy
       (sharedHeap_untouched a first index coord pads _)) fun _ => Respects.pure' _

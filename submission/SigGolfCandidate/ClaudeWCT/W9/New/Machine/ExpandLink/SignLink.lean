@@ -1981,7 +1981,7 @@ set_option maxHeartbeats 1500000
 set_option maxRecDepth 100000
 
 def runtimeSub (imgs : Phase→Image) : Submission :=
-  ⟨⟨5248,24860,131072⟩,⟨0x65e0,0x80,0xa0,0x80000,0x7000,0x4c0⟩,imgs⟩
+  ⟨⟨5248,24828,131072⟩,⟨0x65c0,0x80,0xa0,0x80000,0x7000,0x4c0⟩,imgs⟩
 
 theorem initialState_of_wsub (imgs : Phase→Image)
     (hv : (imgs .sign).Valid (runtimeSub imgs).sizes (runtimeSub imgs).layout)
@@ -2188,7 +2188,9 @@ open ClaudeWCT.W9.T3M.SharedCodec SharedSerializer
 set_option maxHeartbeats 1500000
 set_option maxRecDepth 100000
 
-theorem signCost_eq : signCost=4070198730 := by decide +kernel
+/-- C1 (stage 1): the leaf stub adds at most 9 steps per leaf and the fold stub at most 6 per node
+(`SharedLeaves.cost` 6·stepC+65, node bound 68); still far below `CYCLE_LIMIT`. -/
+theorem signCost_eq : signCost=4070215902 := by decide +kernel
 theorem signCost_lt : signCost+1<CYCLE_LIMIT := by decide +kernel
 
 theorem initialState_paired (sk : SecretKey) (cache : Bytes 131072) (msg : SigGolfCandidate.T3.Message) :

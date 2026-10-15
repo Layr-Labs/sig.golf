@@ -322,15 +322,15 @@ theorem w9initC_getMem (A : Nat) (hA : A < 2 ^ 64) :
       if 0x7000 ≤ A ∧ A < 0x7000 + 5312 ∧ (A - 0x7000) % 8 = 0 then
         bytesToWordLE (((bytes b).drop (A - 0x7000)).take 8)
       else if 0xA0 ≤ A ∧ A < 0xB0 ∧ (A - 0xA0) % 8 = 0 then bytesToWordLE (((bytes pk).drop (A - 0xA0)).take 8)
-      else if 0x65E0 ≤ A ∧ A < 0x6600 ∧ (A - 0x65E0) % 8 = 0 then
-        bytesToWordLE (((bytes m).drop (A - 0x65E0)).take 8)
+      else if 0x65C0 ≤ A ∧ A < 0x65E0 ∧ (A - 0x65C0) % 8 = 0 then
+        bytesToWordLE (((bytes m).drop (A - 0x65C0)).take 8)
       else if Compact2.LPLAN ≤ A ∧ A < Compact2.LPLAN + 27648 ∧ (A - Compact2.LPLAN) % 8 = 0 then
         bytesToWordLE ((im.data.drop (A - Compact2.LPLAN)).take 8)
       else 0 := by
   unfold w9init
   rw [MachineState.getMem_setReg, getMem_writeBytesAsWords _ _ 0x7000 A (by rw [bytes_length_e]; decide) hA,
     getMem_writeBytesAsWords _ _ 0xA0 A (by rw [bytes_length_e]; decide) hA,
-    getMem_writeBytesAsWords _ _ 0x65E0 A (by rw [bytes_length_e]; decide) hA, dataBase_eq hd,
+    getMem_writeBytesAsWords _ _ 0x65C0 A (by rw [bytes_length_e]; decide) hA, dataBase_eq hd,
     getMem_writeBytesAsWords _ _ Compact2.LPLAN A (by rw [data_length hd]; decide) hA, bytes_length_e, bytes_length_e,
     bytes_length_e, data_length hd]
   rfl
@@ -395,10 +395,10 @@ theorem front_spec' {im : Image} (hP : ProAt im) (s : MachineState)
       t.getMem (BitVec.ofNat 64 0x808) = s.getMem (BitVec.ofNat 64 0x7008) ∧
       t.getMem (BitVec.ofNat 64 DIG) = s.getMem (BitVec.ofNat 64 0x7000) ∧
       t.getMem (BitVec.ofNat 64 (DIG + 8)) = s.getMem (BitVec.ofNat 64 0x7008) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 0x65E0) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 0x65E8) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 0x65F0) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 0x65F8) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 0x65C0) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 0x65C8) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 0x65D0) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 0x65D8) ∧
       RegsExcept s t [.x5, .x6, .x7, .x19, .x29, .x30] ∧
       Frame s t (fun A => A = 0x800 ∨ A = 0x808 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨ A = DIG + 40 ∨
         A = DIG + 48 ∨ A = DIG + 56) := by
@@ -435,10 +435,10 @@ theorem front_pre30' {im : Image} (hF : FrontAt im) (hP : ProAt im) (hd : Expand
     fun A hA hn => (f0' A hA hn).trans (humem A hA)
   rw [humem 0x7000 (by decide)] at w800 d0
   rw [humem 0x7008 (by decide)] at w808 d8
-  rw [humem 0x65E0 (by decide)] at d32
-  rw [humem 0x65E8 (by decide)] at d40
-  rw [humem 0x65F0 (by decide)] at d48
-  rw [humem 0x65F8 (by decide)] at d56
+  rw [humem 0x65C0 (by decide)] at d32
+  rw [humem 0x65C8 (by decide)] at d40
+  rw [humem 0x65D0 (by decide)] at d48
+  rw [humem 0x65D8 (by decide)] at d56
   obtain ⟨t, st1, p, x19, z, r1, f1⟩ := zero_spec hF.2 t0 p0
   have f : Frame s t (fun A => A = 0x800 ∨ A = 0x808 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨
       A = DIG + 40 ∨ A = DIG + 48 ∨ A = DIG + 56 ∨ A = 0x59B0 ∨ A = 0x59B8 ∨ A = 0x59C0 ∨ A = 0x59C8) :=
@@ -2188,8 +2188,8 @@ set_option maxRecDepth 10000
 set_option maxHeartbeats 2000000
 private theorem low_slot_sub : (1264#64 - 48#64) = 1216#64 := rfl
 
-abbrev topDest0 (child : Nat) : Nat := 7808 + 576 * (child / 32 % 2)
-def topCode0 : List (BitVec 32) := [0x585313,0x137313,0x24000393,0x2730333,0x2e37,0xe80e0e13,0x6e0e33,0xb08b303,0xb88b383,0x6e3023,0x7e3423]
+abbrev topDest0 (child : Nat) : Nat := 7824 + 560 * (child / 32 % 2)
+def topCode0 : List (BitVec 32) := [0x585313,0x137313,0x23000393,0x2730333,0x2e37,0xe90e0e13,0x6e0e33,0xb08b303,0xb88b383,0x6e3023,0x7e3423]
 sym_block top0 := symRun { noAlias := true } topCode0 (pcOf 45376) 100
 theorem top0_obligs (s : MachineState) (source child : Nat)
     (hs0 : 28672 ≤ source) (hs1 : source ≤ 31000) (hsa : source % 8 = 0)
@@ -2247,8 +2247,8 @@ theorem top0_steps {im : Image} (hc : CodeAt im (pcOf 45376) topCode0)
 #print axioms top0_steps
 
 
-abbrev topDest1 (child : Nat) : Nat := 6912 + 576 * (child / 64 % 2)
-def topCode1 : List (BitVec 32) := [0x685313,0x137313,0x24000393,0x2730333,0x2e37,0xb00e0e13,0x6e0e33,0xc08b303,0xc88b383,0x6e3023,0x7e3423]
+abbrev topDest1 (child : Nat) : Nat := 6928 + 560 * (child / 64 % 2)
+def topCode1 : List (BitVec 32) := [0x685313,0x137313,0x23000393,0x2730333,0x2e37,0xb10e0e13,0x6e0e33,0xc08b303,0xc88b383,0x6e3023,0x7e3423]
 sym_block top1 := symRun { noAlias := true } topCode1 (pcOf 45523) 100
 theorem top1_obligs (s : MachineState) (source child : Nat)
     (hs0 : 28672 ≤ source) (hs1 : source ≤ 31000) (hsa : source % 8 = 0)
@@ -2306,8 +2306,8 @@ theorem top1_steps {im : Image} (hc : CodeAt im (pcOf 45523) topCode1)
 #print axioms top1_steps
 
 
-abbrev topDest2 (child : Nat) : Nat := 6016 + 576 * (child / 32 % 2)
-def topCode2 : List (BitVec 32) := [0x585313,0x137313,0x24000393,0x2730333,0x1e37,0x780e0e13,0x6e0e33,0xb08b303,0xb88b383,0x6e3023,0x7e3423]
+abbrev topDest2 (child : Nat) : Nat := 6032 + 560 * (child / 32 % 2)
+def topCode2 : List (BitVec 32) := [0x585313,0x137313,0x23000393,0x2730333,0x1e37,0x790e0e13,0x6e0e33,0xb08b303,0xb88b383,0x6e3023,0x7e3423]
 sym_block top2 := symRun { noAlias := true } topCode2 (pcOf 45653) 100
 theorem top2_obligs (s : MachineState) (source child : Nat)
     (hs0 : 28672 ≤ source) (hs1 : source ≤ 31000) (hsa : source % 8 = 0)
@@ -2365,8 +2365,8 @@ theorem top2_steps {im : Image} (hc : CodeAt im (pcOf 45653) topCode2)
 #print axioms top2_steps
 
 
-abbrev topDest3 (child : Nat) : Nat := 5120 + 576 * (child / 64 % 2)
-def topCode3 : List (BitVec 32) := [0x685313,0x137313,0x24000393,0x2730333,0x1e37,0x400e0e13,0x6e0e33,0xc08b303,0xc88b383,0x6e3023,0x7e3423]
+abbrev topDest3 (child : Nat) : Nat := 5136 + 560 * (child / 64 % 2)
+def topCode3 : List (BitVec 32) := [0x685313,0x137313,0x23000393,0x2730333,0x1e37,0x410e0e13,0x6e0e33,0xc08b303,0xc88b383,0x6e3023,0x7e3423]
 sym_block top3 := symRun { noAlias := true } topCode3 (pcOf 45800) 100
 theorem top3_obligs (s : MachineState) (source child : Nat)
     (hs0 : 28672 ≤ source) (hs1 : source ≤ 31000) (hsa : source % 8 = 0)
@@ -2424,8 +2424,8 @@ theorem top3_steps {im : Image} (hc : CodeAt im (pcOf 45800) topCode3)
 #print axioms top3_steps
 
 
-abbrev topDest4 (child : Nat) : Nat := 4224 + 576 * (child / 32 % 2)
-def topCode4 : List (BitVec 32) := [0x585313,0x137313,0x24000393,0x2730333,0x1e37,0x80e0e13,0x6e0e33,0xb08b303,0xb88b383,0x6e3023,0x7e3423]
+abbrev topDest4 (child : Nat) : Nat := 4240 + 560 * (child / 32 % 2)
+def topCode4 : List (BitVec 32) := [0x585313,0x137313,0x23000393,0x2730333,0x1e37,0x90e0e13,0x6e0e33,0xb08b303,0xb88b383,0x6e3023,0x7e3423]
 sym_block top4 := symRun { noAlias := true } topCode4 (pcOf 45930) 100
 theorem top4_obligs (s : MachineState) (source child : Nat)
     (hs0 : 28672 ≤ source) (hs1 : source ≤ 31000) (hsa : source % 8 = 0)
@@ -2483,8 +2483,8 @@ theorem top4_steps {im : Image} (hc : CodeAt im (pcOf 45930) topCode4)
 #print axioms top4_steps
 
 
-abbrev topDest5 (child : Nat) : Nat := 3328 + 576 * (child / 64 % 2)
-def topCode5 : List (BitVec 32) := [0x685313,0x137313,0x24000393,0x2730333,0x1e37,0xd00e0e13,0x6e0e33,0xc08b303,0xc88b383,0x6e3023,0x7e3423]
+abbrev topDest5 (child : Nat) : Nat := 3344 + 560 * (child / 64 % 2)
+def topCode5 : List (BitVec 32) := [0x685313,0x137313,0x23000393,0x2730333,0x1e37,0xd10e0e13,0x6e0e33,0xc08b303,0xc88b383,0x6e3023,0x7e3423]
 sym_block top5 := symRun { noAlias := true } topCode5 (pcOf 46077) 100
 theorem top5_obligs (s : MachineState) (source child : Nat)
     (hs0 : 28672 ≤ source) (hs1 : source ≤ 31000) (hsa : source % 8 = 0)
@@ -2542,8 +2542,8 @@ theorem top5_steps {im : Image} (hc : CodeAt im (pcOf 46077) topCode5)
 #print axioms top5_steps
 
 
-abbrev topDest6 (child : Nat) : Nat := 2432 + 576 * (child / 32 % 2)
-def topCode6 : List (BitVec 32) := [0x585313,0x137313,0x24000393,0x2730333,0x1e37,0x980e0e13,0x6e0e33,0xb08b303,0xb88b383,0x6e3023,0x7e3423]
+abbrev topDest6 (child : Nat) : Nat := 2448 + 560 * (child / 32 % 2)
+def topCode6 : List (BitVec 32) := [0x585313,0x137313,0x23000393,0x2730333,0x1e37,0x990e0e13,0x6e0e33,0xb08b303,0xb88b383,0x6e3023,0x7e3423]
 sym_block top6 := symRun { noAlias := true } topCode6 (pcOf 46207) 100
 theorem top6_obligs (s : MachineState) (source child : Nat)
     (hs0 : 28672 ≤ source) (hs1 : source ≤ 31000) (hsa : source % 8 = 0)
@@ -2601,8 +2601,8 @@ theorem top6_steps {im : Image} (hc : CodeAt im (pcOf 46207) topCode6)
 #print axioms top6_steps
 
 
-abbrev topDest7 (child : Nat) : Nat := 1536 + 576 * (child / 64 % 2)
-def topCode7 : List (BitVec 32) := [0x685313,0x137313,0x24000393,0x2730333,0x60000e13,0x6e0e33,0xc08b303,0xc88b383,0x6e3023,0x7e3423]
+abbrev topDest7 (child : Nat) : Nat := 1552 + 560 * (child / 64 % 2)
+def topCode7 : List (BitVec 32) := [0x685313,0x137313,0x23000393,0x2730333,0x61000e13,0x6e0e33,0xc08b303,0xc88b383,0x6e3023,0x7e3423]
 sym_block top7 := symRun { noAlias := true } topCode7 (pcOf 46354) 100
 theorem top7_obligs (s : MachineState) (source child : Nat)
     (hs0 : 28672 ≤ source) (hs1 : source ≤ 31000) (hsa : source % 8 = 0)
@@ -3788,10 +3788,11 @@ namespace ClaudeWCT.W9.Machine.Expand.SharedScatter.Packing
 open SigGolfCandidate.Research.SharedPathPacking
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
-/-- The copied siblings occupy separate aligned digest slots and leave both carried pads intact. -/
+/-- The copied siblings occupy separate aligned digest slots and leave both carried pads intact
+(C1, stage 1: the carried R pad of the pinned level-four window `X = 128` is at `+160`). -/
 def ScatterSafe (child : Nat) : Prop :=
   (∀ l : Fin 5, block child l.val % 16 = 0 ∧ block child l.val / 16 < 53 ∧
-    sibling child l.val + 16 ≤ 320 ∧ sibling child l.val ≠ 144) ∧
+    sibling child l.val + 16 ≤ 320 ∧ sibling child l.val ≠ 160) ∧
   (∀ i l : Fin 5, i ≠ l → sibling child i.val + 16 ≤ sibling child l.val ∨
     sibling child l.val + 16 ≤ sibling child i.val)
 theorem scatterSafe : ∀ child : Fin 128, ScatterSafe child.val := by
@@ -4687,7 +4688,7 @@ set_option maxHeartbeats 2000000
 set_option maxRecDepth 10000
 
 theorem localW_pad (region : Nat) (child : Fin 128) (half : Fin 2) (right : Bool) :
-    ¬LocalW region child.val (region+(if right then 144 else 720)+8*half.val) := by
+    ¬LocalW region child.val (region+(if right then 160 else 720)+8*half.val) := by
   intro h
   rcases h with (h|h)|h
   · obtain ⟨i,hi,h⟩:=h
@@ -4697,7 +4698,7 @@ theorem localW_pad (region : Nat) (child : Fin 128) (half : Fin 2) (right : Bool
     dsimp only at hs
     have hmod : sibling child.val i %16=0 := by
       simp only [sibling,Nat.add_mod,Nat.mul_mod,show 48%16=0 from rfl,zero_mul,Nat.zero_mod,Nat.add_zero,hs.1]
-    change (region+(if right then 144 else 720)+8*half.val=destination region (block child.val i/16) (child.val/2^i) ∨ region+(if right then 144 else 720)+8*half.val=destination region (block child.val i/16) (child.val/2^i)+8) at h
+    change (region+(if right then 160 else 720)+8*half.val=destination region (block child.val i/16) (child.val/2^i) ∨ region+(if right then 160 else 720)+8*half.val=destination region (block child.val i/16) (child.val/2^i)+8) at h
     rw [Packing.path_slot region child ⟨i,hi⟩] at h
     cases right <;> simp only [Bool.false_eq_true,ite_false,ite_true] at h <;> omega
   · unfold SixthW destination at h
@@ -4705,7 +4706,7 @@ theorem localW_pad (region : Nat) (child : Fin 128) (half : Fin 2) (right : Bool
     cases right <;> simp only [Bool.false_eq_true,ite_false,ite_true] at h <;> omega
 
 theorem localW_pads (region : Nat) (child : Fin 128) (A : Nat)
-    (ha:A=region+144 ∨ A=region+152 ∨ A=region+720 ∨ A=region+728) : ¬LocalW region child.val A := by
+    (ha:A=region+160 ∨ A=region+168 ∨ A=region+720 ∨ A=region+728) : ¬LocalW region child.val A := by
   rcases ha with rfl|rfl|rfl|rfl
   · exact localW_pad region child 0 true
   · simpa [Nat.add_assoc] using localW_pad region child 1 true
@@ -4713,7 +4714,7 @@ theorem localW_pads (region : Nat) (child : Fin 128) (A : Nat)
   · simpa [Nat.add_assoc] using localW_pad region child 1 false
 
 theorem topDest_prev (k : Fin 8) (child : Fin 128) :
-    topDest k.val child.val=coordRegion (k.val+1)+144 ∨
+    topDest k.val child.val=coordRegion (k.val+1)+160 ∨
     topDest k.val child.val=coordRegion (k.val+1)+720 := by
   have h32:=Nat.mod_lt (child.val/32) (by decide : 0<2)
   have h64:=Nat.mod_lt (child.val/64) (by decide : 0<2)
@@ -4755,7 +4756,7 @@ theorem readArea_disjoint (j k : Fin 9) (hj:j.val<k.val) (cj ck : Fin 128) (A : 
   · omega
   all_goals
     have j8:j.val<8 := by omega
-    have jp : topDest j.val cj.val=coordRegion (j.val+1)+144 ∨ topDest j.val cj.val=coordRegion (j.val+1)+720 := topDest_prev ⟨j.val,j8⟩ cj
+    have jp : topDest j.val cj.val=coordRegion (j.val+1)+160 ∨ topDest j.val cj.val=coordRegion (j.val+1)+720 := topDest_prev ⟨j.val,j8⟩ cj
     have kd:=topDest_bound k ck
     by_cases hk:k.val=j.val+1
     · have rg : coordRegion k.val=coordRegion (j.val+1) := congrArg coordRegion hk
@@ -6618,13 +6619,13 @@ theorem getMem {im : Image} (hlen:im.data.length=29808) (hb:dataBase im=DB)
     (w9init im m pk b).getMem (BitVec.ofNat 64 A)=
       if 0x7000≤A ∧ A<0x7000+5248 ∧ (A-0x7000)%8=0 then bytesToWordLE ((bytes b).drop (A-0x7000) |>.take 8)
       else if 0xA0≤A ∧ A<0xB0 ∧ (A-0xA0)%8=0 then bytesToWordLE ((bytes pk).drop (A-0xA0) |>.take 8)
-      else if 0x65E0≤A ∧ A<0x6600 ∧ (A-0x65E0)%8=0 then bytesToWordLE ((bytes m).drop (A-0x65E0) |>.take 8)
+      else if 0x65C0≤A ∧ A<0x65E0 ∧ (A-0x65C0)%8=0 then bytesToWordLE ((bytes m).drop (A-0x65C0) |>.take 8)
       else if DB≤A ∧ A<DB+29808 ∧ (A-DB)%8=0 then bytesToWordLE (im.data.drop (A-DB) |>.take 8)
       else 0 := by
   unfold w9init
   rw [MachineState.getMem_setReg,getMem_writeBytesAsWords _ _ 0x7000 A (by rw[bytes_length_e];decide) hA,
     getMem_writeBytesAsWords _ _ 0xA0 A (by rw[bytes_length_e];decide) hA,
-    getMem_writeBytesAsWords _ _ 0x65E0 A (by rw[bytes_length_e];decide) hA,hb,
+    getMem_writeBytesAsWords _ _ 0x65C0 A (by rw[bytes_length_e];decide) hA,hb,
     getMem_writeBytesAsWords _ _ DB A (by rw[hlen];decide) hA,
     bytes_length_e,bytes_length_e,bytes_length_e,hlen]
   rfl
@@ -6698,10 +6699,10 @@ theorem tail_steps {im : Image} (hc : CodeAt im (pcOf 1) frontTail) (s : Machine
       t.getMem (BitVec.ofNat 64 0x808) = s.getMem (BitVec.ofNat 64 0x7008) ∧
       t.getMem (BitVec.ofNat 64 DIG) = s.getMem (BitVec.ofNat 64 0x7000) ∧
       t.getMem (BitVec.ofNat 64 (DIG + 8)) = s.getMem (BitVec.ofNat 64 0x7008) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 0x65E0) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 0x65E8) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 0x65F0) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 0x65F8) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 0x65C0) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 0x65C8) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 0x65D0) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 0x65D8) ∧
       RegsExcept s t [.x5, .x6, .x7, .x19, .x29, .x30] ∧
       Frame s t (fun A => A = 0x800 ∨ A = 0x808 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨ A = DIG + 40 ∨
         A = DIG + 48 ∨ A = DIG + 56) := by
@@ -6739,7 +6740,7 @@ theorem setup {im : Image} (hf:CodeAt im (pcOf 1) frontTail) (hz:CodeAt im (pcOf
     ∃t,Steps im s 37 37 t ∧ t.pc=pcOf 45056 ∧ t.getReg .x5=0 ∧
       (∀A, A=0x800 ∨ A=DIG → t.getMem (BitVec.ofNat 64 A)=s.getMem 0x7000) ∧
       (∀A, A=0x808 ∨ A=DIG+8 → t.getMem (BitVec.ofNat 64 A)=s.getMem 0x7008) ∧
-      (∀k,k<4 → t.getMem (BitVec.ofNat 64 (DIG+32+8*k))=s.getMem (BitVec.ofNat 64 (0x65E0+8*k))) ∧
+      (∀k,k<4 → t.getMem (BitVec.ofNat 64 (DIG+32+8*k))=s.getMem (BitVec.ofNat 64 (0x65C0+8*k))) ∧
       (∀A,A=0x59B0 ∨ A=0x59B8 ∨ A=0x59C0 ∨ A=0x59C8 → t.getMem (BitVec.ofNat 64 A)=0) ∧
       RegsExcept s t [.x5,.x6,.x7,.x19,.x29,.x30] ∧ Frame s t Writes := by
   obtain ⟨u,su,up,u5,a0,a8,d0,d8,d32,d40,d48,d56,ru,fu⟩:=tail_steps hf s hp hx5
@@ -6787,15 +6788,15 @@ theorem prefixData {im : Image} (hlen:im.data.length=29808) (hb:dataBase im=DB)
 
 theorem msgWord {im : Image} (hlen:im.data.length=29808) (hb:dataBase im=DB)
     (m : Message) (pk : PublicKey) (b : Bytes 5248) (i : Nat) (hi:i<4) :
-    (w9init im m pk b).getMem (BitVec.ofNat 64 (0x65E0+8*i))=m.extractLsb' (64*i) 64 := by
+    (w9init im m pk b).getMem (BitVec.ofNat 64 (0x65C0+8*i))=m.extractLsb' (64*i) 64 := by
   rw [getMem hlen hb _ _ _ _ (by omega),if_neg (by omega),if_neg (by omega),if_pos (by omega),
-    show 0x65E0+8*i-0x65E0=8*i by omega]
+    show 0x65C0+8*i-0x65C0=8*i by omega]
   exact SigGolfCandidate.T3M.Expand.bytesToWordLE_bytes_e m i (by omega)
 
 theorem zero {im : Image} (hlen:im.data.length=29808) (hb:dataBase im=DB)
     (m : Message) (pk : PublicKey) (b : Bytes 5248) (A : Nat) (hA:A<DB)
     (hs:A<0x7000 ∨ 0x7000+5248≤A) (hp:A<0xA0 ∨ 0xB0≤A)
-    (hm:A<0x65E0 ∨ 0x6600≤A) :
+    (hm:A<0x65C0 ∨ 0x65E0≤A) :
     (w9init im m pk b).getMem (BitVec.ofNat 64 A)=0 := by
   rw[getMem hlen hb _ _ _ _ (by unfold DB at hA;omega),
     if_neg (by omega),if_neg (by omega),if_neg (by omega),if_neg (by omega)]
@@ -7342,7 +7343,7 @@ theorem prepare {im:Image} (he:CodeAt im (pcOf 0) [SharedCompact.entryWord])
     (s:MachineState) (message:SigGolfCandidate.T3.Message) (b:SharedCodec.CBytes)
     (hp:s.pc=pcOf 0) (h5:s.getReg .x5=0)
     (hb:∀k,k < 656 → s.getMem (BitVec.ofNat 64 (0x7000+8*k))=b.extractLsb' (64*k) 64)
-    (hm:∀k,k < 4 → s.getMem (BitVec.ofNat 64 (0x65E0+8*k))=message.extractLsb' (64*k) 64)
+    (hm:∀k,k < 4 → s.getMem (BitVec.ofNat 64 (0x65C0+8*k))=message.extractLsb' (64*k) 64)
     (hd:SharedInit.DataAt s) (hh:(SharedCodec.sigDecC b).policyHints.toNat<5832) :
     ∃t,Steps im s 3249 3249 t ∧ Prepared s message b t := by
   obtain ⟨u,su,up,uz,ur,uh,ub,uf⟩:=SharedCompact.front_readout he hc s hp

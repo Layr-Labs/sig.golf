@@ -10,6 +10,12 @@ theorem bound_buildChildF (index coord selected : Nat) (word : Rank) (coefs : Li
     CBound (fun result : Digest × List Digest => result.2.length = 6) childCost
       (buildChildF index coord selected word coefs pad) :=
   cbound_of_ftsBound (ftsBound_buildChildF index coord selected word coefs pad hcoord hsel)
+/-- C1: the child of heap `heap` costs the same `childCost` blocks as the legacy child. -/
+theorem bound_buildChildH (heap index coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest)
+    (hcoord : coord < 9) (hsel : selected < 128) :
+    CBound (fun result : Digest × List Digest => result.2.length = 6) childCost
+      (buildChildH heap index coord selected word coefs pad) :=
+  cbound_of_ftsBound (ftsBound_buildChildH index heap coord selected word coefs pad hcoord hsel)
 theorem bound_buildCoordinateF (index : Nat) (coord : Coord) (selected : Child) (word : Rank)
     (prev : Digest × Digest) :
     CBound (fun _ => True) 3481 (buildCoordinateF index coord selected word prev) :=

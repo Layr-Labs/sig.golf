@@ -741,8 +741,14 @@ theorem ftsLabel_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin
         split_ifs at hn
         cases hn
         rfl
-      rw [hi]
-      rfl
+      -- C1: the projection of an FTS node depends on its node index (`highNodeAt`), so the label's
+      -- position index `c` must be identified with the node's own index.
+      have hc : n.1.idx.val=c := by
+        unfold ftsNodeAt at hn
+        split_ifs at hn
+        cases hn
+        rfl
+      rw [hi,hc]
 
 theorem pads_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin 9) (branch : Nat) :
     CanonGraph.Paired.pads L index coord branch=padVals (coordVal s L) index coord branch := by

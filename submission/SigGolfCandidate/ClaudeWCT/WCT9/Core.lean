@@ -172,6 +172,79 @@ def buildChildF (index coord selected : Nat) (word : Rank) (coefs : List Digest)
       pure (state.1 ++ [last], state.2 ++ [value])) ([], [])
   let root ← leafHashP index coord selected padL state.1
   pure (root, state.2)
+/-! ### C1 (FTS Merkle half-swap) for the paired forest
+`ftsHighHeap heap`: the FTS heaps whose value is the HIGH 16 bytes of their hash output, i.e. every even heap
+`16..255` (the left inputs of the four packed fold windows, including the leaves `128 + p` of even physical
+children `p`) and, as on the unpaired line, the top pair `heap < 4`. The paired forest
+(`SigGolfCandidate.Research.SharedForest`) applies this rule to its leaves and to its packed nodes (heaps
+`8..127`); its heaps `2..7` keep their own halves (`sharedOuterHash`, `sharedNode`). A leaf's half is fixed by its
+heap `128 + physical`, while its header keeps the raw child (rotated on B/C coordinates), so the C1 leaf takes the
+heap explicitly (`leafHashH`). The legacy unpaired definitions (`leafHashP`, `wctNodeHash`, `buildChildF`) are
+unchanged; they describe the retained reference images. -/
+def ftsHighHeap (heap : Nat) : Bool := decide (heap < 4) || (decide (16 ≤ heap) && decide (heap % 2 = 0))
+/-- C1: the used half of the hash output of FTS heap `heap`. -/
+def ftsHalf (heap : Nat) (output : HashOutput) : Digest :=
+  if ftsHighHeap heap then output.extractLsb' 128 128 else output.extractLsb' 0 128
+/-- C1: the value of FTS heap `heap` hashed from `input`: the high half on `ftsHighHeap` heaps, else the low half. -/
+def ftsHash (heap : Nat) (input : HashInput) : M Digest :=
+  if ftsHighHeap heap then highHash input else shortHash input
+/-- C1: the padded FTS leaf of raw child `selected` placed at heap `heap` (`128 + physical`). -/
+def leafHashH (heap index coord selected : Nat) (pad : Digest) (ends : List Digest) : M Digest :=
+  ftsHash heap (leafInputP index coord selected pad ends)
+/-- C1: FTS node at heap `heap` with a zero pad; the used half follows `ftsHighHeap heap`. -/
+def wctNodeHashH (coord index heap : Nat) (left right : Digest) : M Digest :=
+  ftsHash heap (bytesLE 16 left ++ bytesLE 16 (wctNodeHeader coord index heap) ++ zero16 ++ bytesLE 16 right)
+/-- C1: `buildChildF` with the leaf of heap `heap` (`leafHashH`). -/
+def buildChildH (heap index coord selected : Nat) (word : Rank) (coefs : List Digest) (padL : Digest) :
+    M (Digest × List Digest) := do
+  let state ← (List.finRange 6).foldlM
+    (fun (state : List Digest × List Digest) i => do
+      let secret := ftsFamilySeed coefs selected i.val
+      let deficit := wordDigit word i
+      let value ← chain index coord selected i.val 0 (4 - deficit) secret
+      let last ← chain index coord selected i.val (4 - deficit) deficit value
+      pure (state.1 ++ [last], state.2 ++ [value])) ([], [])
+  let root ← leafHashH heap index coord selected padL state.1
+  pure (root, state.2)
+theorem ftsHash_eq (heap : Nat) (input : HashInput) :
+    ftsHash heap input = if ftsHighHeap heap then highHash input else shortHash input := rfl
+theorem ftsHash_of_high {heap : Nat} (h : ftsHighHeap heap = true) (input : HashInput) :
+    ftsHash heap input = highHash input := by
+  rw [ftsHash_eq, if_pos h]
+theorem ftsHash_of_low {heap : Nat} (h : ftsHighHeap heap = false) (input : HashInput) :
+    ftsHash heap input = shortHash input := by
+  rw [ftsHash_eq, if_neg (by simp [h])]
+theorem ftsHalf_of_high {heap : Nat} (h : ftsHighHeap heap = true) (output : HashOutput) :
+    ftsHalf heap output = output.extractLsb' 128 128 := by
+  simp [ftsHalf, h]
+theorem ftsHalf_of_low {heap : Nat} (h : ftsHighHeap heap = false) (output : HashOutput) :
+    ftsHalf heap output = output.extractLsb' 0 128 := by
+  simp [ftsHalf, h]
+theorem ftsHighHeap_top {heap : Nat} (h : heap < 4) : ftsHighHeap heap = true := by
+  simp [ftsHighHeap, h]
+theorem ftsHighHeap_mid {heap : Nat} (h4 : 4 ≤ heap) (h16 : heap < 16) : ftsHighHeap heap = false := by
+  simp [ftsHighHeap]; omega
+theorem ftsHighHeap_odd {heap : Nat} (h4 : 4 ≤ heap) (h : heap % 2 = 1) : ftsHighHeap heap = false := by
+  simp [ftsHighHeap]; omega
+theorem ftsHighHeap_even {heap : Nat} (h16 : 16 ≤ heap) (h : heap % 2 = 0) : ftsHighHeap heap = true := by
+  simp [ftsHighHeap]; omega
+/-- C1: on the packed heaps `4..255` the high half is used exactly on even heaps `≥ 16`. -/
+theorem ftsHighHeap_iff {heap : Nat} (h4 : 4 ≤ heap) :
+    ftsHighHeap heap = true ↔ 16 ≤ heap ∧ heap % 2 = 0 := by
+  simp [ftsHighHeap]; omega
+theorem leafHashH_eq (heap index coord selected : Nat) (pad : Digest) (ends : List Digest) :
+    leafHashH heap index coord selected pad ends = ftsHash heap (leafInputP index coord selected pad ends) := rfl
+/-- On a low-half heap the C1 leaf is the legacy padded leaf. -/
+theorem leafHashH_of_low {heap : Nat} (h : ftsHighHeap heap = false) (index coord selected : Nat) (pad : Digest)
+    (ends : List Digest) : leafHashH heap index coord selected pad ends = leafHashP index coord selected pad ends := by
+  rw [leafHashH_eq, ftsHash_of_low h]
+  rfl
+/-- On a low-half heap the C1 node is the legacy node hash. -/
+theorem wctNodeHashH_of_low {heap : Nat} (h : ftsHighHeap heap = false) (coord index : Nat) (left right : Digest) :
+    wctNodeHashH coord index heap left right = wctNodeHash coord index heap left right := by
+  unfold wctNodeHashH
+  rw [ftsHash_of_low h]
+  rfl
 /-- One FTS coordinate (nested FTS r1-1): `prev` is the previous coordinate's top pair `(L, R)`; every leaf
 carries `L` in its pad slot and the two top nodes carry `R` in their pad slot. -/
 def buildCoordinateF (index : Nat) (coord : Coord) (selected : Child) (word : Rank) (prev : Digest × Digest) :
