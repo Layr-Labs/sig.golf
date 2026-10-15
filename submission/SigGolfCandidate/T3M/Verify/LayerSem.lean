@@ -1487,7 +1487,7 @@ theorem encB_step_trap (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
     (lay : Layer) (hlay : lay ≠ 0) (c : Nat) (hc : c < nCopy lay.val)
     (t : MachineState) (ht : EncPre w pk index lay.val c t) (a : BitVec 256)
     (hlo : ¬ lowerSpare (ansD a)) (hhi : ¬ lowerSpare (ansD (highView a))) :
-    ∃ v, Steps image (writeHash t a) (spareTrapSteps lay.val) (spareTrapSteps lay.val) v ∧ fetch image v = none := by
+    ∃ v, Steps image (writeHash t a) 8 8 v ∧ fetch image v = none := by
   let b := highView a
   set u := writeHash t a with hu
   have h0 : lay.val ≠ 0 := fun h => hlay (Fin.ext h)
@@ -1624,9 +1624,7 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
     · constructor
       · intro _
         obtain ⟨v,hst,hf⟩ := encB_step_trap w pk index lay hlay c hc t ht a hlo hhi
-        exact ⟨v,spareTrapSteps lay.val,spareTrapSteps lay.val,hst,Or.inl hf,
-          by unfold spareTrapSteps; split_ifs <;> omega,
-          by unfold spareTrapSteps; split_ifs <;> omega⟩
+        exact ⟨v,8,8,hst,Or.inl hf,by omega,by omega⟩
       · intro hn
         exact (hn (by rw [decode_lower_v6 lay hlay,if_neg hhi])).elim
 

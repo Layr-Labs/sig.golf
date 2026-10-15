@@ -194,8 +194,9 @@ theorem prefix_at (c : Nat) (hc : c < 128) :
   · unfold pcOf; simp only [BitVec.toNat_ofNat]; omega
   · unfold pcOf
     simp only [BitVec.toNat_ofNat, Nonbinary.prefixWordsOf, List.length_append,
-      Nonbinary.prefixHead, Nonbinary.prefixChoose, Nonbinary.prefixRead, Nonbinary.prefixTailWordsOf,
-      Choice.MachineSelect.head, Choice.MachineSelect.choose, Choice.MachineSelect.read,
+      Nonbinary.prefixHead, Nonbinary.prefixChoose, Nonbinary.prefixReadLow, Nonbinary.prefixReadHigh,
+      Nonbinary.prefixTailWordsOf, Choice.MachineSelect.head, Choice.MachineSelect.choose,
+      Choice.MachineSelect.readLow, Choice.MachineSelect.readHigh,
       List.length_cons, List.length_nil]
     omega
 theorem prefix_sub_at (c : Nat) (hc : c < 128) (pre seg post : List (BitVec 32))
@@ -243,37 +244,35 @@ theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
   obtain ⟨n,u,eu,hn,pu,lu,hu,h12u,ru,fu⟩ := Choice.MachineSelect.select_spec
     (writeHash t a) a (ClaudeWCT.W9.T3M.wtopHint w) d (trPc 0 c + 6) hpc
     (by simpa [Nonbinary.prefixHead] using (prefix_sub_at c hc' [] Nonbinary.prefixHead
-      (Nonbinary.prefixChoose ++ Nonbinary.prefixRead ++ Nonbinary.prefixTailWordsOf (topRowA c))
+      (Nonbinary.prefixChoose ++ Nonbinary.prefixReadLow ++ Nonbinary.prefixReadHigh ++ Nonbinary.prefixTailWordsOf (topRowA c))
       (by simp [Nonbinary.prefixWordsOf,List.append_assoc])))
     (by simpa [Nonbinary.prefixHead, Choice.MachineSelect.head, Nat.add_assoc] using
-      (prefix_sub_at c hc' Nonbinary.prefixHead (Nonbinary.prefixChoose ++ Nonbinary.prefixRead)
-        (Nonbinary.prefixTailWordsOf (topRowA c))
+      (prefix_sub_at c hc' Nonbinary.prefixHead Nonbinary.prefixChoose
+        (Nonbinary.prefixReadLow ++ Nonbinary.prefixReadHigh ++ Nonbinary.prefixTailWordsOf (topRowA c))
         (by simp [Nonbinary.prefixWordsOf,List.append_assoc])))
     (by simpa [Nonbinary.prefixHead, Nonbinary.prefixChoose, Choice.MachineSelect.head,
         Choice.MachineSelect.choose, Nat.add_assoc] using
-      (prefix_sub_at c hc' (Nonbinary.prefixHead ++ Nonbinary.prefixChoose) Nonbinary.prefixRead
-        (Nonbinary.prefixTailWordsOf (topRowA c))
+      (prefix_sub_at c hc' (Nonbinary.prefixHead ++ Nonbinary.prefixChoose) Nonbinary.prefixReadLow
+        (Nonbinary.prefixReadHigh ++ Nonbinary.prefixTailWordsOf (topRowA c))
         (by simp [Nonbinary.prefixWordsOf,List.append_assoc])))
-    (hk (.x11, 64#64) (by simp [BC.bK, T3M.bK, layK]))
+    (by simpa [Nonbinary.prefixHead, Nonbinary.prefixChoose, Nonbinary.prefixReadLow,
+        Choice.MachineSelect.head, Choice.MachineSelect.choose, Choice.MachineSelect.readLow,
+        Nat.add_assoc] using
+      (prefix_sub_at c hc' (Nonbinary.prefixHead ++ Nonbinary.prefixChoose ++ Nonbinary.prefixReadLow)
+        Nonbinary.prefixReadHigh (Nonbinary.prefixTailWordsOf (topRowA c))
+        (by simp [Nonbinary.prefixWordsOf,List.append_assoc])))
     h12s hdA hh hv hhi
-  obtain ⟨du,hdu,hduA⟩ : ∃ du, u.getReg .x12 = BitVec.ofNat 64 du ∧
-      du % 8 = 0 ∧ 0x1000 ≤ du ∧ du + 16 ≤ 0x7000 := by
-    rcases Choice.Selector.branchOffset_cases (a.extractLsb' 0 128)
-      (ClaudeWCT.W9.T3M.wtopHint w) with hz | hz
-    · refine ⟨d, ?_, by omega⟩
-      simpa [hz] using h12u
-    · refine ⟨d+16, ?_, by omega⟩
-      simpa [hz, show (16 : BitVec 64) = BitVec.ofNat 64 16 from rfl, ofNat_add_ofNat] using h12u
   obtain ⟨z, ez, pz, lo, hi, tl, s3, mask, rz, fz⟩ :=
     Verify.Nonbinary.prefix_tail_spec u
       (ClaudeWCT.WCT9.verificationAnswer 0 (ClaudeWCT.W9.T3M.wtopHint w) a)
-      (topRowA c) du (trPc 0 c + 13) ha
+      (topRowA c) d (trPc 0 c + 15) ha
       (by simpa [Nat.add_assoc] using pu)
-      (by simpa [Nonbinary.prefixHead, Nonbinary.prefixChoose, Nonbinary.prefixRead,
-        Choice.MachineSelect.head, Choice.MachineSelect.choose, Choice.MachineSelect.read, Nat.add_assoc] using
-        (prefix_sub_at c hc' (Nonbinary.prefixHead ++ Nonbinary.prefixChoose ++ Nonbinary.prefixRead)
+      (by simpa [Nonbinary.prefixHead, Nonbinary.prefixChoose, Nonbinary.prefixReadLow, Nonbinary.prefixReadHigh,
+        Choice.MachineSelect.head, Choice.MachineSelect.choose, Choice.MachineSelect.readLow,
+        Choice.MachineSelect.readHigh, Nat.add_assoc] using
+        (prefix_sub_at c hc' (Nonbinary.prefixHead ++ Nonbinary.prefixChoose ++ Nonbinary.prefixReadLow ++ Nonbinary.prefixReadHigh)
           (Nonbinary.prefixTailWordsOf (topRowA c)) [] (by simp [Nonbinary.prefixWordsOf,List.append_assoc])))
-      hdu hduA lu hu
+      h12u (by omega) lu hu
       ((ru.get (by decide)).trans hra)
       (by rw [fu.get (by decide) (by simp)]; exact hmask)
       ((ru.get (by decide)).trans h4) ((ru.get (by decide)).trans h10)

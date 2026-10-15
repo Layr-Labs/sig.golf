@@ -1,9 +1,9 @@
 import SigGolfCandidate.T3M.Sim
+import SigGolfCandidate.T3M.MemBase
 
 namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SphincsSecurity (bytesLE bytesLE_length)
-abbrev pcOf (k : Nat) : Word := BitVec.ofNat 64 (0x1000 + 4 * k)
 theorem toNat_ofNat_lt {a : Nat} (h : a < 2 ^ 64) : (BitVec.ofNat 64 a).toNat = a := by
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt h]
 theorem ofNat_inj {x y : Nat} (hx : x < 2 ^ 64) (hy : y < 2 ^ 64) :
@@ -18,9 +18,6 @@ theorem ofNat_eq_iff (x y : Nat) :
   constructor
   · intro h; have := congrArg BitVec.toNat h; simpa using this
   · intro h; apply BitVec.eq_of_toNat_eq; simpa using h
-theorem ofNat_add_ofNat (a b : Nat) :
-    BitVec.ofNat 64 a + BitVec.ofNat 64 b = BitVec.ofNat 64 (a + b) := by
-  apply BitVec.eq_of_toNat_eq; simp
 theorem ofNat_add8 (a : Nat) : BitVec.ofNat 64 a + (8 : Word) = BitVec.ofNat 64 (a + 8) := by
   apply BitVec.eq_of_toNat_eq; simp
 theorem ofNat_add8' (a : Nat) : BitVec.ofNat 64 a + 8#64 = BitVec.ofNat 64 (a + 8) := by
@@ -92,20 +89,6 @@ theorem ofNat_slt (a b : Nat) (ha : a < 2 ^ 63) (hb : b < 2 ^ 63) :
     rw [BitVec.msb_eq_decide]; simp; omega
   rw [BitVec.slt, h1, h2]
   simp
-def Frame (s t : MachineState) (W : Nat → Prop) : Prop :=
-  ∀ A < 2 ^ 64, ¬ W A → t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)
-theorem Frame.refl (s : MachineState) (W : Nat → Prop) : Frame s s W := fun _ _ _ => rfl
-theorem Frame.trans {s t u : MachineState} {W₁ W₂ : Nat → Prop} (h₁ : Frame s t W₁)
-    (h₂ : Frame t u W₂) : Frame s u (fun A => W₁ A ∨ W₂ A) := by
-  intro A hA hne
-  rw [h₂ A hA (fun h => hne (Or.inr h)), h₁ A hA (fun h => hne (Or.inl h))]
-theorem Frame.mono {s t : MachineState} {W W' : Nat → Prop} (h : Frame s t W)
-    (hW : ∀ A, A < 2 ^ 64 → W A → W' A) : Frame s t W' :=
-  fun A hA hn => h A hA (fun hw => hn (hW A hA hw))
-theorem Frame.get {s t : MachineState} {W : Nat → Prop} (h : Frame s t W) {A : Nat} (hA : A < 2 ^ 64)
-    (hn : ¬ W A) : t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A) := h A hA hn
-def DigAt (t : MachineState) (A : Nat) (d : BitVec 128) : Prop :=
-  t.getMem (BitVec.ofNat 64 A) = d.extractLsb' 0 64 ∧ t.getMem (BitVec.ofNat 64 (A + 8)) = d.extractLsb' 64 64
 theorem DigAt.frame {s t : MachineState} {W : Nat → Prop} {A : Nat} {d : BitVec 128} (h : DigAt s A d)
     (hf : Frame s t W) (hA : A + 8 < 2 ^ 64) (h0 : ¬ W A) (h1 : ¬ W (A + 8)) : DigAt t A d :=
   ⟨(hf A (by omega) h0).trans h.1, (hf (A + 8) hA h1).trans h.2⟩
@@ -282,17 +265,6 @@ def rebase (e : E) (t1 t2 : Word) : E :=
   match e with
   | .ite op x y _ _ => .ite op x y (.c t1) (.c t2)
   | _ => .c t1
-def RegsExcept (s t : MachineState) (l : List Reg) : Prop := ∀ r, r ∉ l → t.getReg r = s.getReg r
-theorem RegsExcept.refl (s : MachineState) (l : List Reg) : RegsExcept s s l := fun _ _ => rfl
-theorem RegsExcept.trans {s t u : MachineState} {l₁ l₂ : List Reg} (h₁ : RegsExcept s t l₁)
-    (h₂ : RegsExcept t u l₂) : RegsExcept s u (l₁ ++ l₂) := by
-  intro r hr
-  rw [List.mem_append, not_or] at hr
-  rw [h₂ r hr.2, h₁ r hr.1]
-theorem RegsExcept.mono {s t : MachineState} {l l' : List Reg} (h : RegsExcept s t l)
-    (hl : ∀ r ∈ l, r ∈ l') : RegsExcept s t l' := fun r hr => h r (fun hm => hr (hl r hm))
-theorem RegsExcept.get {s t : MachineState} {l : List Reg} (h : RegsExcept s t l) {r : Reg}
-    (hr : r ∉ l) : t.getReg r = s.getReg r := h r hr
 macro "t3n" " [" ts:Lean.Parser.Tactic.simpLemma,* "]" : tactic => do
   let ts' : Lean.Syntax.TSepArray [`Lean.Parser.Tactic.simpStar, `Lean.Parser.Tactic.simpErase,
     `Lean.Parser.Tactic.simpLemma] "," := ⟨ts.elemsAndSeps⟩

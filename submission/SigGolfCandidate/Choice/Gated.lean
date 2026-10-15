@@ -1,5 +1,11 @@
 import Mathlib.Data.Fintype.Card
-import Mathlib.Tactic
+import Mathlib.Data.Fintype.Prod
+import Mathlib.Data.Finset.Prod
+import Mathlib.Tactic.GCongr
+import Mathlib.Tactic.Ring
+import Mathlib.Tactic.Tauto
+import Mathlib.Tactic.NormNum
+import Mathlib.Tactic.SplitIfs
 
 /-! Mathematical interface for a restricted, witness-selected encoding half.
 This module is not yet connected to the signature's adaptive security proof.

@@ -1,4 +1,6 @@
-import Mathlib.Tactic
+import Mathlib.Tactic.NormNum
+import Mathlib.Tactic.Positivity
+import Mathlib.Tactic.Finiteness
 import SigGolfCandidate.Budget.Octopus.Tuples
 import VCVio.OracleComp.Constructions.SampleableType
 
