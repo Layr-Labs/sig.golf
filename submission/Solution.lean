@@ -7,15 +7,15 @@ def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGo
 
 theorem signature_bytes : submission.sizes.signature = 5248 := rfl
 
-theorem witness_bytes : submission.sizes.witness = 24860 := rfl
+theorem witness_bytes : submission.sizes.witness = 24828 := rfl
 
 theorem cache_bytes : submission.sizes.cache = 131072 := rfl
 
 theorem layout_offsets : submission.layout =
-  { message := 26080, secretKey := 128, publicKey := 160,
+  { message := 26048, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7048 := by
+theorem certificate : SigGolf.Certificate submission 7047 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -83,9 +83,11 @@ Target: S = 5310, W = 24860, K = 131072, C = 7095; score 37674450.
 This comment records the candidate claim, not an official verification receipt.
 -/
 
-/- Paired-forest singleton-pointer prefetch: S=5248, C=7048, product=36987904.
-Based on accepted 9cf0f124 (soispoke; original scheme Ghost1032 and Noi1r).
-Coordinate 7's padding slot loads the singleton table into preserved x29;
-coordinate 8 reuses that pointer and executes one fewer instruction. Its start
-stays at word765, preserving the word764 rejection trap. Shared singleton returns
-and the expander caller are adjusted together. Full official validation required. -/
+/- LOCAL UNVERIFIED combination: S5248/W24828/C7047, score36982656.
+Witness trim from kobizk PR907/be3510ee; singleton-pointer prefetch from our
+PR909/f4bd26ed. Development predecessor PR910/84e2c0f2 carried both changes.
+PR907 failed two Sign.Basic reference-image slice checks. This repair updates
+eight stale message-address loads in signReferenceCode_0, leaving all four
+submitted program images unchanged. PR909 remains under validation. Accepted
+base PR900/soispoke; original scheme Ghost1032 and Noi1r. Full certificate and
+exact-image remote validation remain required; no local full build is claimed. -/

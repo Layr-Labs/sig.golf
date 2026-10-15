@@ -36,7 +36,7 @@ structure FtsOut (F : FCtx) (top : Digest × Digest) (u : MachineState) : Prop w
   pc : u.pc = pcOf layerPc
   left : DigAt u WIT top.1
   right : DigAt u (WIT + 48) top.2
-  wit : Orig F.w (fun o => (32 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24832)) u
+  wit : Orig F.w (fun o => (32 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24800)) u
   base : u.getReg .x8 = BitVec.ofNat 64 (WIT + 176)
   a1 : u.getReg .x11 = 64
   s10 : u.getReg .x26 = 6
