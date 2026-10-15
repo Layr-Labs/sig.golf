@@ -87,7 +87,7 @@ structure Pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (n : 
   childMask : u.getReg .x27 = BitVec.ofNat 64 0x7f00000
   aTable : u.getReg .x28 = BitVec.ofNat 64 0xe3300
   jt : u.getReg .x24 = rankPad
-  childBlock : u.getReg .x29 = BitVec.ofNat 64 0xf1b00
+  childBlock : u.getReg .x29 = BitVec.ofNat 64 (if n < 8 then 0xf1b00 else 0xe7400)
   singletonTable : u.getMem (BitVec.ofNat 64 (TOPB9 - 240)) = BitVec.ofNat 64 0xe7400
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (8560 - 896 * (n-1))
   pairPtr : u.getReg .x9 = BitVec.ofNat 64 TOPB9
