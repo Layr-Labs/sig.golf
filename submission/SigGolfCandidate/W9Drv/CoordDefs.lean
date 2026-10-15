@@ -55,7 +55,7 @@ open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify W9Mach
 open SigGolfCandidate.T3 (Digest HashOutput)
 
 def rankPad : Word := 0x1801801800000
-def dispatchPc (n : Nat) : Nat := [89,171,257,341,425,511,595,679,765,853].getD n 853
+def dispatchPc (n : Nat) : Nat := [89,171,257,341,425,511,595,679,764,853].getD n 853
 
 def prevOf (w : ClaudeWCT.W9.T3M.WBytes) (pairs : List (Digest × Digest)) : Digest × Digest :=
   pairs.getLastD (SharedV3.initialPair w)

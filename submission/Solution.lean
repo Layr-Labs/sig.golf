@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26080, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7049 := by
+theorem certificate : SigGolf.Certificate submission 7048 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -83,5 +83,8 @@ Target: S = 5310, W = 24860, K = 131072, C = 7095; score 37674450.
 This comment records the candidate claim, not an official verification receipt.
 -/
 
-/- Shared forest candidate: S=5248, C=7049, product=36993152.
-The exact accepting run remains required before publication. -/
+/- Paired-forest dispatch NOP removal: S=5248, C=7048, product=36987904.
+Based on accepted 9cf0f124 (soispoke; original scheme Ghost1032 and Noi1r).
+Only coordinate 7/8 dispatch and singleton return addresses change; all hash
+inputs, signature/witness layouts, producer images, and security arguments stay
+unchanged. The exact full certificate still requires official validation. -/
