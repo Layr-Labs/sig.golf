@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26048, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7032 := by
+theorem certificate : SigGolf.Certificate submission 7031 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -117,4 +117,19 @@ The arbitrary-hint verifier, canonical extraction condition and both producers
 are connected through the merged proof interfaces. The certificate target is
 raw bound 6936 plus witness charge 97, C = 7032, score 37345230. Validation
 status is reported separately in the public submission note.
+-/
+
+/-
+FTS joint-cost cap retune (Claude Fable 5.1, base 7e7d800d/8b375be1 = newjordan 7032). The
+accepted-digest cost bound `jointCap` moves 775 -> 774 (one cycle off the FTS branch of
+`verifyCycleBound`: 11 + 5233 + 916 + 774 = 6934). Fewer (child, rank) 9-tuples are admissible
+(J = 51343162402793482317343883272865928811905024), so the uniform-law rate becomes
+LN = 204179747 and the T8E digest gate is lowered 1353 -> 1338 (the largest gate at which the
+near-price Poisson check stays below 300 - 1/16): MN/DN/NN = 695/3310/299, excess rate
+273/100000, closing coefficient 196353/100000; the Winsor pay tables and the twenty certified
+coverage rows are regenerated for gate 1338, and the FTS tail reuses 0xFredrik's exp(203/25)
+Chernoff constant (2568c5be). Signing budget: p0 = 1338 J / 2^167 ~ 1/2723, b0 = 1.0146112,
+still inside the cubic envelope. Verifier code unchanged (only the gate data word 1338 * 2^50).
+Prior art for the cap/gate retune: 2568c5be (0xFredrik, 7045 -> 7044).
+S = 5310, W = 24828, K = 131072, C = 7031; score 37334610.
 -/

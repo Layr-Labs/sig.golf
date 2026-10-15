@@ -4,11 +4,11 @@ namespace ClaudeWCT.W9.T3.BaseAudit.V5
 open SigGolfCandidate.T3.BaseAudit (zU)
 set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
-def J : ℕ := 51668613533684827311648164987144309062238208
-/-- Density-aware digest acceptance: gate 1353/2^14, fields 563/1024 (rank = field), cap fraction J(cap 775, C1 child table) / 72064^9:
-`1353 * 563^9 * J / (2^104 * 72064^9) = 1353 * J / 2^167`. -/
-def p0 : ℚ := 1353 * J / 2 ^ 167
-def b0 : ℚ := 202870912719184017 / 200000000000000000
+def J : ℕ := 51343162402793482317343883272865928811905024
+/-- Density-aware digest acceptance: gate 1338/2^14, fields 563/1024 (rank = field), cap fraction J(cap 774, C1 child table) / 72064^9:
+`1338 * 563^9 * J / (2^104 * 72064^9) = 1338 * J / 2^167`. -/
+def p0 : ℚ := 1338 * J / 2 ^ 167
+def b0 : ℚ := 1014611194848633204 / 1000000000000000000
 theorem step_0 : zU * ((1 - p0) * b0 + p0) ≤ b0 := by norm_num [zU, p0, b0, J]
 theorem probability_floor : 1 / 5026 ≤ p0 ∧ p0 ≤ 1 / 2471 := by norm_num [p0, J]
 theorem p0_ge_5026 : 1 / 5026 ≤ p0 := by norm_num [p0, J]
@@ -96,7 +96,7 @@ Legacy theorem names are retained for their existing callers. -/
 theorem rate_lower199f5_600 : (600 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p3 := by norm_num [p3, lowerCount202f9]
 theorem rate_lower199f4_600 : (600 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p2 := by norm_num [p2, lowerCount201f10]
 theorem rate_lower200f4_600 : (600 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p4 := by norm_num [p4, lowerCount202f9]
-/-- Digest search (about 2472 trials per hit) with fuel 2^21: failure at most 2^-900 (2^21 p0 ≈ 848). -/
+/-- Digest search (about 2724 trials per hit) with fuel 2^21: failure at most 2^-900 (2^21 p0 ≈ 770). -/
 theorem rate_digest_900 : (900 : ℚ) * 0.6931471808 ≤ 2 ^ 21 * p0 := by norm_num [p0, J]
 theorem rates_ge_8192 : 1 / 8192 ≤ p1 ∧ 1 / 8192 ≤ p2 ∧ 1 / 8192 ≤ p3 ∧ 1 / 8192 ≤ p4 := by
   norm_num [p1, p2, p3, p4, topCount144, lowerCount201f10, lowerCount202f9]
