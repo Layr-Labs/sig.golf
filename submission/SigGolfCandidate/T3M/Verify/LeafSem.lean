@@ -185,11 +185,11 @@ theorem lowLeaf_hashInput (t : MachineState) (lay : Layer) (hlay : lay ≠ 0) (t
       rwa [show off + slotL (j + 1) = (off + 800) + 16 * j by unfold slotL; simp; omega] at this)]
   rfl
 theorem topLeaf_hashInput (t : MachineState) (tree leaf : Nat) (ends : List Digest)
-    (hn : ends.length = 54) (h10 : t.getReg .x10 = BitVec.ofNat 64 25136)
+    (hn : ends.length = 54) (h10 : t.getReg .x10 = BitVec.ofNat 64 25104)
     (h11 : t.getReg .x11 = BitVec.ofNat 64 896) (hS : ∀ j < 54, DigAt t (slotT j) (ends.getD j 0))
-    (hZ0 : t.getMem (BitVec.ofNat 64 25136) = 0) (hZ1 : t.getMem (BitVec.ofNat 64 25144) = 0)
-    (hT0 : t.getMem (BitVec.ofNat 64 25152) = leafWord 0 tree leaf)
-    (hT1 : t.getMem (BitVec.ofNat 64 25160) = 0) :
+    (hZ0 : t.getMem (BitVec.ofNat 64 25104) = 0) (hZ1 : t.getMem (BitVec.ofNat 64 25112) = 0)
+    (hT0 : t.getMem (BitVec.ofNat 64 25120) = leafWord 0 tree leaf)
+    (hT1 : t.getMem (BitVec.ofNat 64 25128) = 0) :
     hashInput t = toQ (pad64 (T3.leafInput 0 tree leaf ends)) ∧
       (toQ (pad64 (T3.leafInput 0 tree leaf ends))).blocks = 14 := by
   have hl : (T3.leafInput 0 tree leaf ends).length = 64 * (13 + 1) := by
@@ -197,16 +197,16 @@ theorem topLeaf_hashInput (t : MachineState) (tree leaf : Nat) (ends : List Dige
       <;> simp [zero16]
   rw [pad64_of_aligned _ (by simp [hl])]
   refine ⟨?_, by rw [blocks_toQ ⟨by simp [hl], by simp [hl]⟩, hl]⟩
-  apply hashInput_toQ t _ 13 25136 hl h10 (by norm_num) (by norm_num) (by simpa using h11) (by norm_num)
+  apply hashInput_toQ t _ 13 25104 hl h10 (by norm_num) (by norm_num) (by simpa using h11) (by norm_num)
   rw [leafInput_top, wordsOf_append _ _ (by simp [SphincsSecurity.bytesLE_length, zero16]),
     wordsOf_append _ _ (by simp [zero16]), Verify.wordsOf_leafTweak, ← Verify.bytesLE16_zero, wordsOf_bytesLE16,
     wordsOf_flatMap16, show 8 * (13 + 1) = 2 + (2 + 2 * ends.length) by simp [hn],
     readWords_add, readWords_add, readWords_two, readWords_two]
-  rw [show 25136 + 8 * 2 = 25152 by rfl, show 25152 + 8 = 25160 by rfl, show 25152 + 8 * 2 = 25168 by rfl,
-    show 25136 + 8 = (25144 : Nat) by rfl, hZ0, hZ1, hT0, hT1,
-    readWords_digs t ends 25168 (fun j hj => by
+  rw [show 25104 + 8 * 2 = 25120 by rfl, show 25120 + 8 = 25128 by rfl, show 25120 + 8 * 2 = 25136 by rfl,
+    show 25104 + 8 = (25112 : Nat) by rfl, hZ0, hZ1, hT0, hT1,
+    readWords_digs t ends 25136 (fun j hj => by
       have := hS j (by omega)
-      rwa [show slotT j = 25168 + 16 * j by unfold slotT; omega] at this)]
+      rwa [show slotT j = 25136 + 16 * j by unfold slotT; omega] at this)]
   rfl
 end SigGolfCandidate.T3M
 end
@@ -254,8 +254,8 @@ structure LeafOut (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
   T1 : u.getMem (BitVec.ofNat 64 (lfBase lay.val + 24)) = 0
   orig : Verify.Orig w (fun o => 8256 ≤ o ∧
     o < ClaudeWCT.W9.T3M.layerBase lay + 16 * ClaudeWCT.W9.T3M.pathSlots lay) u
-  topZero : lay = 0 → ∀ A ∈ [25136,25144,25160], u.getMem (BitVec.ofNat 64 A) = 0
-  bufferOrig : lay ≠ 0 → Verify.Orig w (fun o => BC.bufferStart (lay.val-1) ≤ o ∧ o < 24832) u
+  topZero : lay = 0 → ∀ A ∈ [25104,25112,25128], u.getMem (BitVec.ofNat 64 A) = 0
+  bufferOrig : lay ≠ 0 → Verify.Orig w (fun o => BC.bufferStart (lay.val-1) ≤ o ∧ o < 24800) u
 theorem LeafOut.hashInput {w : ClaudeWCT.W9.T3M.WBytes} {pk : Digest} {index : Nat} {lay : Layer} {ends : List Digest}
     {u : MachineState} (h : LeafOut w pk index lay ends u) :
     hashInput u = toQ (pad64 (T3.leafInput lay (route index lay).2 (route index lay).1 ends)) ∧
@@ -268,8 +268,8 @@ theorem LeafOut.hashInput {w : ClaudeWCT.W9.T3M.WBytes} {pk : Digest} {index : N
   have hn := h.len
   by_cases h0 : lay = 0
   · subst h0
-    have hZ0 := h.topZero rfl 25136 (by simp)
-    have hZ1 := h.topZero rfl 25144 (by simp)
+    have hZ0 := h.topZero rfl 25104 (by simp)
+    have hZ1 := h.topZero rfl 25112 (by simp)
     exact topLeaf_hashInput u _ _ ends hn h10 h11 hS hZ0 hZ1 hT0 hT1
   · have hc := LCtx.chainCount_lower lay h0
     have hv : lay.val ≠ 0 := fun hv => h0 (Fin.ext hv)
@@ -345,7 +345,7 @@ structure TopLeafReady (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Na
   ends : ∀ j < 54, DigAt t (slotT j) (ends.getD j 0)
   orig : Verify.Orig w (fun o => 8256 ≤ o ∧
     o < ClaudeWCT.W9.T3M.layerBase 0 + 16 * ClaudeWCT.W9.T3M.pathSlots 0) t
-  topZero : ∀ A ∈ [25136,25144,25160], t.getMem (BitVec.ofNat 64 A) = 0
+  topZero : ∀ A ∈ [25104,25112,25128], t.getMem (BitVec.ofNat 64 A) = 0
 theorem lfKeepK_keep : (lfKeepK 0).all (fun p => decide (p.1 ∈ keepLfAll 0)) = true := by decide +kernel
 theorem leafT_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0) (hidx : index < 2 ^ 31)
     (ends : List Digest) (t : MachineState) (ht : TopLeafReady w pk index c ends t) :
@@ -363,9 +363,9 @@ theorem leafT_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (
   refine ⟨u, hst, ?_⟩
   have hku : KnownOK (postLf 0) u := hu.known
   have hkeep := hu.keep
-  have hmem : ∀ A, u.getMem A = memEval t [(⟨none, BitVec.ofNat 64 25152⟩, .reg .x28)] A := by
+  have hmem : ∀ A, u.getMem A = memEval t [(⟨none, BitVec.ofNat 64 25120⟩, .reg .x28)] A := by
     intro A; rw [hu.mem]; simp [specLfT, specLf, bufferBase]
-  have hfr : ∀ A, A < 2 ^ 64 → A ≠ 25152 → u.getMem (BitVec.ofNat 64 A) = t.getMem (BitVec.ofNat 64 A) := by
+  have hfr : ∀ A, A < 2 ^ 64 → A ≠ 25120 → u.getMem (BitVec.ofNat 64 A) = t.getMem (BitVec.ofNat 64 A) := by
     intro A hA h1
     rw [hmem]
     apply memEval_frame_ofNat t _ A hA
@@ -394,15 +394,15 @@ theorem leafT_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (
     have hj' : j < 54 := hj
     have e := ht.ends j hj'
     simp only [lfSlot, if_pos rfl]
-    have hsl : 25168 ≤ slotT j ∧ slotT j ≤ 26016 := by unfold slotT; omega
+    have hsl : 25136 ≤ slotT j ∧ slotT j ≤ 25984 := by unfold slotT; omega
     exact ⟨(hfr (slotT j) (by omega) (by omega)).trans e.1,
       (hfr (slotT j + 8) (by omega) (by omega)).trans e.2⟩
-  · rw [show lfBase (0 : Layer).val + 16 = 25152 from rfl, hmem,
+  · rw [show lfBase (0 : Layer).val + 16 = 25120 from rfl, hmem,
       memEval_cons_ofNat _ _ _ _ _ (by norm_num) (by norm_num), if_pos rfl]
     simp only [E.eval]
     exact ht.word
-  · rw [show lfBase (0 : Layer).val + 24 = 25160 from rfl, hfr 25160 (by norm_num) (by norm_num)]
-    exact ht.topZero 25160 (by simp)
+  · rw [show lfBase (0 : Layer).val + 24 = 25128 from rfl, hfr 25128 (by norm_num) (by norm_num)]
+    exact ht.topZero 25128 (by simp)
   · exact (hu.orig_const ht.orig).mono (fun o ho => ⟨ho, by
       have hhi : o < 9024 := ho.2
       simp only [lfAllowed, bufferBase, List.getD_cons_zero, List.mem_cons,
@@ -410,7 +410,7 @@ theorem leafT_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (
       unfold WIT
       constructor <;> omega⟩)
   · intro _ A hA
-    have hAz : A = 25136 ∨ A = 25144 ∨ A = 25160 := by simpa using hA
+    have hAz : A = 25104 ∨ A = 25112 ∨ A = 25128 := by simpa using hA
     rw [hfr A (by rcases hAz with rfl | rfl | rfl <;> norm_num) (by omega)]
     exact ht.topZero A hA
   · intro h; exact (h rfl).elim

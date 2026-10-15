@@ -101,7 +101,7 @@ theorem leafL_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (la
     (h23 : s0.getReg .x23 = BitVec.ofNat 64 (lfS7 lay.val (route index lay).1))
     (h30 : s0.getReg .x31 = BitVec.ofNat 64 (route index lay).2)
     (h1 : s0.getReg .x9 = BitVec.ofNat 64 TOPB9)
-    (hBuffer : Verify.Orig w (fun o => BC.bufferStart lay.val ≤ o ∧ o < 24832) s0)
+    (hBuffer : Verify.Orig w (fun o => BC.bufferStart lay.val ≤ o ∧ o < 24800) s0)
     (ends : List Digest) (t : MachineState)
     (ht : (lctxOf w index lay a).ChainOut s0 43 ends t) :
     ∃ u, Steps image t 5 5 u ∧ LeafOut w pk index lay ends u := by
@@ -217,7 +217,7 @@ theorem leafL_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (la
       fin_cases lay
       · exact absurd rfl hlay
       all_goals decide +kernel
-    have hBt : Verify.Orig w (fun o => BC.bufferStart (lay.val-1) ≤ o ∧ o < 24832) t :=
+    have hBt : Verify.Orig w (fun o => BC.bufferStart (lay.val-1) ≤ o ∧ o < 24800) t :=
       (hBuffer.mono (fun o ho => ⟨by omega,ho.2⟩)).frame (fun j hj hp =>
         hF.get (by unfold WIT WX at *; omega) (fun hw => by
           unfold LCtx.Wr LCtx.bufferWr LCtx.bufferEnd LCtx.bufferSlot LCtx.blk at hw
@@ -460,23 +460,23 @@ theorem setup_post : SetupPost := fun w pk index lay msg s hs t ht => by
   case refine_9 =>
     intro h0 A hA
     obtain rfl : lay = 0 := Fin.ext h0
-    have hr : rowA 0 (cpIdx index 0) + 24 < 25136 := by
-      have H : ((List.range (nCopy 0)).all fun c => decide (rowA 0 c + 24 < 25136)) = true := by decide +kernel
+    have hr : rowA 0 (cpIdx index 0) + 24 < 25104 := by
+      have H : ((List.range (nCopy 0)).all fun c => decide (rowA 0 c + 24 < 25104)) = true := by decide +kernel
       exact of_decide_eq_true (List.all_eq_true.mp H _ (List.mem_range.mpr (T3M.cpIdx_lt index 0 (by decide))))
-    have hne (A q : Nat) (hlo : 25136 ≤ A) (hhi : A < 2^64) (hq : q ≤ 24) :
+    have hne (A q : Nat) (hlo : 25104 ≤ A) (hhi : A < 2^64) (hq : q ≤ 24) :
         BitVec.ofNat 64 A ≠ BitVec.ofNat 64 (rowA 0 (cpIdx index 0)+q) := by
       intro he
       have he' := congrArg BitVec.toNat he
       simp only [BitVec.toNat_ofNat, Nat.mod_eq_of_lt hhi,
         Nat.mod_eq_of_lt (by omega : rowA 0 (cpIdx index 0)+q < 2^64)] at he'
       omega
-    have hA' : A = 25136 ∨ A = 25144 := by simpa using hA
+    have hA' : A = 25104 ∨ A = 25112 := by simpa using hA
     rcases hA' with rfl | rfl <;> rw [ht.mem] <;>
       simp [specA,headerWrites,memEval,Addr.eval,E.eval,kw]
-    · rw [if_neg (hne 25136 24 (by omega) (by omega) (by omega)),
-        if_neg (hne 25136 16 (by omega) (by omega) (by omega))]
-    · rw [if_neg (hne 25144 24 (by omega) (by omega) (by omega)),
-        if_neg (hne 25144 16 (by omega) (by omega) (by omega))]
+    · rw [if_neg (hne 25104 24 (by omega) (by omega) (by omega)),
+        if_neg (hne 25104 16 (by omega) (by omega) (by omega))]
+    · rw [if_neg (hne 25112 24 (by omega) (by omega) (by omega)),
+        if_neg (hne 25112 16 (by omega) (by omega) (by omega))]
   case refine_10 =>
     intro h3
     obtain rfl : lay = 3 := Fin.ext h3
@@ -563,7 +563,11 @@ theorem setup_hash : SetupHash := fun w pk index lay msg s hs t ht => by
       apply memEval_frame_ofNat s _ _ (by omega)
       intro p hp
       by_cases h0 : lay.val = 0
-      · simp only [headerWrites, if_pos h0, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hp
+      · have hrowpad0 : rowA lay.val c + 64 < 25104 := by
+          have H : ((List.range (nCopy 0)).all fun j => decide (rowA 0 j + 64 < 25104)) = true := by decide +kernel
+          have hc0 : c < nCopy 0 := by simpa [hcd, h0] using hc
+          simpa [h0] using of_decide_eq_true (List.all_eq_true.mp H c (List.mem_range.mpr hc0))
+        simp only [headerWrites, if_pos h0, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hp
         rcases hp with (rfl | rfl) | (rfl | rfl) <;> simp <;> omega
       · simp only [headerWrites, if_neg h0, List.append_nil, List.mem_cons, List.not_mem_nil, or_false] at hp
         rcases hp with rfl | rfl <;> simp <;> omega
@@ -923,7 +927,7 @@ theorem layer_good_low (floors : Layer → Nat) (hbound : ∀ lay, floors lay �
 theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (left right : Digest) (u : MachineState)
     (hidx : idx < 2 ^ 31) (hglob : Glob baseK w pk u) (hreg : u.getReg .x22 = BitVec.ofNat 64 idx)
     (hpc : u.pc = pcOf 853) (hleft : DigAt u WIT left) (hright : DigAt u (WIT + 48) right)
-    (hwit : Verify.Orig w (fun o => (32 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24832)) u)
+    (hwit : Verify.Orig w (fun o => (32 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24800)) u)
     (hbase8 : u.getReg .x8 = BitVec.ofNat 64 (WIT + 176)) (ha1 : u.getReg .x11 = 64)
     (hs10 : u.getReg .x26 = 6) (hOne : u.getReg .x7 = 1) (hTwo : u.getReg .x13 = 2) (hSeven : u.getReg .x30 = 7)
     (hThree : u.getReg .x19 = 3) (hFour : u.getReg .x20 = 4) (hFive : u.getReg .x21 = 5)
