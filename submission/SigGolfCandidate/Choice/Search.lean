@@ -104,7 +104,7 @@ theorem top_rejected_no_witness (answer : HashOutput)
     rw [← encodingAnswer_top_choose, mem_topProducerWords, rejected]
     decide
   have he := Gated.rejected_row_no_read topProducerWords Selector.blocked
-    (Selector.splitEquiv answer) hr (decide (hint &&& 16 = 16))
+    (Selector.splitEquiv answer) hr (decide (hint ≠ 0))
   rw [← Selector.branchRead_eq_read] at he
   change verificationAnswer 0 hint answer ∉ topProducerWords at he
   rw [mem_topProducerWords] at he

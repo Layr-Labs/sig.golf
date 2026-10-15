@@ -52,16 +52,16 @@ theorem mask_cases (x : BitVec 64) : x &&& 16 = 0 ∨ x &&& 16 = 16 := by
 theorem offset_cases (low : BitVec 128) (hint : BitVec 64) :
     offset low hint = 0 ∨ offset low hint = 16 := mask_cases _
 
-/-- Eight one-cycle instructions implement this selector in the improved image. -/
+/-- The executable selector branches on the hint without arithmetic masking.
+Both honest hints (0 and 16) are unchanged; every other hint still selects only
+one of the same two permitted halves. -/
 def branchOffset (low : BitVec 128) (hint : BitVec 64) : BitVec 64 :=
-  if group low = 0 then 0 else hint &&& 16
+  if group low = 0 then 0 else if hint = 0 then 0 else 16
 
 theorem branchOffset_cases (low : BitVec 128) (hint : BitVec 64) :
     branchOffset low hint = 0 ∨ branchOffset low hint = 16 := by
   unfold branchOffset
-  split_ifs
-  · exact Or.inl rfl
-  · exact mask_cases hint
+  split_ifs <;> simp
 
 theorem branch_blocked_forces_low (low : BitVec 128) (hint : BitVec 64) (h : low ∈ blocked) :
     branchOffset low hint = 0 := by
@@ -78,7 +78,7 @@ def branchRead (a : BitVec 128 × BitVec 128) (hint : BitVec 64) : BitVec 128 :=
   if branchOffset a.1 hint = 16 then a.2 else a.1
 
 theorem branchRead_eq_read (a : BitVec 128 × BitVec 128) (hint : BitVec 64) :
-    branchRead a hint = Gated.read blocked (decide (hint &&& 16 = 16)) a := by
+    branchRead a hint = Gated.read blocked (decide (hint ≠ 0)) a := by
   have hb : a.1 ∈ blocked ↔ group a.1 = 0 := by simp only [blocked, Finset.mem_filter,
     Finset.mem_univ, true_and]
   have hz : (0 : BitVec 64) ≠ 16 := by decide +kernel
@@ -89,6 +89,7 @@ theorem branchRead_eq_read (a : BitVec 128 × BitVec 128) (hint : BitVec 64) :
     simp only [hg, not_true_eq_false, and_false, if_false]
   · rw [if_neg hg]
     simp only [hg, not_false_eq_true, and_true]
+    by_cases hh : hint = 0 <;> simp [hh]
 
 theorem branchRead_allowed (good : Finset (BitVec 128))
     (a : BitVec 128 × BitVec 128) (hint : BitVec 64) (h : branchRead a hint ∈ good) :

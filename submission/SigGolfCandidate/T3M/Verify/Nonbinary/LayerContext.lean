@@ -26,54 +26,36 @@ theorem tail_field (v : Digest) : (v.extractLsb' 64 64 >>> 58) = BitVec.ofNat 64
   simp only [BitVec.toNat_ushiftRight, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, BitVec.toNat_ofNat]
   omega
 def prefixTarget (v : Digest) : Word := BitVec.ofNat 64 (4096 * (v.toNat % 128) + 1168)
-theorem prefix_tail_spec (s : MachineState) (v : Digest) (a d p : Nat) (ha : a ∈ aVals)
+theorem prefix_tail_spec (s : MachineState) (v : Digest) (a p : Nat) (ha : a ∈ aVals)
     (hpc : s.pc = pcOf p) (hcode : CodeAt Verify.image (pcOf p) (prefixTailWordsOf a))
-    (h12 : s.getReg .x12 = BitVec.ofNat 64 d) (hd : d % 8 = 0 ∧ 0x1000 ≤ d ∧ d + 16 ≤ 0x7000)
-    (h0 : s.getReg .x16 = v.extractLsb' 0 64) (h1 : s.getReg .x17 = v.extractLsb' 64 64) (hra : s.getReg .x9 = BitVec.ofNat 64 TOPB9)
-    (hmask : s.getMem 0xffbff8#64 = 520192#64) (h4 : s.getReg .x4 = 24592#64) (h10 : s.getReg .x10 = BitVec.ofNat 64 a) :
-    ∃ t, Steps Verify.image s 6 6 t ∧ t.pc = prefixTarget v ∧
+    (h0 : s.getReg .x16 = v.extractLsb' 0 64) (h1 : s.getReg .x17 = v.extractLsb' 64 64)
+    (h6 : s.getReg .x6 = 520192#64) (h8 : s.getReg .x8 = 11808#64) :
+    ∃ t, Steps Verify.image s 4 4 t ∧ t.pc = prefixTarget v ∧
       t.getReg .x16 = v.extractLsb' 0 64 ∧ t.getReg .x17 = v.extractLsb' 64 64 ∧
       t.getReg .x29 = BitVec.ofNat 64 (v.toNat / 2 ^ 122) ∧
       t.getReg .x8 = 11808#64 ∧ t.getReg .x6 = 520192#64 ∧
-      RegsExcept s t [.x16,.x17,.x29,.x6,.x8,.x14] ∧
-      Frame s t (fun A => A = 25064) := by
-  have hm : s.getMem (s.getReg .x9 + 232#64) = 520192#64 := by
-    rw [hra]; exact hmask
-  have hobl : ∀ o ∈ (prefixRes a).st.obl, o.holds s := by
-    intro o ho
-    simp [prefixRes, prefixRegs, prefixBase.res] at ho
-    rcases ho with rfl
-    all_goals simp [Oblig.holds, rv_simp, accessValid_iff, MEMORY_BYTES, hra, h12, h4, TOPB9]
-    all_goals omega
-  have hal : 13600 ≤ a ∧ a ≤ 13856 := by
-    simp only [aVals, List.mem_cons, List.not_mem_nil, or_false] at ha; omega
-  refine ⟨_, symRun_sound (prefix_run a ha (pcOf p)) hcode s hpc ((Oblig.all_iff _ _).mpr hobl),
+      RegsExcept s t [.x29,.x14] ∧ Frame s t (fun _ => False) := by
+  have ho : (prefixRes a).obligs s := by
+    simp [Result.obligs, prefixRes, prefixBase.res, rv_simp]
+  refine ⟨_, symRun_sound (prefix_run a ha (pcOf p)) hcode s hpc ho,
     ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · simp only [Result.toState_pc, prefixRes, prefixRegs, prefixBase.res, E.eval, BinOp.eval, h0, hm]
+  · simp only [Result.toState_pc, prefixRes, prefixBase.res, E.eval, BinOp.eval, h0, h6]
     have e1 : (12#64 : Word).toNat % 64 = (BitVec.ofNat 64 12).toNat := by decide +kernel
     have e2 : (18446744073709551614#64 : Word) = ~~~1#64 := by decide +kernel
     have hx : (v.extractLsb' 0 64).toNat % 128 = v.toNat % 128 := by
       simp only [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, pow_zero, Nat.div_one]
       exact Nat.mod_mod_of_dvd _ (show 128 ∣ 2 ^ 64 by decide +kernel)
-    have e3 : (1168#64 : Word) = BitVec.ofNat 64 (1168) := by norm_num
+    have e3 : (1168#64 : Word) = BitVec.ofNat 64 1168 := by norm_num
     rw [e1, e2, e3, SigGolfCandidate.T3M.Nonbinary.prologue_value, prefixTarget, hx]
-  · simp only [Result.toState_getReg, prefixRes, prefixRegs, prefixBase.res, RegFile.get, RegFile.set, E.eval, BinOp.eval, h0]
-  · simp only [Result.toState_getReg, prefixRes, prefixRegs, prefixBase.res, RegFile.get, RegFile.set, E.eval, BinOp.eval, h1]
-  · simp only [Result.toState_getReg, prefixRes, prefixRegs, prefixBase.res, RegFile.get, RegFile.set, E.eval, BinOp.eval, h1]
+  · simp [prefixRes, prefixBase.res, rv_simp, h0]
+  · simp [prefixRes, prefixBase.res, rv_simp, h1]
+  · simp only [Result.toState_getReg, prefixRes, prefixBase.res, RegFile.get, RegFile.set, E.eval, BinOp.eval, h1]
     exact tail_field v
-  · simp only [Result.toState_getReg, prefixRes, prefixRegs, RegFile.get, RegFile.set, E.eval, BinOp.eval, h10]
-    apply BitVec.eq_of_toNat_eq
-    simp only [BitVec.toNat_add, BitVec.toNat_ofNat]
-    omega
-  · simp only [Result.toState_getReg, prefixRes, prefixRegs, prefixBase.res, RegFile.get, RegFile.set, E.eval, BinOp.eval, hm]
-  · intro r hr; cases r <;> simp at hr <;> simp [prefixRes, prefixRegs, prefixBase.res, rv_simp] <;> rfl
-  · intro A hA hne
-    have hn : BitVec.ofNat 64 A ≠ 25064#64 := by
-      intro he
-      have he' := congrArg BitVec.toNat he
-      simp only [BitVec.toNat_ofNat] at he'
-      omega
-    simp [prefixRes, prefixRegs, prefixBase.res, rv_simp, h4, memEval, Addr.eval, hn]
+  · simp [prefixRes, prefixBase.res, rv_simp, h8]
+  · simp [prefixRes, prefixBase.res, rv_simp, h6]
+  · intro r hr; cases r <;> simp at hr <;>
+      simp [prefixRes, prefixBase.res, rv_simp] <;> rfl
+  · intro A hA hn; simp [prefixRes, prefixBase.res, rv_simp]
 theorem testBit_topMask (i : Nat) : (2 ^ 119 - 1 : Nat).testBit i = decide (i < 119) := by
   rw [Nat.testBit_two_pow_sub_one]
 theorem flip_getLsbD (v : Digest) (i : Nat) (hi : i < 128) :
@@ -194,8 +176,9 @@ theorem prefix_at (c : Nat) (hc : c < 128) :
   · unfold pcOf; simp only [BitVec.toNat_ofNat]; omega
   · unfold pcOf
     simp only [BitVec.toNat_ofNat, Nonbinary.prefixWordsOf, List.length_append,
-      Nonbinary.prefixHead, Nonbinary.prefixChoose, Nonbinary.prefixRead, Nonbinary.prefixTailWordsOf,
-      Choice.MachineSelect.head, Choice.MachineSelect.choose, Choice.MachineSelect.read,
+      Nonbinary.prefixSetupWordsOf, Nonbinary.prefixHead, Nonbinary.prefixChoose,
+      Nonbinary.prefixReadLow, Nonbinary.prefixReadHigh, Nonbinary.prefixTailWordsOf,
+      Choice.MachineSelect.head, Choice.MachineSelect.choose, Choice.MachineSelect.readLow, Choice.MachineSelect.readHigh,
       List.length_cons, List.length_nil]
     omega
 theorem prefix_sub_at (c : Nat) (hc : c < 128) (pre seg post : List (BitVec 32))
@@ -209,7 +192,7 @@ theorem prefix_sub_at (c : Nat) (hc : c < 128) (pre seg post : List (BitVec 32))
       0x1000 + 4 * (trPc 0 c + 6 + pre.length) by ring] at h'
 theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0)
     (t : MachineState) (ht : BC.EncPre w pk index 0 c t) (a : BitVec 256) :
-    ∃ n s, Steps image (writeHash t a) n n s ∧ n ≤ 13 ∧
+    ∃ n s, Steps image (writeHash t a) n n s ∧ n ≤ 12 ∧
       TopEntry (writeHash t a) (ClaudeWCT.WCT9.verificationAnswer 0 (ClaudeWCT.W9.T3M.wtopHint w) a) (trPc 0 c) s := by
   have hc' : c < 128 := by have := BC.nCopy_eq; omega
   have ha := topRowA_mem c hc'
@@ -240,48 +223,78 @@ theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
   have hh : (writeHash t a).getMem 1320#64 = ClaudeWCT.W9.T3M.wtopHint w := by
     have h := hglob.2.1 13 (by decide) (by decide)
     simpa [WIT, Verify.wword, ClaudeWCT.W9.T3M.wtopHint] using h
+  obtain ⟨u0,e0,p0,x80,x60,r0,f0⟩ := Nonbinary.prefix_setup_spec
+    (writeHash t a) (topRowA c) (trPc 0 c + 6) ha hpc
+    (by simpa using (prefix_sub_at c hc' [] (Nonbinary.prefixSetupWordsOf (topRowA c))
+      (Nonbinary.prefixHead ++ Nonbinary.prefixChoose ++ Nonbinary.prefixReadLow ++
+        Nonbinary.prefixTailWordsOf (topRowA c) ++ Nonbinary.prefixReadHigh ++ Nonbinary.prefixTailWordsOf (topRowA c))
+      (by simp [Nonbinary.prefixWordsOf, List.append_assoc])))
+    (by simpa [TOPB9] using hra) h10 hmask
+  have h12u0 : u0.getReg .x12 = BitVec.ofNat 64 d := (r0.get (by decide)).trans h12s
+  have hh0 : u0.getMem 1320#64 = ClaudeWCT.W9.T3M.wtopHint w := by
+    rw [f0.get (by decide) (by simp)]; exact hh
+  have lo0 := hv.frame f0 (by omega) (by simp) (by simp)
+  have hi0 := hhi.frame f0 (by omega) (by simp) (by simp)
   obtain ⟨n,u,eu,hn,pu,lu,hu,h12u,ru,fu⟩ := Choice.MachineSelect.select_spec
-    (writeHash t a) a (ClaudeWCT.W9.T3M.wtopHint w) d (trPc 0 c + 6) hpc
-    (by simpa [Nonbinary.prefixHead] using (prefix_sub_at c hc' [] Nonbinary.prefixHead
-      (Nonbinary.prefixChoose ++ Nonbinary.prefixRead ++ Nonbinary.prefixTailWordsOf (topRowA c))
-      (by simp [Nonbinary.prefixWordsOf,List.append_assoc])))
-    (by simpa [Nonbinary.prefixHead, Choice.MachineSelect.head, Nat.add_assoc] using
-      (prefix_sub_at c hc' Nonbinary.prefixHead (Nonbinary.prefixChoose ++ Nonbinary.prefixRead)
-        (Nonbinary.prefixTailWordsOf (topRowA c))
-        (by simp [Nonbinary.prefixWordsOf,List.append_assoc])))
-    (by simpa [Nonbinary.prefixHead, Nonbinary.prefixChoose, Choice.MachineSelect.head,
-        Choice.MachineSelect.choose, Nat.add_assoc] using
-      (prefix_sub_at c hc' (Nonbinary.prefixHead ++ Nonbinary.prefixChoose) Nonbinary.prefixRead
-        (Nonbinary.prefixTailWordsOf (topRowA c))
-        (by simp [Nonbinary.prefixWordsOf,List.append_assoc])))
-    (hk (.x11, 64#64) (by simp [BC.bK, T3M.bK, layK]))
-    h12s hdA hh hv hhi
-  obtain ⟨du,hdu,hduA⟩ : ∃ du, u.getReg .x12 = BitVec.ofNat 64 du ∧
-      du % 8 = 0 ∧ 0x1000 ≤ du ∧ du + 16 ≤ 0x7000 := by
-    rcases Choice.Selector.branchOffset_cases (a.extractLsb' 0 128)
-      (ClaudeWCT.W9.T3M.wtopHint w) with hz | hz
-    · refine ⟨d, ?_, by omega⟩
-      simpa [hz] using h12u
-    · refine ⟨d+16, ?_, by omega⟩
-      simpa [hz, show (16 : BitVec 64) = BitVec.ofNat 64 16 from rfl, ofNat_add_ofNat] using h12u
-  obtain ⟨z, ez, pz, lo, hi, tl, s3, mask, rz, fz⟩ :=
-    Verify.Nonbinary.prefix_tail_spec u
+    u0 a (ClaudeWCT.W9.T3M.wtopHint w) d (trPc 0 c + 8)
+    (by simpa [Nat.add_assoc] using p0)
+    (by simpa [Nonbinary.prefixSetupWordsOf, Nat.add_assoc] using
+      (prefix_sub_at c hc' (Nonbinary.prefixSetupWordsOf (topRowA c)) Nonbinary.prefixHead
+        (Nonbinary.prefixChoose ++ Nonbinary.prefixReadLow ++ Nonbinary.prefixTailWordsOf (topRowA c) ++
+          Nonbinary.prefixReadHigh ++ Nonbinary.prefixTailWordsOf (topRowA c))
+        (by simp [Nonbinary.prefixWordsOf, List.append_assoc])))
+    (by simpa [Nonbinary.prefixSetupWordsOf, Nonbinary.prefixHead, Choice.MachineSelect.head, Nat.add_assoc] using
+      (prefix_sub_at c hc' (Nonbinary.prefixSetupWordsOf (topRowA c) ++ Nonbinary.prefixHead) Nonbinary.prefixChoose
+        (Nonbinary.prefixReadLow ++ Nonbinary.prefixTailWordsOf (topRowA c) ++
+          Nonbinary.prefixReadHigh ++ Nonbinary.prefixTailWordsOf (topRowA c))
+        (by simp [Nonbinary.prefixWordsOf, List.append_assoc])))
+    (by simpa [Nonbinary.prefixSetupWordsOf, Nonbinary.prefixHead, Nonbinary.prefixChoose,
+        Choice.MachineSelect.head, Choice.MachineSelect.choose, Nat.add_assoc] using
+      (prefix_sub_at c hc' (Nonbinary.prefixSetupWordsOf (topRowA c) ++ Nonbinary.prefixHead ++ Nonbinary.prefixChoose)
+        Nonbinary.prefixReadLow (Nonbinary.prefixTailWordsOf (topRowA c) ++
+          Nonbinary.prefixReadHigh ++ Nonbinary.prefixTailWordsOf (topRowA c))
+        (by simp [Nonbinary.prefixWordsOf, List.append_assoc])))
+    (by simpa [Nonbinary.prefixSetupWordsOf, Nonbinary.prefixHead, Nonbinary.prefixChoose,
+        Nonbinary.prefixReadLow, Nonbinary.prefixTailWordsOf,
+        Choice.MachineSelect.head, Choice.MachineSelect.choose, Choice.MachineSelect.readLow, Nat.add_assoc] using
+      (prefix_sub_at c hc' (Nonbinary.prefixSetupWordsOf (topRowA c) ++ Nonbinary.prefixHead ++
+        Nonbinary.prefixChoose ++ Nonbinary.prefixReadLow ++ Nonbinary.prefixTailWordsOf (topRowA c))
+        Nonbinary.prefixReadHigh (Nonbinary.prefixTailWordsOf (topRowA c))
+        (by simp [Nonbinary.prefixWordsOf, List.append_assoc])))
+    ((r0.get (by decide)).trans (hk (.x11, 64#64) (by simp [BC.bK, T3M.bK, layK])))
+    h12u0 hdA hh0 lo0 hi0
+  let q := if Choice.Selector.group (a.extractLsb' 0 128) = 0 ∨ ClaudeWCT.W9.T3M.wtopHint w = 0
+    then trPc 0 c + 14 else trPc 0 c + 20
+  have pq : u.pc = pcOf q := by
+    dsimp [q]
+    split_ifs with h
+    all_goals simpa [h, Nat.add_assoc] using pu
+  have htail : CodeAt image (pcOf q) (Nonbinary.prefixTailWordsOf (topRowA c)) := by
+    dsimp [q]
+    split_ifs
+    · simpa [Nonbinary.prefixSetupWordsOf, Nonbinary.prefixHead, Nonbinary.prefixChoose, Nonbinary.prefixReadLow,
+        Choice.MachineSelect.head, Choice.MachineSelect.choose, Choice.MachineSelect.readLow, Nat.add_assoc] using
+        (prefix_sub_at c hc' (Nonbinary.prefixSetupWordsOf (topRowA c) ++ Nonbinary.prefixHead ++
+          Nonbinary.prefixChoose ++ Nonbinary.prefixReadLow) (Nonbinary.prefixTailWordsOf (topRowA c))
+          (Nonbinary.prefixReadHigh ++ Nonbinary.prefixTailWordsOf (topRowA c))
+          (by simp [Nonbinary.prefixWordsOf, List.append_assoc]))
+    · simpa [Nonbinary.prefixSetupWordsOf, Nonbinary.prefixHead, Nonbinary.prefixChoose, Nonbinary.prefixReadLow,
+        Nonbinary.prefixReadHigh, Nonbinary.prefixTailWordsOf, Choice.MachineSelect.head, Choice.MachineSelect.choose,
+        Choice.MachineSelect.readLow, Choice.MachineSelect.readHigh, Nat.add_assoc] using
+        (prefix_sub_at c hc' (Nonbinary.prefixSetupWordsOf (topRowA c) ++ Nonbinary.prefixHead ++
+          Nonbinary.prefixChoose ++ Nonbinary.prefixReadLow ++ Nonbinary.prefixTailWordsOf (topRowA c) ++
+          Nonbinary.prefixReadHigh) (Nonbinary.prefixTailWordsOf (topRowA c)) []
+          (by simp [Nonbinary.prefixWordsOf, List.append_assoc]))
+  obtain ⟨z,ez,pz,lo,hi,tl,s3,mask,rz,fz⟩ :=
+    Nonbinary.prefix_tail_spec u
       (ClaudeWCT.WCT9.verificationAnswer 0 (ClaudeWCT.W9.T3M.wtopHint w) a)
-      (topRowA c) du (trPc 0 c + 13) ha
-      (by simpa [Nat.add_assoc] using pu)
-      (by simpa [Nonbinary.prefixHead, Nonbinary.prefixChoose, Nonbinary.prefixRead,
-        Choice.MachineSelect.head, Choice.MachineSelect.choose, Choice.MachineSelect.read, Nat.add_assoc] using
-        (prefix_sub_at c hc' (Nonbinary.prefixHead ++ Nonbinary.prefixChoose ++ Nonbinary.prefixRead)
-          (Nonbinary.prefixTailWordsOf (topRowA c)) [] (by simp [Nonbinary.prefixWordsOf,List.append_assoc])))
-      hdu hduA lu hu
-      ((ru.get (by decide)).trans hra)
-      (by rw [fu.get (by decide) (by simp)]; exact hmask)
-      ((ru.get (by decide)).trans h4) ((ru.get (by decide)).trans h10)
-  refine ⟨n+6,z,eu.trans ez,by omega,⟨pz,?_,lo,hi,tl,s3,mask,?_,?_,?_⟩⟩
-  · rw [rz.get (by decide),ru.get (by decide),hra]
-  · rw [rz.get (by decide),ru.get (by decide),h15]
-  · exact (ru.trans rz).mono (by simp [topEntryRegs])
-  · exact (fu.trans fz).mono (by simp)
+      (topRowA c) q ha pq htail lu hu
+      ((ru.get (by decide)).trans x60) ((ru.get (by decide)).trans x80)
+  refine ⟨2+n+4,z,(e0.trans eu).trans ez,by omega,⟨pz,?_,lo,hi,tl,s3,mask,?_,?_,?_⟩⟩
+  · rw [rz.get (by decide), ru.get (by decide), r0.get (by decide), hra]
+  · rw [rz.get (by decide), ru.get (by decide), r0.get (by decide), h15]
+  · exact ((r0.trans ru).trans rz).mono (by simp [topEntryRegs])
+  · exact ((f0.trans fu).trans fz).mono (by simp)
 theorem topEntry_encoded {u s : MachineState} {v : Digest} {p : Nat} (he : TopEntry u v p s) :
     Nonbinary.NCtx.Encoded (T3.topFlip v) s :=
   ⟨by rw [he.lo, Verify.Nonbinary.flip_lo], by rw [he.hi, Verify.Nonbinary.flip_hi],

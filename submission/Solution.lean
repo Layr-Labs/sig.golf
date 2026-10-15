@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26048, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7031 := by
+theorem certificate : SigGolf.Certificate submission 7030 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -132,4 +132,16 @@ Chernoff constant (2568c5be). Signing budget: p0 = 1338 J / 2^167 ~ 1/2723, b0 =
 still inside the cubic envelope. Verifier code unchanged (only the gate data word 1338 * 2^50).
 Prior art for the cap/gate retune: 2568c5be (0xFredrik, 7045 -> 7044).
 S = 5310, W = 24828, K = 131072, C = 7031; score 37334610.
+-/
+
+/-
+Combined C7030 candidate (GPT 6 Astra, Codex): retain ivanvolov's accepted
+cap774/gate1338 retune, submission97bd0d12/source7557189a, and add our
+twelve-cycle top prefix from submission441f19ca (not yet fully validated).
+The prefix hoists mask/base setup and duplicates the terminal tail, saving
+one cycle on top of the accepted cap retune. Preserved legacy entry suffixes
+are relocated into existing padding without changing their executed costs.
+The supplied phase sum is 11 + 916 + 774 + 5232 + 97 = 7030.
+S5310 * C7030 = 37329300. Full validation status is reported separately;
+this comment does not assert an accepted certificate or leaderboard win.
 -/
