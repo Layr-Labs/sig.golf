@@ -580,6 +580,11 @@ theorem notEnc_ftsLeaf (index coord selected : Nat) (pad : Digest) (ends : List 
   exact nonEnc_of_hdr _ _ (hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _))
     (fun lay tr lf => ftsLeafHeader_ne_rowTweak _ _ _ lay tr lf)
 
+/-- C1: the paired leaf of heap `heap` (either half) makes the same non-encoding query. -/
+theorem notEnc_ftsLeafH (heap index coord selected : Nat) (pad : Digest) (ends : List Digest) :
+    AllQueriesSatisfy (leafHashH heap index coord selected pad ends) NotEncS :=
+  allQ_ftsHash_of_shortHash _ _ (notEnc_ftsLeaf index coord selected pad ends)
+
 theorem notEnc_topLow (coord index heap : Nat) (hcoord : coord < 9) (left pad right : Digest) :
     AllQueriesSatisfy (shortHash (wctTopInput coord index heap left pad right)) NotEncS := by
   apply notEnc_shortHash _ (by simp [wctTopInput, bytesLE_length])
@@ -605,15 +610,15 @@ theorem notEnc_node (first : Bool) (coord index heap : Nat) (hcoord : coord < 9)
     · split
       · exact allQ_highHash_of_shortHash _ (notEnc_topLow _ _ _ hcoord _ _ _)
       · exact notEnc_topLow _ _ _ hcoord _ _ _
-    · change AllQueriesSatisfy (shortHash (wctTopInput coord index heap left 0 right)) NotEncS
-      exact notEnc_topLow _ _ _ hcoord _ _ _
+    · change AllQueriesSatisfy (ftsHash heap (wctTopInput coord index heap left 0 right)) NotEncS
+      exact allQ_ftsHash_of_shortHash _ _ (notEnc_topLow _ _ _ hcoord _ _ _)
 
 theorem notEnc_inner (first : Bool) (index coord : Nat) (hcoord : coord < 9) (selected : Child)
     (word : Rank) (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) :
     AllQueriesSatisfy (recoverSharedInner first index coord selected word values path prev) NotEncS := by
   unfold recoverSharedInner
   exact allQ_bind (allQ_mapM _ _ fun _ => notEnc_ftsChain _ _ _ _ _ _ _) fun _ =>
-    allQ_bind (notEnc_ftsLeaf _ _ _ _ _) fun _ =>
+    allQ_bind (notEnc_ftsLeafH _ _ _ _ _ _) fun _ =>
       allQ_foldlM _ _ (fun _ _ => notEnc_node _ _ _ _ hcoord _ _ _) _
 
 theorem notEnc_pair (index : Nat) (pair : Fin 4) (selected : Selection) (aWord bWord : Rank)

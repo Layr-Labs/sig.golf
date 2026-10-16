@@ -92,6 +92,13 @@ theorem sat_highHash {Q : Query → Prop} (input : HashInput)
     (h : Q (.inl (.inr (pad64 input)))) : Wots.Structural.QueriesSat T Q (highHash input) := by
   unfold highHash
   exact Wots.Structural.QueriesSat.bind (Wots.Structural.sat_publicHash input h) (Wots.Structural.QueriesSat.pure' _)
+/-- C1: an FTS hash (either half) makes the one query `pad64 input`. -/
+theorem sat_ftsHash {Q : Query → Prop} (heap : Nat) (input : HashInput)
+    (h : Q (.inl (.inr (pad64 input)))) : Wots.Structural.QueriesSat T Q (ftsHash heap input) := by
+  rw [ftsHash_eq]
+  split
+  · exact sat_highHash T input h
+  · exact Wots.Structural.sat_shortHash input h
 theorem sat_query {q : Query} (h : FtsHonestQuery T index q) :
     Wots.Structural.QueriesSat T (FtsHonestQuery T index) (liftM (SigGolfCandidate.T3.Spec.query q)) :=
   Wots.Structural.QueriesSat.query h
@@ -278,6 +285,15 @@ theorem childRoot_congr (coord : Coord) (child : Child) (pad : Digest) :
       List.ofFn (fun i : Fin 6 => chainEnd T' index coord.val child.val i) from
     congrArg List.ofFn (funext (chainEnd_congr hTT coord child))]
   exact eval_congr hTT (allQueriesSatisfy_of_bound (ftsBound_leafHashP index _ _ _ _ coord.isLt child.isLt (by simp)))
+/-- C1: the paired leaf of heap `heap` only reads FTS queries. -/
+theorem childRootH_congr (heap : Nat) (coord : Coord) (child : Child) (pad : Digest) :
+    childRootH T heap index coord.val child.val pad = childRootH T' heap index coord.val child.val pad := by
+  unfold childRootH
+  rw [show List.ofFn (fun i : Fin 6 => chainEnd T index coord.val child.val i) =
+      List.ofFn (fun i : Fin 6 => chainEnd T' index coord.val child.val i) from
+    congrArg List.ofFn (funext (chainEnd_congr hTT coord child))]
+  exact eval_congr hTT (allQueriesSatisfy_of_bound
+    (ftsBound_leafHashH index heap _ _ _ _ coord.isLt child.isLt (by simp)))
 theorem coordNodesWith_congr (coord : Coord) (prev : Digest × Digest) :
     coordNodesWith T index coord.val prev = coordNodesWith T' index coord.val prev := by
   have hl : coordLeavesWith T index coord.val prev.1 = coordLeavesWith T' index coord.val prev.1 :=

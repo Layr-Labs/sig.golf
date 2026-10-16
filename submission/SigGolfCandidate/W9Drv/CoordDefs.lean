@@ -87,15 +87,19 @@ structure Pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (n : 
   childMask : u.getReg .x27 = BitVec.ofNat 64 0x7f00000
   aTable : u.getReg .x28 = BitVec.ofNat 64 0xe3300
   jt : u.getReg .x24 = rankPad
-  childBlock : u.getReg .x29 = BitVec.ofNat 64 (if n < 8 then 0xf1b00 else 0xe7400)
+  childBlock : u.getReg .x29 = BitVec.ofNat 64 0xf1b00
   singletonTable : u.getMem (BitVec.ofNat 64 (TOPB9 - 240)) = BitVec.ofNat 64 0xe7400
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (8560 - 896 * (n-1))
   pairPtr : u.getReg .x9 = BitVec.ofNat 64 TOPB9
   prevL : DigAt u (regionAddr n + 720) (prevOf w pairs).1
   prevR : DigAt u (regionAddr n + SharedV3.handR n) (prevOf w pairs).2
   a2 : 0 < n → u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + (if n = 9 then 720 else 704)) ∨
-    u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + (if n = 9 then 768 else 128))
+    u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + (if n = 9 then 768 else 144))
   coords : ∀ m, n ≤ m → m ≤ 9 → ∀ off, off < 896 → off % 8 = 0 → (m = 9 → 720 ≤ off) →
     (m = n → ¬ isHand n off) → W9Machine.OrigW w u (regionAddr m + off)
   layer : Orig w (fun o => (32 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24800)) u
+  /-- Coordinate-8 dispatch hoist: coordinate 7's dispatcher ends with `srli tp,a7,17` (word 689, after its
+  `or a7,a7,s8`), and no chain or B′ child routine of coordinate 7 writes `tp` or `a7`, so coordinate 8's dispatcher
+  finds its shared shift `a7 >>> 17` already in `tp`. -/
+  hoist : n = 8 → u.getReg .x4 = u.getReg .x17 >>> 17
 end W9Drv.SharedCoord

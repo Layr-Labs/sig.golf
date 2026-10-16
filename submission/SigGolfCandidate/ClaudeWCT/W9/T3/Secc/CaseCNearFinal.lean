@@ -999,6 +999,14 @@ theorem queried_length_buildChildF (T : Answers) (index coord selected : Nat) (w
   rw [buildChildF_factor, queried_length_bind, queried_length_childRows,
     queried_length_bind, queried_length_pure]
   rfl
+/-- C1: the paired child of heap `heap` makes the same 25 queries. -/
+theorem queried_length_buildChildH (T : Answers) (heap index coord selected : Nat) (word : Rank)
+    (coefs : List Digest) (pad : Digest) :
+    (SourceReplay.queried T (buildChildH heap index coord selected word coefs pad)).length = 25 := by
+  rw [buildChildH_factor, queried_length_bind, queried_length_childRows,
+    queried_length_bind, queried_length_pure]
+  unfold leafHashH ftsHash
+  split <;> rfl
 theorem queried_length_ftsCoefs (T : Answers) (index coord : Nat) :
     (SourceReplay.queried T (ftsCoefs index coord)).length = 27 := by
   unfold ftsCoefs
@@ -2858,7 +2866,8 @@ open SigGolfCandidate.T3.Correctness (Answers)
 open SigGolfCandidate.T3.Security.Wots.Mask (queried_length_bind queried_length_pure
   queried_length_shortHash queried_length_foldlM sum_map_one)
 open ClaudeWCT.WCT9
-open WPair.Counted (queried_length_buildChildF queried_length_ftsCoefs queried_free queried_length_free)
+open WPair.Counted (queried_length_buildChildF queried_length_buildChildH queried_length_ftsCoefs queried_free
+  queried_length_free)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
@@ -2868,7 +2877,12 @@ theorem queried_length_sharedNode (answers : Answers) (first : Bool) (coord inde
     (pads : Nat → PairRoot) (left right : Digest) :
     (SourceReplay.queried answers (sharedNode first coord index heap pads left right)).length = 1 := by
   unfold sharedNode sharedOuterHash
-  split <;> (try split) <;> (try split) <;> rfl
+  split
+  · split <;> rfl
+  · split
+    · split <;> rfl
+    · unfold wctNodeHashH ftsHash
+      split <;> rfl
 
 theorem queried_length_sharedHeap (answers : Answers) (first : Bool) (index coord : Nat)
     (pads : Nat → PairRoot) (leaves : List Digest) :
@@ -2886,7 +2900,7 @@ theorem queried_length_buildSharedCoordinate (answers : Answers) (first : Bool) 
   unfold buildSharedCoordinate
   rw [queried_length_bind, queried_length_ftsCoefs, queried_length_bind,
     queried_length_foldlM answers _ _ (fun _ => 25) (fun _ _ _ => by
-      rw [queried_length_bind, queried_length_buildChildF, queried_length_pure]),
+      rw [queried_length_bind, queried_length_buildChildH, queried_length_pure]),
     queried_length_bind, queried_length_sharedHeap, queried_length_pure]
   have : ((List.range 128).map (fun _ => (25 : Nat))).sum = 3200 := by decide
   simp only [this]

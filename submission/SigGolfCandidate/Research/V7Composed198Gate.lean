@@ -51,72 +51,82 @@ end SigGolfCandidate.Research.V7Composed198Gate
 are not connected to the submitted machine image or the scheme parameters. -/
 namespace SigGolfCandidate.Research.SharedPathPacking
 
-/-- Five authentication blocks, in bytes, indexed by the five low path bits. -/
+/-- C1 (FTS Merkle half-swap, stage 1): the fold window bases of child levels `0..4`, in bytes, indexed by the
+five low path bits (`plans_merged.json`, the first optimal plan per class of the exhaustive search with the
+level-four window pinned at `X = 128`, R pad at 160). -/
 def plans : List (List Nat) :=
-  [[240,176,64,0,112],
-   [176,224,64,0,112],
-   [224,176,64,0,112],
-   [64,176,224,0,112],
-   [64,224,176,0,112],
-   [176,224,0,48,112],
-   [224,176,0,48,112],
-   [224,176,0,48,112],
-   [240,176,48,0,112],
-   [176,224,48,0,112],
-   [224,176,48,0,112],
-   [288,176,224,64,112],
-   [0,224,176,64,112],
-   [288,224,176,64,112],
-   [224,176,288,64,112],
-   [272,224,176,64,112],
-   [224,256,0,160,112],
-   [0,48,224,160,112],
-   [224,0,48,160,112],
-   [224,0,48,160,112],
-   [224,48,0,160,112],
-   [160,208,0,48,112],
-   [208,160,0,48,112],
-   [208,160,0,48,112],
-   [224,160,48,0,112],
-   [160,208,48,0,112],
-   [208,160,48,0,112],
-   [208,160,48,0,112],
-   [48,208,160,0,112],
-   [272,208,160,0,112],
-   [256,208,160,0,112],
-   [256,208,160,0,112]]
+  [[16,64,208,256,128],
+   [0,64,208,256,128],
+   [16,192,256,64,128],
+   [0,192,256,64,128],
+   [16,64,192,256,128],
+   [0,64,192,256,128],
+   [64,0,192,256,128],
+   [0,80,192,256,128],
+   [16,64,256,192,128],
+   [0,64,256,192,128],
+   [16,192,256,80,128],
+   [0,192,256,80,128],
+   [16,256,192,80,128],
+   [0,256,192,80,128],
+   [256,192,0,80,128],
+   [0,192,272,80,128],
+   [16,64,192,240,128],
+   [0,64,192,240,128],
+   [16,176,240,64,128],
+   [256,0,64,192,128],
+   [16,64,176,240,128],
+   [0,64,176,240,128],
+   [64,0,176,240,128],
+   [48,0,176,240,128],
+   [16,64,240,176,128],
+   [0,64,240,176,128],
+   [64,0,240,176,128],
+   [48,0,240,176,128],
+   [64,240,176,0,128],
+   [0,64,176,256,128],
+   [64,0,176,256,128],
+   [0,272,224,176,128]]
 
 def bitAt (j l : Nat) : Nat := j / 2 ^ l % 2
 def block (j l : Nat) : Nat := ((plans.getD (j % 32) []).getD l 0)
 def current (j l : Nat) : Nat := block j l + 48 * bitAt j l
 def sibling (j l : Nat) : Nat := block j l + 48 * (1 - bitAt j l)
 def pad (j l : Nat) : Nat := block j l + 32
-def keepsHigh (j l : Nat) : Bool := decide (l < 4 ∧ bitAt j l = 1)
+/-- C1: the high header word `block + 24` stays witness memory on every packed level `0..3` (the verifier writes
+only the low header word there); level four writes both header words. -/
+def keepsHigh (_j l : Nat) : Bool := decide (l < 4)
+/-- C1: the value of level `l` (the leaf for `l = 0`) uses the high half of its hash output on a left input of
+levels `0..3` (an even heap `16..255`); the 32-byte answer is then written at `current - 16`, otherwise at
+`current`. -/
+def highValue (j l : Nat) : Bool := decide (l ≤ 3 ∧ bitAt j l = 0)
+def outO (j l : Nat) : Nat := if highValue j l then current j l - 16 else current j l
+/-- The eight-byte words written by the time the fold of level `l` reads its window: the 32-byte answer carrying
+the level-`l` value, the low header word and, on level four, the high header word. -/
 def writes (j l : Nat) : List Nat :=
-  [current j l, current j l + 8, current j l + 16, current j l + 24,
+  [outO j l, outO j l + 8, outO j l + 16, outO j l + 24,
    block j l + 16] ++ (if keepsHigh j l then [] else [block j l + 24])
 def priorWrites (j n : Nat) : List Nat := (List.range n).flatMap (writes j)
 
-/-- The prior coordinate writes a whole hash answer at 128: its high half is the
-new R pad at 144; its low half occupies the level-four header, rewritten later. -/
+/-- C1 layout rules. The prior coordinate writes a whole hash answer at 144: its low (junk) half occupies the
+level-four header at 144, its high half is the R pad at 160. Every window is 16-aligned inside `[0, 400)`; every
+sibling, non-R pad and high header word lies in `[0, 320)` and is still witness memory when its fold reads it; the
+R pad survives until the level-four fold; siblings are pairwise distinct and never share a 16-byte granule with a
+pad, a high header word or the hand-off granules 144 and 160. -/
 def planOK (j : Nat) : Bool :=
-  decide (block j 4 = 112) &&
+  decide (block j 4 = 128) &&
   (List.range 5).all (fun l =>
-    decide (block j l % 16 = 0 ∧ block j l + 64 ≤ 352 ∧
-      sibling j l + 16 ≤ 320 ∧ pad j l ≤ 320) &&
-    decide (sibling j l ≠ 128 ∧ pad j l ≠ 128) &&
-    (if keepsHigh j l then decide (block j l + 24 ≠ 128 ∧
-      block j l + 24 ≠ 136 ∧ block j l + 32 ≤ 320) else true) &&
+    decide (block j l % 16 = 0 ∧ block j l + 64 ≤ 400 ∧ sibling j l + 16 ≤ 320 ∧
+      (l < 4 → pad j l + 16 ≤ 320 ∧ block j l ≠ 128) ∧ (highValue j l = true → 16 ≤ current j l)) &&
+    decide (sibling j l ≠ 144 ∧ sibling j l ≠ 160 ∧
+      (l < 4 → pad j l ≠ 144 ∧ pad j l ≠ 160 ∧ block j l + 16 ≠ 144 ∧ block j l + 16 ≠ 160)) &&
     (priorWrites j (l + 1)).all (fun a =>
-      decide (a ≠ sibling j l ∧ a ≠ sibling j l + 8 ∧
-        a ≠ pad j l ∧ a ≠ pad j l + 8)) &&
+      decide (a ≠ sibling j l ∧ a ≠ sibling j l + 8 ∧ a ≠ pad j l ∧ a ≠ pad j l + 8)) &&
     (if keepsHigh j l then (priorWrites j (l + 1)).all
       (fun a => decide (a ≠ block j l + 24)) else true)) &&
   (List.range 5).all (fun i => (List.range 5).all (fun l =>
     decide (sibling j i ≠ pad j l ∧ (i ≠ l → sibling j i ≠ sibling j l)) &&
-    (if keepsHigh j l then decide (sibling j i ≠ block j l + 16 ∧
-      pad j 4 ≠ block j l + 16) else true) &&
-    decide (i ≠ 4 → pad j i ≠ pad j 4)))
+    (if keepsHigh j l then decide (sibling j i ≠ block j l + 16) else true)))
 
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 0 in
@@ -124,34 +134,32 @@ theorem planOK_all : ∀ j : Fin 128, planOK j.val = true := by
   intro j
   fin_cases j <;> decide +kernel
 
-/-- The final jump to block 832 cannot reuse the output address; all reusable
-addresses occur between the first five blocks. -/
+theorem block_four (j : Nat) : block j 4 = 128 := by
+  have h : ∀ i, i < 32 → ((plans.getD i []).getD 4 0) = 128 := by decide
+  exact h (j % 32) (Nat.mod_lt _ (by decide))
+
+/-- C1: `skips′`, the elided `addi a2` words of a child routine: the levels whose output address equals the
+previous one. The final jump to block 832 cannot reuse the output address. -/
 def saves (j : Nat) : Nat :=
-  ((List.range 4).map fun l => if current j (l + 1) = current j l then 1 else 0).sum +
-  ((List.range 4).map fun l => bitAt j l).sum
+  ((List.range 4).map fun l => if outO j (l + 1) = outO j l then 1 else 0).sum
 
-def previousSaves : List Nat :=
-  [0,2,2,3,2,4,4,4,2,4,4,5,3,5,5,5,0,2,2,4,1,3,3,4,1,3,3,4,2,4,4,4,0,2,2,3,1,3,3,4,1,3,3,5,2,5,5,5,1,3,3,4,2,4,4,4,2,4,4,4,3,4,4,4]
-def oldSaves (j : Nat) : Nat := previousSaves.getD (j % 64) 0
-
-set_option maxRecDepth 100000 in
-set_option maxHeartbeats 0 in
-theorem saves_bounds : ∀ j : Fin 128, oldSaves j.val ≤ saves j.val ∧ saves j.val ≤ 5 :=
-  by intro j; fin_cases j <;> decide +kernel
+/-- The per-class table of `saves` (`2 - saves` is the accounting correction). -/
+def savesTable : List Nat :=
+  [0,1,1,1,1,2,2,1,1,2,2,2,2,2,2,1,0,1,1,2,1,2,2,1,1,2,2,1,1,1,1,0]
 
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 0 in
-theorem total_extra_saves :
-    ((List.range 128).map fun j => saves j - oldSaves j).sum = 42 := by decide +kernel
+theorem saves_table : ∀ j : Fin 128, saves j.val = savesTable.getD (j.val % 32) 0 := by
+  intro j; fin_cases j <;> decide +kernel
 
-/-- Arithmetic cost consequence, conditional on the new code implementing the same
-per-level instruction templates: the first path has one fewer twelve-cycle node. -/
-theorem pair_cycle_bound (a b : Fin 128) :
-    (83 - saves a.val) + (95 - saves b.val) + 12 ≤
-      (95 - oldSaves a.val) + (95 - oldSaves b.val) := by
-  have ha := saves_bounds a
-  have hb := saves_bounds b
-  omega
+set_option maxRecDepth 100000 in
+set_option maxHeartbeats 0 in
+theorem saves_bounds : ∀ j : Fin 128, saves j.val ≤ 2 := by
+  intro j; fin_cases j <;> decide +kernel
+
+set_option maxRecDepth 100000 in
+set_option maxHeartbeats 0 in
+theorem total_saves : ((List.range 32).map saves).sum = 42 := by decide +kernel
 
 end SigGolfCandidate.Research.SharedPathPacking
 
@@ -224,14 +232,16 @@ def sharedOuterHash (coord index heap : Nat) (left right : Digest) : M Digest :=
 
 /-- Level four carries the preceding right node. An A coordinate uses the
 high hash half there; a B coordinate uses the low half and one additional
-outer fold. The half choice permits contiguous 32-byte machine writes. -/
+outer fold. The half choice permits contiguous 32-byte machine writes.
+C1 (FTS Merkle half-swap): the packed nodes `8..127` follow `ftsHighHeap`
+(`wctNodeHashH`), i.e. the even heaps `16..127` use the high half. -/
 def sharedNode (first : Bool) (coord index heap : Nat)
     (pads : Nat → PairRoot) (left right : Digest) : M Digest :=
   if heap < 4 then sharedOuterHash coord index heap left right
   else if heap < 8 then
     let input := wctTopInput coord index heap left (pads (heap / 2 - 2)).2 right
     if first then highHash input else shortHash input
-  else wctNodeHash coord index heap left right
+  else wctNodeHashH coord index heap left right
 
 def sharedHeap (first : Bool) (index coord : Nat) (pads : Nat → PairRoot)
     (leaves : List Digest) : M (Array Digest) :=
@@ -248,7 +258,7 @@ def buildSharedCoordinate (first : Bool) (index coord : Nat)
   let coefs ← ftsCoefs index coord
   let state ← (List.range 128).foldlM
     (fun (state : List Digest × List Digest) j => do
-      let (root, values) ← buildChildF index coord (rawChild first j) word coefs (pads (j / 64)).1
+      let (root, values) ← buildChildH (128 + j) index coord (rawChild first j) word coefs (pads (j / 64)).1
       pure (state.1 ++ [root], if j = selected.val then values else state.2)) ([], [])
   let nodes ← sharedHeap first index coord pads state.1
   pure (nodes, state.2)
@@ -271,7 +281,7 @@ def recoverSharedInner (first : Bool) (index coord : Nat) (selected : Child)
   let ends ← (List.finRange 6).mapM fun i =>
     let deficit := wordDigit word i
     chain index coord (rawChild first selected.val) i.val (4 - deficit) deficit (values i)
-  let leaf ← leafHashP index coord (rawChild first selected.val) prev.1 ends
+  let leaf ← leafHashH (128 + selected.val) index coord (rawChild first selected.val) prev.1 ends
   (List.range 5).foldlM (fun value level => do
     let other := path level
     let lr := if selected.val / 2 ^ level % 2 = 0 then (value, other) else (other, value)
@@ -517,7 +527,8 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
 def sharedLeaves (answers : Answers) (first : Bool) (index coord : Nat) (pads : Nat → PairRoot) : List Digest :=
-  List.ofFn (fun j : Fin 128 => childRoot answers index coord (rawChild first j.val) (pads (j.val / 64)).1)
+  List.ofFn (fun j : Fin 128 =>
+    childRootH answers (128 + j.val) index coord (rawChild first j.val) (pads (j.val / 64)).1)
 
 def sharedNodes (answers : Answers) (first : Bool) (index coord : Nat)
     (pads : Nat → PairRoot) : Array Digest :=
@@ -526,13 +537,14 @@ def sharedNodes (answers : Answers) (first : Bool) (index coord : Nat)
 def sharedRows (first : Bool) (index coord : Nat) (selected : Child) (word : Rank)
     (coefs : List Digest) (pads : Nat → PairRoot) : M (List Digest × List Digest) :=
   (List.range 128).foldlM (fun (state : List Digest × List Digest) j => do
-    let (root, values) ← buildChildF index coord (rawChild first j) word coefs (pads (j / 64)).1
+    let (root, values) ← buildChildH (128 + j) index coord (rawChild first j) word coefs (pads (j / 64)).1
     pure (state.1 ++ [root], if j = selected.val then values else state.2)) ([], [])
 
 def SharedRows (answers : Answers) (first : Bool) (index coord : Nat) (selected : Child)
     (word : Rank) (pads : Nat → PairRoot) (done : Nat) (rows : List Digest × List Digest) : Prop :=
   rows.1.length = done ∧
-    (∀ j, j < done → rows.1.getD j 0 = childRoot answers index coord (rawChild first j) (pads (j / 64)).1) ∧
+    (∀ j, j < done → rows.1.getD j 0 =
+      childRootH answers (128 + j) index coord (rawChild first j) (pads (j / 64)).1) ∧
     rows.2 = (if selected.val < done then
       List.ofFn (fun i : Fin 6 => chainValue answers index coord (rawChild first selected.val) word i) else [])
 
@@ -540,7 +552,7 @@ theorem shared_rows_step (answers : Answers) (first : Bool) (index coord : Nat) 
     (word : Rank) (pads : Nat → PairRoot) (done : Nat) (rows : List Digest × List Digest)
     (hrows : SharedRows answers first index coord selected word pads done rows) :
     SharedRows answers first index coord selected word pads (done + 1)
-      (rows.1 ++ [childRoot answers index coord (rawChild first done) (pads (done / 64)).1],
+      (rows.1 ++ [childRootH answers (128 + done) index coord (rawChild first done) (pads (done / 64)).1],
        if done = selected.val then
          List.ofFn (fun i : Fin 6 => chainValue answers index coord (rawChild first done) word i) else rows.2) := by
   rcases hrows with ⟨hlen, hroot, hvalues⟩
@@ -567,7 +579,7 @@ theorem eval_sharedRows (answers : Answers) (first : Bool) (index coord : Nat) (
     ([], []) ?_ ?_
   · simp [SharedRows]
   · intro done _ rows hrows
-    simp only [evalWithAnswerFn_bind, buildChildF_result, evalWithAnswerFn_pure]
+    simp only [evalWithAnswerFn_bind, buildChildH_result, evalWithAnswerFn_pure]
     exact shared_rows_step answers first index coord selected word pads done rows hrows
 
 theorem buildSharedCoordinate_result (answers : Answers) (first : Bool) (index coord : Nat)
@@ -659,7 +671,7 @@ theorem recoverSharedInner_honest (answers : Answers) (first : Bool) (index coor
     simp_rw [hvalues, value_completes]
     exact List.ofFn_eq_map.symm
   have hleaf : evalWithAnswerFn answers
-      (leafHashP index coord (rawChild first selected.val) (pads (selected.val / 64)).1
+      (leafHashH (128 + selected.val) index coord (rawChild first selected.val) (pads (selected.val / 64)).1
         (List.ofFn (fun i : Fin 6 => chainEnd answers index coord (rawChild first selected.val) i))) =
       nodes.getD (128 + selected.val) 0 := by
     have hl := hg.2.1 (128 + selected.val) (by omega) (by have := selected.isLt; omega)
@@ -1085,9 +1097,10 @@ def physicalChildFromOutput (output : HashOutput) (coord : Fin 9) : Child :=
   ⟨physicalChild (firstCoord coord.val) (rawChildFromOutput output coord).val,
     physicalChild_lt _ _ (rawChildFromOutput output coord).isLt⟩
 
+/-- C1 (stage 1): the per-child cycle correction `2 - skips′` of the physical child's class (A routines fit
+their 32-word slots, so there is no spill term). -/
 def accountingCorrection (coord : Nat) (raw : Child) : Nat :=
-  5 - SharedPathPacking.saves (physicalChild (firstCoord coord) raw.val) +
-    (if firstCoord coord ∧ raw.val % 16 = 0 then 1 else 0)
+  2 - SharedPathPacking.saves (physicalChild (firstCoord coord) raw.val)
 
 def coordinateAccountingCost (output : HashOutput) (coord : Fin 9) : Nat :=
   routineCost (forestRank output coord.val) + accountingCorrection coord.val (rawChildFromOutput output coord)
@@ -1098,9 +1111,10 @@ def jointAccountingCost (output : HashOutput) : Nat :=
 def ranksAccepted (output : HashOutput) : Bool :=
   (List.finRange 9).all (fun coord => decide (rawForestRank output coord.val < 563))
 
+/-- C1 (stage 1): joint cap 778 (`P(joint ≤ 778 | gate, ranks) = 0.993794`). -/
 def digestAccepted (output : HashOutput) : Bool :=
   decide (output.toNat / 2 ^ 242 % 16384 < 734) && ranksAccepted output &&
-    decide (jointAccountingCost output ≤ 788)
+    decide (jointAccountingCost output ≤ 778)
 
 theorem firstCoord_eq_shared (coord : Nat) : firstCoord coord = decide (coord < 8 ∧ coord % 2 = 0) := rfl
 
@@ -1111,7 +1125,7 @@ theorem ranksAccepted_iff (output : HashOutput) : ranksAccepted output = true �
 theorem accepted_conditions (output : HashOutput) (h : digestAccepted output = true) :
     output.toNat / 2 ^ 242 % 16384 < 734 ∧
     (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
-    jointAccountingCost output ≤ 788 := by
+    jointAccountingCost output ≤ 778 := by
   simpa only [digestAccepted, Bool.and_eq_true, decide_eq_true_eq, ranksAccepted_iff,
     and_assoc] using h
 end SigGolfCandidate.Research.SharedForest
@@ -1216,9 +1230,20 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open SigGolfCandidate.T3 ClaudeWCT.WCT9
 
-def aCorrection (low : Nat) : Nat :=
-  5 - SharedPathPacking.saves low + (if low % 16 = 0 then 1 else 0)
-def bCorrection (low : Nat) : Nat := 5 - SharedPathPacking.saves low
+def aCorrection (low : Nat) : Nat := 2 - SharedPathPacking.saves low
+def bCorrection (low : Nat) : Nat := 2 - SharedPathPacking.saves low
+
+/-- C1 (stage 1): the correction `2 - skips′` of each low-field class (13 classes 0, 16 classes 1, 3 classes 2). -/
+def correctionTable : List Nat :=
+  [2,1,1,1,1,0,0,1,1,0,0,0,0,0,0,1,2,1,1,0,1,0,0,1,1,0,0,1,1,1,1,2]
+
+set_option maxRecDepth 100000 in
+theorem aCorrection_table : ∀ c : Fin 32, aCorrection c.val = correctionTable.getD c.val 0 := by
+  decide +kernel
+
+set_option maxRecDepth 100000 in
+theorem bCorrection_table : ∀ c : Fin 32, bCorrection c.val = correctionTable.getD c.val 0 := by
+  decide +kernel
 
 set_option maxRecDepth 100000 in
 set_option maxHeartbeats 0 in
@@ -1593,7 +1618,10 @@ theorem bound_sharedNode (first : Bool) (coord index heap : Nat) (pads : Nat →
     · split
       · exact bound_highHash64 _ (wctTopInput_length ..)
       · apply bound_shortHash <;> simp [wctTopInput_length, pad64_length]
-    · exact bound_nodeHash 3 (nodeLayer coord) index heap left right
+    · rw [nodeHashH_eq, ftsHash_eq]
+      split
+      · exact bound_highHash64 _ (nodeInput_length ..)
+      · apply bound_shortHash <;> simp [nodeInput_length, pad64_length]
 
 theorem bound_sharedHeap (first : Bool) (index coord : Nat) (pads : Nat → PairRoot)
     (leaves : List Digest) :
@@ -1620,7 +1648,7 @@ theorem bound_buildSharedCoordinate (first : Bool) (index coord : Nat)
   · refine (Bound.foldlM_range_le 128 _ (fun _ _ => True) (fun _ => 26) ([], [])
       trivial (fun j hj state _ => ?_) (fun _ _ => trivial) (by simp)).bind'
       (l := if first then 124 else 126) (fun state _ => ?_) le_rfl
-    · refine (bound_buildChildF index coord (rawChild first j) word coefs (pads (j / 64)).1
+    · refine (bound_buildChildH (128 + j) index coord (rawChild first j) word coefs (pads (j / 64)).1
         hcoord (rawChild_lt first j hj)).bind' (l := 0)
         (fun child _ => .pure _ 0 trivial) (by simp [ClaudeWCT.WCT9.childCost])
     · exact (bound_sharedHeap first index coord pads state.1).bind' (l := 0)
@@ -2853,7 +2881,7 @@ def coordinateCost (f : Fields) (k : Fin 9) : Nat :=
 def cost (f : Fields) : Nat := ((List.finRange 9).map (coordinateCost f)).sum
 def accepted (f : Fields) : Bool :=
   decide (f.2.2.2.toNat < 734) &&
-    (List.finRange 9).all (fun k => decide ((f.2.1 k).toNat < 563)) && decide (cost f ≤ 788)
+    (List.finRange 9).all (fun k => decide ((f.2.1 k).toNat < 563)) && decide (cost f ≤ 778)
 
 theorem decodedRank_fields (a : HashOutput) (k : Fin 9) :
     decodedRank (fields a) k = SharedForest.forestRank a k.val := by
@@ -3049,7 +3077,7 @@ theorem bound_recoverSharedInner (first : Bool) (index coord : Nat) (hc : coord<
       i.val (4-wordDigit word i) (wordDigit word i) (values i) hc hj i.isLt
       (by have h := wordDigit_le_four word i; omega))).mono_k (wordDigit_le_four word i))).bind'
       (l := 7) (fun ends hends => ?_) (by decide)
-  refine (cbound_of_ftsBound (ftsBound_leafHashP index coord (rawChild first selected.val)
+  refine (cbound_of_ftsBound (ftsBound_leafHashH index (128 + selected.val) coord (rawChild first selected.val)
     prev.1 ends hc hj (by simpa using hends))).bind'
       (l := 5) (fun leaf _ => ?_) (by decide)
   exact (Bound.foldlM_list (P := GoodQuery) (List.range 5) _ (fun _ _ => True) (fun _ => 1)

@@ -781,18 +781,18 @@ theorem verify_good
     (by simp only [ccM_pure, Kb])
     (fun a u _ hu => afterDigest_good fts after hnone m pk w a u hu)
 
-theorem verify_good_7047
+theorem verify_good_7028
     (hprefix : W9Fin.V7.PrefixGood GatePre)
-    (fts : FtsGoodByCost GatePre FtsOut ftsProgram (fun a => 880 + cost a) P)
+    (fts : FtsGoodByCost GatePre FtsOut ftsProgram (fun a => 870 + cost a) P)
     (after : AfterGoodBudget FtsOut afterProgram 5271 P)
     (hnone : ∀ pk w i, afterProgram pk w i none = pure false)
     (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : WB) (s : MachineState)
     (hs : initialState submission .verify (m,pk,w) = some s) :
-    GoodQP (Pre P cost 788 m w) s 10083 10084 True 6950
+    GoodQP (Pre P cost 778 m w) s 10083 10084 True 6930
       (ccM (verifyP ftsProgram afterProgram m pk w) Kb) :=
   verify_good hprefix fts after hnone m pk w s hs
 end
-#print axioms verify_good_7047
+#print axioms verify_good_7028
 end W9Fin.V7.Canonical
 
 
@@ -827,7 +827,7 @@ theorem goodQP_frozen {P : Hash → Prop} {s : MachineState} {N C A : Nat} {Q : 
 
 theorem fts_installed {P : Hash → Prop} :
     FtsGoodByCost W9Drv.SharedGate.Pre installedOut installedFts
-      (fun answer => 880 + SigGolfCandidate.Research.SharedForest.jointAccountingCost answer) P := by
+      (fun answer => 870 + SigGolfCandidate.Research.SharedForest.jointAccountingCost answer) P := by
   intro pk w answer state N C A Q K hstate hnone hnext
   have h := W9Drv.SharedCoord.fts_good (P := P) pk w answer state N C A Q K hstate hnone
     (fun top next hnextState => goodQP_frozen.mpr (hnext top next hnextState))
@@ -841,10 +841,10 @@ theorem after_installed (floors : SigGolfCandidate.T3.Layer → Nat) (hcredit : 
 theorem installed_verify_good (floors : SigGolfCandidate.T3.Layer → Nat) (hcredit : CreditFloors floors)
     (message : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (witness : WB) (state : MachineState)
     (hstate : initialState submission .verify (message, pk, witness) = some state) :
-    GoodQP (Pre (HashOkBy floors) SigGolfCandidate.Research.SharedForest.jointAccountingCost 788 message witness)
-      state 10083 10084 True 6950
+    GoodQP (Pre (HashOkBy floors) SigGolfCandidate.Research.SharedForest.jointAccountingCost 778 message witness)
+      state 10083 10084 True 6930
       (ccM (verifyP installedFts SigGolfCandidate.T3M.Verify.afterFts message pk witness) Kb) :=
-  verify_good_7047 W9Fin.V7.prefixGood fts_installed (after_installed floors hcredit)
+  verify_good_7028 W9Fin.V7.prefixGood fts_installed (after_installed floors hcredit)
     (fun _ _ _ => rfl) message pk witness state hstate
 end W9Fin.V7.Canonical
 
@@ -903,7 +903,7 @@ abbrev pairedSubmission := ClaudeWCT.W9.T3M.Paired.submission
 def Inputs : Prop := ∀ (floors : SigGolfCandidate.T3.Layer→Nat), CreditFloors floors →
   ∀ (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : Bytes 24828) (s : MachineState),
   initialState SigGolfCandidate.T3M.submission .verify (m,pk,w)=some s →
-  GoodQP (fun hash => HashOkBy floors hash ∧ DigestCapOk hash m w) s 10083 10084 True 6950
+  GoodQP (fun hash => HashOkBy floors hash ∧ DigestCapOk hash m w) s 10083 10084 True 6930
     (ccM (ClaudeWCT.W9.T3M.Paired.verifyP m pk w) Kb)
 
 theorem init_paired (I : ClaudeWCT.W9.T3M.Images) (hI : I.verify=Images.verifyImage)

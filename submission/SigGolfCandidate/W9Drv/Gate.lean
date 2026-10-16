@@ -155,7 +155,7 @@ theorem gate_ult_const (a : HashOutput) :
     decide_eq_decide]
   omega
 theorem gate_slot (w : ClaudeWCT.W9.T3M.WBytes) {u s3 : MachineState} (hw : Orig w (fun o => o ≠ 24816) u)
-    (e3 : ∀ A, s3.getMem A = u.getMem A) (o : Nat) (ho : o = 720 ∨ o = 144) :
+    (e3 : ∀ A, s3.getMem A = u.getMem A) (o : Nat) (ho : o = 720 ∨ o = 160) :
     DigAt s3 (regionAddr 0 + o) (wdig w (V3.regionOffset 0 + o)) := by
   have h0 := gate_orig w hw e3 0 (by decide) o (by omega) (by omega) (fun h => absurd h (by decide))
   have h1 := gate_orig w hw e3 0 (by decide) (o + 8) (by omega) (by omega) (fun h => absurd h (by decide))
@@ -269,7 +269,8 @@ theorem good
         stepOne := rfl, stepTwo := rfl, hashLen := ?_, coordStep := rfl,
         nodeReg := ?_, cached3 := ?_, cached := ?_,
         mask := ?_, childMask := rfl, aTable := ?_, jt := hjt, childBlock := hchild, singletonTable := ?_, baseReg := hbase, pairPtr := ?_,
-        prevL := ?_, prevR := ?_, a2 := fun h => absurd h (Nat.lt_irrefl 0), coords := ?_, layer := ?_ }
+        prevL := ?_, prevR := ?_, a2 := fun h => absurd h (Nat.lt_irrefl 0), coords := ?_, layer := ?_,
+        hoist := fun h => absurd h (by decide) }
       · intro k hk; rw [e3]; exact hu.digest k hk
       · exact ⟨fun k hk => (e3 _).trans (hu.bank.top k hk), (e3 _).trans hu.bank.top8⟩
       · exact ⟨(e3 _).trans hu.forest.zero0, (e3 _).trans hu.forest.zero1, (e3 _).trans hu.forest.header⟩
@@ -312,7 +313,7 @@ theorem good
         change s2.getReg .x2 + BitVec.ofNat 64 304 = _
         rw [hsp2, ofNat_add_ofNat]; rfl
       · exact gate_slot w hu.wit e3 720 (by decide)
-      · exact gate_slot w hu.wit e3 144 (by decide)
+      · exact gate_slot w hu.wit e3 160 (by decide)
       · intro m _ hm9 off hoff h8 hv _
         exact gate_orig w hu.wit e3 m hm9 off hoff h8 hv
       · exact (hu.wit.mono (fun o ho => by omega)).frame (fun j _ _ => e3 _)

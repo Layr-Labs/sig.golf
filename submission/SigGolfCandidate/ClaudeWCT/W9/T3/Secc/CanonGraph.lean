@@ -1041,7 +1041,8 @@ def rawLeaf (coord physical : Nat) : Nat :=
 def ftsLabel (labels : Labels) (index : Fin (2^31)) (coord : Fin 9) (level physical : Nat) : Digest :=
   if level=0 then
     if h:rawLeaf coord.val physical<128 then
-      (labels (.wctLeaf ⟨index,coord,⟨rawLeaf coord.val physical,h⟩⟩)).extractLsb' 0 128
+      Extract.Paired.proj (.wctLeaf index.val coord.val (rawLeaf coord.val physical))
+        (labels (.wctLeaf ⟨index,coord,⟨rawLeaf coord.val physical,h⟩⟩))
     else 0
   else
     match ftsNodeAt index coord (level-1) physical with
@@ -1591,14 +1592,19 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 
+/-- C1: the nodes whose label is presented through the high output half: the top folds of
+`highPosition`, the even nodes of levels `0..2` and the leaves of even physical children. -/
 def highNode : Node → Bool
-  | .wctNode n => decide (Extract.Paired.highPosition n.1.coord.val n.1.level.val)
+  | .wctNode n => decide (Extract.Paired.highNodeAt n.1.coord.val n.1.level.val n.1.idx.val)
+  | .wctLeaf L => decide (Extract.Paired.highLeafAt L.coord.val L.child.val)
   | _ => false
 
 theorem proj_toPos (N : Node) (y : HashOutput) :
     Extract.Paired.proj N.toPos y = if highNode N then y.extractLsb' 128 128 else y.extractLsb' 0 128 := by
   cases N with
   | wctNode n =>
+      simp only [Node.toPos,highNode,Extract.Paired.proj,decide_eq_true_eq,ite_apply]
+  | wctLeaf L =>
       simp only [Node.toPos,highNode,Extract.Paired.proj,decide_eq_true_eq,ite_apply]
   | _ => rfl
 
