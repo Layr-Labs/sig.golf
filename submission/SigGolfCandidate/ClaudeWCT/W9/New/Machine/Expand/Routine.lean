@@ -777,8 +777,8 @@ theorem core_tbsim (L : W9Machine.Layout) (sk : BitVec 256)
       TBSim L.image sk u 89 (N600.program w index k raw rank) (N600.Post L w index k raw u))
     (w : W9Machine.WBytes) (index : Nat) (snapshot u : MachineState) (padL padR : Digest)
     (hu : N600.Pre L (SharedV3.viewW w k.val snapshot) index k raw rank u)
-    (hL : DigAt snapshot (0x4c0+V3.regionOffset k.val+720) padL)
-    (hR : DigAt snapshot (0x4c0+V3.regionOffset k.val+160) padR) :
+    (hL : DigAt snapshot (0x520+V3.regionOffset k.val+720) padL)
+    (hR : DigAt snapshot (0x520+V3.regionOffset k.val+160) padR) :
     TBSim L.image sk u (89+SharedChild.cost k raw)
       (N600.program w index k raw rank >>=fun ends=>SharedV3.childN w index k raw ends padL padR)
       (Post L (SharedV3.viewW w k.val snapshot) index k raw u) := by
@@ -2181,7 +2181,7 @@ set_option maxHeartbeats 1000000
 
 def writes (addr : Nat) : Prop := 1200≤addr ∧ addr<9472
 def isHand (n off : Nat) : Prop :=
-  if n=9 then (720≤off ∧ off<752) ∨ (768≤off ∧ off<800) else SharedV3.isHand off
+  if n=9 then (816≤off ∧ off<848) ∨ (864≤off ∧ off<896) else SharedV3.isHand off
 def pcWord (n : Nat) : Nat := if n<9 then SharedDispatch.start n else 46862
 structure Fields (index : Nat) (raw : Fin 9 → Fin 128) (ranks : Fin 9 → Fin 563) (u : MachineState) : Prop where
   index : u.getMem 0x66010=BitVec.ofNat 64 index
@@ -2192,14 +2192,14 @@ structure Inv (w : W9Machine.WBytes) (index : Nat) (raw : Fin 9 → Fin 128) (ra
   le : n≤9
   pc : u.pc=pcOf (pcWord n)
   fields : Fields index raw ranks u
-  prevL : DigAt u (regionAddr n+720) prev.1
+  prevL : DigAt u (regionAddr n+SharedV3.handL n) prev.1
   prevR : DigAt u (regionAddr n+SharedV3.handR n) prev.2
   /-- Original witness words of the coordinates not yet run. Stage 2 (C3): region 9 (the L3 encoding row,
-  `WIT + 0 .. WIT + 176`) excludes its offset `744` = `WIT + 24`, the row tweak's high word (a witness pad, honest
+  `WIT + 0 .. WIT + 80`; witness trim) excludes its offset `840` = `WIT + 24`, the row tweak's high word (a witness pad, honest
   LE64 1). No FTS routine reads it, and in the expander's first forest pass the cleared witness prefix still holds 0
   there (the final pass restores it, `SharedScatter.finishCode`). -/
   coords : ∀ (m : Nat), n ≤ m → m ≤ 9 → ∀ (off : Nat), off < 896 → off % 8 = 0 →
-    (m = 9 → 720 ≤ off ∧ off ≠ 744) → (m = n → ¬ isHand n off) →
+    (m = 9 → 816 ≤ off ∧ off ≠ 840) → (m = n → ¬ isHand n off) →
     W9Machine.OrigW w u (regionAddr m + off)
   frame : Frame initial u writes
 
@@ -2241,7 +2241,7 @@ theorem witness_view {w : W9Machine.WBytes} {index : Nat} {raw : Fin 9 → Fin 1
   · rw [if_neg (fun h=>hh (by simpa only [Nat.add_sub_cancel_left] using h.2))]
     have hw:=hu.coords k.val (by omega) (by omega) off ho h8 (by omega)
       (fun _=>by simpa only [isHand,if_neg (by omega : k.val≠9)] using hh)
-    have he:regionAddr k.val+off-0x4c0=V3.regionOffset k.val+off := by
+    have he:regionAddr k.val+off-0x520=V3.regionOffset k.val+off := by
       unfold regionAddr V3.regionOffset;omega
     have hb:coordinateBase k+off=regionAddr k.val+off := by unfold coordinateBase regionAddr;omega
     rw [hb]
@@ -2269,36 +2269,37 @@ theorem core_frame_dispatch {L : W9Machine.Layout} {w : W9Machine.WBytes} {index
 
 theorem hand_address (k : Fin 9) (raw : Fin 128) :
     SharedChild.handAddr k raw=regionAddr (k.val+1)+
-      (if SharedV3.direction k.val (SharedV3.physical k.val raw.val)=0 then 720 else SharedV3.handR (k.val+1)) := by
+      (if SharedV3.direction k.val (SharedV3.physical k.val raw.val)=0 then SharedV3.handL (k.val+1) else SharedV3.handR (k.val+1)) := by
   have hk:=k.isLt
-  unfold SharedChild.handAddr coordinateBase regionAddr SharedV3.handR
+  unfold SharedChild.handAddr coordinateBase regionAddr SharedV3.handR SharedV3.handL
   split_ifs <;> omega
 
 theorem next_other (w : W9Machine.WBytes) (k : Fin 9) (raw : Fin 128)
     (u t : MachineState) (hf : Frame u t (SharedChild.writes k raw)) (off : Nat)
-    (hoff : off=720 ∨ off=SharedV3.handR (k.val+1))
+    (hoff : off=SharedV3.handL (k.val+1) ∨ off=SharedV3.handR (k.val+1))
     (hsel : if SharedV3.direction k.val (SharedV3.physical k.val raw.val)=0
-      then off=SharedV3.handR (k.val+1) else off=720)
+      then off=SharedV3.handR (k.val+1) else off=SharedV3.handL (k.val+1))
     (h0 : W9Machine.OrigW w u (regionAddr (k.val+1)+off))
     (h1 : W9Machine.OrigW w u (regionAddr (k.val+1)+(off+8))) :
     DigAt t (regionAddr (k.val+1)+off)
       (SharedV3.topOther w k.val (SharedV3.physical k.val raw.val)) := by
   have hk:=k.isLt
   have h1':W9Machine.OrigW w u (regionAddr (k.val+1)+off+8) := by rw [Nat.add_assoc];exact h1
-  have hlo:0x4c0≤regionAddr (k.val+1)+off := by
-    unfold SharedV3.handR at hoff
+  have hlo:0x520≤regionAddr (k.val+1)+off := by
+    unfold SharedV3.handR SharedV3.handL at hoff
     unfold regionAddr
     split_ifs at hoff <;> omega
   have hd:=W9Machine.DigAt_origW h0 h1' hlo
-  have he:regionAddr (k.val+1)+off-0x4c0=SharedV3.topOtherOff k.val (SharedV3.physical k.val raw.val) := by
+  have he:regionAddr (k.val+1)+off-0x520=SharedV3.topOtherOff k.val (SharedV3.physical k.val raw.val) := by
     unfold SharedV3.topOtherOff V3.regionOffset regionAddr
+    unfold SharedV3.handR SharedV3.handL at hsel ⊢
     split_ifs at hsel ⊢ <;> omega
   rw [he] at hd
-  refine hd.frame hf (by unfold SharedV3.handR at hoff;unfold regionAddr;split_ifs at hoff <;> omega) ?_ ?_
+  refine hd.frame hf (by unfold SharedV3.handR SharedV3.handL at hoff;unfold regionAddr;split_ifs at hoff <;> omega) ?_ ?_
   all_goals
     intro hw
     unfold SharedChild.writes SharedChild.outputAddr SharedChild.handAddr coordinateBase at hw
-    unfold SharedV3.handR at hoff hsel
+    unfold SharedV3.handR SharedV3.handL at hoff hsel
     unfold regionAddr at hw
     split_ifs at hsel hw <;> omega
 
@@ -2327,13 +2328,13 @@ theorem next {image : Image} {w : W9Machine.WBytes} {index : Nat} {raw : Fin 9 �
   have hk:=k.isLt
   have hf:=core_frame_dispatch hp ht
   have hfg:Frame u t writes:=hf.mono (fun addr _ hw=>child_writes_bounds k (raw k) addr hw)
-  have hother:∀off,(off=720 ∨ off=SharedV3.handR (k.val+1)) → 
+  have hother:∀off,(off=SharedV3.handL (k.val+1) ∨ off=SharedV3.handR (k.val+1)) → 
       (if SharedV3.direction k.val (SharedV3.physical k.val (raw k).val)=0
-        then off=SharedV3.handR (k.val+1) else off=720) → 
+        then off=SharedV3.handR (k.val+1) else off=SharedV3.handL (k.val+1)) → 
       DigAt t (regionAddr (k.val+1)+off) (SharedV3.topOther w k.val (SharedV3.physical k.val (raw k).val)) := by
     intro off hoff hsel
-    have ho:off≤768 ∧ off%8=0 ∧ (k.val+1=9 → off=720 ∨ off=768) := by
-      unfold SharedV3.handR at hoff;split_ifs at hoff <;> omega
+    have ho:off≤864 ∧ off%8=0 ∧ (k.val+1=9 → off=816 ∨ off=864) := by
+      unfold SharedV3.handR SharedV3.handL at hoff;split_ifs at hoff <;> omega
     exact next_other w k (raw k) u t hf off hoff hsel
       (hu.coords (k.val+1) (by omega) (by omega) off (by omega) (by omega)
         (fun h=>by have:=ho.2.2 h;omega) (fun h=>by omega))
@@ -2345,11 +2346,11 @@ theorem next {image : Image} {w : W9Machine.WBytes} {index : Nat} {raw : Fin 9 �
   · unfold SharedV3.orderPair
     by_cases hd:SharedV3.direction k.val (SharedV3.physical k.val (raw k).val)=0
     · rw [if_pos hd]
-      have he:SharedChild.handAddr k (raw k)=regionAddr (k.val+1)+720:=by rw [hand_address,if_pos hd]
+      have he:SharedChild.handAddr k (raw k)=regionAddr (k.val+1)+SharedV3.handL (k.val+1):=by rw [hand_address,if_pos hd]
       rw [←he]
       exact ht.top
     · rw [if_neg hd]
-      exact hother 720 (Or.inl rfl) (by rw [if_neg hd])
+      exact hother (SharedV3.handL (k.val+1)) (Or.inl rfl) (by rw [if_neg hd])
   · unfold SharedV3.orderPair
     by_cases hd:SharedV3.direction k.val (SharedV3.physical k.val (raw k).val)=0
     · rw [if_pos hd]
@@ -2422,8 +2423,8 @@ theorem step_tbsim (image : Image) (sk : BitVec 256)
       (∀r,L.chainWord r=Frozen.layout.chainWord r) → 
       ∀w index snapshot u padL padR,
       N600.Pre L (SharedV3.viewW w k.val snapshot) index k j rank u → 
-      DigAt snapshot (0x4c0+V3.regionOffset k.val+720) padL → 
-      DigAt snapshot (0x4c0+V3.regionOffset k.val+160) padR → 
+      DigAt snapshot (0x520+V3.regionOffset k.val+720) padL → 
+      DigAt snapshot (0x520+V3.regionOffset k.val+160) padR → 
       TBSim L.image sk u (89+SharedChild.cost k j)
         (N600.program w index k j rank >>=fun ends=>SharedV3.childN w index k j ends padL padR)
         (SharedCore.Post L (SharedV3.viewW w k.val snapshot) index k j u))
@@ -2438,9 +2439,10 @@ theorem step_tbsim (image : Image) (sk : BitVec 256)
     (by simpa only [pcWord,if_pos k.isLt] using hu.pc)
   have hc:=SharedDispatch.chain_pre image k u (SharedV3.viewW w k.val u) index (raw k) (ranks k)
     hi hu.fields.index (hu.fields.raw k) (hu.fields.rank k) (hslot _) (witness_view hu)
-  have hL:DigAt u (0x4c0+V3.regionOffset k.val+720) prev.1 := by
-    convert hu.prevL using 1 <;> unfold V3.regionOffset regionAddr <;> have:=k.isLt <;> omega
-  have hR:DigAt u (0x4c0+V3.regionOffset k.val+160) prev.2 := by
+  have hL:DigAt u (0x520+V3.regionOffset k.val+720) prev.1 := by
+    convert hu.prevL using 1 <;> unfold V3.regionOffset regionAddr SharedV3.handL <;>
+      have:=k.isLt <;> simp only [if_neg (by omega : k.val≠9)] <;> omega
+  have hR:DigAt u (0x520+V3.regionOffset k.val+160) prev.2 := by
     convert hu.prevR using 1 <;> unfold V3.regionOffset regionAddr SharedV3.handR <;>
       have:=k.isLt <;> simp only [if_neg (by omega : k.val≠9)] <;> omega
   have hb:=hcore L k (raw k) (ranks k) hwindow (fun _=>rfl) (fun _=>rfl)
@@ -2475,7 +2477,7 @@ theorem step_tbsim (image : Image) (sk : BitVec 256)
         (Inv w index raw ranks initial (k.val+1)))
     (h0 : Inv w index raw ranks initial 0 (SharedV3.initialPair w) initial) :
     TBSim image sk initial 2016 (SharedV3.forest w index raw (fun k=>N600.embed (ranks k)))
-      (fun pair t=>t.pc=pcOf 46862 ∧ DigAt t 1216 pair.1 ∧ DigAt t 1264 pair.2 ∧
+      (fun pair t=>t.pc=pcOf 46862 ∧ DigAt t 1312 pair.1 ∧ DigAt t 1360 pair.2 ∧
         Frame initial t writes ∧ Fields index raw ranks t) := by
   have he {α:Type} (f:α → Fin 9 → M α) (init:α) :
       (List.finRange 9).foldlM f init=(List.range' 0 9).foldlM
@@ -2518,7 +2520,7 @@ theorem forest_tbsim_of_bank (image : Image) (sk : BitVec 256)
     (ranks : Fin 9 → Fin 563) (initial : MachineState)
     (h0 : Inv w index raw ranks initial 0 (SharedV3.initialPair w) initial) :
     TBSim image sk initial 2016 (SharedV3.forest w index raw (fun k=>N600.embed (ranks k)))
-      (fun pair t=>t.pc=pcOf 46862 ∧ DigAt t 1216 pair.1 ∧ DigAt t 1264 pair.2 ∧
+      (fun pair t=>t.pc=pcOf 46862 ∧ DigAt t 1312 pair.1 ∧ DigAt t 1360 pair.2 ∧
         Frame initial t writes ∧ Fields index raw ranks t) := by
   apply forest_tbsim image sk w index raw ranks initial ?_ h0
   intro k prev u hu
@@ -3273,7 +3275,7 @@ set_option maxRecDepth 100000
 theorem initial_of_original (w : W9Machine.WBytes) (index : Nat)
     (raw : Fin 9→Fin 128) (ranks : Fin 9→Fin 563) (s : MachineState)
     (hp:s.pc=pcOf 46513) (hf:Fields index raw ranks s)
-    (hw:∀A,1216≤A→A+8≤9472→A%8=0→A≠1240→W9Machine.OrigW w s A) :
+    (hw:∀A,1312≤A→A+8≤9472→A%8=0→A≠1336→W9Machine.OrigW w s A) :
     Inv w index raw ranks s 0 (SharedV3.initialPair w) s := by
   refine ⟨by decide,hp,hf,?_,?_,?_,Frame.refl _ _⟩
   · exact W9Machine.DigAt_origW (hw 9280 (by decide) (by decide) (by decide) (by decide))
@@ -3345,7 +3347,7 @@ theorem installed_forest_good (sk : BitVec 256) (output : HashOutput)
       (fun k=>forestRank output k.val) s 0 (SharedV3.initialPair (Paired.witEnc output witness)) s) :
     TBSim Images.expandImage sk s 2016
       (recoverForest index (forestSelectionFromOutput output) (forestWordsFromOutput output) witness.signature.forest)
-      (fun pair t=>t.pc=pcOf 46862 ∧ DigAt t 1216 pair.1 ∧ DigAt t 1264 pair.2 ∧
+      (fun pair t=>t.pc=pcOf 46862 ∧ DigAt t 1312 pair.1 ∧ DigAt t 1360 pair.2 ∧
         Frame s t writes ∧ Fields index (rawChildFromOutput output) (fun k=>forestRank output k.val) t) := by
   have hwin : (Frozen.image.code.drop 195584).take 59072=(Images.expandImage.code.drop 195584).take 59072 := by
     rw [W9Machine.Frozen.image_eq]

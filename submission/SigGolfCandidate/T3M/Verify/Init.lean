@@ -161,18 +161,18 @@ theorem verifyData_initialMask :
     bytesToWordLE ((((submission.image .verify).data).take 8)) = 0xfff#64 := by
   decide +kernel
 set_option maxRecDepth 200000 in
-theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 24924) (s : MachineState)
+theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 24828) (s : MachineState)
     (h : initialState submission .verify (m, pk, w) = some s) : InitOK m pk w s := by
   unfold initialState at h
   simp only [submission_admissible.2 .verify, if_true, Option.some.injEq] at h
   subst h
   have hl : inputBuffers submission.sizes submission.layout .verify (m, pk, w) =
-      [(MSGADDR, bytes m), (0xA0, bytes pk), (0x4c0, bytes w)] := rfl
+      [(MSGADDR, bytes m), (0xA0, bytes pk), (0x520, bytes w)] := rfl
   rw [hl]
   simp only [List.foldl_cons, List.foldl_nil]
   have lm : (bytes m).length = 32 := length_bytes m
   have lp : (bytes pk).length = 16 := length_bytes pk
-  have lw : (bytes w).length = 24924 := length_bytes w
+  have lw : (bytes w).length = 24828 := length_bytes w
   have lD := verifyData_length
   have eD := dataBase_verify
   set blank : MachineState := { regs := fun _ => 0, mem := fun _ => 0, pc := 0x1000 }
@@ -180,7 +180,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 24924) (s : Mac
     (submission.image .verify).data
   set s1 := s0.writeBytesAsWords (BitVec.ofNat 64 MSGADDR) (bytes m)
   set s2 := s1.writeBytesAsWords (BitVec.ofNat 64 0xA0) (bytes pk)
-  set s3 := s2.writeBytesAsWords (BitVec.ofNat 64 0x4c0) (bytes w)
+  set s3 := s2.writeBytesAsWords (BitVec.ofNat 64 0x520) (bytes w)
   have gm : ∀ A, (s3.setReg .x2 (BitVec.ofNat 64 (dataBase (submission.image .verify)))).getMem A =
       s3.getMem A := fun A => by simp [MachineState.setReg, MachineState.getMem]
   have g0 : ∀ A, A < 2 ^ 64 → s0.getMem (BitVec.ofNat 64 A) =
@@ -203,10 +203,10 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 24924) (s : Mac
     intro A hA
     rw [getMem_writeBytesAsWords _ s1 0xA0 A (by rw [lp]; omega) hA, lp]
   have g3 : ∀ A, A < 2 ^ 64 → s3.getMem (BitVec.ofNat 64 A) =
-      if 0x4c0 ≤ A ∧ A < 0x4c0 + 8 * ((24924 + 7) / 8) ∧ (A - 0x4c0) % 8 = 0 then
-        bytesToWordLE (((bytes w).drop (A - 0x4c0)).take 8) else s2.getMem (BitVec.ofNat 64 A) := by
+      if 0x520 ≤ A ∧ A < 0x520 + 8 * ((24828 + 7) / 8) ∧ (A - 0x520) % 8 = 0 then
+        bytesToWordLE (((bytes w).drop (A - 0x520)).take 8) else s2.getMem (BitVec.ofNat 64 A) := by
     intro A hA
-    rw [getMem_writeBytesAsWords _ s2 0x4c0 A (by rw [lw]; omega) hA, lw]
+    rw [getMem_writeBytesAsWords _ s2 0x520 A (by rw [lw]; omega) hA, lw]
   have gb : ∀ A, VERIFY_DATA ≤ A → A < 2 ^ 24 →
       (s3.setReg .x2 (BitVec.ofNat 64 (dataBase (submission.image .verify)))).getByte
         (BitVec.ofNat 64 A) = (submission.image .verify).data.getD (A - VERIFY_DATA) 0 := by
@@ -273,7 +273,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 24924) (s : Mac
   · intro j hj
     unfold WX at hj
     rw [gm, g3 _ (by unfold WIT; omega), if_pos (by unfold WIT; omega),
-      show WIT + 8 * j - 0x4c0 = 8 * j by unfold WIT; omega, bytes_word_lt w j (by norm_num) (by omega)]
+      show WIT + 8 * j - 0x520 = 8 * j by unfold WIT; omega, bytes_word_lt w j (by norm_num) (by omega)]
     rfl
   · intro A hA hz
     unfold WIT at hA

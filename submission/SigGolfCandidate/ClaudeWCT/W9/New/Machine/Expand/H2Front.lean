@@ -2186,7 +2186,7 @@ open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGol
 open SigGolfCandidate.T3M
 set_option maxRecDepth 10000
 set_option maxHeartbeats 2000000
-private theorem low_slot_sub : (1264#64 - 48#64) = 1216#64 := rfl
+private theorem low_slot_sub : (1360#64 - 48#64) = 1312#64 := rfl
 
 abbrev topDest0 (child : Nat) : Nat := 7824 + 560 * (child / 32 % 2)
 def topCode0 : List (BitVec 32) := [0x585313,0x137313,0x23000393,0x2730333,0x2e37,0xe90e0e13,0x6e0e33,0xb08b303,0xb88b383,0x6e3023,0x7e3423]
@@ -2660,8 +2660,8 @@ theorem top7_steps {im : Image} (hc : CodeAt im (pcOf 46354) topCode7)
 #print axioms top7_steps
 
 
-abbrev topDest8 (child : Nat) : Nat := 1264 - 48 * (child / 64 % 2)
-def topCode8 : List (BitVec 32) := [0x685313,0x137313,0x3000393,0x2730333,0x4f000e13,0x406e0e33,0xc08b303,0xc88b383,0x6e3023,0x7e3423]
+abbrev topDest8 (child : Nat) : Nat := 1360 - 48 * (child / 64 % 2)
+def topCode8 : List (BitVec 32) := [0x685313,0x137313,0x3000393,0x2730333,0x55000e13,0x406e0e33,0xc08b303,0xc88b383,0x6e3023,0x7e3423]
 sym_block top8 := symRun { noAlias := true } topCode8 (pcOf 46499) 100
 theorem top8_obligs (s : MachineState) (source child : Nat)
     (hs0 : 28672 ≤ source) (hs1 : source ≤ 31000) (hsa : source % 8 = 0)
@@ -5130,14 +5130,14 @@ theorem after_steps {im : Image} (hc : CodeAt im (pcOf 46509) afterCode)
 `0x66018` and, stage 2 (C3), the L3 encoding row tweak's high word at `WIT + 24` (a witness pad, honest LE64 1),
 which the final clear of `[WIT, WIT + 8256)` erased; the halt flag `t0 = 1` is stored there (`sd t0,24(t4)` took the
 place of the old no-op `addi t3,t3,0`). -/
-def finishCode : List (BitVec 32) := bv_list% 32 [0x66e37,0x18e3303,0x4c000e93,0x26eb023,0x100293,0x5ebc23,0x513]
+def finishCode : List (BitVec 32) := bv_list% 32 [0x66e37,0x18e3303,0x52000e93,0x26eb023,0x100293,0x5ebc23,0x513]
 sym_block finishRun := symRun { noAlias := true } finishCode (pcOf 47005) 20
 
 theorem finish_steps {im : Image} (hc : CodeAt im (pcOf 47005) finishCode)
     (s : MachineState) (hpc : s.pc=pcOf 47005) :
     ∃t, Steps im s 7 7 t ∧ t.pc=pcOf 47012 ∧
-      t.getMem 1248=s.getMem 417816 ∧ t.getMem 1240=1 ∧ t.getReg .x5=1 ∧ t.getReg .x10=0 ∧
-      RegsExcept s t [.x5,.x6,.x10,.x28,.x29] ∧ Frame s t (fun A=>A=1248 ∨ A=1240) := by
+      t.getMem 1344=s.getMem 417816 ∧ t.getMem 1336=1 ∧ t.getReg .x5=1 ∧ t.getReg .x10=0 ∧
+      RegsExcept s t [.x5,.x6,.x10,.x28,.x29] ∧ Frame s t (fun A=>A=1344 ∨ A=1336) := by
   refine ⟨_,symRun_sound finishRun hc s hpc (by simp [finishRun.res,rv_simp]),?_,?_,?_,?_,?_,?_,?_⟩
   · rfl
   · simp [finishRun.res,rv_simp]
@@ -5159,7 +5159,7 @@ open SigGolfCandidate.Research.SharedPathPacking W9Machine
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 10000
 
-theorem coordRegion_source (k : Fin 9) : coordRegion k.val=1216+V3.regionOffset k.val := by
+theorem coordRegion_source (k : Fin 9) : coordRegion k.val=1312+V3.regionOffset k.val := by
   fin_cases k <;> rfl
 
 theorem coordPhysical_source (k raw : Nat) : coordPhysical k raw=SharedV3.physical k raw := by
@@ -5167,33 +5167,33 @@ theorem coordPhysical_source (k raw : Nat) : coordPhysical k raw=SharedV3.physic
 
 theorem pathDestination_source (k : Fin 9) (child : Fin 128) (level : Fin 5) :
     pathDestination (coordRegion k.val) child.val (packedSlots child.val) level.val=
-      1216+V3.regionOffset k.val+SharedV3.sibOff child.val level.val := by
+      1312+V3.regionOffset k.val+SharedV3.sibOff child.val level.val := by
   change destination (coordRegion k.val) (block child.val level.val/16) (child.val/2^level.val)=_
   rw [Packing.path_slot,coordRegion_source]
   simp only [sibling,bitAt,SharedV3.sibOff,SharedV3.blkOff,if_pos level.isLt]
 
 theorem sixthDestination_source (k : Fin 9) (child : Fin 128) :
     destination (coordRegion k.val) 52 (child.val/32)=
-      1216+V3.regionOffset k.val+SharedV3.sibOff child.val 5 := by
+      1312+V3.regionOffset k.val+SharedV3.sibOff child.val 5 := by
   rw [coordRegion_source]
   simp [destination,SharedV3.sibOff,SharedV3.blkOff,Nat.add_assoc]
 
 theorem topDest_source (k : Fin 9) (child : Fin 128) :
-    topDest k.val child.val=1216+SharedV3.topOtherOff k.val child.val := by
+    topDest k.val child.val=1312+SharedV3.topOtherOff k.val child.val := by
   have h : ∀k : Fin 9,∀child : Fin 128,
-      topDest k.val child.val=1216+SharedV3.topOtherOff k.val child.val := by
+      topDest k.val child.val=1312+SharedV3.topOtherOff k.val child.val := by
     intro k;fin_cases k <;> decide +kernel
   exact h k child
 
 theorem chainDestination_source (k : Fin 9) (i : Fin 6) :
-    coordRegion k.val+(688-64*i.val)=1216+(V3.chainOffset k.val i.val+48) := by
+    coordRegion k.val+(688-64*i.val)=1312+(V3.chainOffset k.val i.val+48) := by
   rw [coordRegion_source]
   simp only [V3.chainOffset]
   have := i.isLt
   omega
 
 theorem leafDestination_source (k : Fin 9) (i : Fin 6) (hi : 0 < i.val) :
-    coordRegion k.val+720+16*i.val=1216+(V3.regionOffset k.val+V3.leafSlot i.val) := by
+    coordRegion k.val+720+16*i.val=1312+(V3.regionOffset k.val+V3.leafSlot i.val) := by
   rw [coordRegion_source]
   simp [V3.leafSlot,Nat.ne_of_gt hi,Nat.add_assoc]
 
@@ -5217,8 +5217,8 @@ structure SourceReadout (w : W9Machine.WBytes) (s : MachineState) (k child : Nat
   top : DigAt s (coordSource k+topInput k) (wdig w (SharedV3.topOtherOff k child))
 
 theorem orig_word {w : W9Machine.WBytes} {t : MachineState} (off half : Nat) (hh : half<2)
-    (hm : t.getMem (BitVec.ofNat 64 (1216+off+8*half))=(wdig w off).extractLsb' (64*half) 64) :
-    W9Machine.OrigW w t (1216+off+8*half) := by
+    (hm : t.getMem (BitVec.ofNat 64 (1312+off+8*half))=(wdig w off).extractLsb' (64*half) 64) :
+    W9Machine.OrigW w t (1312+off+8*half) := by
   unfold W9Machine.OrigW
   rw [hm]
   interval_cases half
@@ -5251,15 +5251,15 @@ theorem CoordinateReadout.original {s t : MachineState} {w : W9Machine.WBytes}
   have hp : ∀i<5,∀half<2,W9Machine.OrigW w t (pathDestination (coordRegion k.val) child.val (packedSlots child.val) i+8*half) := by
     intro i hi half hh
     rw [pathDestination_source k child ⟨i,hi⟩]
-    rw [Nat.add_assoc 1216]
+    rw [Nat.add_assoc 1312]
     apply orig_word _ half hh
-    rw [←Nat.add_assoc 1216,←pathDestination_source k child ⟨i,hi⟩,h.paths i hi half hh]
+    rw [←Nat.add_assoc 1312,←pathDestination_source k child ⟨i,hi⟩,h.paths i hi half hh]
     exact digAt_half (hs.paths i hi) half hh
   have h6 : ¬firstCoord k.val → ∀half<2,W9Machine.OrigW w t (destination (coordRegion k.val) 52 (child.val/32)+8*half) := by
     intro hn half hh
-    rw [sixthDestination_source k child,Nat.add_assoc 1216]
+    rw [sixthDestination_source k child,Nat.add_assoc 1312]
     apply orig_word _ half hh
-    rw [←Nat.add_assoc 1216,←sixthDestination_source k child,h.sixth hn half hh]
+    rw [←Nat.add_assoc 1312,←sixthDestination_source k child,h.sixth hn half hh]
     exact digAt_half (hs.sixth hn) half hh
   have ht : ∀half<2,W9Machine.OrigW w t (topDest k.val child.val+8*half) := by
     intro half hh
@@ -6300,7 +6300,7 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 set_option autoImplicit false
 set_option maxHeartbeats 1500000
 set_option maxRecDepth 10000
-def setupCode : List (BitVec 32) := [0x4c000e13,0x20eb7,0x260e8e93,0xe3303,0x8e3383,0x6eb023,0x7eb423,0x30e3303,0x38e3383,0x26eb823,0x27ebc23,0x7e37,0xe0e13,0x1eb7,0x800e8e93,0xe3303,0x8e3383,0x6eb023,0x7eb423,0x66e37,0xe0e13,0x8e3303,0x6eb823,0xebc23,0x20eb023,0x20eb423,0x20eb823,0x20ebc23,0x8e37,0x4b8e0e13,0x8eb7,0x5e8e8e93,0x1ac00913]
+def setupCode : List (BitVec 32) := [0x52000e13,0x20eb7,0x260e8e93,0xe3303,0x8e3383,0x6eb023,0x7eb423,0x30e3303,0x38e3383,0x26eb823,0x27ebc23,0x7e37,0xe0e13,0x1eb7,0x800e8e93,0xe3303,0x8e3383,0x6eb023,0x7eb423,0x66e37,0xe0e13,0x8e3303,0x6eb823,0xebc23,0x20eb023,0x20eb423,0x20eb823,0x20ebc23,0x8e37,0x4b8e0e13,0x8eb7,0x5e8e8e93,0x1ac00913]
 sym_block setupRun := symRun {noAlias:=true} setupCode (pcOf 46862) 100
 def tailCode : List (BitVec 32) := [0x22137,0x10113,0x293,0xf04d206f]
 sym_block tailRun := symRun {noAlias:=true} tailCode (pcOf 46901) 20
@@ -6309,7 +6309,7 @@ theorem setup_steps {im : Image} (hc : CodeAt im (pcOf 46862) setupCode)
     (s : MachineState) (hp : s.pc=pcOf 46862) :
     ∃t,Steps im s 33 33 t ∧ t.pc=pcOf 46895 ∧
       t.getReg .x28=33976 ∧ t.getReg .x29=34280 ∧ t.getReg .x18=428 ∧
-      (∀o,o=0 ∨ o=8 ∨ o=48 ∨ o=56 → t.getMem (BitVec.ofNat 64 (0x20260+o))=s.getMem (BitVec.ofNat 64 (1216+o))) ∧
+      (∀o,o=0 ∨ o=8 ∨ o=48 ∨ o=56 → t.getMem (BitVec.ofNat 64 (0x20260+o))=s.getMem (BitVec.ofNat 64 (1312+o))) ∧
       (∀i<2,t.getMem (BitVec.ofNat 64 (2048+8*i))=s.getMem (BitVec.ofNat 64 (0x7000+8*i))) ∧
       t.getMem 2064=s.getMem 0x66008 ∧
       (∀ i : Nat, 3 ≤ i → i < 8 → t.getMem (BitVec.ofNat 64 (2048+8*i))=0) ∧
@@ -6361,7 +6361,7 @@ structure Code (im : Image) : Prop where
 
 theorem steps {im : Image} (hc : Code im) (s : MachineState) (hp : s.pc=pcOf 46862) :
     ∃t,Steps im s 2605 2605 t ∧ t.pc=pcOf 249 ∧ t.getReg .x2=0x22000 ∧ t.getReg .x5=0 ∧
-      (∀o,(o=0 ∨ o=8 ∨ o=48 ∨ o=56) → t.getMem (BitVec.ofNat 64 (0x20260+o))=s.getMem (BitVec.ofNat 64 (1216+o))) ∧
+      (∀o,(o=0 ∨ o=8 ∨ o=48 ∨ o=56) → t.getMem (BitVec.ofNat 64 (0x20260+o))=s.getMem (BitVec.ofNat 64 (1312+o))) ∧
       (∀i,i<2 → t.getMem (BitVec.ofNat 64 (2048+8*i))=s.getMem (BitVec.ofNat 64 (0x7000+8*i))) ∧
       t.getMem 2064=s.getMem 0x66008 ∧
       (∀ i : Nat, 3 ≤ i → i < 8 → t.getMem (BitVec.ofNat 64 (2048+8*i))=0) ∧
@@ -6516,7 +6516,7 @@ def rawSlots (k child : Nat) (values : Fin 6→SigGolfCandidate.T3.Digest)
 theorem rawSlots_written (k : Fin 9) (child : Fin 128)
     (values : Fin 6→SigGolfCandidate.T3.Digest) (path : Nat→SigGolfCandidate.T3.Digest)
     (p : Nat×SigGolfCandidate.T3.Digest) (hp:p∈rawSlots k.val child.val values path)
-    (half : Nat) (hh:half<2) : PreciseCoordinateW k.val child.val (1216+p.1+8*half) := by
+    (half : Nat) (hh:half<2) : PreciseCoordinateW k.val child.val (1312+p.1+8*half) := by
   unfold rawSlots at hp
   simp only [List.mem_append,List.mem_flatMap,List.mem_map,List.mem_cons,List.not_mem_nil,or_false] at hp
   rcases hp with (⟨i,hi,hp⟩|⟨l,hl,hp⟩)|hp
@@ -6530,9 +6530,9 @@ theorem rawSlots_written (k : Fin 9) (child : Fin 128)
     · by_cases hz:i.val=0
       · have ie:i=0:=Fin.ext hz
         subst i
-        change PreciseCoordinateW k.val child.val (1216+(V3.regionOffset k.val+688)+8*half)
+        change PreciseCoordinateW k.val child.val (1312+(V3.regionOffset k.val+688)+8*half)
         rw [show V3.regionOffset k.val+688=V3.chainOffset k.val 0+48 by unfold V3.chainOffset;omega,
-          show 1216+(V3.chainOffset k.val 0+48)=coordRegion k.val+688 by
+          show 1312+(V3.chainOffset k.val 0+48)=coordRegion k.val+688 by
             simpa only [Fin.val_zero] using (chainDestination_source k (0:Fin 6)).symm]
         apply Or.inl;apply Or.inl;apply Or.inl
         refine ⟨0,by decide,?_⟩
@@ -6577,8 +6577,8 @@ theorem rawSlots_written (k : Fin 9) (child : Fin 128)
 theorem slot_free_of_not_written (slots : List (Nat×SigGolfCandidate.T3.Digest))
     (W : Nat→Prop) (off : Nat) (ha:off%8=0)
     (halign:∀p∈slots,p.1%16=0)
-    (hw:∀p∈slots,∀h,h<2→W (1216+p.1+8*h))
-    (hn:¬W (1216+off)) : ∀p∈slots,off+8≤p.1 ∨ p.1+16≤off := by
+    (hw:∀p∈slots,∀h,h<2→W (1312+p.1+8*h))
+    (hn:¬W (1312+off)) : ∀p∈slots,off+8≤p.1 ∨ p.1+16≤off := by
   intro p hp
   have hal:=halign p hp
   by_contra h
@@ -7038,12 +7038,12 @@ theorem witPad24_witEnc (output : HashOutput) (witness : SharedForest.Witness) :
 original word, except the counter word (`off = 32`, unless the counter is 0) and the C3 pad (`off = 24`). -/
 theorem prefix_of_slots_c3 (output : HashOutput) (witness : SharedForest.Witness)
     (s t : MachineState) (W : Nat→Prop)
-    (hslots : ∀p∈Paired.forestSlots output witness.signature,∀half,half<2→W (1216+p.1+8*half))
+    (hslots : ∀p∈Paired.forestSlots output witness.signature,∀half,half<2→W (1312+p.1+8*half))
     (hread : ∀A,W A→W9Machine.OrigW (Paired.witEnc output witness) t A)
     (hframe : ∀A,A<2^64→¬W A→t.getMem (BitVec.ofNat 64 A)=s.getMem (BitVec.ofNat 64 A))
-    (hzero : ∀ (off : Nat), off + 8 ≤ 8256 → off % 8 = 0 → s.getMem (BitVec.ofNat 64 (1216+off))=0)
-    (off:Nat) (hb:off+8≤8256) (ha:off%8=0) (hc:off≠32∨witness.counters 3=0) (hp:off≠24) :
-    W9Machine.OrigW (Paired.witEnc output witness) t (1216+off) := by
+    (hzero : ∀ (off : Nat), off + 8 ≤ 8160 → off % 8 = 0 → s.getMem (BitVec.ofNat 64 (1312+off))=0)
+    (off:Nat) (hb:off+8≤8160) (ha:off%8=0) (hc:off≠32∨witness.counters 3=0) (hp:off≠24) :
+    W9Machine.OrigW (Paired.witEnc output witness) t (1312+off) := by
   first
   | exact PairedReadout.original_prefix_of_slots output witness s t W hslots hread hframe hzero off hb ha hc hp
   | exact PairedReadout.original_prefix_of_slots output witness s t W hslots hread hframe hzero off hb ha ⟨hc,hp⟩
@@ -7059,9 +7059,9 @@ theorem ScatterInv.original_prefix (output : HashOutput) (witness : SharedForest
     (hin : SharedCompact.InflatedAt s b)
     (hforest : witness.signature.forest=(SharedCodec.sigDecC b).forest)
     (hi : ScatterInv s (SharedForest.rawChildFromOutput output) 9 t)
-    (hz : ∀ (off : Nat), off + 8 ≤ 8256 → off % 8 = 0 → s.getMem (BitVec.ofNat 64 (1216+off))=0)
-    (off : Nat) (hb : off+8≤8256) (ha : off%8=0) (hc : off≠32∨witness.counters 3=0) (hp : off≠24) :
-    W9Machine.OrigW (Paired.witEnc output witness) t (1216+off) := by
+    (hz : ∀ (off : Nat), off + 8 ≤ 8160 → off % 8 = 0 → s.getMem (BitVec.ofNat 64 (1312+off))=0)
+    (off : Nat) (hb : off+8≤8160) (ha : off%8=0) (hc : off≠32∨witness.counters 3=0) (hp : off≠24) :
+    W9Machine.OrigW (Paired.witEnc output witness) t (1312+off) := by
   let writes := fun A => ∃k:Fin 9,k.val<9 ∧
     PreciseCoordinateW k.val (coordPhysical k.val (SharedForest.rawChildFromOutput output k).val) A
   apply prefix_of_slots_c3 output witness s t writes _ _ _ hz off hb ha hc hp
@@ -7154,7 +7154,7 @@ theorem ScatterInv.forest_pre (output : HashOutput) (witness : SharedForest.Witn
     (hfields : SharedForestRun.Fields index (SharedForest.rawChildFromOutput output)
       (fun k=>SharedForest.forestRank output k.val) s)
     (uf : Frame t u (fun _=>False)) (up : u.pc=pcOf 46513)
-    (hz : ∀ (off : Nat), off + 8 ≤ 8256 → off % 8 = 0 → s.getMem (BitVec.ofNat 64 (1216+off))=0)
+    (hz : ∀ (off : Nat), off + 8 ≤ 8160 → off % 8 = 0 → s.getMem (BitVec.ofNat 64 (1312+off))=0)
     (hc3 : witness.counters 3=0) :
     SharedForestRun.Inv (Paired.witEnc output witness) index (SharedForest.rawChildFromOutput output)
       (fun k=>SharedForest.forestRank output k.val) u 0
@@ -7164,9 +7164,9 @@ theorem ScatterInv.forest_pre (output : HashOutput) (witness : SharedForest.Witn
   apply SharedForestRun.initial_of_original _ _ _ _ u up
   · exact SharedForestRun.fields_frame hframe hfields
   · intro A hA hB h8 hpad
-    have ho:A-1216+8≤8256:=by omega
-    have he:1216+(A-1216)=A:=by omega
-    have hw:=ScatterInv.original_prefix output witness b s t hin hforest ht hz (A-1216) ho
+    have ho:A-1312+8≤8160:=by omega
+    have he:1312+(A-1312)=A:=by omega
+    have hw:=ScatterInv.original_prefix output witness b s t hin hforest ht hz (A-1312) ho
       (by omega) (Or.inr hc3) (by omega)
     rw[he] at hw
     unfold W9Machine.OrigW at hw ⊢
@@ -7230,7 +7230,7 @@ theorem scatter_forest_pre {im : Image} (hc : ∀k:Fin 9,CoordinateCode im k.val
     (hfields : SharedForestRun.Fields index (SharedForest.rawChildFromOutput output)
       (fun k=>SharedForest.forestRank output k.val) s)
     (hplan : PlanAt s) (hmode : s.getMem 417824=0)
-    (hz : ∀ (off : Nat), off + 8 ≤ 8256 → off % 8 = 0 → s.getMem (BitVec.ofNat 64 (1216+off))=0)
+    (hz : ∀ (off : Nat), off + 8 ≤ 8160 → off % 8 = 0 → s.getMem (BitVec.ofNat 64 (1312+off))=0)
     (hc3 : witness.counters 3=0) :
     ∃u, Steps im s 1256 1433 u ∧
       SharedForestRun.Inv (Paired.witEnc output witness) index (SharedForest.rawChildFromOutput output)
@@ -7324,9 +7324,9 @@ theorem ScatterInv.original_prefix_forest (output : HashOutput) (witness : Share
     (hin : SharedCompact.ForestAt s b)
     (hforest : witness.signature.forest=(SharedCodec.sigDecC b).forest)
     (hi : ScatterInv s (SharedForest.rawChildFromOutput output) 9 t)
-    (hz : ∀ (off : Nat), off + 8 ≤ 8256 → off % 8 = 0 → s.getMem (BitVec.ofNat 64 (1216+off))=0)
-    (off : Nat) (hb : off+8≤8256) (ha : off%8=0) (hc : off≠32∨witness.counters 3=0) (hp : off≠24) :
-    W9Machine.OrigW (Paired.witEnc output witness) t (1216+off) := by
+    (hz : ∀ (off : Nat), off + 8 ≤ 8160 → off % 8 = 0 → s.getMem (BitVec.ofNat 64 (1312+off))=0)
+    (off : Nat) (hb : off+8≤8160) (ha : off%8=0) (hc : off≠32∨witness.counters 3=0) (hp : off≠24) :
+    W9Machine.OrigW (Paired.witEnc output witness) t (1312+off) := by
   let writes := fun A => ∃k:Fin 9,k.val<9 ∧
     PreciseCoordinateW k.val (coordPhysical k.val (SharedForest.rawChildFromOutput output k).val) A
   apply prefix_of_slots_c3 output witness s t writes _ _ _ hz off hb ha hc hp
@@ -7604,8 +7604,8 @@ theorem layer_inv {b : SharedCodec.CBytes} {s t : MachineState} {index : Nat} {p
     (hp : t.pc=pcOf 249) (h5 : t.getReg .x5=0) (hi : index<2^31)
     (hidx : s.getMem (BitVec.ofNat 64 SigGolfCandidate.T3M.Expand.IDXV)=BitVec.ofNat 64 index)
     (hin : SharedCompact.InflatedAt s b)
-    (hL : DigAt s 1216 pair.1) (hR : DigAt s 1264 pair.2)
-    (hroots : ∀o,(o=0 ∨ o=8 ∨ o=48 ∨ o=56) → t.getMem (BitVec.ofNat 64 (0x20260+o))=s.getMem (BitVec.ofNat 64 (1216+o)))
+    (hL : DigAt s 1312 pair.1) (hR : DigAt s 1360 pair.2)
+    (hroots : ∀o,(o=0 ∨ o=8 ∨ o=48 ∨ o=56) → t.getMem (BitVec.ofNat 64 (0x20260+o))=s.getMem (BitVec.ofNat 64 (1312+o)))
     (hmove : ∀i,i<428 → t.getMem (BitVec.ofNat 64 (30864+8*i))=s.getMem (BitVec.ofNat 64 (30560+8*i)))
     (hf : Frame s t Writes)
     (hc32 : ∃x<2^32,s.getMem (BitVec.ofNat 64 (ENC+32))=BitVec.ofNat 64 x)

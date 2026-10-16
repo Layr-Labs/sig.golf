@@ -6,15 +6,16 @@ open OracleComp OracleSpec SigGolfCandidate.T3
 open SigGolfCandidate.T3M (sibOff chainP nodeHashP PubGood allQ_bind allQ_mapM allQ_foldlM pubGood_chainP
   pubGood_leafHash pubGood_nodeHashP)
 open SigGolfCandidate.T3M.SecurityExtraction (hashPath merkleInput foldlM_finRange_eq_hashPath)
-/-- Nested FTS (r1-1): the witness starts at absolute 1216. C2: W 24860 -> 24924 (ends at 26140; message at 26144). -/
-def wsize : Nat := 24924
-abbrev WBytes := BitVec (8 * 24924)
+/-- Nested FTS (r1-1): the witness starts at absolute 1216. C2: W 24860 -> 24924 (ends at 26140; message at 26144).
+Witness trim: the witness starts at absolute 1312 (W 24924 -> 24828, same end 26140); old offsets >= 176 drop by 96. -/
+def wsize : Nat := 24828
+abbrev WBytes := BitVec (8 * 24828)
 def wbyte (w : WBytes) (i : Nat) : UInt8 := UInt8.ofBitVec (w.extractLsb' (8 * i) 8)
 def wdig (w : WBytes) (off : Nat) : Digest := w.extractLsb' (8 * off) 128
 def wle32 (w : WBytes) (off : Nat) : BitVec 32 := w.extractLsb' (8 * off) 32
-def rhoOff : Nat := 24896
-def dcOff : Nat := 24920
-def layerBase (lay : Layer) : Nat := (![8256, 12480, 15632, 18704] : Layer → Nat) lay
+def rhoOff : Nat := 24800
+def dcOff : Nat := 24824
+def layerBase (lay : Layer) : Nat := (![8160, 12384, 15536, 18608] : Layer → Nat) lay
 def pathSlots (lay : Layer) : Nat := (![48, 25, 20, 20] : Layer → Nat) lay
 def lowerPlanL1 : List (List Nat) :=[[1,4,7,10,13,21,16],[0,4,7,10,13,21,16],[1,8,12,15,18,21,4],[0,8,12,15,18,21,4],[1,4,11,15,18,21,7],[0,4,11,15,18,21,7],[1,11,8,15,18,21,4],[0,11,8,15,18,21,4],[1,4,7,14,18,21,10],[0,4,7,14,18,21,10],[1,11,15,8,18,21,4],[0,11,15,8,18,21,4],[1,4,14,11,18,21,7],[0,4,14,11,18,21,7],[1,14,11,8,18,21,4],[0,14,11,8,18,21,4],[1,4,7,10,17,21,13],[0,4,7,10,17,21,13],[1,11,15,18,8,21,4],[0,11,15,18,8,21,4],[1,4,14,18,11,21,7],[0,4,14,18,11,21,7],[1,14,11,18,8,21,4],[0,14,11,18,8,21,4],[1,4,7,17,14,21,10],[0,4,7,17,14,21,10],[1,14,18,11,8,21,4],[0,14,18,11,8,21,4],[1,4,17,14,11,21,7],[0,4,17,14,11,21,7],[1,17,14,11,8,21,4],[0,17,14,11,8,21,4],[1,4,7,10,13,20,16],[0,4,7,10,13,20,16],[1,11,15,18,21,8,4],[0,11,15,18,21,8,4],[1,4,14,18,21,11,7],[0,4,14,18,21,11,7],[1,14,11,18,21,8,4],[0,14,11,18,21,8,4],[1,4,7,17,21,14,10],[0,4,7,17,21,14,10],[1,14,18,11,21,8,4],[0,14,18,11,21,8,4],[1,4,17,14,21,11,7],[0,4,17,14,21,11,7],[1,17,14,11,21,8,4],[0,17,14,11,21,8,4],[1,4,7,10,20,17,13],[0,4,7,10,20,17,13],[1,14,18,21,11,8,4],[0,14,18,21,11,8,4],[1,4,17,21,14,11,7],[0,4,17,21,14,11,7],[1,17,14,21,11,8,4],[0,17,14,21,11,8,4],[1,4,7,20,17,14,10],[0,4,7,20,17,14,10],[1,17,21,14,11,8,4],[0,17,21,14,11,8,4],[1,4,20,17,14,11,7],[0,4,20,17,14,11,7],[1,20,17,14,11,8,4],[0,20,17,14,11,8,4],[1,4,7,10,18,21,14],[0,4,7,10,18,21,14],[1,8,12,15,18,21,5],[0,8,12,15,18,21,5],[1,4,11,15,18,21,8],[0,4,11,15,18,21,8],[1,11,8,15,18,21,5],[0,11,8,15,18,21,5],[1,4,7,14,18,21,11],[0,4,7,14,18,21,11],[1,11,15,8,18,21,5],[0,11,15,8,18,21,5],[1,4,14,11,18,21,8],[0,4,14,11,18,21,8],[1,14,11,8,18,21,5],[0,14,11,8,18,21,5],[1,4,7,10,17,21,14],[0,4,7,10,17,21,14],[1,11,15,18,8,21,5],[0,11,15,18,8,21,5],[1,4,14,18,11,21,8],[0,4,14,18,11,21,8],[1,14,11,18,8,21,5],[0,14,11,18,8,21,5],[1,4,7,17,14,21,11],[0,4,7,17,14,21,11],[1,14,18,11,8,21,5],[0,14,18,11,8,21,5],[1,4,17,14,11,21,8],[0,4,17,14,11,21,8],[1,17,14,11,8,21,5],[0,17,14,11,8,21,5],[1,4,7,10,21,17,14],[0,4,7,10,21,17,14],[1,11,15,18,21,8,5],[0,11,15,18,21,8,5],[1,4,14,18,21,11,8],[0,4,14,18,21,11,8],[1,14,11,18,21,8,5],[0,14,11,18,21,8,5],[1,4,7,17,21,14,11],[0,4,7,17,21,14,11],[1,14,18,11,21,8,5],[0,14,18,11,21,8,5],[1,4,17,14,21,11,8],[0,4,17,14,21,11,8],[1,17,14,11,21,8,5],[0,17,14,11,21,8,5],[1,4,7,10,20,17,14],[0,4,7,10,20,17,14],[1,14,18,21,11,8,5],[0,14,18,21,11,8,5],[1,4,17,21,14,11,8],[0,4,17,21,14,11,8],[1,17,14,21,11,8,5],[0,17,14,21,11,8,5],[1,4,7,20,17,14,11],[0,4,7,20,17,14,11],[1,17,21,14,11,8,5],[0,17,21,14,11,8,5],[1,4,20,17,14,11,8],[0,4,20,17,14,11,8],[1,20,17,14,11,8,5],[0,20,17,14,11,8,5]]
 def lowerPlanL32 : List (List Nat) :=[[1,4,7,10,13,16],[0,4,7,10,13,16],[4,0,7,10,13,16],[3,0,7,10,13,16],[4,7,0,10,13,16],[3,7,0,10,13,16],[7,3,0,10,13,16],[6,3,0,10,13,16],[4,7,10,0,13,16],[3,7,10,0,13,16],[7,3,10,0,13,16],[6,3,10,0,13,16],[7,10,3,0,13,16],[6,10,3,0,13,16],[10,6,3,0,13,16],[9,6,3,0,13,16],[4,7,10,13,0,16],[3,7,10,13,0,16],[7,3,10,13,0,16],[6,3,10,13,0,16],[7,10,3,13,0,16],[6,10,3,13,0,16],[10,6,3,13,0,16],[9,6,3,13,0,16],[7,10,13,3,0,16],[6,10,13,3,0,16],[10,6,13,3,0,16],[9,6,13,3,0,16],[10,13,6,3,0,16],[9,13,6,3,0,16],[13,9,6,3,0,16],[12,9,6,3,0,16],[4,7,10,13,16,0],[3,7,10,13,16,0],[7,3,10,13,16,0],[6,3,10,13,16,0],[7,10,3,13,16,0],[6,10,3,13,16,0],[10,6,3,13,16,0],[9,6,3,13,16,0],[7,10,13,3,16,0],[6,10,13,3,16,0],[10,6,13,3,16,0],[9,6,13,3,16,0],[10,13,6,3,16,0],[9,13,6,3,16,0],[13,9,6,3,16,0],[12,9,6,3,16,0],[7,10,13,16,3,0],[6,10,13,16,3,0],[10,6,13,16,3,0],[9,6,13,16,3,0],[10,13,6,16,3,0],[9,13,6,16,3,0],[13,9,6,16,3,0],[12,9,6,16,3,0],[10,13,16,6,3,0],[9,13,16,6,3,0],[13,9,16,6,3,0],[12,9,16,6,3,0],[13,16,9,6,3,0],[12,16,9,6,3,0],[16,12,9,6,3,0],[15,12,9,6,3,0]]
@@ -46,7 +47,7 @@ theorem wdc_toNat_le (w : WBytes) : (wdc w).toNat ≤ (wdcWord w).toNat := by
   exact Nat.mod_le _ _
 def wvalue (w : WBytes) (lay : Layer) (i : Nat) : Digest := wdig w (chainBlock lay i + 48)
 /-- Offsets in expanded witness memory, before its 2048-byte machine base. -/
-def leafBufferBase (lay : Layer) : Nat := (![23984,23248,22512,21776] : Layer → Nat) lay
+def leafBufferBase (lay : Layer) : Nat := (![23888,23152,22416,21680] : Layer → Nat) lay
 
 def leafBufferSlot (lay : Layer) (i : Nat) : Nat :=
   leafBufferBase lay + (if lay = 0 then 32+16*i else if i = 0 then 0 else 16+16*i)
@@ -85,11 +86,11 @@ theorem leafBufferSlot_head_gap (lay : Layer) (h : lay ≠ 0) :
   simp [leafBufferSlot,h]
 
 theorem leafBufferBase_bounds (lay : Layer) :
-    21776 ≤ leafBufferBase lay ∧ leafBufferBase lay ≤ 23984 ∧ leafBufferBase lay % 16 = 0 := by
+    21680 ≤ leafBufferBase lay ∧ leafBufferBase lay ≤ 23888 ∧ leafBufferBase lay % 16 = 0 := by
   fin_cases lay <;> decide +kernel
 
 theorem leafBufferSlot_bounds (lay : Layer) (i : Nat) (hi : i < chainCount lay) :
-    21776 ≤ leafBufferSlot lay i ∧ leafBufferSlot lay i + 32 ≤ 24896 ∧
+    21680 ≤ leafBufferSlot lay i ∧ leafBufferSlot lay i + 32 ≤ 24800 ∧
       leafBufferSlot lay i % 16 = 0 := by
   fin_cases lay <;> simp only [chainCount, Fin.isValue, Matrix.cons_val_zero,
     Matrix.cons_val_succ] at hi
@@ -195,7 +196,7 @@ theorem chainPW_top (tree leaf i start count : Nat) (pad0 pad1 : Digest) (header
     chainPW 0 tree leaf i start count pad0 pad1 headerPad value =
       chainP 0 tree leaf i start count pad0 pad1 headerPad value :=
   chainPW_of_low (fun _ _ _ => WCT9.chainHigh_top _ _) tree leaf pad0 pad1 headerPad value
-theorem layerBase_values : List.ofFn (fun lay : Layer => layerBase lay) = [8256, 12480, 15632, 18704] := rfl
+theorem layerBase_values : List.ofFn (fun lay : Layer => layerBase lay) = [8160, 12384, 15536, 18608] := rfl
 theorem layerBase_tiles : ∀ lay : Fin 3,
     layerBase lay.castSucc + 16 * pathSlots lay.castSucc + 64 * chainCount lay.castSucc = layerBase lay.succ := by
   decide

@@ -96,8 +96,8 @@ theorem topLeafReady_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : N
       intro A hA
       rw [hf.get (by omega) (by unfold topChainWrites; omega), he.frame.get (by omega) (by omega),
         writeHash_frame t a d A h12 (by omega) (by omega) (Or.inr (by omega))]
-    have hlb0 : ClaudeWCT.W9.T3M.leafBufferBase 0 = 23984 := rfl
-    have hpad := ht.bufferOrig.dig 23984 (by decide) (by unfold WX; decide) ⟨by decide, by decide⟩
+    have hlb0 : ClaudeWCT.W9.T3M.leafBufferBase 0 = 23888 := rfl
+    have hpad := ht.bufferOrig.dig 23888 (by decide) (by unfold WX; decide) ⟨by decide, by decide⟩
       ⟨by decide, by decide⟩
     unfold ClaudeWCT.W9.T3M.wtopLeafPad; rw [hlb0]
     exact ⟨(hfr 25200 (Or.inl rfl)).trans hpad.1, (hfr 25208 (Or.inr rfl)).trans hpad.2⟩
@@ -105,8 +105,8 @@ theorem topLeafReady_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : N
     have h1 : s.getMem (BitVec.ofNat 64 25224) = t.getMem (BitVec.ofNat 64 25224) := by
       rw [hf.get (by omega) (by unfold topChainWrites; omega), he.frame.get (by omega) (by omega),
         writeHash_frame t a d 25224 h12 (by omega) (by omega) (Or.inr (by omega))]
-    have hlb0 : ClaudeWCT.W9.T3M.leafBufferBase 0 = 23984 := rfl
-    have hhi := ht.bufferOrig.hi 24000 (by decide) (by unfold WX; decide) ⟨by decide, by decide⟩
+    have hlb0 : ClaudeWCT.W9.T3M.leafBufferBase 0 = 23888 := rfl
+    have hhi := ht.bufferOrig.hi 23904 (by decide) (by unfold WX; decide) ⟨by decide, by decide⟩
     unfold ClaudeWCT.W9.T3M.wleafHigh; rw [hlb0]
     exact h1.trans hhi
 end SigGolfCandidate.T3M
@@ -121,8 +121,8 @@ open Nonbinary (NCtx)
 set_option maxHeartbeats 1000000
 set_option linter.unusedSimpArgs false
 theorem nctx_block (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (v : Digest) (p i : Nat) :
-    (nctxOf w index v p).blk i - 0x4c0 = ClaudeWCT.W9.T3M.chainBlock 0 i := by
-  change 11904 - 1664 + 64 * (53 - i) - 1216 = 8256 + 16 * 48 + 64 * (54 - 1 - i)
+    (nctxOf w index v p).blk i - 0x520 = ClaudeWCT.W9.T3M.chainBlock 0 i := by
+  change 11904 - 1664 + 64 * (53 - i) - 1312 = 8160 + 16 * 48 + 64 * (54 - 1 - i)
   omega
 def srcChain (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (v : Digest) (i : Nat) : T3.M Digest :=
   chainP 0 (route index 0).2 (route index 0).1 i ((dataDigits 0 v).getD i 0)

@@ -20,12 +20,12 @@ def last (i : Nat) : Nat := topMax i - 1
 def «prefix» (c : NCtx) : Nat := 128 + 193 * 2 ^ 56 + ((c.tree * 2 ^ 12 + c.leaf) % 2 ^ 32) * 2 ^ 16
 def w0 (c : NCtx) (i : Nat) : Nat := c.prefix + i
 def w1 (c : NCtx) : Nat := hdr1 c.tree c.leaf
-def pad0 (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x4c0)
-def pad1 (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x4c0 + 32)
-def padHeader (c : NCtx) (i : Nat) : Word := (ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x4c0 + 16)).extractLsb' 64 64
-def val (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x4c0 + 48)
+def pad0 (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x520)
+def pad1 (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x520 + 32)
+def padHeader (c : NCtx) (i : Nat) : Word := (ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x520 + 16)).extractLsb' 64 64
+def val (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x520 + 48)
 def ok (c : NCtx) : Prop :=
-  c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ 0x4c0 + 8256 + 1664 ≤ c.S3 ∧ c.S3 + 2064 ≤ 0x5000 ∧
+  c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ 0x520 + 8160 + 1664 ≤ c.S3 ∧ c.S3 + 2064 ≤ 0x5000 ∧
     c.ret < 209920
 def known (c : NCtx) : List (Reg × Word) :=
   [(.x5, 0), (.x11, 64), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
@@ -50,7 +50,7 @@ def bufferEnd (c : NCtx) (i : Nat) : Nat :=
 def bufferOrig (c : NCtx) (s0 : MachineState) : Prop :=
   ∀ i, i < 54 → ∀ k < 2, OrigW c.w s0 (slot i + 8*k)
 def bufferVal (c : NCtx) (i : Nat) : Digest :=
-  if c.bufferSafe i then ClaudeWCT.W9.T3M.wdig c.w (slot i - 0x4c0) else c.val i
+  if c.bufferSafe i then ClaudeWCT.W9.T3M.wdig c.w (slot i - 0x520) else c.val i
 def r8Start (c : NCtx) (i : Nat) : Nat :=
   if i = 51 then blkW c.k17 else if i = 52 then blkW c.k17 + partLen 17 (c.dig 51) else sufW (c.dig 53) (decide (c.dig 52=7))
 def startPc (c : NCtx) (i : Nat) : Nat :=
@@ -93,7 +93,7 @@ def PreHash (c : NCtx) (s0 : MachineState) (i : Nat) (acc : List Digest) (m : Na
 def EndInv (c : NCtx) (s0 : MachineState) (i : Nat) (acc : List Digest) (s : MachineState) : Prop :=
   c.Base s0 (c.Wr (i + 1)) acc s ∧ acc.length = i + 1 ∧ s.pc = pcOf (c.endPc i)
 theorem blk_props (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 54) :
-    c.blk i % 8 = 0 ∧ 0x4c0 + 8256 ≤ c.blk i ∧ c.blk i + 80 ≤ 0x5000 := by
+    c.blk i % 8 = 0 ∧ 0x520 + 8160 ≤ c.blk i ∧ c.blk i + 80 ≤ 0x5000 := by
   obtain ⟨-, -, h64, hlo, hhi, -⟩ := hc
   unfold blk; refine ⟨?_, ?_, ?_⟩ <;> omega
 theorem blk_le (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 54) : c.blk i + 64 * i = c.blk 0 := by
@@ -173,7 +173,7 @@ theorem pads_at {c : NCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 s0) {
   rw [show c.blk i + 8 * 5 = c.blk i + 32 + 8 by ring] at o5
   refine ⟨DigAt_origW o0 o1 (by omega), ?_⟩
   have := DigAt_origW o4 o5 (by omega)
-  rwa [show c.blk i + 32 - 0x4c0 = c.blk i - 0x4c0 + 32 by omega] at this
+  rwa [show c.blk i + 32 - 0x520 = c.blk i - 0x520 + 32 by omega] at this
 theorem val_at {c : NCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 s0) {i : Nat} (hi : i < 54)
     (hF : Frame s0 t (c.Wr i)) : DigAt t (c.blk i + 48) (c.val i) := by
   have hb := c.blk_props hc i hi
@@ -189,7 +189,7 @@ theorem val_at {c : NCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 s0) {i
   rw [show c.blk i + 8 * 6 = c.blk i + 48 by ring] at o6
   rw [show c.blk i + 8 * 7 = c.blk i + 48 + 8 by ring] at o7
   have := DigAt_origW o6 o7 (by omega)
-  rwa [show c.blk i + 48 - 0x4c0 = c.blk i - 0x4c0 + 48 by omega] at this
+  rwa [show c.blk i + 48 - 0x520 = c.blk i - 0x520 + 48 by omega] at this
 theorem topMax_bounds (i : Nat) : 3 ≤ topMax i ∧ topMax i ≤ 7 := by
   unfold topMax mx; split <;> omega
 theorem topMax_hi (i : Nat) (hi : 51 ≤ i) : topMax i = 7 := by
@@ -307,7 +307,7 @@ theorem bufferSafe_source (c : NCtx) (digits : List Nat)
     simp
 
 theorem bufferSlot_source (i : Nat) :
-    slot i - 0x4c0 = ClaudeWCT.W9.T3M.leafBufferSlot 0 i := by
+    slot i - 0x520 = ClaudeWCT.W9.T3M.leafBufferSlot 0 i := by
   simp [slot, ClaudeWCT.W9.T3M.leafBufferSlot, ClaudeWCT.W9.T3M.leafBufferBase]
   omega
 

@@ -11,8 +11,11 @@ open ClaudeWCT.W9.Machine.Expand.Compact (cfgC)
 set_option linter.unusedSimpArgs false
 def WIT : Nat := 0x800
 def SNAP2 : Nat := 0x300000
-/-- Nested FTS (r1-1): the final witness base (the frontier's was `WIT`). -/
-def WOUT : Nat := 0x4c0
+/-- Nested FTS (r1-1): the final witness base (the frontier's was `WIT`). Witness trim: `0x520` (was `0x4c0`). -/
+def WOUT : Nat := 0x520
+/-- Witness trim: the compactor's zeroing loop still starts at the old base `0x4c0` (unchanged machine word); the
+96 bytes `[0x4c0, 0x520)` are scratch below the witness. -/
+def WZ : Nat := 0x4c0
 def copyRegs (src dst n ret : Nat) : RegFile :=
   (((RegFile.init.set .x1 (.c (pcOf ret))).set .x10 (.c (BitVec.ofNat 64 src))).set .x11
     (.c (BitVec.ofNat 64 dst))).set .x12 (.c (BitVec.ofNat 64 n))
@@ -27,7 +30,7 @@ def copyTab : List (Nat × Nat × Nat × Nat) :=
 theorem run_snap : symRun cfgC cSnap (pcOf 42142) 40 =
     some ⟨⟨copyRegs WIT SNAP2 2729 42149, [], []⟩, .c (pcOf 42130), .jump, 7, 7⟩ := by kernel_rfl
 theorem run_zero2 : symRun cfgC cZero2 (pcOf 42149) 40 =
-    some ⟨⟨zeroRegs WOUT 2510 42154, [], []⟩, .c (pcOf 42137), .jump, 5, 5⟩ := by kernel_rfl
+    some ⟨⟨zeroRegs WZ 2510 42154, [], []⟩, .c (pcOf 42137), .jump, 5, 5⟩ := by kernel_rfl
 theorem run_hdr : symRun cfgC cHdr (pcOf 42154) 40 =
     some ⟨⟨RegFile.init, [], []⟩, .c (pcOf 33117), .jump, 1, 1⟩ := by kernel_rfl
 theorem run_ctr : symRun cfgC cCtr (pcOf 33117) 40 =
@@ -126,7 +129,7 @@ theorem copySetL_spec {im : Image} {code : List (BitVec 32)} {p L src dst n : Na
   · intro A _ _; rfl
 theorem zeroSet_spec {im : Image} (hcode : CodeAt im (pcOf 42149) cZero2) (s : MachineState)
     (hpc : s.pc = pcOf 42149) :
-    ∃ t, Steps im s 5 5 t ∧ t.pc = pcOf 42137 ∧ t.getReg .x11 = BitVec.ofNat 64 WOUT ∧
+    ∃ t, Steps im s 5 5 t ∧ t.pc = pcOf 42137 ∧ t.getReg .x11 = BitVec.ofNat 64 WZ ∧
       t.getReg .x12 = BitVec.ofNat 64 2510 ∧ t.getReg .x1 = pcOf 42154 ∧
       RegsExcept s t [.x1, .x11, .x12] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound run_zero2 hcode s hpc (by simp [rv_simp]), ?_, ?_, ?_, ?_, ?_, ?_⟩
@@ -734,10 +737,10 @@ theorem tail_spec {im : Image} (hcode : CodeAt im (pcOf 42705) cTail) (s : Machi
     rfl
 def snapMem (M : Nat → Word) (A : Nat) : Word :=
   if SNAP2 ≤ A ∧ A < SNAP2 + 8 * 2729 ∧ (A - SNAP2) % 8 = 0 then M (WIT + (A - SNAP2)) else M A
-/-- Zeroing of 2510 words from `WOUT` (to `WIT + 19248`; everything above is rewritten by the layer-3 chain copy
+/-- Zeroing of 2510 words from `WZ` (to `WIT + 19248`; everything above is rewritten by the layer-3 chain copy
 and the tail). -/
 def zMem (M : Nat → Word) (A : Nat) : Word :=
-  if WOUT ≤ A ∧ A < WOUT + 8 * 2510 ∧ (A - WOUT) % 8 = 0 then 0 else M A
+  if WZ ≤ A ∧ A < WZ + 8 * 2510 ∧ (A - WZ) % 8 = 0 then 0 else M A
 def topMem (M : Nat → Word) (A : Nat) : Word :=
   if WIT + 7424 ≤ A ∧ A < WIT + 7424 + 8 * 528 ∧ (A - (WIT + 7424)) % 8 = 0 then M (SNAP2 + 8136 + (A - (WIT + 7424)))
   else M A
@@ -746,8 +749,8 @@ placements of P_final. -/
 def stMem (M : Nat → Word) (A : Nat) : Word := plMem (regsMem (ctrMem (zMem (snapMem M))) 9) 9 A
 def run2Mem (M : Nat → Word) (idx : Nat) (A : Nat) : Word :=
   tailMem (layMem (layMem (layMem (topMem (stMem M)) 1 idx) 2 idx) 3 idx) A
-theorem stMem_out (M : Nat → Word) (A : Nat) (hA : A < WOUT ∨ SNAP2 + 8 * 2729 ≤ A) : stMem M A = M A := by
-  have hW : WOUT = 0x4c0 := rfl
+theorem stMem_out (M : Nat → Word) (A : Nat) (hA : A < WZ ∨ SNAP2 + 8 * 2729 ≤ A) : stMem M A = M A := by
+  have hW : WZ = 0x4c0 := rfl
   have hS : SNAP2 = 0x300000 := rfl
   unfold stMem
   rw [plMem_out _ 9 le_rfl A (by omega)]
@@ -755,7 +758,7 @@ theorem stMem_out (M : Nat → Word) (A : Nat) (hA : A < WOUT ∨ SNAP2 + 8 * 27
   rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega)]
 theorem stMem_snap (M : Nat → Word) (x : Nat) (hx : x < 8 * 2729) (h8 : x % 8 = 0) :
     stMem M (SNAP2 + x) = M (WIT + x) := by
-  have hW : WOUT = 0x4c0 := rfl
+  have hW : WZ = 0x4c0 := rfl
   have hS : SNAP2 = 0x300000 := rfl
   unfold stMem
   rw [plMem_out _ 9 le_rfl _ (by omega)]
@@ -772,7 +775,8 @@ theorem run2_spec (s : MachineState) (hpc : s.pc = pcOf 42142) (idx : Nat) (hidx
       ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) = run2Mem (fun B => s.getMem (BitVec.ofNat 64 B)) idx A := by
   have hM' : MEMORY_BYTES = 16777216 := rfl
   have hW : WIT = 0x800 := rfl
-  have hWO : WOUT = 0x4c0 := rfl
+  have hWO : WOUT = 0x520 := rfl
+  have hWZ : WZ = 0x4c0 := rfl
   have hS : SNAP2 = 0x300000 := rfl
   have hLP : LPLAN = 0xff9400 := rfl
   obtain ⟨u1, s1, p1, r1, m1⟩ := copyPhase hc (code_cSnap hc) run_snap s hpc (by norm_num) (by norm_num)
@@ -780,7 +784,7 @@ theorem run2_spec (s : MachineState) (hpc : s.pc = pcOf 42142) (idx : Nat) (hidx
   have e1 : ∀ A < 2 ^ 64, u1.getMem (BitVec.ofNat 64 A) = snapMem (fun B => s.getMem (BitVec.ofNat 64 B)) A :=
     fun A hA => by rw [m1 A hA]; rfl
   obtain ⟨u2a, s2a, p2a, x11, x12, x1, r2a, f2a⟩ := zeroSet_spec (code_cZero2 hc) u1 (by rw [p1])
-  obtain ⟨u2, s2, p2, r2, m2⟩ := zero_spec hc u2a p2a WOUT 2510 42154 x11 x12 x1 (by norm_num) (by norm_num)
+  obtain ⟨u2, s2, p2, r2, m2⟩ := zero_spec hc u2a p2a WZ 2510 42154 x11 x12 x1 (by norm_num) (by norm_num)
     (by omega) (by omega)
   have e2 : ∀ A < 2 ^ 64, u2.getMem (BitVec.ofNat 64 A) =
       zMem (snapMem (fun B => s.getMem (BitVec.ofNat 64 B))) A := fun A hA => by
@@ -881,10 +885,10 @@ def out2old (M : Nat → Word) (idx o : Nat) : Word :=
   else if o = 20952 then M (WIT + 8)
   else if o = 20960 then 0
   else LoadKind.wu.fromWord (M (WIT + 16)) 0
-/-- Nested FTS (r1-1): output word at offset `o` from the final witness base `WOUT`. Below 8256 (header and the
-nine regions) it is the P_final memory; above, the frontier's output shifted by 832. -/
+/-- Nested FTS (r1-1): output word at offset `o` from the final witness base `WOUT`. Below 8160 (header and the
+nine regions; witness trim, was 8256) it is the P_final memory; above, the frontier's output shifted by 736 (was 832). -/
 def out2 (M : Nat → Word) (idx o : Nat) : Word :=
-  if o < 8256 then stMem M (WOUT + o) else out2old M idx (o - 832)
+  if o < 8160 then stMem M (WOUT + o) else out2old M idx (o - 736)
 theorem lay_consts : lvDst 1 = 0x800 + 11648 ∧ lvDst 2 = 0x800 + 14800 ∧ lvDst 3 = 0x800 + 17872 ∧
     chDst 1 = 0x800 + 11648 + 400 ∧ chDst 2 = 0x800 + 14800 + 320 ∧ chDst 3 = 0x800 + 17872 + 320 := by
   unfold lvDst chDst; decide
@@ -908,7 +912,8 @@ theorem lays_low (M : Nat → Word) (idx A : Nat) (hA : A < WIT + 11648) :
 theorem pre_low (M : Nat → Word) (A : Nat) (hA : WIT + 11648 ≤ A) (hA' : A < WIT + 19248) (h8 : (A - WIT) % 8 = 0) :
     topMem (stMem M) A = 0 := by
   have hW : WIT = 0x800 := rfl
-  have hWO : WOUT = 0x4c0 := rfl
+  have hWO : WOUT = 0x520 := rfl
+  have hWZ : WZ = 0x4c0 := rfl
   have hS : SNAP2 = 0x300000 := rfl
   unfold topMem
   rw [if_neg (by omega)]
@@ -988,10 +993,11 @@ theorem layMem_zone (P : Nat → Word) (M : Nat → Word) (lay : Nat) (hl : 1 �
       chSrc lay - SNAP2 + WIT + (o - (chDst lay - WIT)) by omega]
 /-- C4: P_final leaves the memory below the final witness and above the snapshot unchanged (the digest word at
 `0x60`, the post-pass plan tables). -/
-theorem run2Mem_out (M : Nat → Word) (idx A : Nat) (hA : A < WOUT ∨ SNAP2 + 8 * 2729 ≤ A) :
+theorem run2Mem_out (M : Nat → Word) (idx A : Nat) (hA : A < WZ ∨ SNAP2 + 8 * 2729 ≤ A) :
     run2Mem M idx A = M A := by
   have hW : WIT = 0x800 := rfl
-  have hWO : WOUT = 0x4c0 := rfl
+  have hWO : WOUT = 0x520 := rfl
+  have hWZ : WZ = 0x4c0 := rfl
   have hS : SNAP2 = 0x300000 := rfl
   obtain ⟨d1, d2, d3, c1, c2, c3⟩ := lay_consts
   unfold run2Mem tailMem
@@ -1061,19 +1067,20 @@ theorem run2_zone_old (M : Nat → Word) (idx o : Nat) (hlo : 7424 ≤ o) (ho : 
           rw [hzl]
           exact layMem_zone (layMem (layMem (topMem (stMem M)) 1 idx) 2 idx) M 3 (by omega) idx hP3 hZ3 o
             (by omega) (by omega) h8
-theorem run2_zone (M : Nat → Word) (idx o : Nat) (ho : o < 21808) (h8 : o % 8 = 0) :
+theorem run2_zone (M : Nat → Word) (idx o : Nat) (ho : o < 21712) (h8 : o % 8 = 0) :
     run2Mem M idx (WOUT + o) = out2 M idx o := by
   have hW : WIT = 0x800 := rfl
-  have hWO : WOUT = 0x4c0 := rfl
+  have hWO : WOUT = 0x520 := rfl
+  have hWZ : WZ = 0x4c0 := rfl
   unfold out2
-  by_cases hl : o < 8256
+  by_cases hl : o < 8160
   · rw [if_pos hl]
     unfold run2Mem tailMem
     rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), lays_low _ idx _ (by omega)]
     unfold topMem
     rw [if_neg (by omega)]
-  · rw [if_neg hl, show WOUT + o = WIT + (o - 832) by omega]
-    exact run2_zone_old M idx (o - 832) (by omega) (by omega) (by omega)
+  · rw [if_neg hl, show WOUT + o = WIT + (o - 736) by omega]
+    exact run2_zone_old M idx (o - 736) (by omega) (by omega) (by omega)
 end ClaudeWCT.W9.Machine.Expand.Compact2
 end
 

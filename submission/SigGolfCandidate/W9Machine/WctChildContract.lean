@@ -27,9 +27,11 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   sibAt : ∀ l, l < 6 → DigAt u (coordinateBase k + V3.sibOff j.val l) (V3.sibling w k.val j.val l)
   twAt : ∀ l, l < 6 → DigAt u (coordinateBase k + V3.blkOff j.val l + 16) (V3.nodeTw w k.val j.val l)
 /-- Nested FTS hand-off: the computed top node of tree `k` lands at this address (high half of the heap-2/3 fold
-output), the next region's leaf pad (bit 6 = 0) or Z slot (bit 6 = 1). -/
+output), the next region's leaf pad (bit 6 = 0) or Z slot (bit 6 = 1). Witness trim: for `k = 8` the virtual
+region's slots are `WIT + 0` (`- 80`) and the R9 slot `WIT + 64` (`- 16`). -/
 def handAddr (k : Fin 9) (j : Fin 128) : Nat :=
-  if j.val / 64 % 2 = 0 then coordinateBase k - 176 else coordinateBase k - 32
+  if k.val = 8 then (if j.val / 64 % 2 = 0 then coordinateBase k - 80 else coordinateBase k - 16)
+  else if j.val / 64 % 2 = 0 then coordinateBase k - 176 else coordinateBase k - 32
 def writes (k : Fin 9) (j : Fin 128) (A : Nat) : Prop :=
   (coordinateBase k ≤ A ∧ A < coordinateBase k + 912) ∨ (handAddr k j - 16 ≤ A ∧ A < handAddr k j + 16)
 def clobbers : List Reg := [.x3, .x10, .x11, .x12, .x14]
@@ -74,10 +76,11 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
 
 /-- Where the computed top value lands: the next region's leaf pad (`- 176`, direction 0) or its R pad (`- 736` =
 next region `+ 160`, direction 1); the final singleton (merged "Cm", stage 2) puts its left root on `WIT + 0`
-(direction 0) and its right root on `WIT + 48` (direction 1). -/
+(direction 0) and its right root on `WIT + 48` (direction 1); witness trim: `WIT = 1312 = coordinateBase 8 - 80`. -/
 def handAddr (k : Fin 9) (raw : Fin 128) : Nat :=
-  if SharedV3.direction k.val (SharedV3.physical k.val raw.val) = 0 then coordinateBase k - 176
-  else if k.val = 8 then coordinateBase k - 128 else coordinateBase k - 736
+  if SharedV3.direction k.val (SharedV3.physical k.val raw.val) = 0 then
+    (if k.val = 8 then coordinateBase k - 80 else coordinateBase k - 176)
+  else if k.val = 8 then coordinateBase k - 32 else coordinateBase k - 736
 
 /-- Start of the 32-byte hash output carrying the computed top value: 16 bytes below the value for a high-half
 value (every A/B child, and the singleton's left root, heap 2, stage 2 Cm: the junk low half lands on

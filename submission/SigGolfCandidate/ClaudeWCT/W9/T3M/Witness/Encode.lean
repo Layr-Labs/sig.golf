@@ -18,14 +18,13 @@ def expandN0 (message : Message) (pk : Digest) (sig : WCT9.Signature) :
   let some (root, counters) ← WCT9.expandLayersBC sig index 4 (.pair top.1 top.2) | pure none
   if root ≠ pk then return none
   pure (some (output, ⟨sig, counter, fun lay => counters.getD lay.val 0⟩))
-/-- Nested FTS (r1-1): the 176 bytes before coordinate 8's region (virtual tree 9). Offset 0 is the L3 block's left
-slot (L8), 32 its counter, 48 its right slot (overwritten by the verifier with the copy of offset 144), 144 the R9
-slot. Coordinate 8's supplied top sibling sits at `topSlot 8 child` (offset 0 or 144). -/
+/-- Nested FTS (r1-1): the 80 bytes before coordinate 8's region (virtual tree 9; witness trim, was 176). Offset 0
+is the L3 block's left slot (L8), 32 its counter, 48 its right slot, 64 the R9 slot. Coordinate 8's supplied top
+sibling sits at `topSlot 8 child` (offset 0 or 64). -/
 def headerBytes (N : HashOutput) (w : WCT9.Witness) : List UInt8 :=
   (if (WCT9.child N 8).val / 2 ^ 6 % 2 = 1 then bytesLE 16 ((w.signature.openings 8).path 6) else zeros 16) ++
-    zeros 8 ++ bytesLE 8 (1 : BitVec 64) ++ bytesLE 4 (w.counters 3) ++ zeros 108 ++
-    (if (WCT9.child N 8).val / 2 ^ 6 % 2 = 0 then bytesLE 16 ((w.signature.openings 8).path 6) else zeros 16) ++
-    zeros 16
+    zeros 8 ++ bytesLE 8 (1 : BitVec 64) ++ bytesLE 4 (w.counters 3) ++ zeros 28 ++
+    (if (WCT9.child N 8).val / 2 ^ 6 % 2 = 0 then bytesLE 16 ((w.signature.openings 8).path 6) else zeros 16)
 def authByte (child : Nat) (op : WCT9.Opening) (p : Nat) : UInt8 :=
   match (List.finRange 7).find? (fun l => decide (authSibOff child l.val ≤ p ∧ p < authSibOff child l.val + 16)) with
   | some l => (bytesLE 16 (op.path l)).getD (p - authSibOff child l.val) 0
@@ -206,7 +205,7 @@ def slotByte (slots : List (Nat × Digest)) (offset : Nat) : UInt8 :=
   | none => 0
 
 def forestBytes (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness) : List UInt8 :=
-  (List.range 8256).map fun offset =>
+  (List.range 8160).map fun offset =>
     if 24 ≤ offset ∧ offset < 32 then (bytesLE 8 (1 : BitVec 64)).getD (offset - 24) 0
     else if 32 ≤ offset ∧ offset < 36 then (bytesLE 4 (witness.counters 3)).getD (offset - 32) 0
     else slotByte (forestSlots output witness.signature) offset
@@ -215,13 +214,13 @@ def mainWitness (witness : SigGolfCandidate.Research.SharedForest.Witness) : WCT
   ⟨mainSignature witness.signature, witness.digestCounter, witness.counters⟩
 
 def witList (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness) : List UInt8 :=
-  forestBytes output witness ++ (ClaudeWCT.W9.T3M.witList output (mainWitness witness)).drop 8256
+  forestBytes output witness ++ (ClaudeWCT.W9.T3M.witList output (mainWitness witness)).drop 8160
 
 def witEnc (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness) : WBytes :=
   BitVec.ofNat _ (readLE (witList output witness))
 
 @[simp] theorem forestBytes_length (output : HashOutput)
-    (witness : SigGolfCandidate.Research.SharedForest.Witness) : (forestBytes output witness).length = 8256 := by
+    (witness : SigGolfCandidate.Research.SharedForest.Witness) : (forestBytes output witness).length = 8160 := by
   simp [forestBytes]
 
 /-- Query-identical expansion retaining the digest output needed by the memory encoder. -/

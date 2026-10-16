@@ -400,19 +400,19 @@ theorem topEntry_orig (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
     (t s : MachineState) (a : BitVec 256)
     (ht : BC.EncPre w pk index 0 c t)
     (he : TopEntry (writeHash t a) (T3.TopDualHalf.select a) (trPc 0 c) s) :
-    Verify.Orig w (fun o => 8256 ≤ o ∧ o < layerEnd 0) s := by
+    Verify.Orig w (fun o => 8160 ≤ o ∧ o < layerEnd 0) s := by
   have hc' : c < 128 := by have := BC.nCopy_eq; omega
   have ha := topRowA_mem c hc'
   have hal : 13696 ≤ topRowA c ∧ topRowA c ≤ 13952 := by
     simp only [Nonbinary.aVals, List.mem_cons, List.not_mem_nil, or_false] at ha; omega
   obtain ⟨d, h12, hd⟩ := ht.dst (by decide +kernel)
   change (d + 16 = topRowA c ∧ WIT + BC.layerEnd 0 + 16 ≤ topRowA c) ∨ d = topRowA c + 48 at hd
-  rw [show BC.layerEnd 0 = 12480 from rfl] at hd
+  rw [show BC.layerEnd 0 = 12384 from rfl] at hd
   have ho := Orig_writeHash ht.orig a d h12 (by omega)
-  have hu : Verify.Orig w (fun o => 8256 ≤ o ∧ o < layerEnd 0) (writeHash t a) :=
+  have hu : Verify.Orig w (fun o => 8160 ≤ o ∧ o < layerEnd 0) (writeHash t a) :=
     fun j hj hp => ho j hj ⟨hp, Or.inl (by
       have hp2 := hp.2
-      have hle : layerEnd 0 = 12480 := rfl
+      have hle : layerEnd 0 = 12384 := rfl
       rw [hle] at hp2
       unfold WIT at *; omega)⟩
   exact hu.frame (fun j hj hp => he.frame.get (by unfold WIT WX at *; omega) (by norm_num [WIT, layerEnd] at *; omega))
@@ -420,7 +420,7 @@ theorem topEntry_bufferOrig (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c
     (t s : MachineState) (a : BitVec 256)
     (ht : BC.EncPre w pk index 0 c t)
     (he : TopEntry (writeHash t a) (T3.TopDualHalf.select a) (trPc 0 c) s) :
-    Verify.Orig w (fun o => BC.bufferStart 0 ≤ o ∧ o < 24896) s := by
+    Verify.Orig w (fun o => BC.bufferStart 0 ≤ o ∧ o < 24800) s := by
   have hc' : c < 128 := by have := BC.nCopy_eq; omega
   have ha := topRowA_mem c hc'
   have hal : 13696 ≤ topRowA c ∧ topRowA c ≤ 13952 := by
@@ -428,15 +428,15 @@ theorem topEntry_bufferOrig (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c
   obtain ⟨d, h12, hd⟩ := ht.dst (by decide +kernel)
   change (d + 16 = topRowA c ∧ WIT + BC.layerEnd 0 + 16 ≤ topRowA c) ∨ d = topRowA c + 48 at hd
   have ho := Orig_writeHash ht.bufferOrig a d h12 (by omega)
-  have hu : Verify.Orig w (fun o => BC.bufferStart 0 ≤ o ∧ o < 24896) (writeHash t a) :=
+  have hu : Verify.Orig w (fun o => BC.bufferStart 0 ≤ o ∧ o < 24800) (writeHash t a) :=
     fun j hj hp => ho j hj ⟨hp, Or.inr (by
       have hp1 := hp.1
       norm_num [BC.bufferStart] at hp1
       unfold WIT; omega)⟩
   exact hu.frame (fun j hj hp => he.frame.get (by unfold WIT WX at *; omega) (by norm_num [WIT, BC.bufferStart] at *; omega))
 theorem nctx_orig (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (v : Digest) (p : Nat) (s : MachineState)
-    (ho : Verify.Orig w (fun o => 8256 ≤ o ∧ o < layerEnd 0) s)
-    (hb : Verify.Orig w (fun o => BC.bufferStart 0 ≤ o ∧ o < 24896) s) (hD : DataOK s) :
+    (ho : Verify.Orig w (fun o => 8160 ≤ o ∧ o < layerEnd 0) s)
+    (hb : Verify.Orig w (fun o => BC.bufferStart 0 ≤ o ∧ o < 24800) s) (hD : DataOK s) :
     (nctxOf w index v p).Orig0 s := by
   refine ⟨⟨?_, ?_⟩, hD⟩
   · intro i hi k hk

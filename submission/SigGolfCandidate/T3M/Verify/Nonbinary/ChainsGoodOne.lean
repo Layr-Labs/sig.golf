@@ -279,9 +279,9 @@ theorem padHeader_at {c : NCtx} {s0 s : MachineState} (hc : c.ok) (h0 : c.Orig0 
     unfold Wr blk slot at *
     omega)
   change s.getMem (BitVec.ofNat 64 (c.blk i + 24)) =
-    c.w.extractLsb' (8 * (c.blk i + 24 - 0x4c0)) 64 at ho
+    c.w.extractLsb' (8 * (c.blk i + 24 - 0x520)) 64 at ho
   rw [ho, padHeader, wdig_hi]
-  rw [show c.blk i + 24 - 0x4c0 = c.blk i - 0x4c0 + 16 + 8 by omega]
+  rw [show c.blk i + 24 - 0x520 = c.blk i - 0x520 + 16 + 8 by omega]
 theorem copy_mem (c : NCtx) (hc : c.ok) {s : MachineState} (h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3) (h4 : s.getReg .x4=24688) (i : Nat)
     (hi : i < 54) (A : Nat) (hA : A < 2 ^ 64) :
     memEval s (copyMem .x8 (off i) (slot i)) (BitVec.ofNat 64 A) =

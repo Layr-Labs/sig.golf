@@ -103,7 +103,7 @@ theorem valid_ofNat (A w : Nat) (hA : A + w ≤ 2 ^ 24) (ha : A % w = 0) :
   rw [accessValid_iff, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
   exact ⟨by simp only [MEMORY_BYTES]; omega, ha⟩
 def OrigW (w : ClaudeWCT.W9.T3M.WBytes) (s : MachineState) (A : Nat) : Prop :=
-  s.getMem (BitVec.ofNat 64 A) = w.extractLsb' (8 * (A - 0x4c0)) 64
+  s.getMem (BitVec.ofNat 64 A) = w.extractLsb' (8 * (A - 0x520)) 64
 theorem wdig_lo (w : ClaudeWCT.W9.T3M.WBytes) (off : Nat) :
     (ClaudeWCT.W9.T3M.wdig w off).extractLsb' 0 64 = w.extractLsb' (8 * off) 64 := by
   unfold ClaudeWCT.W9.T3M.wdig
@@ -119,10 +119,10 @@ theorem wdig_hi (w : ClaudeWCT.W9.T3M.WBytes) (off : Nat) :
   generalize w.toNat / 2 ^ (8 * off) = X
   rw [show (2 : Nat) ^ 128 = 2 ^ 64 * 2 ^ 64 by norm_num, Nat.mod_mul_right_div_self, Nat.mod_mod]
 theorem DigAt_origW {w : ClaudeWCT.W9.T3M.WBytes} {s : MachineState} {A : Nat} (h0 : OrigW w s A) (h1 : OrigW w s (A + 8))
-    (hA : 0x4c0 ≤ A) : DigAt s A (ClaudeWCT.W9.T3M.wdig w (A - 0x4c0)) := by
+    (hA : 0x520 ≤ A) : DigAt s A (ClaudeWCT.W9.T3M.wdig w (A - 0x520)) := by
   refine ⟨?_, ?_⟩
   · rw [h0, wdig_lo]
-  · rw [h1, wdig_hi, show A + 8 - 0x4c0 = A - 0x4c0 + 8 by omega]
+  · rw [h1, wdig_hi, show A + 8 - 0x520 = A - 0x520 + 8 by omega]
 end SigGolfCandidate.T3M
 namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
@@ -251,18 +251,18 @@ structure LCtx where
   d1 : Word
   ck : Nat
   ret : Nat
-  bufferBound : S6 - 1024 + 64 * 42 + 64 ≤ 0x4c0 + ClaudeWCT.W9.T3M.leafBufferBase lay
+  bufferBound : S6 - 1024 + 64 * 42 + 64 ≤ 0x520 + ClaudeWCT.W9.T3M.leafBufferBase lay
 namespace LCtx
 def blk (c : LCtx) (i : Nat) : Nat := c.S6 - 1024 + 64 * (42 - i)
 def dig (c : LCtx) (i : Nat) : Nat :=
   if i < 21 then c.d0.toNat / 8 ^ i % 8 else if i < 42 then c.d1.toNat / 8 ^ (i - 21) % 8 else c.ck
 def w0 (c : LCtx) (i : Nat) : Nat := i + c.koff + packedPrefix c.lay c.tree c.leaf
 def w1 (c : LCtx) : Nat := hdr1 c.tree c.leaf
-def pad0 (c : LCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x4c0)
-def pad1 (c : LCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x4c0 + 32)
-def padHeader (c : LCtx) (i : Nat) : Word := c.w.extractLsb' (8 * (c.blk i - 0x4c0 + 24)) 64
-def val (c : LCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x4c0 + 48)
-def bufferOffset (c : LCtx) : Nat := 0x4c0 + ClaudeWCT.W9.T3M.leafBufferBase c.lay - 768
+def pad0 (c : LCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x520)
+def pad1 (c : LCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x520 + 32)
+def padHeader (c : LCtx) (i : Nat) : Word := c.w.extractLsb' (8 * (c.blk i - 0x520 + 24)) 64
+def val (c : LCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x520 + 48)
+def bufferOffset (c : LCtx) : Nat := 0x520 + ClaudeWCT.W9.T3M.leafBufferBase c.lay - 768
 def bufferSlot (c : LCtx) (i : Nat) : Nat := c.bufferOffset + slotL i
 def bufferSafe (c : LCtx) (i : Nat) : Prop :=
   c.dig i = 7 ∧ (i = 0 ∨ i = 1 ∨ (0 < i ∧ i % 3 ≠ 0 ∧ c.dig (i-1) = 7))
@@ -283,11 +283,11 @@ def stepHigh (i m : Nat) : Bool := decide (m = 6 ∧ i = 0)
 def bufferOrig (c : LCtx) (s0 : MachineState) : Prop :=
   ∀ i, c.i0 ≤ i → i ≤ 42 → ∀ k < 2, OrigW c.w s0 (c.bufferSlot i + 8*k)
 def bufferVal (c : LCtx) (i : Nat) : Digest :=
-  if c.bufferSafe i then ClaudeWCT.W9.T3M.wdig c.w (c.bufferSlot i - 0x4c0) else c.val i
+  if c.bufferSafe i then ClaudeWCT.W9.T3M.wdig c.w (c.bufferSlot i - 0x520) else c.val i
 
 
 def ok (c : LCtx) : Prop :=
-  c.tree < 2 ^ 32 ∧ c.leaf < 2 ^ 32 ∧ c.koff ≤ 16 ∧ c.S6 % 8 = 0 ∧ 0x4c0 + 8256 + 1024 ≤ c.S6 ∧
+  c.tree < 2 ^ 32 ∧ c.leaf < 2 ^ 32 ∧ c.koff ≤ 16 ∧ c.S6 % 8 = 0 ∧ 0x520 + 8160 + 1024 ≤ c.S6 ∧
     c.S6 + 2688 + 80 ≤ 0x7000 ∧ c.ck ≤ 8 ∧ c.ret = ckSlot c.ck + partLen c.ck ∧ c.i0 ≤ 42 ∧
     c.tree < 2 ^ (31 - height c.lay) ∧ c.leaf < 2 ^ height c.lay ∧
     2 ^ 63 ≤ c.d0.toNat ∧ 2 ^ 63 ≤ c.d1.toNat
@@ -439,7 +439,7 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open SigGolfCandidate.T3
 namespace LCtx
 theorem blk_props (c : LCtx) (hc : c.ok) (i : Nat) (hi : i ≤ 42) :
-    c.blk i % 8 = 0 ∧ 0x4c0 + 8256 ≤ c.blk i ∧ c.blk i + 80 ≤ 0x7000 := by
+    c.blk i % 8 = 0 ∧ 0x520 + 8160 ≤ c.blk i ∧ c.blk i + 80 ≤ 0x7000 := by
   obtain ⟨-, -, -, h64, hlo, hhi, -⟩ := hc
   unfold blk; refine ⟨?_, ?_, ?_⟩ <;> omega
 theorem blk_succ (c : LCtx) (hc : c.ok) (i : Nat) (hi : i < 42) : c.blk (i + 1) + 64 = c.blk i := by
@@ -453,8 +453,8 @@ theorem slotL_props (i : Nat) (hi : i ≤ 42) : slotL i % 16 = 0 ∧ 768 ≤ slo
   unfold slotL; split <;> omega
 theorem bufferSlot_props (c : LCtx) (i : Nat) (hi : i ≤ 42) :
     c.bufferSlot i % 16 = 0 ∧ 22928 ≤ c.bufferSlot i ∧ c.bufferSlot i + 32 ≤ 26688 := by
-  have hb : 21712 ≤ ClaudeWCT.W9.T3M.leafBufferBase c.lay ∧
-      ClaudeWCT.W9.T3M.leafBufferBase c.lay ≤ 23984 ∧
+  have hb : 21616 ≤ ClaudeWCT.W9.T3M.leafBufferBase c.lay ∧
+      ClaudeWCT.W9.T3M.leafBufferBase c.lay ≤ 23888 ∧
       ClaudeWCT.W9.T3M.leafBufferBase c.lay % 16 = 0 := by
     generalize c.lay = lay
     fin_cases lay <;> decide +kernel
@@ -553,7 +553,7 @@ theorem bufferSlot_gap (c : LCtx) (i j : Nat) (h : i < j) :
   split_ifs <;> omega
 
 theorem bufferBound_slot (c : LCtx) : c.blk 0 + 64 ≤ c.bufferSlot 0 := by
-  have hs : c.bufferSlot 0 = 0x4c0 + ClaudeWCT.W9.T3M.leafBufferBase c.lay := by
+  have hs : c.bufferSlot 0 = 0x520 + ClaudeWCT.W9.T3M.leafBufferBase c.lay := by
     unfold bufferSlot bufferOffset
     rw [show slotL 0 = 768 from rfl]
     omega
@@ -676,7 +676,7 @@ theorem pads_at {c : LCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 s0) {
   rw [show c.blk i + 8 * 5 = c.blk i + 32 + 8 by ring] at o5
   refine ⟨DigAt_origW o0 o1 (by omega), ?_⟩
   have := DigAt_origW o4 o5 (by omega)
-  rwa [show c.blk i + 32 - 0x4c0 = c.blk i - 0x4c0 + 32 by omega] at this
+  rwa [show c.blk i + 32 - 0x520 = c.blk i - 0x520 + 32 by omega] at this
 theorem rungPc_succ (c : LCtx) (i m : Nat) (hd : c.dig i ≤ m) : c.rungPc i (m + 1) = c.rungPc i m + 2 := by
   unfold rungPc; split_ifs <;> omega
 theorem dig_lt (c : LCtx) (hc : c.ok) (i : Nat) (hi : i < 42) : c.dig i < 8 := by
@@ -949,7 +949,7 @@ theorem val_at {c : LCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 s0) {i
   rw [show c.blk i + 8 * 6 = c.blk i + 48 by ring] at o6
   rw [show c.blk i + 8 * 7 = c.blk i + 48 + 8 by ring] at o7
   have := DigAt_origW o6 o7 (by omega)
-  rwa [show c.blk i + 48 - 0x4c0 = c.blk i - 0x4c0 + 48 by omega] at this
+  rwa [show c.blk i + 48 - 0x520 = c.blk i - 0x520 + 48 by omega] at this
 theorem Wr_mono (c : LCtx) (i : Nat) (A : Nat) (h : c.Wr i A) : c.WrIn i A := Or.inl h
 theorem bv385 (a b : Nat) :
     BitVec.ofNat 64 (a + 385) + (BitVec.ofNat 64 b - BitVec.ofNat 64 385) = BitVec.ofNat 64 (a + b) := by
@@ -977,7 +977,7 @@ theorem padHeader_at {c : LCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 
     omega
   have h := orig_frame hF h0 hc hi (k := 3) (by omega) no
   simpa only [OrigW, padHeader, show c.blk i + 8 * 3 = c.blk i + 24 by omega,
-    show c.blk i + 24 - 0x4c0 = c.blk i - 0x4c0 + 24 by omega] using h
+    show c.blk i + 24 - 0x520 = c.blk i - 0x520 + 24 by omega] using h
 theorem fetch_pc_congr {u v : MachineState} (h : u.pc = v.pc) : fetch vimage u = fetch vimage v := by
   unfold fetch; rw [h]
 theorem headJ_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)

@@ -261,11 +261,11 @@ structure LeafOut (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
     T3.hyperWord lay.val ((route index lay).2 * 2 ^ height lay + (route index lay).1)
   /-- C3: the leaf tweak's high word is witness memory (`wleafHigh`). -/
   T1 : u.getMem (BitVec.ofNat 64 (lfBase lay.val + 24)) = ClaudeWCT.W9.T3M.wleafHigh w lay
-  orig : Verify.Orig w (fun o => 8256 ≤ o ∧
+  orig : Verify.Orig w (fun o => 8160 ≤ o ∧
     o < ClaudeWCT.W9.T3M.layerBase lay + 16 * ClaudeWCT.W9.T3M.pathSlots lay) u
   /-- C3: the top leaf's leading 16 bytes are the witness pad (`wtopLeafPad`). -/
   topPad : lay = 0 → DigAt u 25200 (ClaudeWCT.W9.T3M.wtopLeafPad w)
-  bufferOrig : lay ≠ 0 → Verify.Orig w (fun o => BC.bufferStart (lay.val-1) ≤ o ∧ o < 24896) u
+  bufferOrig : lay ≠ 0 → Verify.Orig w (fun o => BC.bufferStart (lay.val-1) ≤ o ∧ o < 24800) u
 theorem LeafOut.hashInput {w : ClaudeWCT.W9.T3M.WBytes} {pk : Digest} {index : Nat} {lay : Layer} {ends : List Digest}
     {u : MachineState} (h : LeafOut w pk index lay ends u) :
     hashInput u = toQ (pad64 (lfIn w lay (route index lay).2 (route index lay).1 ends)) ∧
@@ -291,7 +291,7 @@ theorem LeafOut.hashInput {w : ClaudeWCT.W9.T3M.WBytes} {pk : Digest} {index : N
     exact lowLeaf_hashInput u lay h0 _ _ _ _ ends (bufferBias lay.val) hm hbd hn h10 h11 hS hT0 hT1
 theorem glob_frame {gk gk' : List (Reg × Word)} {w : ClaudeWCT.W9.T3M.WBytes} {pk : Digest} {s t : MachineState}
     {W : Nat → Prop} (hG : Glob gk w pk s) (hf : Frame s t W)
-    (hW : ∀ A, W A → 544 ≤ A ∧ (A < 0x4c0 ∨ 0x500 ≤ A) ∧ A < 2 ^ 23) (hk : ∀ p ∈ gk', t.getReg p.1 = p.2) :
+    (hW : ∀ A, W A → 544 ≤ A ∧ (A < 0x520 ∨ 0x560 ≤ A) ∧ A < 2 ^ 23) (hk : ∀ p ∈ gk', t.getReg p.1 = p.2) :
     Glob gk' w pk t := by
   obtain ⟨-, hH, hP, hZ, hh, hD⟩ := hG
   have hn : ∀ A, A < 544 → ¬ W A := fun A hA h => by have := hW A h; omega
@@ -351,7 +351,7 @@ structure TopLeafReady (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Na
   word : t.getReg .x28 = leafWord 0 (route index 0).2 (route index 0).1
   len : ends.length = 54
   ends : ∀ j < 54, DigAt t (slotT j) (ends.getD j 0)
-  orig : Verify.Orig w (fun o => 8256 ≤ o ∧
+  orig : Verify.Orig w (fun o => 8160 ≤ o ∧
     o < ClaudeWCT.W9.T3M.layerBase 0 + 16 * ClaudeWCT.W9.T3M.pathSlots 0) t
   /-- C3: the top leaf pad and tweak high word are witness memory. -/
   topPad : DigAt t 25200 (ClaudeWCT.W9.T3M.wtopLeafPad w)
@@ -414,7 +414,7 @@ theorem leafT_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (
   · rw [show lfBase (0 : Layer).val + 24 = 25224 from rfl, hfr 25224 (by norm_num) (by norm_num)]
     exact ht.topHi
   · exact (hu.orig_const ht.orig).mono (fun o ho => ⟨ho, by
-      have hhi : o < 9024 := ho.2
+      have hhi : o < 8928 := ho.2
       simp only [lfAllowed, bufferBase, List.getD_cons_zero, List.mem_cons,
         List.not_mem_nil, or_false, not_or]
       unfold WIT
