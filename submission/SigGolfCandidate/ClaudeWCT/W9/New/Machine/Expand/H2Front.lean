@@ -2188,8 +2188,8 @@ set_option maxRecDepth 10000
 set_option maxHeartbeats 2000000
 private theorem low_slot_sub : (1264#64 - 48#64) = 1216#64 := rfl
 
-abbrev topDest0 (child : Nat) : Nat := 7808 + 576 * (child / 32 % 2)
-def topCode0 : List (BitVec 32) := [0x585313,0x137313,0x24000393,0x2730333,0x2e37,0xe80e0e13,0x6e0e33,0xb08b303,0xb88b383,0x6e3023,0x7e3423]
+abbrev topDest0 (child : Nat) : Nat := 7824 + 560 * (child / 32 % 2)
+def topCode0 : List (BitVec 32) := [0x585313,0x137313,0x23000393,0x2730333,0x2e37,0xe90e0e13,0x6e0e33,0xb08b303,0xb88b383,0x6e3023,0x7e3423]
 sym_block top0 := symRun { noAlias := true } topCode0 (pcOf 45376) 100
 theorem top0_obligs (s : MachineState) (source child : Nat)
     (hs0 : 28672 ≤ source) (hs1 : source ≤ 31000) (hsa : source % 8 = 0)
@@ -2247,8 +2247,8 @@ theorem top0_steps {im : Image} (hc : CodeAt im (pcOf 45376) topCode0)
 #print axioms top0_steps
 
 
-abbrev topDest1 (child : Nat) : Nat := 6912 + 576 * (child / 64 % 2)
-def topCode1 : List (BitVec 32) := [0x685313,0x137313,0x24000393,0x2730333,0x2e37,0xb00e0e13,0x6e0e33,0xc08b303,0xc88b383,0x6e3023,0x7e3423]
+abbrev topDest1 (child : Nat) : Nat := 6928 + 560 * (child / 64 % 2)
+def topCode1 : List (BitVec 32) := [0x685313,0x137313,0x23000393,0x2730333,0x2e37,0xb10e0e13,0x6e0e33,0xc08b303,0xc88b383,0x6e3023,0x7e3423]
 sym_block top1 := symRun { noAlias := true } topCode1 (pcOf 45523) 100
 theorem top1_obligs (s : MachineState) (source child : Nat)
     (hs0 : 28672 ≤ source) (hs1 : source ≤ 31000) (hsa : source % 8 = 0)
@@ -2306,8 +2306,8 @@ theorem top1_steps {im : Image} (hc : CodeAt im (pcOf 45523) topCode1)
 #print axioms top1_steps
 
 
-abbrev topDest2 (child : Nat) : Nat := 6016 + 576 * (child / 32 % 2)
-def topCode2 : List (BitVec 32) := [0x585313,0x137313,0x24000393,0x2730333,0x1e37,0x780e0e13,0x6e0e33,0xb08b303,0xb88b383,0x6e3023,0x7e3423]
+abbrev topDest2 (child : Nat) : Nat := 6032 + 560 * (child / 32 % 2)
+def topCode2 : List (BitVec 32) := [0x585313,0x137313,0x23000393,0x2730333,0x1e37,0x790e0e13,0x6e0e33,0xb08b303,0xb88b383,0x6e3023,0x7e3423]
 sym_block top2 := symRun { noAlias := true } topCode2 (pcOf 45653) 100
 theorem top2_obligs (s : MachineState) (source child : Nat)
     (hs0 : 28672 ≤ source) (hs1 : source ≤ 31000) (hsa : source % 8 = 0)
@@ -2365,8 +2365,8 @@ theorem top2_steps {im : Image} (hc : CodeAt im (pcOf 45653) topCode2)
 #print axioms top2_steps
 
 
-abbrev topDest3 (child : Nat) : Nat := 5120 + 576 * (child / 64 % 2)
-def topCode3 : List (BitVec 32) := [0x685313,0x137313,0x24000393,0x2730333,0x1e37,0x400e0e13,0x6e0e33,0xc08b303,0xc88b383,0x6e3023,0x7e3423]
+abbrev topDest3 (child : Nat) : Nat := 5136 + 560 * (child / 64 % 2)
+def topCode3 : List (BitVec 32) := [0x685313,0x137313,0x23000393,0x2730333,0x1e37,0x410e0e13,0x6e0e33,0xc08b303,0xc88b383,0x6e3023,0x7e3423]
 sym_block top3 := symRun { noAlias := true } topCode3 (pcOf 45800) 100
 theorem top3_obligs (s : MachineState) (source child : Nat)
     (hs0 : 28672 ≤ source) (hs1 : source ≤ 31000) (hsa : source % 8 = 0)
@@ -2424,8 +2424,8 @@ theorem top3_steps {im : Image} (hc : CodeAt im (pcOf 45800) topCode3)
 #print axioms top3_steps
 
 
-abbrev topDest4 (child : Nat) : Nat := 4224 + 576 * (child / 32 % 2)
-def topCode4 : List (BitVec 32) := [0x585313,0x137313,0x24000393,0x2730333,0x1e37,0x80e0e13,0x6e0e33,0xb08b303,0xb88b383,0x6e3023,0x7e3423]
+abbrev topDest4 (child : Nat) : Nat := 4240 + 560 * (child / 32 % 2)
+def topCode4 : List (BitVec 32) := [0x585313,0x137313,0x23000393,0x2730333,0x1e37,0x90e0e13,0x6e0e33,0xb08b303,0xb88b383,0x6e3023,0x7e3423]
 sym_block top4 := symRun { noAlias := true } topCode4 (pcOf 45930) 100
 theorem top4_obligs (s : MachineState) (source child : Nat)
     (hs0 : 28672 ≤ source) (hs1 : source ≤ 31000) (hsa : source % 8 = 0)
@@ -2483,8 +2483,8 @@ theorem top4_steps {im : Image} (hc : CodeAt im (pcOf 45930) topCode4)
 #print axioms top4_steps
 
 
-abbrev topDest5 (child : Nat) : Nat := 3328 + 576 * (child / 64 % 2)
-def topCode5 : List (BitVec 32) := [0x685313,0x137313,0x24000393,0x2730333,0x1e37,0xd00e0e13,0x6e0e33,0xc08b303,0xc88b383,0x6e3023,0x7e3423]
+abbrev topDest5 (child : Nat) : Nat := 3344 + 560 * (child / 64 % 2)
+def topCode5 : List (BitVec 32) := [0x685313,0x137313,0x23000393,0x2730333,0x1e37,0xd10e0e13,0x6e0e33,0xc08b303,0xc88b383,0x6e3023,0x7e3423]
 sym_block top5 := symRun { noAlias := true } topCode5 (pcOf 46077) 100
 theorem top5_obligs (s : MachineState) (source child : Nat)
     (hs0 : 28672 ≤ source) (hs1 : source ≤ 31000) (hsa : source % 8 = 0)
@@ -2542,8 +2542,8 @@ theorem top5_steps {im : Image} (hc : CodeAt im (pcOf 46077) topCode5)
 #print axioms top5_steps
 
 
-abbrev topDest6 (child : Nat) : Nat := 2432 + 576 * (child / 32 % 2)
-def topCode6 : List (BitVec 32) := [0x585313,0x137313,0x24000393,0x2730333,0x1e37,0x980e0e13,0x6e0e33,0xb08b303,0xb88b383,0x6e3023,0x7e3423]
+abbrev topDest6 (child : Nat) : Nat := 2448 + 560 * (child / 32 % 2)
+def topCode6 : List (BitVec 32) := [0x585313,0x137313,0x23000393,0x2730333,0x1e37,0x990e0e13,0x6e0e33,0xb08b303,0xb88b383,0x6e3023,0x7e3423]
 sym_block top6 := symRun { noAlias := true } topCode6 (pcOf 46207) 100
 theorem top6_obligs (s : MachineState) (source child : Nat)
     (hs0 : 28672 ≤ source) (hs1 : source ≤ 31000) (hsa : source % 8 = 0)
@@ -2601,8 +2601,8 @@ theorem top6_steps {im : Image} (hc : CodeAt im (pcOf 46207) topCode6)
 #print axioms top6_steps
 
 
-abbrev topDest7 (child : Nat) : Nat := 1536 + 576 * (child / 64 % 2)
-def topCode7 : List (BitVec 32) := [0x685313,0x137313,0x24000393,0x2730333,0x60000e13,0x6e0e33,0xc08b303,0xc88b383,0x6e3023,0x7e3423]
+abbrev topDest7 (child : Nat) : Nat := 1552 + 560 * (child / 64 % 2)
+def topCode7 : List (BitVec 32) := [0x685313,0x137313,0x23000393,0x2730333,0x61000e13,0x6e0e33,0xc08b303,0xc88b383,0x6e3023,0x7e3423]
 sym_block top7 := symRun { noAlias := true } topCode7 (pcOf 46354) 100
 theorem top7_obligs (s : MachineState) (source child : Nat)
     (hs0 : 28672 ≤ source) (hs1 : source ≤ 31000) (hsa : source % 8 = 0)
@@ -3788,10 +3788,11 @@ namespace ClaudeWCT.W9.Machine.Expand.SharedScatter.Packing
 open SigGolfCandidate.Research.SharedPathPacking
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
-/-- The copied siblings occupy separate aligned digest slots and leave both carried pads intact. -/
+/-- The copied siblings occupy separate aligned digest slots and leave both carried pads intact
+(C1, stage 1: the carried R pad of the pinned level-four window `X = 128` is at `+160`). -/
 def ScatterSafe (child : Nat) : Prop :=
   (∀ l : Fin 5, block child l.val % 16 = 0 ∧ block child l.val / 16 < 53 ∧
-    sibling child l.val + 16 ≤ 320 ∧ sibling child l.val ≠ 144) ∧
+    sibling child l.val + 16 ≤ 320 ∧ sibling child l.val ≠ 160) ∧
   (∀ i l : Fin 5, i ≠ l → sibling child i.val + 16 ≤ sibling child l.val ∨
     sibling child l.val + 16 ≤ sibling child i.val)
 theorem scatterSafe : ∀ child : Fin 128, ScatterSafe child.val := by
@@ -4687,7 +4688,7 @@ set_option maxHeartbeats 2000000
 set_option maxRecDepth 10000
 
 theorem localW_pad (region : Nat) (child : Fin 128) (half : Fin 2) (right : Bool) :
-    ¬LocalW region child.val (region+(if right then 144 else 720)+8*half.val) := by
+    ¬LocalW region child.val (region+(if right then 160 else 720)+8*half.val) := by
   intro h
   rcases h with (h|h)|h
   · obtain ⟨i,hi,h⟩:=h
@@ -4697,7 +4698,7 @@ theorem localW_pad (region : Nat) (child : Fin 128) (half : Fin 2) (right : Bool
     dsimp only at hs
     have hmod : sibling child.val i %16=0 := by
       simp only [sibling,Nat.add_mod,Nat.mul_mod,show 48%16=0 from rfl,zero_mul,Nat.zero_mod,Nat.add_zero,hs.1]
-    change (region+(if right then 144 else 720)+8*half.val=destination region (block child.val i/16) (child.val/2^i) ∨ region+(if right then 144 else 720)+8*half.val=destination region (block child.val i/16) (child.val/2^i)+8) at h
+    change (region+(if right then 160 else 720)+8*half.val=destination region (block child.val i/16) (child.val/2^i) ∨ region+(if right then 160 else 720)+8*half.val=destination region (block child.val i/16) (child.val/2^i)+8) at h
     rw [Packing.path_slot region child ⟨i,hi⟩] at h
     cases right <;> simp only [Bool.false_eq_true,ite_false,ite_true] at h <;> omega
   · unfold SixthW destination at h
@@ -4705,7 +4706,7 @@ theorem localW_pad (region : Nat) (child : Fin 128) (half : Fin 2) (right : Bool
     cases right <;> simp only [Bool.false_eq_true,ite_false,ite_true] at h <;> omega
 
 theorem localW_pads (region : Nat) (child : Fin 128) (A : Nat)
-    (ha:A=region+144 ∨ A=region+152 ∨ A=region+720 ∨ A=region+728) : ¬LocalW region child.val A := by
+    (ha:A=region+160 ∨ A=region+168 ∨ A=region+720 ∨ A=region+728) : ¬LocalW region child.val A := by
   rcases ha with rfl|rfl|rfl|rfl
   · exact localW_pad region child 0 true
   · simpa [Nat.add_assoc] using localW_pad region child 1 true
@@ -4713,7 +4714,7 @@ theorem localW_pads (region : Nat) (child : Fin 128) (A : Nat)
   · simpa [Nat.add_assoc] using localW_pad region child 1 false
 
 theorem topDest_prev (k : Fin 8) (child : Fin 128) :
-    topDest k.val child.val=coordRegion (k.val+1)+144 ∨
+    topDest k.val child.val=coordRegion (k.val+1)+160 ∨
     topDest k.val child.val=coordRegion (k.val+1)+720 := by
   have h32:=Nat.mod_lt (child.val/32) (by decide : 0<2)
   have h64:=Nat.mod_lt (child.val/64) (by decide : 0<2)
@@ -4755,7 +4756,7 @@ theorem readArea_disjoint (j k : Fin 9) (hj:j.val<k.val) (cj ck : Fin 128) (A : 
   · omega
   all_goals
     have j8:j.val<8 := by omega
-    have jp : topDest j.val cj.val=coordRegion (j.val+1)+144 ∨ topDest j.val cj.val=coordRegion (j.val+1)+720 := topDest_prev ⟨j.val,j8⟩ cj
+    have jp : topDest j.val cj.val=coordRegion (j.val+1)+160 ∨ topDest j.val cj.val=coordRegion (j.val+1)+720 := topDest_prev ⟨j.val,j8⟩ cj
     have kd:=topDest_bound k ck
     by_cases hk:k.val=j.val+1
     · have rg : coordRegion k.val=coordRegion (j.val+1) := congrArg coordRegion hk

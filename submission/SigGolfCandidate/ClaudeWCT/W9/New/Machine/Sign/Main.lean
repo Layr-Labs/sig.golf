@@ -5039,6 +5039,9 @@ set_option maxRecDepth 100000
 set_option Elab.async false
 theorem installed_code (c : Fin 9) : CodeAt Images.signImage (pcOf (entry c.val)) (words c.val) := by
   fin_cases c <;> apply codeAt_sign_current_slice <;> decide +kernel
+/-- C1: the stub words in the former nop gaps of `signCode_85`. -/
+theorem installed_stub (c : Fin 9) : CodeAt Images.signImage (pcOf (stubPc c.val)) (stubWords c.val) := by
+  fin_cases c <;> apply codeAt_sign_last <;> decide +kernel
 theorem installed_look (c : Nat) (hc : c<9) : LookOK Images.signImage (look c) := by
   intro n w hw
   unfold look at hw
@@ -5049,8 +5052,16 @@ theorem installed_look (c : Nat) (hc : c<9) : LookOK Images.signImage (look c) :
       exact h ⟨c,hc⟩
     have he := SharedReuse.codeAt_get_word hb (installed_code ⟨c,hc⟩) hw
     simpa [Nat.add_sub_cancel' hle] using he
-  · cases hw
+  · split at hw
+    · rename_i hle
+      have hb : stubPc c<2^30 := by
+        have h : ∀ c : Fin 9,stubPc c.val<2^30 := by decide +kernel
+        exact h ⟨c,hc⟩
+      have he := SharedReuse.codeAt_get_word hb (installed_stub ⟨c,hc⟩) hw
+      simpa [Nat.add_sub_cancel' hle] using he
+    · cases hw
 #print axioms installed_code
+#print axioms installed_stub
 #print axioms installed_look
 end ClaudeWCT.W9.Machine.Sign.SharedNext
 
@@ -5062,6 +5073,9 @@ set_option maxRecDepth 100000
 set_option Elab.async false
 theorem installed_code (c : Fin 9) : CodeAt Images.signImage (pcOf (entry c.val)) (words c.val) := by
   fin_cases c <;> apply codeAt_sign_current_slice <;> decide +kernel
+/-- C1: the stub words in the former nop gaps of `signCode_85`. -/
+theorem installed_stub (c : Fin 9) : CodeAt Images.signImage (pcOf (stubPc c.val)) (stubWords c.val) := by
+  fin_cases c <;> apply codeAt_sign_last <;> decide +kernel
 theorem installed_look (c : Nat) (hc : c<9) : LookOK Images.signImage (look c) := by
   intro n w hw
   unfold look at hw
@@ -5072,8 +5086,16 @@ theorem installed_look (c : Nat) (hc : c<9) : LookOK Images.signImage (look c) :
       exact h ⟨c,hc⟩
     have he := SharedReuse.codeAt_get_word hb (installed_code ⟨c,hc⟩) hw
     simpa [Nat.add_sub_cancel' hle] using he
-  · cases hw
+  · split at hw
+    · rename_i hle
+      have hb : stubPc c<2^30 := by
+        have h : ∀ c : Fin 9,stubPc c.val<2^30 := by decide +kernel
+        exact h ⟨c,hc⟩
+      have he := SharedReuse.codeAt_get_word hb (installed_stub ⟨c,hc⟩) hw
+      simpa [Nat.add_sub_cancel' hle] using he
+    · cases hw
 #print axioms installed_code
+#print axioms installed_stub
 #print axioms installed_look
 end ClaudeWCT.W9.Machine.Sign.SharedTail
 

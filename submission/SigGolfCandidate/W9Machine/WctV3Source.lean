@@ -122,12 +122,23 @@ def nodePad (w : WBytes) (coord child level : Nat) : Digest :=
   wdig w (V3.regionOffset coord + blkOff child level + 32)
 def nodeTw (w : WBytes) (coord child level : Nat) : Digest :=
   wdig w (V3.regionOffset coord + blkOff child level + 16)
+/-- C1: the high tweak word of a packed node (levels `< 4`, heaps `8..127`) is witness memory (honest 0) for both
+child directions; the verifier writes only the low tweak word there. Elsewhere 0. -/
 def nodeHPad (w : WBytes) (coord child level : Nat) : BitVec 64 :=
-  if level < 4 ∧ child / 2 ^ level % 2 = 1 then (nodeTw w coord child level).extractLsb' 64 64 else 0
+  if level < 4 then (nodeTw w coord child level).extractLsb' 64 64 else 0
 def sibling (w : WBytes) (coord child level : Nat) : Digest :=
   wdig w (V3.regionOffset coord + sibOff child level)
 def leafPad (w : WBytes) (coord : Nat) : Digest := V3.leafPad w coord
-def handR (coord : Nat) : Nat := if coord = 9 then 768 else 144
+/-- The incoming R pad of a region: the level-four window is pinned at 128, so its pad is at 160 (the previous
+coordinate's hand-off writes 32 bytes at 144: junk low half on the level-four header, value on the pad). -/
+def handR (coord : Nat) : Nat := if coord = 9 then 768 else 160
+
+/-- C1 (FTS Merkle half-swap): the value computed at child level `m` (the leaf for `m = 0`, the output of fold
+level `m - 1` otherwise) is the high half of its hash output when it is a left input at a heap in `16..255`, i.e.
+`m ≤ 3` and bit `m` of the physical child is clear. -/
+def hiOut (child m : Nat) : Bool := decide (m ≤ 3) && decide (child / 2 ^ m % 2 = 0)
+/-- The 16-byte node value of a public hash: high half if `hi`, low half otherwise. -/
+def hashSel (hi : Bool) (input : HashInput) : M Digest := if hi then V3.hashHi input else shortHash input
 
 def childInput (w : WBytes) (index coord physical : Nat) (padR value : Digest)
     (level : Nat) : HashInput :=
@@ -139,11 +150,11 @@ def childInput (w : WBytes) (index coord physical : Nat) (padR value : Digest)
 
 def childN (w : WBytes) (index : Nat) (k : Fin 9) (raw : Fin 128) (ends : List Digest)
     (padL padR : Digest) : M Digest := do
-  let leaf ← shortHash (V3.leafInput k.val index raw.val padL ends)
+  let leaf ← hashSel (hiOut (physical k.val raw.val) 0) (V3.leafInput k.val index raw.val padL ends)
   let j := physical k.val raw.val
   let n := lastLevel k.val
   let value ← (List.range n).foldlM
-    (fun value level => shortHash (childInput w index k.val j padR value level)) leaf
+    (fun value level => hashSel (hiOut j (level + 1)) (childInput w index k.val j padR value level)) leaf
   if k.val = 8 then shortHash (childInput w index k.val j padR value n)
   else V3.hashHi (childInput w index k.val j padR value n)
 
@@ -162,7 +173,7 @@ def orderPair (coord child : Nat) (computed other : Digest) : PairRoot :=
   if direction coord child = 0 then (computed, other) else (other, computed)
 
 def initialPair (w : WBytes) : PairRoot :=
-  (leafPad w 0, wdig w (V3.regionOffset 0 + 144))
+  (leafPad w 0, wdig w (V3.regionOffset 0 + 160))
 
 def coordinate (w : WBytes) (index : Nat) (k : Fin 9) (raw : Fin 128) (rank : Fin 666)
     (prev : PairRoot) : M PairRoot := do
@@ -180,12 +191,14 @@ theorem physical_lt (coord raw : Nat) (h : raw < 128) : physical coord raw < 128
 theorem lastLevel_cases (coord : Nat) : lastLevel coord = 4 ∨ lastLevel coord = 5 := by
   unfold lastLevel; split <;> simp
 
+set_option maxRecDepth 100000 in
+/-- The pinned level-four window: every child plan places level 4 at 128 (R pad at 160). -/
+theorem block_four : ∀ j : Fin 128, SharedPathPacking.block j.val 4 = 128 := by
+  intro j
+  exact SharedPathPacking.block_four j.val
+
 theorem pad4 (w : WBytes) (coord child : Nat) (h : child < 128) :
-    nodePad w coord child 4 = wdig w (V3.regionOffset coord + 144) := by
-  have hp := SharedPathPacking.planOK_all ⟨child, h⟩
-  have hb : SharedPathPacking.block child 4 = 112 := by
-    unfold SharedPathPacking.planOK at hp
-    simp only [Bool.and_eq_true, decide_eq_true_eq] at hp
-    exact hp.1.1
+    nodePad w coord child 4 = wdig w (V3.regionOffset coord + 160) := by
+  have hb : SharedPathPacking.block child 4 = 128 := block_four ⟨child, h⟩
   simp only [nodePad, blkOff, show 4 < 5 by decide, ↓reduceIte, hb]
 end W9Machine.SharedV3

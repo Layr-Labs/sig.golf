@@ -70,6 +70,28 @@ theorem hashOnly_packedSecret (pairQuery : Nat → M (Digest × Digest)) (h : �
 @[aesop safe apply] theorem hashOnly_wctNodeHash (coord index heap : Nat) (left right : Digest) :
     HashOnly (ClaudeWCT.WCT9.wctNodeHash coord index heap left right) := by
   unfold ClaudeWCT.WCT9.wctNodeHash; exact hashOnly_nodeHash _ _ _ _ _ _
+/-- C1: the paired leaf / node / child (either half) only make public hash queries. -/
+@[aesop safe apply] theorem hashOnly_ftsHash (heap : Nat) (input : HashInput) :
+    HashOnly (ClaudeWCT.WCT9.ftsHash heap input) := by
+  rw [ClaudeWCT.WCT9.ftsHash_eq]
+  split
+  · unfold ClaudeWCT.WCT9.highHash
+    exact hashOnly_bind (SigGolfCandidate.T3.SourceReplay.hashOnly_publicHash _) fun _ => hashOnly_pure _
+  · exact SigGolfCandidate.T3.SourceReplay.hashOnly_shortHash _
+@[aesop safe apply] theorem hashOnly_leafHashH (heap index coord selected : Nat) (pad : Digest) (ends : List Digest) :
+    HashOnly (ClaudeWCT.WCT9.leafHashH heap index coord selected pad ends) := by
+  unfold ClaudeWCT.WCT9.leafHashH; exact hashOnly_ftsHash _ _
+@[aesop safe apply] theorem hashOnly_wctNodeHashH (coord index heap : Nat) (left right : Digest) :
+    HashOnly (ClaudeWCT.WCT9.wctNodeHashH coord index heap left right) := by
+  unfold ClaudeWCT.WCT9.wctNodeHashH; exact hashOnly_ftsHash _ _
+@[aesop safe apply] theorem hashOnly_buildChildH (heap index coord selected : Nat) (word : ClaudeWCT.WCT9.Rank)
+    (coefs : List Digest) (padL : Digest) :
+    HashOnly (ClaudeWCT.WCT9.buildChildH heap index coord selected word coefs padL) := by
+  unfold ClaudeWCT.WCT9.buildChildH
+  refine hashOnly_bind (hashOnly_foldlM _ _ (fun state i => ?_) _) fun state => ?_
+  · exact hashOnly_bind (hashOnly_chain _ _ _ _ _ _ _) fun _ =>
+      hashOnly_bind (hashOnly_chain _ _ _ _ _ _ _) fun _ => hashOnly_pure _
+  · exact hashOnly_bind (hashOnly_leafHashH _ _ _ _ _ _) fun _ => hashOnly_pure _
 @[aesop safe apply] theorem hashOnly_wctTopHash (coord index heap : Nat) (left pad right : Digest) :
     HashOnly (ClaudeWCT.WCT9.wctTopHash coord index heap left pad right) := by
   unfold ClaudeWCT.WCT9.wctTopHash ClaudeWCT.WCT9.highHash
@@ -913,7 +935,7 @@ theorem bound_sharedNode (first : Bool) (coord index heap : Nat) (pads : Nat →
       split
       · exact bound_highHashP _ 1 hq (by simp [pad64_length,wctTopInput_length])
       · exact bound_shortHashP _ 1 hq (by simp [pad64_length,wctTopInput_length])
-    · exact lift_bound (ftsBound_nodeHash index coord heap left right hc hl hh)
+    · exact lift_bound (ftsBound_nodeHashH index coord heap left right hc hl hh)
 
 theorem bound_sharedHeap (first : Bool) (index coord : Nat) (pads : Nat → PairRoot)
     (leaves : List Digest) (hc : coord<9) :
@@ -945,7 +967,7 @@ theorem bound_buildSharedCoordinate (first : Bool) (index coord : Nat)
   · refine (Bound.foldlM_range_le 128 _ (fun _ _ => True) (fun _ => 26) ([],[])
       trivial (fun j hj state _ => ?_) (fun _ _ => trivial) (by simp)).bind'
       (l:=if first then 124 else 126) (fun state _ => ?_) le_rfl
-    · refine (lift_bound (ftsBound_buildChildF index coord (rawChild first j) word coefs
+    · refine (lift_bound (ftsBound_buildChildH index (128 + j) coord (rawChild first j) word coefs
         (pads (j/64)).1 hcoord (rawChild_lt first j hj))).bind' (l:=0)
         (fun child _ => .pure _ 0 trivial) (by simp [ClaudeWCT.WCT9.childCost])
     · exact (bound_sharedHeap first index coord pads state.1 hcoord).bind' (l:=0)
@@ -1175,13 +1197,13 @@ set_option backward.isDefEq.respectTransparency false
       · unfold highHash
         exact hashOnly_bind (hashOnly_publicHash _) fun _ => hashOnly_pure _
       · exact hashOnly_shortHash _
-    · exact hashOnly_wctNodeHash _ _ _ _ _
+    · exact hashOnly_wctNodeHashH _ _ _ _ _
 @[aesop safe apply] theorem hashOnly_recoverSharedInner (first : Bool) (index coord : Nat) (selected : Child)
     (word : Rank) (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) :
     HashOnly (recoverSharedInner first index coord selected word values path prev) := by
   unfold recoverSharedInner
   refine hashOnly_bind (hashOnly_mapM _ _ (fun _ => ClaudeWCT.W9.T3.SourceReplay.hashOnly_chain _ _ _ _ _ _ _)) fun _ => ?_
-  refine hashOnly_bind (hashOnly_leafHashP _ _ _ _ _) fun _ => ?_
+  refine hashOnly_bind (hashOnly_leafHashH _ _ _ _ _ _) fun _ => ?_
   exact hashOnly_foldlM _ _ (fun _ _ => hashOnly_sharedNode _ _ _ _ _ _ _) _
 @[aesop safe apply] theorem hashOnly_recoverPair (index pair : Nat) (s : Selection) (aWord bWord : Rank)
     (opened : PairOpening) (prev : PairRoot) : HashOnly (recoverPair index pair s aWord bWord opened prev) := by
@@ -1638,12 +1660,12 @@ abbrev expandB := ClaudeWCT.W9.T3M.Paired.expandB
 abbrev verifyP := ClaudeWCT.W9.T3M.Paired.verifyP
 abbrev witEnc := ClaudeWCT.W9.T3M.Paired.witEnc
 
- def verifyCycleBound : Nat := 6950
- def claimedC : Nat := 7047
+ def verifyCycleBound : Nat := 6930
+ def claimedC : Nat := 7027
  def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 24828) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64
-      (SigGolfCandidate.T3.digestInput (wrho w) m (wdc w)))))≤788
+      (SigGolfCandidate.T3.digestInput (wrho w) m (wdc w)))))≤778
  variable (I : Images)
  def KeygenRunCounts : Prop := ∀ sk : SecretKey,
   (fun r => (r.value,r.hashCalls,r.hashCompressions)) <$> (submission I).run .keygen sk=

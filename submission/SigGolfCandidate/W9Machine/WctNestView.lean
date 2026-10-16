@@ -272,8 +272,8 @@ open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64 SigGolfCandidate.Le
 open SigGolfCandidate.T3 (Digest M shortHash)
 open W9Machine.V3 (setWords extract_setWords extract128_eq extract128_of_halves regionOffset
   chainProgram chainPadA chainPadB chainPadC chainOffset reveal leafSlot)
-def handSlots : List Nat := [128, 136, 144, 152, 704, 712, 720, 728]
-def isHand (o : Nat) : Prop := (128 ≤ o ∧ o < 160) ∨ (704 ≤ o ∧ o < 736)
+def handSlots : List Nat := [144, 152, 160, 168, 704, 712, 720, 728]
+def isHand (o : Nat) : Prop := (144 ≤ o ∧ o < 176) ∨ (704 ≤ o ∧ o < 736)
 instance (o : Nat) : Decidable (isHand o) := by unfold isHand; infer_instance
 theorem mem_handSlots {o : Nat} (h8 : o % 8 = 0) : o ∈ handSlots ↔ isHand o := by
   unfold handSlots isHand
@@ -328,7 +328,7 @@ theorem view_dig (w : WBytes) (n : Nat) (u : MachineState) (off : Nat) (h8 : off
   · rw [show 8 * off + 64 = 8 * (off + 8) by omega, view_word w n u (off + 8) (by omega) (by omega), if_neg h1]
 
 /-- On a hand-off slot pair the view holds the memory digest. -/
-theorem view_dig_hand (w : WBytes) (n : Nat) (u : MachineState) (o : Nat) (ho : o = 720 ∨ o = 144) (hn : n ≤ 8)
+theorem view_dig_hand (w : WBytes) (n : Nat) (u : MachineState) (o : Nat) (ho : o = 720 ∨ o = 160) (hn : n ≤ 8)
     (d : Digest) (hd : DigAt u (0x4c0 + regionOffset n + o) d) :
     wdig (viewW w n u) (regionOffset n + o) = d := by
   have hr := regionOffset_mod n
@@ -345,7 +345,7 @@ theorem view_dig_hand (w : WBytes) (n : Nat) (u : MachineState) (o : Nat) (ho : 
 
 
 def SafeRead (c : Nat) : Prop := c % 8 = 0 ∧
-  (c + 16 ≤ 128 ∨ (160 ≤ c ∧ c + 16 ≤ 704) ∨ (736 ≤ c ∧ c + 16 ≤ 896))
+  (c + 16 ≤ 144 ∨ (176 ≤ c ∧ c + 16 ≤ 704) ∨ (736 ≤ c ∧ c + 16 ≤ 896))
 instance (c : Nat) : Decidable (SafeRead c) := by unfold SafeRead; infer_instance
 
 set_option maxRecDepth 100000 in
@@ -382,9 +382,9 @@ theorem nodeHPad_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8)
     (j : Fin 128) (l : Nat) :
     nodeHPad (viewW w n u) n j.val l = nodeHPad w n j.val l := by
   unfold nodeHPad
-  by_cases h : l < 4 ∧ j.val / 2 ^ l % 2 = 1
+  by_cases h : l < 4
   · rw [if_pos h, if_pos h]
-    have hd := view_dig_safe w n u hn _ ((child_reads j ⟨l, by omega⟩).2.2 h.1)
+    have hd := view_dig_safe w n u hn _ ((child_reads j ⟨l, by omega⟩).2.2 h)
     have he : nodeTw (viewW w n u) n j.val l = nodeTw w n j.val l := by
       simpa only [nodeTw, Nat.add_assoc] using hd
     rw [he]
@@ -395,10 +395,10 @@ theorem leafPad_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8) (d
   view_dig_hand w n u 720 (Or.inl rfl) hn d hd
 
 theorem nodePad4_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8)
-    (j : Fin 128) (d : Digest) (hd : DigAt u (0x4c0 + regionOffset n + 144) d) :
+    (j : Fin 128) (d : Digest) (hd : DigAt u (0x4c0 + regionOffset n + 160) d) :
     nodePad (viewW w n u) n j.val 4 = d := by
   rw [pad4 _ _ _ j.isLt]
-  exact view_dig_hand w n u 144 (Or.inr rfl) hn d hd
+  exact view_dig_hand w n u 160 (Or.inr rfl) hn d hd
 
 theorem childInput_view (w : WBytes) (index n : Nat) (u : MachineState) (hn : n ≤ 8)
     (j : Fin 128) (padR value : Digest) (l : Nat) (hl : l < 6) :
@@ -413,7 +413,7 @@ theorem childInput_view (w : WBytes) (index n : Nat) (u : MachineState) (hn : n 
 theorem childProgram_view (w : WBytes) (index : Nat) (k : Fin 9) (u : MachineState)
     (raw : Fin 128) (ends : List Digest) (padL padR : Digest)
     (hL : DigAt u (0x4c0 + regionOffset k.val + 720) padL)
-    (hR : DigAt u (0x4c0 + regionOffset k.val + 144) padR) :
+    (hR : DigAt u (0x4c0 + regionOffset k.val + 160) padR) :
     childProgram (viewW w k.val u) index k raw ends = childN w index k raw ends padL padR := by
   have hn : k.val ≤ 8 := by omega
   let j : Fin 128 := ⟨physical k.val raw.val, physical_lt _ _ raw.isLt⟩

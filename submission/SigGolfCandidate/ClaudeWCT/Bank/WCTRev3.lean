@@ -263,6 +263,25 @@ theorem buildChildF_ok (index coord selected : Nat) (word : Rank) (coefs : List 
     exact SourceQueries.pure_allowed _ _
   · intro state
     exact SourceQueries.bind_allowed _ (leafHashP_ok _ _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
+/-- C1: the FTS leaf of heap `heap` (either hash half) makes the legacy padded leaf's single query. -/
+theorem leafHashH_ok (heap index coord selected : Nat) (pad : Digest) (ends : List Digest) :
+    AllQueriesSatisfy (WCT9.leafHashH heap index coord selected pad ends) BPB.NotDigestQ := by
+  rw [WCT9.leafHashH_eq]
+  exact WCT9.allQ_ftsHash_of_shortHash heap _ (leafHashP_ok index coord selected pad ends)
+/-- C1: `buildChildF_ok` for the heap-indexed child `buildChildH`. -/
+theorem buildChildH_ok (heap index coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest) :
+    AllQueriesSatisfy (WCT9.buildChildH heap index coord selected word coefs pad) BPB.NotDigestQ := by
+  unfold WCT9.buildChildH
+  apply SourceQueries.bind_allowed
+  · apply SourceQueries.foldlM_allowed
+    intro state i
+    apply SourceQueries.bind_allowed _ (chain_ok _ _ _ _ _ _ _)
+    intro value
+    apply SourceQueries.bind_allowed _ (chain_ok _ _ _ _ _ _ _)
+    intro _
+    exact SourceQueries.pure_allowed _ _
+  · intro state
+    exact SourceQueries.bind_allowed _ (leafHashH_ok _ _ _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
 theorem ftsCoefs_ok (index coord : Nat) : AllQueriesSatisfy (WCT9.ftsCoefs index coord) BPB.NotDigestQ := by
   unfold WCT9.ftsCoefs
   apply SourceQueries.foldlM_allowed
@@ -910,8 +929,8 @@ set_option backward.isDefEq.respectTransparency false
 
 structure ForestAllowed (Q : SigGolfCandidate.T3.Spec.Domain → Prop) : Prop where
   coefs : ∀ index coord, AllQueriesSatisfy (ftsCoefs index coord) Q
-  child : ∀ index coord selected word coefs pad,
-    AllQueriesSatisfy (buildChildF index coord selected word coefs pad) Q
+  child : ∀ heap index coord selected word coefs pad,
+    AllQueriesSatisfy (ClaudeWCT.WCT9.buildChildH heap index coord selected word coefs pad) Q
   node : ∀ first coord index heap pads left right,
     AllQueriesSatisfy (sharedNode first coord index heap pads left right) Q
 
@@ -975,18 +994,8 @@ theorem tail_public : SharedQueries.TailAllowed Q where
 include hpublic hpair in
 theorem forest_public : ForestAllowed Q where
   coefs := fun _ _ => W9.T3.Security.Signer.ftsCoefs_allowed Q (fun _ _ _ _ => hpair _) _ _
-  child := W9.T3.Security.Signer.buildChildF_allowed Q hpublic
-  node := fun first coord index heap pads left right => by
-    unfold sharedNode sharedOuterHash
-    split
-    · split
-      · exact SourceQueries.shortHash_allowed Q hpublic _
-      · exact W9.T3.Security.Signer.highHash_allowed Q hpublic _
-    · split
-      · split
-        · exact W9.T3.Security.Signer.highHash_allowed Q hpublic _
-        · exact SourceQueries.shortHash_allowed Q hpublic _
-      · exact W9.T3.Security.Signer.nodeHash_allowed Q hpublic _ _ _ _ _ _
+  child := W9.T3.Security.Signer.buildChildH_allowed Q hpublic
+  node := W9.T3.Security.Signer.sharedNode_allowed Q hpublic
 end
 
 theorem pay_allowed (Q : SigGolfCandidate.T3.Spec.Domain → Prop)
@@ -1040,7 +1049,7 @@ theorem topInput_notDigest (coord index heap : Nat) (left pad right : Digest) :
 
 theorem forest_notDigest : ForestAllowed BPB.NotDigestQ where
   coefs := WCT.ftsCoefs_ok
-  child := WCT.buildChildF_ok
+  child := WCT.buildChildH_ok
   node := fun first coord index heap pads left right => by
     unfold sharedNode sharedOuterHash
     split
@@ -1051,7 +1060,8 @@ theorem forest_notDigest : ForestAllowed BPB.NotDigestQ where
       · split
         · exact allQ_highHash_of_shortHash _ (topInput_notDigest ..)
         · exact topInput_notDigest ..
-      · exact BPB.nodeHash_ok _ _ _ _ _ _ (by decide)
+      · exact ClaudeWCT.WCT9.allQ_ftsHash_of_shortHash heap (ClaudeWCT.WCT9.nodeInput coord index heap left right)
+          (BPB.nodeHash_ok 3 (ClaudeWCT.WCT9.nodeLayer coord) index heap left right (by decide))
 
 theorem payNotDigest : PayNotDigest payAfterDigest :=
   pay_allowed _ tail_notDigest forest_notDigest
@@ -1205,8 +1215,9 @@ theorem forest_notNonce : ForestAllowed NotNonce :=
 
 theorem forest_notDN : ForestAllowed BPair.NotDN where
   coefs := fun index coord=>allQ_notDN _ (forest_notDigest.coefs index coord) (forest_notNonce.coefs index coord)
-  child := fun index coord selected word coefs pad=>allQ_notDN _
-    (forest_notDigest.child index coord selected word coefs pad) (forest_notNonce.child index coord selected word coefs pad)
+  child := fun heap index coord selected word coefs pad=>allQ_notDN _
+    (forest_notDigest.child heap index coord selected word coefs pad)
+    (forest_notNonce.child heap index coord selected word coefs pad)
   node := fun first coord index heap pads left right=>allQ_notDN _
     (forest_notDigest.node first coord index heap pads left right) (forest_notNonce.node first coord index heap pads left right)
 

@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26048, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7047 := by
+theorem certificate : SigGolf.Certificate submission 7027 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -83,11 +83,5 @@ Target: S = 5310, W = 24860, K = 131072, C = 7095; score 37674450.
 This comment records the candidate claim, not an official verification receipt.
 -/
 
-/- LOCAL UNVERIFIED combination: S5248/W24828/C7047, score36982656.
-Witness trim from kobizk PR907/be3510ee; singleton-pointer prefetch from our
-PR909/f4bd26ed. Development predecessor PR910/84e2c0f2 carried both changes.
-PR907 failed two Sign.Basic reference-image slice checks. This repair updates
-eight stale message-address loads in signReferenceCode_0, leaving all four
-submitted program images unchanged. PR909 remains under validation. Accepted
-base PR900/soispoke; original scheme Ghost1032 and Noi1r. Full certificate and
-exact-image remote validation remain required; no local full build is claimed. -/
+/- Combined leaf-buffer trim and shared forest candidate: S=5248, W=24828, C=7027.
+Coordinate-8 dispatch hoist and verifier half-swap are included. The exact accepting run remains required before publication. -/

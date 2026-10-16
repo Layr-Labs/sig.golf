@@ -386,18 +386,8 @@ theorem forest_nonMac : ClaudeWCT.Bank.Paired.ForestAllowed NonMac where
   coefs := fun _ _=>Signer.ftsCoefs_allowed _
     (fun lay tree position index=>⟨non_mac_tweak 8 lay tree position index (by decide) 0,
       non_mac_tweak 8 lay tree position index (by decide) 1⟩) _ _
-  child := Signer.buildChildF_allowed _ (fun _=>trivial)
-  node := fun first coord index heap pads left right=>by
-    unfold sharedNode sharedOuterHash
-    split
-    · split
-      · exact SourceQueries.shortHash_allowed _ (fun _=>trivial) _
-      · exact Signer.highHash_allowed _ (fun _=>trivial) _
-    · split
-      · split
-        · exact Signer.highHash_allowed _ (fun _=>trivial) _
-        · exact SourceQueries.shortHash_allowed _ (fun _=>trivial) _
-      · exact Signer.nodeHash_allowed _ (fun _=>trivial) _ _ _ _ _ _
+  child := Signer.buildChildH_allowed _ (fun _=>trivial)
+  node := Signer.sharedNode_allowed _ (fun _=>trivial)
 
 theorem signFromOutput_nonMac (cache : SigGolfCandidate.T3.Cache) (rho : Digest)
     (counter : BitVec 32) (output : HashOutput) :

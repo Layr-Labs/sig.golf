@@ -199,6 +199,17 @@ theorem leafHashP_eq_shortHash (index coord child : Nat) (pad : Digest) (ends : 
     WCT9.leafHashP index coord child pad ends = shortHash (Extract.wctLeafInputP index coord child pad ends) := by
   unfold WCT9.leafHashP WCT9.leafInputP Extract.wctLeafInputP Extract.listInput
   simp only [List.flatMap_cons, List.append_assoc]
+/-- C1: the paired leaf of heap `heap` as a list input. -/
+theorem leafHashH_eq_ftsHash (heap index coord child : Nat) (pad : Digest) (ends : List Digest) :
+    WCT9.leafHashH heap index coord child pad ends =
+      WCT9.ftsHash heap (Extract.wctLeafInputP index coord child pad ends) := by
+  unfold WCT9.leafHashH WCT9.leafInputP Extract.wctLeafInputP Extract.listInput
+  simp only [List.flatMap_cons, List.append_assoc]
+/-- C1: an FTS hash (either half) makes the one query `pad64 input`. -/
+theorem queried_ftsHash (answers : Answers) (heap : Nat) (input : HashInput) :
+    queried answers (WCT9.ftsHash heap input) = [.inl (.inr (pad64 input))] := by
+  unfold WCT9.ftsHash
+  cases WCT9.ftsHighHeap heap <;> rfl
 theorem childRoot_eq_out (answers : Answers) (index coord child : Nat) :
     WCT9.childRoot answers index coord child (Extract.ftsPrev answers index coord).1 =
       (answers (.inl (.inr (Extract.honestInput answers (.wctLeaf index coord child))))).extractLsb' 0 128 := by
@@ -918,22 +929,25 @@ theorem chain_extract (d : Nat) (hd : d ≤ 4) (pa : Digest) (pb : BitVec 64) (p
       exact canonicalHeader_ftsChainHeaderP index coord child t _ _
 end chain
 
+/-- C1: the honest leaf of raw child `child` is the half `proj` of its leaf position (heap `128 + physical`). -/
 theorem childRoot_eq_out (answers : Answers) (index coord child : Nat) :
-    WCT9.childRoot answers index coord child (pads answers index coord (physical coord child/64)).1 =
-      (answers (.inl (.inr (honestInput answers (.wctLeaf index coord child))))).extractLsb' 0 128 := by
-  unfold WCT9.childRoot
-  rw [leafHashP_eq_shortHash, eval_shortHash]
+    WCT9.childRootH answers (128 + physical coord child) index coord child
+        (pads answers index coord (physical coord child/64)).1 =
+      proj (.wctLeaf index coord child) (answers (.inl (.inr (honestInput answers (.wctLeaf index coord child))))) := by
+  unfold WCT9.childRootH
+  rw [leafHashH_eq_ftsHash, WCT9.eval_ftsHash, proj_wctLeaf]
   rfl
 theorem leaf_extract (answers : Answers) (index coord child : Nat) (pad : Digest) (ends : List Digest)
     (hlen : ends.length = 6) (hb : index < 2 ^ 31 ∧ coord < 9 ∧ child < 128)
-    (reaches : evalWithAnswerFn answers (WCT9.leafHashP index coord child pad ends) =
-      WCT9.childRoot answers index coord child (pads answers index coord (physical coord child/64)).1) :
+    (reaches : evalWithAnswerFn answers (WCT9.leafHashH (128 + physical coord child) index coord child pad ends) =
+      WCT9.childRootH answers (128 + physical coord child) index coord child
+        (pads answers index coord (physical coord child/64)).1) :
     (ends = Extract.wctEnds answers index coord child ∧ pad = (pads answers index coord (physical coord child/64)).1 ∧
-      queried answers (WCT9.leafHashP index coord child pad ends) =
+      queried answers (WCT9.leafHashH (128 + physical coord child) index coord child pad ends) =
         [.inl (.inr (honestInput answers (.wctLeaf index coord child)))]) ∨
-    HitIn answers (queried answers (WCT9.leafHashP index coord child pad ends)) := by
-  rw [leafHashP_eq_shortHash] at reaches ⊢
-  rw [queried_shortHash]
+    HitIn answers (queried answers (WCT9.leafHashH (128 + physical coord child) index coord child pad ends)) := by
+  rw [leafHashH_eq_ftsHash] at reaches ⊢
+  rw [queried_ftsHash]
   by_cases heq : pad64 (Extract.wctLeafInputP index coord child pad ends) =
       honestInput answers (.wctLeaf index coord child)
   · left
@@ -945,9 +959,8 @@ theorem leaf_extract (answers : Answers) (index coord child : Nat) (pad : Digest
     exact ⟨eq_of_getD_drop (by rw [hlen, wctEnds_length]) (by omega) h0 hrest, hpad, by rw [heq]⟩
   · right
     refine ⟨.wctLeaf index coord child, _, hb, List.mem_singleton_self _, ⟨heq, ?_⟩, ?_⟩
-    · rw [eval_shortHash] at reaches
-      simp only [proj]
-      rw [reaches, childRoot_eq_out]
+    · rw [WCT9.eval_ftsHash] at reaches
+      rw [proj_wctLeaf, reaches, childRoot_eq_out, proj_wctLeaf]
     · unfold Extract.SameHeader
       rw [hdrBlock_honestInput, Extract.hdrBlock_wctLeafInputP]
       rfl
@@ -1045,67 +1058,15 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
-def nodeProgram (coord level : Nat) (input : HashInput) : M Digest :=
-  if highPosition coord level then WCT9.highHash input else shortHash input
-
-theorem eval_nodeProgram (answers : Answers) (index coord level node : Nat) (input : HashInput) :
-    evalWithAnswerFn answers (nodeProgram coord level input) =
-      proj (.wctNode index coord level node) (answers (.inl (.inr (pad64 input)))) := by
-  by_cases hp : highPosition coord level
-  · simp only [nodeProgram, proj, if_pos hp]
-    rfl
-  · simp only [nodeProgram, proj, if_neg hp]
-    rfl
-
 theorem sharedNode_eq_nodeProgram (answers : Answers) (index coord level node : Nat)
     (hb : Bounded (.wctNode index coord level node)) (left right : Digest) :
     SharedForest.sharedNode (first coord) coord index (2^(6-level)+node)
       (pads answers index coord) left right =
-    nodeProgram coord level (WCT9.wctTopInput coord index (2^(6-level)+node) left
+    nodeProgram coord level node (WCT9.wctTopInput coord index (2^(6-level)+node) left
       (if level=4 then (pads answers index coord ((2^(6-level)+node)/2-2)).2 else 0) right) := by
   obtain ⟨⟨hi,hc,hl,hn⟩,hu⟩ := hb
-  have he : 7-level-1=6-level := by omega
-  rw [he] at hn
-  have h4 : (2^(6-level)+node<4) ↔ level=5 := by
-    interval_cases level <;> norm_num at hn ⊢ <;> omega
-  have h8 : (2^(6-level)+node<8) ↔ 4≤level := by
-    interval_cases level <;> norm_num at hn ⊢ <;> omega
-  simp only [SharedForest.sharedNode, h4, h8]
-  by_cases h5 : level=5
-  · subst level
-    have hf : first coord = false := Bool.eq_false_iff.mpr (by intro h; have := hu h; omega)
-    have hn : ¬(coord<8 ∧ coord%2=0) := by
-      simpa only [first, decide_eq_false_iff_not] using hf
-    by_cases hco : coord=8
-    · subst coord
-      simp only [SharedForest.sharedOuterHash, nodeProgram, highPosition, ↓reduceIte]
-      rfl
-    · have hp : highPosition coord 5 := by unfold highPosition; omega
-      simp only [if_pos rfl, SharedForest.sharedOuterHash, if_neg hco, nodeProgram,
-        if_pos hp, ↓reduceIte]
-      rfl
-  · simp only [if_neg h5]
-    by_cases hlev : level=4
-    · subst level
-      simp only [show 4≤4 by decide, if_true, if_pos rfl]
-      by_cases hf : first coord=true
-      · have hp : highPosition coord 4 := by
-          have hc := of_decide_eq_true hf
-          exact ⟨hc.1,Or.inl ⟨hc.2,rfl⟩⟩
-        simp only [hf, if_true, nodeProgram, if_pos hp, ↓reduceIte]
-      · have hp : ¬highPosition coord 4 := by
-          intro hp
-          apply hf
-          simp only [first, decide_eq_true_eq]
-          exact ⟨hp.1, by rcases hp.2 with hp|hp <;> omega⟩
-        simp only [hf, if_false, nodeProgram, if_neg hp, ↓reduceIte]
-        rfl
-    · have hlt : level<4 := by omega
-      have hp : ¬highPosition coord level := by unfold highPosition; omega
-      simp only [if_neg (show ¬4≤level by omega), if_neg hlev, nodeProgram, if_neg hp, ↓reduceIte]
-      change nodeHash 3 (WCT9.nodeLayer coord) index (2^(6-level)+node) left right = _
-      rw [nodeHash_eq_shortHash]
-      rfl
+  exact sharedNode_eq_nodeProgramP index coord level node hc hl
+    (by simpa only [show 7-level-1=6-level by omega] using hn) hu (pads answers index coord) left right
 
 theorem node_eval (answers : Answers) (index coord level node : Nat)
     (hb : Bounded (.wctNode index coord level node)) (left right : Digest) :
@@ -1140,7 +1101,7 @@ theorem node_reference (answers : Answers) (index coord level node : Nat)
 theorem leaf_reference (answers : Answers) (index coord raw : Nat)
     (hc : coord<9) (hr : raw<128) :
     (nodes answers index coord).getD (128+physical coord raw) 0 =
-      WCT9.childRoot answers index coord raw
+      WCT9.childRootH answers (128 + physical coord raw) index coord raw
         (pads answers index coord (physical coord raw/64)).1 := by
   have hp := SharedForest.physicalChild_lt (first coord) raw hr
   change physical coord raw<128 at hp
@@ -1181,15 +1142,56 @@ theorem chainV3_extract (d : Nat) (hd : d ≤ 4) (pa : Digest) (pb : BitVec 64) 
   rw [he] at reaches ⊢
   exact chain_extract answers index coord child t d hd pa pb pc v hb reaches
 end chain
+/-- The verifier's leaf input is the source's padded leaf input. -/
+theorem leafInputV3_eq (k index j : Nat) (pad : Digest) (ends : List Digest) (h : ends.length = 6) :
+    W9Machine.V3.leafInput k index j pad ends = WCT9.leafInputP index k j pad ends := by
+  match ends, h with
+  | [e0, e1, e2, e3, e4, e5], _ =>
+    simp only [W9Machine.V3.leafInput, show List.range 8 = [0, 1, 2, 3, 4, 5, 6, 7] from rfl,
+      List.flatMap_cons, List.flatMap_nil, W9Machine.V3.leafFields, WCT9.leafInputP,
+      List.drop_succ_cons, List.drop_zero, List.append_nil, List.append_assoc]
+    rfl
+
+/-- C1: the verifier's leaf half selector is the source's heap rule at heap `128 + physical`. -/
+theorem hiOut_zero (p : Nat) : W9Machine.SharedV3.hiOut p 0 = WCT9.ftsHighHeap (128 + p) := by
+  have hiff := WCT9.ftsHighHeap_iff (show 4 ≤ 128 + p by omega)
+  unfold W9Machine.SharedV3.hiOut
+  by_cases h : p % 2 = 0
+  · rw [hiff.mpr ⟨by omega, by omega⟩]
+    simp [h]
+  · rw [show WCT9.ftsHighHeap (128 + p) = false from
+      Bool.eq_false_iff.mpr (fun ht => h (by have := (hiff.mp ht).2; omega))]
+    simp [h]
+
+theorem hashSel_eq_ftsHash {hi : Bool} {heap : Nat} (h : hi = WCT9.ftsHighHeap heap) (input : HashInput) :
+    W9Machine.SharedV3.hashSel hi input = WCT9.ftsHash heap input := by
+  subst h
+  unfold W9Machine.SharedV3.hashSel WCT9.ftsHash
+  rfl
+
+/-- C1: the verifier's leaf hash is the source's paired leaf of heap `128 + physical`. -/
+theorem leafV3_eq (k index raw : Nat) (pad : Digest) (ends : List Digest) (h : ends.length = 6) :
+    W9Machine.SharedV3.hashSel (W9Machine.SharedV3.hiOut (W9Machine.SharedV3.physical k raw) 0)
+        (W9Machine.V3.leafInput k index raw pad ends) =
+      WCT9.leafHashH (128 + W9Machine.SharedV3.physical k raw) index k raw pad ends := by
+  rw [hashSel_eq_ftsHash (hiOut_zero _), leafInputV3_eq k index raw pad ends h]
+  rfl
+
 theorem leafV3_extract (answers : Answers) (index coord child : Nat) (pad : Digest) (ends : List Digest)
     (hlen : ends.length = 6) (hb : index < 2 ^ 31 ∧ coord < 9 ∧ child < 128)
-    (reaches : evalWithAnswerFn answers (shortHash (W9Machine.V3.leafInput coord index child pad ends)) =
-      WCT9.childRoot answers index coord child (pads answers index coord (physical coord child/64)).1) :
+    (reaches : evalWithAnswerFn answers (W9Machine.SharedV3.hashSel
+        (W9Machine.SharedV3.hiOut (W9Machine.SharedV3.physical coord child) 0)
+        (W9Machine.V3.leafInput coord index child pad ends)) =
+      WCT9.childRootH answers (128 + physical coord child) index coord child
+        (pads answers index coord (physical coord child/64)).1) :
     (ends = Extract.wctEnds answers index coord child ∧ pad = (pads answers index coord (physical coord child/64)).1 ∧
-      queried answers (shortHash (W9Machine.V3.leafInput coord index child pad ends)) =
+      queried answers (W9Machine.SharedV3.hashSel (W9Machine.SharedV3.hiOut (W9Machine.SharedV3.physical coord child) 0)
+          (W9Machine.V3.leafInput coord index child pad ends)) =
         [.inl (.inr (honestInput answers (.wctLeaf index coord child)))]) ∨
-    HitIn answers (queried answers (shortHash (W9Machine.V3.leafInput coord index child pad ends))) := by
-  rw [W9Drv.leafInput_canonical _ _ _ _ _ hlen] at reaches ⊢
+    HitIn answers (queried answers (W9Machine.SharedV3.hashSel
+      (W9Machine.SharedV3.hiOut (W9Machine.SharedV3.physical coord child) 0)
+      (W9Machine.V3.leafInput coord index child pad ends))) := by
+  rw [leafV3_eq _ _ _ _ _ hlen] at reaches ⊢
   exact leaf_extract answers index coord child pad ends hlen hb reaches
 
 theorem nodeV3_block_extract (answers : Answers) (index : Nat) (coord : Fin 9)
@@ -1387,10 +1389,34 @@ theorem high_last (coord : Nat) (hc : coord<9) :
     highPosition coord (SharedV3.lastLevel coord) ↔ coord≠8 := by
   interval_cases coord <;> decide
 
+/-- C1: below the last level a path step hashes into the verifier's selected half. -/
+theorem posHash_pathPos (index coord physical level : Nat) (hc : coord<9)
+    (hl : level<SharedV3.lastLevel coord) (input : HashInput) :
+    posHash (pathPos index coord physical level) input =
+      SharedV3.hashSel (SharedV3.hiOut physical (level+1)) input := by
+  have hp := not_high_before_last coord level hc hl
+  have he : highNodeAt coord level (physical/2^(level+1)) ↔ SharedV3.hiOut physical (level+1) = true := by
+    unfold highNodeAt SharedV3.hiOut
+    simp only [Bool.and_eq_true, decide_eq_true_eq]
+    constructor
+    · rintro (h | h)
+      · exact absurd h hp
+      · exact ⟨by omega, h.2⟩
+    · intro h
+      exact Or.inr ⟨by omega, h.2⟩
+  by_cases h : highNodeAt coord level (physical/2^(level+1))
+  · have h' : SharedV3.hiOut physical (level+1) = true := he.mp h
+    simp only [posHash, pathPos, proj, if_pos h, SharedV3.hashSel, h', ↓reduceIte]
+    rfl
+  · have h' : SharedV3.hiOut physical (level+1) = false := Bool.eq_false_iff.mpr (fun ht => h (he.mpr ht))
+    simp only [posHash, pathPos, proj, if_neg h, SharedV3.hashSel, h', Bool.false_eq_true, ↓reduceIte]
+    rfl
+
 theorem childN_eq_projectedPath (w : SharedV3.WBytes) (index : Nat)
     (coord : Fin 9) (raw : Fin 128) (ends : List Digest) (padL padR : Digest) :
     SharedV3.childN w index coord raw ends padL padR = (do
-      let leaf ← shortHash (V3.leafInput coord.val index raw.val padL ends)
+      let leaf ← SharedV3.hashSel (SharedV3.hiOut (SharedV3.physical coord.val raw.val) 0)
+        (V3.leafInput coord.val index raw.val padL ends)
       projectedPath (pathPos index coord.val (SharedV3.physical coord.val raw.val))
         (fun level value => SharedV3.childInput w index coord.val
           (SharedV3.physical coord.val raw.val) padR value level)
@@ -1404,24 +1430,28 @@ theorem childN_eq_projectedPath (w : SharedV3.WBytes) (index : Nat)
         (SharedV3.physical coord.val raw.val) padR value level)
       (SharedV3.lastLevel coord.val) leaf =
       (List.range (SharedV3.lastLevel coord.val)).foldlM
-        (fun value level => shortHash (SharedV3.childInput w index coord.val
-          (SharedV3.physical coord.val raw.val) padR value level)) leaf := by
+        (fun value level => SharedV3.hashSel (SharedV3.hiOut (SharedV3.physical coord.val raw.val) (level + 1))
+          (SharedV3.childInput w index coord.val
+            (SharedV3.physical coord.val raw.val) padR value level)) leaf := by
     unfold projectedPath
     apply foldlM_congr_mem
     intro value level hl
-    have hp := not_high_before_last coord.val level coord.isLt (List.mem_range.mp hl)
-    simp only [posHash, pathPos, proj, if_neg hp]
-    rfl
+    exact posHash_pathPos index coord.val _ level coord.isLt (List.mem_range.mp hl) _
   rw [projectedPath_succ, hf]
   apply bind_congr
   intro value
+  have hlast := SharedV3.lastLevel_cases coord.val
   by_cases hc : coord.val=8
-  · have hp : ¬highPosition coord.val (SharedV3.lastLevel coord.val) := by
-      rw [high_last _ coord.isLt]
-      exact not_not.mpr hc
+  · have hp : ¬highNodeAt coord.val (SharedV3.lastLevel coord.val)
+        (SharedV3.physical coord.val raw.val/2^(SharedV3.lastLevel coord.val+1)) := by
+      rintro (h | h)
+      · exact ((high_last _ coord.isLt).mp h) hc
+      · omega
     simp only [if_pos hc, posHash, pathPos, proj, if_neg hp]
     rfl
-  · have hp := (high_last _ coord.isLt).mpr hc
+  · have hp : highNodeAt coord.val (SharedV3.lastLevel coord.val)
+        (SharedV3.physical coord.val raw.val/2^(SharedV3.lastLevel coord.val+1)) :=
+      Or.inl ((high_last _ coord.isLt).mpr hc)
     simp only [if_neg hc, posHash, pathPos, proj, if_pos hp]
     rfl
 
@@ -1644,7 +1674,8 @@ theorem coordinate_extract (answers : Answers) (w : SharedV3.WBytes)
   simp only [queried_pure, List.append_nil]
   generalize hE : evalWithAnswerFn answers (V3.chainProgram w index coord raw rank) = ends at reaches ⊢
   generalize hL : evalWithAnswerFn answers
-    (shortHash (V3.leafInput coord.val index raw.val prev.1 ends)) = leaf at reaches ⊢
+    (SharedV3.hashSel (SharedV3.hiOut (SharedV3.physical coord.val raw.val) 0)
+      (V3.leafInput coord.val index raw.val prev.1 ends)) = leaf at reaches ⊢
   generalize hT : evalWithAnswerFn answers
     (projectedPath (pathPos index coord.val (SharedV3.physical coord.val raw.val))
       (fun level value => SharedV3.childInput w index coord.val
@@ -1668,7 +1699,7 @@ theorem coordinate_extract (answers : Answers) (w : SharedV3.WBytes)
   have hlen : ends.length=6 := by
     rw [←hE, V3.chainProgram, Correctness.eval_mapM]
     simp
-  have hleaf' : leaf=WCT9.childRoot answers index coord.val raw.val
+  have hleaf' : leaf=WCT9.childRootH answers (128 + SharedV3.physical coord.val raw.val) index coord.val raw.val
       (pads answers index coord.val (SharedV3.physical coord.val raw.val/64)).1 := by
     rw [hleaf]
     simpa only [pathTarget, pow_zero, Nat.div_one, SharedV3.physical, physical, SharedV3.first, first] using
@@ -2279,10 +2310,11 @@ theorem chainProgram_ftsQueries (answers : Answers) (w : SharedV3.WBytes) (index
 
 theorem leafV3_ftsQueries (answers : Answers) (index : Nat) (coord : Fin 9) (raw : Fin 128)
     (pad : Digest) (ends : List Digest) (hlen:ends.length=6) (hi:index<2^31) :
-    FtsQueries answers (shortHash (V3.leafInput coord.val index raw.val pad ends)) := by
-  rw [W9Drv.leafInput_canonical _ _ _ _ _ hlen,leafHashP_eq_shortHash]
+    FtsQueries answers (SharedV3.hashSel (SharedV3.hiOut (SharedV3.physical coord.val raw.val) 0)
+      (V3.leafInput coord.val index raw.val pad ends)) := by
+  rw [leafV3_eq _ _ _ _ _ hlen,leafHashH_eq_ftsHash]
   intro q hq
-  rw [queried_shortHash,List.mem_singleton] at hq
+  rw [queried_ftsHash,List.mem_singleton] at hq
   subst hq
   have hb : (Pos.wctLeaf index coord.val raw.val).Bounded := ⟨hi,coord.isLt,raw.isLt⟩
   refine ⟨.wctLeaf index coord.val raw.val,trivial,hb,?_⟩
